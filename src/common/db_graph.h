@@ -48,7 +48,7 @@ typedef struct
 dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity);
 void db_graph_dealloc(dBGraph *db_graph);
 
-#define db_graph_bkmer(graph,key) ((graph)->ht.table[key])
+#define db_graph_bkmer(graph,key) ((const BinaryKmerPtr)((graph)->ht.table[key]))
 
 //
 // kmer in colours
@@ -73,6 +73,10 @@ void db_graph_dealloc(dBGraph *db_graph);
          bitset_clear_word((graph)->traverse_fw,hkey); }
 
 //
+// Paths
+#define db_graph_kmer_path(graph,node,or) ((graph)->kmer_paths[2*node+or])
+
+//
 // Read start (duplicate removal during read loading)
 //
 #define db_node_has_read_start(graph,hkey,or) \
@@ -87,20 +91,25 @@ void db_graph_dealloc(dBGraph *db_graph);
 //
 // Graph Traversal
 //
-void db_graph_get_next_node_bkmer(const dBGraph *db_graph,
-                                  const BinaryKmer bkmer, Nucleotide next_nuc,
-                                  hkey_t *next_node, Orientation *next_orient);
+void db_graph_next_node(const dBGraph *db_graph,
+                        const BinaryKmer bkmer, Nucleotide next_nuc,
+                        hkey_t *next_node, Orientation *next_orient);
 
-void db_graph_get_next_node(const dBGraph *db_graph,
-                            const BinaryKmer bkmer, Orientation orient,
-                            Nucleotide next_nuc,
-                            hkey_t *next_node, Orientation *next_orient);
+void db_graph_next_node_orient(const dBGraph *db_graph,
+                               const BinaryKmer bkmer, Nucleotide next_nuc,
+                               Orientation orient,
+                               hkey_t *next_node, Orientation *next_orient);
 
-int db_graph_get_next_nodes(const dBGraph *db_graph,
-                            const BinaryKmer bkmer,
-                            Orientation orient, Edges edges,
+uint8_t db_graph_next_nodes(const dBGraph *db_graph,
+                            const BinaryKmer fw_bkmer, Edges edges,
                             hkey_t nodes[4], BinaryKmer bkmers[4],
                             Orientation orients[4]);
+
+uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
+                                   const BinaryKmer bkmer, Edges edges,
+                                   Orientation orient,
+                                   hkey_t nodes[4], BinaryKmer bkmers[4],
+                                   Orientation orients[4]);
 
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge(dBGraph *db_graph,

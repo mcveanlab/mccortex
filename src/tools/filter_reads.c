@@ -60,9 +60,8 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
 
       for(i = start+kmer_size; i < end; i++)
       {
-        nuc = char_to_binary_nucleotide(r->seq.b[i]);
-        binary_kmer_left_shift_one_base(bkmer, kmer_size);
-        binary_kmer_set_last_nuc(bkmer, nuc);
+        nuc = binary_nuc_from_char(r->seq.b[i]);
+        binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
         kmers_loaded++;
         if(find_node(bkmer, db_graph) != HASH_NOT_FOUND) { found = true; break; }
       }

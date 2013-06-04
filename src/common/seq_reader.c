@@ -493,9 +493,8 @@ void load_read(const read_t *r, dBGraph *db_graph,
     size_t i;
     for(i = contig_start+db_graph->kmer_size; i < contig_end; i++)
     {
-      Nucleotide nuc = char_to_binary_nucleotide(r->seq.b[i]);
-      binary_kmer_left_shift_one_base(bkmer, db_graph->kmer_size);
-      binary_kmer_set_last_nuc(bkmer, nuc);
+      Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
+      binary_kmer_left_shift_add(bkmer, db_graph->kmer_size, nuc);
 
       prev_node = curr_node;
       prev_or = curr_or;

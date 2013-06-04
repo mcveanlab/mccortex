@@ -38,9 +38,9 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
   */
 
   // Get first and last nucleotides
-  Nucleotide first = binary_kmer_first_nucleotide(kmer, kmer_size);
+  Nucleotide first = binary_kmer_first_nuc(kmer, kmer_size);
   Nucleotide last = binary_kmer_last_nuc(kmer);
-  Nucleotide rev_last = binary_nucleotide_complement(last);
+  Nucleotide rev_last = binary_nuc_complement(last);
 
   if(first < rev_last) {
     binary_kmer_assign(kmer_key, kmer);
@@ -74,55 +74,6 @@ void bkmer_with_orientation(const BinaryKmer bkmer, Orientation orient,
   }
 }
 
-void db_node_next_bkmer(const BinaryKmer bkmer,
-                        Orientation orient, Nucleotide nuc,
-                        uint32_t kmer_size, BinaryKmer result)
-{
-  if(orient == forward) {
-    binary_kmer_assign(result, bkmer);
-  }
-  else {
-    binary_kmer_reverse_complement(bkmer, kmer_size, result);
-  }
-
-  binary_kmer_left_shift_one_base(result, kmer_size);
-  binary_kmer_set_last_nuc(result, nuc);
-}
-
-int db_node_next_bkmers(const BinaryKmer bkmer, Orientation orient, Edges edges,
-                        uint32_t kmer_size, BinaryKmer results[4])
-{
-  BinaryKmer tmp_kmer;
-  Edges tmp_edge;
-
-  if(orient == forward)
-  {
-    binary_kmer_assign(tmp_kmer, bkmer);
-    tmp_edge = 0x1;
-  }
-  else
-  {
-    binary_kmer_reverse_complement(bkmer, kmer_size, tmp_kmer);
-    tmp_edge = 0x1 << 4;
-  }
-
-  binary_kmer_left_shift_one_base(tmp_kmer, kmer_size);
-
-  int count = 0;
-  Nucleotide nuc;
-  for(nuc = 0; nuc < 4; nuc++, tmp_edge <<= 1)
-  {
-    if(edges & tmp_edge)
-    {
-      binary_kmer_set_last_nuc(tmp_kmer, nuc);
-      binary_kmer_assign(results[count], tmp_kmer);
-      count++;
-    }
-  }
-
-  return count;
-}
-
 //
 // Edges
 //
@@ -130,7 +81,7 @@ int db_node_next_bkmers(const BinaryKmer bkmer, Orientation orient, Edges edges,
 boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide)
 {
-  edges = db_node_edges_in_orientation(edges, orientation);
+  edges = edges_with_orientation(edges, orientation);
   if(edges == 0) return false;
 
   // bit-hack: b == 0 iff number of edges is 1

@@ -78,13 +78,18 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
 
   BinaryKmerPtr bkmer = db_graph_bkmer(&db_graph, node);
 
-  // Get neighbours in forward and reverse directions
-  num_next  = db_graph_get_next_nodes(&db_graph, bkmer, forward, edges,
-                                      next_nodes, next_bkmers, next_ors);
-  num_next += db_graph_get_next_nodes(&db_graph, bkmer, reverse, edges,
-                                      next_nodes+num_next,
-                                      next_bkmers+num_next,
-                                      next_ors+num_next);
+  // Get neighbours in forward dir
+  num_next  = db_graph_next_nodes(&db_graph, bkmer, edges & 0xf,
+                                  next_nodes, next_bkmers, next_ors);
+
+  BinaryKmer revbkmer;
+  binary_kmer_revcmp(bkmer, db_graph->kmer_size, revbkmer);
+
+  // Get neighbours in reverse dir
+  num_next += db_graph_next_nodes(&db_graph, revbkmer, edges>>4,
+                                  next_nodes+num_next,
+                                  next_bkmers+num_next,
+                                  next_ors+num_next);
 
   // if not flagged add to list
   for(i = 0; i < num_next; i++) {

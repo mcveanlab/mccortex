@@ -39,14 +39,14 @@ extern const Nucleotide char_to_bnuc[128];
 extern const char complement_base[128];
 
 #define is_base_char(c) (char_to_bnuc[(int)(c)] != Undefined)
-#define binary_nucleotide_complement(n) (~(n) & 0x3)
-#define char_to_binary_nucleotide(c)  char_to_bnuc[(int)(c)]
+#define binary_nuc_complement(n) (~(n) & 0x3)
+#define binary_nuc_from_char(c)  char_to_bnuc[(int)(c)]
 
 #ifdef NDEBUG
-  #define binary_nucleotide_to_char(c)  bnuc_to_char_array[(c)]
+  #define binary_nuc_to_char(c)  bnuc_to_char_array[(c)]
   #define char_nucleotide_complement(c) complement_base[(int)(c)]
 #else
-  char binary_nucleotide_to_char(Nucleotide n);
+  char binary_nuc_to_char(Nucleotide n);
   char char_nucleotide_complement(char c);
 #endif
 
@@ -60,15 +60,23 @@ extern const char complement_base[128];
 #define binary_kmer_assign(tgt,src)  memcpy((tgt), (src), sizeof(BinaryKmer))
 #define binary_kmers_cmp(a,b)        memcmp((a),(b),sizeof(BinaryKmer))
 
-#define binary_kmer_first_nucleotide(bkmer,ksize) \
+#define binary_kmer_first_nuc(bkmer,ksize) \
         (((bkmer)[0] >> BKMER_TOP_BP_BYTEOFFSET(ksize)) & 0x3)
 #define binary_kmer_last_nuc(bkmer) \
         ((bkmer)[NUM_BITFIELDS_IN_BKMER - 1] & 0x3)
 
-#define binary_kmer_set_first_nucleotide(bkmer,nuc,ksize) \
-        ((bkmer)[0] |= (nuc) << BKMER_TOP_BP_BYTEOFFSET(ksize))
+// binary_kmer_set_first_nuc does not properly mask
+// #define binary_kmer_set_first_nuc(bkmer,nuc,ksize)
+//         ((bkmer)[0] |= (nuc) << BKMER_TOP_BP_BYTEOFFSET(ksize))
+
 #define binary_kmer_set_last_nuc(bkmer,nuc) \
-        ((bkmer)[NUM_BITFIELDS_IN_BKMER - 1] |= (nuc))
+        ((bkmer)[NUM_BITFIELDS_IN_BKMER - 1] \
+           = ((bkmer)[NUM_BITFIELDS_IN_BKMER - 1] & 0xfffffffffffffffc) | (nuc))
+
+#define binary_kmer_left_shift_add(bkmer,ksize,nuc) do { \
+  binary_kmer_left_shift_one_base(bkmer,ksize); \
+  (bkmer)[NUM_BITFIELDS_IN_BKMER - 1] |= (nuc); \
+} while(0)
 
 #if NUM_BITFIELDS_IN_BKMER == 1
   #define binary_kmers_are_equal(a,b) ((a)[0] == (b)[0])

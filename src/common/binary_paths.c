@@ -2,9 +2,16 @@
 #include "db_graph.h"
 #include "binary_paths.h"
 
+void path_init(path_t *path)
+{
+  path->core.prev = PATH_NULL;
+  memset(&path->core.colours, 0, sizeof(col_bitset_t));
+  path->core.len = 0;
+}
+
 void path_alloc(path_t *path)
 {
-  memset(path, 0, sizeof(path_t));
+  path_init(path);
   path->bpcap = 16;
   path->cmpcap = 4;
   path->bases = malloc(path->bpcap * sizeof(Nucleotide));
@@ -17,6 +24,14 @@ void path_dealloc(path_t *path)
   free(path->cmpctseq);
 }
 
+void path_to_printf(const path_t *path)
+{
+  size_t i;
+  for(i = 0; i < path->core.len; i++)
+    printf(" %c", binary_nuc_to_char(path->bases[i]));
+  printf("\n");
+}
+
 // {[1:uint64_t prev][N:uint64_t col_bitfield][1:uint32_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
@@ -27,14 +42,14 @@ void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size)
   memcpy(paths, &new_paths, sizeof(binary_paths_t));
 }
 
-static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
+void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
 {
   uint8_t tmp;
-  size_t i, j, k = 0, full_bytes = len/8;
+  size_t i, j, k = 0, full_bytes = len/4;
   for(i = 0; i < full_bytes; i++)
   {
-    tmp = 0; k += 8;
-    for(j = 0; j < 8; j++) {
+    tmp = 0; k += 4;
+    for(j = 0; j < 4; j++) {
       tmp <<= 2;
       tmp |= bases[--k];
     }
@@ -43,10 +58,11 @@ static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
   }
 
   // Do last byte
-  if(full_bytes*8 != len)
+  size_t quotient = full_bytes*4;
+  if(quotient < len)
   {
     tmp = 0; k = len;
-    while(k > 0) {
+    while(k > quotient) {
       tmp <<= 2;
       tmp |= bases[--k];
     }
@@ -54,14 +70,14 @@ static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
   }
 }
 
-static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
+void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
 {
   uint8_t tmp;
-  size_t i, j, k = 0, full_bytes = len/8;
+  size_t i, j, k = 0, full_bytes = len/4;
   for(i = 0; i < full_bytes; i++)
   {
     tmp = *ptr;
-    for(j = 0; j < 8; j++) {
+    for(j = 0; j < 4; j++) {
       bases[k++] = tmp & 0x3;
       tmp >>= 2;
     }
@@ -121,6 +137,9 @@ uint64_t binary_paths_add(binary_paths_t *paths, const path_t *path, Colour col)
     return PATH_NULL;
   }
 
+  printf(" Path ADDED\n");
+  path_to_printf(path);
+
   size_t len_in_bytes = round_bits_to_bytes(path->core.len*2);
   size_t total_len = sizeof(path_core_t) + len_in_bytes;
 
@@ -151,6 +170,8 @@ void binary_paths_fetch(const binary_paths_t *paths, uint64_t index, path_t *pat
     path->bpcap = ROUNDUP2POW(len_in_bytes);
     path->bases = realloc(path->bases, path->bpcap * sizeof(Nucleotide));
   }
+
+  printf(" Path FETCH\n");
 
   uint8_t *ptr = paths->store + index;
 

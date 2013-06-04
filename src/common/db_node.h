@@ -38,6 +38,9 @@
 Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
                     Key restrict kmer_key);
 
+#define db_node_to_str(graph,node,str) \
+        binary_kmer_to_str(db_graph_bkmer(graph,node), (graph)->kmer_size, (str))
+
 //
 // Orientations
 //
@@ -47,23 +50,20 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 #define db_node_get_orientation(bkmer,bkey) \
         (binary_kmers_are_equal((bkmer), (bkey)) ? forward : reverse)
 
+#define db_node_bkmer(graph,hkey,or,result) \
+        bkmer_with_orientation(db_graph_bkmer(graph,hkey), or, \
+                               (graph)->kmer_size, result)
+
 void bkmer_with_orientation(const BinaryKmer bkmer, Orientation orient,
                             uint32_t kmer_size, BinaryKmer result);
 
-void db_node_next_bkmer(const BinaryKmer bkmer,
-                        Orientation orient, Nucleotide nuc,
-                        uint32_t kmer_size, BinaryKmer result);
-
-int db_node_next_bkmers(const BinaryKmer bkmer, Orientation orient, Edges edges,
-                        uint32_t kmer_size, BinaryKmer results[4]);
-
 #define db_node_first_nuc(bkmer,or,k) \
-  ((or) == forward ? binary_kmer_first_nucleotide((bkmer),(k)) \
-      : binary_nucleotide_complement(binary_kmer_last_nuc(bkmer)))
+  ((or) == forward ? binary_kmer_first_nuc((bkmer),(k)) \
+      : binary_nuc_complement(binary_kmer_last_nuc(bkmer)))
 
 #define db_node_last_nuc(bkmer,or,k) \
   ((or) == forward ? binary_kmer_last_nuc(bkmer) \
-      : binary_nucleotide_complement(binary_kmer_first_nucleotide(bkmer,(k))))
+      : binary_nuc_complement(binary_kmer_first_nuc(bkmer,(k))))
 
 //
 // Edges
@@ -76,13 +76,13 @@ int db_node_next_bkmers(const BinaryKmer bkmer, Orientation orient, Edges edges,
 #define edges_set_edge(edges,n,or)  ((edges) | nuc_orient_to_edge(n,or))
 #define edges_del_edge(edges,n,or)  ((edges) &~nuc_orient_to_edge(n,or))
 
-#define db_node_edges_in_orientation(edges,or) (((edges) >> ((or)<<2)) & 0xf)
+#define edges_with_orientation(edges,or) (((edges) >> ((or)<<2)) & 0xf)
 
 #define edges_get_outdegree(edges,or) \
-        __builtin_popcount(db_node_edges_in_orientation(edges,or))
+        __builtin_popcount(edges_with_orientation(edges,or))
 
 #define edges_get_indegree(edges,or) \
-        __builtin_popcount(db_node_edges_in_orientation(edges,rev_orient(or)))
+        __builtin_popcount(edges_with_orientation(edges,rev_orient(or)))
 
 
 #define db_node_has_edge(graph,hkey,nuc,or) \
@@ -96,7 +96,7 @@ int db_node_next_bkmers(const BinaryKmer bkmer, Orientation orient, Edges edges,
 #define db_node_reset_edges(graph,hkey) ((graph)->edges[hkey] = 0)
 
 #define db_node_is_blunt_end(graph,hkey,or) \
-        (db_node_edges_in_orientation((graph)->edges[hkey],or) == 0)
+        (edges_with_orientation((graph)->edges[hkey],or) == 0)
 
 boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide);

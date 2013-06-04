@@ -27,7 +27,7 @@ const char complement_base[128] = {0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
 
 #ifndef NDEBUG
 // These have asserts in them
-char binary_nucleotide_to_char(Nucleotide n)
+char binary_nuc_to_char(Nucleotide n)
 {
   // Check only values 0..3 are being used
   assert((n & 0x3) == n);
@@ -190,11 +190,10 @@ BinaryKmerPtr binary_kmer_from_str(const char *seq, uint32_t kmer_size,
 
   for(i = 0; i < kmer_size; i++)
   {
-    Nucleotide nuc = char_to_binary_nucleotide(seq[i]);
+    Nucleotide nuc = binary_nuc_from_char(seq[i]);
     assert(nuc != Undefined);
 
-    binary_kmer_left_shift_one_base(prealloced_kmer, kmer_size);
-    binary_kmer_set_last_nuc(prealloced_kmer, nuc);
+    binary_kmer_left_shift_add(prealloced_kmer, kmer_size, nuc);
   }
 
   return prealloced_kmer;
@@ -214,7 +213,7 @@ char *binary_kmer_to_str(const BinaryKmer bkmer, uint32_t kmer_size, char *seq)
   for(i = kmer_size - 1; ; i--)
   {
     Nucleotide nuc = binary_kmer_last_nuc(local_bkmer);
-    seq[i] = binary_nucleotide_to_char(nuc);
+    seq[i] = binary_nuc_to_char(nuc);
     binary_kmer_right_shift_one_base(local_bkmer);
     if(i == 0) break;
   }

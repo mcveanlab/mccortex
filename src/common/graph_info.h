@@ -16,9 +16,9 @@ typedef struct
   StrBuf* cleaned_against_graph_name;
 } ErrorCleaning;
 
+void error_cleaning_init(ErrorCleaning *ec);
 ErrorCleaning* error_cleaning_alloc(ErrorCleaning *ec);
 void error_cleaning_dealloc(ErrorCleaning *ec);
-void error_cleaning_init(ErrorCleaning *ec);
 
 typedef struct
 {
@@ -30,9 +30,9 @@ typedef struct
   uint32_t num_of_colours_loaded, num_of_shades_loaded;
 } GraphInfo;
 
+void graph_info_init(GraphInfo *ginfo);
 GraphInfo* graph_info_alloc(GraphInfo *ginfo);
 void graph_info_dealloc(GraphInfo *ginfo);
-void graph_info_init(GraphInfo *ginfo);
 
 void graph_info_reset_one_colour(GraphInfo *ginfo, uint32_t colour);
 

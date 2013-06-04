@@ -529,7 +529,7 @@ uint32_t binary_load(const char *path, dBGraph *graph,
                      SeqLoadingStats *stats)
 {
   assert(only_load_if_in_colour < (signed)load_first_colour_into);
-  assert(graph->col_edges != NULL || !only_load_if_in_colour);
+  assert(only_load_if_in_colour == -1 || graph->bkmer_in_cols != NULL);
 
   FILE* fh = fopen(path, "r");
   if(fh == NULL) die("Cannot open file: %s\n", path);
@@ -610,13 +610,15 @@ uint32_t binary_load(const char *path, dBGraph *graph,
 
     if(node != HASH_NOT_FOUND)
     {
-      if(increment_covg) {
-        for(i = 0; i < header.num_of_colours; i++)
-          graph->covgs[node][load_first_colour_into+i] += covgs[i];
-      }
-      else {
-        for(i = 0; i < header.num_of_colours; i++)
-          graph->covgs[node][load_first_colour_into+i] = covgs[i];
+      if(graph->covgs != NULL) {
+        if(increment_covg) {
+          for(i = 0; i < header.num_of_colours; i++)
+            graph->covgs[node][load_first_colour_into+i] += covgs[i];
+        }
+        else {
+          for(i = 0; i < header.num_of_colours; i++)
+            graph->covgs[node][load_first_colour_into+i] = covgs[i];
+        }
       }
 
       if(graph->col_edges != NULL)
@@ -624,26 +626,22 @@ uint32_t binary_load(const char *path, dBGraph *graph,
         // For each colour take the union of edges
         Edges *col_edges = graph->col_edges[node];
 
-        if(only_load_if_in_colour >= 0)
-        {
-          for(i = 0; i < header.num_of_colours; i++)
-          {
+        if(only_load_if_in_colour >= 0) {
+          for(i = 0; i < header.num_of_colours; i++) {
             col = load_first_colour_into+i;
             col_edges[col] |= edges[i] & col_edges[only_load_if_in_colour];
           }
         }
-        else
-        {
-          for(i = 0; i < header.num_of_colours; col++) {
-            col = load_first_colour_into+col;
+        else {
+          for(i = 0; i < header.num_of_colours; i++) {
+            col = load_first_colour_into+i;
             col_edges[col] |= edges[i];
           }
         }
       }
-      else
-      {
-        // Merge all edges
-        for(i = 0; i < header.num_of_colours; col++) {
+      else {
+        // Merge all edges into one colour
+        for(i = 0; i < header.num_of_colours; i++) {
           graph->edges[node] |= edges[i];
         }
       }

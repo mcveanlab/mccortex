@@ -19,6 +19,9 @@ typedef struct
   size_t num_paths, paths_capacity;
 } GraphWalker;
 
+void graph_walker_alloc(GraphWalker *wlk);
+void graph_walker_dealloc(GraphWalker *gw);
+
 void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
                        hkey_t node, Orientation or);
 

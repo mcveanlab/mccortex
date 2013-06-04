@@ -14,19 +14,15 @@ void db_graph_dealloc(dBGraph *db_graph)
 {
   hash_table_dealloc(&db_graph->ht);
   graph_info_dealloc(&db_graph->ginfo);
-  if(db_graph->edges != NULL) free(db_graph->edges);
-  if(db_graph->status != NULL) free(db_graph->status);
-  if(db_graph->bkmer_in_cols != NULL) free(db_graph->bkmer_in_cols);
 }
 
-void db_graph_get_next_node_bkmer(const dBGraph *db_graph,
-                                  const BinaryKmer bkmer, Nucleotide next_nuc,
-                                  hkey_t *next_node, Orientation *next_orient)
+void db_graph_next_node(const dBGraph *db_graph,
+                        const BinaryKmer bkmer, Nucleotide next_nuc,
+                        hkey_t *next_node, Orientation *next_orient)
 {
   BinaryKmer cpy;
   binary_kmer_assign(cpy, bkmer);
-  binary_kmer_left_shift_one_base(cpy, db_graph->kmer_size);
-  binary_kmer_set_last_nuc(cpy, next_nuc);
+  binary_kmer_left_shift_add(cpy, db_graph->kmer_size, next_nuc);
 
   BinaryKmer tmp_key;
   db_node_get_key(cpy, db_graph->kmer_size, tmp_key);
@@ -35,10 +31,11 @@ void db_graph_get_next_node_bkmer(const dBGraph *db_graph,
   *next_orient = db_node_get_orientation(cpy, tmp_key);
 }
 
-void db_graph_get_next_node(const dBGraph *db_graph,
-                            const BinaryKmer bkmer, Orientation orient,
-                            Nucleotide next_nuc,
-                            hkey_t *next_node, Orientation *next_orient)
+// Nuc is expected to be already orientated
+void db_graph_next_node_orient(const dBGraph *db_graph,
+                               const BinaryKmer bkmer, Nucleotide next_nuc,
+                               Orientation orient,
+                               hkey_t *next_node, Orientation *next_orient)
 {
   BinaryKmer tmp_kmer;
 
@@ -47,30 +44,56 @@ void db_graph_get_next_node(const dBGraph *db_graph,
   else
     binary_kmer_reverse_complement(bkmer, db_graph->kmer_size, tmp_kmer);
 
-  db_graph_get_next_node_bkmer(db_graph, tmp_kmer, next_nuc,
-                               next_node, next_orient);
+  db_graph_next_node(db_graph, tmp_kmer, next_nuc, next_node, next_orient);
 }
 
-int db_graph_get_next_nodes(const dBGraph *db_graph,
-                            const BinaryKmer bkmer,
-                            Orientation orient, Edges edges,
+uint8_t db_graph_next_nodes(const dBGraph *db_graph,
+                            const BinaryKmer fw_bkmer, Edges edges,
                             hkey_t nodes[4], BinaryKmer bkmers[4],
                             Orientation orients[4])
 {
-  int num_of_kmers = db_node_next_bkmers(bkmer, orient, edges,
-                                         db_graph->kmer_size, bkmers);
+  // char str[100];
+  // binary_kmer_to_str(fw_bkmer, db_graph->kmer_size, str);
+  // printf(" :%s [%u]\n", str, edges);
 
-  int i;
-  for(i = 0; i < num_of_kmers; i++)
+  uint8_t count = 0;
+  Edges tmp_edge;
+  Nucleotide nuc;
+  BinaryKmer bkmer, bkey;
+
+  binary_kmer_assign(bkmer, fw_bkmer);
+  binary_kmer_left_shift_one_base(bkmer, db_graph->kmer_size);
+
+  for(tmp_edge = 0x1, nuc = 0; nuc < 4; tmp_edge <<= 1, nuc++)
   {
-    BinaryKmer tmp_key;
-    db_node_get_key(bkmers[i], db_graph->kmer_size, tmp_key);
+    if(edges & tmp_edge)
+    {
+      binary_kmer_set_last_nuc(bkmer, nuc);
+      db_node_get_key(bkmer, db_graph->kmer_size, bkey);
+      binary_kmer_assign(bkmers[count], bkmer);
+      nodes[count] = hash_table_find(&db_graph->ht, bkey);
+      orients[count] = db_node_get_orientation(bkmer, bkey);
+      count++;
 
-    nodes[i] = hash_table_find(&db_graph->ht, tmp_key);
-    orients[i] = db_node_get_orientation(bkmers[i], tmp_key);
+      // binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
+      // printf(" ->%s [%i]\n", str, (int)nuc);
+    }
   }
 
-  return num_of_kmers;
+  return count;
+}
+
+uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
+                                   const BinaryKmer bkmer, Edges edges,
+                                   Orientation orient,
+                                   hkey_t nodes[4], BinaryKmer bkmers[4],
+                                   Orientation orients[4])
+{
+  BinaryKmer fw_bkmer;
+  bkmer_with_orientation(bkmer, orient, db_graph->kmer_size, fw_bkmer);
+  edges = edges_with_orientation(edges, orient);
+  return db_graph_next_nodes(db_graph, fw_bkmer, edges,
+                             nodes, bkmers, orients);
 }
 
 // In the case of self-loops in palindromes the two edges collapse into one
@@ -86,7 +109,7 @@ void db_graph_add_edge(dBGraph *db_graph,
   rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
 
   db_node_set_edge(db_graph, src_node, rhs_nuc, src_orient);
-  db_node_set_edge(db_graph, tgt_node, binary_nucleotide_complement(lhs_nuc),
+  db_node_set_edge(db_graph, tgt_node, binary_nuc_complement(lhs_nuc),
                    opposite_orientation(tgt_orient));
 }
 
@@ -130,8 +153,8 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph, uint8_t fla
       {
         if(edges_has_edge(keep_edges, nuc, orient))
         {
-          db_graph_get_next_node(db_graph, bkmer, orient, nuc,
-                                 &next_node, &next_orient);
+          db_graph_next_node_orient(db_graph, bkmer, nuc, orient,
+                                    &next_node, &next_orient);
         
           if(!db_node_has_flag(db_graph, next_node, flag))
           {
@@ -180,7 +203,7 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node,
   Nucleotide nuc, lost_nuc;
   Edges remove_edge_mask;
 
-  if(db_node_edges_in_orientation(edges, orient) == 0) return;
+  if(edges_with_orientation(edges, orient) == 0) return;
 
   lost_nuc = db_node_first_nuc(db_graph_bkmer(db_graph, node),
                                orient, db_graph->kmer_size);
@@ -192,8 +215,8 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node,
     if(edges_has_edge(edges, nuc, orient))
     {
 
-      db_graph_get_next_node(db_graph, bkmer, orient, nuc,
-                             &next_node, &next_orient);
+      db_graph_next_node_orient(db_graph, bkmer, nuc, orient,
+                                &next_node, &next_orient);
 
       // Remove edge from next_node to this one
       remove_edge_mask = ~nuc_orient_to_edge(lost_nuc,

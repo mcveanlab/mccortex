@@ -1,27 +1,39 @@
 #include "global.h"
 #include "hash_table.h"
 
-HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
+// Returns capacity
+size_t hash_table_cap(size_t req_capacity,
+                      uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr)
 {
   // bucket size must be <256
-  uint64_t number_bits = 10;
-  while(req_capacity / (1UL << number_bits) > 128) number_bits++;
+  uint64_t num_of_bits = 10;
+  while(req_capacity / (1UL << num_of_bits) > 128) num_of_bits++;
+  uint64_t num_of_buckets = 1UL << num_of_bits;
+  uint64_t bucket_size = (req_capacity+num_of_buckets-1) / num_of_buckets;
+  if(num_bckts_ptr != NULL) *num_bckts_ptr = num_of_buckets;
+  if(bckt_size_ptr != NULL) *bckt_size_ptr = bucket_size;
+  return num_of_buckets * bucket_size;
+}
 
-  uint64_t number_buckets = 1UL << number_bits;
-  uint64_t bucket_size = (req_capacity+number_buckets-1) / number_buckets;
-  uint64_t capacity = number_buckets * bucket_size;
-  uint32_t hash_mask = number_buckets - 1;
+size_t hash_table_mem(size_t req_capacity, size_t *act_capacity)
+{
+  uint64_t num_of_buckets;
+  size_t capacity = hash_table_cap(req_capacity, &num_of_buckets, NULL);
+  if(act_capacity != NULL) *act_capacity = capacity;
+  return capacity * sizeof(BinaryKmer) + num_of_buckets*2*sizeof(uint8_t);
+}
+
+HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
+{
+  uint64_t num_of_buckets;
+  uint8_t bucket_size;
+  uint64_t capacity = hash_table_cap(req_capacity, &num_of_buckets, &bucket_size);
+  uint32_t hash_mask = num_of_buckets - 1;
 
   BinaryKmer *table = malloc(capacity * sizeof(BinaryKmer));
 
-  uint64_t i, num = NUM_BITFIELDS_IN_BKMER * capacity, *ptr = (uint64_t*)table;
-  for(i = 0; i < num; i++) ptr[i] = UNSET_BKMER;
-
   // calloc is required to set the first element of each bucket to the 0th pos
-  uint8_t *bucket_data = calloc(number_buckets*2, sizeof(uint8_t));
-
-  uint8_t *bucket_length = bucket_data;
-  uint8_t *bucket_fill = bucket_data + number_buckets*sizeof(uint8_t);
+  uint8_t *bucket_data = calloc(num_of_buckets*2, sizeof(uint8_t));
 
   if(table == NULL || bucket_data == NULL)
   {
@@ -31,9 +43,15 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
     return NULL;
   }
 
+  uint64_t i, num = NUM_BITFIELDS_IN_BKMER * capacity, *ptr = (uint64_t*)table;
+  for(i = 0; i < num; i++) ptr[i] = UNSET_BKMER;
+
+  uint8_t *bucket_length = bucket_data;
+  uint8_t *bucket_fill = bucket_data + num_of_buckets*sizeof(uint8_t);
+
   HashTable data = {
     .table = table,
-    .number_buckets = number_buckets,
+    .num_of_buckets = num_of_buckets,
     .hash_mask = hash_mask,
     .bucket_size = bucket_size,
     .capacity = capacity,
@@ -166,10 +184,10 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const key,
 
 void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
-  assert(htable->bucket_fill[bucket] > 0);
   BinaryKmer unset = {UNSET_BKMER};
   memcpy(htable->table + pos, unset, sizeof(BinaryKmer));
   uint64_t bucket = pos / htable->bucket_size;
+  assert(htable->bucket_fill[bucket] > 0);
   htable->bucket_fill[bucket]--;
 }
 

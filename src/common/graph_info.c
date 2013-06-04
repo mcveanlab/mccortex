@@ -1,6 +1,14 @@
 #include "global.h"
 #include "db_graph.h"
 
+void error_cleaning_init(ErrorCleaning *ec)
+{
+  ec->tip_clipping = ec->remv_low_cov_sups = ec->remv_low_cov_nodes = false;
+  ec->remv_low_cov_sups_thresh = ec->remv_low_cov_nodes_thresh = 0;
+  ec->cleaned_against_another_graph = false;
+  strbuf_set(ec->cleaned_against_graph_name, "undefined");
+}
+
 ErrorCleaning* error_cleaning_alloc(ErrorCleaning *ec)
 {
   ec->cleaned_against_graph_name = strbuf_new();
@@ -13,21 +21,23 @@ void error_cleaning_dealloc(ErrorCleaning *ec)
   strbuf_free(ec->cleaned_against_graph_name);
 }
 
-void error_cleaning_init(ErrorCleaning *ec)
+void graph_info_init(GraphInfo *ginfo)
 {
-  ec->tip_clipping = ec->remv_low_cov_sups = ec->remv_low_cov_nodes = false;
-  ec->remv_low_cov_sups_thresh = ec->remv_low_cov_nodes_thresh = 0;
-  ec->cleaned_against_another_graph = false;
-  strbuf_set(ec->cleaned_against_graph_name, "undefined");
+  Colour col;
+  for(col = 0; col < NUM_OF_COLOURS; col++)
+    graph_info_reset_one_colour(ginfo, col);
+
+  ginfo->num_of_colours_loaded = 0;
+  ginfo->num_of_shades_loaded = 0;
 }
 
 GraphInfo *graph_info_alloc(GraphInfo *ginfo)
 {
-  int i;
-  for(i = 0; i < NUM_OF_COLOURS; i++)
+  Colour col;
+  for(col = 0; col < NUM_OF_COLOURS; col++)
   {
-    ginfo->sample_names[i] = strbuf_new();
-    error_cleaning_alloc(ginfo->cleaning + i);
+    ginfo->sample_names[col] = strbuf_new();
+    error_cleaning_alloc(ginfo->cleaning + col);
   }
 
   graph_info_init(ginfo);
@@ -36,22 +46,12 @@ GraphInfo *graph_info_alloc(GraphInfo *ginfo)
 
 void graph_info_dealloc(GraphInfo *ginfo)
 {
-  int i;
-  for(i = 0; i < NUM_OF_COLOURS; i++)
+  Colour col;
+  for(col = 0; col < NUM_OF_COLOURS; col++)
   {
-    strbuf_free(ginfo->sample_names[i]);
-    error_cleaning_dealloc(ginfo->cleaning + i);
+    strbuf_free(ginfo->sample_names[col]);
+    error_cleaning_dealloc(ginfo->cleaning + col);
   }
-}
-
-void graph_info_init(GraphInfo *ginfo)
-{
-  uint32_t i;
-  for(i = 0; i < NUM_OF_COLOURS; i++)
-    graph_info_reset_one_colour(ginfo, i);
-
-  ginfo->num_of_colours_loaded = 0;
-  ginfo->num_of_shades_loaded = 0;
 }
 
 void graph_info_reset_one_colour(GraphInfo *ginfo, uint32_t colour)

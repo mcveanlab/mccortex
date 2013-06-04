@@ -4,6 +4,8 @@
 #include "db_graph.h"
 #include "add_read_paths.h"
 #include "binary_format.h"
+#include "read_paths.h"
+#include "shaded_caller.h"
 
 static const char usage[] =
 "usage: ctx_add_paths <in.ctx> <mem> [OPTIONS]\n"
@@ -11,6 +13,34 @@ static const char usage[] =
 "  Options:\n"
 "    --se_list <col> <in.list>\n"
 "    --pe_list <col> <pe.list1> <pe.list2>\n";
+
+void test_traverse(dBGraph *db_graph, char *str)
+{
+  BinaryKmer bkmer, bkey;
+  binary_kmer_from_str(str, db_graph->kmer_size, bkmer);
+  db_node_get_key(bkmer, db_graph->kmer_size, bkey);
+
+  hkey_t node = hash_table_find(&db_graph->ht, bkey);
+  Orientation or = db_node_get_orientation(bkmer, bkey);
+
+  GraphWalker gwlk;
+  graph_walker_alloc(&gwlk);
+  graph_walker_init(&gwlk, db_graph, 0, node, or);
+
+  printf("== test_traverse %s [dir:%s]\n", str, or == forward ? "fw" : "rv");
+
+  char tmp[100];
+
+  do {
+    binary_kmer_to_str(gwlk.bkmer, db_graph->kmer_size, str);
+    binary_kmer_to_str(db_graph_bkmer(db_graph,gwlk.node), db_graph->kmer_size, tmp);
+    printf("%s %s:%i\n", str, tmp, gwlk.orient);
+  }
+  while(graph_traverse(&gwlk));
+  printf("\n");
+
+  graph_walker_dealloc(&gwlk);
+}
 
 int main(int argc, char* argv[])
 {
@@ -71,31 +101,29 @@ int main(int argc, char* argv[])
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
   // Decide on memory
-  size_t hash_kmers = num_kmers*(1/IDEAL_OCCUPANCY);
+  size_t req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t hash_kmers;
+  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
 
-  size_t hash_memory = hash_kmers * sizeof(BinaryKmer) +
-                       hash_kmers * sizeof(uint8_t*) +
-                       hash_kmers * sizeof(Edges) +
-                       hash_kmers * sizeof(uint8_t) +
-                       hash_kmers * num_of_cols / 64;
+  size_t graph_mem = hash_mem +
+                     hash_kmers * sizeof(Edges) + // edges
+                     hash_kmers * sizeof(uint64_t) * 2 + // kmer_paths
+                     round_bits_to_bytes(hash_kmers) * num_of_cols +
+                     round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
 
-  if(hash_memory > mem_to_use) {
-    print_usage(usage, "Not enough memory; hash table requires %zu", hash_memory);
+  if(graph_mem > mem_to_use) {
+    print_usage(usage, "Not enough memory; hash table requires %zu", graph_mem);
   }
-
-  size_t path_memory = mem_to_use - hash_memory;
-
-  message("Using %zu bytes hash; %zu bytes for paths\n", hash_memory, path_memory);
 
   // Allocate memory
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, hash_kmers);
 
-  uint8_t *tmp = calloc(hash_kmers, sizeof(uint8_t)*2);
-  if(tmp == NULL) die("Out of memory");
+  size_t path_memory = mem_to_use - graph_mem;
+  message("Using %zu bytes hash; %zu bytes for paths\n", graph_mem, path_memory);
 
-  db_graph.edges = tmp;
-  db_graph.status = tmp + hash_kmers;
+  db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
+  if(db_graph.edges == NULL) die("Out of memory");
 
   size_t i, words64_per_col = round_bits_to_words64(hash_kmers);
   uint64_t *bkmer_cols = calloc(words64_per_col*NUM_OF_COLOURS, sizeof(uint64_t));
@@ -105,16 +133,12 @@ int main(int argc, char* argv[])
   for(ptr = bkmer_cols, i = 0; i < NUM_OF_COLOURS; i++, ptr += words64_per_col)
     db_graph.bkmer_in_cols[i] = ptr;
 
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset(db_graph.kmer_paths, 0xff, path_memory);
-
-  db_graph.kmer_paths = calloc(hash_kmers, sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  memset(db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
 
   uint8_t *path_store = malloc(path_memory);
   if(path_store == NULL) die("Out of memory");
-
   binary_paths_init(&db_graph.pdata, path_store, path_memory);
 
   // Load graph
@@ -145,6 +169,56 @@ int main(int argc, char* argv[])
     }
   }
 
+  // Now call variants
+  invoke_shaded_bubble_caller(&db_graph, "calls.pc.bubbles");
+
+  Nucleotide bases[100];
+  uint8_t bytes[100];
+
+  bases[0] = 1;
+  // bases[1] = 1;
+  // bases[2] = 2;
+  // bases[3] = 3;
+  // bases[4] = 2;
+  // bases[5] = 3;
+
+  // 3210 0032
+  // 11100100 00001110
+  // 228, 14
+
+  for(i = 0; i < 6; i++) printf("%c", binary_nuc_to_char(bases[i]));
+  printf("\n");
+
+  pack_bases(bytes, bases, 6);
+  printf(" {%u,%u}\n", (uint32_t)bytes[0], (uint32_t)bytes[1]);
+  unpack_bases(bytes, bases, 6);
+
+  for(i = 0; i < 8; i++) printf("%c", binary_nuc_to_char(bases[i]));
+  printf("\n");
+
+  // TGCGTCGGCG
+  // TCCGTCGGTG
+  printf(" SEQ: TGCGTCGGCG\n");
+  printf(" SEQ: TCCGTCGGTG\n");
+
+  char tmp1[100], tmp2[100], tmp3[100], tmp4[100];
+  strcpy(tmp1, "TGCGT");
+  strcpy(tmp2, "TCCGT");
+  strcpy(tmp3, "CGCCG");
+  strcpy(tmp4, "CACCG");
+
+  test_traverse(&db_graph, tmp1);
+  test_traverse(&db_graph, tmp2);
+  test_traverse(&db_graph, tmp3);
+  test_traverse(&db_graph, tmp4);
+
+  free(db_graph.edges);
+  free(bkmer_cols);
+  free(path_store);
+  free(db_graph.kmer_paths);
+
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
+
+  message("Done.\n");
 }

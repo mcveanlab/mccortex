@@ -44,7 +44,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
   size_t _num_contigs = 0;                                                     \
   if((r)->seq.end >= (kmer_size)) {                                            \
     size_t _search_start = 0, _start, _end = 0, _i;                            \
-    BinaryKmer bkmer; Nucleotide nuc;                                          \
+    BinaryKmer _bkmer; Nucleotide _nuc;                                        \
                                                                                \
     while((_start = seq_contig_start((r), _search_start, (kmer_size),          \
                                      (qcutoff),(hpcutoff))) < (r)->seq.end)    \
@@ -55,15 +55,14 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
       (stats)->total_bases_loaded += _end - _start;                            \
       (stats)->kmers_loaded += (_end - _start) + 1 - (kmer_size);              \
                                                                                \
-      binary_kmer_from_str((r)->seq.b + _start, (kmer_size), bkmer);           \
-      func(bkmer, ##__VA_ARGS__);                                              \
+      binary_kmer_from_str((r)->seq.b + _start, (kmer_size), _bkmer);          \
+      func(_bkmer, ##__VA_ARGS__);                                             \
                                                                                \
       for(_i = _start+(kmer_size); _i < _end; _i++)                            \
       {                                                                        \
-        nuc = char_to_binary_nucleotide((r)->seq.b[_i]);                       \
-        binary_kmer_left_shift_one_base(bkmer, (kmer_size));                   \
-        binary_kmer_set_last_nuc(bkmer, nuc);                           \
-        func(bkmer, ##__VA_ARGS__);                                            \
+        _nuc = binary_nuc_from_char((r)->seq.b[_i]);                      \
+        binary_kmer_left_shift_add(_bkmer, (kmer_size), _nuc);                 \
+        func(_bkmer, ##__VA_ARGS__);                                           \
       }                                                                        \
     }                                                                          \
     if(_num_contigs == 0) (stats)->total_bad_reads++;                          \

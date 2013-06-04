@@ -15,10 +15,10 @@
 typedef struct
 {
   BinaryKmer *const table;
-  const uint64_t number_buckets; // needs to store maximum of 1<<32
-  const uint32_t hash_mask; // this is number_buckets - 1
+  const uint64_t num_of_buckets; // needs to store maximum of 1<<32
+  const uint32_t hash_mask; // this is num_of_buckets - 1
   const uint8_t bucket_size; // max value 255
-  const uint64_t capacity; // number_buckets * bucket_size
+  const uint64_t capacity; // num_of_buckets * bucket_size
   uint8_t *const bucket_length; // index of the next free element in bucket
   uint8_t *const bucket_fill; // number of filled entries in a bucket
   uint64_t unique_kmers;
@@ -29,6 +29,13 @@ typedef uint64_t hkey_t;
 #define HASH_NOT_FOUND UINT64_MAX
 
 #define HASH_ENTRY_ASSIGNED(ptr) ((ptr)[0] & UNSET_BKMER)
+
+// Get number of bytes required for a given size
+size_t hash_table_mem(size_t req_capacity, size_t *act_capacity);
+
+// Number of hash table entries for a given required capacity
+size_t hash_table_cap(size_t req_capacity,
+                      uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr);
 
 // Returns NULL if not enough memory
 HashTable* hash_table_alloc(HashTable *htable, uint64_t capacity);
