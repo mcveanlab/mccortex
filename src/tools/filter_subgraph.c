@@ -83,7 +83,7 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
                                   next_nodes, next_bkmers, next_ors);
 
   BinaryKmer revbkmer;
-  binary_kmer_revcmp(bkmer, db_graph->kmer_size, revbkmer);
+  binary_kmer_reverse_complement(bkmer, db_graph.kmer_size, revbkmer);
 
   // Get neighbours in reverse dir
   num_next += db_graph_next_nodes(&db_graph, revbkmer, edges>>4,

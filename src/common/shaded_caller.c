@@ -18,7 +18,7 @@
 #include "city.h"
 
 #include "binary_paths.h"
-#include "read_paths.h"
+#include "graph_walker.h"
 
 #ifdef DEBUG
 #define DEBUG_CALLER 1

@@ -4,7 +4,7 @@
 #include "db_graph.h"
 #include "add_read_paths.h"
 #include "binary_format.h"
-#include "read_paths.h"
+#include "graph_walker.h"
 #include "shaded_caller.h"
 
 static const char usage[] =

@@ -1,6 +1,6 @@
 #include "global.h"
 #include "db_graph.h"
-#include "read_paths.h"
+#include "graph_walker.h"
 
 static void resize_curr_paths(GraphWalker *wlk)
 {

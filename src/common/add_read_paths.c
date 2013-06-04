@@ -1,6 +1,6 @@
 #include "global.h"
 #include "db_graph.h"
-#include "read_paths.h"
+#include "graph_walker.h"
 #include "file_util.h"
 #include "seq_reader.h"
 #include "file_reader.h"
@@ -96,8 +96,10 @@ static void add_read_path(const dBNodeBuffer *list,
     Edges e = edges[hkey];
     Orientation or = orients[pos];
 
-    binary_kmer_to_str(db_graph_bkmer(graph,nodes[pos]),kmer_size,str);
-    printf(" %s:%i\n", str, or);
+    #ifdef DEBUG
+      binary_kmer_to_str(db_graph_bkmer(graph,nodes[pos]),kmer_size,str);
+      printf(" %s:%i\n", str, or);
+    #endif
 
     if(edges_get_outdegree(e, or) > 1) {
       nuc = db_node_last_nuc(db_graph_bkmer(graph,nodes[pos+1]), orients[pos+1], kmer_size);
@@ -121,15 +123,17 @@ static void add_read_path(const dBNodeBuffer *list,
     SWAP(nuc_rv[i], nuc_rv[j], nuc);
   }
 
-  printf("fw ");
-  for(i = 0; i < num_fw; i++)
-    printf(" %i:%c", pos_fw[i], binary_nuc_to_char(nuc_fw[i]));
-  printf("\n");
+  #ifdef DEBUG
+    printf("fw ");
+    for(i = 0; i < num_fw; i++)
+      printf(" %i:%c", pos_fw[i], binary_nuc_to_char(nuc_fw[i]));
+    printf("\n");
 
-  printf("rv ");
-  for(i = 0; i < num_rv; i++)
-    printf(" %i:%c", pos_rv[i], binary_nuc_to_char(nuc_rv[i]));
-  printf("\n");
+    printf("rv ");
+    for(i = 0; i < num_rv; i++)
+      printf(" %i:%c", pos_rv[i], binary_nuc_to_char(nuc_rv[i]));
+    printf("\n");
+  #endif
 
   // Unsure path is long enough
   // Add is faster than MAX2
