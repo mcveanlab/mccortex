@@ -183,6 +183,7 @@ void binary_paths_fetch(const binary_paths_t *paths, uint64_t index, path_t *pat
   unpack_bases(ptr, path->bases, path->core.len);
 
   path->pos = 0;
+  path->index = index;
 }
 
 // Returns 1 on success, 0 otherwise

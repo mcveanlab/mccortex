@@ -15,9 +15,11 @@
 static uint64_t insert_sizes[GAP_LIMIT] = {0};
 static uint64_t gap_sizes[GAP_LIMIT] = {0};
 
+// Temp data store for adding paths to graph
 struct AddPaths {
   dBNodeBuffer list;
   path_t path;
+  GraphWalker wlk;
 };
 
 static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
@@ -219,7 +221,8 @@ static void add_read_path(const dBNodeBuffer *list,
 // If unsucessful: doesn't add anything to the list, returns -1
 static int traverse_gap(dBNodeBuffer *list,
                         hkey_t node2, Orientation orient2,
-                        dBGraph *db_graph, int colour)
+                        dBGraph *db_graph, int colour,
+                        GraphWalker *wlk)
 {
   hkey_t node1 = list->nodes[list->len-1];
   Orientation orient1 = list->orients[list->len-1];
@@ -240,24 +243,22 @@ static int traverse_gap(dBNodeBuffer *list,
     printf("traverse gap: %s:%i -> %s:%i\n", tmp1, orient1, tmp2, orient2);
   #endif
 
-  GraphWalker wlk;
-
   // Walk from left -> right
-  graph_walker_init(&wlk, db_graph, colour, node1, orient1);
-  db_node_set_traversed(db_graph, wlk.node, wlk.orient);
+  graph_walker_init(wlk, db_graph, colour, node1, orient1);
+  db_node_set_traversed(db_graph, wlk->node, wlk->orient);
 
   int i, pos = 0;
 
-  while(pos < GAP_LIMIT && graph_traverse(&wlk) &&
-        !db_node_has_traversed(db_graph, wlk.node, wlk.orient))
+  while(pos < GAP_LIMIT && graph_traverse(wlk) &&
+        !db_node_has_traversed(db_graph, wlk->node, wlk->orient))
   {
-    db_node_set_traversed(db_graph, wlk.node, wlk.orient);
+    db_node_set_traversed(db_graph, wlk->node, wlk->orient);
 
-    nlist[pos] = wlk.node;
-    olist[pos] = wlk.orient;
+    nlist[pos] = wlk->node;
+    olist[pos] = wlk->orient;
     pos++;
 
-    if(wlk.node == node2 && wlk.orient == orient2)
+    if(wlk->node == node2 && wlk->orient == orient2)
       break;
   }
 
@@ -265,20 +266,22 @@ static int traverse_gap(dBNodeBuffer *list,
   for(i = 0; i < pos; i++)
     db_node_fast_clear_traversed(db_graph, nlist[i]);
 
-  if(wlk.node == node2 && wlk.orient == orient2) {
+  if(wlk->node == node2 && wlk->orient == orient2) {
     list->len += pos;
     return pos;
   }
 
   int num_left = pos;
 
+  graph_walker_finish(wlk);
+
   // Look for the last node
   hkey_t tgt_n = list->nodes[list->len+num_left-1];
   Orientation tgt_o = opposite_orientation(list->orients[list->len+num_left-1]);
 
   // Walk from right to num_left
-  graph_walker_init(&wlk, db_graph, colour, node2, opposite_orientation(orient2));
-  db_node_set_traversed(db_graph, wlk.node, wlk.orient);
+  graph_walker_init(wlk, db_graph, colour, node2, opposite_orientation(orient2));
+  db_node_set_traversed(db_graph, wlk->node, wlk->orient);
 
   pos = GAP_LIMIT-1;
   nlist[pos] = node2;
@@ -288,21 +291,23 @@ static int traverse_gap(dBNodeBuffer *list,
 
   boolean success = false;
 
-  while(pos >= num_left && graph_traverse(&wlk) &&
-        !db_node_has_traversed(db_graph, wlk.node, wlk.orient))
+  while(pos >= num_left && graph_traverse(wlk) &&
+        !db_node_has_traversed(db_graph, wlk->node, wlk->orient))
   {
-    if(wlk.node == tgt_n && wlk.orient == tgt_o)
+    if(wlk->node == tgt_n && wlk->orient == tgt_o)
     {
       success = true;
       break;
     }
 
-    db_node_set_traversed(db_graph, wlk.node, wlk.orient);
+    db_node_set_traversed(db_graph, wlk->node, wlk->orient);
 
-    nlist[pos] = wlk.node;
-    olist[pos] = opposite_orientation(wlk.orient);
+    nlist[pos] = wlk->node;
+    olist[pos] = opposite_orientation(wlk->orient);
     pos--;
   }
+
+  graph_walker_finish(wlk);
 
   for(i = pos+1; i < GAP_LIMIT; i++)
     db_node_fast_clear_traversed(db_graph, nlist[i]);
@@ -326,7 +331,8 @@ static int traverse_gap(dBNodeBuffer *list,
 // or -1 if not mate pair read or not first contig from mp read
 static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, Colour colour,
                            const char *contig, size_t contig_len,
-                           int mp_first_kmer, path_t *path)
+                           int mp_first_kmer, path_t *path,
+                           GraphWalker *wlk)
 {
   uint32_t kmer_size = graph->kmer_size;
 
@@ -362,7 +368,7 @@ static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, Colour colour,
       if(list->len > 0 && prev_node == HASH_NOT_FOUND)
       {
         // Can we branch the gap from the prev contig?
-        int gapsize = traverse_gap(list, node, orientation, graph, colour);
+        int gapsize = traverse_gap(list, node, orientation, graph, colour, wlk);
 
         if(gapsize == -1)
         {
@@ -408,6 +414,8 @@ void load_paths(read_t *r1, read_t *r2,
 
   dBNodeBuffer *list = &add_paths->list;
   path_t *path = &add_paths->path;
+  GraphWalker *wlk = &add_paths->wlk;
+
   dBGraph *graph = prefs->db_graph;
 
   if(r1->seq.end < graph->kmer_size) return;
@@ -433,7 +441,7 @@ void load_paths(read_t *r1, read_t *r2,
 
     size_t contig_len = contig_end - contig_start;
     parse_contig(list, graph, prefs->into_colour,
-                 r1->seq.b + contig_start, contig_len, -1, path);
+                 r1->seq.b + contig_start, contig_len, -1, path, wlk);
   }
 
   if(r2 != NULL && r2->seq.end >= graph->kmer_size)
@@ -452,7 +460,7 @@ void load_paths(read_t *r1, read_t *r2,
 
       size_t contig_len = contig_end - contig_start;
       parse_contig(list, graph, prefs->into_colour,
-                   r2->seq.b + contig_start, contig_len, mp_first_kmer, path);
+                   r2->seq.b + contig_start, contig_len, mp_first_kmer, path, wlk);
     }
   }
 
@@ -477,22 +485,23 @@ void add_read_paths_to_graph(const char *se_list,
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
 
-  struct AddPaths tmp_pair;
-  db_node_buf_alloc(&tmp_pair.list, 4096);
-  path_alloc(&tmp_pair.path);
+  struct AddPaths tmpdata;
+  db_node_buf_alloc(&tmpdata.list, 4096);
+  path_alloc(&tmpdata.path);
+  graph_walker_alloc(&tmpdata.wlk);
 
   // load se data
   if(se_list != NULL)
   {
     parse_filelists(se_list, NULL, READ_FALIST, &prefs, stats,
-                    &load_paths, &tmp_pair);
+                    &load_paths, &tmpdata);
   }
 
   // load pe data
   if(pe_list1 != NULL && pe_list1[0] != '\0')
   {
     parse_filelists(pe_list1, pe_list2, READ_FALIST,
-                    &prefs, stats, &load_paths, &tmp_pair);
+                    &prefs, stats, &load_paths, &tmpdata);
   }
 
   // Load colour list
@@ -501,11 +510,12 @@ void add_read_paths_to_graph(const char *se_list,
   if(colour_list != NULL)
   {
     parse_filelists(colour_list, NULL, READ_COLOURLIST,
-                    &prefs, stats, &load_paths, &tmp_pair);
+                    &prefs, stats, &load_paths, &tmpdata);
   }
 
-  path_dealloc(&tmp_pair.path);
-  db_node_buf_dealloc(&tmp_pair.list);
+  graph_walker_dealloc(&tmpdata.wlk);
+  path_dealloc(&tmpdata.path);
+  db_node_buf_dealloc(&tmpdata.list);
 
   seq_loading_stats_free(stats);
 

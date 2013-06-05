@@ -321,13 +321,8 @@ static size_t fetch_supernode(hkey_t node, Orientation or,
 // Remove mark traversed and reset shades
 static void supernode_reset(dBGraph *db_graph, CallerSupernode *snode)
 {
-  size_t i;
-  hkey_t *nodes = snode->nodes;
-  for(i = 0; i < snode->num_of_nodes; i++)
-    db_node_fast_clear_traversed(db_graph, nodes[i]);
-
-  // DEV: clear traversed record
-  // memset(snode->shades, 0, snode->num_of_nodes * sizeof(ShadeSet));
+  db_node_fast_clear_traversed(db_graph, snode->nodes[0]);
+  db_node_fast_clear_traversed(db_graph, snode->nodes[snode->num_of_nodes-1]);
 }
 
 // Returns 0 on failure, otherwise snode->num_of_nodes
@@ -405,46 +400,45 @@ static size_t create_supernode(hkey_t node, Orientation or,
   return snode->num_of_nodes;
 }
 
-static boolean can_traverse_node(GraphWalker *wlk, hkey_t node, Orientation or)
-{
-  BinaryKmer tmpbkmer[4];
-  boolean success = !db_node_has_traversed(wlk->db_graph, node, or);
-  if(!graph_traverse_nodes(wlk, 1, &node, tmpbkmer, &or)) return 0;
-
-  // ShadeSet novel_shades;
-  // shades_op(novel_shades, wlk->shades, &~, used_shades);
-  // shades_op(used_shades, used_shades, |, wlk->shades);
-  // success = success || !shades_are_zero(novel_shades);
-
-  db_node_set_traversed(wlk->db_graph, wlk->node, wlk->orient);
-
-  return success;
-}
-
 // Returns 1 if successfully walked across supernode, 0 otherwise
 static boolean walk_supernode(GraphWalker *wlk, CallerSupernode *snode,
                               SuperOrientation snorient)
 {
-  size_t i;
-  if(snorient == forward)
-  {
-    for(i = 0; i < snode->num_of_nodes; i++)
-    {
-      if(!can_traverse_node(wlk, snode->nodes[i], snode->orients[i]))
-        return 0;
-    }
-  }
-  else
-  {
-    for(i = snode->num_of_nodes-1; ; i--)
-    {
-      if(!can_traverse_node(wlk, snode->nodes[i], rev_orient(snode->orients[i])))
-        return 0;
-      if(i == 0) break;
-    }
+  size_t first = 0, last = snode->num_of_nodes-1, tmp;
+  hkey_t first_node, last_node;
+  Orientation first_orient, last_orient;
+  BinaryKmer first_bkmer, last_bkmer;
+
+  // Only need to traverse the last nodes of a supernode
+  if(snorient == forward) {
+    SWAP(first, last, tmp);
   }
 
-  return 1;
+  first_node = snode->nodes[first];
+  first_orient = snode->orients[first];
+  last_node = snode->nodes[last];
+  last_orient = snode->orients[last];
+
+  // Check if we are happy traversing
+  if(wlk->num_paths == 0)
+  {
+    // We only need to mark nodes as visited if we are 
+    if(db_node_has_traversed(wlk->db_graph, first_node, first_orient))
+      return false;
+
+    db_node_set_traversed(wlk->db_graph, first_node, first_orient);
+  }
+
+  // Force traversal of first and last nodes
+  db_graph_oriented_bkmer(wlk->db_graph, first_node, first_orient, first_bkmer);
+  graph_traverse_force(wlk, first_node, first_bkmer, first_orient, true);
+
+  if(last > first) {
+    db_graph_oriented_bkmer(wlk->db_graph, last_node, last_orient, last_bkmer);
+    graph_traverse_force(wlk, last_node, last_bkmer, last_orient, false);
+  }
+
+  return true;
 }
 
 // Constructs a path of supernodes (SupernodePath)
@@ -548,7 +542,6 @@ static void load_allele_path(hkey_t node, Orientation or,
     size_t i, num_edges;
     hkey_t *next_nodes;
     Orientation *next_orients;
-    Nucleotide next_bases[4];
 
     if(snorient == forward) {
       num_edges = snode->num_next;
@@ -562,14 +555,23 @@ static void load_allele_path(hkey_t node, Orientation or,
     }
 
     // Get oriented bkmers
+    // BinaryKmer next_bkmers[4];
+    // for(i = 0; i < num_edges; i++) {
+    //   db_graph_oriented_bkmer(db_graph, next_nodes[i], next_orients[i],
+    //                           next_bkmers[i]);
+    // }
+
+    // if(!graph_traverse_nodes(wlk, num_edges, next_nodes, next_bkmers, next_orients))
+    //   return;
+
+    // Get last bases
+    Nucleotide next_bases[4];
     for(i = 0; i < num_edges; i++) {
       next_bases[i] = db_node_last_nuc(db_graph_bkmer(db_graph, next_nodes[i]),
                                        next_orients[i], db_graph->kmer_size);
     }
 
-    // Jump to next supernode using snode->next_nodes
     int nxt_idx = graph_walker_choose(wlk, num_edges, next_bases);
-
     if(nxt_idx == -1) break;
 
     // printf("TRAVERSED %zu %i\n", (size_t)node, or);
@@ -779,6 +781,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
       size_t num_prev_kmers = k;
 
+      graph_walker_finish(wlk);
+
       k--;
       graph_walker_init(wlk, db_graph, col, preallele_nodes[k], preallele_or[k]);
 
@@ -794,7 +798,9 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       load_allele_path(nodes[i], orients[i], path, snode_hash, wlk,
                        node_store, or_store, snode_store, snodepos_store,
                        &node_count, &snode_count, &snodepos_count);
-    
+
+      graph_walker_finish(wlk);
+
       // Remove mark traversed and reset shades
       for(supindx = 0; supindx < snode_count; supindx++)
         supernode_reset(db_graph, snode_store + supindx);

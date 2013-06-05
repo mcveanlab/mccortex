@@ -122,9 +122,11 @@ int main(int argc, char* argv[])
   size_t path_memory = mem_to_use - graph_mem;
   message("Using %zu bytes hash; %zu bytes for paths\n", graph_mem, path_memory);
 
+  // Edges
   db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
   if(db_graph.edges == NULL) die("Out of memory");
 
+  // In colour
   size_t i, words64_per_col = round_bits_to_words64(hash_kmers);
   uint64_t *bkmer_cols = calloc(words64_per_col*NUM_OF_COLOURS, sizeof(uint64_t));
   if(bkmer_cols == NULL) die("Out of memory");
@@ -133,6 +135,11 @@ int main(int argc, char* argv[])
   for(ptr = bkmer_cols, i = 0; i < NUM_OF_COLOURS; i++, ptr += words64_per_col)
     db_graph.bkmer_in_cols[i] = ptr;
 
+  // Visited
+  db_graph.visited = calloc(hash_kmers, sizeof(uint64_t));
+  if(db_graph.visited == NULL) die("Out of memory");
+
+  // Paths
   db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
   if(db_graph.kmer_paths == NULL) die("Out of memory");
   memset(db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
@@ -214,6 +221,7 @@ int main(int argc, char* argv[])
 
   free(db_graph.edges);
   free(bkmer_cols);
+  free(db_graph.visited);
   free(path_store);
   free(db_graph.kmer_paths);
 

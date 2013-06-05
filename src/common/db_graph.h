@@ -29,15 +29,14 @@ typedef struct
   Covg (*covgs)[NUM_OF_COLOURS]; // [hkey][col]
   Edges *edges;
   Edges (*col_edges)[NUM_OF_COLOURS]; // [hkey][col]
-  uint8_t *status;
   uint64_t *bkmer_in_cols[NUM_OF_COLOURS];
   // path data
   uint64_t *kmer_paths;
   binary_paths_t pdata;
-  // Traversal
-  uint64_t *traverse_fw, *traverse_rv;
-  // Loading nodes
-  uint64_t *readstrt_fw, *readstrt_rv;
+  // Visited
+  uint64_t *visited;
+  // Loading reads
+  uint64_t *readstrt;
   // Info stored here:
   GraphInfo ginfo;
 } dBGraph;
@@ -67,25 +66,24 @@ void db_graph_dealloc(dBGraph *db_graph);
 // Node traversal
 //
 #define db_node_has_traversed(graph,hkey,or) \
-        bitset_has((or)==forward?(graph)->traverse_fw:(graph)->traverse_rv,hkey)
+        bitset_has((graph)->visited, 2*(hkey)+(or))
 #define db_node_set_traversed(graph,hkey,or) \
-        bitset_set((or)==forward?(graph)->traverse_fw:(graph)->traverse_rv,hkey)
+        bitset_set((graph)->visited, 2*(hkey)+(or))
 
 #define db_node_fast_clear_traversed(graph,hkey) \
-        {bitset_clear_word((graph)->traverse_fw,hkey); \
-         bitset_clear_word((graph)->traverse_fw,hkey); }
+        bitset_clear_word((graph)->visited, 2*(hkey))
 
 //
 // Paths
-#define db_graph_kmer_path(graph,node,or) ((graph)->kmer_paths[2*node+or])
+#define db_graph_kmer_path(graph,node,or) ((graph)->kmer_paths[2*(node)+(or)])
 
 //
 // Read start (duplicate removal during read loading)
 //
 #define db_node_has_read_start(graph,hkey,or) \
-        bitset_has((or)==forward?(graph)->readstrt_fw:(graph)->readstrt_rv,hkey)
+        bitset_has((graph)->readstrt, 2*(hkey)+(or))
 #define db_node_set_read_start_status(graph,hkey,or) \
-        bitset_set((or)==forward?(graph)->readstrt_fw:(graph)->readstrt_rv,hkey)
+        bitset_set((graph)->readstrt, 2*(hkey)+(or))
 
 // Get number 
 #define db_graph_sizeof_bkmer_bitset(graph) \
