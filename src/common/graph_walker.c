@@ -76,7 +76,7 @@ void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
   memcpy(wlk, &gw, sizeof(GraphWalker));
 
   // Get bkmer oriented correctly (not bkey)
-  db_node_bkmer(graph, node, orient, wlk->bkmer);
+  db_graph_oriented_bkmer(graph, node, orient, wlk->bkmer);
 
   // Load paths from first kmer
   pickup_paths(wlk);
@@ -86,6 +86,35 @@ void graph_walker_dealloc(GraphWalker *wlk)
 {
   free(wlk->curr_paths);
   free(wlk->paths_data);
+}
+
+// Index of choice or -1
+int graph_walker_choose(GraphWalker *wlk, size_t num_next, Nucleotide bases[4])
+{
+  if(num_next == 0 || (num_next > 1 && wlk->num_paths == 0)) return -1;
+  if(num_next == 1) return 0;
+
+  // Do all the oldest shades pick a consistent next node?
+  path_t *oldest_path = wlk->curr_paths[0];
+  size_t greatest_age = oldest_path->pos;
+  Nucleotide greatest_nuc = oldest_path->bases[oldest_path->pos];
+
+  size_t i;
+  path_t *path;
+
+  for(i = 1; i < wlk->num_paths; i++) {
+    path = wlk->curr_paths[i];
+    if(path->pos < greatest_age) break;
+    if(path->bases[path->pos] != greatest_nuc) return -1;
+  }
+
+  // There is unique next node
+  // Find the correct next node chosen by the paths
+  for(i = 0; i < num_next; i++)
+    if(bases[i] == greatest_nuc)
+      return i;
+
+  die("Something went wrong. [path corruption]");
 }
 
 // return 1 on success, 0 otherwise
@@ -108,33 +137,30 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              hkey_t nodes[4], BinaryKmer bkmers[4],
                              Orientation orients[4])
 {
-  if(num_next == 0 || (num_next > 1 && wlk->num_paths == 0)) return false;
+  Nucleotide next_bases[4];
+  size_t i, j;
+  int nxt_indx;
 
-  if(num_next == 1)
-  {
-    wlk->node = nodes[0];
-    wlk->orient = orients[0];
-    memcpy(wlk->bkmer, bkmers[0], sizeof(BinaryKmer));
-  }
-  else
+  for(i = 0; i < num_next; i++)
+    next_bases[i] = binary_kmer_last_nuc(bkmers[i]);
+
+  nxt_indx = graph_walker_choose(wlk, num_next, next_bases);
+  if(nxt_indx == -1) return false;
+
+  if(num_next > 1)
   {
     // num_next > 1, num_paths > 0
-    size_t i, j;
+    path_t **curr_paths = wlk->curr_paths;
 
     // Do all the oldest shades pick a consistent next node?
-    path_t *oldest_path = wlk->curr_paths[0];
+    path_t *oldest_path = curr_paths[0];
     size_t greatest_age = oldest_path->pos;
     Nucleotide greatest_nuc = oldest_path->bases[oldest_path->pos];
 
     path_t *path, *tmp_path;
 
-    for(i = 1; i < wlk->num_paths; i++) {
-      path = wlk->curr_paths[i];
-      if(path->pos < greatest_age) break;
-      if(path->bases[path->pos] != greatest_nuc) return false;
-    }
+    for(i = 1; i < wlk->num_paths && curr_paths[i]->pos == greatest_age; i++);
 
-    // There is unique next node
     // Find index of first path that disagrees
     for(j = i; j < wlk->num_paths; j++)
     {
@@ -160,30 +186,11 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
       j++;
     }
     wlk->num_paths = j;
-
-    // Find the correct next node chosen by the paths
-    Nucleotide nuc;
-    for(i = 0; i < num_next; i++)
-    {
-      // char str[100];
-      // binary_kmer_to_str(bkmers[i], wlk->db_graph->kmer_size, str);
-      // printf("                (%s)\n", str);
-
-      nuc = binary_kmer_last_nuc(bkmers[i]);
-
-      printf(" %zu) %c:%i [%c]\n", i, binary_nuc_to_char(nuc), orients[i],
-             binary_nuc_to_char(greatest_nuc));
-
-      if(nuc == greatest_nuc)
-      {
-        wlk->node = nodes[i];
-        wlk->orient = orients[i];
-        memcpy(wlk->bkmer, bkmers[i], sizeof(BinaryKmer));
-        break;
-      }
-    }
-    if(i == num_next) die("Something went wrong. [path corruption]");
   }
+
+  wlk->node = nodes[nxt_indx];
+  wlk->orient = orients[nxt_indx];
+  memcpy(wlk->bkmer, bkmers[nxt_indx], sizeof(BinaryKmer));
 
   // Pick up new paths
   pickup_paths(wlk);

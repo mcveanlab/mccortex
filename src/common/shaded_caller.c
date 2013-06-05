@@ -150,7 +150,7 @@ static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
   {
     BinaryKmer bkmer;
     char tmp[MAX_KMER_SIZE+1];
-    db_node_bkmer(db_graph, nodes[0], orients[0], bkmer);
+    db_graph_oriented_bkmer(db_graph, nodes[0], orients[0], bkmer);
     binary_kmer_to_str(bkmer, kmer_size, tmp);
     gzputs(out, tmp);
     i = 1;
@@ -545,33 +545,37 @@ static void load_allele_path(hkey_t node, Orientation or,
     path->supernodes[supindx] = snode;
     path->superorients[supindx] = snorient;
 
-    size_t num_edges;
-    hkey_t *next_n;
-    Orientation *next_o;
-    BinaryKmer tmpbkmer[4];
+    size_t i, num_edges;
+    hkey_t *next_nodes;
+    Orientation *next_orients;
+    Nucleotide next_bases[4];
 
     if(snorient == forward) {
       num_edges = snode->num_next;
-      next_n = snode->next_nodes;
-      next_o = snode->next_orients;
+      next_nodes = snode->next_nodes;
+      next_orients = snode->next_orients;
     }
     else {
       num_edges = snode->num_prev;
-      next_n = snode->prev_nodes;
-      next_o = snode->prev_orients;
+      next_nodes = snode->prev_nodes;
+      next_orients = snode->prev_orients;
+    }
+
+    // Get oriented bkmers
+    for(i = 0; i < num_edges; i++) {
+      next_bases[i] = db_node_last_nuc(db_graph_bkmer(db_graph, next_nodes[i]),
+                                       next_orients[i], db_graph->kmer_size);
     }
 
     // Jump to next supernode using snode->next_nodes
-    // DEV: fix this!!!
-    GraphWalker tmpwlk;
-    memcpy(&tmpwlk, wlk, sizeof(GraphWalker));
-    if(!graph_traverse_nodes(&tmpwlk, num_edges, next_n, tmpbkmer, next_o))
-      break;
+    int nxt_idx = graph_walker_choose(wlk, num_edges, next_bases);
+
+    if(nxt_idx == -1) break;
 
     // printf("TRAVERSED %zu %i\n", (size_t)node, or);
 
-    node = tmpwlk.node;
-    or = tmpwlk.orient;
+    node = next_nodes[nxt_idx];
+    or = next_orients[nxt_idx];
   }
   // printf("DONE\n");
 

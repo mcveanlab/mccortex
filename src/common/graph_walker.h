@@ -29,6 +29,9 @@ void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
 // void graph_walker_init_context(GraphWalker *wlk, dBGraph *graph, int colour,
 //                                Element **els, Orientation *ors, int len);
 
+// Index of choice or -1
+int graph_walker_choose(GraphWalker *wlk, size_t num_next, Nucleotide bases[4]);
+
 // return 1 on success, 0 otherwise
 boolean graph_traverse(GraphWalker *wlk);
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,

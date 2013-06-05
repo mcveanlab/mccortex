@@ -1,1 +1,5 @@
 Cortex with compact memory structures and read-threading
+========================================================
+
+Isaac Turner's experimental fork of cortex_var, to handle larger populations
+with better assembly

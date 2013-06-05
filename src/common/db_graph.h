@@ -49,6 +49,9 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity
 void db_graph_dealloc(dBGraph *db_graph);
 
 #define db_graph_bkmer(graph,key) ((const BinaryKmerPtr)((graph)->ht.table[key]))
+#define db_graph_oriented_bkmer(graph,hkey,or,result) \
+        db_node_oriented_bkmer(db_graph_bkmer(graph,hkey), or, \
+                               (graph)->kmer_size, result)
 
 //
 // kmer in colours

@@ -63,7 +63,7 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 //
 // Orientations
 //
-void bkmer_with_orientation(const BinaryKmer bkmer, Orientation orient,
+void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
                             uint32_t kmer_size, BinaryKmer result)
 {
   if(orient == forward) {

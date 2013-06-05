@@ -90,7 +90,7 @@ uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
                                    Orientation orients[4])
 {
   BinaryKmer fw_bkmer;
-  bkmer_with_orientation(bkmer, orient, db_graph->kmer_size, fw_bkmer);
+  db_node_oriented_bkmer(bkmer, orient, db_graph->kmer_size, fw_bkmer);
   edges = edges_with_orientation(edges, orient);
   return db_graph_next_nodes(db_graph, fw_bkmer, edges,
                              nodes, bkmers, orients);

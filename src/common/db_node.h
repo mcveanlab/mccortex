@@ -50,11 +50,7 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 #define db_node_get_orientation(bkmer,bkey) \
         (binary_kmers_are_equal((bkmer), (bkey)) ? forward : reverse)
 
-#define db_node_bkmer(graph,hkey,or,result) \
-        bkmer_with_orientation(db_graph_bkmer(graph,hkey), or, \
-                               (graph)->kmer_size, result)
-
-void bkmer_with_orientation(const BinaryKmer bkmer, Orientation orient,
+void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
                             uint32_t kmer_size, BinaryKmer result);
 
 #define db_node_first_nuc(bkmer,or,k) \

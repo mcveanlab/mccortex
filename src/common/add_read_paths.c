@@ -82,7 +82,7 @@ static void add_read_path(const dBNodeBuffer *list,
   #ifdef DEBUG
   char str[100];
   BinaryKmer bkmer;
-  db_node_bkmer(graph, nodes[0], orients[0], bkmer);
+  db_graph_oriented_bkmer(graph, nodes[0], orients[0], bkmer);
   binary_kmer_to_str(bkmer, kmer_size, str);
   printf("%s", str);
   for(i = 1; i < list->len; i++)
