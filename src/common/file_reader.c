@@ -372,6 +372,11 @@ void parse_filelists(const char *list_path1, const char *list_path2,
             (size_t)prefs->db_graph->ht.unique_kmers);
   }
 
+  for(i = 0; i < num_files; i++) {
+    if(filelist1[i] != NULL) free(filelist1[i]);
+    if(filelist2[i] != NULL) free(filelist2[i]);
+  }
+
   free(filelist1);
   free(filelist2);
 
@@ -406,7 +411,8 @@ uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
   }
 
   // Get directory path
-  StrBuf *dir = file_reader_get_strbuf_of_dir_path(filelist_abs_path);
+  StrBuf *dir = strbuf_new();
+  file_reader_get_strbuf_of_dir_path(filelist_abs_path, dir);
 
   // Read filelist
   uint32_t lineno = 0;
@@ -595,9 +601,11 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
        db_graph};
 
   // Get directory path
-  StrBuf *dir = file_reader_get_strbuf_of_dir_path(filename_abs_path);
+  StrBuf *dir = strbuf_new();
   StrBuf *line = strbuf_new();
   StrBuf *output_path_str = strbuf_new();
+
+  file_reader_get_strbuf_of_dir_path(filename_abs_path, dir);
 
   GraphInfo *ginfo = &db_graph->ginfo;
 
@@ -649,6 +657,7 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
     }
   }
 
+  strbuf_free(output_path_str);
   strbuf_free(line);
   strbuf_free(dir);
 

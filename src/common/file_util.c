@@ -88,9 +88,8 @@ off_t get_file_size(const char* filepath)
   return -1;
 }
 
-StrBuf* file_reader_generate_filename(const char *base_fmt)
+boolean file_reader_generate_filename(const char *base_fmt, StrBuf *str)
 {
-  StrBuf *str = strbuf_new();
   int i;
 
   for(i = 0; i < 10000; i++)
@@ -98,22 +97,19 @@ StrBuf* file_reader_generate_filename(const char *base_fmt)
     strbuf_reset(str);
     strbuf_sprintf(str, base_fmt, i);
     struct stat st;
-    if(stat(str->buff, &st) != 0) return str;
+    if(stat(str->buff, &st) != 0) return true;
   }
 
-  strbuf_free(str);
-  return NULL;
+  return false;
 }
 
 // Remember to free the result
-StrBuf *file_reader_get_strbuf_of_dir_path(char *path)
+void file_reader_get_strbuf_of_dir_path(const char *path, StrBuf *dir)
 {
   char *tmp = strdup(path);
-  StrBuf *dir = strbuf_create(dirname(tmp));
+  strbuf_set(dir, dirname(tmp));
   strbuf_append_char(dir, '/');
   free(tmp);
-
-  return dir;
 }
 
 char* file_reader_get_current_dir(char abspath[PATH_MAX+1])

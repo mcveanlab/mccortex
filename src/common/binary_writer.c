@@ -105,7 +105,7 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
     if(i == header->num_of_colours) return;
   }
 
-  BinaryKmerPtr bkmer = db_graph_bkmer(db_graph, node);
+  ConstBinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
 
   if(colours == NULL)
   {

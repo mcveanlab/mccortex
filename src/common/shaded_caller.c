@@ -26,7 +26,6 @@
 
 #define MAX_FLANK_KMERS 1000
 #define MAX_ALLELE_KMERS 1000
-#define MAX_WALK_BACK_KMERS 10
 
 #define NODE_BUFFER_SIZE ((MAX_ALLELE_KMERS) * (NUM_OF_COLOURS) * 4)
 
@@ -159,7 +158,7 @@ static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
 
   for(; i < len; i++)
   {
-    nuc = db_node_last_nuc(db_graph_bkmer(db_graph, nodes[i]),
+    nuc = db_node_last_nuc(db_node_bkmer(db_graph, nodes[i]),
                            orients[i], kmer_size);
     gzputc(out, binary_nuc_to_char(nuc));
   }
@@ -276,7 +275,7 @@ static size_t fetch_supernode(hkey_t node, Orientation or,
 {
 #ifdef DEBUG_CALLER
   char tmpstr[100];
-  binary_kmer_to_str(db_graph_bkmer(db_graph, node), db_graph->kmer_size, tmpstr);
+  binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, tmpstr);
   printf("  fetch %s:%i\n", tmpstr, (int)or);
 #endif
 
@@ -292,11 +291,11 @@ static size_t fetch_supernode(hkey_t node, Orientation or,
   {
     #ifdef DEBUG_CALLER
       char tmp[100];
-      binary_kmer_to_str(db_graph_bkmer(db_graph, node), db_graph->kmer_size, tmp);
+      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, tmp);
       printf(">%s:%i nuc:%c\n", tmp, or, binary_nuc_to_char(nuc));
     #endif
 
-    db_graph_next_node_orient(db_graph, db_graph_bkmer(db_graph, node), nuc, or,
+    db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph, node), nuc, or,
                               &node, &or);
 
     if(edges_has_precisely_one_edge(edges[node], rev_orient(or), &nuc))
@@ -332,7 +331,7 @@ static size_t create_supernode(hkey_t node, Orientation or,
 {
 #ifdef DEBUG_CALLER
   char tmpstr[100];
-  binary_kmer_to_str(db_graph_bkmer(db_graph, node), db_graph->kmer_size, tmpstr);
+  binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, tmpstr);
   printf(" create %s:%i\n", tmpstr, (int)or);
 #endif
 
@@ -367,7 +366,7 @@ static size_t create_supernode(hkey_t node, Orientation or,
 
   for(nuc = 0; nuc < 4; nuc++) {
     if(edges_has_edge(union_edges, nuc, first_or)) {
-      db_graph_next_node_orient(db_graph, db_graph_bkmer(db_graph,first_node),
+      db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph,first_node),
                                 nuc, first_or,
                                 snode->prev_nodes + snode->num_prev,
                                 snode->prev_orients + snode->num_prev);
@@ -380,7 +379,7 @@ static size_t create_supernode(hkey_t node, Orientation or,
 
   for(nuc = 0; nuc < 4; nuc++) {
     if(edges_has_edge(union_edges, nuc, last_or)) {
-      db_graph_next_node_orient(db_graph, db_graph_bkmer(db_graph,last_node),
+      db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph,last_node),
                                 nuc, last_or,
                                 snode->next_nodes + snode->num_next,
                                 snode->next_orients + snode->num_next);
@@ -390,8 +389,8 @@ static size_t create_supernode(hkey_t node, Orientation or,
 
 #ifdef DEBUG_CALLER
   char tmpstr1[100], tmpstr2[100];
-  binary_kmer_to_str(db_graph_bkmer(db_graph, first_node), db_graph->kmer_size, tmpstr1);
-  binary_kmer_to_str(db_graph_bkmer(db_graph, last_node), db_graph->kmer_size, tmpstr2);
+  binary_kmer_to_str(db_node_bkmer(db_graph, first_node), db_graph->kmer_size, tmpstr1);
+  binary_kmer_to_str(db_node_bkmer(db_graph, last_node), db_graph->kmer_size, tmpstr2);
   printf("   ( first %s:%i [%i]; last: %s:%i [%i] )\n",
          tmpstr1, (int)first_or, snode->num_prev,
          tmpstr2, (int)last_or, snode->num_next);
@@ -431,11 +430,11 @@ static boolean walk_supernode(GraphWalker *wlk, CallerSupernode *snode,
 
   // Force traversal of first and last nodes
   db_graph_oriented_bkmer(wlk->db_graph, first_node, first_orient, first_bkmer);
-  graph_traverse_force(wlk, first_node, first_bkmer, first_orient, true);
+  graph_traverse_force_jump(wlk, first_node, first_bkmer, true);
 
   if(last > first) {
     db_graph_oriented_bkmer(wlk->db_graph, last_node, last_orient, last_bkmer);
-    graph_traverse_force(wlk, last_node, last_bkmer, last_orient, false);
+    graph_traverse_force_jump(wlk, last_node, last_bkmer, false);
   }
 
   return true;
@@ -459,7 +458,7 @@ static void load_allele_path(hkey_t node, Orientation or,
 
   #ifdef DEBUG_CALLER
     char tmp[100];
-    binary_kmer_to_str(db_graph_bkmer(db_graph,node), db_graph->kmer_size, tmp);
+    binary_kmer_to_str(db_node_bkmer(db_graph,node), db_graph->kmer_size, tmp);
     printf(" load_allele_path: %s:%i\n", tmp, or);
   #endif
 
@@ -518,7 +517,8 @@ static void load_allele_path(hkey_t node, Orientation or,
 
     // Can we walk along this new supernode?
     // Update graph walker by walking along supernode
-    if(!walk_supernode(wlk, snode, snorient)) {
+    if(!walk_supernode(wlk, snode, snorient))
+    {
       // Remove mark traversed and reset shades
       supernode_reset(db_graph, snode);
       break;
@@ -567,7 +567,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     // Get last bases
     Nucleotide next_bases[4];
     for(i = 0; i < num_edges; i++) {
-      next_bases[i] = db_node_last_nuc(db_graph_bkmer(db_graph, next_nodes[i]),
+      next_bases[i] = db_node_last_nuc(db_node_bkmer(db_graph, next_nodes[i]),
                                        next_orients[i], db_graph->kmer_size);
     }
 
@@ -721,78 +721,35 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   hkey_t nodes[4];
   BinaryKmer bkmers[4];
   Orientation orients[4];
-  Edges merged_edges = db_graph->edges[fork_n];
-  size_t num_next;
+  size_t i, num_next;
 
   num_next = db_graph_next_nodes_orient(db_graph,
-                                        db_graph_bkmer(db_graph, fork_n),
-                                        merged_edges, fork_o,
-                                        nodes, bkmers, orients);
+                                        db_node_bkmer(db_graph, fork_n),
+                                        db_node_edges(db_graph, fork_n), fork_o,
+                                        nodes, bkmers);
 
-#ifdef DEBUG_CALLER
-  char tmpstr[100];
-  binary_kmer_to_str(db_graph_bkmer(db_graph, fork_n), db_graph->kmer_size, tmpstr);
-  printf("fork %s:%i out-degree:%i\n", tmpstr, (int)fork_o, (int)num_next);
-#endif
+  for(i = 0; i < num_next; i++) {
+    orients[i] = db_node_get_orientation(db_node_bkmer(db_graph, nodes[i]),
+                                         bkmers[i]);
+  }
+
+  #ifdef DEBUG_CALLER
+    char tmpstr[100];
+    binary_kmer_to_str(db_node_bkmer(db_graph, fork_n), db_graph->kmer_size, tmpstr);
+    printf("fork %s:%i out-degree:%i\n", tmpstr, (int)fork_o, (int)num_next);
+  #endif
+
   // loop over alleles, then colours
-  size_t i, k, supindx, num_of_paths = 0;
-  Colour col, col_loaded = db_graph->ginfo.num_of_colours_loaded;
+  size_t supindx, num_of_paths = 0;
+  Colour colour, colours_loaded = db_graph->ginfo.num_of_colours_loaded;
   for(i = 0; i < num_next; i++)
   {
-    for(col = 0; col < col_loaded; col++)
+    for(colour = 0; colour < colours_loaded; colour++)
     {
       SupernodePath *path = paths + num_of_paths++;
 
-      // See if we can walk back to pick up shades for this allele/colour
-      hkey_t preallele_nodes[MAX_WALK_BACK_KMERS];
-      Orientation preallele_or[MAX_WALK_BACK_KMERS];
-
-      Orientation fork_opp = opposite_orientation(fork_o);
-      Orientation allele_opp = opposite_orientation(orients[i]);
-
-      // DEV: move this to function graph_walker_init_context
-      preallele_nodes[0] = nodes[i];
-      preallele_or[0] = orients[i];
-      preallele_nodes[1] = fork_n;
-      preallele_or[1] = fork_o;
-
-      // Walk backwards over the first kmer of this allele
-      graph_walker_init(wlk, db_graph, col, nodes[i], allele_opp);
-      db_node_set_traversed(db_graph, wlk->node, wlk->orient);
-
-      // then backwards over the forking kmer (last kmer of the 5p flank)
-      BinaryKmer tmpbkmer[4];
-      graph_traverse_nodes(wlk, 1, &fork_n, tmpbkmer, &fork_opp);
-      db_node_set_traversed(db_graph, wlk->node, wlk->orient);
-
-      k = 2;
-      while(k < MAX_WALK_BACK_KMERS && graph_traverse(wlk) &&
-            !db_node_has_traversed(db_graph, wlk->node, wlk->orient))
-      {
-        db_node_set_traversed(db_graph, wlk->node, wlk->orient);
-        preallele_nodes[k] = wlk->node;
-        preallele_or[k] = opposite_orientation(wlk->orient);
-        k++;
-      }
-
-      #ifdef DEBUG
-        printf("Finished backtracking (%zu nodes)\n", k);
-      #endif
-
-      size_t num_prev_kmers = k;
-
-      graph_walker_finish(wlk);
-
-      k--;
-      graph_walker_init(wlk, db_graph, col, preallele_nodes[k], preallele_or[k]);
-
-      // Walk back over the kmers (but not onto the first kmer of the allele)
-      for(k--; k > 0; k--)
-        graph_traverse_nodes(wlk, 1, preallele_nodes+k, tmpbkmer, preallele_or+k);
-
-      // Remove marks on all kmers
-      for(k = 0; k < num_prev_kmers; k++)
-        db_node_fast_clear_traversed(db_graph, preallele_nodes[k]);
+      // See if we can walk back to pick up paths for this allele/colour
+      graph_init_context(wlk, db_graph, colour, nodes[i], orients[i], 10);
 
       // Constructs a path of supernodes (SupernodePath)
       load_allele_path(nodes[i], orients[i], path, snode_hash, wlk,
@@ -816,7 +773,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   {
     #ifdef DEBUG_CALLER
     char tmpsup[100];
-    binary_kmer_to_str(db_graph_bkmer(db_graph, snode_store[i].nodes[0]), db_graph->kmer_size, tmpsup);
+    binary_kmer_to_str(db_node_bkmer(db_graph, snode_store[i].nodes[0]), db_graph->kmer_size, tmpsup);
     printf("check supernode: %s\n", tmpsup);
     #endif
 

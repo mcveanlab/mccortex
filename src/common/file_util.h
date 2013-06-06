@@ -17,8 +17,8 @@ boolean test_file_writable(const char *file);
 off_t get_file_size(const char* filepath);
 
 // Open a new output file with unused name
-StrBuf* file_reader_generate_filename(const char *base_fmt);
-StrBuf *file_reader_get_strbuf_of_dir_path(char *path);
+boolean file_reader_generate_filename(const char *base_fmt, StrBuf *str);
+void file_reader_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
 char* file_reader_get_current_dir(char abspath[PATH_MAX+1]);
 
 #endif /* FILE_UTIL_H_ */

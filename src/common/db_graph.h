@@ -47,51 +47,28 @@ typedef struct
 dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity);
 void db_graph_dealloc(dBGraph *db_graph);
 
-#define db_graph_bkmer(graph,key) ((const BinaryKmerPtr)((graph)->ht.table[key]))
+// Get an oriented bkmer
 #define db_graph_oriented_bkmer(graph,hkey,or,result) \
-        db_node_oriented_bkmer(db_graph_bkmer(graph,hkey), or, \
+        db_node_oriented_bkmer(db_node_bkmer(graph,hkey), or, \
                                (graph)->kmer_size, result)
 
 //
-// kmer in colours
+// Add to the de bruijn graph
 //
-#define db_graph_bkmer_has_col(graph,hkey,col) \
-        bitset_has((graph)->bkmer_in_cols[col], hkey)
-#define db_graph_bkmer_set_col(graph,hkey,col) \
-        bitset_set((graph)->bkmer_in_cols[col], hkey)
-#define db_graph_bkmer_del_col(graph,hkey,col) \
-        bitset_del((graph)->bkmer_in_cols[col], hkey)
 
-//
-// Node traversal
-//
-#define db_node_has_traversed(graph,hkey,or) \
-        bitset_has((graph)->visited, 2*(hkey)+(or))
-#define db_node_set_traversed(graph,hkey,or) \
-        bitset_set((graph)->visited, 2*(hkey)+(or))
+// Note: node may alreay exist in the graph
+hkey_t db_graph_find_or_add_node(dBGraph *db_graph, const BinaryKmer bkey,
+                                 Colour col);
 
-#define db_node_fast_clear_traversed(graph,hkey) \
-        bitset_clear_word((graph)->visited, 2*(hkey))
-
-//
-// Paths
-#define db_graph_kmer_path(graph,node,or) ((graph)->kmer_paths[2*(node)+(or)])
-
-//
-// Read start (duplicate removal during read loading)
-//
-#define db_node_has_read_start(graph,hkey,or) \
-        bitset_has((graph)->readstrt, 2*(hkey)+(or))
-#define db_node_set_read_start_status(graph,hkey,or) \
-        bitset_set((graph)->readstrt, 2*(hkey)+(or))
-
-// Get number 
-#define db_graph_sizeof_bkmer_bitset(graph) \
-        round_bits_to_words64((graph)->ht.capacity)
+// In the case of self-loops in palindromes the two edges collapse into one
+void db_graph_add_edge(dBGraph *db_graph,
+                       hkey_t src_node, hkey_t tgt_node,
+                       Orientation src_orient, Orientation tgt_orient);
 
 //
 // Graph Traversal
 //
+
 void db_graph_next_node(const dBGraph *db_graph,
                         const BinaryKmer bkmer, Nucleotide next_nuc,
                         hkey_t *next_node, Orientation *next_orient);
@@ -103,31 +80,21 @@ void db_graph_next_node_orient(const dBGraph *db_graph,
 
 uint8_t db_graph_next_nodes(const dBGraph *db_graph,
                             const BinaryKmer fw_bkmer, Edges edges,
-                            hkey_t nodes[4], BinaryKmer bkmers[4],
-                            Orientation orients[4]);
+                            hkey_t nodes[4], BinaryKmer bkmers[4]);
 
 uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
                                    const BinaryKmer bkmer, Edges edges,
                                    Orientation orient,
-                                   hkey_t nodes[4], BinaryKmer bkmers[4],
-                                   Orientation orients[4]);
-
-// In the case of self-loops in palindromes the two edges collapse into one
-void db_graph_add_edge(dBGraph *db_graph,
-                       hkey_t src_node, hkey_t tgt_node,
-                       Orientation src_orient, Orientation tgt_orient);
+                                   hkey_t nodes[4], BinaryKmer bkmers[4]);
 
 //
 // Pruning
 //
 
-void db_graph_prune_nodes_lacking_flag(dBGraph *graph, uint8_t flag);
+void db_graph_prune_nodes_lacking_flag(dBGraph *graph, uint64_t *flags);
 
 void db_graph_prune_node(dBGraph *db_graph, hkey_t node);
-void db_graph_prune_nodes(dBGraph *db_graph, hkey_t *nodes, size_t len,
-                          boolean is_supernode);
-
-void db_graph_prune_node_in_colour(dBGraph *db_graph, hkey_t node, Colour col);
+void db_graph_prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len);
 
 //
 // Functions applying to whole graph
@@ -135,8 +102,5 @@ void db_graph_prune_node_in_colour(dBGraph *db_graph, hkey_t node, Colour col);
 void db_graph_remove_uncoloured_nodes(dBGraph *db_graph);
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col);
-
-#define db_graph_set_all_node_statuses(graph,status) \
-        memset((graph)->status, status, (graph)->capacity);
 
 #endif /* DB_GRAPH_H_ */

@@ -1,9 +1,7 @@
 
-
 #include "global.h"
 
 #include <ctype.h> // isspace
-#include <limits.h> // UINT_MAX etc.
 
 #include "string_buffer.h"
 #include "seq_file.h"
@@ -16,11 +14,6 @@
 #include "binary_format.h"
 #include "seq_reader.h"
 
-dBGraph db_graph;
-size_t num_kmers_read = 0;
-
-#define NODEFLAG EFLAG_MARKED
-
 static const char usage[] =
 "usage: filter_subgraph <in.ctx> <capacity> <filelist> <dist> <mem> <out.ctx>\n"
 "  Loads <in.ctx> and dumps a binary <out.ctx> that contains all kmers within\n"
@@ -30,12 +23,17 @@ static const char usage[] =
 "\n"
 "  Comments/bugs/requests: <turner.isaac@gmail.com>\n";
 
-
 typedef struct
 {
   hkey_t *nodes;
   size_t len, capacity;
 } dBNodeList;
+
+
+dBGraph db_graph;
+size_t num_kmers_read = 0;
+
+uint64_t *kmer_mask;
 
 static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
 {
@@ -48,7 +46,7 @@ static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
   BinaryKmer tmpkey;
   db_node_get_key(bkmer, db_graph.kmer_size, tmpkey);
   hkey_t node = hash_table_find(&db_graph.ht, tmpkey);
-  if(node != HASH_NOT_FOUND) db_node_set_flag(&db_graph, node, NODEFLAG);
+  if(node != HASH_NOT_FOUND) bitset_set(kmer_mask, node);
   else stats->unique_kmers++;
 }
 
@@ -74,13 +72,12 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
   int num_next, i;
   hkey_t next_nodes[8];
   BinaryKmer next_bkmers[8];
-  Orientation next_ors[8];
 
-  BinaryKmerPtr bkmer = db_graph_bkmer(&db_graph, node);
+  ConstBinaryKmerPtr bkmer = db_node_bkmer(&db_graph, node);
 
   // Get neighbours in forward dir
   num_next  = db_graph_next_nodes(&db_graph, bkmer, edges & 0xf,
-                                  next_nodes, next_bkmers, next_ors);
+                                  next_nodes, next_bkmers);
 
   BinaryKmer revbkmer;
   binary_kmer_reverse_complement(bkmer, db_graph.kmer_size, revbkmer);
@@ -88,13 +85,12 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
   // Get neighbours in reverse dir
   num_next += db_graph_next_nodes(&db_graph, revbkmer, edges>>4,
                                   next_nodes+num_next,
-                                  next_bkmers+num_next,
-                                  next_ors+num_next);
+                                  next_bkmers+num_next);
 
   // if not flagged add to list
   for(i = 0; i < num_next; i++) {
-    if(!db_node_has_flag(&db_graph, next_nodes[i], NODEFLAG)) {
-      db_node_set_flag(&db_graph, next_nodes[i], NODEFLAG);
+    if(!bitset_has(kmer_mask, next_nodes[i])) {
+      bitset_set(kmer_mask, next_nodes[i]);
       // if list full, exit
       if(list->len == list->capacity) die("Please increase <mem> size");
       list->nodes[list->len++] = next_nodes[i];
@@ -189,20 +185,16 @@ static void filter_subgraph(const char *input_ctx_path,
   free(list1.nodes);
 
   // Remove nodes that were not flagged
-  db_graph_prune_nodes_lacking_flag(&db_graph, NODEFLAG);
-
+  db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
 
   // Dump nodes that were flagged
+  const GraphInfo *ginfo = &db_graph.ginfo;
   size_t nodes_dumped = 0;
 
-  // const GraphInfo *ginfo = &db_graph.ginfo;
-  // nodes_dumped = binary_dump_graph(out_path, &db_graph,
-  //                                  CURR_CTX_VERSION,
-  //                                  NULL, 0, ginfo->num_of_colours_loaded,
-  //                                  ginfo->num_of_shades_loaded);
-
-  // DEV: filter binary from input to output
-  // use bloom filter to speed up checking hash table
+  nodes_dumped = binary_dump_graph(out_path, &db_graph,
+                                   CURR_CTX_VERSION,
+                                   NULL, 0, ginfo->num_of_colours_loaded,
+                                   ginfo->num_of_shades_loaded);
 
   printf("Read in %zu seed kmers\n", num_of_seed_kmers);
   printf("Dumped %zu kmers\n", nodes_dumped);
@@ -258,8 +250,11 @@ int main(int argc, char* argv[])
   db_graph_alloc(&db_graph, kmer_size, kmer_capacity);
   db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
 
+  kmer_mask = calloc(round_bits_to_word64(db_graph.ht.capacity), sizeof(uint64_t));
+
   filter_subgraph(input_ctx_path, input_filelist, dist,
                   num_of_fringe_nodes, out_path);
 
+  free(kmer_mask);
   db_graph_dealloc(&db_graph);
 }

@@ -128,9 +128,11 @@ OPT_TESTS = -O0 -Wstack-protector -fstack-protector
 ifdef DEBUG
 	OPT = $(OPT_TESTS)
 	DEBUG_ARGS = -g -ggdb -DDEBUG=1
+	DEBUG_LIBS = 
 else
 	OPT = -O3 -DNDEBUG=1
 	DEBUG_ARGS = 
+	DEBUG_LIBS =
 endif
 
 # Resolve some issues linking libz:
@@ -146,8 +148,7 @@ INCLUDES_TESTS = $(INCLUDES) -I $(IDIR_BASIC_TESTS) \
 
 # Library linking
 LIB_OBJS = $(LIB_GSL) $(LIB_HTS) $(LIB_ALIGN)
-LINK_LIBS = -lpthread -lz -lm
-LINK_LIBS_TESTS = -lcunit -lncurses $(LINK_LIBS)
+LINK_LIBS = -lpthread -lz -lm $(DEBUG_LIBS)
 
 COMMON_SRCS = $(wildcard src/common/*.c) \
               libs/city_hash/city.c libs/lookup3_hash/lookup3.c \

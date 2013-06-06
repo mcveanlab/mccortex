@@ -33,11 +33,13 @@ void test_traverse(dBGraph *db_graph, char *str)
 
   do {
     binary_kmer_to_str(gwlk.bkmer, db_graph->kmer_size, str);
-    binary_kmer_to_str(db_graph_bkmer(db_graph,gwlk.node), db_graph->kmer_size, tmp);
+    binary_kmer_to_str(db_node_bkmer(db_graph,gwlk.node), db_graph->kmer_size, tmp);
     printf("%s %s:%i\n", str, tmp, gwlk.orient);
   }
   while(graph_traverse(&gwlk));
   printf("\n");
+
+  graph_walker_finish(&gwlk);
 
   graph_walker_dealloc(&gwlk);
 }
@@ -178,16 +180,16 @@ int main(int argc, char* argv[])
 
   // Now call variants
   invoke_shaded_bubble_caller(&db_graph, "calls.pc.bubbles");
-
-  Nucleotide bases[100];
-  uint8_t bytes[100];
+  
+  Nucleotide bases[100] = {0};
+  uint8_t bytes[100] = {0};
 
   bases[0] = 1;
-  // bases[1] = 1;
-  // bases[2] = 2;
-  // bases[3] = 3;
-  // bases[4] = 2;
-  // bases[5] = 3;
+  bases[1] = 1;
+  bases[2] = 2;
+  bases[3] = 3;
+  bases[4] = 2;
+  bases[5] = 3;
 
   // 3210 0032
   // 11100100 00001110

@@ -25,13 +25,14 @@ struct AddPaths {
 static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
                            uint32_t kmer_size)
 {
-  StrBuf *csv_dump = file_reader_generate_filename(base_fmt);
-  FILE *fh;
+  StrBuf *csv_dump = strbuf_new();
 
-  if(csv_dump == NULL) {
+  if(!file_reader_generate_filename(base_fmt, csv_dump)) {
     warn("Cannot dump gapsize");
     return;
   }
+
+  FILE *fh;
 
   if((fh = fopen(csv_dump->buff, "w")) == NULL) {
     warn("Cannot dump gapsize [cannot open: %s]", csv_dump->buff);
@@ -88,7 +89,7 @@ static void add_read_path(const dBNodeBuffer *list,
   binary_kmer_to_str(bkmer, kmer_size, str);
   printf("%s", str);
   for(i = 1; i < list->len; i++)
-    printf("%c", binary_nuc_to_char(db_node_last_nuc(db_graph_bkmer(graph, nodes[i]), orients[i], kmer_size)));
+    printf("%c", binary_nuc_to_char(db_node_last_nuc(db_node_bkmer(graph, nodes[i]), orients[i], kmer_size)));
   printf("\n");
   #endif
 
@@ -99,17 +100,17 @@ static void add_read_path(const dBNodeBuffer *list,
     Orientation or = orients[pos];
 
     #ifdef DEBUG
-      binary_kmer_to_str(db_graph_bkmer(graph,nodes[pos]),kmer_size,str);
+      binary_kmer_to_str(db_node_bkmer(graph,nodes[pos]),kmer_size,str);
       printf(" %s:%i\n", str, or);
     #endif
 
     if(edges_get_outdegree(e, or) > 1) {
-      nuc = db_node_last_nuc(db_graph_bkmer(graph,nodes[pos+1]), orients[pos+1], kmer_size);
+      nuc = db_node_last_nuc(db_node_bkmer(graph,nodes[pos+1]), orients[pos+1], kmer_size);
       nuc_fw[num_fw] = nuc;
       pos_fw[num_fw++] = pos;
     }
     if(edges_get_indegree(e, or) > 1) {
-      const BinaryKmerPtr bptr = db_graph_bkmer(graph, nodes[pos-1]);
+      ConstBinaryKmerPtr bptr = db_node_bkmer(graph, nodes[pos-1]);
       nuc = orients[pos-1] == forward
               ? binary_nuc_complement(binary_kmer_first_nuc(bptr, kmer_size))
               : binary_kmer_last_nuc(bptr);
@@ -168,7 +169,7 @@ static void add_read_path(const dBNodeBuffer *list,
       // Add forward paths
       node = nodes[pos_rv[i]-1];
       orient = orients[pos_rv[i]-1];
-      path->core.prev = db_graph_kmer_path(graph,node,orient);
+      path->core.prev = db_node_paths(graph,node,orient);
 
       for(len = 1; j+len <= num_fw; len++)
       {
@@ -184,13 +185,13 @@ static void add_read_path(const dBNodeBuffer *list,
 
         newpath = binary_paths_add(paths, path, colour);
         if(newpath != PATH_NULL)
-          db_graph_kmer_path(graph,node,orient) = newpath;
+          db_node_paths(graph,node,orient) = newpath;
       }
 
       // Add reverse paths
       node = nodes[pos_fw[j]+1];
       orient = rev_orient(orients[pos_fw[j]+1]);
-      path->core.prev = db_graph_kmer_path(graph,node,orient);
+      path->core.prev = db_node_paths(graph,node,orient);
 
       for(len = 1; len <= i+1; len++)
       {
@@ -206,7 +207,7 @@ static void add_read_path(const dBNodeBuffer *list,
 
         newpath = binary_paths_add(paths, path, colour);
         if(newpath != PATH_NULL)
-          db_graph_kmer_path(graph,node,orient) = newpath;
+          db_node_paths(graph,node,orient) = newpath;
       }
     }
   }
@@ -238,8 +239,8 @@ static int traverse_gap(dBNodeBuffer *list,
 
   #ifdef DEBUG
     char tmp1[100], tmp2[100];
-    binary_kmer_to_str(db_graph_bkmer(db_graph, node1), db_graph->kmer_size, tmp1);
-    binary_kmer_to_str(db_graph_bkmer(db_graph, node2), db_graph->kmer_size, tmp2);
+    binary_kmer_to_str(db_node_bkmer(db_graph, node1), db_graph->kmer_size, tmp1);
+    binary_kmer_to_str(db_node_bkmer(db_graph, node2), db_graph->kmer_size, tmp2);
     printf("traverse gap: %s:%i -> %s:%i\n", tmp1, orient1, tmp2, orient2);
   #endif
 

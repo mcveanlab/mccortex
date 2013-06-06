@@ -8,6 +8,9 @@
 typedef uint64_t BinaryKmer[NUM_BITFIELDS_IN_BKMER];
 typedef uint64_t* BinaryKmerPtr;
 
+typedef const uint64_t ConstBinaryKmer[NUM_BITFIELDS_IN_BKMER];
+typedef const uint64_t* ConstBinaryKmerPtr;
+
 // BinaryKmer that is all zeros
 extern const BinaryKmer zero_bkmer;
 

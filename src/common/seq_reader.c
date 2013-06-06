@@ -427,8 +427,8 @@ char seq_reads_are_novel(const read_t *r1, const read_t *r2, dBGraph *db_graph,
   }
 
   // Read is novel
-  if(got_kmer1) db_node_set_read_start_status(db_graph, node1, or1);
-  if(got_kmer2) db_node_set_read_start_status(db_graph, node2, or2);
+  if(got_kmer1) db_node_set_read_start(db_graph, node1, or1);
+  if(got_kmer2) db_node_set_read_start(db_graph, node2, or2);
   return 1;
 }
 
@@ -453,13 +453,13 @@ char seq_read_is_novel(const read_t *r, dBGraph *db_graph,
   if(db_node_has_read_start(db_graph, node, or)) return 0;
 
   // Read is novel
-  db_node_set_read_start_status(db_graph, node, or);
+  db_node_set_read_start(db_graph, node, or);
   return 1;
 }
 
 void load_read(const read_t *r, dBGraph *db_graph,
                int qual_cutoff, int hp_cutoff,
-               int colour, SeqLoadingStats *stats)
+               Colour colour, SeqLoadingStats *stats)
 {
   if(r->seq.end < db_graph->kmer_size) return;
 
@@ -483,12 +483,10 @@ void load_read(const read_t *r, dBGraph *db_graph,
     BinaryKmer tmp_key;
     hkey_t prev_node, curr_node;
     Orientation prev_or, curr_or;
-    boolean found;
 
     db_node_get_key(bkmer, db_graph->kmer_size, tmp_key);
-    curr_node = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found);
+    curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
     curr_or = db_node_get_orientation(bkmer, tmp_key);
-    db_node_increment_coverage(db_graph, curr_node, colour);
 
     size_t i;
     for(i = contig_start+db_graph->kmer_size; i < contig_end; i++)
@@ -498,10 +496,11 @@ void load_read(const read_t *r, dBGraph *db_graph,
 
       prev_node = curr_node;
       prev_or = curr_or;
+
       db_node_get_key(bkmer, db_graph->kmer_size, tmp_key);
-      curr_node = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found);
+      curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
       curr_or = db_node_get_orientation(bkmer, tmp_key);
-      db_node_increment_coverage(db_graph, curr_node, colour);
+
       db_graph_add_edge(db_graph, prev_node, curr_node, prev_or, curr_or);
     }
 

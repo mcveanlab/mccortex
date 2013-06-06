@@ -11,6 +11,7 @@ void path_init(path_t *path)
 
 void path_alloc(path_t *path)
 {
+  // printf(" path_allocptr: %zu\n", (size_t)path);
   path_init(path);
   path->bpcap = 16;
   path->cmpcap = 4;
@@ -137,7 +138,10 @@ uint64_t binary_paths_add(binary_paths_t *paths, const path_t *path, Colour col)
     return PATH_NULL;
   }
 
-  printf(" Path ADDED\n");
+  #ifdef DEBUG
+    printf(" Path ADDED\n");
+  #endif
+
   path_to_printf(path);
 
   size_t len_in_bytes = round_bits_to_bytes(path->core.len*2);
@@ -171,7 +175,9 @@ void binary_paths_fetch(const binary_paths_t *paths, uint64_t index, path_t *pat
     path->bases = realloc(path->bases, path->bpcap * sizeof(Nucleotide));
   }
 
-  printf(" Path FETCH\n");
+  #ifdef DEBUG
+    printf(" Path FETCH\n");
+  #endif
 
   uint8_t *ptr = paths->store + index;
 

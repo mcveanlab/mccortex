@@ -9,28 +9,9 @@
 #define COVG_MAX UINT_MAX
 
 //
-// Status Constants
+// Get Binary kmers
 //
-#define EFLAG_ZERO      0x0
-
-// Removing duplicates when loading sequence (forward and reverse)
-#define EFLAG_RDSTRT_FW 0x4 // bit:2
-#define EFLAG_RDSTRT_RV 0x8 // bit:3
-// Walking the graph
-#define EFLAG_WALK_FW   0x10// bit:4
-#define EFLAG_WALK_RV   0x20// bit:5
-// Dump a subgraph
-#define EFLAG_MARKED    0x40// bit:6
-// Adding shades
-#define EFLAG_IN_READ   0x40// bit:6
-
-//
-// Status
-//
-#define db_node_set_flag(graph,hkey,flag)  ((graph)->status[hkey] |= (flag))
-#define db_node_del_flag(graph,hkey,flag)  ((graph)->status[hkey] &=~(flag))
-#define db_node_has_flag(graph,hkey,flag)  ((graph)->status[hkey] &  (flag))
-#define db_node_reset_flags(graph,hkey)    ((graph)->status[hkey] = 0)
+#define db_node_bkmer(graph,key) ((const uint64_t*)((graph)->ht.table[key]))
 
 //
 // Get binary kmer key
@@ -39,7 +20,40 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
                     Key restrict kmer_key);
 
 #define db_node_to_str(graph,node,str) \
-        binary_kmer_to_str(db_graph_bkmer(graph,node), (graph)->kmer_size, (str))
+        binary_kmer_to_str(db_node_bkmer(graph,node), (graph)->kmer_size, (str))
+
+//
+// kmer in colours
+//
+#define db_node_has_col(graph,hkey,col) \
+        bitset_has((graph)->bkmer_in_cols[col], hkey)
+#define db_node_set_col(graph,hkey,col) \
+        bitset_set((graph)->bkmer_in_cols[col], hkey)
+#define db_node_del_col(graph,hkey,col) \
+        bitset_del((graph)->bkmer_in_cols[col], hkey)
+
+//
+// Node traversal
+//
+#define db_node_has_traversed(graph,hkey,or) \
+        bitset_has((graph)->visited, 2*(hkey)+(or))
+#define db_node_set_traversed(graph,hkey,or) \
+        bitset_set((graph)->visited, 2*(hkey)+(or))
+
+#define db_node_fast_clear_traversed(graph,hkey) \
+        bitset_clear_word((graph)->visited, 2*(hkey))
+
+//
+// Paths
+#define db_node_paths(graph,node,or) ((graph)->kmer_paths[2*(node)+(or)])
+
+//
+// Read start (duplicate removal during read loading)
+//
+#define db_node_has_read_start(graph,hkey,or) \
+        bitset_has((graph)->readstrt, 2*(hkey)+(or))
+#define db_node_set_read_start(graph,hkey,or) \
+        bitset_set((graph)->readstrt, 2*(hkey)+(or))
 
 //
 // Orientations
@@ -88,7 +102,7 @@ void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
 #define db_node_set_edge(graph,hkey,nuc,or) \
         ((graph)->edges[hkey] = edges_set_edge((graph)->edges[hkey],(nuc),(or)))
 
-#define db_node_get_edges(graph,hkey) ((graph)->edges[hkey])
+#define db_node_edges(graph,hkey) ((graph)->edges[hkey])
 #define db_node_reset_edges(graph,hkey) ((graph)->edges[hkey] = 0)
 
 #define db_node_is_blunt_end(graph,hkey,or) \

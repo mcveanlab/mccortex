@@ -590,7 +590,7 @@ uint32_t binary_load(const char *path, dBGraph *graph,
     if(only_load_if_in_colour >= 0)
     {
       if((node = hash_table_find(&graph->ht, bkmer)) != HASH_NOT_FOUND &&
-         db_graph_bkmer_has_col(graph, node, only_load_if_in_colour))
+         db_node_has_col(graph, node, only_load_if_in_colour))
       {
         node = HASH_NOT_FOUND;
       }
@@ -610,10 +610,17 @@ uint32_t binary_load(const char *path, dBGraph *graph,
 
     if(node != HASH_NOT_FOUND)
     {
+      // Set presence in colours
+      for(i = 0; i < header.num_of_colours; i++)
+        if(covgs[i] > 0 || edges[i] != 0)
+          db_node_set_col(graph, node, load_first_colour_into+i);
+
       if(graph->covgs != NULL) {
         if(increment_covg) {
-          for(i = 0; i < header.num_of_colours; i++)
-            graph->covgs[node][load_first_colour_into+i] += covgs[i];
+          for(i = 0; i < header.num_of_colours; i++) {
+            col = load_first_colour_into+i;
+            db_node_add_coverage(graph, node, covgs[i], col);
+          }
         }
         else {
           for(i = 0; i < header.num_of_colours; i++)
@@ -648,18 +655,6 @@ uint32_t binary_load(const char *path, dBGraph *graph,
 
       num_of_kmers_loaded++;
     }
-
-    // Merge shades
-    #if NUM_OF_SHADES > 0
-      if(header.num_of_shades > 0)
-      {
-        for(i = 0; i < header.num_of_colours; i++) {
-          uint32_t col = load_first_colour_into+i;
-          shades_op(node->shades[col], node->shades[col], |, shades);
-          shades_op(node->shends[col], node->shends[col], |, shends);
-        }
-      }
-    #endif
   }
 
   if(num_of_kmers_parsed > header.num_of_kmers)
