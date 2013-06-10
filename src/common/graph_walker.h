@@ -17,6 +17,7 @@ typedef struct
   // Current paths
   path_t **curr_paths, *paths_data;
   size_t num_paths, paths_cap;
+  size_t new_path_pos, num_new_paths;
 
   uint64_t *prev_paths;
   size_t num_pp, pp_cap;
@@ -34,7 +35,7 @@ void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
 // context is now many nodes to go back (up to MAX_WALK_BACK_NODES)
 // Remember to call finish when done with wlk
 void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
-                        hkey_t node, Orientation orient, size_t context);
+                        hkey_t node, Orientation orient);
 
 void graph_walker_finish(GraphWalker *wlk);
 
@@ -42,9 +43,10 @@ void graph_walker_finish(GraphWalker *wlk);
 // void graph_walker_init_context(GraphWalker *wlk, dBGraph *graph, int colour,
 //                                Element **els, Orientation *ors, int len);
 
-// Index of choice or -1
+// Returns index of choice or -1
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
-                        const Nucleotide bases[4]);
+                        const hkey_t next_nodes[4],
+                        const Nucleotide next_bases[4]);
 
 // If fork is true, node is the result of taking a fork -> slim down paths
 void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,

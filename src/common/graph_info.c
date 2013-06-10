@@ -1,4 +1,5 @@
 #include "global.h"
+#include "graph_info.h"
 #include "db_graph.h"
 
 void error_cleaning_init(ErrorCleaning *ec)

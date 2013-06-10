@@ -10,6 +10,7 @@
 #include "util.h"
 #include "binary_kmer.h"
 #include "db_graph.h"
+#include "graph_info.h"
 #include "seq_reader.h"
 #include "binary_format.h"
 

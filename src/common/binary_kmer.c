@@ -242,3 +242,17 @@ char *reverse_complement_str(char *str, size_t length)
 
   return str;
 }
+
+void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len)
+{
+  size_t i;
+  for(i = 0; i < len; i++)
+    bases[i] = binary_nuc_from_char(str[i]);
+}
+
+void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len)
+{
+  size_t i;
+  for(i = 0; i < len; i++)
+    str[i] = binary_nuc_to_char(bases[i]);
+}

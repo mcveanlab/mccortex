@@ -1,15 +1,14 @@
 
-
 #include "global.h"
 
 #include <zlib.h>
-
 #include "string_buffer.h"
 #include "seq_file.h"
 
 #include "util.h"
 #include "file_util.h"
-#include "hash_table.h"
+#include "db_graph.h"
+#include "db_node.h"
 #include "binary_kmer.h"
 #include "seq_reader.h"
 #include "binary_format.h"

@@ -1,5 +1,8 @@
 #include "global.h"
 #include "db_graph.h"
+#include "db_node.h"
+#include "graph_info.h"
+#include "binary_paths.h"
 
 dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity)
 {
@@ -289,8 +292,11 @@ void db_graph_remove_uncoloured_nodes(dBGraph *db_graph)
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
-  size_t bitfield_size = round_bits_to_words64(db_graph->ht.capacity);
-  memset(db_graph->bkmer_in_cols[col], 0, bitfield_size);
+  if(db_graph->node_in_cols[0] != NULL)
+  {
+    size_t size = round_bits_to_words64(db_graph->ht.capacity);
+    memset(db_graph->node_in_cols[col], 0, size);
+  }
 
   if(db_graph->covgs != NULL)
   {
@@ -299,5 +305,48 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
     for(i = 0; i < capacity; i++) covgs[i][col] = 0;
   }
 
+  if(db_graph->col_edges != NULL)
+  {
+    size_t i, capacity = db_graph->ht.capacity;
+    Edges (*col_edges)[NUM_OF_COLOURS] = db_graph->col_edges;
+    for(i = 0; i < capacity; i++) col_edges[i][col] = 0;
+  }
+
   db_graph_remove_uncoloured_nodes(db_graph);
+}
+
+//
+// Kmer paths
+//
+
+void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
+{
+  const binary_paths_t *paths = &db_graph->pdata;
+  path_t path;
+  path_alloc(&path);
+  uint32_t kmer_size = db_graph->kmer_size;
+  char str[100];
+  uint64_t node, index;
+  Orientation orient;
+  boolean printed = false;
+  message("\n-------- paths --------\n");
+
+  for(node = 0; node < db_graph->ht.capacity; node++) {
+    if(db_graph_node_assigned(db_graph, node)) {
+      binary_kmer_to_str(db_node_bkmer(db_graph, node), kmer_size, str);
+      for(orient = 0; orient < 2; orient++)
+      {
+        printed = false;
+        index = db_node_paths(db_graph, node, orient);
+        while(index != PATH_NULL) {
+          if(!printed) { printf("%s:%i\n", str, orient); printed = true; }
+          binary_paths_fetch(paths, index, &path);
+          binary_paths_dump_path(&path);
+          index = path.core.prev;
+        }
+      }
+    }
+  }
+  path_dealloc(&path);
+  message("-----------------------\n\n");
 }

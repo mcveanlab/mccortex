@@ -3,10 +3,8 @@
 
 #include <inttypes.h>
 
-#include "binary_kmer.h"
+#include "graph_typedef.h"
 #include "db_graph.h"
-
-#define COVG_MAX UINT_MAX
 
 //
 // Get Binary kmers
@@ -26,11 +24,11 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 // kmer in colours
 //
 #define db_node_has_col(graph,hkey,col) \
-        bitset_has((graph)->bkmer_in_cols[col], hkey)
+        bitset_has((graph)->node_in_cols[col], hkey)
 #define db_node_set_col(graph,hkey,col) \
-        bitset_set((graph)->bkmer_in_cols[col], hkey)
+        bitset_set((graph)->node_in_cols[col], hkey)
 #define db_node_del_col(graph,hkey,col) \
-        bitset_del((graph)->bkmer_in_cols[col], hkey)
+        bitset_del((graph)->node_in_cols[col], hkey)
 
 //
 // Node traversal

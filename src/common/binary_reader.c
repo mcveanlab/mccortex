@@ -1,6 +1,8 @@
 #include "global.h"
 #include "binary_format.h"
 #include "db_graph.h"
+#include "db_node.h"
+#include "graph_info.h"
 #include "file_util.h"
 
 static inline size_t stream_skip(FILE *fh, size_t skip)
@@ -529,7 +531,7 @@ uint32_t binary_load(const char *path, dBGraph *graph,
                      SeqLoadingStats *stats)
 {
   assert(only_load_if_in_colour < (signed)load_first_colour_into);
-  assert(only_load_if_in_colour == -1 || graph->bkmer_in_cols != NULL);
+  assert(only_load_if_in_colour == -1 || graph->node_in_cols[0] != NULL);
 
   FILE* fh = fopen(path, "r");
   if(fh == NULL) die("Cannot open file: %s\n", path);
@@ -611,9 +613,11 @@ uint32_t binary_load(const char *path, dBGraph *graph,
     if(node != HASH_NOT_FOUND)
     {
       // Set presence in colours
-      for(i = 0; i < header.num_of_colours; i++)
-        if(covgs[i] > 0 || edges[i] != 0)
-          db_node_set_col(graph, node, load_first_colour_into+i);
+      if(graph->node_in_cols[0] != NULL) {
+        for(i = 0; i < header.num_of_colours; i++)
+          if(covgs[i] > 0 || edges[i] != 0)
+            db_node_set_col(graph, node, load_first_colour_into+i);
+      }
 
       if(graph->covgs != NULL) {
         if(increment_covg) {

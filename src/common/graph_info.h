@@ -2,33 +2,11 @@
 #define DB_INFO_H_
 
 #include <inttypes.h>
-#include "string_buffer.h"
-
-typedef struct
-{
-  boolean tip_clipping, remv_low_cov_sups, remv_low_cov_nodes;
-
-  // Thesholds are zero if not used (e.g. remv_low_cov_sups == false)
-  Covg remv_low_cov_sups_thresh, remv_low_cov_nodes_thresh;
-
-  // Cleaning a low covg sample against cleaned pool of population
-  boolean cleaned_against_another_graph;
-  StrBuf* cleaned_against_graph_name;
-} ErrorCleaning;
+#include "graph_typedef.h"
 
 void error_cleaning_init(ErrorCleaning *ec);
 ErrorCleaning* error_cleaning_alloc(ErrorCleaning *ec);
 void error_cleaning_dealloc(ErrorCleaning *ec);
-
-typedef struct
-{
-  StrBuf *sample_names[NUM_OF_COLOURS];
-  uint64_t total_sequence[NUM_OF_COLOURS];
-  uint32_t mean_read_length[NUM_OF_COLOURS];
-  long double seq_err[NUM_OF_COLOURS];
-  ErrorCleaning cleaning[NUM_OF_COLOURS];
-  uint32_t num_of_colours_loaded, num_of_shades_loaded;
-} GraphInfo;
 
 void graph_info_init(GraphInfo *ginfo);
 GraphInfo* graph_info_alloc(GraphInfo *ginfo);

@@ -1,6 +1,8 @@
 #include "global.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "graph_walker.h"
+#include "util.h"
 #include "file_util.h"
 #include "seq_reader.h"
 #include "file_reader.h"
@@ -72,15 +74,20 @@ static void add_read_path(const dBNodeBuffer *list,
 
   uint32_t kmer_size = graph->kmer_size;
 
-  // Edges
-  Edges *edges = graph->edges;
-
+  Edges edges[list->len];
+  int indegree[list->len], outdegree[list->len];
   Nucleotide nuc_fw[list->len], nuc_rv[list->len];
   uint32_t pos_fw[list->len], pos_rv[list->len];
 
   // Find forks
-  size_t pos, i, j, k, num_fw = 0, num_rv = 0;
+  size_t i, j, num_fw = 0, num_rv = 0;
   Nucleotide nuc;
+
+  for(i = 0; i < list->len; i++) {
+    edges[i] = graph->edges[nodes[i]];
+    outdegree[i] = edges_get_outdegree(edges[i], orients[i]);
+    indegree[i] = edges_get_indegree(edges[i], orients[i]);
+  }
 
   #ifdef DEBUG
   char str[100];
@@ -88,36 +95,37 @@ static void add_read_path(const dBNodeBuffer *list,
   db_graph_oriented_bkmer(graph, nodes[0], orients[0], bkmer);
   binary_kmer_to_str(bkmer, kmer_size, str);
   printf("%s", str);
-  for(i = 1; i < list->len; i++)
-    printf("%c", binary_nuc_to_char(db_node_last_nuc(db_node_bkmer(graph, nodes[i]), orients[i], kmer_size)));
+  for(i = 1; i < list->len; i++) {
+    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i]);
+    char c = db_node_last_nuc(bkmerptr, orients[i], kmer_size);
+    putc(binary_nuc_to_char(c), stdout);
+  }
   printf("\n");
   #endif
 
-  for(pos = 1; pos+1 < list->len; pos++)
+  for(i = 0; i < list->len; i++)
   {
-    hkey_t hkey = nodes[pos];
-    Edges e = edges[hkey];
-    Orientation or = orients[pos];
-
-    #ifdef DEBUG
-      binary_kmer_to_str(db_node_bkmer(graph,nodes[pos]),kmer_size,str);
-      printf(" %s:%i\n", str, or);
-    #endif
-
-    if(edges_get_outdegree(e, or) > 1) {
-      nuc = db_node_last_nuc(db_node_bkmer(graph,nodes[pos+1]), orients[pos+1], kmer_size);
+    if(i+1 < list->len && outdegree[i] > 1) {
+      ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph,nodes[i+1]);
+      nuc = db_node_last_nuc(bkmerptr, orients[i+1], kmer_size);
       nuc_fw[num_fw] = nuc;
-      pos_fw[num_fw++] = pos;
+      pos_fw[num_fw++] = i;
+      // Ensure this nodes is in this colour
+      db_node_set_col(graph, nodes[i+1], colour);
     }
-    if(edges_get_indegree(e, or) > 1) {
-      ConstBinaryKmerPtr bptr = db_node_bkmer(graph, nodes[pos-1]);
-      nuc = orients[pos-1] == forward
-              ? binary_nuc_complement(binary_kmer_first_nuc(bptr, kmer_size))
-              : binary_kmer_last_nuc(bptr);
+    if(i > 0 && indegree[i] > 1) {
+      ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i-1]);
+      nuc = orients[i-1] == forward
+              ? binary_nuc_complement(binary_kmer_first_nuc(bkmerptr, kmer_size))
+              : binary_kmer_last_nuc(bkmerptr);
       nuc_rv[num_rv] = nuc;
-      pos_rv[num_rv++] = pos;
+      pos_rv[num_rv++] = i;
+      // Ensure this nodes is in this colour
+      db_node_set_col(graph, nodes[i-1], colour);
     }
   }
+
+  if(num_rv == 0 || num_fw == 0) return;
 
   // Reverse rv
   size_t tmp;
@@ -138,81 +146,91 @@ static void add_read_path(const dBNodeBuffer *list,
     printf("\n");
   #endif
 
-  // Unsure path is long enough
-  // Add is faster than MAX2
-  size_t len = round_bits_to_bytes((num_fw+num_rv) * 2);
-  if(len > path->cmpcap) {
-    path->cmpcap = ROUNDUP2POW(path->cmpcap);
-    path->cmpctseq = realloc(path->cmpctseq, path->cmpcap * sizeof(uint8_t));
-  }
-
   path_init(path);
   bitset_set(path->core.colours, colour);
 
   // to add a path
   hkey_t node;
   Orientation orient;
-  uint64_t newpath;
+  uint64_t pindex;
 
   // Path data
   binary_paths_t *paths = &graph->pdata;
 
-  Nucleotide *bases = path->bases;
+  // Store this temporarily
+  Nucleotide *tmp_bases = path->bases;
+  size_t start_fw, start_rv;
 
-  // Generate paths
-  for(i = 0; i < num_rv; i++) {
-    for(j = 0; j < num_fw && pos_rv[i] <= pos_fw[j]; j++)
-    {
-      // start = pos_rv[i]-1;
-      // end = pos_fw[j]+1;
+  // .//\/
 
-      // Add forward paths
-      node = nodes[pos_rv[i]-1];
-      orient = orients[pos_rv[i]-1];
-      path->core.prev = db_node_paths(graph,node,orient);
+  //
+  // Generate paths going backwards through the contig
+  //
+  #ifdef DEBUG
+    printf("==REV==\n");
+  #endif
 
-      for(len = 1; j+len <= num_fw; len++)
-      {
-        path->core.len = len;
-        path->bases = nuc_fw + j;
+  for(start_rv = 0, start_fw = num_fw-1; ; start_fw--)
+  {
+    while(start_rv < num_rv && pos_rv[start_rv] > pos_fw[start_fw]) start_rv++;
+    if(start_rv == num_rv) break;
 
-        // debug
-        char str[100];
-        db_node_to_str(graph, node, str);
-        printf(" FwAddPath: %s [%zu]", str, len);
-        for(k = 0; k < path->core.len; k++) printf(" %c", binary_nuc_to_char(path->bases[k]));
-        printf("\n");
+    size_t pos = pos_fw[start_fw] + 1;
+    if(start_rv > 0 && pos_rv[start_rv-1] == pos) start_rv--;
 
-        newpath = binary_paths_add(paths, path, colour);
-        if(newpath != PATH_NULL)
-          db_node_paths(graph,node,orient) = newpath;
-      }
+    node = nodes[pos];
+    orient = rev_orient(orients[pos]);
+    path->core.prev = db_node_paths(graph, node, orient);
+    path->bases = nuc_rv + start_rv;
+    path->core.len = num_rv - start_rv;
 
-      // Add reverse paths
-      node = nodes[pos_fw[j]+1];
-      orient = rev_orient(orients[pos_fw[j]+1]);
-      path->core.prev = db_node_paths(graph,node,orient);
+    #ifdef DEBUG
+    binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+    printf(" %s:%i) start_rv: %zu start_fw: %zu {%i}\n", str, orient,
+           start_rv, start_fw, pos_fw[start_fw]);
+    #endif
 
-      for(len = 1; len <= i+1; len++)
-      {
-        path->core.len = len;
-        path->bases = nuc_rv + i;
+    if((pindex = binary_paths_add(paths, path, colour)) != PATH_NULL)
+      db_node_paths(graph, node, orient) = pindex;
 
-        // debug
-        char str[100];
-        db_node_to_str(graph, node, str);
-        printf(" RvAddPath: %s [%zu]", str, len);
-        for(k = 0; k < path->core.len; k++) printf(" %c", binary_nuc_to_char(path->bases[k]));
-        printf("\n");
-
-        newpath = binary_paths_add(paths, path, colour);
-        if(newpath != PATH_NULL)
-          db_node_paths(graph,node,orient) = newpath;
-      }
-    }
+    if(start_fw == 0) break;
   }
 
-  path->bases = bases;
+  //
+  // Generate forward paths
+  //
+  #ifdef DEBUG
+    printf("==FWD==\n");
+  #endif
+
+  for(start_fw = 0, start_rv = num_rv-1; ; start_rv--)
+  {
+    while(start_fw < num_fw && pos_fw[start_fw] < pos_rv[start_rv]) start_fw++;
+    if(start_fw == num_fw) break;
+
+    size_t pos = pos_rv[start_rv] - 1;
+    if(start_fw > 0 && pos_fw[start_fw-1] == pos) start_fw--;
+
+    node = nodes[pos];
+    orient = orients[pos];
+    path->core.prev = db_node_paths(graph, node, orient);
+    path->bases = nuc_fw + start_fw;
+    path->core.len = num_fw - start_fw;
+
+    #ifdef DEBUG
+    binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+    printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
+           start_rv, start_fw);
+    #endif
+
+    if((pindex = binary_paths_add(paths, path, colour)) != PATH_NULL)
+      db_node_paths(graph, node, orient) = pindex;
+
+    if(start_rv == 0) break;
+  }
+
+  // Restore saved
+  path->bases = tmp_bases;
 }
 
 // fill in gap in read node1==>---<==node2
@@ -525,5 +543,11 @@ void add_read_paths_to_graph(const char *se_list,
   dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, GAP_LIMIT, kmer_size);
   dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, GAP_LIMIT, kmer_size);
 
+  binary_paths_t *pdata = &prefs.db_graph->pdata;
+  size_t bytes_used = pdata->next - pdata->store;
+  char mem_used[100];
+  bytes_to_str(bytes_used, 1, mem_used);
+
   message("Paths added\n");
+  message("Currently %s used for %zu paths\n", mem_used, pdata->num_paths);
 }

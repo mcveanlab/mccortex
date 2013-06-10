@@ -11,6 +11,7 @@
 #include "binary_kmer.h"
 #include "hash_table.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "binary_format.h"
 #include "seq_reader.h"
 
@@ -250,7 +251,8 @@ int main(int argc, char* argv[])
   db_graph_alloc(&db_graph, kmer_size, kmer_capacity);
   db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
 
-  kmer_mask = calloc(round_bits_to_word64(db_graph.ht.capacity), sizeof(uint64_t));
+  size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity);
+  kmer_mask = calloc(num_words64, sizeof(uint64_t));
 
   filter_subgraph(input_ctx_path, input_filelist, dist,
                   num_of_fringe_nodes, out_path);

@@ -1,16 +1,54 @@
 #include "global.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "graph_walker.h"
+
+#ifdef DEBUG
+#define DEBUG_WALKER 1
+#endif
+
+
+static void print_state(const GraphWalker *wlk)
+{
+  char tmp[100], tmp2[100];
+  binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, tmp);
+  ConstBinaryKmerPtr bkmerptr = db_node_bkmer(wlk->db_graph, wlk->node);
+  binary_kmer_to_str(bkmerptr, wlk->db_graph->kmer_size, tmp2);
+  printf("gw:%s (%s:%i)\n", tmp, tmp2, wlk->orient);
+  printf(" num_paths: %zu; path_cap: %zu; new_path_pos: %zu; num_new_paths: %zu;\n",
+         wlk->num_paths, wlk->paths_cap, wlk->new_path_pos, wlk->num_new_paths);
+  size_t i;
+  for(i = 0; i < wlk->num_paths; i++) {
+    binary_paths_dump_path(wlk->curr_paths[i]);
+  }
+  printf("-\n");
+  size_t end = wlk->new_path_pos + wlk->num_new_paths;
+  for(i = wlk->new_path_pos; i < end; i++) {
+    binary_paths_dump_path(wlk->curr_paths[i]);
+  }
+  printf("-\n");
+}
 
 static void resize_curr_paths(GraphWalker *wlk)
 {
+  #ifdef DEBUG_WALKER
+    printf("%s:%i RESIZE %zu\n", __FILE__, __LINE__, wlk->paths_cap);
+    print_state(wlk);
+  #endif
+
   size_t i, old_size = wlk->paths_cap;
+  path_t *old_paths_data = wlk->paths_data;
   wlk->paths_cap *= 2;
   wlk->curr_paths = realloc(wlk->curr_paths, wlk->paths_cap * sizeof(path_t*));
   wlk->paths_data = realloc(wlk->paths_data, wlk->paths_cap * sizeof(path_t));
 
   if(wlk->curr_paths == NULL || wlk->paths_data == NULL) die("Out of memory");
 
+  // Update old addresses
+  for(i = 0; i < old_size; i++)
+    wlk->curr_paths[i] = wlk->paths_data + (wlk->curr_paths[i] - old_paths_data);
+
+  // alloc new
   for(i = old_size; i < wlk->paths_cap; i++)
   {
     wlk->curr_paths[i] = wlk->paths_data + i;
@@ -20,40 +58,55 @@ static void resize_curr_paths(GraphWalker *wlk)
 
 static void pickup_paths(GraphWalker *wlk)
 {
-  uint64_t index = db_node_paths(wlk->db_graph, wlk->node, wlk->orient);
-
-  if(index != PATH_NULL)
-  {
-    printf("Checking paths list [%zu]\n", (size_t)index);
-
-    const binary_paths_t *paths = &wlk->db_graph->pdata;
+  // Convert new paths into followed paths
+  // if(wlk->num_new_paths > 0)
+  // {
+  //   if(wlk->new_path_pos > wlk->num_paths) {
+  //     path_t *tmp_path;
+  //     size_t i, j, end = wlk->new_path_pos + wlk->num_new_paths;
+  //     for(i = wlk->new_path_pos, j = wlk->num_paths; i < end; i++, j++) {
+  //       SWAP(wlk->curr_paths[j], wlk->curr_paths[i], tmp_path);
+  //     }
+  //   }
+  //   wlk->num_paths += wlk->num_new_paths;
+  // }
   
-    // Fetch first path
-    size_t i = wlk->num_paths;
-    binary_paths_fetch(paths, index, wlk->curr_paths[i]);
+  // size_t end_pos = wlk->new_path_pos = wlk->num_paths;
+  size_t end_pos = wlk->num_paths;
 
-    do
+  if(end_pos+1 >= wlk->paths_cap)
+    resize_curr_paths(wlk);
+
+  // Pick up new paths
+  uint64_t prev_index, index = db_node_paths(wlk->db_graph, wlk->node, wlk->orient);
+  const binary_paths_t *paths = &wlk->db_graph->pdata;
+
+  while(index != PATH_NULL)
+  {
+    binary_paths_fetch(paths, index, wlk->curr_paths[end_pos]);
+    prev_index = wlk->curr_paths[end_pos]->core.prev;
+
+    if(path_has_col(wlk->curr_paths[end_pos], wlk->colour))
     {
-      printf("  new possible path\n");
-      if(path_has_col(wlk->curr_paths[i], wlk->colour)) {
-        printf("  -> picked up path\n");
-
-        // Unmark this paths in the paths database
-        if(wlk->num_pp == wlk->pp_cap) {
-          wlk->pp_cap *= 2;
-          wlk->prev_paths = realloc(wlk->prev_paths, wlk->pp_cap*sizeof(uint64_t));
-        }
-        wlk->prev_paths[wlk->num_pp++] = index;
-        binary_paths_del_col(paths, index, wlk->colour);
-
-        i++;
-        if(i+1 >= wlk->paths_cap) resize_curr_paths(wlk);
+      // Unmark this path in the paths database
+      if(wlk->num_pp == wlk->pp_cap) {
+        wlk->pp_cap *= 2;
+        wlk->prev_paths = realloc(wlk->prev_paths, wlk->pp_cap*sizeof(uint64_t));
       }
-    }
-    while(binary_paths_prev(paths, wlk->curr_paths[i], wlk->curr_paths[i+1]));
+      wlk->prev_paths[wlk->num_pp++] = index;
+      binary_paths_del_col(paths, index, wlk->colour);
 
-    wlk->num_paths = i;
+      end_pos++;
+
+      if(end_pos+1 >= wlk->paths_cap)
+        resize_curr_paths(wlk);
+    }
+
+    index = prev_index;
   }
+
+  wlk->num_paths = end_pos;
+  // wlk->num_new_paths = end_pos - wlk->num_paths;
 }
 
 void graph_walker_alloc(GraphWalker *wlk)
@@ -88,11 +141,18 @@ void graph_walker_dealloc(GraphWalker *wlk)
 void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
                        hkey_t node, Orientation orient)
 {
+  #ifdef DEBUG_WALKER
+    char str[100];
+    binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+    printf("INIT %s:%i\n", str, orient);
+  #endif
+
   GraphWalker gw = {.db_graph = graph, .colour = colour,
                     .node = node, .orient = orient,
                     .curr_paths = wlk->curr_paths,
                     .paths_data = wlk->paths_data,
                     .num_paths = 0, .paths_cap = wlk->paths_cap,
+                    .new_path_pos = 0, .num_new_paths = 0,
                     .prev_paths = wlk->prev_paths,
                     .num_pp = 0, .pp_cap = wlk->pp_cap};
 
@@ -116,17 +176,48 @@ void graph_walker_finish(GraphWalker *wlk)
 
 // Returns index of choice or -1
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
-                        const Nucleotide bases[4])
+                        const hkey_t next_nodes[4],
+                        const Nucleotide next_bases[4])
 {
-  if(num_next == 0 || (num_next > 1 && wlk->num_paths == 0)) return -1;
+  #ifdef DEBUG_WALKER
+    printf("CHOOSE\n");
+    print_state(wlk);
+  #endif
+
+  if(num_next == 0) return -1;
   if(num_next == 1) return 0;
+
+  // Reduce next nodes that are
+  int indices[4];
+  hkey_t nodes[4];
+  Nucleotide bases[4];
+  size_t i, j;
+
+  for(i = 0, j = 0; i < num_next; i++)
+  {
+    if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->colour)) {
+      nodes[j] = next_nodes[i];
+      bases[j] = next_bases[i];
+      indices[j] = i;
+      j++;
+    }
+  }
+
+  if(j == 0) {
+    memcpy(nodes, next_nodes, 4 * sizeof(hkey_t));
+    memcpy(bases, next_bases, 4 * sizeof(Nucleotide));
+    for(i = 0; i < 4; i++) indices[i] = i;
+  }
+
+  num_next = j;
+
+  if(num_next > 1 && wlk->num_paths == 0) return -1;
 
   // Do all the oldest shades pick a consistent next node?
   path_t *oldest_path = wlk->curr_paths[0];
   size_t greatest_age = oldest_path->pos;
   Nucleotide greatest_nuc = oldest_path->bases[oldest_path->pos];
 
-  size_t i;
   path_t *path;
 
   for(i = 1; i < wlk->num_paths; i++) {
@@ -139,9 +230,10 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   // Find the correct next node chosen by the paths
   for(i = 0; i < num_next; i++)
     if(bases[i] == greatest_nuc)
-      return i;
+      return indices[i];
 
-  die("Something went wrong. [path corruption]");
+  die("Something went wrong. [path corruption] {%zu:%c}",
+      num_next, binary_nuc_to_char(greatest_nuc));
 }
 
 // Force a traversal
@@ -149,6 +241,12 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
                                boolean fork)
 {
+  #ifdef DEBUG_WALKER
+    char str[100];
+    binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
+    printf("FORCE JUMP %s (fork:%s)\n", str, fork ? "yes" : "no");
+  #endif
+
   if(fork)
   {
     Nucleotide base = binary_kmer_last_nuc(bkmer);
@@ -225,7 +323,7 @@ boolean graph_traverse(GraphWalker *wlk)
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              const hkey_t nodes[4], const Nucleotide bases[4])
 {
-  int nxt_indx = graph_walker_choose(wlk, num_next, bases);
+  int nxt_indx = graph_walker_choose(wlk, num_next, nodes, bases);
 
   // printf("  nxt_indx: %i\n", nxt_indx);
   if(nxt_indx == -1) return false;
@@ -235,12 +333,18 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
   return true;
 }
 
-// context is now many nodes to go back (up to MAX_WALK_BACK_NODES)
+// Gets context up to (but not including) the node you pass
+// graph_init_context(wlk, graph, colour, node, orient)
+// graph_traverse_force_jump(node, orient)
 // Remember to call finish when done with wlk
 void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
-                        hkey_t node, Orientation orient, size_t context)
+                        hkey_t node, Orientation orient)
 {
-  assert(context <= MAX_WALK_BACK_NODES);
+  #ifdef DEBUG_WALKER
+    char str[100];
+    binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
+    printf("INIT CONTEXT %s:%i\n", str, orient);
+  #endif
 
   hkey_t nodes[MAX_WALK_BACK_NODES+1];
   Orientation orients[MAX_WALK_BACK_NODES+1];
@@ -253,7 +357,7 @@ void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
 
   nodes[0] = node;
   orients[0] = dir;
-  bases[0] = binary_kmer_last_nuc(wlk->bkmer);
+  bases[0] = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   int i, num_nodes = 1;
 
@@ -262,8 +366,8 @@ void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
   {
     db_node_set_traversed(db_graph, wlk->node, wlk->orient);
     nodes[num_nodes] = wlk->node;
-    orients[num_nodes] = opposite_orientation(wlk->orient);
-    bases[num_nodes] = binary_kmer_last_nuc(wlk->bkmer);
+    orients[num_nodes] = wlk->orient;
+    bases[num_nodes] = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
     num_nodes++;
   }
 
@@ -274,13 +378,25 @@ void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
     db_node_fast_clear_traversed(db_graph, nodes[i]);
 
   graph_walker_init(wlk, db_graph, colour,
-                    nodes[num_nodes-1], orients[num_nodes-1]);
+                    nodes[num_nodes-1], rev_orient(orients[num_nodes-1]));
 
   // Walk back over the kmers
   boolean was_fork = false;
+  Edges edges;
+  Nucleotide base;
   for(i = num_nodes-1; i > 0; ) {
-    was_fork = edges_get_outdegree(db_node_edges(db_graph, nodes[i]), orients[i]) > 1;
+    edges = db_node_edges(db_graph, nodes[i]);
+    was_fork = edges_get_indegree(edges, orients[i]) > 1;
     i--;
-    graph_traverse_force(wlk, nodes[i], bases[i], was_fork);
+    base = binary_nuc_complement(bases[i]);
+    #ifdef DEBUG_WALKER
+      printf(" take base %c\n", binary_nuc_to_char(base));
+    #endif
+    graph_traverse_force(wlk, nodes[i], base, was_fork);
   }
+
+  #ifdef DEBUG_WALKER
+    printf("GOT CONTEXT\n\n");
+    print_state(wlk);
+  #endif
 }

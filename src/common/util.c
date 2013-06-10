@@ -82,21 +82,23 @@ char parse_entire_ulong(char *str, unsigned long *result)
 
 // Load a string of numbers into an array. Separator can be any non-numerical
 // character. e.g. '1,2,3' '1 2 3'
-// Returns 1 if the number of uint parsed == explen, 0 otherwise
-boolean parse_uint_liststr(const char *str, uint32_t *arr, uint32_t explen)
+// Returns number of unsigned integers parsed. 
+// Sets *more = 1 if string end not reached
+uint32_t parse_uint_liststr(const char *str, uint32_t *arr, uint32_t arrlen,
+                            boolean *more)
 {
   const char *tmp = str;
   char *endptr = NULL;
   uint32_t i;
-  for(i = 0; i < explen; i++)
+  for(i = 0; i < arrlen; i++)
   {
-    if(*tmp < '0' || *tmp > '9') tmp++;
-    long j = strtol(tmp, &endptr, 10);
-    if(tmp == endptr || j < 0) return 0;
-    arr[i] = j;
+    while(*tmp != '\0' && (*tmp < '0' || *tmp > '9')) tmp++;
+    if(*tmp == '\0') break;
+    arr[i] = strtol(tmp, &endptr, 10);
     tmp = endptr;
   }
-  return (*tmp == '\0');
+  *more = (*tmp != '\0');
+  return i;
 }
 
 size_t count_char(const char *str, char c)
@@ -136,6 +138,118 @@ boolean mem_to_integer(const char *arg, size_t *bytes)
   if(*endptr != '\0') return false;
   *bytes = num;
   return true;
+}
+
+/* Formating Numbers */
+
+unsigned int num_of_digits(unsigned long num)
+{
+  unsigned int digits;
+
+  for(digits = 1; num >= 10; digits++)
+    num /= 10;
+
+  return digits;
+}
+
+// result must be long enough for result + 1 ('\0'). Max length required is:
+// strlen('18,446,744,073,709,551,615')+1 = 27
+// returns pointer to result
+char* ulong_to_str(unsigned long num, char* result)
+{
+  int digits = num_of_digits(num);
+  int num_commas = (digits-1) / 3;
+
+  int i;
+  char *p = result + digits + num_commas;
+
+  *p = '\0';
+  p--;
+
+  for(i = 0; i < digits; i++)
+  {
+    if(i > 0 && i % 3 == 0)
+    {
+      *p = ',';
+      p--;
+    }
+
+    *p = '0' + (num % 10);
+    p--;
+    num /= 10;
+  }
+
+  return result;
+}
+
+// result must be long enough for result + 1 ('\0'). Max length required is:
+// strlen('-9,223,372,036,854,775,808')+1 = 27
+char* long_to_str(long num, char* result)
+{
+  if(num < 0)
+  {
+    result[0] = '-';
+    ulong_to_str(-num, result+1);
+  }
+  else
+  {
+    ulong_to_str(num, result);
+  }
+
+  return result;
+}
+
+// result must be long enough for result + 1 ('\0').
+// Max length required is: 26+1+decimals+1 = 28+decimals bytes
+// strlen('-9,223,372,036,854,775,808') = 27
+// strlen('.') = 1
+// +1 for \0
+char* double_to_str(double num, int decimals, char* str)
+{
+  unsigned long whole_units = (unsigned long)num;
+  num -= whole_units;
+
+  ulong_to_str(whole_units, str);
+
+  if(decimals > 0)
+  {
+    // Horrible hack to save character being overwritten with a leading zero
+    // e.g. 12.121 written as '12' then '0.121', giving '10.121', put back '2'
+    // '12.121'
+    size_t offset = strlen(str);
+    char c = str[offset-1];
+    sprintf(str+offset-1, "%.*lf", decimals, num);
+    str[offset-1] = c;
+  }
+
+  return str;
+}
+
+// str must be 26 + 3 + 1 + num decimals + 1 = 31+decimals bytes
+// breakdown:
+// strlen('18,446,744,073,709,551,615') = 26
+// strlen(' GB') = 3
+// strlen('.') = 1
+// +1 for '\0'
+char* bytes_to_str(unsigned long num, int decimals, char* str)
+{
+  const unsigned int num_unit_sizes = 7;
+  const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
+
+  unsigned long unit;
+  unsigned long num_cpy = num;
+
+  for(unit = 0; num_cpy >= 1024 && unit < num_unit_sizes; unit++)
+    num_cpy /= 1024;
+
+  unsigned long bytes_in_unit = 0x1UL << (10 * unit);
+  double num_of_units = (double)num / bytes_in_unit;
+
+  double_to_str(num_of_units, decimals, str);
+  size_t offset = strlen(str);
+  sprintf(str+offset, " %s", units[unit]);
+
+  return str;
 }
 
 /*

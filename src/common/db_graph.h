@@ -3,46 +3,10 @@
 
 #include <inttypes.h>
 
-#include "binary_kmer.h"
-#include "hash_table.h"
+#include "graph_typedef.h"
 
-typedef uint8_t Colour;
-typedef uint8_t Edges;
-typedef uint32_t Covg;
-
-#include "graph_info.h"
-#include "binary_paths.h"
-
-typedef enum
-{
-  forward = 0,
-  reverse = 1
-} Orientation;
-
-typedef BinaryKmerPtr Key;
-
-typedef struct
-{
-  HashTable ht;
-  uint32_t kmer_size;
-  // Optional fields:
-  Covg (*covgs)[NUM_OF_COLOURS]; // [hkey][col]
-  Edges *edges;
-  Edges (*col_edges)[NUM_OF_COLOURS]; // [hkey][col]
-  uint64_t *bkmer_in_cols[NUM_OF_COLOURS];
-  // path data
-  uint64_t *kmer_paths;
-  binary_paths_t pdata;
-  // Visited
-  uint64_t *visited;
-  // Loading reads
-  uint64_t *readstrt;
-  // Info stored here:
-  GraphInfo ginfo;
-} dBGraph;
-
-// Basic operations on the graph nodes
-#include "db_node.h"
+#define db_graph_node_assigned(graph,hkey) \
+        HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
 
 dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity);
 void db_graph_dealloc(dBGraph *db_graph);
@@ -102,5 +66,7 @@ void db_graph_prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len);
 void db_graph_remove_uncoloured_nodes(dBGraph *db_graph);
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col);
+
+void db_graph_dump_paths_by_kmer(const dBGraph *db_graph);
 
 #endif /* DB_GRAPH_H_ */

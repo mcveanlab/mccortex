@@ -162,13 +162,13 @@ PROC_CALLS_SRCS = src/tools/proc_calls.c $(COMMON_SRCS)
 PLACE_CALLS_SRCS = src/tools/place_calls.c src/common/call_seqan.o $(COMMON_SRCS)
 FILTER_SUBGRAPH_SRCS = src/tools/filter_subgraph.c $(COMMON_SRCS)
 FILTER_READS_SRCS = src/tools/filter_reads.c $(COMMON_SRCS)
-ADD_PATHS_SRCS = src/tools/ctx_add_paths.c $(COMMON_SRCS)
+CTX_CALL_SRCS = src/tools/ctx_call.c $(COMMON_SRCS)
 
 PROC_CALLS_HDRS = $(COMMON_HDRS)
 PLACE_CALLS_HDRS = $(COMMON_HDRS)
 FILTER_SUBGRAPH_HDRS = $(COMMON_HDRS)
 FILTER_READS_HDRS = $(COMMON_HDRS)
-ADD_PATHS_HDRS = $(COMMON_HDRS)
+CTX_CALL_HDRS = $(COMMON_HDRS)
 
 MAXK_NUMCOLS = $(MAXK)_c$(NUM_COLS)
 
@@ -178,7 +178,7 @@ FILTERREADS_BIN=$(BIN)/filter_reads_$(MAXK_NUMCOLS)
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=$(LIB_OBJS) $(BIN)
 
-all: filter_reads filter_subgraph proc_calls place_calls ctx_add_paths
+all: filter_reads filter_subgraph proc_calls place_calls ctx_call
 
 proc_calls: bin/proc_calls
 bin/proc_calls:  $(PROC_CALLS_SRCS) $(PROC_CALLS_HDRS) Makefile | $(DEPS)
@@ -200,10 +200,10 @@ $(FILTERREADS_BIN): $(FILTER_READS_SRCS) $(FILTER_READS_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(FILTERREADS_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(FILTER_READS_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled filter_reads
 
-ctx_add_paths: bin/ctx_add_paths
-bin/ctx_add_paths: $(ADD_PATHS_SRCS) $(ADD_PATHS_HDRS) Makefile | $(DEPS)
-	$(CC) -o bin/ctx_add_paths $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(ADD_PATHS_SRCS) $(LIB_OBJS) $(LINK_LIBS)
-	@echo Sucessfully compiled ctx_add_paths
+ctx_call: bin/ctx_call
+bin/ctx_call: $(CTX_CALL_SRCS) $(CTX_CALL_HDRS) Makefile | $(DEPS)
+	$(CC) -o bin/ctx_call $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_CALL_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled ctx_call
 
 src/common/call_seqan.o: src/common/call_seqan.cpp src/common/call_seqan.h
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c -o src/common/call_seqan.o src/common/call_seqan.cpp
@@ -225,5 +225,5 @@ clean:
 	rm -rf $(BIN)/* $(TEMP_TEST_DIR)/* src/common/*.o
 
 .PHONY: all clean cunit
-.PHONY: cortex_var proc_calls place_calls filter_reads filter_subgraph ctx_add_paths
+.PHONY: cortex_var proc_calls place_calls filter_reads filter_subgraph ctx_call
 

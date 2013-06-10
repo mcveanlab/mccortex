@@ -6,6 +6,7 @@
 #include "seq_reader.h"
 #include "binary_kmer.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "file_reader.h"
 
 static boolean invalid_bases[256];

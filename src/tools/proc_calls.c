@@ -259,8 +259,7 @@ static void str_get_key(char *key, const char *kmer, uint32_t kmer_size)
 static void var_set_keys(Var *var, uint32_t kmer_size)
 {
   StrBuf *fl5p = var->flank5p, *fl3p = var->flank3p;
-
-  printf("5p:%s 3p:%s\n", fl5p->buff, fl3p->buff);
+  // printf("5p:%s 3p:%s\n", fl5p->buff, fl3p->buff);
 
   char *key0 = var->key;
   char *key1 = var->key + kmer_size;
@@ -424,15 +423,15 @@ static void parse_shaded_header(gzFile in, CallHeader* ch)
     char *value = strdup(eq+1);
     *eq = '=';
 
-    if(strcasecmp(tag, "ctxCmd") == 0)
+    if(strcasecmp(tag, "ctxKmerSize") == 0)
     {
       // Get kmer size from cmd line
-      char *str = strstr(value, "--kmer_size");
-      if(str == NULL || sscanf(str, "--kmer_size %zu", &ch->kmer_size) != 1) {
+      unsigned int kmer_size;
+      if(!parse_entire_uint(value, &kmer_size))
         die("Couldn't read kmer size line: %s=%s", tag, value);
-      }
+      ch->kmer_size = kmer_size;
     }
-    if(strcasecmp(tag, "ctx_calling_in_colours") == 0)
+    if(strcasecmp(tag, "ctxNumCallingUsedInColours") == 0)
     {
       if(ch->num_samples != 0) die("duplicate header line: %s", line->buff);
 
@@ -444,7 +443,7 @@ static void parse_shaded_header(gzFile in, CallHeader* ch)
     }
     else if(strncasecmp(tag, "sample", 6) == 0)
     {
-      if(ch->sample_names == NULL) die("missing 'ctx_calling_in_colours=' line");
+      if(ch->sample_names == NULL) die("missing 'ctxNumCallingUsedInColours=' line");
 
       strbuf_ensure_capacity(tmp, line->len);
       if(sscanf(line->buff, "##SAMPLE=<ID=%[^,],", tmp->buff) != 1)
@@ -730,7 +729,9 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     {
       load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
       strbuf_chomp(line);
-      load_assert(parse_uint_liststr(line->buff, cr->covgs, branch_nodes) != 0, line);
+      boolean more = false;
+      uint32_t num = parse_uint_liststr(line->buff, cr->covgs, branch_nodes, &more);
+      load_assert(num == branch_nodes && !more, line);
       delta_arr_from_uint_arr(cr->covgs, branch_nodes, &(branch->covgs[i]));
     }
 
@@ -858,9 +859,9 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
         // Skip first value
         char *tmp = strchr(line->buff, ' ');
         load_assert(tmp != NULL, line);
-        printf("branch_nodes: %zu\n", branch_nodes);
-
-        load_assert(parse_uint_liststr(tmp+1, cr->covgs, branch_nodes) != 0, line);
+        boolean more = false;
+        uint32_t num = parse_uint_liststr(tmp+1, cr->covgs, branch_nodes, &more);
+        load_assert(num == branch_nodes && !more, line);
         delta_arr_from_uint_arr(cr->covgs, branch_nodes, &(branch->covgs[col]));
       }
     }
@@ -907,17 +908,19 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
   {
     // Use N as ref padding base
     strbuf_append_char(tmp, 'N');
-    strbuf_append_str(tmp, allele->seq->buff);
+    strbuf_append_strn(tmp, allele->seq->buff, allele->seq->len);
 
     for(allele = allele->next; allele != NULL; allele = allele->next)
     {
       strbuf_append_str(tmp, ",N");
-      strbuf_append_str(tmp, allele->seq->buff);
+      strbuf_append_strn(tmp, allele->seq->buff, allele->seq->len);
     }
   }
 
-  gzprintf(out_vcf, "un\t1\tvar%zu\tN\t%s\t.\tPASS\tLF=%.*s;RF=%.*s",
-           entry_num, tmp->buff, kmer_size, flank5p, kmer_size, flank3p);
+  gzprintf(out_vcf, "un\t1\tvar%zu\tN\t", entry_num);
+  gzputs(out_vcf, tmp->buff);
+  gzprintf(out_vcf, "\t.\tPASS\tLF=%.*s;RF=%.*s",
+           kmer_size, flank5p, kmer_size, flank3p);
 
   // Print BN (branch nodes)
   allele = var->first_allele;

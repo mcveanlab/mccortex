@@ -1,6 +1,7 @@
 #include "global.h"
 #include "binary_format.h"
 #include "db_graph.h"
+#include "db_node.h"
 
 const int CURR_CTX_VERSION = 7;
 const char CTX_MAGIC_WORD[7] = "CORTEX";
