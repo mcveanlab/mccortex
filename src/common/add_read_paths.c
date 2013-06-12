@@ -22,6 +22,7 @@ struct AddPaths {
   dBNodeBuffer list;
   path_t path;
   GraphWalker wlk;
+  uint64_t *visited;
 };
 
 static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
@@ -240,7 +241,7 @@ static void add_read_path(const dBNodeBuffer *list,
 // If unsucessful: doesn't add anything to the list, returns -1
 static int traverse_gap(dBNodeBuffer *list,
                         hkey_t node2, Orientation orient2,
-                        dBGraph *db_graph, int colour,
+                        const dBGraph *db_graph, uint64_t *visited, int colour,
                         GraphWalker *wlk)
 {
   hkey_t node1 = list->nodes[list->len-1];
@@ -264,14 +265,14 @@ static int traverse_gap(dBNodeBuffer *list,
 
   // Walk from left -> right
   graph_walker_init(wlk, db_graph, colour, node1, orient1);
-  db_node_set_traversed(db_graph, wlk->node, wlk->orient);
+  db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   int i, pos = 0;
 
   while(pos < GAP_LIMIT && graph_traverse(wlk) &&
-        !db_node_has_traversed(db_graph, wlk->node, wlk->orient))
+        !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
-    db_node_set_traversed(db_graph, wlk->node, wlk->orient);
+    db_node_set_traversed(visited, wlk->node, wlk->orient);
 
     nlist[pos] = wlk->node;
     olist[pos] = wlk->orient;
@@ -281,9 +282,9 @@ static int traverse_gap(dBNodeBuffer *list,
       break;
   }
 
-  db_node_fast_clear_traversed(db_graph, node1);
+  db_node_fast_clear_traversed(visited, node1);
   for(i = 0; i < pos; i++)
-    db_node_fast_clear_traversed(db_graph, nlist[i]);
+    db_node_fast_clear_traversed(visited, nlist[i]);
 
   if(wlk->node == node2 && wlk->orient == orient2) {
     list->len += pos;
@@ -300,7 +301,7 @@ static int traverse_gap(dBNodeBuffer *list,
 
   // Walk from right to num_left
   graph_walker_init(wlk, db_graph, colour, node2, opposite_orientation(orient2));
-  db_node_set_traversed(db_graph, wlk->node, wlk->orient);
+  db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   pos = GAP_LIMIT-1;
   nlist[pos] = node2;
@@ -311,7 +312,7 @@ static int traverse_gap(dBNodeBuffer *list,
   boolean success = false;
 
   while(pos >= num_left && graph_traverse(wlk) &&
-        !db_node_has_traversed(db_graph, wlk->node, wlk->orient))
+        !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     if(wlk->node == tgt_n && wlk->orient == tgt_o)
     {
@@ -319,7 +320,7 @@ static int traverse_gap(dBNodeBuffer *list,
       break;
     }
 
-    db_node_set_traversed(db_graph, wlk->node, wlk->orient);
+    db_node_set_traversed(visited, wlk->node, wlk->orient);
 
     nlist[pos] = wlk->node;
     olist[pos] = opposite_orientation(wlk->orient);
@@ -329,7 +330,7 @@ static int traverse_gap(dBNodeBuffer *list,
   graph_walker_finish(wlk);
 
   for(i = pos+1; i < GAP_LIMIT; i++)
-    db_node_fast_clear_traversed(db_graph, nlist[i]);
+    db_node_fast_clear_traversed(visited, nlist[i]);
 
   if(success)
   {
@@ -348,8 +349,8 @@ static int traverse_gap(dBNodeBuffer *list,
 // stop if contig_len-offset < kmer_size
 // mp_first_kmer is the number of bp into the second mp of the first contig
 // or -1 if not mate pair read or not first contig from mp read
-static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, Colour colour,
-                           const char *contig, size_t contig_len,
+static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, uint64_t *visited,
+                           Colour colour, const char *contig, size_t contig_len,
                            int mp_first_kmer, path_t *path,
                            GraphWalker *wlk)
 {
@@ -387,7 +388,8 @@ static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, Colour colour,
       if(list->len > 0 && prev_node == HASH_NOT_FOUND)
       {
         // Can we branch the gap from the prev contig?
-        int gapsize = traverse_gap(list, node, orientation, graph, colour, wlk);
+        int gapsize = traverse_gap(list, node, orientation, graph, visited,
+                                   colour, wlk);
 
         if(gapsize == -1)
         {
@@ -434,6 +436,7 @@ void load_paths(read_t *r1, read_t *r2,
   dBNodeBuffer *list = &add_paths->list;
   path_t *path = &add_paths->path;
   GraphWalker *wlk = &add_paths->wlk;
+  uint64_t *visited = add_paths->visited;
 
   dBGraph *graph = prefs->db_graph;
 
@@ -459,7 +462,7 @@ void load_paths(read_t *r1, read_t *r2,
                                 qcutoff1, hp_cutoff, &search_start);
 
     size_t contig_len = contig_end - contig_start;
-    parse_contig(list, graph, prefs->into_colour,
+    parse_contig(list, graph, visited, prefs->into_colour,
                  r1->seq.b + contig_start, contig_len, -1, path, wlk);
   }
 
@@ -478,7 +481,7 @@ void load_paths(read_t *r1, read_t *r2,
                                   qcutoff2, hp_cutoff, &search_start);
 
       size_t contig_len = contig_end - contig_start;
-      parse_contig(list, graph, prefs->into_colour,
+      parse_contig(list, graph, visited, prefs->into_colour,
                    r2->seq.b + contig_start, contig_len, mp_first_kmer, path, wlk);
     }
   }
@@ -505,9 +508,15 @@ void add_read_paths_to_graph(const char *se_list,
   SeqLoadingStats *stats = seq_loading_stats_create(0);
 
   struct AddPaths tmpdata;
+
   db_node_buf_alloc(&tmpdata.list, 4096);
   path_alloc(&tmpdata.path);
   graph_walker_alloc(&tmpdata.wlk);
+
+  size_t visited_bytes = 2 * round_bits_to_words64(prefs.db_graph->ht.capacity);
+  tmpdata.visited = calloc(visited_bytes, sizeof(uint64_t));
+
+  if(tmpdata.visited == NULL) die("Out of memory");
 
   // load se data
   if(se_list != NULL)
@@ -550,4 +559,6 @@ void add_read_paths_to_graph(const char *se_list,
 
   message("Paths added\n");
   message("Currently %s used for %zu paths\n", mem_used, pdata->num_paths);
+
+  free(tmpdata.visited);
 }

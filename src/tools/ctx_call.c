@@ -14,6 +14,8 @@ static const char usage[] =
 "    --se_list <col> <in.list>\n"
 "    --pe_list <col> <pe.list1> <pe.list2>\n";
 
+#define NUM_THREADS 2
+
 /*
 void test_traverse(dBGraph *db_graph, char *str)
 {
@@ -163,15 +165,18 @@ int main(int argc, char* argv[])
                      round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
                      round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
 
-  if(graph_mem > mem_to_use) {
-    print_usage(usage, "Not enough memory; hash table requires %zu", graph_mem);
+  size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * NUM_THREADS;
+
+  if(graph_mem+thread_mem > mem_to_use) {
+    print_usage(usage, "Not enough memory; hash table: %zu; threads: %zu",
+                graph_mem, thread_mem);
   }
 
   // Allocate memory
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, hash_kmers);
 
-  size_t path_memory = mem_to_use - graph_mem;
+  size_t path_memory = mem_to_use - graph_mem - thread_mem;
   message("Using %zu bytes hash; %zu bytes for paths\n", graph_mem, path_memory);
 
   // Edges
@@ -188,8 +193,8 @@ int main(int argc, char* argv[])
     db_graph.node_in_cols[i] = ptr;
 
   // Visited
-  db_graph.visited = calloc(hash_kmers, sizeof(uint64_t));
-  if(db_graph.visited == NULL) die("Out of memory");
+  // db_graph.visited = calloc(hash_kmers, sizeof(uint64_t));
+  // if(db_graph.visited == NULL) die("Out of memory");
 
   // Paths
   db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
@@ -260,13 +265,13 @@ int main(int argc, char* argv[])
   // db_graph_dump_paths_by_kmer(&db_graph);
 
   // Now call variants
-  invoke_shaded_bubble_caller(&db_graph, out_path);
+  invoke_shaded_bubble_caller(&db_graph, out_path, NUM_THREADS);
 
   // test(&db_graph);
 
   free(db_graph.edges);
   free(bkmer_cols);
-  free(db_graph.visited);
+  // free(db_graph.visited);
   free(path_store);
   free(db_graph.kmer_paths);
 

@@ -28,7 +28,7 @@ typedef struct
 typedef uint64_t hkey_t;
 #define HASH_NOT_FOUND UINT64_MAX
 
-#define HASH_ENTRY_ASSIGNED(ptr) !((ptr)[0] & UNSET_BKMER)
+#define HASH_ENTRY_ASSIGNED(ptr) (!((ptr)[0] & UNSET_BKMER))
 
 // Get number of bytes required for a given size
 size_t hash_table_mem(size_t req_capacity, size_t *act_capacity);

@@ -7,7 +7,7 @@
 #define DEBUG_WALKER 1
 #endif
 
-
+#ifdef DEBUG_WALKER
 static void print_state(const GraphWalker *wlk)
 {
   char tmp[100], tmp2[100];
@@ -28,6 +28,7 @@ static void print_state(const GraphWalker *wlk)
   }
   printf("-\n");
 }
+#endif
 
 static void resize_curr_paths(GraphWalker *wlk)
 {
@@ -89,12 +90,12 @@ static void pickup_paths(GraphWalker *wlk)
     if(path_has_col(wlk->curr_paths[end_pos], wlk->colour))
     {
       // Unmark this path in the paths database
-      if(wlk->num_pp == wlk->pp_cap) {
-        wlk->pp_cap *= 2;
-        wlk->prev_paths = realloc(wlk->prev_paths, wlk->pp_cap*sizeof(uint64_t));
-      }
-      wlk->prev_paths[wlk->num_pp++] = index;
-      binary_paths_del_col(paths, index, wlk->colour);
+      // if(wlk->num_pp == wlk->pp_cap) {
+      //   wlk->pp_cap *= 2;
+      //   wlk->prev_paths = realloc(wlk->prev_paths, wlk->pp_cap*sizeof(uint64_t));
+      // }
+      // wlk->prev_paths[wlk->num_pp++] = index;
+      // binary_paths_del_col(paths, index, wlk->colour);
 
       end_pos++;
 
@@ -124,8 +125,8 @@ void graph_walker_alloc(GraphWalker *wlk)
   wlk->paths_data = paths_data;
   wlk->paths_cap = paths_cap;
 
-  wlk->pp_cap = 1024;
-  wlk->prev_paths = malloc(wlk->pp_cap * sizeof(uint64_t));
+  // wlk->pp_cap = 1024;
+  // wlk->prev_paths = malloc(wlk->pp_cap * sizeof(uint64_t));
 }
 
 void graph_walker_dealloc(GraphWalker *wlk)
@@ -135,10 +136,10 @@ void graph_walker_dealloc(GraphWalker *wlk)
   for(i = 0; i < wlk->paths_cap; i++) path_dealloc(paths+i);
   free(wlk->curr_paths);
   free(wlk->paths_data);
-  free(wlk->prev_paths);
+  // free(wlk->prev_paths);
 }
 
-void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
+void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
                        hkey_t node, Orientation orient)
 {
   #ifdef DEBUG_WALKER
@@ -152,9 +153,9 @@ void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
                     .curr_paths = wlk->curr_paths,
                     .paths_data = wlk->paths_data,
                     .num_paths = 0, .paths_cap = wlk->paths_cap,
-                    .new_path_pos = 0, .num_new_paths = 0,
-                    .prev_paths = wlk->prev_paths,
-                    .num_pp = 0, .pp_cap = wlk->pp_cap};
+                    .new_path_pos = 0, .num_new_paths = 0};
+                    // .prev_paths = wlk->prev_paths,
+                    // .num_pp = 0, .pp_cap = wlk->pp_cap};
 
   memcpy(wlk, &gw, sizeof(GraphWalker));
 
@@ -165,13 +166,83 @@ void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
   pickup_paths(wlk);
 }
 
+// Gets context up to (but not including) the node you pass
+// graph_init_context(wlk, graph, colour, node, orient)
+// graph_traverse_force_jump(node, orient)
+// Remember to call finish when done with wlk
+void graph_init_context(GraphWalker *wlk, const dBGraph *db_graph,
+                        uint64_t *visited, Colour colour,
+                        hkey_t node, Orientation orient)
+{
+  #ifdef DEBUG_WALKER
+    char str[100];
+    binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
+    printf("INIT CONTEXT %s:%i\n", str, orient);
+  #endif
+
+  hkey_t nodes[MAX_WALK_BACK_NODES+1];
+  Orientation orients[MAX_WALK_BACK_NODES+1];
+  Nucleotide bases[MAX_WALK_BACK_NODES+1];
+
+  Orientation dir = rev_orient(orient);
+
+  graph_walker_init(wlk, db_graph, colour, node, dir);
+  db_node_set_traversed(visited, node, dir);
+
+  nodes[0] = node;
+  orients[0] = dir;
+  bases[0] = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
+
+  int i, num_nodes = 1;
+
+  while(num_nodes <= MAX_WALK_BACK_NODES && graph_traverse(wlk) &&
+        !db_node_has_traversed(visited, wlk->node, wlk->orient))
+  {
+    db_node_set_traversed(visited, wlk->node, wlk->orient);
+    nodes[num_nodes] = wlk->node;
+    orients[num_nodes] = wlk->orient;
+    bases[num_nodes] = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
+    num_nodes++;
+  }
+
+  graph_walker_finish(wlk);
+
+  // Remove marks on all kmers
+  for(i = 0; i < num_nodes; i++)
+    db_node_fast_clear_traversed(visited, nodes[i]);
+
+  graph_walker_init(wlk, db_graph, colour,
+                    nodes[num_nodes-1], rev_orient(orients[num_nodes-1]));
+
+  // Walk back over the kmers
+  boolean was_fork = false;
+  Edges edges;
+  Nucleotide base;
+  for(i = num_nodes-1; i > 0; ) {
+    edges = db_node_edges(db_graph, nodes[i]);
+    was_fork = edges_get_indegree(edges, orients[i]) > 1;
+    i--;
+    base = binary_nuc_complement(bases[i]);
+    #ifdef DEBUG_WALKER
+      printf(" take base %c\n", binary_nuc_to_char(base));
+    #endif
+    graph_traverse_force(wlk, nodes[i], base, was_fork);
+  }
+
+  #ifdef DEBUG_WALKER
+    printf("GOT CONTEXT\n\n");
+    print_state(wlk);
+  #endif
+}
+
 void graph_walker_finish(GraphWalker *wlk)
 {
-  uint64_t *pp_indices = wlk->prev_paths;
-  binary_paths_t *paths = &wlk->db_graph->pdata;
-  size_t i, num = wlk->num_pp;
-  for(i = 0; i < num; i++)
-    binary_paths_set_col(paths, pp_indices[i], wlk->colour);
+  (void)wlk;
+  // uint64_t *pp_indices = wlk->prev_paths;
+  // binary_paths_t *paths = &wlk->db_graph->pdata;
+  // size_t i, num = wlk->num_pp;
+  // for(i = 0; i < num; i++)
+  //   binary_paths_set_col(paths, pp_indices[i], wlk->colour);
 }
 
 // Returns index of choice or -1
@@ -331,72 +402,4 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
   graph_traverse_force(wlk, nodes[nxt_indx], bases[nxt_indx], num_next > 1);
 
   return true;
-}
-
-// Gets context up to (but not including) the node you pass
-// graph_init_context(wlk, graph, colour, node, orient)
-// graph_traverse_force_jump(node, orient)
-// Remember to call finish when done with wlk
-void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
-                        hkey_t node, Orientation orient)
-{
-  #ifdef DEBUG_WALKER
-    char str[100];
-    binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
-    printf("INIT CONTEXT %s:%i\n", str, orient);
-  #endif
-
-  hkey_t nodes[MAX_WALK_BACK_NODES+1];
-  Orientation orients[MAX_WALK_BACK_NODES+1];
-  Nucleotide bases[MAX_WALK_BACK_NODES+1];
-
-  Orientation dir = rev_orient(orient);
-
-  graph_walker_init(wlk, db_graph, colour, node, dir);
-  db_node_set_traversed(db_graph, node, dir);
-
-  nodes[0] = node;
-  orients[0] = dir;
-  bases[0] = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
-
-  int i, num_nodes = 1;
-
-  while(num_nodes <= MAX_WALK_BACK_NODES && graph_traverse(wlk) &&
-        !db_node_has_traversed(db_graph, wlk->node, wlk->orient))
-  {
-    db_node_set_traversed(db_graph, wlk->node, wlk->orient);
-    nodes[num_nodes] = wlk->node;
-    orients[num_nodes] = wlk->orient;
-    bases[num_nodes] = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
-    num_nodes++;
-  }
-
-  graph_walker_finish(wlk);
-
-  // Remove marks on all kmers
-  for(i = 0; i < num_nodes; i++)
-    db_node_fast_clear_traversed(db_graph, nodes[i]);
-
-  graph_walker_init(wlk, db_graph, colour,
-                    nodes[num_nodes-1], rev_orient(orients[num_nodes-1]));
-
-  // Walk back over the kmers
-  boolean was_fork = false;
-  Edges edges;
-  Nucleotide base;
-  for(i = num_nodes-1; i > 0; ) {
-    edges = db_node_edges(db_graph, nodes[i]);
-    was_fork = edges_get_indegree(edges, orients[i]) > 1;
-    i--;
-    base = binary_nuc_complement(bases[i]);
-    #ifdef DEBUG_WALKER
-      printf(" take base %c\n", binary_nuc_to_char(base));
-    #endif
-    graph_traverse_force(wlk, nodes[i], base, was_fork);
-  }
-
-  #ifdef DEBUG_WALKER
-    printf("GOT CONTEXT\n\n");
-    print_state(wlk);
-  #endif
 }

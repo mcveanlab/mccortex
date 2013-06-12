@@ -60,7 +60,7 @@ typedef struct
   uint64_t *kmer_paths;
   binary_paths_t pdata;
   // Visited
-  uint64_t *visited;
+  // uint64_t *visited;
   // Loading reads
   uint64_t *readstrt;
   // Info stored here:

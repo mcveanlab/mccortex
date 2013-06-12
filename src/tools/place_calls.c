@@ -565,31 +565,14 @@ static void parse_header(gzFile *gzvcf, StrBuf *line,
       printf("##placeCmd=%s", argv[0]);
       for(i = 1; i < argc; i++) printf(" %s", argv[i]);
       printf("\n");
-      if(file_reader_get_current_dir(cwd) != NULL) {
+
+      if(file_reader_get_current_dir(cwd) != NULL)
         printf("##placeCwd=%s\n", cwd);
-      }
+
       printf("##placeDate=%s\n", datestr);
     }
     else if(!strncasecmp(str, "##SAMPLE=", 9))
     {
-      // strlen("##SAMPLE=<ID=") = 13
-      char *sampleid = str+13, *sid_end, *totalseqstr, *seq_end;
-
-      if(strncasecmp(str, "##SAMPLE=<ID=", 13) != 0 ||
-         (sid_end = strchr(sampleid, ',')) == NULL ||
-         (totalseqstr = strstr(str, "totalseqloaded=")) == NULL)
-      {
-        die("Unexpected VCF sample header line: %s", str);
-      }
-
-      *sid_end = '\0';
-
-      // strlen("totalseqloaded=") = 15
-      unsigned long totalseq = strtoul(totalseqstr+15, &seq_end, 10);
-
-      if(seq_end == totalseqstr+15)
-        die("Unexpected VCF sample header line: %s", str);
-
       if(num_samples == samples_capacity)
       {
         samples_capacity *= 2;
@@ -597,7 +580,31 @@ static void parse_header(gzFile *gzvcf, StrBuf *line,
         sample_total_seq = realloc(sample_total_seq, samples_capacity * sizeof(uint64_t));
       }
 
+      // strlen("##SAMPLE=<ID=") = 13
+      char *sampleid = str+13, *sid_end, *totalseqstr, *seq_end;
+
+      if(strncasecmp(str, "##SAMPLE=<ID=", 13) != 0)
+        die("Unexpected VCF sample header line: %s", str);
+
+      if((sid_end = strchr(sampleid, ',')) == NULL &&
+         (sid_end = strchr(sampleid, '>')) == NULL)
+      {
+        die("Unexpected VCF sample header line: %s", str);
+      }
+
+      *sid_end = '\0';
       sample_names[num_samples] = strdup(sampleid);
+
+      unsigned long totalseq = 0;
+
+      if((totalseqstr = strstr(sid_end, "totalseqloaded")) != NULL)
+      {
+        totalseq = strtoul(totalseqstr+strlen("totalseqloaded"), &seq_end, 10);
+
+        if(seq_end == totalseqstr+15)
+          die("Unexpected VCF sample header line: %s", str);
+      }
+
       sample_total_seq[num_samples] = totalseq;
 
       fprintf(stderr, "Sample [%s seq:%lu]\n", sample_names[num_samples], totalseq);
@@ -634,7 +641,7 @@ static void parse_header(gzFile *gzvcf, StrBuf *line,
       // printf("%s\n", str);
       size_t num_columns = count_char(str, '\t')+1;
       if(num_columns != VCFSAMPLES + num_samples)
-        die("Incorrect number of columns in VCF file");
+        die("Incorrect number of columns in VCF file [num_samples: %u]", num_samples);
     }
     else printf("%s\n", str);
 

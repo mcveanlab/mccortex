@@ -11,7 +11,6 @@ void path_init(path_t *path)
 
 void path_alloc(path_t *path)
 {
-  // printf(" path_allocptr: %zu\n", (size_t)path);
   path_init(path);
   path->bpcap = 16;
   path->cmpcap = 4;
@@ -33,7 +32,7 @@ void path_to_printf(const path_t *path)
   printf("\n");
 }
 
-// {[1:uint64_t prev][N:uint64_t col_bitfield][1:uint32_t len][M:uint8_t data]}..
+// {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint32_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
 void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size)

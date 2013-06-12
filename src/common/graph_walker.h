@@ -6,8 +6,8 @@
 
 typedef struct
 {
-  dBGraph *const db_graph;
-  const Colour colour; // This is not currently used
+  const dBGraph *const db_graph;
+  const Colour colour;
 
   // Current position
   hkey_t node;
@@ -19,29 +19,26 @@ typedef struct
   size_t num_paths, paths_cap;
   size_t new_path_pos, num_new_paths;
 
-  uint64_t *prev_paths;
-  size_t num_pp, pp_cap;
+  // uint64_t *prev_paths;
+  // size_t num_pp, pp_cap;
 } GraphWalker;
 
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
 // Always call finish after calling init
-void graph_walker_init(GraphWalker *wlk, dBGraph *graph, Colour colour,
+void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
                        hkey_t node, Orientation or);
 
-#define MAX_WALK_BACK_NODES 10
+#define MAX_WALK_BACK_NODES 100
 
 // context is now many nodes to go back (up to MAX_WALK_BACK_NODES)
 // Remember to call finish when done with wlk
-void graph_init_context(GraphWalker *wlk, dBGraph *db_graph, Colour colour,
+void graph_init_context(GraphWalker *wlk, const dBGraph *db_graph,
+                        uint64_t *visited, Colour colour,
                         hkey_t node, Orientation orient);
 
 void graph_walker_finish(GraphWalker *wlk);
-
-// DEV: write this function
-// void graph_walker_init_context(GraphWalker *wlk, dBGraph *graph, int colour,
-//                                Element **els, Orientation *ors, int len);
 
 // Returns index of choice or -1
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,

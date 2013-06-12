@@ -361,11 +361,12 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, size_t argc, char **arg
   gzprintf(vcf, "##phasing=none\n");
 
   gzprintf(vcf, "##procCmd=%s", argv[0]);
-  if(file_reader_get_current_dir(cwd) != NULL) {
-    gzprintf(vcf, "##procCwd=%s", cwd);
-  }
   for(j = 1; j < argc; j++) gzprintf(vcf, " %s", argv[j]);
   gzputc(vcf, '\n');
+  
+  if(file_reader_get_current_dir(cwd) != NULL)
+    gzprintf(vcf, "##procCwd=%s\n", cwd);
+
   gzprintf(vcf, "##procDate=%s\n", datestr);
 
   for(i = 0; i < ch->hlines; i++) {
@@ -431,7 +432,7 @@ static void parse_shaded_header(gzFile in, CallHeader* ch)
         die("Couldn't read kmer size line: %s=%s", tag, value);
       ch->kmer_size = kmer_size;
     }
-    if(strcasecmp(tag, "ctxNumCallingUsedInColours") == 0)
+    else if(strcasecmp(tag, "ctxNumCallingUsedInColours") == 0)
     {
       if(ch->num_samples != 0) die("duplicate header line: %s", line->buff);
 
@@ -524,6 +525,9 @@ static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
     strbuf_reset(line);
     strbuf_sprintf(line, "sample%zu", i);
     ch->sample_names[i] = strbuf_dup(line);
+    strbuf_reset(line);
+    strbuf_sprintf(line, "<ID=sample%zu,name=\"undefined\">", i);
+    header_add(ch, strdup("SAMPLE"), strbuf_dup(line));
   }
 
   strbuf_free(line);

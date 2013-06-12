@@ -98,10 +98,6 @@ INCLUDES = -I src/common/ \
            -I $(IDIR_GSL_HEADERS) -I $(IDIR_HTS) \
            -I $(IDIR_ALIGN) -I $(IDIR_SEQ) -I $(IDIR_STRS)
 
-ifdef MAC
-	MACFLAG = -fnested-functions
-endif
-
 # Comment out this line to turn off adding the commit version
 # (it already checks if hg is installed)
 #VERSION_STR=$(shell if [ `command -v hg` ]; then echo ' (commit' `hg id --num --id`')'; else echo; fi)
@@ -109,13 +105,12 @@ endif
 WARNS = -Wall -Wextra -Winit-self -Wmissing-include-dirs \
         -Wstrict-aliasing -Wdiv-by-zero \
         -Wcast-qual -Wcast-align -Wmissing-noreturn \
-        -Wwrite-strings -Waggregate-return \
-        -Wwrite-strings -Wundef -std=c99
+        -Wwrite-strings -Waggregate-return -Wundef
 
 # -Wshadow -Wconversion -Wshorten-64-to-32 -Woverlength-strings -Wunreachable-code
 # -Wenum-compare -Wlogical-op -Wfloat-equal -Wbad-function-cast
 
-CFLAGS = $(ARCH) $(WARNS) $(MACFLAG) -DVERSION_STR='"$(VERSION_STR)"' \
+CFLAGS = -std=c99 $(WARNS) \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
          -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) -DNUM_OF_COLOURS=$(NUM_COLS) \
          $(HASH_KEY_FLAGS)

@@ -33,13 +33,13 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 //
 // Node traversal
 //
-#define db_node_has_traversed(graph,hkey,or) \
-        bitset_has((graph)->visited, 2*(hkey)+(or))
-#define db_node_set_traversed(graph,hkey,or) \
-        bitset_set((graph)->visited, 2*(hkey)+(or))
+#define db_node_has_traversed(arr,hkey,or) \
+        bitset_has((arr), 2*(hkey)+(or))
+#define db_node_set_traversed(arr,hkey,or) \
+        bitset_set((arr), 2*(hkey)+(or))
 
-#define db_node_fast_clear_traversed(graph,hkey) \
-        bitset_clear_word((graph)->visited, 2*(hkey))
+#define db_node_fast_clear_traversed(arr,hkey) \
+        bitset_clear_word((arr), 2*(hkey))
 
 //
 // Paths
