@@ -15,13 +15,11 @@ ALLELECOVG=30
 
 BINARIES=diploid.k31.ctx diploid.shaded.k31.ctx
 BUBBLES=diploid.oldbc.bubbles diploid.newbc.bubbles.gz diploid.newbc.shaded.bubbles.gz
-FLANKS=diploid.oldbc.5pflanks.fa.gz diploid.newbc.5pflanks.fa.gz diploid.newbc.shaded.5pflanks.fa.gz
 READFILES=reads0.0.fa reads0.1.fa reads1.0.fa reads1.1.fa reads.0.falist reads.1.falist
 GENOMEFILES=genome0.fa genome1.fa mask0.fa mask1.fa
-VCFS=truth.k31.vcf diploid.oldbc.vcf diploid.newbc.vcf diploid.newbc.shaded.vcf
 
 CTX=~/cortex/versions/current/bin/cortex_var_31_c1_s8
-CTX2=../../../bin/ctx_call
+CTX2=../../../bin/ctx_call_k31_c1
 UNIQ=../../../bin/ctx_unique
 PLACE=../../../bin/ctx_place
 
@@ -43,9 +41,9 @@ $(PLACE):
 	cd ../../../; make ctx_place
 
 clean:
-	rm -rf $(BINARIES) $(BUBBLES) $(FLANKS) $(READFILES) $(GENOMEFILES) $(VCFS)
+	rm -rf $(BINARIES) $(READFILES) $(GENOMEFILES)
+	rm -rf diploid.*.bubbles* diploid.*.5pflanks.fa.gz
+	rm -rf diploid.*.vcf falsepos.k31*.vcf truth.k31*.vcf
 	rm -rf gap_sizes.*.csv mp_sizes.*.csv
-	rm -rf falsepos.k31.newbc.vcf falsepos.k31.oldbc.vcf falsepos.k31.shaded.vcf
-	rm -rf truth.k31.newbc.vcf truth.k31.oldbc.vcf truth.k31.shaded.vcf
 
 .PHONY: all clean

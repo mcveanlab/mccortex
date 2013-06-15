@@ -4,11 +4,14 @@
 # make common   <- compile all repos (except gsl)
 # make update   <- pull + common
 
-all: htslib string_buffer bit_array seq_file seq-align gsl
+all: htslib string_buffer bit_array seq_file seq-align gsl seqan
 
 gsl-1.15/configure:
 	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.15.tar.gz
-	tar xfvz gsl-1.15.tar.gz
+	tar xfz gsl-1.15.tar.gz
+	cd gsl-1.15
+	./configure
+	make
 
 htslib/Makefile:
 	git clone git://github.com/samtools/htslib.git
@@ -29,12 +32,19 @@ seq-align/Makefile:
 cortex_binary_reader/Makefile:
 	git clone git://github.com/noporpoise/cortex_binary_reader.git
 
+seqan/seqan/LICENSE:
+	wget http://packages.seqan.de/seqan-library/seqan-library-1.4.0.tar.bz2
+	tar xfj seqan-library-1.4.0.tar.bz2
+	cd seqan
+	mv include seqan
+
 # seqan-svn:
 # 	git clone git://github.com/seqan/seqan-svn.git
 
 fetch: gsl-1.15/configure htslib/Makefile bit_array/Makefile \
 	     string_buffer/Makefile seq_file/Makefile \
-	     seq-align/Makefile cortex_binary_reader/Makefile
+	     seq-align/Makefile cortex_binary_reader/Makefile \
+	     seqan/seqan/LICENSE
 
 pull:
 	cd htslib; git pull
@@ -65,11 +75,13 @@ seq_file: seq_file/Makefile
 seq-align: seq-align/Makefile
 	cd seq-align; make LIBS_PATH=../
 
-gsl: gsl-1.15/Makefile
+gsl: gsl-1.15/configure
 	cd gsl-1.15; make clean; ./configure; make
 
 cortex_binary_reader: cortex_binary_reader/Makefile
 	cd cortex_binary_reader; make;
+
+seqan: seqan/seqan/LICENSE
 
 # seqan: seqan-svn
 #.PHONY: seqan
@@ -84,4 +96,4 @@ clean:
 	cd cortex_binary_reader; make clean
 
 .PHONY: all clean fetch pull common update
-.PHONY: htslib string_buffer bit_array seq_file seq-align cortex_binary_reader
+.PHONY: htslib string_buffer bit_array seq_file seq-align cortex_binary_reader seqan
