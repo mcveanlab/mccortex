@@ -16,6 +16,7 @@ static const char usage[] =
 "    --se_list <col> <in.list>\n"
 "    --pe_list <col> <pe.list1> <pe.list2>\n";
 
+#define NUM_PASSES 1
 #define NUM_THREADS 2
 
 /*
@@ -94,24 +95,8 @@ void test(dBGraph *db_graph)
 }
 */
 
-typedef struct
-{
-  BinaryKmer kmer;
-  Covg coverage[10];
-  Edges edges[10];
-  uint8_t status;
-} Element;
-
-struct E2
-{
-  BinaryKmer kmer;
-  Covg coverage[10];
-  Edges edges[10];
-} __attribute__((packed));
-
 int main(int argc, char* argv[])
 {
-  printf("size: %zu %zu\n", sizeof(Element), sizeof(struct E2));
   if(argc < 7) print_usage(usage, NULL);
 
   char *input_ctx_path = argv[1];
@@ -286,7 +271,6 @@ int main(int argc, char* argv[])
                            .update_ginfo = true, .db_graph = &db_graph};
 
   // Parse input sequence
-  #define NUM_PASSES 1
   size_t rep;
   for(rep = 0; rep < NUM_PASSES; rep++)
   {

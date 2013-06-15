@@ -22,7 +22,8 @@ void reverse_node_list(hkey_t *nlist, Orientation *olist, size_t len)
   }
 }
 
-void naturalise_supernode(hkey_t *nlist, Orientation *olist, size_t len)
+// Orient supernode
+static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
 {
   // Sort supernode into forward orientation
   if(len == 1)
@@ -108,7 +109,7 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   if(out_of_space)
     return 0;
 
-  naturalise_supernode(snode->nodes, snode->orients, snode->num_of_nodes);
+  supernode_naturalise(snode->nodes, snode->orients, snode->num_of_nodes);
 
   snode->first_pathpos = NULL;
   snode->num_prev = 0;

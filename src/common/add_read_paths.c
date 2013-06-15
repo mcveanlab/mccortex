@@ -234,6 +234,7 @@ static void add_read_path(const dBNodeBuffer *list,
   path->bases = tmp_bases;
 }
 
+/*
 // fill in gap in read node1==>---<==node2
 //
 // If successful: traverses gap and adds new nodes including node2/orient2
@@ -282,6 +283,8 @@ static int traverse_gap(dBNodeBuffer *list,
       break;
   }
 
+  graph_walker_finish(wlk);
+
   db_node_fast_clear_traversed(visited, node1);
   for(i = 0; i < pos; i++)
     db_node_fast_clear_traversed(visited, nlist[i]);
@@ -292,8 +295,6 @@ static int traverse_gap(dBNodeBuffer *list,
   }
 
   int num_left = pos;
-
-  graph_walker_finish(wlk);
 
   // Look for the last node
   hkey_t tgt_n = list->nodes[list->len+num_left-1];
@@ -344,6 +345,105 @@ static int traverse_gap(dBNodeBuffer *list,
 
   return -1;
 }
+*/
+
+
+// fill in gap in read node1==>---<==node2
+//
+// If successful: traverses gap and adds new nodes including node2/orient2
+//    returns total number of nodes added (>= 0)
+// If unsucessful: doesn't add anything to the list, returns -1
+static int traverse_gap2(dBNodeBuffer *list,
+                         hkey_t node2, Orientation orient2,
+                         const dBGraph *db_graph, uint64_t *visited,
+                         Colour colour, GraphWalker *wlk)
+{
+  hkey_t node1 = list->nodes[list->len-1];
+  Orientation orient1 = list->orients[list->len-1];
+
+  // First and last node already match
+  if(node1 == node2 && orient1 == orient2) return 0;
+
+  // Ensure capacity
+  db_node_buf_ensure_capacity(list, list->len + GAP_LIMIT + 1);
+
+  hkey_t *nlist = list->nodes + list->len;
+  Orientation *olist = list->orients + list->len;
+
+  // Walk from left -> right
+  graph_walker_init(wlk, db_graph, colour, node1, orient1);
+  db_node_set_traversed(visited, wlk->node, wlk->orient);
+
+  size_t i, pos = 0;
+
+  while(pos < GAP_LIMIT && graph_traverse(wlk) &&
+        !db_node_has_traversed(visited, wlk->node, wlk->orient))
+  {
+    db_node_set_traversed(visited, wlk->node, wlk->orient);
+
+    nlist[pos] = wlk->node;
+    olist[pos] = wlk->orient;
+    pos++;
+
+    if(wlk->node == node2 && wlk->orient == orient2)
+      break;
+  }
+
+  graph_walker_finish(wlk);
+
+  db_node_fast_clear_traversed(visited, node1);
+  for(i = 0; i < pos; i++)
+    db_node_fast_clear_traversed(visited, nlist[i]);
+
+  if(wlk->node == node2 && wlk->orient == orient2) {
+    list->len += pos;
+    return pos;
+  }
+
+  // Walk from right -> left
+  graph_walker_init(wlk, db_graph, colour, node2, opposite_orientation(orient2));
+  db_node_set_traversed(visited, wlk->node, wlk->orient);
+
+  pos = GAP_LIMIT-1;
+  nlist[pos] = node2;
+  olist[pos] = orient2;
+  // pos is the next index at which to add a node
+
+  boolean success = false;
+
+  while(pos > 0 && graph_traverse(wlk) &&
+        !db_node_has_traversed(visited, wlk->node, wlk->orient))
+  {
+    Orientation orient = opposite_orientation(wlk->orient);
+
+    if(wlk->node == node1 && orient == orient1) {
+      success = true;
+      break;
+    }
+
+    db_node_set_traversed(visited, wlk->node, wlk->orient);
+
+    pos--;
+    nlist[pos] = wlk->node;
+    olist[pos] = orient;
+  }
+
+  graph_walker_finish(wlk);
+
+  for(i = pos; i < GAP_LIMIT; i++)
+    db_node_fast_clear_traversed(visited, nlist[i]);
+
+  if(success)
+  {
+    size_t num = GAP_LIMIT - pos;
+    memmove(nlist, nlist + GAP_LIMIT - num, num * sizeof(hkey_t));
+    memmove(olist, olist + GAP_LIMIT - num, num * sizeof(Orientation));
+    list->len += num;
+    return num;
+  }
+
+  return -1;
+}
 
 // Returns offset to continue from
 // stop if contig_len-offset < kmer_size
@@ -388,8 +488,8 @@ static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, uint64_t *visited
       if(list->len > 0 && prev_node == HASH_NOT_FOUND)
       {
         // Can we branch the gap from the prev contig?
-        int gapsize = traverse_gap(list, node, orientation, graph, visited,
-                                   colour, wlk);
+        int gapsize = traverse_gap2(list, node, orientation, graph, visited,
+                                    colour, wlk);
 
         if(gapsize == -1)
         {
@@ -552,13 +652,14 @@ void add_read_paths_to_graph(const char *se_list,
   dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, GAP_LIMIT, kmer_size);
   dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, GAP_LIMIT, kmer_size);
 
-  binary_paths_t *pdata = &prefs.db_graph->pdata;
-  size_t bytes_used = pdata->next - pdata->store;
-  char mem_used[100];
-  bytes_to_str(bytes_used, 1, mem_used);
-
   message("Paths added\n");
-  message("Currently %s used for %zu paths\n", mem_used, pdata->num_paths);
+
+  char mem_used_str[100], num_paths_str[100];
+  binary_paths_t *pdata = &prefs.db_graph->pdata;
+  size_t paths_mem_used = pdata->next - pdata->store;
+  bytes_to_str(paths_mem_used, 1, mem_used_str);
+  ulong_to_str(pdata->num_paths, num_paths_str);
+  message("Currently %s used for %s paths\n", mem_used_str, num_paths_str);
 
   free(tmpdata.visited);
 }

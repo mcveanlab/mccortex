@@ -760,7 +760,9 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
     }
   }
 
-  message("%zu bubbles called with Paths-Bubble-Caller\n", num_of_bubbles);
+  char num_bubbles_str[100];
+  ulong_to_str(num_of_bubbles, num_bubbles_str);
+  message("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
   message("  saved to: %s\n", out_file);
 
   gzclose(out);

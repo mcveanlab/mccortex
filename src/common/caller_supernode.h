@@ -52,7 +52,6 @@ struct SupernodePathPos
   ((node) == (snode)->nodes[0] && (or) == (snode)->orients[0] ? forward : reverse)
 
 void reverse_node_list(hkey_t *nlist, Orientation *olist, size_t len);
-void naturalise_supernode(hkey_t *nlist, Orientation *olist, size_t len);
 
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist
 // Returns the number of nodes added, adds no more than `limit`
@@ -66,7 +65,7 @@ size_t supernode_traverse(hkey_t node, Orientation or,
 // Returns 0 on failure, otherwise snode->num_of_nodes
 size_t caller_supernode_create(hkey_t node, Orientation or,
                                CallerSupernode *snode, size_t limit,
-                               const dBGraph *db_graph)
+                               const dBGraph *db_graph);
 
 #define supernode_pathpos_equal(a,b) (cmp_snpath_pos(a,b) == 0)
 
