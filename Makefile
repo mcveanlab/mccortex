@@ -55,7 +55,7 @@ IDIR_HTS = libs/htslib/htslib
 IDIR_STRS = libs/string_buffer
 IDIR_SEQ = libs/seq_file
 IDIR_ALIGN = libs/seq-align/src
-IDIR_SEQAN = libs/seqan
+IDIR_SEQAN = libs/seqan-library-1.4.0/include/
 IDIR_CITY = libs/city_hash
 IDIR_LOOKUP3 = libs/lookup3_hash
 

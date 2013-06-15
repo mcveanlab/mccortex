@@ -9,9 +9,7 @@ all: htslib string_buffer bit_array seq_file seq-align gsl seqan
 gsl-1.15/configure:
 	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.15.tar.gz
 	tar xfz gsl-1.15.tar.gz
-	cd gsl-1.15
-	./configure
-	make
+	cd gsl-1.15; ./configure; make
 
 htslib/Makefile:
 	git clone git://github.com/samtools/htslib.git
@@ -32,11 +30,9 @@ seq-align/Makefile:
 cortex_binary_reader/Makefile:
 	git clone git://github.com/noporpoise/cortex_binary_reader.git
 
-seqan/seqan/LICENSE:
+seqan-library-1.4.0/include/seqan/LICENSE:
 	wget http://packages.seqan.de/seqan-library/seqan-library-1.4.0.tar.bz2
 	tar xfj seqan-library-1.4.0.tar.bz2
-	cd seqan
-	mv include seqan
 
 # seqan-svn:
 # 	git clone git://github.com/seqan/seqan-svn.git
@@ -44,7 +40,7 @@ seqan/seqan/LICENSE:
 fetch: gsl-1.15/configure htslib/Makefile bit_array/Makefile \
 	     string_buffer/Makefile seq_file/Makefile \
 	     seq-align/Makefile cortex_binary_reader/Makefile \
-	     seqan/seqan/LICENSE
+	     seqan-library-1.4.0/include/seqan/LICENSE
 
 pull:
 	cd htslib; git pull
@@ -81,7 +77,7 @@ gsl: gsl-1.15/configure
 cortex_binary_reader: cortex_binary_reader/Makefile
 	cd cortex_binary_reader; make;
 
-seqan: seqan/seqan/LICENSE
+seqan: seqan-library-1.4.0/include/seqan/LICENSE
 
 # seqan: seqan-svn
 #.PHONY: seqan
