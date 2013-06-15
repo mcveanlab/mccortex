@@ -360,13 +360,13 @@ void parse_filelists(const char *list_path1, const char *list_path2,
     message("\n");
     message("Number of sequence files loaded: %lu\n", new_stats->num_files_loaded);
 
-    message("  number of SE reads: %lu\n", new_stats->num_se_reads);
-    message("  number of PE reads: %lu\n", new_stats->num_pe_reads);
+    message("  number of reads (SE,PE): (%lu, %lu)\n",
+            new_stats->num_se_reads, new_stats->num_pe_reads);
     message("  number of reads (good,bad,dupe): (%lu, %lu, %lu)\n",
             new_stats->total_good_reads, new_stats->total_bad_reads,
             new_stats->total_dup_reads);
-    message("  sequence parsed: %lu\n", new_stats->total_bases_read);
-    message("  sequence passed filters: %lu\n", new_stats->total_bases_loaded);
+    message("  sequence (total,filtered): (%lu, %lu)\n",
+            new_stats->total_bases_read, new_stats->total_bases_loaded);
     message("  kmers parsed (of which novel): %lu (%lu)\n",
             new_stats->kmers_loaded, new_stats->unique_kmers);
     message("  total kmers in graph: %zu\n\n",

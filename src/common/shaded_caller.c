@@ -92,7 +92,6 @@ static void print_calling_header(const dBGraph *db_graph, gzFile *out,
   for(col = 0; col < ginfo->num_of_colours_loaded; col++)
   {
     const ErrorCleaning *ec = ginfo->cleaning + col;
-    printf("Colour %u\n", col);
 
     // Find and replace double quotes with single quotes
     char *sname = ginfo->sample_names[col]->buff;
@@ -252,7 +251,8 @@ static void load_allele_path(hkey_t node, Orientation or,
       snode->orients = or_store + node_count;
 
       size_t node_buf_space = NODE_BUFFER_SIZE - node_count;
-      size_t sn_len = create_supernode(node, or, snode, node_buf_space, db_graph);
+      size_t sn_len = caller_supernode_create(node, or, snode, node_buf_space,
+                                              db_graph);
 
       // We fail if we cannot extend this supernode anymore
       // (num of nodes > node_buf_space)
@@ -518,9 +518,9 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         // Get 5p flank
         // we can ignore the value of out_of_space
         boolean out_of_space;
-        flank5pkmers = fetch_supernode(fork_n, opposite_orientation(fork_o),
-                                       flank5pe, flank5po, MAX_FLANK_KMERS,
-                                       db_graph, &out_of_space);
+        flank5pkmers = supernode_traverse(fork_n, opposite_orientation(fork_o),
+                                          flank5pe, flank5po, MAX_FLANK_KMERS,
+                                          db_graph, &out_of_space);
 
         // Reverse and change orients
         reverse_node_list(flank5pe, flank5po, flank5pkmers);
@@ -698,7 +698,7 @@ void* shaded_bubble_caller(void *args)
 }
 
 void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
-                                 int num_threads)
+                                 int num_threads, char **tmp_paths)
 {
   // Open output file
   gzFile out = gzopen(out_file, "w");
@@ -721,10 +721,7 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
   {
     pthread_t threads[num_threads];
     struct caller_region_t tdata[num_threads];
-    char *paths[num_threads];
     int rc, i;
-
-    StrBuf *tmppath = strbuf_new();
 
     uint64_t capacity = db_graph->ht.capacity, start = 0, end;
     gzFile tmpout;
@@ -732,11 +729,9 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
     for(i = 0; i < num_threads; i++, start = end)
     {
       end = i == num_threads-1 ? capacity : start + capacity/num_threads;
-      strbuf_set(tmppath, out_file);
-      strbuf_sprintf(tmppath, ".%i", i);
-      paths[i] = strbuf_dup(tmppath);
-      tmpout = gzopen(paths[i], "w");
-      if(tmpout == NULL) die("Cannot write to tmp output: %s", paths[i]);
+
+      tmpout = gzopen(tmp_paths[i], "w");
+      if(tmpout == NULL) die("Cannot write to tmp output: %s", tmp_paths[i]);
 
       struct caller_region_t tmptdata = {db_graph, tmpout, start, end, 0};
       memcpy(tdata+i, &tmptdata, sizeof(struct caller_region_t));
@@ -746,26 +741,23 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
     }
 
     /* wait for all threads to complete */
-    for(i = 0; i < num_threads; i++) {
+    for(i = 0; i < num_threads; i++)
+    {
       rc = pthread_join(threads[i], NULL);
       if(rc != 0) die("Joining thread failed");
       gzclose(tdata[i].out);
 
       // merge file
-      gzFile in = gzopen(paths[i], "r");
-      if(in == NULL) die("Cannot merge file: %s", paths[i]);
+      gzFile in = gzopen(tmp_paths[i], "r");
+      if(in == NULL) die("Cannot merge file: %s", tmp_paths[i]);
       #define MEGABYTE (1<<20)
       char data[MEGABYTE];
       int len;
       while((len = gzread(in, data, MEGABYTE)) > 0) gzwrite(out, data, len);
       gzclose(in);
-      unlink(paths[i]);
 
-      free(paths[i]);
       num_of_bubbles += tdata[i].num_of_bubbles;
     }
-  
-    strbuf_free(tmppath);
   }
 
   message("%zu bubbles called with Paths-Bubble-Caller\n", num_of_bubbles);

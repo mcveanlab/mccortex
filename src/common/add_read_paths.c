@@ -91,17 +91,17 @@ static void add_read_path(const dBNodeBuffer *list,
   }
 
   #ifdef DEBUG
-  char str[100];
-  BinaryKmer bkmer;
-  db_graph_oriented_bkmer(graph, nodes[0], orients[0], bkmer);
-  binary_kmer_to_str(bkmer, kmer_size, str);
-  printf("%s", str);
-  for(i = 1; i < list->len; i++) {
-    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i]);
-    char c = db_node_last_nuc(bkmerptr, orients[i], kmer_size);
-    putc(binary_nuc_to_char(c), stdout);
-  }
-  printf("\n");
+    char str[100];
+    BinaryKmer bkmer;
+    db_graph_oriented_bkmer(graph, nodes[0], orients[0], bkmer);
+    binary_kmer_to_str(bkmer, kmer_size, str);
+    printf("%s", str);
+    for(i = 1; i < list->len; i++) {
+      ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i]);
+      char c = db_node_last_nuc(bkmerptr, orients[i], kmer_size);
+      putc(binary_nuc_to_char(c), stdout);
+    }
+    printf("\n");
   #endif
 
   for(i = 0; i < list->len; i++)
@@ -186,9 +186,9 @@ static void add_read_path(const dBNodeBuffer *list,
     path->core.len = num_rv - start_rv;
 
     #ifdef DEBUG
-    binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
-    printf(" %s:%i) start_rv: %zu start_fw: %zu {%i}\n", str, orient,
-           start_rv, start_fw, pos_fw[start_fw]);
+      binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+      printf(" %s:%i) start_rv: %zu start_fw: %zu {%i}\n", str, orient,
+             start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
     if((pindex = binary_paths_add(paths, path, colour)) != PATH_NULL)
@@ -219,9 +219,9 @@ static void add_read_path(const dBNodeBuffer *list,
     path->core.len = num_fw - start_fw;
 
     #ifdef DEBUG
-    binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
-    printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
-           start_rv, start_fw);
+      binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+      printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
+             start_rv, start_fw);
     #endif
 
     if((pindex = binary_paths_add(paths, path, colour)) != PATH_NULL)

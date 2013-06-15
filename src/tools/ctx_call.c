@@ -1,4 +1,6 @@
 #include "global.h"
+#include <time.h>
+
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -92,8 +94,24 @@ void test(dBGraph *db_graph)
 }
 */
 
+typedef struct
+{
+  BinaryKmer kmer;
+  Covg coverage[10];
+  Edges edges[10];
+  uint8_t status;
+} Element;
+
+struct E2
+{
+  BinaryKmer kmer;
+  Covg coverage[10];
+  Edges edges[10];
+} __attribute__((packed));
+
 int main(int argc, char* argv[])
 {
+  printf("size: %zu %zu\n", sizeof(Element), sizeof(struct E2));
   if(argc < 7) print_usage(usage, NULL);
 
   char *input_ctx_path = argv[1];
@@ -176,8 +194,15 @@ int main(int argc, char* argv[])
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, hash_kmers);
 
-  size_t path_memory = mem_to_use - graph_mem - thread_mem;
-  message("Using %zu bytes hash; %zu bytes for paths\n", graph_mem, path_memory);
+  size_t path_mem = mem_to_use - graph_mem - thread_mem;
+
+  char graph_mem_str[100], thread_mem_str[100], path_mem_str[100];
+  bytes_to_str(graph_mem, 1, graph_mem_str);
+  bytes_to_str(thread_mem, 1, thread_mem_str);
+  bytes_to_str(path_mem, 1, path_mem_str);
+
+  message("[Memory]  Hash table: %s;  Threads: %i x %s;  Paths: %s;\n\n",
+          graph_mem_str, NUM_THREADS, thread_mem_str, path_mem_str);
 
   // Edges
   db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
@@ -192,18 +217,14 @@ int main(int argc, char* argv[])
   for(ptr = bkmer_cols, i = 0; i < NUM_OF_COLOURS; i++, ptr += words64_per_col)
     db_graph.node_in_cols[i] = ptr;
 
-  // Visited
-  // db_graph.visited = calloc(hash_kmers, sizeof(uint64_t));
-  // if(db_graph.visited == NULL) die("Out of memory");
-
   // Paths
   db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
   if(db_graph.kmer_paths == NULL) die("Out of memory");
   memset(db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
 
-  uint8_t *path_store = malloc(path_memory);
+  uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");
-  binary_paths_init(&db_graph.pdata, path_store, path_memory);
+  binary_paths_init(&db_graph.pdata, path_store, path_mem);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -232,6 +253,28 @@ int main(int argc, char* argv[])
   //
   //
   //
+
+  /* initialize random seed: */
+  srand(time(NULL));
+
+  //
+  // Set up temporary files
+  //
+  StrBuf *tmppath = strbuf_new();
+  char **tmp_paths = malloc(NUM_THREADS * sizeof(char*));
+
+  int r = rand() & ((1<<20)-1);
+
+  for(i = 0; i < NUM_THREADS; i++)
+  {
+    strbuf_set(tmppath, out_path);
+    strbuf_sprintf(tmppath, ".%i.%zu", r, i);
+    tmp_paths[i] = strbuf_dup(tmppath);
+    if(!test_file_writable(tmp_paths[i])) {
+      while(i > 0) unlink(tmp_paths[--i]);
+      die("Cannot write temporary file: %s", tmp_paths[i]);
+    }
+  }
 
   SeqLoadingPrefs prefs = {.into_colour = 0,
                            .load_seq = true,
@@ -262,16 +305,22 @@ int main(int argc, char* argv[])
     }
   }
 
+  // testing
   // db_graph_dump_paths_by_kmer(&db_graph);
+  // test(&db_graph);
 
   // Now call variants
-  invoke_shaded_bubble_caller(&db_graph, out_path, NUM_THREADS);
+  invoke_shaded_bubble_caller(&db_graph, out_path, NUM_THREADS, tmp_paths);
 
-  // test(&db_graph);
+
+  for(i = 0; i < NUM_THREADS; i++) {
+    unlink(tmp_paths[i]);
+    free(tmp_paths[i]);
+  }
+  free(tmp_paths);
 
   free(db_graph.edges);
   free(bkmer_cols);
-  // free(db_graph.visited);
   free(path_store);
   free(db_graph.kmer_paths);
 
