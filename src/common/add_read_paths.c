@@ -73,6 +73,9 @@ static void add_read_path(const dBNodeBuffer *list,
   const hkey_t *nodes = list->nodes;
   const Orientation *orients = list->orients;
 
+  // Path data
+  binary_paths_t *paths = &graph->pdata;
+
   uint32_t kmer_size = graph->kmer_size;
 
   Edges edges[list->len];
@@ -155,9 +158,6 @@ static void add_read_path(const dBNodeBuffer *list,
   Orientation orient;
   uint64_t pindex;
 
-  // Path data
-  binary_paths_t *paths = &graph->pdata;
-
   // Store this temporarily
   Nucleotide *tmp_bases = path->bases;
   size_t start_fw, start_rv;
@@ -234,7 +234,6 @@ static void add_read_path(const dBNodeBuffer *list,
   path->bases = tmp_bases;
 }
 
-/*
 // fill in gap in read node1==>---<==node2
 //
 // If successful: traverses gap and adds new nodes including node2/orient2
@@ -242,121 +241,8 @@ static void add_read_path(const dBNodeBuffer *list,
 // If unsucessful: doesn't add anything to the list, returns -1
 static int traverse_gap(dBNodeBuffer *list,
                         hkey_t node2, Orientation orient2,
-                        const dBGraph *db_graph, uint64_t *visited, int colour,
-                        GraphWalker *wlk)
-{
-  hkey_t node1 = list->nodes[list->len-1];
-  Orientation orient1 = list->orients[list->len-1];
-
-  // First and last node already match
-  if(node1 == node2 && orient1 == orient2) return 0;
-
-  // Ensure capacity
-  db_node_buf_ensure_capacity(list, list->len + GAP_LIMIT + 1);
-
-  hkey_t *nlist = list->nodes + list->len;
-  Orientation *olist = list->orients + list->len;
-
-  #ifdef DEBUG
-    char tmp1[100], tmp2[100];
-    binary_kmer_to_str(db_node_bkmer(db_graph, node1), db_graph->kmer_size, tmp1);
-    binary_kmer_to_str(db_node_bkmer(db_graph, node2), db_graph->kmer_size, tmp2);
-    printf("traverse gap: %s:%i -> %s:%i\n", tmp1, orient1, tmp2, orient2);
-  #endif
-
-  // Walk from left -> right
-  graph_walker_init(wlk, db_graph, colour, node1, orient1);
-  db_node_set_traversed(visited, wlk->node, wlk->orient);
-
-  int i, pos = 0;
-
-  while(pos < GAP_LIMIT && graph_traverse(wlk) &&
-        !db_node_has_traversed(visited, wlk->node, wlk->orient))
-  {
-    db_node_set_traversed(visited, wlk->node, wlk->orient);
-
-    nlist[pos] = wlk->node;
-    olist[pos] = wlk->orient;
-    pos++;
-
-    if(wlk->node == node2 && wlk->orient == orient2)
-      break;
-  }
-
-  graph_walker_finish(wlk);
-
-  db_node_fast_clear_traversed(visited, node1);
-  for(i = 0; i < pos; i++)
-    db_node_fast_clear_traversed(visited, nlist[i]);
-
-  if(wlk->node == node2 && wlk->orient == orient2) {
-    list->len += pos;
-    return pos;
-  }
-
-  int num_left = pos;
-
-  // Look for the last node
-  hkey_t tgt_n = list->nodes[list->len+num_left-1];
-  Orientation tgt_o = opposite_orientation(list->orients[list->len+num_left-1]);
-
-  // Walk from right to num_left
-  graph_walker_init(wlk, db_graph, colour, node2, opposite_orientation(orient2));
-  db_node_set_traversed(visited, wlk->node, wlk->orient);
-
-  pos = GAP_LIMIT-1;
-  nlist[pos] = node2;
-  olist[pos] = orient2;
-  pos--;
-  // pos is the next index at which to add a node
-
-  boolean success = false;
-
-  while(pos >= num_left && graph_traverse(wlk) &&
-        !db_node_has_traversed(visited, wlk->node, wlk->orient))
-  {
-    if(wlk->node == tgt_n && wlk->orient == tgt_o)
-    {
-      success = true;
-      break;
-    }
-
-    db_node_set_traversed(visited, wlk->node, wlk->orient);
-
-    nlist[pos] = wlk->node;
-    olist[pos] = opposite_orientation(wlk->orient);
-    pos--;
-  }
-
-  graph_walker_finish(wlk);
-
-  for(i = pos+1; i < GAP_LIMIT; i++)
-    db_node_fast_clear_traversed(visited, nlist[i]);
-
-  if(success)
-  {
-    int num_right = GAP_LIMIT - 1 - pos;
-    memmove(nlist+num_left, nlist + pos + 1, num_right * sizeof(hkey_t));
-    memmove(olist+num_left, olist + pos + 1, num_right * sizeof(Orientation));
-    int num_kmers_added = num_left + num_right;
-    list->len += num_kmers_added;
-    return num_kmers_added;
-  }
-
-  return -1;
-}
-*/
-
-
-// fill in gap in read node1==>---<==node2
-//
-// If successful: traverses gap and adds new nodes including node2/orient2
-//    returns total number of nodes added (>= 0)
-// If unsucessful: doesn't add anything to the list, returns -1
-static int traverse_gap2(dBNodeBuffer *list,
-                         hkey_t node2, Orientation orient2,
-                         const dBGraph *db_graph, uint64_t *visited,
-                         Colour colour, GraphWalker *wlk)
+                        const dBGraph *db_graph, uint64_t *visited,
+                        Colour colour, GraphWalker *wlk)
 {
   hkey_t node1 = list->nodes[list->len-1];
   Orientation orient1 = list->orients[list->len-1];
@@ -488,8 +374,8 @@ static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, uint64_t *visited
       if(list->len > 0 && prev_node == HASH_NOT_FOUND)
       {
         // Can we branch the gap from the prev contig?
-        int gapsize = traverse_gap2(list, node, orientation, graph, visited,
-                                    colour, wlk);
+        int gapsize = traverse_gap(list, node, orientation, graph, visited,
+                                   colour, wlk);
 
         if(gapsize == -1)
         {

@@ -16,7 +16,7 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: filter_subgraph <in.ctx> <capacity> <filelist> <dist> <mem> <out.ctx>\n"
+"usage: ctx_subgraph <in.ctx> <capacity> <filelist> <dist> <mem> <out.ctx>\n"
 "  Loads <in.ctx> and dumps a binary <out.ctx> that contains all kmers within\n"
 "  <dist> edges of kmers in <filelist>.  Maintains number of colours / covgs etc.\n"
 "  <mem> specifies how much memory to use to store the list of edge kmers.  Will\n"

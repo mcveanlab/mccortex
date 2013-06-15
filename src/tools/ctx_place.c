@@ -92,7 +92,7 @@ size_t genome_size = 0;
 uint32_t var_print_num = 0;
 
 static const char usage[] =
-"usage: place_calls [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
+"usage: ctx_place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
 "  Align calls to a reference genome.\n"
 "  Options:\n"
 "    --minmapq <mapq>    Flank must map with MAPQ >= <mapq> [default: 30]\n"

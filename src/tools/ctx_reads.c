@@ -14,7 +14,7 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: filter_reads <in.ctx> <capacity> [FASTA|FASTQ] [OPTIONS]\n"
+"usage: ctx_reads <in.ctx> <capacity> [FASTA|FASTQ] [OPTIONS]\n"
 "  Filters reads based on which have a kmer in the graph. Options:\n"
 "    --se_list <in.list> <out.fq.gz>\n"
 "    --pe_list <pe.list1> <pe.list2> <out.1.fq.gz> <out.2.fq.gz>\n"

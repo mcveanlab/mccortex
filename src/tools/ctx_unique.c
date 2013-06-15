@@ -17,7 +17,7 @@
 #define PROC_MAXK 100
 
 static const char usage[] =
-"usage: proc_calls [options] <path_calls.bubbles> <out.base>\n"
+"usage: ctx_unique [options] <path_calls.bubbles> <out.base>\n"
 "  Produces files <out.base>.vcf and <out.base>.5pflank.fa\n\n"
 "  Options:\n"
 "    --nobubbles <col>  Filter out e.g. ref bubbles\n";
@@ -979,8 +979,8 @@ int main(int argc, char **argv)
   gzFile flankfh = gzopen(flanks_path, "w");
   if(flankfh == NULL) die("Cannot open output file: %s", out_file->buff);
 
-  message("proc_calls\n  reading: %s\n  vcf: %s\n  fasta: %s\n\n",
-          argv[1], vcf_path, flanks_path);
+  message("%s\n  reading: %s\n  vcf: %s\n  fasta: %s\n\n",
+          argv[0], argv[1], vcf_path, flanks_path);
 
   // Deduce input filetype
   StrBuf *tmp = strbuf_new();
