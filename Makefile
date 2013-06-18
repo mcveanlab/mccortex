@@ -169,6 +169,9 @@ bin/ctx_place: $(CTX_PLACE_SRCS) $(CTX_PLACE_HDRS) Makefile | $(DEPS)
 src/common/call_seqan.o: src/common/call_seqan.cpp src/common/call_seqan.h
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c -o src/common/call_seqan.o src/common/call_seqan.cpp
 
+libs/string_buffer/string_buffer.h:
+	cd libs; make
+
 bin:
 	mkdir -p bin
 

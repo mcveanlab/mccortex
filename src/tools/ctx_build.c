@@ -33,5 +33,6 @@ static const char usage[] =
 
 int main(int argc, char **argv)
 {
-
+  
+  return EXIT_SUCCESS;
 }

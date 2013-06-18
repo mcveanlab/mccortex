@@ -14,8 +14,8 @@
 #define GAP_LIMIT 1000
 
 // Store stats here
-static uint64_t insert_sizes[GAP_LIMIT] = {0};
-static uint64_t gap_sizes[GAP_LIMIT] = {0};
+static uint64_t insert_sizes[GAP_LIMIT+1] = {0};
+static uint64_t gap_sizes[GAP_LIMIT+1] = {0};
 
 // Temp data store for adding paths to graph
 struct AddPaths {
@@ -64,30 +64,25 @@ static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
 }
 
 
-static void add_read_path(const dBNodeBuffer *list,
-                          dBGraph *graph, Colour colour,
+static void add_read_path(const hkey_t *nodes, const Orientation *orients,
+                          size_t len, dBGraph *graph, Colour colour,
                           path_t *path)
 {
-  if(list->len < 3) return;
+  if(len < 3) return;
 
-  const hkey_t *nodes = list->nodes;
-  const Orientation *orients = list->orients;
-
-  // Path data
   binary_paths_t *paths = &graph->pdata;
-
   uint32_t kmer_size = graph->kmer_size;
 
-  Edges edges[list->len];
-  int indegree[list->len], outdegree[list->len];
-  Nucleotide nuc_fw[list->len], nuc_rv[list->len];
-  uint32_t pos_fw[list->len], pos_rv[list->len];
+  Edges edges[len];
+  int indegree[len], outdegree[len];
+  Nucleotide nuc_fw[len], nuc_rv[len];
+  uint32_t pos_fw[len], pos_rv[len];
 
   // Find forks
   size_t i, j, num_fw = 0, num_rv = 0;
   Nucleotide nuc;
 
-  for(i = 0; i < list->len; i++) {
+  for(i = 0; i < len; i++) {
     edges[i] = graph->edges[nodes[i]];
     outdegree[i] = edges_get_outdegree(edges[i], orients[i]);
     indegree[i] = edges_get_indegree(edges[i], orients[i]);
@@ -99,7 +94,7 @@ static void add_read_path(const dBNodeBuffer *list,
     db_graph_oriented_bkmer(graph, nodes[0], orients[0], bkmer);
     binary_kmer_to_str(bkmer, kmer_size, str);
     printf("%s", str);
-    for(i = 1; i < list->len; i++) {
+    for(i = 1; i < len; i++) {
       ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i]);
       char c = db_node_last_nuc(bkmerptr, orients[i], kmer_size);
       putc(binary_nuc_to_char(c), stdout);
@@ -107,9 +102,9 @@ static void add_read_path(const dBNodeBuffer *list,
     printf("\n");
   #endif
 
-  for(i = 0; i < list->len; i++)
+  for(i = 0; i < len; i++)
   {
-    if(i+1 < list->len && outdegree[i] > 1) {
+    if(i+1 < len && outdegree[i] > 1) {
       ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph,nodes[i+1]);
       nuc = db_node_last_nuc(bkmerptr, orients[i+1], kmer_size);
       nuc_fw[num_fw] = nuc;
@@ -235,7 +230,7 @@ static void add_read_path(const dBNodeBuffer *list,
 }
 
 // fill in gap in read node1==>---<==node2
-//
+// Adds at most GAP_LIMIT nodes to list
 // If successful: traverses gap and adds new nodes including node2/orient2
 //    returns total number of nodes added (>= 0)
 // If unsucessful: doesn't add anything to the list, returns -1
@@ -247,11 +242,18 @@ static int traverse_gap(dBNodeBuffer *list,
   hkey_t node1 = list->nodes[list->len-1];
   Orientation orient1 = list->orients[list->len-1];
 
+  #ifdef DEBUG
+    char tmp1[100], tmp2[100];
+    binary_kmer_to_str(db_node_bkmer(db_graph, node1), db_graph->kmer_size, tmp1);
+    binary_kmer_to_str(db_node_bkmer(db_graph, node2), db_graph->kmer_size, tmp2);
+    printf("traverse gap: %s:%i -> %s:%i\n", tmp1, orient1, tmp2, orient2);
+  #endif
+
   // First and last node already match
   if(node1 == node2 && orient1 == orient2) return 0;
 
   // Ensure capacity
-  db_node_buf_ensure_capacity(list, list->len + GAP_LIMIT + 1);
+  db_node_buf_ensure_capacity(list, list->len + GAP_LIMIT);
 
   hkey_t *nlist = list->nodes + list->len;
   Orientation *olist = list->orients + list->len;
@@ -331,6 +333,7 @@ static int traverse_gap(dBNodeBuffer *list,
   return -1;
 }
 
+/*
 // Returns offset to continue from
 // stop if contig_len-offset < kmer_size
 // mp_first_kmer is the number of bp into the second mp of the first contig
@@ -380,7 +383,7 @@ static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, uint64_t *visited
         if(gapsize == -1)
         {
           // Failed to bridge gap
-          add_read_path(list, graph, colour, path);
+          add_read_path(list->nodes, list->orients, list->len, graph, colour, path);
 
           list->nodes[0] = node;
           list->orients[0] = orientation;
@@ -407,6 +410,7 @@ static size_t parse_contig(dBNodeBuffer *list, dBGraph *graph, uint64_t *visited
 
   return (next_base+1) - kmer_size;
 }
+*/
 
 
 // This function is passed to parse_filelist to load paths from sequence data
@@ -417,16 +421,16 @@ void load_paths(read_t *r1, read_t *r2,
 {
   // Don't bother checking for duplicates
   (void)stats;
-  struct AddPaths *add_paths = (struct AddPaths*)ptr;
 
+  // printf("READ: %s\n", r1->seq.b);
+
+  struct AddPaths *add_paths = (struct AddPaths*)ptr;
   dBNodeBuffer *list = &add_paths->list;
   path_t *path = &add_paths->path;
   GraphWalker *wlk = &add_paths->wlk;
   uint64_t *visited = add_paths->visited;
-
-  dBGraph *graph = prefs->db_graph;
-
-  if(r1->seq.end < graph->kmer_size) return;
+  dBGraph *db_graph = prefs->db_graph;
+  Colour colour = prefs->into_colour;
 
   int qcutoff1 = prefs->quality_cutoff;
   int qcutoff2 = prefs->quality_cutoff;
@@ -438,43 +442,160 @@ void load_paths(read_t *r1, read_t *r2,
   }
 
   int hp_cutoff = prefs->homopolymer_cutoff;
+  size_t i, r2_start = 0;
+  int r2_offset = -1;
+  list->len = 0;
+  boolean useful_path_info = false;
+  hkey_t node;
 
+  get_nodes_from_read(r1, qcutoff1, hp_cutoff, db_graph, list);
+
+  for(i = 1; i < list->len; i++) {
+    if((node = list->nodes[i]) != HASH_NOT_FOUND &&
+       edges_get_indegree(db_graph->edges[node], list->orients[i]) > 0)
+    {
+      useful_path_info = true;
+      break;
+    }
+  }
+
+  if(r2 != NULL && r2->seq.end >= db_graph->kmer_size)
+  {
+    seq_read_reverse_complement(r2);
+
+    // Insert gap
+    r2_start = list->len;
+    list->nodes[list->len] = HASH_NOT_FOUND;
+    list->orients[list->len] = forward;
+    list->len++;
+
+    r2_offset = get_nodes_from_read(r2, qcutoff2, hp_cutoff, db_graph, list);
+
+    // Remove HASH_NOT_FOUND gap that we added
+    if(r2_offset == -1) list->len--;
+
+    if(!useful_path_info) {
+      for(i = r2_start; i < list->len - 1; i++) {
+        if((node = list->nodes[i]) != HASH_NOT_FOUND &&
+           edges_get_outdegree(db_graph->edges[node], list->orients[i]) > 0)
+        {
+          useful_path_info = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if(list->len == 0 || !useful_path_info) return;
+
+  for(i = 0; i < list->len && list->nodes[i] != HASH_NOT_FOUND; i++) {}
+
+  if(i == list->len)
+  {
+    add_read_path(list->nodes, list->orients, list->len, db_graph, colour, path);
+  }
+  else
+  {
+    const size_t end = list->len;
+
+    db_node_buf_ensure_capacity(list, list->len + list->len);
+
+    hkey_t node = HASH_NOT_FOUND, prev_node = HASH_NOT_FOUND;
+    Orientation orient;
+
+    for(i = 0; i < end; i++, prev_node = node)
+    {
+      // printf("%zu / %zu\n", i, end);
+      node = list->nodes[i];
+      orient = list->orients[i];
+
+      #ifdef DEBUG
+        char str[100];
+        if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
+        else binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
+        printf("  node:%zu %zu %s\n", i, (size_t)node, str);
+      #endif
+
+      if(node != HASH_NOT_FOUND)
+      {
+        if(prev_node == HASH_NOT_FOUND && list->len > end)
+        {
+          // Can we branch the gap from the prev contig?
+          int gapsize = traverse_gap(list, node, orient, db_graph, visited,
+                                     colour, wlk);
+
+          if(gapsize == -1)
+          {
+            // Failed to bridge gap
+            add_read_path(list->nodes+end, list->orients+end, list->len-end,
+                          db_graph, colour, path);
+
+            list->nodes[end] = node;
+            list->orients[end] = orient;
+            list->len = end+1;
+          }
+          else
+          {
+            // Update stats (gapsize is <= GAP_LIMIT)
+            if(i == r2_start+1) {
+              int gap = gapsize - r2_offset;
+              insert_sizes[gap < 0 ? 0 : gap]++;
+            }
+            else {
+              gap_sizes[gapsize]++;
+            }
+          }
+        }
+        else {
+          list->nodes[list->len] = node;
+          list->orients[list->len] = orient;
+          list->len++;
+        }
+      }
+    }
+
+    add_read_path(list->nodes+end, list->orients+end, list->len-end,
+                  db_graph, colour, path);
+  }
+
+  /*
   size_t contig_start, contig_end, search_start = 0;
 
-  while((contig_start = seq_contig_start(r1, search_start, graph->kmer_size,
+  while((contig_start = seq_contig_start(r1, search_start, db_graph->kmer_size,
                                          qcutoff1, hp_cutoff)) < r1->seq.end)
   {
-    contig_end = seq_contig_end(r1, contig_start, graph->kmer_size,
+    contig_end = seq_contig_end(r1, contig_start, db_graph->kmer_size,
                                 qcutoff1, hp_cutoff, &search_start);
 
     size_t contig_len = contig_end - contig_start;
-    parse_contig(list, graph, visited, prefs->into_colour,
+    parse_contig(list, db_graph, visited, prefs->into_colour,
                  r1->seq.b + contig_start, contig_len, -1, path, wlk);
   }
 
-  if(r2 != NULL && r2->seq.end >= graph->kmer_size)
+  if(r2 != NULL && r2->seq.end >= db_graph->kmer_size)
   {
     seq_read_reverse_complement(r2);
 
     search_start = 0;
 
-    while((contig_start = seq_contig_start(r2, search_start, graph->kmer_size,
+    while((contig_start = seq_contig_start(r2, search_start, db_graph->kmer_size,
                                            qcutoff2, hp_cutoff)) < r2->seq.end)
     {
       // mp_first_kmer is -1 for all but the first iteration of this loop
       int mp_first_kmer = (search_start == 0 ? (int)contig_start : -1);
-      contig_end = seq_contig_end(r2, contig_start, graph->kmer_size,
+      contig_end = seq_contig_end(r2, contig_start, db_graph->kmer_size,
                                   qcutoff2, hp_cutoff, &search_start);
 
       size_t contig_len = contig_end - contig_start;
-      parse_contig(list, graph, visited, prefs->into_colour,
+      parse_contig(list, db_graph, visited, prefs->into_colour,
                    r2->seq.b + contig_start, contig_len, mp_first_kmer, path, wlk);
     }
   }
 
   // load the current supercontig
-  add_read_path(list, graph, prefs->into_colour, path);
+  add_read_path(list->nodes, list->orients, list->len, db_graph, prefs->into_colour, path);
   list->len = 0;
+  */
 }
 
 void add_read_paths_to_graph(const char *se_list,

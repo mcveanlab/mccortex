@@ -128,10 +128,17 @@ Covg db_node_sum_covg_of_colourlist(const dBGraph *graph, hkey_t hkey,
 //
 // dBNodeBuffer
 //
+// We might have fewer cache misses if we used this data structure
+// typedef struct {
+//   hkey_t node;
+//   Orientation orient;
+// } dBNode;
+
 typedef struct
 {
   hkey_t *nodes;
   Orientation *orients;
+  // dBNode *data;
   size_t len, capacity;
 } dBNodeBuffer;
 

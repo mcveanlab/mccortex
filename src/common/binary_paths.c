@@ -169,6 +169,7 @@ uint64_t binary_paths_add(binary_paths_t *paths, path_t *path, Colour colour)
 
   uint8_t *ptr = paths->next;
   uint64_t start = ptr - paths->store;
+  path->index = start;
 
   #ifdef DEBUG
     binary_paths_dump_path(path);
@@ -215,7 +216,7 @@ void binary_paths_dump_path(const path_t *path)
   if(path->core.prev == PATH_NULL) printf("NULL");
   else printf("%4zu", (size_t)path->core.prev);
   printf(" (cols:");
-  for(i = 0; i < sizeof(col_bitset_t)*8; i++)
+  for(i = 0; i < NUM_OF_COLOURS; i++)
     if(bitset_has(path->core.colours, i)) printf(" %zu", i);
   printf(")[%zu/%u]: ", path->pos, path->core.len);
   for(i = 0; i < path->core.len; i++)

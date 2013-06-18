@@ -290,13 +290,16 @@ int main(int argc, char* argv[])
   }
 
   // testing
-  // db_graph_dump_paths_by_kmer(&db_graph);
   // test(&db_graph);
+
+  #ifdef DEBUG
+    db_graph_dump_paths_by_kmer(&db_graph);
+  #endif
 
   // Now call variants
   invoke_shaded_bubble_caller(&db_graph, out_path, NUM_THREADS, tmp_paths);
 
-
+  // Clear up
   for(i = 0; i < NUM_THREADS; i++) {
     unlink(tmp_paths[i]);
     free(tmp_paths[i]);

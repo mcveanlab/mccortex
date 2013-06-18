@@ -231,7 +231,7 @@ void graph_init_context(GraphWalker *wlk, const dBGraph *db_graph,
 
   #ifdef DEBUG_WALKER
     printf("GOT CONTEXT\n\n");
-    print_state(wlk);
+    // print_state(wlk);
   #endif
 }
 
@@ -252,7 +252,7 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 {
   #ifdef DEBUG_WALKER
     printf("CHOOSE\n");
-    print_state(wlk);
+    // print_state(wlk);
   #endif
 
   if(num_next == 0) return -1;

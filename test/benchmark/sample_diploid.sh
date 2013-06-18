@@ -55,7 +55,7 @@ cmd "echo reads1.1.fa >> reads.1.falist"
 cmd $CTX --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.k31.ctx
 
 # Add shades to binary
-cmd $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.shaded.k31.ctx
+# cmd $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.shaded.k31.ctx
 
 # Call with old bc
 cmd time $CTX --load_binary diploid.k31.ctx --detect_bubbles1 0/0 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
@@ -67,8 +67,9 @@ cmd time $CTX --load_binary diploid.k31.ctx --paths_caller diploid.newbc.bubbles
 cmd $PROC diploid.newbc.bubbles.gz diploid.newbc
 cmd gzip -d -f diploid.newbc.vcf.gz
 
-# Call with new bc + shades
-cmd time $CTX --load_binary diploid.shaded.k31.ctx --paths_caller diploid.newbc.shaded.bubbles.gz
+# Call with new bc + shades (also add shades)
+# cmd time $CTX --load_binary diploid.shaded.k31.ctx --paths_caller diploid.newbc.shaded.bubbles.gz
+cmd time $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --paths_caller diploid.newbc.shaded.bubbles.gz
 cmd $PROC diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
 cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 

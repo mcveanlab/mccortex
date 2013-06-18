@@ -120,6 +120,69 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
   return contig_end;
 }
 
+// returns offset of the first node found or -1 if no nodes were found
+// Gaps collapsed down to a single HASH_NOT_FOUND
+int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
+                        const dBGraph *db_graph, dBNodeBuffer *list)
+{
+  size_t contig_start, contig_end, search_start = 0;
+  uint32_t kmer_size = db_graph->kmer_size;
+
+  BinaryKmer bkmer, tmp_key;
+  Nucleotide nuc;
+  hkey_t node, prev_node = HASH_NOT_FOUND;
+  size_t next_base;
+  int first_node_offset = -1;
+
+  db_node_buf_ensure_capacity(list, list->len + r->seq.end);
+
+  while((contig_start = seq_contig_start(r, search_start, kmer_size,
+                                         qcutoff, hp_cutoff)) < r->seq.end)
+  {
+    contig_end = seq_contig_end(r, contig_start, kmer_size,
+                                qcutoff, hp_cutoff, &search_start);
+
+    if(prev_node != HASH_NOT_FOUND)
+    {
+      // Gap
+      list->nodes[list->len] = HASH_NOT_FOUND;
+      list->orients[list->len] = forward;
+      list->len++;
+      prev_node = HASH_NOT_FOUND;
+    }
+
+    const char *contig = r->seq.b + contig_start;
+    size_t contig_len = contig_end - contig_start;
+
+    binary_kmer_from_str(contig, kmer_size, bkmer);
+    binary_kmer_right_shift_one_base(bkmer);
+
+    for(next_base = kmer_size-1; next_base < contig_len; next_base++)
+    {
+      nuc = binary_nuc_from_char(contig[next_base]);
+      binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+      db_node_get_key(bkmer, kmer_size, tmp_key);
+      node = hash_table_find(&db_graph->ht, tmp_key);
+
+      if(node != HASH_NOT_FOUND && first_node_offset == -1)
+        first_node_offset = contig_start + next_base + 1 - kmer_size;
+
+      if(prev_node != HASH_NOT_FOUND || node != HASH_NOT_FOUND)
+      {
+        list->nodes[list->len] = node;
+        list->orients[list->len] = db_node_get_orientation(bkmer, tmp_key);
+        list->len++;
+        prev_node = node;
+      }
+    }
+  }
+
+  if(list->len > 0 && list->nodes[list->len-1] == HASH_NOT_FOUND)
+    list->len--;
+
+  return first_node_offset;
+}
+
 void process_new_read(read_t *r, int qmin, int qmax, const char *path)
 {
   seq_read_to_uppercase(r);
