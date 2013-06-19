@@ -152,19 +152,17 @@ Covg db_node_sum_covg_of_colourlist(const dBGraph *graph, hkey_t hkey,
 //
 // dBNodeBuffer
 //
-void db_node_buf_alloc(dBNodeBuffer*buf, size_t capacity)
+void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity)
 {
   buf->capacity = ROUNDUP2POW(capacity);
-  buf->nodes = malloc(sizeof(hkey_t) * buf->capacity);
-  buf->orients = malloc(sizeof(Orientation) * buf->capacity);
+  buf->data = malloc(sizeof(dBNode) * buf->capacity);
   buf->len = 0;
-  if(buf->nodes == NULL || buf->orients == NULL) die("Out of memory");
+  if(buf->data == NULL) die("Out of memory");
 }
 
 void db_node_buf_dealloc(dBNodeBuffer *buf)
 {
-  free(buf->nodes);
-  free(buf->orients);
+  free(buf->data);
 }
 
 void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity)
@@ -172,9 +170,8 @@ void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity)
   if(capacity > buf->capacity)
   {
     buf->capacity = ROUNDUP2POW(capacity);
-    buf->nodes = realloc(buf->nodes, sizeof(hkey_t) * buf->capacity);
-    buf->orients = realloc(buf->orients, sizeof(Orientation) * buf->capacity);
-    if(buf->nodes == NULL || buf->orients == NULL) die("Out of memory");
+    buf->data = realloc(buf->data, sizeof(dBNode) * buf->capacity);
+    if(buf->data == NULL) die("Out of memory");
   }
 }
 
@@ -182,7 +179,7 @@ void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient)
 {
   size_t n = buf->len;
   db_node_buf_ensure_capacity(buf, n+1);
-  buf->nodes[n] = node;
-  buf->orients[n] = orient;
+  buf->data[n].node = node;
+  buf->data[n].orient = orient;
   buf->len++;
 }

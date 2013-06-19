@@ -448,26 +448,28 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   {
     for(colour = 0; colour < colours_loaded; colour++)
     {
-      SupernodePath *path = paths + num_of_paths++;
+      // if(db_node_has_col(db_graph, nodes[i], colour)) {
+        SupernodePath *path = paths + num_of_paths++;
 
-      // See if we can walk back to pick up paths for this allele/colour
-      graph_init_context(wlk, db_graph, visited, colour, nodes[i], orients[i]);
+        // See if we can walk back to pick up paths for this allele/colour
+        graph_init_context(wlk, db_graph, visited, colour, nodes[i], orients[i]);
 
-      // Constructs a path of supernodes (SupernodePath)
-      load_allele_path(nodes[i], orients[i], path, snode_hash, wlk,
-                       visited,
-                       node_store, or_store, snode_store, snodepos_store,
-                       &node_count, &snode_count, &snodepos_count);
+        // Constructs a path of supernodes (SupernodePath)
+        load_allele_path(nodes[i], orients[i], path, snode_hash, wlk,
+                         visited,
+                         node_store, or_store, snode_store, snodepos_store,
+                         &node_count, &snode_count, &snodepos_count);
 
-      graph_walker_finish(wlk);
+        graph_walker_finish(wlk);
 
-      // Remove mark traversed and reset shades
-      for(supindx = 0; supindx < snode_count; supindx++)
-      {
-        CallerSupernode *snode = snode_store + supindx;
-        db_node_fast_clear_traversed(visited, snode->nodes[0]);
-        db_node_fast_clear_traversed(visited, snode->nodes[snode->num_of_nodes-1]);
-      }
+        // Remove mark traversed and reset shades
+        for(supindx = 0; supindx < snode_count; supindx++)
+        {
+          CallerSupernode *snode = snode_store + supindx;
+          db_node_fast_clear_traversed(visited, snode->nodes[0]);
+          db_node_fast_clear_traversed(visited, snode->nodes[snode->num_of_nodes-1]);
+        }
+      // }
     }
   }
 

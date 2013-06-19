@@ -30,7 +30,7 @@ void graph_walker_dealloc(GraphWalker *gw);
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
                        hkey_t node, Orientation or);
 
-#define MAX_WALK_BACK_NODES 100
+#define MAX_WALK_BACK_NODES 1
 
 // context is now many nodes to go back (up to MAX_WALK_BACK_NODES)
 // Remember to call finish when done with wlk
