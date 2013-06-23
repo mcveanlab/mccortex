@@ -183,3 +183,25 @@ void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient)
   buf->data[n].orient = orient;
   buf->len++;
 }
+
+void db_nodes_to_str(const dBNode *nodes, size_t num,
+                     const dBGraph *db_graph, char *str)
+{
+  if(num == 0) return;
+
+  size_t i;
+  uint32_t kmer_size = db_graph->kmer_size;
+  ConstBinaryKmerPtr bkmer = db_node_bkmer(db_graph, nodes[0].node);
+  Nucleotide nuc;
+
+  binary_kmer_to_str(bkmer, kmer_size, str);
+  if(nodes[0].orient == reverse) reverse_complement_str(str, kmer_size);
+
+  for(i = 1; i < num; i++) {
+    bkmer = db_node_bkmer(db_graph, nodes[i].node);
+    nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    str[kmer_size+i-1] = binary_nuc_to_char(nuc);
+  }
+
+  str[kmer_size+num-1] = '\0';
+}

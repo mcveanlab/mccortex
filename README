@@ -1,5 +1,64 @@
-Cortex with compact memory structures and read-threading
-========================================================
+Cortex with low memory and read-threading
+=========================================
 
 Isaac Turner's experimental fork of cortex_var, to handle larger populations
-with better assembly
+with better assembly.
+
+Build
+-----
+
+Compiles with clang and gcc. Tested on Mac OS X and linux. 
+The first compile will take a while since the libraries in libs/ need to be
+downloaded and installed.
+
+    cd libs; make; cd ..
+
+To compile for one sample and maximum kmer size of 31:
+
+    make
+
+to compile for ten samples and maximum kmer size of 63:
+
+    make NUM_COLS=10 MAXK=63
+
+Requires zlib to be installed.  Also relies on multiple other libraries but
+these are all downloaded into libs/ and compiled.
+
+Getting Helps
+-------------
+
+Isaac Turner: turner.isaac@gmail.com
+
+License
+-------
+
+GPLv2
+
+Bundled libraries may have different licenses
+
+GNU Science Library (GPL)
+seqan (BSD/3-clause)
+city_hash (MIT)
+lookup3 (Public Domain)
+htslib
+seq_file (BSD)
+string_buffer (BSD)
+bit_array (BSD)
+seq-align (GPLv3)
+
+Used in testing:
+bioinf-perl
+cortex_binary_reader
+
+Citing
+------
+
+'Cortex with low memory and read threading' is currently unpublished.  Please
+cite previous cortex_var papers:
+
+* De novo assembly and genotyping of variants using colored de Bruijn graphs,
+Iqbal(*), Caccamo(*), Turner, Flicek, McVean (Nature Genetics) (2012)
+(doi:10.1038/ng.1028)
+* High-throughput microbial population genomics using the Cortex variation assembler,
+Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
+(doi:10.1093/bioinformatics/bts673)

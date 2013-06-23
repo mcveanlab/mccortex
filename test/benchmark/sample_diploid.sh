@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Set exit on error
 set -e
 
@@ -20,9 +22,10 @@ ALLELECOVG=$8
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CTX="~/cortex/versions/current/bin/cortex_var_31_c1_s8 --kmer_size 31 --mem_width 8 --mem_height 18"
-CTX2="~/cortex/versions/compact_hash/bin/ctx_call_k31_c1"
-PROC="~/cortex/versions/compact_hash/bin/ctx_unique"
-PLACE="~/cortex/versions/compact_hash/bin/ctx_place"
+THREAD="$DIR/../../bin/ctx_thread_k31_c1"
+CTX2="$DIR/../../bin/ctx_call_k31_c1"
+PROC="$DIR/../../bin/ctx_unique"
+PLACE="$DIR/../../bin/ctx_place"
 BIOINF="$DIR/../../libs/bioinf-perl"
 # BIOINF=~/bioinf-perl
 HAPLEN="$DIR/longest-haplotype.sh"
@@ -51,6 +54,11 @@ cmd "echo reads1.0.fa >> reads.0.falist"
 cmd "echo reads0.1.fa > reads.1.falist"
 cmd "echo reads1.1.fa >> reads.1.falist"
 
+cmd "echo reads0.0.fa > reads.se.falist"
+cmd "echo reads0.1.fa >> reads.se.falist"
+cmd "echo reads1.0.fa >> reads.se.falist"
+cmd "echo reads1.1.fa >> reads.se.falist"
+
 # Make diploid.k31.ctx
 cmd $CTX --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.k31.ctx
 
@@ -61,6 +69,10 @@ cmd $CTX --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.k31.ctx
 cmd time $CTX --load_binary diploid.k31.ctx --detect_bubbles1 0/0 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
 cmd $PROC diploid.oldbc.bubbles diploid.oldbc
 cmd gzip -d -f diploid.oldbc.vcf.gz
+
+# Fix buggy output from old bc
+grep -v 'LF=;' diploid.oldbc.vcf > diploid.oldbc.vcf.2;
+mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
 
 # Call with new bc
 cmd time $CTX --load_binary diploid.k31.ctx --paths_caller diploid.newbc.bubbles.gz
@@ -74,7 +86,10 @@ cmd $PROC diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
 cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 
 # Call with ctx2
-cmd time $CTX2 diploid.k31.ctx 1G diploid.pac.bubbles.gz --pe_list 0 reads.0.falist reads.1.falist
+# cmd time $THREAD diploid.k31.ctx 100M --pe_list 0 reads.0.falist reads.1.falist
+cmd time $THREAD diploid.k31.ctx 100M --se_list 0 reads.se.falist
+# cmd time $THREAD diploid.k31.ctx 100M --se_list 0 reads.se.falist --pe_list 0 reads.0.falist reads.1.falist
+cmd time $CTX2 diploid.k31.ctx 100M diploid.pac.bubbles.gz
 cmd $PROC diploid.pac.bubbles.gz diploid.pac
 cmd gzip -d -f diploid.pac.vcf.gz
 
@@ -104,10 +119,6 @@ cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.oldbc.5pflan
 cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.newbc.5pflanks.fa.gz > diploid.newbc.5pflanks.sam"
 cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.newbc.shaded.5pflanks.fa.gz > diploid.newbc.shaded.5pflanks.sam"
 cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.5pflanks.fa.gz > diploid.pac.5pflanks.sam"
-
-# Fix buggy output from old bc
-grep -v 'LF=;' diploid.oldbc.vcf > diploid.oldbc.vcf.2;
-mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
 
 # Place calls
 cmd "time $PLACE diploid.oldbc.vcf diploid.oldbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.oldbc.decomp.vcf"

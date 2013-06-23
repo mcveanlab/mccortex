@@ -21,4 +21,9 @@ boolean file_reader_generate_filename(const char *base_fmt, StrBuf *str);
 void file_reader_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
 char* file_reader_get_current_dir(char abspath[PATH_MAX+1]);
 
+void safe_fread(FILE *fh, void *ptr, size_t size,
+                const char* field, const char *path);
+
+size_t stream_skip(FILE *fh, size_t skip);
+
 #endif /* FILE_UTIL_H_ */

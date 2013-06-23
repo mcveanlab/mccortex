@@ -13,6 +13,8 @@
 #include <limits.h>
 #include <assert.h>
 
+extern char print_debug;
+
 typedef signed char boolean;
 
 #ifndef true

@@ -65,7 +65,7 @@ typedef struct
   char key[2*PROC_MAXK+1]; // concat of key0, key1 (keys of kmer0, kmer1)
   StrBuf *flank5p, *flank3p;
   VarBranch *first_allele; // Linkedlist
-  uint32_t var_num;
+  StrBuf *name;
   uint32_t shift_left, shift_right;
 } Var;
 
@@ -75,8 +75,9 @@ static Var* var_new(uint32_t kmer_size)
   var->key[0] = var->key[2*kmer_size] = 0;
   var->flank5p = strbuf_new();
   var->flank3p = strbuf_new();
+  var->name = strbuf_new();
   var->first_allele = NULL;
-  var->var_num = var->shift_left = var->shift_right = 0;
+  var->shift_left = var->shift_right = 0;
   return var;
 }
 
@@ -152,6 +153,9 @@ static void var_merge(Var *var0, Var *var1, int num_samples)
 
   var0->first_allele = null_allele.next;
   var1->first_allele = NULL;
+
+  strbuf_append_char(var0->name, ',');
+  strbuf_append_strn(var0->name, var1->name->buff, var1->name->len);
 }
 
 // Trim from right side, add to flank3p
@@ -472,6 +476,18 @@ static void parse_shaded_header(gzFile in, CallHeader* ch)
 #define header_assert(cond,sb)                                \
   if(!(cond)) { die("Loading err ["QUOTE(cond)"]: %s", (sb)->buff); }
 
+// Returns length of var name
+static size_t get_var_name(const char *line, const char *suffix, char *name)
+{
+  if(line[0] != '>') die("Expected '>': %s", line);
+  const char *match = strstr(line, suffix);
+  if(match == NULL) die("Cannot find var name [line: %s]", line);
+  size_t len = match-line-1;
+  memcpy(name, line+1, len);
+  name[len] = '\0';
+  return len;
+}
+
 // Fabricate header by looking at first entry
 static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
 {
@@ -486,11 +502,14 @@ static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
     return;
   }
 
-  int varnum, flank5plen, kmer_size;
-  int h = sscanf(line->buff, ">var_%i_5p_flank length:%i INFO:KMER=%i",
-                 &varnum, &flank5plen, &kmer_size);
+  char name[line->len];
+  size_t name_len = get_var_name(line->buff, "_5p_flank", name);
 
-  header_assert(h == 3, line);
+  int flank5plen, kmer_size;
+  int n = sscanf(line->buff+1+name_len, "_5p_flank length:%i INFO:KMER=%i",
+                 &flank5plen, &kmer_size);
+
+  header_assert(n == 2, line);
   ch->kmer_size = kmer_size;
 
   // Skip next 7 lines
@@ -592,7 +611,7 @@ static void reader_clean_up_var(CallReader *cr, Var *var)
 
   #ifdef DEBUG
   printf("\n\n");
-  printf("var_%u\n 5p:%s\n 3p:%s\n", var->var_num,
+  printf("%s\n 5p:%s\n 3p:%s\n", var->name->buf,
          var->flank5p->buff, var->flank3p->buff);
   size_t i;
   for(i = 0; i < cr->num_alleles; i++)
@@ -667,13 +686,13 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   if(!strbuf_gzreadline_nonempty(line, fh))
     return 0;
 
-  uint32_t i, n, var_num1, var_num2;
+  uint32_t i, n;
   size_t num_samples = cr->ch->num_samples;
 
-  load_assert(line->buff[0] == '>', line);
-  n = sscanf(line->buff, ">var_%u_5p_flank", &var_num1);
-  load_assert(n == 1, line);
-  var->var_num = var_num1;
+  // Get var name
+  StrBuf *name = var->name;
+  strbuf_ensure_capacity(name, line->len);
+  name->len = get_var_name(line->buff, "_5p_flank", name->buff);
 
   load_assert(strbuf_reset_gzreadline(var->flank5p, fh) != 0, line);
   strbuf_chomp(var->flank5p);
@@ -683,9 +702,11 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
 
   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
   strbuf_chomp(line);
-  n = sscanf(line->buff, ">var_%u_3p_flank", &var_num2);
-  load_assert(n == 1, line);
-  load_assert(var_num1 == var_num2, line);
+
+  // Check var name
+  load_assert(line->buff[0] == '>', line);
+  load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
+  load_assert(strncmp(line->buff+1+name->len, "_3p_flank", 9) == 0, line);
 
   load_assert(strbuf_reset_gzreadline(var->flank3p, fh) != 0, line);
   strbuf_chomp(var->flank3p);
@@ -708,12 +729,16 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
 
     VarBranch *branch = branch_new(num_samples);
 
-    uint32_t var_num3, branch_num, branch_nodes;
-    n = sscanf(line->buff, ">var_%u_branch_%u length=%u",
-               &var_num3, &branch_num, &branch_nodes);
+    uint32_t branch_num, branch_nodes;
 
-    load_assert(n == 3, line);
-    load_assert(var_num3 == var_num1, line);
+    // Check name
+    load_assert(line->buff[0] == '>', line);
+    load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
+
+    n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
+               &branch_num, &branch_nodes);
+
+    load_assert(n == 2, line);
     load_assert(branch_num == cr->num_alleles, line);
 
     branch->num_nodes = branch_nodes;
@@ -764,15 +789,17 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
   if(!strbuf_gzreadline_nonempty(line, fh))
     return 0;
 
-  uint32_t n, var_num1, var_num2;
+  uint32_t n;
   size_t num_samples = cr->ch->num_samples;
   cr->num_alleles = 0;
+  strbuf_ensure_capacity(var->name, line->len);
 
-  // Read flank5p
-  load_assert(line->buff[0] == '>', line);
-  n = sscanf(line->buff, ">var_%u_5p_flank", &var_num1);
-  var->var_num = var_num1;
-  load_assert(n == 1, line);
+  // Get var name
+  StrBuf *name = var->name;
+  strbuf_ensure_capacity(name, line->len);
+  name->len = get_var_name(line->buff, "_5p_flank", name->buff);
+  load_assert(strncmp(line->buff+1+name->len, "_5p_flank", 9) == 0, line);
+
   load_assert(strbuf_reset_gzreadline(var->flank5p, fh) != 0, line);
   strbuf_chomp(var->flank5p);
 
@@ -789,16 +816,17 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
       cr->alleles = realloc(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
     }
 
-    uint32_t var_num3, branch_num, branch_nodes;
-    n = sscanf(line->buff, ">var_%u_branch_%u length:%u",
-               &var_num3, &branch_num, &branch_nodes);
+    uint32_t branch_num, branch_nodes;
+
+    load_assert(line->buff[0] == '>', line);
+    load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
+    n = sscanf(line->buff+1+name->len, "_branch_%u length:%u",
+               &branch_num, &branch_nodes);
+
+    if(n != 2) break;
+
     // Remove 5p flank node from end of branch
     branch_nodes--;
-
-    if(n != 3) break;
-
-    load_assert(n == 3, line);
-    load_assert(var_num3 == var_num1, line);
     load_assert(branch_num == cr->num_alleles+1, line);
 
     // Load sequence
@@ -815,10 +843,11 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
 
   load_assert(cr->num_alleles >= 2, line);
 
-  // Read flank3p
-  n = sscanf(line->buff, ">var_%u_3p_flank", &var_num2);
-  load_assert(n == 1, line);
-  load_assert(var_num1 == var_num2, line);
+  // Read >name_3p_flank
+  load_assert(line->buff[0] == '>', line);
+  load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
+  load_assert(strncmp(line->buff+1+name->len, "_3p_flank", 9) == 0, line);
+
   load_assert(strbuf_reset_gzreadline(var->flank3p, fh) != 0, line);
   strbuf_chomp(var->flank3p);
 
@@ -831,7 +860,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
     strbuf_reset(line);
     load_assert(strbuf_gzreadline_nonempty(line, fh), line);
     strbuf_chomp(line);
-    sscanf(line->buff, "branch%u coverages", &tmp_brnum);
+    n = sscanf(line->buff, "branch%u coverages", &tmp_brnum);
     load_assert(n == 1, line);
     load_assert(tmp_brnum == brnum+1, line);
 
@@ -932,7 +961,7 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
   for(allele = allele->next; allele != NULL; allele = allele->next)
     gzprintf(out_vcf, ",%u", allele->num_nodes);
 
-  gzprintf(out_vcf, ";BUB=%u", var->var_num);
+  gzprintf(out_vcf, ";BUB=%s", var->name->buff);
 
   gzprintf(out_vcf, "\tCOVG");
   for(i = 0; i < num_samples; i++)

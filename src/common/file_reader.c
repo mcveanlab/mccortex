@@ -360,17 +360,35 @@ void parse_filelists(const char *list_path1, const char *list_path2,
     message("\n");
     message("Number of sequence files loaded: %lu\n", new_stats->num_files_loaded);
 
-    message("  number of reads (SE,PE): (%lu, %lu)\n",
-            new_stats->num_se_reads, new_stats->num_pe_reads);
-    message("  number of reads (good,bad,dupe): (%lu, %lu, %lu)\n",
-            new_stats->total_good_reads, new_stats->total_bad_reads,
-            new_stats->total_dup_reads);
-    message("  sequence (total,filtered): (%lu, %lu)\n",
-            new_stats->total_bases_read, new_stats->total_bases_loaded);
-    message("  kmers parsed (of which novel): %lu (%lu)\n",
-            new_stats->kmers_loaded, new_stats->unique_kmers);
-    message("  total kmers in graph: %zu\n\n",
-            (size_t)prefs->db_graph->ht.unique_kmers);
+    char se_reads_str[50], pe_reads_str[50];
+    char good_reads_str[50], bad_reads_str[50], dupe_reads_str[50];
+    char bases_read_str[50], bases_loaded_str[50];
+    char kmers_loaded_str[50], unique_kmers_str[50];
+    char total_kmers_str[50];
+
+    ulong_to_str(new_stats->num_se_reads, se_reads_str);
+    ulong_to_str(new_stats->num_pe_reads, pe_reads_str);
+
+    ulong_to_str(new_stats->total_good_reads, good_reads_str);
+    ulong_to_str(new_stats->total_bad_reads, bad_reads_str);
+    ulong_to_str(new_stats->total_dup_reads, dupe_reads_str);
+
+    ulong_to_str(new_stats->total_bases_read, bases_read_str);
+    ulong_to_str(new_stats->total_bases_loaded, bases_loaded_str);
+
+    ulong_to_str(new_stats->kmers_loaded, kmers_loaded_str);
+    ulong_to_str(new_stats->unique_kmers, unique_kmers_str);
+
+    ulong_to_str(prefs->db_graph->ht.unique_kmers, total_kmers_str);
+
+    message("  number of reads: SE: %s; PE: %s (good: %s; bad: %s; dupe: %s)\n",
+            se_reads_str, pe_reads_str,
+            good_reads_str, bad_reads_str, dupe_reads_str);
+    message("  sequence parsed (and filtered): %s (%s)\n",
+            bases_read_str, bases_loaded_str);
+    message("  kmers parsed (of which novel): %s (%s)\n",
+            kmers_loaded_str, unique_kmers_str);
+    message("  total kmers in graph: %s\n\n", total_kmers_str);
   }
 
   for(i = 0; i < num_files; i++) {

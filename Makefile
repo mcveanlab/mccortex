@@ -63,7 +63,14 @@ LIB_GSL = libs/gsl-1.15/.libs/libgsl.a
 LIB_HTS = libs/htslib/htslib/libhts.a
 LIB_ALIGN = libs/seq-align/src/libalign.a
 
-INCLUDES = -I src/common/ \
+# Resolve some issues linking libz:
+# 1) pass LIB_PATH=/usr/local/lib/ to compile on WTCHG cluster3
+# 2) also set LD_LIBRARY_PATH=/usr/local/lib/:$(LD_LIBRARY_PATH)
+ifdef LIB_PATH
+	EXTRA_INCLUDES := -I $(LIB_PATH) -L $(LIB_PATH)
+endif
+
+INCLUDES = $(EXTRA_INCLUDES) -I src/common/ \
            -I $(IDIR_CITY) -I $(IDIR_LOOKUP3) \
            -I $(IDIR_GSL_HEADERS) -I $(IDIR_HTS) \
            -I $(IDIR_ALIGN) -I $(IDIR_SEQ) -I $(IDIR_STRS)
@@ -95,17 +102,6 @@ else
 	DEBUG_LIBS =
 endif
 
-# Resolve some issues linking libz:
-# 1) pass LIB_PATH=/usr/local/lib/ to compile on WTCHG cluster3
-# 2) also set LD_LIBRARY_PATH=/usr/local/lib/:$(LD_LIBRARY_PATH)
-ifdef LIB_PATH
-	INCLUDES := -I $(LIB_PATH) -L $(LIB_PATH) $(INCLUDES)
-endif
-
-INCLUDES_TESTS = $(INCLUDES) -I $(IDIR_BASIC_TESTS) \
-                -I $(IDIR_HASH_TABLE_TESTS) -I $(IDIR_CORTEX_VAR_TESTS) \
-                -I$(IDIR_CUNIT) -L$(LDIR_CUNIT)
-
 # Library linking
 LIB_OBJS = $(LIB_GSL) $(LIB_HTS) $(LIB_ALIGN)
 LINK_LIBS = -lpthread -lz -lm $(DEBUG_LIBS)
@@ -120,12 +116,16 @@ COMMON_HDRS = $(wildcard src/common/*.h) \
 
 CTX_SUBGRAPH_SRCS = src/tools/ctx_subgraph.c $(COMMON_SRCS)
 CTX_READS_SRCS = src/tools/ctx_reads.c $(COMMON_SRCS)
+CTX_THREAD_SRCS = src/tools/ctx_thread.c $(COMMON_SRCS)
+CTP_VIEW_SRCS = src/tools/ctP_VIEW.c $(COMMON_SRCS)
 CTX_CALL_SRCS = src/tools/ctx_call.c $(COMMON_SRCS)
 CTX_UNIQUE_SRCS = src/tools/ctx_unique.c $(COMMON_SRCS)
 CTX_PLACE_SRCS = src/tools/ctx_place.c src/common/call_seqan.o $(COMMON_SRCS)
 
 CTX_SUBGRAPH_HDRS = $(COMMON_HDRS)
 CTX_READS_HDRS = $(COMMON_HDRS)
+CTX_THREAD_HDRS = $(COMMON_HDRS)
+CTP_VIEW_HDRS = $(COMMON_HDRS)
 CTX_CALL_HDRS = $(COMMON_HDRS)
 CTX_UNIQUE_HDRS = $(COMMON_HDRS)
 CTX_PLACE_HDRS = $(COMMON_HDRS)
@@ -134,12 +134,14 @@ MAXK_NUMCOLS = k$(MAXK)_c$(NUM_COLS)
 
 CTX_SUBGRAPH_BIN=bin/ctx_subgraph_$(MAXK_NUMCOLS)
 CTX_READS_BIN=bin/ctx_reads_$(MAXK_NUMCOLS)
+CTX_THREAD_BIN=bin/ctx_thread_$(MAXK_NUMCOLS)
+CTP_VIEW_BIN=bin/ctp_view_$(MAXK_NUMCOLS)
 CTX_CALL_BIN=bin/ctx_call_$(MAXK_NUMCOLS)
 
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=$(LIB_OBJS) bin
 
-all: ctx_reads ctx_subgraph ctx_unique ctx_place ctx_call
+all: ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_reads ctx_subgraph
 
 ctx_subgraph: $(CTX_SUBGRAPH_BIN)
 $(CTX_SUBGRAPH_BIN): $(CTX_SUBGRAPH_SRCS) $(CTX_SUBGRAPH_HDRS) Makefile | $(DEPS)
@@ -150,6 +152,16 @@ ctx_reads: $(CTX_READS_BIN)
 $(CTX_READS_BIN): $(CTX_READS_SRCS) $(CTX_READS_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTX_READS_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_READS_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTX_READS_BIN)
+
+ctx_thread: $(CTX_THREAD_BIN)
+$(CTX_THREAD_BIN): $(CTX_THREAD_SRCS) $(CTX_THREAD_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTX_THREAD_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_THREAD_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTX_THREAD_BIN)
+
+ctp_view: $(CTP_VIEW_BIN)
+$(CTP_VIEW_BIN): $(CTP_VIEW_SRCS) $(CTP_VIEW_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTP_VIEW_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTP_VIEW_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTP_VIEW_BIN)
 
 ctx_call: $(CTX_CALL_BIN)
 $(CTX_CALL_BIN): $(CTX_CALL_SRCS) $(CTX_CALL_HDRS) Makefile | $(DEPS)
@@ -169,6 +181,7 @@ bin/ctx_place: $(CTX_PLACE_SRCS) $(CTX_PLACE_HDRS) Makefile | $(DEPS)
 src/common/call_seqan.o: src/common/call_seqan.cpp src/common/call_seqan.h
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c -o src/common/call_seqan.o src/common/call_seqan.cpp
 
+$(LIB_OBJS):
 libs/string_buffer/string_buffer.h:
 	cd libs; make
 
@@ -178,16 +191,9 @@ bin:
 $(TEMP_TEST_DIR):
 	mkdir -p $(TEMP_TEST_DIR)
 
-$(LIB_OBJS):
-	cd libs; make
-
-cunit:
-	@if [[ ! -e '$(IDIR_CUNIT)' || ! -e '$(LDIR_CUNIT)' ]]; \
-	then echo "Error: Cannot find CUnit"; exit 1; fi
-
 clean:
 	rm -rf bin/* src/common/*.o
 
-.PHONY: all clean cunit
-.PHONY: ctx_call ctx_unique ctx_place ctx_reads ctx_subgraph
+.PHONY: all clean
+.PHONY: ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_reads ctx_subgraph
 

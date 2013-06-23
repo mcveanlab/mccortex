@@ -15,16 +15,15 @@ static void print_state(const GraphWalker *wlk)
   ConstBinaryKmerPtr bkmerptr = db_node_bkmer(wlk->db_graph, wlk->node);
   binary_kmer_to_str(bkmerptr, wlk->db_graph->kmer_size, tmp2);
   printf("gw:%s (%s:%i)\n", tmp, tmp2, wlk->orient);
-  printf(" num_paths: %zu; path_cap: %zu; new_path_pos: %zu; num_new_paths: %zu;\n",
-         wlk->num_paths, wlk->paths_cap, wlk->new_path_pos, wlk->num_new_paths);
+  printf(" num_paths: %zu; path_cap: %zu; num_new_paths: %zu;\n",
+         wlk->num_paths, wlk->paths_cap, wlk->num_new_paths);
   size_t i;
   for(i = 0; i < wlk->num_paths; i++) {
     binary_paths_dump_path(wlk->curr_paths[i]);
   }
   printf("-\n");
-  size_t end = wlk->new_path_pos + wlk->num_new_paths;
-  for(i = wlk->new_path_pos; i < end; i++) {
-    binary_paths_dump_path(wlk->curr_paths[i]);
+  for(i = 0; i < wlk->num_new_paths; i++) {
+    binary_paths_dump_path(wlk->curr_paths[wlk->num_paths+i]);
   }
   printf("-\n");
 }
@@ -59,21 +58,11 @@ static void resize_curr_paths(GraphWalker *wlk)
 
 static void pickup_paths(GraphWalker *wlk)
 {
-  // Convert new paths into followed paths
-  // if(wlk->num_new_paths > 0)
-  // {
-  //   if(wlk->new_path_pos > wlk->num_paths) {
-  //     path_t *tmp_path;
-  //     size_t i, j, end = wlk->new_path_pos + wlk->num_new_paths;
-  //     for(i = wlk->new_path_pos, j = wlk->num_paths; i < end; i++, j++) {
-  //       SWAP(wlk->curr_paths[j], wlk->curr_paths[i], tmp_path);
-  //     }
-  //   }
-  //   wlk->num_paths += wlk->num_new_paths;
-  // }
-  
-  // size_t end_pos = wlk->new_path_pos = wlk->num_paths;
+  wlk->num_paths += wlk->num_new_paths;
+  wlk->num_new_paths = 0;
   size_t end_pos = wlk->num_paths;
+
+  size_t min_len = wlk->num_paths == 0 ? 0 : wlk->curr_paths[0]->core.len - wlk->curr_paths[0]->pos;
 
   if(end_pos+1 >= wlk->paths_cap)
     resize_curr_paths(wlk);
@@ -84,30 +73,19 @@ static void pickup_paths(GraphWalker *wlk)
 
   while(index != PATH_NULL)
   {
-    binary_paths_fetch(paths, index, wlk->curr_paths[end_pos]);
-    prev_index = wlk->curr_paths[end_pos]->core.prev;
+    path_t *nxtpath = wlk->curr_paths[end_pos];
+    binary_paths_fetch(paths, index, nxtpath);
+    prev_index = nxtpath->core.prev;
 
-    if(path_has_col(wlk->curr_paths[end_pos], wlk->colour))
-    {
-      // Unmark this path in the paths database
-      // if(wlk->num_pp == wlk->pp_cap) {
-      //   wlk->pp_cap *= 2;
-      //   wlk->prev_paths = realloc(wlk->prev_paths, wlk->pp_cap*sizeof(uint64_t));
-      // }
-      // wlk->prev_paths[wlk->num_pp++] = index;
-      // binary_paths_del_col(paths, index, wlk->colour);
-
+    if(path_has_col(nxtpath, wlk->colour) && nxtpath->core.len > min_len) {
       end_pos++;
-
-      if(end_pos+1 >= wlk->paths_cap)
-        resize_curr_paths(wlk);
+      if(end_pos+1 >= wlk->paths_cap) resize_curr_paths(wlk);
     }
 
     index = prev_index;
   }
 
-  wlk->num_paths = end_pos;
-  // wlk->num_new_paths = end_pos - wlk->num_paths;
+  wlk->num_new_paths = end_pos - wlk->num_paths;
 }
 
 void graph_walker_alloc(GraphWalker *wlk)
@@ -124,9 +102,6 @@ void graph_walker_alloc(GraphWalker *wlk)
   wlk->curr_paths = curr_paths;
   wlk->paths_data = paths_data;
   wlk->paths_cap = paths_cap;
-
-  // wlk->pp_cap = 1024;
-  // wlk->prev_paths = malloc(wlk->pp_cap * sizeof(uint64_t));
 }
 
 void graph_walker_dealloc(GraphWalker *wlk)
@@ -136,7 +111,6 @@ void graph_walker_dealloc(GraphWalker *wlk)
   for(i = 0; i < wlk->paths_cap; i++) path_dealloc(paths+i);
   free(wlk->curr_paths);
   free(wlk->paths_data);
-  // free(wlk->prev_paths);
 }
 
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
@@ -153,9 +127,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
                     .curr_paths = wlk->curr_paths,
                     .paths_data = wlk->paths_data,
                     .num_paths = 0, .paths_cap = wlk->paths_cap,
-                    .new_path_pos = 0, .num_new_paths = 0};
-                    // .prev_paths = wlk->prev_paths,
-                    // .num_pp = 0, .pp_cap = wlk->pp_cap};
+                    .num_new_paths = 0};
 
   memcpy(wlk, &gw, sizeof(GraphWalker));
 
@@ -167,12 +139,12 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
 }
 
 // Gets context up to (but not including) the node you pass
-// graph_init_context(wlk, graph, colour, node, orient)
+// graph_walker_init_context(wlk, graph, colour, node, orient)
 // graph_traverse_force_jump(node, orient)
 // Remember to call finish when done with wlk
-void graph_init_context(GraphWalker *wlk, const dBGraph *db_graph,
-                        uint64_t *visited, Colour colour,
-                        hkey_t node, Orientation orient)
+void graph_walker_init_context(GraphWalker *wlk, const dBGraph *db_graph,
+                               uint64_t *visited, Colour colour,
+                               hkey_t node, Orientation orient)
 {
   #ifdef DEBUG_WALKER
     char str[100];
@@ -231,7 +203,7 @@ void graph_init_context(GraphWalker *wlk, const dBGraph *db_graph,
 
   #ifdef DEBUG_WALKER
     printf("GOT CONTEXT\n\n");
-    // print_state(wlk);
+    print_state(wlk);
   #endif
 }
 
@@ -250,10 +222,10 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                         const hkey_t next_nodes[4],
                         const Nucleotide next_bases[4])
 {
-  #ifdef DEBUG_WALKER
-    printf("CHOOSE\n");
-    // print_state(wlk);
-  #endif
+  // #ifdef DEBUG_WALKER
+  //   printf("CHOOSE\n");
+  //   print_state(wlk);
+  // #endif
 
   if(num_next == 0) return -1;
   if(num_next == 1) return 0;
@@ -274,15 +246,19 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     }
   }
 
-  if(j == 0) {
+  if(j == 0)
+  {
+    // Take all options
     memcpy(nodes, next_nodes, 4 * sizeof(hkey_t));
     memcpy(bases, next_bases, 4 * sizeof(Nucleotide));
     for(i = 0; i < 4; i++) indices[i] = i;
   }
-
-  num_next = j;
+  else {
+    num_next = j;
+  }
 
   if(num_next > 1 && wlk->num_paths == 0) return -1;
+  if(num_next == 1) return indices[0];
 
   // Do all the oldest shades pick a consistent next node?
   path_t *oldest_path = wlk->curr_paths[0];
@@ -326,32 +302,22 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
     // Update ages
     path_t **curr_paths = wlk->curr_paths, *path, *tmp_path;
     size_t i, j;
-    int mismatched_path_age = -1;
+    // int mismatched_path_age = -1;
 
-    for(i = 0, j = 0; i < wlk->num_paths; i++)
+    for(i = 0, j = 0; i < wlk->num_paths + wlk->num_new_paths; i++)
     {
       path = curr_paths[i];
-      if(path->bases[path->pos] == base) {
+      if(path->bases[path->pos] == base &&
+         path->pos+1 < path->core.len)
+      {
         path->pos++;
-        if(path->pos < path->core.len) {
-          SWAP(curr_paths[j], curr_paths[i], tmp_path);
-          j++;
-        }
-      }
-      else {
-        mismatched_path_age = path->pos;
-        break;
-      }
-    }
-
-    if(mismatched_path_age != -1) {
-      while(j > 0 && curr_paths[j]->pos == (unsigned)mismatched_path_age) {
-        // drop path j
-        j--;
+        SWAP(curr_paths[j], curr_paths[i], tmp_path);
+        j++;
       }
     }
 
     wlk->num_paths = j;
+    wlk->num_new_paths = 0;
   }
 
   const dBGraph *db_graph = wlk->db_graph;
@@ -395,11 +361,8 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              const hkey_t nodes[4], const Nucleotide bases[4])
 {
   int nxt_indx = graph_walker_choose(wlk, num_next, nodes, bases);
-
   // printf("  nxt_indx: %i\n", nxt_indx);
   if(nxt_indx == -1) return false;
-
   graph_traverse_force(wlk, nodes[nxt_indx], bases[nxt_indx], num_next > 1);
-
   return true;
 }

@@ -120,3 +120,22 @@ char* file_reader_get_current_dir(char abspath[PATH_MAX+1])
   else
     return NULL;
 }
+
+void safe_fread(FILE *fh, void *ptr, size_t size,
+                const char* field, const char *path)
+{
+  size_t read = fread(ptr, 1, size, fh);
+  if(read != size)
+  {
+    die("Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",
+        field, size, read, path);
+  }
+}
+
+size_t stream_skip(FILE *fh, size_t skip)
+{
+  size_t i;
+  uint8_t tmp;
+  for(i = 0; i < skip && fread(&tmp, 1, 1, fh); i++);
+  return i;
+}

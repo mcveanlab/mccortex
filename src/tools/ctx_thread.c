@@ -10,17 +10,22 @@
 #include "graph_walker.h"
 #include "shaded_caller.h"
 
-static const char usage[] = "usage: ctx_call <in.ctx> <mem> <out.bubbles.gz>\n";
+static const char usage[] =
+"usage: ctx_thread <in.ctx> <mem> [OPTIONS]\n"
+"  Thread reads through the graph.  Saves to file <in.ctp>\n"
+"  Options:\n"
+"    --se_list <col> <in.list>\n"
+"    --pe_list <col> <pe.list1> <pe.list2>\n";
 
-#define NUM_THREADS 2
+#define NUM_PASSES 1
+#define NUM_THREADS 1
 
 int main(int argc, char* argv[])
 {
-  if(argc != 4) print_usage(usage, NULL);
+  if(argc < 6) print_usage(usage, NULL);
 
   char *input_ctx_path = argv[1];
   char *mem_arg = argv[2];
-  char *out_path = argv[3];
 
   size_t mem_to_use = 0;
 
@@ -31,8 +36,44 @@ int main(int argc, char* argv[])
   if(!mem_to_integer(mem_arg, &mem_to_use) || mem_to_use == 0)
     print_usage(usage, "Invalid memory argument: %s", mem_arg);
 
+  // Set up output path
+  char *out_path = malloc(strlen(input_ctx_path)+4);
+  paths_format_filename(input_ctx_path, out_path);
+
   if(!test_file_writable(out_path))
     print_usage(usage, "Cannot write output file: %s", out_path);
+
+  unsigned int col;
+  int argi;
+  for(argi = 3; argi < argc; argi++) {
+    if(strcmp(argv[argi], "--se_list") == 0)
+    {
+      if(argi+2 >= argc)
+        print_usage(usage, "--se_list <col> <input.falist> missing args");
+
+      if(!parse_entire_uint(argv[argi+1], &col))
+        print_usage(usage, "--se_list <col> <input.falist> invalid colour");
+
+      check_colour_or_ctx_list(argv[argi+2], 0, false, true, 0);
+      argi += 2;
+    }
+    else if(strcmp(argv[argi], "--pe_list") == 0)
+    {
+      if(argi+3 >= argc)
+        print_usage(usage, "--pe_list <col> <in1.list> <in2.list> missing args");
+
+      if(!parse_entire_uint(argv[argi+1], &col))
+        print_usage(usage, "--pe_list <col> <in1.list> <in2.list> invalid colour");
+
+      uint32_t num_files1, num_files2;
+      num_files1 = check_colour_or_ctx_list(argv[argi+2], 0, false, true, 0);
+      num_files2 = check_colour_or_ctx_list(argv[argi+3], 0, false, true, 0);
+      if(num_files1 != num_files2)
+        die("list mismatch [%s; %s]", argv[argi+2], argv[argi+3]);
+      argi += 3;
+    }
+    else print_usage(usage, "Unknown argument: %s", argv[argi]);
+  }
 
   // Probe binary to get kmer_size
   boolean is_binary = false;
@@ -43,27 +84,6 @@ int main(int argc, char* argv[])
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
-
-  // probe paths file
-  char *input_paths_file = malloc(strlen(input_ctx_path)+4);
-  paths_format_filename(input_ctx_path, input_paths_file);
-  boolean valid_paths_file = false;
-  uint64_t ctp_num_paths = 0, ctp_num_path_bytes = 0, ctp_num_path_kmers = 0;
-  uint32_t ctp_kmer_size = 0, ctp_num_of_cols = 0;
-
-  if(!paths_format_probe(input_paths_file, &valid_paths_file,
-                         &ctp_kmer_size, &ctp_num_of_cols, &ctp_num_paths,
-                         &ctp_num_path_bytes, &ctp_num_path_kmers))
-  {
-    print_usage(usage, "Cannot find .ctp file: %s", input_paths_file);
-  }
-
-  if(!valid_paths_file)
-    die("Invalid .ctp file: %s", input_paths_file);
-  if(ctp_num_of_cols != num_of_cols)
-    die("Number of colours in .ctp does not match .ctx");
-  if(ctp_kmer_size != kmer_size)
-    die("Kmer size in .ctp does not match .ctx");
 
   // Decide on memory
   size_t req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
@@ -87,8 +107,7 @@ int main(int argc, char* argv[])
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, hash_kmers);
 
-  // size_t path_mem = mem_to_use - graph_mem - thread_mem;
-  size_t path_mem = ctp_num_path_bytes;
+  size_t path_mem = mem_to_use - graph_mem - thread_mem;
 
   char graph_mem_str[100], thread_mem_str[100], path_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
@@ -125,46 +144,36 @@ int main(int argc, char* argv[])
   binary_load(input_ctx_path, &db_graph, 0, -1, true, false, stats);
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path file
-  paths_format_read(&db_graph, &db_graph.pdata, false, input_paths_file);
+  SeqLoadingPrefs prefs = {.into_colour = 0,
+                           .load_seq = true,
+                           .quality_cutoff = 0, .ascii_fq_offset = 0,
+                           .homopolymer_cutoff = 0,
+                           .remove_dups_se = false, .remove_dups_pe = false,
+                           .load_binaries = false, .must_exist_in_colour = -1,
+                           .empty_colours = false, .load_as_union = false,
+                           .update_ginfo = true, .db_graph = &db_graph};
 
-  /* initialize random seed: */
-  srand(time(NULL));
-
-  //
-  // Set up temporary files
-  //
-  StrBuf *tmppath = strbuf_new();
-  char **tmp_paths = malloc(NUM_THREADS * sizeof(char*));
-
-  int r = rand() & ((1<<20)-1);
-
-  for(i = 0; i < NUM_THREADS; i++)
+  // Parse input sequence
+  size_t rep;
+  for(rep = 0; rep < NUM_PASSES; rep++)
   {
-    strbuf_set(tmppath, out_path);
-    strbuf_sprintf(tmppath, ".%i.%zu", r, i);
-    tmp_paths[i] = strbuf_dup(tmppath);
-    if(!test_file_writable(tmp_paths[i])) {
-      while(i > 0) unlink(tmp_paths[--i]);
-      die("Cannot write temporary file: %s", tmp_paths[i]);
+    for(argi = 3; argi < argc; argi++) {
+      if(strcmp(argv[argi], "--se_list") == 0) {
+        parse_entire_uint(argv[argi+1], &col);
+        add_read_paths_to_graph(argv[argi+2], NULL, NULL, col, NULL, 0, prefs);
+        argi += 2;
+      }
+      else if(strcmp(argv[argi], "--pe_list") == 0) {
+        parse_entire_uint(argv[argi+1], &col);
+        add_read_paths_to_graph(NULL, argv[argi+2], argv[argi+3], col,
+                                NULL, 0, prefs);
+        argi += 3;
+      }
+      else die("Unknown arg: %s", argv[argi]);
     }
   }
 
-  #ifdef DEBUG
-    db_graph_dump_paths_by_kmer(&db_graph);
-  #endif
-
-  // Now call variants
-  invoke_shaded_bubble_caller(&db_graph, out_path, NUM_THREADS, tmp_paths);
-
-  free(input_paths_file);
-
-  // Clear up threads
-  for(i = 0; i < NUM_THREADS; i++) {
-    unlink(tmp_paths[i]);
-    free(tmp_paths[i]);
-  }
-  free(tmp_paths);
+  paths_format_write(&db_graph, &db_graph.pdata, out_path);
 
   free(db_graph.edges);
   free(bkmer_cols);
@@ -174,5 +183,7 @@ int main(int argc, char* argv[])
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
+  message("  Paths written to: %s\n", out_path);
   message("Done.\n");
+  free(out_path);
 }

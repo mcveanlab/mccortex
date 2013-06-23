@@ -10,7 +10,7 @@
   #define REHASH_LIMIT 16
 #endif
 #define UNSET_BKMER (1UL<<63)
-#define IDEAL_OCCUPANCY 0.85f
+#define IDEAL_OCCUPANCY 0.70f
 
 typedef struct
 {
@@ -50,8 +50,11 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const bkmer
 void hash_table_delete(HashTable *const htable, hkey_t pos);
 
 void hash_table_print_stats(const HashTable *const htable);
+
+// This is for debugging
 uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 
+// Iterate over entries in the hash table
 #define HASH_TRAVERSE(ht,func, ...) do {                                       \
   BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;      \
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \

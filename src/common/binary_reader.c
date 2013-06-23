@@ -5,14 +5,6 @@
 #include "graph_info.h"
 #include "file_util.h"
 
-static inline size_t stream_skip(FILE *fh, size_t skip)
-{
-  size_t i;
-  uint8_t tmp;
-  for(i = 0; i < skip && fread(&tmp, 1, 1, fh); i++);
-  return i;
-}
-
 static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
                        uint32_t *num_of_colours_ptr,
                        uint64_t *num_of_kmers_ptr, boolean *kmer_count_set,
@@ -193,17 +185,6 @@ void binary_header_destroy(BinaryFileHeader *h)
   free(h->sample_names);
 }
 
-static void my_fread(FILE *fh, void *ptr, size_t size,
-                      const char* entry_name, const char *path)
-{
-  size_t read = fread(ptr, 1, size, fh);
-  if(read != size)
-  {
-    die("Couldn't read '%s': expected %zu; recieved: %zu; [binary: %s]\n",
-        entry_name, size, read, path);
-  }
-}
-
 // Return number of bytes read
 size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
 {
@@ -212,17 +193,17 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   char magic_word[7];
   magic_word[6] = '\0';
 
-  my_fread(fh, magic_word, strlen(CTX_MAGIC_WORD), "Magic word", path);
+  safe_fread(fh, magic_word, strlen(CTX_MAGIC_WORD), "Magic word", path);
   if(strcmp(magic_word, CTX_MAGIC_WORD) != 0) {
     die("Magic word doesn't match '%s' (start): %s", CTX_MAGIC_WORD, path);
   }
   bytes_read += strlen(CTX_MAGIC_WORD);
 
   // Read version number, kmer_size, num bitfields, num colours
-  my_fread(fh, &h->version, sizeof(uint32_t), "binary version", path);
-  my_fread(fh, &h->kmer_size, sizeof(uint32_t), "kmer size", path);
-  my_fread(fh, &h->num_of_bitfields, sizeof(uint32_t), "number of bitfields", path);
-  my_fread(fh, &h->num_of_colours, sizeof(uint32_t), "number of colours", path);
+  safe_fread(fh, &h->version, sizeof(uint32_t), "binary version", path);
+  safe_fread(fh, &h->kmer_size, sizeof(uint32_t), "kmer size", path);
+  safe_fread(fh, &h->num_of_bitfields, sizeof(uint32_t), "number of bitfields", path);
+  safe_fread(fh, &h->num_of_colours, sizeof(uint32_t), "number of colours", path);
   bytes_read += 4*sizeof(uint32_t);
 
   // Checks
@@ -261,8 +242,8 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
 
   if(h->version >= 7)
   {
-    my_fread(fh, &h->num_of_kmers, sizeof(uint64_t), "number of kmers", path);
-    my_fread(fh, &h->num_of_shades, sizeof(uint32_t), "number of shades", path);
+    safe_fread(fh, &h->num_of_kmers, sizeof(uint64_t), "number of kmers", path);
+    safe_fread(fh, &h->num_of_shades, sizeof(uint32_t), "number of shades", path);
     bytes_read += sizeof(uint64_t) + sizeof(uint32_t);
 
     if((h->num_of_shades & 0x7) != 0) {
@@ -270,9 +251,9 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
     }
   }
 
-  my_fread(fh, h->mean_read_lengths, sizeof(uint32_t) * h->num_of_colours,
+  safe_fread(fh, h->mean_read_lengths, sizeof(uint32_t) * h->num_of_colours,
            "mean read length for each colour", path);
-  my_fread(fh, h->total_seq_loaded, sizeof(uint64_t) * h->num_of_colours,
+  safe_fread(fh, h->total_seq_loaded, sizeof(uint64_t) * h->num_of_colours,
            "total sequance loaded for each colour", path);
 
   bytes_read += h->num_of_colours * (sizeof(uint32_t) + sizeof(uint64_t));
@@ -283,12 +264,12 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
     for(i = 0; i < h->num_of_colours; i++)
     {
       uint32_t len;
-      my_fread(fh, &len, sizeof(uint32_t), "sample name length", path);
+      safe_fread(fh, &len, sizeof(uint32_t), "sample name length", path);
 
       StrBuf *sbuf = h->sample_names[i];
       strbuf_ensure_capacity(sbuf, len);
 
-      my_fread(fh, sbuf->buff, len, "sample name", path);
+      safe_fread(fh, sbuf->buff, len, "sample name", path);
       bytes_read += sizeof(uint32_t) + len;
 
       sbuf->buff[len] = '\0';
@@ -305,7 +286,7 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
       }
     }
 
-    my_fread(fh, h->seq_err_rates, sizeof(long double) * h->num_of_colours,
+    safe_fread(fh, h->seq_err_rates, sizeof(long double) * h->num_of_colours,
              "seq error rates", path);
 
     bytes_read += sizeof(long double) * h->num_of_colours;
@@ -314,18 +295,18 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
     {
       ErrorCleaning *err_cleaning = h->err_cleaning[i];
 
-      my_fread(fh, &(err_cleaning->tip_clipping),
+      safe_fread(fh, &(err_cleaning->tip_clipping),
                sizeof(uint8_t), "tip cleaning", path);
-      my_fread(fh, &(err_cleaning->remv_low_cov_sups),
+      safe_fread(fh, &(err_cleaning->remv_low_cov_sups),
                sizeof(uint8_t), "remove low covg supernodes", path);
-      my_fread(fh, &(err_cleaning->remv_low_cov_nodes),
+      safe_fread(fh, &(err_cleaning->remv_low_cov_nodes),
                sizeof(uint8_t), "remove low covg kmers", path);
-      my_fread(fh, &(err_cleaning->cleaned_against_another_graph),
+      safe_fread(fh, &(err_cleaning->cleaned_against_another_graph),
                sizeof(uint8_t), "cleaned against graph", path);
 
-      my_fread(fh, &(err_cleaning->remv_low_cov_sups_thresh),
+      safe_fread(fh, &(err_cleaning->remv_low_cov_sups_thresh),
                sizeof(uint32_t), "remove low covg supernode threshold", path);
-      my_fread(fh, &(err_cleaning->remv_low_cov_nodes_thresh),
+      safe_fread(fh, &(err_cleaning->remv_low_cov_nodes_thresh),
                sizeof(uint32_t), "remove low covg kmer threshold", path);
 
       bytes_read += 4*sizeof(uint8_t) + 2*sizeof(uint32_t);
@@ -351,12 +332,12 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
 
       // Read cleaned against name
       uint32_t len;
-      my_fread(fh, &len, sizeof(uint32_t), "graph name length", path);
+      safe_fread(fh, &len, sizeof(uint32_t), "graph name length", path);
 
       StrBuf *sbuf = err_cleaning->cleaned_against_graph_name;
       strbuf_ensure_capacity(sbuf, len);
 
-      my_fread(fh, sbuf->buff, len, "cleaned against graph name", path);
+      safe_fread(fh, sbuf->buff, len, "cleaned against graph name", path);
       sbuf->buff[len] = '\0';
 
       bytes_read += sizeof(uint32_t) + len;
@@ -375,7 +356,7 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   }
 
   // Read magic word at the end of header 'CORTEX'
-  my_fread(fh, magic_word, strlen(CTX_MAGIC_WORD), "magic word (end)", path);
+  safe_fread(fh, magic_word, strlen(CTX_MAGIC_WORD), "magic word (end)", path);
   if(strcmp(magic_word, CTX_MAGIC_WORD) != 0) {
     die("Magic word doesn't match '%s' (end): '%s' [binary: %s]\n",
         CTX_MAGIC_WORD, magic_word, path);
@@ -418,8 +399,8 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
   if(num_bytes_read != sizeof(uint64_t)*h->num_of_bitfields)
     die("Unexpected end of file: %s", path);
 
-  my_fread(fh, covgs, h->num_of_colours * sizeof(uint32_t), "Coverages", path);
-  my_fread(fh, edges, h->num_of_colours * sizeof(uint8_t), "Edges", path);
+  safe_fread(fh, covgs, h->num_of_colours * sizeof(uint32_t), "Coverages", path);
+  safe_fread(fh, edges, h->num_of_colours * sizeof(uint8_t), "Edges", path);
   num_bytes_read += h->num_of_colours * (sizeof(uint32_t) + sizeof(uint8_t));
 
   // Check top word of each kmer
@@ -439,8 +420,8 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 
     for(i = 0; i < h->num_of_colours; i++)
     {
-      my_fread(fh, shades+i, binary_shade_bytes, "Shades", path);
-      my_fread(fh, shends+i, binary_shade_bytes, "Shade ends", path);
+      safe_fread(fh, shades+i, binary_shade_bytes, "Shades", path);
+      safe_fread(fh, shends+i, binary_shade_bytes, "Shade ends", path);
     }
 
     num_bytes_read += total_bytes;

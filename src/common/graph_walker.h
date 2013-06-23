@@ -16,8 +16,8 @@ typedef struct
 
   // Current paths
   path_t **curr_paths, *paths_data;
-  size_t num_paths, paths_cap;
-  size_t new_path_pos, num_new_paths;
+  size_t num_paths, paths_cap, num_new_paths;
+  // size_t new_path_pos, num_new_paths;
 
   // uint64_t *prev_paths;
   // size_t num_pp, pp_cap;
@@ -30,13 +30,13 @@ void graph_walker_dealloc(GraphWalker *gw);
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
                        hkey_t node, Orientation or);
 
-#define MAX_WALK_BACK_NODES 1
+#define MAX_WALK_BACK_NODES 100
 
 // context is now many nodes to go back (up to MAX_WALK_BACK_NODES)
 // Remember to call finish when done with wlk
-void graph_init_context(GraphWalker *wlk, const dBGraph *db_graph,
-                        uint64_t *visited, Colour colour,
-                        hkey_t node, Orientation orient);
+void graph_walker_init_context(GraphWalker *wlk, const dBGraph *db_graph,
+                               uint64_t *visited, Colour colour,
+                               hkey_t node, Orientation orient);
 
 void graph_walker_finish(GraphWalker *wlk);
 

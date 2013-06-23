@@ -65,7 +65,7 @@ void seq_load_into_db_graph(read_t *r1, read_t *r2,
                                                                                \
       for(_i = _start+(kmer_size); _i < _end; _i++)                            \
       {                                                                        \
-        _nuc = binary_nuc_from_char((r)->seq.b[_i]);                      \
+        _nuc = binary_nuc_from_char((r)->seq.b[_i]);                           \
         binary_kmer_left_shift_add(_bkmer, (kmer_size), _nuc);                 \
         func(_bkmer, ##__VA_ARGS__);                                           \
       }                                                                        \

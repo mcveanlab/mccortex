@@ -121,6 +121,17 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
 }
 
 // returns offset of the first node found or -1 if no nodes were found
+// Gaps collapsed down to a single zeroed bkmer
+int get_bkmers_from_read(const read_t *r, int qcutoff, int hp_cutoff,
+                         const dBGraph *db_graph,
+                         BinaryKmer *arr, size_t *capacity, size_t *len)
+{
+  (void)r;(void)qcutoff;(void)hp_cutoff;(void)db_graph;(void)arr;(void)capacity;
+  (void)len;
+  return -1;
+}
+
+// returns offset of the first node found or -1 if no nodes were found
 // Gaps collapsed down to a single HASH_NOT_FOUND
 int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *list)

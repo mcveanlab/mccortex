@@ -9,7 +9,7 @@
 //
 // Get Binary kmers
 //
-#define db_node_bkmer(graph,key) ((const uint64_t*)((graph)->ht.table[key]))
+#define db_node_bkmer(graph,key) ((ConstBinaryKmerPtr)((graph)->ht.table[key]))
 
 //
 // Get binary kmer key
@@ -147,5 +147,8 @@ void db_node_buf_dealloc(dBNodeBuffer *buf);
 void db_node_buf_free(dBNodeBuffer *buf);
 void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity);
 void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient);
+
+void db_nodes_to_str(const dBNode *nodes, size_t num,
+                     const dBGraph *db_graph, char *str);
 
 #endif /* DB_NODE_H_ */

@@ -1,5 +1,6 @@
 #include "global.h"
 #include "hash_table.h"
+#include "util.h"
 
 // Returns capacity
 size_t hash_table_cap(size_t req_capacity,
@@ -7,7 +8,7 @@ size_t hash_table_cap(size_t req_capacity,
 {
   // bucket size must be <256
   uint64_t num_of_bits = 10;
-  while(req_capacity / (1UL << num_of_bits) > 128) num_of_bits++;
+  while(req_capacity / (1UL << num_of_bits) > 64) num_of_bits++;
   uint64_t num_of_buckets = 1UL << num_of_bits;
   uint64_t bucket_size = (req_capacity+num_of_buckets-1) / num_of_buckets;
   if(num_bckts_ptr != NULL) *num_bckts_ptr = num_of_buckets;
@@ -193,16 +194,27 @@ void hash_table_delete(HashTable *const htable, hkey_t pos)
 
 void hash_table_print_stats(const HashTable *const htable)
 {
-  message("Hash table collisions:\n");
+  double occupancy = 100 * (double)htable->unique_kmers / htable->capacity;
+  size_t bytes = htable->capacity * sizeof(BinaryKmer) +
+                 htable->num_of_buckets * 2;
+  // size_t mem_height = __builtin_ctzl(htable->num_of_buckets);
+  // size_t mem_width = htable->bucket_size;
+  char mem_str[50], num_buckets_str[100];
+  ulong_to_str(htable->num_of_buckets, num_buckets_str);
+  bytes_to_str(bytes, 1, mem_str);
+
+  message("[hash table]  buckets: %s;  bucket size: %zu;  "
+          "memory: %s;  occupancy: %.2f%%\n",
+          num_buckets_str, (size_t)htable->bucket_size, mem_str, occupancy);
+
   int i;
+  message("  Collisions:\n");
   for(i = 0; i < REHASH_LIMIT; i++) {
     if(htable->collisions[i] != 0) {
-      message("  tries %i: %zd\n", i, (size_t)htable->collisions[i]);
+      message("   tries %i: %zd\n", i, (size_t)htable->collisions[i]);
     }
   }
-  // Print 
-  message("  %.2f%% occupancy",
-          100 * (double)htable->unique_kmers / htable->capacity);
+  message("\n");
 }
 
 

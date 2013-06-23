@@ -212,9 +212,9 @@ boolean binary_paths_prev(const binary_paths_t *paths,
 void binary_paths_dump_path(const path_t *path)
 {
   size_t i;
-  printf("%4zu: ", (size_t)path->index);
-  if(path->core.prev == PATH_NULL) printf("NULL");
-  else printf("%4zu", (size_t)path->core.prev);
+  printf("%8zu: ", (size_t)path->index);
+  if(path->core.prev == PATH_NULL) printf("    NULL");
+  else printf("%8zu", (size_t)path->core.prev);
   printf(" (cols:");
   for(i = 0; i < NUM_OF_COLOURS; i++)
     if(bitset_has(path->core.colours, i)) printf(" %zu", i);

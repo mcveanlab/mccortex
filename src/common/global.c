@@ -2,6 +2,8 @@
 
 #include <stddef.h> // defines ptrdiff_t
 
+char print_debug = 0;
+
 // uncomment next line to silence most (stdout) output from cortex
 //#define GLOBAL_MSG_SILENT
 
