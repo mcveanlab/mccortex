@@ -36,6 +36,7 @@ void seq_loading_stats_free(SeqLoadingStats* stats);
 typedef struct
 {
   Colour into_colour;
+  boolean merge_colours; // Load all data into only one colour
 
   // loading sequence
   boolean load_seq;
@@ -46,11 +47,26 @@ typedef struct
   // loading binaries
   boolean load_binaries;
   int must_exist_in_colour;
+  // if load_as_union is true then we only increment covg if it is zero
   boolean empty_colours, load_as_union;
 
   boolean update_ginfo;
   dBGraph *db_graph;
 } SeqLoadingPrefs;
+
+
+// SAM/BAM/FASTQ/FASTA are FORMAT_SEQ
+#define FORMAT_SEQ 0
+#define FORMAT_CTX 1
+#define FORMAT_LIST 2
+#define FORMAT_COLOURLIST 3
+
+// Returns false if cannot read, true otherwise
+boolean file_probe(const char *path, int *format,
+                   int *kmer_size, uint32_t *num_of_colours);
+
+void file_load(const char *path, int format,
+               SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
 
 void parse_filelists(const char *list_path1, const char *list_path2,
                      uint8_t are_colour_lists,
@@ -61,11 +77,22 @@ void parse_filelists(const char *list_path1, const char *list_path2,
                                        SeqLoadingStats *stats, void *ptr),
                      void *reader_ptr);
 
+// Given a 'filelist' file, check all files pointed to exist.
+// If path_array is not NULL, populate it with the paths.
+// Exits with error if a file doesn't exist or isn't readable.
+// Return the number of files pointed to.
 uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
                                   boolean sample_names_permitted,
                                   StrBuf **sample_names,
                                   boolean *has_sample_names);
 
+// filename is a list of files, one for each colour (with optional second column
+// of sample-ids). Check they all exists, there are not too many, and that each
+// of them contains a list of valid binaries.
+
+// Returns number for files in file passed
+// Check that ctxlists contain only valid ctx files
+// Check that colourlists don't contain any ctx files
 uint32_t check_colour_or_ctx_list(const char *list_path, char is_colourlist,
                                   boolean binaries_allowed, boolean seq_allowed,
                                   uint32_t kmer_size);

@@ -114,6 +114,8 @@ COMMON_HDRS = $(wildcard src/common/*.h) \
               libs/city_hash/city.h libs/lookup3_hash/lookup3.h \
               libs/string_buffer/string_buffer.h
 
+CTX_BUILD_SRCS = src/tools/ctx_build.c $(COMMON_SRCS)
+CTX_CLEAN_SRCS = src/tools/ctx_clean.c $(COMMON_SRCS)
 CTX_SUBGRAPH_SRCS = src/tools/ctx_subgraph.c $(COMMON_SRCS)
 CTX_READS_SRCS = src/tools/ctx_reads.c $(COMMON_SRCS)
 CTX_THREAD_SRCS = src/tools/ctx_thread.c $(COMMON_SRCS)
@@ -122,16 +124,10 @@ CTX_CALL_SRCS = src/tools/ctx_call.c $(COMMON_SRCS)
 CTX_UNIQUE_SRCS = src/tools/ctx_unique.c $(COMMON_SRCS)
 CTX_PLACE_SRCS = src/tools/ctx_place.c src/common/call_seqan.o $(COMMON_SRCS)
 
-CTX_SUBGRAPH_HDRS = $(COMMON_HDRS)
-CTX_READS_HDRS = $(COMMON_HDRS)
-CTX_THREAD_HDRS = $(COMMON_HDRS)
-CTP_VIEW_HDRS = $(COMMON_HDRS)
-CTX_CALL_HDRS = $(COMMON_HDRS)
-CTX_UNIQUE_HDRS = $(COMMON_HDRS)
-CTX_PLACE_HDRS = $(COMMON_HDRS)
-
 MAXK_NUMCOLS = k$(MAXK)_c$(NUM_COLS)
 
+CTX_BUILD_BIN=bin/ctx_build_$(MAXK_NUMCOLS)
+CTX_CLEAN_BIN=bin/ctx_clean_$(MAXK_NUMCOLS)
 CTX_SUBGRAPH_BIN=bin/ctx_subgraph_$(MAXK_NUMCOLS)
 CTX_READS_BIN=bin/ctx_reads_$(MAXK_NUMCOLS)
 CTX_THREAD_BIN=bin/ctx_thread_$(MAXK_NUMCOLS)
@@ -141,40 +137,51 @@ CTX_CALL_BIN=bin/ctx_call_$(MAXK_NUMCOLS)
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=$(LIB_OBJS) bin
 
-all: ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_reads ctx_subgraph
+all: ctx_build ctx_clean ctx_reads ctx_subgraph \
+	   ctx_thread ctp_view ctx_call ctx_unique ctx_place
+
+ctx_build: $(CTX_BUILD_BIN)
+$(CTX_BUILD_BIN): $(CTX_BUILD_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTX_BUILD_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_BUILD_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTX_BUILD_BIN)
+
+ctx_clean: $(CTX_CLEAN_BIN)
+$(CTX_CLEAN_BIN): $(CTX_CLEAN_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTX_CLEAN_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_CLEAN_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTX_CLEAN_BIN)
 
 ctx_subgraph: $(CTX_SUBGRAPH_BIN)
-$(CTX_SUBGRAPH_BIN): $(CTX_SUBGRAPH_SRCS) $(CTX_SUBGRAPH_HDRS) Makefile | $(DEPS)
+$(CTX_SUBGRAPH_BIN): $(CTX_SUBGRAPH_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTX_SUBGRAPH_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_SUBGRAPH_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTX_SUBGRAPH_BIN)
 
 ctx_reads: $(CTX_READS_BIN)
-$(CTX_READS_BIN): $(CTX_READS_SRCS) $(CTX_READS_HDRS) Makefile | $(DEPS)
+$(CTX_READS_BIN): $(CTX_READS_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTX_READS_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_READS_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTX_READS_BIN)
 
 ctx_thread: $(CTX_THREAD_BIN)
-$(CTX_THREAD_BIN): $(CTX_THREAD_SRCS) $(CTX_THREAD_HDRS) Makefile | $(DEPS)
+$(CTX_THREAD_BIN): $(CTX_THREAD_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTX_THREAD_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_THREAD_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTX_THREAD_BIN)
 
 ctp_view: $(CTP_VIEW_BIN)
-$(CTP_VIEW_BIN): $(CTP_VIEW_SRCS) $(CTP_VIEW_HDRS) Makefile | $(DEPS)
+$(CTP_VIEW_BIN): $(CTP_VIEW_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTP_VIEW_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTP_VIEW_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTP_VIEW_BIN)
 
 ctx_call: $(CTX_CALL_BIN)
-$(CTX_CALL_BIN): $(CTX_CALL_SRCS) $(CTX_CALL_HDRS) Makefile | $(DEPS)
+$(CTX_CALL_BIN): $(CTX_CALL_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTX_CALL_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_CALL_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTX_CALL_BIN)
 
 ctx_unique: bin/ctx_unique
-bin/ctx_unique:  $(CTX_UNIQUE_SRCS) $(CTX_UNIQUE_HDRS) Makefile | $(DEPS)
+bin/ctx_unique:  $(CTX_UNIQUE_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o bin/ctx_unique $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_UNIQUE_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled ctx_unique
 
 ctx_place: bin/ctx_place
-bin/ctx_place: $(CTX_PLACE_SRCS) $(CTX_PLACE_HDRS) Makefile | $(DEPS)
+bin/ctx_place: $(CTX_PLACE_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o bin/ctx_place $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_PLACE_SRCS) $(LIB_OBJS) $(LINK_LIBS) -lstdc++
 	@echo Sucessfully compiled ctx_place
 

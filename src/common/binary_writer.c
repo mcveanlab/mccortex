@@ -3,7 +3,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 
-const int CURR_CTX_VERSION = 7;
+const int CURR_CTX_VERSION = 6;
 const char CTX_MAGIC_WORD[7] = "CORTEX";
 
 static void write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)

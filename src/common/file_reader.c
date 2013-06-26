@@ -102,6 +102,104 @@ void seq_loading_stats_free(SeqLoadingStats* stats)
 // Parse filelists and colourlists
 //
 
+boolean file_probe(const char *path, int *format_ptr,
+                   int *kmer_size_ptr, uint32_t *num_of_cols_ptr)
+{
+  if(!test_file_readable(path)) return false;
+
+  // probe to see if binary
+  boolean is_binary = false;
+  uint32_t kmer_size, num_of_cols;
+  uint64_t num_kmers;
+
+  if(!binary_probe(path, &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+    return false;
+
+  if(is_binary) {
+    *format_ptr = FORMAT_CTX;
+    *kmer_size_ptr = kmer_size;
+    *num_of_cols_ptr = num_of_cols;
+    return true;
+  }
+
+  // Check for sequence file
+  seqtype_t type = seq_guess_filetype_from_extension(path);
+
+  if(type != IS_UNKNOWN) {
+    *format_ptr = FORMAT_SEQ;
+    *kmer_size_ptr = -1;
+    *num_of_cols_ptr = 1;
+    return true;
+  }
+
+  die("Not implemented");
+  /*
+  // File list or colour list
+  uint32_t i, num_files;
+
+  // Loop over files listed
+  *kmer_size_ptr = -1;
+  *num_of_cols_ptr = 0;
+  boolean seen_non_binaries = false;
+
+  for(i = 0; i < num_files; i++)
+  {
+    // Probe to see if binary, seq file or list
+    if(!binary_probe(paths[i], &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+    {
+      warn("Cannot read file: %s [listed in: %s]", paths[i], path);
+      success = false;
+      break;
+    }
+    else if(is_binary) {
+      *kmer_size_ptr = kmer_size;
+      *num_of_cols_ptr += num_of_cols;
+    }
+    else {
+      is_colourlist = false;
+    }
+    
+    else if(!is_binary) {
+      // list => FORMAT_COLOURLIST
+      // file => FORMAT_LIST
+      *format_ptr = FORMAT_LIST;
+      *kmer_size_ptr = -1;
+      *num_of_cols_ptr = num_of_cols;
+      break;
+    }
+  }
+  */
+
+  return true;
+}
+
+void file_load(const char *path, int format,
+               SeqLoadingPrefs *prefs, SeqLoadingStats *stats)
+{
+  if(format == FORMAT_CTX)
+  {
+    binary_load(path, prefs->db_graph, prefs->into_colour,
+                prefs->must_exist_in_colour, prefs->empty_colours,
+                prefs->load_as_union, stats);
+  }
+  else
+  {
+    read_t r1, r2;
+    seq_read_alloc(&r1);
+    seq_read_alloc(&r2);
+
+    if(format == FORMAT_SEQ) {
+      seq_parse_se(path, &r1, &r2, prefs, stats, seq_load_into_db_graph, NULL);
+    } else {
+      parse_filelists(path, NULL, format == FORMAT_COLOURLIST, prefs, stats,
+                      seq_load_into_db_graph, NULL);
+    }
+
+    seq_read_dealloc(&r1);
+    seq_read_dealloc(&r2);
+  }
+}
+
 // list_path1 and/or list_path2 may be null
 void parse_filelists(const char *list_path1, const char *list_path2,
                      uint8_t are_colour_lists,
@@ -610,14 +708,13 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
 
   // Set up loading settings
   SeqLoadingPrefs seq_loading_prefs
-    = {into_colour, // load into colour
-       false, 0, 0, 0, false, false,
-       true, // load binaries
-       clean_colour, // must exist in this colour
-       true, // empty colours
-       false, // don't load as union
-       true, // update ginfo
-       db_graph};
+    = {.into_colour = into_colour, .merge_colours = false,
+       .load_seq = false,
+       .quality_cutoff = 0, .ascii_fq_offset = 0, .homopolymer_cutoff = 0,
+       .remove_dups_se = false, .remove_dups_pe = false,
+       .load_binaries = true, .must_exist_in_colour = clean_colour,
+       .empty_colours = true, .load_as_union = false,
+       .update_ginfo = true, .db_graph = db_graph};
 
   // Get directory path
   StrBuf *dir = strbuf_new();
