@@ -11,7 +11,7 @@
 #include "shaded_caller.h"
 
 static const char usage[] =
-"usage: ctx_thread <in.ctx> <mem> [OPTIONS]\n"
+"usage: ctx_thread [OPTIONS] <threads> <mem> <in.ctx>\n"
 "  Thread reads through the graph.  Saves to file <in.ctp>\n"
 "  Options:\n"
 "    --se_list <col> <in.list>\n"
@@ -24,10 +24,12 @@ int main(int argc, char* argv[])
 {
   if(argc < 6) print_usage(usage, NULL);
 
-  char *input_ctx_path = argv[1];
-  char *mem_arg = argv[2];
+  char *input_ctx_path = argv[argc-1];
+  char *mem_arg = argv[argc-2];
+  char *threads_arg = argv[argc-3];
 
   size_t mem_to_use = 0;
+  uint32_t num_of_threads = 1;
 
   // Check arguments
   if(!test_file_readable(input_ctx_path))
@@ -36,6 +38,9 @@ int main(int argc, char* argv[])
   if(!mem_to_integer(mem_arg, &mem_to_use) || mem_to_use == 0)
     print_usage(usage, "Invalid memory argument: %s", mem_arg);
 
+  if(!parse_entire_uint(threads_arg, &num_of_threads) || num_of_threads == 0)
+    print_usage(usage, "Invalid num of threads argument: %s", threads_arg);
+
   // Set up output path
   char *out_path = malloc(strlen(input_ctx_path)+4);
   paths_format_filename(input_ctx_path, out_path);
@@ -43,12 +48,12 @@ int main(int argc, char* argv[])
   if(!test_file_writable(out_path))
     print_usage(usage, "Cannot write output file: %s", out_path);
 
-  unsigned int col;
-  int argi;
-  for(argi = 3; argi < argc; argi++) {
+  uint32_t col;
+  int argi, argend = argc - 3;
+  for(argi = 1; argi < argend; argi++) {
     if(strcmp(argv[argi], "--se_list") == 0)
     {
-      if(argi+2 >= argc)
+      if(argi+2 >= argend)
         print_usage(usage, "--se_list <col> <input.falist> missing args");
 
       if(!parse_entire_uint(argv[argi+1], &col))
@@ -59,7 +64,7 @@ int main(int argc, char* argv[])
     }
     else if(strcmp(argv[argi], "--pe_list") == 0)
     {
-      if(argi+3 >= argc)
+      if(argi+3 >= argend)
         print_usage(usage, "--pe_list <col> <in1.list> <in2.list> missing args");
 
       if(!parse_entire_uint(argv[argi+1], &col))
@@ -96,7 +101,7 @@ int main(int argc, char* argv[])
                      round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
                      round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
 
-  size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * NUM_THREADS;
+  size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * num_of_threads;
 
   if(graph_mem+thread_mem > mem_to_use) {
     print_usage(usage, "Not enough memory; hash table: %zu; threads: %zu",
@@ -115,7 +120,7 @@ int main(int argc, char* argv[])
   bytes_to_str(path_mem, 1, path_mem_str);
 
   message("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
-          graph_mem_str, NUM_THREADS, thread_mem_str, path_mem_str);
+          graph_mem_str, num_of_threads, thread_mem_str, path_mem_str);
 
   // Edges
   db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
@@ -141,32 +146,38 @@ int main(int argc, char* argv[])
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  binary_load(input_ctx_path, &db_graph, 0, -1, true, false, stats);
-  hash_table_print_stats(&db_graph.ht);
-
-  SeqLoadingPrefs prefs = {.into_colour = 0,
-                           .load_seq = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = false,
+                           .load_seq = false,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = false, .must_exist_in_colour = -1,
+                           .load_binaries = true,
+                           .must_exist_in_colour = -1,
                            .empty_colours = false, .load_as_union = false,
-                           .update_ginfo = true, .db_graph = &db_graph};
+                           .update_ginfo = true,
+                           .db_graph = &db_graph};
+
+  binary_load(input_ctx_path, &db_graph, &prefs, stats);
+  hash_table_print_stats(&db_graph.ht);
+
+  prefs.load_seq = true;
+  prefs.load_binaries = false;
 
   // Parse input sequence
   size_t rep;
   for(rep = 0; rep < NUM_PASSES; rep++)
   {
-    for(argi = 3; argi < argc; argi++) {
+    for(argi = 1; argi < argend; argi++) {
       if(strcmp(argv[argi], "--se_list") == 0) {
         parse_entire_uint(argv[argi+1], &col);
-        add_read_paths_to_graph(argv[argi+2], NULL, NULL, col, NULL, 0, prefs);
+        add_read_paths_to_graph(argv[argi+2], NULL, NULL, col, NULL, 0,
+                                prefs, num_of_threads);
         argi += 2;
       }
       else if(strcmp(argv[argi], "--pe_list") == 0) {
         parse_entire_uint(argv[argi+1], &col);
         add_read_paths_to_graph(NULL, argv[argi+2], argv[argi+3], col,
-                                NULL, 0, prefs);
+                                NULL, 0, prefs, num_of_threads);
         argi += 3;
       }
       else die("Unknown arg: %s", argv[argi]);

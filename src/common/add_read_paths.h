@@ -8,6 +8,7 @@ void add_read_paths_to_graph(const char *se_list,
                              Colour seq_colour,
                              const char *colour_list,
                              Colour col_list_first_colour,
-                             SeqLoadingPrefs prefs);
+                             SeqLoadingPrefs prefs,
+                             int num_of_threads);
 
 #endif /* ADD_READ_PATH_H_ */

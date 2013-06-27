@@ -183,6 +183,11 @@ BinaryKmerPtr binary_kmer_from_str(const char *seq, uint32_t kmer_size,
 {
   assert(seq != NULL);
   assert(prealloced_kmer != NULL);
+
+  if(strlen(seq) < kmer_size) {
+    printf("[kmer:%u>%zu]: '%s' %i\n", kmer_size, strlen(seq), seq, seq[0]);
+  }
+
   assert(strlen(seq) >= kmer_size);
 
   uint32_t i;

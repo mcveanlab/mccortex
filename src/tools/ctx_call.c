@@ -1,5 +1,6 @@
 #include "global.h"
 #include <time.h>
+#include <pthread.h>
 
 #include "util.h"
 #include "file_util.h"
@@ -122,7 +123,15 @@ int main(int argc, char* argv[])
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  binary_load(input_ctx_path, &db_graph, 0, -1, true, false, stats);
+  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = false,
+                           .load_binaries = true,
+                           .must_exist_in_colour = -1,
+                           .empty_colours = true,
+                           .load_as_union = false,
+                           .update_ginfo = true,
+                           .db_graph = &db_graph};
+
+  binary_load(input_ctx_path, &db_graph, &prefs, stats);
   hash_table_print_stats(&db_graph.ht);
 
   // Load path file
@@ -175,4 +184,5 @@ int main(int argc, char* argv[])
   db_graph_dealloc(&db_graph);
 
   message("Done.\n");
+  pthread_exit(NULL);
 }

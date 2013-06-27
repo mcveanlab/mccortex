@@ -127,8 +127,7 @@ int main(int argc, char **argv)
 
 
   // Dump graph
-  binary_dump_graph(out_path, db_graph, CURR_CTX_VERSION,
-                    NULL, 0, colours_used, 0);
+  binary_dump_graph(out_path, db_graph, CURR_CTX_VERSION, NULL, 0, colours_used);
 
   message("Dumped version %u cortex binary to: %s", CURR_CTX_VERSION, out_path);
 

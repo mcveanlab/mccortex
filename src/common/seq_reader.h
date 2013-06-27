@@ -14,6 +14,20 @@ size_t seq_contig_start(const read_t *r, long offset, uint32_t kmer_size,
 size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
                       int qual_cutoff, int hp_cutoff, size_t *search_start);
 
+typedef struct {
+  BinaryKmer *bkmers;
+  uint32_t *offsets;
+  size_t capacity, len;
+} BinaryRead;
+
+void binary_read_alloc(BinaryRead *read, size_t capacity);
+void binary_read_dealloc(BinaryRead *read);
+void binary_read_ensure_capacity(BinaryRead *read, size_t capacity);
+
+// Gaps collapsed down to a single bkmer with all bits set
+void get_bkmers_from_read(const read_t *r, int qcutoff, int hp_cutoff,
+                          uint32_t kmer_size, BinaryRead *data);
+
 // returns offset of the first kmer or -1 if no kmers present
 // Adds a single HASH_NOT_FOUND for gaps
 int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,

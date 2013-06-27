@@ -16,11 +16,11 @@ size_t hash_table_cap(size_t req_capacity,
   return num_of_buckets * bucket_size;
 }
 
-size_t hash_table_mem(size_t req_capacity, size_t *act_capacity)
+size_t hash_table_mem(size_t req_capacity_kmers, size_t *act_capacity_kmers)
 {
   uint64_t num_of_buckets;
-  size_t capacity = hash_table_cap(req_capacity, &num_of_buckets, NULL);
-  if(act_capacity != NULL) *act_capacity = capacity;
+  size_t capacity = hash_table_cap(req_capacity_kmers, &num_of_buckets, NULL);
+  if(act_capacity_kmers != NULL) *act_capacity_kmers = capacity;
   return capacity * sizeof(BinaryKmer) + num_of_buckets*2*sizeof(uint8_t);
 }
 

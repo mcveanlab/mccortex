@@ -153,7 +153,7 @@ char binary_probe(const char* path, boolean *valid_ctx,
 
 static void binary_header_setup(BinaryFileHeader *h)
 {
-  h->num_of_shades = h->num_of_kmers = 0;
+  h->num_of_kmers = 0;
   h->total_seq_loaded = calloc(h->num_of_colours, sizeof(uint64_t));
   h->mean_read_lengths = calloc(h->num_of_colours, sizeof(uint32_t));
   h->err_cleaning = malloc(sizeof(ErrorCleaning) * h->num_of_colours);
@@ -243,10 +243,11 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   if(h->version >= 7)
   {
     safe_fread(fh, &h->num_of_kmers, sizeof(uint64_t), "number of kmers", path);
-    safe_fread(fh, &h->num_of_shades, sizeof(uint32_t), "number of shades", path);
+    uint32_t tmp;
+    safe_fread(fh, &tmp, sizeof(uint32_t), "number of shades", path);
     bytes_read += sizeof(uint64_t) + sizeof(uint32_t);
 
-    if((h->num_of_shades & 0x7) != 0) {
+    if((tmp & 0x7) != 0) {
       warn("Number of shades is not a multiple of 8 [binary: %s]", path);
     }
   }
@@ -368,8 +369,8 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   {
     off_t file_size = get_file_size(path);
     size_t bytes_remaining = file_size - bytes_read;
-
-    size_t shade_bytes = h->num_of_shades>>3;
+    size_t shade_bytes = 0;
+  
     // 2 * num_shade_bytes for shade + shade end data
     size_t num_bytes_per_kmer
       = sizeof(uint64_t) * NUM_BITFIELDS_IN_BKMER +
@@ -388,8 +389,7 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
 }
 
 size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
-                        uint64_t *bkmer, Covg *covgs, Edges *edges,
-                        uint8_t *shades, uint8_t *shends)
+                        uint64_t *bkmer, Covg *covgs, Edges *edges)
 {
   size_t i, num_bytes_read;
 
@@ -411,21 +411,6 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
   for(i = 0; i < h->num_of_colours && covgs[i] == 0; i++) {}
   if(i == h->num_of_colours)
     die("Kmer has zero covg in all colours in binary: %s", path);
-
-  // Load shades if present
-  if(h->version >= 7 && h->num_of_shades > 0)
-  {
-    size_t binary_shade_bytes = h->num_of_shades >> 3;
-    size_t total_bytes = h->num_of_colours * binary_shade_bytes * 2;
-
-    for(i = 0; i < h->num_of_colours; i++)
-    {
-      safe_fread(fh, shades+i, binary_shade_bytes, "Shades", path);
-      safe_fread(fh, shends+i, binary_shade_bytes, "Shade ends", path);
-    }
-
-    num_bytes_read += total_bytes;
-  }
 
   return num_bytes_read;
 }
@@ -507,12 +492,10 @@ static void graph_info_update(GraphInfo *ginfo, BinaryFileHeader *header,
 //   stats->total_bases_read
 //   stats->binaries_loaded
 uint32_t binary_load(const char *path, dBGraph *graph,
-                     Colour load_first_colour_into, int only_load_if_in_colour,
-                     boolean all_kmers_are_unique, boolean load_as_union,
-                     SeqLoadingStats *stats)
+                     SeqLoadingPrefs *prefs, SeqLoadingStats *stats)
 {
-  assert(only_load_if_in_colour < (signed)load_first_colour_into);
-  assert(only_load_if_in_colour == -1 || graph->node_in_cols[0] != NULL);
+  assert(prefs->must_exist_in_colour < (signed)prefs->into_colour);
+  assert(prefs->must_exist_in_colour == -1 || graph->node_in_cols[0] != NULL);
 
   FILE* fh = fopen(path, "r");
   if(fh == NULL) die("Cannot open file: %s\n", path);
@@ -528,29 +511,18 @@ uint32_t binary_load(const char *path, dBGraph *graph,
     die("binary has different kmer size [kmer_size: %u vs %u; binary: %s]",
         header.kmer_size, graph->kmer_size, path);
   }
-  if(load_first_colour_into + header.num_of_colours > NUM_OF_COLOURS)
+  if(prefs->into_colour + header.num_of_colours > NUM_OF_COLOURS)
   {
     die("You need to compile for more colours [colours: %i; binary: %s]",
-        load_first_colour_into + header.num_of_colours, path);
-  }
-  if(header.num_of_shades > NUM_OF_SHADES)
-  {
-    warn("loading binary with more shades than we have compiled to handle "
-         "[shades: %i; compiled for: %i; file: %s]",
-         header.num_of_shades, NUM_OF_SHADES, path);
-    ginfo->num_of_shades_loaded = NUM_OF_SHADES;
-  }
-  else if(header.num_of_shades > ginfo->num_of_shades_loaded) {
-    ginfo->num_of_shades_loaded = header.num_of_shades;
+        prefs->into_colour + header.num_of_colours, path);
   }
 
-  graph_info_update(ginfo, &header, load_first_colour_into);
+  graph_info_update(ginfo, &header, prefs->into_colour);
 
   // Read kmers
   BinaryKmer bkmer;
   Covg covgs[NUM_OF_COLOURS];
   Edges edges[NUM_OF_COLOURS];
-  ShadeSet shades, shends;
 
   size_t num_of_kmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.unique_kmers;
@@ -560,8 +532,7 @@ uint32_t binary_load(const char *path, dBGraph *graph,
 
   for(num_of_kmers_parsed = 0; ; num_of_kmers_parsed++)
   {
-    if(binary_read_kmer(fh, &header, path, bkmer, covgs, edges,
-                        (uint8_t*)shades, (uint8_t*)shends) == 0)
+    if(binary_read_kmer(fh, &header, path, bkmer, covgs, edges) == 0)
     {
       break;
     }
@@ -570,10 +541,10 @@ uint32_t binary_load(const char *path, dBGraph *graph,
     hkey_t node;
     boolean increment_covg = true;
 
-    if(only_load_if_in_colour >= 0)
+    if(prefs->must_exist_in_colour >= 0)
     {
       if((node = hash_table_find(&graph->ht, bkmer)) != HASH_NOT_FOUND &&
-         db_node_has_col(graph, node, only_load_if_in_colour))
+         db_node_has_col(graph, node, prefs->must_exist_in_colour))
       {
         node = HASH_NOT_FOUND;
       }
@@ -583,12 +554,12 @@ uint32_t binary_load(const char *path, dBGraph *graph,
       boolean found;
       node = hash_table_find_or_insert(&graph->ht, bkmer, &found);
     
-      if(all_kmers_are_unique && found)
+      if(prefs->empty_colours && found)
       {
         die("Duplicate kmer loaded [cols:%u:%u]",
-            load_first_colour_into, header.num_of_colours);
+            prefs->into_colour, header.num_of_colours);
       }
-      if(load_as_union) increment_covg = !found;
+      if(prefs->load_as_union) increment_covg = !found;
     }
 
     if(node != HASH_NOT_FOUND)
@@ -597,19 +568,19 @@ uint32_t binary_load(const char *path, dBGraph *graph,
       if(graph->node_in_cols[0] != NULL) {
         for(i = 0; i < header.num_of_colours; i++)
           if(covgs[i] > 0 || edges[i] != 0)
-            db_node_set_col(graph, node, load_first_colour_into+i);
+            db_node_set_col(graph, node, prefs->into_colour+i);
       }
 
       if(graph->covgs != NULL) {
         if(increment_covg) {
           for(i = 0; i < header.num_of_colours; i++) {
-            col = load_first_colour_into+i;
+            col = prefs->into_colour+i;
             db_node_add_coverage(graph, node, covgs[i], col);
           }
         }
         else {
           for(i = 0; i < header.num_of_colours; i++)
-            graph->covgs[node][load_first_colour_into+i] = covgs[i];
+            graph->covgs[node][prefs->into_colour+i] = covgs[i];
         }
       }
 
@@ -618,15 +589,15 @@ uint32_t binary_load(const char *path, dBGraph *graph,
         // For each colour take the union of edges
         Edges *col_edges = graph->col_edges[node];
 
-        if(only_load_if_in_colour >= 0) {
+        if(prefs->must_exist_in_colour >= 0) {
           for(i = 0; i < header.num_of_colours; i++) {
-            col = load_first_colour_into+i;
-            col_edges[col] |= edges[i] & col_edges[only_load_if_in_colour];
+            col = prefs->into_colour+i;
+            col_edges[col] |= edges[i] & col_edges[prefs->must_exist_in_colour];
           }
         }
         else {
           for(i = 0; i < header.num_of_colours; i++) {
-            col = load_first_colour_into+i;
+            col = prefs->into_colour+i;
             col_edges[col] |= edges[i];
           }
         }

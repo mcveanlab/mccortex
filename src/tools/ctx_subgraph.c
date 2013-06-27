@@ -16,7 +16,7 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: ctx_subgraph <in.ctx> <capacity> <filelist> <dist> <mem> <out.ctx>\n"
+"usage: ctx_subgraph <mem> <in.ctx> <seeds.falist> <dist> <out.ctx>\n"
 "  Loads <in.ctx> and dumps a binary <out.ctx> that contains all kmers within\n"
 "  <dist> edges of kmers in <filelist>.  Maintains number of colours / covgs etc.\n"
 "  <mem> specifies how much memory to use to store the list of edge kmers.  Will\n"
@@ -143,16 +143,20 @@ static void filter_subgraph(const char *input_ctx_path,
   if(list0.nodes == NULL || list1.nodes == NULL) die("Out of memory");
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .load_seq = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+                           .load_seq = true,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = false,
+                           .load_binaries = true,
+                           .must_exist_in_colour = -1,
+                           .empty_colours = true,
+                           .load_as_union = false,
                            .update_ginfo = false,
                            .db_graph = &db_graph};
 
   // Load binary
-  binary_load(input_ctx_path, &db_graph, 0, -1, true, false, stats);
+  binary_load(input_ctx_path, &db_graph, &prefs, stats);
 
   size_t num_of_binary_kmers = stats->kmers_loaded;
 
@@ -189,13 +193,41 @@ static void filter_subgraph(const char *input_ctx_path,
   db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
 
   // Dump nodes that were flagged
-  const GraphInfo *ginfo = &db_graph.ginfo;
   size_t nodes_dumped = 0;
+  FILE *in, *out;
 
-  nodes_dumped = binary_dump_graph(out_path, &db_graph,
-                                   CURR_CTX_VERSION,
-                                   NULL, 0, ginfo->num_of_colours_loaded,
-                                   ginfo->num_of_shades_loaded);
+  if((in = fopen(input_ctx_path, "r")) == NULL)
+    die("Cannot open input path: %s", input_ctx_path);
+  if((out = fopen(out_path, "w")) == NULL)
+    die("Cannot open output path: %s", out_path);
+
+  BinaryFileHeader header;
+
+  binary_read_header(in, &header, input_ctx_path);
+  binary_write_header(out, &header);
+
+  BinaryKmer bkmer;
+  Covg covgs[header.num_of_colours];
+  Edges edges[header.num_of_colours];
+
+  while(binary_read_kmer(out, &header, out_path, bkmer, covgs, edges))
+  {
+    hkey_t node = hash_table_find(&db_graph.ht, bkmer);
+    if(node != HASH_NOT_FOUND) {
+      binary_write_kmer(out, &header, bkmer, covgs, edges);
+      nodes_dumped++;
+    }
+  }
+
+  binary_header_destroy(&header);
+
+  fclose(in);
+  fclose(out);
+
+  // nodes_dumped = binary_dump_graph(out_path, &db_graph,
+  //                                  CURR_CTX_VERSION,
+  //                                  NULL, 0, ginfo->num_of_colours_loaded,
+  //                                  ginfo->num_of_shades_loaded);
 
   printf("Read in %zu seed kmers\n", num_of_seed_kmers);
   printf("Dumped %zu kmers\n", nodes_dumped);
@@ -206,17 +238,16 @@ static void filter_subgraph(const char *input_ctx_path,
 
 int main(int argc, char* argv[])
 {
-  if(argc != 8) print_usage(usage, NULL);
+  if(argc != 6) print_usage(usage, NULL);
 
-  unsigned long kmer_capacity;
-  uint32_t dist;
+  size_t mem_to_use;
   char *input_ctx_path, *input_filelist, *out_path;
-  size_t num_of_fringe_nodes;
+  uint32_t dist;
 
-  input_ctx_path = argv[1];
+  if(!mem_to_integer(argv[1], &mem_to_use))
+    print_usage(usage, "Invalid <mem> arg (try 1GB or 2M): %s", argv[1]);
 
-  if(!parse_entire_ulong(argv[2], &kmer_capacity))
-    print_usage(usage, "Invalid kmer_capacity: %s", argv[2]);
+  input_ctx_path = argv[2];
 
   input_filelist = argv[3];
   if(!test_file_readable(input_filelist))
@@ -225,13 +256,7 @@ int main(int argc, char* argv[])
   if(!parse_entire_uint(argv[4], &dist))
     print_usage(usage, "Invalid <dist> value -- must be int >= 0: %s", argv[4]);
 
-  if(!mem_to_integer(argv[5], &num_of_fringe_nodes))
-    print_usage(usage, "Invalid <mem> arg (try 1GB or 2M): %s", argv[5]);
-
-  num_of_fringe_nodes /= (sizeof(hkey_t) * 2);
-  if(num_of_fringe_nodes == 0) print_usage(usage, "<mem> argument too small");
-
-  out_path = argv[6];
+  out_path = argv[5];
 
   // Probe binary to get kmer_size
   boolean is_binary = false;
@@ -243,12 +268,24 @@ int main(int argc, char* argv[])
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
+  size_t num_of_hash_kmers;
+  size_t req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t hash_mem = hash_table_mem(req_num_kmers, &num_of_hash_kmers);
+  size_t fringe_mem = mem_to_use - hash_mem;
+  size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
+
+  if(hash_mem >= mem_to_use || num_of_fringe_nodes < 100)
+    die("Not enough memory for the graph");
+
+  if(!test_file_writable(out_path))
+    die("Cannot write to output file: %s", out_path);
+
   message("Using kmer size: %u\n", kmer_size);
   message("Using %zu bytes for graph search\n",
           num_of_fringe_nodes * (sizeof(hkey_t) * 2));
 
   // Create db_graph
-  db_graph_alloc(&db_graph, kmer_size, kmer_capacity);
+  db_graph_alloc(&db_graph, kmer_size, num_of_hash_kmers);
   db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
 
   size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity);

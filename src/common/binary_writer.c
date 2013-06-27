@@ -39,7 +39,8 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
   if(h->version >= 7)
   {
     fwrite(&(h->num_of_kmers), sizeof(uint64_t), 1, fh);
-    fwrite(&(h->num_of_shades), sizeof(uint32_t), 1, fh);
+    uint32_t num_of_shades = 0;
+    fwrite(&num_of_shades, sizeof(uint32_t), 1, fh);
   }
 
   fwrite(h->mean_read_lengths, sizeof(uint32_t), h->num_of_colours, fh);
@@ -68,20 +69,11 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
 }
 
 void binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
-                       const Colour *colours, Colour start_col,
                        const uint64_t *bkmer, const Covg *covgs,
                        const Edges *edges)
 {
   fwrite(bkmer, sizeof(uint64_t), h->num_of_bitfields, fh);
-
-  if(colours == NULL) {
-    fwrite(covgs+start_col, sizeof(uint32_t), h->num_of_colours, fh);
-  } else {
-    size_t i;
-    for(i = 0; i < h->num_of_colours; i++)
-      fwrite(covgs+colours[i], sizeof(uint32_t), 1, fh);
-  }
-
+  fwrite(covgs, sizeof(uint32_t), h->num_of_colours, fh);
   fwrite(edges, sizeof(uint8_t),  h->num_of_colours, fh);
 }
 
@@ -107,28 +99,28 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
   }
 
   ConstBinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
+  Covg covgs[header->num_of_colours];
+  Edges edges[header->num_of_colours];
 
-  if(colours == NULL)
+  if(colours != NULL)
   {
-    binary_write_kmer(fout, header, colours, start_col, bkmer,
-                      db_graph->covgs[node], db_graph->col_edges[node]);
-  }
-  else
-  {
-    Covg covgs[header->num_of_colours];
-    Edges edges[header->num_of_colours];
     uint32_t col;
-
     for(i = 0; i < header->num_of_colours; i++)
     {
       col = colours[i];
       covgs[i] = db_graph->covgs[node][col];
       edges[i] = db_graph->col_edges[node][col];
     }
-
-    binary_write_kmer(fout, header, colours, start_col,
-                      bkmer, covgs, edges);
   }
+  else
+  {
+    memcpy(covgs, db_graph->covgs[node] + start_col,
+           header->num_of_colours * sizeof(Covg));
+    memcpy(edges, db_graph->col_edges[node] + start_col,
+           header->num_of_colours * sizeof(Edges));
+  }
+
+  binary_write_kmer(fout, header, bkmer, covgs, edges);
 
   (*num_of_nodes_dumped)++;
 }
@@ -141,7 +133,7 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
 uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
                            uint32_t version,
                            const Colour *colours, Colour start_col,
-                           uint32_t num_of_cols, uint32_t num_of_shades)
+                           uint32_t num_of_cols)
 {
   assert(db_graph->col_edges != NULL);
   assert(db_graph->covgs != NULL);
@@ -159,7 +151,6 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
                              .kmer_size = db_graph->kmer_size,
                              .num_of_bitfields = NUM_BITFIELDS_IN_BKMER,
                              .num_of_colours = num_of_cols,
-                             .num_of_shades = num_of_shades,
                              .num_of_kmers = db_graph->ht.unique_kmers};
 
   uint64_t total_seq_loaded[num_of_cols];

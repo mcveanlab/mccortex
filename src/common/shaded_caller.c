@@ -717,7 +717,7 @@ void* shaded_bubble_caller(void *args)
   free(node_store);
   free(or_store);
 
-  return NULL;
+   pthread_exit(NULL);
 }
 
 void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
@@ -743,11 +743,16 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
   else
   {
     pthread_t threads[num_threads];
+    pthread_attr_t thread_attr;
     struct caller_region_t tdata[num_threads];
-    int rc, i;
 
     uint64_t capacity = db_graph->ht.capacity, start = 0, end;
     gzFile tmpout;
+    int i;
+
+    /* Initialize and set thread detached attribute */
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
 
     for(i = 0; i < num_threads; i++, start = end)
     {
@@ -759,14 +764,18 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
       struct caller_region_t tmptdata = {db_graph, tmpout, start, end, i, 0};
       memcpy(tdata+i, &tmptdata, sizeof(struct caller_region_t));
 
-      rc = pthread_create(threads+i, NULL, shaded_bubble_caller, (void*)(tdata+i));
+      int rc = pthread_create(threads+i, &thread_attr, shaded_bubble_caller,
+                              (void*)(tdata+i));
+
       if(rc != 0) die("Creating thread failed");
     }
 
     /* wait for all threads to complete */
+    pthread_attr_destroy(&thread_attr);
+
     for(i = 0; i < num_threads; i++)
     {
-      rc = pthread_join(threads[i], NULL);
+      int rc = pthread_join(threads[i], NULL);
       if(rc != 0) die("Joining thread failed");
       gzclose(tdata[i].out);
 

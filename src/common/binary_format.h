@@ -11,7 +11,7 @@ extern const char CTX_MAGIC_WORD[7];
 
 typedef struct
 {
-  uint32_t version, kmer_size, num_of_bitfields, num_of_colours, num_of_shades;
+  uint32_t version, kmer_size, num_of_bitfields, num_of_colours;
   uint64_t num_of_kmers, *total_seq_loaded;
   uint32_t *mean_read_lengths;
   StrBuf **sample_names;
@@ -22,18 +22,13 @@ typedef struct
 
 size_t binary_read_header(FILE *fh, BinaryFileHeader *header, const char *path);
 size_t binary_read_kmer(FILE *fh, BinaryFileHeader *header, const char *path,
-                        uint64_t *bkmer, Covg *covgs, Edges *edges,
-                        uint8_t *shades, uint8_t *shends);
+                        uint64_t *bkmer, Covg *covgs, Edges *edges);
 
 // After calling binary_read_header you must call:
 void binary_header_destroy(BinaryFileHeader *header);
 
 void binary_write_header(FILE *fh, const BinaryFileHeader *header);
-
-// Shades and shends is shades,shade_ends for each colour in order
-// e.g. <col1.shades><col1.shends><col2.shades><col2.shends>..
 void binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
-                       const Colour *colours, Colour start_col,
                        const uint64_t *bkmer, const Covg *covgs,
                        const Edges *edges);
 
@@ -49,9 +44,7 @@ char binary_probe(const char* path, boolean *is_ctx,
 // if empty_colours != 0 an error is thrown if a node already exists
 // if load_as_union != 0 then we only increment covg if it is zero
 uint32_t binary_load(const char *path, dBGraph *graph,
-                     Colour load_first_colour_into, int only_load_if_in_colour,
-                     boolean all_kmers_are_unique, boolean load_as_union,
-                     SeqLoadingStats *stats);
+                     SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
 
 // This function will dump valid binaries by not printing edges to nodes that
 // are not themselves printed
@@ -61,6 +54,6 @@ uint32_t binary_load(const char *path, dBGraph *graph,
 uint64_t binary_dump_graph(const char *path, dBGraph *graph,
                            uint32_t version,
                            const Colour *colours, Colour start_col,
-                           uint32_t num_of_cols, uint32_t num_of_shades);
+                           uint32_t num_of_cols);
 
 #endif /* BINARY_FORMAT_H_ */

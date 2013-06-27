@@ -178,9 +178,7 @@ void file_load(const char *path, int format,
 {
   if(format == FORMAT_CTX)
   {
-    binary_load(path, prefs->db_graph, prefs->into_colour,
-                prefs->must_exist_in_colour, prefs->empty_colours,
-                prefs->load_as_union, stats);
+    binary_load(path, prefs->db_graph, prefs, stats);
   }
   else
   {
@@ -346,18 +344,12 @@ void parse_filelists(const char *list_path1, const char *list_path2,
       }
 
       // binary_load updates stats->num_of_colours_loaded
-      binary_load(p1, prefs->db_graph,
-                  prefs->into_colour, prefs->must_exist_in_colour,
-                  prefs->empty_colours, prefs->load_as_union,
-                  new_stats);
       // (undo auto-update of stats)
+      binary_load(p1, prefs->db_graph, prefs, new_stats);
       new_stats->num_of_colours_loaded -= colours_in_binary1;
 
-      binary_load(p2, prefs->db_graph,
-                  prefs->into_colour, prefs->must_exist_in_colour,
-                  prefs->empty_colours, prefs->load_as_union,
-                  new_stats);
       // (undo auto-update of stats)
+      binary_load(p2, prefs->db_graph, prefs, new_stats);
       new_stats->num_of_colours_loaded -= colours_in_binary2;
 
       cols_read_in = MAX2(colours_in_binary1, colours_in_binary2);
@@ -366,18 +358,12 @@ void parse_filelists(const char *list_path1, const char *list_path2,
       p1 = p2 = NULL;
     }
     else if(is_cortex_binary1) {
-      binary_load(p1, prefs->db_graph,
-                  prefs->into_colour, prefs->must_exist_in_colour,
-                  prefs->empty_colours, prefs->load_as_union,
-                  new_stats);
+      binary_load(p1, prefs->db_graph, prefs, new_stats);
       cols_read_in = colours_in_binary1;
       p1 = NULL;
     }
     else if(is_cortex_binary2) {
-      binary_load(p2, prefs->db_graph,
-                  prefs->into_colour, prefs->must_exist_in_colour,
-                  prefs->empty_colours, prefs->load_as_union,
-                  new_stats);
+      binary_load(p2, prefs->db_graph, prefs, stats);
       cols_read_in = colours_in_binary2;
       p2 = NULL;
     }
@@ -765,8 +751,7 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
       ginfo->cleaning[into_colour].cleaned_against_another_graph = true;
 
       binary_dump_graph(output_path_str->buff, db_graph,
-                        CURR_CTX_VERSION, NULL, into_colour,
-                        1, ginfo->num_of_shades_loaded);
+                        CURR_CTX_VERSION, NULL, into_colour, 1);
 
       // reset that colour in the graph
       db_graph_wipe_colour(db_graph, into_colour);

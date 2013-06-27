@@ -167,18 +167,24 @@ int main(int argc, char* argv[])
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, kmer_capacity);
 
-  binary_load(input_ctx_path, &db_graph,
-              0, -1, true, false, NULL);
-
   // Set up parsing sequence
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .load_seq = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+                           .load_seq = false,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = false,
+                           .load_binaries = true,
+                           .must_exist_in_colour = -1,
+                           .empty_colours = true,
+                           .load_as_union = false,
                            .update_ginfo = false,
                            .db_graph = &db_graph};
+
+  binary_load(input_ctx_path, &db_graph, &prefs, NULL);
+
+  prefs.load_seq = true;
+  prefs.load_binaries = false;
 
   //
   // Filtering reads

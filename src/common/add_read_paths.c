@@ -9,27 +9,63 @@
 #include "seq_reader.h"
 #include "file_reader.h"
 
-// Maximum distance we wish to assemble across
-#define MAX_SHADE_CONTIG 1000
-
 // Biggest gap between reads we'll try to traverse
 #define GAP_LIMIT 1000
 
+typedef struct {
+  read_t r1, r2;
+  Colour into_colour;
+  int qcutoff1, qcutoff2;
+  int hp_cutoff;
+} AddPathsJob;
+
 // Temp data store for adding paths to graph
-struct AddPaths {
-  dBNodeBuffer list;
+typedef struct
+{
+  size_t threadid;
+  dBGraph *db_graph;
+  BinaryRead binary_read;
+  dBNodeBuffer list; // nodebuf
   path_t path;
   GraphWalker wlk;
   uint64_t *visited;
-  // uint64_t insert_sizes[GAP_LIMIT+1] = {0};
-  // uint64_t gap_sizes[GAP_LIMIT+1] = {0};
-};
-
-// DEV: move these to AddPaths
-uint64_t insert_sizes[GAP_LIMIT+1] = {0};
-uint64_t gap_sizes[GAP_LIMIT+1] = {0};
+  uint64_t insert_sizes[GAP_LIMIT+1], gap_sizes[GAP_LIMIT+1];
+  AddPathsJob job;
+} AddPathsWorker;
 
 pthread_mutex_t add_paths_mutex;
+pthread_mutex_t reader_mutex;
+pthread_mutex_t data_written_mutex, data_read_mutex;
+pthread_cond_t data_written_cond, data_read_cond;
+
+volatile int count = 0;
+
+// Incoming data
+volatile boolean data_waiting = false, input_ended = false;
+AddPathsJob next_job;
+
+static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
+                               dBGraph *db_graph)
+{
+  db_node_buf_alloc(&worker->list, 4096);
+  path_alloc(&worker->path);
+  graph_walker_alloc(&worker->wlk);
+  seq_read_alloc(&worker->job.r1);
+  seq_read_alloc(&worker->job.r2);
+  worker->visited = visited;
+  worker->db_graph = db_graph;
+  memset(worker->insert_sizes, 0, sizeof(uint64_t)*(GAP_LIMIT+1));
+  memset(worker->gap_sizes, 0, sizeof(uint64_t)*(GAP_LIMIT+1));
+}
+
+static void paths_worker_dealloc(AddPathsWorker *worker)
+{
+  graph_walker_dealloc(&worker->wlk);
+  path_dealloc(&worker->path);
+  db_node_buf_dealloc(&worker->list);
+  seq_read_dealloc(&worker->job.r1);
+  seq_read_dealloc(&worker->job.r2);
+}
 
 static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
                            uint32_t kmer_size)
@@ -354,6 +390,134 @@ static int traverse_gap(dBNodeBuffer *list,
   return -1;
 }
 
+void read_to_path(AddPathsWorker *worker)
+{
+  count++;
+  BinaryRead *bread = &worker->binary_read;
+  dBGraph *db_graph = worker->db_graph;
+
+  AddPathsJob *job = &worker->job;
+  read_t *r1 = &job->r1, *r2 = &job->r2;
+  Colour into_colour = job->into_colour;
+
+  bread->len = 0;
+  size_t r2start = 0;
+
+  uint32_t kmer_size = db_graph->kmer_size;
+
+  get_bkmers_from_read(r1, job->qcutoff1, job->hp_cutoff, kmer_size, bread);
+
+  if(r2->seq.end >= kmer_size)
+  {
+    seq_read_reverse_complement(r2);
+
+    // Insert gap
+    if(bread->len > 0)
+    {
+      memset(bread->bkmers[bread->len], 1, sizeof(BinaryKmer));
+      bread->len++;
+    }
+
+    r2start = bread->len;
+    get_bkmers_from_read(r2, job->qcutoff2, job->hp_cutoff, kmer_size, bread);
+  }
+
+  // Look up nodes in hash table
+  dBNodeBuffer *list = &worker->list;
+  list->len = 0;
+
+  BinaryKmer tmp_key;
+  hkey_t node, prev_node = HASH_NOT_FOUND;
+  Orientation orient;
+  size_t i;
+
+  for(i = 0; i < bread->len; i++, prev_node = node)
+  {
+    if(bread->bkmers[i][0] == UINT64_MAX) continue;
+
+    db_node_get_key(bread->bkmers[i], db_graph->kmer_size, tmp_key);
+    node = hash_table_find(&db_graph->ht, tmp_key);
+
+    if(node != HASH_NOT_FOUND)
+    {
+      orient = db_node_get_orientation(bread->bkmers[i], tmp_key);
+
+      if(prev_node == HASH_NOT_FOUND && list->len > 0)
+      {
+        // Can we branch the gap from the prev contig?
+        int gapsize = traverse_gap(list, node, orient, db_graph, worker->visited,
+                                   into_colour, &worker->wlk);
+
+        if(gapsize == -1)
+        {
+          // printf("  traverse failed\n");
+          // Failed to bridge gap
+          add_read_path(list->data, list->len, db_graph, into_colour,
+                        &worker->path);
+
+          list->data[0].node = node;
+          list->data[0].orient = orient;
+          list->len = 1;
+        }
+        else
+        {
+          // printf("  traverse good\n");
+          // Update stats (gapsize is <= GAP_LIMIT)
+          if(i == r2start) {
+            int gap = gapsize - bread->offsets[i];
+            worker->insert_sizes[gap < 0 ? 0 : gap]++;
+          }
+          else {
+            worker->gap_sizes[gapsize]++;
+          }
+        }
+      }
+      else {
+        list->data[list->len].node = node;
+        list->data[list->len].orient = orient;
+        list->len++;
+      }
+    }
+  }
+
+  add_read_path(list->data, list->len, db_graph, into_colour, &worker->path);
+}
+
+void* add_paths_thread(void *ptr)
+{
+  AddPathsWorker *worker = (AddPathsWorker*)ptr;
+
+  while(1)
+  {
+    pthread_mutex_lock(&reader_mutex);
+
+    // wait until data are ready
+    pthread_mutex_lock(&data_written_mutex);
+    while(!input_ended && !data_waiting)
+      pthread_cond_wait(&data_written_cond, &data_written_mutex);
+    pthread_mutex_unlock(&data_written_mutex);
+
+    if(input_ended) {
+      pthread_mutex_unlock(&reader_mutex);
+      break;
+    }
+
+    AddPathsJob tmp_job;
+    SWAP(worker->job, next_job, tmp_job);
+    data_waiting = false;
+
+    pthread_mutex_lock(&data_read_mutex);
+    pthread_cond_signal(&data_read_cond);
+    pthread_mutex_unlock(&data_read_mutex);
+
+    pthread_mutex_unlock(&reader_mutex);
+
+    // Do work
+    read_to_path(worker);
+  }
+
+  pthread_exit(NULL);
+}
 
 // This function is passed to parse_filelist to load paths from sequence data
 static void load_paths(read_t *r1, read_t *r2,
@@ -363,20 +527,10 @@ static void load_paths(read_t *r1, read_t *r2,
 {
   // Don't bother checking for duplicates
   (void)stats;
+  (void)ptr;
 
-  // print_debug = (strncmp("CTGTCCACAGGTTATCTGCAGTACTGAAGAG", r1->seq.b, 31) == 0);
-  // if(print_debug) {
-  //   printf("READ1: %s\n", r1->seq.b);
-  //   printf("READ2: %s\n", r2->seq.b);
-  // }
-
-  struct AddPaths *add_paths = (struct AddPaths*)ptr;
-  dBNodeBuffer *list = &add_paths->list;
-  path_t *path = &add_paths->path;
-  GraphWalker *wlk = &add_paths->wlk;
-  uint64_t *visited = add_paths->visited;
-  dBGraph *db_graph = prefs->db_graph;
-  Colour colour = prefs->into_colour;
+  // printf("READ1: %s\n", r1->seq.b);
+  // if(r2 != NULL) printf("READ2: %s\n", r2->seq.b);
 
   int qcutoff1 = prefs->quality_cutoff;
   int qcutoff2 = prefs->quality_cutoff;
@@ -387,130 +541,33 @@ static void load_paths(read_t *r1, read_t *r2,
     qcutoff2 += fq_offset2;
   }
 
-  int hp_cutoff = prefs->homopolymer_cutoff;
-  size_t i, r2_start = 0;
-  int r2_offset = -1;
-  list->len = 0;
-  boolean useful_path_info = false;
-  hkey_t node;
 
-  get_nodes_from_read(r1, qcutoff1, hp_cutoff, db_graph, list);
+  pthread_mutex_lock(&data_read_mutex);
+  while(data_waiting) pthread_cond_wait(&data_read_cond, &data_read_mutex);
+  pthread_mutex_unlock(&data_read_mutex);
 
-  if(r2 != NULL && r2->seq.end >= db_graph->kmer_size)
-  {
-    seq_read_reverse_complement(r2);
+  // sleep(1);
 
-    // Insert gap
-    if(list->len > 0)
-    {
-      list->data[list->len].node = HASH_NOT_FOUND;
-      list->data[list->len].orient = forward;
-      list->len++;
-      r2_start = list->len;
-    }
+  next_job.qcutoff1 = qcutoff1;
+  next_job.qcutoff2 = qcutoff2;
+  next_job.hp_cutoff = prefs->homopolymer_cutoff;
+  next_job.into_colour = prefs->into_colour;
 
-    r2_offset = get_nodes_from_read(r2, qcutoff2, hp_cutoff, db_graph, list);
+  read_t tmp_read;
+  SWAP(*r1, next_job.r1, tmp_read);
+  if(r2 != NULL) SWAP(*r2, next_job.r2, tmp_read);
+  else {
+    next_job.r2.seq.end = 0;
+    next_job.r2.seq.b[0] = '\0';
   }
 
-  // DEV: do hash look up in new thread
-  // DEV: pass list to thread here
+  data_waiting = true;
 
-  for(i = 1; i < list->len; i++) {
-    if((node = list->data[i].node) != HASH_NOT_FOUND &&
-       edges_get_indegree(db_graph->edges[node], list->data[i].orient) > 0)
-    {
-      useful_path_info = true;
-      break;
-    }
-  }
-
-  if(r2 != NULL && !useful_path_info) {
-    for(i = r2_start; i < list->len - 1; i++) {
-      if((node = list->data[i].node) != HASH_NOT_FOUND &&
-         edges_get_outdegree(db_graph->edges[node], list->data[i].orient) > 0)
-      {
-        useful_path_info = true;
-        break;
-      }
-    }
-  }
-
-  if(list->len == 0 || !useful_path_info) return;
-
-  for(i = 0; i < list->len && list->data[i].node != HASH_NOT_FOUND; i++) {}
-  boolean no_gaps = (i == list->len);
-
-  if(no_gaps)
-  {
-    add_read_path(list->data, list->len, db_graph, colour, path);
-  }
-  else
-  {
-    // Append nodes onto end of list whilst attempting to close gaps
-    const size_t end = list->len;
-
-    db_node_buf_ensure_capacity(list, list->len + list->len);
-
-    hkey_t node = HASH_NOT_FOUND, prev_node = HASH_NOT_FOUND;
-    Orientation orient;
-
-    for(i = 0; i < end; i++, prev_node = node)
-    {
-      // printf("%zu / %zu\n", i, end);
-      node = list->data[i].node;
-      orient = list->data[i].orient;
-
-      #ifdef DEBUG
-        char str[100];
-        printf("node: %zu / %zu\n", (size_t)node, (size_t)db_graph->ht.capacity);
-        // if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
-        // else binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
-        printf("  node:%zu %zu %s\n", i, (size_t)node, str);
-      #endif
-
-      if(node != HASH_NOT_FOUND)
-      {
-        if(prev_node == HASH_NOT_FOUND && list->len > end)
-        {
-          // Can we branch the gap from the prev contig?
-          int gapsize = traverse_gap(list, node, orient, db_graph, visited,
-                                     colour, wlk);
-
-          if(gapsize == -1)
-          {
-            // printf("  traverse failed\n");
-            // Failed to bridge gap
-            add_read_path(list->data+end, list->len-end, db_graph, colour, path);
-
-            list->data[end].node = node;
-            list->data[end].orient = orient;
-            list->len = end+1;
-          }
-          else
-          {
-            // printf("  traverse good\n");
-            // Update stats (gapsize is <= GAP_LIMIT)
-            if(i == r2_start) {
-              int gap = gapsize - r2_offset;
-              insert_sizes[gap < 0 ? 0 : gap]++;
-            }
-            else {
-              gap_sizes[gapsize]++;
-            }
-          }
-        }
-        else {
-          list->data[list->len].node = node;
-          list->data[list->len].orient = orient;
-          list->len++;
-        }
-      }
-    }
-
-    add_read_path(list->data+end, list->len-end, db_graph, colour, path);
-  }
-
-  // print_debug = 0;
+  // Pass to a thread
+  pthread_mutex_lock(&data_written_mutex);
+  pthread_cond_signal(&data_written_cond);
+  // pthread_cond_broadcast(&data_written_cond);
+  pthread_mutex_unlock(&data_written_mutex);
 }
 
 void add_read_paths_to_graph(const char *se_list,
@@ -518,8 +575,8 @@ void add_read_paths_to_graph(const char *se_list,
                              Colour seq_colour,
                              const char *colour_list,
                              Colour col_list_first_colour,
-                             SeqLoadingPrefs prefs)//,
-                             // int num_of_threads)
+                             SeqLoadingPrefs prefs,
+                             int num_of_threads)
 {
   // Reset values we don't want in SeqLoadingPrefs
   prefs.remove_dups_se = false;
@@ -528,42 +585,60 @@ void add_read_paths_to_graph(const char *se_list,
   prefs.update_ginfo = false;
   prefs.into_colour = seq_colour;
 
-  if(pthread_mutex_init(&add_paths_mutex, NULL) != 0)
-    die("mutex init failed");
-
   // DEV: create threads
-  // PTHREAD_CREATE_JOINABLE
   // sig_atomic_t flag on each thread
 
+  seq_read_alloc(&next_job.r1);
+  seq_read_alloc(&next_job.r2);
+
+  int i, j, rc;
+
   SeqLoadingStats *stats = seq_loading_stats_create(0);
+  AddPathsWorker *workers = malloc(sizeof(AddPathsWorker) * num_of_threads);
 
-  // struct AddPaths *tmpdata = malloc(sizeof(struct AddPaths));
-  // db_node_buf_alloc(&tmpdata->list, 4096);
-  // path_alloc(&tmpdata->path);
-  // graph_walker_alloc(&tmpdata->wlk);
+  size_t visited_words = 2 * round_bits_to_words64(prefs.db_graph->ht.capacity);
+  uint64_t *visited = calloc(visited_words * num_of_threads, sizeof(uint64_t));
+  if(visited == NULL) die("Out of memory");
 
-  struct AddPaths tmpdata;
-  db_node_buf_alloc(&tmpdata.list, 4096);
-  path_alloc(&tmpdata.path);
-  graph_walker_alloc(&tmpdata.wlk);
+  for(i = 0; i < num_of_threads; i++)
+    paths_worker_alloc(workers + i, visited + visited_words*i, prefs.db_graph);
 
-  size_t visited_bytes = 2 * round_bits_to_words64(prefs.db_graph->ht.capacity);
-  tmpdata.visited = calloc(visited_bytes, sizeof(uint64_t));
+  // Start threads
+  pthread_t threads[num_of_threads];
+  pthread_attr_t thread_attr;
+  pthread_attr_init(&thread_attr);
+  pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
 
-  if(tmpdata.visited == NULL) die("Out of memory");
+  if(pthread_mutex_init(&add_paths_mutex, NULL) != 0) die("mutex init failed");
+  if(pthread_mutex_init(&reader_mutex, NULL) != 0) die("mutex init failed");
+  if(pthread_mutex_init(&data_written_mutex, NULL) != 0) die("mutex init failed");
+  if(pthread_mutex_init(&data_read_mutex, NULL) != 0) die("mutex init failed");
+
+  // pthread_condattr_t cond_attr;
+  // pthread_condattr_init(&cond_attr);
+
+  if(pthread_cond_init(&data_written_cond, NULL) != 0) die("pthread_cond init failed");
+  if(pthread_cond_init(&data_read_cond, NULL) != 0) die("pthread_cond init failed");
+
+  for(i = 0; i < num_of_threads; i++)
+  {
+    rc = pthread_create(threads+i, &thread_attr, add_paths_thread,
+                        (void*)(workers+i));
+    if(rc != 0) die("Creating thread failed");
+  }
 
   // load se data
   if(se_list != NULL)
   {
     parse_filelists(se_list, NULL, READ_FALIST, &prefs, stats,
-                    &load_paths, &tmpdata);
+                    &load_paths, NULL);
   }
 
   // load pe data
   if(pe_list1 != NULL && pe_list1[0] != '\0')
   {
     parse_filelists(pe_list1, pe_list2, READ_FALIST,
-                    &prefs, stats, &load_paths, &tmpdata);
+                    &prefs, stats, &load_paths, NULL);
   }
 
   // Load colour list
@@ -572,29 +647,61 @@ void add_read_paths_to_graph(const char *se_list,
   if(colour_list != NULL)
   {
     parse_filelists(colour_list, NULL, READ_COLOURLIST,
-                    &prefs, stats, &load_paths, &tmpdata);
+                    &prefs, stats, &load_paths, NULL);
   }
 
-  graph_walker_dealloc(&tmpdata.wlk);
-  path_dealloc(&tmpdata.path);
-  db_node_buf_dealloc(&tmpdata.list);
-  free(tmpdata.visited);
-  // free(tmpdata);
+  input_ended = true;
+
+  for(i = 0; i < num_of_threads; i++) {
+    pthread_mutex_lock(&data_written_mutex);
+    pthread_cond_signal(&data_written_cond);
+    pthread_mutex_unlock(&data_written_mutex);
+  }
+
+  // sleep(5);
+
+  for(i = 0; i < num_of_threads; i++) {
+    rc = pthread_join(threads[i], NULL);
+    if(rc != 0) die("Joining thread failed");
+  }
+
+  uint64_t insert_sizes[GAP_LIMIT+1] = {0}, gap_sizes[GAP_LIMIT+1] = {0};
+
+  // merge gap_sizes, insert_sizes
+  for(i = 0; i < num_of_threads; i++) {
+    for(j = 0; j < GAP_LIMIT+1; j++) {
+      insert_sizes[j] += workers[i].insert_sizes[j];
+      gap_sizes[j] += workers[i].gap_sizes[j];
+    }
+    paths_worker_dealloc(workers + i);
+  }
+
+  free(visited);
+  free(workers);
+
+  seq_read_dealloc(&next_job.r1);
+  seq_read_dealloc(&next_job.r2);
 
   seq_loading_stats_free(stats);
 
-  // DEV: merge threads (join)
-  // DEV: merge gap_sizes / insert_sizes
+  pthread_cond_destroy(&data_written_cond);
+  pthread_cond_destroy(&data_read_cond);
+  // pthread_condattr_destroy(&cond_attr);
 
   pthread_mutex_destroy(&add_paths_mutex);
+  pthread_mutex_destroy(&reader_mutex);
+  pthread_mutex_destroy(&data_written_mutex);
+  pthread_mutex_destroy(&data_read_mutex);
+  pthread_attr_destroy(&thread_attr);
 
-  message("Paths added\n");
+  message("Paths added [%i]\n", count);
 
   // Print mp gap size / insert stats to a file
   uint32_t kmer_size = prefs.db_graph->kmer_size;
   dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, GAP_LIMIT+1, kmer_size);
   dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, GAP_LIMIT+1, kmer_size);
 
+  // Print stats about paths added
   char mem_used_str[100], num_paths_str[100];
   binary_paths_t *pdata = &prefs.db_graph->pdata;
   size_t paths_mem_used = pdata->next - pdata->store;

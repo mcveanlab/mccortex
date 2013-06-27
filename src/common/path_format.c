@@ -58,10 +58,13 @@ void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
   uint64_t num_path_kmers = 0;
   HASH_TRAVERSE(&db_graph->ht, count_kmers_with_paths, db_graph, &num_path_kmers);
 
-  char mem_str[50];
+  char kmers_str[100], paths_str[100], mem_str[100];
+  ulong_to_str(num_path_kmers, kmers_str);
+  ulong_to_str(num_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
-  message("  Saving %zu kmers holding %zu paths (%s)\n",
-          (size_t)num_path_kmers, (size_t)num_paths, mem_str);
+
+  message("  Saving %s kmers holding %s paths (%s)\n",
+          kmers_str, paths_str, mem_str);
 
   fwrite(&num_paths, sizeof(uint64_t), 1, fout);
   fwrite(&num_path_bytes, sizeof(uint64_t), 1, fout);
