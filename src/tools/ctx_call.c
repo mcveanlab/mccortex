@@ -11,21 +11,24 @@
 #include "graph_walker.h"
 #include "shaded_caller.h"
 
-static const char usage[] = "usage: ctx_call <in.ctx> <mem> <out.bubbles.gz>\n";
-
-#define NUM_THREADS 2
+static const char usage[] =
+"usage: ctx_call <threads> <mem> <in.ctx> <out.bubbles.gz>\n";
 
 int main(int argc, char* argv[])
 {
-  if(argc != 4) print_usage(usage, NULL);
+  if(argc != 5) print_usage(usage, NULL);
 
-  char *input_ctx_path = argv[1];
+  char *num_threads_arg = argv[1];
   char *mem_arg = argv[2];
-  char *out_path = argv[3];
+  char *input_ctx_path = argv[3];
+  char *out_path = argv[4];
 
   size_t mem_to_use = 0;
+  uint32_t num_of_threads = 0;
 
-  // Check arguments
+  if(!parse_entire_uint(num_threads_arg, &num_of_threads))
+    print_usage(usage, "Invalid number of threads: %s", num_threads_arg);
+
   if(!test_file_readable(input_ctx_path))
     print_usage(usage, "Cannot read input file: %s", input_ctx_path);
 
@@ -77,7 +80,7 @@ int main(int argc, char* argv[])
                      round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
                      round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
 
-  size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * NUM_THREADS;
+  size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * num_of_threads;
 
   if(graph_mem+thread_mem > mem_to_use) {
     print_usage(usage, "Not enough memory; hash table: %zu; threads: %zu",
@@ -91,13 +94,13 @@ int main(int argc, char* argv[])
   // size_t path_mem = mem_to_use - graph_mem - thread_mem;
   size_t path_mem = ctp_num_path_bytes;
 
-  char graph_mem_str[100], thread_mem_str[100], path_mem_str[100];
+  char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(thread_mem, 1, thread_mem_str);
+  bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
   bytes_to_str(path_mem, 1, path_mem_str);
 
   message("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
-          graph_mem_str, NUM_THREADS, thread_mem_str, path_mem_str);
+          graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
 
   // Edges
   db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
@@ -144,11 +147,11 @@ int main(int argc, char* argv[])
   // Set up temporary files
   //
   StrBuf *tmppath = strbuf_new();
-  char **tmp_paths = malloc(NUM_THREADS * sizeof(char*));
+  char **tmp_paths = malloc(num_of_threads * sizeof(char*));
 
   int r = rand() & ((1<<20)-1);
 
-  for(i = 0; i < NUM_THREADS; i++)
+  for(i = 0; i < num_of_threads; i++)
   {
     strbuf_set(tmppath, out_path);
     strbuf_sprintf(tmppath, ".%i.%zu", r, i);
@@ -164,12 +167,12 @@ int main(int argc, char* argv[])
   #endif
 
   // Now call variants
-  invoke_shaded_bubble_caller(&db_graph, out_path, NUM_THREADS, tmp_paths);
+  invoke_shaded_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths);
 
   free(input_paths_file);
 
   // Clear up threads
-  for(i = 0; i < NUM_THREADS; i++) {
+  for(i = 0; i < num_of_threads; i++) {
     unlink(tmp_paths[i]);
     free(tmp_paths[i]);
   }

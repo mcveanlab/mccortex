@@ -88,8 +88,8 @@ cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 # Call with ctx2
 # cmd time $THREAD --pe_list 0 reads.0.falist reads.1.falist 2 100MB diploid.k31.ctx
 cmd time $THREAD --se_list 0 reads.se.falist 2 100M diploid.k31.ctx
-# cmd time $THREAD --se_list 0 reads.se.falist --pe_list 0 reads.0.falist reads.1.falist 100M diploid.k31.ctx
-cmd time $CTX2 diploid.k31.ctx 100M diploid.pac.bubbles.gz
+# cmd time $THREAD --se_list 0 reads.se.falist --pe_list 0 reads.0.falist reads.1.falist 2 100M diploid.k31.ctx
+cmd time $CTX2 2 100M diploid.k31.ctx diploid.pac.bubbles.gz
 cmd $PROC diploid.pac.bubbles.gz diploid.pac
 cmd gzip -d -f diploid.pac.vcf.gz
 

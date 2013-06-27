@@ -120,72 +120,6 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
   return contig_end;
 }
 
-void binary_read_alloc(BinaryRead *read, size_t capacity)
-{
-  read->len = 0;
-  read->capacity = capacity;
-  read->bkmers = malloc(read->capacity * sizeof(BinaryKmer));
-  read->offsets = malloc(read->capacity * sizeof(uint32_t));
-}
-
-void binary_read_dealloc(BinaryRead *read)
-{
-  free(read->bkmers);
-  free(read->offsets);
-}
-
-void binary_read_ensure_capacity(BinaryRead *read, size_t capacity)
-{
-  if(capacity > read->capacity)
-  {
-    read->capacity = ROUNDUP2POW(capacity);
-    read->bkmers = realloc(read->bkmers, read->capacity * sizeof(BinaryKmer));
-    read->offsets = realloc(read->offsets, read->capacity * sizeof(uint32_t));
-  }
-}
-
-// Gaps collapsed down to a single bkmer with all bits set
-void get_bkmers_from_read(const read_t *r, int qcutoff, int hp_cutoff,
-                          uint32_t kmer_size, BinaryRead *data)
-{
-  size_t i, contig_start, contig_end, search_start = 0;
-
-  BinaryKmer bkmer;
-  Nucleotide nuc;
-
-  binary_read_ensure_capacity(data, data->len + r->seq.end);
-
-  while((contig_start = seq_contig_start(r, search_start, kmer_size,
-                                         qcutoff, hp_cutoff)) < r->seq.end)
-  {
-    contig_end = seq_contig_end(r, contig_start, kmer_size,
-                                qcutoff, hp_cutoff, &search_start);
-
-    // Gap
-    if(search_start > 0)
-    {
-      memset(data->bkmers[data->len], 1, sizeof(BinaryKmer));
-      data->len++;
-    }
-
-    const char *contig = r->seq.b + contig_start;
-    size_t contig_len = contig_end - contig_start;
-
-    binary_kmer_from_str(contig, kmer_size, bkmer);
-    binary_kmer_right_shift_one_base(bkmer);
-
-    for(i = 0; i+kmer_size <= contig_len; i++)
-    {
-      data->offsets[i] = contig_start + i;
-      nuc = binary_nuc_from_char(contig[contig_start + i + kmer_size-1]);
-      binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-      memcpy(data->bkmers[data->len++], bkmer, sizeof(BinaryKmer));
-    }
-  }
-
-  if(data->len > 0 && data->bkmers[data->len-1][0] == UINT64_MAX) data->len--;
-}
-
 // returns offset of the first node found or -1 if no nodes were found
 // Gaps collapsed down to a single HASH_NOT_FOUND
 int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
@@ -243,7 +177,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
     }
   }
 
-  if(list->len > 0 && list->data[list->len-1].node == HASH_NOT_FOUND)
+  while(list->len > 0 && list->data[list->len-1].node == HASH_NOT_FOUND)
     list->len--;
 
   return first_node_offset;

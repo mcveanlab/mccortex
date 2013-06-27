@@ -114,13 +114,13 @@ int main(int argc, char* argv[])
 
   size_t path_mem = mem_to_use - graph_mem - thread_mem;
 
-  char graph_mem_str[100], thread_mem_str[100], path_mem_str[100];
+  char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(thread_mem, 1, thread_mem_str);
+  bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
   bytes_to_str(path_mem, 1, path_mem_str);
 
   message("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
-          graph_mem_str, num_of_threads, thread_mem_str, path_mem_str);
+          graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
 
   // Edges
   db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));

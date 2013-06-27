@@ -6,8 +6,8 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: ctx_covg <mem> <in.ctx> <calls.raw.vcf> [col1 ...]\n"
-"  Clean a cortex binary.\n";;
+"usage: ctx_covg <mem> <in.ctx> <input.vcf> [col1 ...]\n"
+"  Print coverage on some input file\n";
 
 int main(int argc, char **argv)
 {
