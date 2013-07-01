@@ -16,6 +16,12 @@ char parse_entire_ulong(char *str, unsigned long *result);
 uint32_t parse_uint_liststr(const char *str, uint32_t *arr, uint32_t arrlen,
                             boolean *more);
 
+// Get number of integers in a list
+uint32_t len_uint_liststr(const char *str);
+
+boolean parse_uint_liststr_strict(const char *str, char sep,
+                                  uint32_t *arr, uint32_t arrlen);
+
 size_t count_char(const char *str, char c);
 
 boolean bases_to_integer(const char *arg, size_t *bases);

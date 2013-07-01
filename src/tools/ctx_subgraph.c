@@ -193,36 +193,7 @@ static void filter_subgraph(const char *input_ctx_path,
   db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
 
   // Dump nodes that were flagged
-  size_t nodes_dumped = 0;
-  FILE *in, *out;
-
-  if((in = fopen(input_ctx_path, "r")) == NULL)
-    die("Cannot open input path: %s", input_ctx_path);
-  if((out = fopen(out_path, "w")) == NULL)
-    die("Cannot open output path: %s", out_path);
-
-  BinaryFileHeader header;
-
-  binary_read_header(in, &header, input_ctx_path);
-  binary_write_header(out, &header);
-
-  BinaryKmer bkmer;
-  Covg covgs[header.num_of_cols];
-  Edges edges[header.num_of_cols];
-
-  while(binary_read_kmer(out, &header, out_path, bkmer, covgs, edges))
-  {
-    hkey_t node = hash_table_find(&db_graph.ht, bkmer);
-    if(node != HASH_NOT_FOUND) {
-      binary_write_kmer(out, &header, bkmer, covgs, edges);
-      nodes_dumped++;
-    }
-  }
-
-  binary_header_destroy(&header);
-
-  fclose(in);
-  fclose(out);
+  size_t nodes_dumped = db_graph_filter_file(&db_graph, input_ctx_path, out_path);
 
   printf("Read in %zu seed kmers\n", num_of_seed_kmers);
   printf("Dumped %zu kmers\n", nodes_dumped);
@@ -290,5 +261,6 @@ int main(int argc, char* argv[])
                   num_of_fringe_nodes, out_path);
 
   free(kmer_mask);
+  free(db_graph.edges);
   db_graph_dealloc(&db_graph);
 }

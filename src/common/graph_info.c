@@ -75,3 +75,33 @@ void graph_info_update_seq_stats(GraphInfo *ginfo,
 
   ginfo->total_sequence = total_sequence;
 }
+
+void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
+{
+  // Update sample name
+  const StrBuf *new_sample_name = &src->sample_name;
+  if(new_sample_name->len > 0 && strcmp(new_sample_name->buff, "undefined") != 0)
+    strbuf_set(&dst->sample_name, new_sample_name->buff);
+
+  uint64_t total_sequence = dst->total_sequence + src->total_sequence;
+
+  if(total_sequence > 0)
+  {
+    // Average error rates
+    dst->seq_err
+      = (dst->seq_err * dst->total_sequence +
+         src->seq_err * src->total_sequence) /
+        total_sequence;
+
+    // Update mean read length
+    dst->mean_read_length
+      = (dst->mean_read_length * dst->total_sequence +
+         src->mean_read_length * src->total_sequence) /
+        total_sequence;
+  }
+
+  dst->total_sequence = total_sequence;
+
+  // Update error cleaning
+  error_cleaning_overwrite(&dst->cleaning, &src->cleaning);
+}

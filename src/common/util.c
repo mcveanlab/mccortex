@@ -101,6 +101,38 @@ uint32_t parse_uint_liststr(const char *str, uint32_t *arr, uint32_t arrlen,
   return i;
 }
 
+uint32_t len_uint_liststr(const char *str)
+{
+  const char *tmp = str;
+  uint32_t i;
+  for(i = 0; ; i++)
+  {
+    while(*tmp != '\0' && (*tmp < '0' || *tmp > '9')) tmp++;
+    if(*tmp == '\0') break;
+    while(*tmp >= '0' && *tmp <= '9') tmp++;
+  }
+  return i;
+}
+
+boolean parse_uint_liststr_strict(const char *str, char sep,
+                                  uint32_t *arr, uint32_t arrlen)
+{
+  const char *tmp = str;
+  char *endptr = NULL;
+  uint32_t i;
+  for(i = 0; i < arrlen; i++)
+  {
+    if(*tmp < '0' || *tmp > '9') return false;
+    arr[i] = strtol(tmp, &endptr, 10);
+    tmp = endptr;
+    if(i+1 < arrlen) {
+      if(*tmp != sep) return false;
+      tmp++;
+    }
+  }
+  return (*tmp == '\0');
+}
+
 size_t count_char(const char *str, char c)
 {
   const char *tmp = str;

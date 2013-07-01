@@ -39,9 +39,9 @@ typedef struct
 
 typedef struct
 {
-  StrBuf sample_name;
-  uint64_t total_sequence;
   uint32_t mean_read_length;
+  uint64_t total_sequence;
+  StrBuf sample_name;
   long double seq_err;
   ErrorCleaning cleaning;
 } GraphInfo;

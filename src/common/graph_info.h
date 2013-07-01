@@ -19,4 +19,6 @@ void graph_info_dealloc(GraphInfo *ginfo);
 void graph_info_update_seq_stats(GraphInfo *ginfo,
                                  uint32_t added_mean, uint64_t added_seq);
 
+void graph_info_merge(GraphInfo *dst, const GraphInfo *src);
+
 #endif /* GRAPH_INFO_H_ */

@@ -100,15 +100,21 @@ void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
 #define db_node_set_edge(graph,hkey,nuc,or) \
         ((graph)->edges[hkey] = edges_set_edge((graph)->edges[hkey],(nuc),(or)))
 
+#define db_node_edges(graph,hkey) ((graph)->edges[hkey])
+#define db_node_reset_edges(graph,hkey) ((graph)->edges[hkey] = 0)
+
+#define db_node_col_edges(graph,col,hkey) \
+        ((graph)->col_edges[(hkey)*(graph)->num_of_cols + col])
+
+#define db_node_col_edges_union(graph,hkey) \
+        edges_get_union((graph)->col_edges+(hkey)*(graph)->num_of_cols, \
+                        (graph)->num_of_cols)
+
 #define db_node_set_col_edge(graph,col,hkey,nuc,or) \
 ((graph)->col_edges[(hkey)*(graph)->num_of_cols + col] \
   = edges_set_edge((graph)->col_edges[(hkey)*(graph)->num_of_cols + col],(nuc),(or)))
 
-#define db_node_edges(graph,hkey) ((graph)->edges[hkey])
-#define db_node_reset_edges(graph,hkey) ((graph)->edges[hkey] = 0)
-
-#define db_node_is_blunt_end(graph,hkey,or) \
-        (edges_with_orientation((graph)->edges[hkey],or) == 0)
+Edges edges_get_union(const Edges *edges, size_t num);
 
 boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide);
@@ -126,6 +132,9 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 #define db_node_zero_covgs(graph,hkey) \
         memset((graph)->col_covgs + (hkey)*(graph)->num_of_cols, 0, \
                (graph)->num_of_cols * sizeof(Covg))
+
+#define db_node_col_covg(graph,node,colour) \
+        ((graph)->col_covgs[(node)*(graph)->num_of_cols + (colour)])
 
 void db_node_add_coverage(dBGraph *graph, hkey_t hkey, Colour col, long update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);

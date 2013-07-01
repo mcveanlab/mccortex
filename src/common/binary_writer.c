@@ -30,6 +30,8 @@ static void write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
 
 void binary_write_header(FILE *fh, const BinaryFileHeader *h)
 {
+  uint32_t i;
+
   fwrite(CTX_MAGIC_WORD, sizeof(char), strlen(CTX_MAGIC_WORD), fh);
   fwrite(&h->version, sizeof(uint32_t), 1, fh);
   fwrite(&h->kmer_size, sizeof(uint32_t), 1, fh);
@@ -43,26 +45,26 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
     fwrite(&num_of_shades, sizeof(uint32_t), 1, fh);
   }
 
-  fwrite(h->mean_read_lengths, sizeof(uint32_t), h->num_of_cols, fh);
-  fwrite(h->total_seq_loaded, sizeof(uint64_t), h->num_of_cols, fh);
+  for(i = 0; i < h->num_of_cols; i++)
+    fwrite(&h->ginfo[i].mean_read_length, sizeof(uint32_t), 1, fh);
+  for(i = 0; i < h->num_of_cols; i++)
+    fwrite(&h->ginfo[i].total_sequence, sizeof(uint64_t), 1, fh);
 
   if(h->version >= 6)
   {
-    uint32_t i;
-
     for(i = 0; i < h->num_of_cols; i++)
     {
-      uint32_t len = h->sample_names[i]->len;
-      char *buff = h->sample_names[i]->buff;
+      uint32_t len = h->ginfo[i].sample_name.len;
+      char *buff = h->ginfo[i].sample_name.buff;
       fwrite(&len, sizeof(uint32_t), 1, fh);
       fwrite(buff, sizeof(uint8_t), len, fh);
     }
 
-    fwrite(h->seq_err_rates, sizeof(long double), h->num_of_cols, fh);
+    for(i = 0; i < h->num_of_cols; i++)
+      fwrite(&h->ginfo[i].seq_err, sizeof(long double), 1, fh);
 
-    for(i = 0; i < h->num_of_cols; i++) {
-      write_error_cleaning_object(fh, h->err_cleaning[i]);
-    }
+    for(i = 0; i < h->num_of_cols; i++)
+      write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
   }
 
   fwrite(CTX_MAGIC_WORD, sizeof(uint8_t), strlen(CTX_MAGIC_WORD), fh);
@@ -155,27 +157,15 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
                              .num_of_cols = num_of_cols,
                              .num_of_kmers = db_graph->ht.unique_kmers};
 
-  uint64_t total_seq_loaded[num_of_cols];
-  uint32_t mean_read_lengths[num_of_cols];
-  StrBuf *sample_names[num_of_cols];
-  long double seq_err_rates[num_of_cols];
-  ErrorCleaning *err_cleaning[num_of_cols];
+  GraphInfo header_ginfo[num_of_cols];
 
   uint32_t i, col;
   for(i = 0; i < num_of_cols; i++) {
     col = colours != NULL ? colours[i] : i;
-    total_seq_loaded[i] = (ginfo+col)->total_sequence;
-    sample_names[i] = &(ginfo+col)->sample_name;
-    mean_read_lengths[i] = (ginfo+col)->mean_read_length;
-    seq_err_rates[i] = (ginfo+col)->seq_err;
-    err_cleaning[i] = &(ginfo+col)->cleaning;
+    header_ginfo[i] = ginfo[col];
   }
 
-  header.total_seq_loaded = total_seq_loaded;
-  header.mean_read_lengths = mean_read_lengths;
-  header.sample_names = sample_names;
-  header.seq_err_rates = seq_err_rates;
-  header.err_cleaning = err_cleaning;
+  header.ginfo = header_ginfo;
 
   // Write header
   binary_write_header(fout, &header);

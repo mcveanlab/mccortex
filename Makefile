@@ -112,8 +112,10 @@ CTX_BUILD_SRCS = src/tools/ctx_build.c $(COMMON_SRCS)
 CTX_CLEAN_SRCS = src/tools/ctx_clean.c $(COMMON_SRCS)
 CTX_SUBGRAPH_SRCS = src/tools/ctx_subgraph.c $(COMMON_SRCS)
 CTX_READS_SRCS = src/tools/ctx_reads.c $(COMMON_SRCS)
+CTX_INTERSECT_SRCS = src/tools/ctx_intersect.c $(COMMON_SRCS)
+CTX_JOIN_SRCS = src/tools/ctx_join.c $(COMMON_SRCS)
 CTX_THREAD_SRCS = src/tools/ctx_thread.c $(COMMON_SRCS)
-CTP_VIEW_SRCS = src/tools/ctP_VIEW.c $(COMMON_SRCS)
+CTP_VIEW_SRCS = src/tools/ctp_view.c $(COMMON_SRCS)
 CTX_CALL_SRCS = src/tools/ctx_call.c $(COMMON_SRCS)
 CTX_UNIQUE_SRCS = src/tools/ctx_unique.c $(COMMON_SRCS)
 CTX_PLACE_SRCS = src/tools/ctx_place.c src/common/call_seqan.o $(COMMON_SRCS)
@@ -123,6 +125,8 @@ CTX_BUILD_BIN=bin/ctx_build_k$(MAXK)
 CTX_CLEAN_BIN=bin/ctx_clean_k$(MAXK)
 CTX_SUBGRAPH_BIN=bin/ctx_subgraph_k$(MAXK)
 CTX_READS_BIN=bin/ctx_reads_k$(MAXK)
+CTX_INTERSECT_BIN=bin/ctx_intersect_k$(MAXK)
+CTX_JOIN_BIN=bin/ctx_join_k$(MAXK)
 CTX_THREAD_BIN=bin/ctx_thread_k$(MAXK)
 CTP_VIEW_BIN=bin/ctp_view_k$(MAXK)
 CTX_CALL_BIN=bin/ctx_call_k$(MAXK)
@@ -131,7 +135,7 @@ CTX_COVG_BIN=bin/ctx_covg_k$(MAXK)
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=$(LIB_OBJS) bin
 
-TOOLS=ctx_build ctx_clean ctx_reads ctx_subgraph \
+TOOLS=ctx_build ctx_clean ctx_reads ctx_subgraph ctx_intersect ctx_join \
       ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_covg
 
 all: $(TOOLS)
@@ -155,6 +159,16 @@ ctx_reads: $(CTX_READS_BIN)
 $(CTX_READS_BIN): $(CTX_READS_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o $(CTX_READS_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_READS_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled $(CTX_READS_BIN)
+
+ctx_intersect: $(CTX_INTERSECT_BIN)
+$(CTX_INTERSECT_BIN): $(CTX_INTERSECT_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTX_INTERSECT_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_INTERSECT_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTX_INTERSECT_BIN)
+
+ctx_join: $(CTX_JOIN_BIN)
+$(CTX_JOIN_BIN): $(CTX_JOIN_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTX_JOIN_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_JOIN_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTX_JOIN_BIN)
 
 ctx_thread: $(CTX_THREAD_BIN)
 $(CTX_THREAD_BIN): $(CTX_THREAD_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)

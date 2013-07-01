@@ -3,6 +3,7 @@
 #include "db_node.h"
 #include "graph_info.h"
 #include "binary_paths.h"
+#include "binary_format.h"
 
 dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
                         uint32_t num_of_cols, uint64_t capacity)
@@ -28,7 +29,7 @@ void db_graph_dealloc(dBGraph *db_graph)
   size_t i;
   hash_table_dealloc(&db_graph->ht);
   for(i = 0; i < db_graph->num_of_cols; i++)
-    graph_info_dealloc(db_graph->ginfo);
+    graph_info_dealloc(db_graph->ginfo+i);
   free(db_graph->ginfo);
 }
 
@@ -375,4 +376,51 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   }
   path_dealloc(&path);
   message("-----------------------\n\n");
+}
+
+
+size_t db_graph_filter_file(const dBGraph *db_graph,
+                            const char *in_ctx_path, const char *out_ctx_path)
+{
+  // Dump nodes that were flagged
+  size_t i, nodes_dumped = 0;
+  FILE *in, *out;
+
+  if((in = fopen(in_ctx_path, "r")) == NULL)
+    die("Cannot open input path: %s", in_ctx_path);
+  if((out = fopen(out_ctx_path, "w")) == NULL)
+    die("Cannot open output path: %s", out_ctx_path);
+
+  BinaryFileHeader header;
+
+  binary_read_header(in, &header, in_ctx_path);
+  binary_write_header(out, &header);
+
+  BinaryKmer bkmer;
+  Covg covgs[header.num_of_cols];
+  Edges edges[header.num_of_cols];
+
+  while(binary_read_kmer(out, &header, out_ctx_path, bkmer, covgs, edges))
+  {
+    hkey_t node = hash_table_find(&db_graph->ht, bkmer);
+    if(node != HASH_NOT_FOUND) {
+      if(db_graph->edges != NULL) {
+        Edges union_edges = db_node_edges(db_graph, node);
+        for(i = 0; i < header.num_of_cols; i++) edges[i] &= union_edges;
+      }
+      else if(db_graph->col_edges != NULL) {
+        Edges union_edges = db_node_col_edges_union(db_graph, node);
+        for(i = 0; i < header.num_of_cols; i++) edges[i] &= union_edges;
+      }
+      binary_write_kmer(out, &header, bkmer, covgs, edges);
+      nodes_dumped++;
+    }
+  }
+
+  binary_header_destroy(&header);
+
+  fclose(in);
+  fclose(out);
+
+  return nodes_dumped;
 }

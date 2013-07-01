@@ -181,20 +181,17 @@ int main(int argc, char **argv)
 
   size_t mem_per_kmer, kmers_in_hash, hash_mem, graph_mem;
 
-  mem_per_kmer = (sizeof(BinaryKmer) + sizeof(Covg) + sizeof(Edges)) *
-                 colours_used;
-
+  mem_per_kmer = sizeof(BinaryKmer) + (sizeof(Covg) + sizeof(Edges)) * colours_used;
   hash_mem = hash_table_mem2(mem_to_use / mem_per_kmer, &kmers_in_hash);
   graph_mem = kmers_in_hash * mem_per_kmer;
 
   db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
-  db_graph.col_edges = calloc(kmers_in_hash, sizeof(Edges[colours_used]));
-  db_graph.col_covgs = calloc(kmers_in_hash, sizeof(Covg[colours_used]));
+  db_graph.col_edges = calloc(kmers_in_hash * colours_used, sizeof(Edges));
+  db_graph.col_covgs = calloc(kmers_in_hash * colours_used, sizeof(Covg));
 
   // Print mem usage
   char graph_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
-
   message("[memory]  graph: %s\n", graph_mem_str);
   hash_table_print_stats(&db_graph.ht);
 

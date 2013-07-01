@@ -31,14 +31,16 @@ to compile for a maximum kmer size of 63:
 Commands
 --------
 
-ctx_build    [FASTA/FASTQ/BAM -> binary file]
-ctx_thread   [thread reads through cleaned population]
-ctp_view     [view read threading information]
-ctx_call     [call variants]
-ctx_unique   [remove duplicated bubbles -> VCF]
-ctx_place    [place variants and genotype]
-ctx_subgraph [filter a subgraph]
-ctx_reads    [filter reads using a graph]
+ctx_build     [FASTA/FASTQ/BAM -> binary file]
+ctx_thread    [thread reads through cleaned population]
+ctp_view      [view read threading information]
+ctx_call      [call variants]
+ctx_unique    [remove duplicated bubbles -> VCF]
+ctx_place     [place variants and genotype]
+ctx_subgraph  [filter a subgraph]
+ctx_reads     [filter reads using a graph]
+ctx_intersect [dump intersection of a.ctx with b.ctx]
+ctx_join      [combine binaries]
 
 Common Pipelines
 ----------------

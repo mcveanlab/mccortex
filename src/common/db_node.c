@@ -100,30 +100,50 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 }
 
 //
+// Edges per colour
+//
+
+Edges edges_get_union(const Edges *edges_arr, size_t num)
+{
+  // Slow version
+  // Edges edges = 0;
+  // size_t i;
+  // for(i = 0; i < NUM_OF_COLOURS; i++) edges |= edges_arr[i];
+  // return edges;
+
+  // Faster version deals with 8 bytes at a time
+  uint64_t i, edges = 0;
+  const uint64_t *ptr = (const uint64_t*)edges_arr;
+
+  for(i = 0; i < num / 8; i++, ptr++) edges |= *ptr;
+
+  edges |= *ptr & (~(uint64_t)0 >> (64-(8*(num % 8))));
+  edges |= edges >> 32;
+  edges |= edges >> 16;
+  edges |= edges >> 8;
+  return edges & 0xFF;
+}
+
+//
 // Coverages
 //
 
 
 void db_node_add_coverage(dBGraph *graph, hkey_t hkey, Colour col, long update)
 {
-  Covg (*col_covgs)[graph->num_of_cols]
-    = (Covg (*)[graph->num_of_cols])graph->col_covgs;
-
-  safe_add_covgs(col_covgs[hkey][col], update, col_covgs[hkey][col]);
+  safe_add_covgs(db_node_col_covg(graph,hkey,col), update,
+                 db_node_col_covg(graph,hkey,col));
 }
 
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col)
 {
-  Covg (*col_covgs)[graph->num_of_cols]
-    = (Covg (*)[graph->num_of_cols])graph->col_covgs;
-
-  safe_covgs_increment(col_covgs[hkey][col]);
+  safe_covgs_increment(db_node_col_covg(graph,hkey,col));
 }
 
 Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
                                  Colour first_col, int num_of_cols)
 {
-  const Covg *covgs = graph->col_covgs + hkey*graph->num_of_cols;
+  const Covg *covgs = &db_node_col_covg(graph,hkey,0);
 
   Covg sum_covg = 0;
   Colour col, end;

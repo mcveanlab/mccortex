@@ -12,15 +12,14 @@ extern const char CTX_MAGIC_WORD[7];
 typedef struct
 {
   uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
-  uint64_t num_of_kmers, *total_seq_loaded;
-  uint32_t *mean_read_lengths;
-  StrBuf **sample_names;
-  long double *seq_err_rates;
-  ErrorCleaning **err_cleaning;
+  uint64_t num_of_kmers;
+  // Cleaning info etc for each colour
+  GraphInfo *ginfo;
 } BinaryFileHeader;
 
 
 size_t binary_read_header(FILE *fh, BinaryFileHeader *header, const char *path);
+
 size_t binary_read_kmer(FILE *fh, BinaryFileHeader *header, const char *path,
                         uint64_t *bkmer, Covg *covgs, Edges *edges);
 
@@ -46,11 +45,10 @@ char binary_probe(const char* path, boolean *is_ctx,
 uint32_t binary_load(const char *path, dBGraph *graph,
                      SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
 
-// This function will dump valid binaries by not printing edges to nodes that
-// are not themselves printed
 // If you don't want to/care about graph_info, pass in NULL
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
+// returns number of nodes dumped
 uint64_t binary_dump_graph(const char *path, dBGraph *graph,
                            uint32_t version,
                            const Colour *colours, Colour start_col,
