@@ -11,7 +11,7 @@ extern const char CTX_MAGIC_WORD[7];
 
 typedef struct
 {
-  uint32_t version, kmer_size, num_of_bitfields, num_of_colours;
+  uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
   uint64_t num_of_kmers, *total_seq_loaded;
   uint32_t *mean_read_lengths;
   StrBuf **sample_names;

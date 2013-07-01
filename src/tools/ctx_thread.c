@@ -18,7 +18,6 @@ static const char usage[] =
 "    --pe_list <col> <pe.list1> <pe.list2>\n";
 
 #define NUM_PASSES 1
-#define NUM_THREADS 1
 
 int main(int argc, char* argv[])
 {
@@ -59,7 +58,7 @@ int main(int argc, char* argv[])
       if(!parse_entire_uint(argv[argi+1], &col))
         print_usage(usage, "--se_list <col> <input.falist> invalid colour");
 
-      check_colour_or_ctx_list(argv[argi+2], 0, false, true, 0);
+      check_colour_or_ctx_list(argv[argi+2], false, false, true, 0, NULL);
       argi += 2;
     }
     else if(strcmp(argv[argi], "--pe_list") == 0)
@@ -70,10 +69,10 @@ int main(int argc, char* argv[])
       if(!parse_entire_uint(argv[argi+1], &col))
         print_usage(usage, "--pe_list <col> <in1.list> <in2.list> invalid colour");
 
-      uint32_t num_files1, num_files2;
-      num_files1 = check_colour_or_ctx_list(argv[argi+2], 0, false, true, 0);
-      num_files2 = check_colour_or_ctx_list(argv[argi+3], 0, false, true, 0);
-      if(num_files1 != num_files2)
+      uint32_t files1, files2;
+      files1 = check_colour_or_ctx_list(argv[argi+2], false, false, true, 0, NULL);
+      files2 = check_colour_or_ctx_list(argv[argi+3], false, false, true, 0, NULL);
+      if(files1 != files2)
         die("list mismatch [%s; %s]", argv[argi+2], argv[argi+3]);
       argi += 3;
     }
@@ -91,8 +90,7 @@ int main(int argc, char* argv[])
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
   // Decide on memory
-  size_t req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t i, hash_kmers;
+  size_t hash_kmers, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
   size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
 
   size_t graph_mem = hash_mem +
@@ -110,7 +108,7 @@ int main(int argc, char* argv[])
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, hash_kmers);
+  db_graph_alloc(&db_graph, kmer_size, num_of_cols, hash_kmers);
 
   size_t path_mem = mem_to_use - graph_mem - thread_mem;
 
@@ -126,14 +124,10 @@ int main(int argc, char* argv[])
   db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
   if(db_graph.edges == NULL) die("Out of memory");
 
-  // In colour
+  // In colour - used is traversal
   size_t words64_per_col = round_bits_to_words64(hash_kmers);
-  uint64_t *bkmer_cols = calloc(words64_per_col*NUM_OF_COLOURS, sizeof(uint64_t));
-  if(bkmer_cols == NULL) die("Out of memory");
-
-  uint64_t *ptr;
-  for(ptr = bkmer_cols, i = 0; i < NUM_OF_COLOURS; i++, ptr += words64_per_col)
-    db_graph.node_in_cols[i] = ptr;
+  db_graph.node_in_cols = calloc(words64_per_col*num_of_cols, sizeof(uint64_t));
+  if(db_graph.node_in_cols == NULL) die("Out of memory");
 
   // Paths
   db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
@@ -142,7 +136,7 @@ int main(int argc, char* argv[])
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");
-  binary_paths_init(&db_graph.pdata, path_store, path_mem);
+  binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -187,9 +181,9 @@ int main(int argc, char* argv[])
   paths_format_write(&db_graph, &db_graph.pdata, out_path);
 
   free(db_graph.edges);
-  free(bkmer_cols);
-  free(path_store);
+  free(db_graph.node_in_cols);
   free(db_graph.kmer_paths);
+  free(path_store);
 
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);

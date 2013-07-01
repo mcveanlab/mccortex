@@ -24,6 +24,17 @@ size_t hash_table_mem(size_t req_capacity_kmers, size_t *act_capacity_kmers)
   return capacity * sizeof(BinaryKmer) + num_of_buckets*2*sizeof(uint8_t);
 }
 
+size_t hash_table_mem2(size_t max_capacity_kmers, size_t *act_capacity_kmers)
+{
+  uint64_t num_of_bits = 1;
+  while(max_capacity_kmers / (1UL << num_of_bits) > 64) num_of_bits++;
+  uint64_t num_of_buckets = 1UL << num_of_bits;
+  uint64_t bucket_size = max_capacity_kmers / num_of_buckets;
+  uint64_t capacity = num_of_buckets * bucket_size;
+  if(act_capacity_kmers != NULL) *act_capacity_kmers = capacity;
+  return capacity * sizeof(BinaryKmer) + num_of_buckets*2*sizeof(uint8_t);
+}
+
 HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
 {
   uint64_t num_of_buckets;
@@ -110,16 +121,13 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
   return ptr;
 }
 
-static inline void rehash_error_exit()
+static inline void rehash_error_exit(const HashTable *const htable)
 __attribute__((noreturn));
 
-static inline void rehash_error_exit()
+static inline void rehash_error_exit(const HashTable *const  htable)
 {
-  die("Dear user - you have not allocated enough memory to contain your "
-      "sequence data. Either allocate more memory (have you done your "
-      "calculations right? have you allowed for sequencing errors?), or "
-      "threshold more harshly on quality score, and try again. "
-      "Aborting mission.\n");
+  hash_table_print_stats(htable);
+  die("Hash table is full");
 }
 
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer const bkmer)
@@ -135,7 +143,7 @@ hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer const bkm
     if(htable->bucket_length[hash] < htable->bucket_size) return HASH_NOT_FOUND;
   }
 
-  rehash_error_exit();
+  rehash_error_exit(htable);
 }
 
 // This methods inserts an element in the next available bucket
@@ -155,7 +163,7 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer const key)
     }
   }
 
-  rehash_error_exit();
+  rehash_error_exit(htable);
 }
 
 hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const key,
@@ -180,7 +188,7 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const key,
     }
   }
 
-  rehash_error_exit();
+  rehash_error_exit(htable);
 }
 
 void hash_table_delete(HashTable *const htable, hkey_t pos)
@@ -207,14 +215,17 @@ void hash_table_print_stats(const HashTable *const htable)
           "memory: %s;  occupancy: %.2f%%\n",
           num_buckets_str, (size_t)htable->bucket_size, mem_str, occupancy);
 
-  int i;
-  message("  Collisions:\n");
-  for(i = 0; i < REHASH_LIMIT; i++) {
-    if(htable->collisions[i] != 0) {
-      message("   tries %i: %zd\n", i, (size_t)htable->collisions[i]);
+  if(htable->unique_kmers > 0)
+  {
+    int i;
+    message("  Collisions:\n");
+    for(i = 0; i < REHASH_LIMIT; i++) {
+      if(htable->collisions[i] != 0) {
+        message("   tries %i: %zd\n", i, (size_t)htable->collisions[i]);
+      }
     }
+    message("\n");
   }
-  message("\n");
 }
 
 

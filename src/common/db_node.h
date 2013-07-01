@@ -24,11 +24,11 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 // kmer in colours
 //
 #define db_node_has_col(graph,hkey,col) \
-        bitset_has((graph)->node_in_cols[col], hkey)
+  bitset2_has((graph)->node_in_cols, (graph)->num_of_cols*(hkey)/64+(col), hkey%64)
 #define db_node_set_col(graph,hkey,col) \
-        bitset_set((graph)->node_in_cols[col], hkey)
+  bitset2_set((graph)->node_in_cols, (graph)->num_of_cols*(hkey)/64+(col), hkey%64)
 #define db_node_del_col(graph,hkey,col) \
-        bitset_del((graph)->node_in_cols[col], hkey)
+  bitset2_del((graph)->node_in_cols, (graph)->num_of_cols*(hkey)/64+(col), hkey%64)
 
 //
 // Node traversal
@@ -100,6 +100,10 @@ void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
 #define db_node_set_edge(graph,hkey,nuc,or) \
         ((graph)->edges[hkey] = edges_set_edge((graph)->edges[hkey],(nuc),(or)))
 
+#define db_node_set_col_edge(graph,col,hkey,nuc,or) \
+((graph)->col_edges[(hkey)*(graph)->num_of_cols + col] \
+  = edges_set_edge((graph)->col_edges[(hkey)*(graph)->num_of_cols + col],(nuc),(or)))
+
 #define db_node_edges(graph,hkey) ((graph)->edges[hkey])
 #define db_node_reset_edges(graph,hkey) ((graph)->edges[hkey] = 0)
 
@@ -113,17 +117,21 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 // Coverages
 //
 
-#define db_node_set_covg(graph,hkey,col,covg) ((graph)->covgs[col][hkey] = (covg))
-#define db_node_get_covg(graph,hkey,col)      ((graph)->covgs[col][hkey])
+#define db_node_get_covg(graph,hkey,col) \
+        ((graph)->col_covgs[hkey*(graph)->num_of_cols+(col)])
+
+#define db_node_set_covg(graph,hkey,col,covg) \
+        (db_node_get_covg(graph,hkey,col) = (covg))
+
+#define db_node_zero_covgs(graph,hkey) \
+        memset((graph)->col_covgs + (hkey)*(graph)->num_of_cols, 0, \
+               (graph)->num_of_cols * sizeof(Covg))
 
 void db_node_add_coverage(dBGraph *graph, hkey_t hkey, Colour col, long update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 
 Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
-                                 Colour first_col, int num_cols);
-Covg db_node_sum_covg_of_all_colours(const dBGraph *graph, hkey_t hkey);
-Covg db_node_sum_covg_of_colourlist(const dBGraph *graph, hkey_t hkey,
-                                    const Colour *colour_list, int num_cols);
+                                 Colour first_col, int num_of_cols);
 
 //
 // dBNodeBuffer

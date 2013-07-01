@@ -23,7 +23,8 @@ typedef struct
   // size_t num_pp, pp_cap;
 } GraphWalker;
 
-void graph_walker_alloc(GraphWalker *wlk);
+// Need to pass number of colours in the graph
+void graph_walker_alloc(GraphWalker *wlk, uint32_t num_of_cols);
 void graph_walker_dealloc(GraphWalker *gw);
 
 // Always call finish after calling init

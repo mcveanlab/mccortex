@@ -81,10 +81,10 @@ void parse_filelists(const char *list_path1, const char *list_path2,
 // If path_array is not NULL, populate it with the paths.
 // Exits with error if a file doesn't exist or isn't readable.
 // Return the number of files pointed to.
+// ginfo is optional and is used to update sample names
 uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
                                   boolean sample_names_permitted,
-                                  StrBuf **sample_names,
-                                  boolean *has_sample_names);
+                                  GraphInfo *ginfo, boolean *has_sample_names);
 
 // filename is a list of files, one for each colour (with optional second column
 // of sample-ids). Check they all exists, there are not too many, and that each
@@ -93,9 +93,10 @@ uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
 // Returns number for files in file passed
 // Check that ctxlists contain only valid ctx files
 // Check that colourlists don't contain any ctx files
-uint32_t check_colour_or_ctx_list(const char *list_path, char is_colourlist,
+// `colours` is only updated for colour lists
+uint32_t check_colour_or_ctx_list(const char *list_path, boolean is_colourlist,
                                   boolean binaries_allowed, boolean seq_allowed,
-                                  uint32_t kmer_size);
+                                  uint32_t kmer_size, uint32_t *colours);
 
 void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour,
                                       uint32_t clean_colour, const char *suffix,

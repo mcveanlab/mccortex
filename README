@@ -1,54 +1,79 @@
 Cortex with low memory and read-threading
 =========================================
 
+De novo assembly and variant calling using de bruijn graphs. Variant calling
+with and without a reference genome. Between closely related samples or highly
+diverged ones. From bacterial to mammalian genomes. Minimal configuration.
+And it's free.
+
 Isaac Turner's experimental fork of cortex_var, to handle larger populations
-with better assembly.
+with better genome assembly.
+
+28 June 2013
 
 Build
 -----
 
-Compiles with clang and gcc. Tested on Mac OS X and linux. 
+Compiles with clang and gcc. Tested on Mac OS X and linux. Requires zlib.
 The first compile will take a while since the libraries in libs/ need to be
-downloaded and installed.
+downloaded and compiled.
 
     cd libs; make; cd ..
 
-To compile for one sample and maximum kmer size of 31:
+To compile for a maximum kmer size of 31:
 
     make
 
-to compile for ten samples and maximum kmer size of 63:
+to compile for a maximum kmer size of 63:
 
-    make NUM_COLS=10 MAXK=63
+    make MAXK=63
 
-Requires zlib to be installed.  Also relies on multiple other libraries but
-these are all downloaded into libs/ and compiled.
+Commands
+--------
+
+ctx_build    [FASTA/FASTQ/BAM -> binary file]
+ctx_thread   [thread reads through cleaned population]
+ctp_view     [view read threading information]
+ctx_call     [call variants]
+ctx_unique   [remove duplicated bubbles -> VCF]
+ctx_place    [place variants and genotype]
+ctx_subgraph [filter a subgraph]
+ctx_reads    [filter reads using a graph]
+
+Common Pipelines
+----------------
+
+Example pipelines -here- shortly:
+1. One high depth sample
+2. Multiple low depth samples
 
 Getting Helps
 -------------
 
 Isaac Turner: turner.isaac@gmail.com
 
-License
--------
+Contributing
+------------
 
-GPLv2
+Issues can be submitted on github. Pull requests welcome. 
 
-Bundled libraries may have different licenses
+License: GPLv2
+--------------
 
-GNU Science Library (GPL)
-seqan (BSD/3-clause)
-city_hash (MIT)
-lookup3 (Public Domain)
-htslib
-seq_file (BSD)
-string_buffer (BSD)
-bit_array (BSD)
-seq-align (GPLv3)
+Bundled libraries may have different licenses:
+* GNU Science Library (GPL)
+* seqan (BSD/3-clause)
+* city_hash (MIT)
+* lookup3 (Public Domain)
+* htslib
+* seq_file (BSD)
+* string_buffer (BSD)
+* bit_array (BSD)
+* seq-align (GPLv3)
 
 Used in testing:
-bioinf-perl
-cortex_binary_reader
+* bioinf-perl
+* cortex_binary_reader
 
 Citing
 ------

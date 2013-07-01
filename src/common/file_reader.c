@@ -213,7 +213,6 @@ void parse_filelists(const char *list_path1, const char *list_path2,
   boolean is_pe = (list_path1 != NULL && list_path2 != NULL);
 
   boolean has_sample_names = false;
-  StrBuf **sample_names = NULL;
   uint32_t num_files1 = 0, num_files2 = 0, num_files = 0, i;
   size_t initial_kmers = prefs->db_graph->ht.unique_kmers;
 
@@ -254,18 +253,20 @@ void parse_filelists(const char *list_path1, const char *list_path2,
   for(i = 0; i < num_files; i++) { filelist1[i] = filelist2[i] = NULL; }
 
   // Check if we should load sample names
+  GraphInfo *ginfo = NULL;
+
   if(are_colour_lists && prefs->update_ginfo) {
-    sample_names = prefs->db_graph->ginfo.sample_names + prefs->into_colour;
+    ginfo = prefs->db_graph->ginfo + prefs->into_colour;
   }
 
   if(list_path1 != NULL) {
     load_paths_from_filelist(list_path1, filelist1, are_colour_lists,
-                             sample_names, &has_sample_names);
+                             ginfo, &has_sample_names);
   }
 
   if(list_path2 != NULL) {
     load_paths_from_filelist(list_path2, filelist2, are_colour_lists,
-                             sample_names, &has_sample_names);
+                             ginfo, &has_sample_names);
   }
 
   SeqLoadingStats *new_stats
@@ -429,10 +430,9 @@ void parse_filelists(const char *list_path1, const char *list_path2,
         = calculate_mean_ulong(new_stats->readlen_count_array,
                                new_stats->readlen_count_array_size);
 
-      graph_info_update_mean_readlen_and_total_seq(&prefs->db_graph->ginfo,
-                                                   prefs->into_colour,
-                                                   mean_contig_length,
-                                                   new_stats->total_bases_loaded);
+      graph_info_update_seq_stats(prefs->db_graph->ginfo + prefs->into_colour,
+                                  mean_contig_length,
+                                  new_stats->total_bases_loaded);
     }
 
     if(is_pe) new_stats->pe_filelist_pairs_loaded++;
@@ -494,8 +494,7 @@ void parse_filelists(const char *list_path1, const char *list_path2,
 // Return the number of files pointed to.
 uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
                                   boolean sample_names_permitted,
-                                  StrBuf **sample_names,
-                                  boolean *has_sample_names)
+                                  GraphInfo *ginfo, boolean *has_sample_names)
 {
   // Get absolute path
   char absolute_path[PATH_MAX + 1];
@@ -563,10 +562,11 @@ uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
         if(!sample_names_permitted)
           die("sample names not permitted: %s", filelist_path);
 
-        strbuf_set(sample_names[lineno], sample_name);
+        if(ginfo != NULL)
+          strbuf_set(&(ginfo+lineno)->sample_name, sample_name);
       }
-      else if(sample_names != NULL) {
-        strbuf_set(sample_names[lineno], "undefined");
+      else if(ginfo != NULL) {
+        strbuf_set(&(ginfo+lineno)->sample_name, "undefined");
       }
     }
     else if(path_array != NULL) path_array[lineno] = NULL;
@@ -589,9 +589,9 @@ uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
 // Returns number for files in file passed
 // Check that ctxlists contain only valid ctx files
 // Check that colourlists don't contain any ctx files
-uint32_t check_colour_or_ctx_list(const char *list_path, char is_colourlist,
+uint32_t check_colour_or_ctx_list(const char *list_path, boolean is_colourlist,
                                   boolean binaries_allowed, boolean seq_allowed,
-                                  uint32_t kmer_size)
+                                  uint32_t kmer_size, uint32_t *colours)
 {
   boolean has_sample_names;
   uint32_t num_files_in_list, i;
@@ -601,12 +601,6 @@ uint32_t check_colour_or_ctx_list(const char *list_path, char is_colourlist,
 
   // Empty file list is valid
   if(num_files_in_list == 0) return 0;
-
-  if(is_colourlist && num_files_in_list > NUM_OF_COLOURS)
-  {
-    die("Too many colours in colourlist [cols: %i; compiled for: %i; list: %s]",
-        num_files_in_list, NUM_OF_COLOURS, list_path);
-  }
 
   char **file_paths = malloc(sizeof(char*) * num_files_in_list);
   assert(file_paths != NULL);
@@ -650,9 +644,15 @@ uint32_t check_colour_or_ctx_list(const char *list_path, char is_colourlist,
 
       if(is_colourlist)
       {
-        check_colour_or_ctx_list(file_paths[i], READ_FALIST,
-                                 binaries_allowed, seq_allowed,
-                                 kmer_size);
+        if(!is_cortex_binary)
+        {
+          check_colour_or_ctx_list(file_paths[i], READ_FALIST,
+                                   binaries_allowed, seq_allowed,
+                                   kmer_size, NULL);
+        }
+
+        if(colours != NULL)
+          *colours += is_cortex_binary ? colours_in_binary : 1;
       }
     }
   }
@@ -709,7 +709,7 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
 
   file_reader_get_strbuf_of_dir_path(filename_abs_path, dir);
 
-  GraphInfo *ginfo = &db_graph->ginfo;
+  GraphInfo *ginfo = db_graph->ginfo + into_colour;
 
   while(strbuf_reset_readline(line, fp))
   {
@@ -727,7 +727,7 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
       if(path_ptr == NULL) die("Cannot find ctxlist: %s\n", line->buff);
 
       // Reset ginfo for colour we're loading into
-      graph_info_reset_one_colour(ginfo, into_colour);
+      graph_info_init(ginfo);
 
       SeqLoadingStats *loading_stats = seq_loading_stats_create(0);
 
@@ -746,9 +746,9 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
       strbuf_append_str(output_path_str, ".ctx");
 
       // Set ginfo for cleaned against graph
-      StrBuf *name = ginfo->cleaning[into_colour].cleaned_against_graph_name;
+      StrBuf *name = &ginfo->cleaning.cleaned_against_graph_name;
       strbuf_set(name, cleaned_against_name);
-      ginfo->cleaning[into_colour].cleaned_against_another_graph = true;
+      ginfo->cleaning.cleaned_against_another_graph = true;
 
       binary_dump_graph(output_path_str->buff, db_graph,
                         CURR_CTX_VERSION, NULL, into_colour, 1);

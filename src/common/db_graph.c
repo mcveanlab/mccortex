@@ -4,19 +4,32 @@
 #include "graph_info.h"
 #include "binary_paths.h"
 
-dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity)
+dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
+                        uint32_t num_of_cols, uint64_t capacity)
 {
-  memset(db_graph, 0, sizeof(dBGraph));
-  db_graph->kmer_size = kmer_size;
+  size_t i;
+  dBGraph tmp = {.kmer_size = kmer_size, .num_of_cols = num_of_cols,
+                 .num_of_cols_used = 0,
+                 .edges = NULL, .col_edges = NULL, .col_covgs = NULL,
+                 .node_in_cols = NULL, .kmer_paths = NULL, .readstrt = NULL};
+
+  memcpy(db_graph, &tmp, sizeof(dBGraph));
   hash_table_alloc(&db_graph->ht, capacity);
-  graph_info_alloc(&db_graph->ginfo);
+
+  db_graph->ginfo = malloc(num_of_cols * sizeof(GraphInfo));
+  for(i = 0; i < num_of_cols; i++)
+    graph_info_alloc(db_graph->ginfo + i);
+
   return db_graph;
 }
 
 void db_graph_dealloc(dBGraph *db_graph)
 {
+  size_t i;
   hash_table_dealloc(&db_graph->ht);
-  graph_info_dealloc(&db_graph->ginfo);
+  for(i = 0; i < db_graph->num_of_cols; i++)
+    graph_info_dealloc(db_graph->ginfo);
+  free(db_graph->ginfo);
 }
 
 //
@@ -29,13 +42,13 @@ hkey_t db_graph_find_or_add_node(dBGraph *db_graph, const BinaryKmer bkey,
 {
   boolean found;
   hkey_t node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
-  db_node_set_col(db_graph, node, col);
-  if(db_graph->covgs != NULL) db_node_increment_coverage(db_graph, node, col);
+  if(db_graph->node_in_cols != NULL) db_node_set_col(db_graph, node, col);
+  if(db_graph->col_covgs != NULL) db_node_increment_coverage(db_graph, node, col);
   return node;
 }
 
 // In the case of self-loops in palindromes the two edges collapse into one
-void db_graph_add_edge(dBGraph *db_graph,
+void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
                        Orientation src_orient, Orientation tgt_orient)
 {
@@ -46,9 +59,16 @@ void db_graph_add_edge(dBGraph *db_graph,
   lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
   rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
 
-  db_node_set_edge(db_graph, src_node, rhs_nuc, src_orient);
-  db_node_set_edge(db_graph, tgt_node, binary_nuc_complement(lhs_nuc),
-                   opposite_orientation(tgt_orient));
+  Nucleotide lhs_nuc_rev = binary_nuc_complement(lhs_nuc);
+  Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
+
+  if(db_graph->col_edges != NULL) {
+    db_node_set_col_edge(db_graph, colour, src_node, rhs_nuc, src_orient);
+    db_node_set_col_edge(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
+  } else {
+    db_node_set_edge(db_graph, src_node, rhs_nuc, src_orient);
+    db_node_set_edge(db_graph, tgt_node, lhs_nuc_rev, tgt_orient_opp);
+  }
 }
 
 //
@@ -137,12 +157,14 @@ uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
 
 static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
 {
-  if(db_graph->covgs != NULL)
-    memset(db_graph->covgs[node], 0, sizeof(db_graph->covgs[node]));
+  if(db_graph->col_covgs != NULL)
+    db_node_zero_covgs(db_graph, node);
 
-  Colour col;
-  for(col = 0; col < NUM_OF_COLOURS; col++)
-    db_node_del_col(db_graph, node, col);
+  if(db_graph->node_in_cols != NULL) {
+    Colour col;
+    for(col = 0; col < db_graph->num_of_cols; col++)
+      db_node_del_col(db_graph, node, col);
+  }
 
   hash_table_delete(&db_graph->ht, node);
   db_graph->ht.unique_kmers--;
@@ -279,9 +301,11 @@ void db_graph_prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len)
 // Remove nodes that are in the hash table but not assigned any colours
 static void db_graph_remove_node_if_uncoloured(hkey_t node, dBGraph *db_graph)
 {
-  Colour c;
-  for(c = 0; c < NUM_OF_COLOURS && !db_node_has_col(db_graph, node, c); c++);
-  if(c == NUM_OF_COLOURS)
+  Colour col = 0;
+  while(col < db_graph->num_of_cols && !db_node_has_col(db_graph, node, col))
+    col++;
+
+  if(col == db_graph->num_of_cols)
     db_graph_prune_node(db_graph, node);
 }
 
@@ -292,24 +316,26 @@ void db_graph_remove_uncoloured_nodes(dBGraph *db_graph)
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
-  if(db_graph->node_in_cols[0] != NULL)
+  size_t i, capacity = db_graph->ht.capacity, num_of_cols = db_graph->num_of_cols;
+
+  if(db_graph->node_in_cols != NULL)
   {
-    size_t size = round_bits_to_words64(db_graph->ht.capacity);
-    memset(db_graph->node_in_cols[col], 0, size);
+    size_t words = round_bits_to_words64(capacity);
+    for(i = 0; i < words; i++)
+      db_graph->node_in_cols[num_of_cols*i+col] = 0;
   }
 
-  if(db_graph->covgs != NULL)
-  {
-    size_t i, capacity = db_graph->ht.capacity;
-    Covg (*covgs)[NUM_OF_COLOURS] = db_graph->covgs;
-    for(i = 0; i < capacity; i++) covgs[i][col] = 0;
+  Edges (*col_edges)[num_of_cols] = (Edges (*)[num_of_cols])db_graph->col_edges;
+  Covg (*col_covgs)[num_of_cols] = (Covg (*)[num_of_cols])db_graph->col_covgs;
+
+  if(db_graph->col_covgs != NULL) {
+    for(i = 0; i < capacity; i++)
+      col_covgs[i][col] = 0;
   }
 
-  if(db_graph->col_edges != NULL)
-  {
-    size_t i, capacity = db_graph->ht.capacity;
-    Edges (*col_edges)[NUM_OF_COLOURS] = db_graph->col_edges;
-    for(i = 0; i < capacity; i++) col_edges[i][col] = 0;
+  if(db_graph->col_edges != NULL) {
+    for(i = 0; i < capacity; i++)
+      col_edges[i][col] = 0;
   }
 
   db_graph_remove_uncoloured_nodes(db_graph);
@@ -323,7 +349,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
 {
   const binary_paths_t *paths = &db_graph->pdata;
   path_t path;
-  path_alloc(&path);
+  path_alloc(&path, paths->num_of_cols);
   uint32_t kmer_size = db_graph->kmer_size;
   char str[100];
   uint64_t node, index;
@@ -342,7 +368,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
           if(!printed) { printf("%s:%i\n", str, orient); printed = true; }
           binary_paths_fetch(paths, index, &path);
           binary_paths_dump_path(&path);
-          index = path.core.prev;
+          index = path.prev;
         }
       }
     }

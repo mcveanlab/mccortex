@@ -8,7 +8,7 @@
 #define MAX_FLANK_KMERS 1000
 #define MAX_ALLELE_KMERS 1000
 
-#define NODE_BUFFER_SIZE ((MAX_ALLELE_KMERS) * (NUM_OF_COLOURS) * 4)
+#define NODE_BUFSIZE(colours) ((MAX_ALLELE_KMERS) * (colours) * 4)
 
 //
 // Data types and structs for calling variants with the shaded caller

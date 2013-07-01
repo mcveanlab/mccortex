@@ -565,7 +565,7 @@ void load_read(const read_t *r, dBGraph *db_graph,
       curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
       curr_or = db_node_get_orientation(bkmer, tmp_key);
 
-      db_graph_add_edge(db_graph, prev_node, curr_node, prev_or, curr_or);
+      db_graph_add_edge(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
     }
 
     // Update contig stats

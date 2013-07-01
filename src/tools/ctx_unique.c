@@ -611,7 +611,7 @@ static void reader_clean_up_var(CallReader *cr, Var *var)
 
   #ifdef DEBUG
   printf("\n\n");
-  printf("%s\n 5p:%s\n 3p:%s\n", var->name->buf,
+  printf("%s\n 5p:%s\n 3p:%s\n", var->name->buff,
          var->flank5p->buff, var->flank3p->buff);
   size_t i;
   for(i = 0; i < cr->num_alleles; i++)

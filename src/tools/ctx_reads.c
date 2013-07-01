@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 
   // Load binary
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, kmer_capacity);
+  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmer_capacity);
 
   // Set up parsing sequence
   SeqLoadingStats *stats = seq_loading_stats_create(0);

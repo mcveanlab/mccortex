@@ -4,7 +4,6 @@ endif
 
 #Arguments (all are optional):
 # MAXK=31
-# NUM_COLS=12
 # DEBUG=1
 # CITY_HASH=1   (use CityHash hash function)
 
@@ -38,10 +37,6 @@ MIN_KMER_SIZE=$(shell echo $$(($(MAX_KMER_SIZE)-30)))
 
 ifeq ($(MIN_KMER_SIZE),1)
 	MIN_KMER_SIZE=3
-endif
-
-ifndef NUM_COLS
-  NUM_COLS = 1
 endif
 
 # Use City hash instead of lookup3?
@@ -85,8 +80,7 @@ WARNS = -Wall -Wextra -Winit-self -Wmissing-include-dirs \
 
 CFLAGS = -std=c99 $(WARNS) \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) -DNUM_OF_COLOURS=$(NUM_COLS) \
-         $(HASH_KEY_FLAGS)
+         -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) $(HASH_KEY_FLAGS)
 
 # Optimisations tags for testing
 OPT_TESTS = -O0 -Wstack-protector -fstack-protector
@@ -123,22 +117,24 @@ CTP_VIEW_SRCS = src/tools/ctP_VIEW.c $(COMMON_SRCS)
 CTX_CALL_SRCS = src/tools/ctx_call.c $(COMMON_SRCS)
 CTX_UNIQUE_SRCS = src/tools/ctx_unique.c $(COMMON_SRCS)
 CTX_PLACE_SRCS = src/tools/ctx_place.c src/common/call_seqan.o $(COMMON_SRCS)
+CTX_COVG_SRCS = src/tools/ctx_covg.c $(COMMON_SRCS)
 
-MAXK_NUMCOLS = k$(MAXK)_c$(NUM_COLS)
-
-CTX_BUILD_BIN=bin/ctx_build_$(MAXK_NUMCOLS)
-CTX_CLEAN_BIN=bin/ctx_clean_$(MAXK_NUMCOLS)
-CTX_SUBGRAPH_BIN=bin/ctx_subgraph_$(MAXK_NUMCOLS)
-CTX_READS_BIN=bin/ctx_reads_$(MAXK_NUMCOLS)
-CTX_THREAD_BIN=bin/ctx_thread_$(MAXK_NUMCOLS)
-CTP_VIEW_BIN=bin/ctp_view_$(MAXK_NUMCOLS)
-CTX_CALL_BIN=bin/ctx_call_$(MAXK_NUMCOLS)
+CTX_BUILD_BIN=bin/ctx_build_k$(MAXK)
+CTX_CLEAN_BIN=bin/ctx_clean_k$(MAXK)
+CTX_SUBGRAPH_BIN=bin/ctx_subgraph_k$(MAXK)
+CTX_READS_BIN=bin/ctx_reads_k$(MAXK)
+CTX_THREAD_BIN=bin/ctx_thread_k$(MAXK)
+CTP_VIEW_BIN=bin/ctp_view_k$(MAXK)
+CTX_CALL_BIN=bin/ctx_call_k$(MAXK)
+CTX_COVG_BIN=bin/ctx_covg_k$(MAXK)
 
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=$(LIB_OBJS) bin
 
-all: ctx_build ctx_clean ctx_reads ctx_subgraph \
-	   ctx_thread ctp_view ctx_call ctx_unique ctx_place
+TOOLS=ctx_build ctx_clean ctx_reads ctx_subgraph \
+      ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_covg
+
+all: $(TOOLS)
 
 ctx_build: $(CTX_BUILD_BIN)
 $(CTX_BUILD_BIN): $(CTX_BUILD_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
@@ -180,6 +176,11 @@ bin/ctx_unique:  $(CTX_UNIQUE_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o bin/ctx_unique $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_UNIQUE_SRCS) $(LIB_OBJS) $(LINK_LIBS)
 	@echo Sucessfully compiled ctx_unique
 
+ctx_covg: $(CTX_COVG_BIN)
+$(CTX_COVG_BIN): $(CTX_COVG_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
+	$(CC) -o $(CTX_COVG_BIN) $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_COVG_SRCS) $(LIB_OBJS) $(LINK_LIBS)
+	@echo Sucessfully compiled $(CTX_COVG_BIN)
+
 ctx_place: bin/ctx_place
 bin/ctx_place: $(CTX_PLACE_SRCS) $(COMMON_HDRS) Makefile | $(DEPS)
 	$(CC) -o bin/ctx_place $(DEBUG_ARGS) $(OPT) $(CFLAGS) $(INCLUDES) $(CTX_PLACE_SRCS) $(LIB_OBJS) $(LINK_LIBS) -lstdc++
@@ -201,6 +202,4 @@ $(TEMP_TEST_DIR):
 clean:
 	rm -rf bin/* src/common/*.o
 
-.PHONY: all clean
-.PHONY: ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_reads ctx_subgraph
-
+.PHONY: all clean $(TOOLS)

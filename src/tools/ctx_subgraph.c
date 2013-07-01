@@ -207,8 +207,8 @@ static void filter_subgraph(const char *input_ctx_path,
   binary_write_header(out, &header);
 
   BinaryKmer bkmer;
-  Covg covgs[header.num_of_colours];
-  Edges edges[header.num_of_colours];
+  Covg covgs[header.num_of_cols];
+  Edges edges[header.num_of_cols];
 
   while(binary_read_kmer(out, &header, out_path, bkmer, covgs, edges))
   {
@@ -223,11 +223,6 @@ static void filter_subgraph(const char *input_ctx_path,
 
   fclose(in);
   fclose(out);
-
-  // nodes_dumped = binary_dump_graph(out_path, &db_graph,
-  //                                  CURR_CTX_VERSION,
-  //                                  NULL, 0, ginfo->num_of_colours_loaded,
-  //                                  ginfo->num_of_shades_loaded);
 
   printf("Read in %zu seed kmers\n", num_of_seed_kmers);
   printf("Dumped %zu kmers\n", nodes_dumped);
@@ -285,7 +280,7 @@ int main(int argc, char* argv[])
           num_of_fringe_nodes * (sizeof(hkey_t) * 2));
 
   // Create db_graph
-  db_graph_alloc(&db_graph, kmer_size, num_of_hash_kmers);
+  db_graph_alloc(&db_graph, kmer_size, 1, num_of_hash_kmers);
   db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
 
   size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity);

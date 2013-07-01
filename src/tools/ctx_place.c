@@ -14,6 +14,7 @@
 #include "string_buffer.h"
 #include "needleman_wunsch.h"
 
+#include "vcf_parsing.h"
 #include "util.h"
 #include "file_util.h"
 #include "call_seqan.h"
@@ -21,36 +22,10 @@
 #include "file_reader.h"
 #include "delta_array.h"
 
-#define MAX_ALLELES 256
-
-// VCF field indices
-#define VCFCHROM   0
-#define VCFPOS     1
-#define VCFID      2
-#define VCFREF     3
-#define VCFALT     4
-#define VCFQUAL    5
-#define VCFFILTER  6
-#define VCFINFO    7
-#define VCFFORMAT  8
-#define VCFSAMPLES 9
-
 typedef struct {
   read_t r;
   uint32_t index;
 } chrom_t;
-
-typedef struct
-{
-  StrBuf **cols;
-  // Unpacked into:
-  StrBuf **alts;
-  size_t num_alts, alts_capacity;
-  StrBuf **info;
-  size_t num_info, info_capacity;
-  StrBuf *lf, *rf; // flanks
-  delta_array_t **covgs;
-} vcf_entry_t;
 
 // Reference genome
 // Hash map of chromosome name -> sequence
@@ -145,278 +120,6 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
     }
 
     return alignment->length;
-  }
-}
-
-static void strbuf_arr_resize(StrBuf ***arr, size_t *cap, size_t newcap)
-{
-  size_t i;
-  newcap = ROUNDUP2POW(newcap);
-  *arr = realloc(*arr, sizeof(StrBuf*) * newcap);
-  if(*arr == NULL) die("Out of memory");
-  for(i = *cap; i < newcap; i++) (*arr)[i] = strbuf_new();
-  *cap = newcap;
-}
-
-// DP=asdf;TXT="a;b;c";F1;X=4
-// ends:  ^           ^  ^   ^
-static char* info_tag_end(char *str)
-{
-  boolean speechmrks = false;
-  for(; *str; str++) {
-    if(*str == '"') speechmrks = !speechmrks;
-    else if(*str == ';' && !speechmrks) return str;
-  }
-  return NULL;
-}
-
-static StrBuf* info_tag_find(vcf_entry_t *entry, const char* str)
-{
-  size_t i, len = strlen(str);
-  for(i = 0; i < entry->num_info; i++) {
-    const char *buff = entry->info[i]->buff;
-    if(strcasecmp(buff, str) == 0 ||
-       (buff[len] == '=' && strncasecmp(buff, str, len) == 0))
-    {
-      return entry->info[i];
-    }
-  }
-  return NULL;
-}
-
-static void info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
-__attribute__((format(printf, 2, 3)));
-
-static void info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
-{
-  if(entry->num_info+1 >= entry->info_capacity)
-    strbuf_arr_resize(&entry->info, &entry->info_capacity, entry->num_info+1);
-
-  StrBuf* sbuf = entry->info[entry->num_info++];
-
-  va_list argptr;
-  va_start(argptr, fmt);
-  strbuf_reset(sbuf);
-  strbuf_vsprintf(sbuf, 0, fmt, argptr);
-  va_end(argptr);
-}
-
-static void vcf_entry_init(vcf_entry_t *entry, uint32_t num_samples)
-{
-  size_t i, j, num_cols = VCFSAMPLES+num_samples;
-  entry->alts_capacity = entry->info_capacity = 2;
-  entry->num_info = entry->num_alts = 0;
-  entry->cols = malloc(sizeof(StrBuf*) * num_cols);
-  entry->alts = malloc(sizeof(StrBuf*) * entry->alts_capacity);
-  entry->info = malloc(sizeof(StrBuf*) * entry->info_capacity);
-
-  for(i = 0; i < num_cols; i++)
-    entry->cols[i] = strbuf_new();
-
-  for(i = 0; i < entry->alts_capacity; i++) {
-    entry->alts[i] = strbuf_new();
-    entry->info[i] = strbuf_new();
-  }
-
-  // samples
-  entry->covgs = malloc(num_samples * sizeof(delta_array_t*));
-
-  for(i = 0; i < num_samples; i++)
-  {
-    entry->covgs[i] = malloc(entry->alts_capacity * sizeof(delta_array_t));
-    for(j = 0; j < entry->alts_capacity; j++)
-      delta_arr_alloc(&entry->covgs[i][j]);
-  }
-}
-
-static void vcf_entry_free(vcf_entry_t *entry, uint32_t num_samples)
-{
-  size_t i, j, num_cols = VCFSAMPLES+num_samples;
-  for(i = 0; i < num_cols; i++) strbuf_free(entry->cols[i]);
-  for(i = 0; i < entry->alts_capacity; i++) strbuf_free(entry->alts[i]);
-  for(i = 0; i < entry->info_capacity; i++) strbuf_free(entry->info[i]);
-  for(i = 0; i < num_samples; i++) {
-    for(j = 0; j < entry->alts_capacity; j++) {
-      delta_arr_dealloc(&entry->covgs[i][j]);
-    }
-    free(entry->covgs[i]);
-  }
-  free(entry->cols);
-  free(entry->alts);
-  free(entry->info);
-  free(entry->covgs);
-}
-
-static void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry)
-{
-  strbuf_chomp(line);
-  char *end, *tmp;
-  StrBuf *buf;
-
-  // Split vcf line into fields
-  size_t num_cols = count_char(line->buff, '\t') + 1;
-  if(num_cols != VCFSAMPLES+num_samples)
-    die("Incorrect number of VCF columns: '%s'", line->buff);
-
-  num_cols = 0;
-  end = tmp = line->buff;
-  while(1)
-  {
-    end = strchr(tmp, '\t');
-    if(end != NULL) *end = '\0';
-    strbuf_set(entry->cols[num_cols++], tmp);
-    if(end != NULL) *end = '\t';
-    else break;
-    tmp = end + 1;
-  }
-
-  // Split ALT alleles
-  size_t alts_count = count_char(entry->cols[VCFALT]->buff, ',') + 1;
-  if(alts_count > entry->alts_capacity)
-  {
-    // Increase in the number of alleles
-    size_t old_alts_cap = entry->alts_capacity;
-    strbuf_arr_resize(&entry->alts, &entry->alts_capacity, alts_count);
-
-    size_t i, j, covgsize = entry->alts_capacity * sizeof(delta_array_t);
-    for(i = 0; i < num_samples; i++)
-    {
-      entry->covgs[i] = realloc(entry->covgs[i], covgsize);
-      for(j = old_alts_cap; j < entry->alts_capacity; j++)
-        delta_arr_alloc(&(entry->covgs[i][j]));
-    }
-  }
-
-  entry->num_alts = 0;
-  end = tmp = entry->cols[VCFALT]->buff;
-  while(1)
-  {
-    end = strchr(tmp, ',');
-    if(end != NULL) *end = '\0';
-    while(*tmp == 'N') tmp++; // Skip Ns at the beginning of alleles
-    strbuf_set(entry->alts[entry->num_alts++], tmp);
-    if(end != NULL) *end = ',';
-    else break;
-    tmp = end + 1;
-  }
-
-  // Split INFO alleles
-  entry->num_info = 0;
-  end = tmp = entry->cols[VCFINFO]->buff;
-  entry->lf = entry->rf = NULL;
-
-  size_t info_count = 0;
-  while((tmp = info_tag_end(tmp)) != NULL) { info_count++; tmp++; }
-  tmp = entry->cols[VCFINFO]->buff;
-
-  if(info_count > entry->info_capacity)
-    strbuf_arr_resize(&entry->info, &entry->info_capacity, info_count);
-
-  while(1)
-  {
-    end = info_tag_end(tmp);
-    if(end != NULL) *end = '\0';
-    buf = entry->info[entry->num_info++];
-    strbuf_set(buf, tmp);
-    if(!strncmp(tmp, "LF=", 3)) entry->lf = buf;
-    else if(!strncmp(tmp, "RF=", 3)) entry->rf = buf;
-    if(end != NULL) *end = ';';
-    else break;
-    tmp = end + 1;
-  }
-
-  // Load sample covg info
-
-  size_t i, j;
-  for(i = 0; i < num_samples; i++)
-  {
-    tmp = entry->cols[VCFSAMPLES+i]->buff;
-    size_t count = count_char(tmp, ';') + 1;
-    if(count != entry->num_alts)
-      die("Invalid GT: %s [%zu vs %zu]", tmp, count, entry->num_alts);
-
-    for(j = 0; j < entry->num_alts; j++)
-    {
-      if((end = strchr(tmp, ';')) != NULL) *end = '\0';
-      delta_arr_from_str(tmp, &(entry->covgs[i][j]));
-      delta_array_unpack(&(entry->covgs[i][j]));
-      if(end != NULL) *end = ';';
-      tmp = end+1;
-    }
-  }
-}
-
-static void vcf_entry_revcmp(vcf_entry_t *entry)
-{
-  // For debugging
-  info_tag_add(entry, "BUBREV");
-
-  size_t i;
-  for(i = 0; i < entry->num_alts; i++)
-    reverse_complement_str(entry->alts[i]->buff, entry->alts[i]->len);
-
-  // reverse complement and swap lflank and rflank
-  // printf("lf:'%s'; rf:'%s'\n", entry->lf->buff, entry->rf->buff);
-  reverse_complement_str(entry->lf->buff+3, entry->lf->len-3);
-  reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
-  entry->lf->buff[0] = 'R';
-  entry->rf->buff[0] = 'L';
-  StrBuf *tmpbuf; SWAP(entry->lf, entry->rf, tmpbuf);
-}
-
-static size_t vcf_entry_longest_allele(vcf_entry_t *entry)
-{
-  size_t i, max = 0;
-  for(i = 0; i < entry->num_alts; i++) {
-    max = MAX2(max, entry->alts[i]->len);
-  }
-  return max;
-}
-
-static void vcf_entry_print(const vcf_entry_t *entry, FILE *out)
-{
-  size_t i, num_cols = VCFSAMPLES + num_samples;
-  StrBuf *vcfalts = entry->cols[VCFALT], *vcfinfo = entry->cols[VCFINFO];
-
-  // Convert alts back into alt
-  strbuf_reset(vcfalts);
-  for(i = 0; i < entry->num_alts; i++) {
-    if(entry->alts[i]->len > 0) {
-      if(vcfalts->len > 0) strbuf_append_char(vcfalts, ',');
-      strbuf_append_strn(vcfalts, entry->alts[i]->buff, entry->alts[i]->len);
-    }
-  }
-
-  // Convert info tags back into info
-  strbuf_reset(vcfinfo);
-  for(i = 0; i < entry->num_info; i++) {
-    if(entry->info[i]->len > 0) {
-      if(vcfinfo->len > 0) strbuf_append_char(vcfinfo, ';');
-      strbuf_append_strn(vcfinfo, entry->info[i]->buff, entry->info[i]->len);
-    }
-  }
-
-  // Print
-  fputs(entry->cols[0]->buff, out);
-  for(i = 1; i < num_cols; i++) {
-    fputc('\t', out);
-    fputs(entry->cols[i]->buff, out);
-  }
-  fputc('\n', out);
-}
-
-static void vcf_entry_add_filter(vcf_entry_t *entry, const char *status)
-{
-  StrBuf *filter = entry->cols[VCFFILTER];
-  if(filter->len == 0 || strcmp(filter->buff, ".") == 0 ||
-     strcasecmp(filter->buff, "PASS") == 0)
-  {
-    strbuf_set(filter, status);
-  }
-  else
-  {
-    strbuf_append_char(filter, ';');
-    strbuf_append_str(filter, status);
   }
 }
 
@@ -676,7 +379,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   // look up chromosome
   khiter_t k = kh_get(ghash, genome, vcfentry->cols[VCFCHROM]->buff);
   if(k == kh_end(genome)) {
-    vcf_entry_print(vcfentry, stderr);
+    vcf_entry_print(vcfentry, stderr, num_samples);
     die("Cannot find chrom [%s]", vcfentry->cols[VCFCHROM]->buff);
   }
 
@@ -799,7 +502,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     {
       // flank doesn't map well
       vcf_entry_add_filter(vcfentry, "FMAP");
-      vcf_entry_print(vcfentry, stdout);
+      vcf_entry_print(vcfentry, stdout, num_samples);
       return;
     }
   }
@@ -966,7 +669,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     strbuf_reset(vcfentry->cols[VCFID]);
     strbuf_sprintf(vcfentry->cols[VCFID], "var%u", var_print_num++);
 
-    vcf_entry_print(vcfentry, stdout);
+    vcf_entry_print(vcfentry, stdout, num_samples);
 
     // Update offsets
     for(i = 0; i <= vcfentry->num_alts; i++) {
@@ -1199,7 +902,7 @@ int main(int argc, char **argv)
 
   // Setup for loading VCF lines
   vcf_entry_t vcfentry;
-  vcf_entry_init(&vcfentry, num_samples);
+  vcf_entry_alloc(&vcfentry, num_samples);
 
   // Setup pairwise aligner
   nw_aligner = needleman_wunsch_new();
@@ -1217,7 +920,7 @@ int main(int argc, char **argv)
 
   while(read_sam && read_vcf)
   {
-    vcf_entry_parse(line, &vcfentry);
+    vcf_entry_parse(line, &vcfentry, num_samples);
 
     if(strcmp(vcfentry.cols[VCFCHROM]->buff, "un") != 0 ||
        strcmp(vcfentry.cols[VCFPOS]->buff, "1") != 0 ||
@@ -1233,7 +936,7 @@ int main(int argc, char **argv)
     {
       // BAM entry and VCF name do not match - skip
       vcf_entry_add_filter(&vcfentry, "NOSAM");
-      vcf_entry_print(&vcfentry, stdout);
+      vcf_entry_print(&vcfentry, stdout, num_samples);
 
       // Read next vcf entry only (not sam)
       strbuf_reset(line);
@@ -1256,10 +959,10 @@ int main(int argc, char **argv)
         if(low_mapq) vcf_entry_add_filter(&vcfentry, "MAPQ");
         if(toomanybr) vcf_entry_add_filter(&vcfentry, "MAXBR");
 
-        vcf_entry_print(&vcfentry, stdout);
+        vcf_entry_print(&vcfentry, stdout, num_samples);
       }
       else if(vcfentry.lf == NULL || vcfentry.rf == NULL) {
-        vcf_entry_print(&vcfentry, stderr);
+        vcf_entry_print(&vcfentry, stderr, num_samples);
         die("Missing LF/RF tags");
       }
       else {
@@ -1299,7 +1002,7 @@ int main(int argc, char **argv)
   free(bam);
 
   strbuf_free(line);
-  vcf_entry_free(&vcfentry, num_samples);
+  vcf_entry_dealloc(&vcfentry, num_samples);
 
   return EXIT_SUCCESS;
 }

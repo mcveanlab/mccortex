@@ -12,9 +12,6 @@
 
 static const char usage[] = "usage: ctp_view <in.ctx> <mem>\n";
 
-#define NUM_PASSES 1
-#define NUM_THREADS 2
-
 int main(int argc, char* argv[])
 {
   if(argc != 3) print_usage(usage, NULL);
@@ -44,8 +41,6 @@ int main(int argc, char* argv[])
 
   if(!valid_paths_file)
     die("Invalid .ctp file: %s", input_paths_file);
-  if(ctp_num_of_cols > NUM_OF_COLOURS)
-    die("You haven't compiled with enough colours");
 
   // Decide on memory
   size_t req_num_kmers = ctp_num_path_kmers*(1.0/IDEAL_OCCUPANCY);
@@ -56,8 +51,9 @@ int main(int argc, char* argv[])
                      hash_kmers * sizeof(uint64_t) * 2; // kmer_paths
 
   // Allocate memory
+  // db graph is required to store the end position for each kmer list
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, ctp_kmer_size, hash_kmers);
+  db_graph_alloc(&db_graph, ctp_kmer_size, 1, hash_kmers);
 
   size_t path_mem = mem_to_use - graph_mem;
 
@@ -74,10 +70,10 @@ int main(int argc, char* argv[])
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");
-  binary_paths_init(&db_graph.pdata, path_store, path_mem);
+  binary_paths_init(&db_graph.pdata, path_store, path_mem, ctp_num_of_cols);
 
   // Pretend we've read all the kmers in
-  db_graph.ginfo.num_of_colours_loaded = ctp_num_of_cols;
+  db_graph.num_of_cols_used = ctp_num_of_cols;
 
   // Add kmers as reading
   paths_format_read(&db_graph, &db_graph.pdata, true, input_paths_file);

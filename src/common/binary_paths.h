@@ -3,41 +3,37 @@
 
 #include "binary_kmer.h"
 
-typedef uint8_t col_bitset_t[round_bits_to_bytes(NUM_OF_COLOURS)];
-
-typedef struct path_core_t path_core_t;
-
-struct path_core_t
-{
-  uint64_t prev;
-  col_bitset_t colours;
-  uint32_t len;
-} __attribute__((packed));
-
 typedef struct
 {
-  uint64_t index;
-  path_core_t core;
-  uint8_t *cmpctseq;
+  const uint32_t num_of_cols, col_bitset_bytes;
+  // data is <col_bitset><bases>
+  uint8_t *data;
+  uint64_t index, prev;
+  uint32_t len;
   Nucleotide *bases;
-  size_t pos, bpcap, cmpcap;
+  size_t pos, bpcap, datacap;
 } path_t;
-
-void path_init(path_t *path);
-void path_alloc(path_t *path);
-void path_dealloc(path_t *path);
-
-#define path_has_col(path,col) bitset_has((path)->core.colours,col)
-#define path_set_col(path,col) bitset_set((path)->core.colours,col)
-#define path_del_col(path,col) bitset_del((path)->core.colours,col)
 
 #define PATH_NULL UINT64_MAX
 
+#define path_packed_bases(path) ((path)->data+(path)->col_bitset_bytes)
+
+void path_init(path_t *path, uint32_t num_of_cols);
+void path_alloc(path_t *path, uint32_t num_of_cols);
+void path_dealloc(path_t *path);
+
+#define path_has_col(path,col) bitset_has((path)->data,col)
+#define path_set_col(path,col) bitset_set((path)->data,col)
+#define path_del_col(path,col) bitset_del((path)->data,col)
+
+#define path_size(path) (8+(path)->col_bitset_bytes+4+round_bits_to_bytes((path)->len*2))
+
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint32_t len][M:uint8_t data]}..
-// N=round_up(NUM_OF_COLOURS/8)
+// N=round_up(num_of_colours/8)
 // M=round_up(len/8)
 
-void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size);
+void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size,
+                       size_t num_of_cols);
 uint64_t binary_paths_add(binary_paths_t *paths, path_t *path, Colour col);
 
 // unpacks into path_t

@@ -2,32 +2,36 @@
 #include "db_graph.h"
 #include "binary_paths.h"
 
-void path_init(path_t *path)
+void path_init(path_t *path, uint32_t num_of_cols)
 {
-  path->core.prev = PATH_NULL;
-  memset(&path->core.colours, 0, sizeof(col_bitset_t));
-  path->core.len = 0;
+  path_t tmp = {.num_of_cols = num_of_cols,
+                .col_bitset_bytes = round_bits_to_bytes(num_of_cols),
+                .index = PATH_NULL, .prev = PATH_NULL, .len = 0,
+                .data = path->data, .datacap = path->datacap,
+                .bases = path->bases, .bpcap = path->bpcap};
+  memcpy(path, &tmp, sizeof(path_t));
+  // Clear colour bitset
+  memset(path->data, 0, path->col_bitset_bytes);
 }
 
-void path_alloc(path_t *path)
+void path_alloc(path_t *path, uint32_t num_of_cols)
 {
-  path_init(path);
-  path->bpcap = 16;
-  path->cmpcap = 4;
+  path->bpcap = path->datacap = 16;
   path->bases = malloc(path->bpcap * sizeof(Nucleotide));
-  path->cmpctseq = malloc(path->cmpcap * sizeof(uint8_t));
+  path->data = malloc(path->datacap * sizeof(uint8_t));
+  path_init(path, num_of_cols);
 }
 
 void path_dealloc(path_t *path)
 {
+  free(path->data);
   free(path->bases);
-  free(path->cmpctseq);
 }
 
 void path_to_printf(const path_t *path)
 {
   size_t i;
-  for(i = 0; i < path->core.len; i++)
+  for(i = 0; i < path->len; i++)
     printf(" %c", binary_nuc_to_char(path->bases[i]));
   printf("\n");
 }
@@ -35,10 +39,12 @@ void path_to_printf(const path_t *path)
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint32_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
-void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size)
+void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size,
+                       size_t num_of_cols)
 {
   binary_paths_t new_paths = {.store = data, .end = data + size,
-                              .size = size, .next = data, .num_paths = 0};
+                              .size = size, .next = data, .num_paths = 0,
+                              .num_of_cols = num_of_cols};
   memcpy(paths, &new_paths, sizeof(binary_paths_t));
 }
 
@@ -104,42 +110,35 @@ void check_unpack_capacity(path_t *path, size_t len)
 
 void check_pack_capacity(path_t *path, size_t len)
 {
-  size_t len_in_bytes = round_bits_to_bytes(len*2);
+  size_t len_in_bytes = round_bits_to_bytes(len*2) + path->col_bitset_bytes;
 
-  if(len_in_bytes > path->cmpcap)
+  if(len_in_bytes > path->datacap)
   {
-    path->cmpcap = ROUNDUP2POW(len_in_bytes);
-    path->cmpctseq = realloc(path->cmpctseq, path->cmpcap * sizeof(uint8_t));
+    path->datacap = ROUNDUP2POW(len_in_bytes);
+    path->data = realloc(path->data, path->datacap * sizeof(uint8_t));
   }
 }
 
 static inline boolean binary_paths_match(const uint8_t *ptr, const path_t *find)
 {
-  uint32_t len;
-  memcpy(&len, ptr+sizeof(uint64_t)+sizeof(col_bitset_t), sizeof(uint32_t));
-
-  return (len == find->core.len &&
-          memcmp(ptr+sizeof(path_core_t), find->cmpctseq,
-                 round_bits_to_bytes(len)) == 0);
+  size_t offset = sizeof(uint64_t) + find->col_bitset_bytes;
+  size_t len_in_bytes = round_bits_to_bytes(find->len*2);
+  return (memcmp(ptr+offset, find->data, len_in_bytes) == 0);
 }
 
 // returns PATH_NULL if not found, otherwise index
 static inline uint64_t binary_paths_find(const binary_paths_t *paths,
                                          const path_t *find)
 {
-  uint64_t last = find->core.prev;
-  if(last == PATH_NULL) return false;
+  uint8_t *ptr;
+  uint64_t last = find->prev;
+  if(last == PATH_NULL) return PATH_NULL;
 
-  uint8_t *ptr = paths->store + last;
-  if(binary_paths_match(ptr, find)) return last;
-
-  while(1)
+  while(last != PATH_NULL)
   {
-    memcpy(&last, ptr, sizeof(uint64_t));
-    if(last == PATH_NULL) break;
-
     ptr = paths->store + last;
     if(binary_paths_match(ptr, find)) return last;
+    memcpy(&last, ptr, sizeof(uint64_t));
   }
 
   return PATH_NULL;
@@ -148,22 +147,23 @@ static inline uint64_t binary_paths_find(const binary_paths_t *paths,
 // Returns position added to, or PATH_NULL if updated an old entry
 uint64_t binary_paths_add(binary_paths_t *paths, path_t *path, Colour colour)
 {
-  size_t len_in_bytes = round_bits_to_bytes(path->core.len*2);
+  size_t len_in_bytes = round_bits_to_bytes(path->len*2);
 
   // Check capacity
-  check_pack_capacity(path, path->core.len);
+  check_pack_capacity(path, path->len);
 
-  pack_bases(path->cmpctseq, path->bases, path->core.len);
+  pack_bases(path_packed_bases(path), path->bases, path->len);
   uint64_t last;
 
-  if(path->core.prev != PATH_NULL &&
+  if(path->prev != PATH_NULL &&
      (last = binary_paths_find(paths, path)) != PATH_NULL)
   {
     bitset_set(paths->store+last+sizeof(uint64_t), colour);
     return PATH_NULL;
   }
 
-  size_t total_len = sizeof(path_core_t) + len_in_bytes;
+  size_t total_len = sizeof(uint64_t) + path->col_bitset_bytes +
+                     sizeof(uint32_t) + len_in_bytes;
 
   if(paths->next + total_len >= paths->end) die("Out of memory");
 
@@ -175,12 +175,14 @@ uint64_t binary_paths_add(binary_paths_t *paths, path_t *path, Colour colour)
     binary_paths_dump_path(path);
   #endif
 
-  // write core
-  memcpy(ptr, &path->core, sizeof(path_core_t));
-  ptr += sizeof(path_core_t);
-
-  // write bases
-  memcpy(ptr, path->cmpctseq, len_in_bytes);
+  // write path
+  memcpy(ptr, &path->prev, sizeof(uint64_t));
+  ptr += sizeof(uint64_t);
+  memcpy(ptr, &path->data, path->col_bitset_bytes);
+  ptr += path->col_bitset_bytes;
+  memcpy(ptr, &path->len, sizeof(uint32_t));
+  ptr += sizeof(uint32_t);
+  memcpy(ptr, path_packed_bases(path), len_in_bytes);
   ptr += len_in_bytes;
 
   paths->next = ptr;
@@ -189,14 +191,20 @@ uint64_t binary_paths_add(binary_paths_t *paths, path_t *path, Colour colour)
   return start;
 }
 
+// this function doesn't copy compacted bases to path->data but it does unpack
+// into path->bases
 void binary_paths_fetch(const binary_paths_t *paths, uint64_t index, path_t *path)
 {
   uint8_t *ptr = paths->store + index;
   path->index = index;
-  memcpy(&path->core, ptr, sizeof(path_core_t));
-  ptr += sizeof(path_core_t);
-  check_unpack_capacity(path, path->core.len);
-  unpack_bases(ptr, path->bases, path->core.len);
+  memcpy(&path->prev, ptr, sizeof(uint64_t));
+  ptr += sizeof(uint64_t);
+  memcpy(path->data, ptr, path->col_bitset_bytes);
+  ptr += path->col_bitset_bytes;
+  memcpy(&path->len, ptr, sizeof(uint32_t));
+  ptr += sizeof(uint32_t);
+  check_unpack_capacity(path, path->len);
+  unpack_bases(ptr, path->bases, path->len);
   path->pos = 0;
 }
 
@@ -204,8 +212,8 @@ void binary_paths_fetch(const binary_paths_t *paths, uint64_t index, path_t *pat
 boolean binary_paths_prev(const binary_paths_t *paths,
                           const path_t *after, path_t *into)
 {
-  if(after->core.prev == PATH_NULL) return 0;
-  binary_paths_fetch(paths, after->core.prev, into);
+  if(after->prev == PATH_NULL) return 0;
+  binary_paths_fetch(paths, after->prev, into);
   return 1;
 }
 
@@ -213,13 +221,13 @@ void binary_paths_dump_path(const path_t *path)
 {
   size_t i;
   printf("%8zu: ", (size_t)path->index);
-  if(path->core.prev == PATH_NULL) printf("    NULL");
-  else printf("%8zu", (size_t)path->core.prev);
+  if(path->prev == PATH_NULL) printf("    NULL");
+  else printf("%8zu", (size_t)path->prev);
   printf(" (cols:");
-  for(i = 0; i < NUM_OF_COLOURS; i++)
-    if(bitset_has(path->core.colours, i)) printf(" %zu", i);
-  printf(")[%zu/%u]: ", path->pos, path->core.len);
-  for(i = 0; i < path->core.len; i++)
+  for(i = 0; i < path->num_of_cols; i++)
+    if(bitset_has(path->data, i)) printf(" %zu", i);
+  printf(")[%zu/%u]: ", path->pos, path->len);
+  for(i = 0; i < path->len; i++)
     putc(binary_nuc_to_char(path->bases[i]), stdout);
   putc('\n', stdout);
 }
@@ -227,17 +235,15 @@ void binary_paths_dump_path(const path_t *path)
 void binary_paths_dump(const binary_paths_t *paths)
 {
   path_t tmp;
-  path_alloc(&tmp);
-  const uint8_t *ptr = paths->store;
-  while(ptr < paths->next)
+  uint64_t index;
+  path_alloc(&tmp, paths->num_of_cols);
+  const uint64_t len = paths->next - paths->store;
+
+  for(index = 0; index < len; index += path_size(&tmp))
   {
-    tmp.index = (uint64_t)(ptr - paths->store);
-    memcpy(&tmp.core, ptr, sizeof(path_core_t));
-    ptr += sizeof(path_core_t);
-    check_unpack_capacity(&tmp, tmp.core.len);
-    unpack_bases(ptr, tmp.bases, tmp.core.len);
-    ptr += round_bits_to_bytes(tmp.core.len*2);
+    binary_paths_fetch(paths, index, &tmp);
     binary_paths_dump_path(&tmp);
   }
+
   path_dealloc(&tmp);
 }

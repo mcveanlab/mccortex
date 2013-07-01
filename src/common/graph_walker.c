@@ -52,7 +52,7 @@ static void resize_curr_paths(GraphWalker *wlk)
   for(i = old_size; i < wlk->paths_cap; i++)
   {
     wlk->curr_paths[i] = wlk->paths_data + i;
-    path_alloc(wlk->curr_paths[i]);
+    path_alloc(wlk->curr_paths[i], wlk->db_graph->pdata.num_of_cols);
   }
 }
 
@@ -60,9 +60,10 @@ static void pickup_paths(GraphWalker *wlk)
 {
   wlk->num_paths += wlk->num_new_paths;
   wlk->num_new_paths = 0;
-  size_t end_pos = wlk->num_paths;
+  size_t min_len = 0, end_pos = wlk->num_paths;
 
-  size_t min_len = wlk->num_paths == 0 ? 0 : wlk->curr_paths[0]->core.len - wlk->curr_paths[0]->pos;
+  if(wlk->num_paths > 0)
+    min_len = wlk->curr_paths[0]->len - wlk->curr_paths[0]->pos;
 
   if(end_pos+1 >= wlk->paths_cap)
     resize_curr_paths(wlk);
@@ -75,9 +76,9 @@ static void pickup_paths(GraphWalker *wlk)
   {
     path_t *nxtpath = wlk->curr_paths[end_pos];
     binary_paths_fetch(paths, index, nxtpath);
-    prev_index = nxtpath->core.prev;
+    prev_index = nxtpath->prev;
 
-    if(path_has_col(nxtpath, wlk->colour) && nxtpath->core.len > min_len) {
+    if(path_has_col(nxtpath, wlk->colour) && nxtpath->len > min_len) {
       end_pos++;
       if(end_pos+1 >= wlk->paths_cap) resize_curr_paths(wlk);
     }
@@ -88,7 +89,7 @@ static void pickup_paths(GraphWalker *wlk)
   wlk->num_new_paths = end_pos - wlk->num_paths;
 }
 
-void graph_walker_alloc(GraphWalker *wlk)
+void graph_walker_alloc(GraphWalker *wlk, uint32_t num_of_cols)
 {
   size_t i, paths_cap = 4;
   path_t **curr_paths = malloc(paths_cap * sizeof(path_t*));
@@ -96,7 +97,7 @@ void graph_walker_alloc(GraphWalker *wlk)
 
   for(i = 0; i < paths_cap; i++) {
     curr_paths[i] = paths_data + i;
-    path_alloc(curr_paths[i]);
+    path_alloc(curr_paths[i], num_of_cols);
   }
 
   wlk->curr_paths = curr_paths;
@@ -307,8 +308,7 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
     for(i = 0, j = 0; i < wlk->num_paths + wlk->num_new_paths; i++)
     {
       path = curr_paths[i];
-      if(path->bases[path->pos] == base &&
-         path->pos+1 < path->core.len)
+      if(path->bases[path->pos] == base && path->pos+1 < path->len)
       {
         path->pos++;
         SWAP(curr_paths[j], curr_paths[i], tmp_path);

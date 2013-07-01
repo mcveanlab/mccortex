@@ -42,8 +42,6 @@ static void print_calling_header(const dBGraph *db_graph, gzFile *out,
                                  const char* out_file)
                                  // const CmdLine *cmd)
 {
-  const GraphInfo *ginfo = &db_graph->ginfo;
-
   char datestr[9];
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
@@ -58,10 +56,8 @@ static void print_calling_header(const dBGraph *db_graph, gzFile *out,
     gzprintf(out, "##ctxCwd=%s\n", cwd);
   
   gzprintf(out, "##ctxDate=%s\n", datestr);
-  gzprintf(out, "##ctxVersion=<version=%d.%d.%d.%d,kmer_size=%i,"
-              "compiled_colours=%i>\n",
-          VERSION, SUBVERSION, SUBSUBVERSION, SUBSUBSUBVERSION,
-          db_graph->kmer_size, NUM_OF_COLOURS);
+  gzprintf(out, "##ctxVersion=<version=%s,MAXK=%i>\n",
+           CTXVERSIONSTR, MAX_KMER_SIZE);
 
   // Print input sources
   // if(cmd->input_ctx_binary)
@@ -83,18 +79,19 @@ static void print_calling_header(const dBGraph *db_graph, gzFile *out,
   //   gzprintf(out, "##ctx_refcol=%i\n", cmd->ref_colour);
 
   // Print colours we're calling in
-  gzprintf(out, "##ctxNumCallingUsedInColours=%i\n", ginfo->num_of_colours_loaded);
+  gzprintf(out, "##ctxNumCallingUsedInColours=%i\n", db_graph->num_of_cols_used);
 
   StrBuf *sample_name = strbuf_new();
 
   // Print sample names
   Colour col;
-  for(col = 0; col < ginfo->num_of_colours_loaded; col++)
+  for(col = 0; col < db_graph->num_of_cols_used; col++)
   {
-    const ErrorCleaning *ec = ginfo->cleaning + col;
+    const GraphInfo *ginfo = db_graph->ginfo + col;
+    const ErrorCleaning *ec = &ginfo->cleaning;
 
     // Find and replace double quotes with single quotes
-    char *sname = ginfo->sample_names[col]->buff;
+    char *sname = ginfo->sample_name.buff;
 
     if(strcmp(sname, "undefined") == 0 || strchr(sname, '\t') != NULL ||
        strchr(sname, ' ') != NULL || strchr(sname, '\r') != NULL ||
@@ -104,19 +101,19 @@ static void print_calling_header(const dBGraph *db_graph, gzFile *out,
       strbuf_sprintf(sample_name, "sample%u", col);
     }
     else {
-      strbuf_set(sample_name, ginfo->sample_names[col]->buff);
+      strbuf_set(sample_name, ginfo->sample_name.buff);
     }
 
     gzprintf(out, "##SAMPLE=<ID=%s,name=\"%s\",colour=%i,"
                   "meanreadlen=%zu,totalseqloaded=%zu,"
                   "seqerror=%Lf,tipclipped=%s,removelowcovgsupernodes=%u,"
                   "removelowcovgkmer=%u,cleanedagainstgraph=%s>\n",
-             sample_name->buff, ginfo->sample_names[col]->buff, col,
-             (size_t)ginfo->mean_read_length[col],
-             (size_t)ginfo->total_sequence[col], ginfo->seq_err[col],
+             sample_name->buff, ginfo->sample_name.buff, col,
+             (size_t)ginfo->mean_read_length, (size_t)ginfo->total_sequence,
+             ginfo->seq_err,
              ec->tip_clipping ? "yes" : "no", ec->remv_low_cov_sups_thresh,
              ec->remv_low_cov_nodes_thresh,
-             ec->cleaned_against_graph_name->buff);
+             ec->cleaned_against_graph_name.buff);
   }
 
   strbuf_free(sample_name);
@@ -152,7 +149,7 @@ static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
 
   gzputc(out, '\n');
 
-  Colour col, cols_loaded = db_graph->ginfo.num_of_colours_loaded;
+  Colour col, cols_loaded = db_graph->num_of_cols_used;
 
   // Print (fake) covgs
   if(len > 0) {
@@ -249,7 +246,7 @@ static void load_allele_path(hkey_t node, Orientation or,
       snode->nodes = node_store + node_count;
       snode->orients = or_store + node_count;
 
-      size_t node_buf_space = NODE_BUFFER_SIZE - node_count;
+      size_t node_buf_space = NODE_BUFSIZE(db_graph->num_of_cols) - node_count;
       size_t sn_len = caller_supernode_create(node, or, snode, node_buf_space,
                                               db_graph);
 
@@ -442,7 +439,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
   // loop over alleles, then colours
   size_t supindx, num_of_paths = 0;
-  Colour colour, colours_loaded = db_graph->ginfo.num_of_colours_loaded;
+  Colour colour, colours_loaded = db_graph->num_of_cols_used;
   Nucleotide next_nuc;
 
   for(i = 0; i < num_next; i++)
@@ -499,8 +496,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       // possible 3p flank (i.e. bubble end)
       // there a 4 possible allele paths per colour
       // each path can hit a node at most NUM_OF_SHADES times
-      SupernodePathPos *spp_forward[MAX_ALLELE_KMERS * NUM_OF_COLOURS * 4];
-      SupernodePathPos *spp_reverse[MAX_ALLELE_KMERS * NUM_OF_COLOURS * 4];
+      SupernodePathPos *spp_forward[NODE_BUFSIZE(db_graph->num_of_cols)];
+      SupernodePathPos *spp_reverse[NODE_BUFSIZE(db_graph->num_of_cols)];
       size_t num_forward = 0, num_reverse = 0;
 
       do
@@ -639,20 +636,22 @@ void* shaded_bubble_caller(void *args)
   const dBGraph *db_graph = tdata->db_graph;
 
   // Arrays to re-use
-  int cols4 = 4 * NUM_OF_COLOURS;
+  int cols4 = 4 * db_graph->num_of_cols;
 
   size_t node_bits = round_bits_to_words64(db_graph->ht.capacity);
   uint64_t *visited = calloc(2*node_bits, sizeof(uint64_t));
 
+  size_t buf_size = NODE_BUFSIZE(db_graph->num_of_cols);
+
   SupernodePath *snode_paths = malloc(cols4 * sizeof(SupernodePath));
-  CallerSupernode *snode_store = malloc(NODE_BUFFER_SIZE * sizeof(CallerSupernode));
-  SupernodePathPos *snodepos_store = malloc(NODE_BUFFER_SIZE * sizeof(SupernodePathPos));
+  CallerSupernode *snode_store = malloc(buf_size * sizeof(CallerSupernode));
+  SupernodePathPos *snodepos_store = malloc(buf_size * sizeof(SupernodePathPos));
 
   khash_t(supnode_hsh) *snode_hash = kh_init(supnode_hsh);
   khash_t(snpps_hsh) *spp_hash = kh_init(snpps_hsh);
 
-  hkey_t *node_store = malloc(NODE_BUFFER_SIZE * sizeof(hkey_t));
-  Orientation *or_store = malloc(NODE_BUFFER_SIZE * sizeof(Orientation));
+  hkey_t *node_store = malloc(buf_size * sizeof(hkey_t));
+  Orientation *or_store = malloc(buf_size * sizeof(Orientation));
 
   if(visited == NULL || snode_paths == NULL ||
      snode_store == NULL || snodepos_store == NULL ||
@@ -663,7 +662,7 @@ void* shaded_bubble_caller(void *args)
   }
 
   GraphWalker wlk;
-  graph_walker_alloc(&wlk);
+  graph_walker_alloc(&wlk, db_graph->pdata.num_of_cols);
 
   // BinaryKmer tmpkmer;
   // hkey_t node;

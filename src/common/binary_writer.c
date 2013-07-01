@@ -22,8 +22,8 @@ static void write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
   fwrite(&supernodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
   fwrite(&nodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
 
-  uint32_t len = cleaning->cleaned_against_graph_name->len;
-  char *str = cleaning->cleaned_against_graph_name->buff;
+  uint32_t len = cleaning->cleaned_against_graph_name.len;
+  char *str = cleaning->cleaned_against_graph_name.buff;
   fwrite(&len, sizeof(uint32_t), 1, fh);
   fwrite(str, sizeof(uint8_t), len, fh);
 }
@@ -34,7 +34,7 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
   fwrite(&h->version, sizeof(uint32_t), 1, fh);
   fwrite(&h->kmer_size, sizeof(uint32_t), 1, fh);
   fwrite(&h->num_of_bitfields, sizeof(uint32_t), 1, fh);
-  fwrite(&h->num_of_colours, sizeof(uint32_t), 1, fh);
+  fwrite(&h->num_of_cols, sizeof(uint32_t), 1, fh);
 
   if(h->version >= 7)
   {
@@ -43,14 +43,14 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
     fwrite(&num_of_shades, sizeof(uint32_t), 1, fh);
   }
 
-  fwrite(h->mean_read_lengths, sizeof(uint32_t), h->num_of_colours, fh);
-  fwrite(h->total_seq_loaded, sizeof(uint64_t), h->num_of_colours, fh);
+  fwrite(h->mean_read_lengths, sizeof(uint32_t), h->num_of_cols, fh);
+  fwrite(h->total_seq_loaded, sizeof(uint64_t), h->num_of_cols, fh);
 
   if(h->version >= 6)
   {
     uint32_t i;
 
-    for(i = 0; i < h->num_of_colours; i++)
+    for(i = 0; i < h->num_of_cols; i++)
     {
       uint32_t len = h->sample_names[i]->len;
       char *buff = h->sample_names[i]->buff;
@@ -58,9 +58,9 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
       fwrite(buff, sizeof(uint8_t), len, fh);
     }
 
-    fwrite(h->seq_err_rates, sizeof(long double), h->num_of_colours, fh);
+    fwrite(h->seq_err_rates, sizeof(long double), h->num_of_cols, fh);
 
-    for(i = 0; i < h->num_of_colours; i++) {
+    for(i = 0; i < h->num_of_cols; i++) {
       write_error_cleaning_object(fh, h->err_cleaning[i]);
     }
   }
@@ -73,8 +73,8 @@ void binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
                        const Edges *edges)
 {
   fwrite(bkmer, sizeof(uint64_t), h->num_of_bitfields, fh);
-  fwrite(covgs, sizeof(uint32_t), h->num_of_colours, fh);
-  fwrite(edges, sizeof(uint8_t),  h->num_of_colours, fh);
+  fwrite(covgs, sizeof(uint32_t), h->num_of_cols, fh);
+  fwrite(edges, sizeof(uint8_t),  h->num_of_cols, fh);
 }
 
 // Dev: what if dumping a single colour -- do we dump nodes with no covg?
@@ -86,38 +86,40 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
 {
   uint32_t i = 0;
 
-  if(header->num_of_colours < NUM_OF_COLOURS)
-  {
-    // Check this node has coverage in one of the specified colours
-    if(colours != NULL) {
-      while(i < header->num_of_colours && db_graph->covgs[colours[i]] == 0) i++;
-    }
-    else {
-      while(i < header->num_of_colours && db_graph->covgs[start_col+i] == 0) i++;
-    }
-    if(i == header->num_of_colours) return;
+  // Check this node has coverage in one of the specified colours
+  if(colours != NULL) {
+    while(i < header->num_of_cols &&
+          db_node_get_covg(db_graph,node,colours[i]) == 0) i++;
   }
+  else {
+    while(i < header->num_of_cols &&
+          db_node_get_covg(db_graph,node,start_col+i) == 0) i++;
+  }
+  if(i == header->num_of_cols) return;
 
   ConstBinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
-  Covg covgs[header->num_of_colours];
-  Edges edges[header->num_of_colours];
+  Covg covgs[header->num_of_cols];
+  Edges edges[header->num_of_cols];
+
+  Edges (*col_edges)[db_graph->num_of_cols]
+    = (Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
+  Covg (*col_covgs)[db_graph->num_of_cols]
+    = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
   if(colours != NULL)
   {
     uint32_t col;
-    for(i = 0; i < header->num_of_colours; i++)
+    for(i = 0; i < header->num_of_cols; i++)
     {
       col = colours[i];
-      covgs[i] = db_graph->covgs[node][col];
-      edges[i] = db_graph->col_edges[node][col];
+      covgs[i] = col_covgs[node][col];
+      edges[i] = col_edges[node][col];
     }
   }
   else
   {
-    memcpy(covgs, db_graph->covgs[node] + start_col,
-           header->num_of_colours * sizeof(Covg));
-    memcpy(edges, db_graph->col_edges[node] + start_col,
-           header->num_of_colours * sizeof(Edges));
+    memcpy(covgs, col_covgs[node]+start_col, header->num_of_cols*sizeof(Covg));
+    memcpy(edges, col_edges[node]+start_col, header->num_of_cols*sizeof(Edges));
   }
 
   binary_write_kmer(fout, header, bkmer, covgs, edges);
@@ -136,7 +138,7 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
                            uint32_t num_of_cols)
 {
   assert(db_graph->col_edges != NULL);
-  assert(db_graph->covgs != NULL);
+  assert(db_graph->col_covgs != NULL);
 
   FILE *fout = fopen(path, "w");
 
@@ -144,13 +146,13 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
     die("Unable to open dump binary file to write: %s\n", path);
   }
 
-  GraphInfo *ginfo = &db_graph->ginfo;
+  GraphInfo *ginfo = db_graph->ginfo;
 
   // Construct binary header
   BinaryFileHeader header = {.version = version,
                              .kmer_size = db_graph->kmer_size,
                              .num_of_bitfields = NUM_BITFIELDS_IN_BKMER,
-                             .num_of_colours = num_of_cols,
+                             .num_of_cols = num_of_cols,
                              .num_of_kmers = db_graph->ht.unique_kmers};
 
   uint64_t total_seq_loaded[num_of_cols];
@@ -159,34 +161,20 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
   long double seq_err_rates[num_of_cols];
   ErrorCleaning *err_cleaning[num_of_cols];
 
-  if(colours != NULL)
-  {
-    uint32_t i, col;
-    for(i = 0; i < num_of_cols; i++) {
-      col = colours[i];
-      total_seq_loaded[i] = ginfo->total_sequence[col];
-      sample_names[i] = ginfo->sample_names[col];
-      mean_read_lengths[i] = ginfo->mean_read_length[col];
-      seq_err_rates[i] = ginfo->seq_err[col];
-      err_cleaning[i] = ginfo->cleaning + col;
-    }
-
-    header.total_seq_loaded = total_seq_loaded;
-    header.mean_read_lengths = mean_read_lengths;
-    header.sample_names = sample_names;
-    header.seq_err_rates = seq_err_rates;
-  }
-  else {
-    header.total_seq_loaded = ginfo->total_sequence + start_col;
-    header.sample_names = ginfo->sample_names + start_col;
-    header.mean_read_lengths = ginfo->mean_read_length + start_col;
-    header.seq_err_rates = ginfo->seq_err + start_col;
-
-    uint32_t i;
-    for(i = 0; i < num_of_cols; i++)
-      err_cleaning[i] = ginfo->cleaning + start_col + i;
+  uint32_t i, col;
+  for(i = 0; i < num_of_cols; i++) {
+    col = colours != NULL ? colours[i] : i;
+    total_seq_loaded[i] = (ginfo+col)->total_sequence;
+    sample_names[i] = &(ginfo+col)->sample_name;
+    mean_read_lengths[i] = (ginfo+col)->mean_read_length;
+    seq_err_rates[i] = (ginfo+col)->seq_err;
+    err_cleaning[i] = &(ginfo+col)->cleaning;
   }
 
+  header.total_seq_loaded = total_seq_loaded;
+  header.mean_read_lengths = mean_read_lengths;
+  header.sample_names = sample_names;
+  header.seq_err_rates = seq_err_rates;
   header.err_cleaning = err_cleaning;
 
   // Write header

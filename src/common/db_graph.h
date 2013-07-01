@@ -8,7 +8,8 @@
 #define db_graph_node_assigned(graph,hkey) \
         HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
 
-dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size, uint64_t capacity);
+dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
+                        uint32_t num_of_cols, uint64_t capacity);
 void db_graph_dealloc(dBGraph *db_graph);
 
 // Get an oriented bkmer
@@ -25,7 +26,7 @@ hkey_t db_graph_find_or_add_node(dBGraph *db_graph, const BinaryKmer bkey,
                                  Colour col);
 
 // In the case of self-loops in palindromes the two edges collapse into one
-void db_graph_add_edge(dBGraph *db_graph,
+void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
                        Orientation src_orient, Orientation tgt_orient);
 

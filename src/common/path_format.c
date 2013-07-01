@@ -48,7 +48,7 @@ void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
 
   uint32_t version = CTX_PATH_FILEFORMAT;
   uint32_t kmer_size = db_graph->kmer_size;
-  uint32_t num_cols = db_graph->ginfo.num_of_colours_loaded;
+  uint32_t num_cols = db_graph->num_of_cols_used;
   fwrite(&version, sizeof(uint32_t), 1, fout);
   fwrite(&kmer_size, sizeof(uint32_t), 1, fout);
   fwrite(&num_cols, sizeof(uint32_t), 1, fout);
@@ -108,9 +108,9 @@ void paths_format_read(dBGraph *db_graph, binary_paths_t *paths,
     die("kmer_size values don't match [%u vs %u; path: %s]",
         kmer_size, db_graph->kmer_size, path);
   }
-  if(num_cols != db_graph->ginfo.num_of_colours_loaded) {
+  if(num_cols != paths->num_of_cols) {
     die("numbers of colours don't match [%u vs %u; path: %s]",
-        num_cols, db_graph->ginfo.num_of_colours_loaded, path);
+        num_cols, paths->num_of_cols, path);
   }
   if(num_path_bytes > paths->size) {
     die("Not enough memory allocated to store paths from file: %s [mem: %zu]",

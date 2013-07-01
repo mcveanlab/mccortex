@@ -21,9 +21,10 @@ MPSIZE=$7
 ALLELECOVG=$8
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CTX="~/cortex/versions/current/bin/cortex_var_31_c1_s8 --kmer_size 31 --mem_width 8 --mem_height 18"
-THREAD="$DIR/../../bin/ctx_thread_k31_c1"
-CTX2="$DIR/../../bin/ctx_call_k31_c1"
+OLDCTX="~/cortex/versions/current/bin/cortex_var_31_c1_s8 --kmer_size 31 --mem_width 20 --mem_height 20"
+BUILDCTX="$DIR/../../bin/ctx_build_k31"
+THREAD="$DIR/../../bin/ctx_thread_k31"
+CTX2="$DIR/../../bin/ctx_call_k31"
 PROC="$DIR/../../bin/ctx_unique"
 PLACE="$DIR/../../bin/ctx_place"
 BIOINF="$DIR/../../libs/bioinf-perl"
@@ -60,13 +61,13 @@ cmd "echo reads1.0.fa >> reads.se.falist"
 cmd "echo reads1.1.fa >> reads.se.falist"
 
 # Make diploid.k31.ctx
-cmd $CTX --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.k31.ctx
+cmd $BUILDCTX --pe_list reads.0.falist reads.1.falist 31 100M diploid.k31.ctx
 
 # Add shades to binary
 # cmd $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.shaded.k31.ctx
 
 # Call with old bc
-cmd time $CTX --load_binary diploid.k31.ctx --detect_bubbles1 0/0 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
+cmd time $OLDCTX --load_binary diploid.k31.ctx --detect_bubbles1 0/0 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
 cmd $PROC diploid.oldbc.bubbles diploid.oldbc
 cmd gzip -d -f diploid.oldbc.vcf.gz
 
@@ -75,13 +76,13 @@ grep -v 'LF=;' diploid.oldbc.vcf > diploid.oldbc.vcf.2;
 mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
 
 # Call with new bc
-cmd time $CTX --load_binary diploid.k31.ctx --paths_caller diploid.newbc.bubbles.gz
+cmd time $OLDCTX --load_binary diploid.k31.ctx --paths_caller diploid.newbc.bubbles.gz
 cmd $PROC diploid.newbc.bubbles.gz diploid.newbc
 cmd gzip -d -f diploid.newbc.vcf.gz
 
 # Call with new bc + shades (also add shades)
-# cmd time $CTX --load_binary diploid.shaded.k31.ctx --paths_caller diploid.newbc.shaded.bubbles.gz
-cmd time $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --paths_caller diploid.newbc.shaded.bubbles.gz
+# cmd time $OLDCTX --load_binary diploid.shaded.k31.ctx --paths_caller diploid.newbc.shaded.bubbles.gz
+cmd time $OLDCTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --paths_caller diploid.newbc.shaded.bubbles.gz
 cmd $PROC diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
 cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 

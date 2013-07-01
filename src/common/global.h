@@ -22,11 +22,7 @@ typedef signed char boolean;
 #define false 0
 #endif
 
-#define MAX_READ_NAME_LEN 300
-#define VERSION 1
-#define SUBVERSION 0
-#define SUBSUBVERSION 5
-#define SUBSUBSUBVERSION 15
+#define CTXVERSIONSTR "0.0"
 
 #define QUOTE(str) #str
 
@@ -63,9 +59,16 @@ typedef signed char boolean;
 #define round_bits_to_bytes(bits)   (((bits)+7)/8)
 #define round_bits_to_words64(bits) (((bits)+63)/64)
 
-#define bitset_has(arr,pos) (((arr)[(pos) / (sizeof(*(arr))*8)] >> ((pos) % (sizeof(*(arr))*8))) & 0x1UL)
-#define bitset_set(arr,pos) ((arr)[(pos) / (sizeof(*(arr))*8)]  |= (0x1UL << ((pos) % (sizeof(*(arr))*8))))
-#define bitset_del(arr,pos) ((arr)[(pos) / (sizeof(*(arr))*8)]  &=~(0x1UL << ((pos) % (sizeof(*(arr))*8))))
+#define bitset2_has(arr,idx,offset) (((arr)[idx] >> (offset)) & 0x1UL)
+#define bitset2_set(arr,idx,offset) ((arr)[idx]  |= (0x1UL << (offset)))
+#define bitset2_del(arr,idx,offset) ((arr)[idx]  &=~(0x1UL << (offset)))
+
+#define bitset_has(arr,pos) \
+        bitset2_has(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8))
+#define bitset_set(arr,pos) \
+        bitset2_set(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8))
+#define bitset_del(arr,pos) \
+        bitset2_del(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8))
 
 #define bitset_clear_word(arr,pos) ((arr)[(pos) / (sizeof(*(arr))*8)] = 0)
 

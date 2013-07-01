@@ -106,48 +106,34 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 
 void db_node_add_coverage(dBGraph *graph, hkey_t hkey, Colour col, long update)
 {
-  safe_add_covgs(graph->covgs[hkey][col], update, graph->covgs[hkey][col]);
+  Covg (*col_covgs)[graph->num_of_cols]
+    = (Covg (*)[graph->num_of_cols])graph->col_covgs;
+
+  safe_add_covgs(col_covgs[hkey][col], update, col_covgs[hkey][col]);
 }
 
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col)
 {
-  safe_covgs_increment(graph->covgs[hkey][col]);
+  Covg (*col_covgs)[graph->num_of_cols]
+    = (Covg (*)[graph->num_of_cols])graph->col_covgs;
+
+  safe_covgs_increment(col_covgs[hkey][col]);
 }
 
 Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
-                                 Colour first_col, int num_cols)
+                                 Colour first_col, int num_of_cols)
 {
-  Covg sum_covg = 0, *covgs = graph->covgs[hkey];
+  const Covg *covgs = graph->col_covgs + hkey*graph->num_of_cols;
+
+  Covg sum_covg = 0;
   Colour col, end;
 
-  for(col = first_col, end = first_col+num_cols; col < end; col++)
+  for(col = first_col, end = first_col+num_of_cols; col < end; col++)
     safe_add_covgs(sum_covg, covgs[col], sum_covg);
 
   return sum_covg;
 }
 
-Covg db_node_sum_covg_of_all_colours(const dBGraph *graph, hkey_t hkey)
-{
-  Covg sum_covg = 0, *covgs = graph->covgs[hkey];
-  Colour col;
-
-  for(col = 0; col < NUM_OF_COLOURS; col++)
-    safe_add_covgs(sum_covg, covgs[col], sum_covg);
-
-  return sum_covg;
-}
-
-Covg db_node_sum_covg_of_colourlist(const dBGraph *graph, hkey_t hkey,
-                                    const Colour *cols, int num_cols)
-{
-  Covg sum_covg = 0, *covgs = graph->covgs[hkey];
-  int i;
-
-  for(i = 0; i < num_cols; i++)
-    safe_add_covgs(sum_covg, covgs[cols[i]], sum_covg);
-
-  return sum_covg;
-}
 
 //
 // dBNodeBuffer

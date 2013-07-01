@@ -47,8 +47,8 @@ static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
   memcpy(worker, &tmp, sizeof(AddPathsWorker));
 
   db_node_buf_alloc(&worker->nodebuf, 4096);
-  path_alloc(&worker->path);
-  graph_walker_alloc(&worker->wlk);
+  path_alloc(&worker->path, db_graph->pdata.num_of_cols);
+  graph_walker_alloc(&worker->wlk, db_graph->pdata.num_of_cols);
   seq_read_alloc(&worker->job.r1);
   seq_read_alloc(&worker->job.r2);
   memset(worker->insert_sizes, 0, sizeof(uint64_t)*(GAP_LIMIT+1));
@@ -183,8 +183,8 @@ static void add_read_path(const dBNode *nodes, size_t len,
     printf("\n");
   #endif
 
-  path_init(path);
-  bitset_set(path->core.colours, colour);
+  path_init(path, paths->num_of_cols);
+  path_set_col(path, colour);
 
   // to add a path
   hkey_t node;
@@ -221,9 +221,9 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
     node = nodes[pos].node;
     orient = rev_orient(nodes[pos].orient);
-    path->core.prev = db_node_paths(graph, node, orient);
+    path->prev = db_node_paths(graph, node, orient);
     path->bases = nuc_rv + start_rv;
-    path->core.len = num_rv - start_rv;
+    path->len = num_rv - start_rv;
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
@@ -261,9 +261,9 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
     node = nodes[pos].node;
     orient = nodes[pos].orient;
-    path->core.prev = db_node_paths(graph, node, orient);
+    path->prev = db_node_paths(graph, node, orient);
     path->bases = nuc_fw + start_fw;
-    path->core.len = num_fw - start_fw;
+    path->len = num_fw - start_fw;
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
