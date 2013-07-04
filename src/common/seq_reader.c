@@ -1,13 +1,12 @@
-
 #include "global.h"
-
 #include "seq_file.h"
 
-#include "seq_reader.h"
+#include "util.h"
 #include "binary_kmer.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "file_reader.h"
+#include "seq_reader.h"
 
 static boolean invalid_bases[256];
 boolean fastq_qual_too_small = false, fastq_qual_too_big = false;
@@ -32,7 +31,7 @@ size_t seq_contig_start(const read_t *r, long offset, uint32_t kmer_size,
   {
     // Check for invalid bases
     size_t i = next_kmer;
-    while(i > index && is_base_char(r->seq.b[i-1])) i--;
+    while(i > index && char_is_dna_base(r->seq.b[i-1])) i--;
 
     if(i > index) {
       index = i;
@@ -94,7 +93,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
 
   for(; contig_end < r->seq.end; contig_end++)
   {
-    if(!is_base_char(r->seq.b[contig_end]) ||
+    if(!char_is_dna_base(r->seq.b[contig_end]) ||
        (contig_end < r->qual.end && r->qual.b[contig_end] < qual_cutoff))
     {
       break;
@@ -190,7 +189,7 @@ void process_new_read(read_t *r, int qmin, int qmax, const char *path)
   char *tmp;
   for(tmp = r->seq.b; *tmp != '\0'; tmp++)
   {
-    if(!is_base_char(*tmp) && *tmp != 'N' && !invalid_bases[(size_t)*tmp])
+    if(!char_is_dna_base(*tmp) && *tmp != 'N' && !invalid_bases[(size_t)*tmp])
     {
       warn("Invalid sequence [%c] [read: %s; path: %s]\n",
            *tmp, r->name.b, path);

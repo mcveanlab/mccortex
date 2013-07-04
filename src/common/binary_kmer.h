@@ -39,18 +39,14 @@ typedef enum
 
 extern const char bnuc_to_char_array[4];
 extern const Nucleotide char_to_bnuc[128];
-extern const char complement_base[128];
 
-#define is_base_char(c) (char_to_bnuc[(int)(c)] != Undefined)
 #define binary_nuc_complement(n) (~(n) & 0x3)
 #define binary_nuc_from_char(c)  char_to_bnuc[(int)(c)]
 
 #ifdef NDEBUG
   #define binary_nuc_to_char(c)  bnuc_to_char_array[(c)]
-  #define char_nucleotide_complement(c) complement_base[(int)(c)]
 #else
   char binary_nuc_to_char(Nucleotide n);
-  char char_nucleotide_complement(char c);
 #endif
 
 // Number of bases store in all but the top word

@@ -16,15 +16,6 @@ const Nucleotide char_to_bnuc[128] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
                                       4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,
                                       4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4};
 
-const char complement_base[128] = {0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
-                                   0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
-                                   0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
-                                   0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
-                                   0,'T',0,'G',  0,0,0,'C',0,0,0,0,0,0,0,0,
-                                   0,  0,0,  0,'A',0,0,  0,0,0,0,0,0,0,0,0,
-                                   0,'T',0,'G',  0,0,0,'C',0,0,0,0,0,0,0,0,
-                                   0,  0,0,  0,'A',0,0,  0,0,0,0,0,0,0,0,0};
-
 #ifndef NDEBUG
 // These have asserts in them
 char binary_nuc_to_char(Nucleotide n)
@@ -32,12 +23,6 @@ char binary_nuc_to_char(Nucleotide n)
   // Check only values 0..3 are being used
   assert((n & 0x3) == n);
   return bnuc_to_char_array[n];
-}
-char char_nucleotide_complement(char c)
-{
-  char cmplmnt = complement_base[(int)c];
-  assert(cmplmnt != 0);
-  return cmplmnt;
 }
 #endif
 
@@ -226,26 +211,6 @@ char *binary_kmer_to_str(const BinaryKmer bkmer, uint32_t kmer_size, char *seq)
   seq[kmer_size] = '\0';
 
   return seq;
-}
-
-// length is the length in number of bases
-// the char* should have one MORE base than that allocated, to hold '\0'
-char *reverse_complement_str(char *str, size_t length)
-{
-  assert(strlen(str) >= length);
-
-  if(length == 0) return str;
-  if(length == 1) { str[0] = char_nucleotide_complement(str[0]); return str; }
-
-  size_t i, j;
-  for(i = 0, j = length - 1; i <= j; i++, j--)
-  {
-    char tmp = str[i];
-    str[i] = char_nucleotide_complement(str[j]);
-    str[j] = char_nucleotide_complement(tmp);
-  }
-
-  return str;
 }
 
 void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len)

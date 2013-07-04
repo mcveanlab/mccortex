@@ -336,3 +336,45 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len)
 
   return num == 0 ? 0 : (sum / num);
 }
+
+//
+// Genetics
+//
+const char complement_base[128] = {0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
+                                   0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
+                                   0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
+                                   0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
+                                   0,'T',0,'G',  0,0,0,'C',0,0,0,0,0,0,0,0,
+                                   0,  0,0,  0,'A',0,0,  0,0,0,0,0,0,0,0,0,
+                                   0,'T',0,'G',  0,0,0,'C',0,0,0,0,0,0,0,0,
+                                   0,  0,0,  0,'A',0,0,  0,0,0,0,0,0,0,0,0};
+
+#ifndef NDEBUG
+// These have asserts in them
+char char_nucleotide_complement(char c)
+{
+  char cmplmnt = complement_base[(int)c];
+  assert(cmplmnt != 0);
+  return cmplmnt;
+}
+#endif
+
+// length is the length in number of bases
+// the char* should have one MORE base than that allocated, to hold '\0'
+char *reverse_complement_str(char *str, size_t length)
+{
+  assert(strlen(str) >= length);
+
+  if(length == 0) return str;
+  if(length == 1) { str[0] = char_nucleotide_complement(str[0]); return str; }
+
+  size_t i, j;
+  for(i = 0, j = length - 1; i <= j; i++, j--)
+  {
+    char tmp = str[i];
+    str[i] = char_nucleotide_complement(str[j]);
+    str[j] = char_nucleotide_complement(tmp);
+  }
+
+  return str;
+}

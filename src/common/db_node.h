@@ -161,7 +161,6 @@ typedef struct
 
 void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity);
 void db_node_buf_dealloc(dBNodeBuffer *buf);
-void db_node_buf_free(dBNodeBuffer *buf);
 void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity);
 void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient);
 

@@ -62,4 +62,22 @@ float log_factorial(int number);
 float log_factorial_ll(long long number);
 unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 
+//
+// Genetics
+//
+
+extern const char complement_base[128];
+
+#ifdef NDEBUG
+  #define char_nucleotide_complement(c) complement_base[(int)(c)]
+#else
+  char char_nucleotide_complement(char c);
+#endif
+
+#define char_is_dna_base(c) (char_to_bnuc[(int)(c)] != Undefined)
+
+// length is the length in number of bases
+// the char* should have one MORE base than that allocated, to hold '\0'
+char *reverse_complement_str(char *str, size_t length);
+
 #endif /* UTIL_H_ */

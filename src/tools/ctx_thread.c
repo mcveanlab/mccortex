@@ -23,9 +23,9 @@ int main(int argc, char* argv[])
 {
   if(argc < 6) print_usage(usage, NULL);
 
-  char *input_ctx_path = argv[argc-1];
-  char *mem_arg = argv[argc-2];
   char *threads_arg = argv[argc-3];
+  char *mem_arg = argv[argc-2];
+  char *input_ctx_path = argv[argc-1];
 
   size_t mem_to_use = 0;
   uint32_t num_of_threads = 1;
@@ -96,9 +96,9 @@ int main(int argc, char* argv[])
   size_t graph_mem = hash_mem +
                      hash_kmers * sizeof(Edges) + // edges
                      hash_kmers * sizeof(uint64_t) * 2 + // kmer_paths
-                     round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
-                     round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
+                     round_bits_to_bytes(hash_kmers) * num_of_cols; // in col
 
+  // visited fw/rv
   size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * num_of_threads;
 
   if(graph_mem+thread_mem > mem_to_use) {
@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
                            .remove_dups_se = false, .remove_dups_pe = false,
                            .load_binaries = true,
                            .must_exist_in_colour = -1,
-                           .empty_colours = false, .load_as_union = false,
+                           .empty_colours = false,
                            .update_ginfo = true,
                            .db_graph = &db_graph};
 

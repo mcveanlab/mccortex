@@ -72,7 +72,7 @@ typedef struct
   uint64_t *node_in_cols;
 
   // path data
-  uint64_t *kmer_paths;
+  uint64_t *volatile kmer_paths;
   binary_paths_t pdata;
 
   // Loading reads

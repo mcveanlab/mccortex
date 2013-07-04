@@ -47,8 +47,8 @@ typedef struct
   // loading binaries
   boolean load_binaries;
   int must_exist_in_colour;
-  // if load_as_union is true then we only increment covg if it is zero
-  boolean empty_colours, load_as_union;
+  // if empty_colours is true an error is thrown if a kmer is repeated
+  boolean empty_colours;
 
   boolean update_ginfo;
   dBGraph *db_graph;

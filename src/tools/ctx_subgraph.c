@@ -151,7 +151,6 @@ static void filter_subgraph(const char *input_ctx_path,
                            .load_binaries = true,
                            .must_exist_in_colour = -1,
                            .empty_colours = true,
-                           .load_as_union = false,
                            .update_ginfo = false,
                            .db_graph = &db_graph};
 

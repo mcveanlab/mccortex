@@ -383,8 +383,10 @@ void parse_filelists(const char *list_path1, const char *list_path2,
         else new_stats->se_colourlists_loaded++;
       }
 
-      prefs->into_colour += cols_read_in;
-      new_stats->num_of_colours_loaded += cols_read_in;
+      if(!prefs->merge_colours) {
+        prefs->into_colour += cols_read_in;
+        new_stats->num_of_colours_loaded += cols_read_in;
+      }
     }
     else
     {
@@ -699,7 +701,7 @@ void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour
        .quality_cutoff = 0, .ascii_fq_offset = 0, .homopolymer_cutoff = 0,
        .remove_dups_se = false, .remove_dups_pe = false,
        .load_binaries = true, .must_exist_in_colour = clean_colour,
-       .empty_colours = true, .load_as_union = false,
+       .empty_colours = true,
        .update_ginfo = true, .db_graph = db_graph};
 
   // Get directory path

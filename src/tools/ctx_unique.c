@@ -1,4 +1,3 @@
-
 #include "global.h"
 
 #include <time.h>
@@ -8,10 +7,8 @@
 #include "string_buffer.h"
 
 #include "global.h"
-#include "binary_kmer.h"
 #include "util.h"
 #include "file_util.h"
-#include "file_reader.h"
 #include "delta_array.h"
 
 #define PROC_MAXK 100

@@ -396,7 +396,9 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 
   if(bam_is_rev(bam)) vcf_entry_revcmp(vcfentry);
 
-  StrBuf *lf = vcfentry->lf, *rf = vcfentry->rf;
+  const StrBuf *lf = vcfentry->lf, *rf = vcfentry->rf;
+
+  if(rf->len <= 3) rf = lf;
 
   strbuf_reset(endflank);
   if(bam_is_rev(bam)) {
@@ -554,8 +556,8 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   ref_allele_str[ref_allele_len] = save_ref_base;
 
   // Flanks not needed anymore
-  strbuf_reset(lf);
-  strbuf_reset(rf);
+  strbuf_reset(vcfentry->lf);
+  strbuf_reset(vcfentry->rf);
 
   //
   // Decompose into variants

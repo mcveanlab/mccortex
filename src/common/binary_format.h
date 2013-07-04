@@ -36,12 +36,16 @@ char binary_probe(const char* path, boolean *is_ctx,
                   uint32_t *kmer_size_ptr, uint32_t *num_of_colours_ptr,
                   uint64_t *num_of_kmers);
 
-// Load a binary, putting the first colour into `load_first_colour_into`
-//
-// if only_load_if_in_colour is >= 0 only kmers with coverage in existing
-//    colour only_load_if_in_colour will be loaded.
-// if empty_colours != 0 an error is thrown if a node already exists
-// if load_as_union != 0 then we only increment covg if it is zero
+// if only_load_if_in_colour is >= 0, only kmers with coverage in existing
+// colour only_load_if_in_colour will be loaded.
+// We assume only_load_if_in_colour < load_first_colour_into
+// if all_kmers_are_unique != 0 an error is thrown if a node already exists
+// returns the number of colours in the binary
+// If stats != NULL, updates:
+//   stats->num_of_colours_loaded
+//   stats->kmers_loaded
+//   stats->total_bases_read
+//   stats->binaries_loaded
 uint32_t binary_load(const char *path, dBGraph *graph,
                      SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
 

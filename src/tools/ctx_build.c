@@ -204,7 +204,6 @@ int main(int argc, char **argv)
                            .remove_dups_se = false, .remove_dups_pe = false,
                            .load_binaries = true,
                            .must_exist_in_colour = -1, .empty_colours = false,
-                           .load_as_union = false,
                            .update_ginfo = true, .db_graph = &db_graph};
 
   read_t r1, r2;

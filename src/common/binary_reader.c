@@ -128,7 +128,7 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
   path[path_len] = '\0';
 
   boolean col_filter_specified = false;
-  uint32_t max_col_specified = 0;
+  uint32_t max_col_specified = 0, only_cols_len;
 
   char *split;
   if((split = strchr(path, ':')) != NULL)
@@ -136,8 +136,8 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
     *split = '\0';
     split++;
     // Check colour specification comma-list
-    uint32_t i, only_cols_len = count_char(split, ',')+1;
-    uint32_t only_colours[only_cols_len];
+    only_cols_len = count_char(split, ',')+1;
+    uint32_t i, only_colours[only_cols_len];
     if(!parse_uint_liststr_strict(split, ',', only_colours, only_cols_len))
     {
       warn("Invalid colour specification: %s", ctx_path);
@@ -163,11 +163,16 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
   if(bytes_read == 0) return 1;
 
   // Check if colours specified are not valid
-  if(col_filter_specified && *num_of_colours_ptr < max_col_specified)
+  if(col_filter_specified)
   {
-    warn("specified colour higher than in binary [%u vs %u; path: %s]",
-         max_col_specified, *num_of_colours_ptr - 1, ctx_path);
-    return 1;
+    if(*num_of_colours_ptr < max_col_specified)
+    {
+      warn("specified colour higher than in binary [%u vs %u; path: %s]",
+           max_col_specified, *num_of_colours_ptr - 1, ctx_path);
+      return 1;
+    }
+
+    *num_of_colours_ptr = only_cols_len;
   }
 
   // Valid ctx binary
@@ -449,7 +454,6 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 // colour only_load_if_in_colour will be loaded.
 // We assume only_load_if_in_colour < load_first_colour_into
 // if all_kmers_are_unique != 0 an error is thrown if a node already exists
-// if load_as_union != 0 then we only increment covg if it is zero
 // returns the number of colours in the binary
 // If stats != NULL, updates:
 //   stats->num_of_colours_loaded
@@ -459,7 +463,6 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 uint32_t binary_load(const char *ctx_path, dBGraph *graph,
                      SeqLoadingPrefs *prefs, SeqLoadingStats *stats)
 {
-  assert(prefs->must_exist_in_colour < (signed)prefs->into_colour);
   assert(prefs->must_exist_in_colour == -1 || graph->node_in_cols != NULL);
 
   char *path = strdup(ctx_path);
@@ -551,11 +554,15 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
 
     if(only_colours != NULL) {
       // Collapse down colours
+      uint32_t keep_kmer = 0;
       for(i = 0; i < only_cols_len; i++) {
         covgs[i] = covgs[only_colours[i]];
         edges[i] = edges[only_colours[i]];
+        keep_kmer = covgs[i] | edges[i];
       }
       num_of_cols = only_cols_len;
+      // If kmer has no covg or edges -> don't load
+      if(keep_kmer == 0) continue;
     }
 
     if(prefs->merge_colours) {
@@ -568,12 +575,13 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
 
     // Fetch node in the de bruijn graph
     hkey_t node;
-    boolean increment_covg = true;
 
     if(prefs->must_exist_in_colour >= 0)
     {
-      if((node = hash_table_find(&graph->ht, bkmer)) != HASH_NOT_FOUND &&
-         db_node_has_col(graph, node, prefs->must_exist_in_colour))
+      node = hash_table_find(&graph->ht, bkmer);
+
+      if(node != HASH_NOT_FOUND &&
+         !db_node_has_col(graph, node, prefs->must_exist_in_colour))
       {
         node = HASH_NOT_FOUND;
       }
@@ -588,7 +596,6 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
         die("Duplicate kmer loaded [cols:%u:%u]",
             prefs->into_colour, num_of_cols);
       }
-      if(prefs->load_as_union) increment_covg = !found;
     }
 
     if(node != HASH_NOT_FOUND)
@@ -601,16 +608,8 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
       }
 
       if(graph->col_covgs != NULL) {
-        if(increment_covg) {
-          for(i = 0; i < num_of_cols; i++) {
-            col = prefs->into_colour+i;
-            db_node_add_coverage(graph, node, col, covgs[i]);
-          }
-        }
-        else {
-          for(i = 0; i < num_of_cols; i++)
-            db_node_set_covg(graph, node, prefs->into_colour+i, covgs[i]);
-        }
+        for(i = 0; i < num_of_cols; i++)
+          db_node_add_coverage(graph, node, prefs->into_colour+i, covgs[i]);
       }
 
       if(graph->col_edges != NULL)

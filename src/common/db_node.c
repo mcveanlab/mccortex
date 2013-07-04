@@ -106,18 +106,26 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 Edges edges_get_union(const Edges *edges_arr, size_t num)
 {
   // Slow version
-  // Edges edges = 0;
-  // size_t i;
+  // Edges edges = 0; size_t i;
   // for(i = 0; i < NUM_OF_COLOURS; i++) edges |= edges_arr[i];
   // return edges;
 
   // Faster version deals with 8 bytes at a time
-  uint64_t i, edges = 0;
-  const uint64_t *ptr = (const uint64_t*)edges_arr;
+  uint64_t i, edges = 0, tmp, end = 8*(num/8);
 
-  for(i = 0; i < num / 8; i++, ptr++) edges |= *ptr;
+  for(i = 0; i < end; i += 8) {
+    memcpy(&tmp, edges_arr+i, sizeof(uint64_t));
+    edges |= tmp;
+  }
 
-  edges |= *ptr & (~(uint64_t)0 >> (64-(8*(num % 8))));
+  memcpy(&tmp, edges_arr+i, sizeof(uint64_t));
+  edges |= tmp & (~(uint64_t)0 >> (64-(8*(num % 8))));
+
+  // with unaligned memory access
+  // const uint64_t *ptr = (const uint64_t*)((size_t)edges_arr);
+  // for(i = 0; i < num / 8; i++, ptr++) edges |= *ptr;
+  // edges |= *ptr & (~(uint64_t)0 >> (64-(8*(num % 8))));
+
   edges |= edges >> 32;
   edges |= edges >> 16;
   edges |= edges >> 8;

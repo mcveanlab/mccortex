@@ -128,7 +128,6 @@ int main(int argc, char* argv[])
                            .load_binaries = true,
                            .must_exist_in_colour = -1,
                            .empty_colours = num_binaries == 1,
-                           .load_as_union = false,
                            .update_ginfo = false,
                            .db_graph = &db_graph};
 
@@ -149,4 +148,6 @@ int main(int argc, char* argv[])
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
+
+  return EXIT_SUCCESS;
 }
