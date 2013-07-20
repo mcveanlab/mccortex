@@ -43,8 +43,8 @@ void binary_paths_init(binary_paths_t *paths, uint8_t *data, size_t size,
                        size_t num_of_cols)
 {
   binary_paths_t new_paths = {.store = data, .end = data + size,
-                              .size = size, .next = data, .num_paths = 0,
-                              .num_of_cols = num_of_cols};
+                              .size = size, .next = data,
+                              .num_of_paths = 0, .num_of_cols = num_of_cols};
   memcpy(paths, &new_paths, sizeof(binary_paths_t));
 }
 
@@ -186,7 +186,7 @@ uint64_t binary_paths_add(binary_paths_t *paths, path_t *path, Colour colour)
   ptr += len_in_bytes;
 
   paths->next = ptr;
-  paths->num_paths++;
+  paths->num_of_paths++;
 
   return start;
 }

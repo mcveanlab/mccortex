@@ -14,7 +14,7 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: ctx_reads <in.ctx> <capacity> [FASTA|FASTQ] [OPTIONS]\n"
+"usage: ctx_reads <mem> <in.ctx> [FASTA|FASTQ] [OPTIONS]\n"
 "  Filters reads based on which have a kmer in the graph. Options:\n"
 "    --se_list <in.list> <out.fq.gz>\n"
 "    --pe_list <pe.list1> <pe.list2> <out.1.fq.gz> <out.2.fq.gz>\n"
@@ -108,13 +108,14 @@ int main(int argc, char* argv[])
 {
   if(argc < 3) print_usage(usage, NULL);
 
-  unsigned long kmer_capacity;
-  char *input_ctx_path = argv[1];
+  size_t mem_to_use = 0;
 
-  if(!parse_entire_ulong(argv[2], &kmer_capacity))
-    print_usage(usage, "Invalid kmer capacity: %lu\n", kmer_capacity);
+  if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
+    print_usage(usage, "Invalid memory argument: %s", argv[1]);
 
-  int argi, nextarg = 4;
+  char *input_ctx_path = argv[2];
+
+  int argi, nextarg = 3;
   void (*print_func)(const read_t *r, gzFile gz, int linewrap) = seq_gzprint_fasta;
 
   if(strcasecmp(argv[nextarg], "FASTQ") == 0) {
@@ -163,9 +164,20 @@ int main(int argc, char* argv[])
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
+  size_t kmers_in_hash, ideal_capacity = num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t hash_mem = hash_table_mem2(mem_to_use, &kmers_in_hash);
+
+  if(kmers_in_hash < num_kmers) die("Not enough memory for hash");
+  if(kmers_in_hash < ideal_capacity) warn("Low memory for binary size");
+
+  char hash_mem_str[100];
+  bytes_to_str(hash_mem, 1, hash_mem_str);
+
+  message("[memory]  hash table: %s\n", hash_mem_str);
+
   // Load binary
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmer_capacity);
+  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
 
   // Set up parsing sequence
   SeqLoadingStats *stats = seq_loading_stats_create(0);

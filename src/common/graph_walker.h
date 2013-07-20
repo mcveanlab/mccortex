@@ -15,9 +15,11 @@ typedef struct
   Orientation orient;
 
   // Current paths
-  path_t **curr_paths, *paths_data;
-  size_t num_paths, paths_cap, num_new_paths;
+  path_t **curr_paths, **counter_paths, *paths_data;
+  size_t num_curr_paths, num_counter_paths, paths_cap, num_new_paths;
   // size_t new_path_pos, num_new_paths;
+
+  // DEV: implement storing counter paths paths
 
   // uint64_t *prev_paths;
   // size_t num_pp, pp_cap;
@@ -46,10 +48,13 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                         const hkey_t next_nodes[4],
                         const Nucleotide next_bases[4]);
 
+// Move to the next node
 // If fork is true, node is the result of taking a fork -> slim down paths
 void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
                           boolean fork);
 
+// Jump to a new node (any node up until the end of the current supernode or the
+// first node of the next supernode)
 void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
                                boolean fork);
 
@@ -58,5 +63,9 @@ boolean graph_traverse(GraphWalker *wlk);
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              const hkey_t nodes[4], const Nucleotide bases[4]);
 
+// void graph_walker_add_counter_paths(GraphWalker *wlk, hkey_t node,
+//                                     hkey_t prev_nodes[4],
+//                                     Orientation prev_orients[4],
+//                                     size_t num_prev);
 
 #endif /* READ_PATH_H_ */

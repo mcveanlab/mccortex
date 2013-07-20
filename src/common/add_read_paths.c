@@ -737,6 +737,6 @@ void add_read_paths_to_graph(const char *se_list,
   binary_paths_t *pdata = &prefs.db_graph->pdata;
   size_t paths_mem_used = pdata->next - pdata->store;
   bytes_to_str(paths_mem_used, 1, mem_used_str);
-  ulong_to_str(pdata->num_paths, num_paths_str);
+  ulong_to_str(pdata->num_of_paths, num_paths_str);
   message("Currently %s used for %s paths\n\n", mem_used_str, num_paths_str);
 }

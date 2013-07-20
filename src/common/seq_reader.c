@@ -524,47 +524,48 @@ void load_read(const read_t *r, dBGraph *db_graph,
                int qual_cutoff, int hp_cutoff,
                Colour colour, SeqLoadingStats *stats)
 {
-  if(r->seq.end < db_graph->kmer_size) return;
+  const uint32_t kmer_size = db_graph->kmer_size;
+  if(r->seq.end < kmer_size) {
+    stats->total_bad_reads++;
+    return;
+  }
 
   size_t search_start = 0;
   size_t contig_start, contig_end = 0;
 
-  while((contig_start = seq_contig_start(r, search_start, db_graph->kmer_size,
+  while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          qual_cutoff, hp_cutoff)) < r->seq.end)
   {
-    contig_end = seq_contig_end(r, contig_start, db_graph->kmer_size,
+    contig_end = seq_contig_end(r, contig_start, kmer_size,
                                 qual_cutoff, hp_cutoff, &search_start);
 
-    size_t contig_len = contig_end - contig_start;
+    size_t i, contig_len = contig_end - contig_start;
 
     // printf("contig: %.*s\n", (int)contig_len, r->seq.b+contig_start);
 
     // Load into graph
-    BinaryKmer bkmer;
-    binary_kmer_from_str(r->seq.b+contig_start, db_graph->kmer_size, bkmer);
-
-    BinaryKmer tmp_key;
+    BinaryKmer bkmer, tmp_key;
     hkey_t prev_node, curr_node;
     Orientation prev_or, curr_or;
 
-    db_node_get_key(bkmer, db_graph->kmer_size, tmp_key);
-    curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-    curr_or = db_node_get_orientation(bkmer, tmp_key);
+    binary_kmer_from_str(r->seq.b+contig_start, kmer_size, bkmer);
+    db_node_get_key(bkmer, kmer_size, tmp_key);
+    prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
+    prev_or = db_node_get_orientation(bkmer, tmp_key);
 
-    size_t i;
-    for(i = contig_start+db_graph->kmer_size; i < contig_end; i++)
+    for(i = contig_start+kmer_size; i < contig_end; i++)
     {
       Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
-      binary_kmer_left_shift_add(bkmer, db_graph->kmer_size, nuc);
+      binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
 
-      prev_node = curr_node;
-      prev_or = curr_or;
-
-      db_node_get_key(bkmer, db_graph->kmer_size, tmp_key);
+      db_node_get_key(bkmer, kmer_size, tmp_key);
       curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
       curr_or = db_node_get_orientation(bkmer, tmp_key);
 
       db_graph_add_edge(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
+
+      prev_node = curr_node;
+      prev_or = curr_or;
     }
 
     // Update contig stats
@@ -573,7 +574,7 @@ void load_read(const read_t *r, dBGraph *db_graph,
       stats->readlen_count_array[contig_len]++;
     }
     stats->total_bases_loaded += contig_len;
-    stats->kmers_loaded += contig_len + 1 - db_graph->kmer_size;
+    stats->kmers_loaded += contig_len + 1 - kmer_size;
   }
 
   // contig_end == 0 if no contigs from this read

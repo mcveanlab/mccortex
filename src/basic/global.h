@@ -73,11 +73,11 @@ typedef signed char boolean;
 #define bitset_clear_word(arr,pos) ((arr)[(pos) / (sizeof(*(arr))*8)] = 0)
 
 // Turn off shades
-#define NUM_OF_SHADES 0
-#define SHADE_BYTES 0
-#define SHADE_WORDS 0
-typedef uint8_t ShadeSet[SHADE_WORDS];
-typedef uint8_t *ShadesPtr;
+// #define NUM_OF_SHADES 0
+// #define SHADE_BYTES 0
+// #define SHADE_WORDS 0
+// typedef uint8_t ShadeSet[SHADE_WORDS];
+// typedef uint8_t *ShadesPtr;
 
 #define die(fmt, ...) call_die(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define warn(fmt, ...) call_warn(__FILE__, __LINE__, fmt, ##__VA_ARGS__)

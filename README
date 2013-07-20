@@ -1,10 +1,10 @@
-Cortex with low memory and read-threading
-=========================================
+Population De Novo Assembly and Variant Calling
+===============================================
 
-De novo assembly and variant calling using de bruijn graphs. Variant calling
-with and without a reference genome. Between closely related samples or highly
-diverged ones. From bacterial to mammalian genomes. Minimal configuration.
-And it's free.
+Multi-sample de novo assembly and variant calling using de bruijn graphs.
+Variant calling with and without a reference genome. Between closely related
+samples or highly diverged ones. From bacterial to mammalian genomes. Minimal
+configuration. And it's free.
 
 Isaac Turner's experimental fork of cortex_var, to handle larger populations
 with better genome assembly.
@@ -43,6 +43,7 @@ ctx_reads     [filter reads using a graph]
 ctx_intersect [dump intersection of a.ctx with b.ctx]
 ctx_join      [combine binaries]
 ctx_extend    [extend contigs using a population graph]
+ctx_contigs   [pull out contigs from a sample]
 
 Common Pipelines
 ----------------

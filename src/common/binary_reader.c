@@ -6,6 +6,50 @@
 #include "db_node.h"
 #include "graph_info.h"
 
+void binary_get_colour_array(const char *str, uint32_t *arr, uint32_t num_of_cols)
+{
+  char *ptr = strchr(str, ':');
+  Colour i;
+
+  if(ptr == NULL) {
+    for(i = 0; i < num_of_cols; i++)
+      arr[i] = i;
+  }
+  else {
+    uint32_t len = count_char(str, ',')+1;
+    if(!parse_uint_liststr_strict(str+1, ',', arr, len))
+      die("Invalid colour specification: %s", str);
+  }
+}
+
+uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
+                            SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                            uint32_t colour)
+{
+  boolean is_binary;
+  uint32_t kmer_size, num_of_cols;
+  uint64_t num_of_kmers;
+
+  if(!binary_probe(path, &is_binary, &kmer_size, &num_of_cols, &num_of_kmers))
+    die("Cannot read input binary file: %s", path);
+  else if(!is_binary)
+    die("Input binary file isn't valid: %s", path);
+
+  uint32_t col_array[num_of_cols];
+  binary_get_colour_array(path, col_array, num_of_cols);
+
+  size_t len = strlen(path);
+  char new_path[len+1+60];
+  memcpy(new_path, path, len * sizeof(char));
+  new_path[len] = '\0';
+
+  char *end;
+  if((end = strchr(new_path, ':')) == NULL) end = new_path+len;
+  sprintf(end, ":%u", col_array[colour]);
+
+  return binary_load(new_path, db_graph, prefs, stats);
+}
+
 static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
                        uint32_t *num_of_colours_ptr,
                        uint64_t *num_of_kmers_ptr, boolean *kmer_count_set,
@@ -347,6 +391,17 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
 
       bytes_read += 4*sizeof(uint8_t) + 2*sizeof(uint32_t);
 
+      // Fix for old versions with negative thresholds
+      if(h->version <= 6) {
+        if(!err_cleaning->remv_low_cov_sups &&
+           err_cleaning->remv_low_cov_sups_thresh == (uint32_t)-1) {
+          err_cleaning->remv_low_cov_nodes_thresh = 0;
+        } else if(!err_cleaning->remv_low_cov_nodes &&
+           err_cleaning->remv_low_cov_nodes_thresh == (uint32_t)-1) {
+          err_cleaning->remv_low_cov_nodes_thresh = 0;
+        }
+      }
+
       // Sanity checks
       if(!err_cleaning->remv_low_cov_sups &&
          err_cleaning->remv_low_cov_sups_thresh > 0)
@@ -507,7 +562,9 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
     die("binary has different kmer size [kmer_size: %u vs %u; binary: %s]",
         header.kmer_size, graph->kmer_size, path);
   }
-  if(prefs->into_colour + num_cols_loaded > graph->num_of_cols)
+
+  if(prefs->into_colour + num_cols_loaded > graph->num_of_cols &&
+     (graph->col_covgs != NULL || graph->col_edges != NULL))
   {
     die("Program has not assigned enough colours! "
         "[colours in binary: %i vs graph: %i, load into: %i; binary: %s]",

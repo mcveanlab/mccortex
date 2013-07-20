@@ -27,7 +27,7 @@ typedef struct
   StrBuf **info;
   size_t num_info, info_capacity;
   StrBuf *lf, *rf; // flanks
-  delta_array_t **covgs;
+  DeltaArray **covgs;
 } vcf_entry_t;
 
 void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples);

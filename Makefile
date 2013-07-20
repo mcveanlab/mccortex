@@ -95,19 +95,6 @@ CFLAGS = -std=c99 -Wall -Wextra \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
          -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) $(HASH_KEY_FLAGS) $(OPT) $(DEBUG_ARGS)
 
-CTX_BUILD_BIN=bin/ctx_build_k$(MAXK)
-CTX_CLEAN_BIN=bin/ctx_clean_k$(MAXK)
-CTX_SUBGRAPH_BIN=bin/ctx_subgraph_k$(MAXK)
-CTX_READS_BIN=bin/ctx_reads_k$(MAXK)
-CTX_INTERSECT_BIN=bin/ctx_intersect_k$(MAXK)
-CTX_JOIN_BIN=bin/ctx_join_k$(MAXK)
-CTX_THREAD_BIN=bin/ctx_thread_k$(MAXK)
-CTP_VIEW_BIN=bin/ctp_view_k$(MAXK)
-CTX_CALL_BIN=bin/ctx_call_k$(MAXK)
-CTX_COVG_BIN=bin/ctx_covg_k$(MAXK)
-CTX_EXTEND_BIN=bin/ctx_extend_k$(MAXK)
-CTX_CONTIGS_BIN=bin/ctx_contigs_k$(MAXK)
-
 KMER_OBJDIR=build/k$(MAXK)
 
 # basic objects compile without MAXK
@@ -118,102 +105,56 @@ COMMON_FILES=$(notdir $(wildcard src/common/*.c))
 BASIC_OBJS=$(addprefix build/basic/, $(BASIC_FILES:.c=.o))
 KMER_OBJS=$(addprefix $(KMER_OBJDIR)/, $(COMMON_FILES:.c=.o))
 
-CUTBACK_OBJS=$(BASIC_OBJS)
-OBJS=$(CUTBACK_OBJS) $(KMER_OBJS)
-
-CUTBACK_COMMON=$(wildcard src/common/*.h) $(BASIC_OBJS)
-COMMON=$(CUTBACK_COMMON) $(KMER_OBJS)
-
-CUTBACK_HDRS=$(wildcard src/basic/*.h)
-HDRS=$(CUTBACK_HDRS) $(wildcard src/common/*.h)
+BASIC_HDRS=$(wildcard src/basic/*.h)
+KMER_HDRS=$(wildcard src/common/*.h)
 
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=Makefile bin build/basic $(KMER_OBJDIR) $(LIB_OBJS)
 
 TOOLS=ctx_build ctx_clean ctx_reads ctx_subgraph ctx_intersect ctx_join \
-      ctx_thread ctp_view ctx_call ctx_unique ctx_place ctx_covg \
-      ctx_extend ctx_contigs
+      ctx_thread ctp_view ctx_call ctx_covg ctx_extend ctx_contigs ctx_diverge \
+      ctx_unique ctx_place
 
 all: $(TOOLS)
+
+.SUFFIXES: .c .o _k$(MAXK)
+.SECONDARY:
 
 build/basic/call_seqan.o: src/basic/call_seqan.cpp src/basic/call_seqan.h | $(DEPS)
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c src/basic/call_seqan.cpp -o $@
 
-build/basic/%.o: src/basic/%.c $(CUTBACK_HDRS) | build/basic
+build/basic/%.o: src/basic/%.c $(BASIC_HDRS) | build/basic
 	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(KMER_OBJDIR)/%.o: src/common/%.c $(HDRS) | $(KMER_OBJDIR)
+$(KMER_OBJDIR)/%.o: src/common/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(KMER_OBJDIR)
 	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
 
-# Tools
-ctx_build: $(CTX_BUILD_BIN)
-$(CTX_BUILD_BIN): src/tools/ctx_build.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_BUILD_BIN) $(CFLAGS) $(INCS) src/tools/ctx_build.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_BUILD_BIN)
+bin/%_k$(MAXK): src/tools/%.c $(BASIC_OBJS) $(KMER_OBJS) | $(DEPS)
+	$(CC) -o $@ $(CFLAGS) $(INCS) $< $(BASIC_OBJS) $(KMER_OBJS) $(LIB_OBJS) $(LINK)
+	@echo Sucessfully compiled $@
 
-ctx_clean: $(CTX_CLEAN_BIN)
-$(CTX_CLEAN_BIN): src/tools/ctx_clean.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_CLEAN_BIN) $(CFLAGS) $(INCS) src/tools/ctx_clean.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_CLEAN_BIN)
-
-ctx_subgraph: $(CTX_SUBGRAPH_BIN)
-$(CTX_SUBGRAPH_BIN): src/tools/ctx_subgraph.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_SUBGRAPH_BIN) $(CFLAGS) $(INCS) src/tools/ctx_subgraph.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_SUBGRAPH_BIN)
-
-ctx_reads: $(CTX_READS_BIN)
-$(CTX_READS_BIN): src/tools/ctx_reads.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_READS_BIN) $(CFLAGS) $(INCS) src/tools/ctx_reads.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_READS_BIN)
-
-ctx_intersect: $(CTX_INTERSECT_BIN)
-$(CTX_INTERSECT_BIN): src/tools/ctx_intersect.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_INTERSECT_BIN) $(CFLAGS) $(INCS) src/tools/ctx_intersect.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_INTERSECT_BIN)
-
-ctx_join: $(CTX_JOIN_BIN)
-$(CTX_JOIN_BIN): src/tools/ctx_join.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_JOIN_BIN) $(CFLAGS) $(INCS) src/tools/ctx_join.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_JOIN_BIN)
-
-ctx_thread: $(CTX_THREAD_BIN)
-$(CTX_THREAD_BIN): src/tools/ctx_thread.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_THREAD_BIN) $(CFLAGS) $(INCS) src/tools/ctx_thread.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_THREAD_BIN)
-
-ctp_view: $(CTP_VIEW_BIN)
-$(CTP_VIEW_BIN): src/tools/ctp_view.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTP_VIEW_BIN) $(CFLAGS) $(INCS) src/tools/ctp_view.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTP_VIEW_BIN)
-
-ctx_call: $(CTX_CALL_BIN)
-$(CTX_CALL_BIN): src/tools/ctx_call.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_CALL_BIN) $(CFLAGS) $(INCS) src/tools/ctx_call.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_CALL_BIN)
-
-ctx_covg: $(CTX_COVG_BIN)
-$(CTX_COVG_BIN): src/tools/ctx_covg.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_COVG_BIN) $(CFLAGS) $(INCS) src/tools/ctx_covg.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_COVG_BIN)
-
-ctx_extend: $(CTX_EXTEND_BIN)
-$(CTX_EXTEND_BIN): src/tools/ctx_extend.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_EXTEND_BIN) $(CFLAGS) $(INCS) src/tools/ctx_extend.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_EXTEND_BIN)
-
-ctx_contigs: $(CTX_CONTIGS_BIN)
-$(CTX_CONTIGS_BIN): src/tools/ctx_contigs.c $(COMMON) | $(DEPS)
-	$(CC) -o $(CTX_CONTIGS_BIN) $(CFLAGS) $(INCS) src/tools/ctx_contigs.c $(OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $(CTX_CONTIGS_BIN)
+ctx_build: bin/ctx_build_k$(MAXK)
+ctx_clean: bin/ctx_clean_k$(MAXK)
+ctx_reads: bin/ctx_reads_k$(MAXK)
+ctx_subgraph: bin/ctx_subgraph_k$(MAXK)
+ctx_intersect: bin/ctx_intersect_k$(MAXK)
+ctx_join: bin/ctx_join_k$(MAXK)
+ctx_thread: bin/ctx_thread_k$(MAXK)
+ctp_view: bin/ctp_view_k$(MAXK)
+ctx_call: bin/ctx_call_k$(MAXK)
+ctx_covg: bin/ctx_covg_k$(MAXK)
+ctx_extend: bin/ctx_extend_k$(MAXK)
+ctx_contigs: bin/ctx_contigs_k$(MAXK)
+ctx_diverge: bin/ctx_diverge_k$(MAXK)
 
 ctx_unique: bin/ctx_unique
-bin/ctx_unique:  src/tools/ctx_unique.c $(CUTBACK_COMMON) | $(DEPS)
-	$(CC) -o bin/ctx_unique $(CFLAGS) $(INCS) src/tools/ctx_unique.c $(CUTBACK_OBJS) $(LIB_OBJS) $(LINK)
+bin/ctx_unique:  src/tools/ctx_unique.c $(BASIC_OBJS) | $(DEPS)
+	$(CC) -o bin/ctx_unique $(CFLAGS) $(INCS) src/tools/ctx_unique.c $(BASIC_OBJS) $(LIB_OBJS) $(LINK)
 	@echo Sucessfully compiled ctx_unique
 
 ctx_place: bin/ctx_place
-bin/ctx_place: src/tools/ctx_place.c $(CUTBACK_COMMON) build/basic/call_seqan.o | $(DEPS)
-	$(CC) -o bin/ctx_place $(CFLAGS) $(INCS) src/tools/ctx_place.c $(CUTBACK_OBJS) build/basic/call_seqan.o $(LIB_OBJS) $(LINK) -lstdc++
+bin/ctx_place: src/tools/ctx_place.c $(BASIC_OBJS) build/basic/call_seqan.o | $(DEPS)
+	$(CC) -o bin/ctx_place $(CFLAGS) $(INCS) src/tools/ctx_place.c $(BASIC_OBJS) build/basic/call_seqan.o $(LIB_OBJS) $(LINK) -lstdc++
 	@echo Sucessfully compiled ctx_place
 
 # directories

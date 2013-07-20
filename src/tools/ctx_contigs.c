@@ -1,5 +1,4 @@
 #include "global.h"
-#include <time.h>
 
 #include "util.h"
 #include "file_util.h"
@@ -50,7 +49,8 @@ int main(int argc, char* argv[])
   size_t graph_mem = hash_mem +
                      hash_kmers * sizeof(Edges) + // edges
                      hash_kmers * sizeof(uint64_t) * 2 + // kmer_paths
-                     round_bits_to_bytes(hash_kmers) + // in col
+                     round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
+                     round_bits_to_bytes(hash_kmers) + // used in contig
                      round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
 
   // memory to strings
@@ -77,10 +77,14 @@ int main(int argc, char* argv[])
   db_graph.node_in_cols = calloc(words64_per_col*num_of_cols, sizeof(uint64_t));
   if(db_graph.node_in_cols == NULL) die("Out of memory");
 
+  // Used in contig
+  uint64_t *used_in_contig = calloc(words64_per_col, sizeof(uint64_t));
+  if(used_in_contig == NULL) die("Out of memory");
+
   // Paths
   db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset(db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
+  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");
@@ -102,12 +106,13 @@ int main(int argc, char* argv[])
   binary_load(input_ctx_path, &db_graph, &prefs, stats);
   hash_table_print_stats(&db_graph.ht);
 
-
   // DEV: dump contigs
+  // Use kmers unique to the colour with low covg
 
+  free(used_in_contig);
   free(db_graph.edges);
   free(db_graph.node_in_cols);
-  free(db_graph.kmer_paths);
+  free((void *)db_graph.kmer_paths);
   free(path_store);
 
   seq_loading_stats_free(stats);

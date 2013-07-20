@@ -107,8 +107,6 @@ char *binary_kmer_to_str(const BinaryKmer kmer, uint32_t kmer_size, char *seq);
 BinaryKmerPtr binary_kmer_from_str(const char *seq, uint32_t kmer_size,
                                    BinaryKmer prealloced_kmer);
 
-char *reverse_complement_str(char *str, size_t length);
-
 void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len);
 void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len);
 

@@ -1,5 +1,6 @@
 #include "global.h"
 #include "db_node.h"
+#include "util.h"
 
 // Only print covg overflow warning once
 static char overflow_warning_printed = 0;
@@ -161,7 +162,6 @@ Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
 
   return sum_covg;
 }
-
 
 //
 // dBNodeBuffer

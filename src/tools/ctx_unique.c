@@ -29,7 +29,7 @@ typedef struct VarBranch VarBranch;
 struct VarBranch {
   StrBuf *seq;
   uint32_t num_nodes;
-  delta_array_t *covgs;
+  DeltaArray *covgs;
   VarBranch *next;
 };
 
@@ -39,7 +39,7 @@ static VarBranch* branch_new(int num_samples)
   assert(num_samples > 0);
   VarBranch *branch = malloc(sizeof(VarBranch));
   branch->seq = strbuf_new();
-  branch->covgs = malloc(num_samples * sizeof(delta_array_t));
+  branch->covgs = malloc(num_samples * sizeof(DeltaArray));
   for(i = 0; i < num_samples; i++) delta_arr_alloc(&(branch->covgs[i]));
   branch->num_nodes = 0;
   branch->next = NULL;

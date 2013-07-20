@@ -23,7 +23,7 @@ typedef struct {
   const size_t size;
   const uint32_t num_of_cols;
   uint8_t *next;
-  size_t num_paths;
+  size_t num_of_paths;
 } binary_paths_t;
 
 // Thesholds are zero if not used (e.g. remv_low_cov_sups == false)
@@ -52,6 +52,7 @@ typedef struct
   const uint32_t kmer_size, num_of_cols;
   uint32_t num_of_cols_used; // how many colours currently used
 
+  // Array of GraphInfo objects, one per colour
   GraphInfo *ginfo;
 
   // Optional fields:
@@ -72,7 +73,7 @@ typedef struct
   uint64_t *node_in_cols;
 
   // path data
-  uint64_t *volatile kmer_paths;
+  volatile uint64_t *kmer_paths;
   binary_paths_t pdata;
 
   // Loading reads

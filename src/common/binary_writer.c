@@ -6,7 +6,8 @@
 const int CURR_CTX_VERSION = 6;
 const char CTX_MAGIC_WORD[7] = "CORTEX";
 
-static void write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
+// Returns number of bytes written
+static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
 {
   fwrite(&(cleaning->tip_clipping), sizeof(uint8_t), 1, fh);
   fwrite(&(cleaning->remv_low_cov_sups), sizeof(uint8_t), 1, fh);
@@ -26,11 +27,15 @@ static void write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
   char *str = cleaning->cleaned_against_graph_name.buff;
   fwrite(&len, sizeof(uint32_t), 1, fh);
   fwrite(str, sizeof(uint8_t), len, fh);
+
+  return 4 + sizeof(uint32_t) * 2 + sizeof(uint32_t) + len;
 }
 
-void binary_write_header(FILE *fh, const BinaryFileHeader *h)
+// Returns number of bytes written
+size_t binary_write_header(FILE *fh, const BinaryFileHeader *h)
 {
   uint32_t i;
+  size_t b = 0;
 
   fwrite(CTX_MAGIC_WORD, sizeof(char), strlen(CTX_MAGIC_WORD), fh);
   fwrite(&h->version, sizeof(uint32_t), 1, fh);
@@ -38,17 +43,22 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
   fwrite(&h->num_of_bitfields, sizeof(uint32_t), 1, fh);
   fwrite(&h->num_of_cols, sizeof(uint32_t), 1, fh);
 
+  b += strlen(CTX_MAGIC_WORD) + sizeof(uint32_t) * 4;
+
   if(h->version >= 7)
   {
-    fwrite(&(h->num_of_kmers), sizeof(uint64_t), 1, fh);
     uint32_t num_of_shades = 0;
+    fwrite(&(h->num_of_kmers), sizeof(uint64_t), 1, fh);
     fwrite(&num_of_shades, sizeof(uint32_t), 1, fh);
+    b += sizeof(uint64_t) + sizeof(uint32_t);
   }
 
   for(i = 0; i < h->num_of_cols; i++)
     fwrite(&h->ginfo[i].mean_read_length, sizeof(uint32_t), 1, fh);
   for(i = 0; i < h->num_of_cols; i++)
     fwrite(&h->ginfo[i].total_sequence, sizeof(uint64_t), 1, fh);
+
+  b += h->num_of_cols * (sizeof(uint32_t) + sizeof(uint64_t));
 
   if(h->version >= 6)
   {
@@ -58,29 +68,81 @@ void binary_write_header(FILE *fh, const BinaryFileHeader *h)
       char *buff = h->ginfo[i].sample_name.buff;
       fwrite(&len, sizeof(uint32_t), 1, fh);
       fwrite(buff, sizeof(uint8_t), len, fh);
+      b += sizeof(uint32_t) + len;
     }
 
     for(i = 0; i < h->num_of_cols; i++)
       fwrite(&h->ginfo[i].seq_err, sizeof(long double), 1, fh);
 
+    b += h->num_of_cols * sizeof(long double);
+
     for(i = 0; i < h->num_of_cols; i++)
-      write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
+      b += write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
   }
 
   fwrite(CTX_MAGIC_WORD, sizeof(uint8_t), strlen(CTX_MAGIC_WORD), fh);
+  b += strlen(CTX_MAGIC_WORD);
+
+  return b;
 }
 
-void binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
-                       const uint64_t *bkmer, const Covg *covgs,
-                       const Edges *edges)
+// Returns number of bytes written
+size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
+                         const uint64_t *bkmer, const Covg *covgs,
+                         const Edges *edges)
 {
   fwrite(bkmer, sizeof(uint64_t), h->num_of_bitfields, fh);
   fwrite(covgs, sizeof(uint32_t), h->num_of_cols, fh);
   fwrite(edges, sizeof(uint8_t),  h->num_of_cols, fh);
+  return 8*h->num_of_bitfields + 5*h->num_of_cols;
 }
 
-// Dev: what if dumping a single colour -- do we dump nodes with no covg?
-// Dump node: only print colour coverages for given colours
+static inline void overwrite_kmer_colour(hkey_t node, dBGraph *db_graph,
+                                         Colour graphcol, Colour intocol,
+                                         uint32_t num_of_cols,
+                                         FILE *fh, boolean merge)
+{
+  Edges (*col_edges)[db_graph->num_of_cols]
+    = (Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
+  Covg (*col_covgs)[db_graph->num_of_cols]
+    = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
+
+  uint32_t skip_cols = num_of_cols - graphcol - 1;
+  Covg covg = 0;
+  Edges edges = 0;
+
+  fseek(fh, sizeof(BinaryKmer) + intocol * sizeof(Covg), SEEK_CUR);
+
+  if(merge) {
+    fread(&covg, sizeof(Covg), 1, fh);
+    fseek(fh, -sizeof(Covg), SEEK_CUR);
+  }
+  covg += col_covgs[node][graphcol];
+  fwrite(&covg, sizeof(Covg), 1, fh);
+  fseek(fh, skip_cols * sizeof(Covg), SEEK_CUR);
+
+  fseek(fh, intocol * sizeof(Edges), SEEK_CUR);
+  if(merge) {
+    fread(&edges, sizeof(Edges), 1, fh);
+    fseek(fh, -sizeof(Edges), SEEK_CUR);
+  }
+  edges |= col_edges[node][graphcol];
+  fwrite(&edges, sizeof(Edges), 1, fh);
+  fseek(fh, skip_cols * sizeof(Edges), SEEK_CUR);
+}
+
+// Dump a single colour into an existing binary
+// FILE *fh must already point to the first bkmer
+// if merge is true, read existing covg and edges and combine with outgoing
+void binary_dump_colour(dBGraph *db_graph, Colour graphcol,
+                        Colour intocol, uint32_t num_of_cols,
+                        FILE *fh, boolean merge)
+{
+  HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colour,
+                db_graph, graphcol, intocol, num_of_cols, fh, merge);
+}
+
+// Dump node: only print kmers with coverages in given colours
 static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
                                      FILE *fout, const BinaryFileHeader *header,
                                      const Colour *colours, uint32_t start_col,

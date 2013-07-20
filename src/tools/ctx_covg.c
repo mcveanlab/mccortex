@@ -3,12 +3,49 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "binary_format.h"
 #include "vcf_parsing.h"
 
 static const char usage[] =
 "usage: ctx_covg <mem> <in.ctx> <input.vcf> <out.vcf> [col1 ...]\n"
 "  Print coverage on some input file\n";
+
+static int parse_vcf_header(StrBuf *line, gzFile vcf, boolean print,
+                            const char *in_vcf_path)
+{
+  while(strbuf_gzreadline_nonempty(line, vcf) > 0)
+  {
+    if(print) puts(line->buff);
+    if(strncmp(line->buff,"#CHROM",6) == 0) {
+      size_t columns = count_char(line->buff, '\t') + 1;
+      if(columns < VCFSAMPLES) die("Too few columns in VCF: %s", in_vcf_path);
+      return columns - VCFSAMPLES;
+    }
+    else if(strncmp(line->buff,"##",2) != 0) break;
+  }
+  die("Missing VCF header: %s", in_vcf_path);
+}
+
+void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
+{
+  BinaryKmer bkmer, tmp_key;
+  Nucleotide nuc;
+  size_t next_base;
+  boolean found;
+  uint32_t kmer_size = db_graph->kmer_size;
+
+  binary_kmer_from_str(contig, kmer_size, bkmer);
+  binary_kmer_right_shift_one_base(bkmer);
+
+  for(next_base = kmer_size-1; next_base < contig_len; next_base++)
+  {
+    nuc = binary_nuc_from_char(contig[next_base]);
+    binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+    db_node_get_key(bkmer, kmer_size, tmp_key);
+    hash_table_find_or_insert(&db_graph->ht, tmp_key, &found);
+  }
+}
 
 int main(int argc, char **argv)
 {
@@ -49,6 +86,9 @@ int main(int argc, char **argv)
   if(!test_file_writable(out_vcf_path))
     print_usage(usage, "Cannot write to output file: %s", out_vcf_path);
 
+  if(num_col_given > 0 && ctx_num_of_cols != num_col_given)
+    die("You're using more colours than you need!");
+
   uint32_t cols_used = num_col_given > 0 ? num_col_given : ctx_num_of_cols;
 
   // Figure out how much mem to use
@@ -75,14 +115,15 @@ int main(int argc, char **argv)
   // Load sequence from VCF to build hash table
   gzFile vcf;
 
-  StrBuf line;
+  StrBuf line, contig;
   strbuf_alloc(&line, 1024);
+  strbuf_alloc(&contig, 1024);
 
   if((vcf = gzopen(in_vcf_path, "r")) == NULL)
     die("Couldn't open file: %s", in_vcf_path);
 
-  // DEV: parse header
-  uint32_t num_samples = 0;
+  // Read header
+  uint32_t num_samples = parse_vcf_header(&line, vcf, false, in_vcf_path);
 
   vcf_entry_t vcf_entry;
   vcf_entry_alloc(&vcf_entry, num_samples);
@@ -92,7 +133,18 @@ int main(int argc, char **argv)
     strbuf_chomp(&line);
     vcf_entry_parse(&line, &vcf_entry, num_samples);
 
+    strbuf_reset(&contig);
+    strbuf_append_buff(&contig, vcf_entry.lf);
 
+    for(i = 0; i < vcf_entry.num_alts; i++)
+    {
+      strbuf_shrink(&contig, vcf_entry.lf->len);
+      strbuf_append_buff(&contig, vcf_entry.alts[i]);
+      strbuf_append_buff(&contig, vcf_entry.rf);
+
+      // Add kmers to the graph
+      add_str_to_graph(&db_graph, contig.buff, contig.len);
+    }
   }
 
   gzclose(vcf);
@@ -116,16 +168,83 @@ int main(int argc, char **argv)
   if((vcf = gzopen(in_vcf_path, "r")) == NULL)
     die("Couldn't open file: %s", in_vcf_path);
 
-  // DEV: PARSE and PRINT
+  // Read (and print) header
+  parse_vcf_header(&line, vcf, true, in_vcf_path);
+
+  size_t new_samples = num_samples + cols_used;
+
+  size_t j, capacity = 16 * num_samples;
+  DeltaArray *covg_array = malloc(sizeof(DeltaArray) * capacity);
+
+  for(i = 0; i < capacity; i++) delta_arr_alloc(&covg_array[i]);
+
+  size_t nodes_cap = 2048, nodes_len = 0;
+  hkey_t *nodes = malloc(sizeof(hkey_t) * nodes_cap);
+
+  DeltaArray delta;
+  delta_arr_alloc(&delta);
+
+  // PARSE and PRINT
   while(strbuf_gzreadline_nonempty(&line, vcf))
   {
     strbuf_chomp(&line);
     vcf_entry_parse(&line, &vcf_entry, num_samples);
 
-    
+    strbuf_reset(&contig);
+    strbuf_append_buff(&contig, vcf_entry.lf);
+
+    if(vcf_entry.num_alts*num_samples > capacity) {
+      size_t new_cap = ROUNDUP2POW(vcf_entry.num_alts*num_samples);
+      covg_array = realloc(covg_array, sizeof(DeltaArray) * new_cap);
+      for(i = capacity; i < new_cap; i++) { delta_arr_alloc(&covg_array[i]); }
+      capacity = new_cap;
+    }
+
+    for(i = 0; i < vcf_entry.num_alts; i++)
+    {
+      strbuf_shrink(&contig, vcf_entry.lf->len);
+      strbuf_append_buff(&contig, vcf_entry.alts[i]);
+      strbuf_append_buff(&contig, vcf_entry.rf);
+
+      if(contig.len > nodes_cap) {
+        nodes_cap = ROUNDUP2POW(nodes_cap);
+        nodes = realloc(nodes, sizeof(hkey_t) * nodes_cap);
+      }
+
+      // DEV check contig length vs kmer_size
+
+      BinaryKmer bkmer;
+      Nucleotide nuc;
+
+      binary_kmer_from_str(contig.buff, kmer_size, bkmer);
+      nodes[0] = hash_table_find(&db_graph.ht, bkmer);
+      uint32_t k, num_nodes = contig.len+1-kmer_size;
+
+      for(j = 1; j <= num_nodes; j++)
+      {
+        nuc = binary_nuc_from_char(contig.buff[j+kmer_size-1]);
+        binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+        nodes[j] = hash_table_find(&db_graph.ht, bkmer);
+      }
+
+      // Get contig covg
+      for(j = 0; j < num_samples; j++) {
+        for(k = 0; k < num_nodes; k++) {
+          
+        }
+      }
+    }
+
+    // Print
+
   }
 
   gzclose(vcf);
+
+  for(i = 0; i < num_samples; i++)
+      delta_arr_dealloc(&covg_array[i]);
+
+  free(covg_array);
 
   seq_loading_stats_free(stats);
   free(db_graph.col_edges);

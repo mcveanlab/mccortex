@@ -71,11 +71,11 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
   }
 
   // samples
-  entry->covgs = malloc(num_samples * sizeof(delta_array_t*));
+  entry->covgs = malloc(num_samples * sizeof(DeltaArray*));
 
   for(i = 0; i < num_samples; i++)
   {
-    entry->covgs[i] = malloc(entry->alts_capacity * sizeof(delta_array_t));
+    entry->covgs[i] = malloc(entry->alts_capacity * sizeof(DeltaArray));
     for(j = 0; j < entry->alts_capacity; j++)
       delta_arr_alloc(&entry->covgs[i][j]);
   }
@@ -130,7 +130,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
     size_t old_alts_cap = entry->alts_capacity;
     strbuf_arr_resize(&entry->alts, &entry->alts_capacity, alts_count);
 
-    size_t i, j, covgsize = entry->alts_capacity * sizeof(delta_array_t);
+    size_t i, j, covgsize = entry->alts_capacity * sizeof(DeltaArray);
     for(i = 0; i < num_samples; i++)
     {
       entry->covgs[i] = realloc(entry->covgs[i], covgsize);

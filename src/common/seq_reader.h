@@ -44,11 +44,13 @@ void seq_load_into_db_graph(read_t *r1, read_t *r2,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                             void *ptr);
 
+// set qcutoff and hpcutoff to zero to ignore
 #define READ_TO_BKMERS(r,kmer_size,qcutoff,hpcutoff,stats,func,...)            \
+do {                                                                           \
   (stats)->total_bases_read += (r)->seq.end;                                   \
   size_t _num_contigs = 0;                                                     \
   if((r)->seq.end >= (kmer_size)) {                                            \
-    size_t _search_start = 0, _start, _end = 0, _i;                            \
+    size_t _search_start = 0, _start, _end = 0, _base_i;                       \
     BinaryKmer _bkmer; Nucleotide _nuc;                                        \
                                                                                \
     while((_start = seq_contig_start((r), _search_start, (kmer_size),          \
@@ -63,15 +65,16 @@ void seq_load_into_db_graph(read_t *r1, read_t *r2,
       binary_kmer_from_str((r)->seq.b + _start, (kmer_size), _bkmer);          \
       func(_bkmer, ##__VA_ARGS__);                                             \
                                                                                \
-      for(_i = _start+(kmer_size); _i < _end; _i++)                            \
+      for(_base_i = _start+(kmer_size); _base_i < _end; _base_i++)             \
       {                                                                        \
-        _nuc = binary_nuc_from_char((r)->seq.b[_i]);                           \
+        _nuc = binary_nuc_from_char((r)->seq.b[_base_i]);                      \
         binary_kmer_left_shift_add(_bkmer, (kmer_size), _nuc);                 \
         func(_bkmer, ##__VA_ARGS__);                                           \
       }                                                                        \
     }                                                                          \
     if(_num_contigs == 0) (stats)->total_bad_reads++;                          \
     else (stats)->total_good_reads++;                                          \
-  }
+  }                                                                            \
+} while(0)
 
 #endif /* SEQ_READER_H_ */

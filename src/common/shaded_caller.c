@@ -149,18 +149,18 @@ static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
 
   gzputc(out, '\n');
 
-  Colour col, cols_loaded = db_graph->num_of_cols_used;
+  // Colour col, cols_loaded = db_graph->num_of_cols_used;
 
   // Print (fake) covgs
-  if(len > 0) {
-    for(col = 0; col < cols_loaded; col++) {
-      gzprintf(out, "1");
-      for(i = 1; i < len; i++) {
-        gzprintf(out, " 1");
-      }
-      gzputc(out, '\n');
-    }
-  } else gzputc(out, '\n');
+  // if(len > 0) {
+  //   for(col = 0; col < cols_loaded; col++) {
+  //     gzprintf(out, "1");
+  //     for(i = 1; i < len; i++) {
+  //       gzprintf(out, " 1");
+  //     }
+  //     gzputc(out, '\n');
+  //   }
+  // } else gzputc(out, '\n');
 }
 
 

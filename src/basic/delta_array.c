@@ -9,7 +9,7 @@
 
 // 0,0 for list of length zero
 
-void delta_arr_alloc(delta_array_t *list)
+void delta_arr_alloc(DeltaArray *list)
 {
   list->changes_capacity = 256;
   list->indices = malloc(list->changes_capacity * sizeof(uint32_t));
@@ -19,14 +19,14 @@ void delta_arr_alloc(delta_array_t *list)
   list->arr = malloc(list->arr_capacity * sizeof(uint32_t));
 }
 
-void delta_arr_dealloc(delta_array_t *list)
+void delta_arr_dealloc(DeltaArray *list)
 {
   free(list->indices);
   free(list->values);
   free(list->arr);
 }
 
-void delta_arr_reverse(delta_array_t *list)
+void delta_arr_reverse(DeltaArray *list)
 {
   uint32_t i, j, tmp, len = list->len;
   for(i = 0; i < list->num_changes; i++)
@@ -49,7 +49,7 @@ void delta_arr_reverse(delta_array_t *list)
   }
 }
 
-void delta_array_unpack(delta_array_t *list)
+void delta_array_unpack(DeltaArray *list)
 {
   if(list->len > list->arr_capacity)
   {
@@ -71,7 +71,7 @@ void delta_array_unpack(delta_array_t *list)
   }
 }
 
-void delta_arr_print(delta_array_t *list, FILE *fh)
+void delta_arr_print(DeltaArray *list, FILE *fh)
 {
   fprintf(fh, "%u,%u", list->len, list->values[0]);
   size_t i;
@@ -79,7 +79,7 @@ void delta_arr_print(delta_array_t *list, FILE *fh)
     fprintf(fh, ",%u,%u", list->indices[i], list->values[i]);
 }
 
-void delta_arr_gzprint(delta_array_t *list, gzFile gz)
+void delta_arr_gzprint(DeltaArray *list, gzFile gz)
 {
   gzprintf(gz, "%u,%u", list->len, list->values[0]);
   size_t i;
@@ -87,7 +87,7 @@ void delta_arr_gzprint(delta_array_t *list, gzFile gz)
     gzprintf(gz, ",%u,%u", list->indices[i], list->values[i]);
 }
 
-void delta_arr_from_str(const char *str, delta_array_t *list)
+void delta_arr_from_str(const char *str, DeltaArray *list)
 {
   char *endptr;
 
@@ -125,7 +125,7 @@ void delta_arr_from_str(const char *str, delta_array_t *list)
 }
 
 void delta_arr_from_uint_arr(const uint32_t *arr, uint32_t num,
-                             delta_array_t *list)
+                             DeltaArray *list)
 {
   list->len = num;
   list->num_changes = 0;

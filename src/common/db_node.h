@@ -84,6 +84,7 @@ void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
 #define edges_set_edge(edges,n,or)  ((edges) | nuc_orient_to_edge(n,or))
 #define edges_del_edge(edges,n,or)  ((edges) &~nuc_orient_to_edge(n,or))
 
+// shift right by 0 or 4, then AND with 0xf
 #define edges_with_orientation(edges,or) (((edges) >> ((or)<<2)) & 0xf)
 
 #define edges_get_outdegree(edges,or) \

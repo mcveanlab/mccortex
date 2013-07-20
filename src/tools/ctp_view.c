@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
   // Paths
   db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset(db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
+  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");
@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
   db_graph_dump_paths_by_kmer(&db_graph);
 
   free(path_store);
-  free(db_graph.kmer_paths);
+  free((void *)db_graph.kmer_paths);
 
   db_graph_dealloc(&db_graph);
   free(input_paths_file);
