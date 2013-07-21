@@ -2,6 +2,7 @@
 
 #include "seq_file.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -11,7 +12,7 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: ctx_extend <mem> <in.ctx> <in.fa> <dist> <out.fa>\n";
+"usage: "CMD" extend [-m <mem>] <in.ctx> <in.fa> <dist> <out.fa>\n";
 
 typedef struct
 {
@@ -136,17 +137,17 @@ static void extend_reads(read_t *r1, read_t *r2,
   if(r2 != NULL) extend_read(r2, contig, stats);
 }
 
-int main(int argc, char* argv[])
+int ctx_extend(CmdArgs *args)
 {
-  if(argc != 6) print_usage(usage, NULL);
-  // usage: ctx_extend <mem> <in.ctx> <in.fa> <dist> <out.fa>
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc != 4) print_usage(usage, NULL);
 
-  size_t mem_to_use;
+  size_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+
   char *input_ctx_path, *input_fa_path, *out_fa_path;
   uint32_t dist;
-
-  if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", argv[1]);
 
   input_ctx_path = argv[2];
   input_fa_path = argv[3];
@@ -244,7 +245,7 @@ int main(int argc, char* argv[])
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 
-  printf("Done.\n");
+  message("Done.\n");
 
   fclose(out);
 

@@ -1,4 +1,3 @@
-
 #include "global.h"
 
 #include <time.h>
@@ -14,13 +13,24 @@
 #include "string_buffer.h"
 #include "needleman_wunsch.h"
 
-#include "vcf_parsing.h"
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
+#include "vcf_parsing.h"
 #include "call_seqan.h"
 #include "binary_kmer.h"
 #include "file_reader.h"
 #include "delta_array.h"
+
+static const char usage[] =
+"usage: "CMD" place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
+"  Align calls to a reference genome.\n"
+"  Options:\n"
+"    --minmapq <mapq>    Flank must map with MAPQ >= <mapq> [default: 30]\n"
+"    --maxbr <num>       Don't process bubbles with > <num> branches [default: 6]\n"
+"    --genome <bases>    Organism genome size (e.g. 3.1G for humans)\n"
+"    --ploidy  <sample>:<chr>:<ploidy> [default: *:*:2]\n"
+"      <sample> and <chr> can be * for all or a comma-separated list\n";
 
 typedef struct {
   read_t r;
@@ -65,16 +75,6 @@ size_t genome_size = 0;
 
 // VCF printing
 uint32_t var_print_num = 0;
-
-static const char usage[] =
-"usage: ctx_place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
-"  Align calls to a reference genome.\n"
-"  Options:\n"
-"    --minmapq <mapq>    Flank must map with MAPQ >= <mapq> [default: 30]\n"
-"    --maxbr <num>       Don't process bubbles with > <num> branches [default: 6]\n"
-"    --genome <bases>    Organism genome size (e.g. 3.1G for humans)\n"
-"    --ploidy  <sample>:<chr>:<ploidy> [default: *:*:2]\n"
-"      <sample> and <chr> can be * for all or a comma-separated list\n";
 
 // Do multiple sequence alignment
 // Returns length, stores alleles (not null always terminated) in alleles
@@ -772,9 +772,11 @@ static void parse_ploidy(char *arg)
   }
 }
 
-int main(int argc, char **argv)
+int ctx_place(CmdArgs *args)
 {
-  if(argc < 4) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 3) print_usage(usage, NULL);
 
   // double x = gsl_sf_lnbeta(3,5);
   // printf("Result: %f\n", x);
@@ -791,7 +793,7 @@ int main(int argc, char **argv)
   // vcf_close(htsvcf);
   // exit(EXIT_FAILURE);
 
-  int argi = 1;
+  int argi = 0;
   size_t i;
 
   // Read arguments

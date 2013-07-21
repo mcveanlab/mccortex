@@ -6,7 +6,7 @@
 #include "khash.h"
 #include "string_buffer.h"
 
-#include "global.h"
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "delta_array.h"
@@ -14,7 +14,7 @@
 #define PROC_MAXK 100
 
 static const char usage[] =
-"usage: ctx_unique [options] <path_calls.bubbles> <out.base>\n"
+"usage: "CMD" unique [options] <path_calls.bubbles> <out.base>\n"
 "  Produces files <out.base>.vcf and <out.base>.5pflank.fa\n\n"
 "  Options:\n"
 "    --nobubbles <col>  Filter out e.g. ref bubbles\n";
@@ -981,9 +981,11 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
 
 KHASH_MAP_INIT_STR(vhsh, Var*);
 
-int main(int argc, char **argv)
+int ctx_unique(CmdArgs *args)
 {
-  if(argc != 3) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 2) print_usage(usage, NULL);
 
   // open file to read
   gzFile fh = gzopen(argv[1], "r");
@@ -1067,8 +1069,8 @@ int main(int argc, char **argv)
     }
   }
 
-  printf("  %zu bubbles loaded\n", bubbles_read);
-  printf("  %zu vcf entries printed\n\n", entries_printed);
+  message("  %zu bubbles loaded\n", bubbles_read);
+  message("  %zu vcf entries printed\n\n", entries_printed);
 
   strbuf_free(tmp);
   kh_destroy(vhsh, varhash);
@@ -1082,16 +1084,16 @@ int main(int argc, char **argv)
   strbuf_set(out_file, argv[2]);
   strbuf_append_str(out_file, ".5pflanks.sam");
 
-  printf("  Next steps - map with stampy and align to ref:\n");
-  printf("    stampy.py -G hg19 hg19.fa\n");
-  printf("    stampy.py -g hg19 -H hg19\n");
-  printf("    stampy.py -g hg19 -h hg19 --inputformat=fasta -M %s > %s\n\n",
+  message("  Next steps - map with stampy and align to ref:\n");
+  message("    stampy.py -G hg19 hg19.fa\n");
+  message("    stampy.py -g hg19 -H hg19\n");
+  message("    stampy.py -g hg19 -h hg19 --inputformat=fasta -M %s > %s\n\n",
          flanks_path, out_file->buff);
-  printf("    ./place_calls %s %s hg19.fa\n\n", vcf_path, out_file->buff);
+  message("    ./place_calls %s %s hg19.fa\n\n", vcf_path, out_file->buff);
 
   free(vcf_path);
   free(flanks_path);
   strbuf_free(out_file);
 
-  return 0;
+  return EXIT_SUCCESS;
 }

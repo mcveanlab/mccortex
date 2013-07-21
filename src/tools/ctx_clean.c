@@ -1,5 +1,6 @@
 #include "global.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -7,35 +8,38 @@
 
 // clean by individual
 static const char usage[] =
-"usage: ctx_clean [OPTIONS] <mem> <genome_size> <in.ctx|ctxlist|colours> <out.ctx>\n"
+"usage: "CMD" clean [OPTIONS] <in.ctx|ctxlist|colours> <out.ctx>\n"
 "  Clean a cortex binary.\n"
 "  Options:\n"
 "    --tips\n"
 "    --supernodes\n"
 "  With no options only supernode cleaning is done\n";
 
-int main(int argc, char **argv)
+int ctx_clean(CmdArgs *args)
 {
-  if(argc < 5 || argc > 7) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 2) print_usage(usage, NULL);
+
+  // uint32_t kmer_size = args->kmer_size;
+  // size_t mem_to_use = args->mem_to_use;
+  size_t genome_size = args->genome_size;
+
+  // if(!args->kmer_size_set) print_usage(usage, "-k <K> required");
+  // if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+  if(!args->genome_size_set) print_usage(usage, "Genome size required (-g <G>)");
 
   // Check cmdline args
   const char *out_path = argv[argc-1];
   const char *in_path = argv[argc-2];
-  size_t genome_size, mem_to_use;
 
   if(!test_file_readable(in_path))
     die("Cannot read input file: %s", in_path);
 
-  if(!bases_to_integer(argv[argc-3], &genome_size))
-    die("Cannot parse genome size: %s", argv[argc-3]);
-
-  if(!mem_to_integer(argv[argc-4], &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", argv[argc-4]);
-
   boolean tip_cleaning = false, supernode_cleaning = false;
 
-  int argi, argend = argc-4;
-  for(argi = 1; argi < argend; argi++) {
+  int argi, argend = argc-2;
+  for(argi = 0; argi < argend; argi++) {
     if(strcmp(argv[argi],"--tips") == 0) tip_cleaning = true;
     else if(strcmp(argv[argi],"--supernodes") == 0) supernode_cleaning = true;
     else print_usage(usage, "Unknown argument: %s", argv[argi]);

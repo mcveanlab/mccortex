@@ -1,6 +1,6 @@
-
 #include "global.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -10,7 +10,7 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: ctx_intersect <mem> <graph.ctx> <in.ctx> <out.ctx>\n"
+"usage: "CMD" intersect <graph.ctx> <in.ctx> <out.ctx>\n"
 "  Dumps nodes from <in.ctx> that are in <graph.ctx> to <out.ctx>\n";
 
 static void graphs_intersect(const char *graph_ctx_path,
@@ -35,21 +35,22 @@ static void graphs_intersect(const char *graph_ctx_path,
   // Dump nodes that were flagged
   size_t nodes_dumped = db_graph_filter_file(db_graph, in_ctx_path, out_ctx_path);
 
-  printf("Dumped %zu kmers\n", nodes_dumped);
-  printf("Done.\n");
+  message("Dumped %zu kmers\n", nodes_dumped);
+  message("Done.\n");
 
   seq_loading_stats_free(stats);
 }
 
-int main(int argc, char* argv[])
+int ctx_intersect(CmdArgs *args)
 {
-  if(argc != 4) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc != 3) print_usage(usage, NULL);
 
-  size_t mem_to_use;
+  uint64_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+
   char *graph_ctx_path, *in_ctx_path, *out_ctx_path;
-
-  if(!mem_to_integer(argv[1], &mem_to_use))
-    print_usage(usage, "Invalid <mem> arg (try 1GB or 2M): %s", argv[1]);
 
   graph_ctx_path = argv[2];
   in_ctx_path = argv[3];
@@ -103,4 +104,6 @@ int main(int argc, char* argv[])
 
   free(db_graph.edges);
   db_graph_dealloc(&db_graph);
+
+  return EXIT_SUCCESS;
 }

@@ -1,6 +1,6 @@
 #include "global.h"
-#include <time.h>
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -11,7 +11,7 @@
 #include "shaded_caller.h"
 
 static const char usage[] =
-"usage: ctx_thread [OPTIONS] <threads> <mem> <in.ctx>\n"
+"usage: "CMD" thread [OPTIONS] <in.ctx>\n"
 "  Thread reads through the graph.  Saves to file <in.ctp>\n"
 "  Options:\n"
 "    --se_list <col> <in.list>\n"
@@ -19,26 +19,21 @@ static const char usage[] =
 
 #define NUM_PASSES 1
 
-int main(int argc, char* argv[])
+int ctx_thread(CmdArgs *args)
 {
-  if(argc < 6) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 1) print_usage(usage, NULL);
 
-  char *threads_arg = argv[argc-3];
-  char *mem_arg = argv[argc-2];
+  uint32_t num_of_threads = args->num_threads;
+  size_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+
   char *input_ctx_path = argv[argc-1];
-
-  size_t mem_to_use = 0;
-  uint32_t num_of_threads = 1;
 
   // Check arguments
   if(!test_file_readable(input_ctx_path))
     print_usage(usage, "Cannot read input file: %s", input_ctx_path);
-
-  if(!mem_to_integer(mem_arg, &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", mem_arg);
-
-  if(!parse_entire_uint(threads_arg, &num_of_threads) || num_of_threads == 0)
-    print_usage(usage, "Invalid num of threads argument: %s", threads_arg);
 
   // Set up output path
   char *out_path = malloc(strlen(input_ctx_path)+4);
@@ -191,4 +186,6 @@ int main(int argc, char* argv[])
   message("  Paths written to: %s\n", out_path);
   message("Done.\n");
   free(out_path);
+
+  return EXIT_SUCCESS;
 }

@@ -1,5 +1,6 @@
 #include "global.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -10,7 +11,7 @@
 #include "graph_walker.h"
 
 static const char usage[] =
-"usage: ctx_diverge <mem> <in.ctx> <colour> <ref.fa> <out.bubbles.gz>\n"
+"usage: "CMD" diverge [-m <mem>] <in.ctx> <colour> <ref.fa> <out.bubbles.gz>\n"
 "  Make bubble calls using a trusted path\n";
 
 typedef struct
@@ -177,12 +178,16 @@ void diverge_call(read_t *r1, read_t *r2,
 
 // DEV: load ref into colour 0
 //      load pop into colours 1...N
-int main(int argc, char* argv[])
+int ctx_diverge(CmdArgs *args)
 {
-  if(argc != 6) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc != 4) print_usage(usage, NULL);
+
+  size_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path, *input_fa_path, *output_bubble_path;
-  size_t mem_to_use = 0;
   uint32_t colour;
 
   if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
@@ -315,4 +320,5 @@ int main(int argc, char* argv[])
 
   message("  Contigs written to: %s\n", output_bubble_path);
   message("Done.\n");
+  return EXIT_SUCCESS;
 }

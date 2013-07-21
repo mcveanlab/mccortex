@@ -1,5 +1,6 @@
 #include "global.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -8,7 +9,7 @@
 #include "vcf_parsing.h"
 
 static const char usage[] =
-"usage: ctx_covg <mem> <in.ctx> <input.vcf> <out.vcf> [col1 ...]\n"
+"usage: "CMD" covg [options] <in.ctx> <input.vcf> <out.vcf>\n"
 "  Print coverage on some input file\n";
 
 static int parse_vcf_header(StrBuf *line, gzFile vcf, boolean print,
@@ -47,20 +48,22 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
   }
 }
 
-int main(int argc, char **argv)
+int ctx_covg(CmdArgs *args)
 {
-  if(argc < 5) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+
+  size_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+
+  if(argc < 3) print_usage(usage, NULL);
 
   // Parse commandline args
-  size_t mem_to_use;
   char *in_ctx_path, *in_vcf_path, *out_vcf_path;
 
-  if(!mem_to_integer(argv[1], &mem_to_use))
-    print_usage(usage, "Invalid <mem> arg (try 1GB or 2M): %s", argv[1]);
-
-  in_ctx_path = argv[2];
-  in_vcf_path = argv[3];
-  out_vcf_path = argv[4];
+  in_ctx_path = argv[0];
+  in_vcf_path = argv[1];
+  out_vcf_path = argv[2];
 
   // Probe binary
   boolean is_binary = false;
@@ -175,7 +178,6 @@ int main(int argc, char **argv)
 
   size_t j, capacity = 16 * num_samples;
   DeltaArray *covg_array = malloc(sizeof(DeltaArray) * capacity);
-
   for(i = 0; i < capacity; i++) delta_arr_alloc(&covg_array[i]);
 
   size_t nodes_cap = 2048, nodes_len = 0;
@@ -230,7 +232,7 @@ int main(int argc, char **argv)
       // Get contig covg
       for(j = 0; j < num_samples; j++) {
         for(k = 0; k < num_nodes; k++) {
-          
+
         }
       }
     }

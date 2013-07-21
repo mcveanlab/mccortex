@@ -2,6 +2,7 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -12,28 +13,25 @@
 #include "shaded_caller.h"
 
 static const char usage[] =
-"usage: ctx_call <threads> <mem> <in.ctx> <out.bubbles.gz>\n";
+"usage: "CMD" call <in.ctx> <out.bubbles.gz>\n";
 
-int main(int argc, char* argv[])
+int ctx_call(CmdArgs *args)
 {
-  if(argc != 5) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc != 2) print_usage(usage, NULL);
 
-  char *num_threads_arg = argv[1];
-  char *mem_arg = argv[2];
-  char *input_ctx_path = argv[3];
-  char *out_path = argv[4];
+  uint32_t num_of_threads = args->num_threads;
+  size_t mem_to_use = args->mem_to_use;
 
-  size_t mem_to_use = 0;
-  uint32_t num_of_threads = 0;
+  if(!args->num_threads_set) print_usage(usage, "-t <T> required");
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
-  if(!parse_entire_uint(num_threads_arg, &num_of_threads))
-    print_usage(usage, "Invalid number of threads: %s", num_threads_arg);
+  char *input_ctx_path = argv[0];
+  char *out_path = argv[1];
 
   if(!test_file_readable(input_ctx_path))
     print_usage(usage, "Cannot read input file: %s", input_ctx_path);
-
-  if(!mem_to_integer(mem_arg, &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", mem_arg);
 
   if(!test_file_writable(out_path))
     print_usage(usage, "Cannot write output file: %s", out_path);
@@ -181,6 +179,7 @@ int main(int argc, char* argv[])
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  message("Done.\n");
   pthread_exit(NULL);
+  message("Done.\n");
+  return EXIT_SUCCESS;
 }

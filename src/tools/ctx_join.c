@@ -3,6 +3,7 @@
 
 #include "string_buffer.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -13,7 +14,7 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: ctx_join [options] <mem> <out.ctx> <in1.ctx> [in2.ctx ...]\n"
+"usage: "CMD" join [options] <out.ctx> <in1.ctx> [in2.ctx ...]\n"
 "  Merge cortex binaries.\n"
 "\n"
 " Options:\n"
@@ -37,17 +38,21 @@ static void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
   HASH_TRAVERSE(&db_graph->ht, dump_empty_bkmer, db_graph, buf, mem, fh);
 }
 
-int main(int argc, char* argv[])
+int ctx_join(CmdArgs *args)
 {
-  if(argc < 4) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 2) print_usage(usage, NULL);
 
-  size_t mem_to_use;
+  uint64_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+
   char *out_ctx_path;
   boolean merge = false, flatten = false;
 
   int i, argstart;
 
-  for(argstart = 1; argstart < argc; argstart++) {
+  for(argstart = 0; argstart < argc; argstart++) {
     if(strcasecmp(argv[argstart],"--merge") == 0) {
       if(merge) warn("merge specified twice");
       merge = true;
@@ -62,11 +67,7 @@ int main(int argc, char* argv[])
     else break;
   }
 
-  if(argstart + 3 > argc) print_usage(usage, NULL);
-
-  if(!mem_to_integer(argv[argstart], &mem_to_use) || mem_to_use < 1024)
-    print_usage(usage, "Invalid <mem> arg (try 1GB or 2M): %s", argv[argstart]);
-  argstart++;
+  if(argc - argstart > 2) print_usage(usage, NULL);
 
   out_ctx_path = argv[argstart++];
 
@@ -240,8 +241,8 @@ int main(int argc, char* argv[])
 
   hash_table_print_stats(&db_graph.ht);
 
-  printf("Dumped %zu kmers in %u colours\nDone.\n",
-         (size_t)db_graph.ht.unique_kmers, output_colours);
+  message("Dumped %zu kmers in %u colours\nDone.\n",
+          (size_t)db_graph.ht.unique_kmers, output_colours);
 
   seq_loading_stats_free(stats);
   free(db_graph.col_edges);

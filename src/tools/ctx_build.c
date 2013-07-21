@@ -1,5 +1,6 @@
 #include "global.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -8,8 +9,8 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: ctx_build [OPTIONS] <kmer_size> <mem> <out.ctx>\n"
-"  Build a cortex binary\n"
+"usage: "CMD" build -k <kmer> -m <mem> [OPTIONS] <out.ctx>\n"
+"  Build a cortex binary.  \n"
 "\n"
 "  Sequence options:\n"
 "    --quality_score_threshold <qual>\n"
@@ -35,35 +36,29 @@ static const char usage[] =
 "  Loading binaries\n"
 "    --load_binary <data.colours>      Load a binary into new colour(s)\n"
 "\n"
-"  Loading multiple colours"
+"  Loading multiple colours\n"
 "    --colour_list <data.colours>      Load a colour list into new colour(s)\n";
 
-int main(int argc, char **argv)
+int ctx_build(CmdArgs *args)
 {
-  if(argc < 6) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 3) print_usage(usage, NULL);
+
+  uint32_t kmer_size = args->kmer_size;
+  size_t mem_to_use = args->mem_to_use;
+
+  if(!args->kmer_size_set) print_usage(usage, "-k <K> required");
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   const char *out_path = argv[argc-1];
-  uint32_t kmer_size;
-  size_t mem_to_use;
-
-  if(!mem_to_integer(argv[argc-2], &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", argv[argc-2]);
-
-  if(!parse_entire_uint(argv[argc-3], &kmer_size))
-    print_usage(usage, "Invalid kmer_size argument: %s", argv[argc-3]);
-
-  if(!(kmer_size & 0x1))
-    die("kmer size must be odd");
-  if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE)
-    die("Please compile for kmer size %u", kmer_size);
-
   uint32_t colours_used = 0;
   boolean current_colour_used = false;
 
   // Validate arguments
-  int argi, argend = argc-3;
+  int argi, argend = argc-1;
   uint32_t tmp;
-  for(argi = 1; argi < argend; argi++)
+  for(argi = 0; argi < argend; argi++)
   {
     if(strcmp(argv[argi],"--quality_score_threshold") == 0) {
       if(argi + 1 >= argend)
@@ -210,7 +205,7 @@ int main(int argc, char **argv)
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
 
-  for(argi = 1; argi < argend; argi++)
+  for(argi = 0; argi < argend; argi++)
   {
     if(strcmp(argv[argi],"--quality_score_threshold") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);

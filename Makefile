@@ -70,7 +70,7 @@ INCS=-I src/basic/ -I src/common/ -I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS)
 
 # Library linking
 LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
-LINK=-lpthread -lz -lm
+LINK=-lstdc++ -lpthread -lz -lm
 
 # -Winit-self -Wmissing-include-dirs
 # -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code
@@ -95,27 +95,33 @@ CFLAGS = -std=c99 -Wall -Wextra \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
          -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) $(HASH_KEY_FLAGS) $(OPT) $(DEBUG_ARGS)
 
-KMER_OBJDIR=build/k$(MAXK)
-
 # basic objects compile without MAXK
-# common objects require MAXK
-BASIC_FILES=$(notdir $(wildcard src/basic/*.c))
-COMMON_FILES=$(notdir $(wildcard src/common/*.c))
+# common and tool objects require MAXK
+BASIC_OBJDIR=build/basic
+COMMON_OBJDIR=build/common$(MAXK)
+TOOLS_OBJDIR=build/tools$(MAXK)
 
-BASIC_OBJS=$(addprefix build/basic/, $(BASIC_FILES:.c=.o))
-KMER_OBJS=$(addprefix $(KMER_OBJDIR)/, $(COMMON_FILES:.c=.o))
-
+BASIC_FILES=$(notdir $(wildcard src/basic/*.c)) call_seqan.o
+BASIC_OBJS=$(addprefix $(BASIC_OBJDIR)/, $(BASIC_FILES:.c=.o))
 BASIC_HDRS=$(wildcard src/basic/*.h)
-KMER_HDRS=$(wildcard src/common/*.h)
+
+COMMON_FILES=$(notdir $(wildcard src/common/*.c))
+COMMON_OBJS=$(addprefix $(COMMON_OBJDIR)/, $(COMMON_FILES:.c=.o))
+COMMON_HDRS=$(wildcard src/common/*.h)
+
+TOOLS_FILES=$(notdir $(wildcard src/tools/*.c))
+TOOLS_OBJS=$(addprefix $(TOOLS_OBJDIR)/, $(TOOLS_FILES:.c=.o))
+TOOLS_HDRS=$(wildcard src/toools/*.h)
 
 # DEPS are common dependencies that do not need to be re-built per target
-DEPS=Makefile bin build/basic $(KMER_OBJDIR) $(LIB_OBJS)
+DEPS=Makefile bin build/basic $(COMMON_OBJDIR) $(LIB_OBJS)
 
 TOOLS=ctx_build ctx_clean ctx_reads ctx_subgraph ctx_intersect ctx_join \
       ctx_thread ctp_view ctx_call ctx_covg ctx_extend ctx_contigs ctx_diverge \
       ctx_unique ctx_place
 
-all: $(TOOLS)
+# all: $(TOOLS)
+all: ctx
 
 .SUFFIXES: .c .o _k$(MAXK)
 .SECONDARY:
@@ -123,49 +129,31 @@ all: $(TOOLS)
 build/basic/call_seqan.o: src/basic/call_seqan.cpp src/basic/call_seqan.h | $(DEPS)
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c src/basic/call_seqan.cpp -o $@
 
-build/basic/%.o: src/basic/%.c $(BASIC_HDRS) | build/basic
+$(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | build/basic
 	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(KMER_OBJDIR)/%.o: src/common/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(KMER_OBJDIR)
+$(COMMON_OBJDIR)/%.o: src/common/%.c $(BASIC_HDRS) $(COMMON_HDRS) | $(COMMON_OBJDIR)
 	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
 
-bin/%_k$(MAXK): src/tools/%.c $(BASIC_OBJS) $(KMER_OBJS) | $(DEPS)
-	$(CC) -o $@ $(CFLAGS) $(INCS) $< $(BASIC_OBJS) $(KMER_OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled $@
+$(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(COMMON_HDRS) $(TOOLS_HDRS) | $(TOOLS_OBJDIR)
+	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
 
-ctx_build: bin/ctx_build_k$(MAXK)
-ctx_clean: bin/ctx_clean_k$(MAXK)
-ctx_reads: bin/ctx_reads_k$(MAXK)
-ctx_subgraph: bin/ctx_subgraph_k$(MAXK)
-ctx_intersect: bin/ctx_intersect_k$(MAXK)
-ctx_join: bin/ctx_join_k$(MAXK)
-ctx_thread: bin/ctx_thread_k$(MAXK)
-ctp_view: bin/ctp_view_k$(MAXK)
-ctx_call: bin/ctx_call_k$(MAXK)
-ctx_covg: bin/ctx_covg_k$(MAXK)
-ctx_extend: bin/ctx_extend_k$(MAXK)
-ctx_contigs: bin/ctx_contigs_k$(MAXK)
-ctx_diverge: bin/ctx_diverge_k$(MAXK)
-
-ctx_unique: bin/ctx_unique
-bin/ctx_unique:  src/tools/ctx_unique.c $(BASIC_OBJS) | $(DEPS)
-	$(CC) -o bin/ctx_unique $(CFLAGS) $(INCS) src/tools/ctx_unique.c $(BASIC_OBJS) $(LIB_OBJS) $(LINK)
-	@echo Sucessfully compiled ctx_unique
-
-ctx_place: bin/ctx_place
-bin/ctx_place: src/tools/ctx_place.c $(BASIC_OBJS) build/basic/call_seqan.o | $(DEPS)
-	$(CC) -o bin/ctx_place $(CFLAGS) $(INCS) src/tools/ctx_place.c $(BASIC_OBJS) build/basic/call_seqan.o $(LIB_OBJS) $(LINK) -lstdc++
-	@echo Sucessfully compiled ctx_place
+ctx: bin/ctx$(MAXK)
+bin/ctx$(MAXK): $(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
+	$(CC) -o $@ $(CFLAGS) $(INCS) $(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS) $(LINK)
 
 # directories
 bin:
 	mkdir -p bin
 
-build/basic:
-	mkdir -p build/basic
+$(BASIC_OBJDIR):
+	mkdir -p $(BASIC_OBJDIR)
 
-$(KMER_OBJDIR):
-	mkdir -p $(KMER_OBJDIR)
+$(COMMON_OBJDIR):
+	mkdir -p $(COMMON_OBJDIR)
+
+$(TOOLS_OBJDIR):
+	mkdir -p $(TOOLS_OBJDIR)
 
 # libraries
 $(LIB_OBJS):

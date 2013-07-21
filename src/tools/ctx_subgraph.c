@@ -1,11 +1,9 @@
-
 #include "global.h"
-
-#include <ctype.h> // isspace
 
 #include "string_buffer.h"
 #include "seq_file.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -16,13 +14,11 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: ctx_subgraph <mem> <in.ctx> <seeds.falist> <dist> <out.ctx>\n"
+"usage: "CMD" <in.ctx> <seeds.falist> <dist> <out.ctx>\n"
 "  Loads <in.ctx> and dumps a binary <out.ctx> that contains all kmers within\n"
 "  <dist> edges of kmers in <filelist>.  Maintains number of colours / covgs etc.\n"
 "  <mem> specifies how much memory to use to store the list of edge kmers.  Will\n"
-"  fail if this is too small.  We suggest 1GB if available on your machine.\n"
-"\n"
-"  Comments/bugs/requests: <turner.isaac@gmail.com>\n";
+"  fail if this is too small.  We suggest 1GB if available on your machine.\n";
 
 typedef struct
 {
@@ -41,7 +37,7 @@ static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
   #ifdef DEBUG
     char tmp[100];
     binary_kmer_to_str(bkmer, db_graph.kmer_size, tmp);
-    printf("got bkmer %s\n", tmp);
+    message("got bkmer %s\n", tmp);
   #endif
 
   BinaryKmer tmpkey;
@@ -194,23 +190,24 @@ static void filter_subgraph(const char *input_ctx_path,
   // Dump nodes that were flagged
   size_t nodes_dumped = db_graph_filter_file(&db_graph, input_ctx_path, out_path);
 
-  printf("Read in %zu seed kmers\n", num_of_seed_kmers);
-  printf("Dumped %zu kmers\n", nodes_dumped);
-  printf("Done.\n");
+  message("Read in %zu seed kmers\n", num_of_seed_kmers);
+  message("Dumped %zu kmers\n", nodes_dumped);
+  message("Done.\n");
 
   seq_loading_stats_free(stats);
 }
 
-int main(int argc, char* argv[])
+int ctx_subgraph(CmdArgs *args)
 {
-  if(argc != 6) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc != 4) print_usage(usage, NULL);
 
-  size_t mem_to_use;
+  uint64_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+
   char *input_ctx_path, *input_filelist, *out_path;
   uint32_t dist;
-
-  if(!mem_to_integer(argv[1], &mem_to_use))
-    print_usage(usage, "Invalid <mem> arg (try 1GB or 2M): %s", argv[1]);
 
   input_ctx_path = argv[2];
 
@@ -262,4 +259,6 @@ int main(int argc, char* argv[])
   free(kmer_mask);
   free(db_graph.edges);
   db_graph_dealloc(&db_graph);
+
+  return EXIT_SUCCESS;
 }

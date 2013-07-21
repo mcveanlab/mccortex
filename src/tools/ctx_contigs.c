@@ -1,5 +1,6 @@
 #include "global.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -8,20 +9,20 @@
 #include "path_format.h"
 
 static const char usage[] =
-"usage: ctx_contigs <mem> <in.ctx> <colour> <out.fa>\n"
+"usage: "CMD" contigs [options] <in.ctx> <colour> <out.fa>\n"
 "  Pull out contigs for a given colour\n";
 
-int main(int argc, char* argv[])
+int ctx_contigs(CmdArgs *args)
 {
-  if(argc != 5) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 3) print_usage(usage, NULL);
+
+  size_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[2], *output_fa_path = argv[4];
-
-  size_t mem_to_use = 0;
   uint32_t colour;
-
-  if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", argv[1]);
 
   // Probe ctx
   boolean is_binary = false;
@@ -120,4 +121,6 @@ int main(int argc, char* argv[])
 
   message("  Contigs written to: %s\n", output_fa_path);
   message("Done.\n");
+
+  return EXIT_SUCCESS;
 }

@@ -1,10 +1,10 @@
-
 #include "global.h"
 
 #include <zlib.h>
 #include "string_buffer.h"
 #include "seq_file.h"
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -14,12 +14,17 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: ctx_reads <mem> <in.ctx> [FASTA|FASTQ] [OPTIONS]\n"
-"  Filters reads based on which have a kmer in the graph. Options:\n"
+"usage: "CMD" reads [options] <in.ctx>\n"
+"  Filters reads based on which have a kmer in the graph. \n"
+"  Options:\n"
+"\n"
+"    --fastq\n"
+"      print output as FASTQ\n"
+"\n"
 "    --se_list <in.list> <out.fq.gz>\n"
 "    --pe_list <pe.list1> <pe.list2> <out.1.fq.gz> <out.2.fq.gz>\n"
-"  Can specify --se_list/--pe_list multiple times.\n"
-"  Prints as gzipped FASTA unless FASTQ is specified\n";
+"      Input reads and output files.  Can specify --se_list/--pe_list multiple\n"
+"      times. Prints as gzipped FASTA unless FASTQ is specified\n";
 
 typedef struct {
   char *in1, *in2;
@@ -104,37 +109,34 @@ void filter_reads(read_t *r1, read_t *r2,
   }
 }
 
-int main(int argc, char* argv[])
+int ctx_reads(CmdArgs *args)
 {
-  if(argc < 3) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc < 4) print_usage(usage, NULL);
 
-  size_t mem_to_use = 0;
+  uint64_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
-  if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", argv[1]);
+  char *input_ctx_path = argv[argc-1];
 
-  char *input_ctx_path = argv[2];
-
-  int argi, nextarg = 3;
   void (*print_func)(const read_t *r, gzFile gz, int linewrap) = seq_gzprint_fasta;
-
-  if(strcasecmp(argv[nextarg], "FASTQ") == 0) {
-    print_func = seq_gzprint_fastq;
-    nextarg++;
-  } else if(strcasecmp(argv[nextarg], "FASTA") == 0) {
-    print_func = seq_gzprint_fasta;
-    nextarg++;
-  }
 
   // Test other input args
   // Check filelists are readable
   // Check output is writable
 
-  for(argi = nextarg; argi < argc;)
+  int argi;
+  for(argi = 0; argi < argc - 1;)
   {
-    if(strcasecmp(argv[argi], "--se_list") == 0)
+    if(strcasecmp(argv[argi], "--fastq") == 0)
     {
-      if(argi + 2 >= argc) print_usage(usage, "Missing arguments");
+      print_func = seq_gzprint_fastq;
+      argi++;
+    }
+    else if(strcasecmp(argv[argi], "--se_list") == 0)
+    {
+      if(argi + 2 >= argc-1) print_usage(usage, "Missing arguments");
       char *in = argv[argi+1], *out = argv[argi+2];
       if(!test_file_readable(in)) print_usage(usage, "Cannot read: %s", in);
       if(!test_file_writable(out)) print_usage(usage, "Cannot write: %s", out);
@@ -142,7 +144,7 @@ int main(int argc, char* argv[])
     }
     else if(strcasecmp(argv[argi], "--pe_list") == 0)
     {
-      if(argi + 4 >= argc) print_usage(usage, "Missing arguments");
+      if(argi + 4 >= argc-1) print_usage(usage, "Missing arguments");
       char *in1 = argv[argi+1], *in2 = argv[argi+2];
       char *out1 = argv[argi+3], *out2 = argv[argi+4];
       if(!test_file_readable(in1)) print_usage(usage, "Cannot read: %s", in1);
@@ -201,7 +203,7 @@ int main(int argc, char* argv[])
   // Filtering reads
   //
   size_t total_reads_printed = 0;
-  for(argi = nextarg; argi < argc;)
+  for(argi = 0; argi < argc-1;)
   {
     char is_se = (strcasecmp(argv[argi], "--se_list") == 0);
     char is_pe = (strcasecmp(argv[argi], "--pe_list") == 0);
@@ -244,8 +246,8 @@ int main(int argc, char* argv[])
     reads_loaded = stats->total_good_reads + stats->total_bad_reads +
                    stats->total_dup_reads - init_reads;
 
-    printf("  Printed %zu / %zu inputs\n",
-           data.num_of_reads_printed, reads_loaded);
+    message("  Printed %zu / %zu inputs\n",
+            data.num_of_reads_printed, reads_loaded);
 
     if(is_se) argi += 3;
     else argi += 5;
@@ -254,8 +256,8 @@ int main(int argc, char* argv[])
   size_t total_reads = stats->total_good_reads + stats->total_bad_reads +
                        stats->total_dup_reads;
 
-  printf("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
-  printf("Done\n");
+  message("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
+  message("Done\n");
 
   // free
   seq_loading_stats_free(stats);

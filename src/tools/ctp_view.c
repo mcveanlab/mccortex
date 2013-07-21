@@ -1,6 +1,6 @@
 #include "global.h"
-#include <time.h>
 
+#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -10,20 +10,18 @@
 #include "graph_walker.h"
 #include "shaded_caller.h"
 
-static const char usage[] = "usage: ctp_view <in.ctx> <mem>\n";
+static const char usage[] = "usage: "CMD" pview [options] <in.ctx>\n";
 
-int main(int argc, char* argv[])
+int ctp_view(CmdArgs *args)
 {
-  if(argc != 3) print_usage(usage, NULL);
+  int argc = args->argc;
+  char **argv = args->argv;
+  if(argc != 1) print_usage(usage, NULL);
+
+  size_t mem_to_use = args->mem_to_use;
+  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[1];
-  char *mem_arg = argv[2];
-
-  size_t mem_to_use = 0;
-
-  // Check arguments
-  if(!mem_to_integer(mem_arg, &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", mem_arg);
 
   // probe paths file to get kmer size
   char *input_paths_file = malloc(strlen(input_ctx_path)+4);
@@ -87,4 +85,5 @@ int main(int argc, char* argv[])
   free(input_paths_file);
 
   message("Done.\n");
+  return EXIT_SUCCESS;
 }

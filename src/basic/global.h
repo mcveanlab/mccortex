@@ -25,6 +25,7 @@ typedef signed char boolean;
 #define CTXVERSIONSTR "0.0"
 
 #define QUOTE(str) #str
+#define MACRO2STR(str) QUOTE(str)
 
 #define SWAP(x,y,tmp) ((tmp) = (x), (x) = (y), (y) = (tmp))
 
