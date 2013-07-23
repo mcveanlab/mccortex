@@ -349,33 +349,33 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
 {
-  const binary_paths_t *paths = &db_graph->pdata;
-  path_t path;
-  path_alloc(&path, paths->num_of_cols);
+  const PathStore *paths = &db_graph->pdata;
   uint32_t kmer_size = db_graph->kmer_size;
-  char str[100];
-  uint64_t node, index;
-  Orientation orient;
-  boolean printed = false;
+  char str[MAX_KMER_SIZE+1];
+  hkey_t node;
+  PathIndex index, prev_index;
+  PathLen len;
+  Orientation orient, porient;
+
   message("\n-------- paths --------\n");
 
   for(node = 0; node < db_graph->ht.capacity; node++) {
     if(db_graph_node_assigned(db_graph, node)) {
       binary_kmer_to_str(db_node_bkmer(db_graph, node), kmer_size, str);
-      for(orient = 0; orient < 2; orient++)
-      {
-        printed = false;
-        index = db_node_paths(db_graph, node, orient);
+      for(orient = 0; orient < 2; orient++) {
+        index = db_node_paths(db_graph, node);
+        if(index != PATH_NULL) printf("%s:%i\n", str, orient);
         while(index != PATH_NULL) {
-          if(!printed) { printf("%s:%i\n", str, orient); printed = true; }
-          binary_paths_fetch(paths, index, &path);
-          binary_paths_dump_path(&path);
-          index = path.prev;
+          prev_index = binary_paths_prev(paths, index);
+          binary_paths_len_orient(paths, index, &len, &porient);
+          if(porient == orient)
+            binary_paths_dump_path(paths, index);
+          index = prev_index;
         }
       }
     }
   }
-  path_dealloc(&path);
+
   message("-----------------------\n\n");
 }
 

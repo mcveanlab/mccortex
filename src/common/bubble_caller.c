@@ -7,7 +7,7 @@
 #include "khash.h"
 
 // cortex_var headers
-#include "shaded_caller.h"
+#include "bubble_caller.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "util.h"
@@ -148,19 +148,6 @@ static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
   }
 
   gzputc(out, '\n');
-
-  // Colour col, cols_loaded = db_graph->num_of_cols_used;
-
-  // Print (fake) covgs
-  // if(len > 0) {
-  //   for(col = 0; col < cols_loaded; col++) {
-  //     gzprintf(out, "1");
-  //     for(i = 1; i < len; i++) {
-  //       gzprintf(out, " 1");
-  //     }
-  //     gzputc(out, '\n');
-  //   }
-  // } else gzputc(out, '\n');
 }
 
 
@@ -194,6 +181,7 @@ static void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
 
     db_graph_oriented_bkmer(wlk->db_graph, last_node, last_orient, last_bkmer);
     graph_traverse_force_jump(wlk, last_node, last_bkmer, false);
+    // don't need counter paths here (we're at the end of a supernode)
   }
 }
 
@@ -328,7 +316,9 @@ static void load_allele_path(hkey_t node, Orientation or,
       db_node_set_traversed(visited, node, or);
     // }
 
+    Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
     graph_traverse_force(wlk, node, base, num_edges > 1);
+    graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
   }
   // printf("DONE\n");
 
@@ -452,8 +442,11 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         SupernodePath *path = paths + num_of_paths++;
 
         graph_walker_init(wlk, db_graph, colour, fork_n, fork_o);
+        Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
+
         // graph_walker_init_context(wlk, db_graph, visited, colour, fork_n, fork_o);
         graph_traverse_force(wlk, nodes[i], next_nuc, true);
+        graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
 
         // Constructs a path of supernodes (SupernodePath)
         load_allele_path(nodes[i], orients[i], path, snode_hash, wlk, visited,
@@ -630,7 +623,7 @@ struct caller_region_t
   size_t num_of_bubbles;
 };
 
-void* shaded_bubble_caller(void *args)
+void* bubble_caller(void *args)
 {
   struct caller_region_t *tdata = (struct caller_region_t *)args;
   const dBGraph *db_graph = tdata->db_graph;
@@ -662,7 +655,7 @@ void* shaded_bubble_caller(void *args)
   }
 
   GraphWalker wlk;
-  graph_walker_alloc(&wlk, db_graph->pdata.num_of_cols);
+  graph_walker_alloc(&wlk);
 
   // BinaryKmer tmpkmer;
   // hkey_t node;
@@ -719,7 +712,7 @@ void* shaded_bubble_caller(void *args)
    pthread_exit(NULL);
 }
 
-void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
+void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
                                  int num_threads, char **tmp_paths)
 {
   // Open output file
@@ -736,7 +729,7 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
   if(num_threads <= 1)
   {
     struct caller_region_t tdata = {db_graph, out, 0, db_graph->ht.capacity, 0, 0};
-    shaded_bubble_caller((void*)&tdata);
+    bubble_caller((void*)&tdata);
     num_of_bubbles += tdata.num_of_bubbles;
   }
   else
@@ -763,7 +756,7 @@ void invoke_shaded_bubble_caller(const dBGraph *db_graph, const char* out_file,
       struct caller_region_t tmptdata = {db_graph, tmpout, start, end, i, 0};
       memcpy(tdata+i, &tmptdata, sizeof(struct caller_region_t));
 
-      int rc = pthread_create(threads+i, &thread_attr, shaded_bubble_caller,
+      int rc = pthread_create(threads+i, &thread_attr, bubble_caller,
                               (void*)(tdata+i));
 
       if(rc != 0) die("Creating thread failed");

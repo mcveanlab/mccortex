@@ -8,11 +8,11 @@
 #include "binary_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
-#include "shaded_caller.h"
+#include "bubble_caller.h"
 
 static const char usage[] = "usage: "CMD" pview [options] <in.ctx>\n";
 
-int ctp_view(CmdArgs *args)
+int ctx_pview(CmdArgs *args)
 {
   int argc = args->argc;
   char **argv = args->argv;
@@ -46,7 +46,7 @@ int ctp_view(CmdArgs *args)
   size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
 
   size_t graph_mem = hash_mem +
-                     hash_kmers * sizeof(uint64_t) * 2; // kmer_paths
+                     hash_kmers * sizeof(uint64_t); // kmer_paths
 
   // Allocate memory
   // db graph is required to store the end position for each kmer list
@@ -62,9 +62,9 @@ int ctp_view(CmdArgs *args)
   message("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
 
   // Paths
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
+  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
+  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");

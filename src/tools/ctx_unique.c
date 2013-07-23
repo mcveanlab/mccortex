@@ -394,7 +394,7 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, size_t argc, char **arg
   gzprintf(vcf, "\n");
 }
 
-static void parse_shaded_header(gzFile in, CallHeader* ch)
+static void parse_bubble_header(gzFile in, CallHeader* ch)
 {
   StrBuf *line = strbuf_new(), *tmp = strbuf_new();
   int c;
@@ -1022,7 +1022,7 @@ int ctx_unique(CmdArgs *args)
   char (*next_var)(CallReader *cr, gzFile fh, Var *var);
 
   if(strncasecmp(tmp->buff,"##fileformat=", strlen("##fileformat=")) == 0) {
-    parse_shaded_header(fh, ch);
+    parse_bubble_header(fh, ch);
     next_var = reader_next;
   }
   else {

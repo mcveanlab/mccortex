@@ -11,7 +11,7 @@
 #define NODE_BUFSIZE(colours) ((MAX_ALLELE_KMERS) * (colours) * 4)
 
 //
-// Data types and structs for calling variants with the shaded caller
+// Data types and structs for calling variants with the bubble caller
 //
 typedef Orientation SuperOrientation;
 

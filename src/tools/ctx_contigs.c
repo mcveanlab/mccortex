@@ -49,7 +49,7 @@ int ctx_contigs(CmdArgs *args)
 
   size_t graph_mem = hash_mem +
                      hash_kmers * sizeof(Edges) + // edges
-                     hash_kmers * sizeof(uint64_t) * 2 + // kmer_paths
+                     hash_kmers * sizeof(uint64_t) + // kmer_paths
                      round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
                      round_bits_to_bytes(hash_kmers) + // used in contig
                      round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
@@ -83,9 +83,9 @@ int ctx_contigs(CmdArgs *args)
   if(used_in_contig == NULL) die("Out of memory");
 
   // Paths
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
+  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
+  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");

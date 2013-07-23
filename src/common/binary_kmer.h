@@ -24,6 +24,8 @@ typedef enum
   Undefined = 4,
 } Nucleotide;
 
+// typedef uint8_t Nucleotide;
+
 // Hash functions
 #ifdef CITY_HASH
   // Use Google's CityHash

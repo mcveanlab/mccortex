@@ -21,10 +21,10 @@ typedef BinaryKmerPtr Key;
 typedef struct {
   uint8_t *const store, *const end;
   const size_t size;
-  const uint32_t num_of_cols;
+  const uint32_t num_of_cols, col_bitset_bytes;
   uint8_t *next;
-  size_t num_of_paths;
-} binary_paths_t;
+  size_t num_of_paths, num_kmers_with_paths;
+} PathStore;
 
 // Thesholds are zero if not used (e.g. remv_low_cov_sups == false)
 // cleaned_against_another_graph is for cleaning a low covg sample against
@@ -74,7 +74,7 @@ typedef struct
 
   // path data
   volatile uint64_t *kmer_paths;
-  binary_paths_t pdata;
+  PathStore pdata;
 
   // Loading reads
   uint64_t *readstrt;

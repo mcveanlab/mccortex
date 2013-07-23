@@ -8,7 +8,7 @@
 #include "binary_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
-#include "shaded_caller.h"
+#include "bubble_caller.h"
 
 static const char usage[] =
 "usage: "CMD" thread [OPTIONS] <in.ctx>\n"
@@ -90,7 +90,7 @@ int ctx_thread(CmdArgs *args)
 
   size_t graph_mem = hash_mem +
                      hash_kmers * sizeof(Edges) + // edges
-                     hash_kmers * sizeof(uint64_t) * 2 + // kmer_paths
+                     hash_kmers * sizeof(uint64_t) + // kmer_paths
                      round_bits_to_bytes(hash_kmers) * num_of_cols; // in col
 
   // visited fw/rv
@@ -125,9 +125,9 @@ int ctx_thread(CmdArgs *args)
   if(db_graph.node_in_cols == NULL) die("Out of memory");
 
   // Paths
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t) * 2);
+  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t) * 2);
+  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");

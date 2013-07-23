@@ -26,7 +26,6 @@ typedef struct
   GraphWalker wlk;
   uint64_t *const visited;
   dBNodeBuffer nodebuf;
-  path_t path;
   AddPathsJob job;
   uint64_t insert_sizes[GAP_LIMIT+1], gap_sizes[GAP_LIMIT+1];
 } AddPathsWorker;
@@ -47,8 +46,7 @@ static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
   memcpy(worker, &tmp, sizeof(AddPathsWorker));
 
   db_node_buf_alloc(&worker->nodebuf, 4096);
-  path_alloc(&worker->path, db_graph->pdata.num_of_cols);
-  graph_walker_alloc(&worker->wlk, db_graph->pdata.num_of_cols);
+  graph_walker_alloc(&worker->wlk);
   seq_read_alloc(&worker->job.r1);
   seq_read_alloc(&worker->job.r2);
   memset(worker->insert_sizes, 0, sizeof(uint64_t)*(GAP_LIMIT+1));
@@ -58,7 +56,6 @@ static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
 static void paths_worker_dealloc(AddPathsWorker *worker)
 {
   graph_walker_dealloc(&worker->wlk);
-  path_dealloc(&worker->path);
   db_node_buf_dealloc(&worker->nodebuf);
   seq_read_dealloc(&worker->job.r1);
   seq_read_dealloc(&worker->job.r2);
@@ -103,12 +100,11 @@ static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
 }
 
 static void add_read_path(const dBNode *nodes, size_t len,
-                          dBGraph *graph, Colour colour,
-                          path_t *path)
+                          dBGraph *graph, Colour colour)
 {
   if(len < 3) return;
 
-  binary_paths_t *paths = &graph->pdata;
+  PathStore *paths = &graph->pdata;
   uint32_t kmer_size = graph->kmer_size;
 
   Edges edges[len];
@@ -183,17 +179,13 @@ static void add_read_path(const dBNode *nodes, size_t len,
     printf("\n");
   #endif
 
-  path_init(path, paths->num_of_cols);
-  path_set_col(path, colour);
-
   // to add a path
   hkey_t node;
   Orientation orient;
-  uint64_t pindex;
-
-  // Store this temporarily
-  Nucleotide *tmp_bases = path->bases;
+  uint64_t pindex, prev_index;
   size_t start_fw, start_rv;
+  Nucleotide *bases;
+  uint32_t plen;
 
   // .//\/
 
@@ -207,10 +199,6 @@ static void add_read_path(const dBNode *nodes, size_t len,
   // Get Lock
   pthread_mutex_lock(&add_paths_mutex);
 
-
-  BinaryKmer tmpbkmer;
-  binary_kmer_from_str("CTGATAATTTCACTCTCACAATGTAGGGGAA", 31, tmpbkmer);
-
   for(start_rv = 0, start_fw = num_fw-1; ; start_fw--)
   {
     while(start_rv < num_rv && pos_rv[start_rv] > pos_fw[start_fw]) start_rv++;
@@ -221,9 +209,10 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
     node = nodes[pos].node;
     orient = rev_orient(nodes[pos].orient);
-    path->prev = db_node_paths(graph, node, orient);
-    path->bases = nuc_rv + start_rv;
-    path->len = num_rv - start_rv;
+
+    prev_index = db_node_paths(graph, node);
+    bases = nuc_rv + start_rv;
+    plen = num_rv - start_rv;
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
@@ -231,14 +220,9 @@ static void add_read_path(const dBNode *nodes, size_t len,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
-    if((pindex = binary_paths_add(paths, path, colour)) != PATH_NULL) {
-      if(binary_kmers_are_equal(db_node_bkmer(graph, node), tmpbkmer)) {
-        char contig[1000];
-        db_nodes_to_str(nodes, len, graph, contig);
-        printf("hit: %s [%zu]\n", contig, len);
-      }
-      db_node_paths(graph, node, orient) = pindex;
-    }
+    pindex = binary_paths_add(paths, prev_index, plen, bases, orient, colour);
+    if(pindex != PATH_NULL)
+      db_node_paths(graph, node) = pindex;
 
     if(start_fw == 0) break;
     // break;
@@ -261,9 +245,10 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
     node = nodes[pos].node;
     orient = nodes[pos].orient;
-    path->prev = db_node_paths(graph, node, orient);
-    path->bases = nuc_fw + start_fw;
-    path->len = num_fw - start_fw;
+
+    prev_index = db_node_paths(graph, node);
+    bases = nuc_fw + start_fw;
+    plen = num_fw - start_fw;
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
@@ -271,8 +256,9 @@ static void add_read_path(const dBNode *nodes, size_t len,
              start_rv, start_fw);
     #endif
 
-    if((pindex = binary_paths_add(paths, path, colour)) != PATH_NULL)
-      db_node_paths(graph, node, orient) = pindex;
+    pindex = binary_paths_add(paths, prev_index, plen, bases, orient, colour);
+    if(pindex != PATH_NULL)
+      db_node_paths(graph, node) = pindex;
 
     if(start_rv == 0) break;
     // break;
@@ -280,9 +266,6 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
   // Free lock
   pthread_mutex_unlock(&add_paths_mutex);
-
-  // Restore saved
-  path->bases = tmp_bases;
 }
 
 // fill in gap in read node1==>---<==node2
@@ -318,10 +301,16 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   size_t i, pos = 0;
+  Nucleotide lost_nuc;
+
+  lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   while(pos < GAP_LIMIT && graph_traverse(wlk) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
+    graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
+    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
+
     db_node_set_traversed(visited, wlk->node, wlk->orient);
 
     nodes[pos].node = wlk->node;
@@ -353,10 +342,14 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   // pos is now the index at which we last added a node
 
   boolean success = false;
+  lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   while(pos > 0 && graph_traverse(wlk) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
+    graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
+    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
+
     Orientation orient = opposite_orientation(wlk->orient);
 
     if(wlk->node == node1 && orient == orient1) {
@@ -444,7 +437,7 @@ void read_to_path(AddPathsWorker *worker)
 
   if(i == nodebuf->len)
   {
-    add_read_path(nodebuf->data, nodebuf->len, db_graph, colour, &worker->path);
+    add_read_path(nodebuf->data, nodebuf->len, db_graph, colour);
   }
   else
   {
@@ -481,7 +474,7 @@ void read_to_path(AddPathsWorker *worker)
           {
             // Failed to bridge gap
             add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
-                          colour, &worker->path);
+                          colour);
 
             nodebuf->data[end].node = node;
             nodebuf->data[end].orient = orient;
@@ -507,7 +500,7 @@ void read_to_path(AddPathsWorker *worker)
       }
     }
 
-    add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph, colour, &worker->path);
+    add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph, colour);
   }
 }
 
@@ -734,7 +727,7 @@ void add_read_paths_to_graph(const char *se_list,
 
   // Print stats about paths added
   char mem_used_str[100], num_paths_str[100];
-  binary_paths_t *pdata = &prefs.db_graph->pdata;
+  PathStore *pdata = &prefs.db_graph->pdata;
   size_t paths_mem_used = pdata->next - pdata->store;
   bytes_to_str(paths_mem_used, 1, mem_used_str);
   ulong_to_str(pdata->num_of_paths, num_paths_str);

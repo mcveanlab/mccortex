@@ -13,31 +13,18 @@
 // <uint8_t:path_data>
 // <binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>
 
-static inline void count_kmers_with_paths(hkey_t node, const dBGraph *db_graph,
-                                          uint64_t *count)
-{
-  if(db_node_paths(db_graph, node, forward) != PATH_NULL ||
-     db_node_paths(db_graph, node, reverse) != PATH_NULL)
-  {
-    (*count)++;
-  }
-}
-
 static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
                                            FILE *fout)
 {
-  if(db_node_paths(db_graph, node, forward) != PATH_NULL ||
-     db_node_paths(db_graph, node, reverse) != PATH_NULL)
+  if(db_node_paths(db_graph, node) != PATH_NULL)
   {
     fwrite(db_node_bkmer(db_graph, node), sizeof(BinaryKmer), 1, fout);
-    uint64_t fw = db_node_paths(db_graph, node, forward);
-    uint64_t rv = db_node_paths(db_graph, node, reverse);
-    fwrite(&fw, sizeof(uint64_t), 1, fout);
-    fwrite(&rv, sizeof(uint64_t), 1, fout);
+    uint64_t index = db_node_paths(db_graph, node);
+    fwrite(&index, sizeof(uint64_t), 1, fout);
   }
 }
 
-void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
+void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
                         const char *path)
 {
   FILE *fout;
@@ -57,11 +44,10 @@ void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
 
   uint64_t num_of_paths = paths->num_of_paths;
   uint64_t num_path_bytes = paths->next - paths->store;
-  uint64_t num_path_kmers = 0;
-  HASH_TRAVERSE(&db_graph->ht, count_kmers_with_paths, db_graph, &num_path_kmers);
+  uint64_t num_kmers_with_paths = paths->num_kmers_with_paths;
 
   char kmers_str[100], paths_str[100], mem_str[100];
-  ulong_to_str(num_path_kmers, kmers_str);
+  ulong_to_str(num_kmers_with_paths, kmers_str);
   ulong_to_str(num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
 
@@ -70,7 +56,7 @@ void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
 
   fwrite(&num_of_paths, sizeof(uint64_t), 1, fout);
   fwrite(&num_path_bytes, sizeof(uint64_t), 1, fout);
-  fwrite(&num_path_kmers, sizeof(uint64_t), 1, fout);
+  fwrite(&num_kmers_with_paths, sizeof(uint64_t), 1, fout);
   fwrite(paths->store, sizeof(uint8_t), num_path_bytes, fout);
 
   HASH_TRAVERSE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
@@ -79,7 +65,7 @@ void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
 }
 
 // if insert is true, insert missing kmers into the graph
-void paths_format_read(dBGraph *db_graph, binary_paths_t *paths,
+void paths_format_read(dBGraph *db_graph, PathStore *paths,
                        boolean insert, const char *path)
 {
   FILE *fh;
@@ -141,11 +127,10 @@ void paths_format_read(dBGraph *db_graph, binary_paths_t *paths,
       die("Node missing: %zu [path: %s]", (size_t)node, path);
     }
 
-    safe_fread(fh, &index, sizeof(uint64_t), "fw_index", path);
-    db_node_paths(db_graph, node, forward) = index;
-
-    safe_fread(fh, &index, sizeof(uint64_t), "rv_index", path);
-    db_node_paths(db_graph, node, reverse) = index;
+    safe_fread(fh, &index, sizeof(uint64_t), "kmer_index", path);
+    if(index > num_path_bytes)
+      die("Path index out of bounds [%zu > %zu]", (size_t)index, (size_t)num_path_bytes);
+    db_node_paths(db_graph, node) = index;
   }
 
   paths->next = paths->store + num_path_bytes;

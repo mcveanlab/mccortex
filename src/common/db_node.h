@@ -43,7 +43,7 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 
 //
 // Paths
-#define db_node_paths(graph,node,or) ((graph)->kmer_paths[2*(node)+(or)])
+#define db_node_paths(graph,node) ((graph)->kmer_paths[(node)])
 
 //
 // Read start (duplicate removal during read loading)

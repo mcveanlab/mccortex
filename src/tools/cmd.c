@@ -4,23 +4,25 @@
 
 static const char usage[] =
 "\n"
-"Commands:\n" // priority show
-"  build     [FASTA/FASTQ/BAM -> binary]\n"
-"  clean     [clean population / sample against merged]  (unfinished)\n" // 4
-"  join      [combine binaries]\n"
-"  intersect [dump intersection of a.ctx with b.ctx]\n"
-"  subgraph  [filter a subgraph]\n"
-"  reads     [filter reads]\n"
-"  extend    [extend contigs using a population graph]\n"
-"  contigs   [pull out contigs for a sample]             (unfinished)\n" // 2
-"  thread    [thread reads through cleaned population]\n"
-"  pview     [view read threading information]\n"
-"  pmerge    [merge path files (.ctp)]                   (unfinished)\n" // 5
-"  call      [call variants]\n"
-"  diverge   [path divergence caller]                    (unfinished)\n" // 3
-"  unique    [remove duplicated bubbles -> VCF]\n"
-"  covg      [add covg to a VCF file]                    (unfinished)\n" // 1
-"  place     [place variants and genotype]\n"
+"usage: "CMD" <command> <args>\n"
+"version: "CTXVERSIONSTR"\n"
+"\n"
+"Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
+"          clean       clean population / sample against merged  (unfinished)\n" // 4
+"          join        combine graph\n"
+"          intersect   dump intersection of graph A.ctx with A.ctx\n"
+"          subgraph    filter a subgraph\n"
+"          reads       filter reads against a graph\n"
+"          extend      extend contigs using a graph\n"
+"          contigs     pull out contigs for a sample             (unfinished)\n" // 2
+"          thread      thread reads through cleaned population\n"
+"          pview       view read threading information\n"
+"          pmerge      merge path files (.ctp)                   (unfinished)\n" // 5
+"          call        call variants\n"
+"          diverge     path divergence caller                    (unfinished)\n" // 3
+"          unique      remove duplicated bubbles, produce VCF\n"
+"          covg        add covg to a VCF file                    (unfinished)\n" // 1
+"          place       place variants and genotype\n"
 "\n"
 "  Type a command with no arguments to see help.\n"
 "\n"
@@ -41,11 +43,11 @@ const char *cmds[num_cmds]
 
 int (*funcs[num_cmds])(CmdArgs *cmd_args)
   = {ctx_build, ctx_clean, ctx_join, ctx_intersect, ctx_subgraph, ctx_reads,
-     ctx_extend, ctx_contigs, ctx_thread, ctp_view, ctp_merge, ctx_call,
+     ctx_extend, ctx_contigs, ctx_thread, ctx_pview, ctx_pmerge, ctx_call,
      ctx_diverge, ctx_unique, ctx_covg, ctx_place};
 
 // Commands not implemented yet
-int ctp_merge(CmdArgs *args) { die("Not implemented yet [cmd: %s]", args->cmdline); }
+int ctx_pmerge(CmdArgs *args) { die("Not implemented yet [cmd: %s]", args->cmdline); }
 
 static void cmd_init(CmdArgs *args, int argc, char **argv)
 {

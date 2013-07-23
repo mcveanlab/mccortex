@@ -6,11 +6,11 @@
 // file format version
 #define CTX_PATH_FILEFORMAT 1
 
-void paths_format_write(const dBGraph *db_graph, const binary_paths_t *paths,
+void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
                         const char *path);
 
 // if insert is true, insert missing kmers into the graph
-void paths_format_read(dBGraph *db_graph, binary_paths_t *paths,
+void paths_format_read(dBGraph *db_graph, PathStore *paths,
                        boolean insert, const char *path);
 
 // Returns false if cannot read otherwise true
