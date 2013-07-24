@@ -3,7 +3,13 @@
 #define UTIL_H_
 
 int int_cmp(const void *a, const void *b);
-int pointer_address_cmp(const void *a, const void *b);
+int long_cmp(const void *a, const void *b);
+int float_cmp(const void *a, const void *b);
+int double_cmp(const void *a, const void *b);
+int uint32_cmp(const void *a, const void *b);
+int uint64_cmp(const void *a, const void *b);
+int size_cmp(const void *a, const void *b);
+int ptr_cmp(const void *a, const void *b);
 
 char parse_entire_int(char *str, int *result);
 char parse_entire_uint(char *str, unsigned int *result);
@@ -74,7 +80,7 @@ extern const char complement_base[128];
   char char_nucleotide_complement(char c);
 #endif
 
-#define char_is_dna_base(c) (char_to_bnuc[(int)(c)] != Undefined)
+#define char_is_dna_base(c) (char_to_bnuc[(int)(c)] != UndefinedBase)
 
 // length is the length in number of bases
 // the char* should have one MORE base than that allocated, to hold '\0'

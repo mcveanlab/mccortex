@@ -21,7 +21,7 @@ int ctx_pview(CmdArgs *args)
   size_t mem_to_use = args->mem_to_use;
   if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
-  char *input_ctx_path = argv[1];
+  char *input_ctx_path = argv[0];
 
   // probe paths file to get kmer size
   char *input_paths_file = malloc(strlen(input_ctx_path)+4);

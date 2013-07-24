@@ -27,7 +27,7 @@ static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
 {
   // Sort supernode into forward orientation
   if(len == 1)
-    olist[0] = forward;
+    olist[0] = FORWARD;
   else if(nlist[0] > nlist[len-1] ||
           (nlist[0] == nlist[len-1] && olist[0] > olist[len-1]))
   {
@@ -43,7 +43,7 @@ size_t supernode_traverse(hkey_t node, Orientation or,
                           boolean *out_of_space)
 {
   #ifdef DEBUG_CALLER
-    char tmpstr[100];
+    char tmpstr[MAX_KMER_SIZE+1];
     ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
     binary_kmer_to_str(bkmerptr, db_graph->kmer_size, tmpstr);
     printf("  fetch %s:%i\n", tmpstr, (int)or);
@@ -60,7 +60,7 @@ size_t supernode_traverse(hkey_t node, Orientation or,
   while(edges_has_precisely_one_edge(edges[node], or, &nuc))
   {
     #ifdef DEBUG_CALLER
-      char tmp[100];
+      char tmp[MAX_KMER_SIZE+1];
       binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, tmp);
       printf(">%s:%i nuc:%c\n", tmp, or, binary_nuc_to_char(nuc));
     #endif
@@ -95,7 +95,7 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
                                const dBGraph *db_graph)
 {
   #ifdef DEBUG_CALLER
-    char tmpstr[100];
+    char tmpstr[MAX_KMER_SIZE+1];
     ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
     binary_kmer_to_str(bkmerptr, db_graph->kmer_size, tmpstr);
     printf(" create %s:%i\n", tmpstr, (int)or);
@@ -152,7 +152,7 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   }
 
   #ifdef DEBUG_CALLER
-    char tmpstr1[100], tmpstr2[100];
+    char tmpstr1[MAX_KMER_SIZE+1], tmpstr2[MAX_KMER_SIZE+1];
     ConstBinaryKmerPtr first_bkmer = db_node_bkmer(db_graph, first_node);
     ConstBinaryKmerPtr last_bkmer = db_node_bkmer(db_graph, last_node);
     binary_kmer_to_str(first_bkmer, db_graph->kmer_size, tmpstr1);

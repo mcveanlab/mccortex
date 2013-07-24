@@ -14,17 +14,14 @@ typedef const uint64_t* ConstBinaryKmerPtr;
 // BinaryKmer that is all zeros
 extern const BinaryKmer zero_bkmer;
 
-// Encoding
-typedef enum
-{
-  Adenine   = 0,
-  Cytosine  = 1,
-  Guanine   = 2,
-  Thymine   = 3,
-  Undefined = 4,
-} Nucleotide;
+// Base Encoding
+#define Adenine       0
+#define Cytosine      1
+#define Guanine       2
+#define Thymine       3
+#define UndefinedBase 4
 
-// typedef uint8_t Nucleotide;
+typedef uint8_t Nucleotide;
 
 // Hash functions
 #ifdef CITY_HASH

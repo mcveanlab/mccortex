@@ -50,8 +50,8 @@ int ctx_call(CmdArgs *args)
   char *input_paths_file = malloc(strlen(input_ctx_path)+4);
   paths_format_filename(input_ctx_path, input_paths_file);
   boolean valid_paths_file = false;
-  uint64_t ctp_num_paths = 0, ctp_num_path_bytes = 0, ctp_num_path_kmers = 0;
-  uint32_t ctp_kmer_size = 0, ctp_num_of_cols = 0;
+  uint64_t ctp_num_paths, ctp_num_path_bytes, ctp_num_path_kmers;
+  uint32_t ctp_kmer_size, ctp_num_of_cols;
 
   if(!paths_format_probe(input_paths_file, &valid_paths_file,
                          &ctp_kmer_size, &ctp_num_of_cols, &ctp_num_paths,
@@ -59,7 +59,6 @@ int ctx_call(CmdArgs *args)
   {
     print_usage(usage, "Cannot find .ctp file: %s", input_paths_file);
   }
-
   if(!valid_paths_file)
     die("Invalid .ctp file: %s", input_paths_file);
   if(ctp_num_of_cols != num_of_cols)
@@ -156,7 +155,7 @@ int ctx_call(CmdArgs *args)
   }
 
   #ifdef DEBUG
-    db_graph_dump_paths_by_kmer(&db_graph);
+    // db_graph_dump_paths_by_kmer(&db_graph);
   #endif
 
   // Now call variants
@@ -179,7 +178,7 @@ int ctx_call(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  pthread_exit(NULL);
   message("Done.\n");
+  pthread_exit(NULL);
   return EXIT_SUCCESS;
 }

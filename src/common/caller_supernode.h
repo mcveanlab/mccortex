@@ -49,7 +49,7 @@ struct SupernodePathPos
 };
 
 #define supernode_get_orientation(snode,node,or) \
-  ((node) == (snode)->nodes[0] && (or) == (snode)->orients[0] ? forward : reverse)
+  ((node) == (snode)->nodes[0] && (or) == (snode)->orients[0] ? FORWARD : REVERSE)
 
 void reverse_node_list(hkey_t *nlist, Orientation *olist, size_t len);
 

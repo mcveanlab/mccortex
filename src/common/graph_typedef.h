@@ -10,11 +10,9 @@ typedef uint32_t Covg;
 
 #define COVG_MAX UINT_MAX
 
-typedef enum
-{
-  forward = 0,
-  reverse = 1
-} Orientation;
+#define FORWARD 0
+#define REVERSE 1
+typedef uint8_t Orientation;
 
 typedef BinaryKmerPtr Key;
 

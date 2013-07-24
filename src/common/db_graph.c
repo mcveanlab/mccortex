@@ -99,7 +99,7 @@ void db_graph_next_node_orient(const dBGraph *db_graph,
 {
   BinaryKmer tmp_kmer;
 
-  if(orient == forward)
+  if(orient == FORWARD)
     binary_kmer_assign(tmp_kmer, bkmer);
   else
     binary_kmer_reverse_complement(bkmer, db_graph->kmer_size, tmp_kmer);
@@ -356,6 +356,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   PathIndex index, prev_index;
   PathLen len;
   Orientation orient, porient;
+  boolean first;
 
   message("\n-------- paths --------\n");
 
@@ -364,12 +365,14 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
       binary_kmer_to_str(db_node_bkmer(db_graph, node), kmer_size, str);
       for(orient = 0; orient < 2; orient++) {
         index = db_node_paths(db_graph, node);
-        if(index != PATH_NULL) printf("%s:%i\n", str, orient);
+        first = true;
         while(index != PATH_NULL) {
           prev_index = binary_paths_prev(paths, index);
           binary_paths_len_orient(paths, index, &len, &porient);
-          if(porient == orient)
+          if(porient == orient) {
+            if(first) { printf("%s:%i\n", str, orient); first = false; }
             binary_paths_dump_path(paths, index);
+          }
           index = prev_index;
         }
       }
@@ -379,11 +382,15 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   message("-----------------------\n\n");
 }
 
+//
+// Filter a ctx binary using a graph
+//
 
 size_t db_graph_filter_file(const dBGraph *db_graph,
                             const char *in_ctx_path, const char *out_ctx_path)
 {
-  // Dump nodes that were flagged
+  assert(db_graph->edges != NULL || db_graph->col_edges != NULL);
+
   size_t i, nodes_dumped = 0;
   FILE *in, *out;
 
@@ -424,4 +431,23 @@ size_t db_graph_filter_file(const dBGraph *db_graph,
   fclose(out);
 
   return nodes_dumped;
+}
+
+hkey_t db_graph_rand_node(const dBGraph *db_graph)
+{
+  uint64_t capacity = db_graph->ht.capacity;
+  BinaryKmer *table = db_graph->ht.table;
+  hkey_t node;
+
+  while(1)
+  {
+    node = ((double)rand() / RAND_MAX) * capacity;
+    if(HASH_ENTRY_ASSIGNED(table[node])) return node;
+  }
+  // while(node < capacity && !HASH_ENTRY_ASSIGNED(table[node])) node++;
+  // if(node == capacity) {
+  //   node = 0;
+  //   while(node < capacity && !HASH_ENTRY_ASSIGNED(table[node])) node++;
+  // }
+  return node;
 }

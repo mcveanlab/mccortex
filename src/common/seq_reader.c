@@ -145,7 +145,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
     {
       // Gap
       list->data[list->len].node = HASH_NOT_FOUND;
-      list->data[list->len].orient = forward;
+      list->data[list->len].orient = FORWARD;
       list->len++;
       prev_node = HASH_NOT_FOUND;
     }
@@ -450,7 +450,7 @@ char seq_reads_are_novel(const read_t *r1, const read_t *r2, dBGraph *db_graph,
                          int qual_cutoff1, int qual_cutoff2, int hp_cutoff)
 {
   hkey_t node1 = HASH_NOT_FOUND, node2 = HASH_NOT_FOUND;
-  Orientation or1 = forward, or2 = forward;
+  Orientation or1 = FORWARD, or2 = FORWARD;
   BinaryKmer curr_kmer, tmp_key;
   boolean found1 = false, found2 = false;
   size_t start1, start2, kmer_size = db_graph->kmer_size;

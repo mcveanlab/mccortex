@@ -165,7 +165,7 @@ void binary_paths_fetch(const PathStore *paths, PathIndex index,
                         Nucleotide *bases, PathLen len)
 {
   uint8_t *ptr = paths->store + index + sizeof(PathIndex) +
-                 paths->col_bitset_bytes;
+                 paths->col_bitset_bytes + sizeof(PathLen);
   unpack_bases(ptr, bases, len);
 }
 

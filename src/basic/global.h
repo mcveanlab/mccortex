@@ -24,8 +24,8 @@ typedef signed char boolean;
 
 #define CTXVERSIONSTR "0.0"
 
-#define QUOTE(str) #str
-#define MACRO2STR(str) QUOTE(str)
+#define QUOTE_MACRO(str) #str
+#define QUOTE_VALUE(str) QUOTE_MACRO(str)
 
 #define SWAP(x,y,tmp) ((tmp) = (x), (x) = (y), (y) = (tmp))
 
@@ -36,6 +36,8 @@ typedef signed char boolean;
 #define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
 
 #define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
+
+#define MEDIAN(arr,len) (len&0x1?arr[len/2]:(arr[(len-1)/2]+arr[len/2])/2.0)
 
 #ifndef ROUNDUP2POW
   #define ROUNDUP2POW(x) (0x1UL << (64 - __builtin_clzl(x)))

@@ -35,7 +35,7 @@ uint64_t *kmer_mask;
 static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
 {
   #ifdef DEBUG
-    char tmp[100];
+    char tmp[MAX_KMER_SIZE+1];
     binary_kmer_to_str(bkmer, db_graph.kmer_size, tmp);
     message("got bkmer %s\n", tmp);
   #endif

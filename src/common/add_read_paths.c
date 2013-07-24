@@ -123,7 +123,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
   }
 
   #ifdef DEBUG
-    char str[100];
+    char str[MAX_KMER_SIZE+1];
     BinaryKmer bkmer;
     db_graph_oriented_bkmer(graph, nodes[0].node, nodes[0].orient, bkmer);
     binary_kmer_to_str(bkmer, kmer_size, str);
@@ -148,7 +148,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
     }
     if(i > 0 && indegree[i] > 1) {
       ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i-1].node);
-      nuc = nodes[i-1].orient == forward
+      nuc = nodes[i-1].orient == FORWARD
               ? binary_nuc_complement(binary_kmer_first_nuc(bkmerptr, kmer_size))
               : binary_kmer_last_nuc(bkmerptr);
       nuc_rv[num_rv] = nuc;
@@ -282,7 +282,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   Orientation orient1 = nodebuf->data[nodebuf->len-1].orient;
 
   #ifdef DEBUG
-    char tmp1[100], tmp2[100];
+    char tmp1[MAX_KMER_SIZE+1], tmp2[MAX_KMER_SIZE+1];
     binary_kmer_to_str(db_node_bkmer(db_graph, node1), db_graph->kmer_size, tmp1);
     binary_kmer_to_str(db_node_bkmer(db_graph, node2), db_graph->kmer_size, tmp2);
     printf("traverse gap: %s:%i -> %s:%i\n", tmp1, orient1, tmp2, orient2);
@@ -413,7 +413,7 @@ void read_to_path(AddPathsWorker *worker)
     db_node_buf_ensure_capacity(nodebuf, nodebuf->len+1);
     r2_start = nodebuf->len;
     nodebuf->data[nodebuf->len].node = HASH_NOT_FOUND;
-    nodebuf->data[nodebuf->len].orient = forward;
+    nodebuf->data[nodebuf->len].orient = FORWARD;
     nodebuf->len++;
 
     r2_offset = get_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
@@ -455,7 +455,7 @@ void read_to_path(AddPathsWorker *worker)
       orient = nodebuf->data[i].orient;
 
       #ifdef DEBUG
-        char str[100];
+        char str[MAX_KMER_SIZE+1+7];
         ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
         if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
         else binary_kmer_to_str(bkmerptr, db_graph->kmer_size, str);
@@ -658,7 +658,7 @@ void add_read_paths_to_graph(const char *se_list,
   }
 
   // load pe data
-  if(pe_list1 != NULL && pe_list1[0] != '\0')
+  if(pe_list1 != NULL)
   {
     parse_filelists(pe_list1, pe_list2, READ_FALIST, &prefs, stats,
                     &load_paths, NULL);
@@ -723,7 +723,9 @@ void add_read_paths_to_graph(const char *se_list,
   // Print mp gap size / insert stats to a file
   uint32_t kmer_size = prefs.db_graph->kmer_size;
   dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, GAP_LIMIT+1, kmer_size);
-  dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, GAP_LIMIT+1, kmer_size);
+
+  if(pe_list1 != NULL)
+    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, GAP_LIMIT+1, kmer_size);
 
   // Print stats about paths added
   char mem_used_str[100], num_paths_str[100];

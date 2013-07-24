@@ -6,7 +6,7 @@ const BinaryKmer zero_bkmer = {0};
 
 const char bnuc_to_char_array[4] = {'A','C','G','T'};
 
-// 0:A, 1:C, 2:G, 3:T, 4:Undefined
+// 0:A, 1:C, 2:G, 3:T, 4:UndefinedBase
 const Nucleotide char_to_bnuc[128] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
                                       4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
                                       4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
@@ -181,7 +181,7 @@ BinaryKmerPtr binary_kmer_from_str(const char *seq, uint32_t kmer_size,
   for(i = 0; i < kmer_size; i++)
   {
     Nucleotide nuc = binary_nuc_from_char(seq[i]);
-    assert(nuc != Undefined);
+    assert(nuc != UndefinedBase);
 
     binary_kmer_left_shift_add(prealloced_kmer, kmer_size, nuc);
   }

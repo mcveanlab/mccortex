@@ -6,7 +6,9 @@ endif
 # MAXK=31
 # DEBUG=1
 # CITY_HASH=1   (use CityHash hash function)
+# RECOMPILE=1   (recompile all from source)
 
+# Resolve some issues linking libz:
 # e.g. for WTCHG cluster3
 # 1) pass LIB_PATH=/usr/local/lib/ to compile on WTCHG cluster3
 # 2) set LD_LIBRARY_PATH=/usr/local/lib/:$(LD_LIBRARY_PATH) before running
@@ -15,6 +17,9 @@ endif
 #  make
 #  make clean
 #  make all
+
+# For release
+# RECOMPILE=1
 
 # Use bash as shell
 SHELL := /bin/bash
@@ -58,14 +63,12 @@ LIB_HTS=libs/htslib/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 LIB_STRS=libs/string_buffer/libstrbuf.a
 
-# Resolve some issues linking libz:
-# 1) pass LIB_PATH=/usr/local/lib/ to compile on WTCHG cluster3
-# 2) also set LD_LIBRARY_PATH=/usr/local/lib/:$(LD_LIBRARY_PATH)
 ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-INCS=-I src/basic/ -I src/common/ -I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
+INCS=-I src/basic/ -I src/common/ -I src/tools/ \
+     -I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_GSL_HEADERS) $(EXTRA_INCS)
 
 # Library linking
@@ -101,30 +104,32 @@ BASIC_OBJDIR=build/basic
 COMMON_OBJDIR=build/common$(MAXK)
 TOOLS_OBJDIR=build/tools$(MAXK)
 
-BASIC_FILES=$(notdir $(wildcard src/basic/*.c)) call_seqan.o
-BASIC_OBJS=$(addprefix $(BASIC_OBJDIR)/, $(BASIC_FILES:.c=.o))
+BASIC_SRCS=$(wildcard src/basic/*.c)
 BASIC_HDRS=$(wildcard src/basic/*.h)
+BASIC_FILES=$(notdir $(BASIC_SRCS)) call_seqan.o
+BASIC_OBJS=$(addprefix $(BASIC_OBJDIR)/, $(BASIC_FILES:.c=.o))
 
-COMMON_FILES=$(notdir $(wildcard src/common/*.c))
-COMMON_OBJS=$(addprefix $(COMMON_OBJDIR)/, $(COMMON_FILES:.c=.o))
+COMMON_SRCS=$(wildcard src/common/*.c)
 COMMON_HDRS=$(wildcard src/common/*.h)
+COMMON_FILES=$(notdir $(COMMON_SRCS))
+COMMON_OBJS=$(addprefix $(COMMON_OBJDIR)/, $(COMMON_FILES:.c=.o))
 
-TOOLS_FILES=$(notdir $(wildcard src/tools/*.c))
+TOOLS_SRCS=$(wildcard src/tools/*.c)
+TOOLS_HDRS=$(wildcard src/tools/*.h)
+TOOLS_FILES=$(notdir $(TOOLS_SRCS))
 TOOLS_OBJS=$(addprefix $(TOOLS_OBJDIR)/, $(TOOLS_FILES:.c=.o))
-TOOLS_HDRS=$(wildcard src/toools/*.h)
 
 # DEPS are common dependencies that do not need to be re-built per target
 DEPS=Makefile bin build/basic $(COMMON_OBJDIR) $(LIB_OBJS)
 
-TOOLS=ctx_build ctx_clean ctx_reads ctx_subgraph ctx_intersect ctx_join \
-      ctx_thread ctp_view ctx_call ctx_covg ctx_extend ctx_contigs ctx_diverge \
-      ctx_unique ctx_place
+# RECOMPILE=1 to recompile all from source
+ifdef RECOMPILE
+	OBJS=$(TOOLS_SRCS) $(COMMON_SRCS) $(BASIC_SRCS) build/basic/call_seqan.o $(LIB_OBJS)
+else
+	OBJS=$(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
+endif
 
-# all: $(TOOLS)
 all: ctx
-
-.SUFFIXES: .c .o _k$(MAXK)
-.SECONDARY:
 
 build/basic/call_seqan.o: src/basic/call_seqan.cpp src/basic/call_seqan.h | $(DEPS)
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c src/basic/call_seqan.cpp -o $@
@@ -139,8 +144,12 @@ $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(COMMON_HDRS) $(TOOLS_HDRS) | 
 	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
 
 ctx: bin/ctx$(MAXK)
-bin/ctx$(MAXK): $(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
-	$(CC) -o $@ $(CFLAGS) $(INCS) $(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS) $(LINK)
+bin/ctx$(MAXK): src/main/ctx.c $(OBJS)
+	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/ctx.c $(OBJS) $(LINK)
+
+traversal: bin/traversal$(MAXK)
+bin/traversal$(MAXK): src/main/traversal.c $(OBJS)
+	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/traversal.c $(OBJS) $(LINK)
 
 # directories
 bin:
@@ -163,4 +172,4 @@ libs/string_buffer/string_buffer.h:
 clean:
 	rm -rf bin build
 
-.PHONY: all clean $(TOOLS)
+.PHONY: all clean ctx traversal

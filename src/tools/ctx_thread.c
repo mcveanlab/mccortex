@@ -43,8 +43,8 @@ int ctx_thread(CmdArgs *args)
     print_usage(usage, "Cannot write output file: %s", out_path);
 
   uint32_t col;
-  int argi, argend = argc - 3;
-  for(argi = 1; argi < argend; argi++) {
+  int argi, argend = argc - 1;
+  for(argi = 0; argi < argend; argi++) {
     if(strcmp(argv[argi], "--se_list") == 0)
     {
       if(argi+2 >= argend)
@@ -156,7 +156,7 @@ int ctx_thread(CmdArgs *args)
   size_t rep;
   for(rep = 0; rep < NUM_PASSES; rep++)
   {
-    for(argi = 1; argi < argend; argi++) {
+    for(argi = 0; argi < argend; argi++) {
       if(strcmp(argv[argi], "--se_list") == 0) {
         parse_entire_uint(argv[argi+1], &col);
         add_read_paths_to_graph(argv[argi+2], NULL, NULL, col, NULL, 0,

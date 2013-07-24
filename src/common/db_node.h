@@ -60,24 +60,24 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 #define opposite_orientation(or) rev_orient(or)
 
 #define db_node_get_orientation(bkmer,bkey) \
-        (binary_kmers_are_equal((bkmer), (bkey)) ? forward : reverse)
+        (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
 
 void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
                             uint32_t kmer_size, BinaryKmer result);
 
 #define db_node_first_nuc(bkmer,or,k) \
-  ((or) == forward ? binary_kmer_first_nuc((bkmer),(k)) \
+  ((or) == FORWARD ? binary_kmer_first_nuc((bkmer),(k)) \
       : binary_nuc_complement(binary_kmer_last_nuc(bkmer)))
 
 #define db_node_last_nuc(bkmer,or,k) \
-  ((or) == forward ? binary_kmer_last_nuc(bkmer) \
+  ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
       : binary_nuc_complement(binary_kmer_first_nuc(bkmer,(k))))
 
 //
 // Edges
 //
 
-// Orientation is 0(forward) or 1(reverse), shifted left (<<) 2 gives 0 or 4
+// Orientation is 0(FORWARD) or 1(REVERSE), shifted left (<<) 2 gives 0 or 4
 #define nuc_orient_to_edge(n,or)    (0x1 << ((n) + ((or)<<2)))
 
 #define edges_has_edge(edges,n,or)  (((edges) >> ((n) + ((or)<<2))) & 0x1)

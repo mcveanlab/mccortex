@@ -2,54 +2,25 @@
 #include "util.h"
 #include "cmd.h"
 
-static const char usage[] =
-"\n"
-"usage: "CMD" <command> <args>\n"
-"version: "CTXVERSIONSTR"\n"
-"\n"
-"Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
-"          clean       clean population / sample against merged  (unfinished)\n" // 4
-"          join        combine graph\n"
-"          intersect   dump intersection of graph A.ctx with A.ctx\n"
-"          subgraph    filter a subgraph\n"
-"          reads       filter reads against a graph\n"
-"          extend      extend contigs using a graph\n"
-"          contigs     pull out contigs for a sample             (unfinished)\n" // 2
-"          thread      thread reads through cleaned population\n"
-"          pview       view read threading information\n"
-"          pmerge      merge path files (.ctp)                   (unfinished)\n" // 5
-"          call        call variants\n"
-"          diverge     path divergence caller                    (unfinished)\n" // 3
-"          unique      remove duplicated bubbles, produce VCF\n"
-"          covg        add covg to a VCF file                    (unfinished)\n" // 1
-"          place       place variants and genotype\n"
-"\n"
-"  Type a command with no arguments to see help.\n"
-"\n"
-"Common Options:\n"
-"  -m <M>    Memory e.g. 1GB [default: 1GB]\n"
-"  -h <H>    Hash entries [default: 4M (~4 million)]\n"
-"  -g <G>    Species genome size [default: 3.1Gbp]\n"
-"  -t <T>    Number of threads [default: 2]\n"
-"  -k <K>    Kmer size [default: read from binaries]\n"
-"\n";
-
-const int num_cmds = 16;
-
-const char *cmds[num_cmds]
+const char *cmds[NUM_CMDS]
   = {"build", "clean", "join", "intersect", "subgraph", "reads", "extend",
      "contigs", "thread", "pview", "pmerge", "call", "diverge", "unique",
      "covg", "place"};
 
-int (*funcs[num_cmds])(CmdArgs *cmd_args)
+int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
   = {ctx_build, ctx_clean, ctx_join, ctx_intersect, ctx_subgraph, ctx_reads,
      ctx_extend, ctx_contigs, ctx_thread, ctx_pview, ctx_pmerge, ctx_call,
      ctx_diverge, ctx_unique, ctx_covg, ctx_place};
 
-// Commands not implemented yet
-int ctx_pmerge(CmdArgs *args) { die("Not implemented yet [cmd: %s]", args->cmdline); }
+static int ctx_notimpl(CmdArgs *args)
+{
+  warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
+}
 
-static void cmd_init(CmdArgs *args, int argc, char **argv)
+// Commands not implemented yet
+int ctx_pmerge(CmdArgs *args) { return ctx_notimpl(args); }
+
+void cmd_alloc(CmdArgs *args, int argc, char **argv)
 {
   args->genome_size = 3100000000;
   args->num_kmers = 4UL << 20; // 4M
@@ -60,6 +31,15 @@ static void cmd_init(CmdArgs *args, int argc, char **argv)
   args->mem_to_use_set = false;
   args->mem_to_use_set = false;
   args->num_threads_set = false;
+
+  // Get command index
+  boolean is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
+  if(argc >= 2 && is_ctx_cmd) {
+    int cmd;
+    for(cmd = 0; cmd < NUM_CMDS && strcmp(cmds[cmd],argv[1]) != 0; cmd++);
+    args->cmdidx = cmd < NUM_CMDS ? cmd : -1;
+  }
+  else args->cmdidx = -1;
 
   args->argc = 0;
   args->argv = malloc(argc * sizeof(char**));
@@ -73,7 +53,7 @@ static void cmd_init(CmdArgs *args, int argc, char **argv)
     sprintf(args->cmdline+len, " %s", argv[i]);
 
   // argv[0] = ctx, argv[1] = cmd, argv[2..] = args
-  for(i = 2; i < argc; i++)
+  for(i = is_ctx_cmd ? 2 : 1; i < argc; i++)
   {
     if(strcmp(argv[i], "-m") == 0)
     {
@@ -124,27 +104,22 @@ static void cmd_init(CmdArgs *args, int argc, char **argv)
   }
 }
 
-static void cmd_free(CmdArgs *args)
+void cmd_free(CmdArgs *args)
 {
   free(args->argv);
   free(args->cmdline);
 }
 
-int main(int argc, char **argv)
+// Intended for use testing command line parsing etc.
+int cmd_run(int argc, char **argv)
 {
-  if(argc == 1) {
-    print_usage(usage, NULL);
-    return EXIT_FAILURE;
-  }
-
-  int cmd;
-  for(cmd = 0; cmd < num_cmds && strcmp(cmds[cmd],argv[1]) != 0; cmd++);
-  if(cmd == num_cmds) print_usage(usage, "Unrecognised command: %s", argv[1]);
-
-  int ret;
   CmdArgs args;
-  cmd_init(&args, argc, argv);
-  ret = funcs[cmd](&args);
+  cmd_alloc(&args, argc, argv);
+  int ret = -1;
+
+  if(args.cmdidx == -1) warn("Unrecognised command: %s", argc < 2 ? NULL : argv[1]);
+  else ret = ctx_funcs[args.cmdidx](&args);
+
   cmd_free(&args);
   return ret;
 }

@@ -171,7 +171,7 @@ static void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
   BinaryKmer last_bkmer;
 
   if(last > 0) {
-    if(snorient == forward) {
+    if(snorient == FORWARD) {
       last_node = snode->nodes[last];
       last_orient = snode->orients[last];
     } else {
@@ -204,7 +204,7 @@ static void load_allele_path(hkey_t node, Orientation or,
   const dBGraph *db_graph = wlk->db_graph;
 
   #ifdef DEBUG_CALLER
-    char tmp[100];
+    char tmp[MAX_KMER_SIZE+1];
     binary_kmer_to_str(db_node_bkmer(db_graph,node), db_graph->kmer_size, tmp);
     printf(" load_allele_path: %s:%i\n", tmp, or);
   #endif
@@ -284,7 +284,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     hkey_t *next_nodes;
     Orientation *next_orients;
 
-    if(snorient == forward) {
+    if(snorient == FORWARD) {
       num_edges = snode->num_next;
       next_nodes = snode->next_nodes;
       next_orients = snode->next_orients;
@@ -351,7 +351,7 @@ static void get_prev_supernode_pos(SupernodePathPos *spp,
 {
   if(spp->pos == 0) {
     *snode = NULL;
-    *snorient = forward;
+    *snorient = FORWARD;
   } else {
     *snode = spp->path->supernodes[spp->pos-1];
     *snorient = spp->path->superorients[spp->pos-1];
@@ -422,7 +422,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   }
 
   #ifdef DEBUG_CALLER
-    char tmpstr[100];
+    char tmpstr[MAX_KMER_SIZE+1];
     binary_kmer_to_str(db_node_bkmer(db_graph, fork_n), db_graph->kmer_size, tmpstr);
     printf("fork %s:%i out-degree:%i\n", tmpstr, (int)fork_o, (int)num_next);
   #endif
@@ -475,7 +475,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   for(i = 0; i < snode_count; i++)
   {
     #ifdef DEBUG_CALLER
-      char tmpsup[100];
+      char tmpsup[MAX_KMER_SIZE+1];
       ConstBinaryKmerPtr bptr = db_node_bkmer(db_graph, snode_store[i].nodes[0]);
       binary_kmer_to_str(bptr, db_graph->kmer_size, tmpsup);
       printf("check supernode: %s\n", tmpsup);
@@ -495,7 +495,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
       do
       {
-        if(pp->path->superorients[pp->pos] == forward) {
+        if(pp->path->superorients[pp->pos] == FORWARD) {
           spp_forward[num_forward++] = pp;
         }
         else {
@@ -560,7 +560,7 @@ static size_t suppathpos_to_list(const SupernodePathPos *snodepathpos,
   {
     CallerSupernode *snode = path->supernodes[pos];
 
-    if(path->superorients[pos] == forward)
+    if(path->superorients[pos] == FORWARD)
     {
       size_t len = MIN2(snode->num_of_nodes, maxlen-j);
       memcpy(nlist+j, snode->nodes, len*sizeof(hkey_t));
@@ -668,7 +668,7 @@ void* bubble_caller(void *args)
 
   // binary_kmer_from_str("ACCCAAAACAATGGGAGTGATGTGCTAAAAC", db_graph->kmer_size, tmpkmer);
   // node = hash_table_find(&db_graph->ht, tmpkmer);
-  // find_bubbles(node, reverse, db_graph, &wlk, visited,
+  // find_bubbles(node, REVERSE, db_graph, &wlk, visited,
   //              snode_hash, spp_hash, node_store, or_store,
   //              snode_paths, snode_store, snodepos_store,
   //              tdata->out, &tdata->num_of_bubbles);
@@ -682,14 +682,14 @@ void* bubble_caller(void *args)
     if(HASH_ENTRY_ASSIGNED(*ptr)) {
       hkey_t node = ptr - table;
       Edges edges = db_graph->edges[node];
-      if(edges_get_outdegree(edges, forward) > 1) {
-        find_bubbles(node, forward, db_graph, &wlk, visited,
+      if(edges_get_outdegree(edges, FORWARD) > 1) {
+        find_bubbles(node, FORWARD, db_graph, &wlk, visited,
                      snode_hash, spp_hash, node_store, or_store,
                      snode_paths, snode_store, snodepos_store,
                      tdata->out, &tdata->num_of_bubbles, tdata->threadid);
       }
-      if(edges_get_outdegree(edges, reverse) > 1) {
-        find_bubbles(node, reverse, db_graph, &wlk, visited,
+      if(edges_get_outdegree(edges, REVERSE) > 1) {
+        find_bubbles(node, REVERSE, db_graph, &wlk, visited,
                      snode_hash, spp_hash, node_store, or_store,
                      snode_paths, snode_store, snodepos_store,
                      tdata->out, &tdata->num_of_bubbles, tdata->threadid);
@@ -709,7 +709,7 @@ void* bubble_caller(void *args)
   free(node_store);
   free(or_store);
 
-   pthread_exit(NULL);
+  return NULL;
 }
 
 void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,

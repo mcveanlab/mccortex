@@ -4,6 +4,8 @@
 typedef struct
 {
   char *cmdline;
+  int cmdidx;
+  // options
   boolean genome_size_set, num_kmers_set, mem_to_use_set;
   size_t genome_size, num_kmers, mem_to_use;
   boolean kmer_size_set, num_threads_set;
@@ -13,7 +15,7 @@ typedef struct
   char **argv;
 } CmdArgs;
 
-#define CMD "ctx"MACRO2STR(MAX_KMER_SIZE)
+#define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 
 int ctx_build(CmdArgs *args);
 int ctx_clean(CmdArgs *args);
@@ -31,5 +33,15 @@ int ctx_diverge(CmdArgs *args);
 int ctx_unique(CmdArgs *args);
 int ctx_covg(CmdArgs *args);
 int ctx_place(CmdArgs *args);
+
+#define NUM_CMDS 16
+extern const char *cmds[NUM_CMDS];
+extern int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args);
+
+void cmd_alloc(CmdArgs *args, int argc, char **argv);
+void cmd_free(CmdArgs *args);
+
+// Run a command
+int cmd_run(int argc, char **argv);
 
 #endif

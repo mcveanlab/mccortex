@@ -22,11 +22,11 @@ ALLELECOVG=$8
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 OLDCTX="~/cortex/versions/current/bin/cortex_var_31_c1_s8 --kmer_size 31 --mem_width 20 --mem_height 20"
-BUILDCTX="$DIR/../../bin/ctx_build_k31"
-THREAD="$DIR/../../bin/ctx_thread_k31"
-CTX2="$DIR/../../bin/ctx_call_k31"
-PROC="$DIR/../../bin/ctx_unique"
-PLACE="$DIR/../../bin/ctx_place"
+BUILDCTX="$DIR/../../bin/ctx31 build"
+THREAD="$DIR/../../bin/ctx31 thread"
+CALL="$DIR/../../bin/ctx31 call"
+PROC="$DIR/../../bin/ctx31 unique"
+PLACE="$DIR/../../bin/ctx31 place"
 BIOINF="$DIR/../../libs/bioinf-perl"
 # BIOINF=~/bioinf-perl
 HAPLEN="$DIR/longest-haplotype.sh"
@@ -61,7 +61,7 @@ cmd "echo reads1.0.fa >> reads.se.falist"
 cmd "echo reads1.1.fa >> reads.se.falist"
 
 # Make diploid.k31.ctx
-cmd $BUILDCTX --pe_list reads.0.falist reads.1.falist 31 100M diploid.k31.ctx
+cmd $BUILDCTX -k 31 -m 100MB --pe_list reads.0.falist reads.1.falist diploid.k31.ctx
 
 # Add shades to binary
 # cmd $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.shaded.k31.ctx
@@ -86,13 +86,21 @@ cmd time $OLDCTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.fa
 cmd $PROC diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
 cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 
-# Call with ctx2
-# cmd time $THREAD --pe_list 0 reads.0.falist reads.1.falist 2 100MB diploid.k31.ctx
-cmd time $THREAD --se_list 0 reads.se.falist 2 100M diploid.k31.ctx
-# cmd time $THREAD --se_list 0 reads.se.falist --pe_list 0 reads.0.falist reads.1.falist 2 100M diploid.k31.ctx
-cmd time $CTX2 2 100M diploid.k31.ctx diploid.pac.bubbles.gz
-cmd $PROC diploid.pac.bubbles.gz diploid.pac
-cmd gzip -d -f diploid.pac.vcf.gz
+# Call with CALL
+ln diploid.k31.ctx diploid.k31.se.ctx
+ln diploid.k31.ctx diploid.k31.pe.ctx
+ln diploid.k31.ctx diploid.k31.sepe.ctx
+
+cmd time $THREAD -t 2 -m 100MB --se_list 0 reads.se.falist diploid.k31.se.ctx
+cmd time $THREAD -t 2 -m 100MB --pe_list 0 reads.0.falist reads.1.falist diploid.k31.pe.ctx
+cmd time $THREAD -t 2 -m 100MB --se_list 0 reads.se.falist --pe_list 0 reads.0.falist reads.1.falist diploid.k31.sepe.ctx
+
+for x in se pe sepe
+do
+  cmd time $CALL -t 2 -m 100MB diploid.k31.$x.ctx diploid.pac.$x.bubbles.gz
+  cmd $PROC diploid.pac.$x.bubbles.gz diploid.pac.$x
+  cmd gzip -d -f diploid.pac.$x.vcf.gz
+done
 
 # Generate truth VCF
 cmd "$BIOINF/sim_mutations/sim_vcf.pl 31 genome0.fa mask0.fa genome1.fa mask1.fa > truth.k31.vcf"
@@ -104,8 +112,13 @@ cmd $BIOINF/sim_mutations/sim_compare.pl truth.k31.oldbc.vcf diploid.newbc.vcf t
 cmd $HAPLEN diploid.newbc.vcf
 cmd $BIOINF/sim_mutations/sim_compare.pl truth.k31.newbc.vcf diploid.newbc.shaded.vcf truth.k31.shaded.vcf SHADED falsepos.k31.shaded.vcf genome0.fa genome1.fa
 cmd $HAPLEN diploid.newbc.shaded.vcf
-cmd $BIOINF/sim_mutations/sim_compare.pl truth.k31.shaded.vcf diploid.pac.vcf truth.k31.pac.vcf PAC falsepos.k31.pac.vcf genome0.fa genome1.fa
-cmd $HAPLEN diploid.pac.vcf
+
+for x in se pe sepe
+do
+  cmd $BIOINF/sim_mutations/sim_compare.pl truth.k31.shaded.vcf diploid.pac.$x.vcf truth.k31.pac.$x.vcf PAC falsepos.k31.pac.$x.vcf genome0.fa genome1.fa
+  cmd $HAPLEN diploid.pac.$x.vcf
+done
+
 cmd $HAPLEN truth.k31.vcf
 
 exit

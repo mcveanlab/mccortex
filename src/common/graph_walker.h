@@ -31,17 +31,11 @@ typedef struct
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
+void graph_walker_print_state(const GraphWalker *wlk);
+
 // Always call finish after calling init
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
                        hkey_t node, Orientation or);
-
-// #define MAX_WALK_BACK_NODES 100
-
-// // context is now many nodes to go back (up to MAX_WALK_BACK_NODES)
-// // Remember to call finish when done with wlk
-// void graph_walker_init_context(GraphWalker *wlk, const dBGraph *db_graph,
-//                                uint64_t *visited, Colour colour,
-//                                hkey_t node, Orientation orient);
 
 void graph_walker_finish(GraphWalker *wlk);
 

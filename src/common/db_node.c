@@ -67,7 +67,7 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
                             uint32_t kmer_size, BinaryKmer result)
 {
-  if(orient == forward) {
+  if(orient == FORWARD) {
     binary_kmer_assign(result, bkmer);
   }
   else {
@@ -209,7 +209,7 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
   Nucleotide nuc;
 
   binary_kmer_to_str(bkmer, kmer_size, str);
-  if(nodes[0].orient == reverse) reverse_complement_str(str, kmer_size);
+  if(nodes[0].orient == REVERSE) reverse_complement_str(str, kmer_size);
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_bkmer(db_graph, nodes[i].node);

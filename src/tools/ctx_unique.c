@@ -20,7 +20,7 @@ static const char usage[] =
 "    --nobubbles <col>  Filter out e.g. ref bubbles\n";
 
 #define load_assert(cond,sb) \
-  if(!(cond)) { die("Loading err ["QUOTE(cond)"]: '%s'", (sb)->buff); }
+  if(!(cond)) { die("Loading err ["QUOTE_MACRO(cond)"]: '%s'", (sb)->buff); }
 
 /* alleles */
 
@@ -347,9 +347,9 @@ static void header_add(CallHeader *ch, char *tag, char *value)
   ch->hlines++;
 }
 
-static void print_vcf_header(gzFile vcf, CallHeader *ch, size_t argc, char **argv)
+static void print_vcf_header(gzFile vcf, CallHeader *ch, const char *cmdline)
 {
-  size_t i, j;
+  size_t i;
   char datestr[9];
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
@@ -360,10 +360,7 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, size_t argc, char **arg
   gzprintf(vcf, "##fileDate=%s\n", datestr);
   gzprintf(vcf, "##reference=unplaced\n");
   gzprintf(vcf, "##phasing=none\n");
-
-  gzprintf(vcf, "##procCmd=%s", argv[0]);
-  for(j = 1; j < argc; j++) gzprintf(vcf, " %s", argv[j]);
-  gzputc(vcf, '\n');
+  gzprintf(vcf, "##procCmd=%s\n", cmdline);
   
   if(file_reader_get_current_dir(cwd) != NULL)
     gzprintf(vcf, "##procCwd=%s\n", cwd);
@@ -470,8 +467,8 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
   strbuf_free(line);
 }
 
-#define header_assert(cond,sb)                                \
-  if(!(cond)) { die("Loading err ["QUOTE(cond)"]: %s", (sb)->buff); }
+#define header_assert(cond,sb) \
+  if(!(cond)) { die("Loading err ["QUOTE_MACRO(cond)"]: %s", (sb)->buff); }
 
 // Returns length of var name
 static size_t get_var_name(const char *line, const char *suffix, char *name)
@@ -683,7 +680,6 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   if(!strbuf_gzreadline_nonempty(line, fh))
     return 0;
 
-  uint32_t i, n;
   size_t num_samples = cr->ch->num_samples;
 
   // Get var name
@@ -695,7 +691,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   strbuf_chomp(var->flank5p);
 
   // Skip flank5p covg lines
-  for(i = 0; i < num_samples; i++) strbuf_gzskipline(fh);
+  // for(i = 0; i < num_samples; i++) strbuf_gzskipline(fh);
 
   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
   strbuf_chomp(line);
@@ -709,7 +705,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   strbuf_chomp(var->flank3p);
 
   // Skip flank3p covg lines
-  for(i = 0; i < num_samples; i++) load_assert(strbuf_gzskipline(fh) > 0, line);
+  // for(i = 0; i < num_samples; i++) load_assert(strbuf_gzskipline(fh) > 0, line);
 
   // Start reading alleles
   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
@@ -732,8 +728,8 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     load_assert(line->buff[0] == '>', line);
     load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
 
-    n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
-               &branch_num, &branch_nodes);
+    uint32_t n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
+                        &branch_num, &branch_nodes);
 
     load_assert(n == 2, line);
     load_assert(branch_num == cr->num_alleles, line);
@@ -751,15 +747,15 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     strbuf_chomp(branch->seq);
 
     // Read covgs in each sample
-    for(i = 0; i < num_samples; i++)
-    {
-      load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
-      strbuf_chomp(line);
-      boolean more = false;
-      uint32_t num = parse_uint_liststr(line->buff, cr->covgs, branch_nodes, &more);
-      load_assert(num == branch_nodes && !more, line);
-      delta_arr_from_uint_arr(cr->covgs, branch_nodes, &(branch->covgs[i]));
-    }
+    // for(i = 0; i < num_samples; i++)
+    // {
+    //   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
+    //   strbuf_chomp(line);
+    //   boolean more = false;
+    //   uint32_t num = parse_uint_liststr(line->buff, cr->covgs, branch_nodes, &more);
+    //   load_assert(num == branch_nodes && !more, line);
+    //   delta_arr_from_uint_arr(cr->covgs, branch_nodes, &(branch->covgs[i]));
+    // }
 
     cr->alleles[cr->num_alleles++] = branch;
 
@@ -985,22 +981,25 @@ int ctx_unique(CmdArgs *args)
 {
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 2) print_usage(usage, NULL);
+  if(argc != 2) print_usage(usage, NULL);
+
+  const char *input_path = argv[0];
+  const char *output_path = argv[1];
 
   // open file to read
-  gzFile fh = gzopen(argv[1], "r");
-  if(fh == NULL) die("Cannot open input file: %s", argv[1]);
+  gzFile fh = gzopen(input_path, "r");
+  if(fh == NULL) die("Cannot open input file: %s", output_path);
 
   StrBuf *out_file = strbuf_new();
 
-  strbuf_set(out_file, argv[2]);
+  strbuf_set(out_file, output_path);
   strbuf_append_str(out_file, ".vcf.gz");
   char *vcf_path = strbuf_as_str(out_file);
 
   gzFile vcf = gzopen(vcf_path, "w");
   if(vcf == NULL) die("Cannot open output file: %s", out_file->buff);
 
-  strbuf_set(out_file, argv[2]);
+  strbuf_set(out_file, output_path);
   strbuf_append_str(out_file, ".5pflanks.fa.gz");
   char *flanks_path = strbuf_as_str(out_file);
 
@@ -1008,14 +1007,14 @@ int ctx_unique(CmdArgs *args)
   if(flankfh == NULL) die("Cannot open output file: %s", out_file->buff);
 
   message("%s\n  reading: %s\n  vcf: %s\n  fasta: %s\n\n",
-          argv[0], argv[1], vcf_path, flanks_path);
+          input_path, output_path, vcf_path, flanks_path);
 
   // Deduce input filetype
   StrBuf *tmp = strbuf_new();
   strbuf_gzreadline(tmp, fh);
 
   if(gzseek(fh, 0, SEEK_SET) != 0)
-    die("Read error on input file: %s", argv[1]);
+    die("Read error on input file: %s", input_path);
 
   CallHeader *ch = header_new();
 
@@ -1029,10 +1028,10 @@ int ctx_unique(CmdArgs *args)
     synthesize_bubble_caller_header(fh, ch);
     next_var = reader_next_old_bc;
     if(gzseek(fh, 0, SEEK_SET) != 0)
-      die("Read error on input file: %s", argv[1]);
+      die("Read error on input file: %s", input_path);
   }
 
-  print_vcf_header(vcf, ch, argc, argv);
+  print_vcf_header(vcf, ch, args->cmdline);
 
   CallReader *cr = reader_new(ch);
   khash_t(vhsh) *varhash = kh_init(vhsh);
@@ -1081,7 +1080,7 @@ int ctx_unique(CmdArgs *args)
   gzclose(flankfh);
   gzclose(fh);
 
-  strbuf_set(out_file, argv[2]);
+  strbuf_set(out_file, output_path);
   strbuf_append_str(out_file, ".5pflanks.sam");
 
   message("  Next steps - map with stampy and align to ref:\n");
@@ -1089,7 +1088,7 @@ int ctx_unique(CmdArgs *args)
   message("    stampy.py -g hg19 -H hg19\n");
   message("    stampy.py -g hg19 -h hg19 --inputformat=fasta -M %s > %s\n\n",
          flanks_path, out_file->buff);
-  message("    ./place_calls %s %s hg19.fa\n\n", vcf_path, out_file->buff);
+  message("    "CMD" place %s %s hg19.fa\n\n", vcf_path, out_file->buff);
 
   free(vcf_path);
   free(flanks_path);

@@ -51,8 +51,8 @@ void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
   ulong_to_str(num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
 
-  message("  Saving %s kmers holding %s paths (%s)\n",
-          kmers_str, paths_str, mem_str);
+  message("  Saving paths: %s paths, %s path-bytes, %s kmers\n",
+          paths_str, mem_str, kmers_str);
 
   fwrite(&num_of_paths, sizeof(uint64_t), 1, fout);
   fwrite(&num_path_bytes, sizeof(uint64_t), 1, fout);
@@ -105,8 +105,14 @@ void paths_format_read(dBGraph *db_graph, PathStore *paths,
         path, (size_t)num_path_bytes);
   }
 
-  message(" Loaded paths: %zu paths, %zu path-bytes, %zu kmers\n",
-          (size_t)num_of_paths, (size_t)num_path_bytes, (size_t)num_path_kmers);
+
+  char kmers_str[100], paths_str[100], mem_str[100];
+  ulong_to_str(num_path_kmers, kmers_str);
+  ulong_to_str(num_of_paths, paths_str);
+  bytes_to_str(num_path_bytes, 1, mem_str);
+
+  message(" Loaded paths: %s paths, %s path-bytes, %s kmers\n",
+          paths_str, mem_str, kmers_str);
 
   safe_fread(fh, paths->store, num_path_bytes, "paths->store", path);
 
@@ -135,6 +141,7 @@ void paths_format_read(dBGraph *db_graph, PathStore *paths,
 
   paths->next = paths->store + num_path_bytes;
   paths->num_of_paths = num_of_paths;
+  paths->num_kmers_with_paths = num_path_kmers;
 
   // Test that this is the end of the file
   uint8_t end;
@@ -189,7 +196,10 @@ void paths_format_filename(const char *path, char *out)
 {
   size_t len = strlen(path);
   memcpy(out, path, len);
-  if(strcasecmp(path+len-4,".ctx") != 0) len += 4;
-  memcpy(out+len-4, ".ctp", 4);
+  if(strcasecmp(path+len-4,".ctp") != 0)
+  {
+    if(strcasecmp(path+len-4,".ctx") != 0) len += 4;
+    memcpy(out+len-4, ".ctp", 4);
+  }
   out[len] = '\0';
 }
