@@ -3,13 +3,6 @@
 
 #include "binary_kmer.h"
 
-#define PATH_NULL UINT64_MAX
-#define PATH_LEN_BITS 15
-#define MAX_PATHLEN ((1U<<PATH_LEN_BITS)-1)
-
-typedef uint64_t PathIndex;
-typedef uint16_t PathLen;
-
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint32_t len][M:uint8_t data]}..
 // N=round_up(num_of_colours/8)
 // M=round_up(len/4)
@@ -18,9 +11,12 @@ void binary_paths_init(PathStore *paths, uint8_t *data, size_t size,
                        size_t num_of_cols);
 
 // Add
+PathIndex binary_paths_add2(PathStore *paths, PathIndex last_index,
+                            uint8_t *packed);
+
 PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
-                          PathLen len, const Nucleotide *bases,
-                          Orientation orient, Colour colour);
+                           PathLen len, const Nucleotide *bases,
+                           Orientation orient, Colour colour);
 
 // Fetch
 PathIndex binary_paths_prev(const PathStore *paths, PathIndex index);

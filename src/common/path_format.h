@@ -9,9 +9,10 @@
 void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
                         const char *path);
 
+// If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
-void paths_format_read(dBGraph *db_graph, PathStore *paths,
-                       boolean insert, const char *path);
+void paths_format_read(dBGraph *db_graph, PathStore *paths, PathStore *tmppaths,
+                       boolean insert_missing_kmers, const char *path);
 
 // Returns false if cannot read otherwise true
 boolean paths_format_probe(const char *path, boolean *valid_paths_file,

@@ -23,18 +23,11 @@ int ctx_call(CmdArgs *args)
 
   uint32_t num_of_threads = args->num_threads;
   size_t mem_to_use = args->mem_to_use;
-
-  if(!args->num_threads_set) print_usage(usage, "-t <T> required");
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
+  // if(!args->num_threads_set) print_usage(usage, "-t <T> required");
+  // if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[0];
   char *out_path = argv[1];
-
-  if(!test_file_readable(input_ctx_path))
-    print_usage(usage, "Cannot read input file: %s", input_ctx_path);
-
-  if(!test_file_writable(out_path))
-    print_usage(usage, "Cannot write output file: %s", out_path);
 
   // Probe binary to get kmer_size
   boolean is_binary = false;
@@ -47,13 +40,19 @@ int ctx_call(CmdArgs *args)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
   // probe paths file
-  char *input_paths_file = malloc(strlen(input_ctx_path)+4);
+  char input_paths_file[strlen(input_ctx_path)+4];
   paths_format_filename(input_ctx_path, input_paths_file);
+
   boolean valid_paths_file = false;
   uint64_t ctp_num_paths, ctp_num_path_bytes, ctp_num_path_kmers;
   uint32_t ctp_kmer_size, ctp_num_of_cols;
 
-  if(!paths_format_probe(input_paths_file, &valid_paths_file,
+  if(!file_exists(input_paths_file))
+  {
+    input_paths_file[0] = '\0';
+    warn("Couldn't find ctp file - not using paths");
+  }
+  else if(!paths_format_probe(input_paths_file, &valid_paths_file,
                          &ctp_kmer_size, &ctp_num_of_cols, &ctp_num_paths,
                          &ctp_num_path_bytes, &ctp_num_path_kmers))
   {
@@ -83,6 +82,9 @@ int ctx_call(CmdArgs *args)
     print_usage(usage, "Not enough memory; hash table: %zu; threads: %zu",
                 graph_mem, thread_mem);
   }
+
+  if(!test_file_writable(out_path))
+    print_usage(usage, "Cannot write output file: %s", out_path);
 
   // Allocate memory
   dBGraph db_graph;
@@ -130,7 +132,8 @@ int ctx_call(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path file
-  paths_format_read(&db_graph, &db_graph.pdata, false, input_paths_file);
+  if(strlen(input_paths_file) > 0)
+    paths_format_read(&db_graph, &db_graph.pdata, NULL, false, input_paths_file);
 
   /* initialize random seed: */
   srand(time(NULL));
@@ -160,8 +163,6 @@ int ctx_call(CmdArgs *args)
 
   // Now call variants
   invoke_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths);
-
-  free(input_paths_file);
 
   // Clear up threads
   for(i = 0; i < num_of_threads; i++) {

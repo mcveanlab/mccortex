@@ -36,11 +36,11 @@ int ctx_thread(CmdArgs *args)
     print_usage(usage, "Cannot read input file: %s", input_ctx_path);
 
   // Set up output path
-  char *out_path = malloc(strlen(input_ctx_path)+4);
-  paths_format_filename(input_ctx_path, out_path);
+  char out_ctp_path[strlen(input_ctx_path)+4];
+  paths_format_filename(input_ctx_path, out_ctp_path);
 
-  if(!test_file_writable(out_path))
-    print_usage(usage, "Cannot write output file: %s", out_path);
+  if(!test_file_writable(out_ctp_path))
+    print_usage(usage, "Cannot write output file: %s", out_ctp_path);
 
   uint32_t col;
   int argi, argend = argc - 1;
@@ -173,7 +173,7 @@ int ctx_thread(CmdArgs *args)
     }
   }
 
-  paths_format_write(&db_graph, &db_graph.pdata, out_path);
+  paths_format_write(&db_graph, &db_graph.pdata, out_ctp_path);
 
   free(db_graph.edges);
   free(db_graph.node_in_cols);
@@ -183,9 +183,8 @@ int ctx_thread(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  message("  Paths written to: %s\n", out_path);
+  message("  Paths written to: %s\n", out_ctp_path);
   message("Done.\n");
-  free(out_path);
 
   return EXIT_SUCCESS;
 }

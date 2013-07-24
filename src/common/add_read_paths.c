@@ -182,10 +182,10 @@ static void add_read_path(const dBNode *nodes, size_t len,
   // to add a path
   hkey_t node;
   Orientation orient;
-  uint64_t pindex, prev_index;
   size_t start_fw, start_rv;
+  PathIndex prev_index, new_index;
+  PathLen plen;
   Nucleotide *bases;
-  uint32_t plen;
 
   // .//\/
 
@@ -220,9 +220,8 @@ static void add_read_path(const dBNode *nodes, size_t len,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
-    pindex = binary_paths_add(paths, prev_index, plen, bases, orient, colour);
-    if(pindex != PATH_NULL)
-      db_node_paths(graph, node) = pindex;
+    new_index = binary_paths_add(paths, prev_index, plen, bases, orient, colour);
+    if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
 
     if(start_fw == 0) break;
     // break;
@@ -256,9 +255,8 @@ static void add_read_path(const dBNode *nodes, size_t len,
              start_rv, start_fw);
     #endif
 
-    pindex = binary_paths_add(paths, prev_index, plen, bases, orient, colour);
-    if(pindex != PATH_NULL)
-      db_node_paths(graph, node) = pindex;
+    new_index = binary_paths_add(paths, prev_index, plen, bases, orient, colour);
+    if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
 
     if(start_rv == 0) break;
     // break;

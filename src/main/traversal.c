@@ -11,7 +11,7 @@
 #include "graph_walker.h"
 
 static const char usage[] =
-"usage: traversal [options] <input.ctx> <start_kmer>\n"
+"usage: traversal [options] <input.ctx>\n"
 "  Test graph traversal code\n";
 
 int main(int argc, char **argv)
@@ -19,9 +19,9 @@ int main(int argc, char **argv)
   CmdArgs args;
   cmd_alloc(&args, argc, argv);
 
-  if(args.argc != 2) print_usage(usage, NULL);
+  if(args.argc != 1) print_usage(usage, NULL);
   const char *input_ctx_path = args.argv[0];
-  const char *start_kmer = args.argv[1];
+  // const char *start_kmer = args.argv[1];
 
   // int a = INT_MAX, b = INT_MIN;
   // long c = INT_MAX, d = INT_MIN;
@@ -50,23 +50,28 @@ int main(int argc, char **argv)
   uint64_t ctp_num_paths, ctp_num_path_bytes, ctp_num_path_kmers;
   uint32_t ctp_kmer_size, ctp_num_of_cols;
 
-  if(!paths_format_probe(input_paths_file, &valid_paths_file,
-                         &ctp_kmer_size, &ctp_num_of_cols, &ctp_num_paths,
-                         &ctp_num_path_bytes, &ctp_num_path_kmers))
+  if(!file_exists(input_paths_file))
   {
-    print_usage(usage, "Cannot find .ctp file: %s", input_paths_file);
+    input_paths_file[0] = '\0';
+    warn("Cannot find ctp file - not using paths");
   }
-  if(!valid_paths_file)
+  else if(!paths_format_probe(input_paths_file, &valid_paths_file,
+                              &ctp_kmer_size, &ctp_num_of_cols, &ctp_num_paths,
+                              &ctp_num_path_bytes, &ctp_num_path_kmers))
+  {
+    print_usage(usage, "Cannot read .ctp file: %s", input_paths_file);
+  }
+  else if(!valid_paths_file)
     die("Invalid .ctp file: %s", input_paths_file);
-  if(ctp_num_of_cols != num_of_cols)
+  else if(ctp_num_of_cols != num_of_cols)
     die("Number of colours in .ctp does not match .ctx");
-  if(ctp_kmer_size != kmer_size)
+  else if(ctp_kmer_size != kmer_size)
     die("Kmer size in .ctp does not match .ctx");
 
   // Get starting bkmer
-  BinaryKmer bkmer, bkey;
-  if(strlen(start_kmer) != kmer_size) die("length of kmer does not match kmer_size");
-  binary_kmer_from_str(start_kmer, kmer_size, bkmer);
+  // BinaryKmer bkmer, bkey;
+  // if(strlen(start_kmer) != kmer_size) die("length of kmer does not match kmer_size");
+  // binary_kmer_from_str(start_kmer, kmer_size, bkmer);
 
   // Decide on memory
   size_t hash_kmers, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
@@ -111,17 +116,21 @@ int main(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path file
-  paths_format_read(&db_graph, &db_graph.pdata, false, input_paths_file);
+  if(strlen(input_paths_file) > 0)
+    paths_format_read(&db_graph, &db_graph.pdata, NULL, false, input_paths_file);
 
   // Find start node
-  hkey_t node;
-  Orientation orient;
-  db_node_get_key(bkmer, kmer_size, bkey);
-  node = hash_table_find(&db_graph.ht, bkey);
-  orient = db_node_get_orientation(bkmer, bkey);
+  // hkey_t node;
+  // Orientation orient;
+  // db_node_get_key(bkmer, kmer_size, bkey);
+  // node = hash_table_find(&db_graph.ht, bkey);
+  // orient = db_node_get_orientation(bkmer, bkey);
   Nucleotide lost_nuc;
 
   // char bkmerstr[MAX_KMER_SIZE+1];
+
+  hkey_t node;
+  Orientation orient;
 
   size_t i, j, len, junc, prev_junc, num_repeats = 10000;
   size_t total_len = 0, total_junc = 0, dead_ends = 0, n = 0;

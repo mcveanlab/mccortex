@@ -74,7 +74,7 @@ int ctx_pview(CmdArgs *args)
   db_graph.num_of_cols_used = ctp_num_of_cols;
 
   // Add kmers as reading
-  paths_format_read(&db_graph, &db_graph.pdata, true, input_paths_file);
+  paths_format_read(&db_graph, &db_graph.pdata, NULL, true, input_paths_file);
 
   db_graph_dump_paths_by_kmer(&db_graph);
 

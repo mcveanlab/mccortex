@@ -71,7 +71,6 @@ static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t le
 }
 
 
-// query should point to <len><bases>
 // returns PATH_NULL if not found, otherwise index
 // len_in_bytes is length in bytes of bases
 static inline PathIndex binary_paths_find(const PathStore *paths,
@@ -81,35 +80,84 @@ static inline PathIndex binary_paths_find(const PathStore *paths,
 {
   uint8_t *ptr;
   size_t offset = sizeof(PathIndex) + paths->col_bitset_bytes;
-  len_in_bytes += sizeof(PathLen);
+  size_t mem = sizeof(PathLen) + len_in_bytes;
 
   while(last_index != PATH_NULL)
   {
     ptr = paths->store + last_index;
-    if(memcmp(ptr+offset, query, len_in_bytes) == 0) return last_index;
+    if(memcmp(ptr+offset, query+offset, mem) == 0) return last_index;
     memcpy(&last_index, ptr, sizeof(PathIndex));
   }
 
   return PATH_NULL;
 }
 
-// Returns position added to, or PATH_NULL if updated an old entry
-PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
-                          PathLen len, const Nucleotide *bases,
-                          Orientation orient, Colour colour)
+// Returns match PathIndex if found, otherwise PATH_NULL
+PathIndex validate_appended(PathStore *paths, PathIndex last_index,
+                            uint8_t *query, size_t len_in_bytes,
+                            boolean *inserted)
 {
+  PathIndex match;
+
+  if(last_index == PATH_NULL ||
+     (match = binary_paths_find(paths, last_index,
+                                query, len_in_bytes)) == PATH_NULL)
+  {
+    // Accept new path
+    size_t mem = sizeof(PathIndex) + paths->col_bitset_bytes +
+                 sizeof(PathLen) + len_in_bytes;
+
+    if(query != paths->next)
+      memcpy(paths->next, query, mem);
+
+    match = paths->next - paths->store;
+    paths->next += mem;
+    paths->num_of_paths++;
+    paths->num_kmers_with_paths += (last_index == PATH_NULL);
+    *inserted = true;
+  }
+  else *inserted = false;
+
+  return match;
+}
+
+PathIndex binary_paths_add2(PathStore *paths, PathIndex last_index,
+                            uint8_t *packed)
+{
+  PathLen len;
+  boolean inserted = false;
+  PathIndex idx;
+  size_t i;
+
+  memcpy(&len, packed+sizeof(PathIndex)+paths->col_bitset_bytes, sizeof(PathLen));
+  size_t len_in_bytes = round_bits_to_bytes(len*2);
+  idx = validate_appended(paths, last_index, packed, len_in_bytes, &inserted);
+  if(!inserted) {
+    uint8_t *dst = paths->store + idx + sizeof(PathIndex);
+    uint8_t *src = packed + sizeof(PathIndex);
+    for(i = 0; i < paths->col_bitset_bytes; i++) dst[i] |= src[i];
+  }
+  return inserted ? idx : PATH_NULL;
+}
+
+// if packed_bases is NULL, uses bases and does packing
+// Returns position added to
+PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
+                           PathLen len, const Nucleotide *bases,
+                           Orientation orient, Colour colour)
+{
+  // We add the path the end of the paths and then check if it is a duplicate
+  // this is done because we need to pack the bases into somewhere first anyway
   size_t len_in_bytes = round_bits_to_bytes(len*2);
   size_t total_len = sizeof(PathIndex) + paths->col_bitset_bytes +
                      sizeof(PathLen) + len_in_bytes;
 
   if(paths->next + total_len >= paths->end) die("Out of memory");
 
-  uint8_t *ptr = paths->next, *data_start;
-  PathIndex start = ptr - paths->store;
+  uint8_t *ptr = paths->next;
 
   uint8_t colbitset[paths->col_bitset_bytes];
   memset(colbitset, 0, paths->col_bitset_bytes);
-  bitset_set(colbitset, colour);
 
   PathLen len_and_orient = len | (orient << PATH_LEN_BITS);
 
@@ -118,30 +166,17 @@ PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
   ptr += sizeof(PathIndex);
   memcpy(ptr, colbitset, paths->col_bitset_bytes);
   ptr += paths->col_bitset_bytes;
-  data_start = ptr;
   memcpy(ptr, &len_and_orient, sizeof(PathLen));
   ptr += sizeof(PathLen);
   pack_bases(ptr, bases, len);
   ptr += len_in_bytes;
 
+  boolean inserted;
   PathIndex match;
+  match = validate_appended(paths, last_index, paths->next, len_in_bytes, &inserted);
+  bitset_set(paths->store+match+sizeof(PathIndex), colour);
 
-  if(last_index != PATH_NULL &&
-     (match = binary_paths_find(paths, last_index,
-                                data_start, len_in_bytes)) != PATH_NULL)
-  {
-    // Update old path
-    bitset_set(paths->store+match+sizeof(PathIndex), colour);
-    return PATH_NULL;
-  }
-  else
-  {
-    // Accept new path
-    paths->next = ptr;
-    paths->num_of_paths++;
-    paths->num_kmers_with_paths += (last_index == PATH_NULL);
-    return start;
-  }
+  return inserted ? match : PATH_NULL;
 }
 
 PathIndex binary_paths_prev(const PathStore *paths, PathIndex index)

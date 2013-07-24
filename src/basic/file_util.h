@@ -11,6 +11,8 @@
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
 char mkpath(const char *path, mode_t mode);
 
+boolean file_exists(const char *file);
+
 boolean test_file_readable(const char *file);
 // Creates file if it can write
 boolean test_file_writable(const char *file);

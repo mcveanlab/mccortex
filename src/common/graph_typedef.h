@@ -16,6 +16,15 @@ typedef uint8_t Orientation;
 
 typedef BinaryKmerPtr Key;
 
+// Paths
+
+#define PATH_NULL UINT64_MAX
+#define PATH_LEN_BITS 15
+#define MAX_PATHLEN ((1U<<PATH_LEN_BITS)-1)
+
+typedef uint64_t PathIndex;
+typedef uint16_t PathLen;
+
 typedef struct {
   uint8_t *const store, *const end;
   const size_t size;
@@ -71,7 +80,7 @@ typedef struct
   uint64_t *node_in_cols;
 
   // path data
-  volatile uint64_t *kmer_paths;
+  volatile PathIndex *kmer_paths;
   PathStore pdata;
 
   // Loading reads

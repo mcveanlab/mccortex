@@ -13,6 +13,12 @@
 // <uint8_t:path_data>
 // <binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>
 
+typedef struct
+{
+  uint32_t version, kmer_size, num_cols;
+  uint64_t num_of_paths, num_path_bytes, num_path_kmers;
+} PathFileHeader;
+
 static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
                                            FILE *fout)
 {
@@ -64,9 +70,45 @@ void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
   fclose(fout);
 }
 
+static void paths_format_load_header(PathFileHeader *h,
+                                     FILE *fh, const char *path,
+                                     PathStore *paths, dBGraph *db_graph)
+{
+  char sig[6] = {0};
+
+  safe_fread(fh, sig, 5, "PATHS", path);
+  safe_fread(fh, &h->version, sizeof(uint32_t), "version", path);
+  safe_fread(fh, &h->kmer_size, sizeof(uint32_t), "kmer_size", path);
+  safe_fread(fh, &h->num_cols, sizeof(uint32_t), "num_cols", path);
+  safe_fread(fh, &h->num_of_paths, sizeof(uint64_t), "num_of_paths", path);
+  safe_fread(fh, &h->num_path_bytes, sizeof(uint64_t), "num_path_bytes", path);
+  safe_fread(fh, &h->num_path_kmers, sizeof(uint64_t), "num_path_kmers", path);
+
+  if(strncmp(sig, "PATHS", 5) != 0) {
+    die("File is not valid paths file [path: %s]", path);
+  }
+  if(h->version != CTX_PATH_FILEFORMAT) {
+    die("file version not supported [version: %u; path: %s]", h->version, path);
+  }
+  if(h->kmer_size != db_graph->kmer_size) {
+    die("kmer_size values don't match [%u vs %u; path: %s]",
+        h->kmer_size, db_graph->kmer_size, path);
+  }
+  if(h->num_cols != paths->num_of_cols) {
+    die("numbers of colours don't match [%u vs %u; path: %s]",
+        h->num_cols, paths->num_of_cols, path);
+  }
+  if(h->num_path_bytes > paths->size) {
+    die("Not enough memory allocated to store paths from file: %s [mem: %zu]",
+        path, (size_t)h->num_path_bytes);
+  }
+}
+
+// If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
-void paths_format_read(dBGraph *db_graph, PathStore *paths,
-                       boolean insert, const char *path)
+//  (this is a useful feature for pview)
+void paths_format_read(dBGraph *db_graph, PathStore *paths, PathStore *tmppaths,
+                       boolean insert_missing_kmers, const char *path)
 {
   FILE *fh;
 
@@ -74,59 +116,47 @@ void paths_format_read(dBGraph *db_graph, PathStore *paths,
     die("Unable to open binary paths file to read: %s\n", path);
   }
 
-  char header[6] = {0};
-  uint32_t version, kmer_size = db_graph->kmer_size, num_cols;
-  uint64_t num_of_paths, num_path_bytes, num_path_kmers;
+  PathFileHeader header;
+  paths_format_load_header(&header, fh, path, paths, db_graph);
 
-  safe_fread(fh, header, 5, "PATHS", path);
-  safe_fread(fh, &version, sizeof(uint32_t), "version", path);
-  safe_fread(fh, &kmer_size, sizeof(uint32_t), "kmer_size", path);
-  safe_fread(fh, &num_cols, sizeof(uint32_t), "num_cols", path);
-  safe_fread(fh, &num_of_paths, sizeof(uint64_t), "num_of_paths", path);
-  safe_fread(fh, &num_path_bytes, sizeof(uint64_t), "num_path_bytes", path);
-  safe_fread(fh, &num_path_kmers, sizeof(uint64_t), "num_path_kmers", path);
-
-  if(strncmp(header, "PATHS", 5) != 0) {
-    die("File is not valid paths file [path: %s]", path);
-  }
-  if(version != CTX_PATH_FILEFORMAT) {
-    die("file version not supported [version: %u; path: %s]", version, path);
-  }
-  if(kmer_size != db_graph->kmer_size) {
+  if(header.kmer_size != db_graph->kmer_size) {
     die("kmer_size values don't match [%u vs %u; path: %s]",
-        kmer_size, db_graph->kmer_size, path);
+        header.kmer_size, db_graph->kmer_size, path);
   }
-  if(num_cols != paths->num_of_cols) {
-    die("numbers of colours don't match [%u vs %u; path: %s]",
-        num_cols, paths->num_of_cols, path);
-  }
-  if(num_path_bytes > paths->size) {
-    die("Not enough memory allocated to store paths from file: %s [mem: %zu]",
-        path, (size_t)num_path_bytes);
-  }
-
 
   char kmers_str[100], paths_str[100], mem_str[100];
-  ulong_to_str(num_path_kmers, kmers_str);
-  ulong_to_str(num_of_paths, paths_str);
-  bytes_to_str(num_path_bytes, 1, mem_str);
+  ulong_to_str(header.num_path_kmers, kmers_str);
+  ulong_to_str(header.num_of_paths, paths_str);
+  bytes_to_str(header.num_path_bytes, 1, mem_str);
 
-  message(" Loaded paths: %s paths, %s path-bytes, %s kmers\n",
+  message(" Loading paths: %s paths, %s path-bytes, %s kmers\n",
           paths_str, mem_str, kmers_str);
 
-  safe_fread(fh, paths->store, num_path_bytes, "paths->store", path);
+  if(header.num_path_bytes > tmppaths->size)
+    die("Not enough memory for loading paths");
+
+  if(tmppaths != NULL)
+    safe_fread(fh, tmppaths->store, header.num_path_bytes, "tmppaths->store", path);
+  else
+  {
+    safe_fread(fh, paths->store, header.num_path_bytes, "paths->store", path);
+    paths->next = paths->store + header.num_path_bytes;
+    paths->num_of_paths = header.num_of_paths;
+    paths->num_kmers_with_paths = header.num_path_kmers;
+  }
 
   BinaryKmer bkmer;
-  uint64_t i, index;
+  uint64_t i;
+  PathIndex index;
   hkey_t node;
   boolean found;
   memset(bkmer, 0, sizeof(BinaryKmer));
 
-  for(i = 0; i < num_path_kmers; i++)
+  for(i = 0; i < header.num_path_kmers; i++)
   {
     safe_fread(fh, &bkmer, sizeof(BinaryKmer), "bkmer", path);
 
-    if(insert) {
+    if(insert_missing_kmers) {
       node = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
     }
     else if((node = hash_table_find(&db_graph->ht, bkmer)) == HASH_NOT_FOUND) {
@@ -134,14 +164,26 @@ void paths_format_read(dBGraph *db_graph, PathStore *paths,
     }
 
     safe_fread(fh, &index, sizeof(uint64_t), "kmer_index", path);
-    if(index > num_path_bytes)
-      die("Path index out of bounds [%zu > %zu]", (size_t)index, (size_t)num_path_bytes);
-    db_node_paths(db_graph, node) = index;
-  }
+    if(index > header.num_path_bytes) {
+      die("Path index out of bounds [%zu > %zu]",
+          (size_t)index, (size_t)header.num_path_bytes);
+    }
 
-  paths->next = paths->store + num_path_bytes;
-  paths->num_of_paths = num_of_paths;
-  paths->num_kmers_with_paths = num_path_kmers;
+    if(tmppaths == NULL)
+      db_node_paths(db_graph, node) = index;
+    else
+    {
+      // Do merge
+      PathIndex kindex = db_node_paths(db_graph, node);
+      do
+      {
+        kindex = binary_paths_add2(paths, kindex, tmppaths->store + index);
+        if(kindex != PATH_NULL) db_node_paths(db_graph, node) = kindex;
+        memcpy(&index, tmppaths->store + index, sizeof(PathIndex));
+      }
+      while(index != PATH_NULL);
+    }
+  }
 
   // Test that this is the end of the file
   uint8_t end;

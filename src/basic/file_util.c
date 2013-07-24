@@ -58,6 +58,11 @@ char mkpath(const char *path, mode_t mode)
   return status;
 }
 
+boolean file_exists(const char *file)
+{
+  return (access(file, F_OK) != -1);
+}
+
 boolean test_file_readable(const char *file)
 {
   FILE *fp = fopen(file, "r");

@@ -7,6 +7,8 @@
 #define DEBUG_WALKER 1
 #endif
 
+#define USE_COUNTER_PATHS 1
+
 static void print_path_list(FollowPath **arr, size_t num)
 {
   size_t i, j;
@@ -310,6 +312,7 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   }
 
   // Does every next node have a path?
+  #ifdef USE_COUNTER_PATHS
   size_t c[4] = {0};
 
   for(i = 0; i < wlk->num_curr && c[0]+c[1]+c[2]+c[3] < num_next; i++)
@@ -325,6 +328,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   }
 
   if(c[0]+c[1]+c[2]+c[3] < num_next) return -1;
+  if(c[0]+c[1]+c[2]+c[3] > num_next) die("Counter path corruption");
+  #endif
 
   // There is unique next node
   // Find the correct next node chosen by the paths

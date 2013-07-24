@@ -12,13 +12,9 @@ int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
      ctx_extend, ctx_contigs, ctx_thread, ctx_pview, ctx_pmerge, ctx_call,
      ctx_diverge, ctx_unique, ctx_covg, ctx_place};
 
-static int ctx_notimpl(CmdArgs *args)
-{
-  warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
-}
-
-// Commands not implemented yet
-int ctx_pmerge(CmdArgs *args) { return ctx_notimpl(args); }
+// static int ctx_notimpl(CmdArgs *args) {
+//   warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
+// }
 
 void cmd_alloc(CmdArgs *args, int argc, char **argv)
 {
