@@ -64,6 +64,7 @@ typedef struct
 
   // Optional fields:
   Edges *edges; // [hkey]
+  // Covg *covgs;
 
   // Colour specific arrays
   // cast to 2d array with:

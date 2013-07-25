@@ -516,7 +516,7 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 //   stats->total_bases_read
 //   stats->binaries_loaded
 uint32_t binary_load(const char *ctx_path, dBGraph *graph,
-                     SeqLoadingPrefs *prefs, SeqLoadingStats *stats)
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats)
 {
   assert(prefs->must_exist_in_colour == -1 || graph->node_in_cols != NULL);
 
@@ -666,7 +666,7 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
 
       if(graph->col_covgs != NULL) {
         for(i = 0; i < num_of_cols; i++)
-          db_node_add_coverage(graph, node, prefs->into_colour+i, covgs[i]);
+          db_node_add_col_covg(graph, node, prefs->into_colour+i, covgs[i]);
       }
 
       if(graph->col_edges != NULL)
@@ -687,7 +687,9 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
           }
         }
       }
-      else {
+      
+      if(graph->edges != NULL)
+      {
         // Merge all edges into one colour
         for(i = 0; i < num_of_cols; i++) {
           graph->edges[node] |= edges[i];

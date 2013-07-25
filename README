@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental fork of cortex_var, to handle larger populations
 with better genome assembly.
 
-04 July 2013
+25 July 2013
 
 Build
 -----
@@ -28,22 +28,39 @@ to compile for a maximum kmer size of 63:
 
     make MAXK=63
 
+executables appear in the bin directory
+
 Commands
 --------
 
-ctx_build     [FASTA/FASTQ/BAM -> binary file]
-ctx_thread    [thread reads through cleaned population]
-ctp_view      [view read threading information]
-ctx_call      [call variants]
-ctx_unique    [remove duplicated bubbles -> VCF]
-ctx_covg      [add covg to a VCF file]
-ctx_place     [place variants and genotype]
-ctx_subgraph  [filter a subgraph]
-ctx_reads     [filter reads using a graph]
-ctx_intersect [dump intersection of a.ctx with b.ctx]
-ctx_join      [combine binaries]
-ctx_extend    [extend contigs using a population graph]
-ctx_contigs   [pull out contigs from a sample]
+usage: ctx31 <command> [options] <args>
+version: 0.0
+
+Command:  build       FASTA/FASTQ/BAM -> binary graph file
+          clean       clean population / sample against merged  (unfinished)
+          join        combine graphs
+          intersect   dump intersection of graph A.ctx with B.ctx
+          subgraph    filter a subgraph
+          reads       filter reads against a graph
+          extend      extend contigs using a graph
+          contigs     pull out contigs for a sample             (unfinished)
+          thread      thread reads through cleaned population
+          pview       view read threading information
+          pmerge      merge path files (.ctp)
+          call        call variants
+          diverge     path divergence caller                    (unfinished)
+          unique      remove duplicated bubbles, produce VCF
+          covg        add covg to a VCF file                    (unfinished)
+          place       place variants and genotype
+
+  Type a command with no arguments to see help.
+
+Common Options:
+  -m <M>    Memory e.g. 1GB [default: 1GB]
+  -h <H>    Hash entries [default: 4M (~4 million)]
+  -g <G>    Species genome size [default: 3.1Gbp]
+  -t <T>    Number of threads [default: 2]
+  -k <K>    Kmer size [default: read from binaries]
 
 Common Pipelines
 ----------------
@@ -67,7 +84,8 @@ Code is organised as:
 * libs/       included library code from other projects
 * src/common  files that need recompiling based on different max kmer size (MAXK)
 * src/basic   files that do not depend on MAXK
-* src/tools   one file for each tool - handles command line arguments etc.
+* src/tools   tools to do particular jobs
+* src/main    files with a main function go in here
 
 License: GPLv2
 --------------

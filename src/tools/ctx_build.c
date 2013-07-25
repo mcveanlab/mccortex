@@ -9,7 +9,7 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: "CMD" build -k <kmer> -m <mem> [OPTIONS] <out.ctx>\n"
+"usage: "CMD" build -k <kmer-size> -m <mem> [OPTIONS] <out.ctx>\n"
 "  Build a cortex binary.  \n"
 "\n"
 "  Sequence options:\n"
@@ -41,15 +41,14 @@ static const char usage[] =
 
 int ctx_build(CmdArgs *args)
 {
+  cmd_accept_options(args, "mk");
+  cmd_require_options(args, "k");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);
 
   uint32_t kmer_size = args->kmer_size;
   size_t mem_to_use = args->mem_to_use;
-
-  if(!args->kmer_size_set) print_usage(usage, "-k <K> required");
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   const char *out_path = argv[argc-1];
   uint32_t colours_used = 0;
@@ -264,14 +263,16 @@ int ctx_build(CmdArgs *args)
 
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
+  seq_loading_stats_free(stats);
 
-  // Dump graph
+  hash_table_print_stats(&db_graph.ht);
+
   binary_dump_graph(out_path, &db_graph, CURR_CTX_VERSION, NULL, 0, colours_used);
 
-  message("Dumped cortex binary to: %s\n", out_path);
-  message("  [format version %u; %u colours]\n", CURR_CTX_VERSION, colours_used);
+  message("Dumped cortex binary to: %s (format version %u; %u colour%s)\n",
+          out_path, CURR_CTX_VERSION, colours_used, colours_used != 1 ? "s" : "");
 
-  seq_loading_stats_free(stats);
+  message("Done.\n");
 
   return EXIT_SUCCESS;
 }

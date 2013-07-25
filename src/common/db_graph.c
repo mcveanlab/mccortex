@@ -24,6 +24,37 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
   return db_graph;
 }
 
+dBGraph* db_graph_set_cols(dBGraph *db_graph, uint32_t num_of_cols)
+{
+  size_t i;
+  Colour num_of_cols_used = MIN2(num_of_cols, db_graph->num_of_cols_used);
+  Colour old_num_cols = db_graph->num_of_cols;
+
+  dBGraph tmp = {.ht = db_graph->ht, .kmer_size = db_graph->kmer_size,
+                 .num_of_cols = num_of_cols, .num_of_cols_used = num_of_cols_used,
+                 .ginfo = db_graph->ginfo,
+                 .edges = db_graph->edges, .col_edges = db_graph->col_edges,
+                 .col_covgs = db_graph->col_covgs,
+                 .node_in_cols = db_graph->node_in_cols,
+                 .kmer_paths = db_graph->kmer_paths,
+                 .pdata = db_graph->pdata,
+                 .readstrt = db_graph->readstrt};
+
+  memcpy(db_graph, &tmp, sizeof(dBGraph));
+
+  if(num_of_cols > old_num_cols) {
+    db_graph->ginfo = realloc(db_graph->ginfo, num_of_cols * sizeof(GraphInfo));
+    for(i = old_num_cols; i < num_of_cols; i++)
+      graph_info_alloc(db_graph->ginfo + i);
+  }
+  else if(num_of_cols < old_num_cols) {
+    for(i = num_of_cols; i < old_num_cols; i++)
+      graph_info_dealloc(db_graph->ginfo + i);
+  }
+
+  return db_graph;
+}
+
 void db_graph_dealloc(dBGraph *db_graph)
 {
   size_t i;

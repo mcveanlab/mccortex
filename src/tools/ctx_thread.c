@@ -21,13 +21,14 @@ static const char usage[] =
 
 int ctx_thread(CmdArgs *args)
 {
+  cmd_accept_options(args, "tm");
+  // cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 1) print_usage(usage, NULL);
 
   uint32_t num_of_threads = args->num_threads;
   size_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[argc-1];
 

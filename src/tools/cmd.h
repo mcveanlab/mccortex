@@ -10,6 +10,8 @@ typedef struct
   size_t genome_size, num_kmers, mem_to_use;
   boolean kmer_size_set, num_threads_set;
   uint32_t kmer_size, num_threads;
+  boolean file_set;
+  const char *file;
   // arguments not including command:
   int argc;
   char **argv;
@@ -40,6 +42,12 @@ extern int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args);
 
 void cmd_alloc(CmdArgs *args, int argc, char **argv);
 void cmd_free(CmdArgs *args);
+
+// accptopts is a string of valid args,
+// e.g. "tk" accepts kmer-size and number of threads
+// NULL means anything valid, "" means no args valid
+void cmd_accept_options(const CmdArgs *args, const char *accptopts);
+void cmd_require_options(const CmdArgs *args, const char *accptopts);
 
 // Run a command
 int cmd_run(int argc, char **argv);

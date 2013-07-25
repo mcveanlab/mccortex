@@ -90,7 +90,7 @@ ifdef DEBUG
 	OPT = $(OPT_TESTS)
 	DEBUG_ARGS = -g -ggdb -DDEBUG=1
 else
-	OPT = -O3 -DNDEBUG=1
+	OPT = -O3 #-DNDEBUG=1
 	DEBUG_ARGS = 
 endif
 

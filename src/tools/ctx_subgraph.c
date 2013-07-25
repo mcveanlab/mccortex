@@ -199,12 +199,13 @@ static void filter_subgraph(const char *input_ctx_path,
 
 int ctx_subgraph(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
+  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 4) print_usage(usage, NULL);
 
   uint64_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path, *input_filelist, *out_path;
   uint32_t dist;

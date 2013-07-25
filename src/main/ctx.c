@@ -16,7 +16,7 @@ static const char usage[] =
 "          contigs     pull out contigs for a sample             (unfinished)\n" // 2
 "          thread      thread reads through cleaned population\n"
 "          pview       view read threading information\n"
-"          pmerge      merge path files (.ctp)                   (unfinished)\n" // 5
+"          pmerge      merge path files (.ctp)\n"
 "          call        call variants\n"
 "          diverge     path divergence caller                    (unfinished)\n" // 3
 "          unique      remove duplicated bubbles, produce VCF\n"

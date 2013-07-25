@@ -50,11 +50,12 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
 
 int ctx_covg(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
+  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
 
   size_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   if(argc < 3) print_usage(usage, NULL);
 

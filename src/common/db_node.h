@@ -137,7 +137,7 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 #define db_node_col_covg(graph,node,colour) \
         ((graph)->col_covgs[(node)*(graph)->num_of_cols + (colour)])
 
-void db_node_add_coverage(dBGraph *graph, hkey_t hkey, Colour col, long update);
+void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 
 Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,

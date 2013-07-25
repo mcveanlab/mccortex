@@ -774,6 +774,7 @@ static void parse_ploidy(char *arg)
 
 int ctx_place(CmdArgs *args)
 {
+  cmd_accept_options(args, "");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);

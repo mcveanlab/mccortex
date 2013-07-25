@@ -55,7 +55,7 @@ char binary_probe(const char* path, boolean *is_ctx,
 //   stats->total_bases_read
 //   stats->binaries_loaded
 uint32_t binary_load(const char *path, dBGraph *graph,
-                     SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
 
 // If you don't want to/care about graph_info, pass in NULL
 // If you want to print all nodes pass condition as NULL
@@ -70,7 +70,6 @@ uint64_t binary_dump_graph(const char *path, dBGraph *graph,
 // FILE *fh must already point to the first bkmer
 // if merge is true, read existing covg and edges and combine with outgoing
 void binary_dump_colour(dBGraph *db_graph, Colour graphcol,
-                        Colour intocol, uint32_t num_of_cols,
-                        FILE *fh, boolean merge);
+                        Colour intocol, uint32_t num_of_cols, FILE *fh);
 
 #endif /* BINARY_FORMAT_H_ */

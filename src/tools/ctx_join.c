@@ -13,8 +13,23 @@
 #include "db_node.h"
 #include "binary_format.h"
 
+
+// Given (A,B,C) are ctx binaries, A:1 means colour 1 in A,
+// {A:1,B:0} is loading A:1 and B:0 into a single colour
+//
+// Default behaviour is to load colours consecutively
+//   output: {A:0},{A:1},{B:0},{B:1},{B:2},{C:0},{C:1}
+//
+// --flatten
+//   All colours into one
+//   output: {A:0,A:1,B:0,B:1,B:2,C:0,C:1}
+//
+// --merge
+//   Join input colours
+//   output: {A:0,B:0,C:0},{A:1,B:1,C:1},{B:2}
+
 static const char usage[] =
-"usage: "CMD" join [options] <out.ctx> <in1.ctx> [in2.ctx ...]\n"
+"usage: "CMD" join [-m <mem>] <out.ctx> <in1.ctx> [in2.ctx ...]\n"
 "  Merge cortex binaries.\n"
 "\n"
 " Options:\n"
@@ -40,12 +55,12 @@ static void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
 
 int ctx_join(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
 
   uint64_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *out_ctx_path;
   boolean merge = false, flatten = false;
@@ -67,7 +82,8 @@ int ctx_join(CmdArgs *args)
     else break;
   }
 
-  if(argc - argstart > 2) print_usage(usage, NULL);
+  if(argc - argstart < 2)
+    print_usage(usage, "Please specify output and input binaries");
 
   out_ctx_path = argv[argstart++];
 
@@ -94,10 +110,7 @@ int ctx_join(CmdArgs *args)
       kmer_size = kmer_size2;
     else if(kmer_size != kmer_size2)
       print_usage(usage, "Kmer sizes don't match [%u vs %u]", kmer_size, kmer_size2);
-  }
 
-  for(i = 1; i < num_binaries; i++)
-  {
     max_cols = MAX2(bin_num_cols[i], max_cols);
     sum_cols += bin_num_cols[i];
   }
@@ -123,6 +136,9 @@ int ctx_join(CmdArgs *args)
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, max_cols, kmers_in_hash);
 
+  db_graph.col_edges = calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_covgs = calloc(db_graph.ht.capacity, sizeof(Covg));
+
   // Print mem usage
   char graph_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
@@ -145,8 +161,9 @@ int ctx_join(CmdArgs *args)
                            .db_graph = &db_graph};
   //
 
-  if(flatten)
+  if(output_colours == 1)
   {
+    // e.g. flatten
     for(i = 0; i < num_binaries; i++)
     {
       prefs.into_colour = 0;
@@ -182,10 +199,9 @@ int ctx_join(CmdArgs *args)
       }
     }
 
-    db_graph.col_edges = calloc(db_graph.ht.capacity, sizeof(Edges));
-    db_graph.col_covgs = calloc(db_graph.ht.capacity, sizeof(Covg));
+    db_graph_set_cols(&db_graph, 1);
 
-    FILE *fh = fopen(out_ctx_path, "rw");
+    FILE *fh = fopen(out_ctx_path, "w");
     if(fh == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
 
     size_t header_size = binary_write_header(fh, &header);
@@ -207,12 +223,10 @@ int ctx_join(CmdArgs *args)
           {
             binary_load_colour(argv[argstart+i], &db_graph, &prefs, stats,
                                output_colour);
-
-            fseek(fh, header_size, SEEK_SET);
-            binary_dump_colour(&db_graph, 0, output_colour, output_colours, fh, merge);
-            output_colour++;
           }
         }
+        fseek(fh, header_size, SEEK_SET);
+        binary_dump_colour(&db_graph, 0, output_colour, output_colours, fh);
       }
     }
     else
@@ -224,12 +238,12 @@ int ctx_join(CmdArgs *args)
         memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
         memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
 
-        for(j = 0; j < bin_num_cols[i]; j++, output_colour++)
+        for(j = 0; j < bin_num_cols[i]; j++)
         {
           binary_load_colour(argv[argstart+i], &db_graph, &prefs, stats, j);
 
           fseek(fh, header_size, SEEK_SET);
-          binary_dump_colour(&db_graph, 0, output_colour, output_colours, fh, merge);
+          binary_dump_colour(&db_graph, 0, output_colour, output_colours, fh);
           output_colour++;
         }
       }
@@ -241,8 +255,9 @@ int ctx_join(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  message("Dumped %zu kmers in %u colours\nDone.\n",
-          (size_t)db_graph.ht.unique_kmers, output_colours);
+  message("Dumped %zu kmers in %u colour%s\n", (size_t)db_graph.ht.unique_kmers,
+          output_colours, output_colours != 1 ? "s" : "");
+  message("Done.\n");
 
   seq_loading_stats_free(stats);
   free(db_graph.col_edges);

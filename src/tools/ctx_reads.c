@@ -14,7 +14,7 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: "CMD" reads [options] <in.ctx>\n"
+"usage: "CMD" reads [-m <mem>] <in.ctx>\n"
 "  Filters reads based on which have a kmer in the graph. \n"
 "  Options:\n"
 "\n"
@@ -111,12 +111,13 @@ void filter_reads(read_t *r1, read_t *r2,
 
 int ctx_reads(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
+  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 4) print_usage(usage, NULL);
 
   uint64_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[argc-1];
 

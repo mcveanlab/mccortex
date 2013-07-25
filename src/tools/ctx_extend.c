@@ -139,12 +139,13 @@ static void extend_reads(read_t *r1, read_t *r2,
 
 int ctx_extend(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
+  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 4) print_usage(usage, NULL);
 
   size_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path, *input_fa_path, *out_fa_path;
   uint32_t dist;

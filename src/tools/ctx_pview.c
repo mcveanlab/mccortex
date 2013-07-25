@@ -14,12 +14,13 @@ static const char usage[] = "usage: "CMD" pview [options] <in.ctx>\n";
 
 int ctx_pview(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
+  // cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 1) print_usage(usage, NULL);
 
   size_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[0];
 

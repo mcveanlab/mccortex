@@ -10,7 +10,7 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: "CMD" intersect <graph.ctx> <in.ctx> <out.ctx>\n"
+"usage: "CMD" intersect [-m <mem>] <graph.ctx> <in.ctx> <out.ctx>\n"
 "  Dumps nodes from <in.ctx> that are in <graph.ctx> to <out.ctx>\n";
 
 static void graphs_intersect(const char *graph_ctx_path,
@@ -43,12 +43,13 @@ static void graphs_intersect(const char *graph_ctx_path,
 
 int ctx_intersect(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
+  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 3) print_usage(usage, NULL);
 
   uint64_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *graph_ctx_path, *in_ctx_path, *out_ctx_path;
 

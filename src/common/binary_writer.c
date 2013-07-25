@@ -99,34 +99,22 @@ size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
 
 static inline void overwrite_kmer_colour(hkey_t node, dBGraph *db_graph,
                                          Colour graphcol, Colour intocol,
-                                         uint32_t num_of_cols,
-                                         FILE *fh, boolean merge)
+                                         uint32_t num_of_cols, FILE *fh)
 {
   Edges (*col_edges)[db_graph->num_of_cols]
     = (Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
   Covg (*col_covgs)[db_graph->num_of_cols]
     = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
-  uint32_t skip_cols = num_of_cols - graphcol - 1;
-  Covg covg = 0;
-  Edges edges = 0;
+  uint32_t skip_cols = num_of_cols - intocol - 1;
+  Covg covg = col_covgs[node][graphcol];
+  Edges edges = col_edges[node][graphcol];
 
   fseek(fh, sizeof(BinaryKmer) + intocol * sizeof(Covg), SEEK_CUR);
-
-  if(merge) {
-    fread(&covg, sizeof(Covg), 1, fh);
-    fseek(fh, -sizeof(Covg), SEEK_CUR);
-  }
-  covg += col_covgs[node][graphcol];
   fwrite(&covg, sizeof(Covg), 1, fh);
   fseek(fh, skip_cols * sizeof(Covg), SEEK_CUR);
 
   fseek(fh, intocol * sizeof(Edges), SEEK_CUR);
-  if(merge) {
-    fread(&edges, sizeof(Edges), 1, fh);
-    fseek(fh, -sizeof(Edges), SEEK_CUR);
-  }
-  edges |= col_edges[node][graphcol];
   fwrite(&edges, sizeof(Edges), 1, fh);
   fseek(fh, skip_cols * sizeof(Edges), SEEK_CUR);
 }
@@ -135,11 +123,10 @@ static inline void overwrite_kmer_colour(hkey_t node, dBGraph *db_graph,
 // FILE *fh must already point to the first bkmer
 // if merge is true, read existing covg and edges and combine with outgoing
 void binary_dump_colour(dBGraph *db_graph, Colour graphcol,
-                        Colour intocol, uint32_t num_of_cols,
-                        FILE *fh, boolean merge)
+                        Colour intocol, uint32_t num_of_cols, FILE *fh)
 {
   HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colour,
-                db_graph, graphcol, intocol, num_of_cols, fh, merge);
+                db_graph, graphcol, intocol, num_of_cols, fh);
 }
 
 // Dump node: only print kmers with coverages in given colours

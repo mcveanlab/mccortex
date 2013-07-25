@@ -138,7 +138,7 @@ Edges edges_get_union(const Edges *edges_arr, size_t num)
 //
 
 
-void db_node_add_coverage(dBGraph *graph, hkey_t hkey, Colour col, long update)
+void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update)
 {
   safe_add_covgs(db_node_col_covg(graph,hkey,col), update,
                  db_node_col_covg(graph,hkey,col));

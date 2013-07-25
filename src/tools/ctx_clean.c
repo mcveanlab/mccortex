@@ -8,7 +8,7 @@
 
 // clean by individual
 static const char usage[] =
-"usage: "CMD" clean [OPTIONS] <in.ctx|ctxlist|colours> <out.ctx>\n"
+"usage: "CMD" clean [-m <mem>] <in.ctx|ctxlist|colours> <out.ctx>\n"
 "  Clean a cortex binary.\n"
 "  Options:\n"
 "    --tips\n"
@@ -17,17 +17,15 @@ static const char usage[] =
 
 int ctx_clean(CmdArgs *args)
 {
+  cmd_accept_options(args, "mkg");
+  cmd_accept_options(args, "mg");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
 
   // uint32_t kmer_size = args->kmer_size;
   // size_t mem_to_use = args->mem_to_use;
-  size_t genome_size = args->genome_size;
-
-  // if(!args->kmer_size_set) print_usage(usage, "-k <K> required");
-  // if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
-  if(!args->genome_size_set) print_usage(usage, "Genome size required (-g <G>)");
+  // size_t genome_size = args->genome_size;
 
   // Check cmdline args
   const char *out_path = argv[argc-1];

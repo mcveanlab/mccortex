@@ -16,17 +16,55 @@ int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
 //   warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
 // }
 
+void cmd_accept_options(const CmdArgs *args, const char *accptopts)
+{
+  if(accptopts == NULL) return;
+  if(args->mem_to_use_set && strchr(accptopts,'m') == NULL)
+    die("-m <memory> argument not valid for this command");
+  if(args->genome_size_set && strchr(accptopts,'g') == NULL)
+    die("-g <genomesize> argument not valid for this command");
+  if(args->genome_size_set && strchr(accptopts,'t') == NULL)
+    die("-t <threads> argument not valid for this command");
+  if(args->num_kmers_set && strchr(accptopts,'h') == NULL)
+    die("-h <hash-entries> argument not valid for this command");
+  if(args->kmer_size_set && strchr(accptopts,'k') == NULL)
+    die("-k <kmer-size> argument not valid for this command");
+  if(args->file_set && strchr(accptopts,'f') == NULL)
+    die("-f <file> argument not valid for this command");
+}
+
+void cmd_require_options(const CmdArgs *args, const char *requireopts)
+{
+  if(requireopts == NULL) return;
+  if(!args->mem_to_use_set && strchr(requireopts,'m') == NULL)
+    die("-m <memory> argument required for this command");
+  if(!args->genome_size_set && strchr(requireopts,'g') == NULL)
+    die("-g <genomesize> argument required for this command");
+  if(!args->genome_size_set && strchr(requireopts,'t') == NULL)
+    die("-t <threads> argument required for this command");
+  if(!args->num_kmers_set && strchr(requireopts,'h') == NULL)
+    die("-h <hash-entries> argument required for this command");
+  if(!args->kmer_size_set && strchr(requireopts,'k') == NULL)
+    die("-k <kmer-size> argument required for this command");
+  if(!args->file_set && strchr(requireopts,'f') == NULL)
+    die("-f <file> argument required for this command");
+}
+
 void cmd_alloc(CmdArgs *args, int argc, char **argv)
 {
   args->genome_size = 3100000000;
   args->num_kmers = 4UL << 20; // 4M
   args->mem_to_use = 1UL << 30; // 1G
   args->num_threads = 2;
+  args->kmer_size = 31;
+  args->file = NULL;
 
+  args->mem_to_use_set = false;
   args->genome_size_set = false;
-  args->mem_to_use_set = false;
-  args->mem_to_use_set = false;
   args->num_threads_set = false;
+  args->num_kmers_set = false;
+  args->kmer_size_set = false;
+  args->file_set = false;
 
   // Get command index
   boolean is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
@@ -53,7 +91,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   {
     if(strcmp(argv[i], "-m") == 0)
     {
-      if(i + 1 == argc) die("-m requires an argument");
+      if(i + 1 == argc) die("-m <memory> requires an argument");
       if(!mem_to_integer(argv[i+1], &args->mem_to_use) || args->mem_to_use == 0)
         die("Invalid memory argument: %s", argv[i+1]);
       args->mem_to_use_set = true;
@@ -61,7 +99,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     }
     else if(strcmp(argv[i], "-g") == 0)
     {
-      if(i + 1 == argc) die("-g requires an argument");
+      if(i + 1 == argc) die("-g <genome-size> requires an argument");
       if(!bases_to_integer(argv[i+1], &args->genome_size) || args->genome_size == 0)
         die("Invalid genome size argument: %s", argv[i+1]);
       args->genome_size_set = true;
@@ -69,7 +107,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     }
     else if(strcmp(argv[i], "-t") == 0)
     {
-      if(i + 1 == argc) die("-t requires an argument");
+      if(i + 1 == argc) die("-t <threads> requires an argument");
       if(!parse_entire_uint(argv[i+1], &args->num_threads) || args->num_threads == 0)
         die("Invalid number of threads: %s", argv[i+1]);
       args->num_threads_set = true;
@@ -77,7 +115,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     }
     else if(strcmp(argv[i], "-h") == 0)
     {
-      if(i + 1 == argc) die("-h requires an argument");
+      if(i + 1 == argc) die("-h <hash-kmers> requires an argument");
       if(!mem_to_integer(argv[i+1], &args->num_kmers) || args->num_kmers == 0)
         die("Invalid hash size: %s", argv[i+1]);
       args->num_kmers_set = true;
@@ -85,12 +123,19 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     }
     else if(strcmp(argv[i], "-k") == 0)
     {
-      if(i + 1 == argc) die("-k requires an argument");
+      if(i + 1 == argc) die("-k <kmer-size> requires an argument");
       if(!parse_entire_uint(argv[i+1], &args->kmer_size) ||
          args->kmer_size < 3 || !(args->kmer_size & 0x1))
         die("kmer size (-k) must be an odd int >= 3: %s", argv[i+1]);
       if(args->kmer_size < MIN_KMER_SIZE || args->kmer_size > MAX_KMER_SIZE)
         die("Please recompile with correct kmer size (kmer_size: %u)", args->kmer_size);
+      args->kmer_size_set = true;
+      i++;
+    }
+    else if(strcmp(argv[i], "-f") == 0)
+    {
+      if(i + 1 == argc) die("-f <file> requires an argument");
+      args->file = argv[i+1];
       args->kmer_size_set = true;
       i++;
     }

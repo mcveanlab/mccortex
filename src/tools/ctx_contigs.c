@@ -9,17 +9,17 @@
 #include "path_format.h"
 
 static const char usage[] =
-"usage: "CMD" contigs [options] <in.ctx> <colour> <out.fa>\n"
+"usage: "CMD" contigs [-m <mem>] <in.ctx> <colour> <out.fa>\n"
 "  Pull out contigs for a given colour\n";
 
 int ctx_contigs(CmdArgs *args)
 {
+  cmd_accept_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);
 
   size_t mem_to_use = args->mem_to_use;
-  if(!args->mem_to_use_set) print_usage(usage, "-m <M> required");
 
   char *input_ctx_path = argv[2], *output_fa_path = argv[4];
   uint32_t colour;
