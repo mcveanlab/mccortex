@@ -2,27 +2,6 @@
 #include "db_node.h"
 #include "util.h"
 
-// Only print covg overflow warning once
-static char overflow_warning_printed = 0;
-
-#define print_overflow_warning() do {                                          \
-  if(!overflow_warning_printed) {                                              \
-    warn("caught integer overflow (some coverages may be underestimates)");    \
-    overflow_warning_printed = 1;                                              \
-  }                                                                            \
-} while(0)
-
-#define safe_add_covgs(covg1,covg2,sum) do {                                   \
-  if(COVG_MAX - (covg1) >= (covg2)) { (sum) = (covg1) + (covg2); }             \
-  else { (sum) = COVG_MAX; print_overflow_warning(); }                         \
-} while(0)
-
-#define safe_covgs_increment(covg) do {                                        \
-  if((covg) == COVG_MAX) { print_overflow_warning(); }                         \
-  else (covg)++;                                                               \
-} while(0)
-
-
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
 // kmer and kmer_key must NOT point to overlapping memory
@@ -140,13 +119,12 @@ Edges edges_get_union(const Edges *edges_arr, size_t num)
 
 void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update)
 {
-  safe_add_covgs(db_node_col_covg(graph,hkey,col), update,
-                 db_node_col_covg(graph,hkey,col));
+  SAFE_ADD(db_node_col_covg(graph,hkey,col), update, COVG_MAX);
 }
 
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col)
 {
-  safe_covgs_increment(db_node_col_covg(graph,hkey,col));
+  SAFE_ADD(db_node_col_covg(graph,hkey,col), 1, COVG_MAX);
 }
 
 Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
@@ -158,7 +136,7 @@ Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
   Colour col, end;
 
   for(col = first_col, end = first_col+num_of_cols; col < end; col++)
-    safe_add_covgs(sum_covg, covgs[col], sum_covg);
+    SAFE_ADD(sum_covg, covgs[col], COVG_MAX);
 
   return sum_covg;
 }

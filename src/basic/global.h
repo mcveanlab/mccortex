@@ -46,8 +46,8 @@ typedef signed char boolean;
 #define BASES2KMERS(bases,kmer_size) ((bases)+1-(kmer_size))
 
 #define SAFE_ADD(dst,add,max) do {           \
-  size_t _tmp = ((max)-(dst))<(add);         \
-  (dst) = !_tmp*(max) + _tmp*((dst)+(add));  \
+  size_t _full = ((max)-(dst))<(add);         \
+  (dst) = (_full)*(max) + (!_full)*((dst)+(add));  \
 } while(0)
 
 // Unaligned memory access

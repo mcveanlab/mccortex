@@ -51,12 +51,10 @@ cmpfunc(size_cmp, size_t);
 
 char parse_entire_int(char *str, int *result)
 {
-  size_t len = strlen(str);
-
   char *strtol_last_char_ptr = str;
   long tmp = strtol(str, &strtol_last_char_ptr, 10);
 
-  if(tmp > INT_MAX || tmp < INT_MIN || strtol_last_char_ptr != str+len)
+  if(tmp > INT_MAX || tmp < INT_MIN || *strtol_last_char_ptr == '\0')
   {
     return 0;
   }
@@ -69,11 +67,10 @@ char parse_entire_int(char *str, int *result)
 
 char parse_entire_uint(char *str, unsigned int *result)
 {
-  size_t len = strlen(str);
   char *strtol_last_char_ptr = str;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
 
-  if(tmp <= UINT_MAX && strtol_last_char_ptr == str+len)
+  if(tmp <= UINT_MAX && *strtol_last_char_ptr == '\0')
   {
     *result = (unsigned int)tmp;
     return 1;
@@ -83,11 +80,10 @@ char parse_entire_uint(char *str, unsigned int *result)
 
 char parse_entire_ulong(char *str, unsigned long *result)
 {
-  size_t len = strlen(str);
   char *strtol_last_char_ptr = str;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
 
-  if(strtol_last_char_ptr == str+len)
+  if(*strtol_last_char_ptr == '\0')
   {
     *result = tmp;
     return 1;
