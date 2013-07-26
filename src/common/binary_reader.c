@@ -5,88 +5,19 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-
-// single int or range e.g. '6' [ans: 1] or '2-12' [ans: 10], '*' means all
-// ranges are allowed to go backwards e.g. 10-8 means 10,9,8
-// returns number of bytes consumed or -1 if error
-static int parse_range(const char *range_str, uint32_t *start, uint32_t *end,
-                       uint32_t ctx_cols)
-{
-  char *endptr;
-  const char *str = range_str;
-  unsigned long from, to;
-
-  if(*str == '*') {
-    *start = 0;
-    *end = ctx_cols-1;
-    return 1;
-  }
-
-  from = strtoul(str, &endptr, 10);
-  to = from;
-  if(endptr == str) return -1;
-  if(*endptr == '-') {
-    str = endptr+1;
-    to = strtoul(str, &endptr, 10);
-    if(endptr == str) return -1;
-  }
-  if(to >= ctx_cols) return -1;
-  *start = from;
-  *end = to;
-  return endptr - range_str;
-}
+#include "range.h"
 
 uint32_t binary_get_num_colours(const char *path, uint32_t ctx_cols)
 {
   const char *ptr = strchr(path, ':');
-  uint32_t num_cols = 0;
-  if(ptr != NULL)
-  {
-    uint32_t start, end;
-    while(*ptr != '\0')
-    {
-      ptr++; // : or ,
-      int bytes = parse_range(ptr, &start, &end, ctx_cols);
-      if(bytes == -1)
-        die("Invalid binary specifier: %s [%u colours]", path, ctx_cols);
-      ptr += bytes;
-      num_cols += ABSDIFF(start,end)+1;
-      if(*ptr != ',' && *ptr != '\0')
-        die("Invalid binary specifier: %s [%u colours] %s", path, ctx_cols, ptr);
-    }
-    if(num_cols == 0)
-      die("Invalid binary specifier: %s [%u colours]", path, ctx_cols);
-  }
-  else num_cols = ctx_cols;
-  return num_cols;
+  return (ptr != NULL ? range_get_num(ptr+1, ctx_cols-1) : ctx_cols);
 }
 
 void binary_parse_colour_array(const char *path, uint32_t *arr, uint32_t ctx_cols)
 {
+  // Empty range is the same as :*
   const char *ptr = strchr(path, ':');
-
-  if(ptr == NULL)
-  {
-    Colour i;
-    for(i = 0; i < ctx_cols; i++) arr[i] = i;
-  }
-  else
-  {
-    Colour i = 0;
-    uint32_t j, start, end;
-    while(*ptr != '\0')
-    {
-      ptr++; // : or ,
-      int bytes = parse_range(ptr, &start, &end, ctx_cols);
-      if(bytes == -1) die("Error");
-      ptr += bytes;
-      if(*ptr != ',' && *ptr != '\0') die("Error");
-      if(start <= end)
-        for(j = start; j <= end; j++) arr[i++] = j;
-      else
-        for(j = start; j <= start; j--) arr[i++] = j;
-    }
-  }
+  range_parse_array(ptr == NULL ? "" : ptr+1, arr, ctx_cols-1);
 }
 
 uint32_t binary_colour_array_alloc(char *ctx_path, uint32_t **result)
@@ -626,15 +557,6 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
         num_cols_loaded, graph->num_of_cols, prefs->into_colour, path);
   }
 
-  // Do not expect emtpy colours if we load the same colour twice
-  boolean empty_colours = prefs->empty_colours;
-  uint32_t colour_count[header.num_of_cols];
-  memset(colour_count, 0, sizeof(uint32_t)*header.num_of_cols);
-  for(i = 0; i < num_of_cols && empty_colours; i++) {
-    colour_count[load_colours[i]]++;
-    if(colour_count[load_colours[i]] > 1) empty_colours = false;
-  }
-
   if(prefs->merge_colours) {
     for(i = 0; i < num_of_cols; i++)
       graph_info_merge(ginfo+prefs->into_colour, header.ginfo+load_colours[i]);
@@ -699,7 +621,7 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
       boolean found;
       node = hash_table_find_or_insert(&graph->ht, bkmer, &found);
     
-      if(empty_colours && found)
+      if(prefs->empty_colours && found)
       {
         die("Duplicate kmer loaded [cols:%u:%u]",
             prefs->into_colour, num_of_cols);

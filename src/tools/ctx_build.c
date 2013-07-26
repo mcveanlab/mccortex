@@ -41,7 +41,7 @@ static const char usage[] =
 
 int ctx_build(CmdArgs *args)
 {
-  cmd_accept_options(args, "mk");
+  cmd_accept_options(args, "mhk");
   cmd_require_options(args, "k");
   int argc = args->argc;
   char **argv = args->argv;
@@ -173,19 +173,36 @@ int ctx_build(CmdArgs *args)
   // Initialise graph, covgs, prefs
   dBGraph db_graph;
 
-  size_t mem_per_kmer, kmers_in_hash, hash_mem, graph_mem;
+  size_t mem_per_kmer, req_kmers;
 
   mem_per_kmer = sizeof(BinaryKmer) + (sizeof(Covg) + sizeof(Edges)) * colours_used;
-  hash_mem = hash_table_mem2(mem_to_use / mem_per_kmer, &kmers_in_hash);
+
+  req_kmers = args->num_kmers_set ? args->num_kmers : mem_to_use / mem_per_kmer;
+
+  size_t kmers_in_hash, hash_mem, graph_mem;
+  hash_mem = hash_table_mem2(req_kmers, &kmers_in_hash);
   graph_mem = kmers_in_hash * mem_per_kmer;
+
+  char graph_mem_str[100], mem_to_use_str[100];
+  bytes_to_str(graph_mem, 1, graph_mem_str);
+  bytes_to_str(mem_to_use, 1, mem_to_use_str);
+
+  if(args->mem_to_use_set && args->num_kmers_set) {
+    if(graph_mem > args->mem_to_use) {
+
+      die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
+          graph_mem_str, mem_to_use_str);
+    }
+    else
+      message("Note: Using less memory than requested, due to: -h <kmer>");
+  }
+
 
   db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
   db_graph.col_edges = calloc(kmers_in_hash * colours_used, sizeof(Edges));
   db_graph.col_covgs = calloc(kmers_in_hash * colours_used, sizeof(Covg));
 
   // Print mem usage
-  char graph_mem_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
   message("[memory]  graph: %s\n", graph_mem_str);
   hash_table_print_stats(&db_graph.ht);
 
