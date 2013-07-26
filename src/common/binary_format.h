@@ -23,7 +23,6 @@ typedef struct
 // in.c2.ctx:1 {1}
 uint32_t binary_get_num_colours(const char *path, uint32_t ctx_cols);
 void binary_parse_colour_array(const char *str, uint32_t *arr, uint32_t num_of_cols);
-uint32_t binary_colour_array_alloc(char *ctx_path, uint32_t **result);
 
 uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,

@@ -20,31 +20,6 @@ void binary_parse_colour_array(const char *path, uint32_t *arr, uint32_t ctx_col
   range_parse_array(ptr == NULL ? "" : ptr+1, arr, ctx_cols-1);
 }
 
-uint32_t binary_colour_array_alloc(char *ctx_path, uint32_t **result)
-{
-  boolean is_binary = false;
-  uint32_t kmer_size, ctx_num_of_cols;
-  uint64_t num_kmers;
-
-  char *sep = strchr(ctx_path, ':');
-  if(sep != NULL) *sep = '\0';
-
-  if(!binary_probe(ctx_path, &is_binary, &kmer_size, &ctx_num_of_cols, &num_kmers))
-    die("Cannot read input binary file: %s", ctx_path);
-  else if(!is_binary)
-    die("Input binary file isn't valid: %s", ctx_path);
-
-  uint32_t num_cols, *cols;
-
-  if(sep != NULL) *sep = ':';
-
-  num_cols = binary_get_num_colours(ctx_path, ctx_num_of_cols);
-  cols = malloc(num_cols * sizeof(uint32_t));
-  binary_parse_colour_array(ctx_path, cols, ctx_num_of_cols);
-  *result = cols;
-  return num_cols;
-}
-
 uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                             uint32_t colour)
@@ -586,22 +561,23 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
     memset(edges, 0, sizeof(Edges) * num_of_cols);
 
     // Collapse down colours
+    Covg keep_kmer = 0;
     if(prefs->merge_colours) {
       for(i = 0; i < num_of_cols; i++) {
         covgs[0] += kmercovgs[load_colours[i]];
         edges[0] |= kmeredges[load_colours[i]];
+        keep_kmer |= covgs[i] | edges[i];
       }
     }
     else {
-      uint32_t keep_kmer = 0;
       for(i = 0; i < num_of_cols; i++) {
         covgs[i] = kmercovgs[load_colours[i]];
         edges[i] = kmeredges[load_colours[i]];
-        keep_kmer = covgs[i] | edges[i];
+        keep_kmer |= covgs[i] | edges[i];
       }
-      // If kmer has no covg or edges -> don't load
-      if(keep_kmer == 0) continue;
     }
+    // If kmer has no covg or edges -> don't load
+    if(keep_kmer == 0) continue;
 
     // Fetch node in the de bruijn graph
     hkey_t node;
