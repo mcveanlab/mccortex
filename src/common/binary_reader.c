@@ -7,17 +7,17 @@
 #include "graph_info.h"
 #include "range.h"
 
-uint32_t binary_get_num_colours(const char *path, uint32_t ctx_cols)
+uint32_t binary_get_num_colours(const char *path, uint32_t max_col)
 {
   const char *ptr = strchr(path, ':');
-  return (ptr != NULL ? range_get_num(ptr+1, ctx_cols-1) : ctx_cols);
+  return (ptr != NULL ? range_get_num(ptr+1, max_col) : max_col+1);
 }
 
-void binary_parse_colour_array(const char *path, uint32_t *arr, uint32_t ctx_cols)
+void binary_parse_colour_array(const char *path, uint32_t *arr, uint32_t max_col)
 {
   // Empty range is the same as :*
   const char *ptr = strchr(path, ':');
-  range_parse_array(ptr == NULL ? "" : ptr+1, arr, ctx_cols-1);
+  range_parse_array(ptr == NULL ? "" : ptr+1, arr, max_col);
 }
 
 uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
@@ -146,7 +146,7 @@ static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
 // returns 0 if cannot read, 1 otherwise
 char binary_probe(const char *ctx_path, boolean *valid_ctx,
                   uint32_t *kmer_size_ptr, uint32_t *num_of_colours_ptr,
-                  uint64_t *num_of_kmers_ptr)
+                  uint32_t *max_col_index, uint64_t *num_of_kmers_ptr)
 {
   *valid_ctx = 0;
 
@@ -160,9 +160,9 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
   FILE* fh = fopen(path, "r");
   if(fh == NULL) return 0;
 
+  uint32_t ctx_num_of_cols = 0;
   boolean kmer_count_set = false;
   size_t bytes_per_kmer = 0;
-  uint32_t ctx_num_of_cols = 0;
 
   size_t bytes_read = skip_header(fh, kmer_size_ptr, &ctx_num_of_cols,
                                   num_of_kmers_ptr, &kmer_count_set,
@@ -173,8 +173,10 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
   // No reading errors, but not ctx binary
   if(bytes_read == 0) return 1;
 
+  *max_col_index = ctx_num_of_cols-1;
+
   if(sep != NULL) *sep = ':';
-  *num_of_colours_ptr = binary_get_num_colours(path, ctx_num_of_cols);
+  *num_of_colours_ptr = binary_get_num_colours(path, *max_col_index);
   if(sep != NULL) *sep = '\0';
 
   // Valid ctx binary
@@ -494,9 +496,9 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
   binary_read_header(fh, &header, path);
 
   if(sep != NULL) *sep = ':';
-  uint32_t num_of_cols = binary_get_num_colours(path, header.num_of_cols);
+  uint32_t num_of_cols = binary_get_num_colours(path, header.num_of_cols-1);
   uint32_t load_colours[num_of_cols];
-  binary_parse_colour_array(path, load_colours, header.num_of_cols);
+  binary_parse_colour_array(path, load_colours, header.num_of_cols-1);
   if(sep != NULL) *sep = '\0';
 
   uint32_t num_cols_loaded = prefs->merge_colours ? 1 : num_of_cols;
@@ -566,7 +568,7 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
       for(i = 0; i < num_of_cols; i++) {
         covgs[0] += kmercovgs[load_colours[i]];
         edges[0] |= kmeredges[load_colours[i]];
-        keep_kmer |= covgs[i] | edges[i];
+        keep_kmer |= covgs[0] | edges[0];
       }
     }
     else {

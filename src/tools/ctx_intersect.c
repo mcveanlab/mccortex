@@ -62,15 +62,15 @@ int ctx_intersect(CmdArgs *args)
 
   // Probe binary to get kmer_size
   boolean is_binary = false;
-  uint32_t kmer_size, kmer_size2, num_of_cols;
+  uint32_t kmer_size, kmer_size2, num_of_cols, max_col;
   uint64_t num_kmers, num_kmers2;
 
-  if(!binary_probe(graph_ctx_path, &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+  if(!binary_probe(graph_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
     print_usage(usage, "Cannot read input binary file: %s", graph_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", graph_ctx_path);
 
-  if(!binary_probe(in_ctx_path, &is_binary, &kmer_size2, &num_of_cols, &num_kmers2))
+  if(!binary_probe(in_ctx_path, &is_binary, &kmer_size2, &num_of_cols, &max_col, &num_kmers2))
     print_usage(usage, "Cannot read input binary file: %s", in_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", in_ctx_path);

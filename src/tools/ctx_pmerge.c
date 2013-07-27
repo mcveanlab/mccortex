@@ -32,15 +32,15 @@ int ctx_pmerge(CmdArgs *args)
 
   // probe binary
   uint64_t num_kmers = args->num_kmers;
-  uint32_t ctp_num_of_cols, ctx_num_of_cols;
+  uint32_t ctp_num_of_cols, ctx_num_of_cols, ctx_max_col;
   uint32_t ctp_kmer_size, ctx_kmer_size;
 
   if(args->file_set)
   {
     boolean is_binary = false;
 
-    if(!binary_probe(input_ctx_path, &is_binary,
-                     &ctx_kmer_size, &ctx_num_of_cols, &num_kmers)) {
+    if(!binary_probe(input_ctx_path, &is_binary, &ctx_kmer_size,
+                     &ctx_num_of_cols, &ctx_max_col, &num_kmers)) {
       print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
     } else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);

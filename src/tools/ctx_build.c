@@ -129,10 +129,10 @@ int ctx_build(CmdArgs *args)
         print_usage("--load_binary requires an arg", NULL);
       // probe binary to get number of colours
       boolean is_binary = false;
-      uint32_t bin_kmer_size, bin_num_of_cols;
+      uint32_t bin_kmer_size, bin_num_of_cols, max_col;
       uint64_t bin_num_kmers;
       if(!binary_probe(argv[argi+1], &is_binary, &bin_kmer_size,
-                       &bin_num_of_cols, &bin_num_kmers)) {
+                       &bin_num_of_cols, &max_col, &bin_num_kmers)) {
         print_usage(usage, "Cannot read binary file: %s", argv[argi+1]);
       } else if(!is_binary) {
         print_usage(usage, "Input binary file isn't valid: %s", argv[argi+1]);
@@ -176,7 +176,6 @@ int ctx_build(CmdArgs *args)
   size_t mem_per_kmer, req_kmers;
 
   mem_per_kmer = sizeof(BinaryKmer) + (sizeof(Covg) + sizeof(Edges)) * colours_used;
-
   req_kmers = args->num_kmers_set ? args->num_kmers : mem_to_use / mem_per_kmer;
 
   size_t kmers_in_hash, hash_mem, graph_mem;
@@ -196,7 +195,6 @@ int ctx_build(CmdArgs *args)
     else
       message("Note: Using less memory than requested, due to: -h <kmer>");
   }
-
 
   db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
   db_graph.col_edges = calloc(kmers_in_hash * colours_used, sizeof(Edges));

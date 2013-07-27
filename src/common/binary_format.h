@@ -21,8 +21,8 @@ typedef struct
 // arr should be of length num_of_cols
 // in.c2.ctx {0,1}
 // in.c2.ctx:1 {1}
-uint32_t binary_get_num_colours(const char *path, uint32_t ctx_cols);
-void binary_parse_colour_array(const char *str, uint32_t *arr, uint32_t num_of_cols);
+uint32_t binary_get_num_colours(const char *path, uint32_t max_col);
+void binary_parse_colour_array(const char *str, uint32_t *arr, uint32_t max_col);
 
 uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
@@ -45,7 +45,7 @@ size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
 // returns 0 if cannot read, 1 otherwise
 char binary_probe(const char* path, boolean *is_ctx,
                   uint32_t *kmer_size_ptr, uint32_t *num_of_colours_ptr,
-                  uint64_t *num_of_kmers);
+                  uint32_t *max_col_index, uint64_t *num_of_kmers);
 
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing
 // colour only_load_if_in_colour will be loaded.

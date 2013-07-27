@@ -109,10 +109,10 @@ boolean file_probe(const char *path, int *format_ptr,
 
   // probe to see if binary
   boolean is_binary = false;
-  uint32_t kmer_size, num_of_cols;
+  uint32_t kmer_size, num_of_cols, max_col;
   uint64_t num_kmers;
 
-  if(!binary_probe(path, &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+  if(!binary_probe(path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
     return false;
 
   if(is_binary) {
@@ -135,7 +135,7 @@ boolean file_probe(const char *path, int *format_ptr,
   die("Not implemented");
   /*
   // File list or colour list
-  uint32_t i, num_files;
+  uint32_t i, num_files, max_col;
 
   // Loop over files listed
   *kmer_size_ptr = -1;
@@ -145,7 +145,7 @@ boolean file_probe(const char *path, int *format_ptr,
   for(i = 0; i < num_files; i++)
   {
     // Probe to see if binary, seq file or list
-    if(!binary_probe(paths[i], &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+    if(!binary_probe(paths[i], &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
     {
       warn("Cannot read file: %s [listed in: %s]", paths[i], path);
       success = false;
@@ -273,7 +273,7 @@ void parse_filelists(const char *list_path1, const char *list_path2,
     = seq_loading_stats_create(stats->readlen_count_array_size);
 
   boolean is_cortex_binary1 = false, is_cortex_binary2 = false;
-  uint32_t binary_kmer_size1, colours_in_binary1;
+  uint32_t binary_kmer_size1, colours_in_binary1, max_col;
   uint32_t binary_kmer_size2, colours_in_binary2;
   uint64_t kmers_in_binary1, kmers_in_binary2;
 
@@ -293,14 +293,14 @@ void parse_filelists(const char *list_path1, const char *list_path2,
 
     if(p1 != NULL && !binary_probe(p1, &is_cortex_binary1,
                                    &binary_kmer_size1, &colours_in_binary1,
-                                   &kmers_in_binary1))
+                                   &max_col, &kmers_in_binary1))
     {
       die("Cannot read file: %s \n[listed in: %s]", p1, list_path1);
     }
 
     if(p2 != NULL && !binary_probe(p2, &is_cortex_binary2,
                                    &binary_kmer_size2, &colours_in_binary2,
-                                   &kmers_in_binary2))
+                                   &max_col, &kmers_in_binary2))
     {
       die("Cannot read file: %s \n[listed in: %s]", p2, list_path2);
     }
@@ -615,12 +615,12 @@ uint32_t check_colour_or_ctx_list(const char *list_path, boolean is_colourlist,
     if(file_paths[i] != NULL)
     {
       boolean is_cortex_binary;
-      uint32_t binary_kmer_size, colours_in_binary;
+      uint32_t binary_kmer_size, colours_in_binary, max_col;
       uint64_t kmers_in_binary;
 
       if(!binary_probe(file_paths[i], &is_cortex_binary,
                        &binary_kmer_size, &colours_in_binary,
-                       &kmers_in_binary))
+                       &max_col, &kmers_in_binary))
       {
         die("Cannot read file: %s\nlisted in file: %s", file_paths[i], list_path);
       }

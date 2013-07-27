@@ -53,10 +53,10 @@ int ctx_clean(CmdArgs *args)
 
   // Probe binary file
   boolean is_binary = false;
-  uint32_t kmer_size, num_of_cols;
+  uint32_t kmer_size, num_of_cols, max_col;
   uint64_t num_kmers;
 
-  if(!binary_probe(in_path, &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+  if(!binary_probe(in_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
     print_usage(usage, "Cannot read binary file: %s", in_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", in_path);

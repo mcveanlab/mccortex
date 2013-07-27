@@ -1,6 +1,8 @@
 #include "global.h"
 #include "range.h"
 
+// If range is empty assume 1-N
+
 // single int or range e.g. '6' [ans: 1] or '2-12' [ans: 10], '*' means all
 // ranges are allowed to go backwards e.g. 10-8 means 10,9,8
 // returns number of bytes consumed or -1 if error

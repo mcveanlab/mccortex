@@ -29,14 +29,15 @@
 //   output: {A:0,B:0,C:0},{A:1,B:1,C:1},{B:2}
 
 static const char usage[] =
-"usage: "CMD" join [-m <mem>] <out.ctx> <in1.ctx> [in2.ctx ...]\n"
-"  Merge cortex binaries.\n"
+"usage: "CMD" join [-m <mem>] <out.ctx> [offset:]in1.ctx[:1,2,4-5] [in2.ctx ...]\n"
+"  Merge cortex binaries.  \n"
 "\n"
-" Options:\n"
+"  Options:\n"
 "   --merge    Merge corresponding colours from each binary\n"
 "   --flatten  Dump into a single colour binary\n"
 "\n"
-" Files can be specified with specific colours: samples.ctx:2,3\n";
+"  Files can be specified with specific colours: samples.ctx:2,3\n"
+"  Offset specifies where to load the first colour (merge only).\n";
 
 static inline void dump_empty_bkmer(hkey_t node, dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
@@ -44,6 +45,9 @@ static inline void dump_empty_bkmer(hkey_t node, dBGraph *db_graph,
   // printf("dump_empty_bkmer\n");
   fwrite(db_node_bkmer(db_graph, node), sizeof(BinaryKmer), 1, fh);
   fwrite(buf, 1, mem, fh);
+
+  char bkmerstr[MAX_KMER_SIZE+1];
+  binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, bkmerstr);
 }
 
 static void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
@@ -91,19 +95,35 @@ int ctx_join(CmdArgs *args)
   // argstart .. argend-1 are binaries to load
   int num_binaries = argc - argstart;
   char *binary_paths[num_binaries];
+  uint32_t offsets[num_binaries];
+  uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
 
   // Check all binaries are valid binaries with matching kmer size
   boolean is_binary = false;
-  uint32_t kmer_size, kmer_size2, bin_num_cols[num_binaries];
+  uint32_t kmer_size, kmer_size2;
   uint32_t max_cols = 0, sum_cols = 0;
   uint64_t num_kmers;
+  char *ptr, *endptr;
 
   for(i = 0; i < num_binaries; i++)
   {
     binary_paths[i] = argv[argstart+i];
 
-    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2, bin_num_cols+i,
-                     &num_kmers)) {
+    for(ptr = binary_paths[i]; *ptr >= '0' && *ptr <= '9'; ptr++) {}
+
+    if(ptr > binary_paths[i] && *ptr == ':') {
+      if(!merge) {
+        die("Cannot specify binary offsets without --merge option (%s)",
+            binary_paths[i]);
+      }
+      offsets[i] = strtoul(binary_paths[i], &endptr, 10);
+      binary_paths[i] = ptr+1;
+    } else {
+      offsets[i] = 0;
+    }
+
+    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2, &ctx_num_cols[i],
+                     &ctx_max_cols[i], &num_kmers)) {
       print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
     }
     else if(!is_binary)
@@ -114,8 +134,10 @@ int ctx_join(CmdArgs *args)
     else if(kmer_size != kmer_size2)
       print_usage(usage, "Kmer sizes don't match [%u vs %u]", kmer_size, kmer_size2);
 
-    max_cols = MAX2(bin_num_cols[i], max_cols);
-    sum_cols += bin_num_cols[i];
+    max_cols = MAX2(offsets[i] + ctx_num_cols[i], max_cols);
+    sum_cols += ctx_num_cols[i];
+
+    printf("%s has %u colours\n", argv[argstart+i], ctx_num_cols[i]);
   }
 
   // Check out_ctx_path is writable
@@ -175,6 +197,7 @@ int ctx_join(CmdArgs *args)
       prefs.into_colour = 0;
       binary_load(binary_paths[i], &db_graph, &prefs, stats);
     }
+    hash_table_print_stats(&db_graph.ht);
     
     binary_dump_graph(out_ctx_path, &db_graph, CURR_CTX_VERSION, NULL, 0, 1);
   }
@@ -202,7 +225,7 @@ int ctx_join(CmdArgs *args)
       // if merge set output_colour to zero
       output_colour *= !merge;
 
-      for(j = 0; j < bin_num_cols[i]; j++, output_colour++) {
+      for(j = 0; j < ctx_num_cols[i]; j++, output_colour++) {
         graph_info_merge(header.ginfo + output_colour, db_graph.ginfo + j);
       }
     }
@@ -212,13 +235,18 @@ int ctx_join(CmdArgs *args)
 
     size_t header_size = binary_write_header(fh, &header);
 
+    // Free header resources
+    for(j = 0; j < output_colours; j++) graph_info_dealloc(header.ginfo + j);
+    free(header.ginfo);
+
     // print file outline
     message("Generated merged hash table\n\n");
+    hash_table_print_stats(&db_graph.ht);
     dump_empty_binary(&db_graph, fh, output_colours);
 
     uint32_t load_colours[num_binaries][max_cols];
     for(i = 0; i < num_binaries; i++)
-      binary_parse_colour_array(binary_paths[i], load_colours[i], bin_num_cols[i]);
+      binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_cols[i]);
 
     if(merge)
     {
@@ -228,10 +256,16 @@ int ctx_join(CmdArgs *args)
         memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
         memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
       
-        for(i = 0; i < num_binaries; i++) {
-          if(output_colour < bin_num_cols[i]) {
-            binary_load_colour(binary_paths[i], &db_graph, &prefs, stats,
-                               load_colours[i][output_colour]);
+        for(i = 0; i < num_binaries; i++)
+        {
+          if(output_colour >= offsets[i])
+          {
+            uint32_t ctx_col = output_colour - offsets[i];
+            if(ctx_col < ctx_num_cols[i])
+            {
+              binary_load_colour(binary_paths[i], &db_graph, &prefs, stats,
+                                 load_colours[i][ctx_col]);
+            }
           }
         }
         message("Dumping into colour %u...\n\n", output_colour);
@@ -246,7 +280,7 @@ int ctx_join(CmdArgs *args)
       {
         prefs.into_colour = 0;
 
-        for(j = 0; j < bin_num_cols[i]; j++, output_colour++)
+        for(j = 0; j < ctx_num_cols[i]; j++, output_colour++)
         {
           memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
           memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
@@ -262,10 +296,7 @@ int ctx_join(CmdArgs *args)
     }
 
     fclose(fh);
-    free(header.ginfo);
   }
-
-  hash_table_print_stats(&db_graph.ht);
 
   message("Dumped %zu kmers in %u colour%s into: %s\n",
           (size_t)db_graph.ht.unique_kmers, output_colours,
