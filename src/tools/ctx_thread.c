@@ -147,7 +147,7 @@ int ctx_thread(CmdArgs *args)
                            .update_ginfo = true,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &db_graph, &prefs, stats);
+  binary_load(input_ctx_path, &db_graph, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   prefs.load_seq = true;

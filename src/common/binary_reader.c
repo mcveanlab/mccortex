@@ -32,7 +32,7 @@ uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
   if(end == NULL) end = new_path+len;
   sprintf(end, ":%u", colour);
 
-  return binary_load(new_path, db_graph, prefs, stats);
+  return binary_load(new_path, db_graph, prefs, stats, NULL);
 }
 
 static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
@@ -202,21 +202,31 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
   return 1;
 }
 
-static void binary_header_alloc(BinaryFileHeader *h)
+void binary_header_alloc(BinaryFileHeader *h, size_t num_of_cols)
 {
   size_t i;
-  h->ginfo = calloc(h->num_of_cols, sizeof(GraphInfo));
-
-  for(i = 0; i < h->num_of_cols; i++)
+  h->capacity = num_of_cols;
+  if(num_of_cols == 0) return;
+  h->ginfo = calloc(h->capacity, sizeof(GraphInfo));
+  for(i = 0; i < h->capacity; i++)
     graph_info_alloc(h->ginfo + i);
 }
 
-void binary_header_destroy(BinaryFileHeader *h)
+void binary_header_realloc(BinaryFileHeader *h, size_t num_of_cols)
 {
   size_t i;
-  for(i = 0; i < h->num_of_cols; i++)
-    graph_info_dealloc(h->ginfo + i);
+  if(num_of_cols < h->capacity) return;
+  h->ginfo = realloc(h->ginfo, num_of_cols * sizeof(GraphInfo));
+  for(i = h->capacity; i < num_of_cols; i++)
+    graph_info_alloc(h->ginfo + i);
+  h->capacity = num_of_cols;
+}
 
+void binary_header_dealloc(BinaryFileHeader *h)
+{
+  size_t i;
+  for(i = 0; i < h->capacity; i++)
+    graph_info_dealloc(h->ginfo + i);
   free(h->ginfo);
 }
 
@@ -273,7 +283,10 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   if(h->num_of_cols == 0)
     die("number of colours is zero [binary: %s]\n", path);
 
-  binary_header_alloc(h);
+  if(h->capacity == 0)
+    binary_header_alloc(h, h->num_of_cols);
+  else if(h->num_of_cols > h->capacity)
+    binary_header_realloc(h, h->num_of_cols);
 
   if(h->version >= 7)
   {
@@ -478,7 +491,8 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 //   stats->total_bases_read
 //   stats->binaries_loaded
 uint32_t binary_load(const char *ctx_path, dBGraph *graph,
-                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats)
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     BinaryFileHeader *header_ptr)
 {
   assert(prefs->must_exist_in_colour == -1 || graph->node_in_cols != NULL);
 
@@ -492,13 +506,15 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
   FILE* fh = fopen(path, "r");
   if(fh == NULL) die("Cannot open file: %s\n", path);
 
-  BinaryFileHeader header;
-  binary_read_header(fh, &header, path);
+  BinaryFileHeader header_mem = {.capacity = 0};
+
+  BinaryFileHeader *header = header_ptr != NULL ? header_ptr : &header_mem;
+  binary_read_header(fh, header, path);
 
   if(sep != NULL) *sep = ':';
-  uint32_t num_of_cols = binary_get_num_colours(path, header.num_of_cols-1);
+  uint32_t num_of_cols = binary_get_num_colours(path, header->num_of_cols-1);
   uint32_t load_colours[num_of_cols];
-  binary_parse_colour_array(path, load_colours, header.num_of_cols-1);
+  binary_parse_colour_array(path, load_colours, header->num_of_cols-1);
   if(sep != NULL) *sep = '\0';
 
   uint32_t num_cols_loaded = prefs->merge_colours ? 1 : num_of_cols;
@@ -520,10 +536,10 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
   GraphInfo *ginfo = graph->ginfo;
 
   // Checks for this binary with this executable (kmer size + num colours)
-  if(header.kmer_size != graph->kmer_size)
+  if(header->kmer_size != graph->kmer_size)
   {
     die("binary has different kmer size [kmer_size: %u vs %u; binary: %s]",
-        header.kmer_size, graph->kmer_size, path);
+        header->kmer_size, graph->kmer_size, path);
   }
 
   if(prefs->into_colour + num_cols_loaded > graph->num_of_cols &&
@@ -536,11 +552,11 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
 
   if(prefs->merge_colours) {
     for(i = 0; i < num_of_cols; i++)
-      graph_info_merge(ginfo+prefs->into_colour, header.ginfo+load_colours[i]);
+      graph_info_merge(ginfo+prefs->into_colour, header->ginfo+load_colours[i]);
   }
   else {
     for(i = 0; i < num_of_cols; i++)
-      graph_info_merge(ginfo+prefs->into_colour+i, header.ginfo+load_colours[i]);
+      graph_info_merge(ginfo+prefs->into_colour+i, header->ginfo+load_colours[i]);
   }
 
   // Update number of colours loaded
@@ -549,15 +565,15 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
 
   // Read kmers
   BinaryKmer bkmer;
-  Covg kmercovgs[header.num_of_cols], covgs[num_of_cols];
-  Edges kmeredges[header.num_of_cols], edges[num_of_cols];
+  Covg kmercovgs[header->num_of_cols], covgs[num_of_cols];
+  Edges kmeredges[header->num_of_cols], edges[num_of_cols];
 
   size_t num_of_kmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.unique_kmers;
 
   for(num_of_kmers_parsed = 0; ; num_of_kmers_parsed++)
   {
-    if(binary_read_kmer(fh, &header, path, bkmer, kmercovgs, kmeredges) == 0) break;
+    if(binary_read_kmer(fh, header, path, bkmer, kmercovgs, kmeredges) == 0) break;
 
     memset(covgs, 0, sizeof(Covg) * num_of_cols);
     memset(edges, 0, sizeof(Edges) * num_of_cols);
@@ -591,7 +607,7 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
       if(node != HASH_NOT_FOUND &&
          !db_node_has_col(graph, node, prefs->must_exist_in_colour))
       {
-        node = HASH_NOT_FOUND;
+        continue; // skip kmer
       }
     }
     else
@@ -606,55 +622,50 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
       }
     }
 
-    if(node != HASH_NOT_FOUND)
-    {
-      // Set presence in colours
-      if(graph->node_in_cols != NULL) {
-        for(i = 0; i < num_cols_loaded; i++)
-          if(covgs[i] > 0 || edges[i] != 0)
-            db_node_set_col(graph, node, prefs->into_colour+i);
-      }
-
-      if(graph->col_covgs != NULL) {
-        for(i = 0; i < num_cols_loaded; i++)
-          db_node_add_col_covg(graph, node, prefs->into_colour+i, covgs[i]);
-      }
-
-      if(graph->col_edges != NULL)
-      {
-        // For each colour take the union of edges
-        Edges *col_edges = graph->col_edges + node * graph->num_of_cols;
-
-        if(prefs->must_exist_in_colour >= 0) {
-          for(i = 0; i < num_cols_loaded; i++) {
-            col = prefs->into_colour+i;
-            col_edges[col] |= edges[i] & col_edges[prefs->must_exist_in_colour];
-          }
-        }
-        else {
-          for(i = 0; i < num_cols_loaded; i++) {
-            col = prefs->into_colour+i;
-            col_edges[col] |= edges[i];
-          }
-        }
-      }
-      
-      if(graph->edges != NULL)
-      {
-        // Merge all edges into one colour
-        for(i = 0; i < num_cols_loaded; i++) {
-          graph->edges[node] |= edges[i];
-        }
-      }
-
-      num_of_kmers_loaded++;
+    // Set presence in colours
+    if(graph->node_in_cols != NULL) {
+      for(i = 0; i < num_cols_loaded; i++)
+        if(covgs[i] > 0 || edges[i] != 0)
+          db_node_set_col(graph, node, prefs->into_colour+i);
     }
+
+    if(graph->col_covgs != NULL) {
+      for(i = 0; i < num_cols_loaded; i++)
+        db_node_add_col_covg(graph, node, prefs->into_colour+i, covgs[i]);
+    }
+
+    if(graph->col_edges != NULL)
+    {
+      // For each colour take the union of edges
+      Edges *col_edges = graph->col_edges + node * graph->num_of_cols;
+
+      if(prefs->must_exist_in_colour >= 0) {
+        for(i = 0; i < num_cols_loaded; i++) {
+          col = prefs->into_colour+i;
+          col_edges[col] |= edges[i] & col_edges[prefs->must_exist_in_colour];
+        }
+      }
+      else {
+        for(i = 0; i < num_cols_loaded; i++) {
+          col = prefs->into_colour+i;
+          col_edges[col] |= edges[i];
+        }
+      }
+    }
+    
+    // Merge all edges into one colour
+    if(graph->edges != NULL) {
+      for(i = 0; i < num_cols_loaded; i++)
+        graph->edges[node] |= edges[i];
+    }
+
+    num_of_kmers_loaded++;
   }
 
-  if(num_of_kmers_parsed > header.num_of_kmers)
+  if(num_of_kmers_parsed > header->num_of_kmers)
   {
     warn("More kmers in binary than expected [expected: %zu; actual: %zu; "
-         "path: %s]", (size_t)header.num_of_kmers, (size_t)num_of_kmers_parsed,
+         "path: %s]", (size_t)header->num_of_kmers, (size_t)num_of_kmers_parsed,
         path);
   }
 
@@ -666,11 +677,12 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
     stats->kmers_loaded += num_of_kmers_loaded;
     stats->unique_kmers += graph->ht.unique_kmers - num_of_kmers_already_loaded;
     for(i = 0; i < num_cols_loaded; i++)
-      stats->total_bases_read += header.ginfo[i].total_sequence;
+      stats->total_bases_read += header->ginfo[i].total_sequence;
     stats->binaries_loaded++;
   }
 
-  binary_header_destroy(&header);
+  if(header_ptr == NULL)
+    binary_header_dealloc(header);
 
   return num_cols_loaded;
 }

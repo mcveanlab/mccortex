@@ -172,6 +172,8 @@ boolean mem_to_integer(const char *arg, size_t *bytes)
   char *endptr;
   unsigned long num = strtoul(arg, &endptr, 10);
   if(endptr == arg) return false;
+  if(strcasecmp(endptr,"T") == 0 || strcasecmp(endptr,"TB") == 0)
+  { *bytes = num<<40; return true; }
   if(strcasecmp(endptr,"G") == 0 || strcasecmp(endptr,"GB") == 0)
   { *bytes = num<<30; return true; }
   if(strcasecmp(endptr,"M") == 0 || strcasecmp(endptr,"MB") == 0)
@@ -188,10 +190,7 @@ boolean mem_to_integer(const char *arg, size_t *bytes)
 unsigned int num_of_digits(unsigned long num)
 {
   unsigned int digits;
-
-  for(digits = 1; num >= 10; digits++)
-    num /= 10;
-
+  for(digits = 1; num >= 10; digits++) num /= 10;
   return digits;
 }
 
@@ -201,25 +200,13 @@ unsigned int num_of_digits(unsigned long num)
 char* ulong_to_str(unsigned long num, char* result)
 {
   int digits = num_of_digits(num);
-  int num_commas = (digits-1) / 3;
-
-  int i;
+  int i, num_commas = (digits-1) / 3;
   char *p = result + digits + num_commas;
+  *(p--) = '\0';
 
-  *p = '\0';
-  p--;
-
-  for(i = 0; i < digits; i++)
-  {
-    if(i > 0 && i % 3 == 0)
-    {
-      *p = ',';
-      p--;
-    }
-
-    *p = '0' + (num % 10);
-    p--;
-    num /= 10;
+  for(i = 0; i < digits; i++, num /= 10) {
+    if(i > 0 && i % 3 == 0) *(p--) = ',';
+    *(p--) = '0' + (num % 10);
   }
 
   return result;
@@ -229,15 +216,12 @@ char* ulong_to_str(unsigned long num, char* result)
 // strlen('-9,223,372,036,854,775,808')+1 = 27
 char* long_to_str(long num, char* result)
 {
-  if(num < 0)
-  {
+  if(num < 0) {
     result[0] = '-';
     ulong_to_str(-num, result+1);
   }
   else
-  {
     ulong_to_str(num, result);
-  }
 
   return result;
 }
@@ -311,33 +295,25 @@ char* strdup(const char *str)
 //
 
 // log(n!) = sum from i=1 to n, of (log(i))
-float log_factorial(int number)
+float log_factorial(unsigned int number)
 {
-  assert(number >= 0);
-
-  int i;
+  unsigned int i;
   float ret = 0;
   for(i = 1; i <= number; i++) ret += log(i);
-
   return ret;
 }
 
-float log_factorial_ll(long long number)
+float log_factorial_ll(unsigned long long number)
 {
-  assert(number >= 0);
-
-  long long i;
+  unsigned long long i;
   float ret = 0;
   for(i = 1; i <= number; i++) ret += log(i);
-
   return ret;
 }
 
 unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len)
 {
-  unsigned long sum = 0;
-  unsigned long num = 0;
-  unsigned long i;
+  unsigned long i, sum = 0, num = 0;
 
   for(i = 0; i < len; i++)
   {

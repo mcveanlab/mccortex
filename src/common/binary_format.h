@@ -15,6 +15,7 @@ typedef struct
   uint64_t num_of_kmers;
   // Cleaning info etc for each colour
   GraphInfo *ginfo;
+  uint32_t capacity; // number of colours malloc'd
 } BinaryFileHeader;
 
 // Get an array of colour indices for a binary.
@@ -23,24 +24,6 @@ typedef struct
 // in.c2.ctx:1 {1}
 uint32_t binary_get_num_colours(const char *path, uint32_t max_col);
 void binary_parse_colour_array(const char *str, uint32_t *arr, uint32_t max_col);
-
-uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
-                            SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-                            uint32_t colour);
-
-size_t binary_read_header(FILE *fh, BinaryFileHeader *header, const char *path);
-
-size_t binary_read_kmer(FILE *fh, BinaryFileHeader *header, const char *path,
-                        uint64_t *bkmer, Covg *covgs, Edges *edges);
-
-// After calling binary_read_header you must call:
-void binary_header_destroy(BinaryFileHeader *header);
-
-// Returns number of bytes written
-size_t binary_write_header(FILE *fh, const BinaryFileHeader *header);
-size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
-                         const uint64_t *bkmer, const Covg *covgs,
-                         const Edges *edges);
 
 // returns 0 if cannot read, 1 otherwise
 char binary_probe(const char* path, boolean *is_ctx,
@@ -56,8 +39,31 @@ char binary_probe(const char* path, boolean *is_ctx,
 //   stats->kmers_loaded
 //   stats->total_bases_read
 //   stats->binaries_loaded
+// If header is != NULL, header will be stored there.  Be sure to free.
 uint32_t binary_load(const char *path, dBGraph *graph,
-                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     BinaryFileHeader *header);
+
+uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
+                            SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                            uint32_t colour);
+
+size_t binary_read_header(FILE *fh, BinaryFileHeader *header, const char *path);
+
+size_t binary_read_kmer(FILE *fh, BinaryFileHeader *header, const char *path,
+                        uint64_t *bkmer, Covg *covgs, Edges *edges);
+
+void binary_header_alloc(BinaryFileHeader *header, size_t num_of_cols);
+void binary_header_realloc(BinaryFileHeader *header, size_t num_of_cols);
+void binary_header_dealloc(BinaryFileHeader *header);
+
+void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols);
+
+// Returns number of bytes written
+size_t binary_write_header(FILE *fh, const BinaryFileHeader *header);
+size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
+                         const uint64_t *bkmer, const Covg *covgs,
+                         const Edges *edges);
 
 // If you don't want to/care about graph_info, pass in NULL
 // If you want to print all nodes pass condition as NULL

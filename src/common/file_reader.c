@@ -178,7 +178,7 @@ void file_load(const char *path, int format,
 {
   if(format == FORMAT_CTX)
   {
-    binary_load(path, prefs->db_graph, prefs, stats);
+    binary_load(path, prefs->db_graph, prefs, stats, NULL);
   }
   else
   {
@@ -346,11 +346,11 @@ void parse_filelists(const char *list_path1, const char *list_path2,
 
       // binary_load updates stats->num_of_colours_loaded
       // (undo auto-update of stats)
-      binary_load(p1, prefs->db_graph, prefs, new_stats);
+      binary_load(p1, prefs->db_graph, prefs, new_stats, NULL);
       new_stats->num_of_colours_loaded -= colours_in_binary1;
 
       // (undo auto-update of stats)
-      binary_load(p2, prefs->db_graph, prefs, new_stats);
+      binary_load(p2, prefs->db_graph, prefs, new_stats, NULL);
       new_stats->num_of_colours_loaded -= colours_in_binary2;
 
       cols_read_in = MAX2(colours_in_binary1, colours_in_binary2);
@@ -359,12 +359,12 @@ void parse_filelists(const char *list_path1, const char *list_path2,
       p1 = p2 = NULL;
     }
     else if(is_cortex_binary1) {
-      binary_load(p1, prefs->db_graph, prefs, new_stats);
+      binary_load(p1, prefs->db_graph, prefs, new_stats, NULL);
       cols_read_in = colours_in_binary1;
       p1 = NULL;
     }
     else if(is_cortex_binary2) {
-      binary_load(p2, prefs->db_graph, prefs, stats);
+      binary_load(p2, prefs->db_graph, prefs, stats, NULL);
       cols_read_in = colours_in_binary2;
       p2 = NULL;
     }

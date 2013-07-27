@@ -167,7 +167,7 @@ int ctx_covg(CmdArgs *args)
                            .update_ginfo = true,
                            .db_graph = &db_graph};
 
-  binary_load(in_ctx_path, &db_graph, &prefs, stats);
+  binary_load(in_ctx_path, &db_graph, &prefs, stats, NULL);
 
   if((vcf = gzopen(in_vcf_path, "r")) == NULL)
     die("Couldn't open file: %s", in_vcf_path);

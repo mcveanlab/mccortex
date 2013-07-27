@@ -228,7 +228,7 @@ int ctx_extend(CmdArgs *args)
                            .db_graph = &db_graph};
 
   // Load binary
-  binary_load(input_ctx_path, &db_graph, &prefs, stats);
+  binary_load(input_ctx_path, &db_graph, &prefs, stats, NULL);
 
   prefs.load_seq = true;
   prefs.load_binaries = false;

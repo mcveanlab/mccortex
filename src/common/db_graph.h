@@ -12,7 +12,7 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
                         uint32_t num_of_cols, uint64_t capacity);
 void db_graph_dealloc(dBGraph *db_graph);
 
-dBGraph* db_graph_set_cols(dBGraph *db_graph, uint32_t num_of_cols);
+// dBGraph* db_graph_set_cols(dBGraph *db_graph, uint32_t num_of_cols);
 
 // Get an oriented bkmer
 #define db_graph_oriented_bkmer(graph,hkey,or,result) \

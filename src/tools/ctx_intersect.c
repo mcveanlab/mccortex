@@ -30,7 +30,7 @@ static void graphs_intersect(const char *graph_ctx_path,
                            .update_ginfo = false,
                            .db_graph = db_graph};
 
-  binary_load(graph_ctx_path, db_graph, &prefs, stats);
+  binary_load(graph_ctx_path, db_graph, &prefs, stats, NULL);
 
   // Dump nodes that were flagged
   size_t nodes_dumped = db_graph_filter_file(db_graph, in_ctx_path, out_ctx_path);

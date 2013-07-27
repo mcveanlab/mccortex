@@ -48,7 +48,6 @@ int ctx_build(CmdArgs *args)
   if(argc < 3) print_usage(usage, NULL);
 
   uint32_t kmer_size = args->kmer_size;
-  size_t mem_to_use = args->mem_to_use;
 
   const char *out_path = argv[argc-1];
   uint32_t colours_used = 0;
@@ -170,38 +169,16 @@ int ctx_build(CmdArgs *args)
   if(!test_file_writable(out_path))
     die("Cannot write to file: %s", out_path);
 
-  // Initialise graph, covgs, prefs
+  // Pick hash table size
+  size_t mem_per_kmer = sizeof(BinaryKmer) + sizeof(Covg) + sizeof(Edges);
+  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
+
+  // Create db_graph
   dBGraph db_graph;
-
-  size_t mem_per_kmer, req_kmers;
-
-  mem_per_kmer = sizeof(BinaryKmer) + (sizeof(Covg) + sizeof(Edges)) * colours_used;
-  req_kmers = args->num_kmers_set ? args->num_kmers : mem_to_use / mem_per_kmer;
-
-  size_t kmers_in_hash, hash_mem, graph_mem;
-  hash_mem = hash_table_mem2(req_kmers, &kmers_in_hash);
-  graph_mem = kmers_in_hash * mem_per_kmer;
-
-  char graph_mem_str[100], mem_to_use_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(mem_to_use, 1, mem_to_use_str);
-
-  if(args->mem_to_use_set && args->num_kmers_set) {
-    if(graph_mem > args->mem_to_use) {
-
-      die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
-          graph_mem_str, mem_to_use_str);
-    }
-    else
-      message("Note: Using less memory than requested, due to: -h <kmer>");
-  }
-
   db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
   db_graph.col_edges = calloc(kmers_in_hash * colours_used, sizeof(Edges));
   db_graph.col_covgs = calloc(kmers_in_hash * colours_used, sizeof(Covg));
 
-  // Print mem usage
-  message("[memory]  graph: %s\n", graph_mem_str);
   hash_table_print_stats(&db_graph.ht);
 
   // Parse arguments, load
@@ -260,7 +237,7 @@ int ctx_build(CmdArgs *args)
       argi += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
-      binary_load(argv[argi+1], &db_graph, &prefs, stats);
+      binary_load(argv[argi+1], &db_graph, &prefs, stats, NULL);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--colour_list") == 0) {

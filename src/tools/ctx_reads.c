@@ -195,7 +195,7 @@ int ctx_reads(CmdArgs *args)
                            .update_ginfo = false,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &db_graph, &prefs, NULL);
+  binary_load(input_ctx_path, &db_graph, &prefs, NULL, NULL);
 
   prefs.load_seq = true;
   prefs.load_binaries = false;

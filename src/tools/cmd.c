@@ -1,6 +1,7 @@
 #include "global.h"
-#include "util.h"
 #include "cmd.h"
+#include "util.h"
+#include "hash_table.h" // for calculating mem usage
 
 const char *cmds[NUM_CMDS]
   = {"build", "clean", "join", "intersect", "subgraph", "reads", "extend",
@@ -163,4 +164,34 @@ int cmd_run(int argc, char **argv)
 
   cmd_free(&args);
   return ret;
+}
+
+// If your command accepts -h <kmers> and -m <mem> this may be useful
+size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t mem_per_kmer)
+{
+  size_t req_kmers = args->num_kmers_set ? args->num_kmers
+                                         : args->mem_to_use / mem_per_kmer;
+
+  size_t kmers_in_hash, hash_mem, graph_mem;
+  hash_mem = hash_table_mem2(req_kmers, &kmers_in_hash);
+  graph_mem = kmers_in_hash * mem_per_kmer;
+
+  char graph_mem_str[100], mem_to_use_str[100];
+  bytes_to_str(graph_mem, 1, graph_mem_str);
+  bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
+
+  if(args->mem_to_use_set && args->num_kmers_set) {
+    if(graph_mem > args->mem_to_use) {
+
+      die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
+          graph_mem_str, mem_to_use_str);
+    }
+    else
+      message("Note: Using less memory than requested (%s < %s), due to: -h <kmer>",
+              graph_mem_str, mem_to_use_str);
+  }
+
+  message("[memory]  graph: %s\n", graph_mem_str);
+
+  return kmers_in_hash;
 }

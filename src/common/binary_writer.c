@@ -6,6 +6,25 @@
 const int CURR_CTX_VERSION = 6;
 const char CTX_MAGIC_WORD[7] = "CORTEX";
 
+static inline void dump_empty_bkmer(hkey_t node, dBGraph *db_graph,
+                                    char *buf, size_t mem, FILE *fh)
+{
+  // printf("dump_empty_bkmer\n");
+  fwrite(db_node_bkmer(db_graph, node), sizeof(BinaryKmer), 1, fh);
+  fwrite(buf, 1, mem, fh);
+
+  char bkmerstr[MAX_KMER_SIZE+1];
+  binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, bkmerstr);
+}
+
+void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
+{
+  size_t mem = num_of_cols * (sizeof(Covg)+sizeof(Edges));
+  char buf[mem];
+  memset(buf, 0, mem);
+  HASH_TRAVERSE(&db_graph->ht, dump_empty_bkmer, db_graph, buf, mem, fh);
+}
+
 // Returns number of bytes written
 static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
 {

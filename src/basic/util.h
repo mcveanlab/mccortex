@@ -64,8 +64,8 @@ char* bytes_to_str(unsigned long num, int decimals, char* str);
 // Maths
 //
 
-float log_factorial(int number);
-float log_factorial_ll(long long number);
+float log_factorial(unsigned int number);
+float log_factorial_ll(unsigned long long number);
 unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 
 //
