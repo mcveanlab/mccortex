@@ -27,12 +27,13 @@ static const char usage[] =
 "  Type a command with no arguments to see help.\n"
 "\n"
 "Common Options:\n"
-"  -m <M>    Memory e.g. 1GB [default: 1GB]\n"
-"  -h <H>    Hash entries [default: 4M (~4 million)]\n"
+"  -m <M>     Memory e.g. 1GB [default: 1GB]\n"
+"  -h <H>     Hash entries [default: 4M (~4 million)]\n"
 // "  -o <O>    Hash occupancy [default: ?]\n"
-"  -g <G>    Species genome size [default: 3.1Gbp]\n"
-"  -t <T>    Number of threads [default: 2]\n"
-"  -k <K>    Kmer size [default: read from binaries]\n"
+"  -g <G>     Species genome size [default: 3.1Gbp]\n"
+"  -t <T>     Number of threads [default: 2]\n"
+"  -k <K>     Kmer size [default: read from binaries]\n"
+"  -f <file>  Input file\n"
 "\n";
 
 int main(int argc, char **argv)
