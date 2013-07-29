@@ -169,6 +169,10 @@ int ctx_join(CmdArgs *args)
   }
   else
   {
+    uint32_t load_colours[num_binaries][max_cols];
+    for(i = 0; i < num_binaries; i++)
+      binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_cols[i]);
+
     // Construct binary header
     BinaryFileHeader tmpheader;
     BinaryFileHeader output_header = {.version = CURR_CTX_VERSION,
@@ -186,7 +190,10 @@ int ctx_join(CmdArgs *args)
       binary_load(binary_paths[i], &db_graph, &prefs, stats, &tmpheader);
       if(merge) output_colour = 0;
       for(j = 0; j < ctx_num_cols[i]; j++, output_colour++)
-        graph_info_merge(output_header.ginfo + output_colour, tmpheader.ginfo + j);
+      {
+        graph_info_merge(output_header.ginfo + output_colour,
+                         tmpheader.ginfo + load_colours[i][j]);
+      }
     }
 
     FILE *fh = fopen(out_ctx_path, "w");
@@ -202,10 +209,6 @@ int ctx_join(CmdArgs *args)
     message("Generated merged hash table\n\n");
     hash_table_print_stats(&db_graph.ht);
     dump_empty_binary(&db_graph, fh, output_colours);
-
-    uint32_t load_colours[num_binaries][max_cols];
-    for(i = 0; i < num_binaries; i++)
-      binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_cols[i]);
 
     if(merge)
     {

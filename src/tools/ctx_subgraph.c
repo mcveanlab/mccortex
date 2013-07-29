@@ -228,7 +228,6 @@ int ctx_subgraph(CmdArgs *args)
 
   size_t kmers_in_hash, ideal_capacity = ctx_num_kmers*(1.0/IDEAL_OCCUPANCY);
   size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-
   size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
   size_t fringe_mem = args->mem_to_use - hash_mem;
   size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);

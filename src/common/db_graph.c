@@ -425,38 +425,62 @@ size_t db_graph_filter_file(const dBGraph *db_graph,
   size_t i, nodes_dumped = 0;
   FILE *in, *out;
 
+  char *split = strchr(in_ctx_path, ':');
+  if(split != NULL) *split = '\0';
+
   if((in = fopen(in_ctx_path, "r")) == NULL)
     die("Cannot open input path: %s", in_ctx_path);
   if((out = fopen(out_ctx_path, "w")) == NULL)
     die("Cannot open output path: %s", out_ctx_path);
 
-  BinaryFileHeader header = {.capacity = 0};
+  BinaryFileHeader outheader = {.capacity = 0}, inheader = {.capacity = 0};
+  binary_read_header(in, &inheader, in_ctx_path);
 
-  binary_read_header(in, &header, in_ctx_path);
-  binary_write_header(out, &header);
+  if(split != NULL) *split = ':';
+  uint32_t num_of_cols = binary_get_num_colours(in_ctx_path, inheader.num_of_cols-1);
+  uint32_t load_colours[num_of_cols];
+  binary_parse_colour_array(in_ctx_path, load_colours, inheader.num_of_cols-1);
+
+  binary_header_alloc(&outheader, num_of_cols);
+
+  for(i = 0; i < num_of_cols; i++)
+    graph_info_merge(outheader.ginfo + i, inheader.ginfo + load_colours[i]);
+
+  binary_write_header(out, &outheader);
+
+  binary_header_dealloc(&inheader);
+  binary_header_dealloc(&outheader);
 
   BinaryKmer bkmer;
-  Covg covgs[header.num_of_cols];
-  Edges edges[header.num_of_cols];
+  Covg kmercovgs[inheader.num_of_cols], covgs[num_of_cols];
+  Edges kmeredges[inheader.num_of_cols], edges[num_of_cols];
 
-  while(binary_read_kmer(out, &header, out_ctx_path, bkmer, covgs, edges))
+  while(binary_read_kmer(out, &inheader, in_ctx_path, bkmer, covgs, edges))
   {
+    // Collapse down colours
+    Covg keep_kmer = 0;
+    for(i = 0; i < num_of_cols; i++) {
+      covgs[i] = kmercovgs[load_colours[i]];
+      edges[i] = kmeredges[load_colours[i]];
+      keep_kmer |= covgs[i] | edges[i];
+    }
+    // If kmer has no covg or edges -> don't load
+    if(keep_kmer == 0) continue;
+
     hkey_t node = hash_table_find(&db_graph->ht, bkmer);
     if(node != HASH_NOT_FOUND) {
       if(db_graph->edges != NULL) {
         Edges union_edges = db_node_edges(db_graph, node);
-        for(i = 0; i < header.num_of_cols; i++) edges[i] &= union_edges;
+        for(i = 0; i < num_of_cols; i++) edges[i] &= union_edges;
       }
       else if(db_graph->col_edges != NULL) {
         Edges union_edges = db_node_col_edges_union(db_graph, node);
-        for(i = 0; i < header.num_of_cols; i++) edges[i] &= union_edges;
+        for(i = 0; i < num_of_cols; i++) edges[i] &= union_edges;
       }
-      binary_write_kmer(out, &header, bkmer, covgs, edges);
+      binary_write_kmer(out, &outheader, bkmer, covgs, edges);
       nodes_dumped++;
     }
   }
-
-  binary_header_dealloc(&header);
 
   fclose(in);
   fclose(out);
@@ -469,6 +493,11 @@ hkey_t db_graph_rand_node(const dBGraph *db_graph)
   uint64_t capacity = db_graph->ht.capacity;
   BinaryKmer *table = db_graph->ht.table;
   hkey_t node;
+
+  if(capacity == 0) {
+    warn("No entries in hash table - cannot select random");
+    return HASH_NOT_FOUND;
+  }
 
   while(1)
   {

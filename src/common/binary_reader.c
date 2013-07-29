@@ -575,12 +575,11 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
   {
     if(binary_read_kmer(fh, header, path, bkmer, kmercovgs, kmeredges) == 0) break;
 
-    memset(covgs, 0, sizeof(Covg) * num_of_cols);
-    memset(edges, 0, sizeof(Edges) * num_of_cols);
-
     // Collapse down colours
     Covg keep_kmer = 0;
     if(prefs->merge_colours) {
+      covgs[0] = 0;
+      edges[0] = 0;
       for(i = 0; i < num_of_cols; i++) {
         covgs[0] += kmercovgs[load_colours[i]];
         edges[0] |= kmeredges[load_colours[i]];
