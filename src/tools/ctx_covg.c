@@ -51,7 +51,7 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
 int ctx_covg(CmdArgs *args)
 {
   cmd_accept_options(args, "m");
-  cmd_require_options(args, "m");
+  cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
 

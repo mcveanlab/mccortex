@@ -14,9 +14,11 @@
 #include "binary_format.h"
 
 static const char usage[] =
-"usage: "CMD" reads [-m <mem>] <in.ctx>\n"
+"usage: "CMD" reads [options] <in.ctx>\n"
 "  Filters reads based on which have a kmer in the graph. \n"
 "  Options:\n"
+"    -m <mem> Memory limit\n"
+"    -h <mem> Number of kmers in hash table\n"
 "\n"
 "    --fastq\n"
 "      print output as FASTQ\n"
@@ -111,13 +113,10 @@ void filter_reads(read_t *r1, read_t *r2,
 
 int ctx_reads(CmdArgs *args)
 {
-  cmd_accept_options(args, "m");
-  cmd_require_options(args, "m");
+  cmd_accept_options(args, "mh");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 4) print_usage(usage, NULL);
-
-  uint64_t mem_to_use = args->mem_to_use;
 
   char *input_ctx_path = argv[argc-1];
 
@@ -167,16 +166,19 @@ int ctx_reads(CmdArgs *args)
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
-  size_t kmers_in_hash, ideal_capacity = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_mem = hash_table_mem2(mem_to_use, &kmers_in_hash);
+  size_t mem_per_kmer = sizeof(BinaryKmer);
+  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
+  size_t ideal_capacity = num_kmers*(1.0/IDEAL_OCCUPANCY);
 
-  if(kmers_in_hash < num_kmers) die("Not enough memory for hash");
-  if(kmers_in_hash < ideal_capacity) warn("Low memory for binary size");
+  char num_kmers_str[100];
+  ulong_to_str(num_kmers, num_kmers_str);
 
-  char hash_mem_str[100];
-  bytes_to_str(hash_mem, 1, hash_mem_str);
-
-  message("[memory]  hash table: %s\n", hash_mem_str);
+  if(kmers_in_hash < num_kmers) {
+    print_usage(usage, "Not enough kmers in the hash, require: %s "
+                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
+  }
+  else if(ideal_capacity > kmers_in_hash)
+    warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   // Load binary
   dBGraph db_graph;

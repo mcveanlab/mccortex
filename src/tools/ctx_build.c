@@ -42,7 +42,7 @@ static const char usage[] =
 int ctx_build(CmdArgs *args)
 {
   cmd_accept_options(args, "mhk");
-  cmd_require_options(args, "k");
+  cmd_require_options(args, "k", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);

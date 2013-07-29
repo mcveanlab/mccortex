@@ -15,12 +15,10 @@ static const char usage[] = "usage: "CMD" pview [options] <in.ctx>\n";
 int ctx_pview(CmdArgs *args)
 {
   cmd_accept_options(args, "m");
-  // cmd_require_options(args, "m");
+  // cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 1) print_usage(usage, NULL);
-
-  size_t mem_to_use = args->mem_to_use;
 
   char *input_ctx_path = argv[0];
 
@@ -42,19 +40,17 @@ int ctx_pview(CmdArgs *args)
     die("Invalid .ctp file: %s", input_paths_file);
 
   // Decide on memory
-  size_t req_num_kmers = ctp_num_path_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_kmers;
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  size_t kmers_in_hash, ideal_capacity = ctp_num_path_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
+  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
   size_t graph_mem = hash_mem +
-                     hash_kmers * sizeof(uint64_t); // kmer_paths
+                     kmers_in_hash * sizeof(uint64_t); // kmer_paths
 
-  // Allocate memory
-  // db graph is required to store the end position for each kmer list
-  dBGraph db_graph;
-  db_graph_alloc(&db_graph, ctp_kmer_size, 1, hash_kmers);
+  size_t path_mem = args->mem_to_use - graph_mem;
 
-  size_t path_mem = mem_to_use - graph_mem;
+  char num_kmers_str[100];
+  ulong_to_str(ctp_num_path_kmers, num_kmers_str);
 
   char graph_mem_str[100], path_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
@@ -62,10 +58,25 @@ int ctx_pview(CmdArgs *args)
 
   message("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
 
+  if(kmers_in_hash < ctp_num_path_kmers) {
+    print_usage(usage, "Not enough kmers in the hash, require: %s "
+                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
+  }
+  else if(kmers_in_hash < ideal_capacity)
+    warn("Low memory for binary size (require: %s)", num_kmers_str);
+
+  if(args->mem_to_use_set && graph_mem > args->mem_to_use)
+    die("Not enough memory (please increase -m <mem>)");
+
+  // Allocate memory
+  // db graph is required to store the end position for each kmer list
+  dBGraph db_graph;
+  db_graph_alloc(&db_graph, ctp_kmer_size, 1, kmers_in_hash);
+
   // Paths
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc(kmers_in_hash * sizeof(uint64_t));
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");

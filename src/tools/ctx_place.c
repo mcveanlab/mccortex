@@ -229,7 +229,7 @@ static void strip_allele(StrBuf *allele, const char* input, size_t len)
   }
 }
 
-static void parse_header(gzFile *gzvcf, StrBuf *line,
+static void parse_header(gzFile gzvcf, StrBuf *line,
                          uint32_t argc, char **argv, uint32_t argrefi)
 {
   sample_indx = kh_init(samplehash);

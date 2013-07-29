@@ -18,14 +18,13 @@ static const char usage[] =
 int ctx_call(CmdArgs *args)
 {
   cmd_accept_options(args, "tm");
-  cmd_require_options(args, "tm");
+  // cmd_require_options(args, "tm", usage);
 
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 2) print_usage(usage, NULL);
 
   uint32_t num_of_threads = args->num_threads;
-  size_t mem_to_use = args->mem_to_use;
 
   char *input_ctx_path = argv[0];
   char *out_path = argv[1];
@@ -33,9 +32,9 @@ int ctx_call(CmdArgs *args)
   // Probe binary to get kmer_size
   boolean is_binary = false;
   uint32_t kmer_size, num_of_cols, max_col;
-  uint64_t num_kmers;
+  uint64_t ctx_num_kmers;
 
-  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
+  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &ctx_num_kmers))
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
@@ -67,29 +66,17 @@ int ctx_call(CmdArgs *args)
     die("Kmer size in .ctp does not match .ctx");
 
   // Decide on memory
-  size_t req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t i, hash_kmers;
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  size_t kmers_in_hash, ideal_capacity = ctx_num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
+  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
   size_t graph_mem = hash_mem +
-                     hash_kmers * sizeof(Edges) + // edges
-                     hash_kmers * sizeof(uint64_t) + // kmer_paths
-                     round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
-                     round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
+                     kmers_in_hash * sizeof(Edges) + // edges
+                     kmers_in_hash * sizeof(uint64_t) + // kmer_paths
+                     round_bits_to_bytes(kmers_in_hash) * num_of_cols + // in col
+                     round_bits_to_bytes(kmers_in_hash) * 2; // visited fw/rv
 
-  size_t thread_mem = round_bits_to_bytes(hash_kmers) * 2 * num_of_threads;
-
-  if(graph_mem+thread_mem > mem_to_use) {
-    print_usage(usage, "Not enough memory; hash table: %zu; threads: %zu",
-                graph_mem, thread_mem);
-  }
-
-  if(!test_file_writable(out_path))
-    print_usage(usage, "Cannot write output file: %s", out_path);
-
-  // Allocate memory
-  dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, hash_kmers);
+  size_t thread_mem = round_bits_to_bytes(kmers_in_hash) * 2 * num_of_threads;
 
   // size_t path_mem = mem_to_use - graph_mem - thread_mem;
   size_t path_mem = ctp_num_path_bytes;
@@ -102,19 +89,29 @@ int ctx_call(CmdArgs *args)
   message("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
           graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
 
+  if(args->mem_to_use_set && graph_mem+thread_mem > args->mem_to_use)
+    die("Not enough memory (increase -m <mem>)");
+
+  if(!test_file_writable(out_path))
+    print_usage(usage, "Cannot write output file: %s", out_path);
+
+  // Allocate memory
+  dBGraph db_graph;
+  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
+
   // Edges
-  db_graph.edges = calloc(hash_kmers, sizeof(uint8_t));
+  db_graph.edges = calloc(kmers_in_hash, sizeof(uint8_t));
   if(db_graph.edges == NULL) die("Out of memory");
 
   // In colour
-  size_t words64_per_col = round_bits_to_words64(hash_kmers);
+  size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
   db_graph.node_in_cols = calloc(words64_per_col*num_of_cols, sizeof(uint64_t));
   if(db_graph.node_in_cols == NULL) die("Out of memory");
 
   // Paths
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc(kmers_in_hash * sizeof(uint64_t));
   if(db_graph.kmer_paths == NULL) die("Out of memory");
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc(path_mem);
   if(path_store == NULL) die("Out of memory");
@@ -146,6 +143,7 @@ int ctx_call(CmdArgs *args)
   char **tmp_paths = malloc(num_of_threads * sizeof(char*));
 
   int r = rand() & ((1<<20)-1);
+  size_t i;
 
   for(i = 0; i < num_of_threads; i++)
   {

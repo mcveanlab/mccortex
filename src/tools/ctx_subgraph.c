@@ -14,11 +14,9 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: "CMD" <in.ctx> <seeds.falist> <dist> <out.ctx>\n"
+"usage: "CMD" [options] <in.ctx> <seeds.falist> <dist> <out.ctx>\n"
 "  Loads <in.ctx> and dumps a binary <out.ctx> that contains all kmers within\n"
-"  <dist> edges of kmers in <filelist>.  Maintains number of colours / covgs etc.\n"
-"  <mem> specifies how much memory to use to store the list of edge kmers.  Will\n"
-"  fail if this is too small.  We suggest 1GB if available on your machine.\n";
+"  <dist> edges of kmers in <filelist>.  Maintains number of colours / covgs etc.\n";
 
 typedef struct
 {
@@ -200,12 +198,9 @@ static void filter_subgraph(const char *input_ctx_path,
 int ctx_subgraph(CmdArgs *args)
 {
   cmd_accept_options(args, "m");
-  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 4) print_usage(usage, NULL);
-
-  uint64_t mem_to_use = args->mem_to_use;
 
   char *input_ctx_path, *input_filelist, *out_path;
   uint32_t dist;
@@ -224,31 +219,46 @@ int ctx_subgraph(CmdArgs *args)
   // Probe binary to get kmer_size
   boolean is_binary = false;
   uint32_t kmer_size, num_of_cols, max_col;
-  uint64_t num_kmers;
+  uint64_t ctx_num_kmers;
 
-  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
+  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &ctx_num_kmers))
     print_usage(usage, "Cannot read input binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
-  size_t num_of_hash_kmers;
-  size_t req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_mem = hash_table_mem(req_num_kmers, &num_of_hash_kmers);
-  size_t fringe_mem = mem_to_use - hash_mem;
-  size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
+  size_t kmers_in_hash, ideal_capacity = ctx_num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
 
-  if(hash_mem >= mem_to_use || num_of_fringe_nodes < 100)
-    die("Not enough memory for the graph");
+  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
+  size_t fringe_mem = args->mem_to_use - hash_mem;
+  size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
+  size_t search_mem = num_of_fringe_nodes * (sizeof(hkey_t) * 2);
+
+  char num_kmers_str[100];
+  ulong_to_str(ctx_num_kmers, num_kmers_str);
+
+  char kmers_in_hash_str[100], search_mem_str[100];
+  bytes_to_str(kmers_in_hash, 1, kmers_in_hash_str);
+  bytes_to_str(search_mem, 1, search_mem_str);
+
+  message("[memory]  graph: %s; search: %s\n", kmers_in_hash_str, search_mem_str);
+  message("Using kmer size: %u\n", kmer_size);
+
+  if(kmers_in_hash < ctx_num_kmers) {
+    print_usage(usage, "Not enough kmers in the hash, require: %s "
+                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
+  }
+  else if(kmers_in_hash < ideal_capacity)
+    warn("Low memory for binary size (require: %s)", num_kmers_str);
+
+  if(num_of_fringe_nodes < 100)
+    die("Not enough memory for the graph search (set -m <mem> higher)");
 
   if(!test_file_writable(out_path))
     die("Cannot write to output file: %s", out_path);
 
-  message("Using kmer size: %u\n", kmer_size);
-  message("Using %zu bytes for graph search\n",
-          num_of_fringe_nodes * (sizeof(hkey_t) * 2));
-
   // Create db_graph
-  db_graph_alloc(&db_graph, kmer_size, 1, num_of_hash_kmers);
+  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
   db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
 
   size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity);

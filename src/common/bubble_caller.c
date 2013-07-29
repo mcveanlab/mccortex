@@ -27,7 +27,7 @@
 #endif
 
 // Print absolute path to a file
-static void print_filepath_abs(gzFile *out, const char *name, const char *file)
+static void print_filepath_abs(gzFile out, const char *name, const char *file)
 {
   char absolute_path[PATH_MAX + 1];
   char *abs_path = realpath(file, absolute_path);
@@ -38,9 +38,8 @@ static void print_filepath_abs(gzFile *out, const char *name, const char *file)
   gzprintf(out, "##%s=%s\n", name, abs_path);
 }
 
-static void print_calling_header(const dBGraph *db_graph, gzFile *out,
+static void print_calling_header(const dBGraph *db_graph, gzFile out,
                                  const char* out_file)
-                                 // const CmdLine *cmd)
 {
   char datestr[9];
   time_t date = time(NULL);

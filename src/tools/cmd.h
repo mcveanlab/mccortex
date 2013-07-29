@@ -47,7 +47,8 @@ void cmd_free(CmdArgs *args);
 // e.g. "tk" accepts kmer-size and number of threads
 // NULL means anything valid, "" means no args valid
 void cmd_accept_options(const CmdArgs *args, const char *accptopts);
-void cmd_require_options(const CmdArgs *args, const char *accptopts);
+void cmd_require_options(const CmdArgs *args, const char *requireopts,
+                         const char *usage);
 
 // Run a command
 int cmd_run(int argc, char **argv);

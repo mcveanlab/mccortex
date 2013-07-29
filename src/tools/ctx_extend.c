@@ -12,7 +12,10 @@
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: "CMD" extend [-m <mem>] <in.ctx> <in.fa> <dist> <out.fa>\n";
+"usage: "CMD" extend [options] <in.ctx> <in.fa> <dist> <out.fa>\n"
+"  options:\n"
+"   -m <mem>   Memory to use\n"
+"   -h <kmers> Kmers in the hash\n";
 
 typedef struct
 {
@@ -140,12 +143,9 @@ static void extend_reads(read_t *r1, read_t *r2,
 int ctx_extend(CmdArgs *args)
 {
   cmd_accept_options(args, "m");
-  cmd_require_options(args, "m");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 4) print_usage(usage, NULL);
-
-  size_t mem_to_use = args->mem_to_use;
 
   char *input_ctx_path, *input_fa_path, *out_fa_path;
   uint32_t dist;
@@ -156,9 +156,9 @@ int ctx_extend(CmdArgs *args)
   // Probe binary
   boolean is_binary = false;
   uint32_t kmer_size, num_of_cols, max_col;
-  uint64_t num_kmers;
+  uint64_t ctx_num_kmers;
 
-  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
+  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &ctx_num_kmers))
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
@@ -175,17 +175,26 @@ int ctx_extend(CmdArgs *args)
     print_usage(usage, "Cannot write output file: %s", out_fa_path);
 
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  size_t kmers_in_hash, ideal_capacity = ctx_num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
+  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
   size_t graph_mem = hash_mem +
-                     hash_kmers * sizeof(Edges) +
-                     2*round_bits_to_words64(hash_kmers)*sizeof(uint64_t);
+                     kmers_in_hash * sizeof(Edges) +
+                     2*round_bits_to_words64(kmers_in_hash)*sizeof(uint64_t);
 
-  char graph_mem_str[100];
+  char num_kmers_str[100], graph_mem_str[100];
+  ulong_to_str(ctx_num_kmers, num_kmers_str);
   bytes_to_str(graph_mem, 1, graph_mem_str);
 
-  if(graph_mem > mem_to_use)
+  if(kmers_in_hash < ctx_num_kmers) {
+    print_usage(usage, "Not enough kmers in the hash, require: %s "
+                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
+  }
+  else if(kmers_in_hash < ideal_capacity)
+    warn("Low memory for binary size (require: %s)", num_kmers_str);
+
+  if(args->mem_to_use_set && graph_mem > args->mem_to_use)
     print_usage(usage, "Not enough memory - binary requires: %s", graph_mem_str);
 
   message("[memory] graph: %s\n", graph_mem_str);
@@ -194,7 +203,7 @@ int ctx_extend(CmdArgs *args)
 
   // Set up dBGraph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, hash_kmers);
+  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
   db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
 
   size_t visited_words = 2*round_bits_to_words64(db_graph.ht.capacity);

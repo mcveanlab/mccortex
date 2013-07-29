@@ -3,6 +3,7 @@
 #include <pthread.h>
 
 #include "cmd.h"
+#include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
 #include "binary_format.h"
@@ -68,6 +69,13 @@ int ctx_pmerge(CmdArgs *args)
     }
     else if(!valid_paths_file)
       die("Invalid .ctp file: %s", input_paths_file);
+    else if(num_kmers < ctp_num_path_kmers) {
+      if(args->file_set) die("ctp file has more kmers than hash table!");
+      else {
+        print_usage(usage, "Please set a larger -h <kmers> (needs to be > %zu)",
+                    (size_t)ctp_num_path_kmers);
+      }
+    }
 
     // If we didn't load a binary, assume num of colours from first .ctp file
     if(argi == 2) {
@@ -98,9 +106,19 @@ int ctx_pmerge(CmdArgs *args)
   }
 
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  size_t kmers_in_hash, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
   size_t path_mem = args->mem_to_use - hash_mem;
+
+  if(args->mem_to_use_set && hash_mem+path_mem > args->mem_to_use)
+    die("Not enough memory (please increase -m <mem>)");
+
+  char hash_mem_str[100], path_mem_str[100], num_kmers_str[100];
+  ulong_to_str(req_num_kmers, num_kmers_str);
+  bytes_to_str(hash_mem, 1, hash_mem_str);
+  bytes_to_str(path_mem, 1, path_mem_str);
+
+  message("[memory]  graph: %s;  paths: %s\n", hash_mem_str, path_mem_str);
 
   // set up tmp space
   PathStore tmp_pdata;

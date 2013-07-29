@@ -34,21 +34,39 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts)
     die("-f <file> argument not valid for this command");
 }
 
-void cmd_require_options(const CmdArgs *args, const char *requireopts)
+void cmd_require_options(const CmdArgs *args, const char *requireopts,
+                         const char *usage)
 {
   if(requireopts == NULL) return;
-  if(!args->mem_to_use_set && strchr(requireopts,'m') == NULL)
-    die("-m <memory> argument required for this command");
-  if(!args->genome_size_set && strchr(requireopts,'g') == NULL)
-    die("-g <genomesize> argument required for this command");
-  if(!args->genome_size_set && strchr(requireopts,'t') == NULL)
-    die("-t <threads> argument required for this command");
-  if(!args->num_kmers_set && strchr(requireopts,'h') == NULL)
-    die("-h <hash-entries> argument required for this command");
-  if(!args->kmer_size_set && strchr(requireopts,'k') == NULL)
-    die("-k <kmer-size> argument required for this command");
-  if(!args->file_set && strchr(requireopts,'f') == NULL)
-    die("-f <file> argument required for this command");
+  if(args->argc == 0 && *requireopts != '\0') print_usage(usage, NULL);
+  for(; *requireopts != '\0'; requireopts++)
+  {
+    if(*requireopts == 'm') {
+      if(!args->mem_to_use_set)
+        die("-m <memory> argument required for this command");
+    }
+    else if(*requireopts == 'g') {
+      if(!args->genome_size_set)
+        die("-g <genomesize> argument required for this command");
+    }
+    else if(*requireopts == 't') {
+      if(!args->genome_size_set)
+        die("-t <threads> argument required for this command");
+    }
+    else if(*requireopts == 'h') {
+      if(!args->num_kmers_set)
+        die("-h <hash-entries> argument required for this command");
+    }
+    else if(*requireopts == 'k') {
+      if(!args->kmer_size_set)
+        die("-k <kmer-size> argument required for this command");
+    }
+    else if(*requireopts == 'f') {
+      if(!args->file_set)
+        die("-f <file> argument required for this command");
+    }
+    else warn("Ignored required option: %c", *requireopts);
+  }
 }
 
 void cmd_alloc(CmdArgs *args, int argc, char **argv)

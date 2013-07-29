@@ -181,7 +181,7 @@ void diverge_call(read_t *r1, read_t *r2,
 int ctx_diverge(CmdArgs *args)
 {
   cmd_accept_options(args, "m");
-  cmd_require_options(args, "m");
+  cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 4) print_usage(usage, NULL);
