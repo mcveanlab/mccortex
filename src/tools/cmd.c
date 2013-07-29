@@ -4,12 +4,12 @@
 #include "hash_table.h" // for calculating mem usage
 
 const char *cmds[NUM_CMDS]
-  = {"build", "view", "clean", "join", "intersect", "subgraph", "reads", "extend",
+  = {"build", "view", "clean", "join", "subgraph", "reads", "extend",
      "contigs", "thread", "pview", "pmerge", "call", "diverge", "unique",
      "covg", "place"};
 
 int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
-  = {ctx_build, ctx_view, ctx_clean, ctx_join, ctx_intersect, ctx_subgraph,
+  = {ctx_build, ctx_view, ctx_clean, ctx_join, ctx_subgraph,
      ctx_reads, ctx_extend, ctx_contigs, ctx_thread, ctx_pview, ctx_pmerge,
      ctx_call, ctx_diverge, ctx_unique, ctx_covg, ctx_place};
 

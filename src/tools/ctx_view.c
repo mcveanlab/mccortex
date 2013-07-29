@@ -45,53 +45,55 @@ static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
 
 static void print_header(BinaryFileHeader *h)
 {
-  printf("binary version: %u\n", h->version);
-  printf("kmer size: %u\n", h->kmer_size);
-  printf("bitfields: %u\n", h->num_of_bitfields);
-  printf("colours: %u\n", h->num_of_cols);
+  message("binary version: %u\n", h->version);
+  message("kmer size: %u\n", h->kmer_size);
+  message("bitfields: %u\n", h->num_of_bitfields);
+  message("colours: %u\n", h->num_of_cols);
+
+  char num_kmers_str[50];
+  ulong_to_str(h->num_of_kmers, num_kmers_str);
+  message("number of kmers: %s\n", num_kmers_str);
 
   uint32_t i;
   for(i = 0; i < h->num_of_cols; i++)
   {
     GraphInfo *ginfo = h->ginfo + i;
 
-    printf("-- Colour %i --\n", i);
+    message("-- Colour %i --\n", i);
 
     if(h->version >= 6)
     {
       // Version 6 only output
-      printf("  sample name: '%s'\n", ginfo->sample_name.buff);
+      message("  sample name: '%s'\n", ginfo->sample_name.buff);
     }
 
     char total_sequence_str[100];
     ulong_to_str(ginfo->total_sequence, total_sequence_str);
 
-    printf("  mean read length: %u\n", ginfo->mean_read_length);
-    printf("  total sequence loaded: %s\n", total_sequence_str);
+    message("  mean read length: %u\n", ginfo->mean_read_length);
+    message("  total sequence loaded: %s\n", total_sequence_str);
     
     if(h->version >= 6)
     {
       // Version 6 only output
-      printf("  sequence error rate: %Lf\n", ginfo->seq_err);
+      message("  sequence error rate: %Lf\n", ginfo->seq_err);
 
       ErrorCleaning *ec = &ginfo->cleaning;
-      printf("  tip clipping: %s\n", (ec->tip_clipping == 0 ? "no" : "yes"));
+      message("  tip clipping: %s\n", (ec->tip_clipping == 0 ? "no" : "yes"));
 
-      printf("  remove low coverage supernodes: %s [threshold: %i]\n",
-             ec->remv_low_cov_sups ? "yes" : "no",
-             ec->remv_low_cov_sups_thresh);
+      message("  remove low coverage supernodes: %s [threshold: %i]\n",
+              ec->remv_low_cov_sups ? "yes" : "no",
+              ec->remv_low_cov_sups_thresh);
 
-      printf("  remove low coverage kmers: %s [threshold: %i]\n",
-             ec->remv_low_cov_nodes ? "yes" : "no",
-             ec->remv_low_cov_nodes_thresh);
+      message("  remove low coverage kmers: %s [threshold: %i]\n",
+              ec->remv_low_cov_nodes ? "yes" : "no",
+              ec->remv_low_cov_nodes_thresh);
 
-      printf("  cleaned against graph: %s [against: '%s']\n",
-             ec->cleaned_against_another_graph ? "yes" : "no",
-             ec->cleaned_against_graph_name.buff);
+      message("  cleaned against graph: %s [against: '%s']\n",
+              ec->cleaned_against_another_graph ? "yes" : "no",
+              ec->cleaned_against_graph_name.buff);
     }
   }
-
-  printf("--\n");
 }
 
 #define loading_warning(fmt,...) { num_warnings++; warn(fmt, ##__VA_ARGS__);}
@@ -103,7 +105,6 @@ int ctx_view(CmdArgs *args)
   char **argv = args->argv;
   if(argc == 0) print_usage(usage, NULL);
 
-  uint32_t kmer_size = args->kmer_size;
   boolean print_info = false, parse_kmers = false, print_kmers = false;
   size_t num_errors = 0, num_warnings = 0;
   char *in_ctx_path;
@@ -135,8 +136,19 @@ int ctx_view(CmdArgs *args)
   if((in = fopen(in_ctx_path, "r")) == NULL)
     die("Cannot open input path: %s", in_ctx_path);
 
+  if(print_info)
+  {
+    char fsize_str[50];
+    bytes_to_str(fsize, 0, fsize_str);
+    message("Loading file: %s\n", in_ctx_path);
+    message("File size: %s\n", fsize_str);
+    message("----\n");
+  }
+
   BinaryFileHeader outheader = {.capacity = 0}, inheader = {.capacity = 0};
   size_t hsize = binary_read_header(in, &inheader, in_ctx_path);
+
+  uint32_t kmer_size = inheader.kmer_size;
 
   if(split != NULL) *split = ':';
   uint32_t num_of_cols = binary_get_num_colours(in_ctx_path, inheader.num_of_cols-1);
@@ -190,6 +202,8 @@ int ctx_view(CmdArgs *args)
 
   if(parse_kmers || print_kmers)
   {
+    if(print_info && print_kmers) message("----\n");
+
     while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, covgs, edges))
     {
       // Collapse down colours
@@ -307,18 +321,21 @@ int ctx_view(CmdArgs *args)
 
   if((print_kmers || parse_kmers) && print_info)
   {
-    printf("kmers read: %s\n", ulong_to_str(num_of_kmers_read, num_str));
-    printf("covgs read: %s\n", ulong_to_str(sum_of_covgs_read, num_str));
-    printf("seq loaded: %s\n", ulong_to_str(sum_of_seq_loaded, num_str));
+    message("----\n");
+    message("kmers read: %s\n", ulong_to_str(num_of_kmers_read, num_str));
+    message("covgs read: %s\n", ulong_to_str(sum_of_covgs_read, num_str));
+    message("seq loaded: %s\n", ulong_to_str(sum_of_seq_loaded, num_str));
   }
 
   if((print_kmers || parse_kmers) && print_info)
   {
-    printf("----\n");
-    if(num_warnings > 0 || num_errors > 0)
-      printf("Warnings: %zu; Errors: %zu\n", (size_t)num_warnings, (size_t)num_errors);
+    message("----\n");
+    if(num_warnings > 0 || num_errors > 0) {
+      message("Warnings: %zu; Errors: %zu\n",
+              (size_t)num_warnings, (size_t)num_errors);
+    }
     if(num_errors == 0)
-      printf(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
+      message(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
   }
 
   return EXIT_SUCCESS;

@@ -74,7 +74,7 @@ boolean test_file_readable(const char *file)
 // Creates file if it can write
 boolean test_file_writable(const char *file)
 {
-  FILE *fp = fopen(file, "w");
+  FILE *fp = fopen(file, "a");
   if(fp == NULL) return false;
   else fclose(fp);
   return true;

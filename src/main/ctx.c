@@ -9,8 +9,7 @@ static const char usage[] =
 "Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
 "          view        view a cortex binary file\n"
 "          clean       clean population / sample against merged  (unfinished)\n" // 4
-"          join        combine graphs\n"
-"          intersect   dump intersection of graph A.ctx with B.ctx\n"
+"          join        combine graphs, filter binary intersections\n"
 "          subgraph    filter a subgraph\n"
 "          reads       filter reads against a graph\n"
 "          extend      extend contigs using a graph\n"

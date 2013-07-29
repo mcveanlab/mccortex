@@ -37,6 +37,7 @@ typedef struct
 {
   Colour into_colour;
   boolean merge_colours; // Load all data into only one colour
+  boolean boolean_covgs; // Update covg by at most 1
 
   // loading sequence
   boolean load_seq;
@@ -46,7 +47,7 @@ typedef struct
 
   // loading binaries
   boolean load_binaries;
-  int must_exist_in_colour;
+  boolean must_exist_in_graph;
   // if empty_colours is true an error is thrown if a kmer is repeated
   boolean empty_colours;
 
@@ -97,10 +98,5 @@ uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
 uint32_t check_colour_or_ctx_list(const char *list_path, boolean is_colourlist,
                                   boolean binaries_allowed, boolean seq_allowed,
                                   uint32_t kmer_size, uint32_t *colours);
-
-void dump_successive_cleaned_binaries(const char *filename, uint32_t into_colour,
-                                      uint32_t clean_colour, const char *suffix,
-                                      dBGraph *db_graph,
-                                      const char *cleaned_against_name);
 
 #endif /* FILE_READER_H_ */

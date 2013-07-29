@@ -120,8 +120,9 @@ int ctx_call(CmdArgs *args)
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = false,
+                           .boolean_covgs = false,
                            .load_binaries = true,
-                           .must_exist_in_colour = -1,
+                           .must_exist_in_graph = false,
                            .empty_colours = true,
                            .update_ginfo = true,
                            .db_graph = &db_graph};

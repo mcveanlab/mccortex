@@ -112,12 +112,13 @@ int ctx_clean(CmdArgs *args)
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs
     = {.into_colour = 0, .merge_colours = true,
+       .boolean_covgs = false,
        .load_seq = true,
        .quality_cutoff = 0, .ascii_fq_offset = 0,
        .homopolymer_cutoff = 0,
        .remove_dups_se = false, .remove_dups_pe = false,
        .load_binaries = true,
-       .must_exist_in_colour = -1,
+       .must_exist_in_graph = false,
        .empty_colours = true,
        .update_ginfo = true,
        .db_graph = &db_graph};
@@ -156,7 +157,7 @@ int ctx_clean(CmdArgs *args)
   dump_empty_binary(&db_graph, fh, num_of_cols);
 
   // load, clean and dump graph one colour at a time
-  prefs.must_exist_in_colour = 0;
+  prefs.must_exist_in_graph = 0;
 
   output_colour = 0;
   for(i = 0; i < num_binaries; i++)

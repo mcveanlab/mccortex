@@ -250,8 +250,13 @@ char* bytes_to_str(unsigned long num, int decimals, char* str)
   double num_of_units = (double)num / bytes_in_unit;
 
   double_to_str(num_of_units, decimals, str);
-  size_t offset = strlen(str);
-  sprintf(str+offset, " %s", units[unit]);
+  char *ptr = str+strlen(str)-1;
+  if(decimals > 0) {
+    // Trim excess zeros
+    while(ptr > str && *ptr == '0') ptr--;
+    if(*ptr == '.') ptr--;
+  }
+  strcpy(ptr+1, units[unit]);
 
   return str;
 }

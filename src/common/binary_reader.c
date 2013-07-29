@@ -503,8 +503,6 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
                      const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                      BinaryFileHeader *header_ptr)
 {
-  assert(prefs->must_exist_in_colour == -1 || graph->node_in_cols != NULL);
-
   size_t len = strlen(ctx_path);
   char path[len+61];
   memcpy(path, ctx_path, (len+1) * sizeof(char));
@@ -605,18 +603,23 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
     // If kmer has no covg or edges -> don't load
     if(keep_kmer == 0) continue;
 
+    if(prefs->boolean_covgs)
+      for(i = 0; i < num_of_cols; i++)
+        covgs[i] = covgs[i] > 0;
+
     // Fetch node in the de bruijn graph
     hkey_t node;
 
-    if(prefs->must_exist_in_colour >= 0)
+    if(prefs->must_exist_in_graph)
     {
       node = hash_table_find(&graph->ht, bkmer);
+      if(node == HASH_NOT_FOUND) continue;
 
-      if(node != HASH_NOT_FOUND &&
-         !db_node_has_col(graph, node, prefs->must_exist_in_colour))
-      {
-        continue; // skip kmer
-      }
+      Edges union_edges
+        = graph->edges != NULL ? db_node_edges(graph, node)
+                                  : db_node_col_edges_union(graph, node);
+
+      for(i = 0; i < num_of_cols; i++) edges[i] &= union_edges;
     }
     else
     {
@@ -642,22 +645,11 @@ uint32_t binary_load(const char *ctx_path, dBGraph *graph,
         db_node_add_col_covg(graph, node, prefs->into_colour+i, covgs[i]);
     }
 
-    if(graph->col_edges != NULL)
-    {
-      // For each colour take the union of edges
+    if(graph->col_edges != NULL) {
       Edges *col_edges = graph->col_edges + node * graph->num_of_cols;
-
-      if(prefs->must_exist_in_colour >= 0) {
-        for(i = 0; i < num_cols_loaded; i++) {
-          col = prefs->into_colour+i;
-          col_edges[col] |= edges[i] & col_edges[prefs->must_exist_in_colour];
-        }
-      }
-      else {
-        for(i = 0; i < num_cols_loaded; i++) {
-          col = prefs->into_colour+i;
-          col_edges[col] |= edges[i];
-        }
+      for(i = 0; i < num_cols_loaded; i++) {
+        col = prefs->into_colour+i;
+        col_edges[col] |= edges[i];
       }
     }
     

@@ -13,6 +13,8 @@
 #include "binary_format.h"
 #include "seq_reader.h"
 
+
+//"usage: "CMD" [options] <out.ctx> <seeds.fa> <dist> <in.ctx> [in2.ctx ...]\n"
 static const char usage[] =
 "usage: "CMD" [options] <in.ctx> <seeds.falist> <dist> <out.ctx>\n"
 "  Loads <in.ctx> and dumps a binary <out.ctx> that contains all kmers within\n"
@@ -138,12 +140,13 @@ static void filter_subgraph(const char *input_ctx_path,
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+                           .boolean_covgs = false,
                            .load_seq = true,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false,
                            .load_binaries = true,
-                           .must_exist_in_colour = -1,
+                           .must_exist_in_graph = false,
                            .empty_colours = true,
                            .update_ginfo = false,
                            .db_graph = &db_graph};
