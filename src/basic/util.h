@@ -2,14 +2,14 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
-int int_cmp(const void *a, const void *b);
-int long_cmp(const void *a, const void *b);
-int float_cmp(const void *a, const void *b);
-int double_cmp(const void *a, const void *b);
-int uint32_cmp(const void *a, const void *b);
-int uint64_cmp(const void *a, const void *b);
-int size_cmp(const void *a, const void *b);
-int ptr_cmp(const void *a, const void *b);
+int cmp_int(const void *a, const void *b);
+int cmp_long(const void *a, const void *b);
+int cmp_float(const void *a, const void *b);
+int cmp_double(const void *a, const void *b);
+int cmp_uint32(const void *a, const void *b);
+int cmp_uint64(const void *a, const void *b);
+int cmp_size(const void *a, const void *b);
+int cmp_ptr(const void *a, const void *b);
 
 char parse_entire_int(char *str, int *result);
 char parse_entire_uint(char *str, unsigned int *result);

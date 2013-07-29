@@ -1,6 +1,5 @@
 #include "global.h"
 
-#include <stddef.h> // defines ptrdiff_t
 #include <time.h> // printing datetime
 #include <pthread.h> // multithreading
 

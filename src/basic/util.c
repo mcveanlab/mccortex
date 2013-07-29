@@ -2,52 +2,29 @@
 #include "global.h"
 #include "util.h"
 
-#include <stddef.h>
 #include <math.h>
 
 // integer comparison: returns:
 //   negative iff a < b
 //          0 iff a == b
 //   positive iff a > b
-// int int_cmp(const void *a, const void *b)
-// {
-//   // casting pointer types
-//   const int *ia = (const int *)a;
-//   const int *ib = (const int *)b;
-
-//   return (*ia  - *ib);
-// }
 
 #define cmpfunc(fname,type_t)                                                  \
 int fname(const void *a, const void *b) {                                      \
-  const type_t *a2 = (const type_t *)a, *b2 = (const type_t *)b;               \
+  const type_t *a2 = (const type_t *)a;                                        \
+  const type_t *b2 = (const type_t *)b;                                        \
   return (*a2 < *b2 ? -1 : (*a2 > *b2));                                       \
 }
 
-cmpfunc(int_cmp, int);
-cmpfunc(long_cmp, long);
-cmpfunc(float_cmp, float);
-cmpfunc(double_cmp, double);
-cmpfunc(uint32_cmp, uint32_t);
-cmpfunc(uint64_cmp, uint64_t);
-cmpfunc(size_cmp, size_t);
-// cmpfunc(ptr_cmp, (void*));
+cmpfunc(cmp_int, int);
+cmpfunc(cmp_long, long);
+cmpfunc(cmp_float, float);
+cmpfunc(cmp_double, double);
+cmpfunc(cmp_uint32, uint32_t);
+cmpfunc(cmp_uint64, uint64_t);
+cmpfunc(cmp_size, size_t);
+cmpfunc(cmp_ptr, void*);
 
-// Sort an array of addresses in ascending order (1,2,10,20)
-// NULL values will be put at the front
-//   negative iff a < b
-//          0 iff a == b
-//   positive iff a > b
-// int pointer_address_cmp(const void *a, const void *b)
-// {
-//   // ptrdiff_t is defined in stddef.h and is the datatype for differences
-//   // between pointers (which are defined with size size_t)
-//   ptrdiff_t cmp = (ptrdiff_t)*(const void**)a - (ptrdiff_t)*(const void**)b;
-
-//   // Convert to an int (don't want integer to overflow)
-//   if(cmp == 0) return 0;
-//   else return (cmp > 0 ? 1 : -1);
-// }
 
 char parse_entire_int(char *str, int *result)
 {

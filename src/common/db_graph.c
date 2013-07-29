@@ -455,17 +455,19 @@ size_t db_graph_filter_file(const dBGraph *db_graph,
   Covg kmercovgs[inheader.num_of_cols], covgs[num_of_cols];
   Edges kmeredges[inheader.num_of_cols], edges[num_of_cols];
 
-  while(binary_read_kmer(out, &inheader, in_ctx_path, bkmer, covgs, edges))
+  while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, covgs, edges))
   {
     // Collapse down colours
-    Covg keep_kmer = 0;
-    for(i = 0; i < num_of_cols; i++) {
-      covgs[i] = kmercovgs[load_colours[i]];
-      edges[i] = kmeredges[load_colours[i]];
-      keep_kmer |= covgs[i] | edges[i];
+    if(split != NULL) {
+      Covg keep_kmer = 0;
+      for(i = 0; i < num_of_cols; i++) {
+        covgs[i] = kmercovgs[load_colours[i]];
+        edges[i] = kmeredges[load_colours[i]];
+        keep_kmer |= covgs[i] | edges[i];
+      }
+      // If kmer has no covg or edges -> don't load
+      if(keep_kmer == 0) continue;
     }
-    // If kmer has no covg or edges -> don't load
-    if(keep_kmer == 0) continue;
 
     hkey_t node = hash_table_find(&db_graph->ht, bkmer);
     if(node != HASH_NOT_FOUND) {

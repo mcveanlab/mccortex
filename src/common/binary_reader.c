@@ -230,6 +230,15 @@ void binary_header_dealloc(BinaryFileHeader *h)
   free(h->ginfo);
 }
 
+void binary_read_cpy_basic(BinaryFileHeader *dst, BinaryFileHeader *src)
+{
+  dst->version = src->version;
+  dst->kmer_size = src->kmer_size;
+  dst->num_of_bitfields = src->num_of_bitfields;
+  dst->num_of_cols = src->num_of_cols;
+  dst->num_of_kmers = src->num_of_kmers;
+}
+
 // Return number of bytes read
 size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
 {

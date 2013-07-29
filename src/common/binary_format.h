@@ -56,6 +56,7 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *header, const char *path,
 void binary_header_alloc(BinaryFileHeader *header, size_t num_of_cols);
 void binary_header_realloc(BinaryFileHeader *header, size_t num_of_cols);
 void binary_header_dealloc(BinaryFileHeader *header);
+void binary_read_cpy_basic(BinaryFileHeader *dst, BinaryFileHeader *src);
 
 void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols);
 

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stddef.h> // defines ptrdiff_t
 #include <string.h>
 #include <strings.h> // strcasecmp
 #include <inttypes.h>
