@@ -1,10 +1,9 @@
-
 #include "global.h"
 #include "util.h"
 
 #include <math.h>
 
-// integer comparison: returns:
+// comparison returns:
 //   negative iff a < b
 //          0 iff a == b
 //   positive iff a > b

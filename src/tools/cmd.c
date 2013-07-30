@@ -24,7 +24,7 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts)
     die("-m <memory> argument not valid for this command");
   if(args->genome_size_set && strchr(accptopts,'g') == NULL)
     die("-g <genomesize> argument not valid for this command");
-  if(args->genome_size_set && strchr(accptopts,'t') == NULL)
+  if(args->num_threads_set && strchr(accptopts,'t') == NULL)
     die("-t <threads> argument not valid for this command");
   if(args->num_kmers_set && strchr(accptopts,'h') == NULL)
     die("-h <hash-entries> argument not valid for this command");

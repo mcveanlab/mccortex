@@ -1,6 +1,10 @@
-
 #ifndef UTIL_H_
 #define UTIL_H_
+
+// comparison returns:
+//   negative iff a < b
+//          0 iff a == b
+//   positive iff a > b
 
 int cmp_int(const void *a, const void *b);
 int cmp_long(const void *a, const void *b);

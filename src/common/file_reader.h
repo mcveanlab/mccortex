@@ -56,19 +56,6 @@ typedef struct
 } SeqLoadingPrefs;
 
 
-// SAM/BAM/FASTQ/FASTA are FORMAT_SEQ
-#define FORMAT_SEQ 0
-#define FORMAT_CTX 1
-#define FORMAT_LIST 2
-#define FORMAT_COLOURLIST 3
-
-// Returns false if cannot read, true otherwise
-boolean file_probe(const char *path, int *format,
-                   int *kmer_size, uint32_t *num_of_colours);
-
-void file_load(const char *path, int format,
-               SeqLoadingPrefs *prefs, SeqLoadingStats *stats);
-
 void parse_filelists(const char *list_path1, const char *list_path2,
                      uint8_t are_colour_lists,
                      SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
