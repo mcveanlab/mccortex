@@ -62,15 +62,19 @@ void graph_info_dealloc(GraphInfo *ginfo)
   error_cleaning_dealloc(&ginfo->cleaning);
 }
 
-void graph_info_update_seq_stats(GraphInfo *ginfo,
-                                 uint32_t added_mean, uint64_t added_seq)
+void graph_info_update_contigs(GraphInfo *ginfo,
+                               uint64_t added_seq, uint64_t num_contigs)
 {
   uint64_t total_sequence = ginfo->total_sequence + added_seq;
 
-  if(total_sequence > 0)
-  {
-    ginfo->mean_read_length = (ginfo->mean_read_length * ginfo->total_sequence +
-                               added_mean * added_seq) / total_sequence;
+  if(ginfo->mean_read_length == 0) {
+    ginfo->mean_read_length = (double)added_seq / num_contigs + 0.5;
+  }
+  else {
+    ginfo->mean_read_length
+      = total_sequence /
+        ((double)ginfo->total_sequence / ginfo->mean_read_length + num_contigs)
+        + 0.5;
   }
 
   ginfo->total_sequence = total_sequence;

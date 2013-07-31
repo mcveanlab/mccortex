@@ -41,6 +41,7 @@ SeqLoadingStats* seq_loading_stats_create(unsigned long readlen_arrsize)
   stats->total_bases_read = stats->total_bases_loaded = 0;
   // unique_kmers is the number of new kmers added to the graph
   stats->kmers_loaded = stats->unique_kmers = 0;
+  stats->contigs_loaded = 0;
 
   // Used for binaries and colourlists
   stats->num_of_colours_loaded = 0;
@@ -66,6 +67,7 @@ void seq_loading_stats_sum(SeqLoadingStats* dst, SeqLoadingStats* src)
   dst->total_bases_loaded += src->total_bases_loaded;
   dst->kmers_loaded += src->kmers_loaded;
   dst->unique_kmers += src->unique_kmers;
+  dst->contigs_loaded += src->contigs_loaded;
 
   // Used for binaries and colourlists
   dst->num_of_colours_loaded += src->num_of_colours_loaded;
@@ -332,13 +334,9 @@ void parse_filelists(const char *list_path1, const char *list_path2,
     if(prefs->update_ginfo)
     {
       // Update the graph info object
-      uint32_t mean_contig_length
-        = calculate_mean_ulong(new_stats->readlen_count_array,
-                               new_stats->readlen_count_array_size);
-
-      graph_info_update_seq_stats(prefs->db_graph->ginfo + prefs->into_colour,
-                                  mean_contig_length,
-                                  new_stats->total_bases_loaded);
+      graph_info_update_contigs(prefs->db_graph->ginfo + prefs->into_colour,
+                                new_stats->total_bases_loaded,
+                                new_stats->contigs_loaded);
     }
 
     if(is_pe) new_stats->pe_filelist_pairs_loaded++;

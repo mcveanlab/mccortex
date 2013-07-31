@@ -4,8 +4,12 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "graph_info.h"
 #include "binary_format.h"
+#include "supernode.h"
+
+// DEV: add option to dump csv of supernode covg before cleaning
 
 // clean cortex binaries
 static const char usage[] =
@@ -20,6 +24,28 @@ static const char usage[] =
 "    --supernodes    Remove low coverage supernode\n"
 "                    (requires -g <G> or --threshold <T>)\n"
 "  With no options only supernode cleaning is done\n";
+
+static void printsupernodes(hkey_t node, dBGraph *db_graph, uint64_t *visited)
+{
+  uint32_t kmer_size = db_graph->kmer_size;
+  if(!bitset_has(visited, node))
+  {
+    bitset_set(visited, node);
+    char bkmer[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(db_node_bkmer(db_graph, node), kmer_size, bkmer);
+    printf("%s\n", bkmer);
+
+    Supernode snode;
+    supernode_load(node, db_graph, &snode);
+    char bkmer1[MAX_KMER_SIZE+1], bkmer2[MAX_KMER_SIZE+1];
+    ConstBinaryKmerPtr bkmerptr1 = db_node_bkmer(db_graph, snode.start_node);
+    ConstBinaryKmerPtr bkmerptr2 = db_node_bkmer(db_graph, snode.end_node);
+    binary_kmer_to_str(bkmerptr1, kmer_size, bkmer1);
+    binary_kmer_to_str(bkmerptr2, kmer_size, bkmer2);
+    printf("%s:%i -> %s:%i\n", bkmer1, snode.start_orient,
+                               bkmer2, snode.end_orient);
+  }
+}
 
 int ctx_clean(CmdArgs *args)
 {
@@ -119,7 +145,7 @@ int ctx_clean(CmdArgs *args)
        .remove_dups_se = false, .remove_dups_pe = false,
        .load_binaries = true,
        .must_exist_in_graph = false,
-       .empty_colours = true,
+       .empty_colours = false,
        .update_ginfo = true,
        .db_graph = &db_graph};
 
@@ -142,8 +168,10 @@ int ctx_clean(CmdArgs *args)
   }
 
   hash_table_print_stats(&db_graph.ht);
+  uint64_t *visited = malloc(round_bits_to_words64(db_graph.ht.capacity) * sizeof(uint64_t));
 
   // DEV: Clean
+  HASH_TRAVERSE(&db_graph.ht, printsupernodes, &db_graph, visited);
 
   FILE *fh = fopen(out_ctx_path, "w");
     if(fh == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
@@ -157,7 +185,7 @@ int ctx_clean(CmdArgs *args)
   dump_empty_binary(&db_graph, fh, num_of_cols);
 
   // load, clean and dump graph one colour at a time
-  prefs.must_exist_in_graph = 0;
+  prefs.must_exist_in_graph = true;
 
   output_colour = 0;
   for(i = 0; i < num_binaries; i++)

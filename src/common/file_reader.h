@@ -22,7 +22,7 @@ typedef struct
   unsigned long total_bases_read, total_bases_loaded;
   unsigned long *readlen_count_array;
   unsigned long readlen_count_array_size;
-  unsigned long kmers_loaded, unique_kmers;
+  unsigned long contigs_loaded, kmers_loaded, unique_kmers;
   // Used for binaries and colourlists
   unsigned long num_of_colours_loaded;
 } SeqLoadingStats;
@@ -48,7 +48,8 @@ typedef struct
   // loading binaries
   boolean load_binaries;
   boolean must_exist_in_graph;
-  // if empty_colours is true an error is thrown if a kmer is repeated
+  // if empty_colours is true an error is thrown a kmer from a binary is
+  // already in the graph
   boolean empty_colours;
 
   boolean update_ginfo;

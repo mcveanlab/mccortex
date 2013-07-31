@@ -4,40 +4,58 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
+#include "graph_info.h"
 #include "binary_format.h"
 #include "file_reader.h"
 #include "seq_reader.h"
 
 static const char usage[] =
-"usage: "CMD" build -k <kmer-size> -m <mem> [OPTIONS] <out.ctx>\n"
+"usage: "CMD" build [options] <out.ctx>\n"
 "  Build a cortex binary.  \n"
 "\n"
-"  Sequence options:\n"
-"    --quality_score_threshold <qual>\n"
-"      Filter for quality scores in the input file. [default: 0]\n"
-"    --fq_ascii <qual>\n"
-"      FASTQ ASCII offset. [default: 0 (auto-detected)]\n"
-"    --remove_pcr_duplicates\n"
-"      Removes PCR duplicate reads by ignoring read pairs if both reads start at\n"
-"      the same k-mer as a previous read\n"
-"    --cut_homopolymers <bases>\n"
-"      Breaks reads at homopolymers of length >= <bases>\n"
-"      (i.e. max homopolymer in filtered read == threshold-1) [default: off]\n"
+"  -m <mem>   Memory to use (e.g. 100G or 12M)\n"
+"  -k <kmer>  Kmer size\n"
 "\n"
-"    --nc  indicates a new colour is used\n"
+"  Sequence Options:\n"
+"  --fq_threshold <qual>  Filter quality scores [default: 0 (off)]\n"
+"  --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detected)]\n"
+"  --cut_hp <len>         Breaks reads at homopolymers >= <len> [default: off]\n"
+"  --remove_pcr           Remove (or keep) PCR duplicate reads [default: keep]\n"
+"  --keep_pcr\n"
+"\n"
+"  PCR duplicate removal works by ignoring read pairs (PE-only) if both reads\n"
+"  start at the same k-mer as any previous read.\n"
 "\n"
 "  Loading sequence:\n"
-"    --se_list <se.list>               Load a list of FASTA/Q/BAM\n"
-"    --pe_list <pe.list1> <pe.list2>   Load paired-end data\n"
-"    --seq <in.fa|fq|sam>              Load sequence data\n"
-"    --seq2 <in1> <in2>                Load paired end sequence data\n"
-"      Consecutive sequence options are loaded into the same colour\n"
+"  --sample <name>                   Sample name (required before any seq args)\n"
+"  --seq <in.fa|fq|sam>              Load sequence data\n"
+"  --seq2 <in1> <in2>                Load paired end sequence data\n"
+"\n"
+"  --sample <name> is required before sequence can be loaded.\n"
+"  Consecutive sequence options are loaded into the same colour.\n"
 "\n"
 "  Loading binaries\n"
-"    --load_binary <data.colours>      Load a binary into new colour(s)\n"
+"  --load_binary <in.ctx>[:cols]     Load samples from a binary\n"
 "\n"
-"  Loading multiple colours\n"
-"    --colour_list <data.colours>      Load a colour list into new colour(s)\n";
+"  Colour can be specifed after binary path, e.g. in.ctx:0,6-8 will load\n"
+"  samples 0,6,7,8\n"
+"\n"
+" Example - build a two sample graph with k=31 using 60G RAM:\n"
+"   "CMD" build -k 31 -m 60G --fq_threshold 5 --cut_hp 8 \\\n"
+"               --sample bob --seq bob.bam \\\n"
+"               --sample dylan --remove_pcr --seq dylan.sam \\\n"
+"                              --keep_pcr --fq_offset 33 \\\n"
+"                              --seq2 dylan.1.fq.gz dylan.2.fq.gz\n";
+
+static void update_ginfo(GraphInfo *ginfo, SeqLoadingStats *stats,
+                         uint64_t *bases_loaded, uint64_t *contigs_loaded)
+{
+  uint64_t bases = stats->total_bases_loaded - *bases_loaded;
+  uint64_t contigs = stats->contigs_loaded - *contigs_loaded;
+  graph_info_update_contigs(ginfo, bases, contigs);
+  *bases_loaded = stats->total_bases_loaded;
+  *contigs_loaded = stats->contigs_loaded;
+}
 
 int ctx_build(CmdArgs *args)
 {
@@ -51,81 +69,61 @@ int ctx_build(CmdArgs *args)
 
   const char *out_path = argv[argc-1];
   uint32_t colours_used = 0;
-  boolean current_colour_used = false;
+  boolean sample_named = false, sample_used = false;
 
   // Validate arguments
   int argi, argend = argc-1;
   uint32_t tmp;
   for(argi = 0; argi < argend; argi++)
   {
-    if(strcmp(argv[argi],"--quality_score_threshold") == 0) {
+    if(strcmp(argv[argi],"--fq_threshold") == 0) {
       if(argi + 1 >= argend)
-        print_usage("--quality_score_threshold requires an arg", NULL);
+        print_usage(usage, "--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &tmp) || tmp > 128)
-        die("Invalid --quality_score_threshold argument: %s", argv[argi+1]);
+        die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--fq_ascii") == 0) {
+    else if(strcmp(argv[argi],"--fq_offset") == 0) {
       if(argi + 1 >= argend)
-        print_usage("--fq_ascii requires an arg", NULL);
+        print_usage(usage, "--fq_offset <offset> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &tmp) || tmp > 128)
-        die("Invalid --fq_ascii argument: %s", argv[argi+1]);
+        die("Invalid --fq_offset argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--remove_pcr_duplicates") == 0) {
-    }
-    else if(strcmp(argv[argi],"--cut_homopolymers") == 0) {
+    else if(strcmp(argv[argi],"--cut_hp") == 0) {
       if(argi + 1 >= argend)
-        print_usage("--cut_homopolymers requires an arg", NULL);
+        print_usage(usage, "--cut_hp <len> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &tmp))
-        die("Invalid --cut_homopolymers argument: %s", argv[argi+1]);
+        die("Invalid --cut_hp argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--se_list") == 0) {
-      if(argi + 1 >= argend)
-        print_usage("--se_list requires an arg", NULL);
-      if(!test_file_readable(argv[argi+1]))
-        die("Cannot read --se_list file: %s", argv[argi+1]);
-      check_colour_or_ctx_list(argv[argi+1], false, true, true, kmer_size, NULL);
-      argi += 1;
-      current_colour_used = true;
-    }
-    else if(strcmp(argv[argi],"--pe_list") == 0) {
-      if(argi + 2 >= argend)
-        print_usage("--pe_list requires two args", NULL);
-      if(!test_file_readable(argv[argi+1]))
-        die("Cannot read --pe_list file: %s", argv[argi+1]);
-      if(!test_file_readable(argv[argi+2]))
-        die("Cannot read --pe_list file: %s", argv[argi+2]);
-      uint32_t num1, num2;
-      num1 = check_colour_or_ctx_list(argv[argi+1], false, false, true, kmer_size, NULL);
-      num2 = check_colour_or_ctx_list(argv[argi+2], false, false, true, kmer_size, NULL);
-      if(num1 != num2)
-        die("--pe_list files diff lengths: %s; %s", argv[argi+1], argv[argi+2]);
-      argi += 2;
-      current_colour_used = true;
-    }
+    else if(!strcmp(argv[argi],"--remove_pcr") || !strcmp(argv[argi],"--keep_pcr"))
+    {}
     else if(strcmp(argv[argi],"--seq") == 0) {
+      if(!sample_named)
+        print_usage(usage, "Please use --sample <name> before giving sequence");
       if(argi + 1 >= argend)
-        print_usage("--seq requires an arg", NULL);
+        print_usage(usage, "--seq <file> requires an argument");
       if(!test_file_readable(argv[argi+1]))
         die("Cannot read --seq file: %s", argv[argi+1]);
       argi += 1;
-      current_colour_used = true;
+      sample_used = true;
     }
     else if(strcmp(argv[argi],"--seq2") == 0) {
+      if(!sample_named)
+        print_usage(usage, "Please use --sample <name> before giving sequence");
       if(argi + 2 >= argend)
-        print_usage("--seq2 requires two args", NULL);
+        print_usage(usage, "--seq2 <file1> <file2> requires two arguments");
       if(!test_file_readable(argv[argi+1]))
         die("Cannot read first --seq2 file: %s", argv[argi+1]);
       if(!test_file_readable(argv[argi+2]))
         die("Cannot read second --seq2 file: %s", argv[argi+2]);
       argi += 2;
-      current_colour_used = true;
+      sample_used = true;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
       if(argi + 1 >= argend)
-        print_usage("--load_binary requires an arg", NULL);
+        print_usage(usage, "--load_binary requires an arg");
       // probe binary to get number of colours
       boolean is_binary = false;
       uint32_t bin_kmer_size, bin_num_of_cols, max_col;
@@ -139,32 +137,23 @@ int ctx_build(CmdArgs *args)
         print_usage(usage, "Input binary kmer_size doesn't match [%u vs %u]",
                     bin_kmer_size, kmer_size);
       }
-      argi += 1;
+      argi++;
       colours_used += bin_num_of_cols;
-      current_colour_used = false;
+      sample_named = false;
     }
-    else if(strcmp(argv[argi],"--colour_list") == 0) {
+    else if(strcmp(argv[argi],"--sample") == 0) {
       if(argi + 1 >= argend)
-        print_usage("--colour_list requires an arg", NULL);
-      if(!test_file_readable(argv[argi+1]))
-        die("Cannot read --colour_list file: %s", argv[argi+1]);
-      uint32_t cols_in_list;
-      check_colour_or_ctx_list(argv[argi+1], true, true, true, kmer_size, &cols_in_list);
-      argi += 1;
-      colours_used += cols_in_list;
-      current_colour_used = false;
-    }
-    else if(strcmp(argv[argi],"--nc") == 0) {
-      if(!colours_used) print_usage(usage, "--nc not needed, colour is fresh");
+        print_usage("--sample <name> requires an argument", NULL);
+      if(!sample_used) warn("Empty colour (maybe you intended this)");
+      argi++;
       colours_used++;
-      current_colour_used = false;
+      sample_named = true;
+      sample_used = false;
     }
     else {
       print_usage(usage, "Unknown command: %s", argv[argi]);
     }
   }
-
-  if(current_colour_used) colours_used++;
 
   if(!test_file_writable(out_path))
     die("Cannot write to file: %s", out_path);
@@ -172,6 +161,8 @@ int ctx_build(CmdArgs *args)
   // Pick hash table size
   size_t mem_per_kmer = sizeof(BinaryKmer) + sizeof(Covg) + sizeof(Edges);
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
+
+  message("Writing %u colour binary to %s\n", colours_used, out_path);
 
   // Create db_graph
   dBGraph db_graph;
@@ -183,7 +174,7 @@ int ctx_build(CmdArgs *args)
 
   // Parse arguments, load
   SeqLoadingStats *stats = seq_loading_stats_create(1000);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = false,
+  SeqLoadingPrefs prefs = {.into_colour = -1, .merge_colours = false,
                            .boolean_covgs = false,
                            .load_seq = true,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
@@ -197,57 +188,53 @@ int ctx_build(CmdArgs *args)
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
 
+  uint64_t bases_loaded = 0, contigs_loaded = 0;
+
   for(argi = 0; argi < argend; argi++)
   {
-    if(strcmp(argv[argi],"--quality_score_threshold") == 0) {
+    if(strcmp(argv[argi],"--fq_threshold") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.quality_cutoff = tmp;
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--fq_ascii") == 0) {
+    else if(strcmp(argv[argi],"--fq_offset") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.ascii_fq_offset = tmp;
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--remove_pcr_duplicates") == 0) {
+    else if(strcmp(argv[argi],"--remove_pcr") == 0) {
       prefs.remove_dups_pe = true;
     }
-    else if(strcmp(argv[argi],"--cut_homopolymers") == 0) {
+    else if(strcmp(argv[argi],"--keep_pcr") == 0) {
+      prefs.remove_dups_pe = false;
+    }
+    else if(strcmp(argv[argi],"--cut_hp") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.homopolymer_cutoff = tmp;
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--se_list") == 0) {
-      parse_filelists(argv[argi+1], NULL, READ_FALIST, &prefs, stats,
-                      seq_load_into_db_graph, NULL);
-      argi += 1;
-    }
-    else if(strcmp(argv[argi],"--pe_list") == 0) {
-      parse_filelists(argv[argi+1], argv[argi+2], READ_FALIST, &prefs, stats,
-                      seq_load_into_db_graph, NULL);
-      argi += 2;
-    }
     else if(strcmp(argv[argi],"--seq") == 0) {
       seq_parse_se(argv[argi+1], &r1, &r2, &prefs, stats,
                    seq_load_into_db_graph, NULL);
+      update_ginfo(&db_graph.ginfo[prefs.into_colour],
+                   stats, &bases_loaded, &contigs_loaded);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--seq2") == 0) {
       seq_parse_pe(argv[argi+1], argv[argi+2], &r1, &r2, &prefs, stats,
                    seq_load_into_db_graph, NULL);
+      update_ginfo(&db_graph.ginfo[prefs.into_colour],
+                   stats, &bases_loaded, &contigs_loaded);
       argi += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
       binary_load(argv[argi+1], &db_graph, &prefs, stats, NULL);
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--colour_list") == 0) {
-      parse_filelists(argv[argi+1], NULL, READ_COLOURLIST, &prefs, stats,
-                      seq_load_into_db_graph, NULL);
-      argi += 1;
-    }
-    else if(strcmp(argv[argi],"--nc") == 0) {
+    else if(strcmp(argv[argi],"--sample") == 0) {
       prefs.into_colour++;
+      strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
+      argi += 1;
     }
     else {
       die("Unknown command: %s", argv[argi]);

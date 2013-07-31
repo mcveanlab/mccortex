@@ -7,7 +7,7 @@ static const char usage[] =
 "version: "CTXVERSIONSTR"\n"
 "\n"
 "Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
-"          view        view a cortex binary file\n"
+"          view        view and check a cortex graph file (.ctx)\n"
 "          clean       clean population / sample against merged  (unfinished)\n" // 4
 "          join        combine graphs, filter graph intersections\n"
 "          subgraph    filter a subgraph\n"

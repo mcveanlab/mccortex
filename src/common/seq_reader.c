@@ -4,6 +4,7 @@
 #include "util.h"
 #include "binary_kmer.h"
 #include "db_graph.h"
+#include "graph_info.h"
 #include "db_node.h"
 #include "file_reader.h"
 #include "seq_reader.h"
@@ -575,6 +576,7 @@ void load_read(const read_t *r, dBGraph *db_graph,
     }
     stats->total_bases_loaded += contig_len;
     stats->kmers_loaded += contig_len + 1 - kmer_size;
+    stats->contigs_loaded++;
   }
 
   // contig_end == 0 if no contigs from this read
