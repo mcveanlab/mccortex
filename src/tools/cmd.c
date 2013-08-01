@@ -185,14 +185,16 @@ int cmd_run(int argc, char **argv)
 }
 
 // If your command accepts -h <kmers> and -m <mem> this may be useful
+// mem_per_kmer is additional memory per node, above hash table for BinaryKmers
 size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t mem_per_kmer)
 {
-  size_t req_kmers = args->num_kmers_set ? args->num_kmers
-                                         : args->mem_to_use / mem_per_kmer;
+  size_t req_kmers
+    = args->num_kmers_set ? args->num_kmers
+                          : args->mem_to_use / (sizeof(BinaryKmer) + mem_per_kmer);
 
   size_t kmers_in_hash, hash_mem, graph_mem;
   hash_mem = hash_table_mem2(req_kmers, &kmers_in_hash);
-  graph_mem = kmers_in_hash * mem_per_kmer;
+  graph_mem = hash_mem + kmers_in_hash * mem_per_kmer;
 
   char graph_mem_str[100], mem_to_use_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);

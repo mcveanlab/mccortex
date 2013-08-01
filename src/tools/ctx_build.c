@@ -45,7 +45,7 @@ static const char usage[] =
 "               --sample bob --seq bob.bam \\\n"
 "               --sample dylan --remove_pcr --seq dylan.sam \\\n"
 "                              --keep_pcr --fq_offset 33 \\\n"
-"                              --seq2 dylan.1.fq.gz dylan.2.fq.gz\n";
+"                              --seq2 dylan.1.fq.gz dylan.2.fq.gz bob.dylan.k31.ctx\n";
 
 static void update_ginfo(GraphInfo *ginfo, SeqLoadingStats *stats,
                          uint64_t *bases_loaded, uint64_t *contigs_loaded)
@@ -159,7 +159,7 @@ int ctx_build(CmdArgs *args)
     die("Cannot write to file: %s", out_path);
 
   // Pick hash table size
-  size_t mem_per_kmer = sizeof(BinaryKmer) + sizeof(Covg) + sizeof(Edges);
+  size_t mem_per_kmer = sizeof(Covg) + sizeof(Edges);
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
 
   message("Writing %u colour binary to %s\n", colours_used, out_path);
@@ -228,7 +228,7 @@ int ctx_build(CmdArgs *args)
       argi += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
-      binary_load(argv[argi+1], &db_graph, &prefs, stats, NULL);
+      binary_load(argv[argi+1], &prefs, stats, NULL);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {

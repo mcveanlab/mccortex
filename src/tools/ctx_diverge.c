@@ -298,7 +298,7 @@ int ctx_diverge(CmdArgs *args)
                            .update_ginfo = true,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &db_graph, &prefs, stats, NULL);
+  binary_load(input_ctx_path, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   read_t r1;

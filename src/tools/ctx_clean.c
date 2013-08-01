@@ -121,7 +121,7 @@ int ctx_clean(CmdArgs *args)
     binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_col);
 
   // Pick hash table size
-  size_t mem_per_kmer = sizeof(BinaryKmer) + sizeof(Covg) + sizeof(Edges);
+  size_t mem_per_kmer = sizeof(Covg) + sizeof(Edges);
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
 
   // Check out_ctx_path is writable
@@ -162,7 +162,7 @@ int ctx_clean(CmdArgs *args)
 
   uint32_t output_colour = 0;
   for(i = 0; i < num_binaries; i++) {
-    binary_load(binary_paths[i], &db_graph, &prefs, stats, &tmpheader);
+    binary_load(binary_paths[i], &prefs, stats, &tmpheader);
     for(j = 0; j < ctx_num_cols[i]; j++, output_colour++)
       graph_info_merge(output_header.ginfo + output_colour, tmpheader.ginfo + j);
   }
@@ -194,8 +194,7 @@ int ctx_clean(CmdArgs *args)
     {
       memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
       memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
-      binary_load_colour(binary_paths[i], &db_graph, &prefs, stats,
-                         load_colours[i][j]);
+      binary_load_colour(binary_paths[i], &prefs, stats, load_colours[i][j]);
       fseek(fh, header_size, SEEK_SET);
       binary_dump_colour(&db_graph, 0, output_colour, num_of_cols, fh);
       output_colour++;

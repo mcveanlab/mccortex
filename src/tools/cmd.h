@@ -54,6 +54,7 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
 int cmd_run(int argc, char **argv);
 
 // If your command accepts -h <kmers> and -m <mem> this may be useful
+// mem_per_kmer is additional memory per node, above hash table for BinaryKmers
 size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t mem_per_kmer);
 
 #endif

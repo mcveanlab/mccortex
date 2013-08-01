@@ -152,7 +152,7 @@ static void filter_subgraph(const char *input_ctx_path,
                            .db_graph = &db_graph};
 
   // Load binary
-  binary_load(input_ctx_path, &db_graph, &prefs, stats, NULL);
+  binary_load(input_ctx_path, &prefs, stats, NULL);
 
   size_t num_of_binary_kmers = stats->kmers_loaded;
 

@@ -20,7 +20,7 @@ void binary_parse_colour_array(const char *path, uint32_t *arr, uint32_t max_col
   range_parse_array(ptr == NULL ? "" : ptr+1, arr, max_col);
 }
 
-uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
+uint32_t binary_load_colour(const char *path,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                             uint32_t colour)
 {
@@ -32,7 +32,7 @@ uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
   if(end == NULL) end = new_path+len;
   sprintf(end, ":%u", colour);
 
-  return binary_load(new_path, db_graph, prefs, stats, NULL);
+  return binary_load(new_path, prefs, stats, NULL);
 }
 
 static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
@@ -191,8 +191,8 @@ char binary_probe(const char *ctx_path, boolean *valid_ctx,
 
     if(bytes_remaining % bytes_per_kmer != 0) {
       warn("Truncated ctx binary: %s "
-           "[bytes per kmer: %zu remaining: %zu; fsize: %lli; header: %zu]",
-           path, bytes_per_kmer, bytes_remaining, fsize, bytes_read);
+           "[bytes per kmer: %zu remaining: %zu; fsize: %zu; header: %zu]",
+           path, bytes_per_kmer, bytes_remaining, (size_t)fsize, bytes_read);
       *valid_ctx = 0;
     }
   }
@@ -499,10 +499,12 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 //   stats->kmers_loaded
 //   stats->total_bases_read
 //   stats->binaries_loaded
-uint32_t binary_load(const char *ctx_path, dBGraph *graph,
+uint32_t binary_load(const char *ctx_path,
                      const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                      BinaryFileHeader *header_ptr)
 {
+  dBGraph *graph = prefs->db_graph;
+
   size_t len = strlen(ctx_path);
   char path[len+61];
   memcpy(path, ctx_path, (len+1) * sizeof(char));
@@ -745,7 +747,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
     // e.g. flatten
 
     for(i = 0; i < num_binaries; i++)
-      binary_load(binary_paths[i], db_graph, &prefs, stats, NULL);
+      binary_load(binary_paths[i], &prefs, stats, NULL);
 
     hash_table_print_stats(&db_graph->ht);    
     binary_dump_graph(out_ctx_path, db_graph, CURR_CTX_VERSION, NULL, 0, 1);
@@ -770,7 +772,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
     Colour j, output_colour = 0;
     for(i = 0; i < num_binaries; i++)
     {
-      binary_load(binary_paths[i], db_graph, &prefs, stats, &tmpheader);
+      binary_load(binary_paths[i], &prefs, stats, &tmpheader);
       if(merge) output_colour = 0;
       for(j = 0; j < ctx_num_cols[i]; j++, output_colour++)
       {
@@ -807,7 +809,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
              output_colour < offsets[i] + ctx_num_cols[i])
           {
             uint32_t ctx_col = output_colour - offsets[i];
-            binary_load_colour(binary_paths[i], db_graph, &prefs, stats,
+            binary_load_colour(binary_paths[i], &prefs, stats,
                                load_colours[i][ctx_col]);
             data_loaded_in_col = true;
           }
@@ -830,7 +832,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
           memset(db_graph->col_edges, 0, db_graph->ht.capacity * sizeof(Edges));
           memset(db_graph->col_covgs, 0, db_graph->ht.capacity * sizeof(Covg));
 
-          binary_load_colour(binary_paths[i], db_graph, &prefs, stats,
+          binary_load_colour(binary_paths[i], &prefs, stats,
                              load_colours[i][j]);
 
           message("Dumping into colour %u...\n\n", output_colour);

@@ -111,7 +111,7 @@ int main(int argc, char **argv)
                            .update_ginfo = true,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &db_graph, &prefs, stats, NULL);
+  binary_load(input_ctx_path, &prefs, stats, NULL);
   seq_loading_stats_free(stats);
 
   hash_table_print_stats(&db_graph.ht);

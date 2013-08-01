@@ -40,11 +40,11 @@ char binary_probe(const char* path, boolean *is_ctx,
 //   stats->total_bases_read
 //   stats->binaries_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.
-uint32_t binary_load(const char *path, dBGraph *graph,
+uint32_t binary_load(const char *path,
                      const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                      BinaryFileHeader *header);
 
-uint32_t binary_load_colour(const char *path, dBGraph *db_graph,
+uint32_t binary_load_colour(const char *path,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                             uint32_t colour);
 

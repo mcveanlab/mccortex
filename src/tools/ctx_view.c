@@ -175,8 +175,9 @@ int ctx_view(CmdArgs *args)
     outheader.num_of_kmers = (bytes_remaining / bytes_per_kmer);
     if(bytes_remaining % bytes_per_kmer != 0) {
       loading_warning("Truncated ctx binary: %s [bytes per kmer: %zu "
-                      "remaining: %zu; fsize: %lli; header: %zu]",
-                      in_ctx_path, bytes_per_kmer, bytes_remaining, fsize, hsize);
+                      "remaining: %zu; fsize: %zu; header: %zu]",
+                      in_ctx_path, bytes_per_kmer, bytes_remaining,
+                      (size_t)fsize, hsize);
     }
   }
 
