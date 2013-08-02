@@ -53,13 +53,14 @@ static void print_header(BinaryFileHeader *h)
   char num_kmers_str[50];
   ulong_to_str(h->num_of_kmers, num_kmers_str);
   message("number of kmers: %s\n", num_kmers_str);
+  message("----\n");
 
   uint32_t i;
   for(i = 0; i < h->num_of_cols; i++)
   {
     GraphInfo *ginfo = h->ginfo + i;
 
-    message("-- Colour %i --\n", i);
+    message("Colour %i:\n", i);
 
     if(h->version >= 6)
     {
@@ -326,6 +327,35 @@ int ctx_view(CmdArgs *args)
     message("kmers read: %s\n", ulong_to_str(num_of_kmers_read, num_str));
     message("covgs read: %s\n", ulong_to_str(sum_of_covgs_read, num_str));
     message("seq loaded: %s\n", ulong_to_str(sum_of_seq_loaded, num_str));
+  }
+
+  if(print_info)
+  {
+    // Print memory stats
+    uint64_t mem, capacity, num_buckets;
+    uint8_t bucket_size;
+
+    mem = hash_table_cap(outheader.num_of_kmers / 0.8,
+                         &num_buckets, &bucket_size);
+
+    capacity = num_buckets * bucket_size;
+    mem = capacity * (sizeof(BinaryKmer) +
+                      outheader.num_of_cols * (sizeof(Covg) + sizeof(Edges)));
+
+    char memstr[100], capacitystr[100], bucket_size_str[100], num_buckets_str[100];
+    bytes_to_str(mem, 1, memstr);
+    ulong_to_str(capacity, capacitystr);
+    ulong_to_str(bucket_size, bucket_size_str);
+    ulong_to_str(num_buckets, num_buckets_str);
+
+    int mem_height = __builtin_ctzl((long)num_buckets);
+
+    message("----\n");
+    message("memory required: %s [capacity: %s]\n", memstr, capacitystr);
+    message("  bucket size: %s; number of buckets: %s\n",
+            bucket_size_str, num_buckets_str);
+    message("  --kmer_size %u --mem_height %i --mem_width %i\n",
+            kmer_size, mem_height, bucket_size);
   }
 
   if((print_kmers || parse_kmers) && print_info)

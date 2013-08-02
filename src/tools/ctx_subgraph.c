@@ -33,8 +33,6 @@ typedef struct
 
 
 dBGraph db_graph;
-size_t num_kmers_read = 0;
-
 uint64_t *kmer_mask;
 
 static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
