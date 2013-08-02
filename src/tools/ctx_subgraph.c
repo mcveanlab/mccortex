@@ -208,7 +208,6 @@ int ctx_subgraph(CmdArgs *args)
   bytes_to_str(search_mem, 1, search_mem_str);
 
   message("[memory]  graph: %s; search: %s\n", kmers_in_hash_str, search_mem_str);
-  message("Using kmer size: %u\n", kmer_size);
 
   if(hash_mem > args->mem_to_use) {
     print_usage(usage, "Requires higher memory (-m <mem>)");
@@ -272,16 +271,16 @@ int ctx_subgraph(CmdArgs *args)
     seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
-  // parse_filelists(input_filelist, NULL, READ_FALIST, &prefs, stats,
-  //                 mark_reads, NULL);
 
   size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
+
+  message("Read in %zu seed kmers\n", num_of_seed_kmers);
+
+  hash_table_print_stats(&db_graph.ht);
 
   if(dist > 0)
   {
     // Get edge nodes
-    // parse_filelists(input_filelist, NULL, READ_FALIST, &prefs, stats,
-    //                 store_nodes, &list0);
     for(i = 0; i < num_seed_files; i++)
       seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
 
@@ -300,23 +299,25 @@ int ctx_subgraph(CmdArgs *args)
   free(list0.nodes);
   free(list1.nodes);
 
+  message("Pruning untouched nodes...\n");
+
   // Remove nodes that were not flagged
   db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
+  hash_table_print_stats(&db_graph.ht);
 
   // Dump nodes that were flagged
-  if(num_binaries == 1 && ctx_num_cols[0] == 1) {
+  if(num_binaries == 1 && ctx_num_cols[0] == 1)
+  {
     // We have all the info to dump now
-    hash_table_print_stats(&db_graph.ht);
     binary_dump_graph(out_path, &db_graph, CURR_CTX_VERSION, NULL, 0, 1);
   }
-  else {
+  else
+  {
     binaries_merge(out_path, binary_paths, num_binaries,
                    ctx_num_cols, ctx_max_cols,
-                   false, true, true, &db_graph);
+                   false, false, true, &db_graph);
   }
 
-  message("Read in %zu seed kmers\n", num_of_seed_kmers);
-  message("Dumped %zu kmers\n", (size_t)db_graph.ht.unique_kmers);
   message("Done.\n");
 
   seq_loading_stats_free(stats);

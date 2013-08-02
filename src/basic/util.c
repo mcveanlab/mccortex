@@ -260,6 +260,17 @@ char* bytes_to_str(unsigned long num, int decimals, char* str)
   return str;
 }
 
+// Number to string using G to mean 10^9, M to mean 10^6 etc
+char* num_to_str(unsigned long num, int decimals, char* str)
+{
+  bytes_to_str(num, decimals, str);
+  // Trim 'B' From the end
+  size_t len = strlen(str);
+  str[len-1] = '\0';
+
+  return str;
+}
+
 /*
 // This is needed if POSIX string functions not available
 char* strdup(const char *str)

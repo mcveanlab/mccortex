@@ -7,6 +7,17 @@
 #include "graph_info.h"
 #include "range.h"
 
+
+// offset for loading a binary
+// e.g. 2:in.ctx means load in.ctx into colours 2..
+boolean binary_get_offset(char *path, char ** ptr)
+{
+  char *str = path;
+  for(str = path; *str >= '0' && *str <= '9'; str++);
+  if(str > path && *str == ':') { *ptr = str; return true; }
+  else return false;
+}
+
 uint32_t binary_get_num_colours(const char *path, uint32_t max_col)
 {
   const char *ptr = strchr(path, ':');
@@ -484,7 +495,7 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
   // Check covg is not 0 for all colours
   for(i = 0; i < h->num_of_cols && covgs[i] == 0; i++) {}
   if(i == h->num_of_cols)
-    die("Kmer has zero covg in all colours in binary: %s", path);
+    warn("Kmer has zero covg in all colours in binary: %s", path);
 
   return num_bytes_read;
 }
@@ -539,7 +550,7 @@ uint32_t binary_load(const char *ctx_path,
   if(prefs->merge_colours) message(" into colour %u\n", prefs->into_colour);
   else {
     message(" into colours %u-%u\n", prefs->into_colour,
-            prefs->into_colour + num_cols_loaded);
+            prefs->into_colour+num_cols_loaded-1);
   }
 
   GraphInfo *ginfo = graph->ginfo;
@@ -689,29 +700,150 @@ uint32_t binary_load(const char *ctx_path,
   return num_cols_loaded;
 }
 
+//
+// Merging, filtering, combining binary graph files
+//
+
+// Filter a binary against the graph
+// (only keep nodes and edges that are in the graph)
+// Same functionality as binaries_merge, but faster if dealing with only one
+// input file
+size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
+                           boolean flatten, const dBGraph *db_graph)
+{
+  assert(db_graph->edges != NULL || db_graph->col_edges != NULL);
+
+  size_t i, nodes_dumped = 0;
+  FILE *in, *out;
+  char *tmp_path, *endptr;
+  uint32_t offset = 0;
+
+  if(binary_get_offset(in_ctx_path, &tmp_path))
+  {
+    offset = strtoul(in_ctx_path, &endptr, 10);
+    in_ctx_path = tmp_path+1;
+  }
+
+  char *split = strchr(in_ctx_path, ':');
+  if(split != NULL) *split = '\0';
+
+  if((in = fopen(in_ctx_path, "r")) == NULL)
+    die("Cannot open input path: %s", in_ctx_path);
+  if((out = fopen(out_ctx_path, "w")) == NULL)
+    die("Cannot open output path: %s", out_ctx_path);
+
+  BinaryFileHeader inheader = {.capacity = 0};
+  binary_read_header(in, &inheader, in_ctx_path);
+
+  if(split != NULL) *split = ':';
+  uint32_t num_of_cols = binary_get_num_colours(in_ctx_path, inheader.num_of_cols-1);
+  uint32_t load_colours[num_of_cols];
+  binary_parse_colour_array(in_ctx_path, load_colours, inheader.num_of_cols-1);
+
+  message("Loading binary %s", in_ctx_path);
+  if(split != NULL) {
+    message(" with colour filter: %u", load_colours[0]);
+    for(i = 1; i < num_of_cols; i++) message(",%u", load_colours[i]);
+  }
+  if(flatten || num_of_cols == 1) message(" into colour %u\n", offset);
+  else message(" into colours %u-%u\n", offset, offset+num_of_cols-1);
+
+  BinaryFileHeader outheader = {.capacity = 0};
+  binary_read_cpy_basic(&outheader, &inheader);
+  outheader.num_of_cols = offset+num_of_cols;
+  binary_header_alloc(&outheader, outheader.num_of_cols);
+
+  for(i = 0; i < num_of_cols; i++)
+    graph_info_merge(outheader.ginfo+offset+i, inheader.ginfo + load_colours[i]);
+
+  binary_write_header(out, &outheader);
+
+  BinaryKmer bkmer;
+  Covg kmercovgs[inheader.num_of_cols], covgs[offset+num_of_cols];
+  Edges kmeredges[inheader.num_of_cols], edges[offset+num_of_cols];
+  memset(covgs, 0, (offset+num_of_cols)*sizeof(Covg));
+  memset(edges, 0, (offset+num_of_cols)*sizeof(Edges));
+
+  while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
+  {
+    // Collapse down colours
+    Covg keep_kmer = 0;
+    if(flatten) {
+      covgs[0] = 0;
+      edges[0] = 0;
+      for(i = 0; i < num_of_cols; i++) {
+        covgs[offset] += kmercovgs[load_colours[i]];
+        edges[offset] |= kmeredges[load_colours[i]];
+        keep_kmer |= covgs[offset] | edges[offset];
+      }
+    }
+    else {
+      for(i = 0; i < num_of_cols; i++) {
+        covgs[offset+i] = kmercovgs[load_colours[i]];
+        edges[offset+i] = kmeredges[load_colours[i]];
+        keep_kmer |= covgs[offset+i] | edges[offset+i];
+      }
+    }
+    // If kmer has no covg or edges -> don't load
+    if(keep_kmer == 0) continue;
+
+    hkey_t node = hash_table_find(&db_graph->ht, bkmer);
+    Edges union_edges;
+
+    if(node != HASH_NOT_FOUND)
+    {
+      union_edges = (db_graph->edges != NULL) ? db_node_edges(db_graph, node)
+                                              : db_node_col_edges_union(db_graph,
+                                                                        node);
+
+      for(i = 0; i < num_of_cols; i++) edges[offset+i] &= union_edges;
+      binary_write_kmer(out, &outheader, bkmer, covgs, edges);
+      nodes_dumped++;
+    }
+  }
+
+  fclose(in);
+  fclose(out);
+
+  message("Dumped %zu kmers in %u colour%s into: %s\n",
+          nodes_dumped, outheader.num_of_cols,
+          outheader.num_of_cols != 1 ? "s" : "", out_ctx_path);
+
+  binary_header_dealloc(&inheader);
+  binary_header_dealloc(&outheader);
+
+  return nodes_dumped;
+}
+
+
+
 // ctx_num_cols and ctx_max_cols are the numbers returned from binary_probe
 // if merge pool colour 0 from each binary into colour 0, 1 -> 1 etc.
 // if flatten, pool all colours into colour 0
 // if intersect only load kmers that are already in the hash table
-void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries,
-                    uint32_t ctx_num_cols[num_binaries],
-                    uint32_t ctx_max_cols[num_binaries],
-                    boolean merge, boolean flatten, boolean intersect,
-                    dBGraph *db_graph)
+size_t binaries_merge(char *out_ctx_path, char **binary_paths,
+                      size_t num_binaries,
+                      uint32_t ctx_num_cols[num_binaries],
+                      uint32_t ctx_max_cols[num_binaries],
+                      boolean merge, boolean flatten, boolean intersect,
+                      dBGraph *db_graph)
 {
   assert(!merge || !flatten);
+  assert(intersect || db_graph->ht.unique_kmers == 0);
+
+  if(num_binaries == 1 && intersect)
+    return binary_filter_graph(out_ctx_path, binary_paths[0], flatten, db_graph);
 
   uint32_t i, offsets[num_binaries];
   uint32_t max_cols = 0, sum_cols = 0;
 
   // Check all binaries are valid binaries with matching kmer size
-  char *ptr, *endptr;
+  char *ptr;
+  char *endptr;
 
   for(i = 0; i < num_binaries; i++)
   {
-    for(ptr = binary_paths[i]; *ptr >= '0' && *ptr <= '9'; ptr++) {}
-
-    if(ptr > binary_paths[i] && *ptr == ':') {
+    if(binary_get_offset(binary_paths[i], &ptr)) {
       offsets[i] = strtoul(binary_paths[i], &endptr, 10);
       binary_paths[i] = ptr+1;
     } else {
@@ -745,7 +877,6 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
   if(output_colours == 1)
   {
     // e.g. flatten
-
     for(i = 0; i < num_binaries; i++)
       binary_load(binary_paths[i], &prefs, stats, NULL);
 
@@ -774,6 +905,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
     {
       binary_load(binary_paths[i], &prefs, stats, &tmpheader);
       if(merge) output_colour = 0;
+      output_colour += offsets[i];
       for(j = 0; j < ctx_num_cols[i]; j++, output_colour++)
       {
         graph_info_merge(output_header.ginfo + output_colour,
@@ -850,4 +982,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
   message("Dumped %zu kmers in %u colour%s into: %s\n",
           (size_t)db_graph->ht.unique_kmers, output_colours,
           output_colours != 1 ? "s" : "", out_ctx_path);
+
+  return db_graph->ht.unique_kmers;
 }
+

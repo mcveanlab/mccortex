@@ -52,11 +52,13 @@ uint32_t binary_load_colour(const char *path,
 // if merge pool colour 0 from each binary into colour 0, 1 -> 1 etc.
 // if flatten, pool all colours into colour 0
 // if intersect only load kmers that are already in the hash table
-void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries,
-                    uint32_t ctx_num_cols[num_binaries],
-                    uint32_t ctx_max_cols[num_binaries],
-                    boolean merge, boolean flatten, boolean intersect,
-                    dBGraph *db_graph);
+// returns number of 
+size_t binaries_merge(char *out_ctx_path, char **binary_paths,
+                      size_t num_binaries,
+                      uint32_t ctx_num_cols[num_binaries],
+                      uint32_t ctx_max_cols[num_binaries],
+                      boolean merge, boolean flatten, boolean intersect,
+                      dBGraph *db_graph);
 
 size_t binary_read_header(FILE *fh, BinaryFileHeader *header, const char *path);
 

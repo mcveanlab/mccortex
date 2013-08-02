@@ -258,5 +258,9 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
 
   fclose(fout);
 
+  message("Dumped %zu kmers in %u colour%s into: %s\n",
+          (size_t)num_of_nodes_dumped, num_of_cols,
+          num_of_cols != 1 ? "s" : "", path);
+
   return num_of_nodes_dumped;
 }

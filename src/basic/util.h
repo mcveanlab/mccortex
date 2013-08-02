@@ -64,6 +64,9 @@ char* double_to_str(double num, int decimals, char* str);
 // +1 for '\0'
 char* bytes_to_str(unsigned long num, int decimals, char* str);
 
+// Number to string using G to mean 10^9, M to mean 10^6 etc
+char* num_to_str(unsigned long num, int decimals, char* str);
+
 //
 // Maths
 //

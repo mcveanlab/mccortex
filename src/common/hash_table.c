@@ -210,13 +210,13 @@ void hash_table_print_stats(const HashTable *const htable)
   char mem_str[50], num_buckets_str[100], num_entries_str[100], capacity_str[100];
   ulong_to_str(htable->num_of_buckets, num_buckets_str);
   bytes_to_str(bytes, 1, mem_str);
-  bytes_to_str(htable->capacity, 1, capacity_str);
+  ulong_to_str(htable->capacity, capacity_str);
   ulong_to_str(htable->unique_kmers, num_entries_str);
 
   message("[hash table]  buckets: %s; bucket size: %zu; "
-          "memory: %s; entries: %s; occupancy: %s (%.2f%%)\n",
+          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
           num_buckets_str, (size_t)htable->bucket_size, mem_str,
-          capacity_str, num_entries_str, occupancy);
+          num_entries_str, capacity_str, occupancy);
 
   if(htable->unique_kmers > 0)
   {

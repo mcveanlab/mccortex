@@ -168,10 +168,10 @@ int ctx_view(CmdArgs *args)
     sum_of_seq_loaded += outheader.ginfo[i].total_sequence;
   }
 
-  if(outheader.version < 7)
+  if(inheader.version < 7)
   {
     size_t bytes_per_kmer = sizeof(BinaryKmer) +
-                            outheader.num_of_cols * (sizeof(Covg) + sizeof(Edges));
+                            inheader.num_of_cols * (sizeof(Covg) + sizeof(Edges));
     size_t bytes_remaining = fsize - hsize;
     outheader.num_of_kmers = (bytes_remaining / bytes_per_kmer);
     if(bytes_remaining % bytes_per_kmer != 0) {
@@ -206,16 +206,14 @@ int ctx_view(CmdArgs *args)
   {
     if(print_info && print_kmers) message("----\n");
 
-    while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, covgs, edges))
+    while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
     {
       // Collapse down colours
-      if(split != NULL) {
-        for(i = 0; i < num_of_cols; i++) {
-          covgs[i] = kmercovgs[load_colours[i]];
-          edges[i] = kmeredges[load_colours[i]];
-        }
-        // beware: if kmer has no covg or edges we still print it
+      for(i = 0; i < num_of_cols; i++) {
+        covgs[i] = kmercovgs[load_colours[i]];
+        edges[i] = kmeredges[load_colours[i]];
       }
+      // beware: if kmer has no covg or edges we still print it
 
       for(i = 0; i < num_of_cols; i++)
         sum_of_covgs_read += covgs[i];
@@ -254,11 +252,11 @@ int ctx_view(CmdArgs *args)
 
       if(i == num_of_cols)
       {
-        if(num_of_zero_covg_kmers == 0)
-        {
-          loading_warning("a kmer has zero coverage in all colours [index: %lu]\n",
-                          (unsigned long)num_of_kmers_read);
-        }
+        // if(num_of_zero_covg_kmers == 0)
+        // {
+        //   loading_warning("a kmer has zero coverage in all colours [index: %lu]\n",
+        //                   (unsigned long)num_of_kmers_read);
+        // }
 
         num_of_zero_covg_kmers++;
       }
@@ -296,29 +294,32 @@ int ctx_view(CmdArgs *args)
 
   fclose(in);
 
-  if(num_of_kmers_read != outheader.num_of_kmers) {
-    loading_warning("Expected %zu kmers, read %zu\n",
-                    (size_t)outheader.num_of_kmers, (size_t)num_of_kmers_read);
-  }
-
   char num_str[50];
 
-  if(num_of_all_zero_kmers > 1)
+  if(print_kmers || parse_kmers)
   {
-    loading_error("%s all-zero-kmers seen\n",
-                  ulong_to_str(num_of_all_zero_kmers, num_str));
-  }
+    if(num_of_kmers_read != outheader.num_of_kmers) {
+      loading_warning("Expected %zu kmers, read %zu\n",
+                      (size_t)outheader.num_of_kmers, (size_t)num_of_kmers_read);
+    }
 
-  if(num_of_oversized_kmers > 0)
-  {
-    loading_error("%s oversized kmers seen\n",
-                  ulong_to_str(num_of_oversized_kmers, num_str));
-  }
+    if(num_of_all_zero_kmers > 1)
+    {
+      loading_error("%s all-zero-kmers seen\n",
+                    ulong_to_str(num_of_all_zero_kmers, num_str));
+    }
 
-  if(num_of_zero_covg_kmers > 0)
-  {
-    loading_warning("%s kmers have no coverage in any colour\n",
-                    ulong_to_str(num_of_zero_covg_kmers, num_str));
+    if(num_of_oversized_kmers > 0)
+    {
+      loading_error("%s oversized kmers seen\n",
+                    ulong_to_str(num_of_oversized_kmers, num_str));
+    }
+
+    if(num_of_zero_covg_kmers > 0)
+    {
+      loading_warning("%s kmers have no coverage in any colour\n",
+                      ulong_to_str(num_of_zero_covg_kmers, num_str));
+    }
   }
 
   if((print_kmers || parse_kmers) && print_info)

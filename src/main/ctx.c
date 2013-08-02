@@ -28,7 +28,6 @@ static const char usage[] =
 "Common Options:\n"
 "  -m <M>     Memory e.g. 1GB [default: 1GB]\n"
 "  -h <H>     Hash entries [default: 4M (~4 million)]\n"
-// "  -o <O>    Hash occupancy [default: ?]\n"
 "  -g <G>     Species genome size [default: 3.1Gbp]\n"
 "  -t <T>     Number of threads [default: 2]\n"
 "  -k <K>     Kmer size [default: read from binaries]\n"
@@ -43,6 +42,8 @@ int main(int argc, char **argv)
   cmd_alloc(&args, argc, argv);
 
   if(args.cmdidx == -1) print_usage(usage, "Unrecognised command: %s", argv[1]);
+
+  if(strcmp(argv[1],"view") != 0) message("[cmd] %s\n", args.cmdline);
 
   int ret = ctx_funcs[args.cmdidx](&args);
   cmd_free(&args);

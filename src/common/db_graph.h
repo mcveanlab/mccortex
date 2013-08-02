@@ -72,10 +72,7 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col);
 
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph);
 
-// Filtering
-size_t db_graph_filter_file(const dBGraph *db_graph,
-                            const char *in_ctx_path, const char *out_ctx_path);
-
+// Get a random node from the graph
 hkey_t db_graph_rand_node(const dBGraph *db_graph);
 
 #endif /* DB_GRAPH_H_ */
