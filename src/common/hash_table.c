@@ -204,18 +204,19 @@ void hash_table_print_stats(const HashTable *const htable)
 {
   double occupancy = 100 * (double)htable->unique_kmers / htable->capacity;
   size_t bytes = htable->capacity * sizeof(BinaryKmer) +
-                 htable->num_of_buckets * 2;
+                 htable->num_of_buckets * 2 * sizeof(uint8_t);
   // size_t mem_height = __builtin_ctzl(htable->num_of_buckets);
   // size_t mem_width = htable->bucket_size;
-  char mem_str[50], num_buckets_str[100], num_entries_str[100];
+  char mem_str[50], num_buckets_str[100], num_entries_str[100], capacity_str[100];
   ulong_to_str(htable->num_of_buckets, num_buckets_str);
   bytes_to_str(bytes, 1, mem_str);
+  bytes_to_str(htable->capacity, 1, capacity_str);
   ulong_to_str(htable->unique_kmers, num_entries_str);
 
-  message("[hash table]  buckets: %s;  bucket size: %zu;  "
-          "memory: %s;  occupancy: %s (%.2f%%)\n",
+  message("[hash table]  buckets: %s; bucket size: %zu; "
+          "memory: %s; entries: %s; occupancy: %s (%.2f%%)\n",
           num_buckets_str, (size_t)htable->bucket_size, mem_str,
-          num_entries_str, occupancy);
+          capacity_str, num_entries_str, occupancy);
 
   if(htable->unique_kmers > 0)
   {

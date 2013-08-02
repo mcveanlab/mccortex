@@ -13,7 +13,7 @@
 #include "bubble_caller.h"
 
 static const char usage[] =
-"usage: "CMD" call <in.ctx> <out.bubbles.gz>\n";
+"usage: "CMD" call [-m <mem>|-t <threads>] <in.ctx> <out.bubbles.gz>\n";
 
 int ctx_call(CmdArgs *args)
 {

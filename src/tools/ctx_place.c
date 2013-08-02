@@ -29,7 +29,7 @@ static const char usage[] =
 "    --minmapq <mapq>    Flank must map with MAPQ >= <mapq> [default: 30]\n"
 "    --maxbr <num>       Don't process bubbles with > <num> branches [default: 6]\n"
 "    --genome <bases>    Organism genome size (e.g. 3.1G for humans)\n"
-"    --ploidy  <sample>:<chr>:<ploidy> [default: *:*:2]\n"
+"    --ploidy <sample>:<chr>:<ploidy> [default: *:*:2]\n"
 "      <sample> and <chr> can be * for all or a comma-separated list\n";
 
 typedef struct {
