@@ -14,8 +14,6 @@
 #include <limits.h>
 #include <assert.h>
 
-extern char print_debug;
-
 typedef signed char boolean;
 
 #ifndef true
@@ -81,12 +79,14 @@ typedef signed char boolean;
 
 #define bitset_clear_word(arr,pos) ((arr)[(pos) / (sizeof(*(arr))*8)] = 0)
 
-// Turn off shades
-// #define NUM_OF_SHADES 0
-// #define SHADE_BYTES 0
-// #define SHADE_WORDS 0
-// typedef uint8_t ShadeSet[SHADE_WORDS];
-// typedef uint8_t *ShadesPtr;
+// dynamic memory allocation with checks
+#define malloc2(mem) ctx_malloc(mem,__FILE__,__LINE__)
+#define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__LINE__)
+#define realloc2(ptr,mem) ctx_realloc(ptr,mem,__FILE__,__LINE__)
+
+void* ctx_malloc(size_t mem, const char *file, int line);
+void* ctx_calloc(size_t nel, size_t elsize, const char *file, int line);
+void* ctx_realloc(void *ptr, size_t mem, const char *file, int line);
 
 #define die(fmt, ...) call_die(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define warn(fmt, ...) call_warn(__FILE__, __LINE__, fmt, ##__VA_ARGS__)

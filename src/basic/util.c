@@ -276,7 +276,7 @@ char* num_to_str(unsigned long num, int decimals, char* str)
 char* strdup(const char *str)
 {
   size_t n = strlen(str);
-  char *dup = malloc(n+1);
+  char *dup = malloc2(n+1);
   if(dup) memcpy(dup, str, (n+1)*sizeof(char));
   return dup;
 }

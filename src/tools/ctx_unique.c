@@ -37,9 +37,9 @@ static VarBranch* branch_new(int num_samples)
 {
   int i;
   assert(num_samples > 0);
-  VarBranch *branch = malloc(sizeof(VarBranch));
+  VarBranch *branch = malloc2(sizeof(VarBranch));
   branch->seq = strbuf_new();
-  branch->covgs = malloc(num_samples * sizeof(DeltaArray));
+  branch->covgs = malloc2(num_samples * sizeof(DeltaArray));
   for(i = 0; i < num_samples; i++) delta_arr_alloc(&(branch->covgs[i]));
   branch->num_nodes = 0;
   branch->next = NULL;
@@ -68,7 +68,7 @@ typedef struct
 
 static Var* var_new(uint32_t kmer_size)
 {
-  Var *var = malloc(sizeof(Var));
+  Var *var = malloc2(sizeof(Var));
   var->key[0] = var->key[2*kmer_size] = 0;
   var->flank5p = strbuf_new();
   var->flank3p = strbuf_new();
@@ -313,13 +313,13 @@ typedef struct {
 
 static CallHeader* header_new()
 {
-  CallHeader *ch = malloc(sizeof(CallHeader));
+  CallHeader *ch = malloc2(sizeof(CallHeader));
   ch->num_samples = ch->kmer_size = 0;
   ch->sample_names = NULL;
   ch->hcap = 128;
   ch->hlines = 0;
-  ch->tags = malloc(ch->hcap * sizeof(*ch->tags));
-  ch->values = malloc(ch->hcap * sizeof(*ch->tags));
+  ch->tags = malloc2(ch->hcap * sizeof(*ch->tags));
+  ch->values = malloc2(ch->hcap * sizeof(*ch->tags));
   ch->is_old_bc = 0;
   return ch;
 }
@@ -338,8 +338,8 @@ static void header_add(CallHeader *ch, char *tag, char *value)
 {
   if(ch->hlines == ch->hcap) {
     ch->hcap <<= 1;
-    ch->tags = realloc(ch->tags, ch->hcap * sizeof(char*));
-    ch->values = realloc(ch->values, ch->hcap * sizeof(char*));
+    ch->tags = realloc2(ch->tags, ch->hcap * sizeof(char*));
+    ch->values = realloc2(ch->values, ch->hcap * sizeof(char*));
   }
 
   ch->tags[ch->hlines] = tag;
@@ -438,7 +438,7 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
       char *str = value;
       while((str = strchr(str, ',')) != NULL) { str++; ch->num_samples++; }
 
-      ch->sample_names = malloc(ch->num_samples*sizeof(char*));
+      ch->sample_names = malloc2(ch->num_samples*sizeof(char*));
     }
     else if(strncasecmp(tag, "sample", 6) == 0)
     {
@@ -532,7 +532,7 @@ static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
 
   ch->is_old_bc = 1;
 
-  ch->sample_names = malloc(ch->num_samples * sizeof(char*));
+  ch->sample_names = malloc2(ch->num_samples * sizeof(char*));
   for(i = 0; i < ch->num_samples; i++)
   {
     strbuf_reset(line);
@@ -561,14 +561,14 @@ typedef struct
 
 static CallReader* reader_new(CallHeader *ch)
 {
-  CallReader *cr = malloc(sizeof(CallReader));
+  CallReader *cr = malloc2(sizeof(CallReader));
   cr->ch = ch;
   cr->line = strbuf_new();
   cr->covgs_cap = 1024;
-  cr->covgs = malloc(cr->covgs_cap * sizeof(*cr->covgs));
+  cr->covgs = malloc2(cr->covgs_cap * sizeof(*cr->covgs));
   cr->num_alleles = 0;
   cr->alleles_cap = 32;
-  cr->alleles = malloc(cr->alleles_cap * sizeof(*cr->alleles));
+  cr->alleles = malloc2(cr->alleles_cap * sizeof(*cr->alleles));
   return cr;
 }
 
@@ -717,7 +717,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   {
     if(cr->num_alleles == cr->alleles_cap) {
       cr->alleles_cap <<= 1;
-      cr->alleles = realloc(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
+      cr->alleles = realloc2(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
     }
 
     VarBranch *branch = branch_new(num_samples);
@@ -739,7 +739,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     if(branch_nodes > cr->covgs_cap)
     {
       cr->covgs_cap = ROUNDUP2POW(cr->covgs_cap);
-      cr->covgs = realloc(cr->covgs, cr->covgs_cap * sizeof(*cr->alleles));
+      cr->covgs = realloc2(cr->covgs, cr->covgs_cap * sizeof(*cr->alleles));
     }
 
     // Load sequence
@@ -806,7 +806,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
   {
     if(cr->num_alleles == cr->alleles_cap) {
       cr->alleles_cap <<= 1;
-      cr->alleles = realloc(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
+      cr->alleles = realloc2(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
     }
 
     uint32_t branch_num, branch_nodes;
@@ -871,7 +871,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
       size_t branch_nodes = branch->num_nodes;
       if(branch_nodes > cr->covgs_cap) {
         cr->covgs_cap = ROUNDUP2POW(cr->covgs_cap);
-        cr->covgs = realloc(cr->covgs, cr->covgs_cap * sizeof(*cr->alleles));
+        cr->covgs = realloc2(cr->covgs, cr->covgs_cap * sizeof(*cr->alleles));
       }
 
       // remove extra whitespace on the end

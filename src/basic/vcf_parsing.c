@@ -7,8 +7,7 @@ static void strbuf_arr_resize(StrBuf ***arr, size_t *cap, size_t newcap)
 {
   size_t i;
   newcap = ROUNDUP2POW(newcap);
-  *arr = realloc(*arr, sizeof(StrBuf*) * newcap);
-  if(*arr == NULL) die("Out of memory");
+  *arr = realloc2(*arr, sizeof(StrBuf*) * newcap);
   for(i = *cap; i < newcap; i++) (*arr)[i] = strbuf_new();
   *cap = newcap;
 }
@@ -58,9 +57,9 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
   size_t i, j, num_cols = VCFSAMPLES+num_samples;
   entry->alts_capacity = entry->info_capacity = 2;
   entry->num_info = entry->num_alts = 0;
-  entry->cols = malloc(sizeof(StrBuf*) * num_cols);
-  entry->alts = malloc(sizeof(StrBuf*) * entry->alts_capacity);
-  entry->info = malloc(sizeof(StrBuf*) * entry->info_capacity);
+  entry->cols = malloc2(sizeof(StrBuf*) * num_cols);
+  entry->alts = malloc2(sizeof(StrBuf*) * entry->alts_capacity);
+  entry->info = malloc2(sizeof(StrBuf*) * entry->info_capacity);
 
   for(i = 0; i < num_cols; i++)
     entry->cols[i] = strbuf_new();
@@ -71,11 +70,11 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
   }
 
   // samples
-  entry->covgs = malloc(num_samples * sizeof(DeltaArray*));
+  entry->covgs = malloc2(num_samples * sizeof(DeltaArray*));
 
   for(i = 0; i < num_samples; i++)
   {
-    entry->covgs[i] = malloc(entry->alts_capacity * sizeof(DeltaArray));
+    entry->covgs[i] = malloc2(entry->alts_capacity * sizeof(DeltaArray));
     for(j = 0; j < entry->alts_capacity; j++)
       delta_arr_alloc(&entry->covgs[i][j]);
   }
@@ -133,7 +132,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
     size_t i, j, covgsize = entry->alts_capacity * sizeof(DeltaArray);
     for(i = 0; i < num_samples; i++)
     {
-      entry->covgs[i] = realloc(entry->covgs[i], covgsize);
+      entry->covgs[i] = realloc2(entry->covgs[i], covgsize);
       for(j = old_alts_cap; j < entry->alts_capacity; j++)
         delta_arr_alloc(&(entry->covgs[i][j]));
     }

@@ -105,8 +105,8 @@ int ctx_covg(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, cols_used, kmers_in_hash);
-  db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc(db_graph.ht.capacity * cols_used, sizeof(Covg));
+  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity * cols_used, sizeof(Covg));
 
   // Print mem usage
   char graph_mem_str[100];
@@ -179,11 +179,11 @@ int ctx_covg(CmdArgs *args)
   size_t new_samples = num_samples + cols_used;
 
   size_t j, capacity = 16 * num_samples;
-  DeltaArray *covg_array = malloc(sizeof(DeltaArray) * capacity);
+  DeltaArray *covg_array = malloc2(sizeof(DeltaArray) * capacity);
   for(i = 0; i < capacity; i++) delta_arr_alloc(&covg_array[i]);
 
   size_t nodes_cap = 2048, nodes_len = 0;
-  hkey_t *nodes = malloc(sizeof(hkey_t) * nodes_cap);
+  hkey_t *nodes = malloc2(sizeof(hkey_t) * nodes_cap);
 
   DeltaArray delta;
   delta_arr_alloc(&delta);
@@ -199,7 +199,7 @@ int ctx_covg(CmdArgs *args)
 
     if(vcf_entry.num_alts*num_samples > capacity) {
       size_t new_cap = ROUNDUP2POW(vcf_entry.num_alts*num_samples);
-      covg_array = realloc(covg_array, sizeof(DeltaArray) * new_cap);
+      covg_array = realloc2(covg_array, sizeof(DeltaArray) * new_cap);
       for(i = capacity; i < new_cap; i++) { delta_arr_alloc(&covg_array[i]); }
       capacity = new_cap;
     }
@@ -212,7 +212,7 @@ int ctx_covg(CmdArgs *args)
 
       if(contig.len > nodes_cap) {
         nodes_cap = ROUNDUP2POW(nodes_cap);
-        nodes = realloc(nodes, sizeof(hkey_t) * nodes_cap);
+        nodes = realloc2(nodes, sizeof(hkey_t) * nodes_cap);
       }
 
       // DEV check contig length vs kmer_size

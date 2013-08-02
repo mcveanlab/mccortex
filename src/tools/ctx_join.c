@@ -200,8 +200,8 @@ int ctx_join(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
-  db_graph.col_edges = calloc(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc(db_graph.ht.capacity, sizeof(Covg));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
 
   // Load intersection binaries
   if(num_intersect > 0)

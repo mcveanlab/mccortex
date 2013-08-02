@@ -12,11 +12,11 @@
 void delta_arr_alloc(DeltaArray *list)
 {
   list->changes_capacity = 256;
-  list->indices = malloc(list->changes_capacity * sizeof(uint32_t));
-  list->values = malloc(list->changes_capacity * sizeof(uint32_t));
+  list->indices = malloc2(list->changes_capacity * sizeof(uint32_t));
+  list->values = malloc2(list->changes_capacity * sizeof(uint32_t));
   list->len = list->num_changes = 0;
   list->arr_capacity = 1024;
-  list->arr = malloc(list->arr_capacity * sizeof(uint32_t));
+  list->arr = malloc2(list->arr_capacity * sizeof(uint32_t));
 }
 
 void delta_arr_dealloc(DeltaArray *list)
@@ -54,7 +54,7 @@ void delta_array_unpack(DeltaArray *list)
   if(list->len > list->arr_capacity)
   {
     list->arr_capacity = ROUNDUP2POW(list->len);
-    list->arr = realloc(list->arr, list->arr_capacity * sizeof(uint32_t));
+    list->arr = realloc2(list->arr, list->arr_capacity * sizeof(uint32_t));
   }
 
   uint32_t i, idx = 0, value = list->values[idx];
@@ -107,8 +107,8 @@ void delta_arr_from_str(const char *str, DeltaArray *list)
     {
       list->changes_capacity *= 2;
       size_t mem_uint = list->changes_capacity * sizeof(uint32_t);
-      list->indices = realloc(list->indices, mem_uint);
-      list->values = realloc(list->values, mem_uint);
+      list->indices = realloc2(list->indices, mem_uint);
+      list->values = realloc2(list->values, mem_uint);
     }
 
     endptr++;
@@ -144,8 +144,8 @@ void delta_arr_from_uint_arr(const uint32_t *arr, uint32_t num,
       {
         list->changes_capacity *= 2;
         size_t mem_uint = list->changes_capacity * sizeof(uint32_t);
-        list->indices = realloc(list->indices, mem_uint);
-        list->values = realloc(list->values, mem_uint);
+        list->indices = realloc2(list->indices, mem_uint);
+        list->values = realloc2(list->values, mem_uint);
       }
       list->indices[list->num_changes] = i;
       list->values[list->num_changes] = arr[i];

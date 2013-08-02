@@ -23,7 +23,7 @@ int ctx_pview(CmdArgs *args)
   char *input_ctx_path = argv[0];
 
   // probe paths file to get kmer size
-  char *input_paths_file = malloc(strlen(input_ctx_path)+4);
+  char *input_paths_file = malloc2(strlen(input_ctx_path)+4);
   paths_format_filename(input_ctx_path, input_paths_file);
   boolean valid_paths_file = false;
   uint64_t ctp_num_paths = 0, ctp_num_path_bytes = 0, ctp_num_path_kmers = 0;
@@ -74,12 +74,10 @@ int ctx_pview(CmdArgs *args)
   db_graph_alloc(&db_graph, ctp_kmer_size, 1, kmers_in_hash);
 
   // Paths
-  db_graph.kmer_paths = malloc(kmers_in_hash * sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc(path_mem);
-  if(path_store == NULL) die("Out of memory");
+  uint8_t *path_store = malloc2(path_mem);
   binary_paths_init(&db_graph.pdata, path_store, path_mem, ctp_num_of_cols);
 
   // Pretend we've read all the kmers in

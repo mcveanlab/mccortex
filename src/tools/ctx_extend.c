@@ -121,7 +121,7 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
   size_t len = readbuffw->len + readbufrv->len;
   if(contig->buflen < len+1) {
     contig->buflen = ROUNDUP2POW(len+1);
-    contig->buf = realloc(contig->buf, contig->buflen);
+    contig->buf = realloc2(contig->buf, contig->buflen);
   }
 
   db_nodes_to_str(readbuffw->data, len, db_graph, contig->buf);
@@ -204,12 +204,10 @@ int ctx_extend(CmdArgs *args)
   // Set up dBGraph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
-  db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   size_t visited_words = 2*round_bits_to_words64(db_graph.ht.capacity);
-  uint64_t *visited = calloc(visited_words, sizeof(Edges));
-
-  if(db_graph.edges == NULL || visited == NULL) die("Out of memory");
+  uint64_t *visited = calloc2(visited_words, sizeof(Edges));
 
     // Store edge nodes here
   dBNodeBuffer readbuffw, readbufrv;
@@ -217,12 +215,10 @@ int ctx_extend(CmdArgs *args)
   db_node_buf_alloc(&readbufrv, 1024);
 
   size_t buflen = 1024;
-  char *buf = malloc(buflen * sizeof(char));
+  char *buf = malloc2(buflen * sizeof(char));
 
   FILE *out = fopen(out_fa_path, "w");
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);
-
-  if(buf == NULL) die("Out of memory");
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,

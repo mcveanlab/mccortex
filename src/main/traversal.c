@@ -86,19 +86,14 @@ int main(int argc, char **argv)
 
   size_t node_bit_fields = round_bits_to_words64(db_graph.ht.capacity);
 
-  db_graph.edges = calloc(db_graph.ht.capacity, sizeof(Edges));
-  if(db_graph.edges == NULL) die("Out of memory");
-  db_graph.node_in_cols = calloc(node_bit_fields, sizeof(uint64_t));
-  if(db_graph.node_in_cols == NULL) die("Out of memory");
-  db_graph.kmer_paths = malloc(db_graph.ht.capacity * sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.node_in_cols = calloc2(node_bit_fields, sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
-  uint64_t *visited = calloc(2 * node_bit_fields, sizeof(uint64_t));
-  if(visited == NULL) die("Out of memory");
+  uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
 
-  uint8_t *path_store = malloc(path_mem);
-  if(path_store == NULL) die("Out of memory");
+  uint8_t *path_store = malloc2(path_mem);
   binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
 
   // Load graph
@@ -138,11 +133,10 @@ int main(int argc, char **argv)
   size_t lengths[num_repeats], junctions[num_repeats];
 
   size_t path_cap = 4096;
-  hkey_t *path = malloc(path_cap * sizeof(hkey_t));
+  hkey_t *path = malloc2(path_cap * sizeof(hkey_t));
 
   for(i = 0; i < num_repeats; i++)
   {
-    // DEV: pick random node / orient
     orient = rand() & 0x1;
     node = db_graph_rand_node(&db_graph);
 
@@ -164,7 +158,7 @@ int main(int argc, char **argv)
       lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
       if(len == path_cap) {
         path_cap *= 2;
-        path = realloc(path, path_cap * sizeof(hkey_t));
+        path = realloc2(path, path_cap * sizeof(hkey_t));
       }
       path[len++] = wlk.node;
       junc += prev_junc;

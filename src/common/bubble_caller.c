@@ -630,27 +630,19 @@ void* bubble_caller(void *args)
   int cols4 = 4 * db_graph->num_of_cols;
 
   size_t node_bits = round_bits_to_words64(db_graph->ht.capacity);
-  uint64_t *visited = calloc(2*node_bits, sizeof(uint64_t));
+  uint64_t *visited = calloc2(2*node_bits, sizeof(uint64_t));
 
   size_t buf_size = NODE_BUFSIZE(db_graph->num_of_cols);
 
-  SupernodePath *snode_paths = malloc(cols4 * sizeof(SupernodePath));
-  CallerSupernode *snode_store = malloc(buf_size * sizeof(CallerSupernode));
-  SupernodePathPos *snodepos_store = malloc(buf_size * sizeof(SupernodePathPos));
+  SupernodePath *snode_paths = malloc2(cols4 * sizeof(SupernodePath));
+  CallerSupernode *snode_store = malloc2(buf_size * sizeof(CallerSupernode));
+  SupernodePathPos *snodepos_store = malloc2(buf_size * sizeof(SupernodePathPos));
 
   khash_t(supnode_hsh) *snode_hash = kh_init(supnode_hsh);
   khash_t(snpps_hsh) *spp_hash = kh_init(snpps_hsh);
 
-  hkey_t *node_store = malloc(buf_size * sizeof(hkey_t));
-  Orientation *or_store = malloc(buf_size * sizeof(Orientation));
-
-  if(visited == NULL || snode_paths == NULL ||
-     snode_store == NULL || snodepos_store == NULL ||
-     snode_hash == NULL || spp_hash == NULL ||
-     node_store == NULL || or_store == NULL)
-  {
-    die("Out of memory");
-  }
+  hkey_t *node_store = malloc2(buf_size * sizeof(hkey_t));
+  Orientation *or_store = malloc2(buf_size * sizeof(Orientation));
 
   GraphWalker wlk;
   graph_walker_alloc(&wlk);

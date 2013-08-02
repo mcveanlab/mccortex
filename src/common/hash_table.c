@@ -42,18 +42,14 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   uint64_t capacity = hash_table_cap(req_capacity, &num_of_buckets, &bucket_size);
   uint32_t hash_mask = num_of_buckets - 1;
 
-  BinaryKmer *table = malloc(capacity * sizeof(BinaryKmer));
+  char capacity_str[100];
+  ulong_to_str(capacity, capacity_str);
+  message("[hash] Attempting to alloc table with %s entries\n", capacity_str);
 
-  // calloc is required to set the first element of each bucket to the 0th pos
-  uint8_t *bucket_data = calloc(num_of_buckets*2, sizeof(uint8_t));
-
-  if(table == NULL || bucket_data == NULL)
-  {
-    if(table != NULL) free(table);
-    if(bucket_data != NULL) free(bucket_data);
-    warn("could not allocate hash table with %zu entries\n", (size_t)capacity);
-    return NULL;
-  }
+  // calloc is required for bucket_data to set the first element of each bucket
+  // to the 0th pos
+  BinaryKmer *table = malloc2(capacity * sizeof(BinaryKmer));
+  uint8_t *bucket_data = calloc2(num_of_buckets*2, sizeof(uint8_t));
 
   uint64_t i, num = NUM_BITFIELDS_IN_BKMER * capacity, *ptr = (uint64_t*)table;
   for(i = 0; i < num; i++) ptr[i] = UNSET_BKMER;

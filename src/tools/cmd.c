@@ -95,12 +95,12 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   else args->cmdidx = -1;
 
   args->argc = 0;
-  args->argv = malloc(argc * sizeof(char**));
+  args->argv = malloc2(argc * sizeof(char**));
 
   size_t len = argc - 1; // spaces
   int i;
   for(i = 0; i < argc; i++) len += strlen(argv[i]);
-  args->cmdline = malloc((len+1) * sizeof(char));
+  args->cmdline = malloc2((len+1) * sizeof(char));
   sprintf(args->cmdline, "%s", argv[0]);
   for(i = 1, len = strlen(argv[0]); i < argc; len += strlen(argv[i]) + 1, i++)
     sprintf(args->cmdline+len, " %s", argv[i]);

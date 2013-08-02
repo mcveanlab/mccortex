@@ -14,6 +14,10 @@
 
 static const char usage[] =
 "usage: "CMD" call [-m <mem>|-t <threads>] <in.ctx> <out.bubbles.gz>\n";
+// "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
+// "  Options:\n"
+// "    -m <mem>\n"
+// "    -h <kmers>\n";
 
 int ctx_call(CmdArgs *args)
 {
@@ -100,21 +104,17 @@ int ctx_call(CmdArgs *args)
   db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
 
   // Edges
-  db_graph.edges = calloc(kmers_in_hash, sizeof(uint8_t));
-  if(db_graph.edges == NULL) die("Out of memory");
+  db_graph.edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
   // In colour
   size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
-  db_graph.node_in_cols = calloc(words64_per_col*num_of_cols, sizeof(uint64_t));
-  if(db_graph.node_in_cols == NULL) die("Out of memory");
+  db_graph.node_in_cols = calloc2(words64_per_col*num_of_cols, sizeof(uint64_t));
 
   // Paths
-  db_graph.kmer_paths = malloc(kmers_in_hash * sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc(path_mem);
-  if(path_store == NULL) die("Out of memory");
+  uint8_t *path_store = malloc2(path_mem);
   binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
 
   // Load graph
@@ -141,7 +141,7 @@ int ctx_call(CmdArgs *args)
   // Set up temporary files
   //
   StrBuf *tmppath = strbuf_new();
-  char **tmp_paths = malloc(num_of_threads * sizeof(char*));
+  char **tmp_paths = malloc2(num_of_threads * sizeof(char*));
 
   int r = rand() & ((1<<20)-1);
   size_t i;

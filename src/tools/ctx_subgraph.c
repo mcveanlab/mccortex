@@ -196,7 +196,8 @@ int ctx_subgraph(CmdArgs *args)
   size_t kmers_in_hash, ideal_capacity = max_num_kmers*(1.0/IDEAL_OCCUPANCY);
   size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
   size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-  size_t fringe_mem = args->mem_to_use - hash_mem;
+  size_t kmer_mask_mem = round_bits_to_words64(kmers_in_hash) * sizeof(uint64_t);
+  size_t fringe_mem = args->mem_to_use - hash_mem - kmer_mask_mem;
   size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
   size_t search_mem = num_of_fringe_nodes * (sizeof(hkey_t) * 2);
 
@@ -209,8 +210,10 @@ int ctx_subgraph(CmdArgs *args)
 
   message("[memory]  graph: %s; search: %s\n", kmers_in_hash_str, search_mem_str);
 
-  if(hash_mem > args->mem_to_use) {
-    print_usage(usage, "Requires higher memory (-m <mem>)");
+  if(hash_mem + kmer_mask_mem > args->mem_to_use) {
+    char mem_str[100];
+    bytes_to_str(hash_mem + kmer_mask_mem, 1, mem_str);
+    print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
   }
   else if(kmers_in_hash < ctx_num_kmers) {
     print_usage(usage, "Not enough kmers in the hash, require: %s "
@@ -227,20 +230,18 @@ int ctx_subgraph(CmdArgs *args)
 
   // Create db_graph with one colour
   db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
-  db_graph.col_edges = calloc(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc(db_graph.ht.capacity, sizeof(Covg));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
 
   size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity);
-  kmer_mask = calloc(num_words64, sizeof(uint64_t));
+  kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
   // Store edge nodes here
   dBNodeList list0, list1, listtmp;
-  list0.nodes = malloc(sizeof(hkey_t) * num_of_fringe_nodes);
-  list1.nodes = malloc(sizeof(hkey_t) * num_of_fringe_nodes);
+  list0.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
+  list1.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
   list0.capacity = list1.capacity = num_of_fringe_nodes;
   list0.len = list1.len = 0;
-
-  if(list0.nodes == NULL || list1.nodes == NULL) die("Out of memory");
 
   //
   // Load binaries

@@ -167,8 +167,8 @@ int ctx_build(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
-  db_graph.col_edges = calloc(kmers_in_hash * colours_used, sizeof(Edges));
-  db_graph.col_covgs = calloc(kmers_in_hash * colours_used, sizeof(Covg));
+  db_graph.col_edges = calloc2(kmers_in_hash * colours_used, sizeof(Edges));
+  db_graph.col_covgs = calloc2(kmers_in_hash * colours_used, sizeof(Covg));
 
   hash_table_print_stats(&db_graph.ht);
 

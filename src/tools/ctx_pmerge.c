@@ -122,8 +122,7 @@ int ctx_pmerge(CmdArgs *args)
 
   // set up tmp space
   PathStore tmp_pdata;
-  uint8_t *tmp_path_store = malloc(max_ctp_path_bytes);
-  if(tmp_path_store == NULL) die("Out of memory");
+  uint8_t *tmp_path_store = malloc2(max_ctp_path_bytes);
   binary_paths_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, ctx_num_of_cols);
 
   // Set up graph and PathStore
@@ -131,12 +130,10 @@ int ctx_pmerge(CmdArgs *args)
 
   db_graph_alloc(&db_graph, ctp_kmer_size, ctp_num_of_cols, req_num_kmers);
 
-  db_graph.kmer_paths = malloc(db_graph.ht.capacity * sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc(path_mem);
-  if(path_store == NULL) die("Out of memory");
+  uint8_t *path_store = malloc2(path_mem);
   binary_paths_init(&db_graph.pdata, path_store, path_mem, ctx_num_of_cols);
 
   // Recursively load/add paths

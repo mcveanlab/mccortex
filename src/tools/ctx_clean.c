@@ -131,8 +131,8 @@ int ctx_clean(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
-  db_graph.col_edges = calloc(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc(db_graph.ht.capacity, sizeof(Covg));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
 
   // Load binary into a single colour
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -168,7 +168,8 @@ int ctx_clean(CmdArgs *args)
   }
 
   hash_table_print_stats(&db_graph.ht);
-  uint64_t *visited = malloc(round_bits_to_words64(db_graph.ht.capacity) * sizeof(uint64_t));
+  size_t visited_words = round_bits_to_words64(db_graph.ht.capacity);
+  uint64_t *visited = malloc2(visited_words * sizeof(uint64_t));
 
   // DEV: Clean
   HASH_TRAVERSE(&db_graph.ht, printsupernodes, &db_graph, visited);

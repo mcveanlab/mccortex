@@ -16,13 +16,21 @@ static const char usage[] =
 "  Options:\n"
 "    --se_list <col> <in.list>\n"
 "    --pe_list <col> <pe.list1> <pe.list2>\n";
+// "usage: "CMD" thread [options] <out.ctp> [offset:]<in.ctx>[:cols] [in2.ctx ...]\n"
+// "  Thread reads through the graph.  Save to file <out.ctp>\n"
+// "  Options:\n"
+// "    -m <mem>    How much \n"
+// "    -h <kmers>\n"
+// "    --colours <num_colours>    How many ctp colours? [required]\n"
+// "    --col <ctxcol> <ctpcol>    Which colour to work in ctx <-> ctp [requried]\n"
+// "    --se <in.fa>\n"
+// "    --pe <in.1.fq> <in.2.fq>\n";
 
 #define NUM_PASSES 1
 
 int ctx_thread(CmdArgs *args)
 {
   cmd_accept_options(args, "tm");
-  // cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 1) print_usage(usage, NULL);
@@ -125,21 +133,17 @@ int ctx_thread(CmdArgs *args)
   db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
 
   // Edges
-  db_graph.edges = calloc(kmers_in_hash, sizeof(uint8_t));
-  if(db_graph.edges == NULL) die("Out of memory");
+  db_graph.edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
   // In colour - used is traversal
   size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
-  db_graph.node_in_cols = calloc(words64_per_col*num_of_cols, sizeof(uint64_t));
-  if(db_graph.node_in_cols == NULL) die("Out of memory");
+  db_graph.node_in_cols = calloc2(words64_per_col*num_of_cols, sizeof(uint64_t));
 
   // Paths
-  db_graph.kmer_paths = malloc(kmers_in_hash * sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc(path_mem);
-  if(path_store == NULL) die("Out of memory");
+  uint8_t *path_store = malloc2(path_mem);
   binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
 
   // Load graph

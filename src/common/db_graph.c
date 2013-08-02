@@ -17,7 +17,7 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
   memcpy(db_graph, &tmp, sizeof(dBGraph));
   hash_table_alloc(&db_graph->ht, capacity);
 
-  db_graph->ginfo = malloc(num_of_cols * sizeof(GraphInfo));
+  db_graph->ginfo = malloc2(num_of_cols * sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
     graph_info_alloc(db_graph->ginfo + i);
 
@@ -43,7 +43,7 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
 //   memcpy(db_graph, &tmp, sizeof(dBGraph));
 
 //   if(num_of_cols > old_num_cols) {
-//     db_graph->ginfo = realloc(db_graph->ginfo, num_of_cols * sizeof(GraphInfo));
+//     db_graph->ginfo = realloc2(db_graph->ginfo, num_of_cols * sizeof(GraphInfo));
 //     for(i = old_num_cols; i < num_of_cols; i++)
 //       graph_info_alloc(db_graph->ginfo + i);
 //   }

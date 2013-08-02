@@ -147,9 +147,8 @@ Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
 void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity)
 {
   buf->capacity = ROUNDUP2POW(capacity);
-  buf->data = malloc(sizeof(dBNode) * buf->capacity);
+  buf->data = malloc2(sizeof(dBNode) * buf->capacity);
   buf->len = 0;
-  if(buf->data == NULL) die("Out of memory");
 }
 
 void db_node_buf_dealloc(dBNodeBuffer *buf)
@@ -162,8 +161,7 @@ void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity)
   if(capacity > buf->capacity)
   {
     buf->capacity = ROUNDUP2POW(capacity);
-    buf->data = realloc(buf->data, sizeof(dBNode) * buf->capacity);
-    if(buf->data == NULL) die("Out of memory");
+    buf->data = realloc2(buf->data, sizeof(dBNode) * buf->capacity);
   }
 }
 

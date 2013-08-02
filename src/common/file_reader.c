@@ -20,31 +20,12 @@
 
 SeqLoadingStats* seq_loading_stats_create(unsigned long readlen_arrsize)
 {
-  SeqLoadingStats *stats = (SeqLoadingStats*)malloc(sizeof(SeqLoadingStats));
-  if(stats == NULL) die("Out of memory");
+  SeqLoadingStats *stats = calloc2(1, sizeof(SeqLoadingStats));
 
-  unsigned long *readlen_arr = NULL;
+  if(readlen_arrsize > 0)
+    stats->readlen_count_array = calloc2(readlen_arrsize, sizeof(unsigned long));
 
-  if(readlen_arrsize > 0) {
-    readlen_arr = (unsigned long*)calloc(readlen_arrsize, sizeof(unsigned long));
-    if(readlen_arr == NULL) die("Out of memory");
-  }
-
-  stats->readlen_count_array = readlen_arr;
   stats->readlen_count_array_size = readlen_arrsize;
-
-  stats->se_colourlists_loaded = stats->pe_colourlist_pairs_loaded = 0;
-  stats->se_filelists_loaded = stats->pe_filelist_pairs_loaded = 0;
-  stats->num_files_loaded = stats->binaries_loaded = 0;
-  stats->num_se_reads = stats->num_pe_reads = 0;
-  stats->total_good_reads = stats->total_bad_reads = stats->total_dup_reads = 0;
-  stats->total_bases_read = stats->total_bases_loaded = 0;
-  // unique_kmers is the number of new kmers added to the graph
-  stats->kmers_loaded = stats->unique_kmers = 0;
-  stats->contigs_loaded = 0;
-
-  // Used for binaries and colourlists
-  stats->num_of_colours_loaded = 0;
 
   return stats;
 }
@@ -152,8 +133,8 @@ void parse_filelists(const char *list_path1, const char *list_path2,
         list_path1, num_files1, list_path2, num_files2);
   }
 
-  char **filelist1 = (char**)malloc(num_files * sizeof(char*));
-  char **filelist2 = (char**)malloc(num_files * sizeof(char*));
+  char **filelist1 = malloc2(num_files * sizeof(char*));
+  char **filelist2 = malloc2(num_files * sizeof(char*));
 
   // Set all entries to NULL
   for(i = 0; i < num_files; i++) { filelist1[i] = filelist2[i] = NULL; }
@@ -506,7 +487,7 @@ uint32_t check_colour_or_ctx_list(const char *list_path, boolean is_colourlist,
   // Empty file list is valid
   if(num_files_in_list == 0) return 0;
 
-  char **file_paths = malloc(sizeof(char*) * num_files_in_list);
+  char **file_paths = malloc2(sizeof(char*) * num_files_in_list);
   assert(file_paths != NULL);
 
   load_paths_from_filelist(list_path, file_paths, is_colourlist,

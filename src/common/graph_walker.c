@@ -62,8 +62,7 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
   // message(" maxlen %zu -> %zu\n", prev_path_len, wlk->max_path_len);
 
   size_t data_mem = wlk->max_num_paths * wlk->max_path_len * sizeof(Nucleotide);
-  wlk->data = realloc(wlk->data, data_mem);
-  if(wlk->data == NULL) die("Out of memory");
+  wlk->data = realloc2(wlk->data, data_mem);
 
   if(prev_path_len < wlk->max_path_len)
   {
@@ -88,13 +87,10 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
     size_t ptr_mem = wlk->max_num_paths * sizeof(FollowPath*);
 
     FollowPath *oldpaths = wlk->allpaths;
-    wlk->allpaths = realloc(wlk->allpaths, paths_mem);
-    wlk->unused_paths = realloc(wlk->unused_paths, ptr_mem);
-    wlk->curr_paths = realloc(wlk->curr_paths, ptr_mem);
-    wlk->counter_paths = realloc(wlk->counter_paths, ptr_mem);
-
-    if(wlk->allpaths == NULL || wlk->unused_paths == NULL ||
-       wlk->curr_paths == NULL || wlk->counter_paths == NULL) die("Out of memory");
+    wlk->allpaths = realloc2(wlk->allpaths, paths_mem);
+    wlk->unused_paths = realloc2(wlk->unused_paths, ptr_mem);
+    wlk->curr_paths = realloc2(wlk->curr_paths, ptr_mem);
+    wlk->counter_paths = realloc2(wlk->counter_paths, ptr_mem);
 
     // Update pointers
     for(i = 0; i < wlk->num_unused; i++)
@@ -132,16 +128,11 @@ void graph_walker_alloc(GraphWalker *wlk)
   wlk->num_unused = wlk->max_num_paths;
   wlk->num_curr = wlk->num_counter = 0;
 
-  wlk->data = malloc(wlk->max_num_paths * wlk->max_path_len * sizeof(Nucleotide));
-  wlk->allpaths = malloc(wlk->max_num_paths * sizeof(FollowPath));
-  wlk->unused_paths = malloc(wlk->max_num_paths * sizeof(FollowPath*));
-  wlk->curr_paths = malloc(wlk->max_num_paths * sizeof(FollowPath*));
-  wlk->counter_paths = malloc(wlk->max_num_paths * sizeof(FollowPath*));
-
-  if(wlk->data == NULL || wlk->allpaths == NULL || wlk->unused_paths == NULL ||
-     wlk->curr_paths == NULL || wlk->counter_paths == NULL) {
-    die("Out of memory");
-  }
+  wlk->data = malloc2(wlk->max_num_paths * wlk->max_path_len * sizeof(Nucleotide));
+  wlk->allpaths = malloc2(wlk->max_num_paths * sizeof(FollowPath));
+  wlk->unused_paths = malloc2(wlk->max_num_paths * sizeof(FollowPath*));
+  wlk->curr_paths = malloc2(wlk->max_num_paths * sizeof(FollowPath*));
+  wlk->counter_paths = malloc2(wlk->max_num_paths * sizeof(FollowPath*));
 
   // message("graph_walker_alloc num_unused: %zu %p\n", wlk->num_unused, wlk->data);
 

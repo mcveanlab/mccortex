@@ -133,7 +133,7 @@ static chrom_t* chrom_new()
 {
   if(num_chroms == chrom_capacity) {
     chrom_capacity *= 2;
-    chroms = realloc(chroms, chrom_capacity * sizeof(chrom_t*));
+    chroms = realloc2(chroms, chrom_capacity * sizeof(chrom_t*));
   }
   seq_read_alloc(&chroms[num_chroms].r);
   return &chroms[num_chroms++];
@@ -156,7 +156,7 @@ static void load_ref_genome(size_t num_files, char **paths)
   genome = kh_init(ghash);
   num_chroms = 0;
   chrom_capacity = 1024;
-  chroms = malloc(chrom_capacity * sizeof(chrom_t*));
+  chroms = malloc2(chrom_capacity * sizeof(chrom_t*));
 
   for(i = 0; i < num_files; i++)
   {
@@ -243,8 +243,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
   char cwd[PATH_MAX + 1];
 
   samples_capacity = 16;
-  sample_names = malloc(samples_capacity * sizeof(char*));
-  sample_total_seq = malloc(samples_capacity * sizeof(uint64_t));
+  sample_names = malloc2(samples_capacity * sizeof(char*));
+  sample_total_seq = malloc2(samples_capacity * sizeof(uint64_t));
 
   while(strbuf_gzreadline_nonempty(line, gzvcf) > 0 && line->buff[0] == '#')
   {
@@ -279,8 +279,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
       if(num_samples == samples_capacity)
       {
         samples_capacity *= 2;
-        sample_names = realloc(sample_names, samples_capacity * sizeof(char*));
-        sample_total_seq = realloc(sample_total_seq, samples_capacity * sizeof(uint64_t));
+        sample_names = realloc2(sample_names, samples_capacity * sizeof(char*));
+        sample_total_seq = realloc2(sample_total_seq, samples_capacity * sizeof(uint64_t));
       }
 
       // strlen("##SAMPLE=<ID=") = 13
@@ -518,7 +518,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   // Check capacity of MSA array
   if(num_msa_alleles < vcfentry->num_alts+1) {
     num_msa_alleles = ROUNDUP2POW(vcfentry->num_alts+1);
-    msa_alleles = realloc(msa_alleles, num_msa_alleles * sizeof(char*));
+    msa_alleles = realloc2(msa_alleles, num_msa_alleles * sizeof(char*));
   }
 
   char *ref_allele_str = chr->seq.b+ref_start+ref_trim_left;
@@ -542,7 +542,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 
   if(msa_capacity < sum_len) {
     msa_capacity = ROUNDUP2POW(sum_len+1);
-    msa_wrking = realloc(msa_wrking, msa_capacity * sizeof(char));
+    msa_wrking = realloc2(msa_wrking, msa_capacity * sizeof(char));
   }
 
   size_t msa_len = do_msa(msa_alleles, vcfentry->num_alts+1, msa_alleles);
@@ -878,7 +878,7 @@ int ctx_place(CmdArgs *args)
   // Now we have samples (from VCF header) and chroms (from reference genome)
   // Parse ploidy
   size_t product = num_samples * num_chroms;
-  ploidy = malloc(product * sizeof(uint32_t));
+  ploidy = malloc2(product * sizeof(uint32_t));
 
   // default to diploid
   for(i = 0; i < product; i++) ploidy[i] = 2;
@@ -915,8 +915,8 @@ int ctx_place(CmdArgs *args)
   scoring_init(&scoring, 1, -2, -4, -1, true, true, 0, 0, 0, 0);
 
   // Setup multiple sequence alignment
-  msa_wrking = malloc(msa_capacity * sizeof(char));
-  msa_alleles = malloc(num_msa_alleles * sizeof(char*));
+  msa_wrking = malloc2(msa_capacity * sizeof(char));
+  msa_alleles = malloc2(num_msa_alleles * sizeof(char*));
   endflank = strbuf_new();
 
   bam1_t *bam = bam_init1();

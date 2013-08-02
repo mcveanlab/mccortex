@@ -161,7 +161,7 @@ void diverge_call(read_t *r1, read_t *r2,
   if(r1->seq.end < kmer_size) return;
   if(r1->seq.end > data->list_cap) {
     data->list_cap = ROUNDUP2POW(r1->seq.end);
-    data->linkedlist = realloc(data->linkedlist,
+    data->linkedlist = realloc2(data->linkedlist,
                                data->list_cap * sizeof(LinkedChromPos));
   }
 
@@ -258,26 +258,22 @@ int ctx_diverge(CmdArgs *args)
   message("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
 
   // Edges
-  db_graph.col_edges = calloc(hash_kmers*2, sizeof(uint8_t));
-  if(db_graph.col_edges == NULL) die("Out of memory");
+  db_graph.col_edges = calloc2(hash_kmers*2, sizeof(uint8_t));
 
   // In colour - used is traversal
   size_t words64_per_col = round_bits_to_words64(hash_kmers);
-  db_graph.node_in_cols = calloc(words64_per_col*num_of_cols, sizeof(uint64_t));
-  if(db_graph.node_in_cols == NULL) die("Out of memory");
+  db_graph.node_in_cols = calloc2(words64_per_col*num_of_cols, sizeof(uint64_t));
 
   // Paths
-  db_graph.kmer_paths = malloc(hash_kmers * sizeof(uint64_t));
-  if(db_graph.kmer_paths == NULL) die("Out of memory");
+  db_graph.kmer_paths = malloc2(hash_kmers * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc(path_mem);
-  if(path_store == NULL) die("Out of memory");
+  uint8_t *path_store = malloc2(path_mem);
   binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
 
   // Allocate memory for calling
-  uint32_t *kmer_pos = malloc(2 * db_graph.ht.capacity * sizeof(uint32_t));
-  LinkedChromPos *linkedlist = malloc((0x1<<28) * sizeof(LinkedChromPos));
+  uint32_t *kmer_pos = malloc2(2 * db_graph.ht.capacity * sizeof(uint32_t));
+  LinkedChromPos *linkedlist = malloc2((0x1<<28) * sizeof(LinkedChromPos));
   GraphWalker wlk;
   graph_walker_alloc(&wlk);
   DivergeData data = {.linkedlist = linkedlist,

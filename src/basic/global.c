@@ -1,9 +1,44 @@
 #include "global.h"
-
-char print_debug = 0;
+#include "util.h"
 
 // uncomment next line to silence most (stdout) output from cortex
 //#define GLOBAL_MSG_SILENT
+
+void* ctx_malloc(size_t mem, const char *file, int line)
+{
+  void *ptr = malloc(mem);
+  if(ptr == NULL) {
+    char memstr[100];
+    bytes_to_str(mem, 1, memstr);
+    call_die(file, line, "Out of memory (malloc %s)", memstr);
+  }
+  return ptr;
+}
+
+void* ctx_calloc(size_t nel, size_t elsize, const char *file, int line)
+{
+  void *ptr = calloc(nel, elsize);
+  if(ptr == NULL) {
+    char nelstr[100], elsizestr[100], memstr[100];
+    ulong_to_str(nel, nelstr);
+    bytes_to_str(elsize, 1, elsizestr);
+    bytes_to_str(nel * elsize, 1, memstr);
+    call_die(file, line, "Out of memory (calloc %s x %s = %s)",
+             nelstr, elsizestr, memstr);
+  }
+  return ptr;
+}
+
+void* ctx_realloc(void *ptr, size_t mem, const char *file, int line)
+{
+  void *ptr2 = realloc(ptr, mem);
+  if(ptr2 == NULL) {
+    char memstr[100];
+    bytes_to_str(mem, 1, memstr);
+    call_die(file, line, "Out of memory (realloc %s)", memstr);
+  }
+  return ptr2;
+}
 
 void call_die(const char *file, int line, const char *fmt, ...)
 {

@@ -218,7 +218,7 @@ void binary_header_alloc(BinaryFileHeader *h, size_t num_of_cols)
   size_t i;
   h->capacity = num_of_cols;
   if(num_of_cols == 0) return;
-  h->ginfo = calloc(h->capacity, sizeof(GraphInfo));
+  h->ginfo = calloc2(h->capacity, sizeof(GraphInfo));
   for(i = 0; i < h->capacity; i++)
     graph_info_alloc(h->ginfo + i);
 }
@@ -227,7 +227,7 @@ void binary_header_realloc(BinaryFileHeader *h, size_t num_of_cols)
 {
   size_t i;
   if(num_of_cols < h->capacity) return;
-  h->ginfo = realloc(h->ginfo, num_of_cols * sizeof(GraphInfo));
+  h->ginfo = realloc2(h->ginfo, num_of_cols * sizeof(GraphInfo));
   for(i = h->capacity; i < num_of_cols; i++)
     graph_info_alloc(h->ginfo + i);
   h->capacity = num_of_cols;
