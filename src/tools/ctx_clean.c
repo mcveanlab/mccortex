@@ -202,7 +202,7 @@ int ctx_clean(CmdArgs *args)
   }
 
   fclose(fh);
- 
+
   message("Dumped %zu kmers in %u colour%s into: %s\n",
           (size_t)db_graph.ht.unique_kmers, num_of_cols,
           num_of_cols != 1 ? "s" : "", out_ctx_path);

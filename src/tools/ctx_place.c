@@ -113,7 +113,7 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
 
     needleman_wunsch_align2(first, second, strlen(first), strlen(second),
                             &scoring, nw_aligner, alignment);
-  
+
     for(i = 0; i < num; i++) {
       alleles[i] = strcmp(seqs[i], first) == 0 ? alignment->result_a
                                                : alignment->result_b;
@@ -317,7 +317,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
       k = kh_put(samplehash, sample_indx, sample_names[num_samples], &hret);
       if(hret == 0) die("VCF multiple samples with the sample name");
       kh_value(sample_indx, k) = num_samples;
-    
+
       num_samples++;
       *sid_end = ',';
       printf("%s\n", str);
@@ -475,7 +475,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
                             &scoring, nw_aligner, alignment);
 
     char *r1 = alignment->result_a, *r2 = alignment->result_b;
-    
+
     #ifdef DEBUG
       printf("nw:%s\nnw:%s\n", r1, r2);
     #endif

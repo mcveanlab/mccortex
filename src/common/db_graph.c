@@ -225,7 +225,7 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
         {
           db_graph_next_node_orient(db_graph, bkmerptr, nuc, orient,
                                     &next_node, &next_orient);
-        
+
           if(!bitset_has(flags, next_node))
           {
             // Next node fails filter - remove edge

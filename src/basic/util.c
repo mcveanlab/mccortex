@@ -69,7 +69,7 @@ char parse_entire_ulong(char *str, unsigned long *result)
 
 // Load a string of numbers into an array. Separator can be any non-numerical
 // character. e.g. '1,2,3' '1 2 3'
-// Returns number of unsigned integers parsed. 
+// Returns number of unsigned integers parsed.
 // Sets *more = 1 if string end not reached
 uint32_t parse_uint_liststr(const char *str, uint32_t *arr, uint32_t arrlen,
                             boolean *more)

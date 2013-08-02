@@ -53,7 +53,7 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
 
   if(wlk->num_unused == 0)
     wlk->max_num_paths *= 2;
-  
+
   if(new_len > wlk->max_path_len)
     wlk->max_path_len = ROUNDUP2POW(new_len);
 

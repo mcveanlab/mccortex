@@ -94,7 +94,7 @@ static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
   read = stream_skip(fh, skip);
   total += read;
   if(read != skip) return 0;
-  
+
   if(version >= 6)
   {
     // Sample names
@@ -444,7 +444,7 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
     off_t file_size = get_file_size(path);
     size_t bytes_remaining = file_size - bytes_read;
     size_t shade_bytes = 0;
-  
+
     // 2 * num_shade_bytes for shade + shade end data
     size_t num_bytes_per_kmer
       = sizeof(uint64_t) * NUM_BITFIELDS_IN_BKMER +
@@ -627,7 +627,7 @@ uint32_t binary_load(const char *ctx_path,
     {
       boolean found;
       node = hash_table_find_or_insert(&graph->ht, bkmer, &found);
-    
+
       if(prefs->empty_colours && found)
       {
         die("Duplicate kmer loaded [cols:%u:%u]",
@@ -654,7 +654,7 @@ uint32_t binary_load(const char *ctx_path,
         col_edges[col] |= edges[i];
       }
     }
-    
+
     // Merge all edges into one colour
     if(graph->edges != NULL) {
       for(i = 0; i < num_cols_loaded; i++)
@@ -749,7 +749,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
     for(i = 0; i < num_binaries; i++)
       binary_load(binary_paths[i], &prefs, stats, NULL);
 
-    hash_table_print_stats(&db_graph->ht);    
+    hash_table_print_stats(&db_graph->ht);
     binary_dump_graph(out_ctx_path, db_graph, CURR_CTX_VERSION, NULL, 0, 1);
   }
   else
@@ -801,7 +801,7 @@ void binaries_merge(char *out_ctx_path, char **binary_paths, size_t num_binaries
       {
         memset(db_graph->col_edges, 0, db_graph->ht.capacity * sizeof(Edges));
         memset(db_graph->col_covgs, 0, db_graph->ht.capacity * sizeof(Covg));
-      
+
         boolean data_loaded_in_col = false;
         for(i = 0; i < num_binaries; i++)
         {

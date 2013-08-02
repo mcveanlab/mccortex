@@ -207,11 +207,12 @@ int ctx_reads(CmdArgs *args)
   {
     binary_paths[i] = argv[argend+i];
 
-    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2, &num_of_cols, &max_col, &num_kmers))
+    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2,
+                     &num_of_cols, &max_col, &num_kmers)) {
       print_usage(usage, "Cannot read binary file: %s", binary_paths[i]);
-    else if(!is_binary)
+    } else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
-  
+
     if(i == 0) kmer_size = kmer_size2;
     else if(kmer_size != kmer_size2) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
@@ -342,7 +343,7 @@ int ctx_reads(CmdArgs *args)
         message("writing: %s\n", path1);
         seq_parse_se(in1, &r1, &r2, &prefs, stats, filter_reads, &data);
       }
-      
+
       gzclose(data.out1);
       if(is_pe) gzclose(data.out2);
 

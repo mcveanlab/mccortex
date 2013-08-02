@@ -20,7 +20,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *buffer);
 
 void seq_parse_pe(const char *path1, const char *path2,
-                  read_t *r1, read_t *r2, 
+                  read_t *r1, read_t *r2,
                   SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                   void (*read_func)(read_t *r1, read_t *r2,
                                     int qoffset1, int qoffset2,

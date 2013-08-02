@@ -52,7 +52,7 @@ static void print_calling_header(const dBGraph *db_graph, gzFile out,
 
   if(file_reader_get_current_dir(cwd) != NULL)
     gzprintf(out, "##ctxCwd=%s\n", cwd);
-  
+
   gzprintf(out, "##ctxDate=%s\n", datestr);
   gzprintf(out, "##ctxVersion=<version=%s,MAXK=%i>\n",
            CTXVERSIONSTR, MAX_KMER_SIZE);
@@ -671,7 +671,7 @@ void* bubble_caller(void *args)
   //              snode_paths, snode_store, snodepos_store,
   //              tdata->out, &tdata->num_of_bubbles);
 
-  
+
   BinaryKmer *table = db_graph->ht.table;
   BinaryKmer *ptr = table + tdata->start_hkey;
   BinaryKmer *end = table + tdata->end_hkey;
@@ -694,7 +694,7 @@ void* bubble_caller(void *args)
       }
     }
   }
-  
+
 
   graph_walker_dealloc(&wlk);
 

@@ -146,7 +146,7 @@ int ctx_join(CmdArgs *args)
     }
     else if(!is_binary)
       print_usage(usage, "Intersect binary file isn't valid: %s", intersect_paths[i]);
-  
+
     if(i == 0) min_intersect_num_kmers = intersect_num_kmers;
     else if(intersect_num_kmers < min_intersect_num_kmers)
     {

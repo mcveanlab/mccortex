@@ -268,7 +268,7 @@ void test_file_qual_offset(const char *path, int qoffset, int qmax)
 }
 
 void seq_parse_pe(const char *path1, const char *path2,
-                  read_t *r1, read_t *r2, 
+                  read_t *r1, read_t *r2,
                   SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                   void (*read_func)(read_t *_r1, read_t *_r2,
                                     int _qoffset1, int _qoffset2,
@@ -390,7 +390,7 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
     // SAM / BAM single file may contain paired-reads
     char swap_reads = 0, have_mate = 0, mates_seen = 0;
 
-    // For now assume sam format is 
+    // For now assume sam format is
     qmin=33;
     qmax=73;
     qoffset=33;

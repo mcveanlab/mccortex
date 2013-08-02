@@ -37,7 +37,7 @@ void delta_arr_reverse(DeltaArray *list)
     SWAP(list->indices[i], list->indices[j], tmp);
     SWAP(list->values[i], list->values[j], tmp);
   }
-  
+
   uint32_t prev = list->indices[0];
   list->indices[0] = 0;
 

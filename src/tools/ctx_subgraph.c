@@ -180,7 +180,7 @@ int ctx_subgraph(CmdArgs *args)
       print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
     } else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
-  
+
     if(i == 0) kmer_size = kmer_size2;
     else if(kmer_size != kmer_size2) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",

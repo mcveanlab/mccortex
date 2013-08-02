@@ -225,7 +225,7 @@ static void var_set_flank_shifts(Var *var)
       }
 
       min_left = MIN2(min_left, j+k);
-    
+
       // Now go right
       max_dist = MIN3(allele->len, fl3p->len, min_right);
       j = k = 0;
@@ -361,7 +361,7 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, const char *cmdline)
   gzprintf(vcf, "##reference=unplaced\n");
   gzprintf(vcf, "##phasing=none\n");
   gzprintf(vcf, "##procCmd=%s\n", cmdline);
-  
+
   if(file_reader_get_current_dir(cwd) != NULL)
     gzprintf(vcf, "##procCwd=%s\n", cwd);
 

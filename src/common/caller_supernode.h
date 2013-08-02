@@ -60,7 +60,7 @@ size_t supernode_traverse(hkey_t node, Orientation or,
                           size_t limit, const dBGraph *db_graph,
                           boolean *out_of_space);
 
-// Create a supernode strating at node/or.  Store in snode. 
+// Create a supernode strating at node/or.  Store in snode.
 // Ensure snode->nodes and snode->orients point to valid memory before passing
 // Returns 0 on failure, otherwise snode->num_of_nodes
 size_t caller_supernode_create(hkey_t node, Orientation or,

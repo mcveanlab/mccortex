@@ -184,7 +184,7 @@ void parse_filelists(const char *list_path1, const char *list_path2,
   uint64_t kmers_in_binary1, kmers_in_binary2;
 
   read_t *r1 = NULL, *r2 = NULL;
-  
+
   if(!are_colour_lists) {
     r1 = seq_read_new();
     r2 = seq_read_new();

@@ -73,7 +73,7 @@ static void print_header(BinaryFileHeader *h)
 
     message("  mean read length: %u\n", ginfo->mean_read_length);
     message("  total sequence loaded: %s\n", total_sequence_str);
-    
+
     if(h->version >= 6)
     {
       // Version 6 only output

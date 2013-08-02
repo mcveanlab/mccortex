@@ -78,7 +78,7 @@ void binary_kmer_left_shift_one_base(BinaryKmer kmer, uint32_t kmer_size)
 //         ACTG = 00011110 (30)
 //   revcmp[30] = 01001011 (0x4B)
 //              => CAGT
-static const uint8_t revcmp_table[256] = 
+static const uint8_t revcmp_table[256] =
 {
   0xFF, 0xBF, 0x7F, 0x3F, 0xEF, 0xAF, 0x6F, 0x2F,
   0xDF, 0x9F, 0x5F, 0x1F, 0xCF, 0x8F, 0x4F, 0x0F,
