@@ -328,6 +328,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     if(bases[i] == greatest_nuc)
       return indices[i];
 
+  // If we reach here something has gone wrong
+  // print some debug information
   char str[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, str);
   message("Fork: %s\n", str);
@@ -460,7 +462,8 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
     num_paths = pickup_paths(paths, wlk, index, prev_orients[i], true);
     wlk->num_counter -= num_paths;
 
-    edges = db_node_edges(wlk->db_graph, prev_nodes[i]);
+    // DEV: change to col_edges
+    edges = db_node_union_edges(wlk->db_graph, prev_nodes[i]);
     if(edges_get_outdegree(edges, prev_orients[i]) > 1) {
       new_paths = wlk->counter_paths + wlk->num_counter;
       for(j = 0, k = 0; j < num_paths; j++) {
@@ -491,7 +494,8 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
   ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
   db_node_oriented_bkmer(bkmerptr, orient, db_graph->kmer_size, fw_bkmer);
 
-  Edges edges = db_node_edges(db_graph, node);
+  // DEV: change to col_edges
+  Edges edges = db_node_union_edges(db_graph, node);
   edges = edges_with_orientation(edges, orient);
   // DEV!!!!
   if(orient != REVERSE) prev_nuc = binary_nuc_complement(prev_nuc);
@@ -518,7 +522,8 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
 boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
-  Edges edges = edges_with_orientation(db_graph->edges[wlk->node], wlk->orient);
+  Edges edges = db_node_union_edges(db_graph, wlk->node);
+  edges = edges_with_orientation(edges, wlk->orient);
 
   hkey_t nodes[4];
   BinaryKmer bkmers[4];

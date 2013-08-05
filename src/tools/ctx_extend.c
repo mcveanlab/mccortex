@@ -57,20 +57,14 @@ static void walk_graph(hkey_t node, Orientation orient,
   uint32_t i, origlen = buf->len;
   Edges edges;
   Nucleotide nuc;
-  BinaryKmer bkmer, bkey;
+  ConstBinaryKmerPtr bkmerptr;
 
   for(i = 0; i < max; i++)
   {
     edges = db_node_edges(db_graph, node);
-
     if(!edges_has_precisely_one_edge(edges, orient, &nuc)) break;
-
-    db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph, node),
-                              nuc, orient, &node, &orient);
-    db_node_get_key(bkmer, db_graph->kmer_size, bkey);
-    node = hash_table_find(&db_graph->ht, bkey);
-    orient = db_node_get_orientation(bkmer, bkey);
-    if(node == HASH_NOT_FOUND) node_not_in_graph(bkmer, db_graph);
+    bkmerptr = db_node_bkmer(db_graph, node);
+    db_graph_next_node_orient(db_graph, bkmerptr, nuc, orient, &node, &orient);
     if(db_node_has_traversed(visited, node, orient)) break;
     db_node_set_traversed(visited, node, orient);
 
@@ -131,8 +125,8 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
 
 static void extend_reads(read_t *r1, read_t *r2,
                          int qoffset1, int qoffset2,
-                         SeqLoadingPrefs *prefs,
-                         SeqLoadingStats *stats, void *ptr)
+                         const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                         void *ptr)
 {
   (void)qoffset1; (void)qoffset2; (void)prefs;
   ExtendContig *contig = (ExtendContig*)ptr;
@@ -155,10 +149,9 @@ int ctx_extend(CmdArgs *args)
 
   // Probe binary
   boolean is_binary = false;
-  uint32_t kmer_size, num_of_cols, max_col;
-  uint64_t ctx_num_kmers;
+  GraphFileHeader gheader = {.capacity = 0};
 
-  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &ctx_num_kmers))
+  if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
@@ -175,7 +168,7 @@ int ctx_extend(CmdArgs *args)
     print_usage(usage, "Cannot write output file: %s", out_fa_path);
 
   // Decide on memory
-  size_t kmers_in_hash, ideal_capacity = ctx_num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t kmers_in_hash, ideal_capacity = gheader.num_of_kmers / IDEAL_OCCUPANCY;
   size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
   size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
@@ -184,10 +177,10 @@ int ctx_extend(CmdArgs *args)
                      2*round_bits_to_words64(kmers_in_hash)*sizeof(uint64_t);
 
   char num_kmers_str[100], graph_mem_str[100];
-  ulong_to_str(ctx_num_kmers, num_kmers_str);
+  ulong_to_str(gheader.num_of_kmers, num_kmers_str);
   bytes_to_str(graph_mem, 1, graph_mem_str);
 
-  if(kmers_in_hash < ctx_num_kmers) {
+  if(kmers_in_hash < gheader.num_of_kmers) {
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
   }
@@ -198,12 +191,12 @@ int ctx_extend(CmdArgs *args)
     print_usage(usage, "Not enough memory - binary requires: %s", graph_mem_str);
 
   message("[memory] graph: %s\n", graph_mem_str);
-  message("Using kmer size: %u\n", kmer_size);
+  message("Using kmer size: %u\n", gheader.kmer_size);
   message("Max walk: %u\n", dist);
 
   // Set up dBGraph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gheader.kmer_size, 1, kmers_in_hash);
   db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   size_t visited_words = 2*round_bits_to_words64(db_graph.ht.capacity);
@@ -230,7 +223,6 @@ int ctx_extend(CmdArgs *args)
                            .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
-                           .update_ginfo = false,
                            .db_graph = &db_graph};
 
   // Load binary
@@ -255,6 +247,8 @@ int ctx_extend(CmdArgs *args)
   message("Done.\n");
 
   fclose(out);
+
+  graph_header_dealloc(&gheader);
 
   free(buf);
   db_node_buf_dealloc(&readbuffw);

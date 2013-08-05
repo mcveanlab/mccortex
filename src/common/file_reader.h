@@ -10,6 +10,29 @@
 #define READ_FALIST 0
 #define READ_COLOURLIST 1
 
+// Stucture for specifying how to load data
+typedef struct
+{
+  Colour into_colour;
+  boolean merge_colours; // Load all data into only one colour
+  boolean boolean_covgs; // Update covg by at most 1
+
+  // loading sequence
+  boolean load_seq;
+  char quality_cutoff, ascii_fq_offset;
+  int homopolymer_cutoff;
+  boolean remove_dups_se, remove_dups_pe;
+
+  // loading binaries
+  boolean load_binaries;
+  boolean must_exist_in_graph;
+  // if empty_colours is true an error is thrown a kmer from a binary is
+  // already in the graph
+  boolean empty_colours;
+
+  dBGraph *db_graph;
+} SeqLoadingPrefs;
+
 // Stucture for statistics on loading sequence and cortex binary files
 typedef struct
 {
@@ -32,37 +55,14 @@ SeqLoadingStats* seq_loading_stats_create(unsigned long readlen_arrsize);
 void seq_loading_stats_sum(SeqLoadingStats* dst, SeqLoadingStats* src);
 void seq_loading_stats_free(SeqLoadingStats* stats);
 
-// Stucture for specifying how to load data
-typedef struct
-{
-  Colour into_colour;
-  boolean merge_colours; // Load all data into only one colour
-  boolean boolean_covgs; // Update covg by at most 1
 
-  // loading sequence
-  boolean load_seq;
-  char quality_cutoff, ascii_fq_offset;
-  int homopolymer_cutoff;
-  boolean remove_dups_se, remove_dups_pe;
-
-  // loading binaries
-  boolean load_binaries;
-  boolean must_exist_in_graph;
-  // if empty_colours is true an error is thrown a kmer from a binary is
-  // already in the graph
-  boolean empty_colours;
-
-  boolean update_ginfo;
-  dBGraph *db_graph;
-} SeqLoadingPrefs;
-
-
+/*
 void parse_filelists(const char *list_path1, const char *list_path2,
                      uint8_t are_colour_lists,
-                     SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                      void (*read_func)(read_t *r1, read_t *r2,
                                        int qoffset1, int qoffset2,
-                                       SeqLoadingPrefs *prefs,
+                                       const SeqLoadingPrefs *prefs,
                                        SeqLoadingStats *stats, void *ptr),
                      void *reader_ptr);
 
@@ -86,5 +86,6 @@ uint32_t load_paths_from_filelist(const char *filelist_path, char **path_array,
 uint32_t check_colour_or_ctx_list(const char *list_path, boolean is_colourlist,
                                   boolean binaries_allowed, boolean seq_allowed,
                                   uint32_t kmer_size, uint32_t *colours);
+*/
 
 #endif /* FILE_READER_H_ */

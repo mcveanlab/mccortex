@@ -52,7 +52,7 @@ static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
 
 void mark_reads(read_t *r1, read_t *r2,
                 int qoffset1, int qoffset2,
-                SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
+                const SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
 {
   (void)qoffset1;
   (void)qoffset2;
@@ -110,7 +110,7 @@ static void store_bkmer_neighbours(const BinaryKmer bkmer, dBNodeList *list,
 
 void store_nodes(read_t *r1, read_t *r2,
                  int qoffset1, int qoffset2,
-                 SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
+                 const SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
 {
   (void)qoffset1;
   (void)qoffset2;
@@ -169,25 +169,27 @@ int ctx_subgraph(CmdArgs *args)
   // Probe binaries to get kmer_size
   //
   boolean is_binary = false;
-  uint32_t kmer_size, kmer_size2;
-  uint32_t ctx_num_cols[num_binaries], ctx_max_cols[num_binaries];
-  uint64_t ctx_num_kmers, max_num_kmers = 0;
+  uint32_t kmer_size;
+  uint32_t ctx_num_of_cols[num_binaries], ctx_max_cols[num_binaries];
+  uint64_t max_num_kmers = 0;
+  GraphFileHeader gheader = {.capacity = 0};
 
   for(i = 0; i < num_binaries; i++)
   {
-    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2,
-                     &ctx_num_cols[i], &ctx_max_cols[i], &ctx_num_kmers)) {
+    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
       print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
-    } else if(!is_binary)
+    else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
 
-    if(i == 0) kmer_size = kmer_size2;
-    else if(kmer_size != kmer_size2) {
+    if(i == 0) kmer_size = gheader.kmer_size;
+    else if(kmer_size != gheader.kmer_size) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
-          kmer_size, kmer_size2, binary_paths[i-1], binary_paths[i]);
+          kmer_size, gheader.kmer_size, binary_paths[i-1], binary_paths[i]);
     }
 
-    max_num_kmers = MAX2(ctx_num_kmers, max_num_kmers);
+    ctx_num_of_cols[i] = gheader.num_of_cols;
+    ctx_max_cols[i] = gheader.max_col;
+    max_num_kmers = MAX2(gheader.num_of_kmers, max_num_kmers);
   }
 
   //
@@ -202,7 +204,7 @@ int ctx_subgraph(CmdArgs *args)
   size_t search_mem = num_of_fringe_nodes * (sizeof(hkey_t) * 2);
 
   char num_kmers_str[100];
-  ulong_to_str(ctx_num_kmers, num_kmers_str);
+  ulong_to_str(max_num_kmers, num_kmers_str);
 
   char kmers_in_hash_str[100], search_mem_str[100];
   bytes_to_str(kmers_in_hash, 1, kmers_in_hash_str);
@@ -215,7 +217,7 @@ int ctx_subgraph(CmdArgs *args)
     bytes_to_str(hash_mem + kmer_mask_mem, 1, mem_str);
     print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
   }
-  else if(kmers_in_hash < ctx_num_kmers) {
+  else if(kmers_in_hash < max_num_kmers) {
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
   }
@@ -256,7 +258,6 @@ int ctx_subgraph(CmdArgs *args)
                            .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = true,
-                           .update_ginfo = false,
                            .db_graph = &db_graph};
 
   for(i = 0; i < num_binaries; i++)
@@ -307,25 +308,26 @@ int ctx_subgraph(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Dump nodes that were flagged
-  if(num_binaries == 1 && ctx_num_cols[0] == 1)
+  if(num_binaries == 1 && ctx_num_of_cols[0] == 1)
   {
     // We have all the info to dump now
-    binary_dump_graph(out_path, &db_graph, CURR_CTX_VERSION, NULL, 0, 1);
+    binary_dump_graph(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
   }
   else
   {
     binaries_merge(out_path, binary_paths, num_binaries,
-                   ctx_num_cols, ctx_max_cols,
+                   ctx_num_of_cols, ctx_max_cols,
                    false, false, true, &db_graph);
   }
 
   message("Done.\n");
 
-  seq_loading_stats_free(stats);
-
   free(kmer_mask);
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
+
+  seq_loading_stats_free(stats);
+  graph_header_dealloc(&gheader);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

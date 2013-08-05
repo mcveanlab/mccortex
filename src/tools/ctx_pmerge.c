@@ -33,75 +33,73 @@ int ctx_pmerge(CmdArgs *args)
 
   // probe binary
   uint64_t num_kmers = args->num_kmers;
-  uint32_t ctp_num_of_cols, ctx_num_of_cols, ctx_max_col;
-  uint32_t ctp_kmer_size, ctx_kmer_size;
+  uint32_t ctp_num_of_cols, ctp_kmer_size;
+  GraphFileHeader gheader = {.capacity = 0};
 
   if(args->file_set)
   {
     boolean is_binary = false;
 
-    if(!binary_probe(input_ctx_path, &is_binary, &ctx_kmer_size,
-                     &ctx_num_of_cols, &ctx_max_col, &num_kmers)) {
+    if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
       print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
-    } else if(!is_binary)
+    else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
+  
+    num_kmers = gheader.num_of_kmers;
   }
 
   uint64_t max_ctp_path_bytes = 0;
+  PathFileHeader pheader = {.capacity = 0};
 
   int argi;
   for(argi = 2; argi < argc; argi++)
   {
     boolean valid_paths_file = false;
-    uint64_t ctp_num_paths, ctp_num_path_bytes, ctp_num_path_kmers;
-    uint32_t tmp_kmer_size, tmp_num_of_cols;
     const char *input_paths_file = argv[argi];
 
     if(!file_exists(input_paths_file))
     {
       print_usage(usage, "Cannot find ctp file: %s", input_paths_file);
     }
-    else if(!paths_format_probe(input_paths_file, &valid_paths_file,
-                                &tmp_kmer_size, &tmp_num_of_cols, &ctp_num_paths,
-                                &ctp_num_path_bytes, &ctp_num_path_kmers))
+    else if(!paths_file_probe(input_paths_file, &valid_paths_file, &pheader))
     {
       print_usage(usage, "Cannot read .ctp file: %s", input_paths_file);
     }
     else if(!valid_paths_file)
       die("Invalid .ctp file: %s", input_paths_file);
-    else if(num_kmers < ctp_num_path_kmers) {
+    else if(num_kmers < pheader.num_kmers_with_paths) {
       if(args->file_set) die("ctp file has more kmers than hash table!");
       else {
         print_usage(usage, "Please set a larger -h <kmers> (needs to be > %zu)",
-                    (size_t)ctp_num_path_kmers);
+                    (size_t)pheader.num_kmers_with_paths);
       }
     }
 
     // If we didn't load a binary, assume num of colours from first .ctp file
     if(argi == 2) {
-      ctp_kmer_size = tmp_kmer_size;
-      ctp_num_of_cols = tmp_num_of_cols;
+      ctp_kmer_size = pheader.kmer_size;
+      ctp_num_of_cols = pheader.num_of_cols;
     }
     else
     {
-      if(tmp_num_of_cols != ctp_num_of_cols) {
+      if(pheader.num_of_cols != ctp_num_of_cols) {
         die("Number of colours in .ctp files does not match: %s [%u] vs %s [%u]",
-            argv[2], ctp_num_of_cols, argv[argi], tmp_num_of_cols);
-      } else if(tmp_kmer_size != ctp_kmer_size) {
+            argv[2], ctp_num_of_cols, argv[argi], pheader.num_of_cols);
+      } else if(pheader.kmer_size != ctp_kmer_size) {
         die("Kmer size in .ctp files does not match: %s [%u] vs %s [%u]",
-            argv[2], ctp_kmer_size, argv[argi], tmp_kmer_size);
+            argv[2], ctp_kmer_size, argv[argi], pheader.kmer_size);
       }
     }
-    max_ctp_path_bytes = MAX2(max_ctp_path_bytes, ctp_num_path_bytes);
+    max_ctp_path_bytes = MAX2(max_ctp_path_bytes, pheader.num_path_bytes);
   }
 
   if(args->file_set) {
-    if(ctp_num_of_cols != ctx_num_of_cols) {
+    if(ctp_num_of_cols != gheader.num_of_cols) {
       warn("Number of colours in .ctp files does not match .ctx [%u vs %u]",
-           ctp_num_of_cols, ctx_num_of_cols);
-    } else if(ctp_kmer_size != ctx_kmer_size) {
+           ctp_num_of_cols, gheader.num_of_cols);
+    } else if(ctp_kmer_size != gheader.kmer_size) {
       warn("Kmer size in .ctp files does not match .ctx [%u vs %u]",
-           ctp_kmer_size, ctx_kmer_size);
+           ctp_kmer_size, gheader.kmer_size);
     }
   }
 
@@ -123,7 +121,7 @@ int ctx_pmerge(CmdArgs *args)
   // set up tmp space
   PathStore tmp_pdata;
   uint8_t *tmp_path_store = malloc2(max_ctp_path_bytes);
-  binary_paths_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, ctx_num_of_cols);
+  binary_paths_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, gheader.num_of_cols);
 
   // Set up graph and PathStore
   dBGraph db_graph;
@@ -134,20 +132,33 @@ int ctx_pmerge(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, ctx_num_of_cols);
+  binary_paths_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+
+  //
+  // Set up file header
+  //
+  pheader.version = CTX_PATH_FILEFORMAT;
+  pheader.kmer_size = db_graph.kmer_size;
+  pheader.num_of_cols = gheader.num_of_cols;
+  pheader.capacity = 0;
+
+  paths_header_alloc(&pheader, gheader.num_of_cols);
 
   // Recursively load/add paths
-  paths_format_read(&db_graph, &db_graph.pdata, NULL, true, argv[2]);
+  paths_format_read(argv[2], &pheader, &db_graph, &db_graph.pdata, true);
 
-  for(argi = 3; argi < argc; argi++)
-    paths_format_read(&db_graph, &db_graph.pdata, &tmp_pdata, true, argv[argi]);
+  for(argi = 3; argi < argc; argi++) {
+    paths_format_merge(argv[argi], &pheader, &db_graph,
+                       &db_graph.pdata, &tmp_pdata, true);
+  }
 
   // Dump paths file
-  paths_format_write(&db_graph, &db_graph.pdata, out_ctp_path);
+  paths_format_write(&db_graph, &db_graph.pdata, &pheader, out_ctp_path);
 
   free((void *)db_graph.kmer_paths);
   free(path_store);
 
+  paths_header_dealloc(&pheader);
   db_graph_dealloc(&db_graph);
 
   message("  Paths written to: %s\n", out_ctp_path);

@@ -90,13 +90,18 @@ ifdef DEBUG
 	OPT = $(OPT_TESTS)
 	DEBUG_ARGS = -g -ggdb -DDEBUG=1
 else
-	OPT = -O3 #-DNDEBUG=1
-	DEBUG_ARGS = 
+	ifdef PROFILE
+		OPT = -O3 -DNDEBUG=1
+		DEBUG_ARGS = -g -ggdb
+	else
+		OPT = -O3 -DNDEBUG=1
+		DEBUG_ARGS = 
+	endif
 endif
 
-CFLAGS = -std=c99 -Wall -Wextra \
+CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) $(HASH_KEY_FLAGS) $(OPT) $(DEBUG_ARGS)
+         -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) $(HASH_KEY_FLAGS)
 
 # basic objects compile without MAXK
 # common and tool objects require MAXK
@@ -119,8 +124,10 @@ TOOLS_HDRS=$(wildcard src/tools/*.h)
 TOOLS_FILES=$(notdir $(TOOLS_SRCS))
 TOOLS_OBJS=$(addprefix $(TOOLS_OBJDIR)/, $(TOOLS_FILES:.c=.o))
 
+HDRS=$(TOOLS_HDRS) $(COMMON_HDRS) $(BASIC_HDRS)
+
 # DEPS are common dependencies that do not need to be re-built per target
-DEPS=Makefile bin build/basic $(COMMON_OBJDIR) $(LIB_OBJS)
+DEPS=Makefile bin $(BASIC_OBJDIR) $(COMMON_OBJDIR) $(TOOLS_OBJDIR) $(LIB_OBJS)
 
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
@@ -134,22 +141,26 @@ all: ctx
 build/basic/call_seqan.o: src/basic/call_seqan.cpp src/basic/call_seqan.h | $(DEPS)
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c src/basic/call_seqan.cpp -o $@
 
-$(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | build/basic
-	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
+$(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
+	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(COMMON_OBJDIR)/%.o: src/common/%.c $(BASIC_HDRS) $(COMMON_HDRS) | $(COMMON_OBJDIR)
-	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
+$(COMMON_OBJDIR)/%.o: src/common/%.c $(BASIC_HDRS) $(COMMON_HDRS) | $(DEPS)
+	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(COMMON_HDRS) $(TOOLS_HDRS) | $(TOOLS_OBJDIR)
-	$(CC) $(DEBUG_ARGS) $(CFLAGS) $(INCS) -c $< -o $@
+$(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(COMMON_HDRS) $(TOOLS_HDRS) | $(DEPS)
+	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
 ctx: bin/ctx$(MAXK)
-bin/ctx$(MAXK): src/main/ctx.c $(OBJS)
+bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
 	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 traversal: bin/traversal$(MAXK)
-bin/traversal$(MAXK): src/main/traversal.c $(OBJS)
+bin/traversal$(MAXK): src/main/traversal.c $(OBJS) $(HDRS) | bin
 	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/traversal.c $(OBJS) $(LINK)
+
+hashtest: bin/hashtest$(MAXK)
+bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
+	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 # directories
 bin:

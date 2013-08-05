@@ -169,7 +169,7 @@ PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
   memcpy(ptr, &len_and_orient, sizeof(PathLen));
   ptr += sizeof(PathLen);
   pack_bases(ptr, bases, len);
-  ptr += len_in_bytes;
+  // ptr += len_in_bytes;
 
   boolean inserted;
   PathIndex match;

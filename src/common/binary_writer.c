@@ -2,9 +2,7 @@
 #include "binary_format.h"
 #include "db_graph.h"
 #include "db_node.h"
-
-const int CURR_CTX_VERSION = 6;
-const char CTX_MAGIC_WORD[7] = "CORTEX";
+#include "util.h"
 
 static inline void dump_empty_bkmer(hkey_t node, dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
@@ -51,18 +49,18 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
 }
 
 // Returns number of bytes written
-size_t binary_write_header(FILE *fh, const BinaryFileHeader *h)
+size_t binary_write_header(FILE *fh, const GraphFileHeader *h)
 {
   uint32_t i;
   size_t b = 0;
 
-  fwrite(CTX_MAGIC_WORD, sizeof(char), strlen(CTX_MAGIC_WORD), fh);
+  fwrite("CORTEX", sizeof(char), strlen("CORTEX"), fh);
   fwrite(&h->version, sizeof(uint32_t), 1, fh);
   fwrite(&h->kmer_size, sizeof(uint32_t), 1, fh);
   fwrite(&h->num_of_bitfields, sizeof(uint32_t), 1, fh);
   fwrite(&h->num_of_cols, sizeof(uint32_t), 1, fh);
 
-  b += strlen(CTX_MAGIC_WORD) + sizeof(uint32_t) * 4;
+  b += strlen("CORTEX") + sizeof(uint32_t) * 4;
 
   if(h->version >= 7)
   {
@@ -99,14 +97,14 @@ size_t binary_write_header(FILE *fh, const BinaryFileHeader *h)
       b += write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
   }
 
-  fwrite(CTX_MAGIC_WORD, sizeof(uint8_t), strlen(CTX_MAGIC_WORD), fh);
-  b += strlen(CTX_MAGIC_WORD);
+  fwrite("CORTEX", sizeof(uint8_t), strlen("CORTEX"), fh);
+  b += strlen("CORTEX");
 
   return b;
 }
 
 // Returns number of bytes written
-size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
+size_t binary_write_kmer(FILE *fh, const GraphFileHeader *h,
                          const uint64_t *bkmer, const Covg *covgs,
                          const Edges *edges)
 {
@@ -150,7 +148,7 @@ void binary_dump_colour(dBGraph *db_graph, Colour graphcol,
 
 // Dump node: only print kmers with coverages in given colours
 static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
-                                     FILE *fout, const BinaryFileHeader *header,
+                                     FILE *fout, const GraphFileHeader *header,
                                      const Colour *colours, uint32_t start_col,
                                      uint64_t *num_of_nodes_dumped)
 {
@@ -219,7 +217,7 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
   GraphInfo *ginfo = db_graph->ginfo;
 
   // Construct binary header
-  BinaryFileHeader header = {.version = version,
+  GraphFileHeader header = {.version = version,
                              .kmer_size = db_graph->kmer_size,
                              .num_of_bitfields = NUM_BITFIELDS_IN_BKMER,
                              .num_of_cols = num_of_cols,
@@ -247,7 +245,7 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
   if(version >= 7 && num_of_nodes_dumped != db_graph->ht.unique_kmers)
   {
     // Need to go back and update number of kmers dumped
-    long pos = strlen(CTX_MAGIC_WORD) * sizeof(uint8_t) + 4 * sizeof(uint32_t);
+    long pos = strlen("CORTEX") * sizeof(uint8_t) + 4 * sizeof(uint32_t);
 
     if(fseek(fout, pos, SEEK_SET) == 0) {
       fwrite(&num_of_nodes_dumped, sizeof(uint64_t), 1, fout);
@@ -258,9 +256,12 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
 
   fclose(fout);
 
-  message("Dumped %zu kmers in %u colour%s into: %s\n",
-          (size_t)num_of_nodes_dumped, num_of_cols,
-          num_of_cols != 1 ? "s" : "", path);
+  char num_kmer_str[100];
+  ulong_to_str(num_of_nodes_dumped, num_kmer_str);
+
+  message("Dumped %s kmers in %u colour%s into: %s (format version: %u)\n",
+          num_kmer_str, num_of_cols, num_of_cols != 1 ? "s" : "",
+          path, version);
 
   return num_of_nodes_dumped;
 }

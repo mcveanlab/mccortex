@@ -316,6 +316,32 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len)
   return num == 0 ? 0 : (sum / num);
 }
 
+
+//
+// Time
+//
+
+// output of form: "10 days 23 hours 59 mins 59 secs"
+// extreme: "-2147483647 days 23 hours 59 mins 59 secs",
+// so str should be at least 42 bytes long
+// returns number of bytes written
+size_t seconds_to_str(unsigned long seconds, char *str)
+{
+  char *ptr = str;
+  int days, hours, minutes;
+  days = seconds / (60 * 60 * 24);
+  seconds -= days * (60 * 60 * 24);
+  hours = seconds / (60 * 60);
+  seconds -= hours * (60 * 60);
+  minutes = seconds / 60;
+  seconds -= minutes * 60;
+  if(days > 0) ptr += sprintf(ptr, "%i days ", days);
+  if(days+hours > 0) ptr += sprintf(ptr, "%i hours ", hours);
+  if(days+hours+minutes > 0) ptr += sprintf(ptr, "%i mins ", minutes);
+  ptr += sprintf(ptr, "%i secs", (int)seconds);
+  return ptr - str;
+}
+
 //
 // Genetics
 //
@@ -325,8 +351,8 @@ const char complement_base[128] = {0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
                                    0,  0,0,  0,  0,0,0,  0,0,0,0,0,0,0,0,0,
                                    0,'T',0,'G',  0,0,0,'C',0,0,0,0,0,0,0,0,
                                    0,  0,0,  0,'A',0,0,  0,0,0,0,0,0,0,0,0,
-                                   0,'T',0,'G',  0,0,0,'C',0,0,0,0,0,0,0,0,
-                                   0,  0,0,  0,'A',0,0,  0,0,0,0,0,0,0,0,0};
+                                   0,'t',0,'g',  0,0,0,'c',0,0,0,0,0,0,0,0,
+                                   0,  0,0,  0,'a',0,0,  0,0,0,0,0,0,0,0,0};
 
 #ifndef NDEBUG
 // These have asserts in them

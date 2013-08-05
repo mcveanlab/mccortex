@@ -6,17 +6,16 @@
 #include "file_reader.h"
 #include "db_graph.h"
 
-extern const int CURR_CTX_VERSION;
-extern const char CTX_MAGIC_WORD[7];
+#define CTX_GRAPH_FILEFORMAT 6
 
 typedef struct
 {
-  uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
+  uint32_t version, kmer_size, num_of_bitfields, num_of_cols, max_col;
   uint64_t num_of_kmers;
   // Cleaning info etc for each colour
   GraphInfo *ginfo;
   uint32_t capacity; // number of colours malloc'd
-} BinaryFileHeader;
+} GraphFileHeader;
 
 // Get an array of colour indices for a binary.
 // arr should be of length num_of_cols
@@ -25,10 +24,20 @@ typedef struct
 uint32_t binary_get_num_colours(const char *path, uint32_t max_col);
 void binary_parse_colour_array(const char *str, uint32_t *arr, uint32_t max_col);
 
+void graph_header_alloc(GraphFileHeader *header, size_t num_of_cols);
+void graph_header_dealloc(GraphFileHeader *header);
+void graph_header_cpy(GraphFileHeader *dst, const GraphFileHeader *src);
+
+// If fatal == false, returns -1 on error
+int graph_file_read_header(FILE *fh, GraphFileHeader *header,
+                           boolean fatal, const char *path);
+
+size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *header, const char *path,
+                            uint64_t *bkmer, Covg *covgs, Edges *edges);
+
 // returns 0 if cannot read, 1 otherwise
-char binary_probe(const char* path, boolean *is_ctx,
-                  uint32_t *kmer_size_ptr, uint32_t *num_of_colours_ptr,
-                  uint32_t *max_col_index, uint64_t *num_of_kmers);
+boolean graph_file_probe(const char* ctx_path, boolean *valid_ctx,
+                         GraphFileHeader *gheader);
 
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing
 // colour only_load_if_in_colour will be loaded.
@@ -42,7 +51,7 @@ char binary_probe(const char* path, boolean *is_ctx,
 // If header is != NULL, header will be stored there.  Be sure to free.
 uint32_t binary_load(const char *path,
                      const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-                     BinaryFileHeader *header);
+                     GraphFileHeader *header);
 
 uint32_t binary_load_colour(const char *path,
                             SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
@@ -60,21 +69,15 @@ size_t binaries_merge(char *out_ctx_path, char **binary_paths,
                       boolean merge, boolean flatten, boolean intersect,
                       dBGraph *db_graph);
 
-size_t binary_read_header(FILE *fh, BinaryFileHeader *header, const char *path);
-
-size_t binary_read_kmer(FILE *fh, BinaryFileHeader *header, const char *path,
-                        uint64_t *bkmer, Covg *covgs, Edges *edges);
-
-void binary_header_alloc(BinaryFileHeader *header, size_t num_of_cols);
-void binary_header_realloc(BinaryFileHeader *header, size_t num_of_cols);
-void binary_header_dealloc(BinaryFileHeader *header);
-void binary_read_cpy_basic(BinaryFileHeader *dst, BinaryFileHeader *src);
+//
+// Writing
+//
 
 void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols);
 
 // Returns number of bytes written
-size_t binary_write_header(FILE *fh, const BinaryFileHeader *header);
-size_t binary_write_kmer(FILE *fh, const BinaryFileHeader *h,
+size_t binary_write_header(FILE *fh, const GraphFileHeader *header);
+size_t binary_write_kmer(FILE *fh, const GraphFileHeader *h,
                          const uint64_t *bkmer, const Covg *covgs,
                          const Edges *edges);
 

@@ -86,7 +86,7 @@ int ctx_join(CmdArgs *args)
   }
 
   // Store intersection files
-  char *intersect_paths[num_intersect];
+  char *intersect_paths[num_intersect+1];
   int argj;
   num_intersect = 0;
 
@@ -108,9 +108,9 @@ int ctx_join(CmdArgs *args)
 
   // Check all binaries are valid binaries with matching kmer size
   boolean is_binary = false;
-  uint32_t i, kmer_size, kmer_size2;
-  uint64_t ctx_num_kmers;
+  uint32_t i, kmer_size;
   uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
+  GraphFileHeader gheader;
   char *path;
 
   for(i = 0; i < num_binaries; i++)
@@ -121,39 +121,36 @@ int ctx_join(CmdArgs *args)
     if(path > binary_paths[i] && *path == ':') path++;
     else path = binary_paths[i];
 
-    if(!binary_probe(path, &is_binary, &kmer_size2, &ctx_num_cols[i],
-                     &ctx_max_cols[i], &ctx_num_kmers)) {
+    if(!graph_file_probe(path, &is_binary, &gheader))
       print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
-    }
     else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
 
     if(i == 0)
-      kmer_size = kmer_size2;
-    else if(kmer_size != kmer_size2)
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]", kmer_size, kmer_size2);
+      kmer_size = gheader.kmer_size;
+    else if(kmer_size != gheader.kmer_size) {
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+                  kmer_size, gheader.kmer_size);
+    }
   }
 
   // Probe intersection files
-  uint32_t intersect_num_cols, intersect_max_cols;
-  uint64_t intersect_num_kmers, min_intersect_num_kmers;
+  uint64_t min_intersect_num_kmers;
 
   for(i = 0; i < num_intersect; i++)
   {
-    if(!binary_probe(intersect_paths[i], &is_binary, &kmer_size2, &intersect_num_cols,
-                     &intersect_max_cols, &intersect_num_kmers)) {
+    if(!graph_file_probe(intersect_paths[i], &is_binary, &gheader))
       print_usage(usage, "Cannot read intersect binary file: %s", intersect_paths[i]);
-    }
     else if(!is_binary)
       print_usage(usage, "Intersect binary file isn't valid: %s", intersect_paths[i]);
 
-    if(i == 0) min_intersect_num_kmers = intersect_num_kmers;
-    else if(intersect_num_kmers < min_intersect_num_kmers)
+    if(i == 0) min_intersect_num_kmers = gheader.num_of_kmers;
+    else if(gheader.num_of_kmers < min_intersect_num_kmers)
     {
       // Put smallest intersection binary first
       char *tmpstr;
       SWAP(intersect_paths[i], intersect_paths[0], tmpstr);
-      min_intersect_num_kmers = intersect_num_kmers;
+      min_intersect_num_kmers = gheader.num_of_kmers;
     }
   }
 
@@ -213,11 +210,11 @@ int ctx_join(CmdArgs *args)
                              .homopolymer_cutoff = 0,
                              .remove_dups_se = false, .remove_dups_pe = false,
                              .load_binaries = true,
-                             .must_exist_in_graph = false, .empty_colours = false,
-                             .update_ginfo = false,
+                             .must_exist_in_graph = false,
+                             .empty_colours = false,
                              .db_graph = &db_graph};
 
-    binary_load(intersect_paths[i], &prefs, NULL, NULL);
+    binary_load(intersect_paths[0], &prefs, NULL, NULL);
 
     if(num_intersect > 1)
     {
@@ -241,6 +238,8 @@ int ctx_join(CmdArgs *args)
   binaries_merge(out_ctx_path, binary_paths, num_binaries,
                  ctx_num_cols, ctx_max_cols,
                  merge, flatten, num_intersect > 0, &db_graph);
+
+  graph_header_dealloc(&gheader);
 
   free(db_graph.col_edges);
   free(db_graph.col_covgs);

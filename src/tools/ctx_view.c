@@ -43,7 +43,7 @@ static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
   return kmer_colour_edge_str;
 }
 
-static void print_header(BinaryFileHeader *h)
+static void print_header(GraphFileHeader *h)
 {
   message("binary version: %u\n", h->version);
   message("kmer size: %u\n", h->kmer_size);
@@ -146,8 +146,8 @@ int ctx_view(CmdArgs *args)
     message("----\n");
   }
 
-  BinaryFileHeader outheader = {.capacity = 0}, inheader = {.capacity = 0};
-  size_t hsize = binary_read_header(in, &inheader, in_ctx_path);
+  GraphFileHeader outheader = {.capacity = 0}, inheader = {.capacity = 0};
+  size_t hsize = graph_file_read_header(in, &inheader, true, in_ctx_path);
 
   uint32_t kmer_size = inheader.kmer_size;
 
@@ -156,15 +156,15 @@ int ctx_view(CmdArgs *args)
   uint32_t load_colours[num_of_cols];
   binary_parse_colour_array(in_ctx_path, load_colours, inheader.num_of_cols-1);
 
-  binary_read_cpy_basic(&outheader, &inheader);
+  graph_header_cpy(&outheader, &inheader);
   outheader.num_of_cols = num_of_cols;
-  binary_header_alloc(&outheader, num_of_cols);
+  graph_header_alloc(&outheader, num_of_cols);
 
   uint32_t i;
   uint64_t sum_of_covgs_read = 0, sum_of_seq_loaded = 0;
 
   for(i = 0; i < num_of_cols; i++) {
-    graph_info_merge(outheader.ginfo + i, inheader.ginfo + load_colours[i]);
+    graph_info_cpy(outheader.ginfo + i, inheader.ginfo + load_colours[i]);
     sum_of_seq_loaded += outheader.ginfo[i].total_sequence;
   }
 
@@ -186,8 +186,8 @@ int ctx_view(CmdArgs *args)
   if(print_info)
     print_header(&outheader);
 
-  binary_header_dealloc(&inheader);
-  binary_header_dealloc(&outheader);
+  graph_header_dealloc(&inheader);
+  graph_header_dealloc(&outheader);
 
   BinaryKmer bkmer;
   Covg kmercovgs[inheader.num_of_cols], covgs[num_of_cols];
@@ -206,7 +206,7 @@ int ctx_view(CmdArgs *args)
   {
     if(print_info && print_kmers) message("----\n");
 
-    while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
+    while(graph_file_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
     {
       // Collapse down colours
       for(i = 0; i < num_of_cols; i++) {
@@ -336,9 +336,7 @@ int ctx_view(CmdArgs *args)
     uint64_t mem, capacity, num_buckets;
     uint8_t bucket_size;
 
-    mem = hash_table_cap(outheader.num_of_kmers / 0.8,
-                         &num_buckets, &bucket_size);
-
+    hash_table_cap(outheader.num_of_kmers / 0.8, &num_buckets, &bucket_size);
     capacity = num_buckets * bucket_size;
     mem = capacity * (sizeof(BinaryKmer) +
                       outheader.num_of_cols * (sizeof(Covg) + sizeof(Edges)));

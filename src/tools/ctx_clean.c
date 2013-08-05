@@ -92,33 +92,33 @@ int ctx_clean(CmdArgs *args)
 
   // Probe binary files
   boolean is_binary = false;
-  uint32_t kmer_size, kmer_size2;
-  uint32_t num_of_cols = 0, max_cols = 0, ctx_max_col, ctx_num_cols[num_binaries];
-  uint64_t num_kmers;
+  GraphFileHeader gheader = {.capacity = 0};
+  uint32_t kmer_size, num_of_cols = 0, max_cols = 0;
+  uint32_t ctx_num_cols[num_binaries], ctx_max_cols[num_binaries];
 
   for(i = 0; i < num_binaries; i++)
   {
-    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2, &ctx_num_cols[i],
-                     &ctx_max_col, &num_kmers)) {
+    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
       print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
-    }
     else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
 
     if(i == 0)
-      kmer_size = kmer_size2;
-    else if(kmer_size != kmer_size2)
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]", kmer_size, kmer_size2);
+      kmer_size = gheader.kmer_size;
+    else if(kmer_size != gheader.kmer_size)
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]", kmer_size, gheader.kmer_size);
 
-    num_of_cols += ctx_num_cols[i];
-    max_cols = MAX2(max_cols, ctx_num_cols[i]);
+    ctx_num_cols[i] = gheader.num_of_cols;
+    ctx_max_cols[i] = gheader.max_col;
+    num_of_cols += gheader.num_of_cols;
+    max_cols = MAX2(max_cols, gheader.num_of_cols);
 
-    printf("%s has %u colours\n", binary_paths[i], ctx_num_cols[i]);
+    printf("%s has %u colours\n", binary_paths[i], gheader.num_of_cols);
   }
 
   uint32_t load_colours[num_binaries][max_cols];
   for(i = 0; i < num_binaries; i++)
-    binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_col);
+    binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_cols[i]);
 
   // Pick hash table size
   size_t mem_per_kmer = sizeof(Covg) + sizeof(Edges);
@@ -146,19 +146,19 @@ int ctx_clean(CmdArgs *args)
        .load_binaries = true,
        .must_exist_in_graph = false,
        .empty_colours = false,
-       .update_ginfo = true,
        .db_graph = &db_graph};
 
   // Construct cleaned binary header
-  BinaryFileHeader tmpheader;
-  BinaryFileHeader output_header = {.version = CURR_CTX_VERSION,
+  GraphFileHeader tmpheader = {.capacity = 0};
+  GraphFileHeader output_header = {.version = CTX_GRAPH_FILEFORMAT,
                                     .kmer_size = db_graph.kmer_size,
                                     .num_of_bitfields = NUM_BITFIELDS_IN_BKMER,
                                     .num_of_cols = num_of_cols,
-                                    .num_of_kmers = db_graph.ht.unique_kmers};
+                                    .num_of_kmers = db_graph.ht.unique_kmers,
+                                    .capacity = 0};
 
-  binary_header_alloc(&tmpheader, max_cols);
-  binary_header_alloc(&output_header, num_of_cols);
+  graph_header_alloc(&tmpheader, max_cols);
+  graph_header_alloc(&output_header, num_of_cols);
 
   uint32_t output_colour = 0;
   for(i = 0; i < num_binaries; i++) {
@@ -180,8 +180,8 @@ int ctx_clean(CmdArgs *args)
   size_t header_size = binary_write_header(fh, &output_header);
 
   // Free header resources
-  binary_header_dealloc(&tmpheader);
-  binary_header_dealloc(&output_header);
+  graph_header_dealloc(&tmpheader);
+  graph_header_dealloc(&output_header);
 
   dump_empty_binary(&db_graph, fh, num_of_cols);
 
@@ -209,6 +209,7 @@ int ctx_clean(CmdArgs *args)
           num_of_cols != 1 ? "s" : "", out_ctx_path);
   message("Done.\n");
 
+  graph_header_dealloc(&gheader);
   seq_loading_stats_free(stats);
   free(db_graph.col_edges);
   free(db_graph.col_covgs);

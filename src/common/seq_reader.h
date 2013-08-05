@@ -7,12 +7,13 @@
 #include "file_reader.h"
 
 // Returns index of first kmer or r->seq.end if no kmers
-size_t seq_contig_start(const read_t *r, long offset, uint32_t kmer_size,
+size_t seq_contig_start(const read_t *r, size_t offset, uint32_t kmer_size,
                         int qual_cutoff, int hp_cutoff);
 
 // *search_start is the next position to pass to seq_contig_start
 size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
-                      int qual_cutoff, int hp_cutoff, size_t *search_start);
+                      int qual_cutoff, int hp_cutoff,
+                      size_t *search_start);
 
 // returns offset of the first kmer or -1 if no kmers present
 // Adds a single HASH_NOT_FOUND for gaps
@@ -21,19 +22,20 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
 
 void seq_parse_pe(const char *path1, const char *path2,
                   read_t *r1, read_t *r2,
-                  SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                   void (*read_func)(read_t *r1, read_t *r2,
                                     int qoffset1, int qoffset2,
-                                    SeqLoadingPrefs *prefs,
+                                    const SeqLoadingPrefs *prefs,
                                     SeqLoadingStats *stats,
                                     void *ptr),
                   void *reader_ptr);
 
-void seq_parse_se(const char *path, read_t *r1, read_t *r2,
-                  SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+void seq_parse_se(const char *path,
+                  read_t *r1, read_t *r2,
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                   void (*read_func)(read_t *r1, read_t *r2,
                                     int qoffset1, int qoffset2,
-                                    SeqLoadingPrefs *prefs,
+                                    const SeqLoadingPrefs *prefs,
                                     SeqLoadingStats *stats,
                                     void *ptr),
                   void *reader_ptr);
@@ -41,7 +43,7 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
 
 void seq_load_into_db_graph(read_t *r1, read_t *r2,
                             int qoffset1, int qoffset2,
-                            SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                            const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                             void *ptr);
 
 // set qcutoff and hpcutoff to zero to ignore

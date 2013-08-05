@@ -28,4 +28,13 @@ void safe_fread(FILE *fh, void *ptr, size_t size,
 
 size_t stream_skip(FILE *fh, size_t skip);
 
+#define SAFE_READ(fh,ptr,size,field,path,fatal) {                          \
+  size_t _read = fread(ptr,1,size,fh);                                     \
+  if(_read != size) {                                                      \
+    if(!fatal) return -1;                                                  \
+    die("Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",   \
+        field, (size_t)size, _read, path);                                 \
+  }                                                                        \
+}
+
 #endif /* FILE_UTIL_H_ */

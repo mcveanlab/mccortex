@@ -76,6 +76,16 @@ float log_factorial_ll(unsigned long long number);
 unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 
 //
+// Time
+//
+
+// output of form: "10 days 23 hours 59 mins 59 secs"
+// extreme: "-2147483647 days 23 hours 59 mins 59 secs",
+// so str should be at least 42 bytes long
+// returns number of bytes written
+size_t seconds_to_str(unsigned long seconds, char *str);
+
+//
 // Genetics
 //
 

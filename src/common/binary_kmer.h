@@ -51,7 +51,7 @@ extern const Nucleotide char_to_bnuc[128];
 // Number of bases store in all but the top word
 #define BKMER_LOWER_BASES              ((NUM_BITFIELDS_IN_BKMER-1)*32)
 #define BKMER_TOP_BASES(ksize)         ((ksize) - BKMER_LOWER_BASES)
-#define BKMER_TOP_BITS(ksize)          (BKMER_TOP_BASES(ksize) << 1)
+#define BKMER_TOP_BITS(ksize)          (BKMER_TOP_BASES(ksize) * 2)
 #define BKMER_TOP_BP_BYTEOFFSET(ksize) (BKMER_TOP_BITS(ksize) - 2)
 
 #define binary_kmer_init(b)          memset((b), 0, sizeof(BinaryKmer))
@@ -100,6 +100,9 @@ void binary_kmer_left_shift_one_base(BinaryKmer kmer, uint32_t kmer_size);
 BinaryKmerPtr binary_kmer_reverse_complement(const uint64_t *const restrict kmer,
                                              uint32_t kmer_size,
                                              BinaryKmerPtr restrict revcmp_kmer);
+
+// Get a random binary kmer -- useful for testing
+void binary_kmer_random(BinaryKmer bkmer, uint32_t kmer_size);
 
 // BinaryKmer <-> String functions
 char *binary_kmer_to_str(const BinaryKmer kmer, uint32_t kmer_size, char *seq);

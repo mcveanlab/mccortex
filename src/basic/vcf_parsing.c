@@ -110,7 +110,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
     die("Incorrect number of VCF columns: '%s'", line->buff);
 
   num_cols = 0;
-  end = tmp = line->buff;
+  tmp = line->buff;
   while(1)
   {
     end = strchr(tmp, '\t');
@@ -139,7 +139,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   }
 
   entry->num_alts = 0;
-  end = tmp = entry->cols[VCFALT]->buff;
+  tmp = entry->cols[VCFALT]->buff;
   while(1)
   {
     end = strchr(tmp, ',');
@@ -153,7 +153,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
 
   // Split INFO alleles
   entry->num_info = 0;
-  end = tmp = entry->cols[VCFINFO]->buff;
+  tmp = entry->cols[VCFINFO]->buff;
   entry->lf = entry->rf = NULL;
 
   size_t info_count = 0;

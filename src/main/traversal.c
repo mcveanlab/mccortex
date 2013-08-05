@@ -3,6 +3,7 @@
 
 #include "cmd.h"
 #include "util.h"
+#include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "binary_kmer.h"
@@ -21,52 +22,33 @@ int main(int argc, char **argv)
 
   if(args.argc != 1) print_usage(usage, NULL);
   const char *input_ctx_path = args.argv[0];
-  // const char *start_kmer = args.argv[1];
-
-  // int a = INT_MAX, b = INT_MIN;
-  // long c = INT_MAX, d = INT_MIN;
-  // printf("a-b: %i; b-a: %i; cmp: %i\n", a-b, b-a, int_cmp(&a,&b));
-  // printf("c-d: %li; d-c: %li; cmp: %i\n", c-d, d-c, long_cmp(&c,&d));
-  // exit(-1);
 
   /* initialize random seed: */
   srand(time(NULL));
 
   // probe binary
   boolean is_binary = false;
-  uint32_t kmer_size, num_of_cols;
-  uint64_t num_kmers;
+  GraphFileHeader gheader = {.capacity = 0};
 
-  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &num_kmers))
+  if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
   // probe paths file
-  char input_paths_file[strlen(input_ctx_path)+4];
-  paths_format_filename(input_ctx_path, input_paths_file);
+  const char *input_paths_file = args.ctp_path;
 
   boolean valid_paths_file = false;
-  uint64_t ctp_num_paths, ctp_num_path_bytes, ctp_num_path_kmers;
-  uint32_t ctp_kmer_size, ctp_num_of_cols;
+  PathFileHeader pheader = {.capacity = 0};
 
-  if(!file_exists(input_paths_file))
-  {
-    input_paths_file[0] = '\0';
-    warn("Cannot find ctp file - not using paths");
-  }
-  else if(!paths_format_probe(input_paths_file, &valid_paths_file,
-                              &ctp_kmer_size, &ctp_num_of_cols, &ctp_num_paths,
-                              &ctp_num_path_bytes, &ctp_num_path_kmers))
-  {
+  if(input_paths_file == NULL)
+    warn("No paths file given (-p <in.ctp>)");
+  else if(!paths_file_probe(input_paths_file, &valid_paths_file, &pheader))
     print_usage(usage, "Cannot read .ctp file: %s", input_paths_file);
-  }
   else if(!valid_paths_file)
     die("Invalid .ctp file: %s", input_paths_file);
-  else if(ctp_num_of_cols != num_of_cols)
-    die("Number of colours in .ctp does not match .ctx");
-  else if(ctp_kmer_size != kmer_size)
-    die("Kmer size in .ctp does not match .ctx");
+
+  // paths_compatibility_check(db_graph, pheader);
 
   // Get starting bkmer
   // BinaryKmer bkmer, bkey;
@@ -74,14 +56,14 @@ int main(int argc, char **argv)
   // binary_kmer_from_str(start_kmer, kmer_size, bkmer);
 
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t hash_kmers, req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
   size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
   size_t path_mem = args.mem_to_use - hash_mem;
 
   dBGraph db_graph;
   GraphWalker wlk;
 
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, req_num_kmers);
+  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, req_num_kmers);
   graph_walker_alloc(&wlk);
 
   size_t node_bit_fields = round_bits_to_words64(db_graph.ht.capacity);
@@ -94,7 +76,7 @@ int main(int argc, char **argv)
   uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
+  binary_paths_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -103,7 +85,6 @@ int main(int argc, char **argv)
                            .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = true,
-                           .update_ginfo = true,
                            .db_graph = &db_graph};
 
   binary_load(input_ctx_path, &prefs, stats, NULL);
@@ -112,8 +93,10 @@ int main(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path file
-  if(strlen(input_paths_file) > 0)
-    paths_format_read(&db_graph, &db_graph.pdata, NULL, false, input_paths_file);
+  if(input_paths_file != NULL) {
+    paths_format_read(input_paths_file, &pheader, &db_graph,
+                      &db_graph.pdata, false);
+  }
 
   // Find start node
   // hkey_t node;
@@ -198,8 +181,8 @@ int main(int argc, char **argv)
           (double)total_junc / n, (100.0 * total_junc) / total_len,
           (double)total_len / total_junc);
 
-  qsort(lengths, n, sizeof(size_t), size_cmp);
-  qsort(junctions, n, sizeof(size_t), size_cmp);
+  qsort(lengths, n, sizeof(size_t), cmp_size);
+  qsort(junctions, n, sizeof(size_t), cmp_size);
 
   double median_len = MEDIAN(lengths, n);
   double median_junc = MEDIAN(junctions, n);
@@ -212,6 +195,9 @@ int main(int argc, char **argv)
   free(db_graph.node_in_cols);
   free((void*)db_graph.kmer_paths);
   free(path_store);
+
+  graph_header_dealloc(&gheader);
+  paths_header_dealloc(&pheader);
   graph_walker_dealloc(&wlk);
   db_graph_dealloc(&db_graph);
 

@@ -120,7 +120,7 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
 
 void filter_reads(read_t *r1, read_t *r2,
                   int qoffset1, int qoffset2,
-                  SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
 {
   (void)qoffset1; (void)qoffset2;
   (void)prefs; (void)stats;
@@ -190,7 +190,7 @@ int ctx_reads(CmdArgs *args)
 
   int argend = argi;
 
-  int i, num_binaries = argc - argend;
+  size_t i, num_binaries = argc - argend;
   char *binary_paths[num_binaries];
 
   if(num_binaries == 0)
@@ -200,26 +200,26 @@ int ctx_reads(CmdArgs *args)
   // Probe binaries to get kmer-size
   //
   boolean is_binary = false;
-  uint32_t kmer_size, kmer_size2, num_of_cols, max_col;
-  uint64_t num_kmers, max_num_kmers = 0;
+  uint32_t kmer_size;
+  uint64_t max_num_kmers = 0;
+  GraphFileHeader gheader;
 
   for(i = 0; i < num_binaries; i++)
   {
     binary_paths[i] = argv[argend+i];
 
-    if(!binary_probe(binary_paths[i], &is_binary, &kmer_size2,
-                     &num_of_cols, &max_col, &num_kmers)) {
+    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
       print_usage(usage, "Cannot read binary file: %s", binary_paths[i]);
-    } else if(!is_binary)
+    else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
 
-    if(i == 0) kmer_size = kmer_size2;
-    else if(kmer_size != kmer_size2) {
+    if(i == 0) kmer_size = gheader.kmer_size;
+    else if(kmer_size != gheader.kmer_size) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
-          kmer_size, kmer_size2, binary_paths[i-1], binary_paths[i]);
+          kmer_size, gheader.kmer_size, binary_paths[i-1], binary_paths[i]);
     }
 
-    max_num_kmers = MAX2(num_kmers, max_num_kmers);
+    max_num_kmers = MAX2(gheader.num_of_kmers, max_num_kmers);
   }
 
   //
@@ -257,7 +257,7 @@ int ctx_reads(CmdArgs *args)
   // Set up graph
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
 
   // Load binaries
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -270,7 +270,6 @@ int ctx_reads(CmdArgs *args)
                            .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = true,
-                           .update_ginfo = false,
                            .db_graph = &db_graph};
 
   for(i = 0; i < num_binaries; i++)

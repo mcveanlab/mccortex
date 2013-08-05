@@ -32,6 +32,8 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts)
     die("-k <kmer-size> argument not valid for this command");
   if(args->file_set && strchr(accptopts,'f') == NULL)
     die("-f <file> argument not valid for this command");
+  if(args->ctp_set && strchr(accptopts,'p') == NULL)
+    die("-p <in.ctp> argument not valid for this command");
 }
 
 void cmd_require_options(const CmdArgs *args, const char *requireopts,
@@ -65,6 +67,10 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
       if(!args->file_set)
         die("-f <file> argument required for this command");
     }
+    else if(*requireopts == 'p') {
+      if(!args->file_set)
+        die("-p <in.ctp> argument required for this command");
+    }
     else warn("Ignored required option: %c", *requireopts);
   }
 }
@@ -75,8 +81,9 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   args->num_kmers = 4UL << 20; // 4M
   args->mem_to_use = 1UL << 30; // 1G
   args->num_threads = 2;
-  args->kmer_size = 31;
+  args->kmer_size = MAX_KMER_SIZE;
   args->file = NULL;
+  args->ctp_path = NULL;
 
   args->mem_to_use_set = false;
   args->genome_size_set = false;
@@ -84,6 +91,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   args->num_kmers_set = false;
   args->kmer_size_set = false;
   args->file_set = false;
+  args->ctp_set = false;
 
   // Get command index
   boolean is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
@@ -97,6 +105,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   args->argc = 0;
   args->argv = malloc2(argc * sizeof(char**));
 
+  // Get cmdline string
   size_t len = argc - 1; // spaces
   int i;
   for(i = 0; i < argc; i++) len += strlen(argv[i]);
@@ -156,6 +165,13 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
       if(i + 1 == argc) die("-f <file> requires an argument");
       args->file = argv[i+1];
       args->kmer_size_set = true;
+      i++;
+    }
+    else if(strcmp(argv[i], "-p") == 0)
+    {
+      if(i + 1 == argc) die("-p <in.ctp> requires an argument");
+      args->ctp_path = argv[i+1];
+      args->ctp_set = true;
       i++;
     }
     else {

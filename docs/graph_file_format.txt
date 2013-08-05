@@ -1,7 +1,12 @@
+Graph File format
+
+Extension: .ctx
+Version in use: 6
+
 *******************************
 Binary File Format Version 7:
 
-From version | datatype | no. elements | Notes
+version+ | datatype | no. elements | Notes
 --------------------------------------------------------------------------------
  Header start:
 --------------------------------------------------------------------------------

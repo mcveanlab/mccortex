@@ -68,13 +68,14 @@ int ctx_covg(CmdArgs *args)
 
   // Probe binary
   boolean is_binary = false;
-  uint32_t kmer_size, ctx_num_of_cols, max_col;
-  uint64_t num_kmers;
+  GraphFileHeader gheader = {.capacity = 0};
 
-  if(!binary_probe(in_ctx_path, &is_binary, &kmer_size, &ctx_num_of_cols, &max_col, &num_kmers))
+  if(!graph_file_probe(in_ctx_path, &is_binary, &gheader))
     print_usage(usage, "Cannot read input binary file: %s", in_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", in_ctx_path);
+
+  uint32_t kmer_size = gheader.kmer_size;
 
   if(!test_file_readable(in_vcf_path))
     print_usage(usage, "Cannot read input VCF: %s", in_vcf_path);
@@ -90,17 +91,18 @@ int ctx_covg(CmdArgs *args)
   if(!test_file_writable(out_vcf_path))
     print_usage(usage, "Cannot write to output file: %s", out_vcf_path);
 
-  if(num_col_given > 0 && ctx_num_of_cols != num_col_given)
+  if(num_col_given > 0 && gheader.num_of_cols != num_col_given)
     die("You're using more colours than you need!");
 
-  uint32_t cols_used = num_col_given > 0 ? num_col_given : ctx_num_of_cols;
+  uint32_t cols_used = num_col_given > 0 ? num_col_given : gheader.num_of_cols;
 
   // Figure out how much mem to use
-  size_t mem_per_kmer, kmers_in_hash, hash_mem, graph_mem;
+  size_t extra_mem_per_kmer, mem_per_kmer, kmers_in_hash, hash_mem, graph_mem;
 
-  mem_per_kmer = sizeof(BinaryKmer) + sizeof(Edges) + sizeof(Covg)*cols_used;
+  extra_mem_per_kmer = sizeof(Edges) + sizeof(Covg)*cols_used;
+  mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
   hash_mem = hash_table_mem2(mem_to_use / mem_per_kmer, &kmers_in_hash);
-  graph_mem = kmers_in_hash * mem_per_kmer;
+  graph_mem = hash_mem + kmers_in_hash * extra_mem_per_kmer;
 
   // Create db_graph
   dBGraph db_graph;
@@ -165,7 +167,6 @@ int ctx_covg(CmdArgs *args)
                            .load_binaries = true,
                            .must_exist_in_graph = true,
                            .empty_colours = false,
-                           .update_ginfo = true,
                            .db_graph = &db_graph};
 
   binary_load(in_ctx_path, &prefs, stats, NULL);
@@ -249,6 +250,8 @@ int ctx_covg(CmdArgs *args)
       delta_arr_dealloc(&covg_array[i]);
 
   free(covg_array);
+
+  graph_header_dealloc(&gheader);
 
   seq_loading_stats_free(stats);
   free(db_graph.col_edges);

@@ -18,7 +18,7 @@ static const char usage[] =
 "\n"
 "  Sequence Options:\n"
 "  --fq_threshold <qual>  Filter quality scores [default: 0 (off)]\n"
-"  --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detected)]\n"
+"  --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  --cut_hp <len>         Breaks reads at homopolymers >= <len> [default: off]\n"
 "  --remove_pcr           Remove (or keep) PCR duplicate reads [default: keep]\n"
 "  --keep_pcr\n"
@@ -38,14 +38,15 @@ static const char usage[] =
 "  --load_binary <in.ctx>[:cols]     Load samples from a binary\n"
 "\n"
 "  Colour can be specifed after binary path, e.g. in.ctx:0,6-8 will load\n"
-"  samples 0,6,7,8\n"
+"  samples 0,6,7,8.  Binaries are loaded into new colours.\n"
 "\n"
 " Example - build a two sample graph with k=31 using 60G RAM:\n"
 "   "CMD" build -k 31 -m 60G --fq_threshold 5 --cut_hp 8 \\\n"
 "               --sample bob --seq bob.bam \\\n"
 "               --sample dylan --remove_pcr --seq dylan.sam \\\n"
 "                              --keep_pcr --fq_offset 33 \\\n"
-"                              --seq2 dylan.1.fq.gz dylan.2.fq.gz bob.dylan.k31.ctx\n";
+"                              --seq2 dylan.1.fq.gz dylan.2.fq.gz \\\n"
+"               bob.dylan.k31.ctx\n";
 
 static void update_ginfo(GraphInfo *ginfo, SeqLoadingStats *stats,
                          uint64_t *bases_loaded, uint64_t *contigs_loaded)
@@ -55,6 +56,23 @@ static void update_ginfo(GraphInfo *ginfo, SeqLoadingStats *stats,
   graph_info_update_contigs(ginfo, bases, contigs);
   *bases_loaded = stats->total_bases_loaded;
   *contigs_loaded = stats->contigs_loaded;
+}
+
+static void print_prefs(const SeqLoadingPrefs *prefs)
+{
+  char minQual[30] = "off", fqOffset[30] = "off", hpCutoff[30] = "auto-detect";
+
+  if(prefs->quality_cutoff > 0)
+    sprintf(minQual, "%u", prefs->quality_cutoff);
+  if(prefs->ascii_fq_offset > 0)
+    sprintf(fqOffset, "%u", prefs->ascii_fq_offset);
+  if(prefs->homopolymer_cutoff > 0)
+    sprintf(hpCutoff, "%u", prefs->homopolymer_cutoff);
+
+  message("[prefs] FASTQ minQual: %s; FASTQ offset: %s; cut homopolymers: %s; "
+          "remove PCR duplicates SE: %s, PE: %s\n", minQual, fqOffset, hpCutoff,
+          prefs->remove_dups_se ? "yes" : "no",
+          prefs->remove_dups_pe ? "yes" : "no");
 }
 
 int ctx_build(CmdArgs *args)
@@ -74,6 +92,8 @@ int ctx_build(CmdArgs *args)
   // Validate arguments
   int argi, argend = argc-1;
   uint32_t tmp;
+  GraphFileHeader gheader = {.capacity = 0};
+
   for(argi = 0; argi < argend; argi++)
   {
     if(strcmp(argv[argi],"--fq_threshold") == 0) {
@@ -122,29 +142,26 @@ int ctx_build(CmdArgs *args)
       sample_used = true;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
-      if(argi + 1 >= argend)
-        print_usage(usage, "--load_binary requires an arg");
-      // probe binary to get number of colours
+      if(argi + 1 >= argend) print_usage(usage, "--load_binary requires an arg");
       boolean is_binary = false;
-      uint32_t bin_kmer_size, bin_num_of_cols, max_col;
-      uint64_t bin_num_kmers;
-      if(!binary_probe(argv[argi+1], &is_binary, &bin_kmer_size,
-                       &bin_num_of_cols, &max_col, &bin_num_kmers)) {
+
+      if(!graph_file_probe(argv[argi+1], &is_binary, &gheader)) {
         print_usage(usage, "Cannot read binary file: %s", argv[argi+1]);
       } else if(!is_binary) {
         print_usage(usage, "Input binary file isn't valid: %s", argv[argi+1]);
-      } else if(bin_kmer_size != kmer_size) {
+      } else if(gheader.kmer_size != kmer_size) {
         print_usage(usage, "Input binary kmer_size doesn't match [%u vs %u]",
-                    bin_kmer_size, kmer_size);
+                    gheader.kmer_size, kmer_size);
       }
       argi++;
-      colours_used += bin_num_of_cols;
+      colours_used += gheader.num_of_cols;
       sample_named = false;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
       if(argi + 1 >= argend)
         print_usage("--sample <name> requires an argument", NULL);
-      if(!sample_used) warn("Empty colour (maybe you intended this)");
+      if(colours_used > 0 && !sample_used)
+        warn("Empty colour (maybe you intended this)");
       argi++;
       colours_used++;
       sample_named = true;
@@ -154,6 +171,8 @@ int ctx_build(CmdArgs *args)
       print_usage(usage, "Unknown command: %s", argv[argi]);
     }
   }
+
+  graph_header_dealloc(&gheader);
 
   if(!test_file_writable(out_path))
     die("Cannot write to file: %s", out_path);
@@ -182,38 +201,46 @@ int ctx_build(CmdArgs *args)
                            .remove_dups_se = false, .remove_dups_pe = false,
                            .load_binaries = true,
                            .must_exist_in_graph = false, .empty_colours = false,
-                           .update_ginfo = true, .db_graph = &db_graph};
+                           .db_graph = &db_graph};
 
   read_t r1, r2;
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
 
   uint64_t bases_loaded = 0, contigs_loaded = 0;
+  boolean show_prefs = true;
 
   for(argi = 0; argi < argend; argi++)
   {
     if(strcmp(argv[argi],"--fq_threshold") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.quality_cutoff = tmp;
+      show_prefs = true;
       argi += 1;
     }
     else if(strcmp(argv[argi],"--fq_offset") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.ascii_fq_offset = tmp;
+      show_prefs = true;
       argi += 1;
     }
     else if(strcmp(argv[argi],"--remove_pcr") == 0) {
       prefs.remove_dups_pe = true;
+      show_prefs = true;
     }
     else if(strcmp(argv[argi],"--keep_pcr") == 0) {
       prefs.remove_dups_pe = false;
+      show_prefs = true;
     }
     else if(strcmp(argv[argi],"--cut_hp") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.homopolymer_cutoff = tmp;
+      show_prefs = true;
       argi += 1;
     }
     else if(strcmp(argv[argi],"--seq") == 0) {
+      if(show_prefs) print_prefs(&prefs);
+      show_prefs = false;
       seq_parse_se(argv[argi+1], &r1, &r2, &prefs, stats,
                    seq_load_into_db_graph, NULL);
       update_ginfo(&db_graph.ginfo[prefs.into_colour],
@@ -221,6 +248,8 @@ int ctx_build(CmdArgs *args)
       argi += 1;
     }
     else if(strcmp(argv[argi],"--seq2") == 0) {
+      if(show_prefs) print_prefs(&prefs);
+      show_prefs = false;
       seq_parse_pe(argv[argi+1], argv[argi+2], &r1, &r2, &prefs, stats,
                    seq_load_into_db_graph, NULL);
       update_ginfo(&db_graph.ginfo[prefs.into_colour],
@@ -228,11 +257,12 @@ int ctx_build(CmdArgs *args)
       argi += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
-      binary_load(argv[argi+1], &prefs, stats, NULL);
+      prefs.into_colour += binary_load(argv[argi+1], &prefs, stats, NULL);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
       prefs.into_colour++;
+      message("[sample] %u: %s\n", prefs.into_colour, argv[argi+1]);
       strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
       argi += 1;
     }
@@ -247,10 +277,8 @@ int ctx_build(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  binary_dump_graph(out_path, &db_graph, CURR_CTX_VERSION, NULL, 0, colours_used);
-
-  message("Dumped cortex binary to: %s (format version %u; %u colour%s)\n",
-          out_path, CURR_CTX_VERSION, colours_used, colours_used != 1 ? "s" : "");
+  message("Dumping binary...\n");
+  binary_dump_graph(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
 
   message("Done.\n");
 

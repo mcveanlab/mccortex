@@ -97,7 +97,8 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
   if(db_graph->col_edges != NULL) {
     db_node_set_col_edge(db_graph, colour, src_node, rhs_nuc, src_orient);
     db_node_set_col_edge(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
-  } else {
+  }
+  if(db_graph->edges != NULL) {
     db_node_set_edge(db_graph, src_node, rhs_nuc, src_orient);
     db_node_set_edge(db_graph, tgt_node, lhs_nuc_rev, tgt_orient_opp);
   }

@@ -157,6 +157,16 @@ BinaryKmerPtr binary_kmer_reverse_complement(const uint64_t *const restrict kmer
   return revcmp_kmer;
 }
 
+// Get a random binary kmer -- useful for testing
+void binary_kmer_random(BinaryKmer bkmer, uint32_t kmer_size)
+{
+  uint64_t i, *ptr = bkmer;
+  for(i = 0; i < sizeof(BinaryKmer) / 8; i++, ptr++)
+    *ptr = ((uint64_t)rand()) << 32 | rand();
+  ptr = bkmer;
+  *ptr >>= 64 - BKMER_TOP_BASES(kmer_size);
+}
+
 //
 // Functions operating on strings
 //
@@ -168,11 +178,6 @@ BinaryKmerPtr binary_kmer_from_str(const char *seq, uint32_t kmer_size,
 {
   assert(seq != NULL);
   assert(prealloced_kmer != NULL);
-
-  if(strlen(seq) < kmer_size) {
-    printf("[kmer:%u>%zu]: '%s' %i\n", kmer_size, strlen(seq), seq, seq[0]);
-  }
-
   assert(strlen(seq) >= kmer_size);
 
   uint32_t i;

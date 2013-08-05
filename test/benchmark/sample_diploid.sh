@@ -55,16 +55,14 @@ cmd "echo reads1.0.fa >> reads.0.falist"
 cmd "echo reads0.1.fa > reads.1.falist"
 cmd "echo reads1.1.fa >> reads.1.falist"
 
-cmd "echo reads0.0.fa > reads.se.falist"
-cmd "echo reads0.1.fa >> reads.se.falist"
-cmd "echo reads1.0.fa >> reads.se.falist"
-cmd "echo reads1.1.fa >> reads.se.falist"
+cmd "cat reads.0.falist reads.1.falist > reads.se.falist"
+
+SELIST="--seq reads0.0.fa --seq reads0.1.fa --seq reads1.0.fa --seq reads1.1.fa"
+PELIST="--seq2 reads0.0.fa reads0.1.fa --seq2 reads1.0.fa reads1.1.fa"
 
 # Make diploid.k31.ctx
-cmd $BUILDCTX -k 31 -m 100MB --pe_list reads.0.falist reads.1.falist diploid.k31.ctx
-
-# Add shades to binary
-# cmd $CTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --dump_binary diploid.shaded.k31.ctx
+cmd time $BUILDCTX -k 31 -m 100MB --sample MrDiploid $SELIST diploid.k31.ctx
+cmd time $OLDCTX --sample_id MrDiploid --se_list reads.se.falist --dump_binary diploid.k31.old.ctx
 
 # Call with old bc
 cmd time $OLDCTX --load_binary diploid.k31.ctx --detect_bubbles1 0/0 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
@@ -81,23 +79,17 @@ cmd $PROC diploid.newbc.bubbles.gz diploid.newbc
 cmd gzip -d -f diploid.newbc.vcf.gz
 
 # Call with new bc + shades (also add shades)
-# cmd time $OLDCTX --load_binary diploid.shaded.k31.ctx --paths_caller diploid.newbc.shaded.bubbles.gz
 cmd time $OLDCTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.falist,reads.1.falist --paths_caller diploid.newbc.shaded.bubbles.gz
 cmd $PROC diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
 cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 
-# Call with CALL
-ln diploid.k31.ctx diploid.k31.se.ctx
-ln diploid.k31.ctx diploid.k31.pe.ctx
-ln diploid.k31.ctx diploid.k31.sepe.ctx
-
-cmd time $THREAD -t 2 -m 100MB --se_list 0 reads.se.falist diploid.k31.se.ctx
-cmd time $THREAD -t 2 -m 100MB --pe_list 0 reads.0.falist reads.1.falist diploid.k31.pe.ctx
-cmd time $THREAD -t 2 -m 100MB --se_list 0 reads.se.falist --pe_list 0 reads.0.falist reads.1.falist diploid.k31.sepe.ctx
+cmd time $THREAD -t 2 -m 100MB --col 0 0 $SELIST 1 diploid.k31.se.ctp diploid.k31.ctx diploid.k31.ctx
+cmd time $THREAD -t 2 -m 100MB --col 0 0 $PELIST 1 diploid.k31.pe.ctp diploid.k31.ctx diploid.k31.ctx
+cmd time $THREAD -t 2 -m 100MB --col 0 0 $SELIST $PELIST 1 diploid.k31.sepe.ctp diploid.k31.ctx diploid.k31.ctx
 
 for x in se pe sepe
 do
-  cmd time $CALL -t 2 -m 100MB diploid.k31.$x.ctx diploid.pac.$x.bubbles.gz
+  cmd time $CALL -t 2 -m 100MB -p diploid.k31.$x.ctp diploid.k31.ctx diploid.pac.$x.bubbles.gz
   cmd $PROC diploid.pac.$x.bubbles.gz diploid.pac.$x
   cmd gzip -d -f diploid.pac.$x.vcf.gz
 done

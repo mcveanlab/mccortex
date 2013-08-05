@@ -111,6 +111,10 @@ void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
         edges_get_union((graph)->col_edges+(hkey)*(graph)->num_of_cols, \
                         (graph)->num_of_cols)
 
+#define db_node_union_edges(graph,hkey) \
+        ((graph)->edges == NULL ? db_node_col_edges_union(graph,hkey) \
+                                : (graph)->edges[hkey])
+
 #define db_node_set_col_edge(graph,col,hkey,nuc,or) \
 ((graph)->col_edges[(hkey)*(graph)->num_of_cols + col] \
   = edges_set_edge((graph)->col_edges[(hkey)*(graph)->num_of_cols + col],(nuc),(or)))

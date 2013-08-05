@@ -1,7 +1,7 @@
 #include "global.h"
 #include "graph_info.h"
 
-void error_cleaning_init(ErrorCleaning *ec)
+static void error_cleaning_init(ErrorCleaning *ec)
 {
   ec->tip_clipping = ec->remv_low_cov_sups = ec->remv_low_cov_nodes = false;
   ec->remv_low_cov_sups_thresh = ec->remv_low_cov_nodes_thresh = 0;
@@ -9,35 +9,46 @@ void error_cleaning_init(ErrorCleaning *ec)
   strbuf_set(&ec->cleaned_against_graph_name, "undefined");
 }
 
-void error_cleaning_alloc(ErrorCleaning *ec)
+static void error_cleaning_alloc(ErrorCleaning *ec)
 {
   strbuf_alloc(&ec->cleaned_against_graph_name, 256);
   error_cleaning_init(ec);
 }
 
-void error_cleaning_dealloc(ErrorCleaning *ec)
+static void error_cleaning_dealloc(ErrorCleaning *ec)
 {
   strbuf_dealloc(&ec->cleaned_against_graph_name);
 }
 
-void error_cleaning_overwrite(ErrorCleaning *tgt, const ErrorCleaning *src)
+static void error_cleaning_cpy(ErrorCleaning *dst, const ErrorCleaning *src)
 {
-  tgt->tip_clipping |= src->tip_clipping;
-  tgt->remv_low_cov_sups |= src->remv_low_cov_sups;
-  tgt->remv_low_cov_nodes |= src->remv_low_cov_nodes;
-  tgt->remv_low_cov_sups_thresh = MAX2(tgt->remv_low_cov_sups_thresh,
+  dst->tip_clipping = src->tip_clipping;
+  dst->remv_low_cov_sups = src->remv_low_cov_sups;
+  dst->remv_low_cov_nodes = src->remv_low_cov_nodes;
+  dst->remv_low_cov_sups_thresh = src->remv_low_cov_sups_thresh;
+  dst->remv_low_cov_nodes_thresh = src->remv_low_cov_nodes_thresh;
+  dst->cleaned_against_another_graph = src->cleaned_against_another_graph;
+  strbuf_set(&dst->cleaned_against_graph_name, src->cleaned_against_graph_name.buff);
+}
+
+static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
+{
+  dst->tip_clipping |= src->tip_clipping;
+  dst->remv_low_cov_sups |= src->remv_low_cov_sups;
+  dst->remv_low_cov_nodes |= src->remv_low_cov_nodes;
+  dst->remv_low_cov_sups_thresh = MAX2(dst->remv_low_cov_sups_thresh,
                                        src->remv_low_cov_sups_thresh);
-  tgt->remv_low_cov_nodes_thresh = MAX2(tgt->remv_low_cov_nodes_thresh,
+  dst->remv_low_cov_nodes_thresh = MAX2(dst->remv_low_cov_nodes_thresh,
                                         src->remv_low_cov_nodes_thresh);
 
   if(src->cleaned_against_another_graph &&
      src->cleaned_against_graph_name.len > 0 &&
      strcmp(src->cleaned_against_graph_name.buff,"undefined") != 0)
   {
-    strbuf_set(&tgt->cleaned_against_graph_name,
+    strbuf_set(&dst->cleaned_against_graph_name,
                src->cleaned_against_graph_name.buff);
   }
-  tgt->cleaned_against_another_graph |= src->cleaned_against_another_graph;
+  dst->cleaned_against_another_graph |= src->cleaned_against_another_graph;
 }
 
 void graph_info_init(GraphInfo *ginfo)
@@ -80,6 +91,15 @@ void graph_info_update_contigs(GraphInfo *ginfo,
   ginfo->total_sequence = total_sequence;
 }
 
+void graph_info_cpy(GraphInfo *dst, const GraphInfo *src)
+{
+  dst->mean_read_length = src->mean_read_length;
+  dst->total_sequence = src->total_sequence;
+  dst->seq_err = src->seq_err;
+  strbuf_set(&dst->sample_name, src->sample_name.buff);
+  error_cleaning_cpy(&dst->cleaning, &src->cleaning);
+}
+
 void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
 {
   // Update sample name
@@ -91,6 +111,7 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
 
   if(total_sequence > 0)
   {
+    // DEV: this can be better
     // Average error rates
     dst->seq_err
       = (dst->seq_err * dst->total_sequence +
@@ -107,5 +128,5 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
   dst->total_sequence = total_sequence;
 
   // Update error cleaning
-  error_cleaning_overwrite(&dst->cleaning, &src->cleaning);
+  error_cleaning_merge(&dst->cleaning, &src->cleaning);
 }

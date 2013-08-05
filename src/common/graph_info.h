@@ -4,12 +4,6 @@
 #include <inttypes.h>
 #include "graph_typedef.h"
 
-void error_cleaning_init(ErrorCleaning *ec);
-void error_cleaning_alloc(ErrorCleaning *ec);
-void error_cleaning_dealloc(ErrorCleaning *ec);
-
-void error_cleaning_overwrite(ErrorCleaning *tgt, const ErrorCleaning *src);
-
 void graph_info_init(GraphInfo *ginfo);
 void graph_info_alloc(GraphInfo *ginfo);
 void graph_info_dealloc(GraphInfo *ginfo);
@@ -19,6 +13,7 @@ void graph_info_dealloc(GraphInfo *ginfo);
 void graph_info_update_contigs(GraphInfo *ginfo,
                                uint64_t added_seq, uint64_t num_contigs);
 
+void graph_info_cpy(GraphInfo *dst, const GraphInfo *src);
 void graph_info_merge(GraphInfo *dst, const GraphInfo *src);
 
 #endif /* GRAPH_INFO_H_ */

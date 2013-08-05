@@ -146,7 +146,7 @@ static void diverge_call_node(const BinaryKmer bkmer, const dBGraph *db_graph,
 
 void diverge_call(read_t *r1, read_t *r2,
                   int qoffset1, int qoffset2,
-                  SeqLoadingPrefs *prefs,
+                  const SeqLoadingPrefs *prefs,
                   SeqLoadingStats *stats,
                   void *ptr)
 {
@@ -173,7 +173,8 @@ void diverge_call(read_t *r1, read_t *r2,
   READ_TO_BKMERS(r1, kmer_size, 0, 0, stats,
                  diverge_call_node, db_graph, data);
 
-  db_graph_wipe_colour(db_graph, 0);
+  // DEV: find replacement
+  // db_graph_wipe_colour(db_graph, 0);
 }
 
 // DEV: load ref into colour 0
@@ -198,13 +199,14 @@ int ctx_diverge(CmdArgs *args)
 
   // Probe ctx
   boolean is_binary = false;
-  uint32_t kmer_size, num_of_cols, max_col;
-  uint64_t num_kmers;
+  GraphFileHeader gheader = {.capacity = 0};
 
-  if(!binary_probe(input_ctx_path, &is_binary, &kmer_size, &num_of_cols, &max_col, &num_kmers))
+  if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
+
+  uint32_t kmer_size = gheader.kmer_size, num_of_cols = gheader.num_of_cols;
 
   if(!parse_entire_uint(argv[3], &colour) || colour == 0)
     print_usage(usage, "Invalid colour: %s", argv[3]);
@@ -229,7 +231,7 @@ int ctx_diverge(CmdArgs *args)
   // chrom kmer pos
 
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t hash_kmers, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
   size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
 
   size_t graph_mem = hash_mem +
@@ -291,7 +293,6 @@ int ctx_diverge(CmdArgs *args)
                            .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
-                           .update_ginfo = true,
                            .db_graph = &db_graph};
 
   binary_load(input_ctx_path, &prefs, stats, NULL);
@@ -313,6 +314,7 @@ int ctx_diverge(CmdArgs *args)
   free((void *)db_graph.kmer_paths);
   free(path_store);
 
+  graph_header_dealloc(&gheader);
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 

@@ -24,7 +24,7 @@ int prev_guess_fastq_format = -1;
 //  < homopolymer_cutoff valid
 
 // Returns index of first kmer or r->seq.end if no kmers
-size_t seq_contig_start(const read_t *r, long offset, uint32_t kmer_size,
+size_t seq_contig_start(const read_t *r, size_t offset, uint32_t kmer_size,
                         int qual_cutoff, int hp_cutoff)
 {
   size_t next_kmer, index = offset;
@@ -183,43 +183,47 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
   return first_node_offset;
 }
 
-void process_new_read(read_t *r, int qmin, int qmax, const char *path)
+static void process_new_read(read_t *r, int qmin, int qmax, const char *path)
 {
-  seq_read_to_uppercase(r);
+  // seq_read_to_uppercase(r);
 
-  char *tmp;
+  const char *tmp;
+  int c;
   for(tmp = r->seq.b; *tmp != '\0'; tmp++)
   {
-    if(!char_is_dna_base(*tmp) && *tmp != 'N' && !invalid_bases[(size_t)*tmp])
+    if(!char_is_dna_base(*tmp) && (c = toupper(*tmp)) != 'N' && !invalid_bases[c])
     {
-      warn("Invalid sequence [%c] [read: %s; path: %s]\n",
+      warn("Invalid sequence '%c' [read: %s; path: %s]\n",
            *tmp, r->name.b, path);
-      invalid_bases[(size_t)*tmp] = 1;
+      invalid_bases[c] = 1;
     }
   }
 
   // Check quality string
-  if(r->qual.end > 0 && r->seq.end != r->qual.end)
+  if(r->qual.end > 0)
   {
-    warn("Quality string is not the same length as sequence [%i vs %i; read: %s; "
-         "path: %s]", (int)r->qual.end, (int)r->seq.end, r->name.b, path);
-  }
-
-  // Check out-of-range qual string
-  for(tmp = r->qual.b; *tmp != '\0'; tmp++)
-  {
-    int q = *tmp;
-    if(q < qmin && !fastq_qual_too_small)
+    if(r->seq.end != r->qual.end)
     {
-      warn("FASTQ qual too small [%i < %i..%i; read: %s; path: %s]",
-           q, qmin, qmax, r->name.b, path);
-      fastq_qual_too_small = 1;
+      warn("Quality string is not the same length as sequence [%i vs %i; read: %s; "
+           "path: %s]", (int)r->qual.end, (int)r->seq.end, r->name.b, path);
     }
-    else if(q > qmax && !fastq_qual_too_big)
+
+    // Check out-of-range qual string
+    for(tmp = r->qual.b; *tmp != '\0'; tmp++)
     {
-      warn("FASTQ qual too big [%i > %i..%i; read: %s; path: %s]",
-           q, qmin, qmax, r->name.b, path);
-      fastq_qual_too_big = 1;
+      int q = *tmp;
+      if(q < qmin && !fastq_qual_too_small)
+      {
+        warn("FASTQ qual too small [%i < %i..%i; read: %s; path: %s]",
+             q, qmin, qmax, r->name.b, path);
+        fastq_qual_too_small = 1;
+      }
+      else if(q > qmax && !fastq_qual_too_big)
+      {
+        warn("FASTQ qual too big [%i > %i..%i; read: %s; path: %s]",
+             q, qmin, qmax, r->name.b, path);
+        fastq_qual_too_big = 1;
+      }
     }
   }
 }
@@ -269,14 +273,15 @@ void test_file_qual_offset(const char *path, int qoffset, int qmax)
 
 void seq_parse_pe(const char *path1, const char *path2,
                   read_t *r1, read_t *r2,
-                  SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                   void (*read_func)(read_t *_r1, read_t *_r2,
                                     int _qoffset1, int _qoffset2,
-                                    SeqLoadingPrefs *_prefs,
+                                    const SeqLoadingPrefs *_prefs,
                                     SeqLoadingStats *_stats,
                                     void *_ptr),
                   void *reader_ptr)
 {
+  message("Parsing files %s %s\n", path1, path2);
   // Guess offset if needed
   int qoffset1 = prefs->ascii_fq_offset, qoffset2 = prefs->ascii_fq_offset;
   int qmin1 = prefs->ascii_fq_offset, qmin2 = prefs->ascii_fq_offset;
@@ -343,14 +348,16 @@ void seq_parse_pe(const char *path1, const char *path2,
 }
 
 void seq_parse_se(const char *path, read_t *r1, read_t *r2,
-                  SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                   void (*read_func)(read_t *r1, read_t *r2,
                                     int qoffset1, int qoffset2,
-                                    SeqLoadingPrefs *prefs,
+                                    const SeqLoadingPrefs *prefs,
                                     SeqLoadingStats *stats,
                                     void *ptr),
                   void *reader_ptr)
 {
+  message("Parsing file %s\n", path);
+
   // Guess offset if needed
   int qoffset = prefs->ascii_fq_offset;
   int qmin = prefs->ascii_fq_offset, qmax = 126;
@@ -521,6 +528,10 @@ char seq_read_is_novel(const read_t *r, dBGraph *db_graph,
   return 1;
 }
 
+//
+// Add to the de bruijn graph
+//
+
 void load_read(const read_t *r, dBGraph *db_graph,
                int qual_cutoff, int hp_cutoff,
                Colour colour, SeqLoadingStats *stats)
@@ -586,7 +597,7 @@ void load_read(const read_t *r, dBGraph *db_graph,
 
 void seq_load_into_db_graph(read_t *r1, read_t *r2,
                             int qoffset1, int qoffset2,
-                            SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                            const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                             void *ptr)
 {
   (void)ptr;
@@ -605,12 +616,15 @@ void seq_load_into_db_graph(read_t *r1, read_t *r2,
 
   int hp_cutoff = prefs->homopolymer_cutoff;
 
-  if((r1->from_sam && r1->bam->core.flag & BAM_FDUP &&
-      (r2 == NULL || (r2->from_sam && r2->bam->core.flag & BAM_FDUP))) ||
-     (r2 == NULL && prefs->remove_dups_se &&
-      !seq_read_is_novel(r1, prefs->db_graph, qcutoff1, hp_cutoff)) ||
+  boolean samdupe1, samdupe2;
+  samdupe1 = r1->from_sam && r1->bam->core.flag & BAM_FDUP;
+  samdupe2 = r2 == NULL || (r2->from_sam && r2->bam->core.flag & BAM_FDUP);
+
+  if((samdupe1 && samdupe2) ||
      (r2 != NULL && prefs->remove_dups_pe &&
-      !seq_reads_are_novel(r1, r2, prefs->db_graph, qcutoff1, qcutoff2, hp_cutoff)))
+      !seq_reads_are_novel(r1, r2, prefs->db_graph, qcutoff1, qcutoff2, hp_cutoff)) ||
+     (r2 == NULL && prefs->remove_dups_se &&
+      !seq_read_is_novel(r1, prefs->db_graph, qcutoff1, hp_cutoff)))
   {
     stats->total_dup_reads += (r2 == NULL ? 1 : 2);
     return;

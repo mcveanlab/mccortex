@@ -46,279 +46,126 @@ uint32_t binary_load_colour(const char *path,
   return binary_load(new_path, prefs, stats, NULL);
 }
 
-static int skip_header(FILE *fh, uint32_t *kmer_size_ptr,
-                       uint32_t *num_of_colours_ptr,
-                       uint64_t *num_of_kmers_ptr, boolean *kmer_count_set,
-                       size_t *bytes_per_kmer)
+void graph_header_alloc(GraphFileHeader *h, size_t num_of_cols)
 {
-  // Estimate number of kmers
-  size_t i, skip, read, total = 0;
+  size_t i, old_cap = h->capacity;
 
-  *kmer_count_set = false;
+  if(h->capacity == 0)
+    h->ginfo = calloc2(num_of_cols, sizeof(GraphInfo));
+  else
+    h->ginfo = realloc2(h->ginfo, num_of_cols * sizeof(GraphInfo));
 
-  char magic_word[7];
-  magic_word[6] = '\0';
-
-  uint32_t version, kmer_size, num_of_bitfields, num_of_colours;
-  uint32_t num_of_shades = 0;
-  uint64_t num_of_kmers;
-
-  if(fread(magic_word, sizeof(char), 6, fh) != 6 ||
-     fread(&version, sizeof(uint32_t), 1, fh) != 1 ||
-     fread(&kmer_size, sizeof(uint32_t), 1, fh) != 1 ||
-     fread(&num_of_bitfields, sizeof(uint32_t), 1, fh) != 1 ||
-     fread(&num_of_colours, sizeof(uint32_t), 1, fh) != 1)
-  {
-    return 0;
-  }
-
-  // Simple check on number of magic word, bitfields vs kmer_size etc.
-  if(strcmp(magic_word, CTX_MAGIC_WORD) != 0 ||
-     num_of_bitfields * 32 < kmer_size ||
-     (num_of_bitfields - 1) * 32 >= kmer_size ||
-     num_of_colours == 0)
-  {
-    return 0;
-  }
-
-  *kmer_size_ptr = kmer_size;
-  *num_of_colours_ptr = num_of_colours;
-
-  total += 6 + sizeof(uint32_t) * 4;
-
-  if(version >= 7)
-  {
-    // Read number of kmers
-    if(fread(&num_of_kmers, sizeof(uint64_t), 1, fh) != 1 ||
-       fread(&num_of_shades, sizeof(uint32_t), 1, fh) != 1)
-    {
-      return 0;
-    }
-
-    *num_of_kmers_ptr = num_of_kmers;
-    *kmer_count_set = true;
-    total += sizeof(uint64_t) + sizeof(uint32_t);
-  }
-
-  // Skip mean read length and total seq per colour
-  skip = (sizeof(uint32_t)+sizeof(uint64_t))*num_of_colours;
-  read = stream_skip(fh, skip);
-  total += read;
-  if(read != skip) return 0;
-
-  if(version >= 6)
-  {
-    // Sample names
-    for(i = 0; i < num_of_colours; i++)
-    {
-      if(fread(&skip, sizeof(uint32_t), 1, fh) != 1) return 0;
-      total += sizeof(uint32_t);
-      if((read = stream_skip(fh, skip)) != skip) return 0;
-      total += read;
-    }
-
-    // Sequencing error rates
-    skip = num_of_colours * sizeof(long double);
-    if((read = stream_skip(fh, skip)) != skip) return 0;
-    total += read;
-
-    // Sample cleaning
-    for(i = 0; i < num_of_colours; i++)
-    {
-      skip = sizeof(uint8_t)*4+sizeof(uint32_t)*2;
-      if((read = stream_skip(fh, skip)) != skip) return 0;
-      total += read;
-
-      if(fread(&skip, sizeof(uint32_t), 1, fh) != 1) return 0;
-      total += sizeof(uint32_t);
-      if((read = stream_skip(fh, skip)) != skip) return 0;
-      total += read;
-    }
-  }
-
-  // 'CORTEX' end of header
-  if(fread(magic_word, sizeof(char), 6, fh) != 6 ||
-     strcmp(magic_word, CTX_MAGIC_WORD) != 0)
-  {
-    return 0;
-  }
-  total += 6;
-
-  size_t shade_bytes = num_of_shades / 8;
-
-  *bytes_per_kmer = sizeof(uint64_t) * num_of_bitfields +
-                    sizeof(uint32_t) * num_of_colours + // coverage
-                    sizeof(uint8_t) * num_of_colours + // edges
-                    sizeof(uint8_t) * shade_bytes * 2; // shades
-
-  return total;
-}
-
-// returns 0 if cannot read, 1 otherwise
-char binary_probe(const char *ctx_path, boolean *valid_ctx,
-                  uint32_t *kmer_size_ptr, uint32_t *num_of_colours_ptr,
-                  uint32_t *max_col_index, uint64_t *num_of_kmers_ptr)
-{
-  *valid_ctx = 0;
-
-  size_t pathlen = strlen(ctx_path);
-  char path[pathlen+1];
-  memcpy(path, ctx_path, pathlen+1);
-
-  char *sep = strchr(path, ':');
-  if(sep != NULL) *sep = '\0';
-
-  FILE* fh = fopen(path, "r");
-  if(fh == NULL) return 0;
-
-  uint32_t ctx_num_of_cols = 0;
-  boolean kmer_count_set = false;
-  size_t bytes_per_kmer = 0;
-
-  size_t bytes_read = skip_header(fh, kmer_size_ptr, &ctx_num_of_cols,
-                                  num_of_kmers_ptr, &kmer_count_set,
-                                  &bytes_per_kmer);
-
-  fclose(fh);
-
-  // No reading errors, but not ctx binary
-  if(bytes_read == 0) return 1;
-
-  *max_col_index = ctx_num_of_cols-1;
-
-  if(sep != NULL) *sep = ':';
-  *num_of_colours_ptr = binary_get_num_colours(path, *max_col_index);
-  if(sep != NULL) *sep = '\0';
-
-  // Valid ctx binary
-  *valid_ctx = 1;
-
-  if(!kmer_count_set)
-  {
-    // Count number of kmers based on file size
-    off_t fsize = get_file_size(path);
-    size_t bytes_remaining = fsize - bytes_read;
-    *num_of_kmers_ptr = (bytes_remaining / bytes_per_kmer);
-
-    if(bytes_remaining % bytes_per_kmer != 0) {
-      warn("Truncated ctx binary: %s "
-           "[bytes per kmer: %zu remaining: %zu; fsize: %zu; header: %zu]",
-           path, bytes_per_kmer, bytes_remaining, (size_t)fsize, bytes_read);
-      *valid_ctx = 0;
-    }
-  }
-
-  if(sep != NULL) *sep = ':';
-
-  return 1;
-}
-
-void binary_header_alloc(BinaryFileHeader *h, size_t num_of_cols)
-{
-  size_t i;
-  h->capacity = num_of_cols;
-  if(num_of_cols == 0) return;
-  h->ginfo = calloc2(h->capacity, sizeof(GraphInfo));
-  for(i = 0; i < h->capacity; i++)
+  for(i = old_cap; i < num_of_cols; i++)
     graph_info_alloc(h->ginfo + i);
+
+  h->capacity = MAX2(old_cap, num_of_cols);
 }
 
-void binary_header_realloc(BinaryFileHeader *h, size_t num_of_cols)
+void graph_header_dealloc(GraphFileHeader *h)
 {
   size_t i;
-  if(num_of_cols < h->capacity) return;
-  h->ginfo = realloc2(h->ginfo, num_of_cols * sizeof(GraphInfo));
-  for(i = h->capacity; i < num_of_cols; i++)
-    graph_info_alloc(h->ginfo + i);
-  h->capacity = num_of_cols;
+  if(h->capacity > 0) {
+    for(i = 0; i < h->capacity; i++)
+      graph_info_dealloc(h->ginfo + i);
+    free(h->ginfo);
+    h->capacity = 0;
+  }
 }
 
-void binary_header_dealloc(BinaryFileHeader *h)
+void graph_header_cpy(GraphFileHeader *dst, const GraphFileHeader *src)
 {
   size_t i;
-  for(i = 0; i < h->capacity; i++)
-    graph_info_dealloc(h->ginfo + i);
-  free(h->ginfo);
-}
-
-void binary_read_cpy_basic(BinaryFileHeader *dst, BinaryFileHeader *src)
-{
   dst->version = src->version;
   dst->kmer_size = src->kmer_size;
   dst->num_of_bitfields = src->num_of_bitfields;
   dst->num_of_cols = src->num_of_cols;
+  dst->max_col = src->max_col;
   dst->num_of_kmers = src->num_of_kmers;
+  graph_header_alloc(dst, dst->num_of_cols);
+  for(i = 0; i < dst->num_of_cols; i++)
+    graph_info_cpy(&dst->ginfo[i], &src->ginfo[i]);
 }
 
-// Return number of bytes read
-size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
+// Return number of bytes read or -1 if not valid
+int graph_file_read_header(FILE *fh, GraphFileHeader *h,
+                           boolean fatal, const char *path)
 {
-  size_t i, bytes_read = 0;
+  size_t i;
+  int bytes_read = 0;
 
   char magic_word[7];
   magic_word[6] = '\0';
 
-  safe_fread(fh, magic_word, strlen(CTX_MAGIC_WORD), "Magic word", path);
-  if(strcmp(magic_word, CTX_MAGIC_WORD) != 0) {
-    die("Magic word doesn't match '%s' (start): %s", CTX_MAGIC_WORD, path);
+  SAFE_READ(fh, magic_word, strlen("CORTEX"), "Magic word", path, fatal);
+  if(strcmp(magic_word, "CORTEX") != 0) {
+    if(!fatal) return -1;
+    die("Magic word doesn't match '%s' (start): %s", "CORTEX", path);
   }
-  bytes_read += strlen(CTX_MAGIC_WORD);
+  bytes_read += strlen("CORTEX");
 
   // Read version number, kmer_size, num bitfields, num colours
-  safe_fread(fh, &h->version, sizeof(uint32_t), "binary version", path);
-  safe_fread(fh, &h->kmer_size, sizeof(uint32_t), "kmer size", path);
-  safe_fread(fh, &h->num_of_bitfields, sizeof(uint32_t), "number of bitfields", path);
-  safe_fread(fh, &h->num_of_cols, sizeof(uint32_t), "number of colours", path);
+  SAFE_READ(fh, &h->version, sizeof(uint32_t), "binary version", path, fatal);
+  SAFE_READ(fh, &h->kmer_size, sizeof(uint32_t), "kmer size", path, fatal);
+  SAFE_READ(fh, &h->num_of_bitfields, sizeof(uint32_t), "num of bitfields", path, fatal);
+  SAFE_READ(fh, &h->num_of_cols, sizeof(uint32_t), "number of colours", path, fatal);
   bytes_read += 4*sizeof(uint32_t);
 
   // Checks
   if(h->version > 7 || h->version < 4)
   {
+    if(!fatal) return -1;
     die("Sorry, we only support binary versions 4, 5, 6 & 7 "
-        "[version: %i; binary: %s]\n", h->version, path);
+        "[version: %u; binary: %s]\n", h->version, path);
   }
 
   if(h->kmer_size % 2 == 0)
   {
-    die("kmer size is not an odd number [kmer_size: %i; binary: %s]\n",
+    if(!fatal) return -1;
+    die("kmer size is not an odd number [kmer_size: %u; binary: %s]\n",
         h->kmer_size, path);
   }
 
   if(h->kmer_size < 3)
   {
-    die("kmer size is less than three [kmer_size: %i; binary: %s]\n",
+    if(!fatal) return -1;
+    die("kmer size is less than three [kmer_size: %u; binary: %s]\n",
         h->kmer_size, path);
   }
 
   if(h->num_of_bitfields * 32 < h->kmer_size)
   {
+    if(!fatal) return -1;
     die("Not enough bitfields for kmer size "
-        "[kmer_size: %i; bitfields: %i; binary: %s]\n",
+        "[kmer_size: %u; bitfields: %u; binary: %s]\n",
         h->kmer_size, h->num_of_bitfields, path);
   }
 
-  if((h->num_of_bitfields-1)*32 >= h->kmer_size)
+  if((h->num_of_bitfields-1)*32 >= h->kmer_size) {
+    if(!fatal) return -1;
     die("using more than the minimum number of bitfields [binary: %s]\n", path);
+  }
 
-  if(h->num_of_cols == 0)
+  if(h->num_of_cols == 0) {
+    if(!fatal) return -1;
     die("number of colours is zero [binary: %s]\n", path);
+  }
 
-  if(h->capacity == 0)
-    binary_header_alloc(h, h->num_of_cols);
-  else if(h->num_of_cols > h->capacity)
-    binary_header_realloc(h, h->num_of_cols);
+  // graph_header_alloc will only alloc or realloc if it needs to
+  graph_header_alloc(h, h->num_of_cols);
 
   if(h->version >= 7)
   {
-    safe_fread(fh, &h->num_of_kmers, sizeof(uint64_t), "number of kmers", path);
+    SAFE_READ(fh, &h->num_of_kmers, sizeof(uint64_t), "number of kmers", path, fatal);
     uint32_t tmp;
-    safe_fread(fh, &tmp, sizeof(uint32_t), "number of shades", path);
+    SAFE_READ(fh, &tmp, sizeof(uint32_t), "number of shades", path, fatal);
     bytes_read += sizeof(uint64_t) + sizeof(uint32_t);
 
     if((tmp & 0x7) != 0) {
       warn("Number of shades is not a multiple of 8 [binary: %s]", path);
     }
   }
+
+  // Assume to be graph file now, any error is therefore fatal
 
   for(i = 0; i < h->num_of_cols; i++) {
     safe_fread(fh, &h->ginfo[i].mean_read_length, sizeof(uint32_t),
@@ -371,18 +218,18 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
       ErrorCleaning *err_cleaning = &h->ginfo[i].cleaning;
 
       safe_fread(fh, &(err_cleaning->tip_clipping),
-               sizeof(uint8_t), "tip cleaning", path);
+                 sizeof(uint8_t), "tip cleaning", path);
       safe_fread(fh, &(err_cleaning->remv_low_cov_sups),
-               sizeof(uint8_t), "remove low covg supernodes", path);
+                 sizeof(uint8_t), "remove low covg supernodes", path);
       safe_fread(fh, &(err_cleaning->remv_low_cov_nodes),
-               sizeof(uint8_t), "remove low covg kmers", path);
+                 sizeof(uint8_t), "remove low covg kmers", path);
       safe_fread(fh, &(err_cleaning->cleaned_against_another_graph),
-               sizeof(uint8_t), "cleaned against graph", path);
+                 sizeof(uint8_t), "cleaned against graph", path);
 
       safe_fread(fh, &(err_cleaning->remv_low_cov_sups_thresh),
-               sizeof(uint32_t), "remove low covg supernode threshold", path);
+                 sizeof(uint32_t), "remove low covg supernode threshold", path);
       safe_fread(fh, &(err_cleaning->remv_low_cov_nodes_thresh),
-               sizeof(uint32_t), "remove low covg kmer threshold", path);
+                 sizeof(uint32_t), "remove low covg kmer threshold", path);
 
       bytes_read += 4*sizeof(uint8_t) + 2*sizeof(uint32_t);
 
@@ -442,12 +289,14 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   }
 
   // Read magic word at the end of header 'CORTEX'
-  safe_fread(fh, magic_word, strlen(CTX_MAGIC_WORD), "magic word (end)", path);
-  if(strcmp(magic_word, CTX_MAGIC_WORD) != 0) {
+  safe_fread(fh, magic_word, strlen("CORTEX"), "magic word (end)", path);
+  if(strcmp(magic_word, "CORTEX") != 0)
+  {
+    if(!fatal) return -1;
     die("Magic word doesn't match '%s' (end): '%s' [binary: %s]\n",
-        CTX_MAGIC_WORD, magic_word, path);
+        "CORTEX", magic_word, path);
   }
-  bytes_read += strlen(CTX_MAGIC_WORD);
+  bytes_read += strlen("CORTEX");
 
   // If we haven't set num_of_kmers set it now using file size
   if(h->version < 7)
@@ -466,6 +315,7 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
     h->num_of_kmers = bytes_remaining / num_bytes_per_kmer;
 
     if(num_bytes_per_kmer * h->num_of_kmers != bytes_remaining) {
+      if(!fatal) return -1;
       die("Irregular size of binary file (corrupted?): %s", path);
     }
   }
@@ -473,7 +323,7 @@ size_t binary_read_header(FILE *fh, BinaryFileHeader *h, const char *path)
   return bytes_read;
 }
 
-size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
+size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *h, const char *path,
                         uint64_t *bkmer, Covg *covgs, Edges *edges)
 {
   size_t i, num_bytes_read;
@@ -500,6 +350,38 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
   return num_bytes_read;
 }
 
+// returns 0 if cannot read, 1 otherwise
+boolean graph_file_probe(const char* ctx_path, boolean *valid_ctx,
+                         GraphFileHeader *gheader)
+{
+  *valid_ctx = false;
+
+  size_t pathlen = strlen(ctx_path);
+  char path[pathlen+1];
+  memcpy(path, ctx_path, pathlen+1);
+
+  char *sep = strchr(path, ':');
+  if(sep != NULL) *sep = '\0';
+
+  FILE* fh = fopen(path, "r");
+  if(fh == NULL) return false;
+  int hret = graph_file_read_header(fh, gheader, false, path);
+  fclose(fh);
+
+  // Get num of colours from path
+  if(hret > 0)
+  {
+    *valid_ctx = true;
+    if(sep != NULL) {
+      *sep = ':';
+      gheader->num_of_cols = binary_get_num_colours(path, gheader->num_of_cols-1);
+    }
+    gheader->max_col = gheader->num_of_cols-1;
+  }
+
+  return true;
+}
+
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing
 // colour only_load_if_in_colour will be loaded.
 // We assume only_load_if_in_colour < load_first_colour_into
@@ -512,7 +394,7 @@ size_t binary_read_kmer(FILE *fh, BinaryFileHeader *h, const char *path,
 //   stats->binaries_loaded
 uint32_t binary_load(const char *ctx_path,
                      const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-                     BinaryFileHeader *header_ptr)
+                     GraphFileHeader *header_ptr)
 {
   dBGraph *graph = prefs->db_graph;
 
@@ -526,10 +408,10 @@ uint32_t binary_load(const char *ctx_path,
   FILE* fh = fopen(path, "r");
   if(fh == NULL) die("Cannot open file: %s\n", path);
 
-  BinaryFileHeader header_mem = {.capacity = 0};
+  GraphFileHeader header_mem = {.capacity = 0};
 
-  BinaryFileHeader *header = header_ptr != NULL ? header_ptr : &header_mem;
-  binary_read_header(fh, header, path);
+  GraphFileHeader *header = header_ptr != NULL ? header_ptr : &header_mem;
+  graph_file_read_header(fh, header, true, path);
 
   if(sep != NULL) *sep = ':';
   uint32_t num_of_cols = binary_get_num_colours(path, header->num_of_cols-1);
@@ -547,7 +429,8 @@ uint32_t binary_load(const char *ctx_path,
     message(" with colour filter: %u", load_colours[0]);
     for(i = 1; i < num_of_cols; i++) message(",%u", load_colours[i]);
   }
-  if(prefs->merge_colours) message(" into colour %u\n", prefs->into_colour);
+  if(prefs->merge_colours || num_cols_loaded == 1)
+    message(" into colour %u\n", prefs->into_colour);
   else {
     message(" into colours %u-%u\n", prefs->into_colour,
             prefs->into_colour+num_cols_loaded-1);
@@ -566,7 +449,7 @@ uint32_t binary_load(const char *ctx_path,
      (graph->col_covgs != NULL || graph->col_edges != NULL))
   {
     die("Program has not assigned enough colours! "
-        "[colours in binary: %i vs graph: %i, load into: %i; binary: %s]",
+        "[colours in binary: %u vs graph: %u, load into: %u; binary: %s]",
         num_cols_loaded, graph->num_of_cols, prefs->into_colour, path);
   }
 
@@ -593,7 +476,7 @@ uint32_t binary_load(const char *ctx_path,
 
   for(num_of_kmers_parsed = 0; ; num_of_kmers_parsed++)
   {
-    if(binary_read_kmer(fh, header, path, bkmer, kmercovgs, kmeredges) == 0) break;
+    if(graph_file_read_kmer(fh, header, path, bkmer, kmercovgs, kmeredges) == 0) break;
 
     // Collapse down colours
     Covg keep_kmer = 0;
@@ -695,7 +578,7 @@ uint32_t binary_load(const char *ctx_path,
   }
 
   if(header_ptr == NULL)
-    binary_header_dealloc(header);
+    graph_header_dealloc(header);
 
   return num_cols_loaded;
 }
@@ -732,8 +615,8 @@ size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
   if((out = fopen(out_ctx_path, "w")) == NULL)
     die("Cannot open output path: %s", out_ctx_path);
 
-  BinaryFileHeader inheader = {.capacity = 0};
-  binary_read_header(in, &inheader, in_ctx_path);
+  GraphFileHeader inheader = {.capacity = 0};
+  graph_file_read_header(in, &inheader, true, in_ctx_path);
 
   if(split != NULL) *split = ':';
   uint32_t num_of_cols = binary_get_num_colours(in_ctx_path, inheader.num_of_cols-1);
@@ -748,10 +631,10 @@ size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
   if(flatten || num_of_cols == 1) message(" into colour %u\n", offset);
   else message(" into colours %u-%u\n", offset, offset+num_of_cols-1);
 
-  BinaryFileHeader outheader = {.capacity = 0};
-  binary_read_cpy_basic(&outheader, &inheader);
+  GraphFileHeader outheader = {.capacity = 0};
+  graph_header_cpy(&outheader, &inheader);
   outheader.num_of_cols = offset+num_of_cols;
-  binary_header_alloc(&outheader, outheader.num_of_cols);
+  graph_header_alloc(&outheader, outheader.num_of_cols);
 
   for(i = 0; i < num_of_cols; i++)
     graph_info_merge(outheader.ginfo+offset+i, inheader.ginfo + load_colours[i]);
@@ -764,7 +647,7 @@ size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
   memset(covgs, 0, (offset+num_of_cols)*sizeof(Covg));
   memset(edges, 0, (offset+num_of_cols)*sizeof(Edges));
 
-  while(binary_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
+  while(graph_file_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
   {
     // Collapse down colours
     Covg keep_kmer = 0;
@@ -809,8 +692,8 @@ size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
           nodes_dumped, outheader.num_of_cols,
           outheader.num_of_cols != 1 ? "s" : "", out_ctx_path);
 
-  binary_header_dealloc(&inheader);
-  binary_header_dealloc(&outheader);
+  graph_header_dealloc(&inheader);
+  graph_header_dealloc(&outheader);
 
   return nodes_dumped;
 }
@@ -824,7 +707,7 @@ size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
 size_t binaries_merge(char *out_ctx_path, char **binary_paths,
                       size_t num_binaries,
                       uint32_t ctx_num_cols[num_binaries],
-                      uint32_t ctx_max_cols[num_binaries],
+                      uint32_t ctx_max_num_cols[num_binaries],
                       boolean merge, boolean flatten, boolean intersect,
                       dBGraph *db_graph)
 {
@@ -835,7 +718,7 @@ size_t binaries_merge(char *out_ctx_path, char **binary_paths,
     return binary_filter_graph(out_ctx_path, binary_paths[0], flatten, db_graph);
 
   uint32_t i, offsets[num_binaries];
-  uint32_t max_cols = 0, sum_cols = 0;
+  uint32_t max_num_cols = 0, sum_cols = 0;
 
   // Check all binaries are valid binaries with matching kmer size
   char *ptr;
@@ -850,14 +733,14 @@ size_t binaries_merge(char *out_ctx_path, char **binary_paths,
       offsets[i] = 0;
     }
 
-    max_cols = MAX2(offsets[i] + ctx_num_cols[i], max_cols);
+    max_num_cols = MAX2(offsets[i] + ctx_num_cols[i], max_num_cols);
     sum_cols += ctx_num_cols[i];
   }
 
   uint32_t output_colours;
 
   if(flatten) output_colours = 1;
-  else if(merge) output_colours = max_cols;
+  else if(merge) output_colours = max_num_cols;
   else output_colours = sum_cols;
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -870,7 +753,6 @@ size_t binaries_merge(char *out_ctx_path, char **binary_paths,
        .remove_dups_se = false, .remove_dups_pe = false,
        .load_binaries = true,
        .must_exist_in_graph = intersect, .empty_colours = false,
-       .update_ginfo = true,
        .db_graph = db_graph};
   //
 
@@ -881,24 +763,25 @@ size_t binaries_merge(char *out_ctx_path, char **binary_paths,
       binary_load(binary_paths[i], &prefs, stats, NULL);
 
     hash_table_print_stats(&db_graph->ht);
-    binary_dump_graph(out_ctx_path, db_graph, CURR_CTX_VERSION, NULL, 0, 1);
+    binary_dump_graph(out_ctx_path, db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
   }
   else
   {
-    uint32_t load_colours[num_binaries][max_cols];
+    uint32_t load_colours[num_binaries][max_num_cols];
     for(i = 0; i < num_binaries; i++)
-      binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_cols[i]);
+      binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_num_cols[i]);
 
     // Construct binary header
-    BinaryFileHeader tmpheader;
-    BinaryFileHeader output_header = {.version = CURR_CTX_VERSION,
+    GraphFileHeader tmpheader = {.capacity = 0};
+    GraphFileHeader output_header = {.version = CTX_GRAPH_FILEFORMAT,
                                       .kmer_size = db_graph->kmer_size,
                                       .num_of_bitfields = NUM_BITFIELDS_IN_BKMER,
                                       .num_of_cols = output_colours,
-                                      .num_of_kmers = db_graph->ht.unique_kmers};
+                                      .num_of_kmers = db_graph->ht.unique_kmers,
+                                      .capacity = 0};
 
-    binary_header_alloc(&tmpheader, max_cols);
-    binary_header_alloc(&output_header, output_colours);
+    graph_header_alloc(&tmpheader, max_num_cols);
+    graph_header_alloc(&output_header, output_colours);
 
     Colour j, output_colour = 0;
     for(i = 0; i < num_binaries; i++)
@@ -919,8 +802,8 @@ size_t binaries_merge(char *out_ctx_path, char **binary_paths,
     size_t header_size = binary_write_header(fh, &output_header);
 
     // Free header resources
-    binary_header_dealloc(&tmpheader);
-    binary_header_dealloc(&output_header);
+    graph_header_dealloc(&tmpheader);
+    graph_header_dealloc(&output_header);
 
     // print file outline
     message("Generated merged hash table\n\n");

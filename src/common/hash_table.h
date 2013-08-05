@@ -19,8 +19,10 @@ typedef struct
   const uint32_t hash_mask; // this is num_of_buckets - 1
   const uint8_t bucket_size; // max value 255
   const uint64_t capacity; // num_of_buckets * bucket_size
-  uint8_t *const bucket_length; // index of the next free element in bucket
-  uint8_t *const bucket_fill; // number of filled entries in a bucket
+  // buckets[b][0] is the size of the bucket (can only increase)
+  // buckets[b][1] is the number of filled entries in a bucket (can go up/down)
+  uint8_t (*const buckets)[2];
+  // uint8_t *const bucket_fill; // number of filled entries in a bucket
   uint64_t unique_kmers;
   uint64_t collisions[REHASH_LIMIT];
 } HashTable;
