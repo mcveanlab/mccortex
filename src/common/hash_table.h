@@ -45,9 +45,9 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t capacity);
 
 void hash_table_dealloc(HashTable *hash_table);
 
-hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer const bkmer);
-hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer const bkmer);
-hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const bkmer,
+hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer bkmer);
+hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer bkmer);
+hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer bkmer,
                                  boolean *found);
 
 void hash_table_delete(HashTable *const htable, hkey_t pos);

@@ -27,13 +27,11 @@ typedef uint8_t Nucleotide;
 #ifdef CITY_HASH
   // Use Google's CityHash
   #include "city.h"
-  #define binary_kmer_hash(key,rehash,bit_mask) \
-          (CityHash32((char*)key.b, BKMER_BYTES) ^ (rehash)) & (bit_mask))
+  #define binary_kmer_hash(bkmer,rehash) (CityHash32((char*)bkmer.b, BKMER_BYTES) ^ rehash)
 #else
   // Use Bob Jenkin's lookup3
   #include "lookup3.h"
-  #define binary_kmer_hash(key,rehash,bit_mask) \
-          (hashlittle(key.b, BKMER_BYTES, (rehash)) & (bit_mask))
+  #define binary_kmer_hash(bkmer,rehash) hashlittle(bkmer.b, BKMER_BYTES, rehash)
 #endif
 
 extern const char bnuc_to_char_array[4];

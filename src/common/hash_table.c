@@ -107,23 +107,25 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
 static inline void rehash_error_exit(const HashTable *const htable)
 __attribute__((noreturn));
 
-static inline void rehash_error_exit(const HashTable *const  htable)
+static inline void rehash_error_exit(const HashTable *const htable)
 {
   hash_table_print_stats(htable);
   die("Hash table is full");
 }
 
-hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer const bkmer)
+hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
 {
   const BinaryKmer *ptr;
-  uint32_t i, hash;
+  uint32_t i, h;
+  // uint32_t hash = binary_kmer_hash(key,0);
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    hash = binary_kmer_hash(bkmer, i, htable->hash_mask);
-    ptr = hash_table_find_in_bucket(htable, hash, bkmer);
+    // h = (hash + i*(i+1)/2) & htable->hash_mask;
+    h = binary_kmer_hash(key,i) & htable->hash_mask;
+    ptr = hash_table_find_in_bucket(htable, h, key);
     if(ptr != NULL) return (ptr - htable->table);
-    if(htable->buckets[hash][BSIZE] < htable->bucket_size) return HASH_NOT_FOUND;
+    if(htable->buckets[h][BSIZE] < htable->bucket_size) return HASH_NOT_FOUND;
   }
 
   rehash_error_exit(htable);
@@ -133,16 +135,18 @@ hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer const bkm
 // It doesn't check whether another element with the same key is present in the
 // table used for fast loading when it is known that all the elements in the
 // input have different key
-hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer const key)
+hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
 {
-  uint32_t rehash, hash;
   const BinaryKmer *ptr;
+  uint32_t i, h;
+  // hash = binary_kmer_hash(key,0);
 
-  for(rehash = 0; rehash < REHASH_LIMIT; rehash++)
+  for(i = 0; i < REHASH_LIMIT; i++)
   {
-    hash = binary_kmer_hash(key, rehash, htable->hash_mask);
-    if(htable->buckets[hash][BITEMS] < htable->bucket_size) {
-      ptr = hash_table_insert_in_bucket(htable, hash, rehash, key);
+    // h = (hash + i*(i+1)/2) & htable->hash_mask;
+    h = binary_kmer_hash(key,i) & htable->hash_mask;
+    if(htable->buckets[h][BITEMS] < htable->bucket_size) {
+      ptr = hash_table_insert_in_bucket(htable, h, i, key);
       return (ptr - htable->table);
     }
   }
@@ -150,24 +154,26 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer const key)
   rehash_error_exit(htable);
 }
 
-hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const key,
+hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
                                  boolean *found)
 {
   const BinaryKmer *ptr;
-  uint32_t rehash, hash;
+  uint32_t i, h;
+  // hash = binary_kmer_hash(key,0);
 
-  for(rehash = 0; rehash < REHASH_LIMIT; rehash++)
+  for(i = 0; i < REHASH_LIMIT; i++)
   {
-    hash = binary_kmer_hash(key, rehash, htable->hash_mask);
-    ptr = hash_table_find_in_bucket(htable, hash, key);
+    // h = (hash + i*(i+1)/2) & htable->hash_mask;
+    h = binary_kmer_hash(key,i) & htable->hash_mask;
+    ptr = hash_table_find_in_bucket(htable, h, key);
 
     if(ptr != NULL)  {
       *found = true;
       return (ptr - htable->table);
     }
-    else if(htable->buckets[hash][BITEMS] < htable->bucket_size) {
+    else if(htable->buckets[h][BITEMS] < htable->bucket_size) {
       *found = false;
-      ptr = hash_table_insert_in_bucket(htable, hash, rehash, key);
+      ptr = hash_table_insert_in_bucket(htable, h, i, key);
       return (ptr - htable->table);
     }
   }
