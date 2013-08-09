@@ -14,8 +14,6 @@ typedef uint32_t Covg;
 #define REVERSE 1
 typedef uint8_t Orientation;
 
-typedef BinaryKmerPtr Key;
-
 // Paths
 
 #define PATH_NULL UINT64_MAX

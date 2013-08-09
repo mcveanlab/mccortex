@@ -6,14 +6,13 @@
 #define BITEMS 1
 
 // Returns capacity
-size_t hash_table_cap(size_t req_capacity,
+size_t hash_table_cap(size_t max_capacity_kmers,
                       uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr)
 {
-  // bucket size must be <256
   uint64_t num_of_bits = 10;
-  while(req_capacity / (1UL << num_of_bits) > 64) num_of_bits++;
+  while(max_capacity_kmers / (1UL << num_of_bits) > MAX_BUCKET_SIZE) num_of_bits++;
   uint64_t num_of_buckets = 1UL << num_of_bits;
-  uint64_t bucket_size = (req_capacity+num_of_buckets-1) / num_of_buckets;
+  uint64_t bucket_size = MAX2(max_capacity_kmers / num_of_buckets, 1);
   if(num_bckts_ptr != NULL) *num_bckts_ptr = num_of_buckets;
   if(bckt_size_ptr != NULL) *bckt_size_ptr = bucket_size;
   return num_of_buckets * bucket_size;
@@ -24,18 +23,7 @@ size_t hash_table_mem(size_t req_capacity_kmers, size_t *act_capacity_kmers)
   uint64_t num_of_buckets;
   size_t capacity = hash_table_cap(req_capacity_kmers, &num_of_buckets, NULL);
   if(act_capacity_kmers != NULL) *act_capacity_kmers = capacity;
-  return capacity * sizeof(BinaryKmer) + num_of_buckets*2*sizeof(uint8_t);
-}
-
-size_t hash_table_mem2(size_t max_capacity_kmers, size_t *act_capacity_kmers)
-{
-  uint64_t num_of_bits = 1;
-  while(max_capacity_kmers / (1UL << num_of_bits) > 64) num_of_bits++;
-  uint64_t num_of_buckets = 1UL << num_of_bits;
-  uint64_t bucket_size = max_capacity_kmers / num_of_buckets;
-  uint64_t capacity = num_of_buckets * bucket_size;
-  if(act_capacity_kmers != NULL) *act_capacity_kmers = capacity;
-  return capacity * sizeof(BinaryKmer) + num_of_buckets*2*sizeof(uint8_t);
+  return capacity * sizeof(BinaryKmer) + num_of_buckets*sizeof(uint8_t[2]);
 }
 
 HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
@@ -54,7 +42,7 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   BinaryKmer *table = malloc2(capacity * sizeof(BinaryKmer));
   uint8_t (*const buckets)[2] = calloc2(num_of_buckets, sizeof(uint8_t[2]));
 
-  uint64_t i, num = NUM_BITFIELDS_IN_BKMER * capacity, *ptr = (uint64_t*)table;
+  uint64_t i, num = NUM_BKMER_WORDS * capacity, *ptr = (uint64_t*)table;
   for(i = 0; i < num; i++) ptr[i] = UNSET_BKMER;
 
   HashTable data = {
@@ -78,11 +66,11 @@ void hash_table_dealloc(HashTable *hash_table)
   free(hash_table->buckets);
 }
 
-static inline BinaryKmer* hash_table_find_in_bucket(const HashTable *const htable,
-                                                    const uint32_t bucket,
-                                                    const BinaryKmer const bkmer)
+static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const htable,
+                                                          uint32_t bucket,
+                                                          BinaryKmer bkmer)
 {
-  BinaryKmer *ptr = htable->table + (size_t)bucket * htable->bucket_size;
+  const BinaryKmer *ptr = htable->table + (size_t)bucket * htable->bucket_size;
   const BinaryKmer *end = ptr + htable->buckets[bucket][BSIZE];
 
   while(ptr < end) {
@@ -93,9 +81,9 @@ static inline BinaryKmer* hash_table_find_in_bucket(const HashTable *const htabl
 }
 
 static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
-                                                      const uint32_t hash,
-                                                      const uint32_t rehash,
-                                                      const BinaryKmer bkmer)
+                                                      uint32_t hash,
+                                                      uint32_t rehash,
+                                                      BinaryKmer bkmer)
 {
   assert(htable->buckets[hash][BITEMS] < htable->bucket_size);
   BinaryKmer *ptr = htable->table + (size_t)hash * htable->bucket_size;
@@ -109,7 +97,7 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
     while(HASH_ENTRY_ASSIGNED(*ptr)) ptr++;
   }
 
-  memcpy(ptr, bkmer, sizeof(BinaryKmer));
+  *ptr = bkmer;
   htable->unique_kmers++;
   htable->buckets[hash][BITEMS]++;
   htable->collisions[rehash]++; // only increment collisions when inserting
@@ -148,12 +136,13 @@ hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer const bkm
 hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer const key)
 {
   uint32_t rehash, hash;
+  const BinaryKmer *ptr;
 
   for(rehash = 0; rehash < REHASH_LIMIT; rehash++)
   {
     hash = binary_kmer_hash(key, rehash, htable->hash_mask);
     if(htable->buckets[hash][BITEMS] < htable->bucket_size) {
-      BinaryKmer *ptr = hash_table_insert_in_bucket(htable, hash, rehash, key);
+      ptr = hash_table_insert_in_bucket(htable, hash, rehash, key);
       return (ptr - htable->table);
     }
   }
@@ -164,7 +153,7 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer const key)
 hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const key,
                                  boolean *found)
 {
-  BinaryKmer *ptr;
+  const BinaryKmer *ptr;
   uint32_t rehash, hash;
 
   for(rehash = 0; rehash < REHASH_LIMIT; rehash++)
@@ -188,8 +177,8 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer const key,
 
 void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
-  BinaryKmer unset = {UNSET_BKMER};
-  memcpy(htable->table + pos, unset, sizeof(BinaryKmer));
+  BinaryKmer unset = {.b = {UNSET_BKMER}};
+  htable->table[pos] = unset;
   uint64_t bucket = pos / htable->bucket_size;
   assert(htable->buckets[bucket][BITEMS] > 0);
   htable->buckets[bucket][BITEMS]--;
@@ -200,7 +189,7 @@ void hash_table_print_stats(const HashTable *const htable)
 {
   double occupancy = 100 * (double)htable->unique_kmers / htable->capacity;
   size_t bytes = htable->capacity * sizeof(BinaryKmer) +
-                 htable->num_of_buckets * 2 * sizeof(uint8_t);
+                 htable->num_of_buckets * sizeof(uint8_t[2]);
   // size_t mem_height = __builtin_ctzl(htable->num_of_buckets);
   // size_t mem_width = htable->bucket_size;
   char mem_str[50], num_buckets_str[100], num_entries_str[100], capacity_str[100];

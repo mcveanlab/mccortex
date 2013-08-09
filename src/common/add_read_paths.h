@@ -6,7 +6,8 @@
 typedef struct PathsWorkerPool PathsWorkerPool;
 
 PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
-                                       dBGraph *db_graph, uint32_t max_gap_limit);
+                                       dBGraph *db_graph, uint32_t max_gap_limit,
+                                       FILE *fout);
 
 void paths_worker_pool_dealloc(PathsWorkerPool *pool);
 

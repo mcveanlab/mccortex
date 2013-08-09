@@ -11,7 +11,8 @@ typedef struct
   uint32_t version, kmer_size, num_of_cols;
   uint64_t num_of_paths, num_path_bytes, num_kmers_with_paths;
   StrBuf *sample_names;
-  size_t capacity; // how many sample names have been malloc'd
+  uint64_t *num_inferred_kmers;
+  size_t capacity; // how many sample_names/inferred_kmers have been malloc'd
 } PathFileHeader;
 
 // Path File Format:
@@ -31,6 +32,8 @@ void paths_format_filename(const char *file_path, char *out);
 
 void paths_header_alloc(PathFileHeader *header, size_t num_of_cols);
 void paths_header_dealloc(PathFileHeader *header);
+
+void paths_header_update(PathFileHeader *header, const PathStore *paths);
 
 // Returns number of bytes read or -1 on error (if fatal == false)
 int paths_file_read_header(FILE *fh, PathFileHeader *header,
@@ -54,7 +57,15 @@ void paths_format_read(const char *path, PathFileHeader *pheader,
                        dBGraph *db_graph, PathStore *paths,
                        boolean insert_missing_kmers);
 
-void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
-                        PathFileHeader *header, const char *file_path);
+//
+// Write
+//
+
+// returns number of bytes written
+size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout);
+// returns number of bytes written
+size_t paths_format_write_header(const PathFileHeader *header, FILE *fout);
+
+void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout);
 
 #endif

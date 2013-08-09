@@ -4,12 +4,12 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "binary_paths.h"
-#include "binary_format.h"
+#include "path_store.h"
+#include "graph_format.h"
 #include "path_format.h"
 
 static const char usage[] =
-"usage: "CMD" contigs [-m <mem>] <in.ctx> <colour> <out.fa>\n"
+"usage: "CMD" contigs [-m <mem>|-h <kmers>|-p <paths>] <in.ctx> <colour> <out.fa>\n"
 "  Pull out contigs for a given colour\n";
 
 int ctx_contigs(CmdArgs *args)
@@ -83,7 +83,7 @@ int ctx_contigs(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -98,7 +98,7 @@ int ctx_contigs(CmdArgs *args)
                            .empty_colours = false,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(input_ctx_path, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   // DEV: dump contigs

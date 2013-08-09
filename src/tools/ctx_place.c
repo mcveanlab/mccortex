@@ -269,7 +269,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
       for(i = 1; i < argc; i++) printf(" %s", argv[i]);
       printf("\n");
 
-      if(file_reader_get_current_dir(cwd) != NULL)
+      if(futil_get_current_dir(cwd) != NULL)
         printf("##placeCwd=%s\n", cwd);
 
       printf("##placeDate=%s\n", datestr);

@@ -11,7 +11,7 @@
 #include "db_node.h"
 #include "binary_kmer.h"
 #include "seq_reader.h"
-#include "binary_format.h"
+#include "graph_format.h"
 
 static const char usage[] =
 "usage: "CMD" reads [options] <in.ctx>[:cols] [in2.ctx ...]\n"
@@ -71,9 +71,8 @@ static void check_outfile_exists(char *outbase, boolean is_pe, boolean use_fq)
 
 static hkey_t find_node(BinaryKmer bkmer, const dBGraph *db_graph)
 {
-  BinaryKmer tmpkey;
-  db_node_get_key(bkmer, db_graph->kmer_size, tmpkey);
-  return hash_table_find(&db_graph->ht, tmpkey);
+  BinaryKmer bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  return hash_table_find(&db_graph->ht, bkey);
 }
 
 static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
@@ -94,14 +93,14 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
       stats->total_bases_loaded += end - start;
       num_contigs++;
 
-      binary_kmer_from_str(r->seq.b + start, kmer_size, bkmer);
+      bkmer = binary_kmer_from_str(r->seq.b + start, kmer_size);
       kmers_loaded++;
       if(find_node(bkmer, db_graph) != HASH_NOT_FOUND) { found = true; break; }
 
       for(i = start+kmer_size; i < end; i++)
       {
         nuc = binary_nuc_from_char(r->seq.b[i]);
-        binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+        binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
         kmers_loaded++;
         if(find_node(bkmer, db_graph) != HASH_NOT_FOUND) { found = true; break; }
       }
@@ -226,7 +225,6 @@ int ctx_reads(CmdArgs *args)
   // Calculate memory use
   //
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, 0);
-  size_t ideal_capacity = max_num_kmers*(1.0/IDEAL_OCCUPANCY);
 
   char num_kmers_str[100];
   ulong_to_str(max_num_kmers, num_kmers_str);
@@ -235,7 +233,7 @@ int ctx_reads(CmdArgs *args)
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
   }
-  else if(kmers_in_hash < ideal_capacity)
+  else if(kmers_in_hash < max_num_kmers / WARN_OCCUPANCY)
     warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   //
@@ -273,7 +271,7 @@ int ctx_reads(CmdArgs *args)
                            .db_graph = &db_graph};
 
   for(i = 0; i < num_binaries; i++)
-    binary_load(binary_paths[i], &prefs, stats, NULL);
+    graph_load(binary_paths[i], &prefs, stats, NULL);
 
   prefs.load_seq = true;
   prefs.load_binaries = false;

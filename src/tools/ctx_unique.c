@@ -362,7 +362,7 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, const char *cmdline)
   gzprintf(vcf, "##phasing=none\n");
   gzprintf(vcf, "##procCmd=%s\n", cmdline);
 
-  if(file_reader_get_current_dir(cwd) != NULL)
+  if(futil_get_current_dir(cwd) != NULL)
     gzprintf(vcf, "##procCwd=%s\n", cwd);
 
   gzprintf(vcf, "##procDate=%s\n", datestr);

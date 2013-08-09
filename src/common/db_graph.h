@@ -15,17 +15,15 @@ void db_graph_dealloc(dBGraph *db_graph);
 // dBGraph* db_graph_set_cols(dBGraph *db_graph, uint32_t num_of_cols);
 
 // Get an oriented bkmer
-#define db_graph_oriented_bkmer(graph,hkey,or,result) \
-        db_node_oriented_bkmer(db_node_bkmer(graph,hkey), or, \
-                               (graph)->kmer_size, result)
+#define db_graph_oriented_bkmer(graph,hkey,or) \
+        db_node_oriented_bkmer(db_node_bkmer(graph,hkey),or,(graph)->kmer_size)
 
 //
 // Add to the de bruijn graph
 //
 
 // Note: node may alreay exist in the graph
-hkey_t db_graph_find_or_add_node(dBGraph *db_graph, const BinaryKmer bkey,
-                                 Colour col);
+hkey_t db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkey, Colour col);
 
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge(dBGraph *db_graph, Colour colour,

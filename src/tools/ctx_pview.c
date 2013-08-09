@@ -5,7 +5,7 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "add_read_paths.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
 #include "bubble_caller.h"
@@ -47,9 +47,13 @@ int ctx_pview(CmdArgs *args)
   message("bytes: %s\n", path_bytes_str);
   message("kmers: %s\n", kmers_with_paths_str);
 
+  char inf_kmer_str[100];
   uint32_t col;
-  for(col = 0; col < pheader.num_of_cols; col++)
-    message(" colour %u: %s\n", col, pheader.sample_names[col].buff);
+  for(col = 0; col < pheader.num_of_cols; col++) {
+    ulong_to_str(pheader.num_inferred_kmers[col], inf_kmer_str);
+    message(" colour %u: %s [inferred kmers: %s]\n",
+            col, pheader.sample_names[col].buff, inf_kmer_str);
+  }
 
   // Decide on memory
   size_t kmers_in_hash, ideal_capacity, req_num_kmers;
@@ -74,7 +78,7 @@ int ctx_pview(CmdArgs *args)
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", kmers_with_paths_str);
   }
-  else if(kmers_in_hash < ideal_capacity)
+  else if(kmers_in_hash < pheader.num_kmers_with_paths / WARN_OCCUPANCY)
     warn("Low memory for binary size (require: %s)", kmers_with_paths_str);
 
   if(args->mem_to_use_set && graph_mem > args->mem_to_use)
@@ -90,7 +94,7 @@ int ctx_pview(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, pheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, pheader.num_of_cols);
 
   // Pretend we've read all the kmers in
   db_graph.num_of_cols_used = pheader.num_of_cols;

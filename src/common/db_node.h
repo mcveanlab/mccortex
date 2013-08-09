@@ -9,13 +9,15 @@
 //
 // Get Binary kmers
 //
-#define db_node_bkmer(graph,key) ((ConstBinaryKmerPtr)((graph)->ht.table[key]))
+#define db_node_bkmer(graph,key) ((graph)->ht.table[key])
 
 //
 // Get binary kmer key
 //
-Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
-                    Key restrict kmer_key);
+// For a given kmer, get the BinaryKmer 'key':
+// the lower of the kmer vs reverse complement of itself
+// kmer and kmer_key must NOT point to overlapping memory
+BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 
 #define db_node_to_str(graph,node,str) \
         binary_kmer_to_str(db_node_bkmer(graph,node), (graph)->kmer_size, (str))
@@ -23,12 +25,18 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 //
 // kmer in colours
 //
-#define db_node_has_col(graph,hkey,col) \
-  bitset2_has((graph)->node_in_cols, (graph)->num_of_cols*(hkey)/64+(col), hkey%64)
-#define db_node_set_col(graph,hkey,col) \
-  bitset2_set((graph)->node_in_cols, (graph)->num_of_cols*(hkey)/64+(col), hkey%64)
-#define db_node_del_col(graph,hkey,col) \
-  bitset2_del((graph)->node_in_cols, (graph)->num_of_cols*(hkey)/64+(col), hkey%64)
+// kset is short for a kmer bitset. A three colour kset is organised like so:
+// <0-63:col0><0-63:col1><0-63:col2><64-127:col0><64-127:col1><64-127:col2>
+#define ksetw(idx) ((idx)%64)
+#define kseto(ncols,col,idx) (((idx)/64) * (ncols) + (col))
+#define ksetn(ncols,capacity) (round_bits_to_words(capacity) * (ncols))
+
+#define db_node_has_col(g,hkey,col) \
+        bitset2_has((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+#define db_node_set_col(g,hkey,col) \
+        bitset2_set((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+#define db_node_del_col(g,hkey,col) \
+        bitset2_del((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
 
 //
 // Node traversal
@@ -62,8 +70,8 @@ Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
 #define db_node_get_orientation(bkmer,bkey) \
         (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
 
-void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
-                            uint32_t kmer_size, BinaryKmer result);
+BinaryKmer db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
+                                  uint32_t kmer_size);
 
 #define db_node_first_nuc(bkmer,or,k) \
   ((or) == FORWARD ? binary_kmer_first_nuc((bkmer),(k)) \

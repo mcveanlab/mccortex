@@ -3,7 +3,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "hash_table.h"
-#include "binary_paths.h"
+#include "path_store.h"
 #include "util.h"
 #include "file_util.h"
 
@@ -37,14 +37,20 @@ void paths_header_alloc(PathFileHeader *h, size_t num_of_cols)
 {
   size_t i, old_cap = h->capacity;
 
-  if(h->capacity == 0)
+  if(h->capacity == 0) {
     h->sample_names = malloc2(num_of_cols * sizeof(StrBuf));
-  else if(num_of_cols > h->capacity)
+    h->num_inferred_kmers = calloc2(num_of_cols, sizeof(uint64_t));
+  }
+  else if(num_of_cols > h->capacity) {
     h->sample_names = realloc2(h->sample_names, num_of_cols * sizeof(StrBuf));
+    h->num_inferred_kmers = realloc2(h->num_inferred_kmers,
+                                     num_of_cols * sizeof(uint64_t));
+  }
 
   for(i = old_cap; i < num_of_cols; i++) {
     strbuf_alloc(&h->sample_names[i], 256);
     strbuf_set(&h->sample_names[i], "noname");
+    h->num_inferred_kmers[i] = 0;
   }
 
   h->capacity = MAX2(old_cap, num_of_cols);
@@ -58,6 +64,13 @@ void paths_header_dealloc(PathFileHeader *h)
     free(h->sample_names);
     h->capacity = 0;
   }
+}
+
+void paths_header_update(PathFileHeader *header, const PathStore *paths)
+{
+  header->num_of_paths = paths->num_of_paths;
+  header->num_path_bytes = paths->next - paths->store;
+  header->num_kmers_with_paths = paths->num_kmers_with_paths;
 }
 
 // Returns number of bytes read or -1 on error (if fatal is false)
@@ -124,6 +137,11 @@ int paths_file_read_header(FILE *fh, PathFileHeader *h,
     die("number of colours is zero [binary: %s]\n", path);
   }
 
+  // Read number of inferred kmers for each colour
+  SAFE_READ(fh, h->num_inferred_kmers, sizeof(uint64_t) * h->num_of_cols,
+            "num_inferred_kmers", path, fatal);
+  bytes_read += sizeof(uint64_t) * h->num_of_cols;
+
   return bytes_read;
 }
 
@@ -144,8 +162,6 @@ boolean paths_file_probe(const char *file_path, boolean *valid_paths_file,
 void paths_graph_compatibility_check(const PathFileHeader *pheader,
                                      const dBGraph *db_graph)
 {
-  uint32_t i;
-  
   if(db_graph->kmer_size != pheader->kmer_size)
     die("Kmer sizes do not match between graph and path file");
   if(db_graph->num_of_cols != pheader->num_of_cols)
@@ -156,21 +172,22 @@ void paths_graph_compatibility_check(const PathFileHeader *pheader,
         (size_t)pheader->num_path_bytes);
   }
 
-  if(db_graph->ht.unique_kmers > 0)
+  if(db_graph->ht.unique_kmers > 0 &&
+     db_graph->ht.unique_kmers < pheader->num_kmers_with_paths)
   {
-    if(db_graph->ht.unique_kmers < pheader->num_kmers_with_paths)
-      die("Graph has fewer kmers than paths file");
-
-    // Check sample names match
-    for(i = 0; i < pheader->num_of_cols; i++)
-    {
-      char *gname = db_graph->ginfo[i].sample_name.buff;
-      char *pname = pheader->sample_names[i].buff;
-
-      if(strcmp(pname, "noname") != 0 && strcmp(gname, pname) != 0)
-        die("Graph/path sample names do not match [%u] '%s' vs '%s'", i, gname, pname);
-    }
+    warn("Graph has fewer kmers than paths file");
   }
+
+  // Check sample names match
+  // uint32_t i;
+  // for(i = 0; i < pheader->num_of_cols; i++)
+  // {
+  //   char *gname = db_graph->ginfo[i].sample_name.buff;
+  //   char *pname = pheader->sample_names[i].buff;
+
+  //   if(strcmp(pname, "noname") != 0 && strcmp(gname, pname) != 0)
+  //     die("Graph/path sample names do not match [%u] '%s' vs '%s'", i, gname, pname);
+  // }
 }
 
 // If tmppaths != NULL, do merge
@@ -186,6 +203,7 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
   paths_file_read_header(fh, pheader, true, path);
   paths_graph_compatibility_check(pheader, db_graph);
 
+  // Print some output
   char kmers_str[100], paths_str[100], mem_str[100];
   ulong_to_str(pheader->num_kmers_with_paths, kmers_str);
   ulong_to_str(pheader->num_of_paths, paths_str);
@@ -194,6 +212,30 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
   message(" Loading paths: %s paths, %s path-bytes, %s kmers\n",
           paths_str, mem_str, kmers_str);
 
+  uint64_t i, j;
+  BinaryKmer bkmer;
+  hkey_t node;
+  boolean found;
+
+  // Load inferred kmers
+  if(db_graph->node_in_cols != NULL)
+  {
+    uint64_t top_word_mask = ~(uint64_t)0 << BKMER_TOP_BITS(pheader->kmer_size);
+
+    for(i = 0; i < pheader->num_of_cols; i++)
+    {
+      for(j = 0; j < pheader->num_inferred_kmers[i]; j++)
+      {
+        safe_fread(fh, &bkmer.b, sizeof(BinaryKmer), "Inferred BinaryKmer", path);
+        bkmer = db_node_get_key(bkmer, db_graph->kmer_size);
+        if(bkmer.b[0] & top_word_mask) die("Oversized kmer in graph: %s", path);
+        node = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
+        db_node_set_col(db_graph, node, i);
+      }
+    }
+  }
+
+  // Load paths
   if(tmppaths != NULL)
   {
     if(pheader->num_path_bytes > tmppaths->size)
@@ -208,12 +250,9 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
     paths->num_kmers_with_paths = pheader->num_kmers_with_paths;
   }
 
-  BinaryKmer bkmer;
-  uint64_t i;
+  // Load kmer pointers to paths
   PathIndex index;
-  hkey_t node;
-  boolean found;
-  memset(bkmer, 0, sizeof(BinaryKmer));
+  memset(bkmer.b, 0, sizeof(BinaryKmer));
 
   for(i = 0; i < pheader->num_kmers_with_paths; i++)
   {
@@ -240,7 +279,7 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
       PathIndex kindex = db_node_paths(db_graph, node);
       do
       {
-        kindex = binary_paths_add2(paths, kindex, tmppaths->store + index);
+        kindex = path_store_add2(paths, kindex, tmppaths->store + index);
         if(kindex != PATH_NULL) db_node_paths(db_graph, node) = kindex;
         memcpy(&index, tmppaths->store + index, sizeof(PathIndex));
       }
@@ -267,39 +306,9 @@ void paths_format_read(const char *path, PathFileHeader *pheader,
 // Write
 //
 
-static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
-                                           FILE *fout)
+// returns number of bytes written
+size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout)
 {
-  if(db_node_paths(db_graph, node) != PATH_NULL)
-  {
-    fwrite(db_node_bkmer(db_graph, node), sizeof(BinaryKmer), 1, fout);
-    uint64_t index = db_node_paths(db_graph, node);
-    fwrite(&index, sizeof(uint64_t), 1, fout);
-  }
-}
-
-void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
-                        PathFileHeader *header, const char *out_path)
-{
-  FILE *fout;
-
-  if((fout = fopen(out_path, "w")) == NULL) {
-    die("Unable to open binary paths file to write: %s\n", out_path);
-  }
-
-  // Update header with some values
-  header->num_of_paths = paths->num_of_paths;
-  header->num_kmers_with_paths = paths->num_kmers_with_paths;
-  header->num_path_bytes = paths->next - paths->store;
-
-  char kmers_str[100], paths_str[100], mem_str[100];
-  ulong_to_str(header->num_kmers_with_paths, kmers_str);
-  ulong_to_str(header->num_of_paths, paths_str);
-  bytes_to_str(header->num_path_bytes, 1, mem_str);
-
-  message("  Saving paths: %s paths, %s path-bytes, %s kmers\n",
-          paths_str, mem_str, kmers_str);
-
   fwrite("PATHS", 1, 5, fout);
   fwrite(&header->version, sizeof(uint32_t), 1, fout);
   fwrite(&header->kmer_size, sizeof(uint32_t), 1, fout);
@@ -307,21 +316,77 @@ void paths_format_write(const dBGraph *db_graph, const PathStore *paths,
   fwrite(&header->num_of_paths, sizeof(uint64_t), 1, fout);
   fwrite(&header->num_path_bytes, sizeof(uint64_t), 1, fout);
   fwrite(&header->num_kmers_with_paths, sizeof(uint64_t), 1, fout);
+  return 5 + sizeof(uint32_t)*3 + sizeof(uint64_t)*3;
+}
 
-  size_t i;
+// returns number of bytes written
+size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
+{
+  paths_format_write_header_core(header, fout);
+
+  size_t i, bytes = 0;
   uint32_t len;
-  StrBuf *buf;
-  for(i = 0; i < paths->num_of_cols; i++) {
+  const StrBuf *buf;
+
+  for(i = 0; i < header->num_of_cols; i++)
+  {
     buf = header->sample_names + i;
     len = buf->len;
     fwrite(&len, sizeof(uint32_t), 1, fout);
     fwrite(buf->buff, sizeof(uint8_t), len, fout);
+    bytes += sizeof(uint32_t) + len;
   }
-  
-  fwrite(paths->store, sizeof(uint8_t), header->num_path_bytes, fout);
 
-  HASH_TRAVERSE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
+  fwrite(header->num_inferred_kmers, sizeof(uint64_t), header->num_of_cols, fout);
+  bytes += sizeof(uint64_t) * header->num_of_cols;
 
-  fclose(fout);
+  return bytes;
 }
 
+static inline void write_optimised_paths(hkey_t node, PathIndex *pidx,
+                                         dBGraph *db_graph, FILE *fout)
+{
+  PathStore *paths = &db_graph->pdata;
+  PathIndex curridx, nextidx, newidx;
+  PathLen len;
+  Orientation orient;
+  size_t mem;
+
+  if((curridx = db_node_paths(db_graph, node)) != PATH_NULL)
+  {
+    db_node_paths(db_graph, node) = *pidx;
+
+    do
+    {
+      nextidx = path_store_prev(paths, curridx);
+      path_store_len_orient(paths, curridx, &len, &orient);
+      mem = path_mem(paths->col_bitset_bytes,len);
+      *pidx += mem;
+      newidx = (nextidx == PATH_NULL ? PATH_NULL : *pidx);
+      fwrite(&newidx, sizeof(PathIndex), 1, fout);
+      fwrite(paths->store+curridx+sizeof(PathIndex), mem-sizeof(PathIndex), 1, fout);
+      curridx = nextidx;
+    }
+    while(curridx != PATH_NULL);
+  }
+}
+
+static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
+                                           FILE *fout)
+{
+  if(db_node_paths(db_graph, node) != PATH_NULL)
+  {
+    BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+    PathIndex index = db_node_paths(db_graph, node);
+    fwrite(&bkmer, sizeof(BinaryKmer), 1, fout);
+    fwrite(&index, sizeof(PathIndex), 1, fout);
+  }
+}
+
+// Corrupts paths so they cannot be used elsewhere
+void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout)
+{
+  PathIndex poffset = 0;
+  HASH_TRAVERSE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
+  HASH_TRAVERSE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
+}

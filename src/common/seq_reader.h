@@ -64,13 +64,13 @@ do {                                                                           \
       (stats)->total_bases_loaded += _end - _start;                            \
       (stats)->kmers_loaded += (_end - _start) + 1 - (kmer_size);              \
                                                                                \
-      binary_kmer_from_str((r)->seq.b + _start, (kmer_size), _bkmer);          \
+      _bkmer = binary_kmer_from_str((r)->seq.b + _start, (kmer_size));         \
       func(_bkmer, ##__VA_ARGS__);                                             \
                                                                                \
       for(_base_i = _start+(kmer_size); _base_i < _end; _base_i++)             \
       {                                                                        \
         _nuc = binary_nuc_from_char((r)->seq.b[_base_i]);                      \
-        binary_kmer_left_shift_add(_bkmer, (kmer_size), _nuc);                 \
+        binary_kmer_left_shift_add(&_bkmer, (kmer_size), _nuc);                \
         func(_bkmer, ##__VA_ARGS__);                                           \
       }                                                                        \
     }                                                                          \

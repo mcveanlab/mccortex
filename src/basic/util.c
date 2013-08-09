@@ -328,16 +328,19 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len)
 size_t seconds_to_str(unsigned long seconds, char *str)
 {
   char *ptr = str;
-  int days, hours, minutes;
+  int days, hours, mins;
   days = seconds / (60 * 60 * 24);
   seconds -= days * (60 * 60 * 24);
   hours = seconds / (60 * 60);
   seconds -= hours * (60 * 60);
-  minutes = seconds / 60;
-  seconds -= minutes * 60;
-  if(days > 0) ptr += sprintf(ptr, "%i days ", days);
-  if(days+hours > 0) ptr += sprintf(ptr, "%i hours ", hours);
-  if(days+hours+minutes > 0) ptr += sprintf(ptr, "%i mins ", minutes);
+  mins = seconds / 60;
+  seconds -= mins * 60;
+  if(days > 0)
+    ptr += sprintf(ptr, "%i day%s ", days, days == 1 ? "" : "s");
+  if(days+hours > 0)
+    ptr += sprintf(ptr, "%i hour%s ", hours, hours == 1 ? "" : "s");
+  if(days+hours+mins > 0)
+    ptr += sprintf(ptr, "%i min%s ", mins, mins == 1 ? "" : "s");
   ptr += sprintf(ptr, "%i secs", (int)seconds);
   return ptr - str;
 }

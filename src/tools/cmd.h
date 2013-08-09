@@ -10,8 +10,10 @@ typedef struct
   size_t genome_size, num_kmers, mem_to_use;
   boolean kmer_size_set, num_threads_set;
   uint32_t kmer_size, num_threads;
-  boolean file_set, ctp_set;
-  const char *file, *ctp_path;
+  boolean file_set;
+  const char *file;
+  size_t num_ctp_files;
+  char **ctp_files;
   // arguments not including command:
   int argc;
   char **argv;

@@ -10,7 +10,7 @@
 #include "hash_table.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "seq_reader.h"
 
 
@@ -35,7 +35,7 @@ typedef struct
 dBGraph db_graph;
 uint64_t *kmer_mask;
 
-static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
+static void mark_bkmer(BinaryKmer bkmer, SeqLoadingStats *stats)
 {
   #ifdef DEBUG
     char tmp[MAX_KMER_SIZE+1];
@@ -43,9 +43,8 @@ static void mark_bkmer(const BinaryKmer bkmer, SeqLoadingStats *stats)
     message("got bkmer %s\n", tmp);
   #endif
 
-  BinaryKmer tmpkey;
-  db_node_get_key(bkmer, db_graph.kmer_size, tmpkey);
-  hkey_t node = hash_table_find(&db_graph.ht, tmpkey);
+  BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
+  hkey_t node = hash_table_find(&db_graph.ht, bkey);
   if(node != HASH_NOT_FOUND) bitset_set(kmer_mask, node);
   else stats->unique_kmers++;
 }
@@ -73,14 +72,13 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
   hkey_t next_nodes[8];
   BinaryKmer next_bkmers[8];
 
-  ConstBinaryKmerPtr bkmer = db_node_bkmer(&db_graph, node);
+  BinaryKmer bkmer = db_node_bkmer(&db_graph, node);
 
   // Get neighbours in forward dir
   num_next  = db_graph_next_nodes(&db_graph, bkmer, edges & 0xf,
                                   next_nodes, next_bkmers);
 
-  BinaryKmer revbkmer;
-  binary_kmer_reverse_complement(bkmer, db_graph.kmer_size, revbkmer);
+  BinaryKmer revbkmer = binary_kmer_reverse_complement(bkmer, db_graph.kmer_size);
 
   // Get neighbours in reverse dir
   num_next += db_graph_next_nodes(&db_graph, revbkmer, edges>>4,
@@ -98,12 +96,11 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
   }
 }
 
-static void store_bkmer_neighbours(const BinaryKmer bkmer, dBNodeList *list,
+static void store_bkmer_neighbours(BinaryKmer bkmer, dBNodeList *list,
                                    SeqLoadingStats *stats)
 {
-  BinaryKmer tmpkey;
-  db_node_get_key(bkmer, db_graph.kmer_size, tmpkey);
-  hkey_t node = hash_table_find(&db_graph.ht, tmpkey);
+  BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
+  hkey_t node = hash_table_find(&db_graph.ht, bkey);
   if(node != HASH_NOT_FOUND) store_node_neighbours(node, list);
   else stats->unique_kmers++;
 }
@@ -195,7 +192,7 @@ int ctx_subgraph(CmdArgs *args)
   //
   // Calculate memory use
   //
-  size_t kmers_in_hash, ideal_capacity = max_num_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t kmers_in_hash, ideal_capacity = max_num_kmers / IDEAL_OCCUPANCY;
   size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
   size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
   size_t kmer_mask_mem = round_bits_to_words64(kmers_in_hash) * sizeof(uint64_t);
@@ -221,7 +218,7 @@ int ctx_subgraph(CmdArgs *args)
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
   }
-  else if(kmers_in_hash < ideal_capacity)
+  else if(kmers_in_hash < max_num_kmers / WARN_OCCUPANCY)
     warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   if(num_of_fringe_nodes < 100)
@@ -261,7 +258,7 @@ int ctx_subgraph(CmdArgs *args)
                            .db_graph = &db_graph};
 
   for(i = 0; i < num_binaries; i++)
-    binary_load(binary_paths[i], &prefs, stats, NULL);
+    graph_load(binary_paths[i], &prefs, stats, NULL);
 
   size_t num_of_binary_kmers = stats->kmers_loaded;
 
@@ -311,13 +308,13 @@ int ctx_subgraph(CmdArgs *args)
   if(num_binaries == 1 && ctx_num_of_cols[0] == 1)
   {
     // We have all the info to dump now
-    binary_dump_graph(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
+    graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
   }
   else
   {
-    binaries_merge(out_path, binary_paths, num_binaries,
-                   ctx_num_of_cols, ctx_max_cols,
-                   false, false, true, &db_graph);
+    graph_files_merge(out_path, binary_paths, num_binaries,
+                      ctx_num_of_cols, ctx_max_cols,
+                      false, false, true, &db_graph);
   }
 
   message("Done.\n");

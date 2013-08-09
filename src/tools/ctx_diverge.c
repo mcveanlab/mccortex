@@ -4,9 +4,9 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "binary_paths.h"
+#include "path_store.h"
 #include "seq_reader.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
 
@@ -60,17 +60,17 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
     hkey_t prev_node, node;
     Orientation prev_or, or;
 
-    binary_kmer_from_str(r->seq.b+contig_start, kmer_size, bkmer);
-    db_node_get_key(bkmer, kmer_size, tmp_key);
+    bkmer = binary_kmer_from_str(r->seq.b+contig_start, kmer_size);
+    tmp_key = db_node_get_key(bkmer, kmer_size);
     prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
     prev_or = db_node_get_orientation(bkmer, tmp_key);
 
     for(i = contig_start+kmer_size; i < contig_end; i++)
     {
       Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
-      binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+      binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
 
-      db_node_get_key(bkmer, kmer_size, tmp_key);
+      tmp_key = db_node_get_key(bkmer, kmer_size);
       node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
       or = db_node_get_orientation(bkmer, tmp_key);
 
@@ -108,15 +108,14 @@ static void diverge_call_path(hkey_t node, Orientation orient,
 
 }
 
-static void diverge_call_node(const BinaryKmer bkmer, const dBGraph *db_graph,
+static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
                               DivergeData *data)
 {
   // DEV: check if node already been used
 
   GraphWalker *wlk = &data->wlk;
 
-  BinaryKmer bkey;
-  db_node_get_key(bkmer, db_graph->kmer_size, bkey);
+  BinaryKmer bkey = db_node_get_key(bkmer, db_graph->kmer_size);
   hkey_t node = hash_table_find(&db_graph->ht, bkey);
   Orientation orient = db_node_get_orientation(bkmer, bkey);
 
@@ -271,7 +270,7 @@ int ctx_diverge(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
 
   // Allocate memory for calling
   uint32_t *kmer_pos = malloc2(2 * db_graph.ht.capacity * sizeof(uint32_t));
@@ -295,7 +294,7 @@ int ctx_diverge(CmdArgs *args)
                            .empty_colours = false,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(input_ctx_path, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   read_t r1;

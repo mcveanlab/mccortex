@@ -6,8 +6,8 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "binary_format.h"
-#include "binary_paths.h"
+#include "graph_format.h"
+#include "path_store.h"
 #include "path_format.h"
 
 static const char usage[] =
@@ -121,7 +121,7 @@ int ctx_pmerge(CmdArgs *args)
   // set up tmp space
   PathStore tmp_pdata;
   uint8_t *tmp_path_store = malloc2(max_ctp_path_bytes);
-  binary_paths_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, gheader.num_of_cols);
+  path_store_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, gheader.num_of_cols);
 
   // Set up graph and PathStore
   dBGraph db_graph;
@@ -132,7 +132,7 @@ int ctx_pmerge(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
 
   //
   // Set up file header
@@ -153,7 +153,12 @@ int ctx_pmerge(CmdArgs *args)
   }
 
   // Dump paths file
-  paths_format_write(&db_graph, &db_graph.pdata, &pheader, out_ctp_path);
+  FILE *fout = fopen(out_ctp_path, "w");
+  if(fout == NULL) die("Cannot open output file: %s", out_ctp_path);
+  paths_header_update(&pheader, &db_graph.pdata);
+  paths_format_write_header(&pheader, fout);
+  paths_format_write_optimised_paths(&db_graph, fout);
+  fclose(fout);
 
   free((void *)db_graph.kmer_paths);
   free(path_store);

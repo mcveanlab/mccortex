@@ -5,53 +5,30 @@
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
 // kmer and kmer_key must NOT point to overlapping memory
-Key db_node_get_key(const uint64_t* const restrict kmer, uint32_t kmer_size,
-                    Key restrict kmer_key)
+BinaryKmer db_node_get_key(const BinaryKmer bkmer, uint32_t kmer_size)
 {
-  assert(kmer != kmer_key);
-
-  /*
-  // Simpler version is slightly slower
-  binary_kmer_reverse_complement(kmer, kmer_size, kmer_key);
-  if(binary_kmer_less_than(kmer, kmer_key))
-    binary_kmer_assign(kmer_key, kmer);
-  */
+  BinaryKmer bkey;
 
   // Get first and last nucleotides
-  Nucleotide first = binary_kmer_first_nuc(kmer, kmer_size);
-  Nucleotide last = binary_kmer_last_nuc(kmer);
+  Nucleotide first = binary_kmer_first_nuc(bkmer, kmer_size);
+  Nucleotide last = binary_kmer_last_nuc(bkmer);
   Nucleotide rev_last = binary_nuc_complement(last);
 
-  if(first < rev_last) {
-    binary_kmer_assign(kmer_key, kmer);
-  }
-  // else if(first > rev_last) { // reduce conditionals to speed up
-  //   binary_kmer_reverse_complement(kmer, kmer_size, kmer_key);
-  // }
-  else
-  {
-    // Don't know which is going to be correct -- this will happen 1 in 4 times
-    binary_kmer_reverse_complement(kmer, kmer_size, kmer_key);
-    if(binary_kmer_less_than(kmer, kmer_key)) {
-      binary_kmer_assign(kmer_key, kmer);
-    }
-  }
+  if(first < rev_last) return bkmer;
 
-  return kmer_key;
+  // Don't know which is going to be correct -- this will happen 1 in 4 times
+  bkey = binary_kmer_reverse_complement(bkmer, kmer_size);
+  return (binary_kmer_less_than(bkmer, bkey) ? bkmer : bkey);
 }
 
 //
 // Orientations
 //
-void db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
-                            uint32_t kmer_size, BinaryKmer result)
+BinaryKmer db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
+                                  uint32_t kmer_size)
 {
-  if(orient == FORWARD) {
-    binary_kmer_assign(result, bkmer);
-  }
-  else {
-    binary_kmer_reverse_complement(bkmer, kmer_size, result);
-  }
+  if(orient == FORWARD) return bkmer;
+  else return binary_kmer_reverse_complement(bkmer, kmer_size);
 }
 
 //
@@ -181,7 +158,7 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
 
   size_t i;
   uint32_t kmer_size = db_graph->kmer_size;
-  ConstBinaryKmerPtr bkmer = db_node_bkmer(db_graph, nodes[0].node);
+  BinaryKmer bkmer = db_node_bkmer(db_graph, nodes[0].node);
   Nucleotide nuc;
 
   binary_kmer_to_str(bkmer, kmer_size, str);

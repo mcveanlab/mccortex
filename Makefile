@@ -24,20 +24,20 @@ endif
 # Use bash as shell
 SHELL := /bin/bash
 
-BITFIELDS=$(shell echo $$((($(MAXK)+31)/32)))
+NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
 
 ifndef MAXK
-  BITFIELDS = 1
+  NUM_BKMER_WORDS = 1
   MAXK = 31
 else
-  BITFIELDS=$(shell echo $$((($(MAXK)+31)/32)))
+  NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
 endif
 
-ifeq ($(BITFIELDS),0)
+ifeq ($(NUM_BKMER_WORDS),0)
   $(error Invalid MAXK value '$(MAXK)'. Please choose from 31,63,95,..(32*n-1) [default: 31])
 endif
 
-MAX_KMER_SIZE=$(shell echo $$(($(BITFIELDS)*32-1)))
+MAX_KMER_SIZE=$(shell echo $$(($(NUM_BKMER_WORDS)*32-1)))
 MIN_KMER_SIZE=$(shell echo $$(($(MAX_KMER_SIZE)-30)))
 
 ifeq ($(MIN_KMER_SIZE),1)
@@ -101,7 +101,7 @@ endif
 
 CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BITFIELDS_IN_BKMER=$(BITFIELDS) $(HASH_KEY_FLAGS)
+         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS) $(HASH_KEY_FLAGS)
 
 # basic objects compile without MAXK
 # common and tool objects require MAXK

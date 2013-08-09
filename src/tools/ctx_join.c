@@ -10,7 +10,7 @@
 #include "db_graph.h"
 #include "graph_info.h"
 #include "db_node.h"
-#include "binary_format.h"
+#include "graph_format.h"
 
 // Given (A,B,C) are ctx binaries, A:1 means colour 1 in A,
 // {A:1,B:0} is loading A:1 and B:0 into a single colour
@@ -156,7 +156,8 @@ int ctx_join(CmdArgs *args)
 
   // Pick hash table size
   size_t kmers_in_hash;
-  size_t mem_per_kmer = sizeof(Covg) + sizeof(Edges);
+  size_t extra_mem_per_kmer = sizeof(Covg) + sizeof(Edges);
+  size_t mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
 
   if(num_intersect > 0)
   {
@@ -186,7 +187,7 @@ int ctx_join(CmdArgs *args)
     message("[memory] graph: %s\n", mem_needed_str);
   }
   else
-    kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
+    kmers_in_hash = cmd_get_kmers_in_hash(args, extra_mem_per_kmer);
 
   message("\n");
 
@@ -214,14 +215,14 @@ int ctx_join(CmdArgs *args)
                              .empty_colours = false,
                              .db_graph = &db_graph};
 
-    binary_load(intersect_paths[0], &prefs, NULL, NULL);
+    graph_load(intersect_paths[0], &prefs, NULL, NULL);
 
     if(num_intersect > 1)
     {
       prefs.must_exist_in_graph = true;
 
       for(i = 1; i < num_intersect; i++)
-        binary_load(intersect_paths[i], &prefs, NULL, NULL);
+        graph_load(intersect_paths[i], &prefs, NULL, NULL);
 
       // Remove nodes where covg != num_intersect
       HASH_TRAVERSE(&db_graph.ht, remove_non_intersect_nodes, db_graph.col_covgs,
@@ -235,9 +236,9 @@ int ctx_join(CmdArgs *args)
     message("Loaded intersection set\n\n");
   }
 
-  binaries_merge(out_ctx_path, binary_paths, num_binaries,
-                 ctx_num_cols, ctx_max_cols,
-                 merge, flatten, num_intersect > 0, &db_graph);
+  graph_files_merge(out_ctx_path, binary_paths, num_binaries,
+                    ctx_num_cols, ctx_max_cols,
+                    merge, flatten, num_intersect > 0, &db_graph);
 
   graph_header_dealloc(&gheader);
 

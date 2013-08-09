@@ -5,7 +5,7 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_info.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "file_reader.h"
 #include "seq_reader.h"
 
@@ -186,8 +186,8 @@ int ctx_build(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
-  db_graph.col_edges = calloc2(kmers_in_hash * colours_used, sizeof(Edges));
-  db_graph.col_covgs = calloc2(kmers_in_hash * colours_used, sizeof(Covg));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity * colours_used, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity * colours_used, sizeof(Covg));
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -257,7 +257,7 @@ int ctx_build(CmdArgs *args)
       argi += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
-      prefs.into_colour += binary_load(argv[argi+1], &prefs, stats, NULL);
+      prefs.into_colour += graph_load(argv[argi+1], &prefs, stats, NULL);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
@@ -278,7 +278,7 @@ int ctx_build(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   message("Dumping binary...\n");
-  binary_dump_graph(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
+  graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
 
   message("Done.\n");
 

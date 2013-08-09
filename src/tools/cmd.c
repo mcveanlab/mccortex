@@ -32,7 +32,7 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts)
     die("-k <kmer-size> argument not valid for this command");
   if(args->file_set && strchr(accptopts,'f') == NULL)
     die("-f <file> argument not valid for this command");
-  if(args->ctp_set && strchr(accptopts,'p') == NULL)
+  if(args->num_ctp_files > 0 && strchr(accptopts,'p') == NULL)
     die("-p <in.ctp> argument not valid for this command");
 }
 
@@ -52,7 +52,7 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
         die("-g <genomesize> argument required for this command");
     }
     else if(*requireopts == 't') {
-      if(!args->genome_size_set)
+      if(!args->num_threads_set)
         die("-t <threads> argument required for this command");
     }
     else if(*requireopts == 'h') {
@@ -68,7 +68,7 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
         die("-f <file> argument required for this command");
     }
     else if(*requireopts == 'p') {
-      if(!args->file_set)
+      if(args->num_ctp_files == 0)
         die("-p <in.ctp> argument required for this command");
     }
     else warn("Ignored required option: %c", *requireopts);
@@ -83,7 +83,6 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   args->num_threads = 2;
   args->kmer_size = MAX_KMER_SIZE;
   args->file = NULL;
-  args->ctp_path = NULL;
 
   args->mem_to_use_set = false;
   args->genome_size_set = false;
@@ -91,7 +90,9 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   args->num_kmers_set = false;
   args->kmer_size_set = false;
   args->file_set = false;
-  args->ctp_set = false;
+
+  args->ctp_files = malloc2(argc * sizeof(char*));
+  args->num_ctp_files = 0;
 
   // Get command index
   boolean is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
@@ -120,6 +121,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     if(strcmp(argv[i], "-m") == 0)
     {
       if(i + 1 == argc) die("-m <memory> requires an argument");
+      if(args->mem_to_use_set) die("-m <memory> given more than once");
       if(!mem_to_integer(argv[i+1], &args->mem_to_use) || args->mem_to_use == 0)
         die("Invalid memory argument: %s", argv[i+1]);
       args->mem_to_use_set = true;
@@ -128,6 +130,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-g") == 0)
     {
       if(i + 1 == argc) die("-g <genome-size> requires an argument");
+      if(args->genome_size_set) die("-g <genome-size> given more than once");
       if(!bases_to_integer(argv[i+1], &args->genome_size) || args->genome_size == 0)
         die("Invalid genome size argument: %s", argv[i+1]);
       args->genome_size_set = true;
@@ -136,6 +139,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-t") == 0)
     {
       if(i + 1 == argc) die("-t <threads> requires an argument");
+      if(args->num_threads_set) die("-t <threads> given more than once");
       if(!parse_entire_uint(argv[i+1], &args->num_threads) || args->num_threads == 0)
         die("Invalid number of threads: %s", argv[i+1]);
       args->num_threads_set = true;
@@ -144,6 +148,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-h") == 0)
     {
       if(i + 1 == argc) die("-h <hash-kmers> requires an argument");
+      if(args->num_kmers_set) die("-h <hash-kmers> given more than once");
       if(!mem_to_integer(argv[i+1], &args->num_kmers) || args->num_kmers == 0)
         die("Invalid hash size: %s", argv[i+1]);
       args->num_kmers_set = true;
@@ -152,6 +157,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-k") == 0)
     {
       if(i + 1 == argc) die("-k <kmer-size> requires an argument");
+      if(args->num_kmers_set) die("-k <kmer-size> given more than once");
       if(!parse_entire_uint(argv[i+1], &args->kmer_size) ||
          args->kmer_size < 3 || !(args->kmer_size & 0x1))
         die("kmer size (-k) must be an odd int >= 3: %s", argv[i+1]);
@@ -163,15 +169,15 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-f") == 0)
     {
       if(i + 1 == argc) die("-f <file> requires an argument");
+      if(args->file_set) die("-f <file> given more than once");
       args->file = argv[i+1];
-      args->kmer_size_set = true;
+      args->file_set = true;
       i++;
     }
     else if(strcmp(argv[i], "-p") == 0)
     {
       if(i + 1 == argc) die("-p <in.ctp> requires an argument");
-      args->ctp_path = argv[i+1];
-      args->ctp_set = true;
+      args->ctp_files[args->num_ctp_files++] = argv[i+1];
       i++;
     }
     else {
@@ -182,6 +188,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
 
 void cmd_free(CmdArgs *args)
 {
+  free(args->ctp_files);
   free(args->argv);
   free(args->cmdline);
 }
@@ -201,20 +208,24 @@ int cmd_run(int argc, char **argv)
 }
 
 // If your command accepts -h <kmers> and -m <mem> this may be useful
-// mem_per_kmer is additional memory per node, above hash table for BinaryKmers
-size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t mem_per_kmer)
+// extra_mem_per_kmer is additional memory per node, above hash table for
+// BinaryKmers
+size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_mem_per_kmer)
 {
-  size_t req_kmers
-    = args->num_kmers_set ? args->num_kmers
-                          : args->mem_to_use / (sizeof(BinaryKmer) + mem_per_kmer);
+  size_t mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
+  size_t req_kmers = args->num_kmers_set ? args->num_kmers
+                                         : args->mem_to_use / mem_per_kmer;
 
   size_t kmers_in_hash, hash_mem, graph_mem;
-  hash_mem = hash_table_mem2(req_kmers, &kmers_in_hash);
-  graph_mem = hash_mem + kmers_in_hash * mem_per_kmer;
+  hash_mem = hash_table_mem(req_kmers, &kmers_in_hash);
+  graph_mem = hash_mem + kmers_in_hash * extra_mem_per_kmer;
 
   char graph_mem_str[100], mem_to_use_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
+
+  if(args->mem_to_use_set && graph_mem > args->mem_to_use)
+    die("Not enough memory: require at least %s\n", graph_mem_str);
 
   if(args->mem_to_use_set && args->num_kmers_set) {
     if(graph_mem > args->mem_to_use) {

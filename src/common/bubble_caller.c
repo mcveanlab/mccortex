@@ -13,7 +13,7 @@
 #include "file_util.h"
 #include "file_reader.h"
 #include "seq_reader.h"
-#include "binary_paths.h"
+#include "path_store.h"
 #include "graph_walker.h"
 #include "caller_supernode.h"
 
@@ -50,7 +50,7 @@ static void print_calling_header(const dBGraph *db_graph, gzFile out,
   // Cortex details
   // gzprintf(out, "##ctxCmd=%s\n", cmd->cmdstr);
 
-  if(file_reader_get_current_dir(cwd) != NULL)
+  if(futil_get_current_dir(cwd) != NULL)
     gzprintf(out, "##ctxCwd=%s\n", cwd);
 
   gzprintf(out, "##ctxDate=%s\n", datestr);
@@ -131,7 +131,7 @@ static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
   {
     BinaryKmer bkmer;
     char tmp[MAX_KMER_SIZE+1];
-    db_graph_oriented_bkmer(db_graph, nodes[0], orients[0], bkmer);
+    bkmer = db_graph_oriented_bkmer(db_graph, nodes[0], orients[0]);
     binary_kmer_to_str(bkmer, kmer_size, tmp);
     gzputs(out, tmp);
     i = 1;
@@ -177,7 +177,7 @@ static void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
       last_orient = rev_orient(snode->orients[0]);
     }
 
-    db_graph_oriented_bkmer(wlk->db_graph, last_node, last_orient, last_bkmer);
+    last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, last_node, last_orient);
     graph_traverse_force_jump(wlk, last_node, last_bkmer, false);
     // don't need counter paths here (we're at the end of a supernode)
   }
@@ -295,9 +295,13 @@ static void load_allele_path(hkey_t node, Orientation or,
 
     // Get last bases
     Nucleotide next_bases[4];
-    for(i = 0; i < num_edges; i++) {
+    int edges_in_colour = 0;
+
+    for(i = 0; i < num_edges; i++)
+    {
       next_bases[i] = db_node_last_nuc(db_node_bkmer(db_graph, next_nodes[i]),
                                        next_orients[i], db_graph->kmer_size);
+      edges_in_colour += (db_node_has_col(db_graph, next_nodes[i], wlk->colour)>0);
     }
 
     int nxt_idx = graph_walker_choose(wlk, num_edges, next_nodes, next_bases);
@@ -315,7 +319,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     // }
 
     Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
-    graph_traverse_force(wlk, node, base, num_edges > 1);
+    graph_traverse_force(wlk, node, base, edges_in_colour > 1);
     graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
   }
   // printf("DONE\n");
@@ -436,7 +440,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
     for(colour = 0; colour < colours_loaded; colour++)
     {
-      // if(db_node_has_col(db_graph, nodes[i], colour)) {
+      if(db_node_has_col(db_graph, nodes[i], colour)) {
         SupernodePath *path = paths + num_of_paths++;
 
         graph_walker_init(wlk, db_graph, colour, fork_n, fork_o);
@@ -461,7 +465,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
           db_node_fast_clear_traversed(visited, snode->nodes[0]);
           db_node_fast_clear_traversed(visited, snode->nodes[last]);
         }
-      // }
+      }
     }
   }
 
@@ -474,8 +478,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   {
     #ifdef DEBUG_CALLER
       char tmpsup[MAX_KMER_SIZE+1];
-      ConstBinaryKmerPtr bptr = db_node_bkmer(db_graph, snode_store[i].nodes[0]);
-      binary_kmer_to_str(bptr, db_graph->kmer_size, tmpsup);
+      BinaryKmer bkmer = db_node_bkmer(db_graph, snode_store[i].nodes[0]);
+      binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpsup);
       printf("check supernode: %s\n", tmpsup);
     #endif
 

@@ -44,8 +44,8 @@ size_t supernode_traverse(hkey_t node, Orientation or,
 {
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
-    binary_kmer_to_str(bkmerptr, db_graph->kmer_size, tmpstr);
+    BinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
     printf("  fetch %s:%i\n", tmpstr, (int)or);
   #endif
 
@@ -96,8 +96,8 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
 {
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
-    binary_kmer_to_str(bkmerptr, db_graph->kmer_size, tmpstr);
+    BinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
     printf(" create %s:%i\n", tmpstr, (int)or);
   #endif
 
@@ -153,8 +153,8 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
 
   #ifdef DEBUG_CALLER
     char tmpstr1[MAX_KMER_SIZE+1], tmpstr2[MAX_KMER_SIZE+1];
-    ConstBinaryKmerPtr first_bkmer = db_node_bkmer(db_graph, first_node);
-    ConstBinaryKmerPtr last_bkmer = db_node_bkmer(db_graph, last_node);
+    BinaryKmer first_bkmer = db_node_bkmer(db_graph, first_node);
+    BinaryKmer last_bkmer = db_node_bkmer(db_graph, last_node);
     binary_kmer_to_str(first_bkmer, db_graph->kmer_size, tmpstr1);
     binary_kmer_to_str(last_bkmer, db_graph->kmer_size, tmpstr2);
     printf("   ( [>%i] first:%s:%i; len:%zu last:%s:%i [%i<] )\n",

@@ -2,7 +2,7 @@
 #include "binary_kmer.h"
 
 // This is exported
-const BinaryKmer zero_bkmer = {0};
+const BinaryKmer zero_bkmer = {.b = {0}};
 
 const char bnuc_to_char_array[4] = {'A','C','G','T'};
 
@@ -16,7 +16,7 @@ const Nucleotide char_to_bnuc[128] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
                                       4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,
                                       4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4};
 
-#ifndef NDEBUG
+#ifdef DEBUG
 // These have asserts in them
 char binary_nuc_to_char(Nucleotide n)
 {
@@ -27,16 +27,16 @@ char binary_nuc_to_char(Nucleotide n)
 #endif
 
 // less than for 1 or 2 bitfields is defined in the header
-#if NUM_BITFIELDS_IN_BKMER > 2
-boolean binary_kmer_less_than(const BinaryKmer left, const BinaryKmer right)
+#if NUM_BKMER_WORDS > 2
+boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right)
 {
   int i;
 
   // start at most significant end
-  for(i = 0; i < NUM_BITFIELDS_IN_BKMER; i++)
+  for(i = 0; i < NUM_BKMER_WORDS; i++)
   {
-    if(left[i] < right[i]) return true;
-    if(left[i] > right[i]) return false;
+    if(left.b[i] < right.b[i]) return true;
+    if(left.b[i] > right.b[i]) return false;
   }
 
   // if equal, return false ('less than' not 'less than or equal')
@@ -45,31 +45,31 @@ boolean binary_kmer_less_than(const BinaryKmer left, const BinaryKmer right)
 #endif
 
 
-void binary_kmer_right_shift_one_base(BinaryKmer kmer)
+void binary_kmer_right_shift_one_base(BinaryKmer *bkmer)
 {
   int i;
-  for(i = NUM_BITFIELDS_IN_BKMER - 1; i > 0; i--)
+  for(i = NUM_BKMER_WORDS - 1; i > 0; i--)
   {
-    kmer[i] >>= 2;
-    kmer[i] |= (kmer[i - 1] << 62);
+    bkmer->b[i] >>= 2;
+    bkmer->b[i] |= (bkmer->b[i - 1] << 62);
   }
 
-  kmer[0] >>= 2;
+  bkmer->b[0] >>= 2;
 }
 
-void binary_kmer_left_shift_one_base(BinaryKmer kmer, uint32_t kmer_size)
+void binary_kmer_left_shift_one_base(BinaryKmer *bkmer, uint32_t kmer_size)
 {
-  int i;
-  for(i = 0; i < NUM_BITFIELDS_IN_BKMER - 1; i++)
+  size_t i;
+  for(i = 0; i+1 < NUM_BKMER_WORDS; i++)
   {
-    kmer[i] <<= 2;
-    kmer[i] |= (kmer[i + 1] >> 62);
+    bkmer->b[i] <<= 2;
+    bkmer->b[i] |= (bkmer->b[i + 1] >> 62);
   }
 
-  kmer[NUM_BITFIELDS_IN_BKMER - 1] <<= 2;
+  bkmer->b[NUM_BKMER_WORDS - 1] <<= 2;
 
   // Mask top word
-  kmer[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
+  bkmer->b[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
 }
 
 // byte reverse complement look up table
@@ -116,25 +116,23 @@ static const uint8_t revcmp_table[256] =
 
 
 // kmer and prealloc_revcmp_kmer may NOT point to the same address
-BinaryKmerPtr binary_kmer_reverse_complement(const uint64_t *const restrict kmer,
-                                             uint32_t kmer_size,
-                                             BinaryKmerPtr restrict revcmp_kmer)
+BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
+                                          uint32_t kmer_size)
 {
-  assert(kmer != revcmp_kmer);
-  // BinaryKmer kmer_copy;
   size_t i, j, k;
+  BinaryKmer revcmp = {.b = {0}};
 
-  for(i = 0; i < NUM_BITFIELDS_IN_BKMER; i++)
+  for(i = 0; i < NUM_BKMER_WORDS; i++)
   {
     // swap word i into word j
-    j = NUM_BITFIELDS_IN_BKMER - i - 1;
-    uint64_t kmer_word = kmer[i];
+    j = NUM_BKMER_WORDS - i - 1;
+    uint64_t kmer_word = bkmer.b[i];
 
     // Loop over bytes in binary kmer
     for(k = 0; k < sizeof(uint64_t); k++)
     {
-      revcmp_kmer[j] <<= 8;
-      revcmp_kmer[j] |= revcmp_table[kmer_word & 0xff];
+      revcmp.b[j] <<= 8;
+      revcmp.b[j] |= revcmp_table[kmer_word & 0xff];
       kmer_word >>= 8;
     }
   }
@@ -144,27 +142,28 @@ BinaryKmerPtr binary_kmer_reverse_complement(const uint64_t *const restrict kmer
   size_t unused_bits = 64 - top_bits;
 
   // Now shift bits right by unused_bits
-  int w = NUM_BITFIELDS_IN_BKMER-1;
+  int w = NUM_BKMER_WORDS-1;
 
-  revcmp_kmer[w] >>= unused_bits;
+  revcmp.b[w] >>= unused_bits;
 
   for(w = w - 1; w >= 0; w--)
   {
-    revcmp_kmer[w+1] |= revcmp_kmer[w] << top_bits;
-    revcmp_kmer[w] >>= unused_bits;
+    revcmp.b[w+1] |= revcmp.b[w] << top_bits;
+    revcmp.b[w] >>= unused_bits;
   }
 
-  return revcmp_kmer;
+  return revcmp;
 }
 
 // Get a random binary kmer -- useful for testing
-void binary_kmer_random(BinaryKmer bkmer, uint32_t kmer_size)
+BinaryKmer binary_kmer_random(uint32_t kmer_size)
 {
-  uint64_t i, *ptr = bkmer;
+  BinaryKmer bkmer = {.b = {0}};
+  size_t i;
   for(i = 0; i < sizeof(BinaryKmer) / 8; i++, ptr++)
-    *ptr = ((uint64_t)rand()) << 32 | rand();
-  ptr = bkmer;
-  *ptr >>= 64 - BKMER_TOP_BASES(kmer_size);
+    bkmer.b[i] = ((uint64_t)rand()) << 32 | rand();
+  bkmer.b[0] >>= 64 - BKMER_TOP_BASES(kmer_size);
+  return bkmer;
 }
 
 //
@@ -173,44 +172,46 @@ void binary_kmer_random(BinaryKmer bkmer, uint32_t kmer_size)
 
 // Caller passes in preallocated BinaryKmer
 // which is also returned in the return value
-BinaryKmerPtr binary_kmer_from_str(const char *seq, uint32_t kmer_size,
-                                   BinaryKmer prealloced_kmer)
+BinaryKmer binary_kmer_from_str(const char *seq, uint32_t kmer_size)
 {
   assert(seq != NULL);
-  assert(prealloced_kmer != NULL);
   assert(strlen(seq) >= kmer_size);
 
   uint32_t i;
-  binary_kmer_init(prealloced_kmer);
+  BinaryKmer bkmer = {.b = {0}};
 
   for(i = 0; i < kmer_size; i++)
   {
     Nucleotide nuc = binary_nuc_from_char(seq[i]);
     assert(nuc != UndefinedBase);
 
-    binary_kmer_left_shift_add(prealloced_kmer, kmer_size, nuc);
+    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
   }
 
-  return prealloced_kmer;
+  return bkmer;
 }
 
 // Caller passes in allocated char* as 3rd argument which is then returned
 // User of this method is responsible for deallocating the returned sequence
 // Note that the allocated space has to be kmer_size+1;
-char *binary_kmer_to_str(const BinaryKmer bkmer, uint32_t kmer_size, char *seq)
+char *binary_kmer_to_str(BinaryKmer bkmer, uint32_t kmer_size, char *seq)
 {
-  assert(seq != NULL);
+  size_t i, j, k = kmer_size, topbases = BKMER_TOP_BASES(kmer_size);
+  uint64_t word;
 
-  BinaryKmer local_bkmer;
-  binary_kmer_assign(local_bkmer, bkmer);
+  for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
+    word = bkmer.b[i];
+    for(j = 0; j < 32; j++) {
+      seq[--k] = binary_nuc_to_char(word & 0x3);
+      word >>= 2;
+    }
+  }
 
-  uint32_t i;
-  for(i = kmer_size - 1; ; i--)
-  {
-    Nucleotide nuc = binary_kmer_last_nuc(local_bkmer);
-    seq[i] = binary_nuc_to_char(nuc);
-    binary_kmer_right_shift_one_base(local_bkmer);
-    if(i == 0) break;
+  // Top word
+  word = bkmer.b[0];
+  for(j = 0; j < topbases; j++) {
+    seq[--k] = binary_nuc_to_char(word & 0x3);
+    word >>= 2;
   }
 
   seq[kmer_size] = '\0';

@@ -83,13 +83,13 @@ cmd time $OLDCTX --load_binary diploid.k31.ctx --add_shades --pe_list reads.0.fa
 cmd $PROC diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
 cmd gzip -d -f diploid.newbc.shaded.vcf.gz
 
-cmd time $THREAD -t 2 -m 100MB --col 0 0 $SELIST 1 diploid.k31.se.ctp diploid.k31.ctx diploid.k31.ctx
-cmd time $THREAD -t 2 -m 100MB --col 0 0 $PELIST 1 diploid.k31.pe.ctp diploid.k31.ctx diploid.k31.ctx
-cmd time $THREAD -t 2 -m 100MB --col 0 0 $SELIST $PELIST 1 diploid.k31.sepe.ctp diploid.k31.ctx diploid.k31.ctx
+cmd time $THREAD -t 1 -m 100MB --col 0 0 $SELIST 1 diploid.k31.se.ctp diploid.k31.ctx diploid.k31.ctx
+cmd time $THREAD -t 1 -m 100MB --col 0 0 $PELIST 1 diploid.k31.pe.ctp diploid.k31.ctx diploid.k31.ctx
+cmd time $THREAD -t 1 -m 100MB --col 0 0 $SELIST $PELIST 1 diploid.k31.sepe.ctp diploid.k31.ctx diploid.k31.ctx
 
 for x in se pe sepe
 do
-  cmd time $CALL -t 2 -m 100MB -p diploid.k31.$x.ctp diploid.k31.ctx diploid.pac.$x.bubbles.gz
+  cmd time $CALL -t 1 -m 100MB -p diploid.k31.$x.ctp diploid.k31.ctx diploid.pac.$x.bubbles.gz
   cmd $PROC diploid.pac.$x.bubbles.gz diploid.pac.$x
   cmd gzip -d -f diploid.pac.$x.vcf.gz
 done

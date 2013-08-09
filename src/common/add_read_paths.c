@@ -10,7 +10,6 @@
 #include "file_reader.h"
 #include "add_read_paths.h"
 
-// DEV: differentiate in code between ctx_col and ctp_col
 typedef struct {
   read_t r1, r2;
   Colour ctp_col, ctx_col;
@@ -27,9 +26,9 @@ typedef struct
   uint64_t *const visited;
   dBNodeBuffer nodebuf;
   AddPathsJob job;
-  // uint64_t insert_sizes[GAP_LIMIT+1], gap_sizes[GAP_LIMIT+1];
   // Biggest gap between reads we'll try to traverse
   uint64_t *insert_sizes, *gap_sizes; // length gap_limit+1
+  volatile boolean busy;
 } AddPathsWorker;
 
 struct PathsWorkerPool
@@ -61,7 +60,11 @@ pthread_cond_t data_written_cond, data_read_cond;
 
 // Incoming data
 volatile boolean data_waiting = false, input_ended = false;
-AddPathsJob next_job;
+volatile AddPathsJob next_job;
+
+// Write inferred kmer here
+volatile FILE *fout;
+volatile size_t num_inferred_kmers;
 
 static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
                                dBGraph *db_graph, uint32_t gap_limit)
@@ -76,6 +79,7 @@ static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
 
   worker->insert_sizes = calloc2(gap_limit+1, sizeof(uint64_t));
   worker->gap_sizes = calloc2(gap_limit+1, sizeof(uint64_t));
+  worker->busy = false;
 }
 
 static void paths_worker_dealloc(AddPathsWorker *worker)
@@ -93,7 +97,7 @@ static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
 {
   StrBuf *csv_dump = strbuf_new();
 
-  if(!file_reader_generate_filename(base_fmt, csv_dump)) {
+  if(!futil_generate_filename(base_fmt, csv_dump)) {
     warn("Cannot dump gapsize");
     return;
   }
@@ -126,9 +130,8 @@ static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
   strbuf_free(csv_dump);
 }
 
-// DEV: use ctx_col to choose junctions to add paths to
 static void add_read_path(const dBNode *nodes, size_t len,
-                          dBGraph *graph, Colour ctp_col)
+                          dBGraph *graph, Colour ctx_col, Colour ctp_col)
 {
   if(len < 3) return;
 
@@ -140,12 +143,12 @@ static void add_read_path(const dBNode *nodes, size_t len,
   Nucleotide nuc_fw[len], nuc_rv[len];
   uint32_t pos_fw[len], pos_rv[len];
 
-  // Find forks
+  // Find forks in this colour
   size_t i, j, num_fw = 0, num_rv = 0;
   Nucleotide nuc;
 
   for(i = 0; i < len; i++) {
-    edges[i] = db_node_col_edges(graph,0,nodes[i].node);
+    edges[i] = db_node_col_edges(graph, ctx_col, nodes[i].node);
     outdegree[i] = edges_get_outdegree(edges[i], nodes[i].orient);
     indegree[i] = edges_get_indegree(edges[i], nodes[i].orient);
   }
@@ -153,12 +156,12 @@ static void add_read_path(const dBNode *nodes, size_t len,
   #ifdef DEBUG
     char str[MAX_KMER_SIZE+1];
     BinaryKmer bkmer;
-    db_graph_oriented_bkmer(graph, nodes[0].node, nodes[0].orient, bkmer);
+    bkmer = db_graph_oriented_bkmer(graph, nodes[0].node, nodes[0].orient);
     binary_kmer_to_str(bkmer, kmer_size, str);
     printf("%s", str);
     for(i = 1; i < len; i++) {
-      ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i].node);
-      char c = db_node_last_nuc(bkmerptr, nodes[i].orient, kmer_size);
+      BinaryKmer bkmer = db_node_bkmer(graph, nodes[i].node);
+      char c = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
       putc(binary_nuc_to_char(c), stdout);
     }
     printf("\n");
@@ -167,22 +170,30 @@ static void add_read_path(const dBNode *nodes, size_t len,
   for(i = 0; i < len; i++)
   {
     if(i+1 < len && outdegree[i] > 1) {
-      ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i+1].node);
-      nuc = db_node_last_nuc(bkmerptr, nodes[i+1].orient, kmer_size);
+      BinaryKmer bkmer = db_node_bkmer(graph, nodes[i+1].node);
+      nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
       nuc_fw[num_fw] = nuc;
       pos_fw[num_fw++] = i;
-      // Ensure this nodes is in this colour
-      // db_node_set_col(graph, nodes[i+1].node, colour);
+      if(!db_node_has_col(graph, nodes[i+1].node, ctx_col)) {
+        // Add inferred kmer
+        db_node_set_col(graph, nodes[i+1].node, ctx_col);
+        fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
+        num_inferred_kmers++;
+      }
     }
     if(i > 0 && indegree[i] > 1) {
-      ConstBinaryKmerPtr bkmerptr = db_node_bkmer(graph, nodes[i-1].node);
+      BinaryKmer bkmer = db_node_bkmer(graph, nodes[i-1].node);
       nuc = nodes[i-1].orient == FORWARD
-              ? binary_nuc_complement(binary_kmer_first_nuc(bkmerptr, kmer_size))
-              : binary_kmer_last_nuc(bkmerptr);
+              ? binary_nuc_complement(binary_kmer_first_nuc(bkmer, kmer_size))
+              : binary_kmer_last_nuc(bkmer);
       nuc_rv[num_rv] = nuc;
       pos_rv[num_rv++] = i;
-      // Ensure this nodes is in this colour
-      // db_node_set_col(graph, nodes[i-1].node, colour);
+      if(!db_node_has_col(graph, nodes[i-1].node, ctx_col)) {
+        // Add inferred kmer
+        db_node_set_col(graph, nodes[i-1].node, ctx_col);
+        fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
+        num_inferred_kmers++;
+      }
     }
   }
 
@@ -248,7 +259,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
-    new_index = binary_paths_add(paths, prev_index, plen, bases, orient, ctp_col);
+    new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
     if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
 
     if(start_fw == 0) break;
@@ -283,7 +294,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
              start_rv, start_fw);
     #endif
 
-    new_index = binary_paths_add(paths, prev_index, plen, bases, orient, ctp_col);
+    new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
     if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
 
     if(start_rv == 0) break;
@@ -464,7 +475,8 @@ void read_to_path(AddPathsWorker *worker)
 
   if(i == nodebuf->len)
   {
-    add_read_path(nodebuf->data, nodebuf->len, db_graph, job->ctp_col);
+    add_read_path(nodebuf->data, nodebuf->len, db_graph,
+                  job->ctx_col, job->ctp_col);
   }
   else
   {
@@ -483,9 +495,9 @@ void read_to_path(AddPathsWorker *worker)
 
       #ifdef DEBUG
         char str[MAX_KMER_SIZE+1+7];
-        ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
+        BinaryKmer bkmer = db_node_bkmer(db_graph, node);
         if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
-        else binary_kmer_to_str(bkmerptr, db_graph->kmer_size, str);
+        else binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
         printf("  node:%zu %zu %s\n", i, (size_t)node, str);
       #endif
 
@@ -502,7 +514,7 @@ void read_to_path(AddPathsWorker *worker)
           {
             // Failed to bridge gap
             add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
-                          job->ctp_col);
+                          job->ctx_col, job->ctp_col);
 
             nodebuf->data[end].node = node;
             nodebuf->data[end].orient = orient;
@@ -528,7 +540,8 @@ void read_to_path(AddPathsWorker *worker)
       }
     }
 
-    add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph, job->ctp_col);
+    add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
+                  job->ctx_col, job->ctp_col);
   }
 }
 
@@ -546,14 +559,16 @@ void* add_paths_thread(void *ptr)
       pthread_cond_wait(&data_written_cond, &data_written_mutex);
     pthread_mutex_unlock(&data_written_mutex);
 
-    if(input_ended) {
+    if(data_waiting) {
+      AddPathsJob tmp_job;
+      SWAP(worker->job, next_job, tmp_job);
+      worker->busy = true;
+      data_waiting = false;
+    }
+    else if(input_ended) {
       pthread_mutex_unlock(&reader_mutex);
       break;
     }
-
-    AddPathsJob tmp_job;
-    SWAP(worker->job, next_job, tmp_job);
-    data_waiting = false;
 
     pthread_mutex_lock(&data_read_mutex);
     pthread_cond_signal(&data_read_cond);
@@ -563,6 +578,7 @@ void* add_paths_thread(void *ptr)
 
     // Do work
     read_to_path(worker);
+    worker->busy = false;
   }
 
   pthread_exit(NULL);
@@ -622,7 +638,8 @@ static void load_paths(read_t *r1, read_t *r2,
 }
 
 PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
-                                       dBGraph *db_graph, uint32_t gap_limit)
+                                       dBGraph *db_graph, uint32_t gap_limit,
+                                       FILE *output_handle)
 {
   PathsWorkerPool *pool = calloc2(1, sizeof(PathsWorkerPool));
 
@@ -656,10 +673,11 @@ PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
   if(pthread_cond_init(&data_written_cond, NULL) != 0) die("pthread_cond init failed");
   if(pthread_cond_init(&data_read_cond, NULL) != 0) die("pthread_cond init failed");
 
-  seq_read_alloc(&next_job.r1);
-  seq_read_alloc(&next_job.r2);
+  seq_read_alloc((read_t*)&next_job.r1);
+  seq_read_alloc((read_t*)&next_job.r2);
 
   data_waiting = input_ended = false;
+  fout = output_handle;
 
   int rc;
   for(i = 0; i < num_of_threads; i++)
@@ -676,7 +694,7 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
 {
   input_ended = true;
 
-  // Catch waiting worker threads
+  // Release waiting worker threads
   size_t i, j, gap_limit = pool->gap_limit;
   for(i = 0; i < pool->num_of_threads; i++) {
     pthread_mutex_lock(&data_written_mutex);
@@ -720,8 +738,8 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
   seq_read_dealloc(&pool->r1);
   seq_read_dealloc(&pool->r2);
 
-  seq_read_dealloc(&next_job.r1);
-  seq_read_dealloc(&next_job.r2);
+  seq_read_dealloc((read_t*)&next_job.r1);
+  seq_read_dealloc((read_t*)&next_job.r2);
 
   pthread_cond_destroy(&data_written_cond);
   pthread_cond_destroy(&data_read_cond);
@@ -736,6 +754,19 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
 void add_paths_set_colours(PathsWorkerPool *pool,
                            uint32_t ctx_col, uint32_t ctp_col)
 {
+  if(ctp_col != pool->ctp_col)
+  {
+    // Wait for last loaded data to be read
+    pthread_mutex_lock(&data_read_mutex);
+    while(data_waiting) pthread_cond_wait(&data_read_cond, &data_read_mutex);
+    pthread_mutex_unlock(&data_read_mutex);
+
+    // Wait for all workers to stop being busy
+    size_t i;
+    for(i = 0; i < pool->num_of_threads; i++)
+      if(pool->workers[i].busy) { i = 0; usleep(500); }
+  }
+
   pool->ctx_col = ctx_col;
   pool->ctp_col = ctp_col;
 }

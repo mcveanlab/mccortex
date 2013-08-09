@@ -19,12 +19,16 @@ boolean test_file_writable(const char *file);
 off_t get_file_size(const char* filepath);
 
 // Open a new output file with unused name
-boolean file_reader_generate_filename(const char *base_fmt, StrBuf *str);
-void file_reader_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
-char* file_reader_get_current_dir(char abspath[PATH_MAX+1]);
+boolean futil_generate_filename(const char *base_fmt, StrBuf *str);
+void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
+char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 
-void safe_fread(FILE *fh, void *ptr, size_t size,
-                const char* field, const char *path);
+#define safe_fread(fh,ptr,size,field,path) \
+        futil_safe_fread(fh,ptr,size,field,path,__FILE__,__LINE__)
+
+void futil_safe_fread(FILE *fh, void *ptr, size_t size,
+                      const char* field, const char *path,
+                      char *file, int line);
 
 size_t stream_skip(FILE *fh, size_t skip);
 

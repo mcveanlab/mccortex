@@ -1,7 +1,7 @@
 #ifndef READ_PATH_H_
 #define READ_PATH_H_
 
-#include "binary_paths.h"
+#include "path_store.h"
 #include "db_graph.h"
 
 typedef struct

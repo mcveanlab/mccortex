@@ -1,21 +1,18 @@
 #include "global.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "util.h"
 
-static inline void dump_empty_bkmer(hkey_t node, dBGraph *db_graph,
+static inline void dump_empty_bkmer(hkey_t node, const dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
 {
-  // printf("dump_empty_bkmer\n");
-  fwrite(db_node_bkmer(db_graph, node), sizeof(BinaryKmer), 1, fh);
+  const BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  fwrite(&bkmer, sizeof(BinaryKmer), 1, fh);
   fwrite(buf, 1, mem, fh);
-
-  char bkmerstr[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, bkmerstr);
 }
 
-void dump_empty_binary(dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
+void graph_write_empty(const dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
 {
   size_t mem = num_of_cols * (sizeof(Covg)+sizeof(Edges));
   char buf[mem];
@@ -49,7 +46,7 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
 }
 
 // Returns number of bytes written
-size_t binary_write_header(FILE *fh, const GraphFileHeader *h)
+size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 {
   uint32_t i;
   size_t b = 0;
@@ -104,7 +101,7 @@ size_t binary_write_header(FILE *fh, const GraphFileHeader *h)
 }
 
 // Returns number of bytes written
-size_t binary_write_kmer(FILE *fh, const GraphFileHeader *h,
+size_t graph_write_kmer(FILE *fh, const GraphFileHeader *h,
                          const uint64_t *bkmer, const Covg *covgs,
                          const Edges *edges)
 {
@@ -139,7 +136,7 @@ static inline void overwrite_kmer_colour(hkey_t node, dBGraph *db_graph,
 // Dump a single colour into an existing binary
 // FILE *fh must already point to the first bkmer
 // if merge is true, read existing covg and edges and combine with outgoing
-void binary_dump_colour(dBGraph *db_graph, Colour graphcol,
+void graph_file_write_colour(dBGraph *db_graph, Colour graphcol,
                         Colour intocol, uint32_t num_of_cols, FILE *fh)
 {
   HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colour,
@@ -165,7 +162,7 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
   }
   if(i == header->num_of_cols) return;
 
-  ConstBinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
   Covg covgs[header->num_of_cols];
   Edges edges[header->num_of_cols];
 
@@ -190,7 +187,7 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
     memcpy(edges, col_edges[node]+start_col, header->num_of_cols*sizeof(Edges));
   }
 
-  binary_write_kmer(fout, header, bkmer, covgs, edges);
+  graph_write_kmer(fout, header, bkmer.b, covgs, edges);
 
   (*num_of_nodes_dumped)++;
 }
@@ -200,7 +197,7 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
 // graph info is REQUIRED!
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
-uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
+uint64_t graph_file_save(const char *path, dBGraph *db_graph,
                            uint32_t version,
                            const Colour *colours, Colour start_col,
                            uint32_t num_of_cols)
@@ -219,7 +216,7 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
   // Construct binary header
   GraphFileHeader header = {.version = version,
                              .kmer_size = db_graph->kmer_size,
-                             .num_of_bitfields = NUM_BITFIELDS_IN_BKMER,
+                             .num_of_bitfields = NUM_BKMER_WORDS,
                              .num_of_cols = num_of_cols,
                              .num_of_kmers = db_graph->ht.unique_kmers};
 
@@ -234,7 +231,7 @@ uint64_t binary_dump_graph(const char *path, dBGraph *db_graph,
   header.ginfo = header_ginfo;
 
   // Write header
-  binary_write_header(fout, &header);
+  graph_write_header(fout, &header);
 
   uint64_t num_of_nodes_dumped = 0;
 

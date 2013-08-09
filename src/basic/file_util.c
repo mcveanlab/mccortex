@@ -93,7 +93,7 @@ off_t get_file_size(const char* filepath)
   return -1;
 }
 
-boolean file_reader_generate_filename(const char *base_fmt, StrBuf *str)
+boolean futil_generate_filename(const char *base_fmt, StrBuf *str)
 {
   int i;
 
@@ -109,7 +109,7 @@ boolean file_reader_generate_filename(const char *base_fmt, StrBuf *str)
 }
 
 // Remember to free the result
-void file_reader_get_strbuf_of_dir_path(const char *path, StrBuf *dir)
+void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir)
 {
   char *tmp = strdup(path);
   strbuf_set(dir, dirname(tmp));
@@ -117,7 +117,7 @@ void file_reader_get_strbuf_of_dir_path(const char *path, StrBuf *dir)
   free(tmp);
 }
 
-char* file_reader_get_current_dir(char abspath[PATH_MAX+1])
+char* futil_get_current_dir(char abspath[PATH_MAX+1])
 {
   char cwd[PATH_MAX + 1];
   if(getcwd(cwd, PATH_MAX + 1) != NULL)
@@ -126,14 +126,16 @@ char* file_reader_get_current_dir(char abspath[PATH_MAX+1])
     return NULL;
 }
 
-void safe_fread(FILE *fh, void *ptr, size_t size,
-                const char* field, const char *path)
+void futil_safe_fread(FILE *fh, void *ptr, size_t size,
+                      const char* field, const char *path,
+                      char *file, int line)
 {
   size_t read = fread(ptr, 1, size, fh);
   if(read != size)
   {
-    die("Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",
-        field, size, read, path);
+    call_die(file, line,
+             "Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",
+             field, size, read, path);
   }
 }
 

@@ -9,7 +9,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "binary_format.h"
+#include "graph_format.h"
 
 static const char usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"
@@ -152,9 +152,9 @@ int ctx_view(CmdArgs *args)
   uint32_t kmer_size = inheader.kmer_size;
 
   if(split != NULL) *split = ':';
-  uint32_t num_of_cols = binary_get_num_colours(in_ctx_path, inheader.num_of_cols-1);
+  uint32_t num_of_cols = graph_file_get_ncols(in_ctx_path, inheader.num_of_cols-1);
   uint32_t load_colours[num_of_cols];
-  binary_parse_colour_array(in_ctx_path, load_colours, inheader.num_of_cols-1);
+  graph_file_parse_colours(in_ctx_path, load_colours, inheader.num_of_cols-1);
 
   graph_header_cpy(&outheader, &inheader);
   outheader.num_of_cols = num_of_cols;
@@ -206,7 +206,7 @@ int ctx_view(CmdArgs *args)
   {
     if(print_info && print_kmers) message("----\n");
 
-    while(graph_file_read_kmer(in, &inheader, in_ctx_path, bkmer, kmercovgs, kmeredges))
+    while(graph_file_read_kmer(in, &inheader, in_ctx_path, bkmer.b, kmercovgs, kmeredges))
     {
       // Collapse down colours
       for(i = 0; i < num_of_cols; i++) {
@@ -220,7 +220,7 @@ int ctx_view(CmdArgs *args)
 
       /* Kmer Checks */
       // Check top bits of kmer
-      if(bkmer[0] & top_word_mask)
+      if(bkmer.b[0] & top_word_mask)
       {
         if(num_of_oversized_kmers == 0) {
           loading_error("oversized kmer [index: %lu]\n",
@@ -234,7 +234,7 @@ int ctx_view(CmdArgs *args)
       uint64_t kmer_words_or = 0;
 
       for(i = 0; i < outheader.num_of_bitfields; i++)
-        kmer_words_or |= bkmer[i];
+        kmer_words_or |= bkmer.b[i];
 
       if(kmer_words_or == 0)
       {

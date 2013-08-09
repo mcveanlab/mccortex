@@ -2,8 +2,8 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "binary_paths.h"
-#include "binary_format.h"
+#include "path_store.h"
+#include "graph_format.h"
 
 dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
                         uint32_t num_of_cols, uint64_t capacity)
@@ -69,8 +69,7 @@ void db_graph_dealloc(dBGraph *db_graph)
 //
 
 // Note: node may alreay exist in the graph
-hkey_t db_graph_find_or_add_node(dBGraph *db_graph, const BinaryKmer bkey,
-                                 Colour col)
+hkey_t db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkey, Colour col)
 {
   boolean found;
   hkey_t node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
@@ -84,8 +83,8 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
                        Orientation src_orient, Orientation tgt_orient)
 {
-  ConstBinaryKmerPtr src_bkmer = db_node_bkmer(db_graph, src_node);
-  ConstBinaryKmerPtr tgt_bkmer = db_node_bkmer(db_graph, tgt_node);
+  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src_node);
+  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt_node);
 
   Nucleotide lhs_nuc, rhs_nuc;
   lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
@@ -109,38 +108,29 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
 //
 
 void db_graph_next_node(const dBGraph *db_graph,
-                        const BinaryKmer bkmer, Nucleotide next_nuc,
+                        BinaryKmer bkmer, Nucleotide next_nuc,
                         hkey_t *next_node, Orientation *next_orient)
 {
-  BinaryKmer cpy;
-  binary_kmer_assign(cpy, bkmer);
-  binary_kmer_left_shift_add(cpy, db_graph->kmer_size, next_nuc);
+  BinaryKmer bkey;
+  binary_kmer_left_shift_add(&bkmer, db_graph->kmer_size, next_nuc);
+  bkey = db_node_get_key(bkmer, db_graph->kmer_size);
 
-  BinaryKmer tmp_key;
-  db_node_get_key(cpy, db_graph->kmer_size, tmp_key);
-
-  *next_node = hash_table_find(&db_graph->ht, tmp_key);
-  *next_orient = db_node_get_orientation(cpy, tmp_key);
+  *next_node = hash_table_find(&db_graph->ht, bkey);
+  *next_orient = db_node_get_orientation(bkmer, bkey);
 }
 
 // Nuc is expected to be already orientated
 void db_graph_next_node_orient(const dBGraph *db_graph,
-                               const BinaryKmer bkmer, Nucleotide next_nuc,
+                               BinaryKmer bkmer, Nucleotide next_nuc,
                                Orientation orient,
                                hkey_t *next_node, Orientation *next_orient)
 {
-  BinaryKmer tmp_kmer;
-
-  if(orient == FORWARD)
-    binary_kmer_assign(tmp_kmer, bkmer);
-  else
-    binary_kmer_reverse_complement(bkmer, db_graph->kmer_size, tmp_kmer);
-
-  db_graph_next_node(db_graph, tmp_kmer, next_nuc, next_node, next_orient);
+  bkmer = db_node_oriented_bkmer(bkmer, db_graph->kmer_size, orient);
+  db_graph_next_node(db_graph, bkmer, next_nuc, next_node, next_orient);
 }
 
 uint8_t db_graph_next_nodes(const dBGraph *db_graph,
-                            const BinaryKmer fw_bkmer, Edges edges,
+                            BinaryKmer fw_bkmer, Edges edges,
                             hkey_t nodes[4], BinaryKmer bkmers[4])
 {
   // char str[100];
@@ -150,22 +140,21 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph,
   uint8_t count = 0;
   Edges tmp_edge;
   Nucleotide nuc;
-  BinaryKmer bkmer, bkey;
+  BinaryKmer bkey;
 
-  binary_kmer_assign(bkmer, fw_bkmer);
-  binary_kmer_left_shift_one_base(bkmer, db_graph->kmer_size);
+  binary_kmer_left_shift_one_base(&fw_bkmer, db_graph->kmer_size);
 
   for(tmp_edge = 0x1, nuc = 0; nuc < 4; tmp_edge <<= 1, nuc++)
   {
     if(edges & tmp_edge)
     {
-      binary_kmer_set_last_nuc(bkmer, nuc);
-      db_node_get_key(bkmer, db_graph->kmer_size, bkey);
-      binary_kmer_assign(bkmers[count], bkmer);
+      binary_kmer_set_last_nuc(&fw_bkmer, nuc);
+      bkey = db_node_get_key(fw_bkmer, db_graph->kmer_size);
+      bkmers[count] = fw_bkmer;
       nodes[count] = hash_table_find(&db_graph->ht, bkey);
       count++;
 
-      // binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
+      // binary_kmer_to_str(fw_bkmer, db_graph->kmer_size, str);
       // printf(" ->%s [%i]\n", str, (int)nuc);
     }
   }
@@ -174,12 +163,11 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph,
 }
 
 uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
-                                   const BinaryKmer bkmer, Edges edges,
+                                   BinaryKmer bkmer, Edges edges,
                                    Orientation orient,
                                    hkey_t nodes[4], BinaryKmer bkmers[4])
 {
-  BinaryKmer fw_bkmer;
-  db_node_oriented_bkmer(bkmer, orient, db_graph->kmer_size, fw_bkmer);
+  BinaryKmer fw_bkmer = db_node_oriented_bkmer(bkmer, orient, db_graph->kmer_size);
   edges = edges_with_orientation(edges, orient);
   return db_graph_next_nodes(db_graph, fw_bkmer, edges, nodes, bkmers);
 }
@@ -216,7 +204,7 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
     hkey_t next_node;
 
     Edges keep_edges = db_node_edges(db_graph, node);
-    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
+    BinaryKmer bkmer = db_node_bkmer(db_graph, node);
 
     for(orient = 0; orient < 2; orient++)
     {
@@ -224,7 +212,7 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
       {
         if(edges_has_edge(keep_edges, nuc, orient))
         {
-          db_graph_next_node_orient(db_graph, bkmerptr, nuc, orient,
+          db_graph_next_node_orient(db_graph, bkmer, nuc, orient,
                                     &next_node, &next_orient);
 
           if(!bitset_has(flags, next_node))
@@ -270,7 +258,7 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 {
   assert(db_graph->edges != NULL);
 
-  ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
   hkey_t next_node;
   Orientation or, next_or;
   Nucleotide nuc, lost_nuc;
@@ -280,13 +268,13 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
   {
     if(edges_with_orientation(edges, or) != 0)
     {
-      lost_nuc = db_node_first_nuc(bkmerptr, or, db_graph->kmer_size);
+      lost_nuc = db_node_first_nuc(bkmer, or, db_graph->kmer_size);
 
       for(nuc = 0; nuc < 4; nuc++)
       {
         if(edges_has_edge(edges, nuc, or))
         {
-          db_graph_next_node_orient(db_graph, bkmerptr, nuc, or,
+          db_graph_next_node_orient(db_graph, bkmer, nuc, or,
                                     &next_node, &next_or);
 
           // Remove edge from next_node to this one
@@ -353,7 +341,6 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 
   if(db_graph->node_in_cols != NULL)
   {
-    // DEV: this doesn't look right
     size_t words = round_bits_to_words64(capacity);
     for(i = 0; i < words; i++)
       db_graph->node_in_cols[num_of_cols*i+col] = 0;
@@ -371,8 +358,6 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
     for(i = 0; i < capacity; i++)
       col_edges[i][col] = 0;
   }
-
-  db_graph_remove_uncoloured_nodes(db_graph);
 }
 
 //
@@ -399,11 +384,11 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
         index = db_node_paths(db_graph, node);
         first = true;
         while(index != PATH_NULL) {
-          prev_index = binary_paths_prev(paths, index);
-          binary_paths_len_orient(paths, index, &len, &porient);
+          prev_index = path_store_prev(paths, index);
+          path_store_len_orient(paths, index, &len, &porient);
           if(porient == orient) {
             if(first) { printf("%s:%i\n", str, orient); first = false; }
-            binary_paths_dump_path(paths, index);
+            path_store_print_path(paths, index);
           }
           index = prev_index;
         }

@@ -7,7 +7,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "binary_kmer.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
 
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
   // Get starting bkmer
   // BinaryKmer bkmer, bkey;
   // if(strlen(start_kmer) != kmer_size) die("length of kmer does not match kmer_size");
-  // binary_kmer_from_str(start_kmer, kmer_size, bkmer);
+  // bkmer = binary_kmer_from_str(start_kmer, kmer_size);
 
   // Decide on memory
   size_t hash_kmers, req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
   uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
                            .empty_colours = true,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(input_ctx_path, &prefs, stats, NULL);
   seq_loading_stats_free(stats);
 
   hash_table_print_stats(&db_graph.ht);

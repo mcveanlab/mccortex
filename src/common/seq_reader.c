@@ -154,14 +154,14 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
     const char *contig = r->seq.b + contig_start;
     size_t contig_len = contig_end - contig_start;
 
-    binary_kmer_from_str(contig, kmer_size, bkmer);
-    binary_kmer_right_shift_one_base(bkmer);
+    bkmer = binary_kmer_from_str(contig, kmer_size);
+    binary_kmer_right_shift_one_base(&bkmer);
 
     for(next_base = kmer_size-1; next_base < contig_len; next_base++)
     {
       nuc = binary_nuc_from_char(contig[next_base]);
-      binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-      db_node_get_key(bkmer, kmer_size, tmp_key);
+      binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+      tmp_key = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
       if(node != HASH_NOT_FOUND && first_node_offset == -1)
@@ -474,8 +474,8 @@ char seq_reads_are_novel(const read_t *r1, const read_t *r2, dBGraph *db_graph,
   // Look up first kmer
   if(got_kmer1)
   {
-    binary_kmer_from_str(r1->seq.b+start1, kmer_size, curr_kmer);
-    db_node_get_key(curr_kmer, kmer_size, tmp_key);
+    curr_kmer = binary_kmer_from_str(r1->seq.b+start1, kmer_size);
+    tmp_key = db_node_get_key(curr_kmer, kmer_size);
     node1 = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found1);
     or1 = db_node_get_orientation(curr_kmer, tmp_key);
   }
@@ -483,8 +483,8 @@ char seq_reads_are_novel(const read_t *r1, const read_t *r2, dBGraph *db_graph,
   // Look up second kmer
   if(got_kmer2)
   {
-    binary_kmer_from_str(r2->seq.b+start2, kmer_size, curr_kmer);
-    db_node_get_key(curr_kmer, kmer_size, tmp_key);
+    curr_kmer = binary_kmer_from_str(r2->seq.b+start2, kmer_size);
+    tmp_key = db_node_get_key(curr_kmer, kmer_size);
     node2 = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found2);
     or2 = db_node_get_orientation(curr_kmer, tmp_key);
   }
@@ -516,8 +516,8 @@ char seq_read_is_novel(const read_t *r, dBGraph *db_graph,
 
   if(start == r->seq.end) return 1;
 
-  binary_kmer_from_str(r->seq.b+start, db_graph->kmer_size, bkmer);
-  db_node_get_key(bkmer, db_graph->kmer_size, tmp_key);
+  bkmer = binary_kmer_from_str(r->seq.b+start, db_graph->kmer_size);
+  tmp_key = db_node_get_key(bkmer, db_graph->kmer_size);
   node = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found);
   or = db_node_get_orientation(bkmer, tmp_key);
 
@@ -560,17 +560,17 @@ void load_read(const read_t *r, dBGraph *db_graph,
     hkey_t prev_node, curr_node;
     Orientation prev_or, curr_or;
 
-    binary_kmer_from_str(r->seq.b+contig_start, kmer_size, bkmer);
-    db_node_get_key(bkmer, kmer_size, tmp_key);
+    bkmer = binary_kmer_from_str(r->seq.b+contig_start, kmer_size);
+    tmp_key = db_node_get_key(bkmer, kmer_size);
     prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
     prev_or = db_node_get_orientation(bkmer, tmp_key);
 
     for(i = contig_start+kmer_size; i < contig_end; i++)
     {
       Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
-      binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+      binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
 
-      db_node_get_key(bkmer, kmer_size, tmp_key);
+      tmp_key = db_node_get_key(bkmer, kmer_size);
       curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
       curr_or = db_node_get_orientation(bkmer, tmp_key);
 

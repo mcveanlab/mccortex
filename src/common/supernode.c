@@ -53,7 +53,7 @@ static size_t supernode_cycle(hkey_t init_node, const dBGraph *db_graph,
   BinaryKmer lowest_bkmer;
 
   lowest_node = init_node;
-  binary_kmer_assign(lowest_bkmer, db_node_bkmer(db_graph, init_node));
+  lowest_bkmer = db_node_bkmer(db_graph, init_node);
 
   hkey_t node = init_node;
   Orientation or = FORWARD;
@@ -62,18 +62,18 @@ static size_t supernode_cycle(hkey_t init_node, const dBGraph *db_graph,
 
   while(edges_has_precisely_one_edge(edges[node], or, &nuc))
   {
-    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
+    BinaryKmer bkmer = db_node_bkmer(db_graph, node);
 
-    db_graph_next_node_orient(db_graph, bkmerptr, nuc, or,
+    db_graph_next_node_orient(db_graph, bkmer, nuc, or,
                               &node, &or);
 
     if(node == init_node) break;
     else len++;
 
-    if(binary_kmers_cmp(lowest_bkmer, bkmerptr) > 0)
+    if(binary_kmers_cmp(lowest_bkmer, bkmer) > 0)
     {
       lowest_node = node;
-      binary_kmer_assign(lowest_bkmer, bkmerptr);
+      lowest_bkmer = bkmer;
     }
   }
 

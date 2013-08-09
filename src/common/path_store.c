@@ -1,11 +1,11 @@
 #include "global.h"
 #include "db_graph.h"
-#include "binary_paths.h"
+#include "path_store.h"
 
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
-void binary_paths_init(PathStore *paths, uint8_t *data, size_t size,
+void path_store_init(PathStore *paths, uint8_t *data, size_t size,
                        size_t num_of_cols)
 {
   uint32_t col_bitset_bytes = round_bits_to_bytes(num_of_cols);
@@ -73,7 +73,7 @@ static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t le
 
 // returns PATH_NULL if not found, otherwise index
 // len_in_bytes is length in bytes of bases
-static inline PathIndex binary_paths_find(const PathStore *paths,
+static inline PathIndex path_store_find(const PathStore *paths,
                                          PathIndex last_index,
                                          const uint8_t *query,
                                          size_t len_in_bytes)
@@ -100,7 +100,7 @@ PathIndex validate_appended(PathStore *paths, PathIndex last_index,
   PathIndex match;
 
   if(last_index == PATH_NULL ||
-     (match = binary_paths_find(paths, last_index,
+     (match = path_store_find(paths, last_index,
                                 query, len_in_bytes)) == PATH_NULL)
   {
     // Accept new path
@@ -121,7 +121,7 @@ PathIndex validate_appended(PathStore *paths, PathIndex last_index,
   return match;
 }
 
-PathIndex binary_paths_add2(PathStore *paths, PathIndex last_index,
+PathIndex path_store_add2(PathStore *paths, PathIndex last_index,
                             uint8_t *packed)
 {
   PathLen len;
@@ -130,8 +130,8 @@ PathIndex binary_paths_add2(PathStore *paths, PathIndex last_index,
   size_t i;
 
   memcpy(&len, packed+sizeof(PathIndex)+paths->col_bitset_bytes, sizeof(PathLen));
-  size_t len_in_bytes = round_bits_to_bytes(len*2);
-  idx = validate_appended(paths, last_index, packed, len_in_bytes, &inserted);
+  size_t nbytes = (len+3)/4;
+  idx = validate_appended(paths, last_index, packed, nbytes, &inserted);
   if(!inserted) {
     uint8_t *dst = paths->store + idx + sizeof(PathIndex);
     uint8_t *src = packed + sizeof(PathIndex);
@@ -142,15 +142,14 @@ PathIndex binary_paths_add2(PathStore *paths, PathIndex last_index,
 
 // if packed_bases is NULL, uses bases and does packing
 // Returns position added to
-PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
+PathIndex path_store_add(PathStore *paths, PathIndex last_index,
                            PathLen len, const Nucleotide *bases,
                            Orientation orient, Colour colour)
 {
   // We add the path the end of the paths and then check if it is a duplicate
   // this is done because we need to pack the bases into somewhere first anyway
-  size_t len_in_bytes = round_bits_to_bytes(len*2);
-  size_t total_len = sizeof(PathIndex) + paths->col_bitset_bytes +
-                     sizeof(PathLen) + len_in_bytes;
+  size_t nbytes = (len+3)/4;
+  size_t total_len = path_mem(paths->col_bitset_bytes, len);
 
   if(paths->next + total_len >= paths->end) die("Out of memory");
 
@@ -169,24 +168,24 @@ PathIndex binary_paths_add(PathStore *paths, PathIndex last_index,
   memcpy(ptr, &len_and_orient, sizeof(PathLen));
   ptr += sizeof(PathLen);
   pack_bases(ptr, bases, len);
-  // ptr += len_in_bytes;
+  // ptr += nbytes;
 
   boolean inserted;
   PathIndex match;
-  match = validate_appended(paths, last_index, paths->next, len_in_bytes, &inserted);
+  match = validate_appended(paths, last_index, paths->next, nbytes, &inserted);
   bitset_set(paths->store+match+sizeof(PathIndex), colour);
 
   return inserted ? match : PATH_NULL;
 }
 
-PathIndex binary_paths_prev(const PathStore *paths, PathIndex index)
+PathIndex path_store_prev(const PathStore *paths, PathIndex index)
 {
   PathIndex prev;
   memcpy(&prev, paths->store + index, sizeof(PathIndex));
   return prev;
 }
 
-void binary_paths_len_orient(const PathStore *paths, PathIndex index,
+void path_store_len_orient(const PathStore *paths, PathIndex index,
                              PathLen *len, Orientation *orient)
 {
   PathLen d;
@@ -196,7 +195,7 @@ void binary_paths_len_orient(const PathStore *paths, PathIndex index,
   *orient = d >> PATH_LEN_BITS;
 }
 
-void binary_paths_fetch(const PathStore *paths, PathIndex index,
+void path_store_fetch(const PathStore *paths, PathIndex index,
                         Nucleotide *bases, PathLen len)
 {
   uint8_t *ptr = paths->store + index + sizeof(PathIndex) +
@@ -204,23 +203,23 @@ void binary_paths_fetch(const PathStore *paths, PathIndex index,
   unpack_bases(ptr, bases, len);
 }
 
-size_t binary_paths_size(const PathStore *paths, PathIndex index)
+size_t path_store_size(const PathStore *paths, PathIndex index)
 {
   PathLen len;
   Orientation orient;
-  binary_paths_len_orient(paths, index, &len, &orient);
+  path_store_len_orient(paths, index, &len, &orient);
   return sizeof(PathIndex) + paths->col_bitset_bytes + sizeof(PathLen) +
-         round_bits_to_bytes(len);
+         (len+3)/4;
 }
 
-void binary_paths_dump_path(const PathStore *paths, PathIndex index)
+void path_store_print_path(const PathStore *paths, PathIndex index)
 {
   PathIndex prev;
   PathLen len;
   Orientation orient;
 
-  prev = binary_paths_prev(paths, index);
-  binary_paths_len_orient(paths, index, &len, &orient);
+  prev = path_store_prev(paths, index);
+  path_store_len_orient(paths, index, &len, &orient);
   uint8_t *colbitset = paths->store + index + sizeof(PathIndex);
   uint8_t *data = colbitset + paths->col_bitset_bytes + sizeof(PathLen);
 
@@ -240,10 +239,10 @@ void binary_paths_dump_path(const PathStore *paths, PathIndex index)
   putc('\n', stdout);
 }
 
-void binary_paths_dump(const PathStore *paths)
+void path_store_print_all(const PathStore *paths)
 {
   PathIndex index, store_size = paths->next - paths->store;
 
-  for(index = 0; index < store_size; index += binary_paths_size(paths, index))
-    binary_paths_dump_path(paths, index);
+  for(index = 0; index < store_size; index += path_store_size(paths, index))
+    path_store_print_path(paths, index);
 }

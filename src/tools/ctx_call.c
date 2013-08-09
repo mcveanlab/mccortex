@@ -7,7 +7,7 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "add_read_paths.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
 #include "bubble_caller.h"
@@ -44,7 +44,10 @@ int ctx_call(CmdArgs *args)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
   // probe paths file
-  const char *input_paths_file = args->ctp_set ? args->ctp_path : NULL;
+  if(args->num_ctp_files > 1)
+    print_usage(usage, "Sorry, we only accept one -p <in.ctp> at the moment");
+
+  const char *input_paths_file = args->num_ctp_files ? args->ctp_files[0] : NULL;
 
   boolean valid_paths_file = false;
   PathFileHeader pheader = {.capacity = 0};
@@ -107,7 +110,7 @@ int ctx_call(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -118,7 +121,7 @@ int ctx_call(CmdArgs *args)
                            .empty_colours = true,
                            .db_graph = &db_graph};
 
-  binary_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(input_ctx_path, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   // Load path file

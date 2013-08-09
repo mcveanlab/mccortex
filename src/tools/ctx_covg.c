@@ -5,7 +5,7 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "vcf_parsing.h"
 
 static const char usage[] =
@@ -30,21 +30,21 @@ static int parse_vcf_header(StrBuf *line, gzFile vcf, boolean print,
 
 void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
 {
-  BinaryKmer bkmer, tmp_key;
+  BinaryKmer bkmer, bkey;
   Nucleotide nuc;
   size_t next_base;
   boolean found;
   uint32_t kmer_size = db_graph->kmer_size;
 
-  binary_kmer_from_str(contig, kmer_size, bkmer);
-  binary_kmer_right_shift_one_base(bkmer);
+  bkmer = binary_kmer_from_str(contig, kmer_size);
+  binary_kmer_right_shift_one_base(&bkmer);
 
   for(next_base = kmer_size-1; next_base < contig_len; next_base++)
   {
     nuc = binary_nuc_from_char(contig[next_base]);
-    binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-    db_node_get_key(bkmer, kmer_size, tmp_key);
-    hash_table_find_or_insert(&db_graph->ht, tmp_key, &found);
+    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+    bkey = db_node_get_key(bkmer, kmer_size);
+    hash_table_find_or_insert(&db_graph->ht, bkey, &found);
   }
 }
 
@@ -101,7 +101,7 @@ int ctx_covg(CmdArgs *args)
 
   extra_mem_per_kmer = sizeof(Edges) + sizeof(Covg)*cols_used;
   mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
-  hash_mem = hash_table_mem2(mem_to_use / mem_per_kmer, &kmers_in_hash);
+  hash_mem = hash_table_mem(mem_to_use / mem_per_kmer, &kmers_in_hash);
   graph_mem = hash_mem + kmers_in_hash * extra_mem_per_kmer;
 
   // Create db_graph
@@ -169,7 +169,7 @@ int ctx_covg(CmdArgs *args)
                            .empty_colours = false,
                            .db_graph = &db_graph};
 
-  binary_load(in_ctx_path, &prefs, stats, NULL);
+  graph_load(in_ctx_path, &prefs, stats, NULL);
 
   if((vcf = gzopen(in_vcf_path, "r")) == NULL)
     die("Couldn't open file: %s", in_vcf_path);
@@ -221,14 +221,14 @@ int ctx_covg(CmdArgs *args)
       BinaryKmer bkmer;
       Nucleotide nuc;
 
-      binary_kmer_from_str(contig.buff, kmer_size, bkmer);
+      bkmer = binary_kmer_from_str(contig.buff, kmer_size);
       nodes[0] = hash_table_find(&db_graph.ht, bkmer);
       uint32_t k, num_nodes = contig.len+1-kmer_size;
 
       for(j = 1; j <= num_nodes; j++)
       {
         nuc = binary_nuc_from_char(contig.buff[j+kmer_size-1]);
-        binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+        binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
         nodes[j] = hash_table_find(&db_graph.ht, bkmer);
       }
 

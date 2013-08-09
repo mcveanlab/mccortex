@@ -6,10 +6,13 @@
 #include "db_graph.h"
 #include "graph_info.h"
 #include "add_read_paths.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
 
+// DEV: we assume colour is in pop -- this is annoying
+// if it is not we end up with kmers in the hash table that are not removed
+// this may not be an issue
 static const char usage[] =
 "usage: "CMD" thread [options] <popsize> <out.ctp> <pop.ctx> <in.ctx>[:cols] [in2.ctx ...]\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"
@@ -17,12 +20,16 @@ static const char usage[] =
 "  are loaded from <in.ctx> files one at a time.\n"
 "\n"
 "  Options:\n"
-"    -m <mem>                 How much memory to use\n"
-"    -h <kmers>               How many entries in the hash table\n"
-"    --col <ctxcol> <ctpcol>  Load ctx path into ctp col\n"
-"    --seq <in.fa>    \n"
-"    --seq2 <in.1.fq> <in.2.fq>\n"
+"    -m <mem>                   How much memory to use\n"
+"    -h <kmers>                 How many entries in the hash table\n"
+"    --col <ctxcol> <ctpcol>    Load ctx path into ctp col\n"
+"    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
+"    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
 "\n"
+// "  Insert size filtering for follow --seq2 files:\n"
+// "    --minIns <ins>             Minimum insert size [default:0]\n"
+// "    --maxIns <ins>             Maximum insert size [default:500]\n"
+// "\n"
 "  Example: If we want paths for 2 samples only we can do:\n"
 "    "CMD" thread -m 80G 2 sample3and5.ctp \\\n"
 "                 --col 3 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
@@ -156,6 +163,16 @@ int ctx_thread(CmdArgs *args)
   else if(!is_binary)
     print_usage(usage, "Input graph file isn't valid: %s", pop_ctx_path);
 
+  // Set up paths header
+  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
+                            .kmer_size = popgheader.kmer_size,
+                            .num_of_cols = out_ctp_cols,
+                            .capacity = 0};
+
+  paths_header_alloc(&pheader, out_ctp_cols);
+
+  uint32_t startcol = 0;
+
   for(i = 0; i < num_binaries; i++)
   {
     if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
@@ -171,12 +188,27 @@ int ctx_thread(CmdArgs *args)
     ctx_num_of_cols[i] = gheader.num_of_cols;
     ctx_max_cols[i] = gheader.max_col;
     max_num_cols = MAX2(gheader.num_of_cols, max_num_cols);
+
+    // Clumsy way to update sample names
+    uint32_t j, c, col;
+    for(col = 0; col < gheader.num_of_cols; col++)
+    {
+      c = col+startcol;
+      for(j = 0; j < num_of_path_cols; j++) {
+        if(graph_colours[j] == c) {
+          strbuf_set(&pheader.sample_names[path_colours[j]],
+                     gheader.ginfo[col].sample_name.buff);
+        }
+      }
+    }
+
+    startcol += gheader.num_of_cols;
   }
 
   // Get colour indices
   uint32_t load_colours[num_binaries][max_num_cols];
   for(i = 0; i < num_binaries; i++)
-    binary_parse_colour_array(binary_paths[i], load_colours[i], ctx_max_cols[i]);
+    graph_file_parse_colours(binary_paths[i], load_colours[i], ctx_max_cols[i]);
 
 
   //
@@ -220,15 +252,17 @@ int ctx_thread(CmdArgs *args)
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
   }
-  else if(kmers_in_hash < ideal_capacity)
+  else if(kmers_in_hash < popgheader.num_of_kmers / WARN_OCCUPANCY)
     warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   if(args->mem_to_use_set && graph_mem+thread_mem > args->mem_to_use)
     die("Not enough memory (please increase -m <mem>)");
 
-  // Test output file
-  if(!test_file_writable(out_ctp_path))
-    print_usage(usage, "Cannot write output file: %s", out_ctp_path);
+  // Open output file
+  FILE *fout = fopen(out_ctp_path, "w");
+
+  if(fout == NULL)
+    die("Unable to open binary paths file to write: %s\n", out_ctp_path);
 
   //
   // Allocate memory
@@ -244,11 +278,10 @@ int ctx_thread(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  binary_paths_init(&db_graph.pdata, path_store, path_mem, out_ctp_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, out_ctp_cols);
 
   // In colour (only need for one colour)
   size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
-  size_t node_in_cols_mem = 2 * words64_per_col * sizeof(uint64_t);
   db_graph.node_in_cols = calloc2(2 * words64_per_col, sizeof(uint64_t));
 
   // Load graph
@@ -265,11 +298,11 @@ int ctx_thread(CmdArgs *args)
                            .db_graph = &db_graph};
 
   message("Loading population into colour zero...\n");
-  binary_load(pop_ctx_path, &prefs, stats, NULL);
-
-  // DEV: optimisation: when doing only one ctx colour, load at start into col1?
+  graph_load(pop_ctx_path, &prefs, stats, NULL);
 
   hash_table_print_stats(&db_graph.ht);
+
+  paths_format_write_header(&pheader, fout);
 
   prefs.load_seq = true;
   prefs.load_binaries = false;
@@ -278,19 +311,10 @@ int ctx_thread(CmdArgs *args)
   uint32_t gap_limit = 500;
   PathsWorkerPool *pool;
 
-  pool = paths_worker_pool_new(num_of_threads, &db_graph, gap_limit);
-
-  Edges (*col_edges)[2] = (Edges (*)[2])db_graph.col_edges;
-
-  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
-                            .kmer_size = db_graph.kmer_size,
-                            .num_of_cols = out_ctp_cols,
-                            .capacity = 0};
-
-  paths_header_alloc(&pheader, out_ctp_cols);
+  pool = paths_worker_pool_new(num_of_threads, &db_graph, gap_limit, fout);
 
   // Parse input sequence
-  message("\nThreading reads through the graph...\n");
+  message("Threading reads through the graph...\n");
 
   size_t rep;
   uint32_t ctxindex, ctxcol;
@@ -306,8 +330,7 @@ int ctx_thread(CmdArgs *args)
         add_paths_set_colours(pool, 1, path_col);
 
         // wipe colour 1
-        memset(db_graph.node_in_cols, 0, node_in_cols_mem);
-        for(i = 0; i < db_graph.ht.capacity; i++) col_edges[i][1] = 0;
+        db_graph_wipe_colour(&db_graph, 1);
         graph_info_init(&db_graph.ginfo[1]);
 
         // Pick correct binary and colour
@@ -315,7 +338,7 @@ int ctx_thread(CmdArgs *args)
                               &ctxindex, &ctxcol);
 
         uint64_t prev_num_kmers = stats->kmers_loaded;
-        binary_load_colour(binary_paths[ctxindex], &prefs, stats,
+        graph_load_colour(binary_paths[ctxindex], &prefs, stats,
                            load_colours[ctxindex][ctxcol]);
         
         // Check number of kmers loaded is not greater than pop graph
@@ -347,7 +370,24 @@ int ctx_thread(CmdArgs *args)
 
   paths_worker_pool_dealloc(pool);
 
-  paths_format_write(&db_graph, &db_graph.pdata, &pheader, out_ctp_path);
+  PathStore *paths = &db_graph.pdata;
+  size_t num_path_bytes = paths->next - paths->store;
+  char kmers_str[100], paths_str[100], mem_str[100];
+  ulong_to_str(paths->num_kmers_with_paths, kmers_str);
+  ulong_to_str(paths->num_of_paths, paths_str);
+  bytes_to_str(num_path_bytes, 1, mem_str);
+
+  message("  Saving paths: %s paths, %s path-bytes, %s kmers\n",
+          paths_str, mem_str, kmers_str);
+
+  paths_format_write_optimised_paths(&db_graph, fout);
+
+  // Update header and overwrite
+  paths_header_update(&pheader, &db_graph.pdata);
+  fseek(fout, 0, SEEK_SET);
+  paths_format_write_header_core(&pheader, fout);
+
+  fclose(fout);
 
   free(db_graph.edges);
   free(db_graph.node_in_cols);

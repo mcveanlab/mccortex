@@ -6,11 +6,12 @@
 
 #include "binary_kmer.h"
 
-#ifndef REHASH_LIMIT
-  #define REHASH_LIMIT 16
-#endif
+#define REHASH_LIMIT 16
 #define UNSET_BKMER (1UL<<63)
-#define IDEAL_OCCUPANCY 0.70f
+#define IDEAL_OCCUPANCY 0.75f
+#define WARN_OCCUPANCY 0.9f
+// bucket size must be <256
+#define MAX_BUCKET_SIZE 32
 
 typedef struct
 {
@@ -22,7 +23,6 @@ typedef struct
   // buckets[b][0] is the size of the bucket (can only increase)
   // buckets[b][1] is the number of filled entries in a bucket (can go up/down)
   uint8_t (*const buckets)[2];
-  // uint8_t *const bucket_fill; // number of filled entries in a bucket
   uint64_t unique_kmers;
   uint64_t collisions[REHASH_LIMIT];
 } HashTable;
@@ -30,17 +30,15 @@ typedef struct
 typedef uint64_t hkey_t;
 #define HASH_NOT_FOUND UINT64_MAX
 
-#define HASH_ENTRY_ASSIGNED(ptr) (!((ptr)[0] & UNSET_BKMER))
+#define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER))
 
 // Number of hash table entries for a given required capacity
 size_t hash_table_cap(size_t req_capacity,
                       uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr);
 
 // Get number of bytes required for a given number of kmers
-// guarantee requested capacity
-size_t hash_table_mem(size_t req_capacity_kmers, size_t *act_capacity_kmers);
 // do not excess max capacity
-size_t hash_table_mem2(size_t max_capacity_kmers, size_t *act_capacity_kmers);
+size_t hash_table_mem(size_t max_capacity_kmers, size_t *act_capacity_kmers);
 
 // Returns NULL if not enough memory
 HashTable* hash_table_alloc(HashTable *htable, uint64_t capacity);
@@ -61,7 +59,7 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 
 // Iterate over entries in the hash table
 #define HASH_TRAVERSE(ht,func, ...) do {                                       \
-  BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;      \
+  const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
       func(htt_ptr - (ht)->table, ##__VA_ARGS__);                              \

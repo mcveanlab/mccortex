@@ -8,7 +8,7 @@
 #include "binary_kmer.h"
 #include "hash_table.h"
 #include "db_graph.h"
-#include "binary_format.h"
+#include "graph_format.h"
 #include "seq_reader.h"
 
 static const char usage[] =
@@ -40,8 +40,7 @@ static void node_not_in_graph(BinaryKmer bkmer, dBGraph *db_graph)
 
 static void add_kmer(BinaryKmer bkmer, dBGraph *db_graph, dBNodeBuffer *nodebuf)
 {
-  BinaryKmer bkey;
-  db_node_get_key(bkmer, db_graph->kmer_size, bkey);
+  BinaryKmer bkey = db_node_get_key(bkmer, db_graph->kmer_size);
   hkey_t node = hash_table_find(&db_graph->ht, bkey);
   if(node == HASH_NOT_FOUND) node_not_in_graph(bkmer, db_graph);
   Orientation orient = db_node_get_orientation(bkmer, bkey);
@@ -57,14 +56,14 @@ static void walk_graph(hkey_t node, Orientation orient,
   uint32_t i, origlen = buf->len;
   Edges edges;
   Nucleotide nuc;
-  ConstBinaryKmerPtr bkmerptr;
+  BinaryKmer bkmer;
 
   for(i = 0; i < max; i++)
   {
     edges = db_node_edges(db_graph, node);
     if(!edges_has_precisely_one_edge(edges, orient, &nuc)) break;
-    bkmerptr = db_node_bkmer(db_graph, node);
-    db_graph_next_node_orient(db_graph, bkmerptr, nuc, orient, &node, &orient);
+    bkmer = db_node_bkmer(db_graph, node);
+    db_graph_next_node_orient(db_graph, bkmer, nuc, orient, &node, &orient);
     if(db_node_has_traversed(visited, node, orient)) break;
     db_node_set_traversed(visited, node, orient);
 
@@ -184,7 +183,7 @@ int ctx_extend(CmdArgs *args)
     print_usage(usage, "Not enough kmers in the hash, require: %s "
                        "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
   }
-  else if(kmers_in_hash < ideal_capacity)
+  else if(kmers_in_hash < gheader.num_of_kmers / WARN_OCCUPANCY)
     warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   if(args->mem_to_use_set && graph_mem > args->mem_to_use)
@@ -226,7 +225,7 @@ int ctx_extend(CmdArgs *args)
                            .db_graph = &db_graph};
 
   // Load binary
-  binary_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(input_ctx_path, &prefs, stats, NULL);
 
   prefs.load_seq = true;
   prefs.load_binaries = false;

@@ -63,7 +63,16 @@ Common Options:
   -k <K>     Kmer size [default: read from binaries]
   -f <file>  Input file
 
+Inputs
+------
 
+Support reading FASTA, FASTQ, SAM and BAM files. Also supports gzipped files.
+
+Cortex graph files can be loaded by specifying a subset of colours:
+
+    in.ctx:0,3-6
+
+will load colours 0, 3, 4, 5 and 6 from graph file in.ctx
 
 Common Pipelines
 ----------------

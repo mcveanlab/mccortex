@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 
   for(i = 0; i < num_ops; i++)
   {
-    binary_kmer_random(bkmer, args.kmer_size);
+    bkmer = binary_kmer_random(args.kmer_size);
     hash_table_find_or_insert(&db_graph.ht, bkmer, &found);
   }
 

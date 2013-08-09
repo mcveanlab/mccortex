@@ -23,10 +23,10 @@ static void print_path_list(FollowPath **arr, size_t num)
 
 void graph_walker_print_state(const GraphWalker *wlk)
 {
-  ConstBinaryKmerPtr bkmerptr = db_node_bkmer(wlk->db_graph, wlk->node);
+  BinaryKmer bkmer = db_node_bkmer(wlk->db_graph, wlk->node);
   char bkmerstr[MAX_KMER_SIZE+1], bkeystr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, bkmerstr);
-  binary_kmer_to_str(bkmerptr, wlk->db_graph->kmer_size, bkeystr);
+  binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, bkeystr);
   printf(" GWState:%s (%s:%i)\n", bkmerstr, bkeystr, wlk->orient);
   printf("  num_curr: %zu\n", wlk->num_curr);
   print_path_list(wlk->curr_paths, wlk->num_curr);
@@ -168,8 +168,8 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
 
   while(index != PATH_NULL)
   {
-    binary_paths_len_orient(paths, index, &len, &porient);
-    if(binary_paths_has_col(paths, index, wlk->colour) && orient == porient)
+    path_store_len_orient(paths, index, &len, &porient);
+    if(path_store_has_col(paths, index, wlk->colour) && orient == porient)
     {
       if(len > wlk->max_path_len || wlk->num_unused == 0)
         resize_paths(wlk, len);
@@ -177,7 +177,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
       FollowPath **arr = counter ? wlk->counter_paths : wlk->curr_paths;
       // Take from unused heap
       arr[*num] = wlk->unused_paths[--(wlk->num_unused)];
-      binary_paths_fetch(paths, index, arr[*num]->bases, len);
+      path_store_fetch(paths, index, arr[*num]->bases, len);
 
       // size_t j;
       // for(j = 0; j < len; j++)
@@ -189,7 +189,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
       (*num)++;
     }
 
-    index = binary_paths_prev(paths, index);
+    index = path_store_prev(paths, index);
   }
 
   return *num - start_pos;
@@ -222,7 +222,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
   memcpy(wlk, &gw, sizeof(GraphWalker));
 
   // Get bkmer oriented correctly (not bkey)
-  db_graph_oriented_bkmer(graph, node, orient, wlk->bkmer);
+  wlk->bkmer = db_graph_oriented_bkmer(graph, node, orient);
 
   // Pick up new paths
   const PathStore *paths = &wlk->db_graph->pdata;
@@ -270,20 +270,10 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       j++;
     }
   }
+  num_next = j;
 
-  if(j == 0)
-  {
-    // Take all options
-    memcpy(nodes, next_nodes, 4 * sizeof(hkey_t));
-    memcpy(bases, next_bases, 4 * sizeof(Nucleotide));
-    for(i = 0; i < 4; i++) indices[i] = i;
-  }
-  else {
-    num_next = j;
-  }
-
-  if(num_next > 1 && wlk->num_curr == 0) return -1;
   if(num_next == 1) return indices[0];
+  if(num_next == 0 || wlk->num_curr == 0) return -1;
 
   // printf("  curr: %zu; new: %zu; counter: %zu; unused: %zu; total: %zu\n",
   //        wlk->num_curr, wlk->num_new, wlk->num_counter, wlk->num_unused,
@@ -335,8 +325,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   message("Fork: %s\n", str);
 
   for(i = 0; i < num_next; i++) {
-    ConstBinaryKmerPtr bkmerptr = db_node_bkmer(wlk->db_graph, nodes[i]);
-    binary_kmer_to_str(bkmerptr, wlk->db_graph->kmer_size, str);
+    BinaryKmer bkmer = db_node_bkmer(wlk->db_graph, nodes[i]);
+    binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
     message("  %s [%c]\n", str, binary_nuc_to_char(bases[i]));
   }
 
@@ -388,7 +378,7 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
         path->pos++;
       }
       else {
-        // Put path back on unused
+        // Put path back in unused pool
         wlk->unused_paths[wlk->num_unused++] = path;
       }
     }
@@ -405,7 +395,7 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
         path->pos++;
       }
       else {
-        // Put path back on unused
+        // Put path back in unused pool
         wlk->unused_paths[wlk->num_unused++] = path;
       }
     }
@@ -415,15 +405,15 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
   const dBGraph *db_graph = wlk->db_graph;
 
   wlk->node = node;
-  binary_kmer_assign(wlk->bkmer, bkmer);
+  wlk->bkmer = bkmer;
   wlk->orient = db_node_get_orientation(wlk->bkmer, db_node_bkmer(db_graph, node));
 
   // Take `new' paths
   wlk->num_curr += wlk->num_new;
 
   // Pick up new paths
-  const PathStore *paths = &wlk->db_graph->pdata;
-  PathIndex index = db_node_paths(wlk->db_graph, wlk->node);
+  const PathStore *paths = &db_graph->pdata;
+  PathIndex index = db_node_paths(db_graph, wlk->node);
   wlk->num_new = pickup_paths(paths, wlk, index, wlk->orient, false);
   wlk->num_curr -= wlk->num_new;
 }
@@ -431,9 +421,8 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
 void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
                           boolean fork)
 {
-  BinaryKmer bkmer;
-  binary_kmer_assign(bkmer, wlk->bkmer);
-  binary_kmer_left_shift_add(bkmer, wlk->db_graph->kmer_size, base);
+  BinaryKmer bkmer = wlk->bkmer;
+  binary_kmer_left_shift_add(&bkmer, wlk->db_graph->kmer_size, base);
   graph_traverse_force_jump(wlk, node, bkmer, fork);
 }
 
@@ -454,8 +443,8 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
   for(i = 0; i < num_prev; i++)
   {
     // char bkeystr[MAX_KMER_SIZE+1];
-    // ConstBinaryKmerPtr bkmerptr = db_node_bkmer(wlk->db_graph, prev_nodes[i]);
-    // binary_kmer_to_str(bkmerptr, wlk->db_graph->kmer_size, bkeystr);
+    // BinaryKmer bkmer = db_node_bkmer(wlk->db_graph, prev_nodes[i]);
+    // binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, bkeystr);
     // message(" picking up counter from %s:%i\n", bkeystr, prev_orients[i]);
 
     index = db_node_paths(wlk->db_graph, prev_nodes[i]);
@@ -490,9 +479,9 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
   orient = opposite_orientation(orient);
   const dBGraph *db_graph = wlk->db_graph;
 
-  BinaryKmer fw_bkmer;
-  ConstBinaryKmerPtr bkmerptr = db_node_bkmer(db_graph, node);
-  db_node_oriented_bkmer(bkmerptr, orient, db_graph->kmer_size, fw_bkmer);
+  BinaryKmer bkmer, fw_bkmer;
+  bkmer = db_node_bkmer(db_graph, node);
+  fw_bkmer = db_node_oriented_bkmer(bkmer, orient, db_graph->kmer_size);
 
   // DEV: change to col_edges
   Edges edges = db_node_union_edges(db_graph, node);
@@ -511,8 +500,8 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
   // Reverse orientation
   size_t i;
   for(i = 0; i < num_prev_nodes; i++) {
-    ConstBinaryKmerPtr bptr = db_node_bkmer(db_graph, prev_nodes[i]);
-    prev_orients[i] = !db_node_get_orientation(bptr, prev_bkmers[i]);
+    BinaryKmer bkmer = db_node_bkmer(db_graph, prev_nodes[i]);
+    prev_orients[i] = !db_node_get_orientation(bkmer, prev_bkmers[i]);
   }
 
   graph_walker_add_counter_paths(wlk, prev_nodes, prev_orients, num_prev_nodes);
