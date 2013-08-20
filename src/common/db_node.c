@@ -22,16 +22,6 @@ BinaryKmer db_node_get_key(const BinaryKmer bkmer, uint32_t kmer_size)
 }
 
 //
-// Orientations
-//
-BinaryKmer db_node_oriented_bkmer(BinaryKmer bkmer, Orientation orient,
-                                  uint32_t kmer_size)
-{
-  if(orient == FORWARD) return bkmer;
-  else return binary_kmer_reverse_complement(bkmer, kmer_size);
-}
-
-//
 // Edges
 //
 

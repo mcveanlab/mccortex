@@ -62,6 +62,7 @@ void paths_header_dealloc(PathFileHeader *h)
   if(h->capacity > 0) {
     for(i = 0; i < h->capacity; i++) strbuf_dealloc(&h->sample_names[i]);
     free(h->sample_names);
+    free(h->num_inferred_kmers);
     h->capacity = 0;
   }
 }

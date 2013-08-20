@@ -45,6 +45,27 @@ boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right)
 #endif
 
 
+BinaryKmer binary_kmer_from_old(BinaryKmer bkmer, size_t kmer_size)
+{
+  size_t w = 0, o = 0, x = 2*(kmer_size&31), i, j;
+  BinaryKmer nbkmer = {{0}};
+  for(o = 0; o < x; o+=2) nbkmer.b[0] |= ((bkmer.b[0]>>(x-o-2))&3) << o;
+  for(i = 0; i < NUM_BKMER_WORDS-1; i++) {
+    for(j = 0; j < 64; j+=2) {
+      nbkmer.b[w] |= ((bkmer.b[i]>>j)&3) << o;
+      o += 2; w += (o & 64); o = (o & 63);
+    }
+  }
+  return nbkmer;
+}
+
+BinaryKmer binary_kmer_to_old(BinaryKmer bkmer, size_t kmer_size)
+{
+  BinaryKmer nbkmer = {{0}};
+  (void)bkmer; (void)kmer_size;
+  return nbkmer;
+}
+
 void binary_kmer_right_shift_one_base(BinaryKmer *bkmer)
 {
   int i;

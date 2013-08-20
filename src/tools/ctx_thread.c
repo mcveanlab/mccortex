@@ -10,9 +10,6 @@
 #include "path_format.h"
 #include "graph_walker.h"
 
-// DEV: we assume colour is in pop -- this is annoying
-// if it is not we end up with kmers in the hash table that are not removed
-// this may not be an issue
 static const char usage[] =
 "usage: "CMD" thread [options] <popsize> <out.ctp> <pop.ctx> <in.ctx>[:cols] [in2.ctx ...]\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"

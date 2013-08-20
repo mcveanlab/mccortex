@@ -175,6 +175,9 @@ int ctx_call(CmdArgs *args)
   free((void *)db_graph.kmer_paths);
   free(path_store);
 
+  graph_header_dealloc(&gheader);
+  paths_header_dealloc(&pheader);
+
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 

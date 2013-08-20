@@ -39,14 +39,12 @@ void db_graph_next_node(const dBGraph *db_graph,
                         Orientation orient,
                         hkey_t *next_node, Orientation *next_orient);
 
-uint8_t db_graph_next_nodes(const dBGraph *db_graph,
-                            const BinaryKmer fw_bkmer, Edges edges,
-                            hkey_t nodes[4], BinaryKmer bkmers[4]);
-
-uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
-                                   const BinaryKmer bkmer, Edges edges,
-                                   Orientation orient,
-                                   hkey_t nodes[4], BinaryKmer bkmers[4]);
+// edges are forward+reverse, db_graph_next_nodes orients them
+// fw_nucs is the nuc you would add when walking forward
+size_t db_graph_next_nodes(const dBGraph *db_graph,
+                            BinaryKmer bkmer, Orientation orient, Edges edges,
+                            hkey_t nodes[4], Orientation orients[4],
+                            Nucleotide fw_nucs[4]);
 
 //
 // Pruning

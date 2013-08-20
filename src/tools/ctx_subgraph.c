@@ -70,20 +70,19 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
   Edges edges = db_graph.col_edges[node];
   int num_next, i;
   hkey_t next_nodes[8];
-  BinaryKmer next_bkmers[8];
+  Orientation next_orients[8];
+  Nucleotide next_bases[8];
 
   BinaryKmer bkmer = db_node_bkmer(&db_graph, node);
 
   // Get neighbours in forward dir
-  num_next  = db_graph_next_nodes(&db_graph, bkmer, edges & 0xf,
-                                  next_nodes, next_bkmers);
-
-  BinaryKmer revbkmer = binary_kmer_reverse_complement(bkmer, db_graph.kmer_size);
+  num_next  = db_graph_next_nodes(&db_graph, bkmer, FORWARD, edges,
+                                  next_nodes, next_orients, next_bases);
 
   // Get neighbours in reverse dir
-  num_next += db_graph_next_nodes(&db_graph, revbkmer, edges>>4,
-                                  next_nodes+num_next,
-                                  next_bkmers+num_next);
+  num_next += db_graph_next_nodes(&db_graph, bkmer, REVERSE, edges,
+                                  next_nodes+num_next, next_orients+num_next,
+                                  next_bases+num_next);
 
   // if not flagged add to list
   for(i = 0; i < num_next; i++) {

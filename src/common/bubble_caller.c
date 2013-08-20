@@ -414,19 +414,13 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   kh_clear(supnode_hsh, snode_hash);
 
   hkey_t nodes[4];
-  BinaryKmer bkmers[4];
   Orientation orients[4];
+  Nucleotide bases[4];
   size_t i, num_next;
 
-  num_next = db_graph_next_nodes_orient(db_graph,
-                                        db_node_bkmer(db_graph, fork_n),
-                                        db_node_edges(db_graph, fork_n), fork_o,
-                                        nodes, bkmers);
-
-  for(i = 0; i < num_next; i++) {
-    orients[i] = db_node_get_orientation(db_node_bkmer(db_graph, nodes[i]),
-                                         bkmers[i]);
-  }
+  num_next = db_graph_next_nodes(db_graph, db_node_bkmer(db_graph, fork_n),
+                                 fork_o, db_node_edges(db_graph, fork_n),
+                                 nodes, orients, bases);
 
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
@@ -441,7 +435,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
   for(i = 0; i < num_next; i++)
   {
-    next_nuc = binary_kmer_last_nuc(bkmers[i]);
+    next_nuc = bases[i];
 
     for(colour = 0; colour < colours_loaded; colour++)
     {

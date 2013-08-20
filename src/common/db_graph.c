@@ -121,48 +121,35 @@ void db_graph_next_node(const dBGraph *db_graph,
   assert(*next_node != HASH_NOT_FOUND);
 }
 
-uint8_t db_graph_next_nodes(const dBGraph *db_graph,
-                            BinaryKmer fw_bkmer, Edges edges,
-                            hkey_t nodes[4], BinaryKmer bkmers[4])
+size_t db_graph_next_nodes(const dBGraph *db_graph,
+                           BinaryKmer bkmer, Orientation orient, Edges edges,
+                           hkey_t nodes[4], Orientation orients[4],
+                           Nucleotide fw_nucs[4])
 {
-  // char str[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(fw_bkmer, db_graph->kmer_size, str);
-  // printf(" :%s [%u]\n", str, edges);
-
-  uint8_t count = 0;
+  size_t count = 0, kmer_size = db_graph->kmer_size;
   Edges tmp_edge;
   Nucleotide nuc;
   BinaryKmer bkey;
 
-  binary_kmer_left_shift_one_base(&fw_bkmer, db_graph->kmer_size);
+  edges = edges_with_orientation(edges, orient);
+  if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
+  else binary_kmer_right_shift_one_base(&bkmer);
 
-  for(tmp_edge = 0x1, nuc = 0; nuc < 4; tmp_edge <<= 1, nuc++)
-  {
-    if(edges & tmp_edge)
-    {
-      binary_kmer_set_last_nuc(&fw_bkmer, nuc);
-      bkey = db_node_get_key(fw_bkmer, db_graph->kmer_size);
-      bkmers[count] = fw_bkmer;
+  for(tmp_edge = 0x1, nuc = 0; nuc < 4; tmp_edge <<= 1, nuc++) {
+    if(edges & tmp_edge) {
+      if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
+      else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
+      bkey = db_node_get_key(bkmer, kmer_size);
       nodes[count] = hash_table_find(&db_graph->ht, bkey);
+      orients[count] = db_node_get_orientation(bkmer, bkey) ^ orient;
+      fw_nucs[count] = nuc;
       count++;
-
-      // binary_kmer_to_str(fw_bkmer, db_graph->kmer_size, str);
-      // printf(" ->%s [%i]\n", str, (int)nuc);
     }
   }
 
   return count;
 }
 
-uint8_t db_graph_next_nodes_orient(const dBGraph *db_graph,
-                                   BinaryKmer bkmer, Edges edges,
-                                   Orientation orient,
-                                   hkey_t nodes[4], BinaryKmer bkmers[4])
-{
-  BinaryKmer fw_bkmer = db_node_oriented_bkmer(bkmer, orient, db_graph->kmer_size);
-  edges = edges_with_orientation(edges, orient);
-  return db_graph_next_nodes(db_graph, fw_bkmer, edges, nodes, bkmers);
-}
 
 //
 // Pruning

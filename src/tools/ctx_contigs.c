@@ -14,12 +14,10 @@ static const char usage[] =
 
 int ctx_contigs(CmdArgs *args)
 {
-  cmd_accept_options(args, "m");
+  cmd_accept_options(args, "mhp");
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);
-
-  size_t mem_to_use = args->mem_to_use;
 
   char *input_ctx_path = argv[2], *output_fa_path = argv[4];
   uint32_t colour;
@@ -39,8 +37,26 @@ int ctx_contigs(CmdArgs *args)
   if(!test_file_writable(output_fa_path))
     print_usage(usage, "Cannot write to output file: %s", output_fa_path);
 
-  // DEV: look for ctp file
-  size_t path_mem = 0;
+  // probe paths file
+  if(args->num_ctp_files > 1)
+    print_usage(usage, "Sorry, we only accept one -p <in.ctp> at the moment");
+
+  const char *input_paths_file = args->num_ctp_files ? args->ctp_files[0] : NULL;
+
+  boolean valid_paths_file = false;
+  PathFileHeader pheader = {.capacity = 0};
+
+  if(input_paths_file != NULL)
+  {
+    if(!paths_file_probe(input_paths_file, &valid_paths_file, &pheader))
+      print_usage(usage, "Cannot read .ctp file: %s", input_paths_file);
+    if(!valid_paths_file)
+      die("Invalid .ctp file: %s", input_paths_file);
+    if(pheader.num_of_cols != gheader.num_of_cols)
+      die("Number of colours in .ctp does not match .ctx");
+    if(pheader.kmer_size != gheader.kmer_size)
+      die("Kmer size in .ctp does not match .ctx");
+  }
 
   // Decide on memory
   size_t hash_kmers, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
@@ -53,13 +69,15 @@ int ctx_contigs(CmdArgs *args)
                      round_bits_to_bytes(hash_kmers) + // used in contig
                      round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
 
+  size_t path_mem = input_paths_file == NULL ? 0 : pheader.num_path_bytes;
+
   // memory to strings
   char graph_mem_str[100], path_mem_str[100], total_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(path_mem, 1, path_mem_str);
   bytes_to_str(graph_mem+path_mem, 1, total_mem_str);
 
-  if(graph_mem > mem_to_use)
+  if(graph_mem + path_mem > args->mem_to_use)
     print_usage(usage, "Not enough memory; requires %s", total_mem_str);
 
   // Allocate memory
@@ -101,6 +119,12 @@ int ctx_contigs(CmdArgs *args)
   graph_load(input_ctx_path, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
+  if(input_paths_file != NULL) {
+    paths_format_read(input_paths_file, &pheader, &db_graph,
+                      &db_graph.pdata, false);
+  }
+
+
   // DEV: dump contigs
   // Use kmers unique to the colour with low covg
 
@@ -111,6 +135,7 @@ int ctx_contigs(CmdArgs *args)
   free(path_store);
 
   graph_header_dealloc(&gheader);
+  paths_header_dealloc(&pheader);
 
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
