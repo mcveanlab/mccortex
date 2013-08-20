@@ -108,7 +108,7 @@ int ctx_join(CmdArgs *args)
 
   // Check all binaries are valid binaries with matching kmer size
   boolean is_binary = false;
-  uint32_t i, kmer_size;
+  uint32_t i, kmer_size = 0;
   uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
   GraphFileHeader gheader;
   char *path;

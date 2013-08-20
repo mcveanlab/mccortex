@@ -17,7 +17,7 @@ static size_t extend_supernode(hkey_t init_node, Orientation init_or,
 
   while(edges_has_precisely_one_edge(edges[node], or, &nuc))
   {
-    db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph, node), nuc, or,
+    db_graph_next_node(db_graph, db_node_bkmer(db_graph, node), nuc, or,
                               &next_node, &next_or);
 
     if(!edges_has_precisely_one_edge(edges[next_node], rev_orient(next_or), &nuc))
@@ -64,7 +64,7 @@ static size_t supernode_cycle(hkey_t init_node, const dBGraph *db_graph,
   {
     BinaryKmer bkmer = db_node_bkmer(db_graph, node);
 
-    db_graph_next_node_orient(db_graph, bkmer, nuc, or,
+    db_graph_next_node(db_graph, bkmer, nuc, or,
                               &node, &or);
 
     if(node == init_node) break;
@@ -83,7 +83,7 @@ static size_t supernode_cycle(hkey_t init_node, const dBGraph *db_graph,
   *start_orient = FORWARD;
 
   edges_has_precisely_one_edge(edges[node], REVERSE, &nuc);
-  db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph, lowest_node),
+  db_graph_next_node(db_graph, db_node_bkmer(db_graph, lowest_node),
                             nuc, REVERSE, end_node, end_orient);
   *end_orient = rev_orient(*end_orient);
 

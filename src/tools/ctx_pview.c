@@ -45,7 +45,7 @@ int ctx_pview(CmdArgs *args)
   message("colours: %u\n", pheader.num_of_cols);
   message("paths: %s\n", num_paths_str);
   message("bytes: %s\n", path_bytes_str);
-  message("kmers: %s\n", kmers_with_paths_str);
+  message("kmers starting paths: %s\n", kmers_with_paths_str);
 
   char inf_kmer_str[100];
   uint32_t col;

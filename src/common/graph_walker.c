@@ -451,7 +451,6 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
     num_paths = pickup_paths(paths, wlk, index, prev_orients[i], true);
     wlk->num_counter -= num_paths;
 
-    // DEV: change to col_edges
     edges = db_node_union_edges(wlk->db_graph, prev_nodes[i]);
     if(edges_get_outdegree(edges, prev_orients[i]) > 1) {
       new_paths = wlk->counter_paths + wlk->num_counter;
@@ -478,16 +477,13 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
 {
   orient = opposite_orientation(orient);
   const dBGraph *db_graph = wlk->db_graph;
+  BinaryKmer fw_bkmer;
+  Edges edges;
 
-  BinaryKmer bkmer, fw_bkmer;
-  bkmer = db_node_bkmer(db_graph, node);
-  fw_bkmer = db_node_oriented_bkmer(bkmer, orient, db_graph->kmer_size);
+  fw_bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
+  edges = edges_with_orientation(db_node_union_edges(db_graph, node), orient);
 
-  // DEV: change to col_edges
-  Edges edges = db_node_union_edges(db_graph, node);
-  edges = edges_with_orientation(edges, orient);
-  // DEV!!!!
-  if(orient != REVERSE) prev_nuc = binary_nuc_complement(prev_nuc);
+  if(orient == FORWARD) prev_nuc = binary_nuc_complement(prev_nuc);
   edges &= ~(1<<prev_nuc);
 
   hkey_t prev_nodes[4];

@@ -203,8 +203,7 @@ static void load_allele_path(hkey_t node, Orientation or,
 
   #ifdef DEBUG_CALLER
     char tmp[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(db_node_bkmer(db_graph,node), db_graph->kmer_size, tmp);
-    printf(" load_allele_path: %s:%i\n", tmp, or);
+    printf("new allele\n");
   #endif
 
   size_t node_count = *node_count_ptr;
@@ -214,6 +213,11 @@ static void load_allele_path(hkey_t node, Orientation or,
   size_t supindx, kmers_in_path = 0;
   for(supindx = 0; ; supindx++)
   {
+    #ifdef DEBUG_CALLER
+      binary_kmer_to_str(db_node_bkmer(db_graph,node), db_graph->kmer_size, tmp);
+      printf(" load_allele_path: %s:%i\n", tmp, or);
+    #endif
+
     // Find or add supernode
     CallerSupernode *snode;
     int hashret;
@@ -224,6 +228,10 @@ static void load_allele_path(hkey_t node, Orientation or,
     {
       // already in supernode hash table
       snode = kh_value(snode_hash, k);
+
+      #ifdef DEBUG_CALLER
+        printf("  (supernode already exists)\n");
+      #endif
     }
     else
     {
@@ -260,7 +268,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     if(kmers_in_path + snode->num_of_nodes > MAX_ALLELE_KMERS)
       break;
 
-    // Walk along supernode (always succedes)
+    // Walk along supernode (always succeeds)
     walk_supernode_end(wlk, snode, snorient);
 
     kmers_in_path += snode->num_of_nodes;
@@ -312,11 +320,8 @@ static void load_allele_path(hkey_t node, Orientation or,
     Nucleotide base = next_bases[nxt_idx];
 
     // Check if we are happy traversing
-    // if(wlk->num_paths == 0) {
-      // We only need to mark nodes as visited if we have no paths
-      if(db_node_has_traversed(visited, node, or)) break;
+    if(db_node_has_traversed(visited, node, or)) break;
       db_node_set_traversed(visited, node, or);
-    // }
 
     Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
     graph_traverse_force(wlk, node, base, edges_in_colour > 1);

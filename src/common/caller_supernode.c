@@ -3,6 +3,10 @@
 #include "db_graph.h"
 #include "db_node.h"
 
+#ifdef DEBUG
+#define DEBUG_CALLER 1
+#endif
+
 void reverse_node_list(hkey_t *nlist, Orientation *olist, size_t len)
 {
   if(len == 0) return;
@@ -37,44 +41,48 @@ static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
 
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist
 // Returns the number of nodes added, adds no more than `limit`
-size_t supernode_traverse(hkey_t node, Orientation or,
+size_t supernode_traverse(hkey_t node, Orientation orient,
                           hkey_t *nlist, Orientation *olist,
                           size_t limit, const dBGraph *db_graph,
                           boolean *out_of_space)
 {
+  size_t num_nodes = 1, kmer_size = db_graph->kmer_size;
+  Nucleotide nuc;
+  BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
+  const Edges *edges = db_graph->edges;
+
   #ifdef DEBUG_CALLER
-    char tmpstr[MAX_KMER_SIZE+1];
-    BinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
-    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
-    printf("  fetch %s:%i\n", tmpstr, (int)or);
+    char tmpstr1[MAX_KMER_SIZE+1], tmpstr2[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr1);
+    printf("  fetch %s:%i\n", tmpstr1, (int)orient);
   #endif
 
   nlist[0] = node;
-  olist[0] = or;
+  olist[0] = orient;
 
-  size_t num_nodes = 1;
-  Nucleotide nuc;
-
-  const Edges *edges = db_graph->edges;
-
-  while(edges_has_precisely_one_edge(edges[node], or, &nuc))
+  while(edges_has_precisely_one_edge(edges[node], orient, &nuc))
   {
+    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+
+    bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+    node = hash_table_find(&db_graph->ht, bkey);
+    orient = db_node_get_orientation(bkey, bkmer);
+
     #ifdef DEBUG_CALLER
-      char tmp[MAX_KMER_SIZE+1];
-      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, tmp);
-      printf(">%s:%i nuc:%c\n", tmp, or, binary_nuc_to_char(nuc));
+      binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr1);
+      binary_kmer_to_str(bkey, db_graph->kmer_size, tmpstr2);
+      printf(">%s %s:%i nuc:%c\n", tmpstr1, tmpstr2, orient, binary_nuc_to_char(nuc));
     #endif
 
-    db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph, node), nuc, or,
-                              &node, &or);
+    assert(node != HASH_NOT_FOUND);
 
-    if(edges_has_precisely_one_edge(edges[node], rev_orient(or), &nuc))
+    if(edges_has_precisely_one_edge(edges[node], rev_orient(orient), &nuc))
     {
       if(num_nodes == limit) { *out_of_space = 1; break; }
-      if(node == nlist[0] && or == olist[0]) break; // don't create a loop
+      if(node == nlist[0] && orient == olist[0]) break; // don't create a loop
 
       nlist[num_nodes] = node;
-      olist[num_nodes] = or;
+      olist[num_nodes] = orient;
       num_nodes++;
     }
     else break;
@@ -94,9 +102,15 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
                                CallerSupernode *snode, size_t limit,
                                const dBGraph *db_graph)
 {
+  Nucleotide nuc;
+  Edges union_edges;
+  hkey_t first_node, last_node;
+  Orientation first_or, last_or;
+  BinaryKmer bkmer;
+
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    BinaryKmerPtr bkmer = db_node_bkmer(db_graph, node);
+    bkmer = db_node_bkmer(db_graph, node);
     binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
     printf(" create %s:%i\n", tmpstr, (int)or);
   #endif
@@ -115,38 +129,33 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   snode->num_prev = 0;
   snode->num_next = 0;
 
-  Nucleotide nuc;
-  Edges union_edges;
-  hkey_t first_node, last_node;
-  Orientation first_or, last_or;
-
   first_node = snode->nodes[0];
   first_or = opposite_orientation(snode->orients[0]);
   last_node = snode->nodes[snode->num_of_nodes-1];
   last_or = snode->orients[snode->num_of_nodes-1];
 
   // Prev nodes
-  union_edges = db_graph->edges[first_node];
+  union_edges = edges_with_orientation(db_graph->edges[first_node], first_or);
+  bkmer = db_node_bkmer(db_graph, first_node);
 
   for(nuc = 0; nuc < 4; nuc++) {
-    if(edges_has_edge(union_edges, nuc, first_or)) {
-      db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph,first_node),
-                                nuc, first_or,
-                                snode->prev_nodes + snode->num_prev,
-                                snode->prev_orients + snode->num_prev);
+    if(edges_has_edge(union_edges, nuc, FORWARD)) {
+      db_graph_next_node(db_graph, bkmer, nuc, first_or,
+                         snode->prev_nodes + snode->num_prev,
+                         snode->prev_orients + snode->num_prev);
       snode->num_prev++;
     }
   }
 
   // Next nodes
-  union_edges = db_graph->edges[last_node];
+  union_edges = edges_with_orientation(db_graph->edges[last_node], last_or);
+  bkmer = db_node_bkmer(db_graph, last_node);
 
   for(nuc = 0; nuc < 4; nuc++) {
-    if(edges_has_edge(union_edges, nuc, last_or)) {
-      db_graph_next_node_orient(db_graph, db_node_bkmer(db_graph,last_node),
-                                nuc, last_or,
-                                snode->next_nodes + snode->num_next,
-                                snode->next_orients + snode->num_next);
+    if(edges_has_edge(union_edges, nuc, FORWARD)) {
+      db_graph_next_node(db_graph, bkmer, nuc, last_or,
+                         snode->next_nodes + snode->num_next,
+                         snode->next_orients + snode->num_next);
       snode->num_next++;
     }
   }

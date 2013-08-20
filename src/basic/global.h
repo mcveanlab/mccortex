@@ -3,6 +3,7 @@
 
 // request decent POSIX version
 #define _XOPEN_SOURCE 700
+#define _BSD_SOURCE
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -35,7 +36,6 @@ typedef signed char boolean;
 #define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
 
 #define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
-
 #define MEDIAN(arr,len) (len&0x1?arr[len/2]:(arr[(len-1)/2]+arr[len/2])/2.0)
 
 #ifndef ROUNDUP2POW
@@ -46,6 +46,9 @@ typedef signed char boolean;
   size_t _full = ((max)-(dst))<(add);              \
   (dst) = (_full)*(max) + (!_full)*((dst)+(add));  \
 } while(0)
+
+#define rot32(x,r) (((x)<<(r)) | ((x)>>(32-(r))))
+#define rot64(x,r) (((x)<<(r)) | ((x)>>(64-(r))))
 
 // Unaligned memory access
 // #define NO_UNALIGNED_ACCESS 1

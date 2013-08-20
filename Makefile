@@ -61,7 +61,8 @@ IDIR_HASH = libs/hash_functions
 LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
 LIB_HTS=libs/htslib/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
-LIB_STRS=libs/string_buffer/libstrbuf.a
+# LIB_STRS=libs/string_buffer/libstrbuf.a
+LIB_STRS=libs/string_buffer/string_buffer.c
 
 ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
@@ -72,7 +73,7 @@ INCS=-I src/basic/ -I src/common/ -I src/tools/ \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_GSL_HEADERS) $(EXTRA_INCS)
 
 # Library linking
-LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
+LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.c)
 LINK=-lstdc++ -lpthread -lz -lm
 
 # -Winit-self -Wmissing-include-dirs

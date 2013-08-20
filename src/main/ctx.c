@@ -51,13 +51,16 @@ int main(int argc, char **argv)
   cmd_free(&args);
   time(&end);
 
-  // Print time taken
-  double diff = difftime (end,start);
-  if(diff < 60) message("[time] %.2lf seconds\n", diff);
-  else {
-    char timestr[100];
-    seconds_to_str(diff, timestr);
-    message("[time] %.2lf seconds (%s)\n", diff, timestr);
+  if(strcmp(argv[1],"view") != 0)
+  {
+    // Print time taken
+    double diff = difftime (end,start);
+    if(diff < 60) message("[time] %.2lf seconds\n", diff);
+    else {
+      char timestr[100];
+      seconds_to_str(diff, timestr);
+      message("[time] %.2lf seconds (%s)\n", diff, timestr);
+    }
   }
 
   return ret;

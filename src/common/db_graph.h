@@ -35,13 +35,9 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
 //
 
 void db_graph_next_node(const dBGraph *db_graph,
-                        const BinaryKmer bkmer, Nucleotide next_nuc,
+                        BinaryKmer bkmer, Nucleotide next_nuc,
+                        Orientation orient,
                         hkey_t *next_node, Orientation *next_orient);
-
-void db_graph_next_node_orient(const dBGraph *db_graph,
-                               const BinaryKmer bkmer, Nucleotide next_nuc,
-                               Orientation orient,
-                               hkey_t *next_node, Orientation *next_orient);
 
 uint8_t db_graph_next_nodes(const dBGraph *db_graph,
                             const BinaryKmer fw_bkmer, Edges edges,

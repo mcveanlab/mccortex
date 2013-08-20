@@ -115,7 +115,6 @@ static const uint8_t revcmp_table[256] =
 };
 
 
-// kmer and prealloc_revcmp_kmer may NOT point to the same address
 BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
                                           uint32_t kmer_size)
 {
@@ -161,7 +160,7 @@ BinaryKmer binary_kmer_random(uint32_t kmer_size)
   BinaryKmer bkmer = {.b = {0}};
   size_t i;
   for(i = 0; i < sizeof(BinaryKmer) / 8; i++)
-    bkmer.b[i] = ((uint64_t)rand()) << 32 | rand();
+    bkmer.b[i] = (((uint64_t)rand()) << 32) | rand();
   bkmer.b[0] >>= 64 - BKMER_TOP_BASES(kmer_size);
   return bkmer;
 }

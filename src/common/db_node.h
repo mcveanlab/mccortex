@@ -70,7 +70,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 #define db_node_get_orientation(bkmer,bkey) \
         (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
 
-BinaryKmer db_node_oriented_bkmer(const BinaryKmer bkmer, Orientation orient,
+BinaryKmer db_node_oriented_bkmer(BinaryKmer bkmer, Orientation orient,
                                   uint32_t kmer_size);
 
 #define db_node_first_nuc(bkmer,or,k) \

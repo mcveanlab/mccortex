@@ -109,31 +109,23 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
 
 void db_graph_next_node(const dBGraph *db_graph,
                         BinaryKmer bkmer, Nucleotide next_nuc,
+                        Orientation orient,
                         hkey_t *next_node, Orientation *next_orient)
 {
-  BinaryKmer bkey;
-  binary_kmer_left_shift_add(&bkmer, db_graph->kmer_size, next_nuc);
-  bkey = db_node_get_key(bkmer, db_graph->kmer_size);
-
+  size_t kmer_size = db_graph->kmer_size;
+  if(orient == FORWARD) binary_kmer_left_shift_add(&bkmer, kmer_size, next_nuc);
+  else binary_kmer_right_shift_add(&bkmer, kmer_size, binary_nuc_complement(next_nuc));
+  BinaryKmer bkey = db_node_get_key(bkmer, kmer_size);
   *next_node = hash_table_find(&db_graph->ht, bkey);
-  *next_orient = db_node_get_orientation(bkmer, bkey);
-}
-
-// Nuc is expected to be already orientated
-void db_graph_next_node_orient(const dBGraph *db_graph,
-                               BinaryKmer bkmer, Nucleotide next_nuc,
-                               Orientation orient,
-                               hkey_t *next_node, Orientation *next_orient)
-{
-  bkmer = db_node_oriented_bkmer(bkmer, db_graph->kmer_size, orient);
-  db_graph_next_node(db_graph, bkmer, next_nuc, next_node, next_orient);
+  *next_orient = db_node_get_orientation(bkmer, bkey) ^ orient;
+  assert(*next_node != HASH_NOT_FOUND);
 }
 
 uint8_t db_graph_next_nodes(const dBGraph *db_graph,
                             BinaryKmer fw_bkmer, Edges edges,
                             hkey_t nodes[4], BinaryKmer bkmers[4])
 {
-  // char str[100];
+  // char str[MAX_KMER_SIZE+1];
   // binary_kmer_to_str(fw_bkmer, db_graph->kmer_size, str);
   // printf(" :%s [%u]\n", str, edges);
 
@@ -212,8 +204,8 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
       {
         if(edges_has_edge(keep_edges, nuc, orient))
         {
-          db_graph_next_node_orient(db_graph, bkmer, nuc, orient,
-                                    &next_node, &next_orient);
+          db_graph_next_node(db_graph, bkmer, nuc, orient,
+                             &next_node, &next_orient);
 
           if(!bitset_has(flags, next_node))
           {
@@ -274,8 +266,7 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
       {
         if(edges_has_edge(edges, nuc, or))
         {
-          db_graph_next_node_orient(db_graph, bkmer, nuc, or,
-                                    &next_node, &next_or);
+          db_graph_next_node(db_graph, bkmer, nuc, or, &next_node, &next_or);
 
           // Remove edge from next_node to this one
           remove_edge_mask = ~nuc_orient_to_edge(lost_nuc, rev_orient(next_or));

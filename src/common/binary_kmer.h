@@ -46,9 +46,10 @@ extern const Nucleotide char_to_bnuc[128];
   char binary_nuc_to_char(Nucleotide n);
 #endif
 
+// Since kmer_size is always odd, top word always has <= 62 bits used
 // Number of bases store in all but the top word
 #define BKMER_LOWER_BASES              ((NUM_BKMER_WORDS-1)*32)
-#define BKMER_TOP_BASES(ksize)         ((ksize) - BKMER_LOWER_BASES)
+#define BKMER_TOP_BASES(ksize)         ((ksize)&31)
 #define BKMER_TOP_BITS(ksize)          (BKMER_TOP_BASES(ksize) * 2)
 #define BKMER_TOP_BP_BYTEOFFSET(ksize) (BKMER_TOP_BITS(ksize) - 2)
 
@@ -62,16 +63,19 @@ extern const Nucleotide char_to_bnuc[128];
 #define binary_kmer_set_first_nuc(bkmer,nuc,ksize)                             \
         ((bkmer)->b[0] = ((bkmer)->b[0] &                                      \
                           (~(uint64_t)0 >> (64-BKMER_TOP_BP_BYTEOFFSET(ksize)))) |\
-                         ((nuc) << BKMER_TOP_BP_BYTEOFFSET(ksize)))
+                         (((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize)))
 
 #define binary_kmer_set_last_nuc(bkmer,nuc) \
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
-           = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffc) | (nuc))
+           = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffcUL) | (nuc))
 
-#define binary_kmer_left_shift_add(bkmerptr,ksize,nuc) do { \
-  binary_kmer_left_shift_one_base(bkmerptr,ksize);          \
-  (bkmerptr)->b[NUM_BKMER_WORDS - 1] |= (nuc);              \
-} while(0)
+#define binary_kmer_left_shift_add(bkmerptr,ksize,nuc) ({   \
+        binary_kmer_left_shift_one_base(bkmerptr,ksize);    \
+        (bkmerptr)->b[NUM_BKMER_WORDS - 1] |= (nuc);     })
+
+#define binary_kmer_right_shift_add(bkmerptr,ksize,nuc) ({                     \
+        binary_kmer_right_shift_one_base(bkmerptr);                            \
+        (bkmerptr)->b[0] |= ((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize); })
 
 #if NUM_BKMER_WORDS == 1
   #define binary_kmers_are_equal(x,y) ((x).b[0] == (y).b[0])
@@ -93,7 +97,6 @@ void binary_kmer_right_shift_one_base(BinaryKmer *kmer);
 void binary_kmer_left_shift_one_base(BinaryKmer *kmer, uint32_t kmer_size);
 
 // Reverse complement a binary kmer from kmer into revcmp_kmer
-// kmer and revcmp_kmer must NOT point to the same address
 BinaryKmer binary_kmer_reverse_complement(BinaryKmer bkmer, uint32_t kmer_size);
 
 // Get a random binary kmer -- useful for testing

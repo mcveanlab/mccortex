@@ -63,7 +63,7 @@ static void walk_graph(hkey_t node, Orientation orient,
     edges = db_node_edges(db_graph, node);
     if(!edges_has_precisely_one_edge(edges, orient, &nuc)) break;
     bkmer = db_node_bkmer(db_graph, node);
-    db_graph_next_node_orient(db_graph, bkmer, nuc, orient, &node, &orient);
+    db_graph_next_node(db_graph, bkmer, nuc, orient, &node, &orient);
     if(db_node_has_traversed(visited, node, orient)) break;
     db_node_set_traversed(visited, node, orient);
 

@@ -341,7 +341,7 @@ size_t seconds_to_str(unsigned long seconds, char *str)
     ptr += sprintf(ptr, "%i hour%s ", hours, hours == 1 ? "" : "s");
   if(days+hours+mins > 0)
     ptr += sprintf(ptr, "%i min%s ", mins, mins == 1 ? "" : "s");
-  ptr += sprintf(ptr, "%i secs", (int)seconds);
+  ptr += sprintf(ptr, "%i sec%s", (int)seconds, seconds == 1 ? "" : "s");
   return ptr - str;
 }
 

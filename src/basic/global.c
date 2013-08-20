@@ -42,43 +42,25 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, int line)
 
 void call_die(const char *file, int line, const char *fmt, ...)
 {
-  fflush(stdout);
-
-  // Print error
-  fprintf(stderr, "[%s:%i] Error: ", file, line);
-
   va_list argptr;
+  fflush(stdout);
+  fprintf(stderr, "[%s:%i] Error: ", file, line);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
-
-  // Check if we need to print a newline
-  if(*(fmt + strlen(fmt) - 1) != '\n')
-  {
-    fprintf(stderr, "\n");
-  }
-
+  if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
   exit(EXIT_FAILURE);
 }
 
 void call_warn(const char *file, int line, const char *fmt, ...)
 {
-  fflush(stdout);
-
-  // Print warning
-  fprintf(stderr, "[%s:%i] Warning: ", file, line);
-
   va_list argptr;
+  fflush(stdout);
+  fprintf(stderr, "[%s:%i] Warning: ", file, line);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
-
-  // Check if we need to print a newline
-  if(*(fmt + strlen(fmt) - 1) != '\n')
-  {
-    fprintf(stderr, "\n");
-  }
-
+  if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
   fflush(stderr);
 }
 

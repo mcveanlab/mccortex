@@ -1,6 +1,7 @@
 #include "global.h"
 #include <time.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "cmd.h"
 #include "util.h"
@@ -98,6 +99,8 @@ int ctx_call(CmdArgs *args)
   dBGraph db_graph;
   db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, kmers_in_hash);
 
+  if(kmers_in_hash != db_graph.ht.capacity) die("Mismatch");
+
   // Edges
   db_graph.edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
@@ -131,7 +134,7 @@ int ctx_call(CmdArgs *args)
   }
 
   /* initialize random seed: */
-  srand(time(NULL));
+  srand(time(NULL) + getpid());
 
   //
   // Set up temporary files

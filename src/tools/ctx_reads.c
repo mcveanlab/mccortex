@@ -199,7 +199,7 @@ int ctx_reads(CmdArgs *args)
   // Probe binaries to get kmer-size
   //
   boolean is_binary = false;
-  uint32_t kmer_size;
+  uint32_t kmer_size = 0;
   uint64_t max_num_kmers = 0;
   GraphFileHeader gheader;
 
