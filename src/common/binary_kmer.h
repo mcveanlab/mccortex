@@ -106,6 +106,8 @@ BinaryKmer binary_kmer_random(uint32_t kmer_size);
 char *binary_kmer_to_str(BinaryKmer kmer, uint32_t kmer_size, char *seq);
 BinaryKmer binary_kmer_from_str(const char *seq, uint32_t kmer_size);
 
+void binary_kmer_to_hex(BinaryKmer bkmer, uint32_t kmer_size, char *seq);
+
 void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len);
 void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len);
 

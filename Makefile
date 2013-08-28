@@ -73,7 +73,7 @@ INCS=-I src/basic/ -I src/common/ -I src/tools/ \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_GSL_HEADERS) $(EXTRA_INCS)
 
 # Library linking
-LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.c)
+LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
 LINK=-lstdc++ -lpthread -lz -lm
 
 # -Winit-self -Wmissing-include-dirs
@@ -92,10 +92,12 @@ ifdef DEBUG
 	DEBUG_ARGS = -g -ggdb -DDEBUG=1
 else
 	ifdef PROFILE
-		OPT = -O3 -DNDEBUG=1
+	#-DNDEBUG=1
+		OPT = -O3
 		DEBUG_ARGS = -g -ggdb
 	else
-		OPT = -O3 -DNDEBUG=1
+	#-DNDEBUG=1
+		OPT = -O3
 		DEBUG_ARGS = 
 	endif
 endif

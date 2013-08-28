@@ -35,7 +35,7 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
 
   char capacity_str[100];
   ulong_to_str(capacity, capacity_str);
-  message("[hash] Attempting to alloc table with %s entries\n", capacity_str);
+  status("[hash] Attempting to alloc table with %s entries\n", capacity_str);
 
   // calloc is required for bucket_data to set the first element of each bucket
   // to the 0th pos
@@ -204,21 +204,21 @@ void hash_table_print_stats(const HashTable *const htable)
   ulong_to_str(htable->capacity, capacity_str);
   ulong_to_str(htable->unique_kmers, num_entries_str);
 
-  message("[hash table]  buckets: %s [2^%zu]; bucket size: %zu; "
-          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
-          num_buckets_str, key_bits, (size_t)htable->bucket_size, mem_str,
-          num_entries_str, capacity_str, occupancy);
+  status("[hash table] buckets: %s [2^%zu]; bucket size: %zu; "
+         "memory: %s; occupancy: %s / %s (%.2f%%)\n",
+         num_buckets_str, key_bits, (size_t)htable->bucket_size, mem_str,
+         num_entries_str, capacity_str, occupancy);
 
   if(htable->unique_kmers > 0)
   {
     int i;
-    message("  Collisions:\n");
+    // status("  Collisions:\n");
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(htable->collisions[i] != 0) {
-        message("   tries %i: %zd\n", i, (size_t)htable->collisions[i]);
+        status("  collisions %i: %zd\n", i, (size_t)htable->collisions[i]);
       }
     }
-    message("\n");
+    // status("\n");
   }
 }
 

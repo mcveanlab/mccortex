@@ -1,8 +1,8 @@
 #include "global.h"
+#include <time.h>
 #include "util.h"
 
-// uncomment next line to silence most (stdout) output from cortex
-//#define GLOBAL_MSG_SILENT
+FILE *ctx_msg_out;
 
 void* ctx_malloc(size_t mem, const char *file, int line)
 {
@@ -49,6 +49,8 @@ void call_die(const char *file, int line, const char *fmt, ...)
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
   if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
+  timestamp(stderr);
+  fputs(" Fatal Error\n", stderr);
   exit(EXIT_FAILURE);
 }
 
@@ -67,15 +69,41 @@ void call_warn(const char *file, int line, const char *fmt, ...)
 // A function for standard output
 void message(const char *fmt, ...)
 {
-#ifdef GLOBAL_MSG_SILENT
-  (void)fmt;
-#else
+  if(ctx_msg_out != NULL) {
+    va_list argptr;
+    va_start(argptr, fmt);
+    vfprintf(ctx_msg_out, fmt, argptr);
+    va_end(argptr);
+    fflush(ctx_msg_out);
+  }
+}
+
+void timestamp(FILE *fh)
+{
+  time_t t;
+  char tstr[100];
+
+  if(fh != NULL) {
+    time(&t);
+    strftime(tstr, 100, "[%d %b %Y %H:%m:%S]", localtime(&t));
+    fputs(tstr, fh);
+  }
+}
+
+// A function for standard output
+void status(const char *fmt, ...)
+{
   va_list argptr;
-  va_start(argptr, fmt);
-  vfprintf(stdout, fmt, argptr);
-  va_end(argptr);
-  fflush(stdout);
-#endif
+
+  if(ctx_msg_out != NULL) {
+    timestamp(ctx_msg_out);
+    if(fmt[0] != ' ' && fmt[0] != '[') fputc(' ', ctx_msg_out);
+    va_start(argptr, fmt);
+    vfprintf(ctx_msg_out, fmt, argptr);
+    va_end(argptr);
+    if(fmt[strlen(fmt)-1] != '\n') fputc('\n', ctx_msg_out);
+    fflush(ctx_msg_out);
+  }
 }
 
 void print_usage(const char *msg, const char *errfmt,  ...)
@@ -87,7 +115,7 @@ void print_usage(const char *msg, const char *errfmt,  ...)
     vfprintf(stderr, errfmt, argptr);
     va_end(argptr);
 
-    if(errfmt[strlen(errfmt)-1] != '\n') fprintf(stderr, "\n");
+    if(errfmt[strlen(errfmt)-1] != '\n') fputc('\n', stderr);
   }
 
   fputs(msg, stderr);

@@ -26,7 +26,7 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
   fwrite(&(cleaning->tip_clipping), sizeof(uint8_t), 1, fh);
   fwrite(&(cleaning->remv_low_cov_sups), sizeof(uint8_t), 1, fh);
   fwrite(&(cleaning->remv_low_cov_nodes), sizeof(uint8_t), 1, fh);
-  fwrite(&(cleaning->cleaned_against_another_graph), sizeof(uint8_t), 1, fh);
+  fwrite(&(cleaning->is_graph_intersection), sizeof(uint8_t), 1, fh);
 
   uint32_t supernodes_cleaning_thresh
     = cleaning->remv_low_cov_sups ? cleaning->remv_low_cov_sups_thresh : 0;
@@ -37,8 +37,8 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
   fwrite(&supernodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
   fwrite(&nodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
 
-  uint32_t len = cleaning->cleaned_against_graph_name.len;
-  char *str = cleaning->cleaned_against_graph_name.buff;
+  uint32_t len = cleaning->intersection_name.len;
+  char *str = cleaning->intersection_name.buff;
   fwrite(&len, sizeof(uint32_t), 1, fh);
   fwrite(str, sizeof(uint8_t), len, fh);
 
@@ -256,9 +256,9 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
   char num_kmer_str[100];
   ulong_to_str(num_of_nodes_dumped, num_kmer_str);
 
-  message("Dumped %s kmers in %u colour%s into: %s (format version: %u)\n",
-          num_kmer_str, num_of_cols, num_of_cols != 1 ? "s" : "",
-          path, version);
+  status("Dumped %s kmers in %u colour%s into: %s (format version: %u)\n",
+         num_kmer_str, num_of_cols, num_of_cols != 1 ? "s" : "",
+         path, version);
 
   return num_of_nodes_dumped;
 }

@@ -13,18 +13,15 @@
 #include "graph_walker.h"
 #include "bubble_caller.h"
 
+// "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
 static const char usage[] =
 "usage: "CMD" call [-m <mem>|-t <threads>|-p <paths.ctp>] <in.ctx> <out.bubbles.gz>\n"
-"  Find bubbles (potential variants) in graph file in.ctx.\n";
-// "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
-// "  Options:\n"
-// "    -m <mem>\n"
-// "    -h <kmers>\n";
+"  Find bubbles (potential variants) in graph file in.ctx.\n"
+"  Options:  -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp>\n";
 
 int ctx_call(CmdArgs *args)
 {
   cmd_accept_options(args, "tmp");
-  // cmd_require_options(args, "tm", usage);
 
   int argc = args->argc;
   char **argv = args->argv;
@@ -65,33 +62,43 @@ int ctx_call(CmdArgs *args)
       die("Kmer size in .ctp does not match .ctx");
   }
 
+  //
   // Decide on memory
-  size_t kmers_in_hash, ideal_capacity = gheader.num_of_kmers/IDEAL_OCCUPANCY;
-  size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
+  //
+  size_t bits_per_kmer, kmers_in_hash, thread_mem, total_mem;
+  char path_mem_str[100], thread_mem_str[100], total_mem_str[100];
 
-  size_t graph_mem = hash_mem +
-                     kmers_in_hash * sizeof(Edges) + // edges
-                     kmers_in_hash * sizeof(uint64_t) + // kmer_paths
-                     round_bits_to_bytes(kmers_in_hash) * gheader.num_of_cols + // in col
-                     round_bits_to_bytes(kmers_in_hash) * 2; // visited fw/rv
+  // char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
+  // bytes_to_str(graph_mem, 1, graph_mem_str);
+  // bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
+  // bytes_to_str(path_mem, 1, path_mem_str);
 
-  size_t thread_mem = round_bits_to_bytes(kmers_in_hash) * 2 * num_of_threads;
+  // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
+  // visitedfw/rv(2bits/kmer/thread)
 
-  // size_t path_mem = mem_to_use - graph_mem - thread_mem;
-  size_t path_mem = input_paths_file == NULL ? 0 : pheader.num_path_bytes;
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
+                  gheader.num_of_cols + 2*num_of_threads;
 
-  char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
-  bytes_to_str(path_mem, 1, path_mem_str);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        gheader.num_of_kmers, true);
 
-  message("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
-          graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
+  // Thread memory
+  thread_mem = round_bits_to_bytes(kmers_in_hash) * 2;
+  bytes_to_str(thread_mem * num_of_threads, 1, thread_mem_str);
+  status("[memory] (of which threads: %u x %zu = %s)\n",
+          num_of_threads, thread_mem, thread_mem_str);
 
-  if(args->mem_to_use_set && graph_mem+thread_mem > args->mem_to_use)
-    die("Not enough memory (increase -m <mem>)");
+  // Path Memory
+  bytes_to_str(pheader.num_path_bytes, 1, path_mem_str);
+  status("[memory] paths: %s\n", path_mem_str);
 
+  total_mem = pheader.num_path_bytes + (kmers_in_hash*bits_per_kmer)/8;
+  bytes_to_str(total_mem, 1, total_mem_str);
+
+  if(total_mem > args->mem_to_use)
+    die("Requires at least %s memory", total_mem_str);
+
+  // Check output file writeable
   if(!test_file_writable(out_path))
     print_usage(usage, "Cannot write output file: %s", out_path);
 
@@ -112,8 +119,8 @@ int ctx_call(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  uint8_t *path_store = malloc2(pheader.num_path_bytes);
+  path_store_init(&db_graph.pdata, path_store, pheader.num_path_bytes, gheader.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -155,6 +162,7 @@ int ctx_call(CmdArgs *args)
       die("Cannot write temporary file: %s", tmp_paths[i]);
     }
   }
+  strbuf_free(tmppath);
 
   #ifdef DEBUG
     // db_graph_dump_paths_by_kmer(&db_graph);
@@ -181,7 +189,5 @@ int ctx_call(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  message("Done.\n");
-  pthread_exit(NULL);
   return EXIT_SUCCESS;
 }

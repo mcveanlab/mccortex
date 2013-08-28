@@ -27,7 +27,7 @@ int main(int argc, char **argv)
   /* initialize random seed: */
   srand(time(NULL));
 
-  size_t kmers_in_hash = cmd_get_kmers_in_hash(&args, 0);
+  size_t kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, true);
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, args.kmer_size, 1, kmers_in_hash);

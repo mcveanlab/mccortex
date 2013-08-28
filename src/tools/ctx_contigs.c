@@ -58,50 +58,70 @@ int ctx_contigs(CmdArgs *args)
       die("Kmer size in .ctp does not match .ctx");
   }
 
+  //
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  //
+  size_t bits_per_kmer, kmers_in_hash, total_mem;
+  char path_mem_str[100], total_mem_str[100];
 
-  size_t graph_mem = hash_mem +
-                     hash_kmers * sizeof(Edges) + // edges
-                     hash_kmers * sizeof(uint64_t) + // kmer_paths
-                     round_bits_to_bytes(hash_kmers) * gheader.num_of_cols + // in col
-                     round_bits_to_bytes(hash_kmers) + // used in contig
-                     round_bits_to_bytes(hash_kmers) * 2; // visited fw/rv
+  // edges, kmer_paths, in_colour, visited(fw/rv) [2bits], used in contig [1bit]
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 + gheader.num_of_cols + 3;
 
-  size_t path_mem = input_paths_file == NULL ? 0 : pheader.num_path_bytes;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        gheader.num_of_kmers, true);
 
-  // memory to strings
-  char graph_mem_str[100], path_mem_str[100], total_mem_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(path_mem, 1, path_mem_str);
-  bytes_to_str(graph_mem+path_mem, 1, total_mem_str);
+  // Path Memory
+  bytes_to_str(pheader.num_path_bytes, 1, path_mem_str);
+  status("[memory] paths: %s\n", path_mem_str);
 
-  if(graph_mem + path_mem > args->mem_to_use)
-    print_usage(usage, "Not enough memory; requires %s", total_mem_str);
+  total_mem = pheader.num_path_bytes + (kmers_in_hash*bits_per_kmer)/8;
+  bytes_to_str(total_mem, 1, total_mem_str);
+
+  if(total_mem > args->mem_to_use)
+    die("Requires at least %s memory", total_mem_str);
+
+  // size_t kmers_in_hash, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
+  // size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
+
+  // size_t graph_mem = hash_mem +
+  //                    kmers_in_hash * sizeof(Edges) + // edges
+  //                    kmers_in_hash * sizeof(uint64_t) + // kmer_paths
+  //                    round_bits_to_bytes(kmers_in_hash) * gheader.num_of_cols + // in col
+  //                    round_bits_to_bytes(kmers_in_hash) + // used in contig
+  //                    round_bits_to_bytes(kmers_in_hash) * 2; // visited fw/rv
+
+  // size_t path_mem = input_paths_file == NULL ? 0 : pheader.num_path_bytes;
+
+  // // memory to strings
+  // char graph_mem_str[100], path_mem_str[100], total_mem_str[100];
+  // bytes_to_str(graph_mem, 1, graph_mem_str);
+  // bytes_to_str(path_mem, 1, path_mem_str);
+  // bytes_to_str(graph_mem+path_mem, 1, total_mem_str);
+
+  // if(graph_mem + path_mem > args->mem_to_use)
+  //   print_usage(usage, "Not enough memory; requires %s", total_mem_str);
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, hash_kmers);
-
-  message("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
+  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, kmers_in_hash);
 
   // Edges
-  db_graph.edges = calloc2(hash_kmers, sizeof(uint8_t));
+  db_graph.edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
   // In colour - used is traversal
-  size_t words64_per_col = round_bits_to_words64(hash_kmers);
+  size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
   db_graph.node_in_cols = calloc2(words64_per_col*gheader.num_of_cols, sizeof(uint64_t));
 
   // Used in contig
   uint64_t *used_in_contig = calloc2(words64_per_col, sizeof(uint64_t));
 
   // Paths
-  db_graph.kmer_paths = malloc2(hash_kmers * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  uint8_t *path_store = malloc2(pheader.num_path_bytes);
+  path_store_init(&db_graph.pdata, path_store,
+                  pheader.num_path_bytes, gheader.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -140,8 +160,7 @@ int ctx_contigs(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  message("  Contigs written to: %s\n", output_fa_path);
-  message("Done.\n");
+  status("Contigs written to: %s\n", output_fa_path);
 
   return EXIT_SUCCESS;
 }

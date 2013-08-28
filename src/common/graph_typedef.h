@@ -32,14 +32,14 @@ typedef struct {
 } PathStore;
 
 // Thesholds are zero if not used (e.g. remv_low_cov_sups == false)
-// cleaned_against_another_graph is for cleaning a low covg sample against
+// is_graph_intersection is for cleaning a low covg sample against
 // cleaned pool of population
 typedef struct
 {
   boolean tip_clipping, remv_low_cov_sups, remv_low_cov_nodes;
   Covg remv_low_cov_sups_thresh, remv_low_cov_nodes_thresh;
-  boolean cleaned_against_another_graph;
-  StrBuf cleaned_against_graph_name;
+  boolean is_graph_intersection; // formerly cleaned_against_another_graph
+  StrBuf intersection_name; // formerly cleaned_against_graph_nme
 } ErrorCleaning;
 
 typedef struct

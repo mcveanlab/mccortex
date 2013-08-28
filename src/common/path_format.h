@@ -5,6 +5,7 @@
 
 // path file format version
 #define CTX_PATH_FILEFORMAT 1
+#define CTP_BUF_SIZE (1UL<<22)
 
 typedef struct
 {

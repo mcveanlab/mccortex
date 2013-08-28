@@ -5,122 +5,143 @@
 #include "binary_kmer.h"
 #include "supernode.h"
 
-static size_t extend_supernode(hkey_t init_node, Orientation init_or,
-                               hkey_t *end_node, Orientation *end_or,
-                               const dBGraph *db_graph, boolean *cycle)
+// Extend a supernode, nlist[offset] and olist[offset] must already be set
+// Walk along nodes starting from node/or, storing the supernode in nlist/olist
+// Returns the number of nodes added, adds no more than `limit`
+// return -1 if out of space and resize == false
+int supernode_extend(const dBGraph *db_graph,
+                     hkey_t **nlist, Orientation **olist,
+                     size_t offset, boolean *cycle, size_t *arrlen,
+                     boolean resize)
 {
-  const Edges *edges = db_graph->col_edges;
+  hkey_t node = (*nlist)[offset];
+  Orientation orient = (*olist)[offset];
+  size_t num_nodes = offset+1, kmer_size = db_graph->kmer_size;
   Nucleotide nuc;
-  hkey_t node = init_node, next_node;
-  Orientation or = init_or, next_or;
-  size_t len = 0;
+  BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
+  const Edges *edges = db_graph->edges != NULL ? db_graph->edges
+                                               : db_graph->col_edges;
 
-  while(edges_has_precisely_one_edge(edges[node], or, &nuc))
+  while(edges_has_precisely_one_edge(edges[node], orient, &nuc))
   {
-    db_graph_next_node(db_graph, db_node_bkmer(db_graph, node), nuc, or,
-                              &next_node, &next_or);
+    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
 
-    if(!edges_has_precisely_one_edge(edges[next_node], rev_orient(next_or), &nuc))
-      break;
+    bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+    node = hash_table_find(&db_graph->ht, bkey);
+    orient = db_node_get_orientation(bkey, bkmer);
 
-    // Check if hit a loop
-    if(next_node == init_node) {
-      *cycle = true;
-      break;
-    }
+    assert(node != HASH_NOT_FOUND);
 
-    len++;
-    node = next_node;
-    or = next_or;
-  }
-
-  *end_node = node;
-  *end_or = or;
-
-  return len;
-}
-
-// In the case of a cycle start node is lowest bkmer
-static size_t supernode_cycle(hkey_t init_node, const dBGraph *db_graph,
-                              hkey_t *start_node, Orientation *start_orient,
-                              hkey_t *end_node, Orientation *end_orient)
-{
-  const Edges *edges = db_graph->col_edges;
-
-  // Walk forward until we hit init_node
-  // store lowest kmer
-  hkey_t lowest_node;
-  BinaryKmer lowest_bkmer;
-
-  lowest_node = init_node;
-  lowest_bkmer = db_node_bkmer(db_graph, init_node);
-
-  hkey_t node = init_node;
-  Orientation or = FORWARD;
-  Nucleotide nuc;
-  size_t len = 0;
-
-  while(edges_has_precisely_one_edge(edges[node], or, &nuc))
-  {
-    BinaryKmer bkmer = db_node_bkmer(db_graph, node);
-
-    db_graph_next_node(db_graph, bkmer, nuc, or,
-                              &node, &or);
-
-    if(node == init_node) break;
-    else len++;
-
-    if(binary_kmers_cmp(lowest_bkmer, bkmer) > 0)
+    if(edges_has_precisely_one_edge(edges[node], rev_orient(orient), &nuc))
     {
-      lowest_node = node;
-      lowest_bkmer = bkmer;
+      if(num_nodes == *arrlen) {
+        if(resize) {
+          *arrlen *= 2;
+          *nlist = realloc2(*nlist, *arrlen*sizeof(hkey_t));
+          *olist = realloc2(*olist, *arrlen*sizeof(Orientation));
+        }
+        else return -1;
+      }
+      if(node == (*nlist)[0] && orient == (*olist)[0]) {
+        // don't create a loop
+        *cycle = true;
+        break;
+      }
+
+      (*nlist)[num_nodes] = node;
+      (*olist)[num_nodes] = orient;
+      num_nodes++;
     }
+    else break;
   }
 
-  // left_node = lowest_node, left_or = FORWARD
-  // walk lowest_node in reverse to get right hand node
-  *start_node = lowest_node;
-  *start_orient = FORWARD;
+  return num_nodes;
+}
 
-  edges_has_precisely_one_edge(edges[node], REVERSE, &nuc);
-  db_graph_next_node(db_graph, db_node_bkmer(db_graph, lowest_node),
-                            nuc, REVERSE, end_node, end_orient);
-  *end_orient = rev_orient(*end_orient);
+void supernode_reverse(hkey_t *nlist, Orientation *olist, size_t len)
+{
+  assert(len > 0);
+  if(len == 1) { olist[0] = !olist[0]; return; }
 
+  size_t i, j;
+  hkey_t tmpnode;
+  Orientation tmporient;
+
+  for(i = 0, j=len-1; i <= j; i++, j--) {
+    SWAP(nlist[i], nlist[j], tmpnode);
+    // swap with reverse has to be done manually
+    tmporient = olist[i]; olist[i] = !olist[j]; olist[j] = !tmporient;
+  }
+}
+
+size_t supernode_find(dBGraph *db_graph, hkey_t node,
+                      hkey_t **nlist, Orientation **olist, boolean *cycle,
+                      size_t *arrlen)
+{
+  int len;
+  (*nlist)[0] = node;
+  (*olist)[0] = REVERSE;
+  *cycle = false;
+  len = supernode_extend(db_graph, nlist, olist, 0, cycle, arrlen, true);
+  if(*cycle) return len;
+  supernode_reverse(*nlist, *olist, len);
+  len = supernode_extend(db_graph, nlist, olist, len-1, cycle, arrlen, true);
   return len;
 }
 
-// Load a supernode from a given node
-void supernode_load(hkey_t init_node, const dBGraph *db_graph, Supernode *supernode)
+void supernode_print(FILE *out, const dBGraph *db_graph,
+                     hkey_t *nodes, Orientation *orients, size_t len)
 {
-  hkey_t left_node, right_node;
-  Orientation left_or, right_or;
-  size_t len = 1;
-  boolean loop = false;
+  size_t i, kmer_size = db_graph->kmer_size;
+  Nucleotide nuc;
+  BinaryKmer bkmer;
+  char tmp[MAX_KMER_SIZE+1];
 
-  // Walk forwards
-  len += extend_supernode(init_node, FORWARD, &right_node, &right_or,
-                          db_graph, &loop);
+  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0], orients[0]);
+  binary_kmer_to_str(bkmer, kmer_size, tmp);
+  fputs(tmp, out);
 
-  if(loop)
-  {
-    // detected a cycle
-    message("Loop detected\n");
-    supernode_cycle(init_node, db_graph,
-                    &supernode->start_node, &supernode->start_orient,
-                    &supernode->end_node, &supernode->end_orient);
+  for(i = 1; i < len; i++) {
+    bkmer = db_node_bkmer(db_graph, nodes[i]);
+    nuc = db_node_last_nuc(bkmer, orients[i], kmer_size);
+    fputc(binary_nuc_to_char(nuc), out);
   }
-  else
-  {
-    // Walk backwards
-    len += extend_supernode(init_node, REVERSE, &left_node, &left_or,
-                            db_graph, &loop);
+}
 
-    supernode->start_node = left_node;
-    supernode->start_orient = left_or;
-    supernode->end_node = right_node;
-    supernode->end_orient = right_or;
+void supernode_gzprint(gzFile out, const dBGraph *db_graph,
+                       hkey_t *nodes, Orientation *orients, size_t len)
+{
+  size_t i, kmer_size = db_graph->kmer_size;
+  Nucleotide nuc;
+  BinaryKmer bkmer;
+  char tmp[MAX_KMER_SIZE+1];
+
+  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0], orients[0]);
+  binary_kmer_to_str(bkmer, kmer_size, tmp);
+  gzputs(out, tmp);
+
+  for(i = 1; i < len; i++) {
+    bkmer = db_node_bkmer(db_graph, nodes[i]);
+    nuc = db_node_last_nuc(bkmer, orients[i], kmer_size);
+    gzputc(out, binary_nuc_to_char(nuc));
+  }
+}
+
+uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len)
+{
+  if(len == 0) return 0;
+  if(len == 1) return covgs[0];
+
+  uint32_t i, read_starts = covgs[0];
+
+  for(i = 1; i+1 < len; i++)
+  {
+    if(covgs[i] > covgs[i-1] && covgs[i-1] != covgs[i+1])
+      read_starts += covgs[i] - covgs[i-1];
   }
 
-  supernode->len = len;
+  if(covgs[len-1] > covgs[len-2])
+    read_starts += covgs[len-1] - covgs[len-2];
+
+  return read_starts;
 }

@@ -260,7 +260,10 @@ static void str_get_key(char *key, const char *kmer, uint32_t kmer_size)
 static void var_set_keys(Var *var, uint32_t kmer_size)
 {
   StrBuf *fl5p = var->flank5p, *fl3p = var->flank3p;
-  // printf("5p:%s 3p:%s\n", fl5p->buff, fl3p->buff);
+
+  #ifdef DEBUG
+    message(" 5p:%s\n 3p:%s\n", fl5p->buff, fl3p->buff);
+  #endif
 
   char *key0 = var->key;
   char *key1 = var->key + kmer_size;
@@ -604,12 +607,12 @@ static void reader_clean_up_var(CallReader *cr, Var *var)
   reader_alleles_array_to_linkedlist(cr, var);
 
   #ifdef DEBUG
-  printf("\n\n");
-  printf("%s\n 5p:%s\n 3p:%s\n", var->name->buff,
-         var->flank5p->buff, var->flank3p->buff);
-  size_t i;
-  for(i = 0; i < cr->num_alleles; i++)
-    printf(" %zu:%s\n", i, cr->alleles[i]->seq->buff);
+    printf("\n\n");
+    printf("%s\n 5p:%s\n 3p:%s\n", var->name->buff,
+           var->flank5p->buff, var->flank3p->buff);
+    size_t i;
+    for(i = 0; i < cr->num_alleles; i++)
+      printf(" %2zu:%s\n", i, cr->alleles[i]->seq->buff);
   #endif
 
   uint32_t kmer_size = cr->ch->kmer_size;
@@ -1006,8 +1009,9 @@ int ctx_unique(CmdArgs *args)
   gzFile flankfh = gzopen(flanks_path, "w");
   if(flankfh == NULL) die("Cannot open output file: %s", out_file->buff);
 
-  message("%s\n  reading: %s\n  vcf: %s\n  fasta: %s\n\n",
-          input_path, output_path, vcf_path, flanks_path);
+  status("reading: %s\n", input_path);
+  status("vcf: %s\n", vcf_path);
+  status("fasta: %s\n", flanks_path);
 
   // Deduce input filetype
   StrBuf *tmp = strbuf_new();
@@ -1068,8 +1072,8 @@ int ctx_unique(CmdArgs *args)
     }
   }
 
-  message("  %zu bubbles loaded\n", bubbles_read);
-  message("  %zu vcf entries printed\n\n", entries_printed);
+  status("%zu bubbles loaded\n", bubbles_read);
+  status("%zu vcf entries printed\n", entries_printed);
 
   strbuf_free(tmp);
   kh_destroy(vhsh, varhash);
@@ -1083,12 +1087,13 @@ int ctx_unique(CmdArgs *args)
   strbuf_set(out_file, output_path);
   strbuf_append_str(out_file, ".5pflanks.sam");
 
-  message("  Next steps - map with stampy and align to ref:\n");
-  message("    stampy.py -G hg19 hg19.fa\n");
-  message("    stampy.py -g hg19 -H hg19\n");
-  message("    stampy.py -g hg19 -h hg19 --inputformat=fasta -M %s > %s\n\n",
+  // message(...) is same as status(...) but without timestamp
+  status("Next steps - map with stampy and align to ref:\n");
+  message("  stampy.py -G hg19 hg19.fa\n");
+  message("  stampy.py -g hg19 -H hg19\n");
+  message("  stampy.py -g hg19 -h hg19 --inputformat=fasta -M %s > %s\n",
          flanks_path, out_file->buff);
-  message("    "CMD" place %s %s hg19.fa\n\n", vcf_path, out_file->buff);
+  message("  "CMD" place %s %s hg19.fa\n", vcf_path, out_file->buff);
 
   free(vcf_path);
   free(flanks_path);

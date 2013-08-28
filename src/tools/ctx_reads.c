@@ -224,17 +224,7 @@ int ctx_reads(CmdArgs *args)
   //
   // Calculate memory use
   //
-  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, 0);
-
-  char num_kmers_str[100];
-  ulong_to_str(max_num_kmers, num_kmers_str);
-
-  if(kmers_in_hash < max_num_kmers) {
-    print_usage(usage, "Not enough kmers in the hash, require: %s "
-                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
-  }
-  else if(kmers_in_hash < max_num_kmers / WARN_OCCUPANCY)
-    warn("Low memory for binary size (require: %s)", num_kmers_str);
+  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, 0, max_num_kmers, true);
 
   //
   // Test output files
@@ -276,8 +266,8 @@ int ctx_reads(CmdArgs *args)
   prefs.load_seq = true;
   prefs.load_binaries = false;
 
-  if(invert) message("Printing reads that do not touch the graph\n");
-  else message("Printing reads that touch the graph\n");
+  if(invert) status("Printing reads that do not touch the graph\n");
+  else status("Printing reads that touch the graph\n");
 
   //
   // Filtering reads
@@ -325,19 +315,19 @@ int ctx_reads(CmdArgs *args)
         get_out_path(path2, pathlen, use_fq, 2);
         if((data.out2 = gzopen(path2, "w")) == NULL)
           die("Cannot write to: %s", path2);
-        message("writing: %s\n", path2);
+        status("writing: %s\n", path2);
       }
 
       init_reads = stats->total_good_reads + stats->total_bad_reads +
                    stats->total_dup_reads;
 
       if(is_pe) {
-        message("reading: %s %s\n", in1, in2);
-        message("writing: %s %s\n", path1, path2);
+        status("reading: %s %s\n", in1, in2);
+        status("writing: %s %s\n", path1, path2);
         seq_parse_pe(in1, in2, &r1, &r2, &prefs, stats, filter_reads, &data);
       } else {
-        message("reading: %s\n", in1);
-        message("writing: %s\n", path1);
+        status("reading: %s\n", in1);
+        status("writing: %s\n", path1);
         seq_parse_se(in1, &r1, &r2, &prefs, stats, filter_reads, &data);
       }
 
@@ -348,7 +338,7 @@ int ctx_reads(CmdArgs *args)
       reads_loaded = stats->total_good_reads + stats->total_bad_reads +
                      stats->total_dup_reads - init_reads;
 
-      message("  Printed %zu / %zu inputs\n",
+      status("  Printed %zu / %zu inputs\n",
               data.num_of_reads_printed, reads_loaded);
 
       if(is_se) argi += 2;
@@ -362,10 +352,8 @@ int ctx_reads(CmdArgs *args)
   size_t total_reads = stats->total_good_reads + stats->total_bad_reads +
                        stats->total_dup_reads;
 
-  message("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
-  message("Done\n");
+  status("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
 
-  // free
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 

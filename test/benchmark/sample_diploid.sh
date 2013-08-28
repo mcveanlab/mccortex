@@ -30,6 +30,8 @@ PLACE="$DIR/../../bin/ctx31 place"
 BIOINF="$DIR/../../libs/bioinf-perl"
 # BIOINF=~/bioinf-perl
 HAPLEN="$DIR/longest-haplotype.sh"
+OLDCLEAN="$DIR/clean_bubbles.pl"
+
 
 if [[ ! -e $INPUT_SEQ ]]
 then
@@ -66,12 +68,15 @@ cmd time $OLDCTX --sample_id MrDiploid --se_list reads.se.falist --dump_binary d
 
 # Call with old bc
 cmd time $OLDCTX --load_binary diploid.k31.ctx --detect_bubbles1 0/0 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
+# Fix buggy output from old bc
+cmd "$OLDCLEAN 31 diploid.oldbc.bubbles > diploid.oldbc.bubbles.2"
+cmd mv diploid.oldbc.bubbles.2 diploid.oldbc.bubbles
 cmd $PROC diploid.oldbc.bubbles diploid.oldbc
 cmd gzip -d -f diploid.oldbc.vcf.gz
 
 # Fix buggy output from old bc
-grep -v 'LF=;' diploid.oldbc.vcf > diploid.oldbc.vcf.2;
-mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
+# grep -v 'LF=;' diploid.oldbc.vcf > diploid.oldbc.vcf.2;
+# mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
 
 # Call with new bc
 cmd time $OLDCTX --load_binary diploid.k31.ctx --paths_caller diploid.newbc.bubbles.gz

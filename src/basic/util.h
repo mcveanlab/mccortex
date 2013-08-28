@@ -18,6 +18,7 @@ int cmp_ptr(const void *a, const void *b);
 char parse_entire_int(char *str, int *result);
 char parse_entire_uint(char *str, unsigned int *result);
 char parse_entire_ulong(char *str, unsigned long *result);
+char parse_entire_double(char *str, double *result);
 
 // Load a string of numbers into an array. Separator can be any non-numerical
 // character. e.g. '1,2,3' '1 2 3'
@@ -66,6 +67,40 @@ char* bytes_to_str(unsigned long num, int decimals, char* str);
 
 // Number to string using G to mean 10^9, M to mean 10^6 etc
 char* num_to_str(unsigned long num, int decimals, char* str);
+
+//
+// Bits and binary
+//
+
+// Unaligned memory access
+#define unaligned_read(tgt,src)            memcpy(tgt, src, sizeof(tgt))
+// #define unaligned_read(tgt,src,ptrtype) (*(tgt) = *(ptrtype)(src))
+
+#define rot32(x,r) (((x)<<(r)) | ((x)>>(32-(r))))
+#define rot64(x,r) (((x)<<(r)) | ((x)>>(64-(r))))
+
+// A nibble is 4 bits (i.e. half a byte)
+#define rev_nibble(x) ((((x)&1)<<3)|(((x)&2)<<1)|(((x)&4)>>1)|(((x)&8)>>3))
+
+#define round_bits_to_bytes(bits)   (((bits)+7)/8)
+#define round_bits_to_words64(bits) (((bits)+63)/64)
+
+#define bitset2_has(arr,idx,offset)    (((arr)[idx] >> (offset)) & 0x1UL)
+#define bitset2_set(arr,idx,offset)     ((arr)[idx] |= (0x1UL << (offset)))
+#define bitset2_del(arr,idx,offset)     ((arr)[idx] &=~(0x1UL << (offset)))
+#define bitset2_cpy(arr,idx,offset,bit) ((arr)[idx] |= ((uint64_t)(bit) << (offset)))
+
+#define bitset_has(arr,pos) \
+        bitset2_has(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8))
+#define bitset_set(arr,pos) \
+        bitset2_set(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8))
+#define bitset_del(arr,pos) \
+        bitset2_del(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8))
+#define bitset_cpy(arr,pos,bit) \
+        bitset2_cpy(arr, (pos)/(sizeof(*(arr))*8), (pos)%(sizeof(*(arr))*8), (bit))
+
+#define bitset_clear_word(arr,pos) ((arr)[(pos) / (sizeof(*(arr))*8)] = 0)
+
 
 //
 // Maths

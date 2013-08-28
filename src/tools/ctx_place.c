@@ -21,6 +21,7 @@
 #include "binary_kmer.h"
 #include "file_reader.h"
 #include "delta_array.h"
+#include "supernode.h"
 
 static const char usage[] =
 "usage: "CMD" place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
@@ -352,24 +353,24 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
   }
 }
 
-static uint32_t count_read_starts(uint32_t *covgs, uint32_t len)
-{
-  if(len == 0) return 0;
-  if(len == 1) return covgs[0];
+// static uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len)
+// {
+//   if(len == 0) return 0;
+//   if(len == 1) return covgs[0];
 
-  uint32_t i, read_starts = covgs[0];
+//   uint32_t i, read_starts = covgs[0];
 
-  for(i = 1; i+1 < len; i++)
-  {
-    if(covgs[i] > covgs[i-1] && covgs[i-1] != covgs[i+1])
-      read_starts += covgs[i] - covgs[i-1];
-  }
+//   for(i = 1; i+1 < len; i++)
+//   {
+//     if(covgs[i] > covgs[i-1] && covgs[i-1] != covgs[i+1])
+//       read_starts += covgs[i] - covgs[i-1];
+//   }
 
-  if(covgs[len-1] > covgs[len-2])
-    read_starts += covgs[len-1] - covgs[len-2];
+//   if(covgs[len-1] > covgs[len-2])
+//     read_starts += covgs[len-1] - covgs[len-2];
 
-  return read_starts;
-}
+//   return read_starts;
+// }
 
 static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 {
@@ -650,7 +651,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
         last_kmer = MIN2(last_kmer, (signed)vcfentry->covgs[s][i].len);
 
         covgs[allele_idx[i]]
-          += count_read_starts(vcfentry->covgs[s][i].arr + first_kmer,
+          += supernode_read_starts(vcfentry->covgs[s][i].arr + first_kmer,
                                last_kmer - first_kmer + 1);
       }
 

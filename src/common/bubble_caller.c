@@ -16,6 +16,7 @@
 #include "path_store.h"
 #include "graph_walker.h"
 #include "caller_supernode.h"
+#include "supernode.h"
 
 // Hash functions
 #include "lookup3.h"
@@ -111,37 +112,31 @@ static void print_calling_header(const dBGraph *db_graph, gzFile out,
              ginfo->seq_err,
              ec->tip_clipping ? "yes" : "no", ec->remv_low_cov_sups_thresh,
              ec->remv_low_cov_nodes_thresh,
-             ec->cleaned_against_graph_name.buff);
+             ec->intersection_name.buff);
   }
 
   strbuf_free(sample_name);
 }
 
 static void print_branch(hkey_t *nodes, Orientation *orients, size_t len,
-                         char print_first_kmer, const dBGraph *db_graph,
+                         boolean print_first_kmer, const dBGraph *db_graph,
                          gzFile out)
 {
-  size_t i;
+  size_t i = print_first_kmer, kmer_size = db_graph->kmer_size;
   Nucleotide nuc;
+  BinaryKmer bkmer;
 
-  uint32_t kmer_size = db_graph->kmer_size;
-
-  // Print sequence
-  if(print_first_kmer)
-  {
-    BinaryKmer bkmer;
+  if(print_first_kmer) {
     char tmp[MAX_KMER_SIZE+1];
     bkmer = db_graph_oriented_bkmer(db_graph, nodes[0], orients[0]);
     binary_kmer_to_str(bkmer, kmer_size, tmp);
     gzputs(out, tmp);
-    i = 1;
   }
-  else i = 0;
 
-  for(; i < len; i++)
-  {
-    nuc = db_node_last_nuc(db_node_bkmer(db_graph, nodes[i]),
-                           orients[i], kmer_size);
+  // i = 1 if print_first_kmer, otherwise 0
+  for(; i < len; i++) {
+    bkmer = db_node_bkmer(db_graph, nodes[i]);
+    nuc = db_node_last_nuc(bkmer, orients[i], kmer_size);
     gzputc(out, binary_nuc_to_char(nuc));
   }
 
@@ -468,8 +463,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
     }
   }
 
-  hkey_t flank5pe[MAX_FLANK_KMERS];
-  Orientation flank5po[MAX_FLANK_KMERS];
+  hkey_t flank5_nstore[MAX_FLANK_KMERS], *flank5pe = flank5_nstore;
+  Orientation flank5_ostore[MAX_FLANK_KMERS], *flank5po = flank5_ostore;
   size_t flank5pkmers = 0;
 
   // Loop over supernodes checking if they are 3p flanks
@@ -514,14 +509,14 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       if((is_fw_flank || is_rv_flank) && flank5pkmers == 0)
       {
         // Get 5p flank
-        // we can ignore the value of out_of_space
-        boolean out_of_space;
-        flank5pkmers = supernode_traverse(fork_n, opposite_orientation(fork_o),
-                                          flank5pe, flank5po, MAX_FLANK_KMERS,
-                                          db_graph, &out_of_space);
-
-        // Reverse and change orients
-        reverse_node_list(flank5pe, flank5po, flank5pkmers);
+        boolean iscycle;
+        size_t maxflanklen = MAX_FLANK_KMERS;
+        flank5pe[0] = fork_n;
+        flank5po[0] = opposite_orientation(fork_o);
+        int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
+                                   &iscycle, &maxflanklen, false);
+        flank5pkmers = (len == -1 ? maxflanklen : len);
+        supernode_reverse(flank5pe, flank5po, flank5pkmers);
       }
 
       // Check if actual bubbles in fw / rv
@@ -594,13 +589,13 @@ static void print_bubble(gzFile out, size_t bnum, const dBGraph *db_graph,
 
   // 5p flank
   gzprintf(out, ">var_%zu.%lu_5p_flank length=%zu\n", threadid, bnum, flank5pkmers);
-  print_branch(flank5pe, flank5po, flank5pkmers, 1, db_graph, out);
+  print_branch(flank5pe, flank5po, flank5pkmers, true, db_graph, out);
 
   // 3p flank
   num_kmers = suppathpos_to_list(spp_arr[0], spp_arr[0]->pos, 1,
                                  tmp_e, tmp_o, MAX_FLANK_KMERS);
   gzprintf(out, ">var_%zu.%lu_3p_flank length=%zu\n", threadid, bnum, num_kmers);
-  print_branch(tmp_e, tmp_o, num_kmers, 0, db_graph, out);
+  print_branch(tmp_e, tmp_o, num_kmers, false, db_graph, out);
 
   // Print alleles
   for(i = 0; i < num_of_paths; i++)
@@ -608,7 +603,7 @@ static void print_bubble(gzFile out, size_t bnum, const dBGraph *db_graph,
     num_kmers = suppathpos_to_list(spp_arr[i], 0, spp_arr[i]->pos,
                                    tmp_e, tmp_o, MAX_ALLELE_KMERS);
     gzprintf(out, ">var_%zu.%zu_branch_%zu length=%zu\n", threadid, bnum, i, num_kmers);
-    print_branch(tmp_e, tmp_o, num_kmers, 0, db_graph, out);
+    print_branch(tmp_e, tmp_o, num_kmers, false, db_graph, out);
   }
 
   gzputc(out, '\n');
@@ -652,13 +647,14 @@ void* bubble_caller(void *args)
 
   // BinaryKmer tmpkmer;
   // hkey_t node;
-  // binary_kmer_from_str("CTAAAACTGGAACCCAAAACAATGGGAGTGA", db_graph->kmer_size, tmpkmer);
+  // tmpkmer = binary_kmer_from_str("AAGGTGACTGATCTGCCTGAGAAATGAACCT", db_graph->kmer_size);
   // node = hash_table_find(&db_graph->ht, tmpkmer);
-  // find_bubbles(node, forward, db_graph, &wlk, visited,
+  // find_bubbles(node, FORWARD, db_graph, &wlk, visited,
   //              snode_hash, spp_hash, node_store, or_store,
   //              snode_paths, snode_store, snodepos_store,
-  //              tdata->out, &tdata->num_of_bubbles);
+  //              tdata->out, &tdata->num_of_bubbles, tdata->threadid);
 
+  // 5p:GACAGTGTGGCTATTCCTCAAGGATCTAGAACTAGAAATGCCATTTGGCCCA
   // binary_kmer_from_str("ACCCAAAACAATGGGAGTGATGTGCTAAAAC", db_graph->kmer_size, tmpkmer);
   // node = hash_table_find(&db_graph->ht, tmpkmer);
   // find_bubbles(node, REVERSE, db_graph, &wlk, visited,
@@ -666,7 +662,7 @@ void* bubble_caller(void *args)
   //              snode_paths, snode_store, snodepos_store,
   //              tdata->out, &tdata->num_of_bubbles);
 
-
+  
   BinaryKmer *table = db_graph->ht.table;
   BinaryKmer *ptr = table + tdata->start_hkey;
   BinaryKmer *end = table + tdata->end_hkey;
@@ -689,7 +685,7 @@ void* bubble_caller(void *args)
       }
     }
   }
-
+  
 
   graph_walker_dealloc(&wlk);
 
@@ -779,8 +775,8 @@ void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
 
   char num_bubbles_str[100];
   ulong_to_str(num_of_bubbles, num_bubbles_str);
-  message("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
-  message("  saved to: %s\n", out_file);
+  status("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
+  status("  saved to: %s\n", out_file);
 
   gzclose(out);
 }

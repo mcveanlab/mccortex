@@ -2,29 +2,11 @@
 #include "caller_supernode.h"
 #include "db_graph.h"
 #include "db_node.h"
+#include "supernode.h"
 
 #ifdef DEBUG
 #define DEBUG_CALLER 1
 #endif
-
-void reverse_node_list(hkey_t *nlist, Orientation *olist, size_t len)
-{
-  if(len == 0) return;
-  else if(len == 1) olist[0] = opposite_orientation(olist[0]);
-  else
-  {
-    size_t i, j;
-    hkey_t tmp_n;
-    Orientation tmp_o;
-    for(i = 0, j = len-1; i <= j; i++, j--)
-    {
-      SWAP(nlist[i], nlist[j], tmp_n);
-      tmp_o = olist[i];
-      olist[i] = opposite_orientation(olist[j]);
-      olist[j] = opposite_orientation(tmp_o);
-    }
-  }
-}
 
 // Orient supernode
 static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
@@ -35,64 +17,8 @@ static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
   else if(nlist[0] > nlist[len-1] ||
           (nlist[0] == nlist[len-1] && olist[0] > olist[len-1]))
   {
-    reverse_node_list(nlist, olist, len);
+    supernode_reverse(nlist, olist, len);
   }
-}
-
-// Walk along nodes starting from node/or, storing the supernode in nlist/olist
-// Returns the number of nodes added, adds no more than `limit`
-size_t supernode_traverse(hkey_t node, Orientation orient,
-                          hkey_t *nlist, Orientation *olist,
-                          size_t limit, const dBGraph *db_graph,
-                          boolean *out_of_space)
-{
-  size_t num_nodes = 1, kmer_size = db_graph->kmer_size;
-  Nucleotide nuc;
-  BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
-  const Edges *edges = db_graph->edges;
-
-  #ifdef DEBUG_CALLER
-    char tmpstr1[MAX_KMER_SIZE+1], tmpstr2[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr1);
-    printf("  fetch %s:%i\n", tmpstr1, (int)orient);
-  #endif
-
-  nlist[0] = node;
-  olist[0] = orient;
-
-  while(edges_has_precisely_one_edge(edges[node], orient, &nuc))
-  {
-    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
-
-    bkey = db_node_get_key(bkmer, db_graph->kmer_size);
-    node = hash_table_find(&db_graph->ht, bkey);
-    orient = db_node_get_orientation(bkey, bkmer);
-
-    #ifdef DEBUG_CALLER
-      binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr1);
-      binary_kmer_to_str(bkey, db_graph->kmer_size, tmpstr2);
-      printf(">%s %s:%i nuc:%c\n", tmpstr1, tmpstr2, orient, binary_nuc_to_char(nuc));
-    #endif
-
-    assert(node != HASH_NOT_FOUND);
-
-    if(edges_has_precisely_one_edge(edges[node], rev_orient(orient), &nuc))
-    {
-      if(num_nodes == limit) { *out_of_space = 1; break; }
-      if(node == nlist[0] && orient == olist[0]) break; // don't create a loop
-
-      nlist[num_nodes] = node;
-      olist[num_nodes] = orient;
-      num_nodes++;
-    }
-    else break;
-  }
-
-  // char tmp[1000];
-  // nodes_to_str(nlist, olist, num_nodes, db_graph->kmer_size, tmp);
-  // printf("   supernode: %s\n", tmp);
-
-  return num_nodes;
 }
 
 // Create a supernode strating at node/or.  Store in snode.
@@ -116,12 +42,16 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   #endif
 
   // extend path
-  boolean out_of_space = 0;
-  snode->num_of_nodes = supernode_traverse(node, or, snode->nodes, snode->orients,
-                                           limit, db_graph, &out_of_space);
+  boolean iscycle;
+  int len;
 
-  if(out_of_space)
-    return 0;
+  snode->nodes[0] = node;
+  snode->orients[0] = or;
+  len = supernode_extend(db_graph, &snode->nodes, &snode->orients, 0,
+                         &iscycle, &limit, false);
+
+  if(len == -1) return 0;
+  snode->num_of_nodes = len;
 
   supernode_naturalise(snode->nodes, snode->orients, snode->num_of_nodes);
 

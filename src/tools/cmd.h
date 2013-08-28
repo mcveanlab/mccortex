@@ -25,6 +25,7 @@ int ctx_build(CmdArgs *args);
 int ctx_view(CmdArgs *args);
 int ctx_clean(CmdArgs *args);
 int ctx_join(CmdArgs *args);
+int ctx_supernodes(CmdArgs *args);
 int ctx_subgraph(CmdArgs *args);
 int ctx_reads(CmdArgs *args);
 int ctx_extend(CmdArgs *args);
@@ -38,7 +39,7 @@ int ctx_unique(CmdArgs *args);
 int ctx_covg(CmdArgs *args);
 int ctx_place(CmdArgs *args);
 
-#define NUM_CMDS 16
+#define NUM_CMDS 17
 extern const char *cmds[NUM_CMDS];
 extern int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args);
 
@@ -56,7 +57,9 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
 int cmd_run(int argc, char **argv);
 
 // If your command accepts -h <kmers> and -m <mem> this may be useful
-// mem_per_kmer is additional memory per node, above hash table for BinaryKmers
-size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t mem_per_kmer);
+// extra_bits_per_kmer is additional memory per node, above hash table for
+// BinaryKmers
+size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
+                             size_t min_num_kmers, boolean use_mem_limit);
 
 #endif

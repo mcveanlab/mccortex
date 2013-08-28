@@ -51,15 +51,6 @@ struct SupernodePathPos
 #define supernode_get_orientation(snode,node,or) \
   ((node) == (snode)->nodes[0] && (or) == (snode)->orients[0] ? FORWARD : REVERSE)
 
-void reverse_node_list(hkey_t *nlist, Orientation *olist, size_t len);
-
-// Walk along nodes starting from node/or, storing the supernode in nlist/olist
-// Returns the number of nodes added, adds no more than `limit`
-size_t supernode_traverse(hkey_t node, Orientation or,
-                          hkey_t *nlist, Orientation *olist,
-                          size_t limit, const dBGraph *db_graph,
-                          boolean *out_of_space);
-
 // Create a supernode strating at node/or.  Store in snode.
 // Ensure snode->nodes and snode->orients point to valid memory before passing
 // Returns 0 on failure, otherwise snode->num_of_nodes

@@ -16,7 +16,6 @@
 //
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
-// kmer and kmer_key must NOT point to overlapping memory
 BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 
 #define db_node_to_str(graph,node,str) \
@@ -86,7 +85,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 //
 
 // Orientation is 0(FORWARD) or 1(REVERSE), shifted left (<<) 2 gives 0 or 4
-#define nuc_orient_to_edge(n,or)    (0x1 << ((n) + ((or)<<2)))
+#define nuc_orient_to_edge(n,or)    (1 << ((n) + ((or)<<2)))
 
 #define edges_has_edge(edges,n,or)  (((edges) >> ((n) + ((or)<<2))) & 0x1)
 #define edges_set_edge(edges,n,or)  ((edges) | nuc_orient_to_edge(n,or))

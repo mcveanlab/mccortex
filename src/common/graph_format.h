@@ -8,6 +8,7 @@
 
 // graph file format version
 #define CTX_GRAPH_FILEFORMAT 6
+#define CTX_BUF_SIZE (1UL<<22)
 
 typedef struct
 {
@@ -51,8 +52,8 @@ boolean graph_file_probe(const char* ctx_path, boolean *valid_ctx,
 //   stats->binaries_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.
 uint32_t graph_load(const char *path,
-                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-                     GraphFileHeader *header);
+                    const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                    GraphFileHeader *header);
 
 uint32_t graph_load_colour(const char *path, const SeqLoadingPrefs *prefs,
                            SeqLoadingStats *stats, uint32_t colour);
@@ -66,7 +67,8 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
                          size_t num_binaries,
                          uint32_t ctx_num_cols[num_binaries],
                          uint32_t ctx_max_cols[num_binaries],
-                         boolean merge, boolean flatten, boolean intersect,
+                         boolean merge, boolean flatten,
+                         const char *intersect_gname,
                          dBGraph *db_graph);
 
 //

@@ -40,7 +40,7 @@ static void mark_bkmer(BinaryKmer bkmer, SeqLoadingStats *stats)
   #ifdef DEBUG
     char tmp[MAX_KMER_SIZE+1];
     binary_kmer_to_str(bkmer, db_graph.kmer_size, tmp);
-    message("got bkmer %s\n", tmp);
+    status("got bkmer %s\n", tmp);
   #endif
 
   BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
@@ -170,6 +170,9 @@ int ctx_subgraph(CmdArgs *args)
   uint64_t max_num_kmers = 0;
   GraphFileHeader gheader = {.capacity = 0};
 
+  StrBuf intersect_gname;
+  strbuf_alloc(&intersect_gname, 1024);
+
   for(i = 0; i < num_binaries; i++)
   {
     if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
@@ -177,8 +180,10 @@ int ctx_subgraph(CmdArgs *args)
     else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
 
-    if(i == 0) kmer_size = gheader.kmer_size;
-    else if(kmer_size != gheader.kmer_size) {
+    if(i == 0) {
+      kmer_size = gheader.kmer_size;
+      strbuf_set(&intersect_gname, gheader.ginfo[0].sample_name.buff);
+    } else if(kmer_size != gheader.kmer_size) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
           kmer_size, gheader.kmer_size, binary_paths[i-1], binary_paths[i]);
     }
@@ -189,36 +194,56 @@ int ctx_subgraph(CmdArgs *args)
   }
 
   //
-  // Calculate memory use
+  // Decide on memory
   //
-  size_t kmers_in_hash, ideal_capacity = max_num_kmers / IDEAL_OCCUPANCY;
-  size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-  size_t kmer_mask_mem = round_bits_to_words64(kmers_in_hash) * sizeof(uint64_t);
-  size_t fringe_mem = args->mem_to_use - hash_mem - kmer_mask_mem;
-  size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
-  size_t search_mem = num_of_fringe_nodes * (sizeof(hkey_t) * 2);
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
+  size_t num_of_fringe_nodes, fringe_mem;
+  char graph_mem_str[100], num_fringe_nodes_str[100], fringe_mem_str[100];
 
-  char num_kmers_str[100];
-  ulong_to_str(max_num_kmers, num_kmers_str);
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(Covg)*8 + sizeof(uint64_t)*8;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers, false);
 
-  char kmers_in_hash_str[100], search_mem_str[100];
-  bytes_to_str(kmers_in_hash, 1, kmers_in_hash_str);
-  bytes_to_str(search_mem, 1, search_mem_str);
+  graph_mem = (kmers_in_hash*bits_per_kmer)/8;
+  bytes_to_str(graph_mem, 1, graph_mem_str);
 
-  message("[memory]  graph: %s; search: %s\n", kmers_in_hash_str, search_mem_str);
+  if(graph_mem >= args->mem_to_use)
+    die("Not enough memory for graph (requires %s)", graph_mem_str);
 
-  if(hash_mem + kmer_mask_mem > args->mem_to_use) {
-    char mem_str[100];
-    bytes_to_str(hash_mem + kmer_mask_mem, 1, mem_str);
-    print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
-  }
-  else if(kmers_in_hash < max_num_kmers) {
-    print_usage(usage, "Not enough kmers in the hash, require: %s "
-                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
-  }
-  else if(kmers_in_hash < max_num_kmers / WARN_OCCUPANCY)
-    warn("Low memory for binary size (require: %s)", num_kmers_str);
+  // Fringe nodes
+  fringe_mem = args->mem_to_use - (kmers_in_hash*bits_per_kmer)/8;
+  num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
+  bytes_to_str(fringe_mem, 1, fringe_mem_str);
+  ulong_to_str(num_of_fringe_nodes, num_fringe_nodes_str);
+  status("[memory] fringe nodes: %s (%s)\n", num_fringe_nodes_str, fringe_mem_str);
+
+  // size_t kmers_in_hash, ideal_capacity = max_num_kmers / IDEAL_OCCUPANCY;
+  // size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
+  // size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
+  // size_t kmer_mask_mem = round_bits_to_words64(kmers_in_hash) * sizeof(uint64_t);
+  // size_t fringe_mem = args->mem_to_use - hash_mem - kmer_mask_mem;
+  // size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
+  // size_t search_mem = num_of_fringe_nodes * (sizeof(hkey_t) * 2);
+
+  // char num_kmers_str[100];
+  // ulong_to_str(max_num_kmers, num_kmers_str);
+
+  // char kmers_in_hash_str[100], search_mem_str[100];
+  // bytes_to_str(kmers_in_hash, 1, kmers_in_hash_str);
+  // bytes_to_str(search_mem, 1, search_mem_str);
+
+  // status("[memory]  graph: %s; search: %s\n", kmers_in_hash_str, search_mem_str);
+
+  // if(hash_mem + kmer_mask_mem > args->mem_to_use) {
+  //   char mem_str[100];
+  //   bytes_to_str(hash_mem + kmer_mask_mem, 1, mem_str);
+  //   print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
+  // }
+  // else if(kmers_in_hash < max_num_kmers) {
+  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
+  //                      "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
+  // }
+  // else if(kmers_in_hash < max_num_kmers / WARN_OCCUPANCY)
+  //   warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   if(num_of_fringe_nodes < 100)
     die("Not enough memory for the graph search (set -m <mem> higher)");
@@ -272,7 +297,7 @@ int ctx_subgraph(CmdArgs *args)
 
   size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
 
-  message("Read in %zu seed kmers\n", num_of_seed_kmers);
+  status("Read in %zu seed kmers\n", num_of_seed_kmers);
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -297,11 +322,10 @@ int ctx_subgraph(CmdArgs *args)
   free(list0.nodes);
   free(list1.nodes);
 
-  message("Pruning untouched nodes...\n");
+  status("Pruning untouched nodes...\n");
 
   // Remove nodes that were not flagged
   db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
-  hash_table_print_stats(&db_graph.ht);
 
   // Dump nodes that were flagged
   if(num_binaries == 1 && ctx_num_of_cols[0] == 1)
@@ -313,15 +337,14 @@ int ctx_subgraph(CmdArgs *args)
   {
     graph_files_merge(out_path, binary_paths, num_binaries,
                       ctx_num_of_cols, ctx_max_cols,
-                      false, false, true, &db_graph);
+                      false, false, intersect_gname.buff, &db_graph);
   }
-
-  message("Done.\n");
 
   free(kmer_mask);
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
 
+  strbuf_dealloc(&intersect_gname);
   seq_loading_stats_free(stats);
   graph_header_dealloc(&gheader);
   db_graph_dealloc(&db_graph);

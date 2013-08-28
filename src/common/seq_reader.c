@@ -242,9 +242,9 @@ int guess_fastq_format(const char *path)
     seq_get_qual_limits(path, 500, &min, &max);
 
     prev_guess_fastq_format = fmt;
-    message("%s: Qual scores: %s [offset: %i, range: [%i,%i], sample: [%i,%i]]\n",
-            path, FASTQ_FORMATS[fmt], FASTQ_OFFSET[fmt],
-            FASTQ_MIN[fmt], FASTQ_MAX[fmt], min, max);
+    status("%s: Qual scores: %s [offset: %i, range: [%i,%i], sample: [%i,%i]]\n",
+           path, FASTQ_FORMATS[fmt], FASTQ_OFFSET[fmt],
+           FASTQ_MIN[fmt], FASTQ_MAX[fmt], min, max);
   }
 
   return fmt;
@@ -281,7 +281,7 @@ void seq_parse_pe(const char *path1, const char *path2,
                                     void *_ptr),
                   void *reader_ptr)
 {
-  message("Parsing files %s %s\n", path1, path2);
+  status("Parsing files %s %s\n", path1, path2);
   // Guess offset if needed
   int qoffset1 = prefs->ascii_fq_offset, qoffset2 = prefs->ascii_fq_offset;
   int qmin1 = prefs->ascii_fq_offset, qmin2 = prefs->ascii_fq_offset;
@@ -356,7 +356,7 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
                                     void *ptr),
                   void *reader_ptr)
 {
-  message("Parsing file %s\n", path);
+  status("Parsing file %s\n", path);
 
   // Guess offset if needed
   int qoffset = prefs->ascii_fq_offset;

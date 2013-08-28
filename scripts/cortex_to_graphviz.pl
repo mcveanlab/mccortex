@@ -82,7 +82,7 @@ my @cols = qw(red green blue orange purple pink brown black);
 my $shade_mismatch = 0;
 
 # cortex_bin_reader command
-my $cmdline = "$cmd view --print_kmers $file 2>&1";
+my $cmdline = "$cmd view --print_kmers $file";
 my ($pid, $in, $out);
 
 print "digraph G {\n";

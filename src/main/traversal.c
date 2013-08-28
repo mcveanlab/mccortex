@@ -55,10 +55,24 @@ int main(int argc, char **argv)
   // if(strlen(start_kmer) != kmer_size) die("length of kmer does not match kmer_size");
   // bkmer = binary_kmer_from_str(start_kmer, kmer_size);
 
+  //
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
-  size_t path_mem = args.mem_to_use - hash_mem;
+  //
+  size_t bits_per_kmer, kmers_in_hash, path_mem;
+
+  bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols + sizeof(uint64_t)*8;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        gheader.num_of_kmers, true);
+  path_mem = args->mem_to_use -
+             kmers_in_hash * (sizeof(BinaryKmer)+bits_per_kmer/8);
+
+  // size_t hash_kmers, req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
+  // size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  // size_t path_mem = args.mem_to_use - hash_mem;
+
+  char path_mem_str[100];
+  bytes_to_str(path_mem, 1, path_mem_str);
+  status("[memory] paths: %s\n", path_mem_str);
 
   dBGraph db_graph;
   GraphWalker wlk;
@@ -173,11 +187,11 @@ int main(int argc, char **argv)
 
   free(path);
 
-  message("\n");
-  message("total_len: %zu; total_junc: %zu\n", total_len, total_junc);
-  message("dead ends: %zu / %zu\n", dead_ends, num_repeats);
-  message("mean length: %.2f\n", (double)total_len / n);
-  message("mean junctions: %.1f per contig, %.2f%% nodes (1 every %.1f nodes)\n",
+  status("\n");
+  status("total_len: %zu; total_junc: %zu\n", total_len, total_junc);
+  status("dead ends: %zu / %zu\n", dead_ends, num_repeats);
+  status("mean length: %.2f\n", (double)total_len / n);
+  status("mean junctions: %.1f per contig, %.2f%% nodes (1 every %.1f nodes)\n",
           (double)total_junc / n, (100.0 * total_junc) / total_len,
           (double)total_len / total_junc);
 
@@ -187,8 +201,8 @@ int main(int argc, char **argv)
   double median_len = MEDIAN(lengths, n);
   double median_junc = MEDIAN(junctions, n);
 
-  message("Median contig length: %f\n", median_len);
-  message("Median junctions per contig: %f\n", median_junc);
+  status("Median contig length: %f\n", median_len);
+  status("Median junctions per contig: %f\n", median_junc);
 
   free(visited);
   free(db_graph.edges);

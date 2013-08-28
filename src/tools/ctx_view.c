@@ -20,9 +20,6 @@ static const char usage[] =
 "\n"
 " Default is [--print_info --parse_kmers]\n";
 
-// A nibble is 4 bits (i.e. half a byte)
-#define rev_nibble(x) (((x&0x1)<<3) | ((x&0x2)<<1) | ((x&0x4)>>1) | ((x&0x8)>>3))
-
 static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
 {
   int i;
@@ -45,54 +42,54 @@ static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
 
 static void print_header(GraphFileHeader *h)
 {
-  message("binary version: %u\n", h->version);
-  message("kmer size: %u\n", h->kmer_size);
-  message("bitfields: %u\n", h->num_of_bitfields);
-  message("colours: %u\n", h->num_of_cols);
+  printf("binary version: %u\n", h->version);
+  printf("kmer size: %u\n", h->kmer_size);
+  printf("bitfields: %u\n", h->num_of_bitfields);
+  printf("colours: %u\n", h->num_of_cols);
 
   char num_kmers_str[50];
   ulong_to_str(h->num_of_kmers, num_kmers_str);
-  message("number of kmers: %s\n", num_kmers_str);
-  message("----\n");
+  printf("number of kmers: %s\n", num_kmers_str);
+  printf("----\n");
 
   uint32_t i;
   for(i = 0; i < h->num_of_cols; i++)
   {
     GraphInfo *ginfo = h->ginfo + i;
 
-    message("Colour %i:\n", i);
+    printf("Colour %i:\n", i);
 
     if(h->version >= 6)
     {
       // Version 6 only output
-      message("  sample name: '%s'\n", ginfo->sample_name.buff);
+      printf("  sample name: '%s'\n", ginfo->sample_name.buff);
     }
 
     char total_sequence_str[100];
     ulong_to_str(ginfo->total_sequence, total_sequence_str);
 
-    message("  mean read length: %u\n", ginfo->mean_read_length);
-    message("  total sequence loaded: %s\n", total_sequence_str);
+    printf("  mean read length: %u\n", ginfo->mean_read_length);
+    printf("  total sequence loaded: %s\n", total_sequence_str);
 
     if(h->version >= 6)
     {
       // Version 6 only output
-      message("  sequence error rate: %Lf\n", ginfo->seq_err);
+      printf("  sequence error rate: %Lf\n", ginfo->seq_err);
 
       ErrorCleaning *ec = &ginfo->cleaning;
-      message("  tip clipping: %s\n", (ec->tip_clipping == 0 ? "no" : "yes"));
+      printf("  tip clipping: %s\n", (ec->tip_clipping == 0 ? "no" : "yes"));
 
-      message("  remove low coverage supernodes: %s [threshold: %i]\n",
-              ec->remv_low_cov_sups ? "yes" : "no",
-              ec->remv_low_cov_sups_thresh);
+      printf("  remove low coverage supernodes: %s [threshold: %i]\n",
+             ec->remv_low_cov_sups ? "yes" : "no",
+             ec->remv_low_cov_sups_thresh);
 
-      message("  remove low coverage kmers: %s [threshold: %i]\n",
-              ec->remv_low_cov_nodes ? "yes" : "no",
-              ec->remv_low_cov_nodes_thresh);
+      printf("  remove low coverage kmers: %s [threshold: %i]\n",
+             ec->remv_low_cov_nodes ? "yes" : "no",
+             ec->remv_low_cov_nodes_thresh);
 
-      message("  cleaned against graph: %s [against: '%s']\n",
-              ec->cleaned_against_another_graph ? "yes" : "no",
-              ec->cleaned_against_graph_name.buff);
+      printf("  cleaned against graph: %s [against: '%s']\n",
+             ec->is_graph_intersection ? "yes" : "no",
+             ec->intersection_name.buff);
     }
   }
 }
@@ -136,14 +133,15 @@ int ctx_view(CmdArgs *args)
 
   if((in = fopen(in_ctx_path, "r")) == NULL)
     die("Cannot open input path: %s", in_ctx_path);
+  setvbuf(in, NULL, _IOFBF, CTX_BUF_SIZE);
 
   if(print_info)
   {
     char fsize_str[50];
     bytes_to_str(fsize, 0, fsize_str);
-    message("Loading file: %s\n", in_ctx_path);
-    message("File size: %s\n", fsize_str);
-    message("----\n");
+    printf("Loading file: %s\n", in_ctx_path);
+    printf("File size: %s\n", fsize_str);
+    printf("----\n");
   }
 
   GraphFileHeader outheader = {.capacity = 0}, inheader = {.capacity = 0};
@@ -204,7 +202,7 @@ int ctx_view(CmdArgs *args)
 
   if(parse_kmers || print_kmers)
   {
-    if(print_info && print_kmers) message("----\n");
+    if(print_info && print_kmers) printf("----\n");
 
     while(graph_file_read_kmer(in, &inheader, in_ctx_path, bkmer.b, kmercovgs, kmeredges))
     {
@@ -324,10 +322,10 @@ int ctx_view(CmdArgs *args)
 
   if((print_kmers || parse_kmers) && print_info)
   {
-    message("----\n");
-    message("kmers read: %s\n", ulong_to_str(num_of_kmers_read, num_str));
-    message("covgs read: %s\n", ulong_to_str(sum_of_covgs_read, num_str));
-    message("seq loaded: %s\n", ulong_to_str(sum_of_seq_loaded, num_str));
+    printf("----\n");
+    printf("kmers read: %s\n", ulong_to_str(num_of_kmers_read, num_str));
+    printf("covgs read: %s\n", ulong_to_str(sum_of_covgs_read, num_str));
+    printf("seq loaded: %s\n", ulong_to_str(sum_of_seq_loaded, num_str));
   }
 
   if(print_info)
@@ -349,23 +347,23 @@ int ctx_view(CmdArgs *args)
 
     int mem_height = __builtin_ctzl((long)num_buckets);
 
-    message("----\n");
-    message("memory required: %s [capacity: %s]\n", memstr, capacitystr);
-    message("  bucket size: %s; number of buckets: %s\n",
+    printf("----\n");
+    printf("memory required: %s [capacity: %s]\n", memstr, capacitystr);
+    printf("  bucket size: %s; number of buckets: %s\n",
             bucket_size_str, num_buckets_str);
-    message("  --kmer_size %u --mem_height %i --mem_width %i\n",
+    printf("  --kmer_size %u --mem_height %i --mem_width %i\n",
             kmer_size, mem_height, bucket_size);
   }
 
   if((print_kmers || parse_kmers) && print_info)
   {
-    message("----\n");
+    printf("----\n");
     if(num_warnings > 0 || num_errors > 0) {
-      message("Warnings: %zu; Errors: %zu\n",
+      printf("Warnings: %zu; Errors: %zu\n",
               (size_t)num_warnings, (size_t)num_errors);
     }
     if(num_errors == 0)
-      message(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
+      printf(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
   }
 
   return EXIT_SUCCESS;

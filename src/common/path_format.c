@@ -200,6 +200,7 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
 {
   FILE *fh = fopen(path, "r");
   if(fh == NULL) die("Unable to open paths file: %s\n", path);
+  setvbuf(fh, NULL, _IOFBF, CTP_BUF_SIZE);
 
   paths_file_read_header(fh, pheader, true, path);
   paths_graph_compatibility_check(pheader, db_graph);
@@ -210,8 +211,8 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
   ulong_to_str(pheader->num_of_paths, paths_str);
   bytes_to_str(pheader->num_path_bytes, 1, mem_str);
 
-  message(" Loading paths: %s paths, %s path-bytes, %s kmers\n",
-          paths_str, mem_str, kmers_str);
+  status("Loading paths: %s paths, %s path-bytes, %s kmers\n",
+         paths_str, mem_str, kmers_str);
 
   uint64_t i, j;
   BinaryKmer bkmer;

@@ -103,20 +103,20 @@ int ctx_pmerge(CmdArgs *args)
     }
   }
 
+  //
   // Decide on memory
-  size_t kmers_in_hash, req_num_kmers = num_kmers*(1.0/IDEAL_OCCUPANCY);
-  size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-  size_t path_mem = args->mem_to_use - hash_mem;
+  //
+  size_t bits_per_kmer, kmers_in_hash, path_mem;
+  char path_mem_str[100];
 
-  if(args->mem_to_use_set && hash_mem+path_mem > args->mem_to_use)
-    die("Not enough memory (please increase -m <mem>)");
+  bits_per_kmer = sizeof(uint64_t)*8;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        gheader.num_of_kmers, true);
+  path_mem = args->mem_to_use -
+             kmers_in_hash * (sizeof(BinaryKmer)+sizeof(uint64_t));
 
-  char hash_mem_str[100], path_mem_str[100], num_kmers_str[100];
-  ulong_to_str(req_num_kmers, num_kmers_str);
-  bytes_to_str(hash_mem, 1, hash_mem_str);
   bytes_to_str(path_mem, 1, path_mem_str);
-
-  message("[memory]  graph: %s;  paths: %s\n", hash_mem_str, path_mem_str);
+  status("[memory] paths: %s\n", path_mem_str);
 
   // set up tmp space
   PathStore tmp_pdata;
@@ -126,7 +126,7 @@ int ctx_pmerge(CmdArgs *args)
   // Set up graph and PathStore
   dBGraph db_graph;
 
-  db_graph_alloc(&db_graph, ctp_kmer_size, ctp_num_of_cols, req_num_kmers);
+  db_graph_alloc(&db_graph, ctp_kmer_size, ctp_num_of_cols, kmers_in_hash);
 
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
@@ -166,8 +166,7 @@ int ctx_pmerge(CmdArgs *args)
   paths_header_dealloc(&pheader);
   db_graph_dealloc(&db_graph);
 
-  message("  Paths written to: %s\n", out_ctp_path);
-  message("Done.");
+  status("Paths written to: %s\n", out_ctp_path);
 
   return EXIT_SUCCESS;
 }

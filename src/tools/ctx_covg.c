@@ -113,10 +113,8 @@ int ctx_covg(CmdArgs *args)
   // Print mem usage
   char graph_mem_str[100];
   bytes_to_str(graph_mem, 1, graph_mem_str);
-  message("[memory]  graph: %s\n", graph_mem_str);
+  status("[memory]  graph: %s\n", graph_mem_str);
   hash_table_print_stats(&db_graph.ht);
-
-  message("Using kmer size %u with %u colours\n", kmer_size, cols_used);
 
   // Load sequence from VCF to build hash table
   gzFile vcf;

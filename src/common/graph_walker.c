@@ -1,4 +1,5 @@
 #include "global.h"
+#include "util.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_walker.h"

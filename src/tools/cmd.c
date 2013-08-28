@@ -4,12 +4,12 @@
 #include "hash_table.h" // for calculating mem usage
 
 const char *cmds[NUM_CMDS]
-  = {"build", "view", "clean", "join", "subgraph", "reads", "extend",
-     "contigs", "thread", "pview", "pmerge", "call", "diverge", "unique",
-     "covg", "place"};
+  = {"build", "view", "clean", "join", "supernodes", "subgraph", "reads",
+     "extend", "contigs", "thread", "pview", "pmerge", "call", "diverge",
+     "unique", "covg", "place"};
 
 int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
-  = {ctx_build, ctx_view, ctx_clean, ctx_join, ctx_subgraph,
+  = {ctx_build, ctx_view, ctx_clean, ctx_join, ctx_supernodes, ctx_subgraph,
      ctx_reads, ctx_extend, ctx_contigs, ctx_thread, ctx_pview, ctx_pmerge,
      ctx_call, ctx_diverge, ctx_unique, ctx_covg, ctx_place};
 
@@ -208,24 +208,47 @@ int cmd_run(int argc, char **argv)
 }
 
 // If your command accepts -h <kmers> and -m <mem> this may be useful
-// extra_mem_per_kmer is additional memory per node, above hash table for
+// extra_bits_per_kmer is additional memory per node, above hash table for
 // BinaryKmers
-size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_mem_per_kmer)
+size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
+                             size_t min_num_kmers, boolean use_mem_limit)
 {
-  size_t mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
-  size_t req_kmers = args->num_kmers_set ? args->num_kmers
-                                         : args->mem_to_use / mem_per_kmer;
-
-  size_t kmers_in_hash, hash_mem, graph_mem;
-  hash_mem = hash_table_mem(req_kmers, &kmers_in_hash);
-  graph_mem = hash_mem + kmers_in_hash * extra_mem_per_kmer;
-
+  size_t bits_per_kmer, req_kmers;
+  size_t kmers_in_hash, hash_mem, graph_mem, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
+  char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
+
+  bits_per_kmer = 8*sizeof(BinaryKmer) + extra_bits_per_kmer;
+
+  if(args->num_kmers_set)
+    req_kmers = args->num_kmers;
+  else if(use_mem_limit && args->mem_to_use_set)
+    req_kmers = (8 * args->mem_to_use) / bits_per_kmer;
+  else if(min_num_kmers > 0)
+    req_kmers = min_num_kmers / IDEAL_OCCUPANCY;
+  else
+    req_kmers = args->num_kmers; // take default
+
+  hash_mem = hash_table_mem(req_kmers, &kmers_in_hash);
+  graph_mem = hash_mem + (kmers_in_hash * extra_bits_per_kmer) / 8;
+  min_kmers_mem = (min_num_kmers * bits_per_kmer) / 8;
+
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
+  ulong_to_str(kmers_in_hash, kmers_in_hash_str);
+  bytes_to_str(min_kmers_mem, 1, min_kmers_mem_str);
+  ulong_to_str(min_num_kmers, min_num_kmers_str);
 
-  if(args->mem_to_use_set && graph_mem > args->mem_to_use)
-    die("Not enough memory: require at least %s\n", graph_mem_str);
+  if(kmers_in_hash < min_num_kmers) {
+    die("Not enough kmers in hash: require at least %s kmers (min memory: %s)",
+        min_num_kmers_str, min_kmers_mem_str);
+  }
+
+  if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY) {
+    warn("Warning expected hash table occupancy %.2f%% "
+         "(you may want to increase -h or -m)",
+         (double)min_num_kmers/kmers_in_hash);
+  }
 
   if(args->mem_to_use_set && args->num_kmers_set) {
     if(graph_mem > args->mem_to_use) {
@@ -234,11 +257,11 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_mem_per_kmer)
           graph_mem_str, mem_to_use_str);
     }
     else
-      message("Note: Using less memory than requested (%s < %s), due to: -h <kmer>",
-              graph_mem_str, mem_to_use_str);
+      status("Note: Using less memory than requested (%s < %s), due to: -h <kmer>",
+             graph_mem_str, mem_to_use_str);
   }
 
-  message("[memory]  graph: %s\n", graph_mem_str);
+  status("[memory] graph: %s\n", graph_mem_str);
 
   return kmers_in_hash;
 }

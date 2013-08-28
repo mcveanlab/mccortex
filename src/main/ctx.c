@@ -10,8 +10,9 @@ static const char usage[] =
 "\n"
 "Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
 "          view        view and check a cortex graph file (.ctx)\n"
-// "          clean       clean population / sample against merged  (unfinished)\n" // 4
+"          clean       clean errors from a graph\n"
 "          join        combine graphs, filter graph intersections\n"
+"          supernodes  pull out supernodes\n"
 "          subgraph    filter a subgraph\n"
 "          reads       filter reads against a graph\n"
 "          extend      extend contigs using a graph\n"
@@ -40,26 +41,34 @@ static const char usage[] =
 int main(int argc, char **argv)
 {
   CmdArgs args;
-  time_t start,end;
+  time_t start, end;
 
   time(&start);
   if(argc == 1) print_usage(usage, NULL);
   cmd_alloc(&args, argc, argv);
   if(args.cmdidx == -1) print_usage(usage, "Unrecognised command: %s", argv[1]);
-  if(strcmp(argv[1],"view") != 0) message("[cmd] %s\n", args.cmdline);
+  
+  boolean usestderr = (strcmp(argv[1], "view") == 0 ||
+                       strcmp(argv[1], "pview") == 0);
+
+  ctx_msg_out = usestderr ? stderr : stdout;
+
+  status("[cmd] %s\n", args.cmdline);
   int ret = ctx_funcs[args.cmdidx](&args);
   cmd_free(&args);
   time(&end);
+
+  status(ret == 0 ? "Done." : "Fail.");
 
   if(strcmp(argv[1],"view") != 0)
   {
     // Print time taken
     double diff = difftime (end,start);
-    if(diff < 60) message("[time] %.2lf seconds\n", diff);
+    if(diff < 60) status("[time] %.2lf seconds\n", diff);
     else {
       char timestr[100];
       seconds_to_str(diff, timestr);
-      message("[time] %.2lf seconds (%s)\n", diff, timestr);
+      status("[time] %.2lf seconds (%s)\n", diff, timestr);
     }
   }
 

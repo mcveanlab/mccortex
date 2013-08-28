@@ -40,49 +40,57 @@ int ctx_pview(CmdArgs *args)
   ulong_to_str(pheader.num_kmers_with_paths, kmers_with_paths_str);
 
   // Print header
-  message("version: %u\n", pheader.version);
-  message("kmer size: %u\n", pheader.kmer_size);
-  message("colours: %u\n", pheader.num_of_cols);
-  message("paths: %s\n", num_paths_str);
-  message("bytes: %s\n", path_bytes_str);
-  message("kmers starting paths: %s\n", kmers_with_paths_str);
+  printf("version: %u\n", pheader.version);
+  printf("kmer size: %u\n", pheader.kmer_size);
+  printf("colours: %u\n", pheader.num_of_cols);
+  printf("paths: %s\n", num_paths_str);
+  printf("bytes: %s\n", path_bytes_str);
+  printf("kmers starting paths: %s\n", kmers_with_paths_str);
 
   char inf_kmer_str[100];
   uint32_t col;
   for(col = 0; col < pheader.num_of_cols; col++) {
     ulong_to_str(pheader.num_inferred_kmers[col], inf_kmer_str);
-    message(" colour %u: %s [inferred kmers: %s]\n",
-            col, pheader.sample_names[col].buff, inf_kmer_str);
+    printf(" colour %u: %s [inferred kmers: %s]\n",
+           col, pheader.sample_names[col].buff, inf_kmer_str);
   }
 
+  //
   // Decide on memory
-  size_t kmers_in_hash, ideal_capacity, req_num_kmers;
-  size_t hash_mem, graph_mem, path_mem;
+  //
+  size_t bits_per_kmer, kmers_in_hash;
 
-  ideal_capacity = pheader.num_kmers_with_paths / IDEAL_OCCUPANCY;
-  req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
+  bits_per_kmer = sizeof(uint64_t) * 8;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        pheader.num_kmers_with_paths, true);
 
-  graph_mem = hash_mem +
-                     kmers_in_hash * sizeof(uint64_t); // kmer_paths
+  // size_t kmers_in_hash, ideal_capacity, req_num_kmers;
+  // size_t hash_mem, graph_mem, path_mem;
 
-  path_mem = args->mem_to_use - graph_mem;
+  // ideal_capacity = pheader.num_kmers_with_paths / IDEAL_OCCUPANCY;
+  // req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
+  // hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
-  char graph_mem_str[100], path_mem_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(path_mem, 1, path_mem_str);
+  // graph_mem = hash_mem +
+  //                    kmers_in_hash * sizeof(uint64_t); // kmer_paths
 
-  message("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
+  // path_mem = args->mem_to_use - graph_mem;
 
-  if(kmers_in_hash < pheader.num_kmers_with_paths) {
-    print_usage(usage, "Not enough kmers in the hash, require: %s "
-                       "(set bigger -h <kmers> or -m <mem>)", kmers_with_paths_str);
-  }
-  else if(kmers_in_hash < pheader.num_kmers_with_paths / WARN_OCCUPANCY)
-    warn("Low memory for binary size (require: %s)", kmers_with_paths_str);
+  // char graph_mem_str[100], path_mem_str[100];
+  // bytes_to_str(graph_mem, 1, graph_mem_str);
+  // bytes_to_str(path_mem, 1, path_mem_str);
 
-  if(args->mem_to_use_set && graph_mem > args->mem_to_use)
-    die("Not enough memory (please increase -m <mem>)");
+  // status("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
+
+  // if(kmers_in_hash < pheader.num_kmers_with_paths) {
+  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
+  //                      "(set bigger -h <kmers> or -m <mem>)", kmers_with_paths_str);
+  // }
+  // else if(kmers_in_hash < pheader.num_kmers_with_paths / WARN_OCCUPANCY)
+  //   warn("Low memory for binary size (require: %s)", kmers_with_paths_str);
+
+  // if(args->mem_to_use_set && graph_mem > args->mem_to_use)
+  //   die("Not enough memory (please increase -m <mem>)");
 
   // Allocate memory
   // db graph is required to store the end position for each kmer list
@@ -93,8 +101,9 @@ int ctx_pview(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, pheader.num_of_cols);
+  uint8_t *path_store = malloc2(pheader.num_path_bytes);
+  path_store_init(&db_graph.pdata, path_store,
+                  pheader.num_path_bytes, pheader.num_of_cols);
 
   // Pretend we've read all the kmers in
   db_graph.num_of_cols_used = pheader.num_of_cols;
@@ -113,6 +122,5 @@ int ctx_pview(CmdArgs *args)
   paths_header_dealloc(&pheader);
   db_graph_dealloc(&db_graph);
 
-  message("Done.\n");
   return EXIT_SUCCESS;
 }

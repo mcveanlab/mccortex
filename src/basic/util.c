@@ -29,42 +29,36 @@ char parse_entire_int(char *str, int *result)
 {
   char *strtol_last_char_ptr = str;
   long tmp = strtol(str, &strtol_last_char_ptr, 10);
-
-  if(tmp > INT_MAX || tmp < INT_MIN || *strtol_last_char_ptr == '\0')
-  {
-    return 0;
-  }
-  else
-  {
-    *result = (int)tmp;
-    return 1;
-  }
+  if(tmp > INT_MAX || tmp < INT_MIN || *strtol_last_char_ptr == '\0') return 0;
+  *result = (int)tmp;
+  return 1;
 }
 
 char parse_entire_uint(char *str, unsigned int *result)
 {
   char *strtol_last_char_ptr = str;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-
-  if(tmp <= UINT_MAX && *strtol_last_char_ptr == '\0')
-  {
-    *result = (unsigned int)tmp;
-    return 1;
-  }
-  return 0;
+  if(tmp > UINT_MAX || *strtol_last_char_ptr != '\0') return 0;
+  *result = (unsigned int)tmp;
+  return 1;
 }
 
 char parse_entire_ulong(char *str, unsigned long *result)
 {
   char *strtol_last_char_ptr = str;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
+  if(*strtol_last_char_ptr != '\0') return 0;
+  *result = tmp;
+  return 1;
+}
 
-  if(*strtol_last_char_ptr == '\0')
-  {
-    *result = tmp;
-    return 1;
-  }
-  return 0;
+char parse_entire_double(char *str, double *result)
+{
+  char *strtol_last_char_ptr = str;
+  double tmp = strtod(str, &strtol_last_char_ptr);
+  if(*strtol_last_char_ptr != '\0') return 0;
+  *result = tmp;
+  return 1;
 }
 
 // Load a string of numbers into an array. Separator can be any non-numerical

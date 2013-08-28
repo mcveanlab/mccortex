@@ -16,7 +16,7 @@ const Nucleotide char_to_bnuc[128] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
                                       4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,
                                       4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4};
 
-#ifdef DEBUG
+#ifndef NDEBUG
 // These have asserts in them
 char binary_nuc_to_char(Nucleotide n)
 {
@@ -237,6 +237,32 @@ char *binary_kmer_to_str(BinaryKmer bkmer, uint32_t kmer_size, char *seq)
   seq[kmer_size] = '\0';
 
   return seq;
+}
+
+static const char hex[16] = "0123456789abcdef";
+
+void binary_kmer_to_hex(BinaryKmer bkmer, uint32_t kmer_size, char *seq)
+{
+  size_t i, j, slen = (kmer_size+1)/2, k = slen;
+  size_t toppairs = (BKMER_TOP_BASES(kmer_size)+1)/2;
+  uint64_t word;
+
+  for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
+    word = bkmer.b[i];
+    for(j = 0; j < 32; j += 2) {
+      seq[--k] = hex[word & 15];
+      word >>= 4;
+    }
+  }
+
+  // Top word
+  word = bkmer.b[0];
+  for(j = 0; j < toppairs; j++) {
+    seq[--k] = hex[word & 15];
+    word >>= 4;
+  }
+
+  seq[slen] = '\0';
 }
 
 void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len)

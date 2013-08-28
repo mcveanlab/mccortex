@@ -135,7 +135,7 @@ int ctx_join(CmdArgs *args)
   }
 
   // Probe intersection files
-  uint64_t min_intersect_num_kmers;
+  uint64_t min_intersect_num_kmers = 0;
 
   for(i = 0; i < num_intersect; i++)
   {
@@ -154,42 +154,14 @@ int ctx_join(CmdArgs *args)
     }
   }
 
-  // Pick hash table size
-  size_t kmers_in_hash;
-  size_t extra_mem_per_kmer = sizeof(Covg) + sizeof(Edges);
-  size_t mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
+  //
+  // Decide on memory
+  //
+  size_t extra_bits_per_kmer, kmers_in_hash;
 
-  if(num_intersect > 0)
-  {
-    size_t ideal_occupancy = min_intersect_num_kmers / IDEAL_OCCUPANCY;
-    if(args->num_kmers_set) {
-      char tmp[50];
-      if(args->num_kmers < min_intersect_num_kmers) {
-        die("Need at least -h %s", bytes_to_str(min_intersect_num_kmers,1,tmp));
-      } else if(args->num_kmers < ideal_occupancy) {
-        warn("Less than ideal hash occupancy (-h %zu < %zu [70%%])",
-             args->num_kmers, ideal_occupancy);
-      }
-      kmers_in_hash = args->num_kmers;
-    }
-    else kmers_in_hash = ideal_occupancy;
-
-    size_t hash_mem = hash_table_mem(kmers_in_hash, &kmers_in_hash);
-
-    size_t mem_needed = hash_mem + kmers_in_hash * mem_per_kmer;
-    char mem_needed_str[50], mem_set_str[50];
-    bytes_to_str(mem_needed, 1, mem_needed_str);
-    bytes_to_str(args->mem_to_use, 1, mem_set_str);
-
-    if(args->mem_to_use_set && mem_needed > args->mem_to_use)
-      die("Requires %s memory, you set -m %s", mem_needed_str, mem_set_str);
-
-    message("[memory] graph: %s\n", mem_needed_str);
-  }
-  else
-    kmers_in_hash = cmd_get_kmers_in_hash(args, extra_mem_per_kmer);
-
-  message("\n");
+  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
+                                        min_intersect_num_kmers, true);
 
   // Check out_ctx_path is writable
   if(!test_file_writable(out_ctx_path))
@@ -202,6 +174,7 @@ int ctx_join(CmdArgs *args)
   db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
 
   // Load intersection binaries
+  char *intersect_gname = NULL;
   if(num_intersect > 0)
   {
     SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
@@ -216,6 +189,9 @@ int ctx_join(CmdArgs *args)
                              .db_graph = &db_graph};
 
     graph_load(intersect_paths[0], &prefs, NULL, NULL);
+
+    intersect_gname
+      = strdup(db_graph.ginfo[0].cleaning.intersection_name.buff);
 
     if(num_intersect > 1)
     {
@@ -233,18 +209,20 @@ int ctx_join(CmdArgs *args)
     memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
     memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
 
-    message("Loaded intersection set\n\n");
+    status("Loaded intersection set\n\n");
   }
 
   graph_files_merge(out_ctx_path, binary_paths, num_binaries,
                     ctx_num_cols, ctx_max_cols,
-                    merge, flatten, num_intersect > 0, &db_graph);
+                    merge, flatten, intersect_gname, &db_graph);
+
+  if(intersect_gname != NULL) free(intersect_gname);
 
   graph_header_dealloc(&gheader);
 
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
-  message("Done.\n");
+
   return EXIT_SUCCESS;
 }

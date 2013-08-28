@@ -69,10 +69,10 @@ static void print_prefs(const SeqLoadingPrefs *prefs)
   if(prefs->homopolymer_cutoff > 0)
     sprintf(hpCutoff, "%u", prefs->homopolymer_cutoff);
 
-  message("[prefs] FASTQ minQual: %s; FASTQ offset: %s; cut homopolymers: %s; "
-          "remove PCR duplicates SE: %s, PE: %s\n", minQual, fqOffset, hpCutoff,
-          prefs->remove_dups_se ? "yes" : "no",
-          prefs->remove_dups_pe ? "yes" : "no");
+  status("[prefs] FASTQ minQual: %s; FASTQ offset: %s; cut homopolymers: %s; "
+         "remove PCR duplicates SE: %s, PE: %s\n", minQual, fqOffset, hpCutoff,
+         prefs->remove_dups_se ? "yes" : "no",
+         prefs->remove_dups_pe ? "yes" : "no");
 }
 
 int ctx_build(CmdArgs *args)
@@ -177,11 +177,13 @@ int ctx_build(CmdArgs *args)
   if(!test_file_writable(out_path))
     die("Cannot write to file: %s", out_path);
 
-  // Pick hash table size
-  size_t mem_per_kmer = sizeof(Covg) + sizeof(Edges);
-  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, mem_per_kmer);
+  //
+  // Decide on memory
+  //
+  size_t bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
+  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true);
 
-  message("Writing %u colour binary to %s\n", colours_used, out_path);
+  status("Writing %u colour binary to %s\n", colours_used, out_path);
 
   // Create db_graph
   dBGraph db_graph;
@@ -262,7 +264,7 @@ int ctx_build(CmdArgs *args)
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
       prefs.into_colour++;
-      message("[sample] %u: %s\n", prefs.into_colour, argv[argi+1]);
+      status("[sample] %u: %s\n", prefs.into_colour, argv[argi+1]);
       strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
       argi += 1;
     }
@@ -277,10 +279,8 @@ int ctx_build(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  message("Dumping binary...\n");
+  status("Dumping binary...\n");
   graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
-
-  message("Done.\n");
 
   return EXIT_SUCCESS;
 }

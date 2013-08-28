@@ -29,8 +29,7 @@ $(CTX2):
 
 clean:
 	rm -rf *.ctx *.ctp *.fa *.falist
-	rm -rf diploid.*.bubbles* diploid.*.5pflanks.fa.gz
-	rm -rf diploid.*.vcf falsepos.k31*.vcf truth.k31*.vcf
+	rm -rf diploid.* falsepos.k31*.vcf truth.k31*.vcf
 	rm -rf gap_sizes.*.csv mp_sizes.*.csv
 
 .PHONY: all clean

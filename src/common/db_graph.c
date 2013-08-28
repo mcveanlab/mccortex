@@ -1,4 +1,6 @@
 #include "global.h"
+#include "util.h"
+#include "binary_kmer.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
@@ -20,6 +22,12 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
   db_graph->ginfo = malloc2(num_of_cols * sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
     graph_info_alloc(db_graph->ginfo + i);
+
+  char capacity_str[100];
+  ulong_to_str(capacity, capacity_str);
+
+  status("[graph] kmer-size: %u; colours: %u; capacity: %s\n",
+         kmer_size, num_of_cols, capacity_str);
 
   return db_graph;
 }
@@ -167,7 +175,6 @@ static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
   }
 
   hash_table_delete(&db_graph->ht, node);
-  db_graph->ht.unique_kmers--;
 }
 
 static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
@@ -235,31 +242,41 @@ void db_graph_prune_nodes_lacking_flag(dBGraph *db_graph, uint64_t *flags)
 // Removed edges from nodes that connected to the given `node`
 static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 {
-  assert(db_graph->edges != NULL);
+  // assert(db_graph->edges != NULL);
 
   BinaryKmer bkmer = db_node_bkmer(db_graph, node);
   hkey_t next_node;
   Orientation or, next_or;
   Nucleotide nuc, lost_nuc;
   Edges remove_edge_mask;
+  size_t col;
 
   for(or = 0; or < 2; or++)
   {
-    if(edges_with_orientation(edges, or) != 0)
+    if(or == FORWARD)
+      lost_nuc = binary_kmer_first_nuc(bkmer, db_graph->kmer_size);
+    else
+      lost_nuc = binary_kmer_last_nuc(bkmer);
+
+    for(nuc = 0; nuc < 4; nuc++)
     {
-      lost_nuc = db_node_first_nuc(bkmer, or, db_graph->kmer_size);
-
-      for(nuc = 0; nuc < 4; nuc++)
+      if(edges_has_edge(edges, nuc, or))
       {
-        if(edges_has_edge(edges, nuc, or))
-        {
-          db_graph_next_node(db_graph, bkmer, nuc, or, &next_node, &next_or);
+        db_graph_next_node(db_graph, bkmer, nuc, or, &next_node, &next_or);
 
-          // Remove edge from next_node to this one
-          remove_edge_mask = ~nuc_orient_to_edge(lost_nuc, rev_orient(next_or));
+        // Remove edge from: next_node:!next_or->node:!or
+        // when working backwards, or = !or, next_or = !next_or
+        // so this is actually if(or == REVERSE)
+        if(or == FORWARD) lost_nuc = binary_nuc_complement(lost_nuc);
 
+        remove_edge_mask = ~nuc_orient_to_edge(lost_nuc, rev_orient(next_or));
+
+        if(db_graph->edges != NULL)
           db_graph->edges[next_node] &= remove_edge_mask;
-        }
+
+        if(db_graph->col_edges != NULL)
+          for(col = 0; col < db_graph->num_of_cols; col++)
+            db_node_col_edges(db_graph, col, next_node) &= remove_edge_mask;
       }
     }
   }
@@ -267,11 +284,16 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 
 void db_graph_prune_node(dBGraph *db_graph, hkey_t node)
 {
+  size_t col;
+  Edges uedges = db_node_union_edges(db_graph, node);
+  prune_connected_nodes(db_graph, node, uedges);
+
   if(db_graph->edges != NULL)
-  {
-    prune_connected_nodes(db_graph, node, db_graph->edges[node]);
     db_node_reset_edges(db_graph, node);
-  }
+
+  if(db_graph->col_edges != NULL)
+    for(col = 0; col < db_graph->num_of_cols; col++)
+      db_node_col_edges(db_graph,col,node) = 0;
 
   prune_node_without_edges(db_graph, node);
 }
@@ -286,10 +308,11 @@ void db_graph_prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len)
 
     size_t i;
     for(i = 1; i+1 < len; i++)
-    {
       prune_node_without_edges(db_graph, nodes[i]);
-      db_node_reset_edges(db_graph, nodes[i]);
-    }
+
+    if(db_graph->edges != NULL)
+      for(i = 1; i+1 < len; i++)
+        db_node_reset_edges(db_graph, nodes[i]);
   }
 }
 
@@ -353,7 +376,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   Orientation orient, porient;
   boolean first;
 
-  message("\n-------- paths --------\n");
+  printf("\n-------- paths --------\n");
 
   for(node = 0; node < db_graph->ht.capacity; node++) {
     if(db_graph_node_assigned(db_graph, node)) {
@@ -374,7 +397,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
     }
   }
 
-  message("-----------------------\n\n");
+  printf("-----------------------\n\n");
 }
 
 hkey_t db_graph_rand_node(const dBGraph *db_graph)

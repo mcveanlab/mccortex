@@ -219,7 +219,7 @@ int ctx_diverge(CmdArgs *args)
     print_usage(usage, "Cannot write to output file: %s", output_bubble_path);
 
   // DEV: look for ctp file
-  size_t path_mem = 0;
+  // size_t path_mem = 0;
 
   // Data required:
   // hashtable
@@ -229,45 +229,78 @@ int ctx_diverge(CmdArgs *args)
   // visited fw/rv
   // chrom kmer pos
 
+  // DEV: load paths
+  size_t path_mem = 0;
+
+  //
   // Decide on memory
-  size_t hash_kmers, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
-  size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
+  //
+  size_t bits_per_kmer, kmers_in_hash, total_mem;
+  size_t chrom_pos_mem, chrom_pos_num;
+  char total_mem_str[100], chrom_pos_mem_str[100], chrom_pos_num_str[100];
+  char path_mem_str[100];
 
-  size_t graph_mem = hash_mem +
-                     hash_kmers * sizeof(Edges) * 2 + // col_edges
-                     hash_kmers * sizeof(uint64_t) + // kmer_paths
-                     round_bits_to_bytes(hash_kmers) * num_of_cols + // in col
-                     round_bits_to_bytes(hash_kmers) * 2 + // visited fw/rv
-                     round_bits_to_bytes(hash_kmers) + // called from node
-                     hash_kmers * sizeof(uint32_t) * 2 + // ref coords
-                     (0x1<<28) * sizeof(LinkedChromPos);
+  // 2 colours: col_edges, kmer_paths, in_col, visited fw/rv, called from node,
+  //            ref coords
+  bits_per_kmer = sizeof(Edges)*2*8 + sizeof(uint64_t)*8 + num_of_cols + 2 + 1 +
+                  sizeof(uint32_t)*2*8;
+
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        gheader.num_of_kmers, false);
+
+  chrom_pos_num = (0x1<<28);
+  chrom_pos_mem = chrom_pos_num * sizeof(LinkedChromPos);
+  bytes_to_str(chrom_pos_mem, 1, chrom_pos_mem_str);
+  ulong_to_str(chrom_pos_num, chrom_pos_num_str);
+
+  total_mem = (kmers_in_hash*bits_per_kmer)/8 + chrom_pos_mem + path_mem;
+  bytes_to_str(total_mem, 1, total_mem_str);
+
+  if(total_mem > args->mem_to_use)
+    die("Not enough memory for graph (requires %s)", total_mem_str);
+
+  status("[memory] chrom positions: %s (%s) paths: %s\n",
+         chrom_pos_num_str, chrom_pos_mem_str, path_mem_str);
 
 
-  // memory to strings
-  char graph_mem_str[100], path_mem_str[100], total_mem_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(path_mem, 1, path_mem_str);
-  bytes_to_str(graph_mem+path_mem, 1, total_mem_str);
+  // size_t kmers_in_hash, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
+  // size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
-  if(graph_mem > mem_to_use)
-    print_usage(usage, "Not enough memory; requires %s", total_mem_str);
+  // size_t graph_mem = hash_mem +
+  //                    kmers_in_hash * sizeof(Edges) * 2 + // col_edges
+  //                    kmers_in_hash * sizeof(uint64_t) + // kmer_paths
+  //                    round_bits_to_bytes(kmers_in_hash) * num_of_cols + // in col
+  //                    round_bits_to_bytes(kmers_in_hash) * 2 + // visited fw/rv
+  //                    round_bits_to_bytes(kmers_in_hash) + // called from node
+  //                    kmers_in_hash * sizeof(uint32_t) * 2 + // ref coords
+  //                    (0x1<<28) * sizeof(LinkedChromPos);
+
+
+  // // memory to strings
+  // char graph_mem_str[100], path_mem_str[100], total_mem_str[100];
+  // bytes_to_str(graph_mem, 1, graph_mem_str);
+  // bytes_to_str(path_mem, 1, path_mem_str);
+  // bytes_to_str(graph_mem+path_mem, 1, total_mem_str);
+
+  // if(graph_mem > mem_to_use)
+  //   print_usage(usage, "Not enough memory; requires %s", total_mem_str);
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, hash_kmers);
+  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
 
-  message("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
+  // status("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
 
   // Edges
-  db_graph.col_edges = calloc2(hash_kmers*2, sizeof(uint8_t));
+  db_graph.col_edges = calloc2(kmers_in_hash*2, sizeof(uint8_t));
 
   // In colour - used is traversal
-  size_t words64_per_col = round_bits_to_words64(hash_kmers);
+  size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
   db_graph.node_in_cols = calloc2(words64_per_col*num_of_cols, sizeof(uint64_t));
 
   // Paths
-  db_graph.kmer_paths = malloc2(hash_kmers * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, hash_kmers * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
   path_store_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
@@ -317,7 +350,7 @@ int ctx_diverge(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  message("  Contigs written to: %s\n", output_bubble_path);
-  message("Done.\n");
+  status("Contigs written to: %s\n", output_bubble_path);
+
   return EXIT_SUCCESS;
 }

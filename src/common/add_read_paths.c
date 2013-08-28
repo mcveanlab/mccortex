@@ -126,7 +126,7 @@ static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
     }
   }
 
-  printf("  Contig gap sizes dumped to %s\n", csv_dump->buff);
+  status("Contig gap sizes dumped to %s\n", csv_dump->buff);
 
   fclose(fh);
   strbuf_free(csv_dump);
@@ -154,6 +154,9 @@ static void add_read_path(const dBNode *nodes, size_t len,
     outdegree[i] = edges_get_outdegree(edges[i], nodes[i].orient);
     indegree[i] = edges_get_indegree(edges[i], nodes[i].orient);
   }
+
+  // Get Lock
+  pthread_mutex_lock(&add_paths_mutex);
 
   #ifdef DEBUG
     char str[MAX_KMER_SIZE+1];
@@ -199,7 +202,12 @@ static void add_read_path(const dBNode *nodes, size_t len,
     }
   }
 
-  if(num_rv == 0 || num_fw == 0) return;
+  if(num_rv == 0 || num_fw == 0)
+  {
+    // DEV: what about inferred kmers up to here
+    pthread_mutex_unlock(&add_paths_mutex);
+    return;
+  }
 
   // Reverse rv
   size_t tmp_pos;
@@ -228,17 +236,12 @@ static void add_read_path(const dBNode *nodes, size_t len,
   PathLen plen;
   Nucleotide *bases;
 
-  // .//\/
-
   //
   // Generate paths going backwards through the contig
   //
   #ifdef DEBUG
     printf("==REV==\n");
   #endif
-
-  // Get Lock
-  pthread_mutex_lock(&add_paths_mutex);
 
   for(start_rv = 0, start_fw = num_fw-1; ; start_fw--)
   {
@@ -458,8 +461,8 @@ void read_to_path(AddPathsWorker *worker)
     r2_offset = get_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
                                     db_graph, nodebuf);
 
-    if(!useful_path_info) {
-      for(i = r2_start; i < nodebuf->len - 1; i++) {
+    if(!useful_path_info && nodebuf->len > 0) {
+      for(i = r2_start; i+1 < nodebuf->len; i++) {
         if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
            edges_get_outdegree(db_node_col_edges(db_graph,0,node),
                                nodebuf->data[i].orient) > 0)
@@ -567,16 +570,18 @@ void* add_paths_thread(void *ptr)
       worker->busy = true;
       data_waiting = false;
     }
-    else if(input_ended) {
-      pthread_mutex_unlock(&reader_mutex);
-      break;
-    }
+    // else if(input_ended) {
+    //   pthread_mutex_unlock(&reader_mutex);
+    //   break;
+    // }
 
     pthread_mutex_lock(&data_read_mutex);
     pthread_cond_signal(&data_read_cond);
     pthread_mutex_unlock(&data_read_mutex);
 
     pthread_mutex_unlock(&reader_mutex);
+
+    if(input_ended) break;
 
     // Do work
     read_to_path(worker);

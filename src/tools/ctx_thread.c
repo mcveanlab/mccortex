@@ -28,17 +28,17 @@ static const char usage[] =
 // "    --maxIns <ins>             Maximum insert size [default:500]\n"
 // "\n"
 "  Example: If we want paths for 2 samples only we can do:\n"
-"    "CMD" thread -m 80G 2 sample3and5.ctp \\\n"
+"    "CMD" thread -m 80G \\\n"
 "                 --col 3 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
 "                 --col 5 1 --seq sample5.fa \\\n"
-"                 population.c6.ctx population.c6.ctx\n"
+"                 2 sample3and5.ctp population.c6.ctx population.c6.ctx\n"
 "\n"
 "  Or you could pool the samples first:\n"
 "    "CMD" join --flatten pool.samples5and3.ctx population.c6.ctx:3,5\n"
-"    "CMD" thread -m 80G 2 sample3.3and5.ctp --col 3 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
-"                 pool.samples5and3.ctx population.c6.ctx\n"
-"    "CMD" thread -m 80G 2 sample5.3and5.ctp --col 5 1 --seq sample5.fa \\\n"
-"                 pool.samples5and3.ctx population.c6.ctx\n"
+"    "CMD" thread -m 80G --col 3 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
+"                 2 sample3.3and5.ctp pool.samples5and3.ctx population.c6.ctx\n"
+"    "CMD" thread -m 80G --col 5 1 --seq sample5.fa \\\n"
+"                 2 sample5.3and5.ctp pool.samples5and3.ctx population.c6.ctx\n"
 "    "CMD" pmerge sample3and5.ctp sample3.3and5.ctp sample5.3and5.ctp\n";
 
 #define NUM_PASSES 1
@@ -160,6 +160,8 @@ int ctx_thread(CmdArgs *args)
   else if(!is_binary)
     print_usage(usage, "Input graph file isn't valid: %s", pop_ctx_path);
 
+  uint64_t ctx_max_kmers = popgheader.num_of_kmers;
+
   // Set up paths header
   PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
                             .kmer_size = popgheader.kmer_size,
@@ -185,6 +187,7 @@ int ctx_thread(CmdArgs *args)
     ctx_num_of_cols[i] = gheader.num_of_cols;
     ctx_max_cols[i] = gheader.max_col;
     max_num_cols = MAX2(gheader.num_of_cols, max_num_cols);
+    ctx_max_kmers = MAX2(ctx_max_kmers, gheader.num_of_kmers);
 
     // Clumsy way to update sample names
     uint32_t j, c, col;
@@ -211,49 +214,71 @@ int ctx_thread(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t kmers_in_hash, req_num_kmers, ideal_capacity;
-  size_t hash_mem, graph_mem, thread_mem, path_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem;
+  char graph_mem_str[100], path_mem_str[100];
 
-  ideal_capacity = popgheader.num_of_kmers / IDEAL_OCCUPANCY;
-  req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
+                         gheader.num_of_cols + 2*num_of_threads;
 
-  graph_mem = hash_mem +
-              kmers_in_hash * sizeof(Edges) * 2 + // edges for 2 colours
-              kmers_in_hash * sizeof(uint64_t) + // kmer_paths
-              round_bits_to_bytes(kmers_in_hash) * 2; // in col (2 cols)
+  // false -> don't use mem_to_use to decide how many kmers to store in hash
+  // since we need some of that memory for storing paths
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, ctx_max_kmers, false);
 
-  // visited fw/rv
-  thread_mem = round_bits_to_bytes(kmers_in_hash) * 2 * num_of_threads;
-
-  if(graph_mem + thread_mem > args->mem_to_use) {
-    char mem_str[100];
-    bytes_to_str(graph_mem + thread_mem, 1, mem_str);
-    print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
-  }
-
-  path_mem = args->mem_to_use - graph_mem - thread_mem;
-
-  char num_kmers_str[100];
-  ulong_to_str(popgheader.num_of_kmers, num_kmers_str);
-
-  char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
+  graph_mem = (kmers_in_hash*bits_per_kmer)/8;
   bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
+
+  if(graph_mem >= args->mem_to_use)
+    die("Not enough memory for graph (requires %s)", graph_mem_str);
+
+  // Path Memory
+  path_mem = args->mem_to_use - (kmers_in_hash*bits_per_kmer)/8;
   bytes_to_str(path_mem, 1, path_mem_str);
+  status("[memory] paths: %s\n", path_mem_str);
 
-  message("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
-          graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
+  // size_t kmers_in_hash, req_num_kmers, ideal_capacity;
+  // size_t hash_mem, graph_mem, thread_mem, path_mem;
 
-  if(kmers_in_hash < popgheader.num_of_kmers) {
-    print_usage(usage, "Not enough kmers in the hash, require: %s "
-                       "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
-  }
-  else if(kmers_in_hash < popgheader.num_of_kmers / WARN_OCCUPANCY)
-    warn("Low memory for binary size (require: %s)", num_kmers_str);
+  // ideal_capacity = popgheader.num_of_kmers / IDEAL_OCCUPANCY;
+  // req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
+  // hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
 
-  if(args->mem_to_use_set && graph_mem+thread_mem > args->mem_to_use)
-    die("Not enough memory (please increase -m <mem>)");
+  // graph_mem = hash_mem +
+  //             kmers_in_hash * sizeof(Edges) * 2 + // edges for 2 colours
+  //             kmers_in_hash * sizeof(uint64_t) + // kmer_paths
+  //             round_bits_to_bytes(kmers_in_hash) * 2; // in col (2 cols)
+
+  // // visited fw/rv
+  // thread_mem = round_bits_to_bytes(kmers_in_hash) * 2 * num_of_threads;
+
+  // if(graph_mem + thread_mem > args->mem_to_use) {
+  //   char mem_str[100];
+  //   bytes_to_str(graph_mem + thread_mem, 1, mem_str);
+  //   print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
+  // }
+
+  // path_mem = args->mem_to_use - graph_mem - thread_mem;
+
+  // char num_kmers_str[100];
+  // ulong_to_str(popgheader.num_of_kmers, num_kmers_str);
+
+  // char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
+  // bytes_to_str(graph_mem, 1, graph_mem_str);
+  // bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
+  // bytes_to_str(path_mem, 1, path_mem_str);
+
+  // status("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
+  //         graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
+
+  // if(kmers_in_hash < popgheader.num_of_kmers) {
+  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
+  //                      "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
+  // }
+  // else if(kmers_in_hash < popgheader.num_of_kmers / WARN_OCCUPANCY)
+  //   warn("Low memory for binary size (require: %s)", num_kmers_str);
+
+  // if(args->mem_to_use_set && graph_mem+thread_mem > args->mem_to_use)
+  //   die("Not enough memory (please increase -m <mem>)");
+
 
   // Open output file
   FILE *fout = fopen(out_ctp_path, "w");
@@ -294,7 +319,7 @@ int ctx_thread(CmdArgs *args)
                            .empty_colours = false,
                            .db_graph = &db_graph};
 
-  message("Loading population into colour zero...\n");
+  status("Loading population into colour zero...\n");
   graph_load(pop_ctx_path, &prefs, stats, NULL);
 
   hash_table_print_stats(&db_graph.ht);
@@ -311,7 +336,7 @@ int ctx_thread(CmdArgs *args)
   pool = paths_worker_pool_new(num_of_threads, &db_graph, gap_limit, fout);
 
   // Parse input sequence
-  message("Threading reads through the graph...\n");
+  status("Threading reads through the graph...\n");
 
   size_t rep;
   uint32_t ctxindex, ctxcol;
@@ -374,7 +399,7 @@ int ctx_thread(CmdArgs *args)
   ulong_to_str(paths->num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
 
-  message("  Saving paths: %s paths, %s path-bytes, %s kmers\n",
+  status("Saving paths: %s paths, %s path-bytes, %s kmers\n",
           paths_str, mem_str, kmers_str);
 
   paths_format_write_optimised_paths(&db_graph, fout);
@@ -398,8 +423,7 @@ int ctx_thread(CmdArgs *args)
   paths_header_dealloc(&pheader);
   db_graph_dealloc(&db_graph);
 
-  message("  Paths written to: %s\n", out_ctp_path);
-  message("Done.\n");
+  status("Paths written to: %s\n", out_ctp_path);
 
   return EXIT_SUCCESS;
 }
