@@ -235,51 +235,6 @@ int ctx_thread(CmdArgs *args)
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  // size_t kmers_in_hash, req_num_kmers, ideal_capacity;
-  // size_t hash_mem, graph_mem, thread_mem, path_mem;
-
-  // ideal_capacity = popgheader.num_of_kmers / IDEAL_OCCUPANCY;
-  // req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  // hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-
-  // graph_mem = hash_mem +
-  //             kmers_in_hash * sizeof(Edges) * 2 + // edges for 2 colours
-  //             kmers_in_hash * sizeof(uint64_t) + // kmer_paths
-  //             round_bits_to_bytes(kmers_in_hash) * 2; // in col (2 cols)
-
-  // // visited fw/rv
-  // thread_mem = round_bits_to_bytes(kmers_in_hash) * 2 * num_of_threads;
-
-  // if(graph_mem + thread_mem > args->mem_to_use) {
-  //   char mem_str[100];
-  //   bytes_to_str(graph_mem + thread_mem, 1, mem_str);
-  //   print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
-  // }
-
-  // path_mem = args->mem_to_use - graph_mem - thread_mem;
-
-  // char num_kmers_str[100];
-  // ulong_to_str(popgheader.num_of_kmers, num_kmers_str);
-
-  // char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
-  // bytes_to_str(graph_mem, 1, graph_mem_str);
-  // bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
-  // bytes_to_str(path_mem, 1, path_mem_str);
-
-  // status("[memory]  graph: %s;  threads: %i x %s;  paths: %s\n",
-  //         graph_mem_str, num_of_threads, per_thread_mem_str, path_mem_str);
-
-  // if(kmers_in_hash < popgheader.num_of_kmers) {
-  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
-  //                      "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
-  // }
-  // else if(kmers_in_hash < popgheader.num_of_kmers / WARN_OCCUPANCY)
-  //   warn("Low memory for binary size (require: %s)", num_kmers_str);
-
-  // if(args->mem_to_use_set && graph_mem+thread_mem > args->mem_to_use)
-  //   die("Not enough memory (please increase -m <mem>)");
-
-
   // Open output file
   FILE *fout = fopen(out_ctp_path, "w");
 

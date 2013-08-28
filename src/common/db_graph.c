@@ -180,7 +180,7 @@ static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
 static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
                                      uint64_t *flags)
 {
-  assert(db_graph->edges != NULL);
+  assert(db_graph->num_of_cols == 1 && db_graph->col_edges != NULL);
 
   if(bitset_has(flags, node))
   {
@@ -189,7 +189,7 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
     Nucleotide nuc;
     hkey_t next_node;
 
-    Edges keep_edges = db_node_edges(db_graph, node);
+    Edges keep_edges = db_graph->col_edges[node];
     BinaryKmer bkmer = db_node_bkmer(db_graph, node);
 
     for(orient = 0; orient < 2; orient++)
@@ -210,11 +210,11 @@ static void prune_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
       }
     }
 
-    db_graph->edges[node] = keep_edges;
+    db_graph->col_edges[node] = keep_edges;
   }
   else
   {
-    db_node_reset_edges(db_graph, node);
+    db_graph->col_edges[node] = 0;
     prune_node_without_edges(db_graph, node);
   }
 }
@@ -230,7 +230,8 @@ static void prune_nodes_lacking_flag_no_edges(hkey_t node, dBGraph *db_graph,
 // Remove edges to nodes where !db_node_has_flag(node, flag)
 void db_graph_prune_nodes_lacking_flag(dBGraph *db_graph, uint64_t *flags)
 {
-  if(db_graph->edges != NULL) {
+  assert(db_graph->edges == NULL);
+  if(db_graph->col_edges != NULL) {
     HASH_TRAVERSE(&db_graph->ht, prune_nodes_lacking_flag, db_graph, flags);
   }
   else {

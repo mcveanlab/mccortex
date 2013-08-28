@@ -193,12 +193,8 @@ int ctx_view(CmdArgs *args)
 
   char bkmerstr[MAX_KMER_SIZE+1], edgesstr[9];
 
-  uint64_t num_of_kmers_read = 0, num_of_oversized_kmers = 0,
+  uint64_t num_of_kmers_read = 0,
            num_of_all_zero_kmers = 0, num_of_zero_covg_kmers = 0;
-
-  // Check top word of each kmer
-  int bits_in_top_word = 2 * (kmer_size % 32);
-  uint64_t top_word_mask = (~(uint64_t)0) << bits_in_top_word;
 
   if(parse_kmers || print_kmers)
   {
@@ -217,16 +213,9 @@ int ctx_view(CmdArgs *args)
         sum_of_covgs_read += covgs[i];
 
       /* Kmer Checks */
-      // Check top bits of kmer
-      if(bkmer.b[0] & top_word_mask)
-      {
-        if(num_of_oversized_kmers == 0) {
-          loading_error("oversized kmer [index: %lu]\n",
-                        (unsigned long)num_of_kmers_read);
-        }
-
-        num_of_oversized_kmers++;
-      }
+      // graph_file_read_kmer() already checks for:
+      // 1. oversized kmers
+      // 2. kmers with covg 0 in all colours
 
       // Check for all-zeros (i.e. all As kmer: AAAAAA)
       uint64_t kmer_words_or = 0;
@@ -247,17 +236,7 @@ int ctx_view(CmdArgs *args)
 
       // Check covg is 0 for all colours
       for(i = 0; i < num_of_cols && covgs[i] == 0; i++);
-
-      if(i == num_of_cols)
-      {
-        // if(num_of_zero_covg_kmers == 0)
-        // {
-        //   loading_warning("a kmer has zero coverage in all colours [index: %lu]\n",
-        //                   (unsigned long)num_of_kmers_read);
-        // }
-
-        num_of_zero_covg_kmers++;
-      }
+      num_of_zero_covg_kmers += (i == num_of_cols);
 
       // Print
       if(print_kmers)
@@ -305,12 +284,6 @@ int ctx_view(CmdArgs *args)
     {
       loading_error("%s all-zero-kmers seen\n",
                     ulong_to_str(num_of_all_zero_kmers, num_str));
-    }
-
-    if(num_of_oversized_kmers > 0)
-    {
-      loading_error("%s oversized kmers seen\n",
-                    ulong_to_str(num_of_oversized_kmers, num_str));
     }
 
     if(num_of_zero_covg_kmers > 0)

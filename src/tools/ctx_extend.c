@@ -175,29 +175,6 @@ int ctx_extend(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         gheader.num_of_kmers, true);
 
-  // size_t kmers_in_hash, ideal_capacity = gheader.num_of_kmers / IDEAL_OCCUPANCY;
-  // size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  // size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-
-  // size_t graph_mem = hash_mem +
-  //                    kmers_in_hash * sizeof(Edges) +
-  //                    2*round_bits_to_words64(kmers_in_hash)*sizeof(uint64_t);
-
-  // char num_kmers_str[100], graph_mem_str[100];
-  // ulong_to_str(gheader.num_of_kmers, num_kmers_str);
-  // bytes_to_str(graph_mem, 1, graph_mem_str);
-
-  // if(kmers_in_hash < gheader.num_of_kmers) {
-  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
-  //                      "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
-  // }
-  // else if(kmers_in_hash < gheader.num_of_kmers / WARN_OCCUPANCY)
-  //   warn("Low memory for binary size (require: %s)", num_kmers_str);
-
-  // if(args->mem_to_use_set && graph_mem > args->mem_to_use)
-  //   print_usage(usage, "Not enough memory - binary requires: %s", graph_mem_str);
-
-  // status("[memory] graph: %s\n", graph_mem_str);
   status("Max walk: %u\n", dist);
 
   // Set up dBGraph

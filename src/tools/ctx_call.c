@@ -68,11 +68,6 @@ int ctx_call(CmdArgs *args)
   size_t bits_per_kmer, kmers_in_hash, thread_mem, total_mem;
   char path_mem_str[100], thread_mem_str[100], total_mem_str[100];
 
-  // char graph_mem_str[100], per_thread_mem_str[100], path_mem_str[100];
-  // bytes_to_str(graph_mem, 1, graph_mem_str);
-  // bytes_to_str(thread_mem / num_of_threads, 1, per_thread_mem_str);
-  // bytes_to_str(path_mem, 1, path_mem_str);
-
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/kmer/thread)
 

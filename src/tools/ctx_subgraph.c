@@ -23,7 +23,8 @@ static const char usage[] =
 "  Options:\n"
 "    -m <mem>          Memory to use\n"
 "    -h <kmers>        Hash size\n"
-"    --seed <seed.fa>  Read in a seed file\n";
+"    --seed <seed.fa>  Read in a seed file\n"
+"    --invert          Dump kmers not in subgraph\n";
 
 typedef struct
 {
@@ -132,11 +133,12 @@ int ctx_subgraph(CmdArgs *args)
 
   char *seed_files[argc];
   size_t num_seed_files = 0;
+  boolean invert = false;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcasecmp(argv[argi],"--seed") == 0)
+    if(strcasecmp(argv[argi], "--seed") == 0)
     {
       if(argi+1 == argc)
         print_usage(usage, "--seed <seed.fa> requires and argument");
@@ -145,6 +147,7 @@ int ctx_subgraph(CmdArgs *args)
         die("Cannot read seed file: %s", argv[argi+1]);
       argi++;
     }
+    else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
     else print_usage(usage, "Unknown option: %s", argv[argi]);
   }
 
@@ -215,35 +218,6 @@ int ctx_subgraph(CmdArgs *args)
   bytes_to_str(fringe_mem, 1, fringe_mem_str);
   ulong_to_str(num_of_fringe_nodes, num_fringe_nodes_str);
   status("[memory] fringe nodes: %s (%s)\n", num_fringe_nodes_str, fringe_mem_str);
-
-  // size_t kmers_in_hash, ideal_capacity = max_num_kmers / IDEAL_OCCUPANCY;
-  // size_t req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  // size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-  // size_t kmer_mask_mem = round_bits_to_words64(kmers_in_hash) * sizeof(uint64_t);
-  // size_t fringe_mem = args->mem_to_use - hash_mem - kmer_mask_mem;
-  // size_t num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
-  // size_t search_mem = num_of_fringe_nodes * (sizeof(hkey_t) * 2);
-
-  // char num_kmers_str[100];
-  // ulong_to_str(max_num_kmers, num_kmers_str);
-
-  // char kmers_in_hash_str[100], search_mem_str[100];
-  // bytes_to_str(kmers_in_hash, 1, kmers_in_hash_str);
-  // bytes_to_str(search_mem, 1, search_mem_str);
-
-  // status("[memory]  graph: %s; search: %s\n", kmers_in_hash_str, search_mem_str);
-
-  // if(hash_mem + kmer_mask_mem > args->mem_to_use) {
-  //   char mem_str[100];
-  //   bytes_to_str(hash_mem + kmer_mask_mem, 1, mem_str);
-  //   print_usage(usage, "Require more memory (-m <mem>) [suggested > %s]", mem_str);
-  // }
-  // else if(kmers_in_hash < max_num_kmers) {
-  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
-  //                      "(set bigger -h <kmers> or -m <mem>)", num_kmers_str);
-  // }
-  // else if(kmers_in_hash < max_num_kmers / WARN_OCCUPANCY)
-  //   warn("Low memory for binary size (require: %s)", num_kmers_str);
 
   if(num_of_fringe_nodes < 100)
     die("Not enough memory for the graph search (set -m <mem> higher)");
@@ -323,6 +297,11 @@ int ctx_subgraph(CmdArgs *args)
   free(list1.nodes);
 
   status("Pruning untouched nodes...\n");
+
+  if(invert) {
+    for(i = 0; i < num_words64; i++)
+      kmer_mask[i] = ~kmer_mask[i];
+  }
 
   // Remove nodes that were not flagged
   db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);

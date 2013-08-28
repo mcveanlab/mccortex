@@ -262,29 +262,6 @@ int ctx_diverge(CmdArgs *args)
   status("[memory] chrom positions: %s (%s) paths: %s\n",
          chrom_pos_num_str, chrom_pos_mem_str, path_mem_str);
 
-
-  // size_t kmers_in_hash, req_num_kmers = gheader.num_of_kmers / IDEAL_OCCUPANCY;
-  // size_t hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-
-  // size_t graph_mem = hash_mem +
-  //                    kmers_in_hash * sizeof(Edges) * 2 + // col_edges
-  //                    kmers_in_hash * sizeof(uint64_t) + // kmer_paths
-  //                    round_bits_to_bytes(kmers_in_hash) * num_of_cols + // in col
-  //                    round_bits_to_bytes(kmers_in_hash) * 2 + // visited fw/rv
-  //                    round_bits_to_bytes(kmers_in_hash) + // called from node
-  //                    kmers_in_hash * sizeof(uint32_t) * 2 + // ref coords
-  //                    (0x1<<28) * sizeof(LinkedChromPos);
-
-
-  // // memory to strings
-  // char graph_mem_str[100], path_mem_str[100], total_mem_str[100];
-  // bytes_to_str(graph_mem, 1, graph_mem_str);
-  // bytes_to_str(path_mem, 1, path_mem_str);
-  // bytes_to_str(graph_mem+path_mem, 1, total_mem_str);
-
-  // if(graph_mem > mem_to_use)
-  //   print_usage(usage, "Not enough memory; requires %s", total_mem_str);
-
   // Allocate memory
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);

@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental fork of cortex_var, to handle larger populations
 with better genome assembly.
 
-25 July 2013
+28 August 2013
 
 Build
 -----
@@ -37,36 +37,37 @@ usage: ctx31 <command> [options] <args>
 version: 0.0
 
 Command:  build       FASTA/FASTQ/BAM -> binary graph file
-          view        view a cortex binary file
-          clean       clean population / sample against merged  (unfinished)
+          view        view and check a cortex graph file (.ctx)
+          clean       clean errors from a graph
           join        combine graphs, filter graph intersections
-          subgraph    filter a subgraph
+          supernodes  pull out supernodes, generate FASTG
+          subgraph    pull out (filter) a subgraph
           reads       filter reads against a graph
           extend      extend contigs using a graph
-          contigs     pull out contigs for a sample             (unfinished)
           thread      thread reads through cleaned population
           pview       view read threading information
           pmerge      merge path files (.ctp)
           call        call variants
-          diverge     path divergence caller                    (unfinished)
           unique      remove duplicated bubbles, produce VCF
-          covg        add covg to a VCF file                    (unfinished)
           place       place variants and genotype
 
   Type a command with no arguments to see help.
 
 Common Options:
-  -m <M>     Memory e.g. 1GB [default: 1GB]
-  -h <H>     Hash entries [default: 4M (~4 million)]
-  -g <G>     Species genome size [default: 3.1Gbp]
-  -t <T>     Number of threads [default: 2]
-  -k <K>     Kmer size [default: read from binaries]
-  -f <file>  Input file
+  -m <M>       Memory e.g. 1GB [default: 1GB]
+  -h <H>       Hash entries [default: 4M (~4 million)]
+  -g <G>       Species genome size [default: 3.1Gbp]
+  -t <T>       Number of threads [default: 2]
+  -k <K>       Kmer size [default: read from binaries]
+  -f <file>    Input file
+  -p <in.ctp>  Assembly file
+
 
 Inputs
 ------
 
 Support reading FASTA, FASTQ, SAM and BAM files. Also supports gzipped files.
+File formats are auto-detected.
 
 Cortex graph files can be loaded by specifying a subset of colours:
 

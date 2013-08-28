@@ -515,7 +515,7 @@ uint32_t graph_load(const char *ctx_path,
 
       Edges union_edges
         = graph->edges != NULL ? db_node_edges(graph, node)
-                                  : db_node_col_edges_union(graph, node);
+                               : db_node_col_edges_union(graph, node);
 
       for(i = 0; i < num_of_cols; i++) edges[i] &= union_edges;
     }
