@@ -99,12 +99,12 @@ int ctx_call(CmdArgs *args)
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, kmers_in_hash);
+  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, 1, kmers_in_hash);
 
   if(kmers_in_hash != db_graph.ht.capacity) die("Mismatch");
 
-  // Edges
-  db_graph.edges = calloc2(kmers_in_hash, sizeof(uint8_t));
+  // Edges merged into one colour
+  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
   // In colour
   size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
@@ -173,7 +173,7 @@ int ctx_call(CmdArgs *args)
   }
   free(tmp_paths);
 
-  free(db_graph.edges);
+  free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
   free(path_store);

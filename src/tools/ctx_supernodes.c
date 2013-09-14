@@ -121,8 +121,8 @@ int ctx_supernodes(CmdArgs *args)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gheader.kmer_size, 1, kmers_in_hash);
-  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph_alloc(&db_graph, gheader.kmer_size, 1, 1, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   // Visited
   size_t numwords64 = round_bits_to_words64(db_graph.ht.capacity);
@@ -165,7 +165,7 @@ int ctx_supernodes(CmdArgs *args)
   free(nodes);
   free(orients);
   free(visited);
-  free(db_graph.edges);
+  free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
   return 0;

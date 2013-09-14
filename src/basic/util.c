@@ -29,7 +29,7 @@ char parse_entire_int(char *str, int *result)
 {
   char *strtol_last_char_ptr = str;
   long tmp = strtol(str, &strtol_last_char_ptr, 10);
-  if(tmp > INT_MAX || tmp < INT_MIN || *strtol_last_char_ptr == '\0') return 0;
+  if(tmp > INT_MAX || tmp < INT_MIN || *strtol_last_char_ptr != '\0') return 0;
   *result = (int)tmp;
   return 1;
 }

@@ -103,14 +103,14 @@ int ctx_join(CmdArgs *args)
   out_ctx_path = argv[argi++];
 
   // argi .. argend-1 are binaries to load
-  uint32_t num_binaries = argc - argi;
+  size_t num_binaries = argc - argi;
   char **binary_paths = argv + argi;
 
   // Check all binaries are valid binaries with matching kmer size
   boolean is_binary = false;
-  uint32_t i, kmer_size = 0;
+  size_t i, col, kmer_size = 0, ctx_max_kmers = 0;
   uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
-  GraphFileHeader gheader;
+  GraphFileHeader gheader = {.capacity = 0};
   char *path;
 
   for(i = 0; i < num_binaries; i++)
@@ -126,10 +126,14 @@ int ctx_join(CmdArgs *args)
     else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
 
+    ctx_num_cols[i] = gheader.num_of_cols;
+    ctx_max_cols[i] = gheader.max_col;
+    ctx_max_kmers = MAX2(gheader.num_of_kmers, ctx_max_kmers);
+
     if(i == 0)
       kmer_size = gheader.kmer_size;
     else if(kmer_size != gheader.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      print_usage(usage, "Kmer sizes don't match [%zu vs %u]",
                   kmer_size, gheader.kmer_size);
     }
   }
@@ -154,6 +158,9 @@ int ctx_join(CmdArgs *args)
     }
   }
 
+  if(num_intersect > 0)
+    ctx_max_kmers = min_intersect_num_kmers;
+
   //
   // Decide on memory
   //
@@ -161,7 +168,7 @@ int ctx_join(CmdArgs *args)
 
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        min_intersect_num_kmers, true);
+                                        ctx_max_kmers, true);
 
   // Check out_ctx_path is writable
   if(!test_file_writable(out_ctx_path))
@@ -169,16 +176,20 @@ int ctx_join(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
 
   // Load intersection binaries
-  char *intersect_gname = NULL;
+  char *intsct_gname_ptr = NULL;
+  StrBuf intersect_gname;
+  strbuf_alloc(&intersect_gname, 1024);
+
   if(num_intersect > 0)
   {
+    intsct_gname_ptr = intersect_gname.buff;
     SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
-                             .boolean_covgs = true,
+                             .boolean_covgs = true, // covg++
                              .load_seq = true,
                              .quality_cutoff = 0, .ascii_fq_offset = 0,
                              .homopolymer_cutoff = 0,
@@ -188,18 +199,19 @@ int ctx_join(CmdArgs *args)
                              .empty_colours = false,
                              .db_graph = &db_graph};
 
-    graph_load(intersect_paths[0], &prefs, NULL, NULL);
+    for(i = 0; i < num_intersect; i++)
+    {
+      prefs.must_exist_in_graph = (i > 0);
 
-    intersect_gname
-      = strdup(db_graph.ginfo[0].cleaning.intersection_name.buff);
+      graph_load(intersect_paths[i], &prefs, NULL, &gheader);
+
+      // Update intersect header
+      for(col = 0; col < gheader.num_of_cols; col++)
+        graph_info_make_intersect(&gheader.ginfo[col], &intersect_gname);
+    }
 
     if(num_intersect > 1)
     {
-      prefs.must_exist_in_graph = true;
-
-      for(i = 1; i < num_intersect; i++)
-        graph_load(intersect_paths[i], &prefs, NULL, NULL);
-
       // Remove nodes where covg != num_intersect
       HASH_TRAVERSE(&db_graph.ht, remove_non_intersect_nodes, db_graph.col_covgs,
                     num_intersect, &db_graph.ht);
@@ -209,16 +221,15 @@ int ctx_join(CmdArgs *args)
     memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
     memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
 
-    status("Loaded intersection set\n\n");
+    status("Loaded intersection set\n");
   }
 
   graph_files_merge(out_ctx_path, binary_paths, num_binaries,
                     ctx_num_cols, ctx_max_cols,
-                    merge, flatten, intersect_gname, &db_graph);
-
-  if(intersect_gname != NULL) free(intersect_gname);
+                    merge, flatten, intsct_gname_ptr, &db_graph);
 
   graph_header_dealloc(&gheader);
+  strbuf_dealloc(&intersect_gname);
 
   free(db_graph.col_edges);
   free(db_graph.col_covgs);

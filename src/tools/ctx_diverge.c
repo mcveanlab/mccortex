@@ -74,7 +74,7 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
       node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
       or = db_node_get_orientation(bkmer, tmp_key);
 
-      db_graph_add_edge(db_graph, colour, prev_node, node, prev_or, or);
+      db_graph_add_edge(db_graph, 0, prev_node, node, prev_or, or);
 
       size_t pos = i - kmer_size + 1;
       LinkedChromPos newpos = {.pos = pos, .prev = getpos(data,node,or)};
@@ -120,7 +120,8 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
   Orientation orient = db_node_get_orientation(bkmer, bkey);
 
   // Check for fork in pop and not in ref
-  Edges col0edges = db_graph->edges[node] &~ db_node_col_edges(db_graph, 0, node);
+  Edges col0edges = db_node_col_edges(db_graph, 1, node) &~
+                    db_node_col_edges(db_graph, 0, node);
 
   Edges edges;
   Nucleotide nuc;
@@ -188,8 +189,9 @@ int ctx_diverge(CmdArgs *args)
 
   size_t mem_to_use = args->mem_to_use;
 
-  char *input_ctx_path, *input_fa_path, *output_bubble_path;
+  char *input_ctx_path, *output_bubble_path;
   uint32_t colour;
+  seq_file_t *input_fa_file;
 
   if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
     print_usage(usage, "Invalid memory argument: %s", argv[1]);
@@ -210,9 +212,8 @@ int ctx_diverge(CmdArgs *args)
   if(!parse_entire_uint(argv[3], &colour) || colour == 0)
     print_usage(usage, "Invalid colour: %s", argv[3]);
 
-  input_fa_path = argv[4];
-  if(!test_file_readable(input_fa_path))
-    print_usage(usage, "Cannot read trusted reference: %s", input_fa_path);
+  if((input_fa_file = seq_open(argv[4])) == NULL)
+    print_usage(usage, "Cannot read trusted reference: %s", argv[4]);
 
   output_bubble_path = argv[5];
   if(!test_file_writable(output_bubble_path))
@@ -228,6 +229,8 @@ int ctx_diverge(CmdArgs *args)
   // node_in_cols + ref
   // visited fw/rv
   // chrom kmer pos
+
+  // load ref into colour 0, population into colour 1
 
   // DEV: load paths
   size_t path_mem = 0;
@@ -264,7 +267,7 @@ int ctx_diverge(CmdArgs *args)
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, num_of_cols, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, num_of_cols, 2, kmers_in_hash);
 
   // status("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
 
@@ -311,7 +314,7 @@ int ctx_diverge(CmdArgs *args)
   seq_read_alloc(&r1);
   prefs.load_seq = true;
 
-  seq_parse_se(input_fa_path, &r1, NULL, &prefs, stats, diverge_call, &data);
+  seq_parse_se_sf(input_fa_file, &r1, NULL, &prefs, stats, diverge_call, &data);
 
   seq_read_dealloc(&r1);
   graph_walker_dealloc(&wlk);

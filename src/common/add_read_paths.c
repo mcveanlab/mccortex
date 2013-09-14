@@ -140,74 +140,57 @@ static void add_read_path(const dBNode *nodes, size_t len,
   PathStore *paths = &graph->pdata;
   uint32_t kmer_size = graph->kmer_size;
 
-  Edges edges[len];
-  int indegree[len], outdegree[len];
+  // Find forks in this colour
+  Edges edges;
+  size_t  i, j, num_fw = 0, num_rv = 0, indegree, outdegree;
   Nucleotide nuc_fw[len], nuc_rv[len];
   uint32_t pos_fw[len], pos_rv[len];
-
-  // Find forks in this colour
-  size_t i, j, num_fw = 0, num_rv = 0;
   Nucleotide nuc;
+  BinaryKmer bkmer;
 
-  for(i = 0; i < len; i++) {
-    edges[i] = db_node_col_edges(graph, ctx_col, nodes[i].node);
-    outdegree[i] = edges_get_outdegree(edges[i], nodes[i].orient);
-    indegree[i] = edges_get_indegree(edges[i], nodes[i].orient);
-  }
-
-  // Get Lock
-  pthread_mutex_lock(&add_paths_mutex);
-
-  #ifdef DEBUG
-    char str[MAX_KMER_SIZE+1];
-    BinaryKmer bkmer;
-    bkmer = db_graph_oriented_bkmer(graph, nodes[0].node, nodes[0].orient);
-    binary_kmer_to_str(bkmer, kmer_size, str);
-    printf("%s", str);
-    for(i = 1; i < len; i++) {
-      BinaryKmer bkmer = db_node_bkmer(graph, nodes[i].node);
-      char c = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
-      putc(binary_nuc_to_char(c), stdout);
-    }
-    printf("\n");
-  #endif
+  // to add a path
+  hkey_t node;
+  Orientation orient;
+  size_t start_fw, start_rv, pos;
+  PathIndex prev_index, new_index;
+  PathLen plen;
+  Nucleotide *bases;
 
   for(i = 0; i < len; i++)
   {
-    if(i+1 < len && outdegree[i] > 1) {
-      BinaryKmer bkmer = db_node_bkmer(graph, nodes[i+1].node);
+    edges = db_node_col_edges(graph, ctx_col, nodes[i].node);
+    outdegree = edges_get_outdegree(edges, nodes[i].orient);
+    indegree = edges_get_indegree(edges, nodes[i].orient);
+
+    if(outdegree > 1 && i+1 < len) {
+      bkmer = db_node_bkmer(graph, nodes[i+1].node);
       nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
       nuc_fw[num_fw] = nuc;
       pos_fw[num_fw++] = i;
-      if(!db_node_has_col(graph, nodes[i+1].node, ctx_col)) {
-        // Add inferred kmer
-        db_node_set_col(graph, nodes[i+1].node, ctx_col);
-        fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
-        num_inferred_kmers++;
-      }
+      // if(!db_node_has_col(graph, nodes[i+1].node, ctx_col)) {
+      //   // Add inferred kmer
+      //   db_node_set_col(graph, nodes[i+1].node, ctx_col);
+      //   fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
+      //   num_inferred_kmers++;
+      // }
     }
-    if(i > 0 && indegree[i] > 1) {
-      BinaryKmer bkmer = db_node_bkmer(graph, nodes[i-1].node);
+    if(indegree > 1 && i > 0) {
+      bkmer = db_node_bkmer(graph, nodes[i-1].node);
       nuc = nodes[i-1].orient == FORWARD
               ? binary_nuc_complement(binary_kmer_first_nuc(bkmer, kmer_size))
               : binary_kmer_last_nuc(bkmer);
       nuc_rv[num_rv] = nuc;
       pos_rv[num_rv++] = i;
-      if(!db_node_has_col(graph, nodes[i-1].node, ctx_col)) {
-        // Add inferred kmer
-        db_node_set_col(graph, nodes[i-1].node, ctx_col);
-        fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
-        num_inferred_kmers++;
-      }
+      // if(!db_node_has_col(graph, nodes[i-1].node, ctx_col)) {
+      //   // Add inferred kmer
+      //   db_node_set_col(graph, nodes[i-1].node, ctx_col);
+      //   fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
+      //   num_inferred_kmers++;
+      // }
     }
   }
 
-  if(num_rv == 0 || num_fw == 0)
-  {
-    // DEV: what about inferred kmers up to here
-    pthread_mutex_unlock(&add_paths_mutex);
-    return;
-  }
+  if(num_fw == 0 || num_rv == 0) return;
 
   // Reverse rv
   size_t tmp_pos;
@@ -216,47 +199,30 @@ static void add_read_path(const dBNode *nodes, size_t len,
     SWAP(nuc_rv[i], nuc_rv[j], nuc);
   }
 
-  #ifdef DEBUG
-    printf("fw ");
-    for(i = 0; i < num_fw; i++)
-      printf(" %i:%c", pos_fw[i], binary_nuc_to_char(nuc_fw[i]));
-    printf("\n");
-
-    printf("rv ");
-    for(i = 0; i < num_rv; i++)
-      printf(" %i:%c", pos_rv[i], binary_nuc_to_char(nuc_rv[i]));
-    printf("\n");
-  #endif
-
-  // to add a path
-  hkey_t node;
-  Orientation orient;
-  size_t start_fw, start_rv;
-  PathIndex prev_index, new_index;
-  PathLen plen;
-  Nucleotide *bases;
+  // Get Lock
+  pthread_mutex_lock(&add_paths_mutex);
 
   //
   // Generate paths going backwards through the contig
   //
   #ifdef DEBUG
     printf("==REV==\n");
+    char str[MAX_KMER_SIZE+1];
   #endif
 
-  for(start_rv = 0, start_fw = num_fw-1; ; start_fw--)
+  for(start_rv = 0, start_fw = num_fw-1; start_fw != SIZE_MAX; start_fw--)
   {
     while(start_rv < num_rv && pos_rv[start_rv] > pos_fw[start_fw]) start_rv++;
     if(start_rv == num_rv) break;
 
-    size_t pos = pos_fw[start_fw] + 1;
-    if(start_rv > 0 && pos_rv[start_rv-1] == pos) start_rv--;
+    pos = pos_fw[start_fw] + 1;
+    start_rv -= (start_rv > 0 && pos_rv[start_rv-1] == pos);
 
-    node = nodes[pos].node;
-    orient = rev_orient(nodes[pos].orient);
-
-    prev_index = db_node_paths(graph, node);
     bases = nuc_rv + start_rv;
     plen = num_rv - start_rv;
+    node = nodes[pos].node;
+    orient = rev_orient(nodes[pos].orient);
+    prev_index = db_node_paths(graph, node);
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
@@ -266,9 +232,6 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
     new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
     if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
-
-    if(start_fw == 0) break;
-    // break;
   }
 
   //
@@ -278,20 +241,19 @@ static void add_read_path(const dBNode *nodes, size_t len,
     printf("==FWD==\n");
   #endif
 
-  for(start_fw = 0, start_rv = num_rv-1; ; start_rv--)
+  for(start_fw = 0, start_rv = num_rv-1; start_rv != SIZE_MAX; start_rv--)
   {
     while(start_fw < num_fw && pos_fw[start_fw] < pos_rv[start_rv]) start_fw++;
     if(start_fw == num_fw) break;
 
-    size_t pos = pos_rv[start_rv] - 1;
-    if(start_fw > 0 && pos_fw[start_fw-1] == pos) start_fw--;
+    pos = pos_rv[start_rv] - 1;
+    start_fw -= (start_fw > 0 && pos_fw[start_fw-1] == pos);
 
-    node = nodes[pos].node;
-    orient = nodes[pos].orient;
-
-    prev_index = db_node_paths(graph, node);
     bases = nuc_fw + start_fw;
     plen = num_fw - start_fw;
+    node = nodes[pos].node;
+    orient = nodes[pos].orient;
+    prev_index = db_node_paths(graph, node);
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
@@ -301,9 +263,6 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
     new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
     if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
-
-    if(start_rv == 0) break;
-    // break;
   }
 
   // Free lock
@@ -439,7 +398,7 @@ void read_to_path(AddPathsWorker *worker)
 
   for(i = 1; i < nodebuf->len; i++) {
     if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
-       edges_get_indegree(db_node_col_edges(db_graph,0,node),
+       edges_get_indegree(db_node_col_edges(db_graph,job->ctx_col,node),
                           nodebuf->data[i].orient) > 0)
     {
       useful_path_info = true;
@@ -464,7 +423,7 @@ void read_to_path(AddPathsWorker *worker)
     if(!useful_path_info && nodebuf->len > 0) {
       for(i = r2_start; i+1 < nodebuf->len; i++) {
         if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
-           edges_get_outdegree(db_node_col_edges(db_graph,0,node),
+           edges_get_outdegree(db_node_col_edges(db_graph,job->ctx_col,node),
                                nodebuf->data[i].orient) > 0)
         {
           useful_path_info = true;
@@ -779,15 +738,15 @@ void add_paths_set_colours(PathsWorkerPool *pool,
 }
 
 void add_read_paths_to_graph(PathsWorkerPool *pool,
-                             const char *path1, const char *path2,
+                             seq_file_t *sf1, seq_file_t *sf2,
                              uint32_t gap_limit,
                              const SeqLoadingPrefs *prefs,
                              SeqLoadingStats *stats)
 {
   pool->gap_limit = gap_limit;
 
-  if(path2 == NULL)
-    seq_parse_se(path1, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
+  if(sf2 == NULL)
+    seq_parse_se_sf(sf1, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
   else
-    seq_parse_pe(path1, path2, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
+    seq_parse_pe_sf(sf1, sf2, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
 }

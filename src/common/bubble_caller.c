@@ -78,7 +78,7 @@ static void print_calling_header(const dBGraph *db_graph, gzFile out,
   //   gzprintf(out, "##ctx_refcol=%i\n", cmd->ref_colour);
 
   // Print colours we're calling in
-  gzprintf(out, "##ctxNumCallingUsedInColours=%i\n", db_graph->num_of_cols_used);
+  gzprintf(out, "##ctxNumColoursUsedInCalling=%i\n", db_graph->num_of_cols_used);
 
   StrBuf *sample_name = strbuf_new();
 
@@ -97,7 +97,7 @@ static void print_calling_header(const dBGraph *db_graph, gzFile out,
        strchr(sname, '\n') != NULL)
     {
       strbuf_reset(sample_name);
-      strbuf_sprintf(sample_name, "sample%u", col);
+      strbuf_sprintf(sample_name, "sample%zu", col);
     }
     else {
       strbuf_set(sample_name, ginfo->sample_name.buff);
@@ -670,7 +670,7 @@ void* bubble_caller(void *args)
   for(; ptr < end; ptr++) {
     if(HASH_ENTRY_ASSIGNED(*ptr)) {
       hkey_t node = ptr - table;
-      Edges edges = db_graph->edges[node];
+      Edges edges = db_node_edges(db_graph, node);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
         find_bubbles(node, FORWARD, db_graph, &wlk, visited,
                      snode_hash, spp_hash, node_store, or_store,

@@ -7,13 +7,14 @@
 #include "path_store.h"
 #include "graph_format.h"
 
-dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
-                        uint32_t num_of_cols, uint64_t capacity)
+dBGraph* db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
+                        size_t num_of_cols, size_t num_edge_cols,
+                        uint64_t capacity)
 {
   size_t i;
   dBGraph tmp = {.kmer_size = kmer_size, .num_of_cols = num_of_cols,
-                 .num_of_cols_used = 0,
-                 .edges = NULL, .col_edges = NULL, .col_covgs = NULL,
+                 .num_edge_cols = num_edge_cols, .num_of_cols_used = 0,
+                 .col_edges = NULL, .col_covgs = NULL,
                  .node_in_cols = NULL, .kmer_paths = NULL, .readstrt = NULL};
 
   memcpy(db_graph, &tmp, sizeof(dBGraph));
@@ -26,7 +27,7 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
   char capacity_str[100];
   ulong_to_str(capacity, capacity_str);
 
-  status("[graph] kmer-size: %u; colours: %u; capacity: %s\n",
+  status("[graph] kmer-size: %zu; colours: %zu; capacity: %s\n",
          kmer_size, num_of_cols, capacity_str);
 
   return db_graph;
@@ -40,8 +41,7 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, uint32_t kmer_size,
 
 //   dBGraph tmp = {.ht = db_graph->ht, .kmer_size = db_graph->kmer_size,
 //                  .num_of_cols = num_of_cols, .num_of_cols_used = num_of_cols_used,
-//                  .ginfo = db_graph->ginfo,
-//                  .edges = db_graph->edges, .col_edges = db_graph->col_edges,
+//                  .ginfo = db_graph->ginfo, .col_edges = db_graph->col_edges,
 //                  .col_covgs = db_graph->col_covgs,
 //                  .node_in_cols = db_graph->node_in_cols,
 //                  .kmer_paths = db_graph->kmer_paths,
@@ -91,6 +91,8 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
                        Orientation src_orient, Orientation tgt_orient)
 {
+  if(db_graph->col_edges == NULL) return;
+
   BinaryKmer src_bkmer = db_node_bkmer(db_graph, src_node);
   BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt_node);
 
@@ -101,14 +103,8 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
   Nucleotide lhs_nuc_rev = binary_nuc_complement(lhs_nuc);
   Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
 
-  if(db_graph->col_edges != NULL) {
-    db_node_set_col_edge(db_graph, colour, src_node, rhs_nuc, src_orient);
-    db_node_set_col_edge(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
-  }
-  if(db_graph->edges != NULL) {
-    db_node_set_edge(db_graph, src_node, rhs_nuc, src_orient);
-    db_node_set_edge(db_graph, tgt_node, lhs_nuc_rev, tgt_orient_opp);
-  }
+  db_node_set_col_edge(db_graph, colour, src_node, rhs_nuc, src_orient);
+  db_node_set_col_edge(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
 }
 
 //
@@ -230,7 +226,6 @@ static void prune_nodes_lacking_flag_no_edges(hkey_t node, dBGraph *db_graph,
 // Remove edges to nodes where !db_node_has_flag(node, flag)
 void db_graph_prune_nodes_lacking_flag(dBGraph *db_graph, uint64_t *flags)
 {
-  assert(db_graph->edges == NULL);
   if(db_graph->col_edges != NULL) {
     HASH_TRAVERSE(&db_graph->ht, prune_nodes_lacking_flag, db_graph, flags);
   }
@@ -243,8 +238,6 @@ void db_graph_prune_nodes_lacking_flag(dBGraph *db_graph, uint64_t *flags)
 // Removed edges from nodes that connected to the given `node`
 static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 {
-  // assert(db_graph->edges != NULL);
-
   BinaryKmer bkmer = db_node_bkmer(db_graph, node);
   hkey_t next_node;
   Orientation or, next_or;
@@ -272,12 +265,8 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 
         remove_edge_mask = ~nuc_orient_to_edge(lost_nuc, rev_orient(next_or));
 
-        if(db_graph->edges != NULL)
-          db_graph->edges[next_node] &= remove_edge_mask;
-
-        if(db_graph->col_edges != NULL)
-          for(col = 0; col < db_graph->num_of_cols; col++)
-            db_node_col_edges(db_graph, col, next_node) &= remove_edge_mask;
+        for(col = 0; col < db_graph->num_edge_cols; col++)
+          db_node_col_edges(db_graph, col, next_node) &= remove_edge_mask;
       }
     }
   }
@@ -286,14 +275,11 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 void db_graph_prune_node(dBGraph *db_graph, hkey_t node)
 {
   size_t col;
-  Edges uedges = db_node_union_edges(db_graph, node);
+  Edges uedges = db_node_col_edges_union(db_graph, node);
   prune_connected_nodes(db_graph, node, uedges);
 
-  if(db_graph->edges != NULL)
-    db_node_reset_edges(db_graph, node);
-
   if(db_graph->col_edges != NULL)
-    for(col = 0; col < db_graph->num_of_cols; col++)
+    for(col = 0; col < db_graph->num_edge_cols; col++)
       db_node_col_edges(db_graph,col,node) = 0;
 
   prune_node_without_edges(db_graph, node);
@@ -307,13 +293,13 @@ void db_graph_prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len)
     db_graph_prune_node(db_graph, nodes[0]);
     db_graph_prune_node(db_graph, nodes[len-1]);
 
-    size_t i;
+    size_t i, col;
     for(i = 1; i+1 < len; i++)
       prune_node_without_edges(db_graph, nodes[i]);
 
-    if(db_graph->edges != NULL)
-      for(i = 1; i+1 < len; i++)
-        db_node_reset_edges(db_graph, nodes[i]);
+    for(i = 1; i+1 < len; i++)
+      for(col = 0; col < db_graph->num_edge_cols; col++)
+        db_node_col_edges(db_graph, col, nodes[i]) = 0;
   }
 }
 

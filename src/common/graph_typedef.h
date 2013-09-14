@@ -4,7 +4,7 @@
 #include "string_buffer.h"
 #include "hash_table.h"
 
-typedef uint8_t Colour;
+typedef size_t Colour;
 typedef uint8_t Edges;
 typedef uint32_t Covg;
 
@@ -54,15 +54,14 @@ typedef struct
 typedef struct
 {
   HashTable ht;
-  const uint32_t kmer_size, num_of_cols;
-  uint32_t num_of_cols_used; // how many colours currently used
+  // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
+  const size_t kmer_size, num_of_cols, num_edge_cols;
+  size_t num_of_cols_used; // how many colours currently used
 
   // Array of GraphInfo objects, one per colour
   GraphInfo *ginfo;
 
   // Optional fields:
-  Edges *edges; // [hkey]
-  // Covg *covgs;
 
   // Colour specific arrays
   // cast to 2d array with:

@@ -36,7 +36,7 @@ int main(int argc, char **argv)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
   // probe paths file
-  const char *input_paths_file = args.ctp_path;
+  const char *input_paths_file = args.ctp_files[0];
 
   boolean valid_paths_file = false;
   PathFileHeader pheader = {.capacity = 0};
@@ -61,12 +61,12 @@ int main(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, path_mem;
 
   bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols + sizeof(uint64_t)*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+  kmers_in_hash = cmd_get_kmers_in_hash(&args, bits_per_kmer,
                                         gheader.num_of_kmers, true);
-  path_mem = args->mem_to_use -
+  path_mem = args.mem_to_use -
              kmers_in_hash * (sizeof(BinaryKmer)+bits_per_kmer/8);
 
-  // size_t hash_kmers, req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
+  size_t req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
   // size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
   // size_t path_mem = args.mem_to_use - hash_mem;
 
@@ -77,12 +77,12 @@ int main(int argc, char **argv)
   dBGraph db_graph;
   GraphWalker wlk;
 
-  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, req_num_kmers);
+  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, 1, req_num_kmers);
   graph_walker_alloc(&wlk);
 
   size_t node_bit_fields = round_bits_to_words64(db_graph.ht.capacity);
 
-  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(node_bit_fields, sizeof(uint64_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 
     graph_walker_init(&wlk, &db_graph, 0, node, orient);
     lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
-    prev_junc = edges_get_outdegree(db_graph.edges[node], orient) > 1;
+    prev_junc = edges_get_outdegree(db_graph.col_edges[node], orient) > 1;
 
     // binary_kmer_to_str(wlk.bkmer, kmer_size, bkmerstr);
     // printf("%3zu %s\n", len, bkmerstr);
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
       }
       path[len++] = wlk.node;
       junc += prev_junc;
-      prev_junc = edges_get_outdegree(db_graph.edges[wlk.node], wlk.orient) > 1;
+      prev_junc = edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) > 1;
       // binary_kmer_to_str(wlk.bkmer, kmer_size, bkmerstr);
       // printf("%3zu %s\n", len, bkmerstr);
     }
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     for(j = 0; j < len; j++)
       db_node_fast_clear_traversed(visited, path[j]);
 
-    if(edges_get_outdegree(db_graph.edges[wlk.node], wlk.orient) == 0) dead_ends++;
+    if(edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) == 0) dead_ends++;
     // {
       lengths[n] = len;
       junctions[n] = junc;
@@ -205,7 +205,7 @@ int main(int argc, char **argv)
   status("Median junctions per contig: %f\n", median_junc);
 
   free(visited);
-  free(db_graph.edges);
+  free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void*)db_graph.kmer_paths);
   free(path_store);

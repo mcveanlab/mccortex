@@ -41,19 +41,9 @@ static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
   dst->remv_low_cov_nodes_thresh = MAX2(dst->remv_low_cov_nodes_thresh,
                                         src->remv_low_cov_nodes_thresh);
 
-  if(src->is_graph_intersection &&
-     src->intersection_name.len > 0 &&
-     strcmp(src->intersection_name.buff,"undefined") != 0)
-  {
-    if(strcmp(dst->intersection_name.buff,"undefined") == 0) {
-      strbuf_set(&dst->intersection_name,
-                 src->intersection_name.buff);
-    } else {
-      strbuf_append_char(&dst->intersection_name, ',');
-      strbuf_append_str(&dst->intersection_name,
-                        src->intersection_name.buff);
-    }
-  }
+  if(src->is_graph_intersection)
+    graph_info_set_intersect(dst, src->intersection_name.buff);
+
   dst->is_graph_intersection |= src->is_graph_intersection;
 }
 
@@ -77,6 +67,31 @@ void graph_info_dealloc(GraphInfo *ginfo)
 {
   strbuf_dealloc(&ginfo->sample_name);
   error_cleaning_dealloc(&ginfo->cleaning);
+}
+
+void graph_info_make_intersect(const GraphInfo *ginfo, StrBuf *intersect_name)
+{
+  if(intersect_name->len > 0) strbuf_append_char(intersect_name, ',');
+  strbuf_append_str(intersect_name, ginfo->sample_name.buff);
+
+  if(ginfo->cleaning.is_graph_intersection) {
+    strbuf_append_char(intersect_name, ',');
+    strbuf_append_str(intersect_name, ginfo->cleaning.intersection_name.buff);
+  }
+}
+
+void graph_info_set_intersect(ErrorCleaning *cleaning, const char *intersect_name)
+{
+  if(!cleaning->is_graph_intersection)
+  {
+    strbuf_set(&cleaning->intersection_name, intersect_name);
+  }
+  else
+  {
+    strbuf_append_char(&cleaning->intersection_name, ',');
+    strbuf_append_str(&cleaning->intersection_name, intersect_name);
+  }
+  cleaning->is_graph_intersection = true;
 }
 
 void graph_info_update_contigs(GraphInfo *ginfo,

@@ -142,6 +142,7 @@ int ctx_extend(CmdArgs *args)
 
   char *input_ctx_path, *input_fa_path, *out_fa_path;
   uint32_t dist;
+  seq_file_t *seq_fa_file;
 
   input_ctx_path = argv[2];
   input_fa_path = argv[3];
@@ -155,7 +156,7 @@ int ctx_extend(CmdArgs *args)
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
-  if(!test_file_readable(input_fa_path))
+  if((seq_fa_file = seq_open(input_fa_path)) == NULL)
     print_usage(usage, "Cannot read input FASTA/FASTQ/SAM/BAM file: %s", input_fa_path);
 
   if(!parse_entire_uint(argv[4], &dist))
@@ -179,8 +180,8 @@ int ctx_extend(CmdArgs *args)
 
   // Set up dBGraph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gheader.kmer_size, 1, kmers_in_hash);
-  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph_alloc(&db_graph, gheader.kmer_size, 1, 1, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   size_t visited_words = 2*round_bits_to_words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(visited_words, sizeof(Edges));
@@ -223,7 +224,7 @@ int ctx_extend(CmdArgs *args)
   read_t r1, r2;
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
-  seq_parse_se(input_fa_path, &r1, &r2, &prefs, stats, extend_reads, &contig);
+  seq_parse_se_sf(seq_fa_file, &r1, &r2, &prefs, stats, extend_reads, &contig);
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 
@@ -236,7 +237,7 @@ int ctx_extend(CmdArgs *args)
   db_node_buf_dealloc(&readbufrv);
   seq_loading_stats_free(stats);
   free(visited);
-  free(db_graph.edges);
+  free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

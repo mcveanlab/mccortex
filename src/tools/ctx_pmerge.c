@@ -126,7 +126,7 @@ int ctx_pmerge(CmdArgs *args)
   // Set up graph and PathStore
   dBGraph db_graph;
 
-  db_graph_alloc(&db_graph, ctp_kmer_size, ctp_num_of_cols, kmers_in_hash);
+  db_graph_alloc(&db_graph, ctp_kmer_size, ctp_num_of_cols, 0, kmers_in_hash);
 
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));

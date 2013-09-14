@@ -452,7 +452,7 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
     num_paths = pickup_paths(paths, wlk, index, prev_orients[i], true);
     wlk->num_counter -= num_paths;
 
-    edges = db_node_union_edges(wlk->db_graph, prev_nodes[i]);
+    edges = db_node_col_edges_union(wlk->db_graph, prev_nodes[i]);
     if(edges_get_outdegree(edges, prev_orients[i]) > 1) {
       new_paths = wlk->counter_paths + wlk->num_counter;
       for(j = 0, k = 0; j < num_paths; j++) {
@@ -489,7 +489,7 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
 
   orient = opposite_orientation(orient);
 
-  Edges edges = db_node_union_edges(db_graph, node) &
+  Edges edges = db_node_col_edges_union(db_graph, node) &
                 ~nuc_orient_to_edge(binary_nuc_complement(prev_nuc),orient);
 
   num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, orient, edges,
@@ -504,7 +504,8 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk,
 boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
-  Edges edges = db_node_union_edges(db_graph, wlk->node);
+  // Edges edges = db_node_col_edges_union(db_graph, wlk->node);
+  Edges edges = db_node_col_edges(db_graph, wlk->colour, wlk->node);
   edges = edges_with_orientation(edges, wlk->orient);
 
   hkey_t nodes[4];

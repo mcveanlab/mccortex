@@ -64,38 +64,10 @@ int ctx_pview(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         pheader.num_kmers_with_paths, true);
 
-  // size_t kmers_in_hash, ideal_capacity, req_num_kmers;
-  // size_t hash_mem, graph_mem, path_mem;
-
-  // ideal_capacity = pheader.num_kmers_with_paths / IDEAL_OCCUPANCY;
-  // req_num_kmers = args->num_kmers_set ? args->num_kmers : ideal_capacity;
-  // hash_mem = hash_table_mem(req_num_kmers, &kmers_in_hash);
-
-  // graph_mem = hash_mem +
-  //                    kmers_in_hash * sizeof(uint64_t); // kmer_paths
-
-  // path_mem = args->mem_to_use - graph_mem;
-
-  // char graph_mem_str[100], path_mem_str[100];
-  // bytes_to_str(graph_mem, 1, graph_mem_str);
-  // bytes_to_str(path_mem, 1, path_mem_str);
-
-  // status("[memory]  graph: %s;  paths: %s\n", graph_mem_str, path_mem_str);
-
-  // if(kmers_in_hash < pheader.num_kmers_with_paths) {
-  //   print_usage(usage, "Not enough kmers in the hash, require: %s "
-  //                      "(set bigger -h <kmers> or -m <mem>)", kmers_with_paths_str);
-  // }
-  // else if(kmers_in_hash < pheader.num_kmers_with_paths / WARN_OCCUPANCY)
-  //   warn("Low memory for binary size (require: %s)", kmers_with_paths_str);
-
-  // if(args->mem_to_use_set && graph_mem > args->mem_to_use)
-  //   die("Not enough memory (please increase -m <mem>)");
-
   // Allocate memory
   // db graph is required to store the end position for each kmer list
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, pheader.kmer_size, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, pheader.kmer_size, 1, 0, kmers_in_hash);
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));

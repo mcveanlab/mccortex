@@ -24,10 +24,10 @@ static const char usage[] =
 "    --fastq   print output as gzipped FASTQ [default]\n"
 "    --invert  print reads/read pairs with no kmer in graph\n"
 "\n"
-"    --se <in> <out>         Writes output to <out>.fq.gz\n"
-"    --pe <in1> <in2> <out>  Writes output to <out>.1.fq.gz, <out>.2.fq.gz\n"
+"    --seq <in> <out>         Writes output to <out>.fq.gz\n"
+"    --seq2 <in1> <in2> <out>  Writes output to <out>.1.fq.gz, <out>.2.fq.gz\n"
 "\n"
-"      Can specify --se/--pe multiple times.\n";
+"      Can specify --seq/--seq2 multiple times.\n";
 
 typedef struct {
   char *in1, *in2;
@@ -158,6 +158,8 @@ int ctx_reads(CmdArgs *args)
   // Check output is writable
 
   boolean use_fq = false, use_fa = false, invert = false;
+  seq_file_t *seqfiles[argc];
+  size_t num_sf = 0, sf = 0;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
@@ -165,19 +167,20 @@ int ctx_reads(CmdArgs *args)
     if(strcasecmp(argv[argi], "--fastq") == 0) use_fq = true;
     else if(strcasecmp(argv[argi], "--fasta") == 0) use_fa = true;
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
-    else if(strcasecmp(argv[argi], "--se") == 0)
+    else if(strcasecmp(argv[argi], "--seq") == 0)
     {
       if(argi + 2 >= argc) print_usage(usage, "Missing arguments");
-      char *in = argv[argi+1];
-      if(!test_file_readable(in)) print_usage(usage, "Cannot read: %s", in);
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read --seq file: %s", argv[argi+1]);
       argi += 2;
     }
-    else if(strcasecmp(argv[argi], "--pe") == 0)
+    else if(strcasecmp(argv[argi], "--seq2") == 0)
     {
       if(argi + 4 >= argc) print_usage(usage, "Missing arguments");
-      char *in1 = argv[argi+1], *in2 = argv[argi+2];
-      if(!test_file_readable(in1)) print_usage(usage, "Cannot read: %s", in1);
-      if(!test_file_readable(in2)) print_usage(usage, "Cannot read: %s", in2);
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read first --seq2 file: %s", argv[argi+1]);
+      if((seqfiles[num_sf++] = seq_open(argv[argi+2])) == NULL)
+        die("Cannot read second --seq2 file: %s", argv[argi+2]);
       argi += 3;
     }
     else print_usage(usage, "Unexpected argument: %s", argv[argi]);
@@ -201,7 +204,7 @@ int ctx_reads(CmdArgs *args)
   boolean is_binary = false;
   uint32_t kmer_size = 0;
   uint64_t max_num_kmers = 0;
-  GraphFileHeader gheader;
+  GraphFileHeader gheader = {.capacity = 0};
 
   for(i = 0; i < num_binaries; i++)
   {
@@ -231,11 +234,11 @@ int ctx_reads(CmdArgs *args)
   //
   for(argi = 0; argi < argend; argi++)
   {
-    if(strcasecmp(argv[argi],"--se") == 0) {
+    if(strcasecmp(argv[argi],"--seq") == 0) {
       check_outfile_exists(argv[argi+2], false, use_fq);
       argi += 2;
     }
-    else if(strcasecmp(argv[argi],"--pe") == 0) {
+    else if(strcasecmp(argv[argi],"--seq2") == 0) {
       check_outfile_exists(argv[argi+3], true, use_fq);
       argi += 3;
     }
@@ -245,7 +248,7 @@ int ctx_reads(CmdArgs *args)
   // Set up graph
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);
 
   // Load binaries
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -280,8 +283,8 @@ int ctx_reads(CmdArgs *args)
 
   for(argi = 0; argi < argend; argi++)
   {
-    char is_se = (strcasecmp(argv[argi], "--se") == 0);
-    char is_pe = (strcasecmp(argv[argi], "--pe") == 0);
+    char is_se = (strcasecmp(argv[argi], "--seq") == 0);
+    char is_pe = (strcasecmp(argv[argi], "--seq2") == 0);
 
     if(is_se || is_pe)
     {
@@ -324,11 +327,13 @@ int ctx_reads(CmdArgs *args)
       if(is_pe) {
         status("reading: %s %s\n", in1, in2);
         status("writing: %s %s\n", path1, path2);
-        seq_parse_pe(in1, in2, &r1, &r2, &prefs, stats, filter_reads, &data);
+        seq_parse_pe_sf(seqfiles[sf++], seqfiles[sf++], &r1, &r2,
+                        &prefs, stats, filter_reads, &data);
       } else {
         status("reading: %s\n", in1);
         status("writing: %s\n", path1);
-        seq_parse_se(in1, &r1, &r2, &prefs, stats, filter_reads, &data);
+        seq_parse_se_sf(seqfiles[sf++], &r1, &r2,
+                        &prefs, stats, filter_reads, &data);
       }
 
       gzclose(data.out1);

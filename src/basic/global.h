@@ -14,6 +14,7 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <assert.h>
+#include <zlib.h>
 
 typedef signed char boolean;
 

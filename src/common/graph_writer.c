@@ -215,10 +215,11 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
 
   // Construct binary header
   GraphFileHeader header = {.version = version,
-                             .kmer_size = db_graph->kmer_size,
-                             .num_of_bitfields = NUM_BKMER_WORDS,
-                             .num_of_cols = num_of_cols,
-                             .num_of_kmers = db_graph->ht.unique_kmers};
+                            .kmer_size = db_graph->kmer_size,
+                            .num_of_bitfields = NUM_BKMER_WORDS,
+                            .num_of_cols = num_of_cols,
+                            .num_of_kmers = db_graph->ht.unique_kmers,
+                            .capacity = 0};
 
   GraphInfo header_ginfo[num_of_cols];
 

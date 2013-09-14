@@ -9,6 +9,7 @@
 #include "binary_kmer.h"
 #include "hash_table.h"
 #include "db_graph.h"
+#include "graph_info.h"
 #include "db_node.h"
 #include "graph_format.h"
 #include "seq_reader.h"
@@ -131,7 +132,7 @@ int ctx_subgraph(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 4) print_usage(usage, NULL);
 
-  char *seed_files[argc];
+  seq_file_t *seed_files[argc];
   size_t num_seed_files = 0;
   boolean invert = false;
 
@@ -142,9 +143,8 @@ int ctx_subgraph(CmdArgs *args)
     {
       if(argi+1 == argc)
         print_usage(usage, "--seed <seed.fa> requires and argument");
-      seed_files[num_seed_files++] = argv[argi+1];
-      if(!test_file_readable(argv[argi+1]))
-        die("Cannot read seed file: %s", argv[argi+1]);
+      if((seed_files[num_seed_files++] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read --seed file: %s", argv[argi+1]);
       argi++;
     }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
@@ -161,20 +161,16 @@ int ctx_subgraph(CmdArgs *args)
   if(num_binaries_int <= 0)
     print_usage(usage, "Please specify input graph files (.ctx)");
 
-  size_t i, num_binaries = num_binaries_int;
+  size_t i, col, kmer_size, num_binaries = num_binaries_int;
   char **binary_paths = argv + 2*num_seed_files + 2;
 
   //
   // Probe binaries to get kmer_size
   //
   boolean is_binary = false;
-  uint32_t kmer_size;
   uint32_t ctx_num_of_cols[num_binaries], ctx_max_cols[num_binaries];
   uint64_t max_num_kmers = 0;
   GraphFileHeader gheader = {.capacity = 0};
-
-  StrBuf intersect_gname;
-  strbuf_alloc(&intersect_gname, 1024);
 
   for(i = 0; i < num_binaries; i++)
   {
@@ -185,9 +181,9 @@ int ctx_subgraph(CmdArgs *args)
 
     if(i == 0) {
       kmer_size = gheader.kmer_size;
-      strbuf_set(&intersect_gname, gheader.ginfo[0].sample_name.buff);
-    } else if(kmer_size != gheader.kmer_size) {
-      die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
+    }
+    else if(kmer_size != gheader.kmer_size) {
+      die("Graph kmer-sizes do not match [%zu vs %u; %s; %s]\n",
           kmer_size, gheader.kmer_size, binary_paths[i-1], binary_paths[i]);
     }
 
@@ -226,7 +222,7 @@ int ctx_subgraph(CmdArgs *args)
     die("Cannot write to output file: %s", out_path);
 
   // Create db_graph with one colour
-  db_graph_alloc(&db_graph, kmer_size, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
 
@@ -255,8 +251,18 @@ int ctx_subgraph(CmdArgs *args)
                            .empty_colours = true,
                            .db_graph = &db_graph};
 
-  for(i = 0; i < num_binaries; i++)
-    graph_load(binary_paths[i], &prefs, stats, NULL);
+  StrBuf intersect_gname;
+  strbuf_alloc(&intersect_gname, 1024);
+
+  for(i = 0; i < num_binaries; i++) {
+    graph_load(binary_paths[i], &prefs, stats, &gheader);
+
+    for(col = 0; col < gheader.num_of_cols; col++)
+      graph_info_make_intersect(&gheader.ginfo[col], &intersect_gname);
+  }
+
+  strbuf_insert(&intersect_gname, 0, "subgraph:{", strlen("subgraph:"));
+  strbuf_append_char(&intersect_gname, '}');
 
   size_t num_of_binary_kmers = stats->kmers_loaded;
 
@@ -265,7 +271,7 @@ int ctx_subgraph(CmdArgs *args)
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
   for(i = 0; i < num_seed_files; i++)
-    seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
+    seq_parse_se_sf(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 
@@ -279,7 +285,7 @@ int ctx_subgraph(CmdArgs *args)
   {
     // Get edge nodes
     for(i = 0; i < num_seed_files; i++)
-      seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
+      seq_parse_se_sf(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
 
     size_t i, d;
     for(d = 1; d < dist; d++)
@@ -310,6 +316,7 @@ int ctx_subgraph(CmdArgs *args)
   if(num_binaries == 1 && ctx_num_of_cols[0] == 1)
   {
     // We have all the info to dump now
+    graph_info_set_intersect(&db_graph.ginfo[0].cleaning, intersect_gname.buff);
     graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
   }
   else

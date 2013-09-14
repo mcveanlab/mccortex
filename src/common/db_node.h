@@ -101,30 +101,26 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
         __builtin_popcount(edges_with_orientation(edges,rev_orient(or)))
 
 
-#define db_node_has_edge(graph,hkey,nuc,or) \
-        edges_has_edge((graph)->edges[hkey],(nuc),(or))
-#define db_node_del_edge(graph,hkey,nuc,or) \
-        ((graph)->edges[hkey] = edges_del_edge((graph)->edges[hkey],(nuc),(or)))
-#define db_node_set_edge(graph,hkey,nuc,or) \
-        ((graph)->edges[hkey] = edges_set_edge((graph)->edges[hkey],(nuc),(or)))
+// #define db_node_has_edge(graph,hkey,nuc,or) \
+//         edges_has_edge((graph)->edges[hkey],(nuc),(or))
+// #define db_node_del_edge(graph,hkey,nuc,or) \
+//         ((graph)->edges[hkey] = edges_del_edge((graph)->edges[hkey],(nuc),(or)))
+// #define db_node_set_edge(graph,hkey,nuc,or) \
+//         ((graph)->edges[hkey] = edges_set_edge((graph)->edges[hkey],(nuc),(or)))
 
-#define db_node_edges(graph,hkey) ((graph)->edges[hkey])
-#define db_node_reset_edges(graph,hkey) ((graph)->edges[hkey] = 0)
+#define db_node_edges(graph,hkey) db_node_col_edges(graph,0,hkey)
+#define db_node_reset_edges(graph,hkey) (db_node_edges(graph,hkey) = 0)
 
 #define db_node_col_edges(graph,col,hkey) \
-        ((graph)->col_edges[(hkey)*(graph)->num_of_cols + col])
+        ((graph)->col_edges[(hkey)*(graph)->num_edge_cols + col])
 
 #define db_node_col_edges_union(graph,hkey) \
-        edges_get_union((graph)->col_edges+(hkey)*(graph)->num_of_cols, \
-                        (graph)->num_of_cols)
-
-#define db_node_union_edges(graph,hkey) \
-        ((graph)->edges == NULL ? db_node_col_edges_union(graph,hkey) \
-                                : (graph)->edges[hkey])
+        edges_get_union((graph)->col_edges+(hkey)*(graph)->num_edge_cols, \
+                        (graph)->num_edge_cols)
 
 #define db_node_set_col_edge(graph,col,hkey,nuc,or) \
-((graph)->col_edges[(hkey)*(graph)->num_of_cols + col] \
-  = edges_set_edge((graph)->col_edges[(hkey)*(graph)->num_of_cols + col],(nuc),(or)))
+        (db_node_col_edges(graph,col,hkey) \
+           = edges_set_edge(db_node_col_edges(graph,col,hkey), (nuc), (or)))
 
 Edges edges_get_union(const Edges *edges, size_t num);
 

@@ -433,26 +433,27 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
         die("Couldn't read kmer size line: %s=%s", tag, value);
       ch->kmer_size = kmer_size;
     }
-    else if(strcasecmp(tag, "ctxNumCallingUsedInColours") == 0)
+    else if(strcasecmp(tag, "ctxNumColoursUsedInCalling") == 0)
     {
       if(ch->num_samples != 0) die("duplicate header line: %s", line->buff);
 
-      ch->num_samples = 1;
-      char *str = value;
-      while((str = strchr(str, ',')) != NULL) { str++; ch->num_samples++; }
+      uint32_t num_samples;
+      if(!parse_entire_uint(value, &num_samples))
+        die("parse error on line: %s", line->buff);
+      ch->num_samples = num_samples;
 
       ch->sample_names = malloc2(ch->num_samples*sizeof(char*));
     }
     else if(strncasecmp(tag, "sample", 6) == 0)
     {
-      if(ch->sample_names == NULL) die("missing 'ctxNumCallingUsedInColours=' line");
+      if(ch->sample_names == NULL) die("missing 'ctxNumColoursUsedInCalling=' line");
 
       strbuf_ensure_capacity(tmp, line->len);
       if(sscanf(line->buff, "##SAMPLE=<ID=%[^,],", tmp->buff) != 1)
         die("parse error on line: %s", line->buff);
 
       if(sampleid >= ch->num_samples)
-        die("more samples than expected in header");
+        die("more samples than expected in header [%zu > %zu]", sampleid, ch->num_samples);
 
       tmp->len = strlen(tmp->buff);
       ch->sample_names[sampleid++] = strbuf_as_str(tmp);

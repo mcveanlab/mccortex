@@ -1,5 +1,6 @@
 #include "global.h"
 #include "seq_file.h"
+#include "sam.h"
 
 #include "util.h"
 #include "binary_kmer.h"
@@ -230,58 +231,55 @@ static void process_new_read(read_t *r, int qmin, int qmax, const char *path)
 
 // Returns -1 if no quality scores
 // Defaults to 0 if not recognisable (offset:33, min:33, max:126)
-int guess_fastq_format(const char *path)
+int guess_fastq_format(seq_file_t *sf)
 {
   // Detect fastq offset
   int min_qual = INT_MAX, max_qual = INT_MIN;
-  int fmt = seq_guess_fastq_format(path, 500, &min_qual, &max_qual);
+  int fmt = seq_guess_fastq_format(sf, &min_qual, &max_qual);
 
   if(prev_guess_fastq_format != fmt && fmt != -1)
   {
-    int min = 0, max = 0;
-    seq_get_qual_limits(path, 500, &min, &max);
-
     prev_guess_fastq_format = fmt;
     status("%s: Qual scores: %s [offset: %i, range: [%i,%i], sample: [%i,%i]]\n",
-           path, FASTQ_FORMATS[fmt], FASTQ_OFFSET[fmt],
-           FASTQ_MIN[fmt], FASTQ_MAX[fmt], min, max);
+           sf->path, FASTQ_FORMATS[fmt], FASTQ_OFFSET[fmt],
+           FASTQ_MIN[fmt], FASTQ_MAX[fmt], min_qual, max_qual);
+  }
+
+
+  // Test min and max fastq scores
+  if(fmt != -1)
+  {
+    int qoffset = FASTQ_OFFSET[fmt], qmax = FASTQ_MAX[fmt];
+
+    if(min_qual > qoffset + 20)
+    {
+      warn("Input file has min quality score %i but qoffset is set to %i: %s\n"
+           "  Have you predefined an incorrect fastq offset? "
+           "Or is cortex guessing it wrong?", min_qual, qoffset, sf->path);
+    }
+    else if(max_qual > qmax + 20)
+    {
+      warn("Input file has max quality score %i but expected qmax is to %i: %s\n"
+           "  Have you predefined an incorrect fastq offset? "
+           "Or is cortex guessing it wrong?", max_qual, qoffset, sf->path);
+    }
   }
 
   return fmt;
 }
 
-// Test min and max fastq scores for first 500bp
-void test_file_qual_offset(const char *path, int qoffset, int qmax)
-{
-  int tmp_min = -1, tmp_max = -1;
-  if(seq_get_qual_limits(path, 500, &tmp_min, &tmp_max) > 0)
-  {
-    if(tmp_min > qoffset + 20)
-    {
-      warn("Input file has min quality score %i but qoffset is set to %i: %s\n"
-           "  Have you predefined an incorrect fastq offset? "
-           "Or is cortex guessing it wrong?", tmp_min, qoffset, path);
-    }
-    else if(tmp_max > qmax + 20)
-    {
-      warn("Input file has max quality score %i but expected qmax is to %i: %s\n"
-           "  Have you predefined an incorrect fastq offset? "
-           "Or is cortex guessing it wrong?", tmp_min, qoffset, path);
-    }
-  }
-}
 
-void seq_parse_pe(const char *path1, const char *path2,
-                  read_t *r1, read_t *r2,
-                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-                  void (*read_func)(read_t *_r1, read_t *_r2,
-                                    int _qoffset1, int _qoffset2,
-                                    const SeqLoadingPrefs *_prefs,
-                                    SeqLoadingStats *_stats,
-                                    void *_ptr),
-                  void *reader_ptr)
+void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2,
+                     read_t *r1, read_t *r2,
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     void (*read_func)(read_t *_r1, read_t *_r2,
+                                       int _qoffset1, int _qoffset2,
+                                       const SeqLoadingPrefs *_prefs,
+                                       SeqLoadingStats *_stats,
+                                       void *_ptr),
+                     void *reader_ptr)
 {
-  status("Parsing files %s %s\n", path1, path2);
+  status("Parsing files %s %s\n", sf1->path, sf2->path);
   // Guess offset if needed
   int qoffset1 = prefs->ascii_fq_offset, qoffset2 = prefs->ascii_fq_offset;
   int qmin1 = prefs->ascii_fq_offset, qmin2 = prefs->ascii_fq_offset;
@@ -290,34 +288,19 @@ void seq_parse_pe(const char *path1, const char *path2,
   if(prefs->ascii_fq_offset == 0)
   {
     int fmt1, fmt2;
-    if((fmt1 = guess_fastq_format(path1)) != -1) {
+    if((fmt1 = guess_fastq_format(sf1)) != -1) {
       qmin1 = FASTQ_MIN[fmt1];
       qmax1 = FASTQ_MAX[fmt1];
       qoffset1 = FASTQ_OFFSET[fmt1];
     }
-    if((fmt2 = guess_fastq_format(path2)) != -1) {
+    if((fmt2 = guess_fastq_format(sf2)) != -1) {
       qmin2 = FASTQ_MIN[fmt2];
       qmax2 = FASTQ_MAX[fmt2];
       qoffset2 = FASTQ_OFFSET[fmt2];
     }
   }
-  test_file_qual_offset(path1, qoffset1, qmax1);
-  test_file_qual_offset(path2, qoffset2, qmax2);
 
   init_bases_check();
-
-  seq_file_t *sf1, *sf2;
-  if((sf1 = seq_open(path1)) == NULL)
-  {
-    fprintf(stderr, "Error cannot read: %s\n", path1);
-    exit(EXIT_FAILURE);
-  }
-  if((sf2 = seq_open(path2)) == NULL)
-  {
-    fprintf(stderr, "Error cannot read: %s\n", path2);
-    exit(EXIT_FAILURE);
-  }
-
   int success1, success2;
 
   while(1)
@@ -334,8 +317,8 @@ void seq_parse_pe(const char *path1, const char *path2,
     if(success1 <= 0 || success2 <= 0) break;
 
     // pe
-    process_new_read(r1, qmin1, qmax1, path1);
-    process_new_read(r2, qmin2, qmax2, path2);
+    process_new_read(r1, qmin1, qmax1, sf1->path);
+    process_new_read(r2, qmin2, qmax2, sf2->path);
     // seq_read_reverse_complement(r2); // now done later
     read_func(r1, r2, qoffset1, qoffset2, prefs, stats, reader_ptr);
     stats->num_pe_reads += 2;
@@ -347,35 +330,27 @@ void seq_parse_pe(const char *path1, const char *path2,
   stats->num_files_loaded += 2;
 }
 
-void seq_parse_se(const char *path, read_t *r1, read_t *r2,
-                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-                  void (*read_func)(read_t *r1, read_t *r2,
-                                    int qoffset1, int qoffset2,
-                                    const SeqLoadingPrefs *prefs,
-                                    SeqLoadingStats *stats,
-                                    void *ptr),
-                  void *reader_ptr)
+void seq_parse_se_sf(seq_file_t *sf, read_t *r1, read_t *r2,
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     void (*read_func)(read_t *r1, read_t *r2,
+                                       int qoffset1, int qoffset2,
+                                       const SeqLoadingPrefs *prefs,
+                                       SeqLoadingStats *stats,
+                                       void *ptr),
+                     void *reader_ptr)
 {
-  status("Parsing file %s\n", path);
+  status("Parsing file %s\n", sf->path);
 
   // Guess offset if needed
   int qoffset = prefs->ascii_fq_offset;
   int qmin = prefs->ascii_fq_offset, qmax = 126;
-
   int format;
-  if(prefs->ascii_fq_offset == 0 && (format = guess_fastq_format(path)) != -1)
+
+  if(prefs->ascii_fq_offset == 0 && (format = guess_fastq_format(sf)) != -1)
   {
     qmin = FASTQ_MIN[format];
     qmax = FASTQ_MAX[format];
     qoffset = FASTQ_OFFSET[format];
-  }
-  test_file_qual_offset(path, qoffset, qmax);
-
-  seq_file_t *sf;
-  if((sf = seq_open(path)) == NULL)
-  {
-    fprintf(stderr, "Error cannot read: %s\n", path);
-    exit(EXIT_FAILURE);
   }
 
   init_bases_check();
@@ -386,7 +361,7 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
     int s;
     while((s = seq_read(sf, r1)) > 0)
     {
-      process_new_read(r1, qmin, qmax, path);
+      process_new_read(r1, qmin, qmax, sf->path);
       read_func(r1, NULL, qoffset, 0, prefs, stats, reader_ptr);
       stats->num_se_reads++;
     }
@@ -430,8 +405,8 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
       if(have_mate)
       {
         // pe
-        process_new_read(r1, qmin, qmax, path);
-        process_new_read(r2, qmin, qmax, path);
+        process_new_read(r1, qmin, qmax, sf->path);
+        process_new_read(r2, qmin, qmax, sf->path);
         // seq_read_reverse_complement(r2); // now done later
         read_func(r1, r2, qoffset, qoffset, prefs, stats, reader_ptr);
         stats->num_pe_reads += 2;
@@ -439,7 +414,7 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
       else
       {
         // se
-        process_new_read(r1, qmin, qmax, path);
+        process_new_read(r1, qmin, qmax, sf->path);
         read_func(r1, NULL, qoffset, 0, prefs, stats, reader_ptr);
         stats->num_se_reads++;
       }
@@ -448,6 +423,36 @@ void seq_parse_se(const char *path, read_t *r1, read_t *r2,
 
   seq_close(sf);
   stats->num_files_loaded++;
+}
+
+void seq_parse_pe(const char *path1, const char *path2,
+                  read_t *r1, read_t *r2,
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                  void (*read_func)(read_t *_r1, read_t *_r2,
+                                    int _qoffset1, int _qoffset2,
+                                    const SeqLoadingPrefs *_prefs,
+                                    SeqLoadingStats *_stats,
+                                    void *_ptr),
+                  void *reader_ptr)
+{
+  seq_file_t *sf1, *sf2;
+  if((sf1 = seq_open(path1)) == NULL) die("Cannot open: %s", path1);
+  if((sf2 = seq_open(path2)) == NULL) die("Cannot open: %s", path2);
+  seq_parse_pe_sf(sf1, sf2, r1, r2, prefs, stats, read_func, reader_ptr);
+}
+
+void seq_parse_se(const char *path, read_t *r1, read_t *r2,
+                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                  void (*read_func)(read_t *_r1, read_t *_r2,
+                                    int _qoffset1, int _qoffset2,
+                                    const SeqLoadingPrefs *_prefs,
+                                    SeqLoadingStats *_stats,
+                                    void *_ptr),
+                  void *reader_ptr)
+{
+  seq_file_t *sf;
+  if((sf = seq_open(path)) == NULL) die("Cannot open: %s", path);
+  seq_parse_se_sf(sf, r1, r2, prefs, stats, read_func, reader_ptr);
 }
 
 //

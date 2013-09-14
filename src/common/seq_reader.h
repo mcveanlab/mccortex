@@ -20,6 +20,25 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
 int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *buffer);
 
+void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2,
+                     read_t *r1, read_t *r2,
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     void (*read_func)(read_t *_r1, read_t *_r2,
+                                       int _qoffset1, int _qoffset2,
+                                       const SeqLoadingPrefs *_prefs,
+                                       SeqLoadingStats *_stats,
+                                       void *_ptr),
+                     void *reader_ptr);
+
+void seq_parse_se_sf(seq_file_t *sf, read_t *r1, read_t *r2,
+                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                     void (*read_func)(read_t *r1, read_t *r2,
+                                       int qoffset1, int qoffset2,
+                                       const SeqLoadingPrefs *prefs,
+                                       SeqLoadingStats *stats,
+                                       void *ptr),
+                     void *reader_ptr);
+
 void seq_parse_pe(const char *path1, const char *path2,
                   read_t *r1, read_t *r2,
                   const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,

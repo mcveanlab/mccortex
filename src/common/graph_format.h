@@ -8,7 +8,8 @@
 
 // graph file format version
 #define CTX_GRAPH_FILEFORMAT 6
-#define CTX_BUF_SIZE (1UL<<22)
+// 4MB buffer
+#define CTX_BUF_SIZE (4UL<<20)
 
 typedef struct
 {

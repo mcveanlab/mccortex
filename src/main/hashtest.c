@@ -30,7 +30,7 @@ int main(int argc, char **argv)
   size_t kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, true);
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, args.kmer_size, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, args.kmer_size, 1, 0, kmers_in_hash);
   hash_table_print_stats(&db_graph.ht);
 
   BinaryKmer bkmer;

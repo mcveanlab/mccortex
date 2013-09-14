@@ -77,8 +77,9 @@ int ctx_covg(CmdArgs *args)
 
   uint32_t kmer_size = gheader.kmer_size;
 
-  if(!test_file_readable(in_vcf_path))
-    print_usage(usage, "Cannot read input VCF: %s", in_vcf_path);
+  gzFile vcf;
+  if((vcf = gzopen(in_vcf_path, "r")) == NULL)
+    die("Couldn't open file: %s", in_vcf_path);
 
   size_t i, num_col_given = argc - 5;
   uint32_t colours[num_col_given];
@@ -106,8 +107,8 @@ int ctx_covg(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, cols_used, kmers_in_hash);
-  db_graph.edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph_alloc(&db_graph, kmer_size, cols_used, 1, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * cols_used, sizeof(Covg));
 
   // Print mem usage
@@ -117,14 +118,9 @@ int ctx_covg(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load sequence from VCF to build hash table
-  gzFile vcf;
-
   StrBuf line, contig;
   strbuf_alloc(&line, 1024);
   strbuf_alloc(&contig, 1024);
-
-  if((vcf = gzopen(in_vcf_path, "r")) == NULL)
-    die("Couldn't open file: %s", in_vcf_path);
 
   // Read header
   uint32_t num_samples = parse_vcf_header(&line, vcf, false, in_vcf_path);

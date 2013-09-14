@@ -14,13 +14,14 @@ int supernode_extend(const dBGraph *db_graph,
                      size_t offset, boolean *cycle, size_t *arrlen,
                      boolean resize)
 {
+  assert(db_graph->num_edge_cols == 1);
+
   hkey_t node = (*nlist)[offset];
   Orientation orient = (*olist)[offset];
   size_t num_nodes = offset+1, kmer_size = db_graph->kmer_size;
   Nucleotide nuc;
   BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
-  const Edges *edges = db_graph->edges != NULL ? db_graph->edges
-                                               : db_graph->col_edges;
+  const Edges *edges = db_graph->col_edges;
 
   while(edges_has_precisely_one_edge(edges[node], orient, &nuc))
   {

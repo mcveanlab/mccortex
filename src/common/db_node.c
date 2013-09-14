@@ -52,6 +52,8 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 
 Edges edges_get_union(const Edges *edges_arr, size_t num)
 {
+  if(num == 1) return edges_arr[0];
+
   // Slow version
   // Edges edges = 0; size_t i;
   // for(i = 0; i < NUM_OF_COLOURS; i++) edges |= edges_arr[i];

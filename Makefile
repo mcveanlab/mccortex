@@ -104,7 +104,7 @@ endif
 
 CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS) $(HASH_KEY_FLAGS)
+         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS) $(HASH_KEY_FLAGS) -D_USESAM=1
 
 # basic objects compile without MAXK
 # common and tool objects require MAXK

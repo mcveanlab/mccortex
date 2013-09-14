@@ -1,8 +1,5 @@
-
 #ifndef DELTA_ARR_H_
 #define DELTA_ARR_H_
-
-#include <zlib.h>
 
 typedef struct
 {

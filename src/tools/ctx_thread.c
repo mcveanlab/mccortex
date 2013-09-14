@@ -9,6 +9,7 @@
 #include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
+#include "seq_reader.h"
 
 static const char usage[] =
 "usage: "CMD" thread [options] <popsize> <out.ctp> <pop.ctx> <in.ctx>[:cols] [in2.ctx ...]\n"
@@ -73,6 +74,9 @@ int ctx_thread(CmdArgs *args)
   uint32_t graph_col, path_col, num_of_path_cols = 0, out_ctp_cols = 0;
   uint32_t path_colours[argc], graph_colours[argc];
 
+  seq_file_t *seqfiles[argc];
+  size_t num_sf = 0, sf = 0;
+
   int argi;
   boolean used_last_path = false;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
@@ -81,12 +85,12 @@ int ctx_thread(CmdArgs *args)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--col <ctxcol> <ctpcol> requires an argument");
+      if(num_of_path_cols > 0 && !used_last_path)
+        print_usage(usage, "--seq or --seq2 must follow --col");
       if(!parse_entire_uint(argv[argi+1], &graph_col))
         print_usage(usage, "--col <ctxcol> <ctpcol> requires integers >= 0");
       if(!parse_entire_uint(argv[argi+2], &path_col))
         print_usage(usage, "--col <ctxcol> <ctpcol> requires integers >= 0");
-      if(num_of_path_cols > 0 && !used_last_path)
-        print_usage(usage, "--seq or --seq2 must follow --col");
       graph_colours[num_of_path_cols] = graph_col;
       path_colours[num_of_path_cols++] = path_col;
       used_last_path = false;
@@ -96,7 +100,8 @@ int ctx_thread(CmdArgs *args)
     {
       if(argi+1 == argc)
         print_usage(usage, "--seq <in.fa> requires an argument");
-      if(!test_file_readable(argv[argi+1])) die("Cannot read: %s", argv[argi+1]);
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read --seq file: %s", argv[argi+1]);
       if(num_of_path_cols == 0)
         die("--seq <in.fa> before --col <ctxcol> <ctpcol>");
       used_last_path = true;
@@ -106,10 +111,12 @@ int ctx_thread(CmdArgs *args)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> requires two arguments");
-      if(!test_file_readable(argv[argi+1])) die("Cannot read: %s", argv[argi+1]);
-      if(!test_file_readable(argv[argi+2])) die("Cannot read: %s", argv[argi+2]);
       if(num_of_path_cols == 0)
         die("--seq2 <in1.fa> <in2.fa> before --col <ctxcol> <ctpcol>");
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read first --seq2 file: %s", argv[argi+1]);
+      if((seqfiles[num_sf++] = seq_open(argv[argi+2])) == NULL)
+        die("Cannot read second --seq2 file: %s", argv[argi+2]);
       used_last_path = true;
       argi += 2;
     }
@@ -135,7 +142,7 @@ int ctx_thread(CmdArgs *args)
   qsort(path_colours, num_of_path_cols, sizeof(uint32_t), cmp_uint32);
   for(i = 0; i < num_of_path_cols; i++) {
     if(i+1 < num_of_path_cols && path_colours[i] == path_colours[i+1])
-      print_usage(usage, "Duplicate --col <ctpcol> given");
+      print_usage(usage, "Duplicate --col <ctpcol> given: %u", path_colours[i]);
     if(path_colours[i] >= out_ctp_cols) {
       print_usage(usage, "output path colour >= number of path colours [%u >= %u]",
                   path_colours[i], out_ctp_cols);
@@ -245,7 +252,7 @@ int ctx_thread(CmdArgs *args)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, popgheader.kmer_size, 2, kmers_in_hash);
+  db_graph_alloc(&db_graph, popgheader.kmer_size, 2, 2, kmers_in_hash);
 
   // Edges
   db_graph.col_edges = calloc2(2 * kmers_in_hash, sizeof(uint8_t));
@@ -332,12 +339,12 @@ int ctx_thread(CmdArgs *args)
         argi += 2;
       }
       else if(strcmp(argv[argi], "--seq") == 0) {
-        add_read_paths_to_graph(pool, argv[argi+1], NULL, gap_limit,
+        add_read_paths_to_graph(pool, seqfiles[sf++], NULL, gap_limit,
                                 &prefs, stats);
         argi += 1;
       }
       else if(strcmp(argv[argi], "--seq2") == 0) {
-        add_read_paths_to_graph(pool, argv[argi+1], argv[argi+2], gap_limit,
+        add_read_paths_to_graph(pool, seqfiles[sf++], seqfiles[sf++], gap_limit,
                                 &prefs, stats);
         argi += 2;
       }
@@ -366,7 +373,7 @@ int ctx_thread(CmdArgs *args)
 
   fclose(fout);
 
-  free(db_graph.edges);
+  free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
   free(path_store);

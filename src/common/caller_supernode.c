@@ -65,7 +65,7 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   last_or = snode->orients[snode->num_of_nodes-1];
 
   // Prev nodes
-  union_edges = edges_with_orientation(db_graph->edges[first_node], first_or);
+  union_edges = edges_with_orientation(db_node_edges(db_graph, first_node), first_or);
   bkmer = db_node_bkmer(db_graph, first_node);
 
   for(nuc = 0; nuc < 4; nuc++) {
@@ -78,7 +78,7 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   }
 
   // Next nodes
-  union_edges = edges_with_orientation(db_graph->edges[last_node], last_or);
+  union_edges = edges_with_orientation(db_node_edges(db_graph, last_node), last_or);
   bkmer = db_node_bkmer(db_graph, last_node);
 
   for(nuc = 0; nuc < 4; nuc++) {

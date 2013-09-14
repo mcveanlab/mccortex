@@ -93,6 +93,8 @@ int ctx_build(CmdArgs *args)
   int argi, argend = argc-1;
   uint32_t tmp;
   GraphFileHeader gheader = {.capacity = 0};
+  seq_file_t *seqfiles[argc];
+  size_t num_sf = 0, sf = 0;
 
   for(argi = 0; argi < argend; argi++)
   {
@@ -124,7 +126,7 @@ int ctx_build(CmdArgs *args)
         print_usage(usage, "Please use --sample <name> before giving sequence");
       if(argi + 1 >= argend)
         print_usage(usage, "--seq <file> requires an argument");
-      if(!test_file_readable(argv[argi+1]))
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file: %s", argv[argi+1]);
       argi += 1;
       sample_used = true;
@@ -134,9 +136,9 @@ int ctx_build(CmdArgs *args)
         print_usage(usage, "Please use --sample <name> before giving sequence");
       if(argi + 2 >= argend)
         print_usage(usage, "--seq2 <file1> <file2> requires two arguments");
-      if(!test_file_readable(argv[argi+1]))
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read first --seq2 file: %s", argv[argi+1]);
-      if(!test_file_readable(argv[argi+2]))
+      if((seqfiles[num_sf++] = seq_open(argv[argi+2])) == NULL)
         die("Cannot read second --seq2 file: %s", argv[argi+2]);
       argi += 2;
       sample_used = true;
@@ -187,7 +189,7 @@ int ctx_build(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, colours_used, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, colours_used, colours_used, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity * colours_used, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * colours_used, sizeof(Covg));
 
@@ -243,8 +245,8 @@ int ctx_build(CmdArgs *args)
     else if(strcmp(argv[argi],"--seq") == 0) {
       if(show_prefs) print_prefs(&prefs);
       show_prefs = false;
-      seq_parse_se(argv[argi+1], &r1, &r2, &prefs, stats,
-                   seq_load_into_db_graph, NULL);
+      seq_parse_se_sf(seqfiles[sf++], &r1, &r2, &prefs, stats,
+                      seq_load_into_db_graph, NULL);
       update_ginfo(&db_graph.ginfo[prefs.into_colour],
                    stats, &bases_loaded, &contigs_loaded);
       argi += 1;
@@ -252,8 +254,8 @@ int ctx_build(CmdArgs *args)
     else if(strcmp(argv[argi],"--seq2") == 0) {
       if(show_prefs) print_prefs(&prefs);
       show_prefs = false;
-      seq_parse_pe(argv[argi+1], argv[argi+2], &r1, &r2, &prefs, stats,
-                   seq_load_into_db_graph, NULL);
+      seq_parse_pe_sf(seqfiles[sf++], seqfiles[sf++], &r1, &r2, &prefs, stats,
+                      seq_load_into_db_graph, NULL);
       update_ginfo(&db_graph.ginfo[prefs.into_colour],
                    stats, &bases_loaded, &contigs_loaded);
       argi += 2;
@@ -264,7 +266,7 @@ int ctx_build(CmdArgs *args)
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
       prefs.into_colour++;
-      status("[sample] %u: %s\n", prefs.into_colour, argv[argi+1]);
+      status("[sample] %zu: %s\n", prefs.into_colour, argv[argi+1]);
       strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
       argi += 1;
     }
