@@ -5,9 +5,12 @@
 # 500 inversions of size 1-100bp (50 * 500 = 0.025%)
 
 INPUT_SEQ=../chr21.1Mb.fa.gz
-SNPS=10000
-INDELS=5000
-INV=500
+NINDIVS=1
+PLOIDY=2
+KMER=31
+NSNPS=10000
+NINDELS=5000
+NINV=500
 INVLEN=100
 READLEN=100
 MPSIZE=450
@@ -19,7 +22,7 @@ CTX2=../../../bin/ctx31
 PROGS=$(CTX) $(CTX2)
 
 all: $(INPUT_SEQ) $(PROGS)
-	../sample_diploid.sh $(INPUT_SEQ) $(SNPS) $(INDELS) $(INV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG)
+	../run-sample-pop.sh $(INPUT_SEQ) $(NINDIVS) $(PLOIDY) $(KMER) $(NSNPS) $(NINDELS) $(NINV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG)
 
 $(CTX):
 	cd ../../../../current; make NUM_SHADES=8

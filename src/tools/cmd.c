@@ -217,19 +217,26 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
   size_t kmers_in_hash, hash_mem, graph_mem, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
+  boolean above_nkmers = false;
 
   bits_per_kmer = 8*sizeof(BinaryKmer) + extra_bits_per_kmer;
 
-  if(args->num_kmers_set)
+  if(args->num_kmers_set) {
     req_kmers = args->num_kmers;
+    above_nkmers = true;
+  }
   else if(use_mem_limit && args->mem_to_use_set)
     req_kmers = (8 * args->mem_to_use) / bits_per_kmer;
-  else if(min_num_kmers > 0)
+  else if(min_num_kmers > 0) {
     req_kmers = min_num_kmers / IDEAL_OCCUPANCY;
-  else
+    above_nkmers = true;
+  }
+  else {
     req_kmers = args->num_kmers; // take default
+    above_nkmers = true;
+  }
 
-  hash_mem = hash_table_mem(req_kmers, &kmers_in_hash);
+  hash_mem = hash_table_mem(req_kmers, above_nkmers, &kmers_in_hash);
   graph_mem = hash_mem + (kmers_in_hash * extra_bits_per_kmer) / 8;
   min_kmers_mem = (min_num_kmers * bits_per_kmer) / 8;
 
@@ -245,14 +252,13 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
   }
 
   if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY) {
-    warn("Warning expected hash table occupancy %.2f%% "
+    warn("Expected hash table occupancy %.2f%% "
          "(you may want to increase -h or -m)",
-         (double)min_num_kmers/kmers_in_hash);
+         (100.0 * min_num_kmers) / kmers_in_hash);
   }
 
   if(args->mem_to_use_set && args->num_kmers_set) {
     if(graph_mem > args->mem_to_use) {
-
       die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
           graph_mem_str, mem_to_use_str);
     }

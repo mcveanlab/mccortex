@@ -132,7 +132,7 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
     for(nuc = 0; nuc < 4; nuc++) {
       if(edges & nuc) {
         for(colour = 1; colour < db_graph->num_of_cols_used; colour++) {
-          graph_walker_init(wlk, db_graph, colour, node, orient);
+          graph_walker_init(wlk, db_graph, colour, colour, node, orient);
 
           // DEV: call path
           diverge_call_path(node, orient, wlk);

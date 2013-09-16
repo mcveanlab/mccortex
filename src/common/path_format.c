@@ -165,8 +165,8 @@ void paths_graph_compatibility_check(const PathFileHeader *pheader,
 {
   if(db_graph->kmer_size != pheader->kmer_size)
     die("Kmer sizes do not match between graph and path file");
-  if(db_graph->num_of_cols != pheader->num_of_cols)
-    die("Number of colours does not match between graph and path file");
+  // if(db_graph->num_of_cols != pheader->num_of_cols)
+  //   die("Number of colours does not match between graph and path file");
 
   if(pheader->num_path_bytes > db_graph->pdata.size) {
     die("Not enough memory allocated to store paths [mem: %zu]",

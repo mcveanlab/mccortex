@@ -323,7 +323,7 @@ int ctx_thread(CmdArgs *args)
 
         uint64_t prev_num_kmers = stats->kmers_loaded;
         graph_load_colour(binary_paths[ctxindex], &prefs, stats,
-                           load_colours[ctxindex][ctxcol]);
+                          load_colours[ctxindex][ctxcol]);
         
         // Check number of kmers loaded is not greater than pop graph
         uint64_t ctx_num_kmers = stats->kmers_loaded - prev_num_kmers;

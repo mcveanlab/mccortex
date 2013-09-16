@@ -254,12 +254,18 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
 
   fclose(fout);
 
-  char num_kmer_str[100];
-  ulong_to_str(num_of_nodes_dumped, num_kmer_str);
-
-  status("Dumped %s kmers in %u colour%s into: %s (format version: %u)\n",
-         num_kmer_str, num_of_cols, num_of_cols != 1 ? "s" : "",
-         path, version);
+  graph_write_status(num_of_nodes_dumped, num_of_cols, path, version);
 
   return num_of_nodes_dumped;
+}
+
+void graph_write_status(uint64_t nkmers, size_t ncols,
+                        const char *path, uint32_t version)
+{
+  char num_kmer_str[100];
+  ulong_to_str(nkmers, num_kmer_str);
+
+  status("Dumped %s kmers in %zu colour%s into: %s (format version: %u)\n",
+         num_kmer_str, ncols, ncols != 1 ? "s" : "",
+         path, version);
 }

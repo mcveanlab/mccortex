@@ -23,10 +23,12 @@ READLEN=$9
 MPSIZE=${10}
 ALLELECOVG=${11}
 
+TLEN=$READLEN+$MPSIZE+$READLEN
+
 NCHROMS=$(($NUM_INDIVS * $PLOIDY))
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-OLDCTX="~/cortex/releases/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c$NUM_INDIVS --kmer_size $KMER --mem_width 15 --mem_height 15"
+OLDCTX="~/cortex/releases/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c$NUM_INDIVS --kmer_size $KMER --mem_height 18 --mem_width 20"
 BUILDCTX="$DIR/../../bin/ctx31 build"
 THREAD="$DIR/../../bin/ctx31 thread"
 CALL="$DIR/../../bin/ctx31 call"
@@ -35,6 +37,7 @@ PLACE="$DIR/../../bin/ctx31 place"
 BIOINF="$DIR/../../libs/bioinf-perl"
 HAPLEN="$DIR/longest-haplotype.sh"
 OLDCLEAN="$DIR/clean_bubbles.pl"
+READSIM="$DIR../../libs/readsim"
 
 
 if [[ ! -e $INPUT_SEQ ]]
@@ -57,9 +60,10 @@ LASTINDIV=$(($NUM_INDIVS-1))
 # Generate reads
 for i in $(seq 0 $LASTCHROM)
 do
+  # cmd $READSIM -r genome$i.fa -t $TLEN -v 0 -l $READLEN -d $ALLELECOVG ../emptyprofile.fq reads$i
   cmd $BIOINF/sim_mutations/sim_reads.pl --readlen $READLEN --mpsize $MPSIZE --covg $ALLELECOVG reads$i genome$i.fa
-  cmd "echo reads$i.0.fa >> reads.0.falist"
-  cmd "echo reads$i.1.fa >> reads.1.falist"
+  cmd "echo reads$i.0.fq.gz >> reads.0.falist"
+  cmd "echo reads$i.1.fq.gz >> reads.1.falist"
 done
 
 # Make diploid.ctx
@@ -77,8 +81,8 @@ cmd ctx31 join -m 100M pop.ctx diploid{0..$LASTINDIV}.ctx
 # Call with old bc
 cmd time $OLDCTX --multicolour_bin pop.ctx --detect_bubbles1 -1/-1 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
 # Fix buggy output from old bc
-# cmd mv diploid.oldbc.bubbles diploid.oldbc.bubbles.2
-# cmd "$OLDCLEAN $KMER diploid.oldbc.bubbles.2 > diploid.oldbc.bubbles"
+cmd mv diploid.oldbc.bubbles diploid.oldbc.bubbles.2
+cmd "$OLDCLEAN $KMER diploid.oldbc.bubbles.2 > diploid.oldbc.bubbles"
 cmd $PROC diploid.oldbc.bubbles diploid.oldbc
 cmd gzip -d -f diploid.oldbc.vcf.gz
 
@@ -87,7 +91,7 @@ cmd gzip -d -f diploid.oldbc.vcf.gz
 # mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
 
 # Call with new bc
-cmd time $CALL -t 1 -m 100MB pop.ctx diploid.newbc.bubbles.gz
+cmd time $CALL -t 1 pop.ctx diploid.newbc.bubbles.gz
 cmd $PROC diploid.newbc.bubbles.gz diploid.newbc
 cmd gzip -d -f diploid.newbc.vcf.gz
 
@@ -111,16 +115,16 @@ do
   SEPELIST="$SEPELIST --col $i $i $se $pe"
 done
 
-# cmd time $THREAD -t 1 -m 100MB $SELIST $NUM_INDIVS pop.se.ctp pop.ctx pop.ctx
-# cmd time $THREAD -t 1 -m 100MB $PELIST $NUM_INDIVS pop.pe.ctp pop.ctx pop.ctx
-# cmd time $THREAD -t 1 -m 100MB $SEPELIST $NUM_INDIVS pop.sepe.ctp pop.ctx pop.ctx
+cmd time $THREAD -t 1 $SELIST $NUM_INDIVS pop.se.ctp pop.ctx pop.ctx
+cmd time $THREAD -t 1 $PELIST $NUM_INDIVS pop.pe.ctp pop.ctx pop.ctx
+cmd time $THREAD -t 1 $SEPELIST $NUM_INDIVS pop.sepe.ctp pop.ctx pop.ctx
 
-# for x in se pe sepe
-# do
-#   cmd time $CALL -t 1 -m 100MB -p pop.$x.ctp pop.ctx diploid.pac.$x.bubbles.gz
-#   cmd $PROC diploid.pac.$x.bubbles.gz diploid.pac.$x
-#   cmd gzip -d -f diploid.pac.$x.vcf.gz
-# done
+for x in se pe sepe
+do
+  cmd time $CALL -t 1 -m 100MB -p pop.$x.ctp pop.ctx diploid.pac.$x.bubbles.gz
+  cmd $PROC diploid.pac.$x.bubbles.gz diploid.pac.$x
+  cmd gzip -d -f diploid.pac.$x.vcf.gz
+done
 
 # Generate truth VCF
 # MG is list of Mask+Genome files
@@ -134,22 +138,22 @@ cmd "$BIOINF/sim_mutations/sim_vcf.pl $KMER $MGLIST > truth.vcf"
 
 # Compare
 LVCF=truth.vcf
-cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.oldbc.vcf truth.oldbc.vcf OLDBC falsepos.oldbc.vcf genome{0..$LASTINDIV}.fa
+cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.oldbc.vcf truth.oldbc.vcf OLDBC falsepos.oldbc.vcf genome{0..$LASTCHROM}.fa
 cmd $HAPLEN diploid.oldbc.vcf
 LVCF=truth.oldbc.vcf
-cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.newbc.vcf truth.newbc.vcf NEWBC falsepos.newbc.vcf genome{0..$LASTINDIV}.fa
+cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.newbc.vcf truth.newbc.vcf NEWBC falsepos.newbc.vcf genome{0..$LASTCHROM}.fa
 cmd $HAPLEN diploid.newbc.vcf
 LVCF=truth.newbc.vcf
-# cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.newbc.shaded.vcf truth.shaded.vcf SHADED falsepos.shaded.vcf genome{0..$LASTINDIV}.fa
+# cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.newbc.shaded.vcf truth.shaded.vcf SHADED falsepos.shaded.vcf genome{0..$LASTCHROM}.fa
 # cmd $HAPLEN diploid.newbc.shaded.vcf
 # LVCF=truth.shaded.vcf
 
-# for x in se pe sepe
-# do
-#   cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.pac.$x.vcf truth.pac.$x.vcf PAC falsepos.pac.$x.vcf genome{0..$LASTINDIV}.fa
-#   cmd $HAPLEN diploid.pac.$x.vcf
-#   LVCF=truth.pac.$x.vcf
-# done
+for x in se pe sepe
+do
+  cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.pac.$x.vcf truth.pac.$x.vcf PAC falsepos.pac.$x.vcf genome{0..$LASTCHROM}.fa
+  cmd $HAPLEN diploid.pac.$x.vcf
+  LVCF=truth.pac.$x.vcf
+done
 
 # cmd $HAPLEN truth.vcf
 

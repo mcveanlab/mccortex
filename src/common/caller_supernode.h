@@ -19,12 +19,17 @@ typedef struct CallerSupernode CallerSupernode;
 typedef struct SupernodePath SupernodePath;
 typedef struct SupernodePathPos SupernodePathPos;
 
-struct CallerSupernode
+typedef struct
 {
   hkey_t *nodes;
   Orientation *orients;
+  size_t len, cap;
+} CallerNodeBuf;
 
-  size_t num_of_nodes;
+struct CallerSupernode
+{
+  CallerNodeBuf *nbuf;
+  size_t nbuf_offset, num_of_nodes;
 
   int num_prev, num_next;
   hkey_t prev_nodes[4], next_nodes[4];
@@ -48,15 +53,15 @@ struct SupernodePathPos
   SupernodePathPos *next;
 };
 
+#define snode_nodes(sn)   ((sn)->nbuf->nodes+(sn)->nbuf_offset)
+#define snode_orients(sn) ((sn)->nbuf->orients+(sn)->nbuf_offset)
+
 #define supernode_get_orientation(snode,node,or) \
-  ((node) == (snode)->nodes[0] && (or) == (snode)->orients[0] ? FORWARD : REVERSE)
+  ((node) == snode_nodes(snode)[0] && (or) == snode_orients(snode)[0] ? FORWARD : REVERSE)
 
 // Create a supernode strating at node/or.  Store in snode.
-// Ensure snode->nodes and snode->orients point to valid memory before passing
-// Returns 0 on failure, otherwise snode->num_of_nodes
-size_t caller_supernode_create(hkey_t node, Orientation or,
-                               CallerSupernode *snode, size_t limit,
-                               const dBGraph *db_graph);
+size_t caller_supernode_create(hkey_t node, Orientation orient,
+                               CallerSupernode *snode, const dBGraph *db_graph);
 
 #define supernode_pathpos_equal(a,b) (cmp_snpath_pos(a,b) == 0)
 

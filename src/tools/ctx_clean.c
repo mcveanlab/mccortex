@@ -463,9 +463,8 @@ int ctx_clean(CmdArgs *args)
       fclose(fh);
 
       // Message not printed yet for colour at a time approach
-      status("Dumped %zu kmers in %u colour%s into: %s (format version: %i)\n",
-             (size_t)db_graph.ht.unique_kmers, num_of_cols,
-             num_of_cols != 1 ? "s" : "", out_ctx_path, CTX_GRAPH_FILEFORMAT);
+      graph_write_status(db_graph.ht.unique_kmers, num_of_cols,
+                         out_ctx_path, CTX_GRAPH_FILEFORMAT);
     }
   }
 

@@ -307,10 +307,11 @@ int ctx_view(CmdArgs *args)
     uint64_t mem, capacity, num_buckets;
     uint8_t bucket_size;
 
-    hash_table_cap(outheader.num_of_kmers / 0.8, &num_buckets, &bucket_size);
+    hash_table_cap(outheader.num_of_kmers / IDEAL_OCCUPANCY, true,
+                   &num_buckets, &bucket_size);
     capacity = num_buckets * bucket_size;
     mem = capacity * (sizeof(BinaryKmer) +
-                      outheader.num_of_cols * (sizeof(Covg) + sizeof(Edges)));
+          outheader.num_of_cols * (sizeof(Covg) + sizeof(Edges)));
 
     char memstr[100], capacitystr[100], bucket_size_str[100], num_buckets_str[100];
     bytes_to_str(mem, 1, memstr);

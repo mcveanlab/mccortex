@@ -13,7 +13,7 @@ typedef struct
 typedef struct
 {
   const dBGraph *const db_graph;
-  const Colour colour;
+  const Colour ctxcol, ctpcol;
 
   // Current position
   hkey_t node;
@@ -34,7 +34,8 @@ void graph_walker_dealloc(GraphWalker *gw);
 void graph_walker_print_state(const GraphWalker *wlk);
 
 // Always call finish after calling init
-void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
+void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
+                       Colour ctxcol, Colour ctpcol,
                        hkey_t node, Orientation or);
 
 void graph_walker_finish(GraphWalker *wlk);

@@ -6,10 +6,10 @@ Variant calling with and without a reference genome. Between closely related
 samples or highly diverged ones. From bacterial to mammalian genomes. Minimal
 configuration. And it's free.
 
-Isaac Turner's experimental fork of cortex_var, to handle larger populations
+Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-28 August 2013
+14 September 2013
 
 Build
 -----
@@ -116,7 +116,6 @@ Bundled libraries may have different licenses:
 
 Used in testing:
 * bioinf-perl
-* cortex_binary_reader
 
 Citing
 ------

@@ -6,23 +6,24 @@
 #define BITEMS 1
 
 // Returns capacity
-size_t hash_table_cap(size_t max_capacity_kmers,
+size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
                       uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr)
 {
   uint64_t num_of_bits = 10;
-  while(max_capacity_kmers / (1UL << num_of_bits) > MAX_BUCKET_SIZE) num_of_bits++;
+  while(nkmers / (1UL << num_of_bits) > MAX_BUCKET_SIZE) num_of_bits++;
   uint64_t num_of_buckets = 1UL << num_of_bits;
-  uint64_t bucket_size = MAX2(max_capacity_kmers / num_of_buckets, 1);
+  if(above_nkmers) nkmers += num_of_buckets-1;
+  uint64_t bucket_size = MAX2(nkmers / num_of_buckets, 1);
   if(num_bckts_ptr != NULL) *num_bckts_ptr = num_of_buckets;
   if(bckt_size_ptr != NULL) *bckt_size_ptr = bucket_size;
   return num_of_buckets * bucket_size;
 }
 
-size_t hash_table_mem(size_t req_capacity_kmers, size_t *act_capacity_kmers)
+size_t hash_table_mem(size_t nkmers, boolean above_nkmers, size_t *act_capacty_kmers)
 {
   uint64_t num_of_buckets;
-  size_t capacity = hash_table_cap(req_capacity_kmers, &num_of_buckets, NULL);
-  if(act_capacity_kmers != NULL) *act_capacity_kmers = capacity;
+  size_t capacity = hash_table_cap(nkmers, above_nkmers, &num_of_buckets, NULL);
+  if(act_capacty_kmers != NULL) *act_capacty_kmers = capacity;
   return capacity * sizeof(BinaryKmer) + num_of_buckets*sizeof(uint8_t[2]);
 }
 
@@ -30,7 +31,7 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
 {
   uint64_t num_of_buckets;
   uint8_t bucket_size;
-  uint64_t capacity = hash_table_cap(req_capacity, &num_of_buckets, &bucket_size);
+  uint64_t capacity = hash_table_cap(req_capacity, true, &num_of_buckets, &bucket_size);
   uint32_t hash_mask = num_of_buckets - 1;
 
   char capacity_str[100];

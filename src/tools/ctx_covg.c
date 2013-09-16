@@ -50,12 +50,10 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
 
 int ctx_covg(CmdArgs *args)
 {
-  cmd_accept_options(args, "m");
-  cmd_require_options(args, "m", usage);
+  cmd_accept_options(args, "mh");
+  cmd_require_options(args, "mh", usage);
   int argc = args->argc;
   char **argv = args->argv;
-
-  size_t mem_to_use = args->mem_to_use;
 
   if(argc < 3) print_usage(usage, NULL);
 
@@ -97,13 +95,11 @@ int ctx_covg(CmdArgs *args)
 
   uint32_t cols_used = num_col_given > 0 ? num_col_given : gheader.num_of_cols;
 
-  // Figure out how much mem to use
-  size_t extra_mem_per_kmer, mem_per_kmer, kmers_in_hash, hash_mem, graph_mem;
-
-  extra_mem_per_kmer = sizeof(Edges) + sizeof(Covg)*cols_used;
-  mem_per_kmer = sizeof(BinaryKmer) + extra_mem_per_kmer;
-  hash_mem = hash_table_mem(mem_to_use / mem_per_kmer, &kmers_in_hash);
-  graph_mem = hash_mem + kmers_in_hash * extra_mem_per_kmer;
+  // Figure out how much memory to use
+  size_t bits_per_kmer, kmers_in_hash;
+  bits_per_kmer = (sizeof(Edges) + sizeof(Covg)*cols_used) * 8;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        gheader.num_of_kmers, true);
 
   // Create db_graph
   dBGraph db_graph;
@@ -112,9 +108,6 @@ int ctx_covg(CmdArgs *args)
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * cols_used, sizeof(Covg));
 
   // Print mem usage
-  char graph_mem_str[100];
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-  status("[memory]  graph: %s\n", graph_mem_str);
   hash_table_print_stats(&db_graph.ht);
 
   // Load sequence from VCF to build hash table

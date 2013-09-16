@@ -696,9 +696,8 @@ size_t binary_filter_graph(const char *out_ctx_path, char *in_ctx_path,
   fclose(in);
   fclose(out);
 
-  status("Dumped %zu kmers in %u colour%s into: %s\n",
-         nodes_dumped, outheader.num_of_cols,
-         outheader.num_of_cols != 1 ? "s" : "", out_ctx_path);
+  graph_write_status(db_graph->ht.unique_kmers, outheader.num_of_cols,
+                     out_ctx_path, CTX_GRAPH_FILEFORMAT);
 
   graph_header_dealloc(&inheader);
   graph_header_dealloc(&outheader);
@@ -754,7 +753,7 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
   else if(merge) output_colours = max_num_cols;
   else output_colours = sum_cols;
 
-  printf("output_colours: %u sum_cols %u\n", output_colours, sum_cols);
+  // printf("output_colours: %u sum_cols %u\n", output_colours, sum_cols);
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs
@@ -791,11 +790,11 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
     // Construct binary header
     GraphFileHeader tmpheader = {.capacity = 0};
     GraphFileHeader output_header = {.version = CTX_GRAPH_FILEFORMAT,
-                                      .kmer_size = db_graph->kmer_size,
-                                      .num_of_bitfields = NUM_BKMER_WORDS,
-                                      .num_of_cols = output_colours,
-                                      .num_of_kmers = db_graph->ht.unique_kmers,
-                                      .capacity = 0};
+                                     .kmer_size = db_graph->kmer_size,
+                                     .num_of_bitfields = NUM_BKMER_WORDS,
+                                     .num_of_cols = output_colours,
+                                     .num_of_kmers = db_graph->ht.unique_kmers,
+                                     .capacity = 0};
 
     graph_header_alloc(&tmpheader, max_num_cols);
     graph_header_alloc(&output_header, output_colours);
@@ -883,13 +882,12 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
     }
 
     fclose(fh);
+
+    graph_write_status(db_graph->ht.unique_kmers, output_colours,
+                       out_ctx_path, CTX_GRAPH_FILEFORMAT);
   }
 
   seq_loading_stats_free(stats);
-
-  status("Dumped %zu kmers in %u colour%s into: %s\n",
-         (size_t)db_graph->ht.unique_kmers, output_colours,
-         output_colours != 1 ? "s" : "", out_ctx_path);
 
   return db_graph->ht.unique_kmers;
 }

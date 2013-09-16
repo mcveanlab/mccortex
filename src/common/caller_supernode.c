@@ -21,13 +21,14 @@ static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
   }
 }
 
-// Create a supernode strating at node/or.  Store in snode.
+// Create a supernode starting at node/or.  Store in snode.
 // Ensure snode->nodes and snode->orients point to valid memory before passing
 // Returns 0 on failure, otherwise snode->num_of_nodes
-size_t caller_supernode_create(hkey_t node, Orientation or,
-                               CallerSupernode *snode, size_t limit,
-                               const dBGraph *db_graph)
+size_t caller_supernode_create(hkey_t node, Orientation orient,
+                               CallerSupernode *snode, const dBGraph *db_graph)
 {
+  assert(db_graph->num_edge_cols == 1);
+
   Nucleotide nuc;
   Edges union_edges;
   hkey_t first_node, last_node;
@@ -38,34 +39,46 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
     char tmpstr[MAX_KMER_SIZE+1];
     bkmer = db_node_bkmer(db_graph, node);
     binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
-    printf(" create %s:%i\n", tmpstr, (int)or);
+    printf(" create %s:%i\n", tmpstr, (int)orient);
   #endif
 
   // extend path
   boolean iscycle;
-  int len;
 
-  snode->nodes[0] = node;
-  snode->orients[0] = or;
-  len = supernode_extend(db_graph, &snode->nodes, &snode->orients, 0,
-                         &iscycle, &limit, false);
+  CallerNodeBuf *nbuf = snode->nbuf;
 
-  if(len == -1) return 0;
-  snode->num_of_nodes = len;
+  if(nbuf->len + 1 >= nbuf->cap) {
+    nbuf->cap *= 2;
+    nbuf->nodes = realloc2(nbuf->nodes, nbuf->cap * sizeof(hkey_t));
+    nbuf->orients = realloc2(nbuf->orients, nbuf->cap * sizeof(Orientation));
+  }
 
-  supernode_naturalise(snode->nodes, snode->orients, snode->num_of_nodes);
+  snode->nbuf_offset = nbuf->len;
+  nbuf->nodes[snode->nbuf_offset] = node;
+  nbuf->orients[snode->nbuf_offset] = orient;
+
+  nbuf->len = supernode_extend(db_graph, &nbuf->nodes,
+                               &nbuf->orients, snode->nbuf_offset,
+                               &iscycle, &nbuf->cap, true);
+
+  snode->num_of_nodes = nbuf->len - snode->nbuf_offset;
+
+  hkey_t *nodes = snode_nodes(snode);
+  Orientation *orients = snode_orients(snode);
+  supernode_naturalise(nodes, orients, snode->num_of_nodes);
 
   snode->first_pathpos = NULL;
   snode->num_prev = 0;
   snode->num_next = 0;
 
-  first_node = snode->nodes[0];
-  first_or = opposite_orientation(snode->orients[0]);
-  last_node = snode->nodes[snode->num_of_nodes-1];
-  last_or = snode->orients[snode->num_of_nodes-1];
+  first_node = nodes[0];
+  first_or = opposite_orientation(orients[0]);
+  last_node = nodes[snode->num_of_nodes-1];
+  last_or = orients[snode->num_of_nodes-1];
 
   // Prev nodes
-  union_edges = edges_with_orientation(db_node_edges(db_graph, first_node), first_or);
+  union_edges = db_node_edges(db_graph, first_node);
+  union_edges = edges_with_orientation(union_edges, first_or);
   bkmer = db_node_bkmer(db_graph, first_node);
 
   for(nuc = 0; nuc < 4; nuc++) {
@@ -78,7 +91,8 @@ size_t caller_supernode_create(hkey_t node, Orientation or,
   }
 
   // Next nodes
-  union_edges = edges_with_orientation(db_node_edges(db_graph, last_node), last_or);
+  union_edges = db_node_edges(db_graph, last_node);
+  union_edges = edges_with_orientation(union_edges, last_or);
   bkmer = db_node_bkmer(db_graph, last_node);
 
   for(nuc = 0; nuc < 4; nuc++) {

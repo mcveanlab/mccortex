@@ -4,7 +4,7 @@
 # make common   <- compile all repos (except gsl)
 # make update   <- pull + common
 
-all: htslib string_buffer bit_array seq_file seq-align gsl seqan
+all: gsl htslib string_buffer bit_array seq_file seq-align readsim seqan
 
 gsl-1.16/configure:
 	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.16.tar.gz
@@ -14,12 +14,12 @@ gsl-1.16/configure:
 htslib/Makefile:
 	git clone git://github.com/samtools/htslib.git
 
+string_buffer/Makefile:
+	git clone git://github.com/noporpoise/string_buffer.git
+
 bit_array/Makefile:
 	git clone git://github.com/noporpoise/BitArray.git
 	mv BitArray bit_array
-
-string_buffer/Makefile:
-	git clone git://github.com/noporpoise/string_buffer.git
 
 seq_file/Makefile:
 	git clone git://github.com/noporpoise/seq_file.git
@@ -27,20 +27,17 @@ seq_file/Makefile:
 seq-align/Makefile:
 	git clone git://github.com/noporpoise/seq-align.git
 
-cortex_binary_reader/Makefile:
-	git clone git://github.com/noporpoise/cortex_binary_reader.git
+readsim/Makefile:
+	git clone git://github.com/noporpoise/readsim.git
 
-seqan-library-1.4.0/include/seqan/LICENSE:
+seqan-library-1.4.0/share/doc/seqan/LICENSE:
 	wget http://packages.seqan.de/seqan-library/seqan-library-1.4.0.tar.bz2
 	tar xfj seqan-library-1.4.0.tar.bz2
 
-# seqan-svn:
-# 	git clone git://github.com/seqan/seqan-svn.git
-
-fetch: gsl-1.16/configure htslib/Makefile bit_array/Makefile \
-	     string_buffer/Makefile seq_file/Makefile \
-	     seq-align/Makefile cortex_binary_reader/Makefile \
-	     seqan-library-1.4.0/include/seqan/LICENSE
+fetch: gsl-1.16/configure htslib/Makefile \
+	     string_buffer/Makefile bit_array/Makefile \
+	     seq_file/Makefile seq-align/Makefile readsim/Makefile \
+	     seqan-library-1.4.0/share/doc/seqan/LICENSE
 
 pull:
 	cd htslib; git pull
@@ -48,13 +45,15 @@ pull:
 	cd bit_array; git pull
 	cd seq_file; git pull
 	cd seq-align; git pull
-	cd cortex_binary_reader; git pull
+	cd readsim; git pull
 	cd bioinf-perl; git pull
-	# cd seqan-svn; git pull
 
 update: pull common
 
-common: htslib string_buffer bit_array seq_file seq-align cortex_binary_reader
+common: htslib string_buffer bit_array seq_file seq-align readsim
+
+gsl: gsl-1.16/configure
+	cd gsl-1.16; make clean; ./configure; make
 
 htslib: htslib/Makefile
 	cd htslib; make
@@ -71,25 +70,19 @@ seq_file: seq_file/Makefile
 seq-align: seq-align/Makefile
 	cd seq-align; make LIBS_PATH=../
 
-gsl: gsl-1.16/configure
-	cd gsl-1.16; make clean; ./configure; make
+readsim: readsim/Makefile
+	cd readsim; make HTSLIB=../htslib
 
-cortex_binary_reader: cortex_binary_reader/Makefile
-	cd cortex_binary_reader; make;
-
-seqan: seqan-library-1.4.0/include/seqan/LICENSE
-
-# seqan: seqan-svn
-#.PHONY: seqan
+seqan: seqan-library-1.4.0/share/doc/seqan/LICENSE
 
 clean:
+	cd gsl-1.16; make clean
 	cd htslib; make clean
 	cd string_buffer; make clean
 	cd bit_array; make clean
 	cd seq_file; make clean
 	cd seq-align; make clean
-	cd gsl-1.16; make clean
-	cd cortex_binary_reader; make clean
+	cd readsim; make clean
 
 .PHONY: all clean fetch pull common update
-.PHONY: htslib string_buffer bit_array seq_file seq-align cortex_binary_reader seqan
+.PHONY: gsl htslib string_buffer bit_array seq_file seq-align readsim seqan

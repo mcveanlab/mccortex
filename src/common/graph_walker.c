@@ -170,7 +170,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
   while(index != PATH_NULL)
   {
     path_store_len_orient(paths, index, &len, &porient);
-    if(path_store_has_col(paths, index, wlk->colour) && orient == porient)
+    if(path_store_has_col(paths, index, wlk->ctpcol) && orient == porient)
     {
       if(len > wlk->max_path_len || wlk->num_unused == 0)
         resize_paths(wlk, len);
@@ -196,7 +196,8 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
   return *num - start_pos;
 }
 
-void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
+void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
+                       Colour ctxcol, Colour ctpcol,
                        hkey_t node, Orientation orient)
 {
   #ifdef DEBUG_WALKER
@@ -208,7 +209,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph, Colour colour,
   assert(wlk->num_curr == 0);
   assert(wlk->num_counter == 0);
 
-  GraphWalker gw = {.db_graph = graph, .colour = colour,
+  GraphWalker gw = {.db_graph = graph, .ctxcol = ctxcol, .ctpcol = ctpcol,
                     .node = node, .orient = orient,
                     .data = wlk->data, .allpaths = wlk->allpaths,
                     .unused_paths = wlk->unused_paths,
@@ -264,7 +265,7 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
   for(i = 0, j = 0; i < num_next; i++)
   {
-    if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->colour)) {
+    if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->ctxcol)) {
       nodes[j] = next_nodes[i];
       bases[j] = next_bases[i];
       indices[j] = i;
@@ -344,6 +345,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     message(" %c [%u/%u]\n", binary_nuc_to_char(path->bases[path->pos]),
             path->pos, path->len);
   }
+
+  message("walker: ctx %zu ctp %zu\n", wlk->ctxcol, wlk->ctpcol);
 
   die("Something went wrong. [path corruption] {%zu:%c}",
       num_next, binary_nuc_to_char(greatest_nuc));
@@ -505,7 +508,7 @@ boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
   // Edges edges = db_node_col_edges_union(db_graph, wlk->node);
-  Edges edges = db_node_col_edges(db_graph, wlk->colour, wlk->node);
+  Edges edges = db_node_col_edges(db_graph, wlk->ctxcol, wlk->node);
   edges = edges_with_orientation(edges, wlk->orient);
 
   hkey_t nodes[4];

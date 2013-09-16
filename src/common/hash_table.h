@@ -33,12 +33,12 @@ typedef uint64_t hkey_t;
 #define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER))
 
 // Number of hash table entries for a given required capacity
-size_t hash_table_cap(size_t req_capacity,
+size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
                       uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr);
 
 // Get number of bytes required for a given number of kmers
 // do not excess max capacity
-size_t hash_table_mem(size_t max_capacity_kmers, size_t *act_capacity_kmers);
+size_t hash_table_mem(size_t nkmers, boolean above_nkmers, size_t *act_capacty_kmers);
 
 // Returns NULL if not enough memory
 HashTable* hash_table_alloc(HashTable *htable, uint64_t capacity);

@@ -99,4 +99,7 @@ uint64_t graph_file_save(const char *path, dBGraph *graph,
                          const Colour *colours, Colour start_col,
                          uint32_t num_of_cols);
 
+void graph_write_status(uint64_t nkmers, size_t ncols,
+                        const char *path, uint32_t version);
+
 #endif /* GRAPH_FORMAT_H_ */

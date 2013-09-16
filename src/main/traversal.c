@@ -140,7 +140,7 @@ int main(int argc, char **argv)
     len = junc = 0;
     path[len++] = node;
 
-    graph_walker_init(&wlk, &db_graph, 0, node, orient);
+    graph_walker_init(&wlk, &db_graph, 0, 0, node, orient);
     lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
     prev_junc = edges_get_outdegree(db_graph.col_edges[node], orient) > 1;
 

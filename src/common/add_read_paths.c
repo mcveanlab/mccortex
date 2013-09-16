@@ -277,7 +277,8 @@ static void add_read_path(const dBNode *nodes, size_t len,
 static int traverse_gap(dBNodeBuffer *nodebuf,
                         hkey_t node2, Orientation orient2,
                         const dBGraph *db_graph, uint64_t *visited,
-                        Colour colour, GraphWalker *wlk, uint32_t gap_limit)
+                        Colour ctxcol, Colour ctpcol,
+                        GraphWalker *wlk, uint32_t gap_limit)
 {
   hkey_t node1 = nodebuf->data[nodebuf->len-1].node;
   Orientation orient1 = nodebuf->data[nodebuf->len-1].orient;
@@ -298,7 +299,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   dBNode *nodes = nodebuf->data + nodebuf->len;
 
   // Walk from left -> right
-  graph_walker_init(wlk, db_graph, colour, node1, orient1);
+  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node1, orient1);
   db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   size_t i, pos = 0;
@@ -334,7 +335,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   }
 
   // Walk from right -> left
-  graph_walker_init(wlk, db_graph, colour, node2, opposite_orientation(orient2));
+  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node2, opposite_orientation(orient2));
   db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   pos = gap_limit-1;
@@ -471,7 +472,8 @@ void read_to_path(AddPathsWorker *worker)
         {
           // Can we branch the gap from the prev contig?
           int gapsize = traverse_gap(nodebuf, node, orient, db_graph,
-                                     worker->visited, job->ctx_col,
+                                     worker->visited,
+                                     job->ctx_col, job->ctp_col,
                                      &worker->wlk, job->gap_limit);
 
           if(gapsize == -1)

@@ -12,6 +12,7 @@
 #include "path_format.h"
 #include "graph_walker.h"
 #include "bubble_caller.h"
+#include "db_node.h"
 
 // "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
 static const char usage[] =
