@@ -250,9 +250,16 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
     last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, last_node, last_orient);
     graph_traverse_force_jump(wlk, last_node, last_bkmer, false);
     // don't need counter paths here (we're at the end of a supernode)
+    *lost_nuc = binary_kmer_first_nuc(last_bkmer, kmer_size);
   }
-
-  *lost_nuc = binary_kmer_first_nuc(last_bkmer, kmer_size);
+  else {
+    // XOR snorient => negate/reverse if snorient is REVERSE
+    // 0 0 1 1
+    // 0 1 0 1
+    last_bkmer = db_node_bkmer(wlk->db_graph, snode_nodes(snode)[0]);
+    *lost_nuc = db_node_first_nuc(last_bkmer, snode_orients(snode)[0] ^ snorient,
+                                  kmer_size);
+  }
 }
 
 // Constructs a path of supernodes (SupernodePath)
