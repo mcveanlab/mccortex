@@ -254,11 +254,12 @@ int ctx_build(CmdArgs *args)
     else if(strcmp(argv[argi],"--seq2") == 0) {
       if(show_prefs) print_prefs(&prefs);
       show_prefs = false;
-      seq_parse_pe_sf(seqfiles[sf++], seqfiles[sf++], &r1, &r2, &prefs, stats,
+      seq_parse_pe_sf(seqfiles[sf], seqfiles[sf+1], &r1, &r2, &prefs, stats,
                       seq_load_into_db_graph, NULL);
       update_ginfo(&db_graph.ginfo[prefs.into_colour],
                    stats, &bases_loaded, &contigs_loaded);
       argi += 2;
+      sf += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
       prefs.into_colour += graph_load(argv[argi+1], &prefs, stats, NULL);

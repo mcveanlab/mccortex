@@ -327,8 +327,9 @@ int ctx_reads(CmdArgs *args)
       if(is_pe) {
         status("reading: %s %s\n", in1, in2);
         status("writing: %s %s\n", path1, path2);
-        seq_parse_pe_sf(seqfiles[sf++], seqfiles[sf++], &r1, &r2,
+        seq_parse_pe_sf(seqfiles[sf], seqfiles[sf+1], &r1, &r2,
                         &prefs, stats, filter_reads, &data);
+        sf += 2;
       } else {
         status("reading: %s\n", in1);
         status("writing: %s\n", path1);

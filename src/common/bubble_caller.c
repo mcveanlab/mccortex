@@ -585,7 +585,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         flank5po[0] = opposite_orientation(fork_o);
         int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
                                    &iscycle, &maxflanklen, false);
-        flank5pkmers = (len == -1 ? maxflanklen : len);
+        flank5pkmers = (len == -1 ? maxflanklen : (unsigned)len);
         supernode_reverse(flank5pe, flank5po, flank5pkmers);
       }
 

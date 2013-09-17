@@ -100,14 +100,6 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 #define edges_get_indegree(edges,or) \
         __builtin_popcount(edges_with_orientation(edges,rev_orient(or)))
 
-
-// #define db_node_has_edge(graph,hkey,nuc,or) \
-//         edges_has_edge((graph)->edges[hkey],(nuc),(or))
-// #define db_node_del_edge(graph,hkey,nuc,or) \
-//         ((graph)->edges[hkey] = edges_del_edge((graph)->edges[hkey],(nuc),(or)))
-// #define db_node_set_edge(graph,hkey,nuc,or) \
-//         ((graph)->edges[hkey] = edges_set_edge((graph)->edges[hkey],(nuc),(or)))
-
 #define db_node_edges(graph,hkey) db_node_col_edges(graph,0,hkey)
 #define db_node_reset_edges(graph,hkey) (db_node_edges(graph,hkey) = 0)
 

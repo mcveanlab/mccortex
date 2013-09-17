@@ -344,9 +344,10 @@ int ctx_thread(CmdArgs *args)
         argi += 1;
       }
       else if(strcmp(argv[argi], "--seq2") == 0) {
-        add_read_paths_to_graph(pool, seqfiles[sf++], seqfiles[sf++], gap_limit,
+        add_read_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1], gap_limit,
                                 &prefs, stats);
         argi += 2;
+        sf += 2;
       }
       else die("Unknown arg: %s", argv[argi]);
     }
