@@ -151,7 +151,7 @@ int main(int argc, char **argv)
     while(graph_traverse(&wlk) && !db_node_has_traversed(visited, wlk.node, wlk.orient))
     {
       db_node_set_traversed(visited, wlk.node, wlk.orient);
-      graph_walker_node_add_counter_paths(&wlk, wlk.node, wlk.orient, lost_nuc);
+      graph_walker_node_add_counter_paths(&wlk, lost_nuc);
       lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
       if(len == path_cap) {
         path_cap *= 2;

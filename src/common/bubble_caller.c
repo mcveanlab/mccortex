@@ -390,7 +390,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     next_bkmer = db_node_oriented_bkmer(next_bkmers[nxt_idx], or, kmer_size);
 
     graph_traverse_force_jump(wlk, node, next_bkmer, edges_in_colour > 1);
-    graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
+    graph_walker_node_add_counter_paths(wlk, lost_nuc);
   }
   // printf("DONE\n");
 
@@ -512,7 +512,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
         // graph_walker_init_context(wlk, db_graph, visited, colour, fork_n, fork_o);
         graph_traverse_force(wlk, nodes[i], next_nuc, true);
-        graph_walker_node_add_counter_paths(wlk, wlk->node, wlk->orient, lost_nuc);
+        graph_walker_node_add_counter_paths(wlk, lost_nuc);
 
         // Constructs a path of supernodes (SupernodePath)
         load_allele_path(nodes[i], orients[i], path, snode_hash, wlk, visited,

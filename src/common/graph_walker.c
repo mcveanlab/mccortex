@@ -438,6 +438,8 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
   const PathStore *paths = &wlk->db_graph->pdata;
   PathIndex index;
 
+  // Check that counter paths take this nuc
+  Nucleotide next_base = binary_kmer_last_nuc(wlk->bkmer);
   // message("{{ graph_walker_add_counter_paths: %zu }}\n", num_prev);
 
   size_t i, j, k, num_paths;
@@ -459,7 +461,7 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
     if(edges_get_outdegree(edges, prev_orients[i]) > 1) {
       new_paths = wlk->counter_paths + wlk->num_counter;
       for(j = 0, k = 0; j < num_paths; j++) {
-        if(new_paths[j]->len > 1) {
+        if(new_paths[j]->len > 1 && new_paths[j]->bases[0] == next_base) {
           new_paths[j]->pos++;
           new_paths[k++] = new_paths[j];
         }
@@ -475,27 +477,25 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
   }
 }
 
-void graph_walker_node_add_counter_paths(GraphWalker *wlk,
-                                         hkey_t node, Orientation orient,
-                                         Nucleotide prev_nuc)
+void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
 {
   const dBGraph *db_graph = wlk->db_graph;
   hkey_t prev_nodes[4];
   Orientation prev_orients[4];
   Nucleotide prev_bases[4];
   size_t i, num_prev_nodes;
-  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_bkmer(db_graph, wlk->node);
 
   // char bkstr[MAX_KMER_SIZE+1];
   // binary_kmer_to_str(bkmer, db_graph->kmer_size, bkstr);
-  // printf(" traversed %s:%i\n", bkstr, orient);
+  // printf(" traversed %s:%i\n", bkstr, wlk->orient);
 
-  orient = opposite_orientation(orient);
+  wlk->orient = opposite_orientation(wlk->orient);
 
-  Edges edges = db_node_col_edges_union(db_graph, node) &
-                ~nuc_orient_to_edge(binary_nuc_complement(prev_nuc),orient);
+  Edges edges = db_node_col_edges_union(db_graph, wlk->node) &
+                ~nuc_orient_to_edge(binary_nuc_complement(prev_nuc),wlk->orient);
 
-  num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, orient, edges,
+  num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, wlk->orient, edges,
                                        prev_nodes, prev_orients, prev_bases);
 
   // Reverse orientation

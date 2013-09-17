@@ -65,8 +65,6 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     Orientation prev_orients[4],
                                     size_t num_prev);
 
-void graph_walker_node_add_counter_paths(GraphWalker *wlk,
-                                         hkey_t node, Orientation orient,
-                                         Nucleotide prev_nuc);
+void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc);
 
 #endif /* READ_PATH_H_ */
