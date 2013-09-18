@@ -189,7 +189,7 @@ int ctx_join(CmdArgs *args)
   {
     intsct_gname_ptr = intersect_gname.buff;
     SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
-                             .boolean_covgs = true, // covg++
+                             .boolean_covgs = true, // covg++ only
                              .load_seq = true,
                              .quality_cutoff = 0, .ascii_fq_offset = 0,
                              .homopolymer_cutoff = 0,
@@ -209,6 +209,9 @@ int ctx_join(CmdArgs *args)
       for(col = 0; col < gheader.num_of_cols; col++)
         graph_info_make_intersect(&gheader.ginfo[col], &intersect_gname);
     }
+
+    db_graph.ginfo[0].cleaning.is_graph_intersection = true;
+    strbuf_set(&db_graph.ginfo[0].cleaning.intersection_name, intersect_gname.buff);
 
     if(num_intersect > 1)
     {

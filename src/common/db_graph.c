@@ -247,26 +247,26 @@ static void prune_connected_nodes(dBGraph *db_graph, hkey_t node, Edges edges)
 
   for(or = 0; or < 2; or++)
   {
-    if(or == FORWARD)
+    // Remove edge from: next_node:!next_or -> node:!or
+    // when working backwards, or = !or, next_or = !next_or
+    // so this is actually if(or == REVERSE)
+
+    if(or == FORWARD) {
       lost_nuc = binary_kmer_first_nuc(bkmer, db_graph->kmer_size);
-    else
-      lost_nuc = binary_kmer_last_nuc(bkmer);
+      lost_nuc = binary_nuc_complement(lost_nuc);
+    }
+    else lost_nuc = binary_kmer_last_nuc(bkmer);
 
     for(nuc = 0; nuc < 4; nuc++)
     {
       if(edges_has_edge(edges, nuc, or))
       {
         db_graph_next_node(db_graph, bkmer, nuc, or, &next_node, &next_or);
-
-        // Remove edge from: next_node:!next_or->node:!or
-        // when working backwards, or = !or, next_or = !next_or
-        // so this is actually if(or == REVERSE)
-        if(or == FORWARD) lost_nuc = binary_nuc_complement(lost_nuc);
-
-        remove_edge_mask = ~nuc_orient_to_edge(lost_nuc, rev_orient(next_or));
-
+        remove_edge_mask = nuc_orient_to_edge(lost_nuc, rev_orient(next_or));
+        assert((db_node_col_edges_union(db_graph, next_node) & remove_edge_mask)
+                 == remove_edge_mask);
         for(col = 0; col < db_graph->num_edge_cols; col++)
-          db_node_col_edges(db_graph, col, next_node) &= remove_edge_mask;
+          db_node_col_edges(db_graph, col, next_node) &= ~remove_edge_mask;
       }
     }
   }
@@ -278,9 +278,8 @@ void db_graph_prune_node(dBGraph *db_graph, hkey_t node)
   Edges uedges = db_node_col_edges_union(db_graph, node);
   prune_connected_nodes(db_graph, node, uedges);
 
-  if(db_graph->col_edges != NULL)
-    for(col = 0; col < db_graph->num_edge_cols; col++)
-      db_node_col_edges(db_graph,col,node) = 0;
+  for(col = 0; col < db_graph->num_edge_cols; col++)
+    db_node_col_edges(db_graph,col,node) = 0;
 
   prune_node_without_edges(db_graph, node);
 }

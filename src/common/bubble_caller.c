@@ -500,25 +500,30 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   // loop over alleles, then colours
   size_t supindx, num_of_paths = 0;
   Colour colour, colours_loaded = db_graph->num_of_cols_used;
-  Nucleotide next_nuc, lost_nuc;
+  Nucleotide lost_nuc;
   SupernodePath *path;
   CallerSupernode *snode;
+  int col_has_node[4], num_edges_in_col;
 
-  for(i = 0; i < num_next; i++)
+  for(colour = 0; colour < colours_loaded; colour++)  
   {
-    next_nuc = bases[i];
+    num_edges_in_col = 0;
 
-    for(colour = 0; colour < colours_loaded; colour++)
+    for(i = 0; i < num_next; i++) {
+      col_has_node[i] = (db_node_has_col(db_graph, nodes[i], colour) > 0);
+      num_edges_in_col += col_has_node[i];
+    }
+
+    for(i = 0; i < num_next; i++)
     {
-      if(db_node_has_col(db_graph, nodes[i], colour))
+      if(col_has_node[i])
       {
         path = paths + num_of_paths++;
 
         graph_walker_init(wlk, db_graph, colour, colour, fork_n, fork_o);
         lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
-        // graph_walker_init_context(wlk, db_graph, visited, colour, fork_n, fork_o);
-        graph_traverse_force(wlk, nodes[i], next_nuc, true);
+        graph_traverse_force(wlk, nodes[i], bases[i], num_edges_in_col > 1);
         graph_walker_node_add_counter_paths(wlk, lost_nuc);
 
         // Constructs a path of supernodes (SupernodePath)

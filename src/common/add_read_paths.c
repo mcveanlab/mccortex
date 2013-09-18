@@ -297,23 +297,20 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   db_node_buf_ensure_capacity(nodebuf, nodebuf->len + gap_limit);
 
   dBNode *nodes = nodebuf->data + nodebuf->len;
+  size_t i, pos = 0;
+  Nucleotide lost_nuc;
 
   // Walk from left -> right
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node1, orient1);
   db_node_set_traversed(visited, wlk->node, wlk->orient);
-
-  size_t i, pos = 0;
-  Nucleotide lost_nuc;
-
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   while(pos < gap_limit && graph_traverse(wlk) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
-    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
-
     db_node_set_traversed(visited, wlk->node, wlk->orient);
+    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     nodes[pos].node = wlk->node;
     nodes[pos].orient = wlk->orient;
@@ -373,6 +370,9 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   if(success)
   {
+    #ifdef DEBUG
+      printf(" traverse success\n");
+    #endif
     size_t num = gap_limit - pos;
     memmove(nodes, nodes + gap_limit - num, num * sizeof(dBNode));
     nodebuf->len += num;
@@ -454,15 +454,16 @@ void read_to_path(AddPathsWorker *worker)
 
     for(i = 0; i < end; i++, prev_node = node)
     {
-      // printf("%zu / %zu\n", i, end);
       node = nodebuf->data[i].node;
       orient = nodebuf->data[i].orient;
 
       #ifdef DEBUG
         char str[MAX_KMER_SIZE+1+7];
-        BinaryKmer bkmer = db_node_bkmer(db_graph, node);
         if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
-        else binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
+        else {
+          BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+          binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
+        }
         printf("  node:%zu %zu %s\n", i, (size_t)node, str);
       #endif
 

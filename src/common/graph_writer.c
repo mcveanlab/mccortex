@@ -198,9 +198,9 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
 uint64_t graph_file_save(const char *path, dBGraph *db_graph,
-                           uint32_t version,
-                           const Colour *colours, Colour start_col,
-                           uint32_t num_of_cols)
+                         uint32_t version,
+                         const Colour *colours, Colour start_col,
+                         uint32_t num_of_cols)
 {
   assert(db_graph->col_edges != NULL);
   assert(db_graph->col_covgs != NULL);

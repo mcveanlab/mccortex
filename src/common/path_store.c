@@ -187,7 +187,7 @@ PathIndex path_store_prev(const PathStore *paths, PathIndex index)
 }
 
 void path_store_len_orient(const PathStore *paths, PathIndex index,
-                             PathLen *len, Orientation *orient)
+                           PathLen *len, Orientation *orient)
 {
   PathLen d;
   memcpy(&d, paths->store + index + sizeof(PathIndex) + paths->col_bitset_bytes,

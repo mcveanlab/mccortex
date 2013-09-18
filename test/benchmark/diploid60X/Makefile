@@ -15,6 +15,9 @@ INVLEN=100
 READLEN=100
 MPSIZE=450
 ALLELECOVG=30
+ERROR=error
+
+#error or noerror
 
 CTX=~/cortex/versions/current/bin/cortex_var_31_c1_s8
 CTX2=../../../bin/ctx31
@@ -22,7 +25,7 @@ CTX2=../../../bin/ctx31
 PROGS=$(CTX) $(CTX2)
 
 all: $(INPUT_SEQ) $(PROGS)
-	../run-sample-pop.sh $(INPUT_SEQ) $(NINDIVS) $(PLOIDY) $(KMER) $(NSNPS) $(NINDELS) $(NINV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG)
+	../run-sample-pop.sh $(INPUT_SEQ) $(NINDIVS) $(PLOIDY) $(KMER) $(NSNPS) $(NINDELS) $(NINV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG) $(ERROR)
 
 $(CTX):
 	cd ../../../../current; make NUM_SHADES=8
@@ -31,8 +34,6 @@ $(CTX2):
 	cd ../../../; make
 
 clean:
-	rm -rf *.ctx *.ctp *.fa *.falist
-	rm -rf diploid.* falsepos.k31*.vcf truth.k31*.vcf
-	rm -rf gap_sizes.*.csv mp_sizes.*.csv
+	rm -rf diploid* falsepos* reads* mask* genome* truth* gap_sizes* mp_sizes* pop.*
 
 .PHONY: all clean
