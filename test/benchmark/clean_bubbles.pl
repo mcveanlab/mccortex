@@ -31,10 +31,17 @@ if(defined($in_file) && $in_file ne "-") {
 my $line;
 my @buf;
 
-while(defined(my $line = <$fh>))
+while(1)
 {
-  chomp($line);
-  @buf = ($line);
+  @buf = ();
+  while(defined(my $line = <$fh>) && $line =~ /^$/) {}
+  if(!defined($line)) { last; }
+  chomp($buf[0]);
+  for(my $i = 1; $i < 9 && defined(my $line = <$fh>); $i++) {
+    chomp($line);
+    @buf = ($line);
+  }
+  if(@buf != 9) { last; }
 
   while(defined($line = <$fh>)) {
     chomp($line);
