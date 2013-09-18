@@ -5,7 +5,7 @@
 # 500 inversions of size 1-100bp (50 * 500 = 0.025%)
 
 INPUT_SEQ=../chr21.1Mb.fa.gz
-NINDIVS=1
+NINDIVS=10
 PLOIDY=2
 KMER=31
 NSNPS=10000

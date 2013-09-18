@@ -100,6 +100,8 @@ Code is organised as:
 * src/tools   tools to do particular jobs
 * src/main    files with a main function go in here
 
+Code should compile on mac/linux with clang/gcc without errors or warnings.
+
 License: GPLv2
 --------------
 
