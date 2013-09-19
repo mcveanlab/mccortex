@@ -127,6 +127,8 @@ int ctx_infer_edges(CmdArgs *args)
 
   graph_file_read_header(fh, &gheader, true, path);
 
+  size_t num_nodes_modified = 0;
+
   long edges_len = sizeof(Edges) * gheader.num_of_cols;
   while(graph_file_read_kmer(fh, &gheader, path, bkmer.b, covgs, edges))
   {
@@ -134,10 +136,17 @@ int ctx_infer_edges(CmdArgs *args)
     {
       if(fseek(fh, -edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
       fwrite(edges, 1, edges_len, fh);
+      num_nodes_modified++;
     }
   }
 
   fclose(fh);
+
+  char modified_str[100], kmers_str[100];
+  ulong_to_str(num_nodes_modified, modified_str);
+  ulong_to_str(db_graph.ht.unique_kmers, kmers_str);
+  status("%s of %s (%.2f%%) nodes modified\n", modified_str, kmers_str,
+         (100.0 * num_nodes_modified) / db_graph.ht.unique_kmers);
 
   seq_loading_stats_free(stats);
   free(db_graph.col_edges);

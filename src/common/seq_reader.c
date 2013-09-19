@@ -165,10 +165,11 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff, int colour,
       tmp_key = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
-      if(!db_node_has_col(db_graph, node, colour)) node = HASH_NOT_FOUND;
-
-      if(node != HASH_NOT_FOUND && first_node_offset == -1)
-        first_node_offset = contig_start + next_base + 1 - kmer_size;
+      if(node != HASH_NOT_FOUND) {
+        if(!db_node_has_col(db_graph, node, colour)) node = HASH_NOT_FOUND;
+        if(first_node_offset == -1)
+          first_node_offset = contig_start + next_base + 1 - kmer_size;
+      }
 
       // Check prev_node so we insert a single gap if needed
       if(prev_node != HASH_NOT_FOUND || node != HASH_NOT_FOUND)
