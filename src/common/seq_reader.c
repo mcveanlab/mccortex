@@ -123,7 +123,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
 
 // returns offset of the first node found or -1 if no nodes were found
 // Gaps collapsed down to a single HASH_NOT_FOUND
-int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
+int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff, int colour,
                         const dBGraph *db_graph, dBNodeBuffer *list)
 {
   size_t contig_start, contig_end, search_start = 0;
@@ -145,7 +145,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
 
     if(prev_node != HASH_NOT_FOUND)
     {
-      // Gap
+      // Add gap
       list->data[list->len].node = HASH_NOT_FOUND;
       list->data[list->len].orient = FORWARD;
       list->len++;
@@ -165,9 +165,12 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
       tmp_key = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
+      if(!db_node_has_col(db_graph, node, colour)) node = HASH_NOT_FOUND;
+
       if(node != HASH_NOT_FOUND && first_node_offset == -1)
         first_node_offset = contig_start + next_base + 1 - kmer_size;
 
+      // Check prev_node so we insert a single gap if needed
       if(prev_node != HASH_NOT_FOUND || node != HASH_NOT_FOUND)
       {
         list->data[list->len].node = node;

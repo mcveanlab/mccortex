@@ -395,7 +395,8 @@ void read_to_path(AddPathsWorker *worker)
   boolean useful_path_info = false;
   hkey_t node;
 
-  get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff, db_graph, nodebuf);
+  get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff,
+                      job->ctx_col, db_graph, nodebuf);
 
   for(i = 1; i < nodebuf->len; i++) {
     if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
@@ -419,7 +420,7 @@ void read_to_path(AddPathsWorker *worker)
     nodebuf->len++;
 
     r2_offset = get_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
-                                    db_graph, nodebuf);
+                                    job->ctx_col, db_graph, nodebuf);
 
     if(!useful_path_info && nodebuf->len > 0) {
       for(i = r2_start; i+1 < nodebuf->len; i++) {

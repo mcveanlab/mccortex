@@ -33,15 +33,15 @@ my @buf;
 
 while(1)
 {
-  @buf = ();
   while(defined($line = <$fh>) && $line =~ /^$/) {}
   if(!defined($line)) { last; }
-  chomp($buf[0]);
+  chomp($line);
+  @buf = ($line);
   for(my $i = 1; $i < 9 && defined($line = <$fh>); $i++) {
     chomp($line);
-    @buf = ($line);
+    push(@buf, $line);
   }
-  if(@buf != 9) { last; }
+  if(@buf != 9) { print STDERR join("\n", @buf)."\n"; die("Premature file end"); }
 
   while(defined($line = <$fh>)) {
     chomp($line);
