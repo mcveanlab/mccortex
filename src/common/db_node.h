@@ -4,7 +4,6 @@
 #include <inttypes.h>
 
 #include "graph_typedef.h"
-#include "db_graph.h"
 
 //
 // Get Binary kmers

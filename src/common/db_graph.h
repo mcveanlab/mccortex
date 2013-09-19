@@ -2,7 +2,6 @@
 #define DB_GRAPH_H_
 
 #include <inttypes.h>
-
 #include "graph_typedef.h"
 
 #define db_graph_node_assigned(graph,hkey) \

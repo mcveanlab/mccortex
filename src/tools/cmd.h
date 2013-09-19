@@ -30,6 +30,7 @@ int ctx_subgraph(CmdArgs *args);
 int ctx_reads(CmdArgs *args);
 int ctx_extend(CmdArgs *args);
 int ctx_contigs(CmdArgs *args);
+int ctx_infer_edges(CmdArgs *args);
 int ctx_thread(CmdArgs *args);
 int ctx_pview(CmdArgs *args);
 int ctx_pmerge(CmdArgs *args);
@@ -39,7 +40,7 @@ int ctx_unique(CmdArgs *args);
 int ctx_covg(CmdArgs *args);
 int ctx_place(CmdArgs *args);
 
-#define NUM_CMDS 17
+#define NUM_CMDS 18
 extern const char *cmds[NUM_CMDS];
 extern int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args);
 

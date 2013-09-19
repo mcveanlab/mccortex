@@ -197,14 +197,10 @@ int ctx_build(CmdArgs *args)
 
   // Parse arguments, load
   SeqLoadingStats *stats = seq_loading_stats_create(1000);
-  SeqLoadingPrefs prefs = {.into_colour = -1, .merge_colours = false,
-                           .boolean_covgs = false,
-                           .load_seq = true,
+  SeqLoadingPrefs prefs = {.into_colour = -1,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = true,
-                           .must_exist_in_graph = false, .empty_colours = false,
                            .db_graph = &db_graph};
 
   read_t r1, r2;

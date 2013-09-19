@@ -32,9 +32,11 @@ void graph_header_dealloc(GraphFileHeader *header);
 void graph_header_cpy(GraphFileHeader *dst, const GraphFileHeader *src);
 
 // If fatal == false, returns -1 on error
+// path is used when reporting errors
 int graph_file_read_header(FILE *fh, GraphFileHeader *header,
                            boolean fatal, const char *path);
 
+// Returns number of bytes read
 size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *header, const char *path,
                             uint64_t *bkmer, Covg *covgs, Edges *edges);
 

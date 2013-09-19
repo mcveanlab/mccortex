@@ -270,16 +270,16 @@ int ctx_thread(CmdArgs *args)
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+                           // binaries
+                           .merge_colours = true,
                            .boolean_covgs = false,
-                           .load_seq = false,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
-                           .db_graph = &db_graph};
+                           // Sequence
+                           .quality_cutoff = 0, .ascii_fq_offset = 0,
+                           .homopolymer_cutoff = 0,
+                           .remove_dups_se = false, .remove_dups_pe = false};
 
   status("Loading population into colour zero...\n");
   graph_load(pop_ctx_path, &prefs, stats, NULL);
@@ -288,8 +288,6 @@ int ctx_thread(CmdArgs *args)
 
   paths_format_write_header(&pheader, fout);
 
-  prefs.load_seq = true;
-  prefs.load_binaries = false;
   prefs.into_colour = 1;
 
   uint32_t gap_limit = 500;

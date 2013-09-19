@@ -4,7 +4,6 @@
 #include "graph_typedef.h"
 #include "hash_table.h"
 
-
 #define MAX_FLANK_KMERS 1000
 #define MAX_ALLELE_KMERS 1000
 

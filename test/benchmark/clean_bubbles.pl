@@ -34,10 +34,10 @@ my @buf;
 while(1)
 {
   @buf = ();
-  while(defined(my $line = <$fh>) && $line =~ /^$/) {}
+  while(defined($line = <$fh>) && $line =~ /^$/) {}
   if(!defined($line)) { last; }
   chomp($buf[0]);
-  for(my $i = 1; $i < 9 && defined(my $line = <$fh>); $i++) {
+  for(my $i = 1; $i < 9 && defined($line = <$fh>); $i++) {
     chomp($line);
     @buf = ($line);
   }

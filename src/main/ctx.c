@@ -16,14 +16,15 @@ static const char usage[] =
 "          subgraph    filter a subgraph\n"
 "          reads       filter reads against a graph\n"
 "          extend      extend contigs using a graph\n"
-// "          contigs     pull out contigs for a sample             (unfinished)\n" // 2
+// "          contigs     pull out contigs for a sample          (unfinished)\n" // 2
+"          inferedges  infer edges before calling `thread`\n"
 "          thread      thread reads through cleaned population\n"
 "          pview       view read threading information\n"
 "          pmerge      merge path files (.ctp)\n"
 "          call        call variants\n"
-// "          diverge     path divergence caller                    (unfinished)\n" // 3
+// "          diverge     path divergence caller                 (unfinished)\n" // 3
 "          unique      remove duplicated bubbles, produce VCF\n"
-// "          covg        add covg to a VCF file                    (unfinished)\n" // 1
+// "          covg        add covg to a VCF file                 (unfinished)\n" // 1
 "          place       place variants and genotype\n"
 "\n"
 "  Type a command with no arguments to see help.\n"

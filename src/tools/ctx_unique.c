@@ -380,6 +380,7 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, const char *cmdline)
   gzprintf(vcf, "##INFO=<ID=BN,Number=.,Type=Integer,Description=\"Branch nodes; length in kmers of the alleles\">\n");
   gzprintf(vcf, "##INFO=<ID=BUB,Number=1,Type=String,Description=\"Cortex bubble index\">\n");
   gzprintf(vcf, "##FORMAT=<ID=COVG,Number=.,Type=Integer,Description=\"Number of read arrivals\">\n");
+  gzprintf(vcf, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
   gzprintf(vcf, "##contig=<ID=un,length=1000000,assembly=None>\n");
 
   gzprintf(vcf, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");

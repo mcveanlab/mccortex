@@ -296,23 +296,22 @@ int ctx_diverge(CmdArgs *args)
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = false,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+                           // Binaries
+                           .merge_colours = false,
                            .boolean_covgs = false,
-                           .load_seq = false,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
-                           .db_graph = &db_graph};
+                           // seq
+                           .quality_cutoff = 0, .ascii_fq_offset = 0,
+                           .homopolymer_cutoff = 0,
+                           .remove_dups_se = false, .remove_dups_pe = false};
 
   graph_load(input_ctx_path, &prefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   read_t r1;
   seq_read_alloc(&r1);
-  prefs.load_seq = true;
 
   seq_parse_se_sf(input_fa_file, &r1, NULL, &prefs, stats, diverge_call, &data);
 

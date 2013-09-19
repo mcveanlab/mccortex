@@ -1,6 +1,8 @@
 #ifndef SUPERNODE_H_
 #define SUPERNODE_H_
 
+#include "graph_typedef.h"
+
 // Reverse order and orientations of nodes
 void supernode_reverse(hkey_t *nlist, Orientation *olist, size_t len);
 

@@ -34,6 +34,7 @@ SHADECTX="~/cortex/versions/current/bin/cortex_var_31_c"$NUM_INDIVS"_s8 --kmer_s
 BUILDCTX="$DIR/../../bin/ctx31 build"
 CLEANCTX="$DIR/../../bin/ctx31 clean"
 JOINCTX="$DIR/../../bin/ctx31 join"
+INFERCTX="$DIR/../../bin/ctx31 inferedges"
 THREADCTX="$DIR/../../bin/ctx31 thread"
 CALLCTX="$DIR/../../bin/ctx31 call"
 PROCCTX="$DIR/../../bin/ctx31 unique"
@@ -101,6 +102,7 @@ fi
 
 # Merge
 cmd $JOINCTX -m 100M pop.ctx diploid{0..$LASTINDIV}.$ctxext
+cmd $INFERCTX pop.ctx
 
 # Call with old bc
 cmd time $RELEASECTX --multicolour_bin pop.ctx --detect_bubbles1 -1/-1 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages

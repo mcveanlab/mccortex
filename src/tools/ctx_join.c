@@ -122,9 +122,9 @@ int ctx_join(CmdArgs *args)
     else path = binary_paths[i];
 
     if(!graph_file_probe(path, &is_binary, &gheader))
-      print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
+      print_usage(usage, "Cannot read input binary file: %s", path);
     else if(!is_binary)
-      print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
+      print_usage(usage, "Input binary file isn't valid: %s", path);
 
     ctx_num_cols[i] = gheader.num_of_cols;
     ctx_max_cols[i] = gheader.max_col;
@@ -188,16 +188,16 @@ int ctx_join(CmdArgs *args)
   if(num_intersect > 0)
   {
     intsct_gname_ptr = intersect_gname.buff;
-    SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+    SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+                             // binaries
+                             .merge_colours = true,
                              .boolean_covgs = true, // covg++ only
-                             .load_seq = true,
-                             .quality_cutoff = 0, .ascii_fq_offset = 0,
-                             .homopolymer_cutoff = 0,
-                             .remove_dups_se = false, .remove_dups_pe = false,
-                             .load_binaries = true,
                              .must_exist_in_graph = false,
                              .empty_colours = false,
-                             .db_graph = &db_graph};
+                             // sequence
+                             .quality_cutoff = 0, .ascii_fq_offset = 0,
+                             .homopolymer_cutoff = 0,
+                             .remove_dups_se = false, .remove_dups_pe = false};
 
     for(i = 0; i < num_intersect; i++)
     {

@@ -252,22 +252,19 @@ int ctx_reads(CmdArgs *args)
 
   // Load binaries
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
-                           .boolean_covgs = false,
-                           .load_seq = false,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+                           // binary
                            .must_exist_in_graph = false,
                            .empty_colours = true,
-                           .db_graph = &db_graph};
+                           .merge_colours = true,
+                           .boolean_covgs = false,
+                           // Sequence
+                           .quality_cutoff = 0, .ascii_fq_offset = 0,
+                           .homopolymer_cutoff = 0,
+                           .remove_dups_se = false, .remove_dups_pe = false};
 
   for(i = 0; i < num_binaries; i++)
     graph_load(binary_paths[i], &prefs, stats, NULL);
-
-  prefs.load_seq = true;
-  prefs.load_binaries = false;
 
   if(invert) status("Printing reads that do not touch the graph\n");
   else status("Printing reads that touch the graph\n");

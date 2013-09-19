@@ -757,15 +757,10 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs
-    = {.into_colour = 0, .merge_colours = true,
+    = {.into_colour = 0, .db_graph = db_graph,
+       .merge_colours = true,
        .boolean_covgs = false,
-       .load_seq = true,
-       .quality_cutoff = 0, .ascii_fq_offset = 0,
-       .homopolymer_cutoff = 0,
-       .remove_dups_se = false, .remove_dups_pe = false,
-       .load_binaries = true,
-       .must_exist_in_graph = intersect_gname != NULL, .empty_colours = false,
-       .db_graph = db_graph};
+       .must_exist_in_graph = intersect_gname != NULL, .empty_colours = false};
   //
 
   if(output_colours == 1)

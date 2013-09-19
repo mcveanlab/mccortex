@@ -198,22 +198,20 @@ int ctx_extend(CmdArgs *args)
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+                           // binaries
+                           .merge_colours = true,
                            .boolean_covgs = false,
-                           .load_seq = false,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
-                           .db_graph = &db_graph};
+                           // sequence
+                           .quality_cutoff = 0, .ascii_fq_offset = 0,
+                           .homopolymer_cutoff = 0,
+                           .remove_dups_se = false, .remove_dups_pe = false};
 
   // Load binary
   graph_load(input_ctx_path, &prefs, stats, NULL);
 
-  prefs.load_seq = true;
-  prefs.load_binaries = false;
 
   ExtendContig contig = {.db_graph = &db_graph,
                          .readbuffw = &readbuffw, .readbufrv = &readbufrv,

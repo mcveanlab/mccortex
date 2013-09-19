@@ -240,16 +240,16 @@ int ctx_subgraph(CmdArgs *args)
   // Load binaries
   //
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+                           // binaries
+                           .merge_colours = true,
                            .boolean_covgs = false,
-                           .load_seq = true,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false,
-                           .load_binaries = true,
                            .must_exist_in_graph = false,
                            .empty_colours = true,
-                           .db_graph = &db_graph};
+                           // seq
+                           .quality_cutoff = 0, .ascii_fq_offset = 0,
+                           .homopolymer_cutoff = 0,
+                           .remove_dups_se = false, .remove_dups_pe = false};
 
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
