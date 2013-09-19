@@ -40,8 +40,6 @@ static inline int infer_edges(const BinaryKmer node_bkey, Edges *edges,
 
   if(!add_edges) return 0;
 
-  // hkey_t node = hash_table_find(&db_graph->ht, node_bkey);
-
   for(orient = 0; orient < 2; orient++)
   {
     bkmer = node_bkey;
@@ -58,14 +56,11 @@ static inline int infer_edges(const BinaryKmer node_bkey, Edges *edges,
         else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
 
         bkey = db_node_get_key(bkmer, kmer_size);
-        if(binary_kmers_are_equal(bkmer, bkey))
-        {
-          next = hash_table_find(&db_graph->ht, bkey);
+        next = hash_table_find(&db_graph->ht, bkey);
 
-          for(col = 0; col < db_graph->num_of_cols; col++)
-            if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
-              newedges[col] |= edge;
-        }
+        for(col = 0; col < db_graph->num_of_cols; col++)
+          if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
+            newedges[col] |= edge;
       }
     }
   }
@@ -118,16 +113,16 @@ int ctx_infer_edges(CmdArgs *args)
                            .must_exist_in_graph = false,
                            .empty_colours = false};
 
-  printf("Loading....\n");
   graph_load(path, &prefs, stats, NULL);
-  printf("Reloading...\n");
+
+  status("Inferring edges from population...\n");
 
   // Read again
   BinaryKmer bkmer;
   Edges edges[db_graph.num_of_cols];
   Covg covgs[db_graph.num_of_cols];
 
-  FILE *fh = fopen(path, "rw");
+  FILE *fh = fopen(path, "r+");
   if(fh == NULL) die("Cannot open: %s", path);
 
   graph_file_read_header(fh, &gheader, true, path);
@@ -139,7 +134,6 @@ int ctx_infer_edges(CmdArgs *args)
     {
       if(fseek(fh, -edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
       fwrite(edges, 1, edges_len, fh);
-      if(fseek(fh, edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
     }
   }
 

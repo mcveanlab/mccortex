@@ -14,11 +14,11 @@
 static const char usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"
 " options:\n"
-"   --print_kmers\n"
-"   --parse_kmers\n"
-"   --print_info\n"
+"   --kmers  Print kmers\n"
+"   --check  Check kmers\n"
+"   --info   Print info\n"
 "\n"
-" Default is [--print_info --parse_kmers]\n";
+" Default is [--info --check]\n";
 
 static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
 {
@@ -110,9 +110,9 @@ int ctx_view(CmdArgs *args)
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcmp(argv[argi],"--print_info") == 0) print_info = true;
-    else if(strcmp(argv[argi],"--parse_kmers") == 0) parse_kmers = true;
-    else if(strcmp(argv[argi],"--print_kmers") == 0) print_kmers = true;
+    if(strcmp(argv[argi],"--info") == 0) print_info = true;
+    else if(strcmp(argv[argi],"--check") == 0) parse_kmers = true;
+    else if(strcmp(argv[argi],"--kmers") == 0) print_kmers = true;
     else print_usage(usage, "Unknown option: %s", argv[argi]);
   }
 

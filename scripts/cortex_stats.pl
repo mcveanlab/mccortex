@@ -35,7 +35,7 @@ if(!(-e $cmd)) {
   print_usage("bin/ctx31 doesn't appear to be executable");
 }
 
-my $cmdline = "$cmd view --print_kmers $file";
+my $cmdline = "$cmd view --kmers $file";
 my ($pid, $in, $out);
 
 my ($num_nodes) = (0);

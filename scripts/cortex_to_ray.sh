@@ -16,7 +16,7 @@ then
   col=$2
 
   # Check number of colours in binary
-  bincols=`$CTX --print_info $1 | grep 'colours:' | grep -o '[0-9]*$'` || exit
+  bincols=`$CTX --info $1 | grep 'colours:' | grep -o '[0-9]*$'` || exit
   if [[ $col -ge $bincols ]]
   then
     echo "Binary only has $bincols colours (you requested $col)"
