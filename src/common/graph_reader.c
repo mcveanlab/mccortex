@@ -541,7 +541,7 @@ uint32_t graph_load(const char *ctx_path,
         db_node_add_col_covg(graph, node, prefs->into_colour+i, covgs[i]);
     }
 
-    // This may be an invalid pointer
+    // This may be an invalid pointer (if num_edge_cols == 0)
     Edges *col_edges = graph->col_edges + node * graph->num_edge_cols;
 
     // Merge all edges into one colour

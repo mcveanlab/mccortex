@@ -3,12 +3,12 @@
 #include "util.h"
 #include "binary_kmer.h"
 
-static void strbuf_arr_resize(StrBuf ***arr, size_t *cap, size_t newcap)
+static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
 {
   size_t i;
   newcap = ROUNDUP2POW(newcap);
-  *arr = realloc2(*arr, sizeof(StrBuf*) * newcap);
-  for(i = *cap; i < newcap; i++) (*arr)[i] = strbuf_new();
+  *arr = realloc2(*arr, sizeof(StrBuf) * newcap);
+  for(i = *cap; i < newcap; i++) strbuf_alloc(&(*arr)[i], 64);
   *cap = newcap;
 }
 
@@ -28,11 +28,11 @@ StrBuf* info_tag_find(vcf_entry_t *entry, const char* str)
 {
   size_t i, len = strlen(str);
   for(i = 0; i < entry->num_info; i++) {
-    const char *buff = entry->info[i]->buff;
+    const char *buff = entry->info[i].buff;
     if(strcasecmp(buff, str) == 0 ||
        (buff[len] == '=' && strncasecmp(buff, str, len) == 0))
     {
-      return entry->info[i];
+      return &entry->info[i];
     }
   }
   return NULL;
@@ -43,7 +43,7 @@ void info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
   if(entry->num_info+1 >= entry->info_capacity)
     strbuf_arr_resize(&entry->info, &entry->info_capacity, entry->num_info+1);
 
-  StrBuf* sbuf = entry->info[entry->num_info++];
+  StrBuf* sbuf = &entry->info[entry->num_info++];
 
   va_list argptr;
   va_start(argptr, fmt);
@@ -57,16 +57,16 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
   size_t i, j, num_cols = VCFSAMPLES+num_samples;
   entry->alts_capacity = entry->info_capacity = 2;
   entry->num_info = entry->num_alts = 0;
-  entry->cols = malloc2(sizeof(StrBuf*) * num_cols);
-  entry->alts = malloc2(sizeof(StrBuf*) * entry->alts_capacity);
-  entry->info = malloc2(sizeof(StrBuf*) * entry->info_capacity);
+  entry->cols = malloc2(sizeof(StrBuf) * num_cols);
+  entry->alts = malloc2(sizeof(StrBuf) * entry->alts_capacity);
+  entry->info = malloc2(sizeof(StrBuf) * entry->info_capacity);
 
   for(i = 0; i < num_cols; i++)
-    entry->cols[i] = strbuf_new();
+    strbuf_alloc(&entry->cols[i], 1024);
 
   for(i = 0; i < entry->alts_capacity; i++) {
-    entry->alts[i] = strbuf_new();
-    entry->info[i] = strbuf_new();
+    strbuf_alloc(&entry->alts[i], 64);
+    strbuf_alloc(&entry->info[i], 1024);
   }
 
   // samples
@@ -83,13 +83,12 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
 void vcf_entry_dealloc(vcf_entry_t *entry, uint32_t num_samples)
 {
   size_t i, j, num_cols = VCFSAMPLES+num_samples;
-  for(i = 0; i < num_cols; i++) strbuf_free(entry->cols[i]);
-  for(i = 0; i < entry->alts_capacity; i++) strbuf_free(entry->alts[i]);
-  for(i = 0; i < entry->info_capacity; i++) strbuf_free(entry->info[i]);
+  for(i = 0; i < num_cols; i++) strbuf_dealloc(&entry->cols[i]);
+  for(i = 0; i < entry->alts_capacity; i++) strbuf_dealloc(&entry->alts[i]);
+  for(i = 0; i < entry->info_capacity; i++) strbuf_dealloc(&entry->info[i]);
   for(i = 0; i < num_samples; i++) {
-    for(j = 0; j < entry->alts_capacity; j++) {
+    for(j = 0; j < entry->alts_capacity; j++)
       delta_arr_dealloc(&entry->covgs[i][j]);
-    }
     free(entry->covgs[i]);
   }
   free(entry->cols);
@@ -105,24 +104,26 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   StrBuf *buf;
 
   // Split vcf line into fields
-  size_t num_cols = count_char(line->buff, '\t') + 1;
-  if(num_cols != VCFSAMPLES+num_samples)
-    die("Incorrect number of VCF columns: '%s'", line->buff);
+  // size_t num_cols = count_char(line->buff, '\t') + 1;
 
-  num_cols = 0;
+  size_t num_cols = 0;
   tmp = line->buff;
   while(1)
   {
+    if(num_cols == VCFSAMPLES+num_samples) die("Too many VCF columns");
     end = strchr(tmp, '\t');
     if(end != NULL) *end = '\0';
-    strbuf_set(entry->cols[num_cols++], tmp);
+    strbuf_set(&entry->cols[num_cols++], tmp);
     if(end != NULL) *end = '\t';
     else break;
     tmp = end + 1;
   }
 
+  if(num_cols != VCFSAMPLES+num_samples)
+    die("Incorrect number of VCF columns: '%s'", line->buff);
+
   // Split ALT alleles
-  size_t alts_count = count_char(entry->cols[VCFALT]->buff, ',') + 1;
+  size_t alts_count = count_char(entry->cols[VCFALT].buff, ',') + 1;
   if(alts_count > entry->alts_capacity)
   {
     // Increase in the number of alleles
@@ -139,13 +140,13 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   }
 
   entry->num_alts = 0;
-  tmp = entry->cols[VCFALT]->buff;
+  tmp = entry->cols[VCFALT].buff;
   while(1)
   {
     end = strchr(tmp, ',');
     if(end != NULL) *end = '\0';
     while(*tmp == 'N') tmp++; // Skip Ns at the beginning of alleles
-    strbuf_set(entry->alts[entry->num_alts++], tmp);
+    strbuf_set(&entry->alts[entry->num_alts++], tmp);
     if(end != NULL) *end = ',';
     else break;
     tmp = end + 1;
@@ -153,12 +154,12 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
 
   // Split INFO alleles
   entry->num_info = 0;
-  tmp = entry->cols[VCFINFO]->buff;
+  tmp = entry->cols[VCFINFO].buff;
   entry->lf = entry->rf = NULL;
 
   size_t info_count = 0;
   while((tmp = info_tag_end(tmp)) != NULL) { info_count++; tmp++; }
-  tmp = entry->cols[VCFINFO]->buff;
+  tmp = entry->cols[VCFINFO].buff;
 
   if(info_count > entry->info_capacity)
     strbuf_arr_resize(&entry->info, &entry->info_capacity, info_count);
@@ -167,7 +168,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   {
     end = info_tag_end(tmp);
     if(end != NULL) *end = '\0';
-    buf = entry->info[entry->num_info++];
+    buf = &entry->info[entry->num_info++];
     strbuf_set(buf, tmp);
     if(!strncmp(tmp, "LF=", 3)) entry->lf = buf;
     else if(!strncmp(tmp, "RF=", 3)) entry->rf = buf;
@@ -181,7 +182,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   size_t i, j;
   for(i = 0; i < num_samples; i++)
   {
-    tmp = entry->cols[VCFSAMPLES+i]->buff;
+    tmp = entry->cols[VCFSAMPLES+i].buff;
     size_t count = count_char(tmp, ';') + 1;
     if(count != entry->num_alts)
       die("Invalid GT: %s [%zu vs %zu]", tmp, count, entry->num_alts);
@@ -204,10 +205,10 @@ void vcf_entry_revcmp(vcf_entry_t *entry)
 
   size_t i;
   for(i = 0; i < entry->num_alts; i++)
-    reverse_complement_str(entry->alts[i]->buff, entry->alts[i]->len);
+    reverse_complement_str(entry->alts[i].buff, entry->alts[i].len);
 
   // reverse complement and swap lflank and rflank
-  // printf("lf:'%s'; rf:'%s'\n", entry->lf->buff, entry->rf->buff);
+  // printf("lf:'%s'; rf:'%s'\n", entry->lf.buff, entry->rf.buff);
   reverse_complement_str(entry->lf->buff+3, entry->lf->len-3);
   reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
   entry->lf->buff[0] = 'R';
@@ -219,7 +220,7 @@ size_t vcf_entry_longest_allele(vcf_entry_t *entry)
 {
   size_t i, max = 0;
   for(i = 0; i < entry->num_alts; i++) {
-    max = MAX2(max, entry->alts[i]->len);
+    max = MAX2(max, entry->alts[i].len);
   }
   return max;
 }
@@ -227,38 +228,38 @@ size_t vcf_entry_longest_allele(vcf_entry_t *entry)
 void vcf_entry_print(const vcf_entry_t *entry, FILE *out, uint32_t num_samples)
 {
   size_t i, num_cols = VCFSAMPLES + num_samples;
-  StrBuf *vcfalts = entry->cols[VCFALT], *vcfinfo = entry->cols[VCFINFO];
+  StrBuf *vcfalts = &entry->cols[VCFALT], *vcfinfo = &entry->cols[VCFINFO];
 
   // Convert alts back into alt
   strbuf_reset(vcfalts);
   for(i = 0; i < entry->num_alts; i++) {
-    if(entry->alts[i]->len > 0) {
+    if(entry->alts[i].len > 0) {
       if(vcfalts->len > 0) strbuf_append_char(vcfalts, ',');
-      strbuf_append_strn(vcfalts, entry->alts[i]->buff, entry->alts[i]->len);
+      strbuf_append_strn(vcfalts, entry->alts[i].buff, entry->alts[i].len);
     }
   }
 
   // Convert info tags back into info
   strbuf_reset(vcfinfo);
   for(i = 0; i < entry->num_info; i++) {
-    if(entry->info[i]->len > 0) {
+    if(entry->info[i].len > 0) {
       if(vcfinfo->len > 0) strbuf_append_char(vcfinfo, ';');
-      strbuf_append_strn(vcfinfo, entry->info[i]->buff, entry->info[i]->len);
+      strbuf_append_strn(vcfinfo, entry->info[i].buff, entry->info[i].len);
     }
   }
 
   // Print
-  fputs(entry->cols[0]->buff, out);
+  fputs(entry->cols[0].buff, out);
   for(i = 1; i < num_cols; i++) {
     fputc('\t', out);
-    fputs(entry->cols[i]->buff, out);
+    fputs(entry->cols[i].buff, out);
   }
   fputc('\n', out);
 }
 
 void vcf_entry_add_filter(vcf_entry_t *entry, const char *status)
 {
-  StrBuf *filter = entry->cols[VCFFILTER];
+  StrBuf *filter = &entry->cols[VCFFILTER];
   if(filter->len == 0 || strcmp(filter->buff, ".") == 0 ||
      strcasecmp(filter->buff, "PASS") == 0)
   {

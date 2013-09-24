@@ -33,36 +33,6 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   return db_graph;
 }
 
-// dBGraph* db_graph_set_cols(dBGraph *db_graph, uint32_t num_of_cols)
-// {
-//   size_t i;
-//   Colour num_of_cols_used = MIN2(num_of_cols, db_graph->num_of_cols_used);
-//   Colour old_num_cols = db_graph->num_of_cols;
-
-//   dBGraph tmp = {.ht = db_graph->ht, .kmer_size = db_graph->kmer_size,
-//                  .num_of_cols = num_of_cols, .num_of_cols_used = num_of_cols_used,
-//                  .ginfo = db_graph->ginfo, .col_edges = db_graph->col_edges,
-//                  .col_covgs = db_graph->col_covgs,
-//                  .node_in_cols = db_graph->node_in_cols,
-//                  .kmer_paths = db_graph->kmer_paths,
-//                  .pdata = db_graph->pdata,
-//                  .readstrt = db_graph->readstrt};
-
-//   memcpy(db_graph, &tmp, sizeof(dBGraph));
-
-//   if(num_of_cols > old_num_cols) {
-//     db_graph->ginfo = realloc2(db_graph->ginfo, num_of_cols * sizeof(GraphInfo));
-//     for(i = old_num_cols; i < num_of_cols; i++)
-//       graph_info_alloc(db_graph->ginfo + i);
-//   }
-//   else if(num_of_cols < old_num_cols) {
-//     for(i = num_of_cols; i < old_num_cols; i++)
-//       graph_info_dealloc(db_graph->ginfo + i);
-//   }
-
-//   return db_graph;
-// }
-
 void db_graph_dealloc(dBGraph *db_graph)
 {
   size_t i;
@@ -345,6 +315,55 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
     for(i = 0; i < capacity; i++)
       col_edges[i][col] = 0;
   }
+}
+
+static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
+{
+  size_t col, kmer_size = db_graph->kmer_size;
+  BinaryKmer bkmer, bkey, node_bkey = db_node_bkmer(db_graph, node);
+  Orientation orient;
+  Nucleotide nuc;
+  hkey_t next;
+  Edges edge, *edges = &db_node_col_edges(db_graph,node,0), iedges = edges[0];
+  boolean node_has_col[db_graph->num_edge_cols];
+
+  for(col = 0; col < db_graph->num_edge_cols; col++) {
+    iedges &= edges[col];
+    node_has_col[col] = db_node_has_col(db_graph, node, col);
+  }
+
+  for(orient = 0; orient < 2; orient++)
+  {
+    bkmer = node_bkey;
+    if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
+    else binary_kmer_right_shift_one_base(&bkmer);
+
+    for(nuc = 0; nuc < 4; nuc++)
+    {
+      edge = nuc_orient_to_edge(nuc, orient);
+
+      // Check edge is not is all colours
+      if(!(edge & iedges))
+      {
+        if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
+        else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
+
+        bkey = db_node_get_key(bkmer, kmer_size);
+        next = hash_table_find(&db_graph->ht, bkey);
+
+        if(next != HASH_NOT_FOUND)
+          for(col = 0; col < db_graph->num_edge_cols; col++)
+            if(node_has_col[col] && db_node_has_col(db_graph, next, col))
+              edges[col] |= edge;
+      }
+    }
+  }
+}
+
+void db_graph_add_all_edges(dBGraph *db_graph)
+{
+  assert(db_graph->num_of_cols == db_graph->num_edge_cols);
+  HASH_TRAVERSE(&db_graph->ht, add_all_edges, db_graph);
 }
 
 //

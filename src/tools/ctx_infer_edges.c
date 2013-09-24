@@ -94,17 +94,17 @@ int ctx_infer_edges(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer = (sizeof(Edges) * 8 + 1) * gheader.num_of_cols;
+  size_t extra_bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols;
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                                gheader.num_of_kmers, true);
 
   db_graph_alloc(&db_graph, gheader.kmer_size,
-                 gheader.num_of_cols, gheader.num_of_cols, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity * gheader.num_of_cols, sizeof(Edges));
+                 gheader.num_of_cols, 1, kmers_in_hash);
 
   // In colour
   size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
   db_graph.node_in_cols = calloc2(words64_per_col*gheader.num_of_cols, sizeof(uint64_t));
+  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,

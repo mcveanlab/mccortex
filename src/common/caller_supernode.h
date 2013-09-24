@@ -4,11 +4,6 @@
 #include "graph_typedef.h"
 #include "hash_table.h"
 
-#define MAX_FLANK_KMERS 1000
-#define MAX_ALLELE_KMERS 1000
-
-#define NODE_BUFSIZE(colours) ((MAX_ALLELE_KMERS) * (colours) * 4)
-
 //
 // Data types and structs for calling variants with the bubble caller
 //
@@ -40,8 +35,8 @@ struct CallerSupernode
 struct SupernodePath
 {
   int colour;
-  CallerSupernode *supernodes[MAX_ALLELE_KMERS];
-  SuperOrientation superorients[MAX_ALLELE_KMERS];
+  CallerSupernode **supernodes;
+  SuperOrientation *superorients;
   size_t length;
 };
 

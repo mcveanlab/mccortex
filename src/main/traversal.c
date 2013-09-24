@@ -13,15 +13,41 @@
 
 static const char usage[] =
 "usage: traversal [options] <input.ctx>\n"
-"  Test graph traversal code\n";
+"  Get graph traversal statistics\n"
+"  Options: [ -m <mem> | -h <kmers> | -p <paths.ctp> ]\n"
+"           [ --nsamples <N> | --colour <c> ]\n";
 
 int main(int argc, char **argv)
 {
+  ctx_msg_out = stdout;
   CmdArgs args;
   cmd_alloc(&args, argc, argv);
+  cmd_accept_options(&args, "mhp");
+  argc = args.argc;
+  argv = args.argv;
 
-  if(args.argc != 1) print_usage(usage, NULL);
-  const char *input_ctx_path = args.argv[0];
+  size_t num_samples = 10000, colour = 0;
+
+  while(argc > 0 && argv[0][0] == '-') {
+    if(strcmp(argv[0],"--nsamples") == 0) {
+      unsigned long tmp;
+      if(argc == 1 || !parse_entire_ulong(argv[1], &tmp))
+        print_usage(usage, "--nsamples <N> requires an integer argument");
+      num_samples = tmp;
+      argv += 2; argc -= 2;
+    }
+    else if(strcmp(argv[0],"--colour") == 0) {
+      unsigned long tmp;
+      if(argc == 1 || !parse_entire_ulong(argv[1], &tmp))
+        print_usage(usage, "--colour <c> requires an integer argument");
+      colour = tmp;
+      argv += 2; argc -= 2;
+    }
+    else print_usage(usage, "Unknown argument: %s", argv[0]);
+  }
+
+  if(argc != 1) print_usage(usage, NULL);
+  const char *input_ctx_path = argv[0];
 
   /* initialize random seed: */
   srand(time(NULL));
@@ -35,20 +61,24 @@ int main(int argc, char **argv)
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
-  // probe paths file
-  const char *input_paths_file = args.ctp_files[0];
-
+  // probe paths files
   boolean valid_paths_file = false;
   PathFileHeader pheader = {.capacity = 0};
+  size_t i, j;
 
-  if(input_paths_file == NULL)
-    warn("No paths file given (-p <in.ctp>)");
-  else if(!paths_file_probe(input_paths_file, &valid_paths_file, &pheader))
-    print_usage(usage, "Cannot read .ctp file: %s", input_paths_file);
-  else if(!valid_paths_file)
-    die("Invalid .ctp file: %s", input_paths_file);
+  if(args.num_ctp_files == 0)
+    status("No path files (.ctp) to load");
+  else if(args.num_ctp_files > 1)
+    print_usage(usage, "Cannot load >1 .ctp file at the moment [use pmerge]");
 
-  // paths_compatibility_check(db_graph, pheader);
+  for(i = 0; i < args.num_ctp_files; i++)
+  {
+    if(!paths_file_probe(args.ctp_files[i], &valid_paths_file, &pheader))
+      print_usage(usage, "Cannot read .ctp file: %s", args.ctp_files[i]);
+    else if(!valid_paths_file)
+      die("Invalid .ctp file: %s", args.ctp_files[i]);
+  }
+
 
   // Get starting bkmer
   // BinaryKmer bkmer, bkey;
@@ -62,13 +92,9 @@ int main(int argc, char **argv)
 
   bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(&args, bits_per_kmer,
-                                        gheader.num_of_kmers, true);
+                                        gheader.num_of_kmers, false);
   path_mem = args.mem_to_use -
-             kmers_in_hash * (sizeof(BinaryKmer)+bits_per_kmer/8);
-
-  size_t req_num_kmers = gheader.num_of_kmers*(1.0/IDEAL_OCCUPANCY);
-  // size_t hash_mem = hash_table_mem(req_num_kmers, &hash_kmers);
-  // size_t path_mem = args.mem_to_use - hash_mem;
+             (kmers_in_hash * (sizeof(BinaryKmer)*8+bits_per_kmer)) / 8;
 
   char path_mem_str[100];
   bytes_to_str(path_mem, 1, path_mem_str);
@@ -77,13 +103,14 @@ int main(int argc, char **argv)
   dBGraph db_graph;
   GraphWalker wlk;
 
-  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, 1, req_num_kmers);
+  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, 1, kmers_in_hash);
   graph_walker_alloc(&wlk);
 
   size_t node_bit_fields = round_bits_to_words64(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(node_bit_fields, sizeof(uint64_t));
+  db_graph.node_in_cols = calloc2(node_bit_fields * gheader.num_of_cols,
+                                  sizeof(uint64_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
@@ -105,9 +132,9 @@ int main(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path file
-  if(input_paths_file != NULL) {
-    paths_format_read(input_paths_file, &pheader, &db_graph,
+  // Load path files
+  for(i = 0; i < args.num_ctp_files; i++) {
+    paths_format_read(args.ctp_files[i], &pheader, &db_graph,
                       &db_graph.pdata, false);
   }
 
@@ -124,14 +151,14 @@ int main(int argc, char **argv)
   hkey_t node;
   Orientation orient;
 
-  size_t i, j, len, junc, prev_junc, num_repeats = 10000;
+  size_t len, junc, prev_junc;
   size_t total_len = 0, total_junc = 0, dead_ends = 0, n = 0;
-  size_t lengths[num_repeats], junctions[num_repeats];
+  size_t lengths[num_samples], junctions[num_samples];
 
   size_t path_cap = 4096;
   hkey_t *path = malloc2(path_cap * sizeof(hkey_t));
 
-  for(i = 0; i < num_repeats; i++)
+  for(i = 0; i < num_samples; i++)
   {
     orient = rand() & 0x1;
     node = db_graph_rand_node(&db_graph);
@@ -139,7 +166,7 @@ int main(int argc, char **argv)
     len = junc = 0;
     path[len++] = node;
 
-    graph_walker_init(&wlk, &db_graph, 0, 0, node, orient);
+    graph_walker_init(&wlk, &db_graph, colour, colour, node, orient);
     lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
     prev_junc = edges_get_outdegree(db_graph.col_edges[node], orient) > 1;
 
@@ -170,25 +197,20 @@ int main(int argc, char **argv)
     for(j = 0; j < len; j++)
       db_node_fast_clear_traversed(visited, path[j]);
 
-    if(edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) == 0) dead_ends++;
-    // {
-      lengths[n] = len;
-      junctions[n] = junc;
-      total_len += len;
-      total_junc += junc;
-      n++;
-    // }
-    // else {
-    //   dead_ends++;
-    // }
-    // break;
+    dead_ends += (edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) == 0);
+    lengths[n] = len;
+    junctions[n] = junc;
+    total_len += len;
+    total_junc += junc;
+    n++;
   }
 
   free(path);
 
   status("\n");
-  status("total_len: %zu; total_junc: %zu\n", total_len, total_junc);
-  status("dead ends: %zu / %zu\n", dead_ends, num_repeats);
+  status("total_len: %zu; total_junc: %zu (%.2f%% junctions)\n",
+         total_len, total_junc, (100.0*total_junc)/total_len);
+  status("dead ends: %zu / %zu\n", dead_ends, num_samples);
   status("mean length: %.2f\n", (double)total_len / n);
   status("mean junctions: %.1f per contig, %.2f%% nodes (1 every %.1f nodes)\n",
           (double)total_junc / n, (100.0 * total_junc) / total_len,
@@ -200,8 +222,8 @@ int main(int argc, char **argv)
   double median_len = MEDIAN(lengths, n);
   double median_junc = MEDIAN(junctions, n);
 
-  status("Median contig length: %f\n", median_len);
-  status("Median junctions per contig: %f\n", median_junc);
+  status("Median contig length: %.2f\n", median_len);
+  status("Median junctions per contig: %.2f\n", median_junc);
 
   free(visited);
   free(db_graph.col_edges);

@@ -5,14 +5,15 @@
 // Create/free/sum SeqLoadingStats
 //
 
-SeqLoadingStats* seq_loading_stats_create(unsigned long readlen_arrsize)
+SeqLoadingStats* seq_loading_stats_create(size_t readlen_arrsize)
 {
   SeqLoadingStats *stats = calloc2(1, sizeof(SeqLoadingStats));
+  stats->readlen_count_array_size = readlen_arrsize;
 
   if(readlen_arrsize > 0)
     stats->readlen_count_array = calloc2(readlen_arrsize, sizeof(unsigned long));
-
-  stats->readlen_count_array_size = readlen_arrsize;
+  else
+    stats->readlen_count_array = NULL;
 
   return stats;
 }

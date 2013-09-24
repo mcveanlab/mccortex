@@ -24,8 +24,6 @@ MPSIZE=${10}
 ALLELECOVG=${11}
 witherror=${12}
 
-TLEN=$(($READLEN+$MPSIZE+$READLEN))
-
 NCHROMS=$(($NUM_INDIVS * $PLOIDY))
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -39,6 +37,7 @@ THREADCTX="$DIR/../../bin/ctx31 thread"
 CALLCTX="$DIR/../../bin/ctx31 call"
 PROCCTX="$DIR/../../bin/ctx31 unique"
 PLACECTX="$DIR/../../bin/ctx31 place"
+TRAVERSE="$DIR/../../bin/traversal31"
 
 BIOINF="$DIR/../../libs/bioinf-perl"
 HAPLEN="$DIR/longest-haplotype.sh"
@@ -73,9 +72,7 @@ fi
 # Generate reads
 for i in $(seq 0 $LASTCHROM)
 do
-  cmd $READSIM -r <(cat genome$i.fa | tr -d '-') -t $TLEN -v 0 -l $READLEN -d $ALLELECOVG $USECALIB reads$i
-  # cmd $BIOINF/sim_mutations/sim_reads.pl --readlen $READLEN --mpsize $MPSIZE --covg $ALLELECOVG reads$i genome$i.fa
-  # gzip reads$i.1.fa reads$i.2.fa
+  cmd $READSIM -r <(cat genome$i.fa | tr -d '-') -i $MPSIZE -v 0.2 -l $READLEN -d $ALLELECOVG $USECALIB reads$i
   cmd "echo reads$i.1.fa.gz >> reads$i.1.falist"
   cmd "echo reads$i.2.fa.gz >> reads$i.2.falist"
 done
@@ -111,10 +108,6 @@ cmd mv diploid.oldbc.bubbles diploid.oldbc.bubbles.2
 cmd "$OLDCLEAN $KMER diploid.oldbc.bubbles.2 > diploid.oldbc.bubbles"
 cmd $PROCCTX diploid.oldbc.bubbles diploid.oldbc
 cmd gzip -d -f diploid.oldbc.vcf.gz
-
-# Fix buggy output from old bc
-# grep -v 'LF=;' diploid.oldbc.vcf > diploid.oldbc.vcf.2;
-# mv diploid.oldbc.vcf.2 diploid.oldbc.vcf
 
 # Call with new bc
 cmd time $CALLCTX -t 1 pop.ctx diploid.newbc.bubbles.gz
@@ -190,7 +183,7 @@ done
 echo == Truth ==
 cmd $HAPLEN truth.vcf
 
-exit
+# exit
 
 # Map 5' flanks
 STAMPY=stampy.py
@@ -201,10 +194,23 @@ if [ ! -e ../chr21.sthash ]; then `$STAMPY -g ../chr21 -H ../chr21`; fi
 cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.oldbc.5pflanks.fa.gz > diploid.oldbc.5pflanks.sam"
 cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.newbc.5pflanks.fa.gz > diploid.newbc.5pflanks.sam"
 cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.newbc.shaded.5pflanks.fa.gz > diploid.newbc.shaded.5pflanks.sam"
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.5pflanks.fa.gz > diploid.pac.5pflanks.sam"
+cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.se.5pflanks.fa.gz > diploid.pac.se.5pflanks.sam"
+cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.pe.5pflanks.fa.gz > diploid.pac.pe.5pflanks.sam"
+cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.sepe.5pflanks.fa.gz > diploid.pac.sepe.5pflanks.sam"
 
 # Place calls
 cmd "time $PLACECTX diploid.oldbc.vcf diploid.oldbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.oldbc.decomp.vcf"
 cmd "time $PLACECTX diploid.newbc.vcf diploid.newbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.newbc.decomp.vcf"
 cmd "time $PLACECTX diploid.newbc.shaded.vcf diploid.newbc.shaded.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.newbc.shaded.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.vcf diploid.pac.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.decomp.vcf"
+cmd "time $PLACECTX diploid.pac.se.vcf diploid.pac.se.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.se.decomp.vcf"
+cmd "time $PLACECTX diploid.pac.pe.vcf diploid.pac.pe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.pe.decomp.vcf"
+cmd "time $PLACECTX diploid.pac.sepe.vcf diploid.pac.sepe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.sepe.decomp.vcf"
+
+# Traversal statistics
+
+cmd time $TRAVERSE --colour 0 pop.ctx
+
+for x in se pe sepe
+do
+  cmd time $TRAVERSE --colour 0 -p pop.$x.ctp pop.ctx
+done

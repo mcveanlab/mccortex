@@ -43,7 +43,7 @@ typedef struct
 } SeqLoadingStats;
 
 // Functions for dealing with file loading statistics
-SeqLoadingStats* seq_loading_stats_create(unsigned long readlen_arrsize);
+SeqLoadingStats* seq_loading_stats_create(size_t readlen_arrsize);
 void seq_loading_stats_sum(SeqLoadingStats* dst, SeqLoadingStats* src);
 void seq_loading_stats_free(SeqLoadingStats* stats);
 

@@ -50,7 +50,8 @@ int main(int argc, char **argv)
   if(args.cmdidx == -1) print_usage(usage, "Unrecognised command: %s", argv[1]);
   
   boolean usestderr = (strcmp(argv[1], "view") == 0 ||
-                       strcmp(argv[1], "pview") == 0);
+                       strcmp(argv[1], "pview") == 0 ||
+                       strcmp(argv[1], "place") == 0);
 
   ctx_msg_out = usestderr ? stderr : stdout;
 

@@ -33,6 +33,15 @@ struct VarBranch {
   VarBranch *next;
 };
 
+typedef struct
+{
+  char key[2*PROC_MAXK+1]; // concat of key0, key1 (keys of kmer0, kmer1)
+  StrBuf *flank5p, *flank3p;
+  VarBranch *first_allele; // Linkedlist
+  StrBuf *name;
+  uint32_t shift_left, shift_right;
+} Var;
+
 static VarBranch* branch_new(int num_samples)
 {
   int i;
@@ -56,15 +65,6 @@ static void branch_free(VarBranch *branch, int num_samples)
 }
 
 /* Variants */
-
-typedef struct
-{
-  char key[2*PROC_MAXK+1]; // concat of key0, key1 (keys of kmer0, kmer1)
-  StrBuf *flank5p, *flank3p;
-  VarBranch *first_allele; // Linkedlist
-  StrBuf *name;
-  uint32_t shift_left, shift_right;
-} Var;
 
 static Var* var_new(uint32_t kmer_size)
 {

@@ -13,8 +13,6 @@ dBGraph* db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
 
 void db_graph_dealloc(dBGraph *db_graph);
 
-// dBGraph* db_graph_set_cols(dBGraph *db_graph, uint32_t num_of_cols);
-
 // Get an oriented bkmer
 #define db_graph_oriented_bkmer(graph,hkey,or) \
         db_node_oriented_bkmer(db_node_bkmer(graph,hkey),or,(graph)->kmer_size)
@@ -62,6 +60,9 @@ void db_graph_prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len);
 void db_graph_remove_uncoloured_nodes(dBGraph *db_graph);
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col);
+
+// Add edges between all kmers with k-1 bases overlapping
+void db_graph_add_all_edges(dBGraph *db_graph);
 
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph);
 

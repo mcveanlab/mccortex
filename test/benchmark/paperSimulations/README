@@ -1,0 +1,46 @@
+== Simulations ==
+
+The set of simulations are:
+{One,Many}{Human,Staph}{Error,NoError}Reads{100,250}
+
+'Many' sample simulations are all done with sequencing error
+
+1. Genomes:
+hg19 chr1 is used for human (249Mbp)
+Strain TW20 circular chromosome is used for Staph (3Mbp)
+2. Samples:
+Many is 10 for Human 1,000 for Staph
+3. Read Length:
+Reads are 100 or 250 bp long
+4. Insert Size:
+insert gap size is Normally distributed with mean 250, stddev 50: N(250,50)
+5. Covg:
+Covg is 30X for human, 100X for staph
+6. Sequencing error:
+Error is empirical from PhiX Illumina reads
+7. Variation:
+Pi is 1/1000bp in human, 1/100bp staph
+Allele frequency has distribution 1/N
+8. Variant Calling
+Calling is with k=31
+Using released cortex, shades, paths (se,pe,se+pe)
+
+Simulations:
+OneHumanErrorReads100
+OneHumanErrorReads250
+OneHumanNoErrorReads100
+OneHumanNoErrorReads250
+OneStaphErrorReads100
+OneStaphErrorReads250
+OneStaphNoErrorReads100
+OneStaphNoErrorReads250
+ManyHumanErrorReads100
+ManyHumanErrorReads250
+ManyStaphErrorReads100
+ManyStaphErrorReads250
+
+Generate simulation list
+echo {One,Many}{Human,Staph}{Error,NoError}Reads{100,250} | tr ' ' '\n' | awk '$1 !~ /Many/ || $1 !~ /NoError/' > sims.txt
+
+
+readsim -l [100,250] -i 250 -v 0.2 -r [chr1.fa.gz|staph.fa.gz] -d [30,100] [-p ../PhiX.100K.1.fq.gz] <out>

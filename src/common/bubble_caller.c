@@ -12,6 +12,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "file_reader.h"
+#include "cmd.h"
 #include "seq_reader.h"
 #include "path_store.h"
 #include "graph_walker.h"
@@ -25,7 +26,6 @@
 #ifdef DEBUG
 #define DEBUG_CALLER 1
 #endif
-
 
 // Actually hash map of hkey_t -> CallerSupernode*
 // the first and last node of a supernode are mapped to the CallerSupernode
@@ -49,7 +49,7 @@ static void print_filepath_abs(gzFile out, const char *name, const char *file)
 }
 
 static void print_calling_header(const dBGraph *db_graph, gzFile out,
-                                 const char* out_file)
+                                 const char* out_file, CmdArgs *args)
 {
   char datestr[9];
   time_t date = time(NULL);
@@ -59,33 +59,15 @@ static void print_calling_header(const dBGraph *db_graph, gzFile out,
   gzprintf(out, "##fileformat=CTXv1.0\n");
 
   // Cortex details
-  // gzprintf(out, "##ctxCmd=%s\n", cmd->cmdstr);
-
-  if(futil_get_current_dir(cwd) != NULL)
-    gzprintf(out, "##ctxCwd=%s\n", cwd);
+  gzprintf(out, "##ctxCmd=%s\n", args->cmdline);
+  if(futil_get_current_dir(cwd) != NULL) gzprintf(out, "##ctxCwd=%s\n", cwd);
 
   gzprintf(out, "##ctxDate=%s\n", datestr);
   gzprintf(out, "##ctxVersion=<version=%s,MAXK=%i>\n",
            CTXVERSIONSTR, MAX_KMER_SIZE);
 
-  // Print input sources
-  // if(cmd->input_ctx_binary)
-  //   print_filepath_abs(out, "ctx_load_binary", cmd->ctx_binary_path);
-  // if(cmd->input_se_pe_lists && cmd->se_list != NULL)
-  //   print_filepath_abs(out, "ctx_se_list", cmd->se_list);
-  // if(cmd->input_se_pe_lists && cmd->pe_list_lh_mates != NULL) {
-  //   print_filepath_abs(out, "ctx_pe_list1", cmd->pe_list_lh_mates);
-  //   print_filepath_abs(out, "ctx_pe_list2", cmd->pe_list_rh_mates);
-  // }
-  // if(cmd->input_colours)
-  //   print_filepath_abs(out, "ctx_colourlist", cmd->colour_list);
-
   print_filepath_abs(out, "ctxBubblesFile", out_file);
   gzprintf(out, "##ctxKmerSize=%u\n", db_graph->kmer_size);
-
-  // Print ref colour if there is one
-  // if(cmd->ref_colour != -1)
-  //   gzprintf(out, "##ctx_refcol=%i\n", cmd->ref_colour);
 
   // Print colours we're calling in
   gzprintf(out, "##ctxNumColoursUsedInCalling=%i\n", db_graph->num_of_cols_used);
@@ -198,28 +180,30 @@ static size_t suppathpos_to_list(const SupernodePathPos *snodepathpos,
 static void print_bubble(gzFile out, size_t bnum, const dBGraph *db_graph,
                          SupernodePathPos **spp_arr, size_t num_of_paths,
                          hkey_t *flank5pe, Orientation *flank5po,
-                         size_t flank5pkmers, size_t threadid)
+                         size_t flank5pkmers, size_t threadid,
+                         size_t max_allele_len, size_t max_flank_len)
 {
   // tmp variables
-  hkey_t tmp_e[MAX_ALLELE_KMERS];
-  Orientation tmp_o[MAX_ALLELE_KMERS];
+  size_t max = MAX2(max_allele_len, max_flank_len);
+  hkey_t tmp_e[max];
+  Orientation tmp_o[max];
   size_t i, num_kmers;
 
   // 5p flank
-  gzprintf(out, ">var_%zu.%lu_5p_flank length=%zu\n", threadid, bnum, flank5pkmers);
+  gzprintf(out, ">var_%zu.%zu_5p_flank length=%zu\n", threadid, bnum, flank5pkmers);
   print_branch(flank5pe, flank5po, flank5pkmers, true, db_graph, out);
 
   // 3p flank
   num_kmers = suppathpos_to_list(spp_arr[0], spp_arr[0]->pos, 1,
-                                 tmp_e, tmp_o, MAX_FLANK_KMERS);
-  gzprintf(out, ">var_%zu.%lu_3p_flank length=%zu\n", threadid, bnum, num_kmers);
+                                 tmp_e, tmp_o, max_flank_len);
+  gzprintf(out, ">var_%zu.%zu_3p_flank length=%zu\n", threadid, bnum, num_kmers);
   print_branch(tmp_e, tmp_o, num_kmers, false, db_graph, out);
 
   // Print alleles
   for(i = 0; i < num_of_paths; i++)
   {
     num_kmers = suppathpos_to_list(spp_arr[i], 0, spp_arr[i]->pos,
-                                   tmp_e, tmp_o, MAX_ALLELE_KMERS);
+                                   tmp_e, tmp_o, max_allele_len);
     gzprintf(out, ">var_%zu.%zu_branch_%zu length=%zu\n", threadid, bnum, i, num_kmers);
     print_branch(tmp_e, tmp_o, num_kmers, false, db_graph, out);
   }
@@ -274,7 +258,8 @@ static void load_allele_path(hkey_t node, Orientation or,
                              CallerSupernode *snode_store,
                              SupernodePathPos *snodepos_store,
                              size_t *snode_count_ptr,
-                             size_t *snodepos_count_ptr)
+                             size_t *snodepos_count_ptr,
+                             size_t max_allele_len)
 {
   CallerSupernode *snode;
   hkey_t node2, *nodes; // node,node2 are start/end nodes of supernode
@@ -353,7 +338,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     // Done adding new supernode
     // Check path length
     kmers_in_path += snode->num_of_nodes;
-    if(kmers_in_path > MAX_ALLELE_KMERS) break;
+    if(kmers_in_path > max_allele_len) break;
 
     // Check if we've already traversed this supernode
     if(db_node_has_traversed(visited, node, or)) break;
@@ -473,7 +458,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
                          SupernodePath *paths,
                          CallerSupernode *snode_store,
                          SupernodePathPos *snodepos_store,
-                         gzFile out, size_t *bnum, size_t threadid)
+                         gzFile out, size_t *bnum, size_t threadid,
+                         size_t max_allele_len, size_t max_flank_len)
 {
   // Set number of supernodes, positions, nodes to zero
   size_t snode_count = 0, snodepos_count = 0;
@@ -529,7 +515,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         // Constructs a path of supernodes (SupernodePath)
         load_allele_path(nodes[i], orients[i], path, snode_hash, wlk, visited,
                          nbuf, snode_store, snodepos_store,
-                         &snode_count, &snodepos_count);
+                         &snode_count, &snodepos_count, max_allele_len);
 
         graph_walker_finish(wlk);
 
@@ -545,8 +531,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
     }
   }
 
-  hkey_t flank5_nstore[MAX_FLANK_KMERS], *flank5pe = flank5_nstore;
-  Orientation flank5_ostore[MAX_FLANK_KMERS], *flank5po = flank5_ostore;
+  hkey_t flank5_nstore[max_flank_len], *flank5pe = flank5_nstore;
+  Orientation flank5_ostore[max_flank_len], *flank5po = flank5_ostore;
   size_t flank5pkmers = 0;
 
   // Loop over supernodes checking if they are 3p flanks
@@ -567,8 +553,9 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       // possible 3p flank (i.e. bubble end)
       // there a 4 possible allele paths per colour
       // each path can hit a node at most NUM_OF_SHADES times
-      SupernodePathPos *spp_forward[NODE_BUFSIZE(db_graph->num_of_cols)];
-      SupernodePathPos *spp_reverse[NODE_BUFSIZE(db_graph->num_of_cols)];
+      size_t maxnodes = max_allele_len * db_graph->num_of_cols * 4;
+      SupernodePathPos *spp_forward[maxnodes];
+      SupernodePathPos *spp_reverse[maxnodes];
       size_t num_forward = 0, num_reverse = 0;
 
       do
@@ -592,12 +579,11 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       {
         // Get 5p flank
         boolean iscycle;
-        size_t maxflanklen = MAX_FLANK_KMERS;
         flank5pe[0] = fork_n;
         flank5po[0] = opposite_orientation(fork_o);
         int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
-                                   &iscycle, &maxflanklen, false);
-        flank5pkmers = (len == -1 ? maxflanklen : (unsigned)len);
+                                   &iscycle, &max_flank_len, false);
+        flank5pkmers = (len == -1 ? max_flank_len : (unsigned)len);
         supernode_reverse(flank5pe, flank5po, flank5pkmers);
       }
 
@@ -607,7 +593,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         remove_snpath_pos_dupes(spp_forward, &num_forward, spp_hash);
         print_bubble(out, *bnum, db_graph,
                      spp_forward, num_forward,
-                     flank5pe, flank5po, flank5pkmers, threadid);
+                     flank5pe, flank5po, flank5pkmers, threadid,
+                     max_allele_len, max_flank_len);
         (*bnum)++;
       }
 
@@ -616,7 +603,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         remove_snpath_pos_dupes(spp_reverse, &num_reverse, spp_hash);
         print_bubble(out, *bnum, db_graph,
                      spp_reverse, num_reverse,
-                     flank5pe, flank5po, flank5pkmers, threadid);
+                     flank5pe, flank5po, flank5pkmers, threadid,
+                     max_allele_len, max_flank_len);
         (*bnum)++;
       }
     }
@@ -630,6 +618,7 @@ struct caller_region_t
   const gzFile out;
   const uint64_t start_hkey, end_hkey;
   const size_t threadid;
+  const size_t max_allele_len, max_flank_len;
   size_t num_of_bubbles;
 };
 
@@ -637,28 +626,40 @@ void* bubble_caller(void *args)
 {
   struct caller_region_t *tdata = (struct caller_region_t *)args;
   const dBGraph *db_graph = tdata->db_graph;
+  const size_t max_allele_len = tdata->max_allele_len;
+  const size_t max_flank_len = tdata->max_flank_len;
+  gzFile out = tdata->out;
 
   // Arrays to re-use
-  int cols4 = 4 * db_graph->num_of_cols;
+  size_t i, npaths = 4 * db_graph->num_of_cols;
 
   size_t node_bits = round_bits_to_words64(db_graph->ht.capacity);
   uint64_t *visited = calloc2(2*node_bits, sizeof(uint64_t));
 
-  size_t buf_size = NODE_BUFSIZE(db_graph->num_of_cols);
+  size_t maxnodes = max_allele_len * db_graph->num_of_cols * 4;
 
-  SupernodePath *snode_paths = malloc2(cols4 * sizeof(SupernodePath));
-  CallerSupernode *snode_store = malloc2(buf_size * sizeof(CallerSupernode));
-  SupernodePathPos *snodepos_store = malloc2(buf_size * sizeof(SupernodePathPos));
+  SupernodePath snode_paths[npaths];
+  CallerSupernode **supernodes = malloc2(maxnodes * sizeof(CallerSupernode*));
+  SuperOrientation *superorients = malloc2(maxnodes * sizeof(SuperOrientation));
+
+  for(i = 0; i < npaths; i++) {
+    snode_paths[i].supernodes = supernodes + i * max_allele_len;
+    snode_paths[i].superorients = superorients + i * max_allele_len;
+  }
+
+  CallerSupernode *snode_store = malloc2(maxnodes * sizeof(CallerSupernode));
+  SupernodePathPos *snodepos_store = malloc2(maxnodes * sizeof(SupernodePathPos));
 
   khash_t(supnode_hsh) *snode_hash = kh_init(supnode_hsh);
   khash_t(snpps_hsh) *spp_hash = kh_init(snpps_hsh);
 
-  size_t nodeslen = 4 * MAX_ALLELE_KMERS * 2;
-  hkey_t *nodes = malloc2(nodeslen * sizeof(hkey_t));
-  Orientation *orients = malloc2(nodeslen * sizeof(Orientation));
+  // Max usage is 4 * max_allele_len * cols
+  // size_t nodeslen = 4 * max_allele_len * 2;
+  hkey_t *nodes = malloc2(maxnodes * sizeof(hkey_t));
+  Orientation *orients = malloc2(maxnodes * sizeof(Orientation));
 
   CallerNodeBuf nbuf = {.nodes = nodes, .orients = orients,
-                        .len = 0, .cap = nodeslen};
+                        .len = 0, .cap = maxnodes};
 
   GraphWalker wlk;
   graph_walker_alloc(&wlk);
@@ -680,13 +681,15 @@ void* bubble_caller(void *args)
         find_bubbles(node, FORWARD, db_graph, &wlk, visited,
                      snode_hash, spp_hash, &nbuf,
                      snode_paths, snode_store, snodepos_store,
-                     tdata->out, &tdata->num_of_bubbles, tdata->threadid);
+                     out, &tdata->num_of_bubbles, tdata->threadid,
+                     max_allele_len, max_flank_len);
       }
       if(edges_get_outdegree(edges, REVERSE) > 1) {
         find_bubbles(node, REVERSE, db_graph, &wlk, visited,
                      snode_hash, spp_hash, &nbuf,
                      snode_paths, snode_store, snodepos_store,
-                     tdata->out, &tdata->num_of_bubbles, tdata->threadid);
+                     out, &tdata->num_of_bubbles, tdata->threadid,
+                     max_allele_len, max_flank_len);
       }
     }
   }
@@ -695,19 +698,22 @@ void* bubble_caller(void *args)
   graph_walker_dealloc(&wlk);
 
   free(visited);
-  free(snode_paths);
   free(snode_store);
   free(snodepos_store);
+  free(supernodes);
+  free(superorients);
   kh_destroy(supnode_hsh, snode_hash);
   kh_destroy(snpps_hsh, spp_hash);
-  free(nodes);
-  free(orients);
+  free(nbuf.nodes);
+  free(nbuf.orients);
 
   return NULL;
 }
 
 void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
-                                 int num_threads, char **tmp_paths)
+                          int num_threads, char **tmp_paths,
+                          size_t max_allele_len, size_t max_flank_len,
+                          CmdArgs *args)
 {
   // Open output file
   gzFile out = gzopen(out_file, "w");
@@ -716,13 +722,17 @@ void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
     die("Cannot open paths bubble caller output file: %s", out_file);
 
   // Print header
-  print_calling_header(db_graph, out, out_file);
+  print_calling_header(db_graph, out, out_file, args);
 
   size_t num_of_bubbles = 0;
 
   if(num_threads <= 1)
   {
-    struct caller_region_t tdata = {db_graph, out, 0, db_graph->ht.capacity, 0, 0};
+    struct caller_region_t tdata
+      = {.db_graph = db_graph, .out = out,
+         .start_hkey = 0, .end_hkey = db_graph->ht.capacity, .threadid = 0,
+         .max_allele_len = max_allele_len, .max_flank_len = max_flank_len,
+         .num_of_bubbles = 0};
     bubble_caller((void*)&tdata);
     num_of_bubbles += tdata.num_of_bubbles;
   }
@@ -747,7 +757,12 @@ void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
       tmpout = gzopen(tmp_paths[i], "w");
       if(tmpout == NULL) die("Cannot write to tmp output: %s", tmp_paths[i]);
 
-      struct caller_region_t tmptdata = {db_graph, tmpout, start, end, i, 0};
+      struct caller_region_t tmptdata
+        = {.db_graph = db_graph, .out = tmpout,
+           .start_hkey = start, .end_hkey = end, .threadid = i,
+           .max_allele_len = max_allele_len, .max_flank_len = max_flank_len,
+           .num_of_bubbles = 0};
+
       memcpy(tdata+i, &tmptdata, sizeof(struct caller_region_t));
 
       int rc = pthread_create(threads+i, &thread_attr, bubble_caller,

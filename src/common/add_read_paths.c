@@ -310,6 +310,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
     db_node_set_traversed(visited, wlk->node, wlk->orient);
+    // DEV: walk a population supernode here
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     nodes[pos].node = wlk->node;
@@ -340,6 +341,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   nodes[pos].orient = orient2;
   // pos is now the index at which we last added a node
 
+  Orientation orient;
   boolean success = false;
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
@@ -347,9 +349,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
-    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
-
-    Orientation orient = opposite_orientation(wlk->orient);
+    orient = opposite_orientation(wlk->orient);
 
     if(wlk->node == node1 && orient == orient1) {
       success = true;
@@ -357,6 +357,8 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
     }
 
     db_node_set_traversed(visited, wlk->node, wlk->orient);
+    // DEV: walk a population supernode here
+    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     pos--;
     nodes[pos].node = wlk->node;

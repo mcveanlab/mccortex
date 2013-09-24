@@ -147,7 +147,7 @@ static void chrom_free_last()
 }
 
 // Create chrom->read genome hash
-static void load_ref_genome(size_t num_files, char **paths)
+static void load_ref_genome(char **paths, size_t num_files)
 {
   seq_file_t *f;
   size_t i;
@@ -193,6 +193,14 @@ static void load_ref_genome(size_t num_files, char **paths)
   // fprintf(stderr, "Finished loading reference genome\n");
 }
 
+static void print_entry(vcf_entry_t *vcfentry, FILE *out)
+{
+  // Set var num
+  strbuf_reset(&vcfentry->cols[VCFID]);
+  strbuf_sprintf(&vcfentry->cols[VCFID], "var%u", var_print_num++);
+  vcf_entry_print(vcfentry, out, num_samples);
+}
+
 static int get_var_start(char **alleles, int num_alleles, int msa_len, int pos)
 {
   int i;
@@ -230,8 +238,8 @@ static void strip_allele(StrBuf *allele, const char* input, size_t len)
   }
 }
 
-static void parse_header(gzFile gzvcf, StrBuf *line,
-                         uint32_t argc, char **argv, uint32_t argrefi)
+static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
+                         char **refpaths, uint32_t num_refpaths)
 {
   sample_indx = kh_init(samplehash);
 
@@ -259,20 +267,14 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
       printf("##fileDate=%s\n", datestr);
     }
     else if(!strncasecmp(str, "##reference=", 12)) {
-      printf("##reference=file://%s", argv[argrefi]);
-      for(i = argrefi+1; i < argc; i++) printf(":%s", argv[i]);
+      printf("##reference=file://%s", refpaths[0]);
+      for(i = 1; i < num_refpaths; i++) printf(":%s", refpaths[i]);
       fputc('\n', stdout);
     }
     else if(!strncasecmp(str, "##phasing=", 10)) {
       printf("##phasing=partial\n");
-      // print cmd
-      printf("##placeCmd=%s", argv[0]);
-      for(i = 1; i < argc; i++) printf(" %s", argv[i]);
-      printf("\n");
-
-      if(futil_get_current_dir(cwd) != NULL)
-        printf("##placeCwd=%s\n", cwd);
-
+      printf("##placeCmd=%s\n", cmd->cmdline);
+      if(futil_get_current_dir(cwd) != NULL) printf("##placeCwd=%s\n", cwd);
       printf("##placeDate=%s\n", datestr);
     }
     else if(!strncasecmp(str, "##SAMPLE=", 9))
@@ -375,13 +377,13 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
 static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 {
   // Set chromosome field
-  strbuf_set(vcfentry->cols[VCFCHROM], bam_header->target_name[bam->core.tid]);
+  strbuf_set(&vcfentry->cols[VCFCHROM], bam_header->target_name[bam->core.tid]);
 
   // look up chromosome
-  khiter_t k = kh_get(ghash, genome, vcfentry->cols[VCFCHROM]->buff);
+  khiter_t k = kh_get(ghash, genome, vcfentry->cols[VCFCHROM].buff);
   if(k == kh_end(genome)) {
-    vcf_entry_print(vcfentry, stderr, num_samples);
-    die("Cannot find chrom [%s]", vcfentry->cols[VCFCHROM]->buff);
+    print_entry(vcfentry, stderr);
+    die("Cannot find chrom [%s]", vcfentry->cols[VCFCHROM].buff);
   }
 
   chrom_t *chrom = kh_value(genome, k);
@@ -505,7 +507,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     {
       // flank doesn't map well
       vcf_entry_add_filter(vcfentry, "FMAP");
-      vcf_entry_print(vcfentry, stdout, num_samples);
+      print_entry(vcfentry, stdout);
       return;
     }
   }
@@ -534,14 +536,14 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 
   for(i = 0; i < vcfentry->num_alts; i++)
   {
-    StrBuf *allele = vcfentry->alts[i];
+    StrBuf *allele = &vcfentry->alts[i];
     strbuf_insert(allele, 0, lf->buff+3+bub_trim_left, lf->len-3-bub_trim_left);
     strbuf_append_strn(allele, rf->buff+3, rf->len-3-bub_trim_right);
     msa_alleles[i+1] = allele->buff;
     sum_len += allele->len;
   }
 
-  if(msa_capacity < sum_len) {
+  if(sum_len+1 > msa_capacity) {
     msa_capacity = ROUNDUP2POW(sum_len+1);
     msa_wrking = realloc2(msa_wrking, msa_capacity * sizeof(char));
   }
@@ -569,8 +571,8 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   memset(start_idx, 0, (vcfentry->num_alts+1)*sizeof(int));
 
   // Remove BN tag
-  StrBuf *kmer_count_tag = info_tag_find(vcfentry, "BN");
-  strbuf_reset(kmer_count_tag);
+  // StrBuf *kmer_count_tag = info_tag_find(vcfentry, "BN");
+  // strbuf_reset(kmer_count_tag);
 
   // Find where alleles differ
   int start, end = 0, j;
@@ -590,22 +592,22 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 
     uint32_t allele_lens[MAX_ALLELES];
 
-    strip_allele(vcfentry->cols[VCFREF], chr->seq.b + pos, end-start);
-    boolean is_snp = (vcfentry->cols[VCFREF]->len == 1);
-    allele_lens[0] = vcfentry->cols[VCFREF]->len;
+    strip_allele(&vcfentry->cols[VCFREF], chr->seq.b + pos, end-start);
+    boolean is_snp = (vcfentry->cols[VCFREF].len == 1);
+    allele_lens[0] = vcfentry->cols[VCFREF].len;
 
     for(i = 0; i < vcfentry->num_alts; i++) {
-      strip_allele(vcfentry->alts[i], msa_alleles[i+1]+start, end-start);
-      if(vcfentry->alts[i]->len != 1) is_snp = false;
-      allele_lens[i+1] = vcfentry->alts[i]->len;
+      strip_allele(&vcfentry->alts[i], msa_alleles[i+1]+start, end-start);
+      if(vcfentry->alts[i].len != 1) is_snp = false;
+      allele_lens[i+1] = vcfentry->alts[i].len;
     }
 
     if(!is_snp)
     {
       char padding = pos > 0 ? chr->seq.b[pos-1] : 'N';
-      strbuf_insert(vcfentry->cols[VCFREF], 0, &padding, 1);
+      strbuf_insert(&vcfentry->cols[VCFREF], 0, &padding, 1);
       for(i = 0; i < vcfentry->num_alts; i++) {
-        strbuf_insert(vcfentry->alts[i], 0, &padding, 1);
+        strbuf_insert(&vcfentry->alts[i], 0, &padding, 1);
       }
       pos--;
     }
@@ -615,20 +617,20 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     StrBuf* reduced_alleles[MAX_ALLELES];
     size_t num_reduced_alleles = 1;
 
-    reduced_alleles[0] = vcfentry->cols[VCFREF];
+    reduced_alleles[0] = &vcfentry->cols[VCFREF];
 
     size_t k;
     for(i = 0; i < vcfentry->num_alts; i++) {
       for(k = 0; k < num_reduced_alleles; k++) {
-        if(strcmp(reduced_alleles[k]->buff, vcfentry->alts[i]->buff) == 0) {
-          strbuf_shrink(vcfentry->alts[i], 0);
+        if(strcmp(reduced_alleles[k]->buff, vcfentry->alts[i].buff) == 0) {
+          strbuf_shrink(&vcfentry->alts[i], 0);
           allele_idx[i] = k;
           break;
         }
       }
-      if(vcfentry->alts[i]->len > 0) {
+      if(vcfentry->alts[i].len > 0) {
         allele_idx[i] = num_reduced_alleles;
-        reduced_alleles[num_reduced_alleles++] = vcfentry->alts[i];
+        reduced_alleles[num_reduced_alleles++] = &vcfentry->alts[i];
       }
     }
 
@@ -655,7 +657,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
                                last_kmer - first_kmer + 1);
       }
 
-      StrBuf *genotype = vcfentry->cols[VCFSAMPLES+s];
+      StrBuf *genotype = &vcfentry->cols[VCFSAMPLES+s];
       strbuf_reset(genotype);
       strbuf_sprintf(genotype, "%u", covgs[0]);
       for(i = 1; i < num_reduced_alleles; i++)
@@ -665,14 +667,10 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     // DEV: add pop filter here
 
     // Set ref position
-    strbuf_reset(vcfentry->cols[VCFPOS]);
-    strbuf_sprintf(vcfentry->cols[VCFPOS], "%i", pos);
+    strbuf_reset(&vcfentry->cols[VCFPOS]);
+    strbuf_sprintf(&vcfentry->cols[VCFPOS], "%i", pos);
 
-    // Set var id
-    strbuf_reset(vcfentry->cols[VCFID]);
-    strbuf_sprintf(vcfentry->cols[VCFID], "var%u", var_print_num++);
-
-    vcf_entry_print(vcfentry, stdout, num_samples);
+    print_entry(vcfentry, stdout);
 
     // Update offsets
     for(i = 0; i <= vcfentry->num_alts; i++) {
@@ -834,7 +832,18 @@ int ctx_place(CmdArgs *args)
   char *vcf_path = argv[argi++];
   char *sam_path = argv[argi++];
 
-  int ref_argi = argi;
+  char **ref_paths = argv + argi;
+  size_t num_refpaths = argc - argi;
+
+  // Check ploidy
+  for(argi = 1; argv[argi][0] == '-'; argi++) {
+    if(strcmp(argv[argi], "--minmapq") == 0) argi++;
+    else if(strcmp(argv[argi], "--maxbr") == 0) argi++;
+    else if(strcmp(argv[argi], "--ploidy") == 0) {
+      check_ploidy(argv[argi+1], NULL, NULL);
+      argi++;
+    }
+  }
 
   gzFile vcf = gzopen(vcf_path, "r");
   if(vcf == NULL) print_usage(usage, "Cannot open VCF %s", vcf_path);
@@ -850,20 +859,10 @@ int ctx_place(CmdArgs *args)
 
   // Load VCF header
   StrBuf *line = strbuf_new();
-  parse_header(vcf, line, argc, argv, argi);
-
-  // Check ploidy
-  for(argi = 1; argv[argi][0] == '-'; argi++) {
-    if(strcmp(argv[argi], "--minmapq") == 0) argi++;
-    else if(strcmp(argv[argi], "--maxbr") == 0) argi++;
-    else if(strcmp(argv[argi], "--ploidy") == 0) {
-      check_ploidy(argv[argi+1], NULL, NULL);
-      argi++;
-    }
-  }
+  parse_header(vcf, line, args, ref_paths, num_refpaths);
 
   // Load reference genome
-  load_ref_genome(argc - ref_argi, argv + ref_argi);
+  load_ref_genome(ref_paths, num_refpaths);
 
   // Print remainder of VCF header
   for(i = 0; i < num_chroms; i++) {
@@ -928,9 +927,9 @@ int ctx_place(CmdArgs *args)
   {
     vcf_entry_parse(line, &vcfentry, num_samples);
 
-    if(strcmp(vcfentry.cols[VCFCHROM]->buff, "un") != 0 ||
-       strcmp(vcfentry.cols[VCFPOS]->buff, "1") != 0 ||
-       strcmp(vcfentry.cols[VCFREF]->buff, "N") != 0)
+    if(strcmp(vcfentry.cols[VCFCHROM].buff, "un") != 0 ||
+       strcmp(vcfentry.cols[VCFPOS].buff, "1") != 0 ||
+       strcmp(vcfentry.cols[VCFREF].buff, "N") != 0)
     {
       die("Unexpected VCF line: %s", line->buff);
     }
@@ -938,11 +937,11 @@ int ctx_place(CmdArgs *args)
     // Get bam query name
     char *bname = bam_get_qname(bam);
 
-    if(strcmp(vcfentry.cols[VCFID]->buff, bname) != 0)
+    if(strcmp(vcfentry.cols[VCFID].buff, bname) != 0)
     {
       // BAM entry and VCF name do not match - skip
       vcf_entry_add_filter(&vcfentry, "NOSAM");
-      vcf_entry_print(&vcfentry, stdout, num_samples);
+      print_entry(&vcfentry, stdout);
 
       // Read next vcf entry only (not sam)
       strbuf_reset(line);
@@ -965,10 +964,10 @@ int ctx_place(CmdArgs *args)
         if(low_mapq) vcf_entry_add_filter(&vcfentry, "MAPQ");
         if(toomanybr) vcf_entry_add_filter(&vcfentry, "MAXBR");
 
-        vcf_entry_print(&vcfentry, stdout, num_samples);
+        print_entry(&vcfentry, stdout);
       }
       else if(vcfentry.lf == NULL || vcfentry.rf == NULL) {
-        vcf_entry_print(&vcfentry, stderr, num_samples);
+        print_entry(&vcfentry, stderr);
         die("Missing LF/RF tags");
       }
       else {

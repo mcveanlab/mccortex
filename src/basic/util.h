@@ -85,7 +85,7 @@ char* num_to_str(unsigned long num, int decimals, char* str);
 #define round_bits_to_bytes(bits)   (((bits)+7)/8)
 #define round_bits_to_words64(bits) (((bits)+63)/64)
 
-#define bitset2_has(arr,idx,offset)    (((arr)[idx] >> (offset)) & 0x1UL)
+#define bitset2_has(arr,idx,offset)    (((arr)[idx] >> (offset)) & 0x1)
 #define bitset2_set(arr,idx,offset)     ((arr)[idx] |= (0x1UL << (offset)))
 #define bitset2_del(arr,idx,offset)     ((arr)[idx] &=~(0x1UL << (offset)))
 #define bitset2_cpy(arr,idx,offset,bit) ((arr)[idx] |= ((uint64_t)(bit) << (offset)))

@@ -16,13 +16,13 @@
 
 // "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
 static const char usage[] =
-"usage: "CMD" call [-m <mem>|-t <threads>|-p <paths.ctp>] <in.ctx> <out.bubbles.gz>\n"
+"usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
 "  Find bubbles (potential variants) in graph file in.ctx.\n"
 "  Options:  -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp>\n";
 
 int ctx_call(CmdArgs *args)
 {
-  cmd_accept_options(args, "tmp");
+  cmd_accept_options(args, "thmp");
 
   int argc = args->argc;
   char **argv = args->argv;
@@ -164,7 +164,9 @@ int ctx_call(CmdArgs *args)
   #endif
 
   // Now call variants
-  invoke_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths);
+  size_t max_allele_len = 300, max_flank_len = 1000;
+  invoke_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths,
+                       max_allele_len, max_flank_len, args);
 
   // Clear up threads
   for(i = 0; i < num_of_threads; i++) {

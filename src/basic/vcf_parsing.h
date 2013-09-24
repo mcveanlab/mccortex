@@ -20,11 +20,11 @@
 
 typedef struct
 {
-  StrBuf **cols;
+  StrBuf *cols;
   // Unpacked into:
-  StrBuf **alts;
+  StrBuf *alts;
   size_t num_alts, alts_capacity;
-  StrBuf **info;
+  StrBuf *info;
   size_t num_info, info_capacity;
   StrBuf *lf, *rf; // flanks
   DeltaArray **covgs;

@@ -132,7 +132,7 @@ int ctx_covg(CmdArgs *args)
     for(i = 0; i < vcf_entry.num_alts; i++)
     {
       strbuf_shrink(&contig, vcf_entry.lf->len);
-      strbuf_append_buff(&contig, vcf_entry.alts[i]);
+      strbuf_append_buff(&contig, &vcf_entry.alts[i]);
       strbuf_append_buff(&contig, vcf_entry.rf);
 
       // Add kmers to the graph
@@ -190,7 +190,7 @@ int ctx_covg(CmdArgs *args)
     for(i = 0; i < vcf_entry.num_alts; i++)
     {
       strbuf_shrink(&contig, vcf_entry.lf->len);
-      strbuf_append_buff(&contig, vcf_entry.alts[i]);
+      strbuf_append_buff(&contig, &vcf_entry.alts[i]);
       strbuf_append_buff(&contig, vcf_entry.rf);
 
       if(contig.len > nodes_cap) {

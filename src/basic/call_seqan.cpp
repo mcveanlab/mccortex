@@ -16,7 +16,6 @@ String<char> align;
 
 void multiple_seq_align(char **seqs, int num, char *result, size_t *len)
 {
-  // StringSet<DnaString> seq;
   clear(seq);
 
   int i;
