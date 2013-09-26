@@ -264,7 +264,8 @@ int ctx_subgraph(CmdArgs *args)
       graph_info_make_intersect(&gheader.ginfo[col], &intersect_gname);
   }
 
-  strbuf_insert(&intersect_gname, 0, "subgraph:{", strlen("subgraph:"));
+  char subgraphstr[] = "subgraph:{";
+  strbuf_insert(&intersect_gname, 0, subgraphstr, strlen(subgraphstr));
   strbuf_append_char(&intersect_gname, '}');
 
   size_t num_of_binary_kmers = stats->kmers_loaded;
@@ -284,6 +285,10 @@ int ctx_subgraph(CmdArgs *args)
 
   if(dist > 0)
   {
+    char diststr[100];
+    ulong_to_str(dist, diststr);
+    status("Extending subgraph by %s\n", diststr);
+
     // Get edge nodes
     for(i = 0; i < num_seed_files; i++)
       seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);

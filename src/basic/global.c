@@ -85,7 +85,7 @@ void timestamp(FILE *fh)
 
   if(fh != NULL) {
     time(&t);
-    strftime(tstr, 100, "[%d %b %Y %H:%m:%S]", localtime(&t));
+    strftime(tstr, 100, "[%d %b %Y %H:%M:%S]", localtime(&t));
     fputs(tstr, fh);
   }
 }

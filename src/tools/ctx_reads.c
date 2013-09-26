@@ -315,7 +315,6 @@ int ctx_reads(CmdArgs *args)
         get_out_path(path2, pathlen, use_fq, 2);
         if((data.out2 = gzopen(path2, "w")) == NULL)
           die("Cannot write to: %s", path2);
-        status("writing: %s\n", path2);
       }
 
       init_reads = stats->total_good_reads + stats->total_bad_reads +
