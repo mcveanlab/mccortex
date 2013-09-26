@@ -158,7 +158,7 @@ int ctx_view(CmdArgs *args)
   outheader.num_of_cols = num_of_cols;
   graph_header_alloc(&outheader, num_of_cols);
 
-  uint32_t i;
+  size_t i;
   uint64_t sum_of_covgs_read = 0, sum_of_seq_loaded = 0;
 
   for(i = 0; i < num_of_cols; i++) {
@@ -183,9 +183,6 @@ int ctx_view(CmdArgs *args)
   // Print header
   if(print_info)
     print_header(&outheader);
-
-  graph_header_dealloc(&inheader);
-  graph_header_dealloc(&outheader);
 
   BinaryKmer bkmer;
   Covg kmercovgs[inheader.num_of_cols], covgs[num_of_cols];
@@ -220,7 +217,7 @@ int ctx_view(CmdArgs *args)
       // Check for all-zeros (i.e. all As kmer: AAAAAA)
       uint64_t kmer_words_or = 0;
 
-      for(i = 0; i < outheader.num_of_bitfields; i++)
+      for(i = 0; i < inheader.num_of_bitfields; i++)
         kmer_words_or |= bkmer.b[i];
 
       if(kmer_words_or == 0)
@@ -275,9 +272,9 @@ int ctx_view(CmdArgs *args)
 
   if(print_kmers || parse_kmers)
   {
-    if(num_of_kmers_read != outheader.num_of_kmers) {
+    if(num_of_kmers_read != inheader.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
-                      (size_t)outheader.num_of_kmers, (size_t)num_of_kmers_read);
+                      (size_t)inheader.num_of_kmers, (size_t)num_of_kmers_read);
     }
 
     if(num_of_all_zero_kmers > 1)
@@ -339,6 +336,9 @@ int ctx_view(CmdArgs *args)
     if(num_errors == 0)
       printf(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
   }
+
+  graph_header_dealloc(&inheader);
+  graph_header_dealloc(&outheader);
 
   return EXIT_SUCCESS;
 }

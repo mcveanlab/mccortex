@@ -88,6 +88,7 @@ do
   if [ $witherror == "error" ]
   then
     cmd time $CLEANCTX diploid$i.clean.ctx diploid$i.ctx
+    cmd time $INFERCTX diploid$i.clean.ctx
   fi
 done
 
@@ -99,7 +100,6 @@ fi
 
 # Merge
 cmd $JOINCTX -m 100M pop.ctx diploid{0..$LASTINDIV}.$ctxext
-cmd $INFERCTX pop.ctx
 
 # Call with old bc
 cmd time $RELEASECTX --multicolour_bin pop.ctx --detect_bubbles1 -1/-1 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages

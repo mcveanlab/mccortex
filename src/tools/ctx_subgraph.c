@@ -20,9 +20,11 @@ static const char usage[] =
 "\n"
 "  Loads graphs (in.ctx) and dumps a graph (out.ctx) that contains all kmers within\n"
 "  <dist> edges of kmers in <seeds.fa>.  Maintains number of colours / covgs etc.\n"
+"  Loads seed files twice: 1) get seed; 2) extend;  This lowers memory requirement\n"
+"  for large (seed) graphs but means seed files cannot be pipes / sockets.\n"
 "\n"
 "  Options:\n"
-"    -m <mem>          Memory to use\n"
+"    -m <mem>          Memory to use  <required>\n"
 "    -h <kmers>        Hash size\n"
 "    --seed <seed.fa>  Read in a seed file\n"
 "    --invert          Dump kmers not in subgraph\n";
@@ -132,7 +134,7 @@ int ctx_subgraph(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 4) print_usage(usage, NULL);
 
-  seq_file_t *seed_files[argc];
+  char *seed_files[argc];
   size_t num_seed_files = 0;
   boolean invert = false;
 
@@ -143,9 +145,10 @@ int ctx_subgraph(CmdArgs *args)
     {
       if(argi+1 == argc)
         print_usage(usage, "--seed <seed.fa> requires and argument");
-      if((seed_files[num_seed_files++] = seq_open(argv[argi+1])) == NULL)
+      seed_files[num_seed_files] = argv[argi+1];
+      if(!test_file_readable(seed_files[num_seed_files]))
         die("Cannot read --seed file: %s", argv[argi+1]);
-      argi++;
+      argi++; num_seed_files++;
     }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
     else print_usage(usage, "Unknown option: %s", argv[argi]);
@@ -271,9 +274,7 @@ int ctx_subgraph(CmdArgs *args)
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
   for(i = 0; i < num_seed_files; i++)
-    seq_parse_se_sf(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
-  seq_read_dealloc(&r1);
-  seq_read_dealloc(&r2);
+    seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
 
   size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
 
@@ -285,7 +286,7 @@ int ctx_subgraph(CmdArgs *args)
   {
     // Get edge nodes
     for(i = 0; i < num_seed_files; i++)
-      seq_parse_se_sf(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
+      seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
 
     size_t i, d;
     for(d = 1; d < dist; d++)
@@ -298,7 +299,9 @@ int ctx_subgraph(CmdArgs *args)
     }
   }
 
-  // free
+  seq_read_dealloc(&r1);
+  seq_read_dealloc(&r2);
+
   free(list0.nodes);
   free(list1.nodes);
 

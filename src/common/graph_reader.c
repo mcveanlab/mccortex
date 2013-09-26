@@ -51,7 +51,7 @@ void graph_header_alloc(GraphFileHeader *h, size_t num_of_cols)
 
   if(h->capacity == 0)
     h->ginfo = calloc2(num_of_cols, sizeof(GraphInfo));
-  else
+  else if(num_of_cols > h->capacity)
     h->ginfo = realloc2(h->ginfo, num_of_cols * sizeof(GraphInfo));
 
   for(i = old_cap; i < num_of_cols; i++)
@@ -80,8 +80,8 @@ void graph_header_cpy(GraphFileHeader *dst, const GraphFileHeader *src)
   dst->num_of_cols = src->num_of_cols;
   dst->max_col = src->max_col;
   dst->num_of_kmers = src->num_of_kmers;
-  graph_header_alloc(dst, dst->num_of_cols);
-  for(i = 0; i < dst->num_of_cols; i++)
+  graph_header_alloc(dst, src->num_of_cols);
+  for(i = 0; i < src->num_of_cols; i++)
     graph_info_cpy(&dst->ginfo[i], &src->ginfo[i]);
 }
 

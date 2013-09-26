@@ -13,15 +13,16 @@ static const char usage[] =
 "  Infer edges in a population graph.  \n"
 "\n"
 "  -m <mem>   Memory to use (e.g. 100G or 12M)\n"
-"  -k <kmer>  Kmer size\n";
+"  -k <kmer>  Kmer size\n"
+"  --pop      Add edges that are in the union only\n"
+"  --all      Add all edges [default]\n";
 
 // If two kmers are in a sample and the population has an edges between them,
 // Add edge to sample
 
-// Return 0 if no change
-// Return 1 if changed
-static inline int infer_edges(const BinaryKmer node_bkey, Edges *edges,
-                              const Covg *covgs, dBGraph *db_graph)
+// Return 1 if changed; 0 otherwise
+static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
+                                  const Covg *covgs, dBGraph *db_graph)
 {
   Edges uedges = 0, iedges = 0xf, add_edges, edge;
   size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
@@ -67,17 +68,80 @@ static inline int infer_edges(const BinaryKmer node_bkey, Edges *edges,
 
   int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
   memcpy(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
-
   return (cmp != 0);
 }
+
+// Return 1 if changed; 0 otherwise
+static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
+                                  const Covg *covgs, dBGraph *db_graph)
+{
+  Edges iedges = 0xf, edge;
+  size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
+  BinaryKmer bkey, bkmer;
+  hkey_t next;
+
+  Edges newedges[db_graph->num_of_cols];
+  memcpy(newedges, edges, db_graph->num_of_cols * sizeof(Edges));
+
+  // intersection of edges
+  for(col = 0; col < db_graph->num_of_cols; col++) iedges &= edges[col];
+
+  for(orient = 0; orient < 2; orient++)
+  {
+    bkmer = node_bkey;
+    if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
+    else binary_kmer_right_shift_one_base(&bkmer);
+
+    for(nuc = 0; nuc < 4; nuc++)
+    {
+      edge = nuc_orient_to_edge(nuc, orient);
+      if(!(iedges & edge))
+      {
+        // edges are not in some samples
+        if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
+        else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
+
+        bkey = db_node_get_key(bkmer, kmer_size);
+        next = hash_table_find(&db_graph->ht, bkey);
+
+        if(next != HASH_NOT_FOUND)
+          for(col = 0; col < db_graph->num_of_cols; col++)
+            if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
+              newedges[col] |= edge;
+      }
+    }
+  }
+
+  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
+  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
+  return (cmp != 0);
+}
+
 
 int ctx_infer_edges(CmdArgs *args)
 {
   cmd_accept_options(args, "mh");
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc != 1) print_usage(usage, NULL);
+  // if(argc != 1) print_usage(usage, NULL);
   
+  boolean add_pop_edges = false, add_all_edges = false;
+  while(argc > 0 && argv[0][0] == '-') {
+    if(strcmp(argv[0],"--all") == 0) {
+      if(add_pop_edges) print_usage(usage, "Specify only one of --all --pop");
+      argc--; argv++; add_all_edges = true;
+    }
+    else if(strcmp(argv[0],"--pop") == 0) {
+      if(add_all_edges) print_usage(usage, "Specify only one of --all --pop");
+      argc--; argv++; add_pop_edges = true;
+    }
+  }
+
+  // Default to adding all edges
+  if(!add_pop_edges && !add_all_edges) add_all_edges = true;
+
+  if(argc != 1) print_usage(usage, NULL);
+
   const char *path = argv[0];
   dBGraph db_graph;
   boolean is_binary = false;
@@ -132,7 +196,8 @@ int ctx_infer_edges(CmdArgs *args)
   long edges_len = sizeof(Edges) * gheader.num_of_cols;
   while(graph_file_read_kmer(fh, &gheader, path, bkmer.b, covgs, edges))
   {
-    if(infer_edges(bkmer, edges, covgs, &db_graph))
+    if((add_all_edges && infer_all_edges(bkmer, edges, covgs, &db_graph)) ||
+       (!add_all_edges && infer_pop_edges(bkmer, edges, covgs, &db_graph)))
     {
       if(fseek(fh, -edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
       fwrite(edges, 1, edges_len, fh);
