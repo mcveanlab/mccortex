@@ -257,14 +257,19 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
          (100.0 * min_num_kmers) / kmers_in_hash);
   }
 
+  if(args->mem_to_use_set && graph_mem > args->mem_to_use) {
+    die("Not enough memory for graph: require at least %s", min_kmers_mem_str);
+  }
+
   if(args->mem_to_use_set && args->num_kmers_set) {
-    if(graph_mem > args->mem_to_use) {
+    if(args->num_kmers > kmers_in_hash) {
       die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
           graph_mem_str, mem_to_use_str);
     }
-    else
+    else if(graph_mem < args->mem_to_use) {
       status("Note: Using less memory than requested (%s < %s), due to: -h <kmer>",
              graph_mem_str, mem_to_use_str);
+    }
   }
 
   status("[memory] graph: %s\n", graph_mem_str);

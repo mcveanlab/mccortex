@@ -231,14 +231,15 @@ int ctx_thread(CmdArgs *args)
   // since we need some of that memory for storing paths
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, ctx_max_kmers, false);
 
-  graph_mem = (kmers_in_hash*bits_per_kmer)/8;
+  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
+              (kmers_in_hash*bits_per_kmer)/8;
   bytes_to_str(graph_mem, 1, graph_mem_str);
 
   if(graph_mem >= args->mem_to_use)
     die("Not enough memory for graph (requires %s)", graph_mem_str);
 
   // Path Memory
-  path_mem = args->mem_to_use - (kmers_in_hash*bits_per_kmer)/8;
+  path_mem = args->mem_to_use - graph_mem;
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 

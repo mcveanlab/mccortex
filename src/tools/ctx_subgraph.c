@@ -205,14 +205,15 @@ int ctx_subgraph(CmdArgs *args)
   bits_per_kmer = sizeof(Edges)*8 + sizeof(Covg)*8 + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers, false);
 
-  graph_mem = (kmers_in_hash*bits_per_kmer)/8;
+  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
+              (kmers_in_hash*bits_per_kmer)/8;
   bytes_to_str(graph_mem, 1, graph_mem_str);
 
   if(graph_mem >= args->mem_to_use)
     die("Not enough memory for graph (requires %s)", graph_mem_str);
 
   // Fringe nodes
-  fringe_mem = args->mem_to_use - (kmers_in_hash*bits_per_kmer)/8;
+  fringe_mem = args->mem_to_use - graph_mem;
   num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
   bytes_to_str(fringe_mem, 1, fringe_mem_str);
   ulong_to_str(num_of_fringe_nodes, num_fringe_nodes_str);

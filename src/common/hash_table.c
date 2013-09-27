@@ -216,7 +216,7 @@ void hash_table_print_stats(const HashTable *const htable)
     // status("  Collisions:\n");
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(htable->collisions[i] != 0) {
-        status("  collisions %i: %zd\n", i, (size_t)htable->collisions[i]);
+        status("  collisions %i: %2zu\n", i, (size_t)htable->collisions[i]);
       }
     }
     // status("\n");

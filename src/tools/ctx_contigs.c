@@ -61,20 +61,23 @@ int ctx_contigs(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, total_mem;
   char path_mem_str[100], total_mem_str[100];
 
   // edges, kmer_paths, in_colour, visited(fw/rv) [2bits], used in contig [1bit]
   bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 + gheader.num_of_cols + 3;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, true);
+                                        gheader.num_of_kmers, false);
+
+  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
+              (kmers_in_hash*bits_per_kmer)/8;
 
   // Path Memory
   bytes_to_str(pheader.num_path_bytes, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  total_mem = pheader.num_path_bytes + (kmers_in_hash*bits_per_kmer)/8;
+  total_mem = pheader.num_path_bytes + graph_mem;
   bytes_to_str(total_mem, 1, total_mem_str);
 
   if(total_mem > args->mem_to_use)

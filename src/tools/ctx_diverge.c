@@ -238,8 +238,8 @@ int ctx_diverge(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, total_mem;
-  size_t chrom_pos_mem, chrom_pos_num;
+  size_t bits_per_kmer, kmers_in_hash;
+  size_t graph_mem,  chrom_pos_mem, chrom_pos_num, total_mem;
   char total_mem_str[100], chrom_pos_mem_str[100], chrom_pos_num_str[100];
   char path_mem_str[100];
 
@@ -251,12 +251,15 @@ int ctx_diverge(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         gheader.num_of_kmers, false);
 
+  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
+              (kmers_in_hash*bits_per_kmer)/8;
+
   chrom_pos_num = (0x1<<28);
   chrom_pos_mem = chrom_pos_num * sizeof(LinkedChromPos);
   bytes_to_str(chrom_pos_mem, 1, chrom_pos_mem_str);
   ulong_to_str(chrom_pos_num, chrom_pos_num_str);
 
-  total_mem = (kmers_in_hash*bits_per_kmer)/8 + chrom_pos_mem + path_mem;
+  total_mem = graph_mem + chrom_pos_mem + path_mem;
   bytes_to_str(total_mem, 1, total_mem_str);
 
   if(total_mem > args->mem_to_use)

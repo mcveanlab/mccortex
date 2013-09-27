@@ -66,7 +66,7 @@ int ctx_call(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, thread_mem, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, thread_mem, total_mem;
   char path_mem_str[100], thread_mem_str[100], total_mem_str[100];
 
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
@@ -78,6 +78,9 @@ int ctx_call(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         gheader.num_of_kmers, true);
 
+  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
+              (kmers_in_hash*bits_per_kmer)/8;
+
   // Thread memory
   thread_mem = round_bits_to_bytes(kmers_in_hash) * 2;
   bytes_to_str(thread_mem * num_of_threads, 1, thread_mem_str);
@@ -88,7 +91,7 @@ int ctx_call(CmdArgs *args)
   bytes_to_str(pheader.num_path_bytes, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  total_mem = pheader.num_path_bytes + (kmers_in_hash*bits_per_kmer)/8;
+  total_mem = pheader.num_path_bytes + graph_mem;
   bytes_to_str(total_mem, 1, total_mem_str);
 
   if(total_mem > args->mem_to_use)
