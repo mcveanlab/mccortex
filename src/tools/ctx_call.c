@@ -76,7 +76,7 @@ int ctx_call(CmdArgs *args)
                   gheader.num_of_cols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, true);
+                                        gheader.num_of_kmers, false);
 
   graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
               (kmers_in_hash*bits_per_kmer)/8;

@@ -77,6 +77,51 @@ size_t genome_size = 0;
 // VCF printing
 uint32_t var_print_num = 0;
 
+static void print_entry(vcf_entry_t *vcfentry, FILE *out)
+{
+  // Set var num
+  strbuf_reset(&vcfentry->cols[VCFID]);
+  strbuf_sprintf(&vcfentry->cols[VCFID], "var%u", var_print_num++);
+  vcf_entry_print(vcfentry, out, num_samples);
+}
+
+static int get_var_start(char **alleles, int num_alleles, int msa_len, int pos)
+{
+  int i;
+  for(; pos < msa_len; pos++)
+  {
+    char c = alleles[0][pos];
+    if(c == '-') return pos;
+    for(i = 1; i < num_alleles && alleles[i][pos] == c; i++);
+    if(i < num_alleles) return pos;
+  }
+  return -1;
+}
+
+static int get_var_end(char **alleles, int num_alleles, int msa_len, int pos)
+{
+  int i;
+  char c;
+  for(pos++; pos < msa_len; pos++)
+  {
+    if((c = alleles[0][pos]) != '-')
+    {
+      for(i = 1; i < num_alleles && alleles[i][pos] == c; i++);
+      if(i == num_alleles) return pos;
+    }
+  }
+  return msa_len;
+}
+
+static void strip_allele(StrBuf *allele, const char* input, size_t len)
+{
+  strbuf_reset(allele);
+  size_t i;
+  for(i = 0; i < len; i++) {
+    if(input[i] != '-') strbuf_append_char(allele, input[i]);
+  }
+}
+
 // Do multiple sequence alignment
 // Returns length, stores alleles (not null always terminated) in alleles
 static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
@@ -95,6 +140,8 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
     }
   }
 
+  // for(i = 0; i < num; i++) printf("%zu: %s\n", i, seqs[i]);
+
   if(more_than_two_alleles)
   {
     size_t msa_total_len = 0;
@@ -102,9 +149,9 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
 
     size_t offset, msa_len = msa_total_len / num;
 
-    msa_alleles[0] = msa_wrking;
+    alleles[0] = msa_wrking;
     for(i = 1, offset = msa_len; i < num; i++, offset += msa_len)
-      msa_alleles[i] = msa_wrking+offset;
+      alleles[i] = msa_wrking+offset;
 
     return msa_len;
   }
@@ -121,6 +168,142 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
     }
 
     return alignment->length;
+  }
+}
+
+static boolean is_allele_duplicate(vcf_entry_t *vcf, const StrBuf *allele)
+{
+  size_t i;
+  if(strcmp(vcf->cols[VCFREF].buff, allele->buff) == 0) return true;
+  for(i = 0; i < vcf->num_alts; i++)
+    if(strcmp(vcf->alts[i].buff, allele->buff) == 0)
+      return true;
+  return false;
+}
+
+static void remove_duplicate_alleles(vcf_entry_t *vcf)
+{
+  size_t i = 0, num_alt_alleles = vcf->num_alts;
+  StrBuf tmpbuf;
+  vcf->num_alts = 0;
+
+  while(i < num_alt_alleles)
+  {
+    if(is_allele_duplicate(vcf, &vcf->alts[i]))
+    {
+      SWAP(vcf->alts[i], vcf->alts[num_alt_alleles-1], tmpbuf);
+      num_alt_alleles--;
+    }
+    else
+    {
+      i++;
+    }
+  }
+  vcf->num_alts = i;
+}
+
+//
+// Decompose into variants
+//
+static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
+                            vcf_entry_t *outvcf, //size_t kmer_size,
+                            const read_t *chr, size_t refpos)
+{
+  uint32_t allele_lens[MAX_ALLELES];
+
+  // Keep track of which kmer we're on
+  int start_idx[MAX_ALLELES];
+  memset(start_idx, 0, num_alleles*sizeof(int));
+
+  // Find where alleles differ
+  int start, end = 0, j;
+  size_t i;
+
+  while((start = get_var_start(alleles, num_alleles, msa_len, end)) != -1)
+  {
+    // Update allele offsets
+    for(i = 0; i < num_alleles; i++) {
+      for(j = end; j < start; j++)
+        if(alleles[i][j] != '-') start_idx[i]++;
+    }
+
+    end = get_var_end(alleles, num_alleles, msa_len, start);
+
+    // REF position
+    int pos = refpos + start_idx[0];
+
+    strip_allele(&outvcf->cols[VCFREF], chr->seq.b + pos, end-start);
+    boolean is_snp = (outvcf->cols[VCFREF].len == 1);
+    allele_lens[0] = outvcf->cols[VCFREF].len;
+
+    outvcf->num_alts = num_alleles - 1;
+
+    for(i = 0; i < outvcf->num_alts; i++) {
+      strip_allele(&outvcf->alts[i], alleles[i+1]+start, end-start);
+      if(outvcf->alts[i].len != 1) is_snp = false;
+      allele_lens[i+1] = outvcf->alts[i].len;
+    }
+
+    if(!is_snp)
+    {
+      char padding = pos > 0 ? chr->seq.b[pos-1] : 'N';
+      strbuf_insert(&outvcf->cols[VCFREF], 0, &padding, 1);
+      for(i = 0; i < outvcf->num_alts; i++) {
+        strbuf_insert(&outvcf->alts[i], 0, &padding, 1);
+      }
+      pos--;
+    }
+
+    // Collapse down matching alleles
+    remove_duplicate_alleles(outvcf);
+
+    // printf("num_reduced_alleles: %zu; num_unused_alleles: %zu\n",
+    //        num_reduced_alleles, num_unused_alleles);
+
+    // Genotype
+    /*
+    uint32_t s, covgs[MAX_ALLELES];
+    for(s = 0; s < num_samples; s++)
+    {
+      memset(covgs, 0, sizeof(uint32_t) * num_reduced_alleles);
+
+      // Assign covg to allele
+      int first_kmer, last_kmer;
+
+      for(i = 0; i < outvcf->num_alts; i++)
+      {
+        first_kmer = start_idx[i+1] - kmer_size;
+        last_kmer = start_idx[i+1] + allele_lens[i+1] - 1;
+
+        first_kmer = MAX2(first_kmer, 0);
+        first_kmer = MIN2(first_kmer, (signed)outvcf->covgs[s][i].len);
+        last_kmer = MIN2(last_kmer, (signed)outvcf->covgs[s][i].len);
+
+        covgs[allele_idx[i]]
+          += supernode_read_starts(outvcf->covgs[s][i].arr + first_kmer,
+                               last_kmer - first_kmer + 1);
+      }
+
+      StrBuf *genotype = &outvcf->cols[VCFSAMPLES+s];
+      strbuf_reset(genotype);
+      strbuf_sprintf(genotype, "%u", covgs[0]);
+      for(i = 1; i < num_reduced_alleles; i++)
+        strbuf_sprintf(genotype, ",%u", covgs[i]);
+    }
+    */
+
+    // DEV: add pop filter here
+
+    // Set ref position
+    strbuf_reset(&outvcf->cols[VCFPOS]);
+    strbuf_sprintf(&outvcf->cols[VCFPOS], "%i", pos+1);
+
+    print_entry(outvcf, stdout);
+
+    // Update offsets
+    for(i = 0; i <= outvcf->num_alts; i++) {
+      start_idx[i] += allele_lens[i];
+    }
   }
 }
 
@@ -191,51 +374,6 @@ static void load_ref_genome(char **paths, size_t num_files)
     die("No reference loaded");
 
   // fprintf(stderr, "Finished loading reference genome\n");
-}
-
-static void print_entry(vcf_entry_t *vcfentry, FILE *out)
-{
-  // Set var num
-  strbuf_reset(&vcfentry->cols[VCFID]);
-  strbuf_sprintf(&vcfentry->cols[VCFID], "var%u", var_print_num++);
-  vcf_entry_print(vcfentry, out, num_samples);
-}
-
-static int get_var_start(char **alleles, int num_alleles, int msa_len, int pos)
-{
-  int i;
-  for(; pos < msa_len; pos++)
-  {
-    char c = alleles[0][pos];
-    if(c == '-') return pos;
-    for(i = 1; i < num_alleles && alleles[i][pos] == c; i++);
-    if(i < num_alleles) return pos;
-  }
-  return -1;
-}
-
-static int get_var_end(char **alleles, int num_alleles, int msa_len, int pos)
-{
-  int i;
-  char c;
-  for(pos++; pos < msa_len; pos++)
-  {
-    if((c = alleles[0][pos]) != '-')
-    {
-      for(i = 1; i < num_alleles && alleles[i][pos] == c; i++);
-      if(i == num_alleles) return pos;
-    }
-  }
-  return msa_len;
-}
-
-static void strip_allele(StrBuf *allele, const char* input, size_t len)
-{
-  strbuf_reset(allele);
-  size_t i;
-  for(i = 0; i < len; i++) {
-    if(input[i] != '-') strbuf_append_char(allele, input[i]);
-  }
 }
 
 static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
@@ -355,35 +493,20 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
   }
 }
 
-// static uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len)
-// {
-//   if(len == 0) return 0;
-//   if(len == 1) return covgs[0];
-
-//   uint32_t i, read_starts = covgs[0];
-
-//   for(i = 1; i+1 < len; i++)
-//   {
-//     if(covgs[i] > covgs[i-1] && covgs[i-1] != covgs[i+1])
-//       read_starts += covgs[i] - covgs[i-1];
-//   }
-
-//   if(covgs[len-1] > covgs[len-2])
-//     read_starts += covgs[len-1] - covgs[len-2];
-
-//   return read_starts;
-// }
-
-static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
+static void parse_entry(vcf_entry_t *invcf, const bam1_t *bam,
+                        vcf_entry_t *outvcf)
 {
+  // Copy details to output vcf
+  vcf_entry_cpy(outvcf, invcf, num_samples);
+
   // Set chromosome field
-  strbuf_set(&vcfentry->cols[VCFCHROM], bam_header->target_name[bam->core.tid]);
+  strbuf_set(&outvcf->cols[VCFCHROM], bam_header->target_name[bam->core.tid]);
 
   // look up chromosome
-  khiter_t k = kh_get(ghash, genome, vcfentry->cols[VCFCHROM].buff);
+  khiter_t k = kh_get(ghash, genome, outvcf->cols[VCFCHROM].buff);
   if(k == kh_end(genome)) {
-    print_entry(vcfentry, stderr);
-    die("Cannot find chrom [%s]", vcfentry->cols[VCFCHROM].buff);
+    print_entry(outvcf, stderr);
+    die("Cannot find chrom [%s]", outvcf->cols[VCFCHROM].buff);
   }
 
   chrom_t *chrom = kh_value(genome, k);
@@ -394,12 +517,12 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   int cigar2rlen = bam_cigar2rlen(bam->core.n_cigar, bam_get_cigar(bam));
 
   // Get right flank and kmer_size
-  size_t kmer_size = vcfentry->lf->len-3;
-  size_t endfl_missing = kmer_size - (vcfentry->rf->len-3);
+  size_t kmer_size = outvcf->lf->len-3;
+  size_t endfl_missing = kmer_size - (outvcf->rf->len-3);
 
-  if(bam_is_rev(bam)) vcf_entry_revcmp(vcfentry);
+  if(bam_is_rev(bam)) vcf_entry_revcmp(outvcf);
 
-  const StrBuf *lf = vcfentry->lf, *rf = vcfentry->rf;
+  const StrBuf *lf = outvcf->lf, *rf = outvcf->rf;
 
   if(rf->len <= 3) rf = lf;
 
@@ -419,7 +542,7 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
 
   // end is index after last char
   int ref_start, ref_end;
-  size_t longest_allele = vcf_entry_longest_allele(vcfentry);
+  size_t longest_allele = vcf_entry_longest_allele(outvcf);
 
   if(bam_is_rev(bam)) {
     ref_start = bam->core.pos - longest_allele - kmer_size - 10;
@@ -506,8 +629,8 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     if(bub_trim_left + bub_trim_right > kmer_size / 2)
     {
       // flank doesn't map well
-      vcf_entry_add_filter(vcfentry, "FMAP");
-      print_entry(vcfentry, stdout);
+      vcf_entry_add_filter(outvcf, "FMAP");
+      print_entry(outvcf, stdout);
       return;
     }
   }
@@ -519,8 +642,8 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   #endif
 
   // Check capacity of MSA array
-  if(num_msa_alleles < vcfentry->num_alts+1) {
-    num_msa_alleles = ROUNDUP2POW(vcfentry->num_alts+1);
+  if(num_msa_alleles < outvcf->num_alts+1) {
+    num_msa_alleles = ROUNDUP2POW(outvcf->num_alts+1);
     msa_alleles = realloc2(msa_alleles, num_msa_alleles * sizeof(char*));
   }
 
@@ -534,9 +657,13 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
   msa_alleles[0] = ref_allele_str;
   sum_len += ref_allele_len;
 
-  for(i = 0; i < vcfentry->num_alts; i++)
+  // printf("lf: %s rf: %s [%zu:'%.*s']\n", lf->buff, rf->buff, rf->len-3-bub_trim_right,
+  //        (int)(rf->len-3-bub_trim_right), rf->buff+3);
+
+  for(i = 0; i < outvcf->num_alts; i++)
   {
-    StrBuf *allele = &vcfentry->alts[i];
+    StrBuf *allele = &outvcf->alts[i];
+    // printf("alleles: %s\n", allele->buff);
     strbuf_insert(allele, 0, lf->buff+3+bub_trim_left, lf->len-3-bub_trim_left);
     strbuf_append_strn(allele, rf->buff+3, rf->len-3-bub_trim_right);
     msa_alleles[i+1] = allele->buff;
@@ -548,135 +675,44 @@ static void parse_entry(vcf_entry_t *vcfentry, bam1_t *bam)
     msa_wrking = realloc2(msa_wrking, msa_capacity * sizeof(char));
   }
 
-  size_t msa_len = do_msa(msa_alleles, vcfentry->num_alts+1, msa_alleles);
+  // Flanks not needed anymore
+  strbuf_reset(outvcf->lf);
+  strbuf_reset(outvcf->rf);
+
+  size_t refpos = ref_allele_str - chr->seq.b;
+
+  /*
+  size_t msa_len = do_msa(msa_alleles, outvcf->num_alts+1, msa_alleles);
 
   #ifdef DEBUG
-    for(i = 0; i < vcfentry->num_alts+1; i++)
+    for(i = 0; i < outvcf->num_alts+1; i++)
       printf(" msa: %.*s\n", (int)msa_len, msa_alleles[i]);
   #endif
 
-  // Re-instate removed ref base char
-  ref_allele_str[ref_allele_len] = save_ref_base;
+  parse_alignment(msa_alleles, msa_len, outvcf, kmer_size, chr, refpos);
+  */
 
-  // Flanks not needed anymore
-  strbuf_reset(vcfentry->lf);
-  strbuf_reset(vcfentry->rf);
+  // for(i = 0; i <= outvcf->num_alts; i++)
+  //   printf("%c) %s\n", (char)('a'+i), msa_alleles[i]);
 
-  //
-  // Decompose into variants
-  //
+  // print_entry(invcf, stdout);
 
-  // Keep track of which kmer we're on
-  int start_idx[MAX_ALLELES];
-  memset(start_idx, 0, (vcfentry->num_alts+1)*sizeof(int));
-
-  // Remove BN tag
-  // StrBuf *kmer_count_tag = info_tag_find(vcfentry, "BN");
-  // strbuf_reset(kmer_count_tag);
-
-  // Find where alleles differ
-  int start, end = 0, j;
-
-  while((start = get_var_start(msa_alleles+1, vcfentry->num_alts, msa_len, end)) != -1)
-  {
-    // Update allele offsets
-    for(i = 0; i <= vcfentry->num_alts; i++) {
-      for(j = end; j < start; j++)
-        if(msa_alleles[i][j] != '-') start_idx[i]++;
-    }
-
-    end = get_var_end(msa_alleles+1, vcfentry->num_alts, msa_len, start);
-
-    // REF position
-    int pos = ref_allele_str - chr->seq.b + start_idx[0];
-
-    uint32_t allele_lens[MAX_ALLELES];
-
-    strip_allele(&vcfentry->cols[VCFREF], chr->seq.b + pos, end-start);
-    boolean is_snp = (vcfentry->cols[VCFREF].len == 1);
-    allele_lens[0] = vcfentry->cols[VCFREF].len;
-
-    for(i = 0; i < vcfentry->num_alts; i++) {
-      strip_allele(&vcfentry->alts[i], msa_alleles[i+1]+start, end-start);
-      if(vcfentry->alts[i].len != 1) is_snp = false;
-      allele_lens[i+1] = vcfentry->alts[i].len;
-    }
-
-    if(!is_snp)
-    {
-      char padding = pos > 0 ? chr->seq.b[pos-1] : 'N';
-      strbuf_insert(&vcfentry->cols[VCFREF], 0, &padding, 1);
-      for(i = 0; i < vcfentry->num_alts; i++) {
-        strbuf_insert(&vcfentry->alts[i], 0, &padding, 1);
-      }
-      pos--;
-    }
-
-    // Collapse down matching alleles
-    uint8_t allele_idx[MAX_ALLELES];
-    StrBuf* reduced_alleles[MAX_ALLELES];
-    size_t num_reduced_alleles = 1;
-
-    reduced_alleles[0] = &vcfentry->cols[VCFREF];
-
-    size_t k;
-    for(i = 0; i < vcfentry->num_alts; i++) {
-      for(k = 0; k < num_reduced_alleles; k++) {
-        if(strcmp(reduced_alleles[k]->buff, vcfentry->alts[i].buff) == 0) {
-          strbuf_shrink(&vcfentry->alts[i], 0);
-          allele_idx[i] = k;
-          break;
-        }
-      }
-      if(vcfentry->alts[i].len > 0) {
-        allele_idx[i] = num_reduced_alleles;
-        reduced_alleles[num_reduced_alleles++] = &vcfentry->alts[i];
-      }
-    }
-
-    // Genotype
-    uint32_t s, covgs[MAX_ALLELES];
-    for(s = 0; s < num_samples; s++)
-    {
-      memset(covgs, 0, sizeof(uint32_t) * num_reduced_alleles);
-
-      // Assign covg to allele
-      int first_kmer, last_kmer;
-
-      for(i = 0; i < vcfentry->num_alts; i++)
-      {
-        first_kmer = start_idx[i+1] - kmer_size;
-        last_kmer = start_idx[i+1] + allele_lens[i+1] - 1;
-
-        first_kmer = MAX2(first_kmer, 0);
-        first_kmer = MIN2(first_kmer, (signed)vcfentry->covgs[s][i].len);
-        last_kmer = MIN2(last_kmer, (signed)vcfentry->covgs[s][i].len);
-
-        covgs[allele_idx[i]]
-          += supernode_read_starts(vcfentry->covgs[s][i].arr + first_kmer,
-                               last_kmer - first_kmer + 1);
-      }
-
-      StrBuf *genotype = &vcfentry->cols[VCFSAMPLES+s];
-      strbuf_reset(genotype);
-      strbuf_sprintf(genotype, "%u", covgs[0]);
-      for(i = 1; i < num_reduced_alleles; i++)
-        strbuf_sprintf(genotype, ",%u", covgs[i]);
-    }
-
-    // DEV: add pop filter here
-
-    // Set ref position
-    strbuf_reset(&vcfentry->cols[VCFPOS]);
-    strbuf_sprintf(&vcfentry->cols[VCFPOS], "%i", pos);
-
-    print_entry(vcfentry, stdout);
-
-    // Update offsets
-    for(i = 0; i <= vcfentry->num_alts; i++) {
-      start_idx[i] += allele_lens[i];
+  // Force pairwise alignment to ref
+  // char *tmpalleles[2];
+  // tmpalleles[0] = ref_allele_str;
+  for(i = 1; i <= invcf->num_alts; i++) {
+    if(strcmp(msa_alleles[i], ref_allele_str) != 0) {
+      msa_alleles[0] = ref_allele_str;
+      msa_alleles[1] = msa_alleles[i];
+      size_t msa_len = do_msa(msa_alleles, 2, msa_alleles);
+      // printf("X:%s\nY:%s\n", msa_alleles[0], msa_alleles[1]);
+      parse_alignment(msa_alleles, 2, msa_len, outvcf, chr, refpos);
+      // printf("//\n");
     }
   }
+
+  // Re-instate removed ref base char
+  ref_allele_str[ref_allele_len] = save_ref_base;
 }
 
 static uint32_t get_chrom_index(const char *chromname)
@@ -906,8 +942,9 @@ int ctx_place(CmdArgs *args)
   }
 
   // Setup for loading VCF lines
-  vcf_entry_t vcfentry;
-  vcf_entry_alloc(&vcfentry, num_samples);
+  vcf_entry_t invcf, outvcf;
+  vcf_entry_alloc(&invcf, num_samples);
+  vcf_entry_alloc(&outvcf, num_samples);
 
   // Setup pairwise aligner
   nw_aligner = needleman_wunsch_new();
@@ -925,11 +962,11 @@ int ctx_place(CmdArgs *args)
 
   while(read_sam && read_vcf)
   {
-    vcf_entry_parse(line, &vcfentry, num_samples);
+    vcf_entry_parse(line, &invcf, num_samples);
 
-    if(strcmp(vcfentry.cols[VCFCHROM].buff, "un") != 0 ||
-       strcmp(vcfentry.cols[VCFPOS].buff, "1") != 0 ||
-       strcmp(vcfentry.cols[VCFREF].buff, "N") != 0)
+    if(strcmp(invcf.cols[VCFCHROM].buff, "un") != 0 ||
+       strcmp(invcf.cols[VCFPOS].buff, "1") != 0 ||
+       strcmp(invcf.cols[VCFREF].buff, "N") != 0)
     {
       die("Unexpected VCF line: %s", line->buff);
     }
@@ -937,11 +974,11 @@ int ctx_place(CmdArgs *args)
     // Get bam query name
     char *bname = bam_get_qname(bam);
 
-    if(strcmp(vcfentry.cols[VCFID].buff, bname) != 0)
+    if(strcmp(invcf.cols[VCFID].buff, bname) != 0)
     {
       // BAM entry and VCF name do not match - skip
-      vcf_entry_add_filter(&vcfentry, "NOSAM");
-      print_entry(&vcfentry, stdout);
+      vcf_entry_add_filter(&invcf, "NOSAM");
+      print_entry(&invcf, stdout);
 
       // Read next vcf entry only (not sam)
       strbuf_reset(line);
@@ -951,27 +988,27 @@ int ctx_place(CmdArgs *args)
     {
       int unmapped = bam->core.flag & BAM_FUNMAP;
       int low_mapq = bam->core.qual < min_mapq;
-      int toomanybr = vcfentry.num_alts > max_branches;
+      int toomanybr = invcf.num_alts > max_branches;
 
       if(!unmapped) {
-        info_tag_add(&vcfentry, "MQ=%i", (int)bam->core.qual);
+        info_tag_add(&invcf, "MQ=%i", (int)bam->core.qual);
       }
 
       if(unmapped || low_mapq || toomanybr)
       {
         // Entry failed a filter
-        if(unmapped) vcf_entry_add_filter(&vcfentry, "NOMAP");
-        if(low_mapq) vcf_entry_add_filter(&vcfentry, "MAPQ");
-        if(toomanybr) vcf_entry_add_filter(&vcfentry, "MAXBR");
+        if(unmapped) vcf_entry_add_filter(&invcf, "NOMAP");
+        if(low_mapq) vcf_entry_add_filter(&invcf, "MAPQ");
+        if(toomanybr) vcf_entry_add_filter(&invcf, "MAXBR");
 
-        print_entry(&vcfentry, stdout);
+        print_entry(&invcf, stdout);
       }
-      else if(vcfentry.lf == NULL || vcfentry.rf == NULL) {
-        print_entry(&vcfentry, stderr);
+      else if(invcf.lf == NULL || invcf.rf == NULL) {
+        print_entry(&invcf, stderr);
         die("Missing LF/RF tags");
       }
       else {
-        parse_entry(&vcfentry, bam);
+        parse_entry(&invcf, bam, &outvcf);
       }
 
       // Read next sam and vcf
@@ -1007,7 +1044,8 @@ int ctx_place(CmdArgs *args)
   free(bam);
 
   strbuf_free(line);
-  vcf_entry_dealloc(&vcfentry, num_samples);
+  vcf_entry_dealloc(&invcf, num_samples);
+  vcf_entry_dealloc(&outvcf, num_samples);
 
   return EXIT_SUCCESS;
 }

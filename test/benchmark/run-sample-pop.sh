@@ -2,6 +2,10 @@
 
 # Set exit on error
 set -e
+# Use aliases
+shopt -s expand_aliases
+
+alias vcf-pass="awk '\$1 ~ /^#/ || \$7 ~ /^(PASS|\.)$/'"
 
 SCRIPT=$0
 
@@ -32,7 +36,7 @@ SHADECTX="~/cortex/versions/current/bin/cortex_var_31_c"$NUM_INDIVS"_s8 --kmer_s
 BUILDCTX="$DIR/../../bin/ctx31 build"
 CLEANCTX="$DIR/../../bin/ctx31 clean"
 JOINCTX="$DIR/../../bin/ctx31 join"
-INFERCTX="$DIR/../../bin/ctx31 inferedges"
+INFERCTX="$DIR/../../bin/ctx31 inferedges --pop"
 THREADCTX="$DIR/../../bin/ctx31 thread"
 CALLCTX="$DIR/../../bin/ctx31 call"
 PROCCTX="$DIR/../../bin/ctx31 unique"
@@ -43,6 +47,7 @@ BIOINF="$DIR/../../libs/bioinf-perl"
 HAPLEN="$DIR/longest-haplotype.sh"
 OLDCLEAN="$DIR/clean_bubbles.pl"
 READSIM="$DIR/../../libs/readsim/readsim"
+BCFTOOLS="~/bioinf/bcftools/bcftools"
 
 CALIB="$DIR/PhiX.100K.1.fq.gz"
 
@@ -88,7 +93,6 @@ do
   if [ $witherror == "error" ]
   then
     cmd time $CLEANCTX diploid$i.clean.ctx diploid$i.ctx
-    cmd time $INFERCTX diploid$i.clean.ctx
   fi
 done
 
@@ -99,7 +103,8 @@ then
 fi
 
 # Merge
-cmd $JOINCTX -m 100M pop.ctx diploid{0..$LASTINDIV}.$ctxext
+cmd time $JOINCTX -m 100M pop.ctx diploid{0..$LASTINDIV}.$ctxext
+cmd time $INFERCTX pop.ctx
 
 # Call with old bc
 cmd time $RELEASECTX --multicolour_bin pop.ctx --detect_bubbles1 -1/-1 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
@@ -202,9 +207,26 @@ cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.sepe.5pf
 cmd "time $PLACECTX diploid.oldbc.vcf diploid.oldbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.oldbc.decomp.vcf"
 cmd "time $PLACECTX diploid.newbc.vcf diploid.newbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.newbc.decomp.vcf"
 cmd "time $PLACECTX diploid.newbc.shaded.vcf diploid.newbc.shaded.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.newbc.shaded.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.se.vcf diploid.pac.se.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.se.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.pe.vcf diploid.pac.pe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.pe.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.sepe.vcf diploid.pac.sepe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pac.sepe.decomp.vcf"
+cmd "time $PLACECTX diploid.pac.se.vcf diploid.pac.se.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.se.decomp.vcf"
+cmd "time $PLACECTX diploid.pac.pe.vcf diploid.pac.pe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pe.decomp.vcf"
+cmd "time $PLACECTX diploid.pac.sepe.vcf diploid.pac.sepe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.sepe.decomp.vcf"
+
+# Filter, sort calls
+cmd "time vcf-pass diploid.oldbc.decomp.vcf | vcf-sort > diploid.oldbc.decomp.sort.vcf"
+cmd "time vcf-pass diploid.newbc.decomp.vcf | vcf-sort > diploid.newbc.decomp.sort.vcf"
+cmd "time vcf-pass diploid.newbc.shaded.decomp.vcf | vcf-sort > diploid.newbc.shaded.decomp.sort.vcf"
+cmd "time vcf-pass diploid.se.decomp.vcf | vcf-sort > diploid.se.decomp.sort.vcf"
+cmd "time vcf-pass diploid.pe.decomp.vcf | vcf-sort > diploid.pe.decomp.sort.vcf"
+cmd "time vcf-pass diploid.sepe.decomp.vcf | vcf-sort > diploid.sepe.decomp.sort.vcf"
+
+# Generate truth decomp VCF
+zcat ../chr21.1Mb.fa.gz | $BIOINF/sim_mutations/sim_decomp_vcf.pl - genome0.fa genome1.fa > truth.decomp.vcf
+$BCFTOOLS norm --remove-duplicate -f ../chr21.1Mb.fa truth.decomp.vcf > truth.norm.vcf
+
+for f in oldbc newbc shaded se pe sepe
+do
+  $BCFTOOLS norm --remove-duplicate -f ../chr21.1Mb.fa diploid.$f.decomp.vcf > diploid.$f.norm.vcf
+done
 
 # Traversal statistics
 

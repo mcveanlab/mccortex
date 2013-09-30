@@ -238,7 +238,8 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
 
   hash_mem = hash_table_mem(req_kmers, above_nkmers, &kmers_in_hash);
   graph_mem = hash_mem + (kmers_in_hash * extra_bits_per_kmer) / 8;
-  min_kmers_mem = (min_num_kmers * bits_per_kmer) / 8;
+  min_kmers_mem = hash_table_mem(min_num_kmers, true, NULL) +
+                  (min_num_kmers*bits_per_kmer)/8;
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
@@ -257,10 +258,6 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
          (100.0 * min_num_kmers) / kmers_in_hash);
   }
 
-  if(args->mem_to_use_set && graph_mem > args->mem_to_use) {
-    die("Not enough memory for graph: require at least %s", min_kmers_mem_str);
-  }
-
   if(args->mem_to_use_set && args->num_kmers_set) {
     if(args->num_kmers > kmers_in_hash) {
       die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
@@ -270,6 +267,10 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
       status("Note: Using less memory than requested (%s < %s), due to: -h <kmer>",
              graph_mem_str, mem_to_use_str);
     }
+  }
+
+  if(args->mem_to_use_set && min_kmers_mem > args->mem_to_use) {
+    die("Not enough memory for graph: require at least %s", min_kmers_mem_str);
   }
 
   status("[memory] graph: %s\n", graph_mem_str);

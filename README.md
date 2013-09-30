@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-14 September 2013
+27 September 2013
 
 Build
 -----
@@ -40,10 +40,11 @@ Command:  build       FASTA/FASTQ/BAM -> binary graph file
           view        view and check a cortex graph file (.ctx)
           clean       clean errors from a graph
           join        combine graphs, filter graph intersections
-          supernodes  pull out supernodes, generate FASTG
-          subgraph    pull out (filter) a subgraph
+          supernodes  pull out supernodes
+          subgraph    filter a subgraph
           reads       filter reads against a graph
           extend      extend contigs using a graph
+          inferedges  infer edges before calling `thread`
           thread      thread reads through cleaned population
           pview       view read threading information
           pmerge      merge path files (.ctp)

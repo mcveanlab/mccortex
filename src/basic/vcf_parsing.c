@@ -97,6 +97,56 @@ void vcf_entry_dealloc(vcf_entry_t *entry, uint32_t num_samples)
   free(entry->covgs);
 }
 
+void vcf_entry_alt_capacity(vcf_entry_t *entry, size_t num_alts, uint32_t num_samples)
+{
+  if(num_alts > entry->alts_capacity)
+  {
+    // Increase in the number of alleles
+    size_t old_alts_cap = entry->alts_capacity;
+    strbuf_arr_resize(&entry->alts, &entry->alts_capacity, num_alts);
+
+    size_t i, j, covgsize = entry->alts_capacity * sizeof(DeltaArray);
+    for(i = 0; i < num_samples; i++)
+    {
+      entry->covgs[i] = realloc2(entry->covgs[i], covgsize);
+      for(j = old_alts_cap; j < entry->alts_capacity; j++)
+        delta_arr_alloc(&(entry->covgs[i][j]));
+    }
+  }
+}
+
+void vcf_entry_info_capacity(vcf_entry_t *entry, size_t num_info)
+{
+  if(num_info > entry->info_capacity)
+    strbuf_arr_resize(&entry->info, &entry->info_capacity, num_info);
+}
+
+void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, uint32_t num_samples)
+{
+  vcf_entry_alt_capacity(dst, src->num_alts, num_samples);
+  vcf_entry_info_capacity(dst, src->num_info);
+
+  size_t i;
+  for(i = 0; i < VCFSAMPLES+num_samples; i++)
+    strbuf_set(&dst->cols[i], src->cols[i].buff);
+
+  // Copy alts
+  dst->num_alts = src->num_alts;
+  for(i = 0; i < src->num_alts; i++)
+    strbuf_set(&dst->alts[i], src->alts[i].buff);
+
+  // Copy info and set LF, RF
+  StrBuf *buf;
+  dst->num_info = src->num_info;
+  dst->lf = dst->rf = NULL;
+  for(i = 0; i < src->num_info; i++) {
+    buf = &dst->info[i];
+    strbuf_set(buf, src->info[i].buff);
+    if(!strncmp(buf->buff, "LF=", 3)) dst->lf = buf;
+    else if(!strncmp(buf->buff, "RF=", 3)) dst->rf = buf;
+  }
+}
+
 void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
 {
   strbuf_chomp(line);
@@ -124,20 +174,8 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
 
   // Split ALT alleles
   size_t alts_count = count_char(entry->cols[VCFALT].buff, ',') + 1;
-  if(alts_count > entry->alts_capacity)
-  {
-    // Increase in the number of alleles
-    size_t old_alts_cap = entry->alts_capacity;
-    strbuf_arr_resize(&entry->alts, &entry->alts_capacity, alts_count);
 
-    size_t i, j, covgsize = entry->alts_capacity * sizeof(DeltaArray);
-    for(i = 0; i < num_samples; i++)
-    {
-      entry->covgs[i] = realloc2(entry->covgs[i], covgsize);
-      for(j = old_alts_cap; j < entry->alts_capacity; j++)
-        delta_arr_alloc(&(entry->covgs[i][j]));
-    }
-  }
+  vcf_entry_alt_capacity(entry, alts_count, num_samples);
 
   entry->num_alts = 0;
   tmp = entry->cols[VCFALT].buff;
@@ -161,8 +199,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   while((tmp = info_tag_end(tmp)) != NULL) { info_count++; tmp++; }
   tmp = entry->cols[VCFINFO].buff;
 
-  if(info_count > entry->info_capacity)
-    strbuf_arr_resize(&entry->info, &entry->info_capacity, info_count);
+  vcf_entry_info_capacity(entry, info_count);
 
   while(1)
   {

@@ -179,7 +179,8 @@ int ctx_infer_edges(CmdArgs *args)
 
   graph_load(path, &prefs, stats, NULL);
 
-  status("Inferring edges from population...\n");
+  if(add_pop_edges) status("Inferring edges from population...\n");
+  else status("Inferring all missing edges");
 
   // Read again
   BinaryKmer bkmer;

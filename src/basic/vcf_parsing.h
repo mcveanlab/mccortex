@@ -33,6 +33,10 @@ typedef struct
 void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples);
 void vcf_entry_dealloc(vcf_entry_t *entry, uint32_t num_samples);
 
+void vcf_entry_alt_capacity(vcf_entry_t *entry, size_t num_alts, uint32_t num_samples);
+void vcf_entry_info_capacity(vcf_entry_t *entry, size_t num_info);
+
+void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, uint32_t num_samples);
 void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples);
 void vcf_entry_revcmp(vcf_entry_t *entry);
 size_t vcf_entry_longest_allele(vcf_entry_t *entry);
