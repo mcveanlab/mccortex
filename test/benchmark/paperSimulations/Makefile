@@ -54,6 +54,10 @@ sIO=3000
 SIM=22453
 
 run-files:
+	mkdir -p OneHumanErrorReads100   OneStaphErrorReads100   OneHumanErrorReads250   OneStaphErrorReads250
+	mkdir -p OneHumanNoErrorReads100 OneStaphNoErrorReads100 OneHumanNoErrorReads250 OneStaphNoErrorReads250
+	mkdir -p ManyHumanErrorReads100  ManyStaphErrorReads100  ManyHumanErrorReads250  ManyStaphErrorReads250
+	#
 	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hIO) 0 0 100 250 30  error print > OneHumanErrorReads100/run.sh
 	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 1 1 31 $(sSO) $(sIO) 0 0 100 250 100 error print > OneStaphErrorReads100/run.sh
 	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hIO) 0 0 250 250 30  error print > OneHumanErrorReads250/run.sh
@@ -70,6 +74,6 @@ run-files:
 	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 1000 1 31 $(sSM) $(sSM) 0 0 250 250 100 error print > ManyStaphErrorReads250/run.sh
 
 clean:
-	rm staph.fa* chr1.fa* staph.st* chr1.st*
+	rm -rf staph.fa* chr1.fa* staph.st* chr1.st*
 
 .PHONY: all clean run-files

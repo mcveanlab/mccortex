@@ -139,7 +139,7 @@ else
 	OBJS=$(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
 endif
 
-all: ctx
+all: ctx traversal
 
 build/basic/call_seqan.o: src/basic/call_seqan.cpp src/basic/call_seqan.h | $(DEPS)
 	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c src/basic/call_seqan.cpp -o $@
