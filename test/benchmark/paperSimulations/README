@@ -18,9 +18,31 @@ insert gap size is Normally distributed with mean 250, stddev 50: N(250,50)
 Covg is 30X for human, 100X for staph
 6. Sequencing error:
 Error is empirical from PhiX Illumina reads
+==
 7. Variation:
 Pi is 1/1000bp in human, 1/100bp staph
 Allele frequency has distribution 1/N
+
+sites=P*sum(1/c(1:(S-1)))*L
+  P=pi pairwise
+  S=samples
+  L=length(bp)
+
+SNPs 90%, indels 10%
+
+* human (Pi=0.001) on chr1 (250Mb)
+1 human has:
+P=0.001, S=2, L=250,000,000, sites=250,000 (0.1%); 225,000 SNPs; 25,000 indels
+10 humans have:
+P=0.001, S=20, L=250,000,000, sites=886,935 (0.35%); 798,242 SNPs; 88,694 indels
+
+* staph (Pi=0.01) on genome (3Mb)
+2 staph has:
+P=0.01, S=2, L=3,000,000, sites=30,000 (1%); 27,000 SNPs; 3,000 indels
+1000 staphs have:
+P=0.01, S=1000, L=3,000,000, sites=224,534 (7.5%); 202,081 SNPs; 22,453 indels
+
+==
 8. Variant Calling
 Calling is with k=31
 Using released cortex, shades, paths (se,pe,se+pe)

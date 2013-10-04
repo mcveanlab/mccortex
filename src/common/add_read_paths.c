@@ -306,6 +306,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   while(pos < gap_limit && graph_traverse(wlk) &&
+        db_node_has_col(wlk->db_graph, wlk->node, wlk->ctxcol) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
@@ -346,6 +347,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   while(pos > 0 && graph_traverse(wlk) &&
+        db_node_has_col(wlk->db_graph, wlk->node, wlk->ctxcol) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);

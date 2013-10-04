@@ -964,14 +964,15 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
   gzprintf(out_vcf, "\tCOVG");
   for(i = 0; i < num_samples; i++)
   {
-    allele = var->first_allele;
-    gzputc(out_vcf, '\t');
-    delta_arr_gzprint(&(allele->covgs[i]), out_vcf);
+    gzprintf(out_vcf, "\t0");
+    // allele = var->first_allele;
+    // gzputc(out_vcf, '\t');
+    // delta_arr_gzprint(&(allele->covgs[i]), out_vcf);
 
-    for(allele = allele->next; allele != NULL; allele = allele->next) {
-      gzputc(out_vcf, ';');
-      delta_arr_gzprint(&(allele->covgs[i]), out_vcf);
-    }
+    // for(allele = allele->next; allele != NULL; allele = allele->next) {
+    //   gzputc(out_vcf, ':');
+    //   delta_arr_gzprint(&(allele->covgs[i]), out_vcf);
+    // }
   }
 
   gzputc(out_vcf, '\n');

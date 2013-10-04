@@ -2,12 +2,13 @@
 
 use strict;
 use warnings;
+use List::Util qw(min);
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "Usage: ./clean_bubbles.pl <kmer_size> <in.bubbles>\n";
-  print STDERR "  Remove bubbles with '3p_flank length:0'. Prints to STDOUT\n";
+  print STDERR "  Remove bubbles lacking valid 3p flank. Prints to STDOUT\n";
   exit(-1);
 }
 
@@ -50,10 +51,11 @@ while(1)
   }
 
   my ($br0, $br1, $fl3) = ($buf[3], $buf[5], $buf[7]);
-  my ($len0, $len1) = (length($br0), length($br1));
-  my $minlen = $len0 < $len1 ? $len0 : $len1;
-  my $m = 0;
-  while($m < $minlen && substr($br0,-$m-1,1) eq substr($br1,-$m-1,1)) { $m++; } 
-  if($m + length($fl3) > $kmer_size) { print join("\n", @buf)."\n\n"; }
+  $br0 .= $fl3;
+  $br1 .= $fl3;
+  my $minlen = min(length($br0), length($br1));
+  if($minlen > $kmer_size && substr($br0, -$kmer_size) eq substr($br1, -$kmer_size)) {
+    print join("\n", @buf)."\n\n";
+  }
 }
 

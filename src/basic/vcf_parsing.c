@@ -216,6 +216,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
 
   // Load sample covg info
 
+  /*
   size_t i, j;
   for(i = 0; i < num_samples; i++)
   {
@@ -233,6 +234,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
       tmp = end+1;
     }
   }
+  */
 }
 
 void vcf_entry_revcmp(vcf_entry_t *entry)

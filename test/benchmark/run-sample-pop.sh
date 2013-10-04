@@ -7,26 +7,57 @@ shopt -s expand_aliases
 
 alias vcf-pass="awk '\$1 ~ /^#/ || \$7 ~ /^(PASS|\.)$/'"
 
+cmd()
+{
+  echo $@
+  if [ $RUN == "run" ]
+  then
+    eval "$@" || { echo "$SCRIPT: Command failed: '$@'"; exit 1; }
+  fi
+}
+
+msg()
+{
+  if [ $RUN == "run" ]
+  then
+    echo $@
+  else
+    echo echo $@
+  fi
+}
+
 SCRIPT=$0
 
-if [[ $# -ne 12 ]]
+if [[ $# -ne 14 ]]
 then
-	echo "Usage: $0 <genome.fa> <indivs> <ploidy> <kmer> <snps> <indels> <invs> <invlen> <readlen> <mpsize> <covg> <error|noerror>"
+	echo "Usage: $0 <genome.fa> <stampyhsh> <indivs> <ploidy> <kmer> <snps> 
+                  <indels> <invs> <invlen> <readlen> <mpsize> <allelecovg>
+                  <error|noerror> <run|print>"
 	exit 1
 fi
 
 INPUT_SEQ=$1
-NUM_INDIVS=$2
-PLOIDY=$3
-KMER=$4
-SNPS=$5
-INDELS=$6
-INV=$7
-INVLEN=$8
-READLEN=$9
-MPSIZE=${10}
-ALLELECOVG=${11}
-witherror=${12}
+STAMPY_HSH=$2
+NUM_INDIVS=$3
+PLOIDY=$4
+KMER=$5
+SNPS=$6
+INDELS=$7
+INV=$8
+INVLEN=$9
+READLEN=${10}
+MPSIZE=${11}
+ALLELECOVG=${12}
+witherror=${13}
+RUN=${14}
+
+if [ $witherror != "error" ] && [ $witherror != "noerror" ]; then
+  echo "Must specify <error|noerror>"; exit 1;
+fi
+
+if [ $RUN != "run" ] && [ $RUN != "print" ]; then
+  echo "Must specify <run|print>"; exit 1;
+fi
 
 NCHROMS=$(($NUM_INDIVS * $PLOIDY))
 
@@ -54,17 +85,21 @@ CALIB="$DIR/PhiX.100K.1.fq.gz"
 
 if [[ ! -e $INPUT_SEQ ]]
 then
-	echo "$0: cannot read $INPUT_SEQ"; exit 1;
+	echo "$0: warning cannot read $INPUT_SEQ" 1>&2
 fi
 
-cmd()
-{
-	echo $@
-	eval "$@" || { echo "$SCRIPT: Command failed: '$@'"; exit 1; }
-}
+if [ $RUN == "print" ]
+then
+  echo "#!/bin/bash"
+  echo set -e
+  echo shopt -s expand_aliases
+  echo 'alias vcf-pass="awk '"'"'\$1 ~ /^#/ || \$7 ~ /^(PASS|\.)$/'"'"'"'
+fi
+
+cmd mkdir -p genomes reads graphs bubbles vcfs
 
 # Simulate mutations
-cmd "zcat -f $INPUT_SEQ | $BIOINF/sim_mutations/sim_mutations.pl --snps $SNPS --indels $INDELS --invs $INV --invlen $INVLEN ./ $NCHROMS -"
+cmd "zcat -f $INPUT_SEQ | $BIOINF/sim_mutations/sim_mutations.pl --snps $SNPS --indels $INDELS --invs $INV --invlen $INVLEN genomes/ $NCHROMS -"
 
 LASTCHROM=$(($NCHROMS-1))
 LASTINDIV=$(($NUM_INDIVS-1))
@@ -77,9 +112,9 @@ fi
 # Generate reads
 for i in $(seq 0 $LASTCHROM)
 do
-  cmd $READSIM -r <(cat genome$i.fa | tr -d '-') -i $MPSIZE -v 0.2 -l $READLEN -d $ALLELECOVG $USECALIB reads$i
-  cmd "echo reads$i.1.fa.gz >> reads$i.1.falist"
-  cmd "echo reads$i.2.fa.gz >> reads$i.2.falist"
+  cmd "$READSIM -r <(cat genomes/genome$i.fa | tr -d '-') -i $MPSIZE -v 0.2 -l $READLEN -d $ALLELECOVG $USECALIB reads/reads$i"
+  cmd "echo reads$i.1.fa.gz >> reads/reads$i.1.falist"
+  cmd "echo reads$i.2.fa.gz >> reads/reads$i.2.falist"
 done
 
 # Make diploid.ctx
@@ -87,12 +122,12 @@ for i in $(seq 0 $LASTINDIV)
 do
   a=$(($i*2))
   b=$(($i*2+1))
-  PELIST="--seq2 reads$a.1.fa.gz reads$a.2.fa.gz --seq2 reads$b.1.fa.gz reads$b.2.fa.gz"
-  cmd time $BUILDCTX -k $KMER -m 100MB --sample MrDiploid$i $PELIST diploid$i.ctx
+  PELIST="--seq2 reads/reads$a.1.fa.gz reads/reads$a.2.fa.gz --seq2 reads/reads$b.1.fa.gz reads/reads$b.2.fa.gz"
+  cmd time $BUILDCTX -k $KMER -m 100MB --sample MrDiploid$i $PELIST graphs/diploid$i.ctx
 
   if [ $witherror == "error" ]
   then
-    cmd time $CLEANCTX diploid$i.clean.ctx diploid$i.ctx
+    cmd time $CLEANCTX graphs/diploid$i.clean.ctx graphs/diploid$i.ctx
   fi
 done
 
@@ -103,21 +138,21 @@ then
 fi
 
 # Merge
-cmd time $JOINCTX -m 100M pop.ctx diploid{0..$LASTINDIV}.$ctxext
-cmd time $INFERCTX pop.ctx
+cmd time $JOINCTX -m 100M graphs/pop.ctx graphs/diploid{0..$LASTINDIV}.$ctxext
+cmd time $INFERCTX graphs/pop.ctx
 
 # Call with old bc
-cmd time $RELEASECTX --multicolour_bin pop.ctx --detect_bubbles1 -1/-1 --output_bubbles1 diploid.oldbc.bubbles --print_colour_coverages
+cmd time $RELEASECTX --multicolour_bin graphs/pop.ctx --detect_bubbles1 -1/-1 --output_bubbles1 bubbles/diploid.oldbc.bubbles --print_colour_coverages
 # Fix buggy output from old bc
-cmd mv diploid.oldbc.bubbles diploid.oldbc.bubbles.2
-cmd "$OLDCLEAN $KMER diploid.oldbc.bubbles.2 > diploid.oldbc.bubbles"
-cmd $PROCCTX diploid.oldbc.bubbles diploid.oldbc
-cmd gzip -d -f diploid.oldbc.vcf.gz
+cmd mv bubbles/diploid.oldbc.bubbles bubbles/diploid.oldbc.bubbles.2
+cmd "$OLDCLEAN $KMER bubbles/diploid.oldbc.bubbles.2 > bubbles/diploid.oldbc.bubbles"
+cmd $PROCCTX bubbles/diploid.oldbc.bubbles vcfs/diploid.oldbc
+cmd gzip -d -f vcfs/diploid.oldbc.vcf.gz
 
 # Call with new bc
-cmd time $CALLCTX -t 1 pop.ctx diploid.newbc.bubbles.gz
-cmd $PROCCTX diploid.newbc.bubbles.gz diploid.newbc
-cmd gzip -d -f diploid.newbc.vcf.gz
+cmd time $CALLCTX -t 1 graphs/pop.ctx bubbles/diploid.newbc.bubbles.gz
+cmd $PROCCTX bubbles/diploid.newbc.bubbles.gz vcfs/diploid.newbc
+cmd gzip -d -f vcfs/diploid.newbc.vcf.gz
 
 SELIST=
 PELIST=
@@ -128,65 +163,69 @@ for i in $(seq 0 $LASTINDIV)
 do
   a=$(($i*2))
   b=$(($i*2+1))
-  se="--seq reads$a.1.fa.gz --seq reads$a.2.fa.gz --seq reads$b.1.fa.gz --seq reads$b.2.fa.gz"
-  pe="--seq2 reads$a.1.fa.gz reads$a.2.fa.gz --seq2 reads$b.1.fa.gz reads$b.2.fa.gz"
+  se="--seq reads/reads$a.1.fa.gz --seq reads/reads$a.2.fa.gz --seq reads/reads$b.1.fa.gz --seq reads/reads$b.2.fa.gz"
+  pe="--seq2 reads/reads$a.1.fa.gz reads/reads$a.2.fa.gz --seq2 reads/reads$b.1.fa.gz reads/reads$b.2.fa.gz"
   SELIST="$SELIST --col $i $i $se"
   PELIST="$PELIST --col $i $i $pe"
   SEPELIST="$SEPELIST --col $i $i $se $pe"
-  SHADEDLIST="$SHADEDLIST --pe_list reads$i.1.falist,reads$i.2.falist"
+  SHADEDLIST="$SHADEDLIST --pe_list reads/reads$i.1.falist,reads/reads$i.2.falist"
 done
 
 # Call with new bc + shades (also add shades)
-cmd time $SHADECTX --load_binary pop.ctx --add_shades $SHADEDLIST --paths_caller diploid.newbc.shaded.bubbles.gz --paths_caller_cols -1
-cmd $PROCCTX diploid.newbc.shaded.bubbles.gz diploid.newbc.shaded
-cmd gzip -d -f diploid.newbc.shaded.vcf.gz
+cmd time $SHADECTX --load_binary graphs/pop.ctx --add_shades $SHADEDLIST --paths_caller bubbles/diploid.shaded.bubbles.gz --paths_caller_cols -1
+cmd $PROCCTX bubbles/diploid.shaded.bubbles.gz vcfs/diploid.shaded
+cmd gzip -d -f vcfs/diploid.shaded.vcf.gz
 
-cmd time $THREADCTX -t 1 $SELIST $NUM_INDIVS pop.se.ctp pop.ctx pop.ctx
-cmd time $THREADCTX -t 1 $PELIST $NUM_INDIVS pop.pe.ctp pop.ctx pop.ctx
-cmd time $THREADCTX -t 1 $SEPELIST $NUM_INDIVS pop.sepe.ctp pop.ctx pop.ctx
+cmd time $THREADCTX -t 1 $SELIST $NUM_INDIVS graphs/pop.se.ctp graphs/pop.ctx graphs/pop.ctx
+cmd time $THREADCTX -t 1 $PELIST $NUM_INDIVS graphs/pop.pe.ctp graphs/pop.ctx graphs/pop.ctx
+cmd time $THREADCTX -t 1 $SEPELIST $NUM_INDIVS graphs/pop.sepe.ctp graphs/pop.ctx graphs/pop.ctx
+cmd mv gap_sizes.* mp_sizes.* graphs/
 
 for x in se pe sepe
 do
-  cmd time $CALLCTX -t 1 -m 100MB -p pop.$x.ctp pop.ctx diploid.pac.$x.bubbles.gz
-  cmd $PROCCTX diploid.pac.$x.bubbles.gz diploid.pac.$x
-  cmd gzip -d -f diploid.pac.$x.vcf.gz
+  cmd time $CALLCTX -t 1 -m 100MB -p graphs/pop.$x.ctp graphs/pop.ctx bubbles/diploid.$x.bubbles.gz
+  cmd $PROCCTX bubbles/diploid.$x.bubbles.gz vcfs/diploid.$x
+  cmd gzip -d -f vcfs/diploid.$x.vcf.gz
 done
 
-# Generate truth VCF
+# G is a list of genome fasta files
 # MG is list of Mask+Genome files
+GLIST=
 MGLIST=
 for i in $(seq 0 $LASTCHROM)
 do
-  MGLIST="$MGLIST genome$i.fa mask$i.fa"
+  GLIST="$GLIST genomes/genome$i.fa"
+  MGLIST="$MGLIST genomes/genome$i.fa genomes/mask$i.fa"
 done
 
-cmd "$BIOINF/sim_mutations/sim_vcf.pl $KMER $MGLIST > truth.vcf"
+# Generate truth VCF
+cmd "$BIOINF/sim_mutations/sim_vcf.pl $KMER $MGLIST > vcfs/truth.vcf"
 
 # Compare
-echo == Released Cortex ==
-LVCF=truth.vcf
-cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.oldbc.vcf truth.oldbc.vcf OLDBC falsepos.oldbc.vcf genome{0..$LASTCHROM}.fa
-cmd $HAPLEN diploid.oldbc.vcf
-echo == New Bubble Caller ==
-LVCF=truth.oldbc.vcf
-cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.newbc.vcf truth.newbc.vcf NEWBC falsepos.newbc.vcf genome{0..$LASTCHROM}.fa
-cmd $HAPLEN diploid.newbc.vcf
-echo == Shaded Bubble Caller ==
-LVCF=truth.newbc.vcf
-cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.newbc.shaded.vcf truth.shaded.vcf SHADED falsepos.shaded.vcf genome{0..$LASTCHROM}.fa
-cmd $HAPLEN diploid.newbc.shaded.vcf
-LVCF=truth.shaded.vcf
+msg == Released Cortex ==
+LVCF=vcfs/truth.vcf
+cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF vcfs/diploid.oldbc.vcf vcfs/truth.oldbc.vcf OLDBC vcfs/falsepos.oldbc.vcf $GLIST
+cmd $HAPLEN vcfs/diploid.oldbc.vcf
+msg == New Bubble Caller ==
+LVCF=vcfs/truth.oldbc.vcf
+cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF vcfs/diploid.newbc.vcf vcfs/truth.newbc.vcf NEWBC vcfs/falsepos.newbc.vcf $GLIST
+cmd $HAPLEN vcfs/diploid.newbc.vcf
+msg == Shaded Bubble Caller ==
+LVCF=vcfs/truth.newbc.vcf
+cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF vcfs/diploid.shaded.vcf vcfs/truth.shaded.vcf SHADED vcfs/falsepos.shaded.vcf $GLIST
+cmd $HAPLEN vcfs/diploid.shaded.vcf
+LVCF=vcfs/truth.shaded.vcf
 
 for x in se pe sepe
 do
-  echo == Paths $x ==
-  cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF diploid.pac.$x.vcf truth.pac.$x.vcf PAC falsepos.pac.$x.vcf genome{0..$LASTCHROM}.fa
-  cmd $HAPLEN diploid.pac.$x.vcf
-  LVCF=truth.pac.$x.vcf
+  msg == Paths $x ==
+  cmd $BIOINF/sim_mutations/sim_compare.pl $LVCF vcfs/diploid.$x.vcf vcfs/truth.$x.vcf PAC vcfs/falsepos.$x.vcf $GLIST
+  cmd $HAPLEN vcfs/diploid.$x.vcf
+  LVCF=vcfs/truth.$x.vcf
 done
 
-echo == Truth ==
-cmd $HAPLEN truth.vcf
+msg == Truth ==
+cmd $HAPLEN vcfs/truth.vcf
 
 # exit
 
@@ -196,43 +235,44 @@ if [ ! -e stampy.py ]; then STAMPY="python2.6 $HOME/bioinf/stampy-1.0.20/stampy.
 if [ ! -e ../chr21.stidx ]; then `$STAMPY -G ../chr21 ../chr21.1Mb.fa.gz`; fi
 if [ ! -e ../chr21.sthash ]; then `$STAMPY -g ../chr21 -H ../chr21`; fi
 
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.oldbc.5pflanks.fa.gz > diploid.oldbc.5pflanks.sam"
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.newbc.5pflanks.fa.gz > diploid.newbc.5pflanks.sam"
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.newbc.shaded.5pflanks.fa.gz > diploid.newbc.shaded.5pflanks.sam"
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.se.5pflanks.fa.gz > diploid.pac.se.5pflanks.sam"
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.pe.5pflanks.fa.gz > diploid.pac.pe.5pflanks.sam"
-cmd "$STAMPY -g ../chr21 -h ../chr21 --inputformat=fasta -M diploid.pac.sepe.5pflanks.fa.gz > diploid.pac.sepe.5pflanks.sam"
+cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.oldbc.5pflanks.fa.gz > vcfs/diploid.oldbc.5pflanks.sam"
+cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.newbc.5pflanks.fa.gz > vcfs/diploid.newbc.5pflanks.sam"
+cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.shaded.5pflanks.fa.gz > vcfs/diploid.shaded.5pflanks.sam"
+cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.se.5pflanks.fa.gz > vcfs/diploid.se.5pflanks.sam"
+cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.pe.5pflanks.fa.gz > vcfs/diploid.pe.5pflanks.sam"
+cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.sepe.5pflanks.fa.gz > vcfs/diploid.sepe.5pflanks.sam"
 
 # Place calls
-cmd "time $PLACECTX diploid.oldbc.vcf diploid.oldbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.oldbc.decomp.vcf"
-cmd "time $PLACECTX diploid.newbc.vcf diploid.newbc.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.newbc.decomp.vcf"
-cmd "time $PLACECTX diploid.newbc.shaded.vcf diploid.newbc.shaded.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.newbc.shaded.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.se.vcf diploid.pac.se.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.se.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.pe.vcf diploid.pac.pe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.pe.decomp.vcf"
-cmd "time $PLACECTX diploid.pac.sepe.vcf diploid.pac.sepe.5pflanks.sam ../chr21.1Mb.fa.gz > diploid.sepe.decomp.vcf"
+cmd "time $PLACECTX vcfs/diploid.oldbc.vcf vcfs/diploid.oldbc.5pflanks.sam $INPUT_SEQ > vcfs/diploid.oldbc.decomp.vcf"
+cmd "time $PLACECTX vcfs/diploid.newbc.vcf vcfs/diploid.newbc.5pflanks.sam $INPUT_SEQ > vcfs/diploid.newbc.decomp.vcf"
+cmd "time $PLACECTX vcfs/diploid.shaded.vcf vcfs/diploid.shaded.5pflanks.sam $INPUT_SEQ > vcfs/diploid.shaded.decomp.vcf"
+cmd "time $PLACECTX vcfs/diploid.se.vcf vcfs/diploid.se.5pflanks.sam $INPUT_SEQ > vcfs/diploid.se.decomp.vcf"
+cmd "time $PLACECTX vcfs/diploid.pe.vcf vcfs/diploid.pe.5pflanks.sam $INPUT_SEQ > vcfs/diploid.pe.decomp.vcf"
+cmd "time $PLACECTX vcfs/diploid.sepe.vcf vcfs/diploid.sepe.5pflanks.sam $INPUT_SEQ > vcfs/diploid.sepe.decomp.vcf"
 
 # Filter, sort calls
-cmd "time vcf-pass diploid.oldbc.decomp.vcf | vcf-sort > diploid.oldbc.decomp.sort.vcf"
-cmd "time vcf-pass diploid.newbc.decomp.vcf | vcf-sort > diploid.newbc.decomp.sort.vcf"
-cmd "time vcf-pass diploid.newbc.shaded.decomp.vcf | vcf-sort > diploid.newbc.shaded.decomp.sort.vcf"
-cmd "time vcf-pass diploid.se.decomp.vcf | vcf-sort > diploid.se.decomp.sort.vcf"
-cmd "time vcf-pass diploid.pe.decomp.vcf | vcf-sort > diploid.pe.decomp.sort.vcf"
-cmd "time vcf-pass diploid.sepe.decomp.vcf | vcf-sort > diploid.sepe.decomp.sort.vcf"
+cmd "time vcf-pass vcfs/diploid.oldbc.decomp.vcf | vcf-sort > vcfs/diploid.oldbc.decomp.sort.vcf"
+cmd "time vcf-pass vcfs/diploid.newbc.decomp.vcf | vcf-sort > vcfs/diploid.newbc.decomp.sort.vcf"
+cmd "time vcf-pass vcfs/diploid.shaded.decomp.vcf | vcf-sort > vcfs/diploid.shaded.decomp.sort.vcf"
+cmd "time vcf-pass vcfs/diploid.se.decomp.vcf | vcf-sort > vcfs/diploid.se.decomp.sort.vcf"
+cmd "time vcf-pass vcfs/diploid.pe.decomp.vcf | vcf-sort > vcfs/diploid.pe.decomp.sort.vcf"
+cmd "time vcf-pass vcfs/diploid.sepe.decomp.vcf | vcf-sort > vcfs/diploid.sepe.decomp.sort.vcf"
 
-# Generate truth decomp VCF
-zcat ../chr21.1Mb.fa.gz | $BIOINF/sim_mutations/sim_decomp_vcf.pl - genome0.fa genome1.fa > truth.decomp.vcf
-$BCFTOOLS norm --remove-duplicate -f ../chr21.1Mb.fa truth.decomp.vcf > truth.norm.vcf
-
+# Normalise variants (left align)
 for f in oldbc newbc shaded se pe sepe
 do
-  $BCFTOOLS norm --remove-duplicate -f ../chr21.1Mb.fa diploid.$f.decomp.vcf > diploid.$f.norm.vcf
+  cmd "$BCFTOOLS norm --remove-duplicate -f $INPUT_SEQ vcfs/diploid.$f.decomp.sort.vcf > vcfs/diploid.$f.norm.vcf"
 done
+
+# Generate truth decomp VCF
+cmd "zcat -f $INPUT_SEQ | $BIOINF/sim_mutations/sim_decomp_vcf.pl - $GLIST > vcfs/truth.decomp.vcf"
+cmd "$BCFTOOLS norm --remove-duplicate -f $INPUT_SEQ vcfs/truth.decomp.vcf > vcfs/truth.norm.vcf"
 
 # Traversal statistics
 
-cmd time $TRAVERSE --colour 0 pop.ctx
+cmd time $TRAVERSE --colour 0 graphs/pop.ctx
 
 for x in se pe sepe
 do
-  cmd time $TRAVERSE --colour 0 -p pop.$x.ctp pop.ctx
+  cmd time $TRAVERSE --colour 0 -p graphs/pop.$x.ctp graphs/pop.ctx
 done
