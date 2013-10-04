@@ -6,7 +6,7 @@ FACAT=../../../libs/seq_file/bin/facat
 PROFILE_READS=PhiX.1.fq.gz
 
 # Set stampy to the command needed
-STAMPY=python2.6 ~/bioinf/stampy-1.0.20/stampy.py
+STAMPY=python ~/bioinf/stampy-1.0.20/stampy.py
 
 all: chr1/chr1.fa.gz staph/staph.fa.gz run-files $(PROFILE_READS)
 

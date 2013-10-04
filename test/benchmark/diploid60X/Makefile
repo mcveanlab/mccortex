@@ -19,15 +19,22 @@ ALLELECOVG=30
 ERROR=error
 #error or noerror
 
-all: ../chr21.1Mb.fa ../chr21.1Mb.fa.fai
+all: ../chr21.1Mb.fa ../chr21.1Mb.fa.fai ../chr21.stidx ../chr21.sthash
 	../run-sample-pop.sh $(INPUT_SEQ) $(STAMPY_HSH) $(NINDIVS) $(PLOIDY) $(KMER) $(NSNPS) $(NINDELS) $(NINV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG) $(ERROR) print > run.sh
 	chmod +x run.sh
 	./run.sh
 
+STAMPY=python ~/bioinf/stampy-1.0.20/stampy.py
+
 ../chr21.1Mb.fa:
-	gzip -c ../chr21.1Mb.fa.gz > ../chr21.1Mb.fa
+	gzip -c -d ../chr21.1Mb.fa.gz > ../chr21.1Mb.fa
 ../chr21.1Mb.fa.fai:
 	samtools faidx ../chr21.1Mb.fa
+
+../chr21.stidx: ../chr21.1Mb.fa
+	$(STAMPY) -G ../chr1 ../chr21.1Mb.fa
+../chr21.sthash: ../chr21.stidx
+	$(STAMPY) -g ../chr1 -H ../chr21
 
 clean:
 	rm -rf genomes reads graphs bubbles vcfs gap_sizes* mp_sizes*

@@ -8,11 +8,11 @@ all: smaller.stidx smaller.sthash smaller.fa.fai
 	chmod +x run.sh
 	./run.sh
 
-smaller.stidx:
+smaller.stidx: smaller.fa
 	stampy.py -G smaller smaller.fa
-smaller.sthash:
+smaller.sthash: smaller.stidx
 	stampy.py -g smaller -H smaller
-smaller.fa.fai:
+smaller.fa.fai: smaller.fa
 	samtools faidx smaller.fa
 
 clean:
