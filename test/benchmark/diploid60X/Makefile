@@ -19,10 +19,15 @@ ALLELECOVG=30
 ERROR=error
 #error or noerror
 
-all: $(INPUT_SEQ)
+all: ../chr21.1Mb.fa ../chr21.1Mb.fa.fai
 	../run-sample-pop.sh $(INPUT_SEQ) $(STAMPY_HSH) $(NINDIVS) $(PLOIDY) $(KMER) $(NSNPS) $(NINDELS) $(NINV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG) $(ERROR) print > run.sh
 	chmod +x run.sh
 	./run.sh
+
+../chr21.1Mb.fa:
+	gzip -c ../chr21.1Mb.fa.gz > ../chr21.1Mb.fa
+../chr21.1Mb.fa.fai:
+	samtools faidx ../chr21.1Mb.fa
 
 clean:
 	rm -rf genomes reads graphs bubbles vcfs gap_sizes* mp_sizes*
