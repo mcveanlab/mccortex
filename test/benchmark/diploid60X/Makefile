@@ -19,12 +19,20 @@ ALLELECOVG=30
 ERROR=error
 #error or noerror
 
+# Set stampy to the command needed
+STAMPY_BIN=~/bioinf/stampy-1.0.20/stampy.py
+
+UNAME=$(shell uname -s)
+ifeq ($(UNAME),Darwin)
+	STAMPY=python2.6 $(STAMPY_BIN)
+else
+	STAMPY=python $(STAMPY_BIN)
+endif
+
 all: ../chr21.1Mb.fa ../chr21.1Mb.fa.fai ../chr21.stidx ../chr21.sthash
 	../run-sample-pop.sh $(INPUT_SEQ) $(STAMPY_HSH) $(NINDIVS) $(PLOIDY) $(KMER) $(NSNPS) $(NINDELS) $(NINV) $(INVLEN) $(READLEN) $(MPSIZE) $(ALLELECOVG) $(ERROR) print > run.sh
 	chmod +x run.sh
 	./run.sh
-
-STAMPY=python ~/bioinf/stampy-1.0.20/stampy.py
 
 ../chr21.1Mb.fa:
 	gzip -c -d ../chr21.1Mb.fa.gz > ../chr21.1Mb.fa

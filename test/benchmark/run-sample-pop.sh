@@ -231,9 +231,19 @@ cmd $HAPLEN vcfs/truth.vcf
 
 # Map 5' flanks
 STAMPY=stampy.py
-if [ ! -e stampy.py ]; then STAMPY="python2.6 $HOME/bioinf/stampy-1.0.20/stampy.py"; fi
-if [ ! -e ../chr21.stidx ]; then `$STAMPY -G ../chr21 ../chr21.1Mb.fa.gz`; fi
-if [ ! -e ../chr21.sthash ]; then `$STAMPY -g ../chr21 -H ../chr21`; fi
+
+if [ $(uname -s) == "Darwin" ]; then
+  PYTHON="python2.6"
+else
+  PYTHON="python"
+fi
+
+if [ ! -e stampy.py ]; then
+  STAMPY="$PYTHON $HOME/bioinf/stampy-1.0.20/stampy.py"
+fi
+
+if [ ! -e ../chr21.stidx ]; then cmd $STAMPY -G ../chr21 ../chr21.1Mb.fa.gz; fi
+if [ ! -e ../chr21.sthash ]; then cmd $STAMPY -g ../chr21 -H ../chr21; fi
 
 cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.oldbc.5pflanks.fa.gz > vcfs/diploid.oldbc.5pflanks.sam"
 cmd "$STAMPY -g $STAMPY_HSH -h $STAMPY_HSH --inputformat=fasta -M vcfs/diploid.newbc.5pflanks.fa.gz > vcfs/diploid.newbc.5pflanks.sam"
