@@ -58,20 +58,20 @@ run-files:
 	mkdir -p OneHumanNoErrorReads100 OneStaphNoErrorReads100 OneHumanNoErrorReads250 OneStaphNoErrorReads250
 	mkdir -p ManyHumanErrorReads100  ManyStaphErrorReads100  ManyHumanErrorReads250  ManyStaphErrorReads250
 	#
-	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hIO) 0 0 100 250 30  ../Phix.1.fq.gz print 40 21 > OneHumanErrorReads100/run.sh
-	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 2 1 31 $(sSO) $(sIO) 0 0 100 250 100 ../Phix.1.fq.gz print 40 21 > OneStaphErrorReads100/run.sh
-	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hIO) 0 0 250 250 30  ../Phix.1.fq.gz print 40 21 > OneHumanErrorReads250/run.sh
-	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 2 1 31 $(sSO) $(sIO) 0 0 250 250 100 ../Phix.1.fq.gz print 40 21 > OneStaphErrorReads250/run.sh
+	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hIO) 0 0 100 250 30  ../PhiX.1.fq.gz print 40 21 > OneHumanErrorReads100/run.sh
+	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 2 1 31 $(sSO) $(sIO) 0 0 100 250 100 ../PhiX.1.fq.gz print 40 21 > OneStaphErrorReads100/run.sh
+	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hIO) 0 0 250 250 30  ../PhiX.1.fq.gz print 40 21 > OneHumanErrorReads250/run.sh
+	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 2 1 31 $(sSO) $(sIO) 0 0 250 250 100 ../PhiX.1.fq.gz print 40 21 > OneStaphErrorReads250/run.sh
 	#
 	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hSO) 0 0 100 250 30  noerror print 40 21 > OneHumanNoErrorReads100/run.sh
 	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 2 1 31 $(sSO) $(sSO) 0 0 100 250 100 noerror print 40 21 > OneStaphNoErrorReads100/run.sh
 	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    1 2 31 $(hSO) $(hSO) 0 0 250 250 30  noerror print 40 21 > OneHumanNoErrorReads250/run.sh
 	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 2 1 31 $(sSO) $(sSO) 0 0 250 250 100 noerror print 40 21 > OneStaphNoErrorReads250/run.sh
 	#
-	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    10   2 31 $(hSM) $(hSM) 0 0 100 250 30  ../Phix.1.fq.gz print 40 21 > ManyHumanErrorReads100/run.sh
-	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 1000 1 31 $(sSM) $(sSM) 0 0 100 250 100 ../Phix.1.fq.gz print 40 21 > ManyStaphErrorReads100/run.sh
-	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    10   2 31 $(hSM) $(hSM) 0 0 250 250 30  ../Phix.1.fq.gz print 40 21 > ManyHumanErrorReads250/run.sh
-	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 1000 1 31 $(sSM) $(sSM) 0 0 250 250 100 ../Phix.1.fq.gz print 40 21 > ManyStaphErrorReads250/run.sh
+	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    10   2 31 $(hSM) $(hSM) 0 0 100 250 30  ../PhiX.1.fq.gz print 40 21 > ManyHumanErrorReads100/run.sh
+	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 1000 1 31 $(sSM) $(sSM) 0 0 100 250 100 ../PhiX.1.fq.gz print 40 21 > ManyStaphErrorReads100/run.sh
+	../run-sample-pop.sh ../chr1/chr1.fa  ../chr1/chr1    10   2 31 $(hSM) $(hSM) 0 0 250 250 30  ../PhiX.1.fq.gz print 40 21 > ManyHumanErrorReads250/run.sh
+	../run-sample-pop.sh ../staph/staph.fa ../staph/staph 1000 1 31 $(sSM) $(sSM) 0 0 250 250 100 ../PhiX.1.fq.gz print 40 21 > ManyStaphErrorReads250/run.sh
 
 clean:
 	rm -rf staph.fa* chr1.fa* staph.st* chr1.st*
