@@ -13,7 +13,7 @@ else
 endif
 
 all: smaller.stidx smaller.sthash smaller.fa.fai
-	../run-sample-pop.sh smaller.fa smaller 10 2 31 10 10 10 10 100 200 30 error print > run.sh
+	../run-sample-pop.sh smaller.fa smaller 10 2 31 10 10 10 10 100 200 30 ../PhiX.100K.1.fq.gz print 10 10 > run.sh
 	chmod +x run.sh
 	./run.sh
 

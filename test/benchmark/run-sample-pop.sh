@@ -28,11 +28,11 @@ msg()
 
 SCRIPT=$0
 
-if [[ $# -ne 14 ]]
+if [[ $# -ne 16 ]]
 then
 	echo "Usage: $0 <genome.fa> <stampyhsh> <indivs> <ploidy> <kmer> <snps> 
                   <indels> <invs> <invlen> <readlen> <mpsize> <allelecovg>
-                  <error|noerror> <run|print>"
+                  <errorprof|-> <run|print> <memwidth> <memheight>"
 	exit 1
 fi
 
@@ -48,22 +48,21 @@ INVLEN=$9
 READLEN=${10}
 MPSIZE=${11}
 ALLELECOVG=${12}
-witherror=${13}
+ERRPROF=${13}
 RUN=${14}
-
-if [ $witherror != "error" ] && [ $witherror != "noerror" ]; then
-  echo "Must specify <error|noerror>"; exit 1;
-fi
+MEMWIDTH=${15}
+MEMHEIGHT=${16}
 
 if [ $RUN != "run" ] && [ $RUN != "print" ]; then
   echo "Must specify <run|print>"; exit 1;
 fi
 
 NCHROMS=$(($NUM_INDIVS * $PLOIDY))
+MEM=`bc <<< "(($MEMWIDTH * 2^$MEMHEIGHT) * (8+1+4)*8+1) / 8"`
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-RELEASECTX="~/cortex/releases/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c$NUM_INDIVS --kmer_size $KMER --mem_height 18 --mem_width 20"
-SHADECTX="~/cortex/versions/current/bin/cortex_var_31_c"$NUM_INDIVS"_s8 --kmer_size $KMER --mem_height 18 --mem_width 20"
+RELEASECTX="~/cortex/releases/CORTEX_release_v1.0.5.20/bin/cortex_var_31_c$NUM_INDIVS --kmer_size $KMER --mem_height $MEMHEIGHT --mem_width $MEMWIDTH"
+SHADECTX="~/cortex/versions/current/bin/cortex_var_31_c"$NUM_INDIVS"_s8 --kmer_size $KMER --mem_height $MEMHEIGHT --mem_width $MEMWIDTH"
 BUILDCTX="$DIR/../../bin/ctx31 build"
 CLEANCTX="$DIR/../../bin/ctx31 clean"
 JOINCTX="$DIR/../../bin/ctx31 join"
@@ -79,9 +78,6 @@ HAPLEN="$DIR/longest-haplotype.sh"
 OLDCLEAN="$DIR/clean_bubbles.pl"
 READSIM="$DIR/../../libs/readsim/readsim"
 BCFTOOLS="~/bioinf/bcftools/bcftools"
-
-CALIB="$DIR/PhiX.100K.1.fq.gz"
-
 
 if [[ ! -e $INPUT_SEQ ]]
 then
@@ -104,9 +100,9 @@ cmd "zcat -f $INPUT_SEQ | $BIOINF/sim_mutations/sim_mutations.pl --snps $SNPS --
 LASTCHROM=$(($NCHROMS-1))
 LASTINDIV=$(($NUM_INDIVS-1))
 
-if [ $witherror == "error" ]
+if [ $ERRPROF != "noerror" ]
 then
-  USECALIB="-p $CALIB"
+  USECALIB="-p $ERRPROF"
 fi
 
 # Generate reads
@@ -123,16 +119,16 @@ do
   a=$(($i*2))
   b=$(($i*2+1))
   PELIST="--seq2 reads/reads$a.1.fa.gz reads/reads$a.2.fa.gz --seq2 reads/reads$b.1.fa.gz reads/reads$b.2.fa.gz"
-  cmd time $BUILDCTX -k $KMER -m 100MB --sample MrDiploid$i $PELIST graphs/diploid$i.ctx
+  cmd time $BUILDCTX -k $KMER -m $MEM --sample MrDiploid$i $PELIST graphs/diploid$i.ctx
 
-  if [ $witherror == "error" ]
+  if [ $ERRPROF != "noerror" ]
   then
     cmd time $CLEANCTX graphs/diploid$i.clean.ctx graphs/diploid$i.ctx
   fi
 done
 
 ctxext=ctx
-if [ $witherror == "error" ]
+if [ $ERRPROF != "noerror" ]
 then
   ctxext=clean.ctx
 fi
