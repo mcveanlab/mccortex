@@ -151,58 +151,53 @@ int main(int argc, char **argv)
   hkey_t node;
   Orientation orient;
 
-  size_t len, junc, prev_junc;
-  size_t total_len = 0, total_junc = 0, dead_ends = 0, n = 0;
+  size_t k, len, njunc;
+  size_t total_len = 0, total_junc = 0, dead_ends = 0, nloop = 0;
   size_t lengths[num_samples], junctions[num_samples];
+  double density, max_density = 0;
+  size_t max_len = 0, max_junc = 0;
 
   size_t path_cap = 4096;
   hkey_t *path = malloc2(path_cap * sizeof(hkey_t));
 
   for(i = 0; i < num_samples; i++)
   {
-    orient = rand() & 0x1;
     node = db_graph_rand_node(&db_graph);
+    njunc = 0;
+    len = 1;
 
-    len = junc = 0;
-    path[len++] = node;
-
-    graph_walker_init(&wlk, &db_graph, colour, colour, node, orient);
-    lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
-    prev_junc = edges_get_outdegree(db_graph.col_edges[node], orient) > 1;
-
-    // binary_kmer_to_str(wlk.bkmer, kmer_size, bkmerstr);
-    // printf("%3zu %s\n", len, bkmerstr);
-    // graph_walker_print_state(&wlk);
-
-    while(graph_traverse(&wlk) && !db_node_has_traversed(visited, wlk.node, wlk.orient))
+    for(orient = 0; orient < 2; orient++)
     {
-      db_node_set_traversed(visited, wlk.node, wlk.orient);
-      graph_walker_node_add_counter_paths(&wlk, lost_nuc);
+      graph_walker_init(&wlk, &db_graph, colour, colour, node, orient);
       lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
-      if(len == path_cap) {
-        path_cap *= 2;
-        path = realloc2(path, path_cap * sizeof(hkey_t));
+
+      for(j = 0; graph_traverse(&wlk); j++)
+      {
+        if(db_node_has_traversed(visited, wlk.node, wlk.orient)) { nloop++; break; }
+        db_node_set_traversed(visited, wlk.node, wlk.orient);
+        graph_walker_node_add_counter_paths(&wlk, lost_nuc);
+        lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
+        if(j == path_cap) path = realloc2(path, (path_cap *= 2) * sizeof(hkey_t));
+        path[j] = wlk.node;
       }
-      path[len++] = wlk.node;
-      junc += prev_junc;
-      prev_junc = edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) > 1;
-      // binary_kmer_to_str(wlk.bkmer, kmer_size, bkmerstr);
-      // printf("%3zu %s\n", len, bkmerstr);
+
+      len += j;
+      njunc += wlk.fork_count;
+      graph_walker_finish(&wlk);
+
+      for(k = 0; k < j; k++) db_node_fast_clear_traversed(visited, path[k]);
     }
 
-    // printf(" len: %zu junc: %zu\n", len, junc);
-
-    graph_walker_finish(&wlk);
-
-    for(j = 0; j < len; j++)
-      db_node_fast_clear_traversed(visited, path[j]);
-
     dead_ends += (edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) == 0);
-    lengths[n] = len;
-    junctions[n] = junc;
+    lengths[i] = len;
+    junctions[i] = njunc;
     total_len += len;
-    total_junc += junc;
-    n++;
+    total_junc += njunc;
+
+    density = (double)njunc / len;
+    max_density = MAX2(max_density, density);
+    max_len = MAX2(max_len, len);
+    max_junc = MAX2(max_junc, njunc);
   }
 
   free(path);
@@ -211,19 +206,24 @@ int main(int argc, char **argv)
   status("total_len: %zu; total_junc: %zu (%.2f%% junctions)\n",
          total_len, total_junc, (100.0*total_junc)/total_len);
   status("dead ends: %zu / %zu\n", dead_ends, num_samples);
-  status("mean length: %.2f\n", (double)total_len / n);
+  status("mean length: %.2f\n", (double)total_len / num_samples);
   status("mean junctions: %.1f per contig, %.2f%% nodes (1 every %.1f nodes)\n",
-          (double)total_junc / n, (100.0 * total_junc) / total_len,
+          (double)total_junc / num_samples, (100.0 * total_junc) / total_len,
           (double)total_len / total_junc);
 
-  qsort(lengths, n, sizeof(size_t), cmp_size);
-  qsort(junctions, n, sizeof(size_t), cmp_size);
+  qsort(lengths, num_samples, sizeof(size_t), cmp_size);
+  qsort(junctions, num_samples, sizeof(size_t), cmp_size);
 
-  double median_len = MEDIAN(lengths, n);
-  double median_junc = MEDIAN(junctions, n);
+  double median_len = MEDIAN(lengths, num_samples);
+  double median_junc = MEDIAN(junctions, num_samples);
 
   status("Median contig length: %.2f\n", median_len);
   status("Median junctions per contig: %.2f\n", median_junc);
+  status("Longest contig length: %zu\n", max_len);
+  status("Most junctions: %zu\n", max_junc);
+  status("Highest junction density: %.2f\n", max_density);
+  status("Contig ends which loop %zu [%.2f%%]\n", nloop,
+         (100.0 * nloop) / (2.0 * num_samples));
 
   free(visited);
   free(db_graph.col_edges);

@@ -294,7 +294,7 @@ int ctx_thread(CmdArgs *args)
   uint32_t gap_limit = 500;
   PathsWorkerPool *pool;
 
-  pool = paths_worker_pool_new(num_of_threads, &db_graph, gap_limit, fout);
+  pool = paths_worker_pool_new(num_of_threads, &db_graph, gap_limit);
 
   // Parse input sequence
   status("Threading reads through the graph...\n");

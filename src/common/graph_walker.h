@@ -25,6 +25,9 @@ typedef struct
   size_t max_path_len, max_num_paths;
   FollowPath **unused_paths, **curr_paths, **counter_paths;
   size_t num_unused, num_curr, num_new, num_counter;
+
+  // Stats
+  size_t fork_count;
 } GraphWalker;
 
 // Need to pass number of colours in the graph
@@ -43,7 +46,8 @@ void graph_walker_finish(GraphWalker *wlk);
 // Returns index of choice or -1
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                         const hkey_t next_nodes[4],
-                        const Nucleotide next_bases[4]);
+                        const Nucleotide next_bases[4],
+                        boolean *is_fork_in_col);
 
 // Move to the next node
 // If fork is true, node is the result of taking a fork -> slim down paths

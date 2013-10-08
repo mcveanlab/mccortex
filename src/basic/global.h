@@ -40,7 +40,7 @@ extern FILE *ctx_msg_out;
 #define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
 
 #define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
-#define MEDIAN(arr,len) (len&1?arr[len/2]:(arr[(len-1)/2]+arr[len/2]+1)/2.0)
+#define MEDIAN(arr,len) (len&1?arr[len/2]:(arr[(len-1)/2]+arr[len/2])/2.0)
 
 #ifndef ROUNDUP2POW
   #define ROUNDUP2POW(x) (0x1UL << (64 - __builtin_clzl(x)))

@@ -6,7 +6,7 @@
 static const char usage[] =
 "\n"
 "usage: "CMD" <command> [options] <args>\n"
-"version: "CTXVERSIONSTR"\n"
+"version: "CTXVERSIONSTR"; zlib: "ZLIB_VERSION"\n"
 "\n"
 "Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
 "          view        view and check a cortex graph file (.ctx)\n"

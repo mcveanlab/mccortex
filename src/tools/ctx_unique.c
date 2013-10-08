@@ -994,7 +994,7 @@ int ctx_unique(CmdArgs *args)
 
   // open file to read
   gzFile fh = gzopen(input_path, "r");
-  if(fh == NULL) die("Cannot open input file: %s", output_path);
+  if(fh == NULL) die("Cannot open input file: %s", input_path);
 
   StrBuf *out_file = strbuf_new();
 

@@ -12,6 +12,9 @@
 #include "file_reader.h"
 #include "add_read_paths.h"
 
+// Don't store assembly info longer than 1000 bp
+#define MAX_PATH 1000
+
 typedef struct {
   read_t r1, r2;
   Colour ctp_col, ctx_col;
@@ -65,8 +68,8 @@ volatile boolean data_waiting = false, input_ended = false;
 volatile AddPathsJob next_job;
 
 // Write inferred kmer here
-volatile FILE *fout;
-volatile size_t num_inferred_kmers;
+// volatile FILE *fout;
+// volatile size_t num_inferred_kmers;
 
 static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
                                dBGraph *db_graph, uint32_t gap_limit)
@@ -132,23 +135,11 @@ static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
   strbuf_free(csv_dump);
 }
 
-static void add_read_path(const dBNode *nodes, size_t len,
-                          dBGraph *graph, Colour ctx_col, Colour ctp_col)
+static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
+                            Nucleotide *nuc_rv_tmp, size_t *pos_rv_tmp, size_t num_rv,
+                            const dBNode *nodes, dBGraph *db_graph,
+                            Colour ctp_col)
 {
-  if(len < 3) return;
-
-  PathStore *paths = &graph->pdata;
-  uint32_t kmer_size = graph->kmer_size;
-
-  // Find forks in this colour
-  Edges edges;
-  size_t  i, j, num_fw = 0, num_rv = 0, indegree, outdegree;
-  Nucleotide nuc_fw[len], nuc_rv[len];
-  uint32_t pos_fw[len], pos_rv[len];
-  Nucleotide nuc;
-  BinaryKmer bkmer;
-
-  // to add a path
   hkey_t node;
   Orientation orient;
   size_t start_fw, start_rv, pos;
@@ -156,47 +147,16 @@ static void add_read_path(const dBNode *nodes, size_t len,
   PathLen plen;
   Nucleotide *bases;
 
-  for(i = 0; i < len; i++)
-  {
-    edges = db_node_col_edges(graph, ctx_col, nodes[i].node);
-    outdegree = edges_get_outdegree(edges, nodes[i].orient);
-    indegree = edges_get_indegree(edges, nodes[i].orient);
-
-    if(outdegree > 1 && i+1 < len) {
-      bkmer = db_node_bkmer(graph, nodes[i+1].node);
-      nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
-      nuc_fw[num_fw] = nuc;
-      pos_fw[num_fw++] = i;
-      // if(!db_node_has_col(graph, nodes[i+1].node, ctx_col)) {
-      //   // Add inferred kmer
-      //   db_node_set_col(graph, nodes[i+1].node, ctx_col);
-      //   fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
-      //   num_inferred_kmers++;
-      // }
-    }
-    if(indegree > 1 && i > 0) {
-      bkmer = db_node_bkmer(graph, nodes[i-1].node);
-      nuc = nodes[i-1].orient == FORWARD
-              ? binary_nuc_complement(binary_kmer_first_nuc(bkmer, kmer_size))
-              : binary_kmer_last_nuc(bkmer);
-      nuc_rv[num_rv] = nuc;
-      pos_rv[num_rv++] = i;
-      // if(!db_node_has_col(graph, nodes[i-1].node, ctx_col)) {
-      //   // Add inferred kmer
-      //   db_node_set_col(graph, nodes[i-1].node, ctx_col);
-      //   fwrite(&bkmer, 1, sizeof(BinaryKmer), (FILE*)fout);
-      //   num_inferred_kmers++;
-      // }
-    }
-  }
-
-  if(num_fw == 0 || num_rv == 0) return;
+  PathStore *paths = &db_graph->pdata;
 
   // Reverse rv
-  size_t tmp_pos;
-  for(i = 0, j = num_rv-1; i < j; i++, j--) {
-    SWAP(pos_rv[i], pos_rv[j], tmp_pos);
-    SWAP(nuc_rv[i], nuc_rv[j], nuc);
+  size_t i, j;
+  size_t pos_rv[MAX_PATH];
+  Nucleotide nuc_rv[MAX_PATH];
+
+  for(i = 0, j = num_rv-1; i < num_rv; i++, j--) {
+    pos_rv[j] = pos_rv_tmp[i];
+    nuc_rv[j] = nuc_rv_tmp[i];
   }
 
   // Get Lock
@@ -222,16 +182,16 @@ static void add_read_path(const dBNode *nodes, size_t len,
     plen = num_rv - start_rv;
     node = nodes[pos].node;
     orient = rev_orient(nodes[pos].orient);
-    prev_index = db_node_paths(graph, node);
+    prev_index = db_node_paths(db_graph, node);
 
     #ifdef DEBUG
-      binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
       printf(" %s:%i) start_rv: %zu start_fw: %zu {%i}\n", str, orient,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
     new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
-    if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
+    if(new_index != PATH_NULL) db_node_paths(db_graph, node) = new_index;
   }
 
   //
@@ -253,20 +213,87 @@ static void add_read_path(const dBNode *nodes, size_t len,
     plen = num_fw - start_fw;
     node = nodes[pos].node;
     orient = nodes[pos].orient;
-    prev_index = db_node_paths(graph, node);
+    prev_index = db_node_paths(db_graph, node);
 
     #ifdef DEBUG
-      binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
       printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
              start_rv, start_fw);
     #endif
 
     new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
-    if(new_index != PATH_NULL) db_node_paths(graph, node) = new_index;
+    if(new_index != PATH_NULL) db_node_paths(db_graph, node) = new_index;
   }
 
   // Free lock
   pthread_mutex_unlock(&add_paths_mutex);
+}
+
+static void add_read_path(const dBNode *nodes, size_t len,
+                          dBGraph *graph, Colour ctx_col, Colour ctp_col)
+{
+  if(len < 3) return;
+
+  // Find forks in this colour
+  Edges edges;
+  size_t  i, j, k, num_fw = 0, num_rv = 0, indegree, outdegree, addfw, addrv;
+  Nucleotide nuc_fw[MAX_PATH], nuc_rv[MAX_PATH];
+  size_t pos_fw[MAX_PATH], pos_rv[MAX_PATH];
+  Nucleotide nuc;
+  BinaryKmer bkmer;
+  size_t last_fw_num = 0;
+
+  for(i = 0; i < len; i++)
+  {
+    edges = db_node_col_edges(graph, ctx_col, nodes[i].node);
+    outdegree = edges_get_outdegree(edges, nodes[i].orient);
+    indegree = edges_get_indegree(edges, nodes[i].orient);
+
+    addfw = (outdegree > 1 && i+1 < len);
+    addrv = (indegree > 1 && i > 0);
+
+    if(addfw) {
+      bkmer = db_node_bkmer(graph, nodes[i+1].node);
+      nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, graph->kmer_size);
+      nuc_fw[num_fw] = nuc;
+      pos_fw[num_fw++] = i;
+    }
+    if(addrv) {
+      bkmer = db_node_bkmer(graph, nodes[i-1].node);
+      nuc = nodes[i-1].orient == FORWARD
+              ? binary_nuc_complement(binary_kmer_first_nuc(bkmer, graph->kmer_size))
+              : binary_kmer_last_nuc(bkmer);
+      nuc_rv[num_rv] = nuc;
+      pos_rv[num_rv++] = i;
+    }
+
+    if(num_fw == MAX_PATH || num_rv == MAX_PATH)
+    {
+      size_t cutoff = i + 1 - MAX_PATH;
+      for(j = 0; j < num_fw && pos_fw[j] <= cutoff; j++) {}
+      for(k = 0; k < num_rv && pos_rv[k] <= cutoff; k++) {}
+      if(k > 0 && num_fw > 0) {
+        construct_paths(nuc_fw, pos_fw, num_fw, nuc_rv, pos_rv, num_rv,
+                        nodes, graph, ctp_col);
+        last_fw_num = num_fw-j;
+      }
+      if(j > 0) {
+        num_fw -= j;
+        memmove(nuc_fw, nuc_fw+j, num_fw * sizeof(*nuc_fw));
+        memmove(pos_fw, pos_fw+j, num_fw * sizeof(*pos_fw));
+      }
+      if(k > 0) {
+        num_rv -= k;
+        memmove(nuc_rv, nuc_rv+k, num_rv * sizeof(*nuc_rv));
+        memmove(pos_rv, pos_rv+k, num_rv * sizeof(*pos_rv));
+      }
+    }
+  }
+
+  if(num_fw > last_fw_num && num_rv > 0) {
+    construct_paths(nuc_fw, pos_fw, num_fw, nuc_rv, pos_rv, num_rv,
+                    nodes, graph, ctp_col);
+  }
 }
 
 // fill in gap in read node1==>---<==node2
@@ -445,6 +472,7 @@ void read_to_path(AddPathsWorker *worker)
 
   if(i == nodebuf->len)
   {
+    // No gaps in contig
     add_read_path(nodebuf->data, nodebuf->len, db_graph,
                   job->ctx_col, job->ctp_col);
   }
@@ -612,8 +640,8 @@ static void load_paths(read_t *r1, read_t *r2,
 }
 
 PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
-                                       dBGraph *db_graph, uint32_t gap_limit,
-                                       FILE *output_handle)
+                                       dBGraph *db_graph, uint32_t gap_limit)
+                                       // FILE *output_handle)
 {
   PathsWorkerPool *pool = calloc2(1, sizeof(PathsWorkerPool));
 
@@ -651,7 +679,7 @@ PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
   seq_read_alloc((read_t*)&next_job.r2);
 
   data_waiting = input_ended = false;
-  fout = output_handle;
+  // fout = output_handle;
 
   int rc;
   for(i = 0; i < num_of_threads; i++)

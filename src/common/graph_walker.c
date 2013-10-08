@@ -200,11 +200,11 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                        Colour ctxcol, Colour ctpcol,
                        hkey_t node, Orientation orient)
 {
-  #ifdef DEBUG_WALKER
-    char str[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
-    printf("INIT %s:%i\n", str, orient);
-  #endif
+  // #ifdef DEBUG_WALKER
+  //   char str[MAX_KMER_SIZE+1];
+  //   binary_kmer_to_str(db_node_bkmer(graph, node), graph->kmer_size, str);
+  //   printf("INIT %s:%i\n", str, orient);
+  // #endif
 
   assert(wlk->num_curr == 0);
   assert(wlk->num_counter == 0);
@@ -218,8 +218,8 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                     .max_path_len = wlk->max_path_len,
                     .max_num_paths = wlk->max_num_paths,
                     .num_unused = wlk->max_num_paths,
-                    .num_curr = 0, .num_new = 0,
-                    .num_counter = 0};
+                    .num_curr = 0, .num_new = 0, .num_counter = 0,
+                    .fork_count = 0};
 
   memcpy(wlk, &gw, sizeof(GraphWalker));
 
@@ -247,12 +247,14 @@ void graph_walker_finish(GraphWalker *wlk)
 // Returns index of choice or -1
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                         const hkey_t next_nodes[4],
-                        const Nucleotide next_bases[4])
+                        const Nucleotide next_bases[4],
+                        boolean *is_fork_in_col)
 {
   // #ifdef DEBUG_WALKER
   //   printf("CHOOSE\n");
   //   print_state(wlk);
   // #endif
+  *is_fork_in_col = false;
 
   if(num_next == 0) return -1;
   if(num_next == 1) return 0;
@@ -272,7 +274,9 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       j++;
     }
   }
+
   num_next = j;
+  *is_fork_in_col = num_next > 1;
 
   if(num_next == 1) return indices[0];
   if(num_next == 0 || wlk->num_curr == 0) return -1;
@@ -360,11 +364,11 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
 {
   assert(node != HASH_NOT_FOUND);
 
-  #ifdef DEBUG_WALKER
-    char str[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
-    printf("FORCE JUMP %s (fork:%s)\n", str, fork ? "yes" : "no");
-  #endif
+  // #ifdef DEBUG_WALKER
+  //   char str[MAX_KMER_SIZE+1];
+  //   binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
+  //   printf("FORCE JUMP %s (fork:%s)\n", str, fork ? "yes" : "no");
+  // #endif
 
   if(fork)
   {
@@ -406,6 +410,9 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
       }
     }
     wlk->num_counter = j;
+
+    // Statistics
+    wlk->fork_count++;
   }
 
   const dBGraph *db_graph = wlk->db_graph;
@@ -499,8 +506,8 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
 boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
-  // Edges edges = db_node_col_edges_union(db_graph, wlk->node);
-  Edges edges = db_node_col_edges(db_graph, wlk->ctxcol, wlk->node);
+  Edges edges = db_node_col_edges_union(db_graph, wlk->node);
+  // Edges edges = db_node_col_edges(db_graph, 0, wlk->node); // only 1 colour
   edges = edges_with_orientation(edges, wlk->orient);
 
   hkey_t nodes[4];
@@ -517,8 +524,9 @@ boolean graph_traverse(GraphWalker *wlk)
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              const hkey_t nodes[4], const Nucleotide bases[4])
 {
-  int nxt_indx = graph_walker_choose(wlk, num_next, nodes, bases);
+  boolean is_fork;
+  int nxt_indx = graph_walker_choose(wlk, num_next, nodes, bases, &is_fork);
   if(nxt_indx == -1) return false;
-  graph_traverse_force(wlk, nodes[nxt_indx], bases[nxt_indx], num_next > 1);
+  graph_traverse_force(wlk, nodes[nxt_indx], bases[nxt_indx], is_fork);
   return true;
 }

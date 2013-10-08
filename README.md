@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-27 September 2013
+7 October 2013
 
 Build
 -----
@@ -33,35 +33,35 @@ executables appear in the bin directory
 Commands
 --------
 
-usage: ctx31 <command> [options] <args>
-version: 0.0
+    usage: ctx31 <command> [options] <args>
+    version: 0.0
 
-Command:  build       FASTA/FASTQ/BAM -> binary graph file
-          view        view and check a cortex graph file (.ctx)
-          clean       clean errors from a graph
-          join        combine graphs, filter graph intersections
-          supernodes  pull out supernodes
-          subgraph    filter a subgraph
-          reads       filter reads against a graph
-          extend      extend contigs using a graph
-          inferedges  infer edges before calling `thread`
-          thread      thread reads through cleaned population
-          pview       view read threading information
-          pmerge      merge path files (.ctp)
-          call        call variants
-          unique      remove duplicated bubbles, produce VCF
-          place       place variants and genotype
+    Command:  build       FASTA/FASTQ/BAM -> binary graph file
+              view        view and check a cortex graph file (.ctx)
+              clean       clean errors from a graph
+              join        combine graphs, filter graph intersections
+              supernodes  pull out supernodes
+              subgraph    filter a subgraph
+              reads       filter reads against a graph
+              extend      extend contigs using a graph
+              inferedges  infer edges before calling `thread`
+              thread      thread reads through cleaned population
+              pview       view read threading information
+              pmerge      merge path files (.ctp)
+              call        call variants
+              unique      remove duplicated bubbles, produce VCF
+              place       place variants and genotype
 
-  Type a command with no arguments to see help.
+      Type a command with no arguments to see help.
 
-Common Options:
-  -m <M>       Memory e.g. 1GB [default: 1GB]
-  -h <H>       Hash entries [default: 4M (~4 million)]
-  -g <G>       Species genome size [default: 3.1Gbp]
-  -t <T>       Number of threads [default: 2]
-  -k <K>       Kmer size [default: read from binaries]
-  -f <file>    Input file
-  -p <in.ctp>  Assembly file
+    Common Options:
+      -m <M>       Memory e.g. 1GB [default: 1GB]
+      -h <H>       Hash entries [default: 4M (~4 million)]
+      -g <G>       Species genome size [default: 3.1Gbp]
+      -t <T>       Number of threads [default: 2]
+      -k <K>       Kmer size [default: read from binaries]
+      -f <file>    Input file
+      -p <in.ctp>  Assembly file
 
 
 Inputs

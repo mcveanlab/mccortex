@@ -18,20 +18,35 @@
 static const char usage[] =
 "usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
 "  Find bubbles (potential variants) in graph file in.ctx.\n"
-"  Options:  -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp>\n";
+"  Options:  -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp> | --ref <col>\n";
 
 int ctx_call(CmdArgs *args)
 {
   cmd_accept_options(args, "thmp");
 
-  int argc = args->argc;
+  int argi, argc = args->argc;
   char **argv = args->argv;
-  if(argc != 2) print_usage(usage, NULL);
+  if(argc < 2 || argc & 1) print_usage(usage, NULL);
 
   uint32_t num_of_threads = args->num_threads;
+  size_t i, ref_cols[argc], num_ref = 0;
 
-  char *input_ctx_path = argv[0];
-  char *out_path = argv[1];
+  for(argi = 0; argi < argc; argi++) {
+    if(strcmp(argv[argi],"--ref") == 0) {
+      unsigned int tmp;
+      if(argi + 1 == argc || !parse_entire_uint(argv[argi+1], &tmp))
+        print_usage(usage, "--ref <col> requires an int arg");
+      argi++; ref_cols[num_ref++] = tmp;
+    }
+    else if(argv[argi][0] == '-')
+      print_usage(usage, "Unknown arg: %s", argv[argi]);
+    else break;
+  }
+
+  if(argi + 2 != argc) print_usage(usage, "<out.bubbles.gz> <in.ctx> required");
+
+  char *input_ctx_path = argv[argi];
+  char *out_path = argv[argi+1];
 
   // Probe binary to get kmer_size
   boolean is_binary = false;
@@ -148,7 +163,6 @@ int ctx_call(CmdArgs *args)
   char **tmp_paths = malloc2(num_of_threads * sizeof(char*));
 
   int r = rand() & ((1<<20)-1);
-  size_t i;
 
   for(i = 0; i < num_of_threads; i++)
   {
@@ -169,7 +183,7 @@ int ctx_call(CmdArgs *args)
   // Now call variants
   size_t max_allele_len = 300, max_flank_len = 1000;
   invoke_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths,
-                       max_allele_len, max_flank_len, args);
+                       max_allele_len, max_flank_len, ref_cols, num_ref, args);
 
   // Clear up threads
   for(i = 0; i < num_of_threads; i++) {
