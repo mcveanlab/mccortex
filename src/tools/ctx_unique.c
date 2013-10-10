@@ -1091,7 +1091,7 @@ int ctx_unique(CmdArgs *args)
   strbuf_append_str(out_file, ".5pflanks.sam");
 
   // message(...) is same as status(...) but without timestamp
-  status("Next steps - map with stampy and align to ref:\n");
+  status("Next steps - map variants to a reference (e.g. with stampy):\n");
   message("  stampy.py -G hg19 hg19.fa\n");
   message("  stampy.py -g hg19 -H hg19\n");
   message("  stampy.py -g hg19 -h hg19 --inputformat=fasta -M %s > %s\n",
