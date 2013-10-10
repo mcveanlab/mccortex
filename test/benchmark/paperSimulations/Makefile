@@ -1,5 +1,7 @@
 # Makefile to run simulation for paper
 
+SHELL := /bin/bash
+
 HGCHR1=http://hgdownload.cse.ucsc.edu/goldenPath/hg19/chromosomes/chr1.fa.gz
 STAPH=http://www.ebi.ac.uk/Tools/dbfetch/dbfetch?db=embl&id=FN433596&format=fasta&style=raw
 FACAT=../../../libs/seq_file/bin/facat
