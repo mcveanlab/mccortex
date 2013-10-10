@@ -66,7 +66,7 @@ staph/staph.orig.fa.gz:
 
 #$* is {Hs,Staph}{One,Many}{Error,NoError}Reads{100,250}
 $(PROJ): proj%:
-	echo $*
+	@echo == $* ==
 	proj=`echo $* | sed 's/^proj//g'`; \
 	species=`echo $* | grep -oE '(Hs|Staph)'`; \
 	quant=`echo $* | grep -oE '(One|Many)'`; \
@@ -74,20 +74,20 @@ $(PROJ): proj%:
 	readlen=`echo $* | grep -oE '[0-9]*$$'`; \
 	errprof=; \
 	if [ $$species == 'Hs' ]; then \
-		ref=../chr1.fa; ploidy=2; allelecovg=30; \
+		ref=../chr1/chr1.fa; ploidy=2; allelecovg=30; \
 		if [ $$quant == 'Many' ]; then num=10; snps=$(HsManySNPs); indels=$(HsManyIndels); \
 		else num=1; snps=$(HsOneSNPs); indels=$(HsOneIndels); fi; \
 	else \
-		ref=../staph.fa; ploidy=1; allelecovg=100; \
+		ref=../staph/staph.fa; ploidy=1; allelecovg=100; \
 		if [ $$quant == 'Many' ]; then num=1000; snps=$(StaphManySNPs); indels=$(StaphManyIndels); \
 		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); fi; \
 	fi; \
 	if [ $$err == 'Error' ]; then errprof="ERRPROF=../$(PROFILE_READS)"; fi; \
 	mkdir -p $*; cd $*; \
-	echo make -f ../../calling-comparison.mk \
+	make -f ../../calling-comparison.mk \
 					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
 					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
 					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=30 MEMHEIGHT=25 >& $$proj/run.log
+					MEMWIDTH=30 MEMHEIGHT=25 >& run.log
 
 .PHONY: all clean test $(PROJ)

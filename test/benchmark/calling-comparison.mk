@@ -226,7 +226,7 @@ clean:
 #
 
 $(GENOMES): genomes
-	zcat -f $(SEQ) | $(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $(NCHROMS) -
+	$(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $(NCHROMS) $(SEQ)
 
 $(READS): $(GENOMES) reads
 
@@ -297,7 +297,7 @@ k$(KMER)/vcfs/truth.bub.vcf: $(GENOMES)
 	$(BIOINF)/sim_mutations/sim_vcf.pl $(KMER) $(MGLIST) > k$(KMER)/vcfs/truth.bub.vcf
 
 k$(KMER)/vcfs/truth.decomp.vcf: $(SEQ) $(GENOMES)
-	zcat -f $(SEQ) | $(BIOINF)/sim_mutations/sim_decomp_vcf.pl - $(GENOMES) > k$(KMER)/vcfs/truth.decomp.vcf
+	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(SEQ) $(GENOMES) > k$(KMER)/vcfs/truth.decomp.vcf
 
 k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.fa.gz: k$(KMER)/bubbles/samples.%.bubbles.gz
 	$(PROCCTX) k$(KMER)/bubbles/samples.$*.bubbles.gz k$(KMER)/vcfs/samples.$*.bub
