@@ -20,9 +20,12 @@ MEMHEIGHT=20
 
 SHELL := /bin/bash
 
+# current_dir = $(shell pwd)
+current_dir := $(dir $(lastword $(MAKEFILE_LIST)))
+
 CORTEX_PATH=$(HOME)/cortex/releases/CORTEX_release_v1.0.5.20
 SHADE_PATH=$(HOME)/cortex/versions/current
-CTX_PATH=$(HOME)/cortex/versions/compact_hash
+CTX_PATH=$(current_dir)/../../
 
 # External tools
 BCFTOOLS=$(HOME)/bioinf/bcftools/bcftools
@@ -163,7 +166,8 @@ check-cmds:
 	@if [ '$(SEQ)' == '' ]; then echo "You need to specify SEQ=.. Please and thank you."; exit -1; fi;
 
 test:
-	echo $(NORMCMPRULES)
+	@echo makefile: $(current_dir)
+	@echo cd: $(CURDIR)
 
 $(READS): $(GENOMES)
 
@@ -201,7 +205,7 @@ $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 	$(BIOINF)/vcf_scripts/vcf_isec.pl k$(KMER)/vcfs/truth.norm.vcf $< > /dev/null
 
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
-	$(TRAVERSE)                                       --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
+	$(TRAVERSE)                                     --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
@@ -216,7 +220,7 @@ $(SEQ).fai:
 	samtools faidx $(SEQ)
 
 $(DIRS):
-	mkdir -p $(DIRS)
+	mkdir -p $@
 
 clean:
 	rm -rf $(DIRS) k$(KMER) gap_sizes.*.csv mp_sizes.*.csv stampy.sh
@@ -225,12 +229,12 @@ clean:
 # Patterns
 #
 
-$(GENOMES): genomes
+$(GENOMES): | genomes
 	$(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $(NCHROMS) $(SEQ)
 
-$(READS): $(GENOMES) reads
+$(READS): $(GENOMES) | reads
 
-$(RAWGRAPHS): $(READS) k$(KMER)/graphs
+$(RAWGRAPHS): $(READS) | k$(KMER)/graphs
 
 $(CLEANGRAPHS): $(RAWGRAPHS)
 
@@ -249,7 +253,7 @@ reads/reads%.1.falist reads/reads%.2.falist:
 k$(KMER)/graphs/sample%.clean.ctx: k$(KMER)/graphs/sample%.raw.ctx
 	$(CLEANCTX) $@ $<
 
-k$(KMER)/graphs/sample%.raw.ctx:
+k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	a=$$(($* * $(PLOIDY))); b=$$(($$a+$(PLOIDY)-1)); \
 	files=$$(for k in `seq $$a $$b`; do echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; done); \
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
@@ -348,7 +352,7 @@ k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
 	$(BCFTOOLS) norm --remove-duplicate -f $(SEQ) $< > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 
-.PHONY: all clean
+.PHONY: all clean $(DIRS)
 .PHONY: compare-old-bubbles compare-new-bubbles $(BUBNEWCMPRULES) $(BUBOLDCMPRULES)
 .PHONY: compare-normvcf $(NORMCMPRULES)
 .PHONY: traverse

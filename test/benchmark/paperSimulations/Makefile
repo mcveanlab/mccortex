@@ -88,6 +88,6 @@ $(PROJ): proj%:
 					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
 					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
 					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=30 MEMHEIGHT=25 >& run.log
+					MEMWIDTH=30 MEMHEIGHT=25 2>&1 >> run.log
 
 .PHONY: all clean test $(PROJ)

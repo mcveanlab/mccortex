@@ -3,9 +3,11 @@
 # Single diploid 1Mb genome 60X covg
 #
 # To run:
+#   cd dir/this/is/in
 #   ./run-sim.sh
 #
 # To clear up:
+#   cd dir/this/is/in
 #   ./run-sim.sh clean
 #
 

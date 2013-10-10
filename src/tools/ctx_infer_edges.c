@@ -58,6 +58,7 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
 
         bkey = db_node_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
+        assert(next != HASH_NOT_FOUND);
 
         for(col = 0; col < db_graph->num_of_cols; col++)
           if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
@@ -166,9 +167,9 @@ int ctx_infer_edges(CmdArgs *args)
                  gheader.num_of_cols, 1, kmers_in_hash);
 
   // In colour
-  size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
+  size_t words64_per_col = round_bits_to_words64(db_graph.ht.capacity);
   db_graph.node_in_cols = calloc2(words64_per_col*gheader.num_of_cols, sizeof(uint64_t));
-  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
@@ -180,7 +181,7 @@ int ctx_infer_edges(CmdArgs *args)
   graph_load(path, &prefs, stats, NULL);
 
   if(add_pop_edges) status("Inferring edges from population...\n");
-  else status("Inferring all missing edges");
+  else status("Inferring all missing edges...\n");
 
   // Read again
   BinaryKmer bkmer;
