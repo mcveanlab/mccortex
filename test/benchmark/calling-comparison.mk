@@ -16,7 +16,8 @@ MEMWIDTH=20
 MEMHEIGHT=20
 # GENOMESIZE=
 
-# DEV: better decomp truth using masks
+# DEV: sim_decomp_vcf.pl use masks to get actual variants
+# DEV: sim_bubble_vcf.pl should always take ref
 
 SHELL := /bin/bash
 
@@ -87,13 +88,16 @@ RAWGRAPHS=$(shell echo k$(KMER)/graphs/sample{0..$(LASTINDIV)}.raw.ctx)
 CLEANGRAPHS=$(RAWGRAPHS:.raw.ctx=.clean.ctx)
 
 ifeq ($(NUM_INDIVS),1)
-	SET={oldbc,shaded,newbc,se,pe,sepe}
+	SET={oldbc,newbc,se,pe,sepe}
+	# removed shaded
 else
+	# don't do oldbc,shaded if more than 1 individual
 	SET={newbc,se,pe,sepe}
 endif
 
 # Can't do noref if we only have one chrom
 ifeq ($(NCHROMS),1)
+	# Always need ref
 	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.ref.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).ref.bubbles.gz`)
 	BUBBLEVCFS=$(shell echo `eval echo k$(KMER)/vcfs/samples.$(SET).ref.bub.vcf`)
@@ -101,17 +105,16 @@ ifeq ($(NCHROMS),1)
 	BUBNEWCMPRULES=compare-new-ref-bubbles
 	NORMCMPRULES=$(shell echo `eval echo compare-$(SET).ref-norm compare-runcalls-norm`)
 else
-	# don't do oldbc,shaded
 	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.{noref,ref}.ctp)
-	BUBBLES=$(shell echo k$(KMER)/bubbles/samples.{newbc,se,pe,sepe}.{noref,ref}.bubbles.gz)
-	BUBBLEVCFS=$(shell echo k$(KMER)/vcfs/samples.{newbc,se,pe,sepe}.{noref,ref}.bub.vcf)
+	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).{noref,ref}.bubbles.gz`)
+	BUBBLEVCFS=$(shell echo `eval echo k$(KMER)/vcfs/samples.$(SET).{noref,ref}.bub.vcf`)
 	# don't do BUBOLDCMPRULES
 	BUBNEWCMPRULES=$(shell echo compare-new-{noref,ref}-bubbles)
-	NORMCMPRULES=$(shell echo compare-{newbc,se,pe,sepe}.{noref,ref}-norm compare-runcalls-norm)
+	NORMCMPRULES=$(shell echo `eval echo compare-$(SET).{noref,ref}-norm compare-runcalls-norm`)
 endif
 
 READLISTS=$(shell echo reads/reads{0..$(LASTINDIV)}.{1,2}.falist)
-SHADEDLIST=$(shell for i in {0..$(LASTINDIV)}; do echo -n " --pe_list reads/reads$$i.1.falist,reads/reads$$i.2.falist"; done)
+# SHADEDLIST=$(shell for i in {0..$(LASTINDIV)}; do echo -n " --pe_list reads/reads$$i.1.falist,reads/reads$$i.2.falist"; done)
 MGLIST=$(shell for i in {0..$(LASTCHROM)}; do echo -n " genomes/genome$$i.fa genomes/mask$$i.fa"; done)
 
 se_list=$(shell for i in `seq 0 $(LASTINDIV)`; do \
@@ -155,35 +158,31 @@ REFARGS=--ref $(NUM_INDIVS)
 GENOMES_noref=$(GENOMES)
 GENOMES_ref=$(GENOMES) $(SEQ)
 
-KEEP=$(GENOMES) $(READS) $(SAMPLEGRAPHS) $(PATHS) $(BUBBLES) $(PASSVCFS) $(PLACEVCFS) $(NORMVCFS)
+KEEP=$(GENOMES) $(READS) $(PATHS) $(BUBBLES) $(PASSVCFS) $(PLACEVCFS) $(NORMVCFS)
 
-# Directories
-DIRS=ref genomes reads k$(KMER)/graphs k$(KMER)/bubbles k$(KMER)/vcfs runcalls
+all: checkcmds $(KEEP) compare-bubbles compare-normvcf traverse
 
-all: check-cmds $(DIRS) $(KEEP) compare-bubbles compare-normvcf traverse
-
-check-cmds:
+checkcmds:
 	@if [ '$(SEQ)' == '' ]; then echo "You need to specify SEQ=.. Please and thank you."; exit -1; fi;
 
 test:
-	@echo makefile: $(current_dir)
-	@echo cd: $(CURDIR)
-
-$(READS): $(GENOMES)
+	@echo KEEP: $(KEEP)
 
 compare-bubbles: $(BUBBLEVCFS) k$(KMER)/vcfs/truth.bub.vcf $(BUBOLDCMPRULES) $(BUBNEWCMPRULES)
 
 # % is noref or ref
-$(BUBOLDCMPRULES): compare-old-%-bubbles:
+$(BUBOLDCMPRULES): k$(KMER)/vcfs/truth.bub.vcf
+$(BUBOLDCMPRULES): compare-old-%-bubbles: k$(KMER)/vcfs/samples.oldbc.%.bub.vcf
 	@echo == Released Cortex $* ==
 	$(BIOINF)/sim_mutations/sim_compare.pl k$(KMER)/vcfs/truth.bub.vcf k$(KMER)/vcfs/samples.oldbc.$*.bub.vcf k$(KMER)/vcfs/truth.oldbc.$*.vcf OLDBC k$(KMER)/vcfs/falsepos.oldbc.$*.vcf $(GENOMES_$*)
 	$(HAPLEN) k$(KMER)/vcfs/samples.oldbc.$*.bub.vcf
-	@echo == Shaded Bubble Caller $* ==
-	$(BIOINF)/sim_mutations/sim_compare.pl k$(KMER)/vcfs/truth.oldbc.$*.vcf k$(KMER)/vcfs/samples.shaded.$*.bub.vcf k$(KMER)/vcfs/truth.shaded.$*.vcf SHADED k$(KMER)/vcfs/falsepos.shaded.$*.vcf $(GENOMES_$*)
-	$(HAPLEN) k$(KMER)/vcfs/samples.shaded.$*.bub.vcf
+	# @echo == Shaded Bubble Caller $* ==
+	# $(BIOINF)/sim_mutations/sim_compare.pl k$(KMER)/vcfs/truth.oldbc.$*.vcf k$(KMER)/vcfs/samples.shaded.$*.bub.vcf k$(KMER)/vcfs/truth.shaded.$*.vcf SHADED k$(KMER)/vcfs/falsepos.shaded.$*.vcf $(GENOMES_$*)
+	# $(HAPLEN) k$(KMER)/vcfs/samples.shaded.$*.bub.vcf
 
 # % is noref or ref
-$(BUBNEWCMPRULES): compare-new-%-bubbles:
+$(BUBNEWCMPRULES): k$(KMER)/vcfs/truth.bub.vcf $(BUBBLEVCFS)
+$(BUBNEWCMPRULES): compare-new-%-bubbles: k$(KMER)/vcfs/samples.newbc.%.bub.vcf k$(KMER)/vcfs/samples.se.%.bub.vcf k$(KMER)/vcfs/samples.pe.%.bub.vcf k$(KMER)/vcfs/samples.sepe.%.bub.vcf
 	@echo == New Bubble Caller $* ==
 	$(BIOINF)/sim_mutations/sim_compare.pl k$(KMER)/vcfs/truth.bub.vcf k$(KMER)/vcfs/samples.newbc.$*.bub.vcf k$(KMER)/vcfs/truth.newbc.$*.vcf NEWBC k$(KMER)/vcfs/falsepos.newbc.$*.vcf $(GENOMES_$*)
 	$(HAPLEN) k$(KMER)/vcfs/samples.newbc.$*.bub.vcf
@@ -211,38 +210,42 @@ traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 
 ref/stampy.stidx:
+	mkdir -p ref
 	$(STAMPY_BIN) -G ref/stampy $(SEQ)
 
 ref/stampy.sthash:
+	mkdir -p ref
 	$(STAMPY_BIN) -g ref/stampy -H ref/stampy
 
 $(SEQ).fai:
 	samtools faidx $(SEQ)
 
-$(DIRS):
-	mkdir -p $@
+DIRS=ref genomes reads k$(KMER) runcalls
 
 clean:
-	rm -rf $(DIRS) k$(KMER) gap_sizes.*.csv mp_sizes.*.csv stampy.sh
+	rm -rf $(DIRS) gap_sizes.*.csv mp_sizes.*.csv stampy.sh
 
 #
 # Patterns
 #
 
-$(GENOMES): | genomes
+$(GENOMES):
+	mkdir -p genomes
 	$(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $(NCHROMS) $(SEQ)
 
-$(READS): $(GENOMES) | reads
+$(READS): $(GENOMES)
 
-$(RAWGRAPHS): $(READS) | k$(KMER)/graphs
+$(RAWGRAPHS): $(READS)
 
 $(CLEANGRAPHS): $(RAWGRAPHS)
 
 # Reads
 reads/reads%.1.fa.gz reads/reads%.2.fa.gz: genomes/genome%.fa
+	mkdir -p reads
 	cat genomes/genome$*.fa | tr -d '-' | $(READSIM) -r - -i $(MPSIZE) -v 0.2 -l $(READLEN) -d $(ALLELECOVG) $(USECALIB) reads/reads$*
 
 reads/reads%.1.falist reads/reads%.2.falist:
+	mkdir -p reads
 	echo -n '' > reads/reads$*.1.falist; echo -n '' > reads/reads$*.2.falist;
 	a=$$(($* * $(PLOIDY))); b=$$(($$a + $(PLOIDY) - 1)); \
 	for i in `seq $$a $$b`; do \
@@ -254,6 +257,7 @@ k$(KMER)/graphs/sample%.clean.ctx: k$(KMER)/graphs/sample%.raw.ctx
 	$(CLEANCTX) $@ $<
 
 k$(KMER)/graphs/sample%.raw.ctx: $(READS)
+	mkdir -p k$(KMER)/graphs
 	a=$$(($* * $(PLOIDY))); b=$$(($$a+$(PLOIDY)-1)); \
 	files=$$(for k in `seq $$a $$b`; do echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; done); \
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
@@ -279,36 +283,40 @@ k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx
 $(BUBBLES): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx $(READLISTS)
 
 k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
-	callargs=`if [ $* == 'ref' ]; then echo '--ref_colour $(NUM_INDIVS)'; fi`; \
+	mkdir -p k$(KMER)/bubbles
+	callargs=`if [ '$*' == 'ref' ]; then echo '--ref_colour $(NUM_INDIVS)'; fi`; \
 	time $(RELEASECTX) --multicolour_bin $< $$callargs --detect_bubbles1 -1/-1 --output_bubbles1 k$(KMER)/bubbles/samples.oldbc.$*.bubbles --print_colour_coverages
 	mv k$(KMER)/bubbles/samples.oldbc.$*.bubbles k$(KMER)/bubbles/samples.oldbc.$*.bubbles.dirty
 	$(OLDCLEAN) $(KMER) k$(KMER)/bubbles/samples.oldbc.$*.bubbles.dirty | gzip -c > $@
 
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
+	mkdir -p k$(KMER)/bubbles
 	callargs=`if [ $* == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
 	$(CALLCTX) -t 1 $$callargs $< $@
 
-k$(KMER)/bubbles/samples.shaded.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
-	time $(SHADECTX) --load_binary $< --add_shades $(SHADEDLIST) --paths_caller $@ --paths_caller_cols -1
+# k$(KMER)/bubbles/samples.shaded.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
+# 	time $(SHADECTX) --load_binary $< --add_shades $(SHADEDLIST) --paths_caller $@ --paths_caller_cols -1
 
 # % => {se,pe,sepe}.{ref.noref}
 k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
+	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	$(CALLCTX) -t 1 -m $(MEM) $(REFARGS) -p $< k$(KMER)/graphs/pop.$$r.ctx $@
 
-#dev
 k$(KMER)/vcfs/truth.bub.vcf: $(GENOMES)
-	$(BIOINF)/sim_mutations/sim_vcf.pl $(KMER) $(MGLIST) > k$(KMER)/vcfs/truth.bub.vcf
+	$(BIOINF)/sim_mutations/sim_bubble_vcf.pl $(KMER) $(SEQ) $(MGLIST) > $@
 
 k$(KMER)/vcfs/truth.decomp.vcf: $(SEQ) $(GENOMES)
-	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(SEQ) $(GENOMES) > k$(KMER)/vcfs/truth.decomp.vcf
+	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(SEQ) $(MGLIST) > k$(KMER)/vcfs/truth.decomp.vcf
 
 k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.fa.gz: k$(KMER)/bubbles/samples.%.bubbles.gz
+	mkdir -p k$(KMER)/vcfs
 	$(PROCCTX) k$(KMER)/bubbles/samples.$*.bubbles.gz k$(KMER)/vcfs/samples.$*.bub
 	gzip -d -f k$(KMER)/vcfs/samples.$*.bub.vcf.gz
 
 $(SAMFILES): ref/stampy.stidx ref/stampy.sthash
 k$(KMER)/vcfs/samples.%.bub.5pflanks.sam: k$(KMER)/vcfs/samples.%.bub.5pflanks.fa.gz
+	mkdir -p ref
 	$(STAMPY_BIN) -g ref/stampy -h ref/stampy --inputformat=fasta -M $< > $@
 
 k$(KMER)/vcfs/samples.%.decomp.vcf: k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.sam
@@ -321,12 +329,14 @@ reads/reads.index: $(READLISTS)
 	for i in {0..$(LASTINDIV)}; do echo -e Sample$$i"\t"."\t"reads/reads$$i.1.falist"\t"reads/reads$$i.2.falist; done > reads/reads.index
 
 ref/ref.falist:
+	mkdir -p ref
 	echo $(SEQPATH) > ref/ref.falist
 
 ref/ref.k$(KMER).ctx:
+	mkdir -p ref
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample ref --seq $(SEQ) ref/ref.k$(KMER).ctx
 
-k$(KMER)/vcfs/samples.runcalls.norm.vcf runcalls.log: reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
+k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
 	rm -rf runcalls/runcalls.log
 	mkdir -p runcalls
 	$(RUNCALLS) --first_kmer $(KMER) --last_kmer $(KMER) \
@@ -352,7 +362,7 @@ k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
 	$(BCFTOOLS) norm --remove-duplicate -f $(SEQ) $< > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 
-.PHONY: all clean $(DIRS)
-.PHONY: compare-old-bubbles compare-new-bubbles $(BUBNEWCMPRULES) $(BUBOLDCMPRULES)
+.PHONY: all clean test checkcmds
+.PHONY: compare-bubbles compare-old-bubbles compare-new-bubbles
 .PHONY: compare-normvcf $(NORMCMPRULES)
 .PHONY: traverse

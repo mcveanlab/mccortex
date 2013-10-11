@@ -16,7 +16,7 @@ NAMES=HsOneErrorReads100 StaphOneErrorReads100 \
 			HsManyErrorReads100 StaphManyErrorReads100 \
 			HsManyErrorReads250 StaphManyErrorReads250
 
-PROJ=$(addprefix proj, $(NAMES))
+PROJ=$(addsuffix /run-sim.sh, $(NAMES))
 
 REFS=chr1/chr1.fa.gz chr1/chr1.fa chr1/chr1.fa.fai \
      staph/staph.fa.gz staph/staph.fa staph/staph.fa.fai
@@ -44,8 +44,6 @@ $(PROFILE_READS):
 	@echo Please fetch $(PROFILE_READS) from Illumina or pass other with PROFILE_READS=
 	exit 1;
 
-$(PROJ): $(REFS)
-
 chr1/chr1.orig.fa.gz:
 	mkdir -p chr1
 	wget -O chr1/chr1.orig.fa.gz '$(HGCHR1)'
@@ -65,13 +63,14 @@ staph/staph.orig.fa.gz:
 	samtools faidx $<
 
 #$* is {Hs,Staph}{One,Many}{Error,NoError}Reads{100,250}
-$(PROJ): proj%:
-	@echo == $* ==
-	proj=`echo $* | sed 's/^proj//g'`; \
+$(PROJ): $(REFS)
+$(PROJ): %/run-sim.sh:
+	mkdir -p $*
+	set -e \
 	species=`echo $* | grep -oE '(Hs|Staph)'`; \
 	quant=`echo $* | grep -oE '(One|Many)'`; \
 	err=`echo $* | grep -oE '(NoError|Error)'`; \
-	readlen=`echo $* | grep -oE '[0-9]*$$'`; \
+	readlen=`echo $* | grep -oE 'Reads[0-9]*' | sed 's/Reads//g'`; \
 	errprof=; \
 	if [ $$species == 'Hs' ]; then \
 		ref=../chr1/chr1.fa; ploidy=2; allelecovg=30; \
@@ -83,11 +82,11 @@ $(PROJ): proj%:
 		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); fi; \
 	fi; \
 	if [ $$err == 'Error' ]; then errprof="ERRPROF=../$(PROFILE_READS)"; fi; \
-	mkdir -p $*; cd $*; \
-	make -f ../../calling-comparison.mk \
+	echo "make -f ../../calling-comparison.mk \
 					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
 					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
 					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=30 MEMHEIGHT=25 2>&1 >> run.log
+					MEMWIDTH=21 MEMHEIGHT=21" > $*/run-sim.sh
+	chmod +x $*/run-sim.sh
 
 .PHONY: all clean test $(PROJ)

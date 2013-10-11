@@ -1075,8 +1075,11 @@ int ctx_unique(CmdArgs *args)
     }
   }
 
-  status("%zu bubbles loaded\n", bubbles_read);
-  status("%zu vcf entries printed\n", entries_printed);
+  char nbubbles_str[100], nentries_str[100];
+  ulong_to_str(bubbles_read, nbubbles_str);
+  ulong_to_str(entries_printed, nentries_str);
+  status("%s bubbles loaded\n", nbubbles_str);
+  status("%s vcf entries printed\n", nentries_str);
 
   strbuf_free(tmp);
   kh_destroy(vhsh, varhash);
