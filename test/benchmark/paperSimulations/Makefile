@@ -5,6 +5,7 @@ SHELL := /bin/bash
 HGCHR1=http://hgdownload.cse.ucsc.edu/goldenPath/hg19/chromosomes/chr1.fa.gz
 STAPH=http://www.ebi.ac.uk/Tools/dbfetch/dbfetch?db=embl&id=FN433596&format=fasta&style=raw
 FACAT=../../../libs/seq_file/bin/facat
+SAMTOOLS=samtools
 
 # PhiX.1.fq.gz needs to be downloaded
 PROFILE_READS=../PhiX.1.fq.gz
@@ -16,7 +17,7 @@ NAMES=HsOneErrorReads100 StaphOneErrorReads100 \
 			HsManyErrorReads100 StaphManyErrorReads100 \
 			HsManyErrorReads250 StaphManyErrorReads250
 
-PROJ=$(addsuffix /run-sim.sh, $(NAMES))
+SCRIPTS=$(addsuffix /run-sim.sh, $(NAMES))
 
 REFS=chr1/chr1.fa.gz chr1/chr1.fa chr1/chr1.fa.fai \
      staph/staph.fa.gz staph/staph.fa staph/staph.fa.fai
@@ -32,13 +33,14 @@ StaphOneIndels=3000
 StaphManySNPs=202081
 StaphManyIndels=22453
 
-all: $(PROFILE_READS) $(REFS) $(PROJ)
+all: $(PROFILE_READS) $(REFS) $(SCRIPTS)
 
 clean:
-	rm -rf staph chr1 $(NAMES)
+	@echo rm -rf staph chr1
+	@echo rm -rf $(NAMES)
 
 test:
-	echo $(PROJ)
+	echo $(SCRIPTS)
 
 $(PROFILE_READS):
 	@echo Please fetch $(PROFILE_READS) from Illumina or pass other with PROFILE_READS=
@@ -60,17 +62,18 @@ staph/staph.orig.fa.gz:
 	gzip -c $< > $@
 
 %.fa.fai: %.fa
-	samtools faidx $<
+	$(SAMTOOLS) faidx $<
 
 #$* is {Hs,Staph}{One,Many}{Error,NoError}Reads{100,250}
-$(PROJ): $(REFS)
-$(PROJ): %/run-sim.sh:
+$(NAMES): $(SCRIPTS)
+%/run-sim.sh: Makefile
 	mkdir -p $*
-	set -e \
+	@set -e; \
 	species=`echo $* | grep -oE '(Hs|Staph)'`; \
 	quant=`echo $* | grep -oE '(One|Many)'`; \
 	err=`echo $* | grep -oE '(NoError|Error)'`; \
 	readlen=`echo $* | grep -oE 'Reads[0-9]*' | sed 's/Reads//g'`; \
+	memwidth=25; memheight=25; \
 	errprof=; \
 	if [ $$species == 'Hs' ]; then \
 		ref=../chr1/chr1.fa; ploidy=2; allelecovg=30; \
@@ -79,14 +82,16 @@ $(PROJ): %/run-sim.sh:
 	else \
 		ref=../staph/staph.fa; ploidy=1; allelecovg=100; \
 		if [ $$quant == 'Many' ]; then num=1000; snps=$(StaphManySNPs); indels=$(StaphManyIndels); \
-		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); fi; \
+		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); \
+				memwidth=21; memheight=21; \
+		fi; \
 	fi; \
 	if [ $$err == 'Error' ]; then errprof="ERRPROF=../$(PROFILE_READS)"; fi; \
 	echo "make -f ../../calling-comparison.mk \
 					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
 					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
 					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=21 MEMHEIGHT=21" > $*/run-sim.sh
+					MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight $$@" > $*/run-sim.sh
 	chmod +x $*/run-sim.sh
 
-.PHONY: all clean test $(PROJ)
+.PHONY: all clean test
