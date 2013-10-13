@@ -53,12 +53,14 @@ CALLCTX=$(CTX_PATH)/bin/ctx31 call
 PROCCTX=$(CTX_PATH)/bin/ctx31 unique
 PLACECTX=$(CTX_PATH)/bin/ctx31 place
 TRAVERSE=$(CTX_PATH)/bin/traversal31
+CTXSTATS=$(CTX_PATH)/scripts/cortex_stats.pl
 
 RUNCALLS=time $(CORTEX_PATH)/scripts/calling/run_calls.pl
 
 BIOINF=$(CTX_PATH)/libs/bioinf-perl
 READSIM=$(CTX_PATH)/libs/readsim/readsim
 SEQCAT=$(CTX_PATH)/libs/seq_file/bin/seqcat
+FACAT=$(CTX_PATH)/libs/seq_file/bin/facat
 HAPLEN=$(CTX_PATH)/scripts/longest-haplotype.sh
 OLDCLEAN=$(CTX_PATH)/scripts/clean_bubbles.pl
 
@@ -69,17 +71,14 @@ endif
 
 # Calculate some numbers
 NCHROMS=$(shell bc <<< '$(NUM_INDIVS) * $(PLOIDY)')
-LASTCHROM=$(shell bc <<< '$(NCHROMS) - 1')
-LASTINDIV=$(shell bc <<< '$(NUM_INDIVS) - 1')
 NINDIVS_REF=$(shell echo $$(($(NUM_INDIVS) + 1)))
 
-SEQPATH=$(realpath $(SEQ))
-
 # Generate file names
-GENOMES=$(shell echo genomes/genome{0..$(LASTCHROM)}.fa)
-READS=$(shell echo reads/reads{0..$(LASTCHROM)}.{1..2}.fa.gz)
-RAWGRAPHS=$(shell echo k$(KMER)/graphs/sample{0..$(LASTINDIV)}.raw.ctx)
+GENOMES=$(shell echo ref/genome0.fa genomes/genome{1..$(NCHROMS)}.fa)
+READS=$(shell echo reads/reads{1..$(NCHROMS)}.{1..2}.fa.gz)
+RAWGRAPHS=$(shell echo k$(KMER)/graphs/sample{1..$(NUM_INDIVS)}.raw.ctx)
 CLEANGRAPHS=$(RAWGRAPHS:.raw.ctx=.clean.ctx)
+REFGENOME=ref/genome0.fa
 
 DOOLD=$(shell if [ $(NUM_INDIVS) -gt 10 ]; then echo 'no'; else echo 'yes'; fi)
 
@@ -90,12 +89,14 @@ else
 	SET={newbc,se,pe,sepe}
 endif
 
+# ref is calling with the ref in the graph
+# noref is calling without the ref
+
 # Can't do noref if we only have one chrom
 ifeq ($(NCHROMS),1)
 	# Always need ref
 	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.ref.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).ref.bubbles.gz`)
-	BUBBLEVCFS=$(shell echo `eval echo k$(KMER)/vcfs/samples.$(SET).ref.bub.vcf`)
 	TRUTHBUBBLES=k$(KMER)/vcfs/truth.ref.bub.vcf
 	BUBOLDCMPRULES=compare-old-ref-bubbles
 	BUBNEWCMPRULES=compare-new-ref-bubbles
@@ -103,37 +104,44 @@ ifeq ($(NCHROMS),1)
 else
 	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.{noref,ref}.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).{noref,ref}.bubbles.gz`)
-	BUBBLEVCFS=$(shell echo `eval echo k$(KMER)/vcfs/samples.$(SET).{noref,ref}.bub.vcf`)
 	TRUTHBUBBLES=k$(KMER)/vcfs/truth.ref.bub.vcf k$(KMER)/vcfs/truth.noref.bub.vcf
 	# don't do BUBOLDCMPRULES
+	BUBOLDCMPRULES=
 	BUBNEWCMPRULES=$(shell echo compare-new-{noref,ref}-bubbles)
 	NORMCMPRULES=$(shell echo `eval echo compare-$(SET).{noref,ref}-norm compare-runcalls-norm`)
 endif
 
-READLISTS=$(shell echo reads/reads{0..$(LASTINDIV)}.{1,2}.falist)
-MGLIST=$(shell for i in {0..$(LASTCHROM)}; do echo -n " genomes/genome$$i.fa genomes/mask$$i.fa"; done)
+READLISTS=$(shell echo reads/reads{1..$(NUM_INDIVS)}.{1,2}.falist)
 
-se_list=$(shell for i in `seq 0 $(LASTINDIV)`; do \
-	echo -n " --col $$i $$i"; \
-	for j in `seq $$(($$i * $(PLOIDY))) $$(($$i * $(PLOIDY) + $(PLOIDY) - 1))`; do \
-		echo -n " --seq reads/reads$$j.1.fa.gz --seq reads/reads$$j.2.fa.gz"; \
+MGLIST=$(shell for i in {1..$(NCHROMS)}; do echo -n " genomes/genome$$i.fa genomes/mask$$i.fa"; done)
+MGLIST_noref=ref/genome0.fa ref/mask_clean.fa $(MGLIST)
+MGLIST_ref=ref/genome0.fa ref/mask0.fa $(MGLIST)
+
+se_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
+	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
+	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
+		echo -n " --seq reads/reads$$k.1.fa.gz --seq reads/reads$$k.2.fa.gz"; \
 	done; \
 done)
 
-pe_list=$(shell for i in `seq 0 $(LASTINDIV)`; do \
-	echo -n " --col $$i $$i"; \
-	for j in `seq $$(($$i * $(PLOIDY))) $$(($$i * $(PLOIDY) + $(PLOIDY) - 1))`; do \
-		echo -n " --seq2 reads/reads$$j.1.fa.gz reads/reads$$j.2.fa.gz"; \
+pe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
+	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
+	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
+		echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; \
 	done; \
 done)
 
-sepe_list=$(shell for i in `seq 0 $(LASTINDIV)`; do \
-	echo -n " --col $$i $$i"; \
-	for j in `seq $$(($$i * $(PLOIDY))) $$(($$i * $(PLOIDY) + $(PLOIDY) - 1))`; do \
-		echo -n " --seq reads/reads$$j.1.fa.gz --seq reads/reads$$j.2.fa.gz"; \
-		echo -n " --seq2 reads/reads$$j.1.fa.gz reads/reads$$j.2.fa.gz"; \
+sepe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
+	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
+	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
+		echo -n " --seq reads/reads$$k.1.fa.gz --seq reads/reads$$k.2.fa.gz"; \
+		echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; \
 	done; \
 done)
+
+BUBBLEVCFS=$(subst .bubbles.gz,.bub.vcf,$(subst /bubbles/,/vcfs/,$(BUBBLES)))
+TRUTHDECOMP=$(TRUTHBUBBLES:.bub.vcf=.decomp.vcf)
+TRUTHVCFS=$(TRUTHBUBBLES:.bub.vcf=.norm.vcf)
 
 PLACEVCFS=$(BUBBLEVCFS:.bub.vcf=.decomp.vcf)
 PASSVCFS=$(BUBBLEVCFS:.bub.vcf=.pass.vcf)
@@ -144,17 +152,19 @@ SAMFILES=$(BUBBLEVCFS:.vcf=.5pflanks.sam)
 
 ifdef ERRPROF
 	GRAPHS_noref=$(CLEANGRAPHS)
+	SAMPLE1GRAPH=k$(KMER)/graphs/sample1.clean.ctx
 else
 	GRAPHS_noref=$(RAWGRAPHS)
+	SAMPLE1GRAPH=k$(KMER)/graphs/sample1.raw.ctx
 endif
 
 GRAPHS_ref=$(GRAPHS_noref) ref/ref.k$(KMER).ctx
 REFARGS=--ref $(NUM_INDIVS)
 
 GENOMES_noref=$(GENOMES)
-GENOMES_ref=$(GENOMES) $(SEQ)
+GENOMES_ref=$(GENOMES) $(REFGENOME)
 
-KEEP=$(GENOMES) $(READS) $(PATHS) $(BUBBLES) $(PASSVCFS) $(PLACEVCFS) $(NORMVCFS)
+KEEP=$(GENOMES) $(READS) $(PATHS) $(TRUTHBUBBLES) $(TRUTHDECOMP) $(TRUTHVCFS) $(BUBBLES) $(PASSVCFS) $(PLACEVCFS) $(NORMVCFS)
 
 all: checkcmds $(KEEP) compare-bubbles compare-normvcf traverse
 
@@ -162,10 +172,12 @@ checkcmds:
 	@if [ '$(SEQ)' == '' ]; then echo "You need to specify SEQ=.. Please and thank you."; exit -1; fi;
 
 test:
-	@echo DOOLD: $(DOOLD) $(NUM_INDIVS)
-	@echo KEEP: $(KEEP)
+	@echo BUBBLEVCFS: $(BUBBLEVCFS)
+	@echo TRUTHVCFS: $(TRUTHVCFS)
 
 compare-bubbles: $(BUBBLEVCFS) $(TRUTHBUBBLES) $(BUBOLDCMPRULES) $(BUBNEWCMPRULES)
+
+$(TRUTHVCFS): $(TRUTHBUBBLES)
 
 # % is noref or ref
 $(BUBOLDCMPRULES): compare-old-%-bubbles: k$(KMER)/vcfs/samples.oldbc.%.bub.vcf k$(KMER)/vcfs/truth.%.bub.vcf 
@@ -191,27 +203,29 @@ $(BUBNEWCMPRULES): compare-new-%-bubbles: k$(KMER)/vcfs/truth.%.bub.vcf k$(KMER)
 	@echo == Truth ==
 	$(HAPLEN) k$(KMER)/vcfs/truth.$*.bub.vcf
 
-compare-normvcf: $(NORMVCFS) k$(KMER)/vcfs/truth.norm.vcf $(NORMCMPRULES)
+compare-normvcf: $(NORMVCFS) k$(KMER)/vcfs/truth.ref.norm.vcf k$(KMER)/vcfs/truth.noref.norm.vcf $(NORMCMPRULES)
 $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 	@echo == $< ==
-	$(BIOINF)/vcf_scripts/vcf_isec.pl k$(KMER)/vcfs/truth.norm.vcf $< > /dev/null
+	r=`echo $* | grep -oE '(no)*ref'`; if [[ $$r == '' ]]; then r='ref'; fi; \
+	$(BIOINF)/vcf_scripts/vcf_isec.pl k$(KMER)/vcfs/truth.$$r.norm.vcf $< > /dev/null
 
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE)                                     --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --nsamples 10000 k$(KMER)/graphs/pop.ref.ctx
+	$(CTXSTATS) $(SAMPLE1GRAPH)
+	@echo == ref copy number ==
+	$(CTX_PATH)/bin/ctx31 view --kmers ref/ref.k$(KMER).ctx | awk '{n[$$2]++} END {for (i in n) print i,n[i]}' | sort -n
 
-ref/stampy.stidx:
-	mkdir -p ref
-	$(STAMPY_BIN) -G ref/stampy $(SEQ)
+ref/stampy.stidx: ref/ref.fa
+	$(STAMPY_BIN) -G ref/stampy ref/ref.fa
 
-ref/stampy.sthash:
-	mkdir -p ref
+ref/stampy.sthash: ref/stampy.stidx
 	$(STAMPY_BIN) -g ref/stampy -H ref/stampy
 
-$(SEQ).fai:
-	samtools faidx $(SEQ)
+ref/ref.fa.fai: ref/ref.fa
+	samtools faidx ref/ref.fa
 
 DIRS=ref genomes reads k$(KMER) runcalls
 
@@ -223,8 +237,9 @@ clean:
 #
 
 $(GENOMES):
-	mkdir -p genomes
-	$(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $(NCHROMS) $(SEQ)
+	mkdir -p genomes ref
+	$(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $$(($(NCHROMS)+1)) $(SEQ)
+	mv genomes/genome0.fa genomes/mask0.fa ref/
 
 $(READS): $(GENOMES)
 
@@ -240,7 +255,7 @@ reads/reads%.1.fa.gz reads/reads%.2.fa.gz: genomes/genome%.fa
 reads/reads%.1.falist reads/reads%.2.falist:
 	mkdir -p reads
 	echo -n '' > reads/reads$*.1.falist; echo -n '' > reads/reads$*.2.falist;
-	a=$$(($* * $(PLOIDY))); b=$$(($$a + $(PLOIDY) - 1)); \
+	b=$$(($* * $(PLOIDY))); a=$$(($$b-$(PLOIDY)+1)); \
 	for i in `seq $$a $$b`; do \
 		echo reads$$i.1.fa.gz >> reads/reads$*.1.falist; \
 		echo reads$$i.2.fa.gz >> reads/reads$*.2.falist; \
@@ -251,7 +266,7 @@ k$(KMER)/graphs/sample%.clean.ctx: k$(KMER)/graphs/sample%.raw.ctx
 
 k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	mkdir -p k$(KMER)/graphs
-	a=$$(($* * $(PLOIDY))); b=$$(($$a+$(PLOIDY)-1)); \
+	b=$$(($* * $(PLOIDY))); a=$$(($$b-$(PLOIDY)+1)); \
 	files=$$(for k in `seq $$a $$b`; do echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; done); \
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
 
@@ -268,8 +283,8 @@ k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
 	$(THREADCTX) -t 1 $($*_list) $(NUM_INDIVS) $@ $< $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
-k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx
-	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) $(NUM_INDIVS) --seq $(SEQ) $(NUMCOLS) $@ $< $<
+k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
+	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) $(NUM_INDIVS) --seq ref/ref.fa $(NUMCOLS) $@ $< $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 # Bubbles
@@ -293,14 +308,13 @@ k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	$(CALLCTX) -t 1 -m $(MEM) $(REFARGS) -p $< k$(KMER)/graphs/pop.$$r.ctx $@
 
-k$(KMER)/vcfs/truth.noref.bub.vcf: $(GENOMES)
-	$(BIOINF)/sim_mutations/sim_bubble_vcf.pl $(KMER) $(MGLIST) > $@
+k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
+	mkdir -p k$(KMER)/vcfs
+	$(BIOINF)/sim_mutations/sim_bubble_vcf.pl $(KMER) $(MGLIST_$*) > $@
 
-k$(KMER)/vcfs/truth.ref.bub.vcf: $(GENOMES)
-	$(BIOINF)/sim_mutations/sim_bubble_vcf.pl --ref $(SEQ) $(KMER) $(MGLIST) > $@
-
-k$(KMER)/vcfs/truth.decomp.vcf: $(SEQ) $(GENOMES)
-	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(SEQ) $(MGLIST) > k$(KMER)/vcfs/truth.decomp.vcf
+k$(KMER)/vcfs/truth.%.decomp.vcf: ref/ref.fa $(GENOMES)
+	mkdir -p k$(KMER)/vcfs
+	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(MGLIST_$*) > k$(KMER)/vcfs/truth.$*.decomp.vcf
 
 k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.fa.gz: k$(KMER)/bubbles/samples.%.bubbles.gz
 	mkdir -p k$(KMER)/vcfs
@@ -312,22 +326,26 @@ k$(KMER)/vcfs/samples.%.bub.5pflanks.sam: k$(KMER)/vcfs/samples.%.bub.5pflanks.f
 	mkdir -p ref
 	$(STAMPY_BIN) -g ref/stampy -h ref/stampy --inputformat=fasta -M $< > $@
 
-k$(KMER)/vcfs/samples.%.decomp.vcf: k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.sam
-	$(PLACECTX) k$(KMER)/vcfs/samples.$*.bub.vcf k$(KMER)/vcfs/samples.$*.bub.5pflanks.sam $(SEQ) > $@
+k$(KMER)/vcfs/samples.%.decomp.vcf: k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.sam ref/ref.fa
+	$(PLACECTX) k$(KMER)/vcfs/samples.$*.bub.vcf k$(KMER)/vcfs/samples.$*.bub.5pflanks.sam ref/ref.fa > $@
 
 k$(KMER)/vcfs/samples.%.pass.vcf: k$(KMER)/vcfs/samples.%.decomp.vcf
 	cat $< | awk '$$1 ~ /^#/ || $$7 ~ /^(PASS|\.)$$/' | vcf-sort > $@
 
 reads/reads.index: $(READLISTS)
-	for i in {0..$(LASTINDIV)}; do echo -e Sample$$i"\t"."\t"reads/reads$$i.1.falist"\t"reads/reads$$i.2.falist; done > reads/reads.index
+	for i in {1..$(NUM_INDIVS)}; do echo -e Sample$$i"\t"."\t"reads/reads$$i.1.falist"\t"reads/reads$$i.2.falist; done > reads/reads.index
 
-ref/ref.falist:
-	mkdir -p ref
-	echo $(SEQPATH) > ref/ref.falist
+ref/ref.fa: $(GENOMES)
+	cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
+	(echo '>mask'; for ((i=0;i<$(GENOMESIZE);i++)) { echo -n '.'; }; echo '';) > ref/mask_clean.fa
 
-ref/ref.k$(KMER).ctx:
-	mkdir -p ref
-	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample ref --seq $(SEQ) ref/ref.k$(KMER).ctx
+REFPATH=$(realpath ref/ref.fa)
+
+ref/ref.falist: ref/ref.fa
+	echo $(REFPATH) > ref/ref.falist
+
+ref/ref.k$(KMER).ctx: ref/ref.fa
+	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample ref --seq ref/ref.fa ref/ref.k$(KMER).ctx
 
 k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
 	rm -rf runcalls/runcalls.log
@@ -346,13 +364,14 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 						  # --apply_pop_classifier
 	cp runcalls/vcfs/samples.runcalls_union_BC_calls_k31.decomp.vcf k$(KMER)/vcfs/samples.runcalls.norm.vcf
 
-k$(KMER)/vcfs/truth.norm.vcf: k$(KMER)/vcfs/truth.decomp.vcf
-	$(BCFTOOLS) norm --remove-duplicate -f $(SEQ) $< > $@
+# % is ref or noref
+k$(KMER)/vcfs/truth.%.norm.vcf: k$(KMER)/vcfs/truth.%.decomp.vcf
+	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< > $@
 
-$(NORMVCFS): $(SEQ).fai
+$(NORMVCFS): ref/ref.fa.fai
 
 k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
-	$(BCFTOOLS) norm --remove-duplicate -f $(SEQ) $< > k$(KMER)/vcfs/samples.$*.norm.vcf
+	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 
 .PHONY: all clean test checkcmds

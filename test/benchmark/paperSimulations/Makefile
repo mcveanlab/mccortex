@@ -40,7 +40,7 @@ clean:
 	@echo rm -rf $(NAMES)
 
 test:
-	echo $(SCRIPTS)
+	echo $$@
 
 $(PROFILE_READS):
 	@echo Please fetch $(PROFILE_READS) from Illumina or pass other with PROFILE_READS=
@@ -91,7 +91,7 @@ $(NAMES): $(SCRIPTS)
 					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
 					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
 					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight $$@" > $*/run-sim.sh
+					MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight "'$$@' > $*/run-sim.sh
 	chmod +x $*/run-sim.sh
 
 .PHONY: all clean test

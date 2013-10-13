@@ -88,17 +88,21 @@ int main(int argc, char **argv)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, path_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem;
 
   bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(&args, bits_per_kmer,
                                         gheader.num_of_kmers, false);
-  path_mem = args.mem_to_use -
-             (kmers_in_hash * (sizeof(BinaryKmer)*8+bits_per_kmer)) / 8;
+  
+  graph_mem = hash_table_mem(kmers_in_hash, false, NULL) +
+              (bits_per_kmer * kmers_in_hash) / 8;
+  path_mem = pheader.num_path_bytes;
 
   char path_mem_str[100];
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
+
+  if(graph_mem + path_mem > args.mem_to_use) die("Not enough memory");
 
   dBGraph db_graph;
   GraphWalker wlk;
@@ -137,6 +141,8 @@ int main(int argc, char **argv)
     paths_format_read(args.ctp_files[i], &pheader, &db_graph,
                       &db_graph.pdata, false);
   }
+
+  status("Traversing graph...\n");
 
   // Find start node
   // hkey_t node;
@@ -202,9 +208,13 @@ int main(int argc, char **argv)
 
   free(path);
 
+  char total_len_str[100], total_junc_str[100];
+  ulong_to_str(total_len, total_len_str);
+  ulong_to_str(total_junc, total_junc_str);
+
   status("\n");
-  status("total_len: %zu; total_junc: %zu (%.2f%% junctions)\n",
-         total_len, total_junc, (100.0*total_junc)/total_len);
+  status("total_len: %s; total_junc: %s (%.2f%% junctions)\n",
+         total_len_str, total_junc_str, (100.0*total_junc)/total_len);
   status("dead ends: %zu / %zu\n", dead_ends, num_samples);
   status("mean length: %.2f\n", (double)total_len / num_samples);
   status("mean junctions: %.1f per contig, %.2f%% nodes (1 every %.1f nodes)\n",
