@@ -58,7 +58,10 @@ void hash_table_print_stats(const HashTable *const htable);
 uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 
 // Iterate over entries in the hash table
-#define HASH_TRAVERSE(ht,func, ...) do {                                       \
+#define HASH_TRAVERSE(ht,func,...) HASH_TRAVERSE2(ht,func,##__VA_ARGS__)
+
+// Iterate over all entries
+#define HASH_TRAVERSE1(ht,func, ...) do {                                      \
   const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
@@ -66,5 +69,17 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
     }                                                                          \
   }                                                                            \
 } while(0)
+
+// Iterate over buckets, iterate over bucket contents
+// Faster in low density hash tables
+#define HASH_TRAVERSE2(ht,func, ...) ({                                        \
+  BinaryKmer *bkt_strt = (ht)->table, *bkt_end, *htt_ptr; size_t _b;           \
+  for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
+    bkt_end = bkt_strt + (ht)->buckets[_b][1];                                 \
+    for(htt_ptr = bkt_strt; htt_ptr < bkt_end; htt_ptr++)                      \
+      if(HASH_ENTRY_ASSIGNED(*htt_ptr))                                        \
+        func(htt_ptr - (ht)->table, ##__VA_ARGS__);                            \
+  }                                                                            \
+})
 
 #endif /* HASH_TABLE_H_ */

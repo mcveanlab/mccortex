@@ -336,8 +336,11 @@ reads/reads.index: $(READLISTS)
 	for i in {1..$(NUM_INDIVS)}; do echo -e Sample$$i"\t"."\t"reads/reads$$i.1.falist"\t"reads/reads$$i.2.falist; done > reads/reads.index
 
 ref/ref.fa: $(GENOMES)
-	cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
-	(echo '>mask'; for ((i=0;i<$(GENOMESIZE);i++)) { echo -n '.'; }; echo '';) > ref/mask_clean.fa
+	awk 'BEGIN{print">mask";for(i=0;i<$(GENOMESIZE);i++) {printf "."}print""}' > ref/mask_clean.fa
+	#cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
+	cp $(SEQ) ref/ref.fa
+	cp $(SEQ) ref/genome0.fa
+	cp ref/mask_clean.fa ref/mask0.fa
 
 REFPATH=$(realpath ref/ref.fa)
 
@@ -362,17 +365,28 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 						  --do_union yes --ref CoordinatesAndInCalling \
 						  --workflow independent --logfile runcalls/runcalls.log
 						  # --apply_pop_classifier
-	cp runcalls/vcfs/samples.runcalls_union_BC_calls_k31.decomp.vcf k$(KMER)/vcfs/samples.runcalls.norm.vcf
+	# 1) Add KMER and contig lines
+  # 2) Remove ref mismatches
+	# 3) Left align indels
+  # 4) Remove duplicates
+	$(BIOINF)/vcf_scripts/vcf_header.pl --entries \
+	  runcalls/vcfs/samples.runcalls_union_BC_calls_k31.decomp.vcf \
+	  '+tag:INFO,KMER,.,Integer,"Kmer called at"' \
+	  '+meta:contig=<ID=genome0,length=1000>' | \
+	$(BIOINF)/vcf_scripts/vcf_filter_by_ref.pl - ref/ref.fa | \
+	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa - | \
+	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
 
 # % is ref or noref
 k$(KMER)/vcfs/truth.%.norm.vcf: k$(KMER)/vcfs/truth.%.decomp.vcf
-	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< > $@
+	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< | \
+	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
 
 $(NORMVCFS): ref/ref.fa.fai
 
 k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
-	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< > k$(KMER)/vcfs/samples.$*.norm.vcf
-
+	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< | \
+	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 .PHONY: all clean test checkcmds
 .PHONY: compare-bubbles compare-old-bubbles compare-new-bubbles

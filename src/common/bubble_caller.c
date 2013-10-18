@@ -394,18 +394,18 @@ static void load_allele_path(hkey_t node, Orientation or,
 // path positions
 // We can have duplicate paths if two or more colours find the same path through
 // the graph during bubble discovery
-static void remove_snpath_pos_dupes(SupernodePathPos **results, size_t *arrlen,
-                                    khash_t(snpps_hsh) *spphash)
+static size_t remove_snpath_pos_dupes(SupernodePathPos **results, size_t arrlen,
+                                      khash_t(snpps_hsh) *spphash)
 {
-  size_t i, j, len = *arrlen;
+  size_t i, j;
   int hashret;
   kh_clear(snpps_hsh, spphash);
 
-  for(i = 0, j = 0; i < len; i++) {
+  for(i = 0, j = 0; i < arrlen; i++) {
     kh_put(snpps_hsh, spphash, results[i], &hashret);
     if(hashret != 0) results[j++] = results[i];
   }
-  *arrlen = j;
+  return j;
 }
 
 static void get_prev_supernode_pos(const SupernodePathPos *spp,
@@ -500,6 +500,38 @@ static size_t remove_ref_paths(SupernodePathPos **spp_arr, size_t num_paths,
   return num_paths;
 }
 
+// Potential bubble - filter ref and duplicate alleles
+static void resolve_bubble(SupernodePathPos **snodepathposes, size_t num,
+                           gzFile out, size_t *bnum, size_t threadid,
+                           size_t max_allele_len, size_t max_flank_len,
+                           hkey_t *flank5pe, Orientation *flank5po,
+                           size_t *flank5pkmers, const dBGraph *db_graph,
+                           const size_t *ref_cols, size_t num_ref,
+                           khash_t(snpps_hsh) *spp_hash)
+{
+  if(num < 2 || !is_bubble_flank(snodepathposes, num)) return;
+  num = remove_ref_paths(snodepathposes, num, ref_cols, num_ref, db_graph);
+  if(num < 2) return;
+  num = remove_snpath_pos_dupes(snodepathposes, num, spp_hash);
+  if(num < 2) return;
+
+  if(*flank5pkmers == 0)
+  {
+    // Haven't fetched 5p flank yet
+    boolean iscycle;
+    int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
+                               &iscycle, &max_flank_len, false);
+    *flank5pkmers = (len == -1 ? max_flank_len : (unsigned)len);
+    supernode_reverse(flank5pe, flank5po, *flank5pkmers);
+  }
+
+  print_bubble(out, *bnum, db_graph,
+               snodepathposes, num,
+               flank5pe, flank5po, *flank5pkmers, threadid,
+               max_allele_len, max_flank_len);
+  (*bnum)++;
+}
+
 static void find_bubbles(hkey_t fork_n, Orientation fork_o,
                          const dBGraph *db_graph, GraphWalker *wlk,
                          uint64_t *visited,
@@ -586,6 +618,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   hkey_t flank5_nstore[max_flank_len], *flank5pe = flank5_nstore;
   Orientation flank5_ostore[max_flank_len], *flank5po = flank5_ostore;
   size_t flank5pkmers = 0;
+  flank5pe[0] = fork_n;
+  flank5po[0] = opposite_orientation(fork_o);
 
   // Loop over supernodes checking if they are 3p flanks
   for(i = 0; i < snode_count; i++)
@@ -620,25 +654,41 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         }
       } while((pp = pp->next) != NULL);
 
-      #ifdef DEBUG_CALLER
-      printf(" num_forward: %zu; num_reverse: %zu\n", num_forward, num_reverse);
-      #endif
+      // #ifdef DEBUG_CALLER
+      // gzprintf(out, " num_forward: %zu; num_reverse: %zu\n", num_forward, num_reverse);
+      // #endif
 
+      resolve_bubble(spp_forward, num_forward, out, bnum, threadid,
+                     max_allele_len, max_flank_len, flank5pe, flank5po,
+                     &flank5pkmers, db_graph, ref_cols, num_ref, spp_hash);
+
+      resolve_bubble(spp_reverse, num_reverse, out, bnum, threadid,
+                     max_allele_len, max_flank_len, flank5pe, flank5po,
+                     &flank5pkmers, db_graph, ref_cols, num_ref, spp_hash);
+
+      /*
       if(!is_bubble_flank(spp_forward, num_forward)) num_forward = 0;
       if(!is_bubble_flank(spp_reverse, num_reverse)) num_reverse = 0;
 
-      if(num_forward || num_reverse)
-      {
-        // Remove paths that are in ref if we have >1 of such paths
+      // Remove paths that are in ref if we have >1 of such paths
+      if(num_forward > 1) {
         num_forward = remove_ref_paths(spp_forward, num_forward, ref_cols, num_ref, db_graph);
-        num_reverse = remove_ref_paths(spp_reverse, num_reverse, ref_cols, num_ref, db_graph);
+        if(num_forward > 1)
+          num_forward = remove_snpath_pos_dupes(spp_forward, num_forward, spp_hash);
+      }
 
-        if((num_forward || num_reverse) && flank5pkmers == 0)
+      if(num_reverse > 1) {
+        num_reverse = remove_ref_paths(spp_reverse, num_reverse, ref_cols, num_ref, db_graph);
+        if(num_reverse > 1)
+          num_reverse = remove_snpath_pos_dupes(spp_reverse, num_reverse, spp_hash);
+      }
+
+      if(num_forward > 1 || num_reverse > 1)
+      {
+        if(flank5pkmers == 0)
         {
           // Haven't fetched 5p flank yet
           boolean iscycle;
-          flank5pe[0] = fork_n;
-          flank5po[0] = opposite_orientation(fork_o);
           int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
                                      &iscycle, &max_flank_len, false);
           flank5pkmers = (len == -1 ? max_flank_len : (unsigned)len);
@@ -646,9 +696,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         }
 
         // Check if actual bubbles in fw / rv
-        if(num_forward)
+        if(num_forward > 1)
         {
-          remove_snpath_pos_dupes(spp_forward, &num_forward, spp_hash);
           print_bubble(out, *bnum, db_graph,
                        spp_forward, num_forward,
                        flank5pe, flank5po, flank5pkmers, threadid,
@@ -656,9 +705,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
           (*bnum)++;
         }
 
-        if(num_reverse)
+        if(num_reverse > 1)
         {
-          remove_snpath_pos_dupes(spp_reverse, &num_reverse, spp_hash);
           print_bubble(out, *bnum, db_graph,
                        spp_reverse, num_reverse,
                        flank5pe, flank5po, flank5pkmers, threadid,
@@ -666,6 +714,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
           (*bnum)++;
         }
       }
+      */
     }
   }
 }
