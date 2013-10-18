@@ -337,10 +337,10 @@ reads/reads.index: $(READLISTS)
 
 ref/ref.fa: $(GENOMES)
 	awk 'BEGIN{print">mask";for(i=0;i<$(GENOMESIZE);i++) {printf "."}print""}' > ref/mask_clean.fa
-	#cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
-	cp $(SEQ) ref/ref.fa
-	cp $(SEQ) ref/genome0.fa
-	cp ref/mask_clean.fa ref/mask0.fa
+	cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
+	# cp $(SEQ) ref/ref.fa
+	# cp $(SEQ) ref/genome0.fa
+	# cp ref/mask_clean.fa ref/mask0.fa
 
 REFPATH=$(realpath ref/ref.fa)
 
