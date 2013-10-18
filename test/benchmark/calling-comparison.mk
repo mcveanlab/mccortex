@@ -114,8 +114,11 @@ endif
 READLISTS=$(shell echo reads/reads{1..$(NUM_INDIVS)}.{1,2}.falist)
 
 MGLIST=$(shell for i in {1..$(NCHROMS)}; do echo -n " genomes/genome$$i.fa genomes/mask$$i.fa"; done)
-MGLIST_noref=ref/genome0.fa ref/mask_clean.fa $(MGLIST)
-MGLIST_ref=ref/genome0.fa ref/mask0.fa $(MGLIST)
+MGLIST_DECOMP_noref=ref/genome0.fa ref/mask_clean.fa $(MGLIST)
+MGLIST_DECOMP_ref=ref/genome0.fa ref/mask0.fa $(MGLIST)
+
+MGLIST_BUBBLES_noref=$(MGLIST)
+MGLIST_BUBBLES_ref=ref/genome0.fa ref/mask0.fa $(MGLIST)
 
 se_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
 	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
@@ -203,7 +206,8 @@ $(BUBNEWCMPRULES): compare-new-%-bubbles: k$(KMER)/vcfs/truth.%.bub.vcf k$(KMER)
 	@echo == Truth ==
 	$(HAPLEN) k$(KMER)/vcfs/truth.$*.bub.vcf
 
-compare-normvcf: $(NORMVCFS) k$(KMER)/vcfs/truth.ref.norm.vcf k$(KMER)/vcfs/truth.noref.norm.vcf $(NORMCMPRULES)
+compare-normvcf: $(NORMCMPRULES)
+$(NORMCMPRULES): $(NORMVCFS) k$(KMER)/vcfs/truth.ref.norm.vcf k$(KMER)/vcfs/truth.noref.norm.vcf $(NORMCMPRULES)
 $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 	@echo == $< ==
 	r=`echo $* | grep -oE '(no)*ref'`; if [[ $$r == '' ]]; then r='ref'; fi; \
@@ -310,11 +314,11 @@ k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
-	$(BIOINF)/sim_mutations/sim_bubble_vcf.pl $(KMER) $(MGLIST_$*) > $@
+	$(BIOINF)/sim_mutations/sim_bubble_vcf.pl $(KMER) $(MGLIST_BUBBLES_$*) > $@
 
 k$(KMER)/vcfs/truth.%.decomp.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
-	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(MGLIST_$*) > k$(KMER)/vcfs/truth.$*.decomp.vcf
+	$(BIOINF)/sim_mutations/sim_decomp_vcf.pl $(MGLIST_DECOMP_$*) > k$(KMER)/vcfs/truth.$*.decomp.vcf
 
 k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.fa.gz: k$(KMER)/bubbles/samples.%.bubbles.gz
 	mkdir -p k$(KMER)/vcfs
