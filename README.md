@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-7 October 2013
+26 October 2013
 
 Build
 -----
@@ -17,8 +17,6 @@ Build
 Compiles with clang and gcc. Tested on Mac OS X and linux. Requires zlib.
 The first compile will take a while since the libraries in libs/ need to be
 downloaded and compiled.
-
-    cd libs; make; cd ..
 
 To compile for a maximum kmer size of 31:
 
@@ -28,13 +26,13 @@ to compile for a maximum kmer size of 63:
 
     make MAXK=63
 
-executables appear in the bin directory
+executables appear in the bin/ directory
 
 Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: 0.0
+    version: 0.0; zlib: 1.2.5
 
     Command:  build       FASTA/FASTQ/BAM -> binary graph file
               view        view and check a cortex graph file (.ctx)
@@ -44,6 +42,7 @@ Commands
               subgraph    filter a subgraph
               reads       filter reads against a graph
               extend      extend contigs using a graph
+              contigs     pull out contigs for a sample
               inferedges  infer edges before calling `thread`
               thread      thread reads through cleaned population
               pview       view read threading information
@@ -79,9 +78,39 @@ will load colours 0, 3, 4, 5 and 6 from graph file in.ctx
 Common Pipelines
 ----------------
 
-Example pipelines -here- shortly:
-1. One high depth sample
-2. Multiple low depth samples
+Construct graphs for three samples (using 70GB ram):
+
+    ctx31 build -m 70G -k 31 --sample NA12878 --seq input.fq.gz NA12878.ctx
+    ctx31 build -m 70G -k 31 --sample Mickey --seq2 reads.1.fq.gz reads.2.fq.gz Mickey.ctx
+    ctx31 build -m 70G -k 31 --sample Minnie --seq data.bam Minnie.ctx
+
+Construct graph for the reference (hg19)
+
+    ctx31 build -m 70G -k 31 --sample hg19 --seq hg19.fa.gz hg19.ctx
+
+A) 'Clean' graphs to remove sequencing error (per sample, for high coverage samples)
+
+    ctx31 clean NA12878.clean.ctx NA12878.ctx
+    ctx31 clean Mickey.clean.ctx Mickey.ctx
+    ctx31 clean Minnie.clean.ctx Minnie.ctx
+
+...then merge graphs into file `refAndSamples.ctx`. Uses 80GB ram:
+
+    ctx31 join -m 80G refAndSamples.clean.ctx hg19.ctx NA12878.clean.ctx Mickey.clean.ctx Minnie.clean.ctx
+
+B) Alternatively merge uncleaned samples then clean on the populations (multiple low depth samples). Uses 80GB ram:
+
+    ctx31 join -m 80G refAndSamples.ctx hg19.ctx NA12878.clean.ctx Mickey.clean.ctx Minnie.clean.ctx
+    ctx31 clean refAndSamples.clean refAndSamples.ctx
+
+Now we have cortex graphs of the reference and our samples with sequencing error removed.
+
+Coming soon:
+
+1. ctx31 thread
+2. ctx31 call
+3. ctx31 unique
+4. ctx31 place
 
 Getting Helps
 -------------
