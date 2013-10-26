@@ -13,11 +13,11 @@
 
 typedef struct
 {
+  // uint32_t file_ncols;
   uint32_t version, kmer_size, num_of_bitfields, num_of_cols, max_col;
   uint64_t num_of_kmers;
-  // Cleaning info etc for each colour
-  GraphInfo *ginfo;
-  uint32_t capacity; // number of colours malloc'd
+  GraphInfo *ginfo; // Cleaning info etc for each colour
+  size_t capacity; // number of ginfo objects malloc'd
 } GraphFileHeader;
 
 // Get an array of colour indices for a binary.
@@ -29,7 +29,9 @@ void graph_file_parse_colours(const char *str, uint32_t *arr, uint32_t max_col);
 
 void graph_header_alloc(GraphFileHeader *header, size_t num_of_cols);
 void graph_header_dealloc(GraphFileHeader *header);
-void graph_header_cpy(GraphFileHeader *dst, const GraphFileHeader *src);
+
+// Copy non-colour specific values
+void graph_header_global_cpy(GraphFileHeader *dst, const GraphFileHeader *src);
 
 // If fatal == false, returns -1 on error
 // path is used when reporting errors
@@ -40,9 +42,19 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *header,
 size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *header, const char *path,
                             uint64_t *bkmer, Covg *covgs, Edges *edges);
 
+// PROPOSED:
+// size_t graph_file_read_kmer2(FILE *fh, const char *path,
+//                              const GraphFileHeader *header,
+//                              const GraphFileFilter *gff,
+//                              uint64_t *bkmer, Covg *covgs, Edges *edges);
+
 // returns 0 if cannot read, 1 otherwise
 boolean graph_file_probe(const char* ctx_path, boolean *valid_ctx,
                          GraphFileHeader *gheader);
+
+// PROPOSED:
+// boolean graph_file_probe2(const char* ctx_path, boolean *valid_ctx,
+//                           GraphFileHeader *gheader, GraphFileFilter *gff);
 
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing
 // colour only_load_if_in_colour will be loaded.
@@ -58,8 +70,23 @@ uint32_t graph_load(const char *path,
                     const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
                     GraphFileHeader *header);
 
+// PROPOSED:
+// uint32_t graph_load_filter(const char *path, const GraphFileFilter *gff,
+//                            const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+//                            GraphFileHeader *header);
+
 uint32_t graph_load_colour(const char *path, const SeqLoadingPrefs *prefs,
                            SeqLoadingStats *stats, uint32_t colour);
+
+// Load a kmer and write to a file one kmer at a time
+// Optionally filter a against the graph currently loaded
+//   (i.e. only keep nodes and edges that are in the graph)
+// Same functionality as graph_files_merge, but faster if dealing with only one
+// input file. Reads in and dumps one kmer at a time
+// parameter: flatten: if true merge colours into one
+size_t graph_stream_filter(const char *out_ctx_path, char *in_ctx_path,
+                           boolean flatten, const dBGraph *db_graph,
+                           const char *intersect_gname);
 
 // ctx_num_cols and ctx_max_cols are the numbers returned from binary_probe
 // if merge pool colour 0 from each binary into colour 0, 1 -> 1 etc.
@@ -78,13 +105,17 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
 // Writing
 //
 
-void graph_write_empty(const dBGraph *db_graph, FILE *fh, uint32_t num_of_cols);
+void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols);
 
 // Dump a single colour into an existing binary
 // FILE *fh must already point to the first bkmer
 // if merge is true, read existing covg and edges and combine with outgoing
-void graph_file_write_colour(dBGraph *db_graph, Colour graphcol,
-                             Colour intocol, uint32_t num_of_cols, FILE *fh);
+void graph_file_write_colour(const dBGraph *db_graph, Colour graphcol,
+                             Colour intocol, size_t file_ncols, FILE *fh);
+
+void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
+                             Colour intocol, size_t write_ncols,
+                             size_t file_ncols, FILE *fh);
 
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *header);

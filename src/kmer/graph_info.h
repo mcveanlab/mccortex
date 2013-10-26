@@ -9,7 +9,7 @@ void graph_info_alloc(GraphInfo *ginfo);
 void graph_info_dealloc(GraphInfo *ginfo);
 
 void graph_info_make_intersect(const GraphInfo *ginfo, StrBuf *intersect_name);
-void graph_info_set_intersect(ErrorCleaning *cleaning, const char *intersect_name);
+void graph_info_append_intersect(ErrorCleaning *cleaning, const char *intersect_name);
 
 // Update mean read length in a colour, eg when you merge a new binary
 // what it used to be, ie the previous_seq)

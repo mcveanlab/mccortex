@@ -55,7 +55,6 @@ IDIR_HTS = libs/htslib/htslib
 IDIR_STRS = libs/string_buffer
 IDIR_SEQ = libs/seq_file
 IDIR_ALIGN = libs/seq-align/src
-IDIR_SEQAN = libs/seqan-library-1.4.0/include/
 IDIR_HASH = libs/hash_functions
 
 LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
@@ -68,7 +67,7 @@ ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-INCS=-I src/basic/ -I src/common/ -I src/tools/ \
+INCS=-I src/basic/ -I src/kmer/ -I src/tools/ \
      -I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_GSL_HEADERS) $(EXTRA_INCS)
 
@@ -107,59 +106,56 @@ CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) \
          -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS) $(HASH_KEY_FLAGS) -D_USESAM=1
 
 # basic objects compile without MAXK
-# common and tool objects require MAXK
+# kmer and tool objects require MAXK
 BASIC_OBJDIR=build/basic
-COMMON_OBJDIR=build/common$(MAXK)
+KMER_OBJDIR=build/kmer$(MAXK)
 TOOLS_OBJDIR=build/tools$(MAXK)
 
 BASIC_SRCS=$(wildcard src/basic/*.c)
 BASIC_HDRS=$(wildcard src/basic/*.h)
-BASIC_FILES=$(notdir $(BASIC_SRCS)) call_seqan.o
+BASIC_FILES=$(notdir $(BASIC_SRCS))
 BASIC_OBJS=$(addprefix $(BASIC_OBJDIR)/, $(BASIC_FILES:.c=.o))
 
-COMMON_SRCS=$(wildcard src/common/*.c)
-COMMON_HDRS=$(wildcard src/common/*.h)
-COMMON_FILES=$(notdir $(COMMON_SRCS))
-COMMON_OBJS=$(addprefix $(COMMON_OBJDIR)/, $(COMMON_FILES:.c=.o))
+KMER_SRCS=$(wildcard src/kmer/*.c)
+KMER_HDRS=$(wildcard src/kmer/*.h)
+KMER_FILES=$(notdir $(KMER_SRCS))
+KMER_OBJS=$(addprefix $(KMER_OBJDIR)/, $(KMER_FILES:.c=.o))
 
 TOOLS_SRCS=$(wildcard src/tools/*.c)
 TOOLS_HDRS=$(wildcard src/tools/*.h)
 TOOLS_FILES=$(notdir $(TOOLS_SRCS))
 TOOLS_OBJS=$(addprefix $(TOOLS_OBJDIR)/, $(TOOLS_FILES:.c=.o))
 
-HDRS=$(TOOLS_HDRS) $(COMMON_HDRS) $(BASIC_HDRS)
+HDRS=$(TOOLS_HDRS) $(KMER_HDRS) $(BASIC_HDRS)
 
-# DEPS are common dependencies that do not need to be re-built per target
-DEPS=Makefile bin $(BASIC_OBJDIR) $(COMMON_OBJDIR) $(TOOLS_OBJDIR) $(LIB_OBJS)
+# DEPS are kmer dependencies that do not need to be re-built per target
+DEPS=Makefile bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR) $(LIB_OBJS)
 
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
-	OBJS=$(TOOLS_SRCS) $(COMMON_SRCS) $(BASIC_SRCS) build/basic/call_seqan.o $(LIB_OBJS)
+	OBJS=$(TOOLS_SRCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS)
 else
-	OBJS=$(TOOLS_OBJS) $(COMMON_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
+	OBJS=$(TOOLS_OBJS) $(KMER_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
 endif
 
-all: ctx traversal
-
-build/basic/call_seqan.o: src/basic/call_seqan.cpp src/basic/call_seqan.h | $(DEPS)
-	$(CXX) -Wall -Wextra -I $(IDIR_SEQAN) -c src/basic/call_seqan.cpp -o $@
+all: ctx
 
 $(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(COMMON_OBJDIR)/%.o: src/common/%.c $(BASIC_HDRS) $(COMMON_HDRS) | $(DEPS)
+$(KMER_OBJDIR)/%.o: src/kmer/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(DEPS)
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
-$(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(COMMON_HDRS) $(TOOLS_HDRS) | $(DEPS)
+$(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
 	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
-traversal: bin/traversal$(MAXK)
-bin/traversal$(MAXK): src/main/traversal.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/traversal.c $(OBJS) $(LINK)
+# traversal: bin/traversal$(MAXK)
+# bin/traversal$(MAXK): src/main/traversal.c $(OBJS) $(HDRS) | bin
+# 	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/traversal.c $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
@@ -172,8 +168,8 @@ bin:
 $(BASIC_OBJDIR):
 	mkdir -p $(BASIC_OBJDIR)
 
-$(COMMON_OBJDIR):
-	mkdir -p $(COMMON_OBJDIR)
+$(KMER_OBJDIR):
+	mkdir -p $(KMER_OBJDIR)
 
 $(TOOLS_OBJDIR):
 	mkdir -p $(TOOLS_OBJDIR)
@@ -186,4 +182,4 @@ libs/string_buffer/string_buffer.h:
 clean:
 	rm -rf bin build
 
-.PHONY: all clean ctx traversal
+.PHONY: all clean ctx

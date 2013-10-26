@@ -148,11 +148,11 @@ int ctx_build(CmdArgs *args)
       boolean is_binary = false;
 
       if(!graph_file_probe(argv[argi+1], &is_binary, &gheader)) {
-        print_usage(usage, "Cannot read binary file: %s", argv[argi+1]);
+        print_usage(usage, "Cannot read graph file: %s", argv[argi+1]);
       } else if(!is_binary) {
-        print_usage(usage, "Input binary file isn't valid: %s", argv[argi+1]);
+        print_usage(usage, "Input graph file isn't valid: %s", argv[argi+1]);
       } else if(gheader.kmer_size != kmer_size) {
-        print_usage(usage, "Input binary kmer_size doesn't match [%u vs %u]",
+        print_usage(usage, "Input graph kmer_size doesn't match [%u vs %u]",
                     gheader.kmer_size, kmer_size);
       }
       argi++;
@@ -161,7 +161,7 @@ int ctx_build(CmdArgs *args)
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
       if(argi + 1 >= argend)
-        print_usage("--sample <name> requires an argument", NULL);
+        print_usage(usage, "--sample <name> requires an argument");
       if(colours_used > 0 && !sample_used)
         warn("Empty colour (maybe you intended this)");
       argi++;
@@ -185,7 +185,7 @@ int ctx_build(CmdArgs *args)
   size_t bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true);
 
-  status("Writing %u colour binary to %s\n", colours_used, out_path);
+  status("Writing %u colour graph to %s\n", colours_used, out_path);
 
   // Create db_graph
   dBGraph db_graph;

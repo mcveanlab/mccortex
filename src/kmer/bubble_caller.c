@@ -475,7 +475,7 @@ static size_t remove_ref_paths(SupernodePathPos **spp_arr, size_t num_paths,
 {
   size_t r, p, seen[num_ref];
   memset(seen, 0, sizeof(size_t)*num_ref);
-  
+
   for(p = 0; p < num_paths; )
   {
     for(r = 0; r < num_ref; r++)
@@ -575,7 +575,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   CallerSupernode *snode;
   int col_has_node[4], num_edges_in_col;
 
-  for(colour = 0; colour < colours_loaded; colour++)  
+  for(colour = 0; colour < colours_loaded; colour++)
   {
     num_edges_in_col = 0;
 
@@ -776,7 +776,7 @@ void* bubble_caller(void *args)
   // hkey_t node;
   // tmpkmer = binary_kmer_from_str("AAGGTGACTGATCTGCCTGAGAAATGAACCT", db_graph->kmer_size);
   // node = hash_table_find(&db_graph->ht, tmpkmer);
-  
+
   BinaryKmer *table = db_graph->ht.table;
   BinaryKmer *ptr = table + tdata->start_hkey;
   BinaryKmer *end = table + tdata->end_hkey;
@@ -803,7 +803,7 @@ void* bubble_caller(void *args)
       }
     }
   }
-  
+
 
   graph_walker_dealloc(&wlk);
 

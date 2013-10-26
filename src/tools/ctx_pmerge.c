@@ -44,7 +44,7 @@ int ctx_pmerge(CmdArgs *args)
       print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
     else if(!is_binary)
       print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
-  
+
     num_kmers = gheader.num_of_kmers;
   }
 
@@ -155,6 +155,7 @@ int ctx_pmerge(CmdArgs *args)
   // Dump paths file
   FILE *fout = fopen(out_ctp_path, "w");
   if(fout == NULL) die("Cannot open output file: %s", out_ctp_path);
+  setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
   paths_header_update(&pheader, &db_graph.pdata);
   paths_format_write_header(&pheader, fout);
   paths_format_write_optimised_paths(&db_graph, fout);

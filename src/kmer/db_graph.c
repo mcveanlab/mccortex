@@ -197,7 +197,7 @@ void db_graph_prune_nodes_lacking_flag(dBGraph *db_graph, uint64_t *flags)
   if(db_graph->col_edges != NULL) {
     HASH_TRAVERSE(&db_graph->ht, prune_edges_to_nodes_lacking_flag,
                   db_graph, flags);
-  } 
+  }
 
   // Removed dead nodes
   HASH_TRAVERSE(&db_graph->ht, prune_nodes_lacking_flag_no_edges,

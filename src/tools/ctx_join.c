@@ -31,10 +31,11 @@ static const char usage[] =
 "  Merge cortex binaries.  \n"
 "\n"
 "  Options:\n"
-"   -m <mem>     Memory to use\n"
-"   -h <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   --merge      Merge corresponding colours from each binary\n"
-"   --flatten    Dump into a single colour binary\n"
+"   -m <mem>      Memory to use\n"
+"   -h <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+// "   --usecols <c> How many colours to load at once [default: 1]\n"
+"   --merge       Merge corresponding colours from each graph file\n"
+"   --flatten     Dump into a single colour graph\n"
 "\n"
 "   --intersect <a.ctx>\n"
 "     Only load the kmers that are in graph A.ctx. Can be specified multiple times.\n"
@@ -61,9 +62,9 @@ int ctx_join(CmdArgs *args)
   boolean merge = false, flatten = false;
 
   int argi;
-  size_t num_intersect = 0;
+  size_t num_intersect = 0, use_ncols = 1;
 
-  for(argi = 0; argi < argc; argi++) {
+  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
     if(strcasecmp(argv[argi],"--merge") == 0) {
       if(merge) warn("merge specified twice");
       merge = true;
@@ -75,14 +76,21 @@ int ctx_join(CmdArgs *args)
     else if(strcasecmp(argv[argi],"--intersect") == 0)
     {
       if(argi+1 >= argc)
-        print_usage(usage, "--intersect <A.ctx> requires and argument");
+        print_usage(usage, "--intersect <A.ctx> requires an argument");
       num_intersect++;
       argi++;
     }
-    else if(argv[argi][0] == '-') {
+    else if(strcasecmp(argv[argi],"--usecols") == 0)
+    {
+      unsigned int tmp;
+      if(argi+1 >= argc || !parse_entire_uint(argv[argi+1], &tmp))
+        print_usage(usage, "--usecols <c> requires a positive integer argument");
+      use_ncols = tmp;
+      argi++;
+    }
+    else {
       print_usage(usage, "Unknown argument '%s'", argv[argi]);
     }
-    else break;
   }
 
   // Store intersection files
@@ -108,7 +116,7 @@ int ctx_join(CmdArgs *args)
 
   // Check all binaries are valid binaries with matching kmer size
   boolean is_binary = false;
-  size_t i, col, kmer_size = 0, ctx_max_kmers = 0;
+  size_t i, col, kmer_size = 0, ctx_max_kmers = 0, total_cols = 0;
   uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
   GraphFileHeader gheader = {.capacity = 0};
   char *path;
@@ -129,6 +137,7 @@ int ctx_join(CmdArgs *args)
     ctx_num_cols[i] = gheader.num_of_cols;
     ctx_max_cols[i] = gheader.max_col;
     ctx_max_kmers = MAX2(gheader.num_of_kmers, ctx_max_kmers);
+    total_cols += gheader.num_of_cols;
 
     if(i == 0)
       kmer_size = gheader.kmer_size;
@@ -161,12 +170,29 @@ int ctx_join(CmdArgs *args)
   if(num_intersect > 0)
     ctx_max_kmers = min_intersect_num_kmers;
 
+  if(use_ncols > 1 && flatten) {
+    warn("I only need one colour for '--flatten' ('--usecols %zu' ignored)", use_ncols);
+    use_ncols = 1;
+  }
+  else if(use_ncols > total_cols) {
+    warn("I only need %zu colours ('--usecols %zu' ignored)", total_cols, use_ncols);
+    use_ncols = total_cols;
+  }
+
+  if(total_cols == 1 && num_intersect == 0)
+  {
+    // Loading only one binary with no intersection filter
+    // don't need to store a graph in memory
+    graph_stream_filter(out_ctx_path, binary_paths[0], flatten, NULL, NULL);
+    return EXIT_SUCCESS;
+  }
+
   //
   // Decide on memory
   //
   size_t extra_bits_per_kmer, kmers_in_hash;
 
-  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
+  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                         ctx_max_kmers, true);
 
@@ -176,9 +202,9 @@ int ctx_join(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
+  db_graph_alloc(&db_graph, kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
   // Load intersection binaries
   char *intsct_gname_ptr = NULL;
@@ -198,6 +224,9 @@ int ctx_join(CmdArgs *args)
                              .quality_cutoff = 0, .ascii_fq_offset = 0,
                              .homopolymer_cutoff = 0,
                              .remove_dups_se = false, .remove_dups_pe = false};
+
+    Edges *tmpcoledges = db_graph.col_edges;
+    db_graph.col_edges = NULL;
 
     for(i = 0; i < num_intersect; i++)
     {
@@ -220,9 +249,12 @@ int ctx_join(CmdArgs *args)
                     num_intersect, &db_graph.ht);
     }
 
-    // Zero covgs and edges
-    memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
-    memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
+    // Zero covgs
+    memset(db_graph.col_covgs, 0, db_graph.ht.capacity * use_ncols * sizeof(Covg));
+
+    // Swap edges with NULL instead of having to wipe
+    db_graph.col_edges = tmpcoledges;
+    // memset(db_graph.col_edges, 0, db_graph.ht.capacity * use_ncols * sizeof(Edges));
 
     status("Loaded intersection set\n");
   }

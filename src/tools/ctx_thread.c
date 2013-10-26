@@ -249,6 +249,8 @@ int ctx_thread(CmdArgs *args)
   if(fout == NULL)
     die("Unable to open binary paths file to write: %s\n", out_ctp_path);
 
+  setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
+
   //
   // Allocate memory
   //
@@ -323,7 +325,7 @@ int ctx_thread(CmdArgs *args)
         uint64_t prev_num_kmers = stats->kmers_loaded;
         graph_load_colour(binary_paths[ctxindex], &prefs, stats,
                           load_colours[ctxindex][ctxcol]);
-        
+
         // Check number of kmers loaded is not greater than pop graph
         uint64_t ctx_num_kmers = stats->kmers_loaded - prev_num_kmers;
         if(ctx_num_kmers > popgheader.num_of_kmers) {
@@ -334,7 +336,7 @@ int ctx_thread(CmdArgs *args)
 
         strbuf_set(&pheader.sample_names[path_col],
                    db_graph.ginfo[1].sample_name.buff);
-      
+
         argi += 2;
       }
       else if(strcmp(argv[argi], "--seq") == 0) {

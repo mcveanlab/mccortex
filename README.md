@@ -96,7 +96,7 @@ to the AUTHORS file.
 
 Code is organised as:
 * libs/       included library code from other projects
-* src/common  files that need recompiling based on different max kmer size (MAXK)
+* src/kmer    files that need recompiling based on different max kmer size (MAXK)
 * src/basic   files that do not depend on MAXK
 * src/tools   tools to do particular jobs
 * src/main    files with a main function go in here

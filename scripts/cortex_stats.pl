@@ -25,7 +25,8 @@ sub print_usage
 if(@ARGV != 1) { print_usage(); }
 my $file = shift;
 
-if(!(-r $file)) { print_usage("Cannot read file: $file\n"); }
+my ($path) = ($file =~ /^(.*):/);
+if(!(-r $path)) { print_usage("Cannot read file: $path\n"); }
 
 my $cmd = dirname(__FILE__)."/../bin/ctx31";
 

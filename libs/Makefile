@@ -4,7 +4,7 @@
 # make common   <- compile all repos (except gsl)
 # make update   <- pull + common
 
-all: gsl htslib string_buffer bit_array seq_file seq-align readsim seqan
+all: gsl htslib string_buffer bit_array seq_file seq-align readsim
 
 gsl-1.16/configure:
 	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.16.tar.gz
@@ -30,14 +30,9 @@ seq-align/Makefile:
 readsim/Makefile:
 	git clone git://github.com/noporpoise/readsim.git
 
-seqan-library-1.4.0/share/doc/seqan/LICENSE:
-	wget http://packages.seqan.de/seqan-library/seqan-library-1.4.0.tar.bz2
-	tar xfj seqan-library-1.4.0.tar.bz2
-
 fetch: gsl-1.16/configure htslib/Makefile \
 	     string_buffer/Makefile bit_array/Makefile \
-	     seq_file/Makefile seq-align/Makefile readsim/Makefile \
-	     seqan-library-1.4.0/share/doc/seqan/LICENSE
+	     seq_file/Makefile seq-align/Makefile readsim/Makefile
 
 pull:
 	cd htslib; git pull
@@ -73,8 +68,6 @@ seq-align: seq-align/Makefile
 readsim: readsim/Makefile
 	cd readsim; make HTSLIB=../htslib
 
-seqan: seqan-library-1.4.0/share/doc/seqan/LICENSE
-
 clean:
 	cd gsl-1.16; make clean
 	cd htslib; make clean
@@ -85,4 +78,4 @@ clean:
 	cd readsim; make clean
 
 .PHONY: all clean fetch pull common update
-.PHONY: gsl htslib string_buffer bit_array seq_file seq-align readsim seqan
+.PHONY: gsl htslib string_buffer bit_array seq_file seq-align readsim

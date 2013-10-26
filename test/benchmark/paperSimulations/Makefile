@@ -76,11 +76,11 @@ $(NAMES): $(SCRIPTS)
 	memwidth=25; memheight=25; \
 	errprof=; \
 	if [ $$species == 'Hs' ]; then \
-		ref=../chr1/chr1.fa; ploidy=2; allelecovg=30; \
+		ref=../chr1/chr1.fa; ploidy=2; allelecovg=30; subrate=0.001; \
 		if [ $$quant == 'Many' ]; then num=10; snps=$(HsManySNPs); indels=$(HsManyIndels); \
 		else num=1; snps=$(HsOneSNPs); indels=$(HsOneIndels); fi; \
 	else \
-		ref=../staph/staph.fa; ploidy=1; allelecovg=100; \
+		ref=../staph/staph.fa; ploidy=1; allelecovg=100; subrate=0.01; \
 		if [ $$quant == 'Many' ]; then num=1000; snps=$(StaphManySNPs); indels=$(StaphManyIndels); \
 		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); \
 				memwidth=21; memheight=21; \
@@ -91,7 +91,8 @@ $(NAMES): $(SCRIPTS)
 					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
 					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
 					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight "'$$@' > $*/run-sim.sh
+					MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight \
+					MAPARGS='--substitutionrate=$$subrate' "'$$@' > $*/run-sim.sh
 	chmod +x $*/run-sim.sh
 
 .PHONY: all clean test

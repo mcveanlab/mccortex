@@ -154,7 +154,7 @@ int ctx_view(CmdArgs *args)
   uint32_t load_colours[num_of_cols];
   graph_file_parse_colours(in_ctx_path, load_colours, inheader.num_of_cols-1);
 
-  graph_header_cpy(&outheader, &inheader);
+  graph_header_global_cpy(&outheader, &inheader);
   outheader.num_of_cols = num_of_cols;
   graph_header_alloc(&outheader, num_of_cols);
 

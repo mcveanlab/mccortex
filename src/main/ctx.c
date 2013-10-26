@@ -16,7 +16,7 @@ static const char usage[] =
 "          subgraph    filter a subgraph\n"
 "          reads       filter reads against a graph\n"
 "          extend      extend contigs using a graph\n"
-// "          contigs     pull out contigs for a sample          (unfinished)\n" // 2
+"          contigs     pull out contigs for a sample\n"
 "          inferedges  infer edges before calling `thread`\n"
 "          thread      thread reads through cleaned population\n"
 "          pview       view read threading information\n"
@@ -48,10 +48,11 @@ int main(int argc, char **argv)
   if(argc == 1) print_usage(usage, NULL);
   cmd_alloc(&args, argc, argv);
   if(args.cmdidx == -1) print_usage(usage, "Unrecognised command: %s", argv[1]);
-  
+
   boolean usestderr = (strcmp(argv[1], "view") == 0 ||
                        strcmp(argv[1], "pview") == 0 ||
-                       strcmp(argv[1], "place") == 0);
+                       strcmp(argv[1], "place") == 0 ||
+                       strcmp(argv[1], "contigs") == 0);
 
   ctx_msg_out = usestderr ? stderr : stdout;
 

@@ -42,7 +42,7 @@ static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
                                         src->remv_low_cov_nodes_thresh);
 
   if(src->is_graph_intersection)
-    graph_info_set_intersect(dst, src->intersection_name.buff);
+    graph_info_append_intersect(dst, src->intersection_name.buff);
 
   dst->is_graph_intersection |= src->is_graph_intersection;
 }
@@ -80,7 +80,7 @@ void graph_info_make_intersect(const GraphInfo *ginfo, StrBuf *intersect_name)
   }
 }
 
-void graph_info_set_intersect(ErrorCleaning *cleaning, const char *intersect_name)
+void graph_info_append_intersect(ErrorCleaning *cleaning, const char *intersect_name)
 {
   if(!cleaning->is_graph_intersection)
   {

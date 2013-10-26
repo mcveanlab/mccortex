@@ -125,7 +125,7 @@ int ctx_infer_edges(CmdArgs *args)
   int argc = args->argc;
   char **argv = args->argv;
   // if(argc != 1) print_usage(usage, NULL);
-  
+
   boolean add_pop_edges = false, add_all_edges = false;
   while(argc > 0 && argv[0][0] == '-') {
     if(strcmp(argv[0],"--all") == 0) {

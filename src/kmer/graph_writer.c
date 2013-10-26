@@ -12,7 +12,7 @@ static inline void dump_empty_bkmer(hkey_t node, const dBGraph *db_graph,
   fwrite(buf, 1, mem, fh);
 }
 
-void graph_write_empty(const dBGraph *db_graph, FILE *fh, uint32_t num_of_cols)
+void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
 {
   size_t mem = num_of_cols * (sizeof(Covg)+sizeof(Edges));
   char buf[mem];
@@ -111,36 +111,52 @@ size_t graph_write_kmer(FILE *fh, const GraphFileHeader *h,
   return 8*h->num_of_bitfields + 5*h->num_of_cols;
 }
 
-static inline void overwrite_kmer_colour(hkey_t node, dBGraph *db_graph,
-                                         Colour graphcol, Colour intocol,
-                                         uint32_t num_of_cols, FILE *fh)
+static inline void overwrite_kmer_colours(hkey_t node,
+                                          const dBGraph *db_graph,
+                                          Colour graphcol, Colour intocol,
+                                          size_t write_ncols, size_t file_ncols,
+                                          FILE *fh)
 {
-  Edges (*col_edges)[db_graph->num_of_cols]
+  const Edges (*col_edges)[db_graph->num_of_cols]
     = (Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
-  Covg (*col_covgs)[db_graph->num_of_cols]
+  const Covg (*col_covgs)[db_graph->num_of_cols]
     = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
-  uint32_t skip_cols = num_of_cols - intocol - 1;
-  Covg covg = col_covgs[node][graphcol];
-  Edges edges = col_edges[node][graphcol];
+  size_t skip_cols = file_ncols - intocol - write_ncols;
+  const Covg *covg = col_covgs[node] + graphcol;
+  const Edges *edges = col_edges[node] + graphcol;
 
   fseek(fh, sizeof(BinaryKmer) + intocol * sizeof(Covg), SEEK_CUR);
-  fwrite(&covg, sizeof(Covg), 1, fh);
-  fseek(fh, skip_cols * sizeof(Covg), SEEK_CUR);
-
-  fseek(fh, intocol * sizeof(Edges), SEEK_CUR);
-  fwrite(&edges, sizeof(Edges), 1, fh);
+  fwrite(covg, sizeof(Covg), write_ncols, fh);
+  fseek(fh, skip_cols * sizeof(Covg) + intocol * sizeof(Edges), SEEK_CUR);
+  fwrite(edges, sizeof(Edges), write_ncols, fh);
   fseek(fh, skip_cols * sizeof(Edges), SEEK_CUR);
+}
+
+// DEV: remove this and graph_file_write_colour (+from header)
+static inline void overwrite_kmer_colour(hkey_t node, const dBGraph *db_graph,
+                                         Colour graphcol, Colour intocol,
+                                         size_t file_ncols, FILE *fh)
+{
+  overwrite_kmer_colours(node, db_graph, graphcol, intocol, 1, file_ncols, fh);
 }
 
 // Dump a single colour into an existing binary
 // FILE *fh must already point to the first bkmer
 // if merge is true, read existing covg and edges and combine with outgoing
-void graph_file_write_colour(dBGraph *db_graph, Colour graphcol,
-                        Colour intocol, uint32_t num_of_cols, FILE *fh)
+void graph_file_write_colour(const dBGraph *db_graph, Colour graphcol,
+                             Colour intocol, size_t file_ncols, FILE *fh)
 {
   HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colour,
-                db_graph, graphcol, intocol, num_of_cols, fh);
+                db_graph, graphcol, intocol, file_ncols, fh);
+}
+
+void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
+                             Colour intocol, size_t write_ncols,
+                             size_t file_ncols, FILE *fh)
+{
+  HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colours,
+                db_graph, graphcol, intocol, write_ncols, file_ncols, fh);
 }
 
 // Dump node: only print kmers with coverages in given colours
@@ -207,9 +223,9 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
 
   FILE *fout = fopen(path, "w");
 
-  if(fout == NULL) {
-    die("Unable to open dump binary file to write: %s\n", path);
-  }
+  if(fout == NULL) die("Unable to open dump binary file to write: %s\n", path);
+
+  setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
 
   GraphInfo *ginfo = db_graph->ginfo;
 

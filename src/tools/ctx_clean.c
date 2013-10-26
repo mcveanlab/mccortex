@@ -460,6 +460,7 @@ int ctx_clean(CmdArgs *args)
     {
       FILE *fh = fopen(out_ctx_path, "w");
       if(fh == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
+      setvbuf(fh, NULL, _IOFBF, CTX_BUF_SIZE);
 
       size_t header_size = graph_write_header(fh, &output_header);
 

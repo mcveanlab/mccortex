@@ -57,6 +57,14 @@ int ctx_call(CmdArgs *args)
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
 
+  // Check reference colours
+  for(i = 0; i < num_ref; i++) {
+    if(ref_cols[i] >= gheader.num_of_cols) {
+      print_usage(usage, "--ref <col> is greater than max colour [%zu > %u]",
+                  ref_cols[i], gheader.num_of_cols-1);
+    }
+  }
+
   // probe paths file
   if(args->num_ctp_files > 1)
     print_usage(usage, "Sorry, we only accept one -p <in.ctp> at the moment");

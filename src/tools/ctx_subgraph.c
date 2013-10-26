@@ -325,7 +325,7 @@ int ctx_subgraph(CmdArgs *args)
   if(num_binaries == 1 && ctx_num_of_cols[0] == 1)
   {
     // We have all the info to dump now
-    graph_info_set_intersect(&db_graph.ginfo[0].cleaning, intersect_gname.buff);
+    graph_info_append_intersect(&db_graph.ginfo[0].cleaning, intersect_gname.buff);
     graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
   }
   else
