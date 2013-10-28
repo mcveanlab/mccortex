@@ -303,7 +303,7 @@ int ctx_clean(CmdArgs *args)
 
   // Probe binary files
   boolean is_binary = false;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
   uint32_t kmer_size = 0, num_of_cols = 0, max_cols = 0;
   uint32_t ctx_num_cols[num_binaries], ctx_max_cols[num_binaries];
   uint64_t max_ctx_kmers = 0;
@@ -381,7 +381,7 @@ int ctx_clean(CmdArgs *args)
        .db_graph = &db_graph};
 
   // Construct cleaned binary header
-  GraphFileHeader tmpheader = {.capacity = 0};
+  GraphFileHeader tmpheader = INIT_GRAPH_FILE_HDR;
   GraphFileHeader output_header = {.version = CTX_GRAPH_FILEFORMAT,
                                    .kmer_size = db_graph.kmer_size,
                                    .num_of_bitfields = NUM_BKMER_WORDS,

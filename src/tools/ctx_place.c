@@ -469,8 +469,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
       // print additional info tag headers
       // print additional filter headers
       printf(
-"##INFO=<ID=BUBREV,Number=1,Type=Flag,Description=\"Bubble mapped to minus strand\">\n"
-"##INFO=<ID=MQ,Number=1,Type=Flag,Description=\"MAPQ score of 5p flank mapping\">\n"
+"##INFO=<ID=BUBREV,Number=0,Type=Flag,Description=\"Bubble mapped to minus strand\">\n"
+"##INFO=<ID=MQ,Number=0,Type=Flag,Description=\"MAPQ score of 5p flank mapping\">\n"
 "##FILTER=<ID=MAPQ,Description=\"Mapped with MAPQ (<%u)\">\n"
 "##FILTER=<ID=NOSAM,Description=\"No SAM entry\">\n"
 "##FILTER=<ID=NOMAP,Description=\"Unmapped in SAM\">\n"

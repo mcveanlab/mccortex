@@ -70,6 +70,9 @@ void range_parse_array(const char *str, uint32_t *arr, uint32_t range_max)
       for(j = start; j <= start; j--) arr[num_cols++] = j;
   }
 
+  if(ptr > str && *(ptr-1) == ',')
+      die("Invalid range specifier: %s [max: %u]", str, range_max);
+
   if(num_cols == 0) {
     for(num_cols = 0; num_cols <= range_max; num_cols++)
       arr[num_cols] = num_cols;

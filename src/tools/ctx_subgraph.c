@@ -173,7 +173,7 @@ int ctx_subgraph(CmdArgs *args)
   boolean is_binary = false;
   uint32_t ctx_num_of_cols[num_binaries], ctx_max_cols[num_binaries];
   uint64_t max_num_kmers = 0;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   for(i = 0; i < num_binaries; i++)
   {

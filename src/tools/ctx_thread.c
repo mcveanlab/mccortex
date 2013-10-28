@@ -139,7 +139,7 @@ int ctx_thread(CmdArgs *args)
   uint32_t ctx_num_of_cols[num_binaries], ctx_max_cols[num_binaries];
   uint32_t max_num_cols = 0;
 
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   uint64_t ctx_max_kmers = 0;
   size_t i;

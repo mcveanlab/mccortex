@@ -24,7 +24,7 @@ int ctx_pview(CmdArgs *args)
 
   // probe paths file to get kmer size
   boolean valid_paths_file = false;
-  PathFileHeader pheader = {.capacity = 0};
+  PathFileHeader pheader = INIT_GRAPH_FILE_HDR;
 
   if(!paths_file_probe(input_paths_file, &valid_paths_file, &pheader))
   {

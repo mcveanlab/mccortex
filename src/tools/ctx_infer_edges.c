@@ -146,7 +146,7 @@ int ctx_infer_edges(CmdArgs *args)
   const char *path = argv[0];
   dBGraph db_graph;
   boolean is_binary = false;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(path, &is_binary, &gheader))
     print_usage(usage, "Cannot read input binary file: %s", path);

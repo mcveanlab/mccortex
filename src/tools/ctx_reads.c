@@ -204,7 +204,7 @@ int ctx_reads(CmdArgs *args)
   boolean is_binary = false;
   uint32_t kmer_size = 0;
   uint64_t max_num_kmers = 0;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   for(i = 0; i < num_binaries; i++)
   {

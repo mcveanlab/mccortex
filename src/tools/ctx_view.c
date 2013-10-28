@@ -10,6 +10,7 @@
 #include "db_node.h"
 #include "graph_info.h"
 #include "graph_format.h"
+#include "graph_file_filter.h"
 
 static const char usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"
@@ -105,7 +106,6 @@ int ctx_view(CmdArgs *args)
 
   boolean print_info = false, parse_kmers = false, print_kmers = false;
   size_t num_errors = 0, num_warnings = 0;
-  char *in_ctx_path;
   int argi;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
@@ -121,72 +121,80 @@ int ctx_view(CmdArgs *args)
 
   if(argi+1 < argc) print_usage(usage, NULL);
 
-  in_ctx_path = argv[argc-1];
+  GraphFileReader file = INIT_GRAPH_READER;
+  char *path = argv[argc-1];
+  int ret = graph_file_open(&file, path, true);
+  if(ret == 0) die("Cannot open file: %s", path);
 
-  FILE *in;
+  // char *in_ctx_path = argv[argc-1];
+  // char *path_start, *path_end;
+  // graph_file_filter_deconstruct(in_ctx_path, &path_start, &path_end);
 
-  char *split = strchr(in_ctx_path, ':');
-  if(split != NULL) *split = '\0';
+  // char path_lchar = *path_end;
+  // *path_end = '\0';
 
-  // Get file size in case we need to count kmers
-  off_t fsize = get_file_size(in_ctx_path);
+  // // Get file size in case we need to count kmers
+  // off_t fsize = get_file_size(path_start);
 
-  if((in = fopen(in_ctx_path, "r")) == NULL)
-    die("Cannot open input path: %s", in_ctx_path);
-  setvbuf(in, NULL, _IOFBF, CTX_BUF_SIZE);
+  // FILE *in;
+  // GraphFileHeader outheader = INIT_GRAPH_FILE_HDR, inheader = INIT_GRAPH_FILE_HDR;
+  // GraphFileFilter gff;
+
+  // if((in = fopen(path_start, "r")) == NULL)
+  //   die("Cannot open input path: %s", path_start);
+  // setvbuf(in, NULL, _IOFBF, CTX_BUF_SIZE);
 
   if(print_info)
   {
     char fsize_str[50];
-    bytes_to_str(fsize, 0, fsize_str);
-    printf("Loading file: %s\n", in_ctx_path);
+    bytes_to_str(file.file_size, 0, fsize_str);
+    printf("Loading file: %s\n", file.path);
     printf("File size: %s\n", fsize_str);
     printf("----\n");
   }
 
-  GraphFileHeader outheader = {.capacity = 0}, inheader = {.capacity = 0};
-  size_t hsize = graph_file_read_header(in, &inheader, true, in_ctx_path);
+  // size_t hsize = graph_file_read_header(in, &inheader, true, path_start);
 
-  uint32_t kmer_size = inheader.kmer_size;
+  // *path_end = path_lchar;
+  // graph_file_filter_alloc(&gff, in_ctx_path, &inheader);
+  // gff.fh = in;
 
-  if(split != NULL) *split = ':';
-  uint32_t num_of_cols = graph_file_get_ncols(in_ctx_path, inheader.num_of_cols-1);
-  uint32_t load_colours[num_of_cols];
-  graph_file_parse_colours(in_ctx_path, load_colours, inheader.num_of_cols-1);
+  size_t ncols = graph_file_outncols(&file);
 
-  graph_header_global_cpy(&outheader, &inheader);
-  outheader.num_of_cols = num_of_cols;
-  graph_header_alloc(&outheader, num_of_cols);
+  GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
+  graph_header_global_cpy(&outheader, &file.hdr);
+  graph_header_alloc(&outheader, ncols);
+  outheader.num_of_cols = ncols;
 
   size_t i;
   uint64_t sum_of_covgs_read = 0, sum_of_seq_loaded = 0;
 
-  for(i = 0; i < num_of_cols; i++) {
-    graph_info_cpy(outheader.ginfo + i, inheader.ginfo + load_colours[i]);
+  for(i = 0; i < file.ncols; i++) {
+    graph_info_merge(outheader.ginfo + i, file.hdr.ginfo + file.cols[i]);
     sum_of_seq_loaded += outheader.ginfo[i].total_sequence;
   }
 
-  if(inheader.version < 7)
-  {
-    size_t bytes_per_kmer = sizeof(BinaryKmer) +
-                            inheader.num_of_cols * (sizeof(Covg) + sizeof(Edges));
-    size_t bytes_remaining = fsize - hsize;
-    outheader.num_of_kmers = (bytes_remaining / bytes_per_kmer);
-    if(bytes_remaining % bytes_per_kmer != 0) {
-      loading_warning("Truncated ctx binary: %s [bytes per kmer: %zu "
-                      "remaining: %zu; fsize: %zu; header: %zu]",
-                      in_ctx_path, bytes_per_kmer, bytes_remaining,
-                      (size_t)fsize, hsize);
-    }
-  }
+  // if(file.hdr.version < 7)
+  // {
+  //   size_t bytes_per_kmer = sizeof(BinaryKmer) +
+  //                           file.hdr.num_of_cols * (sizeof(Covg) + sizeof(Edges));
+  //   size_t bytes_remaining = fsize - hsize;
+  //   outheader.num_of_kmers = (bytes_remaining / bytes_per_kmer);
+  //   if(bytes_remaining % bytes_per_kmer != 0) {
+  //     loading_warning("Truncated ctx binary: %s [bytes per kmer: %zu "
+  //                     "remaining: %zu; fsize: %zu; header: %zu]",
+  //                     in_ctx_path, bytes_per_kmer, bytes_remaining,
+  //                     (size_t)fsize, hsize);
+  //   }
+  // }
 
   // Print header
   if(print_info)
     print_header(&outheader);
 
   BinaryKmer bkmer;
-  Covg kmercovgs[inheader.num_of_cols], covgs[num_of_cols];
-  Edges kmeredges[inheader.num_of_cols], edges[num_of_cols];
+  Covg covgs[ncols];
+  Edges edges[ncols];
 
   char bkmerstr[MAX_KMER_SIZE+1], edgesstr[9];
 
@@ -197,16 +205,11 @@ int ctx_view(CmdArgs *args)
   {
     if(print_info && print_kmers) printf("----\n");
 
-    while(graph_file_read_kmer(in, &inheader, in_ctx_path, bkmer.b, kmercovgs, kmeredges))
+    while(graph_file_read(&file, &bkmer, covgs, edges))
     {
-      // Collapse down colours
-      for(i = 0; i < num_of_cols; i++) {
-        covgs[i] = kmercovgs[load_colours[i]];
-        edges[i] = kmeredges[load_colours[i]];
-      }
       // beware: if kmer has no covg or edges we still print it
 
-      for(i = 0; i < num_of_cols; i++)
+      for(i = 0; i < ncols; i++)
         sum_of_covgs_read += covgs[i];
 
       /* Kmer Checks */
@@ -217,7 +220,7 @@ int ctx_view(CmdArgs *args)
       // Check for all-zeros (i.e. all As kmer: AAAAAA)
       uint64_t kmer_words_or = 0;
 
-      for(i = 0; i < inheader.num_of_bitfields; i++)
+      for(i = 0; i < file.hdr.num_of_bitfields; i++)
         kmer_words_or |= bkmer.b[i];
 
       if(kmer_words_or == 0)
@@ -232,21 +235,21 @@ int ctx_view(CmdArgs *args)
       }
 
       // Check covg is 0 for all colours
-      for(i = 0; i < num_of_cols && covgs[i] == 0; i++);
-      num_of_zero_covg_kmers += (i == num_of_cols);
+      for(i = 0; i < ncols && covgs[i] == 0; i++);
+      num_of_zero_covg_kmers += (i == ncols);
 
       // Print
       if(print_kmers)
       {
-        binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
+        binary_kmer_to_str(bkmer, file.hdr.kmer_size, bkmerstr);
         fputs(bkmerstr, stdout);
 
         // Print covgs
-        for(i = 0; i < num_of_cols; i++)
+        for(i = 0; i < ncols; i++)
           fprintf(stdout, " %u", covgs[i]);
 
         // Print edges
-        for(i = 0; i < num_of_cols; i++) {
+        for(i = 0; i < ncols; i++) {
           fputc(' ', stdout);
           fputs(get_edges_str(edges[i], edgesstr), stdout);
         }
@@ -260,21 +263,21 @@ int ctx_view(CmdArgs *args)
 
   // check for various reading errors
   if(errno != 0)
-    loading_error("errno set [%i]\n", (int)errno);
+    loading_error("errno set [%i]: %s\n", (int)errno, strerror(errno));
 
-  int err = ferror(in);
+  int err = ferror(file.fh);
   if(err != 0)
     loading_error("occurred after file reading [%i]\n", err);
 
-  fclose(in);
+  // fclose(in);
 
   char num_str[50];
 
   if(print_kmers || parse_kmers)
   {
-    if(num_of_kmers_read != inheader.num_of_kmers) {
+    if(num_of_kmers_read != file.hdr.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
-                      (size_t)inheader.num_of_kmers, (size_t)num_of_kmers_read);
+                      (size_t)file.hdr.num_of_kmers, (size_t)num_of_kmers_read);
     }
 
     if(num_of_all_zero_kmers > 1)
@@ -308,7 +311,7 @@ int ctx_view(CmdArgs *args)
                    &num_buckets, &bucket_size);
     capacity = num_buckets * bucket_size;
     mem = capacity * (sizeof(BinaryKmer) +
-          outheader.num_of_cols * (sizeof(Covg) + sizeof(Edges)));
+          ncols * (sizeof(Covg) + sizeof(Edges)));
 
     char memstr[100], capacitystr[100], bucket_size_str[100], num_buckets_str[100];
     bytes_to_str(mem, 1, memstr);
@@ -323,7 +326,7 @@ int ctx_view(CmdArgs *args)
     printf("  bucket size: %s; number of buckets: %s\n",
             bucket_size_str, num_buckets_str);
     printf("  --kmer_size %u --mem_height %i --mem_width %i\n",
-            kmer_size, mem_height, bucket_size);
+           file.hdr.kmer_size, mem_height, bucket_size);
   }
 
   if((print_kmers || parse_kmers) && print_info)
@@ -337,8 +340,8 @@ int ctx_view(CmdArgs *args)
       printf(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
   }
 
-  graph_header_dealloc(&inheader);
   graph_header_dealloc(&outheader);
+  graph_file_close(&file);
 
   return EXIT_SUCCESS;
 }

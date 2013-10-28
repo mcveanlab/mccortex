@@ -68,7 +68,7 @@ int ctx_supernodes(CmdArgs *args)
   size_t i, num_binaries;
   char **binary_paths;
   boolean is_binary = false;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
   uint64_t max_ctx_kmers = 0;
 
   if(strcasecmp(argv[0],"--fastg") == 0) {

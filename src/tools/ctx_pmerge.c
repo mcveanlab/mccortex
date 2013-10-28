@@ -34,7 +34,7 @@ int ctx_pmerge(CmdArgs *args)
   // probe binary
   uint64_t num_kmers = args->num_kmers;
   uint32_t ctp_num_of_cols, ctp_kmer_size;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(args->file_set)
   {
@@ -49,7 +49,7 @@ int ctx_pmerge(CmdArgs *args)
   }
 
   uint64_t max_ctp_path_bytes = 0;
-  PathFileHeader pheader = {.capacity = 0};
+  PathFileHeader pheader = INIT_GRAPH_FILE_HDR;
 
   int argi;
   for(argi = 2; argi < argc; argi++)

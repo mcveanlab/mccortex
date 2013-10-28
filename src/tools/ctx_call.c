@@ -50,7 +50,7 @@ int ctx_call(CmdArgs *args)
 
   // Probe binary to get kmer_size
   boolean is_binary = false;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
     print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
@@ -72,7 +72,7 @@ int ctx_call(CmdArgs *args)
   const char *input_paths_file = args->num_ctp_files ? args->ctp_files[0] : NULL;
 
   boolean valid_paths_file = false;
-  PathFileHeader pheader = {.capacity = 0};
+  PathFileHeader pheader = INIT_GRAPH_FILE_HDR;
 
   if(input_paths_file != NULL)
   {

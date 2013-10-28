@@ -92,7 +92,7 @@ int ctx_build(CmdArgs *args)
   // Validate arguments
   int argi, argend = argc-1;
   uint32_t tmp;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
   seq_file_t *seqfiles[argc];
   size_t num_sf = 0, sf = 0;
 

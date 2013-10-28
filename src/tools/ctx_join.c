@@ -118,7 +118,7 @@ int ctx_join(CmdArgs *args)
   boolean is_binary = false;
   size_t i, col, kmer_size = 0, ctx_max_kmers = 0, total_cols = 0;
   uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
   char *path;
 
   for(i = 0; i < num_binaries; i++)

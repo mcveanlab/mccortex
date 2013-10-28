@@ -66,7 +66,7 @@ int ctx_covg(CmdArgs *args)
 
   // Probe binary
   boolean is_binary = false;
-  GraphFileHeader gheader = {.capacity = 0};
+  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(in_ctx_path, &is_binary, &gheader))
     print_usage(usage, "Cannot read input binary file: %s", in_ctx_path);

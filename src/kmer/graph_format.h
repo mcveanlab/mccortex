@@ -5,20 +5,10 @@
 
 #include "file_reader.h"
 #include "db_graph.h"
+#include "graph_file_filter.h"
 
 // graph file format version
 #define CTX_GRAPH_FILEFORMAT 6
-// 4MB buffer
-#define CTX_BUF_SIZE (4UL<<20)
-
-typedef struct
-{
-  // uint32_t file_ncols;
-  uint32_t version, kmer_size, num_of_bitfields, num_of_cols, max_col;
-  uint64_t num_of_kmers;
-  GraphInfo *ginfo; // Cleaning info etc for each colour
-  size_t capacity; // number of ginfo objects malloc'd
-} GraphFileHeader;
 
 // Get an array of colour indices for a binary.
 // arr should be of length num_of_cols
@@ -39,20 +29,18 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *header,
                            boolean fatal, const char *path);
 
 // Returns number of bytes read
-size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *header, const char *path,
+size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
                             uint64_t *bkmer, Covg *covgs, Edges *edges);
 
-// PROPOSED:
-// size_t graph_file_read_kmer2(FILE *fh, const char *path,
-//                              const GraphFileHeader *header,
-//                              const GraphFileFilter *gff,
+// GFF: unproposed
+// size_t graph_file_read_kmer2(const GraphFileFilter *gff,
 //                              uint64_t *bkmer, Covg *covgs, Edges *edges);
 
 // returns 0 if cannot read, 1 otherwise
 boolean graph_file_probe(const char* ctx_path, boolean *valid_ctx,
                          GraphFileHeader *gheader);
 
-// PROPOSED:
+// NOT PROPOSED:
 // boolean graph_file_probe2(const char* ctx_path, boolean *valid_ctx,
 //                           GraphFileHeader *gheader, GraphFileFilter *gff);
 

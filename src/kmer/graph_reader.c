@@ -1,4 +1,5 @@
 #include "global.h"
+#include "graph_file_filter.h"
 #include "graph_format.h"
 #include "util.h"
 #include "file_util.h"
@@ -8,6 +9,7 @@
 #include "range.h"
 
 
+// GFF: remove
 // offset for loading a binary
 // e.g. 2:in.ctx means load in.ctx into colours 2..
 boolean graph_file_get_offset(char *path, char ** ptr)
@@ -18,12 +20,14 @@ boolean graph_file_get_offset(char *path, char ** ptr)
   else return false;
 }
 
+// GFF: remove
 uint32_t graph_file_get_ncols(const char *path, uint32_t max_col)
 {
   const char *ptr = strchr(path, ':');
   return (ptr != NULL ? range_get_num(ptr+1, max_col) : max_col+1);
 }
 
+// GFF: remove
 void graph_file_parse_colours(const char *path, uint32_t *arr, uint32_t max_col)
 {
   // Empty range is the same as :*
@@ -31,6 +35,7 @@ void graph_file_parse_colours(const char *path, uint32_t *arr, uint32_t max_col)
   range_parse_array(ptr == NULL ? "" : ptr+1, arr, max_col);
 }
 
+// GFF: remove
 uint32_t graph_load_colour(const char *path, const SeqLoadingPrefs *prefs,
                            SeqLoadingStats *stats, uint32_t colour)
 {
@@ -325,7 +330,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   return bytes_read;
 }
 
-size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *h, const char *path,
+size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
                             uint64_t *bkmer, Covg *covgs, Edges *edges)
 {
   size_t i, num_bytes_read;
@@ -351,6 +356,44 @@ size_t graph_file_read_kmer(FILE *fh, GraphFileHeader *h, const char *path,
 
   return num_bytes_read;
 }
+
+/*
+size_t graph_file_read_kmer2(const GraphFileFilter *gff,
+                             uint64_t *bkmer, Covg *covgs, Edges *edges)
+{
+  size_t i, num_bytes_read;
+  const size_t ncols = gff->hdr->num_of_cols;
+  const size_t nbitfields = gff->hdr->num_of_bitfields;
+  const size_t covg_bytes = ncols*sizeof(uint32_t);
+  const size_t edge_bytes = ncols*sizeof(uint8_t);
+  Covg kmercovgs[ncols];
+  Edges kmeredges[ncols];
+
+  num_bytes_read = fread(bkmer, 1, sizeof(uint64_t)*nbitfields, gff->fh);
+
+  if(num_bytes_read == 0) return 0;
+  if(num_bytes_read != sizeof(uint64_t)*nbitfields)
+    die("Unexpected end of file: %s", gff->path);
+
+  safe_fread(gff->fh, kmercovgs, covg_bytes, "Coverages", gff->path);
+  safe_fread(gff->fh, kmeredges, edge_bytes, "Edges", gff->path);
+  num_bytes_read += covg_bytes + edge_bytes;
+
+  // Check top word of each kmer
+  uint64_t top_word_mask = ~(uint64_t)0 << BKMER_TOP_BITS(gff->hdr->kmer_size);
+  if(bkmer[0] & top_word_mask) die("Oversized kmer in binary: %s", gff->path);
+
+  // Check covg is not 0 for all colours
+  for(i = 0; i < ncols && kmercovgs[i] == 0; i++) {}
+  if(i == ncols)
+    warn("Kmer has zero covg in all colours in binary: %s", gff->path);
+
+  // Pull out selected colours
+  graph_file_filter_load(covgs, edges, kmercovgs, kmeredges, gff);
+
+  return num_bytes_read;
+}
+*/
 
 // returns 0 if cannot read, 1 otherwise
 boolean graph_file_probe(const char* ctx_path, boolean *valid_ctx,
@@ -412,7 +455,7 @@ uint32_t graph_load(const char *ctx_path,
   if(fh == NULL) die("Cannot open file: %s\n", path);
   setvbuf(fh, NULL, _IOFBF, CTX_BUF_SIZE);
 
-  GraphFileHeader header_mem = {.capacity = 0};
+  GraphFileHeader header_mem = INIT_GRAPH_FILE_HDR;
 
   GraphFileHeader *header = header_ptr != NULL ? header_ptr : &header_mem;
   graph_file_read_header(fh, header, true, path);
@@ -627,7 +670,7 @@ size_t graph_stream_filter(const char *out_ctx_path, char *in_ctx_path,
   setvbuf(in, NULL, _IOFBF, CTX_BUF_SIZE);
   setvbuf(out, NULL, _IOFBF, CTX_BUF_SIZE);
 
-  GraphFileHeader inheader = {.capacity = 0};
+  GraphFileHeader inheader = INIT_GRAPH_FILE_HDR;
   graph_file_read_header(in, &inheader, true, in_ctx_path);
 
   if(split != NULL) *split = ':';
@@ -644,7 +687,7 @@ size_t graph_stream_filter(const char *out_ctx_path, char *in_ctx_path,
   if(flatten || num_of_cols == 1) message(" into colour %u\n", offset);
   else message(" into colours %u-%u\n", offset, offset+num_of_cols-1);
 
-  GraphFileHeader outheader = {.capacity = 0};
+  GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
   graph_header_global_cpy(&outheader, &inheader);
   outheader.num_of_cols = offset+num_of_cols;
   graph_header_alloc(&outheader, outheader.num_of_cols);
@@ -795,7 +838,7 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
       graph_file_parse_colours(binary_paths[i], load_colours[i], ctx_max_num_cols[i]);
 
     // Construct binary header
-    GraphFileHeader tmpheader = {.capacity = 0};
+    GraphFileHeader tmpheader = INIT_GRAPH_FILE_HDR;
     GraphFileHeader output_header = {.version = CTX_GRAPH_FILEFORMAT,
                                      .kmer_size = db_graph->kmer_size,
                                      .num_of_bitfields = NUM_BKMER_WORDS,
