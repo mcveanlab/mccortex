@@ -10,6 +10,10 @@
 
 #define USE_COUNTER_PATHS 1
 
+// For GraphWalker to work we assume all edges are merged into one colour
+// (i.e. graph->num_edge_cols == 1)
+// If only one colour loaded we assume all edges belong to this colour
+
 static void print_path_list(FollowPath **arr, size_t num)
 {
   size_t i, j;
@@ -153,6 +157,7 @@ void graph_walker_dealloc(GraphWalker *wlk)
   free(wlk->counter_paths);
 }
 
+// Returns number of paths picked up
 static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
                                   PathIndex index, Orientation orient,
                                   boolean counter)
@@ -206,8 +211,12 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   //   printf("INIT %s:%i\n", str, orient);
   // #endif
 
+  // Is this walker fresh? Was graph_walker_finish() called? 
   assert(wlk->num_curr == 0);
   assert(wlk->num_counter == 0);
+
+  // Is the graph loaded properly (all edges merged into one colour)
+  assert(graph->num_edge_cols == 1);
 
   GraphWalker gw = {.db_graph = graph, .ctxcol = ctxcol, .ctpcol = ctpcol,
                     .node = node, .orient = orient,
@@ -259,33 +268,39 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   if(num_next == 0) return -1;
   if(num_next == 1) return 0;
 
-  // Reduce next nodes that are
-  int indices[4];
+  int indices[4] = {0,1,2,3};
   hkey_t nodes[4];
   Nucleotide bases[4];
   size_t i, j;
 
-  for(i = 0, j = 0; i < num_next; i++)
+  // Reduce next nodes that are in this colour
+  if(wlk->db_graph->num_of_cols > 1)
   {
-    if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->ctxcol)) {
-      nodes[j] = next_nodes[i];
-      bases[j] = next_bases[i];
-      indices[j] = i;
-      j++;
+    for(i = 0, j = 0; i < num_next; i++)
+    {
+      if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->ctxcol)) {
+        nodes[j] = next_nodes[i];
+        bases[j] = next_bases[i];
+        indices[j] = i;
+        j++;
+      }
     }
+
+    num_next = j;
+
+    if(num_next == 1) return indices[0];
+    if(num_next == 0) return -1;
+  }
+  else {
+    memcpy(nodes, next_nodes, sizeof(hkey_t)*4);
+    memcpy(bases, next_bases, sizeof(Nucleotide)*4);
   }
 
-  num_next = j;
-  *is_fork_in_col = num_next > 1;
+  // We have hit a fork
+  *is_fork_in_col = true;
+  if(wlk->num_curr == 0) return -1;
 
-  if(num_next == 1) return indices[0];
-  if(num_next == 0 || wlk->num_curr == 0) return -1;
-
-  // printf("  curr: %zu; new: %zu; counter: %zu; unused: %zu; total: %zu\n",
-  //        wlk->num_curr, wlk->num_new, wlk->num_counter, wlk->num_unused,
-  //        wlk->max_num_paths);
-
-  // Do all the oldest shades pick a consistent next node?
+  // Do all the oldest paths pick a consistent next node?
   FollowPath *oldest_path = wlk->curr_paths[0];
   PathLen greatest_age = oldest_path->pos;
   Nucleotide greatest_nuc = oldest_path->bases[oldest_path->pos];
@@ -461,7 +476,7 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
     num_paths = pickup_paths(paths, wlk, index, prev_orients[i], true);
     wlk->num_counter -= num_paths;
 
-    edges = db_node_col_edges_union(wlk->db_graph, prev_nodes[i]);
+    edges = db_node_col_edges(wlk->db_graph, 0, prev_nodes[i]);
     if(edges_get_outdegree(edges, prev_orients[i]) > 1) {
       new_paths = wlk->counter_paths + wlk->num_counter;
       for(j = 0, k = 0; j < num_paths; j++) {
@@ -491,7 +506,7 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
   BinaryKmer bkmer = db_node_bkmer(db_graph, wlk->node);
   Orientation orient = opposite_orientation(wlk->orient);
 
-  Edges edges = db_node_col_edges_union(db_graph, wlk->node) &
+  Edges edges = db_node_col_edges(db_graph, 0, wlk->node) &
                 ~nuc_orient_to_edge(binary_nuc_complement(prev_nuc), orient);
 
   num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, orient, edges,
@@ -506,8 +521,7 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
 boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
-  Edges edges = db_node_col_edges_union(db_graph, wlk->node);
-  // Edges edges = db_node_col_edges(db_graph, 0, wlk->node); // only 1 colour
+  Edges edges = db_node_col_edges(db_graph, 0, wlk->node); // merged colours
   edges = edges_with_orientation(edges, wlk->orient);
 
   hkey_t nodes[4];

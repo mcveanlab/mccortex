@@ -98,7 +98,7 @@ A) 'Clean' graphs to remove sequencing error (per sample, for high coverage samp
 
     ctx31 join -m 80G refAndSamples.clean.ctx hg19.ctx NA12878.clean.ctx Mickey.clean.ctx Minnie.clean.ctx
 
-B) Alternatively merge uncleaned samples then clean on the populations (multiple low depth samples). Uses 80GB ram:
+B) Alternatively merge uncleaned samples then clean on the population (multiple low depth samples). Uses 80GB ram:
 
     ctx31 join -m 80G refAndSamples.ctx hg19.ctx NA12878.clean.ctx Mickey.clean.ctx Minnie.clean.ctx
     ctx31 clean refAndSamples.clean refAndSamples.ctx

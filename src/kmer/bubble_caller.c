@@ -603,7 +603,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
         graph_walker_finish(wlk);
 
-        // Remove mark traversed and reset shades
+        // Remove mark traversed
         for(supindx = 0; supindx < snode_count; supindx++)
         {
           snode = snode_store + supindx;
@@ -633,7 +633,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
     SupernodePathPos *pp = snode_store[i].first_pathpos;
     // pp may be null if the node could not be traversed by any path
-    // e.g. supernode is also 5p flank and no shades available
+    // e.g. supernode is also 5p flank and no assembly information available
+    // DEV: is this still true?
     if(pp != NULL && pp->next != NULL)
     {
       // possible 3p flank (i.e. bubble end)

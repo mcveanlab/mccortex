@@ -67,10 +67,6 @@ pthread_cond_t data_written_cond, data_read_cond;
 volatile boolean data_waiting = false, input_ended = false;
 volatile AddPathsJob next_job;
 
-// Write inferred kmer here
-// volatile FILE *fout;
-// volatile size_t num_inferred_kmers;
-
 static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
                                dBGraph *db_graph, uint32_t gap_limit)
 {
@@ -186,7 +182,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
 
     #ifdef DEBUG
       binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
-      printf(" %s:%i) start_rv: %zu start_fw: %zu {%i}\n", str, orient,
+      printf(" %s:%i) start_rv: %zu start_fw: %zu {%zu}\n", str, orient,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
@@ -332,13 +328,13 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   db_node_set_traversed(visited, wlk->node, wlk->orient);
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
+  // need to call db_node_has_col only if more than one colour loaded
   while(pos < gap_limit && graph_traverse(wlk) &&
-        db_node_has_col(wlk->db_graph, wlk->node, wlk->ctxcol) &&
+        // db_node_has_col(wlk->db_graph, wlk->node, wlk->ctxcol) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
     db_node_set_traversed(visited, wlk->node, wlk->orient);
-    // DEV: walk a population supernode here
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     nodes[pos].node = wlk->node;
@@ -373,8 +369,9 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   boolean success = false;
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
+  // need to call db_node_has_col only if more than one colour loaded
   while(pos > 0 && graph_traverse(wlk) &&
-        db_node_has_col(wlk->db_graph, wlk->node, wlk->ctxcol) &&
+        // db_node_has_col(wlk->db_graph, wlk->node, wlk->ctxcol) &&
         !db_node_has_traversed(visited, wlk->node, wlk->orient))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
@@ -426,8 +423,7 @@ void read_to_path(AddPathsWorker *worker)
   boolean useful_path_info = false;
   hkey_t node;
 
-  get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff,
-                      job->ctx_col, db_graph, nodebuf);
+  get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff, db_graph, nodebuf);
 
   for(i = 1; i < nodebuf->len; i++) {
     if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
@@ -451,7 +447,7 @@ void read_to_path(AddPathsWorker *worker)
     nodebuf->len++;
 
     r2_offset = get_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
-                                    job->ctx_col, db_graph, nodebuf);
+                                    db_graph, nodebuf);
 
     if(!useful_path_info && nodebuf->len > 0) {
       for(i = r2_start; i+1 < nodebuf->len; i++) {

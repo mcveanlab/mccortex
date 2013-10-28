@@ -33,7 +33,7 @@ void graph_file_filter_capacity(GraphFileFilter *gff, size_t ncap)
 void graph_file_filter_deconstruct(const char *path,
                                    const char **start, const char **end)
 {
-  const char *ptr = path;
+  const char *ptr = *start = path;
   for(ptr = path; *ptr >= '0' && *ptr <= '9'; ptr++);
   if(ptr > path && *ptr == ':') { *start = ptr+1; ptr++; }
   ptr = strchr(ptr, ':');
@@ -44,11 +44,11 @@ void graph_file_filter_deconstruct(const char *path,
 void graph_file_filter_parse(const char *path, GraphFileFilter *gff,
                              size_t file_ncols)
 {
-  const char *start, *end;
+  const char *start = path, *end;
   size_t i;
 
   graph_file_filter_deconstruct(path, &start, &end);
-  gff->intocol = start == path ? 0 : atoi(path);
+  gff->intocol = (start == path ? 0 : atoi(path));
 
   if(*end == ':') {
     gff->ncols = range_get_num(end+1, file_ncols-1);

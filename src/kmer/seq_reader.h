@@ -17,7 +17,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
 
 // returns offset of the first kmer or -1 if no kmers present
 // Adds a single HASH_NOT_FOUND for gaps
-int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff, int colour,
+int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *buffer);
 
 void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2,

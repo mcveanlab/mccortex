@@ -17,7 +17,6 @@
 #include "util.h"
 #include "file_util.h"
 #include "vcf_parsing.h"
-#include "call_seqan.h"
 #include "binary_kmer.h"
 #include "file_reader.h"
 #include "delta_array.h"
@@ -142,21 +141,23 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
 
   // for(i = 0; i < num; i++) printf("%zu: %s\n", i, seqs[i]);
 
-  if(more_than_two_alleles)
-  {
-    size_t msa_total_len = 0;
-    multiple_seq_align(seqs, num, msa_wrking, &msa_total_len);
+  assert(!more_than_two_alleles);
 
-    size_t offset, msa_len = msa_total_len / num;
+  // if(more_than_two_alleles)
+  // {
+  //   size_t msa_total_len = 0;
+  //   multiple_seq_align(seqs, num, msa_wrking, &msa_total_len);
 
-    alleles[0] = msa_wrking;
-    for(i = 1, offset = msa_len; i < num; i++, offset += msa_len)
-      alleles[i] = msa_wrking+offset;
+  //   size_t offset, msa_len = msa_total_len / num;
 
-    return msa_len;
-  }
-  else
-  {
+  //   alleles[0] = msa_wrking;
+  //   for(i = 1, offset = msa_len; i < num; i++, offset += msa_len)
+  //     alleles[i] = msa_wrking+offset;
+
+  //   return msa_len;
+  // }
+  // else
+  // {
     if(second == NULL) die("All alleles match");
 
     needleman_wunsch_align2(first, second, strlen(first), strlen(second),
@@ -168,7 +169,7 @@ static uint32_t do_msa(char **seqs, uint32_t num, char **alleles)
     }
 
     return alignment->length;
-  }
+  // }
 }
 
 static boolean is_allele_duplicate(vcf_entry_t *vcf, const StrBuf *allele)

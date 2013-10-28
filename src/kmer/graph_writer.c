@@ -118,9 +118,9 @@ static inline void overwrite_kmer_colours(hkey_t node,
                                           FILE *fh)
 {
   const Edges (*col_edges)[db_graph->num_of_cols]
-    = (Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
+    = (const Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
   const Covg (*col_covgs)[db_graph->num_of_cols]
-    = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
+    = (const Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
   size_t skip_cols = file_ncols - intocol - write_ncols;
   const Covg *covg = col_covgs[node] + graphcol;

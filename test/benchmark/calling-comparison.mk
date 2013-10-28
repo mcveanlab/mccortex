@@ -19,17 +19,15 @@ MEMHEIGHT=20
 
 SHELL := /bin/bash
 
-# current_dir = $(shell pwd)
-current_dir := $(dir $(lastword $(MAKEFILE_LIST)))
-
-CORTEX_PATH=$(HOME)/cortex/releases/CORTEX_release_v1.0.5.20
-CTX_PATH=$(current_dir)/../../
-
-# External tools
-BCFTOOLS=$(HOME)/bioinf/bcftools/bcftools
+# External tools not in repo
 STAMPY=$(HOME)/bioinf/stampy-1.0.20/stampy.py
 SAMTOOLS=samtools
 VCFTOOLSDIR=$(HOME)/bioinf/vcftools_0.1.11
+CORTEX_PATH=$(HOME)/cortex/releases/CORTEX_release_v1.0.5.20
+
+# current_dir = $(shell pwd)
+current_dir := $(dir $(lastword $(MAKEFILE_LIST)))
+CTX_PATH=$(current_dir)/../../
 
 UNAME=$(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -62,6 +60,7 @@ BIOINF=$(CTX_PATH)/libs/bioinf-perl
 READSIM=$(CTX_PATH)/libs/readsim/readsim
 SEQCAT=$(CTX_PATH)/libs/seq_file/bin/seqcat
 FACAT=$(CTX_PATH)/libs/seq_file/bin/facat
+BCFTOOLS=$(CTX_PATH)/libs/bcftools/bcftools
 HAPLEN=$(CTX_PATH)/scripts/longest-haplotype.sh
 OLDCLEAN=$(CTX_PATH)/scripts/clean_bubbles.pl
 
@@ -288,11 +287,11 @@ k$(KMER)/graphs/pop.%.ctx:
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
 k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
-	$(THREADCTX) -t 1 $($*_list) $(NUM_INDIVS) $@ $< $<
+	$(THREADCTX) -t 1 $($*_list) $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
-	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) $(NUM_INDIVS) --seq ref/ref.fa $(NUMCOLS) $@ $< $<
+	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) $(NUM_INDIVS) --seq ref/ref.fa $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 # Bubbles
@@ -375,6 +374,7 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 	  runcalls/vcfs/samples.runcalls_union_BC_calls_k31.decomp.vcf \
 	  '+tag:INFO,KMER,.,Integer,"Kmer called at"' \
 	  '+meta:contig=<ID=ref,length=1000>' | \
+	$(BIOINF)/vcf_scripts/vcf_header_add_contigs.pl - ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_filter_by_ref.pl - ref/ref.fa | \
 	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa - | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
