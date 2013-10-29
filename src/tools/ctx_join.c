@@ -11,6 +11,7 @@
 #include "graph_info.h"
 #include "db_node.h"
 #include "graph_format.h"
+#include "graph_file_filter.h"
 
 // Given (A,B,C) are ctx binaries, A:1 means colour 1 in A,
 // {A:1,B:0} is loading A:1 and B:0 into a single colour
@@ -33,7 +34,7 @@ static const char usage[] =
 "  Options:\n"
 "   -m <mem>      Memory to use\n"
 "   -h <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-// "   --usecols <c> How many colours to load at once [default: 1]\n"
+"   --usecols <c> How many colours to load at once [default: 1]\n"
 "   --merge       Merge corresponding colours from each graph file\n"
 "   --flatten     Dump into a single colour graph\n"
 "\n"
@@ -111,59 +112,78 @@ int ctx_join(CmdArgs *args)
   out_ctx_path = argv[argi++];
 
   // argi .. argend-1 are binaries to load
-  size_t num_binaries = argc - argi;
-  char **binary_paths = argv + argi;
+  size_t num_graphs = argc - argi;
+  char **paths = argv + argi;
+
+  status("Probing %zu graph files", num_graphs);
 
   // Check all binaries are valid binaries with matching kmer size
-  boolean is_binary = false;
-  size_t i, col, kmer_size = 0, ctx_max_kmers = 0, total_cols = 0;
-  uint32_t ctx_max_cols[num_binaries], ctx_num_cols[num_binaries];
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
-  char *path;
+  size_t i, col, ncols, ctx_max_kmers = 0, max_cols = 0, sum_cols = 0, total_cols;
+  size_t min_intersect_num_kmers = 0;
+  GraphFileReader files[num_graphs], intersect_files[num_intersect];
 
-  for(i = 0; i < num_binaries; i++)
+  for(i = 0; i < num_graphs; i++)
   {
-    // Strip off offset (e.g. 12:in.ctx)
-    for(path = binary_paths[i]; *path >= '0' && *path <= '9'; path++) {}
+    files[i] = INIT_GRAPH_READER;
+    int ret = graph_file_open(&files[i], paths[i], false);
 
-    if(path > binary_paths[i] && *path == ':') path++;
-    else path = binary_paths[i];
+    if(ret == 0)
+      print_usage(usage, "Cannot read input binary file: %s", paths[i]);
+    else if(ret < 0)
+      print_usage(usage, "Input binary file isn't valid: %s", paths[i]);
 
-    if(!graph_file_probe(path, &is_binary, &gheader))
-      print_usage(usage, "Cannot read input binary file: %s", path);
-    else if(!is_binary)
-      print_usage(usage, "Input binary file isn't valid: %s", path);
+    if(i > 0 && files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
+    }
 
-    ctx_num_cols[i] = gheader.num_of_cols;
-    ctx_max_cols[i] = gheader.max_col;
-    ctx_max_kmers = MAX2(gheader.num_of_kmers, ctx_max_kmers);
-    total_cols += gheader.num_of_cols;
+    if(flatten) {
+      files[i].flatten = true;
+      files[i].intocol = 0;
+    }
 
-    if(i == 0)
-      kmer_size = gheader.kmer_size;
-    else if(kmer_size != gheader.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%zu vs %u]",
-                  kmer_size, gheader.kmer_size);
+    ncols = files[i].intocol + graph_file_outncols(&files[i]);
+    max_cols = MAX2(max_cols, ncols);
+    sum_cols += ncols;
+    ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
+  }
+
+  if(flatten) total_cols = 1;
+  else if(merge) total_cols = max_cols;
+  else {
+    total_cols = 0;
+    for(i = 0; i < num_graphs; i++) {
+      size_t offset = total_cols;
+      total_cols += files[i].intocol + graph_file_outncols(&files[i]);
+      files[i].intocol += offset;
     }
   }
 
   // Probe intersection files
-  uint64_t min_intersect_num_kmers = 0;
-
   for(i = 0; i < num_intersect; i++)
   {
-    if(!graph_file_probe(intersect_paths[i], &is_binary, &gheader))
-      print_usage(usage, "Cannot read intersect binary file: %s", intersect_paths[i]);
-    else if(!is_binary)
-      print_usage(usage, "Intersect binary file isn't valid: %s", intersect_paths[i]);
+    intersect_files[i] = INIT_GRAPH_READER;
+    int ret = graph_file_open(&intersect_files[i], intersect_paths[i], false);
 
-    if(i == 0) min_intersect_num_kmers = gheader.num_of_kmers;
-    else if(gheader.num_of_kmers < min_intersect_num_kmers)
+    if(ret == 0)
+      print_usage(usage, "Cannot read input binary file: %s", intersect_paths[i]);
+    else if(ret < 0)
+      print_usage(usage, "Input binary file isn't valid: %s", intersect_paths[i]);
+
+    if(files[0].hdr.kmer_size != intersect_files[i].hdr.kmer_size) {
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+                  files[0].hdr.kmer_size, intersect_files[i].hdr.kmer_size);
+    }
+
+    intersect_files[i].flatten = true;
+
+    if(i == 0) min_intersect_num_kmers = intersect_files[i].hdr.num_of_kmers;
+    else if(intersect_files[i].hdr.num_of_kmers < min_intersect_num_kmers)
     {
       // Put smallest intersection binary first
-      char *tmpstr;
-      SWAP(intersect_paths[i], intersect_paths[0], tmpstr);
-      min_intersect_num_kmers = gheader.num_of_kmers;
+      GraphFileReader tmp;
+      SWAP(intersect_files[i], intersect_files[0], tmp);
+      min_intersect_num_kmers = intersect_files[i].hdr.num_of_kmers;
     }
   }
 
@@ -175,15 +195,20 @@ int ctx_join(CmdArgs *args)
     use_ncols = 1;
   }
   else if(use_ncols > total_cols) {
-    warn("I only need %zu colours ('--usecols %zu' ignored)", total_cols, use_ncols);
+    warn("I only need %zu colour%s ('--usecols %zu' ignored)",
+         total_cols, (total_cols != 1 ? "s" : ""), use_ncols);
     use_ncols = total_cols;
   }
 
-  if(total_cols == 1 && num_intersect == 0)
+  status("Output %zu cols; from %zu files; intersecting %zu graphs; using %zu cols in memory",
+         total_cols, num_graphs, num_intersect, use_ncols);
+
+  if(num_graphs == 1 && num_intersect == 0)
   {
     // Loading only one binary with no intersection filter
     // don't need to store a graph in memory
-    graph_stream_filter(out_ctx_path, binary_paths[0], flatten, NULL, NULL);
+    graph_stream_filter2(out_ctx_path, &files[0], NULL, NULL);
+    graph_file_dealloc(&files[0]);
     return EXIT_SUCCESS;
   }
 
@@ -202,7 +227,7 @@ int ctx_join(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
@@ -214,9 +239,8 @@ int ctx_join(CmdArgs *args)
   if(num_intersect > 0)
   {
     intsct_gname_ptr = intersect_gname.buff;
-    SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+    SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                              // binaries
-                             .merge_colours = true,
                              .boolean_covgs = true, // covg++ only
                              .must_exist_in_graph = false,
                              .empty_colours = false,
@@ -232,15 +256,13 @@ int ctx_join(CmdArgs *args)
     {
       prefs.must_exist_in_graph = (i > 0);
 
-      graph_load(intersect_paths[i], &prefs, NULL, &gheader);
+      graph_load2(&intersect_files[i], &prefs, NULL);
 
       // Update intersect header
-      for(col = 0; col < gheader.num_of_cols; col++)
-        graph_info_make_intersect(&gheader.ginfo[col], &intersect_gname);
+      ncols = graph_file_outncols(&intersect_files[i]);
+      for(col = 0; col < ncols; col++)
+        graph_info_make_intersect(&intersect_files[i].hdr.ginfo[col], &intersect_gname);
     }
-
-    db_graph.ginfo[0].cleaning.is_graph_intersection = true;
-    strbuf_set(&db_graph.ginfo[0].cleaning.intersection_name, intersect_gname.buff);
 
     if(num_intersect > 1)
     {
@@ -254,16 +276,21 @@ int ctx_join(CmdArgs *args)
 
     // Swap edges with NULL instead of having to wipe
     db_graph.col_edges = tmpcoledges;
-    // memset(db_graph.col_edges, 0, db_graph.ht.capacity * use_ncols * sizeof(Edges));
+
+    for(i = 0; i < num_intersect; i++) graph_file_dealloc(&intersect_files[i]);
+
+    // Reset graph info
+    for(i = 0; i < db_graph.num_of_cols; i++)
+      graph_info_init(&db_graph.ginfo[i]);
 
     status("Loaded intersection set\n");
   }
 
-  graph_files_merge(out_ctx_path, binary_paths, num_binaries,
-                    ctx_num_cols, ctx_max_cols,
-                    merge, flatten, intsct_gname_ptr, &db_graph);
+  graph_files_merge2(out_ctx_path, files, num_graphs,
+                     intsct_gname_ptr, &db_graph);
 
-  graph_header_dealloc(&gheader);
+  for(i = 0; i < num_graphs; i++) graph_file_dealloc(&files[i]);
+
   strbuf_dealloc(&intersect_gname);
 
   free(db_graph.col_edges);

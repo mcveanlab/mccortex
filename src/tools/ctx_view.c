@@ -126,38 +126,14 @@ int ctx_view(CmdArgs *args)
   int ret = graph_file_open(&file, path, true);
   if(ret == 0) die("Cannot open file: %s", path);
 
-  // char *in_ctx_path = argv[argc-1];
-  // char *path_start, *path_end;
-  // graph_file_filter_deconstruct(in_ctx_path, &path_start, &path_end);
-
-  // char path_lchar = *path_end;
-  // *path_end = '\0';
-
-  // // Get file size in case we need to count kmers
-  // off_t fsize = get_file_size(path_start);
-
-  // FILE *in;
-  // GraphFileHeader outheader = INIT_GRAPH_FILE_HDR, inheader = INIT_GRAPH_FILE_HDR;
-  // GraphFileFilter gff;
-
-  // if((in = fopen(path_start, "r")) == NULL)
-  //   die("Cannot open input path: %s", path_start);
-  // setvbuf(in, NULL, _IOFBF, CTX_BUF_SIZE);
-
   if(print_info)
   {
     char fsize_str[50];
     bytes_to_str(file.file_size, 0, fsize_str);
-    printf("Loading file: %s\n", file.path);
+    printf("Loading file: %s\n", file.path.buff);
     printf("File size: %s\n", fsize_str);
     printf("----\n");
   }
-
-  // size_t hsize = graph_file_read_header(in, &inheader, true, path_start);
-
-  // *path_end = path_lchar;
-  // graph_file_filter_alloc(&gff, in_ctx_path, &inheader);
-  // gff.fh = in;
 
   size_t ncols = graph_file_outncols(&file);
 
@@ -166,27 +142,13 @@ int ctx_view(CmdArgs *args)
   graph_header_alloc(&outheader, ncols);
   outheader.num_of_cols = ncols;
 
-  size_t i;
-  uint64_t sum_of_covgs_read = 0, sum_of_seq_loaded = 0;
+  size_t i, sum_covgs_read = 0, sum_seq_loaded = 0;
+  size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
   for(i = 0; i < file.ncols; i++) {
     graph_info_merge(outheader.ginfo + i, file.hdr.ginfo + file.cols[i]);
-    sum_of_seq_loaded += outheader.ginfo[i].total_sequence;
+    sum_seq_loaded += outheader.ginfo[i].total_sequence;
   }
-
-  // if(file.hdr.version < 7)
-  // {
-  //   size_t bytes_per_kmer = sizeof(BinaryKmer) +
-  //                           file.hdr.num_of_cols * (sizeof(Covg) + sizeof(Edges));
-  //   size_t bytes_remaining = fsize - hsize;
-  //   outheader.num_of_kmers = (bytes_remaining / bytes_per_kmer);
-  //   if(bytes_remaining % bytes_per_kmer != 0) {
-  //     loading_warning("Truncated ctx binary: %s [bytes per kmer: %zu "
-  //                     "remaining: %zu; fsize: %zu; header: %zu]",
-  //                     in_ctx_path, bytes_per_kmer, bytes_remaining,
-  //                     (size_t)fsize, hsize);
-  //   }
-  // }
 
   // Print header
   if(print_info)
@@ -195,22 +157,17 @@ int ctx_view(CmdArgs *args)
   BinaryKmer bkmer;
   Covg covgs[ncols];
   Edges edges[ncols];
-
   char bkmerstr[MAX_KMER_SIZE+1], edgesstr[9];
-
-  uint64_t num_of_kmers_read = 0,
-           num_of_all_zero_kmers = 0, num_of_zero_covg_kmers = 0;
 
   if(parse_kmers || print_kmers)
   {
     if(print_info && print_kmers) printf("----\n");
 
-    while(graph_file_read(&file, &bkmer, covgs, edges))
+    for(; graph_file_read(&file, &bkmer, covgs, edges); num_kmers_read++)
     {
       // beware: if kmer has no covg or edges we still print it
-
       for(i = 0; i < ncols; i++)
-        sum_of_covgs_read += covgs[i];
+        sum_covgs_read += covgs[i];
 
       /* Kmer Checks */
       // graph_file_read_kmer() already checks for:
@@ -225,18 +182,18 @@ int ctx_view(CmdArgs *args)
 
       if(kmer_words_or == 0)
       {
-        if(num_of_all_zero_kmers == 1)
+        if(num_all_zero_kmers == 1)
         {
-          loading_error("more than one all 'A's kmers seen [index: %lu]\n",
-                        (unsigned long)num_of_kmers_read);
+          loading_error("more than one all 'A's kmers seen [index: %zu]\n",
+                        num_kmers_read);
         }
 
-        num_of_all_zero_kmers++;
+        num_all_zero_kmers++;
       }
 
       // Check covg is 0 for all colours
       for(i = 0; i < ncols && covgs[i] == 0; i++);
-      num_of_zero_covg_kmers += (i == ncols);
+      num_zero_covg_kmers += (i == ncols);
 
       // Print
       if(print_kmers)
@@ -256,8 +213,6 @@ int ctx_view(CmdArgs *args)
 
         fputc('\n', stdout);
       }
-
-      num_of_kmers_read++;
     }
   }
 
@@ -269,36 +224,36 @@ int ctx_view(CmdArgs *args)
   if(err != 0)
     loading_error("occurred after file reading [%i]\n", err);
 
-  // fclose(in);
+  graph_file_close(&file);
 
   char num_str[50];
 
   if(print_kmers || parse_kmers)
   {
-    if(num_of_kmers_read != file.hdr.num_of_kmers) {
+    if(num_kmers_read != file.hdr.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
-                      (size_t)file.hdr.num_of_kmers, (size_t)num_of_kmers_read);
+                      (size_t)file.hdr.num_of_kmers, (size_t)num_kmers_read);
     }
 
-    if(num_of_all_zero_kmers > 1)
+    if(num_all_zero_kmers > 1)
     {
       loading_error("%s all-zero-kmers seen\n",
-                    ulong_to_str(num_of_all_zero_kmers, num_str));
+                    ulong_to_str(num_all_zero_kmers, num_str));
     }
 
-    if(num_of_zero_covg_kmers > 0)
+    if(num_zero_covg_kmers > 0)
     {
       loading_warning("%s kmers have no coverage in any colour\n",
-                      ulong_to_str(num_of_zero_covg_kmers, num_str));
+                      ulong_to_str(num_zero_covg_kmers, num_str));
     }
   }
 
   if((print_kmers || parse_kmers) && print_info)
   {
     printf("----\n");
-    printf("kmers read: %s\n", ulong_to_str(num_of_kmers_read, num_str));
-    printf("covgs read: %s\n", ulong_to_str(sum_of_covgs_read, num_str));
-    printf("seq loaded: %s\n", ulong_to_str(sum_of_seq_loaded, num_str));
+    printf("kmers read: %s\n", ulong_to_str(num_kmers_read, num_str));
+    printf("covgs read: %s\n", ulong_to_str(sum_covgs_read, num_str));
+    printf("seq loaded: %s\n", ulong_to_str(sum_seq_loaded, num_str));
   }
 
   if(print_info)
@@ -341,7 +296,7 @@ int ctx_view(CmdArgs *args)
   }
 
   graph_header_dealloc(&outheader);
-  graph_file_close(&file);
+  graph_file_dealloc(&file);
 
   return EXIT_SUCCESS;
 }

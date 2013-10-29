@@ -83,7 +83,8 @@ LINK=-lstdc++ -lpthread -lz -lm
 # -Wenum-compare -Wlogical-op -Wfloat-equal -Wbad-function-cast
 
 # Optimisations tags for testing
-OPT_TESTS = -O0 -Wstack-protector -fstack-protector
+OPT_TESTS = -O0
+# -Wstack-protector -fstack-protector
 
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG

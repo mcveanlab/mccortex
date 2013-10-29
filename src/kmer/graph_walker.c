@@ -211,11 +211,12 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   //   printf("INIT %s:%i\n", str, orient);
   // #endif
 
-  // Is this walker fresh? Was graph_walker_finish() called? 
+  // Check that this walker is fresh.
+  // If previously used, ensure graph_walker_finish() was called.
   assert(wlk->num_curr == 0);
   assert(wlk->num_counter == 0);
 
-  // Is the graph loaded properly (all edges merged into one colour)
+  // Check that the graph is loaded properly (all edges merged into one colour)
   assert(graph->num_edge_cols == 1);
 
   GraphWalker gw = {.db_graph = graph, .ctxcol = ctxcol, .ctpcol = ctpcol,

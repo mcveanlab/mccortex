@@ -59,10 +59,11 @@ uint32_t graph_load(const char *path,
                     GraphFileHeader *header);
 
 // PROPOSED:
-// uint32_t graph_load_filter(const char *path, const GraphFileFilter *gff,
-//                            const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
-//                            GraphFileHeader *header);
+// closes file but does not dealloc
+void graph_load2(GraphFileReader *file, const SeqLoadingPrefs *prefs,
+                 SeqLoadingStats *stats);
 
+// propose delete
 uint32_t graph_load_colour(const char *path, const SeqLoadingPrefs *prefs,
                            SeqLoadingStats *stats, uint32_t colour);
 
@@ -75,6 +76,10 @@ uint32_t graph_load_colour(const char *path, const SeqLoadingPrefs *prefs,
 size_t graph_stream_filter(const char *out_ctx_path, char *in_ctx_path,
                            boolean flatten, const dBGraph *db_graph,
                            const char *intersect_gname);
+
+// PROPOSED: written
+size_t graph_stream_filter2(const char *out_ctx_path, GraphFileReader *file,
+                            const dBGraph *db_graph, const char *intersect_gname);
 
 // ctx_num_cols and ctx_max_cols are the numbers returned from binary_probe
 // if merge pool colour 0 from each binary into colour 0, 1 -> 1 etc.
@@ -89,6 +94,11 @@ size_t graph_files_merge(char *out_ctx_path, char **binary_paths,
                          const char *intersect_gname,
                          dBGraph *db_graph);
 
+// PROPOSED:
+size_t graph_files_merge2(char *out_ctx_path, GraphFileReader *files,
+                          size_t num_files,
+                          const char *intersect_gname, dBGraph *db_graph);
+
 //
 // Writing
 //
@@ -102,8 +112,8 @@ void graph_file_write_colour(const dBGraph *db_graph, Colour graphcol,
                              Colour intocol, size_t file_ncols, FILE *fh);
 
 void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
-                             Colour intocol, size_t write_ncols,
-                             size_t file_ncols, FILE *fh);
+                              Colour intocol, size_t write_ncols,
+                              size_t file_ncols, FILE *fh);
 
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *header);

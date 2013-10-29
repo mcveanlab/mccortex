@@ -3,6 +3,9 @@
 #include "cmd.h"
 #include "util.h"
 
+#include <execinfo.h>
+#include <signal.h>
+
 static const char usage[] =
 "\n"
 "usage: "CMD" <command> [options] <args>\n"
@@ -41,6 +44,8 @@ static const char usage[] =
 
 int main(int argc, char **argv)
 {
+  signal(SIGSEGV, errhandler);   // install our handler
+
   CmdArgs args;
   time_t start, end;
 

@@ -81,4 +81,7 @@ void print_usage(const char *msg, const char *errfmt,  ...)
   __attribute__((noreturn))
   __attribute__((format(printf, 2, 3)));
 
+// See http://stackoverflow.com/a/77336/431087
+void errhandler(int sig);
+
 #endif /* GLOBAL_H_ */

@@ -2,6 +2,9 @@
 #include <time.h>
 #include "util.h"
 
+#include <execinfo.h>
+#include <signal.h>
+
 FILE *ctx_msg_out;
 
 void* ctx_malloc(size_t mem, const char *file, int line)
@@ -120,4 +123,19 @@ void print_usage(const char *msg, const char *errfmt,  ...)
 
   fputs(msg, stderr);
   exit(EXIT_FAILURE);
+}
+
+// See http://stackoverflow.com/a/77336/431087
+void errhandler(int sig)
+{
+  void *array[10];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 10);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
 }

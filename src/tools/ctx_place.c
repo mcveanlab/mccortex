@@ -888,7 +888,7 @@ int ctx_place(CmdArgs *args)
   if(!isbam(sam_path, true) && !isbam(sam_path, false))
     print_usage(usage, "Mapped flanks is not .sam or .bam file: %s", sam_path);
 
-  samFile *samfh = sam_open(sam_path, isbam(sam_path, true) ? "rb" : "rs", 0);
+  samFile *samfh = sam_open(sam_path, isbam(sam_path, true) ? "rb" : "rs");
   if(samfh == NULL) die("Cannot open SAM/BAM %s", sam_path);
 
   // Load BAM header

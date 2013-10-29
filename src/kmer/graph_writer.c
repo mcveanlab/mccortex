@@ -122,7 +122,7 @@ static inline void overwrite_kmer_colours(hkey_t node,
   const Covg (*col_covgs)[db_graph->num_of_cols]
     = (const Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
-  size_t skip_cols = file_ncols - intocol - write_ncols;
+  size_t skip_cols = file_ncols - (intocol + write_ncols);
   const Covg *covg = col_covgs[node] + graphcol;
   const Edges *edges = col_edges[node] + graphcol;
 
@@ -151,10 +151,12 @@ void graph_file_write_colour(const dBGraph *db_graph, Colour graphcol,
                 db_graph, graphcol, intocol, file_ncols, fh);
 }
 
-void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
-                             Colour intocol, size_t write_ncols,
-                             size_t file_ncols, FILE *fh)
+void graph_file_write_colours(const dBGraph *db_graph,
+                             Colour graphcol, Colour intocol,
+                             size_t write_ncols, size_t file_ncols,
+                             FILE *fh)
 {
+  assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colours,
                 db_graph, graphcol, intocol, write_ncols, file_ncols, fh);
 }
@@ -221,8 +223,27 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
   assert(db_graph->col_edges != NULL);
   assert(db_graph->col_covgs != NULL);
 
-  FILE *fout = fopen(path, "w");
+  GraphInfo header_ginfo[num_of_cols];
+  uint32_t i, col;
 
+  if(colours != NULL) {
+    if(num_of_cols == 1)
+      status("Dumping graph colour %zu into: %s", colours[0], path);
+    else {
+      timestamp(ctx_msg_out);
+      message("Dumping graph colours %zu", colours[0]);
+      for(i = 1; i < num_of_cols; i++) message(",%zu", colours[i]);
+      message(" into: %s\n", path);
+    }
+  }
+  else if(num_of_cols == 1)
+    status("Dumping graph colour %zu into: %s", start_col, path);
+  else {
+    status("Dumping graph colours %zu-%zu into: %s", start_col,
+           start_col+num_of_cols-1, path);
+  }
+
+  FILE *fout = fopen(path, "w");
   if(fout == NULL) die("Unable to open dump binary file to write: %s\n", path);
 
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
@@ -237,9 +258,6 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
                             .num_of_kmers = db_graph->ht.unique_kmers,
                             .capacity = 0};
 
-  GraphInfo header_ginfo[num_of_cols];
-
-  uint32_t i, col;
   for(i = 0; i < num_of_cols; i++) {
     col = colours != NULL ? colours[i] : i;
     header_ginfo[i] = ginfo[col];
