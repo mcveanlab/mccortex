@@ -821,6 +821,7 @@ void* bubble_caller(void *args)
   return NULL;
 }
 
+// max_allele_len, max_flank_len in kmers
 void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
                           int num_threads, char **tmp_paths,
                           size_t max_allele_len, size_t max_flank_len,

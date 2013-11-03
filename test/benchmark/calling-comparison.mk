@@ -17,6 +17,7 @@ MEMHEIGHT=20
 # GENOMESIZE=
 # MAPARGS=
 MINMAPQ=40
+MAXALLELE=500
 
 SHELL := /bin/bash
 
@@ -41,7 +42,7 @@ $(shell (echo '#!/bin/bash'; echo '$(STAMPY_BIN) $$@';) > stampy.sh; chmod +x st
 STAMPY_BIN=./stampy.sh
 
 NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
-MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+8+4)*8+$(NUMCOLS) ) / 8')
+MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+8+4)*8+$(NUMCOLS) ) / 4')
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
 BUILDCTX=$(CTX_PATH)/bin/ctx31 build
@@ -291,11 +292,11 @@ k$(KMER)/graphs/pop.%.ctx:
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
 k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
-	$(THREADCTX) -t 1 $($*_list) $@ $<
+	$(THREADCTX) -m $(MEM) -t 1 $($*_list) $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
-	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
+	$(THREADCTX) -m $(MEM) -t 1 $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 # Bubbles
@@ -311,14 +312,14 @@ k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
 	callargs=`if [ '$*' == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t 1 -m $(MEM) $$callargs $< $@
+	$(CALLCTX) -t 1 -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
 
 # % => {se,pe,sepe}.{ref.noref}
 k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
 	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	callargs=`if [ '$*' == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t 1 -m $(MEM) $$callargs -p $< k$(KMER)/graphs/pop.$$r.ctx $@
+	$(CALLCTX) -t 1 -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p $< k$(KMER)/graphs/pop.$$r.ctx $@
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
@@ -368,6 +369,7 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 						  --genome_size $(GENOMESIZE) \
 						  --qthresh 5 --vcftools_dir $(VCFTOOLSDIR) \
 						  --do_union yes --ref CoordinatesAndInCalling \
+						  --max_var_len $(MAXALLELE) \
 						  --workflow independent --logfile runcalls/runcalls.log
 						  # --apply_pop_classifier
 	# 1) Add KMER and contig lines

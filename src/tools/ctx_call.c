@@ -18,7 +18,11 @@
 static const char usage[] =
 "usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
 "  Find bubbles (potential variants) in graph file in.ctx.\n"
-"  Options:  -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp> | --ref <col>\n";
+"  Options:\n"
+"    -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp>\n"
+"    --ref <col>        Reference genome in given colour (can use multiple times)\n"
+"    --maxallele <len>  Max bubble branch length in kmers [default: 300]\n"
+"    --maxflank <len>   Max flank length in kmers [default: 1000]\n";
 
 int ctx_call(CmdArgs *args)
 {
@@ -30,17 +34,32 @@ int ctx_call(CmdArgs *args)
 
   uint32_t num_of_threads = args->num_threads;
   size_t i, ref_cols[argc], num_ref = 0;
+  size_t max_allele_len = 300, max_flank_len = 1000;
 
-  for(argi = 0; argi < argc; argi++) {
+  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  {
     if(strcmp(argv[argi],"--ref") == 0) {
-      unsigned int tmp;
-      if(argi + 1 == argc || !parse_entire_uint(argv[argi+1], &tmp))
+      if(argi + 1 == argc || !parse_entire_size(argv[argi+1], &ref_cols[num_ref]))
         print_usage(usage, "--ref <col> requires an int arg");
-      argi++; ref_cols[num_ref++] = tmp;
+      num_ref++; argi++;
     }
-    else if(argv[argi][0] == '-')
+    else if(strcmp(argv[argi],"--maxallele") == 0) {
+      if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_allele_len) ||
+         max_allele_len == 0)  {
+        print_usage(usage, "--maxallele <col> requires an +ve integer argument");
+      }
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--maxflank") == 0) {
+      if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_flank_len) ||
+         max_flank_len == 0)  {
+        print_usage(usage, "--maxflank <col> requires an +ve integer argument");
+      }
+      argi++;
+    }
+    else {
       print_usage(usage, "Unknown arg: %s", argv[argi]);
-    else break;
+    }
   }
 
   if(argi + 2 != argc) print_usage(usage, "<out.bubbles.gz> <in.ctx> required");
@@ -191,7 +210,6 @@ int ctx_call(CmdArgs *args)
   #endif
 
   // Now call variants
-  size_t max_allele_len = 300, max_flank_len = 1000;
   invoke_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths,
                        max_allele_len, max_flank_len, ref_cols, num_ref, args);
 
