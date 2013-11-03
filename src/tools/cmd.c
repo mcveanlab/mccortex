@@ -13,9 +13,13 @@ int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
      ctx_reads, ctx_extend, ctx_contigs, ctx_infer_edges, ctx_thread, ctx_pview,
      ctx_pmerge, ctx_call, ctx_diverge, ctx_unique, ctx_covg, ctx_place};
 
-// static int ctx_notimpl(CmdArgs *args) {
-//   warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
-// }
+// Not implemented functions
+static int ctx_notimpl(CmdArgs *args) {
+  warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
+}
+
+int ctx_covg(CmdArgs *args) { return ctx_notimpl(args); }
+int ctx_diverge(CmdArgs *args) { return ctx_notimpl(args); }
 
 void cmd_accept_options(const CmdArgs *args, const char *accptopts)
 {

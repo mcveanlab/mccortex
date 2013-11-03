@@ -19,6 +19,7 @@ char parse_entire_int(char *str, int *result);
 char parse_entire_uint(char *str, unsigned int *result);
 char parse_entire_ulong(char *str, unsigned long *result);
 char parse_entire_double(char *str, double *result);
+char parse_entire_size(char *str, size_t *result);
 
 // Load a string of numbers into an array. Separator can be any non-numerical
 // character. e.g. '1,2,3' '1 2 3'

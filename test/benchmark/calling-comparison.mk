@@ -16,6 +16,7 @@ MEMWIDTH=20
 MEMHEIGHT=20
 # GENOMESIZE=
 # MAPARGS=
+MINMAPQ=40
 
 SHELL := /bin/bash
 
@@ -121,21 +122,21 @@ MGLIST_BUBBLES_noref=$(MGLIST)
 MGLIST_BUBBLES_ref=ref/genome0.fa ref/mask0.fa $(MGLIST)
 
 se_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
-	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
+	j=$$(($$i-1)); echo -n " --col $$j"; \
 	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
 		echo -n " --seq reads/reads$$k.1.fa.gz --seq reads/reads$$k.2.fa.gz"; \
 	done; \
 done)
 
 pe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
-	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
+	j=$$(($$i-1)); echo -n " --col $$j"; \
 	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
 		echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; \
 	done; \
 done)
 
 sepe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
-	j=$$(($$i-1)); echo -n " --col $$j $$j"; \
+	j=$$(($$i-1)); echo -n " --col $$j"; \
 	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
 		echo -n " --seq reads/reads$$k.1.fa.gz --seq reads/reads$$k.2.fa.gz"; \
 		echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; \
@@ -219,6 +220,8 @@ traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
 clean:
 	rm -rf ref genomes reads k$(KMER) runcalls gap_sizes.*.csv mp_sizes.*.csv stampy.sh
 
+# .NOTPARALLEL: $(NORMCMPRULES) compare-bubbles compare-normvcf $(NORMCMPRULES)
+
 #
 # Patterns
 #
@@ -233,15 +236,16 @@ ref/ref.fa.fai: ref/ref.fa
 	samtools faidx ref/ref.fa
 
 # Generate genomes
-ref/ref.fa ref/mask0.clean.fa $(GENOMES):
+ref/mask0.clean.fa $(GENOMES): ref/ref.fa
+ref/ref.fa:
 	mkdir -p genomes ref
 	$(BIOINF)/sim_mutations/sim_mutations.pl --snps $(SNPS) --indels $(INDELS) --invs $(INV) --invlen $(INVLEN) genomes/ $$(($(NCHROMS)+1)) $(SEQ)
 	mv genomes/genome0.fa genomes/mask0.fa ref/
 	awk 'BEGIN{print">mask";for(i=0;i<$(GENOMESIZE);i++) {printf "."}print""}' > ref/mask0.clean.fa
-	# cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
-	cp $(SEQ) ref/ref.fa
-	cp $(SEQ) ref/genome0.fa
-	cp ref/mask0.clean.fa ref/mask0.fa
+	cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
+	# cp $(SEQ) ref/ref.fa
+	# cp $(SEQ) ref/genome0.fa
+	# cp ref/mask0.clean.fa ref/mask0.fa
 
 $(READS): $(GENOMES)
 
@@ -291,7 +295,7 @@ k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
-	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) $(NUM_INDIVS) --seq ref/ref.fa $@ $<
+	$(THREADCTX) -t 1 $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 # Bubbles
@@ -335,7 +339,7 @@ k$(KMER)/vcfs/samples.%.bub.5pflanks.sam: k$(KMER)/vcfs/samples.%.bub.5pflanks.f
 	$(STAMPY_BIN) -g ref/stampy -h ref/stampy $(MAPARGS) --inputformat=fasta -M $< > $@
 
 k$(KMER)/vcfs/samples.%.decomp.vcf: k$(KMER)/vcfs/samples.%.bub.vcf k$(KMER)/vcfs/samples.%.bub.5pflanks.sam ref/ref.fa
-	$(PLACECTX) k$(KMER)/vcfs/samples.$*.bub.vcf k$(KMER)/vcfs/samples.$*.bub.5pflanks.sam ref/ref.fa > $@
+	$(PLACECTX) --minmapq $(MINMAPQ) k$(KMER)/vcfs/samples.$*.bub.vcf k$(KMER)/vcfs/samples.$*.bub.5pflanks.sam ref/ref.fa > $@
 
 k$(KMER)/vcfs/samples.%.pass.vcf: k$(KMER)/vcfs/samples.%.decomp.vcf
 	cat $< | awk '$$1 ~ /^#/ || $$7 ~ /^(PASS|\.)$$/' | vcf-sort > $@

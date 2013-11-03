@@ -7,11 +7,10 @@
 // Stucture for specifying how to load data
 typedef struct
 {
-  Colour into_colour;
   dBGraph *db_graph;
 
   // Graphs
-  boolean merge_colours; // Load all data into only one colour
+  // boolean merge_colours; // Load all data into only one colour
   boolean boolean_covgs; // Update covg by at most 1
   boolean must_exist_in_graph;
   // if empty_colours is true an error is thrown a kmer from a binary is
@@ -19,6 +18,7 @@ typedef struct
   boolean empty_colours;
 
   // Sequence
+  Colour into_colour;
   char quality_cutoff, ascii_fq_offset;
   int homopolymer_cutoff;
   boolean remove_dups_se, remove_dups_pe;

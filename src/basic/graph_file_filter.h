@@ -5,8 +5,7 @@
 
 typedef struct
 {
-  // uint32_t file_ncols;
-  uint32_t version, kmer_size, num_of_bitfields, num_of_cols, max_col;
+  uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
   uint64_t num_of_kmers;
   GraphInfo *ginfo; // Cleaning info etc for each colour
   size_t capacity; // number of ginfo objects malloc'd
@@ -22,8 +21,17 @@ typedef struct
   boolean flatten; // Merge all colours into intocol
 } GraphFileReader;
 
-#define INIT_GRAPH_FILE_HDR {.capacity = 0}
+#define INIT_GRAPH_FILE_HDR_MACRO {                    \
+  .version = CTX_GRAPH_FILEFORMAT,                     \
+  .kmer_size = 0, .num_of_bitfields = NUM_BKMER_WORDS, \
+  .num_of_cols = 0, .num_of_kmers = 0, .capacity = 0}
 
+#define INIT_GRAPH_READER_MACRO {                            \
+  .hdr = INIT_GRAPH_FILE_HDR_MACRO, .file_size = 0, .hdr_size = 0, \
+  .path = {.buff = NULL}, .fh = NULL,                        \
+  .intocol = 0, .ncols = 0, .cols = NULL, .ncolscap = 0, .flatten = false}
+
+const GraphFileHeader INIT_GRAPH_FILE_HDR;
 const GraphFileReader INIT_GRAPH_READER;
 
 // 4MB buffer
@@ -51,6 +59,9 @@ void graph_file_dealloc(GraphFileReader *file);
 //    graph_file_read(file, &bkmer, covgs+file.intocol, edges+file.intocol);
 boolean graph_file_read(const GraphFileReader *file,
                         BinaryKmer *bkmer, Covg *covgs, Edges *edges);
+
+// Return true if all colours are being loaded once in their original order
+boolean graph_file_no_filter(const GraphFileReader *file);
 
 // Print file filter description
 void graph_file_status(const GraphFileReader *file);

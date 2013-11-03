@@ -65,10 +65,8 @@ int ctx_supernodes(CmdArgs *args)
   if(argc < 2) print_usage(usage, NULL);
 
   boolean use_fastg = false;
-  size_t i, num_binaries;
-  char **binary_paths;
-  boolean is_binary = false;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  size_t i, num_files;
+  char **paths;
   uint64_t max_ctx_kmers = 0;
 
   if(strcasecmp(argv[0],"--fastg") == 0) {
@@ -90,16 +88,26 @@ int ctx_supernodes(CmdArgs *args)
   if(!test_file_writable(out_path))
     print_usage(usage, "Cannot write to output file: %s", out_path);
 
-  num_binaries = argc;
-  binary_paths = argv;
+  num_files = argc;
+  paths = argv;
+  GraphFileReader files[num_files];
 
-  for(i = 0; i < num_binaries; i++)
+  for(i = 0; i < num_files; i++)
   {
-    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
-      print_usage(usage, "Cannot read input graph file: %s", binary_paths[i]);
-    else if(!is_binary)
-      print_usage(usage, "Input graph file isn't valid: %s", binary_paths[i]);
-    max_ctx_kmers = MAX2(max_ctx_kmers, gheader.num_of_kmers);
+    files[i] = INIT_GRAPH_READER;
+    int ret = graph_file_open(&files[i], paths[i], false);
+
+    if(ret == 0)
+      print_usage(usage, "Cannot read input graph file: %s", paths[i]);
+    else if(ret < 0)
+      print_usage(usage, "Input graph file isn't valid: %s", paths[i]);
+
+    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
+    }
+
+    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].hdr.num_of_kmers);
   }
 
   //
@@ -121,21 +129,23 @@ int ctx_supernodes(CmdArgs *args)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gheader.kmer_size, 1, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   // Visited
   size_t numwords64 = round_bits_to_words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(numwords64, sizeof(uint64_t));
 
-  SeqLoadingPrefs prefs = {.into_colour = 0, .merge_colours = true,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            .boolean_covgs = true,
                            .must_exist_in_graph = false,
-                           .empty_colours = false,
-                           .db_graph = &db_graph};
+                           .empty_colours = false};
 
-  for(i = 0; i < num_binaries; i++)
-    graph_load(binary_paths[i], &prefs, NULL, NULL);
+  for(i = 0; i < num_files; i++) {
+    files[i].flatten = true;
+    files[i].intocol = 0;
+    graph_load(&files[i], &prefs, NULL);
+  }
 
   if(use_fastg)
   {
@@ -163,5 +173,7 @@ int ctx_supernodes(CmdArgs *args)
   free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
-  return 0;
+  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
+
+  return EXIT_SUCCESS;
 }

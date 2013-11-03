@@ -1,5 +1,5 @@
 #include "global.h"
-#include <time.h> // srand
+#include <sys/time.h> // srand
 
 #include "cmd.h"
 #include "util.h"
@@ -13,7 +13,7 @@
 #include "supernode.h"
 
 static const char usage[] =
-"usage: contigs [options] <input.ctx>\n"
+"usage: "CMD" contigs [options] <input.ctx>\n"
 "  Pull out contigs, print statistics\n"
 "  Options: [ -m <mem> | -h <kmers> | -p <paths.ctp> ]\n"
 "           [ --nsamples <N> | --print | --colour <c> ]\n";
@@ -50,23 +50,25 @@ int ctx_contigs(CmdArgs *args)
   }
 
   if(argc != 1) print_usage(usage, NULL);
-  const char *input_ctx_path = argv[0];
+  char *input_ctx_path = argv[0];
 
-  /* initialize random seed: */
-  srand(time(NULL));
+  // Seed random
+  struct timeval time;
+  gettimeofday(&time, NULL);
+  srand((((time.tv_sec ^ getpid()) * 1000000) + time.tv_usec));
 
   // probe binary
-  boolean is_binary = false;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  GraphFileReader file = INIT_GRAPH_READER;
+  int ret = graph_file_open(&file, input_ctx_path, false);
 
-  if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
-    print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
-  else if(!is_binary)
-    print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
+  if(ret == 0)
+    print_usage(usage, "Cannot read input graph file: %s", input_ctx_path);
+  else if(ret < 0)
+    print_usage(usage, "Input graph file isn't valid: %s", input_ctx_path);
 
   // probe paths files
   boolean valid_paths_file = false;
-  PathFileHeader pheader = INIT_GRAPH_FILE_HDR;
+  PathFileHeader pheader = INIT_PATH_FILE_HDR;
   size_t i;
 
   if(args->num_ctp_files == 0)
@@ -82,9 +84,6 @@ int ctx_contigs(CmdArgs *args)
       die("Invalid .ctp file: %s", args->ctp_files[i]);
   }
 
-// CAATCAAGTGCGACGAGTAAGCCAATGCACGTTACATTTAAAGGTAGCGAATGGGGACGGTGCCCCGTTAATCGGGCAGCTCTAATAAATTTACAATGAG
-// CAATCAAGTGCGACGAGTATGCCAATGCACGTTACATTTAAAGGTAGCGAATGGGGACGGTGCCCCGTTAATCGGGCAGCTCTAATAAATTTACAATGAG
-
   // Get starting bkmer
   // BinaryKmer bkmer, bkey;
   // if(strlen(start_kmer) != kmer_size) die("length of kmer does not match kmer_size");
@@ -95,9 +94,9 @@ int ctx_contigs(CmdArgs *args)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem;
 
-  bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols + sizeof(uint64_t)*8;
+  bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, false);
+                                        file.hdr.num_of_kmers, false);
 
   graph_mem = hash_table_mem(kmers_in_hash, false, NULL) +
               (bits_per_kmer * kmers_in_hash) / 8;
@@ -112,13 +111,13 @@ int ctx_contigs(CmdArgs *args)
   dBGraph db_graph;
   GraphWalker wlk;
 
-  db_graph_alloc(&db_graph, gheader.kmer_size, gheader.num_of_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
   graph_walker_alloc(&wlk);
 
   size_t node_bit_fields = round_bits_to_words64(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(node_bit_fields * gheader.num_of_cols,
+  db_graph.node_in_cols = calloc2(node_bit_fields * file.hdr.num_of_cols,
                                   sizeof(uint64_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
@@ -126,17 +125,16 @@ int ctx_contigs(CmdArgs *args)
   uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, file.hdr.num_of_cols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
-                           .merge_colours = false,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .empty_colours = true};
 
-  graph_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(&file, &prefs, stats);
   seq_loading_stats_free(stats);
 
   hash_table_print_stats(&db_graph.ht);
@@ -266,10 +264,11 @@ int ctx_contigs(CmdArgs *args)
   free((void*)db_graph.kmer_paths);
   free(path_store);
 
-  graph_header_dealloc(&gheader);
   paths_header_dealloc(&pheader);
   graph_walker_dealloc(&wlk);
   db_graph_dealloc(&db_graph);
+
+  graph_file_dealloc(&file);
 
   return EXIT_SUCCESS;
 }

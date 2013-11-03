@@ -192,36 +192,34 @@ int ctx_reads(CmdArgs *args)
 
   int argend = argi;
 
-  size_t i, num_binaries = argc - argend;
-  char *binary_paths[num_binaries];
+  size_t i, num_files = argc - argend;
+  char *graph_paths[num_files];
 
-  if(num_binaries == 0)
+  if(num_files == 0)
     print_usage(usage, "Please specify input graph files");
 
   //
   // Probe binaries to get kmer-size
   //
-  boolean is_binary = false;
-  uint32_t kmer_size = 0;
+  GraphFileReader files[num_files];
   uint64_t max_num_kmers = 0;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
-  for(i = 0; i < num_binaries; i++)
+  for(i = 0; i < num_files; i++)
   {
-    binary_paths[i] = argv[argend+i];
+    files[i] = INIT_GRAPH_READER;
+    int ret = graph_file_open(&files[i], graph_paths[i], false);
 
-    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
-      print_usage(usage, "Cannot read binary file: %s", binary_paths[i]);
-    else if(!is_binary)
-      print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
+    if(ret == 0)
+      print_usage(usage, "Cannot read input graph file: %s", graph_paths[i]);
+    else if(ret < 0)
+      print_usage(usage, "Input graph file isn't valid: %s", graph_paths[i]);
 
-    if(i == 0) kmer_size = gheader.kmer_size;
-    else if(kmer_size != gheader.kmer_size) {
-      die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
-          kmer_size, gheader.kmer_size, binary_paths[i-1], binary_paths[i]);
+    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
-    max_num_kmers = MAX2(gheader.num_of_kmers, max_num_kmers);
+    max_num_kmers = MAX2(files[i].hdr.num_of_kmers, max_num_kmers);
   }
 
   //
@@ -248,23 +246,25 @@ int ctx_reads(CmdArgs *args)
   // Set up graph
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 0, kmers_in_hash);
 
   // Load binaries
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            // binary
                            .must_exist_in_graph = false,
                            .empty_colours = true,
-                           .merge_colours = true,
                            .boolean_covgs = false,
                            // Sequence
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false};
 
-  for(i = 0; i < num_binaries; i++)
-    graph_load(binary_paths[i], &prefs, stats, NULL);
+  for(i = 0; i < num_files; i++) {
+    files[i].flatten = true;
+    files[i].intocol = 0;
+    graph_load(&files[i], &prefs, stats);
+  }
 
   if(invert) status("Printing reads that do not touch the graph\n");
   else status("Printing reads that touch the graph\n");
@@ -359,5 +359,7 @@ int ctx_reads(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  exit(EXIT_SUCCESS);
+  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
+
+  return EXIT_SUCCESS;
 }

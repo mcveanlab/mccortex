@@ -20,7 +20,7 @@ static const char usage[] =
 "  Options:\n"
 "    -m <mem>                   How much memory to use\n"
 "    -h <kmers>                 How many entries in the hash table\n"
-"    --col <ctxcol> <ctpcol>    Load ctx path into ctp col\n"
+"    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
 "\n"
@@ -30,35 +30,31 @@ static const char usage[] =
 // "\n"
 "  Example: If we want paths for 2 samples only we can do:\n"
 "    "CMD" thread -m 80G \\\n"
-"                 --col 3 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
-"                 --col 5 1 --seq sample5.fa \\\n"
-"                 2 sample3and5.ctp population.c6.ctx population.c6.ctx\n"
+"                 --col 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
+"                 --col 1 --seq sample5.fa \\\n"
+"                 sample3and5.ctp population.c6.ctx:2 population.c6.ctx:4\n"
 "\n"
 "  Or you could pool the samples first:\n"
 "    "CMD" join --flatten pool.samples5and3.ctx population.c6.ctx:3,5\n"
-"    "CMD" thread -m 80G --col 3 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
-"                 2 sample3.3and5.ctp pool.samples5and3.ctx population.c6.ctx\n"
-"    "CMD" thread -m 80G --col 5 1 --seq sample5.fa \\\n"
+"    "CMD" thread -m 80G --col 1 --seq2 sample3.1.fq sample3.2.fq \\\n"
+"                 2 sample3.3and5.ctp pool.samples5and3.ctx\n"
+"    "CMD" thread -m 80G --col 0 --seq sample5.fa \\\n"
 "                 2 sample5.3and5.ctp pool.samples5and3.ctx population.c6.ctx\n"
 "    "CMD" pmerge sample3and5.ctp sample3.3and5.ctp sample5.3and5.ctp\n";
 
 #define NUM_PASSES 1
 
-static void get_binary_and_colour(uint32_t colour, uint32_t num_binaries,
-                                  uint32_t ctx_cols[num_binaries],
-                                  uint32_t *ctxindex, uint32_t *ctxcol)
+static void get_binary_and_colour(const GraphFileReader *files, size_t num_files,
+                                  size_t col, size_t *file_idx, size_t *col_idx)
 {
-  uint32_t i, colsum = 0;
-  for(i = 0; i < num_binaries; i++)
-  {
-    colsum += ctx_cols[i];
-    if(colour < colsum) {
-      *ctxindex = i;
-      *ctxcol = colour - (colsum - ctx_cols[i]);
-      return;
+  size_t i, n = 0;
+  for(i = 0; i < num_files; i++) {
+    if(n + graph_file_outncols(&files[i]) > col) {
+      *col_idx = n - col; *file_idx = i; return;
     }
+    n += graph_file_outncols(&files[i]);
   }
-  die("Colour is greater than sum of binary colours [%u > %u]", colour, colsum);
+  die("Colour is greater than sum of binary colours [%zu > %zu]", col, n);
 }
 
 int ctx_thread(CmdArgs *args)
@@ -68,8 +64,7 @@ int ctx_thread(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
 
-  uint32_t graph_col, path_col, num_of_path_cols = 0;
-  uint32_t path_colours[argc], graph_colours[argc];
+  size_t graph_col, num_seq_cols = 0, graph_colours[argc];
 
   seq_file_t *seqfiles[argc];
   size_t num_sf = 0, sf = 0;
@@ -82,16 +77,13 @@ int ctx_thread(CmdArgs *args)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--col <ctxcol> <ctpcol> requires an argument");
-      if(num_of_path_cols > 0 && !used_last_path)
+      if(num_seq_cols > 0 && !used_last_path)
         print_usage(usage, "--seq or --seq2 must follow --col");
-      if(!parse_entire_uint(argv[argi+1], &graph_col))
-        print_usage(usage, "--col <ctxcol> <ctpcol> requires integers >= 0");
-      if(!parse_entire_uint(argv[argi+2], &path_col))
-        print_usage(usage, "--col <ctxcol> <ctpcol> requires integers >= 0");
-      graph_colours[num_of_path_cols] = graph_col;
-      path_colours[num_of_path_cols++] = path_col;
+      if(!parse_entire_size(argv[argi+1], &graph_col))
+        print_usage(usage, "--col <ctxcol> requires integers >= 0");
+      graph_colours[num_seq_cols++] = graph_col;
       used_last_path = false;
-      argi += 2;
+      argi++;
     }
     else if(strcasecmp(argv[argi],"--seq") == 0)
     {
@@ -99,7 +91,7 @@ int ctx_thread(CmdArgs *args)
         print_usage(usage, "--seq <in.fa> requires an argument");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file: %s", argv[argi+1]);
-      if(num_of_path_cols == 0)
+      if(num_seq_cols == 0)
         die("--seq <in.fa> before --col <ctxcol> <ctpcol>");
       used_last_path = true;
       argi++;
@@ -108,7 +100,7 @@ int ctx_thread(CmdArgs *args)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> requires two arguments");
-      if(num_of_path_cols == 0)
+      if(num_seq_cols == 0)
         die("--seq2 <in1.fa> <in2.fa> before --col <ctxcol> <ctpcol>");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read first --seq2 file: %s", argv[argi+1]);
@@ -122,27 +114,27 @@ int ctx_thread(CmdArgs *args)
 
   int argend = argi;
 
-  if(argend + 2 > argc) print_usage(usage, "Not enough arguments");
+  if(argend + 1 >= argc) print_usage(usage, "Not enough arguments");
 
   char *out_ctp_path = argv[argi++];
 
   if(file_exists(out_ctp_path))
     die("Output file already exists: %s", out_ctp_path);
 
-  size_t num_binaries = argc - argi;
-  char **binary_paths = argv + argi;
+  size_t num_files = argc - argi;
+  char **graph_paths = argv + argi;
 
   //
   // Probe graph files
   //
-  boolean is_binary = false;
-  uint32_t ctx_num_of_cols[num_binaries], ctx_max_cols[num_binaries];
-  uint32_t max_num_cols = 0;
+  GraphFileReader files[num_files];
+  // boolean is_binary = false;
+  // uint32_t ctx_num_of_cols[num_files], ctx_max_cols[num_files];
+  // uint32_t max_num_cols = 0;
 
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  // GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
-  uint64_t ctx_max_kmers = 0;
-  size_t i;
+  size_t i, j, ctx_max_kmers = 0, total_cols = 0;
 
   // Set up paths header
   PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
@@ -150,57 +142,54 @@ int ctx_thread(CmdArgs *args)
                             .capacity = 0};
 
   // Validate input graphs
-  for(i = 0; i < num_binaries; i++)
+  for(i = 0; i < num_files; i++)
   {
-    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
-      print_usage(usage, "Cannot read input graph file: %s", binary_paths[i]);
-    else if(!is_binary)
-      print_usage(usage, "Input graph file isn't valid: %s", binary_paths[i]);
+    status("File: %s", graph_paths[i]);
+    files[i] = INIT_GRAPH_READER;
+    int ret = graph_file_open(&files[i], graph_paths[i], false);
 
-    if(i > 0 && pheader.kmer_size != gheader.kmer_size) {
-      die("Graph kmer-sizes do not match [%u vs %u; %s]\n",
-          pheader.kmer_size, gheader.kmer_size, binary_paths[i]);
-    }
-    pheader.kmer_size = gheader.kmer_size;
+    if(ret == 0)
+      print_usage(usage, "Cannot read input graph file: %s", graph_paths[i]);
+    else if(ret < 0)
+      print_usage(usage, "Input graph file isn't valid: %s", graph_paths[i]);
 
-    ctx_num_of_cols[i] = gheader.num_of_cols;
-    ctx_max_cols[i] = gheader.max_col;
-    max_num_cols = MAX2(gheader.num_of_cols, max_num_cols);
-    ctx_max_kmers = MAX2(ctx_max_kmers, gheader.num_of_kmers);
-
-    // alloc also reallocs
-    paths_header_alloc(&pheader, pheader.num_of_cols + gheader.num_of_cols);
-
-    // Clumsy way to update sample names
-    uint32_t col;
-    for(col = 0; col < gheader.num_of_cols; col++)
-    {
-      // gheader.ginfo[col] should be gheader.ginfo[filter.cols[col]]
-      strbuf_set(&pheader.sample_names[pheader.num_of_cols+col],
-                 gheader.ginfo[col].sample_name.buff);
+    if(i > 0 && files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
-    pheader.num_of_cols += gheader.num_of_cols;
+    size_t ncols = files[i].intocol + graph_file_outncols(&files[i]);
+    files[i].intocol += total_cols;
+    total_cols += ncols;
+
+    ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
   }
 
-  // Get colour indices
-  uint32_t load_colours[num_binaries][max_num_cols];
-  for(i = 0; i < num_binaries; i++)
-    graph_file_parse_colours(binary_paths[i], load_colours[i], ctx_max_cols[i]);
+  status("Total %zu cols", total_cols);
 
+  pheader.kmer_size = files[0].hdr.kmer_size;
+  paths_header_alloc(&pheader, total_cols);
+  pheader.num_of_cols = total_cols;
+
+  // Set path header sample names
+  for(i = 0; i < num_files; i++) {
+    for(j = 0; j < files[i].ncols; j++) {
+      strbuf_set(&pheader.sample_names[files[i].intocol+j],
+                 files[i].hdr.ginfo[files[i].cols[j]].sample_name.buff);
+    }
+  }
 
   // Check for invalid or duplicate ctp colours
   // or path colours >= number of output path colours
-  qsort(path_colours, num_of_path_cols, sizeof(uint32_t), cmp_uint32);
-  for(i = 0; i < num_of_path_cols; i++) {
-    if(i+1 < num_of_path_cols && path_colours[i] == path_colours[i+1])
-      print_usage(usage, "Duplicate --col <ctpcol> given: %u", path_colours[i]);
-    if(path_colours[i] >= pheader.num_of_cols) {
-      print_usage(usage, "output path colour >= number of path colours [%u >= %u]",
-                  path_colours[i], pheader.num_of_cols);
+  qsort(graph_colours, num_seq_cols, sizeof(size_t), cmp_size);
+  for(i = 0; i < num_seq_cols; i++) {
+    if(i+1 < num_seq_cols && graph_colours[i] == graph_colours[i+1])
+      print_usage(usage, "Duplicate --col <ctpcol> given: %zu", graph_colours[i]);
+    if(graph_colours[i] >= pheader.num_of_cols) {
+      print_usage(usage, "output path colour >= number of path colours [%zu >= %u]",
+                  graph_colours[i], pheader.num_of_cols);
     }
   }
-
 
   //
   // Decide on memory
@@ -257,9 +246,8 @@ int ctx_thread(CmdArgs *args)
 
   // Setup for loading graphs graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            // binaries
-                           .merge_colours = true,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
@@ -278,8 +266,7 @@ int ctx_thread(CmdArgs *args)
   // Parse input sequence
   status("Threading reads through the graph...\n");
 
-  size_t rep;
-  uint32_t ctxindex, ctxcol;
+  size_t rep, ctxindex, ctxcol;
 
   for(rep = 0; rep < NUM_PASSES; rep++)
   {
@@ -291,26 +278,20 @@ int ctx_thread(CmdArgs *args)
         db_graph_wipe_colour(&db_graph, 0);
         graph_info_init(&db_graph.ginfo[0]);
 
-        parse_entire_uint(argv[argi+1], &graph_col);
-        parse_entire_uint(argv[argi+2], &path_col);
-        add_paths_set_colours(pool, 0, path_col); // no need to pass second col
+        parse_entire_size(argv[argi+1], &graph_col);
+        add_paths_set_colours(pool, 0, graph_col); // no need to pass second col
 
         // Pick correct binary and colour
-        get_binary_and_colour(graph_col, num_binaries, ctx_num_of_cols,
-                              &ctxindex, &ctxcol);
+        get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
+        graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
 
-        graph_load_colour(binary_paths[ctxindex], &prefs, stats,
-                          load_colours[ctxindex][ctxcol]);
-
-        strbuf_set(&pheader.sample_names[path_col],
-                   db_graph.ginfo[0].sample_name.buff);
-
-        argi += 2;
+        argi++;
       }
       else if(strcmp(argv[argi], "--seq") == 0) {
-        add_read_paths_to_graph(pool, seqfiles[sf++], NULL, gap_limit,
+        add_read_paths_to_graph(pool, seqfiles[sf], NULL, gap_limit,
                                 &prefs, stats);
         argi += 1;
+        sf++;
       }
       else if(strcmp(argv[argi], "--seq2") == 0) {
         add_read_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1], gap_limit,
@@ -348,11 +329,13 @@ int ctx_thread(CmdArgs *args)
   free((void *)db_graph.kmer_paths);
   free(path_store);
 
-  graph_header_dealloc(&gheader);
+  // graph_header_dealloc(&gheader);
   paths_header_dealloc(&pheader);
 
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
+
+  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
 
   status("Paths written to: %s\n", out_ctp_path);
 

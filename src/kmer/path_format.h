@@ -16,6 +16,8 @@ typedef struct
   size_t capacity; // how many sample_names/inferred_kmers have been malloc'd
 } PathFileHeader;
 
+const PathFileHeader INIT_PATH_FILE_HDR;
+
 // Path File Format:
 // -- Header --
 // "PATHS"<uint32_t:version><uint32_t:kmersize><uint32_t:num_of_cols>

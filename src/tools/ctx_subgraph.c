@@ -14,7 +14,7 @@
 #include "graph_format.h"
 #include "seq_reader.h"
 
-
+// DEV: add --usecols <c> option
 static const char usage[] =
 "usage: "CMD" subgraph [options] <out.ctx> <dist> <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
@@ -27,7 +27,8 @@ static const char usage[] =
 "    -m <mem>          Memory to use  <required>\n"
 "    -h <kmers>        Hash size\n"
 "    --seed <seed.fa>  Read in a seed file\n"
-"    --invert          Dump kmers not in subgraph\n";
+"    --invert          Dump kmers not in subgraph\n"
+"    --usecols <n>     Number of samples in memory at once (speedup)\n";
 
 typedef struct
 {
@@ -71,7 +72,7 @@ void mark_reads(read_t *r1, read_t *r2,
 static void store_node_neighbours(const hkey_t node, dBNodeList *list)
 {
   // Get neighbours
-  Edges edges = db_graph.col_edges[node];
+  Edges edges = db_node_col_edges_union(&db_graph, node);
   int num_next, i;
   hkey_t next_nodes[8];
   Orientation next_orients[8];
@@ -137,6 +138,7 @@ int ctx_subgraph(CmdArgs *args)
   char *seed_files[argc];
   size_t num_seed_files = 0;
   boolean invert = false;
+  size_t usencols = 1;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
@@ -144,13 +146,19 @@ int ctx_subgraph(CmdArgs *args)
     if(strcasecmp(argv[argi], "--seed") == 0)
     {
       if(argi+1 == argc)
-        print_usage(usage, "--seed <seed.fa> requires and argument");
+        print_usage(usage, "--seed <seed.fa> requires an argument");
       seed_files[num_seed_files] = argv[argi+1];
       if(!test_file_readable(seed_files[num_seed_files]))
         die("Cannot read --seed file: %s", argv[argi+1]);
       argi++; num_seed_files++;
     }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
+    else if(strcasecmp(argv[argi], "--usecols") == 0)
+    {
+      if(argi+1 == argc || !parse_entire_size(argv[argi+1], &usencols) || !usencols)
+        print_usage(usage, "--usecols <C> requires a +ve integer argument");
+      argi++;
+    }
     else print_usage(usage, "Unknown option: %s", argv[argi]);
   }
 
@@ -160,39 +168,40 @@ int ctx_subgraph(CmdArgs *args)
   if(!parse_entire_uint(diststr, &dist))
     print_usage(usage, "Invalid <dist> value, must be int >= 0: %s", diststr);
 
-  int num_binaries_int = argc - 2*num_seed_files - 2;
-  if(num_binaries_int <= 0)
+  int num_files_int = argc - 2*num_seed_files - 2;
+  if(num_files_int <= 0)
     print_usage(usage, "Please specify input graph files (.ctx)");
 
-  size_t i, col, kmer_size, num_binaries = num_binaries_int;
-  char **binary_paths = argv + 2*num_seed_files + 2;
+  size_t i, j, col, num_files = num_files_int, total_cols = 0;
+  char **paths = argv + 2*num_seed_files + 2;
 
-  //
-  // Probe binaries to get kmer_size
-  //
-  boolean is_binary = false;
-  uint32_t ctx_num_of_cols[num_binaries], ctx_max_cols[num_binaries];
+  // Open graph files
   uint64_t max_num_kmers = 0;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  GraphFileReader files[num_files];
 
-  for(i = 0; i < num_binaries; i++)
+  for(i = 0; i < num_files; i++)
   {
-    if(!graph_file_probe(binary_paths[i], &is_binary, &gheader))
-      print_usage(usage, "Cannot read input binary file: %s", binary_paths[i]);
-    else if(!is_binary)
-      print_usage(usage, "Input binary file isn't valid: %s", binary_paths[i]);
+    files[i] = INIT_GRAPH_READER;
+    int ret = graph_file_open(&files[i], paths[i], false);
 
-    if(i == 0) {
-      kmer_size = gheader.kmer_size;
-    }
-    else if(kmer_size != gheader.kmer_size) {
-      die("Graph kmer-sizes do not match [%zu vs %u; %s; %s]\n",
-          kmer_size, gheader.kmer_size, binary_paths[i-1], binary_paths[i]);
+    if(ret == 0)
+      print_usage(usage, "Cannot read input graph file: %s", paths[i]);
+    else if(ret < 0)
+      print_usage(usage, "Input graph file isn't valid: %s", paths[i]);
+
+    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+      die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
+          files[0].hdr.kmer_size, files[i].hdr.kmer_size,
+          files[0].path.buff, files[i].path.buff);
     }
 
-    ctx_num_of_cols[i] = gheader.num_of_cols;
-    ctx_max_cols[i] = gheader.max_col;
-    max_num_kmers = MAX2(gheader.num_of_kmers, max_num_kmers);
+    // ctx_num_of_cols[i] = gheader.num_of_cols;
+    // ctx_max_cols[i] = gheader.max_col;
+    size_t offset = total_cols;
+    total_cols += files[i].intocol + graph_file_outncols(&files[i]);
+    files[i].intocol += offset;
+
+    max_num_kmers = MAX2(files[i].hdr.num_of_kmers, max_num_kmers);
   }
 
   //
@@ -202,7 +211,7 @@ int ctx_subgraph(CmdArgs *args)
   size_t num_of_fringe_nodes, fringe_mem;
   char graph_mem_str[100], num_fringe_nodes_str[100], fringe_mem_str[100];
 
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(Covg)*8 + sizeof(uint64_t)*8;
+  bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*usencols*8 + 1);
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers, false);
 
   graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
@@ -226,11 +235,11 @@ int ctx_subgraph(CmdArgs *args)
     die("Cannot write to output file: %s", out_path);
 
   // Create db_graph with one colour
-  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity, sizeof(Covg));
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, usencols, usencols, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity*usencols, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity*usencols, sizeof(Covg));
 
-  size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity);
+  size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity*usencols);
   kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
   // Store edge nodes here
@@ -244,13 +253,13 @@ int ctx_subgraph(CmdArgs *args)
   // Load binaries
   //
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            // binaries
-                           .merge_colours = true,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .empty_colours = true,
                            // seq
+                           .into_colour = 0,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false};
@@ -258,11 +267,18 @@ int ctx_subgraph(CmdArgs *args)
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
-  for(i = 0; i < num_binaries; i++) {
-    graph_load(binary_paths[i], &prefs, stats, &gheader);
+  for(i = 0; i < num_files; i++) {
+    size_t tmpcol = files[i].intocol;
+    files[i].intocol = 0;
+    files[i].flatten = true;
+    graph_load(&files[i], &prefs, stats);
+    files[i].flatten = false;
+    files[i].intocol = tmpcol;
 
-    for(col = 0; col < gheader.num_of_cols; col++)
-      graph_info_make_intersect(&gheader.ginfo[col], &intersect_gname);
+    for(j = 0; j < files[i].ncols; j++) {
+      col = files[i].cols[j];
+      graph_info_make_intersect(&files[i].hdr.ginfo[col], &intersect_gname);
+    }
   }
 
   char subgraphstr[] = "subgraph:{";
@@ -322,26 +338,17 @@ int ctx_subgraph(CmdArgs *args)
   db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
 
   // Dump nodes that were flagged
-  if(num_binaries == 1 && ctx_num_of_cols[0] == 1)
-  {
-    // We have all the info to dump now
-    graph_info_append_intersect(&db_graph.ginfo[0].cleaning, intersect_gname.buff);
-    graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, 1);
-  }
-  else
-  {
-    graph_files_merge(out_path, binary_paths, num_binaries,
-                      ctx_num_of_cols, ctx_max_cols,
-                      false, false, intersect_gname.buff, &db_graph);
-  }
+  graph_files_merge_mkhdr(out_path, files, num_files, true, true,
+                           intersect_gname.buff, &db_graph);
 
   free(kmer_mask);
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
 
+  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
+
   strbuf_dealloc(&intersect_gname);
   seq_loading_stats_free(stats);
-  graph_header_dealloc(&gheader);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

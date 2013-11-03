@@ -85,6 +85,7 @@ LINK=-lstdc++ -lpthread -lz -lm
 # Optimisations tags for testing
 OPT_TESTS = -O0
 # -Wstack-protector -fstack-protector
+# -fsanitize=thread
 
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG

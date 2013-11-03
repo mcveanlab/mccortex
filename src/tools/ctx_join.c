@@ -23,8 +23,8 @@
 //   All colours into one
 //   output: {A:0,A:1,B:0,B:1,B:2,C:0,C:1}
 //
-// --merge
-//   Join input colours
+// --overlap
+//   All colour 0s go into colour 0, colour 1s go into colour 1 etc.
 //   output: {A:0,B:0,C:0},{A:1,B:1,C:1},{B:2}
 
 static const char usage[] =
@@ -35,7 +35,7 @@ static const char usage[] =
 "   -m <mem>      Memory to use\n"
 "   -h <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "   --usecols <c> How many colours to load at once [default: 1]\n"
-"   --merge       Merge corresponding colours from each graph file\n"
+"   --overlap     Merge corresponding colours from each graph file\n"
 "   --flatten     Dump into a single colour graph\n"
 "\n"
 "   --intersect <a.ctx>\n"
@@ -43,7 +43,7 @@ static const char usage[] =
 "     <a.ctx> is NOT merged into the output file.\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctx:2,3\n"
-"  Offset specifies where to load the first colour (merge only).\n";
+"  Offset specifies where to load the first colour (overlap only).\n";
 
 static inline void remove_non_intersect_nodes(hkey_t node, Covg *covgs,
                                               Covg num, HashTable *ht)
@@ -60,15 +60,15 @@ int ctx_join(CmdArgs *args)
   if(argc < 2) print_usage(usage, NULL);
 
   char *out_ctx_path;
-  boolean merge = false, flatten = false;
+  boolean overlap = false, flatten = false;
 
   int argi;
   size_t num_intersect = 0, use_ncols = 1;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
-    if(strcasecmp(argv[argi],"--merge") == 0) {
-      if(merge) warn("merge specified twice");
-      merge = true;
+    if(strcasecmp(argv[argi],"--overlap") == 0) {
+      if(overlap) warn("overlap specified twice");
+      overlap = true;
     }
     else if(strcasecmp(argv[argi],"--flatten") == 0) {
       if(flatten) warn("flatten specified twice");
@@ -125,14 +125,9 @@ int ctx_join(CmdArgs *args)
   for(i = 0; i < num_graphs; i++)
   {
     files[i] = INIT_GRAPH_READER;
-    int ret = graph_file_open(&files[i], paths[i], false);
+    graph_file_open(&files[i], paths[i], true);
 
-    if(ret == 0)
-      print_usage(usage, "Cannot read input binary file: %s", paths[i]);
-    else if(ret < 0)
-      print_usage(usage, "Input binary file isn't valid: %s", paths[i]);
-
-    if(i > 0 && files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
       print_usage(usage, "Kmer sizes don't match [%u vs %u]",
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
@@ -149,7 +144,7 @@ int ctx_join(CmdArgs *args)
   }
 
   if(flatten) total_cols = 1;
-  else if(merge) total_cols = max_cols;
+  else if(overlap) total_cols = max_cols;
   else {
     total_cols = 0;
     for(i = 0; i < num_graphs; i++) {
@@ -207,7 +202,7 @@ int ctx_join(CmdArgs *args)
   {
     // Loading only one binary with no intersection filter
     // don't need to store a graph in memory
-    graph_stream_filter2(out_ctx_path, &files[0], NULL, NULL);
+    graph_stream_filter_mkhdr(out_ctx_path, &files[0], NULL, NULL);
     graph_file_dealloc(&files[0]);
     return EXIT_SUCCESS;
   }
@@ -256,7 +251,7 @@ int ctx_join(CmdArgs *args)
     {
       prefs.must_exist_in_graph = (i > 0);
 
-      graph_load2(&intersect_files[i], &prefs, NULL);
+      graph_load(&intersect_files[i], &prefs, NULL);
 
       // Update intersect header
       ncols = graph_file_outncols(&intersect_files[i]);
@@ -286,8 +281,11 @@ int ctx_join(CmdArgs *args)
     status("Loaded intersection set\n");
   }
 
-  graph_files_merge2(out_ctx_path, files, num_graphs,
-                     intsct_gname_ptr, &db_graph);
+  boolean take_intersect = (num_intersect > 0);
+
+  graph_files_merge_mkhdr(out_ctx_path, files, num_graphs,
+                          take_intersect, take_intersect,
+                          intsct_gname_ptr, &db_graph);
 
   for(i = 0; i < num_graphs; i++) graph_file_dealloc(&files[i]);
 

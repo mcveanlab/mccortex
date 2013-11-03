@@ -70,17 +70,16 @@ char *msa_wrking, **msa_alleles;
 StrBuf *endflank;
 
 // Filtering parameters
-uint32_t min_mapq = 30, max_branches = 6;
-size_t genome_size = 0;
+size_t min_mapq = 30, max_branches = 12, genome_size = 0;
 
 // VCF printing
-uint32_t var_print_num = 0;
+uint32_t num_variants_printed = 0;
 
 static void print_entry(vcf_entry_t *vcfentry, FILE *out)
 {
   // Set var num
   strbuf_reset(&vcfentry->cols[VCFID]);
-  strbuf_sprintf(&vcfentry->cols[VCFID], "var%u", var_print_num++);
+  strbuf_sprintf(&vcfentry->cols[VCFID], "var%u", num_variants_printed++);
   vcf_entry_print(vcfentry, out, num_samples);
 }
 
@@ -471,11 +470,11 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
       printf(
 "##INFO=<ID=BUBREV,Number=0,Type=Flag,Description=\"Bubble mapped to minus strand\">\n"
 "##INFO=<ID=MQ,Number=0,Type=Flag,Description=\"MAPQ score of 5p flank mapping\">\n"
-"##FILTER=<ID=MAPQ,Description=\"Mapped with MAPQ (<%u)\">\n"
+"##FILTER=<ID=MAPQ,Description=\"Mapped with MAPQ (<%zu)\">\n"
 "##FILTER=<ID=NOSAM,Description=\"No SAM entry\">\n"
 "##FILTER=<ID=NOMAP,Description=\"Unmapped in SAM\">\n"
 "##FILTER=<ID=FMAP,Description=\"3 prime flank did not align well\">\n"
-"##FILTER=<ID=MAXBR,Description=\"Too many branches (>%u)\">\n"
+"##FILTER=<ID=MAXBR,Description=\"Too many branches (>%zu)\">\n"
 "##FILTER=<ID=POPERR,Description=\"Pop filter classified as sequencing error\">\n"
 "##FILTER=<ID=POPREP,Description=\"Pop filter classified as repeat\">\n"
 "%s\n", min_mapq, max_branches, str);
@@ -494,8 +493,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
   }
 }
 
-static void parse_entry(vcf_entry_t *invcf, const bam1_t *bam,
-                        vcf_entry_t *outvcf)
+// Returns 0 if failed to find 3p flank, 1 otherwise
+static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvcf)
 {
   // Copy details to output vcf
   vcf_entry_cpy(outvcf, invcf, num_samples);
@@ -632,7 +631,7 @@ static void parse_entry(vcf_entry_t *invcf, const bam1_t *bam,
       // flank doesn't map well
       vcf_entry_add_filter(outvcf, "FMAP");
       print_entry(outvcf, stdout);
-      return;
+      return 0;
     }
   }
 
@@ -714,6 +713,7 @@ static void parse_entry(vcf_entry_t *invcf, const bam1_t *bam,
 
   // Re-instate removed ref base char
   ref_allele_str[ref_allele_len] = save_ref_base;
+  return 1;
 }
 
 static uint32_t get_chrom_index(const char *chromname)
@@ -837,12 +837,12 @@ int ctx_place(CmdArgs *args)
   while(argv[argi][0] == '-') {
     if(strcmp(argv[argi], "--minmapq") == 0) {
       if(argi + 1 == argc) print_usage(usage, NULL);
-      if(!parse_entire_uint(argv[argi+1], &min_mapq))
+      if(!parse_entire_size(argv[argi+1], &min_mapq))
         print_usage(usage, "Invalid --minmapq arg: %s", argv[argi+1]);
       argi++;
     } else if(strcmp(argv[argi], "--maxbr") == 0) {
       if(argi + 1 == argc) print_usage(usage, NULL);
-      if(!parse_entire_uint(argv[argi+1], &max_branches))
+      if(!parse_entire_size(argv[argi+1], &max_branches))
         print_usage(usage, "Invalid --maxbr arg: %s", argv[argi+1]);
       if(max_branches > MAX_ALLELES)
         print_usage(usage, "--maxbr cannot be >%i", MAX_ALLELES);
@@ -961,9 +961,14 @@ int ctx_place(CmdArgs *args)
   boolean read_sam = (sam_read1(samfh, bam_header, bam) >= 0);
   boolean read_vcf = (line->len > 0);
 
+  // Filter statistics
+  size_t num_missing_sam = 0, num_unmapped = 0, num_low_mapq = 0;
+  size_t num_toomany_br = 0, num_3p_not_found = 0, num_passed = 0, num_bubbles = 0;
+
   while(read_sam && read_vcf)
   {
     vcf_entry_parse(line, &invcf, num_samples);
+    num_bubbles++;
 
     if(strcmp(invcf.cols[VCFCHROM].buff, "un") != 0 ||
        strcmp(invcf.cols[VCFPOS].buff, "1") != 0 ||
@@ -980,6 +985,7 @@ int ctx_place(CmdArgs *args)
       // BAM entry and VCF name do not match - skip
       vcf_entry_add_filter(&invcf, "NOSAM");
       print_entry(&invcf, stdout);
+      num_missing_sam++;
 
       // Read next vcf entry only (not sam)
       strbuf_reset(line);
@@ -991,16 +997,14 @@ int ctx_place(CmdArgs *args)
       int low_mapq = bam->core.qual < min_mapq;
       int toomanybr = invcf.num_alts > max_branches;
 
-      if(!unmapped) {
-        info_tag_add(&invcf, "MQ=%i", (int)bam->core.qual);
-      }
+      if(!unmapped) info_tag_add(&invcf, "MQ=%i", (int)bam->core.qual);
 
       if(unmapped || low_mapq || toomanybr)
       {
         // Entry failed a filter
-        if(unmapped) vcf_entry_add_filter(&invcf, "NOMAP");
-        if(low_mapq) vcf_entry_add_filter(&invcf, "MAPQ");
-        if(toomanybr) vcf_entry_add_filter(&invcf, "MAXBR");
+        if(unmapped) { vcf_entry_add_filter(&invcf, "NOMAP"); num_unmapped++; }
+        if(low_mapq) { vcf_entry_add_filter(&invcf, "MAPQ"); num_low_mapq++; }
+        if(toomanybr) { vcf_entry_add_filter(&invcf, "MAXBR"); num_toomany_br++; }
 
         print_entry(&invcf, stdout);
       }
@@ -1009,7 +1013,8 @@ int ctx_place(CmdArgs *args)
         die("Missing LF/RF tags");
       }
       else {
-        parse_entry(&invcf, bam, &outvcf);
+        if(parse_entry(&invcf, bam, &outvcf)) num_passed++;
+        else num_3p_not_found++;
       }
 
       // Read next sam and vcf
@@ -1021,6 +1026,29 @@ int ctx_place(CmdArgs *args)
 
   if(read_sam) warn("Excess sam entries: %s", bam_get_qname(bam));
   if(read_vcf) warn("Excess vcf entries: %s", line->buff);
+
+  char missing_sam_str[100], unmapped_str[100], minmapq_str[100];
+  char maxbr_str[100], flank3p_not_found_str[100];
+  char passed_str[100], total_bubbles_str[100], nvariants_str[100];
+
+  ulong_to_str(num_missing_sam, missing_sam_str);
+  ulong_to_str(num_unmapped, unmapped_str);
+  ulong_to_str(num_low_mapq, minmapq_str);
+  ulong_to_str(num_toomany_br, maxbr_str);
+  ulong_to_str(num_3p_not_found, flank3p_not_found_str);
+  ulong_to_str(num_passed, passed_str);
+  ulong_to_str(num_bubbles, total_bubbles_str);
+  ulong_to_str(num_variants_printed, nvariants_str);
+
+  double pass_rate = 100.0 * (double)num_passed / num_bubbles;
+
+  status("Bubbles missing SAM entry: %s", missing_sam_str);
+  status("Bubbles unmapped: %s", unmapped_str);
+  status("Bubbles MAPQ < %zu: %s", min_mapq, minmapq_str);
+  status("Bubbles with > %zu branches: %s", max_branches, maxbr_str);
+  status("Bubbles 3p flank not found: %s", flank3p_not_found_str);
+  status("Passed bubbles: %s / %s [%.2f%%]", passed_str, total_bubbles_str, pass_rate);
+  status("Variants printed: %s", nvariants_str);
 
   free(msa_wrking);
   free(msa_alleles);

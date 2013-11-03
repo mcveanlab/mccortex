@@ -162,52 +162,48 @@ void graph_file_write_colours(const dBGraph *db_graph,
 }
 
 // Dump node: only print kmers with coverages in given colours
-static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
-                                     FILE *fout, const GraphFileHeader *header,
-                                     const Colour *colours, uint32_t start_col,
-                                     uint64_t *num_of_nodes_dumped)
+static void graph_write_node(hkey_t node, const dBGraph *db_graph,
+                             FILE *fout, const GraphFileHeader *header,
+                             size_t intocol, const Colour *colours,
+                             size_t start_col, size_t num_of_cols,
+                             uint64_t *num_dumped)
 {
-  uint32_t i = 0;
+  size_t i = 0;
 
   // Check this node has coverage in one of the specified colours
-  if(colours != NULL) {
-    while(i < header->num_of_cols &&
-          db_node_get_covg(db_graph,node,colours[i]) == 0) i++;
-  }
-  else {
-    while(i < header->num_of_cols &&
-          db_node_get_covg(db_graph,node,start_col+i) == 0) i++;
-  }
-  if(i == header->num_of_cols) return;
+  if(colours != NULL)
+    while(i < num_of_cols && db_node_get_covg(db_graph,node,colours[i]) == 0) i++;
+  else
+    while(i < num_of_cols && db_node_get_covg(db_graph,node,start_col+i) == 0) i++;
+
+  if(i == num_of_cols) return;
 
   BinaryKmer bkmer = db_node_bkmer(db_graph, node);
-  Covg covgs[header->num_of_cols];
-  Edges edges[header->num_of_cols];
+  Covg covg_store[header->num_of_cols], *covgs = covg_store + intocol;
+  Edges edge_store[header->num_of_cols], *edges = edge_store + intocol;
+
+  memset(covg_store, 0, sizeof(Covg) * header->num_of_cols);
+  memset(edge_store, 0, sizeof(Edges) * header->num_of_cols);
 
   Edges (*col_edges)[db_graph->num_of_cols]
     = (Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
   Covg (*col_covgs)[db_graph->num_of_cols]
     = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
-  if(colours != NULL)
-  {
-    uint32_t col;
-    for(i = 0; i < header->num_of_cols; i++)
-    {
-      col = colours[i];
-      covgs[i] = col_covgs[node][col];
-      edges[i] = col_edges[node][col];
+  if(colours != NULL) {
+    for(i = 0; i < num_of_cols; i++) {
+      covgs[i] = col_covgs[node][colours[i]];
+      edges[i] = col_edges[node][colours[i]];
     }
   }
-  else
-  {
-    memcpy(covgs, col_covgs[node]+start_col, header->num_of_cols*sizeof(Covg));
-    memcpy(edges, col_edges[node]+start_col, header->num_of_cols*sizeof(Edges));
+  else {
+    memcpy(covgs, col_covgs[node]+start_col, num_of_cols*sizeof(Covg));
+    memcpy(edges, col_edges[node]+start_col, num_of_cols*sizeof(Edges));
   }
 
-  graph_write_kmer(fout, header, bkmer.b, covgs, edges);
+  graph_write_kmer(fout, header, bkmer.b, covg_store, edge_store);
 
-  (*num_of_nodes_dumped)++;
+  (*num_dumped)++;
 }
 
 // This function will dump valid binaries by not printing edges to nodes that
@@ -215,16 +211,19 @@ static void binary_dump_node_colours(hkey_t node, const dBGraph *db_graph,
 // graph info is REQUIRED!
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
-uint64_t graph_file_save(const char *path, dBGraph *db_graph,
-                         uint32_t version,
-                         const Colour *colours, Colour start_col,
-                         uint32_t num_of_cols)
+uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
+                          const GraphFileHeader *header, size_t intocol,
+                          const Colour *colours, Colour start_col,
+                          size_t num_of_cols)
 {
+  // Cannot specify both colours array and start_col
+  assert(colours == NULL || start_col == 0);
   assert(db_graph->col_edges != NULL);
   assert(db_graph->col_covgs != NULL);
 
-  GraphInfo header_ginfo[num_of_cols];
-  uint32_t i, col;
+  size_t i;
+  uint64_t num_nodes_dumped = 0;
+  FILE *fout;
 
   if(colours != NULL) {
     if(num_of_cols == 1)
@@ -243,44 +242,24 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
            start_col+num_of_cols-1, path);
   }
 
-  FILE *fout = fopen(path, "w");
-  if(fout == NULL) die("Unable to open dump binary file to write: %s\n", path);
+  if((fout = fopen(path, "w")) == NULL)
+    die("Unable to open dump binary file to write: %s\n", path);
 
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
 
-  GraphInfo *ginfo = db_graph->ginfo;
-
-  // Construct binary header
-  GraphFileHeader header = {.version = version,
-                            .kmer_size = db_graph->kmer_size,
-                            .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = num_of_cols,
-                            .num_of_kmers = db_graph->ht.unique_kmers,
-                            .capacity = 0};
-
-  for(i = 0; i < num_of_cols; i++) {
-    col = colours != NULL ? colours[i] : i;
-    header_ginfo[i] = ginfo[col];
-  }
-
-  header.ginfo = header_ginfo;
-
   // Write header
-  graph_write_header(fout, &header);
+  graph_write_header(fout, header);
 
-  uint64_t num_of_nodes_dumped = 0;
+  HASH_TRAVERSE(&db_graph->ht, graph_write_node, db_graph, fout, header,
+                intocol, colours, start_col, num_of_cols, &num_nodes_dumped);
 
-  HASH_TRAVERSE(&(db_graph->ht), binary_dump_node_colours,
-                db_graph, fout, &header,
-                colours, start_col, &num_of_nodes_dumped);
-
-  if(version >= 7 && num_of_nodes_dumped != db_graph->ht.unique_kmers)
+  if(header->version >= 7 && num_nodes_dumped != db_graph->ht.unique_kmers)
   {
     // Need to go back and update number of kmers dumped
     long pos = strlen("CORTEX") * sizeof(uint8_t) + 4 * sizeof(uint32_t);
 
     if(fseek(fout, pos, SEEK_SET) == 0) {
-      fwrite(&num_of_nodes_dumped, sizeof(uint64_t), 1, fout);
+      fwrite(&num_nodes_dumped, sizeof(uint64_t), 1, fout);
     } else {
       warn("Couldn't update number of kmers in file [binary: %s]", path);
     }
@@ -288,9 +267,33 @@ uint64_t graph_file_save(const char *path, dBGraph *db_graph,
 
   fclose(fout);
 
-  graph_write_status(num_of_nodes_dumped, num_of_cols, path, version);
+  graph_write_status(num_nodes_dumped, num_of_cols, path, header->version);
 
-  return num_of_nodes_dumped;
+  return num_nodes_dumped;
+}
+
+uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
+                         uint32_t version,
+                         const Colour *colours, Colour start_col,
+                         uint32_t num_of_cols)
+{
+  // Construct binary header
+  GraphInfo hdr_ginfo[num_of_cols];
+  GraphFileHeader header = {.version = version,
+                            .kmer_size = db_graph->kmer_size,
+                            .num_of_bitfields = NUM_BKMER_WORDS,
+                            .num_of_cols = num_of_cols,
+                            .num_of_kmers = db_graph->ht.unique_kmers,
+                            .capacity = 0};
+
+  size_t i;
+  GraphInfo *ginfo = db_graph->ginfo;
+  for(i = 0; i < num_of_cols; i++)
+    hdr_ginfo[i] = ginfo[colours != NULL ? colours[i] : i];
+
+  header.ginfo = hdr_ginfo;
+  return graph_file_save(path, db_graph, &header, 0,
+                          colours, start_col, num_of_cols);
 }
 
 void graph_write_status(uint64_t nkmers, size_t ncols,

@@ -61,6 +61,15 @@ char parse_entire_double(char *str, double *result)
   return 1;
 }
 
+char parse_entire_size(char *str, size_t *result)
+{
+  char *strtol_last_char_ptr = str;
+  unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
+  if(tmp > SIZE_MAX || *strtol_last_char_ptr != '\0') return 0;
+  *result = (size_t)tmp;
+  return 1;
+}
+
 // Load a string of numbers into an array. Separator can be any non-numerical
 // character. e.g. '1,2,3' '1 2 3'
 // Returns number of unsigned integers parsed.

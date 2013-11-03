@@ -4,10 +4,8 @@
 #include "graph_format.h"
 #include "file_util.h"
 
-const GraphFileReader INIT_GRAPH_READER
-  = {.hdr = INIT_GRAPH_FILE_HDR,
-     .path = {.buff = NULL},
-     .ncolscap = 0};
+const GraphFileHeader INIT_GRAPH_FILE_HDR = INIT_GRAPH_FILE_HDR_MACRO;
+const GraphFileReader INIT_GRAPH_READER = INIT_GRAPH_READER_MACRO;
 
 // Get pointers to start and end of actual path
 // (\d+:)?path.ctx(:\d+(-\d+)?(,\d+(-\d+)?)*)?
@@ -49,6 +47,8 @@ int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
   size_t i;
   char *path_start, *path_end, path_lchar;
 
+  if(file->fh != NULL) graph_file_close(file);
+
   graph_file_filter_deconstruct(path, &path_start, &path_end);
   file->intocol = (path_start == path ? 0 : atoi(path));
 
@@ -58,11 +58,18 @@ int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
   file->file_size = get_file_size(path_start);
   if(file->file_size == -1) die("Cannot get file size: %s", path_start);
 
-  if((file->fh = fopen(path_start, "r")) == NULL) return 0;
+  if((file->fh = fopen(path_start, "r")) == NULL) {
+    if(fatal) die("Cannot load binary file: %s", path_start);
+    else return 0;
+  }
   setvbuf(file->fh, NULL, _IOFBF, CTX_BUF_SIZE);
 
   file->hdr_size = graph_file_read_header(file->fh, &file->hdr, fatal, path_start);
   if(file->hdr_size == -1) return -1;
+
+  // status("File: %s; hsize: %zu fsize: %zu", path_start,
+  //        (size_t)file->file_size, (size_t)file->hdr_size);
+  // graph_header_print(&file->hdr);
 
   // Get number of kmers
   size_t bytes_per_kmer = sizeof(BinaryKmer) +
@@ -155,7 +162,8 @@ boolean graph_file_read(const GraphFileReader *file,
   return 1;
 }
 
-static boolean graph_file_no_filter(const GraphFileReader *file)
+// Return true if all colours are being loaded once in their original order
+boolean graph_file_no_filter(const GraphFileReader *file)
 {
   size_t i;
   if(file->ncols != file->hdr.num_of_cols) return false;

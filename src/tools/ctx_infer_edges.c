@@ -143,15 +143,15 @@ int ctx_infer_edges(CmdArgs *args)
 
   if(argc != 1) print_usage(usage, NULL);
 
-  const char *path = argv[0];
+  char *path = argv[0];
   dBGraph db_graph;
-  boolean is_binary = false;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  GraphFileReader file = INIT_GRAPH_READER;
+  int ret = graph_file_open(&file, path, false);
 
-  if(!graph_file_probe(path, &is_binary, &gheader))
-    print_usage(usage, "Cannot read input binary file: %s", path);
-  else if(!is_binary)
-    print_usage(usage, "Input binary file isn't valid: %s", path);
+  if(ret == 0)
+    print_usage(usage, "Cannot read input graph file: %s", path);
+  else if(ret < 0)
+    print_usage(usage, "Input graph file isn't valid: %s", path);
 
   if(!test_file_writable(path))
     print_usage(usage, "Cannot write to file: %s", path);
@@ -159,26 +159,26 @@ int ctx_infer_edges(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer = sizeof(Edges)*8 + gheader.num_of_cols;
+  size_t extra_bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols;
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                               gheader.num_of_kmers, true);
+                                               file.hdr.num_of_kmers, true);
 
-  db_graph_alloc(&db_graph, gheader.kmer_size,
-                 gheader.num_of_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, file.hdr.kmer_size,
+                 file.hdr.num_of_cols, 1, kmers_in_hash);
 
   // In colour
   size_t words64_per_col = round_bits_to_words64(db_graph.ht.capacity);
-  db_graph.node_in_cols = calloc2(words64_per_col*gheader.num_of_cols, sizeof(uint64_t));
+  db_graph.node_in_cols = calloc2(words64_per_col * file.hdr.num_of_cols,
+                                  sizeof(uint64_t));
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
-                           .merge_colours = false,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .empty_colours = false};
 
-  graph_load(path, &prefs, stats, NULL);
+  graph_load(&file, &prefs, stats);
 
   if(add_pop_edges) status("Inferring edges from population...\n");
   else status("Inferring all missing edges...\n");
@@ -191,12 +191,12 @@ int ctx_infer_edges(CmdArgs *args)
   FILE *fh = fopen(path, "r+");
   if(fh == NULL) die("Cannot open: %s", path);
 
-  graph_file_read_header(fh, &gheader, true, path);
+  graph_file_read_header(fh, &file.hdr, true, path);
 
   size_t num_nodes_modified = 0;
 
-  long edges_len = sizeof(Edges) * gheader.num_of_cols;
-  while(graph_file_read_kmer(fh, &gheader, path, bkmer.b, covgs, edges))
+  long edges_len = sizeof(Edges) * file.hdr.num_of_cols;
+  while(graph_file_read_kmer(fh, &file.hdr, path, bkmer.b, covgs, edges))
   {
     if((add_all_edges && infer_all_edges(bkmer, edges, covgs, &db_graph)) ||
        (!add_all_edges && infer_pop_edges(bkmer, edges, covgs, &db_graph)))
@@ -219,6 +219,8 @@ int ctx_infer_edges(CmdArgs *args)
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   db_graph_dealloc(&db_graph);
+
+  graph_file_dealloc(&file);
 
   return EXIT_SUCCESS;
 }

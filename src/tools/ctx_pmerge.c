@@ -34,22 +34,22 @@ int ctx_pmerge(CmdArgs *args)
   // probe binary
   uint64_t num_kmers = args->num_kmers;
   uint32_t ctp_num_of_cols, ctp_kmer_size;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  GraphFileReader file = INIT_GRAPH_READER;
 
   if(args->file_set)
   {
-    boolean is_binary = false;
+    int ret = graph_file_open(&file, input_ctx_path, false);
 
-    if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
-      print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
-    else if(!is_binary)
-      print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
+    if(ret == 0)
+      print_usage(usage, "Cannot read input graph file: %s", input_ctx_path);
+    else if(ret < 0)
+      print_usage(usage, "Input graph file isn't valid: %s", input_ctx_path);
 
-    num_kmers = gheader.num_of_kmers;
+    num_kmers = file.hdr.num_of_kmers;
   }
 
   uint64_t max_ctp_path_bytes = 0;
-  PathFileHeader pheader = INIT_GRAPH_FILE_HDR;
+  PathFileHeader pheader = INIT_PATH_FILE_HDR;
 
   int argi;
   for(argi = 2; argi < argc; argi++)
@@ -94,12 +94,12 @@ int ctx_pmerge(CmdArgs *args)
   }
 
   if(args->file_set) {
-    if(ctp_num_of_cols != gheader.num_of_cols) {
+    if(ctp_num_of_cols != file.hdr.num_of_cols) {
       warn("Number of colours in .ctp files does not match .ctx [%u vs %u]",
-           ctp_num_of_cols, gheader.num_of_cols);
-    } else if(ctp_kmer_size != gheader.kmer_size) {
+           ctp_num_of_cols, file.hdr.num_of_cols);
+    } else if(ctp_kmer_size != file.hdr.kmer_size) {
       warn("Kmer size in .ctp files does not match .ctx [%u vs %u]",
-           ctp_kmer_size, gheader.kmer_size);
+           ctp_kmer_size, file.hdr.kmer_size);
     }
   }
 
@@ -111,7 +111,7 @@ int ctx_pmerge(CmdArgs *args)
 
   bits_per_kmer = sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, true);
+                                        file.hdr.num_of_kmers, true);
   path_mem = args->mem_to_use -
              kmers_in_hash * (sizeof(BinaryKmer)+sizeof(uint64_t));
 
@@ -121,7 +121,7 @@ int ctx_pmerge(CmdArgs *args)
   // set up tmp space
   PathStore tmp_pdata;
   uint8_t *tmp_path_store = malloc2(max_ctp_path_bytes);
-  path_store_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, gheader.num_of_cols);
+  path_store_init(&tmp_pdata, tmp_path_store, max_ctp_path_bytes, file.hdr.num_of_cols);
 
   // Set up graph and PathStore
   dBGraph db_graph;
@@ -132,17 +132,17 @@ int ctx_pmerge(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, gheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem, file.hdr.num_of_cols);
 
   //
   // Set up file header
   //
   pheader.version = CTX_PATH_FILEFORMAT;
   pheader.kmer_size = db_graph.kmer_size;
-  pheader.num_of_cols = gheader.num_of_cols;
+  pheader.num_of_cols = file.hdr.num_of_cols;
   pheader.capacity = 0;
 
-  paths_header_alloc(&pheader, gheader.num_of_cols);
+  paths_header_alloc(&pheader, file.hdr.num_of_cols);
 
   // Recursively load/add paths
   paths_format_read(argv[2], &pheader, &db_graph, &db_graph.pdata, true);
@@ -166,6 +166,8 @@ int ctx_pmerge(CmdArgs *args)
 
   paths_header_dealloc(&pheader);
   db_graph_dealloc(&db_graph);
+
+  graph_file_dealloc(&file);
 
   status("Paths written to: %s\n", out_ctp_path);
 

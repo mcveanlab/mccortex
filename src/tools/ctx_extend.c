@@ -147,14 +147,14 @@ int ctx_extend(CmdArgs *args)
   input_ctx_path = argv[2];
   input_fa_path = argv[3];
 
-  // Probe binary
-  boolean is_binary = false;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  // Probe graph file
+  GraphFileReader file = INIT_GRAPH_READER;
+  int ret = graph_file_open(&file, input_ctx_path, false);
 
-  if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
-    print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
-  else if(!is_binary)
-    print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
+  if(ret == 0)
+    print_usage(usage, "Cannot read input graph file: %s", input_ctx_path);
+  else if(ret < 0)
+    print_usage(usage, "Input graph file isn't valid: %s", input_ctx_path);
 
   if((seq_fa_file = seq_open(input_fa_path)) == NULL)
     print_usage(usage, "Cannot read input FASTA/FASTQ/SAM/BAM file: %s", input_fa_path);
@@ -174,13 +174,13 @@ int ctx_extend(CmdArgs *args)
 
   bits_per_kmer = (sizeof(Edges) + 2*sizeof(uint64_t)) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, true);
+                                        file.hdr.num_of_kmers, true);
 
   status("Max walk: %u\n", dist);
 
   // Set up dBGraph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gheader.kmer_size, 1, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, file.hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   size_t visited_words = 2*round_bits_to_words64(db_graph.ht.capacity);
@@ -198,9 +198,8 @@ int ctx_extend(CmdArgs *args)
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            // binaries
-                           .merge_colours = true,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .empty_colours = false,
@@ -209,8 +208,11 @@ int ctx_extend(CmdArgs *args)
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false};
 
+  file.flatten = true;
+  file.intocol = 0;
+
   // Load binary
-  graph_load(input_ctx_path, &prefs, stats, NULL);
+  graph_load(&file, &prefs, stats);
 
 
   ExtendContig contig = {.db_graph = &db_graph,
@@ -228,8 +230,6 @@ int ctx_extend(CmdArgs *args)
 
   fclose(out);
 
-  graph_header_dealloc(&gheader);
-
   free(buf);
   db_node_buf_dealloc(&readbuffw);
   db_node_buf_dealloc(&readbufrv);
@@ -237,6 +237,8 @@ int ctx_extend(CmdArgs *args)
   free(visited);
   free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
+
+  graph_file_dealloc(&file);
 
   return EXIT_SUCCESS;
 }

@@ -92,7 +92,7 @@ int ctx_build(CmdArgs *args)
   // Validate arguments
   int argi, argend = argc-1;
   uint32_t tmp;
-  GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
+  GraphFileReader ctxfile = INIT_GRAPH_READER;
   seq_file_t *seqfiles[argc];
   size_t num_sf = 0, sf = 0;
 
@@ -145,18 +145,21 @@ int ctx_build(CmdArgs *args)
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
       if(argi + 1 >= argend) print_usage(usage, "--load_binary requires an arg");
-      boolean is_binary = false;
 
-      if(!graph_file_probe(argv[argi+1], &is_binary, &gheader)) {
-        print_usage(usage, "Cannot read graph file: %s", argv[argi+1]);
-      } else if(!is_binary) {
-        print_usage(usage, "Input graph file isn't valid: %s", argv[argi+1]);
-      } else if(gheader.kmer_size != kmer_size) {
+      char *path = argv[argi+1];
+      int ret = graph_file_open(&ctxfile, path, false);
+
+      if(ret == 0)
+        print_usage(usage, "Cannot read input graph file: %s", path);
+      else if(ret < 0)
+        print_usage(usage, "Input graph file isn't valid: %s", path);
+
+      if(ctxfile.hdr.kmer_size != kmer_size) {
         print_usage(usage, "Input graph kmer_size doesn't match [%u vs %u]",
-                    gheader.kmer_size, kmer_size);
+                    ctxfile.hdr.kmer_size, kmer_size);
       }
       argi++;
-      colours_used += gheader.num_of_cols;
+      colours_used += ctxfile.intocol + graph_file_outncols(&ctxfile);
       sample_named = false;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
@@ -173,8 +176,6 @@ int ctx_build(CmdArgs *args)
       print_usage(usage, "Unknown command: %s", argv[argi]);
     }
   }
-
-  graph_header_dealloc(&gheader);
 
   if(!test_file_writable(out_path))
     die("Cannot write to file: %s", out_path);
@@ -197,11 +198,10 @@ int ctx_build(CmdArgs *args)
 
   // Parse arguments, load
   SeqLoadingStats *stats = seq_loading_stats_create(1000);
-  SeqLoadingPrefs prefs = {.into_colour = -1,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph, .into_colour = -1,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false,
-                           .db_graph = &db_graph};
+                           .remove_dups_se = false, .remove_dups_pe = false};
 
   read_t r1, r2;
   seq_read_alloc(&r1);
@@ -258,7 +258,10 @@ int ctx_build(CmdArgs *args)
       sf += 2;
     }
     else if(strcmp(argv[argi],"--load_binary") == 0) {
-      prefs.into_colour += graph_load(argv[argi+1], &prefs, stats, NULL);
+      graph_file_open(&ctxfile, argv[argi+1], true);
+      graph_load(&ctxfile, &prefs, stats);
+      prefs.into_colour += ctxfile.intocol + graph_file_outncols(&ctxfile);
+      graph_file_close(&ctxfile);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
@@ -279,7 +282,9 @@ int ctx_build(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   status("Dumping binary...\n");
-  graph_file_save(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
+  graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
+
+  graph_file_dealloc(&ctxfile);
 
   return EXIT_SUCCESS;
 }
