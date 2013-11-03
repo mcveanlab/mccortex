@@ -14,7 +14,7 @@ gsl-1.16/configure:
 htslib/Makefile:
 	git clone --branch 'bcftools+calling' git://github.com/samtools/htslib.git htslib
 
-bcftools/Makefile: htslib/Makefile
+bcftools/Makefile:
 	git clone https://github.com/samtools/bcftools.git
 
 string_buffer/Makefile:
@@ -56,7 +56,7 @@ gsl: gsl-1.16/configure
 htslib: htslib/Makefile
 	cd htslib && make
 
-bcftools: bcftools/Makefile
+bcftools: bcftools/Makefile htslib/Makefile
 	cd bcftools && make
 
 string_buffer: string_buffer/Makefile
@@ -77,6 +77,7 @@ readsim: readsim/Makefile
 clean:
 	cd gsl-1.16 && make clean
 	cd htslib && make clean
+	cd bcftools && make clean
 	cd string_buffer && make clean
 	cd bit_array && make clean
 	cd seq_file && make clean
