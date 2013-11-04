@@ -285,7 +285,7 @@ k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 k$(KMER)/graphs/pop.noref.ctx: $(GRAPHS_noref)
 k$(KMER)/graphs/pop.ref.ctx: $(GRAPHS_ref)
 k$(KMER)/graphs/pop.%.ctx:
-	$(JOINCTX) -m $(MEM) $@ $(GRAPHS_$*)
+	$(JOINCTX) --usecols $(NUMCOLS) -m $(MEM) $@ $(GRAPHS_$*)
 	$(INFERCTX) $@
 
 # Paths
