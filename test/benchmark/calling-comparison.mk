@@ -18,6 +18,7 @@ MEMHEIGHT=20
 # MAPARGS=
 MINMAPQ=40
 MAXALLELE=500
+NTHREADS=4
 
 SHELL := /bin/bash
 
@@ -292,11 +293,11 @@ k$(KMER)/graphs/pop.%.ctx:
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
 k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
-	$(THREADCTX) -m $(MEM) -t 1 $($*_list) $@ $<
+	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
-	$(THREADCTX) -m $(MEM) -t 1 $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
+	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
 	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 # Bubbles
@@ -312,14 +313,14 @@ k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
 	callargs=`if [ '$*' == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t 1 -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
+	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
 
 # % => {se,pe,sepe}.{ref.noref}
 k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
 	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	callargs=`if [ '$*' == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t 1 -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p $< k$(KMER)/graphs/pop.$$r.ctx $@
+	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p $< k$(KMER)/graphs/pop.$$r.ctx $@
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
