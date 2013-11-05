@@ -13,6 +13,7 @@ static const char usage[] =
 "\n"
 "Command:  build       FASTA/FASTQ/BAM -> binary graph file\n"
 "          view        view and check a cortex graph file (.ctx)\n"
+"          healthcheck load and check a cortex graph file (.ctx)\n"
 "          clean       clean errors from a graph\n"
 "          join        combine graphs, filter graph intersections\n"
 "          supernodes  pull out supernodes\n"
@@ -25,10 +26,10 @@ static const char usage[] =
 "          pview       view read threading information\n"
 "          pmerge      merge path files (.ctp)\n"
 "          call        call variants\n"
-// "          diverge     path divergence caller                 (unfinished)\n" // 3
 "          unique      remove duplicated bubbles, produce VCF\n"
-// "          covg        add covg to a VCF file                 (unfinished)\n" // 1
 "          place       place variants and genotype\n"
+// "          diverge     path divergence caller               (unfinished)\n"
+// "          covg        add covg to a VCF file               (unfinished)\n"
 "\n"
 "  Type a command with no arguments to see help.\n"
 "\n"

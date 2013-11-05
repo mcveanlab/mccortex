@@ -339,7 +339,7 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 //   stats->binaries_loaded
 
 size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
-                   SeqLoadingStats *stats)
+                  SeqLoadingStats *stats)
 {
   dBGraph *graph = prefs->db_graph;
   GraphInfo *ginfo = graph->ginfo;
@@ -589,7 +589,6 @@ size_t graph_files_merge(char *out_ctx_path,
   for(i = 0; i < num_files; i++) {
     ncols = files[i].intocol + graph_file_outncols(&files[i]);
     output_colours = MAX2(output_colours, ncols);
-    status(" %s into:%u-%zu", files[i].path.buff, files[i].intocol, ncols-1);
 
     if(files[i].hdr.kmer_size != files[0].hdr.kmer_size) {
       die("Kmer-size mismatch %u vs %u [%s vs %s]",
@@ -598,17 +597,15 @@ size_t graph_files_merge(char *out_ctx_path,
     }
   }
 
-  status("output_colours: %zu", output_colours);
-
   if(kmers_loaded && output_colours <= db_graph->num_of_cols)
   {
     return graph_file_save(out_ctx_path, db_graph, hdr,
-                            0, NULL, 0, output_colours);
+                           0, NULL, 0, output_colours);
   }
   else if(num_files == 1)
   {
     return graph_stream_filter(out_ctx_path, &files[0], db_graph, hdr,
-                                only_load_if_in_graph);
+                               only_load_if_in_graph);
   }
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -621,6 +618,8 @@ size_t graph_files_merge(char *out_ctx_path,
   if(output_colours <= db_graph->num_of_cols)
   {
     // Can load all files at once
+    status("Loading and saving %zu colours at one", output_colours);
+
     if(!kmers_loaded) {
       for(i = 0; i < num_files; i++)
         graph_load(&files[i], &prefs, stats);
@@ -632,13 +631,14 @@ size_t graph_files_merge(char *out_ctx_path,
   else
   {
     // Have to load a few colours at a time then dump, rinse and repeat
+    status("Saving %zu colours, %zu colours at a time",
+           output_colours, db_graph->num_of_cols);
+
     // Open file, write header
     FILE *fh = fopen(out_ctx_path, "w");
     if(fh == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
     setvbuf(fh, NULL, _IOFBF, CTX_BUF_SIZE);
     size_t header_size = graph_write_header(fh, hdr);
-
-    status("Wrote header of size: %zu", header_size);
 
     // Load all kmers into flat graph
     for(i = 0; i < num_files; i++)

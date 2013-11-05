@@ -4,14 +4,15 @@
 #include "hash_table.h" // for calculating mem usage
 
 const char *cmds[NUM_CMDS]
-  = {"build", "view", "clean", "join", "supernodes", "subgraph", "reads",
-     "extend", "contigs", "inferedges", "thread", "pview", "pmerge", "call",
-     "diverge", "unique", "covg", "place"};
+  = {"build", "view", "healthcheck", "clean", "join", "supernodes", "subgraph",
+     "reads", "extend", "contigs", "inferedges", "thread", "pview", "pmerge",
+     "call", "diverge", "unique", "covg", "place"};
 
 int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
-  = {ctx_build, ctx_view, ctx_clean, ctx_join, ctx_supernodes, ctx_subgraph,
-     ctx_reads, ctx_extend, ctx_contigs, ctx_infer_edges, ctx_thread, ctx_pview,
-     ctx_pmerge, ctx_call, ctx_diverge, ctx_unique, ctx_covg, ctx_place};
+  = {ctx_build, ctx_view, ctx_health_check, ctx_clean, ctx_join, ctx_supernodes,
+     ctx_subgraph, ctx_reads, ctx_extend, ctx_contigs, ctx_infer_edges,
+     ctx_thread, ctx_pview, ctx_pmerge, ctx_call, ctx_diverge, ctx_unique,
+     ctx_covg, ctx_place};
 
 // Not implemented functions
 static int ctx_notimpl(CmdArgs *args) {

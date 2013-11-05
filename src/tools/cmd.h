@@ -23,6 +23,7 @@ typedef struct
 
 int ctx_build(CmdArgs *args);
 int ctx_view(CmdArgs *args);
+int ctx_health_check(CmdArgs *args);
 int ctx_clean(CmdArgs *args);
 int ctx_join(CmdArgs *args);
 int ctx_supernodes(CmdArgs *args);
@@ -40,7 +41,7 @@ int ctx_unique(CmdArgs *args);
 int ctx_covg(CmdArgs *args);
 int ctx_place(CmdArgs *args);
 
-#define NUM_CMDS 18
+#define NUM_CMDS 19
 extern const char *cmds[NUM_CMDS];
 extern int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args);
 
