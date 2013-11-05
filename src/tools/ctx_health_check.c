@@ -32,7 +32,7 @@ static inline void check_node(hkey_t node, const dBGraph *db_graph)
   nrv_edges = db_graph_next_nodes(db_graph, bkmer, REVERSE, edges,
                                   nodes, orients, nucs);
 
-  if((unsigned)__builtin_popcount(edges) < nfw_edges + nrv_edges) {
+  if((unsigned)__builtin_popcount(edges) != nfw_edges + nrv_edges) {
     char seq[MAX_KMER_SIZE+1];
     binary_kmer_to_str(bkmer, db_graph->kmer_size, seq);
     die("Excess edges on node: %s [%zu,%zu]", seq, nfw_edges, nrv_edges);

@@ -73,7 +73,7 @@ INCS=-I src/basic/ -I src/kmer/ -I src/tools/ \
 
 # Library linking
 LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
-LINK=-lstdc++ -lpthread -lz -lm
+LINK=-lpthread -lz -lm
 
 # -Winit-self -Wmissing-include-dirs
 # -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code
