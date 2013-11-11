@@ -90,7 +90,7 @@ OPT_TESTS = -O0
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
 	OPT = $(OPT_TESTS)
-	DEBUG_ARGS = -g -ggdb -DDEBUG=1
+	DEBUG_ARGS = -g -ggdb
 else
 	ifdef PROFILE
 	#-DNDEBUG=1
@@ -103,7 +103,11 @@ else
 	endif
 endif
 
-CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) \
+ifdef VERBOSE
+	OUTPUT_ARGS=-DCTXVERBOSE=1
+endif
+
+CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) $(OUTPUT_ARGS) \
          -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
          -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS) $(HASH_KEY_FLAGS) -D_USESAM=1
 

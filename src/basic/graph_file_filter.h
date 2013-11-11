@@ -37,7 +37,8 @@ const GraphFileReader INIT_GRAPH_READER;
 // 4MB buffer
 #define CTX_BUF_SIZE (4UL<<20)
 
-#define graph_file_outncols(gfr) ((gfr)->flatten ? 1 : (gfr)->ncols)
+#define graph_file_outncols(reader) ((reader)->flatten ? 1 : (reader)->ncols)
+#define graph_file_intocol(reader,col) ((reader)->intocol + (reader)->flatten*col)
 
 // Open file
 // if cannot open file returns 0

@@ -161,7 +161,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
   //
   // Generate paths going backwards through the contig
   //
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     printf("==REV==\n");
     char str[MAX_KMER_SIZE+1];
   #endif
@@ -180,7 +180,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
     orient = rev_orient(nodes[pos].orient);
     prev_index = db_node_paths(db_graph, node);
 
-    #ifdef DEBUG
+    #ifdef CTXVERBOSE
       binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
       printf(" %s:%i) start_rv: %zu start_fw: %zu {%zu}\n", str, orient,
              start_rv, start_fw, pos_fw[start_fw]);
@@ -193,7 +193,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
   //
   // Generate forward paths
   //
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     printf("==FWD==\n");
   #endif
 
@@ -211,7 +211,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
     orient = nodes[pos].orient;
     prev_index = db_node_paths(db_graph, node);
 
-    #ifdef DEBUG
+    #ifdef CTXVERBOSE
       binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
       printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
              start_rv, start_fw);
@@ -306,7 +306,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   hkey_t node1 = nodebuf->data[nodebuf->len-1].node;
   Orientation orient1 = nodebuf->data[nodebuf->len-1].orient;
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     char tmp1[MAX_KMER_SIZE+1], tmp2[MAX_KMER_SIZE+1];
     binary_kmer_to_str(db_node_bkmer(db_graph, node1), db_graph->kmer_size, tmp1);
     binary_kmer_to_str(db_node_bkmer(db_graph, node2), db_graph->kmer_size, tmp2);
@@ -398,7 +398,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   if(success)
   {
-    #ifdef DEBUG
+    #ifdef CTXVERBOSE
       printf(" traverse success\n");
     #endif
     size_t num = gap_limit - pos;
@@ -486,7 +486,7 @@ void read_to_path(AddPathsWorker *worker)
       node = nodebuf->data[i].node;
       orient = nodebuf->data[i].orient;
 
-      #ifdef DEBUG
+      #ifdef CTXVERBOSE
         char str[MAX_KMER_SIZE+1+7];
         if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
         else {

@@ -176,7 +176,7 @@ void graph_file_status(const GraphFileReader *file)
 {
   size_t i;
   timestamp(ctx_msg_out);
-  message(" Loading binary %s", file->path.buff);
+  message(" Loading graph file %s", file->path.buff);
   if(!graph_file_no_filter(file)) {
     message(" with colour filter: %u", file->cols[0]);
     for(i = 1; i < file->ncols; i++) message(",%u", file->cols[i]);

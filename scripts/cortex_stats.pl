@@ -11,6 +11,8 @@ use List::Util qw(sum);
 use FindBin;
 use lib $FindBin::Bin;
 
+use UsefulModule;
+
 sub print_usage
 {
   if(@_ > 0) { print STDERR map {"Error: $_\n"} @_; }
@@ -25,8 +27,8 @@ sub print_usage
 if(@ARGV != 1) { print_usage(); }
 my $file = shift;
 
-my ($path) = ($file =~ /^(.*):/);
-if(!(-r $path)) { print_usage("Cannot read file: $path\n"); }
+my ($path) = ($file =~ /^([^:]+):?/);
+if(!(-r $path)) { print_usage("Cannot read file: $path [$file]\n"); }
 
 my $cmd = dirname(__FILE__)."/../bin/ctx31";
 
@@ -43,24 +45,30 @@ my ($num_nodes) = (0);
 my @node_degree = (0)x5; # 0..4
 
 $pid = open2($in, $out, $cmdline) or die("Cannot run cmd: '$cmdline'");
+my $num_cols;
+my @kmers_per_col = ();
 
 while(defined(my $line = <$in>))
 {
-  my ($kmer, $covgs, $edges, $shades, $num_cols) = parse_ctx_line($line);
+  my ($kmer, $covgs, $edges, $shades);
+  ($kmer, $covgs, $edges, $shades, $num_cols) = parse_ctx_line($line);
   if(defined($kmer))
   {
     $num_nodes++;
     # Merge edges
-    my @edges = (0)x8;
+    my @medges = (0)x8;
     for(my $col = 0; $col < $num_cols; $col++) {
       for(my $i = 0; $i < 8; $i++) {
-        $edges[$i] |= (substr($edges->[$col],$i,1) ne '.');
+        $medges[$i] |= (substr($edges->[$col],$i,1) ne '.');
       }
     }
-    my $indegree = sum(@edges[0..3]);
-    my $outdegree = sum(@edges[4..7]);
+    my $indegree = sum(@medges[0..3]);
+    my $outdegree = sum(@medges[4..7]);
     $node_degree[$indegree]++;
     $node_degree[$outdegree]++;
+  }
+  for(my $i = 0; $i < $num_cols; $i++) {
+    $kmers_per_col[$i] += ($covgs->[$i] > 0 || $edges->[$i] !~ /^\.+$/);
   }
 }
 
@@ -70,7 +78,12 @@ close($out);
 waitpid($pid, 1);
 
 print "Number of nodes: $num_nodes\n";
-map {print "  out-degree $_: $node_degree[$_]\n"} 0..4;
+map {print " out-degree $_: ".num2str($node_degree[$_])."\n"} 0..4;
+# Print num of kmers per colour
+print "Kmers per colour\n";
+for(my $i = 0; $i < $num_cols; $i++) {
+  print " Colour $i ".num2str($kmers_per_col[$i])."\n";
+}
 
 sub parse_ctx_line
 {

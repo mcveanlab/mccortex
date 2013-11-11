@@ -55,7 +55,9 @@ typedef struct
 {
   HashTable ht;
   // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
-  const size_t kmer_size, num_of_cols, num_edge_cols;
+  const size_t kmer_size;
+  const size_t num_of_cols; // How many colours malloc'd for node_in_cols,col_covgs,ginfo
+  const size_t num_edge_cols; // How many colours malloc'd for col_edges
   size_t num_of_cols_used; // how many colours currently used
 
   // Array of GraphInfo objects, one per colour

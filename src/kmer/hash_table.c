@@ -184,42 +184,43 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
 
 void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
-  BinaryKmer unset = {.b = {UNSET_BKMER}};
-  htable->table[pos] = unset;
+  const BinaryKmer unset = {.b = {UNSET_BKMER}};
   uint64_t bucket = pos / htable->bucket_size;
+  assert(pos != HASH_NOT_FOUND);
   assert(htable->buckets[bucket][BITEMS] > 0);
+  assert(htable->unique_kmers > 0);
+  assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
+  htable->table[pos] = unset;
   htable->buckets[bucket][BITEMS]--;
   htable->unique_kmers--;
 }
 
 void hash_table_print_stats(const HashTable *const htable)
 {
-  double occupancy = 100 * (double)htable->unique_kmers / htable->capacity;
-  size_t bytes = htable->capacity * sizeof(BinaryKmer) +
-                 htable->num_of_buckets * sizeof(uint8_t[2]);
-  size_t key_bits = __builtin_ctzl(htable->num_of_buckets);
+  size_t i, nbytes, nkeybits;
+  double occupancy = (100.0 * htable->unique_kmers) / htable->capacity;
+  nbytes = htable->capacity * sizeof(BinaryKmer) +
+           htable->num_of_buckets * sizeof(uint8_t[2]);
+  nkeybits = __builtin_ctzl(htable->num_of_buckets);
 
   char mem_str[50], num_buckets_str[100], num_entries_str[100], capacity_str[100];
   ulong_to_str(htable->num_of_buckets, num_buckets_str);
-  bytes_to_str(bytes, 1, mem_str);
+  bytes_to_str(nbytes, 1, mem_str);
   ulong_to_str(htable->capacity, capacity_str);
   ulong_to_str(htable->unique_kmers, num_entries_str);
 
   status("[hash table] buckets: %s [2^%zu]; bucket size: %zu; "
          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
-         num_buckets_str, key_bits, (size_t)htable->bucket_size, mem_str,
+         num_buckets_str, nkeybits, (size_t)htable->bucket_size, mem_str,
          num_entries_str, capacity_str, occupancy);
 
   if(htable->unique_kmers > 0)
   {
-    int i;
-    // status("  Collisions:\n");
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(htable->collisions[i] != 0) {
-        status("  collisions %i: %zu\n", i, (size_t)htable->collisions[i]);
+        status("  collisions %zu: %zu\n", i, (size_t)htable->collisions[i]);
       }
     }
-    // status("\n");
   }
 }
 

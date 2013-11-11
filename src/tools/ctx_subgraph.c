@@ -13,6 +13,7 @@
 #include "db_node.h"
 #include "graph_format.h"
 #include "seq_reader.h"
+#include "prune_nodes.h"
 
 // DEV: add --usecols <c> option
 static const char usage[] =
@@ -42,7 +43,7 @@ uint64_t *kmer_mask;
 
 static void mark_bkmer(BinaryKmer bkmer, SeqLoadingStats *stats)
 {
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     char tmp[MAX_KMER_SIZE+1];
     binary_kmer_to_str(bkmer, db_graph.kmer_size, tmp);
     status("got bkmer %s\n", tmp);
@@ -72,7 +73,7 @@ void mark_reads(read_t *r1, read_t *r2,
 static void store_node_neighbours(const hkey_t node, dBNodeList *list)
 {
   // Get neighbours
-  Edges edges = db_node_col_edges_union(&db_graph, node);
+  Edges edges = db_node_edges_union(&db_graph, node);
   int num_next, i;
   hkey_t next_nodes[8];
   Orientation next_orients[8];
@@ -182,12 +183,7 @@ int ctx_subgraph(CmdArgs *args)
   for(i = 0; i < num_files; i++)
   {
     files[i] = INIT_GRAPH_READER;
-    int ret = graph_file_open(&files[i], paths[i], false);
-
-    if(ret == 0)
-      print_usage(usage, "Cannot read input graph file: %s", paths[i]);
-    else if(ret < 0)
-      print_usage(usage, "Input graph file isn't valid: %s", paths[i]);
+    graph_file_open(&files[i], paths[i], true);
 
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
@@ -195,8 +191,6 @@ int ctx_subgraph(CmdArgs *args)
           files[0].path.buff, files[i].path.buff);
     }
 
-    // ctx_num_of_cols[i] = gheader.num_of_cols;
-    // ctx_max_cols[i] = gheader.max_col;
     size_t offset = total_cols;
     total_cols += files[i].intocol + graph_file_outncols(&files[i]);
     files[i].intocol += offset;
@@ -257,6 +251,7 @@ int ctx_subgraph(CmdArgs *args)
                            // binaries
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
+                           .must_exist_in_edges = NULL,
                            .empty_colours = true,
                            // seq
                            .into_colour = 0,
@@ -267,13 +262,19 @@ int ctx_subgraph(CmdArgs *args)
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
+  size_t tmpcol; boolean tmpflatten;
   for(i = 0; i < num_files; i++) {
-    size_t tmpcol = files[i].intocol;
-    files[i].intocol = 0;
-    files[i].flatten = true;
+    tmpcol = files[i].intocol;
+    tmpflatten = files[i].flatten;
+
+    if(total_cols > db_graph.num_of_cols) {
+      files[i].intocol = 0;
+      files[i].flatten = true;
+    }
+
     graph_load(&files[i], &prefs, stats);
-    files[i].flatten = false;
     files[i].intocol = tmpcol;
+    files[i].flatten = tmpflatten;
 
     for(j = 0; j < files[i].ncols; j++) {
       col = files[i].cols[j];
@@ -335,13 +336,28 @@ int ctx_subgraph(CmdArgs *args)
   }
 
   // Remove nodes that were not flagged
-  db_graph_prune_nodes_lacking_flag(&db_graph, kmer_mask);
+  prune_nodes_lacking_flag(&db_graph, kmer_mask);
+  free(kmer_mask);
 
   // Dump nodes that were flagged
-  graph_files_merge_mkhdr(out_path, files, num_files, true, true,
-                           intersect_gname.buff, &db_graph);
+  Edges *intersect_edges = NULL;
+  boolean kmers_loaded = true;
+  boolean colours_loaded = (total_cols <= db_graph.num_of_cols);
 
-  free(kmer_mask);
+  if(!colours_loaded)
+  {
+    // Need to reload graph colours - therefore construct edge intersection set
+    intersect_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+    for(i = 0; i < db_graph.ht.capacity; i++)
+      intersect_edges[i] = db_node_edges_union(&db_graph, i);
+  }
+
+  graph_files_merge_mkhdr(out_path, files, num_files,
+                          kmers_loaded, colours_loaded,
+                          intersect_edges, intersect_gname.buff,
+                          &db_graph);
+
+  if(intersect_edges != NULL) free(intersect_edges);
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
 

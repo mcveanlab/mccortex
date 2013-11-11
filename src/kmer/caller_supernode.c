@@ -4,7 +4,7 @@
 #include "db_node.h"
 #include "supernode.h"
 
-#ifdef DEBUG
+#ifdef CTXVERBOSE
 #define DEBUG_CALLER 1
 #endif
 
@@ -77,7 +77,7 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
   last_or = orients[snode->num_of_nodes-1];
 
   // Prev nodes
-  union_edges = db_node_edges(db_graph, first_node);
+  union_edges = db_node_edges_union(db_graph, first_node);
   union_edges = edges_with_orientation(union_edges, first_or);
   bkmer = db_node_bkmer(db_graph, first_node);
 
@@ -91,7 +91,7 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
   }
 
   // Next nodes
-  union_edges = db_node_edges(db_graph, last_node);
+  union_edges = db_node_edges_union(db_graph, last_node);
   union_edges = edges_with_orientation(union_edges, last_or);
   bkmer = db_node_bkmer(db_graph, last_node);
 

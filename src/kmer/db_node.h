@@ -99,13 +99,14 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 #define edges_get_indegree(edges,or) \
         __builtin_popcount(edges_with_orientation(edges,rev_orient(or)))
 
-#define db_node_edges(graph,hkey) db_node_col_edges(graph,0,hkey)
-#define db_node_reset_edges(graph,hkey) (db_node_edges(graph,hkey) = 0)
+#define db_node_zero_edges(graph,hkey) \
+        memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
+               (graph)->num_edge_cols * sizeof(Edges))
 
 #define db_node_col_edges(graph,col,hkey) \
         ((graph)->col_edges[(hkey)*(graph)->num_edge_cols + (col)])
 
-#define db_node_col_edges_union(graph,hkey) \
+#define db_node_edges_union(graph,hkey) \
         edges_get_union((graph)->col_edges+(hkey)*(graph)->num_edge_cols, \
                         (graph)->num_edge_cols)
 
@@ -132,14 +133,13 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
         memset((graph)->col_covgs + (hkey)*(graph)->num_of_cols, 0, \
                (graph)->num_of_cols * sizeof(Covg))
 
-#define db_node_col_covg(graph,node,colour) \
+#define db_node_col_covg(graph,colour,node) \
         ((graph)->col_covgs[(node)*(graph)->num_of_cols + (colour)])
 
 void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 
-Covg db_node_sum_covg_of_colours(const dBGraph *graph, hkey_t hkey,
-                                 Colour first_col, int num_of_cols);
+Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 
 //
 // dBNodeBuffer

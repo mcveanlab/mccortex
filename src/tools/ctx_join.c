@@ -115,7 +115,7 @@ int ctx_join(CmdArgs *args)
   size_t num_graphs = argc - argi;
   char **paths = argv + argi;
 
-  status("Probing %zu graph files", num_graphs);
+  status("Probing %zu graph files and %zu intersect files", num_graphs, num_intersect);
 
   // Check all binaries are valid binaries with matching kmer size
   size_t i, col, ncols, ctx_max_kmers = 0, max_cols = 0, sum_cols = 0, total_cols;
@@ -158,12 +158,7 @@ int ctx_join(CmdArgs *args)
   for(i = 0; i < num_intersect; i++)
   {
     intersect_files[i] = INIT_GRAPH_READER;
-    int ret = graph_file_open(&intersect_files[i], intersect_paths[i], false);
-
-    if(ret == 0)
-      print_usage(usage, "Cannot read input binary file: %s", intersect_paths[i]);
-    else if(ret < 0)
-      print_usage(usage, "Input binary file isn't valid: %s", intersect_paths[i]);
+    graph_file_open(&intersect_files[i], intersect_paths[i], true);
 
     if(files[0].hdr.kmer_size != intersect_files[i].hdr.kmer_size) {
       print_usage(usage, "Kmer sizes don't match [%u vs %u]",
@@ -182,7 +177,9 @@ int ctx_join(CmdArgs *args)
     }
   }
 
-  if(num_intersect > 0)
+  boolean take_intersect = (num_intersect > 0);
+
+  if(take_intersect)
     ctx_max_kmers = min_intersect_num_kmers;
 
   if(use_ncols > 1 && flatten) {
@@ -202,7 +199,7 @@ int ctx_join(CmdArgs *args)
   {
     // Loading only one binary with no intersection filter
     // don't need to store a graph in memory
-    graph_stream_filter_mkhdr(out_ctx_path, &files[0], NULL, NULL);
+    graph_stream_filter_mkhdr(out_ctx_path, &files[0], NULL, NULL, NULL);
     graph_file_dealloc(&files[0]);
     return EXIT_SUCCESS;
   }
@@ -222,8 +219,19 @@ int ctx_join(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
+  Edges *intersect_edges = NULL;
+  // db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+
+  // Edges
+  if(take_intersect) {
+    db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
+    db_graph.col_edges = calloc2(db_graph.ht.capacity*(use_ncols+1), sizeof(Edges));
+  }
+  else {
+    db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+    db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
+  }
+
   db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
   // Load intersection binaries
@@ -231,32 +239,25 @@ int ctx_join(CmdArgs *args)
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
-  if(num_intersect > 0)
+  if(take_intersect)
   {
-    intsct_gname_ptr = intersect_gname.buff;
     SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                             // binaries
                              .boolean_covgs = true, // covg++ only
                              .must_exist_in_graph = false,
-                             .empty_colours = false,
-                             // sequence
-                             .quality_cutoff = 0, .ascii_fq_offset = 0,
-                             .homopolymer_cutoff = 0,
-                             .remove_dups_se = false, .remove_dups_pe = false};
-
-    Edges *tmpcoledges = db_graph.col_edges;
-    db_graph.col_edges = NULL;
+                             .must_exist_in_edges = NULL,
+                             .empty_colours = false};
 
     for(i = 0; i < num_intersect; i++)
     {
-      prefs.must_exist_in_graph = (i > 0);
-
       graph_load(&intersect_files[i], &prefs, NULL);
 
       // Update intersect header
       ncols = graph_file_outncols(&intersect_files[i]);
       for(col = 0; col < ncols; col++)
         graph_info_make_intersect(&intersect_files[i].hdr.ginfo[col], &intersect_gname);
+
+      prefs.must_exist_in_graph = true;
+      prefs.must_exist_in_edges = db_graph.col_edges;
     }
 
     if(num_intersect > 1)
@@ -266,11 +267,8 @@ int ctx_join(CmdArgs *args)
                     num_intersect, &db_graph.ht);
     }
 
-    // Zero covgs
-    memset(db_graph.col_covgs, 0, db_graph.ht.capacity * use_ncols * sizeof(Covg));
-
-    // Swap edges with NULL instead of having to wipe
-    db_graph.col_edges = tmpcoledges;
+    status("Loaded intersection set\n");
+    intsct_gname_ptr = intersect_gname.buff;
 
     for(i = 0; i < num_intersect; i++) graph_file_dealloc(&intersect_files[i]);
 
@@ -278,13 +276,19 @@ int ctx_join(CmdArgs *args)
     for(i = 0; i < db_graph.num_of_cols; i++)
       graph_info_init(&db_graph.ginfo[i]);
 
-    status("Loaded intersection set\n");
+    // Zero covgs
+    memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
+
+    // Resize graph
+    db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+    intersect_edges = db_graph.col_edges;
+    db_graph.col_edges += db_graph.ht.capacity;
   }
 
-  boolean take_intersect = (num_intersect > 0);
+  boolean kmers_loaded = take_intersect, colours_loaded = false;
 
   graph_files_merge_mkhdr(out_ctx_path, files, num_graphs,
-                          take_intersect, take_intersect,
+                          kmers_loaded, colours_loaded, intersect_edges,
                           intsct_gname_ptr, &db_graph);
 
   for(i = 0; i < num_graphs; i++) graph_file_dealloc(&files[i]);

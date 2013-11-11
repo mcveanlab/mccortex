@@ -29,9 +29,9 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
   BinaryKmer bkey, bkmer;
   hkey_t next;
 
-  Edges newedges[db_graph->num_of_cols];
+  Edges newedges[db_graph->num_edge_cols];
 
-  for(col = 0; col < db_graph->num_of_cols; col++) {
+  for(col = 0; col < db_graph->num_edge_cols; col++) {
     uedges |= edges[col]; // union of edges
     iedges &= edges[col]; // intersection of edges
     newedges[col] = edges[col];
@@ -60,15 +60,15 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
         next = hash_table_find(&db_graph->ht, bkey);
         assert(next != HASH_NOT_FOUND);
 
-        for(col = 0; col < db_graph->num_of_cols; col++)
+        for(col = 0; col < db_graph->num_edge_cols; col++)
           if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
             newedges[col] |= edge;
       }
     }
   }
 
-  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
-  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
+  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
+  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
   return (cmp != 0);
 }
 
@@ -81,11 +81,11 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
   BinaryKmer bkey, bkmer;
   hkey_t next;
 
-  Edges newedges[db_graph->num_of_cols];
-  memcpy(newedges, edges, db_graph->num_of_cols * sizeof(Edges));
+  Edges newedges[db_graph->num_edge_cols];
+  memcpy(newedges, edges, db_graph->num_edge_cols * sizeof(Edges));
 
   // intersection of edges
-  for(col = 0; col < db_graph->num_of_cols; col++) iedges &= edges[col];
+  for(col = 0; col < db_graph->num_edge_cols; col++) iedges &= edges[col];
 
   for(orient = 0; orient < 2; orient++)
   {
@@ -106,15 +106,15 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
         next = hash_table_find(&db_graph->ht, bkey);
 
         if(next != HASH_NOT_FOUND)
-          for(col = 0; col < db_graph->num_of_cols; col++)
+          for(col = 0; col < db_graph->num_edge_cols; col++)
             if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
               newedges[col] |= edge;
       }
     }
   }
 
-  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
-  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_of_cols);
+  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
+  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
   return (cmp != 0);
 }
 

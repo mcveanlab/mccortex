@@ -39,7 +39,7 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 //   stats->binaries_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.
 size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
-                   SeqLoadingStats *stats);
+                  SeqLoadingStats *stats);
 
 size_t graph_load_colour(GraphFileReader *file,
                          const SeqLoadingPrefs *prefs,
@@ -54,24 +54,27 @@ size_t graph_load_colour(GraphFileReader *file,
 // parameter: flatten: if true merge colours into one
 size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file,
                            const dBGraph *db_graph, const GraphFileHeader *hdr,
-                           boolean only_load_if_in_graph);
+                           const Edges *only_load_if_in_edges);
 
 size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file,
                                  const dBGraph *db_graph,
+                                 const Edges *only_load_if_in_edges,
                                  const char *intersect_gname);
 
 size_t graph_files_merge(char *out_ctx_path,
-                          GraphFileReader *files, size_t num_files,
-                          boolean kmers_loaded, boolean only_load_if_in_graph,
-                          GraphFileHeader *hdr, dBGraph *db_graph);
+                         GraphFileReader *files, size_t num_files,
+                         boolean kmers_loaded, boolean colours_loaded,
+                         const Edges *only_load_if_in_edges,
+                         GraphFileHeader *hdr, dBGraph *db_graph);
 
 // if flatten, pool all colours into colour 0
 // if intersect only load kmers that are already in the hash table
 // returns number of kmers written
 size_t graph_files_merge_mkhdr(char *out_ctx_path,
-                                GraphFileReader *files, size_t num_files,
-                                boolean kmers_loaded, boolean only_load_if_in_graph,
-                                const char *intersect_gname, dBGraph *db_graph);
+                               GraphFileReader *files, size_t num_files,
+                               boolean kmers_loaded, boolean colours_loaded,
+                               const Edges *only_load_if_in_edges,
+                               const char *intersect_gname, dBGraph *db_graph);
 
 //
 // Writing

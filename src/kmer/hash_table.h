@@ -73,12 +73,13 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 // Iterate over buckets, iterate over bucket contents
 // Faster in low density hash tables
 #define HASH_TRAVERSE2(ht,func, ...) ({                                        \
-  BinaryKmer *bkt_strt = (ht)->table, *bkt_end, *htt_ptr; size_t _b;           \
+  BinaryKmer *bkt_strt = (ht)->table, *htt_ptr; size_t _b,_c;                  \
   for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
-    bkt_end = bkt_strt + (ht)->buckets[_b][1];                                 \
-    for(htt_ptr = bkt_strt; htt_ptr < bkt_end; htt_ptr++)                      \
-      if(HASH_ENTRY_ASSIGNED(*htt_ptr))                                        \
-        func(htt_ptr - (ht)->table, ##__VA_ARGS__);                            \
+    for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][1]; htt_ptr++) {    \
+      if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                      \
+        _c++; func(htt_ptr - (ht)->table, ##__VA_ARGS__);                      \
+      }                                                                        \
+    }                                                                          \
   }                                                                            \
 })
 

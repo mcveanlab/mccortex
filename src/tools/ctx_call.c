@@ -205,7 +205,7 @@ int ctx_call(CmdArgs *args)
   }
   strbuf_free(tmppath);
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     // db_graph_dump_paths_by_kmer(&db_graph);
   #endif
 

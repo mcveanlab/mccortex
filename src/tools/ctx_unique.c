@@ -253,7 +253,7 @@ static void var_set_keys(Var *var, uint32_t kmer_size)
 {
   StrBuf *fl5p = &var->flank5p, *fl3p = &var->flank3p;
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     message(" 5p:%s\n 3p:%s\n", fl5p->buff, fl3p->buff);
   #endif
 
@@ -600,7 +600,7 @@ static void reader_clean_up_var(CallReader *cr, Var *var)
   // Set alleles
   reader_alleles_array_to_linkedlist(cr, var);
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     printf("\n\n");
     printf("%s\n 5p:%s\n 3p:%s\n", var->name.buff,
            var->flank5p.buff, var->flank3p.buff);

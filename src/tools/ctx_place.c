@@ -535,7 +535,7 @@ static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvc
     strbuf_append_strn(endflank, lf->buff+3, endfl_missing);
   }
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     printf(" lf:%s rf:%s\n", lf->buff, rf->buff);
     printf(" endflank: %s\n", endflank->buff);
   #endif
@@ -575,7 +575,7 @@ static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvc
   }
   ref_region[search_len] = save_ref_base;
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     printf(" ref_region: %.*s\n", search_len, ref_region);
   #endif
 
@@ -585,7 +585,7 @@ static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvc
     if(bam_is_rev(bam)) ref_trim_left = kmer_match - ref_region;
     else ref_trim_right = search_len - (kmer_match - ref_region + kmer_size);
 
-    #ifdef DEBUG
+    #ifdef CTXVERBOSE
       printf("sr:%.*s\nsr:", search_len, ref_region);
       uint32_t pos = kmer_match - ref_region;
       for(i = 0; i < pos; i++) fputc('-', stdout);
@@ -602,7 +602,7 @@ static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvc
 
     char *r1 = alignment->result_a, *r2 = alignment->result_b;
 
-    #ifdef DEBUG
+    #ifdef CTXVERBOSE
       printf("nw:%s\nnw:%s\n", r1, r2);
     #endif
 
@@ -635,7 +635,7 @@ static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvc
     }
   }
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     printf(" ref: %zu %zu; bub: %zu %zu\n",
            ref_trim_left, ref_trim_right,
            bub_trim_left, bub_trim_right);
@@ -684,7 +684,7 @@ static int parse_entry(vcf_entry_t *invcf, const bam1_t *bam, vcf_entry_t *outvc
   /*
   size_t msa_len = do_msa(msa_alleles, outvcf->num_alts+1, msa_alleles);
 
-  #ifdef DEBUG
+  #ifdef CTXVERBOSE
     for(i = 0; i < outvcf->num_alts+1; i++)
       printf(" msa: %.*s\n", (int)msa_len, msa_alleles[i]);
   #endif

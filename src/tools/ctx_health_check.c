@@ -20,19 +20,25 @@ static const char usage[] =
 
 static inline void check_node(hkey_t node, const dBGraph *db_graph)
 {
-  Edges edges = db_node_col_edges_union(db_graph, node);
+  Edges edges = db_node_edges_union(db_graph, node);
   BinaryKmer bkmer = db_node_bkmer(db_graph, node);
-  size_t nfw_edges, nrv_edges;
-  hkey_t nodes[8];
-  Orientation orients[8];
-  Nucleotide nucs[8];
+  size_t nfw_edges, nrv_edges, i, j;
+  hkey_t fwnodes[8], rvnodes[8];
+  Orientation fworients[8], rvorients[8];
+  Nucleotide fwnucs[8], rvnucs[8];
 
   nfw_edges = db_graph_next_nodes(db_graph, bkmer, FORWARD, edges,
-                                  nodes, orients, nucs);
-  nrv_edges = db_graph_next_nodes(db_graph, bkmer, REVERSE, edges,
-                                  nodes, orients, nucs);
+                                  fwnodes, fworients, fwnucs);
 
-  if((unsigned)__builtin_popcount(edges) != nfw_edges + nrv_edges) {
+  nrv_edges = db_graph_next_nodes(db_graph, bkmer, REVERSE, edges,
+                                  rvnodes, rvorients, rvnucs);
+
+  for(i = 0; i < nfw_edges && fwnodes[i] != HASH_NOT_FOUND; i++);
+  for(j = 0; j < nrv_edges && rvnodes[j] != HASH_NOT_FOUND; j++);
+
+  size_t total_edges = nfw_edges + nrv_edges;
+
+  if((unsigned)__builtin_popcount(edges) != total_edges || i+j != total_edges) {
     char seq[MAX_KMER_SIZE+1];
     binary_kmer_to_str(bkmer, db_graph->kmer_size, seq);
     die("Excess edges on node: %s [%zu,%zu]", seq, nfw_edges, nrv_edges);

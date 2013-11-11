@@ -13,6 +13,7 @@ typedef struct
   // boolean merge_colours; // Load all data into only one colour
   boolean boolean_covgs; // Update covg by at most 1
   boolean must_exist_in_graph;
+  const Edges *must_exist_in_edges;
   // if empty_colours is true an error is thrown a kmer from a binary is
   // already in the graph
   boolean empty_colours;

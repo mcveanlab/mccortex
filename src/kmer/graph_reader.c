@@ -341,11 +341,14 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
                   SeqLoadingStats *stats)
 {
+  assert(!prefs->must_exist_in_graph || prefs->must_exist_in_edges == NULL);
+
   dBGraph *graph = prefs->db_graph;
   GraphInfo *ginfo = graph->ginfo;
   size_t i, load_ncols = graph_file_outncols(file);
 
   graph_file_status(file);
+  fseek(file->fh, file->hdr_size, SEEK_SET);
 
   // Checks for this binary with this executable (kmer size + num colours)
   if(file->hdr.kmer_size != graph->kmer_size)
@@ -382,6 +385,8 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.unique_kmers;
 
+  status("Reading %u into %zu colours...", file->hdr.num_of_cols, load_ncols);
+
   for(nkmers_parsed = 0; graph_file_read(file, &bkmer, covgs, edges); nkmers_parsed++)
   {
     // If kmer has no covg or edges -> don't load
@@ -401,7 +406,8 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
       node = hash_table_find(&graph->ht, bkmer);
       if(node == HASH_NOT_FOUND) continue;
 
-      Edges union_edges = db_node_col_edges_union(graph, node);
+      // Edges union_edges = db_node_edges_union(graph, node);
+      Edges union_edges = prefs->must_exist_in_edges[node];
 
       for(i = 0; i < load_ncols; i++) edges[i] &= union_edges;
     }
@@ -418,12 +424,12 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
     if(graph->node_in_cols != NULL) {
       for(i = 0; i < load_ncols; i++)
         if(covgs[i] > 0 || edges[i] != 0)
-          db_node_set_col(graph, node, file->intocol+i);
+          db_node_set_col(graph, node, graph_file_intocol(file,i));
     }
 
     if(graph->col_covgs != NULL) {
       for(i = 0; i < load_ncols; i++)
-        db_node_add_col_covg(graph, node, file->intocol+i, covgs[i]);
+        db_node_add_col_covg(graph, node, graph_file_intocol(file,i), covgs[i]);
     }
 
     // This may be an invalid pointer (if num_edge_cols == 0)
@@ -436,13 +442,13 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
     }
     else if(graph->num_edge_cols > 0) {
       for(i = 0; i < load_ncols; i++)
-        col_edges[file->intocol+i] |= edges[i];
+        col_edges[graph_file_intocol(file,i)] |= edges[i];
     }
 
     num_of_kmers_loaded++;
   }
 
-  if(nkmers_parsed > file->hdr.num_of_kmers && !graph_file_no_filter(file))
+  if(nkmers_parsed != file->hdr.num_of_kmers)
   {
     warn("More kmers in binary than expected [expected: %zu; actual: %zu; "
          "path: %s]", (size_t)file->hdr.num_of_kmers, nkmers_parsed,
@@ -461,6 +467,10 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
     stats->binaries_loaded++;
   }
 
+  char nkmer_str[100];
+  ulong_to_str(num_of_kmers_loaded, nkmer_str);
+  status("Loaded %s kmers", nkmer_str);
+
   return num_of_kmers_loaded;
 }
 
@@ -469,6 +479,8 @@ size_t graph_load_colour(GraphFileReader *file,
                          SeqLoadingStats *stats,
                          size_t colour_idx, size_t intocol)
 {
+  assert(colour_idx < file->ncols);
+  assert(intocol < prefs->db_graph->num_of_cols);
   uint32_t *tmpcols = file->cols, tmpncols = file->ncols, tmpinto = file->intocol;
   uint32_t cols[1] = {file->cols[colour_idx]};
   file->cols = cols; file->ncols = 1; file->intocol = intocol;
@@ -489,8 +501,9 @@ size_t graph_load_colour(GraphFileReader *file,
 // parameter: flatten: if true merge colours into one
 size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file,
                            const dBGraph *db_graph, const GraphFileHeader *hdr,
-                           boolean only_load_if_in_graph)
+                           const Edges *only_load_if_in_edges)
 {
+  boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
   status("Filtering %s to %s with stream filter", file->path.buff, out_ctx_path);
 
   FILE *out;
@@ -525,7 +538,8 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
         hkey_t node = hash_table_find(&db_graph->ht, bkmer);
 
         if(node != HASH_NOT_FOUND) {
-          Edges union_edges = db_node_col_edges_union(db_graph, node);
+          // Edges union_edges = db_node_edges_union(db_graph, node);
+          Edges union_edges = only_load_if_in_edges[node];
           for(i = 0; i < ncols; i++) edges[i] &= union_edges;
         }
         else keep_kmer = 0;
@@ -549,9 +563,11 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
 
 size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file,
                                  const dBGraph *db_graph,
+                                 const Edges *only_load_if_in_edges,
                                  const char *intersect_gname)
 {
   assert(intersect_gname == NULL || db_graph->col_edges != NULL);
+  assert(intersect_gname == NULL || only_load_if_in_edges != NULL);
 
   size_t i, nodes_dumped, ncols = graph_file_outncols(file);
   GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
@@ -561,28 +577,32 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
   graph_header_alloc(&outheader, outheader.num_of_cols);
 
   for(i = 0; i < file->ncols; i++) {
-    GraphInfo *ginfo = &outheader.ginfo[file->intocol + (file->flatten ? 0 : i)];
+    GraphInfo *ginfo = &outheader.ginfo[graph_file_intocol(file, i)];
     graph_info_merge(ginfo, file->hdr.ginfo + file->cols[i]);
     if(intersect_gname != NULL)
       graph_info_append_intersect(&ginfo->cleaning, intersect_gname);
   }
 
   nodes_dumped = graph_stream_filter(out_ctx_path, file,
-                                      db_graph, &outheader,
-                                      intersect_gname != NULL);
+                                     db_graph, &outheader,
+                                     only_load_if_in_edges);
   graph_header_dealloc(&outheader);
 
   return nodes_dumped;
 }
 
+// kmers_loaded means all kmers to dump have been loaded
+// colours_loaded means all kmer data have been loaded
 size_t graph_files_merge(char *out_ctx_path,
-                          GraphFileReader *files, size_t num_files,
-                          boolean kmers_loaded, boolean only_load_if_in_graph,
-                          GraphFileHeader *hdr, dBGraph *db_graph)
+                         GraphFileReader *files, size_t num_files,
+                         boolean kmers_loaded, boolean colours_loaded,
+                         const Edges *only_load_if_in_edges,
+                         GraphFileHeader *hdr, dBGraph *db_graph)
 {
-  // assert(db_graph->ht.unique_kmers == 0 || only_load_if_in_graph);
+  boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
   assert(!only_load_if_in_graph || kmers_loaded);
   assert(db_graph->num_of_cols == db_graph->num_edge_cols);
+  assert(!colours_loaded || kmers_loaded);
 
   size_t i, ncols, output_colours = 0;
 
@@ -597,7 +617,7 @@ size_t graph_files_merge(char *out_ctx_path,
     }
   }
 
-  if(kmers_loaded && output_colours <= db_graph->num_of_cols)
+  if(kmers_loaded && colours_loaded)
   {
     return graph_file_save(out_ctx_path, db_graph, hdr,
                            0, NULL, 0, output_colours);
@@ -605,7 +625,7 @@ size_t graph_files_merge(char *out_ctx_path,
   else if(num_files == 1)
   {
     return graph_stream_filter(out_ctx_path, &files[0], db_graph, hdr,
-                               only_load_if_in_graph);
+                               only_load_if_in_edges);
   }
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -613,12 +633,13 @@ size_t graph_files_merge(char *out_ctx_path,
     = {.db_graph = db_graph,
        .boolean_covgs = false,
        .must_exist_in_graph = only_load_if_in_graph,
+       .must_exist_in_edges = only_load_if_in_edges,
        .empty_colours = false};
 
   if(output_colours <= db_graph->num_of_cols)
   {
     // Can load all files at once
-    status("Loading and saving %zu colours at one", output_colours);
+    status("Loading and saving %zu colours at once", output_colours);
 
     if(!kmers_loaded) {
       for(i = 0; i < num_files; i++)
@@ -641,14 +662,18 @@ size_t graph_files_merge(char *out_ctx_path,
     size_t header_size = graph_write_header(fh, hdr);
 
     // Load all kmers into flat graph
-    for(i = 0; i < num_files; i++)
+    if(!kmers_loaded)
     {
-      size_t tmpinto = files[i].intocol; boolean tmpflatten = files[i].flatten;
-      files[i].intocol = 0;
-      files[i].flatten = true;
-      graph_load(&files[i], &prefs, stats);
-      files[i].intocol = tmpinto;
-      files[i].flatten = tmpflatten;
+      size_t tmpinto; boolean tmpflatten;
+      for(i = 0; i < num_files; i++)
+      {
+        tmpinto = files[i].intocol; tmpflatten = files[i].flatten;
+        files[i].intocol = 0;
+        files[i].flatten = true;
+        graph_load(&files[i], &prefs, stats);
+        files[i].intocol = tmpinto;
+        files[i].flatten = tmpflatten;
+      }
     }
 
     // print file outline
@@ -747,7 +772,8 @@ size_t graph_files_merge(char *out_ctx_path,
 // returns the number of kmers written
 size_t graph_files_merge_mkhdr(char *out_ctx_path,
                                GraphFileReader *files, size_t num_files,
-                               boolean kmers_loaded, boolean only_load_if_in_graph,
+                               boolean kmers_loaded, boolean colours_loaded,
+                               const Edges *only_load_if_in_edges,
                                const char *intersect_gname, dBGraph *db_graph)
 {
   size_t i, j, c, d, ncols = 0, num_kmers;
@@ -764,17 +790,16 @@ size_t graph_files_merge_mkhdr(char *out_ctx_path,
   {
     for(j = 0; j < files[i].ncols; j++)
     {
-      c = files[i].intocol + (files[i].flatten ? 0 : j), d = files[i].cols[j];
+      c = graph_file_intocol(&files[i], j); d = files[i].cols[j];
       graph_info_merge(&gheader.ginfo[c], &files[i].hdr.ginfo[d]);
       if(intersect_gname)
         graph_info_append_intersect(&gheader.ginfo[c].cleaning, intersect_gname);
     }
   }
 
-  status("kmer_size: %u version: %u", gheader.kmer_size, gheader.version);
-
   num_kmers = graph_files_merge(out_ctx_path, files, num_files,
-                                 kmers_loaded, only_load_if_in_graph,
+                                 kmers_loaded, colours_loaded,
+                                 only_load_if_in_edges,
                                  &gheader, db_graph);
 
   graph_header_dealloc(&gheader);

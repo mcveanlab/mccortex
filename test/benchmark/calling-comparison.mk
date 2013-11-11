@@ -11,7 +11,7 @@ KMER=31
 READLEN=100
 MPSIZE=250
 ALLELECOVG=30
-# ERRPROF=
+ERRPROF=1
 MEMWIDTH=20
 MEMHEIGHT=20
 # GENOMESIZE=
@@ -156,10 +156,10 @@ NORMVCFS=$(BUBBLEVCFS:.bub.vcf=.norm.vcf)
 FLANKFILES=$(BUBBLEVCFS:.vcf=.5pflanks.fa.gz)
 SAMFILES=$(BUBBLEVCFS:.vcf=.5pflanks.sam)
 
-ifdef ERRPROF
-	GRAPHS_noref=$(CLEANGRAPHS)
+ifeq ($(ERRPROF),0)
+  GRAPHS_noref=$(RAWGRAPHS)
 else
-	GRAPHS_noref=$(RAWGRAPHS)
+  GRAPHS_noref=$(CLEANGRAPHS)
 endif
 
 GRAPHS_ref=$(GRAPHS_noref) ref/ref.k$(KMER).ctx
@@ -245,9 +245,8 @@ ref/ref.fa:
 	mv genomes/genome0.fa genomes/mask0.fa ref/
 	awk 'BEGIN{print">mask";for(i=0;i<$(GENOMESIZE);i++) {printf "."}print""}' > ref/mask0.clean.fa
 	cat ref/genome0.fa | tr -d '-' | $(FACAT) -w 50 > ref/ref.fa
-	# cp $(SEQ) ref/ref.fa
-	# cp $(SEQ) ref/genome0.fa
-	# cp ref/mask0.clean.fa ref/mask0.fa
+	# To generate a mutation free reference genome:
+	# cp $(SEQ) ref/ref.fa && cp $(SEQ) ref/genome0.fa && cp ref/mask0.clean.fa ref/mask0.fa
 
 $(READS): $(GENOMES)
 
@@ -281,7 +280,7 @@ k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
 
 # Delete .raw.ctx and .clean.ctx paths after running
-.INTERMEDIATE: $(GRAPHS_noref)
+# .INTERMEDIATE: $(GRAPHS_noref)
 
 k$(KMER)/graphs/pop.noref.ctx: $(GRAPHS_noref)
 k$(KMER)/graphs/pop.ref.ctx: $(GRAPHS_ref)

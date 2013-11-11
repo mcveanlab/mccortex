@@ -23,7 +23,7 @@
 // #include "lookup3.h"
 // #include "city.h"
 
-#ifdef DEBUG
+#ifdef CTXVERBOSE
 #define DEBUG_CALLER 1
 #endif
 
@@ -558,7 +558,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   size_t i, num_next;
 
   num_next = db_graph_next_nodes(db_graph, db_node_bkmer(db_graph, fork_n),
-                                 fork_o, db_node_edges(db_graph, fork_n),
+                                 fork_o, db_node_col_edges(db_graph, 0, fork_n),
                                  nodes, orients, bases);
 
   #ifdef DEBUG_CALLER
@@ -785,7 +785,7 @@ void* bubble_caller(void *args)
   for(; ptr < end; ptr++) {
     if(HASH_ENTRY_ASSIGNED(*ptr)) {
       hkey_t node = ptr - table;
-      Edges edges = db_node_edges(db_graph, node);
+      Edges edges = db_node_col_edges(db_graph, 0, node);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
         find_bubbles(node, FORWARD, db_graph, &wlk, visited,
                      snode_hash, spp_hash, &nbuf,
@@ -828,6 +828,8 @@ void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
                           const size_t *ref_cols, size_t num_ref,
                           const CmdArgs *args)
 {
+  assert(db_graph->num_edge_cols == 1);
+
   // Open output file
   gzFile out = gzopen(out_file, "w");
 

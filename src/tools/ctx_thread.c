@@ -50,7 +50,7 @@ static void get_binary_and_colour(const GraphFileReader *files, size_t num_files
   size_t i, n = 0;
   for(i = 0; i < num_files; i++) {
     if(n + graph_file_outncols(&files[i]) > col) {
-      *col_idx = n - col; *file_idx = i; return;
+      *col_idx = col - n; *file_idx = i; return;
     }
     n += graph_file_outncols(&files[i]);
   }
@@ -128,12 +128,6 @@ int ctx_thread(CmdArgs *args)
   // Probe graph files
   //
   GraphFileReader files[num_files];
-  // boolean is_binary = false;
-  // uint32_t ctx_num_of_cols[num_files], ctx_max_cols[num_files];
-  // uint32_t max_num_cols = 0;
-
-  // GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
-
   size_t i, j, ctx_max_kmers = 0, total_cols = 0;
 
   // Set up paths header
@@ -229,6 +223,7 @@ int ctx_thread(CmdArgs *args)
   //
   dBGraph db_graph;
   db_graph_alloc(&db_graph, pheader.kmer_size, 1, 1, kmers_in_hash);
+  kmers_in_hash = db_graph.ht.capacity;
 
   // Edges
   db_graph.col_edges = calloc2(kmers_in_hash, sizeof(uint8_t));
@@ -275,14 +270,17 @@ int ctx_thread(CmdArgs *args)
       if(strcmp(argv[argi], "--col") == 0)
       {
         // wipe colour 0
-        db_graph_wipe_colour(&db_graph, 0);
+        // db_graph_wipe_colour(&db_graph, 0);
         graph_info_init(&db_graph.ginfo[0]);
+        memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(uint8_t));
 
         parse_entire_size(argv[argi+1], &graph_col);
         add_paths_set_colours(pool, 0, graph_col); // no need to pass second col
 
         // Pick correct binary and colour
         get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
+        status("Load file with index %zu and colour index %zu [%zu]",
+               ctxindex, ctxcol, graph_col);
         graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
 
         argi++;

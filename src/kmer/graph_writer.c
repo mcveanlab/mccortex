@@ -102,8 +102,8 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 
 // Returns number of bytes written
 size_t graph_write_kmer(FILE *fh, const GraphFileHeader *h,
-                         const uint64_t *bkmer, const Covg *covgs,
-                         const Edges *edges)
+                        const uint64_t *bkmer, const Covg *covgs,
+                        const Edges *edges)
 {
   fwrite(bkmer, sizeof(uint64_t), h->num_of_bitfields, fh);
   fwrite(covgs, sizeof(uint32_t), h->num_of_cols, fh);
