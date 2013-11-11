@@ -5,6 +5,8 @@
 #define BSIZE 0
 #define BITEMS 1
 
+static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER}};
+
 // Returns capacity
 size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
                       uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr)
@@ -43,8 +45,8 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   BinaryKmer *table = malloc2(capacity * sizeof(BinaryKmer));
   uint8_t (*const buckets)[2] = calloc2(num_of_buckets, sizeof(uint8_t[2]));
 
-  uint64_t i, num = NUM_BKMER_WORDS * capacity, *ptr = (uint64_t*)table;
-  for(i = 0; i < num; i++) ptr[i] = UNSET_BKMER;
+  size_t i;
+  for(i = 0; i < capacity; i++) table[i] = unset_bkmer;
 
   HashTable data = {
     .table = table,
@@ -65,6 +67,26 @@ void hash_table_dealloc(HashTable *hash_table)
 {
   free(hash_table->table);
   free(hash_table->buckets);
+}
+
+void hash_table_empty(HashTable *const htable)
+{
+  size_t i;
+  BinaryKmer *table = htable->table;
+  for(i = 0; i < htable->capacity; i++) table[i] = unset_bkmer;
+  memset(htable->buckets, 0, htable->num_of_buckets * sizeof(uint8_t[2]));
+
+  HashTable data = {
+    .table = htable->table,
+    .num_of_buckets = htable->num_of_buckets,
+    .hash_mask = htable->hash_mask,
+    .bucket_size = htable->bucket_size,
+    .capacity = htable->capacity,
+    .buckets = htable->buckets,
+    .unique_kmers = 0,
+    .collisions = {0}};
+
+  memcpy(htable, &data, sizeof(data));
 }
 
 static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const htable,
@@ -184,13 +206,12 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
 
 void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
-  const BinaryKmer unset = {.b = {UNSET_BKMER}};
   uint64_t bucket = pos / htable->bucket_size;
   assert(pos != HASH_NOT_FOUND);
   assert(htable->buckets[bucket][BITEMS] > 0);
   assert(htable->unique_kmers > 0);
   assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
-  htable->table[pos] = unset;
+  htable->table[pos] = unset_bkmer;
   htable->buckets[bucket][BITEMS]--;
   htable->unique_kmers--;
 }

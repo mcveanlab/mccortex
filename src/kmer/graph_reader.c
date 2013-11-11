@@ -385,7 +385,8 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.unique_kmers;
 
-  status("Reading %u into %zu colours...", file->hdr.num_of_cols, load_ncols);
+  status("Reading into %zu colours from file with %u...",
+         load_ncols, file->hdr.num_of_cols);
 
   for(nkmers_parsed = 0; graph_file_read(file, &bkmer, covgs, edges); nkmers_parsed++)
   {

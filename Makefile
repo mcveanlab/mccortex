@@ -4,7 +4,8 @@ endif
 
 #Arguments (all are optional):
 # MAXK=31
-# DEBUG=1
+# DEBUG=1       (compile with debug symbols)
+# VERBOSE=1     (print all the things!)
 # CITY_HASH=1   (use CityHash hash function)
 # RECOMPILE=1   (recompile all from source)
 
