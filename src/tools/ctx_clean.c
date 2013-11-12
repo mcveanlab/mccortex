@@ -157,9 +157,10 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
                                          const dBGraph *db_graph)
 {
   assert(len > 5);
+  assert(db_graph->ht.unique_kmers > 0);
   size_t i, d1len=len-2, d2len = len-3, f1, f2;
   Covg *tmp = malloc2((d1len+d2len) * sizeof(Covg));
-  Covg *delta1 = tmp, *delta2 = tmp + d1len*sizeof(Covg);
+  Covg *delta1 = tmp, *delta2 = tmp + d1len;
 
   // Get sequencing depth from coverage
   uint64_t covg_sum = 0, capacity = db_graph->ht.capacity;
@@ -202,6 +203,7 @@ static uint32_t clean_supernodes(dBGraph *db_graph, boolean clean,
                                  hkey_t **nodes, Orientation **orients,
                                  size_t *ncap, uint64_t *visited)
 {
+  if(db_graph->ht.unique_kmers == 0) return covg_threshold;
   uint64_t *covg_hist;
   size_t threshold_est, visited_words = round_bits_to_words64(db_graph->ht.capacity);
   Covg *tmpcovgs = malloc2((*ncap) * sizeof(Covg));

@@ -82,7 +82,7 @@ map {print " out-degree $_: ".num2str($node_degree[$_])."\n"} 0..4;
 # Print num of kmers per colour
 print "Kmers per colour\n";
 for(my $i = 0; $i < $num_cols; $i++) {
-  print " Colour $i ".num2str($kmers_per_col[$i])."\n";
+  print " Colour $i: ".num2str($kmers_per_col[$i])."\n";
 }
 
 sub parse_ctx_line
