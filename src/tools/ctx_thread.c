@@ -235,10 +235,6 @@ int ctx_thread(CmdArgs *args)
   uint8_t *path_store = malloc2(path_mem);
   path_store_init(&db_graph.pdata, path_store, path_mem, pheader.num_of_cols);
 
-  // In colour (only need for one colour)
-  // size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
-  // db_graph.node_in_cols = calloc2(cols_in_graph * words64_per_col, sizeof(uint64_t));
-
   // Setup for loading graphs graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.db_graph = &db_graph,
@@ -323,11 +319,9 @@ int ctx_thread(CmdArgs *args)
   fclose(fout);
 
   free(db_graph.col_edges);
-  // free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
   free(path_store);
 
-  // graph_header_dealloc(&gheader);
   paths_header_dealloc(&pheader);
 
   seq_loading_stats_free(stats);

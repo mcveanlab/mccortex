@@ -159,7 +159,8 @@ int ctx_contigs(CmdArgs *args)
 
   size_t j, njunc;
   size_t total_len = 0, total_junc = 0, dead_ends = 0, nloop = 0;
-  size_t lengths[num_samples], junctions[num_samples];
+  size_t *lengths = malloc2(num_samples * sizeof(size_t));
+  size_t *junctions = malloc2(num_samples * sizeof(size_t));
   double density, max_density = 0;
   size_t max_len = 0, max_junc = 0;
 
@@ -227,9 +228,6 @@ int ctx_contigs(CmdArgs *args)
     max_junc = MAX2(max_junc, njunc);
   }
 
-  free(nodes);
-  free(orients);
-
   char total_len_str[100], total_junc_str[100];
   ulong_to_str(total_len, total_len_str);
   ulong_to_str(total_junc, total_junc_str);
@@ -256,6 +254,11 @@ int ctx_contigs(CmdArgs *args)
   status("Highest junction density: %.2f\n", max_density);
   status("Contig ends which loop %zu [%.2f%%]\n", nloop,
          (100.0 * nloop) / (2.0 * num_samples));
+
+  free(lengths);
+  free(junctions);
+  free(nodes);
+  free(orients);
 
   free(visited);
   free(db_graph.col_edges);
