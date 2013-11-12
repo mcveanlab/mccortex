@@ -172,7 +172,9 @@ int ctx_contigs(CmdArgs *args)
 
   for(i = 0; i < num_samples; i++)
   {
-    node = db_graph_rand_node(&db_graph);
+    do { node = db_graph_rand_node(&db_graph); }
+    while(!db_node_has_col(&db_graph, node, colour));
+
     nodes[0] = node;
     orients[0] = FORWARD;
     len = 1;
