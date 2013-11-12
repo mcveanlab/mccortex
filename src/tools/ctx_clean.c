@@ -24,7 +24,7 @@ static const char usage[] =
 "    --threshold <T>  Cleaning threshold, remove supnodes where [coverage < T]\n"
 "  --covgs <out.csv>  Dump covg distribution to a CSV file\n"
 "\n"
-" Default: --tips 2*kmers_size --supernodes\n";
+" Default: --tips 2*k-1 --supernodes\n";
 
 // size of coverage histogram 2^11 = 2048
 #define HISTSIZE 2048
@@ -183,7 +183,9 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
     return fallback_thresh;
   }
 
-  for(i = 0; i < d2len; i++) delta2[i] = delta1[i] / delta1[i+1];
+  // d2len is d1len-1
+  for(i = 0; i < d2len; i++)
+    delta2[i] = (delta1[i+1] == 0 ? UINT32_MAX : (delta1[i] / delta1[i+1]));
 
   for(f1 = 0; f1 < d1len && delta1[f1] >= 1; f1++);
   for(f2 = 0; f2 < d2len && delta2[f2] > 1; f2++);
@@ -349,9 +351,9 @@ int ctx_clean(CmdArgs *args)
     max_ctx_kmers = MAX2(max_ctx_kmers, files[i].hdr.num_of_kmers);
   }
 
-  // If no arguments given we default to clipping tips <= 2*kmer_size
+  // If no arguments given we default to clipping tips <= 2*kmer_size - 1
   if(tip_cleaning && max_tip_len == 0)
-    max_tip_len = 2 * files[0].hdr.kmer_size;
+    max_tip_len = 2 * files[0].hdr.kmer_size - 1;
 
   // Print steps
   uint32_t step = 0;

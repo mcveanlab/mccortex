@@ -271,7 +271,7 @@ reads/reads%.1.falist reads/reads%.2.falist:
 	done
 
 k$(KMER)/graphs/sample%.clean.ctx: k$(KMER)/graphs/sample%.raw.ctx
-	$(CLEANCTX) $@ $<
+	$(CLEANCTX) --supernodes --tips 61 --covgs k$(KMER)/graphs/sample$*.contig_covg.csv $@ $<
 
 k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	mkdir -p k$(KMER)/graphs

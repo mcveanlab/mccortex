@@ -165,9 +165,15 @@ int ctx_view(CmdArgs *args)
 
     for(; graph_file_read(&file, &bkmer, covgs, edges); num_kmers_read++)
     {
-      // beware: if kmer has no covg or edges we still print it
-      for(i = 0; i < ncols; i++)
-        sum_covgs_read += covgs[i];
+      // If kmer has no covg or edges -> don't load
+      Covg keep_kmer = 0, covgs_sum = 0;
+      for(i = 0; i < ncols; i++) {
+        keep_kmer |= covgs[i] | edges[i];
+        covgs_sum += covgs[i];
+      }
+      if(keep_kmer == 0) continue;
+
+      sum_covgs_read += covgs_sum;
 
       /* Kmer Checks */
       // graph_file_read_kmer() already checks for:
