@@ -423,9 +423,10 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
 
     // Set presence in colours
     if(graph->node_in_cols != NULL) {
-      for(i = 0; i < load_ncols; i++)
-        if(covgs[i] > 0 || edges[i] != 0)
-          db_node_set_col(graph, node, graph_file_intocol(file,i));
+      for(i = 0; i < load_ncols; i++) {
+        size_t has_col = (covgs[i] > 0 || edges[i] != 0);
+        db_node_cpy_col(graph, node, graph_file_intocol(file,i), has_col);
+      }
     }
 
     if(graph->col_covgs != NULL) {
@@ -456,8 +457,6 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
         file->path.buff);
   }
 
-  // graph_file_close(file);
-
   if(stats != NULL)
   {
     stats->num_of_colours_loaded += load_ncols;
@@ -468,9 +467,12 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
     stats->binaries_loaded++;
   }
 
-  char nkmer_str[100];
-  ulong_to_str(num_of_kmers_loaded, nkmer_str);
-  status("Loaded %s kmers", nkmer_str);
+  char parsed_nkmers_str[100], loaded_nkmers_str[100];
+  double loaded_nkmers_pct = (100.0 * num_of_kmers_loaded) / nkmers_parsed;
+  ulong_to_str(num_of_kmers_loaded, loaded_nkmers_str);
+  ulong_to_str(nkmers_parsed, parsed_nkmers_str);
+  status("Loaded %s / %s (%.2f%%) kmers parsed",
+         loaded_nkmers_str, parsed_nkmers_str, loaded_nkmers_pct);
 
   return num_of_kmers_loaded;
 }
@@ -553,7 +555,6 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
     }
   }
 
-  // graph_file_close(file);
   fclose(out);
 
   graph_write_status(nodes_dumped, hdr->num_of_cols,

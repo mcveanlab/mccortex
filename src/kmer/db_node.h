@@ -35,6 +35,8 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
         bitset2_set((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
 #define db_node_del_col(g,hkey,col) \
         bitset2_del((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+#define db_node_cpy_col(g,hkey,col,bit) \
+        bitset2_cpy((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey),bit)
 
 //
 // Node traversal

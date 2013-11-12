@@ -38,7 +38,7 @@ const GraphFileReader INIT_GRAPH_READER;
 #define CTX_BUF_SIZE (4UL<<20)
 
 #define graph_file_outncols(reader) ((reader)->flatten ? 1 : (reader)->ncols)
-#define graph_file_intocol(reader,col) ((reader)->intocol + (reader)->flatten*col)
+#define graph_file_intocol(reader,col) ((reader)->intocol + (!(reader)->flatten)*(col))
 
 // Open file
 // if cannot open file returns 0
@@ -46,6 +46,10 @@ const GraphFileReader INIT_GRAPH_READER;
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
 int graph_file_open(GraphFileReader *file, char *path, boolean fatal);
+
+// mode is "r", "r+" etc.
+int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
+                     const char *mode);
 
 // Close file
 void graph_file_close(GraphFileReader *file);

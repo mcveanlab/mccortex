@@ -37,12 +37,19 @@ static void graph_file_capacity(GraphFileReader *file, size_t ncolscap)
   }
 }
 
+
+int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
+{
+  return graph_file_open2(file, path, fatal, "r");
+}
+
 // Open file
 // if cannot open file returns 0
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
-int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
+int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
+                     const char *mode)
 {
   size_t i;
   char *path_start, *path_end, path_lchar;
@@ -58,7 +65,7 @@ int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
   file->file_size = get_file_size(path_start);
   if(file->file_size == -1) die("Cannot get file size: %s", path_start);
 
-  if((file->fh = fopen(path_start, "r")) == NULL) {
+  if((file->fh = fopen(path_start, mode)) == NULL) {
     if(fatal) die("Cannot load binary file: %s", path_start);
     else return 0;
   }

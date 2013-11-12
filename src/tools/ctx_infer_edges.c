@@ -26,12 +26,16 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
 {
   Edges uedges = 0, iedges = 0xf, add_edges, edge;
   size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
+  const size_t ncols = db_graph->num_of_cols;
   BinaryKmer bkey, bkmer;
   hkey_t next;
+  Edges newedges[ncols];
 
-  Edges newedges[db_graph->num_edge_cols];
+  // char tmp[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(node_bkey, db_graph->kmer_size, tmp);
+  // status("Inferring %s", tmp);
 
-  for(col = 0; col < db_graph->num_edge_cols; col++) {
+  for(col = 0; col < ncols; col++) {
     uedges |= edges[col]; // union of edges
     iedges &= edges[col]; // intersection of edges
     newedges[col] = edges[col];
@@ -60,15 +64,15 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
         next = hash_table_find(&db_graph->ht, bkey);
         assert(next != HASH_NOT_FOUND);
 
-        for(col = 0; col < db_graph->num_edge_cols; col++)
+        for(col = 0; col < ncols; col++)
           if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
             newedges[col] |= edge;
       }
     }
   }
 
-  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
-  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
+  int cmp = memcmp(edges, newedges, sizeof(Edges)*ncols);
+  memcpy(edges, newedges, sizeof(Edges)*ncols);
   return (cmp != 0);
 }
 
@@ -76,16 +80,17 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
 static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
                                   const Covg *covgs, dBGraph *db_graph)
 {
-  Edges iedges = 0xf, edge;
+  Edges iedges = 0xff, edge;
   size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
+  const size_t ncols = db_graph->num_of_cols;
   BinaryKmer bkey, bkmer;
   hkey_t next;
 
-  Edges newedges[db_graph->num_edge_cols];
-  memcpy(newedges, edges, db_graph->num_edge_cols * sizeof(Edges));
+  Edges newedges[ncols];
+  memcpy(newedges, edges, ncols * sizeof(Edges));
 
   // intersection of edges
-  for(col = 0; col < db_graph->num_edge_cols; col++) iedges &= edges[col];
+  for(col = 0; col < ncols; col++) iedges &= edges[col];
 
   for(orient = 0; orient < 2; orient++)
   {
@@ -98,23 +103,26 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
       edge = nuc_orient_to_edge(nuc, orient);
       if(!(iedges & edge))
       {
-        // edges are not in some samples
+        // edges are missing from some samples
         if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
         else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
 
         bkey = db_node_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
 
-        if(next != HASH_NOT_FOUND)
-          for(col = 0; col < db_graph->num_edge_cols; col++)
-            if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
+        if(next != HASH_NOT_FOUND) {
+          for(col = 0; col < ncols; col++) {
+            if(covgs[col] > 0 && db_node_has_col(db_graph, next, col)) {
               newedges[col] |= edge;
+            }
+          }
+        }
       }
     }
   }
 
-  int cmp = memcmp(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
-  memcpy(edges, newedges, sizeof(Edges)*db_graph->num_edge_cols);
+  int cmp = memcmp(edges, newedges, sizeof(Edges)*ncols);
+  memcpy(edges, newedges, sizeof(Edges)*ncols);
   return (cmp != 0);
 }
 
@@ -146,36 +154,39 @@ int ctx_infer_edges(CmdArgs *args)
   char *path = argv[0];
   dBGraph db_graph;
   GraphFileReader file = INIT_GRAPH_READER;
-  int ret = graph_file_open(&file, path, false);
+  graph_file_open2(&file, path, true, "r+");
 
-  if(ret == 0)
-    print_usage(usage, "Cannot read input graph file: %s", path);
-  else if(ret < 0)
-    print_usage(usage, "Input graph file isn't valid: %s", path);
+  if(!graph_file_no_filter(&file))
+    print_usage(usage, "Inferedges with filter not implemented - sorry");
 
   if(!test_file_writable(path))
     print_usage(usage, "Cannot write to file: %s", path);
 
+  assert(file.hdr.num_of_cols == file.ncols);
+
+  file.intocol = 0;
+  file.flatten = false;
+
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols;
+  size_t extra_bits_per_kmer = file.hdr.num_of_cols;
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                                file.hdr.num_of_kmers, true);
 
   db_graph_alloc(&db_graph, file.hdr.kmer_size,
-                 file.hdr.num_of_cols, 1, kmers_in_hash);
+                 file.hdr.num_of_cols, 0, kmers_in_hash);
 
   // In colour
   size_t words64_per_col = round_bits_to_words64(db_graph.ht.capacity);
   db_graph.node_in_cols = calloc2(words64_per_col * file.hdr.num_of_cols,
                                   sizeof(uint64_t));
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
+                           .must_exist_in_edges = NULL,
                            .empty_colours = false};
 
   graph_load(&file, &prefs, stats);
@@ -184,30 +195,25 @@ int ctx_infer_edges(CmdArgs *args)
   else status("Inferring all missing edges...\n");
 
   // Read again
+  fseek(file.fh, file.hdr_size, SEEK_SET);
+
   BinaryKmer bkmer;
   Edges edges[db_graph.num_of_cols];
   Covg covgs[db_graph.num_of_cols];
 
-  FILE *fh = fopen(path, "r+");
-  if(fh == NULL) die("Cannot open: %s", path);
-
-  graph_file_read_header(fh, &file.hdr, true, path);
-
   size_t num_nodes_modified = 0;
-
   long edges_len = sizeof(Edges) * file.hdr.num_of_cols;
-  while(graph_file_read_kmer(fh, &file.hdr, path, bkmer.b, covgs, edges))
+
+  while(graph_file_read(&file, &bkmer, covgs, edges))
   {
     if((add_all_edges && infer_all_edges(bkmer, edges, covgs, &db_graph)) ||
        (!add_all_edges && infer_pop_edges(bkmer, edges, covgs, &db_graph)))
     {
-      if(fseek(fh, -edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
-      fwrite(edges, 1, edges_len, fh);
+      if(fseek(file.fh, -edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
+      fwrite(edges, 1, edges_len, file.fh);
       num_nodes_modified++;
     }
   }
-
-  fclose(fh);
 
   char modified_str[100], kmers_str[100];
   ulong_to_str(num_nodes_modified, modified_str);
@@ -216,7 +222,6 @@ int ctx_infer_edges(CmdArgs *args)
          (100.0 * num_nodes_modified) / db_graph.ht.unique_kmers);
 
   seq_loading_stats_free(stats);
-  free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   db_graph_dealloc(&db_graph);
 
