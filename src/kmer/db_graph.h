@@ -57,6 +57,7 @@ void db_graph_add_all_edges(dBGraph *db_graph);
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph);
 
 // Get a random node from the graph
+// call seed_random() before any calls to this function please
 hkey_t db_graph_rand_node(const dBGraph *db_graph);
 
 #endif /* DB_GRAPH_H_ */

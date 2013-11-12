@@ -181,9 +181,7 @@ int ctx_call(CmdArgs *args)
   }
 
   // Seed random
-  struct timeval time;
-  gettimeofday(&time, NULL);
-  srand((((time.tv_sec ^ getpid()) * 1000000) + time.tv_usec));
+  seed_random();
 
   //
   // Set up temporary files

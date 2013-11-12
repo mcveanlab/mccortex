@@ -1,5 +1,4 @@
 #include "global.h"
-#include <sys/time.h> // srand
 
 #include "cmd.h"
 #include "util.h"
@@ -53,9 +52,7 @@ int ctx_contigs(CmdArgs *args)
   char *input_ctx_path = argv[0];
 
   // Seed random
-  struct timeval time;
-  gettimeofday(&time, NULL);
-  srand((((time.tv_sec ^ getpid()) * 1000000) + time.tv_usec));
+  seed_random();
 
   // probe binary
   GraphFileReader file = INIT_GRAPH_READER;

@@ -1,10 +1,9 @@
 #include "global.h"
-
 #include <time.h>
 
 // #include <gsl/gsl_randist.h>
-#include <gsl/gsl_cdf.h> // beta distribution
-#include <gsl/gsl_sf_gamma.h> // gamma and beta functions
+// #include <gsl/gsl_cdf.h> // beta distribution
+// #include <gsl/gsl_sf_gamma.h> // gamma and beta functions
 
 // #include "vcf.h" // not using htslib
 #include "sam.h"

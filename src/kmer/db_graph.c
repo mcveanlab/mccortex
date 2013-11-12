@@ -274,6 +274,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   printf("-----------------------\n\n");
 }
 
+// call seed_random() before any calls to this function please
 hkey_t db_graph_rand_node(const dBGraph *db_graph)
 {
   uint64_t capacity = db_graph->ht.capacity;

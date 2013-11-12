@@ -1,5 +1,4 @@
 #include "global.h"
-#include <sys/time.h> // srand initialisation
 
 #include "cmd.h"
 #include "util.h"
@@ -25,9 +24,7 @@ int main(int argc, char **argv)
     print_usage(usage, "Invalid <num_ops>");
 
   // Seed random
-  struct timeval time;
-  gettimeofday(&time, NULL);
-  srand((((time.tv_sec ^ getpid()) * 1000000) + time.tv_usec));
+  seed_random();
 
   size_t kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, true);
 

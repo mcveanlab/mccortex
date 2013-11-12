@@ -1,5 +1,6 @@
 #include "global.h"
 #include <time.h>
+#include <sys/time.h> // for seeding random
 #include "util.h"
 
 #include <execinfo.h>
@@ -123,6 +124,13 @@ void print_usage(const char *msg, const char *errfmt,  ...)
 
   fputs(msg, stderr);
   exit(EXIT_FAILURE);
+}
+
+void seed_random()
+{
+  struct timeval time;
+  gettimeofday(&time, NULL);
+  srand((((time.tv_sec ^ getpid()) * 1000000) + time.tv_usec));
 }
 
 // See http://stackoverflow.com/a/77336/431087
