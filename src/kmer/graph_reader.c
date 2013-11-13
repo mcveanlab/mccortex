@@ -471,7 +471,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   double loaded_nkmers_pct = (100.0 * num_of_kmers_loaded) / nkmers_parsed;
   ulong_to_str(num_of_kmers_loaded, loaded_nkmers_str);
   ulong_to_str(nkmers_parsed, parsed_nkmers_str);
-  status("Loaded %s / %s (%.2f%%) kmers parsed",
+  status("Loaded %s / %s (%.2f%%) of kmers parsed",
          loaded_nkmers_str, parsed_nkmers_str, loaded_nkmers_pct);
 
   return num_of_kmers_loaded;

@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-26 October 2013
+13 November 2013
 
 Build
 -----
@@ -34,8 +34,9 @@ Commands
     usage: ctx31 <command> [options] <args>
     version: 0.0; zlib: 1.2.5
 
-    Command:  build       FASTA/FASTQ/BAM -> binary graph file
+    Command:  build       FASTA/FASTQ/BAM -> cortex graph file
               view        view and check a cortex graph file (.ctx)
+              healthcheck load and check a cortex graph file (.ctx)
               clean       clean errors from a graph
               join        combine graphs, filter graph intersections
               supernodes  pull out supernodes
