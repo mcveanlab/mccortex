@@ -59,6 +59,8 @@ void seq_parse_se(const char *path,
                                     void *ptr),
                   void *reader_ptr);
 
+// Sequence must be entirely ACGT and len >= kmer_size
+void seq_load_str(dBGraph *db_graph, size_t colour, const char *seq, size_t len);
 
 void seq_load_into_db_graph(read_t *r1, read_t *r2,
                             int qoffset1, int qoffset2,

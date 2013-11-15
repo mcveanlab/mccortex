@@ -30,6 +30,11 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
                        Orientation src_orient, Orientation tgt_orient);
 
+// For debugging + healthcheck
+void db_graph_check_edges(const dBGraph *db_graph,
+                          hkey_t src_node, hkey_t tgt_node,
+                          Orientation src_orient, Orientation tgt_orient);
+
 //
 // Graph Traversal
 //
@@ -45,6 +50,12 @@ size_t db_graph_next_nodes(const dBGraph *db_graph,
                            BinaryKmer bkmer, Orientation orient, Edges edges,
                            hkey_t nodes[4], Orientation orients[4],
                            Nucleotide fw_nucs[4]);
+
+//
+// Healthcheck
+//
+
+void db_graph_healthcheck(const dBGraph *db_graph);
 
 //
 // Functions applying to whole graph

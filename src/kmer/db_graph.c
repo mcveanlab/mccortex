@@ -16,8 +16,8 @@ static void db_graph_status(const dBGraph *db_graph)
 }
 
 void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
-                        size_t num_of_cols, size_t num_edge_cols,
-                        uint64_t capacity)
+                    size_t num_of_cols, size_t num_edge_cols,
+                    uint64_t capacity)
 {
   size_t i;
   dBGraph tmp = {.kmer_size = kmer_size, .num_of_cols = num_of_cols,
@@ -105,6 +105,27 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
   db_node_set_col_edge(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
 }
 
+// For debugging + healthcheck
+void db_graph_check_edges(const dBGraph *db_graph,
+                          hkey_t src_node, hkey_t tgt_node,
+                          Orientation src_orient, Orientation tgt_orient)
+{
+  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src_node);
+  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt_node);
+
+  Nucleotide lhs_nuc, rhs_nuc;
+  lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
+  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
+
+  Nucleotide lhs_nuc_rev = binary_nuc_complement(lhs_nuc);
+  Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
+
+  Edges src_uedges = db_node_edges_union(db_graph, src_node);
+  Edges tgt_uedges = db_node_edges_union(db_graph, tgt_node);
+  assert(edges_has_edge(src_uedges, rhs_nuc, src_orient));
+  assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, tgt_orient_opp));
+}
+
 //
 // Graph Traversal
 //
@@ -152,6 +173,47 @@ size_t db_graph_next_nodes(const dBGraph *db_graph,
   return count;
 }
 
+//
+// Health check
+//
+
+static inline void check_node(hkey_t node, const dBGraph *db_graph)
+{
+  Edges edges = db_node_edges_union(db_graph, node);
+  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  size_t nfw_edges, nrv_edges, i, j;
+  hkey_t fwnodes[8], rvnodes[8];
+  Orientation fworients[8], rvorients[8];
+  Nucleotide fwnucs[8], rvnucs[8];
+
+  nfw_edges = db_graph_next_nodes(db_graph, bkmer, FORWARD, edges,
+                                  fwnodes, fworients, fwnucs);
+
+  nrv_edges = db_graph_next_nodes(db_graph, bkmer, REVERSE, edges,
+                                  rvnodes, rvorients, rvnucs);
+
+  for(i = 0; i < nfw_edges && fwnodes[i] != HASH_NOT_FOUND; i++);
+  for(j = 0; j < nrv_edges && rvnodes[j] != HASH_NOT_FOUND; j++);
+
+  size_t total_edges = nfw_edges + nrv_edges;
+
+  if((unsigned)__builtin_popcount(edges) != total_edges || i+j != total_edges) {
+    char seq[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, seq);
+    die("Excess edges on node: %s [%zu,%zu]", seq, nfw_edges, nrv_edges);
+  }
+
+  // Check all edges are reciprical
+  for(i = 0; i < nfw_edges; i++)
+    db_graph_check_edges(db_graph, node, fwnodes[i], FORWARD, fworients[i]);
+  for(i = 0; i < nrv_edges; i++)
+    db_graph_check_edges(db_graph, node, rvnodes[i], REVERSE, rvorients[i]);
+}
+
+void db_graph_healthcheck(const dBGraph *db_graph)
+{
+  HASH_TRAVERSE(&db_graph->ht, check_node, db_graph);
+}
 
 //
 // Functions applying to whole graph

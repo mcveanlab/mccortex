@@ -16,6 +16,8 @@ int supernode_extend(const dBGraph *db_graph,
 {
   assert(db_graph->num_edge_cols == 1);
 
+  *cycle = false;
+
   hkey_t node = (*nlist)[offset];
   Orientation orient = (*olist)[offset];
   size_t num_nodes = offset+1, kmer_size = db_graph->kmer_size;
@@ -35,6 +37,13 @@ int supernode_extend(const dBGraph *db_graph,
 
     if(edges_has_precisely_one_edge(edges[node], rev_orient(orient), &nuc))
     {
+      if(node == (*nlist)[0] && orient == (*olist)[0]) {
+        // don't create a loop
+        // but allow funny loops a->b->B->A
+        *cycle = true;
+        break;
+      }
+
       if(num_nodes == *arrlen) {
         if(resize) {
           *arrlen *= 2;
@@ -42,11 +51,6 @@ int supernode_extend(const dBGraph *db_graph,
           *olist = realloc2(*olist, *arrlen*sizeof(Orientation));
         }
         else return -1;
-      }
-      if(node == (*nlist)[0] && orient == (*olist)[0]) {
-        // don't create a loop
-        *cycle = true;
-        break;
       }
 
       (*nlist)[num_nodes] = node;
@@ -82,7 +86,6 @@ size_t supernode_find(dBGraph *db_graph, hkey_t node,
   int len;
   (*nlist)[0] = node;
   (*olist)[0] = REVERSE;
-  *cycle = false;
   len = supernode_extend(db_graph, nlist, olist, 0, cycle, arrlen, true);
   if(*cycle) return len;
   supernode_reverse(*nlist, *olist, len);

@@ -106,7 +106,8 @@ Bundled libraries may have different licenses:
 * seqan (BSD/3-clause)
 * city_hash (MIT)
 * lookup3 (Public Domain)
-* htslib
+* htslib (MIT)
+* bcftools (MIT)
 * seq_file (BSD)
 * string_buffer (BSD)
 * bit_array (BSD)

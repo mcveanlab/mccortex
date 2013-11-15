@@ -6,7 +6,7 @@
 #include <execinfo.h>
 #include <signal.h>
 
-FILE *ctx_msg_out;
+FILE *ctx_msg_out = NULL;
 
 void* ctx_malloc(size_t mem, const char *file, int line)
 {

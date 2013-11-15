@@ -541,9 +541,40 @@ char seq_read_is_novel(const read_t *r, dBGraph *db_graph,
 // Add to the de bruijn graph
 //
 
-void load_read(const read_t *r, dBGraph *db_graph,
-               int qual_cutoff, int hp_cutoff,
-               Colour colour, SeqLoadingStats *stats)
+// Sequence must be entirely ACGT and len >= kmer_size
+void seq_load_str(dBGraph *db_graph, size_t colour, const char *seq, size_t len)
+{
+  assert(len >= db_graph->kmer_size);
+  const size_t kmer_size = db_graph->kmer_size;
+  BinaryKmer bkmer, tmp_key;
+  hkey_t prev_node, curr_node;
+  Orientation prev_or, curr_or;
+  size_t i;
+
+  bkmer = binary_kmer_from_str(seq, kmer_size);
+  tmp_key = db_node_get_key(bkmer, kmer_size);
+  prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
+  prev_or = db_node_get_orientation(bkmer, tmp_key);
+
+  for(i = kmer_size; i < len; i++)
+  {
+    Nucleotide nuc = binary_nuc_from_char(seq[i]);
+    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+
+    tmp_key = db_node_get_key(bkmer, kmer_size);
+    curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
+    curr_or = db_node_get_orientation(bkmer, tmp_key);
+
+    db_graph_add_edge(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
+
+    prev_node = curr_node;
+    prev_or = curr_or;
+  }
+}
+
+static void load_read(const read_t *r, dBGraph *db_graph,
+                      int qual_cutoff, int hp_cutoff,
+                      Colour colour, SeqLoadingStats *stats)
 {
   const uint32_t kmer_size = db_graph->kmer_size;
   if(r->seq.end < kmer_size) {
@@ -560,34 +591,36 @@ void load_read(const read_t *r, dBGraph *db_graph,
     contig_end = seq_contig_end(r, contig_start, kmer_size,
                                 qual_cutoff, hp_cutoff, &search_start);
 
-    size_t i, contig_len = contig_end - contig_start;
+    size_t contig_len = contig_end - contig_start;
 
     // printf("contig: %.*s\n", (int)contig_len, r->seq.b+contig_start);
 
     // Load into graph
-    BinaryKmer bkmer, tmp_key;
-    hkey_t prev_node, curr_node;
-    Orientation prev_or, curr_or;
+    // BinaryKmer bkmer, tmp_key;
+    // hkey_t prev_node, curr_node;
+    // Orientation prev_or, curr_or;
+    // size_t i;
 
-    bkmer = binary_kmer_from_str(r->seq.b+contig_start, kmer_size);
-    tmp_key = db_node_get_key(bkmer, kmer_size);
-    prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-    prev_or = db_node_get_orientation(bkmer, tmp_key);
+    // bkmer = binary_kmer_from_str(r->seq.b+contig_start, kmer_size);
+    // tmp_key = db_node_get_key(bkmer, kmer_size);
+    // prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
+    // prev_or = db_node_get_orientation(bkmer, tmp_key);
 
-    for(i = contig_start+kmer_size; i < contig_end; i++)
-    {
-      Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
-      binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+    // for(i = contig_start+kmer_size; i < contig_end; i++)
+    // {
+    //   Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
+    //   binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
 
-      tmp_key = db_node_get_key(bkmer, kmer_size);
-      curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-      curr_or = db_node_get_orientation(bkmer, tmp_key);
+    //   tmp_key = db_node_get_key(bkmer, kmer_size);
+    //   curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
+    //   curr_or = db_node_get_orientation(bkmer, tmp_key);
 
-      db_graph_add_edge(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
+    //   db_graph_add_edge(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
 
-      prev_node = curr_node;
-      prev_or = curr_or;
-    }
+    //   prev_node = curr_node;
+    //   prev_or = curr_or;
+    // }
+    seq_load_str(db_graph, colour, r->seq.b+contig_start, contig_len);
 
     // Update contig stats
     if(stats->readlen_count_array != NULL) {

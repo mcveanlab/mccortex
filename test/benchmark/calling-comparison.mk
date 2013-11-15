@@ -11,7 +11,7 @@ KMER=31
 READLEN=100
 MPSIZE=250
 ALLELECOVG=30
-ERRPROF=1
+# ERRPROF=
 MEMWIDTH=20
 MEMHEIGHT=20
 # GENOMESIZE=
@@ -156,10 +156,11 @@ NORMVCFS=$(BUBBLEVCFS:.bub.vcf=.norm.vcf)
 FLANKFILES=$(BUBBLEVCFS:.vcf=.5pflanks.fa.gz)
 SAMFILES=$(BUBBLEVCFS:.vcf=.5pflanks.sam)
 
-ifeq ($(ERRPROF),0)
-  GRAPHS_noref=$(RAWGRAPHS)
-else
+ifdef ERRPROF
+	USECALIB="-p $ERRPROF"
   GRAPHS_noref=$(CLEANGRAPHS)
+else
+  GRAPHS_noref=$(RAWGRAPHS)
 endif
 
 GRAPHS_ref=$(GRAPHS_noref) ref/ref.k$(KMER).ctx
