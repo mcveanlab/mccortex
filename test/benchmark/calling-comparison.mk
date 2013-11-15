@@ -157,7 +157,7 @@ FLANKFILES=$(BUBBLEVCFS:.vcf=.5pflanks.fa.gz)
 SAMFILES=$(BUBBLEVCFS:.vcf=.5pflanks.sam)
 
 ifdef ERRPROF
-	USECALIB="-p $ERRPROF"
+	USECALIB="-p $(ERRPROF)"
   GRAPHS_noref=$(CLEANGRAPHS)
 else
   GRAPHS_noref=$(RAWGRAPHS)
