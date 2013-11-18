@@ -11,6 +11,60 @@ Informally:
 <uint64_t:num_of_paths><uint64_t:num_path_bytes><uint64_t:num_kmers_with_paths>
 -- Colours --
 <uint32_t:sname_len><uint8_t x sname_len:sample_name> x num_of_cols
+-- Data --
+<uint8_t:path_data>
+<binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>
+
+Formally:
+
+| version+ | datatype | no. elements | Notes |
+----------------------------------------------
+| Header                                     |
+----------------------------------------------
+| 1 |  char  |    5 | "PATHS"                |
+| 1 | uint32 |    1 | version                |
+| 1 | uint32 |    1 | kmersize               |
+| 1 | uint32 |    1 | num_of_cols            |
+| 1 | uint64 |    1 | num_of_paths           |
+| 1 | uint64 |    1 | num_path_bytes <P>     |
+| 1 | uint64 |    1 | num_kmers_with_paths   |
+----------------------------------------------
+| Sample name x num_of_cols                  |
+----------------------------------------------
+| 1 | uint32 |    1 | sample name length (SLEN)
+| 1 |  uint8 | SLEN | name (NOT null terminated)
+----------------------------------------------
+| Path Data Dump                             |
+----------------------------------------------
+| 1 | uint8  |    P | path_data              |
+----------------------------------------------
+|  Binary Kmer mapping to path_data          |
+|  x <num_kmers_with_paths>                  |
+| --------------------------------------     |
+| | 1 | BKmer  |    1 |                |     |
+| | 1 | uint64 |    1 | path_index_fw  |     |
+| | 1 | uint64 |    1 | path_index_rv  |     |
+| --------------------------------------     |
+----------------------------------------------
+
+
+//
+// Old
+//
+
+Paths File Format
+
+Extension: .ctp
+Version in use: 1
+
+Paths File Format Version 1:
+
+Informally:
+-- Header --
+"PATHS"<uint32_t:version><uint32_t:kmersize><uint32_t:num_of_cols>
+<uint64_t:num_of_paths><uint64_t:num_path_bytes><uint64_t:num_kmers_with_paths>
+-- Colours --
+<uint32_t:sname_len><uint8_t x sname_len:sample_name> x num_of_cols
 <uint64_t:num_inferred_kmers> x num_of_cols
 -- Inferred kmers --
 [<binarykmer> x num_inferred_kmers[col]] x num_of_cols

@@ -47,12 +47,9 @@ int ctx_pview(CmdArgs *args)
   printf("bytes: %s\n", path_bytes_str);
   printf("kmers starting paths: %s\n", kmers_with_paths_str);
 
-  char inf_kmer_str[100];
   uint32_t col;
   for(col = 0; col < pheader.num_of_cols; col++) {
-    ulong_to_str(pheader.num_inferred_kmers[col], inf_kmer_str);
-    printf(" colour %u: %s [inferred kmers: %s]\n",
-           col, pheader.sample_names[col].buff, inf_kmer_str);
+    printf(" colour %u: %s\n", col, pheader.sample_names[col].buff);
   }
 
   //

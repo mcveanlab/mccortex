@@ -128,10 +128,9 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
 
 void graph_walker_alloc(GraphWalker *wlk)
 {
-  wlk->max_path_len = 2;
-  wlk->max_num_paths = 2;
-  wlk->num_unused = wlk->max_num_paths;
-  wlk->num_curr = wlk->num_counter = 0;
+  // Setup capacity path length and number of paths
+  wlk->max_path_len = 8;
+  wlk->num_unused = wlk->max_num_paths = 16;
 
   wlk->data = malloc2(wlk->max_num_paths * wlk->max_path_len * sizeof(Nucleotide));
   wlk->allpaths = malloc2(wlk->max_num_paths * sizeof(FollowPath));
@@ -146,6 +145,30 @@ void graph_walker_alloc(GraphWalker *wlk)
     wlk->allpaths[i].bases = wlk->data + i * wlk->max_path_len;
     wlk->unused_paths[i] = wlk->allpaths + i;
   }
+
+  wlk->num_curr = wlk->num_new = wlk->num_counter = 0;
+  wlk->fork_count = 0;
+
+  // Set up bloom filter to use 4MB (2^25 bytes = 4MB)
+  size_t bloom_nbits = 25;
+  size_t bloom_nbytes = round_bits_to_bytes(1UL << bloom_nbits);
+  uint64_t *bloom = calloc2(bloom_nbytes, 1);
+
+  GraphWalker gw = {.db_graph = NULL, .ctxcol = 0, .ctpcol = 0,
+                    .node = HASH_NOT_FOUND, .orient = FORWARD,
+                    .bkmer = BINARY_KMER_ZERO_MACRO,
+                    .data = wlk->data, .allpaths = wlk->allpaths,
+                    .max_path_len = wlk->max_path_len,
+                    .max_num_paths = wlk->max_num_paths,
+                    .unused_paths = wlk->unused_paths,
+                    .curr_paths = wlk->curr_paths,
+                    .counter_paths = wlk->counter_paths,
+                    .num_unused = wlk->num_unused,
+                    .num_curr = 0, .num_new = 0, .num_counter = 0,
+                    .bloom = bloom, .bloom_nbits = bloom_nbits,
+                    .fork_count = 0};
+
+  memcpy(wlk, &gw, sizeof(GraphWalker));
 }
 
 void graph_walker_dealloc(GraphWalker *wlk)
@@ -155,6 +178,7 @@ void graph_walker_dealloc(GraphWalker *wlk)
   free(wlk->unused_paths);
   free(wlk->curr_paths);
   free(wlk->counter_paths);
+  free(wlk->bloom);
 }
 
 // Returns number of paths picked up
@@ -167,8 +191,6 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
 
   Orientation porient;
   PathLen len;
-  // size_t start_pos = counter ? wlk->num_counter : wlk->num_curr;
-  // size_t end_pos = start_pos;
   size_t *num = counter ? &wlk->num_counter : &wlk->num_curr;
   size_t start_pos = *num;
 
@@ -229,6 +251,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                     .max_num_paths = wlk->max_num_paths,
                     .num_unused = wlk->max_num_paths,
                     .num_curr = 0, .num_new = 0, .num_counter = 0,
+                    .bloom = wlk->bloom, .bloom_nbits = wlk->bloom_nbits,
                     .fork_count = 0};
 
   memcpy(wlk, &gw, sizeof(GraphWalker));
@@ -252,9 +275,44 @@ void graph_walker_finish(GraphWalker *wlk)
   for(i = 0; i < wlk->num_counter; i++)
     wlk->unused_paths[wlk->num_unused++] = wlk->counter_paths[i];
   wlk->num_curr = wlk->num_new = wlk->num_counter = 0;
+  // Zero bloom filter
+  memset(wlk->bloom, 0, round_bits_to_bytes(1UL << wlk->bloom_nbits));
+}
+
+static inline uint64_t follow_path_fasthash(const FollowPath *path)
+{
+  // Hash upto last 32 bases
+  uint64_t i, hash = path->len, max = MIN2(path->len, 32);
+  for(i = path->len-max; i < path->len; i++) {
+    hash |= path->bases[i];
+    hash <<= 2;
+  }
+  return hash;
+}
+
+// Hash current kmer + path positions + path offset
+uint64_t graph_walker_fasthash(const GraphWalker *wlk)
+{
+  uint64_t i, hash = wlk->bkmer.b[0];
+
+  for(i = 1; i < NUM_BKMER_WORDS; i++)
+    hash ^= wlk->bkmer.b[i];
+
+  for(i = 0; i < wlk->num_curr+wlk->num_new; i++) {
+    hash = rot64(hash, 31);
+    hash ^= follow_path_fasthash(wlk->curr_paths[i]);
+  }
+
+  for(i = 0; i < wlk->num_counter; i++) {
+    hash = rot64(hash, 31);
+    hash ^= follow_path_fasthash(wlk->counter_paths[i]);
+  }
+
+  return hash;
 }
 
 // Returns index of choice or -1
+// Sets is_fork_in_col true if there is a fork in the given colour
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                         const hkey_t next_nodes[4],
                         const Nucleotide next_bases[4],
@@ -270,8 +328,10 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   if(num_next == 1) return 0;
 
   int indices[4] = {0,1,2,3};
-  hkey_t nodes[4];
-  Nucleotide bases[4];
+  hkey_t nodes_store[4];
+  Nucleotide bases_store[4];
+  const hkey_t *nodes = nodes_store;
+  const Nucleotide* bases = bases_store;
   size_t i, j;
 
   // Reduce next nodes that are in this colour
@@ -280,8 +340,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     for(i = 0, j = 0; i < num_next; i++)
     {
       if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->ctxcol)) {
-        nodes[j] = next_nodes[i];
-        bases[j] = next_bases[i];
+        nodes_store[j] = next_nodes[i];
+        bases_store[j] = next_bases[i];
         indices[j] = i;
         j++;
       }
@@ -293,13 +353,13 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     if(num_next == 0) return -1;
   }
   else {
-    memcpy(nodes, next_nodes, sizeof(hkey_t)*4);
-    memcpy(bases, next_bases, sizeof(Nucleotide)*4);
+    nodes = next_nodes;
+    bases = next_bases;
   }
 
   // We have hit a fork
   *is_fork_in_col = true;
-  if(wlk->num_curr == 0) return -1;
+  if(wlk->num_curr == 0) return -1; // abandon if no path info
 
   // Do all the oldest paths pick a consistent next node?
   FollowPath *oldest_path = wlk->curr_paths[0];
@@ -330,7 +390,7 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     c[path->bases[path->pos]] = 1;
   }
 
-  if(c[0]+c[1]+c[2]+c[3] < num_next) return -1;
+  if(c[0]+c[1]+c[2]+c[3] < num_next) return -1; // Missing assembly info
   if(c[0]+c[1]+c[2]+c[3] > num_next) die("Counter path corruption");
   #endif
 
@@ -341,7 +401,7 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       return indices[i];
 
   // If we reach here something has gone wrong
-  // print some debug information
+  // print some debug information then exit
   char str[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, str);
   message("Fork: %s\n", str);

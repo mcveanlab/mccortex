@@ -18,7 +18,6 @@
 #include "vcf_parsing.h"
 #include "binary_kmer.h"
 #include "file_reader.h"
-#include "delta_array.h"
 #include "supernode.h"
 
 static const char usage[] =

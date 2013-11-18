@@ -592,34 +592,7 @@ static void load_read(const read_t *r, dBGraph *db_graph,
                                 qual_cutoff, hp_cutoff, &search_start);
 
     size_t contig_len = contig_end - contig_start;
-
     // printf("contig: %.*s\n", (int)contig_len, r->seq.b+contig_start);
-
-    // Load into graph
-    // BinaryKmer bkmer, tmp_key;
-    // hkey_t prev_node, curr_node;
-    // Orientation prev_or, curr_or;
-    // size_t i;
-
-    // bkmer = binary_kmer_from_str(r->seq.b+contig_start, kmer_size);
-    // tmp_key = db_node_get_key(bkmer, kmer_size);
-    // prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-    // prev_or = db_node_get_orientation(bkmer, tmp_key);
-
-    // for(i = contig_start+kmer_size; i < contig_end; i++)
-    // {
-    //   Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
-    //   binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
-
-    //   tmp_key = db_node_get_key(bkmer, kmer_size);
-    //   curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-    //   curr_or = db_node_get_orientation(bkmer, tmp_key);
-
-    //   db_graph_add_edge(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
-
-    //   prev_node = curr_node;
-    //   prev_or = curr_or;
-    // }
     seq_load_str(db_graph, colour, r->seq.b+contig_start, contig_len);
 
     // Update contig stats

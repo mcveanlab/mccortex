@@ -14,7 +14,9 @@ typedef struct {
 // BinaryKmer that is all zeros
 extern const BinaryKmer zero_bkmer;
 
-// Base Encoding
+#define BINARY_KMER_ZERO_MACRO {.b = {0}}
+
+// Bases encoding:
 #define Adenine       0
 #define Cytosine      1
 #define Guanine       2

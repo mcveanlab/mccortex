@@ -160,9 +160,7 @@ int ctx_covg(CmdArgs *args)
 
   size_t new_samples = num_samples + cols_used;
 
-  size_t j, capacity = 16 * num_samples;
-  DeltaArray *covg_array = malloc2(sizeof(DeltaArray) * capacity);
-  for(i = 0; i < capacity; i++) delta_arr_alloc(&covg_array[i]);
+  size_t j;
 
   size_t nodes_cap = 2048, nodes_len = 0;
   hkey_t *nodes = malloc2(sizeof(hkey_t) * nodes_cap);
@@ -178,13 +176,6 @@ int ctx_covg(CmdArgs *args)
 
     strbuf_reset(&contig);
     strbuf_append_buff(&contig, vcf_entry.lf);
-
-    if(vcf_entry.num_alts*num_samples > capacity) {
-      size_t new_cap = ROUNDUP2POW(vcf_entry.num_alts*num_samples);
-      covg_array = realloc2(covg_array, sizeof(DeltaArray) * new_cap);
-      for(i = capacity; i < new_cap; i++) { delta_arr_alloc(&covg_array[i]); }
-      capacity = new_cap;
-    }
 
     for(i = 0; i < vcf_entry.num_alts; i++)
     {

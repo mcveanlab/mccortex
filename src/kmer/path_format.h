@@ -12,8 +12,7 @@ typedef struct
   uint32_t version, kmer_size, num_of_cols;
   uint64_t num_of_paths, num_path_bytes, num_kmers_with_paths;
   StrBuf *sample_names;
-  uint64_t *num_inferred_kmers;
-  size_t capacity; // how many sample_names/inferred_kmers have been malloc'd
+  size_t capacity; // how many sample_names have been malloc'd
 } PathFileHeader;
 
 const PathFileHeader INIT_PATH_FILE_HDR;
@@ -24,9 +23,6 @@ const PathFileHeader INIT_PATH_FILE_HDR;
 // <uint64_t:num_of_paths><uint64_t:num_path_bytes><uint64_t:num_kmers_with_paths>
 // -- Colours --
 // <uint32_t:sname_len><uint8_t x sname_len:sample_name> x num_of_cols
-// <uint64_t:num_inferred_kmers> x num_of_cols
-// -- Inferred kmers --
-// [<binarykmer> x num_inferred_kmers[col]] x num_of_cols
 // -- Data --
 // <uint8_t:path_data>
 // <binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>

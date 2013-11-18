@@ -9,7 +9,6 @@
 #include "cmd.h"
 #include "util.h"
 #include "file_util.h"
-#include "delta_array.h"
 
 #define PROC_MAXK 100
 
@@ -27,7 +26,6 @@ typedef struct VarBranch VarBranch;
 struct VarBranch {
   StrBuf seq;
   uint32_t num_nodes;
-  // DeltaArray *covgs;
   VarBranch *next;
 };
 
@@ -98,7 +96,6 @@ static void var_revcmp(Var *var)
   // size_t i;
   for(allele = var->first_allele; allele != NULL; allele = allele->next) {
     reverse_complement_str(allele->seq.buff, allele->seq.len);
-    // for(i = 0; i < num_samples; i++) delta_arr_reverse(&(allele->covgs[i]));
   }
 }
 
@@ -731,26 +728,9 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
 
     branch->num_nodes = branch_nodes;
 
-    // if(branch_nodes > cr->covgs_cap)
-    // {
-    //   cr->covgs_cap = ROUNDUP2POW(cr->covgs_cap);
-    //   cr->covgs = realloc2(cr->covgs, cr->covgs_cap * sizeof(*cr->alleles));
-    // }
-
     // Load sequence
     load_assert(strbuf_reset_gzreadline(&branch->seq, fh) != 0, line);
     strbuf_chomp(&branch->seq);
-
-    // Read covgs in each sample
-    // for(i = 0; i < num_samples; i++)
-    // {
-    //   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
-    //   strbuf_chomp(line);
-    //   boolean more = false;
-    //   uint32_t num = parse_uint_liststr(line->buff, cr->covgs, branch_nodes, &more);
-    //   load_assert(num == branch_nodes && !more, line);
-    //   delta_arr_from_uint_arr(cr->covgs, branch_nodes, &(branch->covgs[i]));
-    // }
 
     cr->alleles[cr->num_alleles++] = branch;
 
@@ -868,28 +848,9 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
       load_assert(strbuf_reset_gzreadline(line, fh), line);
       strbuf_chomp(line);
 
-      // size_t branch_nodes = branch->num_nodes;
-      // if(branch_nodes > cr->covgs_cap) {
-      //   cr->covgs_cap = ROUNDUP2POW(cr->covgs_cap);
-      //   cr->covgs = realloc2(cr->covgs, cr->covgs_cap * sizeof(*cr->alleles));
-      // }
-
       // remove extra whitespace on the end
       while(line->len > 0 && isspace(line->buff[line->len-1])) line->len--;
       line->buff[line->len] = '\0';
-
-      // if(branch_nodes == 0) {
-      //   branch->covgs[col].len = 0;
-      // }
-      // else {
-      //   // Skip first value
-      //   char *tmp = strchr(line->buff, ' ');
-      //   load_assert(tmp != NULL, line);
-      //   boolean more = false;
-      //   uint32_t num = parse_uint_liststr(tmp+1, cr->covgs, branch_nodes, &more);
-      //   load_assert(num == branch_nodes && !more, line);
-      //   delta_arr_from_uint_arr(cr->covgs, branch_nodes, &(branch->covgs[col]));
-      // }
     }
   }
 
@@ -957,17 +918,8 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
   gzprintf(out_vcf, ";BUB=%s", var->name.buff);
 
   gzprintf(out_vcf, "\tCOVG");
-  for(i = 0; i < num_samples; i++)
-  {
+  for(i = 0; i < num_samples; i++) {
     gzprintf(out_vcf, "\t0");
-    // allele = var->first_allele;
-    // gzputc(out_vcf, '\t');
-    // delta_arr_gzprint(&(allele->covgs[i]), out_vcf);
-
-    // for(allele = allele->next; allele != NULL; allele = allele->next) {
-    //   gzputc(out_vcf, ':');
-    //   delta_arr_gzprint(&(allele->covgs[i]), out_vcf);
-    // }
   }
 
   gzputc(out_vcf, '\n');

@@ -11,8 +11,7 @@ const PathFileHeader INIT_PATH_FILE_HDR
  = {.version = CTX_PATH_FILEFORMAT,
     .kmer_size = 0, .num_of_paths = 0,
     .num_path_bytes = 0, .num_kmers_with_paths = 0,
-    .sample_names = NULL, .num_inferred_kmers = NULL,
-    .capacity = 0};
+    .sample_names = NULL, .capacity = 0};
 
 // Format:
 // -- Header --
@@ -20,9 +19,6 @@ const PathFileHeader INIT_PATH_FILE_HDR
 // <uint64_t:num_of_paths><uint64_t:num_path_bytes><uint64_t:num_kmers_with_paths>
 // -- Colours --
 // <uint32_t:sname_len><uint8_t x sname_len:sample_name> x num_of_cols
-// <uint64_t:num_inferred_kmers> x num_of_cols
-// -- Inferred kmers --
-// [<binarykmer> x num_inferred_kmers[col]] x num_of_cols
 // -- Data --
 // <uint8_t:path_data>
 // <binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>
@@ -46,18 +42,14 @@ void paths_header_alloc(PathFileHeader *h, size_t num_of_cols)
 
   if(h->capacity == 0) {
     h->sample_names = malloc2(num_of_cols * sizeof(StrBuf));
-    h->num_inferred_kmers = calloc2(num_of_cols, sizeof(uint64_t));
   }
   else if(num_of_cols > h->capacity) {
     h->sample_names = realloc2(h->sample_names, num_of_cols * sizeof(StrBuf));
-    h->num_inferred_kmers = realloc2(h->num_inferred_kmers,
-                                     num_of_cols * sizeof(uint64_t));
   }
 
   for(i = old_cap; i < num_of_cols; i++) {
     strbuf_alloc(&h->sample_names[i], 256);
     strbuf_set(&h->sample_names[i], "noname");
-    h->num_inferred_kmers[i] = 0;
   }
 
   h->capacity = MAX2(old_cap, num_of_cols);
@@ -69,7 +61,6 @@ void paths_header_dealloc(PathFileHeader *h)
   if(h->capacity > 0) {
     for(i = 0; i < h->capacity; i++) strbuf_dealloc(&h->sample_names[i]);
     free(h->sample_names);
-    free(h->num_inferred_kmers);
     h->capacity = 0;
   }
 }
@@ -145,11 +136,6 @@ int paths_file_read_header(FILE *fh, PathFileHeader *h,
     die("number of colours is zero [binary: %s]\n", path);
   }
 
-  // Read number of inferred kmers for each colour
-  SAFE_READ(fh, h->num_inferred_kmers, sizeof(uint64_t) * h->num_of_cols,
-            "num_inferred_kmers", path, fatal);
-  bytes_read += sizeof(uint64_t) * h->num_of_cols;
-
   return bytes_read;
 }
 
@@ -221,28 +207,10 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
   status("Loading paths: %s paths, %s path-bytes, %s kmers\n",
          paths_str, mem_str, kmers_str);
 
-  uint64_t i, j;
+  uint64_t i;
   BinaryKmer bkmer;
   hkey_t node;
   boolean found;
-
-  // Load inferred kmers
-  if(db_graph->node_in_cols != NULL)
-  {
-    uint64_t top_word_mask = ~(uint64_t)0 << BKMER_TOP_BITS(pheader->kmer_size);
-
-    for(i = 0; i < pheader->num_of_cols; i++)
-    {
-      for(j = 0; j < pheader->num_inferred_kmers[i]; j++)
-      {
-        safe_fread(fh, &bkmer.b, sizeof(BinaryKmer), "Inferred BinaryKmer", path);
-        bkmer = db_node_get_key(bkmer, db_graph->kmer_size);
-        if(bkmer.b[0] & top_word_mask) die("Oversized kmer in graph: %s", path);
-        node = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
-        db_node_set_col(db_graph, node, i);
-      }
-    }
-  }
 
   // Load paths
   if(tmppaths != NULL)
@@ -345,9 +313,6 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
     fwrite(buf->buff, sizeof(uint8_t), len, fout);
     bytes += sizeof(uint32_t) + len;
   }
-
-  fwrite(header->num_inferred_kmers, sizeof(uint64_t), header->num_of_cols, fout);
-  bytes += sizeof(uint64_t) * header->num_of_cols;
 
   return bytes;
 }

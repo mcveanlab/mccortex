@@ -54,7 +54,7 @@ void info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
 
 void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
 {
-  size_t i, j, num_cols = VCFSAMPLES+num_samples;
+  size_t i, num_cols = VCFSAMPLES+num_samples;
   entry->alts_capacity = entry->info_capacity = 2;
   entry->num_info = entry->num_alts = 0;
   entry->cols = malloc2(sizeof(StrBuf) * num_cols);
@@ -68,51 +68,24 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
     strbuf_alloc(&entry->alts[i], 64);
     strbuf_alloc(&entry->info[i], 1024);
   }
-
-  // samples
-  entry->covgs = malloc2(num_samples * sizeof(DeltaArray*));
-
-  for(i = 0; i < num_samples; i++)
-  {
-    entry->covgs[i] = malloc2(entry->alts_capacity * sizeof(DeltaArray));
-    for(j = 0; j < entry->alts_capacity; j++)
-      delta_arr_alloc(&entry->covgs[i][j]);
-  }
 }
 
 void vcf_entry_dealloc(vcf_entry_t *entry, uint32_t num_samples)
 {
-  size_t i, j, num_cols = VCFSAMPLES+num_samples;
+  size_t i, num_cols = VCFSAMPLES+num_samples;
   for(i = 0; i < num_cols; i++) strbuf_dealloc(&entry->cols[i]);
   for(i = 0; i < entry->alts_capacity; i++) strbuf_dealloc(&entry->alts[i]);
   for(i = 0; i < entry->info_capacity; i++) strbuf_dealloc(&entry->info[i]);
-  for(i = 0; i < num_samples; i++) {
-    for(j = 0; j < entry->alts_capacity; j++)
-      delta_arr_dealloc(&entry->covgs[i][j]);
-    free(entry->covgs[i]);
-  }
+  
   free(entry->cols);
   free(entry->alts);
   free(entry->info);
-  free(entry->covgs);
 }
 
-void vcf_entry_alt_capacity(vcf_entry_t *entry, size_t num_alts, uint32_t num_samples)
+void vcf_entry_alt_capacity(vcf_entry_t *entry, size_t num_alts)
 {
   if(num_alts > entry->alts_capacity)
-  {
-    // Increase in the number of alleles
-    size_t old_alts_cap = entry->alts_capacity;
     strbuf_arr_resize(&entry->alts, &entry->alts_capacity, num_alts);
-
-    size_t i, j, covgsize = entry->alts_capacity * sizeof(DeltaArray);
-    for(i = 0; i < num_samples; i++)
-    {
-      entry->covgs[i] = realloc2(entry->covgs[i], covgsize);
-      for(j = old_alts_cap; j < entry->alts_capacity; j++)
-        delta_arr_alloc(&(entry->covgs[i][j]));
-    }
-  }
 }
 
 void vcf_entry_info_capacity(vcf_entry_t *entry, size_t num_info)
@@ -123,7 +96,7 @@ void vcf_entry_info_capacity(vcf_entry_t *entry, size_t num_info)
 
 void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, uint32_t num_samples)
 {
-  vcf_entry_alt_capacity(dst, src->num_alts, num_samples);
+  vcf_entry_alt_capacity(dst, src->num_alts);
   vcf_entry_info_capacity(dst, src->num_info);
 
   size_t i;
@@ -175,7 +148,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   // Split ALT alleles
   size_t alts_count = count_char(entry->cols[VCFALT].buff, ',') + 1;
 
-  vcf_entry_alt_capacity(entry, alts_count, num_samples);
+  vcf_entry_alt_capacity(entry, alts_count);
 
   entry->num_alts = 0;
   tmp = entry->cols[VCFALT].buff;
@@ -213,28 +186,6 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
     else break;
     tmp = end + 1;
   }
-
-  // Load sample covg info
-
-  /*
-  size_t i, j;
-  for(i = 0; i < num_samples; i++)
-  {
-    tmp = entry->cols[VCFSAMPLES+i].buff;
-    size_t count = count_char(tmp, ';') + 1;
-    if(count != entry->num_alts)
-      die("Invalid GT: %s [%zu vs %zu]", tmp, count, entry->num_alts);
-
-    for(j = 0; j < entry->num_alts; j++)
-    {
-      if((end = strchr(tmp, ';')) != NULL) *end = '\0';
-      delta_arr_from_str(tmp, &(entry->covgs[i][j]));
-      delta_array_unpack(&(entry->covgs[i][j]));
-      if(end != NULL) *end = ';';
-      tmp = end+1;
-    }
-  }
-  */
 }
 
 void vcf_entry_revcmp(vcf_entry_t *entry)

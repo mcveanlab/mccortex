@@ -2,7 +2,7 @@
 #include "binary_kmer.h"
 
 // This is exported
-const BinaryKmer zero_bkmer = {.b = {0}};
+const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 
 const char bnuc_to_char_array[4] = {'A','C','G','T'};
 
@@ -143,7 +143,7 @@ BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
                                           uint32_t kmer_size)
 {
   size_t i, j, k;
-  BinaryKmer revcmp = {.b = {0}};
+  BinaryKmer revcmp = BINARY_KMER_ZERO_MACRO;
 
   for(i = 0; i < NUM_BKMER_WORDS; i++)
   {
@@ -181,7 +181,7 @@ BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
 // Get a random binary kmer -- useful for testing
 BinaryKmer binary_kmer_random(uint32_t kmer_size)
 {
-  BinaryKmer bkmer = {.b = {0}};
+  BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
   size_t i;
   for(i = 0; i < sizeof(BinaryKmer) / 8; i++)
     bkmer.b[i] = (((uint64_t)rand()) << 32) | rand();
@@ -201,7 +201,7 @@ BinaryKmer binary_kmer_from_str(const char *seq, uint32_t kmer_size)
   assert(strlen(seq) >= kmer_size);
 
   uint32_t i;
-  BinaryKmer bkmer = {.b = {0}};
+  BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
 
   for(i = 0; i < kmer_size; i++)
   {
