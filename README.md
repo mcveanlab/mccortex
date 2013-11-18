@@ -102,19 +102,19 @@ License: GPLv2
 --------------
 
 Bundled libraries may have different licenses:
-* GNU Science Library (GPL)
-* seqan (BSD/3-clause)
-* city_hash (MIT)
-* lookup3 (Public Domain)
-* htslib (MIT)
-* bcftools (MIT)
-* seq_file (BSD)
-* string_buffer (BSD)
-* bit_array (BSD)
-* seq-align (GPLv3)
+* [GNU Science Library](http://www.gnu.org/software/gsl/) (GPL)
+* [CityHash](https://code.google.com/p/cityhash/) (MIT)
+* [lookup3](http://burtleburtle.net/bob/c/lookup3.c) (Public Domain)
+* [htslib](https://github.com/samtools/htslib) (MIT)
+* [bcftools](https://github.com/samtools/bcftools) (MIT)
+* [vcflib](https://github.com/ekg/vcflib) (MIT)
+* [seq_file](https://github.com/noporpoise/seq_file) (BSD)
+* [string_buffer](https://github.com/noporpoise/string_buffer) (BSD)
+* [BitArray](https://github.com/noporpoise/BitArray) (BSD)
+* [seq-align](https://github.com/noporpoise/seq-align) (GPLv3)
 
 Used in testing:
-* bioinf-perl
+* [bioinf-perl](https://github.com/noporpoise/bioinf-perl) (Public Domain)
 
 Citing
 ------
