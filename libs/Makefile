@@ -17,6 +17,9 @@ htslib/Makefile:
 bcftools/Makefile:
 	git clone https://github.com/samtools/bcftools.git
 
+vcflib/Makefile:
+	git clone --recursive https://github.com/ekg/vcflib.git
+
 string_buffer/Makefile:
 	git clone git://github.com/noporpoise/string_buffer.git
 
@@ -32,13 +35,12 @@ seq-align/Makefile:
 readsim/Makefile:
 	git clone git://github.com/noporpoise/readsim.git
 
-fetch: gsl-1.16/configure htslib/Makefile bcftools/Makefile \
-	     string_buffer/Makefile bit_array/Makefile \
-	     seq_file/Makefile seq-align/Makefile readsim/Makefile
-
-pull:
+pull: gsl-1.16/configure htslib/Makefile bcftools/Makefile vcflib/Makefile \
+      string_buffer/Makefile bit_array/Makefile \
+      seq_file/Makefile seq-align/Makefile readsim/Makefile
 	cd htslib && git pull
 	cd bcftools && git pull
+	cd vcflib && git pull
 	cd string_buffer && git pull
 	cd bit_array && git pull
 	cd seq_file && git pull
@@ -48,7 +50,7 @@ pull:
 
 update: pull common
 
-common: htslib bcftools string_buffer bit_array seq_file seq-align readsim
+common: htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim
 
 gsl: gsl-1.16/configure
 	cd gsl-1.16 && make clean && ./configure && make
@@ -58,6 +60,9 @@ htslib: htslib/Makefile
 
 bcftools: bcftools/Makefile htslib/Makefile
 	cd bcftools && make
+
+vcflib: vcflib/Makefile
+	cd vcflib && make
 
 string_buffer: string_buffer/Makefile
 	cd string_buffer && make
@@ -84,5 +89,5 @@ clean:
 	cd seq-align && make clean
 	cd readsim && make clean
 
-.PHONY: all clean fetch pull common update
-.PHONY: gsl htslib bcftools string_buffer bit_array seq_file seq-align readsim
+.PHONY: all clean pull common update
+.PHONY: gsl htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim

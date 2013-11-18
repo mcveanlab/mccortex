@@ -19,6 +19,8 @@ MEMHEIGHT=20
 MINMAPQ=40
 MAXALLELE=500
 NTHREADS=4
+# How many contigs to print
+NCONTIGS=10000
 
 SHELL := /bin/bash
 
@@ -64,6 +66,8 @@ READSIM=$(CTX_PATH)/libs/readsim/readsim
 SEQCAT=$(CTX_PATH)/libs/seq_file/bin/seqcat
 FACAT=$(CTX_PATH)/libs/seq_file/bin/facat
 BCFTOOLS=$(CTX_PATH)/libs/bcftools/bcftools
+LEFTALIGN=$(CTX_PATH)/libs/vcflib/bin/vcfleftalign
+VCFDECOMP=$(CTX_PATH)/libs/vcflib/bin/vcfallelicprimitives
 HAPLEN=$(CTX_PATH)/scripts/longest-haplotype.sh
 OLDCLEAN=$(CTX_PATH)/scripts/clean_bubbles.pl
 
@@ -214,10 +218,10 @@ $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 # 1..PLOIDY chroms per colour
 # e.g. genomes/genome{1,2}.fa loaded into colour 0 when PLOIDY=2
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
-	$(TRAVERSE)                                     --nsamples 10000 --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --nsamples 10000 --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --nsamples 10000 --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --nsamples 10000 --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE)                                     --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
 	$(CTXSTATS) k$(KMER)/graphs/pop.noref.ctx:0
 	@echo == ref copy number ==
 	$(CTX_PATH)/bin/ctx31 view --kmers ref/ref.k$(KMER).ctx | awk '{n[$$2]++} END {for (i in n) print i,n[i]}' | sort -n
@@ -360,6 +364,7 @@ ref/ref.k$(KMER).ctx: ref/ref.fa
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample ref --seq ref/ref.fa ref/ref.k$(KMER).ctx
 
 k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
+	@echo == Run Calls ==
 	rm -rf runcalls/runcalls.log
 	mkdir -p runcalls
 	$(RUNCALLS) --first_kmer $(KMER) --last_kmer $(KMER) \
@@ -385,18 +390,25 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 	  '+meta:contig=<ID=ref,length=1000>' | \
 	$(BIOINF)/vcf_scripts/vcf_header_add_contigs.pl - ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_filter_by_ref.pl - ref/ref.fa | \
-	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa - | \
+	$(LEFTALIGN) --reference ref/ref.fa | \
+	$(VCFDECOMP) | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
+
+# Left align with vcflib or bcftools:
+#$(LEFTALIGN) --reference ref/ref.fa $< |
+#$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< |
 
 # % is ref or noref
 k$(KMER)/vcfs/truth.%.norm.vcf: k$(KMER)/vcfs/truth.%.decomp.vcf
-	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< | \
+	$(LEFTALIGN) --reference ref/ref.fa $< | \
+	$(VCFDECOMP) | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
 
 $(NORMVCFS): ref/ref.fa.fai
 
 k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
-	$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa $< | \
+	$(LEFTALIGN) --reference ref/ref.fa $< | \
+	$(VCFDECOMP) | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 .PHONY: all clean test checkcmds
