@@ -149,26 +149,19 @@ void graph_walker_alloc(GraphWalker *wlk)
   wlk->num_curr = wlk->num_new = wlk->num_counter = 0;
   wlk->fork_count = 0;
 
-  // Set up bloom filter to use 4MB (2^25 bytes = 4MB)
-  size_t bloom_nbits = 25;
-  size_t bloom_nbytes = round_bits_to_bytes(1UL << bloom_nbits);
-  uint64_t *bloom = calloc2(bloom_nbytes, 1);
-
-  GraphWalker gw = {.db_graph = NULL, .ctxcol = 0, .ctpcol = 0,
-                    .node = HASH_NOT_FOUND, .orient = FORWARD,
-                    .bkmer = BINARY_KMER_ZERO_MACRO,
-                    .data = wlk->data, .allpaths = wlk->allpaths,
-                    .max_path_len = wlk->max_path_len,
-                    .max_num_paths = wlk->max_num_paths,
-                    .unused_paths = wlk->unused_paths,
-                    .curr_paths = wlk->curr_paths,
-                    .counter_paths = wlk->counter_paths,
-                    .num_unused = wlk->num_unused,
-                    .num_curr = 0, .num_new = 0, .num_counter = 0,
-                    .bloom = bloom, .bloom_nbits = bloom_nbits,
-                    .fork_count = 0};
-
-  memcpy(wlk, &gw, sizeof(GraphWalker));
+  // GraphWalker gw = {.db_graph = NULL, .ctxcol = 0, .ctpcol = 0,
+  //                   .node = HASH_NOT_FOUND, .orient = FORWARD,
+  //                   .bkmer = BINARY_KMER_ZERO_MACRO,
+  //                   .data = wlk->data, .allpaths = wlk->allpaths,
+  //                   .max_path_len = wlk->max_path_len,
+  //                   .max_num_paths = wlk->max_num_paths,
+  //                   .unused_paths = wlk->unused_paths,
+  //                   .curr_paths = wlk->curr_paths,
+  //                   .counter_paths = wlk->counter_paths,
+  //                   .num_unused = wlk->num_unused,
+  //                   .num_curr = 0, .num_new = 0, .num_counter = 0,
+  //                   .fork_count = 0};
+  // memcpy(wlk, &gw, sizeof(GraphWalker));
 }
 
 void graph_walker_dealloc(GraphWalker *wlk)
@@ -178,7 +171,6 @@ void graph_walker_dealloc(GraphWalker *wlk)
   free(wlk->unused_paths);
   free(wlk->curr_paths);
   free(wlk->counter_paths);
-  free(wlk->bloom);
 }
 
 // Returns number of paths picked up
@@ -251,7 +243,6 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                     .max_num_paths = wlk->max_num_paths,
                     .num_unused = wlk->max_num_paths,
                     .num_curr = 0, .num_new = 0, .num_counter = 0,
-                    .bloom = wlk->bloom, .bloom_nbits = wlk->bloom_nbits,
                     .fork_count = 0};
 
   memcpy(wlk, &gw, sizeof(GraphWalker));
@@ -275,40 +266,42 @@ void graph_walker_finish(GraphWalker *wlk)
   for(i = 0; i < wlk->num_counter; i++)
     wlk->unused_paths[wlk->num_unused++] = wlk->counter_paths[i];
   wlk->num_curr = wlk->num_new = wlk->num_counter = 0;
-  // Zero bloom filter
-  memset(wlk->bloom, 0, round_bits_to_bytes(1UL << wlk->bloom_nbits));
 }
 
-static inline uint64_t follow_path_fasthash(const FollowPath *path)
+// Hash a path using its length, sequence and current offset/position
+static inline uint32_t follow_path_fasthash(const FollowPath *path)
 {
   // Hash upto last 32 bases
-  uint64_t i, hash = path->len, max = MIN2(path->len, 32);
+  uint32_t i, hash = path->len, max = MIN2(path->len, 16);
   for(i = path->len-max; i < path->len; i++) {
-    hash |= path->bases[i];
+    hash ^= path->bases[i];
     hash <<= 2;
   }
-  return hash;
+  return hash ^ path->pos;
 }
 
-// Hash current kmer + path positions + path offset
-uint64_t graph_walker_fasthash(const GraphWalker *wlk)
+// Hash a binary kmer + GraphWalker paths with offsets
+uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer)
 {
-  uint64_t i, hash = wlk->bkmer.b[0];
+  uint64_t i, hash64 = bkmer.b[0];
 
   for(i = 1; i < NUM_BKMER_WORDS; i++)
-    hash ^= wlk->bkmer.b[i];
+    hash64 ^= bkmer.b[i];
 
-  for(i = 0; i < wlk->num_curr+wlk->num_new; i++) {
-    hash = rot64(hash, 31);
-    hash ^= follow_path_fasthash(wlk->curr_paths[i]);
-  }
+  // Fold in half, use only bottom 32bits
+  uint32_t hash32 = (hash64 ^ (hash64>>32)) & 0xffffffff;
 
-  for(i = 0; i < wlk->num_counter; i++) {
-    hash = rot64(hash, 31);
-    hash ^= follow_path_fasthash(wlk->counter_paths[i]);
-  }
+  for(i = 0; i < wlk->num_curr+wlk->num_new; i++)
+    hash32 ^= follow_path_fasthash(wlk->curr_paths[i]);
 
-  return hash;
+  hash32 = rot32(hash32, 15);
+
+  for(i = 0; i < wlk->num_counter; i++)
+    hash32 ^= follow_path_fasthash(wlk->counter_paths[i]);
+
+  hash32 = rot32(hash32, 15);
+
+  return hash32;
 }
 
 // Returns index of choice or -1

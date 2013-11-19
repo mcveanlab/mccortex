@@ -12,6 +12,8 @@
 #include "file_reader.h"
 #include "add_read_paths.h"
 
+#include "repeat_walker.h"
+
 // Don't store assembly info longer than 1000 bp
 #define MAX_PATH 1000
 

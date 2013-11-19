@@ -390,8 +390,8 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 	  '+meta:contig=<ID=ref,length=1000>' | \
 	$(BIOINF)/vcf_scripts/vcf_header_add_contigs.pl - ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_filter_by_ref.pl - ref/ref.fa | \
-	$(LEFTALIGN) --reference ref/ref.fa | \
 	$(VCFDECOMP) | \
+	$(LEFTALIGN) --reference ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
 
 # Left align with vcflib or bcftools:
@@ -400,15 +400,15 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 
 # % is ref or noref
 k$(KMER)/vcfs/truth.%.norm.vcf: k$(KMER)/vcfs/truth.%.decomp.vcf
-	$(LEFTALIGN) --reference ref/ref.fa $< | \
-	$(VCFDECOMP) | \
+	$(VCFDECOMP) $< | \
+	$(LEFTALIGN) --reference ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
 
 $(NORMVCFS): ref/ref.fa.fai
 
 k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
-	$(LEFTALIGN) --reference ref/ref.fa $< | \
-	$(VCFDECOMP) | \
+	$(VCFDECOMP) $< | \
+	$(LEFTALIGN) --reference ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 .PHONY: all clean test checkcmds

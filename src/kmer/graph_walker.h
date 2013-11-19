@@ -26,11 +26,6 @@ typedef struct
   FollowPath **unused_paths, **curr_paths, **counter_paths;
   size_t num_unused, num_curr, num_new, num_counter;
 
-  // Repeat resolution
-  // bloom memory is bloom_nbits/8 bytes
-  uint64_t *const bloom;
-  const size_t bloom_nbits;
-
   // Stats
   size_t fork_count;
 } GraphWalker;
@@ -48,7 +43,8 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 
 void graph_walker_finish(GraphWalker *wlk);
 
-uint64_t graph_walker_fasthash(const GraphWalker *wlk);
+// Hash a binary kmer + GraphWalker paths with offsets
+uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer);
 
 // Returns index of choice or -1
 int graph_walker_choose(const GraphWalker *wlk, size_t num_next,

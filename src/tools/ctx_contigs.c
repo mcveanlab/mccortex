@@ -10,6 +10,7 @@
 #include "path_format.h"
 #include "graph_walker.h"
 #include "supernode.h"
+#include "repeat_walker.h"
 
 static const char usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
@@ -119,7 +120,9 @@ int ctx_contigs(CmdArgs *args)
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
-  uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
+  // uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
+  RepeatWalker rptwlk;
+  walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
   uint8_t *path_store = malloc2(path_mem);
   path_store_init(&db_graph.pdata, path_store, path_mem, file.hdr.num_of_cols);
@@ -157,7 +160,7 @@ int ctx_contigs(CmdArgs *args)
   hkey_t node;
   Orientation orient;
 
-  size_t j, njunc;
+  size_t njunc;
   size_t total_len = 0, total_junc = 0, dead_ends = 0, nloop = 0;
   size_t *lengths = malloc2(num_samples * sizeof(size_t));
   size_t *junctions = malloc2(num_samples * sizeof(size_t));
@@ -190,24 +193,28 @@ int ctx_contigs(CmdArgs *args)
 
       while(graph_traverse(&wlk))
       {
-        if(db_node_has_traversed(visited, wlk.node, wlk.orient)){ nloop++; break;}
-        db_node_set_traversed(visited, wlk.node, wlk.orient);
-        graph_walker_node_add_counter_paths(&wlk, lost_nuc);
-        lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
-        if(len == path_cap) {
-          path_cap *= 2;
-          nodes = realloc2(nodes, path_cap * sizeof(hkey_t));
-          orients = realloc2(orients, path_cap * sizeof(Orientation));
+        // if(db_node_has_traversed(visited, wlk.node, wlk.orient)){ nloop++; break;}
+        // db_node_set_traversed(visited, wlk.node, wlk.orient);
+        if(walker_attempt_traverse(&rptwlk, &wlk, wlk.node, wlk.orient, wlk.bkmer))
+        {
+          graph_walker_node_add_counter_paths(&wlk, lost_nuc);
+          lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
+          if(len == path_cap) {
+            path_cap *= 2;
+            nodes = realloc2(nodes, path_cap * sizeof(hkey_t));
+            orients = realloc2(orients, path_cap * sizeof(Orientation));
+          }
+          nodes[len] = wlk.node;
+          orients[len] = wlk.orient;
+          len++;
         }
-        nodes[len] = wlk.node;
-        orients[len] = wlk.orient;
-        len++;
+        else break;
       }
 
       njunc += wlk.fork_count;
       graph_walker_finish(&wlk);
-
-      for(j = 0; j < len; j++) db_node_fast_clear_traversed(visited, nodes[j]);
+      walker_fast_clear(&rptwlk, nodes, len);
+      // for(j = 0; j < len; j++) db_node_fast_clear_traversed(visited, nodes[j]);
     }
 
     if(print_contigs) {
@@ -260,12 +267,13 @@ int ctx_contigs(CmdArgs *args)
   free(nodes);
   free(orients);
 
-  free(visited);
+  // free(visited);
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void*)db_graph.kmer_paths);
   free(path_store);
 
+  walker_dealloc(&rptwlk);
   paths_header_dealloc(&pheader);
   graph_walker_dealloc(&wlk);
   db_graph_dealloc(&db_graph);
