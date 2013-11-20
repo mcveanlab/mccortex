@@ -22,23 +22,34 @@ static int ctx_notimpl(CmdArgs *args) {
 int ctx_covg(CmdArgs *args) { return ctx_notimpl(args); }
 int ctx_diverge(CmdArgs *args) { return ctx_notimpl(args); }
 
-void cmd_accept_options(const CmdArgs *args, const char *accptopts)
+void cmd_accept_options(const CmdArgs *args, const char *accptopts,
+                        const char *usage)
 {
-  if(accptopts == NULL) return;
+  assert(accptopts != NULL);
+  assert(usage != NULL);
+  if(args->print_help) print_usage(usage, NULL);
+  if(args->num_kmers_set && strchr(accptopts,'n') == NULL)
+    print_usage(usage, "-n <hash-entries> argument not valid for this command");
   if(args->mem_to_use_set && strchr(accptopts,'m') == NULL)
-    die("-m <memory> argument not valid for this command");
-  if(args->genome_size_set && strchr(accptopts,'g') == NULL)
-    die("-g <genomesize> argument not valid for this command");
-  if(args->num_threads_set && strchr(accptopts,'t') == NULL)
-    die("-t <threads> argument not valid for this command");
-  if(args->num_kmers_set && strchr(accptopts,'h') == NULL)
-    die("-h <hash-entries> argument not valid for this command");
+    print_usage(usage, "-m <memory> argument not valid for this command");
   if(args->kmer_size_set && strchr(accptopts,'k') == NULL)
-    die("-k <kmer-size> argument not valid for this command");
+    print_usage(usage, "-k <kmer-size> argument not valid for this command");
+  if(args->num_threads_set && strchr(accptopts,'t') == NULL)
+    print_usage(usage, "-t <threads> argument not valid for this command");
+  if(args->use_ncols_set && strchr(accptopts,'c') == NULL)
+    print_usage(usage, "-c <ncols> argument not valid for this command");
   if(args->file_set && strchr(accptopts,'f') == NULL)
-    die("-f <file> argument not valid for this command");
+    print_usage(usage, "-f <file> argument not valid for this command");
+  if(args->output_file_set && strchr(accptopts,'o') == NULL)
+    print_usage(usage, "-o <file> argument not valid for this command");
   if(args->num_ctp_files > 0 && strchr(accptopts,'p') == NULL)
-    die("-p <in.ctp> argument not valid for this command");
+    print_usage(usage, "-p <in.ctp> argument not valid for this command");
+  // Check for programmer error - all options should be valid
+  const char *p;
+  for(p = accptopts; *p != '\0'; p++) {
+    if(strchr("nmktcfop", *p) == NULL)
+      die("Invalid option: %c", *p);
+  }
 }
 
 void cmd_require_options(const CmdArgs *args, const char *requireopts,
@@ -48,29 +59,33 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
   if(args->argc == 0 && *requireopts != '\0') print_usage(usage, NULL);
   for(; *requireopts != '\0'; requireopts++)
   {
-    if(*requireopts == 'm') {
+    if(*requireopts == 'n') {
+      if(!args->num_kmers_set)
+        die("-n <hash-entries> argument required for this command");
+    }
+    else if(*requireopts == 'm') {
       if(!args->mem_to_use_set)
         die("-m <memory> argument required for this command");
-    }
-    else if(*requireopts == 'g') {
-      if(!args->genome_size_set)
-        die("-g <genomesize> argument required for this command");
-    }
-    else if(*requireopts == 't') {
-      if(!args->num_threads_set)
-        die("-t <threads> argument required for this command");
-    }
-    else if(*requireopts == 'h') {
-      if(!args->num_kmers_set)
-        die("-h <hash-entries> argument required for this command");
     }
     else if(*requireopts == 'k') {
       if(!args->kmer_size_set)
         die("-k <kmer-size> argument required for this command");
     }
+    else if(*requireopts == 't') {
+      if(!args->num_threads_set)
+        die("-t <threads> argument required for this command");
+    }
+    else if(*requireopts == 'c') {
+      if(!args->use_ncols_set)
+        die("-c <ncols> argument required for this command");
+    }
     else if(*requireopts == 'f') {
       if(!args->file_set)
         die("-f <file> argument required for this command");
+    }
+    else if(*requireopts == 'o') {
+      if(!args->output_file_set)
+        die("-o <file> argument required for this command");
     }
     else if(*requireopts == 'p') {
       if(args->num_ctp_files == 0)
@@ -82,19 +97,8 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
 
 void cmd_alloc(CmdArgs *args, int argc, char **argv)
 {
-  args->genome_size = 3100000000;
-  args->num_kmers = 4UL << 20; // 4M
-  args->mem_to_use = 1UL << 30; // 1G
-  args->num_threads = 2;
-  args->kmer_size = MAX_KMER_SIZE;
-  args->file = NULL;
-
-  args->mem_to_use_set = false;
-  args->genome_size_set = false;
-  args->num_threads_set = false;
-  args->num_kmers_set = false;
-  args->kmer_size_set = false;
-  args->file_set = false;
+  CmdArgs tmp = CMD_ARGS_INIT_MACRO;
+  memcpy(args, &tmp, sizeof(CmdArgs));
 
   args->ctp_files = malloc2(argc * sizeof(char*));
   args->num_ctp_files = 0;
@@ -123,65 +127,80 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   // argv[0] = ctx, argv[1] = cmd, argv[2..] = args
   for(i = is_ctx_cmd ? 2 : 1; i < argc; i++)
   {
-    if(strcmp(argv[i], "-m") == 0)
+    if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--h") || !strcmp(argv[i], "--help"))
     {
-      if(i + 1 == argc) die("-m <memory> requires an argument");
+      args->print_help = true;
+    }
+    else if(strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--nkmers") == 0)
+    {
+      if(i + 1 == argc) die("%s <hash-kmers> requires an argument", argv[i]);
+      if(args->num_kmers_set) die("-n <hash-kmers> given more than once");
+      if(!mem_to_integer(argv[i+1], &args->num_kmers) || args->num_kmers == 0)
+        die("Invalid hash size: %s", argv[i+1]);
+      args->num_kmers_set = true;
+      i++;
+    }
+    else if(strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--memory") == 0)
+    {
+      if(i + 1 == argc) die("%s <memory> requires an argument", argv[i]);
       if(args->mem_to_use_set) die("-m <memory> given more than once");
       if(!mem_to_integer(argv[i+1], &args->mem_to_use) || args->mem_to_use == 0)
         die("Invalid memory argument: %s", argv[i+1]);
       args->mem_to_use_set = true;
       i++;
     }
-    else if(strcmp(argv[i], "-g") == 0)
+    else if(strcmp(argv[i], "-k") == 0 || strcmp(argv[i], "--kmer") == 0)
     {
-      if(i + 1 == argc) die("-g <genome-size> requires an argument");
-      if(args->genome_size_set) die("-g <genome-size> given more than once");
-      if(!bases_to_integer(argv[i+1], &args->genome_size) || args->genome_size == 0)
-        die("Invalid genome size argument: %s", argv[i+1]);
-      args->genome_size_set = true;
+      if(i + 1 == argc) die("%s <kmer-size> requires an argument", argv[i]);
+      if(args->num_kmers_set) die("-k <kmer-size> given more than once");
+      if(!parse_entire_size(argv[i+1], &args->kmer_size) ||
+         args->kmer_size < 3 || !(args->kmer_size & 0x1)) {
+        die("kmer size (-k) must be an odd int >= 3: %s", argv[i+1]);
+      }
+      if(args->kmer_size < MIN_KMER_SIZE || args->kmer_size > MAX_KMER_SIZE) {
+        die("Please recompile with correct kmer size (kmer_size: %zu)",
+            args->kmer_size);
+      }
+      args->kmer_size_set = true;
       i++;
     }
-    else if(strcmp(argv[i], "-t") == 0)
+    else if(strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--threads") == 0)
     {
-      if(i + 1 == argc) die("-t <threads> requires an argument");
+      if(i + 1 == argc) die("%s <threads> requires an argument", argv[i]);
       if(args->num_threads_set) die("-t <threads> given more than once");
-      if(!parse_entire_uint(argv[i+1], &args->num_threads) || args->num_threads == 0)
+      if(!parse_entire_size(argv[i+1], &args->num_threads) || args->num_threads == 0)
         die("Invalid number of threads: %s", argv[i+1]);
       args->num_threads_set = true;
       i++;
     }
-    else if(strcmp(argv[i], "-h") == 0)
+    else if(strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--ncols") == 0)
     {
-      if(i + 1 == argc) die("-h <hash-kmers> requires an argument");
-      if(args->num_kmers_set) die("-h <hash-kmers> given more than once");
-      if(!mem_to_integer(argv[i+1], &args->num_kmers) || args->num_kmers == 0)
-        die("Invalid hash size: %s", argv[i+1]);
-      args->num_kmers_set = true;
+      if(i + 1 == argc) die("%s <ncols> requires an argument", argv[i]);
+      if(args->num_threads_set) die("-t <ncols> given more than once");
+      if(!parse_entire_size(argv[i+1], &args->use_ncols) || args->use_ncols == 0)
+        die("Invalid number of colours to use: %s", argv[i+1]);
+      args->use_ncols_set = true;
       i++;
     }
-    else if(strcmp(argv[i], "-k") == 0)
+    else if(strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--file") == 0)
     {
-      if(i + 1 == argc) die("-k <kmer-size> requires an argument");
-      if(args->num_kmers_set) die("-k <kmer-size> given more than once");
-      if(!parse_entire_uint(argv[i+1], &args->kmer_size) ||
-         args->kmer_size < 3 || !(args->kmer_size & 0x1))
-        die("kmer size (-k) must be an odd int >= 3: %s", argv[i+1]);
-      if(args->kmer_size < MIN_KMER_SIZE || args->kmer_size > MAX_KMER_SIZE)
-        die("Please recompile with correct kmer size (kmer_size: %u)", args->kmer_size);
-      args->kmer_size_set = true;
-      i++;
-    }
-    else if(strcmp(argv[i], "-f") == 0)
-    {
-      if(i + 1 == argc) die("-f <file> requires an argument");
-      if(args->file_set) die("-f <file> given more than once");
+      if(i + 1 == argc) die("%s <file> requires an argument", argv[i]);
+      if(args->file_set) die("%s <file> given more than once", argv[i]);
       args->file = argv[i+1];
       args->file_set = true;
       i++;
     }
-    else if(strcmp(argv[i], "-p") == 0)
+    else if(strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--out") == 0)
     {
-      if(i + 1 == argc) die("-p <in.ctp> requires an argument");
+      if(i + 1 == argc) die("%s <file> requires an argument", argv[i]);
+      if(args->output_file_set) die("%s <file> given more than once", argv[i]);
+      args->output_file = argv[i+1];
+      args->output_file_set = true;
+      i++;
+    }
+    else if(strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--paths") == 0)
+    {
+      if(i + 1 == argc) die("%s <in.ctp> requires an argument", argv[i]);
       args->ctp_files[args->num_ctp_files++] = argv[i+1];
       i++;
     }
@@ -212,7 +231,7 @@ int cmd_run(int argc, char **argv)
   return ret;
 }
 
-// If your command accepts -h <kmers> and -m <mem> this may be useful
+// If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits_per_kmer is additional memory per node, above hash table for
 // BinaryKmers
 size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
@@ -259,17 +278,17 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
 
   if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY) {
     warn("Expected hash table occupancy %.2f%% "
-         "(you may want to increase -h or -m)",
+         "(you may want to increase -n or -m)",
          (100.0 * min_num_kmers) / kmers_in_hash);
   }
 
   if(args->mem_to_use_set && args->num_kmers_set) {
     if(args->num_kmers > kmers_in_hash) {
-      die("-h <kmers> requires more memory than given with -m <mem> [%s > %s]",
+      die("-n <kmers> requires more memory than given with -m <mem> [%s > %s]",
           graph_mem_str, mem_to_use_str);
     }
     else if(graph_mem < args->mem_to_use) {
-      status("Note: Using less memory than requested (%s < %s), due to: -h <kmer>",
+      status("Note: Using less memory than requested (%s < %s), due to: -n <kmer>",
              graph_mem_str, mem_to_use_str);
     }
   }

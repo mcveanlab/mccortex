@@ -15,7 +15,7 @@ static const char usage[] =
 "usage: "CMD" extend [options] <in.ctx> <in.fa> <dist> <out.fa>\n"
 "  options:\n"
 "   -m <mem>   Memory to use\n"
-"   -h <kmers> Kmers in the hash\n";
+"   -n <kmers> Kmers in the hash\n";
 
 typedef struct
 {
@@ -135,7 +135,7 @@ static void extend_reads(read_t *r1, read_t *r2,
 
 int ctx_extend(CmdArgs *args)
 {
-  cmd_accept_options(args, "m");
+  cmd_accept_options(args, "mn", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 4) print_usage(usage, NULL);

@@ -14,7 +14,7 @@ static const char usage[] = "usage: "CMD" pview [options] <in.ctp>\n";
 
 int ctx_pview(CmdArgs *args)
 {
-  cmd_accept_options(args, "m");
+  cmd_accept_options(args, "mn", usage);
   // cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;

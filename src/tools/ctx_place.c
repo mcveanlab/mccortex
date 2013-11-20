@@ -25,10 +25,9 @@ static const char usage[] =
 "  Align calls to a reference genome.\n"
 "  Options:\n"
 "    --minmapq <mapq>    Flank must map with MAPQ >= <mapq> [default: 30]\n"
-"    --maxbr <num>       Don't process bubbles with > <num> branches [default: 6]\n"
-"    --genome <bases>    Organism genome size (e.g. 3.1G for humans)\n"
-"    --ploidy <sample>:<chr>:<ploidy> [default: *:*:2]\n"
-"      <sample> and <chr> can be * for all or a comma-separated list\n";
+"    --maxbr <num>       Don't process bubbles with > <num> branches [default: 6]\n";
+// "    --ploidy <sample>:<chr>:<ploidy> [default: *:*:2]\n"
+// "      <sample> and <chr> can be * for all or a comma-separated list\n";
 
 typedef struct {
   read_t r;
@@ -68,7 +67,7 @@ char *msa_wrking, **msa_alleles;
 StrBuf *endflank;
 
 // Filtering parameters
-size_t min_mapq = 30, max_branches = 12, genome_size = 0;
+size_t min_mapq = 30, max_branches = 12;
 
 // VCF printing
 uint32_t num_variants_printed = 0;
@@ -808,7 +807,7 @@ static void parse_ploidy(char *arg)
 
 int ctx_place(CmdArgs *args)
 {
-  cmd_accept_options(args, "");
+  cmd_accept_options(args, "", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);
@@ -850,13 +849,6 @@ int ctx_place(CmdArgs *args)
     } else if(strcmp(argv[argi], "--ploidy") == 0) {
       if(argi + 1 == argc) print_usage(usage, NULL);
       // check_ploidy(argv[argi+1], NULL, NULL);
-      argi++;
-    } else if(strcmp(argv[argi], "--genome") == 0) {
-      if(argi + 1 == argc) print_usage(usage, NULL);
-      if(!bases_to_integer(argv[argi+1], &genome_size)) {
-        print_usage(usage, "Invalid <bases> arg (try 3.1G, 4.6Mbp etc): %s",
-                    argv[argi+1]);
-      }
       argi++;
     } else print_usage(usage, "Unknown argument: %s", argv[argi]);
     argi++;

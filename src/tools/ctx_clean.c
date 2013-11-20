@@ -11,18 +11,19 @@
 #include "prune_nodes.h"
 
 static const char usage[] =
-"usage: "CMD" clean [options] <out.ctx> <in.ctx> [in2.ctx ...]\n"
+"usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 " Clean a cortex binary. Joins binaries first, if multiple given\n"
 " Clips tips before doing supernode thresholding (when doing both [default]).\n"
 " Options:\n"
-"  -m <mem>           Memory to use\n"
-"  -h <hash-size>     Kmers in the hash table (e.g. 1G ~ 1 billion)\n"
-// "  --usecols <n>      Number of samples in memory at once (speedup)\n"
-"  --tips <L>         Clip tips shorter than <L> kmers\n"
-"  --supernodes       Remove low coverage supernode. Additional options:\n"
-"    --kdepth <C>     kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
-"    --threshold <T>  Cleaning threshold, remove supnodes where [coverage < T]\n"
-"  --covgs <out.csv>  Dump covg distribution to a CSV file\n"
+"  --memory <mem>        Memory to use\n"
+"  --nkmers <hash-size>  Kmers in the hash table (e.g. 1G ~ 1 billion)\n"
+"  --ncols <colour>      Number of samples in memory at once (speedup)\n"
+"  --tips <L>            Clip tips shorter than <L> kmers\n"
+"  --supernodes          Remove low coverage supernode. Additional options:\n"
+"    --kdepth <C>        kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
+"    --threshold <T>     Cleaning threshold, remove supnodes where [coverage < T]\n"
+"  --covgs <out.csv>     Dump covg distribution to a CSV file\n"
+// "  --out <out.ctx>       Save output file\n"
 "\n"
 " Default: --tips 2*k-1 --supernodes\n";
 
@@ -184,8 +185,10 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
   }
 
   // d2len is d1len-1
-  for(i = 0; i < d2len; i++)
-    delta2[i] = (delta1[i+1] == 0 ? UINT32_MAX : (delta1[i] / delta1[i+1]));
+  for(i = 0; i < d2len; i++) {
+    if(delta1[i] == 0) delta2[i] = 0;
+    else delta2[i] = (delta1[i+1] == 0 ? UINT32_MAX : delta1[i] / delta1[i+1]);
+  }
 
   for(f1 = 0; f1 < d1len && delta1[f1] >= 1; f1++);
   for(f2 = 0; f2 < d2len && delta2[f2] > 1; f2++);
@@ -255,7 +258,8 @@ static uint32_t clean_supernodes(dBGraph *db_graph, boolean clean,
 
 int ctx_clean(CmdArgs *args)
 {
-  cmd_accept_options(args, "mhg");
+  cmd_accept_options(args, "mnco", usage);
+  // cmd_require_options(args, "o", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
@@ -265,7 +269,6 @@ int ctx_clean(CmdArgs *args)
   uint32_t max_tip_len = 0, threshold = 0;
   double seq_depth = -1;
   char *dump_covgs = NULL;
-  size_t usencols = 1;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
@@ -291,12 +294,6 @@ int ctx_clean(CmdArgs *args)
     else if(strcmp(argv[argi],"--kdepth") == 0) {
       if(argi+1 >= argc || !parse_entire_double(argv[argi+1], &seq_depth) || seq_depth <= 1)
         print_usage(usage, "--kdepth <C> needs a positive decimal number > 1");
-      argi++;
-    }
-    else if(strcasecmp(argv[argi], "--usecols") == 0)
-    {
-      if(argi+1 == argc || !parse_entire_size(argv[argi+1], &usencols) || !usencols)
-        print_usage(usage, "--usecols <C> requires a +ve integer argument");
       argi++;
     }
     else print_usage(usage, "Unknown argument: %s", argv[argi]);
@@ -372,7 +369,7 @@ int ctx_clean(CmdArgs *args)
   // Pick hash table size
   //
   size_t kmers_in_hash, extra_bits_per_kmer;
-  extra_bits_per_kmer = (sizeof(Covg)+sizeof(Edges))*8*usencols + sizeof(Edges)*8;
+  extra_bits_per_kmer = (sizeof(Covg)+sizeof(Edges))*8*args->use_ncols + sizeof(Edges)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                         max_ctx_kmers, true);
 
@@ -384,13 +381,13 @@ int ctx_clean(CmdArgs *args)
     print_usage(usage, "Cannot write coverage distribution to: %s", dump_covgs);
 
   // Create db_graph
-  // Load all data into first colour and clean, then use usencols to take
+  // Load all data into first colour and clean, then use args->use_ncols to take
   // intersection.  Use an extra set of edge to take intersections
   dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
-  Edges *edge_store = calloc2(db_graph.ht.capacity * (usencols+1), sizeof(Edges));
+  Edges *edge_store = calloc2(db_graph.ht.capacity * (args->use_ncols+1), sizeof(Edges));
   db_graph.col_edges = edge_store;
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity * usencols, sizeof(Covg));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity * args->use_ncols, sizeof(Covg));
 
   // Load binary into a single colour
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -508,7 +505,7 @@ int ctx_clean(CmdArgs *args)
     ulong_to_str(initial_nkmers, initial_str);
     status("Removed %s of %s (%.2f%%) kmers", removed_str, initial_str, removed_pct);
 
-    db_graph_realloc(&db_graph, usencols, usencols);
+    db_graph_realloc(&db_graph, args->use_ncols, args->use_ncols);
     graph_files_merge(out_ctx_path, files, num_files,
                       kmers_loaded, colours_loaded,
                       intersect_edges, &outhdr, &db_graph);

@@ -18,7 +18,7 @@ static const char usage[] =
 "  Filters reads based on which have a kmer in the graph. \n"
 "  Options:\n"
 "    -m <mem> Memory limit\n"
-"    -h <mem> Number of kmers in hash table\n"
+"    -n <mem> Number of kmers in hash table\n"
 "\n"
 "    --fasta   print output as gzipped FASTA\n"
 "    --fastq   print output as gzipped FASTQ [default]\n"
@@ -148,7 +148,7 @@ void filter_reads(read_t *r1, read_t *r2,
 
 int ctx_reads(CmdArgs *args)
 {
-  cmd_accept_options(args, "mh");
+  cmd_accept_options(args, "mn", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 4) print_usage(usage, NULL);

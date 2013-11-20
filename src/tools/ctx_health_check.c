@@ -16,13 +16,12 @@ static const char usage[] =
 "\n"
 "  Options:\n"
 "   -m <mem>      Memory to use\n"
-"   -h <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n";
-
+"   -n <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n";
 
 
 int ctx_health_check(CmdArgs *args)
 {
-  cmd_accept_options(args, "mh");
+  cmd_accept_options(args, "mn", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc != 1) print_usage(usage, NULL);

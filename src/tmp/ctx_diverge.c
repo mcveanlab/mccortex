@@ -181,7 +181,7 @@ void diverge_call(read_t *r1, read_t *r2,
 //      load pop into colours 1...N
 int ctx_diverge(CmdArgs *args)
 {
-  cmd_accept_options(args, "m");
+  cmd_accept_options(args, "m", usage);
   cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;

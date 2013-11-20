@@ -25,6 +25,8 @@ endif
 # Use bash as shell
 SHELL := /bin/bash
 
+CTX_VERSION=0.0.1
+
 NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
 
 ifndef MAXK
@@ -119,7 +121,7 @@ KMER_OBJDIR=build/kmer$(MAXK)
 TOOLS_OBJDIR=build/tools$(MAXK)
 
 BASIC_SRCS=$(wildcard src/basic/*.c)
-BASIC_HDRS=$(wildcard src/basic/*.h)
+BASIC_HDRS=$(wildcard src/basic/*.h) src/basic/version.h
 BASIC_FILES=$(notdir $(BASIC_SRCS))
 BASIC_OBJS=$(addprefix $(BASIC_OBJDIR)/, $(BASIC_FILES:.c=.o))
 
@@ -146,6 +148,17 @@ else
 endif
 
 all: ctx
+
+# This Makefile mastery borrowed from htslib [https://github.com/samtools/htslib]
+# If git repo, grab commit hash to use in version
+# Force version.h to be remade if $(CTX_VERSION) has changed.
+ifneq "$(wildcard .git)" ""
+CTX_VERSION := $(shell git describe --always --dirty)
+src/basic/version.h: $(if $(wildcard src/basic/version.h),$(if $(findstring "$(CTX_VERSION)",$(shell cat src/basic/version.h)),,force))
+endif
+
+src/basic/version.h:
+	echo '#define CTXVERSIONSTR "$(CTX_VERSION)"' > $@
 
 $(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
@@ -189,4 +202,6 @@ libs/string_buffer/string_buffer.h:
 clean:
 	rm -rf bin build
 
-.PHONY: all clean ctx
+force:
+
+.PHONY: all clean ctx force

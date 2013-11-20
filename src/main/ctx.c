@@ -21,7 +21,7 @@ static const char usage[] =
 "          reads       filter reads against a graph\n"
 "          extend      extend contigs using a graph\n"
 "          contigs     pull out contigs for a sample\n"
-"          inferedges  infer edges before calling `thread`\n"
+"          inferedges  infer graph edges before calling `thread`\n"
 "          thread      thread reads through cleaned population\n"
 "          pview       view read threading information\n"
 "          pmerge      merge path files (.ctp)\n"
@@ -34,13 +34,14 @@ static const char usage[] =
 "  Type a command with no arguments to see help.\n"
 "\n"
 "Common Options:\n"
-"  -m <M>       Memory e.g. 1GB [default: 1GB]\n"
-"  -h <H>       Hash entries [default: 4M (~4 million)]\n"
-"  -g <G>       Species genome size [default: 3.1Gbp]\n"
-"  -t <T>       Number of threads [default: 2]\n"
-"  -k <K>       Kmer size [default: read from binaries]\n"
-"  -f <file>    Input file\n"
-"  -p <in.ctp>  Assembly file\n"
+"  -m --memory <M>      Memory e.g. 1GB [default: 1GB]\n"
+"  -n --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
+"  -c --ncols <C>       Number of graph colours to load at once [default: 1]\n"
+"  -t --threads <T>     Number of threads [default: 2]\n"
+"  -k --kmer <K>        Kmer size [default: read from graph files]\n"
+"  -f --file <file>     Input file\n"
+"  -o --out <file>      Output file\n"
+"  -p --paths <in.ctp>  Assembly file\n"
 "\n";
 
 int main(int argc, char **argv)
@@ -55,15 +56,19 @@ int main(int argc, char **argv)
   cmd_alloc(&args, argc, argv);
   if(args.cmdidx == -1) print_usage(usage, "Unrecognised command: %s", argv[1]);
 
-  boolean usestderr = (strcmp(argv[1], "view") == 0 ||
-                       strcmp(argv[1], "pview") == 0 ||
-                       strcmp(argv[1], "place") == 0 ||
-                       strcmp(argv[1], "contigs") == 0);
+  // boolean usestderr = (strcmp(argv[1], "view") == 0 ||
+  //                      strcmp(argv[1], "pview") == 0 ||
+  //                      strcmp(argv[1], "place") == 0 ||
+  //                      strcmp(argv[1], "contigs") == 0);
+  boolean usestderr = true;
 
   ctx_msg_out = usestderr ? stderr : stdout;
 
   status("[cmd] %s\n", args.cmdline);
+  status("[version] "CTXVERSIONSTR"; zlib: "ZLIB_VERSION"\n");
+
   int ret = ctx_funcs[args.cmdidx](&args);
+
   cmd_free(&args);
   time(&end);
 

@@ -19,7 +19,7 @@ static const char usage[] =
 "\n"
 "  Options:\n"
 "    -m <mem>                   How much memory to use\n"
-"    -h <kmers>                 How many entries in the hash table\n"
+"    -n <kmers>                 How many entries in the hash table\n"
 "    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
@@ -59,7 +59,7 @@ static void get_binary_and_colour(const GraphFileReader *files, size_t num_files
 
 int ctx_thread(CmdArgs *args)
 {
-  cmd_accept_options(args, "tm");
+  cmd_accept_options(args, "tmn", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);

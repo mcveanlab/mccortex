@@ -15,7 +15,6 @@
 #include "seq_reader.h"
 #include "prune_nodes.h"
 
-// DEV: add --usecols <c> option
 static const char usage[] =
 "usage: "CMD" subgraph [options] <out.ctx> <dist> <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
@@ -26,10 +25,10 @@ static const char usage[] =
 "\n"
 "  Options:\n"
 "    -m <mem>          Memory to use  <required>\n"
-"    -h <kmers>        Hash size\n"
+"    -n <kmers>        Hash size\n"
 "    --seed <seed.fa>  Read in a seed file\n"
 "    --invert          Dump kmers not in subgraph\n"
-"    --usecols <n>     Number of samples in memory at once (speedup)\n";
+"    --ncols <n>       Number of samples in memory at once (speedup)\n";
 
 typedef struct
 {
@@ -131,7 +130,7 @@ void store_nodes(read_t *r1, read_t *r2,
 
 int ctx_subgraph(CmdArgs *args)
 {
-  cmd_accept_options(args, "mh");
+  cmd_accept_options(args, "mnc", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 4) print_usage(usage, NULL);
@@ -139,7 +138,6 @@ int ctx_subgraph(CmdArgs *args)
   char *seed_files[argc];
   size_t num_seed_files = 0;
   boolean invert = false;
-  size_t usencols = 1;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
@@ -154,12 +152,6 @@ int ctx_subgraph(CmdArgs *args)
       argi++; num_seed_files++;
     }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
-    else if(strcasecmp(argv[argi], "--usecols") == 0)
-    {
-      if(argi+1 == argc || !parse_entire_size(argv[argi+1], &usencols) || !usencols)
-        print_usage(usage, "--usecols <C> requires a +ve integer argument");
-      argi++;
-    }
     else print_usage(usage, "Unknown option: %s", argv[argi]);
   }
 
@@ -201,11 +193,12 @@ int ctx_subgraph(CmdArgs *args)
   //
   // Decide on memory
   //
+  const size_t use_ncols = args->use_ncols;
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
   size_t num_of_fringe_nodes, fringe_mem;
   char graph_mem_str[100], num_fringe_nodes_str[100], fringe_mem_str[100];
 
-  bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*usencols*8 + 1);
+  bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers, false);
 
   graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
@@ -229,11 +222,11 @@ int ctx_subgraph(CmdArgs *args)
     die("Cannot write to output file: %s", out_path);
 
   // Create db_graph with one colour
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, usencols, usencols, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity*usencols, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity*usencols, sizeof(Covg));
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
-  size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity*usencols);
+  size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity*use_ncols);
   kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
   // Store edge nodes here

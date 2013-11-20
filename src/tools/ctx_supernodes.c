@@ -13,7 +13,7 @@ static const char usage[] =
 "usage: "CMD" supernodes [options] <out.fa.gz> <in.ctx> [<in2.ctx> ...]\n"
 "  Print supernodes with k-1 bases of overlap.\n"
 // "  Prints to stdout, messages to stderr\n"
-"  Options:  -m <mem> | -h <kmers> | --fastg\n";
+"  Options:  -m <mem> | -n <kmers> | --fastg\n";
 
 static size_t ncap, supernode_idx = 0;
 static hkey_t *nodes;
@@ -58,7 +58,7 @@ static void dump_supernodes(hkey_t node, gzFile gzout, dBGraph *db_graph,
 // Returns 0 on success, otherwise != 0
 int ctx_supernodes(CmdArgs *args)
 {
-  cmd_accept_options(args, "mp");
+  cmd_accept_options(args, "mnp", usage);
 
   int argi, argc = args->argc;
   char **argv = args->argv;

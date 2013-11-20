@@ -23,7 +23,8 @@ typedef signed char boolean;
 #define false 0
 #endif
 
-#define CTXVERSIONSTR "0.0"
+// #define CTXVERSIONSTR "0.0"
+#include "version.h"
 
 // set to NULL to turn off message printing
 extern FILE *ctx_msg_out;

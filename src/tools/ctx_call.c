@@ -19,14 +19,14 @@ static const char usage[] =
 "usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
 "  Find bubbles (potential variants) in graph file in.ctx.\n"
 "  Options:\n"
-"    -m <mem> | -h <kmers> | -t <threads> | -p <paths.ctp>\n"
+"    -m <mem> | -n <kmers> | -t <threads> | -p <paths.ctp>\n"
 "    --ref <col>        Reference genome in given colour (can use multiple times)\n"
 "    --maxallele <len>  Max bubble branch length in kmers [default: 300]\n"
 "    --maxflank <len>   Max flank length in kmers [default: 1000]\n";
 
 int ctx_call(CmdArgs *args)
 {
-  cmd_accept_options(args, "thmp");
+  cmd_accept_options(args, "tnmp", usage);
 
   int argi, argc = args->argc;
   char **argv = args->argv;

@@ -32,11 +32,11 @@ static const char usage[] =
 "  Merge cortex binaries.  \n"
 "\n"
 "  Options:\n"
-"   -m <mem>      Memory to use\n"
-"   -h <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   --usecols <c> How many colours to load at once [default: 1]\n"
-"   --overlap     Merge corresponding colours from each graph file\n"
-"   --flatten     Dump into a single colour graph\n"
+"   -m <mem>     Memory to use\n"
+"   -n <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"   --ncols <c>  How many colours to load at once [default: 1]\n"
+"   --overlap    Merge corresponding colours from each graph file\n"
+"   --flatten    Dump into a single colour graph\n"
 "\n"
 "   --intersect <a.ctx>\n"
 "     Only load the kmers that are in graph A.ctx. Can be specified multiple times.\n"
@@ -54,7 +54,7 @@ static inline void remove_non_intersect_nodes(hkey_t node, Covg *covgs,
 
 int ctx_join(CmdArgs *args)
 {
-  cmd_accept_options(args, "mh");
+  cmd_accept_options(args, "mnc", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
@@ -63,7 +63,8 @@ int ctx_join(CmdArgs *args)
   boolean overlap = false, flatten = false;
 
   int argi;
-  size_t num_intersect = 0, use_ncols = 1;
+  size_t num_intersect = 0;
+  size_t use_ncols = args->use_ncols; // may use fewer colours if some not needed
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
     if(strcasecmp(argv[argi],"--overlap") == 0) {
@@ -79,14 +80,6 @@ int ctx_join(CmdArgs *args)
       if(argi+1 >= argc)
         print_usage(usage, "--intersect <A.ctx> requires an argument");
       num_intersect++;
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--usecols") == 0)
-    {
-      unsigned int tmp;
-      if(argi+1 >= argc || !parse_entire_uint(argv[argi+1], &tmp))
-        print_usage(usage, "--usecols <c> requires a positive integer argument");
-      use_ncols = tmp;
       argi++;
     }
     else {
@@ -183,16 +176,17 @@ int ctx_join(CmdArgs *args)
     ctx_max_kmers = min_intersect_num_kmers;
 
   if(use_ncols > 1 && flatten) {
-    warn("I only need one colour for '--flatten' ('--usecols %zu' ignored)", use_ncols);
+    warn("I only need one colour for '--flatten' ('--ncols %zu' ignored)", use_ncols);
     use_ncols = 1;
   }
   else if(use_ncols > total_cols) {
-    warn("I only need %zu colour%s ('--usecols %zu' ignored)",
+    warn("I only need %zu colour%s ('--ncols %zu' ignored)",
          total_cols, (total_cols != 1 ? "s" : ""), use_ncols);
     use_ncols = total_cols;
   }
 
-  status("Output %zu cols; from %zu files; intersecting %zu graphs; using %zu cols in memory",
+  status("Output %zu cols; from %zu files; intersecting %zu graphs; "
+         "using %zu cols in memory",
          total_cols, num_graphs, num_intersect, use_ncols);
 
   if(num_graphs == 1 && num_intersect == 0)

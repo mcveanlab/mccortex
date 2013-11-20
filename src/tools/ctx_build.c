@@ -77,7 +77,7 @@ static void print_prefs(const SeqLoadingPrefs *prefs)
 
 int ctx_build(CmdArgs *args)
 {
-  cmd_accept_options(args, "mhk");
+  cmd_accept_options(args, "mnk", usage);
   cmd_require_options(args, "k", usage);
   int argc = args->argc;
   char **argv = args->argv;

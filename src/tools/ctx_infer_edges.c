@@ -129,7 +129,7 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 
 int ctx_infer_edges(CmdArgs *args)
 {
-  cmd_accept_options(args, "mh");
+  cmd_accept_options(args, "mn", usage);
   int argc = args->argc;
   char **argv = args->argv;
   // if(argc != 1) print_usage(usage, NULL);

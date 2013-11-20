@@ -11,22 +11,22 @@
 #include "path_format.h"
 
 static const char usage[] =
-"usage: "CMD" pmerge [-m <mem> | -h <kmer> | -f <in.ctx>] <out.ctp> <in1.ctp> ...\n"
-"  Merge paths.  One of either -h <kmers> or -f <in.ctx> is required to specify\n"
+"usage: "CMD" pmerge [-m <mem> | -n <kmer> | -f <in.ctx>] <out.ctp> <in1.ctp> ...\n"
+"  Merge paths.  One of either -n <kmers> or -f <in.ctx> is required to specify\n"
 "  the size of the hash table\n";
 
 int ctx_pmerge(CmdArgs *args)
 {
-  cmd_accept_options(args, "mhf");
-  cmd_accept_options(args, "m");
+  cmd_accept_options(args, "mnf", usage);
+  cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);
 
   if(!args->num_kmers_set && !args->file_set)
-    print_usage(usage, "Please specify -h <num-kmers> or -f <in.ctx>");
+    print_usage(usage, "Please specify -n <num-kmers> or -f <in.ctx>");
   if(args->num_kmers_set && args->file_set)
-    print_usage(usage, "Please specify only ONE of -h <num-kmers> or -f <in.ctx>");
+    print_usage(usage, "Please specify only ONE of -n <num-kmers> or -f <in.ctx>");
 
   char *input_ctx_path = argv[0];
   char *out_ctp_path = argv[1];
@@ -70,7 +70,7 @@ int ctx_pmerge(CmdArgs *args)
     else if(num_kmers < pheader.num_kmers_with_paths) {
       if(args->file_set) die("ctp file has more kmers than hash table!");
       else {
-        print_usage(usage, "Please set a larger -h <kmers> (needs to be > %zu)",
+        print_usage(usage, "Please set a larger -n <kmers> (needs to be > %zu)",
                     (size_t)pheader.num_kmers_with_paths);
       }
     }

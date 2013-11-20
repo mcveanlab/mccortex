@@ -1,17 +1,18 @@
 #ifndef CMD_H_
 #define CMD_H_
 
+#define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
+
 typedef struct
 {
   char *cmdline;
-  int cmdidx;
+  int cmdidx; // command specified
+  boolean print_help;
   // options
-  boolean genome_size_set, num_kmers_set, mem_to_use_set;
-  size_t genome_size, num_kmers, mem_to_use;
-  boolean kmer_size_set, num_threads_set;
-  uint32_t kmer_size, num_threads;
-  boolean file_set;
-  const char *file;
+  boolean num_kmers_set, mem_to_use_set, kmer_size_set, num_threads_set, use_ncols_set;
+  size_t num_kmers, mem_to_use, kmer_size, num_threads, use_ncols;
+  boolean file_set, output_file_set;
+  const char *file, *output_file;
   size_t num_ctp_files;
   char **ctp_files;
   // arguments not including command:
@@ -19,7 +20,17 @@ typedef struct
   char **argv;
 } CmdArgs;
 
-#define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
+#define CMD_ARGS_INIT_MACRO { \
+  .cmdline = NULL, .cmdidx = -1, .print_help = false, \
+  .num_kmers_set = false, .num_kmers = 4UL<<20 /*4MB*/, \
+  .mem_to_use_set = false, .mem_to_use = 1UL<<30 /*1G*/, \
+  .kmer_size_set = false, .kmer_size = MAX_KMER_SIZE, \
+  .num_threads_set = false, .num_threads = 2, \
+  .use_ncols_set = false, .use_ncols = 1, \
+  .file_set = false, .file = NULL, \
+  .output_file_set = false, .output_file = NULL, \
+  .num_ctp_files = 0, .ctp_files = NULL, \
+  .argc = 0, .argv = NULL}
 
 int ctx_build(CmdArgs *args);
 int ctx_view(CmdArgs *args);
@@ -51,14 +62,15 @@ void cmd_free(CmdArgs *args);
 // accptopts is a string of valid args,
 // e.g. "tk" accepts kmer-size and number of threads
 // NULL means anything valid, "" means no args valid
-void cmd_accept_options(const CmdArgs *args, const char *accptopts);
+void cmd_accept_options(const CmdArgs *args, const char *accptopts,
+                        const char *usage);
 void cmd_require_options(const CmdArgs *args, const char *requireopts,
                          const char *usage);
 
 // Run a command
 int cmd_run(int argc, char **argv);
 
-// If your command accepts -h <kmers> and -m <mem> this may be useful
+// If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits_per_kmer is additional memory per node, above hash table for
 // BinaryKmers
 size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,

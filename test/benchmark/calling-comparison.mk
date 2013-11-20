@@ -178,13 +178,16 @@ KEEP=$(GENOMES) $(READS) $(PATHS) $(TRUTHBUBBLES) $(TRUTHDECOMP) $(TRUTHVCFS) $(
 # Phony commands
 #
 
-all: checkcmds $(KEEP) compare-bubbles compare-normvcf traverse
+all: repo checkcmds $(KEEP) compare-bubbles compare-normvcf traverse
 
 checkcmds:
 	@if [ '$(SEQ)' == '' ]; then echo "You need to specify SEQ=.. Please and thank you."; exit -1; fi;
 
 test:
 	@echo KEEP: $(KEEP)
+
+repo:
+	@echo Last git commit: `git log -1 --format="%H: %s [%aD]"`
 
 # % is noref or ref
 compare-bubbles: $(BUBBLESCMPRULES)
@@ -292,7 +295,7 @@ k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 k$(KMER)/graphs/pop.noref.ctx: $(GRAPHS_noref)
 k$(KMER)/graphs/pop.ref.ctx: $(GRAPHS_ref)
 k$(KMER)/graphs/pop.%.ctx:
-	$(JOINCTX) --usecols $(NUMCOLS) -m $(MEM) $@ $(GRAPHS_$*)
+	$(JOINCTX) --ncols $(NUMCOLS) -m $(MEM) $@ $(GRAPHS_$*)
 	$(INFERCTX) $@
 
 # Paths
@@ -411,6 +414,7 @@ k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
 	$(LEFTALIGN) --reference ref/ref.fa | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > k$(KMER)/vcfs/samples.$*.norm.vcf
 
-.PHONY: all clean test checkcmds
+.PHONY: all clean test repo checkcmds
 .PHONY: compare-bubbles compare-normvcf $(NORMCMPRULES)
 .PHONY: traverse
+.FORCE: repo

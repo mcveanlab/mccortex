@@ -15,12 +15,12 @@
 static const char usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
 "  Pull out contigs, print statistics\n"
-"  Options: [ -m <mem> | -h <kmers> | -p <paths.ctp> ]\n"
+"  Options: [ -m <mem> | -n <kmers> | -p <paths.ctp> ]\n"
 "           [ --nsamples <N> | --print | --colour <c> ]\n";
 
 int ctx_contigs(CmdArgs *args)
 {
-  cmd_accept_options(args, "mhp");
+  cmd_accept_options(args, "mnp", usage);
   int argc = args->argc;
   char **argv = args->argv;
 
