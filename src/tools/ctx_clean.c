@@ -366,14 +366,13 @@ int ctx_clean(CmdArgs *args)
   uint32_t step = 0;
   status("Actions:\n");
   if(tip_cleaning)
-    status("%u. Cleaning tips shorter than %u nodes (%u bases)\n",
-            step++, max_tip_len, max_tip_len + files[0].hdr.kmer_size - 1);
+    status("%u. Cleaning tips shorter than %u nodes", step++, max_tip_len);
   if(dump_covgs != NULL)
-    status("%u. Saving coverage distribution to: %s\n", step++, dump_covgs);
+    status("%u. Saving coverage distribution to: %s", step++, dump_covgs);
   if(supernode_cleaning && threshold > 0)
-    status("%u. Cleaning supernodes with threshold < %u\n", step++, threshold);
+    status("%u. Cleaning supernodes with threshold < %u", step++, threshold);
   if(supernode_cleaning && threshold == 0)
-    status("%u. Cleaning supernodes with auto-detected threshold\n", step++);
+    status("%u. Cleaning supernodes with auto-detected threshold", step++);
 
   //
   // Pick hash table size

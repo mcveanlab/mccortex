@@ -80,23 +80,22 @@ static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
   seq_read_alloc(&worker->job.r1);
   seq_read_alloc(&worker->job.r2);
 
-  worker->insert_sizes = calloc2(gap_limit+1, sizeof(uint64_t));
-  worker->gap_sizes = calloc2(gap_limit+1, sizeof(uint64_t));
+  worker->insert_sizes = calloc2(2*(gap_limit+1), sizeof(uint64_t));
+  worker->gap_sizes = worker->insert_sizes + gap_limit+1;
   worker->busy = false;
 }
 
 static void paths_worker_dealloc(AddPathsWorker *worker)
 {
   free(worker->insert_sizes);
-  free(worker->gap_sizes);
   graph_walker_dealloc(&worker->wlk);
   db_node_buf_dealloc(&worker->nodebuf);
   seq_read_dealloc(&worker->job.r1);
   seq_read_dealloc(&worker->job.r2);
 }
 
-static void dump_gap_sizes(const char *base_fmt, uint64_t *arr, size_t arrlen,
-                           uint32_t kmer_size)
+static void dump_gap_sizes(const char *base_fmt, const uint64_t *arr,
+                           size_t arrlen, size_t kmer_size)
 {
   StrBuf *csv_dump = strbuf_new();
 
@@ -717,7 +716,7 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
       insert_sizes[j] += pool->workers[i].insert_sizes[j];
       gap_sizes[j] += pool->workers[i].gap_sizes[j];
     }
-    paths_worker_dealloc(&pool->workers[i]);
+    paths_worker_dealloc(&(pool->workers[i]));
   }
 
   // Print mp gap size / insert stats to a file
@@ -727,7 +726,7 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
   if(pool->seen_pe)
     dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_limit+1, kmer_size);
 
-  paths_worker_dealloc(&pool->workers[0]);
+  paths_worker_dealloc(&(pool->workers[0]));
 
   free(pool->threads);
   free(pool->visited);
