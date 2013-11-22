@@ -504,8 +504,8 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
                           boolean fork)
 {
   assert(node != HASH_NOT_FOUND);
-  BinaryKmer bkmer = wlk->bkmer;
-  binary_kmer_left_shift_add(&bkmer, wlk->db_graph->kmer_size, base);
+  BinaryKmer bkmer;
+  bkmer = binary_kmer_left_shift_add(wlk->bkmer, wlk->db_graph->kmer_size, base);
   graph_traverse_force_jump(wlk, node, bkmer, fork);
 }
 

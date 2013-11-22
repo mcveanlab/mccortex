@@ -156,12 +156,12 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
     size_t contig_len = contig_end - contig_start;
 
     bkmer = binary_kmer_from_str(contig, kmer_size);
-    binary_kmer_right_shift_one_base(&bkmer);
+    bkmer = binary_kmer_right_shift_one_base(bkmer);
 
     for(next_base = kmer_size-1; next_base < contig_len; next_base++)
     {
       nuc = binary_nuc_from_char(contig[next_base]);
-      binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+      bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
       tmp_key = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
@@ -559,7 +559,7 @@ void seq_load_str(dBGraph *db_graph, size_t colour, const char *seq, size_t len)
   for(i = kmer_size; i < len; i++)
   {
     Nucleotide nuc = binary_nuc_from_char(seq[i]);
-    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+    bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
 
     tmp_key = db_node_get_key(bkmer, kmer_size);
     curr_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);

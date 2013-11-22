@@ -39,15 +39,14 @@ void db_graph_check_edges(const dBGraph *db_graph,
 // Graph Traversal
 //
 
-void db_graph_next_node(const dBGraph *db_graph,
-                        BinaryKmer bkmer, Nucleotide next_nuc,
-                        Orientation orient,
+void db_graph_next_node(const dBGraph *db_graph, const BinaryKmer node_bkey,
+                        Nucleotide next_nuc, Orientation orient,
                         hkey_t *next_node, Orientation *next_orient);
 
 // edges are forward+reverse, db_graph_next_nodes orients them
 // fw_nucs is the nuc you would add when walking forward
-size_t db_graph_next_nodes(const dBGraph *db_graph,
-                           BinaryKmer bkmer, Orientation orient, Edges edges,
+size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
+                           Orientation orient, Edges edges,
                            hkey_t nodes[4], Orientation orients[4],
                            Nucleotide fw_nucs[4]);
 

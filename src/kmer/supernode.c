@@ -27,7 +27,7 @@ int supernode_extend(const dBGraph *db_graph,
 
   while(edges_has_precisely_one_edge(edges[node], orient, &nuc))
   {
-    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+    bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
 
     bkey = db_node_get_key(bkmer, db_graph->kmer_size);
     node = hash_table_find(&db_graph->ht, bkey);

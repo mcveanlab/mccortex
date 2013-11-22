@@ -47,9 +47,8 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
 
   for(orient = 0; orient < 2; orient++)
   {
-    bkmer = node_bkey;
-    if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
-    else binary_kmer_right_shift_one_base(&bkmer);
+    bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
+                               : binary_kmer_right_shift_one_base(node_bkey));
 
     for(nuc = 0; nuc < 4; nuc++)
     {
@@ -94,9 +93,8 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 
   for(orient = 0; orient < 2; orient++)
   {
-    bkmer = node_bkey;
-    if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
-    else binary_kmer_right_shift_one_base(&bkmer);
+    bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
+                               : binary_kmer_right_shift_one_base(node_bkey));
 
     for(nuc = 0; nuc < 4; nuc++)
     {

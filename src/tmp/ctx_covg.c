@@ -37,12 +37,12 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
   uint32_t kmer_size = db_graph->kmer_size;
 
   bkmer = binary_kmer_from_str(contig, kmer_size);
-  binary_kmer_right_shift_one_base(&bkmer);
+  bkmer = binary_kmer_right_shift_one_base(bkmer);
 
   for(next_base = kmer_size-1; next_base < contig_len; next_base++)
   {
     nuc = binary_nuc_from_char(contig[next_base]);
-    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+    bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
     bkey = db_node_get_key(bkmer, kmer_size);
     hash_table_find_or_insert(&db_graph->ht, bkey, &found);
   }
@@ -200,7 +200,7 @@ int ctx_covg(CmdArgs *args)
       for(j = 1; j <= num_nodes; j++)
       {
         nuc = binary_nuc_from_char(contig.buff[j+kmer_size-1]);
-        binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+        bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
         nodes[j] = hash_table_find(&db_graph.ht, bkmer);
       }
 

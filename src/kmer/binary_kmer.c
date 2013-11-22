@@ -69,31 +69,56 @@ BinaryKmer binary_kmer_to_old(BinaryKmer bkmer, size_t kmer_size)
   return nbkmer;
 }
 
-void binary_kmer_right_shift_one_base(BinaryKmer *bkmer)
+// Shift towards most significant position
+BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer)
 {
-  int i;
+  BinaryKmer b = bkmer;
+  size_t i;
+
   for(i = NUM_BKMER_WORDS - 1; i > 0; i--)
   {
-    bkmer->b[i] >>= 2;
-    bkmer->b[i] |= (bkmer->b[i - 1] << 62);
+    b.b[i] >>= 2;
+    b.b[i] |= (b.b[i - 1] << 62);
   }
 
-  bkmer->b[0] >>= 2;
+  b.b[0] >>= 2;
+  return b;
 }
 
-void binary_kmer_left_shift_one_base(BinaryKmer *bkmer, uint32_t kmer_size)
+// Shift towards least significant position
+BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
+                                           size_t kmer_size)
 {
+  BinaryKmer b = bkmer;
+
   size_t i;
   for(i = 0; i+1 < NUM_BKMER_WORDS; i++)
   {
-    bkmer->b[i] <<= 2;
-    bkmer->b[i] |= (bkmer->b[i + 1] >> 62);
+    b.b[i] <<= 2;
+    b.b[i] |= (b.b[i + 1] >> 62);
   }
 
-  bkmer->b[NUM_BKMER_WORDS - 1] <<= 2;
+  b.b[NUM_BKMER_WORDS - 1] <<= 2;
 
   // Mask top word
-  bkmer->b[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
+  b.b[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
+  return b;
+}
+
+BinaryKmer binary_kmer_left_shift_add(const BinaryKmer bkmer, size_t kmer_size,
+                                      Nucleotide nuc)
+{
+  BinaryKmer b = binary_kmer_left_shift_one_base(bkmer, kmer_size);
+  b.b[NUM_BKMER_WORDS - 1] |= nuc;
+  return b;
+}
+
+BinaryKmer binary_kmer_right_shift_add(const BinaryKmer bkmer, size_t kmer_size,
+                                       Nucleotide nuc)
+{
+  BinaryKmer b = binary_kmer_right_shift_one_base(bkmer);
+  b.b[0] |= ((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(kmer_size);
+  return b;
 }
 
 // byte reverse complement look up table
@@ -140,7 +165,7 @@ static const uint8_t revcmp_table[256] =
 
 
 BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
-                                          uint32_t kmer_size)
+                                          size_t kmer_size)
 {
   size_t i, j, k;
   BinaryKmer revcmp = BINARY_KMER_ZERO_MACRO;
@@ -179,7 +204,7 @@ BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
 }
 
 // Get a random binary kmer -- useful for testing
-BinaryKmer binary_kmer_random(uint32_t kmer_size)
+BinaryKmer binary_kmer_random(size_t kmer_size)
 {
   BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
   size_t i;
@@ -195,29 +220,49 @@ BinaryKmer binary_kmer_random(uint32_t kmer_size)
 
 // Caller passes in preallocated BinaryKmer
 // which is also returned in the return value
-BinaryKmer binary_kmer_from_str(const char *seq, uint32_t kmer_size)
+BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 {
   assert(seq != NULL);
   assert(strlen(seq) >= kmer_size);
 
-  uint32_t i;
+  /*
+  size_t i;
   BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
-
-  for(i = 0; i < kmer_size; i++)
-  {
+  for(i = 0; i < kmer_size; i++) {
     Nucleotide nuc = binary_nuc_from_char(seq[i]);
     assert(nuc != UndefinedBase);
-
     binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
+  }
+  */
+
+  // Faster attempt
+  size_t i;
+  const char *k = seq, *end = seq + BKMER_TOP_BASES(kmer_size);
+  BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
+  Nucleotide nuc;
+
+  // Do first word
+  for(; k < end; k++) {
+    nuc = binary_nuc_from_char(*k);
+    assert(nuc != UndefinedBase);
+    bkmer.b[NUM_BKMER_WORDS-1] = (bkmer.b[NUM_BKMER_WORDS-1] << 2) | nuc;
+  }
+
+  // Do remaining words
+  for(i = NUM_BKMER_WORDS-2; i != SIZE_MAX; i--) {
+    for(end += 32; k < end; k++) {
+      nuc = binary_nuc_from_char(*k);
+      assert(nuc != UndefinedBase);
+      bkmer.b[i] = (bkmer.b[i] << 2) | nuc;
+    }
   }
 
   return bkmer;
 }
 
 // Caller passes in allocated char* as 3rd argument which is then returned
-// User of this method is responsible for deallocating the returned sequence
 // Note that the allocated space has to be kmer_size+1;
-char *binary_kmer_to_str(BinaryKmer bkmer, uint32_t kmer_size, char *seq)
+char *binary_kmer_to_str(BinaryKmer bkmer, size_t kmer_size, char *seq)
 {
   size_t i, j, k = kmer_size, topbases = BKMER_TOP_BASES(kmer_size);
   uint64_t word;
@@ -244,7 +289,7 @@ char *binary_kmer_to_str(BinaryKmer bkmer, uint32_t kmer_size, char *seq)
 
 static const char hex[16] = "0123456789abcdef";
 
-void binary_kmer_to_hex(BinaryKmer bkmer, uint32_t kmer_size, char *seq)
+void binary_kmer_to_hex(BinaryKmer bkmer, size_t kmer_size, char *seq)
 {
   size_t i, j, slen = (kmer_size+1)/2, k = slen;
   size_t toppairs = (BKMER_TOP_BASES(kmer_size)+1)/2;

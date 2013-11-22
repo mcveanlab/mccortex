@@ -27,7 +27,7 @@ static inline void get_vertex(dBGraph *db_graph, hkey_t node, Orientation orient
 {
   BinaryKmer bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
   if(first) binary_kmer_set_last_nuc(&bkmer, 0);
-  else binary_kmer_left_shift_one_base(&bkmer, db_graph->kmer_size);
+  else bkmer = binary_kmer_left_shift_one_base(bkmer, db_graph->kmer_size);
   bkmer = db_node_get_key(bkmer, db_graph->kmer_size-1);
   binary_kmer_to_hex(bkmer, db_graph->kmer_size-1, str);
 }

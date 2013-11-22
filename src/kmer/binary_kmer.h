@@ -71,13 +71,15 @@ extern const Nucleotide char_to_bnuc[128];
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
            = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffcUL) | (nuc))
 
-#define binary_kmer_left_shift_add(bkmerptr,ksize,nuc) ({   \
-        binary_kmer_left_shift_one_base(bkmerptr,ksize);    \
-        (bkmerptr)->b[NUM_BKMER_WORDS - 1] |= (nuc);     })
+/*
+#define binary_kmer_left_shift_add(bkmer,ksize,nuc) ({           \
+        (bkmer) = binary_kmer_left_shift_one_base(bkmer,ksize);  \
+        (bkmer).b[NUM_BKMER_WORDS - 1] |= (nuc);                })
 
-#define binary_kmer_right_shift_add(bkmerptr,ksize,nuc) ({                     \
-        binary_kmer_right_shift_one_base(bkmerptr);                            \
-        (bkmerptr)->b[0] |= ((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize); })
+#define binary_kmer_right_shift_add(bkmer,ksize,nuc) ({                        \
+        bkmer = binary_kmer_right_shift_one_base(bkmer);                       \
+        bkmer.b[0] |= ((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize); })
+*/
 
 #if NUM_BKMER_WORDS == 1
   #define binary_kmers_are_equal(x,y) ((x).b[0] == (y).b[0])
@@ -94,21 +96,40 @@ extern const Nucleotide char_to_bnuc[128];
   boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
 #endif
 
+/*
+#define bkmer_shift_one_base(bkmer,ksize,orient)                               \
+        ((orient) == FORWARD ? binary_kmer_left_shift_one_base(bkmer, ksize)   \
+                             : binary_kmer_right_shift_one_base(bkmer))
+*/
+
 // Functions
-void binary_kmer_right_shift_one_base(BinaryKmer *kmer);
-void binary_kmer_left_shift_one_base(BinaryKmer *kmer, uint32_t kmer_size);
+// void binary_kmer_right_shift_one_base(BinaryKmer *kmer);
+// void binary_kmer_left_shift_one_base(BinaryKmer *kmer, size_t kmer_size);
+
+// Shift towards most significant position
+BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer);
+
+// Shift towards least significant position
+BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
+                                           size_t kmer_size);
+
+BinaryKmer binary_kmer_left_shift_add(const BinaryKmer bkmer, size_t kmer_size,
+                                      Nucleotide nuc);
+
+BinaryKmer binary_kmer_right_shift_add(const BinaryKmer bkmer, size_t kmer_size,
+                                       Nucleotide nuc);
 
 // Reverse complement a binary kmer from kmer into revcmp_kmer
-BinaryKmer binary_kmer_reverse_complement(BinaryKmer bkmer, uint32_t kmer_size);
+BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer, size_t kmer_size);
 
 // Get a random binary kmer -- useful for testing
-BinaryKmer binary_kmer_random(uint32_t kmer_size);
+BinaryKmer binary_kmer_random(size_t kmer_size);
 
 // BinaryKmer <-> String functions
-char *binary_kmer_to_str(BinaryKmer kmer, uint32_t kmer_size, char *seq);
-BinaryKmer binary_kmer_from_str(const char *seq, uint32_t kmer_size);
+char* binary_kmer_to_str(BinaryKmer kmer, size_t kmer_size, char *seq);
+BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size);
 
-void binary_kmer_to_hex(BinaryKmer bkmer, uint32_t kmer_size, char *seq);
+void binary_kmer_to_hex(BinaryKmer bkmer, size_t kmer_size, char *seq);
 
 void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len);
 void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len);

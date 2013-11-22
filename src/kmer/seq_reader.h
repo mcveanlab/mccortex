@@ -91,7 +91,7 @@ do {                                                                           \
       for(_base_i = _start+(kmer_size); _base_i < _end; _base_i++)             \
       {                                                                        \
         _nuc = binary_nuc_from_char((r)->seq.b[_base_i]);                      \
-        binary_kmer_left_shift_add(&_bkmer, (kmer_size), _nuc);                \
+        _bkmer = binary_kmer_left_shift_add(_bkmer, (kmer_size), _nuc);        \
         func(_bkmer, ##__VA_ARGS__);                                           \
       }                                                                        \
     }                                                                          \

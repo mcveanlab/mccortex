@@ -131,32 +131,39 @@ void db_graph_check_edges(const dBGraph *db_graph,
 //
 
 void db_graph_next_node(const dBGraph *db_graph,
-                        BinaryKmer bkmer, Nucleotide next_nuc,
+                        const BinaryKmer node_bkey, Nucleotide next_nuc,
                         Orientation orient,
                         hkey_t *next_node, Orientation *next_orient)
 {
   size_t kmer_size = db_graph->kmer_size;
-  if(orient == FORWARD) binary_kmer_left_shift_add(&bkmer, kmer_size, next_nuc);
-  else binary_kmer_right_shift_add(&bkmer, kmer_size, binary_nuc_complement(next_nuc));
-  BinaryKmer bkey = db_node_get_key(bkmer, kmer_size);
+  BinaryKmer bkmer, bkey;
+
+  if(orient == FORWARD)
+    bkmer = binary_kmer_left_shift_add(node_bkey, kmer_size, next_nuc);
+  else {
+    next_nuc = binary_nuc_complement(next_nuc);
+    bkmer = binary_kmer_right_shift_add(node_bkey, kmer_size, next_nuc);
+  }
+
+  bkey = db_node_get_key(bkmer, kmer_size);
   *next_node = hash_table_find(&db_graph->ht, bkey);
   *next_orient = db_node_get_orientation(bkmer, bkey) ^ orient;
   assert(*next_node != HASH_NOT_FOUND);
 }
 
-size_t db_graph_next_nodes(const dBGraph *db_graph,
-                           BinaryKmer bkmer, Orientation orient, Edges edges,
+size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
+                           Orientation orient, Edges edges,
                            hkey_t nodes[4], Orientation orients[4],
                            Nucleotide fw_nucs[4])
 {
   size_t count = 0, kmer_size = db_graph->kmer_size;
   Edges tmp_edge;
   Nucleotide nuc;
-  BinaryKmer bkey;
+  BinaryKmer bkmer, bkey;
 
   edges = edges_with_orientation(edges, orient);
-  if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
-  else binary_kmer_right_shift_one_base(&bkmer);
+  bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
+                             : binary_kmer_right_shift_one_base(node_bkey));
 
   for(tmp_edge = 0x1, nuc = 0; nuc < 4; tmp_edge <<= 1, nuc++) {
     if(edges & tmp_edge) {
@@ -265,9 +272,8 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
 
   for(orient = 0; orient < 2; orient++)
   {
-    bkmer = node_bkey;
-    if(orient == FORWARD) binary_kmer_left_shift_one_base(&bkmer, kmer_size);
-    else binary_kmer_right_shift_one_base(&bkmer);
+    bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
+                               : binary_kmer_right_shift_one_base(node_bkey));
 
     for(nuc = 0; nuc < 4; nuc++)
     {
