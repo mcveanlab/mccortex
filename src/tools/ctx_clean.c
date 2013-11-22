@@ -164,13 +164,14 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
   assert(len > 5);
   assert(db_graph->ht.unique_kmers > 0);
   size_t i, d1len = len-2, d2len = len-3, f1, f2;
-  Covg *tmp = malloc2((d1len+d2len) * sizeof(Covg));
-  Covg *delta1 = tmp, *delta2 = tmp + d1len;
+  double *tmp = malloc2((d1len+d2len) * sizeof(double));
+  double *delta1 = tmp, *delta2 = tmp + d1len;
 
   // Get sequencing depth from coverage
   uint64_t covg_sum = 0, capacity = db_graph->ht.capacity * db_graph->num_of_cols;
   for(i = 0; i < capacity; i++) covg_sum += db_graph->col_covgs[i];
   double seq_depth_est = (double)covg_sum / db_graph->ht.unique_kmers;
+
   status("Kmer depth before cleaning supernodes: %.2f\n", seq_depth_est);
   if(seq_depth == -1) seq_depth = seq_depth_est;
   else status("Using sequence depth argument: %f\n", seq_depth);
@@ -178,7 +179,7 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
   size_t fallback_thresh = MAX2(1, (seq_depth+1)/2);
 
   // +1 to ensure covgs is never 0
-  for(i = 0; i < d1len; i++) delta1[i] = (covgs[i+1]+1) / (covgs[i+2]+1);
+  for(i = 0; i < d1len; i++) delta1[i] = (double)(covgs[i+1]+1) / (covgs[i+2]+1);
 
   d1len = i;
   d2len = d1len - 1;
