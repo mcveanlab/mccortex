@@ -242,7 +242,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
   for(i = 0; i < len; i++)
   {
-    edges = db_node_col_edges(graph, ctx_col, nodes[i].node);
+    edges = db_node_edges(graph, ctx_col, nodes[i].node);
     outdegree = edges_get_outdegree(edges, nodes[i].orient);
     indegree = edges_get_indegree(edges, nodes[i].orient);
 
@@ -426,7 +426,7 @@ void read_to_path(AddPathsWorker *worker)
 
   for(i = 1; i < nodebuf->len; i++) {
     if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
-       edges_get_indegree(db_node_col_edges(db_graph,job->ctx_col,node),
+       edges_get_indegree(db_node_edges(db_graph,job->ctx_col,node),
                           nodebuf->data[i].orient) > 0)
     {
       useful_path_info = true;
@@ -451,7 +451,7 @@ void read_to_path(AddPathsWorker *worker)
     if(!useful_path_info && nodebuf->len > 0) {
       for(i = r2_start; i+1 < nodebuf->len; i++) {
         if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
-           edges_get_outdegree(db_node_col_edges(db_graph,job->ctx_col,node),
+           edges_get_outdegree(db_node_edges(db_graph,job->ctx_col,node),
                                nodebuf->data[i].orient) > 0)
         {
           useful_path_info = true;

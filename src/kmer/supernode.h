@@ -6,6 +6,8 @@
 // Reverse order and orientations of nodes
 void supernode_reverse(hkey_t *nlist, Orientation *olist, size_t len);
 
+void supernode_normalise(hkey_t *nlist, Orientation *olist, size_t len);
+
 // Extend a supernode, nlist[offset] and olist[offset] must already be set
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist
 // Returns the number of nodes added, adds no more than `limit`

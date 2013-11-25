@@ -262,7 +262,7 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 
 // Caller passes in allocated char* as 3rd argument which is then returned
 // Note that the allocated space has to be kmer_size+1;
-char *binary_kmer_to_str(BinaryKmer bkmer, size_t kmer_size, char *seq)
+char *binary_kmer_to_str(const BinaryKmer bkmer, size_t kmer_size, char *seq)
 {
   size_t i, j, k = kmer_size, topbases = BKMER_TOP_BASES(kmer_size);
   uint64_t word;
@@ -289,7 +289,7 @@ char *binary_kmer_to_str(BinaryKmer bkmer, size_t kmer_size, char *seq)
 
 static const char hex[16] = "0123456789abcdef";
 
-void binary_kmer_to_hex(BinaryKmer bkmer, size_t kmer_size, char *seq)
+void binary_kmer_to_hex(const BinaryKmer bkmer, size_t kmer_size, char *seq)
 {
   size_t i, j, slen = (kmer_size+1)/2, k = slen;
   size_t toppairs = (BKMER_TOP_BASES(kmer_size)+1)/2;

@@ -262,7 +262,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
   Orientation orient;
   Nucleotide nuc;
   hkey_t next;
-  Edges edge, *edges = &db_node_col_edges(db_graph,0,node), iedges = edges[0];
+  Edges edge, *edges = &db_node_edges(db_graph,0,node), iedges = edges[0];
   boolean node_has_col[db_graph->num_edge_cols];
 
   for(col = 0; col < db_graph->num_edge_cols; col++) {

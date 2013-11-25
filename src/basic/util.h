@@ -77,6 +77,8 @@ char* num_to_str(unsigned long num, int decimals, char* str);
 #define unaligned_read(tgt,src)            memcpy(tgt, src, sizeof(tgt))
 // #define unaligned_read(tgt,src,ptrtype) (*(tgt) = *(ptrtype)(src))
 
+#define bitmask(nbits,type) (nbits ? ~(type)0 >> (sizeof(type)*8-(nbits)): (type)0)
+
 #define rot32(x,r) (((x)<<(r)) | ((x)>>(32-(r))))
 #define rot64(x,r) (((x)<<(r)) | ((x)>>(64-(r))))
 

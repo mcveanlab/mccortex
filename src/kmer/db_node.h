@@ -105,7 +105,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
         memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
                (graph)->num_edge_cols * sizeof(Edges))
 
-#define db_node_col_edges(graph,col,hkey) \
+#define db_node_edges(graph,col,hkey) \
         ((graph)->col_edges[(hkey)*(graph)->num_edge_cols + (col)])
 
 #define db_node_edges_union(graph,hkey) \
@@ -113,8 +113,8 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
                         (graph)->num_edge_cols)
 
 #define db_node_set_col_edge(graph,col,hkey,nuc,or) \
-        (db_node_col_edges(graph,col,hkey) \
-           = edges_set_edge(db_node_col_edges(graph,col,hkey), (nuc), (or)))
+        (db_node_edges(graph,col,hkey) \
+           = edges_set_edge(db_node_edges(graph,col,hkey), (nuc), (or)))
 
 Edges edges_get_union(const Edges *edges, size_t num);
 

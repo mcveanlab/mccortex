@@ -71,16 +71,6 @@ extern const Nucleotide char_to_bnuc[128];
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
            = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffcUL) | (nuc))
 
-/*
-#define binary_kmer_left_shift_add(bkmer,ksize,nuc) ({           \
-        (bkmer) = binary_kmer_left_shift_one_base(bkmer,ksize);  \
-        (bkmer).b[NUM_BKMER_WORDS - 1] |= (nuc);                })
-
-#define binary_kmer_right_shift_add(bkmer,ksize,nuc) ({                        \
-        bkmer = binary_kmer_right_shift_one_base(bkmer);                       \
-        bkmer.b[0] |= ((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize); })
-*/
-
 #if NUM_BKMER_WORDS == 1
   #define binary_kmers_are_equal(x,y) ((x).b[0] == (y).b[0])
   #define binary_kmer_is_zero(x)      ((x).b[0] == 0UL)
@@ -96,15 +86,9 @@ extern const Nucleotide char_to_bnuc[128];
   boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
 #endif
 
-/*
-#define bkmer_shift_one_base(bkmer,ksize,orient)                               \
-        ((orient) == FORWARD ? binary_kmer_left_shift_one_base(bkmer, ksize)   \
-                             : binary_kmer_right_shift_one_base(bkmer))
-*/
-
+//
 // Functions
-// void binary_kmer_right_shift_one_base(BinaryKmer *kmer);
-// void binary_kmer_left_shift_one_base(BinaryKmer *kmer, size_t kmer_size);
+//
 
 // Shift towards most significant position
 BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer);
@@ -126,10 +110,10 @@ BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer, size_t kmer_si
 BinaryKmer binary_kmer_random(size_t kmer_size);
 
 // BinaryKmer <-> String functions
-char* binary_kmer_to_str(BinaryKmer kmer, size_t kmer_size, char *seq);
+char* binary_kmer_to_str(const BinaryKmer kmer, size_t kmer_size, char *seq);
 BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size);
 
-void binary_kmer_to_hex(BinaryKmer bkmer, size_t kmer_size, char *seq);
+void binary_kmer_to_hex(const BinaryKmer bkmer, size_t kmer_size, char *seq);
 
 void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len);
 void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len);

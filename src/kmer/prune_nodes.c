@@ -62,7 +62,7 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
   }
 
   for(col = 0; col < db_graph->num_edge_cols; col++)
-    db_node_col_edges(db_graph, col, node) &= keep_edges;
+    db_node_edges(db_graph, col, node) &= keep_edges;
 }
 
 static void prune_nodes_lacking_flag_no_edges(hkey_t node, dBGraph *db_graph,
@@ -130,7 +130,7 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t node)
                   == remove_edge_mask);
 
         for(col = 0; col < db_graph->num_edge_cols; col++)
-          db_node_col_edges(db_graph, col, next_node) &= ~remove_edge_mask;
+          db_node_edges(db_graph, col, next_node) &= ~remove_edge_mask;
       }
     }
   }

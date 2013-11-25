@@ -5,6 +5,34 @@
 #include "binary_kmer.h"
 #include "supernode.h"
 
+
+void supernode_reverse(hkey_t *nlist, Orientation *olist, size_t len)
+{
+  assert(len > 0);
+  if(len == 1) { olist[0] = !olist[0]; return; }
+
+  size_t i, j;
+  hkey_t tmpnode;
+  Orientation tmporient;
+
+  for(i = 0, j=len-1; i <= j; i++, j--) {
+    SWAP(nlist[i], nlist[j], tmpnode);
+    // swap with reverse has to be done manually
+    tmporient = olist[i]; olist[i] = !olist[j]; olist[j] = !tmporient;
+  }
+}
+
+void supernode_normalise(hkey_t *nlist, Orientation *olist, size_t len)
+{
+  size_t i;
+  assert(len > 0);
+  if(nlist[0] > nlist[len-1]) {
+    supernode_reverse(nlist, olist, len);
+  } else if(nlist[0] == nlist[len-1] && olist[0] == REVERSE) {
+    for(i = 0; i < len; i++) olist[i] = !olist[i];
+  }
+}
+
 // Extend a supernode, nlist[offset] and olist[offset] must already be set
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist
 // Returns the number of nodes added, adds no more than `limit`
@@ -61,22 +89,6 @@ int supernode_extend(const dBGraph *db_graph,
   }
 
   return num_nodes;
-}
-
-void supernode_reverse(hkey_t *nlist, Orientation *olist, size_t len)
-{
-  assert(len > 0);
-  if(len == 1) { olist[0] = !olist[0]; return; }
-
-  size_t i, j;
-  hkey_t tmpnode;
-  Orientation tmporient;
-
-  for(i = 0, j=len-1; i <= j; i++, j--) {
-    SWAP(nlist[i], nlist[j], tmpnode);
-    // swap with reverse has to be done manually
-    tmporient = olist[i]; olist[i] = !olist[j]; olist[j] = !tmporient;
-  }
 }
 
 size_t supernode_find(dBGraph *db_graph, hkey_t node,
