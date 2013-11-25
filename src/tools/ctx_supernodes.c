@@ -19,8 +19,7 @@ static const char usage[] =
 "  e.g. ctx31 supernodes --graphviz in.ctx | dot -Tpdf > in.pdf\n";
 
 typedef struct {
-  // size_t nodeid:58, orient:1, left:1, right:1, assigned:1;
-  size_t nodeid, orient, left, right, assigned;
+  size_t nodeid:58, orient:1, left:1, right:1, assigned:1;
 } sndata_t;
 
 
