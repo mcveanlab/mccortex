@@ -249,7 +249,9 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   // Both left and right flanks are prefixed with LF= and RF= respectively
   // hence lots of +3 etc
   const size_t FPREFIX = 3; // strlen("LF=")
-  const size_t kmer_size = invcf->lf->len-FPREFIX;
+  const size_t kmer_size = MAX2(invcf->lf->len,invcf->rf->len)-FPREFIX;
+  assert(kmer_size >= 3);
+
   size_t endfl_missing;
 
   const StrBuf *lf, *rf;
@@ -306,12 +308,10 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   char save_ref_base = search_region[search_len];
   search_region[search_len] = '\0';
 
-  char *kmer_match = strstr(search_region, endflank.buff);
+  char *kmer_match = strstr(search_region, endflank.buff), *search = kmer_match;
   if(!bam_is_rev(bam) && kmer_match != NULL) {
-    char *search = kmer_match+1;
-    while((search = strstr(search, endflank.buff)) != NULL) {
+    while((search = strstr(search+1, endflank.buff)) != NULL) {
       kmer_match = search;
-      search++;
     }
   }
 

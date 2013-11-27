@@ -223,10 +223,10 @@ void vcf_entry_revcmp(vcf_entry_t *entry)
   // printf("lf:'%s'; rf:'%s'\n", entry->lf.buff, entry->rf.buff);
   reverse_complement_str(entry->lf->buff+3, entry->lf->len-3);
   reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
-  entry->lf->buff[0] = 'R';
-  entry->rf->buff[0] = 'L';
   StrBuf *tmpbuf;
   SWAP(entry->lf, entry->rf, tmpbuf);
+  entry->lf->buff[0] = 'L';
+  entry->rf->buff[0] = 'R';
 }
 
 size_t vcf_entry_longest_allele(const vcf_entry_t *entry)
