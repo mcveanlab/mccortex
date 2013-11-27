@@ -14,7 +14,7 @@
 
 #include "repeat_walker.h"
 
-// Don't store assembly info longer than 1000 bp
+// Don't store assembly info longer than 1000 junctions
 #define MAX_PATH 1000
 
 typedef struct {

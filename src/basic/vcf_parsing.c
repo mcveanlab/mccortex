@@ -8,13 +8,13 @@ static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
   size_t i;
   newcap = ROUNDUP2POW(newcap);
   *arr = realloc2(*arr, sizeof(StrBuf) * newcap);
-  for(i = *cap; i < newcap; i++) strbuf_alloc(&(*arr)[i], 64);
+  for(i = *cap; i < newcap; i++) strbuf_alloc(&((*arr)[i]), 64);
   *cap = newcap;
 }
 
 // DP=asdf;TXT="a;b;c";F1;X=4
 // ends:  ^           ^  ^   ^
-char* info_tag_end(char *str)
+char* vcf_info_tag_end(char *str)
 {
   boolean speechmrks = false;
   for(; *str; str++) {
@@ -24,7 +24,7 @@ char* info_tag_end(char *str)
   return NULL;
 }
 
-StrBuf* info_tag_find(vcf_entry_t *entry, const char* str)
+StrBuf* vcf_info_tag_find(vcf_entry_t *entry, const char* str)
 {
   size_t i, len = strlen(str);
   for(i = 0; i < entry->num_info; i++) {
@@ -38,12 +38,30 @@ StrBuf* info_tag_find(vcf_entry_t *entry, const char* str)
   return NULL;
 }
 
-void info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
+static inline void vcf_find_lf_rf_info(vcf_entry_t *entry)
 {
-  if(entry->num_info+1 >= entry->info_capacity)
-    strbuf_arr_resize(&entry->info, &entry->info_capacity, entry->num_info+1);
+  size_t i;
+  entry->lf = entry->rf = NULL;
+  for(i = 0; i < entry->num_info; i++) {
+    if(!strncmp(entry->info[i].buff, "LF=", 3)) entry->lf = &entry->info[i];
+    else if(!strncmp(entry->info[i].buff, "RF=", 3)) entry->rf = &entry->info[i];
+  }
+}
 
-  StrBuf* sbuf = &entry->info[entry->num_info++];
+void vcf_info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
+{
+  // Find emtpy tag
+  size_t i; StrBuf *sbuf;
+  for(i = 0; i < entry->num_info; i++) {
+    sbuf = &entry->info[i];
+    if(sbuf->buff[0] == '\0') break;
+  }
+
+  // Or add new tag
+  if(i == entry->num_info) {
+    vcf_entry_info_capacity(entry, entry->num_info+1);
+    sbuf = &entry->info[entry->num_info++];
+  }
 
   va_list argptr;
   va_start(argptr, fmt);
@@ -52,7 +70,28 @@ void info_tag_add(vcf_entry_t *entry, const char* fmt, ...)
   va_end(argptr);
 }
 
-void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
+void vcf_info_tag_del(vcf_entry_t *entry, const char* tag)
+{
+  StrBuf *info = vcf_info_tag_find(entry, tag);
+  if(info != NULL) strbuf_reset(info);
+}
+
+void vcf_entry_alt_capacity(vcf_entry_t *entry, size_t num_alts)
+{
+  if(num_alts > entry->alts_capacity)
+    strbuf_arr_resize(&entry->alts, &entry->alts_capacity, num_alts);
+}
+
+void vcf_entry_info_capacity(vcf_entry_t *entry, size_t num_info)
+{
+  if(num_info > entry->info_capacity) {
+    strbuf_arr_resize(&entry->info, &entry->info_capacity, num_info);
+    // Re-find lf/rf
+    vcf_find_lf_rf_info(entry);
+  }
+}
+
+void vcf_entry_alloc(vcf_entry_t *entry, size_t num_samples)
 {
   size_t i, num_cols = VCFSAMPLES+num_samples;
   entry->alts_capacity = entry->info_capacity = 2;
@@ -70,7 +109,7 @@ void vcf_entry_alloc(vcf_entry_t *entry, uint32_t num_samples)
   }
 }
 
-void vcf_entry_dealloc(vcf_entry_t *entry, uint32_t num_samples)
+void vcf_entry_dealloc(vcf_entry_t *entry, size_t num_samples)
 {
   size_t i, num_cols = VCFSAMPLES+num_samples;
   for(i = 0; i < num_cols; i++) strbuf_dealloc(&entry->cols[i]);
@@ -82,19 +121,7 @@ void vcf_entry_dealloc(vcf_entry_t *entry, uint32_t num_samples)
   free(entry->info);
 }
 
-void vcf_entry_alt_capacity(vcf_entry_t *entry, size_t num_alts)
-{
-  if(num_alts > entry->alts_capacity)
-    strbuf_arr_resize(&entry->alts, &entry->alts_capacity, num_alts);
-}
-
-void vcf_entry_info_capacity(vcf_entry_t *entry, size_t num_info)
-{
-  if(num_info > entry->info_capacity)
-    strbuf_arr_resize(&entry->info, &entry->info_capacity, num_info);
-}
-
-void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, uint32_t num_samples)
+void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, size_t num_samples)
 {
   vcf_entry_alt_capacity(dst, src->num_alts);
   vcf_entry_info_capacity(dst, src->num_info);
@@ -109,18 +136,14 @@ void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, uint32_t num_sample
     strbuf_set(&dst->alts[i], src->alts[i].buff);
 
   // Copy info and set LF, RF
-  StrBuf *buf;
   dst->num_info = src->num_info;
-  dst->lf = dst->rf = NULL;
-  for(i = 0; i < src->num_info; i++) {
-    buf = &dst->info[i];
-    strbuf_set(buf, src->info[i].buff);
-    if(!strncmp(buf->buff, "LF=", 3)) dst->lf = buf;
-    else if(!strncmp(buf->buff, "RF=", 3)) dst->rf = buf;
-  }
+  for(i = 0; i < src->num_info; i++)
+    strbuf_set(&dst->info[i], src->info[i].buff);
+
+  vcf_find_lf_rf_info(dst);
 }
 
-void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
+void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, size_t num_samples)
 {
   strbuf_chomp(line);
   char *end, *tmp;
@@ -166,32 +189,31 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, uint32_t num_samples)
   // Split INFO alleles
   entry->num_info = 0;
   tmp = entry->cols[VCFINFO].buff;
-  entry->lf = entry->rf = NULL;
 
   size_t info_count = 0;
-  while((tmp = info_tag_end(tmp)) != NULL) { info_count++; tmp++; }
+  while((tmp = vcf_info_tag_end(tmp)) != NULL) { info_count++; tmp++; }
   tmp = entry->cols[VCFINFO].buff;
 
   vcf_entry_info_capacity(entry, info_count);
 
   while(1)
   {
-    end = info_tag_end(tmp);
+    end = vcf_info_tag_end(tmp);
     if(end != NULL) *end = '\0';
     buf = &entry->info[entry->num_info++];
     strbuf_set(buf, tmp);
-    if(!strncmp(tmp, "LF=", 3)) entry->lf = buf;
-    else if(!strncmp(tmp, "RF=", 3)) entry->rf = buf;
     if(end != NULL) *end = ';';
     else break;
     tmp = end + 1;
   }
+
+  vcf_find_lf_rf_info(entry);
 }
 
 void vcf_entry_revcmp(vcf_entry_t *entry)
 {
   // For debugging
-  info_tag_add(entry, "BUBREV");
+  vcf_info_tag_add(entry, "BUBREV");
 
   size_t i;
   for(i = 0; i < entry->num_alts; i++)
@@ -203,10 +225,11 @@ void vcf_entry_revcmp(vcf_entry_t *entry)
   reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
   entry->lf->buff[0] = 'R';
   entry->rf->buff[0] = 'L';
-  StrBuf *tmpbuf; SWAP(entry->lf, entry->rf, tmpbuf);
+  StrBuf *tmpbuf;
+  SWAP(entry->lf, entry->rf, tmpbuf);
 }
 
-size_t vcf_entry_longest_allele(vcf_entry_t *entry)
+size_t vcf_entry_longest_allele(const vcf_entry_t *entry)
 {
   size_t i, max = 0;
   for(i = 0; i < entry->num_alts; i++) {
@@ -215,7 +238,7 @@ size_t vcf_entry_longest_allele(vcf_entry_t *entry)
   return max;
 }
 
-void vcf_entry_print(const vcf_entry_t *entry, FILE *out, uint32_t num_samples)
+void vcf_entry_print(const vcf_entry_t *entry, FILE *out, size_t num_samples)
 {
   size_t i, num_cols = VCFSAMPLES + num_samples;
   StrBuf *vcfalts = &entry->cols[VCFALT], *vcfinfo = &entry->cols[VCFINFO];

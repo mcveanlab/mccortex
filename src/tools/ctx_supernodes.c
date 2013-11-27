@@ -90,8 +90,8 @@ static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
 
     if(node < next_nodes[i] || (node == next_nodes[i] && side0 <= side1)) {
       fprintf(fout, "  node%zu:%c -> node%zu:%c [color=\"blue\"]\n",
-              snode0.nodeid, coords[side0],
-              snode1.nodeid, coords[side1]);
+              (size_t)snode0.nodeid, coords[side0],
+              (size_t)snode1.nodeid, coords[side1]);
     }
   }
 }

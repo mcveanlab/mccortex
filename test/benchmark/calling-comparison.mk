@@ -264,8 +264,6 @@ $(RAWGRAPHS): $(READS)
 
 $(CLEANGRAPHS): $(RAWGRAPHS)
 
-$(TRUTHVCFS): $(TRUTHBUBBLES)
-
 # Reads
 reads/reads%.1.fa.gz reads/reads%.2.fa.gz: genomes/genome%.fa
 	mkdir -p reads
@@ -367,10 +365,10 @@ ref/ref.k$(KMER).ctx: ref/ref.fa
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample ref --seq ref/ref.fa ref/ref.k$(KMER).ctx
 
 # Left align with vcflib or bcftools:
-LEFTALIGN=$(VCFLIBALIGN) --reference ref/ref.fa
-# LEFTALIGN=$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa
+# LEFTALIGN=$(VCFLIBALIGN) --reference ref/ref.fa
+LEFTALIGN=$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa -
 
-k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
+k$(KMER)/vcfs/samples.runcalls.norm.vcf: ref/ref.fa.fai reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
 	@echo == Run Calls ==
 	rm -rf runcalls/runcalls.log
 	mkdir -p runcalls
@@ -400,15 +398,19 @@ k$(KMER)/vcfs/samples.runcalls.norm.vcf: reads/reads.index ref/ref.falist ref/re
 	$(VCFLIBDECOMP) | $(LEFTALIGN) | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
 
-# % is ref or noref
-k$(KMER)/vcfs/truth.%.norm.vcf: k$(KMER)/vcfs/truth.%.decomp.vcf
-	cat $< | $(VCFLIBDECOMP) | $(LEFTALIGN) | \
-	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
-
 $(NORMVCFS): ref/ref.fa.fai
 
+$(TRUTHVCFS): $(TRUTHBUBBLES) ref/ref.fa.fai
+
+# % is ref or noref
+k$(KMER)/vcfs/truth.%.norm.vcf: k$(KMER)/vcfs/truth.%.decomp.vcf
+	cat $< | \
+	$(VCFLIBDECOMP) | $(LEFTALIGN) | \
+	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > $@
+
 k$(KMER)/vcfs/samples.%.norm.vcf: k$(KMER)/vcfs/samples.%.pass.vcf
-	cat $< | $(VCFLIBDECOMP) | $(LEFTALIGN) | \
+	cat $< | \
+	$(VCFLIBDECOMP) | $(LEFTALIGN) | \
 	$(BIOINF)/vcf_scripts/vcf_remove_dupes.pl > k$(KMER)/vcfs/samples.$*.norm.vcf
 
 .PHONY: all clean test repo checkcmds
