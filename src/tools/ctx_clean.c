@@ -49,14 +49,13 @@ static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
                                   Covg **tmpcovgs, size_t *ncap,
                                   uint64_t *visited, uint64_t *covg_hist)
 {
-  boolean cycle;
   size_t i, len, cap;
   Covg reads_arriving;
 
   if(!bitset_has(visited, node))
   {
     cap = *ncap;
-    len = supernode_find(db_graph, node, nodes, orients, &cycle, ncap);
+    len = supernode_find(db_graph, node, nodes, orients, ncap);
     if(cap < *ncap) *tmpcovgs = realloc2(*tmpcovgs, *ncap * sizeof(Covg));
     for(i = 0; i < len; i++) {
       bitset_set(visited, (*nodes)[i]);
@@ -74,14 +73,13 @@ static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
                                    Covg **tmpcovgs, size_t *ncap,
                                    uint64_t *visited, uint32_t covg_threshold)
 {
-  boolean cycle;
   size_t i, len, cap;
   Covg reads_arriving;
 
   if(!bitset_has(visited, node))
   {
     cap = *ncap;
-    len = supernode_find(db_graph, node, nodes, orients, &cycle, ncap);
+    len = supernode_find(db_graph, node, nodes, orients, ncap);
     if(cap < *ncap) *tmpcovgs = realloc2(*tmpcovgs, *ncap * sizeof(Covg));
 
     for(i = 0; i < len; i++) {
@@ -107,14 +105,13 @@ static inline void clip_tip(hkey_t node, dBGraph *db_graph,
                             hkey_t **nodes, Orientation **orients,
                             size_t *ncap, uint64_t *visited, size_t min_keep_len)
 {
-  boolean cycle;
   size_t i, len;
   Edges first, last;
   int in, out;
 
   if(!bitset_has(visited, node))
   {
-    len = supernode_find(db_graph, node, nodes, orients, &cycle, ncap);
+    len = supernode_find(db_graph, node, nodes, orients, ncap);
 
     for(i = 0; i < len; i++) bitset_set(visited, (*nodes)[i]);
 
@@ -129,7 +126,7 @@ static inline void clip_tip(hkey_t node, dBGraph *db_graph,
       fprintf(stdout, " len: %zu junc: %i\n", len, in+out);
     #endif
 
-    if(in+out <= 1 && !cycle && len < min_keep_len)
+    if(in+out <= 1 && len < min_keep_len)
     {
       // char tmpstr[MAX_KMER_SIZE+1];
       // for(i = 0; i < len; i++) {

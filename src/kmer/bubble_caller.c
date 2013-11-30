@@ -518,9 +518,8 @@ static void resolve_bubble(SupernodePathPos **snodepathposes, size_t num,
   if(*flank5pkmers == 0)
   {
     // Haven't fetched 5p flank yet
-    boolean iscycle;
     int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
-                               &iscycle, &max_flank_len, false);
+                               &max_flank_len, false);
     *flank5pkmers = (len == -1 ? max_flank_len : (unsigned)len);
     supernode_reverse(flank5pe, flank5po, *flank5pkmers);
   }
@@ -656,7 +655,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       } while((pp = pp->next) != NULL);
 
       // #ifdef DEBUG_CALLER
-      // gzprintf(out, " num_forward: %zu; num_reverse: %zu\n", num_forward, num_reverse);
+      //   gzprintf(out, " num_forward: %zu; num_reverse: %zu\n",
+      //            num_forward, num_reverse);
       // #endif
 
       resolve_bubble(spp_forward, num_forward, out, bnum, threadid,
@@ -666,56 +666,6 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       resolve_bubble(spp_reverse, num_reverse, out, bnum, threadid,
                      max_allele_len, max_flank_len, flank5pe, flank5po,
                      &flank5pkmers, db_graph, ref_cols, num_ref, spp_hash);
-
-      /*
-      if(!is_bubble_flank(spp_forward, num_forward)) num_forward = 0;
-      if(!is_bubble_flank(spp_reverse, num_reverse)) num_reverse = 0;
-
-      // Remove paths that are in ref if we have >1 of such paths
-      if(num_forward > 1) {
-        num_forward = remove_ref_paths(spp_forward, num_forward, ref_cols, num_ref, db_graph);
-        if(num_forward > 1)
-          num_forward = remove_snpath_pos_dupes(spp_forward, num_forward, spp_hash);
-      }
-
-      if(num_reverse > 1) {
-        num_reverse = remove_ref_paths(spp_reverse, num_reverse, ref_cols, num_ref, db_graph);
-        if(num_reverse > 1)
-          num_reverse = remove_snpath_pos_dupes(spp_reverse, num_reverse, spp_hash);
-      }
-
-      if(num_forward > 1 || num_reverse > 1)
-      {
-        if(flank5pkmers == 0)
-        {
-          // Haven't fetched 5p flank yet
-          boolean iscycle;
-          int len = supernode_extend(db_graph, &flank5pe, &flank5po, 0,
-                                     &iscycle, &max_flank_len, false);
-          flank5pkmers = (len == -1 ? max_flank_len : (unsigned)len);
-          supernode_reverse(flank5pe, flank5po, flank5pkmers);
-        }
-
-        // Check if actual bubbles in fw / rv
-        if(num_forward > 1)
-        {
-          print_bubble(out, *bnum, db_graph,
-                       spp_forward, num_forward,
-                       flank5pe, flank5po, flank5pkmers, threadid,
-                       max_allele_len, max_flank_len);
-          (*bnum)++;
-        }
-
-        if(num_reverse > 1)
-        {
-          print_bubble(out, *bnum, db_graph,
-                       spp_reverse, num_reverse,
-                       flank5pe, flank5po, flank5pkmers, threadid,
-                       max_allele_len, max_flank_len);
-          (*bnum)++;
-        }
-      }
-      */
     }
   }
 }

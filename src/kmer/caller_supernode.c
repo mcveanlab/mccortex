@@ -14,11 +14,8 @@ static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
   // Sort supernode into forward orientation
   if(len == 1)
     olist[0] = FORWARD;
-  else if(nlist[0] > nlist[len-1] ||
-          (nlist[0] == nlist[len-1] && olist[0] > olist[len-1]))
-  {
+  else if(nlist[0] > nlist[len-1])
     supernode_reverse(nlist, olist, len);
-  }
 }
 
 // Create a supernode starting at node/or.  Store in snode.
@@ -42,9 +39,6 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
     printf(" create %s:%i\n", tmpstr, (int)orient);
   #endif
 
-  // extend path
-  boolean iscycle;
-
   CallerNodeBuf *nbuf = snode->nbuf;
 
   if(nbuf->len + 1 >= nbuf->cap) {
@@ -59,7 +53,7 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
   nbuf->len = supernode_extend(db_graph, &nbuf->nodes,
                                &nbuf->orients, snode->nbuf_offset,
-                               &iscycle, &nbuf->cap, true);
+                               &nbuf->cap, true);
 
   snode->num_of_nodes = nbuf->len - snode->nbuf_offset;
 

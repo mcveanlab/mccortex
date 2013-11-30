@@ -116,13 +116,6 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t node)
         db_graph_next_node(db_graph, bkmer, nuc, or, &next_node, &next_or);
         remove_edge_mask = nuc_orient_to_edge(lost_nuc, rev_orient(next_or));
 
-        // Edges next_uedges = db_node_edges_union(db_graph, next_node);
-        // char tmpstr[MAX_KMER_SIZE+1];
-        // BinaryKmer tmpbkmer = db_node_bkmer(db_graph, next_node);
-        // binary_kmer_to_str(tmpbkmer, db_graph->kmer_size, tmpstr);
-        // status("nexnode: %s:%i lost_nuc %c", tmpstr, next_or, binary_nuc_to_char(lost_nuc));
-        // status("next_uedges: %i remove_edge_mask: %i\n", (int)next_uedges, (int)remove_edge_mask);
-
         // Sanity test
         assert(next_node != HASH_NOT_FOUND);
         assert(next_node == node ||
@@ -142,64 +135,16 @@ void prune_node(dBGraph *db_graph, hkey_t node)
   prune_node_without_edges(db_graph, node);
 }
 
-// static void print_node(dBGraph *db_graph, hkey_t node)
-// {
-//   hkey_t nodes[4]; Orientation orients[4]; Nucleotide nucs[4];
-//   char bstr[MAX_KMER_SIZE+1], tmp[MAX_KMER_SIZE+1];
-//   size_t i, num;
-
-//   BinaryKmer bkmer = db_node_bkmer(db_graph, node);
-//   Edges edges = db_node_edges_union(db_graph, node);
-//   binary_kmer_to_str(bkmer, db_graph->kmer_size, bstr);
-
-//   printf("{");
-//   num = db_graph_next_nodes(db_graph, bkmer, REVERSE, edges, nodes, orients, nucs);
-//   for(i = 0; i < num; i++) {
-//     binary_kmer_to_str(db_node_bkmer(db_graph, nodes[i]), db_graph->kmer_size, tmp);
-//     printf(" %s", tmp);
-//   }
-//   printf(" } %s {", bstr);
-//   num = db_graph_next_nodes(db_graph, bkmer, FORWARD, edges, nodes, orients, nucs);
-//   for(i = 0; i < num; i++) {
-//     binary_kmer_to_str(db_node_bkmer(db_graph, nodes[i]), db_graph->kmer_size, tmp);
-//     printf(" %s", tmp);
-//   }
-//   printf(" }");
-// }
-
 void prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len)
 {
   size_t i;
-
   if(len == 0) return;
-
-  // Edges a = db_node_edges_union(db_graph, nodes[0]);
-  // Edges b = db_node_edges_union(db_graph, nodes[len-1]);
-  // printf("prune: (%i,%i), (%i,%i); len: %zu\n",
-  //        edges_get_indegree(a, FORWARD), edges_get_outdegree(a, FORWARD),
-  //        edges_get_indegree(b, FORWARD), edges_get_indegree(b, FORWARD),
-  //        len);
-
-  // print_node(db_graph, nodes[0]);
-  // printf("  ");
-  // print_node(db_graph, nodes[len-1]);
-  // printf("\n");
 
   // Remove connecting nodes to first and last nodes
   prune_connecting_edges(db_graph, nodes[0]);
-  prune_node_without_edges(db_graph, nodes[0]);
+  if(len > 1) prune_connecting_edges(db_graph, nodes[len-1]);
 
-  if(len > 1) {
-    if(nodes[0] != nodes[len-1]) {
-      prune_connecting_edges(db_graph, nodes[len-1]);
-      for(i = 1; i < len; i++) prune_node_without_edges(db_graph, nodes[i]);
-    }
-    else {
-      // We can have funny loops a->b->B->A
-      for(i = 1; i < len && nodes[i] != nodes[i-1]; i++)
-        prune_node_without_edges(db_graph, nodes[i]);
-    }
-  }
+  for(i = 0; i < len; i++) prune_node_without_edges(db_graph, nodes[i]);
 }
 
 // Remove nodes that are in the hash table but not assigned any colours
