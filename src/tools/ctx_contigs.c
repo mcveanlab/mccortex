@@ -16,7 +16,7 @@ static const char usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
 "  Pull out contigs, print statistics\n"
 "  Options: [ -m <mem> | -n <kmers> | -p <paths.ctp> ]\n"
-"           [ --nsamples <N> | --print | --colour <c> ]\n";
+"           [ --ncontigs <N> | --print | --colour <c> ]\n";
 
 int ctx_contigs(CmdArgs *args)
 {
@@ -24,15 +24,19 @@ int ctx_contigs(CmdArgs *args)
   int argc = args->argc;
   char **argv = args->argv;
 
-  size_t num_samples = 10000, colour = 0;
+  // char str[100];
+  // printf("Test NaN: %s INF: %s\n", num_to_str(NAN, 2, str),
+  //                                  num_to_str(INFINITY, 2, str));
+
+  size_t ncontigs = 10000, colour = 0;
   boolean print_contigs = false;
 
   while(argc > 0 && argv[0][0] == '-') {
-    if(strcmp(argv[0],"--nsamples") == 0) {
+    if(strcmp(argv[0],"--ncontigs") == 0) {
       unsigned long tmp;
       if(argc == 1 || !parse_entire_ulong(argv[1], &tmp))
-        print_usage(usage, "--nsamples <N> requires an integer argument");
-      num_samples = tmp;
+        print_usage(usage, "--ncontigs <N> requires an integer argument");
+      ncontigs = tmp;
       argv += 2; argc -= 2;
     }
     else if(strcmp(argv[0],"--colour") == 0) {
@@ -82,11 +86,6 @@ int ctx_contigs(CmdArgs *args)
       die("Invalid .ctp file: %s", args->ctp_files[i]);
   }
 
-  // Get starting bkmer
-  // BinaryKmer bkmer, bkey;
-  // if(strlen(start_kmer) != kmer_size) die("length of kmer does not match kmer_size");
-  // bkmer = binary_kmer_from_str(start_kmer, kmer_size);
-
   //
   // Decide on memory
   //
@@ -120,7 +119,6 @@ int ctx_contigs(CmdArgs *args)
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
-  // uint64_t *visited = calloc2(2 * node_bit_fields, sizeof(uint64_t));
   RepeatWalker rptwlk;
   walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
@@ -147,23 +145,14 @@ int ctx_contigs(CmdArgs *args)
 
   status("Traversing graph...\n");
 
-  // Find start node
-  // hkey_t node;
-  // Orientation orient;
-  // db_node_get_key(bkmer, kmer_size, bkey);
-  // node = hash_table_find(&db_graph.ht, bkey);
-  // orient = db_node_get_orientation(bkmer, bkey);
-  Nucleotide lost_nuc;
-
-  // char bkmerstr[MAX_KMER_SIZE+1];
-
   hkey_t node;
   Orientation orient;
+  Nucleotide lost_nuc;
 
   size_t njunc;
-  size_t total_len = 0, total_junc = 0, dead_ends = 0, nloop = 0;
-  size_t *lengths = malloc2(num_samples * sizeof(size_t));
-  size_t *junctions = malloc2(num_samples * sizeof(size_t));
+  size_t total_len = 0, total_junc = 0, contigs_outdegree[5] = {0}, nloop = 0;
+  size_t *lengths = malloc2(ncontigs * sizeof(size_t));
+  size_t *junctions = malloc2(ncontigs * sizeof(size_t));
   double density, max_density = 0;
   size_t max_len = 0, max_junc = 0;
 
@@ -171,7 +160,7 @@ int ctx_contigs(CmdArgs *args)
   hkey_t *nodes = malloc2(path_cap * sizeof(hkey_t));
   Orientation *orients = malloc2(path_cap * sizeof(Orientation));
 
-  for(i = 0; i < num_samples; i++)
+  for(i = 0; i < ncontigs; i++)
   {
     do { node = db_graph_rand_node(&db_graph); }
     while(!db_node_has_col(&db_graph, node, colour));
@@ -193,8 +182,6 @@ int ctx_contigs(CmdArgs *args)
 
       while(graph_traverse(&wlk))
       {
-        // if(db_node_has_traversed(visited, wlk.node, wlk.orient)){ nloop++; break;}
-        // db_node_set_traversed(visited, wlk.node, wlk.orient);
         if(walker_attempt_traverse(&rptwlk, &wlk, wlk.node, wlk.orient, wlk.bkmer))
         {
           graph_walker_node_add_counter_paths(&wlk, lost_nuc);
@@ -212,9 +199,9 @@ int ctx_contigs(CmdArgs *args)
       }
 
       njunc += wlk.fork_count;
+      nloop += rptwlk.nbloom_entries;
       graph_walker_finish(&wlk);
       walker_fast_clear(&rptwlk, nodes, len);
-      // for(j = 0; j < len; j++) db_node_fast_clear_traversed(visited, nodes[j]);
     }
 
     if(print_contigs) {
@@ -223,7 +210,8 @@ int ctx_contigs(CmdArgs *args)
       putc('\n', stdout);
     }
 
-    dead_ends += (edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient) == 0);
+    size_t outdegree = edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient);
+    contigs_outdegree[outdegree]++;
     lengths[i] = len;
     junctions[i] = njunc;
     total_len += len;
@@ -235,32 +223,46 @@ int ctx_contigs(CmdArgs *args)
     max_junc = MAX2(max_junc, njunc);
   }
 
-  char total_len_str[100], total_junc_str[100];
-  ulong_to_str(total_len, total_len_str);
-  ulong_to_str(total_junc, total_junc_str);
-
   status("\n");
-  status("total_len: %s; total_junc: %s (%.2f%% junctions)\n",
-         total_len_str, total_junc_str, (100.0*total_junc)/total_len);
-  status("dead ends: %zu / %zu\n", dead_ends, num_samples);
-  status("mean length: %.2f\n", (double)total_len / num_samples);
-  status("mean junctions: %.1f per contig, %.2f%% nodes (1 every %.1f nodes)\n",
-          (double)total_junc / num_samples, (100.0 * total_junc) / total_len,
-          (double)total_len / total_junc);
 
-  qsort(lengths, num_samples, sizeof(size_t), cmp_size);
-  qsort(junctions, num_samples, sizeof(size_t), cmp_size);
+  qsort(lengths, ncontigs, sizeof(size_t), cmp_size);
+  qsort(junctions, ncontigs, sizeof(size_t), cmp_size);
 
-  double median_len = MEDIAN(lengths, num_samples);
-  double median_junc = MEDIAN(junctions, num_samples);
+  double median_len = MEDIAN(lengths, ncontigs);
+  double median_junc = MEDIAN(junctions, ncontigs);
 
-  status("Median contig length: %.2f\n", median_len);
-  status("Median junctions per contig: %.2f\n", median_junc);
-  status("Longest contig length: %zu\n", max_len);
-  status("Most junctions: %zu\n", max_junc);
-  status("Highest junction density: %.2f\n", max_density);
-  status("Contig ends which loop %zu [%.2f%%]\n", nloop,
-         (100.0 * nloop) / (2.0 * num_samples));
+  char ncontigs_str[90];
+  char len_mean_str[90], len_median_str[90], len_max_str[90], len_total_str[90];
+  char jnc_mean_str[90], jnc_median_str[90], jnc_max_str[90], jnc_total_str[90];
+
+  num_to_str((double)total_len / ncontigs, 1, len_mean_str);
+  num_to_str((double)total_junc / ncontigs, 1, jnc_mean_str);
+  num_to_str(median_len, 1, len_median_str);
+  num_to_str(median_junc, 1, jnc_median_str);
+  num_to_str(max_len, 1, len_max_str);
+  num_to_str(max_junc, 1, jnc_max_str);
+  num_to_str(total_len, 1, len_total_str);
+  num_to_str(total_junc, 1, jnc_total_str);
+
+  num_to_str(ncontigs, 1, ncontigs_str);
+
+  status("Pulled out %s contigs", ncontigs_str);
+  status("Lengths: mean: %s, median: %s, max: %s, total: %s",
+         len_mean_str, len_median_str, len_max_str, len_total_str);
+  status("Junctions: mean: %s, median: %s, max: %s, total: %s",
+         jnc_mean_str, jnc_median_str, jnc_max_str, jnc_total_str);
+  status("Max junction density: %.2f\n", max_density);
+  status("Contigs looping back to a kmer: %zu [%.2f%%]\n", nloop,
+         (100.0 * nloop) / ncontigs);
+
+  timestamp(ctx_msg_out);
+  message(" Contig outdegree: ");
+
+  for(i = 0; i <= 4; i++) {
+    message(" %zu: %zu [%.2f%%]", i, contigs_outdegree[i],
+            (100.0*contigs_outdegree[i])/(2*ncontigs));
+  }
+  message("\n");
 
   free(lengths);
   free(junctions);

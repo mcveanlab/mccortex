@@ -67,7 +67,25 @@ char* double_to_str(double num, int decimals, char* str);
 char* bytes_to_str(unsigned long num, int decimals, char* str);
 
 // Number to string using G to mean 10^9, M to mean 10^6 etc
-char* num_to_str(unsigned long num, int decimals, char* str);
+char* num_to_str(double num, int decimals, char* str);
+
+//
+// Floats and Doubles
+//
+
+// http://www.devx.com/tips/Tip/42853
+static inline int my_isnan(double x)
+{
+  volatile double temp = x;
+  return temp != x;
+}
+
+// http://www.devx.com/tips/Tip/42853
+static inline int my_isinf(double x)
+{
+  volatile double temp = x;
+  return ((temp == x) && ((temp - x) != 0.0));
+}
 
 //
 // Bits and binary

@@ -212,6 +212,9 @@ char* long_to_str(long num, char* result)
 // +1 for \0
 char* double_to_str(double num, int decimals, char* str)
 {
+  if(my_isnan(num)) return strcpy(str, "NaN");
+  else if(my_isinf(num)) return strcpy(str, "Inf");
+
   unsigned long whole_units = (unsigned long)num;
   num -= whole_units;
 
@@ -231,27 +234,24 @@ char* double_to_str(double num, int decimals, char* str)
   return str;
 }
 
-// str must be 26 + 3 + 1 + num decimals + 1 = 31+decimals bytes
-// breakdown:
-// strlen('18,446,744,073,709,551,615') = 26
-// strlen(' GB') = 3
-// strlen('.') = 1
-// +1 for '\0'
-char* bytes_to_str(unsigned long num, int decimals, char* str)
+// Format a number
+static inline char* units_to_str(double num, int decimals, char* str,
+                                 const char **units, size_t nunits, size_t usize)
 {
-  const unsigned int num_unit_sizes = 7;
-  const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
+  assert(nunits > 0 && usize > 0);
 
-  unsigned long unit;
-  unsigned long num_cpy = num;
+  if(my_isnan(num)) { strcpy(str, "NaN"); strcpy(str+3, units[0]); return str;}
+  else if(my_isinf(num)) { strcpy(str, "Inf"); strcpy(str+3, units[0]); return str;}
 
-  for(unit = 0; num_cpy >= 1024 && unit < num_unit_sizes; unit++)
-    num_cpy /= 1024;
+  size_t unit;
+  double num_tmp = num, num_of_units;
 
-  unsigned long bytes_in_unit = 0x1UL << (10 * unit);
-  double num_of_units = (double)num / bytes_in_unit;
+  for(unit = 0; num_tmp >= usize && unit < nunits; unit++)
+    num_tmp /= usize;
 
+  num_of_units = num / pow(usize, unit);
   double_to_str(num_of_units, decimals, str);
+
   char *ptr = str+strlen(str)-1;
   if(decimals > 0) {
     // Trim excess zeros
@@ -263,15 +263,23 @@ char* bytes_to_str(unsigned long num, int decimals, char* str)
   return str;
 }
 
-// Number to string using G to mean 10^9, M to mean 10^6 etc
-char* num_to_str(unsigned long num, int decimals, char* str)
+// str must be 26 + 3 + 1 + num decimals + 1 = 31+decimals bytes
+// breakdown:
+// strlen('18,446,744,073,709,551,615') = 26
+// strlen(' GB') = 3
+// strlen('.') = 1
+// +1 for '\0'
+char* bytes_to_str(unsigned long num, int decimals, char* str)
 {
-  bytes_to_str(num, decimals, str);
-  // Trim 'B' From the end
-  size_t len = strlen(str);
-  str[len-1] = '\0';
+  const char *units[7] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
+  return units_to_str(num, decimals, str, units, 7, 1024);
+}
 
-  return str;
+// Number to string using G to mean 10^9, M to mean 10^6 etc
+char* num_to_str(double num, int decimals, char* str)
+{
+  const char *units[4] = {"", "K", "M", "G"};
+  return units_to_str(num, decimals, str, units, 4, 1000);
 }
 
 /*

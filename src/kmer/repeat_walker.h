@@ -9,7 +9,7 @@ typedef struct
   uint64_t *const visited, *const bloom;
   const size_t bloom_nbits, mem_bytes;
   const uint32_t mask;
-  boolean bloom_dirty;
+  size_t nbloom_entries;
 } RepeatWalker;
 
 // GraphWalker wlk is proposing node and orient as next move
@@ -28,7 +28,7 @@ static inline boolean walker_attempt_traverse(RepeatWalker *rpt,
     uint32_t hash32 = graph_walker_fasthash(wlk, bkmer) & rpt->mask;
     boolean collision = bitset_has(rpt->bloom, hash32);
     bitset_set(rpt->bloom, hash32);
-    rpt->bloom_dirty = 1;
+    rpt->nbloom_entries++;
     return !collision;
   }
 }
@@ -44,7 +44,7 @@ static inline void walker_alloc(RepeatWalker *rpt,
   uint32_t mask = bitmask(nbits,uint32_t);
   RepeatWalker tmp = {.visited = mem, .bloom = mem+visited_words,
                       .bloom_nbits = nbits, .mem_bytes = nbytes, .mask = mask,
-                      .bloom_dirty = 0};
+                      .nbloom_entries = 0};
   memcpy(rpt, &tmp, sizeof(RepeatWalker));
 }
 
@@ -56,15 +56,15 @@ static inline void walker_dealloc(RepeatWalker *rpt)
 static inline void walker_clear(RepeatWalker *rpt)
 {
   memset(rpt->visited, 0, rpt->mem_bytes);
-  rpt->bloom_dirty = 0;
+  rpt->nbloom_entries = 0;
 }
 
 static inline void walker_fast_clear(RepeatWalker *rpt, hkey_t *nodes, size_t n)
 {
   size_t i, bmem = round_bits_to_words64(1UL<<rpt->bloom_nbits)*sizeof(uint64_t);
   for(i = 0; i < n; i++) db_node_fast_clear_traversed(rpt->visited, nodes[i]);
-  if(rpt->bloom_dirty) memset(rpt->bloom, 0, bmem);
-  rpt->bloom_dirty = 0;
+  if(rpt->nbloom_entries) memset(rpt->bloom, 0, bmem);
+  rpt->nbloom_entries = 0;
 }
 
 #endif /* REPEAT_WALKER_H_ */
