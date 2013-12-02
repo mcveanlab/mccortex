@@ -157,24 +157,23 @@ int ctx_contigs(CmdArgs *args)
   size_t max_len = 0, max_junc = 0;
 
   size_t len, path_cap = 4096;
-  hkey_t *nodes = malloc2(path_cap * sizeof(hkey_t));
-  Orientation *orients = malloc2(path_cap * sizeof(Orientation));
+  dBNode *nodes = malloc2(path_cap * sizeof(dBNode));
 
   for(i = 0; i < ncontigs; i++)
   {
     do { node = db_graph_rand_node(&db_graph); }
     while(!db_node_has_col(&db_graph, node, colour));
 
-    nodes[0] = node;
-    orients[0] = FORWARD;
+    nodes[0].key = node;
+    nodes[0].orient = FORWARD;
     len = 1;
     njunc = 0;
 
     for(orient = 0; orient < 2; orient++)
     {
       if(orient == 1) {
-        supernode_reverse(nodes, orients, len);
-        node = nodes[len-1];
+        supernode_reverse(nodes, len);
+        node = nodes[len-1].key;
       }
 
       graph_walker_init(&wlk, &db_graph, colour, colour, node, orient);
@@ -188,11 +187,10 @@ int ctx_contigs(CmdArgs *args)
           lost_nuc = binary_kmer_first_nuc(wlk.bkmer, db_graph.kmer_size);
           if(len == path_cap) {
             path_cap *= 2;
-            nodes = realloc2(nodes, path_cap * sizeof(hkey_t));
-            orients = realloc2(orients, path_cap * sizeof(Orientation));
+            nodes = realloc2(nodes, path_cap * sizeof(dBNode));
           }
-          nodes[len] = wlk.node;
-          orients[len] = wlk.orient;
+          nodes[len].key = wlk.node;
+          nodes[len].orient = wlk.orient;
           len++;
         }
         else break;
@@ -206,7 +204,7 @@ int ctx_contigs(CmdArgs *args)
 
     if(print_contigs) {
       fprintf(stdout, ">contig%zu\n", i);
-      supernode_print(stdout, &db_graph, nodes, orients, len);
+      db_nodes_print(nodes, len, &db_graph, stdout);
       putc('\n', stdout);
     }
 
@@ -267,7 +265,6 @@ int ctx_contigs(CmdArgs *args)
   free(lengths);
   free(junctions);
   free(nodes);
-  free(orients);
 
   // free(visited);
   free(db_graph.col_edges);

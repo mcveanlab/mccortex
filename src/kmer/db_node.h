@@ -5,6 +5,10 @@
 
 #include "graph_typedef.h"
 
+typedef struct {
+  hkey_t orient:1, key:63;
+} dBNode;
+
 //
 // Get Binary kmers
 //
@@ -73,13 +77,13 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
 #define db_node_oriented_bkmer(bkmer,or,ksize) \
         (or == FORWARD ? bkmer : binary_kmer_reverse_complement(bkmer,ksize))
 
-#define db_node_first_nuc(bkmer,or,k) \
-  ((or) == FORWARD ? binary_kmer_first_nuc((bkmer),(k)) \
-      : binary_nuc_complement(binary_kmer_last_nuc(bkmer)))
+#define db_node_first_nuc(bkmer,or,ksize) \
+  ((or) == FORWARD ? binary_kmer_first_nuc(bkmer,ksize) \
+                   : binary_nuc_complement(binary_kmer_last_nuc(bkmer)))
 
-#define db_node_last_nuc(bkmer,or,k) \
+#define db_node_last_nuc(bkmer,or,ksize) \
   ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
-      : binary_nuc_complement(binary_kmer_first_nuc(bkmer,(k))))
+                   : binary_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
 
 //
 // Edges
@@ -146,16 +150,9 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 //
 // dBNodeBuffer
 //
-// We might have fewer cache misses if we used this data structure
-typedef struct {
-  hkey_t node;
-  Orientation orient;
-} dBNode;
 
 typedef struct
 {
-  // hkey_t *nodes;
-  // Orientation *orients;
   dBNode *data;
   size_t len, capacity;
 } dBNodeBuffer;
@@ -167,5 +164,11 @@ void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient);
 
 void db_nodes_to_str(const dBNode *nodes, size_t num,
                      const dBGraph *db_graph, char *str);
+
+void db_nodes_print(const dBNode *nodes, size_t num,
+                    const dBGraph *db_graph, FILE *out);
+
+void db_nodes_gzprint(const dBNode *nodes, size_t num,
+                      const dBGraph *db_graph, gzFile out);
 
 #endif /* DB_NODE_H_ */

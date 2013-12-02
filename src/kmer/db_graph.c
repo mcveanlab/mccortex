@@ -228,21 +228,20 @@ void db_graph_healthcheck(const dBGraph *db_graph)
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
-  size_t i, capacity, num_of_cols, num_edge_cols;
-
-  capacity = db_graph->ht.capacity;
-  num_of_cols = db_graph->num_of_cols;
-  num_edge_cols = db_graph->num_edge_cols;
+  Edges (*col_edges)[db_graph->num_edge_cols];
+  Covg (*col_covgs)[db_graph->num_of_cols];
+  const size_t capacity = db_graph->ht.capacity;
+  size_t i;
 
   if(db_graph->node_in_cols != NULL)
   {
     size_t words = round_bits_to_words64(capacity);
     for(i = 0; i < words; i++)
-      db_graph->node_in_cols[num_of_cols*i+col] = 0;
+      db_graph->node_in_cols[db_graph->num_of_cols*i+col] = 0;
   }
 
-  Edges (*col_edges)[num_edge_cols] = (Edges (*)[num_edge_cols])db_graph->col_edges;
-  Covg (*col_covgs)[num_of_cols] = (Covg (*)[num_of_cols])db_graph->col_covgs;
+  col_edges = (Edges (*)[db_graph->num_edge_cols])db_graph->col_edges;
+  col_covgs = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
   if(db_graph->col_covgs != NULL) {
     for(i = 0; i < capacity; i++)

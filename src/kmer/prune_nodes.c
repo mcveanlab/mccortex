@@ -135,16 +135,16 @@ void prune_node(dBGraph *db_graph, hkey_t node)
   prune_node_without_edges(db_graph, node);
 }
 
-void prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len)
+void prune_supernode(dBGraph *db_graph, dBNode *nodes, size_t len)
 {
   size_t i;
   if(len == 0) return;
 
   // Remove connecting nodes to first and last nodes
-  prune_connecting_edges(db_graph, nodes[0]);
-  if(len > 1) prune_connecting_edges(db_graph, nodes[len-1]);
+  prune_connecting_edges(db_graph, nodes[0].key);
+  if(len > 1) prune_connecting_edges(db_graph, nodes[len-1].key);
 
-  for(i = 0; i < len; i++) prune_node_without_edges(db_graph, nodes[i]);
+  for(i = 0; i < len; i++) prune_node_without_edges(db_graph, nodes[i].key);
 }
 
 // Remove nodes that are in the hash table but not assigned any colours

@@ -439,7 +439,7 @@ static chrom_t* chrom_new()
     chrom_capacity *= 2;
     chroms = realloc2(chroms, chrom_capacity * sizeof(chrom_t*));
   }
-  seq_read_alloc(&chroms[num_chroms].r);
+  if(seq_read_alloc(&chroms[num_chroms].r) == NULL) die("Out of memory");
   return &chroms[num_chroms++];
 }
 

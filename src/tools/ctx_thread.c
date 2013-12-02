@@ -73,7 +73,7 @@ int ctx_thread(CmdArgs *args)
   boolean used_last_path = false;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcasecmp(argv[argi],"--col") == 0)
+    if(strcmp(argv[argi],"--col") == 0)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--col <ctxcol> <ctpcol> requires an argument");
@@ -85,7 +85,7 @@ int ctx_thread(CmdArgs *args)
       used_last_path = false;
       argi++;
     }
-    else if(strcasecmp(argv[argi],"--seq") == 0)
+    else if(strcmp(argv[argi],"--seq") == 0)
     {
       if(argi+1 == argc)
         print_usage(usage, "--seq <in.fa> requires an argument");
@@ -96,7 +96,7 @@ int ctx_thread(CmdArgs *args)
       used_last_path = true;
       argi++;
     }
-    else if(strcasecmp(argv[argi],"--seq2") == 0)
+    else if(strcmp(argv[argi],"--seq2") == 0)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> requires two arguments");
@@ -111,6 +111,11 @@ int ctx_thread(CmdArgs *args)
     }
     else print_usage(usage, "Unknown option: %s", argv[argi]);
   }
+
+  if(num_seq_cols == 0)
+    print_usage(usage, "need at least one: --col <c> --seq[2] <in> [in2]");
+  if(num_seq_cols > 0 && !used_last_path)
+    print_usage(usage, "--seq or --seq2 must follow --col");
 
   int argend = argi;
 

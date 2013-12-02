@@ -27,8 +27,8 @@ typedef struct
   uint64_t collisions[REHASH_LIMIT];
 } HashTable;
 
-typedef uint64_t hkey_t;
-#define HASH_NOT_FOUND UINT64_MAX
+typedef uint64_t hkey_t; // don't ever use the top bit, used later for orientation
+#define HASH_NOT_FOUND (UINT64_MAX>>1)
 
 #define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER))
 

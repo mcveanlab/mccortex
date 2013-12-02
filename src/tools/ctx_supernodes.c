@@ -37,24 +37,26 @@ static FILE *fout;
 static int print_syntax = PRINT_FASTA;
 
 static size_t ncap, snlen, supernode_idx = 0;
-static hkey_t *nodes;
-static Orientation *orients;
+static dBNode *nodes;
 
 // Store ends of supernode currently stored in `nodes` and `orients` arrays
 static inline void dot_store_ends()
 {
-  assert(supernodes[nodes[0]].assigned == 0);
-  assert(supernodes[nodes[snlen-1]].assigned == 0);
+  assert(supernodes[nodes[0].key].assigned == 0);
+  assert(supernodes[nodes[snlen-1].key].assigned == 0);
 
   sndata_t supernode0 = {.nodeid = supernode_idx, .assigned = 1,
                          .left = 1, .right = (snlen == 1),
-                         .lorient = orients[0], .rorient = orients[snlen-1]};
+                         .lorient = nodes[0].orient,
+                         .rorient = nodes[snlen-1].orient};
+
   sndata_t supernode1 = {.nodeid = supernode_idx, .assigned = 1,
                          .left = (snlen == 1), .right = 1,
-                         .lorient = orients[0], .rorient = orients[snlen-1]};
+                         .lorient = nodes[0].orient,
+                         .rorient = nodes[snlen-1].orient};
 
-  supernodes[nodes[0]] = supernode0;
-  supernodes[nodes[snlen-1]] = supernode1;
+  supernodes[nodes[0].key] = supernode0;
+  supernodes[nodes[snlen-1].key] = supernode1;
 }
 
 static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
@@ -115,21 +117,21 @@ static void dump_supernodes(hkey_t node)
 
   if(!bitset_has(visited, node))
   {
-    snlen = supernode_find(&db_graph, node, &nodes, &orients, &ncap);
-    for(i = 0; i < snlen; i++) bitset_set(visited, nodes[i]);
+    snlen = supernode_find(node, &nodes, &ncap, &db_graph);
+    for(i = 0; i < snlen; i++) bitset_set(visited, nodes[i].key);
 
-    supernode_normalise(nodes, orients, snlen);
+    supernode_normalise(nodes, snlen);
 
     switch(print_syntax) {
       case PRINT_FASTA:
         fprintf(fout, ">supernode%zu\n", supernode_idx);
-        supernode_print(fout, &db_graph, nodes, orients, snlen);
+        db_nodes_print(nodes, snlen, &db_graph, stdout);
         fputc('\n', fout);
         break;
       case PRINT_DOT:
         dot_store_ends();
         fprintf(fout, "  node%zu [label=", supernode_idx);
-        supernode_print(fout, &db_graph, nodes, orients, snlen);
+        db_nodes_print(nodes, snlen, &db_graph, stdout);
         fputs("]\n", fout);
         break;
     }
@@ -179,24 +181,20 @@ int ctx_supernodes(CmdArgs *args)
     else print_usage(usage, "Unknown argument: %s", argv[0]);
   }
 
-  if(argc == 0) print_usage(usage, NULL);
+  num_files = argc;
+  paths = argv;
+
+  if(num_files == 0) print_usage(usage, NULL);
 
   if(dot_use_points && print_syntax != PRINT_DOT)
     print_usage(usage, "--points only valid with --graphviz / --dot");
 
-  num_files = argc;
-  paths = argv;
   GraphFileReader files[num_files];
 
   for(i = 0; i < num_files; i++)
   {
     files[i] = INIT_GRAPH_READER;
-    int ret = graph_file_open(&files[i], paths[i], false);
-
-    if(ret == 0)
-      print_usage(usage, "Cannot read input graph file: %s", paths[i]);
-    else if(ret < 0)
-      print_usage(usage, "Input graph file isn't valid: %s", paths[i]);
+    graph_file_open(&files[i], paths[i], true);
 
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
       print_usage(usage, "Kmer sizes don't match [%u vs %u]",
@@ -258,8 +256,7 @@ int ctx_supernodes(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   ncap = 2048;
-  nodes = malloc(ncap * sizeof(hkey_t));
-  orients = malloc(ncap * sizeof(Orientation));
+  nodes = malloc(ncap * sizeof(dBNode));
 
   // dump supernodes
   switch(print_syntax) {
@@ -276,7 +273,6 @@ int ctx_supernodes(CmdArgs *args)
   if(args->output_file_set) fclose(fout);
 
   free(nodes);
-  free(orients);
   free(visited);
   free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);

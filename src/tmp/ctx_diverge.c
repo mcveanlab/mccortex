@@ -313,7 +313,7 @@ int ctx_diverge(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   read_t r1;
-  seq_read_alloc(&r1);
+  if(seq_read_alloc(&r1) == NULL) die("Out of memory");
 
   seq_parse_se_sf(input_fa_file, &r1, NULL, &prefs, stats, diverge_call, &data);
 

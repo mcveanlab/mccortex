@@ -163,7 +163,7 @@ int ctx_covg(CmdArgs *args)
   size_t j;
 
   size_t nodes_cap = 2048, nodes_len = 0;
-  hkey_t *nodes = malloc2(sizeof(hkey_t) * nodes_cap);
+  dBNode *nodes = malloc2(sizeof(dBNode) * nodes_cap);
 
   DeltaArray delta;
   delta_arr_alloc(&delta);
@@ -185,7 +185,7 @@ int ctx_covg(CmdArgs *args)
 
       if(contig.len > nodes_cap) {
         nodes_cap = ROUNDUP2POW(nodes_cap);
-        nodes = realloc2(nodes, sizeof(hkey_t) * nodes_cap);
+        nodes = realloc2(nodes, sizeof(dBNode) * nodes_cap);
       }
 
       // DEV check contig length vs kmer_size
@@ -194,14 +194,14 @@ int ctx_covg(CmdArgs *args)
       Nucleotide nuc;
 
       bkmer = binary_kmer_from_str(contig.buff, kmer_size);
-      nodes[0] = hash_table_find(&db_graph.ht, bkmer);
+      nodes[0].key = hash_table_find(&db_graph.ht, bkmer);
       uint32_t k, num_nodes = contig.len+1-kmer_size;
 
       for(j = 1; j <= num_nodes; j++)
       {
         nuc = binary_nuc_from_char(contig.buff[j+kmer_size-1]);
         bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-        nodes[j] = hash_table_find(&db_graph.ht, bkmer);
+        nodes[j].key = hash_table_find(&db_graph.ht, bkmer);
       }
 
       // Get contig covg

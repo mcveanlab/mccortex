@@ -146,7 +146,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
     if(prev_node != HASH_NOT_FOUND)
     {
       // Add gap
-      list->data[list->len].node = HASH_NOT_FOUND;
+      list->data[list->len].key = HASH_NOT_FOUND;
       list->data[list->len].orient = FORWARD;
       list->len++;
       prev_node = HASH_NOT_FOUND;
@@ -174,7 +174,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
       // Check prev_node so we insert a single gap if needed
       if(prev_node != HASH_NOT_FOUND || node != HASH_NOT_FOUND)
       {
-        list->data[list->len].node = node;
+        list->data[list->len].key = node;
         list->data[list->len].orient = db_node_get_orientation(bkmer, tmp_key);
         list->len++;
         prev_node = node;
@@ -182,7 +182,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
     }
   }
 
-  while(list->len > 0 && list->data[list->len-1].node == HASH_NOT_FOUND)
+  while(list->len > 0 && list->data[list->len-1].key == HASH_NOT_FOUND)
     list->len--;
 
   return first_node_offset;

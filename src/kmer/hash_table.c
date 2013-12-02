@@ -11,6 +11,7 @@ static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER}};
 size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
                       uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr)
 {
+  assert(nkmers < HASH_NOT_FOUND);
   uint64_t num_of_bits = 10;
   while(nkmers / (1UL << num_of_bits) > MAX_BUCKET_SIZE) num_of_bits++;
   uint64_t num_of_buckets = 1UL << num_of_bits;

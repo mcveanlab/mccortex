@@ -283,8 +283,9 @@ int ctx_subgraph(CmdArgs *args)
 
   // Load sequence and mark in first pass
   read_t r1, r2;
-  seq_read_alloc(&r1);
-  seq_read_alloc(&r2);
+  if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
+    die("Out of memory");
+
   for(i = 0; i < num_seed_files; i++)
     seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
 

@@ -164,17 +164,17 @@ int ctx_reads(CmdArgs *args)
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcasecmp(argv[argi], "--fastq") == 0) use_fq = true;
-    else if(strcasecmp(argv[argi], "--fasta") == 0) use_fa = true;
-    else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
-    else if(strcasecmp(argv[argi], "--seq") == 0)
+    if(strcmp(argv[argi], "--fastq") == 0) use_fq = true;
+    else if(strcmp(argv[argi], "--fasta") == 0) use_fa = true;
+    else if(strcmp(argv[argi], "--invert") == 0) invert = true;
+    else if(strcmp(argv[argi], "--seq") == 0)
     {
       if(argi + 2 >= argc) print_usage(usage, "Missing arguments");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file: %s", argv[argi+1]);
       argi += 2;
     }
-    else if(strcasecmp(argv[argi], "--seq2") == 0)
+    else if(strcmp(argv[argi], "--seq2") == 0)
     {
       if(argi + 4 >= argc) print_usage(usage, "Missing arguments");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
@@ -193,7 +193,7 @@ int ctx_reads(CmdArgs *args)
   int argend = argi;
 
   size_t i, num_files = argc - argend;
-  char *graph_paths[num_files];
+  char **graph_paths = argv + argend;
 
   if(num_files == 0)
     print_usage(usage, "Please specify input graph files");
@@ -232,11 +232,11 @@ int ctx_reads(CmdArgs *args)
   //
   for(argi = 0; argi < argend; argi++)
   {
-    if(strcasecmp(argv[argi],"--seq") == 0) {
+    if(strcmp(argv[argi],"--seq") == 0) {
       check_outfile_exists(argv[argi+2], false, use_fq);
       argi += 2;
     }
-    else if(strcasecmp(argv[argi],"--seq2") == 0) {
+    else if(strcmp(argv[argi],"--seq2") == 0) {
       check_outfile_exists(argv[argi+3], true, use_fq);
       argi += 3;
     }
@@ -275,13 +275,13 @@ int ctx_reads(CmdArgs *args)
   read_t r1, r2;
   size_t total_reads_printed = 0;
 
-  seq_read_alloc(&r1);
-  seq_read_alloc(&r2);
+  if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
+    die("Out of memory");
 
   for(argi = 0; argi < argend; argi++)
   {
-    char is_se = (strcasecmp(argv[argi], "--seq") == 0);
-    char is_pe = (strcasecmp(argv[argi], "--seq2") == 0);
+    char is_se = (strcmp(argv[argi], "--seq") == 0);
+    char is_pe = (strcmp(argv[argi], "--seq2") == 0);
 
     if(is_se || is_pe)
     {

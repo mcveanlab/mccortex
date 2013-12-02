@@ -5,11 +5,12 @@
 // Pruning nodes from the graph
 //
 #include "graph_typedef.h"
+#include "db_node.h"
 
 void prune_node(dBGraph *db_graph, hkey_t node);
 
 // Supernode pruning used by ctx_clean
-void prune_supernode(dBGraph *db_graph, hkey_t *nodes, size_t len);
+void prune_supernode(dBGraph *db_graph, dBNode *nodes, size_t len);
 
 // Used by ctx_subgraph
 // flags is a bit array, one bit per kmer

@@ -204,8 +204,8 @@ int ctx_build(CmdArgs *args)
                            .remove_dups_se = false, .remove_dups_pe = false};
 
   read_t r1, r2;
-  seq_read_alloc(&r1);
-  seq_read_alloc(&r2);
+  if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
+    die("Out of memory");
 
   uint64_t bases_loaded = 0, contigs_loaded = 0;
   boolean show_prefs = true;

@@ -14,8 +14,10 @@
 
 #include "repeat_walker.h"
 
+#define CTXVERBOSE 1
+
 // Don't store assembly info longer than 1000 junctions
-#define MAX_PATH 1000
+#define MAX_PATH 100
 
 typedef struct {
   read_t r1, r2;
@@ -77,8 +79,9 @@ static void paths_worker_alloc(AddPathsWorker *worker, uint64_t *visited,
 
   db_node_buf_alloc(&worker->nodebuf, 4096);
   graph_walker_alloc(&worker->wlk);
-  seq_read_alloc(&worker->job.r1);
-  seq_read_alloc(&worker->job.r2);
+
+  if(!seq_read_alloc(&worker->job.r1) || !seq_read_alloc(&worker->job.r2))
+    die("Out of memory");
 
   worker->insert_sizes = calloc2(2*(gap_limit+1), sizeof(uint64_t));
   worker->gap_sizes = worker->insert_sizes + gap_limit+1;
@@ -177,7 +180,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
 
     bases = nuc_rv + start_rv;
     plen = num_rv - start_rv;
-    node = nodes[pos].node;
+    node = nodes[pos].key;
     orient = rev_orient(nodes[pos].orient);
     prev_index = db_node_paths(db_graph, node);
 
@@ -208,7 +211,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
 
     bases = nuc_fw + start_fw;
     plen = num_fw - start_fw;
-    node = nodes[pos].node;
+    node = nodes[pos].key;
     orient = nodes[pos].orient;
     prev_index = db_node_paths(db_graph, node);
 
@@ -231,6 +234,12 @@ static void add_read_path(const dBNode *nodes, size_t len,
 {
   if(len < 3) return;
 
+  #ifdef CTXVERBOSE
+    printf("contig: ");
+    db_nodes_print(nodes, len, graph, stdout);
+    printf("\n");
+  #endif
+
   // Find forks in this colour
   Edges edges;
   size_t  i, j, k, num_fw = 0, num_rv = 0, indegree, outdegree, addfw, addrv;
@@ -242,7 +251,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
   for(i = 0; i < len; i++)
   {
-    edges = db_node_edges(graph, ctx_col, nodes[i].node);
+    edges = db_node_edges(graph, ctx_col, nodes[i].key);
     outdegree = edges_get_outdegree(edges, nodes[i].orient);
     indegree = edges_get_indegree(edges, nodes[i].orient);
 
@@ -250,13 +259,13 @@ static void add_read_path(const dBNode *nodes, size_t len,
     addrv = (indegree > 1 && i > 0);
 
     if(addfw) {
-      bkmer = db_node_bkmer(graph, nodes[i+1].node);
+      bkmer = db_node_bkmer(graph, nodes[i+1].key);
       nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, graph->kmer_size);
       nuc_fw[num_fw] = nuc;
       pos_fw[num_fw++] = i;
     }
     if(addrv) {
-      bkmer = db_node_bkmer(graph, nodes[i-1].node);
+      bkmer = db_node_bkmer(graph, nodes[i-1].key);
       nuc = nodes[i-1].orient == FORWARD
               ? binary_nuc_complement(binary_kmer_first_nuc(bkmer, graph->kmer_size))
               : binary_kmer_last_nuc(bkmer);
@@ -304,7 +313,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
                         Colour ctxcol, Colour ctpcol,
                         GraphWalker *wlk, uint32_t gap_limit)
 {
-  hkey_t node1 = nodebuf->data[nodebuf->len-1].node;
+  hkey_t node1 = nodebuf->data[nodebuf->len-1].key;
   Orientation orient1 = nodebuf->data[nodebuf->len-1].orient;
 
   #ifdef CTXVERBOSE
@@ -337,7 +346,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
     db_node_set_traversed(visited, wlk->node, wlk->orient);
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
-    nodes[pos].node = wlk->node;
+    nodes[pos].key = wlk->node;
     nodes[pos].orient = wlk->orient;
     pos++;
 
@@ -349,7 +358,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   db_node_fast_clear_traversed(visited, node1);
   for(i = 0; i < pos; i++)
-    db_node_fast_clear_traversed(visited, nodes[i].node);
+    db_node_fast_clear_traversed(visited, nodes[i].key);
 
   if(wlk->node == node2 && wlk->orient == orient2) {
     nodebuf->len += pos;
@@ -361,7 +370,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   pos = gap_limit-1;
-  nodes[pos].node = node2;
+  nodes[pos].key = node2;
   nodes[pos].orient = orient2;
   // pos is now the index at which we last added a node
 
@@ -386,14 +395,14 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     pos--;
-    nodes[pos].node = wlk->node;
+    nodes[pos].key = wlk->node;
     nodes[pos].orient = orient;
   }
 
   graph_walker_finish(wlk);
 
   for(i = pos; i < gap_limit; i++)
-    db_node_fast_clear_traversed(visited, nodes[i].node);
+    db_node_fast_clear_traversed(visited, nodes[i].key);
 
   if(success)
   {
@@ -425,7 +434,7 @@ void read_to_path(AddPathsWorker *worker)
   get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff, db_graph, nodebuf);
 
   for(i = 1; i < nodebuf->len; i++) {
-    if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
+    if((node = nodebuf->data[i].key) != HASH_NOT_FOUND &&
        edges_get_indegree(db_node_edges(db_graph,job->ctx_col,node),
                           nodebuf->data[i].orient) > 0)
     {
@@ -441,7 +450,7 @@ void read_to_path(AddPathsWorker *worker)
     // Insert gap
     db_node_buf_ensure_capacity(nodebuf, nodebuf->len+1);
     r2_start = nodebuf->len;
-    nodebuf->data[nodebuf->len].node = HASH_NOT_FOUND;
+    nodebuf->data[nodebuf->len].key = HASH_NOT_FOUND;
     nodebuf->data[nodebuf->len].orient = FORWARD;
     nodebuf->len++;
 
@@ -449,8 +458,8 @@ void read_to_path(AddPathsWorker *worker)
                                     db_graph, nodebuf);
 
     if(!useful_path_info && nodebuf->len > 0) {
-      for(i = r2_start; i+1 < nodebuf->len; i++) {
-        if((node = nodebuf->data[i].node) != HASH_NOT_FOUND &&
+      for(i = r2_start+1; i+1 < nodebuf->len; i++) {
+        if((node = nodebuf->data[i].key) != HASH_NOT_FOUND &&
            edges_get_outdegree(db_node_edges(db_graph,job->ctx_col,node),
                                nodebuf->data[i].orient) > 0)
         {
@@ -463,7 +472,7 @@ void read_to_path(AddPathsWorker *worker)
 
   if(nodebuf->len == 0 || !useful_path_info) return;
 
-  for(i = 0; i < nodebuf->len && nodebuf->data[i].node != HASH_NOT_FOUND; i++) {}
+  for(i = 0; i < nodebuf->len && nodebuf->data[i].key != HASH_NOT_FOUND; i++) {}
 
   if(i == nodebuf->len)
   {
@@ -482,11 +491,11 @@ void read_to_path(AddPathsWorker *worker)
 
     for(i = 0; i < end; i++, prev_node = node)
     {
-      node = nodebuf->data[i].node;
+      node = nodebuf->data[i].key;
       orient = nodebuf->data[i].orient;
 
       #ifdef CTXVERBOSE
-        char str[MAX_KMER_SIZE+1+7];
+        char str[MAX_KMER_SIZE+1+7] = {0};
         if(node == HASH_NOT_FOUND) strcpy(str, "(none)");
         else {
           BinaryKmer bkmer = db_node_bkmer(db_graph, node);
@@ -511,7 +520,7 @@ void read_to_path(AddPathsWorker *worker)
             add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
                           job->ctx_col, job->ctp_col);
 
-            nodebuf->data[end].node = node;
+            nodebuf->data[end].key = node;
             nodebuf->data[end].orient = orient;
             nodebuf->len = end+1;
           }
@@ -528,7 +537,7 @@ void read_to_path(AddPathsWorker *worker)
           }
         }
         else {
-          nodebuf->data[nodebuf->len].node = node;
+          nodebuf->data[nodebuf->len].key = node;
           nodebuf->data[nodebuf->len].orient = orient;
           nodebuf->len++;
         }
@@ -646,8 +655,8 @@ PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
   pool->db_graph = db_graph;
   pool->seen_pe = false;
 
-  seq_read_alloc(&pool->r1);
-  seq_read_alloc(&pool->r2);
+  if(!seq_read_alloc(&pool->r1) || !seq_read_alloc(&pool->r2))
+    die("Out of memory");
 
   size_t visited_words = 2 * round_bits_to_words64(db_graph->ht.capacity);
   pool->visited = calloc2(visited_words * num_of_threads, sizeof(uint64_t));
@@ -670,8 +679,9 @@ PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
   if(pthread_cond_init(&data_written_cond, NULL) != 0) die("pthread_cond init failed");
   if(pthread_cond_init(&data_read_cond, NULL) != 0) die("pthread_cond init failed");
 
-  seq_read_alloc((read_t*)&next_job.r1);
-  seq_read_alloc((read_t*)&next_job.r2);
+  if(seq_read_alloc((read_t*)&next_job.r1) == NULL ||
+     seq_read_alloc((read_t*)&next_job.r2) == NULL)
+    die("Out of memory");
 
   data_waiting = input_ended = false;
   // fout = output_handle;

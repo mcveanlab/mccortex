@@ -12,7 +12,7 @@ const GraphFileReader INIT_GRAPH_READER = INIT_GRAPH_READER_MACRO;
 void graph_file_filter_deconstruct(char *path, char **start, char **end)
 {
   char *ptr, *c;
-  ptr = *start = path;
+  *start = path;
   for(ptr = path; *ptr >= '0' && *ptr <= '9'; ptr++);
   if(ptr > path && *ptr == ':') { ptr++; *start = ptr; }
   // Count backwards to match /:[-,0123456789]*$/

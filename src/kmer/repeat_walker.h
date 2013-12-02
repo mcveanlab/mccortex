@@ -59,10 +59,11 @@ static inline void walker_clear(RepeatWalker *rpt)
   rpt->nbloom_entries = 0;
 }
 
-static inline void walker_fast_clear(RepeatWalker *rpt, hkey_t *nodes, size_t n)
+static inline void walker_fast_clear(RepeatWalker *rpt,
+                                     const dBNode *nodes, size_t n)
 {
   size_t i, bmem = round_bits_to_words64(1UL<<rpt->bloom_nbits)*sizeof(uint64_t);
-  for(i = 0; i < n; i++) db_node_fast_clear_traversed(rpt->visited, nodes[i]);
+  for(i = 0; i < n; i++) db_node_fast_clear_traversed(rpt->visited, nodes[i].key);
   if(rpt->nbloom_entries) memset(rpt->bloom, 0, bmem);
   rpt->nbloom_entries = 0;
 }

@@ -39,14 +39,14 @@ static const char usage[] =
 
 static inline size_t supernode_covg_mean(Covg *covgs, size_t len)
 {
+  assert(len > 0);
   size_t i, sum = 0;
   for(i = 0; i < len; i++) sum += covgs[i];
   return (sum+len/2) / len;
 }
 
 static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
-                                  hkey_t **nodes, Orientation **orients,
-                                  Covg **tmpcovgs, size_t *ncap,
+                                  dBNode **nodes, Covg **tmpcovgs, size_t *ncap,
                                   uint64_t *visited, uint64_t *covg_hist)
 {
   size_t i, len, cap;
@@ -55,11 +55,11 @@ static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
   if(!bitset_has(visited, node))
   {
     cap = *ncap;
-    len = supernode_find(db_graph, node, nodes, orients, ncap);
+    len = supernode_find(node, nodes, ncap, db_graph);
     if(cap < *ncap) *tmpcovgs = realloc2(*tmpcovgs, *ncap * sizeof(Covg));
     for(i = 0; i < len; i++) {
-      bitset_set(visited, (*nodes)[i]);
-      (*tmpcovgs)[i] = db_graph->col_covgs[(*nodes)[i]];
+      bitset_set(visited, (*nodes)[i].key);
+      (*tmpcovgs)[i] = db_graph->col_covgs[(*nodes)[i].key];
     }
 
     reads_arriving = supernode_covg(*tmpcovgs, len);
@@ -69,8 +69,7 @@ static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
 }
 
 static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
-                                   hkey_t **nodes, Orientation **orients,
-                                   Covg **tmpcovgs, size_t *ncap,
+                                   dBNode **nodes, Covg **tmpcovgs, size_t *ncap,
                                    uint64_t *visited, uint32_t covg_threshold)
 {
   size_t i, len, cap;
@@ -79,20 +78,21 @@ static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
   if(!bitset_has(visited, node))
   {
     cap = *ncap;
-    len = supernode_find(db_graph, node, nodes, orients, ncap);
+    len = supernode_find(node, nodes, ncap, db_graph);
     if(cap < *ncap) *tmpcovgs = realloc2(*tmpcovgs, *ncap * sizeof(Covg));
 
     for(i = 0; i < len; i++) {
-      bitset_set(visited, (*nodes)[i]);
-      (*tmpcovgs)[i] = db_graph->col_covgs[(*nodes)[i]];
+      bitset_set(visited, (*nodes)[i].key);
+      (*tmpcovgs)[i] = db_graph->col_covgs[(*nodes)[i].key];
     }
 
     reads_arriving = supernode_covg(*tmpcovgs, len);
 
     #ifdef DEBUG_SUPERNODE
       fputs("sn_thresh: ", stdout);
-      supernode_print(stdout, db_graph, *nodes, *orients, len);
-      printf(" len: %zu covg: %u threshold: %u\n", len, reads_arriving, covg_threshold);
+      db_nodes_print(*nodes, len, db_graph, stdout);
+      printf(" len: %zu covg: %u threshold: %u\n", len,
+             reads_arriving, covg_threshold);
     #endif
 
     if(reads_arriving < covg_threshold) {
@@ -102,8 +102,8 @@ static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
 }
 
 static inline void clip_tip(hkey_t node, dBGraph *db_graph,
-                            hkey_t **nodes, Orientation **orients,
-                            size_t *ncap, uint64_t *visited, size_t min_keep_len)
+                            dBNode **nodes, size_t *ncap,
+                            uint64_t *visited, size_t min_keep_len)
 {
   size_t i, len;
   Edges first, last;
@@ -111,18 +111,18 @@ static inline void clip_tip(hkey_t node, dBGraph *db_graph,
 
   if(!bitset_has(visited, node))
   {
-    len = supernode_find(db_graph, node, nodes, orients, ncap);
+    len = supernode_find(node, nodes, ncap, db_graph);
 
-    for(i = 0; i < len; i++) bitset_set(visited, (*nodes)[i]);
+    for(i = 0; i < len; i++) bitset_set(visited, (*nodes)[i].key);
 
-    first = db_node_edges_union(db_graph, (*nodes)[0]);
-    last = db_node_edges_union(db_graph, (*nodes)[len-1]);
-    in = edges_get_indegree(first, (*orients)[0]);
-    out = edges_get_outdegree(last, (*orients)[len-1]);
+    first = db_node_edges_union(db_graph, (*nodes)[0].key);
+    last = db_node_edges_union(db_graph, (*nodes)[len-1].key);
+    in = edges_get_indegree(first, (*nodes)[0].orient);
+    out = edges_get_outdegree(last, (*nodes)[len-1].orient);
 
     #ifdef DEBUG_SUPERNODE
       fputs("sn_clip: ", stdout);
-      supernode_print(stdout, db_graph, *nodes, *orients, len);
+      db_nodes_print(*nodes, len, db_graph, stdout);
       fprintf(stdout, " len: %zu junc: %i\n", len, in+out);
     #endif
 
@@ -205,8 +205,7 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
 static uint32_t clean_supernodes(dBGraph *db_graph, boolean clean,
                                  uint32_t covg_threshold, double seq_depth,
                                  char *dump_covgs,
-                                 hkey_t **nodes, Orientation **orients,
-                                 size_t *ncap, uint64_t *visited)
+                                 dBNode **nodes, size_t *ncap, uint64_t *visited)
 {
   if(db_graph->ht.unique_kmers == 0) return covg_threshold;
   uint64_t *covg_hist;
@@ -218,7 +217,7 @@ static uint32_t clean_supernodes(dBGraph *db_graph, boolean clean,
     // Get supernode coverages
     covg_hist = calloc2(HISTSIZE, sizeof(uint64_t));
     HASH_TRAVERSE(&db_graph->ht, covg_histogram,
-                  db_graph, nodes, orients, &tmpcovgs, ncap, visited, covg_hist);
+                  db_graph, nodes, &tmpcovgs, ncap, visited, covg_hist);
 
     if(dump_covgs != NULL) dump_covg_histogram(dump_covgs, covg_hist);
 
@@ -245,7 +244,7 @@ static uint32_t clean_supernodes(dBGraph *db_graph, boolean clean,
       warn("Supernode cleaning failed, cleaning with threshold of <= 1");
     else {
       HASH_TRAVERSE(&db_graph->ht, supernode_clean,
-                    db_graph, nodes, orients, &tmpcovgs, ncap, visited,
+                    db_graph, nodes, &tmpcovgs, ncap, visited,
                     covg_threshold);
       memset(visited, 0, visited_words * sizeof(uint64_t));
     }
@@ -444,8 +443,7 @@ int ctx_clean(CmdArgs *args)
 
   // Variables possibly used
   size_t ncap = 2048;
-  hkey_t *nodes = malloc2(ncap * sizeof(hkey_t));
-  Orientation *orients = malloc2(ncap * sizeof(Orientation));
+  dBNode *nodes = malloc2(ncap * sizeof(dBNode));
   size_t visited_words = round_bits_to_words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(visited_words, sizeof(uint64_t));
 
@@ -457,7 +455,7 @@ int ctx_clean(CmdArgs *args)
   if(tip_cleaning) {
     status("Clipping tips shorter than %u...\n", max_tip_len);
     HASH_TRAVERSE(&db_graph.ht, clip_tip,
-                  &db_graph, &nodes, &orients, &ncap, visited, max_tip_len);
+                  &db_graph, &nodes, &ncap, visited, max_tip_len);
     ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);
     status("Remaining kmers: %s\n", rem_kmers_str);
     memset(visited, 0, visited_words * sizeof(uint64_t));
@@ -467,13 +465,12 @@ int ctx_clean(CmdArgs *args)
   if(supernode_cleaning || dump_covgs) {
     threshold = clean_supernodes(&db_graph, supernode_cleaning,
                                  threshold, seq_depth,
-                                 dump_covgs, &nodes, &orients, &ncap, visited);
+                                 dump_covgs, &nodes, &ncap, visited);
     ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);
     status("Remaining kmers: %s\n", rem_kmers_str);
   }
 
   free(nodes);
-  free(orients);
   free(visited);
 
   db_graph.ginfo[0].cleaning.remv_low_cov_sups_thresh = threshold;

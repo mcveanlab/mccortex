@@ -341,11 +341,12 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
                   SeqLoadingStats *stats)
 {
-  assert(!prefs->must_exist_in_graph || prefs->must_exist_in_edges == NULL);
+  assert(!prefs->must_exist_in_graph || prefs->must_exist_in_edges != NULL);
 
   dBGraph *graph = prefs->db_graph;
   GraphInfo *ginfo = graph->ginfo;
   size_t i, load_ncols = graph_file_outncols(file);
+  assert(load_ncols > 0);
 
   graph_file_status(file);
   fseek(file->fh, file->hdr_size, SEEK_SET);

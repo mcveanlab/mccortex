@@ -1,4 +1,5 @@
 #include "global.h"
+#include "db_graph.h"
 #include "db_node.h"
 #include "util.h"
 
@@ -137,7 +138,7 @@ void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient)
 {
   size_t n = buf->len;
   db_node_buf_ensure_capacity(buf, n+1);
-  buf->data[n].node = node;
+  buf->data[n].key = node;
   buf->data[n].orient = orient;
   buf->len++;
 }
@@ -149,17 +150,56 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
 
   size_t i;
   uint32_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer = db_node_bkmer(db_graph, nodes[0].node);
+  BinaryKmer bkmer = db_node_bkmer(db_graph, nodes[0].key);
   Nucleotide nuc;
 
   binary_kmer_to_str(bkmer, kmer_size, str);
   if(nodes[0].orient == REVERSE) reverse_complement_str(str, kmer_size);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_bkmer(db_graph, nodes[i].node);
+    bkmer = db_node_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
     str[kmer_size+i-1] = binary_nuc_to_char(nuc);
   }
 
   str[kmer_size+num-1] = '\0';
+}
+
+void db_nodes_print(const dBNode *nodes, size_t num,
+                    const dBGraph *db_graph, FILE *out)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+  size_t i;
+  Nucleotide nuc;
+  BinaryKmer bkmer;
+  char tmp[MAX_KMER_SIZE+1];
+
+  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0].key, nodes[0].orient);
+  binary_kmer_to_str(bkmer, kmer_size, tmp);
+  fputs(tmp, out);
+
+  for(i = 1; i < num; i++) {
+    bkmer = db_node_bkmer(db_graph, nodes[i].key);
+    nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    fputc(binary_nuc_to_char(nuc), out);
+  }
+}
+
+void db_nodes_gzprint(const dBNode *nodes, size_t num,
+                      const dBGraph *db_graph, gzFile out)
+{
+  size_t i, kmer_size = db_graph->kmer_size;
+  Nucleotide nuc;
+  BinaryKmer bkmer;
+  char tmp[MAX_KMER_SIZE+1];
+
+  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0].key, nodes[0].orient);
+  binary_kmer_to_str(bkmer, kmer_size, tmp);
+  gzputs(out, tmp);
+
+  for(i = 1; i < num; i++) {
+    bkmer = db_node_bkmer(db_graph, nodes[i].key);
+    nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    gzputc(out, binary_nuc_to_char(nuc));
+  }
 }

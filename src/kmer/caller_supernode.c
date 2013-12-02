@@ -8,16 +8,6 @@
 #define DEBUG_CALLER 1
 #endif
 
-// Orient supernode
-static void supernode_naturalise(hkey_t *nlist, Orientation *olist, size_t len)
-{
-  // Sort supernode into forward orientation
-  if(len == 1)
-    olist[0] = FORWARD;
-  else if(nlist[0] > nlist[len-1])
-    supernode_reverse(nlist, olist, len);
-}
-
 // Create a supernode starting at node/or.  Store in snode.
 // Ensure snode->nodes and snode->orients point to valid memory before passing
 // Returns 0 on failure, otherwise snode->num_of_nodes
@@ -39,36 +29,33 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
     printf(" create %s:%i\n", tmpstr, (int)orient);
   #endif
 
-  CallerNodeBuf *nbuf = snode->nbuf;
+  dBNodeBuffer *nbuf = snode->nbuf;
 
-  if(nbuf->len + 1 >= nbuf->cap) {
-    nbuf->cap *= 2;
-    nbuf->nodes = realloc2(nbuf->nodes, nbuf->cap * sizeof(hkey_t));
-    nbuf->orients = realloc2(nbuf->orients, nbuf->cap * sizeof(Orientation));
+  if(nbuf->len + 1 >= nbuf->capacity) {
+    nbuf->capacity *= 2;
+    nbuf->data = realloc2(nbuf->data, nbuf->capacity * sizeof(*(nbuf->data)));
   }
 
   snode->nbuf_offset = nbuf->len;
-  nbuf->nodes[snode->nbuf_offset] = node;
-  nbuf->orients[snode->nbuf_offset] = orient;
+  dBNode first = {.key = node, .orient = orient};
+  nbuf->data[snode->nbuf_offset] = first;
 
-  nbuf->len = supernode_extend(db_graph, &nbuf->nodes,
-                               &nbuf->orients, snode->nbuf_offset,
-                               &nbuf->cap, true);
+  nbuf->len = supernode_extend(&nbuf->data, snode->nbuf_offset,
+                               &nbuf->capacity, true, db_graph);
 
   snode->num_of_nodes = nbuf->len - snode->nbuf_offset;
 
-  hkey_t *nodes = snode_nodes(snode);
-  Orientation *orients = snode_orients(snode);
-  supernode_naturalise(nodes, orients, snode->num_of_nodes);
+  dBNode *nodes = snode_nodes(snode);
+  supernode_normalise(nodes, snode->num_of_nodes);
 
   snode->first_pathpos = NULL;
   snode->num_prev = 0;
   snode->num_next = 0;
 
-  first_node = nodes[0];
-  first_or = opposite_orientation(orients[0]);
-  last_node = nodes[snode->num_of_nodes-1];
-  last_or = orients[snode->num_of_nodes-1];
+  first_node = nodes[0].key;
+  first_or = opposite_orientation(nodes[0].orient);
+  last_node = nodes[snode->num_of_nodes-1].key;
+  last_or = nodes[snode->num_of_nodes-1].orient;
 
   // Prev nodes
   union_edges = db_node_edges_union(db_graph, first_node);

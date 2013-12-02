@@ -212,14 +212,15 @@ static void graph_write_node(hkey_t node, const dBGraph *db_graph,
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
 uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
-                          const GraphFileHeader *header, size_t intocol,
-                          const Colour *colours, Colour start_col,
-                          size_t num_of_cols)
+                         const GraphFileHeader *header, size_t intocol,
+                         const Colour *colours, Colour start_col,
+                         size_t num_of_cols)
 {
   // Cannot specify both colours array and start_col
   assert(colours == NULL || start_col == 0);
   assert(db_graph->col_edges != NULL);
   assert(db_graph->col_covgs != NULL);
+  assert(num_of_cols > 0);
 
   size_t i;
   uint64_t num_nodes_dumped = 0;

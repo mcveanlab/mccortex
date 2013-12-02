@@ -44,7 +44,7 @@ static void add_kmer(BinaryKmer bkmer, dBGraph *db_graph, dBNodeBuffer *nodebuf)
   hkey_t node = hash_table_find(&db_graph->ht, bkey);
   if(node == HASH_NOT_FOUND) node_not_in_graph(bkmer, db_graph);
   Orientation orient = db_node_get_orientation(bkmer, bkey);
-  nodebuf->data[nodebuf->len].node = node;
+  nodebuf->data[nodebuf->len].key = node;
   nodebuf->data[nodebuf->len].orient = orient;
   nodebuf->len++;
 }
@@ -67,13 +67,13 @@ static void walk_graph(hkey_t node, Orientation orient,
     if(db_node_has_traversed(visited, node, orient)) break;
     db_node_set_traversed(visited, node, orient);
 
-    buf->data[buf->len].node = node;
+    buf->data[buf->len].key = node;
     buf->data[buf->len].orient = orient;
     buf->len++;
   }
 
   for(i = origlen; i < buf->len; i++)
-    db_node_fast_clear_traversed(visited, buf->data[i].node);
+    db_node_fast_clear_traversed(visited, buf->data[i].key);
 }
 
 static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
@@ -92,11 +92,11 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
   size_t i, j;
 
   // extend forwards and backwards
-  walk_graph(readbuffw->data[readbuffw->len-1].node,
+  walk_graph(readbuffw->data[readbuffw->len-1].key,
              readbuffw->data[readbuffw->len-1].orient,
              readbuffw, contig->max_walk, db_graph, contig->visited);
 
-  walk_graph(readbuffw->data[0].node,
+  walk_graph(readbuffw->data[0].key,
              opposite_orientation(readbuffw->data[0].orient),
              readbufrv, contig->max_walk, db_graph, contig->visited);
 
@@ -106,7 +106,7 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
 
   // Reverse orientation for backwards kmers
   for(i = 0, j = readbufrv->len-1; i < readbufrv->len; i++, j--) {
-    readbuffw->data[i].node = readbufrv->data[j].node;
+    readbuffw->data[i].key = readbufrv->data[j].key;
     readbuffw->data[i].orient = opposite_orientation(readbufrv->data[j].orient);
   }
 
@@ -222,8 +222,9 @@ int ctx_extend(CmdArgs *args)
 
   // Parse sequence
   read_t r1, r2;
-  seq_read_alloc(&r1);
-  seq_read_alloc(&r2);
+  if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
+    die("Out of memory");
+
   seq_parse_se_sf(seq_fa_file, &r1, &r2, &prefs, stats, extend_reads, &contig);
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
