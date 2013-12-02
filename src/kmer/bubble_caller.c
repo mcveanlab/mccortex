@@ -19,10 +19,6 @@
 #include "caller_supernode.h"
 #include "supernode.h"
 
-// Hash functions
-// #include "lookup3.h"
-// #include "city.h"
-
 #ifdef CTXVERBOSE
 #define DEBUG_CALLER 1
 #endif

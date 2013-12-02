@@ -276,7 +276,6 @@ int ctx_thread(CmdArgs *args)
         memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(uint8_t));
 
         parse_entire_size(argv[argi+1], &graph_col);
-        add_paths_set_colours(pool, 0, graph_col); // no need to pass second col
 
         // Pick correct binary and colour
         get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
@@ -288,13 +287,13 @@ int ctx_thread(CmdArgs *args)
       }
       else if(strcmp(argv[argi], "--seq") == 0) {
         add_read_paths_to_graph(pool, seqfiles[sf], NULL, gap_limit,
-                                &prefs, stats);
+                                0, graph_col, &prefs, stats);
         argi += 1;
         sf++;
       }
       else if(strcmp(argv[argi], "--seq2") == 0) {
         add_read_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1], gap_limit,
-                                &prefs, stats);
+                                0, graph_col, &prefs, stats);
         argi += 2;
         sf += 2;
       }

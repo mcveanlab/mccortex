@@ -13,10 +13,11 @@
 static boolean invalid_bases[256];
 boolean fastq_qual_too_small = false, fastq_qual_too_big = false;
 
-#define init_bases_check() do {                                                \
-    memset(invalid_bases, 0, sizeof(invalid_bases));                           \
-    fastq_qual_too_small = fastq_qual_too_big = false;                         \
-  } while(0)
+static inline void init_bases_check()
+{
+  memset(invalid_bases, 0, sizeof(invalid_bases));
+  fastq_qual_too_small = fastq_qual_too_big = false;
+}
 
 int prev_guess_fastq_format = -1;
 
@@ -165,15 +166,12 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
       tmp_key = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
-      // if(node != HASH_NOT_FOUND) {
-      //   if(!db_node_has_col(db_graph, node, colour)) node = HASH_NOT_FOUND;
-      //   if(first_node_offset == -1)
-      //     first_node_offset = contig_start + next_base + 1 - kmer_size;
-      // }
-
       // Check prev_node so we insert a single gap if needed
       if(prev_node != HASH_NOT_FOUND || node != HASH_NOT_FOUND)
       {
+        if(first_node_offset == -1)
+          first_node_offset = contig_start + next_base + 1 - kmer_size;
+
         list->data[list->len].key = node;
         list->data[list->len].orient = db_node_get_orientation(bkmer, tmp_key);
         list->len++;
