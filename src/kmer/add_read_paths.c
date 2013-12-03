@@ -417,69 +417,31 @@ void read_to_path(AddPathsWorker *worker)
   AddPathsJob *job = &worker->job;
   const size_t ctx_col = job->ctx_col;
 
-  // printf("Got %zu: %s %s\n", worker->wid, job->r1.seq.b, job->r2.seq.b);
-
   size_t i, r2_start = 0;
   int r2_offset = -1;
   nodebuf->len = 0;
-  // boolean useful_path_info = false;
-  // hkey_t node;
 
   get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff, db_graph, nodebuf);
-
-  /*
-  for(i = 1; i < nodebuf->len; i++) {
-    if((node = nodebuf->data[i].key) != HASH_NOT_FOUND &&
-       edges_get_indegree(db_node_edges(db_graph,ctx_col,node),
-                          nodebuf->data[i].orient) > 0)
-    {
-      useful_path_info = true;
-      break;
-    }
-  }
-  */
 
   if(job->r2.seq.end >= db_graph->kmer_size)
   {
     seq_read_reverse_complement(&job->r2);
 
-    // Insert gap
-    db_node_buf_ensure_capacity(nodebuf, nodebuf->len+1);
-    nodebuf->data[nodebuf->len].key = HASH_NOT_FOUND;
-    nodebuf->data[nodebuf->len].orient = FORWARD;
-    nodebuf->len++;
+    if(nodebuf->len > 0)
+    {
+      // Insert gap
+      db_node_buf_ensure_capacity(nodebuf, nodebuf->len+1);
+      nodebuf->data[nodebuf->len].key = HASH_NOT_FOUND;
+      nodebuf->data[nodebuf->len].orient = FORWARD;
+      nodebuf->len++;
+    }
 
     r2_start = nodebuf->len;
     r2_offset = get_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
                                     db_graph, nodebuf);
-
-    // printf("[%zu] Using mate.. %zu useful_path_info: %i r2: %i\n",
-    //        worker->wid,  nodebuf->len, useful_path_info, r2_offset);
-
-    // useful_path_info = (useful_path_info || r2_offset != -1);
-
-    /*
-    // Check if mate has given us information
-    if(!useful_path_info && r2_offset != -1) {
-      for(i = r2_start+1; i+1 < nodebuf->len; i++) {
-        if((node = nodebuf->data[i].key) != HASH_NOT_FOUND &&
-           edges_get_outdegree(db_node_edges(db_graph,ctx_col,node),
-                               nodebuf->data[i].orient) > 0)
-        {
-          useful_path_info = true;
-          break;
-        }
-      }
-    }
-    */
   }
 
   if(nodebuf->len == 0) return;
-
-  // if(nodebuf->len == 0 || !useful_path_info) {
-  //   printf("[%zu] No data\n", worker->wid);
-  //   return;
-  // }
 
   // Check for gaps
   for(i = 0; i < nodebuf->len && nodebuf->data[i].key != HASH_NOT_FOUND; i++) {}
