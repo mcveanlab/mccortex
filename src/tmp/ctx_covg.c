@@ -34,7 +34,7 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
   Nucleotide nuc;
   size_t next_base;
   boolean found;
-  uint32_t kmer_size = db_graph->kmer_size;
+  size_t kmer_size = db_graph->kmer_size;
 
   bkmer = binary_kmer_from_str(contig, kmer_size);
   bkmer = binary_kmer_right_shift_one_base(bkmer);
@@ -73,7 +73,7 @@ int ctx_covg(CmdArgs *args)
   else if(!is_binary)
     print_usage(usage, "Input binary file isn't valid: %s", in_ctx_path);
 
-  uint32_t kmer_size = gheader.kmer_size;
+  size_t kmer_size = gheader.kmer_size;
 
   gzFile vcf;
   if((vcf = gzopen(in_vcf_path, "r")) == NULL)
@@ -93,7 +93,7 @@ int ctx_covg(CmdArgs *args)
   if(num_col_given > 0 && gheader.num_of_cols != num_col_given)
     die("You're using more colours than you need!");
 
-  uint32_t cols_used = num_col_given > 0 ? num_col_given : gheader.num_of_cols;
+  size_t cols_used = num_col_given > 0 ? num_col_given : gheader.num_of_cols;
 
   // Figure out how much memory to use
   size_t bits_per_kmer, kmers_in_hash;
@@ -116,7 +116,7 @@ int ctx_covg(CmdArgs *args)
   strbuf_alloc(&contig, 1024);
 
   // Read header
-  uint32_t num_samples = parse_vcf_header(&line, vcf, false, in_vcf_path);
+  size_t num_samples = parse_vcf_header(&line, vcf, false, in_vcf_path);
 
   vcf_entry_t vcf_entry;
   vcf_entry_alloc(&vcf_entry, num_samples);
@@ -195,7 +195,7 @@ int ctx_covg(CmdArgs *args)
 
       bkmer = binary_kmer_from_str(contig.buff, kmer_size);
       nodes[0].key = hash_table_find(&db_graph.ht, bkmer);
-      uint32_t k, num_nodes = contig.len+1-kmer_size;
+      size_t k, num_nodes = contig.len+1-kmer_size;
 
       for(j = 1; j <= num_nodes; j++)
       {

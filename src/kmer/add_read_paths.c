@@ -38,6 +38,7 @@ typedef struct
   AddPathsJob job; // Incoming read
   // Biggest gap between reads we'll try to traverse
   uint64_t *insert_sizes, *gap_sizes; // length gap_limit+1
+  volatile boolean got_job;
 } AddPathsWorker;
 
 struct PathsWorkerPool
@@ -73,7 +74,7 @@ volatile AddPathsJob next_job;
 static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
                                size_t gap_limit, dBGraph *db_graph)
 {
-  AddPathsWorker tmp = {.wid = wid, .db_graph = db_graph};
+  AddPathsWorker tmp = {.wid = wid, .db_graph = db_graph, .got_job = false};
   memcpy(worker, &tmp, sizeof(AddPathsWorker));
 
   db_node_buf_alloc(&worker->nodebuf, 4096);
@@ -237,7 +238,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
   #ifdef CTXVERBOSE
     printf("contig: ");
     db_nodes_print(nodes, len, graph, stdout);
-    printf("\n");
+    printf(" [len: %zu]\n", len);
   #endif
 
   // Find forks in this colour
@@ -524,38 +525,42 @@ void read_to_path(AddPathsWorker *worker)
   }
 }
 
+// Multithreaded notes
+// pthread_cond_wait releases the lock
+
 void* add_paths_thread(void *ptr)
 {
   AddPathsWorker *worker = (AddPathsWorker*)ptr;
-  int got_job;
+  worker->got_job = false;
 
   while(data_waiting || !input_ended)
   {
-    got_job = 0;
-
     pthread_mutex_lock(&reader_mutex);
 
     // wait until data are ready
-    pthread_mutex_lock(&data_written_mutex);
-    while(!data_waiting && !input_ended)
-      pthread_cond_wait(&data_written_cond, &data_written_mutex);
-    pthread_mutex_unlock(&data_written_mutex);
+    if(!data_waiting && !input_ended) {
+      pthread_mutex_lock(&data_written_mutex);
+      while(!data_waiting && !input_ended)
+        pthread_cond_wait(&data_written_cond, &data_written_mutex);
+      pthread_mutex_unlock(&data_written_mutex);
+    }
 
     if(data_waiting) {
       AddPathsJob tmp_job;
       SWAP(worker->job, next_job, tmp_job);
+      worker->got_job = true;
       data_waiting = false;
-      got_job = 1;
-    }
 
-    pthread_mutex_lock(&data_read_mutex);
-    pthread_cond_signal(&data_read_cond);
-    pthread_mutex_unlock(&data_read_mutex);
+      pthread_mutex_lock(&data_read_mutex);
+      pthread_cond_signal(&data_read_cond);
+      pthread_mutex_unlock(&data_read_mutex);
+    }
 
     pthread_mutex_unlock(&reader_mutex);
 
     // Do work
-    if(got_job) read_to_path(worker);
+    if(worker->got_job) read_to_path(worker);
+    worker->got_job = false;
   }
 
   pthread_exit(NULL);
@@ -725,6 +730,29 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
   pthread_attr_destroy(&thread_attr);
 
   free(pool);
+}
+
+void wait_for_jobs_to_finish(PathsWorkerPool *pool)
+{
+  size_t i;
+  status("Waiting for jobs to complete...");
+  // Wait until all data consumed by workers
+  while(data_waiting) {
+    // Signal data waiting
+    pthread_mutex_lock(&data_written_mutex);
+    pthread_cond_signal(&data_written_cond);
+    pthread_mutex_unlock(&data_written_mutex);
+    // Wait for data to be taken
+    pthread_mutex_lock(&data_read_mutex);
+    pthread_cond_wait(&data_read_cond, &data_read_mutex);
+    pthread_mutex_unlock(&data_read_mutex);
+  }
+  // Wait until all workers finish job
+  while(1) {
+    for(i = 0; i < pool->num_of_threads && !pool->workers[i].got_job; i++);
+    if(i < pool->num_of_threads) usleep(500);
+    else break;
+  }
 }
 
 void add_read_paths_to_graph(PathsWorkerPool *pool,

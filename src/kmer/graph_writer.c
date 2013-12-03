@@ -48,8 +48,7 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 {
-  uint32_t i;
-  size_t b = 0;
+  size_t i, b = 0;
 
   fwrite("CORTEX", sizeof(char), strlen("CORTEX"), fh);
   fwrite(&h->version, sizeof(uint32_t), 1, fh);
@@ -274,9 +273,9 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
 }
 
 uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
-                         uint32_t version,
-                         const Colour *colours, Colour start_col,
-                         uint32_t num_of_cols)
+                               uint32_t version,
+                               const Colour *colours, Colour start_col,
+                               uint32_t num_of_cols)
 {
   // Construct binary header
   GraphInfo hdr_ginfo[num_of_cols];

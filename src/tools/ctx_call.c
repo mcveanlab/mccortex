@@ -32,7 +32,7 @@ int ctx_call(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 2 || argc & 1) print_usage(usage, NULL);
 
-  uint32_t num_of_threads = args->num_threads;
+  size_t num_of_threads = args->num_threads;
   size_t i, ref_cols[argc], num_ref = 0;
   size_t max_allele_len = 300, max_flank_len = 1000;
 
@@ -126,7 +126,7 @@ int ctx_call(CmdArgs *args)
   // Thread memory
   thread_mem = round_bits_to_bytes(kmers_in_hash) * 2;
   bytes_to_str(thread_mem * num_of_threads, 1, thread_mem_str);
-  status("[memory] (of which threads: %u x %zu = %s)\n",
+  status("[memory] (of which threads: %zu x %zu = %s)\n",
           num_of_threads, thread_mem, thread_mem_str);
 
   // Path Memory

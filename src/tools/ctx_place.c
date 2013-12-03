@@ -829,6 +829,8 @@ int ctx_place(CmdArgs *args)
   status("Bubbles 3p flank not found: %s", flank3p_not_found_str);
   status("Passed bubbles: %s / %s [%.2f%%]", passed_str, total_bubbles_str, pass_rate);
   status("Variants printed: %s", nvariants_str);
+  status("Variants written to: %s",
+         args->output_file_set ? args->output_file : "STDOUT");
 
   if(args->output_file_set) fclose(fout);
 

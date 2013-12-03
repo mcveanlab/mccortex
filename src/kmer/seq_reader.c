@@ -26,7 +26,7 @@ int prev_guess_fastq_format = -1;
 //  < homopolymer_cutoff valid
 
 // Returns index of first kmer or r->seq.end if no kmers
-size_t seq_contig_start(const read_t *r, size_t offset, uint32_t kmer_size,
+size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         int qual_cutoff, int hp_cutoff)
 {
   size_t next_kmer, index = offset;
@@ -81,7 +81,7 @@ size_t seq_contig_start(const read_t *r, size_t offset, uint32_t kmer_size,
 }
 
 // *search_start is the next position to pass to seq_contig_start
-size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
+size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
                       int qual_cutoff, int hp_cutoff, size_t *search_start)
 {
   size_t contig_end = contig_start+kmer_size;
@@ -128,7 +128,7 @@ int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *list)
 {
   size_t contig_start, contig_end, search_start = 0;
-  uint32_t kmer_size = db_graph->kmer_size;
+  size_t kmer_size = db_graph->kmer_size;
 
   BinaryKmer bkmer, tmp_key;
   Nucleotide nuc;
@@ -574,7 +574,7 @@ static void load_read(const read_t *r, dBGraph *db_graph,
                       int qual_cutoff, int hp_cutoff,
                       Colour colour, SeqLoadingStats *stats)
 {
-  const uint32_t kmer_size = db_graph->kmer_size;
+  const size_t kmer_size = db_graph->kmer_size;
   if(r->seq.end < kmer_size) {
     stats->total_bad_reads++;
     return;

@@ -83,10 +83,10 @@ int ctx_build(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 3) print_usage(usage, NULL);
 
-  uint32_t kmer_size = args->kmer_size;
+  size_t kmer_size = args->kmer_size;
 
   const char *out_path = argv[argc-1];
-  uint32_t colours_used = 0;
+  size_t colours_used = 0;
   boolean sample_named = false, sample_used = false;
 
   // Validate arguments
@@ -155,7 +155,7 @@ int ctx_build(CmdArgs *args)
         print_usage(usage, "Input graph file isn't valid: %s", path);
 
       if(ctxfile.hdr.kmer_size != kmer_size) {
-        print_usage(usage, "Input graph kmer_size doesn't match [%u vs %u]",
+        print_usage(usage, "Input graph kmer_size doesn't match [%u vs %zu]",
                     ctxfile.hdr.kmer_size, kmer_size);
       }
       argi++;
@@ -186,7 +186,7 @@ int ctx_build(CmdArgs *args)
   size_t bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
   size_t kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true);
 
-  status("Writing %u colour graph to %s\n", colours_used, out_path);
+  status("Writing %zu colour graph to %s\n", colours_used, out_path);
 
   // Create db_graph
   dBGraph db_graph;

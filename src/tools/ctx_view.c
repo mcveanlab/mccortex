@@ -53,12 +53,12 @@ static void print_header(GraphFileHeader *h)
   printf("number of kmers: %s\n", num_kmers_str);
   printf("----\n");
 
-  uint32_t i;
+  size_t i;
   for(i = 0; i < h->num_of_cols; i++)
   {
     GraphInfo *ginfo = h->ginfo + i;
 
-    printf("Colour %i:\n", i);
+    printf("Colour %zu:\n", i);
 
     if(h->version >= 6)
     {

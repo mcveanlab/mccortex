@@ -6,7 +6,7 @@
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
 // kmer and kmer_key must NOT point to overlapping memory
-BinaryKmer db_node_get_key(const BinaryKmer bkmer, uint32_t kmer_size)
+BinaryKmer db_node_get_key(const BinaryKmer bkmer, size_t kmer_size)
 {
   BinaryKmer bkey;
 
@@ -149,7 +149,7 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
   if(num == 0) return;
 
   size_t i;
-  uint32_t kmer_size = db_graph->kmer_size;
+  size_t kmer_size = db_graph->kmer_size;
   BinaryKmer bkmer = db_node_bkmer(db_graph, nodes[0].key);
   Nucleotide nuc;
 

@@ -7,11 +7,11 @@
 #include "file_reader.h"
 
 // Returns index of first kmer or r->seq.end if no kmers
-size_t seq_contig_start(const read_t *r, size_t offset, uint32_t kmer_size,
+size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         int qual_cutoff, int hp_cutoff);
 
 // *search_start is the next position to pass to seq_contig_start
-size_t seq_contig_end(const read_t *r, size_t contig_start, uint32_t kmer_size,
+size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
                       int qual_cutoff, int hp_cutoff,
                       size_t *search_start);
 

@@ -231,7 +231,7 @@ int ctx_thread(CmdArgs *args)
   kmers_in_hash = db_graph.ht.capacity;
 
   // Edges
-  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(uint8_t));
+  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
@@ -270,10 +270,12 @@ int ctx_thread(CmdArgs *args)
     {
       if(strcmp(argv[argi], "--col") == 0)
       {
+        if(rep > 0 || argi > 0) wait_for_jobs_to_finish(pool);
+
         // wipe colour 0
         // db_graph_wipe_colour(&db_graph, 0);
         graph_info_init(&db_graph.ginfo[0]);
-        memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(uint8_t));
+        memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(Edges));
 
         parse_entire_size(argv[argi+1], &graph_col);
 

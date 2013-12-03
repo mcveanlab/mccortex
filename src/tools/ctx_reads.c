@@ -79,7 +79,7 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
                                   SeqLoadingStats *stats)
 {
   boolean found = false;
-  uint32_t kmer_size = db_graph->kmer_size, num_contigs = 0, kmers_loaded = 0;
+  size_t kmer_size = db_graph->kmer_size, num_contigs = 0, kmers_loaded = 0;
 
   if(r->seq.end >= kmer_size)
   {

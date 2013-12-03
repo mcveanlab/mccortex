@@ -10,6 +10,8 @@ PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
 
 void paths_worker_pool_dealloc(PathsWorkerPool *pool);
 
+void wait_for_jobs_to_finish(PathsWorkerPool *pool);
+
 void add_read_paths_to_graph(PathsWorkerPool *pool,
                              seq_file_t *sf1, seq_file_t *sf2,
                              size_t gap_limit, size_t ctx_col, size_t ctp_col,

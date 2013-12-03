@@ -50,10 +50,10 @@ static void add_kmer(BinaryKmer bkmer, dBGraph *db_graph, dBNodeBuffer *nodebuf)
 }
 
 static void walk_graph(hkey_t node, Orientation orient,
-                       dBNodeBuffer *buf, uint32_t max,
+                       dBNodeBuffer *buf, size_t max,
                        dBGraph *db_graph, uint64_t *visited)
 {
-  uint32_t i, origlen = buf->len;
+  size_t i, origlen = buf->len;
   Edges edges;
   Nucleotide nuc;
   BinaryKmer bkmer;
@@ -141,7 +141,7 @@ int ctx_extend(CmdArgs *args)
   if(argc != 4) print_usage(usage, NULL);
 
   char *input_ctx_path, *input_fa_path, *out_fa_path;
-  uint32_t dist;
+  size_t dist;
   seq_file_t *seq_fa_file;
 
   input_ctx_path = argv[2];
@@ -159,7 +159,7 @@ int ctx_extend(CmdArgs *args)
   if((seq_fa_file = seq_open(input_fa_path)) == NULL)
     print_usage(usage, "Cannot read input FASTA/FASTQ/SAM/BAM file: %s", input_fa_path);
 
-  if(!parse_entire_uint(argv[4], &dist))
+  if(!parse_entire_size(argv[4], &dist))
     print_usage(usage, "Invalid dist argument: %s", argv[4]);
 
   out_fa_path = argv[5];
@@ -176,7 +176,7 @@ int ctx_extend(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         file.hdr.num_of_kmers, true);
 
-  status("Max walk: %u\n", dist);
+  status("Max walk: %zu\n", dist);
 
   // Set up dBGraph
   dBGraph db_graph;

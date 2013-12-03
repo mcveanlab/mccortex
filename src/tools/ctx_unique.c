@@ -93,7 +93,6 @@ static void var_revcmp(Var *var)
   SWAP(var->shift_left, var->shift_right, tmpshift);
 
   VarBranch *allele;
-  // size_t i;
   for(allele = var->first_allele; allele != NULL; allele = allele->next) {
     reverse_complement_str(allele->seq.buff, allele->seq.len);
   }
@@ -182,8 +181,8 @@ static void var_trim_alleles(Var *var, StrBuf *flank3p)
 static void var_set_flank_shifts(Var *var)
 {
   // May need to left shift 3p start
-  uint32_t min_left = UINT_MAX, min_right = UINT_MAX;
-  uint32_t j, k, max_dist;
+  size_t min_left = UINT_MAX, min_right = UINT_MAX;
+  size_t j, k, max_dist;
   VarBranch *branch;
   const StrBuf *fl5p = &var->flank5p;
   const StrBuf *fl3p = &var->flank3p;
@@ -237,7 +236,7 @@ static void var_set_flank_shifts(Var *var)
 }
 
 // Warning: does not null terminate
-static void str_get_key(char *key, const char *kmer, uint32_t kmer_size)
+static void str_get_key(char *key, const char *kmer, size_t kmer_size)
 {
   memcpy(key, kmer, kmer_size*sizeof(char));
   reverse_complement_str(key, kmer_size);
@@ -246,7 +245,7 @@ static void str_get_key(char *key, const char *kmer, uint32_t kmer_size)
     memcpy(key, kmer, kmer_size*sizeof(char));
 }
 
-static void var_set_keys(Var *var, uint32_t kmer_size)
+static void var_set_keys(Var *var, size_t kmer_size)
 {
   StrBuf *fl5p = &var->flank5p, *fl3p = &var->flank3p;
 
@@ -427,8 +426,8 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
     {
       if(ch->num_samples != 0) die("duplicate header line: %s", line->buff);
 
-      uint32_t num_samples;
-      if(!parse_entire_uint(value, &num_samples))
+      size_t num_samples;
+      if(!parse_entire_size(value, &num_samples))
         die("parse error on line: %s", line->buff);
       ch->num_samples = num_samples;
 
@@ -606,7 +605,7 @@ static void reader_clean_up_var(CallReader *cr, Var *var)
       printf(" %2zu:%s\n", i, cr->alleles[i]->seq.buff);
   #endif
 
-  uint32_t kmer_size = cr->ch->kmer_size;
+  size_t kmer_size = cr->ch->kmer_size;
 
   // remove matching bp at the ends of alleles
   var_trim_alleles(var, &var->flank3p);
@@ -720,7 +719,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     load_assert(line->buff[0] == '>', line);
     load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
 
-    uint32_t n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
+    size_t n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
                         &branch_num, &branch_nodes);
 
     load_assert(n == 2, line);
@@ -762,7 +761,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
   if(!strbuf_gzreadline_nonempty(line, fh))
     return 0;
 
-  uint32_t n;
+  size_t n;
   size_t num_samples = cr->ch->num_samples;
   cr->num_alleles = 0;
   strbuf_ensure_capacity(&var->name, line->len);
@@ -870,7 +869,7 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
                             size_t entry_num, StrBuf *tmp)
 {
   size_t i;
-  uint32_t kmer_size = ch->kmer_size;
+  size_t kmer_size = ch->kmer_size;
   size_t num_samples = ch->num_samples;
   char is_snp = var_is_snp(var);
   strbuf_reset(tmp);
@@ -907,7 +906,7 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
   gzprintf(out_vcf, "un\t1\tvar%zu\tN\t", entry_num);
   gzputs(out_vcf, tmp->buff);
   gzprintf(out_vcf, "\t.\tPASS\tLF=%.*s;RF=%.*s",
-           kmer_size, flank5p, kmer_size, flank3p);
+           (int)kmer_size, flank5p, (int)kmer_size, flank3p);
 
   // Print BN (branch nodes)
   allele = var->first_allele;

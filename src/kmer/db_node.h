@@ -19,7 +19,7 @@ typedef struct {
 //
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
-BinaryKmer db_node_get_key(const BinaryKmer kmer, uint32_t kmer_size);
+BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 
 #define db_node_to_str(graph,node,str) \
         binary_kmer_to_str(db_node_bkmer(graph,node), (graph)->kmer_size, (str))
