@@ -355,7 +355,6 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   graph_walker_finish(wlk);
   walker_fast_clear(rptwlk, nodes, pos);
-  walker_fast_clear(rptwlk, nodes, node1); // this may not be needed
 
   if(wlk->node == node2 && wlk->orient == orient2) {
     nodebuf->len += pos;
