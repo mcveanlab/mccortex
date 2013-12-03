@@ -30,12 +30,12 @@ typedef struct {
 // Temp data store for adding paths to graph
 typedef struct
 {
-  const size_t wid;
+  const size_t wid; // Worker id
   dBGraph *const db_graph;
-  GraphWalker wlk;
-  uint64_t *const visited;
-  dBNodeBuffer nodebuf;
-  AddPathsJob job;
+  GraphWalker wlk; // traversing covg gaps
+  RepeatWalker rptwlk; // traversing covg gaps
+  dBNodeBuffer nodebuf; // Contigs constructed here
+  AddPathsJob job; // Incoming read
   // Biggest gap between reads we'll try to traverse
   uint64_t *insert_sizes, *gap_sizes; // length gap_limit+1
 } AddPathsWorker;
@@ -49,7 +49,6 @@ struct PathsWorkerPool
 
   // Shared data
   dBGraph *db_graph;
-  uint64_t *visited;
   boolean seen_pe;
 
   // Data currently being read
@@ -72,14 +71,14 @@ volatile boolean data_waiting = false, input_ended = false;
 volatile AddPathsJob next_job;
 
 static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
-                               uint64_t *visited, size_t gap_limit,
-                               dBGraph *db_graph)
+                               size_t gap_limit, dBGraph *db_graph)
 {
-  AddPathsWorker tmp = {.wid = wid, .visited = visited, .db_graph = db_graph};
+  AddPathsWorker tmp = {.wid = wid, .db_graph = db_graph};
   memcpy(worker, &tmp, sizeof(AddPathsWorker));
 
   db_node_buf_alloc(&worker->nodebuf, 4096);
   graph_walker_alloc(&worker->wlk);
+  walker_alloc(&worker->rptwlk, db_graph->ht.capacity, 22); // 4MB
 
   if(!seq_read_alloc(&worker->job.r1) || !seq_read_alloc(&worker->job.r2))
     die("Out of memory");
@@ -91,6 +90,7 @@ static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
 static void paths_worker_dealloc(AddPathsWorker *worker)
 {
   free(worker->insert_sizes);
+  walker_dealloc(&worker->rptwlk);
   graph_walker_dealloc(&worker->wlk);
   db_node_buf_dealloc(&worker->nodebuf);
   seq_read_dealloc(&worker->job.r1);
@@ -309,9 +309,10 @@ static void add_read_path(const dBNode *nodes, size_t len,
 // If unsucessful: doesn't add anything to the nodebuf, returns -1
 static int traverse_gap(dBNodeBuffer *nodebuf,
                         hkey_t node2, Orientation orient2,
-                        const dBGraph *db_graph, uint64_t *visited,
+                        size_t gap_limit,
                         Colour ctxcol, Colour ctpcol,
-                        GraphWalker *wlk, size_t gap_limit)
+                        GraphWalker *wlk, RepeatWalker *rptwlk,
+                        const dBGraph *db_graph)
 {
   hkey_t node1 = nodebuf->data[nodebuf->len-1].key;
   Orientation orient1 = nodebuf->data[nodebuf->len-1].orient;
@@ -330,20 +331,18 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   db_node_buf_ensure_capacity(nodebuf, nodebuf->len + gap_limit);
 
   dBNode *nodes = nodebuf->data + nodebuf->len;
-  size_t i, pos = 0;
+  size_t pos = 0;
   Nucleotide lost_nuc;
 
   // Walk from left -> right
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node1, orient1);
-  db_node_set_traversed(visited, wlk->node, wlk->orient);
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   // need to call db_node_has_col only if more than one colour loaded
   while(pos < gap_limit && graph_traverse(wlk) &&
-        !db_node_has_traversed(visited, wlk->node, wlk->orient))
+        walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
-    db_node_set_traversed(visited, wlk->node, wlk->orient);
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     nodes[pos].key = wlk->node;
@@ -355,10 +354,8 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   }
 
   graph_walker_finish(wlk);
-
-  db_node_fast_clear_traversed(visited, node1);
-  for(i = 0; i < pos; i++)
-    db_node_fast_clear_traversed(visited, nodes[i].key);
+  walker_fast_clear(rptwlk, nodes, pos);
+  walker_fast_clear(rptwlk, nodes, node1); // this may not be needed
 
   if(wlk->node == node2 && wlk->orient == orient2) {
     nodebuf->len += pos;
@@ -367,7 +364,6 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   // Walk from right -> left
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node2, opposite_orientation(orient2));
-  db_node_set_traversed(visited, wlk->node, wlk->orient);
 
   pos = gap_limit-1;
   nodes[pos].key = node2;
@@ -380,7 +376,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   // need to call db_node_has_col only if more than one colour loaded
   while(pos > 0 && graph_traverse(wlk) &&
-        !db_node_has_traversed(visited, wlk->node, wlk->orient))
+        walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
     orient = opposite_orientation(wlk->orient);
@@ -390,8 +386,6 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
       break;
     }
 
-    db_node_set_traversed(visited, wlk->node, wlk->orient);
-    // DEV: walk a population supernode here
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
     pos--;
@@ -401,8 +395,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   graph_walker_finish(wlk);
 
-  for(i = pos; i < gap_limit; i++)
-    db_node_fast_clear_traversed(visited, nodes[i].key);
+  walker_fast_clear(rptwlk, nodes+pos, gap_limit-pos);
 
   if(success)
   {
@@ -530,10 +523,9 @@ void read_to_path(AddPathsWorker *worker)
         if(prev_node == HASH_NOT_FOUND)
         {
           // Can we branch the gap from the prev contig?
-          int gapsize = traverse_gap(nodebuf, node, orient, db_graph,
-                                     worker->visited,
+          int gapsize = traverse_gap(nodebuf, node, orient, job->gap_limit,
                                      ctx_col, job->ctp_col,
-                                     &worker->wlk, job->gap_limit);
+                                     &worker->wlk, &worker->rptwlk, db_graph);
 
           if(gapsize == -1)
           {
@@ -676,12 +668,8 @@ PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
   if(!seq_read_alloc(&pool->r1) || !seq_read_alloc(&pool->r2))
     die("Out of memory");
 
-  size_t visited_words = 2 * round_bits_to_words64(db_graph->ht.capacity);
-  pool->visited = calloc2(visited_words * num_of_threads, sizeof(uint64_t));
-
   for(i = 0; i < num_of_threads; i++) {
-    paths_worker_alloc(pool->workers + i, i, pool->visited + visited_words*i,
-                       gap_limit, db_graph);
+    paths_worker_alloc(pool->workers + i, i, gap_limit, db_graph);
   }
 
   // Start threads
@@ -758,7 +746,6 @@ void paths_worker_pool_dealloc(PathsWorkerPool *pool)
   paths_worker_dealloc(&(pool->workers[0]));
 
   free(pool->threads);
-  free(pool->visited);
   free(pool->workers);
 
   seq_read_dealloc(&pool->r1);

@@ -16,6 +16,7 @@
 #include "seq_reader.h"
 #include "path_store.h"
 #include "graph_walker.h"
+#include "repeat_walker.h"
 #include "caller_supernode.h"
 #include "supernode.h"
 
@@ -168,10 +169,11 @@ static size_t suppathpos_to_list(const SupernodePathPos *snodepathpos,
   return j;
 }
 
-static void print_bubble(gzFile out, size_t bnum, const dBGraph *db_graph,
+static void print_bubble(gzFile out, size_t bnum,
                          SupernodePathPos **spp_arr, size_t num_of_paths,
-                         dBNode *flank5p, size_t flank5pkmers, size_t threadid,
-                         size_t max_allele_len, size_t max_flank_len)
+                         dBNode *flank5p, size_t flank5pkmers,
+                         size_t max_allele_len, size_t max_flank_len,
+                         size_t threadid, const dBGraph *db_graph)
 {
   // tmp variables
   size_t max = MAX2(max_allele_len, max_flank_len);
@@ -238,7 +240,7 @@ static void load_allele_path(hkey_t node, Orientation or,
                              SupernodePath *path,
                              khash_t(supnode_hsh) *snode_hash,
                              GraphWalker *wlk, // walker set to go
-                             uint64_t *visited,
+                             RepeatWalker *rptwlk, // cleared and ready
                              // these 4 params are tmp memory
                              dBNodeBuffer *nbuf,
                              CallerSupernode *snode_store,
@@ -267,14 +269,19 @@ static void load_allele_path(hkey_t node, Orientation or,
 
   size_t supindx, kmers_in_path = 0;
 
-  for(supindx = 0; ; supindx++)
+  // if(!walker_attempt_traverse(rptwlk, wlk, node, or, wlk->bkmer))
+  //   die("Couldn't begin allele traversal");
+
+  for(supindx = 0;
+      walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer);
+      supindx++)
   {
     #ifdef DEBUG_CALLER
       binary_kmer_to_str(db_node_bkmer(db_graph,node), kmer_size, tmp);
       printf(" load_allele_path: %s:%i\n", tmp, or);
     #endif
 
-    // Find or add supernode
+    // Find or add supernode beginning with given node
     k = kh_put(supnode_hsh, snode_hash, (uint64_t)node, &hashret);
     supernode_already_exists = (hashret == 0);
 
@@ -327,8 +334,8 @@ static void load_allele_path(hkey_t node, Orientation or,
     if(kmers_in_path > max_allele_len) break;
 
     // Check if we've already traversed this supernode
-    if(db_node_has_traversed(visited, node, or)) break;
-    db_node_set_traversed(visited, node, or);
+    // if(db_node_has_traversed(visited, node, or)) break;
+    // db_node_set_traversed(visited, node, or);
 
     // Find next node
     Nucleotide lost_nuc;
@@ -510,16 +517,17 @@ static void resolve_bubble(SupernodePathPos **snodepathposes, size_t num,
     supernode_reverse(flank5p, *flank5pkmers);
   }
 
-  print_bubble(out, *bnum, db_graph,
+  print_bubble(out, *bnum,
                snodepathposes, num,
-               flank5p, *flank5pkmers, threadid,
-               max_allele_len, max_flank_len);
+               flank5p, *flank5pkmers,
+               max_allele_len, max_flank_len,
+               threadid, db_graph);
   (*bnum)++;
 }
 
 static void find_bubbles(hkey_t fork_n, Orientation fork_o,
-                         const dBGraph *db_graph, GraphWalker *wlk,
-                         uint64_t *visited,
+                         const dBGraph *db_graph,
+                         GraphWalker *wlk, RepeatWalker *rptwlk,
                          khash_t(supnode_hsh) *snode_hash,
                          khash_t(snpps_hsh) *spp_hash,
                          dBNodeBuffer *nbuf,
@@ -582,19 +590,21 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         graph_walker_node_add_counter_paths(wlk, lost_nuc);
 
         // Constructs a path of supernodes (SupernodePath)
-        load_allele_path(nodes[i], orients[i], path, snode_hash, wlk, visited,
+        load_allele_path(nodes[i], orients[i], path, snode_hash, wlk, rptwlk,
                          nbuf, snode_store, snodepos_store,
                          &snode_count, &snodepos_count, max_allele_len);
 
         graph_walker_finish(wlk);
 
         // Remove mark traversed
+        walker_fast_clear(rptwlk, NULL, 0);
+
         for(supindx = 0; supindx < snode_count; supindx++)
         {
           snode = snode_store + supindx;
           size_t last = snode->num_of_nodes-1;
-          db_node_fast_clear_traversed(visited, snode_nodes(snode)[0].key);
-          db_node_fast_clear_traversed(visited, snode_nodes(snode)[last].key);
+          walker_fast_clear2(rptwlk, snode_nodes(snode)[0]);
+          walker_fast_clear2(rptwlk, snode_nodes(snode)[last]);
         }
       }
     }
@@ -622,8 +632,9 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
     if(pp != NULL && pp->next != NULL)
     {
       // possible 3p flank (i.e. bubble end)
-      // there a 4 possible allele paths per colour
-      // each path can hit a node at most NUM_OF_SHADES times
+      // there are 4 possible allele paths per colour
+      // each path can hit a node at most max_allele_len times
+      // DEV: move this to the heap
       size_t maxnodes = max_allele_len * db_graph->num_of_cols * 4;
       SupernodePathPos *spp_forward[maxnodes];
       SupernodePathPos *spp_reverse[maxnodes];
@@ -677,8 +688,8 @@ void* bubble_caller(void *args)
   // Arrays to re-use
   size_t i, npaths = 4 * db_graph->num_of_cols;
 
-  size_t node_bits = round_bits_to_words64(db_graph->ht.capacity);
-  uint64_t *visited = calloc2(2*node_bits, sizeof(uint64_t));
+  RepeatWalker rptwlk;
+  walker_alloc(&rptwlk, db_graph->ht.capacity, 22); // 4MB
 
   // Max usage is 4 * max_allele_len * cols
   size_t maxnodes = max_allele_len * db_graph->num_of_cols * 4;
@@ -718,7 +729,7 @@ void* bubble_caller(void *args)
       hkey_t node = ptr - table;
       Edges edges = db_node_edges(db_graph, 0, node);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
-        find_bubbles(node, FORWARD, db_graph, &wlk, visited,
+        find_bubbles(node, FORWARD, db_graph, &wlk, &rptwlk,
                      snode_hash, spp_hash, &nbuf,
                      snode_paths, snode_store, snodepos_store,
                      out, &tdata->num_of_bubbles, tdata->threadid,
@@ -726,7 +737,7 @@ void* bubble_caller(void *args)
                      tdata->ref_cols, tdata->num_ref);
       }
       if(edges_get_outdegree(edges, REVERSE) > 1) {
-        find_bubbles(node, REVERSE, db_graph, &wlk, visited,
+        find_bubbles(node, REVERSE, db_graph, &wlk, &rptwlk,
                      snode_hash, spp_hash, &nbuf,
                      snode_paths, snode_store, snodepos_store,
                      out, &tdata->num_of_bubbles, tdata->threadid,
@@ -736,10 +747,9 @@ void* bubble_caller(void *args)
     }
   }
 
-
+  walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
 
-  free(visited);
   free(snode_store);
   free(snodepos_store);
   free(supernodes);

@@ -68,4 +68,9 @@ static inline void walker_fast_clear(RepeatWalker *rpt,
   rpt->nbloom_entries = 0;
 }
 
+static inline void walker_fast_clear2(RepeatWalker *rpt, const dBNode node)
+{
+  db_node_fast_clear_traversed(rpt->visited, node.key);
+}
+
 #endif /* REPEAT_WALKER_H_ */
