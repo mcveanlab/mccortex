@@ -221,10 +221,10 @@ $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 # 1..PLOIDY chroms per colour
 # e.g. genomes/genome{1,2}.fa loaded into colour 0 when PLOIDY=2
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
-	$(TRAVERSE)                                     --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --nsamples $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE)                                     --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
 	$(CTXSTATS) k$(KMER)/graphs/pop.noref.ctx:0
 	@echo == ref copy number ==
 	$(CTX_PATH)/bin/ctx31 view --kmers ref/ref.k$(KMER).ctx | awk '{n[$$2]++} END {for (i in n) print i,n[i]}' | sort -n
