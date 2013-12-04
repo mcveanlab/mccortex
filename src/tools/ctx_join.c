@@ -126,11 +126,11 @@ int ctx_join(CmdArgs *args)
     }
 
     if(flatten) {
-      files[i].flatten = true;
-      files[i].intocol = 0;
+      files[i].fltr.flatten = true;
+      files[i].fltr.intocol = 0;
     }
 
-    ncols = files[i].intocol + graph_file_outncols(&files[i]);
+    ncols = graph_file_usedcols(&files[i]);
     max_cols = MAX2(max_cols, ncols);
     sum_cols += ncols;
     ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
@@ -142,8 +142,8 @@ int ctx_join(CmdArgs *args)
     total_cols = 0;
     for(i = 0; i < num_graphs; i++) {
       size_t offset = total_cols;
-      total_cols += files[i].intocol + graph_file_outncols(&files[i]);
-      files[i].intocol += offset;
+      total_cols += graph_file_usedcols(&files[i]);
+      files[i].fltr.intocol += offset;
     }
   }
 
@@ -158,7 +158,7 @@ int ctx_join(CmdArgs *args)
                   files[0].hdr.kmer_size, intersect_files[i].hdr.kmer_size);
     }
 
-    intersect_files[i].flatten = true;
+    intersect_files[i].fltr.flatten = true;
 
     if(i == 0) min_intersect_num_kmers = intersect_files[i].hdr.num_of_kmers;
     else if(intersect_files[i].hdr.num_of_kmers < min_intersect_num_kmers)

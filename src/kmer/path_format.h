@@ -2,20 +2,10 @@
 #define PATH_FORMAT_H_
 
 #include "graph_typedef.h"
+#include "path_file_filter.h"
 
 // path file format version
 #define CTX_PATH_FILEFORMAT 1
-#define CTP_BUF_SIZE (1UL<<22)
-
-typedef struct
-{
-  uint32_t version, kmer_size, num_of_cols;
-  uint64_t num_of_paths, num_path_bytes, num_kmers_with_paths;
-  StrBuf *sample_names;
-  size_t capacity; // how many sample_names have been malloc'd
-} PathFileHeader;
-
-const PathFileHeader INIT_PATH_FILE_HDR;
 
 // Path File Format:
 // -- Header --

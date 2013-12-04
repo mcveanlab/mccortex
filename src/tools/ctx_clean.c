@@ -341,8 +341,8 @@ int ctx_clean(CmdArgs *args)
     }
 
     size_t offset = total_cols;
-    total_cols += files[i].intocol + graph_file_outncols(&files[i]);
-    files[i].intocol += offset;
+    total_cols += graph_file_usedcols(&files[i]);
+    files[i].fltr.intocol += offset;
 
     max_ctx_kmers = MAX2(max_ctx_kmers, files[i].hdr.num_of_kmers);
   }
@@ -414,21 +414,21 @@ int ctx_clean(CmdArgs *args)
   // Merge info into header
   uint32_t outcol = 0;
   for(i = 0; i < num_files; i++) {
-    outcol += files[i].intocol;
-    for(j = 0; j < files[i].ncols; j++, outcol++)
-      graph_info_merge(outhdr.ginfo + outcol, files[i].hdr.ginfo + files[i].cols[j]);
+    outcol += files[i].fltr.intocol;
+    for(j = 0; j < files[i].fltr.ncols; j++, outcol++)
+      graph_info_merge(outhdr.ginfo + outcol, files[i].hdr.ginfo + files[i].fltr.cols[j]);
   }
 
   // Load into one colour
   size_t tmpcol; boolean tmpflatten;
   for(i = 0; i < num_files; i++)
   {
-    tmpcol = files[i].intocol; tmpflatten = files[i].flatten;
-    files[i].intocol = 0;
-    files[i].flatten = true;
+    tmpcol = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
+    files[i].fltr.intocol = 0;
+    files[i].fltr.flatten = true;
     graph_load(&files[i], &prefs, stats);
-    files[i].intocol = tmpcol;
-    files[i].flatten = tmpflatten;
+    files[i].fltr.intocol = tmpcol;
+    files[i].fltr.flatten = tmpflatten;
   }
 
   if(num_files > 1) {

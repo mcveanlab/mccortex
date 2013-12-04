@@ -6,8 +6,8 @@
 // single int or range e.g. '6' [ans: 1] or '2-12' [ans: 10], '*' means all
 // ranges are allowed to go backwards e.g. 10-8 means 10,9,8
 // returns number of bytes consumed or -1 if error
-static int range_parse(const char *range_str, uint32_t *start, uint32_t *end,
-                       uint32_t range_max)
+static int range_parse(const char *range_str, size_t *start, size_t *end,
+                       size_t range_max)
 {
   char *endptr;
   const char *str = range_str;
@@ -34,16 +34,16 @@ static int range_parse(const char *range_str, uint32_t *start, uint32_t *end,
   return endptr - range_str;
 }
 
-uint32_t range_get_num(const char *str, uint32_t range_max)
+size_t range_get_num(const char *str, size_t range_max)
 {
   const char *ptr = str;
-  uint32_t start, end, num_cols = 0;
+  size_t start, end, num_cols = 0;
   int bytes;
 
   while(*ptr != '\0')
   {
     if((bytes = range_parse(ptr, &start, &end, range_max)) == -1)
-      die("Invalid range specifier: %s [max: %u]", str, range_max);
+      die("Invalid range specifier: %s [max: %zu]", str, range_max);
     ptr += bytes;
     num_cols += ABSDIFF(start,end)+1;
     if(*ptr == ',') ptr++;
@@ -52,16 +52,16 @@ uint32_t range_get_num(const char *str, uint32_t range_max)
   return num_cols == 0 ? range_max+1 : num_cols;
 }
 
-void range_parse_array(const char *str, uint32_t *arr, uint32_t range_max)
+void range_parse_array(const char *str, size_t *arr, size_t range_max)
 {
   const char *ptr = str;
-  uint32_t num_cols = 0, j, start, end;
+  size_t num_cols = 0, j, start, end;
   int bytes;
 
   while(*ptr != '\0')
   {
     if((bytes = range_parse(ptr, &start, &end, range_max)) == -1)
-      die("Invalid range specifier: %s [max: %u]", str, range_max);
+      die("Invalid range specifier: %s [max: %zu]", str, range_max);
     ptr += bytes;
     if(*ptr == ',') ptr++;
     if(start <= end)
@@ -71,7 +71,7 @@ void range_parse_array(const char *str, uint32_t *arr, uint32_t range_max)
   }
 
   if(ptr > str && *(ptr-1) == ',')
-      die("Invalid range specifier: %s [max: %u]", str, range_max);
+      die("Invalid range specifier: %s [max: %zu]", str, range_max);
 
   if(num_cols == 0) {
     for(num_cols = 0; num_cols <= range_max; num_cols++)

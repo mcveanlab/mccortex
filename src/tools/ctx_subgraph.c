@@ -180,12 +180,12 @@ int ctx_subgraph(CmdArgs *args)
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
           files[0].hdr.kmer_size, files[i].hdr.kmer_size,
-          files[0].path.buff, files[i].path.buff);
+          files[0].fltr.path.buff, files[i].fltr.path.buff);
     }
 
     size_t offset = total_cols;
-    total_cols += files[i].intocol + graph_file_outncols(&files[i]);
-    files[i].intocol += offset;
+    total_cols += graph_file_usedcols(&files[i]);
+    files[i].fltr.intocol += offset;
 
     max_num_kmers = MAX2(files[i].hdr.num_of_kmers, max_num_kmers);
   }
@@ -257,20 +257,20 @@ int ctx_subgraph(CmdArgs *args)
 
   size_t tmpcol; boolean tmpflatten;
   for(i = 0; i < num_files; i++) {
-    tmpcol = files[i].intocol;
-    tmpflatten = files[i].flatten;
+    tmpcol = files[i].fltr.intocol;
+    tmpflatten = files[i].fltr.flatten;
 
     if(total_cols > db_graph.num_of_cols) {
-      files[i].intocol = 0;
-      files[i].flatten = true;
+      files[i].fltr.intocol = 0;
+      files[i].fltr.flatten = true;
     }
 
     graph_load(&files[i], &prefs, stats);
-    files[i].intocol = tmpcol;
-    files[i].flatten = tmpflatten;
+    files[i].fltr.intocol = tmpcol;
+    files[i].fltr.flatten = tmpflatten;
 
-    for(j = 0; j < files[i].ncols; j++) {
-      col = files[i].cols[j];
+    for(j = 0; j < files[i].fltr.ncols; j++) {
+      col = files[i].fltr.cols[j];
       graph_info_make_intersect(&files[i].hdr.ginfo[col], &intersect_gname);
     }
   }

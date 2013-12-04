@@ -248,8 +248,8 @@ int ctx_supernodes(CmdArgs *args)
                            .empty_colours = false};
 
   for(i = 0; i < num_files; i++) {
-    files[i].flatten = true;
-    files[i].intocol = 0;
+    files[i].fltr.flatten = true;
+    files[i].fltr.intocol = 0;
     graph_load(&files[i], &prefs, NULL);
   }
 

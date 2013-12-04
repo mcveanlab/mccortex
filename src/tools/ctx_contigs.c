@@ -20,7 +20,7 @@ static const char usage[] =
 
 int ctx_contigs(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnp", usage);
+  cmd_accept_options(args, "mnpo", usage);
   int argc = args->argc;
   char **argv = args->argv;
 
@@ -39,7 +39,7 @@ int ctx_contigs(CmdArgs *args)
       ncontigs = tmp;
       argv += 2; argc -= 2;
     }
-    else if(strcmp(argv[0],"--colour") == 0) {
+    else if(strcmp(argv[0],"--colour") == 0 || strcmp(argv[0],"--color") == 0) {
       unsigned long tmp;
       if(argc == 1 || !parse_entire_ulong(argv[1], &tmp))
         print_usage(usage, "--colour <c> requires an integer argument");
@@ -104,6 +104,17 @@ int ctx_contigs(CmdArgs *args)
   status("[memory] paths: %s\n", path_mem_str);
 
   if(graph_mem + path_mem > args->mem_to_use) die("Not enough memory");
+
+  //
+  // Output file if printing
+  //
+  FILE *fout = stdout;
+  if(args->output_file_set) {
+    if(!print_contigs)
+      warn("Ignoring --out <out> argument (maybe you forgot --print ?)");
+    else if((fout = fopen(args->output_file, "r")) == NULL)
+      die("Cannot open output file: %s", args->output_file);
+  }
 
   dBGraph db_graph;
   GraphWalker wlk;
@@ -203,9 +214,9 @@ int ctx_contigs(CmdArgs *args)
     }
 
     if(print_contigs) {
-      fprintf(stdout, ">contig%zu\n", i);
-      db_nodes_print(nodes, len, &db_graph, stdout);
-      putc('\n', stdout);
+      fprintf(fout, ">contig%zu\n", i);
+      db_nodes_print(nodes, len, &db_graph, fout);
+      putc('\n', fout);
     }
 
     size_t outdegree = edges_get_outdegree(db_graph.col_edges[wlk.node], wlk.orient);
@@ -220,6 +231,9 @@ int ctx_contigs(CmdArgs *args)
     max_len = MAX2(max_len, len);
     max_junc = MAX2(max_junc, njunc);
   }
+
+  if(args->output_file_set && print_contigs)
+    fclose(fout);
 
   status("\n");
 

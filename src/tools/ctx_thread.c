@@ -157,8 +157,8 @@ int ctx_thread(CmdArgs *args)
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
-    size_t ncols = files[i].intocol + graph_file_outncols(&files[i]);
-    files[i].intocol += total_cols;
+    size_t ncols = graph_file_usedcols(&files[i]);
+    files[i].fltr.intocol += total_cols;
     total_cols += ncols;
 
     ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
@@ -172,9 +172,9 @@ int ctx_thread(CmdArgs *args)
 
   // Set path header sample names
   for(i = 0; i < num_files; i++) {
-    for(j = 0; j < files[i].ncols; j++) {
-      strbuf_set(&pheader.sample_names[files[i].intocol+j],
-                 files[i].hdr.ginfo[files[i].cols[j]].sample_name.buff);
+    for(j = 0; j < files[i].fltr.ncols; j++) {
+      strbuf_set(&pheader.sample_names[files[i].fltr.intocol+j],
+                 files[i].hdr.ginfo[files[i].fltr.cols[j]].sample_name.buff);
     }
   }
 
@@ -281,8 +281,6 @@ int ctx_thread(CmdArgs *args)
 
         // Pick correct binary and colour
         get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
-        status("Load file with index %zu and colour index %zu [%zu]",
-               ctxindex, ctxcol, graph_col);
         graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
 
         argi++;

@@ -159,7 +159,7 @@ int ctx_build(CmdArgs *args)
                     ctxfile.hdr.kmer_size, kmer_size);
       }
       argi++;
-      colours_used += ctxfile.intocol + graph_file_outncols(&ctxfile);
+      colours_used += graph_file_usedcols(&ctxfile);
       sample_named = false;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
@@ -260,7 +260,7 @@ int ctx_build(CmdArgs *args)
     else if(strcmp(argv[argi],"--load_binary") == 0) {
       graph_file_open(&ctxfile, argv[argi+1], true);
       graph_load(&ctxfile, &prefs, stats);
-      prefs.into_colour += ctxfile.intocol + graph_file_outncols(&ctxfile);
+      prefs.into_colour += graph_file_usedcols(&ctxfile);
       graph_file_close(&ctxfile);
       argi += 1;
     }

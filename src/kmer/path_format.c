@@ -7,12 +7,6 @@
 #include "util.h"
 #include "file_util.h"
 
-const PathFileHeader INIT_PATH_FILE_HDR
- = {.version = CTX_PATH_FILEFORMAT,
-    .kmer_size = 0, .num_of_paths = 0,
-    .num_path_bytes = 0, .num_kmers_with_paths = 0,
-    .sample_names = NULL, .capacity = 0};
-
 // Format:
 // -- Header --
 // "PATHS"<uint32_t:version><uint32_t:kmersize><uint32_t:num_of_cols>

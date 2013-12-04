@@ -198,7 +198,8 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
       args->output_file_set = true;
       i++;
     }
-    else if(strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--paths") == 0)
+    else if(strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--path") == 0 ||
+            strcmp(argv[i], "--paths") == 0)
     {
       if(i + 1 == argc) die("%s <in.ctp> requires an argument", argv[i]);
       args->ctp_files[args->num_ctp_files++] = argv[i+1];

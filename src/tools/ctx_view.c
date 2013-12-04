@@ -129,8 +129,8 @@ int ctx_view(CmdArgs *args)
   if(print_info)
   {
     char fsize_str[50];
-    bytes_to_str(file.file_size, 0, fsize_str);
-    printf("Loading file: %s\n", file.path.buff);
+    bytes_to_str(file.fltr.file_size, 0, fsize_str);
+    printf("Loading file: %s\n", file.fltr.path.buff);
     printf("File size: %s\n", fsize_str);
     printf("----\n");
   }
@@ -146,8 +146,8 @@ int ctx_view(CmdArgs *args)
   size_t i, sum_covgs_read = 0, sum_seq_loaded = 0;
   size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
-  for(i = 0; i < file.ncols; i++) {
-    graph_info_merge(outheader.ginfo + i, file.hdr.ginfo + file.cols[i]);
+  for(i = 0; i < file.fltr.ncols; i++) {
+    graph_info_merge(outheader.ginfo + i, file.hdr.ginfo + file.fltr.cols[i]);
     sum_seq_loaded += outheader.ginfo[i].total_sequence;
   }
 
@@ -227,7 +227,7 @@ int ctx_view(CmdArgs *args)
   if(errno != 0)
     loading_error("errno set [%i]: %s\n", (int)errno, strerror(errno));
 
-  int err = ferror(file.fh);
+  int err = ferror(file.fltr.fh);
   if(err != 0)
     loading_error("occurred after file reading [%i]\n", err);
 

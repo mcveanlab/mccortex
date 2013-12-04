@@ -154,16 +154,16 @@ int ctx_infer_edges(CmdArgs *args)
   GraphFileReader file = INIT_GRAPH_READER;
   graph_file_open2(&file, path, true, "r+");
 
-  if(!graph_file_no_filter(&file))
+  if(!file.fltr.nofilter)
     print_usage(usage, "Inferedges with filter not implemented - sorry");
 
   if(!test_file_writable(path))
     print_usage(usage, "Cannot write to file: %s", path);
 
-  assert(file.hdr.num_of_cols == file.ncols);
+  assert(file.hdr.num_of_cols == file.fltr.ncols);
 
-  file.intocol = 0;
-  file.flatten = false;
+  file.fltr.intocol = 0;
+  file.fltr.flatten = false;
 
   //
   // Decide on memory
@@ -193,7 +193,7 @@ int ctx_infer_edges(CmdArgs *args)
   else status("Inferring all missing edges...\n");
 
   // Read again
-  fseek(file.fh, file.hdr_size, SEEK_SET);
+  fseek(file.fltr.fh, file.hdr_size, SEEK_SET);
 
   BinaryKmer bkmer;
   Edges edges[db_graph.num_of_cols];
@@ -207,8 +207,9 @@ int ctx_infer_edges(CmdArgs *args)
     if((add_all_edges && infer_all_edges(bkmer, edges, covgs, &db_graph)) ||
        (!add_all_edges && infer_pop_edges(bkmer, edges, covgs, &db_graph)))
     {
-      if(fseek(file.fh, -edges_len, SEEK_CUR) != 0) die("fseek error: %s", path);
-      fwrite(edges, 1, edges_len, file.fh);
+      if(fseek(file.fltr.fh, -edges_len, SEEK_CUR) != 0)
+        die("fseek error: %s", path);
+      fwrite(edges, 1, edges_len, file.fltr.fh);
       num_nodes_modified++;
     }
   }
