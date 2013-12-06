@@ -17,7 +17,7 @@ typedef struct
 {
   BinaryKmer *const table;
   const uint64_t num_of_buckets; // needs to store maximum of 1<<32
-  const uint32_t hash_mask; // this is num_of_buckets - 1
+  const uint_fast32_t hash_mask; // this is num_of_buckets - 1
   const uint8_t bucket_size; // max value 255
   const uint64_t capacity; // num_of_buckets * bucket_size
   // buckets[b][0] is the size of the bucket (can only increase)

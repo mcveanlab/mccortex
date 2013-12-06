@@ -74,9 +74,9 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
     // Shift data up if needed
     for(i = prev_num_paths-1; i > 0; i--)
     {
-      memcpy(wlk->data + i * wlk->max_path_len,
-             wlk->data + i * prev_path_len,
-             prev_path_len * sizeof(Nucleotide));
+      memmove(wlk->data + i * wlk->max_path_len,
+              wlk->data + i * prev_path_len,
+              prev_path_len * sizeof(Nucleotide));
     }
   }
 

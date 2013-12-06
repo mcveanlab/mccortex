@@ -32,7 +32,7 @@ Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: 0.0; zlib: 1.2.5
+    version: 5854d1c; zlib: 1.2.5
 
     Command:  build       FASTA/FASTQ/BAM -> cortex graph file
               view        view and check a cortex graph file (.ctx)
@@ -44,7 +44,7 @@ Commands
               reads       filter reads against a graph
               extend      extend contigs using a graph
               contigs     pull out contigs for a sample
-              inferedges  infer edges before calling `thread`
+              inferedges  infer graph edges before calling `thread`
               thread      thread reads through cleaned population
               pview       view read threading information
               pmerge      merge path files (.ctp)
@@ -55,19 +55,20 @@ Commands
       Type a command with no arguments to see help.
 
     Common Options:
-      -m <M>       Memory e.g. 1GB [default: 1GB]
-      -h <H>       Hash entries [default: 4M (~4 million)]
-      -g <G>       Species genome size [default: 3.1Gbp]
-      -t <T>       Number of threads [default: 2]
-      -k <K>       Kmer size [default: read from binaries]
-      -f <file>    Input file
-      -p <in.ctp>  Assembly file
+      -m --memory <M>      Memory e.g. 1GB [default: 1GB]
+      -n --nkmers <H>      Hash entries [default: 4M, ~4 million]
+      -c --ncols <C>       Number of graph colours to load at once [default: 1]
+      -t --threads <T>     Number of threads [default: 2]
+      -k --kmer <K>        Kmer size [default: read from graph files]
+      -f --file <file>     Input file
+      -o --out <file>      Output file
+      -p --paths <in.ctp>  Assembly file
 
 
 Inputs
 ------
 
-Support reading FASTA, FASTQ, SAM and BAM files. Also supports gzipped files.
+Supports reading FASTA, FASTQ, SAM and BAM files. Also supports gzipped files.
 File formats are auto-detected.
 
 Cortex graph files can be loaded by specifying a subset of colours:
@@ -80,6 +81,8 @@ Getting Helps
 -------------
 
 Check out the [wiki](https://github.com/noporpoise/ninja-cortex/wiki)
+
+If you find a bug please submitted an [Issue](https://github.com/noporpoise/ninja-cortex/issues) on github.
 
 Isaac Turner: turner.isaac@gmail.com
 

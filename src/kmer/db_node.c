@@ -86,26 +86,30 @@ Edges edges_get_union(const Edges *edges_arr, size_t num)
 // Coverages
 //
 
+static inline void safe_add_covg(Covg *a, Covg b)
+{
+  uint64_t y = (uint64_t)*a+b;
+  *a = y > COVG_MAX ? COVG_MAX : y;
+}
 
 void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update)
 {
-  SAFE_ADD(db_node_col_covg(graph,col,hkey), update, COVG_MAX);
+  safe_add_covg(&db_node_col_covg(graph,col,hkey), update);
 }
 
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col)
 {
-  SAFE_ADD(db_node_col_covg(graph,col,hkey), 1, COVG_MAX);
+  safe_add_covg(&db_node_col_covg(graph,col,hkey), 1);
 }
 
 Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
 {
   const Covg *covgs = &db_node_col_covg(graph,0,hkey);
-
   Covg sum_covg = 0;
-  Colour col;
+  size_t col;
 
   for(col = 0; col < graph->num_of_cols; col++)
-    SAFE_ADD(sum_covg, covgs[col], COVG_MAX);
+    safe_add_covg(&sum_covg, covgs[col]);
 
   return sum_covg;
 }

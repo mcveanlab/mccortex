@@ -47,10 +47,6 @@ extern FILE *ctx_msg_out;
   #define ROUNDUP2POW(x) (0x1UL << (64 - __builtin_clzl(x)))
 #endif
 
-#define SAFE_ADD(dst,add,max) ({                         \
-        size_t _full = ((max)-(dst))<(add);              \
-        (dst) = (_full)*(max) + (!_full)*((dst)+(add)); })
-
 // dynamic memory allocation with checks
 #define malloc2(mem) ctx_malloc(mem,__FILE__,__LINE__)
 #define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__LINE__)
