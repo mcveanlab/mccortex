@@ -68,23 +68,26 @@ boolean file_filter_alloc(FileFilter *fltr, char *path,
   return 1;
 }
 
-void file_filter_set_cols(FileFilter *fltr, size_t max_col)
+void file_filter_set_cols(FileFilter *fltr, size_t filencols)
 {
+  assert(filencols > 0);
   size_t i;
   char *path_start, *path_end;
   file_filter_deconstruct_path(fltr->orig.buff, &path_start, &path_end);
 
+  fltr->filencols = filencols;
+
   if(*path_end == ':') {
-    fltr->ncols = range_get_num(path_end+1, max_col);
+    fltr->ncols = range_get_num(path_end+1, filencols-1);
     file_filter_capacity(fltr, fltr->ncols);
-    range_parse_array(path_end+1, fltr->cols, max_col);
-    for(i = 0; i <= max_col && fltr->cols[i] == i; i++);
-    fltr->nofilter = (i > max_col);
+    range_parse_array(path_end+1, fltr->cols, filencols-1);
+    for(i = 0; i < filencols && fltr->cols[i] == i; i++);
+    fltr->nofilter = (i == filencols);
   }
   else {
-    fltr->ncols = max_col+1;
+    fltr->ncols = filencols;
     file_filter_capacity(fltr, fltr->ncols);
-    for(i = 0; i <= max_col; i++) fltr->cols[i] = i;
+    for(i = 0; i < filencols; i++) fltr->cols[i] = i;
     fltr->nofilter = true;
   }
 }
@@ -118,4 +121,13 @@ void file_filter_status(const FileFilter *fltr)
     message(" into colour %zu\n", fltr->intocol);
   else
     message(" into colours %zu-%zu\n", fltr->intocol, fltr->intocol+into_ncols-1);
+}
+
+void file_filter_check_kmer_size(size_t kmer_size, const char *path)
+{
+  const size_t mink = MIN_KMER_SIZE, maxk = MAX_KMER_SIZE;
+  if(kmer_size < mink || kmer_size > maxk)
+    die("Cannot handle kmer size %zu [%zu-%zu; %s]", kmer_size, mink, maxk, path);
+  else if(!(kmer_size & 1))
+    die("Kmer size appears to be even! %zu [%s]", kmer_size, path);
 }

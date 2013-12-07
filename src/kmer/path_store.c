@@ -20,6 +20,8 @@ void path_store_init(PathStore *paths, uint8_t *data, size_t size,
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
 
+// Convert from unpacked representation (1 bas per byte) to packed
+// representation (4 bases per byte)
 static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
 {
   uint8_t tmp;
@@ -49,6 +51,8 @@ static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
   }
 }
 
+// Convert from compact representation (4 bases per byte) to unpacked
+// representation (1 base per byte)
 static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
 {
   uint8_t tmp;
@@ -71,133 +75,178 @@ static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t le
   }
 }
 
-
+// Find a path
 // returns PATH_NULL if not found, otherwise index
-// len_in_bytes is length in bytes of bases
+// path_nbytes is length in bytes of bases = (num bases + 3)/4
 static inline PathIndex path_store_find(const PathStore *paths,
-                                         PathIndex last_index,
-                                         const uint8_t *query,
-                                         size_t len_in_bytes)
+                                        PathIndex last_index,
+                                        const uint8_t *query,
+                                        size_t path_nbytes)
 {
-  uint8_t *ptr;
+  uint8_t *packed;
   size_t offset = sizeof(PathIndex) + paths->col_bitset_bytes;
-  size_t mem = sizeof(PathLen) + len_in_bytes;
+  size_t mem = sizeof(PathLen) + path_nbytes;
 
   while(last_index != PATH_NULL)
   {
-    ptr = paths->store + last_index;
-    if(memcmp(ptr+offset, query+offset, mem) == 0) return last_index;
-    memcpy(&last_index, ptr, sizeof(PathIndex));
+    packed = paths->store + last_index;
+    if(memcmp(packed+offset, query+offset, mem) == 0) return last_index;
+    last_index = packedpath_prev(packed);
   }
 
   return PATH_NULL;
 }
 
-// Returns match PathIndex if found, otherwise PATH_NULL
-PathIndex validate_appended(PathStore *paths, PathIndex last_index,
-                            uint8_t *query, size_t len_in_bytes,
-                            boolean *inserted)
+// Always adds!
+// Only call this function if you're sure your path is unique
+PathIndex path_store_add_packed(PathStore *store, PathIndex last_index,
+                                const uint8_t *packed, size_t path_nbytes)
 {
-  PathIndex match;
+  // Not already in the PathStore
+  size_t mem = packedpath_mem2(store->col_bitset_bytes, path_nbytes);
 
-  if(last_index == PATH_NULL ||
-     (match = path_store_find(paths, last_index,
-                                query, len_in_bytes)) == PATH_NULL)
+  // Copy path (may already be in place)
+  if(packed != store->next)
   {
-    // Accept new path
-    size_t mem = sizeof(PathIndex) + paths->col_bitset_bytes +
-                 sizeof(PathLen) + len_in_bytes;
+    if(store->next + mem >= store->end) die("Out of memory for paths");
 
-    if(query != paths->next)
-      memcpy(paths->next, query, mem);
+    uint8_t *ptr = store->next;
+    memcpy(ptr, &last_index, sizeof(PathIndex));
+    ptr += sizeof(PathIndex);
+    memcpy(ptr, packed, store->col_bitset_bytes+sizeof(PathLen)+path_nbytes);
+  }
 
-    match = paths->next - paths->store;
-    paths->next += mem;
-    paths->num_of_paths++;
-    paths->num_kmers_with_paths += (last_index == PATH_NULL);
+  PathIndex index = store->next - store->store;
+  store->next += mem;
+  store->num_of_paths++;
+  store->num_kmers_with_paths += (last_index == PATH_NULL);
+  return index;
+}
+
+// Find or add a path into the PathStore
+// last_index is index of the last path belonging to the kmer which owns the
+// new path that is to be inserted
+// Returns match PathIndex if found, otherwise PATH_NULL
+PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
+                                        const uint8_t *packed, size_t path_nbytes,
+                                        boolean *inserted)
+{
+  size_t i;
+  PathIndex match = path_store_find(paths, last_index, packed, path_nbytes);
+
+  if(match == PATH_NULL)
+  {
+    match = path_store_add_packed(paths, last_index, packed, path_nbytes);
     *inserted = true;
   }
-  else *inserted = false;
+  else {
+    // Already in path store, just update colour bitset
+    uint8_t *dst = paths->store + match + sizeof(PathIndex);
+    const uint8_t *src = packed + sizeof(PathIndex);
+    for(i = 0; i < paths->col_bitset_bytes; i++) dst[i] |= src[i];
+    *inserted = false;
+  }
 
   return match;
 }
 
-PathIndex path_store_add2(PathStore *paths, PathIndex last_index,
-                            uint8_t *packed)
+// Specify if we should try to find a duplicate first
+static inline
+PathIndex _path_store_find_or_add_packed(PathStore *store, PathIndex last_index,
+                                         const uint8_t *packed, size_t path_nbytes,
+                                         boolean find, boolean *added)
 {
-  PathLen len;
-  boolean inserted = false;
-  PathIndex idx;
-  size_t i;
-
-  memcpy(&len, packed+sizeof(PathIndex)+paths->col_bitset_bytes, sizeof(PathLen));
-  size_t nbytes = (len+3)/4;
-  idx = validate_appended(paths, last_index, packed, nbytes, &inserted);
-  if(!inserted) {
-    uint8_t *dst = paths->store + idx + sizeof(PathIndex);
-    uint8_t *src = packed + sizeof(PathIndex);
-    for(i = 0; i < paths->col_bitset_bytes; i++) dst[i] |= src[i];
+  if(find) {
+    return path_store_find_or_add_packed(store, last_index, packed,
+                                         path_nbytes, added);
+  } else {
+    *added = true;
+    return path_store_add_packed(store, last_index, packed, path_nbytes);
   }
-  return inserted ? idx : PATH_NULL;
+}
+
+// Add a PackedPath, using a FileFilter to reduce to a subset of colours
+// Returns PATH_NULL if no colours set in colour subset
+PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
+                                         const uint8_t *packed, size_t path_nbytes,
+                                         const FileFilter *fltr, boolean find,
+                                         boolean *added)
+{
+  size_t packed_bitset_bytes = round_bits_to_bytes(fltr->filencols);
+
+  if(fltr->nofilter && packed_bitset_bytes == store->col_bitset_bytes) {
+    return _path_store_find_or_add_packed(store, last_index, packed,
+                                         path_nbytes, find, added);
+  }
+
+  // Check we have enough memory to add
+  size_t mem = packedpath_mem2(store->col_bitset_bytes, path_nbytes);
+  if(store->next + mem >= store->end) die("Out of memory for paths");
+
+  uint8_t *ptr = store->next;
+  memcpy(ptr, &last_index, sizeof(PathIndex));
+  ptr += sizeof(PathIndex);
+
+  // Clear memory for colour bitset
+  memset(ptr, 0, store->col_bitset_bytes);
+
+  // Copy over bitset, one bit at a time
+  const uint8_t *packed_bitset = packed + sizeof(PathIndex);
+  size_t i, tocol, fromcol;
+  for(i = 0; i < fltr->ncols; i++) {
+    tocol = file_filter_intocol(fltr, i);
+    fromcol = fltr->cols[i];
+    bitset_cpy(ptr, tocol, bitset_has(packed_bitset, fromcol));
+  }
+
+  // Check colours are used
+  uint8_t tmp = 0;
+  for(i = 0; i < store->col_bitset_bytes; i++) tmp |= ptr[i];
+  if(tmp == 0) return PATH_NULL;
+
+  ptr += store->col_bitset_bytes;
+  packed += sizeof(PathIndex) + packed_bitset_bytes;
+  memcpy(ptr, packed, sizeof(PathLen)+path_nbytes);
+
+  return _path_store_find_or_add_packed(store, last_index, store->next,
+                                        path_nbytes, find, added);
 }
 
 // if packed_bases is NULL, uses bases and does packing
 // Returns position added to
-PathIndex path_store_add(PathStore *paths, PathIndex last_index,
-                           PathLen len, const Nucleotide *bases,
-                           Orientation orient, Colour colour)
+PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
+                                 PathLen len, const Nucleotide *bases,
+                                 Orientation orient, Colour colour,
+                                 boolean *added)
 {
   // We add the path the end of the paths and then check if it is a duplicate
   // this is done because we need to pack the bases into somewhere first anyway
-  size_t nbytes = (len+3)/4;
-  size_t total_len = path_mem(paths->col_bitset_bytes, len);
-
-  if(paths->next + total_len >= paths->end) die("Out of memory");
+  size_t nbytes = packedpath_len_nbytes(len);
+  size_t total_len = packedpath_mem(paths->col_bitset_bytes, len);
+  if(paths->next + total_len >= paths->end) die("Out of memory for paths");
 
   uint8_t *ptr = paths->next;
-
-  uint8_t colbitset[paths->col_bitset_bytes];
-  memset(colbitset, 0, paths->col_bitset_bytes);
-
   PathLen len_and_orient = len | (orient << PATH_LEN_BITS);
 
   // write path
   memcpy(ptr, &last_index, sizeof(PathIndex));
   ptr += sizeof(PathIndex);
-  memcpy(ptr, colbitset, paths->col_bitset_bytes);
+  memset(ptr, 0, paths->col_bitset_bytes);
   ptr += paths->col_bitset_bytes;
   memcpy(ptr, &len_and_orient, sizeof(PathLen));
   ptr += sizeof(PathLen);
   pack_bases(ptr, bases, len);
   // ptr += nbytes;
 
-  boolean inserted;
-  PathIndex match;
-  match = validate_appended(paths, last_index, paths->next, nbytes, &inserted);
+  PathIndex match = path_store_find_or_add_packed(paths, last_index, paths->next,
+                                                  nbytes, added);
+
   bitset_set(paths->store+match+sizeof(PathIndex), colour);
-
-  return inserted ? match : PATH_NULL;
+  return match;
 }
 
-PathIndex path_store_prev(const PathStore *paths, PathIndex index)
-{
-  PathIndex prev;
-  memcpy(&prev, paths->store + index, sizeof(PathIndex));
-  return prev;
-}
-
-void path_store_len_orient(const PathStore *paths, PathIndex index,
-                           PathLen *len, Orientation *orient)
-{
-  PathLen d;
-  memcpy(&d, paths->store + index + sizeof(PathIndex) + paths->col_bitset_bytes,
-         sizeof(PathLen));
-  *len = d & ~(1<<PATH_LEN_BITS);
-  *orient = d >> PATH_LEN_BITS;
-}
-
-void path_store_fetch(const PathStore *paths, PathIndex index,
-                        Nucleotide *bases, PathLen len)
+void path_store_fetch_bases(const PathStore *paths, PathIndex index,
+                            Nucleotide *bases, PathLen len)
 {
   uint8_t *ptr = paths->store + index + sizeof(PathIndex) +
                  paths->col_bitset_bytes + sizeof(PathLen);
@@ -208,9 +257,9 @@ size_t path_store_size(const PathStore *paths, PathIndex index)
 {
   PathLen len;
   Orientation orient;
-  path_store_len_orient(paths, index, &len, &orient);
+  packedpack_len_orient(paths->store+index, paths, &len, &orient);
   return sizeof(PathIndex) + paths->col_bitset_bytes + sizeof(PathLen) +
-         (len+3)/4;
+         packedpath_len_nbytes(len);
 }
 
 void path_store_print_path(const PathStore *paths, PathIndex index)
@@ -219,8 +268,8 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
   PathLen len;
   Orientation orient;
 
-  prev = path_store_prev(paths, index);
-  path_store_len_orient(paths, index, &len, &orient);
+  prev = packedpath_prev(paths->store + index);
+  packedpack_len_orient(paths->store+index, paths, &len, &orient);
   uint8_t *colbitset = paths->store + index + sizeof(PathIndex);
   uint8_t *data = colbitset + paths->col_bitset_bytes + sizeof(PathLen);
 

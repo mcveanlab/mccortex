@@ -326,8 +326,8 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
         index = db_node_paths(db_graph, node);
         first = true;
         while(index != PATH_NULL) {
-          prev_index = path_store_prev(paths, index);
-          path_store_len_orient(paths, index, &len, &porient);
+          prev_index = packedpath_prev(paths->store+index);
+          packedpack_len_orient(paths->store+index, paths, &len, &porient);
           if(porient == orient) {
             if(first) { printf("%s:%i\n", str, orient); first = false; }
             path_store_print_path(paths, index);

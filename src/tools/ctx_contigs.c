@@ -7,7 +7,7 @@
 #include "db_node.h"
 #include "binary_kmer.h"
 #include "graph_format.h"
-#include "path_format.h"
+#include "path_format2.h"
 #include "graph_walker.h"
 #include "supernode.h"
 #include "repeat_walker.h"
@@ -28,7 +28,7 @@ int ctx_contigs(CmdArgs *args)
   // printf("Test NaN: %s INF: %s\n", num_to_str(NAN, 2, str),
   //                                  num_to_str(INFINITY, 2, str));
 
-  size_t ncontigs = 10000, colour = 0;
+  size_t i, ncontigs = 10000, colour = 0;
   boolean print_contigs = false;
 
   while(argc > 0 && argv[0][0] == '-') {
@@ -59,7 +59,9 @@ int ctx_contigs(CmdArgs *args)
   // Seed random
   seed_random();
 
-  // probe binary
+  //
+  // Open graph file
+  //
   GraphFileReader file = INIT_GRAPH_READER;
   int ret = graph_file_open(&file, input_ctx_path, false);
 
@@ -68,22 +70,20 @@ int ctx_contigs(CmdArgs *args)
   else if(ret < 0)
     print_usage(usage, "Input graph file isn't valid: %s", input_ctx_path);
 
-  // probe paths files
-  boolean valid_paths_file = false;
-  PathFileHeader pheader = INIT_PATH_FILE_HDR;
-  size_t i;
+  //
+  // Open path files
+  //
+  PathFileReader pfiles[args->num_ctp_files];
+  size_t max_pathmem = 0;
 
-  if(args->num_ctp_files == 0)
-    status("No path files (.ctp) to load");
-  else if(args->num_ctp_files > 1)
-    print_usage(usage, "Cannot load >1 .ctp file at the moment [use pmerge]");
-
-  for(i = 0; i < args->num_ctp_files; i++)
-  {
-    if(!paths_file_probe(args->ctp_files[i], &valid_paths_file, &pheader))
-      print_usage(usage, "Cannot read .ctp file: %s", args->ctp_files[i]);
-    else if(!valid_paths_file)
-      die("Invalid .ctp file: %s", args->ctp_files[i]);
+  for(i = 0; i < args->num_ctp_files; i++) {
+    pfiles[i] = INIT_PATH_READER;
+    int pret = path_file_open(&pfiles[i], args->ctp_files[i], false);
+    if(pret == 0)
+      print_usage(usage, "Cannot read input paths file: %s", args->ctp_files[i]);
+    else if(pret < 0)
+      print_usage(usage, "Input paths file isn't valid: %s", args->ctp_files[i]);
+    max_pathmem = MAX2(max_pathmem, pfiles[i].hdr.num_path_bytes);
   }
 
   //
@@ -97,7 +97,15 @@ int ctx_contigs(CmdArgs *args)
 
   graph_mem = hash_table_mem(kmers_in_hash, false, NULL) +
               (bits_per_kmer * kmers_in_hash) / 8;
-  path_mem = pheader.num_path_bytes;
+
+
+  size_t tmppdatasize = 0;
+  if(args->num_ctp_files > 1 ||
+     (args->num_ctp_files == 1 && !pfiles[0].fltr.nofilter)) {
+    tmppdatasize = max_pathmem;
+  }
+
+  path_mem = max_pathmem + tmppdatasize;
 
   char path_mem_str[100];
   bytes_to_str(path_mem, 1, path_mem_str);
@@ -133,8 +141,10 @@ int ctx_contigs(CmdArgs *args)
   RepeatWalker rptwlk;
   walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, file.hdr.num_of_cols);
+  uint8_t *path_store = malloc2(max_pathmem);
+  path_store_init(&db_graph.pdata, path_store, max_pathmem, file.hdr.num_of_cols);
+
+  uint8_t *tmppdata = tmppdatasize > 0 ? malloc2(tmppdatasize) : NULL;
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -149,10 +159,8 @@ int ctx_contigs(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  for(i = 0; i < args->num_ctp_files; i++) {
-    paths_format_read(args->ctp_files[i], &pheader, &db_graph,
-                      &db_graph.pdata, false);
-  }
+  paths2_format_merge(pfiles, args->num_ctp_files, false,
+                      tmppdata, max_pathmem, &db_graph);
 
   status("Traversing graph...\n");
 
@@ -285,13 +293,14 @@ int ctx_contigs(CmdArgs *args)
   free(db_graph.node_in_cols);
   free((void*)db_graph.kmer_paths);
   free(path_store);
+  if(tmppdata != NULL) free(tmppdata);
 
   walker_dealloc(&rptwlk);
-  paths_header_dealloc(&pheader);
   graph_walker_dealloc(&wlk);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);
+  for(i = 0; i < args->num_ctp_files; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;
 }

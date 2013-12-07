@@ -16,17 +16,13 @@ typedef uint8_t Orientation;
 
 // Paths
 
-#define PATH_NULL UINT64_MAX
-#define PATH_LEN_BITS 15
-#define MAX_PATHLEN ((1U<<PATH_LEN_BITS)-1)
-
 typedef uint64_t PathIndex;
 typedef uint16_t PathLen;
 
 typedef struct {
   uint8_t *const store, *const end;
   const size_t size;
-  const uint32_t num_of_cols, col_bitset_bytes;
+  const size_t num_of_cols, col_bitset_bytes;
   uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths;
 } PathStore;

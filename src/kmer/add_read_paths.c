@@ -147,6 +147,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
   PathIndex prev_index, new_index;
   PathLen plen;
   Nucleotide *bases;
+  boolean added;
 
   PathStore *paths = &db_graph->pdata;
 
@@ -191,8 +192,9 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
 
-    new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
-    if(new_index != PATH_NULL) db_node_paths(db_graph, node) = new_index;
+    new_index = path_store_find_or_add(paths, prev_index, plen, bases,
+                                       orient, ctp_col, &added);
+    if(added) db_node_paths(db_graph, node) = new_index;
   }
 
   //
@@ -222,8 +224,9 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
              start_rv, start_fw);
     #endif
 
-    new_index = path_store_add(paths, prev_index, plen, bases, orient, ctp_col);
-    if(new_index != PATH_NULL) db_node_paths(db_graph, node) = new_index;
+    new_index = path_store_find_or_add(paths, prev_index, plen, bases,
+                                       orient, ctp_col, &added);
+    if(added) db_node_paths(db_graph, node) = new_index;
   }
 
   // Free lock

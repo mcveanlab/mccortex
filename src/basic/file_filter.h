@@ -13,7 +13,7 @@ typedef struct
   // path would be "in.ctx"
   StrBuf orig, path;
   FILE *fh;
-  size_t intocol, ncols, *cols, ncolscap;
+  size_t intocol, ncols, *cols, ncolscap, filencols;
   boolean flatten; // Merge all colours into intocol
   off_t file_size;
   boolean nofilter;
@@ -34,7 +34,7 @@ typedef struct
 boolean file_filter_alloc(FileFilter *file, char *path,
                           const char *mode, boolean fatal);
 
-void file_filter_set_cols(FileFilter *fltr, size_t max_col);
+void file_filter_set_cols(FileFilter *fltr, size_t filencols);
 
 void file_filter_close(FileFilter *file);
 
@@ -42,5 +42,7 @@ void file_filter_dealloc(FileFilter *file);
 
 // Print object
 void file_filter_status(const FileFilter *fltr);
+
+void file_filter_check_kmer_size(size_t kmer_size, const char *path);
 
 #endif /* FILE_FILTER_H_ */

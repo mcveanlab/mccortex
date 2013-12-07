@@ -17,8 +17,6 @@
 // <uint8_t:path_data>
 // <binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>
 
-void paths_format_filename(const char *file_path, char *out);
-
 void paths_header_alloc(PathFileHeader *header, size_t num_of_cols);
 void paths_header_dealloc(PathFileHeader *header);
 

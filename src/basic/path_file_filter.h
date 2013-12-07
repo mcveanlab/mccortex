@@ -41,7 +41,10 @@ int path_file_open(PathFileReader *file, char *path, boolean fatal);
 
 // mode is "r", "r+" etc.
 int path_file_open2(PathFileReader *file, char *path, boolean fatal,
-                     const char *mode);
+                    const char *mode);
+
+// File header checks
+void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph);
 
 // Close file
 void path_file_close(PathFileReader *file);

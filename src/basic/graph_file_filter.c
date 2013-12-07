@@ -27,7 +27,10 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
   file->hdr_size = graph_file_read_header(fltr->fh, hdr, fatal, fltr->path.buff);
   if(file->hdr_size == -1) return -1;
 
-  file_filter_set_cols(fltr, hdr->num_of_cols-1);
+  file_filter_set_cols(fltr, hdr->num_of_cols);
+
+  // Check we can handle the kmer size
+  file_filter_check_kmer_size(file->hdr.kmer_size, file->fltr.path.buff);
 
   // File header checks
   // Get number of kmers

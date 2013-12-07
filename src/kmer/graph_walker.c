@@ -188,8 +188,8 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
 
   while(index != PATH_NULL)
   {
-    path_store_len_orient(paths, index, &len, &porient);
-    if(path_store_has_col(paths, index, wlk->ctpcol) && orient == porient)
+    packedpack_len_orient(paths->store+index, paths, &len, &porient);
+    if(packedpath_has_col(paths->store+index, path, wlk->ctpcol) && orient == porient)
     {
       if(len > wlk->max_path_len || wlk->num_unused == 0)
         resize_paths(wlk, len);
@@ -197,7 +197,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
       FollowPath **arr = counter ? wlk->counter_paths : wlk->curr_paths;
       // Take from unused heap
       arr[*num] = wlk->unused_paths[--(wlk->num_unused)];
-      path_store_fetch(paths, index, arr[*num]->bases, len);
+      path_store_fetch_bases(paths, index, arr[*num]->bases, len);
 
       // size_t j;
       // for(j = 0; j < len; j++)
@@ -209,7 +209,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
       (*num)++;
     }
 
-    index = path_store_prev(paths, index);
+    index = packedpath_prev(paths->store+index);
   }
 
   return *num - start_pos;
