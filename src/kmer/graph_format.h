@@ -82,12 +82,8 @@ size_t graph_files_merge_mkhdr(char *out_ctx_path,
 
 void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols);
 
-// Dump a single colour into an existing binary
+// Dump colours into an existing binary
 // FILE *fh must already point to the first bkmer
-// if merge is true, read existing covg and edges and combine with outgoing
-void graph_file_write_colour(const dBGraph *db_graph, Colour graphcol,
-                             Colour intocol, size_t file_ncols, FILE *fh);
-
 void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
                               Colour intocol, size_t write_ncols,
                               size_t file_ncols, FILE *fh);

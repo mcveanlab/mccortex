@@ -11,8 +11,8 @@ typedef struct
   // options
   boolean num_kmers_set, mem_to_use_set, kmer_size_set, num_threads_set, use_ncols_set;
   size_t num_kmers, mem_to_use, kmer_size, num_threads, use_ncols;
-  boolean file_set, output_file_set;
-  const char *file, *output_file;
+  boolean input_file_set, output_file_set;
+  char *input_file, *output_file;
   size_t num_ctp_files;
   char **ctp_files;
   // arguments not including command:
@@ -27,7 +27,7 @@ typedef struct
   .kmer_size_set = false, .kmer_size = MAX_KMER_SIZE, \
   .num_threads_set = false, .num_threads = 2, \
   .use_ncols_set = false, .use_ncols = 1, \
-  .file_set = false, .file = NULL, \
+  .input_file_set = false, .input_file = NULL, \
   .output_file_set = false, .output_file = NULL, \
   .num_ctp_files = 0, .ctp_files = NULL, \
   .argc = 0, .argv = NULL}
@@ -45,7 +45,7 @@ int ctx_contigs(CmdArgs *args);
 int ctx_infer_edges(CmdArgs *args);
 int ctx_thread(CmdArgs *args);
 int ctx_pview(CmdArgs *args);
-int ctx_pmerge(CmdArgs *args);
+int ctx_pjoin(CmdArgs *args);
 int ctx_call(CmdArgs *args);
 int ctx_diverge(CmdArgs *args);
 int ctx_unique(CmdArgs *args);

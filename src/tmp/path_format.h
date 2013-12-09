@@ -1,5 +1,5 @@
-#ifndef path_format_H_
-#define path_format_H_
+#ifndef PATH_FORMAT_H_
+#define PATH_FORMAT_H_
 
 #include "graph_typedef.h"
 #include "path_file_filter.h"
@@ -20,27 +20,29 @@
 void paths_header_alloc(PathFileHeader *header, size_t num_of_cols);
 void paths_header_dealloc(PathFileHeader *header);
 
-// Set path header variables based on PathStore
 void paths_header_update(PathFileHeader *header, const PathStore *paths);
 
 // Returns number of bytes read or -1 on error (if fatal == false)
 int paths_file_read_header(FILE *fh, PathFileHeader *header,
                            boolean fatal, const char *path);
 
-// Get min number of colours needed to load the files
-size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files);
+// Returns false if cannot read otherwise true
+boolean paths_file_probe(const char *ctp_path, boolean *valid_ctp,
+                         PathFileHeader *pheader);
 
-boolean paths_merge_needs_tmp(PathFileReader *files, size_t num_files);
+// Check a header and graph are compatible
+void paths_graph_compatibility_check(const PathFileHeader *pheader,
+                                     const dBGraph *db_graph);
 
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
-void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                        boolean insert_missing_kmers);
+void paths_format_merge(const char *path, PathFileHeader *pheader,
+                        dBGraph *db_graph, PathStore *paths,
+                        PathStore *tmppaths, boolean insert_missing_kmers);
 
-// db_graph.pdata must be big enough to hold all this data or we exit
-void paths_format_merge(PathFileReader *files, size_t num_files,
-                         boolean insert_missing_kmers,
-                         uint8_t *tmpdata, size_t tmpdatasize, dBGraph *db_graph);
+void paths_format_read(const char *path, PathFileHeader *pheader,
+                       dBGraph *db_graph, PathStore *paths,
+                       boolean insert_missing_kmers);
 
 //
 // Write

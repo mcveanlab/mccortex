@@ -31,6 +31,7 @@ const GraphFileReader INIT_GRAPH_READER;
 
 #define graph_file_outncols(rdr) file_filter_outncols(&(rdr)->fltr)
 #define graph_file_intocol(rdr,col) file_filter_intocol(&(rdr)->fltr,col)
+#define graph_file_fromcol(rdr,col) file_filter_fromcol(&(rdr)->fltr,col)
 #define graph_file_usedcols(rdr) file_filter_usedcols(&(rdr)->fltr)
 
 // Open file

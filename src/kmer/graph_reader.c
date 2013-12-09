@@ -491,9 +491,11 @@ size_t graph_load_colour(GraphFileReader *file,
   assert(intocol < prefs->db_graph->num_of_cols);
   size_t *tmpcols = fltr->cols, tmpncols = fltr->ncols, tmpinto = fltr->intocol;
   size_t cols[1] = {fltr->cols[colour_idx]};
-  fltr->cols = cols; fltr->ncols = 1; fltr->intocol = intocol;
+  fltr->cols = cols; fltr->ncols = 1;
+  file_filter_update_intocol(fltr, intocol);
   size_t kmers_loaded = graph_load(file, prefs, stats);
-  fltr->cols = tmpcols; fltr->ncols = tmpncols; fltr->intocol = tmpinto;
+  fltr->cols = tmpcols; fltr->ncols = tmpncols;
+  file_filter_update_intocol(fltr, tmpinto);
   return kmers_loaded;
 }
 
@@ -677,10 +679,12 @@ size_t graph_files_merge(char *out_ctx_path,
       for(i = 0; i < num_files; i++)
       {
         tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
-        files[i].fltr.intocol = 0;
+        // files[i].fltr.intocol = 0;
+        file_filter_update_intocol(&files[i].fltr, 0);
         files[i].fltr.flatten = true;
         graph_load(&files[i], &prefs, stats);
-        files[i].fltr.intocol = tmpinto;
+        // files[i].fltr.intocol = tmpinto;
+        file_filter_update_intocol(&files[i].fltr, tmpinto);
         files[i].fltr.flatten = tmpflatten;
       }
     }
@@ -735,7 +739,8 @@ size_t graph_files_merge(char *out_ctx_path,
             if(files[i].fltr.intocol < firstcol) {
               files[i].fltr.cols += firstcol - files[i].fltr.intocol;
               files[i].fltr.ncols -= firstcol - files[i].fltr.intocol;
-              files[i].fltr.intocol = 0;
+              // files[i].fltr.intocol = 0;
+              file_filter_update_intocol(&files[i].fltr, 0);
             }
             else files[i].fltr.intocol -= firstcol;
 
@@ -747,7 +752,8 @@ size_t graph_files_merge(char *out_ctx_path,
           graph_load(&files[i], &prefs, stats);
           loaded = true;
 
-          files[i].fltr.intocol = tmpinto;
+          // files[i].fltr.intocol = tmpinto;
+          file_filter_update_intocol(&files[i].fltr, tmpinto);
           files[i].fltr.cols = tmpcols;
           files[i].fltr.ncols = tmpncols;
         }

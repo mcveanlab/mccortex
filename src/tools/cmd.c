@@ -5,13 +5,13 @@
 
 const char *cmds[NUM_CMDS]
   = {"build", "view", "healthcheck", "clean", "join", "supernodes", "subgraph",
-     "reads", "extend", "contigs", "inferedges", "thread", "pview", "pmerge",
+     "reads", "extend", "contigs", "inferedges", "thread", "pview", "pjoin",
      "call", "diverge", "unique", "covg", "place"};
 
 int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
   = {ctx_build, ctx_view, ctx_health_check, ctx_clean, ctx_join, ctx_supernodes,
      ctx_subgraph, ctx_reads, ctx_extend, ctx_contigs, ctx_infer_edges,
-     ctx_thread, ctx_pview, ctx_pmerge, ctx_call, ctx_diverge, ctx_unique,
+     ctx_thread, ctx_pview, ctx_pjoin, ctx_call, ctx_diverge, ctx_unique,
      ctx_covg, ctx_place};
 
 // Not implemented functions
@@ -38,7 +38,7 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts,
     print_usage(usage, "-t <threads> argument not valid for this command");
   if(args->use_ncols_set && strchr(accptopts,'c') == NULL)
     print_usage(usage, "-c <ncols> argument not valid for this command");
-  if(args->file_set && strchr(accptopts,'f') == NULL)
+  if(args->input_file_set && strchr(accptopts,'f') == NULL)
     print_usage(usage, "-f <file> argument not valid for this command");
   if(args->output_file_set && strchr(accptopts,'o') == NULL)
     print_usage(usage, "-o <file> argument not valid for this command");
@@ -80,7 +80,7 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
         die("-c <ncols> argument required for this command");
     }
     else if(*requireopts == 'f') {
-      if(!args->file_set)
+      if(!args->input_file_set)
         die("-f <file> argument required for this command");
     }
     else if(*requireopts == 'o') {
@@ -185,9 +185,9 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--file") == 0)
     {
       if(i + 1 == argc) die("%s <file> requires an argument", argv[i]);
-      if(args->file_set) die("%s <file> given more than once", argv[i]);
-      args->file = argv[i+1];
-      args->file_set = true;
+      if(args->input_file_set) die("%s <file> given more than once", argv[i]);
+      args->input_file = argv[i+1];
+      args->input_file_set = true;
       i++;
     }
     else if(strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--out") == 0)
@@ -277,7 +277,10 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
         min_num_kmers_str, min_kmers_mem_str);
   }
 
-  if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY) {
+  // Give a warning about occupancy unless explicitly set to exactly 100%
+  if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY &&
+     kmers_in_hash != args->num_kmers)
+  {
     warn("Expected hash table occupancy %.2f%% "
          "(you may want to increase -n or -m)",
          (100.0 * min_num_kmers) / kmers_in_hash);
@@ -288,9 +291,9 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
       die("-n <kmers> requires more memory than given with -m <mem> [%s > %s]",
           graph_mem_str, mem_to_use_str);
     }
-    else if(graph_mem < args->mem_to_use) {
-      status("Note: Using less memory than requested (%s < %s), due to: -n <kmer>",
-             graph_mem_str, mem_to_use_str);
+    else if(use_mem_limit && graph_mem < args->mem_to_use) {
+      status("Note: Using less memory than requested (%s < %s); allows for %s kmers",
+             graph_mem_str, mem_to_use_str, kmers_in_hash_str);
     }
   }
 

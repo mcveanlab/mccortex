@@ -167,6 +167,8 @@ int ctx_build(CmdArgs *args)
         print_usage(usage, "--sample <name> requires an argument");
       if(colours_used > 0 && !sample_used)
         warn("Empty colour (maybe you intended this)");
+      if(!strcmp(argv[argi+1],"undefined") || !strcmp(argv[argi+1],"noname"))
+        die("--sample %s is not a good name!", argv[argi+1]);
       argi++;
       colours_used++;
       sample_named = true;

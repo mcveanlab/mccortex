@@ -67,7 +67,7 @@ int ctx_call(CmdArgs *args)
   char *input_ctx_path = argv[argi];
   char *out_path = argv[argi+1];
 
-  // Probe binary to get kmer_size
+  // Open Graph file
   GraphFileReader file = INIT_GRAPH_READER;
   int ret = graph_file_open(&file, input_ctx_path, false);
 
@@ -84,35 +84,28 @@ int ctx_call(CmdArgs *args)
     }
   }
 
-  // probe paths file
-  if(args->num_ctp_files > 1)
-    print_usage(usage, "Sorry, we only accept one -p <in.ctp> at the moment");
+  //
+  // Open path files
+  //
+  size_t num_pfiles = args->num_ctp_files;
+  PathFileReader pfiles[num_pfiles];
+  size_t path_max_mem = 0, path_max_usedcols = 0;
 
-  const char *input_paths_file = args->num_ctp_files ? args->ctp_files[0] : NULL;
-
-  boolean valid_paths_file = false;
-  PathFileHeader pheader = INIT_PATH_FILE_HDR;
-
-  if(input_paths_file != NULL)
-  {
-    if(!paths_file_probe(input_paths_file, &valid_paths_file, &pheader))
-      print_usage(usage, "Cannot read .ctp file: %s", input_paths_file);
-    if(!valid_paths_file)
-      die("Invalid .ctp file: %s", input_paths_file);
-    if(pheader.num_of_cols != file.hdr.num_of_cols)
-      die("Number of colours in .ctp does not match .ctx");
-    if(pheader.kmer_size != file.hdr.kmer_size)
-      die("Kmer size in .ctp does not match .ctx");
+  for(i = 0; i < num_pfiles; i++) {
+    pfiles[i] = INIT_PATH_READER;
+    path_file_open(&pfiles[i], args->ctp_files[i], true);
+    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
+    path_max_usedcols = MAX2(path_max_usedcols, pfiles[i].fltr.ncols);
   }
 
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, thread_mem, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, thread_mem, total_mem;
   char path_mem_str[100], thread_mem_str[100], total_mem_str[100];
 
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
-  // visitedfw/rv(2bits/kmer/thread)
+  // visitedfw/rv(2bits/thread)
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
                   file.hdr.num_of_cols + 2*num_of_threads;
@@ -130,10 +123,13 @@ int ctx_call(CmdArgs *args)
           num_of_threads, thread_mem, thread_mem_str);
 
   // Path Memory
-  bytes_to_str(pheader.num_path_bytes, 1, path_mem_str);
+  size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  path_mem = path_max_mem + tmppathsize;
+
+  bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  total_mem = pheader.num_path_bytes + graph_mem;
+  total_mem = graph_mem + path_mem;
   bytes_to_str(total_mem, 1, total_mem_str);
 
   if(total_mem > args->mem_to_use)
@@ -160,9 +156,11 @@ int ctx_call(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(pheader.num_path_bytes);
-  path_store_init(&db_graph.pdata, path_store, pheader.num_path_bytes,
-                  file.hdr.num_of_cols);
+  uint8_t *path_store = malloc2(path_max_mem);
+  path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
+
+  // Temorary memory to load paths into
+  uint8_t *tmppdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -174,11 +172,8 @@ int ctx_call(CmdArgs *args)
   graph_load(&file, &prefs, stats);
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path file
-  if(input_paths_file != NULL) {
-    paths_format_read(input_paths_file, &pheader, &db_graph,
-                      &db_graph.pdata, false);
-  }
+  // Load path files
+  paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
 
   // Seed random
   seed_random();
@@ -222,13 +217,13 @@ int ctx_call(CmdArgs *args)
   free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
   free(path_store);
-
-  paths_header_dealloc(&pheader);
+  if(tmppdata != NULL) free(tmppdata);
 
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);
+  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;
 }

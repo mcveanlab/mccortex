@@ -40,7 +40,7 @@ static const char usage[] =
 "                 2 sample3.3and5.ctp pool.samples5and3.ctx\n"
 "    "CMD" thread -m 80G --col 0 --seq sample5.fa \\\n"
 "                 2 sample5.3and5.ctp pool.samples5and3.ctx population.c6.ctx\n"
-"    "CMD" pmerge sample3and5.ctp sample3.3and5.ctp sample5.3and5.ctp\n";
+"    "CMD" pjoin sample3and5.ctp sample3.3and5.ctp sample5.3and5.ctp\n";
 
 #define NUM_PASSES 1
 
@@ -158,7 +158,7 @@ int ctx_thread(CmdArgs *args)
     }
 
     size_t ncols = graph_file_usedcols(&files[i]);
-    files[i].fltr.intocol += total_cols;
+    file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + total_cols);
     total_cols += ncols;
 
     ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);

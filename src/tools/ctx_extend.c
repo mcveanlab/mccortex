@@ -209,7 +209,8 @@ int ctx_extend(CmdArgs *args)
                            .remove_dups_se = false, .remove_dups_pe = false};
 
   file.fltr.flatten = true;
-  file.fltr.intocol = 0;
+  // file.fltr.intocol = 0;
+  file_filter_update_intocol(&file.fltr, 0);
 
   // Load binary
   graph_load(&file, &prefs, stats);

@@ -132,24 +132,6 @@ static inline void overwrite_kmer_colours(hkey_t node,
   fseek(fh, skip_cols * sizeof(Edges), SEEK_CUR);
 }
 
-// DEV: remove this and graph_file_write_colour (+from header)
-static inline void overwrite_kmer_colour(hkey_t node, const dBGraph *db_graph,
-                                         Colour graphcol, Colour intocol,
-                                         size_t file_ncols, FILE *fh)
-{
-  overwrite_kmer_colours(node, db_graph, graphcol, intocol, 1, file_ncols, fh);
-}
-
-// Dump a single colour into an existing binary
-// FILE *fh must already point to the first bkmer
-// if merge is true, read existing covg and edges and combine with outgoing
-void graph_file_write_colour(const dBGraph *db_graph, Colour graphcol,
-                             Colour intocol, size_t file_ncols, FILE *fh)
-{
-  HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colour,
-                db_graph, graphcol, intocol, file_ncols, fh);
-}
-
 void graph_file_write_colours(const dBGraph *db_graph,
                              Colour graphcol, Colour intocol,
                              size_t write_ncols, size_t file_ncols,

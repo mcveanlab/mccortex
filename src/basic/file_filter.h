@@ -26,6 +26,7 @@ typedef struct
 
 #define file_filter_outncols(fltr) ((fltr)->flatten ? 1 : (fltr)->ncols)
 #define file_filter_intocol(fltr,col) ((fltr)->intocol + (!(fltr)->flatten)*(col))
+#define file_filter_fromcol(fltr,col) ((fltr)->cols[i])
 #define file_filter_usedcols(fltr) ((fltr)->intocol + file_filter_outncols(fltr))
 
 // Does not read any bytes from file, but does open it
@@ -35,6 +36,7 @@ boolean file_filter_alloc(FileFilter *file, char *path,
                           const char *mode, boolean fatal);
 
 void file_filter_set_cols(FileFilter *fltr, size_t filencols);
+void file_filter_update_intocol(FileFilter *fltr, size_t intocol);
 
 void file_filter_close(FileFilter *file);
 

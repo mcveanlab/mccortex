@@ -22,7 +22,7 @@ typedef uint16_t PathLen;
 typedef struct {
   uint8_t *const store, *const end;
   const size_t size;
-  const size_t num_of_cols, col_bitset_bytes;
+  const size_t num_of_cols, colset_bytes;
   uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths;
 } PathStore;

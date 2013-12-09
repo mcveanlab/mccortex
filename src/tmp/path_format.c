@@ -1,5 +1,5 @@
 #include "global.h"
-#include "path_format2.h"
+#include "path_format.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "hash_table.h"
@@ -14,10 +14,10 @@
 // -- Colours --
 // <uint32_t:sname_len><uint8_t x sname_len:sample_name> x num_of_cols
 // -- Data --
-// <uint8_t x num_path_bytes:path_data>
-// <binarykmer x num_kmers_with_paths><uint64_t:path_index>
+// <uint8_t:path_data>
+// <binarykmer><uint64_t:path_index_fw><uint64_t:path_index_rv>
 
-void paths2_header_alloc(PathFileHeader *h, size_t num_of_cols)
+void paths_header_alloc(PathFileHeader *h, size_t num_of_cols)
 {
   size_t i, old_cap = h->capacity;
 
@@ -36,7 +36,7 @@ void paths2_header_alloc(PathFileHeader *h, size_t num_of_cols)
   h->capacity = MAX2(old_cap, num_of_cols);
 }
 
-void paths2_header_dealloc(PathFileHeader *h)
+void paths_header_dealloc(PathFileHeader *h)
 {
   size_t i;
   if(h->capacity > 0) {
@@ -47,7 +47,7 @@ void paths2_header_dealloc(PathFileHeader *h)
 }
 
 // Set path header variables based on PathStore
-void paths2_header_update(PathFileHeader *header, const PathStore *paths)
+void paths_header_update(PathFileHeader *header, const PathStore *paths)
 {
   header->num_of_paths = paths->num_of_paths;
   header->num_path_bytes = paths->next - paths->store;
@@ -55,8 +55,8 @@ void paths2_header_update(PathFileHeader *header, const PathStore *paths)
 }
 
 // Returns number of bytes read or -1 on error (if fatal is false)
-int paths2_file_read_header(FILE *fh, PathFileHeader *h,
-                            boolean fatal, const char *path)
+int paths_file_read_header(FILE *fh, PathFileHeader *h,
+                           boolean fatal, const char *path)
 {
   int bytes_read = 0;
   char sig[6] = {0};
@@ -73,8 +73,8 @@ int paths2_file_read_header(FILE *fh, PathFileHeader *h,
 
   bytes_read += 5 + sizeof(uint32_t)*3 + sizeof(uint64_t)*3;
 
-  // paths2_header_alloc will only alloc or realloc only if it needs to
-  paths2_header_alloc(h, h->num_of_cols);
+  // paths_header_alloc will only alloc or realloc only if it needs to
+  paths_header_alloc(h, h->num_of_cols);
 
   // Read sample names
   size_t i;
@@ -121,75 +121,99 @@ int paths2_file_read_header(FILE *fh, PathFileHeader *h,
   return bytes_read;
 }
 
-static inline void load_packed_linkedlist(hkey_t node, PathIndex tmpindex,
-                                          const uint8_t *tmpdata,
-                                          FileFilter *fltr, boolean find,
-                                          dBGraph *db_graph)
+// We try loading the header into header passed
+// Returns false if cannot read otherwise true
+boolean paths_file_probe(const char *file_path, boolean *valid_paths_file,
+                         PathFileHeader *pheader)
 {
-  const uint8_t *packed;
-  PathIndex index; PathLen pbytes; boolean added;
-  PathStore *store = &db_graph->pdata;
-
-  // Get paths this kmer already has
-  index = db_node_paths(db_graph, node);
-
-  do
-  {
-    packed = tmpdata+tmpindex;
-    pbytes = packedpath_pbytes(packed, store);
-    index = path_store_find_or_add_packed2(store, index, packed, pbytes,
-                                           fltr, find, &added);
-    if(added) db_node_paths(db_graph, node) = index;
-    tmpindex = packedpath_prev(packed);
-  }
-  while(tmpindex != PATH_NULL);
+  FILE *fh = fopen(file_path, "r");
+  if(fh == NULL) return false;
+  int hret = paths_file_read_header(fh, pheader, false, file_path);
+  fclose(fh);
+  *valid_paths_file = (hret > 0);
+  return true;
 }
 
+// Check a header and graph are compatible
+void paths_graph_compatibility_check(const PathFileHeader *pheader,
+                                     const dBGraph *db_graph)
+{
+  if(db_graph->kmer_size != pheader->kmer_size)
+    die("Kmer sizes do not match between graph and path file");
+  // if(db_graph->num_of_cols != pheader->num_of_cols)
+  //   die("Number of colours does not match between graph and path file");
 
+  if(pheader->num_path_bytes > db_graph->pdata.size) {
+    die("Not enough memory allocated to store paths [mem: %zu]",
+        (size_t)pheader->num_path_bytes);
+  }
+
+  if(db_graph->ht.unique_kmers > 0 &&
+     db_graph->ht.unique_kmers < pheader->num_kmers_with_paths)
+  {
+    warn("Graph has fewer kmers than paths file");
+  }
+
+  // Check sample names match
+  // uint32_t i;
+  // for(i = 0; i < pheader->num_of_cols; i++)
+  // {
+  //   char *gname = db_graph->ginfo[i].sample_name.buff;
+  //   char *pname = pheader->sample_names[i].buff;
+
+  //   if(strcmp(pname, "noname") != 0 && strcmp(gname, pname) != 0)
+  //     die("Graph/path sample names do not match [%u] '%s' vs '%s'", i, gname, pname);
+  // }
+}
 
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
-void paths2_format_load(PathFileReader *file, dBGraph *db_graph,
-                        boolean insert_missing_kmers)
+//  (this is a useful feature for pview)
+void paths_format_merge(const char *path, PathFileHeader *pheader,
+                        dBGraph *db_graph, PathStore *paths,
+                        PathStore *tmppaths, boolean insert_missing_kmers)
 {
-  const PathFileHeader *hdr = &file->hdr;
-  FileFilter *fltr = &file->fltr;
-  FILE *fh = fltr->fh;
-  const char *path = fltr->path.buff;
-  PathStore *store = &db_graph->pdata;
+  FILE *fh = fopen(path, "r");
+  if(fh == NULL) die("Unable to open paths file: %s\n", path);
+  setvbuf(fh, NULL, _IOFBF, CTP_BUF_SIZE);
 
-  // If you want to use a file filter you must use paths2_format_merge
-  assert(fltr->nofilter);
-  assert(store->next == store->store);
-  assert(store->num_of_paths == 0 && store->num_kmers_with_paths == 0);
-
-  path_file_load_check(file, db_graph);
+  paths_file_read_header(fh, pheader, true, path);
+  paths_graph_compatibility_check(pheader, db_graph);
 
   // Print some output
   char kmers_str[100], paths_str[100], mem_str[100];
-  ulong_to_str(hdr->num_kmers_with_paths, kmers_str);
-  ulong_to_str(hdr->num_of_paths, paths_str);
-  bytes_to_str(hdr->num_path_bytes, 1, mem_str);
+  ulong_to_str(pheader->num_kmers_with_paths, kmers_str);
+  ulong_to_str(pheader->num_of_paths, paths_str);
+  bytes_to_str(pheader->num_path_bytes, 1, mem_str);
 
   status("Loading paths: %s paths, %s path-bytes, %s kmers\n",
          paths_str, mem_str, kmers_str);
 
-  size_t i;
+  uint64_t i;
   BinaryKmer bkmer;
   hkey_t node;
   boolean found;
 
   // Load paths
-  safe_fread(fh, store->store, hdr->num_path_bytes, "store->store", path);
-  store->next = store->store + hdr->num_path_bytes;
-  store->num_of_paths = hdr->num_of_paths;
-  store->num_kmers_with_paths = hdr->num_kmers_with_paths;
+  if(tmppaths != NULL)
+  {
+    if(pheader->num_path_bytes > tmppaths->size)
+      die("Not enough memory for loading paths");
+    safe_fread(fh, tmppaths->store, pheader->num_path_bytes, "tmppaths->store", path);
+  }
+  else
+  {
+    safe_fread(fh, paths->store, pheader->num_path_bytes, "paths->store", path);
+    paths->next = paths->store + pheader->num_path_bytes;
+    paths->num_of_paths = pheader->num_of_paths;
+    paths->num_kmers_with_paths = pheader->num_kmers_with_paths;
+  }
 
   // Load kmer pointers to paths
   PathIndex index;
   memset(bkmer.b, 0, sizeof(BinaryKmer));
 
-  for(i = 0; i < hdr->num_kmers_with_paths; i++)
+  for(i = 0; i < pheader->num_kmers_with_paths; i++)
   {
     safe_fread(fh, &bkmer, sizeof(BinaryKmer), "bkmer", path);
 
@@ -201,12 +225,28 @@ void paths2_format_load(PathFileReader *file, dBGraph *db_graph,
     }
 
     safe_fread(fh, &index, sizeof(uint64_t), "kmer_index", path);
-    if(index > hdr->num_path_bytes) {
+    if(index > pheader->num_path_bytes) {
       die("Path index out of bounds [%zu > %zu]",
-          (size_t)index, (size_t)hdr->num_path_bytes);
+          (size_t)index, (size_t)pheader->num_path_bytes);
     }
 
-    db_node_paths(db_graph, node) = index;
+    if(tmppaths == NULL)
+      db_node_paths(db_graph, node) = index;
+    else
+    {
+      // Do merge
+      PathIndex kindex = db_node_paths(db_graph, node);
+      const uint8_t *packed; boolean inserted; PathLen pbytes;
+      do
+      {
+        packed = tmppaths->store+index;
+        pbytes = packedpath_pbytes(packed, paths->colset_bytes);
+        kindex = path_store_find_or_add_packed(paths, kindex, packed, pbytes, &inserted);
+        if(inserted) db_node_paths(db_graph, node) = kindex;
+        memcpy(&index, tmppaths->store + index, sizeof(PathIndex));
+      }
+      while(index != PATH_NULL);
+    }
   }
 
   // Test that this is the end of the file
@@ -217,104 +257,11 @@ void paths2_format_load(PathFileReader *file, dBGraph *db_graph,
   fclose(fh);
 }
 
-size_t paths2_get_min_usedcols(PathFileReader *files, size_t num_files)
+void paths_format_read(const char *path, PathFileHeader *pheader,
+                       dBGraph *db_graph, PathStore *paths,
+                       boolean insert_missing_kmers)
 {
-  size_t i, ncols, used_cols = path_file_usedcols(&files[0]);
-
-  for(i = 1; i < num_files; i++) {
-    ncols = path_file_usedcols(&files[i]);
-    used_cols = MAX2(used_cols, ncols);
-  }
-  return used_cols;
-}
-
-// Load 1 or more path files; can be called consecutively
-// db_graph.pdata must be big enough to hold all this data or we exit
-// tmpdata must be bigger than MAX(files[*].hdr.num_path_bytes)
-void paths2_format_merge(PathFileReader *files, size_t num_files,
-                         boolean insert_missing_kmers,
-                         uint8_t *tmpdata, size_t datasize, dBGraph *db_graph)
-{
-  (void)datasize;
-  if(num_files == 0) return;
-
-  PathStore *store = &db_graph->pdata;
-
-  // Check number of bytes for colour bitset (path in which cols)
-  // This should have been dealt with in the setup of the PathStore
-  size_t required_ncols = paths2_get_min_usedcols(files, num_files);
-  size_t required_nbytes = round_bits_to_bytes(required_ncols);
-  assert(required_ncols <= store->num_of_cols);
-  assert(required_nbytes <= store->col_bitset_bytes);
-
-  // load files one at a time
-  FileFilter *fltr;
-  PathFileHeader *hdr;
-  FILE *fh; const char *path;
-  BinaryKmer bkey;
-  hkey_t node;
-  PathIndex tmpindex;
-  boolean found, find = true;
-  size_t i, first_file = 0;
-
-  for(i = 0; i < num_files; i++)
-    path_file_load_check(&files[i], db_graph);
-
-  // Load first file into main store
-  if(store->next == store->store)
-  {
-    // Currently no paths loaded
-    if(files[0].fltr.nofilter) {
-      paths2_format_load(&files[0], db_graph, insert_missing_kmers);
-      first_file = 1;
-    } else {
-      find = false;
-      first_file = 0;
-    }
-  }
-
-  for(i = first_file; i < num_files; i++)
-  {
-    fltr = &files[i].fltr;
-    hdr = &files[i].hdr;
-    path = fltr->orig.buff;
-    fh = fltr->fh;
-
-    assert(tmpdata != NULL);
-    assert(hdr->num_path_bytes <= datasize);
-    safe_fread(fh, tmpdata, hdr->num_path_bytes, "paths->store", path);
-
-    // Load kmer pointers to paths
-    memset(&bkey, 0, sizeof(BinaryKmer));
-
-    for(i = 0; i < hdr->num_kmers_with_paths; i++)
-    {
-      safe_fread(fh, &bkey, sizeof(BinaryKmer), "bkey", path);
-
-      if(insert_missing_kmers) {
-        node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
-      }
-      else if((node = hash_table_find(&db_graph->ht, bkey)) == HASH_NOT_FOUND) {
-        die("Node missing: %zu [path: %s]", (size_t)node, path);
-      }
-
-      safe_fread(fh, &tmpindex, sizeof(uint64_t), "kmer_index", path);
-      if(tmpindex > hdr->num_path_bytes) {
-        die("Path index out of bounds [%zu > %zu]",
-            (size_t)tmpindex, (size_t)hdr->num_path_bytes);
-      }
-
-      // Merge into currently loaded paths
-      load_packed_linkedlist(node, tmpindex, tmpdata, fltr, find, db_graph);
-    }
-
-    // Test that this is the end of the file
-    uint8_t end;
-    if(fread(&end, 1, 1, fh) != 0)
-      warn("End of file not reached when loading! [path: %s]", path);
-  
-    find = true;
-  }
+  paths_format_merge(path, pheader, db_graph, paths, NULL, insert_missing_kmers);
 }
 
 //
@@ -322,7 +269,7 @@ void paths2_format_merge(PathFileReader *files, size_t num_files,
 //
 
 // returns number of bytes written
-size_t paths2_format_write_header_core(const PathFileHeader *header, FILE *fout)
+size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout)
 {
   fwrite("PATHS", 1, 5, fout);
   fwrite(&header->version, sizeof(uint32_t), 1, fout);
@@ -335,9 +282,9 @@ size_t paths2_format_write_header_core(const PathFileHeader *header, FILE *fout)
 }
 
 // returns number of bytes written
-size_t paths2_format_write_header(const PathFileHeader *header, FILE *fout)
+size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
 {
-  paths2_format_write_header_core(header, fout);
+  paths_format_write_header_core(header, fout);
 
   size_t i, bytes = 0;
   uint32_t len;
@@ -362,7 +309,7 @@ static inline void write_optimised_paths(hkey_t node, PathIndex *pidx,
   PathIndex curridx, nextidx, newidx;
   PathLen len;
   Orientation orient;
-  size_t mem;
+  size_t mem, pbytes;
 
   if((curridx = db_node_paths(db_graph, node)) != PATH_NULL)
   {
@@ -372,7 +319,8 @@ static inline void write_optimised_paths(hkey_t node, PathIndex *pidx,
     {
       nextidx = packedpath_prev(paths->store+curridx);
       packedpack_len_orient(paths->store+curridx, paths, &len, &orient);
-      mem = packedpath_mem(paths->col_bitset_bytes,len);
+      pbytes = packedpath_len_nbytes(len);
+      mem = packedpath_mem2(paths->colset_bytes, pbytes);
       *pidx += mem;
       newidx = (nextidx == PATH_NULL ? PATH_NULL : *pidx);
       fwrite(&newidx, sizeof(PathIndex), 1, fout);
@@ -396,7 +344,7 @@ static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
 }
 
 // Corrupts paths so they cannot be used elsewhere
-void paths2_format_write_optimised_paths(dBGraph *db_graph, FILE *fout)
+void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout)
 {
   PathIndex poffset = 0;
   HASH_TRAVERSE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);

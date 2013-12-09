@@ -249,7 +249,8 @@ int ctx_supernodes(CmdArgs *args)
 
   for(i = 0; i < num_files; i++) {
     files[i].fltr.flatten = true;
-    files[i].fltr.intocol = 0;
+    // files[i].fltr.intocol = 0;
+    file_filter_update_intocol(&files[i].fltr, 0);
     graph_load(&files[i], &prefs, NULL);
   }
 

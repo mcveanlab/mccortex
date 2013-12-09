@@ -7,7 +7,7 @@
 #include "db_node.h"
 #include "binary_kmer.h"
 #include "graph_format.h"
-#include "path_format2.h"
+#include "path_format.h"
 #include "graph_walker.h"
 #include "supernode.h"
 #include "repeat_walker.h"
@@ -73,23 +73,22 @@ int ctx_contigs(CmdArgs *args)
   //
   // Open path files
   //
-  PathFileReader pfiles[args->num_ctp_files];
-  size_t max_pathmem = 0;
+  size_t num_pfiles = args->num_ctp_files;
+  PathFileReader pfiles[num_pfiles];
+  size_t path_max_mem = 0, path_max_usedcols = 0;
 
-  for(i = 0; i < args->num_ctp_files; i++) {
+  for(i = 0; i < num_pfiles; i++) {
     pfiles[i] = INIT_PATH_READER;
-    int pret = path_file_open(&pfiles[i], args->ctp_files[i], false);
-    if(pret == 0)
-      print_usage(usage, "Cannot read input paths file: %s", args->ctp_files[i]);
-    else if(pret < 0)
-      print_usage(usage, "Input paths file isn't valid: %s", args->ctp_files[i]);
-    max_pathmem = MAX2(max_pathmem, pfiles[i].hdr.num_path_bytes);
+    path_file_open(&pfiles[i], args->ctp_files[i], true);
+    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
+    path_max_usedcols = MAX2(path_max_usedcols, pfiles[i].fltr.ncols);
   }
 
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
+  char path_mem_str[100], total_mem_str[100];
 
   bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
@@ -99,19 +98,19 @@ int ctx_contigs(CmdArgs *args)
               (bits_per_kmer * kmers_in_hash) / 8;
 
 
-  size_t tmppdatasize = 0;
-  if(args->num_ctp_files > 1 ||
-     (args->num_ctp_files == 1 && !pfiles[0].fltr.nofilter)) {
-    tmppdatasize = max_pathmem;
-  }
+  // Paths memory
+  size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  path_mem = path_max_mem + tmppathsize;
 
-  path_mem = max_pathmem + tmppdatasize;
-
-  char path_mem_str[100];
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  if(graph_mem + path_mem > args->mem_to_use) die("Not enough memory");
+  // Total memory
+  total_mem = graph_mem + path_mem;
+  bytes_to_str(total_mem, 1, total_mem_str);
+
+  if(total_mem > args->mem_to_use)
+    die("Requires at least %s memory", total_mem_str);
 
   //
   // Output file if printing
@@ -141,10 +140,10 @@ int ctx_contigs(CmdArgs *args)
   RepeatWalker rptwlk;
   walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
-  uint8_t *path_store = malloc2(max_pathmem);
-  path_store_init(&db_graph.pdata, path_store, max_pathmem, file.hdr.num_of_cols);
+  uint8_t *path_store = malloc2(path_max_mem);
+  path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
 
-  uint8_t *tmppdata = tmppdatasize > 0 ? malloc2(tmppdatasize) : NULL;
+  uint8_t *tmppdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -159,8 +158,7 @@ int ctx_contigs(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths2_format_merge(pfiles, args->num_ctp_files, false,
-                      tmppdata, max_pathmem, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
 
   status("Traversing graph...\n");
 
@@ -300,7 +298,7 @@ int ctx_contigs(CmdArgs *args)
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);
-  for(i = 0; i < args->num_ctp_files; i++) path_file_dealloc(&pfiles[i]);
+  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;
 }

@@ -82,14 +82,23 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols)
     file_filter_capacity(fltr, fltr->ncols);
     range_parse_array(path_end+1, fltr->cols, filencols-1);
     for(i = 0; i < filencols && fltr->cols[i] == i; i++);
-    fltr->nofilter = (i == filencols);
+    fltr->nofilter = (i == filencols && fltr->intocol == 0);
   }
   else {
     fltr->ncols = filencols;
     file_filter_capacity(fltr, fltr->ncols);
     for(i = 0; i < filencols; i++) fltr->cols[i] = i;
-    fltr->nofilter = true;
+    fltr->nofilter = (fltr->intocol == 0);
   }
+}
+
+// Update intocol and nofilter
+void file_filter_update_intocol(FileFilter *fltr, size_t intocol)
+{
+  size_t i;
+  fltr->intocol = intocol;
+  for(i = 0; i < fltr->ncols && fltr->cols[i] == i; i++);
+  fltr->nofilter = (i == fltr->ncols && fltr->intocol == 0);
 }
 
 // Close file

@@ -162,7 +162,8 @@ int ctx_infer_edges(CmdArgs *args)
 
   assert(file.hdr.num_of_cols == file.fltr.ncols);
 
-  file.fltr.intocol = 0;
+  // file.fltr.intocol = 0;
+  file_filter_update_intocol(&file.fltr, 0);
   file.fltr.flatten = false;
 
   //

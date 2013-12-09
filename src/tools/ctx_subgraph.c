@@ -185,7 +185,7 @@ int ctx_subgraph(CmdArgs *args)
 
     size_t offset = total_cols;
     total_cols += graph_file_usedcols(&files[i]);
-    files[i].fltr.intocol += offset;
+    file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + offset);
 
     max_num_kmers = MAX2(files[i].hdr.num_of_kmers, max_num_kmers);
   }
@@ -255,18 +255,20 @@ int ctx_subgraph(CmdArgs *args)
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
-  size_t tmpcol; boolean tmpflatten;
+  size_t tmpinto; boolean tmpflatten;
   for(i = 0; i < num_files; i++) {
-    tmpcol = files[i].fltr.intocol;
+    tmpinto = files[i].fltr.intocol;
     tmpflatten = files[i].fltr.flatten;
 
     if(total_cols > db_graph.num_of_cols) {
-      files[i].fltr.intocol = 0;
+      // files[i].fltr.intocol = 0;
+      file_filter_update_intocol(&files[i].fltr, 0);
       files[i].fltr.flatten = true;
     }
 
     graph_load(&files[i], &prefs, stats);
-    files[i].fltr.intocol = tmpcol;
+    // files[i].fltr.intocol = tmpinto;
+    file_filter_update_intocol(&files[i].fltr, tmpinto);
     files[i].fltr.flatten = tmpflatten;
 
     for(j = 0; j < files[i].fltr.ncols; j++) {

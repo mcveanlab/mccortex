@@ -30,6 +30,7 @@ const PathFileReader INIT_PATH_READER;
 
 #define path_file_outncols(rdr) file_filter_outncols(&(rdr)->fltr)
 #define path_file_intocol(rdr,col) file_filter_intocol(&(rdr)->fltr,col)
+#define path_file_fromcol(rdr,col) file_filter_fromcol(&(rdr)->fltr,col)
 #define path_file_usedcols(rdr) file_filter_usedcols(&(rdr)->fltr)
 
 // Open file
@@ -45,6 +46,13 @@ int path_file_open2(PathFileReader *file, char *path, boolean fatal,
 
 // File header checks
 void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph);
+
+// Copy sample names form PathFileReader to graph
+void path_file_set_graph_sample_names(const PathFileReader *file,
+                                      dBGraph *db_graph);
+
+void path_file_set_header_sample_names(const PathFileReader *file,
+                                       PathFileHeader *hdr1);
 
 // Close file
 void path_file_close(PathFileReader *file);

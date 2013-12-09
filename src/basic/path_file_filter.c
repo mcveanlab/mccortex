@@ -1,6 +1,6 @@
 #include "global.h"
 #include "path_file_filter.h"
-#include "path_format2.h"
+#include "path_format.h"
 #include "util.h"
 
 const PathFileHeader INIT_PATH_FILE_HDR = INIT_PATH_FILE_HDR_MACRO;
@@ -25,7 +25,7 @@ int path_file_open2(PathFileReader *file, char *path, boolean fatal,
   if(!file_filter_alloc(fltr, path, mode, fatal)) return 0;
   setvbuf(fltr->fh, NULL, _IOFBF, CTP_BUF_SIZE);
 
-  file->hdr_size = paths2_file_read_header(fltr->fh, hdr, fatal, fltr->path.buff);
+  file->hdr_size = paths_file_read_header(fltr->fh, hdr, fatal, fltr->path.buff);
   if(file->hdr_size == -1) return -1;
 
   file_filter_set_cols(fltr, hdr->num_of_cols);
@@ -77,17 +77,61 @@ void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
   }
 
   // Check sample names match
-  size_t i, col;
+  size_t i, intocol, fromcol;
   for(i = 0; i < hdr->num_of_cols; i++)
   {
-    col = file_filter_intocol(fltr, i);
-    char *gname = db_graph->ginfo[col].sample_name.buff;
-    char *pname = hdr->sample_names[i].buff;
+    intocol = file_filter_intocol(fltr, i);
+    fromcol = file_filter_fromcol(fltr, i);
+    char *gname = db_graph->ginfo[intocol].sample_name.buff;
+    char *pname = hdr->sample_names[fromcol].buff;
 
     if(strcmp(pname, "noname") != 0 && strcmp(gname, pname) != 0) {
       die("Graph/path sample names do not match [%zu->%zu] '%s' vs '%s'",
-          i, col, gname, pname);
+          i, intocol, gname, pname);
     }
+  }
+}
+
+void path_file_set_graph_sample_names(const PathFileReader *file,
+                                      dBGraph *db_graph)
+{
+  const FileFilter *fltr = &file->fltr;
+  const PathFileHeader *hdr = &file->hdr;
+
+  size_t i, intocol, fromcol;
+  StrBuf *gname, *pname;
+  for(i = 0; i < hdr->num_of_cols; i++)
+  {
+    intocol = file_filter_intocol(fltr, i);
+    fromcol = file_filter_fromcol(fltr, i);
+    gname = &db_graph->ginfo[intocol].sample_name;
+    pname = &hdr->sample_names[fromcol];
+
+    if(strcmp(gname->buff, "undefined") == 0)
+      strbuf_set(gname, pname->buff);
+    else if(strcmp(gname->buff, pname->buff) != 0) {
+      die("Graph/path sample names do not match [%zu->%zu] '%s' vs '%s'",
+          fromcol, intocol, gname->buff, pname->buff);
+    }
+  }
+}
+
+void path_file_set_header_sample_names(const PathFileReader *file,
+                                       PathFileHeader *hdr1)
+{
+  const FileFilter *fltr = &file->fltr;
+  const PathFileHeader *hdr0 = &file->hdr;
+
+  size_t i, intocol, fromcol;
+  const StrBuf *name0; StrBuf *name1;
+
+  for(i = 0; i < fltr->ncols; i++)
+  {
+    intocol = file_filter_intocol(fltr, i);
+    fromcol = file_filter_fromcol(fltr, i);
+    name1 = &hdr1->sample_names[intocol];
+    name0 = &hdr0->sample_names[fromcol];
+    strbuf_set(name1, name0->buff);
   }
 }
 
@@ -101,5 +145,5 @@ void path_file_close(PathFileReader *file)
 void path_file_dealloc(PathFileReader *file)
 {
   file_filter_dealloc(&file->fltr);
-  paths2_header_dealloc(&file->hdr);
+  paths_header_dealloc(&file->hdr);
 }

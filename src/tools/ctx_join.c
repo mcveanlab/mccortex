@@ -29,7 +29,7 @@
 
 static const char usage[] =
 "usage: "CMD" join [options] <out.ctx> [offset:]in1.ctx[:1,2,4-5] [in2.ctx ...]\n"
-"  Merge cortex binaries.  \n"
+"  Merge cortex graphs.\n"
 "\n"
 "  Options:\n"
 "   -m <mem>     Memory to use\n"
@@ -43,7 +43,7 @@ static const char usage[] =
 "     <a.ctx> is NOT merged into the output file.\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctx:2,3\n"
-"  Offset specifies where to load the first colour (overlap only).\n";
+"  Offset specifies where to load the first colour: 3:samples.ctx\n";
 
 static inline void remove_non_intersect_nodes(hkey_t node, Covg *covgs,
                                               Covg num, HashTable *ht)
@@ -100,7 +100,7 @@ int ctx_join(CmdArgs *args)
   }
 
   if(argc - argi < 2)
-    print_usage(usage, "Please specify output and input binaries");
+    print_usage(usage, "Please specify output and input paths");
 
   out_ctx_path = argv[argi++];
 
@@ -127,7 +127,8 @@ int ctx_join(CmdArgs *args)
 
     if(flatten) {
       files[i].fltr.flatten = true;
-      files[i].fltr.intocol = 0;
+      // files[i].fltr.intocol = 0;
+      file_filter_update_intocol(&files[i].fltr, 0);
     }
 
     ncols = graph_file_usedcols(&files[i]);
@@ -143,7 +144,7 @@ int ctx_join(CmdArgs *args)
     for(i = 0; i < num_graphs; i++) {
       size_t offset = total_cols;
       total_cols += graph_file_usedcols(&files[i]);
-      files[i].fltr.intocol += offset;
+      file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + offset);
     }
   }
 

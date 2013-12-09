@@ -24,7 +24,7 @@ static const char usage[] =
 "          inferedges  infer graph edges before calling `thread`\n"
 "          thread      thread reads through cleaned population\n"
 "          pview       view read threading information\n"
-"          pmerge      merge path files (.ctp)\n"
+"          pjoin       merge path files (.ctp)\n"
 "          call        call variants\n"
 "          unique      remove duplicated bubbles, produce VCF\n"
 "          place       place variants and genotype\n"
