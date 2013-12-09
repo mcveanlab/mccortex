@@ -15,16 +15,10 @@
 //   {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // N=round_up(num_of_colours/8), M=round_up(len/4)
 
-// If compatible, a FileFilter can be read straight into a PathStore without
-// parsing each path, one-by-one (much faster!)
-#define path_store_fltr_compatible(st,fltr) \
-        ((fltr)->nofilter && \
-         round_bits_to_bytes((fltr)->filencols) == (st)->colset_bytes)
-
 // Initialise the PathStore
 void path_store_init(PathStore *paths, uint8_t *data, size_t size, size_t ncols);
+void path_store_resize(PathStore *paths, size_t size);
 
-// Find or add in PathStore
 // Find or add a path into the PathStore
 // last_index is index of the last path belonging to the kmer which owns the
 // new path that is to be inserted
@@ -54,6 +48,12 @@ void path_store_print_all(const PathStore *paths);
 // Fetch sequence
 void path_store_fetch_bases(const PathStore *paths, PathIndex index,
                             Nucleotide *bases, PathLen len);
+
+// If compatible, a FileFilter can be read straight into a PathStore without
+// parsing each path, one-by-one (much faster!)
+#define path_store_fltr_compatible(st,fltr) \
+        ((fltr)->nofilter && \
+         round_bits_to_bytes((fltr)->filencols) == (st)->colset_bytes)
 
 //
 // Functions for PackedPaths

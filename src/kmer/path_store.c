@@ -20,6 +20,18 @@ void path_store_init(PathStore *paths, uint8_t *data, size_t size,
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
 
+void path_store_resize(PathStore *paths, size_t size)
+{
+  PathStore new_paths = {.store = paths->store, .end = paths->store + size,
+                         .size = size, .next = paths->next,
+                         .num_of_cols = paths->num_of_cols,
+                         .colset_bytes = paths->colset_bytes,
+                         .num_of_paths = paths->num_of_paths,
+                         .num_kmers_with_paths = paths->num_kmers_with_paths};
+
+  memcpy(paths, &new_paths, sizeof(PathStore));
+}
+
 // Convert from unpacked representation (1 bas per byte) to packed
 // representation (4 bases per byte)
 static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)

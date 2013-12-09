@@ -11,7 +11,6 @@
 #include "seq_reader.h"
 #include "file_reader.h"
 #include "add_read_paths.h"
-
 #include "repeat_walker.h"
 
 // #define CTXVERBOSE 1
@@ -19,14 +18,26 @@
 // Don't store assembly info longer than 1000 junctions
 #define MAX_PATH 100
 
-typedef struct {
-  read_t r1, r2;
-  Colour ctp_col, ctx_col;
-  size_t gap_limit;
-  int qcutoff1, qcutoff2;
-  int hp_cutoff;
-} AddPathsJob;
+boolean add_read_paths_mutex_setup = false;
+pthread_mutex_t add_paths_mutex;
 
+void add_read_paths_init()
+{
+  if(!add_read_paths_mutex_setup) {
+    add_read_paths_mutex_setup = true;
+    if(pthread_mutex_init(&add_paths_mutex, NULL) != 0) die("mutex init failed");
+  }
+}
+
+void add_read_paths_cleanup()
+{
+  if(add_read_paths_mutex_setup) {
+    add_read_paths_mutex_setup = false;
+    pthread_mutex_destroy(&add_paths_mutex);
+  }
+}
+
+/*
 // Temp data store for adding paths to graph
 typedef struct
 {
@@ -134,6 +145,7 @@ static void dump_gap_sizes(const char *base_fmt, const uint64_t *arr,
   fclose(fout);
   strbuf_free(csv_dump);
 }
+*/
 
 static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
                             Nucleotide *nuc_rv_tmp, size_t *pos_rv_tmp, size_t num_rv,
@@ -413,12 +425,15 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   return -1;
 }
 
-void read_to_path(AddPathsWorker *worker)
+void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
+                    GraphWalker *wlk, RepeatWalker *rptwlk,
+                    uint64_t *insert_sizes, uint64_t *gap_sizes,
+                    dBGraph *db_graph)
 {
-  dBNodeBuffer *nodebuf = &worker->nodebuf;
-  dBGraph *db_graph = worker->db_graph;
-  AddPathsJob *job = &worker->job;
-  const size_t ctx_col = job->ctx_col;
+  // dBNodeBuffer *nodebuf = &worker->nodebuf;
+  // dBGraph *db_graph = worker->db_graph;
+  // AddPathsJob *job = &worker->job;
+  // const size_t ctx_col = job->ctx_col;
 
   size_t i, r2_start = 0;
   int r2_offset = -1;
@@ -428,8 +443,6 @@ void read_to_path(AddPathsWorker *worker)
 
   if(job->r2.seq.end >= db_graph->kmer_size)
   {
-    seq_read_reverse_complement(&job->r2);
-
     if(nodebuf->len > 0)
     {
       // Insert gap
@@ -453,7 +466,7 @@ void read_to_path(AddPathsWorker *worker)
   {
     // No gaps in contig
     add_read_path(nodebuf->data, nodebuf->len, db_graph,
-                  ctx_col, job->ctp_col);
+                  job->ctx_col, job->ctp_col);
   }
   else
   {
@@ -488,14 +501,14 @@ void read_to_path(AddPathsWorker *worker)
         {
           // Can we branch the gap from the prev contig?
           int gapsize = traverse_gap(nodebuf, node, orient, job->gap_limit,
-                                     ctx_col, job->ctp_col,
-                                     &worker->wlk, &worker->rptwlk, db_graph);
+                                     job->ctx_col, job->ctp_col,
+                                     wlk, rptwlk, db_graph);
 
           if(gapsize == -1)
           {
             // Failed to bridge gap
             add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
-                          ctx_col, job->ctp_col);
+                          job->ctx_col, job->ctp_col);
 
             nodebuf->data[end].key = node;
             nodebuf->data[end].orient = orient;
@@ -507,10 +520,10 @@ void read_to_path(AddPathsWorker *worker)
             if(i == r2_start) {
               // Kmer is start of second read
               int gap = gapsize - r2_offset;
-              worker->insert_sizes[gap < 0 ? 0 : gap]++;
+              insert_sizes[gap < 0 ? 0 : gap]++;
             }
             else {
-              worker->gap_sizes[gapsize]++;
+              gap_sizes[gapsize]++;
             }
           }
         }
@@ -523,16 +536,19 @@ void read_to_path(AddPathsWorker *worker)
     }
 
     add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
-                  ctx_col, job->ctp_col);
+                  job->ctx_col, job->ctp_col);
   }
 }
 
+/*
 // Multithreaded notes
 // pthread_cond_wait releases the lock
 
 void* add_paths_thread(void *ptr)
 {
   AddPathsWorker *worker = (AddPathsWorker*)ptr;
+  dBGraph *db_graph = worker->db_graph;
+  const size_t kmer_size = db_graph->kmer_size;
   worker->got_job = false;
 
   while(data_waiting || !input_ended)
@@ -561,7 +577,13 @@ void* add_paths_thread(void *ptr)
     pthread_mutex_unlock(&reader_mutex);
 
     // Do work
-    if(worker->got_job) read_to_path(worker);
+    if(worker->got_job) {
+      if(worker->job.r2.seq.end >= kmer_size)
+        seq_read_reverse_complement(&worker->job.r2);
+      add_read_paths(&worker->job, &worker->nodebuf,
+                     &worker->wlk, &worker->rptwlk,
+                     worker->insert_sizes, worker->gap_sizes, worker->db_graph);
+    }
     worker->got_job = false;
   }
 
@@ -772,3 +794,4 @@ void add_read_paths_to_graph(PathsWorkerPool *pool,
   else
     seq_parse_pe_sf(sf1, sf2, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
 }
+*/

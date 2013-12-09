@@ -2,6 +2,7 @@
 #define REPEAT_WALKER_H_
 
 #include "graph_walker.h"
+#include "db_node.h"
 #include "util.h" // bitmask
 
 typedef struct

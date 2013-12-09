@@ -6,6 +6,7 @@
 #include "db_graph.h"
 #include "graph_info.h"
 #include "add_read_paths.h"
+#include "add_path_workers.h"
 #include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
@@ -20,6 +21,7 @@ static const char usage[] =
 "  Options:\n"
 "    -m <mem>                   How much memory to use\n"
 "    -n <kmers>                 How many entries in the hash table\n"
+"    -p <in.ctp>                Load existing path files first\n"
 "    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
@@ -59,7 +61,7 @@ static void get_binary_and_colour(const GraphFileReader *files, size_t num_files
 
 int ctx_thread(CmdArgs *args)
 {
-  cmd_accept_options(args, "tmn", usage);
+  cmd_accept_options(args, "tmnp", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
@@ -130,17 +132,11 @@ int ctx_thread(CmdArgs *args)
   char **graph_paths = argv + argi;
 
   //
-  // Probe graph files
+  // Open graph files
   //
   GraphFileReader files[num_files];
   size_t i, j, ctx_max_kmers = 0, total_cols = 0;
 
-  // Set up paths header
-  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
-                            .num_of_cols = 0,
-                            .capacity = 0};
-
-  // Validate input graphs
   for(i = 0; i < num_files; i++)
   {
     status("File: %s", graph_paths[i]);
@@ -166,7 +162,26 @@ int ctx_thread(CmdArgs *args)
 
   status("Total %zu cols", total_cols);
 
-  pheader.kmer_size = files[0].hdr.kmer_size;
+  //
+  // Open path files
+  //
+  size_t num_pfiles = args->num_ctp_files;
+  PathFileReader pfiles[num_pfiles];
+  size_t path_max_mem = 0, path_max_usedcols = 0;
+
+  for(i = 0; i < num_pfiles; i++) {
+    pfiles[i] = INIT_PATH_READER;
+    path_file_open(&pfiles[i], args->ctp_files[i], true);
+    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
+    path_max_usedcols = MAX2(path_max_usedcols, pfiles[i].fltr.ncols);
+  }
+
+  // Set up paths header
+  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
+                            .kmer_size = files[0].hdr.kmer_size,
+                            .num_of_cols = 0,
+                            .capacity = 0};
+
   paths_header_alloc(&pheader, total_cols);
   pheader.num_of_cols = total_cols;
 
@@ -211,6 +226,7 @@ int ctx_thread(CmdArgs *args)
     die("Not enough memory for graph (requires %s)", graph_mem_str);
 
   // Path Memory
+  size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
   path_mem = args->mem_to_use - graph_mem;
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
@@ -238,7 +254,14 @@ int ctx_thread(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
   uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, pheader.num_of_cols);
+  path_store_init(&db_graph.pdata, path_store, path_mem-tmppathsize, pheader.num_of_cols);
+  uint8_t *path_tmpmem = path_store + path_mem - tmppathsize;
+
+  // Load paths
+  if(num_pfiles > 0) {
+    paths_format_merge(pfiles, num_pfiles, true, path_tmpmem, tmppathsize, &db_graph);
+    path_store_resize(&db_graph.pdata, path_mem);
+  }
 
   // Setup for loading graphs graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -257,7 +280,8 @@ int ctx_thread(CmdArgs *args)
   uint32_t gap_limit = 500;
   PathsWorkerPool *pool;
 
-  pool = paths_worker_pool_new(args->num_threads, &db_graph, gap_limit);
+  add_read_paths_init();
+  pool = path_workers_pool_new(args->num_threads, &db_graph, gap_limit);
 
   // Parse input sequence
   status("Threading reads through the graph...\n");
@@ -270,7 +294,7 @@ int ctx_thread(CmdArgs *args)
     {
       if(strcmp(argv[argi], "--col") == 0)
       {
-        if(rep > 0 || argi > 0) wait_for_jobs_to_finish(pool);
+        if(rep > 0 || argi > 0) path_workers_wait_til_finished(pool);
 
         // wipe colour 0
         // db_graph_wipe_colour(&db_graph, 0);
@@ -286,14 +310,14 @@ int ctx_thread(CmdArgs *args)
         argi++;
       }
       else if(strcmp(argv[argi], "--seq") == 0) {
-        add_read_paths_to_graph(pool, seqfiles[sf], NULL, gap_limit,
-                                0, graph_col, &prefs, stats);
+        path_workers_add_paths_to_graph(pool, seqfiles[sf], NULL,
+                                        gap_limit, 0, graph_col, &prefs, stats);
         argi += 1;
         sf++;
       }
       else if(strcmp(argv[argi], "--seq2") == 0) {
-        add_read_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1], gap_limit,
-                                0, graph_col, &prefs, stats);
+        path_workers_add_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1],
+                                        gap_limit, 0, graph_col, &prefs, stats);
         argi += 2;
         sf += 2;
       }
@@ -301,7 +325,7 @@ int ctx_thread(CmdArgs *args)
     }
   }
 
-  paths_worker_pool_dealloc(pool);
+  path_workers_pool_dealloc(pool);
 
   PathStore *paths = &db_graph.pdata;
   size_t num_path_bytes = paths->next - paths->store;
@@ -322,6 +346,8 @@ int ctx_thread(CmdArgs *args)
 
   fclose(fout);
 
+  add_read_paths_cleanup();
+
   free(db_graph.col_edges);
   free((void *)db_graph.kmer_paths);
   free(path_store);
@@ -332,6 +358,7 @@ int ctx_thread(CmdArgs *args)
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
+  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   status("Paths written to: %s\n", out_ctp_path);
 
