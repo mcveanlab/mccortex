@@ -143,15 +143,15 @@ static void dump_covg_histogram(const char *path, uint64_t *covg_hist)
 {
   status("Writing covg distribution to: %s\n", path);
   size_t i, end;
-  FILE *fh = fopen(path, "w");
-  fprintf(fh, "Covg,Supernodes\n");
-  fprintf(fh, "1,%zu\n", (size_t)covg_hist[1]);
+  FILE *fout = fopen(path, "w");
+  fprintf(fout, "Covg,Supernodes\n");
+  fprintf(fout, "1,%zu\n", (size_t)covg_hist[1]);
   for(end = HISTSIZE-1; end > 1 && covg_hist[end] == 0; end--);
   for(i = 2; i <= end; i++) {
     if(covg_hist[i] > 0)
-      fprintf(fh, "%zu,%zu\n", i, (size_t)covg_hist[i]);
+      fprintf(fout, "%zu,%zu\n", i, (size_t)covg_hist[i]);
   }
-  fclose(fh);
+  fclose(fout);
 }
 
 static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,

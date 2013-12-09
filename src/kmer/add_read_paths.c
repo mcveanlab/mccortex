@@ -102,21 +102,20 @@ static void dump_gap_sizes(const char *base_fmt, const uint64_t *arr,
                            size_t arrlen, size_t kmer_size)
 {
   StrBuf *csv_dump = strbuf_new();
+  FILE *fout;
 
   if(!futil_generate_filename(base_fmt, csv_dump)) {
     warn("Cannot dump gapsize");
     return;
   }
 
-  FILE *fh;
-
-  if((fh = fopen(csv_dump->buff, "w")) == NULL) {
+  if((fout = fopen(csv_dump->buff, "w")) == NULL) {
     warn("Cannot dump gapsize [cannot open: %s]", csv_dump->buff);
     strbuf_free(csv_dump);
     return;
   }
 
-  fprintf(fh, "gap_in_kmers,bp,count\n");
+  fprintf(fout, "gap_in_kmers,bp,count\n");
 
   if(arrlen > 0)
   {
@@ -126,13 +125,13 @@ static void dump_gap_sizes(const char *base_fmt, const uint64_t *arr,
     while(end > start && arr[end] == 0) end--;
 
     for(i = start; i <= end; i++) {
-      fprintf(fh, "%4zu,%4li,%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
+      fprintf(fout, "%4zu,%4li,%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
     }
   }
 
   status("Contig gap sizes dumped to %s\n", csv_dump->buff);
 
-  fclose(fh);
+  fclose(fout);
   strbuf_free(csv_dump);
 }
 

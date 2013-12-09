@@ -215,8 +215,6 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   uint8_t end;
   if(fread(&end, 1, 1, fh) != 0)
     warn("End of file not reached when loading! [path: %s]", path);
-
-  fclose(fh);
 }
 
 static inline void load_packed_linkedlist(hkey_t node, PathIndex tmpindex,

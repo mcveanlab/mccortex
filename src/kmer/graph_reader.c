@@ -667,10 +667,10 @@ size_t graph_files_merge(char *out_ctx_path,
            output_colours, db_graph->num_of_cols);
 
     // Open file, write header
-    FILE *fh = fopen(out_ctx_path, "w");
-    if(fh == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
-    setvbuf(fh, NULL, _IOFBF, CTX_BUF_SIZE);
-    size_t header_size = graph_write_header(fh, hdr);
+    FILE *fout = fopen(out_ctx_path, "w");
+    if(fout == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
+    setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
+    size_t header_size = graph_write_header(fout, hdr);
 
     // Load all kmers into flat graph
     if(!kmers_loaded)
@@ -692,7 +692,7 @@ size_t graph_files_merge(char *out_ctx_path,
     // print file outline
     status("Generated merged hash table\n");
     hash_table_print_stats(&db_graph->ht);
-    graph_write_empty(db_graph, fh, output_colours);
+    graph_write_empty(db_graph, fout, output_colours);
 
     size_t num_kmer_cols = db_graph->ht.capacity * db_graph->num_of_cols;
     size_t firstcol, lastcol, file_lastcol;
@@ -765,13 +765,13 @@ size_t graph_files_merge(char *out_ctx_path,
           status("Dumping into colour %zu...\n", firstcol);
         else
           status("Dumping into colours %zu-%zu...\n", firstcol, lastcol);
-        fseek(fh, header_size, SEEK_SET);
+        fseek(fout, header_size, SEEK_SET);
         graph_file_write_colours(db_graph, 0, firstcol, lastcol-firstcol+1,
-                                 output_colours, fh);
+                                 output_colours, fout);
       }
     }
 
-    fclose(fh);
+    fclose(fout);
 
     graph_write_status(db_graph->ht.unique_kmers, output_colours,
                        out_ctx_path, CTX_GRAPH_FILEFORMAT);

@@ -162,21 +162,12 @@ int ctx_call(CmdArgs *args)
   // Temorary memory to load paths into
   uint8_t *tmppdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
 
-  // Load graph
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = true};
-
-  graph_load(&file, &prefs, stats);
-  hash_table_print_stats(&db_graph.ht);
-
-  // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
-
-  // Seed random
-  seed_random();
+  //
+  // Open output file
+  //
+  gzFile gzout = gzopen(out_path, "w");
+  if(gzout == NULL)
+    die("Cannot open paths bubble caller output file: %s", out_path);
 
   //
   // Set up temporary files
@@ -198,13 +189,29 @@ int ctx_call(CmdArgs *args)
   }
   strbuf_free(tmppath);
 
-  #ifdef CTXVERBOSE
-    // db_graph_dump_paths_by_kmer(&db_graph);
-  #endif
+  // Load graph
+  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
+                           .boolean_covgs = false,
+                           .must_exist_in_graph = false,
+                           .empty_colours = true};
+
+  graph_load(&file, &prefs, stats);
+  hash_table_print_stats(&db_graph.ht);
+
+  // Load path files
+  paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
+
+  // Seed random
+  seed_random();
 
   // Now call variants
-  invoke_bubble_caller(&db_graph, out_path, num_of_threads, tmp_paths,
-                       max_allele_len, max_flank_len, ref_cols, num_ref, args);
+  bubble_caller_print_header(&db_graph, gzout, out_path, args);
+  invoke_bubble_caller(&db_graph, gzout, num_of_threads, tmp_paths,
+                       max_allele_len, max_flank_len, ref_cols, num_ref);
+
+  status("  saved to: %s\n", out_path);
+  gzclose(gzout);
 
   // Clear up threads
   for(i = 0; i < num_of_threads; i++) {

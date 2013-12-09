@@ -121,15 +121,16 @@ int paths_file_read_header(FILE *fh, PathFileHeader *h,
   return bytes_read;
 }
 
+// Not used anymore
 // We try loading the header into header passed
 // Returns false if cannot read otherwise true
 boolean paths_file_probe(const char *file_path, boolean *valid_paths_file,
                          PathFileHeader *pheader)
 {
-  FILE *fh = fopen(file_path, "r");
-  if(fh == NULL) return false;
-  int hret = paths_file_read_header(fh, pheader, false, file_path);
-  fclose(fh);
+  FILE *fout = fopen(file_path, "r");
+  if(fout == NULL) return false;
+  int hret = paths_file_read_header(fout, pheader, false, file_path);
+  fclose(fout);
   *valid_paths_file = (hret > 0);
   return true;
 }
@@ -253,8 +254,6 @@ void paths_format_merge(const char *path, PathFileHeader *pheader,
   uint8_t end;
   if(fread(&end, 1, 1, fh) != 0)
     warn("End of file not reached when loading! [path: %s]", path);
-
-  fclose(fh);
 }
 
 void paths_format_read(const char *path, PathFileHeader *pheader,

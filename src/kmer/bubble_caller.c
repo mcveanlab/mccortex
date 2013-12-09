@@ -45,8 +45,8 @@ static void print_filepath_abs(gzFile out, const char *name, const char *file)
   gzprintf(out, "##%s=%s\n", name, abs_path);
 }
 
-static void print_calling_header(const dBGraph *db_graph, gzFile out,
-                                 const char* out_file, const CmdArgs *args)
+void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
+                                const char* out_file, const CmdArgs *args)
 {
   char datestr[9];
   time_t date = time(NULL);
@@ -762,29 +762,19 @@ void* bubble_caller(void *args)
 }
 
 // max_allele_len, max_flank_len in kmers
-void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
+void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
                           int num_threads, char **tmp_paths,
                           size_t max_allele_len, size_t max_flank_len,
-                          const size_t *ref_cols, size_t num_ref,
-                          const CmdArgs *args)
+                          const size_t *ref_cols, size_t num_ref)
 {
   assert(db_graph->num_edge_cols == 1);
-
-  // Open output file
-  gzFile out = gzopen(out_file, "w");
-
-  if(out == NULL)
-    die("Cannot open paths bubble caller output file: %s", out_file);
-
-  // Print header
-  print_calling_header(db_graph, out, out_file, args);
 
   size_t num_of_bubbles = 0;
 
   if(num_threads <= 1)
   {
     struct caller_region_t tdata
-      = {.db_graph = db_graph, .out = out,
+      = {.db_graph = db_graph, .out = gzout,
          .start_hkey = 0, .end_hkey = db_graph->ht.capacity, .threadid = 0,
          .max_allele_len = max_allele_len, .max_flank_len = max_flank_len,
          .ref_cols = ref_cols, .num_ref = num_ref, .num_of_bubbles = 0};
@@ -841,7 +831,7 @@ void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
       #define MEGABYTE (1<<20)
       char data[MEGABYTE];
       int len;
-      while((len = gzread(in, data, MEGABYTE)) > 0) gzwrite(out, data, len);
+      while((len = gzread(in, data, MEGABYTE)) > 0) gzwrite(gzout, data, len);
       gzclose(in);
 
       num_of_bubbles += tdata[i].num_of_bubbles;
@@ -851,7 +841,4 @@ void invoke_bubble_caller(const dBGraph *db_graph, const char* out_file,
   char num_bubbles_str[100];
   ulong_to_str(num_of_bubbles, num_bubbles_str);
   status("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
-  status("  saved to: %s\n", out_file);
-
-  gzclose(out);
 }
