@@ -95,7 +95,9 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
 
     new_index = path_store_find_or_add(paths, prev_index, plen, bases,
                                        orient, ctp_col, &added);
+
     if(added) db_node_paths(db_graph, node) = new_index;
+    else break;
   }
 
   //
@@ -127,7 +129,9 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
 
     new_index = path_store_find_or_add(paths, prev_index, plen, bases,
                                        orient, ctp_col, &added);
+
     if(added) db_node_paths(db_graph, node) = new_index;
+    else break;
   }
 
   // Free lock
