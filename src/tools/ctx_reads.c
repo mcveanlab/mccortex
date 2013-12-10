@@ -199,7 +199,7 @@ int ctx_reads(CmdArgs *args)
     print_usage(usage, "Please specify input graph files");
 
   //
-  // Probe binaries to get kmer-size
+  // Open input graphs
   //
   GraphFileReader files[num_files];
   uint64_t max_num_kmers = 0;
@@ -248,7 +248,7 @@ int ctx_reads(CmdArgs *args)
   dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 0, kmers_in_hash);
 
-  // Load binaries
+  // Load graphs
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            // binary

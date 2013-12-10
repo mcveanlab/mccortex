@@ -17,12 +17,17 @@
 // "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
 static const char usage[] =
 "usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
-"  Find bubbles (potential variants) in graph file in.ctx.\n"
+"  Find bubbles (potential variants) in graph file in.ctx, save to out.bubbles.gz\n"
+"\n"
 "  Options:\n"
-"    -m <mem> | -n <kmers> | -t <threads> | -p <paths.ctp>\n"
-"    --ref <col>        Reference genome in given colour (can use multiple times)\n"
+"    -m <memory> | -t <threads> | -p <paths.ctp>\n"
+"    -p <in.ctp>        Load path file (can specify multiple times)\n"
+"    --ref <col>        Reference genome in given colour (can specify multiple times)\n"
 "    --maxallele <len>  Max bubble branch length in kmers [default: 300]\n"
-"    --maxflank <len>   Max flank length in kmers [default: 1000]\n";
+"    --maxflank <len>   Max flank length in kmers [default: 1000]\n"
+"\n"
+"  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
+"  which colour to load the data into.\n";
 
 int ctx_call(CmdArgs *args)
 {
@@ -95,7 +100,7 @@ int ctx_call(CmdArgs *args)
     pfiles[i] = INIT_PATH_READER;
     path_file_open(&pfiles[i], args->ctp_files[i], true);
     path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
-    path_max_usedcols = MAX2(path_max_usedcols, pfiles[i].fltr.ncols);
+    path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
   //

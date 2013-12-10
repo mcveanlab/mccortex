@@ -298,7 +298,7 @@ int ctx_clean(CmdArgs *args)
     else print_usage(usage, "Unknown argument: %s", argv[argi]);
   }
 
-  if(argc - argi < 2) print_usage(usage, "Please give output and input binaries");
+  if(argc - argi < 2) print_usage(usage, "Please give output and input graphs");
 
   // default behaviour
   if(!tip_cleaning && !supernode_cleaning) {
@@ -326,7 +326,7 @@ int ctx_clean(CmdArgs *args)
   char **paths = argv + argi;
   size_t i, j, num_files = argc - argi, total_cols = 0;
 
-  // // Probe binary files
+  // Open graph files
   GraphFileReader files[num_files];
   uint64_t max_ctx_kmers = 0;
 
@@ -394,14 +394,14 @@ int ctx_clean(CmdArgs *args)
   db_graph.col_edges = edge_store;
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
-  // Load binary into a single colour
+  // Load graph into a single colour
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.db_graph = &db_graph,
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .empty_colours = false};
 
-  // Construct cleaned binary header
+  // Construct cleaned graph header
   GraphFileHeader outhdr = {.version = CTX_GRAPH_FILEFORMAT,
                             .kmer_size = db_graph.kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,

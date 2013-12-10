@@ -142,7 +142,7 @@ int ctx_covg(CmdArgs *args)
 
   gzclose(vcf);
 
-  // Load binary only for kmers already in the hash table
+  // Load graph only for kmers already in the hash table
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,

@@ -11,42 +11,39 @@
 
 static const char usage[] =
 "usage: "CMD" build [options] <out.ctx>\n"
-"  Build a cortex binary.  \n"
+"  Build a cortex graph.  \n"
 "\n"
-"  -m <mem>   Memory to use (e.g. 100G or 12M)\n"
-"  -k <kmer>  Kmer size\n"
-"\n"
-"  Sequence Options:\n"
-"  --fq_threshold <qual>  Filter quality scores [default: 0 (off)]\n"
-"  --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
-"  --cut_hp <len>         Breaks reads at homopolymers >= <len> [default: off]\n"
-"  --remove_pcr           Remove (or keep) PCR duplicate reads [default: keep]\n"
-"  --keep_pcr\n"
+"  Options:\n"
+"    -m <mem>               Memory to use (e.g. 100G or 12M)\n"
+"    -k <kmer>              Kmer size\n"
+"    --sample <name>        Sample name (required before any seq args)\n"
+"    --seq <in.fa|fq|sam>   Load sequence data\n"
+"    --seq2 <in1> <in2>     Load paired end sequence data\n"
+"    --fq_threshold <qual>  Filter quality scores [default: 0 (off)]\n"
+"    --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"    --cut_hp <len>         Breaks reads at homopolymers >= <len> [default: off]\n"
+"    --remove_pcr           Remove (or keep) PCR duplicate reads [default: keep]\n"
+"    --keep_pcr             Don't do PCR duplicate removal\n"
+"    --load_graph <in.ctx>  Load samples from a graph file (.ctx)\n"
 "\n"
 "  PCR duplicate removal works by ignoring read pairs (PE-only) if both reads\n"
 "  start at the same k-mer as any previous read.\n"
 "\n"
-"  Loading sequence:\n"
-"  --sample <name>                   Sample name (required before any seq args)\n"
-"  --seq <in.fa|fq|sam>              Load sequence data\n"
-"  --seq2 <in1> <in2>                Load paired end sequence data\n"
-"\n"
-"  --sample <name> is required before sequence can be loaded.\n"
+"  --sample <name> is required before sequence input can be loaded.\n"
 "  Consecutive sequence options are loaded into the same colour.\n"
 "\n"
-"  Loading binaries\n"
-"  --load_binary <in.ctx>[:cols]     Load samples from a binary\n"
+"  --load_graph argument can have colours specifed e.g. in.ctx:0,6-8 will load\n"
+"  samples 0,6,7,8.  Graphs are loaded into new colours.\n"
 "\n"
-"  Colour can be specifed after binary path, e.g. in.ctx:0,6-8 will load\n"
-"  samples 0,6,7,8.  Binaries are loaded into new colours.\n"
-"\n"
-" Example - build a two sample graph with k=31 using 60G RAM:\n"
+" Example:\n"
 "   "CMD" build -k 31 -m 60G --fq_threshold 5 --cut_hp 8 \\\n"
 "               --sample bob --seq bob.bam \\\n"
 "               --sample dylan --remove_pcr --seq dylan.sam \\\n"
 "                              --keep_pcr --fq_offset 33 \\\n"
 "                              --seq2 dylan.1.fq.gz dylan.2.fq.gz \\\n"
-"               bob.dylan.k31.ctx\n";
+"               bob.dylan.k31.ctx\n"
+"\n"
+"  See `"CMD" join` to combine .ctx files\n";
 
 static void update_ginfo(GraphInfo *ginfo, SeqLoadingStats *stats,
                          uint64_t *bases_loaded, uint64_t *contigs_loaded)
@@ -143,8 +140,8 @@ int ctx_build(CmdArgs *args)
       argi += 2;
       sample_used = true;
     }
-    else if(strcmp(argv[argi],"--load_binary") == 0) {
-      if(argi + 1 >= argend) print_usage(usage, "--load_binary requires an arg");
+    else if(strcmp(argv[argi],"--load_graph") == 0) {
+      if(argi + 1 >= argend) print_usage(usage, "--load_graph requires an arg");
 
       char *path = argv[argi+1];
       int ret = graph_file_open(&ctxfile, path, false);
@@ -259,7 +256,7 @@ int ctx_build(CmdArgs *args)
       argi += 2;
       sf += 2;
     }
-    else if(strcmp(argv[argi],"--load_binary") == 0) {
+    else if(strcmp(argv[argi],"--load_graph") == 0) {
       graph_file_open(&ctxfile, argv[argi+1], true);
       graph_load(&ctxfile, &prefs, stats);
       prefs.into_colour += graph_file_usedcols(&ctxfile);
@@ -283,7 +280,7 @@ int ctx_build(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  status("Dumping binary...\n");
+  status("Dumping graph...\n");
   graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
 
   graph_file_dealloc(&ctxfile);

@@ -78,7 +78,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   bytes_read += strlen("CORTEX");
 
   // Read version number, kmer_size, num bitfields, num colours
-  SAFE_READ(fh, &h->version, sizeof(uint32_t), "binary version", path, fatal);
+  SAFE_READ(fh, &h->version, sizeof(uint32_t), "graph version", path, fatal);
   SAFE_READ(fh, &h->kmer_size, sizeof(uint32_t), "kmer size", path, fatal);
   SAFE_READ(fh, &h->num_of_bitfields, sizeof(uint32_t), "num of bitfields", path, fatal);
   SAFE_READ(fh, &h->num_of_cols, sizeof(uint32_t), "number of colours", path, fatal);
@@ -88,21 +88,21 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   if(h->version > 7 || h->version < 4)
   {
     if(!fatal) return -1;
-    die("Sorry, we only support binary versions 4, 5, 6 & 7 "
-        "[version: %u; binary: %s]\n", h->version, path);
+    die("Sorry, we only support graph file versions 4, 5, 6 & 7 "
+        "[version: %u; path: %s]\n", h->version, path);
   }
 
   if(h->kmer_size % 2 == 0)
   {
     if(!fatal) return -1;
-    die("kmer size is not an odd number [kmer_size: %u; binary: %s]\n",
+    die("kmer size is not an odd number [kmer_size: %u; path: %s]\n",
         h->kmer_size, path);
   }
 
   if(h->kmer_size < 3)
   {
     if(!fatal) return -1;
-    die("kmer size is less than three [kmer_size: %u; binary: %s]\n",
+    die("kmer size is less than three [kmer_size: %u; path: %s]\n",
         h->kmer_size, path);
   }
 
@@ -110,18 +110,18 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   {
     if(!fatal) return -1;
     die("Not enough bitfields for kmer size "
-        "[kmer_size: %u; bitfields: %u; binary: %s]\n",
+        "[kmer_size: %u; bitfields: %u; path: %s]\n",
         h->kmer_size, h->num_of_bitfields, path);
   }
 
   if((h->num_of_bitfields-1)*32 >= h->kmer_size) {
     if(!fatal) return -1;
-    die("using more than the minimum number of bitfields [binary: %s]\n", path);
+    die("using more than the minimum number of bitfields [path: %s]\n", path);
   }
 
   if(h->num_of_cols == 0) {
     if(!fatal) return -1;
-    die("number of colours is zero [binary: %s]\n", path);
+    die("number of colours is zero [path: %s]\n", path);
   }
 
   // graph_header_alloc will only alloc or realloc if it needs to
@@ -135,7 +135,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
     bytes_read += sizeof(uint64_t) + sizeof(uint32_t);
 
     if((tmp & 0x7) != 0) {
-      warn("Number of shades is not a multiple of 8 [binary: %s]", path);
+      warn("Number of shades is not a multiple of 8 [path: %s]", path);
     }
   }
 
@@ -176,7 +176,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
       if(len != len2)
       {
         warn("Sample %zu name has length %u but is only %zu chars long "
-             "(premature '\\0') [binary: %s]\n", i, len, len2, path);
+             "(premature '\\0') [path: %s]\n", i, len, len2, path);
       }
     }
 
@@ -222,8 +222,8 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
       if(!err_cleaning->remv_low_cov_sups &&
          err_cleaning->remv_low_cov_sups_thresh > 0)
       {
-        warn("Binary header gives cleaning threshold for supernodes "
-             "when no cleaning was performed [binary: %s]", path);
+        warn("Graph header gives cleaning threshold for supernodes "
+             "when no cleaning was performed [path: %s]", path);
 
         err_cleaning->remv_low_cov_sups_thresh = 0;
       }
@@ -231,8 +231,8 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
       if(!err_cleaning->remv_low_cov_nodes &&
          err_cleaning->remv_low_cov_nodes_thresh > 0)
       {
-        warn("Binary header gives cleaning threshold for nodes "
-             "when no cleaning was performed [binary: %s]", path);
+        warn("Graph header gives cleaning threshold for nodes "
+             "when no cleaning was performed [path: %s]", path);
 
         err_cleaning->remv_low_cov_nodes_thresh = 0;
       }
@@ -257,7 +257,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
       if(len != len2)
       {
         warn("Sample %zu name has length %u but is only %zu chars long "
-             "(premature '\\0') [binary: %s]\n", i, len, len2, path);
+             "(premature '\\0') [path: %s]\n", i, len, len2, path);
       }
     }
   }
@@ -267,7 +267,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   if(strcmp(magic_word, "CORTEX") != 0)
   {
     if(!fatal) return -1;
-    die("Magic word doesn't match '%s' (end): '%s' [binary: %s]\n",
+    die("Magic word doesn't match '%s' (end): '%s' [path: %s]\n",
         "CORTEX", magic_word, path);
   }
   bytes_read += strlen("CORTEX");
@@ -292,7 +292,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
 
     if(num_bytes_per_kmer * h->num_of_kmers != bytes_remaining) {
       if(!fatal) return -1;
-      die("Irregular size of binary file (corrupted?): %s", path);
+      die("Irregular size of graph file (corrupted?): %s", path);
     }
   }
   */
@@ -317,12 +317,12 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 
   // Check top word of each kmer
   uint64_t top_word_mask = ~(uint64_t)0 << BKMER_TOP_BITS(h->kmer_size);
-  if(bkmer[0] & top_word_mask) die("Oversized kmer in binary: %s", path);
+  if(bkmer[0] & top_word_mask) die("Oversized kmer in path: %s", path);
 
   // Check covg is not 0 for all colours
   for(i = 0; i < h->num_of_cols && covgs[i] == 0; i++) {}
   if(i == h->num_of_cols)
-    warn("Kmer has zero covg in all colours in binary: %s", path);
+    warn("Kmer has zero covg in all colours in path: %s", path);
 
   return num_bytes_read;
 }
@@ -331,7 +331,7 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 // colour only_load_if_in_colour will be loaded.
 // We assume only_load_if_in_colour < load_first_colour_into
 // if all_kmers_are_unique != 0 an error is thrown if a node already exists
-// returns the number of colours in the binary
+// returns the number of colours in the graph
 // If stats != NULL, updates:
 //   stats->num_of_colours_loaded
 //   stats->kmers_loaded
@@ -354,10 +354,10 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   file_filter_status(fltr);
   fseek(fltr->fh, file->hdr_size, SEEK_SET);
 
-  // Checks for this binary with this executable (kmer size + num colours)
+  // Check we can load this graph file into db_graph (kmer size + num colours)
   if(hdr->kmer_size != graph->kmer_size)
   {
-    die("binary has different kmer size [kmer_size: %u vs %zu; binary: %s]",
+    die("Graph has different kmer size [kmer_size: %u vs %zu; path: %s]",
         hdr->kmer_size, graph->kmer_size, fltr->path.buff);
   }
 
@@ -365,7 +365,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
      (graph->col_covgs != NULL || graph->col_edges != NULL))
   {
     die("Program has not assigned enough colours! "
-        "[colours in binary: %zu vs graph: %zu, load into: %zu; binary: %s]",
+        "[colours in graph: %zu vs graph: %zu, load into: %zu; path: %s]",
         load_ncols, graph->num_of_cols, fltr->intocol, fltr->path.buff);
   }
 
@@ -456,7 +456,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
 
   if(nkmers_parsed != hdr->num_of_kmers)
   {
-    warn("More kmers in binary than expected [expected: %zu; actual: %zu; "
+    warn("More kmers in graph than expected [expected: %zu; actual: %zu; "
          "path: %s]", (size_t)hdr->num_of_kmers, nkmers_parsed,
         fltr->path.buff);
   }
@@ -500,7 +500,7 @@ size_t graph_load_colour(GraphFileReader *file,
 }
 
 //
-// Merging, filtering, combining binary graph files
+// Merging, filtering, combining graph files
 //
 
 // Load a kmer and write to a file one kmer at a time

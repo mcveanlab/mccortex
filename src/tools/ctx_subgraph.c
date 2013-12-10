@@ -237,11 +237,11 @@ int ctx_subgraph(CmdArgs *args)
   list0.len = list1.len = 0;
 
   //
-  // Load binaries
+  // Load graphs
   //
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           // binaries
+                           // graphs
                            .boolean_covgs = false,
                            .must_exist_in_graph = false,
                            .must_exist_in_edges = NULL,

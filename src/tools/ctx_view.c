@@ -43,7 +43,7 @@ static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
 
 static void print_header(GraphFileHeader *h)
 {
-  printf("binary version: %u\n", h->version);
+  printf("version: %u\n", h->version);
   printf("kmer size: %u\n", h->kmer_size);
   printf("bitfields: %u\n", h->num_of_bitfields);
   printf("colours: %u\n", h->num_of_cols);
@@ -299,7 +299,7 @@ int ctx_view(CmdArgs *args)
               (size_t)num_warnings, (size_t)num_errors);
     }
     if(num_errors == 0)
-      printf(num_warnings ? "Binary may be ok\n" : "Binary is valid\n");
+      printf(num_warnings ? "Graph may be ok\n" : "Graph is valid\n");
   }
 
   graph_header_dealloc(&outheader);

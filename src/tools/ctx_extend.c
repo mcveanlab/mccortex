@@ -212,7 +212,6 @@ int ctx_extend(CmdArgs *args)
   // file.fltr.intocol = 0;
   file_filter_update_intocol(&file.fltr, 0);
 
-  // Load binary
   graph_load(&file, &prefs, stats);
 
 

@@ -67,7 +67,7 @@ int ctx_pjoin(CmdArgs *args)
 
   const char *out_ctp_path = argv[argi++];
 
-  // argi .. argend-1 are binaries to load
+  // argi .. argend-1 are graphs to load
   size_t num_pfiles = argc - argi;
   char **paths = argv + argi;
 

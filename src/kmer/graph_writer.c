@@ -225,7 +225,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   }
 
   if((fout = fopen(path, "w")) == NULL)
-    die("Unable to open dump binary file to write: %s\n", path);
+    die("Unable to open graph file to write: %s\n", path);
 
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
 
@@ -243,7 +243,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
     if(fseek(fout, pos, SEEK_SET) == 0) {
       fwrite(&num_nodes_dumped, sizeof(uint64_t), 1, fout);
     } else {
-      warn("Couldn't update number of kmers in file [binary: %s]", path);
+      warn("Couldn't update number of kmers in file [path: %s]", path);
     }
   }
 
@@ -259,7 +259,7 @@ uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
                                const Colour *colours, Colour start_col,
                                uint32_t num_of_cols)
 {
-  // Construct binary header
+  // Construct graph header
   GraphInfo hdr_ginfo[num_of_cols];
   GraphFileHeader header = {.version = version,
                             .kmer_size = db_graph->kmer_size,

@@ -103,19 +103,19 @@ int paths_file_read_header(FILE *fh, PathFileHeader *h,
 
   if(h->kmer_size % 2 == 0) {
     if(!fatal) return -1;
-    die("kmer size is not an odd number [kmer_size: %u; binary: %s]\n",
+    die("kmer size is not an odd number [kmer_size: %u; path: %s]\n",
         h->kmer_size, path);
   }
 
   if(h->kmer_size < 3) {
     if(!fatal) return -1;
-    die("kmer size is less than three [kmer_size: %u; binary: %s]\n",
+    die("kmer size is less than three [kmer_size: %u; path: %s]\n",
         h->kmer_size, path);
   }
 
   if(h->num_of_cols == 0) {
     if(!fatal) return -1;
-    die("number of colours is zero [binary: %s]\n", path);
+    die("number of colours is zero [path: %s]\n", path);
   }
 
   return bytes_read;

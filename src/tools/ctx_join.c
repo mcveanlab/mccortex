@@ -104,7 +104,7 @@ int ctx_join(CmdArgs *args)
 
   out_ctx_path = argv[argi++];
 
-  // argi .. argend-1 are binaries to load
+  // argi .. argend-1 are graphs to load
   size_t num_graphs = argc - argi;
   char **paths = argv + argi;
 

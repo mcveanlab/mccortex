@@ -81,7 +81,7 @@ int ctx_contigs(CmdArgs *args)
     pfiles[i] = INIT_PATH_READER;
     path_file_open(&pfiles[i], args->ctp_files[i], true);
     path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
-    path_max_usedcols = MAX2(path_max_usedcols, pfiles[i].fltr.ncols);
+    path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
   //

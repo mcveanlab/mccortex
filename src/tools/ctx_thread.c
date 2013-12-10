@@ -21,28 +21,25 @@ static const char usage[] =
 "  Options:\n"
 "    -m <mem>                   How much memory to use\n"
 "    -n <kmers>                 How many entries in the hash table\n"
-"    -p <in.ctp>                Load existing path files first\n"
+"    -p <in.ctp>                Load existing path files first (multiple allowed)\n"
 "    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
+"\n"
+"  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
+"  which colour to load the data into.\n"
 "\n"
 // "  Insert size filtering for follow --seq2 files:\n"
 // "    --minIns <ins>             Minimum insert size [default:0]\n"
 // "    --maxIns <ins>             Maximum insert size [default:500]\n"
 // "\n"
-"  Example: If we want paths for 2 samples only we can do:\n"
-"    "CMD" thread -m 80G \\\n"
+"  Example:\n"
+"    "CMD" thread -m 80G -p 0:Minnie.ctp -p 2:Mickey.ctp \\\n"
 "                 --col 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
 "                 --col 1 --seq sample5.fa \\\n"
-"                 sample3and5.ctp population.c6.ctx:2 population.c6.ctx:4\n"
+"                 samples.ctp samples.ctx\n"
 "\n"
-"  Or you could pool the samples first:\n"
-"    "CMD" join --flatten pool.samples5and3.ctx population.c6.ctx:3,5\n"
-"    "CMD" thread -m 80G --col 1 --seq2 sample3.1.fq sample3.2.fq \\\n"
-"                 2 sample3.3and5.ctp pool.samples5and3.ctx\n"
-"    "CMD" thread -m 80G --col 0 --seq sample5.fa \\\n"
-"                 2 sample5.3and5.ctp pool.samples5and3.ctx population.c6.ctx\n"
-"    "CMD" pjoin sample3and5.ctp sample3.3and5.ctp sample5.3and5.ctp\n";
+"  See `"CMD" pjoin` to combine .ctp files\n";
 
 #define NUM_PASSES 1
 
@@ -56,7 +53,7 @@ static void get_binary_and_colour(const GraphFileReader *files, size_t num_files
     }
     n += graph_file_outncols(&files[i]);
   }
-  die("Colour is greater than sum of binary colours [%zu > %zu]", col, n);
+  die("Colour is greater than sum of graph colours [%zu > %zu]", col, n);
 }
 
 int ctx_thread(CmdArgs *args)
@@ -173,8 +170,10 @@ int ctx_thread(CmdArgs *args)
     pfiles[i] = INIT_PATH_READER;
     path_file_open(&pfiles[i], args->ctp_files[i], true);
     path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
-    path_max_usedcols = MAX2(path_max_usedcols, pfiles[i].fltr.ncols);
+    path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
+
+  total_cols = MAX2(total_cols, path_max_usedcols);
 
   // Set up paths header
   PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
@@ -235,7 +234,7 @@ int ctx_thread(CmdArgs *args)
   FILE *fout = fopen(out_ctp_path, "w");
 
   if(fout == NULL)
-    die("Unable to open binary paths file to write: %s\n", out_ctp_path);
+    die("Unable to open paths file to write: %s\n", out_ctp_path);
 
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
 
@@ -303,7 +302,7 @@ int ctx_thread(CmdArgs *args)
 
         parse_entire_size(argv[argi+1], &graph_col);
 
-        // Pick correct binary and colour
+        // Pick correct graph file and colour
         get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
         graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
 

@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-14 November 2013
+10 December 2013
 
 Build
 -----
@@ -64,25 +64,16 @@ Commands
       -o --out <file>      Output file
       -p --paths <in.ctp>  Assembly file
 
-
-Inputs
-------
-
-Supports reading FASTA, FASTQ, SAM and BAM files. Also supports gzipped files.
-File formats are auto-detected.
-
-Cortex graph files can be loaded by specifying a subset of colours:
-
-    in.ctx:0,3-6
-
-will load colours: 0, 3, 4, 5, 6 from graph file `in.ctx`
-
 Getting Helps
 -------------
+
+Type a command with no arguments to see usage.
 
 Check out the [wiki](https://github.com/noporpoise/ninja-cortex/wiki)
 
 If you find a bug please submitted an [Issue](https://github.com/noporpoise/ninja-cortex/issues) on github.
+
+Cortex mailing list: https://groups.google.com/forum/#!forum/cortex_var
 
 Isaac Turner: turner.isaac@gmail.com
 

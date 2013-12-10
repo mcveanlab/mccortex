@@ -41,7 +41,7 @@ static const char usage[] =
 "  -k --kmer <K>        Kmer size [default: read from graph files]\n"
 "  -f --file <file>     Input file\n"
 "  -o --out <file>      Output file\n"
-"  -p --paths <in.ctp>  Assembly file\n"
+"  -p --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";
 
 int main(int argc, char **argv)
