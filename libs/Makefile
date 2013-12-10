@@ -35,9 +35,12 @@ seq-align/Makefile:
 readsim/Makefile:
 	git clone git://github.com/noporpoise/readsim.git
 
+bioinf-perl/README:
+	git clone https://github.com/noporpoise/bioinf-perl.git
+
 pull: gsl-1.16/configure htslib/Makefile bcftools/Makefile vcflib/Makefile \
       string_buffer/Makefile bit_array/Makefile \
-      seq_file/Makefile seq-align/Makefile readsim/Makefile
+      seq_file/Makefile seq-align/Makefile readsim/Makefile bioinf-perl/README
 	cd htslib && git pull
 	cd bcftools && git pull
 	cd vcflib && git pull
@@ -78,6 +81,9 @@ seq-align: seq-align/Makefile
 
 readsim: readsim/Makefile
 	cd readsim && make HTSLIB=../htslib
+
+bioinf-perl: bioinf-perl/README
+	# nothing to do for bioinf-perl
 
 clean:
 	cd gsl-1.16 && make clean
