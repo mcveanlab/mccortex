@@ -61,7 +61,7 @@ IDIR_ALIGN = libs/seq-align/src
 IDIR_HASH = libs/hash_functions
 
 LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
-LIB_HTS=libs/htslib/htslib/libhts.a
+LIB_HTS=libs/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 # LIB_STRS=libs/string_buffer/libstrbuf.a
 LIB_STRS=libs/string_buffer/string_buffer.c

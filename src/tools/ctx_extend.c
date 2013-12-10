@@ -164,7 +164,7 @@ int ctx_extend(CmdArgs *args)
 
   out_fa_path = argv[5];
 
-  if(!test_file_writable(out_fa_path))
+  if(!futil_is_file_writable(out_fa_path))
     print_usage(usage, "Cannot write output file: %s", out_fa_path);
 
   //

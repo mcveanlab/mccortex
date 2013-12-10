@@ -26,10 +26,10 @@ static char ensure_dir_exists(const char *path, mode_t mode)
   return 1;
 }
 
-// mkpath - ensure all directories in path exist
+// futil_mkpath - ensure all directories in path exist
 // Returns 1 on success, 0 on failure
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
-char mkpath(const char *path, mode_t mode)
+char futil_mkpath(const char *path, mode_t mode)
 {
   char *copypath = strdup(path);
 
@@ -58,12 +58,12 @@ char mkpath(const char *path, mode_t mode)
   return status;
 }
 
-boolean file_exists(const char *file)
+boolean futil_file_exists(const char *file)
 {
   return (access(file, F_OK) != -1);
 }
 
-boolean test_file_readable(const char *file)
+boolean futil_is_file_readable(const char *file)
 {
   FILE *fp = fopen(file, "r");
   if(fp == NULL) return false;
@@ -72,7 +72,7 @@ boolean test_file_readable(const char *file)
 }
 
 // Creates file if it can write
-boolean test_file_writable(const char *file)
+boolean futil_is_file_writable(const char *file)
 {
   FILE *fp = fopen(file, "a");
   if(fp == NULL) return false;
@@ -81,7 +81,7 @@ boolean test_file_writable(const char *file)
 }
 
 // Returns -1 on failure
-off_t get_file_size(const char* filepath)
+off_t futil_get_file_size(const char* filepath)
 {
   struct stat st;
 

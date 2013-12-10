@@ -157,7 +157,7 @@ int ctx_infer_edges(CmdArgs *args)
   if(!file.fltr.nofilter)
     print_usage(usage, "Inferedges with filter not implemented - sorry");
 
-  if(!test_file_writable(path))
+  if(!futil_is_file_writable(path))
     print_usage(usage, "Cannot write to file: %s", path);
 
   assert(file.hdr.num_of_cols == file.fltr.ncols);

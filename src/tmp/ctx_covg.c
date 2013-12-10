@@ -87,7 +87,7 @@ int ctx_covg(CmdArgs *args)
       print_usage(usage, "Invalid colour number: %s", argv[5+i]);
   }
 
-  if(!test_file_writable(out_vcf_path))
+  if(!futil_is_file_writable(out_vcf_path))
     print_usage(usage, "Cannot write to output file: %s", out_vcf_path);
 
   if(num_col_given > 0 && gheader.num_of_cols != num_col_given)

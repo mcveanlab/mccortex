@@ -57,7 +57,7 @@ boolean file_filter_alloc(FileFilter *fltr, char *path,
   strbuf_set(&fltr->path, path_start);
   *path_end = path_lchar;
 
-  fltr->file_size = get_file_size(fltr->path.buff);
+  fltr->file_size = futil_get_file_size(fltr->path.buff);
   if(fltr->file_size == -1) die("Cannot get file size: %s", fltr->path.buff);
 
   if((fltr->fh = fopen(fltr->path.buff, mode)) == NULL) {

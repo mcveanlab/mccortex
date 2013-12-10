@@ -147,7 +147,7 @@ int ctx_subgraph(CmdArgs *args)
       if(argi+1 == argc)
         print_usage(usage, "--seed <seed.fa> requires an argument");
       seed_files[num_seed_files] = argv[argi+1];
-      if(!test_file_readable(seed_files[num_seed_files]))
+      if(!futil_is_file_readable(seed_files[num_seed_files]))
         die("Cannot read --seed file: %s", argv[argi+1]);
       argi++; num_seed_files++;
     }
@@ -218,7 +218,7 @@ int ctx_subgraph(CmdArgs *args)
   if(num_of_fringe_nodes < 100)
     die("Not enough memory for the graph search (set -m <mem> higher)");
 
-  if(!test_file_writable(out_path))
+  if(!futil_is_file_writable(out_path))
     die("Cannot write to output file: %s", out_path);
 
   // Create db_graph with one colour

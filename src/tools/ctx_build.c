@@ -179,7 +179,7 @@ int ctx_build(CmdArgs *args)
     }
   }
 
-  if(!test_file_writable(out_path))
+  if(!futil_is_file_writable(out_path))
     die("Cannot write to file: %s", out_path);
 
   //

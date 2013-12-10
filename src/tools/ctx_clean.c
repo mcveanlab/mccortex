@@ -379,10 +379,10 @@ int ctx_clean(CmdArgs *args)
                                         max_ctx_kmers, true);
 
   // Check output files are writable
-  if(!test_file_writable(out_ctx_path))
+  if(!futil_is_file_writable(out_ctx_path))
     print_usage(usage, "Cannot write to output: %s", out_ctx_path);
 
-  if(dump_covgs && !test_file_writable(dump_covgs))
+  if(dump_covgs && !futil_is_file_writable(dump_covgs))
     print_usage(usage, "Cannot write coverage distribution to: %s", dump_covgs);
 
   // Create db_graph

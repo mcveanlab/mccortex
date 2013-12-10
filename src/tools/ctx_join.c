@@ -209,7 +209,7 @@ int ctx_join(CmdArgs *args)
                                         ctx_max_kmers, true);
 
   // Check out_ctx_path is writable
-  if(!test_file_writable(out_ctx_path))
+  if(!futil_is_file_writable(out_ctx_path))
     print_usage(usage, "Cannot write to output: %s", out_ctx_path);
 
   // Create db_graph

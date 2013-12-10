@@ -125,7 +125,7 @@ int ctx_thread(CmdArgs *args)
 
   char *out_ctp_path = argv[argi++];
 
-  if(file_exists(out_ctp_path))
+  if(futil_file_exists(out_ctp_path))
     die("Output file already exists: %s", out_ctp_path);
 
   size_t num_files = argc - argi;

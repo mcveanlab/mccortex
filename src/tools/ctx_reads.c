@@ -56,16 +56,16 @@ static void check_outfile_exists(char *outbase, boolean is_pe, boolean use_fq)
 
   if(is_pe) {
     get_out_path(path, len, use_fq, 1);
-    if(file_exists(path)) die("Output file already exists: %s", path);
-    if(!test_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
+    if(futil_file_exists(path)) die("Output file already exists: %s", path);
+    if(!futil_is_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
     get_out_path(path, len, use_fq, 2);
-    if(file_exists(path)) die("Output file already exists: %s", path);
-    if(!test_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
+    if(futil_file_exists(path)) die("Output file already exists: %s", path);
+    if(!futil_is_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
   }
   else {
     get_out_path(path, len, use_fq, 0);
-    if(file_exists(path)) die("Output file already exists: %s", path);
-    if(!test_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
+    if(futil_file_exists(path)) die("Output file already exists: %s", path);
+    if(!futil_is_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
   }
 }
 

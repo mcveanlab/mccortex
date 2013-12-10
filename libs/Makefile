@@ -4,8 +4,15 @@
 # make common   <- compile all repos (except gsl)
 # make update   <- pull + common
 
-all: gsl htslib string_buffer bit_array seq_file seq-align readsim
+UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim
+ALLTGTS=$(UPDATE) gsl
 
+update: $(UPDATE)
+all: $(ALLTGTS)
+
+#
+# Download
+#
 gsl-1.16/configure:
 	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.16.tar.gz
 	tar xfz gsl-1.16.tar.gz
@@ -38,53 +45,45 @@ readsim/Makefile:
 bioinf-perl/README:
 	git clone https://github.com/noporpoise/bioinf-perl.git
 
-pull: gsl-1.16/configure htslib/Makefile bcftools/Makefile vcflib/Makefile \
-      string_buffer/Makefile bit_array/Makefile \
-      seq_file/Makefile seq-align/Makefile readsim/Makefile bioinf-perl/README
-	cd htslib && git pull
-	cd bcftools && git pull
-	cd vcflib && git pull
-	cd string_buffer && git pull
-	cd bit_array && git pull
-	cd seq_file && git pull
-	cd seq-align && git pull
-	cd readsim && git pull
-	cd bioinf-perl && git pull
-
-update: pull common
-
-common: htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim
-
+#
+# Build
+#
 gsl: gsl-1.16/configure
 	cd gsl-1.16 && make clean && ./configure && make
 
 htslib: htslib/Makefile
-	cd htslib && make
+	cd htslib && git pull && make
 
-bcftools: bcftools/Makefile htslib/Makefile
-	cd bcftools && make
+bcftools: htslib bcftools/Makefile
+	cd bcftools && git pull && make
 
 vcflib: vcflib/Makefile
-	cd vcflib && make
+	cd vcflib && git pull && make
 
 string_buffer: string_buffer/Makefile
-	cd string_buffer && make
+	cd string_buffer && git pull && make
 
 bit_array: bit_array/Makefile
-	cd bit_array && make
+	cd bit_array && git pull && make
 
-seq_file: seq_file/Makefile
-	cd seq_file && make HTSLIB=../htslib
+seq_file: seq_file/Makefile htslib
+	cd seq_file && git pull && make HTSLIB=../htslib
 
-seq-align: seq-align/Makefile
-	cd seq-align && make LIBS_PATH=../
+seq-align: seq-align/Makefile bit_array string_buffer htslib
+	cd seq-align && git pull && make LIBS_PATH=../
 
-readsim: readsim/Makefile
-	cd readsim && make HTSLIB=../htslib
+readsim: readsim/Makefile htslib
+	cd readsim && git pull && make HTSLIB=../htslib
 
 bioinf-perl: bioinf-perl/README
 	# nothing to do for bioinf-perl
 
+hash_functions: hash_functions/Makefile
+	cd hash_functions && make
+
+#
+# Clean
+#
 clean:
 	cd gsl-1.16 && make clean
 	cd htslib && make clean
@@ -95,5 +94,5 @@ clean:
 	cd seq-align && make clean
 	cd readsim && make clean
 
-.PHONY: all clean pull common update
-.PHONY: gsl htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim
+.PHONY: all clean update
+.PHONY: $(ALLTGTS)

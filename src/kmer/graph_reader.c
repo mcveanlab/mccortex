@@ -277,7 +277,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   /*
   if(h->version < 7)
   {
-    off_t file_size = get_file_size(path);
+    off_t file_size = futil_get_file_size(path);
     size_t bytes_remaining = file_size - bytes_read;
     size_t shade_bytes = 0;
 

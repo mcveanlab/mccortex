@@ -136,7 +136,7 @@ int ctx_call(CmdArgs *args)
     die("Requires at least %s memory", total_mem_str);
 
   // Check output file writeable
-  if(!test_file_writable(out_path))
+  if(!futil_is_file_writable(out_path))
     print_usage(usage, "Cannot write output file: %s", out_path);
 
   // Allocate memory
@@ -182,7 +182,7 @@ int ctx_call(CmdArgs *args)
     strbuf_set(tmppath, out_path);
     strbuf_sprintf(tmppath, ".%i.%zu", r, i);
     tmp_paths[i] = strbuf_dup(tmppath);
-    if(!test_file_writable(tmp_paths[i])) {
+    if(!futil_is_file_writable(tmp_paths[i])) {
       while(i > 0) unlink(tmp_paths[--i]);
       die("Cannot write temporary file: %s", tmp_paths[i]);
     }

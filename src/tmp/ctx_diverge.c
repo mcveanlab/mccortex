@@ -216,7 +216,7 @@ int ctx_diverge(CmdArgs *args)
     print_usage(usage, "Cannot read trusted reference: %s", argv[4]);
 
   output_bubble_path = argv[5];
-  if(!test_file_writable(output_bubble_path))
+  if(!futil_is_file_writable(output_bubble_path))
     print_usage(usage, "Cannot write to output file: %s", output_bubble_path);
 
   // DEV: look for ctp file
