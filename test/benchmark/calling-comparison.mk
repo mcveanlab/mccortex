@@ -316,21 +316,21 @@ $(BUBBLES): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx $(READLIST
 
 k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
-	callargs=`if [ '$*' == 'ref' ]; then echo '--ref_colour $(NUM_INDIVS)'; fi`; \
+	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref_colour $(NUM_INDIVS)'; fi`; \
 	time $(RELEASECTX) --multicolour_bin $< $$callargs --detect_bubbles1 -1/-1 --output_bubbles1 k$(KMER)/bubbles/samples.oldbc.$*.bubbles --print_colour_coverages
 	mv k$(KMER)/bubbles/samples.oldbc.$*.bubbles k$(KMER)/bubbles/samples.oldbc.$*.bubbles.dirty
 	$(OLDCLEAN) $(KMER) k$(KMER)/bubbles/samples.oldbc.$*.bubbles.dirty | gzip -c > $@
 
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
-	callargs=`if [ '$*' == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
+	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
 	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
 
 # % => {se,pe,sepe}.{ref.noref}
 k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
 	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
-	callargs=`if [ '$*' == 'ref' ]; then echo '--ref $(NUM_INDIVS)'; fi`; \
+	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
 	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p $< k$(KMER)/graphs/pop.$$r.ctx $@
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
