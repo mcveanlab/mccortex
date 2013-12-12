@@ -86,21 +86,20 @@ LINK=-lpthread -lz -lm
 # -Wenum-compare -Wlogical-op -Wfloat-equal -Wbad-function-cast
 
 # Optimisations tags for testing
-OPT_TESTS = -O0
 # -Wstack-protector -fstack-protector
 # -fsanitize=thread
 
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
-	OPT = $(OPT_TESTS)
+	OPT = -O0
 	DEBUG_ARGS = -g -ggdb
 else
 	ifdef PROFILE
-	#-DNDEBUG=1
+		#-DNDEBUG=1
 		OPT = -O4
 		DEBUG_ARGS = -g -ggdb
 	else
-	#-DNDEBUG=1
+		#-DNDEBUG=1
 		OPT = -O4
 		DEBUG_ARGS = 
 	endif
