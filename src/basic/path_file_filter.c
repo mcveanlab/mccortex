@@ -48,19 +48,15 @@ int path_file_open2(PathFileReader *file, char *path, boolean fatal,
   return 1;
 }
 
-// File loading checks against a given graph
+// File header checks
 void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
 {
   const FileFilter *fltr = &file->fltr;
   const PathFileHeader *hdr = &file->hdr;
 
+  // Conservative set of tests to see if we can hold the data from a path file
   if(file->hdr.kmer_size != db_graph->kmer_size) {
     die("Kmer sizes do not match between graph and path file [%s]",
-        fltr->orig.buff);
-  }
-
-  if(path_file_usedcols(file) > db_graph->num_of_cols) {
-    die("Number of colours in path file is greater than in the graph [%s]",
         fltr->orig.buff);
   }
 
@@ -74,6 +70,12 @@ void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
      db_graph->ht.unique_kmers < hdr->num_kmers_with_paths)
   {
     warn("Graph has fewer kmers than paths file");
+  }
+
+  // More checks to ensure we can load and use a path file along with a graph file
+  if(path_file_usedcols(file) > db_graph->num_of_cols) {
+    die("Number of colours in path file is greater than in the graph %zu > %zu [%s]",
+        path_file_usedcols(file), db_graph->num_of_cols, fltr->orig.buff);
   }
 
   // Check sample names match

@@ -106,3 +106,15 @@ boolean graph_file_read(const GraphFileReader *file,
 
   return 1;
 }
+
+// Returns true if one or more files passed loads data into colour
+boolean graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
+                                    size_t num_files)
+{
+  size_t i;
+  for(i = 0; i < num_files; i++) {
+    if(file_filter_iscolloaded(&files[i].fltr, colour))
+      return true;
+  }
+  return false;
+}

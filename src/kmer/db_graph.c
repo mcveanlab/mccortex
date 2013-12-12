@@ -26,6 +26,7 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                  .node_in_cols = NULL, .kmer_paths = NULL, .readstrt = NULL};
 
   hash_table_alloc(&tmp.ht, capacity);
+  memset(&tmp.pdata, 0, sizeof(PathStore));
 
   tmp.ginfo = malloc2(num_of_cols * sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
@@ -48,14 +49,14 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
     for(i = num_of_cols; i < graph->num_of_cols; i++)
       graph_info_dealloc(graph->ginfo + i);
   }
-  else return; // Same size
 
   dBGraph tmp = {.ht = graph->ht, .kmer_size = graph->kmer_size,
                  .num_of_cols = num_of_cols, .num_edge_cols = num_edge_cols,
                  .num_of_cols_used = graph->num_of_cols_used,
                  .ginfo = graph->ginfo, .col_edges = graph->col_edges,
                  .col_covgs = graph->col_covgs, .node_in_cols = graph->node_in_cols,
-                 .kmer_paths = graph->kmer_paths, .readstrt = graph->readstrt};
+                 .pdata = graph->pdata, .kmer_paths = graph->kmer_paths,
+                 .readstrt = graph->readstrt};
 
   memcpy(graph, &tmp, sizeof(dBGraph));
   db_graph_status(graph);

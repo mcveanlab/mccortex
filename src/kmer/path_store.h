@@ -89,7 +89,7 @@ static inline void packedpack_len_orient(const uint8_t *packed,
                                          PathLen *len, Orientation *orient)
 {
   PathLen d = packedpath_lenword(packed, store->colset_bytes);
-  *len = d & ~(1<<PATH_LEN_BITS);
+  *len = d & ~(1UL<<PATH_LEN_BITS);
   *orient = d >> PATH_LEN_BITS;
 }
 

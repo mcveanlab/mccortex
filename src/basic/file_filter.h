@@ -24,10 +24,15 @@ typedef struct
   .intocol = 0, .ncols = 0, .cols = NULL, .ncolscap = 0, .flatten = false,    \
   .file_size = 0, .nofilter = false}
 
-#define file_filter_outncols(fltr) ((fltr)->flatten ? 1 : (fltr)->ncols)
+// returns 1 or ncols [fltr->flatten is 0 or 1]
+#define file_filter_outncols(fltr) \
+        ((fltr)->flatten + (!(fltr)->flatten)*(fltr)->ncols)
+
 #define file_filter_intocol(fltr,col) ((fltr)->intocol + (!(fltr)->flatten)*(col))
-#define file_filter_fromcol(fltr,col) ((fltr)->cols[i])
+#define file_filter_fromcol(fltr,col) ((fltr)->cols[col])
 #define file_filter_usedcols(fltr) ((fltr)->intocol + file_filter_outncols(fltr))
+#define file_filter_iscolloaded(fltr,col) \
+        ((fltr)->intocol<=(col) && (col)<file_filter_usedcols(fltr))
 
 // Does not read any bytes from file, but does open it
 // returns true on success

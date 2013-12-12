@@ -56,43 +56,6 @@ pthread_cond_t data_written_cond, data_read_cond;
 volatile boolean data_waiting = false, input_ended = false;
 volatile AddPathsJob next_job;
 
-static void dump_gap_sizes(const char *base_fmt, const uint64_t *arr,
-                           size_t arrlen, size_t kmer_size)
-{
-  StrBuf *csv_dump = strbuf_new();
-  FILE *fout;
-
-  if(!futil_generate_filename(base_fmt, csv_dump)) {
-    warn("Cannot dump gapsize");
-    return;
-  }
-
-  if((fout = fopen(csv_dump->buff, "w")) == NULL) {
-    warn("Cannot dump gapsize [cannot open: %s]", csv_dump->buff);
-    strbuf_free(csv_dump);
-    return;
-  }
-
-  fprintf(fout, "gap_in_kmers,bp,count\n");
-
-  if(arrlen > 0)
-  {
-    size_t i, start = 0, end = arrlen-1;
-
-    while(start < arrlen && arr[start] == 0) start++;
-    while(end > start && arr[end] == 0) end--;
-
-    for(i = start; i <= end; i++) {
-      fprintf(fout, "%4zu,%4li,%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
-    }
-  }
-
-  status("Contig gap sizes dumped to %s\n", csv_dump->buff);
-
-  fclose(fout);
-  strbuf_free(csv_dump);
-}
-
 static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
                                size_t gap_limit, dBGraph *db_graph)
 {
@@ -239,9 +202,8 @@ PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
   if(!seq_read_alloc(&pool->r1) || !seq_read_alloc(&pool->r2))
     die("Out of memory");
 
-  for(i = 0; i < num_of_threads; i++) {
-    paths_worker_alloc(pool->workers + i, i, gap_limit, db_graph);
-  }
+  for(i = 0; i < num_of_threads; i++)
+    paths_worker_alloc(&pool->workers[i], i, gap_limit, db_graph);
 
   // Start threads
   pool->threads = malloc2(num_of_threads * sizeof(pthread_t));
@@ -260,7 +222,6 @@ PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
     die("Out of memory");
 
   data_waiting = input_ended = false;
-  // fout = output_handle;
 
   int rc;
   for(i = 0; i < num_of_threads; i++)
@@ -308,10 +269,10 @@ void path_workers_pool_dealloc(PathsWorkerPool *pool)
 
   // Print mp gap size / insert stats to a file
   size_t kmer_size = pool->db_graph->kmer_size;
-  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_limit+1, kmer_size);
+  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_limit+1, kmer_size, false);
 
   if(pool->seen_pe)
-    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_limit+1, kmer_size);
+    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_limit+1, kmer_size, true);
 
   paths_worker_dealloc(&(pool->workers[0]));
 
@@ -371,6 +332,8 @@ void path_workers_add_paths_to_graph(PathsWorkerPool *pool,
 
   if(sf2 == NULL)
     seq_parse_se_sf(sf1, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
-  else
+  else {
+    pool->seen_pe = true;
     seq_parse_pe_sf(sf1, sf2, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
+  }
 }

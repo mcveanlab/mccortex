@@ -59,4 +59,8 @@ void graph_file_dealloc(GraphFileReader *file);
 boolean graph_file_read(const GraphFileReader *file,
                         BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
+// Returns true if one or more files passed loads data into colour
+boolean graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
+                                    size_t num_files);
+
 #endif /* GRAPH_FILE_FILTER_H_ */

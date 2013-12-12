@@ -150,14 +150,11 @@ int ctx_thread(CmdArgs *args)
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
-    size_t ncols = graph_file_usedcols(&files[i]);
     file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + total_cols);
-    total_cols += ncols;
+    total_cols = graph_file_usedcols(&files[i]);
 
     ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
   }
-
-  status("Total %zu cols", total_cols);
 
   //
   // Open path files
@@ -174,23 +171,7 @@ int ctx_thread(CmdArgs *args)
   }
 
   total_cols = MAX2(total_cols, path_max_usedcols);
-
-  // Set up paths header
-  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
-                            .kmer_size = files[0].hdr.kmer_size,
-                            .num_of_cols = 0,
-                            .capacity = 0};
-
-  paths_header_alloc(&pheader, total_cols);
-  pheader.num_of_cols = total_cols;
-
-  // Set path header sample names
-  for(i = 0; i < num_files; i++) {
-    for(j = 0; j < files[i].fltr.ncols; j++) {
-      strbuf_set(&pheader.sample_names[files[i].fltr.intocol+j],
-                 files[i].hdr.ginfo[files[i].fltr.cols[j]].sample_name.buff);
-    }
-  }
+  status("Creating paths file with %zu colours", total_cols);
 
   // Check for invalid or duplicate ctp colours
   // or path colours >= number of output path colours
@@ -198,9 +179,9 @@ int ctx_thread(CmdArgs *args)
   for(i = 0; i < num_seq_cols; i++) {
     if(i+1 < num_seq_cols && graph_colours[i] == graph_colours[i+1])
       print_usage(usage, "Duplicate --col <ctpcol> given: %zu", graph_colours[i]);
-    if(graph_colours[i] >= pheader.num_of_cols) {
-      print_usage(usage, "output path colour >= number of path colours [%zu >= %u]",
-                  graph_colours[i], pheader.num_of_cols);
+    if(graph_colours[i] >= total_cols) {
+      print_usage(usage, "output path colour >= number of path colours [%zu >= %zu]",
+                  graph_colours[i], total_cols);
     }
   }
 
@@ -230,6 +211,12 @@ int ctx_thread(CmdArgs *args)
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
+  char req_path_mem_str[100];
+  bytes_to_str(path_max_mem + tmppathsize, 1, req_path_mem_str);
+
+  if(path_mem < path_max_mem + tmppathsize)
+    die("Not enough memory for paths (requires %s)", req_path_mem_str);
+
   // Open output file
   FILE *fout = fopen(out_ctp_path, "w");
 
@@ -242,7 +229,7 @@ int ctx_thread(CmdArgs *args)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, pheader.kmer_size, 1, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, total_cols, 1, kmers_in_hash);
   kmers_in_hash = db_graph.ht.capacity;
 
   // Edges
@@ -252,15 +239,43 @@ int ctx_thread(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
+  PathStore *paths = &db_graph.pdata;
   uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem-tmppathsize, pheader.num_of_cols);
+  path_store_init(paths, path_store, path_mem-tmppathsize, total_cols);
   uint8_t *path_tmpmem = path_store + path_mem - tmppathsize;
+
+  // 1. Merge graph file headers into the graph
+  size_t intocol, fromcol;
+  for(i = 0; i < num_files; i++) {
+    for(j = 0; j < files[i].fltr.ncols; j++) {
+      intocol = graph_file_intocol(&files[i], j);
+      fromcol = graph_file_fromcol(&files[i], j);
+      graph_info_merge(&db_graph.ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
+    }
+  }
 
   // Load paths
   if(num_pfiles > 0) {
+    // Paths loaded into empty colours will update the sample names
     paths_format_merge(pfiles, num_pfiles, true, path_tmpmem, tmppathsize, &db_graph);
-    path_store_resize(&db_graph.pdata, path_mem);
+    path_store_resize(paths, path_mem);
   }
+
+  // Set up paths header
+  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
+                            .kmer_size = files[0].hdr.kmer_size,
+                            .num_of_cols = 0,
+                            .capacity = 0};
+
+  paths_header_alloc(&pheader, total_cols);
+  pheader.num_of_cols = total_cols;
+
+  // Set new path header sample names from graph header
+  for(i = 0; i < total_cols; i++)
+    strbuf_set(&pheader.sample_names[i], db_graph.ginfo[i].sample_name.buff);
+
+  // 2. reduce number of graph colours
+  db_graph_realloc(&db_graph, 1, 1);
 
   // Setup for loading graphs graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -283,8 +298,6 @@ int ctx_thread(CmdArgs *args)
   pool = path_workers_pool_new(args->num_threads, &db_graph, gap_limit);
 
   // Parse input sequence
-  status("Threading reads through the graph...\n");
-
   size_t rep, ctxindex, ctxcol;
 
   for(rep = 0; rep < NUM_PASSES; rep++)
@@ -326,7 +339,6 @@ int ctx_thread(CmdArgs *args)
 
   path_workers_pool_dealloc(pool);
 
-  PathStore *paths = &db_graph.pdata;
   size_t num_path_bytes = paths->next - paths->store;
   char kmers_str[100], paths_str[100], mem_str[100];
   ulong_to_str(paths->num_kmers_with_paths, kmers_str);
@@ -334,12 +346,12 @@ int ctx_thread(CmdArgs *args)
   bytes_to_str(num_path_bytes, 1, mem_str);
 
   status("Saving paths: %s paths, %s path-bytes, %s kmers\n",
-          paths_str, mem_str, kmers_str);
+         paths_str, mem_str, kmers_str);
 
   paths_format_write_optimised_paths(&db_graph, fout);
 
   // Update header and overwrite
-  paths_header_update(&pheader, &db_graph.pdata);
+  paths_header_update(&pheader, paths);
   fseek(fout, 0, SEEK_SET);
   paths_format_write_header_core(&pheader, fout);
 

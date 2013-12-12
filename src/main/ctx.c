@@ -17,7 +17,7 @@ static const char usage[] =
 "          clean       clean errors from a graph\n"
 "          join        combine graphs, filter graph intersections\n"
 "          supernodes  pull out supernodes\n"
-"          subgraph    filter a subgraph\n"
+"          subgraph    filter a subgraph using seed kmers\n"
 "          reads       filter reads against a graph\n"
 "          extend      extend contigs using a graph\n"
 "          contigs     pull out contigs for a sample\n"
@@ -44,9 +44,25 @@ static const char usage[] =
 "  -p --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";
 
+// See http://stackoverflow.com/a/77336/431087
+void errhandler(int sig)
+{
+  void *array[10];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 10);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
+}
+
+
 int main(int argc, char **argv)
 {
-  signal(SIGSEGV, errhandler);   // install our handler
+  // signal(SIGSEGV, errhandler);   // install our handler
 
   CmdArgs args;
   time_t start, end;

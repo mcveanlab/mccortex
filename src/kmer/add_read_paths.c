@@ -48,7 +48,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
   PathIndex prev_index, new_index;
   PathLen plen;
   Nucleotide *bases;
-  boolean added;
+  boolean added, rv_paths_added = false;
 
   PathStore *paths = &db_graph->pdata;
 
@@ -96,42 +96,50 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
     new_index = path_store_find_or_add(paths, prev_index, plen, bases,
                                        orient, ctp_col, &added);
 
-    if(added) db_node_paths(db_graph, node) = new_index;
-    else break;
+    // If the path already exists, all of its subpaths also already exist
+    if(!added) break;
+    db_node_paths(db_graph, node) = new_index;
+    rv_paths_added = true;
   }
 
-  //
-  // Generate forward paths
-  //
-  #ifdef CTXVERBOSE
-    printf("==FWD==\n");
-  #endif
-
-  for(start_fw = 0, start_rv = num_rv-1; start_rv != SIZE_MAX; start_rv--)
+  // If we added no reverse paths, there are no forward paths to add either
+  // (they are all already in the PathStore)
+  if(rv_paths_added)
   {
-    while(start_fw < num_fw && pos_fw[start_fw] < pos_rv[start_rv]) start_fw++;
-    if(start_fw == num_fw) break;
-
-    pos = pos_rv[start_rv] - 1;
-    start_fw -= (start_fw > 0 && pos_fw[start_fw-1] == pos);
-
-    bases = nuc_fw + start_fw;
-    plen = num_fw - start_fw;
-    node = nodes[pos].key;
-    orient = nodes[pos].orient;
-    prev_index = db_node_paths(db_graph, node);
-
+    //
+    // Generate forward paths
+    //
     #ifdef CTXVERBOSE
-      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
-      printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
-             start_rv, start_fw);
+      printf("==FWD==\n");
     #endif
 
-    new_index = path_store_find_or_add(paths, prev_index, plen, bases,
-                                       orient, ctp_col, &added);
+    for(start_fw = 0, start_rv = num_rv-1; start_rv != SIZE_MAX; start_rv--)
+    {
+      while(start_fw < num_fw && pos_fw[start_fw] < pos_rv[start_rv]) start_fw++;
+      if(start_fw == num_fw) break;
 
-    if(added) db_node_paths(db_graph, node) = new_index;
-    else break;
+      pos = pos_rv[start_rv] - 1;
+      start_fw -= (start_fw > 0 && pos_fw[start_fw-1] == pos);
+
+      bases = nuc_fw + start_fw;
+      plen = num_fw - start_fw;
+      node = nodes[pos].key;
+      orient = nodes[pos].orient;
+      prev_index = db_node_paths(db_graph, node);
+
+      #ifdef CTXVERBOSE
+        binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
+        printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
+               start_rv, start_fw);
+      #endif
+
+      new_index = path_store_find_or_add(paths, prev_index, plen, bases,
+                                         orient, ctp_col, &added);
+
+      // If the path already exists, all of its subpaths also already exist
+      if(!added) break;
+      db_node_paths(db_graph, node) = new_index;
+    }
   }
 
   // Free lock
@@ -432,4 +440,43 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
     add_read_path(nodebuf->data+end, nodebuf->len-end, db_graph,
                   job->ctx_col, job->ctp_col);
   }
+}
+
+void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
+                    size_t kmer_size, boolean insert_sizes)
+{
+  StrBuf *csv_dump = strbuf_new();
+  FILE *fout;
+
+  if(!futil_generate_filename(base_fmt, csv_dump)) {
+    warn("Cannot dump gapsize");
+    strbuf_free(csv_dump);
+    return;
+  }
+
+  if((fout = fopen(csv_dump->buff, "w")) == NULL) {
+    warn("Cannot dump gapsize [cannot open: %s]", csv_dump->buff);
+    strbuf_free(csv_dump);
+    return;
+  }
+
+  fprintf(fout, "gap_in_kmers,bp,count\n");
+
+  if(arrlen > 0)
+  {
+    size_t i, start = 0, end = arrlen-1;
+
+    while(start < arrlen && arr[start] == 0) start++;
+    while(end > start && arr[end] == 0) end--;
+
+    for(i = start; i <= end; i++) {
+      fprintf(fout, "%4zu,%4li,%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
+    }
+  }
+
+  status("Contig %s sizes dumped to %s\n",
+         insert_sizes ? "insert" : "gap", csv_dump->buff);
+
+  fclose(fout);
+  strbuf_free(csv_dump);
 }

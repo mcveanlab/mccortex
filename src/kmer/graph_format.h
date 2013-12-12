@@ -18,6 +18,11 @@ void graph_header_print(const GraphFileHeader *header);
 // Copy non-colour specific values
 void graph_header_global_cpy(GraphFileHeader *dst, const GraphFileHeader *src);
 
+// Merge headers and set intersect name (if intersect_gname != NULL)
+void graph_reader_merge_headers(GraphFileHeader *hdr,
+                                const GraphFileReader *files, size_t num_files,
+                                const char *intersect_gname);
+
 // If fatal == false, returns -1 on error
 // path is used when reporting errors
 // Note: Doesn't set num_of_kmers if version < 7

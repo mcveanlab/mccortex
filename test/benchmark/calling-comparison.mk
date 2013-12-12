@@ -141,13 +141,13 @@ pe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
 	done; \
 done)
 
-sepe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
-	j=$$(($$i-1)); echo -n " --col $$j"; \
-	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
-		echo -n " --seq reads/reads$$k.1.fa.gz --seq reads/reads$$k.2.fa.gz"; \
-		echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; \
-	done; \
-done)
+# sepe_list=$(shell for i in `seq 1 $(NUM_INDIVS)`; do \
+# 	j=$$(($$i-1)); echo -n " --col $$j"; \
+# 	for k in `seq $$(($$j * $(PLOIDY) + 1)) $$(($$i * $(PLOIDY)))`; do \
+# 		echo -n " --p reads/reads$$k.1.fa.gz --seq reads/reads$$k.2.fa.gz"; \
+# 		echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; \
+# 	done; \
+# done)
 
 BUBBLEVCFS=$(subst .bubbles.gz,.bub.vcf,$(subst /bubbles/,/vcfs/,$(BUBBLES)))
 TRUTHDECOMP=$(TRUTHBUBBLES:.bub.vcf=.decomp.vcf)
@@ -298,6 +298,10 @@ k$(KMER)/graphs/pop.%.ctx:
 
 # Paths
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
+
+k$(KMER)/graphs/pop.sepe.%.ctp: k$(KMER)/graphs/pop.%.ctx k$(KMER)/graphs/pop.se.%.ctp
+	$(THREADCTX) -m $(MEM) -t $(NTHREADS) -p k$(KMER)/graphs/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
+	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/se.$$f; done
 
 k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
 	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) $@ $<

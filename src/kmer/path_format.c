@@ -152,10 +152,31 @@ static void paths_loading_print_status(const PathFileReader *file)
   status("  %s paths, %s path-bytes, %s kmers", paths_str, mem_str, kmers_str);
 }
 
+// Update sample names of the graph using path files
+// Only updates colours where sample name has not been set
+static void path_files_update_empty_sample_names(const PathFileReader *files,
+                                                 size_t num_files,
+                                                 dBGraph *db_graph)
+{
+  size_t i, j, fromcol;
+  for(i = 0; i < db_graph->num_of_cols; i++) {
+    if(strcmp(db_graph->ginfo[i].sample_name.buff,"undefined") == 0) {
+      for(j = 0; j < num_files; j++) {
+        if(file_filter_iscolloaded(&files[j].fltr, i)) {
+          fromcol = path_file_fromcol(&files[j], i - files[j].fltr.intocol);
+          strbuf_set(&db_graph->ginfo[i].sample_name,
+                     files[j].hdr.sample_names[fromcol].buff);
+          break;
+        }
+      }
+    }
+  }
+}
+
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                        boolean insert_missing_kmers)
+                       boolean insert_missing_kmers)
 {
   const PathFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
@@ -171,6 +192,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   assert(store->next == store->store);
   assert(store->num_of_paths == 0 && store->num_kmers_with_paths == 0);
 
+  path_files_update_empty_sample_names(file, 1, db_graph);
   path_file_load_check(file, db_graph);
 
   // Print some output
@@ -270,6 +292,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   PathIndex tmpindex;
   boolean found, find = true;
   size_t i, k, colbytes, first_file = 0;
+
+  // Update sample names of the graph
+  path_files_update_empty_sample_names(files, num_files, db_graph);
 
   for(i = 0; i < num_files; i++)
     path_file_load_check(&files[i], db_graph);

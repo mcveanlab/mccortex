@@ -26,7 +26,7 @@ to compile for a maximum kmer size of 63:
 
     make MAXK=63
 
-executables appear in the bin/ directory
+Executables appear in the `bin/` directory.
 
 Commands
 --------
@@ -40,7 +40,7 @@ Commands
               clean       clean errors from a graph
               join        combine graphs, filter graph intersections
               supernodes  pull out supernodes
-              subgraph    filter a subgraph
+              subgraph    filter a subgraph using seed kmers
               reads       filter reads against a graph
               extend      extend contigs using a graph
               contigs     pull out contigs for a sample

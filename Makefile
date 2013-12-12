@@ -97,11 +97,11 @@ ifdef DEBUG
 else
 	ifdef PROFILE
 	#-DNDEBUG=1
-		OPT = -O3
+		OPT = -O4
 		DEBUG_ARGS = -g -ggdb
 	else
 	#-DNDEBUG=1
-		OPT = -O3
+		OPT = -O4
 		DEBUG_ARGS = 
 	endif
 endif

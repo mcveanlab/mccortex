@@ -5,37 +5,28 @@
 #include "graph_walker.h"
 #include "repeat_walker.h"
 
-// typedef struct PathsWorkerPool PathsWorkerPool;
-
-// PathsWorkerPool* paths_worker_pool_new(size_t num_of_threads,
-//                                        dBGraph *db_graph, size_t max_gap_limit);
-
-// void paths_worker_pool_dealloc(PathsWorkerPool *pool);
-
-// void wait_for_jobs_to_finish(PathsWorkerPool *pool);
-
-// void add_read_paths_to_graph(PathsWorkerPool *pool,
-//                              seq_file_t *sf1, seq_file_t *sf2,
-//                              size_t gap_limit, size_t ctx_col, size_t ctp_col,
-//                              const SeqLoadingPrefs *prefs,
-//                              SeqLoadingStats *stats);
-
-
 typedef struct {
   read_t r1, r2;
   Colour ctp_col, ctx_col;
   size_t gap_limit;
+  // size_t ins_gap_min, ins_gap_max;
   int qcutoff1, qcutoff2;
   int hp_cutoff;
 } AddPathsJob;
 
-
 void add_read_paths_init();
 void add_read_paths_cleanup();
 
+// Must have called add_paths_init before calling add_read_paths
 void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
                     GraphWalker *wlk, RepeatWalker *rptwlk,
                     uint64_t *insert_sizes, uint64_t *gap_sizes,
                     dBGraph *db_graph);
+
+// Save gap size distribution
+// insert_sizes is true if gaps are insert gaps,
+//                 false if gaps are due to sequencing errors
+void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
+                    size_t kmer_size, boolean insert_sizes);
 
 #endif /* ADD_READ_PATH_H_ */

@@ -59,6 +59,36 @@ void graph_header_global_cpy(GraphFileHeader *dst, const GraphFileHeader *src)
   //   graph_info_cpy(&dst->ginfo[i], &src->ginfo[i]);
 }
 
+// Merge headers and set intersect name (if intersect_gname != NULL)
+void graph_reader_merge_headers(GraphFileHeader *hdr,
+                                const GraphFileReader *files, size_t num_files,
+                                const char *intersect_gname)
+{
+  size_t i, j, ncols = 0, intocol, fromcol;
+
+  for(i = 0; i < num_files; i++)
+    ncols = MAX2(ncols, graph_file_usedcols(&files[i]));
+
+  graph_header_global_cpy(hdr, &files[0].hdr);
+  graph_header_alloc(hdr, ncols);
+  hdr->num_of_cols = ncols;
+
+  for(i = 0; i < num_files; i++) {
+    for(j = 0; j < files[i].fltr.ncols; j++) {
+      intocol = graph_file_intocol(&files[i], j);
+      fromcol = graph_file_fromcol(&files[i], j);
+      graph_info_merge(&hdr->ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
+    }
+  }
+
+  if(intersect_gname != NULL) {
+    for(i = 0; i < ncols; i++) {
+      if(graph_file_is_colour_loaded(i, files, num_files))
+        graph_info_append_intersect(&hdr->ginfo[i].cleaning, intersect_gname);
+    }
+  }
+}
+
 // Return number of bytes read or -1 if not valid
 // Note: Doesn't set num_of_kmers if version < 7
 int graph_file_read_header(FILE *fh, GraphFileHeader *h,
@@ -345,7 +375,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
 
   dBGraph *graph = prefs->db_graph;
   GraphInfo *ginfo = graph->ginfo;
-  size_t i, load_ncols = graph_file_outncols(file);
+  size_t i, load_ncols = graph_file_outncols(file), fromcol, intocol;
   FileFilter *fltr = &file->fltr;
   GraphFileHeader *hdr = &file->hdr;
 
@@ -369,13 +399,10 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
         load_ncols, graph->num_of_cols, fltr->intocol, fltr->path.buff);
   }
 
-  if(fltr->flatten) {
-    for(i = 0; i < fltr->ncols; i++)
-      graph_info_merge(ginfo+fltr->intocol, hdr->ginfo+fltr->cols[i]);
-  }
-  else {
-    for(i = 0; i < fltr->ncols; i++)
-      graph_info_merge(ginfo+fltr->intocol+i, hdr->ginfo+fltr->cols[i]);
+  for(i = 0; i < fltr->ncols; i++) {
+    fromcol = file_filter_fromcol(fltr, i);
+    intocol = file_filter_intocol(fltr, i);
+    graph_info_merge(ginfo+intocol, hdr->ginfo+fromcol);
   }
 
   // Update number of colours loaded
@@ -614,6 +641,7 @@ size_t graph_files_merge(char *out_ctx_path,
   assert(!only_load_if_in_graph || kmers_loaded);
   assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   assert(!colours_loaded || kmers_loaded);
+  assert(hdr != NULL);
 
   size_t i, ncols, output_colours = 0;
 
@@ -791,26 +819,10 @@ size_t graph_files_merge_mkhdr(char *out_ctx_path,
                                const Edges *only_load_if_in_edges,
                                const char *intersect_gname, dBGraph *db_graph)
 {
-  size_t i, j, c, d, ncols = 0, num_kmers;
+  size_t num_kmers;
   GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
-  for(i = 0; i < num_files; i++)
-    ncols = MAX2(ncols, files[i].fltr.intocol+graph_file_outncols(&files[i]));
-
-  graph_header_global_cpy(&gheader, &files[0].hdr);
-  graph_header_alloc(&gheader, ncols);
-  gheader.num_of_cols = ncols;
-
-  for(i = 0; i < num_files; i++)
-  {
-    for(j = 0; j < files[i].fltr.ncols; j++)
-    {
-      c = graph_file_intocol(&files[i], j); d = files[i].fltr.cols[j];
-      graph_info_merge(&gheader.ginfo[c], &files[i].hdr.ginfo[d]);
-      if(intersect_gname)
-        graph_info_append_intersect(&gheader.ginfo[c].cleaning, intersect_gname);
-    }
-  }
+  graph_reader_merge_headers(&gheader, files, num_files, intersect_gname);
 
   num_kmers = graph_files_merge(out_ctx_path, files, num_files,
                                  kmers_loaded, colours_loaded,
