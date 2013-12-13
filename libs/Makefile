@@ -85,9 +85,10 @@ hash_functions: hash_functions/Makefile
 # Clean
 #
 clean:
-	cd gsl-1.16 && make clean
+	# cd gsl-1.16 && make clean
 	cd htslib && make clean
 	cd bcftools && make clean
+	cd vcflib && make clean
 	cd string_buffer && make clean
 	cd bit_array && make clean
 	cd seq_file && make clean
