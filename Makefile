@@ -53,14 +53,14 @@ ifdef CITY_HASH
 endif
 
 # Library paths
-IDIR_GSL_HEADERS=libs/gsl-1.16
+# IDIR_GSL_HEADERS=libs/gsl-1.16
 IDIR_HTS=libs/htslib/htslib
 IDIR_STRS=libs/string_buffer
 IDIR_SEQ=libs/seq_file
 IDIR_ALIGN=libs/seq-align/src
 IDIR_HASH=libs/hash_functions
 
-LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
+# LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
 LIB_HTS=libs/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 # LIB_STRS=libs/string_buffer/libstrbuf.a
@@ -72,11 +72,14 @@ endif
 
 INCS=-I src/basic/ -I src/kmer/ -I src/tools/ \
      -I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
-     -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_GSL_HEADERS) $(EXTRA_INCS)
+     -I $(IDIR_SEQ) -I $(IDIR_ALIGN) $(EXTRA_INCS)
+
+# -I $(IDIR_GSL_HEADERS)
 
 # Library linking
-LIB_OBJS=$(LIB_GSL) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
+LIB_OBJS=$(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
 LINK=-lpthread -lz -lm
+# $(LIB_GSL)
 
 # -Winit-self -Wmissing-include-dirs
 # -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code
