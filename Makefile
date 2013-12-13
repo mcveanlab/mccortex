@@ -53,12 +53,12 @@ ifdef CITY_HASH
 endif
 
 # Library paths
-IDIR_GSL_HEADERS = libs/gsl-1.16
-IDIR_HTS = libs/htslib/htslib
-IDIR_STRS = libs/string_buffer
-IDIR_SEQ = libs/seq_file
-IDIR_ALIGN = libs/seq-align/src
-IDIR_HASH = libs/hash_functions
+IDIR_GSL_HEADERS=libs/gsl-1.16
+IDIR_HTS=libs/htslib/htslib
+IDIR_STRS=libs/string_buffer
+IDIR_SEQ=libs/seq_file
+IDIR_ALIGN=libs/seq-align/src
+IDIR_HASH=libs/hash_functions
 
 LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
 LIB_HTS=libs/htslib/libhts.a
