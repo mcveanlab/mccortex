@@ -27,7 +27,8 @@ static const char usage[] =
 "    --load_graph <in.ctx>  Load samples from a graph file (.ctx)\n"
 "\n"
 "  PCR duplicate removal works by ignoring read pairs (PE-only) if both reads\n"
-"  start at the same k-mer as any previous read.\n"
+"  start at the same k-mer as any previous read. Carried out per sample, not \n"
+"  per file.\n"
 "\n"
 "  --sample <name> is required before sequence input can be loaded.\n"
 "  Consecutive sequence options are loaded into the same colour.\n"
@@ -196,10 +197,10 @@ int ctx_build(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity * output_colours, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * output_colours, sizeof(Covg));
 
-  if(remove_pcr_used) {
-    size_t kmer_words = round_bits_to_words64(db_graph.ht.capacity);
+  size_t kmer_words = round_bits_to_words64(db_graph.ht.capacity);
+
+  if(remove_pcr_used)
     db_graph.readstrt = calloc2(kmer_words*2, sizeof(uint64_t));
-  }
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -219,7 +220,15 @@ int ctx_build(CmdArgs *args)
 
   for(argi = 0; argi < argend; argi++)
   {
-    if(strcmp(argv[argi],"--fq_threshold") == 0) {
+    if(strcmp(argv[argi],"--sample") == 0) {
+      prefs.into_colour++;
+      status("[sample] %zu: %s\n", prefs.into_colour, argv[argi+1]);
+      strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
+      if(db_graph.readstrt != NULL)
+        memset(db_graph.readstrt, 0, 2 * kmer_words * sizeof(uint64_t));
+      argi += 1;
+    }
+    else if(strcmp(argv[argi],"--fq_threshold") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
       prefs.quality_cutoff = tmp;
       show_prefs = true;
@@ -269,12 +278,6 @@ int ctx_build(CmdArgs *args)
       graph_load(&ctxfile, &prefs, stats);
       prefs.into_colour += graph_file_usedcols(&ctxfile);
       graph_file_close(&ctxfile);
-      argi += 1;
-    }
-    else if(strcmp(argv[argi],"--sample") == 0) {
-      prefs.into_colour++;
-      status("[sample] %zu: %s\n", prefs.into_colour, argv[argi+1]);
-      strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
       argi += 1;
     }
     else {
