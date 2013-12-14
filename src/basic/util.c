@@ -37,6 +37,7 @@ char parse_entire_int(char *str, int *result)
 char parse_entire_uint(char *str, unsigned int *result)
 {
   char *strtol_last_char_ptr = str;
+  if(*str < '0' || *str > '9') return 0;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
   if(tmp > UINT_MAX || *strtol_last_char_ptr != '\0') return 0;
   *result = (unsigned int)tmp;
@@ -46,6 +47,7 @@ char parse_entire_uint(char *str, unsigned int *result)
 char parse_entire_ulong(char *str, unsigned long *result)
 {
   char *strtol_last_char_ptr = str;
+  if(*str < '0' || *str > '9') return 0;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
   if(*strtol_last_char_ptr != '\0') return 0;
   *result = tmp;
@@ -64,6 +66,7 @@ char parse_entire_double(char *str, double *result)
 char parse_entire_size(char *str, size_t *result)
 {
   char *strtol_last_char_ptr = str;
+  if(*str < '0' || *str > '9') return 0;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
   if(tmp > SIZE_MAX || *strtol_last_char_ptr != '\0') return 0;
   *result = (size_t)tmp;

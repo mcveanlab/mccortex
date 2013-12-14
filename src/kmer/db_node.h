@@ -171,4 +171,6 @@ void db_nodes_print(const dBNode *nodes, size_t num,
 void db_nodes_gzprint(const dBNode *nodes, size_t num,
                       const dBGraph *db_graph, gzFile out);
 
+#define db_nodes_reset(nbuf) ((nbuf)->len = 0)
+
 #endif /* DB_NODE_H_ */

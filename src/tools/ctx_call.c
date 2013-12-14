@@ -1,7 +1,4 @@
 #include "global.h"
-#include <sys/time.h>
-#include <pthread.h>
-#include <unistd.h>
 
 #include "cmd.h"
 #include "util.h"

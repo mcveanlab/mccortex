@@ -6,7 +6,7 @@
 
 #include "binary_kmer.h"
 
-#define REHASH_LIMIT 16
+#define REHASH_LIMIT 20
 #define UNSET_BKMER (1UL<<63)
 #define IDEAL_OCCUPANCY 0.75f
 #define WARN_OCCUPANCY 0.9f

@@ -15,6 +15,11 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
                       int qual_cutoff, int hp_cutoff,
                       size_t *search_start);
 
+// Returns first kmer that is in the graph and in the given colour
+// Or HASH_NOT_FOUND if no suitable kmers found
+hkey_t seq_reader_first_node(const read_t *r, int qcutoff, int hp_cutoff,
+                             size_t colour, const dBGraph *db_graph);
+
 // returns offset of the first kmer or -1 if no kmers present
 // Adds a single HASH_NOT_FOUND for gaps
 int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,

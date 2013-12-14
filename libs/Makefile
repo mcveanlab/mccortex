@@ -4,7 +4,7 @@
 # make common   <- compile all repos (except gsl)
 # make update   <- pull + common
 
-UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim
+UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim hash_functions
 ALLTGTS=$(UPDATE) gsl
 
 update: $(UPDATE)
@@ -94,6 +94,7 @@ clean:
 	cd seq_file && make clean
 	cd seq-align && make clean
 	cd readsim && make clean
+	cd hash_functions && make clean
 
 .PHONY: all clean update
 .PHONY: $(ALLTGTS)
