@@ -224,7 +224,7 @@ int ctx_build(CmdArgs *args)
       prefs.into_colour++;
       status("[sample] %zu: %s\n", prefs.into_colour, argv[argi+1]);
       strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
-      if(db_graph.readstrt != NULL)
+      if(db_graph.readstrt != NULL && prefs.into_colour > 0)
         memset(db_graph.readstrt, 0, 2 * kmer_words * sizeof(uint64_t));
       argi += 1;
     }
