@@ -22,7 +22,7 @@ hkey_t seq_reader_first_node(const read_t *r, int qcutoff, int hp_cutoff,
 
 // returns offset of the first kmer or -1 if no kmers present
 // Adds a single HASH_NOT_FOUND for gaps
-int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
+int seq_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *buffer);
 
 void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2,

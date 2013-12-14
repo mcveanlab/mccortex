@@ -166,7 +166,7 @@ hkey_t seq_reader_first_node(const read_t *r, int qcutoff, int hp_cutoff,
 
 // returns offset of the first node found or -1 if no nodes were found
 // Gaps collapsed down to a single HASH_NOT_FOUND
-int get_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
+int seq_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
                         const dBGraph *db_graph, dBNodeBuffer *list)
 {
   size_t contig_start, contig_end, search_start = 0;

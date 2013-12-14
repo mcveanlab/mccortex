@@ -341,7 +341,7 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
   int r2_offset = -1;
   nodebuf->len = 0;
 
-  get_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff, db_graph, nodebuf);
+  seq_nodes_from_read(&job->r1, job->qcutoff1, job->hp_cutoff, db_graph, nodebuf);
 
   if(job->r2.seq.end >= db_graph->kmer_size)
   {
@@ -355,7 +355,7 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
     }
 
     r2_start = nodebuf->len;
-    r2_offset = get_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
+    r2_offset = seq_nodes_from_read(&job->r2, job->qcutoff2, job->hp_cutoff,
                                     db_graph, nodebuf);
   }
 

@@ -83,8 +83,8 @@ int ctx_build(CmdArgs *args)
   size_t kmer_size = args->kmer_size;
 
   const char *out_path = argv[argc-1];
-  size_t colours_used = 0;
-  boolean sample_named = false, sample_used = false;
+  size_t output_colours = 0;
+  boolean sample_named = false, sample_used = false, remove_pcr_used = false;
 
   // Validate arguments
   int argi, argend = argc-1;
@@ -116,8 +116,8 @@ int ctx_build(CmdArgs *args)
         die("Invalid --cut_hp argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(!strcmp(argv[argi],"--remove_pcr") || !strcmp(argv[argi],"--keep_pcr"))
-    {}
+    else if(!strcmp(argv[argi],"--remove_pcr")) { remove_pcr_used = true; }
+    else if(!strcmp(argv[argi],"--keep_pcr")) {}
     else if(strcmp(argv[argi],"--seq") == 0) {
       if(!sample_named)
         print_usage(usage, "Please use --sample <name> before giving sequence");
@@ -156,18 +156,18 @@ int ctx_build(CmdArgs *args)
                     ctxfile.hdr.kmer_size, kmer_size);
       }
       argi++;
-      colours_used += graph_file_usedcols(&ctxfile);
+      output_colours += graph_file_usedcols(&ctxfile);
       sample_named = false;
     }
     else if(strcmp(argv[argi],"--sample") == 0) {
       if(argi + 1 >= argend)
         print_usage(usage, "--sample <name> requires an argument");
-      if(colours_used > 0 && !sample_used)
+      if(output_colours > 0 && !sample_used)
         warn("Empty colour (maybe you intended this)");
       if(!strcmp(argv[argi+1],"undefined") || !strcmp(argv[argi+1],"noname"))
         die("--sample %s is not a good name!", argv[argi+1]);
       argi++;
-      colours_used++;
+      output_colours++;
       sample_named = true;
       sample_used = false;
     }
@@ -182,16 +182,24 @@ int ctx_build(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8;
-  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true);
+  size_t bits_per_kmer, kmers_in_hash;
 
-  status("Writing %zu colour graph to %s\n", colours_used, out_path);
+  bits_per_kmer = ((sizeof(Covg) + sizeof(Edges)) * 8 + remove_pcr_used*2) *
+                  output_colours;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true);
+
+  status("Writing %zu colour graph to %s\n", output_colours, out_path);
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, colours_used, colours_used, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity * colours_used, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity * colours_used, sizeof(Covg));
+  db_graph_alloc(&db_graph, kmer_size, output_colours, output_colours, kmers_in_hash);
+  db_graph.col_edges = calloc2(db_graph.ht.capacity * output_colours, sizeof(Edges));
+  db_graph.col_covgs = calloc2(db_graph.ht.capacity * output_colours, sizeof(Covg));
+
+  if(remove_pcr_used) {
+    size_t kmer_words = round_bits_to_words64(db_graph.ht.capacity);
+    db_graph.readstrt = calloc2(kmer_words*2, sizeof(uint64_t));
+  }
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -281,8 +289,14 @@ int ctx_build(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   status("Dumping graph...\n");
-  graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL, 0, colours_used);
+  graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
+                        0, output_colours);
 
+  free(db_graph.col_covgs);
+  free(db_graph.col_edges);
+  if(db_graph.readstrt != NULL) free(db_graph.readstrt);
+
+  db_graph_dealloc(&db_graph);
   graph_file_dealloc(&ctxfile);
 
   return EXIT_SUCCESS;
