@@ -153,9 +153,9 @@ static void graph_write_node(hkey_t node, const dBGraph *db_graph,
 
   // Check this node has coverage in one of the specified colours
   if(colours != NULL)
-    while(i < num_of_cols && db_node_get_covg(db_graph,node,colours[i]) == 0) i++;
+    while(i < num_of_cols && db_node_covg(db_graph,node,colours[i]) == 0) i++;
   else
-    while(i < num_of_cols && db_node_get_covg(db_graph,node,start_col+i) == 0) i++;
+    while(i < num_of_cols && db_node_covg(db_graph,node,start_col+i) == 0) i++;
 
   if(i == num_of_cols) return;
 

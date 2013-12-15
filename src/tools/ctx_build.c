@@ -58,7 +58,7 @@ static void update_ginfo(GraphInfo *ginfo, SeqLoadingStats *stats,
 
 static void print_prefs(const SeqLoadingPrefs *prefs)
 {
-  char minQual[30] = "off", fqOffset[30] = "off", hpCutoff[30] = "auto-detect";
+  char minQual[30] = "off", fqOffset[30] = "auto-detect", hpCutoff[30] = "off";
 
   if(prefs->quality_cutoff > 0)
     sprintf(minQual, "%u", prefs->quality_cutoff);
@@ -292,6 +292,7 @@ int ctx_build(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   status("Dumping graph...\n");
+
   graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                         0, output_colours);
 

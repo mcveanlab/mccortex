@@ -115,4 +115,12 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph);
 // call seed_random() before any calls to this function please
 hkey_t db_graph_rand_node(const dBGraph *db_graph);
 
+//
+// Printing
+//
+void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,
+                          size_t num_of_cols, size_t kmer_size, FILE *fout);
+
+void db_graph_print_kmer(hkey_t node, dBGraph *db_graph, FILE *fout);
+
 #endif /* DB_GRAPH_H_ */

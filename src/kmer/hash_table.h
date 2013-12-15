@@ -7,7 +7,7 @@
 #include "binary_kmer.h"
 
 #define REHASH_LIMIT 20
-#define UNSET_BKMER (1UL<<63)
+#define UNSET_BKMER_WORD (1UL<<63)
 #define IDEAL_OCCUPANCY 0.75f
 #define WARN_OCCUPANCY 0.9f
 // bucket size must be <256
@@ -30,7 +30,7 @@ typedef struct
 typedef uint64_t hkey_t; // don't ever use the top bit, used later for orientation
 #define HASH_NOT_FOUND (UINT64_MAX>>1)
 
-#define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER))
+#define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER_WORD))
 
 // Number of hash table entries for a given required capacity
 size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
@@ -64,18 +64,18 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 #define HASH_TRAVERSE(ht,func,...) HASH_TRAVERSE2(ht,func,##__VA_ARGS__)
 
 // Iterate over all entries
-#define HASH_TRAVERSE1(ht,func, ...) do {                                      \
+#define HASH_TRAVERSE1(ht,func, ...) {                                         \
   const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
       func(htt_ptr - (ht)->table, ##__VA_ARGS__);                              \
     }                                                                          \
   }                                                                            \
-} while(0)
+}
 
 // Iterate over buckets, iterate over bucket contents
 // Faster in low density hash tables
-#define HASH_TRAVERSE2(ht,func, ...) ({                                        \
+#define HASH_TRAVERSE2(ht,func, ...) {                                         \
   BinaryKmer *bkt_strt = (ht)->table, *htt_ptr; size_t _b,_c;                  \
   for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
     for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][1]; htt_ptr++) {    \
@@ -84,6 +84,6 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
       }                                                                        \
     }                                                                          \
   }                                                                            \
-})
+}
 
 #endif /* HASH_TABLE_H_ */

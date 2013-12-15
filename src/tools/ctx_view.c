@@ -21,26 +21,6 @@ static const char usage[] =
 "\n"
 " Default is [--info --check]\n";
 
-static char* get_edges_str(Edges edges, char* kmer_colour_edge_str)
-{
-  int i;
-  char str[] = "acgt";
-
-  char left = edges >> 4;
-  left = rev_nibble(left);
-  char right = edges & 0xf;
-
-  for(i = 0; i < 4; i++)
-    kmer_colour_edge_str[i] = (left & (0x1 << i) ? str[i] : '.');
-
-  for(i = 0; i < 4; i++)
-    kmer_colour_edge_str[i+4] = toupper(right & (0x1 << i) ? str[i] : '.');
-
-  kmer_colour_edge_str[8] = '\0';
-
-  return kmer_colour_edge_str;
-}
-
 static void print_header(GraphFileHeader *h)
 {
   printf("version: %u\n", h->version);
@@ -158,7 +138,6 @@ int ctx_view(CmdArgs *args)
   BinaryKmer bkmer;
   Covg covgs[ncols];
   Edges edges[ncols];
-  char bkmerstr[MAX_KMER_SIZE+1], edgesstr[9];
 
   if(parse_kmers || print_kmers)
   {
@@ -205,20 +184,8 @@ int ctx_view(CmdArgs *args)
       // Print
       if(print_kmers)
       {
-        binary_kmer_to_str(bkmer, file.hdr.kmer_size, bkmerstr);
-        fputs(bkmerstr, stdout);
-
-        // Print covgs
-        for(i = 0; i < ncols; i++)
-          fprintf(stdout, " %u", covgs[i]);
-
-        // Print edges
-        for(i = 0; i < ncols; i++) {
-          fputc(' ', stdout);
-          fputs(get_edges_str(edges[i], edgesstr), stdout);
-        }
-
-        fputc('\n', stdout);
+        db_graph_print_kmer2(bkmer, covgs, edges,
+                             ncols, file.hdr.kmer_size, stdout);
       }
     }
   }

@@ -126,15 +126,16 @@ Edges edges_get_union(const Edges *edges, size_t num);
 boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide);
 
+// kmer_col_edge_str should be 9 chars long
+// Return pointer to kmer_col_edge_str
+char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
+
 //
 // Coverages
 //
 
-#define db_node_get_covg(graph,hkey,col) \
-        ((graph)->col_covgs[hkey*(graph)->num_of_cols+(col)])
-
-#define db_node_set_covg(graph,hkey,col,covg) \
-        (db_node_get_covg(graph,hkey,col) = (covg))
+#define db_node_covg(graph,hkey,col) \
+        ((graph)->col_covgs[(hkey)*(graph)->num_of_cols+(col)])
 
 #define db_node_zero_covgs(graph,hkey) \
         memset((graph)->col_covgs + (hkey)*(graph)->num_of_cols, 0, \

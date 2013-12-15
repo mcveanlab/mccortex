@@ -74,7 +74,7 @@ void seq_load_into_db_graph(read_t *r1, read_t *r2,
 
 // set qcutoff and hpcutoff to zero to ignore
 #define READ_TO_BKMERS(r,kmer_size,qcutoff,hpcutoff,stats,func,...)            \
-do {                                                                           \
+{                                                                              \
   (stats)->total_bases_read += (r)->seq.end;                                   \
   size_t _num_contigs = 0;                                                     \
   if((r)->seq.end >= (kmer_size)) {                                            \
@@ -103,6 +103,6 @@ do {                                                                           \
     if(_num_contigs == 0) (stats)->total_bad_reads++;                          \
     else (stats)->total_good_reads++;                                          \
   }                                                                            \
-} while(0)
+}
 
 #endif /* SEQ_READER_H_ */

@@ -84,7 +84,7 @@ boolean graph_file_read(const GraphFileReader *file,
   const FileFilter *fltr = &file->fltr;
 
   if(!graph_file_read_kmer(fltr->fh, &file->hdr, fltr->file_path.buff,
-                           bkmer->b, kmercovgs, kmeredges)) return 0;
+                           bkmer, kmercovgs, kmeredges)) return 0;
 
   // covgs += file->intocol;
   // edges += file->intocol;

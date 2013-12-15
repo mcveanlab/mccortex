@@ -245,11 +245,11 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
   for(; k < end; k++) {
     nuc = binary_nuc_from_char(*k);
     assert(nuc != UndefinedBase);
-    bkmer.b[NUM_BKMER_WORDS-1] = (bkmer.b[NUM_BKMER_WORDS-1] << 2) | nuc;
+    bkmer.b[0] = (bkmer.b[0] << 2) | nuc;
   }
 
   // Do remaining words
-  for(i = NUM_BKMER_WORDS-2; i != SIZE_MAX; i--) {
+  for(i = 1; i < NUM_BKMER_WORDS; i++) {
     for(end += 32; k < end; k++) {
       nuc = binary_nuc_from_char(*k);
       assert(nuc != UndefinedBase);
@@ -267,6 +267,7 @@ char *binary_kmer_to_str(const BinaryKmer bkmer, size_t kmer_size, char *seq)
   size_t i, j, k = kmer_size, topbases = BKMER_TOP_BASES(kmer_size);
   uint64_t word;
 
+  // All but the top word
   for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
     word = bkmer.b[i];
     for(j = 0; j < 32; j++) {

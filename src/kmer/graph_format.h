@@ -31,7 +31,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *header,
 
 // Returns number of bytes read
 size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
-                            uint64_t *bkmer, Covg *covgs, Edges *edges);
+                            BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing
 // colour only_load_if_in_colour will be loaded.

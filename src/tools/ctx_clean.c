@@ -14,6 +14,7 @@ static const char usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 " Clean a cortex binary. Joins binaries first, if multiple given\n"
 " Clips tips before doing supernode thresholding (when doing both [default]).\n"
+"\n"
 " Options:\n"
 "  --memory <mem>        Memory to use\n"
 "  --nkmers <hash-size>  Kmers in the hash table (e.g. 1G ~ 1 billion)\n"

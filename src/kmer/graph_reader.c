@@ -331,11 +331,11 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
 }
 
 size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
-                            uint64_t *bkmer, Covg *covgs, Edges *edges)
+                            BinaryKmer *bkmer, Covg *covgs, Edges *edges)
 {
   size_t i, num_bytes_read;
 
-  num_bytes_read = fread(bkmer, 1, sizeof(uint64_t)*h->num_of_bitfields, fh);
+  num_bytes_read = fread(bkmer->b, 1, sizeof(uint64_t)*h->num_of_bitfields, fh);
 
   if(num_bytes_read == 0) return 0;
   if(num_bytes_read != sizeof(uint64_t)*h->num_of_bitfields)
@@ -346,8 +346,8 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
   num_bytes_read += h->num_of_cols * (sizeof(uint32_t) + sizeof(uint8_t));
 
   // Check top word of each kmer
-  uint64_t top_word_mask = ~(uint64_t)0 << BKMER_TOP_BITS(h->kmer_size);
-  if(bkmer[0] & top_word_mask) die("Oversized kmer in path: %s", path);
+  if(binary_kmer_oversized(*bkmer, h->kmer_size))
+    die("Oversized kmer in path [kmer: %u]: %s", h->kmer_size, path);
 
   // Check covg is not 0 for all colours
   for(i = 0; i < h->num_of_cols && covgs[i] == 0; i++) {}

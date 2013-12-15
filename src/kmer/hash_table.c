@@ -5,7 +5,7 @@
 #define BSIZE 0
 #define BITEMS 1
 
-static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER}};
+static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER_WORD}};
 
 // Returns capacity
 size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
@@ -174,7 +174,7 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
 // }
 
 #define rehash_error_exit(ht) \
-        ({hash_table_print_stats(htable); die("Hash table is full");})
+        { hash_table_print_stats(htable); die("Hash table is full"); }
 
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
 {
@@ -249,10 +249,12 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
 void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
   uint64_t bucket = pos / htable->bucket_size;
+
   assert(pos != HASH_NOT_FOUND);
   assert(htable->buckets[bucket][BITEMS] > 0);
   assert(htable->unique_kmers > 0);
   assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
+
   htable->table[pos] = unset_bkmer;
   htable->buckets[bucket][BITEMS]--;
   htable->unique_kmers--;

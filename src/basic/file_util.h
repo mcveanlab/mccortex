@@ -25,14 +25,14 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 
 
 // This is the same as futil_safe_fread
-#define SAFE_READ(fh,ptr,size,field,path,fatal) ({                             \
+#define SAFE_READ(fh,ptr,size,field,path,fatal) {                              \
   size_t _read = fread(ptr,1,size,fh);                                         \
   if(_read != size) {                                                          \
     if(!fatal) return -1;                                                      \
     die("Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",       \
         field, (size_t)size, _read, path);                                     \
   }                                                                            \
-})
+}
 
 #define safe_fread(fh,ptr,size,field,path) \
         futil_safe_fread(fh,ptr,size,field,path,__FILE__,__LINE__)

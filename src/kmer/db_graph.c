@@ -376,3 +376,36 @@ hkey_t db_graph_rand_node(const dBGraph *db_graph)
   // }
   return node;
 }
+
+void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,
+                          size_t num_of_cols, size_t kmer_size, FILE *fout)
+{
+  char bkmerstr[MAX_KMER_SIZE+1], edgesstr[10];
+  size_t i;
+
+  binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
+  fputs(bkmerstr, fout);
+
+  // Print covgs
+  for(i = 0; i < num_of_cols; i++)
+    fprintf(fout, " %u", covgs[i]);
+
+  // Print edges
+  for(i = 0; i < num_of_cols; i++) {
+    fputc(' ', fout);
+    fputs(db_node_get_edges_str(edges[i], edgesstr), fout);
+  }
+
+  fputc('\n', fout);
+}
+
+void db_graph_print_kmer(hkey_t node, dBGraph *db_graph, FILE *fout)
+{
+  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  Covg *covgs = &db_node_covg(db_graph, node, 0);
+  Edges *edges = &db_node_edges(db_graph, node, 0);
+
+  db_graph_print_kmer2(bkmer, covgs, edges,
+                       db_graph->num_of_cols, db_graph->kmer_size,
+                       fout);
+}

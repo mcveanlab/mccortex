@@ -1,4 +1,5 @@
 #include "global.h"
+#include <ctype.h> // toupper
 #include "db_graph.h"
 #include "db_node.h"
 #include "util.h"
@@ -80,6 +81,28 @@ Edges edges_get_union(const Edges *edges_arr, size_t num)
   edges |= edges >> 16;
   edges |= edges >> 8;
   return edges & 0xFF;
+}
+
+// kmer_col_edge_str should be 9 chars long
+// Return pointer to kmer_col_edge_str
+char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str)
+{
+  int i;
+  char str[] = "acgt";
+
+  char left = edges >> 4;
+  left = rev_nibble(left);
+  char right = edges & 0xf;
+
+  for(i = 0; i < 4; i++)
+    kmer_col_edge_str[i] = (left & (0x1 << i) ? str[i] : '.');
+
+  for(i = 0; i < 4; i++)
+    kmer_col_edge_str[i+4] = toupper(right & (0x1 << i) ? str[i] : '.');
+
+  kmer_col_edge_str[8] = '\0';
+
+  return kmer_col_edge_str;
 }
 
 //

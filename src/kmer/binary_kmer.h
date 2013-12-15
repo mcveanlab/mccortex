@@ -86,6 +86,8 @@ extern const Nucleotide char_to_bnuc[128];
   boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
 #endif
 
+#define binary_kmer_oversized(bk,k)  ((bk).b[0] & ~(uint64_t)0<<BKMER_TOP_BITS(k))
+
 //
 // Functions
 //
