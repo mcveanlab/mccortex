@@ -25,13 +25,13 @@ int path_file_open2(PathFileReader *file, char *path, boolean fatal,
   if(!file_filter_alloc(fltr, path, mode, fatal)) return 0;
   setvbuf(fltr->fh, NULL, _IOFBF, CTP_BUF_SIZE);
 
-  file->hdr_size = paths_file_read_header(fltr->fh, hdr, fatal, fltr->path.buff);
+  file->hdr_size = paths_file_read_header(fltr->fh, hdr, fatal, fltr->file_path.buff);
   if(file->hdr_size == -1) return -1;
 
   file_filter_set_cols(fltr, hdr->num_of_cols);
 
   // Check we can handle the kmer size
-  file_filter_check_kmer_size(file->hdr.kmer_size, file->fltr.path.buff);
+  db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.file_path.buff);
 
   // Check file length
   off_t file_len = file->hdr_size + hdr->num_path_bytes +
@@ -42,7 +42,7 @@ int path_file_open2(PathFileReader *file, char *path, boolean fatal,
     warn("Corrupted file? Sizes don't match up "
          "[hdr:%zu exp:%zu actual:%zu path: %s]",
          (size_t)file->hdr_size, (size_t)file_len,
-         (size_t)file->fltr.file_size, file->fltr.path.buff);
+         (size_t)file->fltr.file_size, file->fltr.file_path.buff);
   }
 
   return 1;
@@ -57,13 +57,13 @@ void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
   // Conservative set of tests to see if we can hold the data from a path file
   if(file->hdr.kmer_size != db_graph->kmer_size) {
     die("Kmer sizes do not match between graph and path file [%s]",
-        fltr->orig.buff);
+        fltr->orig_path.buff);
   }
 
   if(hdr->num_path_bytes > db_graph->pdata.size) {
     char mem_str[100]; bytes_to_str(hdr->num_path_bytes, 1, mem_str);
     die("Not enough memory allocated to store paths [mem: %s path: %s]",
-        mem_str, fltr->orig.buff);
+        mem_str, fltr->orig_path.buff);
   }
 
   if(db_graph->ht.unique_kmers > 0 &&
@@ -75,7 +75,7 @@ void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
   // More checks to ensure we can load and use a path file along with a graph file
   if(path_file_usedcols(file) > db_graph->num_of_cols) {
     die("Number of colours in path file is greater than in the graph %zu > %zu [%s]",
-        path_file_usedcols(file), db_graph->num_of_cols, fltr->orig.buff);
+        path_file_usedcols(file), db_graph->num_of_cols, fltr->orig_path.buff);
   }
 
   // Check sample names match

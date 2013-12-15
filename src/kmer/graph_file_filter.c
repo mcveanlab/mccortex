@@ -24,13 +24,13 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
   if(!file_filter_alloc(fltr, path, mode, fatal)) return 0;
   setvbuf(fltr->fh, NULL, _IOFBF, CTX_BUF_SIZE);
 
-  file->hdr_size = graph_file_read_header(fltr->fh, hdr, fatal, fltr->path.buff);
+  file->hdr_size = graph_file_read_header(fltr->fh, hdr, fatal, fltr->file_path.buff);
   if(file->hdr_size == -1) return -1;
 
   file_filter_set_cols(fltr, hdr->num_of_cols);
 
   // Check we can handle the kmer size
-  file_filter_check_kmer_size(file->hdr.kmer_size, file->fltr.path.buff);
+  db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.file_path.buff);
 
   // File header checks
   // Get number of kmers
@@ -42,7 +42,7 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
   if(hdr->version > 6 && hdr->num_of_kmers != nkmers) {
     warn("File size and number of kmers do not match: %s [bytes per kmer: %zu "
          "remaining: %zu; fsize: %zu; header: %zu; expect: %zu; got: %zu]",
-         fltr->path.buff, bytes_per_kmer, bytes_remaining,
+         fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
          (size_t)fltr->file_size, (size_t)file->hdr_size,
          (size_t)hdr->num_of_kmers, nkmers);
   }
@@ -50,7 +50,7 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
   if(bytes_remaining % bytes_per_kmer != 0) {
     warn("Truncated graph file: %s [bytes per kmer: %zu "
          "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zu]",
-         fltr->path.buff, bytes_per_kmer, bytes_remaining,
+         fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
          (size_t)fltr->file_size, (size_t)file->hdr_size, nkmers);
   }
   hdr->num_of_kmers = nkmers;
@@ -83,7 +83,7 @@ boolean graph_file_read(const GraphFileReader *file,
   size_t i;
   const FileFilter *fltr = &file->fltr;
 
-  if(!graph_file_read_kmer(fltr->fh, &file->hdr, fltr->path.buff,
+  if(!graph_file_read_kmer(fltr->fh, &file->hdr, fltr->file_path.buff,
                            bkmer->b, kmercovgs, kmeredges)) return 0;
 
   // covgs += file->intocol;

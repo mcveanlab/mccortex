@@ -1,7 +1,6 @@
 #include "global.h"
 #include "vcf_parsing.h"
 #include "util.h"
-#include "binary_kmer.h"
 
 static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
 {

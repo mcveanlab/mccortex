@@ -148,7 +148,7 @@ static void paths_loading_print_status(const PathFileReader *file)
   ulong_to_str(hdr->num_of_paths, paths_str);
   bytes_to_str(hdr->num_path_bytes, 1, mem_str);
 
-  status("Loading path file: %s", file->fltr.orig.buff);
+  status("Loading path file: %s", file->fltr.orig_path.buff);
   status("  %s paths, %s path-bytes, %s kmers", paths_str, mem_str, kmers_str);
 }
 
@@ -181,7 +181,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   const PathFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
   FILE *fh = fltr->fh;
-  const char *path = fltr->path.buff;
+  const char *path = fltr->file_path.buff;
   PathStore *store = &db_graph->pdata;
 
   // If you want to use a file filter you must use paths_format_merge
@@ -316,7 +316,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   {
     fltr = &files[i].fltr;
     hdr = &files[i].hdr;
-    path = fltr->orig.buff;
+    path = fltr->orig_path.buff;
     fh = fltr->fh;
     colbytes = round_bits_to_bytes(fltr->filencols);
 

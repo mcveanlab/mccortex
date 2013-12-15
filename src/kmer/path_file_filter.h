@@ -5,6 +5,15 @@
 #include "file_filter.h"
 #include "graph_format.h"
 
+// Path (.ctp)
+typedef struct
+{
+  uint32_t version, kmer_size, num_of_cols;
+  uint64_t num_of_paths, num_path_bytes, num_kmers_with_paths;
+  StrBuf *sample_names;
+  size_t capacity; // how many sample_names have been malloc'd
+} PathFileHeader;
+
 typedef struct
 {
   PathFileHeader hdr;

@@ -180,7 +180,7 @@ int ctx_subgraph(CmdArgs *args)
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
       die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
           files[0].hdr.kmer_size, files[i].hdr.kmer_size,
-          files[0].fltr.path.buff, files[i].fltr.path.buff);
+          files[0].fltr.file_path.buff, files[i].fltr.file_path.buff);
     }
 
     size_t offset = total_cols;

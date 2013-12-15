@@ -49,7 +49,7 @@ endif
 
 # Use City hash instead of lookup3?
 ifdef CITY_HASH
-	HASH_KEY_FLAGS = -DUSE_CITY_HASH=1
+	HASH_KEY_FLAGS=-DUSE_CITY_HASH=1
 endif
 
 # Library paths
@@ -70,10 +70,10 @@ ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-INCS=-I src/basic/ -I src/kmer/ -I src/tools/ \
-     -I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
+INCS=-I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) $(EXTRA_INCS)
 
+# INCS=-I src/basic/ -I src/kmer/ -I src/tools/ $(INCS_EXTERNAL)
 # -I $(IDIR_GSL_HEADERS)
 
 # Library linking
@@ -113,8 +113,10 @@ ifdef VERBOSE
 endif
 
 CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) $(OUTPUT_ARGS) \
-         -DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS) $(HASH_KEY_FLAGS) -D_USESAM=1
+          $(HASH_KEY_FLAGS) -D_USESAM=1
+
+KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
+         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS)
 
 # basic objects compile without MAXK
 # kmer and tool objects require MAXK
@@ -163,25 +165,21 @@ src/basic/version.h:
 	echo '#define CTXVERSIONSTR "$(CTX_VERSION)"' > $@
 
 $(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
-	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
+	$(CC) $(CFLAGS) -I src/basic/ $(INCS) -c $< -o $@
 
 $(KMER_OBJDIR)/%.o: src/kmer/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(DEPS)
-	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
+	$(CC) $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) -c $< -o $@
 
 $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
-	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
+	$(CC) $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $< -o $@
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/ctx.c $(OBJS) $(LINK)
-
-# traversal: bin/traversal$(MAXK)
-# bin/traversal$(MAXK): src/main/traversal.c $(OBJS) $(HDRS) | bin
-# 	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/traversal.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(KMERARGS) $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 # directories
 bin:

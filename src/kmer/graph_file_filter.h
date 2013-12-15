@@ -3,6 +3,16 @@
 
 #include "graph_typedef.h"
 #include "file_filter.h"
+#include "binary_kmer.h"
+
+// Graph (.ctx)
+typedef struct
+{
+  uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
+  uint64_t num_of_kmers;
+  GraphInfo *ginfo; // Cleaning info etc for each colour
+  size_t capacity; // number of ginfo objects malloc'd
+} GraphFileHeader;
 
 typedef struct
 {

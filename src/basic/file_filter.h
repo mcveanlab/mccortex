@@ -1,7 +1,6 @@
 #ifndef FILE_FILTER_H_
 #define FILE_FILTER_H_
 
-#include "graph_typedef.h"
 #include "string_buffer.h"
 #include <stdio.h>
 
@@ -9,9 +8,9 @@
 
 typedef struct
 {
-  // if `orig` was "2:in.ctx:0,3",
+  // if `orig_path` was "2:in.ctx:0,3",
   // path would be "in.ctx"
-  StrBuf orig, path;
+  StrBuf orig_path, file_path;
   FILE *fh;
   size_t intocol, ncols, *cols, ncolscap, filencols;
   boolean flatten; // Merge all colours into intocol
@@ -19,9 +18,9 @@ typedef struct
   boolean nofilter;
 } FileFilter;
 
-#define INIT_FILE_FILTER_MACRO {                                              \
-  .orig = {.buff = NULL}, .path = {.buff = NULL}, .fh = NULL,                 \
-  .intocol = 0, .ncols = 0, .cols = NULL, .ncolscap = 0, .flatten = false,    \
+#define INIT_FILE_FILTER_MACRO {                                               \
+  .orig_path = {.buff = NULL}, .file_path = {.buff = NULL}, .fh = NULL,        \
+  .intocol = 0, .ncols = 0, .cols = NULL, .ncolscap = 0, .flatten = false,     \
   .file_size = 0, .nofilter = false}
 
 // returns 1 or ncols [fltr->flatten is 0 or 1]
@@ -49,7 +48,5 @@ void file_filter_dealloc(FileFilter *file);
 
 // Print object
 void file_filter_status(const FileFilter *fltr);
-
-void file_filter_check_kmer_size(size_t kmer_size, const char *path);
 
 #endif /* FILE_FILTER_H_ */

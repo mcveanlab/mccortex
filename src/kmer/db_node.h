@@ -4,6 +4,7 @@
 #include <inttypes.h>
 
 #include "graph_typedef.h"
+#include "db_graph.h"
 
 typedef struct {
   hkey_t orient:1, key:63;

@@ -388,7 +388,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   if(hdr->kmer_size != graph->kmer_size)
   {
     die("Graph has different kmer size [kmer_size: %u vs %zu; path: %s]",
-        hdr->kmer_size, graph->kmer_size, fltr->path.buff);
+        hdr->kmer_size, graph->kmer_size, fltr->file_path.buff);
   }
 
   if(fltr->intocol + load_ncols > graph->num_of_cols &&
@@ -396,7 +396,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   {
     die("Program has not assigned enough colours! "
         "[colours in graph: %zu vs graph: %zu, load into: %zu; path: %s]",
-        load_ncols, graph->num_of_cols, fltr->intocol, fltr->path.buff);
+        load_ncols, graph->num_of_cols, fltr->intocol, fltr->file_path.buff);
   }
 
   for(i = 0; i < fltr->ncols; i++) {
@@ -485,7 +485,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
   {
     warn("More kmers in graph than expected [expected: %zu; actual: %zu; "
          "path: %s]", (size_t)hdr->num_of_kmers, nkmers_parsed,
-        fltr->path.buff);
+        fltr->file_path.buff);
   }
 
   if(stats != NULL)
@@ -542,7 +542,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
 {
   const FileFilter *fltr = &file->fltr;
   boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
-  status("Filtering %s to %s with stream filter", fltr->path.buff, out_ctx_path);
+  status("Filtering %s to %s with stream filter", fltr->file_path.buff, out_ctx_path);
 
   FILE *out;
   if((out = fopen(out_ctx_path, "w")) == NULL)
@@ -652,7 +652,7 @@ size_t graph_files_merge(char *out_ctx_path,
     if(files[i].hdr.kmer_size != files[0].hdr.kmer_size) {
       die("Kmer-size mismatch %u vs %u [%s vs %s]",
           files[0].hdr.kmer_size, files[i].hdr.kmer_size,
-          files[0].fltr.path.buff, files[i].fltr.path.buff);
+          files[0].fltr.file_path.buff, files[i].fltr.file_path.buff);
     }
   }
 

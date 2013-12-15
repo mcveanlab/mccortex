@@ -130,7 +130,7 @@ int ctx_view(CmdArgs *args)
   {
     char fsize_str[50];
     bytes_to_str(file.fltr.file_size, 0, fsize_str);
-    printf("Loading file: %s\n", file.fltr.path.buff);
+    printf("Loading file: %s\n", file.fltr.file_path.buff);
     printf("File size: %s\n", fsize_str);
     printf("----\n");
   }

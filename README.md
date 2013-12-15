@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-10 December 2013
+15 December 2013
 
 Build
 -----
@@ -26,7 +26,9 @@ to compile for a maximum kmer size of 63:
 
     make MAXK=63
 
-Executables appear in the `bin/` directory.
+Executables appear in the `bin/` directory. To update the libraries included:
+
+    cd libs; make clean; make
 
 Commands
 --------
@@ -83,14 +85,17 @@ Code And Contributing
 Issues can be submitted on github. Pull requests welcome. Please add your name
 to the AUTHORS file.
 
+Code should compile on mac/linux with clang/gcc without errors or warnings.
+
 Code is organised as:
 * libs/       included library code from other projects
-* src/kmer    files that need recompiling based on different max kmer size (MAXK)
-* src/basic   files that do not depend on MAXK
-* src/tools   tools to do particular jobs
+* src/basic   files that do not depend on MAX_KMER_SIZE
+* src/kmer    files that need recompiling based on different MAX_KMER_SIZE
+* src/tools   one file per cortex command
 * src/main    files with a main function go in here
 
-Code should compile on mac/linux with clang/gcc without errors or warnings.
+Files only link to files that are above them in the list above. E.g. src/kmer/*
+files only include files in src/kmer/, src/basic/ and libs/.
 
 License: GPLv2
 --------------

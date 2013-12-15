@@ -181,6 +181,16 @@ size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
   return count;
 }
 
+// Check kmer size of a file
+void db_graph_check_kmer_size(size_t kmer_size, const char *path)
+{
+  const size_t mink = MIN_KMER_SIZE, maxk = MAX_KMER_SIZE;
+  if(kmer_size < mink || kmer_size > maxk)
+    die("Cannot handle kmer size %zu [%zu-%zu; %s]", kmer_size, mink, maxk, path);
+  else if(!(kmer_size & 1))
+    die("Kmer size appears to be even! %zu [%s]", kmer_size, path);
+}
+
 //
 // Health check
 //

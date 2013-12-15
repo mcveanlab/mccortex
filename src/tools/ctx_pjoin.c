@@ -132,7 +132,7 @@ int ctx_pjoin(CmdArgs *args)
     if(gfile.hdr.kmer_size != pfiles[0].hdr.kmer_size) {
       warn("Kmer-sizes don't match graph: %u paths: %u [graph: %s path: %s]",
            gfile.hdr.kmer_size, pfiles[0].hdr.kmer_size,
-           gfile.fltr.path.buff, pfiles[0].fltr.path.buff);
+           gfile.fltr.file_path.buff, pfiles[0].fltr.file_path.buff);
     }
     num_kmers = MAX2(num_kmers, gfile.hdr.num_of_kmers);
   }

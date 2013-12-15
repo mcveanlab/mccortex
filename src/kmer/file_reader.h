@@ -3,6 +3,7 @@
 
 #include "seq_file.h"
 #include "graph_typedef.h"
+#include "db_graph.h"
 
 // Stucture for specifying how to load data
 typedef struct

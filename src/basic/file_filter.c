@@ -45,23 +45,23 @@ boolean file_filter_alloc(FileFilter *fltr, char *path,
   // Close file if already open
   if(fltr->fh != NULL) file_filter_close(fltr);
 
-  if(fltr->orig.buff == NULL) strbuf_alloc(&fltr->orig, 1024);
-  if(fltr->path.buff == NULL) strbuf_alloc(&fltr->path, 1024);
-  strbuf_set(&fltr->orig, path);
+  if(fltr->orig_path.buff == NULL) strbuf_alloc(&fltr->orig_path, 1024);
+  if(fltr->file_path.buff == NULL) strbuf_alloc(&fltr->file_path, 1024);
+  strbuf_set(&fltr->orig_path, path);
 
   file_filter_deconstruct_path(path, &path_start, &path_end);
   fltr->intocol = (path_start == path ? 0 : atoi(path));
 
   path_lchar = *path_end;
   *path_end = '\0';
-  strbuf_set(&fltr->path, path_start);
+  strbuf_set(&fltr->file_path, path_start);
   *path_end = path_lchar;
 
-  fltr->file_size = futil_get_file_size(fltr->path.buff);
-  if(fltr->file_size == -1) die("Cannot get file size: %s", fltr->path.buff);
+  fltr->file_size = futil_get_file_size(fltr->file_path.buff);
+  if(fltr->file_size == -1) die("Cannot get file size: %s", fltr->file_path.buff);
 
-  if((fltr->fh = fopen(fltr->path.buff, mode)) == NULL) {
-    if(fatal) die("Cannot open file: %s", fltr->path.buff);
+  if((fltr->fh = fopen(fltr->file_path.buff, mode)) == NULL) {
+    if(fatal) die("Cannot open file: %s", fltr->file_path.buff);
     else return 0;
   }
 
@@ -73,7 +73,7 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols)
   assert(filencols > 0);
   size_t i;
   char *path_start, *path_end;
-  file_filter_deconstruct_path(fltr->orig.buff, &path_start, &path_end);
+  file_filter_deconstruct_path(fltr->orig_path.buff, &path_start, &path_end);
 
   fltr->filencols = filencols;
 
@@ -111,8 +111,8 @@ void file_filter_dealloc(FileFilter *fltr)
 {
   file_filter_close(fltr);
   if(fltr->cols != NULL) { free(fltr->cols); fltr->cols = NULL, fltr->ncolscap = 0; }
-  if(fltr->orig.buff != NULL) { strbuf_dealloc(&fltr->orig); }
-  if(fltr->path.buff != NULL) { strbuf_dealloc(&fltr->path); }
+  if(fltr->orig_path.buff != NULL) { strbuf_dealloc(&fltr->orig_path); }
+  if(fltr->file_path.buff != NULL) { strbuf_dealloc(&fltr->file_path); }
 }
 
 // Print file filter description
@@ -120,7 +120,7 @@ void file_filter_status(const FileFilter *fltr)
 {
   size_t i;
   timestamp(ctx_msg_out);
-  message(" Loading file %s", fltr->path.buff);
+  message(" Loading file %s", fltr->file_path.buff);
   if(!fltr->nofilter) {
     message(" with colour filter: %zu", fltr->cols[0]);
     for(i = 1; i < fltr->ncols; i++) message(",%zu", fltr->cols[i]);
@@ -130,13 +130,4 @@ void file_filter_status(const FileFilter *fltr)
     message(" into colour %zu\n", fltr->intocol);
   else
     message(" into colours %zu-%zu\n", fltr->intocol, fltr->intocol+into_ncols-1);
-}
-
-void file_filter_check_kmer_size(size_t kmer_size, const char *path)
-{
-  const size_t mink = MIN_KMER_SIZE, maxk = MAX_KMER_SIZE;
-  if(kmer_size < mink || kmer_size > maxk)
-    die("Cannot handle kmer size %zu [%zu-%zu; %s]", kmer_size, mink, maxk, path);
-  else if(!(kmer_size & 1))
-    die("Kmer size appears to be even! %zu [%s]", kmer_size, path);
 }
