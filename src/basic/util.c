@@ -330,6 +330,29 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len)
   return num == 0 ? 0 : (sum / num);
 }
 
+float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum)
+{
+  if(sum == 0) return 0;
+
+  uint64_t mid0 = (sum-1)/2;
+  uint64_t mid1 = mid0 + !(sum&1);
+  uint64_t i, key0, key1, cummulative = 0;
+
+  // if odd number of values, mid0 == mid1, if even mid0+1 == mid1
+  for(i = 0; i < arrlen; i++)
+  {
+    cummulative += arr[i];
+    if(cummulative > mid0) {
+      key0 = key1 = i;
+      while(cummulative <= mid1) {
+        key1++;
+        cummulative += arr[key1];
+      }
+      return (key0 + key1) / 2.0f;
+    }
+  }
+  die("hist_median went bad");
+}
 
 //
 // Time

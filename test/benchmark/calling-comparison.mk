@@ -51,7 +51,7 @@ RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --me
 BUILDCTX=$(CTX_PATH)/bin/ctx31 build
 CLEANCTX=$(CTX_PATH)/bin/ctx31 clean
 JOINCTX=$(CTX_PATH)/bin/ctx31 join
-INFERCTX=$(CTX_PATH)/bin/ctx31 inferedges --pop
+INFERCTX=$(CTX_PATH)/bin/ctx31 inferedges --all
 THREADCTX=$(CTX_PATH)/bin/ctx31 thread
 CALLCTX=$(CTX_PATH)/bin/ctx31 call
 PROCCTX=$(CTX_PATH)/bin/ctx31 unique
@@ -299,17 +299,18 @@ k$(KMER)/graphs/pop.%.ctx:
 # Paths
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
+# shopt -s nullglob means wildcards return no matches instead of literal '*_sizes'
 k$(KMER)/graphs/pop.sepe.%.ctp: k$(KMER)/graphs/pop.%.ctx k$(KMER)/graphs/pop.se.%.ctp
 	$(THREADCTX) -m $(MEM) -t $(NTHREADS) -p k$(KMER)/graphs/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
-	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/sepe.$$f; done
+	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/sepe.$$f; done
 
 k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
 	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) $@ $<
-	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
+	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
 
 k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
 	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
-	for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
+	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
 
 # Bubbles
 $(BUBBLES): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx $(READLISTS)

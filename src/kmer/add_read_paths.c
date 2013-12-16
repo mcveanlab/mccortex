@@ -445,6 +445,38 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
 void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
                     size_t kmer_size, boolean insert_sizes)
 {
+  assert(arrlen > 0);
+
+  // Print summary statistics: min, mean, median, mode, max
+  size_t i, min, max, total, ngaps = 0, mode = 0;
+  max = total = arr[0];
+
+  for(min = 0; min < arrlen && arr[min] == 0; min++) {}
+
+  if(min == arrlen) {
+    if(insert_sizes) status("No insert gaps traversed");
+    else status("No seq error gaps traversed");
+    return;
+  }
+
+  for(i = 1; i < arrlen; i++) {
+    if(arr[i] > 0) max = i;
+    if(arr[i] > arr[mode]) mode = i;
+    ngaps += arr[i];
+    total += arr[i] * i;
+  }
+
+  double mean = (double)total / ngaps;
+  float median = find_hist_median(arr, arrlen, ngaps);
+
+  char ngaps_str[100];
+  ulong_to_str(ngaps, ngaps_str);
+
+  status("%s size distribution: "
+         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu; n=%s",
+         insert_sizes ? "Insert" : "Seq error gap",
+         min, mean, median, mode, max, ngaps_str);
+
   StrBuf *csv_dump = strbuf_new();
   FILE *fout;
 
@@ -460,7 +492,7 @@ void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
     return;
   }
 
-  fprintf(fout, "gap_in_kmers,bp,count\n");
+  fprintf(fout, "gap_in_kmers\tbp\tcount\n");
 
   if(arrlen > 0)
   {
@@ -470,7 +502,7 @@ void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
     while(end > start && arr[end] == 0) end--;
 
     for(i = start; i <= end; i++) {
-      fprintf(fout, "%4zu,%4li,%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
+      fprintf(fout, "%4zu\t%4li\t%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
     }
   }
 

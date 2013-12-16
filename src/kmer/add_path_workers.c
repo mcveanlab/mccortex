@@ -267,9 +267,6 @@ void path_workers_pool_dealloc(PathsWorkerPool *pool)
     paths_worker_dealloc(&(pool->workers[i]));
   }
 
-  // DEV: summary stats
-  
-
   // Print mp gap size / insert stats to a file
   size_t kmer_size = pool->db_graph->kmer_size;
   dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_limit+1, kmer_size, false);

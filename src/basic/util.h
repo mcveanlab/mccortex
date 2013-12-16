@@ -131,6 +131,8 @@ float log_factorial(unsigned int number);
 float log_factorial_ll(unsigned long long number);
 unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 
+float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum);
+
 //
 // Time
 //
