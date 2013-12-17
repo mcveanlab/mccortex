@@ -14,6 +14,17 @@ typedef struct {
   int hp_cutoff;
 } AddPathsJob;
 
+
+static inline void add_path_job_alloc(AddPathsJob *job) {
+  if(!seq_read_alloc(&job->r1) || !seq_read_alloc(&job->r2))
+    die("Out of memory");
+}
+
+static inline void add_path_job_dealloc(AddPathsJob *job) {
+  seq_read_dealloc(&job->r1);
+  seq_read_dealloc(&job->r2);
+}
+
 void add_read_paths_init();
 void add_read_paths_cleanup();
 
