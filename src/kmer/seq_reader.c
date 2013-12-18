@@ -10,13 +10,33 @@
 #include "file_reader.h"
 #include "seq_reader.h"
 
-static boolean invalid_bases[256];
-boolean fastq_qual_too_small = false, fastq_qual_too_big = false;
+const char acgt_table[256] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0, // A C G N
+                              0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+                              0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0, // a c g t
+                              0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+#define char_is_acgtn(c) (acgt_table[(size_t)(c)])
+
+// Warnings are only printed once per file
+boolean warn_invalid_base = false, warn_qlen_mismatch = false,
+        warn_qual_too_small = false, warn_qual_too_big = false;
 
 static inline void init_bases_check()
 {
-  memset(invalid_bases, 0, sizeof(invalid_bases));
-  fastq_qual_too_small = fastq_qual_too_big = false;
+  warn_qlen_mismatch = warn_invalid_base = false;
+  warn_qual_too_small = warn_qual_too_big = false;
 }
 
 int prev_guess_fastq_format = -1;
@@ -56,13 +76,13 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     // Check for homopolymer runs
     if(hp_cutoff > 0)
     {
-      int run_length = 1;
+      size_t run_length = 1;
       for(i = next_kmer-1; i > index; i--)
       {
         if(r->seq.b[i-1] == r->seq.b[i])
         {
           run_length++;
-          if(run_length == hp_cutoff) break;
+          if(run_length == (size_t)hp_cutoff) break;
         }
         else run_length = 1;
       }
@@ -86,7 +106,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
 {
   size_t contig_end = contig_start+kmer_size;
 
-  int hp_run = 1;
+  size_t hp_run = 1;
   if(hp_cutoff > 0)
   {
     // Get the length of the hp run at the end of the current kmer
@@ -108,13 +128,13 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
       if(r->seq.b[contig_end] == r->seq.b[contig_end-1])
       {
         hp_run++;
-        if(hp_run >= hp_cutoff) break;
+        if(hp_run >= (size_t)hp_cutoff) break;
       }
       else hp_run = 1;
     }
   }
 
-  if(hp_cutoff > 0 && hp_run == hp_cutoff)
+  if(hp_cutoff > 0 && hp_run == (size_t)hp_cutoff)
     *search_start = contig_end - hp_cutoff + 1;
   else
     *search_start = contig_end;
@@ -228,46 +248,53 @@ int seq_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
   return first_node_offset;
 }
 
-static void process_new_read(read_t *r, int qmin, int qmax, const char *path)
+static void process_new_read(const read_t *r, char qmin, char qmax,
+                             const char *path)
 {
-  // seq_read_to_uppercase(r);
-
   const char *tmp;
-  int c;
-  for(tmp = r->seq.b; *tmp != '\0'; tmp++)
+
+  // Test if we've already warned about issue (e.g. bad base) before checking
+  if(!warn_invalid_base)
   {
-    if(!char_is_dna_base(*tmp) && (c = toupper(*tmp)) != 'N' && !invalid_bases[c])
-    {
-      warn("Invalid sequence '%c' [read: %s; path: %s]\n",
-           *tmp, r->name.b, path);
-      invalid_bases[c] = 1;
+    for(tmp = r->seq.b; char_is_acgtn(*tmp); tmp++) {}
+
+    if(*tmp != '\0') {
+      warn("Invalid base '%c' [read: %s; path: %s]\n", *tmp, r->name.b, path);
+      warn_invalid_base = true;
     }
   }
 
   // Check quality string
   if(r->qual.end > 0)
   {
-    if(r->seq.end != r->qual.end)
+    if(r->seq.end != r->qual.end && !warn_qlen_mismatch)
     {
       warn("Quality string is not the same length as sequence [%i vs %i; read: %s; "
            "path: %s]", (int)r->qual.end, (int)r->seq.end, r->name.b, path);
+      warn_qlen_mismatch = true;
     }
 
     // Check out-of-range qual string
-    for(tmp = r->qual.b; *tmp != '\0'; tmp++)
+    if(!warn_qual_too_small || !warn_qual_too_big)
     {
-      int q = *tmp;
-      if(q < qmin && !fastq_qual_too_small)
+      int min = r->qual.b[0], max = r->qual.b[0];
+
+      for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
+        if(*tmp < min) min = *tmp;
+        else if(*tmp > max) max = *tmp;
+      }
+
+      if(min < qmin && !warn_qual_too_small)
       {
         warn("FASTQ qual too small [%i < %i..%i; read: %s; path: %s]",
-             q, qmin, qmax, r->name.b, path);
-        fastq_qual_too_small = 1;
+             (int)*tmp, qmin, qmax, r->name.b, path);
+        warn_qual_too_small = true;
       }
-      else if(q > qmax && !fastq_qual_too_big)
+      if(max > qmax && !warn_qual_too_big)
       {
         warn("FASTQ qual too big [%i > %i..%i; read: %s; path: %s]",
-             q, qmin, qmax, r->name.b, path);
-        fastq_qual_too_big = 1;
+             (int)*tmp, qmin, qmax, r->name.b, path);
+        warn_qual_too_big = true;
       }
     }
   }

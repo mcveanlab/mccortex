@@ -72,9 +72,12 @@ void path_store_fetch_bases(const PathStore *paths, PathIndex index,
 #define packedpath_mem(p,colbytes) \
         packedpath_mem2(colbytes,packedpath_pbytes(p,colbytes))
 
+#define packedpath_lenword2(w) ((w) & ~(1UL<<PATH_LEN_BITS))
+#define packedpath_orword2(w) ((w) >> PATH_LEN_BITS)
+
 #define packedpath_lenword(p,colbytes) (*(PathLen*)((p)+sizeof(PathIndex)+colbytes))
-#define packedpath_len(p,colbytes) (packedpath_lenword(p,colbytes) & ~(1UL<<PATH_LEN_BITS))
-#define packedpath_orient(p,colbytes) (packedpath_lenword(p,colbytes) >> PATH_LEN_BITS)
+#define packedpath_len(p,colbytes) packedpath_lenword2(packedpath_lenword(p,colbytes))
+#define packedpath_orient(p,colbytes) packedpath_orword2(packedpath_lenword(p,colbytes))
 #define packedpath_pbytes(p,colbytes) packedpath_len_nbytes(packedpath_len(p,colbytes))
 #define packedpath_prev(p) (*(PathIndex*)(p))
 #define packedpath_colset(p) ((p)+sizeof(PathIndex))
@@ -84,13 +87,14 @@ void path_store_fetch_bases(const PathStore *paths, PathIndex index,
 #define packedpath_set_col(p,idx,col) bitset_set((p)+sizeof(PathIndex),col)
 #define packedpath_has_col(p,idx,col) bitset_has((p)+sizeof(PathIndex),col)
 
-static inline void packedpack_len_orient(const uint8_t *packed,
-                                         const PathStore *store,
-                                         PathLen *len, Orientation *orient)
+static inline PathLen packedpack_len_orient(const uint8_t *packed,
+                                            const PathStore *store,
+                                            PathLen *len, Orientation *orient)
 {
   PathLen d = packedpath_lenword(packed, store->colset_bytes);
-  *len = d & ~(1UL<<PATH_LEN_BITS);
-  *orient = d >> PATH_LEN_BITS;
+  *len = packedpath_lenword2(d);
+  *orient = packedpath_orword2(d);
+  return d;
 }
 
 #endif /* BINARY_PATH_H_ */
