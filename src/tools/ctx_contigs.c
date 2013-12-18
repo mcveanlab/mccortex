@@ -26,10 +26,13 @@ static const char usage[] =
 "   --seed <in.fa>   Use seed kmers from a file. If longer than kmer-size, only\n"
 "                    use the first kmer found from each input sequence.\n";
 
+#define MAXPATH 5
+
 typedef struct {
   size_t ncontigs, capacity;
   size_t total_len, total_junc;
   size_t contigs_outdegree[5];
+  size_t paths_held[MAXPATH], paths_pickdup[MAXPATH], paths_counter[MAXPATH];
   size_t *lengths, *junctions;
   size_t max_len, max_junc;
   double max_junc_density;
@@ -37,13 +40,29 @@ typedef struct {
   size_t nprint; // id of next contig printed
 } ContigData;
 
+static void contig_print_path_dist(const size_t *hist, size_t n,
+                                   const char *name, size_t ncontigs)
+{
+  char nout_str[90];
+  size_t i;
+
+  timestamp(ctx_msg_out);
+  message(" %s: ", name);
+  for(i = 0; i < n; i++) {
+    message("\t%zu:%s [%zu%%]", i, ulong_to_str(hist[i], nout_str),
+            (size_t)((100.0*hist[i])/(2.0*ncontigs)+0.5));
+  }
+  message("\n");
+}
+
 static inline void contig_data_alloc(ContigData *cd, size_t capacity)
 {
   size_t *lengths = malloc2(capacity * sizeof(size_t));
   size_t *junctions = malloc2(capacity * sizeof(size_t));
   ContigData tmp = {.ncontigs = 0, .capacity = capacity,
                     .total_len = 0, .total_junc = 0,
-                    .contigs_outdegree = {0},
+                    .contigs_outdegree = {0}, .paths_held = {0},
+                    .paths_pickdup = {0}, .paths_counter = {0},
                     .lengths = lengths, .junctions = junctions,
                     .max_len = 0, .max_junc = 0,
                     .max_junc_density = 0, .nprint = 0};
@@ -100,6 +119,9 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
     }
 
     njunc += wlk->fork_count;
+    cd->paths_held[MIN2(wlk->num_curr, MAXPATH-1)]++;
+    cd->paths_pickdup[MIN2(wlk->num_new, MAXPATH-1)]++;
+    cd->paths_counter[MIN2(wlk->num_counter, MAXPATH-1)]++;
     // nloop += rptwlk->nbloom_entries;
 
     graph_walker_finish(wlk);
@@ -280,7 +302,7 @@ int ctx_contigs(CmdArgs *args)
   path_mem = path_max_mem + tmppathsize;
 
   bytes_to_str(path_mem, 1, path_mem_str);
-  status("[memory] paths: %s\n", path_mem_str);
+  status("[memory] paths: %s", path_mem_str);
 
   // Total memory
   total_mem = graph_mem + path_mem;
@@ -414,15 +436,18 @@ int ctx_contigs(CmdArgs *args)
   //        (100.0 * nloop) / cd.ncontigs);
 
   timestamp(ctx_msg_out);
-  message(" Contig outdegree: ");
+  message(" Outdegree: ");
   char nout_str[90];
 
   for(i = 0; i <= 4; i++) {
-    ulong_to_str(cd.contigs_outdegree[i], nout_str);
-    message(" %zu:%s [%.2f%%]", i, nout_str,
-            (100.0*cd.contigs_outdegree[i])/(2*cd.ncontigs));
+    message("\t%zu:%s [%zu%%]", i, ulong_to_str(cd.contigs_outdegree[i], nout_str),
+            (size_t)((100.0*cd.contigs_outdegree[i])/(2.0*cd.ncontigs)+0.5));
   }
   message("\n");
+
+  contig_print_path_dist(cd.paths_held, MAXPATH, "Paths held", cd.ncontigs);
+  contig_print_path_dist(cd.paths_pickdup, MAXPATH, "Paths pickdup", cd.ncontigs);
+  contig_print_path_dist(cd.paths_counter, MAXPATH, "Paths counter", cd.ncontigs);
 
   contig_data_dealloc(&cd);
 

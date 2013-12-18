@@ -30,16 +30,16 @@ const char acgt_table[256] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 #define char_is_acgtn(c) (acgt_table[(size_t)(c)])
 
 // Warnings are only printed once per file
-boolean warn_invalid_base = false, warn_qlen_mismatch = false,
-        warn_qual_too_small = false, warn_qual_too_big = false;
+static boolean warn_invalid_base = false, warn_qlen_mismatch = false,
+               warn_qual_too_small = false, warn_qual_too_big = false;
+
+static int prev_guess_fastq_format = -1;
 
 static inline void init_bases_check()
 {
   warn_qlen_mismatch = warn_invalid_base = false;
   warn_qual_too_small = warn_qual_too_big = false;
 }
-
-int prev_guess_fastq_format = -1;
 
 // cut-offs:
 //  > quality_cutoff valid
@@ -277,12 +277,22 @@ static void process_new_read(const read_t *r, char qmin, char qmax,
     // Check out-of-range qual string
     if(!warn_qual_too_small || !warn_qual_too_big)
     {
-      int min = r->qual.b[0], max = r->qual.b[0];
+      // Fast min/max that minimises branches
+      char mmin[2] = {r->qual.b[0], r->qual.b[0]};
+      char mmax[2] = {r->qual.b[0], r->qual.b[0]};
 
       for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
-        if(*tmp < min) min = *tmp;
-        else if(*tmp > max) max = *tmp;
+        mmin[*tmp < mmin[1]] = *tmp;
+        mmax[*tmp > mmax[1]] = *tmp;
       }
+
+      char min = mmin[1], max = mmax[1];
+
+      // int min = r->qual.b[0], max = r->qual.b[0];
+      // for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
+      //   if(*tmp < min) min = *tmp;
+      //   else if(*tmp > max) max = *tmp;
+      // }
 
       if(min < qmin && !warn_qual_too_small)
       {
@@ -300,6 +310,7 @@ static void process_new_read(const read_t *r, char qmin, char qmax,
   }
 }
 
+// Load reads into a buffer and use them to guess the quality score offset
 // Returns -1 if no quality scores
 // Defaults to 0 if not recognisable (offset:33, min:33, max:126)
 int guess_fastq_format(seq_file_t *sf)
@@ -410,7 +421,7 @@ void seq_parse_se_sf(seq_file_t *sf, read_t *r1, read_t *r2,
                                        void *ptr),
                      void *reader_ptr)
 {
-  status("Parsing file %s\n", sf->path);
+  status("Parsing file %s", sf->path);
 
   // Guess offset if needed
   int qoffset = prefs->ascii_fq_offset;

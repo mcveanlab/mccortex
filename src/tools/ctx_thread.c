@@ -209,7 +209,7 @@ int ctx_thread(CmdArgs *args)
   size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
   path_mem = args->mem_to_use - graph_mem;
   bytes_to_str(path_mem, 1, path_mem_str);
-  status("[memory] paths: %s\n", path_mem_str);
+  status("[memory] paths: %s", path_mem_str);
 
   char req_path_mem_str[100];
   bytes_to_str(path_max_mem + tmppathsize, 1, req_path_mem_str);
@@ -339,13 +339,18 @@ int ctx_thread(CmdArgs *args)
 
   path_workers_pool_dealloc(pool);
 
+  char se_num_str[100], pe_num_str[100];
+  ulong_to_str(stats->num_se_reads, se_num_str);
+  ulong_to_str(stats->num_pe_reads / 2, pe_num_str);
+  status("Threaded: single reads: %s; read pairs: %s", se_num_str, pe_num_str);
+
   size_t num_path_bytes = paths->next - paths->store;
   char kmers_str[100], paths_str[100], mem_str[100];
   ulong_to_str(paths->num_kmers_with_paths, kmers_str);
   ulong_to_str(paths->num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
 
-  status("Saving paths: %s paths, %s path-bytes, %s kmers\n",
+  status("Saving paths: %s paths, %s path-bytes, %s kmers",
          paths_str, mem_str, kmers_str);
 
   paths_format_write_optimised_paths(&db_graph, fout);
@@ -371,7 +376,7 @@ int ctx_thread(CmdArgs *args)
   for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
-  status("Paths written to: %s\n", out_ctp_path);
+  status("Paths written to: %s", out_ctp_path);
 
   return EXIT_SUCCESS;
 }
