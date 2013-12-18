@@ -33,6 +33,7 @@ typedef struct {
   size_t total_len, total_junc;
   size_t contigs_outdegree[5];
   size_t paths_held[MAXPATH], paths_pickdup[MAXPATH], paths_counter[MAXPATH];
+  size_t grphwlk_states[GRPHWLK_MISSING_PATHS+1];
   size_t *lengths, *junctions;
   size_t max_len, max_junc;
   double max_junc_density;
@@ -43,7 +44,7 @@ typedef struct {
 static void contig_print_path_dist(const size_t *hist, size_t n,
                                    const char *name, size_t ncontigs)
 {
-  char nout_str[90];
+  char nout_str[100];
   size_t i;
 
   timestamp(ctx_msg_out);
@@ -55,6 +56,13 @@ static void contig_print_path_dist(const size_t *hist, size_t n,
   message("\n");
 }
 
+static void contig_grphwlk_state(const char *str, size_t n, size_t ncontigs)
+{
+  char nout_str[100];
+  status("  %s: %s\t[%zu%%]", str, ulong_to_str(n, nout_str),
+         (size_t)((100.0*n)/(2.0*ncontigs)+0.5));
+}
+
 static inline void contig_data_alloc(ContigData *cd, size_t capacity)
 {
   size_t *lengths = malloc2(capacity * sizeof(size_t));
@@ -63,6 +71,7 @@ static inline void contig_data_alloc(ContigData *cd, size_t capacity)
                     .total_len = 0, .total_junc = 0,
                     .contigs_outdegree = {0}, .paths_held = {0},
                     .paths_pickdup = {0}, .paths_counter = {0},
+                    .grphwlk_states = {0},
                     .lengths = lengths, .junctions = junctions,
                     .max_len = 0, .max_junc = 0,
                     .max_junc_density = 0, .nprint = 0};
@@ -118,10 +127,14 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
       db_node_buf_safe_add(&cd->nodes, wlk->node, wlk->orient);
     }
 
+    // Grab some stats
     njunc += wlk->fork_count;
     cd->paths_held[MIN2(wlk->num_curr, MAXPATH-1)]++;
     cd->paths_pickdup[MIN2(wlk->num_new, MAXPATH-1)]++;
     cd->paths_counter[MIN2(wlk->num_counter, MAXPATH-1)]++;
+
+    cd->grphwlk_states[grphwlk_status]++;
+
     // nloop += rptwlk->nbloom_entries;
 
     graph_walker_finish(wlk);
@@ -448,6 +461,14 @@ int ctx_contigs(CmdArgs *args)
   contig_print_path_dist(cd.paths_held, MAXPATH, "Paths held", cd.ncontigs);
   contig_print_path_dist(cd.paths_pickdup, MAXPATH, "Paths pickdup", cd.ncontigs);
   contig_print_path_dist(cd.paths_counter, MAXPATH, "Paths counter", cd.ncontigs);
+
+  const size_t *states = cd.grphwlk_states;
+  status("Traversal halted because:");
+  contig_grphwlk_state("No coverage   ", states[GRPHWLK_NOCOVG], cd.ncontigs);
+  contig_grphwlk_state("No colour covg", states[GRPHWLK_NO_COL_COVG], cd.ncontigs);
+  contig_grphwlk_state("No paths      ", states[GRPHWLK_SPLIT_NOPATH], cd.ncontigs);
+  contig_grphwlk_state("Paths split   ", states[GRPHWLK_SPLIT_PATHS], cd.ncontigs);
+  contig_grphwlk_state("Missing paths ", states[GRPHWLK_MISSING_PATHS], cd.ncontigs);
 
   contig_data_dealloc(&cd);
 

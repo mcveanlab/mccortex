@@ -443,7 +443,7 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
 }
 
 void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
-                    size_t kmer_size, boolean insert_sizes)
+                    size_t kmer_size, boolean insert_sizes, size_t nreads)
 {
   assert(arrlen > 0);
 
@@ -469,13 +469,15 @@ void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
   double mean = (double)total / ngaps;
   float median = find_hist_median(arr, arrlen, ngaps);
 
-  char ngaps_str[100];
+  char ngaps_str[100], nreads_str[100];
   ulong_to_str(ngaps, ngaps_str);
+  ulong_to_str(nreads, nreads_str);
 
   status("%s size distribution: "
-         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu; n=%s",
+         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu; n=%s / %s [%zu%%]",
          insert_sizes ? "Insert" : "Seq error gap",
-         min, mean, median, mode, max, ngaps_str);
+         min, mean, median, mode, max, ngaps_str, nreads_str,
+         (size_t)((100.0 * ngaps) / nreads + 0.5));
 
   StrBuf *csv_dump = strbuf_new();
   FILE *fout;

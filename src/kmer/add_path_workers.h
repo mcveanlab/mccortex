@@ -9,7 +9,9 @@ PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
                                        dBGraph *db_graph,
                                        size_t max_gap_limit);
 
-void path_workers_pool_dealloc(PathsWorkerPool *pool);
+// Read numbers are for printing out only
+void path_workers_pool_dealloc(PathsWorkerPool *pool,
+                               size_t num_se_reads, size_t num_pe_reads);
 
 void path_workers_wait_til_finished(PathsWorkerPool *pool);
 

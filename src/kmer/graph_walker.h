@@ -10,6 +10,17 @@ typedef struct
   PathLen pos, len;
 } FollowPath;
 
+#define GRPHWLK_NOTSET 0
+#define GRPHWLK_NOCOVG 1
+#define GRPHWLK_NO_COL_COVG 2
+#define GRPHWLK_SPLIT_NOPATH 3
+#define GRPHWLK_SPLIT_PATHS 4
+#define GRPHWLK_MISSING_PATHS 5
+
+// Not threadsafe, quick and dirty method
+// only valid after traversal returns false
+size_t grphwlk_status;
+
 typedef struct
 {
   const dBGraph *const db_graph;

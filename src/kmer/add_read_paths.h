@@ -38,6 +38,6 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
 // insert_sizes is true if gaps are insert gaps,
 //                 false if gaps are due to sequencing errors
 void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
-                    size_t kmer_size, boolean insert_sizes);
+                    size_t kmer_size, boolean insert_sizes, size_t nreads);
 
 #endif /* ADD_READ_PATH_H_ */

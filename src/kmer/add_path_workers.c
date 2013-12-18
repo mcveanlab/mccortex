@@ -275,7 +275,9 @@ PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
   return pool;
 }
 
-void path_workers_pool_dealloc(PathsWorkerPool *pool)
+// Read numbers are for printing out only
+void path_workers_pool_dealloc(PathsWorkerPool *pool,
+                               size_t num_se_reads, size_t num_pe_reads)
 {
   size_t i, j, gap_limit = pool->gap_limit;
 
@@ -304,10 +306,13 @@ void path_workers_pool_dealloc(PathsWorkerPool *pool)
 
   // Print mp gap size / insert stats to a file
   size_t kmer_size = pool->db_graph->kmer_size;
-  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_limit+1, kmer_size, false);
+  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_limit+1,
+                 kmer_size, false, num_se_reads);
 
-  if(pool->seen_pe)
-    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_limit+1, kmer_size, true);
+  if(pool->seen_pe) {
+    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_limit+1,
+                   kmer_size, true, num_pe_reads);
+  }
 
   paths_worker_dealloc(&(pool->workers[0]));
 

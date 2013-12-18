@@ -337,7 +337,7 @@ int ctx_thread(CmdArgs *args)
     }
   }
 
-  path_workers_pool_dealloc(pool);
+  path_workers_pool_dealloc(pool, stats->num_se_reads, stats->num_pe_reads / 2);
 
   char se_num_str[100], pe_num_str[100];
   ulong_to_str(stats->num_se_reads, se_num_str);
