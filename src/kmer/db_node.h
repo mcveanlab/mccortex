@@ -80,11 +80,11 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 
 #define db_node_first_nuc(bkmer,or,ksize) \
   ((or) == FORWARD ? binary_kmer_first_nuc(bkmer,ksize) \
-                   : binary_nuc_complement(binary_kmer_last_nuc(bkmer)))
+                   : dna_nuc_complement(binary_kmer_last_nuc(bkmer)))
 
 #define db_node_last_nuc(bkmer,or,ksize) \
   ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
-                   : binary_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
+                   : dna_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
 
 //
 // Edges

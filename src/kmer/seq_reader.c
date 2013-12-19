@@ -10,25 +10,6 @@
 #include "file_reader.h"
 #include "seq_reader.h"
 
-const char acgt_table[256] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0, // A C G N
-                              0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                              0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0, // a c g t
-                              0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                              0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
-#define char_is_acgtn(c) (acgt_table[(size_t)(c)])
-
 // Warnings are only printed once per file
 static boolean warn_invalid_base = false, warn_qlen_mismatch = false,
                warn_qual_too_small = false, warn_qual_too_big = false;
@@ -54,7 +35,7 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
   {
     // Check for invalid bases
     size_t i = next_kmer;
-    while(i > index && char_is_dna_base(r->seq.b[i-1])) i--;
+    while(i > index && char_is_acgt(r->seq.b[i-1])) i--;
 
     if(i > index) {
       index = i;
@@ -116,7 +97,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
 
   for(; contig_end < r->seq.end; contig_end++)
   {
-    if(!char_is_dna_base(r->seq.b[contig_end]) ||
+    if(!char_is_acgt(r->seq.b[contig_end]) ||
        (contig_end < r->qual.end && r->qual.b[contig_end] < qual_cutoff))
     {
       break;
@@ -171,7 +152,7 @@ hkey_t seq_reader_first_node(const read_t *r, int qcutoff, int hp_cutoff,
 
     for(next_base = kmer_size-1; next_base < contig_len; next_base++)
     {
-      nuc = binary_nuc_from_char(contig[next_base]);
+      nuc = dna_char_to_nuc(contig[next_base]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
       bkey = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, bkey);
@@ -223,7 +204,7 @@ int seq_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
 
     for(next_base = kmer_size-1; next_base < contig_len; next_base++)
     {
-      nuc = binary_nuc_from_char(contig[next_base]);
+      nuc = dna_char_to_nuc(contig[next_base]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
       tmp_key = db_node_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
@@ -277,22 +258,21 @@ static void process_new_read(const read_t *r, char qmin, char qmax,
     // Check out-of-range qual string
     if(!warn_qual_too_small || !warn_qual_too_big)
     {
-      // Fast min/max that minimises branches
-      char mmin[2] = {r->qual.b[0], r->qual.b[0]};
-      char mmax[2] = {r->qual.b[0], r->qual.b[0]};
-
-      for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
-        mmin[*tmp < mmin[1]] = *tmp;
-        mmax[*tmp > mmax[1]] = *tmp;
-      }
-
-      char min = mmin[1], max = mmax[1];
-
-      // int min = r->qual.b[0], max = r->qual.b[0];
+      // Slower min/max that minimises branches
+      // char mmin[2] = {r->qual.b[0], r->qual.b[0]};
+      // char mmax[2] = {r->qual.b[0], r->qual.b[0]};
       // for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
-      //   if(*tmp < min) min = *tmp;
-      //   else if(*tmp > max) max = *tmp;
+      //   mmin[*tmp < mmin[1]] = *tmp;
+      //   mmax[*tmp > mmax[1]] = *tmp;
       // }
+      // char min = mmin[1], max = mmax[1];
+
+      // In profiling this was found to be the fastest min/max method
+      char min = r->qual.b[0], max = r->qual.b[0];
+      for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
+        min = MIN2(min, *tmp);
+        max = MAX2(max, *tmp);
+      }
 
       if(min < qmin && !warn_qual_too_small)
       {
@@ -636,7 +616,7 @@ void seq_load_str(dBGraph *db_graph, size_t colour, const char *seq, size_t len)
 
   for(i = kmer_size; i < len; i++)
   {
-    Nucleotide nuc = binary_nuc_from_char(seq[i]);
+    Nucleotide nuc = dna_char_to_nuc(seq[i]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
 
     tmp_key = db_node_get_key(bkmer, kmer_size);

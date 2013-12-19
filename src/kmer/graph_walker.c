@@ -23,7 +23,7 @@ static void print_path_list(FollowPath **arr, size_t num)
     FollowPath *path = arr[i];
     printf("   %p %p ", path, path->bases);
     for(j = 0; j < path->len; j++)
-      putc(binary_nuc_to_char(path->bases[j]), stdout);
+      putc(dna_nuc_to_char(path->bases[j]), stdout);
     printf(" [%i/%i]\n", (int)path->pos, (int)path->len);
   }
 }
@@ -203,7 +203,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
 
       // size_t j;
       // for(j = 0; j < len; j++)
-      //   putc(binary_nuc_to_char(arr[*num]->bases[j]), stdout);
+      //   putc(dna_nuc_to_char(arr[*num]->bases[j]), stdout);
       // printf(" [len:%zu] %p\n", len, arr[*num]->bases);
 
       arr[*num]->pos = 0;
@@ -411,25 +411,25 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   for(i = 0; i < num_next; i++) {
     BinaryKmer bkmer = db_node_bkmer(wlk->db_graph, nodes[i]);
     binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
-    message("  %s [%c]\n", str, binary_nuc_to_char(bases[i]));
+    message("  %s [%c]\n", str, dna_nuc_to_char(bases[i]));
   }
 
   message("curr_paths:\n");
   for(i = 0; i < wlk->num_curr; i++) {
     path = wlk->curr_paths[i];
-    message(" %c [%u/%u]\n", binary_nuc_to_char(path->bases[path->pos]),
+    message(" %c [%u/%u]\n", dna_nuc_to_char(path->bases[path->pos]),
             path->pos, path->len);
   }
 
   message("counter_paths:\n");
   for(i = 0; i < wlk->num_counter; i++) {
     path = wlk->counter_paths[i];
-    message(" %c [%u/%u]\n", binary_nuc_to_char(path->bases[path->pos]),
+    message(" %c [%u/%u]\n", dna_nuc_to_char(path->bases[path->pos]),
             path->pos, path->len);
   }
 
   message("walker: ctx %zu ctp %zu\n", wlk->ctxcol, wlk->ctpcol);
-  message("[path corruption] {%zu:%c}", num_next, binary_nuc_to_char(greatest_nuc));
+  message("[path corruption] {%zu:%c}", num_next, dna_nuc_to_char(greatest_nuc));
 
   die("Did you build this .ctp against THIS EXACT .ctx? (REALLY?)");
 }
@@ -571,7 +571,7 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
   Orientation orient = opposite_orientation(wlk->orient);
 
   Edges edges = db_node_edges(db_graph, 0, wlk->node) &
-                ~nuc_orient_to_edge(binary_nuc_complement(prev_nuc), orient);
+                ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), orient);
 
   num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, orient, edges,
                                        prev_nodes, prev_orients, prev_bases);

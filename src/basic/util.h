@@ -143,22 +143,4 @@ float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum);
 // returns number of bytes written
 size_t seconds_to_str(unsigned long seconds, char *str);
 
-//
-// Genetics
-//
-
-extern const char complement_base[128];
-
-#ifdef NDEBUG
-  #define char_nucleotide_complement(c) complement_base[(int)(c)]
-#else
-  char char_nucleotide_complement(char c);
-#endif
-
-#define char_is_dna_base(c) (char_to_bnuc[(int)(c)] != UndefinedBase)
-
-// length is the length in number of bases
-// the char* should have one MORE base than that allocated, to hold '\0'
-char *reverse_complement_str(char *str, size_t length);
-
 #endif /* UTIL_H_ */

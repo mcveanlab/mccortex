@@ -1,5 +1,5 @@
 #include "global.h"
-#include "bkmer_tests.h"
+#include "all_tests.h"
 
 int main()
 {
@@ -8,5 +8,6 @@ int main()
   status("Min kmer-size: %i, max kmer-size: %i", MIN_KMER_SIZE, MAX_KMER_SIZE);
   status("Tests running...");
   test_bkmer_to_from_str();
+  test_dna_functions();
   status("Finished tests.");
 }

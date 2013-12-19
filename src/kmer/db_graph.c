@@ -99,7 +99,7 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
   lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
   rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
 
-  Nucleotide lhs_nuc_rev = binary_nuc_complement(lhs_nuc);
+  Nucleotide lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
   Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
 
   db_node_set_col_edge(db_graph, colour, src_node, rhs_nuc, src_orient);
@@ -118,7 +118,7 @@ void db_graph_check_edges(const dBGraph *db_graph,
   lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
   rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
 
-  Nucleotide lhs_nuc_rev = binary_nuc_complement(lhs_nuc);
+  Nucleotide lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
   Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
 
   Edges src_uedges = db_node_edges_union(db_graph, src_node);
@@ -142,7 +142,7 @@ void db_graph_next_node(const dBGraph *db_graph,
   if(orient == FORWARD)
     bkmer = binary_kmer_left_shift_add(node_bkey, kmer_size, next_nuc);
   else {
-    next_nuc = binary_nuc_complement(next_nuc);
+    next_nuc = dna_nuc_complement(next_nuc);
     bkmer = binary_kmer_right_shift_add(node_bkey, kmer_size, next_nuc);
   }
 
@@ -169,7 +169,7 @@ size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
   for(tmp_edge = 0x1, nuc = 0; nuc < 4; tmp_edge <<= 1, nuc++) {
     if(edges & tmp_edge) {
       if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
-      else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
+      else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
       bkey = db_node_get_key(bkmer, kmer_size);
       nodes[count] = hash_table_find(&db_graph->ht, bkey);
       orients[count] = db_node_get_orientation(bkmer, bkey) ^ orient;
@@ -293,7 +293,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
       if(!(edge & iedges))
       {
         if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
-        else binary_kmer_set_first_nuc(&bkmer, binary_nuc_complement(nuc), kmer_size);
+        else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
 
         bkey = db_node_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);

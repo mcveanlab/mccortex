@@ -1,23 +1,11 @@
 #include "global.h"
-#include "bkmer_tests.h"
+#include "all_tests.h"
 #include "binary_kmer.h"
-
-static void rnd_seq(char *seq, size_t len)
-{
-  const char bases[4] = "ACGT";
-  size_t i, r;
-
-  for(i = 0; i < len; i++) {
-    if((i & 15) == 0) r = rand();
-    seq[i] = bases[r & 3]; r >>= 2;
-  }
-
-  seq[len] = '\0';
-}
 
 void test_bkmer_to_from_str()
 {
   status("Testing binary_kmer_[to|from]_str...");
+
   char input[MAX_KMER_SIZE+1], result[MAX_KMER_SIZE+1];
   BinaryKmer bkmer;
   size_t k = MAX_KMER_SIZE;

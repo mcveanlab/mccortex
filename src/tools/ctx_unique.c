@@ -6,6 +6,7 @@
 #include "khash.h"
 #include "string_buffer.h"
 
+#include "dna.h"
 #include "cmd.h"
 #include "util.h"
 #include "file_util.h"
@@ -86,15 +87,15 @@ static void var_revcmp(Var *var)
 {
   StrBuf tmpbuf;
   SWAP(var->flank5p, var->flank3p, tmpbuf);
-  reverse_complement_str(var->flank5p.buff, var->flank5p.len);
-  reverse_complement_str(var->flank3p.buff, var->flank3p.len);
+  dna_reverse_complement_str(var->flank5p.buff, var->flank5p.len);
+  dna_reverse_complement_str(var->flank3p.buff, var->flank3p.len);
 
   uint32_t tmpshift;
   SWAP(var->shift_left, var->shift_right, tmpshift);
 
   VarBranch *allele;
   for(allele = var->first_allele; allele != NULL; allele = allele->next) {
-    reverse_complement_str(allele->seq.buff, allele->seq.len);
+    dna_reverse_complement_str(allele->seq.buff, allele->seq.len);
   }
 }
 
@@ -239,7 +240,7 @@ static void var_set_flank_shifts(Var *var)
 static void str_get_key(char *key, const char *kmer, size_t kmer_size)
 {
   memcpy(key, kmer, kmer_size*sizeof(char));
-  reverse_complement_str(key, kmer_size);
+  dna_reverse_complement_str(key, kmer_size);
 
   if(strncmp(kmer, key, kmer_size) < 0)
     memcpy(key, kmer, kmer_size*sizeof(char));

@@ -304,7 +304,7 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
     if(bitset_has(colbitset, i)) printf(" %zu", i);
   printf(")[%u]: ", len);
   for(i = 0; i < len; i++)
-    putc(binary_nuc_to_char(bases[i]), stdout);
+    putc(dna_nuc_to_char(bases[i]), stdout);
   putc('\n', stdout);
 }
 

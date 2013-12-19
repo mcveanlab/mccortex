@@ -1,7 +1,7 @@
 #ifndef BINARY_KMER_H_
 #define BINARY_KMER_H_
 
-#include <inttypes.h>
+#include "dna.h"
 
 // NUM_BKMER_WORDS is the number of 64 bit words we use to encode a kmer
 
@@ -16,15 +16,6 @@ extern const BinaryKmer zero_bkmer;
 
 #define BINARY_KMER_ZERO_MACRO {.b = {0}}
 
-// Bases encoding:
-#define Adenine       0
-#define Cytosine      1
-#define Guanine       2
-#define Thymine       3
-#define UndefinedBase 4
-
-typedef uint8_t Nucleotide;
-
 // Hash functions
 #ifdef CITY_HASH
   // Use Google's CityHash
@@ -36,17 +27,6 @@ typedef uint8_t Nucleotide;
   #define binary_kmer_hash(bkmer,rehash) hashlittle(bkmer.b, BKMER_BYTES, rehash)
 #endif
 
-extern const char bnuc_to_char_array[4];
-extern const Nucleotide char_to_bnuc[128];
-
-#define binary_nuc_complement(n) (~(n) & 0x3)
-#define binary_nuc_from_char(c)  char_to_bnuc[(int)(c)]
-
-#ifdef NDEBUG
-  #define binary_nuc_to_char(c)  bnuc_to_char_array[(c)]
-#else
-  char binary_nuc_to_char(Nucleotide n);
-#endif
 
 // Since kmer_size is always odd, top word always has <= 62 bits used
 // Number of bases store in all but the top word

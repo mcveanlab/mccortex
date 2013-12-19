@@ -105,7 +105,7 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t node)
 
     if(or == FORWARD) {
       lost_nuc = binary_kmer_first_nuc(bkmer, db_graph->kmer_size);
-      lost_nuc = binary_nuc_complement(lost_nuc);
+      lost_nuc = dna_nuc_complement(lost_nuc);
     }
     else lost_nuc = binary_kmer_last_nuc(bkmer);
 

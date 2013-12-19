@@ -14,7 +14,7 @@ BinaryKmer db_node_get_key(const BinaryKmer bkmer, size_t kmer_size)
   // Get first and last nucleotides
   Nucleotide first = binary_kmer_first_nuc(bkmer, kmer_size);
   Nucleotide last = binary_kmer_last_nuc(bkmer);
-  Nucleotide rev_last = binary_nuc_complement(last);
+  Nucleotide rev_last = dna_nuc_complement(last);
 
   if(first < rev_last) return bkmer;
 
@@ -181,12 +181,12 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
   Nucleotide nuc;
 
   binary_kmer_to_str(bkmer, kmer_size, str);
-  if(nodes[0].orient == REVERSE) reverse_complement_str(str, kmer_size);
+  if(nodes[0].orient == REVERSE) dna_reverse_complement_str(str, kmer_size);
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
-    str[kmer_size+i-1] = binary_nuc_to_char(nuc);
+    str[kmer_size+i-1] = dna_nuc_to_char(nuc);
   }
 
   str[kmer_size+num-1] = '\0';
@@ -208,7 +208,7 @@ void db_nodes_print(const dBNode *nodes, size_t num,
   for(i = 1; i < num; i++) {
     bkmer = db_node_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
-    fputc(binary_nuc_to_char(nuc), out);
+    fputc(dna_nuc_to_char(nuc), out);
   }
 }
 
@@ -227,6 +227,6 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   for(i = 1; i < num; i++) {
     bkmer = db_node_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
-    gzputc(out, binary_nuc_to_char(nuc));
+    gzputc(out, dna_nuc_to_char(nuc));
   }
 }

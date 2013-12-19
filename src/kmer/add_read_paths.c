@@ -184,7 +184,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
     if(addrv) {
       bkmer = db_node_bkmer(graph, nodes[i-1].key);
       nuc = nodes[i-1].orient == FORWARD
-              ? binary_nuc_complement(binary_kmer_first_nuc(bkmer, graph->kmer_size))
+              ? dna_nuc_complement(binary_kmer_first_nuc(bkmer, graph->kmer_size))
               : binary_kmer_last_nuc(bkmer);
       nuc_rv[num_rv] = nuc;
       pos_rv[num_rv++] = i;

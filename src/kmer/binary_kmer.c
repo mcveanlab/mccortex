@@ -4,28 +4,6 @@
 // This is exported
 const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 
-const char bnuc_to_char_array[4] = {'A','C','G','T'};
-
-// 0:A, 1:C, 2:G, 3:T, 4:UndefinedBase
-const Nucleotide char_to_bnuc[128] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                      4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                      4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                      4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                      4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4, // A C G
-                                      4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4,
-                                      4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4, // a c g
-                                      4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4};
-
-#ifndef NDEBUG
-// These have asserts in them
-char binary_nuc_to_char(Nucleotide n)
-{
-  // Check only values 0..3 are being used
-  assert((n & 0x3) == n);
-  return bnuc_to_char_array[n];
-}
-#endif
-
 // less than for 1 or 2 bitfields is defined in the header
 #if NUM_BKMER_WORDS > 2
 boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right)
@@ -225,16 +203,6 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
   assert(seq != NULL);
   assert(strlen(seq) >= kmer_size);
 
-  /*
-  size_t i;
-  BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
-  for(i = 0; i < kmer_size; i++) {
-    Nucleotide nuc = binary_nuc_from_char(seq[i]);
-    assert(nuc != UndefinedBase);
-    binary_kmer_left_shift_add(&bkmer, kmer_size, nuc);
-  }
-  */
-
   // Faster attempt
   size_t i;
   const char *k = seq, *end = seq + BKMER_TOP_BASES(kmer_size);
@@ -243,16 +211,16 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 
   // Do first word
   for(; k < end; k++) {
-    nuc = binary_nuc_from_char(*k);
-    assert(nuc != UndefinedBase);
+    assert(char_is_acgt(*k));
+    nuc = dna_char_to_nuc(*k);
     bkmer.b[0] = (bkmer.b[0] << 2) | nuc;
   }
 
   // Do remaining words
   for(i = 1; i < NUM_BKMER_WORDS; i++) {
     for(end += 32; k < end; k++) {
-      nuc = binary_nuc_from_char(*k);
-      assert(nuc != UndefinedBase);
+      assert(char_is_acgt(*k));
+      nuc = dna_char_to_nuc(*k);
       bkmer.b[i] = (bkmer.b[i] << 2) | nuc;
     }
   }
@@ -271,7 +239,7 @@ char *binary_kmer_to_str(const BinaryKmer bkmer, size_t kmer_size, char *seq)
   for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
     word = bkmer.b[i];
     for(j = 0; j < 32; j++) {
-      seq[--k] = binary_nuc_to_char(word & 0x3);
+      seq[--k] = dna_nuc_to_char(word & 0x3);
       word >>= 2;
     }
   }
@@ -279,7 +247,7 @@ char *binary_kmer_to_str(const BinaryKmer bkmer, size_t kmer_size, char *seq)
   // Top word
   word = bkmer.b[0];
   for(j = 0; j < topbases; j++) {
-    seq[--k] = binary_nuc_to_char(word & 0x3);
+    seq[--k] = dna_nuc_to_char(word & 0x3);
     word >>= 2;
   }
 
@@ -318,12 +286,12 @@ void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len)
 {
   size_t i;
   for(i = 0; i < len; i++)
-    bases[i] = binary_nuc_from_char(str[i]);
+    bases[i] = dna_char_to_nuc(str[i]);
 }
 
 void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len)
 {
   size_t i;
   for(i = 0; i < len; i++)
-    str[i] = binary_nuc_to_char(bases[i]);
+    str[i] = dna_nuc_to_char(bases[i]);
 }

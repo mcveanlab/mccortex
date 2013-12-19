@@ -67,7 +67,7 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
 
     for(i = contig_start+kmer_size; i < contig_end; i++)
     {
-      Nucleotide nuc = binary_nuc_from_char(r->seq.b[i]);
+      Nucleotide nuc = dna_char_to_nuc(r->seq.b[i]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
 
       tmp_key = db_node_get_key(bkmer, kmer_size);

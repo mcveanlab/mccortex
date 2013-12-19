@@ -125,7 +125,7 @@ static void print_branch(dBNode *nodes, size_t len, boolean print_first_kmer,
   for(; i < len; i++) {
     bkmer = db_node_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
-    gzputc(out, binary_nuc_to_char(nuc));
+    gzputc(out, dna_nuc_to_char(nuc));
   }
 
   gzputc(out, '\n');

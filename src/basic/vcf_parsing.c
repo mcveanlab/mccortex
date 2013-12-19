@@ -1,5 +1,6 @@
 #include "global.h"
 #include "vcf_parsing.h"
+#include "dna.h"
 #include "util.h"
 
 static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
@@ -216,12 +217,12 @@ void vcf_entry_revcmp(vcf_entry_t *entry)
 
   size_t i;
   for(i = 0; i < entry->num_alts; i++)
-    reverse_complement_str(entry->alts[i].buff, entry->alts[i].len);
+    dna_reverse_complement_str(entry->alts[i].buff, entry->alts[i].len);
 
   // reverse complement and swap lflank and rflank
   // printf("lf:'%s'; rf:'%s'\n", entry->lf.buff, entry->rf.buff);
-  reverse_complement_str(entry->lf->buff+3, entry->lf->len-3);
-  reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
+  dna_reverse_complement_str(entry->lf->buff+3, entry->lf->len-3);
+  dna_reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
   StrBuf *tmpbuf;
   SWAP(entry->lf, entry->rf, tmpbuf);
   entry->lf->buff[0] = 'L';
