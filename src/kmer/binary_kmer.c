@@ -281,17 +281,3 @@ void binary_kmer_to_hex(const BinaryKmer bkmer, size_t kmer_size, char *seq)
 
   seq[slen] = '\0';
 }
-
-void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len)
-{
-  size_t i;
-  for(i = 0; i < len; i++)
-    bases[i] = dna_char_to_nuc(str[i]);
-}
-
-void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len)
-{
-  size_t i;
-  for(i = 0; i < len; i++)
-    str[i] = dna_nuc_to_char(bases[i]);
-}

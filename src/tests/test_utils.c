@@ -4,7 +4,7 @@
 void rnd_seq(char *seq, size_t len)
 {
   const char bases[4] = "ACGT";
-  size_t i, r;
+  size_t i, r = 0;
 
   for(i = 0; i < len; i++) {
     if((i & 15) == 0) r = rand();

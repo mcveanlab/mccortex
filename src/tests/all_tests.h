@@ -7,7 +7,7 @@
 void rnd_seq(char *seq, size_t len);
 
 // bkmer_tests.c
-void test_bkmer_to_from_str();
+void test_bkmer_functions();
 
 // dna_tests.c
 void test_dna_functions();

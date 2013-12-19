@@ -4,7 +4,7 @@
 
 void test_dna_functions()
 {
-  status("Testing dna functions...");
+  status("[dna] Testing all dna.h functions...");
 
   char c;
   size_t i;

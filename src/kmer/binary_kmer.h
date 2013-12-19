@@ -35,7 +35,6 @@ extern const BinaryKmer zero_bkmer;
 #define BKMER_TOP_BITS(ksize)          (BKMER_TOP_BASES(ksize) * 2)
 #define BKMER_TOP_BP_BYTEOFFSET(ksize) (BKMER_TOP_BITS(ksize) - 2)
 
-#define binary_kmer_init(x)          memset((x)->b, 0, BKMER_BYTES)
 #define binary_kmers_cmp(x,y)        memcmp((x).b,(x).b,BKMER_BYTES)
 
 #define binary_kmer_first_nuc(bkmer,ksize) \
@@ -96,8 +95,5 @@ char* binary_kmer_to_str(const BinaryKmer kmer, size_t kmer_size, char *seq);
 BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size);
 
 void binary_kmer_to_hex(const BinaryKmer bkmer, size_t kmer_size, char *seq);
-
-void binary_nuc_from_str(Nucleotide *bases, const char *str, size_t len);
-void binary_nuc_to_str(const Nucleotide *bases, char *str, size_t len);
 
 #endif /* BINARY_KMER_H_ */
