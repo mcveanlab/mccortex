@@ -320,7 +320,7 @@ void db_graph_add_all_edges(dBGraph *db_graph)
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
 {
   const PathStore *paths = &db_graph->pdata;
-  uint32_t kmer_size = db_graph->kmer_size;
+  size_t kmer_size = db_graph->kmer_size;
   char str[MAX_KMER_SIZE+1];
   hkey_t node;
   PathIndex index, prev_index;

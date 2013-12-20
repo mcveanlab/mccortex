@@ -175,15 +175,15 @@ $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c src/tests/* $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ $(INCS) src/tests/*.c src/main/tests.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(KMERARGS) $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
 
 # directories
 bin:

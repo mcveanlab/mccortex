@@ -56,7 +56,7 @@ static void branch_free(VarBranch *branch)
 
 /* Variants */
 
-static Var* var_new(uint32_t kmer_size)
+static Var* var_new(size_t kmer_size)
 {
   Var *var = malloc2(sizeof(Var));
   var->key[0] = var->key[2*kmer_size] = 0;

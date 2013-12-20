@@ -71,7 +71,7 @@ static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
 
 static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
                                    dBNode **nodes, Covg **tmpcovgs, size_t *ncap,
-                                   uint64_t *visited, uint32_t covg_threshold)
+                                   uint64_t *visited, Covg covg_threshold)
 {
   size_t i, len, cap;
   Covg reads_arriving;
@@ -203,10 +203,10 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
 
 // If covg_threshold is zero, uses covg distribution to calculate
 // Returns covg threshold used
-static uint32_t clean_supernodes(dBGraph *db_graph, boolean clean,
-                                 uint32_t covg_threshold, double seq_depth,
-                                 char *dump_covgs,
-                                 dBNode **nodes, size_t *ncap, uint64_t *visited)
+static Covg clean_supernodes(dBGraph *db_graph, boolean clean,
+                             Covg covg_threshold, double seq_depth,
+                             char *dump_covgs,
+                             dBNode **nodes, size_t *ncap, uint64_t *visited)
 {
   if(db_graph->ht.unique_kmers == 0) return covg_threshold;
   uint64_t *covg_hist;
@@ -266,14 +266,15 @@ int ctx_clean(CmdArgs *args)
 
   // Check cmdline args
   boolean tip_cleaning = false, supernode_cleaning = false;
-  uint32_t max_tip_len = 0, threshold = 0;
+  size_t max_tip_len = 0;
+  Covg threshold = 0;
   double seq_depth = -1;
   char *dump_covgs = NULL;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
     if(strcmp(argv[argi],"--tips") == 0) {
-      if(argi + 1 >= argc || !parse_entire_uint(argv[argi+1], &max_tip_len) ||
+      if(argi + 1 >= argc || !parse_entire_size(argv[argi+1], &max_tip_len) ||
          max_tip_len <= 1) {
         print_usage(usage, "--tips <L> needs an integer argument > 1");
       }
@@ -360,16 +361,16 @@ int ctx_clean(CmdArgs *args)
   }
 
   // Print steps
-  uint32_t step = 0;
+  size_t step = 0;
   status("Actions:\n");
   if(tip_cleaning)
-    status("%u. Cleaning tips shorter than %u nodes", step++, max_tip_len);
+    status("%zu. Cleaning tips shorter than %zu nodes", step++, max_tip_len);
   if(dump_covgs != NULL)
-    status("%u. Saving coverage distribution to: %s", step++, dump_covgs);
+    status("%zu. Saving coverage distribution to: %s", step++, dump_covgs);
   if(supernode_cleaning && threshold > 0)
-    status("%u. Cleaning supernodes with threshold < %u", step++, threshold);
+    status("%zu. Cleaning supernodes with threshold < %u", step++, threshold);
   if(supernode_cleaning && threshold == 0)
-    status("%u. Cleaning supernodes with auto-detected threshold", step++);
+    status("%zu. Cleaning supernodes with auto-detected threshold", step++);
 
   //
   // Pick hash table size
@@ -413,7 +414,7 @@ int ctx_clean(CmdArgs *args)
   graph_header_alloc(&outhdr, total_cols);
 
   // Merge info into header
-  uint32_t outcol = 0;
+  size_t outcol = 0;
   for(i = 0; i < num_files; i++) {
     outcol += files[i].fltr.intocol;
     for(j = 0; j < files[i].fltr.ncols; j++, outcol++)
@@ -456,7 +457,7 @@ int ctx_clean(CmdArgs *args)
 
   // Tip clipping
   if(tip_cleaning) {
-    status("Clipping tips shorter than %u...\n", max_tip_len);
+    status("Clipping tips shorter than %zu...\n", max_tip_len);
     HASH_TRAVERSE(&db_graph.ht, clip_tip,
                   &db_graph, &nodes, &ncap, visited, max_tip_len);
     ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);

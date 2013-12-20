@@ -7,7 +7,7 @@
 
 static const char usage[] =
 "usage: hashtest [options] <num_ops>\n"
-"  Test hash table speed.  Assume kemr size of "QUOTE_VALUE(MAX_KMER_SIZE)" if none given\n";
+"  Test hash table speed.  Assume kmer size of "QUOTE_VALUE(MAX_KMER_SIZE)" if none given\n";
 
 int main(int argc, char **argv)
 {

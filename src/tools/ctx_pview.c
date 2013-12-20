@@ -39,9 +39,9 @@ int ctx_pview(CmdArgs *args)
   printf("bytes: %s\n", path_bytes_str);
   printf("kmers starting paths: %s\n", kmers_with_paths_str);
 
-  uint32_t col;
+  size_t col;
   for(col = 0; col < phdr->num_of_cols; col++) {
-    printf(" colour %u: %s\n", col, phdr->sample_names[col].buff);
+    printf(" colour %zu: %s\n", col, phdr->sample_names[col].buff);
   }
 
   //
