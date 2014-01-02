@@ -91,7 +91,7 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
 
   // if not flagged add to list
   for(i = 0; i < num_next; i++) {
-    if(!bitset_has(kmer_mask, next_nodes[i])) {
+    if(!bitset_get(kmer_mask, next_nodes[i])) {
       bitset_set(kmer_mask, next_nodes[i]);
       // if list full, exit
       if(list->len == list->capacity) die("Please increase <mem> size");
@@ -199,7 +199,8 @@ int ctx_subgraph(CmdArgs *args)
   char graph_mem_str[100], num_fringe_nodes_str[100], fringe_mem_str[100];
 
   bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers, false);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers,
+                                        false, NULL);
 
   graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
               (kmers_in_hash*bits_per_kmer)/8;
@@ -226,7 +227,7 @@ int ctx_subgraph(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
-  size_t num_words64 = round_bits_to_words64(db_graph.ht.capacity*use_ncols);
+  size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity*use_ncols);
   kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
   // Store edge nodes here

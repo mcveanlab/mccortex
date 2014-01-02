@@ -22,7 +22,8 @@ typedef struct
   RepeatWalker rptwlk; // traversing covg gaps
   dBNodeBuffer nodebuf; // Contigs constructed here
   // Biggest gap between reads we'll try to traverse
-  uint64_t *const insert_sizes, *const gap_sizes; // length gap_limit+1
+  uint64_t *const insert_sizes, *const gap_sizes; // length gap_arr_cap
+  size_t gap_arr_cap;
   volatile boolean got_job, completed;
 } AddPathsWorker;
 
@@ -38,9 +39,7 @@ struct PathsWorkerPool
   boolean seen_pe;
 
   // Data currently being read
-  read_t r1, r2;
-  Colour ctp_col, ctx_col;
-  size_t gap_limit;
+  AddPathsJob rjob;
 };
 
 //
@@ -52,17 +51,18 @@ pthread_cond_t data_written_cond, data_read_cond;
 
 // Incoming data
 volatile boolean data_waiting = false, input_ended = false;
-volatile AddPathsJob next_job;
+volatile AddPathsJob next_job; // job waiting
 
 static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
-                               size_t gap_limit, dBGraph *db_graph)
+                               size_t gap_arr_cap, dBGraph *db_graph)
 {
   uint64_t *insert_sizes, *gap_sizes;
-  insert_sizes = calloc2(2*(gap_limit+1), sizeof(uint64_t));
-  gap_sizes = insert_sizes + gap_limit+1;
+  insert_sizes = calloc2(2*gap_arr_cap, sizeof(uint64_t));
+  gap_sizes = insert_sizes + gap_arr_cap;
 
   AddPathsWorker tmp = {.wid = wid, .db_graph = db_graph,
                         .insert_sizes = insert_sizes, .gap_sizes = gap_sizes,
+                        .gap_arr_cap = gap_arr_cap,
                         .got_job = false, .completed = false};
   memcpy(worker, &tmp, sizeof(AddPathsWorker));
 
@@ -156,6 +156,7 @@ static void load_paths(read_t *r1, read_t *r2,
     qcutoff2 += fq_offset2;
   }
 
+  // Wait until data has been read from next_job
   if(data_waiting) {
     pthread_mutex_lock(&data_read_mutex);
     while(data_waiting) pthread_cond_wait(&data_read_cond, &data_read_mutex);
@@ -165,9 +166,10 @@ static void load_paths(read_t *r1, read_t *r2,
   next_job.qcutoff1 = qcutoff1;
   next_job.qcutoff2 = qcutoff2;
   next_job.hp_cutoff = prefs->homopolymer_cutoff;
-  next_job.ctp_col = pool->ctp_col;
-  next_job.ctx_col = pool->ctx_col;
-  next_job.gap_limit = pool->gap_limit;
+  next_job.ctp_col = pool->rjob.ctp_col;
+  next_job.ctx_col = pool->rjob.ctx_col;
+  next_job.ins_gap_min = pool->rjob.ins_gap_min;
+  next_job.ins_gap_max = pool->rjob.ins_gap_max;
 
   read_t tmp_read;
   SWAP(*r1, next_job.r1, tmp_read);
@@ -231,7 +233,7 @@ void path_workers_wait_til_completed(PathsWorkerPool *pool)
 }
 
 PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
-                                       dBGraph *db_graph, size_t gap_limit)
+                                       dBGraph *db_graph, size_t gap_arr_cap)
 {
   PathsWorkerPool *pool = calloc2(1, sizeof(PathsWorkerPool));
 
@@ -241,11 +243,11 @@ PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
   pool->db_graph = db_graph;
   pool->seen_pe = false;
 
-  if(!seq_read_alloc(&pool->r1) || !seq_read_alloc(&pool->r2))
+  if(!seq_read_alloc(&pool->rjob.r1) || !seq_read_alloc(&pool->rjob.r2))
     die("Out of memory");
 
   for(i = 0; i < num_of_threads; i++)
-    paths_worker_alloc(&pool->workers[i], i, gap_limit, db_graph);
+    paths_worker_alloc(&pool->workers[i], i, gap_arr_cap, db_graph);
 
   // Start threads
   pool->threads = malloc2(num_of_threads * sizeof(pthread_t));
@@ -277,9 +279,10 @@ PathsWorkerPool* path_workers_pool_new(size_t num_of_threads,
 
 // Read numbers are for printing out only
 void path_workers_pool_dealloc(PathsWorkerPool *pool,
-                               size_t num_se_reads, size_t num_pe_reads)
+                               size_t num_se_reads, size_t num_pe_readpairs)
 {
-  size_t i, j, gap_limit = pool->gap_limit;
+  AddPathsWorker *workers = pool->workers;
+  size_t i, j, gap_arr_cap = workers[0].gap_arr_cap;
 
   input_ended = true;
 
@@ -293,34 +296,34 @@ void path_workers_pool_dealloc(PathsWorkerPool *pool,
   }
 
   // Sum insert sizes and gap sizes into worker 0
-  uint64_t *insert_sizes = pool->workers[0].insert_sizes;
-  uint64_t *gap_sizes = pool->workers[0].gap_sizes;
+  uint64_t *insert_sizes = workers[0].insert_sizes;
+  uint64_t *gap_sizes = workers[0].gap_sizes;
 
   for(i = 1; i < pool->num_of_threads; i++) {
-    for(j = 0; j < gap_limit+1; j++) {
-      insert_sizes[j] += pool->workers[i].insert_sizes[j];
-      gap_sizes[j] += pool->workers[i].gap_sizes[j];
+    for(j = 0; j < gap_arr_cap; j++) {
+      insert_sizes[j] += workers[i].insert_sizes[j];
+      gap_sizes[j] += workers[i].gap_sizes[j];
     }
-    paths_worker_dealloc(&(pool->workers[i]));
+    paths_worker_dealloc(&workers[i]);
   }
 
   // Print mp gap size / insert stats to a file
   size_t kmer_size = pool->db_graph->kmer_size;
-  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_limit+1,
-                 kmer_size, false, num_se_reads);
+  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_arr_cap,
+                 kmer_size, false, num_se_reads + num_pe_readpairs*2);
 
   if(pool->seen_pe) {
-    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_limit+1,
-                   kmer_size, true, num_pe_reads);
+    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_arr_cap,
+                   kmer_size, true, num_pe_readpairs);
   }
 
-  paths_worker_dealloc(&(pool->workers[0]));
+  paths_worker_dealloc(&workers[0]);
 
   free(pool->threads);
   free(pool->workers);
 
-  seq_read_dealloc(&pool->r1);
-  seq_read_dealloc(&pool->r2);
+  seq_read_dealloc(&pool->rjob.r1);
+  seq_read_dealloc(&pool->rjob.r2);
 
   seq_read_dealloc((read_t*)&next_job.r1);
   seq_read_dealloc((read_t*)&next_job.r2);
@@ -337,19 +340,23 @@ void path_workers_pool_dealloc(PathsWorkerPool *pool,
 
 void path_workers_add_paths_to_graph(PathsWorkerPool *pool,
                                      seq_file_t *sf1, seq_file_t *sf2,
-                                     size_t gap_limit,
                                      size_t ctx_col, size_t ctp_col,
+                                     size_t ins_gap_min, size_t ins_gap_max,
                                      const SeqLoadingPrefs *prefs,
                                      SeqLoadingStats *stats)
 {
-  pool->gap_limit = gap_limit;
-  pool->ctx_col = ctx_col;
-  pool->ctp_col = ctp_col;
+  pool->rjob.ins_gap_min = ins_gap_min;
+  pool->rjob.ins_gap_max = ins_gap_max;
+  pool->rjob.ctx_col = ctx_col;
+  pool->rjob.ctp_col = ctp_col;
 
-  if(sf2 == NULL)
-    seq_parse_se_sf(sf1, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
+  if(sf2 == NULL) {
+    seq_parse_se_sf(sf1, &pool->rjob.r1, &pool->rjob.r2,
+                    prefs, stats, &load_paths, pool);
+  }
   else {
     pool->seen_pe = true;
-    seq_parse_pe_sf(sf1, sf2, &pool->r1, &pool->r2, prefs, stats, &load_paths, pool);
+    seq_parse_pe_sf(sf1, sf2, &pool->rjob.r1, &pool->rjob.r2,
+                    prefs, stats, &load_paths, pool);
   }
 }

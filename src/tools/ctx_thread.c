@@ -12,6 +12,8 @@
 #include "graph_walker.h"
 #include "seq_reader.h"
 
+#define DEFAULT_MAX_INS 500
+
 static const char usage[] =
 "usage: "CMD" thread [options] <out.ctp> <in.ctx>[:cols] [in2.ctx ...]\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"
@@ -29,10 +31,10 @@ static const char usage[] =
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n"
 "\n"
-// "  Insert size filtering for follow --seq2 files:\n"
-// "    --minIns <ins>             Minimum insert size [default:0]\n"
-// "    --maxIns <ins>             Maximum insert size [default:500]\n"
-// "\n"
+"  Insert size filtering for following --seq2 files:\n"
+"    --minIns <ins>             Minimum insert size [default:0]\n"
+"    --maxIns <ins>             Maximum insert size [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
+"\n"
 "  Example:\n"
 "    "CMD" thread -m 80G -p 0:Minnie.ctp -p 2:Mickey.ctp \\\n"
 "                 --col 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
@@ -40,8 +42,6 @@ static const char usage[] =
 "                 samples.ctp samples.ctx\n"
 "\n"
 "  See `"CMD" pjoin` to combine .ctp files\n";
-
-#define NUM_PASSES 1
 
 static void get_binary_and_colour(const GraphFileReader *files, size_t num_files,
                                   size_t col, size_t *file_idx, size_t *col_idx)
@@ -67,12 +67,18 @@ int ctx_thread(CmdArgs *args)
 
   seq_file_t *seqfiles[argc];
   size_t num_sf = 0, sf = 0;
+  size_t gap_limit = DEFAULT_MAX_INS, gap_tmp;
 
   int argi;
   boolean used_last_path = false;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcmp(argv[argi],"--col") == 0)
+    if(strcmp(argv[argi],"--printinsgaps") == 0)
+    {
+      // print_traversed_inserts is defined in add_read_paths.h
+      print_traversed_inserts = true;
+    }
+    else if(strcmp(argv[argi],"--col") == 0)
     {
       if(argi+2 >= argc)
         print_usage(usage, "--col <ctxcol> <ctpcol> requires an argument");
@@ -108,7 +114,24 @@ int ctx_thread(CmdArgs *args)
       used_last_path = true;
       argi += 2;
     }
+    else if(strcasecmp(argv[argi],"--minIns") == 0)
+    {
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &gap_tmp))
+        print_usage(usage, "--minIns <bp> requires a positive integer argument");
+      argi++;
+    }
+    else if(strcasecmp(argv[argi],"--maxIns") == 0)
+    {
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &gap_tmp))
+        print_usage(usage, "--maxIns <bp> requires a positive integer argument");
+      gap_limit = MAX2(gap_limit, gap_tmp);
+      argi++;
+    }
     else print_usage(usage, "Unknown option: %s", argv[argi]);
+  }
+
+  if(print_traversed_inserts && args->num_threads > 1) {
+    die("--printinsgaps with >1 threads is a bad idea.");
   }
 
   if(num_seq_cols == 0)
@@ -138,12 +161,7 @@ int ctx_thread(CmdArgs *args)
   {
     status("File: %s", graph_paths[i]);
     files[i] = INIT_GRAPH_READER;
-    int ret = graph_file_open(&files[i], graph_paths[i], false);
-
-    if(ret == 0)
-      print_usage(usage, "Cannot read input graph file: %s", graph_paths[i]);
-    else if(ret < 0)
-      print_usage(usage, "Input graph file isn't valid: %s", graph_paths[i]);
+    graph_file_open(&files[i], graph_paths[i], true);
 
     if(i > 0 && files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
       print_usage(usage, "Kmer sizes don't match [%u vs %u]",
@@ -189,21 +207,15 @@ int ctx_thread(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem;
-  char graph_mem_str[100], path_mem_str[100];
+  char path_mem_str[100];
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
                   2*args->num_threads; // Have traversed
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, ctx_max_kmers, false);
-
-  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
-              (kmers_in_hash*bits_per_kmer)/8;
-  bytes_to_str(graph_mem, 1, graph_mem_str);
-
-  if(graph_mem >= args->mem_to_use)
-    die("Not enough memory for graph (requires %s)", graph_mem_str);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, ctx_max_kmers,
+                                        false, &graph_mem);
 
   // Path Memory
   size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
@@ -216,6 +228,9 @@ int ctx_thread(CmdArgs *args)
 
   if(path_mem < path_max_mem + tmppathsize)
     die("Not enough memory for paths (requires %s)", req_path_mem_str);
+
+  size_t total_mem = graph_mem + path_mem;
+  cmd_check_mem_limit(args, total_mem);
 
   // Open output file
   FILE *fout = fopen(out_ctp_path, "w");
@@ -291,58 +306,71 @@ int ctx_thread(CmdArgs *args)
 
   paths_format_write_header(&pheader, fout);
 
-  uint32_t gap_limit = 500;
   PathsWorkerPool *pool;
 
+  // set up mutexes for reading paths
   add_read_paths_init();
-  pool = path_workers_pool_new(args->num_threads, &db_graph, gap_limit);
+  pool = path_workers_pool_new(args->num_threads, &db_graph, gap_limit+1);
 
   // Parse input sequence
-  size_t rep, ctxindex, ctxcol;
+  size_t ctxindex, ctxcol, min_ins = 0, max_ins = DEFAULT_MAX_INS;
 
-  for(rep = 0; rep < NUM_PASSES; rep++)
+  for(argi = 0; argi < argend; argi++)
   {
-    for(argi = 0; argi < argend; argi++)
+    if(strcmp(argv[argi],"--printinsgaps")) {}
+    else if(strcmp(argv[argi], "--col") == 0)
     {
-      if(strcmp(argv[argi], "--col") == 0)
-      {
-        if(rep > 0 || argi > 0) path_workers_wait_til_finished(pool);
+      if(argi > 0) path_workers_wait_til_finished(pool);
 
-        // wipe colour 0
-        // db_graph_wipe_colour(&db_graph, 0);
-        graph_info_init(&db_graph.ginfo[0]);
-        memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(Edges));
+      // wipe colour 0
+      graph_info_init(&db_graph.ginfo[0]);
+      memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(Edges));
 
-        parse_entire_size(argv[argi+1], &graph_col);
+      parse_entire_size(argv[argi+1], &graph_col);
 
-        // Pick correct graph file and colour
-        get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
-        graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
+      // Pick correct graph file and colour
+      get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
+      graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
 
-        argi++;
-      }
-      else if(strcmp(argv[argi], "--seq") == 0) {
-        path_workers_add_paths_to_graph(pool, seqfiles[sf], NULL,
-                                        gap_limit, 0, graph_col, &prefs, stats);
-        argi += 1;
-        sf++;
-      }
-      else if(strcmp(argv[argi], "--seq2") == 0) {
-        path_workers_add_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1],
-                                        gap_limit, 0, graph_col, &prefs, stats);
-        argi += 2;
-        sf += 2;
-      }
-      else die("Unknown arg: %s", argv[argi]);
+      argi++;
     }
+    else if(strcasecmp(argv[argi],"--minIns") == 0)
+    {
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &min_ins))
+        die("Bad --minIns");
+      argi++;
+    }
+    else if(strcasecmp(argv[argi],"--maxIns") == 0)
+    {
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &max_ins))
+        die("Bad --maxIns");
+      argi++;
+    }
+    else if(strcmp(argv[argi], "--seq") == 0) {
+      path_workers_add_paths_to_graph(pool, seqfiles[sf], NULL,
+                                      0, graph_col, min_ins, max_ins,
+                                      &prefs, stats);
+      argi += 1;
+      sf++;
+    }
+    else if(strcmp(argv[argi], "--seq2") == 0) {
+      path_workers_add_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1],
+                                      0, graph_col, min_ins, max_ins,
+                                      &prefs, stats);
+      argi += 2;
+      sf += 2;
+    }
+    else die("Unknown arg: %s", argv[argi]);
   }
 
   path_workers_pool_dealloc(pool, stats->num_se_reads, stats->num_pe_reads / 2);
 
-  char se_num_str[100], pe_num_str[100];
+  char se_num_str[100], pe_num_str[100], sepe_num_str[100];
   ulong_to_str(stats->num_se_reads, se_num_str);
   ulong_to_str(stats->num_pe_reads / 2, pe_num_str);
-  status("Threaded: single reads: %s; read pairs: %s", se_num_str, pe_num_str);
+  ulong_to_str(stats->num_se_reads + stats->num_pe_reads, sepe_num_str);
+  status("Threaded: single reads: %s; read pairs: %s; total: %s",
+         se_num_str, pe_num_str, sepe_num_str);
 
   size_t num_path_bytes = paths->next - paths->store;
   char kmers_str[100], paths_str[100], mem_str[100];

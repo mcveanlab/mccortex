@@ -169,15 +169,17 @@ int ctx_infer_edges(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer = file.hdr.num_of_cols;
-  size_t kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                               file.hdr.num_of_kmers, true);
+  size_t kmers_in_hash, extra_bits_per_kmer = file.hdr.num_of_cols, graph_mem;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
+                                        file.hdr.num_of_kmers, true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   db_graph_alloc(&db_graph, file.hdr.kmer_size,
                  file.hdr.num_of_cols, 0, kmers_in_hash);
 
   // In colour
-  size_t words64_per_col = round_bits_to_words64(db_graph.ht.capacity);
+  size_t words64_per_col = roundup_bits2words64(db_graph.ht.capacity);
   db_graph.node_in_cols = calloc2(words64_per_col * file.hdr.num_of_cols,
                                   sizeof(uint64_t));
 

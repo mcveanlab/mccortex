@@ -103,8 +103,8 @@ int ctx_call(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, thread_mem, total_mem;
-  char path_mem_str[100], thread_mem_str[100], total_mem_str[100];
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, thread_mem;
+  char path_mem_str[100], thread_mem_str[100];
 
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/thread)
@@ -113,13 +113,10 @@ int ctx_call(CmdArgs *args)
                   file.hdr.num_of_cols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.hdr.num_of_kmers, false);
-
-  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
-              (kmers_in_hash*bits_per_kmer)/8;
+                                        file.hdr.num_of_kmers, false, &graph_mem);
 
   // Thread memory
-  thread_mem = round_bits_to_bytes(kmers_in_hash) * 2;
+  thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;
   bytes_to_str(thread_mem * num_of_threads, 1, thread_mem_str);
   status("[memory] (of which threads: %zu x %zu = %s)\n",
           num_of_threads, thread_mem, thread_mem_str);
@@ -131,11 +128,8 @@ int ctx_call(CmdArgs *args)
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  total_mem = graph_mem + path_mem;
-  bytes_to_str(total_mem, 1, total_mem_str);
-
-  if(total_mem > args->mem_to_use)
-    die("Requires at least %s memory", total_mem_str);
+  size_t total_mem = graph_mem + thread_mem + path_mem;
+  cmd_check_mem_limit(args, total_mem);
 
   // Check output file writeable
   if(!futil_is_file_writable(out_path))
@@ -151,7 +145,7 @@ int ctx_call(CmdArgs *args)
   db_graph.col_edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
   // In colour
-  size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
+  size_t words64_per_col = roundup_bits2words64(kmers_in_hash);
   db_graph.node_in_cols = calloc2(words64_per_col*file.hdr.num_of_cols, sizeof(uint64_t));
 
   // Paths

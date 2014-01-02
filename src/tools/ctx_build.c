@@ -183,11 +183,12 @@ int ctx_build(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
   bits_per_kmer = ((sizeof(Covg) + sizeof(Edges)) * 8 + remove_pcr_used*2) *
                   output_colours;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true, &graph_mem);
+  cmd_check_mem_limit(args, graph_mem);
 
   status("Writing %zu colour graph to %s\n", output_colours, out_path);
 
@@ -197,7 +198,7 @@ int ctx_build(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity * output_colours, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * output_colours, sizeof(Covg));
 
-  size_t kmer_words = round_bits_to_words64(db_graph.ht.capacity);
+  size_t kmer_words = roundup_bits2words64(db_graph.ht.capacity);
 
   if(remove_pcr_used)
     db_graph.readstrt = calloc2(kmer_words*2, sizeof(uint64_t));

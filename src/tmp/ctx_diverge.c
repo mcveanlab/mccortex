@@ -239,8 +239,8 @@ int ctx_diverge(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash;
-  size_t graph_mem,  chrom_pos_mem, chrom_pos_num, total_mem;
-  char total_mem_str[100], chrom_pos_mem_str[100], chrom_pos_num_str[100];
+  size_t graph_mem, chrom_pos_mem, chrom_pos_num, total_mem;
+  char chrom_pos_mem_str[100], chrom_pos_num_str[100];
   char path_mem_str[100];
 
   // 2 colours: col_edges, kmer_paths, in_col, visited fw/rv, called from node,
@@ -249,10 +249,7 @@ int ctx_diverge(CmdArgs *args)
                   sizeof(uint32_t)*2*8;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, false);
-
-  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
-              (kmers_in_hash*bits_per_kmer)/8;
+                                        gheader.num_of_kmers, false, &graph_mem);
 
   chrom_pos_num = (0x1<<28);
   chrom_pos_mem = chrom_pos_num * sizeof(LinkedChromPos);
@@ -260,10 +257,7 @@ int ctx_diverge(CmdArgs *args)
   ulong_to_str(chrom_pos_num, chrom_pos_num_str);
 
   total_mem = graph_mem + chrom_pos_mem + path_mem;
-  bytes_to_str(total_mem, 1, total_mem_str);
-
-  if(total_mem > args->mem_to_use)
-    die("Not enough memory for graph (requires %s)", total_mem_str);
+  cmd_check_mem_limit(args, total_mem);
 
   status("[memory] chrom positions: %s (%s) paths: %s\n",
          chrom_pos_num_str, chrom_pos_mem_str, path_mem_str);
@@ -278,7 +272,7 @@ int ctx_diverge(CmdArgs *args)
   db_graph.col_edges = calloc2(kmers_in_hash*2, sizeof(uint8_t));
 
   // In colour - used is traversal
-  size_t words64_per_col = round_bits_to_words64(kmers_in_hash);
+  size_t words64_per_col = roundup_bits2words64(kmers_in_hash);
   db_graph.node_in_cols = calloc2(words64_per_col*num_of_cols, sizeof(uint64_t));
 
   // Paths

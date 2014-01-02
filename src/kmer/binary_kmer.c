@@ -1,6 +1,18 @@
 #include "global.h"
 #include "binary_kmer.h"
 
+// bswap only used for approach 2 in binary_kmer_reverse_complement
+#ifdef _MSC_VER
+  #define bswap_32(x) _byteswap_ulong(x)
+  #define bswap_64(x) _byteswap_uint64(x)
+#elif defined(__APPLE__)
+  #include <libkern/OSByteOrder.h>
+  #define bswap_32(x) OSSwapInt32(x)
+  #define bswap_64(x) OSSwapInt64(x)
+#else
+  #include <byteswap.h>
+#endif
+
 // This is exported
 const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 
@@ -8,7 +20,7 @@ const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 #if NUM_BKMER_WORDS > 2
 boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right)
 {
-  int i;
+  size_t i;
 
   // start at most significant end
   for(i = 0; i < NUM_BKMER_WORDS; i++)
@@ -145,38 +157,41 @@ static const uint8_t revcmp_table[256] =
 BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
                                           size_t kmer_size)
 {
+  const size_t top_bits = BKMER_TOP_BITS(kmer_size), unused_bits = 64 - top_bits;
   size_t i, j, k;
   BinaryKmer revcmp = BINARY_KMER_ZERO_MACRO;
+  uint64_t word;
 
-  for(i = 0; i < NUM_BKMER_WORDS; i++)
+  for(i = 0, j = NUM_BKMER_WORDS-1; i < NUM_BKMER_WORDS; i++, j--)
   {
     // swap word i into word j
-    j = NUM_BKMER_WORDS - i - 1;
-    uint64_t kmer_word = bkmer.b[i];
+    word = bkmer.b[i];
 
-    // Loop over bytes in binary kmer
+    // In word: reversing base order and bit negate (complementing base)
+    // Approach 1 (using revcmp_table)
     for(k = 0; k < sizeof(uint64_t); k++)
     {
       revcmp.b[j] <<= 8;
-      revcmp.b[j] |= revcmp_table[kmer_word & 0xff];
-      kmer_word >>= 8;
+      revcmp.b[j] |= revcmp_table[word & 0xff];
+      word >>= 8;
     }
+    // Approach 2
+    // // Swap byte order
+    // word = bswap_64(word);
+    // // 4 bases within a byte, so swap their order
+    // word = (((word & 0x0303030303030303UL) << 6) |
+    //         ((word & 0x0c0c0c0c0c0c0c0cUL) << 2) |
+    //         ((word & 0x3030303030303030UL) >> 2) |
+    //         ((word & 0xc0c0c0c0c0c0c0c0UL) >> 6));
+    // // Bitwise negate to complement bases
+    // revcmp.b[j] = ~word;
   }
-
-  // bits in top word
-  size_t top_bits = BKMER_TOP_BITS(kmer_size);
-  size_t unused_bits = 64 - top_bits;
 
   // Now shift bits right by unused_bits
-  int w = NUM_BKMER_WORDS-1;
-
-  revcmp.b[w] >>= unused_bits;
-
-  for(w = w - 1; w >= 0; w--)
-  {
-    revcmp.b[w+1] |= revcmp.b[w] << top_bits;
-    revcmp.b[w] >>= unused_bits;
+  for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
+    revcmp.b[i] = (revcmp.b[i] >> unused_bits) | (revcmp.b[i-1] << top_bits);
   }
+  revcmp.b[0] >>= unused_bits;
 
   return revcmp;
 }

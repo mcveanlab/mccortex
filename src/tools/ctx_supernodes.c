@@ -115,7 +115,7 @@ static void dump_supernodes(hkey_t node)
 {
   size_t i;
 
-  if(!bitset_has(visited, node))
+  if(!bitset_get(visited, node))
   {
     snlen = supernode_find(node, &nodes, &ncap, &db_graph);
     for(i = 0; i < snlen; i++) bitset_set(visited, nodes[i].key);
@@ -207,9 +207,12 @@ int ctx_supernodes(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
   bits_per_kmer = (sizeof(Edges) + sizeof(sndata_t)*(print_syntax==PRINT_DOT))*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_ctx_kmers, true);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_ctx_kmers,
+                                        true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   const char *syntax_str[3] = {"FASTA", "DOT (Graphviz)"};
   status("Output in %s format to %s\n", syntax_str[print_syntax],
@@ -239,7 +242,7 @@ int ctx_supernodes(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   // Visited
-  size_t numwords64 = round_bits_to_words64(db_graph.ht.capacity);
+  size_t numwords64 = roundup_bits2words64(db_graph.ht.capacity);
   visited = calloc2(numwords64, sizeof(uint64_t));
 
   SeqLoadingPrefs prefs = {.db_graph = &db_graph,

@@ -32,10 +32,12 @@ int ctx_health_check(CmdArgs *args)
   size_t ncols = graph_file_outncols(&file);
 
   // Decide on memory
-  size_t extra_bits_per_kmer, kmers_in_hash;
+  size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        file.hdr.num_of_kmers, true);
+                                        file.hdr.num_of_kmers, true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   // Create db_graph
   dBGraph db_graph;

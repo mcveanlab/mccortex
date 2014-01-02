@@ -33,7 +33,7 @@ typedef struct {
   size_t total_len, total_junc;
   size_t contigs_outdegree[5];
   size_t paths_held[MAXPATH], paths_pickdup[MAXPATH], paths_counter[MAXPATH];
-  size_t grphwlk_states[GRPHWLK_MISSING_PATHS+1];
+  size_t grphwlk_steps[8]; // 8 states in graph_walker.h
   size_t *lengths, *junctions;
   size_t max_len, max_junc;
   double max_junc_density;
@@ -59,8 +59,8 @@ static void contig_print_path_dist(const size_t *hist, size_t n,
 static void contig_grphwlk_state(const char *str, size_t n, size_t ncontigs)
 {
   char nout_str[100];
-  status("  %s: %s\t[%zu%%]", str, ulong_to_str(n, nout_str),
-         (size_t)((100.0*n)/(2.0*ncontigs)+0.5));
+  status("  %s: %s\t[ %2zu%% ]", str, ulong_to_str(n, nout_str),
+         (size_t)(((100.0*n)/ncontigs)+0.5));
 }
 
 static inline void contig_data_alloc(ContigData *cd, size_t capacity)
@@ -71,7 +71,7 @@ static inline void contig_data_alloc(ContigData *cd, size_t capacity)
                     .total_len = 0, .total_junc = 0,
                     .contigs_outdegree = {0}, .paths_held = {0},
                     .paths_pickdup = {0}, .paths_counter = {0},
-                    .grphwlk_states = {0},
+                    .grphwlk_steps = {0},
                     .lengths = lengths, .junctions = junctions,
                     .max_len = 0, .max_junc = 0,
                     .max_junc_density = 0, .nprint = 0};
@@ -125,6 +125,7 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
       graph_walker_node_add_counter_paths(wlk, lost_nuc);
       lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
       db_node_buf_safe_add(&cd->nodes, wlk->node, wlk->orient);
+      cd->grphwlk_steps[wlk->last_step.status]++;
     }
 
     // Grab some stats
@@ -133,8 +134,8 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
     cd->paths_pickdup[MIN2(wlk->num_new, MAXPATH-1)]++;
     cd->paths_counter[MIN2(wlk->num_counter, MAXPATH-1)]++;
 
-    cd->grphwlk_states[grphwlk_status]++;
-
+    // Get failed status
+    cd->grphwlk_steps[wlk->last_step.status]++;
     // nloop += rptwlk->nbloom_entries;
 
     graph_walker_finish(wlk);
@@ -300,15 +301,11 @@ int ctx_contigs(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
-  char path_mem_str[100], total_mem_str[100];
+  char path_mem_str[100];
 
   bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.hdr.num_of_kmers, false);
-
-  graph_mem = hash_table_mem(kmers_in_hash, false, NULL) +
-              (bits_per_kmer * kmers_in_hash) / 8;
-
+                                        file.hdr.num_of_kmers, false, &graph_mem);
 
   // Paths memory
   size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
@@ -319,10 +316,7 @@ int ctx_contigs(CmdArgs *args)
 
   // Total memory
   total_mem = graph_mem + path_mem;
-  bytes_to_str(total_mem, 1, total_mem_str);
-
-  if(total_mem > args->mem_to_use)
-    die("Requires at least %s memory", total_mem_str);
+  cmd_check_mem_limit(args, total_mem);
 
   //
   // Output file if printing
@@ -341,7 +335,7 @@ int ctx_contigs(CmdArgs *args)
   db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
   graph_walker_alloc(&wlk);
 
-  size_t node_bit_fields = round_bits_to_words64(db_graph.ht.capacity);
+  size_t node_bit_fields = roundup_bits2words64(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(node_bit_fields * file.hdr.num_of_cols,
@@ -462,13 +456,24 @@ int ctx_contigs(CmdArgs *args)
   contig_print_path_dist(cd.paths_pickdup, MAXPATH, "Paths pickdup", cd.ncontigs);
   contig_print_path_dist(cd.paths_counter, MAXPATH, "Paths counter", cd.ncontigs);
 
-  const size_t *states = cd.grphwlk_states;
+  const size_t *states = cd.grphwlk_steps;
+  uint64_t nsteps = cd.total_len - cd.ncontigs, ncontigends = 2*cd.ncontigs;
+  status("Traversal succeeded because:");
+  contig_grphwlk_state("Go straight   ", states[GRPHWLK_FORWARD], nsteps);
+  contig_grphwlk_state("Go colour     ", states[GRPHWLK_COLFWD], nsteps);
+  contig_grphwlk_state("Go paths      ", states[GRPHWLK_USEPATH], nsteps);
   status("Traversal halted because:");
-  contig_grphwlk_state("No coverage   ", states[GRPHWLK_NOCOVG], cd.ncontigs);
-  contig_grphwlk_state("No colour covg", states[GRPHWLK_NO_COL_COVG], cd.ncontigs);
-  contig_grphwlk_state("No paths      ", states[GRPHWLK_SPLIT_NOPATH], cd.ncontigs);
-  contig_grphwlk_state("Paths split   ", states[GRPHWLK_SPLIT_PATHS], cd.ncontigs);
-  contig_grphwlk_state("Missing paths ", states[GRPHWLK_MISSING_PATHS], cd.ncontigs);
+  contig_grphwlk_state("No coverage   ", states[GRPHWLK_NOCOVG], ncontigends);
+  contig_grphwlk_state("No colour covg", states[GRPHWLK_NOCOLCOVG], ncontigends);
+  contig_grphwlk_state("No paths      ", states[GRPHWLK_NOPATHS], ncontigends);
+  contig_grphwlk_state("Paths split   ", states[GRPHWLK_SPLIT_PATHS], ncontigends);
+  contig_grphwlk_state("Missing paths ", states[GRPHWLK_MISSING_PATHS], ncontigends);
+
+  size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
+                 states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];
+
+  status("Junctions:");
+  contig_grphwlk_state("Paths resolved", states[GRPHWLK_USEPATH], njunc);
 
   contig_data_dealloc(&cd);
 

@@ -16,6 +16,8 @@
 #include <assert.h>
 #include <zlib.h>
 
+#include "bit_macros.h" // from bit_array
+
 typedef signed char boolean;
 
 #ifndef true

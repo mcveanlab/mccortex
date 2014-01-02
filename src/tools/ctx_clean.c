@@ -53,7 +53,7 @@ static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
   size_t i, len, cap;
   Covg reads_arriving;
 
-  if(!bitset_has(visited, node))
+  if(!bitset_get(visited, node))
   {
     cap = *ncap;
     len = supernode_find(node, nodes, ncap, db_graph);
@@ -76,7 +76,7 @@ static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
   size_t i, len, cap;
   Covg reads_arriving;
 
-  if(!bitset_has(visited, node))
+  if(!bitset_get(visited, node))
   {
     cap = *ncap;
     len = supernode_find(node, nodes, ncap, db_graph);
@@ -110,7 +110,7 @@ static inline void clip_tip(hkey_t node, dBGraph *db_graph,
   Edges first, last;
   int in, out;
 
-  if(!bitset_has(visited, node))
+  if(!bitset_get(visited, node))
   {
     len = supernode_find(node, nodes, ncap, db_graph);
 
@@ -210,7 +210,7 @@ static Covg clean_supernodes(dBGraph *db_graph, boolean clean,
 {
   if(db_graph->ht.unique_kmers == 0) return covg_threshold;
   uint64_t *covg_hist;
-  size_t threshold_est, visited_words = round_bits_to_words64(db_graph->ht.capacity);
+  size_t threshold_est, visited_words = roundup_bits2words64(db_graph->ht.capacity);
   Covg *tmpcovgs = malloc2((*ncap) * sizeof(Covg));
 
   if(covg_threshold == 0 || dump_covgs != NULL)
@@ -375,10 +375,12 @@ int ctx_clean(CmdArgs *args)
   //
   // Pick hash table size
   //
-  size_t kmers_in_hash, extra_bits_per_kmer;
+  size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
   extra_bits_per_kmer = (sizeof(Covg)+sizeof(Edges))*8*use_ncols + sizeof(Edges)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        max_ctx_kmers, true);
+                                        max_ctx_kmers, true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   // Check output files are writable
   if(!futil_is_file_writable(out_ctx_path))
@@ -448,7 +450,7 @@ int ctx_clean(CmdArgs *args)
   // Variables possibly used
   size_t ncap = 2048;
   dBNode *nodes = malloc2(ncap * sizeof(dBNode));
-  size_t visited_words = round_bits_to_words64(db_graph.ht.capacity);
+  size_t visited_words = roundup_bits2words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(visited_words, sizeof(uint64_t));
 
   char rem_kmers_str[100];

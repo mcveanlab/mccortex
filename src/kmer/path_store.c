@@ -9,7 +9,7 @@
 void path_store_init(PathStore *paths, uint8_t *data, size_t size,
                        size_t num_of_cols)
 {
-  uint32_t colset_bytes = round_bits_to_bytes(num_of_cols);
+  uint32_t colset_bytes = roundup_bits2bytes(num_of_cols);
 
   char memstr[100]; bytes_to_str(size, 1, memstr);
   status("[paths] Setting up path store to use %s", memstr);
@@ -191,7 +191,7 @@ PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
                                          boolean *added)
 {
   size_t i, intocol, fromcol, tmp;
-  const size_t packed_bitset_bytes = round_bits_to_bytes(fltr->filencols);
+  const size_t packed_bitset_bytes = roundup_bits2bytes(fltr->filencols);
 
   if(path_store_fltr_compatible(store,fltr)) {
     return _path_store_find_or_add_packed(store, last_index, packed,
@@ -215,7 +215,7 @@ PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
   for(i = 0; i < fltr->ncols; i++) {
     intocol = file_filter_intocol(fltr, i);
     fromcol = file_filter_fromcol(fltr, i);
-    bitset_cpy(store_bitset, intocol, bitset_has(packed_bitset, fromcol));
+    bitset_cpy(store_bitset, intocol, bitset_get(packed_bitset, fromcol));
   }
 
   // Check colours filtered are actually used in path passed
@@ -301,7 +301,7 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
   else printf("%8zu", (size_t)prev);
   printf(" (cols:");
   for(i = 0; i < paths->num_of_cols; i++)
-    if(bitset_has(colbitset, i)) printf(" %zu", i);
+    if(bitset_get(colbitset, i)) printf(" %zu", i);
   printf(")[%u]: ", len);
   for(i = 0; i < len; i++)
     putc(dna_nuc_to_char(bases[i]), stdout);

@@ -170,11 +170,13 @@ int ctx_extend(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
   bits_per_kmer = (sizeof(Edges) + 2*sizeof(uint64_t)) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.hdr.num_of_kmers, true);
+                                        file.hdr.num_of_kmers, true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   status("Max walk: %zu\n", dist);
 
@@ -183,7 +185,7 @@ int ctx_extend(CmdArgs *args)
   db_graph_alloc(&db_graph, file.hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
-  size_t visited_words = 2*round_bits_to_words64(db_graph.ht.capacity);
+  size_t visited_words = 2*roundup_bits2words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(visited_words, sizeof(Edges));
 
     // Store edge nodes here

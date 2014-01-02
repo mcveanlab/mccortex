@@ -5,7 +5,12 @@
 #define BSIZE 0
 #define BITEMS 1
 
+// Hash table prefetching doesn't appear to be faster
+// #define HASH_PREFETCH 1
+
 static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER_WORD}};
+
+#define ht_bckt_ptr(ht,bckt) ((ht)->table + (size_t)bckt * (ht)->bucket_size)
 
 // Returns capacity
 size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
@@ -94,7 +99,7 @@ static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const
                                                           uint_fast32_t bucket,
                                                           const BinaryKmer bkmer)
 {
-  const BinaryKmer *ptr = htable->table + (size_t)bucket * htable->bucket_size;
+  const BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
   const BinaryKmer *end = ptr + htable->buckets[bucket][BSIZE];
 
   while(ptr < end) {
@@ -111,7 +116,7 @@ const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const htable
                                                    const BinaryKmer bkmer,
                                                    boolean *found)
 {
-  const BinaryKmer *ptr = htable->table + (size_t)bucket * htable->bucket_size;
+  const BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
   const BinaryKmer *end = ptr + htable->buckets[bucket][BSIZE];
   const BinaryKmer *empty = NULL;
 
@@ -147,7 +152,7 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
                                                       const BinaryKmer bkmer)
 {
   assert(htable->buckets[bucket][BITEMS] < htable->bucket_size);
-  BinaryKmer *ptr = htable->table + (size_t)bucket * htable->bucket_size;
+  BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
 
   if(htable->buckets[bucket][BSIZE] == htable->buckets[bucket][BITEMS]) {
     ptr += htable->buckets[bucket][BSIZE];
@@ -179,13 +184,26 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
 {
   const BinaryKmer *ptr;
-  size_t i; uint_fast32_t h;
-  // uint_fast32_t hash = binary_kmer_hash(key,0);
+  size_t i;
+  uint_fast32_t h;
+
+  #ifdef HASH_PREFETCH
+    uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
+    // __builtin_prefetch(ht_bckt_ptr(htable, h2));
+  #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    // h = (hash + i*(i+1)/2) & htable->hash_mask;
-    h = binary_kmer_hash(key,i) & htable->hash_mask;
+    #ifdef HASH_PREFETCH
+      h = h2;
+      if(htable->buckets[h][BSIZE] == htable->bucket_size) {
+        h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
+        __builtin_prefetch(ht_bckt_ptr(htable, h2));
+      }
+    #else
+      h = binary_kmer_hash(key,i) & htable->hash_mask;
+    #endif
+
     ptr = hash_table_find_in_bucket(htable, h, key);
     if(ptr != NULL) return (ptr - htable->table);
     if(htable->buckets[h][BSIZE] < htable->bucket_size) return HASH_NOT_FOUND;
@@ -201,12 +219,12 @@ hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
 hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
 {
   const BinaryKmer *ptr;
-  size_t i; uint_fast32_t h;
-  // hash = binary_kmer_hash(key,0);
+  size_t i;
+  uint_fast32_t h;
+  // prefetch doesn't make sense when not searching..
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    // h = (hash + i*(i+1)/2) & htable->hash_mask;
     h = binary_kmer_hash(key,i) & htable->hash_mask;
     if(htable->buckets[h][BITEMS] < htable->bucket_size) {
       ptr = hash_table_insert_in_bucket(htable, h, key);
@@ -222,13 +240,26 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
                                  boolean *found)
 {
   const BinaryKmer *ptr;
-  size_t i; uint_fast32_t h;
-  // hash = binary_kmer_hash(key,0);
+  size_t i;
+  uint_fast32_t h;
+
+  #ifdef HASH_PREFETCH
+    uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
+    // __builtin_prefetch(ht_bckt_ptr(htable, h2));
+  #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    // h = (hash + i*(i+1)/2) & htable->hash_mask;
-    h = binary_kmer_hash(key,i) & htable->hash_mask;
+    #ifdef HASH_PREFETCH
+      h = h2;
+      if(htable->buckets[h][BSIZE] == htable->bucket_size) {
+        h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
+        __builtin_prefetch(ht_bckt_ptr(htable, h2));
+      }
+    #else
+      h = binary_kmer_hash(key,i) & htable->hash_mask;
+    #endif
+
     ptr = hash_table_find_in_bucket(htable, h, key);
 
     if(ptr != NULL)  {

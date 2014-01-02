@@ -346,8 +346,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     Orientation *next_orients;
     BinaryKmer next_bkmers[4], next_bkmer;
     Nucleotide next_bases[4];
-    int nxt_idx;
-    boolean isfork;
+    GraphStep step;
 
     if(snorient == FORWARD) {
       num_edges = snode->num_next;
@@ -367,14 +366,14 @@ static void load_allele_path(hkey_t node, Orientation or,
       next_bases[i] = db_node_last_nuc(next_bkmers[i], next_orients[i], kmer_size);
     }
 
-    nxt_idx = graph_walker_choose(wlk, num_edges, next_nodes, next_bases, &isfork);
-    if(nxt_idx == -1) break;
+    step = graph_walker_choose(wlk, num_edges, next_nodes, next_bases);
+    if(step.idx == -1) break;
 
-    node = next_nodes[nxt_idx];
-    or = next_orients[nxt_idx];
-    next_bkmer = db_node_oriented_bkmer(next_bkmers[nxt_idx], or, kmer_size);
+    node = next_nodes[step.idx];
+    or = next_orients[step.idx];
+    next_bkmer = db_node_oriented_bkmer(next_bkmers[step.idx], or, kmer_size);
 
-    graph_traverse_force_jump(wlk, node, next_bkmer, isfork);
+    graph_traverse_force_jump(wlk, node, next_bkmer, graphstep_is_fork(step));
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
   }
   // printf("DONE\n");

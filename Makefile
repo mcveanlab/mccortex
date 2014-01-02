@@ -58,26 +58,28 @@ IDIR_HTS=libs/htslib/htslib
 IDIR_STRS=libs/string_buffer
 IDIR_SEQ=libs/seq_file
 IDIR_ALIGN=libs/seq-align/src
-IDIR_HASH=libs/hash_functions
+IDIR_BITARR=libs/bit_array
+IDIR_MISC=libs/misc
 
 # LIB_GSL=libs/gsl-1.16/.libs/libgsl.a
 LIB_HTS=libs/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 # LIB_STRS=libs/string_buffer/libstrbuf.a
 LIB_STRS=libs/string_buffer/string_buffer.c
+LIB_MISC=$(wildcard libs/misc/*.o)
 
 ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-INCS=-I $(IDIR_HASH) -I $(IDIR_STRS) -I $(IDIR_HTS) \
+INCS=-I $(IDIR_MISC) -I $(IDIR_BITARR) -I $(IDIR_STRS) -I $(IDIR_HTS) \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) $(EXTRA_INCS)
 
 # INCS=-I src/basic/ -I src/kmer/ -I src/tools/ $(INCS_EXTERNAL)
 # -I $(IDIR_GSL_HEADERS)
 
 # Library linking
-LIB_OBJS=$(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) $(wildcard libs/hash_functions/*.o)
+LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN)
 LINK=-lpthread -lz -lm
 # $(LIB_GSL)
 
@@ -121,19 +123,18 @@ KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
 # basic objects compile without MAXK
 # kmer and tool objects require MAXK
 BASIC_OBJDIR=build/basic
-KMER_OBJDIR=build/kmer$(MAXK)
-TOOLS_OBJDIR=build/tools$(MAXK)
-
 BASIC_SRCS=$(wildcard src/basic/*.c)
 BASIC_HDRS=$(wildcard src/basic/*.h) src/basic/version.h
 BASIC_FILES=$(notdir $(BASIC_SRCS))
 BASIC_OBJS=$(addprefix $(BASIC_OBJDIR)/, $(BASIC_FILES:.c=.o))
 
+KMER_OBJDIR=build/kmer$(MAXK)
 KMER_SRCS=$(wildcard src/kmer/*.c)
 KMER_HDRS=$(wildcard src/kmer/*.h)
 KMER_FILES=$(notdir $(KMER_SRCS))
 KMER_OBJS=$(addprefix $(KMER_OBJDIR)/, $(KMER_FILES:.c=.o))
 
+TOOLS_OBJDIR=build/tools$(MAXK)
 TOOLS_SRCS=$(wildcard src/tools/*.c)
 TOOLS_HDRS=$(wildcard src/tools/*.h)
 TOOLS_FILES=$(notdir $(TOOLS_SRCS))
@@ -141,8 +142,10 @@ TOOLS_OBJS=$(addprefix $(TOOLS_OBJDIR)/, $(TOOLS_FILES:.c=.o))
 
 HDRS=$(TOOLS_HDRS) $(KMER_HDRS) $(BASIC_HDRS)
 
+DIRS=bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR)
+
 # DEPS are kmer dependencies that do not need to be re-built per target
-DEPS=Makefile bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR) $(LIB_OBJS)
+DEPS=Makefile $(DIRS) $(LIB_OBJS)
 
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
@@ -151,7 +154,9 @@ else
 	OBJS=$(TOOLS_OBJS) $(KMER_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
 endif
 
-all: ctx
+.DEFAULT_GOAL := ctx
+
+all: ctx tests hashtest
 
 # This Makefile mastery borrowed from htslib [https://github.com/samtools/htslib]
 # If git repo, grab commit hash to use in version
@@ -186,17 +191,8 @@ bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
 	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
 
 # directories
-bin:
-	mkdir -p bin
-
-$(BASIC_OBJDIR):
-	mkdir -p $(BASIC_OBJDIR)
-
-$(KMER_OBJDIR):
-	mkdir -p $(KMER_OBJDIR)
-
-$(TOOLS_OBJDIR):
-	mkdir -p $(TOOLS_OBJDIR)
+$(DIRS):
+	mkdir -p $@
 
 # libraries
 $(LIB_OBJS):

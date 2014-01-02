@@ -246,7 +246,7 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 
   if(db_graph->node_in_cols != NULL)
   {
-    size_t words = round_bits_to_words64(capacity);
+    size_t words = roundup_bits2words64(capacity);
     for(i = 0; i < words; i++)
       db_graph->node_in_cols[db_graph->num_of_cols*i+col] = 0;
   }

@@ -10,8 +10,6 @@
 
 #define USE_COUNTER_PATHS 1
 
-size_t grphwlk_status = GRPHWLK_NOTSET;
-
 // For GraphWalker to work we assume all edges are merged into one colour
 // (i.e. graph->num_edge_cols == 1)
 // If only one colour loaded we assume all edges belong to this colour
@@ -257,8 +255,6 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   PathIndex index = db_node_paths(wlk->db_graph, wlk->node);
   wlk->num_new = pickup_paths(paths, wlk, index, wlk->orient, false);
   wlk->num_curr -= wlk->num_new;
-
-  grphwlk_status = GRPHWLK_NOTSET;
 }
 
 void graph_walker_finish(GraphWalker *wlk)
@@ -293,7 +289,7 @@ uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer)
     hash64 ^= bkmer.b[i];
 
   // Fold in half, use only bottom 32bits
-  uint32_t hash32 = (hash64 ^ (hash64>>32)) & 0xffffffff;
+  uint_fast32_t hash32 = (hash64 ^ (hash64>>32)) & 0xffffffff;
 
   for(i = 0; i < wlk->num_curr+wlk->num_new; i++)
     hash32 ^= follow_path_fasthash(wlk->curr_paths[i]);
@@ -308,21 +304,21 @@ uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer)
   return hash32;
 }
 
+#define return_step(i,s) {GraphStep _stp={.idx=(i),.status=(s)}; return _stp;}
+
 // Returns index of choice or -1
 // Sets is_fork_in_col true if there is a fork in the given colour
-int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
-                        const hkey_t next_nodes[4],
-                        const Nucleotide next_bases[4],
-                        boolean *is_fork_in_col)
+GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
+                              const hkey_t next_nodes[4],
+                              const Nucleotide next_bases[4])
 {
   // #ifdef DEBUG_WALKER
   //   printf("CHOOSE\n");
   //   print_state(wlk);
   // #endif
-  *is_fork_in_col = false;
 
-  if(num_next == 0) { grphwlk_status = GRPHWLK_NOCOVG; return -1; }
-  if(num_next == 1) return 0;
+  if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG);
+  if(num_next == 1) return_step( 0, GRPHWLK_FORWARD);
 
   int indices[4] = {0,1,2,3};
   hkey_t nodes_store[4];
@@ -346,8 +342,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
     num_next = j;
 
-    if(num_next == 1) return indices[0];
-    if(num_next == 0) { grphwlk_status = GRPHWLK_NO_COL_COVG; return -1; }
+    if(num_next == 1) return_step(indices[0], GRPHWLK_COLFWD);
+    if(num_next == 0) return_step(-1,         GRPHWLK_NOCOLCOVG);
   }
   else {
     nodes = next_nodes;
@@ -355,9 +351,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   }
 
   // We have hit a fork
-  *is_fork_in_col = true;
   // abandon if no path info
-  if(wlk->num_curr == 0) { grphwlk_status = GRPHWLK_SPLIT_NOPATH; return -1; }
+  if(wlk->num_curr == 0) return_step(-1, GRPHWLK_NOPATHS);
 
   // Do all the oldest paths pick a consistent next node?
   FollowPath *oldest_path = wlk->curr_paths[0];
@@ -369,10 +364,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   for(i = 1; i < wlk->num_curr; i++) {
     path = wlk->curr_paths[i];
     if(path->pos < greatest_age) break;
-    if(path->bases[path->pos] != greatest_nuc) {
-      grphwlk_status = GRPHWLK_SPLIT_PATHS;
-      return -1;
-    }
+    if(path->bases[path->pos] != greatest_nuc)
+      return_step(-1, GRPHWLK_SPLIT_PATHS);
   }
 
   // Does every next node have a path?
@@ -391,8 +384,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     c[path->bases[path->pos]] = 1;
   }
 
-  if(c[0]+c[1]+c[2]+c[3] < num_next)
-  { grphwlk_status = GRPHWLK_MISSING_PATHS; return -1; } // Missing assembly info
+  // Fail if missing assembly info
+  if(c[0]+c[1]+c[2]+c[3] < num_next) return_step(-1, GRPHWLK_MISSING_PATHS);
   if(c[0]+c[1]+c[2]+c[3] > num_next) die("Counter path corruption");
   #endif
 
@@ -400,7 +393,7 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   // Find the correct next node chosen by the paths
   for(i = 0; i < num_next; i++)
     if(bases[i] == greatest_nuc)
-      return indices[i];
+      return_step(indices[i], GRPHWLK_USEPATH);
 
   // If we reach here something has gone wrong
   // print some debug information then exit
@@ -433,6 +426,8 @@ int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
   die("Did you build this .ctp against THIS EXACT .ctx? (REALLY?)");
 }
+
+#undef return_step
 
 // Force a traversal
 // If fork is true, node is the result of taking a fork -> slim down paths
@@ -602,9 +597,10 @@ boolean graph_traverse(GraphWalker *wlk)
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              const hkey_t nodes[4], const Nucleotide bases[4])
 {
-  boolean is_fork;
-  int nxt_indx = graph_walker_choose(wlk, num_next, nodes, bases, &is_fork);
-  if(nxt_indx == -1) return false;
-  graph_traverse_force(wlk, nodes[nxt_indx], bases[nxt_indx], is_fork);
+  wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
+  int idx = wlk->last_step.idx;
+  if(idx == -1) return false;
+  graph_traverse_force(wlk, nodes[idx], bases[idx],
+                       graphstep_is_fork(wlk->last_step));
   return true;
 }

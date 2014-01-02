@@ -96,10 +96,12 @@ int ctx_covg(CmdArgs *args)
   size_t cols_used = num_col_given > 0 ? num_col_given : gheader.num_of_cols;
 
   // Figure out how much memory to use
-  size_t bits_per_kmer, kmers_in_hash;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
   bits_per_kmer = (sizeof(Edges) + sizeof(Covg)*cols_used) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gheader.num_of_kmers, true);
+                                        gheader.num_of_kmers, true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   // Create db_graph
   dBGraph db_graph;

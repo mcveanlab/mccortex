@@ -10,16 +10,26 @@ typedef struct
   PathLen pos, len;
 } FollowPath;
 
-#define GRPHWLK_NOTSET 0
-#define GRPHWLK_NOCOVG 1
-#define GRPHWLK_NO_COL_COVG 2
-#define GRPHWLK_SPLIT_NOPATH 3
-#define GRPHWLK_SPLIT_PATHS 4
-#define GRPHWLK_MISSING_PATHS 5
 
-// Not threadsafe, quick and dirty method
-// only valid after traversal returns false
-size_t grphwlk_status;
+typedef struct
+{
+  // idx is -1 if failed, otherwise index of path
+  int8_t idx;
+  uint8_t status;
+} GraphStep;
+
+// GraphStep.status values:
+#define GRPHWLK_FORWARD 0 /* Success: only one choice */
+#define GRPHWLK_COLFWD 1 /* Success: only one choice in colour */
+#define GRPHWLK_NOCOVG 2 /* Fail: no choices */
+#define GRPHWLK_NOCOLCOVG 3 /* Fail: fork in pop but no choices in colour */
+#define GRPHWLK_NOPATHS 4 /* Fail: fork in colour, no paths */
+#define GRPHWLK_SPLIT_PATHS 5 /* Fail: fork in colour, paths split */
+#define GRPHWLK_MISSING_PATHS 6 /* Fail: fork in colour, missing info */
+#define GRPHWLK_USEPATH 7 /* Success: fork in colour, paths resolved */
+
+// Was the last step resolving a split in this colour?
+#define graphstep_is_fork(stp) ((stp).status > GRPHWLK_NOCOLCOVG)
 
 typedef struct
 {
@@ -39,6 +49,7 @@ typedef struct
 
   // Stats
   size_t fork_count;
+  GraphStep last_step;
 } GraphWalker;
 
 // Need to pass number of colours in the graph
@@ -57,11 +68,10 @@ void graph_walker_finish(GraphWalker *wlk);
 // Hash a binary kmer + GraphWalker paths with offsets
 uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer);
 
-// Returns index of choice or -1
-int graph_walker_choose(const GraphWalker *wlk, size_t num_next,
-                        const hkey_t next_nodes[4],
-                        const Nucleotide next_bases[4],
-                        boolean *is_fork_in_col);
+// Returns index of choice or -1 along with status
+GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
+                              const hkey_t next_nodes[4],
+                              const Nucleotide next_bases[4]);
 
 // Move to the next node
 // If fork is true, node is the result of taking a fork -> slim down paths

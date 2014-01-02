@@ -202,11 +202,13 @@ int ctx_join(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer, kmers_in_hash;
+  size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
 
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        ctx_max_kmers, true);
+                                        ctx_max_kmers, true, &graph_mem);
+
+  cmd_check_mem_limit(args, graph_mem);
 
   // Check out_ctx_path is writable
   if(!futil_is_file_writable(out_ctx_path))
@@ -215,7 +217,6 @@ int ctx_join(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   Edges *intersect_edges = NULL;
-  // db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
 
   // Edges
   if(take_intersect) {

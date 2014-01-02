@@ -32,7 +32,7 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
   Edges keep_edges = 0x0;
   size_t col;
 
-  if(bitset_has(flags, node))
+  if(bitset_get(flags, node))
   {
     // Check edges
     Orientation orient, next_orient;
@@ -51,7 +51,7 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
           db_graph_next_node(db_graph, bkmer, nuc, orient,
                              &next_node, &next_orient);
 
-          if(!bitset_has(flags, next_node))
+          if(!bitset_get(flags, next_node))
           {
             // Next node fails filter - remove edge
             keep_edges = edges_del_edge(keep_edges, nuc, orient);
@@ -68,7 +68,7 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
 static void prune_nodes_lacking_flag_no_edges(hkey_t node, dBGraph *db_graph,
                                               uint64_t *flags)
 {
-  if(!bitset_has(flags, node))
+  if(!bitset_get(flags, node))
     prune_node_without_edges(db_graph, node);
 }
 

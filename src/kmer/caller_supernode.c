@@ -4,8 +4,14 @@
 #include "db_node.h"
 #include "supernode.h"
 
+#ifdef CITY_HASH
+  #include "city.h"
+#else
+  #include "lookup3.h"
+#endif
+
 #ifdef CTXVERBOSE
-#define DEBUG_CALLER 1
+  #define DEBUG_CALLER 1
 #endif
 
 // Create a supernode starting at node/or.  Store in snode.
@@ -111,8 +117,8 @@ uint64_t supernode_pathpos_hash(SupernodePathPos *spp)
   hsh ^= CityHash32((char*)spp->path->superorients, sorients_size);
 #else
   // Use Bob Jenkin's lookup3
-  hsh = hashlittle(spp->path->supernodes, snode_size, 0);
-  hsh = hashlittle(spp->path->superorients, sorients_size, hsh);
+  hsh = lk3_hashlittle(spp->path->supernodes, snode_size, 0);
+  hsh = lk3_hashlittle(spp->path->superorients, sorients_size, hsh);
 #endif
 
   return hsh;

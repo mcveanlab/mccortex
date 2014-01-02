@@ -3,6 +3,8 @@
 #include "util.h"
 #include "hash_table.h" // for calculating mem usage
 
+#include "mem_size.h" // in libs/misc/
+
 const char *cmds[NUM_CMDS]
   = {"build", "view", "healthcheck", "clean", "join", "supernodes", "subgraph",
      "reads", "extend", "contigs", "inferedges", "thread", "pview", "pjoin",
@@ -235,8 +237,9 @@ int cmd_run(int argc, char **argv)
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits_per_kmer is additional memory per node, above hash table for
 // BinaryKmers
-size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
-                             size_t min_num_kmers, boolean use_mem_limit)
+size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
+                             size_t min_num_kmers, boolean use_mem_limit,
+                             size_t *graph_mem_ptr)
 {
   size_t bits_per_kmer, req_kmers;
   size_t kmers_in_hash, hash_mem, graph_mem, min_kmers_mem;
@@ -297,11 +300,38 @@ size_t cmd_get_kmers_in_hash(CmdArgs *args, size_t extra_bits_per_kmer,
     }
   }
 
-  if(args->mem_to_use_set && min_kmers_mem > args->mem_to_use) {
+  if(graph_mem > args->mem_to_use) {
     die("Not enough memory for graph: require at least %s", min_kmers_mem_str);
   }
 
   status("[memory] graph: %s\n", graph_mem_str);
 
+  if(graph_mem_ptr != NULL) *graph_mem_ptr = graph_mem;
+
   return kmers_in_hash;
+}
+
+// Check memory against memory limit and machine memory
+void cmd_check_mem_limit(const CmdArgs *args, size_t mem_requested)
+{
+  char memstr[100], ramstr[100];
+  bytes_to_str(mem_requested, 1, memstr);
+
+  if(mem_requested > args->mem_to_use) {
+    if(args->mem_to_use_set)
+      die("Need to set higher memory limit [ at least -m %s ]", memstr);
+    else
+      die("Please set a memory limit [ at least -m %s ]", memstr);
+  }
+
+  // Get memory
+  size_t ram = getMemorySize();
+  bytes_to_str(ram, 1, ramstr);
+
+  if(mem_requested > ram) {
+    die("Requesting more memory than is available [ Reqeusted: -m %s RAM: %s ]",
+        memstr, ramstr);
+  }
+
+  status("[memory] total: %s\n", memstr);
 }

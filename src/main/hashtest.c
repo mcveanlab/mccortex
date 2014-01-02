@@ -11,6 +11,8 @@ static const char usage[] =
 
 int main(int argc, char **argv)
 {
+  ctx_msg_out = stderr;
+
   CmdArgs args;
   cmd_alloc(&args, argc, argv);
 
@@ -26,7 +28,10 @@ int main(int argc, char **argv)
   // Seed random
   seed_random();
 
-  size_t kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, true);
+  // Decide on memory
+  size_t kmers_in_hash, graph_mem;
+  kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, true, &graph_mem);
+  cmd_check_mem_limit(args, graph_mem);
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, args.kmer_size, 1, 0, kmers_in_hash);

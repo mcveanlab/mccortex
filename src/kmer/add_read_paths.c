@@ -18,6 +18,8 @@
 // Don't store assembly info longer than 1000 junctions
 #define MAX_PATH 100
 
+boolean print_traversed_inserts = true;
+
 boolean add_read_paths_mutex_setup = false;
 pthread_mutex_t add_paths_mutex;
 
@@ -220,14 +222,14 @@ static void add_read_path(const dBNode *nodes, size_t len,
 }
 
 // fill in gap in read node1==>---<==node2
-// Adds at most GAP_LIMIT nodes to nodebuf
+// Adds at most ins_gap_max nodes to nodebuf
 // If successful: traverses gap and adds new nodes including node2/orient2
 //    returns total number of nodes added (>= 0)
 // If unsucessful: doesn't add anything to the nodebuf, returns -1
 static int traverse_gap(dBNodeBuffer *nodebuf,
                         hkey_t node2, Orientation orient2,
-                        size_t gap_limit,
                         Colour ctxcol, Colour ctpcol,
+                        size_t ins_gap_min, size_t ins_gap_max,
                         GraphWalker *wlk, RepeatWalker *rptwlk,
                         const dBGraph *db_graph)
 {
@@ -245,7 +247,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   if(node1 == node2 && orient1 == orient2) return 0;
 
   // Ensure capacity
-  db_node_buf_ensure_capacity(nodebuf, nodebuf->len + gap_limit);
+  db_node_buf_ensure_capacity(nodebuf, nodebuf->len + ins_gap_max+1);
 
   dBNode *nodes = nodebuf->data + nodebuf->len;
   size_t pos = 0;
@@ -256,7 +258,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
   // need to call db_node_has_col only if more than one colour loaded
-  while(pos < gap_limit && graph_traverse(wlk) &&
+  while(pos <= ins_gap_max && graph_traverse(wlk) &&
         walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
@@ -273,7 +275,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   graph_walker_finish(wlk);
   walker_fast_clear(rptwlk, nodes, pos);
 
-  if(wlk->node == node2 && wlk->orient == orient2) {
+  if(wlk->node == node2 && wlk->orient == orient2 && pos >= ins_gap_min) {
     nodebuf->len += pos;
     return pos;
   }
@@ -281,7 +283,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   // Walk from right -> left
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node2, opposite_orientation(orient2));
 
-  pos = gap_limit-1;
+  pos = ins_gap_max;
   nodes[pos].key = node2;
   nodes[pos].orient = orient2;
   // pos is now the index at which we last added a node
@@ -311,15 +313,15 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   graph_walker_finish(wlk);
 
-  walker_fast_clear(rptwlk, nodes+pos, gap_limit-pos);
+  walker_fast_clear(rptwlk, nodes+pos, ins_gap_max-pos);
 
-  if(success)
+  if(success && pos >= ins_gap_min)
   {
     #ifdef CTXVERBOSE
       printf(" traverse success\n");
     #endif
-    size_t num = gap_limit - pos;
-    memmove(nodes, nodes + gap_limit - num, num * sizeof(dBNode));
+    size_t num = ins_gap_max - pos;
+    memmove(nodes, nodes + ins_gap_max - num, num * sizeof(dBNode));
     nodebuf->len += num;
     return num;
   }
@@ -402,8 +404,9 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
         if(prev_node == HASH_NOT_FOUND)
         {
           // Can we branch the gap from the prev contig?
-          int gapsize = traverse_gap(nodebuf, node, orient, job->gap_limit,
+          int gapsize = traverse_gap(nodebuf, node, orient,
                                      job->ctx_col, job->ctp_col,
+                                     job->ins_gap_min, job->ins_gap_max,
                                      wlk, rptwlk, db_graph);
 
           if(gapsize == -1)
@@ -418,11 +421,18 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
           }
           else
           {
-            // Update stats (gapsize is <= GAP_LIMIT)
-            if(i == r2_start) {
+            // Update stats (gapsize is <= ins_gap_max)
+            if(i == r2_start)
+            {
               // Kmer is start of second read
               int gap = gapsize - r2_offset;
               insert_sizes[gap < 0 ? 0 : gap]++;
+
+              if(print_traversed_inserts) {
+                printf(">GappedContig\n");
+                db_nodes_print(nodebuf->data+end, nodebuf->len-end, db_graph, stdout);
+                printf("\n");
+              }
             }
             else {
               gap_sizes[gapsize]++;

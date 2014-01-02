@@ -8,12 +8,12 @@
 typedef struct {
   read_t r1, r2;
   Colour ctp_col, ctx_col;
-  size_t gap_limit;
-  // size_t ins_gap_min, ins_gap_max;
+  size_t ins_gap_min, ins_gap_max;
   int qcutoff1, qcutoff2;
   int hp_cutoff;
 } AddPathsJob;
 
+extern boolean print_traversed_inserts;
 
 static inline void add_path_job_alloc(AddPathsJob *job) {
   if(!seq_read_alloc(&job->r1) || !seq_read_alloc(&job->r2))

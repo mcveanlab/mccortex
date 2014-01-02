@@ -153,16 +153,12 @@ int ctx_pjoin(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
-  char path_mem_str[100], total_mem_str[100];
+  char path_mem_str[100];
 
   // Each kmer stores a pointer to its list of paths
   bits_per_kmer = sizeof(uint64_t)*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, num_kmers, false);
-
-  graph_mem = kmers_in_hash * (sizeof(BinaryKmer)+sizeof(uint64_t));
-
-  if(args->mem_to_use < graph_mem)
-    die("Not enough memory. Decrease -n or increase -m");
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, num_kmers,
+                                        false, &graph_mem);
 
   // Path Memory
   size_t tmppathsize, req_path_mem;
@@ -181,8 +177,7 @@ int ctx_pjoin(CmdArgs *args)
     die("Not enough memory - require %s. Decrease -n or increase -m", req_mem_str);
 
   total_mem = graph_mem + path_mem;
-  bytes_to_str(total_mem, 1, total_mem_str);
-  status("[memory] total: %s\n", total_mem_str);
+  cmd_check_mem_limit(args, total_mem);
 
   // Set up graph and PathStore
   dBGraph db_graph;

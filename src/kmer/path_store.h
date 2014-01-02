@@ -53,7 +53,7 @@ void path_store_fetch_bases(const PathStore *paths, PathIndex index,
 // parsing each path, one-by-one (much faster!)
 #define path_store_fltr_compatible(st,fltr) \
         ((fltr)->nofilter && \
-         round_bits_to_bytes((fltr)->filencols) == (st)->colset_bytes)
+         roundup_bits2bytes((fltr)->filencols) == (st)->colset_bytes)
 
 //
 // Functions for PackedPaths
@@ -85,7 +85,7 @@ void path_store_fetch_bases(const PathStore *paths, PathIndex index,
 
 #define packedpath_del_col(p,idx,col) bitset_del((p)+sizeof(PathIndex),col)
 #define packedpath_set_col(p,idx,col) bitset_set((p)+sizeof(PathIndex),col)
-#define packedpath_has_col(p,idx,col) bitset_has((p)+sizeof(PathIndex),col)
+#define packedpath_has_col(p,idx,col) bitset_get((p)+sizeof(PathIndex),col)
 
 static inline PathLen packedpack_len_orient(const uint8_t *packed,
                                             const PathStore *store,

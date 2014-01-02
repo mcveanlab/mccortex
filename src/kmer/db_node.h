@@ -35,7 +35,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 #define ksetn(ncols,capacity) (round_bits_to_words(capacity) * (ncols))
 
 #define db_node_has_col(g,hkey,col) \
-        bitset2_has((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+        bitset2_get((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
 #define db_node_set_col(g,hkey,col) \
         bitset2_set((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
 #define db_node_del_col(g,hkey,col) \
@@ -47,7 +47,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 // Node traversal
 //
 #define db_node_has_traversed(arr,hkey,or) \
-        bitset_has((arr), 2*(hkey)+(or))
+        bitset_get((arr), 2*(hkey)+(or))
 #define db_node_set_traversed(arr,hkey,or) \
         bitset_set((arr), 2*(hkey)+(or))
 
@@ -62,7 +62,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 // Read start (duplicate removal during read loading)
 //
 #define db_node_has_read_start(graph,hkey,or) \
-        bitset_has((graph)->readstrt, 2*(hkey)+(or))
+        bitset_get((graph)->readstrt, 2*(hkey)+(or))
 #define db_node_set_read_start(graph,hkey,or) \
         bitset_set((graph)->readstrt, 2*(hkey)+(or))
 

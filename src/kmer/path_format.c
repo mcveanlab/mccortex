@@ -279,7 +279,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
   size_t required_ncols = paths_get_min_usedcols(files, num_files);
-  size_t required_nbytes = round_bits_to_bytes(required_ncols);
+  size_t required_nbytes = roundup_bits2bytes(required_ncols);
   assert(required_ncols <= store->num_of_cols);
   assert(required_nbytes <= store->colset_bytes);
 
@@ -318,7 +318,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     hdr = &files[i].hdr;
     path = fltr->orig_path.buff;
     fh = fltr->fh;
-    colbytes = round_bits_to_bytes(fltr->filencols);
+    colbytes = roundup_bits2bytes(fltr->filencols);
 
     // Print some output
     paths_loading_print_status(&files[i]);
