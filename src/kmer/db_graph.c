@@ -366,15 +366,9 @@ hkey_t db_graph_rand_node(const dBGraph *db_graph)
 
   while(1)
   {
-    node = ((double)rand() / RAND_MAX) * capacity;
+    node = (hkey_t)((rand() / (double)RAND_MAX) * capacity);
     if(HASH_ENTRY_ASSIGNED(table[node])) return node;
   }
-  // while(node < capacity && !HASH_ENTRY_ASSIGNED(table[node])) node++;
-  // if(node == capacity) {
-  //   node = 0;
-  //   while(node < capacity && !HASH_ENTRY_ASSIGNED(table[node])) node++;
-  // }
-  return node;
 }
 
 void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,

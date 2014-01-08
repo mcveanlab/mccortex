@@ -68,7 +68,7 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
   const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
-      func(htt_ptr - (ht)->table, ##__VA_ARGS__);                              \
+      func((hkey_t)(htt_ptr - (ht)->table), ##__VA_ARGS__);                    \
     }                                                                          \
   }                                                                            \
 }
@@ -80,7 +80,7 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
   for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
     for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][1]; htt_ptr++) {    \
       if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                      \
-        _c++; func(htt_ptr - (ht)->table, ##__VA_ARGS__);                      \
+        _c++; func((hkey_t)(htt_ptr - (ht)->table), ##__VA_ARGS__);            \
       }                                                                        \
     }                                                                          \
   }                                                                            \

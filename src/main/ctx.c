@@ -44,22 +44,6 @@ static const char usage[] =
 "  -p --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";
 
-// See http://stackoverflow.com/a/77336/431087
-void errhandler(int sig)
-{
-  void *array[10];
-  size_t size;
-
-  // get void*'s for all entries on the stack
-  size = backtrace(array, 10);
-
-  // print out all the frames to stderr
-  fprintf(stderr, "Error: signal %d:\n", sig);
-  backtrace_symbols_fd(array, size, STDERR_FILENO);
-  exit(1);
-}
-
-
 int main(int argc, char **argv)
 {
   // signal(SIGSEGV, errhandler);   // install our handler
@@ -93,11 +77,11 @@ int main(int argc, char **argv)
   if(strcmp(argv[1],"view") != 0)
   {
     // Print time taken
-    double diff = difftime (end,start);
+    double diff = difftime(end,start);
     if(diff < 60) status("[time] %.2lf seconds\n", diff);
     else {
       char timestr[100];
-      seconds_to_str(diff, timestr);
+      seconds_to_str((size_t)diff, timestr);
       status("[time] %.2lf seconds (%s)\n", diff, timestr);
     }
   }

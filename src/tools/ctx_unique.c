@@ -232,8 +232,8 @@ static void var_set_flank_shifts(Var *var)
     }
   }
 
-  var->shift_left = min_left;
-  var->shift_right = min_right;
+  var->shift_left = (uint32_t)min_left;
+  var->shift_right = (uint32_t)min_right;
 }
 
 // Warning: does not null terminate
@@ -403,7 +403,7 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
   while((c = gzgetc(in)) != -1 && c == '#')
   {
     strbuf_reset(line);
-    strbuf_append_char(line, c);
+    strbuf_append_char(line, (char)c);
     strbuf_gzreadline(line, in);
     strbuf_chomp(line);
 
@@ -464,16 +464,38 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
 #define header_assert(cond,sb) \
   if(!(cond)) { die("Loading err ["QUOTE_MACRO(cond)"]: %s", (sb)->buff); }
 
+// >[NAME][SUFFIX]
 // Returns length of var name
-static size_t get_var_name(const char *line, const char *suffix, char *name)
+// static size_t get_var_name(const char *line, size_t line_len,
+//                            const char *suffix, char *name)
+// {
+//   const size_t suffix_len = strlen(suffix);
+//   const char *match = line+line_len-suffix_len;
+//   if(line[0] != '>') die("Expected '>': %s", line);
+//   if(line_len < suffix_len+2 || strcmp(match,suffix) != 0)
+//     die("Cannot find var name [line: %s]", line);
+//   size_t name_len = line_len - suffix_len - 1;
+//   memcpy(name, line+1, name_len);
+//   name[name_len] = '\0';
+//   return name_len;
+// }
+
+// This function is the same as above but does not expect the suffix to
+// be at the end of the line.  This is needed for handling old output
+// where meta data is on the name line
+// >[NAME][SUFFIX]
+// Returns length of var name
+static size_t get_var_name(const char *line, size_t line_len,
+                           const char *suffix, char *name)
 {
+  (void)line_len;
   if(line[0] != '>') die("Expected '>': %s", line);
-  const char *match = strstr(line, suffix);
+  const char *match = strstr(line+1, suffix);
   if(match == NULL) die("Cannot find var name [line: %s]", line);
-  size_t len = match-line-1;
-  memcpy(name, line+1, len);
-  name[len] = '\0';
-  return len;
+  size_t name_len = (size_t)(match-(line+1));
+  memcpy(name, line+1, name_len);
+  name[name_len] = '\0';
+  return name_len;
 }
 
 // Fabricate header by looking at first entry
@@ -491,14 +513,15 @@ static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
   }
 
   char name[line->len];
-  size_t name_len = get_var_name(line->buff, "_5p_flank", name);
+  size_t name_len = get_var_name(line->buff, line->len, "_5p_flank", name);
 
   int flank5plen, kmer_size;
   int n = sscanf(line->buff+1+name_len, "_5p_flank length:%i INFO:KMER=%i",
                  &flank5plen, &kmer_size);
 
   header_assert(n == 2, line);
-  ch->kmer_size = kmer_size;
+  header_assert(kmer_size & 1, line);
+  ch->kmer_size = (size_t)kmer_size;
 
   // Skip next 7 lines
   size_t i;
@@ -677,7 +700,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   // Get var name
   StrBuf *name = &var->name;
   strbuf_ensure_capacity(name, line->len);
-  name->len = get_var_name(line->buff, "_5p_flank", name->buff);
+  name->len = get_var_name(line->buff, line->len, "_5p_flank", name->buff);
 
   load_assert(strbuf_reset_gzreadline(&var->flank5p, fh) != 0, line);
   strbuf_chomp(&var->flank5p);
@@ -720,8 +743,8 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     load_assert(line->buff[0] == '>', line);
     load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
 
-    size_t n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
-                        &branch_num, &branch_nodes);
+    int n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
+                   &branch_num, &branch_nodes);
 
     load_assert(n == 2, line);
     load_assert(branch_num == cr->num_alleles, line);
@@ -762,7 +785,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
   if(!strbuf_gzreadline_nonempty(line, fh))
     return 0;
 
-  size_t n;
+  int n;
   size_t num_samples = cr->ch->num_samples;
   cr->num_alleles = 0;
   strbuf_ensure_capacity(&var->name, line->len);
@@ -770,7 +793,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
   // Get var name
   StrBuf *name = &var->name;
   strbuf_ensure_capacity(name, line->len);
-  name->len = get_var_name(line->buff, "_5p_flank", name->buff);
+  name->len = get_var_name(line->buff, line->len, "_5p_flank", name->buff);
   load_assert(strncmp(line->buff+1+name->len, "_5p_flank", 9) == 0, line);
 
   load_assert(strbuf_reset_gzreadline(&var->flank5p, fh) != 0, line);

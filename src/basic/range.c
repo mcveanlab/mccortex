@@ -31,7 +31,7 @@ static int range_parse(const char *range_str, size_t *start, size_t *end,
   *start = from;
   *end = to;
 
-  return endptr - range_str;
+  return (int)(endptr - range_str);
 }
 
 size_t range_get_num(const char *str, size_t range_max)

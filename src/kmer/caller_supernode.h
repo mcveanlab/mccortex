@@ -20,7 +20,7 @@ struct CallerSupernode
   size_t nbuf_offset, num_of_nodes; // Offset and lenth in nbuf
 
   // DEV: could save space by using dBNode instead of separate hkey_t+orient
-  int num_prev, num_next;
+  uint8_t num_prev, num_next;
   hkey_t prev_nodes[4], next_nodes[4];
   Orientation prev_orients[4], next_orients[4];
 
@@ -54,7 +54,7 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
 #define supernode_pathpos_equal(a,b) (cmp_snpath_pos(a,b) == 0)
 
-uint64_t supernode_pathpos_hash(SupernodePathPos *spp);
+uint32_t supernode_pathpos_hash(SupernodePathPos *spp);
 
 // Two SupernodePathPos objects are equal if they describe the same path through
 // the graph.  Sort by length (shortest first), then orientation and nodes

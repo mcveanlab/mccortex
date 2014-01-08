@@ -102,7 +102,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   CmdArgs tmp = CMD_ARGS_INIT_MACRO;
   memcpy(args, &tmp, sizeof(CmdArgs));
 
-  args->ctp_files = malloc2(argc * sizeof(char*));
+  args->ctp_files = malloc2((size_t)argc * sizeof(char*));
   args->num_ctp_files = 0;
 
   // Get command index
@@ -115,10 +115,10 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   else args->cmdidx = -1;
 
   args->argc = 0;
-  args->argv = malloc2(argc * sizeof(char**));
+  args->argv = malloc2((size_t)argc * sizeof(char**));
 
   // Get cmdline string
-  size_t len = argc - 1; // spaces
+  size_t len = (size_t)argc - 1; // spaces
   int i;
   for(i = 0; i < argc; i++) len += strlen(argv[i]);
   args->cmdline = malloc2((len+1) * sizeof(char));
@@ -256,7 +256,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
   else if(use_mem_limit && args->mem_to_use_set)
     req_kmers = (8 * args->mem_to_use) / bits_per_kmer;
   else if(min_num_kmers > 0) {
-    req_kmers = min_num_kmers / IDEAL_OCCUPANCY;
+    req_kmers = (size_t)(min_num_kmers / IDEAL_OCCUPANCY);
     above_nkmers = true;
   }
   else {

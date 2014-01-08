@@ -43,7 +43,7 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
   // 0b0010 returns 1
   // 0b0100 returns 2
   // 0b1000 returns 3
-  *nucleotide = __builtin_ctz(edges);
+  *nucleotide = (Nucleotide)__builtin_ctz(edges);
 
   return (b == 0);
 }
@@ -91,14 +91,14 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str)
   char str[] = "acgt";
 
   char left = edges >> 4;
-  left = rev_nibble(left);
+  left = (char)rev_nibble(left);
   char right = edges & 0xf;
 
   for(i = 0; i < 4; i++)
     kmer_col_edge_str[i] = (left & (0x1 << i) ? str[i] : '.');
 
   for(i = 0; i < 4; i++)
-    kmer_col_edge_str[i+4] = toupper(right & (0x1 << i) ? str[i] : '.');
+    kmer_col_edge_str[i+4] = (char)toupper(right & (0x1 << i) ? str[i] : '.');
 
   kmer_col_edge_str[8] = '\0';
 
@@ -112,10 +112,10 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str)
 static inline void safe_add_covg(Covg *a, Covg b)
 {
   uint64_t y = (uint64_t)*a+b;
-  *a = y > COVG_MAX ? COVG_MAX : y;
+  *a = y > COVG_MAX ? COVG_MAX : (Covg)y;
 }
 
-void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update)
+void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, Covg update)
 {
   safe_add_covg(&db_node_col_covg(graph,col,hkey), update);
 }

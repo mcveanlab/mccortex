@@ -304,7 +304,10 @@ uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer)
   return hash32;
 }
 
-#define return_step(i,s) {GraphStep _stp={.idx=(i),.status=(s)}; return _stp;}
+#define return_step(i,s) { \
+  GraphStep _stp = {.idx = (int8_t)(i), .status = (s)}; \
+  return _stp; \
+}
 
 // Returns index of choice or -1
 // Sets is_fork_in_col true if there is a fork in the given colour
@@ -320,7 +323,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG);
   if(num_next == 1) return_step( 0, GRPHWLK_FORWARD);
 
-  int indices[4] = {0,1,2,3};
+  int8_t indices[4] = {0,1,2,3};
   hkey_t nodes_store[4];
   Nucleotide bases_store[4];
   const hkey_t *nodes = nodes_store;
@@ -335,7 +338,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       if(db_node_has_col(wlk->db_graph, next_nodes[i], wlk->ctxcol)) {
         nodes_store[j] = next_nodes[i];
         bases_store[j] = next_bases[i];
-        indices[j] = i;
+        indices[j] = (int8_t)i;
         j++;
       }
     }

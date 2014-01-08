@@ -6,7 +6,7 @@
 #define BITEMS 1
 
 // Hash table prefetching doesn't appear to be faster
-// #define HASH_PREFETCH 1
+#define HASH_PREFETCH 1
 
 static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER_WORD}};
 
@@ -23,7 +23,7 @@ size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
   if(above_nkmers) nkmers += num_of_buckets-1;
   uint64_t bucket_size = MAX2(nkmers / num_of_buckets, 1);
   if(num_bckts_ptr != NULL) *num_bckts_ptr = num_of_buckets;
-  if(bckt_size_ptr != NULL) *bckt_size_ptr = bucket_size;
+  if(bckt_size_ptr != NULL) *bckt_size_ptr = (uint8_t)bucket_size;
   return num_of_buckets * bucket_size;
 }
 
@@ -40,7 +40,7 @@ HashTable* hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   uint64_t num_of_buckets;
   uint8_t bucket_size;
   uint64_t capacity = hash_table_cap(req_capacity, true, &num_of_buckets, &bucket_size);
-  uint_fast32_t hash_mask = num_of_buckets - 1;
+  uint_fast32_t hash_mask = (uint_fast32_t)(num_of_buckets - 1);
 
   char capacity_str[100];
   ulong_to_str(capacity, capacity_str);
@@ -189,7 +189,7 @@ hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
 
   #ifdef HASH_PREFETCH
     uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
-    // __builtin_prefetch(ht_bckt_ptr(htable, h2));
+    __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
   #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
@@ -198,14 +198,14 @@ hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
       h = h2;
       if(htable->buckets[h][BSIZE] == htable->bucket_size) {
         h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
-        __builtin_prefetch(ht_bckt_ptr(htable, h2));
+        __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
       }
     #else
       h = binary_kmer_hash(key,i) & htable->hash_mask;
     #endif
 
     ptr = hash_table_find_in_bucket(htable, h, key);
-    if(ptr != NULL) return (ptr - htable->table);
+    if(ptr != NULL) return (hkey_t)(ptr - htable->table);
     if(htable->buckets[h][BSIZE] < htable->bucket_size) return HASH_NOT_FOUND;
   }
 
@@ -229,7 +229,7 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
     if(htable->buckets[h][BITEMS] < htable->bucket_size) {
       ptr = hash_table_insert_in_bucket(htable, h, key);
       htable->collisions[i]++; // only increment collisions when inserting
-      return (ptr - htable->table);
+      return (hkey_t)(ptr - htable->table);
     }
   }
 
@@ -245,7 +245,7 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
 
   #ifdef HASH_PREFETCH
     uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
-    // __builtin_prefetch(ht_bckt_ptr(htable, h2));
+    __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
   #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
@@ -254,7 +254,7 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
       h = h2;
       if(htable->buckets[h][BSIZE] == htable->bucket_size) {
         h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
-        __builtin_prefetch(ht_bckt_ptr(htable, h2));
+        __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
       }
     #else
       h = binary_kmer_hash(key,i) & htable->hash_mask;
@@ -264,13 +264,13 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
 
     if(ptr != NULL)  {
       *found = true;
-      return (ptr - htable->table);
+      return (hkey_t)(ptr - htable->table);
     }
     else if(htable->buckets[h][BITEMS] < htable->bucket_size) {
       *found = false;
       ptr = hash_table_insert_in_bucket(htable, h, key);
       htable->collisions[i]++; // only increment collisions when inserting
-      return (ptr - htable->table);
+      return (hkey_t)(ptr - htable->table);
     }
   }
 
@@ -297,7 +297,7 @@ void hash_table_print_stats(const HashTable *const htable)
   double occupancy = (100.0 * htable->unique_kmers) / htable->capacity;
   nbytes = htable->capacity * sizeof(BinaryKmer) +
            htable->num_of_buckets * sizeof(uint8_t[2]);
-  nkeybits = __builtin_ctzl(htable->num_of_buckets);
+  nkeybits = (size_t)__builtin_ctzl(htable->num_of_buckets);
 
   char mem_str[50], num_buckets_str[100], num_entries_str[100], capacity_str[100];
   ulong_to_str(htable->num_of_buckets, num_buckets_str);

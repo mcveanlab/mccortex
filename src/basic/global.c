@@ -128,6 +128,6 @@ void seed_random()
 {
   struct timeval time;
   gettimeofday(&time, NULL);
-  srand((((time.tv_sec ^ getpid()) * 1000001) + time.tv_usec));
-  srand48((((time.tv_sec ^ getpid()) * 1000003) + time.tv_usec));
+  srand((unsigned int)(((time.tv_sec ^ getpid()) * 1000001) + time.tv_usec));
+  srand48(((time.tv_sec ^ getpid()) * 1000003) + time.tv_usec);
 }

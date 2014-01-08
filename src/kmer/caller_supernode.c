@@ -46,8 +46,8 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
   dBNode first = {.key = node, .orient = orient};
   nbuf->data[snode->nbuf_offset] = first;
 
-  nbuf->len = supernode_extend(&nbuf->data, snode->nbuf_offset,
-                               &nbuf->capacity, true, db_graph);
+  nbuf->len = (uint32_t)supernode_extend(&nbuf->data, snode->nbuf_offset,
+                                         &nbuf->capacity, true, db_graph);
 
   snode->num_of_nodes = nbuf->len - snode->nbuf_offset;
 
@@ -105,9 +105,10 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
   return snode->num_of_nodes;
 }
 
-uint64_t supernode_pathpos_hash(SupernodePathPos *spp)
+uint32_t supernode_pathpos_hash(SupernodePathPos *spp)
 {
-  uint32_t hsh, len = spp->pos + 1;
+  uint32_t hsh;
+  size_t len = spp->pos + 1;
   size_t snode_size = sizeof(CallerSupernode*) * len;
   size_t sorients_size = sizeof(SuperOrientation) * len;
 
@@ -131,18 +132,18 @@ int cmp_snpath_pos(const void *p1, const void *p2)
   const SupernodePathPos * const pp1 = p1;
   const SupernodePathPos * const pp2 = p2;
 
-  ptrdiff_t cmp = (ptrdiff_t)pp1->pos - pp2->pos;
+  ptrdiff_t cmp = (ptrdiff_t)pp1->pos - (ptrdiff_t)pp2->pos;
 
   if(cmp != 0)
-    return cmp;
+    return (cmp > 0 ? 1 : -1);
 
-  int i, len = pp1->pos;
+  size_t i, len = pp1->pos;
   for(i = 0; i < len; i++)
   {
     cmp = pp1->path->superorients[i] - pp2->path->superorients[i];
 
     if(cmp != 0)
-      return cmp;
+      return (cmp > 0 ? 1 : -1);
 
     cmp = pp1->path->supernodes[i] - pp2->path->supernodes[i];
 

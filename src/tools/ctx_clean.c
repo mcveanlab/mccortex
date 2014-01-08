@@ -51,7 +51,7 @@ static inline void covg_histogram(hkey_t node, dBGraph *db_graph,
                                   uint64_t *visited, uint64_t *covg_hist)
 {
   size_t i, len, cap;
-  Covg reads_arriving;
+  size_t reads_arriving;
 
   if(!bitset_get(visited, node))
   {
@@ -74,7 +74,7 @@ static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
                                    uint64_t *visited, Covg covg_threshold)
 {
   size_t i, len, cap;
-  Covg reads_arriving;
+  size_t reads_arriving;
 
   if(!bitset_get(visited, node))
   {
@@ -171,10 +171,10 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
   double seq_depth_est = (double)covg_sum / db_graph->ht.unique_kmers;
 
   status("Kmer depth before cleaning supernodes: %.2f\n", seq_depth_est);
-  if(seq_depth == -1) seq_depth = seq_depth_est;
+  if(seq_depth <= 0) seq_depth = seq_depth_est;
   else status("Using sequence depth argument: %f\n", seq_depth);
 
-  size_t fallback_thresh = MAX2(1, (seq_depth+1)/2);
+  size_t fallback_thresh = (size_t)MAX2(1, (seq_depth+1)/2);
 
   // +1 to ensure covgs is never 0
   for(i = 0; i < d1len; i++) delta1[i] = (double)(covgs[i+1]+1) / (covgs[i+2]+1);
@@ -231,7 +231,7 @@ static Covg clean_supernodes(dBGraph *db_graph, boolean clean,
     status("Recommended supernode cleaning threshold: < %zu\n", threshold_est);
 
     if(covg_threshold == 0)
-      covg_threshold = threshold_est;
+      covg_threshold = (Covg)threshold_est;
 
     free(covg_hist);
   }
@@ -288,13 +288,17 @@ int ctx_clean(CmdArgs *args)
       argi++;
     }
     else if(strcmp(argv[argi],"--threshold") == 0) {
-      if(argi+1 >= argc || !parse_entire_uint(argv[argi+1], &threshold) || threshold<=1)
+      if(argi+1 >= argc || !parse_entire_uint(argv[argi+1], &threshold) ||
+         threshold <= 1) {
         print_usage(usage, "--threshold <T> needs an integer argument > 1");
+      }
       argi++;
     }
     else if(strcmp(argv[argi],"--kdepth") == 0) {
-      if(argi+1 >= argc || !parse_entire_double(argv[argi+1], &seq_depth) || seq_depth <= 1)
+      if(argi+1 >= argc || !parse_entire_double(argv[argi+1], &seq_depth) ||
+         seq_depth <= 1) {
         print_usage(usage, "--kdepth <C> needs a positive decimal number > 1");
+      }
       argi++;
     }
     else print_usage(usage, "Unknown argument: %s", argv[argi]);
@@ -314,11 +318,11 @@ int ctx_clean(CmdArgs *args)
 
   if(!supernode_cleaning && threshold > 0)
     print_usage(usage, "--threshold <T> not needed if not cleaning with --supernodes");
-  if(!supernode_cleaning && seq_depth != -1)
+  if(!supernode_cleaning && seq_depth > 0)
     print_usage(usage, "--kdepth <C> not needed if not cleaning with --supernodes");
 
   // Default behaviour
-  if(supernode_cleaning && threshold != 0 && seq_depth != -1) {
+  if(supernode_cleaning && threshold != 0 && seq_depth > 0) {
     print_usage(usage, "supernode cleaning requires only one of "
                        "--threshold <T>, --depth <D>");
   }
@@ -326,7 +330,7 @@ int ctx_clean(CmdArgs *args)
   // Use remaining args as binaries
   char *out_ctx_path = argv[argi++];
   char **paths = argv + argi;
-  size_t i, j, num_files = argc - argi, total_cols = 0;
+  size_t i, j, num_files = (size_t)(argc - argi), total_cols = 0;
 
   // Open graph files
   GraphFileReader files[num_files];
@@ -407,9 +411,9 @@ int ctx_clean(CmdArgs *args)
 
   // Construct cleaned graph header
   GraphFileHeader outhdr = {.version = CTX_GRAPH_FILEFORMAT,
-                            .kmer_size = db_graph.kmer_size,
+                            .kmer_size = (uint32_t)db_graph.kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = total_cols,
+                            .num_of_cols = (uint32_t)total_cols,
                             .num_of_kmers = db_graph.ht.unique_kmers,
                             .capacity = 0};
 

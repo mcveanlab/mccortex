@@ -15,24 +15,11 @@ int cmp_uint64(const void *a, const void *b);
 int cmp_size(const void *a, const void *b);
 int cmp_ptr(const void *a, const void *b);
 
-char parse_entire_int(char *str, int *result);
-char parse_entire_uint(char *str, unsigned int *result);
-char parse_entire_ulong(char *str, unsigned long *result);
-char parse_entire_double(char *str, double *result);
-char parse_entire_size(char *str, size_t *result);
-
-// Load a string of numbers into an array. Separator can be any non-numerical
-// character. e.g. '1,2,3' '1 2 3'
-// Returns number of unsigned integers parsed.
-// Sets *more = 1 if string end not reached
-uint32_t parse_uint_liststr(const char *str, uint32_t *arr, uint32_t arrlen,
-                            boolean *more);
-
-// Get number of integers in a list
-uint32_t len_uint_liststr(const char *str);
-
-boolean parse_uint_liststr_strict(const char *str, char sep,
-                                  uint32_t *arr, uint32_t arrlen);
+char parse_entire_int(const char *str, int *result);
+char parse_entire_uint(const char *str, unsigned int *result);
+char parse_entire_ulong(const char *str, unsigned long *result);
+char parse_entire_double(const char *str, double *result);
+char parse_entire_size(const char *str, size_t *result);
 
 size_t count_char(const char *str, char c);
 
@@ -74,18 +61,19 @@ char* num_to_str(double num, int decimals, char* str);
 //
 
 // http://www.devx.com/tips/Tip/42853
-static inline int my_isnan(double x)
-{
-  volatile double temp = x;
-  return temp != x;
-}
+// static inline int my_isnan(double x)
+// {
+//   volatile double temp = x;
+//   return temp != x;
+// }
+// static inline int my_isinf(double x)
+// {
+//   volatile double temp = x;
+//   return ((temp == x) && ((temp - x) != 0.0));
+// }
 
-// http://www.devx.com/tips/Tip/42853
-static inline int my_isinf(double x)
-{
-  volatile double temp = x;
-  return ((temp == x) && ((temp - x) != 0.0));
-}
+#define my_isnan(x) isnan(x)
+#define my_isinf(x) isinf(x)
 
 //
 // Maths

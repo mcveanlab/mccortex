@@ -3,13 +3,14 @@
 
 #include "binary_kmer.h"
 #include "file_filter.h"
+#include "graph_typedef.h"
 
 // Types PathIndex, PathLen are defined in graph_typedef.h
 // typedef uint64_t PathIndex;
 // typedef uint16_t PathLen;
 #define PATH_NULL UINT64_MAX
 #define PATH_LEN_BITS 15
-#define MAX_PATHLEN ((1U<<PATH_LEN_BITS)-1)
+#define MAX_PATHLEN ((1UL<<PATH_LEN_BITS)-1)
 
 // Data structure:
 //   {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
@@ -18,6 +19,12 @@
 // Initialise the PathStore
 void path_store_init(PathStore *paths, uint8_t *data, size_t size, size_t ncols);
 void path_store_resize(PathStore *paths, size_t size);
+
+// Find a path
+// returns PATH_NULL if not found, otherwise index
+// path_nbytes is length in bytes of bases = (num bases + 3)/4
+PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
+                          const uint8_t *query, size_t path_nbytes);
 
 // Find or add a path into the PathStore
 // last_index is index of the last path belonging to the kmer which owns the

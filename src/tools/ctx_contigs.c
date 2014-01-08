@@ -150,12 +150,13 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
   }
 
   // Out degree
-  size_t outdegree, len = cd->nodes.len;
+  size_t len = cd->nodes.len;
   hkey_t firstnode = cd->nodes.data[0].key;
   hkey_t firstorient = opposite_orientation(cd->nodes.data[0].orient);
   hkey_t lastnode = cd->nodes.data[len-1].key;
   hkey_t lastorient = cd->nodes.data[len-1].orient;
 
+  int outdegree;
   outdegree = edges_get_outdegree(db_graph->col_edges[firstnode], firstorient);
   cd->contigs_outdegree[outdegree]++;
   outdegree = edges_get_outdegree(db_graph->col_edges[lastnode], lastorient);

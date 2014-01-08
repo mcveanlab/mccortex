@@ -341,7 +341,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     Nucleotide lost_nuc;
     walk_supernode_end(wlk, snode, snorient, &lost_nuc);
 
-    size_t i, num_edges;
+    size_t i; uint8_t num_edges;
     hkey_t *next_nodes;
     Orientation *next_orients;
     BinaryKmer next_bkmers[4], next_bkmer;
@@ -725,7 +725,7 @@ void* bubble_caller(void *args)
 
   for(; ptr < end; ptr++) {
     if(HASH_ENTRY_ASSIGNED(*ptr)) {
-      hkey_t node = ptr - table;
+      hkey_t node = (hkey_t)(ptr - table);
       Edges edges = db_node_edges(db_graph, 0, node);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
         find_bubbles(node, FORWARD, db_graph, &wlk, &rptwlk,
@@ -762,7 +762,7 @@ void* bubble_caller(void *args)
 
 // max_allele_len, max_flank_len in kmers
 void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
-                          int num_threads, char **tmp_paths,
+                          const size_t num_threads, char **tmp_paths,
                           size_t max_allele_len, size_t max_flank_len,
                           const size_t *ref_cols, size_t num_ref)
 {
@@ -786,9 +786,10 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
     pthread_attr_t thread_attr;
     struct caller_region_t tdata[num_threads];
 
-    uint64_t capacity = db_graph->ht.capacity, start = 0, end;
+    const uint64_t capacity = db_graph->ht.capacity;
+    uint64_t start = 0, end;
     gzFile tmpout;
-    int i;
+    size_t i;
 
     /* Initialize and set thread detached attribute */
     pthread_attr_init(&thread_attr);
@@ -830,7 +831,8 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
       #define MEGABYTE (1<<20)
       char data[MEGABYTE];
       int len;
-      while((len = gzread(in, data, MEGABYTE)) > 0) gzwrite(gzout, data, len);
+      while((len = gzread(in, data, MEGABYTE)) > 0)
+        gzwrite(gzout, data, (unsigned int)len);
       gzclose(in);
 
       num_of_bubbles += tdata[i].num_of_bubbles;

@@ -116,7 +116,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
   }
 
   if(hp_cutoff > 0 && hp_run == (size_t)hp_cutoff)
-    *search_start = contig_end - hp_cutoff + 1;
+    *search_start = contig_end - (size_t)hp_cutoff + 1;
   else
     *search_start = contig_end;
 
@@ -213,7 +213,7 @@ int seq_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
       if(prev_node != HASH_NOT_FOUND || node != HASH_NOT_FOUND)
       {
         if(first_node_offset == -1)
-          first_node_offset = contig_start + next_base + 1 - kmer_size;
+          first_node_offset = (int)(contig_start + next_base + 1 - kmer_size);
 
         list->data[list->len].key = node;
         list->data[list->len].orient = db_node_get_orientation(bkmer, tmp_key);
@@ -229,14 +229,13 @@ int seq_nodes_from_read(const read_t *r, int qcutoff, int hp_cutoff,
   return first_node_offset;
 }
 
-static void process_new_read(const read_t *r, char qmin, char qmax,
+static void process_new_read(const read_t *r, int qmin, int qmax,
                              const char *path)
 {
-  const char *tmp;
-
   // Test if we've already warned about issue (e.g. bad base) before checking
   if(!warn_invalid_base)
   {
+    const char *tmp;
     for(tmp = r->seq.b; char_is_acgtn(*tmp); tmp++) {}
 
     if(*tmp != '\0') {
@@ -268,8 +267,10 @@ static void process_new_read(const read_t *r, char qmin, char qmax,
       // char min = mmin[1], max = mmax[1];
 
       // In profiling this was found to be the fastest min/max method
-      char min = r->qual.b[0], max = r->qual.b[0];
-      for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
+      const unsigned char *tmp = (unsigned char*)r->qual.b;
+      unsigned char min = *tmp, max = *tmp;
+
+      for(++tmp; *tmp != '\0'; tmp++) {
         min = MIN2(min, *tmp);
         max = MAX2(max, *tmp);
       }

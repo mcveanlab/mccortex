@@ -105,7 +105,7 @@ int ctx_join(CmdArgs *args)
   out_ctx_path = argv[argi++];
 
   // argi .. argend-1 are graphs to load
-  size_t num_graphs = argc - argi;
+  size_t num_graphs = (size_t)(argc - argi);
   char **paths = argv + argi;
 
   status("Probing %zu graph files and %zu intersect files", num_graphs, num_intersect);
@@ -260,7 +260,7 @@ int ctx_join(CmdArgs *args)
     {
       // Remove nodes where covg != num_intersect
       HASH_TRAVERSE(&db_graph.ht, remove_non_intersect_nodes, db_graph.col_covgs,
-                    num_intersect, &db_graph.ht);
+                    (Covg)num_intersect, &db_graph.ht);
     }
 
     status("Loaded intersection set\n");

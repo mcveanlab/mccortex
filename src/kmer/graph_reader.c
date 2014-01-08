@@ -71,7 +71,7 @@ void graph_reader_merge_headers(GraphFileHeader *hdr,
 
   graph_header_global_cpy(hdr, &files[0].hdr);
   graph_header_alloc(hdr, ncols);
-  hdr->num_of_cols = ncols;
+  hdr->num_of_cols = (uint32_t)ncols;
 
   for(i = 0; i < num_files; i++) {
     for(j = 0; j < files[i].fltr.ncols; j++) {
@@ -611,7 +611,7 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
   FileFilter *fltr = &file->fltr;
 
   graph_header_global_cpy(&outheader, &file->hdr);
-  outheader.num_of_cols = fltr->intocol + ncols;
+  outheader.num_of_cols = (uint32_t)(fltr->intocol + ncols);
   graph_header_alloc(&outheader, outheader.num_of_cols);
 
   for(i = 0; i < fltr->ncols; i++) {
@@ -631,7 +631,7 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
 
 // kmers_loaded means all kmers to dump have been loaded
 // colours_loaded means all kmer data have been loaded
-size_t graph_files_merge(char *out_ctx_path,
+size_t graph_files_merge(const char *out_ctx_path,
                          GraphFileReader *files, size_t num_files,
                          boolean kmers_loaded, boolean colours_loaded,
                          const Edges *only_load_if_in_edges,
@@ -793,7 +793,7 @@ size_t graph_files_merge(char *out_ctx_path,
           status("Dumping into colour %zu...\n", firstcol);
         else
           status("Dumping into colours %zu-%zu...\n", firstcol, lastcol);
-        fseek(fout, header_size, SEEK_SET);
+        fseek(fout, (long)header_size, SEEK_SET);
         graph_file_write_colours(db_graph, 0, firstcol, lastcol-firstcol+1,
                                  output_colours, fout);
       }
@@ -813,7 +813,7 @@ size_t graph_files_merge(char *out_ctx_path,
 // if intersect_gname != NULL: only load kmers that are already in the hash table
 //    and use string as name for cleaning against
 // returns the number of kmers written
-size_t graph_files_merge_mkhdr(char *out_ctx_path,
+size_t graph_files_merge_mkhdr(const char *out_ctx_path,
                                GraphFileReader *files, size_t num_files,
                                boolean kmers_loaded, boolean colours_loaded,
                                const Edges *only_load_if_in_edges,

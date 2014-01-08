@@ -181,7 +181,7 @@ int ctx_supernodes(CmdArgs *args)
     else print_usage(usage, "Unknown argument: %s", argv[0]);
   }
 
-  num_files = argc;
+  num_files = (size_t)argc;
   paths = argv;
 
   if(num_files == 0) print_usage(usage, NULL);

@@ -73,7 +73,7 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
 {
   // Get neighbours
   Edges edges = db_node_edges_union(&db_graph, node);
-  int num_next, i;
+  size_t num_next, i;
   hkey_t next_nodes[8];
   Orientation next_orients[8];
   Nucleotide next_bases[8];
@@ -155,17 +155,17 @@ int ctx_subgraph(CmdArgs *args)
     else print_usage(usage, "Unknown option: %s", argv[argi]);
   }
 
-  char *out_path = argv[argi], *diststr = argv[argi+1];
+  const char *out_path = argv[argi], *diststr = argv[argi+1];
   uint32_t dist;
 
   if(!parse_entire_uint(diststr, &dist))
     print_usage(usage, "Invalid <dist> value, must be int >= 0: %s", diststr);
 
-  int num_files_int = argc - 2*num_seed_files - 2;
+  int num_files_int = argc - 2*(int)num_seed_files - 2;
   if(num_files_int <= 0)
     print_usage(usage, "Please specify input graph files (.ctx)");
 
-  size_t i, j, col, num_files = num_files_int, total_cols = 0;
+  size_t i, j, col, num_files = (size_t)num_files_int, total_cols = 0;
   char **paths = argv + 2*num_seed_files + 2;
 
   // Open graph files
@@ -300,15 +300,15 @@ int ctx_subgraph(CmdArgs *args)
 
   if(dist > 0)
   {
-    char diststr[100];
-    ulong_to_str(dist, diststr);
-    status("Extending subgraph by %s\n", diststr);
+    char tmpstr[100];
+    ulong_to_str(dist, tmpstr);
+    status("Extending subgraph by %s\n", tmpstr);
 
     // Get edge nodes
     for(i = 0; i < num_seed_files; i++)
       seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
 
-    size_t i, d;
+    size_t d;
     for(d = 1; d < dist; d++)
     {
       for(i = 0; i < list0.len; i++) {

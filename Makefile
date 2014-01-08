@@ -94,18 +94,30 @@ LINK=-lpthread -lz -lm
 # -Wstack-protector -fstack-protector
 # -fsanitize=thread
 
+USEFUL_CFLAGS=-Wshadow
+IGNORE_CFLAGS=-Wcast-align
+
+OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
+                  -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
+                  -Wcast-qual -Wmissing-noreturn \
+                  -Wwrite-strings -Waggregate-return -Wundef \
+                  -Wshadow -Wconversion -Wshorten-64-to-32 -Woverlength-strings \
+                  -Wenum-compare -Wfloat-equal -Wbad-function-cast \
+                  -Wstack-protector -fstack-protector \
+                  -fsanitize-undefined-trap-on-error
+
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
-	OPT = -O0
+	OPT = -O0 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS)
 	DEBUG_ARGS = -g -ggdb
 else
 	ifdef PROFILE
 		#-DNDEBUG=1
-		OPT = -O4
+		OPT = -O4 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS)
 		DEBUG_ARGS = -g -ggdb
 	else
 		#-DNDEBUG=1
-		OPT = -O4
+		OPT = -O4 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS)
 		DEBUG_ARGS = 
 	endif
 endif

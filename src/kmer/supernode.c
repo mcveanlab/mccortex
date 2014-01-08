@@ -79,7 +79,7 @@ int supernode_extend(dBNode **nlist, size_t offset, size_t *arrlen,
     else break;
   }
 
-  return num_nodes;
+  return (int)num_nodes;
 }
 
 size_t supernode_find(hkey_t node, dBNode **nlist, size_t *arrlen,
@@ -89,9 +89,9 @@ size_t supernode_find(hkey_t node, dBNode **nlist, size_t *arrlen,
   dBNode first = {.key = node, .orient = REVERSE};
   (*nlist)[0] = first;
   len = supernode_extend(nlist, 0, arrlen, true, db_graph);
-  supernode_reverse(*nlist, len);
-  len = supernode_extend(nlist, len-1, arrlen, true, db_graph);
-  return len;
+  supernode_reverse(*nlist, (size_t)len);
+  len = supernode_extend(nlist, (size_t)len-1, arrlen, true, db_graph);
+  return (size_t)len;
 }
 
 uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len)

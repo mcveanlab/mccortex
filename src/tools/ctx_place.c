@@ -82,8 +82,9 @@ static void print_entry(vcf_entry_t *vcfentry, FILE *out)
   vcf_entry_print(vcfentry, out, num_samples);
 }
 
-static int get_var_start(char **alleles, size_t num_alleles,
-                         size_t msa_len, size_t pos)
+// Returns msa_len if no more variants
+static size_t get_var_start(char **alleles, size_t num_alleles,
+                            size_t msa_len, size_t pos)
 {
   size_t i;
   for(; pos < msa_len; pos++)
@@ -93,11 +94,11 @@ static int get_var_start(char **alleles, size_t num_alleles,
     for(i = 1; i < num_alleles && alleles[i][pos] == c; i++);
     if(i < num_alleles) return pos;
   }
-  return -1;
+  return msa_len;
 }
 
-static int get_var_end(char **alleles, size_t num_alleles,
-                       size_t msa_len, size_t pos)
+static size_t get_var_end(char **alleles, size_t num_alleles,
+                          size_t msa_len, size_t pos)
 {
   size_t i; char c;
   for(pos++; pos < msa_len; pos++)
@@ -154,13 +155,13 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
                             vcf_entry_t *outvcf, FILE *fout)
 {
   // Find where alleles differ
-  int start, end = 0, j;
+  size_t start, end = 0, j;
   size_t i, refallelelen;
 
   if(outvcf->lf != NULL) strbuf_reset(outvcf->lf);
   if(outvcf->rf != NULL) strbuf_reset(outvcf->rf);
 
-  while((start = get_var_start(alleles, num_alleles, msa_len, end)) != -1)
+  while((start = get_var_start(alleles, num_alleles, msa_len, end)) < msa_len)
   {
     // Update allele offsets
     for(j = end; j < start; j++)
@@ -187,7 +188,7 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
     // vcf_info_tag_del(outvcf, "SNP");
 
     // REF position (still 0-based)
-    int pos = refpos;
+    long pos = (long)refpos;
 
     if(!is_snp)
     {
@@ -205,7 +206,7 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
 
     // Set ref position
     strbuf_reset(&outvcf->cols[VCFPOS]);
-    strbuf_sprintf(&outvcf->cols[VCFPOS], "%i", pos+1);
+    strbuf_sprintf(&outvcf->cols[VCFPOS], "%li", pos+1);
 
     print_entry(outvcf, fout);
 
@@ -277,26 +278,26 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
 
   // Choose a region of the ref to search for the end flank
   // end is index after last char
-  int search_start, search_end;
+  long search_start, search_end;
   size_t longest_allele = vcf_entry_longest_allele(invcf);
 
   if(bam_is_rev(bam)) {
-    search_start = bam->core.pos - longest_allele - kmer_size - 10;
-    search_end = bam->core.pos + kmer_size;
+    search_start = (long)bam->core.pos - (long)(longest_allele + kmer_size + 10);
+    search_end = (long)bam->core.pos + (long)kmer_size;
   } else {
-    search_start = bam->core.pos + cigar2rlen - kmer_size;
-    search_end = search_start + kmer_size + longest_allele + kmer_size + 10;
+    search_start = (long)(bam->core.pos + cigar2rlen) - (long)kmer_size;
+    search_end = search_start + (long)(kmer_size + longest_allele + kmer_size + 10);
   }
 
   #ifdef CTXVERBOSE
-    printf(" search start:%i end:%i\n", search_start, search_end);
+    printf(" search start:%li end:%li\n", search_start, search_end);
   #endif
 
   if(search_start < 0) search_start = 0;
-  if(search_end > (signed)chr->seq.end) search_end = chr->seq.end;
+  if(search_end > (signed)chr->seq.end) search_end = (long)chr->seq.end;
 
   char *search_region = chr->seq.b+search_start;
-  size_t search_len = search_end - search_start;
+  size_t search_len = (size_t)(search_end - search_start);
 
   size_t i;
   size_t search_trim_left = 0, search_trim_right = 0;
@@ -323,8 +324,8 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   if(kmer_match != NULL)
   {
     // Found exact match
-    search_trim_left = kmer_match - search_region;
-    search_trim_right = (search_region+search_len) - (kmer_match+kmer_size);
+    search_trim_left = (size_t)(kmer_match - search_region);
+    search_trim_right = (size_t)(&search_region[search_len]-&kmer_match[kmer_size]);
 
     #ifdef CTXVERBOSE
       printf("sr:%.*s\nsr:", (int)search_len, search_region);
@@ -386,14 +387,14 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
 
   if(bam_is_rev(bam)) {
     reflen = search_trim_right < kmer_size ? 0 : search_trim_right - kmer_size;
-    refpos = search_region + search_len - (reflen+kmer_size) - chr->seq.b;
+    refpos = (size_t)(search_region + search_len - (reflen+kmer_size) - chr->seq.b);
     // Add flank_trim_right to the beginning of each allele
     const char *end = endflank.buff+endflank.len-flank_trim_right;
     for(i = 0; i < invcf->num_alts; i++)
       strbuf_insert(&invcf->alts[i], 0, end, flank_trim_right);
   }
   else {
-    refpos = bam->core.pos + cigar2rlen;
+    refpos = (size_t)(bam->core.pos + cigar2rlen);
     reflen = search_trim_left < kmer_size ? 0 : search_trim_left - kmer_size;
     // Append flank_trim_left onto the end of each allele
     for(i = 0; i < invcf->num_alts; i++)
@@ -578,7 +579,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
       int hret;
       k = kh_put(samplehash, sample_indx, sample_names[num_samples], &hret);
       if(hret == 0) die("VCF multiple samples with the sample name");
-      kh_value(sample_indx, k) = num_samples;
+      kh_value(sample_indx, k) = (uint32_t)num_samples;
 
       num_samples++;
       *sid_end = ',';
@@ -677,7 +678,7 @@ int ctx_place(CmdArgs *args)
   char *sam_path = argv[argi++];
 
   char **ref_paths = argv + argi;
-  size_t num_refpaths = argc - argi;
+  size_t num_refpaths = (size_t)(argc - argi);
 
   gzFile vcf = gzopen(vcf_path, "r");
   if(vcf == NULL) print_usage(usage, "Cannot open VCF %s", vcf_path);

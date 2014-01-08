@@ -109,7 +109,7 @@ int ctx_view(CmdArgs *args)
   if(print_info)
   {
     char fsize_str[50];
-    bytes_to_str(file.fltr.file_size, 0, fsize_str);
+    bytes_to_str((size_t)file.fltr.file_size, 0, fsize_str);
     printf("Loading file: %s\n", file.fltr.file_path.buff);
     printf("File size: %s\n", fsize_str);
     printf("----\n");
@@ -121,7 +121,7 @@ int ctx_view(CmdArgs *args)
   GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
   graph_header_global_cpy(&outheader, &file.hdr);
   graph_header_alloc(&outheader, ncols);
-  outheader.num_of_cols = ncols;
+  outheader.num_of_cols = (uint32_t)ncols;
 
   size_t i, sum_covgs_read = 0, sum_seq_loaded = 0;
   size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
@@ -236,7 +236,7 @@ int ctx_view(CmdArgs *args)
     uint64_t mem, capacity, num_buckets;
     uint8_t bucket_size;
 
-    hash_table_cap(outheader.num_of_kmers / IDEAL_OCCUPANCY, true,
+    hash_table_cap((size_t)(outheader.num_of_kmers / IDEAL_OCCUPANCY), true,
                    &num_buckets, &bucket_size);
     capacity = num_buckets * bucket_size;
     mem = capacity * (sizeof(BinaryKmer) +
@@ -248,13 +248,13 @@ int ctx_view(CmdArgs *args)
     ulong_to_str(bucket_size, bucket_size_str);
     ulong_to_str(num_buckets, num_buckets_str);
 
-    int mem_height = __builtin_ctzl((long)num_buckets);
+    size_t mem_height = (size_t)__builtin_ctzl(num_buckets);
 
     printf("----\n");
     printf("memory required: %s [capacity: %s]\n", memstr, capacitystr);
     printf("  bucket size: %s; number of buckets: %s\n",
             bucket_size_str, num_buckets_str);
-    printf("  --kmer_size %u --mem_height %i --mem_width %i\n",
+    printf("  --kmer_size %u --mem_height %zu --mem_width %i\n",
            file.hdr.kmer_size, mem_height, bucket_size);
   }
 

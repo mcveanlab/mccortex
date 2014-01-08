@@ -98,17 +98,19 @@ void graph_info_update_contigs(GraphInfo *ginfo,
                                uint64_t added_seq, uint64_t num_contigs)
 {
   uint64_t total_sequence = ginfo->total_sequence + added_seq;
+  double mean_readlen;
 
   if(ginfo->mean_read_length == 0) {
-    ginfo->mean_read_length = (double)added_seq / num_contigs + 0.5;
+    mean_readlen = (double)added_seq / num_contigs + 0.5;
   }
   else {
-    ginfo->mean_read_length
+    mean_readlen
       = total_sequence /
         ((double)ginfo->total_sequence / ginfo->mean_read_length + num_contigs)
         + 0.5;
   }
 
+  ginfo->mean_read_length = (uint32_t)mean_readlen;
   ginfo->total_sequence = total_sequence;
 }
 
@@ -146,9 +148,9 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
 
     // Update mean read length
     dst->mean_read_length
-      = (dst->mean_read_length * dst->total_sequence +
-         src->mean_read_length * src->total_sequence) /
-        total_sequence;
+      = (uint32_t)(dst->mean_read_length * dst->total_sequence +
+                   src->mean_read_length * src->total_sequence) /
+                  total_sequence;
   }
 
   dst->total_sequence = total_sequence;

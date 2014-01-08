@@ -25,7 +25,7 @@ typedef struct
 
 // returns 1 or ncols [fltr->flatten is 0 or 1]
 #define file_filter_outncols(fltr) \
-        ((fltr)->flatten + (!(fltr)->flatten)*(fltr)->ncols)
+        ((size_t)(fltr)->flatten + (!((fltr)->flatten))*(fltr)->ncols)
 
 #define file_filter_intocol(fltr,col) ((fltr)->intocol + (!(fltr)->flatten)*(col))
 #define file_filter_fromcol(fltr,col) ((fltr)->cols[col])

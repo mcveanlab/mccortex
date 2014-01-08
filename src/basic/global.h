@@ -18,7 +18,7 @@
 
 #include "bit_macros.h" // from bit_array
 
-typedef signed char boolean;
+typedef uint_fast8_t boolean;
 
 #ifndef true
 #define true 1

@@ -49,9 +49,9 @@ void paths_header_dealloc(PathFileHeader *h)
 // Set path header variables based on PathStore
 void paths_header_update(PathFileHeader *header, const PathStore *paths)
 {
-  header->num_of_cols = paths->num_of_cols;
+  header->num_of_cols = (uint32_t)paths->num_of_cols;
   header->num_of_paths = paths->num_of_paths;
-  header->num_path_bytes = paths->next - paths->store;
+  header->num_path_bytes = (uint64_t)(paths->next - paths->store);
   header->num_kmers_with_paths = paths->num_kmers_with_paths;
 }
 
@@ -389,7 +389,7 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
   for(i = 0; i < header->num_of_cols; i++)
   {
     buf = header->sample_names + i;
-    len = buf->len;
+    len = (uint32_t)buf->len;
     fwrite(&len, sizeof(uint32_t), 1, fout);
     fwrite(buf->buff, sizeof(uint8_t), len, fout);
     bytes += sizeof(uint32_t) + len;

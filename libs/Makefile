@@ -4,7 +4,7 @@
 # make common   <- compile all repos (except gsl)
 # make update   <- pull + common
 
-UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim hash_functions
+UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim misc
 ALLTGTS=$(UPDATE) gsl
 
 update: $(UPDATE)
@@ -78,8 +78,8 @@ readsim: readsim/Makefile htslib
 bioinf-perl: bioinf-perl/README
 	# nothing to do for bioinf-perl
 
-hash_functions: hash_functions/Makefile
-	cd hash_functions && make
+misc: misc/Makefile
+	cd misc && make
 
 #
 # Clean
@@ -94,7 +94,7 @@ clean:
 	cd seq_file && make clean
 	cd seq-align && make clean
 	cd readsim && make clean
-	cd hash_functions && make clean
+	cd misc && make clean
 
 .PHONY: all clean update
 .PHONY: $(ALLTGTS)

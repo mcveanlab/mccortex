@@ -68,7 +68,7 @@ int ctx_pjoin(CmdArgs *args)
   const char *out_ctp_path = argv[argi++];
 
   // argi .. argend-1 are graphs to load
-  size_t num_pfiles = argc - argi;
+  size_t num_pfiles = (size_t)(argc - argi);
   char **paths = argv + argi;
 
   //
@@ -206,7 +206,7 @@ int ctx_pjoin(CmdArgs *args)
   PathFileHeader pheader = INIT_PATH_FILE_HDR;
   pheader.version = CTX_PATH_FILEFORMAT;
   pheader.kmer_size = pfiles[0].hdr.kmer_size;
-  pheader.num_of_cols = output_ncols;
+  pheader.num_of_cols = (uint32_t)output_ncols;
 
   paths_header_alloc(&pheader, output_ncols);
 

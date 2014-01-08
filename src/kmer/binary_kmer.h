@@ -24,7 +24,8 @@ extern const BinaryKmer zero_bkmer;
 #else
   // Use Bob Jenkin's lookup3
   #include "lookup3.h"
-  #define binary_kmer_hash(bkmer,rehash) lk3_hashlittle(bkmer.b, BKMER_BYTES, rehash)
+  #define binary_kmer_hash(bkmer,rehash) \
+          (uint_fast32_t)lk3_hashlittle(bkmer.b, BKMER_BYTES, (uint32_t)rehash)
 #endif
 
 

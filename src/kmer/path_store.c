@@ -9,7 +9,7 @@
 void path_store_init(PathStore *paths, uint8_t *data, size_t size,
                        size_t num_of_cols)
 {
-  uint32_t colset_bytes = roundup_bits2bytes(num_of_cols);
+  size_t colset_bytes = roundup_bits2bytes(num_of_cols);
 
   char memstr[100]; bytes_to_str(size, 1, memstr);
   status("[paths] Setting up path store to use %s", memstr);
@@ -96,10 +96,8 @@ static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t le
 // Find a path
 // returns PATH_NULL if not found, otherwise index
 // path_nbytes is length in bytes of bases = (num bases + 3)/4
-static inline PathIndex path_store_find(const PathStore *paths,
-                                        PathIndex last_index,
-                                        const uint8_t *query,
-                                        size_t path_nbytes)
+PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
+                          const uint8_t *query, size_t path_nbytes)
 {
   uint8_t *packed;
   size_t offset = sizeof(PathIndex) + paths->colset_bytes;
@@ -134,7 +132,7 @@ PathIndex path_store_add_packed(PathStore *store, PathIndex last_index,
     memcpy(ptr, packed, store->colset_bytes+sizeof(PathLen)+path_nbytes);
   }
 
-  PathIndex index = store->next - store->store;
+  PathIndex index = (PathIndex)(store->next - store->store);
   store->next += mem;
   store->num_of_paths++;
   store->num_kmers_with_paths += (last_index == PATH_NULL);
@@ -252,7 +250,7 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
   if(paths->next + total_len >= paths->end) die("Out of memory for paths");
 
   uint8_t *ptr = paths->next;
-  PathLen len_and_orient = len | (orient << PATH_LEN_BITS);
+  PathLen len_and_orient = len | (PathLen)(orient << PATH_LEN_BITS);
 
   // write path
   memcpy(ptr, &last_index, sizeof(PathIndex));
@@ -310,7 +308,7 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
 
 void path_store_print_all(const PathStore *paths)
 {
-  PathIndex index = 0, store_size = paths->next - paths->store;
+  PathIndex index = 0, store_size = (PathIndex)(paths->next - paths->store);
 
   while(index < store_size) {
     path_store_print_path(paths, index);

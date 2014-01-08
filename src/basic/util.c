@@ -25,105 +25,55 @@ cmpfunc(cmp_size, size_t);
 cmpfunc(cmp_ptr, void*);
 
 
-char parse_entire_int(char *str, int *result)
+char parse_entire_int(const char *str, int *result)
 {
-  char *strtol_last_char_ptr = str;
+  char *strtol_last_char_ptr = NULL;
   long tmp = strtol(str, &strtol_last_char_ptr, 10);
-  if(tmp > INT_MAX || tmp < INT_MIN || *strtol_last_char_ptr != '\0') return 0;
+  if(tmp > INT_MAX || tmp < INT_MIN) return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
   *result = (int)tmp;
   return 1;
 }
 
-char parse_entire_uint(char *str, unsigned int *result)
+char parse_entire_uint(const char *str, unsigned int *result)
 {
-  char *strtol_last_char_ptr = str;
+  char *strtol_last_char_ptr = NULL;
   if(*str < '0' || *str > '9') return 0;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-  if(tmp > UINT_MAX || *strtol_last_char_ptr != '\0') return 0;
+  if(tmp > UINT_MAX) return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
   *result = (unsigned int)tmp;
   return 1;
 }
 
-char parse_entire_ulong(char *str, unsigned long *result)
+char parse_entire_ulong(const char *str, unsigned long *result)
 {
-  char *strtol_last_char_ptr = str;
+  char *strtol_last_char_ptr = NULL;
   if(*str < '0' || *str > '9') return 0;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-  if(*strtol_last_char_ptr != '\0') return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
   *result = tmp;
   return 1;
 }
 
-char parse_entire_double(char *str, double *result)
+char parse_entire_double(const char *str, double *result)
 {
-  char *strtol_last_char_ptr = str;
+  char *strtol_last_char_ptr = NULL;
   double tmp = strtod(str, &strtol_last_char_ptr);
-  if(*strtol_last_char_ptr != '\0') return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
   *result = tmp;
   return 1;
 }
 
-char parse_entire_size(char *str, size_t *result)
+char parse_entire_size(const char *str, size_t *result)
 {
-  char *strtol_last_char_ptr = str;
+  char *strtol_last_char_ptr = NULL;
   if(*str < '0' || *str > '9') return 0;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-  if(tmp > SIZE_MAX || *strtol_last_char_ptr != '\0') return 0;
+  if(tmp > SIZE_MAX) return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
   *result = (size_t)tmp;
   return 1;
-}
-
-// Load a string of numbers into an array. Separator can be any non-numerical
-// character. e.g. '1,2,3' '1 2 3'
-// Returns number of unsigned integers parsed.
-// Sets *more = 1 if string end not reached
-uint32_t parse_uint_liststr(const char *str, uint32_t *arr, uint32_t arrlen,
-                            boolean *more)
-{
-  const char *tmp = str;
-  char *endptr = NULL;
-  uint32_t i;
-  for(i = 0; i < arrlen; i++)
-  {
-    while(*tmp != '\0' && (*tmp < '0' || *tmp > '9')) tmp++;
-    if(*tmp == '\0') break;
-    arr[i] = strtol(tmp, &endptr, 10);
-    tmp = endptr;
-  }
-  *more = (*tmp != '\0');
-  return i;
-}
-
-uint32_t len_uint_liststr(const char *str)
-{
-  const char *tmp = str;
-  uint32_t i;
-  for(i = 0; ; i++)
-  {
-    while(*tmp != '\0' && (*tmp < '0' || *tmp > '9')) tmp++;
-    if(*tmp == '\0') break;
-    while(*tmp >= '0' && *tmp <= '9') tmp++;
-  }
-  return i;
-}
-
-boolean parse_uint_liststr_strict(const char *str, char sep,
-                                  uint32_t *arr, uint32_t arrlen)
-{
-  const char *tmp = str;
-  char *endptr = NULL;
-  uint32_t i;
-  for(i = 0; i < arrlen; i++)
-  {
-    if(*tmp < '0' || *tmp > '9') return false;
-    arr[i] = strtol(tmp, &endptr, 10);
-    tmp = endptr;
-    if(i+1 < arrlen) {
-      if(*tmp != sep) return false;
-      tmp++;
-    }
-  }
-  return (*tmp == '\0');
 }
 
 size_t count_char(const char *str, char c)
@@ -138,15 +88,17 @@ boolean bases_to_integer(const char *arg, size_t *bases)
 {
   char *endptr;
   double num = strtod(arg, &endptr);
+  size_t unit = 0;
   if(endptr == arg) return false;
   if(strcasecmp(endptr,"G") == 0 || strcasecmp(endptr,"GB") == 0 ||
-     strcasecmp(endptr,"Gbp") == 0) { *bases = num * 1000000000; return true; }
+     strcasecmp(endptr,"Gbp") == 0) { unit = 1000000000; }
   if(strcasecmp(endptr,"M") == 0 || strcasecmp(endptr,"MB") == 0 ||
-     strcasecmp(endptr,"Mbp") == 0) { *bases = num * 1000000; return true; }
+     strcasecmp(endptr,"Mbp") == 0) { unit = 1000000; }
   if(strcasecmp(endptr,"K") == 0 || strcasecmp(endptr,"KB") == 0 ||
-     strcasecmp(endptr,"Kbp") == 0) { *bases = num * 1000; return true; }
-  if(strcasecmp(endptr,"b") == 0 || *endptr == '\0') { *bases = num; return true; }
-  return false;
+     strcasecmp(endptr,"Kbp") == 0) { unit = 1000; }
+  if(strcasecmp(endptr,"b") == 0 || *endptr == '\0') { unit = 1; }
+  *bases = (size_t)(num * unit);
+  return (unit > 0);
 }
 
 boolean mem_to_integer(const char *arg, size_t *bytes)
@@ -181,8 +133,8 @@ unsigned int num_of_digits(unsigned long num)
 // returns pointer to result
 char* ulong_to_str(unsigned long num, char* result)
 {
-  int digits = num_of_digits(num);
-  int i, num_commas = (digits-1) / 3;
+  unsigned int digits = num_of_digits(num);
+  unsigned int i, num_commas = (digits-1) / 3;
   char *p = result + digits + num_commas;
   *(p--) = '\0';
 
@@ -200,10 +152,11 @@ char* long_to_str(long num, char* result)
 {
   if(num < 0) {
     result[0] = '-';
-    ulong_to_str(-num, result+1);
+    result++;
+    num = -num;
   }
-  else
-    ulong_to_str(num, result);
+
+  ulong_to_str((unsigned long)num, result);
 
   return result;
 }
@@ -365,7 +318,7 @@ float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum)
 size_t seconds_to_str(unsigned long seconds, char *str)
 {
   char *ptr = str;
-  int days, hours, mins;
+  unsigned long days, hours, mins;
   days = seconds / (60 * 60 * 24);
   seconds -= days * (60 * 60 * 24);
   hours = seconds / (60 * 60);
@@ -373,11 +326,11 @@ size_t seconds_to_str(unsigned long seconds, char *str)
   mins = seconds / 60;
   seconds -= mins * 60;
   if(days > 0)
-    ptr += sprintf(ptr, "%i day%s ", days, days == 1 ? "" : "s");
+    ptr += sprintf(ptr, "%lu day%s ", days, days == 1 ? "" : "s");
   if(days+hours > 0)
-    ptr += sprintf(ptr, "%i hour%s ", hours, hours == 1 ? "" : "s");
+    ptr += sprintf(ptr, "%lu hour%s ", hours, hours == 1 ? "" : "s");
   if(days+hours+mins > 0)
-    ptr += sprintf(ptr, "%i min%s ", mins, mins == 1 ? "" : "s");
-  ptr += sprintf(ptr, "%i sec%s", (int)seconds, seconds == 1 ? "" : "s");
-  return ptr - str;
+    ptr += sprintf(ptr, "%lu min%s ", mins, mins == 1 ? "" : "s");
+  ptr += sprintf(ptr, "%lu sec%s", seconds, seconds == 1 ? "" : "s");
+  return (size_t)(ptr - str);
 }

@@ -91,7 +91,7 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 //
 
 // Orientation is 0(FORWARD) or 1(REVERSE), shifted left (<<) 2 gives 0 or 4
-#define nuc_orient_to_edge(n,or)    (1 << ((n) + ((or)<<2)))
+#define nuc_orient_to_edge(n,or)    ((Edges)(1 << ((n) + ((or)<<2))))
 
 #define edges_has_edge(edges,n,or)  (((edges) >> ((n) + ((or)<<2))) & 0x1)
 #define edges_set_edge(edges,n,or)  ((edges) | nuc_orient_to_edge(n,or))
@@ -144,7 +144,7 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
 #define db_node_col_covg(graph,colour,node) \
         ((graph)->col_covgs[(node)*(graph)->num_of_cols + (colour)])
 
-void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, long update);
+void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, Covg update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 
 Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);

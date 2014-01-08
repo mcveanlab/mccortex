@@ -198,7 +198,10 @@ static inline uint32_t lk3_hashlittle(const void *key, size_t length, uint32_t i
   a = b = c = 0xdeadbeef + ((uint32_t)length) + initval;
 
   u.ptr = key;
-  if(HASH_LITTLE_ENDIAN && ((u.i & 0x3) == 0))
+
+#if HASH_LITTLE_ENDIAN
+
+  if((u.i & 0x3) == 0)
   {
     const uint32_t *k = (const uint32_t *)key;         /* read 32-bit chunks */
 
@@ -323,7 +326,7 @@ static inline uint32_t lk3_hashlittle(const void *key, size_t length, uint32_t i
 #endif /* !valgrind */
 
   }
-  else if(HASH_LITTLE_ENDIAN && ((u.i & 0x1) == 0))
+  else if((u.i & 0x1) == 0)
   {
     const uint16_t *k = (const uint16_t *)key;         /* read 16-bit chunks */
     const uint8_t  *k8;
@@ -383,64 +386,67 @@ static inline uint32_t lk3_hashlittle(const void *key, size_t length, uint32_t i
       case 0 :
         return c;                     /* zero length requires no mixing */
     }
-
   }
-  else                            /* need to read the key one byte at a time */
+
+#else /* !HASH_LITTLE_ENDIAN */
+
+  /* need to read the key one byte at a time */
+
+  const uint8_t *k = (const uint8_t *)key;
+
+  /*--------------- all but the last block: affect some 32 bits of (a,b,c) */
+  while(length > 12)
   {
-    const uint8_t *k = (const uint8_t *)key;
-
-    /*--------------- all but the last block: affect some 32 bits of (a,b,c) */
-    while(length > 12)
-    {
-      a += k[0];
-      a += ((uint32_t)k[1]) << 8;
-      a += ((uint32_t)k[2]) << 16;
-      a += ((uint32_t)k[3]) << 24;
-      b += k[4];
-      b += ((uint32_t)k[5]) << 8;
-      b += ((uint32_t)k[6]) << 16;
-      b += ((uint32_t)k[7]) << 24;
-      c += k[8];
-      c += ((uint32_t)k[9]) << 8;
-      c += ((uint32_t)k[10]) << 16;
-      c += ((uint32_t)k[11]) << 24;
-      lk3_mix(a, b, c);
-      length -= 12;
-      k += 12;
-    }
-
-    /*-------------------------------- last block: affect all 32 bits of (c) */
-    switch(length)                   /* all the case statements fall through */
-    {
-      case 12:
-        c += ((uint32_t)k[11]) << 24;
-      case 11:
-        c += ((uint32_t)k[10]) << 16;
-      case 10:
-        c += ((uint32_t)k[9]) << 8;
-      case 9 :
-        c += k[8];
-      case 8 :
-        b += ((uint32_t)k[7]) << 24;
-      case 7 :
-        b += ((uint32_t)k[6]) << 16;
-      case 6 :
-        b += ((uint32_t)k[5]) << 8;
-      case 5 :
-        b += k[4];
-      case 4 :
-        a += ((uint32_t)k[3]) << 24;
-      case 3 :
-        a += ((uint32_t)k[2]) << 16;
-      case 2 :
-        a += ((uint32_t)k[1]) << 8;
-      case 1 :
-        a += k[0];
-        break;
-      case 0 :
-        return c;
-    }
+    a += k[0];
+    a += ((uint32_t)k[1]) << 8;
+    a += ((uint32_t)k[2]) << 16;
+    a += ((uint32_t)k[3]) << 24;
+    b += k[4];
+    b += ((uint32_t)k[5]) << 8;
+    b += ((uint32_t)k[6]) << 16;
+    b += ((uint32_t)k[7]) << 24;
+    c += k[8];
+    c += ((uint32_t)k[9]) << 8;
+    c += ((uint32_t)k[10]) << 16;
+    c += ((uint32_t)k[11]) << 24;
+    lk3_mix(a, b, c);
+    length -= 12;
+    k += 12;
   }
+
+  /*-------------------------------- last block: affect all 32 bits of (c) */
+  switch(length)                   /* all the case statements fall through */
+  {
+    case 12:
+      c += ((uint32_t)k[11]) << 24;
+    case 11:
+      c += ((uint32_t)k[10]) << 16;
+    case 10:
+      c += ((uint32_t)k[9]) << 8;
+    case 9 :
+      c += k[8];
+    case 8 :
+      b += ((uint32_t)k[7]) << 24;
+    case 7 :
+      b += ((uint32_t)k[6]) << 16;
+    case 6 :
+      b += ((uint32_t)k[5]) << 8;
+    case 5 :
+      b += k[4];
+    case 4 :
+      a += ((uint32_t)k[3]) << 24;
+    case 3 :
+      a += ((uint32_t)k[2]) << 16;
+    case 2 :
+      a += ((uint32_t)k[1]) << 8;
+    case 1 :
+      a += k[0];
+      break;
+    case 0 :
+      return c;
+  }
+
+#endif /* HASH_LITTLE_ENDIAN */
 
   lk3_final(a, b, c);
   return c;

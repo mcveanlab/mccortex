@@ -50,7 +50,7 @@ boolean file_filter_alloc(FileFilter *fltr, char *path,
   strbuf_set(&fltr->orig_path, path);
 
   file_filter_deconstruct_path(path, &path_start, &path_end);
-  fltr->intocol = (path_start == path ? 0 : atoi(path));
+  fltr->intocol = (size_t)(path_start == path ? 0 : atoi(path));
 
   path_lchar = *path_end;
   *path_end = '\0';

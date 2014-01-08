@@ -36,7 +36,7 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
   // Get number of kmers
   size_t bytes_per_kmer = sizeof(BinaryKmer) +
                           hdr->num_of_cols * (sizeof(Covg) + sizeof(Edges));
-  size_t bytes_remaining = fltr->file_size - file->hdr_size;
+  size_t bytes_remaining = (size_t)(fltr->file_size - file->hdr_size);
   size_t nkmers = (bytes_remaining / bytes_per_kmer);
 
   if(hdr->version > 6 && hdr->num_of_kmers != nkmers) {

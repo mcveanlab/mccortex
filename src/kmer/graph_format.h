@@ -66,7 +66,7 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
                                  const Edges *only_load_if_in_edges,
                                  const char *intersect_gname);
 
-size_t graph_files_merge(char *out_ctx_path,
+size_t graph_files_merge(const char *out_ctx_path,
                          GraphFileReader *files, size_t num_files,
                          boolean kmers_loaded, boolean colours_loaded,
                          const Edges *only_load_if_in_edges,
@@ -75,7 +75,7 @@ size_t graph_files_merge(char *out_ctx_path,
 // if flatten, pool all colours into colour 0
 // if intersect only load kmers that are already in the hash table
 // returns number of kmers written
-size_t graph_files_merge_mkhdr(char *out_ctx_path,
+size_t graph_files_merge_mkhdr(const char *out_ctx_path,
                                GraphFileReader *files, size_t num_files,
                                boolean kmers_loaded, boolean colours_loaded,
                                const Edges *only_load_if_in_edges,
@@ -106,7 +106,7 @@ size_t graph_write_kmer(FILE *fh, const GraphFileHeader *h,
 uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *graph,
                                uint32_t version,
                                const Colour *colours, Colour start_col,
-                               uint32_t num_of_cols);
+                               size_t num_of_cols);
 
 // Pass your own header
 uint64_t graph_file_save(const char *path, const dBGraph *db_graph,

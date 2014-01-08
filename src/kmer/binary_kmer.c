@@ -202,7 +202,7 @@ BinaryKmer binary_kmer_random(size_t kmer_size)
   BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
   size_t i;
   for(i = 0; i < sizeof(BinaryKmer) / 8; i++)
-    bkmer.b[i] = (((uint64_t)rand()) << 32) | rand();
+    bkmer.b[i] = (((uint64_t)rand()) << 32) | (uint64_t)rand();
   bkmer.b[0] >>= 64 - BKMER_TOP_BASES(kmer_size);
   return bkmer;
 }

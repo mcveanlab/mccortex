@@ -148,7 +148,7 @@ int ctx_thread(CmdArgs *args)
   if(futil_file_exists(out_ctp_path))
     die("Output file already exists: %s", out_ctp_path);
 
-  size_t num_files = argc - argi;
+  size_t num_files = (size_t)(argc - argi);
   char **graph_paths = argv + argi;
 
   //
@@ -276,14 +276,14 @@ int ctx_thread(CmdArgs *args)
     path_store_resize(paths, path_mem);
   }
 
-  // Set up paths header
+  // Set up paths header. This is for the output file we are creating
   PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
                             .kmer_size = files[0].hdr.kmer_size,
                             .num_of_cols = 0,
                             .capacity = 0};
 
   paths_header_alloc(&pheader, total_cols);
-  pheader.num_of_cols = total_cols;
+  pheader.num_of_cols = (uint32_t)total_cols;
 
   // Set new path header sample names from graph header
   for(i = 0; i < total_cols; i++)
@@ -372,7 +372,7 @@ int ctx_thread(CmdArgs *args)
   status("Threaded: single reads: %s; read pairs: %s; total: %s",
          se_num_str, pe_num_str, sepe_num_str);
 
-  size_t num_path_bytes = paths->next - paths->store;
+  size_t num_path_bytes = (size_t)(paths->next - paths->store);
   char kmers_str[100], paths_str[100], mem_str[100];
   ulong_to_str(paths->num_kmers_with_paths, kmers_str);
   ulong_to_str(paths->num_of_paths, paths_str);

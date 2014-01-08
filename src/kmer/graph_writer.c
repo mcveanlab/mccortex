@@ -37,8 +37,8 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
   fwrite(&supernodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
   fwrite(&nodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
 
-  uint32_t len = cleaning->intersection_name.len;
-  char *str = cleaning->intersection_name.buff;
+  uint32_t len = (uint32_t)cleaning->intersection_name.len;
+  const char *str = cleaning->intersection_name.buff;
   fwrite(&len, sizeof(uint32_t), 1, fh);
   fwrite(str, sizeof(uint8_t), len, fh);
 
@@ -77,8 +77,8 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
   {
     for(i = 0; i < h->num_of_cols; i++)
     {
-      uint32_t len = h->ginfo[i].sample_name.len;
-      char *buff = h->ginfo[i].sample_name.buff;
+      uint32_t len = (uint32_t)h->ginfo[i].sample_name.len;
+      const char *buff = h->ginfo[i].sample_name.buff;
       fwrite(&len, sizeof(uint32_t), 1, fh);
       fwrite(buff, sizeof(uint8_t), len, fh);
       b += sizeof(uint32_t) + len;
@@ -125,11 +125,11 @@ static inline void overwrite_kmer_colours(hkey_t node,
   const Covg *covg = col_covgs[node] + graphcol;
   const Edges *edges = col_edges[node] + graphcol;
 
-  fseek(fh, sizeof(BinaryKmer) + intocol * sizeof(Covg), SEEK_CUR);
+  fseek(fh, (long)(sizeof(BinaryKmer) + intocol * sizeof(Covg)), SEEK_CUR);
   fwrite(covg, sizeof(Covg), write_ncols, fh);
-  fseek(fh, skip_cols * sizeof(Covg) + intocol * sizeof(Edges), SEEK_CUR);
+  fseek(fh, (long)(skip_cols * sizeof(Covg) + intocol * sizeof(Edges)), SEEK_CUR);
   fwrite(edges, sizeof(Edges), write_ncols, fh);
-  fseek(fh, skip_cols * sizeof(Edges), SEEK_CUR);
+  fseek(fh, (long)(skip_cols * sizeof(Edges)), SEEK_CUR);
 }
 
 void graph_file_write_colours(const dBGraph *db_graph,
@@ -257,14 +257,14 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
 uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
                                uint32_t version,
                                const Colour *colours, Colour start_col,
-                               uint32_t num_of_cols)
+                               size_t num_of_cols)
 {
   // Construct graph header
   GraphInfo hdr_ginfo[num_of_cols];
   GraphFileHeader header = {.version = version,
-                            .kmer_size = db_graph->kmer_size,
+                            .kmer_size = (uint32_t)db_graph->kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = num_of_cols,
+                            .num_of_cols = (uint32_t)num_of_cols,
                             .num_of_kmers = db_graph->ht.unique_kmers,
                             .capacity = 0};
 

@@ -33,7 +33,7 @@ typedef struct {
   char *in1, *in2;
   gzFile out1, out2;
   size_t num_of_reads_printed;
-  void (*print)(const read_t *r, gzFile gz, int linewrap);
+  void (*print)(const read_t *r, gzFile gz, size_t linewrap);
   boolean invert;
 } AlignReadsData;
 
@@ -192,7 +192,7 @@ int ctx_reads(CmdArgs *args)
 
   int argend = argi;
 
-  size_t i, num_files = argc - argend;
+  size_t i, num_files = (size_t)(argc - argend);
   char **graph_paths = argv + argend;
 
   if(num_files == 0)

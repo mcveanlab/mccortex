@@ -207,7 +207,7 @@ int ctx_build(CmdArgs *args)
 
   // Parse arguments, load
   SeqLoadingStats *stats = seq_loading_stats_create(1000);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph, .into_colour = -1,
+  SeqLoadingPrefs prefs = {.db_graph = &db_graph, .into_colour = 0,
                            .quality_cutoff = 0, .ascii_fq_offset = 0,
                            .homopolymer_cutoff = 0,
                            .remove_dups_se = false, .remove_dups_pe = false};
@@ -218,11 +218,12 @@ int ctx_build(CmdArgs *args)
 
   uint64_t bases_loaded = 0, contigs_loaded = 0;
   boolean show_prefs = true;
+  long into_colour = -1;
 
   for(argi = 0; argi < argend; argi++)
   {
     if(strcmp(argv[argi],"--sample") == 0) {
-      prefs.into_colour++;
+      prefs.into_colour = (Colour)(++into_colour);
       status("[sample] %zu: %s\n", prefs.into_colour, argv[argi+1]);
       strbuf_set(&db_graph.ginfo[prefs.into_colour].sample_name, argv[argi+1]);
       if(db_graph.readstrt != NULL && prefs.into_colour > 0)
@@ -231,13 +232,13 @@ int ctx_build(CmdArgs *args)
     }
     else if(strcmp(argv[argi],"--fq_threshold") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
-      prefs.quality_cutoff = tmp;
+      prefs.quality_cutoff = (char)tmp;
       show_prefs = true;
       argi += 1;
     }
     else if(strcmp(argv[argi],"--fq_offset") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
-      prefs.ascii_fq_offset = tmp;
+      prefs.ascii_fq_offset = (char)tmp;
       show_prefs = true;
       argi += 1;
     }
@@ -251,7 +252,7 @@ int ctx_build(CmdArgs *args)
     }
     else if(strcmp(argv[argi],"--cut_hp") == 0) {
       parse_entire_uint(argv[argi+1], &tmp);
-      prefs.homopolymer_cutoff = tmp;
+      prefs.homopolymer_cutoff = (int)tmp;
       show_prefs = true;
       argi += 1;
     }

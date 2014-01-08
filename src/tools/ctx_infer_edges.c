@@ -212,7 +212,7 @@ int ctx_infer_edges(CmdArgs *args)
     {
       if(fseek(file.fltr.fh, -edges_len, SEEK_CUR) != 0)
         die("fseek error: %s", path);
-      fwrite(edges, 1, edges_len, file.fltr.fh);
+      fwrite(edges, 1, (size_t)edges_len, file.fltr.fh);
       num_nodes_modified++;
     }
   }

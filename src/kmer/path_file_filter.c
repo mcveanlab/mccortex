@@ -34,14 +34,14 @@ int path_file_open2(PathFileReader *file, char *path, boolean fatal,
   db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.file_path.buff);
 
   // Check file length
-  off_t file_len = file->hdr_size + hdr->num_path_bytes +
-                   hdr->num_kmers_with_paths *
-                   (NUM_BKMER_WORDS*sizeof(uint64_t)+sizeof(uint64_t));
+  size_t file_len = (size_t)file->hdr_size + (size_t)hdr->num_path_bytes +
+                    hdr->num_kmers_with_paths *
+                      (NUM_BKMER_WORDS*sizeof(uint64_t) + sizeof(uint64_t));
 
-  if(file_len != file->fltr.file_size) {
+  if(file_len != (size_t)file->fltr.file_size) {
     warn("Corrupted file? Sizes don't match up "
          "[hdr:%zu exp:%zu actual:%zu path: %s]",
-         (size_t)file->hdr_size, (size_t)file_len,
+         (size_t)file->hdr_size, file_len,
          (size_t)file->fltr.file_size, file->fltr.file_path.buff);
   }
 

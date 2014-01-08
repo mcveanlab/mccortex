@@ -83,8 +83,11 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
     pos = pos_fw[start_fw] + 1;
     start_rv -= (start_rv > 0 && pos_rv[start_rv-1] == pos);
 
+    // Check path is not too long
+    assert(start_rv + MAX_PATHLEN >= num_rv);
+
     bases = nuc_rv + start_rv;
-    plen = num_rv - start_rv;
+    plen = (PathLen)(num_rv - start_rv);
     node = nodes[pos].key;
     orient = rev_orient(nodes[pos].orient);
     prev_index = db_node_paths(db_graph, node);
@@ -123,8 +126,11 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
       pos = pos_rv[start_rv] - 1;
       start_fw -= (start_fw > 0 && pos_fw[start_fw-1] == pos);
 
+      // Check path is not too long
+      assert(start_fw + MAX_PATHLEN >= num_fw);
+
       bases = nuc_fw + start_fw;
-      plen = num_fw - start_fw;
+      plen = (PathLen)(num_fw - start_fw);
       node = nodes[pos].key;
       orient = nodes[pos].orient;
       prev_index = db_node_paths(db_graph, node);
@@ -161,7 +167,8 @@ static void add_read_path(const dBNode *nodes, size_t len,
 
   // Find forks in this colour
   Edges edges;
-  size_t  i, j, k, num_fw = 0, num_rv = 0, indegree, outdegree, addfw, addrv;
+  size_t  i, j, k, num_fw = 0, num_rv = 0, addfw, addrv;
+  int indegree, outdegree;
   Nucleotide nuc_fw[MAX_PATH], nuc_rv[MAX_PATH];
   size_t pos_fw[MAX_PATH], pos_rv[MAX_PATH];
   Nucleotide nuc;
@@ -277,7 +284,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   if(wlk->node == node2 && wlk->orient == orient2 && pos >= ins_gap_min) {
     nodebuf->len += pos;
-    return pos;
+    return (int)pos;
   }
 
   // Walk from right -> left
@@ -323,7 +330,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
     size_t num = ins_gap_max - pos;
     memmove(nodes, nodes + ins_gap_max - num, num * sizeof(dBNode));
     nodebuf->len += num;
-    return num;
+    return (int)num;
   }
 
   return -1;
@@ -508,13 +515,14 @@ void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
 
   if(arrlen > 0)
   {
-    size_t i, start = 0, end = arrlen-1;
+    size_t start = 0, end = arrlen-1;
 
     while(start < arrlen && arr[start] == 0) start++;
     while(end > start && arr[end] == 0) end--;
 
     for(i = start; i <= end; i++) {
-      fprintf(fout, "%4zu\t%4li\t%4zu\n", i, (long)i-kmer_size, (size_t)arr[i]);
+      fprintf(fout, "%4zu\t%4li\t%4zu\n",
+              i, (long)i-(long)kmer_size, (size_t)arr[i]);
     }
   }
 

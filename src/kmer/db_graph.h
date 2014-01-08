@@ -39,8 +39,10 @@ typedef struct
   uint64_t *node_in_cols;
 
   // path data
-  volatile PathIndex *kmer_paths;
   PathStore pdata;
+  // DEV: remove volatile on kmer_paths
+  volatile PathIndex *kmer_paths;
+  volatile uint8_t *path_kmer_locks;
 
   // Loading reads
   uint64_t *readstrt;
