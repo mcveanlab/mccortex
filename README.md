@@ -107,9 +107,10 @@ Bundled libraries may have different licenses:
 * [htslib](https://github.com/samtools/htslib) (MIT)
 * [bcftools](https://github.com/samtools/bcftools) (MIT)
 * [vcflib](https://github.com/ekg/vcflib) (MIT)
-* [seq_file](https://github.com/noporpoise/seq_file) (BSD)
-* [string_buffer](https://github.com/noporpoise/string_buffer) (BSD)
-* [BitArray](https://github.com/noporpoise/BitArray) (BSD)
+* [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
+* [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
+* [BitArray](https://github.com/noporpoise/BitArray) (Public Domain)
+* [msg-pool](https://github.com/noporpoise/msg-pool) (Public Domain)
 * [seq-align](https://github.com/noporpoise/seq-align) (GPLv3)
 
 Used in testing:

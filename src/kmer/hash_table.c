@@ -2,6 +2,9 @@
 #include "hash_table.h"
 #include "util.h"
 
+// bit macros from BitArray library used for spinlocking
+#include "bit_macros.h"
+
 #define BSIZE 0
 #define BITEMS 1
 
@@ -270,6 +273,55 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
       *found = false;
       ptr = hash_table_insert_in_bucket(htable, h, key);
       htable->collisions[i]++; // only increment collisions when inserting
+      return (hkey_t)(ptr - htable->table);
+    }
+  }
+
+  rehash_error_exit(htable);
+}
+
+hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
+                                    boolean *found, volatile uint8_t *bktlocks)
+{
+  const BinaryKmer *ptr;
+  size_t i;
+  uint_fast32_t h;
+
+  #ifdef HASH_PREFETCH
+    uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
+    __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+  #endif
+
+  for(i = 0; i < REHASH_LIMIT; i++)
+  {
+    #ifdef HASH_PREFETCH
+      h = h2;
+      if(htable->buckets[h][BSIZE] == htable->bucket_size) {
+        h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
+        __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+      }
+    #else
+      h = binary_kmer_hash(key,i) & htable->hash_mask;
+    #endif
+
+    bitlock_acquire(bktlocks, h);
+
+    // We have the bucket lock so noone else can find or insert elements
+    // therefore we can use non-threadsafe bucket functions
+    // bitlock_acquire/release provide memory barriers
+    ptr = hash_table_find_in_bucket(htable, h, key);
+
+    if(ptr != NULL)  {
+      *found = true;
+      bitlock_release(bktlocks, h);
+      return (hkey_t)(ptr - htable->table);
+    }
+    else if(htable->buckets[h][BITEMS] < htable->bucket_size) {
+      *found = false;
+      ptr = hash_table_insert_in_bucket(htable, h, key);
+      bitlock_release(bktlocks, h);
+      // only increment collisions when inserting
+      __sync_add_and_fetch((volatile uint64_t*)&htable->collisions[i], 1);
       return (hkey_t)(ptr - htable->table);
     }
   }

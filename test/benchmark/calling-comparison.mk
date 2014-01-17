@@ -48,15 +48,16 @@ NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
 MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+8+4)*8+$(NUMCOLS) ) / 4')
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
-BUILDCTX=$(CTX_PATH)/bin/ctx31 build
-CLEANCTX=$(CTX_PATH)/bin/ctx31 clean
-JOINCTX=$(CTX_PATH)/bin/ctx31 join
-INFERCTX=$(CTX_PATH)/bin/ctx31 inferedges --all
-THREADCTX=$(CTX_PATH)/bin/ctx31 thread
-CALLCTX=$(CTX_PATH)/bin/ctx31 call
-PROCCTX=$(CTX_PATH)/bin/ctx31 unique
-PLACECTX=$(CTX_PATH)/bin/ctx31 place
-TRAVERSE=$(CTX_PATH)/bin/ctx31 contigs
+CTX=$(CTX_PATH)/bin/ctx31
+BUILDCTX=$(CTX) build
+CLEANCTX=$(CTX) clean
+JOINCTX=$(CTX) join
+INFERCTX=$(CTX) inferedges --all
+THREADCTX=$(CTX) thread
+CALLCTX=$(CTX) call
+PROCCTX=$(CTX) unique
+PLACECTX=$(CTX) place
+TRAVERSE=$(CTX) contigs
 CTXSTATS=$(CTX_PATH)/scripts/cortex_stats.pl
 
 RUNCALLS=time $(CORTEX_PATH)/scripts/calling/run_calls.pl
@@ -286,6 +287,8 @@ k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	b=$$(($* * $(PLOIDY))); a=$$(($$b-$(PLOIDY)+1)); \
 	files=$$(for k in `seq $$a $$b`; do echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; done); \
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
+	# cleaning isn't dumping sensible supernode lengths, use this for the moment
+	$(CTX) supernodes $@ | awk 'BEGIN{OFS="\t"} {if(substr($0,1,1)!=">"){ x[length($0)]++}} END{for (i in x) print i,x[i]}' | sort -n > k$(KMER)/graphs/supernodes.sample%.raw.csv
 
 # Delete .raw.ctx and .clean.ctx paths after running
 # .INTERMEDIATE: $(GRAPHS_noref)

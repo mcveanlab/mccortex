@@ -4,7 +4,6 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "add_read_paths.h"
 #include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"

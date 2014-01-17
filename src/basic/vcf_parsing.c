@@ -6,7 +6,7 @@
 static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
 {
   size_t i;
-  newcap = ROUNDUP2POW(newcap);
+  newcap = roundup2pow(newcap);
   *arr = realloc2(*arr, sizeof(StrBuf) * newcap);
   for(i = *cap; i < newcap; i++) strbuf_alloc(&((*arr)[i]), 64);
   *cap = newcap;

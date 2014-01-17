@@ -8,11 +8,16 @@ typedef struct
   char *cmdline;
   int cmdidx; // command specified
   boolean print_help;
-  // options
+  // kmer, mem, ncols
   boolean num_kmers_set, mem_to_use_set, kmer_size_set, num_threads_set, use_ncols_set;
-  size_t num_kmers, mem_to_use, kmer_size, num_threads, use_ncols;
+  size_t num_kmers, mem_to_use, kmer_size, use_ncols;
+  // Threads
+  boolean max_io_threads_set, max_work_threads_set;
+  size_t max_io_threads, max_work_threads;
+  // Input/output files
   boolean input_file_set, output_file_set;
   char *input_file, *output_file;
+  // ctp files
   size_t num_ctp_files;
   char **ctp_files;
   // arguments not including command:
@@ -20,12 +25,14 @@ typedef struct
   char **argv;
 } CmdArgs;
 
+// Defaults
 #define CMD_ARGS_INIT_MACRO { \
   .cmdline = NULL, .cmdidx = -1, .print_help = false, \
   .num_kmers_set = false, .num_kmers = 4UL<<20 /*4MB*/, \
   .mem_to_use_set = false, .mem_to_use = 1UL<<30 /*1G*/, \
   .kmer_size_set = false, .kmer_size = MAX_KMER_SIZE, \
-  .num_threads_set = false, .num_threads = 2, \
+  .max_io_threads_set = false, .max_io_threads = 4, \
+  .max_work_threads_set = false, .max_work_threads = 2, \
   .use_ncols_set = false, .use_ncols = 1, \
   .input_file_set = false, .input_file = NULL, \
   .output_file_set = false, .output_file = NULL, \

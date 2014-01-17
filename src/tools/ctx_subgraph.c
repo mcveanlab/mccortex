@@ -34,7 +34,8 @@ typedef struct
 {
   hkey_t *nodes;
   size_t len, capacity;
-} dBNodeList;
+  SeqLoadingStats *stats;
+} EdgeNodeList;
 
 
 dBGraph db_graph;
@@ -55,13 +56,11 @@ static void mark_bkmer(BinaryKmer bkmer, SeqLoadingStats *stats)
 }
 
 void mark_reads(read_t *r1, read_t *r2,
-                int qoffset1, int qoffset2,
-                const SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
+                uint8_t qoffset1, uint8_t qoffset2, void *ptr)
 {
-  (void)qoffset1;
-  (void)qoffset2;
-  (void)prefs;
-  (void)ptr;
+  (void)qoffset1; (void)qoffset2;
+
+  SeqLoadingStats *stats = (SeqLoadingStats*)ptr;
 
   READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, stats, mark_bkmer, stats);
   if(r2 != NULL) {
@@ -69,7 +68,7 @@ void mark_reads(read_t *r1, read_t *r2,
   }
 }
 
-static void store_node_neighbours(const hkey_t node, dBNodeList *list)
+static void store_node_neighbours(const hkey_t node, EdgeNodeList *list)
 {
   // Get neighbours
   Edges edges = db_node_edges_union(&db_graph, node);
@@ -100,31 +99,27 @@ static void store_node_neighbours(const hkey_t node, dBNodeList *list)
   }
 }
 
-static void store_bkmer_neighbours(BinaryKmer bkmer, dBNodeList *list,
-                                   SeqLoadingStats *stats)
+static void store_bkmer_neighbours(BinaryKmer bkmer, EdgeNodeList *list)
 {
   BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
   hkey_t node = hash_table_find(&db_graph.ht, bkey);
   if(node != HASH_NOT_FOUND) store_node_neighbours(node, list);
-  else stats->unique_kmers++;
+  else list->stats->unique_kmers++;
 }
 
 void store_nodes(read_t *r1, read_t *r2,
-                 int qoffset1, int qoffset2,
-                 const SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
+                 uint8_t qoffset1, uint8_t qoffset2, void *ptr)
 {
-  (void)qoffset1;
-  (void)qoffset2;
-  (void)prefs;
+  (void)qoffset1; (void)qoffset2;
 
-  dBNodeList *list = (dBNodeList*)ptr;
+  EdgeNodeList *list = (EdgeNodeList*)ptr;
 
-  READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, stats,
-                 store_bkmer_neighbours, list, stats);
+  READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, list->stats,
+                 store_bkmer_neighbours, list);
 
   if(r2 != NULL) {
-    READ_TO_BKMERS(r2, db_graph.kmer_size, 0, 0, stats,
-                   store_bkmer_neighbours, list, stats);
+    READ_TO_BKMERS(r2, db_graph.kmer_size, 0, 0, list->stats,
+                   store_bkmer_neighbours, list);
   }
 }
 
@@ -230,28 +225,24 @@ int ctx_subgraph(CmdArgs *args)
   size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity*use_ncols);
   kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
+  SeqLoadingStats *stats = seq_loading_stats_create(0);
+
   // Store edge nodes here
-  dBNodeList list0, list1, listtmp;
+  EdgeNodeList list0, list1, listtmp;
   list0.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
   list1.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
   list0.capacity = list1.capacity = num_of_fringe_nodes;
   list0.len = list1.len = 0;
+  list0.stats = list1.stats = stats;
 
   //
   // Load graphs
   //
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           // graphs
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .must_exist_in_edges = NULL,
-                           .empty_colours = true,
-                           // seq
-                           .into_colour = 0,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .must_exist_in_edges = NULL,
+                              .empty_colours = true};
 
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
@@ -267,7 +258,7 @@ int ctx_subgraph(CmdArgs *args)
       files[i].fltr.flatten = true;
     }
 
-    graph_load(&files[i], &prefs, stats);
+    graph_load(&files[i], gprefs, stats);
     // files[i].fltr.intocol = tmpinto;
     file_filter_update_intocol(&files[i].fltr, tmpinto);
     files[i].fltr.flatten = tmpflatten;
@@ -290,7 +281,7 @@ int ctx_subgraph(CmdArgs *args)
     die("Out of memory");
 
   for(i = 0; i < num_seed_files; i++)
-    seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, mark_reads, NULL);
+    seq_parse_se(seed_files[i], 0, &r1, &r2, mark_reads, &stats);
 
   size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
 
@@ -305,8 +296,9 @@ int ctx_subgraph(CmdArgs *args)
     status("Extending subgraph by %s\n", tmpstr);
 
     // Get edge nodes
+    // pass stats
     for(i = 0; i < num_seed_files; i++)
-      seq_parse_se(seed_files[i], &r1, &r2, &prefs, stats, store_nodes, &list0);
+      seq_parse_se(seed_files[i], 0, &r1, &r2, store_nodes, &list0);
 
     size_t d;
     for(d = 1; d < dist; d++)

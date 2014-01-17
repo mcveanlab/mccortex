@@ -11,7 +11,6 @@
 #include "db_node.h"
 #include "util.h"
 #include "file_util.h"
-#include "file_reader.h"
 #include "cmd.h"
 #include "seq_reader.h"
 #include "path_store.h"
@@ -269,11 +268,11 @@ static void load_allele_path(hkey_t node, Orientation or,
 
   size_t supindx, kmers_in_path = 0;
 
-  // if(!walker_attempt_traverse(rptwlk, wlk, node, or, wlk->bkmer))
+  // if(!rpt_walker_attempt_traverse(rptwlk, wlk, node, or, wlk->bkmer))
   //   die("Couldn't begin allele traversal");
 
   for(supindx = 0;
-      walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer);
+      rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer);
       supindx++)
   {
     #ifdef DEBUG_CALLER
@@ -596,14 +595,14 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         graph_walker_finish(wlk);
 
         // Remove mark traversed
-        walker_fast_clear(rptwlk, NULL, 0);
+        rpt_walker_fast_clear(rptwlk, NULL, 0);
 
         for(supindx = 0; supindx < snode_count; supindx++)
         {
           snode = snode_store + supindx;
           size_t last = snode->num_of_nodes-1;
-          walker_fast_clear2(rptwlk, snode_nodes(snode)[0]);
-          walker_fast_clear2(rptwlk, snode_nodes(snode)[last]);
+          rpt_walker_fast_clear2(rptwlk, snode_nodes(snode)[0]);
+          rpt_walker_fast_clear2(rptwlk, snode_nodes(snode)[last]);
         }
       }
     }
@@ -688,7 +687,7 @@ void* bubble_caller(void *args)
   size_t i, npaths = 4 * db_graph->num_of_cols;
 
   RepeatWalker rptwlk;
-  walker_alloc(&rptwlk, db_graph->ht.capacity, 22); // 4MB
+  rpt_walker_alloc(&rptwlk, db_graph->ht.capacity, 22); // 4MB
 
   // Max usage is 4 * max_allele_len * cols
   size_t maxnodes = max_allele_len * db_graph->num_of_cols * 4;
@@ -746,7 +745,7 @@ void* bubble_caller(void *args)
     }
   }
 
-  walker_dealloc(&rptwlk);
+  rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
 
   free(snode_store);

@@ -44,6 +44,11 @@ const GraphFileReader INIT_GRAPH_READER;
 #define graph_file_fromcol(rdr,col) file_filter_fromcol(&(rdr)->fltr,col)
 #define graph_file_usedcols(rdr) file_filter_usedcols(&(rdr)->fltr)
 
+// File path plus colour specification e.g. in.ctx:1,3
+#define graph_file_orig_path(rdr) ((rdr)->fltr.orig_path.buff)
+// Just the file path e.g. in.ctx
+#define graph_file_file_path(rdr) ((rdr)->fltr.orig_path.buff)
+
 // Open file
 // if cannot open file returns 0
 // if fatal is true, exits on error

@@ -1,10 +1,8 @@
 # make          <- compile all libraries
 # make all      <- compile all libraries
-# make pull     <- git pull all repos
-# make common   <- compile all repos (except gsl)
-# make update   <- pull + common
+# make clean    <- clean all libraries
 
-UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim misc
+UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim msg-pool misc
 ALLTGTS=$(UPDATE) gsl
 
 update: $(UPDATE)
@@ -42,6 +40,9 @@ seq-align/Makefile:
 readsim/Makefile:
 	git clone git://github.com/noporpoise/readsim.git
 
+msg-pool/Makefile:
+	git clone https://github.com/noporpoise/msg-pool.git
+
 bioinf-perl/README:
 	git clone https://github.com/noporpoise/bioinf-perl.git
 
@@ -75,6 +76,9 @@ seq-align: seq-align/Makefile bit_array string_buffer
 readsim: readsim/Makefile htslib
 	cd readsim && git pull && make HTSLIB=../htslib
 
+msg-pool: msg-pool/Makefile
+	cd msg-pool && git pull && make
+
 bioinf-perl: bioinf-perl/README
 	# nothing to do for bioinf-perl
 
@@ -94,6 +98,7 @@ clean:
 	cd seq_file && make clean
 	cd seq-align && make clean
 	cd readsim && make clean
+	cd msg-pool && make clean
 	cd misc && make clean
 
 .PHONY: all clean update

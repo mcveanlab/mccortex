@@ -41,6 +41,49 @@ typedef struct {
   size_t nprint; // id of next contig printed
 } ContigData;
 
+
+// Returns first kmer that is in the graph
+// Or HASH_NOT_FOUND if no kmers are in the graph
+hkey_t seq_reader_first_node(const read_t *r, uint8_t qcutoff, uint8_t hp_cutoff,
+                             size_t colour, const dBGraph *db_graph)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+  size_t contig_start, contig_end, search_start = 0;
+  BinaryKmer bkmer, bkey;
+  Nucleotide nuc;
+  hkey_t node;
+  size_t next_base;
+
+  assert(db_graph->node_in_cols != NULL);
+  assert(r != NULL);
+
+  while((contig_start = seq_contig_start(r, search_start, kmer_size,
+                                         qcutoff, hp_cutoff)) < r->seq.end)
+  {
+    contig_end = seq_contig_end(r, contig_start, kmer_size,
+                                qcutoff, hp_cutoff, &search_start);
+
+    const char *contig = r->seq.b + contig_start;
+    size_t contig_len = contig_end - contig_start;
+
+    bkmer = binary_kmer_from_str(contig, kmer_size);
+    bkmer = binary_kmer_right_shift_one_base(bkmer);
+
+    for(next_base = kmer_size-1; next_base < contig_len; next_base++)
+    {
+      nuc = dna_char_to_nuc(contig[next_base]);
+      bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
+      bkey = db_node_get_key(bkmer, kmer_size);
+      node = hash_table_find(&db_graph->ht, bkey);
+
+      if(node != HASH_NOT_FOUND &&
+         db_node_has_col(db_graph, node, colour)) return node;
+    }
+  }
+
+  return HASH_NOT_FOUND;
+}
+
 static void contig_print_path_dist(const size_t *hist, size_t n,
                                    const char *name, size_t ncontigs)
 {
@@ -82,7 +125,7 @@ static inline void contig_data_alloc(ContigData *cd, size_t capacity)
 static inline void contig_data_ensure_capacity(ContigData *cd, size_t capacity)
 {
   if(capacity > cd->capacity) {
-    cd->capacity = ROUNDUP2POW(capacity);
+    cd->capacity = roundup2pow(capacity);
     cd->lengths = realloc2(cd->lengths, cd->capacity * sizeof(size_t));
     cd->junctions = realloc2(cd->junctions, cd->capacity * sizeof(size_t));
   }
@@ -106,7 +149,7 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
   const size_t kmer_size = db_graph->kmer_size;
   size_t njunc = 0;
 
-  db_nodes_reset(&cd->nodes);
+  db_node_buf_reset(&cd->nodes);
   db_node_buf_safe_add(&cd->nodes, node, FORWARD);
 
   for(orient = 0; orient < 2; orient++)
@@ -120,7 +163,7 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
 
     while(graph_traverse(wlk) &&
-          walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
+          rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
     {
       graph_walker_node_add_counter_paths(wlk, lost_nuc);
       lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
@@ -139,7 +182,7 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
     // nloop += rptwlk->nbloom_entries;
 
     graph_walker_finish(wlk);
-    walker_fast_clear(rptwlk, cd->nodes.data, cd->nodes.len);
+    rpt_walker_fast_clear(rptwlk, cd->nodes.data, cd->nodes.len);
   }
 
   if(fout != NULL) {
@@ -189,7 +232,7 @@ static inline void parse_seed_read(const read_t *r, struct ParseSeeds *ps)
   const dBGraph *db_graph = ps->db_graph;
 
   if(r == NULL) return;
-  hkey_t node = seq_reader_first_node(r, -1, -1, ps->colour, db_graph);
+  hkey_t node = seq_reader_first_node(r, 0, 0, ps->colour, db_graph);
 
   if(node != HASH_NOT_FOUND) {
     pulldown_contig(node, ps->cd, db_graph, ps->colour,
@@ -202,13 +245,10 @@ static inline void parse_seed_read(const read_t *r, struct ParseSeeds *ps)
 }
 
 static inline void parse_seed_reads(read_t *r1, read_t *r2,
-                                    int qoffset1, int qoffset2,
-                                    const SeqLoadingPrefs *prefs,
-                                    SeqLoadingStats *stats,
+                                    uint8_t qoffset1, uint8_t qoffset2,
                                     void *ptr)
 {
   (void)qoffset1; (void)qoffset2;
-  (void)prefs; (void)stats;
 
   struct ParseSeeds *ps = (struct ParseSeeds*)ptr;
   contig_data_ensure_capacity(ps->cd, ps->cd->ncontigs+2);
@@ -345,7 +385,7 @@ int ctx_contigs(CmdArgs *args)
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
   RepeatWalker rptwlk;
-  walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
+  rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
   uint8_t *path_store = malloc2(path_max_mem);
   path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
@@ -354,18 +394,12 @@ int ctx_contigs(CmdArgs *args)
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           // Graph files
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = true,
-                           // Sequence files
-                           .into_colour = 0,
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = true};
 
-  graph_load(&file, &prefs, stats);
+  graph_load(&file, gprefs, stats);
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -397,7 +431,7 @@ int ctx_contigs(CmdArgs *args)
     read_t r1, r2;
     seq_read_alloc(&r1);
     seq_read_alloc(&r2);
-    seq_parse_se_sf(seed_file, &r1, &r2, &prefs, stats, parse_seed_reads, &ps);
+    seq_parse_se_sf(seed_file, 0, &r1, &r2, parse_seed_reads, &ps);
     seq_read_dealloc(&r1);
     seq_read_dealloc(&r2);
     // seq_parse_se_sf() closes seed_file
@@ -485,7 +519,7 @@ int ctx_contigs(CmdArgs *args)
   free(path_store);
   if(tmppdata != NULL) free(tmppdata);
 
-  walker_dealloc(&rptwlk);
+  rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
   db_graph_dealloc(&db_graph);
 

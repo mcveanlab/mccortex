@@ -15,10 +15,10 @@ typedef struct
 // GraphWalker wlk is proposing node and orient as next move
 // We determine if it is safe to make the traversal without getting stuck in
 // a loop/cycle in the graph
-static inline boolean walker_attempt_traverse(RepeatWalker *rpt,
-                                              const GraphWalker *wlk,
-                                              hkey_t node, Orientation orient,
-                                              const BinaryKmer bkmer)
+static inline boolean rpt_walker_attempt_traverse(RepeatWalker *rpt,
+                                                  const GraphWalker *wlk,
+                                                  hkey_t node, Orientation orient,
+                                                  const BinaryKmer bkmer)
 {
   if(!db_node_has_traversed(rpt->visited, node, orient)) {
     db_node_set_traversed(rpt->visited, node, orient);
@@ -33,8 +33,15 @@ static inline boolean walker_attempt_traverse(RepeatWalker *rpt,
   }
 }
 
-static inline void walker_alloc(RepeatWalker *rpt,
-                                size_t hash_capacity, size_t nbits)
+static inline size_t rpt_walker_est_mem(size_t hash_capacity, size_t nbits)
+{
+  size_t visited_words = roundup_bits2words64(hash_capacity*2);
+  size_t repeat_words = roundup_bits2words64(1UL<<nbits);
+  return (visited_words+repeat_words) * sizeof(uint64_t);
+}
+
+static inline void rpt_walker_alloc(RepeatWalker *rpt,
+                                    size_t hash_capacity, size_t nbits)
 {
   assert(nbits > 0 && nbits <= 32);
   size_t visited_words = roundup_bits2words64(hash_capacity*2);
@@ -48,19 +55,19 @@ static inline void walker_alloc(RepeatWalker *rpt,
   memcpy(rpt, &tmp, sizeof(RepeatWalker));
 }
 
-static inline void walker_dealloc(RepeatWalker *rpt)
+static inline void rpt_walker_dealloc(RepeatWalker *rpt)
 {
   free(rpt->visited);
 }
 
-static inline void walker_clear(RepeatWalker *rpt)
+static inline void rpt_walker_clear(RepeatWalker *rpt)
 {
   memset(rpt->visited, 0, rpt->mem_bytes);
   rpt->nbloom_entries = 0;
 }
 
-static inline void walker_fast_clear(RepeatWalker *rpt,
-                                     const dBNode *nodes, size_t n)
+static inline void rpt_walker_fast_clear(RepeatWalker *rpt,
+                                         const dBNode *nodes, size_t n)
 {
   size_t i, bmem = roundup_bits2words64(1UL<<rpt->bloom_nbits)*sizeof(uint64_t);
   for(i = 0; i < n; i++) db_node_fast_clear_traversed(rpt->visited, nodes[i].key);
@@ -68,7 +75,7 @@ static inline void walker_fast_clear(RepeatWalker *rpt,
   rpt->nbloom_entries = 0;
 }
 
-static inline void walker_fast_clear2(RepeatWalker *rpt, const dBNode node)
+static inline void rpt_walker_fast_clear2(RepeatWalker *rpt, const dBNode node)
 {
   db_node_fast_clear_traversed(rpt->visited, node.key);
 }

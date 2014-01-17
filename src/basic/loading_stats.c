@@ -1,5 +1,5 @@
 #include "global.h"
-#include "file_reader.h"
+#include "loading_stats.h"
 
 //
 // Create/free/sum SeqLoadingStats

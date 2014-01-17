@@ -8,6 +8,7 @@
 #include "binary_kmer.h"
 #include "hash_table.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "graph_format.h"
 #include "seq_reader.h"
 
@@ -26,6 +27,7 @@ typedef struct
   size_t buflen;
   size_t max_walk;
   uint64_t *visited;
+  SeqLoadingStats *stats;
 } ExtendContig;
 
 static void node_not_in_graph(BinaryKmer bkmer, dBGraph *db_graph)
@@ -76,7 +78,7 @@ static void walk_graph(hkey_t node, Orientation orient,
     db_node_fast_clear_traversed(visited, buf->data[i].key);
 }
 
-static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
+static void extend_read(read_t *r, ExtendContig *contig)
 {
   dBGraph *db_graph = contig->db_graph;
   dBNodeBuffer *readbuffw = contig->readbuffw, *readbufrv = contig->readbufrv;
@@ -85,7 +87,9 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
 
   db_node_buf_ensure_capacity(readbuffw, r->seq.end + contig->max_walk * 2);
   readbuffw->len = readbufrv->len = 0;
-  READ_TO_BKMERS(r, db_graph->kmer_size, 0, 0, stats, add_kmer, db_graph, readbuffw);
+
+  READ_TO_BKMERS(r, db_graph->kmer_size, 0, 0, contig->stats,
+                 add_kmer, db_graph, readbuffw);
 
   if(readbuffw->len == 0) die("Invalid entry: %s", r->name.b);
 
@@ -113,7 +117,7 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
   // to string and print
   size_t len = readbuffw->len + readbufrv->len;
   if(contig->buflen < len+1) {
-    contig->buflen = ROUNDUP2POW(len+1);
+    contig->buflen = roundup2pow(len+1);
     contig->buf = realloc2(contig->buf, contig->buflen);
   }
 
@@ -123,14 +127,13 @@ static void extend_read(read_t *r, ExtendContig *contig, SeqLoadingStats *stats)
 }
 
 static void extend_reads(read_t *r1, read_t *r2,
-                         int qoffset1, int qoffset2,
-                         const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                         uint8_t qoffset1, uint8_t qoffset2,
                          void *ptr)
 {
-  (void)qoffset1; (void)qoffset2; (void)prefs;
+  (void)qoffset1; (void)qoffset2;
   ExtendContig *contig = (ExtendContig*)ptr;
-  extend_read(r1, contig, stats);
-  if(r2 != NULL) extend_read(r2, contig, stats);
+  extend_read(r1, contig);
+  if(r2 != NULL) extend_read(r2, contig);
 }
 
 int ctx_extend(CmdArgs *args)
@@ -200,34 +203,29 @@ int ctx_extend(CmdArgs *args)
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           // binaries
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = false,
-                           // sequence
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = false};
 
   file.fltr.flatten = true;
   // file.fltr.intocol = 0;
   file_filter_update_intocol(&file.fltr, 0);
 
-  graph_load(&file, &prefs, stats);
-
+  graph_load(&file, gprefs, stats);
 
   ExtendContig contig = {.db_graph = &db_graph,
                          .readbuffw = &readbuffw, .readbufrv = &readbufrv,
                          .out = out, .buf = buf, .buflen = buflen,
-                         .max_walk = dist, .visited = visited};
+                         .max_walk = dist, .visited = visited,
+                         .stats = stats};
 
   // Parse sequence
   read_t r1, r2;
   if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
     die("Out of memory");
 
-  seq_parse_se_sf(seq_fa_file, &r1, &r2, &prefs, stats, extend_reads, &contig);
+  seq_parse_se_sf(seq_fa_file, 0, &r1, &r2, extend_reads, &contig);
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 

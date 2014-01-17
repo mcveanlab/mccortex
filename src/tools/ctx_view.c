@@ -226,7 +226,7 @@ int ctx_view(CmdArgs *args)
   {
     printf("----\n");
     printf("kmers read: %s\n", ulong_to_str(num_kmers_read, num_str));
-    printf("covgs read: %s\n", ulong_to_str(sum_covgs_read, num_str));
+    printf("sum covgs:  %s\n", ulong_to_str(sum_covgs_read, num_str));
     printf("seq loaded: %s\n", ulong_to_str(sum_seq_loaded, num_str));
   }
 

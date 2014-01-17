@@ -61,13 +61,11 @@ char* num_to_str(double num, int decimals, char* str);
 //
 
 // http://www.devx.com/tips/Tip/42853
-// static inline int my_isnan(double x)
-// {
+// static inline int my_isnan(double x) {
 //   volatile double temp = x;
 //   return temp != x;
 // }
-// static inline int my_isinf(double x)
-// {
+// static inline int my_isinf(double x) {
 //   volatile double temp = x;
 //   return ((temp == x) && ((temp - x) != 0.0));
 // }

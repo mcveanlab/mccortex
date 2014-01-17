@@ -368,12 +368,12 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 //   stats->total_bases_read
 //   stats->binaries_loaded
 
-size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
+size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   SeqLoadingStats *stats)
 {
-  assert(!prefs->must_exist_in_graph || prefs->must_exist_in_edges != NULL);
+  assert(!prefs.must_exist_in_graph || prefs.must_exist_in_edges != NULL);
 
-  dBGraph *graph = prefs->db_graph;
+  dBGraph *graph = prefs.db_graph;
   GraphInfo *ginfo = graph->ginfo;
   size_t i, load_ncols = graph_file_outncols(file), fromcol, intocol;
   FileFilter *fltr = &file->fltr;
@@ -426,20 +426,20 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
     for(i = 0; i < load_ncols; i++) keep_kmer |= covgs[i] | edges[i];
     if(keep_kmer == 0) continue;
 
-    if(prefs->boolean_covgs)
+    if(prefs.boolean_covgs)
       for(i = 0; i < load_ncols; i++)
         covgs[i] = covgs[i] > 0;
 
     // Fetch node in the de bruijn graph
     hkey_t node;
 
-    if(prefs->must_exist_in_graph)
+    if(prefs.must_exist_in_graph)
     {
       node = hash_table_find(&graph->ht, bkmer);
       if(node == HASH_NOT_FOUND) continue;
 
       // Edges union_edges = db_node_edges_union(graph, node);
-      Edges union_edges = prefs->must_exist_in_edges[node];
+      Edges union_edges = prefs.must_exist_in_edges[node];
 
       for(i = 0; i < load_ncols; i++) edges[i] &= union_edges;
     }
@@ -448,7 +448,7 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
       boolean found;
       node = hash_table_find_or_insert(&graph->ht, bkmer, &found);
 
-      if(prefs->empty_colours && found)
+      if(prefs.empty_colours && found)
         die("Duplicate kmer loaded [cols:%zu:%zu]", fltr->intocol, load_ncols);
     }
 
@@ -509,13 +509,13 @@ size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
 }
 
 size_t graph_load_colour(GraphFileReader *file,
-                         const SeqLoadingPrefs *prefs,
+                         const GraphLoadingPrefs prefs,
                          SeqLoadingStats *stats,
                          size_t colour_idx, size_t intocol)
 {
   FileFilter *fltr = &file->fltr;
   assert(colour_idx < fltr->ncols);
-  assert(intocol < prefs->db_graph->num_of_cols);
+  assert(intocol < prefs.db_graph->num_of_cols);
   size_t *tmpcols = fltr->cols, tmpncols = fltr->ncols, tmpinto = fltr->intocol;
   size_t cols[1] = {fltr->cols[colour_idx]};
   fltr->cols = cols; fltr->ncols = 1;
@@ -668,7 +668,7 @@ size_t graph_files_merge(const char *out_ctx_path,
   }
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs
+  GraphLoadingPrefs prefs
     = {.db_graph = db_graph,
        .boolean_covgs = false,
        .must_exist_in_graph = only_load_if_in_graph,
@@ -682,7 +682,7 @@ size_t graph_files_merge(const char *out_ctx_path,
 
     if(!kmers_loaded) {
       for(i = 0; i < num_files; i++)
-        graph_load(&files[i], &prefs, stats);
+        graph_load(&files[i], prefs, stats);
     }
 
     hash_table_print_stats(&db_graph->ht);
@@ -710,7 +710,7 @@ size_t graph_files_merge(const char *out_ctx_path,
         // files[i].fltr.intocol = 0;
         file_filter_update_intocol(&files[i].fltr, 0);
         files[i].fltr.flatten = true;
-        graph_load(&files[i], &prefs, stats);
+        graph_load(&files[i], prefs, stats);
         // files[i].fltr.intocol = tmpinto;
         file_filter_update_intocol(&files[i].fltr, tmpinto);
         files[i].fltr.flatten = tmpflatten;
@@ -777,7 +777,7 @@ size_t graph_files_merge(const char *out_ctx_path,
           }
 
           fseek(files[i].fltr.fh, files[i].hdr_size, SEEK_SET);
-          graph_load(&files[i], &prefs, stats);
+          graph_load(&files[i], prefs, stats);
           loaded = true;
 
           // files[i].fltr.intocol = tmpinto;

@@ -1,7 +1,7 @@
 #ifndef ADD_PATH_WORKERS_H_
 #define ADD_PATH_WORKERS_H_
 
-#include "file_reader.h"
+#include "loading_stats.h"
 
 typedef struct PathsWorkerPool PathsWorkerPool;
 
@@ -19,7 +19,7 @@ void path_workers_add_paths_to_graph(PathsWorkerPool *pool,
                                      seq_file_t *sf1, seq_file_t *sf2,
                                      size_t ctx_col, size_t ctp_col,
                                      size_t ins_gap_min, size_t ins_gap_max,
-                                     const SeqLoadingPrefs *prefs,
+                                     const SeqReadingPrefs prefs,
                                      SeqLoadingStats *stats);
 
 #endif

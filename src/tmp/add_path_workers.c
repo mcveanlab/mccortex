@@ -9,7 +9,7 @@
 #include "repeat_walker.h"
 #include "file_util.h"
 #include "seq_reader.h"
-#include "file_reader.h"
+#include "loading_stats.h"
 #include "add_path_workers.h"
 #include "add_read_paths.h"
 
@@ -68,7 +68,7 @@ static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
 
   db_node_buf_alloc(&worker->nodebuf, 4096);
   graph_walker_alloc(&worker->wlk);
-  walker_alloc(&worker->rptwlk, db_graph->ht.capacity, 22); // 4MB
+  rpt_walker_alloc(&worker->rptwlk, db_graph->ht.capacity, 22); // 4MB
 
   // add_path_job_alloc(&worker->job);
 }
@@ -76,7 +76,7 @@ static void paths_worker_alloc(AddPathsWorker *worker, size_t wid,
 static void paths_worker_dealloc(AddPathsWorker *worker)
 {
   free(worker->insert_sizes);
-  walker_dealloc(&worker->rptwlk);
+  rpt_walker_dealloc(&worker->rptwlk);
   graph_walker_dealloc(&worker->wlk);
   db_node_buf_dealloc(&worker->nodebuf);
   // add_path_job_dealloc(&worker->job);
@@ -135,8 +135,8 @@ void* add_paths_thread(void *ptr)
 
 // This function is passed to parse_filelist to load paths from sequence data
 static void load_paths(read_t *r1, read_t *r2,
-                       int fq_offset1, int fq_offset2,
-                       const SeqLoadingPrefs *prefs, SeqLoadingStats *stats,
+                       uint8_t fq_offset1, uint8_t fq_offset2,
+                       const SeqReadingPrefs prefs, SeqLoadingStats *stats,
                        void *ptr)
 {
   // Don't bother checking for duplicates
@@ -147,10 +147,10 @@ static void load_paths(read_t *r1, read_t *r2,
   // printf("READ1: %s\n", r1->seq.b);
   // if(r2 != NULL) printf("READ2: %s\n", r2->seq.b);
 
-  int qcutoff1 = prefs->quality_cutoff;
-  int qcutoff2 = prefs->quality_cutoff;
+  uint8_t qcutoff1 = prefs.quality_cutoff;
+  uint8_t qcutoff2 = prefs.quality_cutoff;
 
-  if(prefs->quality_cutoff > 0)
+  if(prefs.quality_cutoff > 0)
   {
     qcutoff1 += fq_offset1;
     qcutoff2 += fq_offset2;
@@ -165,7 +165,7 @@ static void load_paths(read_t *r1, read_t *r2,
 
   next_job.qcutoff1 = qcutoff1;
   next_job.qcutoff2 = qcutoff2;
-  next_job.hp_cutoff = prefs->homopolymer_cutoff;
+  next_job.hp_cutoff = prefs.homopolymer_cutoff;
   next_job.ctp_col = pool->rjob.ctp_col;
   next_job.ctx_col = pool->rjob.ctx_col;
   next_job.ins_gap_min = pool->rjob.ins_gap_min;
@@ -307,15 +307,16 @@ void path_workers_pool_dealloc(PathsWorkerPool *pool,
     paths_worker_dealloc(&workers[i]);
   }
 
+  (void)num_se_reads; (void)num_pe_readpairs;
   // Print mp gap size / insert stats to a file
-  size_t kmer_size = pool->db_graph->kmer_size;
-  dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_arr_cap,
-                 kmer_size, false, num_se_reads + num_pe_readpairs*2);
+  // size_t kmer_size = pool->db_graph->kmer_size;
+  // dump_gap_sizes("gap_sizes.%u.csv", gap_sizes, gap_arr_cap,
+  //                kmer_size, false, num_se_reads + num_pe_readpairs*2);
 
-  if(pool->seen_pe) {
-    dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_arr_cap,
-                   kmer_size, true, num_pe_readpairs);
-  }
+  // if(pool->seen_pe) {
+  //   dump_gap_sizes("mp_sizes.%u.csv", insert_sizes, gap_arr_cap,
+  //                  kmer_size, true, num_pe_readpairs);
+  // }
 
   paths_worker_dealloc(&workers[0]);
 
@@ -342,7 +343,7 @@ void path_workers_add_paths_to_graph(PathsWorkerPool *pool,
                                      seq_file_t *sf1, seq_file_t *sf2,
                                      size_t ctx_col, size_t ctp_col,
                                      size_t ins_gap_min, size_t ins_gap_max,
-                                     const SeqLoadingPrefs *prefs,
+                                     const SeqReadingPrefs prefs,
                                      SeqLoadingStats *stats)
 {
   pool->rjob.ins_gap_min = ins_gap_min;

@@ -1,8 +1,9 @@
-#ifndef path_format_H_
-#define path_format_H_
+#ifndef PATH_FORMAT_H_
+#define PATH_FORMAT_H_
 
 #include "graph_typedef.h"
 #include "path_file_filter.h"
+#include "path_store.h"
 
 // path file format version
 #define CTX_PATH_FILEFORMAT 1
@@ -53,4 +54,4 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout);
 
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout);
 
-#endif
+#endif /* PATH_FORMAT_H_ */

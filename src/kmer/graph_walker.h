@@ -1,8 +1,9 @@
-#ifndef READ_PATH_H_
-#define READ_PATH_H_
+#ifndef GRAPH_WALKER_H_
+#define GRAPH_WALKER_H_
 
-#include "path_store.h"
 #include "db_graph.h"
+#include "db_node.h"
+#include "path_store.h"
 
 typedef struct
 {
@@ -52,6 +53,9 @@ typedef struct
   GraphStep last_step;
 } GraphWalker;
 
+// Get initial memory requirement
+size_t graph_walker_est_mem();
+
 // Need to pass number of colours in the graph
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
@@ -95,4 +99,10 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
 
 void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc);
 
-#endif /* READ_PATH_H_ */
+// Follow a given path of dBNode objects
+// first_node_fork should be true(1) nodes[0] is reached through a node with
+// out-degree > 1, false(0) otherwise
+void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *nodes, size_t n,
+                                boolean forward, boolean first_node_fork);
+
+#endif /* GRAPH_WALKER_H_ */

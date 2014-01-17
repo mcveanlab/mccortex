@@ -36,7 +36,9 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts,
     print_usage(usage, "-m <memory> argument not valid for this command");
   if(args->kmer_size_set && strchr(accptopts,'k') == NULL)
     print_usage(usage, "-k <kmer-size> argument not valid for this command");
-  if(args->num_threads_set && strchr(accptopts,'t') == NULL)
+  if(args->max_io_threads_set && strchr(accptopts,'a') == NULL)
+    print_usage(usage, "-a <iothreads> argument not valid for this command");
+  if(args->max_work_threads_set && strchr(accptopts,'t') == NULL)
     print_usage(usage, "-t <threads> argument not valid for this command");
   if(args->use_ncols_set && strchr(accptopts,'c') == NULL)
     print_usage(usage, "-c <ncols> argument not valid for this command");
@@ -49,7 +51,7 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts,
   // Check for programmer error - all options should be valid
   const char *p;
   for(p = accptopts; *p != '\0'; p++) {
-    if(strchr("nmktcfop", *p) == NULL)
+    if(strchr("nmkatcfop", *p) == NULL)
       die("Invalid option: %c", *p);
   }
 }
@@ -73,8 +75,12 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
       if(!args->kmer_size_set)
         die("-k <kmer-size> argument required for this command");
     }
+    else if(*requireopts == 'a') {
+      if(!args->max_io_threads_set)
+        die("-a <iothreads> argument required for this command");
+    }
     else if(*requireopts == 't') {
-      if(!args->num_threads_set)
+      if(!args->max_work_threads_set)
         die("-t <threads> argument required for this command");
     }
     else if(*requireopts == 'c') {
@@ -166,19 +172,28 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
       args->kmer_size_set = true;
       i++;
     }
+    else if(strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--asyncio") == 0)
+    {
+      if(i + 1 == argc) die("%s <iothreads> requires an argument", argv[i]);
+      if(args->max_io_threads_set) die("-a <iothreads> given more than once");
+      if(!parse_entire_size(argv[i+1], &args->max_io_threads) || !args->max_io_threads)
+        die("Invalid number of io threads: %s", argv[i+1]);
+      args->max_io_threads_set = true;
+      i++;
+    }
     else if(strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--threads") == 0)
     {
       if(i + 1 == argc) die("%s <threads> requires an argument", argv[i]);
-      if(args->num_threads_set) die("-t <threads> given more than once");
-      if(!parse_entire_size(argv[i+1], &args->num_threads) || args->num_threads == 0)
-        die("Invalid number of threads: %s", argv[i+1]);
-      args->num_threads_set = true;
+      if(args->max_work_threads_set) die("-t <threads> given more than once");
+      if(!parse_entire_size(argv[i+1], &args->max_work_threads) || !args->max_work_threads)
+        die("Invalid number of worker threads: %s", argv[i+1]);
+      args->max_work_threads_set = true;
       i++;
     }
     else if(strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--ncols") == 0)
     {
       if(i + 1 == argc) die("%s <ncols> requires an argument", argv[i]);
-      if(args->num_threads_set) die("-t <ncols> given more than once");
+      if(args->use_ncols_set) die("-c <ncols> given more than once");
       if(!parse_entire_size(argv[i+1], &args->use_ncols) || args->use_ncols == 0)
         die("Invalid number of colours to use: %s", argv[i+1]);
       args->use_ncols_set = true;
@@ -253,7 +268,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
     req_kmers = args->num_kmers;
     above_nkmers = true;
   }
-  else if(use_mem_limit && args->mem_to_use_set)
+  else if(use_mem_limit)
     req_kmers = (8 * args->mem_to_use) / bits_per_kmer;
   else if(min_num_kmers > 0) {
     req_kmers = (size_t)(min_num_kmers / IDEAL_OCCUPANCY);

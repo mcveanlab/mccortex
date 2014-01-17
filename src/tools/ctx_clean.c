@@ -23,8 +23,8 @@ static const char usage[] =
 "  --supernodes          Remove low coverage supernode. Additional options:\n"
 "    --kdepth <C>        kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
 "    --threshold <T>     Cleaning threshold, remove supnodes where [coverage < T]\n"
-"  --covgs <out.csv>     Dump covg distribution to a CSV file\n"
-// "  --out <out.ctx>       Save output file\n"
+"  --covgs <out.csv>     Dump covg distribution before cleaning to a CSV file\n"
+"  --out <out.ctx>       Save output file\n"
 "\n"
 " Default: --tips 2*k-1 --supernodes\n";
 
@@ -304,16 +304,20 @@ int ctx_clean(CmdArgs *args)
     else print_usage(usage, "Unknown argument: %s", argv[argi]);
   }
 
-  if(argc - argi < 2) print_usage(usage, "Please give output and input graphs");
+  char *out_ctx_path = args->output_file_set ? args->output_file : NULL;
+
+  if(argi == argc) print_usage(usage, "Please give input graph files");
 
   // default behaviour
   if(!tip_cleaning && !supernode_cleaning) {
-    if(dump_covgs == NULL) {
-      // print_usage(usage, "Need at least one of: --tips, --supernode, --covgs <out>");
+    if(out_ctx_path != NULL)
       supernode_cleaning = tip_cleaning = true; // do both
-    }
     else
-      warn("No cleaning being done: you did not specify --tips or --supernodes");
+      warn("No cleaning being done: you did not specify --out <out.ctx>");
+  }
+
+  if((tip_cleaning || supernode_cleaning) && out_ctx_path == NULL) {
+    print_usage(usage, "Please specify --out <out.ctx> for cleaned graph");
   }
 
   if(!supernode_cleaning && threshold > 0)
@@ -327,8 +331,7 @@ int ctx_clean(CmdArgs *args)
                        "--threshold <T>, --depth <D>");
   }
 
-  // Use remaining args as binaries
-  char *out_ctx_path = argv[argi++];
+  // Use remaining args as graph files
   char **paths = argv + argi;
   size_t i, j, num_files = (size_t)(argc - argi), total_cols = 0;
 
@@ -387,7 +390,7 @@ int ctx_clean(CmdArgs *args)
   cmd_check_mem_limit(args, graph_mem);
 
   // Check output files are writable
-  if(!futil_is_file_writable(out_ctx_path))
+  if(out_ctx_path != NULL && !futil_is_file_writable(out_ctx_path))
     print_usage(usage, "Cannot write to output: %s", out_ctx_path);
 
   if(dump_covgs && !futil_is_file_writable(dump_covgs))
@@ -404,10 +407,10 @@ int ctx_clean(CmdArgs *args)
 
   // Load graph into a single colour
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = false};
 
   // Construct cleaned graph header
   GraphFileHeader outhdr = {.version = CTX_GRAPH_FILEFORMAT,
@@ -435,7 +438,7 @@ int ctx_clean(CmdArgs *args)
     // files[i].fltr.intocol = 0;
     file_filter_update_intocol(&files[i].fltr, 0);
     files[i].fltr.flatten = true;
-    graph_load(&files[i], &prefs, stats);
+    graph_load(&files[i], gprefs, stats);
     // files[i].fltr.intocol = tmpinto;
     file_filter_update_intocol(&files[i].fltr, tmpinto);
     files[i].fltr.flatten = tmpflatten;

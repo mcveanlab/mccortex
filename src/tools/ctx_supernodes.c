@@ -245,16 +245,16 @@ int ctx_supernodes(CmdArgs *args)
   size_t numwords64 = roundup_bits2words64(db_graph.ht.capacity);
   visited = calloc2(numwords64, sizeof(uint64_t));
 
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           .boolean_covgs = true,
-                           .must_exist_in_graph = false,
-                           .empty_colours = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = true,
+                              .must_exist_in_graph = false,
+                              .empty_colours = false};
 
   for(i = 0; i < num_files; i++) {
     files[i].fltr.flatten = true;
     // files[i].fltr.intocol = 0;
     file_filter_update_intocol(&files[i].fltr, 0);
-    graph_load(&files[i], &prefs, NULL);
+    graph_load(&files[i], gprefs, NULL);
   }
 
   hash_table_print_stats(&db_graph.ht);

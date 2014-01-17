@@ -44,12 +44,12 @@ int ctx_health_check(CmdArgs *args)
   db_graph_alloc(&db_graph, file.hdr.kmer_size, ncols, ncols, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity * ncols, sizeof(Edges));
 
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = true};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = true};
 
-  graph_load(&file, &prefs, NULL);
+  graph_load(&file, gprefs, NULL);
 
   db_graph_healthcheck(&db_graph);
 

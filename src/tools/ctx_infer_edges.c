@@ -4,8 +4,9 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
+#include "db_node.h"
 #include "graph_format.h"
-#include "file_reader.h"
+#include "loading_stats.h"
 #include "seq_reader.h"
 
 static const char usage[] =
@@ -184,13 +185,13 @@ int ctx_infer_edges(CmdArgs *args)
                                   sizeof(uint64_t));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .must_exist_in_edges = NULL,
-                           .empty_colours = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                             .boolean_covgs = false,
+                             .must_exist_in_graph = false,
+                             .must_exist_in_edges = NULL,
+                             .empty_colours = false};
 
-  graph_load(&file, &prefs, stats);
+  graph_load(&file, gprefs, stats);
 
   if(add_pop_edges) status("Inferring edges from population...\n");
   else status("Inferring all missing edges...\n");

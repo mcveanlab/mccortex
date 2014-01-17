@@ -8,6 +8,8 @@
 //
 
 // Returns true if added, false otherwise
+// packed points to <PathLen><PackedSeq>
+// path_nbytes is the number of bytes in <PackedSeq>
 boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
                                   const uint8_t *packed, size_t path_nbytes)
 {
@@ -15,7 +17,8 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
 
   // 1) Get lock for kmer
-  bitlock_acquire(kmerlocks, kmer);
+  // calling bitlock_yield_acquire instead of bitlock_acquire causes
+  bitlock_yield_acquire(kmerlocks, kmer);
 
   PathIndex next = *(volatile PathIndex*)&db_node_paths(db_graph, kmer);
 
@@ -33,15 +36,17 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
 
   // 3) shift store->next to make space
   size_t mem = packedpath_mem2(pstore->colset_bytes, path_nbytes);
-  uint8_t *write;
-  // write = pstore->next; pstore->next += mem;
-  // __sync_fetch_and_add(x,y) x and y need to be of same type
-  write = (uint8_t*)__sync_fetch_and_add((volatile uint8_t**)&pstore->next,
-                                         (uint8_t*)mem);
+  uint8_t *new_path;
 
-  if(write + mem > pstore->end) die("Out of path memory!");
+  // atomic { new_path = pstore->next; pstore->next += mem; }
+  // __sync_fetch_and_add(x,y) x and y need to be of same type
+  new_path = __sync_fetch_and_add((uint8_t*volatile*)&pstore->next,
+                                  (uint8_t*)mem);
+
+  if(new_path + mem > pstore->end) die("Out of path memory!");
 
   // 4) Copy new entry
+  uint8_t *write = new_path;
 
   // Prev
   packedpath_prev(write) = next;
@@ -50,16 +55,13 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   memset(write, 0, pstore->colset_bytes);
   bitset_set(write, colour);
   write += pstore->colset_bytes;
-  // Length
-  *(PathLen*)write = (PathLen)path_nbytes;
-  write += sizeof(PathLen);
-  // Path
-  memcpy(write, packed, path_nbytes);
+  // Length + Path
+  memcpy(write, packed, sizeof(PathLen) + path_nbytes);
 
   __sync_synchronize();
 
   // 5) update kmer pointer
-  db_node_paths(db_graph, kmer) = (uint64_t)(write - pstore->store);
+  db_node_paths(db_graph, kmer) = (uint64_t)(new_path - pstore->store);
 
   __sync_synchronize();
 

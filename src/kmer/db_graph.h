@@ -19,6 +19,8 @@ typedef struct
   const size_t num_edge_cols; // How many colours malloc'd for col_edges
   size_t num_of_cols_used; // how many colours currently used
 
+  volatile uint8_t *bktlocks;
+
   // Array of GraphInfo objects, one per colour
   GraphInfo *ginfo;
 
@@ -45,7 +47,7 @@ typedef struct
   volatile uint8_t *path_kmer_locks;
 
   // Loading reads
-  uint64_t *readstrt;
+  uint8_t *readstrt;
 } dBGraph;
 
 #define db_graph_node_assigned(graph,hkey) HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
@@ -66,13 +68,20 @@ void db_graph_dealloc(dBGraph *db_graph);
 // Add to the de bruijn graph
 //
 
+// Thread safe
 // Note: node may alreay exist in the graph
-hkey_t db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkey, Colour col);
+hkey_t db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col);
 
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
                        Orientation src_orient, Orientation tgt_orient);
+
+// Thread safe
+// In the case of self-loops in palindromes the two edges collapse into one
+void db_graph_add_edge_mt(dBGraph *db_graph, Colour colour,
+                          hkey_t src_node, hkey_t tgt_node,
+                          Orientation src_orient, Orientation tgt_orient);
 
 // For debugging + healthcheck
 void db_graph_check_edges(const dBGraph *db_graph,

@@ -3,12 +3,25 @@
 
 #include <inttypes.h>
 
-#include "file_reader.h"
+#include "loading_stats.h"
 #include "db_graph.h"
 #include "graph_file_filter.h"
 
 // graph file format version
 #define CTX_GRAPH_FILEFORMAT 6
+
+// Stucture for specifying how to load data
+typedef struct
+{
+  dBGraph *db_graph;
+  boolean boolean_covgs; // Update covg by at most 1
+  boolean must_exist_in_graph;
+  const Edges *must_exist_in_edges;
+  // if empty_colours is true an error is thrown if a kmer from a graph file
+  // is already in the graph
+  boolean empty_colours;
+} GraphLoadingPrefs;
+
 
 void graph_header_alloc(GraphFileHeader *header, size_t num_of_cols);
 void graph_header_dealloc(GraphFileHeader *header);
@@ -43,11 +56,11 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 //   stats->total_bases_read
 //   stats->binaries_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.
-size_t graph_load(GraphFileReader *file, const SeqLoadingPrefs *prefs,
+size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   SeqLoadingStats *stats);
 
 size_t graph_load_colour(GraphFileReader *file,
-                         const SeqLoadingPrefs *prefs,
+                         const GraphLoadingPrefs prefs,
                          SeqLoadingStats *stats,
                          size_t colour_idx, size_t intocol);
 

@@ -20,9 +20,14 @@
 void path_store_init(PathStore *paths, uint8_t *data, size_t size, size_t ncols);
 void path_store_resize(PathStore *paths, size_t size);
 
+void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len);
+void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len);
+void right_shift_packed_bases(uint8_t *ptr, size_t shift_bases, size_t len_bases);
+
 // Find a path
 // returns PATH_NULL if not found, otherwise index
 // path_nbytes is length in bytes of bases = (num bases + 3)/4
+// query is <PathLen><PackedSeq>
 PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
                           const uint8_t *query, size_t path_nbytes);
 

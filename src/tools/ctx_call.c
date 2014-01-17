@@ -4,7 +4,6 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "add_read_paths.h"
 #include "graph_format.h"
 #include "path_format.h"
 #include "graph_walker.h"
@@ -34,7 +33,7 @@ int ctx_call(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 2 || argc & 1) print_usage(usage, NULL);
 
-  size_t num_of_threads = args->num_threads;
+  size_t num_of_threads = args->max_work_threads;
   size_t i, ref_cols[argc], num_ref = 0;
   size_t max_allele_len = 300, max_flank_len = 1000;
 
@@ -187,12 +186,12 @@ int ctx_call(CmdArgs *args)
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = true};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = true};
 
-  graph_load(&file, &prefs, stats);
+  graph_load(&file, gprefs, stats);
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files

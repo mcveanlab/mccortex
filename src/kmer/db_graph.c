@@ -20,10 +20,18 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                     uint64_t capacity)
 {
   size_t i;
-  dBGraph tmp = {.kmer_size = kmer_size, .num_of_cols = num_of_cols,
-                 .num_edge_cols = num_edge_cols, .num_of_cols_used = 0,
-                 .ginfo = NULL, .col_edges = NULL, .col_covgs = NULL,
-                 .node_in_cols = NULL, .kmer_paths = NULL, .readstrt = NULL};
+  dBGraph tmp = {.kmer_size = kmer_size,
+                 .num_of_cols = num_of_cols,
+                 .num_edge_cols = num_edge_cols,
+                 .num_of_cols_used = 0,
+                 .bktlocks = NULL,
+                 .ginfo = NULL,
+                 .col_edges = NULL,
+                 .col_covgs = NULL,
+                 .node_in_cols = NULL,
+                 .kmer_paths = NULL,
+                 .path_kmer_locks = NULL,
+                 .readstrt = NULL};
 
   hash_table_alloc(&tmp.ht, capacity);
   memset(&tmp.pdata, 0, sizeof(PathStore));
@@ -38,8 +46,9 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
 
 void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
 {
-  // Fix ginfo
+  // Adjust ginfo size
   size_t i;
+  if(graph->num_of_cols == num_of_cols) return;
   if(graph->num_of_cols < num_of_cols) { // Grow
     graph->ginfo = realloc2(graph->ginfo, num_of_cols*sizeof(GraphInfo));
     for(i = graph->num_of_cols; i < num_of_cols; i++)
@@ -50,12 +59,19 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
       graph_info_dealloc(graph->ginfo + i);
   }
 
-  dBGraph tmp = {.ht = graph->ht, .kmer_size = graph->kmer_size,
-                 .num_of_cols = num_of_cols, .num_edge_cols = num_edge_cols,
+  dBGraph tmp = {.ht = graph->ht,
+                 .kmer_size = graph->kmer_size,
+                 .num_of_cols = num_of_cols,
+                 .num_edge_cols = num_edge_cols,
                  .num_of_cols_used = graph->num_of_cols_used,
-                 .ginfo = graph->ginfo, .col_edges = graph->col_edges,
-                 .col_covgs = graph->col_covgs, .node_in_cols = graph->node_in_cols,
-                 .pdata = graph->pdata, .kmer_paths = graph->kmer_paths,
+                 .bktlocks = graph->bktlocks,
+                 .ginfo = graph->ginfo,
+                 .col_edges = graph->col_edges,
+                 .col_covgs = graph->col_covgs,
+                 .node_in_cols = graph->node_in_cols,
+                 .pdata = graph->pdata,
+                 .kmer_paths = graph->kmer_paths,
+                 .path_kmer_locks = graph->path_kmer_locks,
                  .readstrt = graph->readstrt};
 
   memcpy(graph, &tmp, sizeof(dBGraph));
@@ -75,20 +91,26 @@ void db_graph_dealloc(dBGraph *db_graph)
 // Add to the de bruijn graph
 //
 
+// Thread safe
 // Note: node may alreay exist in the graph
-hkey_t db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkey, Colour col)
+hkey_t db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col)
 {
+  hkey_t node;
   boolean found;
-  hkey_t node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
-  if(db_graph->node_in_cols != NULL) db_node_set_col(db_graph, node, col);
-  if(db_graph->col_covgs != NULL) db_node_increment_coverage(db_graph, node, col);
+
+  node = hash_table_find_or_insert_mt(&db_graph->ht, bkey, &found,
+                                      db_graph->bktlocks);
+
+  if(db_graph->node_in_cols != NULL) db_node_set_col_mt(db_graph, node, col);
+  if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, node, col);
   return node;
 }
 
+// Thread safe
 // In the case of self-loops in palindromes the two edges collapse into one
-void db_graph_add_edge(dBGraph *db_graph, Colour colour,
-                       hkey_t src_node, hkey_t tgt_node,
-                       Orientation src_orient, Orientation tgt_orient)
+void db_graph_add_edge_mt(dBGraph *db_graph, Colour colour,
+                          hkey_t src_node, hkey_t tgt_node,
+                          Orientation src_orient, Orientation tgt_orient)
 {
   if(db_graph->col_edges == NULL) return;
 
@@ -102,8 +124,8 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
   Nucleotide lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
   Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
 
-  db_node_set_col_edge(db_graph, colour, src_node, rhs_nuc, src_orient);
-  db_node_set_col_edge(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
+  db_node_set_col_edge_mt(db_graph, colour, src_node, rhs_nuc, src_orient);
+  db_node_set_col_edge_mt(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
 }
 
 // For debugging + healthcheck
@@ -182,6 +204,7 @@ size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
 }
 
 // Check kmer size of a file
+// Used when loading graph and path files
 void db_graph_check_kmer_size(size_t kmer_size, const char *path)
 {
   const size_t mink = MIN_KMER_SIZE, maxk = MAX_KMER_SIZE;

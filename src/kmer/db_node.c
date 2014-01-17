@@ -125,6 +125,14 @@ void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col)
   safe_add_covg(&db_node_col_covg(graph,col,hkey), 1);
 }
 
+// Thread safe, overflow safe, coverage increment
+void db_node_increment_coverage_mt(dBGraph *graph, hkey_t hkey, Colour col)
+{
+  Covg v;
+  while((v = db_node_col_covg(graph,col,hkey)) < COVG_MAX &&
+        !__sync_bool_compare_and_swap(&db_node_col_covg(graph,col,hkey), v, v+1));
+}
+
 Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
 {
   const Covg *covgs = &db_node_col_covg(graph,0,hkey);
@@ -138,37 +146,8 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
 }
 
 //
-// dBNodeBuffer
+// dBNode array printing
 //
-void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity)
-{
-  buf->capacity = ROUNDUP2POW(capacity);
-  buf->data = malloc2(sizeof(dBNode) * buf->capacity);
-  buf->len = 0;
-}
-
-void db_node_buf_dealloc(dBNodeBuffer *buf)
-{
-  free(buf->data);
-}
-
-void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity)
-{
-  if(capacity > buf->capacity)
-  {
-    buf->capacity = ROUNDUP2POW(capacity);
-    buf->data = realloc2(buf->data, sizeof(dBNode) * buf->capacity);
-  }
-}
-
-void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient)
-{
-  size_t n = buf->len;
-  db_node_buf_ensure_capacity(buf, n+1);
-  buf->data[n].key = node;
-  buf->data[n].orient = orient;
-  buf->len++;
-}
 
 void db_nodes_to_str(const dBNode *nodes, size_t num,
                      const dBGraph *db_graph, char *str)

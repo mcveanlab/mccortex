@@ -4,13 +4,12 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
+#include "loading_stats.h"
 #include "graph_info.h"
-#include "add_read_paths.h"
-#include "add_path_workers.h"
 #include "graph_format.h"
 #include "path_format.h"
-#include "graph_walker.h"
-#include "seq_reader.h"
+#include "generate_paths.h"
+#include "async_read_io.h"
 
 #define DEFAULT_MAX_INS 500
 
@@ -43,17 +42,163 @@ static const char usage[] =
 "\n"
 "  See `"CMD" pjoin` to combine .ctp files\n";
 
-static void get_binary_and_colour(const GraphFileReader *files, size_t num_files,
+static
+GeneratePathsTask gen_path_task_create(const char *p1, const char *p2,
+                                       size_t col, size_t min_ins, size_t max_ins,
+                                       uint32_t fq_offset, uint32_t fq_cutoff,
+                                       uint32_t hp_cutoff)
+{
+  if(p1[0] == '-')
+    print_usage(usage, "Path appears to be an option: %s", p1);
+  if(p2 != NULL && p2[0] == '-')
+    print_usage(usage, "Path appears to be an option: %s", p2);
+
+  seq_file_t *f1, *f2 = NULL;
+
+  if((f1 = seq_open(p1)) == NULL)
+    die("Cannot read first --seq%s file: %s", p2 == NULL ? "" : "2", p1);
+  if(p2 != NULL && (f2 = seq_open(p2)) == NULL)
+    die("Cannot read second --seq2 file: %s", p2);
+
+  SeqLoadingStats *stats = seq_loading_stats_create(1000);
+
+  GeneratePathsTask tsk = {.file1 = f1, .file2 = f2,
+                           .ctxcol = 0, .ctpcol = col,
+                           .ins_gap_min = min_ins, .ins_gap_max = max_ins,
+                           .fq_offset = (uint8_t)fq_offset,
+                           .fq_cutoff = (uint8_t)fq_cutoff,
+                           .hp_cutoff = (uint8_t)hp_cutoff,
+                           stats};
+
+  return tsk;
+}
+
+static int gen_path_task_cmp(const void *aa, const void *bb)
+{
+  const GeneratePathsTask *a = (const GeneratePathsTask*)aa;
+  const GeneratePathsTask *b = (const GeneratePathsTask*)bb;
+  if(a->ctpcol != b->ctpcol) return (int)a->ctpcol - (int)b->ctpcol;
+  return (a > b ? 1 : (a < b ? -1 : 0));
+}
+
+static void gen_path_tasks_sort(GeneratePathsTask *tasks, size_t n)
+{
+  qsort(tasks, n, sizeof(GeneratePathsTask), gen_path_task_cmp);
+}
+
+
+static void get_binary_and_colour(const GraphFileReader *files, size_t num_graphs,
                                   size_t col, size_t *file_idx, size_t *col_idx)
 {
   size_t i, n = 0;
-  for(i = 0; i < num_files; i++) {
+  for(i = 0; i < num_graphs; i++) {
     if(n + graph_file_outncols(&files[i]) > col) {
       *col_idx = col - n; *file_idx = i; return;
     }
     n += graph_file_outncols(&files[i]);
   }
   die("Colour is greater than sum of graph colours [%zu > %zu]", col, n);
+}
+
+static int load_args(int argc, char **argv,
+                     GeneratePathsTask *tasks, size_t *num_tasks_ptr)
+{
+  size_t num_tasks = 0;
+  int argi;
+  size_t min_ins = 100, max_ins = 1000;
+  uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
+  boolean col_set = false, col_used = false;
+  size_t col;
+
+  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  {
+    if(strcmp(argv[argi],"--printinsgaps") == 0)
+    {
+      // gen_paths_print_inserts is defined in add_read_paths.h
+      gen_paths_print_inserts = true;
+    }
+    else if(strcmp(argv[argi],"--fq_threshold") == 0) {
+      if(argi + 1 >= argc)
+        print_usage(usage, "--fq_threshold <qual> requires an argument");
+      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
+        die("Invalid --fq_threshold argument: %s", argv[argi+1]);
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--fq_offset") == 0) {
+      if(argi + 1 >= argc)
+        print_usage(usage, "--fq_offset <offset> requires an argument");
+      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
+        die("Invalid --fq_offset argument: %s", argv[argi+1]);
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--cut_hp") == 0) {
+      if(argi + 1 >= argc)
+        print_usage(usage, "--cut_hp <len> requires an argument");
+      if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
+        die("Invalid --cut_hp argument: %s", argv[argi+1]);
+      if(hp_cutoff > UINT8_MAX)
+        die("--cut_hp <hp> cannot be greater than %i", UINT8_MAX);
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--col") == 0)
+    {
+      if(argi+2 >= argc) print_usage(usage, "--col <colour> requires an argument");
+      if(col_set && !col_used)
+        print_usage(usage, "--seq or --seq2 must follow --col");
+      if(!parse_entire_size(argv[argi+1], &col))
+        print_usage(usage, "--col <colour> requires integers >= 0");
+      col_set = true;
+      col_used = false;
+      argi++;
+    }
+    else if(strcasecmp(argv[argi],"--minIns") == 0)
+    {
+      if(argi+1 >= argc || !parse_entire_size(argv[++argi], &min_ins))
+        print_usage(usage, "--minIns <bp> requires a positive integer argument");
+      argi++;
+    }
+    else if(strcasecmp(argv[argi],"--maxIns") == 0)
+    {
+      if(argi+1 >= argc || !parse_entire_size(argv[++argi], &max_ins))
+        print_usage(usage, "--maxIns <bp> requires a positive integer argument");
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--seq") == 0)
+    {
+      if(argi+1 == argc) print_usage(usage, "--seq <in.fa> missing args");
+      if(!col_set) die("--seq <in.fa> before --col <colour>");
+
+      tasks[num_tasks++] = gen_path_task_create(argv[argi+1], NULL, col,
+                                                min_ins, max_ins,
+                                                fq_offset, fq_cutoff, hp_cutoff);
+
+      col_used = true;
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--seq2") == 0)
+    {
+      if(argi+2 >= argc) print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> missing args");
+      if(!col_set) die("--seq2 <in1.fa> <in2.fa> before --col <colour>");
+
+      tasks[num_tasks++] = gen_path_task_create(argv[argi+1], argv[argi+2], col,
+                                                min_ins, max_ins,
+                                                fq_offset, fq_cutoff, hp_cutoff);
+
+      col_used = true;
+      argi += 2;
+    }
+    else print_usage(usage, "Unknown option: %s", argv[argi]);
+  }
+
+  if(num_tasks == 0)
+    print_usage(usage, "need at least one: --col <c> --seq[2] <in> [in2]");
+  if(!col_used)
+    print_usage(usage, "--seq or --seq2 must follow last --col <col>");
+
+  gen_path_tasks_sort(tasks, num_tasks);
+
+  *num_tasks_ptr = num_tasks;
+  return argi;
 }
 
 int ctx_thread(CmdArgs *args)
@@ -63,115 +208,46 @@ int ctx_thread(CmdArgs *args)
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
 
-  size_t graph_col, num_seq_cols = 0, graph_colours[argc];
+  size_t max_tasks = (size_t)argc/2;
+  GeneratePathsTask *tasks = malloc2(max_tasks * sizeof(GeneratePathsTask));
+  size_t i, j, num_tasks, num_work_threads = args->max_work_threads;
+  int argi; // arg index to continue from
 
-  seq_file_t *seqfiles[argc];
-  size_t num_sf = 0, sf = 0;
-  size_t gap_limit = DEFAULT_MAX_INS, gap_tmp;
+  argi = load_args(argc, argv, tasks, &num_tasks);
 
-  int argi;
-  boolean used_last_path = false;
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
-  {
-    if(strcmp(argv[argi],"--printinsgaps") == 0)
-    {
-      // print_traversed_inserts is defined in add_read_paths.h
-      print_traversed_inserts = true;
-    }
-    else if(strcmp(argv[argi],"--col") == 0)
-    {
-      if(argi+2 >= argc)
-        print_usage(usage, "--col <ctxcol> <ctpcol> requires an argument");
-      if(num_seq_cols > 0 && !used_last_path)
-        print_usage(usage, "--seq or --seq2 must follow --col");
-      if(!parse_entire_size(argv[argi+1], &graph_col))
-        print_usage(usage, "--col <ctxcol> requires integers >= 0");
-      graph_colours[num_seq_cols++] = graph_col;
-      used_last_path = false;
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--seq") == 0)
-    {
-      if(argi+1 == argc)
-        print_usage(usage, "--seq <in.fa> requires an argument");
-      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
-        die("Cannot read --seq file: %s", argv[argi+1]);
-      if(num_seq_cols == 0)
-        die("--seq <in.fa> before --col <ctxcol> <ctpcol>");
-      used_last_path = true;
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--seq2") == 0)
-    {
-      if(argi+2 >= argc)
-        print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> requires two arguments");
-      if(num_seq_cols == 0)
-        die("--seq2 <in1.fa> <in2.fa> before --col <ctxcol> <ctpcol>");
-      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
-        die("Cannot read first --seq2 file: %s", argv[argi+1]);
-      if((seqfiles[num_sf++] = seq_open(argv[argi+2])) == NULL)
-        die("Cannot read second --seq2 file: %s", argv[argi+2]);
-      used_last_path = true;
-      argi += 2;
-    }
-    else if(strcasecmp(argv[argi],"--minIns") == 0)
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &gap_tmp))
-        print_usage(usage, "--minIns <bp> requires a positive integer argument");
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--maxIns") == 0)
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &gap_tmp))
-        print_usage(usage, "--maxIns <bp> requires a positive integer argument");
-      gap_limit = MAX2(gap_limit, gap_tmp);
-      argi++;
-    }
-    else print_usage(usage, "Unknown option: %s", argv[argi]);
-  }
-
-  if(print_traversed_inserts && args->num_threads > 1) {
+  if(gen_paths_print_inserts && num_work_threads > 1) {
     die("--printinsgaps with >1 threads is a bad idea.");
   }
 
-  if(num_seq_cols == 0)
-    print_usage(usage, "need at least one: --col <c> --seq[2] <in> [in2]");
-  if(num_seq_cols > 0 && !used_last_path)
-    print_usage(usage, "--seq or --seq2 must follow --col");
-
-  int argend = argi;
-
-  if(argend + 1 >= argc) print_usage(usage, "Not enough arguments");
+  if(argi + 1 >= argc) print_usage(usage, "Not enough arguments");
 
   char *out_ctp_path = argv[argi++];
 
-  if(futil_file_exists(out_ctp_path))
-    die("Output file already exists: %s", out_ctp_path);
-
-  size_t num_files = (size_t)(argc - argi);
+  size_t num_graphs = (size_t)(argc - argi);
   char **graph_paths = argv + argi;
 
   //
-  // Open graph files
+  // Open graph graph_files
   //
-  GraphFileReader files[num_files];
-  size_t i, j, ctx_max_kmers = 0, total_cols = 0;
+  GraphFileReader graph_files[num_graphs];
+  size_t ctx_max_kmers = 0, ctx_total_cols = 0;
 
-  for(i = 0; i < num_files; i++)
+  for(i = 0; i < num_graphs; i++)
   {
     status("File: %s", graph_paths[i]);
-    files[i] = INIT_GRAPH_READER;
-    graph_file_open(&files[i], graph_paths[i], true);
+    graph_files[i] = INIT_GRAPH_READER;
+    graph_file_open(&graph_files[i], graph_paths[i], true);
 
-    if(i > 0 && files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
+    if(i > 0 && graph_files[0].hdr.kmer_size != graph_files[i].hdr.kmer_size) {
       print_usage(usage, "Kmer sizes don't match [%u vs %u]",
-                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
+                  graph_files[0].hdr.kmer_size, graph_files[i].hdr.kmer_size);
     }
 
-    file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + total_cols);
-    total_cols = graph_file_usedcols(&files[i]);
+    file_filter_update_intocol(&graph_files[i].fltr,
+                               graph_files[i].fltr.intocol + ctx_total_cols);
+    ctx_total_cols = graph_file_usedcols(&graph_files[i]);
 
-    ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
+    ctx_max_kmers = MAX2(ctx_max_kmers, graph_files[i].hdr.num_of_kmers);
   }
 
   //
@@ -188,20 +264,20 @@ int ctx_thread(CmdArgs *args)
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
-  total_cols = MAX2(total_cols, path_max_usedcols);
-  status("Creating paths file with %zu colours", total_cols);
+  // Check for path colours >= number of output path colours
+  size_t max_gap_limit = 0;
 
-  // Check for invalid or duplicate ctp colours
-  // or path colours >= number of output path colours
-  qsort(graph_colours, num_seq_cols, sizeof(size_t), cmp_size);
-  for(i = 0; i < num_seq_cols; i++) {
-    if(i+1 < num_seq_cols && graph_colours[i] == graph_colours[i+1])
-      print_usage(usage, "Duplicate --col <ctpcol> given: %zu", graph_colours[i]);
-    if(graph_colours[i] >= total_cols) {
-      print_usage(usage, "output path colour >= number of path colours [%zu >= %zu]",
-                  graph_colours[i], total_cols);
+  for(i = 0; i < num_tasks; i++) {
+    max_gap_limit = MAX2(max_gap_limit, tasks[i].ins_gap_max);
+
+    if(tasks[i].ctpcol >= ctx_total_cols) {
+      print_usage(usage, "--col <C> >= number of path colours [%zu >= %zu]",
+                  tasks[i].ctpcol, ctx_total_cols);
     }
   }
+
+  size_t total_cols = MAX2(ctx_total_cols, path_max_usedcols);
+  status("Creating paths file with %zu colours", total_cols);
 
   //
   // Decide on memory
@@ -210,7 +286,8 @@ int ctx_thread(CmdArgs *args)
   char path_mem_str[100];
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
-                  2*args->num_threads; // Have traversed
+                  2*num_work_threads + // Have traversed
+                  1; // path store kmer lock
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
@@ -244,8 +321,11 @@ int ctx_thread(CmdArgs *args)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, total_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, graph_files[0].hdr.kmer_size, total_cols, 1, kmers_in_hash);
   kmers_in_hash = db_graph.ht.capacity;
+
+  // path kmer locks
+  db_graph.path_kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
 
   // Edges
   db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
@@ -261,11 +341,11 @@ int ctx_thread(CmdArgs *args)
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
-  for(i = 0; i < num_files; i++) {
-    for(j = 0; j < files[i].fltr.ncols; j++) {
-      intocol = graph_file_intocol(&files[i], j);
-      fromcol = graph_file_fromcol(&files[i], j);
-      graph_info_merge(&db_graph.ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
+  for(i = 0; i < num_graphs; i++) {
+    for(j = 0; j < graph_files[i].fltr.ncols; j++) {
+      intocol = graph_file_intocol(&graph_files[i], j);
+      fromcol = graph_file_fromcol(&graph_files[i], j);
+      graph_info_merge(&db_graph.ginfo[intocol], &graph_files[i].hdr.ginfo[fromcol]);
     }
   }
 
@@ -278,7 +358,7 @@ int ctx_thread(CmdArgs *args)
 
   // Set up paths header. This is for the output file we are creating
   PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
-                            .kmer_size = files[0].hdr.kmer_size,
+                            .kmer_size = graph_files[0].hdr.kmer_size,
                             .num_of_cols = 0,
                             .capacity = 0};
 
@@ -294,76 +374,62 @@ int ctx_thread(CmdArgs *args)
 
   // Setup for loading graphs graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           // binaries
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = false,
-                           // Sequence
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = false};
 
   paths_format_write_header(&pheader, fout);
 
-  PathsWorkerPool *pool;
+  //
+  // Start up the threads, do the work
+  //
+  GenPathWorker *workers;
+  workers = gen_paths_workers_alloc(num_work_threads, &db_graph);
 
-  // set up mutexes for reading paths
-  add_read_paths_init();
-  pool = path_workers_pool_new(args->num_threads, &db_graph, gap_limit+1);
-
-  // Parse input sequence
-  size_t ctxindex, ctxcol, min_ins = 0, max_ins = DEFAULT_MAX_INS;
-
-  for(argi = 0; argi < argend; argi++)
+  // ... Send jobs ...
+  size_t start, end;
+  for(start = 0; start < num_tasks; start = end)
   {
-    if(strcmp(argv[argi],"--printinsgaps")) {}
-    else if(strcmp(argv[argi], "--col") == 0)
-    {
-      if(argi > 0) path_workers_wait_til_finished(pool);
+    // wipe colour 0
+    graph_info_init(&db_graph.ginfo[0]);
+    memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(Edges));
 
-      // wipe colour 0
-      graph_info_init(&db_graph.ginfo[0]);
-      memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(Edges));
+    // Load graph
+    size_t ctxindex, ctxcol;
+    size_t ctpcol = tasks[start].ctpcol;
 
-      parse_entire_size(argv[argi+1], &graph_col);
+    get_binary_and_colour(graph_files, num_graphs, ctpcol, &ctxindex, &ctxcol);
+    graph_load_colour(&graph_files[ctxindex], gprefs, stats, ctxcol, 0);
 
-      // Pick correct graph file and colour
-      get_binary_and_colour(files, num_files, graph_col, &ctxindex, &ctxcol);
-      graph_load_colour(&files[ctxindex], &prefs, stats, ctxcol, 0);
+    // Get list of input files to read
+    end = start+1;
+    while(end < num_tasks && end-start < args->max_io_threads &&
+          tasks[end].ctpcol == ctpcol) end++;
 
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--minIns") == 0)
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &min_ins))
-        die("Bad --minIns");
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--maxIns") == 0)
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &max_ins))
-        die("Bad --maxIns");
-      argi++;
-    }
-    else if(strcmp(argv[argi], "--seq") == 0) {
-      path_workers_add_paths_to_graph(pool, seqfiles[sf], NULL,
-                                      0, graph_col, min_ins, max_ins,
-                                      &prefs, stats);
-      argi += 1;
-      sf++;
-    }
-    else if(strcmp(argv[argi], "--seq2") == 0) {
-      path_workers_add_paths_to_graph(pool, seqfiles[sf], seqfiles[sf+1],
-                                      0, graph_col, min_ins, max_ins,
-                                      &prefs, stats);
-      argi += 2;
-      sf += 2;
-    }
-    else die("Unknown arg: %s", argv[argi]);
+    generate_paths(tasks+start, end-start, workers, num_work_threads);
+  
+    // DEV: update ginfo
   }
 
-  path_workers_pool_dealloc(pool, stats->num_se_reads, stats->num_pe_reads / 2);
+  // Save worker stats
+  // generate_paths_merge_stats(workers, num_work_threads);
+
+  // Print mp gap size / insert stats to a file
+  // gen_paths_dump_gap_sizes("gap_sizes.%u.csv",
+  //                          workers[0].gap_err_histgrm, workers[0].histgrm_len,
+  //                          db_graph.kmer_size, false,
+  //                          stats->num_se_reads + stats->num_pe_reads);
+
+  // if(pool->seen_pe) {
+    // gen_paths_dump_gap_sizes("mp_sizes.%u.csv",
+    //                          workers[0].gap_ins_histgrm, workers[0].histgrm_len,
+    //                          db_graph.kmer_size, true, stats->num_pe_reads);
+  // }
+
+  gen_paths_workers_dealloc(workers, num_work_threads);
+
+  // Done
 
   char se_num_str[100], pe_num_str[100], sepe_num_str[100];
   ulong_to_str(stats->num_se_reads, se_num_str);
@@ -390,10 +456,11 @@ int ctx_thread(CmdArgs *args)
 
   fclose(fout);
 
-  add_read_paths_cleanup();
+  free(tasks);
 
   free(db_graph.col_edges);
   free((void *)db_graph.kmer_paths);
+  free((void *)db_graph.path_kmer_locks);
   free(path_store);
 
   paths_header_dealloc(&pheader);
@@ -401,7 +468,7 @@ int ctx_thread(CmdArgs *args)
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
-  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
+  for(i = 0; i < num_graphs; i++) graph_file_dealloc(&graph_files[i]);
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   status("Paths written to: %s", out_ctp_path);

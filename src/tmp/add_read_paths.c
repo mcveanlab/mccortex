@@ -9,7 +9,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "seq_reader.h"
-#include "file_reader.h"
+#include "loading_stats.h"
 #include "add_read_paths.h"
 #include "repeat_walker.h"
 
@@ -20,24 +20,6 @@
 
 boolean print_traversed_inserts = true;
 
-boolean add_read_paths_mutex_setup = false;
-pthread_mutex_t add_paths_mutex;
-
-void add_read_paths_init()
-{
-  if(!add_read_paths_mutex_setup) {
-    add_read_paths_mutex_setup = true;
-    if(pthread_mutex_init(&add_paths_mutex, NULL) != 0) die("mutex init failed");
-  }
-}
-
-void add_read_paths_cleanup()
-{
-  if(add_read_paths_mutex_setup) {
-    add_read_paths_mutex_setup = false;
-    pthread_mutex_destroy(&add_paths_mutex);
-  }
-}
 
 static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
                             Nucleotide *nuc_rv_tmp, size_t *pos_rv_tmp, size_t num_rv,
@@ -65,7 +47,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
   }
 
   // Get Lock
-  pthread_mutex_lock(&add_paths_mutex);
+  // pthread_mutex_lock(&add_paths_mutex);
 
   //
   // Generate paths going backwards through the contig
@@ -97,6 +79,8 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
       printf(" %s:%i) start_rv: %zu start_fw: %zu {%zu}\n", str, orient,
              start_rv, start_fw, pos_fw[start_fw]);
     #endif
+
+    // path_store_mt_find_or_add(node, db_graph, ctp_col, bases, plen);
 
     new_index = path_store_find_or_add(paths, prev_index, plen, bases,
                                        orient, ctp_col, &added);
@@ -133,13 +117,15 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
       plen = (PathLen)(num_fw - start_fw);
       node = nodes[pos].key;
       orient = nodes[pos].orient;
-      prev_index = db_node_paths(db_graph, node);
+      // prev_index = db_node_paths(db_graph, node);
 
       #ifdef CTXVERBOSE
         binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
         printf(" %s:%i) start_rv: %zu start_fw: %zu\n", str, orient,
                start_rv, start_fw);
       #endif
+
+      // path_store_mt_find_or_add(node, db_graph, ctp_col, bases, plen);
 
       new_index = path_store_find_or_add(paths, prev_index, plen, bases,
                                          orient, ctp_col, &added);
@@ -151,7 +137,7 @@ static void construct_paths(Nucleotide *nuc_fw, size_t *pos_fw, size_t num_fw,
   }
 
   // Free lock
-  pthread_mutex_unlock(&add_paths_mutex);
+  // pthread_mutex_unlock(&add_paths_mutex);
 }
 
 static void add_read_path(const dBNode *nodes, size_t len,
@@ -199,6 +185,7 @@ static void add_read_path(const dBNode *nodes, size_t len,
       pos_rv[num_rv++] = i;
     }
 
+    // DEV: truncate paths for now
     if(num_fw == MAX_PATH || num_rv == MAX_PATH)
     {
       size_t cutoff = i + 1 - MAX_PATH;
@@ -266,7 +253,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   // need to call db_node_has_col only if more than one colour loaded
   while(pos <= ins_gap_max && graph_traverse(wlk) &&
-        walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
+        rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
@@ -280,7 +267,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
   }
 
   graph_walker_finish(wlk);
-  walker_fast_clear(rptwlk, nodes, pos);
+  rpt_walker_fast_clear(rptwlk, nodes, pos);
 
   if(wlk->node == node2 && wlk->orient == orient2 && pos >= ins_gap_min) {
     nodebuf->len += pos;
@@ -301,7 +288,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   // need to call db_node_has_col only if more than one colour loaded
   while(pos > 0 && graph_traverse(wlk) &&
-        walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
+        rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
   {
     graph_walker_node_add_counter_paths(wlk, lost_nuc);
     orient = opposite_orientation(wlk->orient);
@@ -320,7 +307,7 @@ static int traverse_gap(dBNodeBuffer *nodebuf,
 
   graph_walker_finish(wlk);
 
-  walker_fast_clear(rptwlk, nodes+pos, ins_gap_max-pos);
+  rpt_walker_fast_clear(rptwlk, nodes+pos, ins_gap_max-pos);
 
   if(success && pos >= ins_gap_min)
   {
@@ -459,6 +446,7 @@ void add_read_paths(const AddPathsJob *job, dBNodeBuffer *nodebuf,
   }
 }
 
+/*
 void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
                     size_t kmer_size, boolean insert_sizes, size_t nreads)
 {
@@ -532,3 +520,4 @@ void dump_gap_sizes(const char *base_fmt, const uint64_t *arr, size_t arrlen,
   fclose(fout);
   strbuf_free(csv_dump);
 }
+*/

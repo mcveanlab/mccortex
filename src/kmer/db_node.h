@@ -43,6 +43,10 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 #define db_node_cpy_col(g,hkey,col,bit) \
         bitset2_cpy((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey),bit)
 
+// Threadsafe
+#define db_node_set_col_mt(g,hkey,col) \
+        bitset2_set_mt((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+
 //
 // Node traversal
 //
@@ -57,14 +61,6 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 //
 // Paths
 #define db_node_paths(graph,node) ((graph)->kmer_paths[(node)])
-
-//
-// Read start (duplicate removal during read loading)
-//
-#define db_node_has_read_start(graph,hkey,or) \
-        bitset_get((graph)->readstrt, 2*(hkey)+(or))
-#define db_node_set_read_start(graph,hkey,or) \
-        bitset_set((graph)->readstrt, 2*(hkey)+(or))
 
 //
 // Orientations
@@ -86,6 +82,11 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
   ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
                    : dna_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
 
+static inline dBNode db_node_reverse(dBNode node) {
+  node.orient = !node.orient;
+  return node;
+}
+
 //
 // Edges
 //
@@ -106,9 +107,14 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 #define edges_get_indegree(edges,or) \
         __builtin_popcount(edges_with_orientation(edges,rev_orient(or)))
 
-#define db_node_zero_edges(graph,hkey) \
-        memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
-               (graph)->num_edge_cols * sizeof(Edges))
+Edges edges_get_union(const Edges *edges, size_t num);
+
+boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
+                                     Nucleotide *nucleotide);
+
+//
+// dBNode Edges
+//
 
 #define db_node_edges(graph,col,hkey) \
         ((graph)->col_edges[(hkey)*(graph)->num_edge_cols + (col)])
@@ -117,14 +123,16 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
         edges_get_union((graph)->col_edges+(hkey)*(graph)->num_edge_cols, \
                         (graph)->num_edge_cols)
 
+#define db_node_zero_edges(graph,hkey) \
+        memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
+               (graph)->num_edge_cols * sizeof(Edges))
+
 #define db_node_set_col_edge(graph,col,hkey,nuc,or) \
         (db_node_edges(graph,col,hkey) \
-           = edges_set_edge(db_node_edges(graph,col,hkey), (nuc), (or)))
+           = edges_set_edge(db_node_edges(graph,col,hkey),nuc,or))
 
-Edges edges_get_union(const Edges *edges, size_t num);
-
-boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
-                                     Nucleotide *nucleotide);
+#define db_node_set_col_edge_mt(graph,col,hkey,nuc,or) \
+        __sync_or_and_fetch(&db_node_edges(graph,col,hkey),nuc_orient_to_edge(nuc,or))
 
 // kmer_col_edge_str should be 9 chars long
 // Return pointer to kmer_col_edge_str
@@ -147,22 +155,35 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
 void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, Covg update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 
+// Thread safe, overflow safe, coverage increment
+void db_node_increment_coverage_mt(dBGraph *graph, hkey_t hkey, Colour col);
+
 Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 
 //
 // dBNodeBuffer
 //
 
-typedef struct
-{
-  dBNode *data;
-  size_t len, capacity;
-} dBNodeBuffer;
+// The following is defined by the create_objbuf MACRO
+// typedef struct {
+//   dBNode *data;
+//   size_t len, capacity;
+// } dBNodeBuffer;
 
-void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity);
-void db_node_buf_dealloc(dBNodeBuffer *buf);
-void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity);
-void db_node_buf_safe_add(dBNodeBuffer *buf, hkey_t node, Orientation orient);
+// void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity);
+// void db_node_buf_dealloc(dBNodeBuffer *buf);
+// void db_node_buf_ensure_capacity(dBNodeBuffer *buf, size_t capacity);
+// void db_node_buf_add(dBNodeBuffer *buf, dBNode node);
+
+#include "objbuf_macro.h"
+create_objbuf(db_node_buf,dBNodeBuffer,dBNode)
+
+#define db_node_buf_safe_add(buf,node,or) {\
+  dBNode n = {.key=node,.orient=or};  db_node_buf_add(buf,n); }
+
+//
+// Print array of dBNode
+//
 
 void db_nodes_to_str(const dBNode *nodes, size_t num,
                      const dBGraph *db_graph, char *str);
@@ -172,7 +193,5 @@ void db_nodes_print(const dBNode *nodes, size_t num,
 
 void db_nodes_gzprint(const dBNode *nodes, size_t num,
                       const dBGraph *db_graph, gzFile out);
-
-#define db_nodes_reset(nbuf) ((nbuf)->len = 0)
 
 #endif /* DB_NODE_H_ */

@@ -17,7 +17,6 @@
 #include "file_util.h"
 #include "vcf_parsing.h"
 #include "binary_kmer.h"
-#include "file_reader.h"
 #include "supernode.h"
 
 // #define CTXVERBOSE 1

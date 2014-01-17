@@ -21,6 +21,7 @@ typedef struct
 
 typedef struct
 {
+  dBGraph *db_graph;
   LinkedChromPos *linkedlist;
   size_t list_len, list_cap;
   uint32_t *kmer_pos;
@@ -145,22 +146,19 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
 }
 
 void diverge_call(read_t *r1, read_t *r2,
-                  int qoffset1, int qoffset2,
-                  const SeqLoadingPrefs *prefs,
-                  SeqLoadingStats *stats,
+                  uint8_t qoffset1, uint8_t qoffset2,
                   void *ptr)
 {
   (void)r2; // always NULL for path divergence calling
   (void)qoffset1; (void)qoffset2;
 
-  dBGraph *db_graph = prefs->db_graph;
-  const uint32_t kmer_size = db_graph->kmer_size;
-
   DivergeData *data = (DivergeData*)ptr;
+  dBGraph *db_graph = data->db_graph;
+  const uint32_t kmer_size = db_graph->kmer_size;
 
   if(r1->seq.end < kmer_size) return;
   if(r1->seq.end > data->list_cap) {
-    data->list_cap = ROUNDUP2POW(r1->seq.end);
+    data->list_cap = roundup2pow(r1->seq.end);
     data->linkedlist = realloc2(data->linkedlist,
                                data->list_cap * sizeof(LinkedChromPos));
   }
@@ -287,29 +285,26 @@ int ctx_diverge(CmdArgs *args)
   LinkedChromPos *linkedlist = malloc2((0x1<<28) * sizeof(LinkedChromPos));
   GraphWalker wlk;
   graph_walker_alloc(&wlk);
-  DivergeData data = {.linkedlist = linkedlist,
+  DivergeData data = {.db_graph = db_graph, .linkedlist = linkedlist,
                       .list_len = 0, .list_cap = (0x1<<28),
                       .kmer_pos = kmer_pos, .wlk = wlk};
 
-  // Load graph
+  // Loading
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
-                           // Binaries
-                           .boolean_covgs = false,
-                           .must_exist_in_graph = false,
-                           .empty_colours = false,
-                           // seq
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false};
 
-  graph_load(input_ctx_path, &prefs, stats, NULL);
+  // Graph loading prefs
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .empty_colours = false};
+
+  graph_load(input_ctx_path, gprefs, stats, NULL);
   hash_table_print_stats(&db_graph.ht);
 
   read_t r1;
   if(seq_read_alloc(&r1) == NULL) die("Out of memory");
 
-  seq_parse_se_sf(input_fa_file, &r1, NULL, &prefs, stats, diverge_call, &data);
+  seq_parse_se_sf(input_fa_file, 0, &r1, NULL, diverge_call, &data);
 
   seq_read_dealloc(&r1);
   graph_walker_dealloc(&wlk);

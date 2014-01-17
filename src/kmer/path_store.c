@@ -40,7 +40,7 @@ void path_store_resize(PathStore *paths, size_t size)
 
 // Convert from unpacked representation (1 bas per byte) to packed
 // representation (4 bases per byte)
-static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
+void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
 {
   uint8_t tmp;
   size_t i, j, k = 0, full_bytes = len/4;
@@ -71,7 +71,7 @@ static inline void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
 
 // Convert from compact representation (4 bases per byte) to unpacked
 // representation (1 base per byte)
-static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
+void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
 {
   uint8_t tmp;
   size_t i, j, k = 0, full_bytes = len/4;
@@ -93,9 +93,44 @@ static inline void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t le
   }
 }
 
+void right_shift_packed_bases(uint8_t *ptr, size_t shift_bases, size_t len_bases)
+{
+  size_t i, shift_bits, shift_bytes, shift_total_bits;
+  size_t old_len_bytes, new_len_bytes, top_shift;
+
+  if(shift_bases == 0) return;
+
+  // Each base is 2 bits
+  shift_total_bits = shift_bases*2;
+
+  // Split shift into whole bytes and remaining bits to shift
+  shift_bytes = shift_total_bits / 8;
+  shift_bits = shift_total_bits & 7;
+
+  // Round up the get the number of bytes to shift
+  old_len_bytes = (shift_bases+len_bases)*2 - shift_bytes;
+  new_len_bytes = roundup_bits2bytes(len_bases*2);
+
+  if(shift_bytes > 0) {
+    memmove(ptr, ptr+shift_bytes, old_len_bytes);
+    if(shift_bits == 0) return;
+  }
+
+  top_shift = 8 - shift_bits;
+
+  // Shift each byte by a few bits
+  for(i = 0; i+1 < new_len_bytes; i++) {
+    ptr[i] = (uint8_t)(ptr[i] >> shift_bits) | (uint8_t)(ptr[i+1] << top_shift);
+  }
+
+  // Last byte
+  ptr[new_len_bytes-1] >>= shift_bits;
+}
+
 // Find a path
 // returns PATH_NULL if not found, otherwise index
 // path_nbytes is length in bytes of bases = (num bases + 3)/4
+// query is <PathLen><PackedSeq>
 PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
                           const uint8_t *query, size_t path_nbytes)
 {
@@ -106,7 +141,7 @@ PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
   while(last_index != PATH_NULL)
   {
     packed = paths->store + last_index;
-    if(memcmp(packed+offset, query+offset, mem) == 0) return last_index;
+    if(memcmp(packed+offset, query, mem) == 0) return last_index;
     last_index = packedpath_prev(packed);
   }
 
@@ -148,7 +183,9 @@ PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
                                         boolean *inserted)
 {
   size_t i;
-  PathIndex match = path_store_find(paths, last_index, packed, path_nbytes);
+  // query points to <PathLen><PackedSeq>
+  const uint8_t *query = packed + sizeof(PathIndex) + paths->colset_bytes;
+  PathIndex match = path_store_find(paths, last_index, query, path_nbytes);
 
   if(match == PATH_NULL)
   {

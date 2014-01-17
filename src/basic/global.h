@@ -28,6 +28,9 @@ typedef uint_fast8_t boolean;
 // #define CTXVERSIONSTR "0.0"
 #include "version.h"
 
+// Number of reads to hold in the msg pool
+#define MSGPOOLRSIZE 200
+
 // set to NULL to turn off message printing
 extern FILE *ctx_msg_out;
 
@@ -45,10 +48,6 @@ extern FILE *ctx_msg_out;
 #define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
-
-#ifndef ROUNDUP2POW
-  #define ROUNDUP2POW(x) (0x1UL << (64 - __builtin_clzl(x)))
-#endif
 
 // dynamic memory allocation with checks
 #define malloc2(mem) ctx_malloc(mem,__FILE__,__LINE__)

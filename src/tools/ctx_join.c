@@ -237,23 +237,23 @@ int ctx_join(CmdArgs *args)
 
   if(take_intersect)
   {
-    SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                             .boolean_covgs = true, // covg++ only
-                             .must_exist_in_graph = false,
-                             .must_exist_in_edges = NULL,
-                             .empty_colours = false};
+    GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                                .boolean_covgs = true, // covg++ only
+                                .must_exist_in_graph = false,
+                                .must_exist_in_edges = NULL,
+                                .empty_colours = false};
 
     for(i = 0; i < num_intersect; i++)
     {
-      graph_load(&intersect_files[i], &prefs, NULL);
+      graph_load(&intersect_files[i], gprefs, NULL);
 
       // Update intersect header
       ncols = graph_file_outncols(&intersect_files[i]);
       for(col = 0; col < ncols; col++)
         graph_info_make_intersect(&intersect_files[i].hdr.ginfo[col], &intersect_gname);
 
-      prefs.must_exist_in_graph = true;
-      prefs.must_exist_in_edges = db_graph.col_edges;
+      gprefs.must_exist_in_graph = true;
+      gprefs.must_exist_in_edges = db_graph.col_edges;
     }
 
     if(num_intersect > 1)

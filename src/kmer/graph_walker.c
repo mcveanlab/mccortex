@@ -60,7 +60,7 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
     wlk->max_num_paths *= 2;
 
   if(new_len > wlk->max_path_len)
-    wlk->max_path_len = ROUNDUP2POW(new_len);
+    wlk->max_path_len = roundup2pow(new_len);
 
   // message("RESIZE\n");
   // message(" maxnum %zu -> %zu\n", prev_num_paths, wlk->max_num_paths);
@@ -124,6 +124,19 @@ static inline void resize_paths(GraphWalker *wlk, PathLen new_len)
   // for(i = 0; i < wlk->num_counter; i++)
   //   printf("countr %p %p\n", wlk->counter_paths[i], wlk->counter_paths[i]->bases);
   // printf("\n\n");
+}
+
+size_t graph_walker_est_mem()
+{
+  const size_t init_max_path_len = 8;
+  const size_t init_max_num_paths = 16;
+
+  size_t mem = init_max_num_paths * init_max_path_len * sizeof(Nucleotide) +
+               init_max_num_paths * sizeof(FollowPath) +
+               init_max_num_paths * sizeof(FollowPath*) +
+               init_max_num_paths * sizeof(FollowPath*) +
+               init_max_num_paths * sizeof(FollowPath*);
+  return mem;
 }
 
 void graph_walker_alloc(GraphWalker *wlk)
@@ -565,7 +578,10 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
   Orientation prev_orients[4];
   Nucleotide prev_bases[4];
   size_t i, num_prev_nodes;
-  BinaryKmer bkmer = db_node_bkmer(db_graph, wlk->node);
+
+  // Use local version if possible
+  BinaryKmer bkmer = (wlk->orient == FORWARD ? wlk->bkmer
+                                             : db_node_bkmer(db_graph, wlk->node));
   Orientation orient = opposite_orientation(wlk->orient);
 
   Edges edges = db_node_edges(db_graph, 0, wlk->node) &
@@ -606,4 +622,69 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
   graph_traverse_force(wlk, nodes[idx], bases[idx],
                        graphstep_is_fork(wlk->last_step));
   return true;
+}
+
+// Fast traverse - avoid a bkmer_revcmp
+static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
+                                     const dBNode next_node, boolean fork)
+{
+  const size_t kmer_size = wlk->db_graph->kmer_size;
+  BinaryKmer bkmer = db_node_bkmer(wlk->db_graph, next_node.key);
+  Nucleotide nuc;
+
+  // Only one path between two nodes
+  if(wlk->node == prev_node.key && wlk->orient == prev_node.orient) {
+    nuc = db_node_last_nuc(bkmer, next_node.orient, kmer_size);
+    graph_traverse_force(wlk, next_node.key, nuc, fork);
+  }
+  else {
+    bkmer = db_node_oriented_bkmer(bkmer, next_node.orient, kmer_size);
+    graph_traverse_force_jump(wlk, next_node.key, bkmer, fork);
+  }
+}
+
+// Fast traversal of a list of nodes using the supplied GraphWalker
+void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
+                                boolean forward, boolean first_node_fork)
+{
+  if(n == 0) return;
+
+  size_t i;
+  boolean infork[3] = {false}, outfork[3] = {false};
+  Edges edges;
+  dBNode empty_node = { .key = HASH_NOT_FOUND, .orient = FORWARD };
+  dBNode nodes[3];
+
+  outfork[0] = first_node_fork;
+
+  nodes[0] = empty_node;
+  nodes[1] = forward ? arr[0] : db_node_reverse(arr[n-1]);
+
+  edges = db_node_edges(wlk->db_graph, wlk->ctxcol, nodes[1].key);
+  outfork[1] = edges_get_outdegree(edges, nodes[1].orient) > 1;
+  infork[1] = edges_get_indegree(edges, nodes[1].orient) > 1;
+
+  for(i = 0; i+1 < n; i++)
+  {
+    nodes[2] = forward ? nodes[i+1] : db_node_reverse(nodes[n-i-2]);
+
+    edges = db_node_edges(wlk->db_graph, wlk->ctxcol, nodes[2].key);
+    outfork[2] = edges_get_outdegree(edges, nodes[2].orient) > 1;
+    infork[2] = edges_get_indegree(edges, nodes[2].orient) > 1;
+
+    // Traverse nodes[i] if:
+    // - previous node had out-degree > 1 OR
+    // - next node has in-degree > 1
+    if(outfork[0] || infork[2]) {
+      graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
+    }
+
+    // Rotate edges, nodes
+    infork[0] = infork[1]; infork[1] = infork[2];
+    outfork[0] = outfork[1]; outfork[1] = outfork[2];
+    nodes[0] = nodes[1]; nodes[1] = nodes[2];
+  }
+
+  // Traverse last node
+  graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
 }

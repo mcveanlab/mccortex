@@ -30,6 +30,8 @@ static const char usage[] =
 "      Can specify --seq/--seq2 multiple times.\n";
 
 typedef struct {
+  dBGraph *const db_graph;
+  SeqLoadingStats *stats;
   char *in1, *in2;
   gzFile out1, out2;
   size_t num_of_reads_printed;
@@ -118,14 +120,13 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
 }
 
 void filter_reads(read_t *r1, read_t *r2,
-                  int qoffset1, int qoffset2,
-                  const SeqLoadingPrefs *prefs, SeqLoadingStats *stats, void *ptr)
+                  uint8_t qoffset1, uint8_t qoffset2, void *ptr)
 {
   (void)qoffset1; (void)qoffset2;
-  (void)prefs; (void)stats;
 
   AlignReadsData *data = (AlignReadsData*)ptr;
-  const dBGraph *db_graph = prefs->db_graph;
+  const dBGraph *db_graph = data->db_graph;
+  SeqLoadingStats *stats = data->stats;
 
   boolean touches_graph = read_touches_graph(r1, db_graph, stats) ||
                           (r2 != NULL && read_touches_graph(r2, db_graph, stats));
@@ -253,21 +254,16 @@ int ctx_reads(CmdArgs *args)
 
   // Load graphs
   SeqLoadingStats *stats = seq_loading_stats_create(0);
-  SeqLoadingPrefs prefs = {.db_graph = &db_graph,
-                           // binary
-                           .must_exist_in_graph = false,
-                           .empty_colours = true,
-                           .boolean_covgs = false,
-                           // Sequence
-                           .quality_cutoff = 0, .ascii_fq_offset = 0,
-                           .homopolymer_cutoff = 0,
-                           .remove_dups_se = false, .remove_dups_pe = false};
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .must_exist_in_graph = false,
+                              .empty_colours = true,
+                              .boolean_covgs = false};
 
   for(i = 0; i < num_files; i++) {
     files[i].fltr.flatten = true;
     // files[i].fltr.intocol = 0;
     file_filter_update_intocol(&files[i].fltr, 0);
-    graph_load(&files[i], &prefs, stats);
+    graph_load(&files[i], gprefs, stats);
   }
 
   if(invert) status("Printing reads that do not touch the graph\n");
@@ -292,7 +288,7 @@ int ctx_reads(CmdArgs *args)
       char *in1 = NULL, *in2 = NULL, *out = NULL;
       size_t init_reads, reads_loaded;
 
-      AlignReadsData data = {in1, in2, NULL, NULL, 0,
+      AlignReadsData data = {&db_graph, stats, in1, in2, NULL, NULL, 0,
                              use_fq ? seq_gzprint_fastq : seq_gzprint_fasta,
                              invert};
 
@@ -327,14 +323,14 @@ int ctx_reads(CmdArgs *args)
       if(is_pe) {
         status("reading: %s %s\n", in1, in2);
         status("writing: %s %s\n", path1, path2);
-        seq_parse_pe_sf(seqfiles[sf], seqfiles[sf+1], &r1, &r2,
-                        &prefs, stats, filter_reads, &data);
+        seq_parse_pe_sf(seqfiles[sf], seqfiles[sf+1], 0, &r1, &r2,
+                        filter_reads, &data);
         sf += 2;
       } else {
         status("reading: %s\n", in1);
         status("writing: %s\n", path1);
-        seq_parse_se_sf(seqfiles[sf++], &r1, &r2,
-                        &prefs, stats, filter_reads, &data);
+        seq_parse_se_sf(seqfiles[sf++], 0, &r1, &r2,
+                        filter_reads, &data);
       }
 
       gzclose(data.out1);
