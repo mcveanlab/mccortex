@@ -105,8 +105,9 @@ OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                   -Wwrite-strings -Waggregate-return -Wundef \
                   -Wshadow -Wconversion -Woverlength-strings \
                   -Wenum-compare -Wfloat-equal -Wbad-function-cast \
-                  -Wstack-protector -fstack-protector \
-                  -fsanitize-undefined-trap-on-error
+                  -Wstack-protector -fstack-protector
+
+CLANG_ONLY=-fsanitize-undefined-trap-on-error
 
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
