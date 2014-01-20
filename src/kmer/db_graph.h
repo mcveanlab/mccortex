@@ -41,7 +41,7 @@ typedef struct
 
   // [hkey/64][col] >> hkey%64
   // [num_of_colours*hkey/64+col] >> hkey%64
-  uint64_t *node_in_cols;
+  uint8_t *node_in_cols;
 
   // path data
   PathStore pdata;

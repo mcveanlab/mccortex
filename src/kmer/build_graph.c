@@ -269,7 +269,7 @@ static void start_build_graph_workers(MsgPool *pool, dBGraph *db_graph,
   {
     BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = pool};
     asynciodata_alloc(&tmp_wrkr.data);
-    workers[i] = tmp_wrkr;
+    memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
   }
 
   // Thread attribute joinable
@@ -320,7 +320,8 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
                                 .fq_offset = files[i].fq_offset,
                                 .stats = files[i].stats,
                                 .ptr = &files[i]};
-    async_tasks[i] = aio_task;
+
+    memcpy(&async_tasks[i], &aio_task, sizeof(AsyncIOReadTask));
   }
 
   asyncio_workers = asyncio_read_start(&pool, async_tasks, num_files);

@@ -456,7 +456,8 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     if(graph->node_in_cols != NULL) {
       for(i = 0; i < load_ncols; i++) {
         size_t has_col = (covgs[i] > 0 || edges[i] != 0);
-        db_node_cpy_col(graph, node, graph_file_intocol(file,i), has_col);
+        size_t intocol = graph_file_intocol(file,i);
+        db_node_cpy_col(graph, node, intocol, has_col);
       }
     }
 

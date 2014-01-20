@@ -180,9 +180,8 @@ int ctx_infer_edges(CmdArgs *args)
                  file.hdr.num_of_cols, 0, kmers_in_hash);
 
   // In colour
-  size_t words64_per_col = roundup_bits2words64(db_graph.ht.capacity);
-  db_graph.node_in_cols = calloc2(words64_per_col * file.hdr.num_of_cols,
-                                  sizeof(uint64_t));
+  size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
+  db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,

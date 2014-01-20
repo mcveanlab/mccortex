@@ -755,7 +755,7 @@ static void* generate_paths_worker(void *ptr)
   AsyncIOData data;
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
     wrkr->data = data;
-    wrkr->task = *(GeneratePathsTask*)data.ptr;
+    memcpy(&wrkr->task, data.ptr, sizeof(GeneratePathsTask));
     worker_do_job(wrkr);
   }
 
@@ -822,13 +822,16 @@ void generate_paths(GeneratePathsTask *tasks, size_t num_tasks,
                                 .file2 = tasks[i].file2,
                                 .fq_offset = tasks[i].fq_offset,
                                 .ptr = &tasks[i]};
-    asyncio_tasks[i] = aio_task;
+
+    memcpy(&asyncio_tasks[i], &aio_task, sizeof(AsyncIOReadTask));
   }
 
   asyncio_workers = asyncio_read_start(&pool, asyncio_tasks, num_tasks);
 
   // Run the workers until the pool is closed
   start_gen_path_workers(workers, num_workers);
+
+  // status("Pool open: %i", pool.open);
 
   // Finish with the async io (waits until queue is empty)
   asyncio_read_finish(asyncio_workers, num_tasks);

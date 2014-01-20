@@ -144,8 +144,8 @@ int ctx_call(CmdArgs *args)
   db_graph.col_edges = calloc2(kmers_in_hash, sizeof(uint8_t));
 
   // In colour
-  size_t words64_per_col = roundup_bits2words64(kmers_in_hash);
-  db_graph.node_in_cols = calloc2(words64_per_col*file.hdr.num_of_cols, sizeof(uint64_t));
+  size_t bytes_per_col = roundup_bits2bytes(kmers_in_hash);
+  db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));

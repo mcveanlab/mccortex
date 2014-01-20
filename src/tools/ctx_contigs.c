@@ -373,11 +373,10 @@ int ctx_contigs(CmdArgs *args)
   db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
   graph_walker_alloc(&wlk);
 
-  size_t node_bit_fields = roundup_bits2words64(db_graph.ht.capacity);
+  size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(node_bit_fields * file.hdr.num_of_cols,
-                                  sizeof(uint64_t));
+  db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 

@@ -25,17 +25,19 @@ void asynciodata_dealloc(AsyncIOData *iod)
   seq_read_dealloc(&iod->r2);
 }
 
-static void asynciodata_pool_init(char *el, size_t idx, void *args)
+static void asynciodata_pool_init(void *el, size_t idx, void *args)
 {
   (void)idx; (void)args;
+  // status("alloc: %zu %p", idx, el);
   AsyncIOData d;
   asynciodata_alloc(&d);
   memcpy(el, &d, sizeof(AsyncIOData));
 }
 
-static void asynciodata_pool_destroy(char *el, size_t idx, void *args)
+static void asynciodata_pool_destroy(void *el, size_t idx, void *args)
 {
   (void)idx; (void)args;
+  // status("destruct: %zu %p", idx, el);
   AsyncIOData d;
   memcpy(&d, el, sizeof(AsyncIOData));
   asynciodata_dealloc(&d);
@@ -47,7 +49,7 @@ static void async_io_worker_alloc(AsyncIOWorker *wrkr,
 {
   AsyncIOWorker tmp = {.pool = pool, .task = *task, .num_running = num_running};
   asynciodata_alloc(&tmp.data);
-  *wrkr = tmp;
+  memcpy(wrkr, &tmp, sizeof(AsyncIOWorker));
 }
 
 static void async_io_worker_dealloc(AsyncIOWorker *wrkr)

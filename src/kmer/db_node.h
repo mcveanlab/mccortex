@@ -2,6 +2,7 @@
 #define DB_NODE_H_
 
 #include <inttypes.h>
+#include "bit_macros.h"
 
 #include "cortex_types.h"
 #include "db_graph.h"
@@ -30,22 +31,28 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 //
 // kset is short for a kmer bitset. A three colour kset is organised like so:
 // <0-63:col0><0-63:col1><0-63:col2><64-127:col0><64-127:col1><64-127:col2>
-#define ksetw(idx) ((idx)%64)
-#define kseto(ncols,col,idx) (((idx)/64) * (ncols) + (col))
-#define ksetn(ncols,capacity) (round_bits_to_words(capacity) * (ncols))
+/* Offset in word */
+#define kseto(arr,idx) ((idx)%(sizeof(*arr)*8))
+/* word index */
+#define ksetw(arr,ncols,col,idx) (((idx)/(sizeof(*arr)*8))*(ncols)+(col))
 
 #define db_node_has_col(g,hkey,col) \
-        bitset2_get((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+        bitset2_get((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+                                       kseto((g)->node_in_cols,hkey))
 #define db_node_set_col(g,hkey,col) \
-        bitset2_set((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+        bitset2_set((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+                                       kseto((g)->node_in_cols,hkey))
 #define db_node_del_col(g,hkey,col) \
-        bitset2_del((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+        bitset2_del((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+                                       kseto((g)->node_in_cols,hkey))
 #define db_node_cpy_col(g,hkey,col,bit) \
-        bitset2_cpy((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey),bit)
+        bitset2_cpy((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+                                       kseto((g)->node_in_cols,hkey),bit)
 
 // Threadsafe
 #define db_node_set_col_mt(g,hkey,col) \
-        bitset2_set_mt((g)->node_in_cols,kseto((g)->num_of_cols,col,hkey),ksetw(hkey))
+        bitset2_set_mt((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+                                          kseto((g)->node_in_cols,hkey))
 
 //
 // Node traversal

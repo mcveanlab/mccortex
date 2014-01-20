@@ -104,14 +104,14 @@ static void print_input(const CtxBuildInput *input)
   }
 }
 
-static CtxBuildInput ctx_input_create(char *load_graph_path,
-                                      const char *seq_path1, const char *seq_path2,
-                                      size_t colour, CtxBuildGraphCol *col_data,
-                                      uint32_t fq_offset, uint32_t fq_cutoff,
-                                      uint32_t hp_cutoff,
-                                      boolean remove_dups_se,
-                                      boolean remove_dups_pe,
-                                      size_t kmer_size)
+static void ctx_input_create(char *load_graph_path,
+                             const char *seq_path1, const char *seq_path2,
+                             size_t colour, CtxBuildGraphCol *col_data,
+                             uint32_t fq_offset, uint32_t fq_cutoff,
+                             uint32_t hp_cutoff,
+                             boolean remove_dups_se,
+                             boolean remove_dups_pe,
+                             size_t kmer_size, CtxBuildInput *ptr)
 {
   assert((load_graph_path == NULL) != (seq_path1 == NULL));
   assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
@@ -158,7 +158,7 @@ static CtxBuildInput ctx_input_create(char *load_graph_path,
     input.ctx_file.fltr.intocol = colour;
   }
 
-  return input;
+  memcpy(ptr, &input, sizeof(CtxBuildInput));
 }
 
 static void ctx_input_dealloc(CtxBuildInput *input)
@@ -176,10 +176,10 @@ static void ctx_build_graph_colour_dealloc(CtxBuildGraphCol *col)
 // *num_inputs_ptr is the number of inputs
 // *num_seq_cols_ptr is the number of colours with sequenced loaded into them
 // *num_total_cols_ptr is the total number of colours in the graph
-static int load_args(int argc, char **argv, size_t kmer_size,
-                     CtxBuildInput *inputs, size_t *num_inputs_ptr,
-                     CtxBuildGraphCol *seq_cols, size_t *num_seq_cols_ptr,
-                     size_t *num_total_cols_ptr)
+static void load_args(int argc, char **argv, size_t kmer_size,
+                      CtxBuildInput *inputs, size_t *num_inputs_ptr,
+                      CtxBuildGraphCol *seq_cols, size_t *num_seq_cols_ptr,
+                      size_t *num_total_cols_ptr)
 {
   int argi;
   size_t num_inputs = 0, num_seq_cols = 0;
@@ -224,12 +224,13 @@ static int load_args(int argc, char **argv, size_t kmer_size,
         print_usage(usage, "--seq <file> requires an argument");
 
       // Create new task
-      inputs[num_inputs++] = ctx_input_create(NULL, argv[argi+1], NULL,
-                                              colour, &seq_cols[num_seq_cols-1],
-                                              fq_offset, fq_cutoff, hp_cutoff,
-                                              remove_dups_se, remove_dups_pe,
-                                              kmer_size);
+      ctx_input_create(NULL, argv[argi+1], NULL,
+                       colour, &seq_cols[num_seq_cols-1],
+                       fq_offset, fq_cutoff, hp_cutoff,
+                       remove_dups_se, remove_dups_pe,
+                       kmer_size, &inputs[num_inputs]);
       //
+      num_inputs++;
       argi += 1;
       sample_used = true;
       seq_loaded = true;
@@ -241,12 +242,13 @@ static int load_args(int argc, char **argv, size_t kmer_size,
         print_usage(usage, "--seq2 <file1> <file2> requires two arguments");
 
       // Create new task
-      inputs[num_inputs++] = ctx_input_create(NULL, argv[argi+1], argv[argi+2],
-                                              colour, &seq_cols[num_seq_cols-1],
-                                              fq_offset, fq_cutoff, hp_cutoff,
-                                              remove_dups_se, remove_dups_pe,
-                                              kmer_size);
+      ctx_input_create(NULL, argv[argi+1], argv[argi+2],
+                       colour, &seq_cols[num_seq_cols-1],
+                       fq_offset, fq_cutoff, hp_cutoff,
+                       remove_dups_se, remove_dups_pe,
+                       kmer_size, &inputs[num_inputs]);
       //
+      num_inputs++;
       argi += 2;
       sample_used = true;
       seq_loaded = true;
@@ -282,11 +284,11 @@ static int load_args(int argc, char **argv, size_t kmer_size,
       {
         // --load_graph <in.ctx>
         // Load binary into new colour
-        inputs[num_inputs] = ctx_input_create(argv[argi+1], NULL, NULL,
-                                              colour, NULL,
-                                              fq_offset, fq_cutoff, hp_cutoff,
-                                              remove_dups_se, remove_dups_pe,
-                                              kmer_size);
+        ctx_input_create(argv[argi+1], NULL, NULL,
+                         colour, NULL,
+                         fq_offset, fq_cutoff, hp_cutoff,
+                         remove_dups_se, remove_dups_pe,
+                         kmer_size, &inputs[num_inputs]);
         colour += input_ncols(&inputs[num_inputs]);
         num_inputs++;
       }
@@ -306,8 +308,6 @@ static int load_args(int argc, char **argv, size_t kmer_size,
   *num_inputs_ptr = num_inputs;
   *num_seq_cols_ptr = num_seq_cols;
   *num_total_cols_ptr = colour;
-
-  return argi;
 }
 
 static void run_build_graph(dBGraph *db_graph,
@@ -316,8 +316,9 @@ static void run_build_graph(dBGraph *db_graph,
 {
   status("Loading %zu files with %zu worker threads", num_inputs, num_build_threads);
   size_t i;
-  BuildGraphTask *tasks = malloc(num_inputs*sizeof(BuildGraphTask));
-  for(i = 0; i < num_inputs; i++) tasks[i] = inputs[i].seq_files;
+  BuildGraphTask *tasks = malloc2(num_inputs*sizeof(BuildGraphTask));
+  for(i = 0; i < num_inputs; i++)
+    memcpy(&tasks[i], &inputs[i].seq_files, sizeof(BuildGraphTask));
   build_graph(db_graph, tasks, num_inputs, num_build_threads);
   free(tasks);
 }
@@ -335,15 +336,14 @@ int ctx_build(CmdArgs *args)
   // num_seq_cols is the number of colours with sequence loaded into them
   // output_colours = num_seq_cols + num colours filled with graph files
   size_t i, num_inputs = 0, num_seq_cols = 0, output_colours = 0;
-  int argi;
 
   // Load inputs
   size_t max_inputs = (size_t)argc/2;
   CtxBuildInput *inputs = malloc2(max_inputs * sizeof(CtxBuildInput));
   CtxBuildGraphCol *seq_cols = malloc2(max_inputs * sizeof(CtxBuildGraphCol));
 
-  argi = load_args(argc-1, argv, kmer_size, inputs, &num_inputs,
-                   seq_cols, &num_seq_cols, &output_colours);
+  load_args(argc-1, argv, kmer_size, inputs, &num_inputs,
+            seq_cols, &num_seq_cols, &output_colours);
 
   const char *out_path = argv[argc-1];
 

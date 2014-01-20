@@ -62,12 +62,11 @@ static void gen_paths_print_task(const GeneratePathsTask *t)
     status("[task] read pair: %s", t->read_pair_FR ? "FR" : "FF");
 }
 
-static
-GeneratePathsTask gen_path_task_create(const char *p1, const char *p2,
-                                       size_t col, size_t min_ins, size_t max_ins,
-                                       boolean one_way_bridge,
-                                       uint32_t fq_offset, uint32_t fq_cutoff,
-                                       uint32_t hp_cutoff)
+static void gen_path_task_create(const char *p1, const char *p2,
+                                 size_t col, size_t min_ins, size_t max_ins,
+                                 boolean one_way_bridge,
+                                 uint32_t fq_offset, uint32_t fq_cutoff,
+                                 uint32_t hp_cutoff, GeneratePathsTask *ptr)
 {
   if(p1[0] == '-')
     print_usage(usage, "Path appears to be an option: %s", p1);
@@ -90,7 +89,7 @@ GeneratePathsTask gen_path_task_create(const char *p1, const char *p2,
                            .read_pair_FR = true,
                            .one_way_gap_traverse = one_way_bridge};
 
-  return tsk;
+  memcpy(ptr, &tsk, sizeof(GeneratePathsTask));
 }
 
 static int gen_path_task_cmp(const void *aa, const void *bb)
@@ -197,10 +196,12 @@ static int load_args(int argc, char **argv,
       if(argi+1 == argc) print_usage(usage, "--seq <in.fa> missing args");
       if(!col_set) die("--seq <in.fa> before --col <colour>");
 
-      tasks[num_tasks++] = gen_path_task_create(argv[argi+1], NULL, col,
-                                                min_ins, max_ins, one_way_bridge,
-                                                fq_offset, fq_cutoff, hp_cutoff);
+      gen_path_task_create(argv[argi+1], NULL, col,
+                           min_ins, max_ins, one_way_bridge,
+                           fq_offset, fq_cutoff, hp_cutoff,
+                           &tasks[num_tasks]);
 
+      num_tasks++;
       col_used = true;
       argi++;
     }
@@ -209,10 +210,12 @@ static int load_args(int argc, char **argv,
       if(argi+2 >= argc) print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> missing args");
       if(!col_set) die("--seq2 <in1.fa> <in2.fa> before --col <colour>");
 
-      tasks[num_tasks++] = gen_path_task_create(argv[argi+1], argv[argi+2], col,
-                                                min_ins, max_ins, one_way_bridge,
-                                                fq_offset, fq_cutoff, hp_cutoff);
+      gen_path_task_create(argv[argi+1], argv[argi+2], col,
+                           min_ins, max_ins, one_way_bridge,
+                           fq_offset, fq_cutoff, hp_cutoff,
+                           &tasks[num_tasks]);
 
+      num_tasks++;
       col_used = true;
       argi += 2;
     }
