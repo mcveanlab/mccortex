@@ -196,6 +196,7 @@ size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
       nodes[count] = hash_table_find(&db_graph->ht, bkey);
       orients[count] = db_node_get_orientation(bkmer, bkey) ^ orient;
       fw_nucs[count] = nuc;
+      assert(nodes[count] != HASH_NOT_FOUND);
       count++;
     }
   }

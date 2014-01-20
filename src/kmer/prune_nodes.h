@@ -4,7 +4,7 @@
 //
 // Pruning nodes from the graph
 //
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "db_node.h"
 
 void prune_node(dBGraph *db_graph, hkey_t node);

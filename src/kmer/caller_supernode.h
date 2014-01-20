@@ -1,7 +1,7 @@
 #ifndef CALLER_SUPERNODE_H_
 #define CALLER_SUPERNODE_H_
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "hash_table.h"
 #include "db_node.h"
 

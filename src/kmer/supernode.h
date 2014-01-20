@@ -1,7 +1,7 @@
 #ifndef SUPERNODE_H_
 #define SUPERNODE_H_
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "db_node.h"
 
 // Reverse order and orientations of nodes

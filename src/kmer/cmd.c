@@ -268,8 +268,8 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
     req_kmers = args->num_kmers;
     above_nkmers = true;
   }
-  else if(use_mem_limit)
-    req_kmers = (8 * args->mem_to_use) / bits_per_kmer;
+  else if(use_mem_limit) // +1 rough for hash table overhead
+    req_kmers = (8 * args->mem_to_use) / (bits_per_kmer+1);
   else if(min_num_kmers > 0) {
     req_kmers = (size_t)(min_num_kmers / IDEAL_OCCUPANCY);
     above_nkmers = true;

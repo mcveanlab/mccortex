@@ -95,7 +95,8 @@ LINK=-lpthread -lz -lm
 # -Wstack-protector -fstack-protector
 # -fsanitize=thread
 
-USEFUL_CFLAGS=-Wshadow
+# -fno-strict-aliasing
+USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 IGNORE_CFLAGS=-Wno-cast-align -Wno-shorten-64-to-32
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
@@ -110,7 +111,7 @@ OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
 	OPT = -O0 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
-	DEBUG_ARGS = -g -ggdb
+	DEBUG_ARGS = -g -ggdb -gdwarf-2 -g3
 else
 	ifdef PROFILE
 		#-DNDEBUG=1

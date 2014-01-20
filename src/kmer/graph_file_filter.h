@@ -1,9 +1,10 @@
 #ifndef GRAPH_FILE_FILTER_H_
 #define GRAPH_FILE_FILTER_H_
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "file_filter.h"
 #include "binary_kmer.h"
+#include "graph_info.h"
 
 // Graph (.ctx)
 typedef struct

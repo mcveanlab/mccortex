@@ -2,10 +2,13 @@
 #define DB_GRAPH_H_
 
 #include <inttypes.h>
-#include "graph_typedef.h"
 
 #include "string_buffer.h"
+
+#include "cortex_types.h"
 #include "hash_table.h"
+#include "graph_info.h"
+#include "path_store.h"
 
 //
 // Graph

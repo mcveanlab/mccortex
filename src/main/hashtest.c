@@ -11,6 +11,7 @@ static const char usage[] =
 
 int main(int argc, char **argv)
 {
+  cortex_init();
   ctx_msg_out = stderr;
 
   CmdArgs args;
@@ -24,9 +25,6 @@ int main(int argc, char **argv)
   unsigned long i, num_ops;
   if(!parse_entire_ulong(argv[0], &num_ops))
     print_usage(usage, "Invalid <num_ops>");
-
-  // Seed random
-  seed_random();
 
   // Decide on memory
   size_t kmers_in_hash, graph_mem;
@@ -50,5 +48,6 @@ int main(int argc, char **argv)
   db_graph_dealloc(&db_graph);
 
   cmd_free(&args);
+  cortex_destroy();
   return EXIT_SUCCESS;
 }

@@ -2,9 +2,12 @@
 #include <time.h>
 #include <sys/time.h> // for seeding random
 #include <unistd.h> // getpid
+#include <pthread.h>
+
 #include "util.h"
 
 FILE *ctx_msg_out = NULL;
+pthread_mutex_t biglock;
 
 void* ctx_malloc(size_t mem, const char *file, int line)
 {
@@ -44,6 +47,7 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, int line)
 
 void call_die(const char *file, int line, const char *fmt, ...)
 {
+  pthread_mutex_lock(&biglock);
   va_list argptr;
   fflush(stdout);
   fprintf(stderr, "[%s:%i] Error: ", file, line);
@@ -58,6 +62,7 @@ void call_die(const char *file, int line, const char *fmt, ...)
 
 void call_warn(const char *file, int line, const char *fmt, ...)
 {
+  pthread_mutex_lock(&biglock);
   va_list argptr;
   fflush(stdout);
   fprintf(stderr, "[%s:%i] Warning: ", file, line);
@@ -66,6 +71,7 @@ void call_warn(const char *file, int line, const char *fmt, ...)
   va_end(argptr);
   if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
   fflush(stderr);
+  pthread_mutex_unlock(&biglock);
 }
 
 // A function for standard output
@@ -98,6 +104,7 @@ void status(const char *fmt, ...)
   va_list argptr;
 
   if(ctx_msg_out != NULL) {
+    pthread_mutex_lock(&biglock);
     timestamp(ctx_msg_out);
     if(fmt[0] != ' ' && fmt[0] != '[') fputc(' ', ctx_msg_out);
     va_start(argptr, fmt);
@@ -105,12 +112,14 @@ void status(const char *fmt, ...)
     va_end(argptr);
     if(fmt[strlen(fmt)-1] != '\n') fputc('\n', ctx_msg_out);
     fflush(ctx_msg_out);
+    pthread_mutex_unlock(&biglock);
   }
 }
 
 void print_usage(const char *msg, const char *errfmt,  ...)
 {
   if(errfmt != NULL) {
+    pthread_mutex_lock(&biglock);
     fprintf(stderr, "Error: ");
     va_list argptr;
     va_start(argptr, errfmt);
@@ -130,4 +139,18 @@ void seed_random()
   gettimeofday(&time, NULL);
   srand((unsigned int)(((time.tv_sec ^ getpid()) * 1000001) + time.tv_usec));
   srand48(((time.tv_sec ^ getpid()) * 1000003) + time.tv_usec);
+}
+
+void cortex_init()
+{
+  seed_random();
+  if(pthread_mutex_init(&biglock, NULL) != 0) {
+    printf("%s:%i: mutex init failed\n", __FILE__, __LINE__);
+    exit(EXIT_FAILURE);
+  }
+}
+
+void cortex_destroy()
+{
+  pthread_mutex_destroy(&biglock);
 }

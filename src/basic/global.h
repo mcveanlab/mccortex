@@ -15,24 +15,20 @@
 #include <limits.h>
 #include <assert.h>
 #include <zlib.h>
+#include <pthread.h>
 
 #include "bit_macros.h" // from bit_array
 
-typedef uint_fast8_t boolean;
-
-#ifndef true
-#define true 1
-#define false 0
-#endif
-
 // #define CTXVERSIONSTR "0.0"
 #include "version.h"
+#include "cortex_types.h"
 
 // Number of reads to hold in the msg pool
 #define MSGPOOLRSIZE 200
 
 // set to NULL to turn off message printing
 extern FILE *ctx_msg_out;
+extern pthread_mutex_t biglock;
 
 #define QUOTE_MACRO(str) #str
 #define QUOTE_VALUE(str) QUOTE_MACRO(str)
@@ -80,9 +76,7 @@ void print_usage(const char *msg, const char *errfmt,  ...)
   __attribute__((noreturn))
   __attribute__((format(printf, 2, 3)));
 
-void seed_random();
-
-// See http://stackoverflow.com/a/77336/431087
-void errhandler(int sig);
+void cortex_init();
+void cortex_destroy();
 
 #endif /* GLOBAL_H_ */

@@ -20,7 +20,7 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
   bitlock_yield_acquire(kmerlocks, kmer);
 
-  PathIndex next = *(volatile PathIndex*)&db_node_paths(db_graph, kmer);
+  const PathIndex next = *(volatile PathIndex*)&db_node_paths(db_graph, kmer);
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -62,6 +62,13 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
 
   // 5) update kmer pointer
   db_node_paths(db_graph, kmer) = (uint64_t)(new_path - pstore->store);
+
+  // Update number of kmers with paths if this the first path for this kmer
+  if(next == PATH_NULL)
+    __sync_add_and_fetch((volatile size_t*)&pstore->num_kmers_with_paths, 1);
+
+  // Update number of paths
+  __sync_add_and_fetch((volatile size_t*)&pstore->num_of_paths, 1);
 
   __sync_synchronize();
 

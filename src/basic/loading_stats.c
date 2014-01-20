@@ -18,7 +18,7 @@ SeqLoadingStats* seq_loading_stats_create(size_t readlen_arrsize)
   return stats;
 }
 
-void seq_loading_stats_sum(SeqLoadingStats* dst, SeqLoadingStats* src)
+void seq_loading_stats_sum(SeqLoadingStats* dst, const SeqLoadingStats* src)
 {
   dst->se_colourlists_loaded += src->se_colourlists_loaded;
   dst->pe_colourlist_pairs_loaded += src->pe_colourlist_pairs_loaded;

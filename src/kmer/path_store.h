@@ -3,11 +3,19 @@
 
 #include "binary_kmer.h"
 #include "file_filter.h"
-#include "graph_typedef.h"
+#include "cortex_types.h"
 
-// Types PathIndex, PathLen are defined in graph_typedef.h
-// typedef uint64_t PathIndex;
-// typedef uint16_t PathLen;
+typedef uint64_t PathIndex;
+typedef uint16_t PathLen;
+
+typedef struct {
+  uint8_t *const store, *const end;
+  const size_t size;
+  const size_t num_of_cols, colset_bytes;
+  uint8_t *next;
+  size_t num_of_paths, num_kmers_with_paths;
+} PathStore;
+
 #define PATH_NULL UINT64_MAX
 #define PATH_LEN_BITS 15
 #define MAX_PATHLEN ((1UL<<PATH_LEN_BITS)-1)

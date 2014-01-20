@@ -3,7 +3,7 @@
 
 #include "seq_file.h"
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "db_graph.h"
 #include "loading_stats.h"
 
@@ -11,9 +11,10 @@ typedef struct
 {
   seq_file_t *const file1, *const file2;
   const Colour ctpcol, ctxcol;
-  uint32_t ins_gap_min, ins_gap_max;
+  const uint32_t ins_gap_min, ins_gap_max;
   const uint8_t fq_offset, fq_cutoff, hp_cutoff;
-  SeqLoadingStats *stats; // results are placed here
+  const boolean read_pair_FR; // set to false if reads are FF
+  const boolean one_way_gap_traverse; // set to false for more error prone algo
 } GeneratePathsTask;
 
 typedef struct GenPathWorker GenPathWorker;
@@ -38,5 +39,12 @@ void gen_paths_dump_gap_sizes(const char *base_fmt,
                               const uint64_t *arr, size_t arrlen,
                               size_t kmer_size, boolean insert_sizes,
                               size_t nreads);
+
+// Get histogram array
+const uint64_t* gen_paths_get_ins_gap(GenPathWorker *worker, size_t *len);
+const uint64_t* gen_paths_get_err_gap(GenPathWorker *worker, size_t *len);
+
+void gen_paths_get_stats(GenPathWorker *worker, size_t num_workers,
+                         SeqLoadingStats *stats);
 
 #endif /* GENERATE_PATHS_H_ */

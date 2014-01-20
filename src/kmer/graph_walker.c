@@ -551,7 +551,7 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
     num_paths = pickup_paths(paths, wlk, index, prev_orients[i], true);
     wlk->num_counter -= num_paths;
 
-    edges = db_node_edges(wlk->db_graph, 0, prev_nodes[i]);
+    edges = db_node_edges(wlk->db_graph, wlk->ctxcol, prev_nodes[i]);
     if(edges_get_outdegree(edges, prev_orients[i]) > 1) {
       new_paths = wlk->counter_paths + wlk->num_counter;
       for(j = 0, k = 0; j < num_paths; j++) {
@@ -584,7 +584,7 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
                                              : db_node_bkmer(db_graph, wlk->node));
   Orientation orient = opposite_orientation(wlk->orient);
 
-  Edges edges = db_node_edges(db_graph, 0, wlk->node) &
+  Edges edges = db_node_edges(db_graph, wlk->ctxcol, wlk->node) &
                 ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), orient);
 
   num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, orient, edges,
@@ -599,13 +599,17 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
 boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
-  Edges edges = db_node_edges(db_graph, 0, wlk->node); // merged colours
+  Edges edges = db_node_edges(db_graph, wlk->ctxcol, wlk->node);
   edges = edges_with_orientation(edges, wlk->orient);
 
   hkey_t nodes[4];
   Orientation orients[4];
   Nucleotide bases[4];
   size_t num_next;
+
+  // char tmpbkmer[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkmer, db_graph->kmer_size, tmpbkmer);
+  // printf("bkmer: %s\n", tmpbkmer);
 
   num_next = db_graph_next_nodes(db_graph, wlk->bkmer, FORWARD, edges,
                                  nodes, orients, bases);
@@ -641,6 +645,10 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
     bkmer = db_node_oriented_bkmer(bkmer, next_node.orient, kmer_size);
     graph_traverse_force_jump(wlk, next_node.key, bkmer, fork);
   }
+
+  // char tmpbkmer[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, tmpbkmer);
+  // printf("  forced: %s\n", tmpbkmer);
 }
 
 // Fast traversal of a list of nodes using the supplied GraphWalker
@@ -666,7 +674,8 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
   for(i = 0; i+1 < n; i++)
   {
-    nodes[2] = forward ? nodes[i+1] : db_node_reverse(nodes[n-i-2]);
+    // printf("i: %zu %zu:%i\n", i, (size_t)nodes[1].key, (int)nodes[1].orient);
+    nodes[2] = forward ? arr[i+1] : db_node_reverse(arr[n-i-2]);
 
     edges = db_node_edges(wlk->db_graph, wlk->ctxcol, nodes[2].key);
     outfork[2] = edges_get_outdegree(edges, nodes[2].orient) > 1;

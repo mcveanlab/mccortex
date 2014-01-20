@@ -11,6 +11,7 @@
 #include "generate_paths.h"
 #include "async_read_io.h"
 
+#define DEFAULT_MIN_INS 0
 #define DEFAULT_MAX_INS 500
 
 static const char usage[] =
@@ -26,13 +27,13 @@ static const char usage[] =
 "    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
+"    --minIns <ins>             Minimum insert size for --seq2 [default:0]\n"
+"    --maxIns <ins>             Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
+"    --twoway                   Use two-way gap filling\n"
+"    --oneway                   Use one-way gap filling\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n"
-"\n"
-"  Insert size filtering for following --seq2 files:\n"
-"    --minIns <ins>             Minimum insert size [default:0]\n"
-"    --maxIns <ins>             Maximum insert size [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
 "\n"
 "  Example:\n"
 "    "CMD" thread -m 80G -p 0:Minnie.ctp -p 2:Mickey.ctp \\\n"
@@ -42,9 +43,29 @@ static const char usage[] =
 "\n"
 "  See `"CMD" pjoin` to combine .ctp files\n";
 
+static void gen_paths_print_task(const GeneratePathsTask *t)
+{
+  int has_p2 = t->file2 != NULL;
+  const char *p1 = t->file1->path, *p2 = has_p2 ? t->file2->path : "";
+  char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
+
+  if(t->fq_cutoff > 0) sprintf(fqCutoff, "%u", t->fq_cutoff);
+  if(t->fq_offset > 0) sprintf(fqOffset, "%u", t->fq_offset);
+  if(t->hp_cutoff > 0) sprintf(hpCutoff, "%u", t->hp_cutoff);
+
+  status("[task] input: %s%s%s", p1, has_p2 ? ", " : "", p2);
+  status("[task] insert min: %u max: %u", t->ins_gap_min, t->ins_gap_max);
+  status("[task] FASTQ offset: %s, threshold: %s; cut homopolymers: %s",
+         fqOffset, fqCutoff, hpCutoff);
+  status("[task] %s-way gap traversal", t->one_way_gap_traverse ? "one" : "two");
+  if(has_p2)
+    status("[task] read pair: %s", t->read_pair_FR ? "FR" : "FF");
+}
+
 static
 GeneratePathsTask gen_path_task_create(const char *p1, const char *p2,
                                        size_t col, size_t min_ins, size_t max_ins,
+                                       boolean one_way_bridge,
                                        uint32_t fq_offset, uint32_t fq_cutoff,
                                        uint32_t hp_cutoff)
 {
@@ -60,15 +81,14 @@ GeneratePathsTask gen_path_task_create(const char *p1, const char *p2,
   if(p2 != NULL && (f2 = seq_open(p2)) == NULL)
     die("Cannot read second --seq2 file: %s", p2);
 
-  SeqLoadingStats *stats = seq_loading_stats_create(1000);
-
   GeneratePathsTask tsk = {.file1 = f1, .file2 = f2,
                            .ctxcol = 0, .ctpcol = col,
                            .ins_gap_min = min_ins, .ins_gap_max = max_ins,
                            .fq_offset = (uint8_t)fq_offset,
                            .fq_cutoff = (uint8_t)fq_cutoff,
                            .hp_cutoff = (uint8_t)hp_cutoff,
-                           stats};
+                           .read_pair_FR = true,
+                           .one_way_gap_traverse = one_way_bridge};
 
   return tsk;
 }
@@ -105,8 +125,9 @@ static int load_args(int argc, char **argv,
 {
   size_t num_tasks = 0;
   int argi;
-  size_t min_ins = 100, max_ins = 1000;
+  size_t min_ins = DEFAULT_MIN_INS, max_ins = DEFAULT_MAX_INS;
   uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
+  boolean one_way_bridge = true;
   boolean col_set = false, col_used = false;
   size_t col;
 
@@ -161,7 +182,15 @@ static int load_args(int argc, char **argv,
     {
       if(argi+1 >= argc || !parse_entire_size(argv[++argi], &max_ins))
         print_usage(usage, "--maxIns <bp> requires a positive integer argument");
+      if(max_ins < 20)
+        warn("--maxGap < 20 seems very low!");
       argi++;
+    }
+    else if(strcasecmp(argv[argi],"--oneway") == 0) {
+      one_way_bridge = true;
+    }
+    else if(strcasecmp(argv[argi],"--twoway") == 0) {
+      one_way_bridge = false;
     }
     else if(strcmp(argv[argi],"--seq") == 0)
     {
@@ -169,7 +198,7 @@ static int load_args(int argc, char **argv,
       if(!col_set) die("--seq <in.fa> before --col <colour>");
 
       tasks[num_tasks++] = gen_path_task_create(argv[argi+1], NULL, col,
-                                                min_ins, max_ins,
+                                                min_ins, max_ins, one_way_bridge,
                                                 fq_offset, fq_cutoff, hp_cutoff);
 
       col_used = true;
@@ -181,7 +210,7 @@ static int load_args(int argc, char **argv,
       if(!col_set) die("--seq2 <in1.fa> <in2.fa> before --col <colour>");
 
       tasks[num_tasks++] = gen_path_task_create(argv[argi+1], argv[argi+2], col,
-                                                min_ins, max_ins,
+                                                min_ins, max_ins, one_way_bridge,
                                                 fq_offset, fq_cutoff, hp_cutoff);
 
       col_used = true;
@@ -203,7 +232,7 @@ static int load_args(int argc, char **argv,
 
 int ctx_thread(CmdArgs *args)
 {
-  cmd_accept_options(args, "tmnp", usage);
+  cmd_accept_options(args, "atmnp", usage);
   int argc = args->argc;
   char **argv = args->argv;
   if(argc < 2) print_usage(usage, NULL);
@@ -214,6 +243,9 @@ int ctx_thread(CmdArgs *args)
   int argi; // arg index to continue from
 
   argi = load_args(argc, argv, tasks, &num_tasks);
+
+  for(i = 0; i < num_tasks; i++)
+    gen_paths_print_task(&tasks[i]);
 
   if(gen_paths_print_inserts && num_work_threads > 1) {
     die("--printinsgaps with >1 threads is a bad idea.");
@@ -309,12 +341,14 @@ int ctx_thread(CmdArgs *args)
   size_t total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(args, total_mem);
 
+  //
   // Open output file
+  //
+  if(futil_file_exists(out_ctp_path))
+    die("Output file already exists: %s", out_ctp_path);
+
   FILE *fout = fopen(out_ctp_path, "w");
-
-  if(fout == NULL)
-    die("Unable to open paths file to write: %s\n", out_ctp_path);
-
+  if(fout == NULL) die("Unable to open paths file to write: %s", out_ctp_path);
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
 
   //
@@ -357,13 +391,11 @@ int ctx_thread(CmdArgs *args)
   }
 
   // Set up paths header. This is for the output file we are creating
-  PathFileHeader pheader = {.version = CTX_PATH_FILEFORMAT,
-                            .kmer_size = graph_files[0].hdr.kmer_size,
-                            .num_of_cols = 0,
-                            .capacity = 0};
-
+  PathFileHeader pheader = INIT_PATH_FILE_HDR_MACRO;
   paths_header_alloc(&pheader, total_cols);
+
   pheader.num_of_cols = (uint32_t)total_cols;
+  pheader.kmer_size = graph_files[0].hdr.kmer_size;
 
   // Set new path header sample names from graph header
   for(i = 0; i < total_cols; i++)
@@ -373,13 +405,11 @@ int ctx_thread(CmdArgs *args)
   db_graph_realloc(&db_graph, 1, 1);
 
   // Setup for loading graphs graph
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  SeqLoadingStats *gstats = seq_loading_stats_create(0);
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
                               .empty_colours = false};
-
-  paths_format_write_header(&pheader, fout);
 
   //
   // Start up the threads, do the work
@@ -400,7 +430,7 @@ int ctx_thread(CmdArgs *args)
     size_t ctpcol = tasks[start].ctpcol;
 
     get_binary_and_colour(graph_files, num_graphs, ctpcol, &ctxindex, &ctxcol);
-    graph_load_colour(&graph_files[ctxindex], gprefs, stats, ctxcol, 0);
+    graph_load_colour(&graph_files[ctxindex], gprefs, gstats, ctxcol, 0);
 
     // Get list of input files to read
     end = start+1;
@@ -408,25 +438,31 @@ int ctx_thread(CmdArgs *args)
           tasks[end].ctpcol == ctpcol) end++;
 
     generate_paths(tasks+start, end-start, workers, num_work_threads);
-  
-    // DEV: update ginfo
   }
 
-  // Save worker stats
-  // generate_paths_merge_stats(workers, num_work_threads);
+  // Output statistics
+  const uint64_t *ins_gaps, *err_gaps;
+  size_t ins_gaps_len, err_gaps_len;
+
+  ins_gaps = gen_paths_get_ins_gap(workers, &ins_gaps_len);
+  err_gaps = gen_paths_get_err_gap(workers, &err_gaps_len);
+
+  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  gen_paths_get_stats(workers, num_work_threads, stats);
 
   // Print mp gap size / insert stats to a file
-  // gen_paths_dump_gap_sizes("gap_sizes.%u.csv",
-  //                          workers[0].gap_err_histgrm, workers[0].histgrm_len,
-  //                          db_graph.kmer_size, false,
-  //                          stats->num_se_reads + stats->num_pe_reads);
+  gen_paths_dump_gap_sizes("gap_sizes.%u.csv", err_gaps, err_gaps_len,
+                           db_graph.kmer_size, false,
+                           stats->num_se_reads + stats->num_pe_reads);
 
-  // if(pool->seen_pe) {
-    // gen_paths_dump_gap_sizes("mp_sizes.%u.csv",
-    //                          workers[0].gap_ins_histgrm, workers[0].histgrm_len,
-    //                          db_graph.kmer_size, true, stats->num_pe_reads);
-  // }
+  if(stats->num_pe_reads > 0) {
+    gen_paths_dump_gap_sizes("mp_sizes.%u.csv", ins_gaps, ins_gaps_len,
+                             db_graph.kmer_size, true, stats->num_pe_reads);
+  }
+  else
+    status("No PE reads parsed");
 
+  // ins_gap, err_gap no longer allocated after this line
   gen_paths_workers_dealloc(workers, num_work_threads);
 
   // Done
@@ -435,7 +471,7 @@ int ctx_thread(CmdArgs *args)
   ulong_to_str(stats->num_se_reads, se_num_str);
   ulong_to_str(stats->num_pe_reads / 2, pe_num_str);
   ulong_to_str(stats->num_se_reads + stats->num_pe_reads, sepe_num_str);
-  status("Threaded: single reads: %s; read pairs: %s; total: %s",
+  status("[stats] single reads: %s; read pairs: %s; total: %s",
          se_num_str, pe_num_str, sepe_num_str);
 
   size_t num_path_bytes = (size_t)(paths->next - paths->store);
@@ -447,12 +483,10 @@ int ctx_thread(CmdArgs *args)
   status("Saving paths: %s paths, %s path-bytes, %s kmers",
          paths_str, mem_str, kmers_str);
 
-  paths_format_write_optimised_paths(&db_graph, fout);
-
-  // Update header and overwrite
+  // Update header and write
   paths_header_update(&pheader, paths);
-  fseek(fout, 0, SEEK_SET);
-  paths_format_write_header_core(&pheader, fout);
+  paths_format_write_header(&pheader, fout);
+  paths_format_write_optimised_paths(&db_graph, fout);
 
   fclose(fout);
 
@@ -466,6 +500,7 @@ int ctx_thread(CmdArgs *args)
   paths_header_dealloc(&pheader);
 
   seq_loading_stats_free(stats);
+  seq_loading_stats_free(gstats);
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_graphs; i++) graph_file_dealloc(&graph_files[i]);

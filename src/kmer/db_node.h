@@ -3,7 +3,7 @@
 
 #include <inttypes.h>
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "db_graph.h"
 
 typedef struct {

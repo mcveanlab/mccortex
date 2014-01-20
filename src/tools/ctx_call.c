@@ -197,9 +197,6 @@ int ctx_call(CmdArgs *args)
   // Load path files
   paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
 
-  // Seed random
-  seed_random();
-
   // Now call variants
   bubble_caller_print_header(&db_graph, gzout, out_path, args);
   invoke_bubble_caller(&db_graph, gzout, num_of_threads, tmp_paths,

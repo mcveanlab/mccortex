@@ -9,7 +9,7 @@
 #include "msgpool.h"
 #include "seq_file.h"
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "db_graph.h"
 #include "seq_reader.h"
 #include "loading_stats.h"

@@ -1,9 +1,10 @@
 #ifndef PATH_FORMAT_H_
 #define PATH_FORMAT_H_
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "path_file_filter.h"
 #include "path_store.h"
+#include "db_graph.h"
 
 // path file format version
 #define CTX_PATH_FILEFORMAT 1
@@ -36,7 +37,7 @@ boolean paths_merge_needs_tmp(PathFileReader *files, size_t num_files);
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                        boolean insert_missing_kmers);
+                       boolean insert_missing_kmers);
 
 // db_graph.pdata must be big enough to hold all this data or we exit
 void paths_format_merge(PathFileReader *files, size_t num_files,

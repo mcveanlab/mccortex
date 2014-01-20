@@ -2,7 +2,28 @@
 #define DB_INFO_H_
 
 #include <inttypes.h>
-#include "graph_typedef.h"
+#include "string_buffer.h"
+#include "cortex_types.h"
+
+// Thesholds are zero if not used (e.g. remv_low_cov_sups == false)
+// is_graph_intersection is for cleaning a low covg sample against
+// cleaned pool of population
+typedef struct
+{
+  boolean tip_clipping, remv_low_cov_sups, remv_low_cov_nodes;
+  Covg remv_low_cov_sups_thresh, remv_low_cov_nodes_thresh;
+  boolean is_graph_intersection; // formerly cleaned_against_another_graph
+  StrBuf intersection_name; // formerly cleaned_against_graph_nme
+} ErrorCleaning;
+
+typedef struct
+{
+  uint32_t mean_read_length;
+  uint64_t total_sequence;
+  StrBuf sample_name;
+  long double seq_err;
+  ErrorCleaning cleaning;
+} GraphInfo;
 
 void graph_info_init(GraphInfo *ginfo);
 void graph_info_alloc(GraphInfo *ginfo);

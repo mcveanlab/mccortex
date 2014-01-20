@@ -24,9 +24,6 @@
 
 // #define CTXVERBOSE 1
 
-// DEV: move gap_ins_histgrm, gap_err_histgrm to GeneratePathsTask
-// DEV: support for read orientations other than FR
-
 struct GenPathWorker
 {
   pthread_t thread;
@@ -47,6 +44,7 @@ struct GenPathWorker
   dBNodeBuffer contig, revcontig;
 
   // Statistics on gap traversal
+  SeqLoadingStats *stats;
   uint64_t *gap_ins_histgrm, *gap_err_histgrm, histgrm_len;
 
   // Nucleotides and positions of junctions
@@ -66,36 +64,10 @@ struct GenPathWorker
 #define GAP_WIGGLE 5
 
 #define MAX_CONTEXT 1000
-#define BRIDGE_GAP_TWO_WAY 1
 
 // Should we print all paths?
 boolean gen_paths_print_inserts = false;
-
-
-static inline void merge_arrays(uint64_t *restrict a,
-                                const uint64_t *restrict b,
-                                size_t n1, size_t n2)
-{
-  size_t i, n = MIN2(n1, n2);
-  for(i = 0; i < n; i++) a[i] += b[i];
-  // In case n2 is greater than n2
-  for(i = n1; i < n2; i++) a[n1-1] += b[i];
-}
-
-// Merge stats into workers[0]
-void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t nwrkrs)
-{
-  size_t i, n1, n2;
-
-  if(nwrkrs <= 1) return;
-
-  for(i = 1; i < nwrkrs; i++)
-  {
-    n1 = wrkrs[0].histgrm_len; n2 = wrkrs[i].histgrm_len;
-    merge_arrays(wrkrs[0].gap_ins_histgrm, wrkrs[i].gap_ins_histgrm, n1, n2);
-    merge_arrays(wrkrs[0].gap_err_histgrm, wrkrs[i].gap_err_histgrm, n1, n2);
-  }
-}
+size_t print_contig_id = 0;
 
 
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
@@ -135,14 +107,16 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
   db_node_buf_alloc(&tmp.revcontig, INIT_BUFLEN);
   // Gap Histogram
   tmp.histgrm_len = INIT_BUFLEN;
-  tmp.gap_ins_histgrm = calloc2(tmp.histgrm_len*2, sizeof(size_t));
-  tmp.gap_err_histgrm = tmp.gap_ins_histgrm + tmp.histgrm_len;
+  tmp.gap_ins_histgrm = calloc2(tmp.histgrm_len, sizeof(*tmp.gap_ins_histgrm));
+  tmp.gap_err_histgrm = calloc2(tmp.histgrm_len, sizeof(*tmp.gap_err_histgrm));
+  // Stats
+  tmp.stats = seq_loading_stats_create(0);
   // Junction data
   tmp.junc_arrsize = INIT_BUFLEN;
-  tmp.nuc_fw = malloc2(tmp.junc_arrsize * sizeof(Nucleotide));
-  tmp.nuc_rv = malloc2(tmp.junc_arrsize * sizeof(Nucleotide));
-  tmp.pos_fw = malloc2(tmp.junc_arrsize * sizeof(size_t));
-  tmp.pos_rv = malloc2(tmp.junc_arrsize * sizeof(size_t));
+  tmp.nuc_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.nuc_fw));
+  tmp.nuc_rv = malloc2(tmp.junc_arrsize * sizeof(*tmp.nuc_rv));
+  tmp.pos_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_fw));
+  tmp.pos_rv = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_rv));
   tmp.num_fw = tmp.num_rv = 0;
   // Packed path temporary space
   tmp.packed_memcap = INIT_BUFLEN;
@@ -162,6 +136,8 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
   db_node_buf_dealloc(&wrkr->contig);
   db_node_buf_dealloc(&wrkr->revcontig);
   free(wrkr->gap_ins_histgrm);
+  free(wrkr->gap_err_histgrm);
+  seq_loading_stats_free(wrkr->stats);
   free(wrkr->nuc_fw); free(wrkr->nuc_rv);
   free(wrkr->pos_fw); free(wrkr->pos_rv);
   free(wrkr->packed);
@@ -183,6 +159,14 @@ void gen_paths_workers_dealloc(GenPathWorker *workers, size_t n)
   free(workers);
 }
 
+static inline void worker_gap_cap(GenPathWorker *wrkr, size_t max_gap)
+{
+  if(wrkr->histgrm_len < max_gap) {
+    wrkr->gap_ins_histgrm = realloc2(wrkr->gap_ins_histgrm, max_gap*sizeof(uint64_t));
+    wrkr->gap_err_histgrm = realloc2(wrkr->gap_err_histgrm, max_gap*sizeof(uint64_t));
+    wrkr->histgrm_len = max_gap;
+  }
+}
 
 static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t cap)
 {
@@ -203,13 +187,45 @@ static inline void worker_packed_cap(GenPathWorker *wrkr, size_t nbytes)
   }
 }
 
+static inline void merge_arrays(uint64_t *restrict a,
+                                const uint64_t *restrict b,
+                                size_t n)
+{
+  size_t i;
+  for(i = 0; i < n; i++) a[i] += b[i];
+}
+
+// Merge stats into workers[0]
+void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
+{
+  size_t i, n;
+
+  if(num_workers <= 1) return;
+
+  for(i = 1; i < num_workers; i++)
+  {
+    n = wrkrs[i].histgrm_len;
+    worker_gap_cap(&wrkrs[0], n);
+    merge_arrays(wrkrs[0].gap_ins_histgrm, wrkrs[i].gap_ins_histgrm, n);
+    merge_arrays(wrkrs[0].gap_err_histgrm, wrkrs[i].gap_err_histgrm, n);
+
+    // Zero arrays
+    size_t arr_bytes = sizeof(*wrkrs[i].gap_ins_histgrm)*wrkrs[i].histgrm_len;
+    memset(wrkrs[i].gap_ins_histgrm, 0, arr_bytes);
+    memset(wrkrs[i].gap_err_histgrm, 0, arr_bytes);
+  }
+}
+
+
 // assume nbits > 0
 #define bits_in_top_word(nbits) ((((nbits) - 1) & 3) + 1)
 
 // Returns number of paths added
-static inline size_t _juncs_to_paths(const size_t *pos_pl, const size_t *pos_mn,
+static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
+                                     const size_t *restrict pos_mn,
                                      size_t num_pl, size_t num_mn,
-                                     const Nucleotide *nuc_pl, boolean fw,
+                                     const Nucleotide *nuc_pl,
+                                     const boolean fw,
                                      GenPathWorker *wrkr)
 {
   size_t num_added = 0;
@@ -232,9 +248,16 @@ static inline size_t _juncs_to_paths(const size_t *pos_pl, const size_t *pos_mn,
   // pl => plus in direction
   // mn => minus against direction
 
+  // 0,1,2,3
+  // 3,2,1
+
   for(start_pl = 0, start_mn = num_mn-1; start_mn != SIZE_MAX; start_mn--)
   {
-    while(start_pl < num_pl && pos_pl[start_pl] > pos_mn[start_mn]) start_pl++;
+    if(fw)
+      while(start_pl < num_pl && pos_pl[start_pl] < pos_mn[start_mn]) start_pl++;
+    else
+      while(start_pl < num_pl && pos_pl[start_pl] > pos_mn[start_mn]) start_pl++;
+
     if(start_pl == num_pl) break;
 
     pos = (fw ? pos_mn[start_mn] - 1 : pos_mn[start_mn] + 1);
@@ -248,13 +271,14 @@ static inline size_t _juncs_to_paths(const size_t *pos_pl, const size_t *pos_mn,
     orient = rev_orient(nodes[pos].orient);
 
     #ifdef CTXVERBOSE
-      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, str);
-      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n", str, orient,
+      char kmerstr[MAX_KMER_SIZE+1];
+      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, kmerstr);
+      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n", kmerstr, orient,
              start_pl, start_mn, pos_mn[start_mn]);
     #endif
 
     *plen_ptr = plen | (PathLen)(orient << PATH_LEN_BITS);
-    right_shift_packed_bases(packed_seq, prev_start_pl - start_pl, plen);
+    right_shift_packed_bases(packed_seq, start_pl - prev_start_pl, plen);
     prev_start_pl = start_pl;
 
     // mask top byte!
@@ -266,6 +290,10 @@ static inline size_t _juncs_to_paths(const size_t *pos_pl, const size_t *pos_mn,
                                       wrkr->packed, plen);
 
     packed_seq[top_idx] = top_byte;
+
+    #ifdef CTXVERBOSE
+      printf("We %s\n", added ? "added" : "abandoned");
+    #endif
 
     // If the path already exists, all of its subpaths also already exist
     if(!added) break;
@@ -285,7 +313,7 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr)
 
   worker_packed_cap(wrkr, (MAX2(num_fw, num_rv)+3)/4);
 
-  status("num_fw: %zu num_rv: %zu", num_fw, num_rv);
+  // status("num_fw: %zu num_rv: %zu", num_fw, num_rv);
 
   // Reverse pos_rv, nuc_rv
   size_t i, j, tmp_pos;
@@ -295,7 +323,7 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr)
     SWAP(nuc_rv[i], nuc_rv[j], tmp_nuc);
   }
 
-  // _junc_to_paths returns the number of paths added
+  // _juncs_to_paths returns the number of paths added
   size_t n;
 
   n = _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, nuc_fw, true, wrkr);
@@ -304,11 +332,20 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr)
 
 static void worker_contig_to_junctions(GenPathWorker *wrkr)
 {
+  // status("nodebuf: %zu", wrkr->contig.len+MAX_KMER_SIZE+1);
   worker_nuc_cap(wrkr, wrkr->contig.len);
+
+  if(gen_paths_print_inserts) {
+    pthread_mutex_lock(&biglock);
+    printf(">contig%zu\n", print_contig_id++);
+    db_nodes_print(wrkr->contig.data, wrkr->contig.len, wrkr->db_graph, stdout);
+    printf("\n");
+    pthread_mutex_unlock(&biglock);
+  }
 
   // Find forks in this colour
   Edges edges;
-  size_t  i, num_fw = 0, num_rv = 0, addfw, addrv;
+  size_t  i, num_fw = 0, num_rv = 0;
   int indegree, outdegree;
   Nucleotide *nuc_fw = wrkr->nuc_fw, *nuc_rv = wrkr->nuc_rv;
   size_t *pos_fw = wrkr->pos_fw, *pos_rv = wrkr->pos_rv;
@@ -328,22 +365,22 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
     outdegree = edges_get_outdegree(edges, nodes[i].orient);
     indegree = edges_get_indegree(edges, nodes[i].orient);
 
-    addfw = (outdegree > 1 && i+1 < contig_len);
-    addrv = (indegree > 1 && i > 0);
-
-    if(addfw) {
-      bkmer = db_node_bkmer(db_graph, nodes[i+1].key);
-      nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
-      nuc_fw[num_fw] = nuc;
-      pos_fw[num_fw++] = i;
-    }
-    if(addrv) {
+    if(indegree > 1 && i > 0)
+    {
       bkmer = db_node_bkmer(db_graph, nodes[i-1].key);
       nuc = nodes[i-1].orient == FORWARD
               ? dna_nuc_complement(binary_kmer_first_nuc(bkmer, kmer_size))
               : binary_kmer_last_nuc(bkmer);
       nuc_rv[num_rv] = nuc;
       pos_rv[num_rv++] = i;
+    }
+
+    if(outdegree > 1 && i+1 < contig_len && num_rv > 0)
+    {
+      bkmer = db_node_bkmer(db_graph, nodes[i+1].key);
+      nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
+      nuc_fw[num_fw] = nuc;
+      pos_fw[num_fw++] = i;
     }
   }
 
@@ -357,8 +394,10 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
 
 static void prime_for_traversal(GraphWalker *wlk,
                                 const dBNode *block, size_t n, boolean forward,
-                                size_t ctxcol, size_t ctpcol, dBGraph *db_graph)
+                                size_t ctxcol, size_t ctpcol,
+                                const dBGraph *db_graph)
 {
+  assert(n > 0);
   dBNode node0;
 
   if(n > MAX_CONTEXT) {
@@ -369,8 +408,14 @@ static void prime_for_traversal(GraphWalker *wlk,
   if(forward) { node0 = block[0]; block++; }
   else { node0 = db_node_reverse(block[n-1]); }
 
+  // status("prime_for_traversal() n=%zu %s", n, forward ? "forward" : "reverse");
+
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0.key, node0.orient);
   graph_walker_fast_traverse(wlk, block, n-1, forward, false);
+
+  // char tmpbkmer[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkmer, db_graph->kmer_size, tmpbkmer);
+  // status("  primed: %s\n", tmpbkmer);
 }
 
 // Resets node buffer, GraphWalker and RepeatWalker after use
@@ -425,13 +470,21 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
 
   boolean traversed = false;
 
-  boolean use[2] = {true};
+  boolean use[2] = {true,true};
   GraphWalker *wlk[2] = {wlk0, wlk1};
   RepeatWalker *rptwlk[2] = {rptwlk0, rptwlk1};
   dBNodeBuffer *contig[2] = {contig0, contig1};
   size_t i, gap_len = 0;
 
-  while(gap_len < gap_max && (use[0] || use[1]) && !traversed) {
+  // char str[MAX_KMER_SIZE+1];
+  // BinaryKmer bkmer;
+  // for(i = 0; i < 2; i++) {
+  //   bkmer = db_node_bkmer(wlk0->db_graph, wlk[i]->node);
+  //   binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
+  //   status("primed %zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
+  // }
+
+  while(gap_len < gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
       if(use[i]) {
         use[i] = (graph_traverse(wlk[i]) &&
@@ -440,10 +493,15 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
                                               wlk[i]->bkmer));
 
         if(use[i]) {
+          // bkmer = db_node_bkmer(wlk0->db_graph, wlk[i]->node);
+          // binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
+          // status("%zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
+
           dBNode node = {.key = wlk[i]->node, .orient = wlk[i]->orient};
           contig[i]->data[contig[i]->len++] = node;
           if(wlk[0]->node == wlk[1]->node && wlk[0]->orient != wlk[1]->orient) {
             traversed = true;
+            use[0] = use[1] = false; // set both to false to exit loop
             break;
           }
           gap_len++;
@@ -451,6 +509,9 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
       }
     }
   }
+
+  // status("worker_traverse_gap2() gap_len:%zu gap_min:%zu gap_max:%zu %s",
+  //        gap_len, gap_min, gap_max, traversed ? "Good" : "Bad");
 
   // Clean up GraphWalker, RepeatWalker
   graph_walker_finish(wlk0);
@@ -521,6 +582,9 @@ static boolean traverse_two_way(GenPathWorker *wrkr,
   prime_for_traversal(&wrkr->wlk2, nodes->data+gap_idx, block1len, false,
                       ctxcol, ctpcol, db_graph);
 
+  // status("Traversing two-way... %zu[len:%zu]:%zu[len:%zu]",
+  //        start_idx, block0len, gap_idx, block1len);
+
   return worker_traverse_gap2(&wrkr->contig, &wrkr->revcontig,
                               gap_min, gap_max, gap_len_ptr,
                               &wrkr->wlk, &wrkr->rptwlk,
@@ -539,24 +603,27 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
 
   dBNodeBuffer *contig = &wrkr->contig, *revcontig = &wrkr->revcontig;
 
+  if(nodes->len == 0) return;
+
   // worker_generate_contigs ensures contig is at least nodes->len long
   boolean both_reads = (algnmnt->used_r1 && algnmnt->used_r2);
   size_t i, j, start_idx = 0, gap_idx, end_idx, block0len, block1len;
-    size_t gap_est, gap_len, gap_min, gap_max;
+  size_t gap_est, gap_len, gap_min, gap_max;
   boolean traversed = false;
 
   // Assemble a contig in... contig
   db_node_buf_reset(contig);
   end_idx = db_alignment_next_gap(algnmnt, 0);
-  block1len = end_idx;
+  block0len = end_idx;
 
   while(end_idx < num_align_nodes)
   {
     // block0 [start_idx..gap_idx-1], block1 [gap_idx..end_idx]
     gap_idx = end_idx;
-    end_idx = db_alignment_next_gap(algnmnt, start_idx);
-    block0len = block1len;
+    end_idx = db_alignment_next_gap(algnmnt, end_idx);
     block1len = end_idx - gap_idx;
+
+    // status("start_idx: %zu gap_idx: %zu end_idx: %zu", start_idx, gap_idx, end_idx);
 
     // We've got a gap to traverse
     long gap_min_long, gap_max_long;
@@ -585,12 +652,14 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
     }
 
     // Alternative traversing from both sides
-    if(!BRIDGE_GAP_TWO_WAY)
+    if(wrkr->task.one_way_gap_traverse)
       traversed = traverse_one_way(wrkr, start_idx, gap_idx, end_idx,
                                    gap_min, gap_max, &gap_len);
     else
       traversed = traverse_two_way(wrkr, start_idx, gap_idx, end_idx,
                                    gap_min, gap_max, &gap_len);
+
+    // status("traversal: %s!\n", traversed ? "worked" : "failed");
 
     if(traversed)
     {
@@ -602,7 +671,18 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
       // Copy block1
       db_node_buf_append(contig, nodes->data+gap_idx, block1len);
 
-      // DEV: update gap stats
+      // Update gap stats
+      worker_gap_cap(wrkr, gap_len);
+
+      // gap_est is the sequence gap (number of missing kmers)
+      if(is_mp) {
+        size_t ins_gap = (size_t)MAX2((long)gap_len - (long)gap_est, 0);
+        size_t err_gap = gap_len - ins_gap;
+        wrkr->gap_ins_histgrm[ins_gap]++;
+        wrkr->gap_err_histgrm[err_gap]++;
+      } else {
+        wrkr->gap_err_histgrm[gap_len]++;
+      }
     }
     else
     {
@@ -611,6 +691,7 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
 
       // Move start up the the gap we are stuck on
       start_idx = gap_idx;
+      block0len = block1len;
     }
   }
 
@@ -619,39 +700,51 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
     db_node_buf_append(contig, nodes->data+start_idx, block0len);
   }
 
-  // Use contig
+  // Use last contig constructed
   worker_contig_to_junctions(wrkr);
 }
 
-static void worker_read_to_nodebuf(GenPathWorker *worker)
+static void worker_reads_to_nodebuf(GenPathWorker *wrkr)
 {
-  AsyncIOData *data = &worker->data;
-  read_t *r1 = &data->r1, *r2 = data->r2.seq.end == 0 ? NULL : &data->r2;
+  AsyncIOData *data = &wrkr->data;
+  read_t *r1 = &data->r1, *r2 = data->r2.seq.b[0] == 0 ? NULL : &data->r2;
+
+  // if(r1->seq.end < 100) {
+  //   printf("1>%s\n", r1->seq.b);
+  //   if(r2 != NULL) printf("2>%s\n", r2->seq.b);
+  // }
 
   uint8_t fq_cutoff1, fq_cutoff2;
-  fq_cutoff1 = fq_cutoff2 = worker->task.fq_cutoff;
+  fq_cutoff1 = fq_cutoff2 = wrkr->task.fq_cutoff;
 
   if(fq_cutoff1 > 0)
   {
-    fq_cutoff1 += worker->data.fq_offset1;
-    fq_cutoff2 += worker->data.fq_offset2;
+    fq_cutoff1 += wrkr->data.fq_offset1;
+    fq_cutoff2 += wrkr->data.fq_offset2;
   }
 
-  uint8_t hp_cutoff = worker->task.hp_cutoff;
+  uint8_t hp_cutoff = wrkr->task.hp_cutoff;
 
-  // DEV: might not be FR
-  if(r2 != NULL)
+  // Second read is in reverse orientation - need in forward
+  if(r2 != NULL && wrkr->task.read_pair_FR)
     seq_read_reverse_complement(r2);
 
-  db_alignment_from_reads(&worker->alignment, r1, r2,
+  // Update stats
+  if(r2 == NULL) wrkr->stats->num_se_reads++;
+  else wrkr->stats->num_pe_reads += 2;
+
+  db_alignment_from_reads(&wrkr->alignment, r1, r2,
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
-                          worker->db_graph);
+                          wrkr->db_graph);
+
+  // For debugging
+  // db_alignment_print(&wrkr->alignment, wrkr->db_graph);
 }
 
-static inline void worker_do_job(GenPathWorker *worker)
+static inline void worker_do_job(GenPathWorker *wrkr)
 {
-  worker_read_to_nodebuf(worker);
-  worker_generate_contigs(worker);
+  worker_reads_to_nodebuf(wrkr);
+  worker_generate_contigs(wrkr);
 }
 
 // pthread method, loop: grabs job, does processing
@@ -701,15 +794,24 @@ static void start_gen_path_workers(GenPathWorker *workers, size_t nworkers)
 void generate_paths(GeneratePathsTask *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers)
 {
+  status("%zu input%s being handled by %zu worker%s",
+         num_tasks, num_tasks != 1 ? "s" : "",
+         num_workers, num_workers != 1 ? "s" : "");
+
   if(!num_tasks) return;
   assert(num_workers > 0);
   assert(workers[0].db_graph->path_kmer_locks != NULL);
 
-  size_t i;
+  size_t i, max_gap = 0;
   MsgPool pool;
   msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
 
-  for(i = 0; i < num_workers; i++) workers[i].pool = &pool;
+  for(i = 0; i < num_tasks; i++) max_gap = MAX2(max_gap, tasks[i].ins_gap_max);
+
+  for(i = 0; i < num_workers; i++) {
+    workers[i].pool = &pool;
+    worker_gap_cap(&workers[i], max_gap*2+100);
+  }
 
   // Start async io reading
   AsyncIOWorker *asyncio_workers;
@@ -733,17 +835,16 @@ void generate_paths(GeneratePathsTask *tasks, size_t num_tasks,
   free(asyncio_tasks);
   msgpool_dealloc(&pool);
 
-  // Merge stats into workers[0]
+  // Merge gap counts into worker[0]
   generate_paths_merge_stats(workers, num_workers);
 }
-
 
 
 // Save gap size distribution
 // base_fmt is the beginning of the file name - the reset is <num>.csv or something
 // insert_sizes is true if gaps are insert gaps,
 //                 false if gaps are due to sequencing errors
-void gen_paths_dump_gap_lens(const char *base_fmt,
+void gen_paths_dump_gap_sizes(const char *base_fmt,
                               const uint64_t *arr, size_t arrlen,
                               size_t kmer_size, boolean insert_sizes,
                               size_t nreads)
@@ -772,15 +873,19 @@ void gen_paths_dump_gap_lens(const char *base_fmt,
   double mean = (double)total / ngaps;
   float median = find_hist_median(arr, arrlen, ngaps);
 
-  char ngaps_str[100], nreads_str[100];
+  size_t ninputs = insert_sizes ? nreads/2 : nreads;
+  char ngaps_str[100], ninputs_str[100];
   ulong_to_str(ngaps, ngaps_str);
-  ulong_to_str(nreads, nreads_str);
+  ulong_to_str(ninputs, ninputs_str);
 
   status("%s size distribution: "
-         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu; n=%s / %s [%zu%%]",
+         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu",
          insert_sizes ? "Insert" : "Seq error gap",
-         min, mean, median, mode, max, ngaps_str, nreads_str,
-         (size_t)((100.0 * ngaps) / nreads + 0.5));
+         min, mean, median, mode, max);
+
+  status("  Gaps per read%s: %s / %s [%.3f]",
+         insert_sizes ? " pair" : "", ngaps_str, ninputs_str,
+         (double)ngaps / ninputs);
 
   StrBuf *csv_dump = strbuf_new();
   FILE *fout;
@@ -817,4 +922,25 @@ void gen_paths_dump_gap_lens(const char *base_fmt,
 
   fclose(fout);
   strbuf_free(csv_dump);
+}
+
+// Get histogram array
+const uint64_t* gen_paths_get_ins_gap(GenPathWorker *worker, size_t *len)
+{
+  *len = (size_t)worker->histgrm_len;
+  return worker->gap_ins_histgrm;
+}
+
+const uint64_t* gen_paths_get_err_gap(GenPathWorker *worker, size_t *len)
+{
+  *len = (size_t)worker->histgrm_len;
+  return worker->gap_err_histgrm;
+}
+
+void gen_paths_get_stats(GenPathWorker *worker, size_t num_workers,
+                         SeqLoadingStats *stats)
+{
+  size_t i;
+  for(i = 0; i < num_workers; i++)
+    seq_loading_stats_sum(stats, worker[i].stats);
 }

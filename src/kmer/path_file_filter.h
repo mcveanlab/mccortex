@@ -1,7 +1,7 @@
 #ifndef PATH_FILE_FILTER_H_
 #define PATH_FILE_FILTER_H_
 
-#include "graph_typedef.h"
+#include "cortex_types.h"
 #include "file_filter.h"
 #include "graph_format.h"
 

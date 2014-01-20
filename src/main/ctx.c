@@ -47,7 +47,8 @@ static const char usage[] =
 
 int main(int argc, char **argv)
 {
-  // signal(SIGSEGV, errhandler);   // install our handler
+  cortex_init();
+  ctx_msg_out = stderr;
 
   CmdArgs args;
   time_t start, end;
@@ -56,14 +57,6 @@ int main(int argc, char **argv)
   if(argc == 1) print_usage(usage, NULL);
   cmd_alloc(&args, argc, argv);
   if(args.cmdidx == -1) print_usage(usage, "Unrecognised command: %s", argv[1]);
-
-  // boolean usestderr = (strcmp(argv[1], "view") == 0 ||
-  //                      strcmp(argv[1], "pview") == 0 ||
-  //                      strcmp(argv[1], "place") == 0 ||
-  //                      strcmp(argv[1], "contigs") == 0);
-  boolean usestderr = true;
-
-  ctx_msg_out = usestderr ? stderr : stdout;
 
   status("[cmd] %s\n", args.cmdline);
   status("[version] "CTXVERSIONSTR"; zlib: "ZLIB_VERSION"\n");
@@ -87,5 +80,6 @@ int main(int argc, char **argv)
     }
   }
 
+  cortex_destroy();
   return ret;
 }

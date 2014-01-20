@@ -309,9 +309,6 @@ int ctx_contigs(CmdArgs *args)
 
   if(seed_file == NULL && n_rand_contigs == 0) n_rand_contigs = 1000;
 
-  // Seed random
-  seed_random();
-
   //
   // Open graph file
   //

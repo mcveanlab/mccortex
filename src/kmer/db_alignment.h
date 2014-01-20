@@ -19,6 +19,8 @@ typedef struct
   // int r2strtidx;
   // 0 if no r1 nodes, nodes.len if
   size_t r2strtidx;
+  // whether we were passed a second read
+  boolean passed_r2;
   // used_r1, used_r2 are whether or not we got nodes from each read
   boolean used_r1, used_r2;
   // whether or not there are sequencing gaps
@@ -43,15 +45,18 @@ void db_alignment_from_reads(dBAlignment *alignment,
 // or aln->nodes.len if no more gaps
 size_t db_alignment_next_gap(const dBAlignment *aln, size_t start);
 
-// dBKmer stores redundant data from the graph to speed up processing
-typedef struct
-{
-  dBNode node;
-  BinaryKmer bkmer;
-  Edges edges;
-} dBKmer;
+// This is for debugging
+void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph);
 
-#include "objbuf_macro.h"
-create_objbuf(db_kmer_buf,dBKmerBuffer,dBKmer)
+// dBKmer stores redundant data from the graph to speed up processing
+// typedef struct
+// {
+//   dBNode node;
+//   BinaryKmer bkmer;
+//   Edges edges;
+// } dBKmer;
+
+// #include "objbuf_macro.h"
+// create_objbuf(db_kmer_buf,dBKmerBuffer,dBKmer)
 
 #endif /* DB_ALIGNMENT_H_ */

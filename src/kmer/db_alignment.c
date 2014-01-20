@@ -28,7 +28,7 @@ size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
                               uint8_t qcutoff, uint8_t hp_cutoff,
                               const dBGraph *db_graph)
 {
-  size_t contig_start, contig_end = 0, search_start = 0, last_kmer_offset = 0;
+  size_t contig_start, contig_end = 0, search_start = 0, exp_kmer_offset = 0;
   const size_t kmer_size = db_graph->kmer_size;
 
   BinaryKmer bkmer, tmp_key;
@@ -68,8 +68,8 @@ size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
       {
         nodes->data[n].key = node;
         nodes->data[n].orient = db_node_get_orientation(bkmer, tmp_key);
-        gaps->data[n] = (uint32_t)(offset - last_kmer_offset);
-        last_kmer_offset = offset;
+        gaps->data[n] = (uint32_t)(offset - exp_kmer_offset);
+        exp_kmer_offset = offset+1;
         n++;
       }
       else alignment->seq_gaps = true;
@@ -91,6 +91,7 @@ void db_alignment_from_reads(dBAlignment *alignment,
   uint32_buf_reset(&alignment->gaps);
   alignment->seq_gaps = false;
   alignment->r2enderr = 0;
+  alignment->passed_r2 = (r2 != NULL);
 
   alignment->r1enderr = db_alignment_from_read(alignment, r1,
                                                qcutoff1, hp_cutoff, db_graph);
@@ -110,11 +111,49 @@ void db_alignment_from_reads(dBAlignment *alignment,
 // or aln->nodes.len if no more gaps
 size_t db_alignment_next_gap(const dBAlignment *aln, size_t start)
 {
-  size_t i, end;
+  size_t i, end = aln->nodes.len;
 
-  if(aln->used_r1 && aln->used_r2 && aln->r2strtidx > start) end = aln->r2strtidx;
-  else end = aln->nodes.len;
+  if(aln->used_r1 && aln->used_r2 && start < aln->r2strtidx)
+    end = aln->r2strtidx;
 
   for(i = start+1; i < end && aln->gaps.data[i] == 0; i++) {}
   return i;
+}
+
+// This is for debugging
+#include <pthread.h>
+
+void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
+{
+  pthread_mutex_lock(&biglock);
+
+  printf("dBAlignment:\n");
+  size_t i, start = 0, end = db_alignment_next_gap(aln, 0);
+  while(start < aln->nodes.len)
+  {
+    if(start == aln->r2strtidx)
+      printf("    gap: %zu -[ins]- %u\n", aln->r1enderr, aln->gaps.data[start]);
+    else if(start == 0)
+      printf("    start gap: %u\n", aln->gaps.data[start]);
+    else
+      printf("    gap: %u\n", aln->gaps.data[start]);
+
+    printf("  %zu nodes\n", end-start);
+
+    for(i = start; i < end; i++)
+      printf(" %zu:%i", (size_t)aln->nodes.data[i].key, (int)aln->nodes.data[i].orient);
+    printf(": ");
+    db_nodes_print(aln->nodes.data+start,end-start,db_graph,stdout);
+    printf("\n");
+
+    start = end;
+    end = db_alignment_next_gap(aln, end);
+  }
+  if(aln->passed_r2) {
+    if(!aln->used_r2) printf("    [ins] unused r2: %u\n", aln->gaps.data[end]);
+    else printf(" end gap: %zu\n", aln->r2enderr);
+  }
+  else printf(" end gap: %zu\n", aln->r1enderr);
+
+  pthread_mutex_unlock(&biglock);
 }
