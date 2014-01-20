@@ -113,7 +113,6 @@ static CtxBuildInput ctx_input_create(char *load_graph_path,
                                       boolean remove_dups_pe,
                                       size_t kmer_size)
 {
-  assert(colour >= 0);
   assert((load_graph_path == NULL) != (seq_path1 == NULL));
   assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
   assert(fq_offset < 128);
@@ -336,7 +335,7 @@ int ctx_build(CmdArgs *args)
   // num_seq_cols is the number of colours with sequence loaded into them
   // output_colours = num_seq_cols + num colours filled with graph files
   size_t i, num_inputs = 0, num_seq_cols = 0, output_colours = 0;
-  int argi = 0;
+  int argi;
 
   // Load inputs
   size_t max_inputs = (size_t)argc/2;
