@@ -225,7 +225,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      const size_t *restrict pos_mn,
                                      size_t num_pl, size_t num_mn,
                                      const Nucleotide *nuc_pl,
-                                     const boolean fw,
+                                     const boolean pl_is_fw,
                                      GenPathWorker *wrkr)
 {
   size_t num_added = 0;
@@ -253,14 +253,14 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
   for(start_pl = 0, start_mn = num_mn-1; start_mn != SIZE_MAX; start_mn--)
   {
-    if(fw)
+    if(pl_is_fw)
       while(start_pl < num_pl && pos_pl[start_pl] < pos_mn[start_mn]) start_pl++;
     else
       while(start_pl < num_pl && pos_pl[start_pl] > pos_mn[start_mn]) start_pl++;
 
     if(start_pl == num_pl) break;
 
-    pos = (fw ? pos_mn[start_mn] - 1 : pos_mn[start_mn] + 1);
+    pos = (pl_is_fw ? pos_mn[start_mn] - 1 : pos_mn[start_mn] + 1);
     start_pl -= (start_pl > 0 && pos_pl[start_pl-1] == pos);
 
     // Check path is not too long (MAX_PATHLEN is the limit)
@@ -411,7 +411,8 @@ static void prime_for_traversal(GraphWalker *wlk,
   // status("prime_for_traversal() n=%zu %s", n, forward ? "forward" : "reverse");
 
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0.key, node0.orient);
-  graph_walker_fast_traverse(wlk, block, n-1, forward, false);
+  // graph_walker_fast_traverse(wlk, block, n-1, forward);
+  graph_walker_slow_traverse(wlk, block, n-1, forward);
 
   // char tmpbkmer[MAX_KMER_SIZE+1];
   // binary_kmer_to_str(wlk->bkmer, db_graph->kmer_size, tmpbkmer);
@@ -794,7 +795,7 @@ static void start_gen_path_workers(GenPathWorker *workers, size_t nworkers)
 void generate_paths(GeneratePathsTask *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers)
 {
-  status("%zu input%s being handled by %zu worker%s",
+  status("[MkPaths] %zu input%s being handled by %zu worker%s",
          num_tasks, num_tasks != 1 ? "s" : "",
          num_workers, num_workers != 1 ? "s" : "");
 

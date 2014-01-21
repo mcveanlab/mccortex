@@ -652,20 +652,22 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
 }
 
 // Fast traversal of a list of nodes using the supplied GraphWalker
+// Only visits nodes deemed informative + last node
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
-                                boolean forward, boolean first_node_fork)
+                                boolean forward)
 {
   if(n == 0) return;
 
   size_t i;
   boolean infork[3] = {false}, outfork[3] = {false};
   Edges edges;
-  dBNode empty_node = { .key = HASH_NOT_FOUND, .orient = FORWARD };
   dBNode nodes[3];
 
-  outfork[0] = first_node_fork;
+  edges = db_node_edges(wlk->db_graph, wlk->ctxcol, wlk->node);
+  outfork[0] = edges_get_outdegree(edges, wlk->orient) > 1;
 
-  nodes[0] = empty_node;
+  dBNode first_node = {.key = wlk->node, .orient = wlk->orient};
+  nodes[0] = first_node;
   nodes[1] = forward ? arr[0] : db_node_reverse(arr[n-1]);
 
   edges = db_node_edges(wlk->db_graph, wlk->ctxcol, nodes[1].key);
@@ -696,4 +698,25 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
   // Traverse last node
   graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
+}
+
+// Traversal of every node in a list of nodes using the supplied GraphWalker
+// Visits each node specifed
+void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
+                                boolean forward)
+{
+  Edges edges;
+  boolean prev_fork;
+  BinaryKmer bkmer;
+  dBNode next;
+  size_t i;
+  const dBGraph *db_graph = wlk->db_graph;
+
+  for(i = 0; i < n; i++) {
+    edges = db_node_edges(db_graph, wlk->ctxcol, wlk->node);
+    prev_fork = edges_get_outdegree(edges, wlk->orient) > 1;
+    next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
+    bkmer = db_node_bkmer(db_graph, next.key);
+    graph_traverse_force_jump(wlk, next.key, bkmer, prev_fork);
+  }
 }

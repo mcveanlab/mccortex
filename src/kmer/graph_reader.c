@@ -381,6 +381,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 
   assert(load_ncols > 0);
 
+  // Print status
   file_filter_status(fltr);
   fseek(fltr->fh, file->hdr_size, SEEK_SET);
 
@@ -416,8 +417,8 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.unique_kmers;
 
-  status("Reading into %zu colours from file with %u...",
-         load_ncols, hdr->num_of_cols);
+  status("[CtxLoad] Reading into %zu colour%s from file with %u...",
+         load_ncols, load_ncols != 1 ? "s" : "", hdr->num_of_cols);
 
   for(nkmers_parsed = 0; graph_file_read(file, &bkmer, covgs, edges); nkmers_parsed++)
   {
@@ -514,16 +515,30 @@ size_t graph_load_colour(GraphFileReader *file,
                          SeqLoadingStats *stats,
                          size_t colour_idx, size_t intocol)
 {
+  size_t *tmpcols, tmpncols, tmpinto, newcol;
+  boolean tmpflatten;
   FileFilter *fltr = &file->fltr;
+
   assert(colour_idx < fltr->ncols);
   assert(intocol < prefs.db_graph->num_of_cols);
-  size_t *tmpcols = fltr->cols, tmpncols = fltr->ncols, tmpinto = fltr->intocol;
-  size_t cols[1] = {fltr->cols[colour_idx]};
-  fltr->cols = cols; fltr->ncols = 1;
+
+  // Copy current values
+  tmpcols = fltr->cols; tmpncols = fltr->ncols; tmpinto = fltr->intocol;
+  tmpflatten = fltr->flatten;
+
+  // Set new values
+  newcol = fltr->cols[colour_idx];
+  fltr->cols = &newcol; fltr->ncols = 1;
   file_filter_update_intocol(fltr, intocol);
+
+  // Load graph
   size_t kmers_loaded = graph_load(file, prefs, stats);
+
+  // Restore values
   fltr->cols = tmpcols; fltr->ncols = tmpncols;
   file_filter_update_intocol(fltr, tmpinto);
+  fltr->flatten = tmpflatten;
+
   return kmers_loaded;
 }
 

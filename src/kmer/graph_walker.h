@@ -103,6 +103,9 @@ void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc);
 // first_node_fork should be true(1) nodes[0] is reached through a node with
 // out-degree > 1, false(0) otherwise
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *nodes, size_t n,
-                                boolean forward, boolean first_node_fork);
+                                boolean forward);
+
+void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
+                                boolean forward);
 
 #endif /* GRAPH_WALKER_H_ */

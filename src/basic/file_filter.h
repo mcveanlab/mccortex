@@ -12,7 +12,10 @@ typedef struct
   // path would be "in.ctx"
   StrBuf orig_path, file_path;
   FILE *fh;
-  size_t intocol, ncols, *cols, ncolscap, filencols;
+  size_t intocol; // first colour loading into
+  size_t ncols; // number of colours being read from file
+  size_t *cols, ncolscap; // array of colours to load of length ncols
+  size_t filencols; // number of colours in file
   boolean flatten; // Merge all colours into intocol
   off_t file_size;
   boolean nofilter;
@@ -35,15 +38,19 @@ typedef struct
 
 // Does not read any bytes from file, but does open it
 // returns true on success
-// on failure will call die (if fatal == true) or return 0 (if fatal == false) 
+// on failure will call die (if fatal == true) or return 0 (if fatal == false)
 boolean file_filter_alloc(FileFilter *file, char *path,
                           const char *mode, boolean fatal);
 
+// Set nummber of colours in the file
 void file_filter_set_cols(FileFilter *fltr, size_t filencols);
+// Set which colour to load the first colour into
 void file_filter_update_intocol(FileFilter *fltr, size_t intocol);
 
+// Attempt to close file (if open)
 void file_filter_close(FileFilter *file);
 
+// Attempt to close file (if open) and free memory
 void file_filter_dealloc(FileFilter *file);
 
 // Print object

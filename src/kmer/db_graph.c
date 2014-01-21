@@ -263,10 +263,14 @@ void db_graph_healthcheck(const dBGraph *db_graph)
 
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
+  status("Wiping graph colour %zu", (size_t)col);
+
   Edges (*col_edges)[db_graph->num_edge_cols];
   Covg (*col_covgs)[db_graph->num_of_cols];
   const size_t capacity = db_graph->ht.capacity;
   size_t i;
+
+  graph_info_init(&db_graph->ginfo[0]);
 
   if(db_graph->node_in_cols != NULL)
   {
@@ -279,13 +283,21 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
   col_covgs = (Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
 
   if(db_graph->col_covgs != NULL) {
-    for(i = 0; i < capacity; i++)
-      col_covgs[i][col] = 0;
+    if(db_graph->num_of_cols == 1) {
+      memset(db_graph->col_covgs, 0, capacity * sizeof(Covg));
+    } else {
+      for(i = 0; i < capacity; i++)
+        col_covgs[i][col] = 0;
+    }
   }
 
   if(db_graph->col_edges != NULL) {
-    for(i = 0; i < capacity; i++)
-      col_edges[i][col] = 0;
+    if(db_graph->num_edge_cols == 1) {
+      memset(db_graph->col_edges, 0, capacity * sizeof(Edges));
+    } else {
+      for(i = 0; i < capacity; i++)
+        col_edges[i][col] = 0;
+    }
   }
 }
 

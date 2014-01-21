@@ -269,7 +269,6 @@ int ctx_thread(CmdArgs *args)
 
   for(i = 0; i < num_graphs; i++)
   {
-    status("File: %s", graph_paths[i]);
     graph_files[i] = INIT_GRAPH_READER;
     graph_file_open(&graph_files[i], graph_paths[i], true);
 
@@ -312,7 +311,8 @@ int ctx_thread(CmdArgs *args)
   }
 
   size_t total_cols = MAX2(ctx_total_cols, path_max_usedcols);
-  status("Creating paths file with %zu colours", total_cols);
+  status("Creating paths file with %zu colour%s: %s",
+         total_cols, total_cols != 1 ? "s" : "", out_ctp_path);
 
   //
   // Decide on memory
@@ -421,19 +421,24 @@ int ctx_thread(CmdArgs *args)
   workers = gen_paths_workers_alloc(num_work_threads, &db_graph);
 
   // ... Send jobs ...
-  size_t start, end;
-  for(start = 0; start < num_tasks; start = end)
+  size_t start, end, ctpcol, prev_ctpcol = SIZE_MAX;
+  size_t fileidx = 0, colidx = 0;
+  for(start = 0; start < num_tasks; start = end, prev_ctpcol = ctpcol)
   {
-    // wipe colour 0
-    graph_info_init(&db_graph.ginfo[0]);
-    memset(db_graph.col_edges, 0, kmers_in_hash * sizeof(Edges));
-
     // Load graph
-    size_t ctxindex, ctxcol;
-    size_t ctpcol = tasks[start].ctpcol;
+    ctpcol = tasks[start].ctpcol;
 
-    get_binary_and_colour(graph_files, num_graphs, ctpcol, &ctxindex, &ctxcol);
-    graph_load_colour(&graph_files[ctxindex], gprefs, gstats, ctxcol, 0);
+    if(ctpcol != prev_ctpcol)
+    {
+      if(start > 0) {
+        // wipe colour 0
+        db_graph_wipe_colour(&db_graph, 0);
+        hash_table_empty(&db_graph.ht);
+      }
+
+      get_binary_and_colour(graph_files, num_graphs, ctpcol, &fileidx, &colidx);
+      graph_load_colour(&graph_files[fileidx], gprefs, gstats, colidx, 0);
+    }
 
     // Get list of input files to read
     end = start+1;

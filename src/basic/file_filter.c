@@ -36,14 +36,14 @@ static inline void file_filter_capacity(FileFilter *file, size_t ncolscap)
 
 // Does not read any bytes from file, but does open it
 // returns true on success
-// on failure will call die (if fatal == true) or return 0 (if fatal == false) 
+// on failure will call die (if fatal == true) or return 0 (if fatal == false)
 boolean file_filter_alloc(FileFilter *fltr, char *path,
                           const char *mode, boolean fatal)
 {
   char *path_start, *path_end, path_lchar;
 
   // Close file if already open
-  if(fltr->fh != NULL) file_filter_close(fltr);
+  file_filter_close(fltr);
 
   if(fltr->orig_path.buff == NULL) strbuf_alloc(&fltr->orig_path, 1024);
   if(fltr->file_path.buff == NULL) strbuf_alloc(&fltr->file_path, 1024);
@@ -98,7 +98,7 @@ void file_filter_update_intocol(FileFilter *fltr, size_t intocol)
   size_t i;
   fltr->intocol = intocol;
   for(i = 0; i < fltr->ncols && fltr->cols[i] == i; i++);
-  fltr->nofilter = (i == fltr->ncols && fltr->intocol == 0);
+  fltr->nofilter = (i == fltr->filencols && fltr->intocol == 0);
 }
 
 // Close file
@@ -120,14 +120,14 @@ void file_filter_status(const FileFilter *fltr)
 {
   size_t i;
   timestamp(ctx_msg_out);
-  message(" Loading file %s", fltr->file_path.buff);
+  message(" Loading file %s [%zu colours]", fltr->file_path.buff, fltr->filencols);
   if(!fltr->nofilter) {
     message(" with colour filter: %zu", fltr->cols[0]);
     for(i = 1; i < fltr->ncols; i++) message(",%zu", fltr->cols[i]);
   }
   size_t into_ncols = file_filter_outncols(fltr);
   if(into_ncols == 1)
-    message(" into colour %zu\n", fltr->intocol);
+    message(" %sinto colour %zu\n", fltr->flatten ? "all " : "", fltr->intocol);
   else
     message(" into colours %zu-%zu\n", fltr->intocol, fltr->intocol+into_ncols-1);
 }
