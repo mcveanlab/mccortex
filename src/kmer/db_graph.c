@@ -153,6 +153,7 @@ void db_graph_check_edges(const dBGraph *db_graph,
 // Graph Traversal
 //
 
+// DEV: change so returns dBNode instead of hkey_t+Orientation
 void db_graph_next_node(const dBGraph *db_graph,
                         const BinaryKmer node_bkey, Nucleotide next_nuc,
                         Orientation orient,
@@ -174,6 +175,7 @@ void db_graph_next_node(const dBGraph *db_graph,
   assert(*next_node != HASH_NOT_FOUND);
 }
 
+// DEV: change so returns dBNode instead of hkey_t+Orientation
 size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
                            Orientation orient, Edges edges,
                            hkey_t nodes[4], Orientation orients[4],

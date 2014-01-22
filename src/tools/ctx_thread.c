@@ -251,7 +251,7 @@ int ctx_thread(CmdArgs *args)
     gen_paths_print_task(&tasks[i]);
 
   if(gen_paths_print_inserts && num_work_threads > 1) {
-    die("--printinsgaps with >1 threads is a bad idea.");
+    warn("--printinsgaps with >1 threads is a bad idea.");
   }
 
   if(argi + 1 >= argc) print_usage(usage, "Not enough arguments");

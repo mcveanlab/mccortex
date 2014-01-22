@@ -324,6 +324,9 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
       __sync_add_and_fetch((volatile uint64_t*)&htable->collisions[i], 1);
       return (hkey_t)(ptr - htable->table);
     }
+    else {
+      bitlock_release(bktlocks, h);
+    }
   }
 
   rehash_error_exit(htable);

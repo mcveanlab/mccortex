@@ -130,6 +130,9 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
         edges_get_union((graph)->col_edges+(hkey)*(graph)->num_edge_cols, \
                         (graph)->num_edge_cols)
 
+Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
+                                    const dBGraph *db_graph);
+
 #define db_node_zero_edges(graph,hkey) \
         memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
                (graph)->num_edge_cols * sizeof(Edges))

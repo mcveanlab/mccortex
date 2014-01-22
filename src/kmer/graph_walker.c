@@ -706,17 +706,20 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 boolean forward)
 {
   Edges edges;
-  boolean prev_fork;
+  boolean fork;
   BinaryKmer bkmer;
   dBNode next;
+  Nucleotide nuc;
   size_t i;
   const dBGraph *db_graph = wlk->db_graph;
+  const size_t kmer_size = db_graph->kmer_size;
 
   for(i = 0; i < n; i++) {
     edges = db_node_edges(db_graph, wlk->ctxcol, wlk->node);
-    prev_fork = edges_get_outdegree(edges, wlk->orient) > 1;
+    fork = edges_get_outdegree(edges, wlk->orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
     bkmer = db_node_bkmer(db_graph, next.key);
-    graph_traverse_force_jump(wlk, next.key, bkmer, prev_fork);
+    nuc = db_node_last_nuc(bkmer, next.orient, kmer_size);
+    graph_traverse_force(wlk, next.key, nuc, fork);
   }
 }

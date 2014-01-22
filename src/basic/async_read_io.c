@@ -10,7 +10,7 @@ struct AsyncIOWorker
   MsgPool *const pool;
   AsyncIOReadTask task;
   AsyncIOData data;
-  volatile size_t *const num_running;
+  size_t *const num_running;
 };
 
 void asynciodata_alloc(AsyncIOData *iod)
@@ -45,7 +45,7 @@ static void asynciodata_pool_destroy(void *el, size_t idx, void *args)
 
 static void async_io_worker_alloc(AsyncIOWorker *wrkr,
                                   const AsyncIOReadTask *task,
-                                  MsgPool *pool, volatile size_t *num_running)
+                                  MsgPool *pool, size_t *num_running)
 {
   AsyncIOWorker tmp = {.pool = pool, .task = *task, .num_running = num_running};
   asynciodata_alloc(&tmp.data);
@@ -87,8 +87,12 @@ static void* async_io_reader(void *ptr)
                   &wrkr->data.r1, &wrkr->data.r2, add_to_pool, wrkr);
 
   // Check if we are the last thread to finish, if so close the pool
-  if(__sync_sub_and_fetch(wrkr->num_running, 1) == 0)
+  size_t n = __sync_sub_and_fetch((volatile size_t*)wrkr->num_running, 1);
+
+  if(n == 0) {
     msgpool_close(wrkr->pool);
+    free(wrkr->num_running);
+  }
 
   pthread_exit(NULL);
 }

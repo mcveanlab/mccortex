@@ -27,6 +27,33 @@ BinaryKmer db_node_get_key(const BinaryKmer bkmer, size_t kmer_size)
 // Edges
 //
 
+// Rigorous get edges for a particular colour
+Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
+                                    const dBGraph *db_graph)
+{
+  Edges edges = db_node_edges(db_graph, col, node.key);
+
+  if(db_graph->num_edge_cols == db_graph->num_of_cols)
+    return edges_with_orientation(edges, node.orient);
+
+  // Check which next nodes are in the given colour
+  BinaryKmer bkmer = db_node_bkmer(db_graph, node.key);
+  hkey_t nodes[4];
+  Orientation orients[4];
+  Nucleotide nucs[4];
+  size_t i, n;
+
+  n = db_graph_next_nodes(db_graph, bkmer, node.orient,
+                          edges, nodes, orients, nucs);
+
+  edges = 0;
+  for(i = 0; i < n; i++)
+    if(db_node_has_col(db_graph, nodes[i], col))
+      edges = edges_set_edge(edges, nucs[i], FORWARD);
+
+  return edges;
+}
+
 boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide)
 {

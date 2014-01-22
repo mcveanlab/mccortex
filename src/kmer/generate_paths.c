@@ -13,6 +13,7 @@
 #include "graph_walker.h"
 #include "repeat_walker.h"
 #include "path_store.h"
+#include "path_format.h"
 #include "path_store_thread_safe.h"
 #include "async_read_io.h"
 
@@ -73,8 +74,8 @@ size_t print_contig_id = 0;
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 {
   size_t job_mem = 1024*4; // Assume 1024 bytes per read, 2 reads, seq+qual
-  size_t graph_walker_mem = graph_walker_est_mem();
-  size_t rpt_wlker_mem = rpt_walker_est_mem(db_graph->ht.capacity, 22);
+  size_t graph_walker_mem = 2*graph_walker_est_mem();
+  size_t rpt_wlker_mem = 2*rpt_walker_est_mem(db_graph->ht.capacity, 22);
   size_t alignment_mem = db_alignment_est_mem();
   size_t contig_mem = 2*INIT_BUFLEN*sizeof(dBNode);
   size_t gap_hist_mem = 2*INIT_BUFLEN*sizeof(size_t);
@@ -162,8 +163,13 @@ void gen_paths_workers_dealloc(GenPathWorker *workers, size_t n)
 static inline void worker_gap_cap(GenPathWorker *wrkr, size_t max_gap)
 {
   if(wrkr->histgrm_len < max_gap) {
+    max_gap = roundup2pow(max_gap);
     wrkr->gap_ins_histgrm = realloc2(wrkr->gap_ins_histgrm, max_gap*sizeof(uint64_t));
     wrkr->gap_err_histgrm = realloc2(wrkr->gap_err_histgrm, max_gap*sizeof(uint64_t));
+    // Zero new memory
+    size_t newmem = (max_gap-wrkr->histgrm_len)*sizeof(uint64_t);
+    memset(wrkr->gap_ins_histgrm+wrkr->histgrm_len, 0, newmem);
+    memset(wrkr->gap_err_histgrm+wrkr->histgrm_len, 0, newmem);
     wrkr->histgrm_len = max_gap;
   }
 }
@@ -251,6 +257,8 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   // 0,1,2,3
   // 3,2,1
 
+  // DEV: should always add longest to shortest path
+  // this is not the case with rev currently?
   for(start_pl = 0, start_mn = num_mn-1; start_mn != SIZE_MAX; start_mn--)
   {
     if(pl_is_fw)
@@ -260,6 +268,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     if(start_pl == num_pl) break;
 
+    // nodes[pos] is the kmer we are adding this path to
     pos = (pl_is_fw ? pos_mn[start_mn] - 1 : pos_mn[start_mn] + 1);
     start_pl -= (start_pl > 0 && pos_pl[start_pl-1] == pos);
 
@@ -268,7 +277,11 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     plen = (PathLen)njuncs;
     node = nodes[pos].key;
-    orient = rev_orient(nodes[pos].orient);
+    orient = pl_is_fw ? nodes[pos].orient : rev_orient(nodes[pos].orient);
+
+    dBNode tmp = {.key = node, .orient = orient};
+    path_format_is_path_valid(db_graph, tmp, wrkr->task.ctxcol,
+                              nuc_pl+start_pl, plen);
 
     #ifdef CTXVERBOSE
       char kmerstr[MAX_KMER_SIZE+1];
@@ -286,6 +299,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_seq[top_idx];
     packed_seq[top_idx] &= (uint8_t)(255 >> (8 - bits_in_top_word(plen)));
 
+    // DEV: combine orient, plen within function
     added = path_store_mt_find_or_add(node, db_graph, ctpcol,
                                       wrkr->packed, plen);
 
@@ -408,7 +422,8 @@ static void prime_for_traversal(GraphWalker *wlk,
   if(forward) { node0 = block[0]; block++; }
   else { node0 = db_node_reverse(block[n-1]); }
 
-  // status("prime_for_traversal() n=%zu %s", n, forward ? "forward" : "reverse");
+  // status("prime_for_traversal() %zu:%i n=%zu %s", (size_t)node0.key, node0.orient,
+  //        n, forward ? "forward" : "reverse");
 
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0.key, node0.orient);
   // graph_walker_fast_traverse(wlk, block, n-1, forward);
@@ -416,7 +431,7 @@ static void prime_for_traversal(GraphWalker *wlk,
 
   // char tmpbkmer[MAX_KMER_SIZE+1];
   // binary_kmer_to_str(wlk->bkmer, db_graph->kmer_size, tmpbkmer);
-  // status("  primed: %s\n", tmpbkmer);
+  // status("  primed: %s:%i\n", tmpbkmer, wlk->orient);
 }
 
 // Resets node buffer, GraphWalker and RepeatWalker after use
@@ -477,6 +492,7 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
   dBNodeBuffer *contig[2] = {contig0, contig1};
   size_t i, gap_len = 0;
 
+  //
   // char str[MAX_KMER_SIZE+1];
   // BinaryKmer bkmer;
   // for(i = 0; i < 2; i++) {
@@ -484,6 +500,7 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
   //   binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
   //   status("primed %zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
   // }
+  //
 
   while(gap_len < gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
@@ -494,17 +511,20 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
                                               wlk[i]->bkmer));
 
         if(use[i]) {
+          //
           // bkmer = db_node_bkmer(wlk0->db_graph, wlk[i]->node);
           // binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
           // status("%zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
+          //
 
-          dBNode node = {.key = wlk[i]->node, .orient = wlk[i]->orient};
-          contig[i]->data[contig[i]->len++] = node;
           if(wlk[0]->node == wlk[1]->node && wlk[0]->orient != wlk[1]->orient) {
             traversed = true;
             use[0] = use[1] = false; // set both to false to exit loop
             break;
           }
+
+          dBNode node = {.key = wlk[i]->node, .orient = wlk[i]->orient};
+          contig[i]->data[contig[i]->len++] = node;
           gap_len++;
         }
       }
@@ -538,8 +558,6 @@ static boolean traverse_one_way(GenPathWorker *wrkr,
   const size_t ctxcol = wrkr->task.ctxcol, ctpcol = wrkr->task.ctpcol;
   const dBNodeBuffer *nodes = &wrkr->alignment.nodes;
   dBGraph *db_graph = wrkr->db_graph;
-
-  db_node_buf_reset(&wrkr->revcontig);
 
   // Start traversing forward
   prime_for_traversal(&wrkr->wlk, nodes->data+start_idx, block0len, true,
@@ -575,8 +593,6 @@ static boolean traverse_two_way(GenPathWorker *wrkr,
   const size_t ctxcol = wrkr->task.ctxcol, ctpcol = wrkr->task.ctpcol;
   const dBNodeBuffer *nodes = &wrkr->alignment.nodes;
   dBGraph *db_graph = wrkr->db_graph;
-
-  db_node_buf_reset(&wrkr->revcontig);
 
   prime_for_traversal(&wrkr->wlk, nodes->data+start_idx, block0len, true,
                       ctxcol, ctpcol, db_graph);
@@ -652,6 +668,8 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
       db_node_buf_append(contig, nodes->data+start_idx, block0len);
     }
 
+    db_node_buf_reset(revcontig);
+
     // Alternative traversing from both sides
     if(wrkr->task.one_way_gap_traverse)
       traversed = traverse_one_way(wrkr, start_idx, gap_idx, end_idx,
@@ -669,6 +687,8 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
       for(i = 0, j = contig->len+revcontig->len-1; i < revcontig->len; i++, j--)
         contig->data[j] = db_node_reverse(revcontig->data[i]);
 
+      contig->len += revcontig->len;
+
       // Copy block1
       db_node_buf_append(contig, nodes->data+gap_idx, block1len);
 
@@ -678,9 +698,9 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
       // gap_est is the sequence gap (number of missing kmers)
       if(is_mp) {
         size_t ins_gap = (size_t)MAX2((long)gap_len - (long)gap_est, 0);
-        size_t err_gap = gap_len - ins_gap;
         wrkr->gap_ins_histgrm[ins_gap]++;
-        wrkr->gap_err_histgrm[err_gap]++;
+        // size_t err_gap = gap_len - ins_gap;
+        // if(err_gap) wrkr->gap_err_histgrm[err_gap]++;
       } else {
         wrkr->gap_err_histgrm[gap_len]++;
       }

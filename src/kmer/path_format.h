@@ -5,6 +5,7 @@
 #include "path_file_filter.h"
 #include "path_store.h"
 #include "db_graph.h"
+#include "db_node.h"
 
 // path file format version
 #define CTX_PATH_FILEFORMAT 1
@@ -41,8 +42,11 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
 
 // db_graph.pdata must be big enough to hold all this data or we exit
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                         boolean insert_missing_kmers,
-                         uint8_t *tmpdata, size_t tmpdatasize, dBGraph *db_graph);
+                        boolean insert_missing_kmers,
+                        uint8_t *tmpdata, size_t tmpdatasize, dBGraph *db_graph);
+
+void path_format_is_path_valid(const dBGraph *db_graph, dBNode node, size_t col,
+                               const Nucleotide *bases, size_t nbases);
 
 //
 // Write

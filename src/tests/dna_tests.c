@@ -2,6 +2,8 @@
 #include "all_tests.h"
 #include <ctype.h>
 
+#include "dna.h"
+
 void test_dna_functions()
 {
   status("[dna] Testing all dna.h functions...");

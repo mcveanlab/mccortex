@@ -71,4 +71,24 @@ char* dna_reverse_complement_str(char *str, size_t length)
   return str;
 }
 
+// Generate a random dna str "ACGT" of length cap-1, terminated with a \0 at
+// position cap-1. If cap is 0, does nothing. Useful for testing
+char* dna_rand_str(char *str, size_t cap)
+{
+  const char bases[4] = "ACGT";
+  int rnd;
+  size_t i;
 
+  if(cap == 0) return str;
+  if(cap == 1) { str[0] = '\0'; return str; }
+
+  for(i = 0; i < cap-1; i++) {
+    if((i & 3) == 0) rnd = rand();
+    str[i] = bases[rnd&3];
+    rnd >>= 2;
+  }
+
+  str[cap-1] = '\0';
+
+  return str;
+}

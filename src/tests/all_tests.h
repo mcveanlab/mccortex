@@ -12,6 +12,9 @@ void test_bkmer_functions();
 // dna_tests.c
 void test_dna_functions();
 
+// db_node.c
+void test_db_node();
+
 // path_tests.c
 void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2);
 
