@@ -1,7 +1,9 @@
 
 CTX=../../bin/ctx31
 PATHS=reads.pe.one.ctp reads.pe.two.ctp
-TGTS=genome.fa read.1.fa read.2.fa genome.k9.ctx genome.k9.pdf $(PATHS)
+TGTS=genome.fa read.1.fa read.2.fa genome.k9.ctx $(PATHS)
+
+# non-default target: genome.k9.pdf
 
 all: $(TGTS)
 
