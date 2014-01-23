@@ -70,9 +70,6 @@ char* num_to_str(double num, int decimals, char* str);
 //   return ((temp == x) && ((temp - x) != 0.0));
 // }
 
-#define my_isnan(x) isnan(x)
-#define my_isinf(x) isinf(x)
-
 //
 // Maths
 //

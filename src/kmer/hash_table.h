@@ -31,13 +31,20 @@ typedef uint64_t hkey_t; // don't ever use the top bit, used later for orientati
 
 #define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER_WORD))
 
-// Number of hash table entries for a given required capacity
-size_t hash_table_cap(size_t nkmers, boolean above_nkmers,
-                      uint64_t *num_bckts_ptr, uint8_t *bckt_size_ptr);
+// Hash table capacity is x*(2^y) where x and y are parameters
+// memory is x*(2^y)*sizeof(BinaryKmer) + (2^y) * 2
+#define ht_mem(bktsize,nbkts,nbits) ({ \
+        ((bktsize) * (nbkts) * (sizeof(BinaryKmer)+(nbits)) +\
+         (nbkts) * sizeof(uint8_t[2])); })
 
-// Get number of bytes required for a given number of kmers
-// do not excess max capacity
-size_t hash_table_mem(size_t nkmers, boolean above_nkmers, size_t *act_capacty_kmers);
+// Returns capacity of a hash table that holds at least nkmers
+size_t hash_table_cap(size_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_ptr);
+
+// Returns memory required to hold nkmers
+size_t hash_table_mem(size_t nkmers, size_t extrabits, size_t *nkmers_ptr);
+
+// Returns memory used for hashtable no more than some memory limit
+size_t hash_table_mem_limit(size_t memlimit, size_t extrabits, size_t *nkmers_ptr);
 
 // Returns NULL if not enough memory
 HashTable* hash_table_alloc(HashTable *htable, uint64_t capacity);

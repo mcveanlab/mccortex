@@ -233,14 +233,12 @@ int ctx_view(CmdArgs *args)
   if(print_info)
   {
     // Print memory stats
-    uint64_t mem, capacity, num_buckets;
+    uint64_t mem, capacity, num_buckets, req_capacity;
     uint8_t bucket_size;
 
-    hash_table_cap((size_t)(outheader.num_of_kmers / IDEAL_OCCUPANCY), true,
-                   &num_buckets, &bucket_size);
-    capacity = num_buckets * bucket_size;
-    mem = capacity * (sizeof(BinaryKmer) +
-          ncols * (sizeof(Covg) + sizeof(Edges)));
+    req_capacity = (size_t)(outheader.num_of_kmers / IDEAL_OCCUPANCY);
+    capacity = hash_table_cap(req_capacity, &num_buckets, &bucket_size);
+    mem = ht_mem(bucket_size, num_buckets, ncols*(sizeof(Covg)+sizeof(Edges))/8);
 
     char memstr[100], capacitystr[100], bucket_size_str[100], num_buckets_str[100];
     bytes_to_str(mem, 1, memstr);

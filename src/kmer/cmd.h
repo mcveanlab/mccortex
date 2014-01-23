@@ -28,8 +28,8 @@ typedef struct
 // Defaults
 #define CMD_ARGS_INIT_MACRO { \
   .cmdline = NULL, .cmdidx = -1, .print_help = false, \
-  .num_kmers_set = false, .num_kmers = 4UL<<20 /*4MB*/, \
-  .mem_to_use_set = false, .mem_to_use = 1UL<<29 /*500M*/, \
+  .num_kmers_set = false, .num_kmers = 1UL<<22 /*4Million*/, \
+  .mem_to_use_set = false, .mem_to_use = 1UL<<29 /*512MB*/, \
   .kmer_size_set = false, .kmer_size = MAX_KMER_SIZE, \
   .max_io_threads_set = false, .max_io_threads = 4, \
   .max_work_threads_set = false, .max_work_threads = 2, \

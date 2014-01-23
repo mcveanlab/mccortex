@@ -197,8 +197,7 @@ int ctx_subgraph(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers,
                                         false, NULL);
 
-  graph_mem = hash_table_mem(kmers_in_hash,false,NULL) +
-              (kmers_in_hash*bits_per_kmer)/8;
+  graph_mem = hash_table_mem(kmers_in_hash,bits_per_kmer,NULL);
   bytes_to_str(graph_mem, 1, graph_mem_str);
 
   if(graph_mem >= args->mem_to_use)

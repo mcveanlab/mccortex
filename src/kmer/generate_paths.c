@@ -68,7 +68,7 @@ struct GenPathWorker
 
 // Should we print all paths?
 boolean gen_paths_print_inserts = false;
-size_t print_contig_id = 0;
+volatile size_t print_contig_id = 0;
 
 
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph)

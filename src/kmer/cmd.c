@@ -250,54 +250,42 @@ int cmd_run(int argc, char **argv)
 }
 
 // If your command accepts -n <kmers> and -m <mem> this may be useful
-// extra_bits_per_kmer is additional memory per node, above hash table for
-// BinaryKmers
-size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
+// extra_bits is additional memory per node, above hash table+BinaryKmers
+size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
                              size_t min_num_kmers, boolean use_mem_limit,
                              size_t *graph_mem_ptr)
 {
-  size_t bits_per_kmer, req_kmers;
-  size_t kmers_in_hash, hash_mem, graph_mem, min_kmers_mem;
+  size_t kmers_in_hash, graph_mem, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
-  boolean above_nkmers = false;
 
-  bits_per_kmer = 8*sizeof(BinaryKmer) + extra_bits_per_kmer;
+  if(args->num_kmers_set)
+    graph_mem = hash_table_mem(args->num_kmers, extra_bits, &kmers_in_hash);
+  else if(use_mem_limit)
+    graph_mem = hash_table_mem_limit(args->mem_to_use, extra_bits, &kmers_in_hash);
+  else if(min_num_kmers > 0)
+    graph_mem = hash_table_mem(min_num_kmers/IDEAL_OCCUPANCY, extra_bits, &kmers_in_hash);
+  else
+    graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);
+  // ^ 1024 is a very small default hash table capacity
 
-  if(args->num_kmers_set) {
-    req_kmers = args->num_kmers;
-    above_nkmers = true;
-  }
-  else if(use_mem_limit) // +1 rough for hash table overhead
-    req_kmers = (8 * args->mem_to_use) / (bits_per_kmer+1);
-  else if(min_num_kmers > 0) {
-    req_kmers = (size_t)(min_num_kmers / IDEAL_OCCUPANCY);
-    above_nkmers = true;
-  }
-  else {
-    req_kmers = args->num_kmers; // take default
-    above_nkmers = true;
-  }
-
-  hash_mem = hash_table_mem(req_kmers, above_nkmers, &kmers_in_hash);
-  graph_mem = hash_mem + (kmers_in_hash * extra_bits_per_kmer) / 8;
-  min_kmers_mem = hash_table_mem(min_num_kmers, true, NULL) +
-                  (min_num_kmers*bits_per_kmer)/8;
+  min_num_kmers = MAX2(min_num_kmers, 1024);
+  min_kmers_mem = hash_table_mem(min_num_kmers, extra_bits, NULL);
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
-  ulong_to_str(kmers_in_hash, kmers_in_hash_str);
   bytes_to_str(min_kmers_mem, 1, min_kmers_mem_str);
+
+  ulong_to_str(kmers_in_hash, kmers_in_hash_str);
   ulong_to_str(min_num_kmers, min_num_kmers_str);
 
-  if(kmers_in_hash < min_num_kmers) {
+  // Give a error/warning about occupancy
+  if(kmers_in_hash < min_num_kmers)
+  {
     die("Not enough kmers in hash: require at least %s kmers (min memory: %s)",
         min_num_kmers_str, min_kmers_mem_str);
   }
-
-  // Give a warning about occupancy unless explicitly set to exactly 100%
-  if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY &&
-     kmers_in_hash != args->num_kmers)
+  else if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY)
   {
     warn("Expected hash table occupancy %.2f%% "
          "(you may want to increase -n or -m)",
@@ -316,7 +304,8 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
   }
 
   if(graph_mem > args->mem_to_use) {
-    die("Not enough memory for graph: require at least %s", min_kmers_mem_str);
+    die("Not enough memory for graph: require at least %s [>%s] %zu %zu",
+        min_kmers_mem_str, mem_to_use_str, graph_mem, args->mem_to_use);
   }
 
   status("[memory] graph: %s\n", graph_mem_str);

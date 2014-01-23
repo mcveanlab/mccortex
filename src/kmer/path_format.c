@@ -421,7 +421,7 @@ void path_format_is_path_valid(const dBGraph *db_graph, dBNode node, size_t col,
     // If fork pick nucleotide
     if(n > 1) {
       for(i = 0; i < n && nucs[i] != bases[plen]; i++);
-      assert(bases[plen] == nucs[i]);
+      assert(i < n && nucs[i] == bases[plen]);
       node.key = nodes[i];
       node.orient = orients[i];
       plen++;

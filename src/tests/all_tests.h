@@ -15,6 +15,9 @@ void test_dna_functions();
 // db_node.c
 void test_db_node();
 
+// util.c
+void test_util();
+
 // path_tests.c
 void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2);
 

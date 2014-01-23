@@ -104,14 +104,14 @@ static void print_input(const CtxBuildInput *input)
   }
 }
 
-static void ctx_input_create(char *load_graph_path,
-                             const char *seq_path1, const char *seq_path2,
-                             size_t colour, CtxBuildGraphCol *col_data,
-                             uint32_t fq_offset, uint32_t fq_cutoff,
-                             uint32_t hp_cutoff,
-                             boolean remove_dups_se,
-                             boolean remove_dups_pe,
-                             size_t kmer_size, CtxBuildInput *ptr)
+static void ctx_input_alloc(char *load_graph_path,
+                            const char *seq_path1, const char *seq_path2,
+                            size_t colour, CtxBuildGraphCol *col_data,
+                            uint32_t fq_offset, uint32_t fq_cutoff,
+                            uint32_t hp_cutoff,
+                            boolean remove_dups_se,
+                            boolean remove_dups_pe,
+                            size_t kmer_size, CtxBuildInput *ptr)
 {
   assert((load_graph_path == NULL) != (seq_path1 == NULL));
   assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
@@ -164,6 +164,59 @@ static void ctx_input_create(char *load_graph_path,
 static void ctx_input_dealloc(CtxBuildInput *input)
 {
   graph_file_dealloc(&input->ctx_file);
+}
+
+static void ctx_input_create(char *load_graph_path,
+                             const char *seq_path1, const char *seq_path2,
+                             size_t colour, CtxBuildGraphCol *col_data,
+                             uint32_t fq_offset, uint32_t fq_cutoff,
+                             uint32_t hp_cutoff,
+                             boolean remove_dups_se,
+                             boolean remove_dups_pe,
+                             size_t kmer_size,
+                             CtxBuildInput *inputs, size_t *num_inputs_ptr)
+{
+  assert(!seq_path2 || seq_path1);
+
+  if(load_graph_path != NULL) {
+    // Load a graph
+    ctx_input_alloc(load_graph_path, NULL, NULL,
+                    colour, col_data,
+                    fq_offset, fq_cutoff, hp_cutoff,
+                    remove_dups_se, remove_dups_pe,
+                    kmer_size, &inputs[*num_inputs_ptr]);
+    (*num_inputs_ptr)++;
+  }
+
+  if(seq_path1 != NULL) {
+    if(remove_dups_pe) {
+      // Submit paired end reads together
+      ctx_input_alloc(NULL, seq_path1, seq_path2,
+                      colour, col_data,
+                      fq_offset, fq_cutoff, hp_cutoff,
+                      remove_dups_se, remove_dups_pe,
+                      kmer_size, &inputs[*num_inputs_ptr]);
+      (*num_inputs_ptr)++;
+    }
+    else if(!remove_dups_pe) {
+      // Read files separately -> read faster
+      ctx_input_alloc(NULL, seq_path1, NULL,
+                      colour, col_data,
+                      fq_offset, fq_cutoff, hp_cutoff,
+                      remove_dups_se, remove_dups_pe,
+                      kmer_size, &inputs[*num_inputs_ptr]);
+      (*num_inputs_ptr)++;
+
+      if(seq_path2 != NULL) {
+        ctx_input_alloc(NULL, seq_path2, NULL,
+                        colour, col_data,
+                        fq_offset, fq_cutoff, hp_cutoff,
+                        remove_dups_se, remove_dups_pe,
+                        kmer_size, &inputs[*num_inputs_ptr]);
+        (*num_inputs_ptr)++;
+      }
+    }
+  }
 }
 
 static void ctx_build_graph_colour_dealloc(CtxBuildGraphCol *col)
@@ -228,9 +281,8 @@ static void load_args(int argc, char **argv, size_t kmer_size,
                        colour, &seq_cols[num_seq_cols-1],
                        fq_offset, fq_cutoff, hp_cutoff,
                        remove_dups_se, remove_dups_pe,
-                       kmer_size, &inputs[num_inputs]);
+                       kmer_size, inputs, &num_inputs);
       //
-      num_inputs++;
       argi += 1;
       sample_used = true;
       seq_loaded = true;
@@ -246,9 +298,8 @@ static void load_args(int argc, char **argv, size_t kmer_size,
                        colour, &seq_cols[num_seq_cols-1],
                        fq_offset, fq_cutoff, hp_cutoff,
                        remove_dups_se, remove_dups_pe,
-                       kmer_size, &inputs[num_inputs]);
+                       kmer_size, inputs, &num_inputs);
       //
-      num_inputs++;
       argi += 2;
       sample_used = true;
       seq_loaded = true;
@@ -288,9 +339,8 @@ static void load_args(int argc, char **argv, size_t kmer_size,
                          colour, NULL,
                          fq_offset, fq_cutoff, hp_cutoff,
                          remove_dups_se, remove_dups_pe,
-                         kmer_size, &inputs[num_inputs]);
-        colour += input_ncols(&inputs[num_inputs]);
-        num_inputs++;
+                         kmer_size, inputs, &num_inputs);
+        colour += input_ncols(&inputs[num_inputs-1]);
       }
 
       argi++; // both --sample and --load_graph take a single argument

@@ -10,6 +10,7 @@ int main()
   test_bkmer_functions();
   test_dna_functions();
   test_db_node();
+  test_util();
   status("Finished tests.");
   cortex_destroy();
   return EXIT_SUCCESS;

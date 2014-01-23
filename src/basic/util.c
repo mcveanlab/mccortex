@@ -168,8 +168,8 @@ char* long_to_str(long num, char* result)
 // +1 for \0
 char* double_to_str(double num, int decimals, char* str)
 {
-  if(my_isnan(num)) return strcpy(str, "NaN");
-  else if(my_isinf(num)) return strcpy(str, "Inf");
+  if(isnan(num)) return strcpy(str, "NaN");
+  else if(isinf(num)) return strcpy(str, "Inf");
 
   unsigned long whole_units = (unsigned long)num;
   num -= whole_units;
@@ -196,8 +196,8 @@ static inline char* units_to_str(double num, int decimals, char* str,
 {
   assert(nunits > 0 && usize > 0);
 
-  if(my_isnan(num)) { strcpy(str, "NaN"); strcpy(str+3, units[0]); return str;}
-  else if(my_isinf(num)) { strcpy(str, "Inf"); strcpy(str+3, units[0]); return str;}
+  if(isnan(num)) { sprintf(str, "NaN%s", units[0]); return str; }
+  else if(isinf(num)) { sprintf(str, "Inf%s", units[0]); return str; }
 
   size_t unit;
   double num_tmp = num, num_of_units;
