@@ -20,13 +20,13 @@ read.2.fa:
 	echo ACGGCCACTG > read.2.fa
 
 genome.k9.ctx: genome.fa
-	$(CTX) build -m 1M -k 9 --sample Genome --seq genome.fa genome.k9.ctx
+	$(CTX) build -m 1M -k 9 --sample Genome --seq genome.fa --sample Gen2 --seq genome.fa genome.k9.ctx
 
 reads.pe.one.ctp: genome.k9.ctx read.1.fa read.2.fa
-	$(CTX) thread -m 1M --printinsgaps --oneway --col 0 --seq2 read.1.fa read.2.fa $@ genome.k9.ctx
+	$(CTX) thread -m 1M --printinsgaps --oneway --col 0 --seq2 read.1.fa read.2.fa --col 1 --seq genome.fa $@ genome.k9.ctx
 
 reads.pe.two.ctp: genome.k9.ctx read.1.fa read.2.fa
-	$(CTX) thread -m 1M --printinsgaps --twoway --col 0 --seq2 read.1.fa read.2.fa $@ genome.k9.ctx
+	$(CTX) thread -m 1M --printinsgaps --twoway --col 0 --seq2 read.1.fa read.2.fa --col 1 --seq genome.fa $@ genome.k9.ctx
 
 genome.k9.pdf:
 	../../scripts/cortex_to_graphviz.pl genome.k9.ctx | dot -Tpdf > genome.k9.pdf

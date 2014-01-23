@@ -234,22 +234,29 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      const boolean pl_is_fw,
                                      GenPathWorker *wrkr)
 {
-  size_t num_added = 0;
+  size_t i, num_added = 0;
   size_t ctpcol = wrkr->task.ctpcol;
 
   hkey_t node;
   Orientation orient;
-  size_t start_mn, start_pl, prev_start_pl = 0, pos;
-  PathLen plen;
+  size_t start_mn, start_pl, pos;
+  PathLen plen, plen_orient;
   boolean added;
 
   const dBNode *nodes = wrkr->contig.data;
   dBGraph *db_graph = wrkr->db_graph;
 
-  // Packed path sequence
-  PathLen *plen_ptr = (PathLen*)wrkr->packed;
-  uint8_t *packed_seq = wrkr->packed+sizeof(PathLen);
-  pack_bases(packed_seq, nuc_pl, num_pl);
+  // Create packed path with four diff offsets (0..3), point to correct one
+  size_t pckd_memsize = (num_pl+3)/4;
+  uint8_t *packed_ptrs[4], *packed_ptr;
+
+  worker_packed_cap(wrkr, pckd_memsize*4);
+  for(i = 0; i < 4; i++) packed_ptrs[i] = wrkr->packed + i*pckd_memsize;
+
+  pack_bases(packed_ptrs[0]+sizeof(PathLen), nuc_pl, num_pl);
+  packed_cpy(packed_ptrs[1]+sizeof(PathLen), packed_ptrs[0], 1, num_pl);
+  packed_cpy(packed_ptrs[2]+sizeof(PathLen), packed_ptrs[0], 2, num_pl);
+  packed_cpy(packed_ptrs[3]+sizeof(PathLen), packed_ptrs[0], 3, num_pl);
 
   // pl => plus in direction
   // mn => minus against direction
@@ -273,9 +280,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     start_pl -= (start_pl > 0 && pos_pl[start_pl-1] == pos);
 
     // Check path is not too long (MAX_PATHLEN is the limit)
-    size_t njuncs = MIN2(num_pl - start_pl, MAX_PATHLEN);
-
-    plen = (PathLen)njuncs;
+    plen = (PathLen)MIN2(num_pl - start_pl, MAX_PATHLEN);
     node = nodes[pos].key;
     orient = pl_is_fw ? nodes[pos].orient : rev_orient(nodes[pos].orient);
 
@@ -290,27 +295,25 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
              start_pl, start_mn, pos_mn[start_mn]);
     #endif
 
-    *plen_ptr = plen | (PathLen)(orient << PATH_LEN_BITS);
-    right_shift_packed_bases(packed_seq, start_pl - prev_start_pl, plen);
-    prev_start_pl = start_pl;
+    // Write orient and length to packed representation
+    plen_orient = plen | ((PathLen)orient << PATH_LEN_BITS);
+    packed_ptr = packed_ptrs[start_pl&3] + start_pl/4;
+    memcpy(packed_ptr, &plen_orient, sizeof(PathLen));
 
     // mask top byte!
-    size_t top_idx = (plen-1)/4;
-    uint8_t top_byte = packed_seq[top_idx];
-    packed_seq[top_idx] &= (uint8_t)(255 >> (8 - bits_in_top_word(plen)));
+    size_t top_idx = sizeof(PathLen)+(plen-1)/4;
+    uint8_t top_byte = packed_ptr[top_idx];
+    packed_ptr[top_idx] &= (uint8_t)(255 >> (8 - bits_in_top_word(plen)));
 
-    // DEV: combine orient, plen within function
-    added = path_store_mt_find_or_add(node, db_graph, ctpcol,
-                                      wrkr->packed, plen);
-
-    packed_seq[top_idx] = top_byte;
+    added = path_store_mt_find_or_add(node, db_graph, ctpcol, packed_ptr, plen);
+    packed_ptr[top_idx] = top_byte; // restore top byte
 
     #ifdef CTXVERBOSE
       printf("We %s\n", added ? "added" : "abandoned");
     #endif
 
     // If the path already exists, all of its subpaths also already exist
-    if(!added) break;
+    if(!added && plen < MAX_PATHLEN) break;
     num_added++;
   }
 

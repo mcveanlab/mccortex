@@ -71,6 +71,7 @@ static void add_to_pool(read_t *r1, read_t *r2,
 
   assert(&wrkr->data.r1 == r1);
   assert(r2 == NULL || &wrkr->data.r2 == r2);
+  assert(r1 != r2);
 
   // Swap tmp with empty in the pool
   AsyncIOData data;

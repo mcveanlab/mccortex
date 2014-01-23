@@ -382,7 +382,8 @@ int ctx_thread(CmdArgs *args)
     for(j = 0; j < graph_files[i].fltr.ncols; j++) {
       intocol = graph_file_intocol(&graph_files[i], j);
       fromcol = graph_file_fromcol(&graph_files[i], j);
-      graph_info_merge(&db_graph.ginfo[intocol], &graph_files[i].hdr.ginfo[fromcol]);
+      graph_info_merge(&db_graph.ginfo[intocol],
+                       &graph_files[i].hdr.ginfo[fromcol]);
     }
   }
 

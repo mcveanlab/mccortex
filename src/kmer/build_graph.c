@@ -318,7 +318,6 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
     AsyncIOReadTask aio_task = {.file1 = files[i].file1,
                                 .file2 = files[i].file2,
                                 .fq_offset = files[i].fq_offset,
-                                .stats = files[i].stats,
                                 .ptr = &files[i]};
 
     memcpy(&async_tasks[i], &aio_task, sizeof(AsyncIOReadTask));

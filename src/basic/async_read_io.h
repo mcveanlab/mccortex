@@ -9,7 +9,6 @@
 typedef struct
 {
   seq_file_t *const file1, *const file2;
-  SeqLoadingStats *const stats; // stats are written to here
   void *const ptr;
   const uint8_t fq_offset;
 } AsyncIOReadTask;
@@ -17,7 +16,6 @@ typedef struct
 typedef struct
 {
   read_t r1, r2;
-  SeqLoadingStats *stats;
   void *ptr;
   uint8_t fq_offset1, fq_offset2;
 } AsyncIOData;

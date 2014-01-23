@@ -76,16 +76,15 @@ char* dna_reverse_complement_str(char *str, size_t length)
 char* dna_rand_str(char *str, size_t cap)
 {
   const char bases[4] = "ACGT";
-  int rnd;
-  size_t i;
+  size_t i, r;
 
   if(cap == 0) return str;
   if(cap == 1) { str[0] = '\0'; return str; }
 
   for(i = 0; i < cap-1; i++) {
-    if((i & 3) == 0) rnd = rand();
-    str[i] = bases[rnd&3];
-    rnd >>= 2;
+    if((i & 15) == 0) r = (size_t)rand(); // 2 bits per cycle, 32 bits in rand()
+    str[i] = bases[r&3];
+    r >>= 2;
   }
 
   str[cap-1] = '\0';

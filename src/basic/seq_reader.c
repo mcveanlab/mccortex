@@ -144,15 +144,6 @@ static uint8_t process_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
     // Check out-of-range qual string
     if(!(warn_flags & WFLAG_QUAL_TOOSMALL) || !(warn_flags & WFLAG_QUAL_TOOBIG))
     {
-      // Slower min/max that minimises branches
-      // char mmin[2] = {r->qual.b[0], r->qual.b[0]};
-      // char mmax[2] = {r->qual.b[0], r->qual.b[0]};
-      // for(tmp = r->qual.b+1; *tmp != '\0'; tmp++) {
-      //   mmin[*tmp < mmin[1]] = *tmp;
-      //   mmax[*tmp > mmax[1]] = *tmp;
-      // }
-      // char min = mmin[1], max = mmax[1];
-
       // In profiling this was found to be the fastest min/max method
       const uint8_t *tmp = (uint8_t*)r->qual.b;
       uint8_t min = *tmp, max = *tmp;

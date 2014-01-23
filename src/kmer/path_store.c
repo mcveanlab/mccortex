@@ -38,34 +38,22 @@ void path_store_resize(PathStore *paths, size_t size)
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
 
-// Convert from unpacked representation (1 bas per byte) to packed
+// Convert from unpacked representation (1 base per byte) to packed
 // representation (4 bases per byte)
 void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
 {
-  uint8_t tmp;
-  size_t i, j, k = 0, full_bytes = len/4;
-  for(i = 0; i < full_bytes; i++)
-  {
-    tmp = 0; k += 4;
-    for(j = 0; j < 4; j++) {
-      tmp <<= 2;
-      tmp |= bases[--k];
-    }
-    k += 4;
-    *ptr = tmp;
-    ptr++;
-  }
+  size_t full_bytes = len/4;
+  const uint8_t *endptr = ptr+full_bytes;
+
+  for(; ptr < endptr; ptr++)
+    *ptr = bases[0] | (bases[1]<<2) | (bases[2]<<4) | (bases[3]<<6);
 
   // Do last byte
-  size_t quotient = full_bytes*4;
-  if(quotient < len)
-  {
-    tmp = 0; k = len;
-    while(k > quotient) {
-      tmp <<= 2;
-      tmp |= bases[--k];
-    }
-    *ptr = tmp;
+  if(len & 3) *ptr = 0;
+  switch(len & 3) {
+    case 3: *ptr = bases[--len];
+    case 2: *ptr = (*ptr<<2) | bases[--len];
+    case 1: *ptr = (*ptr<<2) | bases[--len];
   }
 }
 
@@ -73,59 +61,46 @@ void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
 // representation (1 base per byte)
 void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
 {
-  uint8_t tmp;
-  size_t i, j, k = 0, full_bytes = len/4;
-  for(i = 0; i < full_bytes; i++)
-  {
-    tmp = *ptr;
-    for(j = 0; j < 4; j++) {
-      bases[k++] = tmp & 0x3;
-      tmp >>= 2;
-    }
-    ptr++;
+  size_t i, full_bytes = len/4;
+  const uint8_t *endptr = ptr+full_bytes;
+
+  for(i = 0; ptr < endptr; ptr++) {
+    bases[i++] =  (*ptr)     & 3;
+    bases[i++] = ((*ptr)>>2) & 3;
+    bases[i++] = ((*ptr)>>4) & 3;
+    bases[i++] = ((*ptr)>>6);
   }
 
   // Do last byte
-  tmp = *ptr;
-  while(k < len) {
-    bases[k++] = tmp & 0x3;
-    tmp >>= 2;
+  switch(len & 3) {
+    case 3: bases[i++] = (*ptr>>4) & 3;
+    case 2: bases[i++] = (*ptr>>2) & 3;
+    case 1: bases[i++] = (*ptr)    & 3;
   }
 }
 
-void right_shift_packed_bases(uint8_t *ptr, size_t shift_bases, size_t len_bases)
+// Copy a packed path from one place in memory to another, applying left shift
+// Shifting by N bases results in N fewer bases in output
+void packed_cpy(uint8_t *restrict dst, const uint8_t *restrict src,
+                size_t shift, size_t len_bases)
 {
-  size_t i, shift_bits, shift_bytes, shift_total_bits;
-  size_t old_len_bytes, new_len_bytes, top_shift;
+  assert(shift < 4);
+  size_t i, nbytes, rem;
 
-  if(shift_bases == 0) return;
+  nbytes = (len_bases+3)/4;
+  rem = shift & 3;
 
-  // Each base is 2 bits
-  shift_total_bits = shift_bases*2;
+  if(shift >= len_bases) return;
+  if(!shift) { memcpy(dst, src, nbytes); return; }
 
-  // Split shift into whole bytes and remaining bits to shift
-  shift_bytes = shift_total_bits / 8;
-  shift_bits = shift_total_bits & 7;
-
-  // Round up the get the number of bytes to shift
-  old_len_bytes = (shift_bases+len_bases)*2 - shift_bytes;
-  new_len_bytes = roundup_bits2bytes(len_bases*2);
-
-  if(shift_bytes > 0) {
-    memmove(ptr, ptr+shift_bytes, old_len_bytes);
-    if(shift_bits == 0) return;
+  switch(shift) {
+    case 3: for(i=0;i+1<nbytes;i++) dst[i] = (src[i]>>6) | (src[i+1]<<2); break;
+    case 2: for(i=0;i+1<nbytes;i++) dst[i] = (src[i]>>4) | (src[i+1]<<4); break;
+    case 1: for(i=0;i+1<nbytes;i++) dst[i] = (src[i]>>2) | (src[i+1]<<6); break;
   }
-
-  top_shift = 8 - shift_bits;
-
-  // Shift each byte by a few bits
-  for(i = 0; i+1 < new_len_bytes; i++) {
-    ptr[i] = (uint8_t)(ptr[i] >> shift_bits) | (uint8_t)(ptr[i+1] << top_shift);
-  }
-
-  // Last byte
-  ptr[new_len_bytes-1] >>= shift_bits;
+  dst[nbytes-1] = src[nbytes-1] >> shift;
 }
+
 
 // Find a path
 // returns PATH_NULL if not found, otherwise index

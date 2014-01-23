@@ -3,9 +3,6 @@
 
 #include "db_graph.h"
 
-// test_utils.c: Common utitlities for testing
-void rnd_seq(char *seq, size_t len);
-
 // bkmer_tests.c
 void test_bkmer_functions();
 
