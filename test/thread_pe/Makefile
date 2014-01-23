@@ -8,7 +8,7 @@ TGTS=genome.fa read.1.fa read.2.fa genome.k9.ctx $(PATHS)
 all: $(TGTS)
 
 clean:
-	rm -rf $(TGTS) gap_sizes.*.csv mp_sizes.*.csv
+	rm -rf $(TGTS) gap_sizes.*.csv mp_sizes.*.csv genome.k9.pdf
 
 genome.fa:
 	echo GGCATCAGTGGCCAT > genome.fa

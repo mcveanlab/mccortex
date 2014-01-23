@@ -85,10 +85,7 @@ void packed_cpy(uint8_t *restrict dst, const uint8_t *restrict src,
                 size_t shift, size_t len_bases)
 {
   assert(shift < 4);
-  size_t i, nbytes, rem;
-
-  nbytes = (len_bases+3)/4;
-  rem = shift & 3;
+  size_t i, nbytes = (len_bases+3)/4;
 
   if(shift >= len_bases) return;
   if(!shift) { memcpy(dst, src, nbytes); return; }

@@ -731,7 +731,7 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
 static void worker_reads_to_nodebuf(GenPathWorker *wrkr)
 {
   AsyncIOData *data = &wrkr->data;
-  read_t *r1 = &data->r1, *r2 = data->r2.seq.b[0] == 0 ? NULL : &data->r2;
+  read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
 
   // if(r1->seq.end < 100) {
   //   printf("1>%s\n", r1->seq.b);
