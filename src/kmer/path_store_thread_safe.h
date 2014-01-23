@@ -5,6 +5,6 @@
 #include "path_store.h"
 
 boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
-                                  const uint8_t *packed, size_t path_nbytes);
+                                  const uint8_t *packed, size_t plen);
 
 #endif /* PATH_STORE_THREAD_SAFE_H_ */

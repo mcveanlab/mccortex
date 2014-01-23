@@ -9,12 +9,14 @@
 
 // Returns true if added, false otherwise
 // packed points to <PathLen><PackedSeq>
-// path_nbytes is the number of bytes in <PackedSeq>
 boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
-                                  const uint8_t *packed, size_t path_nbytes)
+                                  const uint8_t *packed, size_t plen)
 {
   PathStore *pstore = &db_graph->pdata;
   volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
+
+// path_nbytes is the number of bytes in <PackedSeq>
+  size_t path_nbytes = (plen+3)/4;
 
   // 1) Get lock for kmer
   // calling bitlock_yield_acquire instead of bitlock_acquire causes

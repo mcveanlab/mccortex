@@ -47,6 +47,7 @@ static void async_io_worker_alloc(AsyncIOWorker *wrkr,
                                   const AsyncIOReadTask *task,
                                   MsgPool *pool, size_t *num_running)
 {
+  assert(pool->elsize == sizeof(AsyncIOData));
   AsyncIOWorker tmp = {.pool = pool, .task = *task, .num_running = num_running};
   asynciodata_alloc(&tmp.data);
   memcpy(wrkr, &tmp, sizeof(AsyncIOWorker));
@@ -105,12 +106,11 @@ AsyncIOWorker* asyncio_read_start(MsgPool *pool,
                                   const AsyncIOReadTask *tasks,
                                   size_t num_tasks)
 {
-  assert(pool->elsize == sizeof(AsyncIOData));
-
   size_t i;
   int rc;
 
   // Initiate all reads in the pool
+  assert(pool->elsize == sizeof(AsyncIOData));
   msgpool_iterate(pool, asynciodata_pool_init, NULL);
 
   // Create workers
@@ -160,6 +160,7 @@ void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
   msgpool_wait_til_empty(pool);
 
   // Free memory in the pool
+  assert(pool->elsize == sizeof(AsyncIOData));
   msgpool_iterate(pool, asynciodata_pool_destroy, NULL);
 
   for(i = 0; i < num_workers; i++) async_io_worker_dealloc(&workers[i]);
