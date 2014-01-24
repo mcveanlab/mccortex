@@ -5,6 +5,7 @@
 #include "db_node.h"
 #include "graph_info.h"
 #include "path_store.h"
+#include "packed_path.h"
 #include "graph_format.h"
 
 static void db_graph_status(const dBGraph *db_graph)
@@ -375,8 +376,9 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
         index = db_node_paths(db_graph, node);
         first = true;
         while(index != PATH_NULL) {
-          prev_index = packedpath_prev(paths->store+index);
-          packedpack_len_orient(paths->store+index, paths, &len, &porient);
+          prev_index = packedpath_get_prev(paths->store+index);
+          packedpack_get_len_orient(paths->store+index, paths->colset_bytes,
+                                    &len, &porient);
           if(porient == orient) {
             if(first) { printf("%s:%i\n", str, orient); first = false; }
             path_store_print_path(paths, index);

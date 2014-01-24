@@ -3,6 +3,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_walker.h"
+#include "packed_path.h"
 
 #ifdef CTXVERBOSE
 #define DEBUG_WALKER 1
@@ -201,7 +202,8 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
 
   while(index != PATH_NULL)
   {
-    packedpack_len_orient(paths->store+index, paths, &len, &porient);
+    packedpack_get_len_orient(paths->store+index, paths->colset_bytes,
+                              &len, &porient);
     if(packedpath_has_col(paths->store+index, path, wlk->ctpcol) && orient == porient)
     {
       if(len > wlk->max_path_len || wlk->num_unused == 0)
@@ -222,7 +224,7 @@ static inline size_t pickup_paths(const PathStore *paths, GraphWalker *wlk,
       (*num)++;
     }
 
-    index = packedpath_prev(paths->store+index);
+    index = packedpath_get_prev(paths->store+index);
   }
 
   return *num - start_pos;

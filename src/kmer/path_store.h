@@ -4,9 +4,7 @@
 #include "binary_kmer.h"
 #include "file_filter.h"
 #include "cortex_types.h"
-
-typedef uint64_t PathIndex;
-typedef uint16_t PathLen;
+#include "packed_path.h"
 
 typedef struct {
   uint8_t *const store, *const end;
@@ -15,14 +13,6 @@ typedef struct {
   uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths;
 } PathStore;
-
-#define PATH_NULL UINT64_MAX
-#define PATH_LEN_BITS 15
-#define MAX_PATHLEN ((1UL<<PATH_LEN_BITS)-1)
-
-// Data structure:
-//   {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
-// N=round_up(num_of_colours/8), M=round_up(len/4)
 
 // Initialise the PathStore
 void path_store_init(PathStore *paths, uint8_t *data, size_t size, size_t ncols);
@@ -76,47 +66,5 @@ void path_store_fetch_bases(const PathStore *paths, PathIndex index,
 #define path_store_fltr_compatible(st,fltr) \
         ((fltr)->nofilter && \
          roundup_bits2bytes((fltr)->filencols) == (st)->colset_bytes)
-
-//
-// Functions for PackedPaths
-//
-// PackedPath doesn't have a struct, instead is laid out as:
-//   {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}
-// Where N=round_up(num_of_colours/8), M=round_up(len/4)
-// len holds both the length (lower 15 bits), and orientations (top bit)
-
-// Number of bytes needed to store n bases (2 bits per base, 4 per byte)
-#define packedpath_len_nbytes(nbases) (((nbases)+3)/4)
-
-// Number of bytes a packed path takes up
-#define packedpath_mem2(colbytes,nbytes) \
-        (sizeof(PathIndex)+(colbytes)+sizeof(PathLen)+(nbytes))
-#define packedpath_mem(p,colbytes) \
-        packedpath_mem2(colbytes,packedpath_pbytes(p,colbytes))
-
-#define packedpath_lenword2(w) ((w) & ~(1UL<<PATH_LEN_BITS))
-#define packedpath_orword2(w) ((w) >> PATH_LEN_BITS)
-
-#define packedpath_lenword(p,colbytes) (*(PathLen*)((p)+sizeof(PathIndex)+colbytes))
-#define packedpath_len(p,colbytes) packedpath_lenword2(packedpath_lenword(p,colbytes))
-#define packedpath_orient(p,colbytes) packedpath_orword2(packedpath_lenword(p,colbytes))
-#define packedpath_pbytes(p,colbytes) packedpath_len_nbytes(packedpath_len(p,colbytes))
-#define packedpath_prev(p) (*(PathIndex*)(p))
-#define packedpath_colset(p) ((p)+sizeof(PathIndex))
-#define packedpath_path(p,colbits) ((p)+sizeof(PathIndex)+colbits+sizeof(PathLen))
-
-#define packedpath_del_col(p,idx,col) bitset_del((p)+sizeof(PathIndex),col)
-#define packedpath_set_col(p,idx,col) bitset_set((p)+sizeof(PathIndex),col)
-#define packedpath_has_col(p,idx,col) bitset_get((p)+sizeof(PathIndex),col)
-
-static inline PathLen packedpack_len_orient(const uint8_t *packed,
-                                            const PathStore *store,
-                                            PathLen *len, Orientation *orient)
-{
-  PathLen d = packedpath_lenword(packed, store->colset_bytes);
-  *len = packedpath_lenword2(d);
-  *orient = packedpath_orword2(d);
-  return d;
-}
 
 #endif /* BINARY_PATH_H_ */

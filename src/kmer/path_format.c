@@ -259,7 +259,7 @@ static inline void load_packed_linkedlist(hkey_t node, PathIndex tmpindex,
     index = path_store_find_or_add_packed2(store, index, packed, pbytes,
                                            fltr, find, &added);
     if(added) db_node_paths(db_graph, node) = index;
-    tmpindex = packedpath_prev(packed);
+    tmpindex = packedpath_get_prev(packed);
   }
   while(tmpindex != PATH_NULL);
 }
@@ -486,8 +486,9 @@ static inline void write_optimised_paths(hkey_t node, PathIndex *pidx,
 
     do
     {
-      nextidx = packedpath_prev(paths->store+curridx);
-      packedpack_len_orient(paths->store+curridx, paths, &len, &orient);
+      nextidx = packedpath_get_prev(paths->store+curridx);
+      packedpack_get_len_orient(paths->store+curridx, paths->colset_bytes,
+                                &len, &orient);
       pbytes = packedpath_len_nbytes(len);
       mem = packedpath_mem2(paths->colset_bytes, pbytes);
       *pidx += mem;

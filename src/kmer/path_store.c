@@ -114,7 +114,7 @@ PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
   {
     packed = paths->store + last_index;
     if(memcmp(packed+offset, query, mem) == 0) return last_index;
-    last_index = packedpath_prev(packed);
+    last_index = packedpath_get_prev(packed);
   }
 
   return PATH_NULL;
@@ -166,8 +166,8 @@ PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
   }
   else {
     // Already in path store, just update colour bitset
-    uint8_t *dst = packedpath_colset(paths->store + match);
-    const uint8_t *src = packedpath_colset(packed);
+    uint8_t *dst = packedpath_get_colset(paths->store + match);
+    const uint8_t *src = packedpath_get_colset(packed);
     for(i = 0; i < paths->colset_bytes; i++) dst[i] |= src[i];
     *inserted = false;
   }
@@ -292,11 +292,12 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
   PathLen len;
   Orientation orient;
 
-  prev = packedpath_prev(paths->store + index);
-  packedpack_len_orient(paths->store+index, paths, &len, &orient);
+  prev = packedpath_get_prev(paths->store + index);
+  packedpack_get_len_orient(paths->store+index, paths->colset_bytes,
+                            &len, &orient);
 
   const uint8_t *packed = paths->store + index;
-  const uint8_t *colbitset = packedpath_colset(packed);
+  const uint8_t *colbitset = packedpath_get_colset(packed);
   const uint8_t *data = packedpath_path(packed, paths->colset_bytes);
 
   Nucleotide bases[len];

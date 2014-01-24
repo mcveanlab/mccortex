@@ -828,7 +828,8 @@ void generate_paths(GeneratePathsTask *tasks, size_t num_tasks,
 
   size_t i, max_gap = 0;
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  // msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  msgpool_alloc_spinlock(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
 
   for(i = 0; i < num_tasks; i++) max_gap = MAX2(max_gap, tasks[i].ins_gap_max);
 

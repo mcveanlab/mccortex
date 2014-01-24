@@ -29,7 +29,7 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   if(match != PATH_NULL)
   {
     // => if already exist -> add colour -> release lock
-    volatile uint8_t *colarr = packedpath_colset(pstore->store+match);
+    volatile uint8_t *colarr = packedpath_get_colset(pstore->store+match);
     boolean added = !bitset_get(colarr, colour);
     bitset_set(colarr, colour);
     bitlock_release(kmerlocks, kmer);
@@ -51,7 +51,7 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   uint8_t *write = new_path;
 
   // Prev
-  packedpath_prev(write) = next;
+  packedpath_set_prev(write, next);
   write += sizeof(PathIndex);
   // bitset
   memset(write, 0, pstore->colset_bytes);

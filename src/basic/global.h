@@ -24,7 +24,7 @@
 #include "cortex_types.h"
 
 // Number of reads to hold in the msg pool
-#define MSGPOOLRSIZE 200
+#define MSGPOOLRSIZE 20
 
 // set to NULL to turn off message printing
 extern FILE *ctx_msg_out;

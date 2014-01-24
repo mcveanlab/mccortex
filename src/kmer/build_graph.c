@@ -308,7 +308,8 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
   size_t i;
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  // msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  msgpool_alloc_spinlock(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
 
   // Start async io reading
   AsyncIOWorker *asyncio_workers;
