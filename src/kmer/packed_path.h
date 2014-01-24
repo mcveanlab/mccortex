@@ -100,15 +100,21 @@ static inline void packedpath_set_orient(uint8_t *ptr, size_t colbytes,
 }
 
 // Get length and orientation together
-static inline PathLen packedpack_get_len_orient(const uint8_t *packed,
-                                                size_t colbytes,
-                                                PathLen *len,
+static inline PathLen packedpack_get_len_orient(const uint8_t *ptr,
+                                                size_t colbytes, PathLen *len,
                                                 Orientation *orient)
 {
-  PathLen lenword = packedpath_get_lenword(packed, colbytes);
+  PathLen lenword = packedpath_get_lenword(ptr, colbytes);
   *len = packedpath_len(lenword);
   *orient = packedpath_or(lenword);
   return lenword;
+}
+
+static inline void packedpack_set_len_orient(uint8_t *ptr, size_t colbytes,
+                                             PathLen len, Orientation orient)
+{
+  PathLen len_orient = packedpath_combine_lenorient(len, orient);
+  packedpath_set_lenword(ptr, colbytes, len_orient);
 }
 
 //

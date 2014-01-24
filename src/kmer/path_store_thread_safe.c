@@ -48,17 +48,15 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   if(new_path + mem > pstore->end) die("Out of path memory!");
 
   // 4) Copy new entry
-  uint8_t *write = new_path;
+  uint8_t *colset = new_path+sizeof(PathIndex);
 
   // Prev
-  packedpath_set_prev(write, next);
-  write += sizeof(PathIndex);
+  packedpath_set_prev(new_path, next);
   // bitset
-  memset(write, 0, pstore->colset_bytes);
-  bitset_set(write, colour);
-  write += pstore->colset_bytes;
+  memset(colset, 0, pstore->colset_bytes);
+  bitset_set(colset, colour);
   // Length + Path
-  memcpy(write, packed, sizeof(PathLen) + path_nbytes);
+  memcpy(colset+pstore->colset_bytes, packed, sizeof(PathLen) + path_nbytes);
 
   __sync_synchronize();
 

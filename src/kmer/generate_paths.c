@@ -223,8 +223,9 @@ void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
 }
 
 
-// assume nbits > 0
-#define bits_in_top_word(nbits) ((((nbits) - 1) & 3) + 1)
+// assume nbases > 0
+#define bases_in_top_byte(nbases) ((((nbases) - 1) & 3) + 1)
+#define bits_in_top_byte(nbases) (bases_in_top_byte(nbases) * 2)
 
 // Returns number of paths added
 static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
@@ -296,14 +297,14 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     #endif
 
     // Write orient and length to packed representation
-    plen_orient = plen | ((PathLen)orient << PATH_LEN_BITS);
+    plen_orient = packedpath_combine_lenorient(plen,orient);
     packed_ptr = packed_ptrs[start_pl&3] + start_pl/4;
     memcpy(packed_ptr, &plen_orient, sizeof(PathLen));
 
     // mask top byte!
-    size_t top_idx = sizeof(PathLen)+(plen-1)/4;
+    size_t top_idx = sizeof(PathLen) + (plen-1)/4;
     uint8_t top_byte = packed_ptr[top_idx];
-    packed_ptr[top_idx] &= (uint8_t)(255 >> (8 - bits_in_top_word(plen)));
+    packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
     added = path_store_mt_find_or_add(node, db_graph, ctpcol, packed_ptr, plen);
     packed_ptr[top_idx] = top_byte; // restore top byte
@@ -320,7 +321,8 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   return num_added;
 }
 
-#undef bits_in_top_word
+#undef bits_in_top_byte
+#undef bases_in_top_byte
 
 static void worker_junctions_to_paths(GenPathWorker *wrkr)
 {
