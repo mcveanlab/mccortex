@@ -4,7 +4,7 @@
 
 void test_util()
 {
-  status("[util] testing bytes_to_str()");
+  test_status("[util] testing bytes_to_str()");
 
   char str[100];
   // Excess decimal points are trimmed off 14.0MB -> 14MB

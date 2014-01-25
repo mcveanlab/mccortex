@@ -26,7 +26,7 @@ static void edge_check(hkey_t node, const dBGraph *db_graph, size_t col)
 
 void test_db_node()
 {
-  status("[db_node] Testing db_graph_next_nodes vs edges_ functions");
+  test_status("[db_node] Testing db_graph_next_nodes vs edges_ functions");
 
   // Construct 2 colour graph with kmer-size=11
   dBGraph graph;

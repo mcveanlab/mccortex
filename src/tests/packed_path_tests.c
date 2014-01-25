@@ -1,6 +1,6 @@
 #include "global.h"
 #include "packed_path.h"
-#include "all_tests.c"
+#include "all_tests.h"
 
 static void fill_rand(uint8_t *arr, size_t n)
 {
@@ -13,7 +13,7 @@ static void fill_rand(uint8_t *arr, size_t n)
 static void rand_nucs(Nucleotide *nucs, size_t len)
 {
   if(!len) return;
-  size_t i, r;
+  size_t i, r = 0;
   for(i = 0; i < len; i++) {
     if((i & 15) == 0) r = (size_t)rand(); // 2 bits per cycle, 32 bits in rand()
     nucs[i] = r&3;
@@ -38,7 +38,7 @@ static void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
 
 static void test_pack_cpy()
 {
-  status("[packedpath] Testing shift copy");
+  test_status("[packedpath] Testing shift copy");
 
   uint8_t d0[10] = {0,0,0,0,0,0,0,0,0,0};
   uint8_t out[100];
@@ -107,7 +107,7 @@ static void print_nucs(Nucleotide *nucs, size_t len) {
 
 static void test_pack_unpack()
 {
-  status("[packedpath] Testing pack_bases() / unpack_bases()");
+  test_status("[packedpath] Testing pack_bases() / unpack_bases()");
 
   uint8_t packed[TLEN];
   Nucleotide bases0[TLEN], bases1[TLEN];

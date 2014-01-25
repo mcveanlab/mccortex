@@ -3,6 +3,12 @@
 
 #include "db_graph.h"
 
+// General
+extern FILE *ctx_tst_out;
+
+void test_status(const char *fmt, ...)
+__attribute__((format(printf, 1, 2)));
+
 // bkmer_tests.c
 void test_bkmer_functions();
 
