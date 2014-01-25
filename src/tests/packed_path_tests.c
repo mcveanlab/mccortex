@@ -10,15 +10,16 @@ static void fill_rand(uint8_t *arr, size_t n)
   for(i = 4*(n/4); i<n; i++) { arr[i] = (uint8_t)(r&0xff); r >>= 8; }
 }
 
-static void print_bitarr(uint8_t *arr, size_t len)
+static void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
 {
   size_t i, j;
   for(i = len-1; i != SIZE_MAX; i--) {
     for(j = 7; j != SIZE_MAX; j--) {
-      fputc((arr[i]&(1U<<j)) ? '1' : '0', stdout);
+      *str = (arr[i]&(1U<<j)) ? '1' : '0';
+      str++;
     }
-    fputc(' ', stdout);
   }
+  *str = '\0';
 }
 
 void test_packed_path()
@@ -45,6 +46,7 @@ void test_packed_path()
 
   // Random testing
   uint8_t in[TLEN], slow[TLEN], med[TLEN], fast[TLEN];
+  char tmp1[TLEN*8+1], tmp2[TLEN*8+1];
 
   for(t = 0; t < NTESTS; t++) {
     memset(slow, 0xff, TLEN);
@@ -54,20 +56,31 @@ void test_packed_path()
 
     len = rand() % (TLEN/2+1);
     shift = rand() % 4;
-    printf("len: %zu shift: %zu\n", len, shift);
+    // printf("len: %zu shift: %zu\n", len, shift);
+
     packed_cpy_slow(slow, in, shift, len);
     packed_cpy_med(med, in, shift, len);
     packed_cpy_fast(fast, in, shift, len);
+
+    if(len > shift) {
+      // Check with string method to be extra safe
+      bitarr_tostr(in,   TLEN, tmp1);
+      bitarr_tostr(slow, TLEN, tmp2);
+      for(i = 8*TLEN-1; i != 8*TLEN-(len-shift)*2; i--)
+        assert(tmp1[i-shift*2] == tmp2[i]);
+    }
+
+    // Check all results match
     for(i = 0; i < TLEN && slow[i] == med[i]; i++);
     for(j = 0; j < TLEN && med[j] == fast[j]; j++);
 
     // Print output if arrays don't match
     if(i < TLEN || j < TLEN) {
       printf("len: %zu shift: %zu\n", len, shift);
-      printf("in:  "); print_bitarr(in, TLEN); printf("\n");
-      printf("slw: "); print_bitarr(slow, TLEN); printf("\n");
-      printf("med: "); print_bitarr(med, TLEN); printf("\n");
-      printf("fst: "); print_bitarr(fast, TLEN); printf("\n");
+      bitarr_tostr(in,   TLEN, tmp1); printf("in:  %s\n", tmp1);
+      bitarr_tostr(slow, TLEN, tmp1); printf("slw: %s\n", tmp1);
+      bitarr_tostr(med,  TLEN, tmp1); printf("med: %s\n", tmp1);
+      bitarr_tostr(fast, TLEN, tmp1); printf("fst: %s\n", tmp1);
       printf("\n");
     }
 

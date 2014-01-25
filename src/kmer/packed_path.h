@@ -218,14 +218,14 @@ static inline void packed_cpy_med(uint8_t *restrict dst,
 // Copy 8 bytes at a time
 static inline void packed_cpy_fast(uint8_t *restrict dst,
                                    const uint8_t *restrict src,
-                                   uint8_t shift, size_t len_bases)
+                                   uint8_t shift, size_t n)
 {
-  size_t src_bytes = (len_bases+3)/4, dst_bytes = (len_bases-shift+3)/4;
+  size_t src_bytes = (n+3)/4, dst_bytes = (n-shift+3)/4;
 
-  if(shift >= len_bases) { dst[0] = 0; return; }
+  if(shift >= n) { dst[0] = 0; return; }
   if(!shift) {
     memcpy(dst, src, src_bytes);
-    dst[src_bytes-1] &= bitmask64(len_bases*2-(src_bytes-1)*8); // mask top byte
+    dst[src_bytes-1] &= bitmask64(n*2-(src_bytes-1)*8); // mask top byte
     return;
   }
 
@@ -233,23 +233,25 @@ static inline void packed_cpy_fast(uint8_t *restrict dst,
   uint64_t word;
 
   bitshift = shift*2;
-  nwords64 = (len_bases-shift)/32;
+  nwords64 = (n-1)/32; // -1 so we can look ahead
   endbyte = nwords64*8;
 
-  for(byte=0; byte+8<endbyte; byte+=8) {
+  for(byte=0; byte<endbyte; byte+=8) {
     memcpy(&word, &src[byte], 8);
     word = (word >> bitshift) | ((uint64_t)src[byte+8] << (64-bitshift));
     memcpy(&dst[byte], &word, 8);
   }
 
-  size_t rem_src_bytes = src_bytes - byte;
-  size_t rem_dst_bytes = dst_bytes - byte;
-  size_t rem_bases = len_bases-shift-byte*4;
+  if(byte < dst_bytes) {
+    size_t rem_src_bytes = src_bytes - byte;
+    size_t rem_dst_bytes = dst_bytes - byte;
 
-  memcpy(&word, &src[byte], rem_src_bytes);
-  word >>= bitshift;
-  word &= bitmask64(rem_bases*2);
-  memcpy(&dst[byte], &word, rem_dst_bytes);
+    memcpy(&word, &src[byte], rem_src_bytes);
+    word >>= bitshift;
+    memcpy(&dst[byte], &word, rem_dst_bytes);
+  }
+
+  dst[dst_bytes-1] &= bitmask64((n-shift)*2-(dst_bytes-1)*8);
 }
 
 #define packed_cpy(dst,src,shift,len) packed_cpy_fast(dst,src,shift,len)
