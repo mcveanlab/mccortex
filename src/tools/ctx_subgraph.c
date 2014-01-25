@@ -185,7 +185,7 @@ int ctx_subgraph(CmdArgs *args)
   //
   // Decide on memory
   //
-  const size_t use_ncols = args->use_ncols;
+  const size_t use_ncols = MIN2(args->use_ncols, total_cols);
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
   size_t num_of_fringe_nodes, fringe_mem;
   char graph_mem_str[100], num_fringe_nodes_str[100], fringe_mem_str[100];
@@ -213,12 +213,13 @@ int ctx_subgraph(CmdArgs *args)
   if(!futil_is_file_writable(out_path))
     die("Cannot write to output file: %s", out_path);
 
-  // Create db_graph with one colour
+  // Create db_graph
+  // multiple colours may be useful later in pulling out multiple colours
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
-  size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity*use_ncols);
+  size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity);
   kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
   SeqLoadingStats *stats = seq_loading_stats_create(0);
