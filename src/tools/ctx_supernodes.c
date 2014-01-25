@@ -149,11 +149,11 @@ static void dump_dot_syntax()
 
   supernodes = calloc2(db_graph.ht.capacity, sizeof(sndata_t));
 
-  HASH_TRAVERSE(&db_graph.ht, dump_supernodes);
+  HASH_ITERATE(&db_graph.ht, dump_supernodes);
 
   // Now print edges
   fprintf(fout, "\n");
-  HASH_TRAVERSE(&db_graph.ht, dot_print_edges);
+  HASH_ITERATE(&db_graph.ht, dot_print_edges);
 
   free(supernodes);
   fputs("}\n", fout);
@@ -268,7 +268,7 @@ int ctx_supernodes(CmdArgs *args)
       dump_dot_syntax();
       break;
     case PRINT_FASTA:
-      HASH_TRAVERSE(&db_graph.ht, dump_supernodes);
+      HASH_ITERATE(&db_graph.ht, dump_supernodes);
       break;
   }
 

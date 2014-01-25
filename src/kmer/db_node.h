@@ -5,7 +5,7 @@
 #include "bit_macros.h"
 
 #include "cortex_types.h"
-#include "db_graph.h"
+#include "hash_table.h"
 
 typedef struct {
   hkey_t orient:1, key:63;

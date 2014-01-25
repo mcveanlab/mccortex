@@ -90,7 +90,7 @@ static void contig_print_path_dist(const size_t *hist, size_t n,
   char nout_str[100];
   size_t i;
 
-  timestamp(ctx_msg_out);
+  timestamp();
   message(" %s: ", name);
   for(i = 0; i < n; i++) {
     message("\t%zu:%s [%zu%%]", i, ulong_to_str(hist[i], nout_str),
@@ -473,7 +473,7 @@ int ctx_contigs(CmdArgs *args)
   // status("Contigs looping back to a kmer: %zu [%.2f%%]\n", nloop,
   //        (100.0 * nloop) / cd.ncontigs);
 
-  timestamp(ctx_msg_out);
+  timestamp();
   message(" Outdegree: ");
   char nout_str[90];
 

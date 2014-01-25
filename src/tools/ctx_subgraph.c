@@ -26,7 +26,7 @@ static const char usage[] =
 "  Options:\n"
 "    -m <mem>          Memory to use  <required>\n"
 "    -n <kmers>        Hash size\n"
-"    --seed <seed.fa>  Read in a seed file\n"
+"    --seq <seed.fa>   Read in a seed file\n"
 "    --invert          Dump kmers not in subgraph\n"
 "    --ncols <n>       Number of samples in memory at once (speedup)\n";
 
@@ -41,7 +41,7 @@ typedef struct
 dBGraph db_graph;
 uint64_t *kmer_mask;
 
-static void mark_bkmer(BinaryKmer bkmer, SeqLoadingStats *stats)
+static void mark_bkmer(BinaryKmer bkmer)
 {
   #ifdef CTXVERBOSE
     char tmp[MAX_KMER_SIZE+1];
@@ -52,19 +52,17 @@ static void mark_bkmer(BinaryKmer bkmer, SeqLoadingStats *stats)
   BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
   hkey_t node = hash_table_find(&db_graph.ht, bkey);
   if(node != HASH_NOT_FOUND) bitset_set(kmer_mask, node);
-  else stats->unique_kmers++;
 }
 
 void mark_reads(read_t *r1, read_t *r2,
                 uint8_t qoffset1, uint8_t qoffset2, void *ptr)
 {
   (void)qoffset1; (void)qoffset2;
-
   SeqLoadingStats *stats = (SeqLoadingStats*)ptr;
 
-  READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, stats, mark_bkmer, stats);
+  READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, stats, mark_bkmer);
   if(r2 != NULL) {
-    READ_TO_BKMERS(r2, db_graph.kmer_size, 0, 0, stats, mark_bkmer, stats);
+    READ_TO_BKMERS(r2, db_graph.kmer_size, 0, 0, stats, mark_bkmer);
   }
 }
 
@@ -104,7 +102,6 @@ static void store_bkmer_neighbours(BinaryKmer bkmer, EdgeNodeList *list)
   BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
   hkey_t node = hash_table_find(&db_graph.ht, bkey);
   if(node != HASH_NOT_FOUND) store_node_neighbours(node, list);
-  else list->stats->unique_kmers++;
 }
 
 void store_nodes(read_t *r1, read_t *r2,
@@ -137,13 +134,13 @@ int ctx_subgraph(CmdArgs *args)
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcasecmp(argv[argi], "--seed") == 0)
+    if(!strcasecmp(argv[argi], "--seq") | !strcasecmp(argv[argi], "--seed"))
     {
       if(argi+1 == argc)
-        print_usage(usage, "--seed <seed.fa> requires an argument");
+        print_usage(usage, "%s <seed.fa> requires an argument", argv[argi]);
       seed_files[num_seed_files] = argv[argi+1];
       if(!futil_is_file_readable(seed_files[num_seed_files]))
-        die("Cannot read --seed file: %s", argv[argi+1]);
+        die("Cannot read %s file: %s", argv[argi], argv[argi+1]);
       argi++; num_seed_files++;
     }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
@@ -268,6 +265,8 @@ int ctx_subgraph(CmdArgs *args)
     }
   }
 
+  hash_table_print_stats(&db_graph.ht);
+
   char subgraphstr[] = "subgraph:{";
   strbuf_insert(&intersect_gname, 0, subgraphstr, strlen(subgraphstr));
   strbuf_append_char(&intersect_gname, '}');
@@ -285,8 +284,6 @@ int ctx_subgraph(CmdArgs *args)
   size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
 
   status("Read in %zu seed kmers\n", num_of_seed_kmers);
-
-  hash_table_print_stats(&db_graph.ht);
 
   if(dist > 0)
   {
@@ -326,6 +323,8 @@ int ctx_subgraph(CmdArgs *args)
   // Remove nodes that were not flagged
   prune_nodes_lacking_flag(&db_graph, kmer_mask);
   free(kmer_mask);
+
+  hash_table_print_stats(&db_graph.ht);
 
   // Dump nodes that were flagged
   Edges *intersect_edges = NULL;

@@ -445,6 +445,6 @@ static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout)
 {
   PathIndex poffset = 0;
-  HASH_TRAVERSE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
-  HASH_TRAVERSE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
+  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
+  HASH_ITERATE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
 }

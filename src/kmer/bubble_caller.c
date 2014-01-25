@@ -618,7 +618,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   {
     #ifdef DEBUG_CALLER
       char tmpsup[MAX_KMER_SIZE+1];
-      BinaryKmer bkmer = db_node_bkmer(db_graph, snode_nodes(&snode_store[i])[0]);
+      BinaryKmer bkmer = db_node_bkmer(db_graph, snode_nodes(&snode_store[i])[0].key);
       binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpsup);
       printf("check supernode: %s\n", tmpsup);
     #endif

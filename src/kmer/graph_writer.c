@@ -17,7 +17,7 @@ void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
   size_t mem = num_of_cols * (sizeof(Covg)+sizeof(Edges));
   char buf[mem];
   memset(buf, 0, mem);
-  HASH_TRAVERSE(&db_graph->ht, dump_empty_bkmer, db_graph, buf, mem, fh);
+  HASH_ITERATE(&db_graph->ht, dump_empty_bkmer, db_graph, buf, mem, fh);
 }
 
 // Returns number of bytes written
@@ -138,7 +138,7 @@ void graph_file_write_colours(const dBGraph *db_graph,
                              FILE *fh)
 {
   assert(db_graph->num_of_cols == db_graph->num_edge_cols);
-  HASH_TRAVERSE(&db_graph->ht, overwrite_kmer_colours,
+  HASH_ITERATE(&db_graph->ht, overwrite_kmer_colours,
                 db_graph, graphcol, intocol, write_ncols, file_ncols, fh);
 }
 
@@ -211,7 +211,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
     if(num_of_cols == 1)
       status("Dumping graph colour %zu into: %s", colours[0], path);
     else {
-      timestamp(ctx_msg_out);
+      timestamp();
       message("Dumping graph colours %zu", colours[0]);
       for(i = 1; i < num_of_cols; i++) message(",%zu", colours[i]);
       message(" into: %s\n", path);
@@ -232,7 +232,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   // Write header
   graph_write_header(fout, header);
 
-  HASH_TRAVERSE(&db_graph->ht, graph_write_node, db_graph, fout, header,
+  HASH_ITERATE(&db_graph->ht, graph_write_node, db_graph, fout, header,
                 intocol, colours, start_col, num_of_cols, &num_nodes_dumped);
 
   if(header->version >= 7 && num_nodes_dumped != db_graph->ht.unique_kmers)

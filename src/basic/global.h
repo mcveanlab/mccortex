@@ -64,13 +64,17 @@ __attribute__((noreturn));
 void call_warn(const char *file, int line, const char *fmt, ...)
 __attribute__((format(printf, 3, 4)));
 
-void message(const char *fmt, ...)
-__attribute__((format(printf, 1, 2)));
+void fmessage(FILE *fh, const char *fmt, ...)
+__attribute__((format(printf, 2, 3)));
 
-void timestamp(FILE *fh);
+void ftimestamp(FILE *fh);
 
-void status(const char *fmt, ...)
-__attribute__((format(printf, 1, 2)));
+void fstatus(FILE *fh, const char *fmt, ...)
+__attribute__((format(printf, 2, 3)));
+
+#define message(fmt,...) fmessage(ctx_msg_out,fmt, ##__VA_ARGS__)
+#define timestamp()      ftimestamp(ctx_msg_out)
+#define status(fmt,...)  fstatus(ctx_msg_out,fmt, ##__VA_ARGS__)
 
 void print_usage(const char *msg, const char *errfmt,  ...)
   __attribute__((noreturn))

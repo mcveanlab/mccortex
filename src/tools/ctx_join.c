@@ -259,8 +259,8 @@ int ctx_join(CmdArgs *args)
     if(num_intersect > 1)
     {
       // Remove nodes where covg != num_intersect
-      HASH_TRAVERSE(&db_graph.ht, remove_non_intersect_nodes, db_graph.col_covgs,
-                    (Covg)num_intersect, &db_graph.ht);
+      HASH_ITERATE_SAFE(&db_graph.ht, remove_non_intersect_nodes,
+                        db_graph.col_covgs, (Covg)num_intersect, &db_graph.ht);
     }
 
     status("Loaded intersection set\n");

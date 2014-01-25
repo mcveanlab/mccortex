@@ -245,6 +245,13 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   PathLen plen, plen_orient;
   boolean added;
 
+  #ifdef CTXVERBOSE
+    char str[num_pl+1];
+    for(i = 0; i < num_pl; i++) str[i] = dna_nuc_to_char(nuc_pl[i]);
+    str[num_pl] = '\0';
+    status("[addpath] %s %s", pl_is_fw ? "fw" : "rv", str);
+  #endif
+
   const dBNode *nodes = wrkr->contig.data;
   dBGraph *db_graph = wrkr->db_graph;
 
@@ -303,7 +310,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     memcpy(packed_ptr, &plen_orient, sizeof(PathLen));
 
     // mask top byte!
-    size_t top_idx = sizeof(PathLen) + (plen-1)/4;
+    size_t top_idx = sizeof(PathLen) + (plen+3)/4-1;
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
@@ -333,7 +340,11 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr)
 
   worker_packed_cap(wrkr, (MAX2(num_fw, num_rv)+3)/4);
 
-  // status("num_fw: %zu num_rv: %zu", num_fw, num_rv);
+  assert(num_fw > 0 && num_rv > 0);
+
+  #ifdef CTXVERBOSE
+    status("num_fw: %zu num_rv: %zu", num_fw, num_rv);
+  #endif
 
   // Reverse pos_rv, nuc_rv
   size_t i, j, tmp_pos;
@@ -355,6 +366,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
   // status("nodebuf: %zu", wrkr->contig.len+MAX_KMER_SIZE+1);
   worker_nuc_cap(wrkr, wrkr->contig.len);
 
+  // gen_paths_print_inserts = true;
   if(gen_paths_print_inserts) {
     pthread_mutex_lock(&biglock);
     printf(">contig%zu\n", print_contig_id++);

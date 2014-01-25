@@ -5,6 +5,7 @@
 
 // 1) check node after node has indegree >1 in sample ctxcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
+// col is graph colour
 void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
                             const Nucleotide *bases, size_t nbases)
 {
@@ -26,6 +27,8 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
   } else if(db_graph->col_covgs != NULL) {
     assert(db_node_covg(db_graph, col, node.key) > 0);
   }
+
+  // status("nbases: %zu %zu:%i", nbases, (size_t)node.key, (int)node.orient);
 
   for(klen = 0, plen = 0; plen < nbases; klen++)
   {
@@ -49,6 +52,7 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
     // Reduce to nodes in our colour if edges limited
     if(db_graph->num_edge_cols == 1 && db_graph->node_in_cols != NULL) {
       for(i = 0, j = 0; i < n; i++) {
+        assert(db_node_has_col(db_graph, col, nodes[i]));
         if(db_node_has_col(db_graph, col, nodes[i])) {
           nodes[j] = nodes[i];
           orients[j] = orients[i];
@@ -65,6 +69,12 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
     if(n > 1) {
       assert(bases[plen] < 4);
       for(i = 0; i < n && nucs[i] != bases[plen]; i++);
+      if(i == n) {
+        printf("plen: %zu expected: %c\n", plen, dna_nuc_to_char(bases[plen]));
+        printf("Got: ");
+        for(i = 0; i < n; i++) printf(" %c", dna_nuc_to_char(nucs[i]));
+        printf("\n");
+      }
       assert(i < n && nucs[i] == bases[plen]);
       node.key = nodes[i];
       node.orient = orients[i];

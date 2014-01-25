@@ -169,7 +169,7 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
     end = get_var_end(alleles, num_alleles, msa_len, start);
 
     #ifdef CTXVERBOSE
-      printf("start-end: %i-%i\n", start, end);
+      printf("start-end: %zu-%zu\n", start, end);
     #endif
 
     strip_allele(&outvcf->cols[VCFREF], alleles[0]+start, end-start);

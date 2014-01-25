@@ -94,60 +94,61 @@ void db_graph_dealloc(dBGraph *db_graph)
 
 // Thread safe
 // Note: node may alreay exist in the graph
-hkey_t db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col)
+dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer, Colour col)
 {
-  hkey_t node;
+  BinaryKmer bkey;
+  hkey_t hkey;
   boolean found;
+  Orientation orient;
 
-  node = hash_table_find_or_insert_mt(&db_graph->ht, bkey, &found,
+  bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, &found,
                                       db_graph->bktlocks);
+  orient = db_node_get_orientation(bkey, bkmer);
 
-  if(db_graph->node_in_cols != NULL) db_node_set_col_mt(db_graph, node, col);
-  if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, node, col);
+  if(db_graph->node_in_cols != NULL) db_node_set_col_mt(db_graph, hkey, col);
+  if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, hkey, col);
+
+  dBNode node = {.key = hkey, .orient = orient};
   return node;
 }
 
 // Thread safe
 // In the case of self-loops in palindromes the two edges collapse into one
-void db_graph_add_edge_mt(dBGraph *db_graph, Colour colour,
-                          hkey_t src_node, hkey_t tgt_node,
-                          Orientation src_orient, Orientation tgt_orient)
+void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 {
   if(db_graph->col_edges == NULL) return;
 
-  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src_node);
-  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt_node);
+  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src.key);
+  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt.key);
 
-  Nucleotide lhs_nuc, rhs_nuc;
-  lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
-  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
+  Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
+  lhs_nuc = db_node_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
+  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
 
-  Nucleotide lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
-  Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
+  lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
-  db_node_set_col_edge_mt(db_graph, colour, src_node, rhs_nuc, src_orient);
-  db_node_set_col_edge_mt(db_graph, colour, tgt_node, lhs_nuc_rev, tgt_orient_opp);
+  db_node_set_col_edge_mt(db_graph, col, src.key, rhs_nuc,      src.orient);
+  db_node_set_col_edge_mt(db_graph, col, tgt.key, lhs_nuc_rev, !tgt.orient);
 }
 
 // For debugging + healthcheck
-void db_graph_check_edges(const dBGraph *db_graph,
-                          hkey_t src_node, hkey_t tgt_node,
-                          Orientation src_orient, Orientation tgt_orient)
+void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 {
-  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src_node);
-  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt_node);
+  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src.key);
+  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt.key);
 
-  Nucleotide lhs_nuc, rhs_nuc;
-  lhs_nuc = db_node_first_nuc(src_bkmer, src_orient, db_graph->kmer_size);
-  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt_orient, db_graph->kmer_size);
+  Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
+  lhs_nuc = db_node_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
+  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
 
-  Nucleotide lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
-  Orientation tgt_orient_opp = opposite_orientation(tgt_orient);
+  lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
-  Edges src_uedges = db_node_edges_union(db_graph, src_node);
-  Edges tgt_uedges = db_node_edges_union(db_graph, tgt_node);
-  assert(edges_has_edge(src_uedges, rhs_nuc, src_orient));
-  assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, tgt_orient_opp));
+  Edges src_uedges = db_node_edges_union(db_graph, src.key);
+  Edges tgt_uedges = db_node_edges_union(db_graph, tgt.key);
+
+  assert(edges_has_edge(src_uedges, rhs_nuc,      src.orient));
+  assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient));
 }
 
 //
@@ -248,16 +249,23 @@ static inline void check_node(hkey_t node, const dBGraph *db_graph)
     die("Excess edges on node: %s [%zu,%zu]", seq, nfw_edges, nrv_edges);
   }
 
+  dBNode fwnode = {.key = node, .orient = FORWARD};
+  dBNode rvnode = {.key = node, .orient = REVERSE};
+
   // Check all edges are reciprical
-  for(i = 0; i < nfw_edges; i++)
-    db_graph_check_edges(db_graph, node, fwnodes[i], FORWARD, fworients[i]);
-  for(i = 0; i < nrv_edges; i++)
-    db_graph_check_edges(db_graph, node, rvnodes[i], REVERSE, rvorients[i]);
+  for(i = 0; i < nfw_edges; i++) {
+    dBNode tmpnode = {.key = fwnodes[i], .orient = fworients[i]};
+    db_graph_check_edges(db_graph, fwnode, tmpnode);
+  }
+  for(i = 0; i < nrv_edges; i++) {
+    dBNode tmpnode = {.key = rvnodes[i], .orient = rvorients[i]};
+    db_graph_check_edges(db_graph, rvnode, tmpnode);
+  }
 }
 
 void db_graph_healthcheck(const dBGraph *db_graph)
 {
-  HASH_TRAVERSE(&db_graph->ht, check_node, db_graph);
+  HASH_ITERATE(&db_graph->ht, check_node, db_graph);
 }
 
 //
@@ -349,7 +357,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
 void db_graph_add_all_edges(dBGraph *db_graph)
 {
   assert(db_graph->num_of_cols == db_graph->num_edge_cols);
-  HASH_TRAVERSE(&db_graph->ht, add_all_edges, db_graph);
+  HASH_ITERATE(&db_graph->ht, add_all_edges, db_graph);
 }
 
 //

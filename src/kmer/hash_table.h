@@ -12,6 +12,9 @@
 // bucket size must be <256
 #define MAX_BUCKET_SIZE 32
 
+#define HT_BSIZE 0
+#define HT_BITEMS 1
+
 typedef struct
 {
   BinaryKmer *const table;
@@ -47,8 +50,7 @@ size_t hash_table_mem(size_t nkmers, size_t extrabits, size_t *nkmers_ptr);
 size_t hash_table_mem_limit(size_t memlimit, size_t extrabits, size_t *nkmers_ptr);
 
 // Returns NULL if not enough memory
-HashTable* hash_table_alloc(HashTable *htable, uint64_t capacity);
-
+void hash_table_alloc(HashTable *htable, uint64_t capacity);
 void hash_table_dealloc(HashTable *hash_table);
 
 // Delete all entries from a hash table
@@ -71,10 +73,13 @@ void hash_table_print_stats(const HashTable *const htable);
 uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 
 // Iterate over entries in the hash table
-#define HASH_TRAVERSE(ht,func,...) HASH_TRAVERSE2(ht,func,##__VA_ARGS__)
+#define HASH_ITERATE(ht,func,...) HASH_ITERATE2(ht,func,##__VA_ARGS__)
+
+// This allows up to add/remove items
+#define HASH_ITERATE_SAFE(ht,func,...) HASH_ITERATE1(ht,func,##__VA_ARGS__)
 
 // Iterate over all entries
-#define HASH_TRAVERSE1(ht,func, ...) {                                         \
+#define HASH_ITERATE1(ht,func, ...) {                                          \
   const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
@@ -85,10 +90,11 @@ uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
 
 // Iterate over buckets, iterate over bucket contents
 // Faster in low density hash tables
-#define HASH_TRAVERSE2(ht,func, ...) {                                         \
-  BinaryKmer *bkt_strt = (ht)->table, *htt_ptr; size_t _b,_c;                  \
+// Don't use this iterator if your func adds or removes elements
+#define HASH_ITERATE2(ht,func, ...) {                                          \
+  const BinaryKmer *bkt_strt = (ht)->table, *htt_ptr; size_t _b,_c;            \
   for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
-    for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][1]; htt_ptr++) {    \
+    for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][HT_BITEMS]; htt_ptr++){\
       if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                      \
         _c++; func((hkey_t)(htt_ptr - (ht)->table), ##__VA_ARGS__);            \
       }                                                                        \

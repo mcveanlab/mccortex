@@ -119,7 +119,7 @@ void file_filter_dealloc(FileFilter *fltr)
 void file_filter_status(const FileFilter *fltr)
 {
   size_t i;
-  timestamp(ctx_msg_out);
+  timestamp();
   message(" Loading file %s [%zu colours]", fltr->file_path.buff, fltr->filencols);
   if(!fltr->nofilter) {
     message(" with colour filter: %zu", fltr->cols[0]);

@@ -119,29 +119,21 @@ void build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
 {
   assert(len >= db_graph->kmer_size);
   const size_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer, tmp_key;
-  hkey_t prev_node, curr_node;
-  Orientation prev_or, curr_or;
+  BinaryKmer bkmer;
+  Nucleotide nuc;
+  dBNode prev, curr;
   size_t i;
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
-  tmp_key = db_node_get_key(bkmer, kmer_size);
-  prev_node = db_graph_find_or_add_node_mt(db_graph, tmp_key, colour);
-  prev_or = db_node_get_orientation(bkmer, tmp_key);
+  prev = db_graph_find_or_add_node_mt(db_graph, bkmer, colour);
 
   for(i = kmer_size; i < len; i++)
   {
-    Nucleotide nuc = dna_char_to_nuc(seq[i]);
+    nuc = dna_char_to_nuc(seq[i]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-
-    tmp_key = db_node_get_key(bkmer, kmer_size);
-    curr_node = db_graph_find_or_add_node_mt(db_graph, tmp_key, colour);
-    curr_or = db_node_get_orientation(bkmer, tmp_key);
-
-    db_graph_add_edge_mt(db_graph, colour, prev_node, curr_node, prev_or, curr_or);
-
-    prev_node = curr_node;
-    prev_or = curr_or;
+    curr = db_graph_find_or_add_node_mt(db_graph, bkmer, colour);
+    db_graph_add_edge_mt(db_graph, colour, prev, curr);
+    prev = curr;
   }
 }
 

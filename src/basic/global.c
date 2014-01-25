@@ -55,7 +55,7 @@ void call_die(const char *file, int line, const char *fmt, ...)
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
   if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
-  timestamp(stderr);
+  ftimestamp(stderr);
   fputs(" Fatal Error\n", stderr);
   exit(EXIT_FAILURE);
 }
@@ -75,18 +75,18 @@ void call_warn(const char *file, int line, const char *fmt, ...)
 }
 
 // A function for standard output
-void message(const char *fmt, ...)
+void fmessage(FILE *fh, const char *fmt, ...)
 {
-  if(ctx_msg_out != NULL) {
+  if(fh != NULL) {
     va_list argptr;
     va_start(argptr, fmt);
-    vfprintf(ctx_msg_out, fmt, argptr);
+    vfprintf(fh, fmt, argptr);
     va_end(argptr);
-    fflush(ctx_msg_out);
+    fflush(fh);
   }
 }
 
-void timestamp(FILE *fh)
+void ftimestamp(FILE *fh)
 {
   time_t t;
   char tstr[100];
@@ -99,19 +99,19 @@ void timestamp(FILE *fh)
 }
 
 // A function for standard output
-void status(const char *fmt, ...)
+void fstatus(FILE *fh, const char *fmt, ...)
 {
   va_list argptr;
 
-  if(ctx_msg_out != NULL) {
+  if(fh != NULL) {
     pthread_mutex_lock(&biglock);
-    timestamp(ctx_msg_out);
-    if(fmt[0] != ' ' && fmt[0] != '[') fputc(' ', ctx_msg_out);
+    ftimestamp(fh);
+    if(fmt[0] != ' ' && fmt[0] != '[') fputc(' ', fh);
     va_start(argptr, fmt);
-    vfprintf(ctx_msg_out, fmt, argptr);
+    vfprintf(fh, fmt, argptr);
     va_end(argptr);
-    if(fmt[strlen(fmt)-1] != '\n') fputc('\n', ctx_msg_out);
-    fflush(ctx_msg_out);
+    if(fmt[strlen(fmt)-1] != '\n') fputc('\n', fh);
+    fflush(fh);
     pthread_mutex_unlock(&biglock);
   }
 }

@@ -8,12 +8,13 @@
 #include "cortex_types.h"
 #include "hash_table.h"
 #include "graph_info.h"
+#include "db_node.h"
 #include "path_store.h"
 
 //
 // Graph
 //
-typedef struct
+struct dBGraph
 {
   HashTable ht;
   // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
@@ -51,7 +52,7 @@ typedef struct
 
   // Loading reads
   uint8_t *readstrt;
-} dBGraph;
+};
 
 #define db_graph_node_assigned(graph,hkey) HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
 
@@ -73,7 +74,7 @@ void db_graph_dealloc(dBGraph *db_graph);
 
 // Thread safe
 // Note: node may alreay exist in the graph
-hkey_t db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col);
+dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col);
 
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge(dBGraph *db_graph, Colour colour,
@@ -82,14 +83,10 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
 
 // Thread safe
 // In the case of self-loops in palindromes the two edges collapse into one
-void db_graph_add_edge_mt(dBGraph *db_graph, Colour colour,
-                          hkey_t src_node, hkey_t tgt_node,
-                          Orientation src_orient, Orientation tgt_orient);
+void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt);
 
 // For debugging + healthcheck
-void db_graph_check_edges(const dBGraph *db_graph,
-                          hkey_t src_node, hkey_t tgt_node,
-                          Orientation src_orient, Orientation tgt_orient);
+void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt);
 
 //
 // Graph Traversal

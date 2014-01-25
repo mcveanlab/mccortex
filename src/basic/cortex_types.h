@@ -15,4 +15,6 @@ typedef uint_fast8_t Orientation;
 #define false 0
 typedef uint_fast8_t boolean;
 
+typedef struct dBGraph dBGraph;
+
 #endif /* CORTEX_TYPES_H_ */

@@ -92,7 +92,7 @@ static inline void supernode_clean(hkey_t node, dBGraph *db_graph,
     #ifdef DEBUG_SUPERNODE
       fputs("sn_thresh: ", stdout);
       db_nodes_print(*nodes, len, db_graph, stdout);
-      printf(" len: %zu covg: %u threshold: %u\n", len,
+      printf(" len: %zu covg: %zu threshold: %u\n", len,
              reads_arriving, covg_threshold);
     #endif
 
@@ -217,8 +217,8 @@ static Covg clean_supernodes(dBGraph *db_graph, boolean clean,
   {
     // Get supernode coverages
     covg_hist = calloc2(HISTSIZE, sizeof(uint64_t));
-    HASH_TRAVERSE(&db_graph->ht, covg_histogram,
-                  db_graph, nodes, &tmpcovgs, ncap, visited, covg_hist);
+    HASH_ITERATE(&db_graph->ht, covg_histogram,
+                 db_graph, nodes, &tmpcovgs, ncap, visited, covg_hist);
 
     if(dump_covgs != NULL) dump_covg_histogram(dump_covgs, covg_hist);
 
@@ -244,9 +244,9 @@ static Covg clean_supernodes(dBGraph *db_graph, boolean clean,
     if(covg_threshold <= 1)
       warn("Supernode cleaning failed, cleaning with threshold of <= 1");
     else {
-      HASH_TRAVERSE(&db_graph->ht, supernode_clean,
-                    db_graph, nodes, &tmpcovgs, ncap, visited,
-                    covg_threshold);
+      HASH_ITERATE(&db_graph->ht, supernode_clean,
+                   db_graph, nodes, &tmpcovgs, ncap, visited,
+                   covg_threshold);
       memset(visited, 0, visited_words * sizeof(uint64_t));
     }
   }
@@ -466,9 +466,10 @@ int ctx_clean(CmdArgs *args)
 
   // Tip clipping
   if(tip_cleaning) {
+    // Need to use _SAFE hash traverse since we remove elements in clip_tip()
     status("Clipping tips shorter than %zu...\n", max_tip_len);
-    HASH_TRAVERSE(&db_graph.ht, clip_tip,
-                  &db_graph, &nodes, &ncap, visited, max_tip_len);
+    HASH_ITERATE_SAFE(&db_graph.ht, clip_tip,
+                      &db_graph, &nodes, &ncap, visited, max_tip_len);
     ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);
     status("Remaining kmers: %s\n", rem_kmers_str);
     memset(visited, 0, visited_words * sizeof(uint64_t));

@@ -27,7 +27,7 @@ static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
 // After calling this function on all nodes, call:
 // prune_nodes_lacking_flag_no_edges
 static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
-                                              uint64_t *flags)
+                                              const uint64_t *flags)
 {
   Edges keep_edges = 0x0;
   size_t col;
@@ -66,24 +66,25 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
 }
 
 static void prune_nodes_lacking_flag_no_edges(hkey_t node, dBGraph *db_graph,
-                                              uint64_t *flags)
+                                              const uint64_t *flags)
 {
-  if(!bitset_get(flags, node))
+  if(!bitset_get(flags, node)) {
     prune_node_without_edges(db_graph, node);
+  }
 }
 
 // Remove all nodes that do not have a given flag
-void prune_nodes_lacking_flag(dBGraph *db_graph, uint64_t *flags)
+void prune_nodes_lacking_flag(dBGraph *db_graph, const uint64_t *flags)
 {
   // Trim edges from valid nodes
   if(db_graph->col_edges != NULL) {
-    HASH_TRAVERSE(&db_graph->ht, prune_edges_to_nodes_lacking_flag,
-                  db_graph, flags);
+    HASH_ITERATE(&db_graph->ht, prune_edges_to_nodes_lacking_flag,
+                 db_graph, flags);
   }
 
   // Removed dead nodes
-  HASH_TRAVERSE(&db_graph->ht, prune_nodes_lacking_flag_no_edges,
-                db_graph, flags);
+  HASH_ITERATE_SAFE(&db_graph->ht, prune_nodes_lacking_flag_no_edges,
+                    db_graph, flags);
 }
 
 // Remove all edges in the graph that connect to the given node
@@ -160,5 +161,5 @@ static void db_graph_remove_node_if_uncoloured(hkey_t node, dBGraph *db_graph)
 
 void prune_uncoloured_nodes(dBGraph *db_graph)
 {
-  HASH_TRAVERSE(&db_graph->ht, db_graph_remove_node_if_uncoloured, db_graph);
+  HASH_ITERATE_SAFE(&db_graph->ht, db_graph_remove_node_if_uncoloured, db_graph);
 }

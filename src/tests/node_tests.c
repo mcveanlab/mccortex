@@ -46,8 +46,8 @@ void test_db_node()
     build_graph_from_str_mt(&graph, col, seq, strlen(seq));
   }
 
-  HASH_TRAVERSE(&graph.ht, edge_check, &graph, 0);
-  HASH_TRAVERSE(&graph.ht, edge_check, &graph, 1);
+  HASH_ITERATE(&graph.ht, edge_check, &graph, 0);
+  HASH_ITERATE(&graph.ht, edge_check, &graph, 1);
 
   free((void*)graph.bktlocks);
   free(graph.col_covgs);

@@ -68,16 +68,13 @@ int main(int argc, char **argv)
 
   status(ret == 0 ? "Done." : "Fail.");
 
-  if(strcmp(argv[1],"view") != 0)
-  {
-    // Print time taken
-    double diff = difftime(end,start);
-    if(diff < 60) status("[time] %.2lf seconds\n", diff);
-    else {
-      char timestr[100];
-      seconds_to_str((size_t)diff, timestr);
-      status("[time] %.2lf seconds (%s)\n", diff, timestr);
-    }
+  // Print time taken
+  double diff = difftime(end,start);
+  if(diff < 60) status("[time] %.2lf seconds\n", diff);
+  else {
+    char timestr[100];
+    seconds_to_str((size_t)diff, timestr);
+    status("[time] %.2lf seconds (%s)\n", diff, timestr);
   }
 
   cortex_destroy();

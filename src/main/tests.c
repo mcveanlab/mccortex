@@ -10,6 +10,7 @@ int main()
   test_status("Tests running...");
   test_bkmer_functions();
   test_dna_functions();
+  test_hash_table();
   test_db_node();
   test_util();
   test_packed_path();

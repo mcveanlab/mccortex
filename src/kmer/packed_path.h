@@ -3,6 +3,7 @@
 
 #include "cortex_types.h"
 #include "dna.h"
+#include "bit_macros.h"
 
 typedef uint64_t PathIndex;
 typedef uint16_t PathLen;

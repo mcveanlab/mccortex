@@ -18,7 +18,7 @@ MEMHEIGHT=20
 # MAPARGS=
 MINMAPQ=40
 MAXALLELE=500
-NTHREADS=4
+NTHREADS=1
 # How many contigs to print
 NCONTIGS=10000
 
@@ -53,7 +53,7 @@ BUILDCTX=$(CTX) build
 CLEANCTX=$(CTX) clean
 JOINCTX=$(CTX) join
 INFERCTX=$(CTX) inferedges --all
-THREADCTX=$(CTX) thread
+THREADCTX=$(CTX) thread -a 1 -t $(NTHREADS) -m $(MEM)
 CALLCTX=$(CTX) call
 PROCCTX=$(CTX) unique
 PLACECTX=$(CTX) place
@@ -304,15 +304,15 @@ $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
 # shopt -s nullglob means wildcards return no matches instead of literal '*_sizes'
 k$(KMER)/graphs/pop.sepe.%.ctp: k$(KMER)/graphs/pop.%.ctx k$(KMER)/graphs/pop.se.%.ctp
-	$(THREADCTX) -m $(MEM) -t $(NTHREADS) -p k$(KMER)/graphs/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
+	$(THREADCTX) -p k$(KMER)/graphs/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
 	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/sepe.$$f; done
 
 k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
-	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) $@ $<
+	$(THREADCTX) $($*_list) $@ $<
 	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
 
 k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
-	$(THREADCTX) -m $(MEM) -t $(NTHREADS) $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
+	$(THREADCTX) $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
 	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
 
 # Bubbles

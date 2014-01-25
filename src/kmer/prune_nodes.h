@@ -14,7 +14,7 @@ void prune_supernode(dBGraph *db_graph, dBNode *nodes, size_t len);
 
 // Used by ctx_subgraph
 // flags is a bit array, one bit per kmer
-void prune_nodes_lacking_flag(dBGraph *graph, uint64_t *flags);
+void prune_nodes_lacking_flag(dBGraph *graph, const uint64_t *flags);
 
 // Currently unused
 // remove nodes if not in any colour
