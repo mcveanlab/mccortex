@@ -11,6 +11,7 @@ int main()
   test_dna_functions();
   test_db_node();
   test_util();
+  test_packed_path();
   status("Finished tests.");
   cortex_destroy();
   return EXIT_SUCCESS;

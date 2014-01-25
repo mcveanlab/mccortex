@@ -15,6 +15,7 @@
 #include "path_store.h"
 #include "path_format.h"
 #include "path_store_thread_safe.h"
+#include "graph_paths.h" // for debugging atm
 #include "async_read_io.h"
 
 //
@@ -248,7 +249,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   dBGraph *db_graph = wrkr->db_graph;
 
   // Create packed path with four diff offsets (0..3), point to correct one
-  size_t pckd_memsize = (num_pl+3)/4;
+  size_t pckd_memsize = sizeof(PathLen) + (num_pl+3)/4;
   uint8_t *packed_ptrs[4], *packed_ptr;
 
   worker_packed_cap(wrkr, pckd_memsize*4);
@@ -286,8 +287,8 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     orient = pl_is_fw ? nodes[pos].orient : rev_orient(nodes[pos].orient);
 
     dBNode tmp = {.key = node, .orient = orient};
-    path_format_is_path_valid(db_graph, tmp, wrkr->task.ctxcol,
-                              nuc_pl+start_pl, plen);
+    graph_path_check_valid(db_graph, tmp, wrkr->task.ctxcol,
+                           nuc_pl+start_pl, plen);
 
     #ifdef CTXVERBOSE
       char kmerstr[MAX_KMER_SIZE+1];

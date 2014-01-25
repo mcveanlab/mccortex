@@ -1,6 +1,9 @@
 #ifndef PACKED_PATH_H_
 #define PACKED_PATH_H_
 
+#include "cortex_types.h"
+#include "dna.h"
+
 typedef uint64_t PathIndex;
 typedef uint16_t PathLen;
 
@@ -60,7 +63,9 @@ static inline void packedpath_set_prev(uint8_t *ptr, PathIndex idx) {
 
 #define packedpath_len(w) ((w) & ~PP_ORIENTMASK)
 #define packedpath_or(w) ((w) >> PATH_LEN_BITS)
-#define packedpath_combine_lenorient(len,orient) ((len)|((PathLen)(orient)<<PATH_LEN_BITS))
+
+#define packedpath_combine_lenorient(len,orient) \
+        ((len)|((PathLen)(orient)<<PATH_LEN_BITS))
 
 static inline PathLen packedpath_get_lenword(const uint8_t *ptr, size_t colbytes)
 {
@@ -123,5 +128,147 @@ static inline void packedpack_set_len_orient(uint8_t *ptr, size_t colbytes,
 
 // Get pointer to first byte of path
 #define packedpath_path(p,colbytes) ((p)+sizeof(PathIndex)+colbytes+sizeof(PathLen))
+
+
+// Convert from unpacked representation (1 base per byte) to packed
+// representation (4 bases per byte)
+static inline void pack_bases(uint8_t *restrict ptr,
+                              const Nucleotide *restrict bases, size_t len)
+{
+  size_t full_bytes = len/4;
+  const uint8_t *endptr = ptr+full_bytes;
+
+  for(; ptr < endptr; ptr++)
+    *ptr = bases[0] | (bases[1]<<2) | (bases[2]<<4) | (bases[3]<<6);
+
+  // Do last byte
+  if(len & 3) {
+    *ptr = 0;
+    switch(len & 3) {
+      case 3: *ptr = bases[--len];
+      case 2: *ptr = ((*ptr)<<2) | bases[--len];
+      case 1: *ptr = ((*ptr)<<2) | bases[--len];
+    }
+  }
+}
+
+// Convert from compact representation (4 bases per byte) to unpacked
+// representation (1 base per byte)
+static inline void unpack_bases(const uint8_t *restrict ptr,
+                                Nucleotide *restrict bases, size_t len)
+{
+  size_t i, full_bytes = len/4;
+  const uint8_t *endptr = ptr+full_bytes;
+
+  for(i = 0; ptr < endptr; ptr++) {
+    bases[i++] =  (*ptr)     & 3;
+    bases[i++] = ((*ptr)>>2) & 3;
+    bases[i++] = ((*ptr)>>4) & 3;
+    bases[i++] = ((*ptr)>>6);
+  }
+
+  // Do last byte
+  switch(len & 3) {
+    case 3: bases[i++] = ((*ptr)>>4) & 3;
+    case 2: bases[i++] = ((*ptr)>>2) & 3;
+    case 1: bases[i++] = ((*ptr))    & 3;
+  }
+}
+
+// Copy a packed path from one place in memory to another, applying left shift
+// Shifting by N bases results in N fewer bases in output
+// len_bases is length before shifting
+// dst needs as many bytes output as input
+
+static inline void packed_cpy_slow(uint8_t *restrict dst,
+                                   const uint8_t *restrict src,
+                                   size_t shift, size_t n)
+{
+  size_t i, m, sb, dstn;
+  if(shift >= n) { dst[0] = 0; return; }
+  sb = shift*2;
+  m = (n+3)/4;
+  dstn = (n-shift+3)/4;
+  dst[dstn-1] = 0;
+  for(i = 0; i+1 < m; i++) dst[i] = (src[i]>>sb) | (src[i+1]<<(8-sb));
+  dst[dstn-1] |= src[dstn-1] >> sb;
+  dst[dstn-1] &= bitmask64((n-shift)*2-(dstn-1)*8); // mask top byte
+}
+
+static inline void packed_cpy_med(uint8_t *restrict dst,
+                                  const uint8_t *restrict src,
+                                  size_t shift, size_t n)
+{
+  size_t i, m, sb, dstn;
+  if(shift >= n) { dst[0] = 0; return; }
+  sb = shift*2;
+  m = (n+3)/4;
+  dstn = (n-shift+3)/4;
+  dst[dstn-1] = 0;
+  switch(shift) {
+    case 0: memcpy(dst, src, m); break;
+    case 1: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>2) | (src[i+1]<<6); } break;
+    case 2: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>4) | (src[i+1]<<4); } break;
+    case 3: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>6) | (src[i+1]<<2); } break;
+  }
+  dst[dstn-1] |= src[dstn-1] >> sb;
+  dst[dstn-1] &= bitmask64((n-shift)*2-(dstn-1)*8); // mask top byte
+}
+
+// Copy 8 bytes at a time
+static inline void packed_cpy_fast(uint8_t *restrict dst,
+                                   const uint8_t *restrict src,
+                                   uint8_t shift, size_t len_bases)
+{
+  size_t src_bytes = (len_bases+3)/4, dst_bytes = (len_bases-shift+3)/4;
+
+  if(shift >= len_bases) { dst[0] = 0; return; }
+  if(!shift) {
+    memcpy(dst, src, src_bytes);
+    dst[src_bytes-1] &= bitmask64(len_bases*2-(src_bytes-1)*8); // mask top byte
+    return;
+  }
+
+  size_t nwords64, endbyte, byte, bitshift;
+  uint64_t word;
+
+  bitshift = shift*2;
+  nwords64 = (len_bases-shift)/32;
+  endbyte = nwords64*8;
+
+  for(byte=0; byte+8<endbyte; byte+=8) {
+    memcpy(&word, &src[byte], 8);
+    word = (word >> bitshift) | ((uint64_t)src[byte+8] << (64-bitshift));
+    memcpy(&dst[byte], &word, 8);
+  }
+
+  size_t rem_src_bytes = src_bytes - byte;
+  size_t rem_dst_bytes = dst_bytes - byte;
+  size_t rem_bases = len_bases-shift-byte*4;
+
+  memcpy(&word, &src[byte], rem_src_bytes);
+  word >>= bitshift;
+  word &= bitmask64(rem_bases*2);
+  memcpy(&dst[byte], &word, rem_dst_bytes);
+}
+
+#define packed_cpy(dst,src,shift,len) packed_cpy_fast(dst,src,shift,len)
+
+// Fetch a given base. Four bases per byte
+// ptr should point directly to sequence
+static inline Nucleotide packed_fetch(const uint8_t *ptr, size_t idx)
+{
+  size_t byte = idx / 4, offset = (idx & 3)*2;
+  return (ptr[byte] >> offset) & 3;
+}
+
+// Add a given base. Four bases per byte
+// ptr should point directly to sequence
+// Doesn't provide any masking - should already be zeroed
+static inline void packed_add(uint8_t *ptr, size_t idx, Nucleotide nuc)
+{
+  size_t byte = idx / 4, offset = (idx & 3)*2;
+  ptr[byte] |= nuc << offset;
+}
 
 #endif /* PACKED_PATH_H_ */

@@ -45,9 +45,6 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
                         boolean insert_missing_kmers,
                         uint8_t *tmpdata, size_t tmpdatasize, dBGraph *db_graph);
 
-void path_format_is_path_valid(const dBGraph *db_graph, dBNode node, size_t col,
-                               const Nucleotide *bases, size_t nbases);
-
 //
 // Write
 //

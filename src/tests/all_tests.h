@@ -15,6 +15,9 @@ void test_db_node();
 // util.c
 void test_util();
 
+// packed_path.c
+void test_packed_path();
+
 // path_tests.c
 void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2);
 

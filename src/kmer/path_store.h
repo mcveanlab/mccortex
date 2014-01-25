@@ -18,12 +18,6 @@ typedef struct {
 void path_store_init(PathStore *paths, uint8_t *data, size_t size, size_t ncols);
 void path_store_resize(PathStore *paths, size_t size);
 
-void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len);
-void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len);
-
-void packed_cpy(uint8_t *restrict dst, const uint8_t *restrict src,
-                size_t shift, size_t len_bases);
-
 // Find a path
 // returns PATH_NULL if not found, otherwise index
 // path_nbytes is length in bytes of bases = (num bases + 3)/4

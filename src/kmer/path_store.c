@@ -38,66 +38,6 @@ void path_store_resize(PathStore *paths, size_t size)
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
 
-// Convert from unpacked representation (1 base per byte) to packed
-// representation (4 bases per byte)
-void pack_bases(uint8_t *ptr, const Nucleotide *bases, size_t len)
-{
-  size_t full_bytes = len/4;
-  const uint8_t *endptr = ptr+full_bytes;
-
-  for(; ptr < endptr; ptr++)
-    *ptr = bases[0] | (bases[1]<<2) | (bases[2]<<4) | (bases[3]<<6);
-
-  // Do last byte
-  if(len & 3) *ptr = 0;
-  switch(len & 3) {
-    case 3: *ptr = bases[--len];
-    case 2: *ptr = (*ptr<<2) | bases[--len];
-    case 1: *ptr = (*ptr<<2) | bases[--len];
-  }
-}
-
-// Convert from compact representation (4 bases per byte) to unpacked
-// representation (1 base per byte)
-void unpack_bases(const uint8_t *ptr, Nucleotide *bases, size_t len)
-{
-  size_t i, full_bytes = len/4;
-  const uint8_t *endptr = ptr+full_bytes;
-
-  for(i = 0; ptr < endptr; ptr++) {
-    bases[i++] =  (*ptr)     & 3;
-    bases[i++] = ((*ptr)>>2) & 3;
-    bases[i++] = ((*ptr)>>4) & 3;
-    bases[i++] = ((*ptr)>>6);
-  }
-
-  // Do last byte
-  switch(len & 3) {
-    case 3: bases[i++] = (*ptr>>4) & 3;
-    case 2: bases[i++] = (*ptr>>2) & 3;
-    case 1: bases[i++] = (*ptr)    & 3;
-  }
-}
-
-// Copy a packed path from one place in memory to another, applying left shift
-// Shifting by N bases results in N fewer bases in output
-void packed_cpy(uint8_t *restrict dst, const uint8_t *restrict src,
-                size_t shift, size_t len_bases)
-{
-  assert(shift < 4);
-  size_t i, nbytes = (len_bases+3)/4;
-
-  if(shift >= len_bases) return;
-  if(!shift) { memcpy(dst, src, nbytes); return; }
-
-  switch(shift) {
-    case 3: for(i=0;i+1<nbytes;i++) dst[i] = (src[i]>>6) | (src[i+1]<<2); break;
-    case 2: for(i=0;i+1<nbytes;i++) dst[i] = (src[i]>>4) | (src[i+1]<<4); break;
-    case 1: for(i=0;i+1<nbytes;i++) dst[i] = (src[i]>>2) | (src[i+1]<<6); break;
-  }
-  dst[nbytes-1] = src[nbytes-1] >> shift;
-}
-
 
 // Find a path
 // returns PATH_NULL if not found, otherwise index
@@ -259,7 +199,7 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
   if(paths->next + total_len >= paths->end) die("Out of memory for paths");
 
   uint8_t *ptr = paths->next;
-  PathLen len_and_orient = len | (PathLen)(orient << PATH_LEN_BITS);
+  PathLen len_and_orient = packedpath_combine_lenorient(len, orient);
 
   // write path
   memcpy(ptr, &last_index, sizeof(PathIndex));

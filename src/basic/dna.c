@@ -76,7 +76,7 @@ char* dna_reverse_complement_str(char *str, size_t length)
 char* dna_rand_str(char *str, size_t cap)
 {
   const char bases[4] = "ACGT";
-  size_t i, r;
+  size_t i, r = 0;
 
   if(cap == 0) return str;
   if(cap == 1) { str[0] = '\0'; return str; }
