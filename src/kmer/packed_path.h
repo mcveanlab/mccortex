@@ -135,11 +135,11 @@ static inline void packedpack_set_len_orient(uint8_t *ptr, size_t colbytes,
 static inline void pack_bases(uint8_t *restrict ptr,
                               const Nucleotide *restrict bases, size_t len)
 {
-  size_t full_bytes = len/4;
+  size_t i, full_bytes = len/4;
   const uint8_t *endptr = ptr+full_bytes;
 
-  for(; ptr < endptr; ptr++)
-    *ptr = bases[0] | (bases[1]<<2) | (bases[2]<<4) | (bases[3]<<6);
+  for(i = 0; ptr < endptr; ptr++, i += 4)
+    *ptr = bases[i] | (bases[i+1]<<2) | (bases[i+2]<<4) | (bases[i+3]<<6);
 
   // Do last byte
   if(len & 3) {
@@ -169,9 +169,9 @@ static inline void unpack_bases(const uint8_t *restrict ptr,
 
   // Do last byte
   switch(len & 3) {
-    case 3: bases[i++] = ((*ptr)>>4) & 3;
-    case 2: bases[i++] = ((*ptr)>>2) & 3;
-    case 1: bases[i++] = ((*ptr))    & 3;
+    case 3: bases[--len] = ((*ptr)>>4) & 3;
+    case 2: bases[--len] = ((*ptr)>>2) & 3;
+    case 1: bases[--len] = ((*ptr))    & 3;
   }
 }
 

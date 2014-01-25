@@ -10,6 +10,17 @@ static void fill_rand(uint8_t *arr, size_t n)
   for(i = 4*(n/4); i<n; i++) { arr[i] = (uint8_t)(r&0xff); r >>= 8; }
 }
 
+static void rand_nucs(Nucleotide *nucs, size_t len)
+{
+  if(!len) return;
+  size_t i, r;
+  for(i = 0; i < len; i++) {
+    if((i & 15) == 0) r = (size_t)rand(); // 2 bits per cycle, 32 bits in rand()
+    nucs[i] = r&3;
+    r >>= 2;
+  }
+}
+
 static void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
 {
   size_t i, j;
@@ -22,7 +33,10 @@ static void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
   *str = '\0';
 }
 
-void test_packed_path()
+#define NTESTS 100
+#define TLEN 200
+
+static void test_pack_cpy()
 {
   status("[packedpath] Testing shift copy");
 
@@ -40,9 +54,6 @@ void test_packed_path()
     for(i = 1; i < 5; i++) assert(out[i]==0);
     for(i = 5; i < 100; i++) assert(out[i]==0xff);
   }
-
-  #define NTESTS 100
-  #define TLEN 100
 
   // Random testing
   uint8_t in[TLEN], slow[TLEN], med[TLEN], fast[TLEN];
@@ -87,4 +98,48 @@ void test_packed_path()
     assert(i == TLEN);
     assert(j == TLEN);
   }
+}
+
+static void print_nucs(Nucleotide *nucs, size_t len) {
+  size_t i;
+  for(i = 0; i < len; i++) printf(" %u", (uint32_t)nucs[i]);
+}
+
+static void test_pack_unpack()
+{
+  status("[packedpath] Testing pack_bases() / unpack_bases()");
+
+  uint8_t packed[TLEN];
+  Nucleotide bases0[TLEN], bases1[TLEN];
+  char str[8*TLEN+1];
+  size_t i, t, len;
+
+  // Run NTESTS
+  // randomize bases0, pack into packed, unpack into bases1
+  // compare bases0 vs bases1
+  for(t = 0; t < NTESTS; t++) {
+    len = rand() % (TLEN/2+1);
+    rand_nucs(bases0, len);
+    memset(packed, 0, TLEN);
+    pack_bases(packed, bases0, len);
+    unpack_bases(packed, bases1, len);
+
+    for(i = 0; i < len && bases0[i] == bases1[i]; i++);
+
+    // print output if input != output
+    if(i != len) {
+      bitarr_tostr(packed, (len*2+7)/8, str);
+      printf("bases0: "); print_nucs(bases0, len); printf("\n");
+      printf("bases1: "); print_nucs(bases1, len); printf("\n");
+      printf("packed: %s\n", str);
+    }
+
+    assert(i == len);
+  }
+}
+
+void test_packed_path()
+{
+  test_pack_cpy();
+  test_pack_unpack();
 }
