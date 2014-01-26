@@ -155,7 +155,7 @@ int ctx_call(CmdArgs *args)
   path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
 
   // Temorary memory to load paths into
-  uint8_t *tmppdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
+  uint8_t *tmp_pdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
 
   //
   // Open output file
@@ -195,7 +195,8 @@ int ctx_call(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, tmp_pdata, tmppathsize, &db_graph);
+  if(tmp_pdata != NULL) free(tmp_pdata);
 
   // Now call variants
   bubble_caller_print_header(&db_graph, gzout, out_path, args);
@@ -216,7 +217,6 @@ int ctx_call(CmdArgs *args)
   free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
   free(path_store);
-  if(tmppdata != NULL) free(tmppdata);
 
   seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
