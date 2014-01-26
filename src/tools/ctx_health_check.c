@@ -41,6 +41,11 @@ int ctx_health_check(CmdArgs *args)
 
   char *ctx_path = argv[argi];
 
+  if(!do_edge_check && args->num_ctp_files == 0) {
+    print_usage(usage, "--noedgecheck and no path files (-p in.ctp) "
+                       "- nothing to check.");
+  }
+
   //
   // Open Graph file
   //

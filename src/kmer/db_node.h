@@ -25,8 +25,10 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 //
 // kmer in colours
 //
+
 // kset is short for a kmer bitset. A three colour kset is organised like so:
 // <0-63:col0><0-63:col1><0-63:col2><64-127:col0><64-127:col1><64-127:col2>
+
 /* Offset in word */
 #define kseto(arr,idx) ((idx)%(sizeof(*arr)*8))
 /* word index */
@@ -65,23 +67,6 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
                  kseto(graph->node_in_cols,hkey));
 }
 
-// #define db_node_has_col(g,hkey,col) \
-//         bitset2_get((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-//                                        kseto((g)->node_in_cols,hkey))
-// #define db_node_set_col(g,hkey,col) \
-//         bitset2_set((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-//                                        kseto((g)->node_in_cols,hkey))
-// #define db_node_del_col(g,hkey,col) \
-//         bitset2_del((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-//                                        kseto((g)->node_in_cols,hkey))
-// #define db_node_cpy_col(g,hkey,col,bit) \
-//         bitset2_cpy((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-//                                        kseto((g)->node_in_cols,hkey),bit)
-
-// Threadsafe
-// #define db_node_set_col_mt(g,hkey,col) \
-//         bitset2_set_mt((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-//                                           kseto((g)->node_in_cols,hkey))
 
 //
 // Node traversal

@@ -30,7 +30,8 @@ void test_util();
 void test_packed_path();
 
 // Not finished
-// path_tests_tests.c
+// path_tests.c
+void test_paths();
 // void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2);
 
 #endif  /* ALL_TESTS_H_ */

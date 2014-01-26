@@ -804,6 +804,29 @@ static void* generate_paths_worker(void *ptr)
   pthread_exit(NULL);
 }
 
+void gen_path_worker_seq(GenPathWorker *wrkr, const GeneratePathsTask *task,
+                         const char *seq, size_t len)
+{
+  read_t *r1 = &wrkr->data.r1, *r2 = &wrkr->data.r2;
+  seq_read_reset(r1);
+  seq_read_reset(r2);
+
+  // Copy seq to read1
+  buffer_ensure_capacity(&r1->seq, len);
+  memcpy(r1->seq.b, seq, len);
+  r1->seq.b[len] = '\0';
+  r1->seq.end = len;
+
+  // Reset asyncio input data
+  wrkr->data.fq_offset1 = wrkr->data.fq_offset2 = 0;
+  wrkr->data.ptr = NULL;
+
+  // Copy task to worker
+  memcpy(&wrkr->task, task, sizeof(GeneratePathsTask));
+
+  worker_do_job(wrkr);
+}
+
 static void start_gen_path_workers(GenPathWorker *workers, size_t nworkers)
 {
   size_t i;

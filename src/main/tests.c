@@ -14,6 +14,7 @@ int main()
   test_db_node();
   test_util();
   test_packed_path();
+  test_paths();
   test_status("Finished tests.");
   cortex_destroy();
   return EXIT_SUCCESS;
