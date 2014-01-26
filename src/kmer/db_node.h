@@ -5,11 +5,7 @@
 #include "bit_macros.h"
 
 #include "cortex_types.h"
-#include "hash_table.h"
-
-typedef struct {
-  hkey_t orient:1, key:63;
-} dBNode;
+#include "db_graph.h"
 
 //
 // Get Binary kmers
@@ -36,23 +32,56 @@ BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
 /* word index */
 #define ksetw(arr,ncols,col,idx) (((idx)/(sizeof(*arr)*8))*(ncols)+(col))
 
-#define db_node_has_col(g,hkey,col) \
-        bitset2_get((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-                                       kseto((g)->node_in_cols,hkey))
-#define db_node_set_col(g,hkey,col) \
-        bitset2_set((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-                                       kseto((g)->node_in_cols,hkey))
-#define db_node_del_col(g,hkey,col) \
-        bitset2_del((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-                                       kseto((g)->node_in_cols,hkey))
-#define db_node_cpy_col(g,hkey,col,bit) \
-        bitset2_cpy((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-                                       kseto((g)->node_in_cols,hkey),bit)
+static inline boolean db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col) {
+  return bitset2_get(graph->node_in_cols,
+                     ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+                     kseto(graph->node_in_cols,hkey));
+}
+
+static inline void db_node_set_col(const dBGraph *graph, hkey_t hkey, size_t col) {
+  bitset2_set(graph->node_in_cols,
+              ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+              kseto(graph->node_in_cols,hkey));
+}
+
+static inline void db_node_del_col(const dBGraph *graph, hkey_t hkey, size_t col) {
+  bitset2_del(graph->node_in_cols,
+              ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+              kseto(graph->node_in_cols,hkey));
+}
+
+static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,
+                                   size_t col, uint8_t bit) {
+  bitset2_cpy(graph->node_in_cols,
+              ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+              kseto(graph->node_in_cols,hkey),bit);
+}
 
 // Threadsafe
-#define db_node_set_col_mt(g,hkey,col) \
-        bitset2_set_mt((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
-                                          kseto((g)->node_in_cols,hkey))
+static inline void db_node_set_col_mt(const dBGraph *graph,
+                                      hkey_t hkey, size_t col) {
+  bitset2_set_mt(graph->node_in_cols,
+                 ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+                 kseto(graph->node_in_cols,hkey));
+}
+
+// #define db_node_has_col(g,hkey,col) \
+//         bitset2_get((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+//                                        kseto((g)->node_in_cols,hkey))
+// #define db_node_set_col(g,hkey,col) \
+//         bitset2_set((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+//                                        kseto((g)->node_in_cols,hkey))
+// #define db_node_del_col(g,hkey,col) \
+//         bitset2_del((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+//                                        kseto((g)->node_in_cols,hkey))
+// #define db_node_cpy_col(g,hkey,col,bit) \
+//         bitset2_cpy((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+//                                        kseto((g)->node_in_cols,hkey),bit)
+
+// Threadsafe
+// #define db_node_set_col_mt(g,hkey,col) \
+//         bitset2_set_mt((g)->node_in_cols, ksetw((g)->node_in_cols,(g)->num_of_cols,col,hkey), \
+//                                           kseto((g)->node_in_cols,hkey))
 
 //
 // Node traversal

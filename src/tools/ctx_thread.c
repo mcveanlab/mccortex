@@ -132,10 +132,10 @@ static int load_args(int argc, char **argv,
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcmp(argv[argi],"--printinsgaps") == 0)
+    if(strcmp(argv[argi],"--printcontigs") == 0)
     {
-      // gen_paths_print_inserts is defined in add_read_paths.h
-      gen_paths_print_inserts = true;
+      // gen_paths_print_contigs is defined in add_read_paths.h
+      gen_paths_print_contigs = true;
     }
     else if(strcmp(argv[argi],"--fq_threshold") == 0) {
       if(argi + 1 >= argc)
@@ -250,8 +250,8 @@ int ctx_thread(CmdArgs *args)
   for(i = 0; i < num_tasks; i++)
     gen_paths_print_task(&tasks[i]);
 
-  if(gen_paths_print_inserts && num_work_threads > 1) {
-    warn("--printinsgaps with >1 threads is a bad idea.");
+  if(gen_paths_print_contigs && num_work_threads > 1) {
+    warn("--printcontigs with >1 threads is a bad idea.");
   }
 
   if(argi + 1 >= argc) print_usage(usage, "Not enough arguments");

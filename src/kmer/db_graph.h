@@ -8,13 +8,16 @@
 #include "cortex_types.h"
 #include "hash_table.h"
 #include "graph_info.h"
-#include "db_node.h"
 #include "path_store.h"
+
+typedef struct {
+  hkey_t orient:1, key:63;
+} dBNode;
 
 //
 // Graph
 //
-struct dBGraph
+typedef struct
 {
   HashTable ht;
   // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
@@ -52,7 +55,7 @@ struct dBGraph
 
   // Loading reads
   uint8_t *readstrt;
-};
+} dBGraph;
 
 #define db_graph_node_assigned(graph,hkey) HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
 

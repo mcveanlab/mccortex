@@ -280,7 +280,7 @@ int ctx_subgraph(CmdArgs *args)
     die("Out of memory");
 
   for(i = 0; i < num_seed_files; i++)
-    seq_parse_se(seed_files[i], 0, &r1, &r2, mark_reads, &stats);
+    seq_parse_se(seed_files[i], 0, &r1, &r2, mark_reads, stats);
 
   size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
 

@@ -68,7 +68,7 @@ struct GenPathWorker
 #define MAX_CONTEXT 1000
 
 // Should we print all paths?
-boolean gen_paths_print_inserts = false;
+boolean gen_paths_print_contigs = false;
 volatile size_t print_contig_id = 0;
 
 
@@ -366,8 +366,8 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
   // status("nodebuf: %zu", wrkr->contig.len+MAX_KMER_SIZE+1);
   worker_nuc_cap(wrkr, wrkr->contig.len);
 
-  // gen_paths_print_inserts = true;
-  if(gen_paths_print_inserts) {
+  // gen_paths_print_contigs = true;
+  if(gen_paths_print_contigs) {
     pthread_mutex_lock(&biglock);
     printf(">contig%zu\n", print_contig_id++);
     db_nodes_print(wrkr->contig.data, wrkr->contig.len, wrkr->db_graph, stdout);
@@ -407,7 +407,10 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
       pos_rv[num_rv++] = i;
     }
 
-    if(outdegree > 1 && i+1 < contig_len && num_rv > 0)
+    // Only adding forward junctions after num_rv > 0 seems like a nice
+    // optimisation but is actually a bad idea, in the case of outdegree > 1
+    // just before first indegree >1, we need that junction
+    if(outdegree > 1 && i+1 < contig_len)
     {
       bkmer = db_node_bkmer(db_graph, nodes[i+1].key);
       nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);

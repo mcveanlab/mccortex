@@ -26,13 +26,6 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
   // length is kmers and juctions
   size_t klen, plen;
 
-  // Check node is in this colour
-  if(db_graph->node_in_cols != NULL) {
-    assert(db_node_has_col(db_graph, col, node.key));
-  } else if(db_graph->col_covgs != NULL) {
-    assert(db_node_covg(db_graph, col, node.key) > 0);
-  }
-
   // status("nbases: %zu %zu:%i", nbases, (size_t)node.key, (int)node.orient);
 
   for(klen = 0, plen = 0; plen < nbases; klen++)
@@ -40,10 +33,19 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
     bkmer = db_node_bkmer(db_graph, node.key);
     edges = db_node_edges(db_graph, edgecol, node.key);
 
-    // char bkmerstr[MAX_KMER_SIZE+1];
-    // binary_kmer_to_str(bkmer, db_graph->kmer_size, bkmerstr);
-    // status("klen: %zu plen: %zu %zu:%i %s",
-    //        klen, plen, (size_t)node.key, node.orient, bkmerstr);
+    // Check this node is in this colour
+    if(db_graph->node_in_cols != NULL) {
+      assert(db_node_has_col(db_graph, node.key, col));
+    } else if(db_graph->col_covgs != NULL) {
+      assert(db_node_covg(db_graph, node.key, col) > 0);
+    }
+
+    #ifdef CTXVERBOSE
+      char bkmerstr[MAX_KMER_SIZE+1];
+      binary_kmer_to_str(bkmer, db_graph->kmer_size, bkmerstr);
+      status("klen: %zu plen: %zu %zu:%i %s",
+             klen, plen, (size_t)node.key, node.orient, bkmerstr);
+    #endif
 
     if(klen == 1) {
       dBNode rnode = db_node_reverse(node);
@@ -54,11 +56,12 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
     n = db_graph_next_nodes(db_graph, bkmer, node.orient,
                             edges, nodes, orients, nucs);
 
+    assert(n > 0);
+
     // Reduce to nodes in our colour if edges limited
     if(db_graph->num_edge_cols == 1 && db_graph->node_in_cols != NULL) {
       for(i = 0, j = 0; i < n; i++) {
-        assert(db_node_has_col(db_graph, col, nodes[i]));
-        if(db_node_has_col(db_graph, col, nodes[i])) {
+        if(db_node_has_col(db_graph, nodes[i], col)) {
           nodes[j] = nodes[i];
           orients[j] = orients[i];
           nucs[j] = nucs[i];
@@ -66,9 +69,8 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
         }
       }
       n = j; // update number of next nodes
+      assert(n > 0);
     }
-
-    assert(n > 0);
 
     // If fork check nucleotide
     if(n > 1) {

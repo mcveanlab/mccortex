@@ -288,7 +288,8 @@ k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	files=$$(for k in `seq $$a $$b`; do echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; done); \
 	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
 	# cleaning isn't dumping sensible supernode lengths, use this for the moment
-	$(CTX) supernodes $@ | awk 'BEGIN{OFS="\t"} {if(substr($0,1,1)!=">"){ x[length($0)]++}} END{for (i in x) print i,x[i]}' | sort -n > k$(KMER)/graphs/supernodes.sample%.raw.csv
+	# Makefile requires that we double up on dollar signs $ -> $$
+	$(CTX) supernodes $@ | awk 'BEGIN{OFS="\t"} {if(substr($$0,1,1)!=">"){ x[length($$0)]++}} END{for (i in x) print i,x[i]}' | sort -n > k$(KMER)/graphs/supernodes.sample$*.raw.csv
 
 # Delete .raw.ctx and .clean.ctx paths after running
 # .INTERMEDIATE: $(GRAPHS_noref)
