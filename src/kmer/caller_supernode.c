@@ -35,20 +35,12 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
     printf(" create %s:%i\n", tmpstr, (int)orient);
   #endif
 
-  dBNodeBuffer *nbuf = snode->nbuf;
-
-  if(nbuf->len + 1 >= nbuf->capacity) {
-    nbuf->capacity *= 2;
-    nbuf->data = realloc2(nbuf->data, nbuf->capacity * sizeof(*(nbuf->data)));
-  }
-
-  snode->nbuf_offset = nbuf->len;
   dBNode first = {.key = node, .orient = orient};
-  nbuf->data[snode->nbuf_offset] = first;
 
-  nbuf->len = (uint32_t)supernode_extend(&nbuf->data, snode->nbuf_offset,
-                                         &nbuf->capacity, true, db_graph);
-
+  dBNodeBuffer *nbuf = snode->nbuf;
+  snode->nbuf_offset = nbuf->len;
+  db_node_buf_add(nbuf, first);
+  supernode_extend(nbuf, 0, db_graph);
   snode->num_of_nodes = nbuf->len - snode->nbuf_offset;
 
   dBNode *nodes = snode_nodes(snode);

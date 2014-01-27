@@ -237,12 +237,13 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      GenPathWorker *wrkr)
 {
   size_t i, num_added = 0;
-  size_t ctpcol = wrkr->task.ctpcol;
+  size_t ctxcol = wrkr->task.ctxcol, ctpcol = wrkr->task.ctpcol;
 
   dBNode node;
   size_t start_mn, start_pl, pos;
   PathLen plen, plen_orient;
   boolean added;
+  PathIndex pindex; // address of path once added
 
   #ifdef CTXVERBOSE
     char str[num_pl+1];
@@ -303,14 +304,12 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     plen = (PathLen)MIN2(num_pl - start_pl, MAX_PATHLEN);
     node = pl_is_fw ? nodes[pos] : db_node_reverse(nodes[pos]);
 
-    graph_path_check_valid(db_graph, node, wrkr->task.ctxcol,
-                           nuc_pl+start_pl, plen);
-
     #ifdef CTXVERBOSE
       char kmerstr[MAX_KMER_SIZE+1];
-      binary_kmer_to_str(db_node_bkmer(db_graph, node.key), db_graph->kmer_size, kmerstr);
-      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n", kmerstr, node.orient,
-             start_pl, start_mn, pos_mn[start_mn]);
+      BinaryKmer tmpkmer = db_node_bkmer(db_graph, node.key);
+      binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
+      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n",
+             kmerstr, node.orient, start_pl, start_mn, pos_mn[start_mn]);
     #endif
 
     // Write orient and length to packed representation
@@ -323,7 +322,12 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    added = path_store_mt_find_or_add(node.key, db_graph, ctpcol, packed_ptr, plen);
+    // debug: Check path before adding
+    graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
+                           db_graph);
+
+    added = path_store_mt_find_or_add(node.key, db_graph, ctpcol,
+                                      packed_ptr, plen, &pindex);
     packed_ptr[top_idx] = top_byte; // restore top byte
 
     #ifdef CTXVERBOSE
@@ -333,6 +337,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // If the path already exists, all of its subpaths also already exist
     if(!added && plen < MAX_PATHLEN) break;
     num_added++;
+
+    // debug: check path was added correctly
+    graph_path_check_path(node.key, pindex, ctxcol, ctpcol, db_graph);
   }
 
   return num_added;

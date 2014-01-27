@@ -495,7 +495,7 @@ static size_t remove_ref_paths(SupernodePathPos **spp_arr, size_t num_paths,
 static void resolve_bubble(SupernodePathPos **snodepathposes, size_t num,
                            gzFile out, size_t *bnum, size_t threadid,
                            size_t max_allele_len, size_t max_flank_len,
-                           dBNode *flank5p, size_t *flank5pkmers,
+                           dBNodeBuffer *flank5p,
                            const dBGraph *db_graph,
                            const size_t *ref_cols, size_t num_ref,
                            khash_t(snpps_hsh) *spp_hash)
@@ -506,18 +506,18 @@ static void resolve_bubble(SupernodePathPos **snodepathposes, size_t num,
   num = remove_snpath_pos_dupes(snodepathposes, num, spp_hash);
   if(num < 2) return;
 
-  if(*flank5pkmers == 0)
+  if(flank5p->len == 0)
   {
     // Haven't fetched 5p flank yet
     // flank5p[0] already contains the first node
-    int len = supernode_extend(&flank5p, 0, &max_flank_len, false, db_graph);
-    *flank5pkmers = (len == -1 ? max_flank_len : (unsigned)len);
-    supernode_reverse(flank5p, *flank5pkmers);
+    flank5p->len = 1;
+    supernode_extend(flank5p, max_flank_len, db_graph);
+    supernode_reverse(flank5p->data, flank5p->len);
   }
 
   print_bubble(out, *bnum,
                snodepathposes, num,
-               flank5p, *flank5pkmers,
+               flank5p->data, flank5p->len,
                max_allele_len, max_flank_len,
                threadid, db_graph);
   (*bnum)++;
@@ -608,10 +608,12 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
     }
   }
 
-  dBNode flank5_store[max_flank_len], *flank5p = flank5_store;
-  size_t flank5pkmers = 0;
-  flank5p[0].key = fork_n;
-  flank5p[0].orient = opposite_orientation(fork_o);
+  dBNode flank5_store[max_flank_len];
+  dBNodeBuffer flank5p = {.data = flank5_store, .len = 0,
+                          .capacity = max_flank_len};
+
+  flank5p.data[0].key = fork_n;
+  flank5p.data[0].orient = opposite_orientation(fork_o);
 
   // Loop over supernodes checking if they are 3p flanks
   for(i = 0; i < snode_count; i++)
@@ -654,11 +656,11 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       // #endif
 
       resolve_bubble(spp_forward, num_forward, out, bnum, threadid,
-                     max_allele_len, max_flank_len, flank5p, &flank5pkmers,
+                     max_allele_len, max_flank_len, &flank5p,
                      db_graph, ref_cols, num_ref, spp_hash);
 
       resolve_bubble(spp_reverse, num_reverse, out, bnum, threadid,
-                     max_allele_len, max_flank_len, flank5p, &flank5pkmers,
+                     max_allele_len, max_flank_len, &flank5p,
                      db_graph, ref_cols, num_ref, spp_hash);
     }
   }

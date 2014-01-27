@@ -51,7 +51,7 @@ int ctx_health_check(CmdArgs *args)
   //
   GraphFileReader file = INIT_GRAPH_READER;
   graph_file_open(&file, ctx_path, true); // true => errors are fatal
-  size_t ncols = graph_file_outncols(&file);
+  size_t col, ncols = graph_file_outncols(&file);
 
   //
   // Open path files
@@ -132,7 +132,8 @@ int ctx_health_check(CmdArgs *args)
 
   if(num_pfiles) {
     status("Running path check...");
-    graph_paths_check_all_paths(&db_graph);
+    for(col = 0; col < ncols; col++)
+      graph_paths_check_all_paths(&db_graph, col, col);
   }
 
   status("All looks good!");

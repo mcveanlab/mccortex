@@ -136,7 +136,7 @@ void prune_node(dBGraph *db_graph, hkey_t node)
   prune_node_without_edges(db_graph, node);
 }
 
-void prune_supernode(dBGraph *db_graph, dBNode *nodes, size_t len)
+void prune_supernode(dBNode *nodes, size_t len, dBGraph *db_graph)
 {
   size_t i;
   if(len == 0) return;

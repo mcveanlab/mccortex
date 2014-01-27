@@ -5,14 +5,12 @@
 #include "packed_path.h"
 #include "bit_macros.h"
 
-// DEV: change graph_path_check_valid to take a packed path
-//      check multiple colours at once
-
 // 1) check node after node has indegree >1 in sample ctxcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
-void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
-                            const Nucleotide *bases, size_t nbases)
+// packed is just <PackedBases>
+void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
+                            size_t nbases, const dBGraph *db_graph)
 {
   assert(db_graph->num_edge_cols == db_graph->num_of_cols ||
          db_graph->node_in_cols != NULL);
@@ -53,7 +51,11 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
     if(klen == 1) {
       dBNode rnode = db_node_reverse(node);
       Edges backedges = db_node_oriented_edges_in_col(rnode, col, db_graph);
-      assert(edges_get_outdegree(backedges, FORWARD) > 1);
+      int outdegree = edges_get_outdegree(backedges, FORWARD);
+      if(outdegree <= 1) {
+        status("outdegree: %i col: %zu", (int)outdegree, col);
+      }
+      assert(outdegree > 1);
     }
 
     n = db_graph_next_nodes(db_graph, bkmer, node.orient,
@@ -77,15 +79,16 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
 
     // If fork check nucleotide
     if(n > 1) {
-      assert(bases[plen] < 4);
-      for(i = 0; i < n && nucs[i] != bases[plen]; i++);
+      Nucleotide expbase = packed_fetch(packed, plen);
+
+      for(i = 0; i < n && nucs[i] != expbase; i++);
       if(i == n) {
-        printf("plen: %zu expected: %c\n", plen, dna_nuc_to_char(bases[plen]));
+        printf("plen: %zu expected: %c\n", plen, dna_nuc_to_char(expbase));
         printf("Got: ");
         for(i = 0; i < n; i++) printf(" %c", dna_nuc_to_char(nucs[i]));
         printf("\n");
       }
-      assert(i < n && nucs[i] == bases[plen]);
+      assert(i < n && nucs[i] == expbase);
       node.key = nodes[i];
       node.orient = orients[i];
       plen++;
@@ -97,19 +100,18 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
   }
 }
 
-#include "objbuf_macro.h"
-create_objbuf(nuc_buf,NucBuffer,Nucleotide)
-
 static void packed_path_check(hkey_t hkey, const uint8_t *packed,
-                              NucBuffer *nucs, const dBGraph *db_graph)
+                              size_t ctxcol, size_t ctpcol,
+                              const dBGraph *db_graph)
 {
   const PathStore *pstore = &db_graph->pdata;
   PathLen len_bases;
   Orientation orient;
   const uint8_t *colset, *path;
-  size_t i, col;
 
   colset = packedpath_get_colset(packed);
+  assert(bitset_get(colset, ctpcol));
+
   path = packedpath_path(packed, pstore->colset_bytes);
   packedpack_get_len_orient(packed, pstore->colset_bytes, &len_bases, &orient);
 
@@ -121,25 +123,18 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   assert(packed + nbytes < pstore->end);
 
   // Check at least one colour is set
-  uint8_t colset_or = 0;
-  for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
-  assert(colset_or != 0);
-
-  // Need to convert packed bases to Nucleotide array
-  nuc_buf_ensure_capacity(nucs, len_bases);
-  unpack_bases(path, nucs->data, len_bases);
+  // uint8_t colset_or = 0;
+  // for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
+  // assert(colset_or != 0);
 
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
 
-  for(col = 0; col < pstore->num_of_cols; col++) {
-    if(bitset_get(colset, col)) {
-      graph_path_check_valid(db_graph, node, col, nucs->data, len_bases);
-    }
-  }
+  graph_path_check_valid(node, ctxcol, path, len_bases, db_graph);
 }
 
-static void kmer_check_paths(hkey_t node, const dBGraph *db_graph, NucBuffer *nucs,
+static void kmer_check_paths(hkey_t node, const dBGraph *db_graph,
+                             size_t ctxcol, size_t ctpcol,
                              size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const PathStore *pdata = &db_graph->pdata;
@@ -150,7 +145,7 @@ static void kmer_check_paths(hkey_t node, const dBGraph *db_graph, NucBuffer *nu
   while(index != PATH_NULL)
   {
     packed = pdata->store+index;
-    packed_path_check(node, packed, nucs, db_graph);
+    packed_path_check(node, packed, ctxcol, ctpcol, db_graph);
     index = packedpath_get_prev(packed);
     num_paths++;
   }
@@ -159,30 +154,22 @@ static void kmer_check_paths(hkey_t node, const dBGraph *db_graph, NucBuffer *nu
   *nkmers_ptr += (num_paths > 0);
 }
 
-void graph_paths_check_all_paths(const dBGraph *db_graph)
+void graph_paths_check_all_paths(const dBGraph *db_graph,
+                                 size_t ctxcol, size_t ctpcol)
 {
   size_t num_paths = 0, num_kmers = 0;
-  NucBuffer nucs;
 
-  nuc_buf_alloc(&nucs, 1024);
-
-  HASH_ITERATE(&db_graph->ht, kmer_check_paths, db_graph, &nucs,
+  HASH_ITERATE(&db_graph->ht, kmer_check_paths, db_graph, ctxcol, ctpcol,
                &num_paths, &num_kmers);
 
   assert(num_paths == db_graph->pdata.num_of_paths);
   assert(num_kmers == db_graph->pdata.num_kmers_with_paths);
-
-  nuc_buf_dealloc(&nucs);
 }
 
 void graph_path_check_path(hkey_t node, PathIndex pindex,
+                           size_t ctxcol, size_t ctpcol,
                            const dBGraph *db_graph)
 {
-  // Need to unpack node array for now
-  NucBuffer nucs;
-  nuc_buf_alloc(&nucs, 1024);
-
-  packed_path_check(node, db_graph->pdata.store + pindex, &nucs, db_graph);
-
-  nuc_buf_dealloc(&nucs);
+  uint8_t *packed = db_graph->pdata.store+pindex;
+  packed_path_check(node, packed, ctxcol, ctpcol, db_graph);
 }

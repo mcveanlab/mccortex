@@ -171,7 +171,7 @@ static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shif
 static void test_pack_cpy_unpack_shifts(const char *seq, size_t len)
 {
   size_t shift;
-  for(shift = 0; shift < len; shift++)
+  for(shift = 0; shift <= len; shift++)
     manual_test_pack_cpy_unpack(seq, len, shift);
 }
 

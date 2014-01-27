@@ -272,6 +272,7 @@ void db_graph_healthcheck(const dBGraph *db_graph)
 // Functions applying to whole graph
 //
 
+// BEWARE: if num_edge_cols == 1, edges in all colours will be effectively wiped
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
   status("Wiping graph colour %zu", (size_t)col);

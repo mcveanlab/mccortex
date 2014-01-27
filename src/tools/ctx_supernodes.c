@@ -28,46 +28,40 @@ typedef struct {
 #define PRINT_FASTA 0
 #define PRINT_DOT 1
 
-static boolean dot_use_points = false;
-
-static dBGraph db_graph;
-static uint64_t *visited;
-static sndata_t *supernodes;
-static FILE *fout;
-static int print_syntax = PRINT_FASTA;
-
-static size_t ncap, snlen, supernode_idx = 0;
-static dBNode *nodes;
+static size_t supernode_idx = 0;
 
 // Store ends of supernode currently stored in `nodes` and `orients` arrays
-static inline void dot_store_ends()
+static inline void dot_store_ends(const dBNodeBuffer *nbuf, sndata_t *supernodes)
 {
-  assert(supernodes[nodes[0].key].assigned == 0);
-  assert(supernodes[nodes[snlen-1].key].assigned == 0);
+  assert(supernodes[nbuf->data[0].key].assigned == 0);
+  assert(supernodes[nbuf->data[nbuf->len-1].key].assigned == 0);
 
   sndata_t supernode0 = {.nodeid = supernode_idx, .assigned = 1,
-                         .left = 1, .right = (snlen == 1),
-                         .lorient = nodes[0].orient,
-                         .rorient = nodes[snlen-1].orient};
+                         .left = 1, .right = (nbuf->len == 1),
+                         .lorient = nbuf->data[0].orient,
+                         .rorient = nbuf->data[nbuf->len-1].orient};
 
   sndata_t supernode1 = {.nodeid = supernode_idx, .assigned = 1,
-                         .left = (snlen == 1), .right = 1,
-                         .lorient = nodes[0].orient,
-                         .rorient = nodes[snlen-1].orient};
+                         .left = (nbuf->len == 1), .right = 1,
+                         .lorient = nbuf->data[0].orient,
+                         .rorient = nbuf->data[nbuf->len-1].orient};
 
-  supernodes[nodes[0].key] = supernode0;
-  supernodes[nodes[snlen-1].key] = supernode1;
+  supernodes[nbuf->data[0].key] = supernode0;
+  supernodes[nbuf->data[nbuf->len-1].key] = supernode1;
 }
 
 static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
-                                    Orientation orient, sndata_t snode0)
+                                    Orientation orient, sndata_t snode0,
+                                    sndata_t *supernodes,
+                                    FILE *fout,
+                                    const dBGraph *db_graph)
 {
   size_t i, n, side0, side1;
   hkey_t next_nodes[4]; Orientation next_orients[4]; Nucleotide next_nucs[4];
   sndata_t snode1;
   const char coords[2] = "we";
 
-  n = db_graph_next_nodes(&db_graph, bkmer, orient, edges,
+  n = db_graph_next_nodes(db_graph, bkmer, orient, edges,
                           next_nodes, next_orients, next_nucs);
 
   // side0 = snode0.left && snode0.right ? !orient : snode0.right;
@@ -94,44 +88,54 @@ static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
 }
 
 // For every kmer in the graph, we run this function
-static inline void dot_print_edges(hkey_t node)
+static inline void dot_print_edges(hkey_t node, sndata_t *supernodes,
+                                   FILE *fout, const dBGraph *db_graph)
 {
   sndata_t snode0 = supernodes[node];
   BinaryKmer bkmer; Edges edges;
 
   // Check if node is an end of a supernode
   if(snode0.assigned) {
-    bkmer = db_node_bkmer(&db_graph, node);
-    edges = db_node_edges(&db_graph, 0, node);
+    bkmer = db_node_bkmer(db_graph, node);
+    edges = db_node_edges(db_graph, 0, node);
 
-    if(snode0.left)
-      dot_print_edges2(node, bkmer, edges, !snode0.lorient, snode0);
-    if(snode0.right)
-      dot_print_edges2(node, bkmer, edges, snode0.rorient, snode0);
+    if(snode0.left) {
+      dot_print_edges2(node, bkmer, edges, !snode0.lorient, snode0,
+                       supernodes, fout, db_graph);
+    }
+    if(snode0.right) {
+      dot_print_edges2(node, bkmer, edges, snode0.rorient, snode0,
+                       supernodes, fout, db_graph);
+    }
   }
 }
 
-static void dump_supernodes(hkey_t node)
+static void dump_supernodes(hkey_t node, FILE *fout, int print_syntax,
+                            dBNodeBuffer *nbuf, sndata_t *supernodes,
+                            uint64_t *visited, const dBGraph *db_graph)
 {
+  assert(print_syntax == PRINT_FASTA || supernodes != NULL);
+
   size_t i;
 
   if(!bitset_get(visited, node))
   {
-    snlen = supernode_find(node, &nodes, &ncap, &db_graph);
-    for(i = 0; i < snlen; i++) bitset_set(visited, nodes[i].key);
+    db_node_buf_reset(nbuf);
+    supernode_find(node, nbuf, db_graph);
+    for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
 
-    supernode_normalise(nodes, snlen);
+    supernode_normalise(nbuf->data, nbuf->len);
 
     switch(print_syntax) {
       case PRINT_FASTA:
         fprintf(fout, ">supernode%zu\n", supernode_idx);
-        db_nodes_print(nodes, snlen, &db_graph, stdout);
+        db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
         fputc('\n', fout);
         break;
       case PRINT_DOT:
-        dot_store_ends();
+        dot_store_ends(nbuf, supernodes);
         fprintf(fout, "  node%zu [label=", supernode_idx);
-        db_nodes_print(nodes, snlen, &db_graph, stdout);
+        db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
         fputs("]\n", fout);
         break;
     }
@@ -140,20 +144,23 @@ static void dump_supernodes(hkey_t node)
   }
 }
 
-static void dump_dot_syntax()
+static void dump_dot_syntax(FILE *fout, int print_syntax, boolean dot_use_points,
+                            dBNodeBuffer *nbuf, uint64_t *visited,
+                            dBGraph *db_graph)
 {
   fputs("digraph G {\n", fout);
   fputs("  edge [dir=both arrowhead=none arrowtail=none color=\"blue\"]\n", fout);
   fprintf(fout, "  node [%s, fontname=courier, fontsize=9]\n",
           dot_use_points ? "shape=point, label=none" : "shape=none");
 
-  supernodes = calloc2(db_graph.ht.capacity, sizeof(sndata_t));
+  sndata_t *supernodes = calloc2(db_graph->ht.capacity, sizeof(sndata_t));
 
-  HASH_ITERATE(&db_graph.ht, dump_supernodes);
+  HASH_ITERATE(&db_graph->ht, dump_supernodes,
+               fout, print_syntax, nbuf, supernodes, visited, db_graph);
 
   // Now print edges
   fprintf(fout, "\n");
-  HASH_ITERATE(&db_graph.ht, dot_print_edges);
+  HASH_ITERATE(&db_graph->ht, dot_print_edges, supernodes, fout, db_graph);
 
   free(supernodes);
   fputs("}\n", fout);
@@ -170,6 +177,8 @@ int ctx_supernodes(CmdArgs *args)
   size_t i, num_files;
   char **paths;
   uint64_t max_ctx_kmers = 0;
+  boolean dot_use_points = false;
+  int print_syntax = PRINT_FASTA;
 
   while(argc > 0 && argv[0][0] == '-') {
     if(!strcasecmp(argv[0],"--dot") || !strcasecmp(argv[0],"--graphviz")) {
@@ -223,7 +232,7 @@ int ctx_supernodes(CmdArgs *args)
   //
 
   // Print to stdout unless --out <out> is specified
-  fout = stdout;
+  FILE *fout = stdout;
 
   if(args->output_file_set) {
     if(strcmp(args->output_file, "-") == 0)
@@ -238,12 +247,13 @@ int ctx_supernodes(CmdArgs *args)
   //
   // Allocate memory
   //
+  dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
 
   // Visited
   size_t numwords64 = roundup_bits2words64(db_graph.ht.capacity);
-  visited = calloc2(numwords64, sizeof(uint64_t));
+  uint64_t *visited = calloc2(numwords64, sizeof(uint64_t));
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = true,
@@ -259,16 +269,18 @@ int ctx_supernodes(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  ncap = 2048;
-  nodes = malloc(ncap * sizeof(dBNode));
+  dBNodeBuffer nbuf;
+  db_node_buf_alloc(&nbuf, 2048);
 
   // dump supernodes
   switch(print_syntax) {
     case PRINT_DOT:
-      dump_dot_syntax();
+      dump_dot_syntax(fout, print_syntax, dot_use_points,
+                      &nbuf, visited, &db_graph);
       break;
     case PRINT_FASTA:
-      HASH_ITERATE(&db_graph.ht, dump_supernodes);
+      HASH_ITERATE(&db_graph.ht, dump_supernodes,
+                   fout, print_syntax, &nbuf, NULL, visited, &db_graph);
       break;
   }
 
@@ -276,7 +288,7 @@ int ctx_supernodes(CmdArgs *args)
 
   if(args->output_file_set) fclose(fout);
 
-  free(nodes);
+  db_node_buf_dealloc(&nbuf);
   free(visited);
   free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);

@@ -1,16 +1,19 @@
 #include "global.h"
 #include "path_store_thread_safe.h"
 #include "db_node.h"
+#include "graph_paths.h"
 
 //
 // Thread safe wrapper for path_store
 // path_store_mt_*() [mt for multithreaded]
 //
 
-// Returns true if added, false otherwise
+// Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
-boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour colour,
-                                  const uint8_t *packed, size_t plen)
+// Returns address of path in PathStore by setting newidx
+boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour ctpcol,
+                                  const uint8_t *packed, size_t plen,
+                                  PathIndex *newidx)
 {
   PathStore *pstore = &db_graph->pdata;
   volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
@@ -33,9 +36,10 @@ boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour colour,
   {
     // => if already exist -> add colour -> release lock
     volatile uint8_t *colarr = packedpath_get_colset(pstore->store+match);
-    boolean added = !bitset_get(colarr, colour);
-    bitset_set(colarr, colour);
+    boolean added = !bitset_get(colarr, ctpcol);
+    bitset_set(colarr, ctpcol);
     bitlock_release(kmerlocks, hkey);
+    *newidx = match;
     return added;
   }
 
@@ -57,7 +61,7 @@ boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour colour,
   packedpath_set_prev(new_path, next);
   // bitset
   memset(colset, 0, pstore->colset_bytes);
-  bitset_set(colset, colour);
+  bitset_set(colset, ctpcol);
   // Length + Path
   memcpy(colset+pstore->colset_bytes, packed, sizeof(PathLen) + path_nbytes);
 
@@ -82,8 +86,6 @@ boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour colour,
   // 6) release kmer lock
   bitlock_release(kmerlocks, hkey);
 
-  // debug
-  // graph_path_check_path(hkey, pindex, db_graph);
-
+  *newidx = pindex;
   return true;
 }

@@ -34,64 +34,53 @@ void supernode_normalise(dBNode *nlist, size_t len)
 // Extend a supernode, nlist[offset] must already be set
 // Walk along nodes starting from node/or, storing the supernode in nlist
 // Returns the number of nodes added, adds no more than `limit`
-// return -1 if out of space and resize == false
-int supernode_extend(dBNode **nlist, size_t offset, size_t *arrlen,
-                     boolean resize, const dBGraph *db_graph)
+// return false if out of space and limit > 0
+boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_graph)
 {
   assert(db_graph->num_edge_cols == 1);
 
-  hkey_t node = (*nlist)[offset].key;
-  Orientation orient = (*nlist)[offset].orient;
-  size_t num_nodes = offset+1, kmer_size = db_graph->kmer_size;
+  hkey_t hkey = nbuf->data[nbuf->len-1].key;
+  Orientation orient = nbuf->data[nbuf->len-1].orient;
+  const size_t kmer_size = db_graph->kmer_size;
   Nucleotide nuc;
-  BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, node, orient);
+  BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, hkey, orient);
   const Edges *edges = db_graph->col_edges;
 
-  while(edges_has_precisely_one_edge(edges[node], orient, &nuc))
+  while(edges_has_precisely_one_edge(edges[hkey], orient, &nuc))
   {
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-
     bkey = db_node_get_key(bkmer, db_graph->kmer_size);
-    node = hash_table_find(&db_graph->ht, bkey);
+    hkey = hash_table_find(&db_graph->ht, bkey);
     orient = db_node_get_orientation(bkey, bkmer);
 
-    assert(node != HASH_NOT_FOUND);
+    assert(hkey != HASH_NOT_FOUND);
 
-    if(edges_has_precisely_one_edge(edges[node], rev_orient(orient), &nuc))
+    if(edges_has_precisely_one_edge(edges[hkey], rev_orient(orient), &nuc))
     {
-      if(node == (*nlist)[0].key || node == (*nlist)[num_nodes-1].key) {
+      if(hkey == nbuf->data[0].key || hkey == nbuf->data[nbuf->len-1].key) {
         // don't create a loop A->B->A or a->b->B->A
         break;
       }
 
-      if(num_nodes == *arrlen) {
-        if(resize) {
-          *arrlen *= 2;
-          *nlist = realloc2(*nlist, *arrlen*sizeof(**nlist));
-        }
-        else return -1;
-      }
+      if(limit && nbuf->len >= limit) return false;
 
-      dBNode next = {.key = node, .orient = orient};
-      (*nlist)[num_nodes] = next;
-      num_nodes++;
+      dBNode next = {.key = hkey, .orient = orient};
+      db_node_buf_add(nbuf, next);
     }
     else break;
   }
 
-  return (int)num_nodes;
+  return true;
 }
 
-size_t supernode_find(hkey_t node, dBNode **nlist, size_t *arrlen,
-                      const dBGraph *db_graph)
+void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
 {
-  int len;
-  dBNode first = {.key = node, .orient = REVERSE};
-  (*nlist)[0] = first;
-  len = supernode_extend(nlist, 0, arrlen, true, db_graph);
-  supernode_reverse(*nlist, (size_t)len);
-  len = supernode_extend(nlist, (size_t)len-1, arrlen, true, db_graph);
-  return (size_t)len;
+  dBNode first = {.key = hkey, .orient = REVERSE};
+  size_t offset = nbuf->len;
+  db_node_buf_add(nbuf, first);
+  supernode_extend(nbuf, 0, db_graph);
+  supernode_reverse(nbuf->data+offset, nbuf->len-offset);
+  supernode_extend(nbuf, 0, db_graph);
 }
 
 uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len)

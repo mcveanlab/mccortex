@@ -14,6 +14,13 @@ typedef struct
 
 typedef struct
 {
+  const uint8_t *seq;
+  PathLen pos, len;
+} FollowPath2;
+
+// Result from graph_walker_choose
+typedef struct
+{
   // idx is -1 if failed, otherwise index of path
   int8_t idx;
   uint8_t status;
