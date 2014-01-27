@@ -14,4 +14,7 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
 
 void graph_paths_check_all_paths(const dBGraph *db_graph);
 
+void graph_path_check_path(hkey_t node, PathIndex pindex,
+                           const dBGraph *db_graph);
+
 #endif /* GRAPH_PATH_H_ */

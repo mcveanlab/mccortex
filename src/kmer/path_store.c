@@ -2,6 +2,7 @@
 #include "util.h"
 #include "db_graph.h"
 #include "path_store.h"
+#include "dna.h"
 
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
@@ -264,4 +265,21 @@ void path_store_print_all(const PathStore *paths)
     path_store_print_path(paths, index);
     index += packedpath_mem(paths->store+index, paths->colset_bytes);
   }
+}
+
+// packed points to <PathLen><PackedSeq>
+void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
+{
+  size_t i;
+  PathLen plen;
+  Orientation orient;
+
+  packedpack_get_len_orient(packed-sizeof(PathIndex)-pstore->colset_bytes,
+                            pstore->colset_bytes, &plen, &orient);
+
+  Nucleotide bases[plen]; char nucs[plen+1];
+  unpack_bases(packed+sizeof(PathLen), bases, plen);
+  for(i = 0; i < plen; i++) nucs[i] = dna_nuc_to_char(bases[i]);
+  nucs[plen] = '\0';
+  status("Path: %zu:%i len %zu %s", (size_t)hkey, orient, (size_t)plen, nucs);
 }

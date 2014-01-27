@@ -26,7 +26,10 @@ void graph_path_check_valid(const dBGraph *db_graph, dBNode node, size_t col,
   // length is kmers and juctions
   size_t klen, plen;
 
-  // status("nbases: %zu %zu:%i", nbases, (size_t)node.key, (int)node.orient);
+  // char nstr[nbases+1];
+  // for(i = 0; i < nbases; i++) nstr[i] = dna_nuc_to_char(bases[i]);
+  // nstr[nbases] = '\0';
+  // status("Check: %zu:%i len %zu %s", (size_t)node.key, node.orient, nbases, nstr);
 
   for(klen = 0, plen = 0; plen < nbases; klen++)
   {
@@ -126,6 +129,9 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   nuc_buf_ensure_capacity(nucs, len_bases);
   unpack_bases(path, nucs->data, len_bases);
 
+  // print path
+  // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
+
   for(col = 0; col < pstore->num_of_cols; col++) {
     if(bitset_get(colset, col)) {
       graph_path_check_valid(db_graph, node, col, nucs->data, len_bases);
@@ -165,6 +171,18 @@ void graph_paths_check_all_paths(const dBGraph *db_graph)
 
   assert(num_paths == db_graph->pdata.num_of_paths);
   assert(num_kmers == db_graph->pdata.num_kmers_with_paths);
+
+  nuc_buf_dealloc(&nucs);
+}
+
+void graph_path_check_path(hkey_t node, PathIndex pindex,
+                           const dBGraph *db_graph)
+{
+  // Need to unpack node array for now
+  NucBuffer nucs;
+  nuc_buf_alloc(&nucs, 1024);
+
+  packed_path_check(node, db_graph->pdata.store + pindex, &nucs, db_graph);
 
   nuc_buf_dealloc(&nucs);
 }

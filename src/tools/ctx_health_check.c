@@ -11,7 +11,7 @@
 #include "graph_paths.h"
 
 static const char usage[] =
-"usage: "CMD" healthcheck [options] <out.ctx>\n"
+"usage: "CMD" healthcheck [options] <graph.ctx>\n"
 "  Load a graph into memory to check it is valid.\n"
 "\n"
 "  Options:\n"
@@ -23,7 +23,7 @@ static const char usage[] =
 
 int ctx_health_check(CmdArgs *args)
 {
-  cmd_accept_options(args, "mn", usage);
+  cmd_accept_options(args, "pmn", usage);
   int argi, argc = args->argc;
   char **argv = args->argv;
   if(argc != 1) print_usage(usage, NULL);

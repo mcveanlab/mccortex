@@ -62,11 +62,11 @@ static inline void packedpath_set_prev(uint8_t *ptr, PathIndex idx) {
 #define PP_ORIENTMASK (1U << PATH_LEN_BITS)
 #define PP_LENMASK (PP_ORIENTMASK-1)
 
-#define packedpath_len(w) ((w) & ~PP_ORIENTMASK)
+#define packedpath_len(w) ((w) & PP_LENMASK)
 #define packedpath_or(w) ((w) >> PATH_LEN_BITS)
 
 #define packedpath_combine_lenorient(len,orient) \
-        ((len)|((PathLen)(orient)<<PATH_LEN_BITS))
+        ((((PathLen)(orient))<<PATH_LEN_BITS)|(len))
 
 static inline PathLen packedpath_get_lenword(const uint8_t *ptr, size_t colbytes)
 {

@@ -138,8 +138,76 @@ static void test_pack_unpack()
   }
 }
 
+static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shift)
+{
+  assert(len >= shift);
+  size_t i, nbytes = (len+3)/4, outlen = len - shift;
+  Nucleotide bases[len], bases2[len];
+  uint8_t packed[nbytes], packed2[nbytes];
+  char seq2[len+1];
+
+  // convert to bases
+  for(i = 0; i < len; i++) bases[i] = dna_char_to_nuc(seq[i]);
+
+  // bases -> packed
+  pack_bases(packed, bases, len);
+
+  // shift cpy
+  packed_cpy(packed2, packed, shift, len);
+
+  // packed -> bases
+  unpack_bases(packed2, bases2, outlen);
+
+  // convert to char
+  for(i = 0; i < outlen; i++) seq2[i] = dna_nuc_to_char(bases2[i]);
+  seq2[outlen] = '\0';
+
+  if(strncmp(seq+shift, seq2, outlen) != 0) {
+    test_status("mismatch\nin:  %s\nout: %s\n", seq, seq2);
+    assert(0);
+  }
+}
+
+static void test_pack_cpy_unpack_shifts(const char *seq, size_t len)
+{
+  size_t shift;
+  for(shift = 0; shift < len; shift++)
+    manual_test_pack_cpy_unpack(seq, len, shift);
+}
+
+static void test_pack_cpy_unpack()
+{
+  test_status("[packedpath] Testing pack()+cpy()+unpack()");
+
+  test_pack_cpy_unpack_shifts("CTA", 3);
+  test_pack_cpy_unpack_shifts("C", 1);
+  test_pack_cpy_unpack_shifts("CAGACAG", 7);
+}
+
+void test_len_orient()
+{
+  test_status("[packedpath] Testing combine_lenorient");
+
+  PathLen len, len2, merged;
+  Orientation orient, orient2;
+  int r; size_t t;
+
+  for(t = 0; t < NTESTS; t++) {
+    r = rand();
+    len = r & PP_LENMASK;
+    orient = r >> 31;
+    merged = packedpath_combine_lenorient(len,orient);
+    len2 = packedpath_len(merged);
+    orient2 = packedpath_or(merged);
+    assert(len == len2);
+    assert(orient == orient2);
+  }
+}
+
 void test_packed_path()
 {
   test_pack_cpy();
   test_pack_unpack();
+  test_pack_cpy_unpack();
+  test_len_orient();
 }

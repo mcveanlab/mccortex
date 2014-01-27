@@ -79,6 +79,13 @@ void test_paths()
   add_paths(&graph, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
 
   // DEV: Actually test path content, colours set etc
+  // seq0 fw
+  // CCTGGGTGCGA:0 len:3 col:0  CGC
+  // TGCGAATGACA:0 len:3 col:0  CGC
+  // seq0 rv
+  // AATCGAATGAC:1 len:2 col:0  AG
+  // ACACCAAATCG:1 len:2 col:0  AG
+  // CGAATGACACC:1 len:2 col:0  AG
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 

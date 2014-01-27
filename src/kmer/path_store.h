@@ -47,10 +47,6 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
                                  Orientation orient, Colour colour,
                                  boolean *added);
 
-// Print
-void path_store_print_path(const PathStore *paths, PathIndex index);
-void path_store_print_all(const PathStore *paths);
-
 // Fetch sequence
 void path_store_fetch_bases(const PathStore *paths, PathIndex index,
                             Nucleotide *bases, PathLen len);
@@ -60,5 +56,12 @@ void path_store_fetch_bases(const PathStore *paths, PathIndex index,
 #define path_store_fltr_compatible(st,fltr) \
         ((fltr)->nofilter && \
          roundup_bits2bytes((fltr)->filencols) == (st)->colset_bytes)
+
+// Print
+void path_store_print_path(const PathStore *paths, PathIndex index);
+void path_store_print_all(const PathStore *paths);
+
+// packed points to <PathLen><PackedSeq>
+void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore);
 
 #endif /* BINARY_PATH_H_ */

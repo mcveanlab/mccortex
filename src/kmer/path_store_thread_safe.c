@@ -9,7 +9,7 @@
 
 // Returns true if added, false otherwise
 // packed points to <PathLen><PackedSeq>
-boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
+boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour colour,
                                   const uint8_t *packed, size_t plen)
 {
   PathStore *pstore = &db_graph->pdata;
@@ -18,11 +18,14 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
 // path_nbytes is the number of bytes in <PackedSeq>
   size_t path_nbytes = (plen+3)/4;
 
+  // debug
+  // print_path(hkey, packed, pstore);
+
   // 1) Get lock for kmer
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
-  bitlock_yield_acquire(kmerlocks, kmer);
+  bitlock_yield_acquire(kmerlocks, hkey);
 
-  const PathIndex next = *(volatile PathIndex*)&db_node_paths(db_graph, kmer);
+  const PathIndex next = *(volatile PathIndex*)&db_node_paths(db_graph, hkey);
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -32,7 +35,7 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
     volatile uint8_t *colarr = packedpath_get_colset(pstore->store+match);
     boolean added = !bitset_get(colarr, colour);
     bitset_set(colarr, colour);
-    bitlock_release(kmerlocks, kmer);
+    bitlock_release(kmerlocks, hkey);
     return added;
   }
 
@@ -58,10 +61,14 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   // Length + Path
   memcpy(colset+pstore->colset_bytes, packed, sizeof(PathLen) + path_nbytes);
 
+  // path must be written before we move the kmer path pointer forward
+  // although there is a write-lock (kmerlocks), threads currently traversing
+  // the graph would fall over
   __sync_synchronize();
 
   // 5) update kmer pointer
-  db_node_paths(db_graph, kmer) = (uint64_t)(new_path - pstore->store);
+  PathIndex pindex = (uint64_t)(new_path - pstore->store);
+  db_node_paths(db_graph, hkey) = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer
   if(next == PATH_NULL)
@@ -73,7 +80,10 @@ boolean path_store_mt_find_or_add(hkey_t kmer, dBGraph *db_graph, Colour colour,
   __sync_synchronize();
 
   // 6) release kmer lock
-  bitlock_release(kmerlocks, kmer);
+  bitlock_release(kmerlocks, hkey);
+
+  // debug
+  // graph_path_check_path(hkey, pindex, db_graph);
 
   return true;
 }

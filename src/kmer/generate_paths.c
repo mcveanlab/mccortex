@@ -239,8 +239,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   size_t i, num_added = 0;
   size_t ctpcol = wrkr->task.ctpcol;
 
-  hkey_t node;
-  Orientation orient;
+  dBNode node;
   size_t start_mn, start_pl, pos;
   PathLen plen, plen_orient;
   boolean added;
@@ -262,13 +261,25 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   worker_packed_cap(wrkr, pckd_memsize*4);
   for(i = 0; i < 4; i++) packed_ptrs[i] = wrkr->packed + i*pckd_memsize;
 
-  pack_bases(packed_ptrs[0]+sizeof(PathLen), nuc_pl, num_pl);
-  packed_cpy(packed_ptrs[1]+sizeof(PathLen), packed_ptrs[0], 1, num_pl);
-  packed_cpy(packed_ptrs[2]+sizeof(PathLen), packed_ptrs[0], 2, num_pl);
-  packed_cpy(packed_ptrs[3]+sizeof(PathLen), packed_ptrs[0], 3, num_pl);
+  packed_ptr = packed_ptrs[0]+sizeof(PathLen);
+  pack_bases(packed_ptr, nuc_pl, num_pl);
+  packed_cpy(packed_ptrs[1]+sizeof(PathLen), packed_ptr, 1, num_pl);
+  packed_cpy(packed_ptrs[2]+sizeof(PathLen), packed_ptr, 2, num_pl);
+  packed_cpy(packed_ptrs[3]+sizeof(PathLen), packed_ptr, 3, num_pl);
 
   // pl => plus in direction
   // mn => minus against direction
+
+  // char nstr[num_pl+1];
+  // for(i = 0; i < num_pl; i++) nstr[i] = dna_nuc_to_char(nuc_pl[i]);
+  // nstr[num_pl] = '\0';
+  // status("_juncs_to_paths(): len %zu %s", num_pl, nstr);
+
+  // PathLen tmplen = num_pl;
+  // for(i = 0; i < 4; i++) {
+  //   memcpy(packed_ptrs[i], &tmplen, sizeof(PathLen));
+  //   print_path(i, packed_ptrs[i], &db_graph->pdata);
+  // }
 
   // 0,1,2,3
   // 3,2,1
@@ -290,31 +301,29 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     // Check path is not too long (MAX_PATHLEN is the limit)
     plen = (PathLen)MIN2(num_pl - start_pl, MAX_PATHLEN);
-    node = nodes[pos].key;
-    orient = pl_is_fw ? nodes[pos].orient : rev_orient(nodes[pos].orient);
+    node = pl_is_fw ? nodes[pos] : db_node_reverse(nodes[pos]);
 
-    dBNode tmp = {.key = node, .orient = orient};
-    graph_path_check_valid(db_graph, tmp, wrkr->task.ctxcol,
+    graph_path_check_valid(db_graph, node, wrkr->task.ctxcol,
                            nuc_pl+start_pl, plen);
 
     #ifdef CTXVERBOSE
       char kmerstr[MAX_KMER_SIZE+1];
-      binary_kmer_to_str(db_node_bkmer(db_graph, node), db_graph->kmer_size, kmerstr);
-      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n", kmerstr, orient,
+      binary_kmer_to_str(db_node_bkmer(db_graph, node.key), db_graph->kmer_size, kmerstr);
+      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n", kmerstr, node.orient,
              start_pl, start_mn, pos_mn[start_mn]);
     #endif
 
     // Write orient and length to packed representation
-    plen_orient = packedpath_combine_lenorient(plen,orient);
+    plen_orient = packedpath_combine_lenorient(plen,node.orient);
     packed_ptr = packed_ptrs[start_pl&3] + start_pl/4;
     memcpy(packed_ptr, &plen_orient, sizeof(PathLen));
 
     // mask top byte!
-    size_t top_idx = sizeof(PathLen) + (plen+3)/4-1;
+    size_t top_idx = sizeof(PathLen) + (plen+3)/4 - 1;
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    added = path_store_mt_find_or_add(node, db_graph, ctpcol, packed_ptr, plen);
+    added = path_store_mt_find_or_add(node.key, db_graph, ctpcol, packed_ptr, plen);
     packed_ptr[top_idx] = top_byte; // restore top byte
 
     #ifdef CTXVERBOSE
