@@ -79,6 +79,8 @@ void db_graph_dealloc(dBGraph *db_graph);
 // Note: node may alreay exist in the graph
 dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col);
 
+dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer);
+
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge(dBGraph *db_graph, Colour colour,
                        hkey_t src_node, hkey_t tgt_node,
@@ -95,16 +97,14 @@ void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt);
 // Graph Traversal
 //
 
-void db_graph_next_node(const dBGraph *db_graph, const BinaryKmer node_bkey,
-                        Nucleotide next_nuc, Orientation orient,
-                        hkey_t *next_node, Orientation *next_orient);
+dBNode db_graph_next_node(const dBGraph *db_graph, const BinaryKmer node_bkey,
+                          Nucleotide next_nuc, Orientation orient);
 
 // edges are forward+reverse, db_graph_next_nodes orients them
 // fw_nucs is the nuc you would add when walking forward
 size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
                            Orientation orient, Edges edges,
-                           hkey_t nodes[4], Orientation orients[4],
-                           Nucleotide fw_nucs[4]);
+                           dBNode nodes[4], Nucleotide fw_nucs[4]);
 
 // Check kmer size of a file
 void db_graph_check_kmer_size(size_t kmer_size, const char *path);

@@ -51,8 +51,7 @@ static void add_kmer(BinaryKmer bkmer, dBGraph *db_graph, dBNodeBuffer *nodebuf)
   nodebuf->len++;
 }
 
-static void walk_graph(hkey_t node, Orientation orient,
-                       dBNodeBuffer *buf, size_t max,
+static void walk_graph(dBNode node, dBNodeBuffer *buf, size_t max,
                        dBGraph *db_graph, uint64_t *visited)
 {
   size_t i, origlen = buf->len;
@@ -62,18 +61,15 @@ static void walk_graph(hkey_t node, Orientation orient,
 
   for(i = 0; i < max; i++)
   {
-    edges = db_node_get_edges_union(db_graph, node);
-    if(!edges_has_precisely_one_edge(edges, orient, &nuc)) break;
-    bkmer = db_node_get_bkmer(db_graph, node);
-    db_graph_next_node(db_graph, bkmer, nuc, orient, &node, &orient);
+    edges = db_node_get_edges_union(db_graph, node.key);
+    if(!edges_has_precisely_one_edge(edges, node.orient, &nuc)) break;
+    bkmer = db_node_get_bkmer(db_graph, node.key);
+    node = db_graph_next_node(db_graph, bkmer, nuc, node.orient);
 
-    dBNode n = {.key = node, .orient = orient};
-    if(db_node_has_traversed(visited, n)) break;
-    db_node_set_traversed(visited, n);
+    if(db_node_has_traversed(visited, node)) break;
+    db_node_set_traversed(visited, node);
 
-    buf->data[buf->len].key = node;
-    buf->data[buf->len].orient = orient;
-    buf->len++;
+    buf->data[buf->len++] = node;
   }
 
   for(i = origlen; i < buf->len; i++)
@@ -88,6 +84,8 @@ static void extend_read(read_t *r, ExtendContig *contig)
   if(r->seq.end < db_graph->kmer_size) return;
 
   db_node_buf_ensure_capacity(readbuffw, r->seq.end + contig->max_walk * 2);
+  db_node_buf_ensure_capacity(readbufrv, r->seq.end + contig->max_walk);
+
   readbuffw->len = readbufrv->len = 0;
 
   READ_TO_BKMERS(r, db_graph->kmer_size, 0, 0, contig->stats,
@@ -98,12 +96,10 @@ static void extend_read(read_t *r, ExtendContig *contig)
   size_t i, j;
 
   // extend forwards and backwards
-  walk_graph(readbuffw->data[readbuffw->len-1].key,
-             readbuffw->data[readbuffw->len-1].orient,
+  walk_graph(readbuffw->data[readbuffw->len-1],
              readbuffw, contig->max_walk, db_graph, contig->visited);
 
-  walk_graph(readbuffw->data[0].key,
-             opposite_orientation(readbuffw->data[0].orient),
+  walk_graph(db_node_reverse(readbuffw->data[0]),
              readbufrv, contig->max_walk, db_graph, contig->visited);
 
   // Shift forward list up
@@ -112,8 +108,9 @@ static void extend_read(read_t *r, ExtendContig *contig)
 
   // Reverse orientation for backwards kmers
   for(i = 0, j = readbufrv->len-1; i < readbufrv->len; i++, j--) {
-    readbuffw->data[i].key = readbufrv->data[j].key;
-    readbuffw->data[i].orient = opposite_orientation(readbufrv->data[j].orient);
+    readbuffw->data[i] = db_node_reverse(readbufrv->data[j]);
+    // readbuffw->data[i].key = readbufrv->data[j].key;
+    // readbuffw->data[i].orient = opposite_orientation(readbufrv->data[j].orient);
   }
 
   // to string and print

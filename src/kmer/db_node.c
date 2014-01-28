@@ -38,17 +38,16 @@ Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
 
   // Check which next nodes are in the given colour
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
-  hkey_t nodes[4];
-  Orientation orients[4];
+  dBNode nodes[4];
   Nucleotide nucs[4];
   size_t i, n;
 
   n = db_graph_next_nodes(db_graph, bkmer, node.orient,
-                          edges, nodes, orients, nucs);
+                          edges, nodes, nucs);
 
   edges = 0;
   for(i = 0; i < n; i++)
-    if(db_node_has_col(db_graph, nodes[i], col))
+    if(db_node_has_col(db_graph, nodes[i].key, col))
       edges = edges_set_edge(edges, nucs[i], FORWARD);
 
   return edges;

@@ -11,14 +11,13 @@ static void edge_check(hkey_t node, const dBGraph *db_graph, size_t col)
   const BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   const Edges edges = db_node_get_edges(db_graph, col, node);
 
-  hkey_t nodes[4];
-  Orientation orients[4];
+  dBNode nodes[4];
   Nucleotide nucs[4];
   size_t i, n, or;
 
   for(or = 0; or < 2; or++) {
     Edges e = 0;
-    n = db_graph_next_nodes(db_graph, bkmer, or, edges, nodes, orients, nucs);
+    n = db_graph_next_nodes(db_graph, bkmer, or, edges, nodes, nucs);
     for(i = 0; i < n; i++) e |= nuc_orient_to_edge(nucs[i], or);
     assert(edges_with_orientation(e,or) == edges_with_orientation(edges,or));
   }

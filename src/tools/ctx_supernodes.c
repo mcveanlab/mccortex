@@ -57,29 +57,30 @@ static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
                                     const dBGraph *db_graph)
 {
   size_t i, n, side0, side1;
-  hkey_t next_nodes[4]; Orientation next_orients[4]; Nucleotide next_nucs[4];
+  dBNode next_nodes[4];
+  Nucleotide next_nucs[4];
   sndata_t snode1;
   const char coords[2] = "we";
 
   n = db_graph_next_nodes(db_graph, bkmer, orient, edges,
-                          next_nodes, next_orients, next_nucs);
+                          next_nodes, next_nucs);
 
   // side0 = snode0.left && snode0.right ? !orient : snode0.right;
   // fprintf(fout, "node%zu:%c\n", (size_t)snode0.nodeid, coords[side0]);
 
   for(i = 0; i < n; i++)
   {
-    snode1 = supernodes[next_nodes[i]];
-    assert(next_nodes[i] != HASH_NOT_FOUND);
+    snode1 = supernodes[next_nodes[i].key];
+    assert(next_nodes[i].key != HASH_NOT_FOUND);
     assert(snode1.assigned);
 
     // if left && right then supernode is 1 kmer long
     // orient: FORWARD == 0, 'e'; REVERSE == 1, 'w'; => !orient
-    // next_orients: need to negate twice so just next_orients[i]
+    // next_orients: need to negate twice so just next_nodes[i].orient
     side0 = snode0.left && snode0.right ? !orient : snode0.right;
-    side1 = snode1.left && snode1.right ? next_orients[i] : snode1.right;
+    side1 = snode1.left && snode1.right ? next_nodes[i].orient : snode1.right;
 
-    if(node < next_nodes[i] || (node == next_nodes[i] && side0 <= side1)) {
+    if(node < next_nodes[i].key || (node == next_nodes[i].key && side0 <= side1)) {
       fprintf(fout, "  node%zu:%c -> node%zu:%c\n",
               (size_t)snode0.nodeid, coords[side0],
               (size_t)snode1.nodeid, coords[side1]);

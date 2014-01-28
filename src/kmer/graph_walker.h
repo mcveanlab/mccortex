@@ -83,7 +83,7 @@ uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer);
 
 // Returns index of choice or -1 along with status
 GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
-                              const hkey_t next_nodes[4],
+                              const dBNode next_nodes[4],
                               const Nucleotide next_bases[4]);
 
 // Move to the next node
@@ -99,7 +99,7 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
 // return 1 on success, 0 otherwise
 boolean graph_traverse(GraphWalker *wlk);
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
-                             const hkey_t hkeys[4], const Nucleotide bases[4]);
+                             const dBNode nodes[4], const Nucleotide bases[4]);
 
 void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     hkey_t prev_nodes[4],

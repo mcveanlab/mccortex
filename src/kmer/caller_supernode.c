@@ -17,8 +17,8 @@
 // Create a supernode starting at node/or.  Store in snode.
 // Ensure snode->nodes and snode->orients point to valid memory before passing
 // Returns 0 on failure, otherwise snode->num_of_nodes
-size_t caller_supernode_create(hkey_t node, Orientation orient,
-                               CallerSupernode *snode, const dBGraph *db_graph)
+size_t caller_supernode_create(dBNode node, CallerSupernode *snode,
+                               const dBGraph *db_graph)
 {
   assert(db_graph->num_edge_cols == 1);
 
@@ -30,16 +30,14 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    bkmer = db_node_get_bkmer(db_graph, node);
+    bkmer = db_node_get_bkmer(db_graph, node.key);
     binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
     printf(" create %s:%i\n", tmpstr, (int)orient);
   #endif
 
-  dBNode first = {.key = node, .orient = orient};
-
   dBNodeBuffer *nbuf = snode->nbuf;
   snode->nbuf_offset = nbuf->len;
-  db_node_buf_add(nbuf, first);
+  db_node_buf_add(nbuf, node);
   supernode_extend(nbuf, 0, db_graph);
   snode->num_of_nodes = nbuf->len - snode->nbuf_offset;
 
@@ -62,10 +60,8 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
   for(nuc = 0; nuc < 4; nuc++) {
     if(edges_has_edge(union_edges, nuc, FORWARD)) {
-      db_graph_next_node(db_graph, bkmer, nuc, first_or,
-                         snode->prev_nodes + snode->num_prev,
-                         snode->prev_orients + snode->num_prev);
-      snode->num_prev++;
+      snode->prev_nodes[snode->num_prev++]
+        = db_graph_next_node(db_graph, bkmer, nuc, first_or);
     }
   }
 
@@ -76,10 +72,8 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
   for(nuc = 0; nuc < 4; nuc++) {
     if(edges_has_edge(union_edges, nuc, FORWARD)) {
-      db_graph_next_node(db_graph, bkmer, nuc, last_or,
-                         snode->next_nodes + snode->num_next,
-                         snode->next_orients + snode->num_next);
-      snode->num_next++;
+      snode->next_nodes[snode->num_next++]
+        = db_graph_next_node(db_graph, bkmer, nuc, last_or);
     }
   }
 

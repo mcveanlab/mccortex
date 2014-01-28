@@ -71,28 +71,26 @@ static void store_node_neighbours(const hkey_t node, EdgeNodeList *list)
   // Get neighbours
   Edges edges = db_node_get_edges_union(&db_graph, node);
   size_t num_next, i;
-  hkey_t next_nodes[8];
-  Orientation next_orients[8];
+  dBNode next_nodes[8];
   Nucleotide next_bases[8];
 
   BinaryKmer bkmer = db_node_get_bkmer(&db_graph, node);
 
   // Get neighbours in forward dir
   num_next  = db_graph_next_nodes(&db_graph, bkmer, FORWARD, edges,
-                                  next_nodes, next_orients, next_bases);
+                                  next_nodes, next_bases);
 
   // Get neighbours in reverse dir
   num_next += db_graph_next_nodes(&db_graph, bkmer, REVERSE, edges,
-                                  next_nodes+num_next, next_orients+num_next,
-                                  next_bases+num_next);
+                                  next_nodes+num_next, next_bases+num_next);
 
   // if not flagged add to list
   for(i = 0; i < num_next; i++) {
-    if(!bitset_get(kmer_mask, next_nodes[i])) {
-      bitset_set(kmer_mask, next_nodes[i]);
+    if(!bitset_get(kmer_mask, next_nodes[i].key)) {
+      bitset_set(kmer_mask, next_nodes[i].key);
       // if list full, exit
       if(list->len == list->capacity) die("Please increase <mem> size");
-      list->nodes[list->len++] = next_nodes[i];
+      list->nodes[list->len++] = next_nodes[i].key;
     }
   }
 }

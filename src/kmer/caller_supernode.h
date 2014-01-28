@@ -16,14 +16,12 @@ typedef struct SupernodePathPos SupernodePathPos;
 
 struct CallerSupernode
 {
-  dBNodeBuffer *nbuf;
+  dBNodeBuffer *nbuf; // shared node buffer
   size_t nbuf_offset, num_of_nodes; // Offset and lenth in nbuf
-
-  // DEV: could save space by using dBNode instead of separate hkey_t+orient
+  // Edges to/from this supernode
+  dBNode prev_nodes[4], next_nodes[4];
   uint8_t num_prev, num_next;
-  hkey_t prev_nodes[4], next_nodes[4];
-  Orientation prev_orients[4], next_orients[4];
-
+  // Linked list of paths that use this supernode
   SupernodePathPos *first_pathpos;
 };
 
@@ -44,13 +42,15 @@ struct SupernodePathPos
 
 #define snode_nodes(sn)   ((sn)->nbuf->data+(sn)->nbuf_offset)
 
-#define supernode_get_orientation(snode,node,or) \
-        ((node) == snode_nodes(snode)[0].key && \
-         (or) == snode_nodes(snode)[0].orient ? FORWARD : REVERSE)
+#define supernode_get_orientation(snode,node) \
+        ((node).key == snode_nodes(snode)[0].key && \
+         (node).orient == snode_nodes(snode)[0].orient ? FORWARD : REVERSE)
 
-// Create a supernode strating at node/or.  Store in snode.
-size_t caller_supernode_create(hkey_t node, Orientation orient,
-                               CallerSupernode *snode, const dBGraph *db_graph);
+// Create a supernode starting at node/or.  Store in snode.
+// Ensure snode->nodes and snode->orients point to valid memory before passing
+// Returns 0 on failure, otherwise snode->num_of_nodes
+size_t caller_supernode_create(dBNode node, CallerSupernode *snode,
+                               const dBGraph *db_graph);
 
 #define supernode_pathpos_equal(a,b) (cmp_snpath_pos(a,b) == 0)
 

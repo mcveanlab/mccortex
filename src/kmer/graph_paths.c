@@ -17,8 +17,7 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
 
   BinaryKmer bkmer;
   Edges edges;
-  hkey_t nodes[4];
-  Orientation orients[4];
+  dBNode nodes[4];
   Nucleotide nucs[4];
   size_t i, j, n, edgecol = db_graph->num_edge_cols > 1 ? col : 0;
   // length is kmers and juctions
@@ -59,16 +58,15 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
     }
 
     n = db_graph_next_nodes(db_graph, bkmer, node.orient,
-                            edges, nodes, orients, nucs);
+                            edges, nodes, nucs);
 
     assert(n > 0);
 
     // Reduce to nodes in our colour if edges limited
     if(db_graph->num_edge_cols == 1 && db_graph->node_in_cols != NULL) {
       for(i = 0, j = 0; i < n; i++) {
-        if(db_node_has_col(db_graph, nodes[i], col)) {
+        if(db_node_has_col(db_graph, nodes[i].key, col)) {
           nodes[j] = nodes[i];
-          orients[j] = orients[i];
           nucs[j] = nucs[i];
           j++;
         }
@@ -89,13 +87,11 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
         printf("\n");
       }
       assert(i < n && nucs[i] == expbase);
-      node.key = nodes[i];
-      node.orient = orients[i];
+      node = nodes[i];
       plen++;
     }
     else {
-      node.key = nodes[0];
-      node.orient = orients[0];
+      node = nodes[0];
     }
   }
 }

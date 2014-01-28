@@ -113,6 +113,16 @@ dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer, Colour 
   return node;
 }
 
+dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer)
+{
+  dBNode node;
+  BinaryKmer bkey;
+  bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  node.key = hash_table_find(&db_graph->ht, bkey);
+  node.orient = db_node_get_orientation(bkmer, bkey);
+  return node;
+}
+
 // Thread safe
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
@@ -155,14 +165,12 @@ void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 // Graph Traversal
 //
 
-// DEV: change so returns dBNode instead of hkey_t+Orientation
-void db_graph_next_node(const dBGraph *db_graph,
-                        const BinaryKmer node_bkey, Nucleotide next_nuc,
-                        Orientation orient,
-                        hkey_t *next_node, Orientation *next_orient)
+dBNode db_graph_next_node(const dBGraph *db_graph,
+                          const BinaryKmer node_bkey, Nucleotide next_nuc,
+                          Orientation orient)
 {
   size_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer, bkey;
+  BinaryKmer bkmer;
 
   if(orient == FORWARD)
     bkmer = binary_kmer_left_shift_add(node_bkey, kmer_size, next_nuc);
@@ -171,22 +179,21 @@ void db_graph_next_node(const dBGraph *db_graph,
     bkmer = binary_kmer_right_shift_add(node_bkey, kmer_size, next_nuc);
   }
 
-  bkey = db_node_get_key(bkmer, kmer_size);
-  *next_node = hash_table_find(&db_graph->ht, bkey);
-  *next_orient = db_node_get_orientation(bkmer, bkey) ^ orient;
-  assert(*next_node != HASH_NOT_FOUND);
+  dBNode next_node = db_graph_find(db_graph, bkmer);
+  next_node.orient ^= orient;
+
+  assert(next_node.key != HASH_NOT_FOUND);
+  return next_node;
 }
 
-// DEV: change so returns dBNode instead of hkey_t+Orientation
 size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
                            Orientation orient, Edges edges,
-                           hkey_t nodes[4], Orientation orients[4],
-                           Nucleotide fw_nucs[4])
+                           dBNode nodes[4], Nucleotide fw_nucs[4])
 {
   size_t count = 0, kmer_size = db_graph->kmer_size;
   Edges tmp_edge;
   Nucleotide nuc;
-  BinaryKmer bkmer, bkey;
+  BinaryKmer bkmer;
 
   edges = edges_with_orientation(edges, orient);
   bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
@@ -196,11 +203,10 @@ size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
     if(edges & tmp_edge) {
       if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
       else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
-      bkey = db_node_get_key(bkmer, kmer_size);
-      nodes[count] = hash_table_find(&db_graph->ht, bkey);
-      orients[count] = db_node_get_orientation(bkmer, bkey) ^ orient;
+      nodes[count] = db_graph_find(db_graph, bkmer);
+      nodes[count].orient ^= orient;
       fw_nucs[count] = nuc;
-      assert(nodes[count] != HASH_NOT_FOUND);
+      assert(nodes[count].key != HASH_NOT_FOUND);
       count++;
     }
   }
@@ -228,18 +234,17 @@ static inline void check_node(hkey_t node, const dBGraph *db_graph)
   Edges edges = db_node_get_edges_union(db_graph, node);
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   size_t nfw_edges, nrv_edges, i, j;
-  hkey_t fwnodes[8], rvnodes[8];
-  Orientation fworients[8], rvorients[8];
+  dBNode fwnodes[8], rvnodes[8];
   Nucleotide fwnucs[8], rvnucs[8];
 
   nfw_edges = db_graph_next_nodes(db_graph, bkmer, FORWARD, edges,
-                                  fwnodes, fworients, fwnucs);
+                                  fwnodes, fwnucs);
 
   nrv_edges = db_graph_next_nodes(db_graph, bkmer, REVERSE, edges,
-                                  rvnodes, rvorients, rvnucs);
+                                  rvnodes, rvnucs);
 
-  for(i = 0; i < nfw_edges && fwnodes[i] != HASH_NOT_FOUND; i++);
-  for(j = 0; j < nrv_edges && rvnodes[j] != HASH_NOT_FOUND; j++);
+  for(i = 0; i < nfw_edges && fwnodes[i].key != HASH_NOT_FOUND; i++);
+  for(j = 0; j < nrv_edges && rvnodes[j].key != HASH_NOT_FOUND; j++);
 
   size_t total_edges = nfw_edges + nrv_edges;
 
@@ -253,14 +258,10 @@ static inline void check_node(hkey_t node, const dBGraph *db_graph)
   dBNode rvnode = {.key = node, .orient = REVERSE};
 
   // Check all edges are reciprical
-  for(i = 0; i < nfw_edges; i++) {
-    dBNode tmpnode = {.key = fwnodes[i], .orient = fworients[i]};
-    db_graph_check_edges(db_graph, fwnode, tmpnode);
-  }
-  for(i = 0; i < nrv_edges; i++) {
-    dBNode tmpnode = {.key = rvnodes[i], .orient = rvorients[i]};
-    db_graph_check_edges(db_graph, rvnode, tmpnode);
-  }
+  for(i = 0; i < nfw_edges; i++)
+    db_graph_check_edges(db_graph, fwnode, fwnodes[i]);
+  for(i = 0; i < nrv_edges; i++)
+    db_graph_check_edges(db_graph, rvnode, rvnodes[i]);
 }
 
 void db_graph_healthcheck(const dBGraph *db_graph)
