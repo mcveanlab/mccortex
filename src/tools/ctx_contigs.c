@@ -144,8 +144,6 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
                             FILE *fout)
 {
   Orientation orient;
-
-  const size_t kmer_size = db_graph->kmer_size;
   size_t njunc = 0;
 
   db_node_buf_reset(&cd->nodes);
