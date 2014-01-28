@@ -369,7 +369,9 @@ int ctx_thread(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  path_store_alloc(&db_graph.pdata, main_path_mem, tmp_path_mem, path_max_usedcols);
+  // use total_cols instead of path_max_usedcols since we are
+  // loading then ADDING more paths (which may need new colours)
+  path_store_alloc(&db_graph.pdata, main_path_mem, tmp_path_mem, total_cols);
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;

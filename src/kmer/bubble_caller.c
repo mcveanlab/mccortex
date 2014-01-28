@@ -240,7 +240,6 @@ static void load_allele_path(dBNode node,
   SuperOrientation snorient;
 
   const dBGraph *db_graph = wlk->db_graph;
-  const size_t kmer_size = db_graph->kmer_size;
 
   #ifdef DEBUG_CALLER
     char tmp[MAX_KMER_SIZE+1];

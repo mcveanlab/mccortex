@@ -361,7 +361,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   dBNode prev_nodes[4];
   Nucleotide prev_bases[4];
   size_t i, num_prev_nodes;
-  Edges edges;
+  Edges edges, prev_edge;
   Nucleotide next_base;
   Orientation backwards = !wlk->node.orient;
 
@@ -370,9 +370,14 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
 
   // Can slim down the number of nodes to look up if we can rule out
   // the node we just came from
-  edges &= ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), backwards);
+  prev_edge = nuc_orient_to_edge(dna_nuc_complement(prev_nuc), backwards);
 
-  num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey, backwards, edges,
+  // Some sanity checks
+  assert(edges & prev_edge);
+  assert(binary_kmers_are_equal(wlk->bkey, db_node_get_bkmer(db_graph, wlk->node.key)));
+
+  num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey,
+                                       backwards, edges & ~prev_edge,
                                        prev_nodes, prev_bases);
 
   next_base = binary_kmer_last_nuc(wlk->bkmer);
@@ -526,6 +531,11 @@ boolean graph_traverse(GraphWalker *wlk)
 
   return graph_traverse_nodes(wlk, num_next, nodes, bases);
 }
+
+
+//
+// Force traversal along an array of nodes (`priming' a GraphWalker)
+//
 
 // Fast traverse - avoid a bkmer_revcmp
 static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,

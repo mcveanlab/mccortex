@@ -32,12 +32,14 @@ boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour ctpcol,
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
+  uint8_t *colset;
+
   if(match != PATH_NULL)
   {
     // => if already exist -> add colour -> release lock
-    volatile uint8_t *colarr = packedpath_get_colset(pstore->store+match);
-    boolean added = !bitset_get(colarr, ctpcol);
-    bitset_set(colarr, ctpcol);
+    colset = packedpath_get_colset(pstore->store+match);
+    boolean added = !bitset_get(colset, ctpcol);
+    bitset_set(colset, ctpcol);
     bitlock_release(kmerlocks, hkey);
     *newidx = match;
     return added;
@@ -55,13 +57,15 @@ boolean path_store_mt_find_or_add(hkey_t hkey, dBGraph *db_graph, Colour ctpcol,
   if(new_path + mem > pstore->end) die("Out of path memory!");
 
   // 4) Copy new entry
-  uint8_t *colset = new_path+sizeof(PathIndex);
 
   // Prev
   packedpath_set_prev(new_path, next);
+
   // bitset
+  colset = packedpath_get_colset(new_path);
   memset(colset, 0, pstore->colset_bytes);
   bitset_set(colset, ctpcol);
+
   // Length + Path
   memcpy(colset+pstore->colset_bytes, packed, sizeof(PathLen) + path_nbytes);
 
