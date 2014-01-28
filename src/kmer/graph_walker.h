@@ -8,9 +8,8 @@
 
 typedef struct
 {
-  const uint8_t *const seq;
-  const PathLen len;
-  PathLen pos;
+  const uint8_t *seq;
+  PathLen pos, len;
   // A small buffer of upcoming 24 bases
   PathLen first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
   uint8_t cache[6]; // first..first+24-1 (24 bases)
