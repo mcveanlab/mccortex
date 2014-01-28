@@ -318,7 +318,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   #ifdef USE_COUNTER_PATHS
   // Does every next node have a path?
   // Fail if missing assembly info
-  if(taken[0]+taken[1]+taken[2]+taken[3] < num_next)
+  if((size_t)taken[0]+taken[1]+taken[2]+taken[3] < num_next)
     return_step(-1, GRPHWLK_MISSING_PATHS);
   #endif
 

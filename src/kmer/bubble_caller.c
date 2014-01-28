@@ -201,6 +201,7 @@ static void print_bubble(gzFile out, size_t bnum,
   gzputc(out, '\n');
 }
 
+/*
 // Returns 1 if successfully walked across supernode, 0 otherwise
 static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
                                       SuperOrientation snorient,
@@ -232,6 +233,7 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
                                   kmer_size);
   }
 }
+*/
 
 // Constructs a path of supernodes (SupernodePath)
 // returns number of supernodes loaded
@@ -553,7 +555,6 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   // loop over alleles, then colours
   size_t supindx, num_of_paths = 0;
   Colour colour, colours_loaded = db_graph->num_of_cols_used;
-  Nucleotide lost_nuc;
   SupernodePath *path;
   CallerSupernode *snode;
   int col_has_node[4], num_edges_in_col;
@@ -575,7 +576,6 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
         dBNode node = {.key = fork_n, .orient = fork_o};
         graph_walker_init(wlk, db_graph, colour, colour, node);
-        lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
         graph_traverse_force(wlk, nodes[i].key, bases[i], num_edges_in_col > 1);
 

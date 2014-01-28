@@ -144,7 +144,6 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
                             FILE *fout)
 {
   Orientation orient;
-  Nucleotide lost_nuc;
 
   const size_t kmer_size = db_graph->kmer_size;
   size_t njunc = 0;
@@ -161,12 +160,10 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
 
     dBNode node = {.key = hkey, .orient = orient};
     graph_walker_init(wlk, db_graph, colour, colour, node);
-    lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
 
     while(graph_traverse(wlk) &&
           rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer))
     {
-      lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
       db_node_buf_add(&cd->nodes, wlk->node);
       cd->grphwlk_steps[wlk->last_step.status]++;
     }
