@@ -166,7 +166,6 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
     while(graph_traverse(wlk) &&
           rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer))
     {
-      graph_walker_node_add_counter_paths(wlk, lost_nuc);
       lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
       db_node_buf_add(&cd->nodes, wlk->node);
       cd->grphwlk_steps[wlk->last_step.status]++;

@@ -337,9 +337,6 @@ static void load_allele_path(dBNode node,
     // db_node_set_traversed(visited, node.key, node.orient);
 
     // Find next node
-    Nucleotide lost_nuc;
-    walk_supernode_end(wlk, snode, snorient, &lost_nuc);
-
     size_t i;
     uint8_t num_edges;
     dBNode *next_nodes;
@@ -370,7 +367,6 @@ static void load_allele_path(dBNode node,
     next_bkmer = db_node_oriented_bkmer(next_bkmers[step.idx], node.orient, kmer_size);
 
     graph_traverse_force_jump(wlk, node.key, next_bkmer, graphstep_is_fork(step));
-    graph_walker_node_add_counter_paths(wlk, lost_nuc);
   }
   // printf("DONE\n");
 
@@ -582,7 +578,6 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
         graph_traverse_force(wlk, nodes[i].key, bases[i], num_edges_in_col > 1);
-        graph_walker_node_add_counter_paths(wlk, lost_nuc);
 
         // Constructs a path of supernodes (SupernodePath)
         load_allele_path(nodes[i], path, snode_hash, wlk, rptwlk,

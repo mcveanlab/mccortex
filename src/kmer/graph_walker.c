@@ -27,6 +27,8 @@ static inline Nucleotide cache_fetch(FollowPath *path, size_t pos)
   return packed_fetch(path->cache, pos - path->first_cached);
 }
 
+// Check if the FollowPath cache needs updated, based of path->pos value
+// if it does, update it
 static inline void cache_update(FollowPath *path)
 {
   // 4 bases per byte
@@ -55,10 +57,9 @@ static void print_path_list(const PathBuffer *pbuf)
 
 void graph_walker_print_state(const GraphWalker *wlk)
 {
-  BinaryKmer bkmer = db_node_get_bkmer(wlk->db_graph, wlk->node.key);
   char bkmerstr[MAX_KMER_SIZE+1], bkeystr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, bkmerstr);
-  binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, bkeystr);
+  binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkeystr);
   printf(" GWState:%s (%s:%i)\n", bkmerstr, bkeystr, wlk->node.orient);
   printf("  num_curr: %zu\n", wlk->paths.len);
   print_path_list(&wlk->paths);
@@ -160,6 +161,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   path_buf_reset(&wlk->cntr_paths);
 
   // Get bkmer oriented correctly (not bkey)
+  wlk->bkey = db_node_get_bkmer(graph, node.key);
   wlk->bkmer = db_graph_oriented_bkmer(graph, node.key, node.orient);
 
   // Pick up new paths
@@ -350,11 +352,41 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
 #undef return_step
 
-// Force a traversal
-// If fork is true, node is the result of taking a fork -> slim down paths
-// prev is array of nodes with edges to the node we are moving to
-void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
-                               boolean fork)
+
+
+static void _graph_walker_pickup_counter_paths(GraphWalker *wlk, boolean have_prev,
+                                               Nucleotide prev_nuc)
+{
+  const dBGraph *db_graph = wlk->db_graph;
+  dBNode prev_nodes[4];
+  Nucleotide prev_bases[4];
+  size_t i, num_prev_nodes;
+  Edges edges;
+  Nucleotide next_base;
+  Orientation backwards = !wlk->node.orient;
+
+  // Remove edge to kmer we came from
+  edges = db_node_get_edges(db_graph, wlk->ctxcol, wlk->node.key);
+
+  // Can slim down the number of nodes to look up if we can rule out
+  // the node we just came from
+  if(have_prev)
+    edges &= ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), backwards);
+
+  num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey, backwards, edges,
+                                       prev_nodes, prev_bases);
+
+  next_base = binary_kmer_last_nuc(wlk->bkmer);
+
+  // Reverse orientation, pick up paths
+  for(i = 0; i < num_prev_nodes; i++) {
+    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+  }
+}
+
+
+static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
+                                       BinaryKmer bkmer, boolean fork)
 {
   assert(hkey != HASH_NOT_FOUND);
 
@@ -426,9 +458,20 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
   wlk->node.key = hkey;
   wlk->node.orient = db_node_get_orientation(bkmer, bkey);
   wlk->bkmer = bkmer;
+  wlk->bkey = bkey;
 
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
+}
+
+// Force a traversal
+// If fork is true, node is the result of taking a fork -> slim down paths
+// prev is array of nodes with edges to the node we are moving to
+void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
+                               boolean fork)
+{
+  _graph_traverse_force_jump(wlk, hkey, bkmer, fork);
+  _graph_walker_pickup_counter_paths(wlk, false, 0);
 }
 
 void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
@@ -436,40 +479,22 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
 {
   assert(node != HASH_NOT_FOUND);
   BinaryKmer bkmer;
-  bkmer = binary_kmer_left_shift_add(wlk->bkmer, wlk->db_graph->kmer_size, base);
-  graph_traverse_force_jump(wlk, node, bkmer, fork);
+  const size_t kmer_size = wlk->db_graph->kmer_size;
+  Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
+  bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
+  _graph_traverse_force_jump(wlk, node, bkmer, fork);
+  _graph_walker_pickup_counter_paths(wlk, true, lost_nuc);
 }
 
-void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc)
+boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
+                             const dBNode nodes[4], const Nucleotide bases[4])
 {
-  const dBGraph *db_graph = wlk->db_graph;
-  dBNode prev_nodes[4];
-  Nucleotide prev_bases[4];
-  size_t i, num_prev_nodes;
-  BinaryKmer bkmer;
-  Orientation orient;
-  Edges edges;
-  Nucleotide next_base;
-
-  // Use local version if possible
-  bkmer
-    = (wlk->node.orient == FORWARD ? wlk->bkmer
-                                   : db_node_get_bkmer(db_graph, wlk->node.key));
-  orient = opposite_orientation(wlk->node.orient);
-
-  // Remove edge to kmer we came from
-  edges = db_node_get_edges(db_graph, wlk->ctxcol, wlk->node.key) &
-          ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), orient);
-
-  num_prev_nodes = db_graph_next_nodes(db_graph, bkmer, orient, edges,
-                                       prev_nodes, prev_bases);
-
-  next_base = binary_kmer_last_nuc(wlk->bkmer);
-
-  // Reverse orientation, pick up paths
-  for(i = 0; i < num_prev_nodes; i++) {
-    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
-  }
+  wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
+  int idx = wlk->last_step.idx;
+  if(idx == -1) return false;
+  graph_traverse_force(wlk, nodes[idx].key, bases[idx],
+                       graphstep_is_fork(wlk->last_step));
+  return true;
 }
 
 // return 1 on success, 0 otherwise
@@ -486,17 +511,6 @@ boolean graph_traverse(GraphWalker *wlk)
                                  nodes, bases);
 
   return graph_traverse_nodes(wlk, num_next, nodes, bases);
-}
-
-boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
-                             const dBNode nodes[4], const Nucleotide bases[4])
-{
-  wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
-  int idx = wlk->last_step.idx;
-  if(idx == -1) return false;
-  graph_traverse_force(wlk, nodes[idx].key, bases[idx],
-                       graphstep_is_fork(wlk->last_step));
-  return true;
 }
 
 // Fast traverse - avoid a bkmer_revcmp

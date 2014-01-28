@@ -50,7 +50,7 @@ typedef struct
   // hkey_t node;
   // Orientation orient;
   dBNode node;
-  BinaryKmer bkmer; // Oriented bkmer (i.e. not key)
+  BinaryKmer bkmer, bkey; // Oriented bkmer (i.e. not key) + hash bkey
 
   // Paths we are currently following
   PathBuffer paths, new_paths, cntr_paths;
@@ -105,8 +105,6 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     hkey_t prev_nodes[4],
                                     Orientation prev_orients[4],
                                     size_t num_prev);
-
-void graph_walker_node_add_counter_paths(GraphWalker *wlk, Nucleotide prev_nuc);
 
 // Follow a given path of dBNode objects
 // first_node_fork should be true(1) nodes[0] is reached through a node with
