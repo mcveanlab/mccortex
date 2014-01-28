@@ -507,7 +507,7 @@ boolean graph_traverse(GraphWalker *wlk)
   Nucleotide bases[4];
   size_t num_next;
 
-  num_next = db_graph_next_nodes(db_graph, wlk->bkmer, FORWARD, edges,
+  num_next = db_graph_next_nodes(db_graph, wlk->bkey, wlk->node.orient, edges,
                                  nodes, bases);
 
   return graph_traverse_nodes(wlk, num_next, nodes, bases);
