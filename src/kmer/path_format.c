@@ -239,8 +239,8 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
     warn("End of file not reached when loading! [path: %s]", path);
 }
 
-static inline void load_packed_linkedlist(hkey_t node, PathIndex tmpindex,
-                                          const uint8_t *tmpdata,
+static inline void load_packed_linkedlist(hkey_t node, const uint8_t *data,
+                                          PathIndex loadindex,
                                           size_t colset_bytes,
                                           FileFilter *fltr, boolean find,
                                           dBGraph *db_graph)
@@ -254,27 +254,27 @@ static inline void load_packed_linkedlist(hkey_t node, PathIndex tmpindex,
 
   do
   {
-    packed = tmpdata+tmpindex;
+    packed = data+loadindex;
     pbytes = packedpath_pbytes(packed, colset_bytes);
     index = path_store_find_or_add_packed2(store, index, packed, pbytes,
                                            fltr, find, &added);
     if(added) db_node_paths(db_graph, node) = index;
-    tmpindex = packedpath_get_prev(packed);
+    loadindex = packedpath_get_prev(packed);
   }
-  while(tmpindex != PATH_NULL);
+  while(loadindex != PATH_NULL);
 }
 
 // Load 1 or more path files; can be called consecutively
 // db_graph.pdata must be big enough to hold all this data or we exit
 // tmpdata must be bigger than MAX(files[*].hdr.num_path_bytes)
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        boolean insert_missing_kmers,
-                        uint8_t *tmpdata, size_t tmpdatasize, dBGraph *db_graph)
+                        boolean insert_missing_kmers, dBGraph *db_graph)
 {
-  (void)tmpdatasize;
   if(num_files == 0) return;
 
   PathStore *store = &db_graph->pdata;
+
+  assert(num_files <= 1 || (store->tmpdata > 0 && store->tmpdata != NULL));
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
@@ -323,9 +323,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Print some output
     paths_loading_print_status(&files[i]);
 
-    assert(tmpdata != NULL);
-    assert(hdr->num_path_bytes <= tmpdatasize);
-    safe_fread(fh, tmpdata, hdr->num_path_bytes, "paths->store", path);
+    assert(store->tmpdata != NULL);
+    assert(hdr->num_path_bytes <= store->tmpsize);
+    safe_fread(fh, store->tmpdata, hdr->num_path_bytes, "paths->store", path);
 
     // Load kmer pointers to paths
     memset(&bkey, 0, sizeof(BinaryKmer));
@@ -348,7 +348,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       }
 
       // Merge into currently loaded paths
-      load_packed_linkedlist(node, tmpindex, tmpdata, colbytes, fltr, find, db_graph);
+      load_packed_linkedlist(node, store->tmpdata, tmpindex, colbytes,
+                             fltr, find, db_graph);
     }
 
     // Test that this is the end of the file

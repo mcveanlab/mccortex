@@ -341,8 +341,8 @@ int ctx_contigs(CmdArgs *args)
                                         file.hdr.num_of_kmers, false, &graph_mem);
 
   // Paths memory
-  size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
-  path_mem = path_max_mem + tmppathsize;
+  size_t tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  path_mem = path_max_mem + tmp_path_mem;
 
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s", path_mem_str);
@@ -378,10 +378,7 @@ int ctx_contigs(CmdArgs *args)
   RepeatWalker rptwlk;
   rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
-  uint8_t *path_store = malloc2(path_max_mem);
-  path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
-
-  uint8_t *tmppdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
+  path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
   // Load graph
   SeqLoadingStats *stats = seq_loading_stats_create(0);
@@ -395,7 +392,7 @@ int ctx_contigs(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, tmppdata, tmppathsize, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
 
   status("Traversing graph in colour %zu...", colour);
 
@@ -507,11 +504,10 @@ int ctx_contigs(CmdArgs *args)
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void*)db_graph.kmer_paths);
-  free(path_store);
-  if(tmppdata != NULL) free(tmppdata);
 
   rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
+  path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);

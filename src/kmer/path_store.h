@@ -15,11 +15,18 @@ typedef struct {
   const size_t num_of_cols, colset_bytes;
   uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths;
+  // Temporary data used for merging
+  uint8_t *const tmpdata;
+  const size_t tmpsize;
 } PathStore;
 
 // Initialise the PathStore
-void path_store_init(PathStore *paths, uint8_t *data, size_t size, size_t ncols);
-void path_store_resize(PathStore *paths, size_t size);
+void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncols);
+// Once tmp has been used for merging, it can be reclaimed to use generally
+void path_store_reclaim_tmp(PathStore *paths);
+
+// Release memory
+void path_store_dealloc(PathStore *paths);
 
 // Find a path
 // returns PATH_NULL if not found, otherwise index

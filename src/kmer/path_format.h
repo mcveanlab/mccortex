@@ -42,8 +42,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
 
 // db_graph.pdata must be big enough to hold all this data or we exit
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        boolean insert_missing_kmers,
-                        uint8_t *tmpdata, size_t tmpdatasize, dBGraph *db_graph);
+                        boolean insert_missing_kmers, dBGraph *db_graph);
 
 //
 // Write

@@ -44,8 +44,7 @@ void test_paths()
 
   memset((void*)graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_max_mem);
-  path_store_init(&graph.pdata, path_store, path_max_mem, ncols);
+  path_store_alloc(&graph.pdata, path_max_mem, 0, ncols);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
@@ -95,6 +94,7 @@ void test_paths()
   free((void*)graph.kmer_paths);
   free((void*)graph.path_kmer_locks);
 
+  path_store_dealloc(&graph.pdata);
   db_graph_dealloc(&graph);
 }
 

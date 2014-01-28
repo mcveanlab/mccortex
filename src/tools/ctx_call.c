@@ -102,7 +102,8 @@ int ctx_call(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, thread_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
+  size_t tmp_path_mem, path_mem, thread_mem;
   char path_mem_str[100], thread_mem_str[100];
 
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
@@ -121,8 +122,8 @@ int ctx_call(CmdArgs *args)
           num_of_threads, thread_mem, thread_mem_str);
 
   // Path Memory
-  size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
-  path_mem = path_max_mem + tmppathsize;
+  tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  path_mem = path_max_mem + tmp_path_mem;
 
   bytes_to_str(path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
@@ -151,11 +152,7 @@ int ctx_call(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_max_mem);
-  path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
-
-  // Temorary memory to load paths into
-  uint8_t *tmp_pdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
+  path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
   //
   // Open output file
@@ -195,8 +192,7 @@ int ctx_call(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, tmp_pdata, tmppathsize, &db_graph);
-  if(tmp_pdata != NULL) free(tmp_pdata);
+  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
 
   // Now call variants
   bubble_caller_print_header(&db_graph, gzout, out_path, args);
@@ -216,9 +212,9 @@ int ctx_call(CmdArgs *args)
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
-  free(path_store);
 
   seq_loading_stats_free(stats);
+  path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);

@@ -152,7 +152,8 @@ int ctx_pjoin(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
+  size_t tmp_path_mem, req_path_mem, total_mem;
   char path_mem_str[100];
 
   // Each kmer stores a pointer to its list of paths
@@ -161,27 +162,18 @@ int ctx_pjoin(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  size_t tmppathsize, req_path_mem;
-  tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? ctp_max_path_bytes : 0;
-  req_path_mem = tmppathsize + ctp_max_path_bytes;
+  tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? ctp_max_path_bytes : 0;
+  req_path_mem = ctp_max_path_bytes + tmp_path_mem;
 
-  size_t req_mem = graph_mem + req_path_mem;
-  char req_mem_str[100];
-  bytes_to_str(req_mem, 1, req_mem_str);
+  total_mem = graph_mem + req_path_mem;
 
-  path_mem = args->mem_to_use - graph_mem;
-  bytes_to_str(path_mem, 1, path_mem_str);
+  bytes_to_str(req_path_mem, 1, path_mem_str);
   status("[memory] paths: %s\n", path_mem_str);
 
-  if(path_mem < req_path_mem)
-    die("Not enough memory - require %s. Decrease -n or increase -m", req_mem_str);
-
-  total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(args, total_mem);
 
   // Set up graph and PathStore
   dBGraph db_graph;
-
   db_graph_alloc(&db_graph, pfiles[0].hdr.kmer_size, output_ncols, 0, kmers_in_hash);
 
   for(i = 0; i < num_pfiles; i++)
@@ -190,11 +182,7 @@ int ctx_pjoin(CmdArgs *args)
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, output_ncols);
-
-  // Temorary memory to load paths into
-  uint8_t *tmppdata = tmppathsize > 0 ? malloc2(tmppathsize) : NULL;
+  path_store_alloc(&db_graph.pdata, ctp_max_path_bytes, tmp_path_mem, output_ncols);
 
   // Open output file
   FILE *fout = fopen(out_ctp_path, "w");
@@ -212,7 +200,7 @@ int ctx_pjoin(CmdArgs *args)
 
   // Load path files
   boolean add_kmers = true;
-  paths_format_merge(pfiles, num_pfiles, add_kmers, tmppdata, tmppathsize, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, add_kmers, &db_graph);
 
   for(i = 0; i < num_pfiles; i++)
     path_file_set_header_sample_names(&pfiles[i], &pheader);
@@ -233,9 +221,8 @@ int ctx_pjoin(CmdArgs *args)
   status("  %s paths, %s path-bytes, %s kmers", pnum_str, pbytes_str, pkmers_str);
 
   free((void *)db_graph.kmer_paths);
-  free(path_store);
-  if(tmppdata != NULL) free(tmppdata);
 
+  path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&gfile);

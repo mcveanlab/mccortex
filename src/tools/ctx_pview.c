@@ -66,9 +66,7 @@ int ctx_pview(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(phdr->num_path_bytes);
-  path_store_init(&db_graph.pdata, path_store,
-                  phdr->num_path_bytes, phdr->num_of_cols);
+  path_store_alloc(&db_graph.pdata, phdr->num_path_bytes, 0, phdr->num_of_cols);
 
   // Pretend we've read all the kmers in
   db_graph.num_of_cols_used = phdr->num_of_cols;
@@ -79,9 +77,9 @@ int ctx_pview(CmdArgs *args)
   paths_format_load(&pfile, &db_graph, add_kmers);
   db_graph_dump_paths_by_kmer(&db_graph);
 
-  free(path_store);
   free((void *)db_graph.kmer_paths);
 
+  path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
   path_file_dealloc(&pfile);
 

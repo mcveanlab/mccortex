@@ -69,7 +69,7 @@ int ctx_health_check(CmdArgs *args)
 
   // Decide on memory
   size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t path_mem = 0, tmppathsize = 0, total_mem;
+  size_t path_mem = 0, tmp_path_mem = 0, total_mem;
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
@@ -77,8 +77,8 @@ int ctx_health_check(CmdArgs *args)
 
   // Path Memory
   if(num_pfiles) {
-    tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
-    path_mem = path_max_mem + tmppathsize;
+    tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+    path_mem = path_max_mem + tmp_path_mem;
   }
 
   total_mem = path_mem + graph_mem;
@@ -99,17 +99,11 @@ int ctx_health_check(CmdArgs *args)
   }
 
   // Paths
-  uint8_t *path_store = NULL, *tmp_pdata = NULL;
-
   if(num_pfiles > 0) {
     db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
     memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-    path_store = malloc2(path_max_mem);
-    path_store_init(&db_graph.pdata, path_store, path_max_mem, path_max_usedcols);
-
-    // Temorary memory to load paths into
-    if(tmppathsize) tmp_pdata = malloc2(tmppathsize);
+    path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
   }
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
@@ -121,8 +115,7 @@ int ctx_health_check(CmdArgs *args)
 
   // Load path files
   if(num_pfiles) {
-    paths_format_merge(pfiles, num_pfiles, false, tmp_pdata, tmppathsize, &db_graph);
-    if(tmp_pdata) free(tmp_pdata);
+    paths_format_merge(pfiles, num_pfiles, false, &db_graph);
   }
 
   if(do_edge_check) {
@@ -140,7 +133,7 @@ int ctx_health_check(CmdArgs *args)
 
   if(num_pfiles) {
     free((void*)db_graph.kmer_paths);
-    free(path_store);
+    path_store_dealloc(&db_graph.pdata);
   }
   if(db_graph.node_in_cols) free(db_graph.node_in_cols);
   free(db_graph.col_edges);

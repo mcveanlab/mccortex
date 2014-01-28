@@ -7,46 +7,55 @@
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
-void path_store_init(PathStore *paths, uint8_t *data, size_t size,
-                       size_t num_of_cols)
+void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncols)
 {
-  assert(size > PSTORE_PADDING);
-  size -= PSTORE_PADDING;
+  size_t colset_bytes = roundup_bits2bytes(ncols);
 
-  size_t colset_bytes = roundup_bits2bytes(num_of_cols);
+  // all one block: <mem><padding><tmp><padding>
+  uint8_t *mem = malloc2(size + PSTORE_PADDING + tmpsize + PSTORE_PADDING);
+  uint8_t *tmp = tmpsize ? mem + size + PSTORE_PADDING : NULL;
 
-  char memstr[100];
-  bytes_to_str(size, 1, memstr);
-  status("[paths] Setting up path store to use %s", memstr);
+  char main_mem_str[100], tmp_mem_str[100];
+  bytes_to_str(size, 1, main_mem_str);
+  bytes_to_str(tmpsize, 1, tmp_mem_str);
+  status("[paths] Setting up path store to use %s main / %s tmp",
+         main_mem_str, tmp_mem_str);
 
-  PathStore new_paths = {.store = data, .end = data + size,
-                         .size = size, .next = data,
-                         .num_of_cols = num_of_cols,
+  PathStore new_paths = {.store = mem, .end = mem + size,
+                         .size = size, .next = mem,
+                         .num_of_cols = ncols,
                          .colset_bytes = colset_bytes,
-                         .num_of_paths = 0, .num_kmers_with_paths = 0};
+                         .num_of_paths = 0, .num_kmers_with_paths = 0,
+                         .tmpdata = tmp, .tmpsize = tmpsize};
 
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
 
-void path_store_resize(PathStore *paths, size_t size)
+// Once tmp has been used for merging, it can be reclaimed to use generally
+void path_store_reclaim_tmp(PathStore *paths)
 {
-  assert(size > PSTORE_PADDING);
-  size -= PSTORE_PADDING;
+  size_t size = paths->size + PSTORE_PADDING + paths->tmpsize;
 
   char memstr[100];
   bytes_to_str(size, 1, memstr);
-  status("[paths] Resizing path store to use %s", memstr);
+  status("[paths] Reclaiming tmp path memory to use %s main", memstr);
 
   PathStore new_paths = {.store = paths->store, .end = paths->store + size,
                          .size = size, .next = paths->next,
                          .num_of_cols = paths->num_of_cols,
                          .colset_bytes = paths->colset_bytes,
                          .num_of_paths = paths->num_of_paths,
-                         .num_kmers_with_paths = paths->num_kmers_with_paths};
+                         .num_kmers_with_paths = paths->num_kmers_with_paths,
+                         .tmpdata = NULL, .tmpsize = 0};
 
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
 
+// Release memory
+void path_store_dealloc(PathStore *paths)
+{
+  free(paths->store);
+}
 
 // Find a path
 // returns PATH_NULL if not found, otherwise index

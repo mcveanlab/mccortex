@@ -278,8 +278,7 @@ int ctx_diverge(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(&db_graph.pdata, path_store, path_mem, num_of_cols);
+  path_store_alloc(&db_graph.pdata, path_mem, 0, num_of_cols);
 
   // Allocate memory for calling
   uint32_t *kmer_pos = malloc2(2 * db_graph.ht.capacity * sizeof(uint32_t));
@@ -315,10 +314,10 @@ int ctx_diverge(CmdArgs *args)
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free((void *)db_graph.kmer_paths);
-  free(path_store);
 
   graph_header_dealloc(&gheader);
   seq_loading_stats_free(stats);
+  path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
   status("Contigs written to: %s\n", output_bubble_path);

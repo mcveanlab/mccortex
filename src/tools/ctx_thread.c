@@ -317,7 +317,8 @@ int ctx_thread(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, total_mem;
+  size_t tmp_path_mem, path_mem_req, path_mem_used, main_path_mem;
   char path_mem_str[100];
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
@@ -330,18 +331,15 @@ int ctx_thread(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  size_t tmppathsize = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
-  path_mem = args->mem_to_use - graph_mem;
-  bytes_to_str(path_mem, 1, path_mem_str);
+  tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  path_mem_req = path_max_mem + tmp_path_mem;
+  path_mem_used = MAX2(args->mem_to_use - graph_mem, path_mem_req);
+  main_path_mem = path_mem_used - tmp_path_mem;
+
+  bytes_to_str(path_mem_used, 1, path_mem_str);
   status("[memory] paths: %s", path_mem_str);
 
-  char req_path_mem_str[100];
-  bytes_to_str(path_max_mem + tmppathsize, 1, req_path_mem_str);
-
-  if(path_mem < path_max_mem + tmppathsize)
-    die("Not enough memory for paths (requires %s)", req_path_mem_str);
-
-  size_t total_mem = graph_mem + path_mem;
+  total_mem = graph_mem + path_mem_used;
   cmd_check_mem_limit(args, total_mem);
 
   //
@@ -371,10 +369,7 @@ int ctx_thread(CmdArgs *args)
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
   memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
 
-  PathStore *paths = &db_graph.pdata;
-  uint8_t *path_store = malloc2(path_mem);
-  path_store_init(paths, path_store, path_mem-tmppathsize, total_cols);
-  uint8_t *path_tmpmem = path_store + path_mem - tmppathsize;
+  path_store_alloc(&db_graph.pdata, main_path_mem, tmp_path_mem, path_max_usedcols);
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
@@ -390,8 +385,8 @@ int ctx_thread(CmdArgs *args)
   // Load paths
   if(num_pfiles > 0) {
     // Paths loaded into empty colours will update the sample names
-    paths_format_merge(pfiles, num_pfiles, true, path_tmpmem, tmppathsize, &db_graph);
-    path_store_resize(paths, path_mem);
+    paths_format_merge(pfiles, num_pfiles, true, &db_graph);
+    path_store_reclaim_tmp(&db_graph.pdata);
   }
 
   // Set up paths header. This is for the output file we are creating
@@ -483,17 +478,18 @@ int ctx_thread(CmdArgs *args)
   status("[stats] single reads: %s; read pairs: %s; total: %s",
          se_num_str, pe_num_str, sepe_num_str);
 
-  size_t num_path_bytes = (size_t)(paths->next - paths->store);
+  PathStore *pstore = &db_graph.pdata;
+  size_t num_path_bytes = (size_t)(pstore->next - pstore->store);
   char kmers_str[100], paths_str[100], mem_str[100];
-  ulong_to_str(paths->num_kmers_with_paths, kmers_str);
-  ulong_to_str(paths->num_of_paths, paths_str);
+  ulong_to_str(pstore->num_kmers_with_paths, kmers_str);
+  ulong_to_str(pstore->num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
 
   status("Saving paths: %s paths, %s path-bytes, %s kmers",
          paths_str, mem_str, kmers_str);
 
   // Update header and write
-  paths_header_update(&pheader, paths);
+  paths_header_update(&pheader, pstore);
   paths_format_write_header(&pheader, fout);
   paths_format_write_optimised_paths(&db_graph, fout);
 
@@ -504,12 +500,12 @@ int ctx_thread(CmdArgs *args)
   free(db_graph.col_edges);
   free((void *)db_graph.kmer_paths);
   free((void *)db_graph.path_kmer_locks);
-  free(path_store);
 
   paths_header_dealloc(&pheader);
 
   seq_loading_stats_free(stats);
   seq_loading_stats_free(gstats);
+  path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_graphs; i++) graph_file_dealloc(&graph_files[i]);
