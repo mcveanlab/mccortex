@@ -472,11 +472,11 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
   pickup_paths(wlk, wlk->node, false, 0);
 }
 
-// Force a traversal
+// Jump to a new node within the current sample supernode
+// (can actually be any node up until the end of the current supernode)
 // If fork is true, node is the result of taking a fork -> slim down paths
 // prev is array of nodes with edges to the node we are moving to
-void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
-                               boolean fork)
+void graph_walker_jump_snode_end(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer)
 {
   // This is just a sanity test
   Edges edges = db_node_get_edges(wlk->db_graph, wlk->ctxcol, hkey);
@@ -485,7 +485,7 @@ void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
   assert(edges_get_indegree(edges, orient) <= 1);
 
   // Now do the work
-  _graph_traverse_force_jump(wlk, hkey, bkmer, fork);
+  _graph_traverse_force_jump(wlk, hkey, bkmer, false);
 }
 
 void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
@@ -541,8 +541,9 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
     graph_traverse_force(wlk, next_node.key, nuc, fork);
   }
   else {
+    // jumping to the end of a supernode
     bkmer = db_node_oriented_bkmer(bkmer, next_node.orient, kmer_size);
-    graph_traverse_force_jump(wlk, next_node.key, bkmer, fork);
+    graph_walker_jump_snode_end(wlk, next_node.key, bkmer);
   }
 
   // char tmpbkmer[MAX_KMER_SIZE+1];
@@ -553,7 +554,7 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
 // Fast traversal of a list of nodes using the supplied GraphWalker
 // Only visits nodes deemed informative + last node
 // Must have previously initialised or walked to the prior node,
-// using: graph_walker_init, graph_traverse_force, graph_traverse_force_jump,
+// using: graph_walker_init, graph_traverse_force, graph_walker_jump_snode_end,
 // graph_traverse or graph_traverse_nodes
 // i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,

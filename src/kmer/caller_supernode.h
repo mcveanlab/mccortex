@@ -20,6 +20,7 @@ struct CallerSupernode
   size_t nbuf_offset, num_of_nodes; // Offset and lenth in nbuf
   // Edges to/from this supernode
   dBNode prev_nodes[4], next_nodes[4];
+  Nucleotide prev_bases[4], next_bases[4];
   uint8_t num_prev, num_next;
   // Linked list of paths that use this supernode
   SupernodePathPos *first_pathpos;

@@ -213,7 +213,7 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
   if(last > 0) {
     lastnode = snode_nodes(snode)[snorient == FORWARD ? last : 0];
     last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, lastnode.key, lastnode.orient);
-    graph_traverse_force_jump(wlk, lastnode.key, last_bkmer, false);
+    graph_walker_jump_snode_end(wlk, lastnode.key, last_bkmer);
   }
 }
 
@@ -320,36 +320,30 @@ static void load_allele_path(dBNode node,
     walk_supernode_end(wlk, snode, snorient);
 
     // Find next node
-    size_t i;
     uint8_t num_edges;
-    dBNode *next_nodes;
-    BinaryKmer next_bkmers[4], next_bkmer;
-    Nucleotide next_bases[4];
+    const dBNode *next_nodes;
+    const Nucleotide *next_bases;
     GraphStep step;
+    Nucleotide nuc;
 
     if(snorient == FORWARD) {
       num_edges = snode->num_next;
       next_nodes = snode->next_nodes;
+      next_bases = snode->next_bases;
     }
     else {
       num_edges = snode->num_prev;
       next_nodes = snode->prev_nodes;
-    }
-
-    // Get last bases
-    for(i = 0; i < num_edges; i++)
-    {
-      next_bkmers[i] = db_node_get_bkmer(db_graph, next_nodes[i].key);
-      next_bases[i] = db_node_last_nuc(next_bkmers[i], next_nodes[i].orient, kmer_size);
+      next_bases = snode->prev_bases;
     }
 
     step = graph_walker_choose(wlk, num_edges, next_nodes, next_bases);
     if(step.idx == -1) break;
 
     node = next_nodes[step.idx];
-    next_bkmer = db_node_oriented_bkmer(next_bkmers[step.idx], node.orient, kmer_size);
+    nuc = next_bases[step.idx];
 
-    graph_traverse_force_jump(wlk, node.key, next_bkmer, graphstep_is_fork(step));
+    graph_traverse_force(wlk, node.key, nuc, graphstep_is_fork(step));
   }
   // printf("DONE\n");
 

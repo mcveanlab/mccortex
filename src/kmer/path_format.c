@@ -274,7 +274,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   PathStore *store = &db_graph->pdata;
 
-  assert(num_files <= 1 || (store->tmpdata > 0 && store->tmpdata != NULL));
+  assert(num_files <= 1 || (store->tmpsize > 0 && store->tmpdata != NULL));
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
