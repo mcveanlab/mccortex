@@ -105,12 +105,17 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     Orientation prev_orients[4],
                                     size_t num_prev);
 
-// Follow a given path of dBNode objects
-// first_node_fork should be true(1) nodes[0] is reached through a node with
-// out-degree > 1, false(0) otherwise
+
+// Fast traversal of a list of nodes using the supplied GraphWalker
+// Only visits nodes deemed informative + last node
+// Must have previously initialised or walked to the prior node,
+// using: graph_walker_init, graph_traverse_force, graph_traverse_force_jump,
+// graph_traverse or graph_traverse_nodes
+// i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *nodes, size_t n,
                                 boolean forward);
 
+// Force traversal of every node
 void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 boolean forward);
 

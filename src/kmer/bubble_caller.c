@@ -201,39 +201,21 @@ static void print_bubble(gzFile out, size_t bnum,
   gzputc(out, '\n');
 }
 
-/*
 // Returns 1 if successfully walked across supernode, 0 otherwise
 static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
-                                      SuperOrientation snorient,
-                                      Nucleotide *lost_nuc)
+                                      SuperOrientation snorient)
 {
   // Only need to traverse the first and last nodes of a supernode
-  const size_t last = snode->num_of_nodes-1, kmer_size = wlk->db_graph->kmer_size;
+  const size_t last = snode->num_of_nodes-1;
   dBNode lastnode;
   BinaryKmer last_bkmer;
 
   if(last > 0) {
-    if(snorient == FORWARD) {
-      lastnode = snode_nodes(snode)[last];
-    } else {
-      lastnode = snode_nodes(snode)[0];
-    }
-
+    lastnode = snode_nodes(snode)[snorient == FORWARD ? last : 0];
     last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, lastnode.key, lastnode.orient);
     graph_traverse_force_jump(wlk, lastnode.key, last_bkmer, false);
-    // don't need counter paths here (we're at the end of a supernode)
-    *lost_nuc = binary_kmer_first_nuc(last_bkmer, kmer_size);
-  }
-  else {
-    // XOR snorient => negate/reverse if snorient is REVERSE
-    // 0 0 1 1
-    // 0 1 0 1
-    last_bkmer = db_node_get_bkmer(wlk->db_graph, snode_nodes(snode)[0].key);
-    *lost_nuc = db_node_first_nuc(last_bkmer, snode_nodes(snode)[0].orient ^ snorient,
-                                  kmer_size);
   }
 }
-*/
 
 // Constructs a path of supernodes (SupernodePath)
 // returns number of supernodes loaded
@@ -334,9 +316,8 @@ static void load_allele_path(dBNode node,
     kmers_in_path += snode->num_of_nodes;
     if(kmers_in_path > max_allele_len) break;
 
-    // Check if we've already traversed this supernode
-    // if(db_node_has_traversed(visited, node.key, node.orient)) break;
-    // db_node_set_traversed(visited, node.key, node.orient);
+    // Traverse to the end of the supernode
+    walk_supernode_end(wlk, snode, snorient);
 
     // Find next node
     size_t i;
@@ -561,6 +542,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
   for(colour = 0; colour < colours_loaded; colour++)
   {
+    // Determine if this fork is a fork in the current colour
     num_edges_in_col = 0;
 
     for(i = 0; i < num_next; i++) {

@@ -354,7 +354,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
 
 
-static void _graph_walker_pickup_counter_paths(GraphWalker *wlk, boolean have_prev,
+static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
                                                Nucleotide prev_nuc)
 {
   const dBGraph *db_graph = wlk->db_graph;
@@ -370,8 +370,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk, boolean have_pr
 
   // Can slim down the number of nodes to look up if we can rule out
   // the node we just came from
-  if(have_prev)
-    edges &= ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), backwards);
+  edges &= ~nuc_orient_to_edge(dna_nuc_complement(prev_nuc), backwards);
 
   num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey, backwards, edges,
                                        prev_nodes, prev_bases);
@@ -407,7 +406,8 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
     path_buf_ensure_capacity(&wlk->paths, wlk->paths.len + wlk->new_paths.len);
 
     // Check curr paths
-    wlk->paths.len = 0;
+    path_buf_reset(&wlk->paths);
+
     for(i = 0, j = 0; i < npaths; i++)
     {
       path = &wlk->paths.data[i];
@@ -432,7 +432,7 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
     }
 
     wlk->paths.len = j;
-    wlk->new_paths.len = 0;
+    path_buf_reset(&wlk->new_paths);
 
     // Counter paths
     for(i = 0, j = 0; i < wlk->cntr_paths.len; i++)
@@ -451,14 +451,22 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
     // Statistics
     wlk->fork_count++;
   }
+  else if(wlk->new_paths.len > 0)
+  {
+    // Merge in (previously new) paths
+    // New paths -> curr paths (no filtering required)
+    path_buf_ensure_capacity(&wlk->paths, wlk->paths.len + wlk->new_paths.len);
+    size_t mem = wlk->new_paths.len * sizeof(FollowPath);
+    memcpy(wlk->paths.data+wlk->paths.len, wlk->new_paths.data, mem);
+    wlk->paths.len += wlk->new_paths.len;
+    path_buf_reset(&wlk->new_paths);
+  }
 
-  const dBGraph *db_graph = wlk->db_graph;
-  BinaryKmer bkey = db_node_get_bkmer(db_graph, hkey);
-
+  // Update GraphWalker position
   wlk->node.key = hkey;
-  wlk->node.orient = db_node_get_orientation(bkmer, bkey);
   wlk->bkmer = bkmer;
-  wlk->bkey = bkey;
+  wlk->bkey = db_node_get_bkmer(wlk->db_graph, hkey);
+  wlk->node.orient = db_node_get_orientation(wlk->bkmer, wlk->bkey);
 
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
@@ -470,8 +478,14 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
 void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
                                boolean fork)
 {
+  // This is just a sanity test
+  Edges edges = db_node_get_edges(wlk->db_graph, wlk->ctxcol, hkey);
+  BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, hkey);
+  Orientation orient = db_node_get_orientation(bkmer, bkey);
+  assert(edges_get_indegree(edges, orient) <= 1);
+
+  // Now do the work
   _graph_traverse_force_jump(wlk, hkey, bkmer, fork);
-  _graph_walker_pickup_counter_paths(wlk, false, 0);
 }
 
 void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
@@ -483,7 +497,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
   Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
   bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
   _graph_traverse_force_jump(wlk, node, bkmer, fork);
-  _graph_walker_pickup_counter_paths(wlk, true, lost_nuc);
+  _graph_walker_pickup_counter_paths(wlk, lost_nuc);
 }
 
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
@@ -538,6 +552,10 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
 
 // Fast traversal of a list of nodes using the supplied GraphWalker
 // Only visits nodes deemed informative + last node
+// Must have previously initialised or walked to the prior node,
+// using: graph_walker_init, graph_traverse_force, graph_traverse_force_jump,
+// graph_traverse or graph_traverse_nodes
+// i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 boolean forward)
 {
@@ -568,9 +586,10 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
     infork[2] = edges_get_indegree(edges, nodes[2].orient) > 1;
 
     // Traverse nodes[i] if:
-    // - previous node had out-degree > 1 OR
-    // - next node has in-degree > 1
-    if(outfork[0] || infork[2]) {
+    // - previous node had out-degree > 1 (update/drop paths)
+    // - current node has in-degree > 1 (pick up counter-paths + merge in new paths)
+    // - next node has in-degree > 1 (pickup paths)
+    if(outfork[0] || infork[1] || infork[2]) {
       graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
     }
 
