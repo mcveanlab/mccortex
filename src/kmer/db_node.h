@@ -12,6 +12,10 @@
 //
 #define db_node_bkmer(graph,key) ((graph)->ht.table[key])
 
+static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey) {
+  return db_graph->ht.table[hkey];
+}
+
 //
 // Get binary kmer key
 //
@@ -71,10 +75,10 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 //
 // Node traversal
 //
-#define db_node_has_traversed(arr,hkey,or) \
-        bitset_get((arr), 2*(hkey)+(or))
-#define db_node_set_traversed(arr,hkey,or) \
-        bitset_set((arr), 2*(hkey)+(or))
+#define db_node_has_traversed(arr,node) \
+        bitset_get((arr), 2*((node).key)+((node).orient))
+#define db_node_set_traversed(arr,node) \
+        bitset_set((arr), 2*((node).key)+((node).orient))
 
 #define db_node_fast_clear_traversed(arr,hkey) \
         bitset_clear_word((arr), 2*(hkey))
@@ -140,9 +144,14 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 #define db_node_edges(graph,col,hkey) \
         ((graph)->col_edges[(hkey)*(graph)->num_edge_cols + (col)])
 
-#define db_node_edges_union(graph,hkey) \
-        edges_get_union((graph)->col_edges+(hkey)*(graph)->num_edge_cols, \
-                        (graph)->num_edge_cols)
+static inline Edges db_node_get_edges(const dBGraph *graph, Colour col, hkey_t hkey) {
+  return db_node_edges(graph, col, hkey);
+}
+
+static inline Edges db_node_get_edges_union(const dBGraph *graph, hkey_t hkey) {
+  return edges_get_union(graph->col_edges + hkey * graph->num_edge_cols,
+                         graph->num_edge_cols);
+}
 
 Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
                                     const dBGraph *db_graph);
@@ -153,10 +162,10 @@ Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
 
 #define db_node_set_col_edge(graph,col,hkey,nuc,or) \
         (db_node_edges(graph,col,hkey) \
-           = edges_set_edge(db_node_edges(graph,col,hkey),nuc,or))
+           = edges_set_edge(db_node_get_edges(graph,col,hkey),nuc,or))
 
 #define db_node_set_col_edge_mt(graph,col,hkey,nuc,or) \
-        __sync_or_and_fetch(&db_node_edges(graph,col,hkey),nuc_orient_to_edge(nuc,or))
+        __sync_or_and_fetch(&db_node_edges(graph,col,hkey), nuc_orient_to_edge(nuc,or))
 
 // kmer_col_edge_str should be 9 chars long
 // Return pointer to kmer_col_edge_str

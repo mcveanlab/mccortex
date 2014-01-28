@@ -31,13 +31,13 @@ BinaryKmer db_node_get_key(const BinaryKmer bkmer, size_t kmer_size)
 Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
                                     const dBGraph *db_graph)
 {
-  Edges edges = db_node_edges(db_graph, col, node.key);
+  Edges edges = db_node_get_edges(db_graph, col, node.key);
 
   if(db_graph->num_edge_cols == db_graph->num_of_cols)
     return edges_with_orientation(edges, node.orient);
 
   // Check which next nodes are in the given colour
-  BinaryKmer bkmer = db_node_bkmer(db_graph, node.key);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
   hkey_t nodes[4];
   Orientation orients[4];
   Nucleotide nucs[4];
@@ -183,14 +183,14 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
 
   size_t i;
   size_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer = db_node_bkmer(db_graph, nodes[0].key);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, nodes[0].key);
   Nucleotide nuc;
 
   binary_kmer_to_str(bkmer, kmer_size, str);
   if(nodes[0].orient == REVERSE) dna_reverse_complement_str(str, kmer_size);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_bkmer(db_graph, nodes[i].key);
+    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
     str[kmer_size+i-1] = dna_nuc_to_char(nuc);
   }
@@ -212,7 +212,7 @@ void db_nodes_print(const dBNode *nodes, size_t num,
   fputs(tmp, out);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_bkmer(db_graph, nodes[i].key);
+    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
     fputc(dna_nuc_to_char(nuc), out);
   }
@@ -231,7 +231,7 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   gzputs(out, tmp);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_bkmer(db_graph, nodes[i].key);
+    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
     gzputc(out, dna_nuc_to_char(nuc));
   }

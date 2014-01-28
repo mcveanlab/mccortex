@@ -45,9 +45,9 @@ static inline void packedpath_set_prev(uint8_t *ptr, PathIndex idx) {
 //
 // Colour bitset
 //
-#define packedpath_del_col(p,idx,col) bitset_del((p)+sizeof(PathIndex),col)
-#define packedpath_set_col(p,idx,col) bitset_set((p)+sizeof(PathIndex),col)
-#define packedpath_has_col(p,idx,col) bitset_get((p)+sizeof(PathIndex),col)
+#define packedpath_del_col(p,col) bitset_del((p)+sizeof(PathIndex),col)
+#define packedpath_set_col(p,col) bitset_set((p)+sizeof(PathIndex),col)
+#define packedpath_has_col(p,col) bitset_get((p)+sizeof(PathIndex),col)
 
 // Get pointer to colset
 #define packedpath_get_colset(ptr) ((ptr) + sizeof(PathIndex))
@@ -106,7 +106,7 @@ static inline void packedpath_set_orient(uint8_t *ptr, size_t colbytes,
 }
 
 // Get length and orientation together
-static inline PathLen packedpack_get_len_orient(const uint8_t *ptr,
+static inline PathLen packedpath_get_len_orient(const uint8_t *ptr,
                                                 size_t colbytes, PathLen *len,
                                                 Orientation *orient)
 {
@@ -116,7 +116,7 @@ static inline PathLen packedpack_get_len_orient(const uint8_t *ptr,
   return lenword;
 }
 
-static inline void packedpack_set_len_orient(uint8_t *ptr, size_t colbytes,
+static inline void packedpath_set_len_orient(uint8_t *ptr, size_t colbytes,
                                              PathLen len, Orientation orient)
 {
   PathLen len_orient = packedpath_combine_lenorient(len, orient);
@@ -128,7 +128,7 @@ static inline void packedpack_set_len_orient(uint8_t *ptr, size_t colbytes,
 //
 
 // Get pointer to first byte of path
-#define packedpath_path(p,colbytes) ((p)+sizeof(PathIndex)+colbytes+sizeof(PathLen))
+#define packedpath_seq(p,colbytes) ((p)+sizeof(PathIndex)+colbytes+sizeof(PathLen))
 
 
 // Convert from unpacked representation (1 base per byte) to packed

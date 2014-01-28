@@ -138,7 +138,7 @@ static inline void contig_data_dealloc(ContigData *cd)
   db_node_buf_dealloc(&cd->nodes);
 }
 
-static void pulldown_contig(hkey_t node, ContigData *cd,
+static void pulldown_contig(hkey_t hkey, ContigData *cd,
                             const dBGraph *db_graph, size_t colour,
                             GraphWalker *wlk, RepeatWalker *rptwlk,
                             FILE *fout)
@@ -150,32 +150,33 @@ static void pulldown_contig(hkey_t node, ContigData *cd,
   size_t njunc = 0;
 
   db_node_buf_reset(&cd->nodes);
-  db_node_buf_safe_add(&cd->nodes, node, FORWARD);
+  db_node_buf_safe_add(&cd->nodes, hkey, FORWARD);
 
   for(orient = 0; orient < 2; orient++)
   {
     if(orient == 1) {
       supernode_reverse(cd->nodes.data, cd->nodes.len);
-      node = cd->nodes.data[cd->nodes.len-1].key;
+      hkey = cd->nodes.data[cd->nodes.len-1].key;
     }
 
-    graph_walker_init(wlk, db_graph, colour, colour, node, orient);
+    dBNode node = {.key = hkey, .orient = orient};
+    graph_walker_init(wlk, db_graph, colour, colour, node);
     lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
 
     while(graph_traverse(wlk) &&
-          rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
+          rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer))
     {
       graph_walker_node_add_counter_paths(wlk, lost_nuc);
       lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
-      db_node_buf_safe_add(&cd->nodes, wlk->node, wlk->orient);
+      db_node_buf_add(&cd->nodes, wlk->node);
       cd->grphwlk_steps[wlk->last_step.status]++;
     }
 
     // Grab some stats
     njunc += wlk->fork_count;
-    cd->paths_held[MIN2(wlk->num_curr, MAXPATH-1)]++;
-    cd->paths_pickdup[MIN2(wlk->num_new, MAXPATH-1)]++;
-    cd->paths_counter[MIN2(wlk->num_counter, MAXPATH-1)]++;
+    cd->paths_held[MIN2(wlk->paths.len, MAXPATH-1)]++;
+    cd->paths_pickdup[MIN2(wlk->new_paths.len, MAXPATH-1)]++;
+    cd->paths_counter[MIN2(wlk->cntr_paths.len, MAXPATH-1)]++;
 
     // Get failed status
     cd->grphwlk_steps[wlk->last_step.status]++;

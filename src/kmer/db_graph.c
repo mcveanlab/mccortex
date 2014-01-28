@@ -119,8 +119,8 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 {
   if(db_graph->col_edges == NULL) return;
 
-  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src.key);
-  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt.key);
+  BinaryKmer src_bkmer = db_node_get_bkmer(db_graph, src.key);
+  BinaryKmer tgt_bkmer = db_node_get_bkmer(db_graph, tgt.key);
 
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
   lhs_nuc = db_node_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
@@ -135,8 +135,8 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 // For debugging + healthcheck
 void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 {
-  BinaryKmer src_bkmer = db_node_bkmer(db_graph, src.key);
-  BinaryKmer tgt_bkmer = db_node_bkmer(db_graph, tgt.key);
+  BinaryKmer src_bkmer = db_node_get_bkmer(db_graph, src.key);
+  BinaryKmer tgt_bkmer = db_node_get_bkmer(db_graph, tgt.key);
 
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
   lhs_nuc = db_node_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
@@ -144,8 +144,8 @@ void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
-  Edges src_uedges = db_node_edges_union(db_graph, src.key);
-  Edges tgt_uedges = db_node_edges_union(db_graph, tgt.key);
+  Edges src_uedges = db_node_get_edges_union(db_graph, src.key);
+  Edges tgt_uedges = db_node_get_edges_union(db_graph, tgt.key);
 
   assert(edges_has_edge(src_uedges, rhs_nuc,      src.orient));
   assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient));
@@ -225,8 +225,8 @@ void db_graph_check_kmer_size(size_t kmer_size, const char *path)
 
 static inline void check_node(hkey_t node, const dBGraph *db_graph)
 {
-  Edges edges = db_node_edges_union(db_graph, node);
-  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  Edges edges = db_node_get_edges_union(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   size_t nfw_edges, nrv_edges, i, j;
   hkey_t fwnodes[8], rvnodes[8];
   Orientation fworients[8], rvorients[8];
@@ -316,7 +316,7 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
 {
   size_t col, kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer, bkey, node_bkey = db_node_bkmer(db_graph, node);
+  BinaryKmer bkmer, bkey, node_bkey = db_node_get_bkmer(db_graph, node);
   Orientation orient;
   Nucleotide nuc;
   hkey_t next;
@@ -367,32 +367,32 @@ void db_graph_add_all_edges(dBGraph *db_graph)
 
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
 {
-  const PathStore *paths = &db_graph->pdata;
+  const PathStore *pstore = &db_graph->pdata;
   size_t kmer_size = db_graph->kmer_size;
   char str[MAX_KMER_SIZE+1];
   hkey_t node;
-  PathIndex index, prev_index;
-  PathLen len;
+  PathIndex pindex;
+  PathLen plen;
   Orientation orient, porient;
   boolean first;
+  const uint8_t *path;
 
   printf("\n-------- paths --------\n");
 
   for(node = 0; node < db_graph->ht.capacity; node++) {
     if(db_graph_node_assigned(db_graph, node)) {
-      binary_kmer_to_str(db_node_bkmer(db_graph, node), kmer_size, str);
+      binary_kmer_to_str(db_node_get_bkmer(db_graph, node), kmer_size, str);
       for(orient = 0; orient < 2; orient++) {
-        index = db_node_paths(db_graph, node);
+        pindex = db_node_paths(db_graph, node);
         first = true;
-        while(index != PATH_NULL) {
-          prev_index = packedpath_get_prev(paths->store+index);
-          packedpack_get_len_orient(paths->store+index, paths->colset_bytes,
-                                    &len, &porient);
+        while(pindex != PATH_NULL) {
+          path = pstore->store+pindex;
+          packedpath_get_len_orient(path, pstore->colset_bytes, &plen, &porient);
           if(porient == orient) {
             if(first) { printf("%s:%i\n", str, orient); first = false; }
-            path_store_print_path(paths, index);
+            path_store_print_path(pstore, pindex);
           }
-          index = prev_index;
+          pindex = packedpath_get_prev(pstore->store+pindex);
         }
       }
     }
@@ -444,7 +444,7 @@ void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,
 
 void db_graph_print_kmer(hkey_t node, dBGraph *db_graph, FILE *fout)
 {
-  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   Covg *covgs = &db_node_covg(db_graph, node, 0);
   Edges *edges = &db_node_edges(db_graph, node, 0);
 

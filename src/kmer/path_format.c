@@ -415,7 +415,7 @@ static inline void write_optimised_paths(hkey_t node, PathIndex *pidx,
     do
     {
       nextidx = packedpath_get_prev(paths->store+curridx);
-      packedpack_get_len_orient(paths->store+curridx, paths->colset_bytes,
+      packedpath_get_len_orient(paths->store+curridx, paths->colset_bytes,
                                 &len, &orient);
       pbytes = packedpath_len_nbytes(len);
       mem = packedpath_mem2(paths->colset_bytes, pbytes);
@@ -434,7 +434,7 @@ static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
 {
   if(db_node_paths(db_graph, node) != PATH_NULL)
   {
-    BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
     PathIndex index = db_node_paths(db_graph, node);
     fwrite(&bkmer, sizeof(BinaryKmer), 1, fout);
     fwrite(&index, sizeof(PathIndex), 1, fout);

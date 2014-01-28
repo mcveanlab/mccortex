@@ -62,12 +62,14 @@ static void walk_graph(hkey_t node, Orientation orient,
 
   for(i = 0; i < max; i++)
   {
-    edges = db_node_edges_union(db_graph, node);
+    edges = db_node_get_edges_union(db_graph, node);
     if(!edges_has_precisely_one_edge(edges, orient, &nuc)) break;
-    bkmer = db_node_bkmer(db_graph, node);
+    bkmer = db_node_get_bkmer(db_graph, node);
     db_graph_next_node(db_graph, bkmer, nuc, orient, &node, &orient);
-    if(db_node_has_traversed(visited, node, orient)) break;
-    db_node_set_traversed(visited, node, orient);
+
+    dBNode n = {.key = node, .orient = orient};
+    if(db_node_has_traversed(visited, n)) break;
+    db_node_set_traversed(visited, n);
 
     buf->data[buf->len].key = node;
     buf->data[buf->len].orient = orient;

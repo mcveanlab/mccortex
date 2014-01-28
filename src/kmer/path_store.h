@@ -6,6 +6,9 @@
 #include "cortex_types.h"
 #include "packed_path.h"
 
+// Extra padding to avoid reading bad memory
+#define PSTORE_PADDING 16
+
 typedef struct {
   uint8_t *const store, *const end;
   const size_t size;

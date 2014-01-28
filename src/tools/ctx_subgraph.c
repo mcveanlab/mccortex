@@ -69,13 +69,13 @@ void mark_reads(read_t *r1, read_t *r2,
 static void store_node_neighbours(const hkey_t node, EdgeNodeList *list)
 {
   // Get neighbours
-  Edges edges = db_node_edges_union(&db_graph, node);
+  Edges edges = db_node_get_edges_union(&db_graph, node);
   size_t num_next, i;
   hkey_t next_nodes[8];
   Orientation next_orients[8];
   Nucleotide next_bases[8];
 
-  BinaryKmer bkmer = db_node_bkmer(&db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkmer(&db_graph, node);
 
   // Get neighbours in forward dir
   num_next  = db_graph_next_nodes(&db_graph, bkmer, FORWARD, edges,
@@ -337,7 +337,7 @@ int ctx_subgraph(CmdArgs *args)
     // Need to reload graph colours - therefore construct edge intersection set
     intersect_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
     for(i = 0; i < db_graph.ht.capacity; i++)
-      intersect_edges[i] = db_node_edges_union(&db_graph, i);
+      intersect_edges[i] = db_node_get_edges_union(&db_graph, i);
   }
 
   graph_files_merge_mkhdr(out_path, files, num_files,

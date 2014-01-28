@@ -17,11 +17,11 @@ typedef struct
 // a loop/cycle in the graph
 static inline boolean rpt_walker_attempt_traverse(RepeatWalker *rpt,
                                                   const GraphWalker *wlk,
-                                                  hkey_t node, Orientation orient,
+                                                  dBNode node,
                                                   const BinaryKmer bkmer)
 {
-  if(!db_node_has_traversed(rpt->visited, node, orient)) {
-    db_node_set_traversed(rpt->visited, node, orient);
+  if(!db_node_has_traversed(rpt->visited, node)) {
+    db_node_set_traversed(rpt->visited, node);
     return true;
   }
   else {

@@ -306,7 +306,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     #ifdef CTXVERBOSE
       char kmerstr[MAX_KMER_SIZE+1];
-      BinaryKmer tmpkmer = db_node_bkmer(db_graph, node.key);
+      BinaryKmer tmpkmer = db_node_get_bkmer(db_graph, node.key);
       binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
       printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n",
              kmerstr, node.orient, start_pl, start_mn, pos_mn[start_mn]);
@@ -409,13 +409,13 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
 
   for(i = 0; i < contig_len; i++)
   {
-    edges = db_node_edges(db_graph, ctxcol, nodes[i].key);
+    edges = db_node_get_edges(db_graph, ctxcol, nodes[i].key);
     outdegree = edges_get_outdegree(edges, nodes[i].orient);
     indegree = edges_get_indegree(edges, nodes[i].orient);
 
     if(indegree > 1 && i > 0)
     {
-      bkmer = db_node_bkmer(db_graph, nodes[i-1].key);
+      bkmer = db_node_get_bkmer(db_graph, nodes[i-1].key);
       nuc = nodes[i-1].orient == FORWARD
               ? dna_nuc_complement(binary_kmer_first_nuc(bkmer, kmer_size))
               : binary_kmer_last_nuc(bkmer);
@@ -428,7 +428,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr)
     // just before first indegree >1, we need that junction
     if(outdegree > 1 && i+1 < contig_len)
     {
-      bkmer = db_node_bkmer(db_graph, nodes[i+1].key);
+      bkmer = db_node_get_bkmer(db_graph, nodes[i+1].key);
       nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
       nuc_fw[num_fw] = nuc;
       pos_fw[num_fw++] = i;
@@ -462,7 +462,7 @@ static void prime_for_traversal(GraphWalker *wlk,
   // status("prime_for_traversal() %zu:%i n=%zu %s", (size_t)node0.key, node0.orient,
   //        n, forward ? "forward" : "reverse");
 
-  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0.key, node0.orient);
+  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0);
   // graph_walker_fast_traverse(wlk, block, n-1, forward);
   graph_walker_slow_traverse(wlk, block, n-1, forward);
 
@@ -483,14 +483,13 @@ static boolean worker_traverse_gap(dBNode end_node, dBNodeBuffer *contig,
   db_node_buf_ensure_capacity(contig, contig->len + gap_max + 1);
 
   while(contig->len < max_len && graph_traverse(wlk) &&
-        rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer))
+        rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer))
   {
-    if(wlk->node == end_node.key && wlk->orient == end_node.orient) {
+    if(wlk->node.key == end_node.key && wlk->node.orient == end_node.orient) {
       traversed = true;
       break;
     }
-    dBNode node = {.key = wlk->node, .orient = wlk->orient};
-    contig->data[contig->len++] = node;
+    contig->data[contig->len++] = wlk->node;
   }
 
   size_t gap_len = contig->len - init_len;
@@ -533,7 +532,7 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
   // char str[MAX_KMER_SIZE+1];
   // BinaryKmer bkmer;
   // for(i = 0; i < 2; i++) {
-  //   bkmer = db_node_bkmer(wlk0->db_graph, wlk[i]->node);
+  //   bkmer = db_node_get_bkmer(wlk0->db_graph, wlk[i]->node);
   //   binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
   //   status("primed %zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
   // }
@@ -544,24 +543,23 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
       if(use[i]) {
         use[i] = (graph_traverse(wlk[i]) &&
                   rpt_walker_attempt_traverse(rptwlk[i], wlk[i],
-                                              wlk[i]->node, wlk[i]->orient,
-                                              wlk[i]->bkmer));
+                                              wlk[i]->node, wlk[i]->bkmer));
 
         if(use[i]) {
           //
-          // bkmer = db_node_bkmer(wlk0->db_graph, wlk[i]->node);
+          // bkmer = db_node_get_bkmer(wlk0->db_graph, wlk[i]->node);
           // binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
           // status("%zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
           //
 
-          if(wlk[0]->node == wlk[1]->node && wlk[0]->orient != wlk[1]->orient) {
+          if(wlk[0]->node.key == wlk[1]->node.key &&
+             wlk[0]->node.orient != wlk[1]->node.orient) {
             traversed = true;
             use[0] = use[1] = false; // set both to false to exit loop
             break;
           }
 
-          dBNode node = {.key = wlk[i]->node, .orient = wlk[i]->orient};
-          contig[i]->data[contig[i]->len++] = node;
+          contig[i]->data[contig[i]->len++] = wlk[i]->node;
           gap_len++;
         }
       }

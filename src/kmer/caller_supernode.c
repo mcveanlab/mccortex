@@ -30,7 +30,7 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    bkmer = db_node_bkmer(db_graph, node);
+    bkmer = db_node_get_bkmer(db_graph, node);
     binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
     printf(" create %s:%i\n", tmpstr, (int)orient);
   #endif
@@ -56,9 +56,9 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
   last_or = nodes[snode->num_of_nodes-1].orient;
 
   // Prev nodes
-  union_edges = db_node_edges_union(db_graph, first_node);
+  union_edges = db_node_get_edges_union(db_graph, first_node);
   union_edges = edges_with_orientation(union_edges, first_or);
-  bkmer = db_node_bkmer(db_graph, first_node);
+  bkmer = db_node_get_bkmer(db_graph, first_node);
 
   for(nuc = 0; nuc < 4; nuc++) {
     if(edges_has_edge(union_edges, nuc, FORWARD)) {
@@ -70,9 +70,9 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
   }
 
   // Next nodes
-  union_edges = db_node_edges_union(db_graph, last_node);
+  union_edges = db_node_get_edges_union(db_graph, last_node);
   union_edges = edges_with_orientation(union_edges, last_or);
-  bkmer = db_node_bkmer(db_graph, last_node);
+  bkmer = db_node_get_bkmer(db_graph, last_node);
 
   for(nuc = 0; nuc < 4; nuc++) {
     if(edges_has_edge(union_edges, nuc, FORWARD)) {
@@ -85,8 +85,8 @@ size_t caller_supernode_create(hkey_t node, Orientation orient,
 
   #ifdef DEBUG_CALLER
     char tmpstr1[MAX_KMER_SIZE+1], tmpstr2[MAX_KMER_SIZE+1];
-    BinaryKmer first_bkmer = db_node_bkmer(db_graph, first_node);
-    BinaryKmer last_bkmer = db_node_bkmer(db_graph, last_node);
+    BinaryKmer first_bkmer = db_node_get_bkmer(db_graph, first_node);
+    BinaryKmer last_bkmer = db_node_get_bkmer(db_graph, last_node);
     binary_kmer_to_str(first_bkmer, db_graph->kmer_size, tmpstr1);
     binary_kmer_to_str(last_bkmer, db_graph->kmer_size, tmpstr2);
     printf("   ( [>%i] first:%s:%i; len:%zu last:%s:%i [%i<] )\n",

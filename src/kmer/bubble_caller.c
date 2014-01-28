@@ -122,7 +122,7 @@ static void print_branch(dBNode *nodes, size_t len, boolean print_first_kmer,
 
   // i = 1 if print_first_kmer, otherwise 0
   for(; i < len; i++) {
-    bkmer = db_node_bkmer(db_graph, nodes[i].key);
+    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
     nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
     gzputc(out, dna_nuc_to_char(nuc));
   }
@@ -227,7 +227,7 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
     // XOR snorient => negate/reverse if snorient is REVERSE
     // 0 0 1 1
     // 0 1 0 1
-    last_bkmer = db_node_bkmer(wlk->db_graph, snode_nodes(snode)[0].key);
+    last_bkmer = db_node_get_bkmer(wlk->db_graph, snode_nodes(snode)[0].key);
     *lost_nuc = db_node_first_nuc(last_bkmer, snode_nodes(snode)[0].orient ^ snorient,
                                   kmer_size);
   }
@@ -272,11 +272,11 @@ static void load_allele_path(hkey_t node, Orientation or,
   //   die("Couldn't begin allele traversal");
 
   for(supindx = 0;
-      rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->orient, wlk->bkmer);
+      rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer);
       supindx++)
   {
     #ifdef DEBUG_CALLER
-      binary_kmer_to_str(db_node_bkmer(db_graph,node), kmer_size, tmp);
+      binary_kmer_to_str(db_node_get_bkmer(db_graph,node), kmer_size, tmp);
       printf(" load_allele_path: %s:%i\n", tmp, or);
     #endif
 
@@ -361,7 +361,7 @@ static void load_allele_path(hkey_t node, Orientation or,
     // Get last bases
     for(i = 0; i < num_edges; i++)
     {
-      next_bkmers[i] = db_node_bkmer(db_graph, next_nodes[i]);
+      next_bkmers[i] = db_node_get_bkmer(db_graph, next_nodes[i]);
       next_bases[i] = db_node_last_nuc(next_bkmers[i], next_orients[i], kmer_size);
     }
 
@@ -548,13 +548,13 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   Nucleotide bases[4];
   size_t i, num_next;
 
-  num_next = db_graph_next_nodes(db_graph, db_node_bkmer(db_graph, fork_n),
+  num_next = db_graph_next_nodes(db_graph, db_node_get_bkmer(db_graph, fork_n),
                                  fork_o, db_node_edges(db_graph, 0, fork_n),
                                  nodes, orients, bases);
 
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(db_node_bkmer(db_graph, fork_n), db_graph->kmer_size, tmpstr);
+    binary_kmer_to_str(db_node_get_bkmer(db_graph, fork_n), db_graph->kmer_size, tmpstr);
     printf("fork %s:%i out-degree:%i\n", tmpstr, (int)fork_o, (int)num_next);
   #endif
 
@@ -581,7 +581,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
       {
         path = paths + num_of_paths++;
 
-        graph_walker_init(wlk, db_graph, colour, colour, fork_n, fork_o);
+        dBNode node = {.key = fork_n, .orient = fork_o};
+        graph_walker_init(wlk, db_graph, colour, colour, node);
         lost_nuc = binary_kmer_first_nuc(wlk->bkmer, db_graph->kmer_size);
 
         graph_traverse_force(wlk, nodes[i], bases[i], num_edges_in_col > 1);
@@ -620,7 +621,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   {
     #ifdef DEBUG_CALLER
       char tmpsup[MAX_KMER_SIZE+1];
-      BinaryKmer bkmer = db_node_bkmer(db_graph, snode_nodes(&snode_store[i])[0].key);
+      BinaryKmer bkmer = db_node_get_bkmer(db_graph, snode_nodes(&snode_store[i])[0].key);
       binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpsup);
       printf("check supernode: %s\n", tmpsup);
     #endif
@@ -727,7 +728,7 @@ void* bubble_caller(void *args)
   for(; ptr < end; ptr++) {
     if(HASH_ENTRY_ASSIGNED(*ptr)) {
       hkey_t node = (hkey_t)(ptr - table);
-      Edges edges = db_node_edges(db_graph, 0, node);
+      Edges edges = db_node_get_edges(db_graph, 0, node);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
         find_bubbles(node, FORWARD, db_graph, &wlk, &rptwlk,
                      snode_hash, spp_hash, &nbuf,

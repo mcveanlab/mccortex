@@ -127,8 +127,8 @@ static inline void clip_tip(hkey_t node, dBNodeBuffer *nbuf,
 
     for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
 
-    first = db_node_edges_union(db_graph, nbuf->data[0].key);
-    last = db_node_edges_union(db_graph, nbuf->data[nbuf->len-1].key);
+    first = db_node_get_edges_union(db_graph, nbuf->data[0].key);
+    last = db_node_get_edges_union(db_graph, nbuf->data[nbuf->len-1].key);
     in = edges_get_indegree(first, nbuf->data[0].orient);
     out = edges_get_outdegree(last, nbuf->data[nbuf->len-1].orient);
 

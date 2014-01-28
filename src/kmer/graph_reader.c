@@ -439,7 +439,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
       node = hash_table_find(&graph->ht, bkmer);
       if(node == HASH_NOT_FOUND) continue;
 
-      // Edges union_edges = db_node_edges_union(graph, node);
+      // Edges union_edges = db_node_get_edges_union(graph, node);
       Edges union_edges = prefs.must_exist_in_edges[node];
 
       for(i = 0; i < load_ncols; i++) edges[i] &= union_edges;
@@ -592,7 +592,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
         hkey_t node = hash_table_find(&db_graph->ht, bkmer);
 
         if(node != HASH_NOT_FOUND) {
-          // Edges union_edges = db_node_edges_union(db_graph, node);
+          // Edges union_edges = db_node_get_edges_union(db_graph, node);
           Edges union_edges = only_load_if_in_edges[node];
           for(i = 0; i < ncols; i++) edges[i] &= union_edges;
         }

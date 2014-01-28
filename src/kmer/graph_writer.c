@@ -7,7 +7,7 @@
 static inline void dump_empty_bkmer(hkey_t node, const dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
 {
-  const BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  const BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   fwrite(&bkmer, sizeof(BinaryKmer), 1, fh);
   fwrite(buf, 1, mem, fh);
 }
@@ -159,7 +159,7 @@ static void graph_write_node(hkey_t node, const dBGraph *db_graph,
 
   if(i == num_of_cols) return;
 
-  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   Covg covg_store[header->num_of_cols], *covgs = covg_store + intocol;
   Edges edge_store[header->num_of_cols], *edges = edge_store + intocol;
 

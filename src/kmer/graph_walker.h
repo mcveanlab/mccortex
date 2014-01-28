@@ -5,18 +5,19 @@
 #include "db_node.h"
 #include "path_store.h"
 
+
 typedef struct
 {
-  Nucleotide *bases;
-  PathLen pos, len;
+  const uint8_t *const seq;
+  const PathLen len;
+  PathLen pos;
+  // A small buffer of upcoming 24 bases
+  PathLen first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
+  uint8_t cache[6]; // first..first+24-1 (24 bases)
 } FollowPath;
 
-
-typedef struct
-{
-  const uint8_t *seq;
-  PathLen pos, len;
-} FollowPath2;
+#include "objbuf_macro.h"
+create_objbuf(path_buf,PathBuffer,FollowPath)
 
 // Result from graph_walker_choose
 typedef struct
@@ -42,18 +43,18 @@ typedef struct
 typedef struct
 {
   const dBGraph *const db_graph;
+  const PathStore *const pstore;
   const Colour ctxcol, ctpcol;
 
   // Current position
-  hkey_t node;
-  Orientation orient;
+  // hkey_t node;
+  // Orientation orient;
+  dBNode node;
   BinaryKmer bkmer; // Oriented bkmer (i.e. not key)
 
-  Nucleotide *data;
-  FollowPath *allpaths;
-  size_t max_path_len, max_num_paths;
-  FollowPath **unused_paths, **curr_paths, **counter_paths;
-  size_t num_unused, num_curr, num_new, num_counter;
+  // Paths we are currently following
+  PathBuffer paths, new_paths, cntr_paths;
+  size_t num_new_paths;
 
   // Stats
   size_t fork_count;
@@ -67,12 +68,13 @@ size_t graph_walker_est_mem();
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
+FollowPath follow_path_create(const uint8_t *seq, PathLen plen);
+
 void graph_walker_print_state(const GraphWalker *wlk);
 
 // Always call finish after calling init
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
-                       Colour ctxcol, Colour ctpcol,
-                       hkey_t node, Orientation or);
+                       Colour ctxcol, Colour ctpcol, dBNode node);
 
 void graph_walker_finish(GraphWalker *wlk);
 
@@ -86,18 +88,18 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
 // Move to the next node
 // If fork is true, node is the result of taking a fork -> slim down paths
-void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
+void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
                           boolean fork);
 
 // Jump to a new node (any node up until the end of the current supernode or the
 // first node of the next supernode)
-void graph_traverse_force_jump(GraphWalker *wlk, hkey_t node, BinaryKmer bkmer,
+void graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer,
                                boolean fork);
 
 // return 1 on success, 0 otherwise
 boolean graph_traverse(GraphWalker *wlk);
 boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
-                             const hkey_t nodes[4], const Nucleotide bases[4]);
+                             const hkey_t hkeys[4], const Nucleotide bases[4]);
 
 void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     hkey_t prev_nodes[4],

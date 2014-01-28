@@ -8,8 +8,8 @@
 
 static void edge_check(hkey_t node, const dBGraph *db_graph, size_t col)
 {
-  const BinaryKmer bkmer = db_node_bkmer(db_graph, node);
-  const Edges edges = db_node_edges(db_graph, col, node);
+  const BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
+  const Edges edges = db_node_get_edges(db_graph, col, node);
 
   hkey_t nodes[4];
   Orientation orients[4];

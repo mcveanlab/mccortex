@@ -31,8 +31,8 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
 
   for(klen = 0, plen = 0; plen < nbases; klen++)
   {
-    bkmer = db_node_bkmer(db_graph, node.key);
-    edges = db_node_edges(db_graph, edgecol, node.key);
+    bkmer = db_node_get_bkmer(db_graph, node.key);
+    edges = db_node_get_edges(db_graph, edgecol, node.key);
 
     // Check this node is in this colour
     if(db_graph->node_in_cols != NULL) {
@@ -107,13 +107,13 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   const PathStore *pstore = &db_graph->pdata;
   PathLen len_bases;
   Orientation orient;
-  const uint8_t *colset, *path;
+  const uint8_t *colset, *seq;
 
   colset = packedpath_get_colset(packed);
   assert(bitset_get(colset, ctpcol));
 
-  path = packedpath_path(packed, pstore->colset_bytes);
-  packedpack_get_len_orient(packed, pstore->colset_bytes, &len_bases, &orient);
+  seq = packedpath_seq(packed, pstore->colset_bytes);
+  packedpath_get_len_orient(packed, pstore->colset_bytes, &len_bases, &orient);
 
   dBNode node = {.key = hkey, .orient = orient};
 
@@ -130,7 +130,7 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
 
-  graph_path_check_valid(node, ctxcol, path, len_bases, db_graph);
+  graph_path_check_valid(node, ctxcol, seq, len_bases, db_graph);
 }
 
 static void kmer_check_paths(hkey_t node, const dBGraph *db_graph,

@@ -127,7 +127,7 @@ static inline void add_path(PathList *plist,
                             const PathStore *pstore, PathIndex pi)
 {
   PathLen len, merged; Orientation orient;
-  merged = packedpack_get_len_orient(pstore->store + pi, pstore->colset_bytes,
+  merged = packedpath_get_len_orient(pstore->store + pi, pstore->colset_bytes,
                                      &len, &orient);
 
   if(plist->nbases + len > plist->nbases_cap) {
@@ -168,7 +168,7 @@ static inline void compare_kmer_paths(hkey_t node,
      (dbg2->kmer_paths[node] == HASH_NOT_FOUND))
   {
     char bstr[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(db_node_bkmer(dbg1, node), dbg1->kmer_size, bstr);
+    binary_kmer_to_str(db_node_get_bkmer(dbg1, node), dbg1->kmer_size, bstr);
     die("Kmer has path in only one graph [%zu vs %zu]: %s",
         (size_t)dbg1->kmer_paths[node], (size_t)dbg2->kmer_paths[node], bstr);
   }

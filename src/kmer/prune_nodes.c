@@ -39,8 +39,8 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
     Nucleotide nuc;
     hkey_t next_node;
 
-    BinaryKmer bkmer = db_node_bkmer(db_graph, node);
-    keep_edges = db_node_edges_union(db_graph, node);
+    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
+    keep_edges = db_node_get_edges_union(db_graph, node);
 
     for(orient = 0; orient < 2; orient++)
     {
@@ -90,8 +90,8 @@ void prune_nodes_lacking_flag(dBGraph *db_graph, const uint64_t *flags)
 // Remove all edges in the graph that connect to the given node
 static void prune_connecting_edges(dBGraph *db_graph, hkey_t node)
 {
-  Edges uedges = db_node_edges_union(db_graph, node);
-  BinaryKmer bkmer = db_node_bkmer(db_graph, node);
+  Edges uedges = db_node_get_edges_union(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
   hkey_t next_node;
   Orientation or, next_or;
   Nucleotide nuc, lost_nuc;
@@ -120,7 +120,7 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t node)
         // Sanity test
         assert(next_node != HASH_NOT_FOUND);
         assert(next_node == node ||
-               (db_node_edges_union(db_graph, next_node) & remove_edge_mask)
+               (db_node_get_edges_union(db_graph, next_node) & remove_edge_mask)
                   == remove_edge_mask);
 
         for(col = 0; col < db_graph->num_edge_cols; col++)

@@ -10,9 +10,13 @@
 void path_store_init(PathStore *paths, uint8_t *data, size_t size,
                        size_t num_of_cols)
 {
+  assert(size > PSTORE_PADDING);
+  size -= PSTORE_PADDING;
+
   size_t colset_bytes = roundup_bits2bytes(num_of_cols);
 
-  char memstr[100]; bytes_to_str(size, 1, memstr);
+  char memstr[100];
+  bytes_to_str(size, 1, memstr);
   status("[paths] Setting up path store to use %s", memstr);
 
   PathStore new_paths = {.store = data, .end = data + size,
@@ -26,7 +30,11 @@ void path_store_init(PathStore *paths, uint8_t *data, size_t size,
 
 void path_store_resize(PathStore *paths, size_t size)
 {
-  char memstr[100]; bytes_to_str(size, 1, memstr);
+  assert(size > PSTORE_PADDING);
+  size -= PSTORE_PADDING;
+
+  char memstr[100];
+  bytes_to_str(size, 1, memstr);
   status("[paths] Resizing path store to use %s", memstr);
 
   PathStore new_paths = {.store = paths->store, .end = paths->store + size,
@@ -234,15 +242,15 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
   Orientation orient;
 
   prev = packedpath_get_prev(paths->store + index);
-  packedpack_get_len_orient(paths->store+index, paths->colset_bytes,
+  packedpath_get_len_orient(paths->store+index, paths->colset_bytes,
                             &len, &orient);
 
   const uint8_t *packed = paths->store + index;
   const uint8_t *colbitset = packedpath_get_colset(packed);
-  const uint8_t *data = packedpath_path(packed, paths->colset_bytes);
+  const uint8_t *seq = packedpath_seq(packed, paths->colset_bytes);
 
   Nucleotide bases[len];
-  unpack_bases(data, bases, len);
+  unpack_bases(seq, bases, len);
 
   size_t i;
   printf("%8zu: ", (size_t)index);
@@ -274,7 +282,7 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
   PathLen plen;
   Orientation orient;
 
-  packedpack_get_len_orient(packed-sizeof(PathIndex)-pstore->colset_bytes,
+  packedpath_get_len_orient(packed-sizeof(PathIndex)-pstore->colset_bytes,
                             pstore->colset_bytes, &plen, &orient);
 
   Nucleotide bases[plen]; char nucs[plen+1];

@@ -96,8 +96,8 @@ static inline void dot_print_edges(hkey_t node, sndata_t *supernodes,
 
   // Check if node is an end of a supernode
   if(snode0.assigned) {
-    bkmer = db_node_bkmer(db_graph, node);
-    edges = db_node_edges(db_graph, 0, node);
+    bkmer = db_node_get_bkmer(db_graph, node);
+    edges = db_node_get_edges(db_graph, 0, node);
 
     if(snode0.left) {
       dot_print_edges2(node, bkmer, edges, !snode0.lorient, snode0,

@@ -117,12 +117,12 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
   GraphWalker *wlk = &data->wlk;
 
   BinaryKmer bkey = db_node_get_key(bkmer, db_graph->kmer_size);
-  hkey_t node = hash_table_find(&db_graph->ht, bkey);
+  hkey_t hkey = hash_table_find(&db_graph->ht, bkey);
   Orientation orient = db_node_get_orientation(bkmer, bkey);
 
   // Check for fork in pop and not in ref
-  Edges col0edges = db_node_edges(db_graph, 1, node) &~
-                    db_node_edges(db_graph, 0, node);
+  Edges col0edges = db_node_get_edges(db_graph, 1, hkey) &~
+                    db_node_get_edges(db_graph, 0, hkey);
 
   Edges edges;
   Nucleotide nuc;
@@ -133,10 +133,11 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
     for(nuc = 0; nuc < 4; nuc++) {
       if(edges & nuc) {
         for(colour = 1; colour < db_graph->num_of_cols_used; colour++) {
-          graph_walker_init(wlk, db_graph, colour, colour, node, orient);
+          dBNode node = {.key = hkey, .orient = orient};
+          graph_walker_init(wlk, db_graph, colour, colour, node);
 
           // DEV: call path
-          diverge_call_path(node, orient, wlk);
+          diverge_call_path(hkey, orient, wlk);
 
           graph_walker_finish(wlk);
         }
