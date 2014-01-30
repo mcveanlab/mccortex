@@ -178,6 +178,7 @@ void graph_walker_finish(GraphWalker *wlk)
 // Hash function
 //
 
+// 5 ops per byte
 static inline uint32_t jenkins_mix(uint32_t h, uint8_t x) {
   h += x; h += (h<<10); h ^= (h>>6); return h;
 }
@@ -185,6 +186,9 @@ static inline uint32_t jenkins_mix(uint32_t h, uint8_t x) {
 static inline uint32_t jenkins_finish(uint32_t h) {
   h += (h<<3); h ^= (h>>11); h += (h<<15); return h;
 }
+
+// 2 ops per byte
+#define fast_mix(h,x) ({ (h) = (h) * 37 + (x); (h); })
 
 // 5*bytes+6 ops [32bit => 26, 64 => 46]
 static inline uint32_t jenkins_one_at_a_time_hash(const uint8_t *key, size_t len)
@@ -405,7 +409,8 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
 
   // Can slim down the number of nodes to look up if we can rule out
   // the node we just came from
-  prev_edge = nuc_orient_to_edge(dna_nuc_complement(prev_nuc), backwards);
+  prev_nuc = dna_nuc_complement(prev_nuc);
+  prev_edge = nuc_orient_to_edge(prev_nuc, backwards);
 
   // Some sanity checks
   assert(edges & prev_edge);
@@ -419,7 +424,8 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
 
   // Reverse orientation, pick up paths
   for(i = 0; i < num_prev_nodes; i++) {
-    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+    if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol))
+      pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
   }
 }
 
@@ -528,15 +534,27 @@ void graph_walker_jump_snode_end(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer
   _graph_traverse_force_jump(wlk, hkey, bkmer, false);
 }
 
-void graph_traverse_force(GraphWalker *wlk, hkey_t node, Nucleotide base,
+void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
                           boolean fork)
 {
-  assert(node != HASH_NOT_FOUND);
+  assert(hkey != HASH_NOT_FOUND);
   BinaryKmer bkmer;
   const size_t kmer_size = wlk->db_graph->kmer_size;
   Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
   bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
-  _graph_traverse_force_jump(wlk, node, bkmer, fork);
+
+  // char tmp0[MAX_KMER_SIZE+1], tmp1[MAX_KMER_SIZE+1];
+  // Orientation or0, or1;
+  // binary_kmer_to_str(wlk->bkmer, kmer_size, tmp0);
+  // binary_kmer_to_str(bkmer, kmer_size, tmp1);
+  // status("%s -> %s lost: %c", tmp0, tmp1, dna_nuc_to_char(lost_nuc));
+  // binary_kmer_to_str(wlk->bkey, kmer_size, tmp0);
+  // binary_kmer_to_str(db_node_get_bkmer(wlk->db_graph,hkey), kmer_size, tmp1);
+  // or0 = wlk->node.orient;
+  // or1 = db_node_get_orientation(bkmer, db_node_get_bkmer(wlk->db_graph,hkey));
+  // status("%s:%i -> %s:%i", tmp0, or0, tmp1, or1);
+
+  _graph_traverse_force_jump(wlk, hkey, bkmer, fork);
   _graph_walker_pickup_counter_paths(wlk, lost_nuc);
 }
 
