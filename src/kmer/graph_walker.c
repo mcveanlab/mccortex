@@ -132,6 +132,8 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
       FollowPath fpath = follow_path_create(seq, plen);
 
       if(!filter_with_next_nuc || cache_fetch(&fpath, 0) == next_nuc) {
+        if(filter_with_next_nuc) fpath.pos++; // already took a base
+
         path_buf_add(pbuf, fpath);
       }
     }
@@ -271,7 +273,7 @@ uint32_t graph_walker_hash(const GraphWalker *wlk)
 static inline void update_path_forks(const PathBuffer *pbuf, uint8_t taken[4])
 {
   size_t i;
-  FollowPath *path;
+  const FollowPath *path;
   for(i = 0; i < pbuf->len; i++) {
     path = &pbuf->data[i];
     taken[cache_fetch(path, path->pos)] = 1;
