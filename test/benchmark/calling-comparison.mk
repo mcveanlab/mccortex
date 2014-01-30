@@ -86,6 +86,7 @@ GENOMES=$(shell echo genomes/genome{1..$(NCHROMS)}.fa)
 READS=$(shell echo reads/reads{1..$(NCHROMS)}.{1..2}.fa.gz)
 RAWGRAPHS=$(shell echo k$(KMER)/graphs/sample{1..$(NUM_INDIVS)}.raw.ctx)
 CLEANGRAPHS=$(RAWGRAPHS:.raw.ctx=.clean.ctx)
+PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.noref.ctp)
 REFGENOME=ref/genome0.fa
 
 DOOLD=$(shell if [ $(NUM_INDIVS) -gt 10 ]; then echo 'no'; else echo 'yes'; fi)
@@ -103,7 +104,6 @@ endif
 # Can't do noref if we only have one chrom
 ifeq ($(NCHROMS),1)
 	# Always need ref
-	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.noref.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).ref.bubbles.gz`)
 	TRUTHBUBBLES=k$(KMER)/vcfs/truth.ref.bub.vcf
 	BUBBLESCMPRULES=compare-ref-bubbles
@@ -114,7 +114,6 @@ else
 		BUBBLESCMPRULES=compare-noref-bubbles
 	endif
 
-	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.noref.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).{noref,ref}.bubbles.gz`)
 	NORMCMPRULES=$(shell echo `eval echo compare-$(SET).{noref,ref}-norm compare-runcalls-norm`)
 endif
@@ -222,10 +221,10 @@ $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 # 1..PLOIDY chroms per colour
 # e.g. genomes/genome{1,2}.fa loaded into colour 0 when PLOIDY=2
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
-	$(TRAVERSE)                                     --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.ref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.ref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.ref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE)                                       --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.noref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
 	$(CTXSTATS) k$(KMER)/graphs/pop.noref.ctx:0
 	@echo == ref copy number ==
 	$(CTX_PATH)/bin/ctx31 view --kmers ref/ref.k$(KMER).ctx | awk '{n[$$2]++} END {for (i in n) print i,n[i]}' | sort -n
@@ -331,12 +330,15 @@ k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
 	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
 
-# % => {se,pe,sepe}.{ref.noref}
-k$(KMER)/bubbles/samples.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctp
+# % => {se,pe,sepe}
+k$(KMER)/bubbles/samples.%.ref.bubbles.gz: k$(KMER)/graphs/pop.ref.ctx k$(KMER)/graphs/pop.%.noref.ctp
+k$(KMER)/bubbles/samples.%.noref.bubbles.gz: k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.%.noref.ctp
+k$(KMER)/bubbles/samples.%.bubbles.gz:
 	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p $< k$(KMER)/graphs/pop.$$r.ctx $@
+	p=`echo $@ | grep -oE '([sp]e)*.(no)?ref.bubbles.gz$$' | grep -oE '([sp]e)*'`; \
+	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/graphs/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
