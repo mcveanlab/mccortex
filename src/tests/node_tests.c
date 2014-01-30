@@ -48,7 +48,7 @@ void test_db_node()
   HASH_ITERATE(&graph.ht, edge_check, &graph, 0);
   HASH_ITERATE(&graph.ht, edge_check, &graph, 1);
 
-  free((void*)graph.bktlocks);
+  free(graph.bktlocks);
   free(graph.col_covgs);
   free(graph.col_edges);
   db_graph_dealloc(&graph);

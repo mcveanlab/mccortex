@@ -150,7 +150,7 @@ int ctx_call(CmdArgs *args)
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
+  memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
@@ -211,7 +211,7 @@ int ctx_call(CmdArgs *args)
 
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
-  free((void *)db_graph.kmer_paths);
+  free(db_graph.kmer_paths);
 
   seq_loading_stats_free(stats);
   path_store_dealloc(&db_graph.pdata);

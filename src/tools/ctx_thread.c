@@ -367,7 +367,7 @@ int ctx_thread(CmdArgs *args)
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
+  memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   // use total_cols instead of path_max_usedcols since we are
   // loading then ADDING more paths (which may need new colours)
@@ -502,8 +502,8 @@ int ctx_thread(CmdArgs *args)
   free(tasks);
 
   free(db_graph.col_edges);
-  free((void *)db_graph.kmer_paths);
-  free((void *)db_graph.path_kmer_locks);
+  free(db_graph.kmer_paths);
+  free(db_graph.path_kmer_locks);
 
   paths_header_dealloc(&pheader);
 

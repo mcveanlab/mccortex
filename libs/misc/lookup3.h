@@ -188,18 +188,18 @@ acceptable.  Do NOT use for cryptographic purposes.
 static inline uint32_t lk3_hashlittle(const void *key, size_t length, uint32_t initval)
 {
   uint32_t a, b, c;                                        /* internal state */
+
+  /* Set up the internal state */
+  a = b = c = 0xdeadbeef + ((uint32_t)length) + initval;
+
+#if HASH_LITTLE_ENDIAN
+
   union
   {
     const void *ptr;
     size_t i;
   } u;     /* needed for Mac Powerbook G4 */
-
-  /* Set up the internal state */
-  a = b = c = 0xdeadbeef + ((uint32_t)length) + initval;
-
   u.ptr = key;
-
-#if HASH_LITTLE_ENDIAN
 
   if((u.i & 0x3) == 0)
   {

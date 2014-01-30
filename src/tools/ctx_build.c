@@ -519,7 +519,7 @@ int ctx_build(CmdArgs *args)
   free(inputs);
   free(seq_cols);
 
-  free((uint8_t*)db_graph.bktlocks);
+  free(db_graph.bktlocks);
   free(db_graph.col_covgs);
   free(db_graph.col_edges);
   if(db_graph.readstrt != NULL) free(db_graph.readstrt);

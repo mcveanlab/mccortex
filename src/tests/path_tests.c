@@ -42,7 +42,7 @@ void test_paths()
   graph.kmer_paths = malloc2(graph.ht.capacity * sizeof(PathIndex));
   graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
 
-  memset((void*)graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
+  memset(graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
 
   path_store_alloc(&graph.pdata, path_max_mem, 0, ncols);
 
@@ -88,11 +88,11 @@ void test_paths()
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 
-  free((void*)graph.bktlocks);
+  free(graph.bktlocks);
   free(graph.col_edges);
   free(graph.col_covgs);
-  free((void*)graph.kmer_paths);
-  free((void*)graph.path_kmer_locks);
+  free(graph.kmer_paths);
+  free(graph.path_kmer_locks);
 
   path_store_dealloc(&graph.pdata);
   db_graph_dealloc(&graph);

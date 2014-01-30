@@ -22,7 +22,8 @@ FollowPath follow_path_create(const uint8_t *seq, PathLen plen)
   return fpath;
 }
 
-static inline Nucleotide cache_fetch(FollowPath *path, size_t pos)
+// Get a base from the FollowPath cache
+static inline Nucleotide cache_fetch(const FollowPath *path, size_t pos)
 {
   return packed_fetch(path->cache, pos - path->first_cached);
 }
@@ -119,7 +120,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
                              db_node_has_col(db_graph, node.key, wlk->ctxcol)));
   }
 
-  pindex = db_node_paths(db_graph, node.key);
+  pindex = *db_node_paths_volptr(db_graph, node.key);
 
   while(pindex != PATH_NULL)
   {

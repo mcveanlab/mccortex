@@ -26,7 +26,8 @@ typedef struct
   const size_t num_edge_cols; // How many colours malloc'd for col_edges
   size_t num_of_cols_used; // how many colours currently used
 
-  volatile uint8_t *bktlocks;
+  // This should be cast to volatile to read / write
+  uint8_t *bktlocks;
 
   // Array of GraphInfo objects, one per colour
   GraphInfo *ginfo;
@@ -49,9 +50,9 @@ typedef struct
 
   // path data
   PathStore pdata;
-  // DEV: remove volatile on kmer_paths
-  volatile PathIndex *kmer_paths;
-  volatile uint8_t *path_kmer_locks;
+  // These need to be cast to volatile to read/write in multithreaded settings
+  PathIndex *kmer_paths;
+  uint8_t *path_kmer_locks;
 
   // Loading reads
   uint8_t *readstrt;

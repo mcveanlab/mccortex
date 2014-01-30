@@ -276,7 +276,7 @@ int ctx_diverge(CmdArgs *args)
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
+  memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   path_store_alloc(&db_graph.pdata, path_mem, 0, num_of_cols);
 
@@ -313,7 +313,7 @@ int ctx_diverge(CmdArgs *args)
 
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
-  free((void *)db_graph.kmer_paths);
+  free(db_graph.kmer_paths);
 
   graph_header_dealloc(&gheader);
   seq_loading_stats_free(stats);

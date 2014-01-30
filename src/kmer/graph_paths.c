@@ -29,7 +29,7 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
   bitlock_yield_acquire(kmerlocks, hkey);
 
-  const PathIndex next = *(volatile PathIndex*)&db_node_paths(db_graph, hkey);
+  const PathIndex next = *db_node_paths_volptr(db_graph, hkey);
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -52,8 +52,8 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
 
   // atomic { new_path = pstore->next; pstore->next += mem; }
   // __sync_fetch_and_add(x,y) x and y need to be of same type
-  new_path = __sync_fetch_and_add((uint8_t*volatile*)&pstore->next,
-                                  (uint8_t*)mem);
+  new_path = __sync_fetch_and_add((uint8_t * volatile *)(void*)&pstore->next,
+                                  (uint8_t *)mem);
 
   if(new_path + mem > pstore->end) die("Out of path memory!");
 
@@ -77,8 +77,7 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
 
   // 5) update kmer pointer
   PathIndex pindex = (uint64_t)(new_path - pstore->store);
-  db_node_paths(db_graph, hkey) = pindex;
-  assert(pindex != PATH_NULL);
+  *db_node_paths_volptr(db_graph, hkey) = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer
   if(next == PATH_NULL) {

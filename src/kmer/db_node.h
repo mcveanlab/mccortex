@@ -88,6 +88,8 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 //
 // Paths
 #define db_node_paths(graph,node) ((graph)->kmer_paths[(node)])
+#define db_node_paths_volptr(graph,node) \
+        ((volatile PathIndex *)&(graph)->kmer_paths[(node)])
 
 //
 // Orientations

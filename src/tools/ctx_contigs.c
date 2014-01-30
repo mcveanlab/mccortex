@@ -372,7 +372,7 @@ int ctx_contigs(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
-  memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
+  memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
   RepeatWalker rptwlk;
   rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
@@ -502,7 +502,7 @@ int ctx_contigs(CmdArgs *args)
   // free(visited);
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
-  free((void*)db_graph.kmer_paths);
+  free(db_graph.kmer_paths);
 
   rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);

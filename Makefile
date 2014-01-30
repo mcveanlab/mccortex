@@ -97,13 +97,15 @@ LINK=-lpthread -lz -lm
 
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
-IGNORE_CFLAGS=-Wno-cast-align -Wno-shorten-64-to-32
+
+IGNORE_CFLAGS=-Wno-cast-align -Wno-shorten-64-to-32 \
+              -Wno-aggregate-return -Wno-conversion
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                  -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
                  -Wcast-qual -Wmissing-noreturn \
-                 -Wwrite-strings -Waggregate-return -Wundef \
-                 -Wshadow -Wconversion -Woverlength-strings \
+                 -Wwrite-strings -Wundef \
+                 -Wshadow -Woverlength-strings \
                  -Wenum-compare -Wfloat-equal -Wbad-function-cast \
                  -Wstack-protector -fstack-protector-all -D_FORTIFY_SOURCE=2
 
