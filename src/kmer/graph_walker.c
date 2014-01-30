@@ -399,7 +399,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   const dBGraph *db_graph = wlk->db_graph;
   dBNode prev_nodes[4];
   Nucleotide prev_bases[4];
-  size_t i, num_prev_nodes;
+  size_t i, j, num_prev_nodes;
   Edges edges, prev_edge;
   Nucleotide next_base;
   Orientation backwards = !wlk->node.orient;
@@ -421,7 +421,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
                                        prev_nodes, prev_bases);
 
   // If we have the ability, slim down nodes by those in this colour
-  if(wlk->node_in_cols != NULL) {
+  if(db_graph->node_in_cols != NULL) {
     for(i = j = 0; i < num_prev_nodes; i++) {
       if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol)) {
         prev_nodes[j] = prev_nodes[i];
