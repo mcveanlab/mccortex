@@ -9,7 +9,7 @@
 #include "graph_format.h"
 #include "path_format.h"
 #include "generate_paths.h"
-#include "async_read_io.h"
+#include "graph_paths.h"
 
 #define DEFAULT_MIN_INS 0
 #define DEFAULT_MAX_INS 500
@@ -366,8 +366,8 @@ int ctx_thread(CmdArgs *args)
   db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
 
   // Paths
-  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   // use total_cols instead of path_max_usedcols since we are
   // loading then ADDING more paths (which may need new colours)
@@ -429,9 +429,11 @@ int ctx_thread(CmdArgs *args)
     if(ctpcol != prev_ctpcol)
     {
       if(start > 0) {
-        // wipe colour 0
+        // wipe colour 0: just reset edges
         db_graph_wipe_colour(&db_graph, 0);
-        hash_table_empty(&db_graph.ht);
+        // DO NOT EMPTY THE HASH TABLE stupid
+        // uncommenting this messes up keeping track of kmer->path matching
+        // hash_table_empty(&db_graph.ht);
       }
 
       get_binary_and_colour(graph_files, num_graphs, ctpcol, &fileidx, &colidx);

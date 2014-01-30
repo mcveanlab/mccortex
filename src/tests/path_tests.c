@@ -39,10 +39,10 @@ void test_paths()
   graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
   // Path data
-  graph.kmer_paths = calloc2(graph.ht.capacity, sizeof(PathIndex));
+  graph.kmer_paths = malloc2(graph.ht.capacity * sizeof(PathIndex));
   graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
 
-  memset((void*)graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(uint64_t));
+  memset((void*)graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
 
   path_store_alloc(&graph.pdata, path_max_mem, 0, ncols);
 
@@ -164,25 +164,25 @@ static inline void compare_kmer_paths(hkey_t node,
   assert(binary_kmers_are_equal(dbg1->ht.table[node], dbg2->ht.table[node]));
 
   // Fecth path list, sort, and compare paths
-  if((dbg1->kmer_paths[node] == HASH_NOT_FOUND) !=
-     (dbg2->kmer_paths[node] == HASH_NOT_FOUND))
+  if((db_node_paths(dbg1, node) == PATH_NULL) !=
+     (db_node_paths(dbg2, node) == PATH_NULL))
   {
     char bstr[MAX_KMER_SIZE+1];
     binary_kmer_to_str(db_node_get_bkmer(dbg1, node), dbg1->kmer_size, bstr);
     die("Kmer has path in only one graph [%zu vs %zu]: %s",
-        (size_t)dbg1->kmer_paths[node], (size_t)dbg2->kmer_paths[node], bstr);
+        (size_t)db_node_paths(dbg1, node), (size_t)db_node_paths(dbg2, node), bstr);
   }
 
   path_list_init(plist1);
   path_list_init(plist2);
 
-  PathIndex pi = dbg1->kmer_paths[node];
-  while(pi != HASH_NOT_FOUND) {
+  PathIndex pi = db_node_paths(dbg1, node);
+  while(pi != PATH_NULL) {
     add_path(plist1, &dbg1->pdata, pi);
     pi = packedpath_get_prev(dbg1->pdata.store+pi);
   }
-  pi = dbg2->kmer_paths[node];
-  while(pi != HASH_NOT_FOUND) {
+  pi = db_node_paths(dbg2, node);
+  while(pi != PATH_NULL) {
     add_path(plist2, &dbg2->pdata, pi);
     pi = packedpath_get_prev(dbg2->pdata.store+pi);
   }

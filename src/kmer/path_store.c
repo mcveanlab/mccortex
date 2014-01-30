@@ -9,7 +9,6 @@
 
 void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncols)
 {
-  assert(ncols > 0);
   size_t colset_bytes = roundup_bits2bytes(ncols);
 
   // all one block: <mem><padding><tmp><padding>

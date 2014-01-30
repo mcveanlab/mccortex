@@ -159,8 +159,7 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
     dBNode node = {.key = hkey, .orient = orient};
     graph_walker_init(wlk, db_graph, colour, colour, node);
 
-    while(graph_traverse(wlk) &&
-          rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer))
+    while(graph_traverse(wlk) && rpt_walker_attempt_traverse(rptwlk, wlk))
     {
       db_node_buf_add(&cd->nodes, wlk->node);
       cd->grphwlk_steps[wlk->last_step.status]++;
@@ -372,8 +371,8 @@ int ctx_contigs(CmdArgs *args)
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
-  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
+  memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
   RepeatWalker rptwlk;
   rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB

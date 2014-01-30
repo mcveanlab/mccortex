@@ -32,8 +32,8 @@ static inline Nucleotide cache_fetch(FollowPath *path, size_t pos)
 static inline void cache_update(FollowPath *path)
 {
   // 4 bases per byte
-  size_t new_cache_start = sizeof(path->cache) * 4 *
-                           (path->pos / (sizeof(path->cache) * 4));
+  PathLen new_cache_start = sizeof(path->cache) * 4 *
+                            (path->pos / (sizeof(path->cache) * 4));
 
   if(new_cache_start != path->first_cached) {
     path->first_cached = new_cache_start;
@@ -150,7 +150,6 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                     .node = node,
                     // new
                     .paths = wlk->paths, .cntr_paths = wlk->cntr_paths,
-                    .num_new_paths = 0,
                     // stats
                     .fork_count = 0, .last_step = {.idx = -1, 0}};
 
@@ -179,42 +178,78 @@ void graph_walker_finish(GraphWalker *wlk)
 // Hash function
 //
 
-// Hash a path using its length, sequence and current offset/position
-static inline uint32_t follow_path_fasthash(const FollowPath *path)
-{
-  // Hash upto last 32 bases
-  uint32_t i, hash = path->len, nbytes = (path->len+3)/4;
-  for(i = 0; i < nbytes; i++) {
-    hash ^= path->seq[i];
-    hash <<= 2;
-  }
-  return hash ^ path->pos;
+static inline uint32_t jenkins_mix(uint32_t h, uint8_t x) {
+  h += x; h += (h<<10); h ^= (h>>6); return h;
 }
 
-uint32_t follow_pathbuf_fasthash(const PathBuffer *pbuf)
+static inline uint32_t jenkins_finish(uint32_t h) {
+  h += (h<<3); h ^= (h>>11); h += (h<<15); return h;
+}
+
+// 5*bytes+6 ops [32bit => 26, 64 => 46]
+static inline uint32_t jenkins_one_at_a_time_hash(const uint8_t *key, size_t len)
 {
-  size_t i; uint32_t hash32 = 0;
+  uint32_t hash, i;
+  for(hash = i = 0; i < len; ++i) hash = jenkins_mix(hash, key[i]);
+  return jenkins_finish(hash);
+}
+
+// https://gist.github.com/badboy/6267743
+// 12 ops
+static inline uint32_t twang_hash64to32(uint64_t key)
+{
+  key = (~key) + (key << 18); // key = (key << 18) - key - 1;
+  key = key ^ (key >> 31);
+  key = key * 21; // key = (key + (key << 2)) + (key << 4);
+  key = key ^ (key >> 11);
+  key = key + (key << 6);
+  key = key ^ (key >> 22);
+  return (uint32_t)key;
+}
+
+// Hash a path using its length, sequence and current offset/position
+static inline uint32_t follow_path_hash(const FollowPath *path, uint32_t hash32)
+{
+  // 16 bases per 32 bit word
+  size_t i; uint8_t key[4];
+  memcpy(key, &path->len, 2);
+  memcpy(key+2, &path->pos, 2);
+  hash32 = jenkins_mix(hash32, key[0]);
+  hash32 = jenkins_mix(hash32, key[1]);
+  hash32 = jenkins_mix(hash32, key[2]);
+  hash32 = jenkins_mix(hash32, key[3]);
+
+  for(i = 0; i < sizeof(path->cache); i++)
+    hash32 = jenkins_mix(hash32, path->cache[i]);
+
+  // note: we done call jenkins_finish(hash32)
+  return hash32;
+}
+
+static inline uint32_t follow_pathbuf_hash(const PathBuffer *pbuf, uint32_t hash32)
+{
+  size_t i;
+
   for(i = 0; i < pbuf->len; i++)
-    hash32 ^= follow_path_fasthash(&pbuf->data[i]);
+    hash32 = follow_path_hash(&pbuf->data[i], hash32);
+
+  // note: we done call jenkins_finish(hash32)
   return hash32;
 }
 
 // Hash a binary kmer + GraphWalker paths with offsets
-uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer)
+uint32_t graph_walker_hash(const GraphWalker *wlk)
 {
-  uint64_t i, hash64 = bkmer.b[0];
+  // reduce to node from 64 -> 32 bits
+  uint64_t hash64 = (wlk->node.key<<1) | wlk->node.orient;
+  uint_fast32_t hash32 = twang_hash64to32(hash64);
 
-  for(i = 1; i < NUM_BKMER_WORDS; i++)
-    hash64 ^= bkmer.b[i];
+  // mix in path information
+  hash32 = follow_pathbuf_hash(&wlk->paths, hash32);
+  hash32 = follow_pathbuf_hash(&wlk->new_paths, hash32);
+  hash32 = follow_pathbuf_hash(&wlk->cntr_paths, hash32);
 
-  // Fold in half, use only bottom 32bits
-  uint_fast32_t hash32 = (hash64 ^ (hash64>>32)) & 0xffffffff;
-
-  hash32 ^= follow_pathbuf_fasthash(&wlk->paths);
-  hash32 ^= follow_pathbuf_fasthash(&wlk->new_paths);
-  hash32 ^= follow_pathbuf_fasthash(&wlk->cntr_paths);
-
-  return hash32;
+  return jenkins_finish(hash32);
 }
 
 //
@@ -546,7 +581,7 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
   Nucleotide nuc;
 
   // Only one path between two nodes
-  if(wlk->node.key == prev_node.key && wlk->node.orient == prev_node.orient) {
+  if(db_nodes_match(wlk->node, prev_node)) {
     nuc = db_node_last_nuc(bkmer, next_node.orient, kmer_size);
     graph_traverse_force(wlk, next_node.key, nuc, fork);
   }

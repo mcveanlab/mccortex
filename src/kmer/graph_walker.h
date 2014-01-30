@@ -15,6 +15,8 @@ typedef struct
   uint8_t cache[6]; // first..first+24-1 (24 bases)
 } FollowPath;
 
+FollowPath follow_path_create(const uint8_t *seq, PathLen plen);
+
 #include "objbuf_macro.h"
 create_objbuf(path_buf,PathBuffer,FollowPath)
 
@@ -53,7 +55,6 @@ typedef struct
 
   // Paths we are currently following
   PathBuffer paths, new_paths, cntr_paths;
-  size_t num_new_paths;
 
   // Stats
   size_t fork_count;
@@ -67,8 +68,6 @@ size_t graph_walker_est_mem();
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
-FollowPath follow_path_create(const uint8_t *seq, PathLen plen);
-
 void graph_walker_print_state(const GraphWalker *wlk);
 
 // Always call finish after calling init
@@ -78,7 +77,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 void graph_walker_finish(GraphWalker *wlk);
 
 // Hash a binary kmer + GraphWalker paths with offsets
-uint32_t graph_walker_fasthash(const GraphWalker *wlk, const BinaryKmer bkmer);
+uint32_t graph_walker_hash(const GraphWalker *wlk);
 
 // Returns index of choice or -1 along with status
 GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,

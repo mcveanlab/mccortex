@@ -7,6 +7,8 @@
 #include "cortex_types.h"
 #include "db_graph.h"
 
+#define db_nodes_match(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
+
 //
 // Get Binary kmers
 //

@@ -200,7 +200,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
 
   size_t i;
   BinaryKmer bkmer;
-  hkey_t node;
+  hkey_t hkey;
   boolean found;
 
   // Load paths
@@ -218,10 +218,10 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
     safe_fread(fh, &bkmer, sizeof(BinaryKmer), "bkmer", path);
 
     if(insert_missing_kmers) {
-      node = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
+      hkey = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
     }
-    else if((node = hash_table_find(&db_graph->ht, bkmer)) == HASH_NOT_FOUND) {
-      die("Node missing: %zu [path: %s]", (size_t)node, path);
+    else if((hkey = hash_table_find(&db_graph->ht, bkmer)) == HASH_NOT_FOUND) {
+      die("Node missing: %zu [path: %s]", (size_t)hkey, path);
     }
 
     safe_fread(fh, &index, sizeof(uint64_t), "kmer_index", path);
@@ -230,7 +230,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
           (size_t)index, (size_t)hdr->num_path_bytes);
     }
 
-    db_node_paths(db_graph, node) = index;
+    db_node_paths(db_graph, hkey) = index;
   }
 
   // Test that this is the end of the file
@@ -239,7 +239,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
     warn("End of file not reached when loading! [path: %s]", path);
 }
 
-static inline void load_packed_linkedlist(hkey_t node, const uint8_t *data,
+static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
                                           PathIndex loadindex,
                                           size_t colset_bytes,
                                           FileFilter *fltr, boolean find,
@@ -250,7 +250,7 @@ static inline void load_packed_linkedlist(hkey_t node, const uint8_t *data,
   PathStore *store = &db_graph->pdata;
 
   // Get paths this kmer already has
-  index = db_node_paths(db_graph, node);
+  index = db_node_paths(db_graph, hkey);
 
   do
   {
@@ -258,7 +258,7 @@ static inline void load_packed_linkedlist(hkey_t node, const uint8_t *data,
     pbytes = packedpath_pbytes(packed, colset_bytes);
     index = path_store_find_or_add_packed2(store, index, packed, pbytes,
                                            fltr, find, &added);
-    if(added) db_node_paths(db_graph, node) = index;
+    if(added) db_node_paths(db_graph, hkey) = index;
     loadindex = packedpath_get_prev(packed);
   }
   while(loadindex != PATH_NULL);
@@ -382,15 +382,15 @@ size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout)
 // returns number of bytes written
 size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
 {
-  paths_format_write_header_core(header, fout);
-
   size_t i, bytes = 0;
   uint32_t len;
   const StrBuf *buf;
 
+  bytes = paths_format_write_header_core(header, fout);
+
   for(i = 0; i < header->num_of_cols; i++)
   {
-    buf = header->sample_names + i;
+    buf = &header->sample_names[i];
     len = (uint32_t)buf->len;
     fwrite(&len, sizeof(uint32_t), 1, fout);
     fwrite(buf->buff, sizeof(uint8_t), len, fout);
@@ -400,43 +400,45 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
   return bytes;
 }
 
-static inline void write_optimised_paths(hkey_t node, PathIndex *pidx,
+static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx,
                                          dBGraph *db_graph, FILE *fout)
 {
-  PathStore *paths = &db_graph->pdata;
-  PathIndex curridx, nextidx, newidx;
+  const PathStore *pstore = &db_graph->pdata;
+  PathIndex pindex, newidx;
   PathLen len;
   Orientation orient;
   size_t mem, pbytes;
+  const uint8_t *path;
 
-  if((curridx = db_node_paths(db_graph, node)) != PATH_NULL)
+  pindex = db_node_paths(db_graph, hkey);
+
+  // Return if not paths associated with this kmer
+  if(pindex == PATH_NULL) return;
+
+  db_node_paths(db_graph, hkey) = *pidx;
+
+  do
   {
-    db_node_paths(db_graph, node) = *pidx;
-
-    do
-    {
-      nextidx = packedpath_get_prev(paths->store+curridx);
-      packedpath_get_len_orient(paths->store+curridx, paths->colset_bytes,
-                                &len, &orient);
-      pbytes = packedpath_len_nbytes(len);
-      mem = packedpath_mem2(paths->colset_bytes, pbytes);
-      *pidx += mem;
-      newidx = (nextidx == PATH_NULL ? PATH_NULL : *pidx);
-      fwrite(&newidx, sizeof(PathIndex), 1, fout);
-      fwrite(paths->store+curridx+sizeof(PathIndex), mem-sizeof(PathIndex), 1, fout);
-      curridx = nextidx;
-    }
-    while(curridx != PATH_NULL);
+    path = pstore->store+pindex;
+    pindex = packedpath_get_prev(path);
+    packedpath_get_len_orient(path, pstore->colset_bytes, &len, &orient);
+    pbytes = packedpath_len_nbytes(len);
+    mem = packedpath_mem2(pstore->colset_bytes, pbytes);
+    *pidx += mem;
+    newidx = (pindex == PATH_NULL ? PATH_NULL : *pidx);
+    fwrite(&newidx, sizeof(PathIndex), 1, fout);
+    fwrite(path+sizeof(PathIndex), mem-sizeof(PathIndex), 1, fout);
   }
+  while(pindex != PATH_NULL);
 }
 
-static inline void write_kmer_path_indices(hkey_t node, const dBGraph *db_graph,
+static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
                                            FILE *fout)
 {
-  if(db_node_paths(db_graph, node) != PATH_NULL)
+  if(db_node_paths(db_graph, hkey) != PATH_NULL)
   {
-    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
-    PathIndex index = db_node_paths(db_graph, node);
+    BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+    PathIndex index = db_node_paths(db_graph, hkey);
     fwrite(&bkmer, sizeof(BinaryKmer), 1, fout);
     fwrite(&index, sizeof(PathIndex), 1, fout);
   }

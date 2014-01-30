@@ -102,9 +102,9 @@ dBNode db_graph_next_node(const dBGraph *db_graph, const BinaryKmer node_bkey,
 
 // edges are forward+reverse, db_graph_next_nodes orients them
 // fw_nucs is the nuc you would add when walking forward
-size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
-                           Orientation orient, Edges edges,
-                           dBNode nodes[4], Nucleotide fw_nucs[4]);
+uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
+                            Orientation orient, Edges edges,
+                            dBNode nodes[4], Nucleotide fw_nucs[4]);
 
 // Check kmer size of a file
 void db_graph_check_kmer_size(size_t kmer_size, const char *path);

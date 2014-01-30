@@ -66,7 +66,7 @@ static inline void packedpath_set_prev(uint8_t *ptr, PathIndex idx) {
 #define packedpath_or(w) ((w) >> PATH_LEN_BITS)
 
 #define packedpath_combine_lenorient(len,orient) \
-        ((((PathLen)(orient))<<PATH_LEN_BITS)|(len))
+        ((PathLen)(((PathLen)(orient))<<PATH_LEN_BITS)|(len))
 
 static inline PathLen packedpath_get_lenword(const uint8_t *ptr, size_t colbytes)
 {
@@ -139,16 +139,18 @@ static inline void pack_bases(uint8_t *restrict ptr,
   size_t i, full_bytes = len/4;
   const uint8_t *endptr = ptr+full_bytes;
 
-  for(i = 0; ptr < endptr; ptr++, i += 4)
-    *ptr = bases[i] | (bases[i+1]<<2) | (bases[i+2]<<4) | (bases[i+3]<<6);
+  for(i = 0; ptr < endptr; ptr++, i += 4) {
+    *ptr = bases[i] | (uint8_t)(bases[i+1]<<2) |
+           (uint8_t)(bases[i+2]<<4) | (uint8_t)(bases[i+3]<<6);
+  }
 
   // Do last byte
   if(len & 3) {
     *ptr = 0;
     switch(len & 3) {
       case 3: *ptr = bases[--len];
-      case 2: *ptr = ((*ptr)<<2) | bases[--len];
-      case 1: *ptr = ((*ptr)<<2) | bases[--len];
+      case 2: *ptr = (uint8_t)((*ptr)<<2) | bases[--len];
+      case 1: *ptr = (uint8_t)((*ptr)<<2) | bases[--len];
     }
   }
 }
@@ -191,7 +193,7 @@ static inline void packed_cpy_slow(uint8_t *restrict dst,
   m = (n+3)/4;
   dstn = (n-shift+3)/4;
   dst[dstn-1] = 0;
-  for(i = 0; i+1 < m; i++) dst[i] = (src[i]>>sb) | (src[i+1]<<(8-sb));
+  for(i = 0; i+1 < m; i++) dst[i] = (src[i]>>sb) | (uint8_t)(src[i+1]<<(8-sb));
   dst[dstn-1] |= src[dstn-1] >> sb;
   dst[dstn-1] &= bitmask64((n-shift)*2-(dstn-1)*8); // mask top byte
 }
@@ -208,9 +210,9 @@ static inline void packed_cpy_med(uint8_t *restrict dst,
   dst[dstn-1] = 0;
   switch(shift) {
     case 0: memcpy(dst, src, m); break;
-    case 1: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>2) | (src[i+1]<<6); } break;
-    case 2: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>4) | (src[i+1]<<4); } break;
-    case 3: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>6) | (src[i+1]<<2); } break;
+    case 1: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>2) | (uint8_t)(src[i+1]<<6); } break;
+    case 2: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>4) | (uint8_t)(src[i+1]<<4); } break;
+    case 3: for(i=0;i+1<m;i++){ dst[i] = (src[i]>>6) | (uint8_t)(src[i+1]<<2); } break;
   }
   dst[dstn-1] |= src[dstn-1] >> sb;
   dst[dstn-1] &= bitmask64((n-shift)*2-(dstn-1)*8); // mask top byte

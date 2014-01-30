@@ -7,7 +7,8 @@
 // Reverse order and orientations of nodes
 void supernode_reverse(dBNode *nlist, size_t len);
 
-void supernode_normalise(dBNode *nlist, size_t len);
+// Returns true if supernode reversed, false otherwise
+boolean supernode_normalise(dBNode *nlist, size_t len);
 
 // Extend a supernode, nlist[offset] and olist[offset] must already be set
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist
@@ -19,6 +20,6 @@ boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_gra
 // returns length of supernode (always >=1)
 void supernode_find(hkey_t node, dBNodeBuffer *nbuf, const dBGraph *db_graph);
 
-uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len);
+uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len);
 
 #endif

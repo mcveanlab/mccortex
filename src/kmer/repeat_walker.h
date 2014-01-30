@@ -16,16 +16,14 @@ typedef struct
 // We determine if it is safe to make the traversal without getting stuck in
 // a loop/cycle in the graph
 static inline boolean rpt_walker_attempt_traverse(RepeatWalker *rpt,
-                                                  const GraphWalker *wlk,
-                                                  dBNode node,
-                                                  const BinaryKmer bkmer)
+                                                  const GraphWalker *wlk)
 {
-  if(!db_node_has_traversed(rpt->visited, node)) {
-    db_node_set_traversed(rpt->visited, node);
+  if(!db_node_has_traversed(rpt->visited, wlk->node)) {
+    db_node_set_traversed(rpt->visited, wlk->node);
     return true;
   }
   else {
-    uint32_t hash32 = graph_walker_fasthash(wlk, bkmer) & rpt->mask;
+    uint32_t hash32 = graph_walker_hash(wlk) & rpt->mask;
     boolean collision = bitset_get(rpt->bloom, hash32);
     bitset_set(rpt->bloom, hash32);
     rpt->nbloom_entries++;

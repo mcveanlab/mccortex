@@ -14,8 +14,7 @@
 #include "repeat_walker.h"
 #include "path_store.h"
 #include "path_format.h"
-#include "path_store_thread_safe.h"
-#include "graph_paths.h" // for debugging atm
+#include "graph_paths.h"
 #include "async_read_io.h"
 
 //
@@ -326,7 +325,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
                            db_graph);
 
-    added = path_store_mt_find_or_add(node.key, db_graph, ctpcol,
+    added = graph_paths_find_or_add_mt(node.key, db_graph, ctpcol,
                                       packed_ptr, plen, &pindex);
     packed_ptr[top_idx] = top_byte; // restore top byte
 
@@ -483,9 +482,9 @@ static boolean worker_traverse_gap(dBNode end_node, dBNodeBuffer *contig,
   db_node_buf_ensure_capacity(contig, contig->len + gap_max + 1);
 
   while(contig->len < max_len && graph_traverse(wlk) &&
-        rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer))
+        rpt_walker_attempt_traverse(rptwlk, wlk))
   {
-    if(wlk->node.key == end_node.key && wlk->node.orient == end_node.orient) {
+    if(db_nodes_match(wlk->node, end_node)) {
       traversed = true;
       break;
     }
@@ -542,8 +541,7 @@ static boolean worker_traverse_gap2(dBNodeBuffer *contig0, dBNodeBuffer *contig1
     for(i = 0; i < 2; i++) {
       if(use[i]) {
         use[i] = (graph_traverse(wlk[i]) &&
-                  rpt_walker_attempt_traverse(rptwlk[i], wlk[i],
-                                              wlk[i]->node, wlk[i]->bkmer));
+                  rpt_walker_attempt_traverse(rptwlk[i], wlk[i]));
 
         if(use[i]) {
           //

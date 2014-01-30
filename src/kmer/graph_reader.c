@@ -407,7 +407,8 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   }
 
   // Update number of colours loaded
-  graph->num_of_cols_used = MAX2(graph->num_of_cols_used, fltr->intocol+load_ncols);
+  graph->num_of_cols_used = MAX2(graph->num_of_cols_used,
+                                 file_filter_usedcols(fltr));
 
   // Read kmers
   BinaryKmer bkmer;
@@ -454,10 +455,11 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     }
 
     // Set presence in colours
+    uint8_t has_col;
     if(graph->node_in_cols != NULL) {
       for(i = 0; i < load_ncols; i++) {
-        size_t has_col = (covgs[i] > 0 || edges[i] != 0);
-        size_t intocol = graph_file_intocol(file,i);
+        has_col = (covgs[i] > 0 || edges[i] != 0);
+        intocol = graph_file_intocol(file,i);
         db_node_cpy_col(graph, node, intocol, has_col);
       }
     }

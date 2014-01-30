@@ -103,7 +103,7 @@ endif
 # Can't do noref if we only have one chrom
 ifeq ($(NCHROMS),1)
 	# Always need ref
-	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.ref.ctp)
+	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.noref.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).ref.bubbles.gz`)
 	TRUTHBUBBLES=k$(KMER)/vcfs/truth.ref.bub.vcf
 	BUBBLESCMPRULES=compare-ref-bubbles
@@ -114,7 +114,7 @@ else
 		BUBBLESCMPRULES=compare-noref-bubbles
 	endif
 
-	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.{noref,ref}.ctp)
+	PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.noref.ctp)
 	BUBBLES=$(shell echo `eval echo k$(KMER)/bubbles/samples.$(SET).{noref,ref}.bubbles.gz`)
 	NORMCMPRULES=$(shell echo `eval echo compare-$(SET).{noref,ref}-norm compare-runcalls-norm`)
 endif

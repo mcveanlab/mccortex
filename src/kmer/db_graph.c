@@ -186,14 +186,15 @@ dBNode db_graph_next_node(const dBGraph *db_graph,
   return next_node;
 }
 
-size_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
-                           Orientation orient, Edges edges,
-                           dBNode nodes[4], Nucleotide fw_nucs[4])
+uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
+                            Orientation orient, Edges edges,
+                            dBNode nodes[4], Nucleotide fw_nucs[4])
 {
-  size_t count = 0, kmer_size = db_graph->kmer_size;
+  const size_t kmer_size = db_graph->kmer_size;
   Edges tmp_edge;
   Nucleotide nuc;
   BinaryKmer bkmer;
+  uint8_t count = 0;
 
   edges = edges_with_orientation(edges, orient);
   bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
@@ -371,7 +372,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   const PathStore *pstore = &db_graph->pdata;
   size_t kmer_size = db_graph->kmer_size;
   char str[MAX_KMER_SIZE+1];
-  hkey_t node;
+  hkey_t hkey;
   PathIndex pindex;
   PathLen plen;
   Orientation orient, porient;
@@ -380,11 +381,11 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
 
   printf("\n-------- paths --------\n");
 
-  for(node = 0; node < db_graph->ht.capacity; node++) {
-    if(db_graph_node_assigned(db_graph, node)) {
-      binary_kmer_to_str(db_node_get_bkmer(db_graph, node), kmer_size, str);
+  for(hkey = 0; hkey < db_graph->ht.capacity; hkey++) {
+    if(db_graph_node_assigned(db_graph, hkey)) {
+      binary_kmer_to_str(db_node_get_bkmer(db_graph, hkey), kmer_size, str);
       for(orient = 0; orient < 2; orient++) {
-        pindex = db_node_paths(db_graph, node);
+        pindex = db_node_paths(db_graph, hkey);
         first = true;
         while(pindex != PATH_NULL) {
           path = pstore->store+pindex;
@@ -407,7 +408,7 @@ hkey_t db_graph_rand_node(const dBGraph *db_graph)
 {
   uint64_t capacity = db_graph->ht.capacity;
   BinaryKmer *table = db_graph->ht.table;
-  hkey_t node;
+  hkey_t hkey;
 
   if(capacity == 0) {
     warn("No entries in hash table - cannot select random");
@@ -416,8 +417,8 @@ hkey_t db_graph_rand_node(const dBGraph *db_graph)
 
   while(1)
   {
-    node = (hkey_t)((rand() / (double)RAND_MAX) * capacity);
-    if(HASH_ENTRY_ASSIGNED(table[node])) return node;
+    hkey = (hkey_t)((rand() / (double)RAND_MAX) * capacity);
+    if(HASH_ENTRY_ASSIGNED(table[hkey])) return hkey;
   }
 }
 

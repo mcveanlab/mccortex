@@ -96,16 +96,16 @@ LINK=-lpthread -lz -lm
 # -fsanitize=thread
 
 # -fno-strict-aliasing
-#USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
-#IGNORE_CFLAGS=-Wno-cast-align -Wno-shorten-64-to-32
+USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
+IGNORE_CFLAGS=-Wno-cast-align -Wno-shorten-64-to-32
 
-#OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
-#                  -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
-#                  -Wcast-qual -Wmissing-noreturn \
-#                  -Wwrite-strings -Waggregate-return -Wundef \
-#                  -Wshadow -Wconversion -Woverlength-strings \
-#                  -Wenum-compare -Wfloat-equal -Wbad-function-cast \
-#                  -Wstack-protector -fstack-protector
+OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
+                 -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
+                 -Wcast-qual -Wmissing-noreturn \
+                 -Wwrite-strings -Waggregate-return -Wundef \
+                 -Wshadow -Wconversion -Woverlength-strings \
+                 -Wenum-compare -Wfloat-equal -Wbad-function-cast \
+                 -Wstack-protector -fstack-protector-all -D_FORTIFY_SOURCE=2
 
 #CLANG_ONLY=-fsanitize-undefined-trap-on-error
 

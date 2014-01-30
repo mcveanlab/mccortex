@@ -100,8 +100,8 @@ int ctx_health_check(CmdArgs *args)
 
   // Paths
   if(num_pfiles > 0) {
-    db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
-    memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
+    db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+    memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
     path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
   }

@@ -63,8 +63,8 @@ int ctx_pview(CmdArgs *args)
   path_file_set_graph_sample_names(&pfile, &db_graph);
 
   // Paths
-  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   path_store_alloc(&db_graph.pdata, phdr->num_path_bytes, 0, phdr->num_of_cols);
 

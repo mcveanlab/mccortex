@@ -9,26 +9,29 @@ void supernode_reverse(dBNode *nlist, size_t len)
 {
   assert(len > 0);
   size_t i, j;
-  dBNode tmpnode;
+  dBNode tmp;
 
-  for(i = 0, j = len-1; i < j; i++, j--) {
-    SWAP(nlist[i], nlist[j], tmpnode);
-    nlist[i].orient = !nlist[i].orient;
-    nlist[j].orient = !nlist[j].orient;
+  for(i = 0, j = len-1; i+1 < j; i++, j--) {
+    tmp = nlist[i];
+    nlist[i] = db_node_reverse(nlist[j]);
+    nlist[j] = db_node_reverse(tmp);
   }
 
-  if(i == j) nlist[i].orient = !nlist[i].orient;
+  tmp = nlist[i];
+  nlist[i] = db_node_reverse(nlist[j]);
+  nlist[j] = db_node_reverse(tmp);
 }
 
-// Orient supernode
-void supernode_normalise(dBNode *nlist, size_t len)
+// Orient supernode, return true if reversed
+boolean supernode_normalise(dBNode *nlist, size_t len)
 {
   // Sort supernode into forward orientation
   assert(len > 0);
-  if(len == 1)
-    nlist[0].orient = FORWARD;
-  else if(nlist[0].key > nlist[len-1].key)
+  boolean rev = (len == 1 && nlist[0].orient == FORWARD) ||
+                (nlist[0].key > nlist[len-1].key);
+  if(rev)
     supernode_reverse(nlist, len);
+  return rev;
 }
 
 // Extend a supernode, nlist[offset] must already be set
@@ -83,7 +86,7 @@ void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
   supernode_extend(nbuf, 0, db_graph);
 }
 
-uint32_t supernode_read_starts(uint32_t *covgs, uint32_t len)
+uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
 {
   if(len == 0) return 0;
   if(len == 1) return covgs[0];

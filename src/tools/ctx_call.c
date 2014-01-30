@@ -109,7 +109,7 @@ int ctx_call(CmdArgs *args)
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/thread)
 
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 +
                   file.hdr.num_of_cols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
@@ -149,8 +149,8 @@ int ctx_call(CmdArgs *args)
   db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
 
   // Paths
-  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+  memset((void*)db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 

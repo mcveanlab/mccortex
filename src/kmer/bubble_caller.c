@@ -211,7 +211,11 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
   BinaryKmer last_bkmer;
 
   if(last > 0) {
-    lastnode = snode_nodes(snode)[snorient == FORWARD ? last : 0];
+    if(snorient == FORWARD) {
+      lastnode = snode_nodes(snode)[last];
+    } else {
+      lastnode = db_node_reverse(snode_nodes(snode)[0]);
+    }
     last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, lastnode.key, lastnode.orient);
     graph_walker_jump_snode_end(wlk, lastnode.key, last_bkmer);
   }
@@ -251,12 +255,7 @@ static void load_allele_path(dBNode node,
 
   size_t supindx, kmers_in_path = 0;
 
-  // if(!rpt_walker_attempt_traverse(rptwlk, wlk, node, or, wlk->bkmer))
-  //   die("Couldn't begin allele traversal");
-
-  for(supindx = 0;
-      rpt_walker_attempt_traverse(rptwlk, wlk, wlk->node, wlk->bkmer);
-      supindx++)
+  for(supindx = 0; ; supindx++)
   {
     #ifdef DEBUG_CALLER
       binary_kmer_to_str(db_node_get_bkmer(db_graph,node.key), kmer_size, tmp);
@@ -343,6 +342,7 @@ static void load_allele_path(dBNode node,
     nuc = next_bases[step.idx];
 
     graph_traverse_force(wlk, node.key, nuc, graphstep_is_fork(step));
+    if(!rpt_walker_attempt_traverse(rptwlk, wlk)) break;
   }
   // printf("DONE\n");
 
@@ -547,7 +547,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
     {
       if(col_has_node[i])
       {
-        path = paths + num_of_paths++;
+        path = paths + num_of_paths;
+        num_of_paths++;
 
         dBNode node = {.key = fork_n, .orient = fork_o};
         graph_walker_init(wlk, db_graph, colour, colour, node);

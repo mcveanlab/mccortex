@@ -179,8 +179,8 @@ int ctx_pjoin(CmdArgs *args)
   for(i = 0; i < num_pfiles; i++)
     path_file_set_graph_sample_names(&pfiles[i], &db_graph);
 
-  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(uint64_t));
-  memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(uint64_t));
+  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
+  memset((void*)db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
   path_store_alloc(&db_graph.pdata, ctp_max_path_bytes, tmp_path_mem, output_ncols);
 

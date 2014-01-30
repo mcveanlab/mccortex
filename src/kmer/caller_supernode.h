@@ -44,8 +44,7 @@ struct SupernodePathPos
 #define snode_nodes(sn)   ((sn)->nbuf->data+(sn)->nbuf_offset)
 
 #define supernode_get_orientation(snode,node) \
-        ((node).key == snode_nodes(snode)[0].key && \
-         (node).orient == snode_nodes(snode)[0].orient ? FORWARD : REVERSE)
+        (db_nodes_match(node, snode_nodes(snode)[0]) ? FORWARD : REVERSE)
 
 // Create a supernode starting at node/or.  Store in snode.
 // Ensure snode->nodes and snode->orients point to valid memory before passing
@@ -60,6 +59,5 @@ uint32_t supernode_pathpos_hash(SupernodePathPos *spp);
 // Two SupernodePathPos objects are equal if they describe the same path through
 // the graph.  Sort by length (shortest first), then orientation and nodes
 int cmp_snpath_pos(const void *p1, const void *p2);
-
 
 #endif

@@ -264,7 +264,8 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
   else if(use_mem_limit)
     graph_mem = hash_table_mem_limit(args->mem_to_use, extra_bits, &kmers_in_hash);
   else if(min_num_kmers > 0)
-    graph_mem = hash_table_mem(min_num_kmers/IDEAL_OCCUPANCY, extra_bits, &kmers_in_hash);
+    graph_mem = hash_table_mem((size_t)(min_num_kmers/IDEAL_OCCUPANCY),
+                               extra_bits, &kmers_in_hash);
   else
     graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);
   // ^ 1024 is a very small default hash table capacity
