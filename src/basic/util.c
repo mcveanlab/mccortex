@@ -22,7 +22,7 @@ cmpfunc(cmp_double, double);
 cmpfunc(cmp_uint32, uint32_t);
 cmpfunc(cmp_uint64, uint64_t);
 cmpfunc(cmp_size, size_t);
-cmpfunc(cmp_ptr, void*);
+cmpfunc(cmp_ptr, void *const);
 
 
 char parse_entire_int(const char *str, int *result)

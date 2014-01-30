@@ -420,12 +420,23 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
                                        backwards, edges & ~prev_edge,
                                        prev_nodes, prev_bases);
 
+  // If we have the ability, slim down nodes by those in this colour
+  if(wlk->node_in_cols != NULL) {
+    for(i = j = 0; i < num_prev_nodes; i++) {
+      if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol)) {
+        prev_nodes[j] = prev_nodes[i];
+        prev_bases[j] = prev_bases[i];
+        j++;
+      }
+    }
+    num_prev_nodes = j;
+  }
+
   next_base = binary_kmer_last_nuc(wlk->bkmer);
 
   // Reverse orientation, pick up paths
   for(i = 0; i < num_prev_nodes; i++) {
-    if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol))
-      pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
   }
 }
 
