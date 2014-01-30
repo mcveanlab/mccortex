@@ -643,9 +643,11 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 boolean forward)
 {
   if(n == 0) return;
+  // Only one colour should be loaded
+  assert(wlk->db_graph->num_of_cols == 1);
 
   size_t i;
-  boolean infork[3] = {false}, outfork[3] = {false};
+  boolean infork[3] = {false, false, false}, outfork[3] = {false, false, false};
   Edges edges;
   dBNode nodes[3];
 

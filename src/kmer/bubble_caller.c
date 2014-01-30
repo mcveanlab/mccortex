@@ -321,8 +321,6 @@ static void load_allele_path(dBNode node,
     uint8_t num_edges;
     const dBNode *next_nodes;
     const Nucleotide *next_bases;
-    GraphStep step;
-    Nucleotide nuc;
 
     if(snorient == FORWARD) {
       num_edges = snode->num_next;
@@ -335,14 +333,10 @@ static void load_allele_path(dBNode node,
       next_bases = snode->prev_bases;
     }
 
-    step = graph_walker_choose(wlk, num_edges, next_nodes, next_bases);
-    if(step.idx == -1) break;
+    if(!graph_traverse_nodes(wlk, num_edges, next_nodes, next_bases) ||
+       !rpt_walker_attempt_traverse(rptwlk, wlk)) break;
 
-    node = next_nodes[step.idx];
-    nuc = next_bases[step.idx];
-
-    graph_traverse_force(wlk, node.key, nuc, graphstep_is_fork(step));
-    if(!rpt_walker_attempt_traverse(rptwlk, wlk)) break;
+    node = wlk->node;
   }
   // printf("DONE\n");
 
@@ -531,21 +525,23 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   Colour colour, colours_loaded = db_graph->num_of_cols_used;
   SupernodePath *path;
   CallerSupernode *snode;
-  int col_has_node[4], num_edges_in_col;
+  int node_has_col[4], num_edges_in_col;
 
   for(colour = 0; colour < colours_loaded; colour++)
   {
+    if(!db_node_has_col(db_graph, fork_n, colour)) continue;
+
     // Determine if this fork is a fork in the current colour
     num_edges_in_col = 0;
 
     for(i = 0; i < num_next; i++) {
-      col_has_node[i] = (db_node_has_col(db_graph, nodes[i].key, colour) > 0);
-      num_edges_in_col += col_has_node[i];
+      node_has_col[i] = (db_node_has_col(db_graph, nodes[i].key, colour) > 0);
+      num_edges_in_col += node_has_col[i];
     }
 
     for(i = 0; i < num_next; i++)
     {
-      if(col_has_node[i])
+      if(node_has_col[i])
       {
         path = paths + num_of_paths;
         num_of_paths++;
