@@ -120,7 +120,8 @@ void file_filter_status(const FileFilter *fltr)
 {
   size_t i;
   timestamp();
-  message(" Loading file %s [%zu colours]", fltr->file_path.buff, fltr->filencols);
+  message(" Loading file %s [%zu colour%s]",
+          fltr->file_path.buff, fltr->filencols, fltr->filencols != 1 ? "s" : "");
   if(!fltr->nofilter) {
     message(" with colour filter: %zu", fltr->cols[0]);
     for(i = 1; i < fltr->ncols; i++) message(",%zu", fltr->cols[i]);

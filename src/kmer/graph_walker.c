@@ -110,15 +110,11 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
   PathLen plen;
   Orientation porient;
   const uint8_t *path, *seq;
-  boolean filter_with_next_nuc = false;
+  boolean cntr_filter_nuc0 = false;
 
   if(counter) {
-    // filter_with_next_nuc is needed for picking up counter paths with
-    // outdegree > 1
-    Edges edges = db_node_get_edges(db_graph, 0, node.key);
-    filter_with_next_nuc = (edges_get_outdegree(edges, node.orient) > 1 &&
-                            (db_graph->node_in_cols == NULL ||
-                             db_node_has_col(db_graph, node.key, wlk->ctxcol)));
+    // cntr_filter_nuc0 is needed for picking up counter paths with outdegree > 1
+    cntr_filter_nuc0 = (db_node_outdegree_in_col(node, wlk->ctxcol, db_graph) > 1);
   }
 
   pindex = *db_node_paths_volptr(db_graph, node.key);
@@ -133,8 +129,8 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
       seq = packedpath_seq(path, pstore->colset_bytes);
       FollowPath fpath = follow_path_create(seq, plen);
 
-      if(!filter_with_next_nuc || cache_fetch(&fpath, 0) == next_nuc) {
-        if(filter_with_next_nuc) fpath.pos++; // already took a base
+      if(!cntr_filter_nuc0 || cache_fetch(&fpath, 0) == next_nuc) {
+        if(cntr_filter_nuc0) fpath.pos++; // already took a base
 
         path_buf_add(pbuf, fpath);
       }
@@ -307,15 +303,15 @@ static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
                                   const Nucleotide bases[4])
 {
   size_t i;
-  char str0[MAX_KMER_SIZE+1], str1[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, str0);
-  binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, str1);
-  message("Fork: %s (%s:%i)\n", str0, str1, (int)wlk->node.orient);
+  BinaryKmer bkey;
+  char str[MAX_KMER_SIZE+1];
+
+  message("  Fork:\n");
 
   for(i = 0; i < num_next; i++) {
-    BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, nodes[i].key);
-    binary_kmer_to_str(bkey, wlk->db_graph->kmer_size, str0);
-    message("  %s:? [%c]\n", str0, dna_nuc_to_char(bases[i]));
+    bkey = db_node_get_bkmer(wlk->db_graph, nodes[i].key);
+    binary_kmer_to_str(bkey, wlk->db_graph->kmer_size, str);
+    message("    %s:? [%c]\n", str, dna_nuc_to_char(bases[i]));
   }
 
   graph_walker_print_state(wlk);
@@ -424,8 +420,8 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   update_path_forks(&wlk->new_paths, taken);
   update_path_forks(&wlk->cntr_paths, taken);
 
-  if((!taken[0] || forks[0]) && (!taken[1] || forks[1]) &&
-     (!taken[2] || forks[2]) && (!taken[3] || forks[3])) {
+  if((taken[0] && !forks[0]) || (taken[1] && !forks[1]) ||
+     (taken[2] && !forks[2]) || (taken[3] && !forks[3])) {
     _corrupt_paths(wlk, num_next, nodes, bases);
   }
 
@@ -509,9 +505,8 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   next_base = binary_kmer_last_nuc(wlk->bkmer);
 
   // Reverse orientation, pick up paths
-  for(i = 0; i < num_prev_nodes; i++) {
+  for(i = 0; i < num_prev_nodes; i++)
     pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
-  }
 }
 
 

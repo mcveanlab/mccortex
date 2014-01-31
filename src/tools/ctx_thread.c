@@ -53,13 +53,18 @@ static void gen_paths_print_task(const GeneratePathsTask *t)
   if(t->fq_offset > 0) sprintf(fqOffset, "%u", t->fq_offset);
   if(t->hp_cutoff > 0) sprintf(hpCutoff, "%u", t->hp_cutoff);
 
-  status("[task] input: %s%s%s", p1, has_p2 ? ", " : "", p2);
-  status("[task] insert min: %u max: %u", t->ins_gap_min, t->ins_gap_max);
-  status("[task] FASTQ offset: %s, threshold: %s; cut homopolymers: %s",
+  status("[task] input: %s%s%s", p1, (has_p2 ? ", " : ""), p2);
+  status("  FASTQ offset: %s, threshold: %s; cut homopolymers: %s",
          fqOffset, fqCutoff, hpCutoff);
-  status("[task] %s-way gap traversal", t->one_way_gap_traverse ? "one" : "two");
-  if(has_p2)
-    status("[task] read pair: %s", t->read_pair_FR ? "FR" : "FF");
+
+  // All one line
+  timestamp();
+  message("  %s-way gap traversal", t->one_way_gap_traverse ? "one" : "two");
+  if(has_p2) {
+    message("; read pair: %s; insert min,max: (%u,%u)",
+            (t->read_pair_FR ? " FR" : "FF"), t->ins_gap_min, t->ins_gap_max);
+  }
+  message("\n");
 }
 
 static void gen_path_task_create(const char *p1, const char *p2,

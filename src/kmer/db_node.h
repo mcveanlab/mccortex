@@ -129,6 +129,7 @@ static inline dBNode db_node_reverse(dBNode node) {
 
 // shift right by 0 or 4, then AND with 0xf
 #define edges_with_orientation(edges,or) (((edges) >> ((or)<<2)) & 0xf)
+#define edges_mask_orientation(edges,or) ((edges) & (0xf << ((or)<<2)))
 
 #define edges_get_outdegree(edges,or) \
         __builtin_popcount(edges_with_orientation(edges,or))
@@ -157,8 +158,12 @@ static inline Edges db_node_get_edges_union(const dBGraph *graph, hkey_t hkey) {
                          graph->num_edge_cols);
 }
 
-Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
-                                    const dBGraph *db_graph);
+// Edges restricted to this colour, only in one direction (node.orient)
+Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph);
+
+// Outdegree of edges restricted to a given colour
+#define db_node_outdegree_in_col(node,col,graph) \
+        edges_get_outdegree(db_node_edges_in_col(node,col,graph), (node).orient)
 
 #define db_node_zero_edges(graph,hkey) \
         memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \

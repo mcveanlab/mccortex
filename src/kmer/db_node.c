@@ -27,14 +27,17 @@ BinaryKmer db_node_get_key(const BinaryKmer bkmer, size_t kmer_size)
 // Edges
 //
 
-// Rigorous get edges for a particular colour
-Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
-                                    const dBGraph *db_graph)
+// Edges restricted to this colour, only in one direction (node.orient)
+Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph)
 {
-  Edges edges = db_node_get_edges(db_graph, col, node.key);
+  if(db_graph->num_edge_cols == db_graph->num_of_cols) {
+    Edges edges = db_node_get_edges(db_graph, col, node.key);
+    return edges_mask_orientation(edges, node.orient);
+  }
 
-  if(db_graph->num_edge_cols == db_graph->num_of_cols)
-    return edges_with_orientation(edges, node.orient);
+  // Edges are merged into one colour
+  assert(db_graph->num_edge_cols == 1);
+  Edges edges = db_node_get_edges(db_graph, 0, node.key);
 
   // Check which next nodes are in the given colour
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
@@ -46,9 +49,17 @@ Edges db_node_oriented_edges_in_col(dBNode node, size_t col,
                           edges, nodes, nucs);
 
   edges = 0;
-  for(i = 0; i < n; i++)
-    if(db_node_has_col(db_graph, nodes[i].key, col))
-      edges = edges_set_edge(edges, nucs[i], FORWARD);
+  if(db_graph->node_in_cols != NULL) {
+    for(i = 0; i < n; i++)
+      if(db_node_has_col(db_graph, nodes[i].key, col))
+        edges = edges_set_edge(edges, nucs[i], node.orient);
+  }
+  else if(db_graph->col_covgs != NULL) {
+    for(i = 0; i < n; i++)
+      if(db_node_col_covg(db_graph, nodes[i].key, col) > 0)
+        edges = edges_set_edge(edges, nucs[i], node.orient);
+  }
+  else assert(0);
 
   return edges;
 }

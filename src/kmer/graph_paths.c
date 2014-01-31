@@ -146,8 +146,8 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
 
     if(klen == 1) {
       dBNode rnode = db_node_reverse(node);
-      Edges backedges = db_node_oriented_edges_in_col(rnode, ctxcol, db_graph);
-      int outdegree = edges_get_outdegree(backedges, FORWARD);
+      Edges backedges = db_node_edges_in_col(rnode, ctxcol, db_graph);
+      int outdegree = edges_get_outdegree(backedges, rnode.orient);
       if(outdegree <= 1) {
         status("outdegree: %i col: %zu", (int)outdegree, ctxcol);
       }
