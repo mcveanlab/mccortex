@@ -45,7 +45,8 @@ $(shell (echo '#!/bin/bash'; echo '$(STAMPY_BIN) $$@';) > stampy.sh; chmod +x st
 STAMPY_BIN=./stampy.sh
 
 NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
-MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+8+4)*8+$(NUMCOLS) ) / 4')
+# 8bytes for kmer, 4 for covgs, 1 for edges + 10MB for paths
+MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+(4+1)*$(NUMCOLS)) + 10000000')
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
 CTX=$(CTX_PATH)/bin/ctx31
@@ -279,7 +280,7 @@ reads/reads%.1.falist reads/reads%.2.falist:
 	done
 
 k$(KMER)/graphs/sample%.clean.ctx: k$(KMER)/graphs/sample%.raw.ctx
-	$(CLEANCTX) --supernodes --tips 61 --covgs k$(KMER)/graphs/sample$*.contig_covg.csv --out $@ $<
+	$(CLEANCTX) -m $(MEM) --supernodes --tips 61 --covgs k$(KMER)/graphs/sample$*.contig_covg.csv --out $@ $<
 
 k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	mkdir -p k$(KMER)/graphs
