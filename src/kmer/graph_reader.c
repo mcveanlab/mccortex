@@ -357,6 +357,20 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
   return num_bytes_read;
 }
 
+// Print some output
+static void graph_loading_print_status(const GraphFileReader *file)
+{
+  const GraphFileHeader *hdr = &file->hdr;
+  const FileFilter *fltr = &file->fltr;
+  char nkmers_str[100], filesize_str[100];
+
+  ulong_to_str(hdr->num_of_kmers, nkmers_str);
+  bytes_to_str(fltr->file_size, 1, filesize_str);
+
+  file_filter_status(fltr);
+  status("  %s kmers, %s filesize", nkmers_str, filesize_str);
+}
+
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing
 // colour only_load_if_in_colour will be loaded.
 // We assume only_load_if_in_colour < load_first_colour_into
@@ -382,7 +396,8 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   assert(load_ncols > 0);
 
   // Print status
-  file_filter_status(fltr);
+  graph_loading_print_status(file);
+
   fseek(fltr->fh, file->hdr_size, SEEK_SET);
 
   // Check we can load this graph file into db_graph (kmer size + num colours)
@@ -567,7 +582,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
     die("Cannot open output path: %s", out_ctx_path);
   setvbuf(out, NULL, _IOFBF, CTX_BUF_SIZE);
 
-  file_filter_status(fltr);
+  graph_loading_print_status(file);
 
   size_t i, nodes_dumped = 0, ncols = graph_file_outncols(file);
 

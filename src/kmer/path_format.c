@@ -133,23 +133,47 @@ size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files)
   return used_cols;
 }
 
+// DEV: replace
 boolean paths_merge_needs_tmp(PathFileReader *files, size_t num_files)
 {
   return (num_files > 1 || (num_files == 1 && !files[0].fltr.nofilter));
+}
+
+size_t path_files_tmp_mem_required(PathFileReader *files, size_t num_files)
+{
+  if(num_files <= 1) return 0;
+
+  // We need the size of the second largest file + path_mem
+  size_t i, tmp, s0, s1;
+
+  s0 = files[0].hdr.num_path_bytes;
+  s1 = files[1].hdr.num_path_bytes;
+  if(s1 > s0) { SWAP(s0, s1, tmp); }
+
+  for(i = 2; i < num_files; i++) {
+    tmp = files[i].hdr.num_path_bytes;
+    if(tmp > s0) { s1 = s0; s0 = tmp; }
+    else if(tmp > s1) { s0 = tmp; }
+  }
+
+  return s1;
 }
 
 // Print some output
 static void paths_loading_print_status(const PathFileReader *file)
 {
   const PathFileHeader *hdr = &file->hdr;
+  const FileFilter *fltr = &file->fltr;
+  char kmers_str[100], paths_str[100], mem_str[100], filesize_str[100];
 
-  char kmers_str[100], paths_str[100], mem_str[100];
   ulong_to_str(hdr->num_kmers_with_paths, kmers_str);
   ulong_to_str(hdr->num_of_paths, paths_str);
   bytes_to_str(hdr->num_path_bytes, 1, mem_str);
+  bytes_to_str(fltr->file_size, 1, filesize_str);
 
-  status("Loading path file: %s", file->fltr.orig_path.buff);
-  status("  %s paths, %s path-bytes, %s kmers", paths_str, mem_str, kmers_str);
+  file_filter_status(fltr);
+  status("  %s paths, %s path-bytes, %s kmers, %s filesize",
+         paths_str, mem_str, kmers_str, filesize_str);
 }
 
 // Update sample names of the graph using path files

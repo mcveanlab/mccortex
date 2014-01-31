@@ -10,7 +10,7 @@
 typedef struct
 {
   uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
-  uint64_t num_of_kmers;
+  uint64_t num_of_kmers; // version <=6 does not currently print this
   GraphInfo *ginfo; // Cleaning info etc for each colour
   size_t capacity; // number of ginfo objects malloc'd
 } GraphFileHeader;

@@ -364,7 +364,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   //   print_state(wlk);
   // #endif
 
-  if(num_next <= 1) {
+  if(num_next == 0) {
     assert(wlk->paths.len == 0);
     assert(wlk->new_paths.len == 0);
     assert(wlk->cntr_paths.len == 0);
@@ -395,7 +395,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
     num_next = j;
 
-    if(num_next <= 1) {
+    if(num_next == 0) {
       assert(wlk->paths.len == 0);
       assert(wlk->new_paths.len == 0);
       assert(wlk->cntr_paths.len == 0);
