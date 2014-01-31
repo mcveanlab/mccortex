@@ -61,7 +61,8 @@ void graph_walker_print_state(const GraphWalker *wlk)
   char bkmerstr[MAX_KMER_SIZE+1], bkeystr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, bkmerstr);
   binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkeystr);
-  printf(" GWState:%s (%s:%i)\n", bkmerstr, bkeystr, wlk->node.orient);
+  printf(" GWState:%s (%s:%i) ctx: %zu ctp: %zu\n",
+         bkmerstr, bkeystr, wlk->node.orient, wlk->ctxcol, wlk->ctpcol);
   printf("  num_curr: %zu\n", wlk->paths.len);
   print_path_list(&wlk->paths);
   printf("  num_new: %zu\n", wlk->new_paths.len);
@@ -266,10 +267,6 @@ uint32_t graph_walker_hash(const GraphWalker *wlk)
 // Junction decision
 //
 
-#define return_step(i,s) { \
-  GraphStep _stp = {.idx = (int8_t)(i), .status = (s)}; \
-  return _stp; \
-}
 
 static inline void update_path_forks(const PathBuffer *pbuf, uint8_t taken[4])
 {
@@ -279,6 +276,81 @@ static inline void update_path_forks(const PathBuffer *pbuf, uint8_t taken[4])
     path = &pbuf->data[i];
     taken[cache_fetch(path, path->pos)] = 1;
   }
+}
+
+// out must be at least 11 bytes long: "A, C, G, T"
+static inline size_t bases_list_to_str(const uint8_t bases[4], char *out)
+{
+  size_t i;
+  char *str = out;
+  const char seq[] = "ACGT";
+  for(i = 0; i < 4; i++) {
+    if(bases[i]) {
+      if(str > out) { memcpy(str, ", ", 2); str += 2; }
+      *str = seq[i];
+      str++;
+    }
+  }
+  *str = '\0';
+  return str-out;
+}
+
+static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
+                                  const dBNode nodes[4],
+                                  const Nucleotide bases[4])
+__attribute__((noreturn));
+
+// If we call this funcitons, something has gone wrong
+// print some debug information then exit
+static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
+                                  const dBNode nodes[4],
+                                  const Nucleotide bases[4])
+{
+  size_t i;
+  char str0[MAX_KMER_SIZE+1], str1[MAX_KMER_SIZE+1];
+  binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, str0);
+  binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, str1);
+  message("Fork: %s (%s:%i)\n", str0, str1, (int)wlk->node.orient);
+
+  for(i = 0; i < num_next; i++) {
+    BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, nodes[i].key);
+    binary_kmer_to_str(bkey, wlk->db_graph->kmer_size, str0);
+    message("  %s:? [%c]\n", str0, dna_nuc_to_char(bases[i]));
+  }
+
+  graph_walker_print_state(wlk);
+
+
+  // Mark next bases available
+  uint8_t forks[4], taken_curr[4], taken_newp[4], taken_cntr[4];
+  memset(forks, 0, sizeof(forks));
+  memset(taken_curr, 0, sizeof(taken_curr));
+  memset(taken_newp, 0, sizeof(taken_newp));
+  memset(taken_cntr, 0, sizeof(taken_cntr));
+
+  // mark in d the branches that are available
+  for(i = 0; i < num_next; i++) forks[bases[i]] = 1;
+
+  // Check for path corruption
+  update_path_forks(&wlk->paths, taken_curr);
+  update_path_forks(&wlk->new_paths, taken_newp);
+  update_path_forks(&wlk->cntr_paths, taken_cntr);
+
+  char bases_fork[20], bases_curr[20], bases_newp[20], bases_cntr[20];
+  bases_list_to_str(forks, bases_fork);
+  bases_list_to_str(taken_curr, bases_curr);
+  bases_list_to_str(taken_newp, bases_newp);
+  bases_list_to_str(taken_cntr, bases_cntr);
+  message("forks: %s curr: %s newp: %s cntrp: %s\n",
+          bases_fork, bases_curr, bases_newp, bases_cntr);
+
+  warn("Did you build this .ctp against THIS EXACT .ctx? (REALLY?)");
+  abort();
+}
+
+#define return_step(i,s) { \
+  GraphStep _stp = {.idx = (int8_t)(i), .status = (s)}; \
+  return _stp; \
 }
 
 // Returns index of choice or -1
@@ -291,6 +363,12 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   //   printf("CHOOSE\n");
   //   print_state(wlk);
   // #endif
+
+  if(num_next <= 1) {
+    assert(wlk->paths.len == 0);
+    assert(wlk->new_paths.len == 0);
+    assert(wlk->cntr_paths.len == 0);
+  }
 
   if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG);
   if(num_next == 1) return_step( 0, GRPHWLK_FORWARD);
@@ -317,6 +395,12 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
     num_next = j;
 
+    if(num_next <= 1) {
+      assert(wlk->paths.len == 0);
+      assert(wlk->new_paths.len == 0);
+      assert(wlk->cntr_paths.len == 0);
+    }
+
     if(num_next == 1) return_step(indices[0], GRPHWLK_COLFWD);
     if(num_next == 0) return_step(-1,         GRPHWLK_NOCOLCOVG);
   }
@@ -340,10 +424,10 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   update_path_forks(&wlk->new_paths, taken);
   update_path_forks(&wlk->cntr_paths, taken);
 
-  assert(!taken[0] || forks[0]);
-  assert(!taken[1] || forks[1]);
-  assert(!taken[2] || forks[2]);
-  assert(!taken[3] || forks[3]);
+  if((!taken[0] || forks[0]) && (!taken[1] || forks[1]) &&
+     (!taken[2] || forks[2]) && (!taken[3] || forks[3])) {
+    _corrupt_paths(wlk, num_next, nodes, bases);
+  }
 
   // Do all the oldest paths pick a consistent next node?
   FollowPath *path, *oldest_path = &wlk->paths.data[0];
@@ -374,25 +458,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       return_step(indices[i], GRPHWLK_USEPATH);
 
   // Should be impossible to reach here...
-
-  // If we reach here something has gone wrong
-  // print some debug information then exit
-  char str[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, str);
-  message("Fork: %s\n", str);
-
-  for(i = 0; i < num_next; i++) {
-    BinaryKmer bkmer = db_node_get_bkmer(wlk->db_graph, nodes[i].key);
-    binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
-    message("  %s [%c]\n", str, dna_nuc_to_char(bases[i]));
-  }
-
-  graph_walker_print_state(wlk);
-
-  message("walker: ctx %zu ctp %zu\n", wlk->ctxcol, wlk->ctpcol);
-  message("[path corruption] {%zu:%c}", num_next, dna_nuc_to_char(greatest_nuc));
-
-  die("Did you build this .ctp against THIS EXACT .ctx? (REALLY?)");
+  assert(0);
 }
 
 #undef return_step
