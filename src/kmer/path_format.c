@@ -462,9 +462,9 @@ static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
   if(db_node_paths(db_graph, hkey) != PATH_NULL)
   {
     BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
-    PathIndex index = db_node_paths(db_graph, hkey);
+    PathIndex pindex = db_node_paths(db_graph, hkey);
     fwrite(&bkmer, sizeof(BinaryKmer), 1, fout);
-    fwrite(&index, sizeof(PathIndex), 1, fout);
+    fwrite(&pindex, sizeof(PathIndex), 1, fout);
   }
 }
 

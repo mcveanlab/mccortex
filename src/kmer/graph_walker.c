@@ -615,7 +615,7 @@ void graph_walker_jump_snode_end(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer
 }
 
 void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
-                          boolean fork)
+                          boolean is_fork)
 {
   assert(hkey != HASH_NOT_FOUND);
   BinaryKmer bkmer;
@@ -634,7 +634,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   // or1 = db_node_get_orientation(bkmer, db_node_get_bkmer(wlk->db_graph,hkey));
   // status("%s:%i -> %s:%i", tmp0, or0, tmp1, or1);
 
-  _graph_traverse_force_jump(wlk, hkey, bkmer, fork);
+  _graph_traverse_force_jump(wlk, hkey, bkmer, is_fork);
   _graph_walker_pickup_counter_paths(wlk, lost_nuc);
 }
 
@@ -755,7 +755,7 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 boolean forward)
 {
   Edges edges;
-  boolean fork;
+  boolean is_fork;
   BinaryKmer bkmer;
   dBNode next;
   Nucleotide nuc;
@@ -765,10 +765,10 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
   for(i = 0; i < n; i++) {
     edges = db_node_get_edges(db_graph, 0, wlk->node.key);
-    fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
+    is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
     bkmer = db_node_get_bkmer(db_graph, next.key);
     nuc = db_node_last_nuc(bkmer, next.orient, kmer_size);
-    graph_traverse_force(wlk, next.key, nuc, fork);
+    graph_traverse_force(wlk, next.key, nuc, is_fork);
   }
 }

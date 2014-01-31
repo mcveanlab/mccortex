@@ -107,7 +107,7 @@ OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                  -Wwrite-strings -Wundef \
                  -Wshadow -Woverlength-strings \
                  -Wenum-compare -Wfloat-equal -Wbad-function-cast \
-                 -Wstack-protector -fstack-protector-all -D_FORTIFY_SOURCE=2
+                 -fstack-protector-all -D_FORTIFY_SOURCE=2
 
 #CLANG_ONLY=-fsanitize-undefined-trap-on-error
 

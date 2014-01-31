@@ -138,7 +138,7 @@ void seed_random()
   struct timeval now;
   gettimeofday(&now, NULL);
   srand((unsigned int)(((now.tv_sec ^ getpid()) * 1000001) + now.tv_usec));
-  srand48(((time.tv_sec ^ getpid()) * 1000003) + time.tv_usec);
+  srand48(((now.tv_sec ^ getpid()) * 1000003) + now.tv_usec);
 }
 
 void cortex_init()
