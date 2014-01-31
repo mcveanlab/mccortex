@@ -511,7 +511,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
 
 
 static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
-                                       BinaryKmer bkmer, boolean fork)
+                                       BinaryKmer bkmer, boolean is_fork)
 {
   assert(hkey != HASH_NOT_FOUND);
 
@@ -521,7 +521,7 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
   //   printf("FORCE JUMP %s (fork:%s)\n", str, fork ? "yes" : "no");
   // #endif
 
-  if(fork)
+  if(is_fork)
   {
     // We passed a fork - take all paths that agree with said nucleotide and
     // haven't ended, also update ages

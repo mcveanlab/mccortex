@@ -234,7 +234,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   store->num_kmers_with_paths = hdr->num_kmers_with_paths;
 
   // Load kmer pointers to paths
-  PathIndex index;
+  PathIndex pindex;
   memset(bkmer.b, 0, sizeof(BinaryKmer));
 
   for(i = 0; i < hdr->num_kmers_with_paths; i++)
@@ -248,13 +248,13 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
       die("Node missing: %zu [path: %s]", (size_t)hkey, path);
     }
 
-    safe_fread(fh, &index, sizeof(uint64_t), "kmer_index", path);
-    if(index > hdr->num_path_bytes) {
+    safe_fread(fh, &pindex, sizeof(uint64_t), "kmer_index", path);
+    if(pindex > hdr->num_path_bytes) {
       die("Path index out of bounds [%zu > %zu]",
-          (size_t)index, (size_t)hdr->num_path_bytes);
+          (size_t)pindex, (size_t)hdr->num_path_bytes);
     }
 
-    db_node_paths(db_graph, hkey) = index;
+    db_node_paths(db_graph, hkey) = pindex;
   }
 
   // Test that this is the end of the file
@@ -270,19 +270,19 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
                                           dBGraph *db_graph)
 {
   const uint8_t *packed;
-  PathIndex index; PathLen pbytes; boolean added;
+  PathIndex pindex; PathLen pbytes; boolean added;
   PathStore *store = &db_graph->pdata;
 
   // Get paths this kmer already has
-  index = db_node_paths(db_graph, hkey);
+  pindex = db_node_paths(db_graph, hkey);
 
   do
   {
     packed = data+loadindex;
     pbytes = packedpath_pbytes(packed, colset_bytes);
-    index = path_store_find_or_add_packed2(store, index, packed, pbytes,
-                                           fltr, find, &added);
-    if(added) db_node_paths(db_graph, hkey) = index;
+    pindex = path_store_find_or_add_packed2(store, pindex, packed, pbytes,
+                                            fltr, find, &added);
+    if(added) db_node_paths(db_graph, hkey) = pindex;
     loadindex = packedpath_get_prev(packed);
   }
   while(loadindex != PATH_NULL);

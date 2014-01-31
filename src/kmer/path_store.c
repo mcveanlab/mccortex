@@ -97,11 +97,11 @@ PathIndex path_store_add_packed(PathStore *store, PathIndex last_index,
     memcpy(ptr, packed, store->colset_bytes+sizeof(PathLen)+path_nbytes);
   }
 
-  PathIndex index = (PathIndex)(store->next - store->store);
+  PathIndex pindex = (PathIndex)(store->next - store->store);
   store->next += mem;
   store->num_of_paths++;
   store->num_kmers_with_paths += (last_index == PATH_NULL);
-  return index;
+  return pindex;
 }
 
 // Find or add a path into the PathStore
@@ -236,25 +236,25 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
   return match;
 }
 
-void path_store_fetch_bases(const PathStore *paths, PathIndex index,
+void path_store_fetch_bases(const PathStore *paths, PathIndex pindex,
                             Nucleotide *bases, PathLen len)
 {
-  uint8_t *ptr = paths->store + index + sizeof(PathIndex) +
+  uint8_t *ptr = paths->store + pindex + sizeof(PathIndex) +
                  paths->colset_bytes + sizeof(PathLen);
   unpack_bases(ptr, bases, len);
 }
 
-void path_store_print_path(const PathStore *paths, PathIndex index)
+void path_store_print_path(const PathStore *paths, PathIndex pindex)
 {
   PathIndex prev;
   PathLen len;
   Orientation orient;
 
-  prev = packedpath_get_prev(paths->store + index);
-  packedpath_get_len_orient(paths->store+index, paths->colset_bytes,
+  prev = packedpath_get_prev(paths->store + pindex);
+  packedpath_get_len_orient(paths->store+pindex, paths->colset_bytes,
                             &len, &orient);
 
-  const uint8_t *packed = paths->store + index;
+  const uint8_t *packed = paths->store + pindex;
   const uint8_t *colbitset = packedpath_get_colset(packed);
   const uint8_t *seq = packedpath_seq(packed, paths->colset_bytes);
 
@@ -262,7 +262,7 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
   unpack_bases(seq, bases, len);
 
   size_t i;
-  printf("%8zu: ", (size_t)index);
+  printf("%8zu: ", (size_t)pindex);
   if(prev == PATH_NULL) printf("    NULL");
   else printf("%8zu", (size_t)prev);
   printf(" (cols:");
@@ -276,11 +276,11 @@ void path_store_print_path(const PathStore *paths, PathIndex index)
 
 void path_store_print_all(const PathStore *paths)
 {
-  PathIndex index = 0, store_size = (PathIndex)(paths->next - paths->store);
+  PathIndex pindex = 0, store_size = (PathIndex)(paths->next - paths->store);
 
-  while(index < store_size) {
-    path_store_print_path(paths, index);
-    index += packedpath_mem(paths->store+index, paths->colset_bytes);
+  while(pindex < store_size) {
+    path_store_print_path(paths, pindex);
+    pindex += packedpath_mem(paths->store+pindex, paths->colset_bytes);
   }
 }
 

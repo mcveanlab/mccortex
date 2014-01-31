@@ -24,7 +24,8 @@ static const char usage[] =
 "   --print          Print contigs in FASTA format\n"
 "   --out <out.fa>   Write contigs to a file rather than STDOUT\n"
 "   --seed <in.fa>   Use seed kmers from a file. If longer than kmer-size, only\n"
-"                    use the first kmer found from each input sequence.\n";
+"                    use the first kmer found from each input sequence.\n"
+"   --no-reseed      Do not use a seed kmer if it is used in a contig\n";
 
 #define MAXPATH 5
 
@@ -261,7 +262,7 @@ int ctx_contigs(CmdArgs *args)
   //                                  num_to_str(INFINITY, 2, str));
 
   size_t i, n_rand_contigs = 0, colour = 0;
-  boolean print_contigs = false;
+  boolean print_contigs = false, no_reseed = false;
   seq_file_t *seed_file = NULL;
 
   while(argc > 0 && argv[0][0] == '-') {

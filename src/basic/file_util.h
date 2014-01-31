@@ -47,12 +47,12 @@ static inline void futil_safe_fread(FILE *fh, void *ptr, size_t size,
                                     const char *field, const char *path,
                                     const char *file, int line)
 {
-  size_t read = fread(ptr, 1, size, fh);
-  if(read != size)
+  size_t read_nbytes = fread(ptr, 1, size, fh);
+  if(read_nbytes != size)
   {
     call_die(file, line,
              "Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",
-             field, size, read, path);
+             field, size, read_nbytes, path);
   }
 }
 

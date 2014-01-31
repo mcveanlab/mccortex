@@ -13,15 +13,15 @@
 size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         uint8_t qual_cutoff, uint8_t hp_cutoff)
 {
-  size_t next_kmer, index = offset;
-  while((next_kmer = index+kmer_size) <= r->seq.end)
+  size_t next_kmer, pos = offset;
+  while((next_kmer = pos+kmer_size) <= r->seq.end)
   {
     // Check for invalid bases
     size_t i = next_kmer;
-    while(i > index && char_is_acgt(r->seq.b[i-1])) i--;
+    while(i > pos && char_is_acgt(r->seq.b[i-1])) i--;
 
-    if(i > index) {
-      index = i;
+    if(i > pos) {
+      pos = i;
       continue;
     }
 
@@ -29,10 +29,10 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     if(qual_cutoff > 0 && r->qual.end > 0)
     {
       i = MIN2(next_kmer, r->qual.end);
-      while(i > index && r->qual.b[i-1] > qual_cutoff) i--;
+      while(i > pos && r->qual.b[i-1] > qual_cutoff) i--;
 
-      if(i > index) {
-        index = i;
+      if(i > pos) {
+        pos = i;
         continue;
       }
     }
@@ -41,7 +41,7 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     if(hp_cutoff > 0)
     {
       size_t run_length = 1;
-      for(i = next_kmer-1; i > index; i--)
+      for(i = next_kmer-1; i > pos; i--)
       {
         if(r->seq.b[i-1] == r->seq.b[i])
         {
@@ -51,14 +51,14 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
         else run_length = 1;
       }
 
-      if(i > index)
+      if(i > pos)
       {
-        index = i;
+        pos = i;
         continue;
       }
     }
 
-    return index;
+    return pos;
   }
 
   return r->seq.end;

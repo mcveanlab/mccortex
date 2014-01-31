@@ -234,15 +234,15 @@ static void kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
                              size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const PathStore *pdata = &db_graph->pdata;
-  PathIndex index = db_node_paths(db_graph, hkey);
+  PathIndex pindex = db_node_paths(db_graph, hkey);
   uint8_t *packed;
   size_t num_paths = 0;
 
-  while(index != PATH_NULL)
+  while(pindex != PATH_NULL)
   {
-    packed = pdata->store+index;
+    packed = pdata->store+pindex;
     packed_path_check(hkey, packed, gp, db_graph);
-    index = packedpath_get_prev(packed);
+    pindex = packedpath_get_prev(packed);
     num_paths++;
   }
 

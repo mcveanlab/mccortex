@@ -135,9 +135,9 @@ void print_usage(const char *msg, const char *errfmt,  ...)
 
 void seed_random()
 {
-  struct timeval time;
-  gettimeofday(&time, NULL);
-  srand((unsigned int)(((time.tv_sec ^ getpid()) * 1000001) + time.tv_usec));
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  srand((unsigned int)(((now.tv_sec ^ getpid()) * 1000001) + now.tv_usec));
   srand48(((time.tv_sec ^ getpid()) * 1000003) + time.tv_usec);
 }
 

@@ -212,7 +212,8 @@ $(DIRS):
 	mkdir -p $@
 
 # libraries
-$(LIB_OBJS):
+# This triggers the compiling of library dependencies for first install
+$(LIB_OBJS): libs/string_buffer/string_buffer.h
 libs/string_buffer/string_buffer.h:
 	cd libs; make
 
