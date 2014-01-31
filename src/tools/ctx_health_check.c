@@ -124,9 +124,15 @@ int ctx_health_check(CmdArgs *args)
   }
 
   if(num_pfiles) {
+    GraphPathPairing gp;
+    gp_alloc(&gp, ncols);
+    for(i = 0; i < ncols; i++) gp.ctxcols[i] = gp.ctpcols[i] = i;
+
     status("Running path check...");
     for(col = 0; col < ncols; col++)
-      graph_paths_check_all_paths(&db_graph, col, col);
+      graph_paths_check_all_paths(&gp, &db_graph);
+
+    gp_dealloc(&gp);
   }
 
   status("All looks good!");

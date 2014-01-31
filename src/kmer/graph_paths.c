@@ -106,7 +106,7 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
 // packed is just <PackedBases>
-void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
+void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
                             size_t nbases, const dBGraph *db_graph)
 {
   assert(db_graph->num_edge_cols == db_graph->num_of_cols ||
@@ -116,7 +116,7 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
   Edges edges;
   dBNode nodes[4];
   Nucleotide nucs[4];
-  size_t i, j, n, edgecol = db_graph->num_edge_cols > 1 ? col : 0;
+  size_t i, j, n, edgecol = db_graph->num_edge_cols > 1 ? ctxcol : 0;
   // length is kmers and juctions
   size_t klen, plen;
 
@@ -132,9 +132,9 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
 
     // Check this node is in this colour
     if(db_graph->node_in_cols != NULL) {
-      assert(db_node_has_col(db_graph, node.key, col));
+      assert(db_node_has_col(db_graph, node.key, ctxcol));
     } else if(db_graph->col_covgs != NULL) {
-      assert(db_node_covg(db_graph, node.key, col) > 0);
+      assert(db_node_covg(db_graph, node.key, ctxcol) > 0);
     }
 
     #ifdef CTXVERBOSE
@@ -146,10 +146,10 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
 
     if(klen == 1) {
       dBNode rnode = db_node_reverse(node);
-      Edges backedges = db_node_oriented_edges_in_col(rnode, col, db_graph);
+      Edges backedges = db_node_oriented_edges_in_col(rnode, ctxcol, db_graph);
       int outdegree = edges_get_outdegree(backedges, FORWARD);
       if(outdegree <= 1) {
-        status("outdegree: %i col: %zu", (int)outdegree, col);
+        status("outdegree: %i col: %zu", (int)outdegree, ctxcol);
       }
       assert(outdegree > 1);
     }
@@ -162,7 +162,7 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
     // Reduce to nodes in our colour if edges limited
     if(db_graph->num_edge_cols == 1 && db_graph->node_in_cols != NULL) {
       for(i = 0, j = 0; i < n; i++) {
-        if(db_node_has_col(db_graph, nodes[i].key, col)) {
+        if(db_node_has_col(db_graph, nodes[i].key, ctxcol)) {
           nodes[j] = nodes[i];
           nucs[j] = nucs[i];
           j++;
@@ -194,16 +194,16 @@ void graph_path_check_valid(dBNode node, size_t col, const uint8_t *packed,
 }
 
 static void packed_path_check(hkey_t hkey, const uint8_t *packed,
-                              size_t ctxcol, size_t ctpcol,
+                              const GraphPathPairing *gp,
                               const dBGraph *db_graph)
 {
   const PathStore *pstore = &db_graph->pdata;
   PathLen len_bases;
   Orientation orient;
   const uint8_t *colset, *seq;
+  size_t i;
 
   colset = packedpath_get_colset(packed);
-  assert(bitset_get(colset, ctpcol));
 
   seq = packedpath_seq(packed, pstore->colset_bytes);
   packedpath_get_len_orient(packed, pstore->colset_bytes, &len_bases, &orient);
@@ -213,21 +213,24 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   // Check length
   size_t nbytes = sizeof(PathIndex) + pstore->colset_bytes +
                   sizeof(PathLen) + packedpath_len_nbytes(len_bases);
-  assert(packed + nbytes < pstore->end);
+
+  assert(packed + nbytes <= pstore->end);
 
   // Check at least one colour is set
-  // uint8_t colset_or = 0;
-  // for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
-  // assert(colset_or != 0);
+  uint8_t colset_or = 0;
+  for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
+  assert(colset_or != 0);
 
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
 
-  graph_path_check_valid(node, ctxcol, seq, len_bases, db_graph);
+  for(i = 0; i < gp->n; i++)
+    if(bitset_get(colset, gp->ctpcols[i]))
+      graph_path_check_valid(node, gp->ctxcols[i], seq, len_bases, db_graph);
 }
 
-static void kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
-                             size_t ctxcol, size_t ctpcol,
+static void kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
+                             const dBGraph *db_graph,
                              size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const PathStore *pdata = &db_graph->pdata;
@@ -238,7 +241,7 @@ static void kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
   while(index != PATH_NULL)
   {
     packed = pdata->store+index;
-    packed_path_check(hkey, packed, ctxcol, ctpcol, db_graph);
+    packed_path_check(hkey, packed, gp, db_graph);
     index = packedpath_get_prev(packed);
     num_paths++;
   }
@@ -247,12 +250,12 @@ static void kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
   *nkmers_ptr += (num_paths > 0);
 }
 
-void graph_paths_check_all_paths(const dBGraph *db_graph,
-                                 size_t ctxcol, size_t ctpcol)
+void graph_paths_check_all_paths(const GraphPathPairing *gp,
+                                 const dBGraph *db_graph)
 {
   size_t num_paths = 0, num_kmers = 0;
 
-  HASH_ITERATE(&db_graph->ht, kmer_check_paths, db_graph, ctxcol, ctpcol,
+  HASH_ITERATE(&db_graph->ht, kmer_check_paths, gp, db_graph,
                &num_paths, &num_kmers);
 
   assert(num_paths == db_graph->pdata.num_of_paths);
@@ -260,11 +263,11 @@ void graph_paths_check_all_paths(const dBGraph *db_graph,
 }
 
 void graph_path_check_path(hkey_t node, PathIndex pindex,
-                           size_t ctxcol, size_t ctpcol,
+                           const GraphPathPairing *gp,
                            const dBGraph *db_graph)
 {
   uint8_t *packed = db_graph->pdata.store+pindex;
-  packed_path_check(node, packed, ctxcol, ctpcol, db_graph);
+  packed_path_check(node, packed, gp, db_graph);
 }
 
 // For debugging

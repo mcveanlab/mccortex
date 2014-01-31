@@ -338,7 +338,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     num_added++;
 
     // debug: check path was added correctly
-    graph_path_check_path(node.key, pindex, ctxcol, ctpcol, db_graph);
+    Colour cols[2] = {ctxcol, ctpcol};
+    GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
+    graph_path_check_path(node.key, pindex, &gp, db_graph);
   }
 
   return num_added;
