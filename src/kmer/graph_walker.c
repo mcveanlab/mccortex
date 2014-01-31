@@ -672,7 +672,7 @@ boolean graph_traverse(GraphWalker *wlk)
 
 // Fast traverse - avoid a bkmer_revcmp
 static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
-                                     const dBNode next_node, boolean fork)
+                                     const dBNode next_node, boolean is_fork)
 {
   const size_t kmer_size = wlk->db_graph->kmer_size;
   BinaryKmer bkmer = db_node_get_bkmer(wlk->db_graph, next_node.key);
@@ -681,7 +681,7 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
   // Only one path between two nodes
   if(db_nodes_match(wlk->node, prev_node)) {
     nuc = db_node_last_nuc(bkmer, next_node.orient, kmer_size);
-    graph_traverse_force(wlk, next_node.key, nuc, fork);
+    graph_traverse_force(wlk, next_node.key, nuc, is_fork);
   }
   else {
     // jumping to the end of a supernode

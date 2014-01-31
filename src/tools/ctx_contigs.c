@@ -142,19 +142,23 @@ static inline void contig_data_dealloc(ContigData *cd)
 static void pulldown_contig(hkey_t hkey, ContigData *cd,
                             const dBGraph *db_graph, size_t colour,
                             GraphWalker *wlk, RepeatWalker *rptwlk,
-                            FILE *fout)
+                            uint64_t *visited, FILE *fout)
 {
-  Orientation orient;
-  size_t njunc = 0;
+  // Don't use a visited kmer as a seed node if --no-reseed passed
+  if(visited != NULL && bitset_get(visited, hkey)) return;
 
-  db_node_buf_reset(&cd->nodes);
-  db_node_buf_safe_add(&cd->nodes, hkey, FORWARD);
+  dBNodeBuffer *nodes = &cd->nodes;
+  Orientation orient;
+  size_t njunc = 0, i;
+
+  db_node_buf_reset(nodes);
+  db_node_buf_safe_add(nodes, hkey, FORWARD);
 
   for(orient = 0; orient < 2; orient++)
   {
     if(orient == 1) {
-      supernode_reverse(cd->nodes.data, cd->nodes.len);
-      hkey = cd->nodes.data[cd->nodes.len-1].key;
+      supernode_reverse(nodes->data, nodes->len);
+      hkey = nodes->data[nodes->len-1].key;
     }
 
     dBNode node = {.key = hkey, .orient = orient};
@@ -162,7 +166,7 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
 
     while(graph_traverse(wlk) && rpt_walker_attempt_traverse(rptwlk, wlk))
     {
-      db_node_buf_add(&cd->nodes, wlk->node);
+      db_node_buf_add(nodes, wlk->node);
       cd->grphwlk_steps[wlk->last_step.status]++;
     }
 
@@ -177,22 +181,29 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
     // nloop += rptwlk->nbloom_entries;
 
     graph_walker_finish(wlk);
-    rpt_walker_fast_clear(rptwlk, cd->nodes.data, cd->nodes.len);
+    rpt_walker_fast_clear(rptwlk, nodes->data, nodes->len);
   }
 
   if(fout != NULL) {
     fprintf(fout, ">contig%zu\n", cd->nprint);
-    db_nodes_print(cd->nodes.data, cd->nodes.len, db_graph, fout);
+    db_nodes_print(nodes->data, nodes->len, db_graph, fout);
     putc('\n', fout);
     cd->nprint++;
   }
 
+  // If --no-seed set, mark visited nodes are visited
+  // Don't use to see another contig
+  if(visited != NULL) {
+    for(i = 0; i < nodes->len; i++)
+      bitset_set(visited, nodes->data[i].key);
+  }
+
   // Out degree
-  size_t len = cd->nodes.len;
-  hkey_t firstnode = cd->nodes.data[0].key;
-  hkey_t firstorient = opposite_orientation(cd->nodes.data[0].orient);
-  hkey_t lastnode = cd->nodes.data[len-1].key;
-  hkey_t lastorient = cd->nodes.data[len-1].orient;
+  size_t len = nodes->len;
+  hkey_t firstnode = nodes->data[0].key;
+  hkey_t firstorient = opposite_orientation(nodes->data[0].orient);
+  hkey_t lastnode = nodes->data[len-1].key;
+  hkey_t lastorient = nodes->data[len-1].orient;
 
   int outdegree;
   outdegree = edges_get_outdegree(db_graph->col_edges[firstnode], firstorient);
@@ -218,6 +229,7 @@ struct ParseSeeds {
   const size_t colour;
   GraphWalker *const wlk;
   RepeatWalker *const rptwlk;
+  uint64_t *const visited;
   FILE *const fout;
 };
 
@@ -231,7 +243,7 @@ static inline void parse_seed_read(const read_t *r, struct ParseSeeds *ps)
 
   if(node != HASH_NOT_FOUND) {
     pulldown_contig(node, ps->cd, db_graph, ps->colour,
-                    ps->wlk, ps->rptwlk, ps->fout);
+                    ps->wlk, ps->rptwlk, ps->visited, ps->fout);
   }
   else if(ps->fout != NULL) {
     fprintf(ps->fout, ">contig%zu\n\n", ps->cd->nprint);
@@ -250,6 +262,7 @@ static inline void parse_seed_reads(read_t *r1, read_t *r2,
   parse_seed_read(r1, ps);
   parse_seed_read(r2, ps);
 }
+
 
 int ctx_contigs(CmdArgs *args)
 {
@@ -288,6 +301,10 @@ int ctx_contigs(CmdArgs *args)
       if((seed_file = seq_open(argv[1])) == NULL)
         die("Cannot read --seed file: %s", argv[1]);
       argv += 2; argc -= 2;
+    }
+    else if(strcmp(argv[0],"--no-reseed") == 0) {
+      no_reseed = true;
+      argv++; argc--;
     }
     else if(strcmp(argv[0],"--print") == 0) {
       print_contigs = true;
@@ -336,7 +353,9 @@ int ctx_contigs(CmdArgs *args)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
   char path_mem_str[100];
 
-  bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols + sizeof(uint64_t)*8;
+  // 1 bit needed per kmer if we need to keep track of noreseed
+  bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols + sizeof(uint64_t)*8 +
+                  no_reseed;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         file.hdr.num_of_kmers, false, &graph_mem);
 
@@ -363,17 +382,20 @@ int ctx_contigs(CmdArgs *args)
   }
 
   dBGraph db_graph;
-  GraphWalker wlk;
-
   db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
-  graph_walker_alloc(&wlk);
 
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
+  size_t nword64 = roundup_bits2words64(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
   memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
+
+  uint64_t *visited = no_reseed ? calloc2(nword64, sizeof(uint64_t)) : NULL;
+
+  GraphWalker wlk;
+  graph_walker_alloc(&wlk);
 
   RepeatWalker rptwlk;
   rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
@@ -405,14 +427,15 @@ int ctx_contigs(CmdArgs *args)
     while(cd.ncontigs < n_rand_contigs) {
       do { node = db_graph_rand_node(&db_graph); }
       while(!db_node_has_col(&db_graph, node, colour));
-      pulldown_contig(node, &cd, &db_graph, colour, &wlk, &rptwlk, fout);
+      pulldown_contig(node, &cd, &db_graph, colour, &wlk, &rptwlk, visited, fout);
     }
   }
   else
   {
     // Parse seed file
     struct ParseSeeds ps = {.cd = &cd, .db_graph = &db_graph, .colour = colour,
-                            .wlk = &wlk, .rptwlk = &rptwlk, .fout = fout};
+                            .wlk = &wlk, .rptwlk = &rptwlk, .visited = visited,
+                            .fout = fout};
 
     contig_data_alloc(&cd, 1024);
 
@@ -500,7 +523,7 @@ int ctx_contigs(CmdArgs *args)
 
   contig_data_dealloc(&cd);
 
-  // free(visited);
+  if(visited != NULL) free(visited);
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free(db_graph.kmer_paths);

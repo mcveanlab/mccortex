@@ -36,9 +36,9 @@ typedef uint64_t hkey_t; // don't ever use the top bit, used later for orientati
 
 // Hash table capacity is x*(2^y) where x and y are parameters
 // memory is x*(2^y)*sizeof(BinaryKmer) + (2^y) * 2
-#define ht_mem(bktsize,nbkts,nbits) ({ \
-        ((bktsize) * (nbkts) * (sizeof(BinaryKmer)+(nbits)) +\
-         (nbkts) * sizeof(uint8_t[2])); })
+#define ht_mem(bktsize,nbkts,nbits) \
+        (((bktsize) * (nbkts) * (sizeof(BinaryKmer)*8+(nbits)))/8 +\
+         (nbkts) * sizeof(uint8_t[2]))
 
 // Returns capacity of a hash table that holds at least nkmers
 size_t hash_table_cap(size_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_ptr);
