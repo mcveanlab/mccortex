@@ -54,14 +54,14 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 //   stats->num_of_colours_loaded
 //   stats->kmers_loaded
 //   stats->total_bases_read
-//   stats->binaries_loaded
+//   stats->ctx_files_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
-                  SeqLoadingStats *stats);
+                  LoadingStats *stats);
 
 size_t graph_load_colour(GraphFileReader *file,
                          const GraphLoadingPrefs prefs,
-                         SeqLoadingStats *stats,
+                         LoadingStats *stats,
                          size_t colour_idx, size_t intocol);
 
 // Load a kmer and write to a file one kmer at a time

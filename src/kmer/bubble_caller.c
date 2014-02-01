@@ -258,7 +258,8 @@ static void load_allele_path(dBNode node,
   for(supindx = 0; ; supindx++)
   {
     #ifdef DEBUG_CALLER
-      binary_kmer_to_str(db_node_get_bkmer(db_graph,node.key), kmer_size, tmp);
+      BinaryKmer tmpbkmer = db_node_get_bkmer(db_graph,node.key);
+      binary_kmer_to_str(tmpbkmer, db_graph->kmer_size, tmp);
       printf(" load_allele_path: %s:%i\n", tmp, node.orient);
     #endif
 

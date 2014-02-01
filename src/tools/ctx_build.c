@@ -58,7 +58,7 @@ static const char usage[] =
 typedef struct
 {
   size_t colour;
-  SeqLoadingStats *stats;
+  LoadingStats stats;
   char *sample_name;
   boolean empty;
 } CtxBuildGraphCol;
@@ -133,7 +133,7 @@ static void ctx_input_alloc(char *load_graph_path,
                               .hp_cutoff = (uint8_t)hp_cutoff,
                               .remove_dups_se = remove_dups_se,
                               .remove_dups_pe = remove_dups_pe,
-                              .stats = col_data->stats};
+                              .stats = LOAD_STATS_INIT_MACRO};
 
   CtxBuildInput input = {.seq_files = seq_files,
                          .ctx_file = INIT_GRAPH_READER_MACRO,
@@ -217,11 +217,6 @@ static void ctx_input_create(char *load_graph_path,
       }
     }
   }
-}
-
-static void ctx_build_graph_colour_dealloc(CtxBuildGraphCol *col)
-{
-  seq_loading_stats_free(col->stats);
 }
 
 // inputs must be an already allocated array to put inputs into
@@ -324,7 +319,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
         }
 
         seq_cols[num_seq_cols].colour = colour;
-        seq_cols[num_seq_cols].stats = seq_loading_stats_create(0);
+        loading_stats_init(&seq_cols[num_seq_cols].stats);
         seq_cols[num_seq_cols].sample_name = argv[argi+1];
         seq_cols[num_seq_cols].empty = true;
         num_seq_cols++;
@@ -505,8 +500,8 @@ int ctx_build(CmdArgs *args)
   for(i = 0; i < num_seq_cols; i++) {
     colour = seq_cols[i].colour;
     graph_info_update_contigs(&db_graph.ginfo[colour],
-                              seq_cols[i].stats->total_bases_loaded,
-                              seq_cols[i].stats->contigs_loaded);
+                              seq_cols[i].stats.total_bases_loaded,
+                              seq_cols[i].stats.contigs_loaded);
   }
 
   status("Dumping graph...\n");
@@ -514,7 +509,6 @@ int ctx_build(CmdArgs *args)
                         0, output_colours);
 
   for(i = 0; i < num_inputs; i++) ctx_input_dealloc(&inputs[i]);
-  for(i = 0; i < num_seq_cols; i++) ctx_build_graph_colour_dealloc(&seq_cols[i]);
 
   free(inputs);
   free(seq_cols);

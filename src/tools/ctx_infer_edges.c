@@ -183,14 +183,16 @@ int ctx_infer_edges(CmdArgs *args)
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
   db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
 
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                              .boolean_covgs = false,
                              .must_exist_in_graph = false,
                              .must_exist_in_edges = NULL,
                              .empty_colours = false};
 
-  graph_load(&file, gprefs, stats);
+  graph_load(&file, gprefs, &stats);
 
   if(add_pop_edges) status("Inferring edges from population...\n");
   else status("Inferring all missing edges...\n");
@@ -223,7 +225,6 @@ int ctx_infer_edges(CmdArgs *args)
   status("%s of %s (%.2f%%) nodes modified\n", modified_str, kmers_str,
          (100.0 * num_nodes_modified) / db_graph.ht.unique_kmers);
 
-  seq_loading_stats_free(stats);
   free(db_graph.node_in_cols);
   db_graph_dealloc(&db_graph);
 

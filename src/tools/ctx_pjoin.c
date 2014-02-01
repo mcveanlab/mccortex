@@ -162,7 +162,7 @@ int ctx_pjoin(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? ctp_max_path_bytes : 0;
+  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
   req_path_mem = ctp_max_path_bytes + tmp_path_mem;
 
   total_mem = graph_mem + req_path_mem;

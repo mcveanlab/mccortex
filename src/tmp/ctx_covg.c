@@ -146,13 +146,15 @@ int ctx_covg(CmdArgs *args)
 
   // Load graph only for kmers already in the hash table
 
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
                              .boolean_covgs = false,
                              .must_exist_in_graph = true,
                              .empty_colours = false};
 
-  graph_load(in_ctx_path, prefs, stats, NULL);
+  graph_load(in_ctx_path, prefs, &stats, NULL);
 
   if((vcf = gzopen(in_vcf_path, "r")) == NULL)
     die("Couldn't open file: %s", in_vcf_path);
@@ -227,7 +229,6 @@ int ctx_covg(CmdArgs *args)
 
   graph_header_dealloc(&gheader);
 
-  seq_loading_stats_free(stats);
   free(db_graph.col_edges);
   free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);

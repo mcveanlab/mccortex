@@ -45,7 +45,7 @@ struct GenPathWorker
   dBNodeBuffer contig, revcontig;
 
   // Statistics on gap traversal
-  SeqLoadingStats *stats;
+  LoadingStats stats;
   uint64_t *gap_ins_histgrm, *gap_err_histgrm, histgrm_len;
 
   // Nucleotides and positions of junctions
@@ -111,7 +111,7 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
   tmp.gap_ins_histgrm = calloc2(tmp.histgrm_len, sizeof(*tmp.gap_ins_histgrm));
   tmp.gap_err_histgrm = calloc2(tmp.histgrm_len, sizeof(*tmp.gap_err_histgrm));
   // Stats
-  tmp.stats = seq_loading_stats_create(0);
+  loading_stats_init(&tmp.stats);
   // Junction data
   tmp.junc_arrsize = INIT_BUFLEN;
   tmp.nuc_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.nuc_fw));
@@ -138,7 +138,6 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
   db_node_buf_dealloc(&wrkr->revcontig);
   free(wrkr->gap_ins_histgrm);
   free(wrkr->gap_err_histgrm);
-  seq_loading_stats_free(wrkr->stats);
   free(wrkr->nuc_fw); free(wrkr->nuc_rv);
   free(wrkr->pos_fw); free(wrkr->pos_rv);
   free(wrkr->packed);
@@ -673,6 +672,7 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
     // block0 [start_idx..gap_idx-1], block1 [gap_idx..end_idx]
     gap_idx = end_idx;
     end_idx = db_alignment_next_gap(algnmnt, end_idx);
+    block0len = gap_idx - start_idx;
     block1len = end_idx - gap_idx;
 
     // status("start_idx: %zu gap_idx: %zu end_idx: %zu", start_idx, gap_idx, end_idx);
@@ -747,7 +747,6 @@ static void worker_generate_contigs(GenPathWorker *wrkr)
 
       // Move start up the the gap we are stuck on
       start_idx = gap_idx;
-      block0len = block1len;
     }
   }
 
@@ -786,8 +785,8 @@ static void worker_reads_to_nodebuf(GenPathWorker *wrkr)
     seq_read_reverse_complement(r2);
 
   // Update stats
-  if(r2 == NULL) wrkr->stats->num_se_reads++;
-  else wrkr->stats->num_pe_reads += 2;
+  if(r2 == NULL) wrkr->stats.num_se_reads++;
+  else wrkr->stats.num_pe_reads += 2;
 
   db_alignment_from_reads(&wrkr->alignment, r1, r2,
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
@@ -810,6 +809,7 @@ static void* generate_paths_worker(void *ptr)
 
   AsyncIOData data;
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
+    status("read: %s %s", data.r1.name.b, data.r2.name.b);
     wrkr->data = data;
     memcpy(&wrkr->task, data.ptr, sizeof(GeneratePathsTask));
     worker_do_job(wrkr);
@@ -1020,10 +1020,10 @@ const uint64_t* gen_paths_get_err_gap(GenPathWorker *worker, size_t *len)
   return worker->gap_err_histgrm;
 }
 
-void gen_paths_get_stats(GenPathWorker *worker, size_t num_workers,
-                         SeqLoadingStats *stats)
+void gen_paths_get_stats(const GenPathWorker *worker, size_t num_workers,
+                         LoadingStats *stats)
 {
   size_t i;
   for(i = 0; i < num_workers; i++)
-    seq_loading_stats_sum(stats, worker[i].stats);
+    loading_stats_merge(stats, &worker[i].stats);
 }

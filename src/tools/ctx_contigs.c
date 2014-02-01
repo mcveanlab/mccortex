@@ -360,7 +360,7 @@ int ctx_contigs(CmdArgs *args)
                                         file.hdr.num_of_kmers, false, &graph_mem);
 
   // Paths memory
-  size_t tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
   path_mem = path_max_mem + tmp_path_mem;
 
   bytes_to_str(path_mem, 1, path_mem_str);
@@ -403,13 +403,15 @@ int ctx_contigs(CmdArgs *args)
   path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
   // Load graph
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
                               .empty_colours = true};
 
-  graph_load(&file, gprefs, stats);
+  graph_load(&file, gprefs, &stats);
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -447,8 +449,6 @@ int ctx_contigs(CmdArgs *args)
     seq_read_dealloc(&r2);
     // seq_parse_se_sf() closes seed_file
   }
-
-  seq_loading_stats_free(stats);
 
   if(args->output_file_set && print_contigs && strcmp(args->output_file, "-") != 0)
     fclose(fout);

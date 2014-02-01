@@ -336,7 +336,7 @@ int ctx_thread(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
   path_mem_req = path_max_mem + tmp_path_mem;
   path_mem_used = MAX2(args->mem_to_use - graph_mem, path_mem_req);
   main_path_mem = path_mem_used - tmp_path_mem;
@@ -411,7 +411,9 @@ int ctx_thread(CmdArgs *args)
   db_graph_realloc(&db_graph, 1, 1);
 
   // Setup for loading graphs graph
-  SeqLoadingStats *gstats = seq_loading_stats_create(0);
+  LoadingStats gstats;
+  loading_stats_init(&gstats);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
@@ -442,7 +444,7 @@ int ctx_thread(CmdArgs *args)
       }
 
       get_binary_and_colour(graph_files, num_graphs, ctpcol, &fileidx, &colidx);
-      graph_load_colour(&graph_files[fileidx], gprefs, gstats, colidx, 0);
+      graph_load_colour(&graph_files[fileidx], gprefs, &gstats, colidx, 0);
     }
 
     // Get list of input files to read
@@ -460,17 +462,19 @@ int ctx_thread(CmdArgs *args)
   ins_gaps = gen_paths_get_ins_gap(workers, &ins_gaps_len);
   err_gaps = gen_paths_get_err_gap(workers, &err_gaps_len);
 
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
-  gen_paths_get_stats(workers, num_work_threads, stats);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
+  gen_paths_get_stats(workers, num_work_threads, &stats);
 
   // Print mp gap size / insert stats to a file
   gen_paths_dump_gap_sizes("gap_sizes.%u.csv", err_gaps, err_gaps_len,
                            db_graph.kmer_size, false,
-                           stats->num_se_reads + stats->num_pe_reads);
+                           stats.num_se_reads + stats.num_pe_reads);
 
-  if(stats->num_pe_reads > 0) {
+  if(stats.num_pe_reads > 0) {
     gen_paths_dump_gap_sizes("mp_sizes.%u.csv", ins_gaps, ins_gaps_len,
-                             db_graph.kmer_size, true, stats->num_pe_reads);
+                             db_graph.kmer_size, true, stats.num_pe_reads);
   }
   else
     status("No PE reads parsed");
@@ -481,9 +485,9 @@ int ctx_thread(CmdArgs *args)
   // Done
 
   char se_num_str[100], pe_num_str[100], sepe_num_str[100];
-  ulong_to_str(stats->num_se_reads, se_num_str);
-  ulong_to_str(stats->num_pe_reads / 2, pe_num_str);
-  ulong_to_str(stats->num_se_reads + stats->num_pe_reads, sepe_num_str);
+  ulong_to_str(stats.num_se_reads, se_num_str);
+  ulong_to_str(stats.num_pe_reads / 2, pe_num_str);
+  ulong_to_str(stats.num_se_reads + stats.num_pe_reads, sepe_num_str);
   status("[stats] single reads: %s; read pairs: %s; total: %s",
          se_num_str, pe_num_str, sepe_num_str);
 
@@ -512,8 +516,6 @@ int ctx_thread(CmdArgs *args)
 
   paths_header_dealloc(&pheader);
 
-  seq_loading_stats_free(stats);
-  seq_loading_stats_free(gstats);
   path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 

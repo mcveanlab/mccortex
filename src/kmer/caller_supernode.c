@@ -24,9 +24,9 @@ size_t caller_supernode_create(dBNode node, CallerSupernode *snode,
 
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];
-    bkmer = db_node_get_bkmer(db_graph, node.key);
-    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpstr);
-    printf(" create %s:%i\n", tmpstr, (int)orient);
+    BinaryKmer tmpbkmer = db_node_get_bkmer(db_graph, node.key);
+    binary_kmer_to_str(tmpbkmer, db_graph->kmer_size, tmpstr);
+    printf(" create %s:%i\n", tmpstr, (int)node.orient);
   #endif
 
   dBNodeBuffer *nbuf = snode->nbuf;

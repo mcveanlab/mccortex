@@ -133,13 +133,9 @@ size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files)
   return used_cols;
 }
 
-// DEV: replace
-boolean paths_merge_needs_tmp(PathFileReader *files, size_t num_files)
-{
-  return (num_files > 1 || (num_files == 1 && !files[0].fltr.nofilter));
-}
-
-size_t path_files_tmp_mem_required(PathFileReader *files, size_t num_files)
+// Get min tmp memory required to load files
+// (size of second largest num_path_bytes iff num_files > 1)
+size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files)
 {
   if(num_files <= 1) return 0;
 

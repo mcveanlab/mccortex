@@ -27,7 +27,7 @@ typedef struct
   size_t buflen;
   size_t max_walk;
   uint64_t *visited;
-  SeqLoadingStats *stats;
+  LoadingStats *stats;
 } ExtendContig;
 
 static void node_not_in_graph(BinaryKmer bkmer, dBGraph *db_graph)
@@ -201,7 +201,9 @@ int ctx_extend(CmdArgs *args)
   FILE *out = fopen(out_fa_path, "w");
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);
 
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
@@ -211,13 +213,13 @@ int ctx_extend(CmdArgs *args)
   // file.fltr.intocol = 0;
   file_filter_update_intocol(&file.fltr, 0);
 
-  graph_load(&file, gprefs, stats);
+  graph_load(&file, gprefs, &stats);
 
   ExtendContig contig = {.db_graph = &db_graph,
                          .readbuffw = &readbuffw, .readbufrv = &readbufrv,
                          .out = out, .buf = buf, .buflen = buflen,
                          .max_walk = dist, .visited = visited,
-                         .stats = stats};
+                         .stats = &stats};
 
   // Parse sequence
   read_t r1, r2;
@@ -233,7 +235,6 @@ int ctx_extend(CmdArgs *args)
   free(buf);
   db_node_buf_dealloc(&readbuffw);
   db_node_buf_dealloc(&readbufrv);
-  seq_loading_stats_free(stats);
   free(visited);
   free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);

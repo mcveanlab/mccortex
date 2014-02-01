@@ -147,6 +147,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 {
   // Check that the graph is loaded properly (all edges merged into one colour)
   assert(graph->num_edge_cols == 1);
+  assert(graph->num_of_cols == 1 || graph->node_in_cols != NULL);
 
   GraphWalker gw = {.db_graph = graph, .pstore = &graph->pdata,
                     .ctxcol = ctxcol, .ctpcol = ctpcol,

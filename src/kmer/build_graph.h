@@ -21,7 +21,12 @@ typedef struct
   // FASTQ qual offset, cutoff and homopolymer cutoff
   const uint8_t fq_offset, fq_cutoff, hp_cutoff;
   const boolean remove_dups_se, remove_dups_pe;
-  SeqLoadingStats *const stats;
+
+  // Stats are written to here
+  LoadingStats stats;
+
+  // used internally
+  size_t idx;
 } BuildGraphTask;
 
 // One thread used per input file, num_build_threads used to add reads to graph

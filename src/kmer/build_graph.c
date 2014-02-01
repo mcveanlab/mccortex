@@ -4,14 +4,10 @@
 #include "db_node.h"
 #include "seq_reader.h"
 #include "async_read_io.h"
+#include "loading_stats.h"
 
 #include <pthread.h>
 #include "seq_file.h"
-
-// DEV: add one SeqLoadingStats obj per worker, per colour.
-//      Then merge when all workers finish.
-//      Should remove stats->readlen_count_array to make this fast
-//      Take stats out of AsyncIOData
 
 typedef struct
 {
@@ -19,6 +15,7 @@ typedef struct
   dBGraph *const db_graph;
   MsgPool *pool;
   AsyncIOData data; // current data
+  LoadingStats *file_stats; // Array of stats for diff input files
 } BuildGraphWorker;
 
 //
@@ -139,14 +136,10 @@ void build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
 
 static void load_read(const read_t *r, dBGraph *db_graph,
                       uint8_t qual_cutoff, uint8_t hp_cutoff,
-                      Colour colour, SeqLoadingStats *stats)
+                      Colour colour, LoadingStats *stats)
 {
   const size_t kmer_size = db_graph->kmer_size;
-
-  if(r->seq.end < kmer_size) {
-    __sync_add_and_fetch((volatile size_t*)&stats->total_bad_reads, 1);
-    return;
-  }
+  if(r->seq.end < kmer_size) { stats->total_bad_reads++; return; }
 
   size_t search_start = 0;
   size_t contig_start, contig_end = 0;
@@ -161,43 +154,25 @@ static void load_read(const read_t *r, dBGraph *db_graph,
 
     build_graph_from_str_mt(db_graph, colour, r->seq.b+contig_start, contig_len);
 
-    // Update contig stats
-    if(stats->readlen_count_array != NULL) {
-      size_t histbin = MIN2(contig_len, stats->readlen_count_array_size-1);
-      // stats->readlen_count_array[histbin]++;
-      size_t *ptr = &stats->readlen_count_array[histbin];
-      __sync_add_and_fetch((volatile size_t*)ptr, 1);
-    }
-
     size_t kmers_loaded = contig_len + 1 - kmer_size;
-    // stats->total_bases_loaded += contig_len;
-    // stats->kmers_loaded += kmers_loaded;
-    // stats->contigs_loaded++;
-
-    __sync_add_and_fetch((volatile size_t*)&stats->total_bases_loaded, contig_len);
-    __sync_add_and_fetch((volatile size_t*)&stats->kmers_loaded, kmers_loaded);
-    __sync_add_and_fetch((volatile size_t*)&stats->contigs_loaded, 1);
+    stats->total_bases_loaded += contig_len;
+    stats->kmers_loaded += kmers_loaded;
+    stats->contigs_loaded++;
   }
 
   // contig_end == 0 if no contigs from this read
-  // if(contig_end == 0) stats->total_bad_reads++;
-  // else stats->total_good_reads++;
-  size_t *nreadsptr = (contig_end == 0 ? &stats->total_bad_reads
-                                       : &stats->total_good_reads);
-  __sync_add_and_fetch((volatile size_t*)nreadsptr, 1);
+  if(contig_end == 0) stats->total_bad_reads++;
+  else stats->total_good_reads++;
 }
 
 static void build_graph_reads(const read_t *r1, const read_t *r2,
                               uint8_t fq_offset1, uint8_t fq_offset2,
                               uint8_t fq_cutoff, uint8_t hp_cutoff,
                               boolean remove_dups_se, boolean remove_dups_pe,
-                              SeqLoadingStats *stats, size_t colour,
+                              LoadingStats *stats, size_t colour,
                               dBGraph *db_graph)
 {
-  // stats->total_bases_read += r1->seq.end;
-  // if(r2 != NULL) stats->total_bases_read += r2->seq.end;
-  size_t nbases_read = r1->seq.end + (r2 ? r2->seq.end : 0);
-  __sync_add_and_fetch((volatile size_t*)&stats->total_bases_read, nbases_read);
+  stats->total_bases_read += r1->seq.end + (r2 ? r2->seq.end : 0);
 
   uint8_t fq_cutoff1, fq_cutoff2;
   fq_cutoff1 = fq_cutoff2 = fq_cutoff;
@@ -218,9 +193,7 @@ static void build_graph_reads(const read_t *r1, const read_t *r2,
      (r2 == NULL && remove_dups_se &&
       !seq_read_is_novel(r1, db_graph, fq_cutoff1, hp_cutoff)))
   {
-    // stats->total_dup_reads += (r2 == NULL ? 1 : 2);
-    size_t total_dup_reads = (r2 == NULL ? 1 : 2);
-    __sync_add_and_fetch((volatile size_t*)&stats->total_dup_reads, total_dup_reads);
+    stats->total_dup_reads += (r2 == NULL ? 1 : 2);
     return;
   }
 
@@ -245,22 +218,24 @@ static void* grab_reads_from_pool(void *ptr)
     build_graph_reads(&data.r1, &data.r2, data.fq_offset1, data.fq_offset2,
                       task->fq_cutoff, task->hp_cutoff,
                       task->remove_dups_se, task->remove_dups_pe,
-                      task->stats, task->colour, wrkr->db_graph);
+                      &wrkr->file_stats[task->idx], task->colour, wrkr->db_graph);
   }
 
   pthread_exit(NULL);
 }
 
 static void start_build_graph_workers(MsgPool *pool, dBGraph *db_graph,
+                                      BuildGraphTask *files, size_t num_files,
                                       size_t num_build_threads)
 {
-  size_t i;
-  BuildGraphWorker *workers = malloc(num_build_threads * sizeof(BuildGraphWorker));
+  size_t i, j;
+  BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
 
   for(i = 0; i < num_build_threads; i++)
   {
     BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = pool};
     asynciodata_alloc(&tmp_wrkr.data);
+    tmp_wrkr.file_stats = calloc2(num_files, sizeof(LoadingStats));
     memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
   }
 
@@ -288,7 +263,13 @@ static void start_build_graph_workers(MsgPool *pool, dBGraph *db_graph,
   }
 
   // Free memory
-  for(i = 0; i < num_build_threads; i++) asynciodata_dealloc(&workers[i].data);
+  for(i = 0; i < num_build_threads; i++) {
+    asynciodata_dealloc(&workers[i].data);
+    // Merge stats
+    for(j = 0; j < num_files; j++)
+      loading_stats_merge(&files[i].stats, &workers[i].file_stats[j]);
+    free(workers[i].file_stats);
+  }
   free(workers);
 }
 
@@ -308,6 +289,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   AsyncIOReadTask *async_tasks = malloc(num_files * sizeof(AsyncIOReadTask));
 
   for(i = 0; i < num_files; i++) {
+    files[i].idx = i;
     AsyncIOReadTask aio_task = {.file1 = files[i].file1,
                                 .file2 = files[i].file2,
                                 .fq_offset = files[i].fq_offset,
@@ -319,7 +301,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   asyncio_workers = asyncio_read_start(&pool, async_tasks, num_files);
 
   // Create a lot of workers to build the graph
-  start_build_graph_workers(&pool, db_graph, num_build_threads);
+  start_build_graph_workers(&pool, db_graph, files, num_files, num_build_threads);
 
   // Finish with the async io
   asyncio_read_finish(asyncio_workers, num_files);

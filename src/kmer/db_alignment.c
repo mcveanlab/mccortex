@@ -28,7 +28,7 @@ size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
                               uint8_t qcutoff, uint8_t hp_cutoff,
                               const dBGraph *db_graph)
 {
-  size_t contig_start, contig_end = 0, search_start = 0, exp_kmer_offset = 0;
+  size_t contig_start, contig_end = 0, search_start = 0, nxt_exp_kmer_offset = 0;
   const size_t kmer_size = db_graph->kmer_size;
 
   BinaryKmer bkmer, tmp_key;
@@ -68,8 +68,8 @@ size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
       {
         nodes->data[n].key = node;
         nodes->data[n].orient = db_node_get_orientation(bkmer, tmp_key);
-        gaps->data[n] = (uint32_t)(offset - exp_kmer_offset);
-        exp_kmer_offset = offset+1;
+        gaps->data[n] = (uint32_t)(contig_start+offset - nxt_exp_kmer_offset);
+        nxt_exp_kmer_offset = contig_start+offset+1;
         n++;
       }
       else alignment->seq_gaps = true;

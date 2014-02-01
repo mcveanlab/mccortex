@@ -31,7 +31,7 @@ static const char usage[] =
 
 typedef struct {
   dBGraph *const db_graph;
-  SeqLoadingStats *stats;
+  LoadingStats *stats;
   char *in1, *in2;
   gzFile out1, out2;
   size_t num_of_reads_printed;
@@ -78,7 +78,7 @@ static hkey_t find_node(BinaryKmer bkmer, const dBGraph *db_graph)
 }
 
 static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
-                                  SeqLoadingStats *stats)
+                                  LoadingStats *stats)
 {
   boolean found = false;
   size_t kmer_size = db_graph->kmer_size, num_contigs = 0, kmers_loaded = 0;
@@ -126,7 +126,7 @@ void filter_reads(read_t *r1, read_t *r2,
 
   AlignReadsData *data = (AlignReadsData*)ptr;
   const dBGraph *db_graph = data->db_graph;
-  SeqLoadingStats *stats = data->stats;
+  LoadingStats *stats = data->stats;
 
   boolean touches_graph = read_touches_graph(r1, db_graph, stats) ||
                           (r2 != NULL && read_touches_graph(r2, db_graph, stats));
@@ -253,7 +253,9 @@ int ctx_reads(CmdArgs *args)
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 0, kmers_in_hash);
 
   // Load graphs
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .must_exist_in_graph = false,
                               .empty_colours = true,
@@ -263,7 +265,7 @@ int ctx_reads(CmdArgs *args)
     files[i].fltr.flatten = true;
     // files[i].fltr.intocol = 0;
     file_filter_update_intocol(&files[i].fltr, 0);
-    graph_load(&files[i], gprefs, stats);
+    graph_load(&files[i], gprefs, &stats);
   }
 
   if(invert) status("Printing reads that do not touch the graph\n");
@@ -288,7 +290,7 @@ int ctx_reads(CmdArgs *args)
       char *in1 = NULL, *in2 = NULL, *out = NULL;
       size_t init_reads, reads_loaded;
 
-      AlignReadsData data = {&db_graph, stats, in1, in2, NULL, NULL, 0,
+      AlignReadsData data = {&db_graph, &stats, in1, in2, NULL, NULL, 0,
                              use_fq ? seq_gzprint_fastq : seq_gzprint_fasta,
                              invert};
 
@@ -317,8 +319,8 @@ int ctx_reads(CmdArgs *args)
           die("Cannot write to: %s", path2);
       }
 
-      init_reads = stats->total_good_reads + stats->total_bad_reads +
-                   stats->total_dup_reads;
+      init_reads = stats.total_good_reads + stats.total_bad_reads +
+                   stats.total_dup_reads;
 
       if(is_pe) {
         status("reading: %s %s\n", in1, in2);
@@ -337,8 +339,8 @@ int ctx_reads(CmdArgs *args)
       if(is_pe) gzclose(data.out2);
 
       total_reads_printed += data.num_of_reads_printed;
-      reads_loaded = stats->total_good_reads + stats->total_bad_reads +
-                     stats->total_dup_reads - init_reads;
+      reads_loaded = stats.total_good_reads + stats.total_bad_reads +
+                     stats.total_dup_reads - init_reads;
 
       status("  Printed %zu / %zu inputs\n",
               data.num_of_reads_printed, reads_loaded);
@@ -351,12 +353,11 @@ int ctx_reads(CmdArgs *args)
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 
-  size_t total_reads = stats->total_good_reads + stats->total_bad_reads +
-                       stats->total_dup_reads;
+  size_t total_reads = stats.total_good_reads + stats.total_bad_reads +
+                       stats.total_dup_reads;
 
   status("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
 
-  seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);

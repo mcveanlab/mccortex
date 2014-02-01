@@ -412,7 +412,9 @@ int ctx_clean(CmdArgs *args)
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
   // Load graph into a single colour
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
@@ -444,7 +446,7 @@ int ctx_clean(CmdArgs *args)
     // files[i].fltr.intocol = 0;
     file_filter_update_intocol(&files[i].fltr, 0);
     files[i].fltr.flatten = true;
-    graph_load(&files[i], gprefs, stats);
+    graph_load(&files[i], gprefs, &stats);
     // files[i].fltr.intocol = tmpinto;
     file_filter_update_intocol(&files[i].fltr, tmpinto);
     files[i].fltr.flatten = tmpflatten;
@@ -543,7 +545,6 @@ int ctx_clean(CmdArgs *args)
   assert(db_graph.ht.unique_kmers == hash_table_count_assigned_nodes(&db_graph.ht));
 
   graph_header_dealloc(&outhdr);
-  seq_loading_stats_free(stats);
 
   free(edge_store);
   free(db_graph.col_covgs);

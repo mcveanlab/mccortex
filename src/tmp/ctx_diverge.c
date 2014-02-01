@@ -34,7 +34,7 @@ typedef struct
 // Method copied from seq_reader.c
 static void load_chrom(const read_t *r, dBGraph *db_graph,
                        int qual_cutoff, int hp_cutoff,
-                       Colour colour, SeqLoadingStats *stats,
+                       Colour colour, LoadingStats *stats,
                        DivergeData *data)
 {
   const uint32_t kmer_size = db_graph->kmer_size;
@@ -87,11 +87,7 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
       prev_or = or;
     }
 
-    // Update contig stats
-    if(stats->readlen_count_array != NULL) {
-      contig_len = MIN2(contig_len, stats->readlen_count_array_size-1);
-      stats->readlen_count_array[contig_len]++;
-    }
+    // Update stats
     stats->total_bases_loaded += contig_len;
     stats->kmers_loaded += contig_len + 1 - kmer_size;
   }
@@ -290,7 +286,8 @@ int ctx_diverge(CmdArgs *args)
                       .kmer_pos = kmer_pos, .wlk = wlk};
 
   // Loading
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
 
   // Graph loading prefs
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
@@ -316,7 +313,6 @@ int ctx_diverge(CmdArgs *args)
   free(db_graph.kmer_paths);
 
   graph_header_dealloc(&gheader);
-  seq_loading_stats_free(stats);
   path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 

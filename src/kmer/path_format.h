@@ -33,7 +33,9 @@ int paths_file_read_header(FILE *fh, PathFileHeader *header,
 // Get min number of colours needed to load the files
 size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files);
 
-boolean paths_merge_needs_tmp(PathFileReader *files, size_t num_files);
+// Get min tmp memory required to load files
+// (size of second largest num_path_bytes iff num_files > 1)
+size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files);
 
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph

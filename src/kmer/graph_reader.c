@@ -380,10 +380,10 @@ static void graph_loading_print_status(const GraphFileReader *file)
 //   stats->num_of_colours_loaded
 //   stats->kmers_loaded
 //   stats->total_bases_read
-//   stats->binaries_loaded
+//   stats->ctx_files_loaded
 
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
-                  SeqLoadingStats *stats)
+                  LoadingStats *stats)
 {
   assert(!prefs.must_exist_in_graph || prefs.must_exist_in_edges != NULL);
 
@@ -514,7 +514,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     stats->unique_kmers += graph->ht.unique_kmers - num_of_kmers_already_loaded;
     for(i = 0; i < load_ncols; i++)
       stats->total_bases_read += hdr->ginfo[i].total_sequence;
-    stats->binaries_loaded++;
+    stats->ctx_files_loaded++;
   }
 
   char parsed_nkmers_str[100], loaded_nkmers_str[100];
@@ -529,7 +529,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 
 size_t graph_load_colour(GraphFileReader *file,
                          const GraphLoadingPrefs prefs,
-                         SeqLoadingStats *stats,
+                         LoadingStats *stats,
                          size_t colour_idx, size_t intocol)
 {
   size_t *tmpcols, tmpncols, tmpinto, newcol;
@@ -700,7 +700,9 @@ size_t graph_files_merge(const char *out_ctx_path,
                                only_load_if_in_edges);
   }
 
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
+
   GraphLoadingPrefs prefs
     = {.db_graph = db_graph,
        .boolean_covgs = false,
@@ -715,7 +717,7 @@ size_t graph_files_merge(const char *out_ctx_path,
 
     if(!kmers_loaded) {
       for(i = 0; i < num_files; i++)
-        graph_load(&files[i], prefs, stats);
+        graph_load(&files[i], prefs, &stats);
     }
 
     hash_table_print_stats(&db_graph->ht);
@@ -743,7 +745,7 @@ size_t graph_files_merge(const char *out_ctx_path,
         // files[i].fltr.intocol = 0;
         file_filter_update_intocol(&files[i].fltr, 0);
         files[i].fltr.flatten = true;
-        graph_load(&files[i], prefs, stats);
+        graph_load(&files[i], prefs, &stats);
         // files[i].fltr.intocol = tmpinto;
         file_filter_update_intocol(&files[i].fltr, tmpinto);
         files[i].fltr.flatten = tmpflatten;
@@ -810,7 +812,7 @@ size_t graph_files_merge(const char *out_ctx_path,
           }
 
           fseek(files[i].fltr.fh, files[i].hdr_size, SEEK_SET);
-          graph_load(&files[i], prefs, stats);
+          graph_load(&files[i], prefs, &stats);
           loaded = true;
 
           // files[i].fltr.intocol = tmpinto;
@@ -837,8 +839,6 @@ size_t graph_files_merge(const char *out_ctx_path,
     graph_write_status(db_graph->ht.unique_kmers, output_colours,
                        out_ctx_path, CTX_GRAPH_FILEFORMAT);
   }
-
-  seq_loading_stats_free(stats);
 
   return db_graph->ht.unique_kmers;
 }

@@ -77,7 +77,7 @@ int ctx_health_check(CmdArgs *args)
 
   // Path Memory
   if(num_pfiles) {
-    tmp_path_mem = paths_merge_needs_tmp(pfiles, num_pfiles) ? path_max_mem : 0;
+    tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
     path_mem = path_max_mem + tmp_path_mem;
   }
 

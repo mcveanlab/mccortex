@@ -34,7 +34,7 @@ typedef struct
 {
   hkey_t *nodes;
   size_t len, capacity;
-  SeqLoadingStats *stats;
+  LoadingStats *stats;
 } EdgeNodeList;
 
 
@@ -58,7 +58,7 @@ void mark_reads(read_t *r1, read_t *r2,
                 uint8_t qoffset1, uint8_t qoffset2, void *ptr)
 {
   (void)qoffset1; (void)qoffset2;
-  SeqLoadingStats *stats = (SeqLoadingStats*)ptr;
+  LoadingStats *stats = (LoadingStats*)ptr;
 
   READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, stats, mark_bkmer);
   if(r2 != NULL) {
@@ -220,7 +220,8 @@ int ctx_subgraph(CmdArgs *args)
   size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity);
   kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
-  SeqLoadingStats *stats = seq_loading_stats_create(0);
+  LoadingStats stats;
+  loading_stats_init(&stats);
 
   // Store edge nodes here
   EdgeNodeList list0, list1, listtmp;
@@ -228,7 +229,7 @@ int ctx_subgraph(CmdArgs *args)
   list1.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
   list0.capacity = list1.capacity = num_of_fringe_nodes;
   list0.len = list1.len = 0;
-  list0.stats = list1.stats = stats;
+  list0.stats = list1.stats = &stats;
 
   //
   // Load graphs
@@ -253,7 +254,7 @@ int ctx_subgraph(CmdArgs *args)
       files[i].fltr.flatten = true;
     }
 
-    graph_load(&files[i], gprefs, stats);
+    graph_load(&files[i], gprefs, &stats);
     // files[i].fltr.intocol = tmpinto;
     file_filter_update_intocol(&files[i].fltr, tmpinto);
     files[i].fltr.flatten = tmpflatten;
@@ -270,7 +271,7 @@ int ctx_subgraph(CmdArgs *args)
   strbuf_insert(&intersect_gname, 0, subgraphstr, strlen(subgraphstr));
   strbuf_append_char(&intersect_gname, '}');
 
-  size_t num_of_binary_kmers = stats->kmers_loaded;
+  size_t num_of_binary_kmers = stats.kmers_loaded;
 
   // Load sequence and mark in first pass
   read_t r1, r2;
@@ -278,9 +279,9 @@ int ctx_subgraph(CmdArgs *args)
     die("Out of memory");
 
   for(i = 0; i < num_seed_files; i++)
-    seq_parse_se(seed_files[i], 0, &r1, &r2, mark_reads, stats);
+    seq_parse_se(seed_files[i], 0, &r1, &r2, mark_reads, &stats);
 
-  size_t num_of_seed_kmers = stats->kmers_loaded - num_of_binary_kmers;
+  size_t num_of_seed_kmers = stats.kmers_loaded - num_of_binary_kmers;
 
   status("Read in %zu seed kmers\n", num_of_seed_kmers);
 
@@ -350,7 +351,6 @@ int ctx_subgraph(CmdArgs *args)
   for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
 
   strbuf_dealloc(&intersect_gname);
-  seq_loading_stats_free(stats);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
