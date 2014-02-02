@@ -14,6 +14,12 @@
 #define DEFAULT_MIN_INS 0
 #define DEFAULT_MAX_INS 500
 
+// seq gap of N bases can be filled by MAX2(0, N±(N*GAP_VARIANCE+GAP_WIGGLE))
+#define GAP_VARIANCE 0.1
+#define GAP_WIGGLE 5
+
+#define MAX_CONTEXT 1000
+
 static const char usage[] =
 "usage: "CMD" thread [options] <out.ctp> <in.ctx>[:cols] [in2.ctx ...]\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"
@@ -31,84 +37,12 @@ static const char usage[] =
 "    --maxIns <ins>             Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
 "    --twoway                   Use two-way gap filling\n"
 "    --oneway                   Use one-way gap filling\n"
+"    --fq_threshold <fq>        FASTQ quality threshold\n"
+"    --fq_offset <qual>         FASTQ quality score offset\n"
+"    --cut_hp <N>               Cut reads afer <N> consecutive bases\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
-"  which colour to load the data into.\n"
-"\n"
-"  Example:\n"
-"    "CMD" thread -m 80G -p 0:Minnie.ctp -p 2:Mickey.ctp \\\n"
-"                 --col 0 --seq2 sample3.1.fq sample3.2.fq \\\n"
-"                 --col 1 --seq sample5.fa \\\n"
-"                 samples.ctp samples.ctx\n"
-"\n"
-"  See `"CMD" pjoin` to combine .ctp files\n";
-
-static void gen_paths_print_task(const GeneratePathsTask *t)
-{
-  int has_p2 = t->file2 != NULL;
-  const char *p1 = t->file1->path, *p2 = has_p2 ? t->file2->path : "";
-  char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
-
-  if(t->fq_cutoff > 0) sprintf(fqCutoff, "%u", t->fq_cutoff);
-  if(t->fq_offset > 0) sprintf(fqOffset, "%u", t->fq_offset);
-  if(t->hp_cutoff > 0) sprintf(hpCutoff, "%u", t->hp_cutoff);
-
-  status("[task] input: %s%s%s", p1, (has_p2 ? ", " : ""), p2);
-  status("  FASTQ offset: %s, threshold: %s; cut homopolymers: %s",
-         fqOffset, fqCutoff, hpCutoff);
-
-  // All one line
-  timestamp();
-  message("  %s-way gap traversal", t->one_way_gap_traverse ? "one" : "two");
-  if(has_p2) {
-    message("; read pair: %s; insert min,max: (%u,%u)",
-            (t->read_pair_FR ? " FR" : "FF"), t->ins_gap_min, t->ins_gap_max);
-  }
-  message("\n");
-}
-
-static void gen_path_task_create(const char *p1, const char *p2,
-                                 size_t col, size_t min_ins, size_t max_ins,
-                                 boolean one_way_bridge,
-                                 uint32_t fq_offset, uint32_t fq_cutoff,
-                                 uint32_t hp_cutoff, GeneratePathsTask *ptr)
-{
-  if(p1[0] == '-')
-    print_usage(usage, "Path appears to be an option: %s", p1);
-  if(p2 != NULL && p2[0] == '-')
-    print_usage(usage, "Path appears to be an option: %s", p2);
-
-  seq_file_t *f1, *f2 = NULL;
-
-  if((f1 = seq_open(p1)) == NULL)
-    die("Cannot read first --seq%s file: %s", p2 == NULL ? "" : "2", p1);
-  if(p2 != NULL && (f2 = seq_open(p2)) == NULL)
-    die("Cannot read second --seq2 file: %s", p2);
-
-  GeneratePathsTask tsk = {.file1 = f1, .file2 = f2,
-                           .ctxcol = 0, .ctpcol = col,
-                           .ins_gap_min = min_ins, .ins_gap_max = max_ins,
-                           .fq_offset = (uint8_t)fq_offset,
-                           .fq_cutoff = (uint8_t)fq_cutoff,
-                           .hp_cutoff = (uint8_t)hp_cutoff,
-                           .read_pair_FR = true,
-                           .one_way_gap_traverse = one_way_bridge};
-
-  memcpy(ptr, &tsk, sizeof(GeneratePathsTask));
-}
-
-static int gen_path_task_cmp(const void *aa, const void *bb)
-{
-  const GeneratePathsTask *a = (const GeneratePathsTask*)aa;
-  const GeneratePathsTask *b = (const GeneratePathsTask*)bb;
-  if(a->ctpcol != b->ctpcol) return (int)a->ctpcol - (int)b->ctpcol;
-  return (a > b ? 1 : (a < b ? -1 : 0));
-}
-
-static void gen_path_tasks_sort(GeneratePathsTask *tasks, size_t n)
-{
-  qsort(tasks, n, sizeof(GeneratePathsTask), gen_path_task_cmp);
-}
+"  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n";
 
 
 static void get_binary_and_colour(const GraphFileReader *files, size_t num_graphs,
@@ -124,8 +58,9 @@ static void get_binary_and_colour(const GraphFileReader *files, size_t num_graph
   die("Colour is greater than sum of graph colours [%zu > %zu]", col, n);
 }
 
+// returns index of next argv
 static int load_args(int argc, char **argv,
-                     GeneratePathsTask *tasks, size_t *num_tasks_ptr)
+                     CorrectReadsInput *tasks, size_t *num_tasks_ptr)
 {
   size_t num_tasks = 0;
   int argi;
@@ -201,10 +136,11 @@ static int load_args(int argc, char **argv,
       if(argi+1 == argc) print_usage(usage, "--seq <in.fa> missing args");
       if(!col_set) die("--seq <in.fa> before --col <colour>");
 
-      gen_path_task_create(argv[argi+1], NULL, col,
-                           min_ins, max_ins, one_way_bridge,
-                           fq_offset, fq_cutoff, hp_cutoff,
-                           &tasks[num_tasks]);
+      correct_reads_input_init(argv[argi+1], NULL, col,
+                               min_ins, max_ins, one_way_bridge,
+                               MAX_CONTEXT, GAP_VARIANCE, GAP_WIGGLE,
+                               fq_offset, fq_cutoff, hp_cutoff,
+                               &tasks[num_tasks]);
 
       num_tasks++;
       col_used = true;
@@ -215,10 +151,11 @@ static int load_args(int argc, char **argv,
       if(argi+2 >= argc) print_usage(usage, "--seq2 <in.1.fq> <in.2.fq> missing args");
       if(!col_set) die("--seq2 <in1.fa> <in2.fa> before --col <colour>");
 
-      gen_path_task_create(argv[argi+1], argv[argi+2], col,
-                           min_ins, max_ins, one_way_bridge,
-                           fq_offset, fq_cutoff, hp_cutoff,
-                           &tasks[num_tasks]);
+      correct_reads_input_init(argv[argi+1], argv[argi+2], col,
+                               min_ins, max_ins, one_way_bridge,
+                               MAX_CONTEXT, GAP_VARIANCE, GAP_WIGGLE,
+                               fq_offset, fq_cutoff, hp_cutoff,
+                               &tasks[num_tasks]);
 
       num_tasks++;
       col_used = true;
@@ -232,7 +169,7 @@ static int load_args(int argc, char **argv,
   if(!col_used)
     print_usage(usage, "--seq or --seq2 must follow last --col <col>");
 
-  gen_path_tasks_sort(tasks, num_tasks);
+  correct_reads_input_sort(tasks, num_tasks);
 
   *num_tasks_ptr = num_tasks;
   return argi;
@@ -246,14 +183,14 @@ int ctx_thread(CmdArgs *args)
   if(argc < 2) print_usage(usage, NULL);
 
   size_t max_tasks = (size_t)argc/2;
-  GeneratePathsTask *tasks = malloc2(max_tasks * sizeof(GeneratePathsTask));
+  CorrectReadsInput *tasks = malloc2(max_tasks * sizeof(CorrectReadsInput));
   size_t i, j, num_tasks, num_work_threads = args->max_work_threads;
   int argi; // arg index to continue from
 
   argi = load_args(argc, argv, tasks, &num_tasks);
 
   for(i = 0; i < num_tasks; i++)
-    gen_paths_print_task(&tasks[i]);
+    correct_reads_input_print(&tasks[i]);
 
   if(gen_paths_print_contigs && num_work_threads > 1) {
     warn("--printcontigs with >1 threads is a bad idea.");

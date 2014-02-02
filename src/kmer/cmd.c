@@ -5,6 +5,20 @@
 
 #include "mem_size.h" // in libs/misc/
 
+//
+// DEV: here is a possible way of storing commands
+typedef struct
+{
+  const char *cmd, *optargs, *reqargs, *usage;
+  int (*func)(CmdArgs *cmd_args);
+} CtxCmd;
+
+CtxCmd cmdobjs[] = {
+  {.cmd = "build", .func = ctx_build, .optargs = "tpmn", .reqargs = ""},
+  {.cmd = "view", .func = ctx_view, .optargs = "tpmn", .reqargs = ""}};
+//
+//
+
 const char *cmds[NUM_CMDS]
   = {"build", "view", "healthcheck", "clean", "join", "supernodes", "subgraph",
      "reads", "extend", "contigs", "inferedges", "thread", "pview", "pjoin",

@@ -6,16 +6,7 @@
 #include "cortex_types.h"
 #include "db_graph.h"
 #include "loading_stats.h"
-
-typedef struct
-{
-  seq_file_t *const file1, *const file2;
-  const Colour ctpcol, ctxcol;
-  const uint32_t ins_gap_min, ins_gap_max;
-  const uint8_t fq_offset, fq_cutoff, hp_cutoff;
-  const boolean read_pair_FR; // set to false if reads are FF
-  const boolean one_way_gap_traverse; // set to false for more error prone algo
-} GeneratePathsTask;
+#include "correct_reads_input.h"
 
 typedef struct GenPathWorker GenPathWorker;
 
@@ -28,11 +19,11 @@ GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph);
 void gen_paths_workers_dealloc(GenPathWorker *mem, size_t n);
 
 // Add a single contig using a given worker
-void gen_path_worker_seq(GenPathWorker *wrkr, const GeneratePathsTask *task,
+void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectReadsInput *task,
                          const char *seq, size_t len);
 
 // workers array must be at least as long as tasks
-void generate_paths(GeneratePathsTask *tasks, size_t num_tasks,
+void generate_paths(const CorrectReadsInput *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers);
 
 // Save gap size distribution

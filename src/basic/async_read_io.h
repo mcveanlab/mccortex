@@ -25,6 +25,9 @@ void asynciodata_dealloc(AsyncIOData *iod);
 
 typedef struct AsyncIOWorker AsyncIOWorker;
 
+void asynciodata_pool_init(void *el, size_t idx, void *args);
+void asynciodata_pool_destroy(void *el, size_t idx, void *args);
+
 // Pool is of type AsyncIOData
 // Start loading into a pool
 AsyncIOWorker* asyncio_read_start(MsgPool *pool,
@@ -36,5 +39,9 @@ AsyncIOWorker* asyncio_read_start(MsgPool *pool,
 // frees workers memory
 // Each worker is a thread reading from a file (or pair of files)
 void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers);
+
+void asyncio_run_threads(MsgPool *pool,
+                         AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
+                         void* (*job)(void*), void *args, size_t num_readers);
 
 #endif /* ASYNC_READ_IO_H_ */

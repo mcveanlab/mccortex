@@ -112,6 +112,7 @@ void db_alignment_from_reads(dBAlignment *alignment,
 size_t db_alignment_next_gap(const dBAlignment *aln, size_t start)
 {
   size_t i, end = aln->nodes.len;
+  if(end == 0) return 0;
 
   if(aln->used_r1 && aln->used_r2 && start < aln->r2strtidx)
     end = aln->r2strtidx;

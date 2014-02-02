@@ -5,6 +5,10 @@
 #include "graph_walker.h"
 #include "packed_path.h"
 
+// hash functions
+#include "jenkins.h"
+#include "twang.h"
+
 #ifdef CTXVERBOSE
 #define DEBUG_WALKER 1
 #endif
@@ -181,39 +185,6 @@ void graph_walker_finish(GraphWalker *wlk)
 //
 // Hash function
 //
-
-// 5 ops per byte
-static inline uint32_t jenkins_mix(uint32_t h, uint8_t x) {
-  h += x; h += (h<<10); h ^= (h>>6); return h;
-}
-
-static inline uint32_t jenkins_finish(uint32_t h) {
-  h += (h<<3); h ^= (h>>11); h += (h<<15); return h;
-}
-
-// 2 ops per byte
-#define fast_mix(h,x) ({ (h) = (h) * 37 + (x); (h); })
-
-// 5*bytes+6 ops [32bit => 26, 64 => 46]
-static inline uint32_t jenkins_one_at_a_time_hash(const uint8_t *key, size_t len)
-{
-  uint32_t hash, i;
-  for(hash = i = 0; i < len; ++i) hash = jenkins_mix(hash, key[i]);
-  return jenkins_finish(hash);
-}
-
-// https://gist.github.com/badboy/6267743
-// 12 ops
-static inline uint32_t twang_hash64to32(uint64_t key)
-{
-  key = (~key) + (key << 18); // key = (key << 18) - key - 1;
-  key = key ^ (key >> 31);
-  key = key * 21; // key = (key + (key << 2)) + (key << 4);
-  key = key ^ (key >> 11);
-  key = key + (key << 6);
-  key = key ^ (key >> 22);
-  return (uint32_t)key;
-}
 
 // Hash a path using its length, sequence and current offset/position
 static inline uint32_t follow_path_hash(const FollowPath *path, uint32_t hash32)

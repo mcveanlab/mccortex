@@ -25,7 +25,7 @@ void asynciodata_dealloc(AsyncIOData *iod)
   seq_read_dealloc(&iod->r2);
 }
 
-static void asynciodata_pool_init(void *el, size_t idx, void *args)
+void asynciodata_pool_init(void *el, size_t idx, void *args)
 {
   (void)idx; (void)args;
   // status("alloc: %zu %p", idx, el);
@@ -34,7 +34,7 @@ static void asynciodata_pool_init(void *el, size_t idx, void *args)
   memcpy(el, &d, sizeof(AsyncIOData));
 }
 
-static void asynciodata_pool_destroy(void *el, size_t idx, void *args)
+void asynciodata_pool_destroy(void *el, size_t idx, void *args)
 {
   (void)idx; (void)args;
   // status("destruct: %zu %p", idx, el);
@@ -111,10 +111,9 @@ AsyncIOWorker* asyncio_read_start(MsgPool *pool,
 
   // Initiate all reads in the pool
   assert(pool->elsize == sizeof(AsyncIOData));
-  msgpool_iterate(pool, asynciodata_pool_init, NULL);
 
   // Create workers
-  AsyncIOWorker *workers = malloc(num_tasks * sizeof(AsyncIOWorker));
+  AsyncIOWorker *workers = malloc2(num_tasks * sizeof(AsyncIOWorker));
 
   // Keep a counter of how many threads are still running
   // last thread to finish closes the pool
@@ -159,11 +158,50 @@ void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
   msgpool_close(pool);
   msgpool_wait_til_empty(pool);
 
-  // Free memory in the pool
-  assert(pool->elsize == sizeof(AsyncIOData));
-  msgpool_iterate(pool, asynciodata_pool_destroy, NULL);
-
   for(i = 0; i < num_workers; i++) async_io_worker_dealloc(&workers[i]);
   free(workers);
 }
 
+void asyncio_run_threads(MsgPool *pool,
+                         AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
+                         void* (*job)(void*), void *args, size_t num_readers)
+{
+  size_t i; int rc;
+
+  if(!num_inputs) return;
+  assert(num_readers > 0);
+
+  status("[asyncio] Threads: %zu input %zu reading", num_inputs, num_readers);
+
+  // Start async io reading
+  AsyncIOWorker *asyncio_workers;
+  asyncio_workers = asyncio_read_start(pool, asyncio_tasks, num_inputs);
+
+  // Run the workers until the pool is closed
+  // Thread attribute joinable
+  pthread_attr_t thread_attr;
+  pthread_attr_init(&thread_attr);
+  pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
+
+  pthread_t *threads = malloc2(num_readers * sizeof(pthread_t));
+
+  // Start threads
+  for(i = 0; i < num_readers; i++) {
+    rc = pthread_create(&threads[i], &thread_attr, job, &args[i]);
+    if(rc != 0) die("Creating thread failed");
+  }
+
+  // Finished with thread attribute
+  pthread_attr_destroy(&thread_attr);
+
+  // Join threads
+  for(i = 0; i < num_readers; i++) {
+    rc = pthread_join(threads[i], NULL);
+    if(rc != 0) die("Joining thread failed");
+  }
+
+  free(threads);
+
+  // Finish with the async io (waits until queue is empty)
+  asyncio_read_finish(asyncio_workers, num_readers);
+}

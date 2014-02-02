@@ -5,6 +5,9 @@
 #include "db_graph.h"
 #include "db_node.h"
 
+#include "path_file_filter.h"
+#include "graph_file_filter.h"
+
 typedef struct {
   Colour *ctxcols, *ctpcols;
   size_t n;
@@ -20,6 +23,11 @@ static inline void gp_dealloc(GraphPathPairing *gp) {
   free(gp->ctxcols);
   gp->n = 0; gp->ctxcols = gp->ctpcols = NULL;
 }
+
+// Similar to path_file_filter.c:path_file_load_check()
+// Check kmer size matches and sample names match
+void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
+                             const PathFileReader *paths, size_t num_paths);
 
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>

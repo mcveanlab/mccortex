@@ -94,4 +94,19 @@ static inline uint64_t twang_unmix64_alt(uint64_t key) {
   return key;
 }
 
+// This bit is not facebook (C)
+// https://gist.github.com/badboy/6267743
+// 12 ops
+static inline uint32_t twang_hash64to32(uint64_t key)
+{
+  key = (~key) + (key << 18); // key = (key << 18) - key - 1;
+  key = key ^ (key >> 31);
+  key = key * 21; // key = (key + (key << 2)) + (key << 4);
+  key = key ^ (key >> 11);
+  key = key + (key << 6);
+  key = key ^ (key >> 22);
+  return (uint32_t)key;
+}
+
+
 #endif /* TWANG_H_ */

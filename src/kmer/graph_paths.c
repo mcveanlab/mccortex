@@ -5,6 +5,77 @@
 #include "packed_path.h"
 #include "bit_macros.h"
 
+
+// Similar to path_file_filter.c:path_file_load_check()
+// Check kmer size matches and sample names match
+void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
+                             const PathFileReader *paths, size_t num_paths)
+{
+  size_t g, p, kmer_size;
+  size_t ctx_max_cols, ctp_max_cols;
+  size_t ctx_max_kmers, ctp_max_kmers;
+
+  if(num_graphs) kmer_size = graphs[0].hdr.kmer_size;
+  else if(num_paths) kmer_size = paths[0].hdr.kmer_size;
+  else return;
+
+  for(g = 0; g < num_graphs; g++) {
+    if(graphs[g].hdr.kmer_size != kmer_size) {
+      die("Kmer-size doesn't match between files [%zu vs %u]: %s",
+          kmer_size, graphs[g].hdr.kmer_size, graphs[g].fltr.orig_path.buff);
+    }
+    ctx_max_cols = MAX2(ctx_max_cols, graph_file_usedcols(&graphs[g]));
+    ctx_max_kmers = MAX2(ctx_max_kmers, graphs[g].hdr.num_of_kmers);
+  }
+
+  for(p = 0; p < num_paths; p++) {
+    if(paths[p].hdr.kmer_size != kmer_size) {
+      die("Kmer-size doesn't match between files [%zu vs %u]: %s",
+          kmer_size, paths[p].hdr.kmer_size, paths[p].fltr.orig_path.buff);
+    }
+    ctp_max_cols = MAX2(ctp_max_cols, path_file_usedcols(&paths[p]));
+    ctp_max_kmers = MAX2(ctp_max_kmers, paths[p].hdr.num_kmers_with_paths);
+  }
+
+  if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE) {
+    die("kmer size outside of compile limit (%i-%i)",
+        MIN_KMER_SIZE, MAX_KMER_SIZE);
+  }
+
+  if(ctp_max_kmers > ctx_max_kmers)
+    die("More kmers in path files than in graph files!");
+
+  if(ctp_max_cols > ctx_max_cols)
+    die("More colours in path files than in graph files!");
+
+  // Check sample names
+  size_t pinto, pfrom, ginto, gfrom, i, j;
+  StrBuf *pname, *gname;
+
+  // Ugly loops I'm afraid
+  // number of paths / graphs and ultimately number of colours should be low
+  for(p = 0; p < num_paths; p++) {
+    for(i = 0; i < paths[p].fltr.ncols; i++) {
+      pinto = path_file_intocol(&paths[p], i);
+      pfrom = path_file_fromcol(&paths[p], i);
+      pname = &paths[p].hdr.sample_names[pfrom];
+      for(g = 0; g < num_graphs; g++) {
+        for(j = 0; j < graphs[g].fltr.ncols; j++) {
+          ginto = graph_file_intocol(&graphs[g], j);
+          gfrom = graph_file_fromcol(&graphs[g], j);
+          gname = &graphs[g].hdr.ginfo[gfrom].sample_name;
+          if(pinto == ginto && strcmp(pname->buff, gname->buff) != 0) {
+            die("Sample names don't match\n%s:%zu%s\n%s:%zu%s\n",
+                graphs[g].fltr.orig_path.buff, graphs[g].fltr.cols[j], gname->buff,
+                paths[p].fltr.orig_path.buff, paths[p].fltr.cols[i], pname->buff);
+          }
+        }
+      }
+    }
+  }
+}
+
+
 //
 // Thread safe wrapper for path_store [mt for multithreaded]
 //

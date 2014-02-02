@@ -286,7 +286,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
   // Start async io reading
   AsyncIOWorker *asyncio_workers;
-  AsyncIOReadTask *async_tasks = malloc(num_files * sizeof(AsyncIOReadTask));
+  AsyncIOReadTask *async_tasks = malloc2(num_files * sizeof(AsyncIOReadTask));
 
   for(i = 0; i < num_files; i++) {
     files[i].idx = i;

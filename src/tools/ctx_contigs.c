@@ -381,6 +381,7 @@ int ctx_contigs(CmdArgs *args)
       die("Cannot open output file: %s", args->output_file);
   }
 
+  // Allocate
   dBGraph db_graph;
   db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
 
@@ -392,6 +393,8 @@ int ctx_contigs(CmdArgs *args)
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
   memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
+  path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
+
   uint64_t *visited = no_reseed ? calloc2(nword64, sizeof(uint64_t)) : NULL;
 
   GraphWalker wlk;
@@ -399,8 +402,6 @@ int ctx_contigs(CmdArgs *args)
 
   RepeatWalker rptwlk;
   rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
-
-  path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
   // Load graph
   LoadingStats stats;
@@ -523,13 +524,13 @@ int ctx_contigs(CmdArgs *args)
 
   contig_data_dealloc(&cd);
 
+  rpt_walker_dealloc(&rptwlk);
+  graph_walker_dealloc(&wlk);
+
   if(visited != NULL) free(visited);
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
   free(db_graph.kmer_paths);
-
-  rpt_walker_dealloc(&rptwlk);
-  graph_walker_dealloc(&wlk);
   path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 

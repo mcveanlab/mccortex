@@ -5,7 +5,7 @@
 #include "path_store.h"
 #include "generate_paths.h"
 
-static void add_paths(dBGraph *graph, GeneratePathsTask *task,
+static void add_paths(dBGraph *graph, CorrectReadsInput *task,
                       GenPathWorker *wrkrs, const char *seq,
                       size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
 {
@@ -63,7 +63,7 @@ void test_paths()
   build_graph_from_str_mt(&graph, 0, seq3, strlen(seq3));
 
   // Load paths
-  GeneratePathsTask task = {.file1 = NULL, .file2 = NULL,
+  CorrectReadsInput task = {.file1 = NULL, .file2 = NULL,
                             .ctpcol = 0, .ctxcol = 0,
                             .ins_gap_min = 0, .ins_gap_max = 100,
                             .fq_offset = 0, .fq_cutoff = 0, .hp_cutoff = 0,
@@ -110,9 +110,9 @@ static inline void path_list_alloc(PathList *plist)
   plist->npaths = plist->nbases = 0;
   plist->npath_cap = 512;
   plist->nbases_cap = 1024;
-  plist->len_orients = malloc(plist->npath_cap * sizeof(*plist->len_orients));
-  plist->order = malloc(plist->npath_cap * sizeof(*plist->order));
-  plist->bases = malloc(plist->nbases_cap * sizeof(*plist->bases));
+  plist->len_orients = malloc2(plist->npath_cap * sizeof(*plist->len_orients));
+  plist->order = malloc2(plist->npath_cap * sizeof(*plist->order));
+  plist->bases = malloc2(plist->nbases_cap * sizeof(*plist->bases));
 }
 
 static inline void path_list_init(PathList *plist) {
@@ -132,12 +132,12 @@ static inline void add_path(PathList *plist,
 
   if(plist->nbases + len > plist->nbases_cap) {
     plist->nbases_cap = roundup2pow(plist->nbases + len);
-    plist->bases = realloc(plist->bases, plist->nbases_cap*sizeof(*plist->bases));
-    plist->order = realloc(plist->order, plist->nbases_cap*sizeof(*plist->order));
+    plist->bases = realloc2(plist->bases, plist->nbases_cap*sizeof(*plist->bases));
+    plist->order = realloc2(plist->order, plist->nbases_cap*sizeof(*plist->order));
   }
   if(plist->npaths + 1 > plist->npath_cap) {
     plist->npath_cap *= 2;
-    plist->len_orients = realloc(plist->len_orients, plist->npath_cap);
+    plist->len_orients = realloc2(plist->len_orients, plist->npath_cap);
   }
 
   plist->len_orients[plist->npaths++] = merged;
