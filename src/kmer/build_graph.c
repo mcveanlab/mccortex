@@ -165,10 +165,40 @@ static void load_read(const read_t *r, dBGraph *db_graph,
   else stats->total_good_reads++;
 }
 
-static void build_graph_reads(const read_t *r1, const read_t *r2,
+static boolean check_pcr_dupe(read_t *r1, read_t *r2,
+                              uint8_t fq_cutoff1, uint8_t fq_cutoff2,
+                              uint8_t hp_cutoff,
+                              boolean remove_dups_se, boolean remove_dups_pe,
+                              ReadMateDir matedir, dBGraph *db_graph)
+{
+  if(!remove_dups_se && !remove_dups_pe) return false;
+
+  boolean samdupe1, samdupe2;
+  samdupe1 = (r1->from_sam && r1->bam->core.flag & BAM_FDUP);
+  samdupe2 = (r2 == NULL || (r2->from_sam && r2->bam->core.flag & BAM_FDUP));
+
+  if(remove_dups_pe && samdupe1 && samdupe2) return true;
+  if(remove_dups_se && samdupe1) return true;
+
+  seq_reader_orient_mp_FF(r1, r2, matedir);
+
+  // Use first kmer from each read to check if duplicate
+  if(remove_dups_pe && r2 != NULL &&
+     !seq_reads_are_novel(r1, r2, fq_cutoff1, fq_cutoff2, hp_cutoff, db_graph))
+    return true;
+
+  if(remove_dups_se && r2 == NULL &&
+     !seq_read_is_novel(r1, db_graph, fq_cutoff1, hp_cutoff))
+    return true;
+
+  return false;
+}
+
+static void build_graph_reads(read_t *r1, read_t *r2,
                               uint8_t fq_offset1, uint8_t fq_offset2,
                               uint8_t fq_cutoff, uint8_t hp_cutoff,
                               boolean remove_dups_se, boolean remove_dups_pe,
+                              ReadMateDir matedir,
                               LoadingStats *stats, size_t colour,
                               dBGraph *db_graph)
 {
@@ -183,26 +213,15 @@ static void build_graph_reads(const read_t *r1, const read_t *r2,
     fq_cutoff2 += fq_offset2;
   }
 
-  boolean samdupe1, samdupe2;
-  samdupe1 = r1->from_sam && r1->bam->core.flag & BAM_FDUP;
-  samdupe2 = r2 == NULL || (r2->from_sam && r2->bam->core.flag & BAM_FDUP);
-
-  if((samdupe1 && samdupe2) ||
-     (r2 != NULL && remove_dups_pe &&
-      !seq_reads_are_novel(r1, r2, fq_cutoff1, fq_cutoff2, hp_cutoff, db_graph)) ||
-     (r2 == NULL && remove_dups_se &&
-      !seq_read_is_novel(r1, db_graph, fq_cutoff1, hp_cutoff)))
+  if(check_pcr_dupe(r1, r2, fq_cutoff1, fq_cutoff2, hp_cutoff,
+                    remove_dups_se, remove_dups_pe, matedir, db_graph))
   {
     stats->total_dup_reads += (r2 == NULL ? 1 : 2);
     return;
   }
 
   load_read(r1, db_graph, fq_cutoff1, hp_cutoff, colour, stats);
-
-  if(r2 != NULL)
-  {
-    load_read(r2, db_graph, fq_cutoff2, hp_cutoff, colour, stats);
-  }
+  if(r2 != NULL) load_read(r2, db_graph, fq_cutoff2, hp_cutoff, colour, stats);
 }
 
 // pthread method, loop: reads from pool, add to graph
@@ -217,7 +236,7 @@ static void* grab_reads_from_pool(void *ptr)
     task = (BuildGraphTask*)data.ptr;
     build_graph_reads(&data.r1, &data.r2, data.fq_offset1, data.fq_offset2,
                       task->fq_cutoff, task->hp_cutoff,
-                      task->remove_dups_se, task->remove_dups_pe,
+                      task->remove_dups_se, task->remove_dups_pe, task->matedir,
                       &wrkr->file_stats[task->idx], task->colour, wrkr->db_graph);
   }
 

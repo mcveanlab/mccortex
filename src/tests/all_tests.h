@@ -29,9 +29,10 @@ void test_util();
 // packed_path_tests.c
 void test_packed_path();
 
-// Not finished
 // path_tests.c
 void test_paths();
-// void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2);
+
+// corrected_aln_tests.c
+void test_corrected_aln();
 
 #endif  /* ALL_TESTS_H_ */

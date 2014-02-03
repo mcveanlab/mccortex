@@ -11,15 +11,6 @@
 #include "generate_paths.h"
 #include "graph_paths.h"
 
-#define DEFAULT_MIN_INS 0
-#define DEFAULT_MAX_INS 500
-
-// seq gap of N bases can be filled by MAX2(0, N±(N*GAP_VARIANCE+GAP_WIGGLE))
-#define GAP_VARIANCE 0.1
-#define GAP_WIGGLE 5
-
-#define MAX_CONTEXT 1000
-
 const char thread_usage[] =
 "usage: "CMD" thread [options] <out.ctp> <in.ctx>[:cols] [in2.ctx ...]\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"
@@ -41,6 +32,7 @@ const char thread_usage[] =
 "    --fq_offset <qual>         FASTQ quality score offset\n"
 "    --cut_hp <N>               Cut reads afer <N> consecutive bases\n"
 "    --printcontigs             Print contigs (for testing)"
+"    --FR --FF --RF --RR    Mate pair orientation [default: FR] (used with --keep_pcr)\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n";
@@ -60,138 +52,22 @@ static void get_binary_and_colour(const GraphFileReader *files, size_t num_gfile
   die("Colour is greater than sum of graph colours [%zu > %zu]", col, n);
 }
 
-// returns index of next argv
-static int load_args(int argc, char **argv,
-                     CorrectReadsInput *tasks, size_t *num_tasks_ptr)
-{
-  size_t num_tasks = 0;
-  int argi;
-  size_t min_ins = DEFAULT_MIN_INS, max_ins = DEFAULT_MAX_INS;
-  uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
-  boolean one_way_bridge = true;
-  boolean col_set = false, col_used = false;
-  size_t col;
-
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
-  {
-    if(strcmp(argv[argi],"--printcontigs") == 0)
-    {
-      // gen_paths_print_contigs is defined in add_read_paths.h
-      gen_paths_print_contigs = true;
-    }
-    else if(strcmp(argv[argi],"--fq_threshold") == 0) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--fq_threshold <qual> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
-        die("Invalid --fq_threshold argument: %s", argv[argi+1]);
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--fq_offset") == 0) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--fq_offset <offset> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
-        die("Invalid --fq_offset argument: %s", argv[argi+1]);
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--cut_hp") == 0) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--cut_hp <len> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
-        die("Invalid --cut_hp argument: %s", argv[argi+1]);
-      if(hp_cutoff > UINT8_MAX)
-        die("--cut_hp <hp> cannot be greater than %i", UINT8_MAX);
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--col") == 0)
-    {
-      if(argi+2 >= argc) cmd_print_usage("--col <colour> requires an arg");
-      if(col_set && !col_used)
-        cmd_print_usage("--seq or --seq2 must follow --col");
-      if(!parse_entire_size(argv[argi+1], &col))
-        cmd_print_usage("--col <colour> requires integers >= 0");
-      col_set = true;
-      col_used = false;
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--minIns") == 0)
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[++argi], &min_ins))
-        cmd_print_usage("--minIns <bp> requires a positive integer arg");
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--maxIns") == 0)
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[++argi], &max_ins))
-        cmd_print_usage("--maxIns <bp> requires a positive integer arg");
-      if(max_ins < 20)
-        warn("--maxGap < 20 seems very low!");
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--oneway") == 0) {
-      one_way_bridge = true;
-    }
-    else if(strcasecmp(argv[argi],"--twoway") == 0) {
-      one_way_bridge = false;
-    }
-    else if(strcmp(argv[argi],"--seq") == 0)
-    {
-      if(argi+1 == argc) cmd_print_usage("--seq <in.fa> missing args");
-      if(!col_set) die("--seq <in.fa> before --col <colour>");
-
-      correct_reads_input_init(argv[argi+1], NULL, col,
-                               min_ins, max_ins, one_way_bridge,
-                               MAX_CONTEXT, GAP_VARIANCE, GAP_WIGGLE,
-                               fq_offset, fq_cutoff, hp_cutoff,
-                               &tasks[num_tasks]);
-
-      num_tasks++;
-      col_used = true;
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--seq2") == 0)
-    {
-      if(argi+2 >= argc)
-        cmd_print_usage("--seq2 <in.1.fq> <in.2.fq> missing args");
-      if(!col_set) die("--seq2 <in1.fa> <in2.fa> before --col <colour>");
-
-      correct_reads_input_init(argv[argi+1], argv[argi+2], col,
-                               min_ins, max_ins, one_way_bridge,
-                               MAX_CONTEXT, GAP_VARIANCE, GAP_WIGGLE,
-                               fq_offset, fq_cutoff, hp_cutoff,
-                               &tasks[num_tasks]);
-
-      num_tasks++;
-      col_used = true;
-      argi += 2;
-    }
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
-  }
-
-  if(num_tasks == 0)
-    cmd_print_usage("need at least one: --col <c> --seq[2] <in> [in2]");
-  if(!col_used)
-    cmd_print_usage("--seq or --seq2 must follow last --col <col>");
-
-  correct_reads_input_sort(tasks, num_tasks);
-
-  *num_tasks_ptr = num_tasks;
-  return argi;
-}
-
 int ctx_thread(CmdArgs *args)
 {
   int argc = args->argc;
   char **argv = args->argv;
 
   size_t max_tasks = (size_t)argc/2;
-  CorrectReadsInput *tasks = malloc2(max_tasks * sizeof(CorrectReadsInput));
+  CorrectAlnReadsTask *tasks = malloc2(max_tasks * sizeof(CorrectAlnReadsTask));
   size_t i, j, num_tasks, num_work_threads = args->max_work_threads;
   int argi; // arg index to continue from
 
-  argi = load_args(argc, argv, tasks, &num_tasks);
+  argi = correct_reads_parse(argc, argv, tasks, &num_tasks, true, false);
 
-  for(i = 0; i < num_tasks; i++)
+  for(i = 0; i < num_tasks; i++) {
+    tasks[i].crt_params.ctxcol = 0;
     correct_reads_input_print(&tasks[i]);
+  }
 
   if(gen_paths_print_contigs && num_work_threads > 1) {
     warn("--printcontigs with >1 threads is a bad idea.");
@@ -242,11 +118,11 @@ int ctx_thread(CmdArgs *args)
   size_t max_gap_limit = 0;
 
   for(i = 0; i < num_tasks; i++) {
-    max_gap_limit = MAX2(max_gap_limit, tasks[i].ins_gap_max);
+    max_gap_limit = MAX2(max_gap_limit, tasks[i].crt_params.ins_gap_max);
 
-    if(tasks[i].ctpcol >= ctx_total_cols) {
+    if(tasks[i].crt_params.ctpcol >= ctx_total_cols) {
       cmd_print_usage("--col <C> >= number of path colours [%zu >= %zu]",
-                      tasks[i].ctpcol, ctx_total_cols);
+                      tasks[i].crt_params.ctpcol, ctx_total_cols);
     }
   }
 
@@ -366,7 +242,7 @@ int ctx_thread(CmdArgs *args)
   for(start = 0; start < num_tasks; start = end, prev_ctpcol = ctpcol)
   {
     // Load graph
-    ctpcol = tasks[start].ctpcol;
+    ctpcol = tasks[start].crt_params.ctpcol;
 
     if(ctpcol != prev_ctpcol)
     {
@@ -385,7 +261,7 @@ int ctx_thread(CmdArgs *args)
     // Get list of input files to read
     end = start+1;
     while(end < num_tasks && end-start < args->max_io_threads &&
-          tasks[end].ctpcol == ctpcol) end++;
+          tasks[end].crt_params.ctpcol == ctpcol) end++;
 
     generate_paths(tasks+start, end-start, workers, num_work_threads);
   }

@@ -7,7 +7,15 @@
 #include "db_alignment.h"
 #include "graph_walker.h"
 #include "repeat_walker.h"
-#include "correct_reads_input.h"
+
+typedef struct
+{
+  Colour ctpcol, ctxcol;
+  uint32_t ins_gap_min, ins_gap_max;
+  boolean one_way_gap_traverse; // set to false for more error prone algo
+  uint32_t max_context, gap_wiggle;
+  float gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
+} CorrectAlnParam;
 
 typedef struct
 {
@@ -17,7 +25,7 @@ typedef struct
 
   // Alignment
   const dBAlignment *aln;
-  CorrectReadsInput input;
+  CorrectAlnParam params;
 
   // Current State
   //
@@ -45,7 +53,7 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph);
 void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr);
 
 void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
-                            const CorrectReadsInput *input);
+                            CorrectAlnParam params);
 
 // DEV: add option to extend
 // Returns NULL if end of alignment

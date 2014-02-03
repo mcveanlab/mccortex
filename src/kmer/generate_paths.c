@@ -14,6 +14,7 @@
 #include "db_alignment.h"
 #include "correct_alignment.h"
 #include "async_read_io.h"
+#include "seq_reader.h"
 
 //
 // Multithreaded code to add paths to the graph from sequence data
@@ -31,7 +32,7 @@ struct GenPathWorker
   // We take jobs from the pool
   MsgPool *pool;
   AsyncIOData data; // current data
-  CorrectReadsInput task; // current task
+  CorrectAlnReadsTask task; // current task
   LoadingStats stats;
 
   dBAlignment aln;
@@ -155,7 +156,8 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      GenPathWorker *wrkr)
 {
   size_t i, num_added = 0;
-  size_t ctxcol = wrkr->task.ctxcol, ctpcol = wrkr->task.ctpcol;
+  size_t ctxcol = wrkr->task.crt_params.ctxcol;
+  size_t ctpcol = wrkr->task.crt_params.ctpcol;
 
   dBNode node;
   size_t start_mn, start_pl, pos;
@@ -326,7 +328,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
 
   const dBNode *nodes = contig->data;
   const size_t contig_len = contig->len;
-  const size_t ctxcol = wrkr->task.ctxcol;
+  const size_t ctxcol = wrkr->task.crt_params.ctxcol;
 
   for(i = 0; i < contig_len; i++)
   {
@@ -384,8 +386,8 @@ static void reads_to_paths(GenPathWorker *wrkr)
   uint8_t hp_cutoff = wrkr->task.hp_cutoff;
 
   // Second read is in reverse orientation - need in forward
-  if(r2 != NULL && wrkr->task.read_pair_FR)
-    seq_read_reverse_complement(r2);
+  if(r2 != NULL)
+    seq_reader_orient_mp_FF_or_RR(r1, r2, wrkr->task.matedir);
 
   // Update stats
   if(r2 == NULL) wrkr->stats.num_se_reads++;
@@ -399,7 +401,7 @@ static void reads_to_paths(GenPathWorker *wrkr)
   // db_alignment_print(&wrkr->aln, wrkr->db_graph);
 
   // Correct sequence errors in the alignment
-  correct_alignment_init(&wrkr->corrector, &wrkr->aln, &wrkr->task);
+  correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->task.crt_params);
 
   dBNodeBuffer *nbuf;
   while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL)
@@ -415,14 +417,14 @@ static void* generate_paths_worker(void *ptr)
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
     // status("read: %s %s", data.r1.name.b, data.r2.name.b);
     wrkr->data = data;
-    memcpy(&wrkr->task, data.ptr, sizeof(CorrectReadsInput));
+    memcpy(&wrkr->task, data.ptr, sizeof(CorrectAlnReadsTask));
     reads_to_paths(wrkr);
   }
 
   pthread_exit(NULL);
 }
 
-void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectReadsInput *task,
+void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectAlnReadsTask *task,
                          const char *seq, size_t len)
 {
   read_t *r1 = &wrkr->data.r1, *r2 = &wrkr->data.r2;
@@ -440,12 +442,12 @@ void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectReadsInput *task,
   wrkr->data.ptr = NULL;
 
   // Copy task to worker
-  memcpy(&wrkr->task, task, sizeof(CorrectReadsInput));
+  memcpy(&wrkr->task, task, sizeof(CorrectAlnReadsTask));
 
   reads_to_paths(wrkr);
 }
 
-void generate_paths(CorrectReadsInput *tasks, size_t num_inputs,
+void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {
   size_t i;

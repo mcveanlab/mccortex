@@ -14,18 +14,9 @@
 #include "correct_reads_input.h"
 #include "async_read_io.h"
 #include "loading_stats.h"
-
-#define DEFAULT_MIN_INS 0
-#define DEFAULT_MAX_INS 500
-
-// seq gap of N bases can be filled by MAX2(0, N±(N*GAP_VARIANCE+GAP_WIGGLE))
-#define GAP_VARIANCE 0.1
-#define GAP_WIGGLE 5
-
-#define MAX_CONTEXT 1000
+#include "seq_reader.h"
 
 // DEV: add back lost bases from edges of contigs
-// DEV: add to ctx31 command
 
 const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx> [...]\n"
@@ -42,6 +33,7 @@ const char correct_usage[] =
 "    --fq_threshold <fq>      FASTQ quality threshold\n"
 "    --fq_offset <qual>       FASTQ quality score offset\n"
 "    --cut_hp <N>             Cut reads afer <N> consecutive bases\n"
+"    --FR --FF --RF           Mate pair orientation [default: FR]\n"
 "\n"
 " --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
 " --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n";
@@ -57,13 +49,14 @@ typedef struct {
   MsgPool *pool;
   dBAlignment aln;
   CorrectAlnWorker corrector;
-  CorrectReadsInput *input;
+  CorrectAlnReadsTask *input;
   LoadingStats stats;
   pthread_mutex_t lock;
 } CorrectReadsWorker;
 
 // Returns true on success, false on error
-static boolean corrected_output_alloc(CorrectedOutput *out, CorrectReadsInput *in)
+static boolean corrected_output_alloc(CorrectedOutput *out,
+                                      CorrectAlnReadsTask *in)
 {
   out->gz1 = out->gz2 = NULL;
   const char *base = (const char*)in->ptr;
@@ -112,92 +105,6 @@ static void corrected_output_clean_up(CorrectedOutput *out)
   if(out->gz2 != NULL) { gzclose(out->gz2); unlink(out->out2.buff); }
 }
 
-// returns index of next argv
-static int load_args(int argc, char **argv,
-                     CorrectReadsInput *inputs, size_t *num_inputs_ptr)
-{
-  size_t num_inputs = 0;
-  int argi;
-  uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
-  boolean one_way_bridge = true;
-  boolean col_set = false, col_used = false;
-  size_t col;
-
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
-  {
-    if(strcmp(argv[argi],"--fq_threshold") == 0) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--fq_threshold <qual> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
-        die("Invalid --fq_threshold argument: %s", argv[argi+1]);
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--fq_offset") == 0) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--fq_offset <offset> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
-        die("Invalid --fq_offset argument: %s", argv[argi+1]);
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--cut_hp") == 0) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--cut_hp <len> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
-        die("Invalid --cut_hp argument: %s", argv[argi+1]);
-      if(hp_cutoff > UINT8_MAX)
-        die("--cut_hp <hp> cannot be greater than %i", UINT8_MAX);
-      argi++;
-    }
-    else if(strcmp(argv[argi],"--col") == 0)
-    {
-      if(argi+2 >= argc) cmd_print_usage("--col <colour> requires an argument");
-      if(col_set && !col_used)
-        cmd_print_usage("--seq or --seq2 must follow --col");
-      if(!parse_entire_size(argv[argi+1], &col))
-        cmd_print_usage("--col <colour> requires integers >= 0");
-      col_set = true;
-      col_used = false;
-      argi++;
-    }
-    else if(strcasecmp(argv[argi],"--oneway") == 0) {
-      one_way_bridge = true;
-    }
-    else if(strcasecmp(argv[argi],"--twoway") == 0) {
-      one_way_bridge = false;
-    }
-    else if(strcmp(argv[argi],"--seq") == 0)
-    {
-      if(argi+2 >= argc) cmd_print_usage("--seq <in> <out> missing args");
-      if(!col_set) die("--seq <in.fa> before --col <colour>");
-
-      // min insert, max insert = 0
-      correct_reads_input_init(argv[argi+1], NULL, col,
-                               0, 0, one_way_bridge,
-                               MAX_CONTEXT, GAP_VARIANCE, GAP_WIGGLE,
-                               fq_offset, fq_cutoff, hp_cutoff,
-                               &inputs[num_inputs]);
-
-      // Use void pointer to store output path
-      inputs[num_inputs].ptr = argv[argi+2];
-
-      num_inputs++;
-      col_used = true;
-      argi += 2;
-    }
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
-  }
-
-  if(num_inputs == 0)
-    cmd_print_usage("need at least one: --col <c> --seq[2] <in> [in2]");
-  if(!col_used)
-    cmd_print_usage("--seq must follow last --col <col>");
-
-  correct_reads_input_sort(inputs, num_inputs);
-
-  *num_inputs_ptr = num_inputs;
-  return argi;
-}
-
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
                                        MsgPool *pool,  dBGraph *db_graph)
 {
@@ -228,7 +135,7 @@ static boolean handle_read(CorrectReadsWorker *wrkr, gzFile gz,
                           wrkr->db_graph);
 
   // Correct sequence errors in the alignment
-  correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->input);
+  correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->input->crt_params);
 
   while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL) {
     if(!output) gzprintf(gz, ">%s\n", r->name.b);
@@ -245,7 +152,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 {
   uint8_t fq_cutoff1, fq_cutoff2, hp_cutoff;
 
-  CorrectReadsInput *input = wrkr->input;
+  CorrectAlnReadsTask *input = wrkr->input;
   CorrectedOutput *output = (CorrectedOutput*)input->ptr;
 
   read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
@@ -258,10 +165,6 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   }
 
   hp_cutoff = input->hp_cutoff;
-
-  // Second read is in reverse orientation - need in forward
-  if(r2 != NULL && input->read_pair_FR)
-    seq_read_reverse_complement(r2);
 
   // Update stats
   if(r2 == NULL) wrkr->stats.num_se_reads++;
@@ -315,12 +218,13 @@ int ctx_correct(CmdArgs *args)
   // Already checked that we have at least 2 arguments
 
   size_t max_ninputs = argc / 2, num_inputs = 0;
-  CorrectReadsInput *inputs = malloc2(max_ninputs * sizeof(CorrectReadsInput));
+  CorrectAlnReadsTask *inputs = malloc2(max_ninputs * sizeof(CorrectAlnReadsTask));
   size_t i, j, num_work_threads = args->max_work_threads;
   int argi; // arg index to continue from
 
   // Load args
-  argi = load_args(argc, argv, inputs, &num_inputs);
+  // argi = load_args(argc, argv, inputs, &num_inputs);
+  argi = correct_reads_parse(argc, argv, inputs, num_inputs, false, true);
 
   if(argi == argc) cmd_print_usage("Expected at least one graph file");
   size_t num_gfiles = argc - argi;

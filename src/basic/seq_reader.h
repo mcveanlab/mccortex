@@ -3,6 +3,9 @@
 
 #include <inttypes.h>
 #include "seq_file.h"
+#include "cortex_types.h"
+
+extern const char *MP_DIR_STRS[];
 
 // Returns index of first kmer or r->seq.end if no kmers
 size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
@@ -40,6 +43,9 @@ void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
                                     uint8_t _qoffset1, uint8_t _qoffset2,
                                     void *_ptr),
                   void *reader_ptr);
+
+void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir);
+void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir);
 
 //
 // Useful MACROs

@@ -59,11 +59,11 @@ static inline void worker_gap_cap(CorrectAlnWorker *wrkr, size_t max_gap)
 }
 
 void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
-                            const CorrectReadsInput *input)
+                            CorrectAlnParam params)
 {
   // Copy input
   wrkr->aln = aln;
-  wrkr->input = *input;
+  wrkr->params = params;
 
   // reset state
   wrkr->start_idx = wrkr->prev_start_idx = 0;
@@ -215,15 +215,16 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
                                 size_t gap_min, size_t gap_max,
                                 size_t *gap_len_ptr)
 {
-  boolean traversed;
-  const size_t block0len = gap_idx-start_idx, block1len = end_idx-gap_idx;
-  const size_t ctxcol = wrkr->input.ctxcol, ctpcol = wrkr->input.ctpcol;
+  const CorrectAlnParam *params = &wrkr->params;
   const dBNode *nodes = wrkr->aln->nodes.data;
   const dBGraph *db_graph = wrkr->db_graph;
+  const size_t block0len = gap_idx-start_idx, block1len = end_idx-gap_idx;
+  const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
+  boolean traversed;
 
   // Start traversing forward
   prime_for_traversal(&wrkr->wlk, nodes+start_idx, block0len,
-                      wrkr->input.max_context, true, ctxcol, ctpcol, db_graph);
+                      params->max_context, true, ctxcol, ctpcol, db_graph);
 
   traversed
     = worker_traverse_gap(nodes[gap_idx],
@@ -234,7 +235,7 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
 
   // Start traversing backwards
   prime_for_traversal(&wrkr->wlk, nodes+gap_idx, block1len,
-                      wrkr->input.max_context, false, ctxcol, ctpcol, db_graph);
+                      params->max_context, false, ctxcol, ctpcol, db_graph);
 
   traversed
     = worker_traverse_gap(db_node_reverse(nodes[gap_idx-1]),
@@ -249,15 +250,16 @@ static boolean traverse_two_way(CorrectAlnWorker *wrkr,
                                 size_t gap_min, size_t gap_max,
                                 size_t *gap_len_ptr)
 {
-  const size_t block0len = gap_idx-start_idx, block1len = end_idx-gap_idx;
-  const size_t ctxcol = wrkr->input.ctxcol, ctpcol = wrkr->input.ctpcol;
+  const CorrectAlnParam *params = &wrkr->params;
   const dBNode *nodes = wrkr->aln->nodes.data;
   const dBGraph *db_graph = wrkr->db_graph;
+  const size_t block0len = gap_idx-start_idx, block1len = end_idx-gap_idx;
+  const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
 
   prime_for_traversal(&wrkr->wlk, nodes+start_idx, block0len,
-                      wrkr->input.max_context, true, ctxcol, ctpcol, db_graph);
+                      params->max_context, true, ctxcol, ctpcol, db_graph);
   prime_for_traversal(&wrkr->wlk2, nodes+gap_idx, block1len,
-                      wrkr->input.max_context, false, ctxcol, ctpcol, db_graph);
+                      params->max_context, false, ctxcol, ctpcol, db_graph);
 
   // status("Traversing two-way... %zu[len:%zu]:%zu[len:%zu]",
   //        start_idx, block0len, gap_idx, block1len);
@@ -278,10 +280,11 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   const uint32Buffer *gaps = &aln->gaps;
   const size_t num_align_nodes = nodes->len;
 
-  const float gap_variance = wrkr->input.gap_variance;
-  const size_t gap_wiggle = wrkr->input.gap_wiggle;
-  const size_t ins_gap_min = wrkr->input.ins_gap_min;
-  const size_t ins_gap_max = wrkr->input.ins_gap_max;
+  const CorrectAlnParam *const params = &wrkr->params;
+  const float gap_variance = params->gap_variance;
+  const size_t gap_wiggle = params->gap_wiggle;
+  const size_t ins_gap_min = params->ins_gap_min;
+  const size_t ins_gap_max = params->ins_gap_max;
 
   // worker_generate_contigs ensures contig is at least nodes->len long
   boolean both_reads = (aln->used_r1 && aln->used_r2);
@@ -326,7 +329,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     db_node_buf_reset(revcontig);
 
     // Alternative traversing from both sides
-    if(wrkr->input.one_way_gap_traverse)
+    if(params->one_way_gap_traverse)
       traversed = traverse_one_way(wrkr, wrkr->start_idx, wrkr->gap_idx,
                                    wrkr->end_idx, gap_min, gap_max, &gap_len);
     else

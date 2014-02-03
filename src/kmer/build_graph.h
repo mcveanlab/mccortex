@@ -21,6 +21,7 @@ typedef struct
   // FASTQ qual offset, cutoff and homopolymer cutoff
   const uint8_t fq_offset, fq_cutoff, hp_cutoff;
   const boolean remove_dups_se, remove_dups_pe;
+  const ReadMateDir matedir;
 
   // Stats are written to here
   LoadingStats stats;

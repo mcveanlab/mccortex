@@ -5,6 +5,8 @@
 #include "seq_reader.h"
 #include "dna.h"
 
+const char *MP_DIR_STRS[] = {"FR", "FF", "RF"};
+
 // cut-offs:
 //  > quality_cutoff valid
 //  < homopolymer_cutoff valid
@@ -389,4 +391,23 @@ void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
   seq_file_t *sf;
   if((sf = seq_open(path)) == NULL) die("Cannot open: %s", path);
   seq_parse_se_sf(sf, ascii_fq_offset, r1, r2, read_func, reader_ptr);
+}
+
+void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir)
+{
+  assert(r1 != NULL);
+  assert(r2 != NULL);
+  switch(matedir) {
+    case READPAIR_FF: return;
+    case READPAIR_FR: seq_read_reverse_complement(r2); return;
+    case READPAIR_RF: seq_read_reverse_complement(r1); return;
+    case READPAIR_RR: return;
+  }
+}
+
+void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
+{
+  assert(r1 != NULL);
+  if(read_mate_r1(matedir)) seq_read_reverse_complement(r1);
+  if(r2 != NULL && read_mate_r2(matedir)) seq_read_reverse_complement(r2);
 }

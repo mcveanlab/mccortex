@@ -15,6 +15,7 @@ int main()
   test_util();
   test_packed_path();
   test_paths();
+  test_corrected_aln();
   test_status("Finished tests.");
   cortex_destroy();
   return EXIT_SUCCESS;

@@ -15,4 +15,13 @@ typedef uint_fast8_t Orientation;
 #define false 0
 typedef uint_fast8_t boolean;
 
+typedef uint_fast8_t ReadMateDir;
+#define READPAIR_FF 0
+#define READPAIR_FR 1
+#define READPAIR_RF 2
+#define READPAIR_RR 3
+
+#define read_mate_r1(r) ((r)&2)
+#define read_mate_r2(r) ((r)&1)
+
 #endif /* CORTEX_TYPES_H_ */

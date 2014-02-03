@@ -5,7 +5,7 @@
 #include "path_store.h"
 #include "generate_paths.h"
 
-static void add_paths(dBGraph *graph, CorrectReadsInput *task,
+static void add_paths(dBGraph *graph, CorrectAlnReadsTask *task,
                       GenPathWorker *wrkrs, const char *seq,
                       size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
 {
@@ -43,7 +43,6 @@ void test_paths()
   graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
 
   memset(graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
-
   path_store_alloc(&graph.pdata, path_max_mem, 0, ncols);
 
   // junctions:  >     >           <     <     <
@@ -62,12 +61,17 @@ void test_paths()
   build_graph_from_str_mt(&graph, 0, seq2, strlen(seq2));
   build_graph_from_str_mt(&graph, 0, seq3, strlen(seq3));
 
+  // Set up alignment correction params
+  CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,
+                            .ins_gap_min = 0, .ins_gap_max = 0,
+                            .one_way_gap_traverse = true, .max_context = 10,
+                            .gap_variance = 0.1, .gap_wiggle = 5};
+
   // Load paths
-  CorrectReadsInput task = {.file1 = NULL, .file2 = NULL,
-                            .ctpcol = 0, .ctxcol = 0,
-                            .ins_gap_min = 0, .ins_gap_max = 100,
-                            .fq_offset = 0, .fq_cutoff = 0, .hp_cutoff = 0,
-                            .read_pair_FR = true, .one_way_gap_traverse = true};
+  CorrectAlnReadsTask task = {.file1 = NULL, .file2 = NULL,
+                              .fq_offset = 0, .fq_cutoff = 0, .hp_cutoff = 0,
+                              .matedir = READPAIR_FR, .crt_params = params,
+                              .ptr = NULL};
 
   size_t nworkers = 1;
   GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph);
