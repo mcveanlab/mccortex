@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -10,7 +10,7 @@
 #include "path_format.h"
 #include "graph_walker.h"
 
-static const char usage[] =
+const char diverge_usage[] =
 "usage: "CMD" diverge [-m <mem>] <in.ctx> <colour> <ref.fa> <out.bubbles.gz>\n"
 "  Make bubble calls using a trusted path\n";
 
@@ -180,7 +180,7 @@ int ctx_diverge(CmdArgs *args)
   cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc != 4) print_usage(usage, NULL);
+  if(argc != 4) cmd_print_usage(NULL);
 
   size_t mem_to_use = args->mem_to_use;
 
@@ -189,7 +189,7 @@ int ctx_diverge(CmdArgs *args)
   seq_file_t *input_fa_file;
 
   if(!mem_to_integer(argv[1], &mem_to_use) || mem_to_use == 0)
-    print_usage(usage, "Invalid memory argument: %s", argv[1]);
+    cmd_print_usage("Invalid memory argument: %s", argv[1]);
 
   input_ctx_path = argv[2];
 
@@ -198,21 +198,21 @@ int ctx_diverge(CmdArgs *args)
   GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))
-    print_usage(usage, "Cannot read binary file: %s", input_ctx_path);
+    cmd_print_usage("Cannot read binary file: %s", input_ctx_path);
   else if(!is_binary)
-    print_usage(usage, "Input binary file isn't valid: %s", input_ctx_path);
+    cmd_print_usage("Input binary file isn't valid: %s", input_ctx_path);
 
   uint32_t kmer_size = gheader.kmer_size, num_of_cols = gheader.num_of_cols;
 
   if(!parse_entire_uint(argv[3], &colour) || colour == 0)
-    print_usage(usage, "Invalid colour: %s", argv[3]);
+    cmd_print_usage("Invalid colour: %s", argv[3]);
 
   if((input_fa_file = seq_open(argv[4])) == NULL)
-    print_usage(usage, "Cannot read trusted reference: %s", argv[4]);
+    cmd_print_usage("Cannot read trusted reference: %s", argv[4]);
 
   output_bubble_path = argv[5];
   if(!futil_is_file_writable(output_bubble_path))
-    print_usage(usage, "Cannot write to output file: %s", output_bubble_path);
+    cmd_print_usage("Cannot write to output file: %s", output_bubble_path);
 
   // DEV: look for ctp file
   // size_t path_mem = 0;

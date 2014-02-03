@@ -1,17 +1,18 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_format.h"
 #include "path_format.h"
+#include "graph_paths.h"
 #include "graph_walker.h"
 #include "bubble_caller.h"
 #include "db_node.h"
 
-// "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
-static const char usage[] =
+// DEV: "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
+const char call_usage[] =
 "usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
 "  Find bubbles (potential variants) in graph file in.ctx, save to out.bubbles.gz\n"
 "\n"
@@ -27,11 +28,9 @@ static const char usage[] =
 
 int ctx_call(CmdArgs *args)
 {
-  cmd_accept_options(args, "tnmp", usage);
-
   int argi, argc = args->argc;
   char **argv = args->argv;
-  if(argc < 2 || argc & 1) print_usage(usage, NULL);
+  if(argc < 2 || argc & 1) cmd_print_usage(NULL);
 
   size_t num_of_threads = args->max_work_threads;
   size_t i, ref_cols[argc], num_ref = 0;
@@ -41,47 +40,47 @@ int ctx_call(CmdArgs *args)
   {
     if(strcmp(argv[argi],"--ref") == 0) {
       if(argi + 1 == argc || !parse_entire_size(argv[argi+1], &ref_cols[num_ref]))
-        print_usage(usage, "--ref <col> requires an int arg");
+        cmd_print_usage("--ref <col> requires an int arg");
       num_ref++; argi++;
     }
     else if(strcmp(argv[argi],"--maxallele") == 0) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_allele_len) ||
          max_allele_len == 0)  {
-        print_usage(usage, "--maxallele <col> requires an +ve integer argument");
+        cmd_print_usage("--maxallele <col> requires an +ve integer argument");
       }
       argi++;
     }
     else if(strcmp(argv[argi],"--maxflank") == 0) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_flank_len) ||
          max_flank_len == 0)  {
-        print_usage(usage, "--maxflank <col> requires an +ve integer argument");
+        cmd_print_usage("--maxflank <col> requires an +ve integer argument");
       }
       argi++;
     }
     else {
-      print_usage(usage, "Unknown arg: %s", argv[argi]);
+      cmd_print_usage("Unknown arg: %s", argv[argi]);
     }
   }
 
-  if(argi + 2 != argc) print_usage(usage, "<out.bubbles.gz> <in.ctx> required");
+  if(argi + 2 != argc) cmd_print_usage("<out.bubbles.gz> <in.ctx> required");
 
   char *input_ctx_path = argv[argi];
   char *out_path = argv[argi+1];
 
   // Open Graph file
-  GraphFileReader file = INIT_GRAPH_READER;
-  int ret = graph_file_open(&file, input_ctx_path, false);
+  GraphFileReader gfile = INIT_GRAPH_READER;
+  int ret = graph_file_open(&gfile, input_ctx_path, false);
 
   if(ret == 0)
-    print_usage(usage, "Cannot read input graph file: %s", input_ctx_path);
+    cmd_print_usage("Cannot read input graph file: %s", input_ctx_path);
   else if(ret < 0)
-    print_usage(usage, "Input graph file isn't valid: %s", input_ctx_path);
+    cmd_print_usage("Input graph file isn't valid: %s", input_ctx_path);
 
   // Check reference colours
   for(i = 0; i < num_ref; i++) {
-    if(ref_cols[i] >= file.hdr.num_of_cols) {
-      print_usage(usage, "--ref <col> is greater than max colour [%zu > %u]",
-                  ref_cols[i], file.hdr.num_of_cols-1);
+    if(ref_cols[i] >= gfile.hdr.num_of_cols) {
+      cmd_print_usage("--ref <col> is greater than max colour [%zu > %u]",
+                  ref_cols[i], gfile.hdr.num_of_cols-1);
     }
   }
 
@@ -99,6 +98,9 @@ int ctx_call(CmdArgs *args)
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
+  // Check for compatibility between graph files and path files
+  graphs_paths_compatible(&gfile, 1, pfiles, num_pfiles);
+
   //
   // Decide on memory
   //
@@ -110,10 +112,10 @@ int ctx_call(CmdArgs *args)
   // visitedfw/rv(2bits/thread)
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 +
-                  file.hdr.num_of_cols + 2*num_of_threads;
+                  gfile.hdr.num_of_cols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.hdr.num_of_kmers, false, &graph_mem);
+                                        gfile.hdr.num_of_kmers, false, &graph_mem);
 
   // Thread memory
   thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;
@@ -133,11 +135,11 @@ int ctx_call(CmdArgs *args)
 
   // Check output file writeable
   if(!futil_is_file_writable(out_path))
-    print_usage(usage, "Cannot write output file: %s", out_path);
+    cmd_print_usage("Cannot write output file: %s", out_path);
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, gfile.hdr.num_of_cols, 1, kmers_in_hash);
 
   if(kmers_in_hash != db_graph.ht.capacity) die("Mismatch");
 
@@ -146,7 +148,7 @@ int ctx_call(CmdArgs *args)
 
   // In colour
   size_t bytes_per_col = roundup_bits2bytes(kmers_in_hash);
-  db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
+  db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, sizeof(uint8_t));
 
   // Paths
   db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
@@ -190,7 +192,7 @@ int ctx_call(CmdArgs *args)
                               .must_exist_in_graph = false,
                               .empty_colours = true};
 
-  graph_load(&file, gprefs, &stats);
+  graph_load(&gfile, gprefs, &stats);
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
@@ -218,7 +220,7 @@ int ctx_call(CmdArgs *args)
   path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
-  graph_file_dealloc(&file);
+  graph_file_dealloc(&gfile);
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;

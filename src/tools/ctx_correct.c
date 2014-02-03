@@ -3,7 +3,7 @@
 #include "msgpool.h"
 #include <pthread.h>
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -27,7 +27,7 @@
 // DEV: add back lost bases from edges of contigs
 // DEV: add to ctx31 command
 
-static const char usage[] =
+const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx> [...]\n"
 "  Pull out contigs from the graph, print statistics\n"
 "\n"
@@ -127,21 +127,21 @@ static int load_args(int argc, char **argv,
   {
     if(strcmp(argv[argi],"--fq_threshold") == 0) {
       if(argi + 1 >= argc)
-        print_usage(usage, "--fq_threshold <qual> requires an argument");
+        cmd_print_usage("--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi++;
     }
     else if(strcmp(argv[argi],"--fq_offset") == 0) {
       if(argi + 1 >= argc)
-        print_usage(usage, "--fq_offset <offset> requires an argument");
+        cmd_print_usage("--fq_offset <offset> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_offset argument: %s", argv[argi+1]);
       argi++;
     }
     else if(strcmp(argv[argi],"--cut_hp") == 0) {
       if(argi + 1 >= argc)
-        print_usage(usage, "--cut_hp <len> requires an argument");
+        cmd_print_usage("--cut_hp <len> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
         die("Invalid --cut_hp argument: %s", argv[argi+1]);
       if(hp_cutoff > UINT8_MAX)
@@ -150,11 +150,11 @@ static int load_args(int argc, char **argv,
     }
     else if(strcmp(argv[argi],"--col") == 0)
     {
-      if(argi+2 >= argc) print_usage(usage, "--col <colour> requires an argument");
+      if(argi+2 >= argc) cmd_print_usage("--col <colour> requires an argument");
       if(col_set && !col_used)
-        print_usage(usage, "--seq or --seq2 must follow --col");
+        cmd_print_usage("--seq or --seq2 must follow --col");
       if(!parse_entire_size(argv[argi+1], &col))
-        print_usage(usage, "--col <colour> requires integers >= 0");
+        cmd_print_usage("--col <colour> requires integers >= 0");
       col_set = true;
       col_used = false;
       argi++;
@@ -167,7 +167,7 @@ static int load_args(int argc, char **argv,
     }
     else if(strcmp(argv[argi],"--seq") == 0)
     {
-      if(argi+2 >= argc) print_usage(usage, "--seq <in> <out> missing args");
+      if(argi+2 >= argc) cmd_print_usage("--seq <in> <out> missing args");
       if(!col_set) die("--seq <in.fa> before --col <colour>");
 
       // min insert, max insert = 0
@@ -184,13 +184,13 @@ static int load_args(int argc, char **argv,
       col_used = true;
       argi += 2;
     }
-    else print_usage(usage, "Unknown option: %s", argv[argi]);
+    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
   if(num_inputs == 0)
-    print_usage(usage, "need at least one: --col <c> --seq[2] <in> [in2]");
+    cmd_print_usage("need at least one: --col <c> --seq[2] <in> [in2]");
   if(!col_used)
-    print_usage(usage, "--seq must follow last --col <col>");
+    cmd_print_usage("--seq must follow last --col <col>");
 
   correct_reads_input_sort(inputs, num_inputs);
 
@@ -310,10 +310,9 @@ static void* correct_reads_thread(void *ptr)
 
 int ctx_correct(CmdArgs *args)
 {
-  cmd_accept_options(args, "atmp", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 2) print_usage(usage, NULL);
+  // Already checked that we have at least 2 arguments
 
   size_t max_ninputs = argc / 2, num_inputs = 0;
   CorrectReadsInput *inputs = malloc2(max_ninputs * sizeof(CorrectReadsInput));
@@ -323,7 +322,7 @@ int ctx_correct(CmdArgs *args)
   // Load args
   argi = load_args(argc, argv, inputs, &num_inputs);
 
-  if(argi == argc) print_usage(usage, "Expected at least one graph file");
+  if(argi == argc) cmd_print_usage("Expected at least one graph file");
   size_t num_gfiles = argc - argi;
   char **graph_paths = &argv[argi];
 
@@ -360,6 +359,7 @@ int ctx_correct(CmdArgs *args)
     ctp_max_usedcols = MAX2(ctp_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
+  // Check for compatibility between graph files and path files
   graphs_paths_compatible(gfiles, num_gfiles, pfiles, num_pfiles);
 
   //

@@ -31,7 +31,7 @@ void correct_reads_input_sort(CorrectReadsInput *inputs, size_t n);
 
 // Copy CorrectReadsInput to an array of AsyncIOReadTasks
 void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
-                                   const CorrectReadsInput *inputs,
+                                   CorrectReadsInput *inputs,
                                    size_t num_inputs);
 
 #endif /* CORRECT_READ_INPUT_H_ */

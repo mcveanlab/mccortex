@@ -12,7 +12,7 @@
 #include "string_buffer.h"
 #include "needleman_wunsch.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "vcf_parsing.h"
@@ -23,7 +23,7 @@
 
 int nwmatch = 1, nwmismatch = -2, nwgapopen = -4, nwgapextend = -1;
 
-static const char usage[] =
+const char place_usage[] =
 "usage: "CMD" place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
 "  Align calls to a reference genome.\n"
 "  Options:\n"
@@ -618,17 +618,16 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
 
 int ctx_place(CmdArgs *args)
 {
-  cmd_accept_options(args, "o", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 3) print_usage(usage, NULL);
+  // Have already checked we have at least 3 arguments
 
   // double x = gsl_sf_lnbeta(3,5);
   // printf("Result: %f\n", x);
   // exit(-1);
 
   // Use htslib
-  // vcfFile *htsvcf = vcf_open(argv[1], "", 0);
+  // vcfFile *htsvcf = vcf_open(argv[1], "r");
   // bcf_hdr_t *header = vcf_hdr_read(htsvcf);
   // bcf1_t *entry = bcf_init1();
   // while(vcf_read1(htsvcf, header, entry) != -1) {
@@ -647,29 +646,29 @@ int ctx_place(CmdArgs *args)
   // Read arguments
   while(argv[argi][0] == '-') {
     if(strcmp(argv[argi], "--minmapq") == 0) {
-      if(argi + 1 == argc) print_usage(usage, NULL);
+      if(argi + 1 == argc) cmd_print_usage(NULL);
       if(!parse_entire_size(argv[argi+1], &min_mapq))
-        print_usage(usage, "Invalid --minmapq arg: %s", argv[argi+1]);
+        cmd_print_usage("Invalid --minmapq arg: %s", argv[argi+1]);
       argi++;
     }
     else
     {
       // Parse an alignment parameter
       for(i = 0; i < 4 && strcmp(argv[argi], nwargs[i]) != 0; i++);
-      if(i == 4) print_usage(usage, "Unknown argument: %s", argv[argi]);
-      if(argi + 1 == argc) print_usage(usage, NULL);
+      if(i == 4) cmd_print_usage("Unknown argument: %s", argv[argi]);
+      if(argi + 1 == argc) cmd_print_usage(NULL);
       if(!parse_entire_int(argv[argi+1], nwargptrs[i]))
-        print_usage(usage, "Invalid %s arg: %s", argv[argi], argv[argi+1]);
+        cmd_print_usage("Invalid %s arg: %s", argv[argi], argv[argi+1]);
       argi++;
     }
     argi++;
   }
 
-  if(argi+3 < argc) print_usage(usage, NULL);
+  if(argi+3 < argc) cmd_print_usage(NULL);
 
   // Check alignment args
   if(nwmatch < MAX3(nwmismatch, nwgapopen, nwgapextend)) {
-    print_usage(usage, "Alignment match should be greater than "
+    cmd_print_usage("Alignment match should be greater than "
                        "mismatch, gap open and extend");
   }
 
@@ -680,10 +679,10 @@ int ctx_place(CmdArgs *args)
   size_t num_refpaths = (size_t)(argc - argi);
 
   gzFile vcf = gzopen(vcf_path, "r");
-  if(vcf == NULL) print_usage(usage, "Cannot open VCF %s", vcf_path);
+  if(vcf == NULL) cmd_print_usage("Cannot open VCF %s", vcf_path);
 
   if(!isbam(sam_path, true) && !isbam(sam_path, false))
-    print_usage(usage, "Mapped flanks is not .sam or .bam file: %s", sam_path);
+    cmd_print_usage("Mapped flanks is not .sam or .bam file: %s", sam_path);
 
   samFile *samfh = sam_open(sam_path, isbam(sam_path, true) ? "rb" : "rs");
   if(samfh == NULL) die("Cannot open SAM/BAM %s", sam_path);
@@ -691,7 +690,7 @@ int ctx_place(CmdArgs *args)
   FILE *fout = stdout;
   if(args->output_file_set) {
     fout = fopen(args->output_file, "w");
-    if(fout == NULL) print_usage(usage, "Cannot open file: %s", args->output_file);
+    if(fout == NULL) cmd_print_usage("Cannot open file: %s", args->output_file);
   }
 
   // Load BAM header

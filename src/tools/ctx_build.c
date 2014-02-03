@@ -2,7 +2,7 @@
 
 #include "seq_file.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -11,7 +11,7 @@
 #include "loading_stats.h"
 #include "build_graph.h"
 
-static const char usage[] =
+const char build_usage[] =
 "usage: "CMD" build [options] <out.ctx>\n"
 "  Build a cortex graph.  \n"
 "\n"
@@ -32,22 +32,10 @@ static const char usage[] =
 "\n"
 "  PCR duplicate removal works by ignoring read pairs (PE-only) if both reads\n"
 "  start at the same k-mer as any previous read. Carried out per sample, not \n"
-"  per file.\n"
-"\n"
-"  --sample <name> is required before sequence input can be loaded.\n"
+"  per file. --sample <name> is required before sequence input can be loaded.\n"
 "  Consecutive sequence options are loaded into the same colour.\n"
-"\n"
 "  --load_graph argument can have colours specifed e.g. in.ctx:0,6-8 will load\n"
 "  samples 0,6,7,8.  Graphs are loaded into new colours.\n"
-"\n"
-" Example:\n"
-"   "CMD" build -k 31 -m 60G --fq_threshold 5 --cut_hp 8 \\\n"
-"               --sample bob --seq bob.bam \\\n"
-"               --sample dylan --remove_pcr --seq dylan.sam \\\n"
-"                              --keep_pcr --fq_offset 33 \\\n"
-"                              --seq2 dylan.1.fq.gz dylan.2.fq.gz \\\n"
-"               bob.dylan.k31.ctx\n"
-"\n"
 "  See `"CMD" join` to combine .ctx files\n";
 
 // DEV: check we update all ginfo satisfactorily
@@ -146,12 +134,12 @@ static void ctx_input_alloc(char *load_graph_path,
     int ret = graph_file_open(&input.ctx_file, load_graph_path, false);
 
     if(ret == 0)
-      print_usage(usage, "Cannot read input graph file: %s", load_graph_path);
+      cmd_print_usage("Cannot read input graph file: %s", load_graph_path);
     else if(ret < 0)
-      print_usage(usage, "Input graph file isn't valid: %s", load_graph_path);
+      cmd_print_usage("Input graph file isn't valid: %s", load_graph_path);
 
     if(input.ctx_file.hdr.kmer_size != kmer_size) {
-      print_usage(usage, "Input graph kmer_size doesn't match [%u vs %zu]",
+      cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]",
                   input.ctx_file.hdr.kmer_size, kmer_size);
     }
 
@@ -242,21 +230,21 @@ static void load_args(int argc, char **argv, size_t kmer_size,
   {
     if(strcmp(argv[argi],"--fq_threshold") == 0) {
       if(argi + 1 >= argc)
-        print_usage(usage, "--fq_threshold <qual> requires an argument");
+        cmd_print_usage("--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--fq_offset") == 0) {
       if(argi + 1 >= argc)
-        print_usage(usage, "--fq_offset <offset> requires an argument");
+        cmd_print_usage("--fq_offset <offset> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_offset argument: %s", argv[argi+1]);
       argi += 1;
     }
     else if(strcmp(argv[argi],"--cut_hp") == 0) {
       if(argi + 1 >= argc)
-        print_usage(usage, "--cut_hp <len> requires an argument");
+        cmd_print_usage("--cut_hp <len> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
         die("Invalid --cut_hp argument: %s", argv[argi+1]);
       if(hp_cutoff > UINT8_MAX)
@@ -267,9 +255,9 @@ static void load_args(int argc, char **argv, size_t kmer_size,
     else if(!strcmp(argv[argi],"--keep_pcr")) { remove_dups_pe = false; }
     else if(strcmp(argv[argi],"--seq") == 0) {
       if(!sample_named)
-        print_usage(usage, "Please use --sample <name> before giving sequence");
+        cmd_print_usage("Please use --sample <name> before giving sequence");
       if(argi + 1 >= argc)
-        print_usage(usage, "--seq <file> requires an argument");
+        cmd_print_usage("--seq <file> requires an argument");
 
       // Create new task
       ctx_input_create(NULL, argv[argi+1], NULL,
@@ -284,9 +272,9 @@ static void load_args(int argc, char **argv, size_t kmer_size,
     }
     else if(strcmp(argv[argi],"--seq2") == 0) {
       if(!sample_named)
-        print_usage(usage, "Please use --sample <name> before giving sequence");
+        cmd_print_usage("Please use --sample <name> before giving sequence");
       if(argi + 2 >= argc)
-        print_usage(usage, "--seq2 <file1> <file2> requires two arguments");
+        cmd_print_usage("--seq2 <file1> <file2> requires two arguments");
 
       // Create new task
       ctx_input_create(NULL, argv[argi+1], argv[argi+2],
@@ -301,7 +289,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
     }
     else if(!strcmp(argv[argi],"--sample") || !strcmp(argv[argi],"--load_graph"))
     {
-      if(argi + 1 >= argc) print_usage(usage, "%s requires an arg", argv[argi]);
+      if(argi + 1 >= argc) cmd_print_usage("%s requires an arg", argv[argi]);
 
       if(sample_named && !sample_used) {
         warn("Empty colour '%s' (maybe you intended this?)",
@@ -340,7 +328,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
 
       argi++; // both --sample and --load_graph take a single argument
     }
-    else print_usage(usage, "Unknown option: %s", argv[argi]);
+    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
   if(!seq_loaded) die("No sequence loaded, to combine graph files use '"CMD" join'");
@@ -370,11 +358,9 @@ static void run_build_graph(dBGraph *db_graph,
 
 int ctx_build(CmdArgs *args)
 {
-  cmd_accept_options(args, "atmnk", usage);
-  cmd_require_options(args, "k", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 3) print_usage(usage, NULL);
+  // Already checked that we have at least 1 argument
 
   size_t kmer_size = args->kmer_size;
 

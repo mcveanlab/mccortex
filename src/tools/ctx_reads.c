@@ -4,7 +4,7 @@
 #include "string_buffer.h"
 #include "seq_file.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -13,17 +13,15 @@
 #include "seq_reader.h"
 #include "graph_format.h"
 
-static const char usage[] =
+const char reads_usage[] =
 "usage: "CMD" reads [options] <in.ctx>[:cols] [in2.ctx ...]\n"
 "  Filters reads based on which have a kmer in the graph. \n"
 "  Options:\n"
 "    -m <mem> Memory limit\n"
 "    -n <mem> Number of kmers in hash table\n"
-"\n"
 "    --fasta   print output as gzipped FASTA\n"
 "    --fastq   print output as gzipped FASTQ [default]\n"
 "    --invert  print reads/read pairs with no kmer in graph\n"
-"\n"
 "    --seq <in> <out>         Writes output to <out>.fq.gz\n"
 "    --seq2 <in1> <in2> <out>  Writes output to <out>.1.fq.gz, <out>.2.fq.gz\n"
 "\n"
@@ -59,15 +57,15 @@ static void check_outfile_exists(char *outbase, boolean is_pe, boolean use_fq)
   if(is_pe) {
     get_out_path(path, len, use_fq, 1);
     if(futil_file_exists(path)) die("Output file already exists: %s", path);
-    if(!futil_is_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
+    if(!futil_is_file_writable(path)) cmd_print_usage("Cannot write: %s", path);
     get_out_path(path, len, use_fq, 2);
     if(futil_file_exists(path)) die("Output file already exists: %s", path);
-    if(!futil_is_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
+    if(!futil_is_file_writable(path)) cmd_print_usage("Cannot write: %s", path);
   }
   else {
     get_out_path(path, len, use_fq, 0);
     if(futil_file_exists(path)) die("Output file already exists: %s", path);
-    if(!futil_is_file_writable(path)) print_usage(usage, "Cannot write: %s", path);
+    if(!futil_is_file_writable(path)) cmd_print_usage("Cannot write: %s", path);
   }
 }
 
@@ -149,10 +147,9 @@ void filter_reads(read_t *r1, read_t *r2,
 
 int ctx_reads(CmdArgs *args)
 {
-  cmd_accept_options(args, "mn", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 4) print_usage(usage, NULL);
+  // Already checked that there are at least 4 arguments
 
   // Test other input args
   // Check filelists are readable
@@ -170,25 +167,25 @@ int ctx_reads(CmdArgs *args)
     else if(strcmp(argv[argi], "--invert") == 0) invert = true;
     else if(strcmp(argv[argi], "--seq") == 0)
     {
-      if(argi + 2 >= argc) print_usage(usage, "Missing arguments");
+      if(argi + 2 >= argc) cmd_print_usage("Missing arguments");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file: %s", argv[argi+1]);
       argi += 2;
     }
     else if(strcmp(argv[argi], "--seq2") == 0)
     {
-      if(argi + 4 >= argc) print_usage(usage, "Missing arguments");
+      if(argi + 4 >= argc) cmd_print_usage("Missing arguments");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read first --seq2 file: %s", argv[argi+1]);
       if((seqfiles[num_sf++] = seq_open(argv[argi+2])) == NULL)
         die("Cannot read second --seq2 file: %s", argv[argi+2]);
       argi += 3;
     }
-    else print_usage(usage, "Unexpected argument: %s", argv[argi]);
+    else cmd_print_usage("Unexpected argument: %s", argv[argi]);
   }
 
   if(use_fq && use_fa)
-    print_usage(usage, "Cannot print in both --fasta and --fastq");
+    cmd_print_usage("Cannot print in both --fasta and --fastq");
   else if(!use_fa && !use_fq) use_fq = true;
 
   int argend = argi;
@@ -197,7 +194,7 @@ int ctx_reads(CmdArgs *args)
   char **graph_paths = argv + argend;
 
   if(num_files == 0)
-    print_usage(usage, "Please specify input graph files");
+    cmd_print_usage("Please specify input graph files");
 
   //
   // Open input graphs
@@ -211,12 +208,12 @@ int ctx_reads(CmdArgs *args)
     int ret = graph_file_open(&files[i], graph_paths[i], false);
 
     if(ret == 0)
-      print_usage(usage, "Cannot read input graph file: %s", graph_paths[i]);
+      cmd_print_usage("Cannot read input graph file: %s", graph_paths[i]);
     else if(ret < 0)
-      print_usage(usage, "Input graph file isn't valid: %s", graph_paths[i]);
+      cmd_print_usage("Input graph file isn't valid: %s", graph_paths[i]);
 
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 

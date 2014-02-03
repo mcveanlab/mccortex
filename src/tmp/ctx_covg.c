@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -8,7 +8,7 @@
 #include "graph_format.h"
 #include "vcf_parsing.h"
 
-static const char usage[] =
+const char ctx_usage[] =
 "usage: "CMD" covg [options] <in.ctx> <input.vcf> <out.vcf>\n"
 "  Print coverage on some input file\n";
 
@@ -55,7 +55,7 @@ int ctx_covg(CmdArgs *args)
   int argc = args->argc;
   char **argv = args->argv;
 
-  if(argc < 3) print_usage(usage, NULL);
+  if(argc < 3) cmd_print_usage(NULL);
 
   // Parse commandline args
   char *in_ctx_path, *in_vcf_path, *out_vcf_path;
@@ -69,9 +69,9 @@ int ctx_covg(CmdArgs *args)
   GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(in_ctx_path, &is_binary, &gheader))
-    print_usage(usage, "Cannot read input binary file: %s", in_ctx_path);
+    cmd_print_usage("Cannot read input binary file: %s", in_ctx_path);
   else if(!is_binary)
-    print_usage(usage, "Input binary file isn't valid: %s", in_ctx_path);
+    cmd_print_usage("Input binary file isn't valid: %s", in_ctx_path);
 
   size_t kmer_size = gheader.kmer_size;
 
@@ -84,11 +84,11 @@ int ctx_covg(CmdArgs *args)
 
   for(i = 0; i < num_col_given; i++) {
     if(!parse_entire_uint(argv[5+i], colours+i))
-      print_usage(usage, "Invalid colour number: %s", argv[5+i]);
+      cmd_print_usage("Invalid colour number: %s", argv[5+i]);
   }
 
   if(!futil_is_file_writable(out_vcf_path))
-    print_usage(usage, "Cannot write to output file: %s", out_vcf_path);
+    cmd_print_usage("Cannot write to output file: %s", out_vcf_path);
 
   if(num_col_given > 0 && gheader.num_of_cols != num_col_given)
     die("You're using more colours than you need!");

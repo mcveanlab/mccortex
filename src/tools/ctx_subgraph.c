@@ -3,7 +3,7 @@
 #include "string_buffer.h"
 #include "seq_file.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -15,7 +15,7 @@
 #include "seq_reader.h"
 #include "prune_nodes.h"
 
-static const char usage[] =
+const char subgraph_usage[] =
 "usage: "CMD" subgraph [options] <out.ctx> <dist> <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
 "  Loads graphs (in.ctx) and dumps a graph (out.ctx) that contains all kmers within\n"
@@ -120,10 +120,9 @@ void store_nodes(read_t *r1, read_t *r2,
 
 int ctx_subgraph(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnc", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 4) print_usage(usage, NULL);
+  // Already checked that we have at least 4 args
 
   char *seed_files[argc];
   size_t num_seed_files = 0;
@@ -135,25 +134,25 @@ int ctx_subgraph(CmdArgs *args)
     if(!strcasecmp(argv[argi], "--seq") | !strcasecmp(argv[argi], "--seed"))
     {
       if(argi+1 == argc)
-        print_usage(usage, "%s <seed.fa> requires an argument", argv[argi]);
+        cmd_print_usage("%s <seed.fa> requires an argument", argv[argi]);
       seed_files[num_seed_files] = argv[argi+1];
       if(!futil_is_file_readable(seed_files[num_seed_files]))
         die("Cannot read %s file: %s", argv[argi], argv[argi+1]);
       argi++; num_seed_files++;
     }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
-    else print_usage(usage, "Unknown option: %s", argv[argi]);
+    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
   const char *out_path = argv[argi], *diststr = argv[argi+1];
   uint32_t dist;
 
   if(!parse_entire_uint(diststr, &dist))
-    print_usage(usage, "Invalid <dist> value, must be int >= 0: %s", diststr);
+    cmd_print_usage("Invalid <dist> value, must be int >= 0: %s", diststr);
 
   int num_files_int = argc - 2*(int)num_seed_files - 2;
   if(num_files_int <= 0)
-    print_usage(usage, "Please specify input graph files (.ctx)");
+    cmd_print_usage("Please specify input graph files (.ctx)");
 
   size_t i, j, col, num_files = (size_t)num_files_int, total_cols = 0;
   char **paths = argv + 2*num_seed_files + 2;

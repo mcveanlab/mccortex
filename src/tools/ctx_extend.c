@@ -2,7 +2,7 @@
 
 #include "seq_file.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -12,7 +12,7 @@
 #include "graph_format.h"
 #include "seq_reader.h"
 
-static const char usage[] =
+const char extend_usage[] =
 "usage: "CMD" extend [options] <in.ctx> <in.fa> <dist> <out.fa>\n"
 "  options:\n"
 "   -m <mem>   Memory to use\n"
@@ -137,10 +137,8 @@ static void extend_reads(read_t *r1, read_t *r2,
 
 int ctx_extend(CmdArgs *args)
 {
-  cmd_accept_options(args, "mn", usage);
-  int argc = args->argc;
   char **argv = args->argv;
-  if(argc != 4) print_usage(usage, NULL);
+  // Already checked that we have exactly 4 arguments
 
   char *input_ctx_path, *input_fa_path, *out_fa_path;
   size_t dist;
@@ -154,20 +152,20 @@ int ctx_extend(CmdArgs *args)
   int ret = graph_file_open(&file, input_ctx_path, false);
 
   if(ret == 0)
-    print_usage(usage, "Cannot read input graph file: %s", input_ctx_path);
+    cmd_print_usage("Cannot read input graph file: %s", input_ctx_path);
   else if(ret < 0)
-    print_usage(usage, "Input graph file isn't valid: %s", input_ctx_path);
+    cmd_print_usage("Input graph file isn't valid: %s", input_ctx_path);
 
   if((seq_fa_file = seq_open(input_fa_path)) == NULL)
-    print_usage(usage, "Cannot read input FASTA/FASTQ/SAM/BAM file: %s", input_fa_path);
+    cmd_print_usage("Cannot read input FASTA/FASTQ/SAM/BAM file: %s", input_fa_path);
 
   if(!parse_entire_size(argv[4], &dist))
-    print_usage(usage, "Invalid dist argument: %s", argv[4]);
+    cmd_print_usage("Invalid dist argument: %s", argv[4]);
 
   out_fa_path = argv[5];
 
   if(!futil_is_file_writable(out_fa_path))
-    print_usage(usage, "Cannot write output file: %s", out_fa_path);
+    cmd_print_usage("Cannot write output file: %s", out_fa_path);
 
   //
   // Decide on memory

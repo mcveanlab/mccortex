@@ -5,39 +5,6 @@
 
 #include "mem_size.h" // in libs/misc/
 
-//
-// DEV: here is a possible way of storing commands
-typedef struct
-{
-  const char *cmd, *optargs, *reqargs, *usage;
-  int (*func)(CmdArgs *cmd_args);
-} CtxCmd;
-
-CtxCmd cmdobjs[] = {
-  {.cmd = "build", .func = ctx_build, .optargs = "tpmn", .reqargs = ""},
-  {.cmd = "view", .func = ctx_view, .optargs = "tpmn", .reqargs = ""}};
-//
-//
-
-const char *cmds[NUM_CMDS]
-  = {"build", "view", "healthcheck", "clean", "join", "supernodes", "subgraph",
-     "reads", "extend", "contigs", "inferedges", "thread", "pview", "pjoin",
-     "call", "diverge", "unique", "covg", "place"};
-
-int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args)
-  = {ctx_build, ctx_view, ctx_health_check, ctx_clean, ctx_join, ctx_supernodes,
-     ctx_subgraph, ctx_reads, ctx_extend, ctx_contigs, ctx_infer_edges,
-     ctx_thread, ctx_pview, ctx_pjoin, ctx_call, ctx_diverge, ctx_unique,
-     ctx_covg, ctx_place};
-
-// Not implemented functions
-static int ctx_notimpl(CmdArgs *args) {
-  warn("Command not implemented [cmd: %s]", args->cmdline); return EXIT_FAILURE;
-}
-
-int ctx_covg(CmdArgs *args) { return ctx_notimpl(args); }
-int ctx_diverge(CmdArgs *args) { return ctx_notimpl(args); }
-
 void cmd_accept_options(const CmdArgs *args, const char *accptopts,
                         const char *usage)
 {
@@ -122,17 +89,11 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   CmdArgs tmp = CMD_ARGS_INIT_MACRO;
   memcpy(args, &tmp, sizeof(CmdArgs));
 
-  args->ctp_files = malloc2((size_t)argc * sizeof(char*));
+  args->ctp_files = malloc2((size_t)(argc/2) * sizeof(char*));
   args->num_ctp_files = 0;
 
   // Get command index
   boolean is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
-  if(argc >= 2 && is_ctx_cmd) {
-    int cmd;
-    for(cmd = 0; cmd < NUM_CMDS && strcmp(cmds[cmd],argv[1]) != 0; cmd++);
-    args->cmdidx = cmd < NUM_CMDS ? cmd : -1;
-  }
-  else args->cmdidx = -1;
 
   args->argc = 0;
   args->argv = malloc2((size_t)argc * sizeof(char**));
@@ -249,20 +210,6 @@ void cmd_free(CmdArgs *args)
   free(args->cmdline);
 }
 
-// Intended for use testing command line parsing etc.
-int cmd_run(int argc, char **argv)
-{
-  CmdArgs args;
-  cmd_alloc(&args, argc, argv);
-  int ret = -1;
-
-  if(args.cmdidx == -1) warn("Unrecognised command: %s", argc < 2 ? NULL : argv[1]);
-  else ret = ctx_funcs[args.cmdidx](&args);
-
-  cmd_free(&args);
-  return ret;
-}
-
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits is additional memory per node, above hash table+BinaryKmers
 size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
@@ -353,4 +300,24 @@ void cmd_check_mem_limit(const CmdArgs *args, size_t mem_requested)
   }
 
   status("[memory] total: %s\n", memstr);
+}
+
+const char *cmd_usage = "No usage set";
+
+void cmd_print_usage(const char *errfmt,  ...)
+{
+  pthread_mutex_lock(&biglock); // lock if never released
+
+  if(errfmt != NULL) {
+    fprintf(stderr, "Error: ");
+    va_list argptr;
+    va_start(argptr, errfmt);
+    vfprintf(stderr, errfmt, argptr);
+    va_end(argptr);
+
+    if(errfmt[strlen(errfmt)-1] != '\n') fputc('\n', stderr);
+  }
+
+  fputs(cmd_usage, stderr);
+  exit(EXIT_FAILURE);
 }

@@ -23,7 +23,7 @@ void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectReadsInput *task,
                          const char *seq, size_t len);
 
 // workers array must be at least as long as tasks
-void generate_paths(const CorrectReadsInput *tasks, size_t num_tasks,
+void generate_paths(CorrectReadsInput *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers);
 
 // Save gap size distribution

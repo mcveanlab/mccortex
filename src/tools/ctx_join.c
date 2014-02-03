@@ -2,7 +2,7 @@
 
 #include "string_buffer.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -27,7 +27,7 @@
 //   All colour 0s go into colour 0, colour 1s go into colour 1 etc.
 //   output: {A:0,B:0,C:0},{A:1,B:1,C:1},{B:2}
 
-static const char usage[] =
+const char join_usage[] =
 "usage: "CMD" join [options] <out.ctx> [offset:]in1.ctx[:1,2,4-5] [in2.ctx ...]\n"
 "  Merge cortex graphs.\n"
 "\n"
@@ -54,10 +54,9 @@ static inline void remove_non_intersect_nodes(hkey_t node, Covg *covgs,
 
 int ctx_join(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnc", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 2) print_usage(usage, NULL);
+  // Already checked we have at least 2 arguments
 
   char *out_ctx_path;
   boolean overlap = false, flatten = false;
@@ -78,12 +77,12 @@ int ctx_join(CmdArgs *args)
     else if(strcasecmp(argv[argi],"--intersect") == 0)
     {
       if(argi+1 >= argc)
-        print_usage(usage, "--intersect <A.ctx> requires an argument");
+        cmd_print_usage("--intersect <A.ctx> requires an argument");
       num_intersect++;
       argi++;
     }
     else {
-      print_usage(usage, "Unknown argument '%s'", argv[argi]);
+      cmd_print_usage("Unknown argument '%s'", argv[argi]);
     }
   }
 
@@ -100,7 +99,7 @@ int ctx_join(CmdArgs *args)
   }
 
   if(argc - argi < 2)
-    print_usage(usage, "Please specify output and input paths");
+    cmd_print_usage("Please specify output and input paths");
 
   out_ctx_path = argv[argi++];
 
@@ -121,7 +120,7 @@ int ctx_join(CmdArgs *args)
     graph_file_open(&files[i], paths[i], true);
 
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
@@ -155,7 +154,7 @@ int ctx_join(CmdArgs *args)
     graph_file_open(&intersect_files[i], intersect_paths[i], true);
 
     if(files[0].hdr.kmer_size != intersect_files[i].hdr.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                   files[0].hdr.kmer_size, intersect_files[i].hdr.kmer_size);
     }
 
@@ -212,7 +211,7 @@ int ctx_join(CmdArgs *args)
 
   // Check out_ctx_path is writable
   if(!futil_is_file_writable(out_ctx_path))
-    print_usage(usage, "Cannot write to output: %s", out_ctx_path);
+    cmd_print_usage("Cannot write to output: %s", out_ctx_path);
 
   // Create db_graph
   dBGraph db_graph;

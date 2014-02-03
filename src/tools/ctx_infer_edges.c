@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -9,7 +9,7 @@
 #include "loading_stats.h"
 #include "seq_reader.h"
 
-static const char usage[] =
+const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
 "  Infer edges in a population graph.  \n"
 "\n"
@@ -128,19 +128,18 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 
 int ctx_infer_edges(CmdArgs *args)
 {
-  cmd_accept_options(args, "mn", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  // if(argc != 1) print_usage(usage, NULL);
+  // Already checked that: 2<= argc <=3
 
   boolean add_pop_edges = false, add_all_edges = false;
   while(argc > 0 && argv[0][0] == '-') {
     if(strcmp(argv[0],"--all") == 0) {
-      if(add_pop_edges) print_usage(usage, "Specify only one of --all --pop");
+      if(add_pop_edges) cmd_print_usage("Specify only one of --all --pop");
       argc--; argv++; add_all_edges = true;
     }
     else if(strcmp(argv[0],"--pop") == 0) {
-      if(add_all_edges) print_usage(usage, "Specify only one of --all --pop");
+      if(add_all_edges) cmd_print_usage("Specify only one of --all --pop");
       argc--; argv++; add_pop_edges = true;
     }
   }
@@ -148,7 +147,7 @@ int ctx_infer_edges(CmdArgs *args)
   // Default to adding all edges
   if(!add_pop_edges && !add_all_edges) add_all_edges = true;
 
-  if(argc != 1) print_usage(usage, NULL);
+  if(argc != 1) cmd_print_usage(NULL);
 
   char *path = argv[0];
   dBGraph db_graph;
@@ -156,10 +155,10 @@ int ctx_infer_edges(CmdArgs *args)
   graph_file_open2(&file, path, true, "r+");
 
   if(!file.fltr.nofilter)
-    print_usage(usage, "Inferedges with filter not implemented - sorry");
+    cmd_print_usage("Inferedges with filter not implemented - sorry");
 
   if(!futil_is_file_writable(path))
-    print_usage(usage, "Cannot write to file: %s", path);
+    cmd_print_usage("Cannot write to file: %s", path);
 
   assert(file.hdr.num_of_cols == file.fltr.ncols);
 

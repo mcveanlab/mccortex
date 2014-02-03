@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -9,7 +9,7 @@
 #include "binary_kmer.h"
 #include "supernode.h"
 
-static const char usage[] =
+const char supernodes_usage[] =
 "usage: "CMD" supernodes [options] <in.ctx> [<in2.ctx> ...]\n"
 "  Print supernodes with k-1 bases of overlap.\n"
 "\n"
@@ -170,8 +170,6 @@ static void dump_dot_syntax(FILE *fout, int print_syntax, boolean dot_use_points
 // Returns 0 on success, otherwise != 0
 int ctx_supernodes(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnpo", usage);
-
   int argc = args->argc;
   char **argv = args->argv;
 
@@ -188,16 +186,16 @@ int ctx_supernodes(CmdArgs *args)
     else if(!strcasecmp(argv[0],"--points")) {
       dot_use_points = true; argv++; argc--;
     }
-    else print_usage(usage, "Unknown argument: %s", argv[0]);
+    else cmd_print_usage("Unknown argument: %s", argv[0]);
   }
 
   num_files = (size_t)argc;
   paths = argv;
 
-  if(num_files == 0) print_usage(usage, NULL);
+  if(num_files == 0) cmd_print_usage(NULL);
 
   if(dot_use_points && print_syntax != PRINT_DOT)
-    print_usage(usage, "--points only valid with --graphviz / --dot");
+    cmd_print_usage("--points only valid with --graphviz / --dot");
 
   GraphFileReader files[num_files];
 
@@ -207,7 +205,7 @@ int ctx_supernodes(CmdArgs *args)
     graph_file_open(&files[i], paths[i], true);
 
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 

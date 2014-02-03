@@ -74,7 +74,7 @@ void correct_reads_input_sort(CorrectReadsInput *inputs, size_t n)
 }
 
 void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
-                                   const CorrectReadsInput *inputs,
+                                   CorrectReadsInput *inputs,
                                    size_t num_inputs)
 {
   size_t i;

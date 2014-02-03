@@ -1,6 +1,7 @@
 #ifndef CMD_H_
 #define CMD_H_
 
+#define CTXCMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 #define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 
 typedef struct
@@ -39,30 +40,6 @@ typedef struct
   .num_ctp_files = 0, .ctp_files = NULL, \
   .argc = 0, .argv = NULL}
 
-int ctx_build(CmdArgs *args);
-int ctx_view(CmdArgs *args);
-int ctx_health_check(CmdArgs *args);
-int ctx_clean(CmdArgs *args);
-int ctx_join(CmdArgs *args);
-int ctx_supernodes(CmdArgs *args);
-int ctx_subgraph(CmdArgs *args);
-int ctx_reads(CmdArgs *args);
-int ctx_extend(CmdArgs *args);
-int ctx_contigs(CmdArgs *args);
-int ctx_infer_edges(CmdArgs *args);
-int ctx_thread(CmdArgs *args);
-int ctx_pview(CmdArgs *args);
-int ctx_pjoin(CmdArgs *args);
-int ctx_call(CmdArgs *args);
-int ctx_diverge(CmdArgs *args);
-int ctx_unique(CmdArgs *args);
-int ctx_covg(CmdArgs *args);
-int ctx_place(CmdArgs *args);
-
-#define NUM_CMDS 19
-extern const char *cmds[NUM_CMDS];
-extern int (*ctx_funcs[NUM_CMDS])(CmdArgs *cmd_args);
-
 void cmd_alloc(CmdArgs *args, int argc, char **argv);
 void cmd_free(CmdArgs *args);
 
@@ -74,9 +51,6 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts,
 void cmd_require_options(const CmdArgs *args, const char *requireopts,
                          const char *usage);
 
-// Run a command
-int cmd_run(int argc, char **argv);
-
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits_per_kmer is additional memory per node, above hash table for
 // BinaryKmers
@@ -87,5 +61,12 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
 
 // Check memory against args->mem_to_use and total RAM
 void cmd_check_mem_limit(const CmdArgs *args, size_t mem_requested);
+
+// Once we have set cmd_usage, we can call cmd_print_usage() from anywhere
+extern const char *cmd_usage;
+
+void cmd_print_usage(const char *errfmt,  ...)
+  __attribute__((noreturn))
+  __attribute__((format(printf, 1, 2)));
 
 #endif

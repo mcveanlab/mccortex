@@ -445,7 +445,7 @@ void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectReadsInput *task,
   reads_to_paths(wrkr);
 }
 
-void generate_paths(const CorrectReadsInput *tasks, size_t num_inputs,
+void generate_paths(CorrectReadsInput *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {
   size_t i;

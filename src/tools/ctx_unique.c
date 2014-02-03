@@ -6,14 +6,14 @@
 #include "khash.h"
 #include "string_buffer.h"
 
+#include "tools.h"
 #include "dna.h"
-#include "cmd.h"
 #include "util.h"
 #include "file_util.h"
 
 #define PROC_MAXK 100
 
-static const char usage[] =
+const char unique_usage[] =
 "usage: "CMD" unique [options] <path_calls.bubbles> <out.base>\n"
 "  Produces files <out.base>.vcf and <out.base>.5pflank.fa\n";
 
@@ -955,9 +955,8 @@ KHASH_MAP_INIT_STR(vhsh, Var*);
 
 int ctx_unique(CmdArgs *args)
 {
-  int argc = args->argc;
   char **argv = args->argv;
-  if(argc != 2) print_usage(usage, NULL);
+  // Have already checked we have exactly 2 arguments
 
   const char *input_path = argv[0];
   const char *output_path = argv[1];

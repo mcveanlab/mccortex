@@ -1,7 +1,7 @@
 #include "global.h"
 #include "string_buffer.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -9,7 +9,7 @@
 #include "path_store.h"
 #include "path_format.h"
 
-static const char usage[] =
+const char pjoin_usage[] =
 "usage: "CMD" pjoin [options] <out.ctp> <in0.ctp> [offset:]in1.ctp[:0,2-4] ...\n"
 "  Merge cortex path files.\n"
 "\n"
@@ -26,16 +26,14 @@ static const char usage[] =
 
 int ctx_pjoin(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnf", usage);
-  // cmd_require_options(args, "m", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 3) print_usage(usage, NULL);
+  // Have already checked we have at least 3 arguments
 
   // if(!args->num_kmers_set && !args->input_file_set)
-  //   print_usage(usage, "Please specify -n <num-kmers> or -f <in.ctx>");
+  //   cmd_print_usage("Please specify -n <num-kmers> or -f <in.ctx>");
   // if(args->num_kmers_set && args->input_file_set)
-  //   print_usage(usage, "Please specify only ONE of -n <num-kmers> or -f <in.ctx>");
+  //   cmd_print_usage("Please specify only ONE of -n <num-kmers> or -f <in.ctx>");
 
   boolean overlap = false, flatten = false;
   size_t output_ncols = 0;
@@ -53,17 +51,17 @@ int ctx_pjoin(CmdArgs *args)
     else if(strcasecmp(argv[argi],"--outcols") == 0) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &output_ncols) ||
          output_ncols == 0) {
-        print_usage(usage, "--outcols <C> needs an integer argument > 0");
+        cmd_print_usage("--outcols <C> needs an integer argument > 0");
       }
       argi++;
     }
     else {
-      print_usage(usage, "Unknown argument '%s'", argv[argi]);
+      cmd_print_usage("Unknown argument '%s'", argv[argi]);
     }
   }
 
   if(argc - argi < 2)
-    print_usage(usage, "Please specify output and input paths");
+    cmd_print_usage("Please specify output and input paths");
 
   const char *out_ctp_path = argv[argi++];
 
@@ -84,7 +82,7 @@ int ctx_pjoin(CmdArgs *args)
     path_file_open(&pfiles[i], paths[i], true);
 
     if(pfiles[0].hdr.kmer_size != pfiles[i].hdr.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                   pfiles[0].hdr.kmer_size, pfiles[i].hdr.kmer_size);
     }
 
@@ -115,7 +113,7 @@ int ctx_pjoin(CmdArgs *args)
 
   if(output_ncols == 0) output_ncols = total_cols;
   else if(total_cols > output_ncols) {
-    print_usage(usage, "You specified --outcols %zu but inputs need at %zu colours",
+    cmd_print_usage("You specified --outcols %zu but inputs need at %zu colours",
                 output_ncols, total_cols);
   }
 
@@ -145,7 +143,7 @@ int ctx_pjoin(CmdArgs *args)
   }
 
   // if(num_kmers < ctp_max_path_kmers) {
-  //   print_usage(usage, "Please set a larger -n <kmers> (needs to be > %zu)",
+  //   cmd_print_usage("Please set a larger -n <kmers> (needs to be > %zu)",
   //               ctp_max_path_kmers);
   // }
 

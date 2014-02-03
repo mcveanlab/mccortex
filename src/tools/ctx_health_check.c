@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -10,7 +10,7 @@
 #include "path_file_filter.h"
 #include "graph_paths.h"
 
-static const char usage[] =
+const char health_usage[] =
 "usage: "CMD" healthcheck [options] <graph.ctx>\n"
 "  Load a graph into memory to check it is valid.\n"
 "\n"
@@ -23,35 +23,33 @@ static const char usage[] =
 
 int ctx_health_check(CmdArgs *args)
 {
-  cmd_accept_options(args, "pmn", usage);
   int argi, argc = args->argc;
   char **argv = args->argv;
-  if(argc != 1) print_usage(usage, NULL);
+  // Have already check that we have exactly 1 argument
 
   size_t i;
   boolean do_edge_check = true;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
     if(strcmp(argv[argi],"--noedgecheck")) do_edge_check = false;
-    else print_usage(usage, "Unknown option: %s", argv[argi]);
+    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  if(argi+1 < argc) print_usage(usage, "Too many arguments");
-  if(argi+1 > argc) print_usage(usage, "Too few arguments");
+  if(argi+1 < argc) cmd_print_usage("Too many arguments");
+  if(argi+1 > argc) cmd_print_usage("Too few arguments");
 
   char *ctx_path = argv[argi];
 
   if(!do_edge_check && args->num_ctp_files == 0) {
-    print_usage(usage, "--noedgecheck and no path files (-p in.ctp) "
-                       "- nothing to check.");
+    cmd_print_usage("--noedgecheck and no path files (-p in.ctp) - nothing to check.");
   }
 
   //
   // Open Graph file
   //
-  GraphFileReader file = INIT_GRAPH_READER;
-  graph_file_open(&file, ctx_path, true); // true => errors are fatal
-  size_t col, ncols = graph_file_outncols(&file);
+  GraphFileReader gfile = INIT_GRAPH_READER;
+  graph_file_open(&gfile, ctx_path, true); // true => errors are fatal
+  size_t col, ncols = graph_file_outncols(&gfile);
 
   //
   // Open path files
@@ -67,13 +65,16 @@ int ctx_health_check(CmdArgs *args)
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
+  // Check for compatibility between graph files and path files
+  graphs_paths_compatible(&gfile, 1, pfiles, num_pfiles);
+
   // Decide on memory
   size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
   size_t path_mem = 0, tmp_path_mem = 0, total_mem;
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        file.hdr.num_of_kmers, false, &graph_mem);
+                                        gfile.hdr.num_of_kmers, false, &graph_mem);
 
   // Path Memory
   if(num_pfiles) {
@@ -87,7 +88,7 @@ int ctx_health_check(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   size_t num_edge_cols = do_edge_check ? ncols : 1;
-  db_graph_alloc(&db_graph, file.hdr.kmer_size, ncols, num_edge_cols, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, num_edge_cols, kmers_in_hash);
 
   // Only need one edge per colour if doing edge check
   if(do_edge_check) {
@@ -111,7 +112,7 @@ int ctx_health_check(CmdArgs *args)
                               .must_exist_in_graph = false,
                               .empty_colours = true};
 
-  graph_load(&file, gprefs, NULL);
+  graph_load(&gfile, gprefs, NULL);
 
   // Load path files
   if(num_pfiles) {

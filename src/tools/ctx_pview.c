@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -9,14 +9,12 @@
 #include "graph_walker.h"
 #include "bubble_caller.h"
 
-static const char usage[] = "usage: "CMD" pview [options] <in.ctp>\n";
+const char pview_usage[] = "usage: "CMD" pview [options] <in.ctp>\n";
 
 int ctx_pview(CmdArgs *args)
 {
-  cmd_accept_options(args, "mn", usage);
-  int argc = args->argc;
   char **argv = args->argv;
-  if(argc != 1) print_usage(usage, NULL);
+  // Already checked we have exactly one argument
 
   char *input_paths_file = argv[0];
 

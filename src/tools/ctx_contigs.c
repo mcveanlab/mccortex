@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -8,12 +8,13 @@
 #include "binary_kmer.h"
 #include "graph_format.h"
 #include "path_format.h"
+#include "graph_paths.h"
 #include "supernode.h"
 #include "graph_walker.h"
 #include "repeat_walker.h"
 #include "seq_reader.h"
 
-static const char usage[] =
+const char contigs_usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
 "  Pull out contigs from the graph, print statistics\n"
 "\n"
@@ -266,9 +267,9 @@ static inline void parse_seed_reads(read_t *r1, read_t *r2,
 
 int ctx_contigs(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnpo", usage);
   int argc = args->argc;
   char **argv = args->argv;
+  // Already checked there is at least 1 argument
 
   // char str[100];
   // printf("Test NaN: %s INF: %s\n", num_to_str(NAN, 2, str),
@@ -282,20 +283,20 @@ int ctx_contigs(CmdArgs *args)
     if(strcmp(argv[0],"--ncontigs") == 0) {
       if(argc == 1 || !parse_entire_size(argv[1], &n_rand_contigs) ||
          n_rand_contigs == 0) {
-        print_usage(usage, "--ncontigs <N> requires an integer argument [>0]");
+        cmd_print_usage("--ncontigs <N> requires an integer argument [>0]");
       }
       argv += 2; argc -= 2;
     }
     else if(strcmp(argv[0],"--colour") == 0 || strcmp(argv[0],"--color") == 0) {
       if(argc == 1 || !parse_entire_size(argv[1], &colour))
-        print_usage(usage, "--colour <c> requires a positive integer argument");
+        cmd_print_usage("--colour <c> requires a positive integer argument");
       argv += 2; argc -= 2;
     }
     else if(strcmp(argv[0],"--seed") == 0 || strcmp(argv[0],"--seeds") == 0) {
       if(argc == 1)
-        print_usage(usage, "--seed <in.fa|fq|sam> requires an argument");
+        cmd_print_usage("--seed <in.fa|fq|sam> requires an argument");
       if(seed_file != NULL) {
-        print_usage(usage, "Only one --seed allowed, "
+        cmd_print_usage("Only one --seed allowed, "
                            "try --seed <(cat file1.fa file2.fa ...)");
       }
       if((seed_file = seq_open(argv[1])) == NULL)
@@ -310,22 +311,22 @@ int ctx_contigs(CmdArgs *args)
       print_contigs = true;
       argv++; argc--;
     }
-    else print_usage(usage, "Unknown argument: %s", argv[0]);
+    else cmd_print_usage("Unknown argument: %s", argv[0]);
   }
 
-  if(argc != 1) print_usage(usage, NULL);
+  if(argc != 1) cmd_print_usage(NULL);
   char *input_ctx_path = argv[0];
 
   if(seed_file != NULL && n_rand_contigs > 0)
-    print_usage(usage, "Please specify one of --seed and --ncontigs");
+    cmd_print_usage("Please specify one of --seed and --ncontigs");
 
   if(seed_file == NULL && n_rand_contigs == 0) n_rand_contigs = 1000;
 
   //
   // Open graph file
   //
-  GraphFileReader file = INIT_GRAPH_READER;
-  graph_file_open(&file, input_ctx_path, true);
+  GraphFileReader gfile = INIT_GRAPH_READER;
+  graph_file_open(&gfile, input_ctx_path, true);
 
   //
   // Open path files
@@ -341,10 +342,13 @@ int ctx_contigs(CmdArgs *args)
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
+  // Check for compatibility between graph files and path files
+  graphs_paths_compatible(&gfile, 1, pfiles, num_pfiles);
+
   // Check colour specified
-  if(colour >= graph_file_usedcols(&file)) {
-    print_usage(usage, "--colour is too high (%zu > %zu)",
-                colour, graph_file_usedcols(&file)-1);
+  if(colour >= graph_file_usedcols(&gfile)) {
+    cmd_print_usage("--colour is too high (%zu > %zu)",
+                 colour, graph_file_usedcols(&gfile)-1);
   }
 
   //
@@ -354,10 +358,10 @@ int ctx_contigs(CmdArgs *args)
   char path_mem_str[100];
 
   // 1 bit needed per kmer if we need to keep track of noreseed
-  bits_per_kmer = sizeof(Edges)*8 + file.hdr.num_of_cols + sizeof(uint64_t)*8 +
+  bits_per_kmer = sizeof(Edges)*8 + gfile.hdr.num_of_cols + sizeof(uint64_t)*8 +
                   no_reseed;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.hdr.num_of_kmers, false, &graph_mem);
+                                        gfile.hdr.num_of_kmers, false, &graph_mem);
 
   // Paths memory
   size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
@@ -383,13 +387,13 @@ int ctx_contigs(CmdArgs *args)
 
   // Allocate
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, file.hdr.kmer_size, file.hdr.num_of_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, gfile.hdr.num_of_cols, 1, kmers_in_hash);
 
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
   size_t nword64 = roundup_bits2words64(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, sizeof(uint8_t));
+  db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, sizeof(uint8_t));
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
   memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
@@ -412,7 +416,7 @@ int ctx_contigs(CmdArgs *args)
                               .must_exist_in_graph = false,
                               .empty_colours = true};
 
-  graph_load(&file, gprefs, &stats);
+  graph_load(&gfile, gprefs, &stats);
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -534,7 +538,7 @@ int ctx_contigs(CmdArgs *args)
   path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
-  graph_file_dealloc(&file);
+  graph_file_dealloc(&gfile);
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;

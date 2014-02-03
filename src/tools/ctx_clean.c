@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -10,7 +10,7 @@
 #include "supernode.h"
 #include "prune_nodes.h"
 
-static const char usage[] =
+const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 " Clean a cortex binary. Joins binaries first, if multiple given\n"
 " Clips tips before doing supernode thresholding (when doing both [default]).\n"
@@ -264,11 +264,9 @@ static Covg clean_supernodes(boolean clean, Covg covg_threshold, double seq_dept
 
 int ctx_clean(CmdArgs *args)
 {
-  cmd_accept_options(args, "mnco", usage);
-  // cmd_require_options(args, "o", usage);
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc < 2) print_usage(usage, NULL);
+  // Already checked that we have at least 2 arguments
 
   // Check cmdline args
   boolean tip_cleaning = false, supernode_cleaning = false;
@@ -282,37 +280,37 @@ int ctx_clean(CmdArgs *args)
     if(strcmp(argv[argi],"--tips") == 0) {
       if(argi + 1 >= argc || !parse_entire_size(argv[argi+1], &max_tip_len) ||
          max_tip_len <= 1) {
-        print_usage(usage, "--tips <L> needs an integer argument > 1");
+        cmd_print_usage("--tips <L> needs an integer argument > 1");
       }
       tip_cleaning = true;
       argi++;
     }
     else if(strcmp(argv[argi],"--supernodes") == 0) supernode_cleaning = true;
     else if(strcmp(argv[argi],"--covgs") == 0) {
-      if(argi + 1 >= argc) print_usage(usage, "--covgs <out.csv> needs an argument");
+      if(argi + 1 >= argc) cmd_print_usage("--covgs <out.csv> needs an argument");
       dump_covgs = argv[argi+1];
       argi++;
     }
     else if(strcmp(argv[argi],"--threshold") == 0) {
       if(argi+1 >= argc || !parse_entire_uint(argv[argi+1], &threshold) ||
          threshold <= 1) {
-        print_usage(usage, "--threshold <T> needs an integer argument > 1");
+        cmd_print_usage("--threshold <T> needs an integer argument > 1");
       }
       argi++;
     }
     else if(strcmp(argv[argi],"--kdepth") == 0) {
       if(argi+1 >= argc || !parse_entire_double(argv[argi+1], &seq_depth) ||
          seq_depth <= 1) {
-        print_usage(usage, "--kdepth <C> needs a positive decimal number > 1");
+        cmd_print_usage("--kdepth <C> needs a positive decimal number > 1");
       }
       argi++;
     }
-    else print_usage(usage, "Unknown argument: %s", argv[argi]);
+    else cmd_print_usage("Unknown argument: %s", argv[argi]);
   }
 
   char *out_ctx_path = args->output_file_set ? args->output_file : NULL;
 
-  if(argi == argc) print_usage(usage, "Please give input graph files");
+  if(argi == argc) cmd_print_usage("Please give input graph files");
 
   // default behaviour
   if(!tip_cleaning && !supernode_cleaning) {
@@ -323,18 +321,18 @@ int ctx_clean(CmdArgs *args)
   }
 
   if((tip_cleaning || supernode_cleaning) && out_ctx_path == NULL) {
-    print_usage(usage, "Please specify --out <out.ctx> for cleaned graph");
+    cmd_print_usage("Please specify --out <out.ctx> for cleaned graph");
   }
 
   if(!supernode_cleaning && threshold > 0)
-    print_usage(usage, "--threshold <T> not needed if not cleaning with --supernodes");
+    cmd_print_usage("--threshold <T> not needed if not cleaning with --supernodes");
   if(!supernode_cleaning && seq_depth > 0)
-    print_usage(usage, "--kdepth <C> not needed if not cleaning with --supernodes");
+    cmd_print_usage("--kdepth <C> not needed if not cleaning with --supernodes");
 
   // Default behaviour
   if(supernode_cleaning && threshold != 0 && seq_depth > 0) {
-    print_usage(usage, "supernode cleaning requires only one of "
-                       "--threshold <T>, --depth <D>");
+    cmd_print_usage("supernode cleaning requires only one of "
+                             "--threshold <T>, --depth <D>");
   }
 
   // Use remaining args as graph files
@@ -351,7 +349,7 @@ int ctx_clean(CmdArgs *args)
     graph_file_open(&files[i], paths[i], true);
 
     if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      print_usage(usage, "Kmer sizes don't match [%u vs %u]",
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
@@ -397,10 +395,10 @@ int ctx_clean(CmdArgs *args)
 
   // Check output files are writable
   if(out_ctx_path != NULL && !futil_is_file_writable(out_ctx_path))
-    print_usage(usage, "Cannot write to output: %s", out_ctx_path);
+    cmd_print_usage("Cannot write to output: %s", out_ctx_path);
 
   if(dump_covgs && !futil_is_file_writable(dump_covgs))
-    print_usage(usage, "Cannot write coverage distribution to: %s", dump_covgs);
+    cmd_print_usage("Cannot write coverage distribution to: %s", dump_covgs);
 
   // Create db_graph
   // Load all data into first colour and clean, then use use_ncols to take

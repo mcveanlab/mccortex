@@ -1,7 +1,7 @@
 #include "global.h"
 #include <errno.h>
 
-#include "cmd.h"
+#include "tools.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -12,7 +12,7 @@
 #include "graph_format.h"
 #include "graph_file_filter.h"
 
-static const char usage[] =
+const char view_usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"
 " options:\n"
 "   --kmers  Print kmers\n"
@@ -82,7 +82,7 @@ int ctx_view(CmdArgs *args)
 {
   int argc = args->argc;
   char **argv = args->argv;
-  if(argc == 0) print_usage(usage, NULL);
+  // Already checked that we have at least 1 argument
 
   boolean print_info = false, parse_kmers = false, print_kmers = false;
   size_t num_errors = 0, num_warnings = 0;
@@ -93,13 +93,13 @@ int ctx_view(CmdArgs *args)
     if(strcmp(argv[argi],"--info") == 0) print_info = true;
     else if(strcmp(argv[argi],"--check") == 0) parse_kmers = true;
     else if(strcmp(argv[argi],"--kmers") == 0) print_kmers = true;
-    else print_usage(usage, "Unknown option: %s", argv[argi]);
+    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
   if(!print_info && !parse_kmers && !print_kmers)
     print_info = parse_kmers = true;
 
-  if(argi+1 < argc) print_usage(usage, NULL);
+  if(argi+1 < argc) cmd_print_usage(NULL);
 
   GraphFileReader file = INIT_GRAPH_READER;
   char *path = argv[argc-1];
