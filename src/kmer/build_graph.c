@@ -243,69 +243,18 @@ static void* grab_reads_from_pool(void *ptr)
   pthread_exit(NULL);
 }
 
-static void start_build_graph_workers(MsgPool *pool, dBGraph *db_graph,
-                                      BuildGraphTask *files, size_t num_files,
-                                      size_t num_build_threads)
-{
-  size_t i, j;
-  BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
-
-  for(i = 0; i < num_build_threads; i++)
-  {
-    BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = pool};
-    asynciodata_alloc(&tmp_wrkr.data);
-    tmp_wrkr.file_stats = calloc2(num_files, sizeof(LoadingStats));
-    memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
-  }
-
-  // Thread attribute joinable
-  pthread_attr_t thread_attr;
-  pthread_attr_init(&thread_attr);
-  pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
-
-  // Start threads
-  int rc;
-  for(i = 0; i < num_build_threads; i++) {
-    rc = pthread_create(&workers[i].thread, &thread_attr,
-                        grab_reads_from_pool, (void*)&workers[i]);
-    if(rc != 0) die("Creating thread failed");
-  }
-
-  // Finished with thread attribute
-  if(pthread_attr_destroy(&thread_attr))
-    warn("Bad return value when disposing of pthread_attr");
-
-  // Wait for threads to finish
-  for(i = 0; i < num_build_threads; i++) {
-    rc = pthread_join(workers[i].thread, NULL);
-    if(rc != 0) die("Joining thread failed");
-  }
-
-  // Free memory
-  for(i = 0; i < num_build_threads; i++) {
-    asynciodata_dealloc(&workers[i].data);
-    // Merge stats
-    for(j = 0; j < num_files; j++)
-      loading_stats_merge(&files[i].stats, &workers[i].file_stats[j]);
-    free(workers[i].file_stats);
-  }
-  free(workers);
-}
-
 // One thread used per input file, num_build_threads used to add reads to graph
 void build_graph(dBGraph *db_graph, BuildGraphTask *files,
                  size_t num_files, size_t num_build_threads)
 {
   assert(db_graph->bktlocks != NULL);
 
-  size_t i;
+  size_t i, j;
   MsgPool pool;
-  // msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
   msgpool_alloc_spinlock(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
   msgpool_iterate(&pool, asynciodata_pool_init, NULL);
 
   // Start async io reading
-  AsyncIOWorker *asyncio_workers;
   AsyncIOReadTask *async_tasks = malloc2(num_files * sizeof(AsyncIOReadTask));
 
   for(i = 0; i < num_files; i++) {
@@ -318,15 +267,36 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
     memcpy(&async_tasks[i], &aio_task, sizeof(AsyncIOReadTask));
   }
 
-  asyncio_workers = asyncio_read_start(&pool, async_tasks, num_files);
+  BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
+
+  for(i = 0; i < num_build_threads; i++)
+  {
+    BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = &pool};
+    asynciodata_alloc(&tmp_wrkr.data);
+    tmp_wrkr.file_stats = calloc2(num_files, sizeof(LoadingStats));
+    memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
+  }
 
   // Create a lot of workers to build the graph
-  start_build_graph_workers(&pool, db_graph, files, num_files, num_build_threads);
+  asyncio_run_threads(&pool, async_tasks, num_files, grab_reads_from_pool,
+                      workers, num_build_threads, sizeof(BuildGraphWorker));
 
-  // Finish with the async io
-  asyncio_read_finish(asyncio_workers, num_files);
+  // start_build_graph_workers(&pool, db_graph, files, num_files, num_build_threads);
 
   free(async_tasks);
   msgpool_iterate(&pool, asynciodata_pool_destroy, NULL);
   msgpool_dealloc(&pool);
+
+  // Clean up workers one by one...
+  for(i = 0; i < num_build_threads; i++) {
+    // Merge stats
+    for(j = 0; j < num_files; j++)
+      loading_stats_merge(&files[i].stats, &workers[i].file_stats[j]);
+
+    // Free memory
+    asynciodata_dealloc(&workers[i].data);
+    free(workers[i].file_stats);
+  }
+
+  free(workers);
 }

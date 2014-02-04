@@ -87,7 +87,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "thread", .func = ctx_thread, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "", .reqargs = "",
+  .minargs = 2, .maxargs = INT_MAX, .optargs = "atmnp", .reqargs = "",
   .blurb = "thread reads through cleaned population",
   .usage = thread_usage,
 },

@@ -102,9 +102,10 @@ static void* async_io_reader(void *ptr)
 // Start loading into a pool
 // returns an array of AsyncIOWorker of length len_files, each is a running
 // thread putting reading into the pool passed.
-AsyncIOWorker* asyncio_read_start(MsgPool *pool,
-                                  const AsyncIOReadTask *tasks,
-                                  size_t num_tasks)
+static AsyncIOWorker* asyncio_read_start(MsgPool *pool,
+                                         const pthread_attr_t *thread_attr,
+                                         const AsyncIOReadTask *tasks,
+                                         size_t num_tasks)
 {
   size_t i;
   int rc;
@@ -123,27 +124,18 @@ AsyncIOWorker* asyncio_read_start(MsgPool *pool,
   for(i = 0; i < num_tasks; i++)
     async_io_worker_alloc(&workers[i], &tasks[i], pool, num_running);
 
-  // Thread attribute joinable
-  pthread_attr_t thread_attr;
-  pthread_attr_init(&thread_attr);
-  pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
-
   // Start threads
   for(i = 0; i < num_tasks; i++) {
-    rc = pthread_create(&workers[i].thread, &thread_attr,
+    rc = pthread_create(&workers[i].thread, thread_attr,
                         async_io_reader, (void*)&workers[i]);
-    if(rc != 0) die("Creating thread failed");
+    if(rc != 0) die("Creating thread failed: %s", strerror(rc));
   }
-
-  // Finished with thread attribute
-  if(pthread_attr_destroy(&thread_attr))
-    warn("Bad return value when disposing of pthread_attr");
 
   return workers;
 }
 
 // Wait until the pool is empty
-void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
+static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
 {
   int rc;
   size_t i;
@@ -151,12 +143,13 @@ void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
   // Wait for threads to finish
   for(i = 0; i < num_workers; i++) {
     rc = pthread_join(workers[i].thread, NULL);
-    if(rc != 0) die("Joining thread failed");
+    if(rc != 0) die("Joining thread failed: %s", strerror(rc));
   }
 
   MsgPool *pool = workers[0].pool;
   msgpool_close(pool);
   msgpool_wait_til_empty(pool);
+  assert(pool->noccupied == 0);
 
   for(i = 0; i < num_workers; i++) async_io_worker_dealloc(&workers[i]);
   free(workers);
@@ -174,26 +167,23 @@ void asyncio_run_threads(MsgPool *pool,
 
   status("[asyncio] Threads: %zu input %zu reading", num_inputs, num_readers);
 
-  // Start async io reading
-  AsyncIOWorker *asyncio_workers;
-  asyncio_workers = asyncio_read_start(pool, asyncio_tasks, num_inputs);
-
-  // Run the workers until the pool is closed
   // Thread attribute joinable
   pthread_attr_t thread_attr;
   pthread_attr_init(&thread_attr);
   pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
 
-  pthread_t *threads = malloc2(num_readers * sizeof(pthread_t));
+  // Start async io reading
+  AsyncIOWorker *asyncio_workers;
+  asyncio_workers = asyncio_read_start(pool, &thread_attr, asyncio_tasks, num_inputs);
+
+  // Run the workers until the pool is closed
+  pthread_t *threads = calloc2(num_readers, sizeof(pthread_t));
 
   // Start threads
   for(i = 0; i < num_readers; i++) {
-    rc = pthread_create(&threads[i], &thread_attr, job, args+i*elsize);
+    rc = pthread_create(&threads[i], &thread_attr, job, (char*)args+i*elsize);
     if(rc != 0) die("Creating thread failed");
   }
-
-  // Finished with thread attribute
-  pthread_attr_destroy(&thread_attr);
 
   // Join threads
   for(i = 0; i < num_readers; i++) {
@@ -201,8 +191,10 @@ void asyncio_run_threads(MsgPool *pool,
     if(rc != 0) die("Joining thread failed");
   }
 
+  // Finished with thread attribute
+  pthread_attr_destroy(&thread_attr);
   free(threads);
 
   // Finish with the async io (waits until queue is empty)
-  asyncio_read_finish(asyncio_workers, num_readers);
+  asyncio_read_finish(asyncio_workers, num_inputs);
 }

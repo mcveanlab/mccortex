@@ -305,17 +305,17 @@ $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
 # shopt -s nullglob means wildcards return no matches instead of literal '*_sizes'
 k$(KMER)/paths/pop.sepe.%.ctp: k$(KMER)/graphs/pop.%.ctx k$(KMER)/paths/pop.se.%.ctp
-	mkdir -p paths
+	mkdir -p k$(KMER)/paths
 	$(THREADCTX) -p k$(KMER)/paths/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
 	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/paths/sepe.$$f; done
 
 k$(KMER)/paths/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
-	mkdir -p paths
+	mkdir -p k$(KMER)/paths
 	$(THREADCTX) $($*_list) $@ $<
 	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/paths/$*.$$f; done
 
 k$(KMER)/paths/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
-	mkdir -p paths
+	mkdir -p k$(KMER)/paths
 	$(THREADCTX) $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
 	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/paths/$*.$$f; done
 

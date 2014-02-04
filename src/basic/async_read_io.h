@@ -28,18 +28,6 @@ typedef struct AsyncIOWorker AsyncIOWorker;
 void asynciodata_pool_init(void *el, size_t idx, void *args);
 void asynciodata_pool_destroy(void *el, size_t idx, void *args);
 
-// Pool is of type AsyncIOData
-// Start loading into a pool
-AsyncIOWorker* asyncio_read_start(MsgPool *pool,
-                                  const AsyncIOReadTask *files,
-                                  size_t num_files);
-
-// Function blocks until all reads are loaded into the pool and the pool is empty
-// Wait until the pool is empty
-// frees workers memory
-// Each worker is a thread reading from a file (or pair of files)
-void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers);
-
 void asyncio_run_threads(MsgPool *pool,
                          AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
                          void* (*job)(void*),
