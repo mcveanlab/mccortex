@@ -45,15 +45,16 @@ size_t hash_table_mem_limit(size_t memlimit, size_t extrabits, size_t *nkmers_pt
   }
 
   bktsize = (memlimit - num_of_buckets*sizeof(uint8_t[2])) /
-            (num_of_buckets * (sizeof(BinaryKmer)+extrabits));
+            (num_of_buckets * (sizeof(BinaryKmer)*8+extrabits)/8);
 
-  if(bktsize > MAX_BUCKET_SIZE) bktsize = MAX_BUCKET_SIZE;
-  else if(bktsize == 0) {
+  if(bktsize == 0) {
     num_of_bits--;
     num_of_buckets = 1UL << num_of_bits;
     num_of_kmers = bktsize * num_of_buckets;
     bktsize = MAX2(num_of_kmers / num_of_buckets, 1);
   }
+
+  bktsize = MIN2(bktsize, MAX_BUCKET_SIZE);
 
   if(nkmers_ptr != NULL) *nkmers_ptr = num_of_buckets * bktsize;
 

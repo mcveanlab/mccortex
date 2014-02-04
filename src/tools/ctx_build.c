@@ -402,8 +402,9 @@ int ctx_build(CmdArgs *args)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  bits_per_kmer = ((sizeof(Covg) + sizeof(Edges)) * 8 + remove_pcr_used*2) *
-                  output_colours;
+  bits_per_kmer = (sizeof(Covg) + sizeof(Edges))*8*output_colours +
+                  remove_pcr_used*2;
+
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true, &graph_mem);
   cmd_check_mem_limit(args, graph_mem);
 

@@ -7,8 +7,7 @@
 
 void loading_stats_init(LoadingStats *stats)
 {
-  LoadingStats init = LOAD_STATS_INIT_MACRO;
-  memset(stats, &init, sizeof(LoadingStats));
+  memset(stats, 0, sizeof(LoadingStats));
 }
 
 void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
