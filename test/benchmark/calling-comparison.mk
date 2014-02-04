@@ -46,7 +46,7 @@ STAMPY_BIN=./stampy.sh
 
 NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
 # 8bytes for kmer, 4 for covgs, 1 for edges + 10MB for paths
-MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+(4+1)*$(NUMCOLS)) + 10000000')
+MEM=$(shell bc <<< '( $(MEMWIDTH) * 2^$(MEMHEIGHT) * (8+(4+1)*$(NUMCOLS)) + 10000000'))
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
 CTX=$(CTX_PATH)/bin/ctx31
@@ -87,7 +87,7 @@ GENOMES=$(shell echo genomes/genome{1..$(NCHROMS)}.fa)
 READS=$(shell echo reads/reads{1..$(NCHROMS)}.{1..2}.fa.gz)
 RAWGRAPHS=$(shell echo k$(KMER)/graphs/sample{1..$(NUM_INDIVS)}.raw.ctx)
 CLEANGRAPHS=$(RAWGRAPHS:.raw.ctx=.clean.ctx)
-PATHS=$(shell echo k$(KMER)/graphs/pop.{se,pe,sepe}.noref.ctp)
+PATHS=$(shell echo k$(KMER)/paths/pop.{se,pe,sepe}.noref.ctp)
 REFGENOME=ref/genome0.fa
 
 DOOLD=$(shell if [ $(NUM_INDIVS) -gt 10 ]; then echo 'no'; else echo 'yes'; fi)
@@ -223,9 +223,9 @@ $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 # e.g. genomes/genome{1,2}.fa loaded into colour 0 when PLOIDY=2
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
 	$(TRAVERSE)                                       --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.se.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.pe.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/graphs/pop.sepe.noref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/paths/pop.se.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/paths/pop.pe.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(TRAVERSE) -p k$(KMER)/paths/pop.sepe.noref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
 	$(CTXSTATS) k$(KMER)/graphs/pop.noref.ctx:0
 	@echo == ref copy number ==
 	$(CTX_PATH)/bin/ctx31 view --kmers ref/ref.k$(KMER).ctx | awk '{n[$$2]++} END {for (i in n) print i,n[i]}' | sort -n
@@ -304,17 +304,20 @@ k$(KMER)/graphs/pop.%.ctx:
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
 
 # shopt -s nullglob means wildcards return no matches instead of literal '*_sizes'
-k$(KMER)/graphs/pop.sepe.%.ctp: k$(KMER)/graphs/pop.%.ctx k$(KMER)/graphs/pop.se.%.ctp
-	$(THREADCTX) -p k$(KMER)/graphs/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
-	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/sepe.$$f; done
+k$(KMER)/paths/pop.sepe.%.ctp: k$(KMER)/graphs/pop.%.ctx k$(KMER)/paths/pop.se.%.ctp
+	mkdir -p paths
+	$(THREADCTX) -p k$(KMER)/paths/pop.se.$*.ctp $(pe_list) $@ k$(KMER)/graphs/pop.$*.ctx
+	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/paths/sepe.$$f; done
 
-k$(KMER)/graphs/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
+k$(KMER)/paths/pop.%.noref.ctp: k$(KMER)/graphs/pop.noref.ctx
+	mkdir -p paths
 	$(THREADCTX) $($*_list) $@ $<
-	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
+	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/paths/$*.$$f; done
 
-k$(KMER)/graphs/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
+k$(KMER)/paths/pop.%.ref.ctp: k$(KMER)/graphs/pop.ref.ctx ref/ref.fa
+	mkdir -p paths
 	$(THREADCTX) $($*_list) --col $(NUM_INDIVS) --seq ref/ref.fa $@ $<
-	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/graphs/$*.$$f; done
+	shopt -s nullglob; for f in *_sizes.*.csv; do mv $$f k$(KMER)/paths/$*.$$f; done
 
 # Bubbles
 $(BUBBLES): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx $(READLISTS)
@@ -332,14 +335,14 @@ k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
 
 # % => {se,pe,sepe}
-k$(KMER)/bubbles/samples.%.ref.bubbles.gz: k$(KMER)/graphs/pop.ref.ctx k$(KMER)/graphs/pop.%.noref.ctp
-k$(KMER)/bubbles/samples.%.noref.bubbles.gz: k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.%.noref.ctp
+k$(KMER)/bubbles/samples.%.ref.bubbles.gz: k$(KMER)/graphs/pop.ref.ctx k$(KMER)/paths/pop.%.noref.ctp
+k$(KMER)/bubbles/samples.%.noref.bubbles.gz: k$(KMER)/graphs/pop.noref.ctx k$(KMER)/paths/pop.%.noref.ctp
 k$(KMER)/bubbles/samples.%.bubbles.gz:
 	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
 	p=`echo $@ | grep -oE '([sp]e)*.(no)?ref.bubbles.gz$$' | grep -oE '([sp]e)*'`; \
-	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/graphs/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
+	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/paths/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
