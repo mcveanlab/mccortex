@@ -111,7 +111,7 @@ static inline void dot_print_edges(hkey_t node, sndata_t *supernodes,
   }
 }
 
-static void dump_supernodes(hkey_t node, FILE *fout, int print_syntax,
+static void dump_supernodes(hkey_t hkey, FILE *fout, int print_syntax,
                             dBNodeBuffer *nbuf, sndata_t *supernodes,
                             uint64_t *visited, const dBGraph *db_graph)
 {
@@ -119,13 +119,13 @@ static void dump_supernodes(hkey_t node, FILE *fout, int print_syntax,
 
   size_t i;
 
-  if(!bitset_get(visited, node))
+  if(!bitset_get(visited, hkey))
   {
     db_node_buf_reset(nbuf);
-    supernode_find(node, nbuf, db_graph);
+    supernode_find(hkey, nbuf, db_graph);
     for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
 
-    supernode_normalise(nbuf->data, nbuf->len);
+    supernode_normalise(nbuf->data, nbuf->len, db_graph);
 
     switch(print_syntax) {
       case PRINT_FASTA:

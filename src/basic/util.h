@@ -80,6 +80,8 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 
 float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum);
 
+uint32_t calc_GCD(uint32_t a, uint32_t b);
+
 //
 // Time
 //

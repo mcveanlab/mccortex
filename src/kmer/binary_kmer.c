@@ -18,19 +18,10 @@ const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 
 // less than for 1 or 2 bitfields is defined in the header
 #if NUM_BKMER_WORDS > 2
-boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right)
-{
+boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right) {
   size_t i;
-
-  // start at most significant end
-  for(i = 0; i < NUM_BKMER_WORDS; i++)
-  {
-    if(left.b[i] < right.b[i]) return true;
-    if(left.b[i] > right.b[i]) return false;
-  }
-
-  // if equal, return false ('less than' not 'less than or equal')
-  return false;
+  for(i = 0; i < NUM_BKMER_WORDS && left.b[i] == right.b[i]; i++);
+  return (i < NUM_BKMER_WORDS && left.b[i] < right.b[i]);
 }
 #endif
 

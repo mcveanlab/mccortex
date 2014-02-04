@@ -37,10 +37,8 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
     ctp_max_kmers = MAX2(ctp_max_kmers, paths[p].hdr.num_kmers_with_paths);
   }
 
-  if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE) {
-    die("kmer size outside of compile limit (%i-%i)",
-        MIN_KMER_SIZE, MAX_KMER_SIZE);
-  }
+  const FileFilter *fltr = (num_graphs ? &graphs[0].fltr : &paths[0].fltr);
+  db_graph_check_kmer_size(kmer_size, fltr->orig_path.buff);
 
   if(ctp_max_kmers > ctx_max_kmers)
     die("More kmers in path files than in graph files!");

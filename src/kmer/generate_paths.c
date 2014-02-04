@@ -352,7 +352,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
     if(outdegree > 1 && i+1 < contig_len)
     {
       bkmer = db_node_get_bkmer(db_graph, nodes[i+1].key);
-      nuc = db_node_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
+      nuc = db_node_get_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
       nuc_fw[num_fw] = nuc;
       pos_fw[num_fw++] = i;
     }

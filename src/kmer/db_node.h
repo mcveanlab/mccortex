@@ -103,13 +103,21 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 #define db_node_oriented_bkmer(bkmer,or,ksize) \
         (or == FORWARD ? bkmer : binary_kmer_reverse_complement(bkmer,ksize))
 
-#define db_node_first_nuc(bkmer,or,ksize) \
+#define db_node_get_first_nuc(bkmer,or,ksize) \
   ((or) == FORWARD ? binary_kmer_first_nuc(bkmer,ksize) \
                    : dna_nuc_complement(binary_kmer_last_nuc(bkmer)))
 
-#define db_node_last_nuc(bkmer,or,ksize) \
+#define db_node_get_last_nuc(bkmer,or,ksize) \
   ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
                    : dna_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
+
+#define db_node_shift_add_first_nuc(bkmer,or,ksize,nuc) \
+  ((or) == FORWARD ? binary_kmer_right_shift_add(bkmer,ksize,nuc) \
+                   : binary_kmer_left_shift_add(bkmer,ksize,binary_kmer_first_nuc(nuc)))
+
+#define db_node_shift_add_last_nuc(bkmer,or,ksize,nuc) \
+  ((or) == FORWARD ? binary_kmer_left_shift_add(bkmer,ksize, nuc) \
+                   : binary_kmer_right_shift_add(bkmer,ksize,dna_nuc_complement(nuc)))
 
 static inline dBNode db_node_reverse(dBNode node) {
   node.orient = !node.orient;

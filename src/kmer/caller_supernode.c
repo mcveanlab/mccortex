@@ -37,25 +37,28 @@ size_t caller_supernode_create(dBNode node, CallerSupernode *snode,
   snode->first_pathpos = NULL;
 
   dBNode *nodes = snode_nodes(snode);
-  supernode_normalise(nodes, snode->num_of_nodes);
+  supernode_normalise(nodes, snode->num_of_nodes, db_graph);
 
-  Edges union_edges;
-  BinaryKmer bkmer;
+  BinaryKmer bkmer0, bkmer1;
+  bkmer0 = db_node_get_bkmer(db_graph, nodes[0].key);
+  bkmer1 = db_node_get_bkmer(db_graph, nodes[snode->num_of_nodes-1].key);
+
   dBNode first, last;
+  Edges union_edges;
 
   first = db_node_reverse(nodes[0]);
   last = nodes[snode->num_of_nodes-1];
 
   // prev nodes
   union_edges = db_node_get_edges_union(db_graph, first.key);
-  bkmer = db_node_get_bkmer(db_graph, first.key);
-  snode->num_prev = db_graph_next_nodes(db_graph, bkmer, first.orient, union_edges,
+  bkmer0 = db_node_get_bkmer(db_graph, first.key);
+  snode->num_prev = db_graph_next_nodes(db_graph, bkmer0, first.orient, union_edges,
                                         snode->prev_nodes, snode->prev_bases);
 
   // next nodes
   union_edges = db_node_get_edges_union(db_graph, last.key);
-  bkmer = db_node_get_bkmer(db_graph, last.key);
-  snode->num_next = db_graph_next_nodes(db_graph, bkmer, last.orient, union_edges,
+  bkmer1 = db_node_get_bkmer(db_graph, last.key);
+  snode->num_next = db_graph_next_nodes(db_graph, bkmer1, last.orient, union_edges,
                                         snode->next_nodes, snode->next_bases);
 
   #ifdef DEBUG_CALLER

@@ -25,10 +25,10 @@ static void test_correct_aln_no_paths()
   memset(graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
   path_store_alloc(&graph.pdata, 1024, 0, ncols);
 
-  // mutations:                               **
-  char seq[100] = "ATGCATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACCGATTTGTG";
-  char mut[100] =     "ATGTTGACCAAATAAGTCACTGTCCGAGCCACGTAAAGCGTTCGCACC";
-  char res[100] =     "ATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACC";
+  // mutations:                            **
+  char seq[] = "ATGCATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACCGATTTGTG";
+  char mut[] =     "ATGTTGACCAAATAAGTCACTGTCCGAGCCACGTAAAGCGTTCGCACC";
+  char res[] =     "ATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACC";
 
   build_graph_from_str_mt(&graph, 0, seq, strlen(seq));
 

@@ -23,6 +23,9 @@ void test_hash_table();
 // db_node_tests.c
 void test_db_node();
 
+// supernode_tests.c
+void test_supernode();
+
 // util_tests.c
 void test_util();
 

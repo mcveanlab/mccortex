@@ -133,8 +133,8 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
   BinaryKmer tgt_bkmer = db_node_get_bkmer(db_graph, tgt.key);
 
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
-  lhs_nuc = db_node_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
-  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
+  lhs_nuc = db_node_get_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
+  rhs_nuc = db_node_get_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
@@ -149,8 +149,8 @@ void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
   BinaryKmer tgt_bkmer = db_node_get_bkmer(db_graph, tgt.key);
 
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
-  lhs_nuc = db_node_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
-  rhs_nuc = db_node_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
+  lhs_nuc = db_node_get_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
+  rhs_nuc = db_node_get_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 

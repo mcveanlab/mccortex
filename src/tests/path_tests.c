@@ -145,7 +145,7 @@ static inline void add_path(PathList *plist,
   }
 
   plist->len_orients[plist->npaths++] = merged;
-  path_store_fetch_bases(pstore, pi, plist->bases+plist->nbases, len);
+  // path_store_fetch_bases(pstore, pi, plist->bases+plist->nbases, len);
   plist->nbases += len;
 }
 

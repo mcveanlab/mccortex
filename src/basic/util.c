@@ -307,6 +307,34 @@ float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum)
   die("hist_median went bad");
 }
 
+// Get Greatest Common Divisor using binary GCD algorithm
+// http://en.wikipedia.org/wiki/Binary_GCD_algorithm
+uint32_t calc_GCD(uint32_t a, uint32_t b)
+{
+  uint32_t shift, tmp;
+
+  if(a == 0) return b;
+  if(b == 0) return a;
+
+  // Find power of two divisor
+  for(shift = 0; ((a | b) & 1) == 0; shift++) { a >>= 1; b >>= 1; }
+
+  // Remove remaining factors of two from a - they are not common
+  while((a & 1) == 0) a >>= 1;
+
+  do
+  {
+    // Remove remaining factors of two from b - they are not common
+    while((b & 1) == 0) b >>= 1;
+
+    if(a > b) { SWAP(a, b, tmp); }
+    b = b - a;
+  }
+  while(b != 0);
+
+  return a << shift;
+}
+
 //
 // Time
 //

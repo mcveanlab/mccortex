@@ -201,7 +201,7 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    nuc = db_node_get_last_nuc(bkmer, nodes[i].orient, kmer_size);
     str[kmer_size+i-1] = dna_nuc_to_char(nuc);
   }
 
@@ -223,7 +223,7 @@ void db_nodes_print(const dBNode *nodes, size_t num,
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    nuc = db_node_get_last_nuc(bkmer, nodes[i].orient, kmer_size);
     fputc(dna_nuc_to_char(nuc), out);
   }
 }
@@ -242,7 +242,7 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    nuc = db_node_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    nuc = db_node_get_last_nuc(bkmer, nodes[i].orient, kmer_size);
     gzputc(out, dna_nuc_to_char(nuc));
   }
 }

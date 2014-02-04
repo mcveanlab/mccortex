@@ -57,10 +57,6 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
                                  Orientation orient, Colour colour,
                                  boolean *added);
 
-// Fetch sequence
-void path_store_fetch_bases(const PathStore *paths, PathIndex index,
-                            Nucleotide *bases, PathLen len);
-
 // If compatible, a FileFilter can be read straight into a PathStore without
 // parsing each path, one-by-one (much faster!)
 #define path_store_fltr_compatible(st,fltr) \

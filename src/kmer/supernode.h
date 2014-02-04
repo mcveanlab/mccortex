@@ -2,13 +2,16 @@
 #define SUPERNODE_H_
 
 #include "cortex_types.h"
+#include "db_graph.h"
 #include "db_node.h"
 
 // Reverse order and orientations of nodes
 void supernode_reverse(dBNode *nlist, size_t len);
 
-// Returns true if supernode reversed, false otherwise
-boolean supernode_normalise(dBNode *nlist, size_t len);
+// Orient supernode
+// Once oriented, supernode has lowest poosible kmerkey at the beginning,
+// oriented FORWARDs if possible
+void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph);
 
 // Extend a supernode, nlist[offset] and olist[offset] must already be set
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist

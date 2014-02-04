@@ -236,14 +236,6 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
   return match;
 }
 
-void path_store_fetch_bases(const PathStore *paths, PathIndex pindex,
-                            Nucleotide *bases, PathLen len)
-{
-  uint8_t *ptr = paths->store + pindex + sizeof(PathIndex) +
-                 paths->colset_bytes + sizeof(PathLen);
-  unpack_bases(ptr, bases, len);
-}
-
 void path_store_print_path(const PathStore *paths, PathIndex pindex)
 {
   PathIndex prev;
@@ -258,9 +250,6 @@ void path_store_print_path(const PathStore *paths, PathIndex pindex)
   const uint8_t *colbitset = packedpath_get_colset(packed);
   const uint8_t *seq = packedpath_seq(packed, paths->colset_bytes);
 
-  Nucleotide bases[len];
-  unpack_bases(seq, bases, len);
-
   size_t i;
   printf("%8zu: ", (size_t)pindex);
   if(prev == PATH_NULL) printf("    NULL");
@@ -270,7 +259,7 @@ void path_store_print_path(const PathStore *paths, PathIndex pindex)
     if(bitset_get(colbitset, i)) printf(" %zu", i);
   printf(")[%u]: ", len);
   for(i = 0; i < len; i++)
-    putc(dna_nuc_to_char(bases[i]), stdout);
+    putc(dna_nuc_to_char(packed_fetch(seq, i)), stdout);
   putc('\n', stdout);
 }
 
@@ -290,13 +279,16 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
   size_t i;
   PathLen plen;
   Orientation orient;
+  const uint8_t *seq = packed+sizeof(PathLen);
 
-  packedpath_get_len_orient(packed-sizeof(PathIndex)-pstore->colset_bytes,
+  packedpath_get_len_orient(packed-pstore->colset_bytes-sizeof(PathIndex),
                             pstore->colset_bytes, &plen, &orient);
 
-  Nucleotide bases[plen]; char nucs[plen+1];
-  unpack_bases(packed+sizeof(PathLen), bases, plen);
-  for(i = 0; i < plen; i++) nucs[i] = dna_nuc_to_char(bases[i]);
+  // Convert packed path to string
+  char nucs[plen+1];
+  for(i = 0; i < plen; i++) nucs[i] = dna_nuc_to_char(packed_fetch(seq, i));
   nucs[plen] = '\0';
+
+  // Print
   status("Path: %zu:%i len %zu %s", (size_t)hkey, orient, (size_t)plen, nucs);
 }
