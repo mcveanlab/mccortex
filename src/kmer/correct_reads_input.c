@@ -6,6 +6,7 @@
 #include "util.h"
 #include "cmd.h"
 #include "seq_reader.h"
+#include "generate_paths.h"
 
 void correct_reads_input_init(const char *p1, const char *p2,
                               uint32_t fq_offset, uint32_t fq_cutoff,
@@ -156,6 +157,11 @@ int correct_reads_parse(int argc, char **argv,
       col_set = true;
       col_used = false;
       argi++;
+    }
+    else if(!out_arg && strcmp(argv[argi],"--printcontigs") == 0)
+    {
+      // ctx_thread can print out contigs
+      gen_paths_print_contigs = true;
     }
     else if(use_pe && strcasecmp(argv[argi],"--minIns") == 0)
     {

@@ -16,12 +16,13 @@
 //     size_t len, capacity;
 //   } String;
 //
-//   charbuf_alloc(String *buf, size_t capacity)
-//   charbuf_dealloc(String *buf)
-//   charbuf_ensure_capacity(String *buf, size_t capacity)
-//   charbuf_add(String *buf, char obj)
-//   charbuf_append(String *buf, char *obj, size_t n)
-//   charbuf_reset(String *buf)
+//   void charbuf_alloc(String *buf, size_t capacity)
+//   void charbuf_dealloc(String *buf)
+//   void charbuf_ensure_capacity(String *buf, size_t capacity)
+//   void charbuf_add(String *buf, char obj)
+//   int charbuf_attempt_add(String *buf, char obj)
+//   void charbuf_append(String *buf, char *obj, size_t n)
+//   void charbuf_reset(String *buf)
 //
 
 // Round a number up to the nearest number that is a power of two
@@ -37,7 +38,7 @@ typedef struct {                                                               \
 } buf_t;                                                                       \
                                                                                \
 static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
-  buf->capacity = roundup2pow(capacity);                                       \
+  buf->capacity = capacity;                                                    \
   buf->data = malloc2(sizeof(obj_t) * buf->capacity);                          \
   buf->len = 0;                                                                \
 }                                                                              \
@@ -56,6 +57,11 @@ static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap) {          \
 static inline void FUNC ## _add(buf_t *buf, obj_t obj) {                       \
   FUNC ## _ensure_capacity(buf, buf->len+1);                                   \
   buf->data[buf->len++] = obj;                                                 \
+}                                                                              \
+                                                                               \
+static inline int FUNC ## _attempt_add(buf_t *buf, obj_t obj) {                \
+  if(buf->len >= buf->capacity) return 0;                                      \
+  buf->data[buf->len++] = obj; return 1;                                       \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _append(buf_t *buf, obj_t *obj, size_t n) {         \

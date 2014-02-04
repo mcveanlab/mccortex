@@ -26,21 +26,21 @@ static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
 // For all flagged nodes, trim edges to non-flagged nodes
 // After calling this function on all nodes, call:
 // prune_nodes_lacking_flag_no_edges
-static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
+static void prune_edges_to_nodes_lacking_flag(hkey_t hkey, dBGraph *db_graph,
                                               const uint64_t *flags)
 {
   Edges keep_edges = 0x0;
+  Orientation orient;
+  Nucleotide nuc;
+  dBNode next_node;
+  BinaryKmer bkmer;
   size_t col;
 
-  if(bitset_get(flags, node))
+  if(bitset_get(flags, hkey))
   {
     // Check edges
-    Orientation orient;
-    Nucleotide nuc;
-    dBNode next_node;
-
-    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
-    keep_edges = db_node_get_edges_union(db_graph, node);
+    bkmer = db_node_get_bkmer(db_graph, hkey);
+    keep_edges = db_node_get_edges_union(db_graph, hkey);
 
     for(orient = 0; orient < 2; orient++)
     {
@@ -61,14 +61,18 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t node, dBGraph *db_graph,
   }
 
   for(col = 0; col < db_graph->num_edge_cols; col++)
-    db_node_edges(db_graph, col, node) &= keep_edges;
+    db_node_edges(db_graph, col, hkey) &= keep_edges;
 }
 
-static void prune_nodes_lacking_flag_no_edges(hkey_t node, dBGraph *db_graph,
+static void prune_nodes_lacking_flag_no_edges(hkey_t hkey, dBGraph *db_graph,
                                               const uint64_t *flags)
 {
-  if(!bitset_get(flags, node)) {
-    prune_node_without_edges(db_graph, node);
+  if(!bitset_get(flags, hkey)) {
+    // char str[MAX_KMER_SIZE+1];
+    // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+    // binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
+    // status("Removing: %s\n", str);
+    prune_node_without_edges(db_graph, hkey);
   }
 }
 

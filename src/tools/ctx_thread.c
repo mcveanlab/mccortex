@@ -31,8 +31,8 @@ const char thread_usage[] =
 "    --fq_threshold <fq>        FASTQ quality threshold\n"
 "    --fq_offset <qual>         FASTQ quality score offset\n"
 "    --cut_hp <N>               Cut reads afer <N> consecutive bases\n"
-"    --printcontigs             Print contigs (for testing)"
-"    --FR --FF --RF --RR    Mate pair orientation [default: FR] (used with --keep_pcr)\n"
+"    --printcontigs             Print contigs (for testing)\n"
+"    --FR --FF --RF --RR        Mate pair orientation [default: FR] (with --keep_pcr)\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n";

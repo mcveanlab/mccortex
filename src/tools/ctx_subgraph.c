@@ -32,91 +32,87 @@ const char subgraph_usage[] =
 
 typedef struct
 {
-  hkey_t *nodes;
-  size_t len, capacity;
-  LoadingStats *stats;
-} EdgeNodeList;
+  const dBGraph *const db_graph;
+  uint64_t *const kmer_mask;
+  dBNodeBuffer nbuf;
+  LoadingStats stats;
+} EdgeNodes;
 
-
-dBGraph db_graph;
-uint64_t *kmer_mask;
-
-static void mark_bkmer(BinaryKmer bkmer)
+static void edge_nodes_alloc(EdgeNodes *enodes, const dBGraph *graph,
+                             uint64_t *kmer_mask, size_t capacity)
 {
+  EdgeNodes tmp = {.db_graph = graph, .kmer_mask = kmer_mask};
+  memcpy(enodes, &tmp, sizeof(EdgeNodes));
+  db_node_buf_alloc(&enodes->nbuf, capacity);
+  loading_stats_init(&enodes->stats);
+}
+
+static void edge_nodes_dealloc(EdgeNodes *enodes)
+{
+  db_node_buf_dealloc(&enodes->nbuf);
+}
+
+static void mark_bkmer(BinaryKmer bkmer, EdgeNodes *enodes)
+{
+  const dBGraph *db_graph = enodes->db_graph;
+  dBNode node = db_graph_find(db_graph, bkmer);
+
   #ifdef CTXVERBOSE
     char tmp[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(bkmer, db_graph.kmer_size, tmp);
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, tmp);
     status("got bkmer %s\n", tmp);
   #endif
 
-  BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
-  hkey_t node = hash_table_find(&db_graph.ht, bkey);
-  if(node != HASH_NOT_FOUND) bitset_set(kmer_mask, node);
-}
-
-void mark_reads(read_t *r1, read_t *r2,
-                uint8_t qoffset1, uint8_t qoffset2, void *ptr)
-{
-  (void)qoffset1; (void)qoffset2;
-  LoadingStats *stats = (LoadingStats*)ptr;
-
-  READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, stats, mark_bkmer);
-  if(r2 != NULL) {
-    READ_TO_BKMERS(r2, db_graph.kmer_size, 0, 0, stats, mark_bkmer);
+  if(node.key != HASH_NOT_FOUND) {
+    if(!bitset_get(enodes->kmer_mask, node.key) && enodes->nbuf.capacity > 0 &&
+       !db_node_buf_attempt_add(&enodes->nbuf, node)) {
+      die("Please increase <mem> size");
+    }
+    bitset_set(enodes->kmer_mask, node.key);
   }
 }
 
-static void store_node_neighbours(const hkey_t node, EdgeNodeList *list)
+void store_read_nodes(read_t *r1, read_t *r2,
+                      uint8_t qoffset1, uint8_t qoffset2, void *ptr)
+{
+  (void)qoffset1; (void)qoffset2;
+  EdgeNodes *enodes = (EdgeNodes*)ptr;
+  const dBGraph *db_graph = enodes->db_graph;
+
+  READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &enodes->stats, mark_bkmer, enodes);
+  if(r2 != NULL) {
+    READ_TO_BKMERS(r2, db_graph->kmer_size, 0, 0, &enodes->stats, mark_bkmer, enodes);
+  }
+}
+
+static void store_node_neighbours(const hkey_t hkey, EdgeNodes *enodes)
 {
   // Get neighbours
-  Edges edges = db_node_get_edges_union(&db_graph, node);
+  const dBGraph *db_graph = enodes->db_graph;
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  Edges edges = db_node_get_edges_union(db_graph, hkey);
   size_t num_next, i;
   dBNode next_nodes[8];
   Nucleotide next_bases[8];
 
-  BinaryKmer bkmer = db_node_get_bkmer(&db_graph, node);
-
   // Get neighbours in forward dir
-  num_next  = db_graph_next_nodes(&db_graph, bkmer, FORWARD, edges,
+  num_next  = db_graph_next_nodes(db_graph, bkmer, FORWARD, edges,
                                   next_nodes, next_bases);
 
   // Get neighbours in reverse dir
-  num_next += db_graph_next_nodes(&db_graph, bkmer, REVERSE, edges,
+  num_next += db_graph_next_nodes(db_graph, bkmer, REVERSE, edges,
                                   next_nodes+num_next, next_bases+num_next);
 
   // if not flagged add to list
   for(i = 0; i < num_next; i++) {
-    if(!bitset_get(kmer_mask, next_nodes[i].key)) {
-      bitset_set(kmer_mask, next_nodes[i].key);
-      // if list full, exit
-      if(list->len == list->capacity) die("Please increase <mem> size");
-      list->nodes[list->len++] = next_nodes[i].key;
+    if(!bitset_get(enodes->kmer_mask, next_nodes[i].key) &&
+       !db_node_buf_attempt_add(&enodes->nbuf, next_nodes[i])) {
+      die("Please increase <mem> size");
     }
+    bitset_set(enodes->kmer_mask, next_nodes[i].key);
   }
 }
 
-static void store_bkmer_neighbours(BinaryKmer bkmer, EdgeNodeList *list)
-{
-  BinaryKmer bkey = db_node_get_key(bkmer, db_graph.kmer_size);
-  hkey_t node = hash_table_find(&db_graph.ht, bkey);
-  if(node != HASH_NOT_FOUND) store_node_neighbours(node, list);
-}
-
-void store_nodes(read_t *r1, read_t *r2,
-                 uint8_t qoffset1, uint8_t qoffset2, void *ptr)
-{
-  (void)qoffset1; (void)qoffset2;
-
-  EdgeNodeList *list = (EdgeNodeList*)ptr;
-
-  READ_TO_BKMERS(r1, db_graph.kmer_size, 0, 0, list->stats,
-                 store_bkmer_neighbours, list);
-
-  if(r2 != NULL) {
-    READ_TO_BKMERS(r2, db_graph.kmer_size, 0, 0, list->stats,
-                   store_bkmer_neighbours, list);
-  }
-}
 
 int ctx_subgraph(CmdArgs *args)
 {
@@ -184,7 +180,7 @@ int ctx_subgraph(CmdArgs *args)
   //
   const size_t use_ncols = MIN2(args->use_ncols, total_cols);
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t num_of_fringe_nodes, fringe_mem;
+  size_t num_of_fringe_nodes = 0, fringe_mem;
   char graph_mem_str[100], num_fringe_nodes_str[100], fringe_mem_str[100];
 
   bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
@@ -198,37 +194,41 @@ int ctx_subgraph(CmdArgs *args)
     die("Not enough memory for graph (requires %s)", graph_mem_str);
 
   // Fringe nodes
-  fringe_mem = args->mem_to_use - graph_mem;
-  num_of_fringe_nodes = fringe_mem / (sizeof(hkey_t) * 2);
-  bytes_to_str(fringe_mem, 1, fringe_mem_str);
-  ulong_to_str(num_of_fringe_nodes, num_fringe_nodes_str);
-  status("[memory] fringe nodes: %s (%s)\n", num_fringe_nodes_str, fringe_mem_str);
+  if(dist > 0)
+  {
+    fringe_mem = args->mem_to_use - graph_mem;
+    num_of_fringe_nodes = fringe_mem / (sizeof(dBNode) * 2);
 
-  if(num_of_fringe_nodes < 100)
-    die("Not enough memory for the graph search (set -m <mem> higher)");
+    bytes_to_str(fringe_mem, 1, fringe_mem_str);
+    ulong_to_str(num_of_fringe_nodes, num_fringe_nodes_str);
+
+    status("[memory] fringe nodes: %s (%s)\n",
+           num_fringe_nodes_str, fringe_mem_str);
+
+    if(num_of_fringe_nodes < 100)
+      die("Not enough memory for the graph search (set -m <mem> higher)");
+  }
 
   if(!futil_is_file_writable(out_path))
     die("Cannot write to output file: %s", out_path);
 
   // Create db_graph
   // multiple colours may be useful later in pulling out multiple colours
+  dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
   db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
   db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
   size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity);
-  kmer_mask = calloc2(num_words64, sizeof(uint64_t));
+  uint64_t *kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
   LoadingStats stats;
   loading_stats_init(&stats);
 
   // Store edge nodes here
-  EdgeNodeList list0, list1, listtmp;
-  list0.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
-  list1.nodes = malloc2(sizeof(hkey_t) * num_of_fringe_nodes);
-  list0.capacity = list1.capacity = num_of_fringe_nodes;
-  list0.len = list1.len = 0;
-  list0.stats = list1.stats = &stats;
+  EdgeNodes list0, list1, *listptr0 = &list0, *listptr1 = &list1, *tmplptr;
+  edge_nodes_alloc(&list0, &db_graph, kmer_mask, num_of_fringe_nodes);
+  edge_nodes_alloc(&list1, &db_graph, kmer_mask, num_of_fringe_nodes);
 
   //
   // Load graphs
@@ -270,19 +270,15 @@ int ctx_subgraph(CmdArgs *args)
   strbuf_insert(&intersect_gname, 0, subgraphstr, strlen(subgraphstr));
   strbuf_append_char(&intersect_gname, '}');
 
-  size_t num_of_binary_kmers = stats.kmers_loaded;
-
   // Load sequence and mark in first pass
   read_t r1, r2;
   if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
     die("Out of memory");
 
   for(i = 0; i < num_seed_files; i++)
-    seq_parse_se(seed_files[i], 0, &r1, &r2, mark_reads, &stats);
+    seq_parse_se(seed_files[i], 0, &r1, &r2, store_read_nodes, &list0);
 
-  size_t num_of_seed_kmers = stats.kmers_loaded - num_of_binary_kmers;
-
-  status("Read in %zu seed kmers\n", num_of_seed_kmers);
+  status("Read in %zu seed kmers\n", list0.stats.kmers_loaded);
 
   if(dist > 0)
   {
@@ -290,27 +286,25 @@ int ctx_subgraph(CmdArgs *args)
     ulong_to_str(dist, tmpstr);
     status("Extending subgraph by %s\n", tmpstr);
 
-    // Get edge nodes
-    // pass stats
-    for(i = 0; i < num_seed_files; i++)
-      seq_parse_se(seed_files[i], 0, &r1, &r2, store_nodes, &list0);
-
     size_t d;
-    for(d = 1; d < dist; d++)
-    {
-      for(i = 0; i < list0.len; i++) {
-        store_node_neighbours(list0.nodes[i], &list1);
+    for(d = 1; d < dist; d++) {
+      for(i = 0; i < listptr0->nbuf.len; i++) {
+        store_node_neighbours(listptr0->nbuf.data[i].key, listptr1);
       }
-      list0.len = 0;
-      SWAP(list0, list1, listtmp);
+      listptr0->nbuf.len = 0;
+      SWAP(listptr0, listptr1, tmplptr);
     }
   }
+
+  // DEV: print stats?
+  // LoadingStats final_stats = list0.stats;
+  // loading_stats_merge(&final_stats, &list1.stats);
 
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 
-  free(list0.nodes);
-  free(list1.nodes);
+  edge_nodes_dealloc(&list0);
+  edge_nodes_dealloc(&list1);
 
   status("Pruning untouched nodes...\n");
 

@@ -213,10 +213,10 @@ void cmd_free(CmdArgs *args)
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits is additional memory per node, above hash table+BinaryKmers
 size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
-                             size_t min_num_kmers, boolean use_mem_limit,
+                             size_t min_num_kmer_req, boolean use_mem_limit,
                              size_t *graph_mem_ptr)
 {
-  size_t kmers_in_hash, graph_mem, min_kmers_mem;
+  size_t kmers_in_hash, min_num_kmers, graph_mem, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
 
@@ -224,14 +224,14 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
     graph_mem = hash_table_mem(args->num_kmers, extra_bits, &kmers_in_hash);
   else if(use_mem_limit)
     graph_mem = hash_table_mem_limit(args->mem_to_use, extra_bits, &kmers_in_hash);
-  else if(min_num_kmers > 0)
-    graph_mem = hash_table_mem((size_t)(min_num_kmers/IDEAL_OCCUPANCY),
+  else if(min_num_kmer_req > 0)
+    graph_mem = hash_table_mem((size_t)(min_num_kmer_req/IDEAL_OCCUPANCY),
                                extra_bits, &kmers_in_hash);
   else
     graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);
   // ^ 1024 is a very small default hash table capacity
 
-  min_num_kmers = MAX2(min_num_kmers, 1024);
+  min_num_kmers = MAX2(min_num_kmer_req, 1024);
   min_kmers_mem = hash_table_mem(min_num_kmers, extra_bits, NULL);
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
@@ -242,7 +242,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
   ulong_to_str(min_num_kmers, min_num_kmers_str);
 
   // Give a error/warning about occupancy
-  if(kmers_in_hash < min_num_kmers)
+  if(kmers_in_hash < min_num_kmer_req)
   {
     die("Not enough kmers in hash: require at least %s kmers (min memory: %s)",
         min_num_kmers_str, min_kmers_mem_str);
