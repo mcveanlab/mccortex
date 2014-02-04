@@ -24,9 +24,9 @@ void db_alignment_dealloc(dBAlignment *alignment)
 }
 
 // Returns number of kmers lost from the end
-size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
-                              uint8_t qcutoff, uint8_t hp_cutoff,
-                              const dBGraph *db_graph)
+static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
+                                     uint8_t qcutoff, uint8_t hp_cutoff,
+                                     const dBGraph *db_graph)
 {
   size_t contig_start, contig_end = 0, search_start = 0, nxt_exp_kmer_offset = 0;
   const size_t kmer_size = db_graph->kmer_size;
@@ -78,7 +78,9 @@ size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
 
   nodes->len = gaps->len = n;
 
-  return r->seq.end - contig_end;
+  // If contig_end == 0 we never found any kmers
+  size_t end_of_last_kmer = nxt_exp_kmer_offset+kmer_size-1;
+  return contig_end == 0 ? r->seq.end : r->seq.end - end_of_last_kmer;
 }
 
 
@@ -105,6 +107,9 @@ void db_alignment_from_reads(dBAlignment *alignment,
 
   alignment->used_r1 = (alignment->r1enderr < r1->seq.end);
   alignment->used_r2 = (r2 != NULL && alignment->r2enderr < r2->seq.end);
+
+  // debug
+  // db_alignment_print(alignment, db_graph);
 }
 
 // Returns index of node just after next gap,
@@ -152,9 +157,9 @@ void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
   }
   if(aln->passed_r2) {
     if(!aln->used_r2) printf("    [ins] unused r2: %u\n", aln->gaps.data[end]);
-    else printf(" end gap: %zu\n", aln->r2enderr);
+    else printf(" end gap [r2]: %zu\n", aln->r2enderr);
   }
-  else printf(" end gap: %zu\n", aln->r1enderr);
+  else printf(" end gap [r1]: %zu\n", aln->r1enderr);
 
   pthread_mutex_unlock(&biglock);
 }

@@ -338,37 +338,40 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     // status("traversal: %s!\n", traversed ? "worked" : "failed");
 
-    if(traversed)
-    {
-      // reverse and copy from revcontig -> contig
-      db_node_buf_ensure_capacity(contig, contig->len + revcontig->len);
-      for(i = 0, j = contig->len+revcontig->len-1; i < revcontig->len; i++, j--)
-        contig->data[j] = db_node_reverse(revcontig->data[i]);
+    if(!traversed) break;
 
-      contig->len += revcontig->len;
+    // reverse and copy from revcontig -> contig
+    db_node_buf_ensure_capacity(contig, contig->len + revcontig->len);
+    for(i = 0, j = contig->len+revcontig->len-1; i < revcontig->len; i++, j--)
+      contig->data[j] = db_node_reverse(revcontig->data[i]);
 
-      // Copy block1
-      db_node_buf_append(contig, nodes->data+wrkr->gap_idx, block1len);
+    contig->len += revcontig->len;
 
-      // Update gap stats
-      worker_gap_cap(wrkr, gap_len);
+    // Copy block1
+    db_node_buf_append(contig, nodes->data+wrkr->gap_idx, block1len);
 
-      // gap_est is the sequence gap (number of missing kmers)
-      if(is_mp) {
-        size_t ins_gap = (size_t)MAX2((long)gap_len - (long)gap_est, 0);
-        wrkr->gap_ins_histgrm[ins_gap]++;
-        // size_t err_gap = gap_len - ins_gap;
-        // if(err_gap) wrkr->gap_err_histgrm[err_gap]++;
-      } else {
-        wrkr->gap_err_histgrm[gap_len]++;
-      }
+    // Update gap stats
+    worker_gap_cap(wrkr, gap_len);
+
+    // gap_est is the sequence gap (number of missing kmers)
+    if(is_mp) {
+      size_t ins_gap = (size_t)MAX2((long)gap_len - (long)gap_est, 0);
+      wrkr->gap_ins_histgrm[ins_gap]++;
+      // size_t err_gap = gap_len - ins_gap;
+      // if(err_gap) wrkr->gap_err_histgrm[err_gap]++;
+    } else {
+      wrkr->gap_err_histgrm[gap_len]++;
     }
 
     wrkr->gap_idx = wrkr->end_idx;
   }
 
-  wrkr->start_idx = wrkr->gap_idx;
+  // status("start: %zu gap: %zu end: %zu",
+  //        wrkr->start_idx, wrkr->gap_idx, wrkr->end_idx);
+
   wrkr->prev_start_idx = wrkr->start_idx;
+  wrkr->start_idx = wrkr->gap_idx;
+  wrkr->gap_idx = wrkr->end_idx;
 
   return &wrkr->contig;
 }
