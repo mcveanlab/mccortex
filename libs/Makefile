@@ -2,7 +2,9 @@
 # make all      <- compile all libraries
 # make clean    <- clean all libraries
 
-UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align readsim msg-pool misc
+UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align \
+       readsim msg-pool misc bioinf-perl
+
 ALLTGTS=$(UPDATE) gsl
 
 update: $(UPDATE)
@@ -80,7 +82,7 @@ msg-pool: msg-pool/Makefile
 	cd msg-pool && git pull && make
 
 bioinf-perl: bioinf-perl/README
-	# nothing to do for bioinf-perl
+	cd bioinf-perl && git pull
 
 misc: misc/Makefile
 	cd misc && make
