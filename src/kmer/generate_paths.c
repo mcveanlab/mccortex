@@ -134,7 +134,7 @@ static inline void worker_packed_cap(GenPathWorker *wrkr, size_t nbytes)
 }
 
 // Merge stats into workers[0]
-void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
+static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
 {
   size_t i;
   for(i = 1; i < num_workers; i++)
@@ -461,8 +461,8 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
   AsyncIOReadTask *asyncio_tasks = malloc2(num_inputs * sizeof(AsyncIOReadTask));
   correct_reads_input_to_asycio(asyncio_tasks, tasks, num_inputs);
 
-  asyncio_run_threads(&pool, asyncio_tasks, num_inputs,
-                      generate_paths_worker, workers, num_workers);
+  asyncio_run_threads(&pool, asyncio_tasks, num_inputs, generate_paths_worker,
+                      workers, num_workers, sizeof(GenPathWorker));
 
   free(asyncio_tasks);
   msgpool_iterate(&pool, asynciodata_pool_destroy, NULL);

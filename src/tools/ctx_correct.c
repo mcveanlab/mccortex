@@ -224,7 +224,7 @@ int ctx_correct(CmdArgs *args)
 
   // Load args
   // argi = load_args(argc, argv, inputs, &num_inputs);
-  argi = correct_reads_parse(argc, argv, inputs, num_inputs, false, true);
+  argi = correct_reads_parse(argc, argv, inputs, &num_inputs, false, true);
 
   if(argi == argc) cmd_print_usage("Expected at least one graph file");
   size_t num_gfiles = argc - argi;
@@ -348,8 +348,8 @@ int ctx_correct(CmdArgs *args)
 
   for(i = 0; i < num_inputs; i += num_io_threads) {
     n = MIN2(num_inputs - i, num_io_threads);
-    asyncio_run_threads(&pool, asyncio_tasks+i, n,
-                        correct_reads_thread, wrkrs, num_work_threads);
+    asyncio_run_threads(&pool, asyncio_tasks+i, n, correct_reads_thread,
+                        wrkrs, num_work_threads, sizeof(CorrectReadsWorker));
   }
 
   for(i = 0; i < num_work_threads; i++)

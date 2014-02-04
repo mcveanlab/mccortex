@@ -164,7 +164,8 @@ void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
 
 void asyncio_run_threads(MsgPool *pool,
                          AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
-                         void* (*job)(void*), void *args, size_t num_readers)
+                         void* (*job)(void*),
+                         void *args, size_t num_readers, size_t elsize)
 {
   size_t i; int rc;
 
@@ -187,7 +188,7 @@ void asyncio_run_threads(MsgPool *pool,
 
   // Start threads
   for(i = 0; i < num_readers; i++) {
-    rc = pthread_create(&threads[i], &thread_attr, job, &args[i]);
+    rc = pthread_create(&threads[i], &thread_attr, job, args+i*elsize);
     if(rc != 0) die("Creating thread failed");
   }
 

@@ -12,8 +12,8 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
                              const PathFileReader *paths, size_t num_paths)
 {
   size_t g, p, kmer_size;
-  size_t ctx_max_cols, ctp_max_cols;
-  size_t ctx_max_kmers, ctp_max_kmers;
+  size_t ctx_max_cols = 0, ctp_max_cols = 0;
+  size_t ctx_max_kmers = 0, ctp_max_kmers = 0;
 
   if(num_graphs) kmer_size = graphs[0].hdr.kmer_size;
   else if(num_paths) kmer_size = paths[0].hdr.kmer_size;

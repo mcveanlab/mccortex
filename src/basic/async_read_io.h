@@ -42,6 +42,7 @@ void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers);
 
 void asyncio_run_threads(MsgPool *pool,
                          AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
-                         void* (*job)(void*), void *args, size_t num_readers);
+                         void* (*job)(void*),
+                         void *args, size_t num_readers, size_t elsize);
 
 #endif /* ASYNC_READ_IO_H_ */
