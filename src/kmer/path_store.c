@@ -315,6 +315,7 @@ void path_store_data_integrity_check(const uint8_t *data, size_t size,
 void path_store_integrity_check(const PathStore *pstore)
 {
   assert(pstore->end >= pstore->store);
-  assert((size_t)(pstore->end - pstore->store) <= pstore->size);
-  path_store_data_integrity_check(pstore->store, pstore->end, pstore->colset_bytes);
+  size_t len = pstore->end - pstore->store;
+  assert(len <= pstore->size);
+  path_store_data_integrity_check(pstore->store, len, pstore->colset_bytes);
 }
