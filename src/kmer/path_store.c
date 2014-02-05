@@ -292,3 +292,29 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
   // Print
   status("Path: %zu:%i len %zu %s", (size_t)hkey, orient, (size_t)plen, nucs);
 }
+
+//
+// Data checks for debugging / testing
+//
+
+// Check data if exactly filled by packed paths
+void path_store_data_integrity_check(const uint8_t *data, size_t size,
+                                     size_t colbytes)
+{
+  const uint8_t *end = data+size;
+  PathLen plen, nbytes;
+  while(data < end) {
+    plen = packedpath_get_len(data, colbytes);
+    nbytes = packedpath_len_nbytes(plen);
+    assert(nbytes <= size && data + nbytes <= end);
+    data += packedpath_mem2(colbytes, nbytes);
+  }
+  assert(data == end);
+}
+
+void path_store_integrity_check(const PathStore *pstore)
+{
+  assert(pstore->end >= pstore->store);
+  assert((size_t)(pstore->end - pstore->store) <= pstore->size);
+  path_store_data_integrity_check(pstore->store, pstore->end, pstore->colset_bytes);
+}

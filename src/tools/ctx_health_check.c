@@ -9,6 +9,7 @@
 #include "path_format.h"
 #include "path_file_filter.h"
 #include "graph_paths.h"
+#include "path_store.h"
 
 const char health_usage[] =
 "usage: "CMD" healthcheck [options] <graph.ctx>\n"
@@ -130,6 +131,10 @@ int ctx_health_check(CmdArgs *args)
     for(i = 0; i < ncols; i++) gp.ctxcols[i] = gp.ctpcols[i] = i;
 
     status("Running path check...");
+    // Check data store
+    path_store_integrity_check(&db_graph.pdata);
+
+    status("  Tracing reads through the graph...");
     for(col = 0; col < ncols; col++)
       graph_paths_check_all_paths(&gp, &db_graph);
 

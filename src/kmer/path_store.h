@@ -70,4 +70,12 @@ void path_store_print_all(const PathStore *paths);
 // packed points to <PathLen><PackedSeq>
 void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore);
 
+//
+// Data checks for debugging / testing
+//
+void path_store_data_integrity_check(const uint8_t *data, size_t size,
+                                     size_t colbytes);
+
+void path_store_integrity_check(const PathStore *pstore);
+
 #endif /* BINARY_PATH_H_ */
