@@ -36,30 +36,30 @@ void test_hash_table()
     kmers_added += !found0 + !found1;
 
     key0 = hash_table_find(&ht, bkmer0);
-    assert(key0 != HASH_NOT_FOUND);
+    TASSERT(key0 != HASH_NOT_FOUND);
     key1 = hash_table_find(&ht, bkmer1);
-    assert(key1 != HASH_NOT_FOUND);
+    TASSERT(key1 != HASH_NOT_FOUND);
 
     hash_table_delete(&ht, key1);
     kmers_deleted++;
 
     key0 = hash_table_find(&ht, bkmer0);
-    assert(key0 != HASH_NOT_FOUND);
+    TASSERT(key0 != HASH_NOT_FOUND);
     key1 = hash_table_find(&ht, bkmer1);
-    assert(key1 == HASH_NOT_FOUND); // we just deleted the second bkmer
+    TASSERT(key1 == HASH_NOT_FOUND); // we just deleted the second bkmer
 
     // Keep XOR of bkmers in hash
     for(i = 0; i < NUM_BKMER_WORDS; i++) bkxor.b[i] ^= bkmer0.b[i];
   }
 
-  assert(kmers_added - kmers_deleted == ht.unique_kmers);
+  TASSERT(kmers_added - kmers_deleted == ht.unique_kmers);
 
   // Check xor of bkmers
   size_t kcount = 0;
   HASH_ITERATE(&ht, check_bkmers, &ht, &bkresult, &kcount);
 
-  assert(kcount == ht.unique_kmers);
-  for(i = 0; i < NUM_BKMER_WORDS; i++) assert(bkxor.b[i] == bkresult.b[i]);
+  TASSERT(kcount == ht.unique_kmers);
+  for(i = 0; i < NUM_BKMER_WORDS; i++) TASSERT(bkxor.b[i] == bkresult.b[i]);
 
   hash_table_dealloc(&ht);
 }

@@ -54,13 +54,13 @@ static void test_correct_aln_no_paths()
   dBNodeBuffer *nbuf;
   char outstr[100];
   nbuf = correct_alignment_nxt(&corrector);
-  assert(nbuf != NULL);
+  TASSERT(nbuf != NULL);
   db_nodes_to_str(nbuf->data, nbuf->len, &graph, outstr);
-  assert(strcmp(outstr, res) == 0);
+  TASSERT2(strcmp(outstr, res) == 0, "Got: %s", outstr);
 
   // Next alignment should be NULL
   nbuf = correct_alignment_nxt(&corrector);
-  assert(nbuf == NULL);
+  TASSERT(nbuf == NULL);
 
   correct_aln_worker_dealloc(&corrector);
   db_alignment_dealloc(&aln);

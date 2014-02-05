@@ -19,7 +19,7 @@ static void edge_check(hkey_t node, const dBGraph *db_graph, size_t col)
     Edges e = 0;
     n = db_graph_next_nodes(db_graph, bkmer, or, edges, nodes, nucs);
     for(i = 0; i < n; i++) e |= nuc_orient_to_edge(nucs[i], or);
-    assert(edges_with_orientation(e,or) == edges_with_orientation(edges,or));
+    TASSERT(edges_with_orientation(e,or) == edges_with_orientation(edges,or));
   }
 }
 

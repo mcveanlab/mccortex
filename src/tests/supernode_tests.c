@@ -23,14 +23,11 @@ static void supernode_from_kmer(hkey_t hkey, dBNodeBuffer *nbuf,
 
     supernode_normalise(nbuf->data, nbuf->len, graph);
   
-    assert(nbuf->len < SNODEBUF);
+    TASSERT(nbuf->len < SNODEBUF);
     db_nodes_to_str(nbuf->data, nbuf->len, graph, tmpstr);
     for(i = 0; i < n && strcmp(tmpstr,ans[i]) != 0; i++);
 
-    if(i >= n) {
-      test_status("Got: %s\n", tmpstr);
-    }
-    assert(i < n);
+    TASSERT2(i < n, "Got: %s", tmpstr);
   }
 }
 
@@ -60,7 +57,7 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
       // Find node
       bkmer = binary_kmer_from_str(seq[i]+j, graph->kmer_size);
       node = db_graph_find(graph, bkmer);
-      assert(node.key != HASH_NOT_FOUND);
+      TASSERT(node.key != HASH_NOT_FOUND);
 
       // Fetch supernode
       db_node_buf_reset(&nbuf);
@@ -68,12 +65,12 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
       supernode_normalise(nbuf.data, nbuf.len, graph);
 
       // Compare
-      assert(nbuf.len < SNODEBUF);
+      TASSERT(nbuf.len < SNODEBUF);
       db_nodes_to_str(nbuf.data, nbuf.len, graph, tmpstr);
       if(strcmp(tmpstr, ans[i]) != 0) {
         test_status("Got: %s from ans[i]:%s\n", tmpstr, ans[i]);
       }
-      assert(strcmp(tmpstr, ans[i]) == 0);
+      TASSERT(strcmp(tmpstr, ans[i]) == 0);
     }
   }
 

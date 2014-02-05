@@ -16,13 +16,13 @@ static void add_paths(dBGraph *graph, CorrectAlnReadsTask *task,
   gen_path_worker_seq(wrkrs, task, seq, strlen(seq));
 
   // Check we added the right number of paths
-  assert(graph->pdata.num_of_paths == npaths + exp_npaths);
-  assert(graph->pdata.num_kmers_with_paths == nkmers + exp_nkmers);
+  TASSERT(graph->pdata.num_of_paths == npaths + exp_npaths);
+  TASSERT(graph->pdata.num_kmers_with_paths == nkmers + exp_nkmers);
 
   // Check memory used
   size_t path_mem = sizeof(PathIndex) + graph->pdata.colset_bytes + sizeof(PathLen);
   size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
-  assert(graph->pdata.next == next + exp_mem);
+  TASSERT(graph->pdata.next == next + exp_mem);
 }
 
 void test_paths()
@@ -165,7 +165,7 @@ static inline void compare_kmer_paths(hkey_t node,
                                       PathList *plist1,
                                       PathList *plist2)
 {
-  assert(binary_kmers_are_equal(dbg1->ht.table[node], dbg2->ht.table[node]));
+  TASSERT(binary_kmers_are_equal(dbg1->ht.table[node], dbg2->ht.table[node]));
 
   // Fecth path list, sort, and compare paths
   if((db_node_paths(dbg1, node) == PATH_NULL) !=
@@ -206,10 +206,10 @@ static inline void compare_kmer_paths(hkey_t node,
 void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2)
 {
   // Test not valid unless graphs were built in the same way
-  assert(dbg1->ht.capacity == dbg2->ht.capacity);
-  assert(dbg1->ht.num_of_buckets == dbg2->ht.num_of_buckets);
-  assert(dbg1->ht.bucket_size == dbg2->ht.bucket_size);
-  assert(dbg1->kmer_size == dbg2->kmer_size);
+  TASSERT(dbg1->ht.capacity == dbg2->ht.capacity);
+  TASSERT(dbg1->ht.num_of_buckets == dbg2->ht.num_of_buckets);
+  TASSERT(dbg1->ht.bucket_size == dbg2->ht.bucket_size);
+  TASSERT(dbg1->kmer_size == dbg2->kmer_size);
 
   PathList plist1, plist2;
 

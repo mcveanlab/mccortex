@@ -50,9 +50,9 @@ static void test_pack_cpy()
   memset(out, 0xff, 100);
   for(shift = 0; shift < 4; shift++) {
     packed_cpy_fast(out+1, d0, shift, 15); // first 4 bytes
-    assert(out[0]==0xff);
-    for(i = 1; i < 5; i++) assert(out[i]==0);
-    for(i = 5; i < 100; i++) assert(out[i]==0xff);
+    TASSERT(out[0]==0xff);
+    for(i = 1; i < 5; i++) TASSERT(out[i]==0);
+    for(i = 5; i < 100; i++) TASSERT(out[i]==0xff);
   }
 
   // Random testing
@@ -78,7 +78,7 @@ static void test_pack_cpy()
       bitarr_tostr(in,   TLEN, tmp1);
       bitarr_tostr(slow, TLEN, tmp2);
       for(i = 8*TLEN-1; i != 8*TLEN-(len-shift)*2; i--)
-        assert(tmp1[i-shift*2] == tmp2[i]);
+        TASSERT(tmp1[i-shift*2] == tmp2[i]);
     }
 
     // Check all results match
@@ -95,8 +95,8 @@ static void test_pack_cpy()
       printf("\n");
     }
 
-    assert(i == TLEN);
-    assert(j == TLEN);
+    TASSERT(i == TLEN);
+    TASSERT(j == TLEN);
   }
 }
 
@@ -134,13 +134,13 @@ static void test_pack_unpack()
       printf("packed: %s\n", str);
     }
 
-    assert(i == len);
+    TASSERT(i == len);
   }
 }
 
 static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shift)
 {
-  assert(len >= shift);
+  TASSERT(len >= shift);
   size_t i, nbytes = (len+3)/4, outlen = len - shift;
   Nucleotide bases[len], bases2[len];
   uint8_t packed[nbytes], packed2[nbytes];
@@ -162,10 +162,7 @@ static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shif
   for(i = 0; i < outlen; i++) seq2[i] = dna_nuc_to_char(bases2[i]);
   seq2[outlen] = '\0';
 
-  if(strncmp(seq+shift, seq2, outlen) != 0) {
-    test_status("mismatch\nin:  %s\nout: %s\n", seq, seq2);
-    assert(0);
-  }
+  TASSERT2(strncmp(seq+shift, seq2, outlen) == 0, "in: %s\nout:%s\n", seq, seq2);
 }
 
 static void test_pack_cpy_unpack_shifts(const char *seq, size_t len)
@@ -199,8 +196,8 @@ void test_len_orient()
     merged = packedpath_combine_lenorient(len,orient);
     len2 = packedpath_len(merged);
     orient2 = packedpath_or(merged);
-    assert(len == len2);
-    assert(orient == orient2);
+    TASSERT(len == len2);
+    TASSERT(orient == orient2);
   }
 }
 

@@ -45,6 +45,13 @@ extern pthread_mutex_t biglock;
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
 
+// assume() tells the compiler a condition that always holds
+#ifdef NDEBUG
+  #define assume(x) do { if(x) (void)0; else __builtin_unreachable(); } while(0)
+#else
+  #define assume(x) assert(x)
+#endif
+
 // dynamic memory allocation with checks
 #define malloc2(mem) ctx_malloc(mem,__FILE__,__LINE__)
 #define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__LINE__)

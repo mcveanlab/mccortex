@@ -17,7 +17,10 @@ int main()
   test_packed_path();
   test_paths();
   test_corrected_aln();
-  test_status("Finished tests.");
+  size_t tests_num_passed = tests_num_run - tests_num_failed;
+  test_status("Tests passed: %zu / %zu (%.1f%%)", tests_num_passed, tests_num_run,
+              (100.0*tests_num_passed)/tests_num_run);
+  test_status(tests_num_failed ? "Some tests failed." : "All tests passed.");
   cortex_destroy();
   return EXIT_SUCCESS;
 }

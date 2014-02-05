@@ -201,7 +201,7 @@ static void* correct_reads_thread(void *ptr)
   while(msgpool_read(wrkr->pool, incoming, outgoing))
   {
     correct_read(wrkr, incoming);
-    // Now incoming is allocated, outgoing is not, so switch
+    // Now incoming is allocated, outgoing is not, so swap
     SWAP(incoming, outgoing, tmpdataptr);
   }
 

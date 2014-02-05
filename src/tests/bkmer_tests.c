@@ -17,10 +17,10 @@ void test_bkmer_str()
     bkmer1 = binary_kmer_from_str(str0, k);
     binary_kmer_to_str(bkmer1, k, str1);
 
-    assert(!binary_kmer_oversized(bkmer0, k));
-    assert(!binary_kmer_oversized(bkmer1, k));
-    assert(binary_kmers_are_equal(bkmer0,bkmer1));
-    assert(strcmp(str0,str1) == 0);
+    TASSERT(!binary_kmer_oversized(bkmer0, k));
+    TASSERT(!binary_kmer_oversized(bkmer1, k));
+    TASSERT(binary_kmers_are_equal(bkmer0,bkmer1));
+    TASSERT(strcmp(str0,str1) == 0);
   }
 }
 
@@ -36,12 +36,12 @@ void test_bkmer_revcmp()
     bkmer0 = binary_kmer_random(k);
     bkmer1 = binary_kmer_reverse_complement(bkmer0, k);
     bkmer2 = binary_kmer_reverse_complement(bkmer1, k);
-    assert(!binary_kmer_oversized(bkmer0, k));
-    assert(!binary_kmer_oversized(bkmer1, k));
-    assert(!binary_kmer_oversized(bkmer2, k));
+    TASSERT(!binary_kmer_oversized(bkmer0, k));
+    TASSERT(!binary_kmer_oversized(bkmer1, k));
+    TASSERT(!binary_kmer_oversized(bkmer2, k));
     // kmer-size is odd, forward != reverse complement
-    assert(!binary_kmers_are_equal(bkmer0, bkmer1));
-    assert(binary_kmers_are_equal(bkmer0, bkmer2));
+    TASSERT(!binary_kmers_are_equal(bkmer0, bkmer1));
+    TASSERT(binary_kmers_are_equal(bkmer0, bkmer2));
   }
 }
 
@@ -57,45 +57,45 @@ void test_bkmer_shifts()
   for(k = MIN_KMER_SIZE; k <= MAX_KMER_SIZE; k+=2)
   {
     bkmer0 = binary_kmer_random(k);
-    assert(!binary_kmer_oversized(bkmer0, k));
+    TASSERT(!binary_kmer_oversized(bkmer0, k));
 
     bkmer1 = bkmer2 = bkmer0;
     bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
     bkmer1 = binary_kmer_right_shift_one_base(bkmer1);
     binary_kmer_set_first_nuc(&bkmer2, 0, k);
-    assert(binary_kmers_are_equal(bkmer1,bkmer2));
-    assert(!binary_kmer_oversized(bkmer1, k));
-    assert(!binary_kmer_oversized(bkmer2, k));
+    TASSERT(binary_kmers_are_equal(bkmer1,bkmer2));
+    TASSERT(!binary_kmer_oversized(bkmer1, k));
+    TASSERT(!binary_kmer_oversized(bkmer2, k));
 
     bkmer1 = bkmer2 = bkmer0;
     bkmer1 = binary_kmer_right_shift_one_base(bkmer1);
     bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
     binary_kmer_set_last_nuc(&bkmer2, 0);
-    assert(binary_kmers_are_equal(bkmer1,bkmer2));
-    assert(!binary_kmer_oversized(bkmer1, k));
-    assert(!binary_kmer_oversized(bkmer2, k));
+    TASSERT(binary_kmers_are_equal(bkmer1,bkmer2));
+    TASSERT(!binary_kmer_oversized(bkmer1, k));
+    TASSERT(!binary_kmer_oversized(bkmer2, k));
   }
 
   // Shift entirely until zero
   for(k = MIN_KMER_SIZE; k <= MAX_KMER_SIZE; k+=2)
   {
     bkmer0 = binary_kmer_random(k);
-    assert(!binary_kmer_oversized(bkmer0, k));
+    TASSERT(!binary_kmer_oversized(bkmer0, k));
 
     bkmer1 = bkmer2 = bkmer0;
     for(i = 0; i < k; i++) {
       bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
       bkmer2 = binary_kmer_right_shift_one_base(bkmer2);
     }
-    assert(binary_kmers_are_equal(bkmer1,zero_bkmer));
-    assert(binary_kmers_are_equal(bkmer2,zero_bkmer));
+    TASSERT(binary_kmers_are_equal(bkmer1,zero_bkmer));
+    TASSERT(binary_kmers_are_equal(bkmer2,zero_bkmer));
   }
 
   // Copy from one bkmer to another by shifting a base at a time
   for(k = MIN_KMER_SIZE; k <= MAX_KMER_SIZE; k+=2)
   {
     bkmer0 = binary_kmer_random(k);
-    assert(!binary_kmer_oversized(bkmer0, k));
+    TASSERT(!binary_kmer_oversized(bkmer0, k));
 
     // copy from bkmer1 -> bkmer2, shifting right
     bkmer1 = bkmer0;
@@ -104,11 +104,11 @@ void test_bkmer_shifts()
       nuc = binary_kmer_last_nuc(bkmer1);
       bkmer1 = binary_kmer_right_shift_one_base(bkmer1);
       bkmer2 = binary_kmer_right_shift_add(bkmer2, k, nuc);
-      assert(!binary_kmer_oversized(bkmer1, k));
-      assert(!binary_kmer_oversized(bkmer2, k));
+      TASSERT(!binary_kmer_oversized(bkmer1, k));
+      TASSERT(!binary_kmer_oversized(bkmer2, k));
     }
-    assert(binary_kmers_are_equal(bkmer1,zero_bkmer));
-    assert(binary_kmers_are_equal(bkmer2,bkmer0));
+    TASSERT(binary_kmers_are_equal(bkmer1,zero_bkmer));
+    TASSERT(binary_kmers_are_equal(bkmer2,bkmer0));
 
     // copy from bkmer1 -> bkmer2, shifting left
     bkmer1 = bkmer0;
@@ -117,17 +117,17 @@ void test_bkmer_shifts()
       nuc = binary_kmer_first_nuc(bkmer1, k);
       bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
       bkmer2 = binary_kmer_left_shift_add(bkmer2, k, nuc);
-      assert(!binary_kmer_oversized(bkmer1, k));
-      assert(!binary_kmer_oversized(bkmer2, k));
+      TASSERT(!binary_kmer_oversized(bkmer1, k));
+      TASSERT(!binary_kmer_oversized(bkmer2, k));
     }
-    assert(binary_kmers_are_equal(bkmer1,zero_bkmer));
-    assert(binary_kmers_are_equal(bkmer2,bkmer0));
+    TASSERT(binary_kmers_are_equal(bkmer1,zero_bkmer));
+    TASSERT(binary_kmers_are_equal(bkmer2,bkmer0));
   }
 }
 
 void test_bkmer_functions()
 {
-  assert(sizeof(BinaryKmer) == NUM_BKMER_WORDS * 8);
+  TASSERT(sizeof(BinaryKmer) == NUM_BKMER_WORDS * 8);
   test_bkmer_str();
   test_bkmer_revcmp();
   test_bkmer_shifts();
