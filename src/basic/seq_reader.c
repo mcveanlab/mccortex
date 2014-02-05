@@ -402,6 +402,7 @@ void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir)
     case READPAIR_FR: seq_read_reverse_complement(r2); return;
     case READPAIR_RF: seq_read_reverse_complement(r1); return;
     case READPAIR_RR: return;
+    default: assert(0 && "Invalid ReadMateDir value"); // should be unreachable
   }
 }
 

@@ -165,14 +165,14 @@ int correct_reads_parse(int argc, char **argv,
     }
     else if(use_pe && strcasecmp(argv[argi],"--minIns") == 0)
     {
-      if(argi+1 >= argc || !parse_entire_size(argv[++argi], &min_ins))
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &min_ins))
         cmd_print_usage("--minIns <bp> requires a positive integer arg");
       params.ins_gap_min = min_ins;
       argi++;
     }
     else if(use_pe && strcasecmp(argv[argi],"--maxIns") == 0)
     {
-      if(argi+1 >= argc || !parse_entire_size(argv[++argi], &max_ins))
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &max_ins))
         cmd_print_usage("--maxIns <bp> requires a positive integer arg");
       if(max_ins < 20)
         warn("--maxGap < 20 seems very low!");

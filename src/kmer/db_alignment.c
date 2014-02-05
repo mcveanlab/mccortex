@@ -108,8 +108,9 @@ void db_alignment_from_reads(dBAlignment *alignment,
   alignment->used_r1 = (alignment->r1enderr < r1->seq.end);
   alignment->used_r2 = (r2 != NULL && alignment->r2enderr < r2->seq.end);
 
-  // debug
-  db_alignment_print(alignment, db_graph);
+  #ifdef CTXVERBOSE
+    db_alignment_print(alignment, db_graph);
+  #endif
 }
 
 // Returns index of node just after next gap,
