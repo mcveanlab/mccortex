@@ -31,7 +31,8 @@ const char thread_usage[] =
 "    --fq_threshold <fq>        FASTQ quality threshold\n"
 "    --fq_offset <qual>         FASTQ quality score offset\n"
 "    --cut_hp <N>               Cut reads afer <N> consecutive bases\n"
-"    --printcontigs             Print contigs (for testing)\n"
+"    --printcontigs             Print contigs used (for testing)\n"
+"    --printpaths               Print paths added (for testing)\n"
 "    --FR --FF --RF --RR        Mate pair orientation [default: FR] (with --keep_pcr)\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
@@ -67,10 +68,6 @@ int ctx_thread(CmdArgs *args)
   for(i = 0; i < num_tasks; i++) {
     tasks[i].crt_params.ctxcol = 0;
     correct_reads_input_print(&tasks[i]);
-  }
-
-  if(gen_paths_print_contigs && num_work_threads > 1) {
-    warn("--printcontigs with >1 threads is a bad idea.");
   }
 
   if(argi + 1 >= argc) cmd_print_usage("Not enough arguments");

@@ -51,8 +51,8 @@ struct GenPathWorker
 #define INIT_BUFLEN 1024
 
 // Should we print all paths?
-boolean gen_paths_print_contigs = false;
-volatile size_t print_contig_id = 0;
+boolean gen_paths_print_contigs = false, gen_paths_print_paths = false;
+volatile size_t print_contig_id = 0, print_path_id = 0;
 
 
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
@@ -147,17 +147,24 @@ static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
 #define bits_in_top_byte(nbases) (bases_in_top_byte(nbases) * 2)
 
 // Returns number of paths added
+// `pos_pl` is an array of positions in the nodes array of nodes to add
+// paths to
+// `nuc_pl` are the nucleotides denoting this path
+// `pos_mn` is an array of junctions running in the opposite direction
+// both pos_pl and pos_mn are sorted in their DIRECTION
+// if pl_is_fw,  pos_pl is 1,3,5,6,12, pos_mn is 15,11,5,2
+// if !pl_is_fw, pos_pl is 15,11,5,2,  pos_mn is 1,3,5,6,12
 static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      const size_t *restrict pos_mn,
-                                     size_t num_pl, size_t num_mn,
+                                     const size_t num_pl, const size_t num_mn,
                                      const Nucleotide *nuc_pl,
                                      const boolean pl_is_fw,
                                      const dBNode *nodes,
                                      GenPathWorker *wrkr)
 {
   size_t i, num_added = 0;
-  size_t ctxcol = wrkr->task.crt_params.ctxcol;
-  size_t ctpcol = wrkr->task.crt_params.ctpcol;
+  const size_t ctxcol = wrkr->task.crt_params.ctxcol;
+  const size_t ctpcol = wrkr->task.crt_params.ctpcol;
 
   dBNode node;
   size_t start_mn, start_pl, pos;
@@ -190,19 +197,12 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   // pl => plus in direction
   // mn => minus against direction
 
-  // char nstr[num_pl+1];
-  // for(i = 0; i < num_pl; i++) nstr[i] = dna_nuc_to_char(nuc_pl[i]);
-  // nstr[num_pl] = '\0';
-  // status("_juncs_to_paths(): len %zu %s", num_pl, nstr);
-
-  // PathLen tmplen = num_pl;
-  // for(i = 0; i < 4; i++) {
-  //   memcpy(packed_ptrs[i], &tmplen, sizeof(PathLen));
-  //   print_path(i, packed_ptrs[i], &db_graph->pdata);
-  // }
-
-  // 0,1,2,3
-  // 3,2,1
+  // pl_is_fw:
+  //  pos_pl: 0,1,2,3
+  //  pos_mn: 3,2,1
+  //!pl_is_fw:
+  //  pos_pl: 3,2,1
+  //  pos_mn: 0,1,2,3
 
   // Add paths longest -> shortest
   for(start_pl = 0, start_mn = num_mn-1; start_mn != SIZE_MAX; start_mn--)
@@ -240,12 +240,14 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    // debug: Check path before adding
-    graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
-                           db_graph);
+    #ifndef NDEBUG
+      // debug: Check path before adding
+      graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
+                             db_graph);
+    #endif
 
     added = graph_paths_find_or_add_mt(node.key, db_graph, ctpcol,
-                                      packed_ptr, plen, &pindex);
+                                       packed_ptr, plen, &pindex);
     packed_ptr[top_idx] = top_byte; // restore top byte
 
     #ifdef CTXVERBOSE
@@ -256,10 +258,27 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     if(!added && plen < MAX_PATHLEN) break;
     num_added++;
 
-    // debug: check path was added correctly
-    Colour cols[2] = {ctxcol, ctpcol};
-    GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
-    graph_path_check_path(node.key, pindex, &gp, db_graph);
+    if(gen_paths_print_paths)
+    {
+      // print path
+      size_t start, end;
+      if(pl_is_fw) { start = pos, end = pos_pl[num_pl-1]+1; }
+      else { start = pos_pl[num_pl-1]-1, end = pos; }
+      assert(start < end);
+
+      pthread_mutex_lock(&biglock);
+      printf(">path%zu\n", print_path_id++, stdout);
+      db_nodes_print(nodes+start, end-start+1, db_graph, stdout);
+      fputc('\n', stdout);
+      pthread_mutex_unlock(&biglock);
+    }
+
+    #ifndef NDEBUG
+      // debug: check path was added correctly
+      Colour cols[2] = {ctxcol, ctpcol};
+      GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
+      graph_path_check_path(node.key, pindex, &gp, db_graph);
+    #endif
   }
 
   return num_added;
@@ -305,7 +324,6 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
   // status("nodebuf: %zu", wrkr->contig.len+MAX_KMER_SIZE+1);
   worker_nuc_cap(wrkr, contig->len);
 
-  // gen_paths_print_contigs = true;
   if(gen_paths_print_contigs) {
     pthread_mutex_lock(&biglock);
     printf(">contig%zu\n", print_contig_id++);
