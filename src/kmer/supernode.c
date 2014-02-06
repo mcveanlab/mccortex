@@ -128,8 +128,10 @@ boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_gra
   Orientation orient = nbuf->data[nbuf->len-1].orient;
   const size_t kmer_size = db_graph->kmer_size;
   Nucleotide nuc;
-  BinaryKmer bkey, bkmer = db_graph_oriented_bkmer(db_graph, hkey, orient);
+  BinaryKmer bkey, bkmer;
   const Edges *edges = db_graph->col_edges;
+
+  bkmer = db_graph_oriented_bkmer(db_graph, nbuf->data[nbuf->len-1]);
 
   while(edges_has_precisely_one_edge(edges[hkey], orient, &nuc))
   {

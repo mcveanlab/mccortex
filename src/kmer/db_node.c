@@ -217,7 +217,7 @@ void db_nodes_print(const dBNode *nodes, size_t num,
   BinaryKmer bkmer;
   char tmp[MAX_KMER_SIZE+1];
 
-  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0].key, nodes[0].orient);
+  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, tmp);
   fputs(tmp, out);
 
@@ -236,7 +236,7 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   BinaryKmer bkmer;
   char tmp[MAX_KMER_SIZE+1];
 
-  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0].key, nodes[0].orient);
+  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, tmp);
   gzputs(out, tmp);
 
@@ -263,5 +263,30 @@ void db_nodes_print_edges(const dBNode *nodes, size_t num,
     indegree  = MIN2(edges_get_indegree(edges,  nodes[i].orient), 2);
     outdegree = MIN2(edges_get_outdegree(edges, nodes[i].orient), 2);
     fputc(symbols[indegree][outdegree], out);
+  }
+}
+
+//
+// Integrity checks
+//
+// Check an array of nodes denote a contigous path
+void db_node_check_nodes(const dBNode *nodes, size_t num, const dBGraph *db_graph)
+{
+  if(num == 0) return;
+
+  const size_t kmer_size = db_graph->kmer_size;
+  BinaryKmer bkmer0, bkmer1, tmp;
+  Nucleotide nuc;
+  size_t i;
+
+  bkmer0 = db_graph_oriented_bkmer(db_graph, nodes[0]);
+
+  for(i = 0; i+1 < num; i++)
+  {
+    bkmer1 = db_graph_oriented_bkmer(db_graph, nodes[i+1]);
+    nuc = binary_kmer_last_nuc(bkmer1);
+    tmp = binary_kmer_left_shift_add(bkmer0, kmer_size, nuc);
+    assert(binary_kmers_are_equal(tmp, bkmer1));
+    bkmer0 = bkmer1;
   }
 }

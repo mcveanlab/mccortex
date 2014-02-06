@@ -200,6 +200,7 @@ int ctx_thread(CmdArgs *args)
   // Load paths
   if(num_pfiles > 0) {
     // Paths loaded into empty colours will update the sample names
+    // and add kmers needed
     paths_format_merge(pfiles, num_pfiles, true, &db_graph);
     path_store_reclaim_tmp(&db_graph.pdata);
   }

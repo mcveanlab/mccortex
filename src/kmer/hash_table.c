@@ -388,7 +388,7 @@ void hash_table_print_stats_brief(const HashTable *const htable)
   ulong_to_str(htable->capacity, capacity_str);
   ulong_to_str(htable->unique_kmers, num_entries_str);
 
-  status("[hash table] buckets: %s [2^%zu]; bucket size: %zu; "
+  status("[hash] buckets: %s [2^%zu]; bucket size: %zu; "
          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
          num_buckets_str, nkeybits, (size_t)htable->bucket_size, mem_str,
          num_entries_str, capacity_str, occupancy);

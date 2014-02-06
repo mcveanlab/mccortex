@@ -72,10 +72,10 @@ extern const BinaryKmer zero_bkmer;
 // Functions
 //
 
-// Shift towards most significant position
+// CTAGT -> ACTAG (add blank 'A' to first position)
 BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer);
 
-// Shift towards least significant position
+// CTAGT -> TAGTA (add blank 'A' to last position)
 BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
                                            size_t kmer_size);
 

@@ -169,7 +169,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 
   // Get bkmer oriented correctly (not bkey)
   wlk->bkey = db_node_get_bkmer(graph, node.key);
-  wlk->bkmer = db_graph_oriented_bkmer(graph, node.key, node.orient);
+  wlk->bkmer = db_graph_oriented_bkmer(graph, node);
 
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);

@@ -461,7 +461,7 @@ static void* generate_paths_worker(void *ptr)
 
   AsyncIOData data;
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
-    status("read: %s %s", data.r1.name.b, data.r2.name.b);
+    // status("read: %s %s", data.r1.name.b, data.r2.name.b);
     // status("seq : %s %s", data.r1.seq.b, data.r2.seq.b);
     wrkr->data = data;
     memcpy(&wrkr->task, data.ptr, sizeof(CorrectAlnReadsTask));

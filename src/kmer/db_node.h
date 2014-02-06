@@ -252,4 +252,12 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
 void db_nodes_print_edges(const dBNode *nodes, size_t num,
                           const dBGraph *db_graph, FILE *out);
 
+
+//
+// Integrity checks
+//
+
+// Check an array of nodes denote a contigous path
+void db_node_check_nodes(const dBNode *nodes, size_t num, const dBGraph *db_graph);
+
 #endif /* DB_NODE_H_ */

@@ -69,8 +69,9 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols);
 void db_graph_dealloc(dBGraph *db_graph);
 
 // Get an oriented bkmer
-#define db_graph_oriented_bkmer(graph,hkey,or) \
-        db_node_oriented_bkmer(db_node_get_bkmer(graph,hkey),or,(graph)->kmer_size)
+#define db_graph_oriented_bkmer(graph,node) \
+        db_node_oriented_bkmer(db_node_get_bkmer(graph,(node).key), \
+                               (node).orient, (graph)->kmer_size)
 
 //
 // Add to the de bruijn graph

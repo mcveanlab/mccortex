@@ -50,6 +50,7 @@ BinaryKmer binary_kmer_to_old(BinaryKmer bkmer, size_t kmer_size)
   return nbkmer;
 }
 
+// CTAGT -> ACTAG (add blank 'A' to first position)
 // Shift towards most significant position
 BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer)
 {
@@ -66,6 +67,7 @@ BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer)
   return b;
 }
 
+// CTAGT -> TAGTA (add blank 'A' to last position)
 // Shift towards least significant position
 BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
                                            size_t kmer_size)
