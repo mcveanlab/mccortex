@@ -7,6 +7,8 @@ TGTS=genome.fa read.1.fa read.2.fa genome.k9.ctx $(PATHS)
 
 all: $(TGTS)
 
+plots: genome.k9.pdf
+
 clean:
 	rm -rf $(TGTS) gap_sizes.*.csv mp_sizes.*.csv genome.k9.pdf
 
@@ -31,4 +33,6 @@ reads.pe.two.ctp: genome.k9.ctx read.1.fa read.2.fa
 	$(CTX) thread -m 1M --printcontigs --printpaths --twoway --col 0 --seq2 read.1.fa read.2.fa --col 1 --seq genome.fa $@ genome.k9.ctx
 
 genome.k9.pdf:
-	../../scripts/cortex_to_graphviz.pl genome.k9.ctx | dot -Tpdf > genome.k9.pdf
+	../../scripts/cortex_to_graphviz.pl genome.k9.ctx:0 | dot -Tpdf > genome.k9.pdf
+
+.PHONY: all plots clean

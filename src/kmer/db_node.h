@@ -244,4 +244,12 @@ void db_nodes_print(const dBNode *nodes, size_t num,
 void db_nodes_gzprint(const dBNode *nodes, size_t num,
                       const dBGraph *db_graph, gzFile out);
 
+// Print in/outdegree - For debugging mostly
+// indegree/outdegree (2 means >=2)
+// 00: ! 01: + 02: {
+// 10: - 11: = 12: <
+// 20: } 21: > 22: *
+void db_nodes_print_edges(const dBNode *nodes, size_t num,
+                          const dBGraph *db_graph, FILE *out);
+
 #endif /* DB_NODE_H_ */

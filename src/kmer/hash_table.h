@@ -68,6 +68,7 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
 void hash_table_delete(HashTable *const htable, hkey_t pos);
 
 void hash_table_print_stats(const HashTable *const htable);
+void hash_table_print_stats_brief(const HashTable *const htable);
 
 // This is for debugging
 uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);

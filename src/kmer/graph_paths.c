@@ -81,14 +81,14 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
-boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol,
+boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
                                    const uint8_t *packed, size_t plen,
                                    PathIndex *newidx)
 {
   PathStore *pstore = &db_graph->pdata;
   volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
 
-// path_nbytes is the number of bytes in <PackedSeq>
+  // path_nbytes is the number of bytes in <PackedSeq>
   size_t path_nbytes = (plen+3)/4;
 
   // debug
@@ -96,9 +96,9 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
 
   // 1) Get lock for kmer
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
-  bitlock_yield_acquire(kmerlocks, hkey);
+  bitlock_yield_acquire(kmerlocks, node.key);
 
-  const PathIndex next = *db_node_paths_volptr(db_graph, hkey);
+  const PathIndex next = *db_node_paths_volptr(db_graph, node.key);
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -109,8 +109,9 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
     // => if already exist -> add colour -> release lock
     colset = packedpath_get_colset(pstore->store+match);
     boolean added = !bitset_get(colset, ctpcol);
+    if(added) __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
     bitset_set(colset, ctpcol);
-    bitlock_release(kmerlocks, hkey);
+    bitlock_release(kmerlocks, node.key);
     *newidx = match;
     return added;
   }
@@ -146,7 +147,7 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
 
   // 5) update kmer pointer
   PathIndex pindex = (uint64_t)(new_path - pstore->store);
-  *db_node_paths_volptr(db_graph, hkey) = pindex;
+  *db_node_paths_volptr(db_graph, node.key) = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer
   if(next == PATH_NULL) {
@@ -155,13 +156,20 @@ boolean graph_paths_find_or_add_mt(hkey_t hkey, dBGraph *db_graph, Colour ctpcol
 
   // Update number of paths
   __sync_add_and_fetch((volatile size_t*)&pstore->num_of_paths, 1);
+  __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
 
-  // status("npaths: %zu nkmers: %zu", pstore->num_of_paths, pstore->num_kmers_with_paths);
+  // if(node.orient == FORWARD)
+  //   __sync_add_and_fetch((volatile size_t*)&pstore->num_nodefw_paths, 1);
+  // else
+  //   __sync_add_and_fetch((volatile size_t*)&pstore->num_noderv_paths, 1);
+
+  // status("npaths: %zu nkmers: %zu", pstore->num_of_paths,
+  //        pstore->num_kmers_with_paths);
 
   __sync_synchronize();
 
   // 6) release kmer lock
-  bitlock_release(kmerlocks, hkey);
+  bitlock_release(kmerlocks, node.key);
 
   *newidx = pindex;
   return true;

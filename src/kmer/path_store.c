@@ -25,7 +25,10 @@ void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncol
                          .size = size, .next = mem,
                          .num_of_cols = ncols,
                          .colset_bytes = colset_bytes,
+                         // .num_nodefw_paths = 0, .num_noderv_paths = 0,
+                         // .num_readfw_paths = 0, .num_readrv_paths = 0,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
+                         .num_col_paths = 0,
                          .tmpdata = tmp, .tmpsize = tmpsize};
 
   memcpy(paths, &new_paths, sizeof(PathStore));
@@ -44,8 +47,13 @@ void path_store_reclaim_tmp(PathStore *paths)
                          .size = size, .next = paths->next,
                          .num_of_cols = paths->num_of_cols,
                          .colset_bytes = paths->colset_bytes,
+                         // .num_nodefw_paths = paths->num_nodefw_paths,
+                         // .num_noderv_paths = paths->num_noderv_paths,
+                         // .num_readfw_paths = paths->num_readfw_paths,
+                         // .num_readrv_paths = paths->num_readrv_paths,
                          .num_of_paths = paths->num_of_paths,
                          .num_kmers_with_paths = paths->num_kmers_with_paths,
+                         .num_col_paths = paths->num_col_paths,
                          .tmpdata = NULL, .tmpsize = 0};
 
   memcpy(paths, &new_paths, sizeof(PathStore));

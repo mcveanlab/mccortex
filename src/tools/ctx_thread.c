@@ -253,6 +253,8 @@ int ctx_thread(CmdArgs *args)
 
       get_binary_and_colour(gfiles, num_gfiles, ctpcol, &fileidx, &colidx);
       graph_load_colour(&gfiles[fileidx], gprefs, &gstats, colidx, 0);
+
+      hash_table_print_stats_brief(&db_graph.ht);
     }
 
     // Get list of input files to read
@@ -301,13 +303,19 @@ int ctx_thread(CmdArgs *args)
 
   PathStore *pstore = &db_graph.pdata;
   size_t num_path_bytes = (size_t)(pstore->next - pstore->store);
-  char kmers_str[100], paths_str[100], mem_str[100];
+  char kmers_str[100], paths_str[100], mem_str[100], col_paths_str[100];
   ulong_to_str(pstore->num_kmers_with_paths, kmers_str);
   ulong_to_str(pstore->num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
+  ulong_to_str(pstore->num_col_paths, col_paths_str);
 
-  status("Saving paths: %s paths, %s path-bytes, %s kmers",
-         paths_str, mem_str, kmers_str);
+  status("Saving paths: %s paths, %s path-bytes, %s kmers, coloured paths: %s",
+         paths_str, mem_str, kmers_str, col_paths_str);
+
+  // status("  Forward node paths: %zu, reverse node paths: %zu",
+  //        pstore->num_nodefw_paths, pstore->num_noderv_paths);
+  // status("  Forward read paths: %zu, reverse read paths: %zu",
+  //        pstore->num_readfw_paths, pstore->num_readrv_paths);
 
   // Update header and write
   paths_header_update(&pheader, pstore);

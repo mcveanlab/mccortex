@@ -14,7 +14,9 @@ typedef struct {
   const size_t size;
   const size_t num_of_cols, colset_bytes;
   uint8_t *next;
-  size_t num_of_paths, num_kmers_with_paths;
+  // size_t num_nodefw_paths, num_noderv_paths; // for testing for now
+  // size_t num_readfw_paths, num_readrv_paths; // for testing for now
+  size_t num_of_paths, num_kmers_with_paths, num_col_paths;
   // Temporary data used for merging
   uint8_t *const tmpdata;
   const size_t tmpsize;

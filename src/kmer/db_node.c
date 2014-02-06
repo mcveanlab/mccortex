@@ -246,3 +246,22 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
     gzputc(out, dna_nuc_to_char(nuc));
   }
 }
+
+// Print in/outdegree - For debugging mostly
+// indegree/outdegree (2 means >=2)
+// 00: ! 01: + 02: {
+// 10: - 11: = 12: <
+// 20: } 21: > 22: *
+void db_nodes_print_edges(const dBNode *nodes, size_t num,
+                          const dBGraph *db_graph, FILE *out)
+{
+  size_t i, indegree, outdegree;
+  Edges edges;
+  const char symbols[3][3] = {"!+{","-=<","}>*"};
+  for(i = 0; i < num; i++) {
+    edges = db_node_get_edges_union(db_graph, nodes[i].key);
+    indegree  = MIN2(edges_get_indegree(edges,  nodes[i].orient), 2);
+    outdegree = MIN2(edges_get_outdegree(edges, nodes[i].orient), 2);
+    fputc(symbols[indegree][outdegree], out);
+  }
+}

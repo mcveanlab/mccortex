@@ -150,6 +150,7 @@ static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
 // `pos_pl` is an array of positions in the nodes array of nodes to add
 // paths to
 // `nuc_pl` are the nucleotides denoting this path
+//   nuc_pl[3] is the nucleotide to take leaving nodes[pos_pl[3]]
 // `pos_mn` is an array of junctions running in the opposite direction
 // both pos_pl and pos_mn are sorted in their DIRECTION
 // if pl_is_fw,  pos_pl is 1,3,5,6,12, pos_mn is 15,11,5,2
@@ -166,11 +167,13 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   const size_t ctxcol = wrkr->task.crt_params.ctxcol;
   const size_t ctpcol = wrkr->task.crt_params.ctpcol;
 
+  dBGraph *db_graph = wrkr->db_graph;
   dBNode node;
   size_t start_mn, start_pl, pos;
   PathLen plen, plen_orient;
   boolean added;
   PathIndex pindex; // address of path once added
+  boolean printed = false;
 
   #ifdef CTXVERBOSE
     char str[num_pl+1];
@@ -178,8 +181,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     str[num_pl] = '\0';
     status("[addpath] %s %s", pl_is_fw ? "fw" : "rv", str);
   #endif
-
-  dBGraph *db_graph = wrkr->db_graph;
 
   // Create packed path with four diff offsets (0..3), point to correct one
   size_t pckd_memsize = sizeof(PathLen) + (num_pl+3)/4;
@@ -204,6 +205,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   //  pos_pl: 3,2,1
   //  pos_mn: 0,1,2,3
 
+  // start_pl if the first base in the path
+  // nodes[pos_mn[start_mn]] is the node before which we add the path
+
   // Add paths longest -> shortest
   for(start_pl = 0, start_mn = num_mn-1; start_mn != SIZE_MAX; start_mn--)
   {
@@ -216,11 +220,23 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     // nodes[pos] is the kmer we are adding this path to
     pos = (pl_is_fw ? pos_mn[start_mn] - 1 : pos_mn[start_mn] + 1);
+    node = (pl_is_fw ? nodes[pos] : db_node_reverse(nodes[pos]));
+
     start_pl -= (start_pl > 0 && pos_pl[start_pl-1] == pos);
+
+    // ^ deals with the case where >junction on kmer JUST before <junction:
+    // e.g. backtrack to add the 'F'
+    //
+    // bCD ----+      +---> FGh
+    //         |      |
+    //         v      |           FW [BCD->FGH]: FH (added F)
+    // BCD -> DEF -> EFG -> FGH   RV [FGH->BCD]: complement(B)
+    //  |
+    //  +---> DEf
+    //
 
     // Check path is not too long (MAX_PATHLEN is the limit)
     plen = (PathLen)MIN2(num_pl - start_pl, MAX_PATHLEN);
-    node = pl_is_fw ? nodes[pos] : db_node_reverse(nodes[pos]);
 
     #ifdef CTXVERBOSE
       char kmerstr[MAX_KMER_SIZE+1];
@@ -246,7 +262,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                              db_graph);
     #endif
 
-    added = graph_paths_find_or_add_mt(node.key, db_graph, ctpcol,
+    added = graph_paths_find_or_add_mt(node, db_graph, ctpcol,
                                        packed_ptr, plen, &pindex);
     packed_ptr[top_idx] = top_byte; // restore top byte
 
@@ -258,7 +274,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     if(!added && plen < MAX_PATHLEN) break;
     num_added++;
 
-    if(gen_paths_print_paths)
+    if(gen_paths_print_paths && !printed)
     {
       // print path
       size_t start, end;
@@ -267,11 +283,20 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       assert(start < end);
 
       pthread_mutex_lock(&biglock);
-      printf(">path%zu\n", print_path_id++, stdout);
+      fprintf(stdout, ">path%zu.%s\n", print_path_id++, pl_is_fw ? "fw" : "rv");
       db_nodes_print(nodes+start, end-start+1, db_graph, stdout);
       fputc('\n', stdout);
+      db_nodes_print_edges(nodes+start, end-start+1, db_graph, stdout);
+      fputc('\n', stdout);
       pthread_mutex_unlock(&biglock);
+
+      printed = true;
     }
+
+    // if(pl_is_fw)
+    //   __sync_add_and_fetch((volatile size_t*)&db_graph->pdata.num_readfw_paths, 1);
+    // else
+    //   __sync_add_and_fetch((volatile size_t*)&db_graph->pdata.num_readrv_paths, 1);
 
     #ifndef NDEBUG
       // debug: check path was added correctly
@@ -279,6 +304,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
       graph_path_check_path(node.key, pindex, &gp, db_graph);
     #endif
+
+    // status("Path is:...");
+    // print_path(node.key, packed_ptr, &db_graph->pdata);
   }
 
   return num_added;
@@ -326,9 +354,9 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
 
   if(gen_paths_print_contigs) {
     pthread_mutex_lock(&biglock);
-    printf(">contig%zu\n", print_contig_id++);
+    fprintf(stdout, ">contig%zu\n", print_contig_id++);
     db_nodes_print(contig->data, contig->len, wrkr->db_graph, stdout);
-    printf("\n");
+    fputc('\n', stdout);
     pthread_mutex_unlock(&biglock);
   }
 
@@ -433,7 +461,7 @@ static void* generate_paths_worker(void *ptr)
 
   AsyncIOData data;
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
-    // status("read: %s %s", data.r1.name.b, data.r2.name.b);
+    status("read: %s %s", data.r1.name.b, data.r2.name.b);
     // status("seq : %s %s", data.r1.seq.b, data.r2.seq.b);
     wrkr->data = data;
     memcpy(&wrkr->task, data.ptr, sizeof(CorrectAlnReadsTask));

@@ -373,9 +373,10 @@ void hash_table_delete(HashTable *const htable, hkey_t pos)
   assert(!HASH_ENTRY_ASSIGNED(htable->table[pos]));
 }
 
-void hash_table_print_stats(const HashTable *const htable)
+
+void hash_table_print_stats_brief(const HashTable *const htable)
 {
-  size_t i, nbytes, nkeybits;
+  size_t nbytes, nkeybits;
   double occupancy = (100.0 * htable->unique_kmers) / htable->capacity;
   nbytes = htable->capacity * sizeof(BinaryKmer) +
            htable->num_of_buckets * sizeof(uint8_t[2]);
@@ -391,9 +392,14 @@ void hash_table_print_stats(const HashTable *const htable)
          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
          num_buckets_str, nkeybits, (size_t)htable->bucket_size, mem_str,
          num_entries_str, capacity_str, occupancy);
+}
 
-  if(htable->unique_kmers > 0)
-  {
+void hash_table_print_stats(const HashTable *const htable)
+{
+  size_t i;
+  hash_table_print_stats_brief(htable);
+
+  if(htable->unique_kmers > 0) {
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(htable->collisions[i] != 0) {
         status("  collisions %zu: %zu\n", i, (size_t)htable->collisions[i]);
