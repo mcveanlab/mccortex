@@ -21,6 +21,7 @@ const char health_usage[] =
 "   -p <in.ctp>    Load paths\n"
 "   --noedgecheck  Don't check kmer edges\n";
 
+// DEV: should load path files one at a time and check them
 
 int ctx_health_check(CmdArgs *args)
 {
@@ -71,7 +72,7 @@ int ctx_health_check(CmdArgs *args)
 
   // Decide on memory
   size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t path_mem = 0, tmp_path_mem = 0, total_mem;
+  size_t path_mem = 0, path_mem_req = 0, tmp_path_mem = 0, total_mem;
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
@@ -80,7 +81,14 @@ int ctx_health_check(CmdArgs *args)
   // Path Memory
   if(num_pfiles) {
     tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
-    path_mem = path_max_mem + tmp_path_mem;
+    path_mem_req = path_max_mem + tmp_path_mem;
+    // If we don't have enough memory, will bork out at cmd_check_mem_limit
+    // Only need the required amount of memory if loading a single paths file
+    // May need more if having to merge path files
+    if(num_pfiles > 1)
+      path_mem = MAX2(args->mem_to_use - graph_mem, path_mem_req);
+    else
+      path_mem = path_mem_req;
   }
 
   total_mem = path_mem + graph_mem;

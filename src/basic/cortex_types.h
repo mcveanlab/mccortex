@@ -24,4 +24,6 @@ typedef uint_fast8_t ReadMateDir;
 #define read_mate_r1(r) ((r)&2)
 #define read_mate_r2(r) ((r)&1)
 
+// DEV: define combine READPAIR
+
 #endif /* CORTEX_TYPES_H_ */

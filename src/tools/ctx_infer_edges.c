@@ -18,6 +18,8 @@ const char inferedges_usage[] =
 "  --pop      Add edges that are in the union only\n"
 "  --all      Add all edges [default]\n";
 
+// DEV: add --out option
+
 // If two kmers are in a sample and the population has an edges between them,
 // Add edge to sample
 

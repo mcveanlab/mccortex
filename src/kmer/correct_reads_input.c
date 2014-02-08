@@ -26,6 +26,11 @@ void correct_reads_input_init(const char *p1, const char *p2,
   if(p2 != NULL && (f2 = seq_open(p2)) == NULL)
     die("Cannot read second --seq2 file: %s", p2);
 
+  if(params.ins_gap_min > params.ins_gap_max) {
+    die("--minIns %zu is greater than --maxIns %zu",
+        (size_t)params.ins_gap_min, (size_t)params.ins_gap_max);
+  }
+
   CorrectAlnReadsTask tsk = {.file1 = f1, .file2 = f2,
                              .fq_offset = (uint8_t)fq_offset,
                              .fq_cutoff = (uint8_t)fq_cutoff,
@@ -102,6 +107,18 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 // returns index of next argv
 // without out_arg: --seq <in>       --seq2 <in1> <in2>
 // with out_arg:    --seq <in> <out> --seq2 <in1> <in2> <out>
+// Other options:
+//  --fq_offset <int>
+//  --fq_threshold <int>
+//  --cut_hp <int>
+//  --col <int>
+//  --printcontigs  if !out_arg
+//  --printpaths    if !out_arg
+//  --minIns <int>  if use_pe
+//  --maxIns <int>  if use_pe
+//  --oneway
+//  --twoway
+//  --FF --FR --RF --RR
 int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
@@ -181,7 +198,7 @@ int correct_reads_parse(int argc, char **argv,
         cmd_print_usage("--maxIns <bp> requires a positive integer arg");
       if(max_ins < 20)
         warn("--maxGap < 20 seems very low!");
-      params.ins_gap_min = max_ins;
+      params.ins_gap_max = max_ins;
       argi++;
     }
     else if(strcasecmp(argv[argi],"--FF") == 0) matedir = READPAIR_FF;

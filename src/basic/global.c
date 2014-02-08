@@ -50,7 +50,7 @@ void call_assert(const char *file, const char *func, int line,
 {
   pthread_mutex_lock(&biglock);
   fflush(stdout);
-  fprintf(stderr, "[%s:%i:%s()] Assert Failed: %s", file, line, func, assert);
+  fprintf(stderr, "[%s:%i] Assert Failed %s(): %s", file, line, func, assert);
 
   if(fmt != NULL) {
     va_list argptr;
@@ -71,7 +71,7 @@ void call_die(const char *file, const char *func, int line, const char *fmt, ...
   pthread_mutex_lock(&biglock);
   va_list argptr;
   fflush(stdout);
-  fprintf(stderr, "[%s:%i:%s()] Error: ", file, line, func);
+  fprintf(stderr, "[%s:%i] Error %s(): ", file, line, func);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
@@ -86,7 +86,7 @@ void call_warn(const char *file, const char *func, int line, const char *fmt, ..
   pthread_mutex_lock(&biglock);
   va_list argptr;
   fflush(stdout);
-  fprintf(stderr, "[%s:%i:%s()] Warning: ", file, line, func);
+  fprintf(stderr, "[%s:%i] Warning %s(): ", file, line, func);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);

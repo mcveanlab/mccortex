@@ -256,12 +256,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    #ifndef NDEBUG
-      // debug: Check path before adding
-      graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
-                             db_graph);
-    #endif
-
     added = graph_paths_find_or_add_mt(node, db_graph, ctpcol,
                                        packed_ptr, plen, &pindex);
     packed_ptr[top_idx] = top_byte; // restore top byte
@@ -294,7 +288,11 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     }
 
     #ifndef NDEBUG
-      // debug: check path was added correctly
+      // Check path before we wrote it
+      graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
+                             db_graph);
+
+      // Check path after we wrote it
       Colour cols[2] = {ctxcol, ctpcol};
       GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
       graph_path_check_path(node.key, pindex, &gp, db_graph);

@@ -11,39 +11,23 @@
 #include <stddef.h> // defines ptrdiff_t
 #include <string.h>
 #include <strings.h> // strcasecmp
-#include <inttypes.h>
+#include <inttypes.h> // fixed size integers e.g. uint64_t
 #include <limits.h>
-#include <assert.h>
-#include <zlib.h>
 #include <pthread.h>
+#include <zlib.h>
 
 #include "bit_macros.h" // from bit_array
 
-// #define CTXVERSIONSTR "0.0"
-#include "version.h"
-#include "cortex_types.h"
+#include "version.h" // defines CTXVERSIONSTR
+#include "cortex_types.h" // common basic data types
 
-// Number of reads to hold in the msg pool
-#define MSGPOOLRSIZE 20
-
-// set to NULL to turn off message printing
-extern FILE *ctx_msg_out;
-extern pthread_mutex_t biglock;
-
-#define QUOTE_MACRO(str) #str
-#define QUOTE_VALUE(str) QUOTE_MACRO(str)
-
-#define SWAP(x,y,tmp) ((tmp) = (x), (x) = (y), (y) = (tmp))
-
-#define MAX2(x,y) ((x) >= (y) ? (x) : (y))
-#define MIN2(x,y) ((x) <= (y) ? (x) : (y))
-
-#define MAX3(x,y,z) ((x) >= (y) && (x) >= (z) ? (x) : MAX2(y,z))
-#define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
-
-#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
-#define MEDIAN(arr,len) \
-        (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
+// Makefile sets:
+//  NDEBUG=1         Turns off debugging
+//  CTXCHECKS=1      Turns on heavy checks
+//  MIN_KMER_SIZE    Min kmer-size compiled e.g. 3 for maxk=31, 33 for maxk=63
+//  MAX_KMER_SIZE    Max kmer-size compiled e.g. 31 for maxk=31, 63 for maxk=63
+//  NUM_BKMER_WORDS  Number of 64 bit words used to store a kmer roundup(k/32)
+//  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 
 //
 // dynamic memory allocation with checks
@@ -58,8 +42,22 @@ void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, 
 void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int line);
 
 //
-// ctx_check(), ctx_assert(), ctx_assume()
+// Internal Integrity Checks: ctx_check(), ctx_assert(), ctx_assume()
 //
+// ctx_assert() behaves like assert()
+// ctx_assume() behaves like assert() when NDEBUG=1,
+//              otherwise interpret as a truth statement for the compiler
+// ctx_check()  behaves like assert() when CTXCHECKS=1 but for heavy checks
+//              without CTXCHECKS, does nothing
+//
+//            | Default  |       NDEBUG=1
+//----------------------------------------------
+// ctx_assert | nothing  |  fast check + abort()
+// ctx_assume | optimise |  fast check + abort()
+//
+//            | Default  |     CTXCHECKS=1
+//----------------------------------------------
+// ctx_check  | nothing  |  slow check + abort()
 
 void call_assert(const char *file, const char *func, int line,
                  const char *assert, const char *fmt, ...)
@@ -97,8 +95,13 @@ __attribute__((noreturn));
 #define ctx_assume(x) ctx_assume2(x,NULL)
 
 //
-// die() / warn()
+// Exit with an error, give a warning: die() / warn()
 //
+
+// Output destination and lock for output
+// set to NULL to turn off message printing
+extern FILE *ctx_msg_out;
+extern pthread_mutex_t biglock;
 
 #define die(fmt, ...) call_die(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
 #define warn(fmt, ...) call_warn(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
@@ -126,7 +129,32 @@ void print_usage(const char *msg, const char *errfmt,  ...)
   __attribute__((noreturn))
   __attribute__((format(printf, 2, 3)));
 
+//
+// Setup / clear up of library functions
+//
 void cortex_init();
 void cortex_destroy();
+
+//
+// Common MACROs
+//
+
+#define QUOTE_MACRO(str) #str
+#define QUOTE_VALUE(str) QUOTE_MACRO(str)
+
+#define SWAP(x,y,tmp) ((tmp) = (x), (x) = (y), (y) = (tmp))
+
+#define MAX2(x,y) ((x) >= (y) ? (x) : (y))
+#define MIN2(x,y) ((x) <= (y) ? (x) : (y))
+
+#define MAX3(x,y,z) ((x) >= (y) && (x) >= (z) ? (x) : MAX2(y,z))
+#define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
+
+#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
+#define MEDIAN(arr,len) \
+        (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
+
+// Number of reads to hold in the msg pool
+#define MSGPOOLRSIZE 1000
 
 #endif /* GLOBAL_H_ */
