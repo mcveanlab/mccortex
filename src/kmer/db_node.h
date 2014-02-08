@@ -195,6 +195,11 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
 #define db_node_covg(graph,hkey,col) \
         ((graph)->col_covgs[(hkey)*(graph)->num_of_cols+(col)])
 
+static inline Covg db_node_get_covg(const dBGraph *db_graph,
+                                    hkey_t hkey, Colour col) {
+  return db_node_covg(db_graph, hkey, col);
+}
+
 #define db_node_zero_covgs(graph,hkey) \
         memset((graph)->col_covgs + (hkey)*(graph)->num_of_cols, 0, \
                (graph)->num_of_cols * sizeof(Covg))

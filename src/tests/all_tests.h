@@ -32,11 +32,14 @@ extern size_t tests_num_run, tests_num_failed;
 // Functions of tests
 //
 
-// bkmer_tests.c
-void test_bkmer_functions();
+// util_tests.c
+void test_util();
 
 // dna_tests.c
 void test_dna_functions();
+
+// bkmer_tests.c
+void test_bkmer_functions();
 
 // hash_table_tests.c
 void test_hash_table();
@@ -44,11 +47,11 @@ void test_hash_table();
 // db_node_tests.c
 void test_db_node();
 
+// build_graph_tests.c
+void test_build_graph();
+
 // supernode_tests.c
 void test_supernode();
-
-// util_tests.c
-void test_util();
 
 // packed_path_tests.c
 void test_packed_path();

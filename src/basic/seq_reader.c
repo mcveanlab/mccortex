@@ -3,6 +3,7 @@
 #include "sam.h"
 
 #include "seq_reader.h"
+#include "util.h"
 #include "dna.h"
 
 const char *MP_DIR_STRS[] = {"FR", "FF", "RF"};
@@ -252,6 +253,7 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
   // (only print each error msg once per file)
   uint8_t warn_flags = 0;
   int success1, success2;
+  size_t num_pe_pairs = 0;
 
   while(1)
   {
@@ -266,12 +268,18 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
     }
     if(success1 <= 0 || success2 <= 0) break;
 
-    // pe
+    // PE
+    // We don't care about read orientation at this point
     warn_flags = process_new_read(r1, qmin1, qmax1, sf1->path, warn_flags);
     warn_flags = process_new_read(r2, qmin2, qmax2, sf2->path, warn_flags);
-    // seq_read_reverse_complement(r2); // now done later
     read_func(r1, r2, qoffset1, qoffset2, reader_ptr);
+    num_pe_pairs++;
   }
+
+  char num_pe_pairs_str[100];
+  ulong_to_str(num_pe_pairs, num_pe_pairs_str);
+  status("[seq] Loaded %s read pairs (files: %s, %s)",
+         num_pe_pairs_str, sf1->path, sf2->path);
 
   seq_close(sf1);
   seq_close(sf2);
@@ -301,6 +309,7 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   // warn_flags keeps track of which of the error msgs have been printed
   // (only print each error msg once per file)
   uint8_t warn_flags = 0;
+  size_t num_se_reads = 0, num_pe_pairs = 0;
 
   if(!seq_is_sam(sf) && !seq_is_bam(sf))
   {
@@ -310,6 +319,7 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
     {
       warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
       read_func(r1, NULL, qoffset, 0, reader_ptr);
+      num_se_reads++;
     }
     if(s < 0) warn("Input error: %s\n", sf->path);
   }
@@ -355,15 +365,23 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
         warn_flags = process_new_read(r2, qmin, qmax, sf->path, warn_flags);
         // seq_read_reverse_complement(r2); // now done later
         read_func(r1, r2, qoffset, qoffset, reader_ptr);
+        num_pe_pairs++;
       }
       else
       {
         // se
         warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
         read_func(r1, NULL, qoffset, 0, reader_ptr);
+        num_se_reads++;
       }
     }
   }
+
+  char num_se_reads_str[100], num_pe_pairs_str[100];
+  ulong_to_str(num_pe_pairs, num_pe_pairs_str);
+  ulong_to_str(num_se_reads, num_se_reads_str);
+  status("[seq] Loaded %s reads and %s reads pairs (file: %s)",
+         num_se_reads_str, num_pe_pairs_str, sf->path);
 
   seq_close(sf);
 }

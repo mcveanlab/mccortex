@@ -211,7 +211,7 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
     if(db_graph->node_in_cols != NULL) {
       assert(db_node_has_col(db_graph, node.key, ctxcol));
     } else if(db_graph->col_covgs != NULL) {
-      assert(db_node_covg(db_graph, node.key, ctxcol) > 0);
+      assert(db_node_get_covg(db_graph, node.key, ctxcol) > 0);
     }
 
     #ifdef CTXVERBOSE

@@ -16,6 +16,7 @@ int main()
   test_bkmer_functions();
   test_hash_table();
   test_db_node();
+  test_build_graph();
   test_supernode();
   test_packed_path();
   test_paths();

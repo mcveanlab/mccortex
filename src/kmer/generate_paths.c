@@ -563,9 +563,9 @@ void gen_paths_dump_gap_sizes(const char *base_fmt,
          insert_sizes ? "Insert" : "Seq error gap",
          min, mean, median, mode, max);
 
-  status("  Gaps per read%s: %s / %s [%.3f]",
+  status("  Gaps per read%s: %s / %s [%.2f%%]",
          insert_sizes ? " pair" : "", ngaps_str, ninputs_str,
-         (double)ngaps / ninputs);
+         (100.0*ngaps) / ninputs);
 
   StrBuf *csv_dump = strbuf_new();
   FILE *fout;

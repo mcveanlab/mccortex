@@ -194,13 +194,13 @@ static boolean check_pcr_dupe(read_t *r1, read_t *r2,
   return false;
 }
 
-static void build_graph_reads(read_t *r1, read_t *r2,
-                              uint8_t fq_offset1, uint8_t fq_offset2,
-                              uint8_t fq_cutoff, uint8_t hp_cutoff,
-                              boolean remove_dups_se, boolean remove_dups_pe,
-                              ReadMateDir matedir,
-                              LoadingStats *stats, size_t colour,
-                              dBGraph *db_graph)
+void build_graph_from_reads(read_t *r1, read_t *r2,
+                            uint8_t fq_offset1, uint8_t fq_offset2,
+                            uint8_t fq_cutoff, uint8_t hp_cutoff,
+                            boolean remove_dups_se, boolean remove_dups_pe,
+                            ReadMateDir matedir,
+                            LoadingStats *stats, size_t colour,
+                            dBGraph *db_graph)
 {
   stats->total_bases_read += r1->seq.end + (r2 ? r2->seq.end : 0);
 
@@ -234,10 +234,11 @@ static void* grab_reads_from_pool(void *ptr)
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
     wrkr->data = data;
     task = (BuildGraphTask*)data.ptr;
-    build_graph_reads(&data.r1, &data.r2, data.fq_offset1, data.fq_offset2,
-                      task->fq_cutoff, task->hp_cutoff,
-                      task->remove_dups_se, task->remove_dups_pe, task->matedir,
-                      &wrkr->file_stats[task->idx], task->colour, wrkr->db_graph);
+    build_graph_from_reads(&data.r1, &data.r2, data.fq_offset1, data.fq_offset2,
+                           task->fq_cutoff, task->hp_cutoff,
+                           task->remove_dups_se, task->remove_dups_pe, task->matedir,
+                           &wrkr->file_stats[task->idx],
+                           task->colour, wrkr->db_graph);
   }
 
   pthread_exit(NULL);
