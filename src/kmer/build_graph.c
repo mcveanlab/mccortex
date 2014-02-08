@@ -114,7 +114,7 @@ boolean seq_read_is_novel(const read_t *r, dBGraph *db_graph,
 void build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
                              const char *seq, size_t len)
 {
-  assert(len >= db_graph->kmer_size);
+  ctx_assert(len >= db_graph->kmer_size);
   const size_t kmer_size = db_graph->kmer_size;
   BinaryKmer bkmer;
   Nucleotide nuc;
@@ -248,7 +248,7 @@ static void* grab_reads_from_pool(void *ptr)
 void build_graph(dBGraph *db_graph, BuildGraphTask *files,
                  size_t num_files, size_t num_build_threads)
 {
-  assert(db_graph->bktlocks != NULL);
+  ctx_assert(db_graph->bktlocks != NULL);
 
   size_t i, j;
   MsgPool pool;

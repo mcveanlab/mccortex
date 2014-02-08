@@ -116,7 +116,7 @@ int ctx_view(CmdArgs *args)
   }
 
   size_t ncols = graph_file_outncols(&file);
-  assert(ncols > 0);
+  ctx_assert(ncols > 0);
 
   GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
   graph_header_global_cpy(&outheader, &file.hdr);

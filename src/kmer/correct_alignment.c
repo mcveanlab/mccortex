@@ -76,7 +76,7 @@ static void prime_for_traversal(GraphWalker *wlk,
                                 size_t ctxcol, size_t ctpcol,
                                 const dBGraph *db_graph)
 {
-  assert(n > 0);
+  ctx_assert(n > 0);
   dBNode node0;
 
   // printf("Prime [%zu]: ", n);
@@ -426,7 +426,7 @@ static inline void merge_arrays(uint64_t *restrict a,
 // copy to dst histrograms, zero src histograms
 void correct_alignment_merge_hists(CorrectAlnWorker *dst, CorrectAlnWorker *src)
 {
-  assert(dst != src);
+  ctx_assert(dst != src);
   worker_gap_cap(dst, src->histgrm_len);
   merge_arrays(dst->gap_err_histgrm, src->gap_err_histgrm, src->histgrm_len);
   merge_arrays(dst->gap_ins_histgrm, src->gap_ins_histgrm, src->histgrm_len);

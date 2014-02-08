@@ -732,7 +732,7 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
                           size_t max_allele_len, size_t max_flank_len,
                           const size_t *ref_cols, size_t num_ref)
 {
-  assert(db_graph->num_edge_cols == 1);
+  ctx_assert(db_graph->num_edge_cols == 1);
 
   size_t num_of_bubbles = 0;
 

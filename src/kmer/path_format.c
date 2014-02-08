@@ -206,11 +206,11 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
 
   // If you want to use a file filter you must use paths_format_merge
   // Check file filter and PathStore are compatible
-  assert(path_store_fltr_compatible(store, fltr));
+  ctx_assert(path_store_fltr_compatible(store, fltr));
 
   // Check PathStore has not been used yet
-  assert(store->next == store->store);
-  assert(store->num_of_paths == 0 && store->num_kmers_with_paths == 0);
+  ctx_assert(store->next == store->store);
+  ctx_assert(store->num_of_paths == 0 && store->num_kmers_with_paths == 0);
 
   path_files_update_empty_sample_names(file, 1, db_graph);
   path_file_load_check(file, db_graph);
@@ -294,14 +294,14 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   PathStore *store = &db_graph->pdata;
 
-  assert(num_files <= 1 || (store->tmpsize > 0 && store->tmpdata != NULL));
+  ctx_assert(num_files <= 1 || (store->tmpsize > 0 && store->tmpdata != NULL));
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
   size_t required_ncols = paths_get_min_usedcols(files, num_files);
   size_t required_nbytes = roundup_bits2bytes(required_ncols);
-  assert(required_ncols <= store->num_of_cols);
-  assert(required_nbytes <= store->colset_bytes);
+  ctx_assert(required_ncols <= store->num_of_cols);
+  ctx_assert(required_nbytes <= store->colset_bytes);
 
   // load files one at a time
   FileFilter *fltr;
@@ -343,8 +343,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Print some output
     paths_loading_print_status(&files[i]);
 
-    assert(store->tmpdata != NULL);
-    assert(hdr->num_path_bytes <= store->tmpsize);
+    ctx_assert(store->tmpdata != NULL);
+    ctx_assert(hdr->num_path_bytes <= store->tmpsize);
     safe_fread(fh, store->tmpdata, hdr->num_path_bytes, "paths->store", path);
 
     // Load kmer pointers to paths

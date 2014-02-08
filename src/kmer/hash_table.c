@@ -15,7 +15,7 @@ static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER_WORD}};
 // Returns capacity of a hash table that holds at least nkmers
 size_t hash_table_cap(size_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_ptr)
 {
-  assert(nkmers < UINT64_MAX>>1);
+  ctx_assert(nkmers < UINT64_MAX>>1);
   uint64_t num_of_buckets, bucket_size, num_of_bits = 10;
   while(nkmers / (1UL << num_of_bits) > MAX_BUCKET_SIZE) num_of_bits++;
   num_of_buckets = 1UL << num_of_bits;
@@ -176,7 +176,7 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
                                                       uint_fast32_t bucket,
                                                       const BinaryKmer bkmer)
 {
-  assert(htable->buckets[bucket][HT_BITEMS] < htable->bucket_size);
+  ctx_assert(htable->buckets[bucket][HT_BITEMS] < htable->bucket_size);
   BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
 
   if(htable->buckets[bucket][HT_BSIZE] == htable->buckets[bucket][HT_BITEMS]) {
@@ -361,16 +361,16 @@ void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
   uint64_t bucket = pos / htable->bucket_size;
 
-  assert(pos != HASH_NOT_FOUND);
-  assert(htable->buckets[bucket][HT_BITEMS] > 0);
-  assert(htable->unique_kmers > 0);
-  assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
+  ctx_assert(pos != HASH_NOT_FOUND);
+  ctx_assert(htable->buckets[bucket][HT_BITEMS] > 0);
+  ctx_assert(htable->unique_kmers > 0);
+  ctx_assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
 
   htable->table[pos] = unset_bkmer;
   htable->buckets[bucket][HT_BITEMS]--;
   htable->unique_kmers--;
 
-  assert(!HASH_ENTRY_ASSIGNED(htable->table[pos]));
+  ctx_assert(!HASH_ENTRY_ASSIGNED(htable->table[pos]));
 }
 
 

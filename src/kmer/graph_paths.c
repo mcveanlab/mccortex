@@ -158,11 +158,6 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
   __sync_add_and_fetch((volatile size_t*)&pstore->num_of_paths, 1);
   __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
 
-  // if(node.orient == FORWARD)
-  //   __sync_add_and_fetch((volatile size_t*)&pstore->num_nodefw_paths, 1);
-  // else
-  //   __sync_add_and_fetch((volatile size_t*)&pstore->num_noderv_paths, 1);
-
   // status("npaths: %zu nkmers: %zu", pstore->num_of_paths,
   //        pstore->num_kmers_with_paths);
 
@@ -186,8 +181,8 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
 void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
                             size_t nbases, const dBGraph *db_graph)
 {
-  assert(db_graph->num_edge_cols == db_graph->num_of_cols ||
-         db_graph->node_in_cols != NULL);
+  ctx_assert(db_graph->num_edge_cols == db_graph->num_of_cols ||
+             db_graph->node_in_cols != NULL);
 
   BinaryKmer bkmer;
   Edges edges;
@@ -209,9 +204,9 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
 
     // Check this node is in this colour
     if(db_graph->node_in_cols != NULL) {
-      assert(db_node_has_col(db_graph, node.key, ctxcol));
+      ctx_assert(db_node_has_col(db_graph, node.key, ctxcol));
     } else if(db_graph->col_covgs != NULL) {
-      assert(db_node_get_covg(db_graph, node.key, ctxcol) > 0);
+      ctx_assert(db_node_get_covg(db_graph, node.key, ctxcol) > 0);
     }
 
     #ifdef CTXVERBOSE
@@ -228,13 +223,13 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
       if(outdegree <= 1) {
         status("outdegree: %i col: %zu", (int)outdegree, ctxcol);
       }
-      assert(outdegree > 1);
+      ctx_assert(outdegree > 1);
     }
 
     n = db_graph_next_nodes(db_graph, bkmer, node.orient,
                             edges, nodes, nucs);
 
-    assert(n > 0);
+    ctx_assert(n > 0);
 
     // Reduce to nodes in our colour if edges limited
     if(db_graph->num_edge_cols == 1 && db_graph->node_in_cols != NULL) {
@@ -246,7 +241,7 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
         }
       }
       n = j; // update number of next nodes
-      assert(n > 0);
+      ctx_assert(n > 0);
     }
 
     // If fork check nucleotide
@@ -260,7 +255,7 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
         for(i = 0; i < n; i++) printf(" %c", dna_nuc_to_char(nucs[i]));
         printf("\n");
       }
-      assert(i < n && nucs[i] == expbase);
+      ctx_assert(i < n && nucs[i] == expbase);
       node = nodes[i];
       plen++;
     }
@@ -291,12 +286,12 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   size_t nbytes = sizeof(PathIndex) + pstore->colset_bytes +
                   sizeof(PathLen) + packedpath_len_nbytes(len_bases);
 
-  assert(packed + nbytes <= pstore->end);
+  ctx_assert(packed + nbytes <= pstore->end);
 
   // Check at least one colour is set
   uint8_t colset_or = 0;
   for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
-  assert(colset_or != 0);
+  ctx_assert(colset_or != 0);
 
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
@@ -335,8 +330,8 @@ void graph_paths_check_all_paths(const GraphPathPairing *gp,
   HASH_ITERATE(&db_graph->ht, kmer_check_paths, gp, db_graph,
                &num_paths, &num_kmers);
 
-  assert(num_paths == db_graph->pdata.num_of_paths);
-  assert(num_kmers == db_graph->pdata.num_kmers_with_paths);
+  ctx_assert(num_paths == db_graph->pdata.num_of_paths);
+  ctx_assert(num_kmers == db_graph->pdata.num_kmers_with_paths);
 }
 
 void graph_path_check_path(hkey_t node, PathIndex pindex,
@@ -373,7 +368,7 @@ void graph_paths_check_counts(const dBGraph *db_graph)
   HASH_ITERATE(&db_graph->ht, _pstore_update_counts,
                db_graph, &nkmers, &npaths, &nvisited);
 
-  assert(nvisited == db_graph->ht.unique_kmers);
-  assert(nkmers == pstore->num_kmers_with_paths);
-  assert(npaths == pstore->num_of_paths);
+  ctx_assert(nvisited == db_graph->ht.unique_kmers);
+  ctx_assert(nkmers == pstore->num_kmers_with_paths);
+  ctx_assert(npaths == pstore->num_of_paths);
 }

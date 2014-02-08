@@ -36,7 +36,7 @@ Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph)
   }
 
   // Edges are merged into one colour
-  assert(db_graph->num_edge_cols == 1);
+  ctx_assert(db_graph->num_edge_cols == 1);
   Edges edges = db_node_get_edges(db_graph, 0, node.key);
 
   // Check which next nodes are in the given colour
@@ -59,7 +59,7 @@ Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph)
       if(db_node_col_covg(db_graph, nodes[i].key, col) > 0)
         edges = edges_set_edge(edges, nucs[i], node.orient);
   }
-  else assert(0);
+  else ctx_assert(0);
 
   return edges;
 }
@@ -286,7 +286,7 @@ void db_node_check_nodes(const dBNode *nodes, size_t num, const dBGraph *db_grap
     bkmer1 = db_graph_oriented_bkmer(db_graph, nodes[i+1]);
     nuc = binary_kmer_last_nuc(bkmer1);
     tmp = binary_kmer_left_shift_add(bkmer0, kmer_size, nuc);
-    assert(binary_kmers_are_equal(tmp, bkmer1));
+    ctx_assert(binary_kmers_are_equal(tmp, bkmer1));
     bkmer0 = bkmer1;
   }
 }

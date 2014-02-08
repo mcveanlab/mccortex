@@ -313,11 +313,6 @@ int ctx_thread(CmdArgs *args)
   status("Saving paths: %s paths, %s path-bytes, %s kmers, coloured paths: %s",
          paths_str, mem_str, kmers_str, col_paths_str);
 
-  // status("  Forward node paths: %zu, reverse node paths: %zu",
-  //        pstore->num_nodefw_paths, pstore->num_noderv_paths);
-  // status("  Forward read paths: %zu, reverse read paths: %zu",
-  //        pstore->num_readfw_paths, pstore->num_readrv_paths);
-
   // Update header and write
   paths_header_update(&pheader, pstore);
   paths_format_write_header(&pheader, fout);

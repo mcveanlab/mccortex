@@ -43,7 +43,7 @@ create_objbuf(covg_buf,CovgBuffer,Covg)
 
 static inline size_t supernode_covg_mean(Covg *covgs, size_t len)
 {
-  assert(len > 0);
+  ctx_assert(len > 0);
   size_t i, sum = 0;
   for(i = 0; i < len; i++) sum += covgs[i];
   return (sum+len/2) / len;
@@ -162,8 +162,8 @@ static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
                                          double seq_depth,
                                          const dBGraph *db_graph)
 {
-  assert(len > 5);
-  assert(db_graph->ht.unique_kmers > 0);
+  ctx_assert(len > 5);
+  ctx_assert(db_graph->ht.unique_kmers > 0);
   size_t i, d1len = len-2, d2len = len-3, f1, f2;
   double *tmp = malloc2((d1len+d2len) * sizeof(double));
   double *delta1 = tmp, *delta2 = tmp + d1len;
@@ -540,7 +540,7 @@ int ctx_clean(CmdArgs *args)
                       intersect_edges, &outhdr, &db_graph);
   }
 
-  assert(db_graph.ht.unique_kmers == hash_table_count_assigned_nodes(&db_graph.ht));
+  ctx_assert(db_graph.ht.unique_kmers == hash_table_count_assigned_nodes(&db_graph.ht));
 
   graph_header_dealloc(&outhdr);
 

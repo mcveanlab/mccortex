@@ -180,7 +180,7 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
 
     for(i = 0; i < outvcf->num_alts; i++) {
       strip_allele(&outvcf->alts[i], alleles[i+1]+start, end-start);
-      assert(outvcf->alts[i].len == strlen(outvcf->alts[i].buff));
+      ctx_assert(outvcf->alts[i].len == strlen(outvcf->alts[i].buff));
       is_snp &= (outvcf->alts[i].len == 1);
     }
 
@@ -222,8 +222,8 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
 static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
                        vcf_entry_t *outvcf, FILE *fout)
 {
-  if(bam_is_rev(bam)) assert(invcf->lf->len <= invcf->rf->len);
-  else assert(invcf->lf->len >= invcf->rf->len);
+  if(bam_is_rev(bam)) ctx_assert(invcf->lf->len <= invcf->rf->len);
+  else ctx_assert(invcf->lf->len >= invcf->rf->len);
 
   // Copy details to output vcf and set chromosome field
   const char *chrname = bam_header->target_name[bam->core.tid];
@@ -249,7 +249,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   // hence lots of +3 etc
   const size_t FPREFIX = 3; // strlen("LF=")
   const size_t kmer_size = MAX2(invcf->lf->len,invcf->rf->len)-FPREFIX;
-  assert(kmer_size >= 3);
+  ctx_assert(kmer_size >= 3);
 
   size_t endfl_missing;
 

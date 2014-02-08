@@ -33,8 +33,8 @@ static size_t supernode_idx = 0;
 // Store ends of supernode currently stored in `nodes` and `orients` arrays
 static inline void dot_store_ends(const dBNodeBuffer *nbuf, sndata_t *supernodes)
 {
-  assert(supernodes[nbuf->data[0].key].assigned == 0);
-  assert(supernodes[nbuf->data[nbuf->len-1].key].assigned == 0);
+  ctx_assert(supernodes[nbuf->data[0].key].assigned == 0);
+  ctx_assert(supernodes[nbuf->data[nbuf->len-1].key].assigned == 0);
 
   sndata_t supernode0 = {.nodeid = supernode_idx, .assigned = 1,
                          .left = 1, .right = (nbuf->len == 1),
@@ -71,8 +71,8 @@ static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
   for(i = 0; i < n; i++)
   {
     snode1 = supernodes[next_nodes[i].key];
-    assert(next_nodes[i].key != HASH_NOT_FOUND);
-    assert(snode1.assigned);
+    ctx_assert(next_nodes[i].key != HASH_NOT_FOUND);
+    ctx_assert(snode1.assigned);
 
     // if left && right then supernode is 1 kmer long
     // orient: FORWARD == 0, 'e'; REVERSE == 1, 'w'; => !orient
@@ -115,7 +115,7 @@ static void dump_supernodes(hkey_t hkey, FILE *fout, int print_syntax,
                             dBNodeBuffer *nbuf, sndata_t *supernodes,
                             uint64_t *visited, const dBGraph *db_graph)
 {
-  assert(print_syntax == PRINT_FASTA || supernodes != NULL);
+  ctx_assert(print_syntax == PRINT_FASTA || supernodes != NULL);
 
   size_t i;
 

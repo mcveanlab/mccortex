@@ -45,31 +45,70 @@ extern pthread_mutex_t biglock;
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
 
-// assume() tells the compiler a condition that always holds
-#ifdef NDEBUG
-  #define assume(x) do { if(x) (void)0; else __builtin_unreachable(); } while(0)
-#else
-  #define assume(x) assert(x)
-#endif
-
+//
 // dynamic memory allocation with checks
-#define malloc2(mem) ctx_malloc(mem,__FILE__,__LINE__)
-#define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__LINE__)
-#define realloc2(ptr,mem) ctx_realloc(ptr,mem,__FILE__,__LINE__)
+//
 
-void* ctx_malloc(size_t mem, const char *file, int line);
-void* ctx_calloc(size_t nel, size_t elsize, const char *file, int line);
-void* ctx_realloc(void *ptr, size_t mem, const char *file, int line);
+#define malloc2(mem) ctx_malloc(mem,__FILE__,__func__,__LINE__)
+#define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__func__,__LINE__)
+#define realloc2(ptr,mem) ctx_realloc(ptr,mem,__FILE__,__func__,__LINE__)
 
-#define die(fmt, ...) call_die(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define warn(fmt, ...) call_warn(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+void* ctx_malloc(size_t mem, const char *file, const char *func, int line);
+void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line);
+void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int line);
 
-void call_die(const char *file, int line, const char *fmt, ...)
-__attribute__((format(printf, 3, 4)))
+//
+// ctx_check(), ctx_assert(), ctx_assume()
+//
+
+void call_assert(const char *file, const char *func, int line,
+                 const char *assert, const char *fmt, ...)
+__attribute__((format(printf, 5, 6)))
 __attribute__((noreturn));
 
-void call_warn(const char *file, int line, const char *fmt, ...)
-__attribute__((format(printf, 3, 4)));
+// ctx_assert()
+#ifdef NDEBUG
+  #define ctx_assert(x) ({ (void)x, (void)0 })
+  #define ctx_assert2(x,msg) ({ (void)x, (void)msg, (void)0 })
+#else
+  #define ctx_assert2(x,msg,...) \
+((x) ? (void)0 : call_assert(__FILE__,__func__,__LINE__,QUOTE_VALUE(x),msg,##__VA_ARGS__))
+#endif
+
+// ctx_assume(): tells the compiler a condition that always holds
+#ifdef NDEBUG
+  #define ctx_assume2(x,msg) do { (void)msg; if(x) (void)0; else __builtin_unreachable(); } while(0)
+#else
+  #define ctx_assume2(x,msg) ctx_assert2(x,msg)
+#endif
+
+// ctx_check():
+#ifdef CTXCHECKS
+  #define ctx_check2(x,msg) ctx_assert2(x,msg)
+#else
+  #define ctx_check2(x,msg) ({ (void)x, (void)msg, (void)0; })
+#endif
+
+// Check is turned on with CTXCHECKS=1 -> heavy lifting involved
+// assert -> no action if NDEBUG=1
+// assume -> declares !x impossible (helps with optimisations)
+#define ctx_check(x)  ctx_check2(x,NULL)
+#define ctx_assert(x) ctx_assert2(x,NULL)
+#define ctx_assume(x) ctx_assume2(x,NULL)
+
+//
+// die() / warn()
+//
+
+#define die(fmt, ...) call_die(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
+#define warn(fmt, ...) call_warn(__FILE__, __func__, __LINE__, fmt, ##__VA_ARGS__)
+
+void call_die(const char *file, const char *func, int line, const char *fmt, ...)
+__attribute__((format(printf, 4, 5)))
+__attribute__((noreturn));
+
+void call_warn(const char *file, const char *func, int line, const char *fmt, ...)
+__attribute__((format(printf, 4, 5)));
 
 void fmessage(FILE *fh, const char *fmt, ...)
 __attribute__((format(printf, 2, 3)));

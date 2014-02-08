@@ -20,7 +20,7 @@
 size_t caller_supernode_create(dBNode node, CallerSupernode *snode,
                                const dBGraph *db_graph)
 {
-  assert(db_graph->num_edge_cols == 1);
+  ctx_assert(db_graph->num_edge_cols == 1);
 
   #ifdef DEBUG_CALLER
     char tmpstr[MAX_KMER_SIZE+1];

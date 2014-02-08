@@ -55,7 +55,7 @@ const unsigned char dna_complement_char_arr[256]
 // the char* should have one MORE base than that allocated, to hold '\0'
 char* dna_reverse_complement_str(char *str, size_t length)
 {
-  assert(strlen(str) >= length);
+  ctx_assert(strlen(str) >= length);
 
   if(length == 0) return str;
   if(length == 1) { str[0] = dna_char_complement(str[0]); return str; }

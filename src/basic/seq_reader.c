@@ -413,20 +413,21 @@ void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
 
 void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir)
 {
-  assert(r1 != NULL);
-  assert(r2 != NULL);
+  ctx_assert(r1 != NULL);
+  ctx_assert(r2 != NULL);
   switch(matedir) {
     case READPAIR_FF: return;
     case READPAIR_FR: seq_read_reverse_complement(r2); return;
     case READPAIR_RF: seq_read_reverse_complement(r1); return;
     case READPAIR_RR: return;
-    default: assert(0 && "Invalid ReadMateDir value"); // should be unreachable
+    default: ctx_assert2(0, "Invalid ReadMateDir value: %i", (int)matedir);
   }
+  // ^default should be unreachable
 }
 
 void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 {
-  assert(r1 != NULL);
+  ctx_assert(r1 != NULL);
   if(read_mate_r1(matedir)) seq_read_reverse_complement(r1);
   if(r2 != NULL && read_mate_r2(matedir)) seq_read_reverse_complement(r2);
 }

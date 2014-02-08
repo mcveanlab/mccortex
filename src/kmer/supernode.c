@@ -28,7 +28,7 @@ static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
                                          BinaryKmer bkmer0, BinaryKmer bkmer1,
                                          const dBGraph *db_graph)
 {
-  assert(db_graph->num_edge_cols == 1);
+  ctx_assert(db_graph->num_edge_cols == 1);
 
   Edges edges0, edges1;
   // dBNode nodes[4];
@@ -70,7 +70,7 @@ static void db_nodes_reverse(dBNode *nlist, size_t n)
 void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 {
   // Sort supernode into forward orientation
-  assert(len > 0);
+  ctx_assert(len > 0);
 
   if(len == 1) {
     nlist[0].orient = FORWARD;
@@ -122,7 +122,7 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 // return false if out of space and limit > 0
 boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_graph)
 {
-  assert(db_graph->num_edge_cols == 1);
+  ctx_assert(db_graph->num_edge_cols == 1);
 
   hkey_t hkey = nbuf->data[nbuf->len-1].key;
   Orientation orient = nbuf->data[nbuf->len-1].orient;
@@ -140,7 +140,7 @@ boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_gra
     hkey = hash_table_find(&db_graph->ht, bkey);
     orient = db_node_get_orientation(bkey, bkmer);
 
-    assert(hkey != HASH_NOT_FOUND);
+    ctx_assert(hkey != HASH_NOT_FOUND);
 
     if(edges_has_precisely_one_edge(edges[hkey], rev_orient(orient), &nuc))
     {

@@ -157,8 +157,8 @@ void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
   Edges src_uedges = db_node_get_edges_union(db_graph, src.key);
   Edges tgt_uedges = db_node_get_edges_union(db_graph, tgt.key);
 
-  assert(edges_has_edge(src_uedges, rhs_nuc,      src.orient));
-  assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient));
+  ctx_assert(edges_has_edge(src_uedges, rhs_nuc,      src.orient));
+  ctx_assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient));
 }
 
 //
@@ -182,7 +182,7 @@ dBNode db_graph_next_node(const dBGraph *db_graph,
   dBNode next_node = db_graph_find(db_graph, bkmer);
   next_node.orient ^= orient;
 
-  assert(next_node.key != HASH_NOT_FOUND);
+  ctx_assert(next_node.key != HASH_NOT_FOUND);
   return next_node;
 }
 
@@ -207,7 +207,7 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
       nodes[count] = db_graph_find(db_graph, bkmer);
       nodes[count].orient ^= orient;
       fw_nucs[count] = nuc;
-      assert(nodes[count].key != HASH_NOT_FOUND);
+      ctx_assert(nodes[count].key != HASH_NOT_FOUND);
       count++;
     }
   }
@@ -359,7 +359,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
 
 void db_graph_add_all_edges(dBGraph *db_graph)
 {
-  assert(db_graph->num_of_cols == db_graph->num_edge_cols);
+  ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   HASH_ITERATE(&db_graph->ht, add_all_edges, db_graph);
 }
 

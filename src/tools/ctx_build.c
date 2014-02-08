@@ -102,11 +102,11 @@ static void ctx_input_alloc(char *load_graph_path,
                             size_t kmer_size, ReadMateDir matedir,
                             CtxBuildInput *ptr)
 {
-  assert((load_graph_path == NULL) != (seq_path1 == NULL));
-  assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
-  assert(fq_offset < 128);
-  assert(fq_cutoff < 128);
-  assert(hp_cutoff < 256);
+  ctx_assert((load_graph_path == NULL) != (seq_path1 == NULL));
+  ctx_assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
+  ctx_assert(fq_offset < 128);
+  ctx_assert(fq_cutoff < 128);
+  ctx_assert(hp_cutoff < 256);
 
   seq_file_t *file1 = NULL, *file2 = NULL;
   const char *arg = (seq_path2 == NULL ? "--seq2" : "--seq");
@@ -165,7 +165,7 @@ static void ctx_input_create(char *load_graph_path,
                              ReadMateDir matedir, size_t kmer_size,
                              CtxBuildInput *inputs, size_t *num_inputs_ptr)
 {
-  assert(!seq_path2 || seq_path1);
+  ctx_assert(!seq_path2 || seq_path1);
 
   if(load_graph_path != NULL) {
     // Load a graph

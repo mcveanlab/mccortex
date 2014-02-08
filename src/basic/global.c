@@ -9,18 +9,18 @@
 FILE *ctx_msg_out = NULL;
 pthread_mutex_t biglock;
 
-void* ctx_malloc(size_t mem, const char *file, int line)
+void* ctx_malloc(size_t mem, const char *file, const char *func, int line)
 {
   void *ptr = malloc(mem);
   if(ptr == NULL) {
     char memstr[100];
     bytes_to_str(mem, 1, memstr);
-    call_die(file, line, "Out of memory (malloc %s)", memstr);
+    call_die(file, func, line, "Out of memory (malloc %s)", memstr);
   }
   return ptr;
 }
 
-void* ctx_calloc(size_t nel, size_t elsize, const char *file, int line)
+void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line)
 {
   void *ptr = calloc(nel, elsize);
   if(ptr == NULL) {
@@ -28,29 +28,50 @@ void* ctx_calloc(size_t nel, size_t elsize, const char *file, int line)
     ulong_to_str(nel, nelstr);
     bytes_to_str(elsize, 1, elsizestr);
     bytes_to_str(nel * elsize, 1, memstr);
-    call_die(file, line, "Out of memory (calloc %s x %s = %s)",
+    call_die(file, func, line, "Out of memory (calloc %s x %s = %s)",
              nelstr, elsizestr, memstr);
   }
   return ptr;
 }
 
-void* ctx_realloc(void *ptr, size_t mem, const char *file, int line)
+void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int line)
 {
   void *ptr2 = realloc(ptr, mem);
   if(ptr2 == NULL) {
     char memstr[100];
     bytes_to_str(mem, 1, memstr);
-    call_die(file, line, "Out of memory (realloc %s)", memstr);
+    call_die(file, func, line, "Out of memory (realloc %s)", memstr);
   }
   return ptr2;
 }
 
-void call_die(const char *file, int line, const char *fmt, ...)
+void call_assert(const char *file, const char *func, int line,
+                 const char *assert, const char *fmt, ...)
+{
+  pthread_mutex_lock(&biglock);
+  fflush(stdout);
+  fprintf(stderr, "[%s:%i:%s()] Assert Failed: %s", file, line, func, assert);
+
+  if(fmt != NULL) {
+    va_list argptr;
+    va_start(argptr, fmt);
+    vfprintf(stderr, fmt, argptr);
+    va_end(argptr);
+  }
+
+  fprintf(stderr, "\n");
+  ftimestamp(stderr);
+  fputs(" Assert Error\n", stderr);
+  fflush(stderr);
+  abort();
+}
+
+void call_die(const char *file, const char *func, int line, const char *fmt, ...)
 {
   pthread_mutex_lock(&biglock);
   va_list argptr;
   fflush(stdout);
-  fprintf(stderr, "[%s:%i] Error: ", file, line);
+  fprintf(stderr, "[%s:%i:%s()] Error: ", file, line, func);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
@@ -60,12 +81,12 @@ void call_die(const char *file, int line, const char *fmt, ...)
   exit(EXIT_FAILURE);
 }
 
-void call_warn(const char *file, int line, const char *fmt, ...)
+void call_warn(const char *file, const char *func, int line, const char *fmt, ...)
 {
   pthread_mutex_lock(&biglock);
   va_list argptr;
   fflush(stdout);
-  fprintf(stderr, "[%s:%i] Warning: ", file, line);
+  fprintf(stderr, "[%s:%i:%s()] Warning: ", file, line, func);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);

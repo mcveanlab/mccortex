@@ -70,7 +70,7 @@ boolean file_filter_alloc(FileFilter *fltr, char *path,
 
 void file_filter_set_cols(FileFilter *fltr, size_t filencols)
 {
-  assert(filencols > 0);
+  ctx_assert(filencols > 0);
   size_t i;
   char *path_start, *path_end;
   file_filter_deconstruct_path(fltr->orig_path.buff, &path_start, &path_end);

@@ -280,7 +280,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       size_t start, end;
       if(pl_is_fw) { start = pos, end = pos_pl[num_pl-1]+1; }
       else { start = pos_pl[num_pl-1]-1, end = pos; }
-      assert(start < end);
+      ctx_assert2(start < end, "start: %zu, end: %zu", start, end);
 
       pthread_mutex_lock(&biglock);
       fprintf(stdout, ">path%zu.%s\n", print_path_id++, pl_is_fw ? "fw" : "rv");
@@ -292,11 +292,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
       printed = true;
     }
-
-    // if(pl_is_fw)
-    //   __sync_add_and_fetch((volatile size_t*)&db_graph->pdata.num_readfw_paths, 1);
-    // else
-    //   __sync_add_and_fetch((volatile size_t*)&db_graph->pdata.num_readrv_paths, 1);
 
     #ifndef NDEBUG
       // debug: check path was added correctly
@@ -324,7 +319,7 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr,
 
   worker_packed_cap(wrkr, (MAX2(num_fw, num_rv)+3)/4);
 
-  assert(num_fw > 0 && num_rv > 0);
+  ctx_assert2(num_fw && num_rv, "num_fw: %zu num_rv: %zu", num_fw, num_rv);
 
   #ifdef CTXVERBOSE
     status("num_fw: %zu num_rv: %zu", num_fw, num_rv);
@@ -529,7 +524,7 @@ void gen_paths_dump_gap_sizes(const char *base_fmt,
                               size_t kmer_size, boolean insert_sizes,
                               size_t nreads)
 {
-  assert(arrlen > 0);
+  ctx_assert(arrlen > 0);
 
   // Print summary statistics: min, mean, median, mode, max
   size_t i, min, max, total, ngaps = 0, mode = 0;

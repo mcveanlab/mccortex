@@ -17,9 +17,9 @@ extern const unsigned char dna_complement_char_arr[256];
   #define dna_nuc_complement(n) ((Nucleotide)(~(n) & 0x3))
 #else
   // Include check for valid input
-  #define dna_nuc_to_char(n) ({ assert(((n)&3)==(n)), dna_nuc_to_char_arr[n]; })
-  #define dna_char_to_nuc(c)  ({ assert(char_is_acgtn(c)), dna_char_to_nuc_arr[(unsigned char)(c)]; })
-  #define dna_nuc_complement(n) ({ assert(((n)&3)==(n)), (Nucleotide)(~(n) & 0x3); })
+  #define dna_nuc_to_char(n) ({ ctx_assert(((n)&3)==(n)), dna_nuc_to_char_arr[n]; })
+  #define dna_char_to_nuc(c)  ({ ctx_assert(char_is_acgtn(c)), dna_char_to_nuc_arr[(unsigned char)(c)]; })
+  #define dna_nuc_complement(n) ({ ctx_assert(((n)&3)==(n)), (Nucleotide)(~(n) & 0x3); })
 #endif
 
 #define dna_char_complement(c) ((char)dna_complement_char_arr[(unsigned char)(c)])

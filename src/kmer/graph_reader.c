@@ -385,7 +385,7 @@ static void graph_loading_print_status(const GraphFileReader *file)
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   LoadingStats *stats)
 {
-  assert(!prefs.must_exist_in_graph || prefs.must_exist_in_edges != NULL);
+  ctx_assert(!prefs.must_exist_in_graph || prefs.must_exist_in_edges != NULL);
 
   dBGraph *graph = prefs.db_graph;
   GraphInfo *ginfo = graph->ginfo;
@@ -393,7 +393,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   FileFilter *fltr = &file->fltr;
   GraphFileHeader *hdr = &file->hdr;
 
-  assert(load_ncols > 0);
+  ctx_assert(load_ncols > 0);
 
   // Print status
   graph_loading_print_status(file);
@@ -536,8 +536,8 @@ size_t graph_load_colour(GraphFileReader *file,
   boolean tmpflatten;
   FileFilter *fltr = &file->fltr;
 
-  assert(colour_idx < fltr->ncols);
-  assert(intocol < prefs.db_graph->num_of_cols);
+  ctx_assert(colour_idx < fltr->ncols);
+  ctx_assert(intocol < prefs.db_graph->num_of_cols);
 
   // Copy current values
   tmpcols = fltr->cols; tmpncols = fltr->ncols; tmpinto = fltr->intocol;
@@ -636,8 +636,8 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
                                  const Edges *only_load_if_in_edges,
                                  const char *intersect_gname)
 {
-  assert(intersect_gname == NULL || db_graph->col_edges != NULL);
-  assert(intersect_gname == NULL || only_load_if_in_edges != NULL);
+  ctx_assert(intersect_gname == NULL || db_graph->col_edges != NULL);
+  ctx_assert(intersect_gname == NULL || only_load_if_in_edges != NULL);
 
   size_t i, nodes_dumped, ncols = graph_file_outncols(file);
   GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
@@ -671,10 +671,10 @@ size_t graph_files_merge(const char *out_ctx_path,
                          GraphFileHeader *hdr, dBGraph *db_graph)
 {
   boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
-  assert(!only_load_if_in_graph || kmers_loaded);
-  assert(db_graph->num_of_cols == db_graph->num_edge_cols);
-  assert(!colours_loaded || kmers_loaded);
-  assert(hdr != NULL);
+  ctx_assert(!only_load_if_in_graph || kmers_loaded);
+  ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
+  ctx_assert(!colours_loaded || kmers_loaded);
+  ctx_assert(hdr != NULL);
 
   size_t i, ncols, output_colours = 0;
 
@@ -783,7 +783,7 @@ size_t graph_files_merge(const char *out_ctx_path,
             newstrt = MIN2(newstrt, files[i].fltr.intocol);
         firstcol = newstrt;
         lastcol = MIN2(firstcol + db_graph->num_of_cols - 1, output_colours-1);
-        assert(newstrt < SIZE_MAX);
+        ctx_assert(newstrt < SIZE_MAX);
       }
 
       for(i = 0; i < num_files; i++)

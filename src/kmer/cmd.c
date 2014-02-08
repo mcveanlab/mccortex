@@ -8,8 +8,8 @@
 void cmd_accept_options(const CmdArgs *args, const char *accptopts,
                         const char *usage)
 {
-  assert(accptopts != NULL);
-  assert(usage != NULL);
+  ctx_assert(accptopts != NULL);
+  ctx_assert(usage != NULL);
   if(args->print_help) print_usage(usage, NULL);
   if(args->num_kmers_set && strchr(accptopts,'n') == NULL)
     print_usage(usage, "-n <hash-entries> argument not valid for this command");

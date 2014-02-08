@@ -150,8 +150,8 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                        Colour ctxcol, Colour ctpcol, dBNode node)
 {
   // Check that the graph is loaded properly (all edges merged into one colour)
-  assert(graph->num_edge_cols == 1);
-  assert(graph->num_of_cols == 1 || graph->node_in_cols != NULL);
+  ctx_assert(graph->num_edge_cols == 1);
+  ctx_assert(graph->num_of_cols == 1 || graph->node_in_cols != NULL);
 
   GraphWalker gw = {.db_graph = graph, .pstore = &graph->pdata,
                     .ctxcol = ctxcol, .ctpcol = ctpcol,
@@ -333,9 +333,9 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   // #endif
 
   if(num_next == 0) {
-    assert(wlk->paths.len == 0);
-    assert(wlk->new_paths.len == 0);
-    assert(wlk->cntr_paths.len == 0);
+    ctx_assert(wlk->paths.len == 0);
+    ctx_assert(wlk->new_paths.len == 0);
+    ctx_assert(wlk->cntr_paths.len == 0);
   }
 
   if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG);
@@ -364,9 +364,9 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     num_next = j;
 
     if(num_next == 0) {
-      assert(wlk->paths.len == 0);
-      assert(wlk->new_paths.len == 0);
-      assert(wlk->cntr_paths.len == 0);
+      ctx_assert(wlk->paths.len == 0);
+      ctx_assert(wlk->new_paths.len == 0);
+      ctx_assert(wlk->cntr_paths.len == 0);
     }
 
     if(num_next == 1) return_step(indices[0], GRPHWLK_COLFWD);
@@ -426,7 +426,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       return_step(indices[i], GRPHWLK_USEPATH);
 
   // Should be impossible to reach here...
-  assert(0);
+  ctx_assert(0);
 }
 
 #undef return_step
@@ -455,8 +455,8 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   // status("lost: %c:%i", dna_nuc_to_char(prev_nuc), backwards);
 
   // Some sanity checks
-  assert(edges & prev_edge);
-  assert(binary_kmers_are_equal(wlk->bkey, db_node_get_bkmer(db_graph, wlk->node.key)));
+  ctx_assert(edges & prev_edge);
+  ctx_assert(binary_kmers_are_equal(wlk->bkey, db_node_get_bkmer(db_graph, wlk->node.key)));
 
   num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey,
                                        backwards, edges & ~prev_edge,
@@ -485,7 +485,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
 static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
                                        BinaryKmer bkmer, boolean is_fork)
 {
-  assert(hkey != HASH_NOT_FOUND);
+  ctx_assert(hkey != HASH_NOT_FOUND);
 
   // #ifdef DEBUG_WALKER
   //   char str[MAX_KMER_SIZE+1];
@@ -580,7 +580,7 @@ void graph_walker_jump_snode_end(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer
   Edges edges = db_node_get_edges(wlk->db_graph, 0, hkey);
   BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, hkey);
   Orientation orient = db_node_get_orientation(bkmer, bkey);
-  assert(edges_get_indegree(edges, orient) <= 1);
+  ctx_assert(edges_get_indegree(edges, orient) <= 1);
 
   // Now do the work
   _graph_traverse_force_jump(wlk, hkey, bkmer, false);
@@ -589,7 +589,7 @@ void graph_walker_jump_snode_end(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer
 void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
                           boolean is_fork)
 {
-  assert(hkey != HASH_NOT_FOUND);
+  ctx_assert(hkey != HASH_NOT_FOUND);
   BinaryKmer bkmer;
   const size_t kmer_size = wlk->db_graph->kmer_size;
   Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
@@ -677,7 +677,7 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 {
   if(n == 0) return;
   // Only one colour should be loaded
-  assert(wlk->db_graph->num_of_cols == 1);
+  ctx_assert(wlk->db_graph->num_of_cols == 1);
 
   size_t i;
   boolean infork[3] = {false, false, false}, outfork[3] = {false, false, false};

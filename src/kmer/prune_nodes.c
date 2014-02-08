@@ -7,7 +7,7 @@
 
 static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
 {
-  assert(node != HASH_NOT_FOUND);
+  ctx_assert(node != HASH_NOT_FOUND);
   Colour col;
 
   if(db_graph->col_edges != NULL)
@@ -122,8 +122,8 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t hkey)
                                               rev_orient(next_node.orient));
 
         // Sanity test
-        assert(next_node.key != HASH_NOT_FOUND);
-        assert(next_node.key == hkey ||
+        ctx_assert(next_node.key != HASH_NOT_FOUND);
+        ctx_assert(next_node.key == hkey ||
                (db_node_get_edges_union(db_graph, next_node.key) & remove_edge_mask)
                   == remove_edge_mask);
 

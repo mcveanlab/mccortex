@@ -56,8 +56,8 @@ hkey_t seq_reader_first_node(const read_t *r, uint8_t qcutoff, uint8_t hp_cutoff
   hkey_t node;
   size_t next_base;
 
-  assert(db_graph->node_in_cols != NULL);
-  assert(r != NULL);
+  ctx_assert(db_graph->node_in_cols != NULL);
+  ctx_assert(r != NULL);
 
   while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          qcutoff, hp_cutoff)) < r->seq.end)

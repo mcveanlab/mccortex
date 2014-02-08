@@ -41,7 +41,7 @@ static inline size_t rpt_walker_est_mem(size_t hash_capacity, size_t nbits)
 static inline void rpt_walker_alloc(RepeatWalker *rpt,
                                     size_t hash_capacity, size_t nbits)
 {
-  assert(nbits > 0 && nbits <= 32);
+  ctx_assert(nbits > 0 && nbits <= 32);
   size_t visited_words = roundup_bits2words64(hash_capacity*2);
   size_t repeat_words = roundup_bits2words64(1UL<<nbits);
   size_t nbytes = (visited_words + repeat_words) * sizeof(uint64_t);

@@ -208,8 +208,8 @@ BinaryKmer binary_kmer_random(size_t kmer_size)
 // which is also returned in the return value
 BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 {
-  assert(seq != NULL);
-  assert(strlen(seq) >= kmer_size);
+  ctx_assert(seq != NULL);
+  ctx_assert(strlen(seq) >= kmer_size);
 
   // Faster attempt
   size_t i;
@@ -219,7 +219,7 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 
   // Do first word
   for(; k < end; k++) {
-    assert(char_is_acgt(*k));
+    ctx_assert(char_is_acgt(*k));
     nuc = dna_char_to_nuc(*k);
     bkmer.b[0] = (bkmer.b[0] << 2) | nuc;
   }
@@ -227,7 +227,7 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
   // Do remaining words
   for(i = 1; i < NUM_BKMER_WORDS; i++) {
     for(end += 32; k < end; k++) {
-      assert(char_is_acgt(*k));
+      ctx_assert(char_is_acgt(*k));
       nuc = dna_char_to_nuc(*k);
       bkmer.b[i] = (bkmer.b[i] << 2) | nuc;
     }

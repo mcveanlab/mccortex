@@ -35,7 +35,7 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 }
 
 #define safe_fread(fh,ptr,size,field,path) \
-        futil_safe_fread(fh,ptr,size,field,path,__FILE__,__LINE__)
+        futil_safe_fread(fh,ptr,size,field,path,__FILE__,__func__,__LINE__)
 
 // fh is where to read from
 // ptr is where to load data to
@@ -45,12 +45,12 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 // Moved this to header to help compiler inline
 static inline void futil_safe_fread(FILE *fh, void *ptr, size_t size,
                                     const char *field, const char *path,
-                                    const char *file, int line)
+                                    const char *file, const char *func, int line)
 {
   size_t read_nbytes = fread(ptr, 1, size, fh);
   if(read_nbytes != size)
   {
-    call_die(file, line,
+    call_die(file, func, line,
              "Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",
              field, size, read_nbytes, path);
   }

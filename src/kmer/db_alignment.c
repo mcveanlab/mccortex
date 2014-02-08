@@ -39,7 +39,7 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
   dBNodeBuffer *nodes = &alignment->nodes;
   uint32Buffer *gaps = &alignment->gaps;
 
-  assert(nodes->len == gaps->len);
+  ctx_assert(nodes->len == gaps->len);
   size_t n = gaps->len;
 
   db_node_buf_ensure_capacity(nodes, n + r->seq.end);

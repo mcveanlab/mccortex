@@ -179,7 +179,8 @@ all: ctx tests hashtest
 # If git repo, grab commit hash to use in version
 # Force version.h to be remade if $(CTX_VERSION) has changed.
 ifneq "$(wildcard .git)" ""
-CTX_VERSION := $(shell git describe --always --dirty)
+#CTX_VERSION := $(shell git describe --always --dirty)
+CTX_VERSION := $(shell git log --pretty=format:'%h' -n 1 --tags)
 src/basic/version.h: $(if $(wildcard src/basic/version.h),$(if $(findstring "$(CTX_VERSION)",$(shell cat src/basic/version.h)),,force))
 endif
 

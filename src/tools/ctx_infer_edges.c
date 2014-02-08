@@ -62,7 +62,7 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
 
         bkey = db_node_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
-        assert(next != HASH_NOT_FOUND);
+        ctx_assert(next != HASH_NOT_FOUND);
 
         for(col = 0; col < ncols; col++)
           if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
@@ -160,7 +160,7 @@ int ctx_infer_edges(CmdArgs *args)
   if(!futil_is_file_writable(path))
     cmd_print_usage("Cannot write to file: %s", path);
 
-  assert(file.hdr.num_of_cols == file.fltr.ncols);
+  ctx_assert(file.hdr.num_of_cols == file.fltr.ncols);
 
   // file.fltr.intocol = 0;
   file_filter_update_intocol(&file.fltr, 0);

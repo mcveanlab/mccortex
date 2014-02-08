@@ -194,7 +194,7 @@ char* double_to_str(double num, int decimals, char* str)
 static inline char* units_to_str(double num, int decimals, char* str,
                                  const char **units, size_t nunits, size_t usize)
 {
-  assert(nunits > 0 && usize > 0);
+  ctx_assert(nunits > 0 && usize > 0);
 
   if(isnan(num)) { sprintf(str, "NaN%s", units[0]); return str; }
   else if(isinf(num)) { sprintf(str, "Inf%s", units[0]); return str; }

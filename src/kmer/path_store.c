@@ -25,8 +25,6 @@ void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncol
                          .size = size, .next = mem,
                          .num_of_cols = ncols,
                          .colset_bytes = colset_bytes,
-                         // .num_nodefw_paths = 0, .num_noderv_paths = 0,
-                         // .num_readfw_paths = 0, .num_readrv_paths = 0,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
                          .num_col_paths = 0,
                          .tmpdata = tmp, .tmpsize = tmpsize};
@@ -47,10 +45,6 @@ void path_store_reclaim_tmp(PathStore *paths)
                          .size = size, .next = paths->next,
                          .num_of_cols = paths->num_of_cols,
                          .colset_bytes = paths->colset_bytes,
-                         // .num_nodefw_paths = paths->num_nodefw_paths,
-                         // .num_noderv_paths = paths->num_noderv_paths,
-                         // .num_readfw_paths = paths->num_readfw_paths,
-                         // .num_readrv_paths = paths->num_readrv_paths,
                          .num_of_paths = paths->num_of_paths,
                          .num_kmers_with_paths = paths->num_kmers_with_paths,
                          .num_col_paths = paths->num_col_paths,
@@ -314,16 +308,16 @@ void path_store_data_integrity_check(const uint8_t *data, size_t size,
   while(data < end) {
     plen = packedpath_get_len(data, colbytes);
     nbytes = packedpath_len_nbytes(plen);
-    assert(nbytes <= size && data + nbytes <= end);
+    ctx_assert(nbytes <= size && data + nbytes <= end);
     data += packedpath_mem2(colbytes, nbytes);
   }
-  assert(data == end);
+  ctx_assert(data == end);
 }
 
 void path_store_integrity_check(const PathStore *pstore)
 {
-  assert(pstore->end >= pstore->store);
+  ctx_assert(pstore->end >= pstore->store);
   size_t len = pstore->end - pstore->store;
-  assert(len <= pstore->size);
+  ctx_assert(len <= pstore->size);
   path_store_data_integrity_check(pstore->store, len, pstore->colset_bytes);
 }
