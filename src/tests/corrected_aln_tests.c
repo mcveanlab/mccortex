@@ -4,6 +4,31 @@
 #include "correct_alignment.h"
 #include "db_alignment.h"
 
+static void check_correct_aln(char *mut, const char *ans,
+                              dBAlignment *aln, read_t *r1,
+                              CorrectAlnWorker *corrector,
+                              CorrectAlnParam params,
+                              const dBGraph *graph)
+{
+  r1->seq.b = mut;
+  r1->seq.end = strlen(mut);
+  r1->seq.size = r1->seq.end+1;
+
+  db_alignment_from_reads(aln, r1, NULL, 0, 0, 0, graph);
+  correct_alignment_init(corrector, aln, params);
+
+  dBNodeBuffer *nbuf;
+  char outstr[100];
+  nbuf = correct_alignment_nxt(corrector);
+  TASSERT(nbuf != NULL);
+  db_nodes_to_str(nbuf->data, nbuf->len, graph, outstr);
+  TASSERT2(strcmp(outstr, ans) == 0, "Got: %s", outstr);
+
+  // Next alignment should be NULL
+  nbuf = correct_alignment_nxt(corrector);
+  TASSERT(nbuf == NULL);
+}
+
 static void test_correct_aln_no_paths()
 {
     // Construct 1 colour graph with kmer-size=11
@@ -25,10 +50,13 @@ static void test_correct_aln_no_paths()
   memset(graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
   path_store_alloc(&graph.pdata, 1024, 0, ncols);
 
-  // mutations:                            **
+  // mu0ations:                            **                 *
   char seq[] = "ATGCATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACCGATTTGTG";
-  char mut[] =     "ATGTTGACCAAATAAGTCACTGTCCGAGCCACGTAAAGCGTTCGCACC";
-  char res[] =     "ATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACC";
+  char mu0[] =     "ATGTTGACCAAATAAGTCACTGTCCGAGCCACGTAAAGCGTTCGCACC";
+  char re0[] =     "ATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACC";
+  //                                    v                       *
+  char mu1[] =     "ATGTTGACCAAATAAGTCA" "TGTGGGAGCCACGTAAAGCGTTAGCACCGATTTGTG";
+  char re1[] =     "ATGTTGACCAAATAAGTCAC""TGTGGGAGCCACGTAAAGCGTTCGCACCGATTTGTG";
 
   build_graph_from_str_mt(&graph, 0, seq, strlen(seq));
 
@@ -44,23 +72,12 @@ static void test_correct_aln_no_paths()
 
   // Fake reads
   char empty[10] = "", rname[20] = "Example";
-  read_t r1 = {.name = {.b = rname, .end = strlen(rname), .size = strlen(rname)},
-               .seq = {.b = mut, .end = strlen(mut), .size = strlen(mut)},
-               .qual = {.b = empty, .end = 0, .size = 0}};
+  read_t r1 = {.name = {.b = rname, .end = strlen(rname), .size = 10},
+               .seq  = {.b = empty, .end = 0, .size = 1},
+               .qual = {.b = empty, .end = 0, .size = 1}};
 
-  db_alignment_from_reads(&aln, &r1, NULL, 0, 0, 0, &graph);
-  correct_alignment_init(&corrector, &aln, params);
-
-  dBNodeBuffer *nbuf;
-  char outstr[100];
-  nbuf = correct_alignment_nxt(&corrector);
-  TASSERT(nbuf != NULL);
-  db_nodes_to_str(nbuf->data, nbuf->len, &graph, outstr);
-  TASSERT2(strcmp(outstr, res) == 0, "Got: %s", outstr);
-
-  // Next alignment should be NULL
-  nbuf = correct_alignment_nxt(&corrector);
-  TASSERT(nbuf == NULL);
+  check_correct_aln(mu0, re0, &aln, &r1, &corrector, params, &graph);
+  check_correct_aln(mu1, re1, &aln, &r1, &corrector, params, &graph);
 
   correct_aln_worker_dealloc(&corrector);
   db_alignment_dealloc(&aln);

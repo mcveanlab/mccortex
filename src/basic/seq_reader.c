@@ -6,7 +6,7 @@
 #include "util.h"
 #include "dna.h"
 
-const char *MP_DIR_STRS[] = {"FR", "FF", "RF"};
+const char *MP_DIR_STRS[] = {"FF", "FR", "RF", "RR"};
 
 // cut-offs:
 //  > quality_cutoff valid

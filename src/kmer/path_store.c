@@ -322,10 +322,13 @@ void path_store_data_integrity_check(const uint8_t *data, size_t size,
 {
   const uint8_t *ptr = data, *end = data+size;
   PathLen plen, nbytes;
+  PathIndex prev;
   while(ptr < end) {
+    prev = packedpath_get_prev(ptr);
+    ctx_assert(prev == PATH_NULL || prev < end);
+
     plen = packedpath_get_len(ptr, colbytes);
     nbytes = packedpath_len_nbytes(plen);
-
     ctx_assert2(nbytes <= size && ptr + nbytes <= end,
                 "nbytes: %zu size: %zu", (size_t)nbytes, (size_t)size);
 
