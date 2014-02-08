@@ -96,7 +96,7 @@ PathIndex path_store_add_packed(PathStore *store, PathIndex last_index,
     uint8_t *ptr = store->next;
     memcpy(ptr, &last_index, sizeof(PathIndex));
     ptr += sizeof(PathIndex);
-    memcpy(ptr, packed, store->colset_bytes+sizeof(PathLen)+path_nbytes);
+    memcpy(ptr, packed+sizeof(PathIndex), mem-sizeof(PathIndex));
   }
 
   PathIndex pindex = (PathIndex)(store->next - store->store);
@@ -135,7 +135,8 @@ PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
   return match;
 }
 
-// Specify if we should try to find a duplicate first
+// find => specify if we should try to find a duplicate first
+// *added => set to 1 if we add rather than just find the path
 static inline
 PathIndex _path_store_find_or_add_packed(PathStore *store, PathIndex last_index,
                                          const uint8_t *packed, size_t path_nbytes,
@@ -238,6 +239,22 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
   return match;
 }
 
+//
+// Print
+//
+void path_store_print(const PathStore *pstore)
+{
+  char paths_str[100], mem_str[100], kmers_str[100];
+  size_t num_path_bytes = pstore->next - pstore->store;
+
+  ulong_to_str(pstore->num_of_paths, paths_str);
+  bytes_to_str(num_path_bytes, 1, mem_str);
+  ulong_to_str(pstore->num_kmers_with_paths, kmers_str);
+
+  status("[paths] %s paths, %s path-bytes, %s kmers",
+         paths_str, mem_str, kmers_str);
+}
+
 void path_store_print_path(const PathStore *paths, PathIndex pindex)
 {
   PathIndex prev;
@@ -303,21 +320,25 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
 void path_store_data_integrity_check(const uint8_t *data, size_t size,
                                      size_t colbytes)
 {
-  const uint8_t *end = data+size;
+  const uint8_t *ptr = data, *end = data+size;
   PathLen plen, nbytes;
-  while(data < end) {
-    plen = packedpath_get_len(data, colbytes);
+  while(ptr < end) {
+    plen = packedpath_get_len(ptr, colbytes);
     nbytes = packedpath_len_nbytes(plen);
-    ctx_assert(nbytes <= size && data + nbytes <= end);
-    data += packedpath_mem2(colbytes, nbytes);
+
+    ctx_assert2(nbytes <= size && ptr + nbytes <= end,
+                "nbytes: %zu size: %zu", (size_t)nbytes, (size_t)size);
+
+    ptr += packedpath_mem2(colbytes, nbytes);
   }
-  ctx_assert(data == end);
+  ctx_assert2(ptr == end, "data: %p end: %p ptr: %p", data, end, ptr);
 }
 
 void path_store_integrity_check(const PathStore *pstore)
 {
-  ctx_assert(pstore->end >= pstore->store);
-  size_t len = pstore->end - pstore->store;
+  ctx_assert(pstore->end >= pstore->next + PSTORE_PADDING);
+  ctx_assert(pstore->next >= pstore->store);
+  size_t len = pstore->next - pstore->store;
   ctx_assert(len <= pstore->size);
   path_store_data_integrity_check(pstore->store, len, pstore->colset_bytes);
 }

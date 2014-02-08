@@ -33,7 +33,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "healthcheck", .func = ctx_health_check, .hide = 0,
-  .minargs = 1, .maxargs = 1, .optargs = "pmn", .reqargs = "",
+  .minargs = 1, .maxargs = 2, .optargs = "pmn", .reqargs = "",
   .blurb = "load and check a cortex graph file (.ctx)",
   .usage = health_usage
 },

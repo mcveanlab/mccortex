@@ -33,7 +33,7 @@ int ctx_health_check(CmdArgs *args)
   boolean do_edge_check = true;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
-    if(strcmp(argv[argi],"--noedgecheck")) do_edge_check = false;
+    if(strcmp(argv[argi],"--noedgecheck") == 0) do_edge_check = false;
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
@@ -89,6 +89,10 @@ int ctx_health_check(CmdArgs *args)
       path_mem = MAX2(args->mem_to_use - graph_mem, path_mem_req);
     else
       path_mem = path_mem_req;
+
+    char path_mem_str[100];
+    bytes_to_str(path_mem, 1, path_mem_str);
+    status("[memory] paths: %s", path_mem_str);
   }
 
   total_mem = path_mem + graph_mem;

@@ -53,12 +53,14 @@ void call_assert(const char *file, const char *func, int line,
   fprintf(stderr, "[%s:%i] Assert Failed %s(): %s", file, line, func, assert);
 
   if(fmt != NULL) {
+    fputs(": ", stderr);
     va_list argptr;
     va_start(argptr, fmt);
     vfprintf(stderr, fmt, argptr);
     va_end(argptr);
   }
 
+  // Print a timestamp so we know when the crash occurred
   fprintf(stderr, "\n");
   ftimestamp(stderr);
   fputs(" Assert Error\n", stderr);
@@ -76,6 +78,7 @@ void call_die(const char *file, const char *func, int line, const char *fmt, ...
   vfprintf(stderr, fmt, argptr);
   va_end(argptr);
   if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
+  // Print a timestamp so we know when the crash occurred
   ftimestamp(stderr);
   fputs(" Fatal Error\n", stderr);
   exit(EXIT_FAILURE);

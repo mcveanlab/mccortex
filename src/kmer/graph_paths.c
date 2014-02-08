@@ -325,13 +325,16 @@ static void kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
 void graph_paths_check_all_paths(const GraphPathPairing *gp,
                                  const dBGraph *db_graph)
 {
-  size_t num_paths = 0, num_kmers = 0;
+  size_t num_paths = 0, num_kmers = 0, act_num_paths, act_num_kmers;
 
   HASH_ITERATE(&db_graph->ht, kmer_check_paths, gp, db_graph,
                &num_paths, &num_kmers);
 
-  ctx_assert(num_paths == db_graph->pdata.num_of_paths);
-  ctx_assert(num_kmers == db_graph->pdata.num_kmers_with_paths);
+  act_num_paths = db_graph->pdata.num_of_paths;
+  act_num_kmers = db_graph->pdata.num_kmers_with_paths;
+
+  ctx_assert2(num_paths == act_num_paths, "%zu vs %zu", num_paths, act_num_paths);
+  ctx_assert2(num_kmers == act_num_kmers, "%zu vs %zu", num_kmers, act_num_kmers);
 }
 
 void graph_path_check_path(hkey_t node, PathIndex pindex,

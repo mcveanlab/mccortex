@@ -222,6 +222,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   BinaryKmer bkmer;
   hkey_t hkey;
   boolean found;
+  PathIndex pindex;
 
   // Load paths
   safe_fread(fh, store->store, hdr->num_path_bytes, "store->store", path);
@@ -230,12 +231,9 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   store->num_kmers_with_paths = hdr->num_kmers_with_paths;
 
   // Load kmer pointers to paths
-  PathIndex pindex;
-  memset(bkmer.b, 0, sizeof(BinaryKmer));
-
   for(i = 0; i < hdr->num_kmers_with_paths; i++)
   {
-    safe_fread(fh, &bkmer, sizeof(BinaryKmer), "bkmer", path);
+    safe_fread(fh, bkmer.b, sizeof(BinaryKmer), "bkmer", path);
 
     if(insert_missing_kmers) {
       hkey = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
@@ -266,7 +264,9 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
                                           dBGraph *db_graph)
 {
   const uint8_t *packed;
-  PathIndex pindex; PathLen pbytes; boolean added;
+  PathIndex pindex, new_pindex;
+  PathLen pbytes;
+  boolean added;
   PathStore *store = &db_graph->pdata;
 
   // Get paths this kmer already has
@@ -276,9 +276,11 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
   {
     packed = data+loadindex;
     pbytes = packedpath_pbytes(packed, colset_bytes);
-    pindex = path_store_find_or_add_packed2(store, pindex, packed, pbytes,
-                                            fltr, find, &added);
-    if(added) db_node_paths(db_graph, hkey) = pindex;
+    new_pindex = path_store_find_or_add_packed2(store, pindex, packed, pbytes,
+                                                fltr, find, &added);
+    if(added) {
+      db_node_paths(db_graph, hkey) = pindex = new_pindex;
+    }
     loadindex = packedpath_get_prev(packed);
   }
   while(loadindex != PATH_NULL);
@@ -292,16 +294,16 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 {
   if(num_files == 0) return;
 
-  PathStore *store = &db_graph->pdata;
+  PathStore *pstore = &db_graph->pdata;
 
-  ctx_assert(num_files <= 1 || (store->tmpsize > 0 && store->tmpdata != NULL));
+  ctx_assert(num_files <= 1 || (pstore->tmpsize > 0 && pstore->tmpdata != NULL));
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
   size_t required_ncols = paths_get_min_usedcols(files, num_files);
   size_t required_nbytes = roundup_bits2bytes(required_ncols);
-  ctx_assert(required_ncols <= store->num_of_cols);
-  ctx_assert(required_nbytes <= store->colset_bytes);
+  ctx_assert(required_ncols <= pstore->num_of_cols);
+  ctx_assert(required_nbytes <= pstore->colset_bytes);
 
   // load files one at a time
   FileFilter *fltr;
@@ -319,11 +321,11 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   for(i = 0; i < num_files; i++)
     path_file_load_check(&files[i], db_graph);
 
-  // Load first file into main store
-  if(store->next == store->store)
+  // Load first file into main pstore
+  if(pstore->next == pstore->store)
   {
     // Currently no paths loaded
-    if(path_store_fltr_compatible(store, &files[0].fltr)) {
+    if(path_store_fltr_compatible(pstore, &files[0].fltr)) {
       paths_format_load(&files[0], db_graph, insert_missing_kmers);
       first_file = 1;
     } else {
@@ -332,7 +334,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     }
   }
 
-  for(i = first_file; i < num_files; i++)
+  // `find` means we should try to find the path in the store before adding it
+  for(i = first_file; i < num_files; i++, find = true)
   {
     fltr = &files[i].fltr;
     hdr = &files[i].hdr;
@@ -343,16 +346,14 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Print some output
     paths_loading_print_status(&files[i]);
 
-    ctx_assert(store->tmpdata != NULL);
-    ctx_assert(hdr->num_path_bytes <= store->tmpsize);
-    safe_fread(fh, store->tmpdata, hdr->num_path_bytes, "paths->store", path);
+    ctx_assert(pstore->tmpdata != NULL);
+    ctx_assert(hdr->num_path_bytes <= pstore->tmpsize);
+    safe_fread(fh, pstore->tmpdata, hdr->num_path_bytes, "paths->store", path);
 
     // Load kmer pointers to paths
-    memset(&bkey, 0, sizeof(BinaryKmer));
-
     for(k = 0; k < hdr->num_kmers_with_paths; k++)
     {
-      safe_fread(fh, &bkey, sizeof(BinaryKmer), "bkey", path);
+      safe_fread(fh, bkey.b, sizeof(BinaryKmer), "bkey", path);
 
       if(insert_missing_kmers) {
         node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
@@ -368,7 +369,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       }
 
       // Merge into currently loaded paths
-      load_packed_linkedlist(node, store->tmpdata, tmpindex, colbytes,
+      load_packed_linkedlist(node, pstore->tmpdata, tmpindex, colbytes,
                              fltr, find, db_graph);
     }
 
@@ -376,9 +377,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     uint8_t end;
     if(fread(&end, 1, 1, fh) != 0)
       warn("End of file not reached when loading! [path: %s]", path);
-  
-    find = true;
   }
+
+  path_store_print(pstore);
 }
 
 

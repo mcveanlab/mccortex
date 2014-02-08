@@ -63,7 +63,11 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
         ((fltr)->nofilter && \
          roundup_bits2bytes((fltr)->filencols) == (st)->colset_bytes)
 
+//
 // Print
+//
+void path_store_print(const PathStore *pstore);
+
 void path_store_print_path(const PathStore *paths, PathIndex index);
 void path_store_print_all(const PathStore *paths);
 
