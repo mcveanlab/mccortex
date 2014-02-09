@@ -101,6 +101,8 @@ boolean bases_to_integer(const char *arg, size_t *bases)
   return (unit > 0);
 }
 
+// Convert string to unit size e.g. KB -> 2^10, TB -> 2^40
+// Returns 1 on sucess, 0 on failure
 boolean mem_to_integer(const char *arg, size_t *bytes)
 {
   char *endptr;
@@ -173,6 +175,9 @@ char* double_to_str(double num, int decimals, char* str)
 
   unsigned long whole_units = (unsigned long)num;
   num -= whole_units;
+
+  if(decimals == 0)
+    whole_units += num > 0.5;
 
   ulong_to_str(whole_units, str);
 

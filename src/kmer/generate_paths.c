@@ -164,7 +164,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      GenPathWorker *wrkr)
 {
   size_t i, num_added = 0;
-  const size_t ctxcol = wrkr->task.crt_params.ctxcol;
   const size_t ctpcol = wrkr->task.crt_params.ctpcol;
 
   dBGraph *db_graph = wrkr->db_graph;
@@ -287,15 +286,19 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       printed = true;
     }
 
-    #ifndef NDEBUG
-      // Check path before we wrote it
-      graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen), plen,
-                             db_graph);
-
-      // Check path after we wrote it
+    #ifdef CTXCHECKS
+      const size_t ctxcol = wrkr->task.crt_params.ctxcol;
       Colour cols[2] = {ctxcol, ctpcol};
       GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
-      graph_path_check_path(node.key, pindex, &gp, db_graph);
+
+      // Check path before we wrote it
+      ctx_check2(graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen),
+                                       plen, db_graph),
+                 "read: %s %s", wrkr->data.r1.name.b, wrkr->data.r1.seq.b);
+
+      // Check path after we wrote it
+      ctx_check2(graph_path_check_path(node.key, pindex, &gp, db_graph),
+                 "read: %s %s", wrkr->data.r1.name.b, wrkr->data.r1.seq.b);
     #endif
 
     // status("Path is:...");

@@ -156,8 +156,10 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   GraphWalker gw = {.db_graph = graph, .pstore = &graph->pdata,
                     .ctxcol = ctxcol, .ctpcol = ctpcol,
                     .node = node,
-                    // new
-                    .paths = wlk->paths, .cntr_paths = wlk->cntr_paths,
+                    // paths
+                    .paths = wlk->paths,
+                    .new_paths = wlk->new_paths,
+                    .cntr_paths = wlk->cntr_paths,
                     // stats
                     .fork_count = 0, .last_step = {.idx = -1, 0}};
 

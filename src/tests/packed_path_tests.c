@@ -4,10 +4,10 @@
 
 static void fill_rand(uint8_t *arr, size_t n)
 {
-  int r; size_t i;
-  for(i = 0; i+4 < n; i+=4) { r = rand(); memcpy(&arr[i], &r, 4); }
+  uint32_t r; size_t i;
+  for(i = 0; i+4 <= n; i+=4) { r = rand(); memcpy(&arr[i], &r, 4); }
   r = rand();
-  for(i = 4*(n/4); i<n; i++) { arr[i] = (uint8_t)(r&0xff); r >>= 8; }
+  for(; i < n; i++) { arr[i] = (uint8_t)(r&0xff); r >>= 8; }
 }
 
 static void rand_nucs(Nucleotide *nucs, size_t len)

@@ -42,15 +42,15 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
 
 // col is graph colour
 // packed is just <PackedBases>
-void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
-                            size_t nbases, const dBGraph *db_graph);
+boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
+                               size_t nbases, const dBGraph *db_graph);
 
-void graph_paths_check_all_paths(const GraphPathPairing *gp,
-                                 const dBGraph *db_graph);
+boolean graph_paths_check_all_paths(const GraphPathPairing *gp,
+                                    const dBGraph *db_graph);
 
-void graph_path_check_path(hkey_t node, PathIndex pindex,
-                           const GraphPathPairing *gp,
-                           const dBGraph *db_graph);
+boolean graph_path_check_path(hkey_t node, PathIndex pindex,
+                              const GraphPathPairing *gp,
+                              const dBGraph *db_graph);
 
 //
 // Check

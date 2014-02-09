@@ -99,7 +99,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pview", .func = ctx_pview, .hide = 0,
-  .minargs = 1, .maxargs = 1, .optargs = "mn", .reqargs = "",
+  .minargs = 1, .maxargs = 3, .optargs = "mn", .reqargs = "",
   .blurb = "view read threading information",
   .usage = pview_usage
 },
@@ -229,6 +229,9 @@ int main(int argc, char **argv)
 
   status("[cmd] %s\n", args.cmdline);
   status("[version] "CTXVERSIONSTR"; zlib: "ZLIB_VERSION"\n");
+
+  // If no arguments after command, print help
+  if(argc == 2) cmd_print_usage(NULL);
 
   // Check number of args, required args, optional args
   cmd_accept_options(&args, cmd->optargs, cmd->usage);

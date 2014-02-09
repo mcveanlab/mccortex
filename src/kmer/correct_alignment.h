@@ -61,6 +61,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr);
 
 
 // Get alignment coords of contig
+// Called after correct_alignment_nxt()
 size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr);
 size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr);
 

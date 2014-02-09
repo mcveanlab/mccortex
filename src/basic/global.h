@@ -59,15 +59,22 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int
 //----------------------------------------------
 // ctx_check  | nothing  |  slow check + abort()
 
+#if defined(CTXCHECKS) && CTXCHECKS == 0
+  #undef CTXCHECKS
+#endif
+
 void call_assert(const char *file, const char *func, int line,
                  const char *assert, const char *fmt, ...)
 __attribute__((format(printf, 5, 6)))
 __attribute__((noreturn));
 
+void call_assert_no_abort(const char *file, const char *func, int line,
+                          const char *assert, const char *fmt, ...)
+__attribute__((format(printf, 5, 6)));
+
 // ctx_assert()
 #ifdef NDEBUG
-  #define ctx_assert(x) ({ (void)x, (void)0 })
-  #define ctx_assert2(x,msg) ({ (void)x, (void)msg, (void)0 })
+  #define ctx_assert2(x,msg,...) ({ (void)x, (void)msg, (void)0 })
 #else
   #define ctx_assert2(x,msg,...) \
 ((x) ? (void)0 : call_assert(__FILE__,__func__,__LINE__,QUOTE_VALUE(x),msg,##__VA_ARGS__))
@@ -75,16 +82,16 @@ __attribute__((noreturn));
 
 // ctx_assume(): tells the compiler a condition that always holds
 #ifdef NDEBUG
-  #define ctx_assume2(x,msg) do { (void)msg; if(x) (void)0; else __builtin_unreachable(); } while(0)
+  #define ctx_assume2(x,msg,...) do { (void)msg; if(x) (void)0; else __builtin_unreachable(); } while(0)
 #else
-  #define ctx_assume2(x,msg) ctx_assert2(x,msg)
+  #define ctx_assume2(x,msg,...) ctx_assert2(x,msg,##__VA_ARGS__)
 #endif
 
 // ctx_check():
 #ifdef CTXCHECKS
-  #define ctx_check2(x,msg) ctx_assert2(x,msg)
+  #define ctx_check2(x,msg,...) ctx_assert2(x,msg,##__VA_ARGS__)
 #else
-  #define ctx_check2(x,msg) ({ (void)x, (void)msg, (void)0; })
+  #define ctx_check2(x,msg,...) ({ (void)x, (void)msg, (void)0; })
 #endif
 
 // Check is turned on with CTXCHECKS=1 -> heavy lifting involved
@@ -93,6 +100,15 @@ __attribute__((noreturn));
 #define ctx_check(x)  ctx_check2(x,NULL)
 #define ctx_assert(x) ctx_assert2(x,NULL)
 #define ctx_assume(x) ctx_assume2(x,NULL)
+
+// Return false if a condition fails, rather than aborting
+// Note: doesn't depend on CTXCHECKS
+#define check_ret2(x,msg,...) do { if(!(x)) {                               \
+  call_assert_no_abort(__FILE__,__func__,__LINE__,QUOTE_VALUE(x),msg,##__VA_ARGS__);\
+  return false;                                                                \
+}} while(0)
+
+#define check_ret(x) check_ret2(x,NULL)
 
 //
 // Exit with an error, give a warning: die() / warn()
@@ -155,6 +171,6 @@ void cortex_destroy();
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
 
 // Number of reads to hold in the msg pool
-#define MSGPOOLRSIZE 1000
+#define MSGPOOLRSIZE 200
 
 #endif /* GLOBAL_H_ */

@@ -178,11 +178,11 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
 // packed is just <PackedBases>
-void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
-                            size_t nbases, const dBGraph *db_graph)
+boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
+                               size_t nbases, const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_edge_cols == db_graph->num_of_cols ||
-             db_graph->node_in_cols != NULL);
+  check_ret(db_graph->num_edge_cols == db_graph->num_of_cols ||
+                db_graph->node_in_cols != NULL);
 
   BinaryKmer bkmer;
   Edges edges;
@@ -204,15 +204,15 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
 
     // Check this node is in this colour
     if(db_graph->node_in_cols != NULL) {
-      ctx_assert(db_node_has_col(db_graph, node.key, ctxcol));
+      check_ret(db_node_has_col(db_graph, node.key, ctxcol));
     } else if(db_graph->col_covgs != NULL) {
-      ctx_assert(db_node_get_covg(db_graph, node.key, ctxcol) > 0);
+      check_ret(db_node_get_covg(db_graph, node.key, ctxcol) > 0);
     }
 
     #ifdef CTXVERBOSE
       char bkmerstr[MAX_KMER_SIZE+1];
       binary_kmer_to_str(bkmer, db_graph->kmer_size, bkmerstr);
-      status("klen: %zu plen: %zu %zu:%i %s",
+      fprintf(stderr, "klen: %zu plen: %zu %zu:%i %s",
              klen, plen, (size_t)node.key, node.orient, bkmerstr);
     #endif
 
@@ -221,15 +221,15 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
       Edges backedges = db_node_edges_in_col(rnode, ctxcol, db_graph);
       int outdegree = edges_get_outdegree(backedges, rnode.orient);
       if(outdegree <= 1) {
-        status("outdegree: %i col: %zu", (int)outdegree, ctxcol);
+        fprintf(stderr, "outdegree: %i col: %zu", (int)outdegree, ctxcol);
       }
-      ctx_assert(outdegree > 1);
+      check_ret(outdegree > 1);
     }
 
     n = db_graph_next_nodes(db_graph, bkmer, node.orient,
                             edges, nodes, nucs);
 
-    ctx_assert(n > 0);
+    check_ret(n > 0);
 
     // Reduce to nodes in our colour if edges limited
     if(db_graph->num_edge_cols == 1 && db_graph->node_in_cols != NULL) {
@@ -241,7 +241,7 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
         }
       }
       n = j; // update number of next nodes
-      ctx_assert(n > 0);
+      check_ret(n > 0);
     }
 
     // If fork check nucleotide
@@ -250,12 +250,12 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
 
       for(i = 0; i < n && nucs[i] != expbase; i++);
       if(i == n) {
-        printf("plen: %zu expected: %c\n", plen, dna_nuc_to_char(expbase));
-        printf("Got: ");
-        for(i = 0; i < n; i++) printf(" %c", dna_nuc_to_char(nucs[i]));
-        printf("\n");
+        fprintf(stderr, "plen: %zu expected: %c\n", plen, dna_nuc_to_char(expbase));
+        fprintf(stderr, "Got: ");
+        for(i = 0; i < n; i++) fprintf(stderr, " %c", dna_nuc_to_char(nucs[i]));
+        fprintf(stderr, "\n");
       }
-      ctx_assert(i < n && nucs[i] == expbase);
+      check_ret(i < n && nucs[i] == expbase);
       node = nodes[i];
       plen++;
     }
@@ -263,11 +263,13 @@ void graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
       node = nodes[0];
     }
   }
+
+  return true;
 }
 
-static void packed_path_check(hkey_t hkey, const uint8_t *packed,
-                              const GraphPathPairing *gp,
-                              const dBGraph *db_graph)
+static boolean packed_path_check(hkey_t hkey, const uint8_t *packed,
+                                 const GraphPathPairing *gp,
+                                 const dBGraph *db_graph)
 {
   const PathStore *pstore = &db_graph->pdata;
   PathLen len_bases;
@@ -286,24 +288,29 @@ static void packed_path_check(hkey_t hkey, const uint8_t *packed,
   size_t nbytes = sizeof(PathIndex) + pstore->colset_bytes +
                   sizeof(PathLen) + packedpath_len_nbytes(len_bases);
 
-  ctx_assert(packed + nbytes <= pstore->end);
+  check_ret(packed + nbytes <= pstore->end);
 
   // Check at least one colour is set
   uint8_t colset_or = 0;
   for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
-  ctx_assert(colset_or != 0);
+  check_ret(colset_or != 0);
 
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
 
-  for(i = 0; i < gp->n; i++)
-    if(bitset_get(colset, gp->ctpcols[i]))
-      graph_path_check_valid(node, gp->ctxcols[i], seq, len_bases, db_graph);
+  for(i = 0; i < gp->n; i++) {
+    if(bitset_get(colset, gp->ctpcols[i])) {
+      check_ret(graph_path_check_valid(node, gp->ctxcols[i], seq, len_bases,
+                                           db_graph));
+    }
+  }
+
+  return true;
 }
 
-static void kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
-                             const dBGraph *db_graph,
-                             size_t *npaths_ptr, size_t *nkmers_ptr)
+static boolean kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
+                                const dBGraph *db_graph,
+                                size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const PathStore *pdata = &db_graph->pdata;
   PathIndex pindex = db_node_paths(db_graph, hkey);
@@ -313,17 +320,19 @@ static void kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
   while(pindex != PATH_NULL)
   {
     packed = pdata->store+pindex;
-    packed_path_check(hkey, packed, gp, db_graph);
+    check_ret(packed_path_check(hkey, packed, gp, db_graph));
     pindex = packedpath_get_prev(packed);
     num_paths++;
   }
 
   *npaths_ptr += num_paths;
   *nkmers_ptr += (num_paths > 0);
+  return true;
 }
 
-void graph_paths_check_all_paths(const GraphPathPairing *gp,
-                                 const dBGraph *db_graph)
+// Returns false on first error
+boolean graph_paths_check_all_paths(const GraphPathPairing *gp,
+                                    const dBGraph *db_graph)
 {
   size_t num_paths = 0, num_kmers = 0, act_num_paths, act_num_kmers;
 
@@ -333,16 +342,17 @@ void graph_paths_check_all_paths(const GraphPathPairing *gp,
   act_num_paths = db_graph->pdata.num_of_paths;
   act_num_kmers = db_graph->pdata.num_kmers_with_paths;
 
-  ctx_assert2(num_paths == act_num_paths, "%zu vs %zu", num_paths, act_num_paths);
-  ctx_assert2(num_kmers == act_num_kmers, "%zu vs %zu", num_kmers, act_num_kmers);
+  check_ret2(num_paths == act_num_paths, "%zu vs %zu", num_paths, act_num_paths);
+  check_ret2(num_kmers == act_num_kmers, "%zu vs %zu", num_kmers, act_num_kmers);
+  return true;
 }
 
-void graph_path_check_path(hkey_t node, PathIndex pindex,
-                           const GraphPathPairing *gp,
-                           const dBGraph *db_graph)
+boolean graph_path_check_path(hkey_t node, PathIndex pindex,
+                              const GraphPathPairing *gp,
+                              const dBGraph *db_graph)
 {
   uint8_t *packed = db_graph->pdata.store+pindex;
-  packed_path_check(node, packed, gp, db_graph);
+  return packed_path_check(node, packed, gp, db_graph);
 }
 
 // For debugging

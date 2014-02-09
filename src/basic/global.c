@@ -45,8 +45,8 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int
   return ptr2;
 }
 
-void call_assert(const char *file, const char *func, int line,
-                 const char *assert, const char *fmt, ...)
+void call_assert2(const char *file, const char *func, int line,
+                  const char *assert, const char *fmt, va_list argptr)
 {
   pthread_mutex_lock(&biglock);
   fflush(stdout);
@@ -54,10 +54,7 @@ void call_assert(const char *file, const char *func, int line,
 
   if(fmt != NULL) {
     fputs(": ", stderr);
-    va_list argptr;
-    va_start(argptr, fmt);
     vfprintf(stderr, fmt, argptr);
-    va_end(argptr);
   }
 
   // Print a timestamp so we know when the crash occurred
@@ -65,6 +62,24 @@ void call_assert(const char *file, const char *func, int line,
   ftimestamp(stderr);
   fputs(" Assert Error\n", stderr);
   fflush(stderr);
+}
+
+void call_assert_no_abort(const char *file, const char *func, int line,
+                          const char *assert, const char *fmt, ...)
+{
+  va_list argptr;
+  va_start(argptr, fmt);
+  call_assert2(file, func, line, assert, fmt, argptr);
+  va_end(argptr);
+}
+
+void call_assert(const char *file, const char *func, int line,
+                 const char *assert, const char *fmt, ...)
+{
+  va_list argptr;
+  va_start(argptr, fmt);
+  call_assert2(file, func, line, assert, fmt, argptr);
+  va_end(argptr);
   abort();
 }
 

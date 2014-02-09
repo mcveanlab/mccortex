@@ -6,15 +6,38 @@
 #include "db_graph.h"
 #include "graph_format.h"
 #include "path_format.h"
-#include "graph_walker.h"
-#include "bubble_caller.h"
+#include "graph_paths.h"
 
-const char pview_usage[] = "usage: "CMD" pview [options] <in.ctp>\n";
+const char pview_usage[] = ""
+"usage: "CMD" pview [options] <in.ctp>\n"
+"  View and check a paths file.\n"
+"\n"
+"  Options:\n"
+"    --paths  Print paths\n"
+"    --check  Check path file integrity\n";
 
 int ctx_pview(CmdArgs *args)
 {
   char **argv = args->argv;
+  int argc = args->argc;
   // Already checked we have exactly one argument
+
+  boolean print_paths = false, do_paths_check = false;
+
+  while(argc > 1 && argv[0][0] == '-')
+  {
+    if(strcmp(argv[0],"--paths") == 0) {
+      print_paths = true;
+      argv++; argc--;
+    }
+    else if(strcmp(argv[0],"--check") == 0) {
+      do_paths_check = true;
+      argv++; argc--;
+    }
+    else cmd_print_usage("Unknown command: %s", argv[0]);
+  }
+
+  if(argc != 1) cmd_print_usage(NULL);
 
   char *input_paths_file = argv[0];
 
@@ -73,7 +96,15 @@ int ctx_pview(CmdArgs *args)
   boolean add_kmers = true;
 
   paths_format_load(&pfile, &db_graph, add_kmers);
-  db_graph_dump_paths_by_kmer(&db_graph);
+
+  if(print_paths)
+    db_graph_dump_paths_by_kmer(&db_graph);
+
+  // Check data store
+  if(do_paths_check) {
+    status("Checking path store integrity...");
+    path_store_integrity_check(&db_graph.pdata);
+  }
 
   free(db_graph.kmer_paths);
 

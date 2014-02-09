@@ -325,7 +325,7 @@ void path_store_data_integrity_check(const uint8_t *data, size_t size,
   PathIndex prev;
   while(ptr < end) {
     prev = packedpath_get_prev(ptr);
-    ctx_assert(prev == PATH_NULL || prev < end);
+    ctx_assert(prev == PATH_NULL || prev < size);
 
     plen = packedpath_get_len(ptr, colbytes);
     nbytes = packedpath_len_nbytes(plen);
@@ -339,7 +339,8 @@ void path_store_data_integrity_check(const uint8_t *data, size_t size,
 
 void path_store_integrity_check(const PathStore *pstore)
 {
-  ctx_assert(pstore->end >= pstore->next + PSTORE_PADDING);
+  ctx_assert2(pstore->end >= pstore->next,
+              "%p, %p, %p", pstore->store, pstore->end, pstore->next);
   ctx_assert(pstore->next >= pstore->store);
   size_t len = pstore->next - pstore->store;
   ctx_assert(len <= pstore->size);
