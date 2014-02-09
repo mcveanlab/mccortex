@@ -3,14 +3,41 @@
 #include "binary_seq.h"
 
 #define NTESTS 100
-#define TLEN 200
+#define TLEN 256 /* power of two */
 
 
 void test_binary_seq_rev_cmp()
 {
-  test_status("[BinarySeq] Testing binary_seq_reverse_complement()");
+  test_status("[BinarySeq] binary_seq_reverse_complement() binary_seq_to_str()");
 
-  // DEV
+  uint8_t data[TLEN], tmp[TLEN];
+  char str[4*TLEN+1], rev[4*TLEN+1], restore[4*TLEN+1];
+  size_t i, j, k, topbyte, nbases;
+
+  for(i = 0; i < NTESTS; i++)
+  {
+    // Get random sequence, mask top byte, convert to string
+    fill_rand_bytes(data, TLEN);
+    nbases = rand() & (4*TLEN-1);
+    topbyte = (nbases+3)/4 - 1;
+    data[topbyte] &= nbases ? 0xff >> (8-bits_in_top_byte(nbases)) : 0;
+    binary_seq_to_str(data, nbases, str);
+
+    // Reverse complement, convert to string
+    memcpy(tmp, data, TLEN);
+    binary_seq_reverse_complement(tmp, nbases);
+    binary_seq_to_str(tmp, nbases, rev);
+
+    // Check strings match
+    for(j = 0, k = nbases-1; j < nbases; j++, k--)
+      TASSERT(str[j] == dna_char_complement(rev[k]));
+
+    // Reverse complement again, check we get back same binary_seq+string
+    binary_seq_reverse_complement(tmp, nbases);
+    binary_seq_to_str(tmp, nbases, restore);
+    TASSERT(memcmp(data, tmp, TLEN) == 0);
+    TASSERT(strncmp(str, restore, nbases) == 0);
+  }
 }
 
 static void test_binary_seq_cpy()
@@ -40,7 +67,7 @@ static void test_binary_seq_cpy()
     memset(slow, 0xff, TLEN);
     memset(med,  0xff, TLEN);
     memset(fast, 0xff, TLEN);
-    fill_rand(in, TLEN);
+    fill_rand_bytes(in, TLEN);
 
     len = rand() % (TLEN/2+1);
     shift = rand() % 4;

@@ -56,4 +56,6 @@ void binary_seq_cpy_fast(uint8_t *restrict dst, const uint8_t *restrict src,
 
 #define binary_seq_cpy(dst,src,shift,len) binary_seq_cpy_fast(dst,src,shift,len)
 
+void binary_seq_to_str(const uint8_t *arr, size_t len, char *str);
+
 #endif /* BINARY_SEQ_H_ */

@@ -21,7 +21,7 @@ extern size_t tests_num_run, tests_num_failed;
 #define TASSERT2(x,fmt,...) do {                                               \
   tests_num_run++;                                                             \
   if(!(x)) { tests_num_failed++;                                               \
-    fprintf(ctx_tst_out, "[%s:%i] Failed: "QUOTE_MACRO(x)"\n",__FILE__,__LINE__);\
+    fprintf(ctx_tst_out, "[%s:%i] Failed: %s\n",__FILE__,__LINE__,QUOTE_VALUE(x));\
     if((fmt) != NULL) test_status(fmt, ##__VA_ARGS__);                         \
   } \
 } while(0)
@@ -31,7 +31,7 @@ extern size_t tests_num_run, tests_num_failed;
 //
 // Useful functions
 //
-void fill_rand(uint8_t *arr, size_t n);
+void fill_rand_bytes(uint8_t *arr, size_t n);
 void rand_nucs(Nucleotide *nucs, size_t len);
 void bitarr_tostr(const uint8_t *arr, size_t len, char *str);
 

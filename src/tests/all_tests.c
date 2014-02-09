@@ -9,7 +9,7 @@ size_t tests_num_run = 0, tests_num_failed = 0;
 //
 // Useful functions
 //
-void fill_rand(uint8_t *arr, size_t n)
+void fill_rand_bytes(uint8_t *arr, size_t n)
 {
   uint32_t r; size_t i;
   for(i = 0; i+4 <= n; i+=4) { r = rand(); memcpy(&arr[i], &r, 4); }

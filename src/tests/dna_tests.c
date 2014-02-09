@@ -14,7 +14,8 @@ void test_dna_functions()
   for(c = CHAR_MIN; c < CHAR_MAX; c++) {
     TASSERT((c != 0 && strchr("ACGTacgt",c) != NULL) == char_is_acgt(c));
     TASSERT((c != 0 && strchr("ACGTNacgtn",c) != NULL) == char_is_acgtn(c));
-    TASSERT(dna_char_complement(dna_char_complement(c)) == c);
+    if(char_is_acgt(c))
+      TASSERT(dna_char_complement(dna_char_complement(c)) == c);
   }
 
   // Loop over nucs

@@ -193,3 +193,13 @@ void binary_seq_cpy_fast(uint8_t *restrict dst, const uint8_t *restrict src,
 
   dst[dst_bytes-1] &= bitmask64((n-shift)*2-(dst_bytes-1)*8);
 }
+
+void binary_seq_to_str(const uint8_t *arr, size_t len, char *str)
+{
+  const char *end = str+len;
+  size_t b = 0, o = 0;
+  for(; str < end; str++, o+=2, b += (o == 8), o &= 7) {
+    *str = dna_nuc_to_char((arr[b] >> o) & 3);
+  }
+  *str = '\0';
+}
