@@ -9,6 +9,7 @@
 // hash functions
 #include "jenkins.h"
 #include "twang.h"
+#include "city.h"
 
 #ifdef CTXVERBOSE
 #define DEBUG_WALKER 1
@@ -189,6 +190,26 @@ void graph_walker_finish(GraphWalker *wlk)
 // Hash function
 //
 
+
+uint64_t graph_walker_hash64(const GraphWalker *wlk)
+{
+  size_t path_bytes, new_path_bytes, cntr_path_bytes;
+  path_bytes = wlk->paths.len*sizeof(FollowPath);
+  new_path_bytes = wlk->new_paths.len*sizeof(FollowPath);
+  cntr_path_bytes = wlk->cntr_paths.len*sizeof(FollowPath);
+
+  uint64_t hash = (wlk->node.key<<1) | wlk->node.orient;
+  hash = CityHash64WithSeed((const char*)wlk->paths.data, path_bytes, hash);
+  hash = strhash_fast_mix(hash, wlk->paths.len);
+  hash = CityHash64WithSeed((const char*)wlk->new_paths.data, new_path_bytes, hash);
+  hash = strhash_fast_mix(hash, wlk->new_paths.len);
+  hash = CityHash64WithSeed((const char*)wlk->new_paths.data, cntr_path_bytes, hash);
+  hash = strhash_fast_mix(hash, wlk->cntr_paths.len);
+
+  return hash;
+}
+
+/*
 // Hash a path using its length, sequence and current offset/position
 static inline uint32_t follow_path_hash(const FollowPath *path, uint32_t hash32)
 {
@@ -204,7 +225,7 @@ static inline uint32_t follow_path_hash(const FollowPath *path, uint32_t hash32)
   for(i = 0; i < sizeof(path->cache); i++)
     hash32 = jenkins_mix(hash32, path->cache[i]);
 
-  // note: we done call jenkins_finish(hash32)
+  // note: we don't call jenkins_finish(hash32)
   return hash32;
 }
 
@@ -215,7 +236,7 @@ static inline uint32_t follow_pathbuf_hash(const PathBuffer *pbuf, uint32_t hash
   for(i = 0; i < pbuf->len; i++)
     hash32 = follow_path_hash(&pbuf->data[i], hash32);
 
-  // note: we done call jenkins_finish(hash32)
+  // note: we don't call jenkins_finish(hash32)
   return hash32;
 }
 
@@ -233,7 +254,7 @@ uint32_t graph_walker_hash(const GraphWalker *wlk)
 
   return jenkins_finish(hash32);
 }
-
+*/
 //
 // Junction decision
 //

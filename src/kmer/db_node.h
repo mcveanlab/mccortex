@@ -263,6 +263,8 @@ void db_nodes_print_edges(const dBNode *nodes, size_t num,
 //
 
 // Check an array of nodes denote a contigous path
-void db_node_check_nodes(const dBNode *nodes, size_t num, const dBGraph *db_graph);
+// Prints warning and returns false on failure
+boolean db_node_check_nodes(const dBNode *nodes, size_t num,
+                            const dBGraph *db_graph);
 
 #endif /* DB_NODE_H_ */

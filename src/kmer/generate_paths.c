@@ -437,7 +437,10 @@ static void* generate_paths_worker(void *ptr)
 
   AsyncIOData data;
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
-    // status("read: %s %s", data.r1.name.b, data.r2.name.b);
+    pthread_mutex_lock(&biglock);
+    printf(">read %s %s\n%s %s\n", data.r1.name.b, data.r2.name.b,
+                                   data.r1.seq.b, data.r2.seq.b);
+    pthread_mutex_unlock(&biglock);
     // status("seq : %s %s", data.r1.seq.b, data.r2.seq.b);
     wrkr->data = data;
     memcpy(&wrkr->task, data.ptr, sizeof(CorrectAlnReadsTask));

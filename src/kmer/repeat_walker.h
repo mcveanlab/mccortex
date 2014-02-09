@@ -23,9 +23,13 @@ static inline boolean rpt_walker_attempt_traverse(RepeatWalker *rpt,
     return true;
   }
   else {
-    uint32_t hash32 = graph_walker_hash(wlk) & rpt->mask;
-    boolean collision = bitset_get(rpt->bloom, hash32);
-    bitset_set(rpt->bloom, hash32);
+    uint64_t h0, h1, hash64 = graph_walker_hash64(wlk);
+    boolean collision;
+    h0 = hash64 & rpt->mask;
+    h1 = (hash64 >> rpt->bloom_nbits) & rpt->mask;
+    collision = bitset_get(rpt->bloom, h0) && bitset_get(rpt->bloom, h1);
+    bitset_set(rpt->bloom, h0);
+    bitset_set(rpt->bloom, h1);
     rpt->nbloom_entries++;
     return !collision;
   }

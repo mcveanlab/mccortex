@@ -83,9 +83,7 @@ static void prime_for_traversal(GraphWalker *wlk,
   // db_nodes_print(block, n, db_graph, stdout);
   // printf("\n");
 
-  #ifdef CTXCHECKS
-    db_node_check_nodes(block, n, db_graph);
-  #endif
+  ctx_check(db_node_check_nodes(block, n, db_graph));
 
   if(n > max_context) {
     if(forward) block = block + n - max_context;
@@ -101,7 +99,6 @@ static void prime_for_traversal(GraphWalker *wlk,
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0);
   // graph_walker_fast_traverse(wlk, block, n-1, forward);
   graph_walker_slow_traverse(wlk, block, n-1, forward);
-
 
   // For debugging
   // graph_walker_print_state(wlk);
@@ -394,11 +391,9 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   wrkr->start_idx = wrkr->gap_idx;
   wrkr->gap_idx = wrkr->end_idx;
 
-  #ifdef CTXCHECKS
-    db_node_check_nodes(wrkr->contig.data, wrkr->contig.len, wrkr->db_graph);
-  #endif
+  ctx_check(db_node_check_nodes(contig->data, contig->len, wrkr->db_graph));
 
-  return &wrkr->contig;
+  return contig;
 }
 
 // Called after correct_alignment_nxt()

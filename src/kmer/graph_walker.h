@@ -5,15 +5,17 @@
 #include "db_node.h"
 #include "path_store.h"
 
-
-typedef struct
+// This struct is packed so we can hash it quickly
+struct FollowPathStruct
 {
   const uint8_t *seq;
   PathLen pos, len;
   // A small buffer of upcoming 24 bases
   PathLen first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
   uint8_t cache[6]; // first..first+24-1 (24 bases)
-} FollowPath;
+} __attribute__((packed));
+
+typedef struct FollowPathStruct FollowPath;
 
 FollowPath follow_path_create(const uint8_t *seq, PathLen plen);
 
@@ -77,7 +79,8 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 void graph_walker_finish(GraphWalker *wlk);
 
 // Hash a binary kmer + GraphWalker paths with offsets
-uint32_t graph_walker_hash(const GraphWalker *wlk);
+// uint32_t graph_walker_hash(const GraphWalker *wlk);
+uint64_t graph_walker_hash64(const GraphWalker *wlk);
 
 // Returns index of choice or -1 along with status
 GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,

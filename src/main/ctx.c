@@ -208,6 +208,18 @@ static const CtxCmd* ctx_get_command(const char* cmd)
   return NULL;
 }
 
+
+#ifdef NDEBUG
+  #define ASSERTSTR " ASSERTS=OFF"
+#else
+  #define ASSERTSTR " ASSERTS=ON"
+#endif
+#ifdef CTXCHECKS
+  #define CHECKSTR " CHECKS=ON"
+#else
+  #define CHECKSTR " CHECKS=OFF"
+#endif
+
 int main(int argc, char **argv)
 {
   CmdArgs args;
@@ -228,7 +240,7 @@ int main(int argc, char **argv)
   cmd_usage = cmd->usage;
 
   status("[cmd] %s\n", args.cmdline);
-  status("[version] "CTXVERSIONSTR"; zlib: "ZLIB_VERSION"\n");
+  status("[version] "CTXVERSIONSTR"; zlib: "ZLIB_VERSION ASSERTSTR CHECKSTR"\n");
 
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
