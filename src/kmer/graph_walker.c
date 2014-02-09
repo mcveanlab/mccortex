@@ -190,7 +190,6 @@ void graph_walker_finish(GraphWalker *wlk)
 // Hash function
 //
 
-
 uint64_t graph_walker_hash64(const GraphWalker *wlk)
 {
   size_t path_bytes, new_path_bytes, cntr_path_bytes;
@@ -199,66 +198,19 @@ uint64_t graph_walker_hash64(const GraphWalker *wlk)
   cntr_path_bytes = wlk->cntr_paths.len*sizeof(FollowPath);
 
   uint64_t hash = (wlk->node.key<<1) | wlk->node.orient;
-  hash = CityHash64WithSeed((const char*)wlk->paths.data, path_bytes, hash);
-  hash = strhash_fast_mix(hash, wlk->paths.len);
-  hash = CityHash64WithSeed((const char*)wlk->new_paths.data, new_path_bytes, hash);
-  hash = strhash_fast_mix(hash, wlk->new_paths.len);
-  hash = CityHash64WithSeed((const char*)wlk->new_paths.data, cntr_path_bytes, hash);
-  hash = strhash_fast_mix(hash, wlk->cntr_paths.len);
+  hash = CityHash64WithSeeds((const char*)wlk->paths.data, path_bytes,
+                             hash, wlk->paths.len);
+  hash = CityHash64WithSeeds((const char*)wlk->new_paths.data, new_path_bytes,
+                             hash, wlk->new_paths.len);
+  hash = CityHash64WithSeeds((const char*)wlk->cntr_paths.data, cntr_path_bytes,
+                             hash, wlk->cntr_paths.len);
 
   return hash;
 }
 
-/*
-// Hash a path using its length, sequence and current offset/position
-static inline uint32_t follow_path_hash(const FollowPath *path, uint32_t hash32)
-{
-  // 16 bases per 32 bit word
-  size_t i; uint8_t key[4];
-  memcpy(key, &path->len, 2);
-  memcpy(key+2, &path->pos, 2);
-  hash32 = jenkins_mix(hash32, key[0]);
-  hash32 = jenkins_mix(hash32, key[1]);
-  hash32 = jenkins_mix(hash32, key[2]);
-  hash32 = jenkins_mix(hash32, key[3]);
-
-  for(i = 0; i < sizeof(path->cache); i++)
-    hash32 = jenkins_mix(hash32, path->cache[i]);
-
-  // note: we don't call jenkins_finish(hash32)
-  return hash32;
-}
-
-static inline uint32_t follow_pathbuf_hash(const PathBuffer *pbuf, uint32_t hash32)
-{
-  size_t i;
-
-  for(i = 0; i < pbuf->len; i++)
-    hash32 = follow_path_hash(&pbuf->data[i], hash32);
-
-  // note: we don't call jenkins_finish(hash32)
-  return hash32;
-}
-
-// Hash a binary kmer + GraphWalker paths with offsets
-uint32_t graph_walker_hash(const GraphWalker *wlk)
-{
-  // reduce to node from 64 -> 32 bits
-  uint64_t hash64 = (wlk->node.key<<1) | wlk->node.orient;
-  uint_fast32_t hash32 = twang_hash64to32(hash64);
-
-  // mix in path information
-  hash32 = follow_pathbuf_hash(&wlk->paths, hash32);
-  hash32 = follow_pathbuf_hash(&wlk->new_paths, hash32);
-  hash32 = follow_pathbuf_hash(&wlk->cntr_paths, hash32);
-
-  return jenkins_finish(hash32);
-}
-*/
 //
 // Junction decision
 //
-
 
 static inline void update_path_forks(const PathBuffer *pbuf, uint8_t taken[4])
 {
