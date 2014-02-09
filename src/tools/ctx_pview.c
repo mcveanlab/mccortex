@@ -20,7 +20,7 @@ int ctx_pview(CmdArgs *args)
 {
   char **argv = args->argv;
   int argc = args->argc;
-  // Already checked we have exactly one argument
+  // Already checked we have between 1 and 3 arguments
 
   boolean print_paths = false, do_paths_check = false;
 

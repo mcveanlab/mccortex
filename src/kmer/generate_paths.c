@@ -15,6 +15,7 @@
 #include "correct_alignment.h"
 #include "async_read_io.h"
 #include "seq_reader.h"
+#include "binary_seq.h"
 
 //
 // Multithreaded code to add paths to the graph from sequence data
@@ -39,13 +40,10 @@ struct GenPathWorker
   CorrectAlnWorker corrector;
 
   // Nucleotides and positions of junctions
-  Nucleotide *nuc_fw, *nuc_rv;
+  // only one array allocated for each type, rev points to half way through
+  uint8_t *pck_fw, *pck_rv;
   size_t *pos_fw, *pos_rv;
   size_t num_fw, num_rv, junc_arrsize;
-
-  // Packed representation of path
-  uint8_t *packed;
-  size_t packed_memcap;
 };
 
 #define INIT_BUFLEN 1024
@@ -66,6 +64,8 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
   return job_mem + corrector_mem + junc_mem + packed_mem + sizeof(GenPathWorker);
 }
 
+#define binary_seq_mem(n) ((((n)+3)/4 + sizeof(PathLen))*4)
+
 static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
   GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL};
@@ -74,16 +74,16 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
   loading_stats_init(&tmp.stats);
+
   // Junction data
+  // only fw arrays are malloc'd, rv point to fw
   tmp.junc_arrsize = INIT_BUFLEN;
-  tmp.nuc_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.nuc_fw));
-  tmp.nuc_rv = malloc2(tmp.junc_arrsize * sizeof(*tmp.nuc_rv));
-  tmp.pos_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_fw));
-  tmp.pos_rv = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_rv));
+  tmp.pck_fw = malloc2(binary_seq_mem(tmp.junc_arrsize) * 2);
+  tmp.pck_rv = tmp.pck_fw + binary_seq_mem(tmp.junc_arrsize);
+
+  tmp.pos_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_fw) * 2);
+  tmp.pos_rv = tmp.pos_fw + tmp.junc_arrsize;
   tmp.num_fw = tmp.num_rv = 0;
-  // Packed path temporary space
-  tmp.packed_memcap = INIT_BUFLEN;
-  tmp.packed = malloc2(tmp.packed_memcap);
 
   memcpy(wrkr, &tmp, sizeof(GenPathWorker));
 }
@@ -93,9 +93,8 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
   asynciodata_dealloc(&wrkr->data);
   db_alignment_dealloc(&wrkr->aln);
   correct_aln_worker_dealloc(&wrkr->corrector);
-  free(wrkr->nuc_fw); free(wrkr->nuc_rv);
-  free(wrkr->pos_fw); free(wrkr->pos_rv);
-  free(wrkr->packed);
+  free(wrkr->pck_fw);
+  free(wrkr->pos_fw);
 }
 
 
@@ -118,18 +117,10 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t cap)
 {
   if(cap > wrkr->junc_arrsize) {
     wrkr->junc_arrsize = roundup2pow(cap);
-    wrkr->nuc_fw = realloc2(wrkr->nuc_fw, wrkr->junc_arrsize * sizeof(Nucleotide));
-    wrkr->nuc_rv = realloc2(wrkr->nuc_rv, wrkr->junc_arrsize * sizeof(Nucleotide));
-    wrkr->pos_fw = realloc2(wrkr->pos_fw, wrkr->junc_arrsize * sizeof(size_t));
-    wrkr->pos_rv = realloc2(wrkr->pos_rv, wrkr->junc_arrsize * sizeof(size_t));
-  }
-}
-
-static inline void worker_packed_cap(GenPathWorker *wrkr, size_t nbytes)
-{
-  if(nbytes > wrkr->packed_memcap) {
-    wrkr->packed_memcap = roundup2pow(nbytes);
-    wrkr->packed = realloc2(wrkr->packed, wrkr->packed_memcap * sizeof(Nucleotide));
+    wrkr->pck_fw = realloc2(wrkr->pck_fw, binary_seq_mem(wrkr->junc_arrsize)*2);
+    wrkr->pck_rv = wrkr->pck_fw + binary_seq_mem(wrkr->junc_arrsize);
+    wrkr->pos_fw = realloc2(wrkr->pos_fw, 2 * wrkr->junc_arrsize * sizeof(size_t));
+    wrkr->pos_rv = wrkr->pos_fw + wrkr->junc_arrsize;
   }
 }
 
@@ -141,16 +132,10 @@ static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
     correct_alignment_merge_hists(&wrkrs[0].corrector, &wrkrs[i].corrector);
 }
 
-
-// assume nbases > 0
-#define bases_in_top_byte(nbases) ((((nbases) - 1) & 3) + 1)
-#define bits_in_top_byte(nbases) (bases_in_top_byte(nbases) * 2)
-
 // Returns number of paths added
-// `pos_pl` is an array of positions in the nodes array of nodes to add
-// paths to
-// `nuc_pl` are the nucleotides denoting this path
-//   nuc_pl[3] is the nucleotide to take leaving nodes[pos_pl[3]]
+// `pos_pl` is an array of positions in the nodes array of nodes to add paths to
+// `packed_ptr` is <plen><seq> and is the nucleotides denoting this path
+//   nuc at [3] is the nucleotide to take leaving nodes[pos_pl[3]]
 // `pos_mn` is an array of junctions running in the opposite direction
 // both pos_pl and pos_mn are sorted in their DIRECTION
 // if pl_is_fw,  pos_pl is 1,3,5,6,12, pos_mn is 15,11,5,2
@@ -158,7 +143,7 @@ static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
 static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      const size_t *restrict pos_mn,
                                      const size_t num_pl, const size_t num_mn,
-                                     const Nucleotide *nuc_pl,
+                                     uint8_t *packed_ptr,
                                      const boolean pl_is_fw,
                                      const dBNode *nodes,
                                      GenPathWorker *wrkr)
@@ -175,24 +160,22 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   boolean printed = false;
 
   #ifdef CTXVERBOSE
-    char str[num_pl+1];
-    for(i = 0; i < num_pl; i++) str[i] = dna_nuc_to_char(nuc_pl[i]);
-    str[num_pl] = '\0';
-    status("[addpath] %s %s", pl_is_fw ? "fw" : "rv", str);
+    // char str[num_pl+1];
+    // for(i = 0; i < num_pl; i++) str[i] = dna_nuc_to_char(nuc_pl[i]);
+    // str[num_pl] = '\0';
+    // status("[addpath] %s %s", pl_is_fw ? "fw" : "rv", str);
   #endif
 
-  // Create packed path with four diff offsets (0..3), point to correct one
+  // <plen><seq> is in packed_ptr
+  // create packed path with remaining 3 diff offsets (1..3)
   size_t pckd_memsize = sizeof(PathLen) + (num_pl+3)/4;
-  uint8_t *packed_ptrs[4], *packed_ptr;
+  uint8_t *packed_ptrs[4], *pckd = packed_ptr+sizeof(PathLen);
 
-  worker_packed_cap(wrkr, pckd_memsize*4);
-  for(i = 0; i < 4; i++) packed_ptrs[i] = wrkr->packed + i*pckd_memsize;
+  for(i = 0; i < 4; i++) packed_ptrs[i] = packed_ptr + i*pckd_memsize;
 
-  packed_ptr = packed_ptrs[0]+sizeof(PathLen);
-  pack_bases(packed_ptr, nuc_pl, num_pl);
-  packed_cpy(packed_ptrs[1]+sizeof(PathLen), packed_ptr, 1, num_pl);
-  packed_cpy(packed_ptrs[2]+sizeof(PathLen), packed_ptr, 2, num_pl);
-  packed_cpy(packed_ptrs[3]+sizeof(PathLen), packed_ptr, 3, num_pl);
+  binary_seq_cpy(packed_ptrs[1]+sizeof(PathLen), pckd, 1, num_pl);
+  binary_seq_cpy(packed_ptrs[2]+sizeof(PathLen), pckd, 2, num_pl);
+  binary_seq_cpy(packed_ptrs[3]+sizeof(PathLen), pckd, 3, num_pl);
 
   // pl => plus in direction
   // mn => minus against direction
@@ -308,17 +291,12 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   return num_added;
 }
 
-#undef bits_in_top_byte
-#undef bases_in_top_byte
-
 static void worker_junctions_to_paths(GenPathWorker *wrkr,
                                       const dBNodeBuffer *contig)
 {
   size_t num_fw = wrkr->num_fw, num_rv = wrkr->num_rv;
   size_t *pos_fw = wrkr->pos_fw, *pos_rv = wrkr->pos_rv;
-  Nucleotide *nuc_fw = wrkr->nuc_fw, *nuc_rv = wrkr->nuc_rv;
-
-  worker_packed_cap(wrkr, (MAX2(num_fw, num_rv)+3)/4);
+  uint8_t *pck_fw = wrkr->pck_fw, *pck_rv = wrkr->pck_rv;
 
   ctx_assert2(num_fw && num_rv, "num_fw: %zu num_rv: %zu", num_fw, num_rv);
 
@@ -326,20 +304,21 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr,
     status("num_fw: %zu num_rv: %zu", num_fw, num_rv);
   #endif
 
-  // Reverse pos_rv, nuc_rv
+  // Reverse pos_rv array; reverse nucleotides if needed later
   size_t i, j, tmp_pos;
-  Nucleotide tmp_nuc;
   for(i = 0, j = num_rv-1; i < j; i++, j--) {
     SWAP(pos_rv[i], pos_rv[j], tmp_pos);
-    SWAP(nuc_rv[i], nuc_rv[j], tmp_nuc);
   }
 
   // _juncs_to_paths returns the number of paths added
   size_t n;
   const dBNode *nodes = contig->data;
 
-  n = _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, nuc_fw, true, nodes, wrkr);
-  if(n) _juncs_to_paths(pos_rv, pos_fw, num_rv, num_fw, nuc_rv, false, nodes, wrkr);
+  n = _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, pck_fw, true, nodes, wrkr);
+  if(n) {
+    binary_seq_reverse_complement(pck_rv+sizeof(PathLen), num_rv);
+    _juncs_to_paths(pos_rv, pos_fw, num_rv, num_fw, pck_rv, false, nodes, wrkr);
+  }
 }
 
 static void worker_contig_to_junctions(GenPathWorker *wrkr,
@@ -360,10 +339,13 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
   Edges edges;
   size_t  i, num_fw = 0, num_rv = 0;
   int indegree, outdegree;
-  Nucleotide *nuc_fw = wrkr->nuc_fw, *nuc_rv = wrkr->nuc_rv;
+  uint8_t *pck_fw, *pck_rv;
   size_t *pos_fw = wrkr->pos_fw, *pos_rv = wrkr->pos_rv;
   Nucleotide nuc;
   BinaryKmer bkmer;
+
+  pck_fw = wrkr->pck_fw+sizeof(PathLen);
+  pck_rv = wrkr->pck_rv+sizeof(PathLen);
 
   dBGraph *db_graph = wrkr->db_graph;
   const size_t kmer_size = wrkr->db_graph->kmer_size;
@@ -381,10 +363,8 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
     if(indegree > 1 && i > 0)
     {
       bkmer = db_node_get_bkmer(db_graph, nodes[i-1].key);
-      nuc = nodes[i-1].orient == FORWARD
-              ? dna_nuc_complement(binary_kmer_first_nuc(bkmer, kmer_size))
-              : binary_kmer_last_nuc(bkmer);
-      nuc_rv[num_rv] = nuc;
+      nuc = db_node_get_first_nuc(bkmer, nodes[i-1].orient, kmer_size);
+      binary_seq_set(pck_rv, num_rv, nuc);
       pos_rv[num_rv++] = i;
     }
 
@@ -395,7 +375,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
     {
       bkmer = db_node_get_bkmer(db_graph, nodes[i+1].key);
       nuc = db_node_get_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
-      nuc_fw[num_fw] = nuc;
+      binary_seq_set(pck_fw, num_fw, nuc);
       pos_fw[num_fw++] = i;
     }
   }

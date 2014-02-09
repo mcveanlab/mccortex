@@ -1,6 +1,7 @@
 #include "global.h"
-#include "packed_path.h"
 #include "all_tests.h"
+#include "packed_path.h"
+#include "binary_seq.h"
 
 static void fill_rand(uint8_t *arr, size_t n)
 {
@@ -49,7 +50,7 @@ static void test_pack_cpy()
   // surrounding array should remain all ones
   memset(out, 0xff, 100);
   for(shift = 0; shift < 4; shift++) {
-    packed_cpy_fast(out+1, d0, shift, 15); // first 4 bytes
+    binary_seq_cpy_fast(out+1, d0, shift, 15); // first 4 bytes
     TASSERT(out[0]==0xff);
     for(i = 1; i < 5; i++) TASSERT(out[i]==0);
     for(i = 5; i < 100; i++) TASSERT(out[i]==0xff);
@@ -69,9 +70,9 @@ static void test_pack_cpy()
     shift = rand() % 4;
     // printf("len: %zu shift: %zu\n", len, shift);
 
-    packed_cpy_slow(slow, in, shift, len);
-    packed_cpy_med(med, in, shift, len);
-    packed_cpy_fast(fast, in, shift, len);
+    binary_seq_cpy_slow(slow, in, shift, len);
+    binary_seq_cpy_med(med, in, shift, len);
+    binary_seq_cpy_fast(fast, in, shift, len);
 
     if(len > shift) {
       // Check with string method to be extra safe
@@ -107,7 +108,7 @@ static void print_nucs(Nucleotide *nucs, size_t len) {
 
 static void test_pack_unpack()
 {
-  test_status("[packedpath] Testing pack_bases() / unpack_bases()");
+  test_status("[packedpath] Testing binary_seq_pack() / binary_seq_unpack()");
 
   uint8_t packed[TLEN];
   Nucleotide bases0[TLEN], bases1[TLEN];
@@ -121,8 +122,8 @@ static void test_pack_unpack()
     len = rand() % (TLEN/2+1);
     rand_nucs(bases0, len);
     memset(packed, 0, TLEN);
-    pack_bases(packed, bases0, len);
-    unpack_bases(packed, bases1, len);
+    binary_seq_pack(packed, bases0, len);
+    binary_seq_unpack(packed, bases1, len);
 
     for(i = 0; i < len && bases0[i] == bases1[i]; i++);
 
@@ -150,13 +151,13 @@ static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shif
   for(i = 0; i < len; i++) bases[i] = dna_char_to_nuc(seq[i]);
 
   // bases -> packed
-  pack_bases(packed, bases, len);
+  binary_seq_pack(packed, bases, len);
 
   // shift cpy
-  packed_cpy(packed2, packed, shift, len);
+  binary_seq_cpy(packed2, packed, shift, len);
 
   // packed -> bases
-  unpack_bases(packed2, bases2, outlen);
+  binary_seq_unpack(packed2, bases2, outlen);
 
   // convert to char
   for(i = 0; i < outlen; i++) seq2[i] = dna_nuc_to_char(bases2[i]);

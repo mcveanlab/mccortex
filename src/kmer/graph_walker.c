@@ -4,6 +4,7 @@
 #include "db_node.h"
 #include "graph_walker.h"
 #include "packed_path.h"
+#include "binary_seq.h"
 
 // hash functions
 #include "jenkins.h"
@@ -29,7 +30,7 @@ FollowPath follow_path_create(const uint8_t *seq, PathLen plen)
 // Get a base from the FollowPath cache
 static inline Nucleotide cache_fetch(const FollowPath *path, size_t pos)
 {
-  return packed_fetch(path->cache, pos - path->first_cached);
+  return binary_seq_get(path->cache, pos - path->first_cached);
 }
 
 // Check if the FollowPath cache needs updated, based of path->pos value

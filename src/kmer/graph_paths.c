@@ -4,6 +4,7 @@
 #include "graph_paths.h"
 #include "packed_path.h"
 #include "bit_macros.h"
+#include "binary_seq.h"
 
 
 // Similar to path_file_filter.c:path_file_load_check()
@@ -246,7 +247,7 @@ boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed
 
     // If fork check nucleotide
     if(n > 1) {
-      Nucleotide expbase = packed_fetch(packed, plen);
+      Nucleotide expbase = binary_seq_get(packed, plen);
 
       for(i = 0; i < n && nucs[i] != expbase; i++);
       if(i == n) {

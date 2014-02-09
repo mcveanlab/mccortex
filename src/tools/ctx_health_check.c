@@ -21,7 +21,8 @@ const char health_usage[] =
 "   -p <in.ctp>    Load paths\n"
 "   --noedgecheck  Don't check kmer edges\n";
 
-// DEV: should load path files one at a time and check them
+// DEV: should load path files one at a time and check them?
+//      doing that won't check merging code.
 
 int ctx_health_check(CmdArgs *args)
 {

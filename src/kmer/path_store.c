@@ -3,6 +3,7 @@
 #include "db_graph.h"
 #include "path_store.h"
 #include "dna.h"
+#include "binary_seq.h"
 
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
@@ -229,7 +230,7 @@ PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
   ptr += paths->colset_bytes;
   memcpy(ptr, &len_and_orient, sizeof(PathLen));
   ptr += sizeof(PathLen);
-  pack_bases(ptr, bases, len);
+  binary_seq_pack(ptr, bases, len);
   // ptr += nbytes;
 
   PathIndex match = path_store_find_or_add_packed(paths, last_index, paths->next,
@@ -278,7 +279,7 @@ void path_store_print_path(const PathStore *paths, PathIndex pindex)
     if(bitset_get(colbitset, i)) printf(" %zu", i);
   printf(")[%u]: ", len);
   for(i = 0; i < len; i++)
-    putc(dna_nuc_to_char(packed_fetch(seq, i)), stdout);
+    putc(dna_nuc_to_char(binary_seq_get(seq, i)), stdout);
   putc('\n', stdout);
 }
 
@@ -305,7 +306,7 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
 
   // Convert packed path to string
   char nucs[plen+1];
-  for(i = 0; i < plen; i++) nucs[i] = dna_nuc_to_char(packed_fetch(seq, i));
+  for(i = 0; i < plen; i++) nucs[i] = dna_nuc_to_char(binary_seq_get(seq, i));
   nucs[plen] = '\0';
 
   // Print
