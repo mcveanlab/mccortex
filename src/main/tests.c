@@ -13,6 +13,7 @@ int main()
   // Call tests
   test_util();
   test_dna_functions();
+  test_binary_seq_functions();
   test_bkmer_functions();
   test_hash_table();
   test_db_node();

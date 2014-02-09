@@ -35,6 +35,8 @@
 #include <string.h>
 #include "city.h"
 
+#define HAVE_BUILTIN_EXPECT 1
+
 static uint64 UNALIGNED_LOAD64(const char *p) {
   uint64 result;
   memcpy(&result, p, sizeof(result));

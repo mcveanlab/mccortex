@@ -29,6 +29,14 @@ extern size_t tests_num_run, tests_num_failed;
 #define TASSERT(x) TASSERT2(x,NULL)
 
 //
+// Useful functions
+//
+void fill_rand(uint8_t *arr, size_t n);
+void rand_nucs(Nucleotide *nucs, size_t len);
+void bitarr_tostr(const uint8_t *arr, size_t len, char *str);
+
+
+//
 // Functions of tests
 //
 
@@ -40,6 +48,9 @@ void test_dna_functions();
 
 // bkmer_tests.c
 void test_bkmer_functions();
+
+// binary_seq_tests.c
+void test_binary_seq_functions();
 
 // hash_table_tests.c
 void test_hash_table();

@@ -3,7 +3,7 @@
 
 #include "dna.h"
 
-const uint8_t revcmp_table[256];
+extern const uint8_t revcmp_table[256];
 
 // assume nbases > 0
 #define bases_in_top_byte(nbases) ((((nbases) - 1) & 3) + 1)

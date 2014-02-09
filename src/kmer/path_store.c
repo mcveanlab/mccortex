@@ -318,32 +318,33 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
 //
 
 // Check data if exactly filled by packed paths
-void path_store_data_integrity_check(const uint8_t *data, size_t size,
-                                     size_t colbytes)
+boolean path_store_data_integrity_check(const uint8_t *data, size_t size,
+                                        size_t colbytes)
 {
   const uint8_t *ptr = data, *end = data+size;
   PathLen plen, nbytes;
   PathIndex prev;
   while(ptr < end) {
     prev = packedpath_get_prev(ptr);
-    ctx_assert(prev == PATH_NULL || prev < size);
+    check_ret(prev == PATH_NULL || prev < size);
 
     plen = packedpath_get_len(ptr, colbytes);
     nbytes = packedpath_len_nbytes(plen);
-    ctx_assert2(nbytes <= size && ptr + nbytes <= end,
-                "nbytes: %zu size: %zu", (size_t)nbytes, (size_t)size);
+    check_ret2(nbytes <= size && ptr + nbytes <= end,
+               "nbytes: %zu size: %zu", (size_t)nbytes, (size_t)size);
 
     ptr += packedpath_mem2(colbytes, nbytes);
   }
-  ctx_assert2(ptr == end, "data: %p end: %p ptr: %p", data, end, ptr);
+  check_ret2(ptr == end, "data: %p end: %p ptr: %p", data, end, ptr);
+  return true;
 }
 
-void path_store_integrity_check(const PathStore *pstore)
+boolean path_store_integrity_check(const PathStore *pstore)
 {
-  ctx_assert2(pstore->end >= pstore->next,
-              "%p, %p, %p", pstore->store, pstore->end, pstore->next);
-  ctx_assert(pstore->next >= pstore->store);
+  check_ret2(pstore->end >= pstore->next,
+             "%p, %p, %p", pstore->store, pstore->end, pstore->next);
+  check_ret(pstore->next >= pstore->store);
   size_t len = pstore->next - pstore->store;
-  ctx_assert(len <= pstore->size);
-  path_store_data_integrity_check(pstore->store, len, pstore->colset_bytes);
+  check_ret(len <= pstore->size);
+  return path_store_data_integrity_check(pstore->store, len, pstore->colset_bytes);
 }

@@ -4,6 +4,7 @@
 #include "build_graph.h"
 #include "path_store.h"
 #include "generate_paths.h"
+#include "graph_paths.h"
 
 static void add_paths(dBGraph *graph, CorrectAlnReadsTask *task,
                       GenPathWorker *wrkrs, const char *seq,
@@ -23,6 +24,24 @@ static void add_paths(dBGraph *graph, CorrectAlnReadsTask *task,
   size_t path_mem = sizeof(PathIndex) + graph->pdata.colset_bytes + sizeof(PathLen);
   size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
   TASSERT(graph->pdata.next == next + exp_mem);
+}
+
+static void test_all_paths(const dBGraph *graph)
+{
+  size_t col;
+  GraphPathPairing gp;
+  gp_alloc(&gp, graph->num_of_cols);
+
+  for(col = 0; col < graph->num_of_cols; col++)
+    gp.ctxcols[col] = gp.ctpcols[col] = col;
+
+  // Check data store
+  TASSERT(path_store_integrity_check(&graph->pdata));
+
+  for(col = 0; col < graph->num_of_cols; col++)
+    TASSERT(graph_paths_check_all_paths(&gp, graph));
+
+  gp_dealloc(&gp);
 }
 
 void test_paths()
@@ -89,6 +108,9 @@ void test_paths()
   // AATCGAATGAC:1 len:2 col:0  AG
   // ACACCAAATCG:1 len:2 col:0  AG
   // CGAATGACACC:1 len:2 col:0  AG
+
+  // Test path store
+  test_all_paths(&graph);
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 

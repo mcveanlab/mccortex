@@ -47,13 +47,15 @@ void binary_seq_reverse_complement(uint8_t *bases, size_t nbases)
 {
   size_t nbytes, top_bits, unused_bits, i, j;
   uint8_t tmpbases;
-  if(nbases == 0) return;
 
   nbytes = (nbases+3)/4;
   top_bits = 2*bases_in_top_byte(nbases);
   unused_bits = 8 - top_bits;
 
-  for(i = 0, j = nbytes-1; i < nbytes; i++, j--) {
+  if(nbases == 0) return;
+  if(nbytes == 1) { bases[0] = revcmp_table[bases[0]] >> unused_bits; return; }
+
+  for(i = 0, j = nbytes-1; i <= j; i++, j--) {
     tmpbases = bases[i];
     bases[i] = revcmp_table[bases[j]];
     bases[j] = revcmp_table[tmpbases];
