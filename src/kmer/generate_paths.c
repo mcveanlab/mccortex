@@ -50,6 +50,7 @@ struct GenPathWorker
 
 // Should we print all paths?
 boolean gen_paths_print_contigs = false, gen_paths_print_paths = false;
+boolean gen_paths_print_reads = false;
 volatile size_t print_contig_id = 0, print_path_id = 0;
 
 
@@ -437,10 +438,12 @@ static void* generate_paths_worker(void *ptr)
 
   AsyncIOData data;
   while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
-    pthread_mutex_lock(&biglock);
-    printf(">read %s %s\n%s %s\n", data.r1.name.b, data.r2.name.b,
-                                   data.r1.seq.b, data.r2.seq.b);
-    pthread_mutex_unlock(&biglock);
+    if(gen_paths_print_reads) {
+      pthread_mutex_lock(&biglock);
+      printf(">read %s %s\n%s %s\n", data.r1.name.b, data.r2.name.b,
+                                     data.r1.seq.b, data.r2.seq.b);
+      pthread_mutex_unlock(&biglock);
+    }
     // status("seq : %s %s", data.r1.seq.b, data.r2.seq.b);
     wrkr->data = data;
     memcpy(&wrkr->task, data.ptr, sizeof(CorrectAlnReadsTask));

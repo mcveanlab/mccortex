@@ -185,6 +185,11 @@ int correct_reads_parse(int argc, char **argv,
       // ctx_thread can print out paths
       gen_paths_print_paths = true;
     }
+    else if(!out_arg && strcmp(argv[argi],"--printreads") == 0)
+    {
+      // ctx_thread can print out reads
+      gen_paths_print_reads = true;
+    }
     else if(use_pe && strcasecmp(argv[argi],"--minIns") == 0)
     {
       if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &min_ins))
