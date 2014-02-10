@@ -36,10 +36,15 @@
 #define malloc2(mem) ctx_malloc(mem,__FILE__,__func__,__LINE__)
 #define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__func__,__LINE__)
 #define realloc2(ptr,mem) ctx_realloc(ptr,mem,__FILE__,__func__,__LINE__)
+#define recalloc2(ptr,old,new) ctx_recalloc(ptr,old,new,__FILE__,__func__,__LINE__)
 
 void* ctx_malloc(size_t mem, const char *file, const char *func, int line);
 void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line);
 void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int line);
+
+// Resize memory, zero new memory
+void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
+                   const char *file, const char *func, int line);
 
 //
 // Internal Integrity Checks: ctx_check(), ctx_assert(), ctx_assume()

@@ -25,7 +25,17 @@ endif
 # Use bash as shell
 SHELL := /bin/bash
 
-CTX_VERSION=0.0.1
+
+## Release version
+#
+# CTX_VERSION=0.1
+# RECOMPILE=1
+#
+## Develop version
+
+DEV_CFLAGS=-DCTXCHECKS=1
+
+##
 
 NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
 
@@ -132,7 +142,7 @@ ifdef VERBOSE
 endif
 
 CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) $(OUTPUT_ARGS) \
-          $(HASH_KEY_FLAGS) -D_USESAM=1 -DCTXCHECKS=1
+          $(HASH_KEY_FLAGS) -D_USESAM=1 $(DEV_CFLAGS)
 
 KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
          -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS)
@@ -178,10 +188,12 @@ all: ctx tests hashtest
 # This Makefile mastery borrowed from htslib [https://github.com/samtools/htslib]
 # If git repo, grab commit hash to use in version
 # Force version.h to be remade if $(CTX_VERSION) has changed.
+ifndef CTX_VERSION
 ifneq "$(wildcard .git)" ""
 #CTX_VERSION := $(shell git describe --always --dirty)
 CTX_VERSION := $(shell git log --pretty=format:'%h' -n 1 --tags)
 src/basic/version.h: $(if $(wildcard src/basic/version.h),$(if $(findstring "$(CTX_VERSION)",$(shell cat src/basic/version.h)),,force))
+endif
 endif
 
 src/basic/version.h:

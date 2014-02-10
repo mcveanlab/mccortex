@@ -45,6 +45,19 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int
   return ptr2;
 }
 
+// Resize memory, zero new memory
+void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
+                   const char *file, const char *func, int line)
+{
+  ptr = ctx_realloc(ptr, newsize, file, func, line);
+  memset(ptr+oldsize, 0, newsize-oldsize);
+  return ptr;
+}
+
+//
+// Checks and asserts
+//
+
 void call_assert2(const char *file, const char *func, int line,
                   const char *asserttxt, const char *fmt, va_list argptr)
 {

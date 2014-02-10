@@ -56,7 +56,7 @@ void binary_seq_reverse_complement(uint8_t *bases, size_t nbases)
   unused_bits = 8 - top_bits;
   topbyte = bases[nbytes-1];
 
-  if(nbytes <= 1) {
+  if(nbytes == 1) {
     // Cast to size_t so >>8 isn't undefined
     bases[0] = ((size_t)revcmp_table[bases[0]] >> unused_bits) |
                (topbyte & (((size_t)255 >> top_bits) << top_bits));

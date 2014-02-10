@@ -79,7 +79,7 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
   // Junction data
   // only fw arrays are malloc'd, rv point to fw
   tmp.junc_arrsize = INIT_BUFLEN;
-  tmp.pck_fw = malloc2(binary_seq_mem(tmp.junc_arrsize) * 2);
+  tmp.pck_fw = calloc2(2, binary_seq_mem(tmp.junc_arrsize));
   tmp.pck_rv = tmp.pck_fw + binary_seq_mem(tmp.junc_arrsize);
 
   tmp.pos_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_fw) * 2);
@@ -114,12 +114,21 @@ void gen_paths_workers_dealloc(GenPathWorker *workers, size_t n)
   free(workers);
 }
 
-static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t cap)
+static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
 {
-  if(cap > wrkr->junc_arrsize) {
-    wrkr->junc_arrsize = roundup2pow(cap);
-    wrkr->pck_fw = realloc2(wrkr->pck_fw, binary_seq_mem(wrkr->junc_arrsize)*2);
-    wrkr->pck_rv = wrkr->pck_fw + binary_seq_mem(wrkr->junc_arrsize);
+  size_t old_cap = wrkr->junc_arrsize, old_pck_mem, new_pck_mem;
+
+  if(req_cap > old_cap)
+  {
+    wrkr->junc_arrsize = roundup2pow(req_cap);
+
+    // use recalloc which zeros new memory
+    // Zero new memory to keep valgrind happy :(
+    old_pck_mem = binary_seq_mem(old_cap);
+    new_pck_mem = binary_seq_mem(wrkr->junc_arrsize);
+    wrkr->pck_fw = recalloc2(wrkr->pck_fw, old_pck_mem*2, new_pck_mem*2);
+    wrkr->pck_rv = wrkr->pck_fw + new_pck_mem;
+
     wrkr->pos_fw = realloc2(wrkr->pos_fw, 2 * wrkr->junc_arrsize * sizeof(size_t));
     wrkr->pos_rv = wrkr->pos_fw + wrkr->junc_arrsize;
   }
