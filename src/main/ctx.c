@@ -92,7 +92,7 @@ CtxCmd cmdobjs[] = {
   .usage = thread_usage,
 },
 {
-  .cmd = "correct", .func = ctx_correct, .hide = 1,
+  .cmd = "correct", .func = ctx_correct, .hide = 0,
   .minargs = 2, .maxargs = INT_MAX, .optargs = "atmp", .reqargs = "",
   .blurb = "error correct reads",
   .usage = correct_usage
@@ -137,7 +137,7 @@ CtxCmd cmdobjs[] = {
 static const char header[] =
 "\n"
 "usage: "CMD" <command> [options] <args>\n"
-"version: "CTXVERSIONSTR"; zlib: "ZLIB_VERSION"\n"
+"version: "VERSION_STATUS_STR"\n"
 "\n";
 
 static const char options[] =
@@ -208,18 +208,6 @@ static const CtxCmd* ctx_get_command(const char* cmd)
   return NULL;
 }
 
-
-#ifdef NDEBUG
-  #define ASSERTSTR " ASSERTS=OFF"
-#else
-  #define ASSERTSTR " ASSERTS=ON"
-#endif
-#ifdef CTXCHECKS
-  #define CHECKSTR " CHECKS=ON"
-#else
-  #define CHECKSTR " CHECKS=OFF"
-#endif
-
 int main(int argc, char **argv)
 {
   CmdArgs args;
@@ -239,11 +227,11 @@ int main(int argc, char **argv)
   // Once we have set cmd_usage, we can call cmd_print_usage() from anywhere
   cmd_usage = cmd->usage;
 
-  status("[cmd] %s\n", args.cmdline);
-  status("[version] "CTXVERSIONSTR"; zlib: "ZLIB_VERSION ASSERTSTR CHECKSTR"\n");
-
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
+
+  status("[cmd] %s\n", args.cmdline);
+  status("[version] "VERSION_STATUS_STR"\n");
 
   // Check number of args, required args, optional args
   cmd_accept_options(&args, cmd->optargs, cmd->usage);

@@ -29,6 +29,23 @@
 //  NUM_BKMER_WORDS  Number of 64 bit words used to store a kmer roundup(k/32)
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 
+#ifdef NDEBUG
+  #define ASSERTSTR " ASSERTS=OFF"
+#else
+  #define ASSERTSTR " ASSERTS=ON"
+#endif
+#ifdef CTXCHECKS
+  #define CHECKSTR " CHECKS=ON"
+#else
+  #define CHECKSTR " CHECKS=OFF"
+#endif
+
+#if defined(CTXCHECKS) && CTXCHECKS == 0
+  #undef CTXCHECKS
+#endif
+
+#define VERSION_STATUS_STR CTXVERSIONSTR"; zlib: "ZLIB_VERSION ASSERTSTR CHECKSTR" k="QUOTE_VALUE(MIN_KMER_SIZE)".."QUOTE_VALUE(MAX_KMER_SIZE)
+
 //
 // dynamic memory allocation with checks
 //
@@ -63,10 +80,6 @@ void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
 //            | Default  |     CTXCHECKS=1
 //----------------------------------------------
 // ctx_check  | nothing  |  slow check + abort()
-
-#if defined(CTXCHECKS) && CTXCHECKS == 0
-  #undef CTXCHECKS
-#endif
 
 void call_assert(const char *file, const char *func, int line,
                  const char *assert, const char *fmt, ...)

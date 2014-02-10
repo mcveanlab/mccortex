@@ -7,8 +7,9 @@ int main()
   cortex_init();
   ctx_msg_out = NULL;
   ctx_tst_out = stdout;
-  test_status("Min kmer-size: %i, max kmer-size: %i", MIN_KMER_SIZE, MAX_KMER_SIZE);
+
   test_status("Tests running...");
+  test_status("[version] "VERSION_STATUS_STR"\n"); // defined in global.h
 
   // Call tests
   test_util();
