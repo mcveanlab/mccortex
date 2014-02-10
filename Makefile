@@ -26,15 +26,12 @@ endif
 SHELL := /bin/bash
 
 
-## Release version
+## Toggle Release Version
 #
+# RELEASE=1
 # CTX_VERSION=0.1
 # RECOMPILE=1
 #
-## Develop version
-
-DEV_CFLAGS=-DCTXCHECKS=1
-
 ##
 
 NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
@@ -77,7 +74,15 @@ LIB_HTS=libs/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 # LIB_STRS=libs/string_buffer/libstrbuf.a
 LIB_STRS=libs/string_buffer/string_buffer.c
-LIB_MISC=$(wildcard libs/misc/*.o)
+
+MISC_SRCS=$(wildcard libs/misc/*.c)
+MISC_OBJS=$(MISC_SRCS:.c=.o)
+
+ifdef RELEASE
+	LIB_MISC=$(MISC_SRCS)
+else
+	LIB_MISC=$(MISC_OBJS)
+endif
 
 ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
@@ -139,6 +144,10 @@ endif
 
 ifdef VERBOSE
 	OUTPUT_ARGS=-DCTXVERBOSE=1
+endif
+
+ifndef RELEASE
+	DEV_CFLAGS=-DCTXCHECKS=1
 endif
 
 CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) $(OUTPUT_ARGS) \
@@ -208,6 +217,10 @@ $(KMER_OBJDIR)/%.o: src/kmer/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(DEPS)
 $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
 	$(CC) $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $< -o $@
 
+# Misc library code
+libs/misc/%.o: libs/misc/%.c libs/misc/%.h
+	$(CC) $(CFLAGS) -c libs/misc/$*.c -o libs/misc/$*.o
+
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
 	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
@@ -231,7 +244,7 @@ libs/string_buffer/string_buffer.h:
 	cd libs; make
 
 clean:
-	rm -rf bin build
+	rm -rf bin build lib/misc/*.o
 
 force:
 

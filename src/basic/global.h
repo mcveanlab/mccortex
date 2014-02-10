@@ -72,7 +72,7 @@ void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
 // ctx_check()  behaves like assert() when CTXCHECKS=1 but for heavy checks
 //              without CTXCHECKS, does nothing
 //
-//            | Default  |       NDEBUG=1
+//            | NDEBUG=1 |      Default
 //----------------------------------------------
 // ctx_assert | nothing  |  fast check + abort()
 // ctx_assume | optimise |  fast check + abort()
