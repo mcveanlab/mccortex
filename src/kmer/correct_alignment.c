@@ -283,6 +283,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   const size_t gap_wiggle = params->gap_wiggle;
   const size_t ins_gap_min = params->ins_gap_min;
   const size_t ins_gap_max = params->ins_gap_max;
+  const size_t kmer_size = wrkr->db_graph->kmer_size;
 
   // worker_generate_contigs ensures contig is at least nodes->len long
   boolean both_reads = (aln->used_r1 && aln->used_r2);
@@ -310,7 +311,10 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     // Get bound for acceptable bridge length (min,max length values)
     is_mp = (both_reads && wrkr->gap_idx == aln->r2strtidx);
-    gap_est = gaps->data[wrkr->gap_idx];
+
+    // gap_est is how many bp we lost through low qual scores, hp runs etc.
+    // convert bp -> kmer space
+    gap_est = gaps->data[wrkr->gap_idx] + kmer_size - 1;
     if(is_mp) gap_est += aln->r1enderr;
 
     gap_min_long = (long)gap_est - (long)(gap_est * gap_variance + gap_wiggle);

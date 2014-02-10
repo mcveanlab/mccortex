@@ -228,7 +228,7 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
     return;
   }
 
-  status("Parsing sequence files %s %s\n", sf1->path, sf2->path);
+  status("[seq] Parsing sequence files %s %s\n", sf1->path, sf2->path);
   // Guess offset if needed
   uint8_t qoffset1 = ascii_fq_offset, qoffset2 = ascii_fq_offset;
   uint8_t qmin1 = ascii_fq_offset, qmin2 = ascii_fq_offset;
@@ -292,7 +292,7 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
                                        void *ptr),
                      void *reader_ptr)
 {
-  status("Parsing sequence file %s", sf->path);
+  status("[seq] Parsing sequence file %s", sf->path);
 
   // Guess offset if needed
   uint8_t qoffset = ascii_fq_offset;
