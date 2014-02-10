@@ -62,7 +62,7 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
         if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
         else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
 
-        bkey = db_node_get_key(bkmer, kmer_size);
+        bkey = bkmer_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
         ctx_assert(next != HASH_NOT_FOUND);
 
@@ -108,7 +108,7 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
         if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
         else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
 
-        bkey = db_node_get_key(bkmer, kmer_size);
+        bkey = bkmer_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
 
         if(next != HASH_NOT_FOUND) {

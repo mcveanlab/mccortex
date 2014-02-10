@@ -101,10 +101,10 @@ dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer, Colour 
   boolean found;
   Orientation orient;
 
-  bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
   hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, &found,
                                       db_graph->bktlocks);
-  orient = db_node_get_orientation(bkey, bkmer);
+  orient = bkmer_get_orientation(bkey, bkmer);
 
   if(db_graph->node_in_cols != NULL) db_node_set_col_mt(db_graph, hkey, col);
   if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, hkey, col);
@@ -117,9 +117,9 @@ dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer)
 {
   dBNode node;
   BinaryKmer bkey;
-  bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
   node.key = hash_table_find(&db_graph->ht, bkey);
-  node.orient = db_node_get_orientation(bkmer, bkey);
+  node.orient = bkmer_get_orientation(bkmer, bkey);
   return node;
 }
 
@@ -129,12 +129,9 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 {
   if(db_graph->col_edges == NULL) return;
 
-  BinaryKmer src_bkmer = db_node_get_bkmer(db_graph, src.key);
-  BinaryKmer tgt_bkmer = db_node_get_bkmer(db_graph, tgt.key);
-
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
-  lhs_nuc = db_node_get_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
-  rhs_nuc = db_node_get_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
+  lhs_nuc = db_node_get_first_nuc(src, db_graph);
+  rhs_nuc = db_node_get_last_nuc(tgt, db_graph);
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
@@ -145,12 +142,9 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 // For debugging + healthcheck
 void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 {
-  BinaryKmer src_bkmer = db_node_get_bkmer(db_graph, src.key);
-  BinaryKmer tgt_bkmer = db_node_get_bkmer(db_graph, tgt.key);
-
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
-  lhs_nuc = db_node_get_first_nuc(src_bkmer, src.orient, db_graph->kmer_size);
-  rhs_nuc = db_node_get_last_nuc(tgt_bkmer, tgt.orient, db_graph->kmer_size);
+  lhs_nuc = db_node_get_first_nuc(src, db_graph);
+  rhs_nuc = db_node_get_last_nuc(tgt, db_graph);
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
@@ -345,7 +339,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
         if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
         else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
 
-        bkey = db_node_get_key(bkmer, kmer_size);
+        bkey = bkmer_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
 
         if(next != HASH_NOT_FOUND)

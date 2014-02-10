@@ -18,15 +18,6 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
   return db_graph->ht.table[hkey];
 }
 
-//
-// Get binary kmer key
-//
-// For a given kmer, get the BinaryKmer 'key':
-// the lower of the kmer vs reverse complement of itself
-BinaryKmer db_node_get_key(const BinaryKmer kmer, size_t kmer_size);
-
-#define db_node_to_str(graph,node,str) \
-        binary_kmer_to_str(db_node_bkmer(graph,node), (graph)->kmer_size, (str))
 
 //
 // kmer in colours
@@ -92,32 +83,48 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
         ((volatile PathIndex *)&(graph)->kmer_paths[(node)])
 
 //
+// BinaryKmer + Orientations (bkmer_*)
+//
+
+// For a given kmer, get the BinaryKmer 'key':
+// the lower of the kmer vs reverse complement of itself
+BinaryKmer bkmer_get_key(const BinaryKmer kmer, size_t kmer_size);
+
+#define bkmer_get_orientation(bkmer,bkey) \
+        (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
+
+#define bkmer_oriented_bkmer(bkmer,or,ksize) \
+        (or == FORWARD ? bkmer : binary_kmer_reverse_complement(bkmer,ksize))
+
+#define bkmer_get_first_nuc(bkmer,or,ksize) \
+  ((or) == FORWARD ? binary_kmer_first_nuc(bkmer,ksize) \
+                   : dna_nuc_complement(binary_kmer_last_nuc(bkmer)))
+
+#define bkmer_get_last_nuc(bkmer,or,ksize) \
+  ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
+                   : dna_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
+
+#define bkmer_shift_add_first_nuc(bkmer,or,ksize,nuc) \
+  ((or) == FORWARD ? binary_kmer_right_shift_add(bkmer,ksize,nuc) \
+                   : binary_kmer_left_shift_add(bkmer,ksize,binary_kmer_first_nuc(nuc)))
+
+#define bkmer_shift_add_last_nuc(bkmer,or,ksize,nuc) \
+  ((or) == FORWARD ? binary_kmer_left_shift_add(bkmer,ksize, nuc) \
+                   : binary_kmer_right_shift_add(bkmer,ksize,dna_nuc_complement(nuc)))
+
+//
 // Orientations
 //
 #define rev_orient(or) (!(or))
 #define opposite_orientation(or) rev_orient(or)
 
-#define db_node_get_orientation(bkmer,bkey) \
-        (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
+#define db_node_get_first_nuc(node,graph) \
+        bkmer_get_first_nuc(db_node_get_bkmer((node).key,graph), (node).orient,\
+                            (graph)->kmer_size)
 
-#define db_node_oriented_bkmer(bkmer,or,ksize) \
-        (or == FORWARD ? bkmer : binary_kmer_reverse_complement(bkmer,ksize))
-
-#define db_node_get_first_nuc(bkmer,or,ksize) \
-  ((or) == FORWARD ? binary_kmer_first_nuc(bkmer,ksize) \
-                   : dna_nuc_complement(binary_kmer_last_nuc(bkmer)))
-
-#define db_node_get_last_nuc(bkmer,or,ksize) \
-  ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
-                   : dna_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
-
-#define db_node_shift_add_first_nuc(bkmer,or,ksize,nuc) \
-  ((or) == FORWARD ? binary_kmer_right_shift_add(bkmer,ksize,nuc) \
-                   : binary_kmer_left_shift_add(bkmer,ksize,binary_kmer_first_nuc(nuc)))
-
-#define db_node_shift_add_last_nuc(bkmer,or,ksize,nuc) \
-  ((or) == FORWARD ? binary_kmer_left_shift_add(bkmer,ksize, nuc) \
-                   : binary_kmer_right_shift_add(bkmer,ksize,dna_nuc_complement(nuc)))
+#define db_node_get_last_nuc(node,graph) \
+        bkmer_get_last_nuc(db_node_get_bkmer((node).key,graph), (node).orient,\
+                           (graph)->kmer_size)
 
 static inline dBNode db_node_reverse(dBNode node) {
   node.orient = !node.orient;

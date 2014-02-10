@@ -51,18 +51,18 @@ boolean seq_reads_are_novel(const read_t *r1, const read_t *r2,
   if(got_kmer1)
   {
     curr_kmer = binary_kmer_from_str(r1->seq.b+start1, kmer_size);
-    tmp_key = db_node_get_key(curr_kmer, kmer_size);
+    tmp_key = bkmer_get_key(curr_kmer, kmer_size);
     node1 = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found1);
-    or1 = db_node_get_orientation(curr_kmer, tmp_key);
+    or1 = bkmer_get_orientation(curr_kmer, tmp_key);
   }
 
   // Look up second kmer
   if(got_kmer2)
   {
     curr_kmer = binary_kmer_from_str(r2->seq.b+start2, kmer_size);
-    tmp_key = db_node_get_key(curr_kmer, kmer_size);
+    tmp_key = bkmer_get_key(curr_kmer, kmer_size);
     node2 = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found2);
-    or2 = db_node_get_orientation(curr_kmer, tmp_key);
+    or2 = bkmer_get_orientation(curr_kmer, tmp_key);
   }
 
   // Each read gives no kmer or a duplicate kmer
@@ -93,9 +93,9 @@ boolean seq_read_is_novel(const read_t *r, dBGraph *db_graph,
   if(start == r->seq.end) return 1;
 
   bkmer = binary_kmer_from_str(r->seq.b+start, db_graph->kmer_size);
-  tmp_key = db_node_get_key(bkmer, db_graph->kmer_size);
+  tmp_key = bkmer_get_key(bkmer, db_graph->kmer_size);
   node = hash_table_find_or_insert(&db_graph->ht, tmp_key, &found);
-  or = db_node_get_orientation(bkmer, tmp_key);
+  or = bkmer_get_orientation(bkmer, tmp_key);
 
   if(db_node_has_read_start_mt(db_graph, node, or)) return false;
 
@@ -252,7 +252,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
   size_t i, j;
   MsgPool pool;
-  msgpool_alloc_spinlock(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
   msgpool_iterate(&pool, asynciodata_pool_init, NULL);
 
   // Start async io reading

@@ -70,40 +70,6 @@ void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
   wrkr->gap_idx = wrkr->end_idx = db_alignment_next_gap(aln, 0);
 }
 
-static void prime_for_traversal(GraphWalker *wlk,
-                                const dBNode *block, size_t n,
-                                size_t max_context, boolean forward,
-                                size_t ctxcol, size_t ctpcol,
-                                const dBGraph *db_graph)
-{
-  ctx_assert(n > 0);
-  dBNode node0;
-
-  // printf("Prime [%zu]: ", n);
-  // db_nodes_print(block, n, db_graph, stdout);
-  // printf("\n");
-
-  ctx_check(db_node_check_nodes(block, n, db_graph));
-
-  if(n > max_context) {
-    if(forward) block = block + n - max_context;
-    n = max_context;
-  }
-
-  if(forward) { node0 = block[0]; block++; }
-  else { node0 = db_node_reverse(block[n-1]); }
-
-  // status("prime_for_traversal() %zu:%i n=%zu %s", (size_t)node0.key, node0.orient,
-  //        n, forward ? "forward" : "reverse");
-
-  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0);
-  // graph_walker_fast_traverse(wlk, block, n-1, forward);
-  graph_walker_slow_traverse(wlk, block, n-1, forward);
-
-  // For debugging
-  // graph_walker_print_state(wlk);
-}
-
 // Resets node buffer, GraphWalker and RepeatWalker after use
 static boolean traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
                                  size_t gap_min, size_t gap_max,
@@ -222,8 +188,8 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
   boolean traversed;
 
   // Start traversing forward
-  prime_for_traversal(&wrkr->wlk, nbuf->data, nbuf->len,
-                      params->max_context, true, ctxcol, ctpcol, db_graph);
+  graph_walker_prime(&wrkr->wlk, nbuf->data, nbuf->len,
+                     params->max_context, true, ctxcol, ctpcol, db_graph);
 
   traversed
     = traverse_one_way2(aln_nodes[gap_idx],
@@ -235,8 +201,8 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
   if(traversed) return true;
 
   // Start traversing backwards
-  prime_for_traversal(&wrkr->wlk, aln_nodes+gap_idx, block1len,
-                      params->max_context, false, ctxcol, ctpcol, db_graph);
+  graph_walker_prime(&wrkr->wlk, aln_nodes+gap_idx, block1len,
+                     params->max_context, false, ctxcol, ctpcol, db_graph);
 
   traversed
     = traverse_one_way2(db_node_reverse(aln_nodes[gap_idx-1]),
@@ -257,10 +223,10 @@ static boolean traverse_two_way(CorrectAlnWorker *wrkr,
   const size_t block1len = end_idx-gap_idx;
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
 
-  prime_for_traversal(&wrkr->wlk, wrkr->contig.data, wrkr->contig.len,
-                      params->max_context, true, ctxcol, ctpcol, db_graph);
-  prime_for_traversal(&wrkr->wlk2, nodes+gap_idx, block1len,
-                      params->max_context, false, ctxcol, ctpcol, db_graph);
+  graph_walker_prime(&wrkr->wlk, wrkr->contig.data, wrkr->contig.len,
+                     params->max_context, true, ctxcol, ctpcol, db_graph);
+  graph_walker_prime(&wrkr->wlk2, nodes+gap_idx, block1len,
+                     params->max_context, false, ctxcol, ctpcol, db_graph);
 
   return traverse_two_way2(&wrkr->contig, &wrkr->revcontig,
                            gap_min, gap_max, gap_len_ptr,
@@ -391,7 +357,7 @@ size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr) {
 
 // Called after correct_alignment_nxt()
 size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr) {
-  return wrkr->start_idx;
+  return wrkr->start_idx; // start has moved on, so is now where gap_idx was
 }
 
 uint64_t* correct_alignment_get_errhist(CorrectAlnWorker *wrkr, size_t *n) {

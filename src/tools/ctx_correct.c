@@ -16,7 +16,7 @@
 #include "loading_stats.h"
 #include "seq_reader.h"
 
-// DEV: add back lost bases from edges of contigs
+// DEV: toggle printing N / read sequence
 
 const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx> [...]\n"
@@ -38,10 +38,12 @@ const char correct_usage[] =
 " --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
 " --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n";
 
+#define MAX_CONTEXT 50
 
 typedef struct {
   StrBuf out1, out2;
   gzFile gz1, gz2;
+  pthread_mutex_t lock;
 } CorrectedOutput;
 
 typedef struct {
@@ -51,18 +53,24 @@ typedef struct {
   CorrectAlnWorker corrector;
   CorrectAlnReadsTask *input;
   LoadingStats stats;
-  pthread_mutex_t lock;
+  // For filling in gaps
+  GraphWalker wlk;
+  RepeatWalker rptwlk;
+  StrBuf buf1, buf2;
+  dBNodeBuffer tmpnbuf;
 } CorrectReadsWorker;
 
 // Returns true on success, false on error
-static boolean corrected_output_alloc(CorrectedOutput *out,
-                                      CorrectAlnReadsTask *in)
+static boolean corrected_output_open(CorrectedOutput *out,
+                                     CorrectAlnReadsTask *in)
 {
   out->gz1 = out->gz2 = NULL;
   const char *base = (const char*)in->ptr;
   StrBuf *out1 = &out->out1, *out2 = &out->out2;
   strbuf_alloc(out1, 512);
   strbuf_alloc(out2, 512);
+
+  if(pthread_mutex_init(&out->lock, NULL) != 0) die("Mutex init failed");
 
   if(in->file2 == NULL) {
     strbuf_append_str(out1, base);
@@ -72,8 +80,10 @@ static boolean corrected_output_alloc(CorrectedOutput *out,
       return false;
     }
     out->gz1 = gzopen(out1->buff, "w");
-    if(out->gz1 == NULL) warn("Cannot write to: %s", out1->buff);
-    return (out->gz1 != NULL);
+    if(out->gz1 == NULL) {
+      warn("Cannot write to: %s", out1->buff);
+      return false;
+    }
   } else {
     strbuf_append_str(out1, base);
     strbuf_append_str(out2, base);
@@ -89,20 +99,33 @@ static boolean corrected_output_alloc(CorrectedOutput *out,
       warn("File already exists: %s", out2->buff);
       fexists = true;
     }
-    if(fexists) return true;
+    if(fexists) return false;
 
     out->gz1 = gzopen(out1->buff, "w");
     out->gz2 = gzopen(out2->buff, "w");
     if(out->gz1 == NULL) warn("Cannot write to: %s", out1->buff);
     if(out->gz2 == NULL) warn("Cannot write to: %s", out2->buff);
-    return (out->gz1 != NULL && out->gz2 != NULL);
+    if(out->gz1 == NULL || out->gz2 == NULL) return false;
   }
+
+  return true;
 }
 
-static void corrected_output_clean_up(CorrectedOutput *out)
+static void corrected_output_close(CorrectedOutput *out)
 {
-  if(out->gz1 != NULL) { gzclose(out->gz1); unlink(out->out1.buff); }
-  if(out->gz2 != NULL) { gzclose(out->gz2); unlink(out->out2.buff); }
+  if(out->gz1 != NULL) gzclose(out->gz1);
+  if(out->gz2 != NULL) gzclose(out->gz2);
+  out->gz1 = out->gz2 = NULL;
+  strbuf_dealloc(&out->out1);
+  strbuf_dealloc(&out->out2);
+  pthread_mutex_destroy(&out->lock);
+}
+
+static void corrected_output_delete(CorrectedOutput *out)
+{
+  if(out->gz1 != NULL) unlink(out->out1.buff);
+  if(out->gz2 != NULL) unlink(out->out2.buff);
+  corrected_output_close(out);
 }
 
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
@@ -114,38 +137,151 @@ static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
   db_alignment_alloc(&wrkr->aln);
   correct_aln_worker_alloc(&wrkr->corrector, db_graph);
   loading_stats_init(&wrkr->stats);
-  if(pthread_mutex_init(&wrkr->lock, NULL) != 0) die("Mutex init failed");
+  graph_walker_alloc(&wrkr->wlk);
+  rpt_walker_alloc(&wrkr->rptwlk, db_graph->ht.capacity, 22); // 4MB bloom
+  strbuf_alloc(&wrkr->buf1, 1024);
+  strbuf_alloc(&wrkr->buf2, 1024);
+  db_node_buf_alloc(&wrkr->tmpnbuf, 512);
 }
 
 static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
 {
-  pthread_mutex_destroy(&wrkr->lock);
   db_alignment_dealloc(&wrkr->aln);
   correct_aln_worker_dealloc(&wrkr->corrector);
+  graph_walker_dealloc(&wrkr->wlk);
+  rpt_walker_dealloc(&wrkr->rptwlk);
+  strbuf_dealloc(&wrkr->buf1);
+  strbuf_dealloc(&wrkr->buf2);
+  db_node_buf_dealloc(&wrkr->tmpnbuf);
 }
 
-static boolean handle_read(CorrectReadsWorker *wrkr, gzFile gz,
-                           read_t *r, uint8_t fq_cutoff, uint8_t hp_cutoff)
+static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
+                        uint8_t fq_cutoff, uint8_t hp_cutoff)
 {
-  dBNodeBuffer *nbuf;
-  boolean output = false;
+  dBNodeBuffer *nbuf, *tmpnbuf = &wrkr->tmpnbuf;
+  dBAlignment *aln = &wrkr->aln;
+  GraphWalker *wlk = &wrkr->wlk;
+  RepeatWalker *rptwlk = &wrkr->rptwlk;
+  const dBGraph *db_graph = wrkr->db_graph;
+  const size_t kmer_size = db_graph->kmer_size;
+
+  size_t i, idx, gap, num_n, nbases;
+  size_t init_len, end_len;
+  BinaryKmer bkmer;
+  Nucleotide nuc;
+  char bkmerstr[MAX_KMER_SIZE+1];
 
   db_alignment_from_reads(&wrkr->aln, r, NULL,
-                          fq_cutoff, 0, hp_cutoff,
-                          wrkr->db_graph);
+                          fq_cutoff, 0, hp_cutoff, db_graph);
 
   // Correct sequence errors in the alignment
   correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->input->crt_params);
 
-  while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL) {
-    if(!output) gzprintf(gz, ">%s\n", r->name.b);
-    else gzprintf(gz, "N");
-    db_nodes_gzprint(nbuf->data, nbuf->len, wrkr->db_graph, gz);
-    output = true;
-  }
-  if(output) gzprintf(gz, "\n");
+  // Get first alignment
+  nbuf = correct_alignment_nxt(&wrkr->corrector);
 
-  return output;
+  // Extend left
+  strbuf_reset(buf);
+  strbuf_append_char(buf, '>');
+  strbuf_append_strn(buf, r->name.b, r->name.end);
+  strbuf_append_char(buf, '\n');
+
+  if(nbuf == NULL) {
+    for(i = 0; i < r->seq.end; i++) strbuf_append_char(buf, 'N');
+    strbuf_append_char(buf, '\n');
+    return;
+  }
+
+  // extend left
+  size_t left_gap = aln->gaps.data[0], right_gap = aln->r1enderr;
+
+  if(left_gap > 0)
+  {
+    // Walk left
+    graph_walker_prime(wlk, nbuf->data, nbuf->len, MAX_CONTEXT, false,
+                       0, 0, db_graph);
+
+    db_node_buf_reset(tmpnbuf);
+    db_node_buf_ensure_capacity(nbuf, left_gap);
+
+    while(tmpnbuf->len < left_gap && graph_traverse(wlk) &&
+          rpt_walker_attempt_traverse(rptwlk, wlk))
+    {
+      tmpnbuf->data[tmpnbuf->len++] = wlk->node;
+    }
+
+    graph_walker_finish(wlk);
+    rpt_walker_fast_clear(rptwlk, tmpnbuf->data, tmpnbuf->len);
+
+    // Add Ns for bases we couldn't resolve
+    for(i = tmpnbuf->len; i < left_gap; i++) strbuf_append_char(buf, 'N');
+
+    // Append bases
+    for(i = tmpnbuf->len-1; i != SIZE_MAX; i--) {
+      nuc = db_node_get_first_nuc(db_node_reverse(tmpnbuf->data[i]), db_graph);
+      strbuf_append_char(buf, dna_nuc_to_char(nuc));
+    }
+  }
+
+  // Append first contig
+  bkmer = db_graph_oriented_bkmer(db_graph, nbuf->data[0]);
+  binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
+  strbuf_append_strn(buf, bkmerstr, kmer_size);
+  for(i = 1; i < nbuf->len; i++) {
+    nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
+    strbuf_append_char(buf, dna_nuc_to_char(nuc));
+  }
+
+  while(correct_alignment_get_endidx(&wrkr->corrector) < aln->nodes.len)
+  {
+    nbuf = correct_alignment_nxt(&wrkr->corrector);
+    ctx_assert(nbuf != NULL);
+    idx = correct_alignment_get_strtidx(&wrkr->corrector);
+    gap = aln->gaps.data[idx];
+    num_n = gap < kmer_size ? 1 : gap - kmer_size + 1;
+    for(i = 0; i < num_n; i++) strbuf_append_char(buf, 'N');
+
+    nbases = MIN2(gap, kmer_size);
+    binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
+    strbuf_append_strn(buf, bkmerstr+kmer_size-nbases, nbases);
+
+    for(i = 1; i < nbuf->len; i++) {
+      nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
+      strbuf_append_char(buf, dna_nuc_to_char(nuc));
+    }
+  }
+
+  // extend right
+  if(right_gap > 0)
+  {
+    // walk right
+    graph_walker_prime(wlk, nbuf->data, nbuf->len, MAX_CONTEXT, true,
+                       0, 0, db_graph);
+
+    init_len = nbuf->len;
+    end_len = init_len + right_gap;
+    db_node_buf_ensure_capacity(nbuf, end_len);
+
+    while(nbuf->len < end_len && graph_traverse(wlk) &&
+          rpt_walker_attempt_traverse(rptwlk, wlk))
+    {
+      nbuf->data[nbuf->len++] = wlk->node;
+    }
+
+    graph_walker_finish(wlk);
+    rpt_walker_fast_clear(rptwlk, nbuf->data+init_len, nbuf->len-init_len);
+
+    // Copy added bases into buffer
+    for(i = init_len; i < nbuf->len; i++) {
+      nuc = db_node_get_first_nuc(nbuf->data[i], db_graph);
+      strbuf_append_char(buf, dna_nuc_to_char(nuc));
+    }
+
+    // Add Ns for bases we couldn't resolve
+    for(i = nbuf->len; i < end_len; i++) strbuf_append_char(buf, 'N');
+  }
+
+  strbuf_append_char(buf, '\n');
 }
 
 static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
@@ -154,6 +290,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 
   CorrectAlnReadsTask *input = wrkr->input;
   CorrectedOutput *output = (CorrectedOutput*)input->ptr;
+  StrBuf *buf1 = &wrkr->buf1, *buf2 = &wrkr->buf2;
 
   read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
 
@@ -166,26 +303,26 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 
   hp_cutoff = input->hp_cutoff;
 
+  strbuf_reset(buf1);
+  strbuf_reset(buf2);
+
   // Update stats
   if(r2 == NULL) wrkr->stats.num_se_reads++;
   else wrkr->stats.num_pe_reads += 2;
 
-  boolean print1, print2 = false;
   gzFile gz1 = output->gz1, gz2 = (output->gz2 ? output->gz2 : output->gz1);
 
+  handle_read(wrkr, r1, buf1, fq_cutoff1, hp_cutoff);
+  if(r2 != NULL) handle_read(wrkr, r2, buf2, fq_cutoff2, hp_cutoff);
+
   // Don't want two threads writing to the same file at the same time: get mutex
-  pthread_mutex_lock(&wrkr->lock);
+  pthread_mutex_lock(&output->lock);
 
-  print1 = handle_read(wrkr, gz1, r1, fq_cutoff1, hp_cutoff);
-  print2 = (r2 != NULL && handle_read(wrkr, gz2, r2, fq_cutoff2, hp_cutoff));
-
-  if(r2 != NULL && print1 != print2) {
-    if(print1) gzprintf(gz2, ">%s\n\n", r2->name.b);
-    else gzprintf(gz1, ">%s\n\n", r1->name.b);
-  }
+  gzputs(gz1, buf1->buff);
+  if(r2 != NULL) gzputs(gz2 ? gz2 : gz1, buf2->buff);
 
   // release mutex
-  pthread_mutex_unlock(&wrkr->lock);
+  pthread_mutex_unlock(&output->lock);
 }
 
 // pthread method, loop: grabs job, does processing
@@ -294,13 +431,13 @@ int ctx_correct(CmdArgs *args)
   // Loop over inputs, change input->ptr from char* to CorrectedOutput
   CorrectedOutput outputs[num_inputs];
 
-  for(i = 0; i < num_inputs && corrected_output_alloc(&outputs[i], &inputs[i]); i++)
+  for(i = 0; i < num_inputs && corrected_output_open(&outputs[i], &inputs[i]); i++)
     inputs[i].ptr = &outputs[i];
 
   // Check if something went wrong
   if(i < num_inputs) {
     for(j = 0; j < i; j++)
-      corrected_output_clean_up(&outputs[i]);
+      corrected_output_delete(&outputs[i]);
     die("Couldn't open output files");
   }
 
@@ -332,7 +469,7 @@ int ctx_correct(CmdArgs *args)
 
   // Run alignment
   MsgPool pool;
-  msgpool_alloc_spinlock(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
   msgpool_iterate(&pool, asynciodata_pool_init, NULL);
 
   CorrectReadsWorker *wrkrs = malloc2(num_work_threads * sizeof(CorrectReadsWorker));
@@ -355,13 +492,13 @@ int ctx_correct(CmdArgs *args)
   for(i = 0; i < num_work_threads; i++)
     correct_reads_worker_dealloc(&wrkrs[i]);
 
+  for(i = 0; i < num_inputs; i++)
+    corrected_output_close(&outputs[i]);
+
   free(wrkrs);
   free(asyncio_tasks);
   msgpool_iterate(&pool, asynciodata_pool_destroy, NULL);
   msgpool_dealloc(&pool);
-
-  for(i = 0; i < num_inputs; i++)
-    corrected_output_alloc(&outputs[i], &inputs[i]);
 
   free(inputs);
   free(db_graph.col_edges);

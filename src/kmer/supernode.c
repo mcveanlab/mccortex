@@ -31,9 +31,6 @@ static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
   ctx_assert(db_graph->num_edge_cols == 1);
 
   Edges edges0, edges1;
-  // dBNode nodes[4];
-  // Nucleotide fwnucs[4];
-  // size_t num;
   BinaryKmer shiftkmer;
   Nucleotide nuc;
   const size_t kmer_size = db_graph->kmer_size;
@@ -44,8 +41,8 @@ static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
   edges1 = db_node_get_edges(db_graph, 0, nlist[len-1].key);
   if(edges_get_indegree(edges1, nlist[len-1].orient) != 1) return false;
 
-  nuc = db_node_get_last_nuc(bkmer0, nlist[0].orient, kmer_size);
-  shiftkmer = db_node_shift_add_last_nuc(bkmer1, nlist[len-1].orient, kmer_size, nuc);
+  nuc = bkmer_get_last_nuc(bkmer0, nlist[0].orient, kmer_size);
+  shiftkmer = bkmer_shift_add_last_nuc(bkmer1, nlist[len-1].orient, kmer_size, nuc);
 
   if(binary_kmers_are_equal(bkmer0, shiftkmer)) return true;
 
@@ -136,9 +133,9 @@ boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_gra
   while(edges_has_precisely_one_edge(edges[hkey], orient, &nuc))
   {
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-    bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+    bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
     hkey = hash_table_find(&db_graph->ht, bkey);
-    orient = db_node_get_orientation(bkey, bkmer);
+    orient = bkmer_get_orientation(bkey, bkmer);
 
     ctx_assert(hkey != HASH_NOT_FOUND);
 

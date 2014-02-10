@@ -75,7 +75,7 @@ hkey_t seq_reader_first_node(const read_t *r, uint8_t qcutoff, uint8_t hp_cutoff
     {
       nuc = dna_char_to_nuc(contig[next_base]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-      bkey = db_node_get_key(bkmer, kmer_size);
+      bkey = bkmer_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, bkey);
 
       if(node != HASH_NOT_FOUND &&

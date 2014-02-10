@@ -7,7 +7,7 @@
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
 // kmer and kmer_key must NOT point to overlapping memory
-BinaryKmer db_node_get_key(const BinaryKmer bkmer, size_t kmer_size)
+BinaryKmer bkmer_get_key(const BinaryKmer bkmer, size_t kmer_size)
 {
   BinaryKmer bkey;
 
@@ -200,8 +200,7 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
   if(nodes[0].orient == REVERSE) dna_reverse_complement_str(str, kmer_size);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    nuc = db_node_get_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    nuc = db_node_get_last_nuc(nodes[i], db_graph);
     str[kmer_size+i-1] = dna_nuc_to_char(nuc);
   }
 
@@ -222,8 +221,7 @@ void db_nodes_print(const dBNode *nodes, size_t num,
   fputs(tmp, out);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    nuc = db_node_get_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    nuc = db_node_get_last_nuc(nodes[i], db_graph);
     fputc(dna_nuc_to_char(nuc), out);
   }
 }
@@ -241,8 +239,7 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   gzputs(out, tmp);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    nuc = db_node_get_last_nuc(bkmer, nodes[i].orient, kmer_size);
+    nuc = db_node_get_last_nuc(nodes[i], db_graph);
     gzputc(out, dna_nuc_to_char(nuc));
   }
 }

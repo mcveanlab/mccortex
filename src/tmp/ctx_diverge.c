@@ -62,18 +62,18 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
     Orientation prev_or, or;
 
     bkmer = binary_kmer_from_str(r->seq.b+contig_start, kmer_size);
-    tmp_key = db_node_get_key(bkmer, kmer_size);
+    tmp_key = bkmer_get_key(bkmer, kmer_size);
     prev_node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-    prev_or = db_node_get_orientation(bkmer, tmp_key);
+    prev_or = bkmer_get_orientation(bkmer, tmp_key);
 
     for(i = contig_start+kmer_size; i < contig_end; i++)
     {
       Nucleotide nuc = dna_char_to_nuc(r->seq.b[i]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
 
-      tmp_key = db_node_get_key(bkmer, kmer_size);
+      tmp_key = bkmer_get_key(bkmer, kmer_size);
       node = db_graph_find_or_add_node(db_graph, tmp_key, colour);
-      or = db_node_get_orientation(bkmer, tmp_key);
+      or = bkmer_get_orientation(bkmer, tmp_key);
 
       db_graph_add_edge(db_graph, 0, prev_node, node, prev_or, or);
 
@@ -112,9 +112,9 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
 
   GraphWalker *wlk = &data->wlk;
 
-  BinaryKmer bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  BinaryKmer bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
   hkey_t hkey = hash_table_find(&db_graph->ht, bkey);
-  Orientation orient = db_node_get_orientation(bkmer, bkey);
+  Orientation orient = bkmer_get_orientation(bkmer, bkey);
 
   // Check for fork in pop and not in ref
   Edges col0edges = db_node_get_edges(db_graph, 1, hkey) &~

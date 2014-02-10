@@ -120,4 +120,11 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *nodes, size_t n,
 void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 boolean forward);
 
+// Prime for traversal
+void graph_walker_prime(GraphWalker *wlk,
+                        const dBNode *block, size_t n,
+                        size_t max_context, boolean forward,
+                        size_t ctxcol, size_t ctpcol,
+                        const dBGraph *db_graph);
+
 #endif /* GRAPH_WALKER_H_ */

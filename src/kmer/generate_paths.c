@@ -352,13 +352,11 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
   uint8_t *pck_fw, *pck_rv;
   size_t *pos_fw = wrkr->pos_fw, *pos_rv = wrkr->pos_rv;
   Nucleotide nuc;
-  BinaryKmer bkmer;
 
   pck_fw = wrkr->pck_fw+sizeof(PathLen);
   pck_rv = wrkr->pck_rv+sizeof(PathLen);
 
   dBGraph *db_graph = wrkr->db_graph;
-  const size_t kmer_size = wrkr->db_graph->kmer_size;
 
   const dBNode *nodes = contig->data;
   const size_t contig_len = contig->len;
@@ -372,8 +370,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
 
     if(indegree > 1 && i > 0)
     {
-      bkmer = db_node_get_bkmer(db_graph, nodes[i-1].key);
-      nuc = db_node_get_first_nuc(bkmer, nodes[i-1].orient, kmer_size);
+      nuc = db_node_get_first_nuc(nodes[i-1], db_graph);
       binary_seq_set(pck_rv, num_rv, nuc);
       pos_rv[num_rv++] = i;
     }
@@ -383,8 +380,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
     // just before first indegree >1, we need that junction
     if(outdegree > 1 && i+1 < contig_len)
     {
-      bkmer = db_node_get_bkmer(db_graph, nodes[i+1].key);
-      nuc = db_node_get_last_nuc(bkmer, nodes[i+1].orient, kmer_size);
+      nuc = db_node_get_last_nuc(nodes[i+1], db_graph);
       binary_seq_set(pck_fw, num_fw, nuc);
       pos_fw[num_fw++] = i;
     }
@@ -490,7 +486,7 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
 {
   size_t i;
   MsgPool pool;
-  msgpool_alloc_spinlock(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
+  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
   msgpool_iterate(&pool, asynciodata_pool_init, NULL);
 
   for(i = 0; i < num_workers; i++)

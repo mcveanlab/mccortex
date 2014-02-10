@@ -540,7 +540,7 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
   wlk->node.key = hkey;
   wlk->bkmer = bkmer;
   wlk->bkey = db_node_get_bkmer(wlk->db_graph, hkey);
-  wlk->node.orient = db_node_get_orientation(wlk->bkmer, wlk->bkey);
+  wlk->node.orient = bkmer_get_orientation(wlk->bkmer, wlk->bkey);
 
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
@@ -555,7 +555,7 @@ void graph_walker_jump_snode_end(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer
   // This is just a sanity test
   Edges edges = db_node_get_edges(wlk->db_graph, 0, hkey);
   BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, hkey);
-  Orientation orient = db_node_get_orientation(bkmer, bkey);
+  Orientation orient = bkmer_get_orientation(bkmer, bkey);
   ctx_assert(edges_get_indegree(edges, orient) <= 1);
 
   // Now do the work
@@ -579,7 +579,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   // binary_kmer_to_str(wlk->bkey, kmer_size, tmp0);
   // binary_kmer_to_str(db_node_get_bkmer(wlk->db_graph,hkey), kmer_size, tmp1);
   // or0 = wlk->node.orient;
-  // or1 = db_node_get_orientation(bkmer, db_node_get_bkmer(wlk->db_graph,hkey));
+  // or1 = bkmer_get_orientation(bkmer, db_node_get_bkmer(wlk->db_graph,hkey));
   // status("%s:%i -> %s:%i", tmp0, or0, tmp1, or1);
 
   _graph_traverse_force_jump(wlk, hkey, bkmer, is_fork);
@@ -623,17 +623,18 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
                                      const dBNode next_node, boolean is_fork)
 {
   const size_t kmer_size = wlk->db_graph->kmer_size;
-  BinaryKmer bkmer = db_node_get_bkmer(wlk->db_graph, next_node.key);
+  BinaryKmer bkmer, bkey;
   Nucleotide nuc;
 
   // Only one path between two nodes
   if(db_nodes_match(wlk->node, prev_node)) {
-    nuc = db_node_get_last_nuc(bkmer, next_node.orient, kmer_size);
+    nuc = db_node_get_last_nuc(next_node, wlk->db_graph);
     graph_traverse_force(wlk, next_node.key, nuc, is_fork);
   }
   else {
     // jumping to the end of a supernode
-    bkmer = db_node_oriented_bkmer(bkmer, next_node.orient, kmer_size);
+    bkey = db_node_get_bkmer(wlk->db_graph, next_node.key);
+    bkmer = bkmer_oriented_bkmer(bkey, next_node.orient, kmer_size);
     graph_walker_jump_snode_end(wlk, next_node.key, bkmer);
   }
 
@@ -704,19 +705,43 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 {
   Edges edges;
   boolean is_fork;
-  BinaryKmer bkmer;
   dBNode next;
   Nucleotide nuc;
   size_t i;
   const dBGraph *db_graph = wlk->db_graph;
-  const size_t kmer_size = db_graph->kmer_size;
 
   for(i = 0; i < n; i++) {
     edges = db_node_get_edges(db_graph, 0, wlk->node.key);
     is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
-    bkmer = db_node_get_bkmer(db_graph, next.key);
-    nuc = db_node_get_last_nuc(bkmer, next.orient, kmer_size);
+    nuc = db_node_get_last_nuc(next, db_graph);
     graph_traverse_force(wlk, next.key, nuc, is_fork);
   }
+}
+
+void graph_walker_prime(GraphWalker *wlk,
+                        const dBNode *block, size_t n,
+                        size_t max_context, boolean forward,
+                        size_t ctxcol, size_t ctpcol,
+                        const dBGraph *db_graph)
+{
+  ctx_assert(n > 0);
+  ctx_check(db_node_check_nodes(block, n, db_graph));
+
+  dBNode node0;
+
+  if(n > max_context) {
+    if(forward) block = block + n - max_context;
+    n = max_context;
+  }
+
+  if(forward) { node0 = block[0]; block++; }
+  else { node0 = db_node_reverse(block[n-1]); }
+
+  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0);
+  // graph_walker_fast_traverse(wlk, block, n-1, forward);
+  graph_walker_slow_traverse(wlk, block, n-1, forward);
+
+  // For debugging
+  // graph_walker_print_state(wlk);
 }

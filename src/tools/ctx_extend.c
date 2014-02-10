@@ -42,10 +42,10 @@ static void node_not_in_graph(BinaryKmer bkmer, dBGraph *db_graph)
 
 static void add_kmer(BinaryKmer bkmer, dBGraph *db_graph, dBNodeBuffer *nodebuf)
 {
-  BinaryKmer bkey = db_node_get_key(bkmer, db_graph->kmer_size);
+  BinaryKmer bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
   hkey_t node = hash_table_find(&db_graph->ht, bkey);
   if(node == HASH_NOT_FOUND) node_not_in_graph(bkmer, db_graph);
-  Orientation orient = db_node_get_orientation(bkmer, bkey);
+  Orientation orient = bkmer_get_orientation(bkmer, bkey);
   nodebuf->data[nodebuf->len].key = node;
   nodebuf->data[nodebuf->len].orient = orient;
   nodebuf->len++;

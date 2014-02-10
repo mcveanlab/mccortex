@@ -61,13 +61,13 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
     {
       nuc = dna_char_to_nuc(contig[nxtbse]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-      tmp_key = db_node_get_key(bkmer, kmer_size);
+      tmp_key = bkmer_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
       if(node != HASH_NOT_FOUND)
       {
         nodes->data[n].key = node;
-        nodes->data[n].orient = db_node_get_orientation(bkmer, tmp_key);
+        nodes->data[n].orient = bkmer_get_orientation(bkmer, tmp_key);
         gaps->data[n] = (uint32_t)(contig_start+offset - nxt_exp_kmer_offset);
         nxt_exp_kmer_offset = contig_start+offset+1;
         n++;
