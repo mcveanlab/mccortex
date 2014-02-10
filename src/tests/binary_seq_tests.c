@@ -12,15 +12,13 @@ void test_binary_seq_rev_cmp()
 
   uint8_t data[TLEN], tmp[TLEN];
   char str[4*TLEN+1], rev[4*TLEN+1], restore[4*TLEN+1];
-  size_t i, j, k, topbyte, nbases;
+  size_t i, j, k, nbases;
 
   for(i = 0; i < NTESTS; i++)
   {
     // Get random sequence, mask top byte, convert to string
     fill_rand_bytes(data, TLEN);
     nbases = rand() & (4*TLEN-1);
-    topbyte = (nbases+3)/4 - 1;
-    data[topbyte] &= nbases ? 0xff >> (8-bits_in_top_byte(nbases)) : 0;
     binary_seq_to_str(data, nbases, str);
 
     // Reverse complement, convert to string

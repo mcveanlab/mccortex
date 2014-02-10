@@ -160,53 +160,39 @@ static boolean traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
   db_node_buf_ensure_capacity(contig0, contig0->len + gap_max + 1);
   db_node_buf_ensure_capacity(contig1, contig1->len + gap_max + 1);
 
-  boolean traversed = false;
-
   boolean use[2] = {true,true};
   GraphWalker *wlk[2] = {wlk0, wlk1};
   RepeatWalker *rptwlk[2] = {rptwlk0, rptwlk1};
   dBNodeBuffer *contig[2] = {contig0, contig1};
+  dBNode nodes[2] = {wlk0->node, wlk1->node};
   size_t i, gap_len = 0;
-
-  //
-  // char str[MAX_KMER_SIZE+1];
-  // BinaryKmer bkmer;
-  // for(i = 0; i < 2; i++) {
-  //   bkmer = db_node_get_bkmer(wlk0->db_graph, wlk[i]->node);
-  //   binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
-  //   status("primed %zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
-  // }
-  //
+  boolean traversed = false;
 
   while(gap_len < gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
-      if(use[i]) {
-        use[i] = (graph_traverse(wlk[i]) &&
-                  rpt_walker_attempt_traverse(rptwlk[i], wlk[i]));
+      use[i] = use[i] && graph_traverse(wlk[i]);
 
-        if(use[i]) {
-          //
-          // bkmer = db_node_get_bkmer(wlk0->db_graph, wlk[i]->node);
-          // binary_kmer_to_str(bkmer, wlk0->db_graph->kmer_size, str);
-          // status("%zu: %zu:%i %s\n", i, (size_t)wlk[i]->node, (int)wlk[i]->orient, str);
-          //
-
-          if(wlk[0]->node.key == wlk[1]->node.key &&
-             wlk[0]->node.orient != wlk[1]->node.orient) {
-            traversed = true;
-            use[0] = use[1] = false; // set both to false to exit loop
-            break;
-          }
-
-          contig[i]->data[contig[i]->len++] = wlk[i]->node;
-          gap_len++;
+      if(use[i])
+      {
+        // If one of the sides gets stuck in a repeat, we should abandon
+        if(!rpt_walker_attempt_traverse(rptwlk[i], wlk[i])) {
+          use[0] = use[1] = false; // set both to false to exit loop
+          break;
         }
+
+        nodes[i] = wlk[i]->node;
+
+        if(db_nodes_match(nodes[0], db_node_reverse(nodes[1]))) {
+          traversed = true;
+          use[0] = use[1] = false; // set both to false to exit loop
+          break;
+        }
+
+        contig[i]->data[contig[i]->len++] = wlk[i]->node;
+        gap_len++;
       }
     }
   }
-
-  // status("traverse_two_way2() gap_len:%zu gap_min:%zu gap_max:%zu %s",
-  //        gap_len, gap_min, gap_max, traversed ? "Good" : "Bad");
 
   // Clean up GraphWalker, RepeatWalker
   graph_walker_finish(wlk0);
@@ -234,7 +220,6 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
   const size_t block1len = end_idx-gap_idx;
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
   boolean traversed;
-
 
   // Start traversing forward
   prime_for_traversal(&wrkr->wlk, nbuf->data, nbuf->len,
@@ -276,9 +261,6 @@ static boolean traverse_two_way(CorrectAlnWorker *wrkr,
                       params->max_context, true, ctxcol, ctpcol, db_graph);
   prime_for_traversal(&wrkr->wlk2, nodes+gap_idx, block1len,
                       params->max_context, false, ctxcol, ctpcol, db_graph);
-
-  // status("Traversing two-way... %zu[len:%zu]:%zu[len:%zu]",
-  //        start_idx, block0len, gap_idx, block1len);
 
   return traverse_two_way2(&wrkr->contig, &wrkr->revcontig,
                            gap_min, gap_max, gap_len_ptr,
@@ -345,6 +327,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     db_node_buf_reset(revcontig);
 
     // Alternative traversing from both sides
+    // gap len is the number of kmers filling the gap
     if(params->one_way_gap_traverse)
       traversed = traverse_one_way(wrkr, wrkr->gap_idx, wrkr->end_idx,
                                    gap_min, gap_max, &gap_len);
@@ -391,6 +374,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   wrkr->start_idx = wrkr->gap_idx;
   wrkr->gap_idx = wrkr->end_idx;
 
+  // db_nodes_print_verbose(contig->data, contig->len, wrkr->db_graph, stdout);
   ctx_check(db_node_check_nodes(contig->data, contig->len, wrkr->db_graph));
 
   return contig;

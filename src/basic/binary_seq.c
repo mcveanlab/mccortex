@@ -43,17 +43,25 @@ const uint8_t revcmp_table[256] =
   0xD0, 0x90, 0x50, 0x10, 0xC0, 0x80, 0x40, 0x00
 };
 
+// Leave top bases intact: e.g. bases=TACG revcmp(bases,2): ATCG
 void binary_seq_reverse_complement(uint8_t *bases, size_t nbases)
 {
+  if(!nbases) return;
+
   size_t nbytes, top_bits, unused_bits, i, j;
-  uint8_t tmpbases;
+  uint8_t tmpbases, topbyte;
 
   nbytes = (nbases+3)/4;
   top_bits = 2*bases_in_top_byte(nbases);
   unused_bits = 8 - top_bits;
+  topbyte = bases[nbytes-1];
 
-  if(nbases == 0) return;
-  if(nbytes == 1) { bases[0] = revcmp_table[bases[0]] >> unused_bits; return; }
+  if(nbytes <= 1) {
+    // Cast to size_t so >>8 isn't undefined
+    bases[0] = ((size_t)revcmp_table[bases[0]] >> unused_bits) |
+               (topbyte & (((size_t)255 >> top_bits) << top_bits));
+    return;
+  }
 
   for(i = 0, j = nbytes-1; i <= j; i++, j--) {
     tmpbases = bases[i];
@@ -65,7 +73,8 @@ void binary_seq_reverse_complement(uint8_t *bases, size_t nbases)
   if(unused_bits > 0) {
     for(i = 0; i+1 < nbytes; i++)
       bases[i] = (bases[i]>>unused_bits) | (bases[i+1]<<top_bits);
-    bases[nbytes-1] >>= unused_bits;
+    bases[nbytes-1] = (bases[nbytes-1] >> unused_bits) |
+                      (topbyte & ((255>>top_bits)<<top_bits));
   }
 }
 

@@ -249,6 +249,13 @@ void db_nodes_print(const dBNode *nodes, size_t num,
 void db_nodes_gzprint(const dBNode *nodes, size_t num,
                       const dBGraph *db_graph, gzFile out);
 
+// Print:
+// 0: AAACCCAAATGCAAACCCAAATGCAAACCCA:1 TGGGTTTGCATTTGGGTTTGCATTTGGGTTT
+// 1: CAAACCCAAATGCAAACCCAAATGCAAACCC:1 GGGTTTGCATTTGGGTTTGCATTTGGGTTTG
+// ...
+void db_nodes_print_verbose(const dBNode *nodes, size_t num,
+                            const dBGraph *db_graph, FILE *out);
+
 // Print in/outdegree - For debugging mostly
 // indegree/outdegree (2 means >=2)
 // 00: ! 01: + 02: {

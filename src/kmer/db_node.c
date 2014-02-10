@@ -247,6 +247,35 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   }
 }
 
+// Print:
+// 0: AAACCCAAATGCAAACCCAAATGCAAACCCA:1 TGGGTTTGCATTTGGGTTTGCATTTGGGTTT
+// 1: CAAACCCAAATGCAAACCCAAATGCAAACCC:1 GGGTTTGCATTTGGGTTTGCATTTGGGTTTG
+// ...
+void db_nodes_print_verbose(const dBNode *nodes, size_t num,
+                            const dBGraph *db_graph, FILE *out)
+{
+  if(num == 0) return;
+
+  const size_t kmer_size = db_graph->kmer_size;
+  size_t i;
+  BinaryKmer bkmer, bkey;
+  char kmerstr[MAX_KMER_SIZE+1], keystr[MAX_KMER_SIZE+1];
+
+  bkmer = db_node_get_bkmer(db_graph, nodes[0].key);
+  bkey = db_graph_oriented_bkmer(db_graph, nodes[0]);
+  binary_kmer_to_str(bkmer, kmer_size, kmerstr);
+  binary_kmer_to_str(bkey, kmer_size, keystr);
+  fprintf(out, "0: %s:%i %s\n", kmerstr, (int)nodes[0].orient, keystr);
+
+  for(i = 1; i < num; i++) {
+    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
+    bkey = db_graph_oriented_bkmer(db_graph, nodes[i]);
+    binary_kmer_to_str(bkmer, kmer_size, kmerstr);
+    binary_kmer_to_str(bkey, kmer_size, keystr);
+    fprintf(out, "%zu: %s:%i %s\n", i, kmerstr, (int)nodes[i].orient, keystr);
+  }
+}
+
 // Print in/outdegree - For debugging mostly
 // indegree/outdegree (2 means >=2)
 // 00: ! 01: + 02: {

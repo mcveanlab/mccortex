@@ -46,11 +46,11 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int
 }
 
 void call_assert2(const char *file, const char *func, int line,
-                  const char *assert, const char *fmt, va_list argptr)
+                  const char *asserttxt, const char *fmt, va_list argptr)
 {
   pthread_mutex_lock(&biglock);
   fflush(stdout);
-  fprintf(stderr, "[%s:%i] Assert Failed %s(): %s", file, line, func, assert);
+  fprintf(stderr, "[%s:%i] Assert Failed %s(): %s", file, line, func, asserttxt);
 
   if(fmt != NULL) {
     fputs(": ", stderr);
@@ -62,23 +62,24 @@ void call_assert2(const char *file, const char *func, int line,
   ftimestamp(stderr);
   fputs(" Assert Error\n", stderr);
   fflush(stderr);
+  pthread_mutex_unlock(&biglock);
 }
 
 void call_assert_no_abort(const char *file, const char *func, int line,
-                          const char *assert, const char *fmt, ...)
+                          const char *asserttxt, const char *fmt, ...)
 {
   va_list argptr;
   va_start(argptr, fmt);
-  call_assert2(file, func, line, assert, fmt, argptr);
+  call_assert2(file, func, line, asserttxt, fmt, argptr);
   va_end(argptr);
 }
 
 void call_assert(const char *file, const char *func, int line,
-                 const char *assert, const char *fmt, ...)
+                 const char *asserttxt, const char *fmt, ...)
 {
   va_list argptr;
   va_start(argptr, fmt);
-  call_assert2(file, func, line, assert, fmt, argptr);
+  call_assert2(file, func, line, asserttxt, fmt, argptr);
   va_end(argptr);
   abort();
 }
