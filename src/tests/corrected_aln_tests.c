@@ -50,7 +50,7 @@ static void test_correct_aln_no_paths()
   memset(graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
   path_store_alloc(&graph.pdata, 1024, 0, ncols);
 
-  // mu0ations:                            **                 *
+  // mutations:                            **                 *
   char seq[] = "ATGCATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACCGATTTGTG";
   char mu0[] =     "ATGTTGACCAAATAAGTCACTGTCCGAGCCACGTAAAGCGTTCGCACC";
   char re0[] =     "ATGTTGACCAAATAAGTCACTGTGGGAGCCACGTAAAGCGTTCGCACC";

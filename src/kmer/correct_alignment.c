@@ -98,6 +98,9 @@ static boolean traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
 
   size_t gap_len = contig->len - init_len;
 
+  // printf("gap_len: %zu contig->len: %zu; success: %i gap_min: %zu\n",
+  //        gap_len, contig->len, (int)traversed, gap_min);
+
   // Clean up GraphWalker, RepeatWalker
   graph_walker_finish(wlk);
   rpt_walker_fast_clear(rptwlk, contig->data+init_len, gap_len);
@@ -105,8 +108,6 @@ static boolean traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
   // Fail if we bridged but too short
   if(gap_len < gap_min) traversed = false;
   if(!traversed) contig->len = init_len;
-
-  // status("gap_len: %zu contig->len: %zu", gap_len, contig->len);
 
   *gap_len_ptr = gap_len;
   return traversed;
@@ -249,7 +250,6 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   const size_t gap_wiggle = params->gap_wiggle;
   const size_t ins_gap_min = params->ins_gap_min;
   const size_t ins_gap_max = params->ins_gap_max;
-  const size_t kmer_size = wrkr->db_graph->kmer_size;
 
   // worker_generate_contigs ensures contig is at least nodes->len long
   boolean both_reads = (aln->used_r1 && aln->used_r2);
@@ -278,9 +278,8 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     // Get bound for acceptable bridge length (min,max length values)
     is_mp = (both_reads && wrkr->gap_idx == aln->r2strtidx);
 
-    // gap_est is how many bp we lost through low qual scores, hp runs etc.
-    // convert bp -> kmer space
-    gap_est = gaps->data[wrkr->gap_idx] + kmer_size - 1;
+    // gap_est is how many kmers we lost through low qual scores, hp runs etc.
+    gap_est = gaps->data[wrkr->gap_idx];
     if(is_mp) gap_est += aln->r1enderr;
 
     gap_min_long = (long)gap_est - (long)(gap_est * gap_variance + gap_wiggle);
