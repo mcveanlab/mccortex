@@ -89,23 +89,23 @@ static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
 }
 
 // For every kmer in the graph, we run this function
-static inline void dot_print_edges(hkey_t node, sndata_t *supernodes,
+static inline void dot_print_edges(hkey_t hkey, sndata_t *supernodes,
                                    FILE *fout, const dBGraph *db_graph)
 {
-  sndata_t snode0 = supernodes[node];
+  sndata_t snode0 = supernodes[hkey];
   BinaryKmer bkmer; Edges edges;
 
   // Check if node is an end of a supernode
   if(snode0.assigned) {
-    bkmer = db_node_get_bkmer(db_graph, node);
-    edges = db_node_get_edges(db_graph, 0, node);
+    bkmer = db_node_get_bkmer(db_graph, hkey);
+    edges = db_node_get_edges(db_graph, 0, hkey);
 
     if(snode0.left) {
-      dot_print_edges2(node, bkmer, edges, !snode0.lorient, snode0,
+      dot_print_edges2(hkey, bkmer, edges, !snode0.lorient, snode0,
                        supernodes, fout, db_graph);
     }
     if(snode0.right) {
-      dot_print_edges2(node, bkmer, edges, snode0.rorient, snode0,
+      dot_print_edges2(hkey, bkmer, edges, snode0.rorient, snode0,
                        supernodes, fout, db_graph);
     }
   }

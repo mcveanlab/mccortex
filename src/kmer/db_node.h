@@ -119,11 +119,11 @@ BinaryKmer bkmer_get_key(const BinaryKmer kmer, size_t kmer_size);
 #define opposite_orientation(or) rev_orient(or)
 
 #define db_node_get_first_nuc(node,graph) \
-        bkmer_get_first_nuc(db_node_get_bkmer((node).key,graph), (node).orient,\
+        bkmer_get_first_nuc(db_node_get_bkmer(graph,(node).key), (node).orient,\
                             (graph)->kmer_size)
 
 #define db_node_get_last_nuc(node,graph) \
-        bkmer_get_last_nuc(db_node_get_bkmer((node).key,graph), (node).orient,\
+        bkmer_get_last_nuc(db_node_get_bkmer(graph,(node).key), (node).orient,\
                            (graph)->kmer_size)
 
 static inline dBNode db_node_reverse(dBNode node) {

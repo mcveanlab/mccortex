@@ -176,8 +176,9 @@ char* double_to_str(double num, int decimals, char* str)
   unsigned long whole_units = (unsigned long)num;
   num -= whole_units;
 
+  // Round if only printing integer
   if(decimals == 0)
-    whole_units += num > 0.5;
+    whole_units += (num >= 0.5);
 
   ulong_to_str(whole_units, str);
 

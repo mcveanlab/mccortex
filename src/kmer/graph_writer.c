@@ -4,10 +4,10 @@
 #include "db_node.h"
 #include "util.h"
 
-static inline void dump_empty_bkmer(hkey_t node, const dBGraph *db_graph,
+static inline void dump_empty_bkmer(hkey_t hkey, const dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
 {
-  const BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
+  const BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
   fwrite(&bkmer, sizeof(BinaryKmer), 1, fh);
   fwrite(buf, 1, mem, fh);
 }
@@ -143,7 +143,7 @@ void graph_file_write_colours(const dBGraph *db_graph,
 }
 
 // Dump node: only print kmers with coverages in given colours
-static void graph_write_node(hkey_t node, const dBGraph *db_graph,
+static void graph_write_node(hkey_t hkey, const dBGraph *db_graph,
                              FILE *fout, const GraphFileHeader *header,
                              size_t intocol, const Colour *colours,
                              size_t start_col, size_t num_of_cols,
@@ -153,13 +153,13 @@ static void graph_write_node(hkey_t node, const dBGraph *db_graph,
 
   // Check this node has coverage in one of the specified colours
   if(colours != NULL)
-    while(i < num_of_cols && db_node_get_covg(db_graph,node,colours[i]) == 0) i++;
+    while(i < num_of_cols && db_node_get_covg(db_graph,hkey,colours[i]) == 0) i++;
   else
-    while(i < num_of_cols && db_node_get_covg(db_graph,node,start_col+i) == 0) i++;
+    while(i < num_of_cols && db_node_get_covg(db_graph,hkey,start_col+i) == 0) i++;
 
   if(i == num_of_cols) return;
 
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
   Covg covg_store[header->num_of_cols], *covgs = covg_store + intocol;
   Edges edge_store[header->num_of_cols], *edges = edge_store + intocol;
 
@@ -173,13 +173,13 @@ static void graph_write_node(hkey_t node, const dBGraph *db_graph,
 
   if(colours != NULL) {
     for(i = 0; i < num_of_cols; i++) {
-      covgs[i] = col_covgs[node][colours[i]];
-      edges[i] = col_edges[node][colours[i]];
+      covgs[i] = col_covgs[hkey][colours[i]];
+      edges[i] = col_edges[hkey][colours[i]];
     }
   }
   else {
-    memcpy(covgs, col_covgs[node]+start_col, num_of_cols*sizeof(Covg));
-    memcpy(edges, col_edges[node]+start_col, num_of_cols*sizeof(Edges));
+    memcpy(covgs, col_covgs[hkey]+start_col, num_of_cols*sizeof(Covg));
+    memcpy(edges, col_edges[hkey]+start_col, num_of_cols*sizeof(Edges));
   }
 
   graph_write_kmer(fout, header, bkmer.b, covg_store, edge_store);

@@ -16,7 +16,7 @@
 #include "loading_stats.h"
 #include "seq_reader.h"
 
-// DEV: toggle printing N / read sequence
+// DEV: print read sequence in lower case instead of N
 
 const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx> [...]\n"
@@ -238,10 +238,10 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
     ctx_assert(nbuf != NULL);
     idx = correct_alignment_get_strtidx(&wrkr->corrector);
     gap = aln->gaps.data[idx];
-    num_n = gap < kmer_size ? 1 : gap - kmer_size + 1;
+    num_n = gap < kmer_size ? 0 : gap - kmer_size + 1;
     for(i = 0; i < num_n; i++) strbuf_append_char(buf, 'N');
 
-    nbases = MIN2(gap, kmer_size);
+    nbases = MIN2(gap+1, kmer_size);
     binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
     strbuf_append_strn(buf, bkmerstr+kmer_size-nbases, nbases);
 
