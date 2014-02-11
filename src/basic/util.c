@@ -176,21 +176,16 @@ char* double_to_str(double num, int decimals, char* str)
   unsigned long whole_units = (unsigned long)num;
   num -= whole_units;
 
-  // Round if only printing integer
-  if(decimals == 0)
-    whole_units += (num >= 0.5);
+  char decstr[2+decimals+1];
+  sprintf(decstr, "%.*lf", decimals, num);
+  if(decstr[0] == '1') whole_units++;
 
   ulong_to_str(whole_units, str);
 
   if(decimals > 0)
   {
-    // Horrible hack to save character being overwritten with a leading zero
-    // e.g. 12.121 written as '12' then '0.121', giving '10.121', put back '2'
-    // '12.121'
     size_t offset = strlen(str);
-    char c = str[offset-1];
-    sprintf(str+offset-1, "%.*lf", decimals, num);
-    str[offset-1] = c;
+    strcpy(str+offset, decstr+1);
   }
 
   return str;

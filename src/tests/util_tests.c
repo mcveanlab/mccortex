@@ -8,9 +8,21 @@ static void test_util_bytes_to_str()
 
   char str[100];
 
-  // Excess decimal points are trimmed off 14.0MB -> 14MB
-  bytes_to_str(14688256,1,str);
-  TASSERT2(strcmp(str,"14MB") == 0, "Got: %s", str);
+  // Excess decimal points are trimmed off
+  // 14.0MB -> 14MB
+  TASSERT2(strcmp(bytes_to_str(14688256,1,str),"14MB") == 0, "Got: %s", str);
+  // 1.9GB -> 1.9GB
+  TASSERT2(strcmp(bytes_to_str(2040110000,1,str),"1.9GB") == 0, "Got: %s", str);
+  // 1.99GB -> 2GB
+  TASSERT2(strcmp(bytes_to_str(2140110000,1,str),"2GB") == 0, "Got: %s", str);
+  // 1500KB -> 1.4MB
+  TASSERT2(strcmp(bytes_to_str(1500000,1,str),"1.4MB") == 0, "Got: %s", str);
+  // 0.5GB -> 512MB
+  TASSERT2(strcmp(bytes_to_str(536900000,1,str),"512MB") == 0, "Got: %s", str);
+  // 1 -> 1B
+  TASSERT2(strcmp(bytes_to_str(1,1,str),"1B") == 0, "Got: %s", str);
+  // 1023 -> 1023B
+  TASSERT2(strcmp(bytes_to_str(1023,1,str),"1,023B") == 0, "Got: %s", str);
 }
 
 static void test_util_get_GCD()
