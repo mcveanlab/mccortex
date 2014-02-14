@@ -335,6 +335,21 @@ uint32_t calc_GCD(uint32_t a, uint32_t b)
   return a << shift;
 }
 
+// sorted_arr must be a sorted array
+size_t calc_N50(const size_t *sorted_arr, size_t n, size_t total)
+{
+  size_t i, sum = 0, half = total/2;
+
+  if(n == 0 || half == 0) return 0;
+  ctx_assert2(sorted_arr[0] <= sorted_arr[n-1], "Not sorted!");
+
+  for(i = n; i > 0 && sum < half; i--)
+    sum += sorted_arr[i-1];
+
+  return sorted_arr[i];
+}
+
+
 //
 // Time
 //

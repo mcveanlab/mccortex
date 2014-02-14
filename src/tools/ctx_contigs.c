@@ -463,19 +463,9 @@ int ctx_contigs(CmdArgs *args)
   qsort(cd.junctions, cd.ncontigs, sizeof(size_t), cmp_size);
 
   // Calculate N50s
-  size_t half_len = cd.total_len / 2, half_jnc = cd.total_junc / 2;
-  size_t len_n50 = 0, len_n50_sum = 0;
-  size_t jnc_n50 = 0, jnc_n50_sum = 0;
-
-  for(i = cd.ncontigs; i > 0 && len_n50_sum < half_len; i--)
-    len_n50_sum += cd.lengths[i-1];
-
-  if(i < cd.ncontigs) len_n50 = cd.lengths[i];
-
-  for(i = cd.ncontigs; i > 0 && jnc_n50_sum < half_jnc; i--)
-    jnc_n50_sum += cd.junctions[i-1];
-
-  if(i < cd.ncontigs) jnc_n50 = cd.junctions[i];
+  size_t len_n50, jnc_n50;
+  len_n50 = calc_N50(cd.lengths, cd.ncontigs, cd.total_len);
+  jnc_n50 = calc_N50(cd.junctions, cd.ncontigs, cd.total_junc);
 
   // Calculate medians
   double len_median, jnc_median, len_mean, jnc_mean;

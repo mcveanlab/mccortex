@@ -82,6 +82,10 @@ float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum);
 
 uint32_t calc_GCD(uint32_t a, uint32_t b);
 
+
+// sorted_arr must be a sorted array
+size_t calc_N50(const size_t *sorted_arr, size_t n, size_t total);
+
 //
 // Time
 //

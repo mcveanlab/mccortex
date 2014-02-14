@@ -35,7 +35,7 @@ static void test_util_bytes_to_str()
   TASSERT2(strcmp(bytes_to_str(1023,1,str),"1,023B") == 0, "Got: %s", str);
 }
 
-static void test_util_get_GCD()
+static void test_util_calc_GCD()
 {
   test_status("[util] testing get_GCD()");
   TASSERT(calc_GCD(0,0) == 0);
@@ -53,9 +53,18 @@ static void test_util_get_GCD()
   TASSERT(calc_GCD(100,125) == 25);
 }
 
+static void test_util_calc_N50()
+{
+  size_t arr[] = {1,2,3,4,5,6,7,8,9,10};
+  TASSERT(calc_N50(arr, 3, 6) == 3);
+  TASSERT(calc_N50(arr, 4, 10) == 3);
+  TASSERT(calc_N50(arr, 10, 55) == 8);
+}
+
 void test_util()
 {
   test_util_num_to_str();
   test_util_bytes_to_str();
-  test_util_get_GCD();
+  test_util_calc_GCD();
+  test_util_calc_N50();
 }
