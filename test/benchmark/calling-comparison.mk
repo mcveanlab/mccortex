@@ -25,10 +25,10 @@ NCONTIGS=10000
 SHELL := /bin/bash
 
 # External tools not in repo
-STAMPY=$(HOME)/bioinf/stampy-1.0.20/stampy.py
+STAMPY=$(HOME)/bioinf/stampy-1.0.23/stampy.py
 SAMTOOLS=samtools
 VCFTOOLSDIR=$(HOME)/bioinf/vcftools_0.1.11
-CORTEX_PATH=$(HOME)/cortex/releases/CORTEX_release_v1.0.5.20
+CORTEX_PATH=$(HOME)/cortex/releases/CORTEX_release_v1.0.5.21
 
 # current_dir = $(shell pwd)
 current_dir := $(dir $(lastword $(MAKEFILE_LIST)))

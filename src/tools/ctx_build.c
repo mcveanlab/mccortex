@@ -109,7 +109,7 @@ static void ctx_input_alloc(char *load_graph_path,
   ctx_assert(hp_cutoff < 256);
 
   seq_file_t *file1 = NULL, *file2 = NULL;
-  const char *arg = (seq_path2 == NULL ? "--seq2" : "--seq");
+  const char *arg = (seq_path2 == NULL ? "--seq" : "--seq2");
 
   if(seq_path1 != NULL && (file1 = seq_open(seq_path1)) == NULL)
     die("Cannot read %s file: %s", arg, seq_path1);

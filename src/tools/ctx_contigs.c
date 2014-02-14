@@ -381,7 +381,7 @@ int ctx_contigs(CmdArgs *args)
   if(args->output_file_set) {
     if(!print_contigs)
       warn("Ignoring --out <out> argument (maybe you forgot --print ?)");
-    else if((fout = fopen(args->output_file, "r")) == NULL)
+    else if((fout = fopen(args->output_file, "w")) == NULL)
       die("Cannot open output file: %s", args->output_file);
   }
 
