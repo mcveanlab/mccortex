@@ -216,7 +216,7 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
       lastnode = db_node_reverse(snode_nodes(snode)[0]);
     }
     last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, lastnode);
-    graph_walker_jump_snode_end(wlk, lastnode.key, last_bkmer);
+    graph_walker_jump_along_snode(wlk, lastnode.key, last_bkmer);
   }
 }
 

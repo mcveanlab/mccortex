@@ -41,6 +41,7 @@ typedef struct {
   double max_junc_density;
   dBNodeBuffer nodes;
   size_t nprint; // id of next contig printed
+  size_t num_reseed_abort, num_seed_not_found;
 } ContigData;
 
 
@@ -120,7 +121,8 @@ static inline void contig_data_alloc(ContigData *cd, size_t capacity)
                     .lengths = lengths, .junctions = junctions,
                     .min_len = SIZE_MAX, .max_len = 0,
                     .min_junc = SIZE_MAX, .max_junc = 0,
-                    .max_junc_density = 0, .nprint = 0};
+                    .max_junc_density = 0, .nprint = 0,
+                    .num_reseed_abort = 0, .num_seed_not_found = 0};
   db_node_buf_alloc(&tmp.nodes, 1024);
   memcpy(cd, &tmp, sizeof(ContigData));
 }
@@ -147,7 +149,14 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
                             uint64_t *visited, FILE *fout)
 {
   // Don't use a visited kmer as a seed node if --no-reseed passed
-  if(visited != NULL && bitset_get(visited, hkey)) return;
+  if(visited != NULL && bitset_get(visited, hkey)) {
+    cd->num_reseed_abort++;
+    if(fout != NULL) {
+      fprintf(fout, ">contig%zu\n\n", cd->nprint);
+      cd->nprint++;
+    }
+    return;
+  }
 
   dBNodeBuffer *nodes = &cd->nodes;
   Orientation orient;
@@ -194,7 +203,7 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
   }
 
   // If --no-seed set, mark visited nodes are visited
-  // Don't use to see another contig
+  // Don't use to seed another contig
   if(visited != NULL) {
     for(i = 0; i < nodes->len; i++)
       bitset_set(visited, nodes->data[i].key);
@@ -249,9 +258,14 @@ static inline void parse_seed_read(const read_t *r, struct ParseSeeds *ps)
     pulldown_contig(node, ps->cd, db_graph, ps->colour,
                     ps->wlk, ps->rptwlk, ps->visited, ps->fout);
   }
-  else if(ps->fout != NULL) {
-    fprintf(ps->fout, ">contig%zu\n\n", ps->cd->nprint);
-    ps->cd->nprint++;
+  else
+  {
+    ps->cd->num_seed_not_found++;
+
+    if(ps->fout != NULL) {
+      fprintf(ps->fout, ">contig%zu\n\n", ps->cd->nprint);
+      ps->cd->nprint++;
+    }
   }
 }
 
@@ -475,11 +489,17 @@ int ctx_contigs(CmdArgs *args)
   jnc_mean = (double)cd.total_junc / cd.ncontigs;
 
   // Print number of contigs
-  char ncontigs_str[90], nprint_str[90];
-  num_to_str(cd.ncontigs, 1, ncontigs_str);
-  num_to_str(cd.nprint, 1, nprint_str);
+  char ncontigs_str[90], nprint_str[90], reseed_str[90], noseedkmer_str[90];
+  long_to_str(cd.ncontigs, ncontigs_str);
+  long_to_str(cd.nprint, nprint_str);
+  long_to_str(cd.num_reseed_abort, reseed_str);
+  long_to_str(cd.num_seed_not_found, noseedkmer_str);
   status("pulled out %s contigs", ncontigs_str);
   status("printed out %s contigs", nprint_str);
+  if(no_reseed) {
+    status("no-reseed aborted %s times", reseed_str);
+    status("seed kmer not found %s times", noseedkmer_str);
+  }
 
   char len_min_str[90], len_max_str[90], len_total_str[90];
   char len_mean_str[90], len_median_str[90], len_n50_str[90];
