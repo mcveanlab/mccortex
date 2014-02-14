@@ -200,11 +200,10 @@ static inline char* units_to_str(double num, int decimals, char* str,
   if(isnan(num)) { sprintf(str, "NaN%s", units[0]); return str; }
   else if(isinf(num)) { sprintf(str, "Inf%s", units[0]); return str; }
 
-  size_t unit;
+  size_t unit = 0;
   double num_tmp = num, num_of_units;
 
-  for(unit = 0; num_tmp >= usize && unit < nunits; unit++)
-    num_tmp /= usize;
+  while(num_tmp >= usize && unit+1 < nunits) { unit++; num_tmp /= usize; }
 
   num_of_units = num / pow(usize, unit);
   double_to_str(num_of_units, decimals, str);

@@ -2,6 +2,16 @@
 #include "all_tests.h"
 #include "util.h"
 
+#include <math.h> // NAN, INFINITY
+
+static void test_util_num_to_str()
+{
+  char str[100];
+  // Check NaN and Inf are correctly written
+  TASSERT2(strcmp(num_to_str(NAN, 2, str),"NaN") == 0, "Got: %s", str);
+  TASSERT2(strcmp(num_to_str(INFINITY, 2, str),"Inf") == 0, "Got: %s", str);
+}
+
 static void test_util_bytes_to_str()
 {
   test_status("[util] testing bytes_to_str()");
@@ -45,6 +55,7 @@ static void test_util_get_GCD()
 
 void test_util()
 {
+  test_util_num_to_str();
   test_util_bytes_to_str();
   test_util_get_GCD();
 }

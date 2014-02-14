@@ -37,7 +37,7 @@ typedef struct {
   size_t paths_held[MAXPATH], paths_pickdup[MAXPATH], paths_counter[MAXPATH];
   size_t grphwlk_steps[8]; // 8 states in graph_walker.h
   size_t *lengths, *junctions;
-  size_t max_len, max_junc;
+  size_t min_len, max_len, min_junc, max_junc;
   double max_junc_density;
   dBNodeBuffer nodes;
   size_t nprint; // id of next contig printed
@@ -118,7 +118,8 @@ static inline void contig_data_alloc(ContigData *cd, size_t capacity)
                     .paths_pickdup = {0}, .paths_counter = {0},
                     .grphwlk_steps = {0},
                     .lengths = lengths, .junctions = junctions,
-                    .max_len = 0, .max_junc = 0,
+                    .min_len = SIZE_MAX, .max_len = 0,
+                    .min_junc = SIZE_MAX, .max_junc = 0,
                     .max_junc_density = 0, .nprint = 0};
   db_node_buf_alloc(&tmp.nodes, 1024);
   memcpy(cd, &tmp, sizeof(ContigData));
@@ -220,6 +221,8 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
   cd->max_junc_density = MAX2(cd->max_junc_density, (double)njunc / len);
   cd->max_len = MAX2(cd->max_len, len);
   cd->max_junc = MAX2(cd->max_junc, njunc);
+  cd->min_len = MIN2(cd->min_len, len);
+  cd->min_junc = MIN2(cd->min_junc, njunc);
 
   cd->ncontigs++;
 }
@@ -270,10 +273,6 @@ int ctx_contigs(CmdArgs *args)
   int argc = args->argc;
   char **argv = args->argv;
   // Already checked there is at least 1 argument
-
-  // char str[100];
-  // printf("Test NaN: %s INF: %s\n", num_to_str(NAN, 2, str),
-  //                                  num_to_str(INFINITY, 2, str));
 
   size_t i, n_rand_contigs = 0, colour = 0;
   boolean print_contigs = false, no_reseed = false;
@@ -463,32 +462,58 @@ int ctx_contigs(CmdArgs *args)
   qsort(cd.lengths, cd.ncontigs, sizeof(size_t), cmp_size);
   qsort(cd.junctions, cd.ncontigs, sizeof(size_t), cmp_size);
 
-  double median_len = MEDIAN(cd.lengths, cd.ncontigs);
-  double median_junc = MEDIAN(cd.junctions, cd.ncontigs);
+  // Calculate N50s
+  size_t half_len = cd.total_len / 2, half_jnc = cd.total_junc / 2;
+  size_t len_n50 = 0, len_n50_sum = 0;
+  size_t jnc_n50 = 0, jnc_n50_sum = 0;
 
+  for(i = cd.ncontigs; i > 0 && len_n50_sum < half_len; i--)
+    len_n50_sum += cd.lengths[i-1];
+
+  if(i < cd.ncontigs) len_n50 = cd.lengths[i];
+
+  for(i = cd.ncontigs; i > 0 && jnc_n50_sum < half_jnc; i--)
+    jnc_n50_sum += cd.junctions[i-1];
+
+  if(i < cd.ncontigs) jnc_n50 = cd.junctions[i];
+
+  // Calculate medians
+  double len_median, jnc_median, len_mean, jnc_mean;
+  len_median = MEDIAN(cd.lengths, cd.ncontigs);
+  jnc_median = MEDIAN(cd.junctions, cd.ncontigs);
+  len_mean = (double)cd.total_len / cd.ncontigs;
+  jnc_mean = (double)cd.total_junc / cd.ncontigs;
+
+  // Print number of contigs
   char ncontigs_str[90], nprint_str[90];
   num_to_str(cd.ncontigs, 1, ncontigs_str);
   num_to_str(cd.nprint, 1, nprint_str);
-
   status("pulled out %s contigs", ncontigs_str);
   status("printed out %s contigs", nprint_str);
 
-  char len_mean_str[90], len_median_str[90], len_max_str[90], len_total_str[90];
-  char jnc_mean_str[90], jnc_median_str[90], jnc_max_str[90], jnc_total_str[90];
+  char len_min_str[90], len_max_str[90], len_total_str[90];
+  char len_mean_str[90], len_median_str[90], len_n50_str[90];
 
-  num_to_str((double)cd.total_len / cd.ncontigs, 1, len_mean_str);
-  num_to_str((double)cd.total_junc / cd.ncontigs, 1, jnc_mean_str);
-  num_to_str(median_len, 1, len_median_str);
-  num_to_str(median_junc, 1, jnc_median_str);
+  char jnc_min_str[90], jnc_max_str[90], jnc_total_str[90];
+  char jnc_mean_str[90], jnc_median_str[90], jnc_n50_str[90];
+
+  num_to_str(len_mean, 1, len_mean_str);
+  num_to_str(jnc_mean, 1, jnc_mean_str);
+  num_to_str(len_median, 1, len_median_str);
+  num_to_str(jnc_median, 1, jnc_median_str);
+  num_to_str(len_n50, 1, len_n50_str);
+  num_to_str(jnc_n50, 1, jnc_n50_str);
+  num_to_str(cd.min_len, 1, len_min_str);
+  num_to_str(cd.min_junc, 1, jnc_min_str);
   num_to_str(cd.max_len, 1, len_max_str);
   num_to_str(cd.max_junc, 1, jnc_max_str);
   num_to_str(cd.total_len, 1, len_total_str);
   num_to_str(cd.total_junc, 1, jnc_total_str);
 
-  status("Lengths: mean: %s, median: %s, max: %s, total: %s [kmers]",
-         len_mean_str, len_median_str, len_max_str, len_total_str);
-  status("Junctions: mean: %s, median: %s, max: %s, total: %s [out >1]",
-         jnc_mean_str, jnc_median_str, jnc_max_str, jnc_total_str);
+  status("Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
+         len_mean_str, len_median_str, len_n50_str, len_min_str, len_max_str, len_total_str);
+  status("Junctions: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [out >1]",
+         jnc_mean_str, jnc_median_str, jnc_n50_str, jnc_min_str, jnc_max_str, jnc_total_str);
   status("Max junction density: %.2f\n", cd.max_junc_density);
   // status("Contigs looping back to a kmer: %zu [%.2f%%]\n", nloop,
   //        (100.0 * nloop) / cd.ncontigs);
