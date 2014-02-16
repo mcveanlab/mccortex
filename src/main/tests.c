@@ -20,6 +20,7 @@ int main()
   test_db_node();
   test_build_graph();
   test_supernode();
+  test_subgraph();
   test_packed_path();
   test_paths();
   test_corrected_aln();
@@ -35,5 +36,7 @@ int main()
   test_status(tests_num_failed ? "Some tests failed." : "All tests passed.");
 
   cortex_destroy();
-  return EXIT_SUCCESS;
+
+  // Return 1 if any tests failed, 0 on success
+  return tests_num_failed ? 1 : 0;
 }

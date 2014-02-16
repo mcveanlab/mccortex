@@ -18,6 +18,7 @@ endif
 #  make
 #  make clean
 #  make all
+#  make test
 
 # For release
 # RECOMPILE=1
@@ -91,24 +92,9 @@ endif
 INCS=-I $(IDIR_MISC) -I $(IDIR_BITARR) -I $(IDIR_STRS) -I $(IDIR_HTS) \
      -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_MSGPOOL) $(EXTRA_INCS)
 
-# INCS=-I src/basic/ -I src/kmer/ -I src/tools/ $(INCS_EXTERNAL)
-# -I $(IDIR_GSL_HEADERS)
-
 # Library linking
 LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN)
 LINK=-lpthread -lz -lm
-# $(LIB_GSL)
-
-# -Winit-self -Wmissing-include-dirs
-# -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code
-# -Wcast-qual -Wcast-align -Wmissing-noreturn
-# -Wwrite-strings -Waggregate-return -Wundef
-# -Wshadow -Wconversion -Wshorten-64-to-32 -Woverlength-strings
-# -Wenum-compare -Wlogical-op -Wfloat-equal -Wbad-function-cast
-
-# Optimisations tags for testing
-# -Wstack-protector -fstack-protector
-# -fsanitize=thread
 
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
@@ -131,15 +117,8 @@ ifdef DEBUG
 	OPT = -O0 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
 	DEBUG_ARGS = -g -ggdb -gdwarf-2 -g3
 else
-	ifdef PROFILE
-		#-DNDEBUG=1
-		OPT = -O4 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
-		DEBUG_ARGS = -g -ggdb
-	else
-		#-DNDEBUG=1
-		OPT = -O4 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
-		DEBUG_ARGS = 
-	endif
+	#-DNDEBUG=1
+	OPT = -O3 -flto $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
 endif
 
 ifdef VERBOSE
@@ -194,6 +173,10 @@ endif
 
 all: ctx tests hashtest
 
+# Run tests
+test: tests
+	./bin/tests$(MAXK)
+
 # This Makefile mastery borrowed from htslib [https://github.com/samtools/htslib]
 # If git repo, grab commit hash to use in version
 # Force version.h to be remade if $(CTX_VERSION) has changed.
@@ -223,15 +206,15 @@ libs/misc/%.o: libs/misc/%.c libs/misc/%.h
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ -fwhole-program $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
-bin/tests$(MAXK): src/main/tests.c src/tests/* $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
+bin/tests$(MAXK): src/main/tests.c $(wildcard src/tests/*) $(OBJS) $(HDRS) | bin
+	$(CC) -o $@ -fwhole-program $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ -fwhole-program $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
 
 # directories
 $(DIRS):
@@ -248,4 +231,4 @@ clean:
 
 force:
 
-.PHONY: all clean ctx force
+.PHONY: all clean ctx test force

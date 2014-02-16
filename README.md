@@ -9,7 +9,9 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-15 December 2013
+14 February 2014
+
+[![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
 
 Build
 -----

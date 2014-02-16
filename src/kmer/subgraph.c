@@ -186,7 +186,7 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist, boolean invert,
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
 void subgraph_from_seq(dBGraph *db_graph, size_t dist, boolean invert,
                        size_t fringe_mem, uint64_t *kmer_mask,
-                       char **seqs, size_t num_files)
+                       char **seqs, size_t num_seqs)
 {
   // divide by two since this is the number of nodes per list, two lists
   size_t i, num_of_fringe_nodes = get_num_fringe_nodes(fringe_mem, dist);
@@ -200,7 +200,7 @@ void subgraph_from_seq(dBGraph *db_graph, size_t dist, boolean invert,
                .seq  = {.b = NULL,  .end = 0, .size = 0},
                .qual = {.b = empty, .end = 0, .size = 0}};
 
-  for(i = 0; i < num_files; i++) {
+  for(i = 0; i < num_seqs; i++) {
     r1.seq.b = seqs[i];
     r1.seq.end = strlen(seqs[i]);
     store_read_nodes(&r1, NULL, 0, 0, &enodes);

@@ -2,6 +2,7 @@
 #define ALL_TESTS_H_
 
 #include "db_graph.h"
+#include "seq_file.h"
 
 //
 // Output
@@ -35,6 +36,12 @@ void fill_rand_bytes(uint8_t *arr, size_t n);
 void rand_nucs(Nucleotide *nucs, size_t len);
 void bitarr_tostr(const uint8_t *arr, size_t len, char *str);
 
+static inline void seq_read_set(read_t *r, const char *s) {
+  size_t len = strlen(s);
+  buffer_ensure_capacity(&r->seq, len+1);
+  memcpy(r->seq.b, s, len+1);
+  r->seq.end = len;
+}
 
 //
 // Functions of tests
@@ -63,6 +70,9 @@ void test_build_graph();
 
 // supernode_tests.c
 void test_supernode();
+
+// subgraph_tests.c
+void test_subgraph();
 
 // packed_path_tests.c
 void test_packed_path();
