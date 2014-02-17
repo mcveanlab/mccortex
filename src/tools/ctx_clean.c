@@ -46,7 +46,7 @@ static inline size_t supernode_covg_mean(Covg *covgs, size_t len)
   ctx_assert(len > 0);
   size_t i, sum = 0;
   for(i = 0; i < len; i++) sum += covgs[i];
-  return (sum+len/2) / len;
+  return (sum+len/2) / len; // round to nearest integer
 }
 
 // Mark each node in the supernode as visited
@@ -69,8 +69,7 @@ static inline size_t fetch_supernode(hkey_t node,
     cbuf->data[i] = db_graph->col_covgs[hkey];
   }
 
-  size_t reads_arriving = supernode_covg(cbuf->data, cbuf->len);
-  return reads_arriving;
+  return supernode_covg(cbuf->data, cbuf->len);
 }
 
 static inline void covg_histogram(hkey_t node,

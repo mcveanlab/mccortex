@@ -113,7 +113,7 @@ Bundled libraries may have different licenses:
 * [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
 * [BitArray](https://github.com/noporpoise/BitArray) (Public Domain)
 * [msg-pool](https://github.com/noporpoise/msg-pool) (Public Domain)
-* [seq-align](https://github.com/noporpoise/seq-align) (GPLv3)
+* [seq-align](https://github.com/noporpoise/seq-align) (Public Domain)
 
 Used in testing:
 * [bioinf-perl](https://github.com/noporpoise/bioinf-perl) (Public Domain)
