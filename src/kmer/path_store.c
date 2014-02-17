@@ -144,6 +144,7 @@ PathIndex _path_store_find_or_add_packed(PathStore *store, PathIndex last_index,
                                          boolean find, boolean *added)
 {
   if(find) {
+    *added = false;
     return path_store_find_or_add_packed(store, last_index, packed,
                                          path_nbytes, added);
   } else {
@@ -161,6 +162,8 @@ PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
 {
   size_t i, intocol, fromcol, tmp;
   const size_t packed_bitset_bytes = roundup_bits2bytes(fltr->filencols);
+
+  *added = false;
 
   if(path_store_fltr_compatible(store,fltr)) {
     return _path_store_find_or_add_packed(store, last_index, packed,

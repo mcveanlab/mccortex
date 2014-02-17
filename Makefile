@@ -1,7 +1,3 @@
-ifndef CC
-  CC = gcc
-endif
-
 #Arguments (all are optional):
 # MAXK=31
 # DEBUG=1       (compile with debug symbols)
@@ -25,7 +21,7 @@ endif
 
 # Use bash as shell
 SHELL := /bin/bash
-
+CC ?= gcc
 
 ## Toggle Release Version
 #
@@ -35,14 +31,8 @@ SHELL := /bin/bash
 #
 ##
 
+MAXK ?= 31
 NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
-
-ifndef MAXK
-  NUM_BKMER_WORDS = 1
-  MAXK = 31
-else
-  NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
-endif
 
 ifeq ($(NUM_BKMER_WORDS),0)
   $(error Invalid MAXK value '$(MAXK)'. Please choose from 31,63,95,..(32*n-1) [default: 31])
@@ -96,44 +86,55 @@ INCS=-I $(IDIR_MISC) -I $(IDIR_BITARR) -I $(IDIR_STRS) -I $(IDIR_HTS) \
 LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN)
 LINK=-lpthread -lz -lm
 
+CFLAGS = -std=c99 -Wall -Wextra
+CPPFLAGS=$(HASH_KEY_FLAGS) -D_USESAM=1
+KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
+         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS)
+
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 
-IGNORE_CFLAGS=-Wno-cast-align -Wno-shorten-64-to-32 \
-              -Wno-aggregate-return -Wno-conversion
+IGNORE_CFLAGS=-Wno-cast-align -Wno-aggregate-return -Wno-conversion
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
-                 -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
-                 -Wcast-qual -Wmissing-noreturn \
-                 -Wwrite-strings -Wundef \
-                 -Wshadow -Woverlength-strings \
-                 -Wenum-compare -Wfloat-equal -Wbad-function-cast \
-                 -fstack-protector-all -D_FORTIFY_SOURCE=2
+                  -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
+                  -Wcast-qual -Wmissing-noreturn \
+                  -Wwrite-strings -Wundef \
+                  -Wshadow -Woverlength-strings \
+                  -Wenum-compare -Wfloat-equal -Wbad-function-cast \
+                  -fstack-protector-all -D_FORTIFY_SOURCE=2
 
-#CLANG_ONLY=-fsanitize-undefined-trap-on-error
+CLANG_CFLAGS=-fsanitize-undefined-trap-on-error -Wno-shorten-64-to-32
+
+CFLAGS := $(CFLAGS) $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
+
+PLATFORM := $(shell uname)
+COMPILER := $(shell ($(CC) -v 2>&1) | tr A-Z a-z )
 
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
-	OPT = -O0 $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
-	DEBUG_ARGS = -g -ggdb -gdwarf-2 -g3
+	OPT = -O0 -g -ggdb -gdwarf-2 -g3
 else
-	#-DNDEBUG=1
-	OPT = -O3 -flto $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
+	# Could add -DNDEBUG=1 here to turn off asserts
+	ifneq (,$(findstring clang,$(COMPILER)))
+		# clang Link Time Optimisation (lto) seems to have issues atm
+		OPT = -O3
+		CFLAGS := $(CFLAGS) $(CLANG_CFLAGS)
+	else
+		OPT = -O4 -flto
+		TGTFLAGS = -fwhole-program
+	endif
 endif
 
+CFLAGS := $(OPT) $(CFLAGS)
+
 ifdef VERBOSE
-	OUTPUT_ARGS=-DCTXVERBOSE=1
+	CPPFLAGS := $(CPPFLAGS) -DCTXVERBOSE=1
 endif
 
 ifndef RELEASE
-	DEV_CFLAGS=-DCTXCHECKS=1
+	CPPFLAGS := $(CPPFLAGS) -DCTXCHECKS=1
 endif
-
-CFLAGS = -std=c99 -Wall -Wextra $(OPT) $(DEBUG_ARGS) $(OUTPUT_ARGS) \
-          $(HASH_KEY_FLAGS) -D_USESAM=1 $(DEV_CFLAGS)
-
-KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS)
 
 # basic objects compile without MAXK
 # kmer and tool objects require MAXK
@@ -192,29 +193,29 @@ src/basic/version.h:
 	echo '#define CTXVERSIONSTR "$(CTX_VERSION)"' > $@
 
 $(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
-	$(CC) $(CFLAGS) -I src/basic/ $(INCS) -c $< -o $@
+	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -I src/basic/ $(INCS) -c $< -o $@
 
 $(KMER_OBJDIR)/%.o: src/kmer/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(DEPS)
-	$(CC) $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) -c $< -o $@
+	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) -c $< -o $@
 
 $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
-	$(CC) $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $< -o $@
+	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $< -o $@
 
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
-	$(CC) $(CFLAGS) -c libs/misc/$*.c -o libs/misc/$*.o
+	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -c libs/misc/$*.c -o libs/misc/$*.o
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ -fwhole-program $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(wildcard src/tests/*) $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ -fwhole-program $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ -fwhole-program $(CFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
 
 # directories
 $(DIRS):

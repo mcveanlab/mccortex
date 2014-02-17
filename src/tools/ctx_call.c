@@ -141,18 +141,16 @@ int ctx_call(CmdArgs *args)
   dBGraph db_graph;
   db_graph_alloc(&db_graph, gfile.hdr.kmer_size, gfile.hdr.num_of_cols, 1, kmers_in_hash);
 
-  if(kmers_in_hash != db_graph.ht.capacity) die("Mismatch");
-
   // Edges merged into one colour
-  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(uint8_t));
+  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(uint8_t));
 
   // In colour
-  size_t bytes_per_col = roundup_bits2bytes(kmers_in_hash);
+  size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
   db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, sizeof(uint8_t));
 
   // Paths
-  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
+  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
+  memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
   path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 

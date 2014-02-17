@@ -266,7 +266,7 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
   const uint8_t *packed;
   PathIndex pindex, new_pindex;
   PathLen pbytes;
-  boolean added;
+  boolean added = false;
   PathStore *store = &db_graph->pdata;
 
   // Get paths this kmer already has
