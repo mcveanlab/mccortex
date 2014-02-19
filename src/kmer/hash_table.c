@@ -88,7 +88,7 @@ void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
     .bucket_size = bucket_size,
     .capacity = capacity,
     .buckets = buckets,
-    .unique_kmers = 0,
+    .num_kmers = 0,
     .collisions = {0}};
 
   memcpy(htable, &data, sizeof(data));
@@ -114,7 +114,7 @@ void hash_table_empty(HashTable *const htable)
     .bucket_size = htable->bucket_size,
     .capacity = htable->capacity,
     .buckets = htable->buckets,
-    .unique_kmers = 0,
+    .num_kmers = 0,
     .collisions = {0}};
 
   memcpy(htable, &data, sizeof(data));
@@ -155,7 +155,7 @@ const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const htable
      htable->buckets[bucket][HT_BSIZE] < htable->bucket_size)
   {
     *empty = bkmer;
-    htable->unique_kmers++;
+    htable->num_kmers++;
     htable->buckets[bucket][HT_BITEMS]++;
     htable->buckets[bucket][HT_BSIZE]++;
   }
@@ -172,6 +172,7 @@ const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const htable
 // }
 */
 
+// Remember to increment htable->num_kmers
 static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
                                                       uint_fast32_t bucket,
                                                       const BinaryKmer bkmer)
@@ -189,7 +190,6 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
   }
 
   *ptr = bkmer;
-  htable->unique_kmers++;
   htable->buckets[bucket][HT_BITEMS]++;
   return ptr;
 }
@@ -257,6 +257,7 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
     if(htable->buckets[h][HT_BITEMS] < htable->bucket_size) {
       ptr = hash_table_insert_in_bucket(htable, h, key);
       htable->collisions[i]++; // only increment collisions when inserting
+      htable->num_kmers++;
       return (hkey_t)(ptr - htable->table);
     }
   }
@@ -298,6 +299,7 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
       *found = false;
       ptr = hash_table_insert_in_bucket(htable, h, key);
       htable->collisions[i]++; // only increment collisions when inserting
+      htable->num_kmers++;
       return (hkey_t)(ptr - htable->table);
     }
   }
@@ -345,8 +347,8 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
       *found = false;
       ptr = hash_table_insert_in_bucket(htable, h, key);
       bitlock_release(bktlocks, h);
-      // only increment collisions when inserting
       __sync_add_and_fetch((volatile uint64_t*)&htable->collisions[i], 1);
+      __sync_add_and_fetch((volatile uint64_t*)&htable->num_kmers, 1);
       return (hkey_t)(ptr - htable->table);
     }
     else {
@@ -363,12 +365,12 @@ void hash_table_delete(HashTable *const htable, hkey_t pos)
 
   ctx_assert(pos != HASH_NOT_FOUND);
   ctx_assert(htable->buckets[bucket][HT_BITEMS] > 0);
-  ctx_assert(htable->unique_kmers > 0);
+  ctx_assert(htable->num_kmers > 0);
   ctx_assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
 
   htable->table[pos] = unset_bkmer;
   htable->buckets[bucket][HT_BITEMS]--;
-  htable->unique_kmers--;
+  htable->num_kmers--;
 
   ctx_assert(!HASH_ENTRY_ASSIGNED(htable->table[pos]));
 }
@@ -377,7 +379,7 @@ void hash_table_delete(HashTable *const htable, hkey_t pos)
 void hash_table_print_stats_brief(const HashTable *const htable)
 {
   size_t nbytes, nkeybits;
-  double occupancy = (100.0 * htable->unique_kmers) / htable->capacity;
+  double occupancy = (100.0 * htable->num_kmers) / htable->capacity;
   nbytes = htable->capacity * sizeof(BinaryKmer) +
            htable->num_of_buckets * sizeof(uint8_t[2]);
   nkeybits = (size_t)__builtin_ctzl(htable->num_of_buckets);
@@ -386,7 +388,7 @@ void hash_table_print_stats_brief(const HashTable *const htable)
   ulong_to_str(htable->num_of_buckets, num_buckets_str);
   bytes_to_str(nbytes, 1, mem_str);
   ulong_to_str(htable->capacity, capacity_str);
-  ulong_to_str(htable->unique_kmers, num_entries_str);
+  ulong_to_str(htable->num_kmers, num_entries_str);
 
   status("[hash] buckets: %s [2^%zu]; bucket size: %zu; "
          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
@@ -399,7 +401,7 @@ void hash_table_print_stats(const HashTable *const htable)
   size_t i;
   hash_table_print_stats_brief(htable);
 
-  if(htable->unique_kmers > 0) {
+  if(htable->num_kmers > 0) {
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(htable->collisions[i] != 0) {
         status("  collisions %zu: %zu\n", i, (size_t)htable->collisions[i]);
@@ -415,7 +417,7 @@ static inline void increment_count(hkey_t hkey, uint64_t *count)
   (*count)++;
 }
 
-uint64_t hash_table_count_assigned_nodes(const HashTable *const htable)
+uint64_t hash_table_count_kmers(const HashTable *const htable)
 {
   uint64_t count = 0;
   HASH_ITERATE(htable, increment_count, &count);

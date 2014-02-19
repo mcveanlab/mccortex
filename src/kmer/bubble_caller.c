@@ -98,8 +98,8 @@ void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
              sample_name->buff, ginfo->sample_name.buff, col,
              (size_t)ginfo->mean_read_length, (size_t)ginfo->total_sequence,
              ginfo->seq_err,
-             ec->tip_clipping ? "yes" : "no", ec->remv_low_cov_sups_thresh,
-             ec->remv_low_cov_nodes_thresh,
+             ec->cleaned_tips ? "yes" : "no", ec->clean_snodes_thresh,
+             ec->clean_kmers_thresh,
              ec->intersection_name.buff);
   }
 

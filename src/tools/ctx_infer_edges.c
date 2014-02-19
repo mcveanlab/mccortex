@@ -222,9 +222,9 @@ int ctx_infer_edges(CmdArgs *args)
 
   char modified_str[100], kmers_str[100];
   ulong_to_str(num_nodes_modified, modified_str);
-  ulong_to_str(db_graph.ht.unique_kmers, kmers_str);
+  ulong_to_str(db_graph.ht.num_kmers, kmers_str);
   status("%s of %s (%.2f%%) nodes modified\n", modified_str, kmers_str,
-         (100.0 * num_nodes_modified) / db_graph.ht.unique_kmers);
+         (100.0 * num_nodes_modified) / db_graph.ht.num_kmers);
 
   free(db_graph.node_in_cols);
   db_graph_dealloc(&db_graph);

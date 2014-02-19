@@ -2,3 +2,7 @@ test
 bin
 build
 libs
+docs
+src/basic/version.h
+*.RData
+*.RHistory

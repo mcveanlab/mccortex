@@ -382,7 +382,7 @@ void graph_paths_check_counts(const dBGraph *db_graph)
   HASH_ITERATE(&db_graph->ht, _pstore_update_counts,
                db_graph, &nkmers, &npaths, &nvisited);
 
-  ctx_assert(nvisited == db_graph->ht.unique_kmers);
+  ctx_assert(nvisited == db_graph->ht.num_kmers);
   ctx_assert(nkmers == pstore->num_kmers_with_paths);
   ctx_assert(npaths == pstore->num_of_paths);
 }

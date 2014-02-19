@@ -27,7 +27,7 @@ void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
 
   dst->contigs_loaded += src->contigs_loaded;
   dst->kmers_loaded += src->kmers_loaded;
-  dst->unique_kmers += src->unique_kmers;
+  dst->num_kmers += src->num_kmers;
 
   dst->num_of_colours_loaded += src->num_of_colours_loaded;
 }

@@ -66,8 +66,8 @@ void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
         mem_str, fltr->orig_path.buff);
   }
 
-  if(db_graph->ht.unique_kmers > 0 &&
-     db_graph->ht.unique_kmers < hdr->num_kmers_with_paths)
+  if(db_graph->ht.num_kmers > 0 &&
+     db_graph->ht.num_kmers < hdr->num_kmers_with_paths)
   {
     warn("Graph has fewer kmers than paths file");
   }

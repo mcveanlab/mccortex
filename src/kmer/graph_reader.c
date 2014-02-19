@@ -221,50 +221,50 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
     {
       ErrorCleaning *err_cleaning = &h->ginfo[i].cleaning;
 
-      safe_fread(fh, &(err_cleaning->tip_clipping),
+      safe_fread(fh, &(err_cleaning->cleaned_tips),
                  sizeof(uint8_t), "tip cleaning", path);
-      safe_fread(fh, &(err_cleaning->remv_low_cov_sups),
+      safe_fread(fh, &(err_cleaning->cleaned_snodes),
                  sizeof(uint8_t), "remove low covg supernodes", path);
-      safe_fread(fh, &(err_cleaning->remv_low_cov_nodes),
+      safe_fread(fh, &(err_cleaning->cleaned_kmers),
                  sizeof(uint8_t), "remove low covg kmers", path);
       safe_fread(fh, &(err_cleaning->is_graph_intersection),
                  sizeof(uint8_t), "cleaned against graph", path);
 
-      safe_fread(fh, &(err_cleaning->remv_low_cov_sups_thresh),
+      safe_fread(fh, &(err_cleaning->clean_snodes_thresh),
                  sizeof(uint32_t), "remove low covg supernode threshold", path);
-      safe_fread(fh, &(err_cleaning->remv_low_cov_nodes_thresh),
+      safe_fread(fh, &(err_cleaning->clean_kmers_thresh),
                  sizeof(uint32_t), "remove low covg kmer threshold", path);
 
       bytes_read += 4*sizeof(uint8_t) + 2*sizeof(uint32_t);
 
       // Fix for old versions with negative thresholds
       if(h->version <= 6) {
-        if(!err_cleaning->remv_low_cov_sups &&
-           err_cleaning->remv_low_cov_sups_thresh == (uint32_t)-1) {
-          err_cleaning->remv_low_cov_nodes_thresh = 0;
-        } else if(!err_cleaning->remv_low_cov_nodes &&
-           err_cleaning->remv_low_cov_nodes_thresh == (uint32_t)-1) {
-          err_cleaning->remv_low_cov_nodes_thresh = 0;
+        if(!err_cleaning->cleaned_snodes &&
+           err_cleaning->clean_snodes_thresh == (uint32_t)-1) {
+          err_cleaning->clean_kmers_thresh = 0;
+        } else if(!err_cleaning->cleaned_kmers &&
+           err_cleaning->clean_kmers_thresh == (uint32_t)-1) {
+          err_cleaning->clean_kmers_thresh = 0;
         }
       }
 
       // Sanity checks
-      if(!err_cleaning->remv_low_cov_sups &&
-         err_cleaning->remv_low_cov_sups_thresh > 0)
+      if(!err_cleaning->cleaned_snodes &&
+         err_cleaning->clean_snodes_thresh > 0)
       {
         warn("Graph header gives cleaning threshold for supernodes "
              "when no cleaning was performed [path: %s]", path);
 
-        err_cleaning->remv_low_cov_sups_thresh = 0;
+        err_cleaning->clean_snodes_thresh = 0;
       }
 
-      if(!err_cleaning->remv_low_cov_nodes &&
-         err_cleaning->remv_low_cov_nodes_thresh > 0)
+      if(!err_cleaning->cleaned_kmers &&
+         err_cleaning->clean_kmers_thresh > 0)
       {
         warn("Graph header gives cleaning threshold for nodes "
              "when no cleaning was performed [path: %s]", path);
 
-        err_cleaning->remv_low_cov_nodes_thresh = 0;
+        err_cleaning->clean_kmers_thresh = 0;
       }
 
       // Read cleaned against name
@@ -431,7 +431,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   Edges edges[load_ncols];
 
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
-  uint64_t num_of_kmers_already_loaded = graph->ht.unique_kmers;
+  uint64_t num_of_kmers_already_loaded = graph->ht.num_kmers;
 
   status("[CtxLoad] Reading into %zu colour%s from file with %u...",
          load_ncols, load_ncols != 1 ? "s" : "", hdr->num_of_cols);
@@ -511,7 +511,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   {
     stats->num_of_colours_loaded += load_ncols;
     stats->kmers_loaded += num_of_kmers_loaded;
-    stats->unique_kmers += graph->ht.unique_kmers - num_of_kmers_already_loaded;
+    stats->num_kmers += graph->ht.num_kmers - num_of_kmers_already_loaded;
     for(i = 0; i < load_ncols; i++)
       stats->total_bases_read += hdr->ginfo[i].total_sequence;
     stats->ctx_files_loaded++;
@@ -568,7 +568,9 @@ size_t graph_load_colour(GraphFileReader *file,
 //   (i.e. only keep nodes and edges that are in the graph)
 // Same functionality as graph_files_merge, but faster if dealing with only one
 // input file. Reads in and dumps one kmer at a time
-// parameter: flatten: if true merge colours into one
+// parameters:
+//   `flatten`: if true merge colours into one
+//   `only_load_if_in_edges`: Edges to mask edges with, 1 per hash table entry
 size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file,
                            const dBGraph *db_graph, const GraphFileHeader *hdr,
                            const Edges *only_load_if_in_edges)
@@ -609,7 +611,6 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
         hkey_t node = hash_table_find(&db_graph->ht, bkmer);
 
         if(node != HASH_NOT_FOUND) {
-          // Edges union_edges = db_node_get_edges_union(db_graph, node);
           Edges union_edges = only_load_if_in_edges[node];
           for(i = 0; i < ncols; i++) edges[i] &= union_edges;
         }
@@ -662,8 +663,10 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
   return nodes_dumped;
 }
 
-// kmers_loaded means all kmers to dump have been loaded
-// colours_loaded means all kmer data have been loaded
+// `kmers_loaded`: means all kmers to dump have been loaded
+// `colours_loaded`: means all kmer data have been loaded
+// `only_load_if_in_edges`: Edges to mask edges with, 1 per hash table entry
+//   should already be set
 size_t graph_files_merge(const char *out_ctx_path,
                          GraphFileReader *files, size_t num_files,
                          boolean kmers_loaded, boolean colours_loaded,
@@ -836,11 +839,11 @@ size_t graph_files_merge(const char *out_ctx_path,
 
     fclose(fout);
 
-    graph_write_status(db_graph->ht.unique_kmers, output_colours,
+    graph_write_status(db_graph->ht.num_kmers, output_colours,
                        out_ctx_path, CTX_GRAPH_FILEFORMAT);
   }
 
-  return db_graph->ht.unique_kmers;
+  return db_graph->ht.num_kmers;
 }
 
 // if intersect_gname != NULL: only load kmers that are already in the hash table

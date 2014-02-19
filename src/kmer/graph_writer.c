@@ -23,16 +23,16 @@ void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
 // Returns number of bytes written
 static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
 {
-  fwrite(&(cleaning->tip_clipping), sizeof(uint8_t), 1, fh);
-  fwrite(&(cleaning->remv_low_cov_sups), sizeof(uint8_t), 1, fh);
-  fwrite(&(cleaning->remv_low_cov_nodes), sizeof(uint8_t), 1, fh);
+  fwrite(&(cleaning->cleaned_tips), sizeof(uint8_t), 1, fh);
+  fwrite(&(cleaning->cleaned_snodes), sizeof(uint8_t), 1, fh);
+  fwrite(&(cleaning->cleaned_kmers), sizeof(uint8_t), 1, fh);
   fwrite(&(cleaning->is_graph_intersection), sizeof(uint8_t), 1, fh);
 
   uint32_t supernodes_cleaning_thresh
-    = cleaning->remv_low_cov_sups ? cleaning->remv_low_cov_sups_thresh : 0;
+    = cleaning->cleaned_snodes ? cleaning->clean_snodes_thresh : 0;
 
   uint32_t nodes_cleaning_thresh
-    = cleaning->remv_low_cov_nodes ? cleaning->remv_low_cov_nodes_thresh : 0;
+    = cleaning->cleaned_kmers ? cleaning->clean_kmers_thresh : 0;
 
   fwrite(&supernodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
   fwrite(&nodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
@@ -235,7 +235,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   HASH_ITERATE(&db_graph->ht, graph_write_node, db_graph, fout, header,
                 intocol, colours, start_col, num_of_cols, &num_nodes_dumped);
 
-  if(header->version >= 7 && num_nodes_dumped != db_graph->ht.unique_kmers)
+  if(header->version >= 7 && num_nodes_dumped != db_graph->ht.num_kmers)
   {
     // Need to go back and update number of kmers dumped
     long pos = strlen("CORTEX") * sizeof(uint8_t) + 4 * sizeof(uint32_t);
@@ -265,7 +265,7 @@ uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
                             .kmer_size = (uint32_t)db_graph->kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
                             .num_of_cols = (uint32_t)num_of_cols,
-                            .num_of_kmers = db_graph->ht.unique_kmers,
+                            .num_of_kmers = db_graph->ht.num_kmers,
                             .capacity = 0};
 
   size_t i;

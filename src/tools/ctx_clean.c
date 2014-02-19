@@ -7,8 +7,7 @@
 #include "db_node.h"
 #include "graph_info.h"
 #include "graph_format.h"
-#include "supernode.h"
-#include "prune_nodes.h"
+#include "clean_graph.h"
 
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
@@ -34,232 +33,6 @@ const char clean_usage[] =
 #ifdef CTXVERBOSE
   #define DEBUG_SUPERNODE 1
 #endif
-
-#include "objbuf_macro.h"
-create_objbuf(covg_buf,CovgBuffer,Covg)
-
-#define supernode_covg(covgs,len) supernode_covg_mean(covgs,len)
-// #define supernode_covg(covgs,len) supernode_read_starts(covgs,len)
-
-static inline size_t supernode_covg_mean(Covg *covgs, size_t len)
-{
-  ctx_assert(len > 0);
-  size_t i, sum = 0;
-  for(i = 0; i < len; i++) sum += covgs[i];
-  return (sum+len/2) / len; // round to nearest integer
-}
-
-// Mark each node in the supernode as visited
-static inline size_t fetch_supernode(hkey_t node,
-                                     dBNodeBuffer *nbuf, CovgBuffer *cbuf,
-                                     uint64_t *visited, const dBGraph *db_graph)
-{
-  size_t i;
-  hkey_t hkey;
-
-  db_node_buf_reset(nbuf);
-  covg_buf_reset(cbuf);
-  supernode_find(node, nbuf, db_graph);
-  covg_buf_ensure_capacity(cbuf, nbuf->len);
-  cbuf->len = nbuf->len;
-
-  for(i = 0; i < nbuf->len; i++) {
-    hkey = nbuf->data[i].key;
-    bitset_set(visited, hkey);
-    cbuf->data[i] = db_graph->col_covgs[hkey];
-  }
-
-  return supernode_covg(cbuf->data, cbuf->len);
-}
-
-static inline void covg_histogram(hkey_t node,
-                                  dBNodeBuffer *nbuf, CovgBuffer *cbuf,
-                                  uint64_t *visited, uint64_t *covg_hist,
-                                  const dBGraph *db_graph)
-{
-  size_t reads_arriving;
-
-  if(!bitset_get(visited, node))
-  {
-    reads_arriving = fetch_supernode(node, nbuf, cbuf, visited, db_graph);
-    reads_arriving = MIN2(reads_arriving, HISTSIZE-1);
-    covg_hist[reads_arriving]++;
-  }
-}
-
-static inline void supernode_clean(hkey_t node,
-                                   dBNodeBuffer *nbuf, CovgBuffer *cbuf,
-                                   uint64_t *visited, Covg covg_threshold,
-                                   dBGraph *db_graph)
-{
-  size_t reads_arriving;
-
-  if(!bitset_get(visited, node))
-  {
-    reads_arriving = fetch_supernode(node, nbuf, cbuf, visited, db_graph);
-
-    #ifdef DEBUG_SUPERNODE
-      fputs("sn_thresh: ", stdout);
-      db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
-      printf(" len: %zu covg: %zu threshold: %u\n", nbuf->len,
-             reads_arriving, covg_threshold);
-    #endif
-
-    if(reads_arriving < covg_threshold) {
-      prune_supernode(nbuf->data, nbuf->len, db_graph);
-    }
-  }
-}
-
-static inline void clip_tip(hkey_t node, dBNodeBuffer *nbuf,
-                            uint64_t *visited, size_t min_keep_len,
-                            dBGraph *db_graph)
-{
-  size_t i;
-  Edges first, last;
-  int in, out;
-
-  if(!bitset_get(visited, node))
-  {
-    db_node_buf_reset(nbuf);
-    supernode_find(node, nbuf, db_graph);
-
-    for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
-
-    first = db_node_get_edges_union(db_graph, nbuf->data[0].key);
-    last = db_node_get_edges_union(db_graph, nbuf->data[nbuf->len-1].key);
-    in = edges_get_indegree(first, nbuf->data[0].orient);
-    out = edges_get_outdegree(last, nbuf->data[nbuf->len-1].orient);
-
-    #ifdef DEBUG_SUPERNODE
-      fputs("sn_clip: ", stdout);
-      db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
-      fprintf(stdout, " len: %zu junc: %i\n", nbuf->len, in+out);
-    #endif
-
-    if(in+out <= 1 && nbuf->len < min_keep_len)
-      prune_supernode(nbuf->data, nbuf->len, db_graph);
-  }
-}
-
-static void dump_covg_histogram(const char *path, uint64_t *covg_hist)
-{
-  status("Writing covg distribution to: %s\n", path);
-  size_t i, end;
-  FILE *fout = fopen(path, "w");
-  fprintf(fout, "Covg,Supernodes\n");
-  fprintf(fout, "1,%zu\n", (size_t)covg_hist[1]);
-  for(end = HISTSIZE-1; end > 1 && covg_hist[end] == 0; end--);
-  for(i = 2; i <= end; i++) {
-    if(covg_hist[i] > 0)
-      fprintf(fout, "%zu,%zu\n", i, (size_t)covg_hist[i]);
-  }
-  fclose(fout);
-}
-
-static size_t calc_supcleaning_threshold(uint64_t *covgs, size_t len,
-                                         double seq_depth,
-                                         const dBGraph *db_graph)
-{
-  ctx_assert(len > 5);
-  ctx_assert(db_graph->ht.unique_kmers > 0);
-  size_t i, d1len = len-2, d2len = len-3, f1, f2;
-  double *tmp = malloc2((d1len+d2len) * sizeof(double));
-  double *delta1 = tmp, *delta2 = tmp + d1len;
-
-  // Get sequencing depth from coverage
-  uint64_t covg_sum = 0, capacity = db_graph->ht.capacity * db_graph->num_of_cols;
-  for(i = 0; i < capacity; i++) covg_sum += db_graph->col_covgs[i];
-  double seq_depth_est = (double)covg_sum / db_graph->ht.unique_kmers;
-
-  status("Kmer depth before cleaning supernodes: %.2f\n", seq_depth_est);
-  if(seq_depth <= 0) seq_depth = seq_depth_est;
-  else status("Using sequence depth argument: %f\n", seq_depth);
-
-  size_t fallback_thresh = (size_t)MAX2(1, (seq_depth+1)/2);
-
-  // +1 to ensure covgs is never 0
-  for(i = 0; i < d1len; i++) delta1[i] = (double)(covgs[i+1]+1) / (covgs[i+2]+1);
-
-  d1len = i;
-  d2len = d1len - 1;
-
-  if(d1len <= 2) {
-    status("(using fallback1)\n");
-    free(tmp);
-    return fallback_thresh;
-  }
-
-  // d2len is d1len-1
-  for(i = 0; i < d2len; i++) delta2[i] = delta1[i] / delta1[i+1];
-
-  for(f1 = 0; f1 < d1len && delta1[f1] >= 1; f1++);
-  for(f2 = 0; f2 < d2len && delta2[f2] > 1; f2++);
-
-  free(tmp);
-
-  if(f1 < d1len && f1 < (seq_depth*0.75)) { status("(using f1)\n"); return f1; }
-  if(f2 < d2len) { status("(using f2)\n"); return f2; }
-  else { status("(using fallback1)\n"); return fallback_thresh; }
-}
-
-// If covg_threshold is zero, uses covg distribution to calculate
-// Returns covg threshold used
-static Covg clean_supernodes(boolean clean, Covg covg_threshold, double seq_depth,
-                             char *dump_covgs,
-                             dBNodeBuffer *nbuf, CovgBuffer *cbuf,
-                             uint64_t *visited, dBGraph *db_graph)
-{
-  if(db_graph->ht.unique_kmers == 0) return covg_threshold;
-  uint64_t *covg_hist;
-  size_t threshold_est, visited_words = roundup_bits2words64(db_graph->ht.capacity);
-
-  size_t covgcap = 1024;
-  Covg *tmpcovgs = malloc2(covgcap * sizeof(Covg));
-
-  if(covg_threshold == 0 || dump_covgs != NULL)
-  {
-    // Get supernode coverages
-    covg_hist = calloc2(HISTSIZE, sizeof(uint64_t));
-
-    HASH_ITERATE(&db_graph->ht, covg_histogram,
-                 nbuf, cbuf, visited, covg_hist, db_graph);
-
-    if(dump_covgs != NULL) dump_covg_histogram(dump_covgs, covg_hist);
-
-    memset(visited, 0, visited_words * sizeof(uint64_t));
-
-    // set threshold using histogram and genome size
-    threshold_est = calc_supcleaning_threshold(covg_hist, HISTSIZE,
-                                               seq_depth, db_graph);
-
-    status("Recommended supernode cleaning threshold: < %zu\n", threshold_est);
-
-    if(covg_threshold == 0)
-      covg_threshold = (Covg)threshold_est;
-
-    free(covg_hist);
-  }
-
-  if(clean)
-  {
-    // Remove supernodes
-    status("Cleaning supernodes...\n");
-
-    if(covg_threshold <= 1)
-      warn("Supernode cleaning failed, cleaning with threshold of <= 1");
-    else {
-      HASH_ITERATE(&db_graph->ht, supernode_clean,
-                   nbuf, cbuf, visited,
-                   covg_threshold, db_graph);
-      memset(visited, 0, visited_words * sizeof(uint64_t));
-    }
-  }
-
-  free(tmpcovgs);
-
-  return covg_threshold;
-}
 
 int ctx_clean(CmdArgs *args)
 {
@@ -319,7 +92,9 @@ int ctx_clean(CmdArgs *args)
       warn("No cleaning being done: you did not specify --out <out.ctx>");
   }
 
-  if((tip_cleaning || supernode_cleaning) && out_ctx_path == NULL) {
+  boolean doing_cleaning = (supernode_cleaning || tip_cleaning);
+
+  if(doing_cleaning && out_ctx_path == NULL) {
     cmd_print_usage("Please specify --out <out.ctx> for cleaned graph");
   }
 
@@ -359,15 +134,44 @@ int ctx_clean(CmdArgs *args)
     max_ctx_kmers = MAX2(max_ctx_kmers, files[i].hdr.num_of_kmers);
   }
 
-  // If no arguments given we default to clipping tips <= 2*kmer_size - 1
-  if(tip_cleaning && max_tip_len == 0)
-    max_tip_len = 2 * files[0].hdr.kmer_size - 1;
+  size_t use_ncols = args->use_ncols, kmer_size = files[0].hdr.kmer_size;
 
-  size_t use_ncols = args->use_ncols;
+  // Flatten if we don't have to remember colours / output a graph
+  if(!doing_cleaning)
+  {
+    total_cols = use_ncols = 1;
+    for(i = 0; i < num_files; i++)
+      file_filter_update_intocol(&files[i].fltr, 0);
+  }
+
   if(total_cols < use_ncols) {
     warn("I only need %zu colour%s ('--ncols %zu' ignored)",
          total_cols, (total_cols != 1 ? "s" : ""), use_ncols);
     use_ncols = total_cols;
+  }
+
+  // If no arguments given we default to removing tips <= 2*kmer_size - 1
+  if(tip_cleaning && max_tip_len == 0)
+    max_tip_len = 2 * kmer_size - 1;
+
+  // Warn if any files already cleaned
+  size_t fromcol, intocol;
+  ErrorCleaning *cleaning;
+
+  for(i = 0; i < num_files; i++) {
+    for(j = 0; j < files[i].fltr.ncols; j++) {
+      fromcol = graph_file_fromcol(&files[i], j);
+      cleaning = &files[i].hdr.ginfo[fromcol].cleaning;
+      if(cleaning->cleaned_snodes && supernode_cleaning) {
+        warn("%s:%zu already has supernode cleaning with threshold: <%zu",
+             files[i].fltr.file_path.buff, fromcol,
+             (size_t)cleaning->clean_snodes_thresh);
+      }
+      if(cleaning->cleaned_tips && tip_cleaning) {
+        warn("%s:%zu already has had tip cleaned",
+             files[i].fltr.file_path.buff, fromcol);
+      }
+    }
   }
 
   // Print steps
@@ -385,8 +189,11 @@ int ctx_clean(CmdArgs *args)
   //
   // Pick hash table size
   //
+  boolean all_colours_loaded = (total_cols <= use_ncols);
+
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
-  extra_bits_per_kmer = (sizeof(Covg)+sizeof(Edges))*8*use_ncols + sizeof(Edges)*8;
+  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
+                        (!all_colours_loaded) * sizeof(Edges) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                         max_ctx_kmers, true, &graph_mem);
 
@@ -400,11 +207,12 @@ int ctx_clean(CmdArgs *args)
     cmd_print_usage("Cannot write coverage distribution to: %s", dump_covgs);
 
   // Create db_graph
-  // Load all data into first colour and clean, then use use_ncols to take
-  // intersection.  Use an extra set of edge to take intersections
+  // Load as many colours as possible
+  // Use an extra set of edge to take intersections
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
-  Edges *edge_store = calloc2(db_graph.ht.capacity * (use_ncols+1), sizeof(Edges));
+  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  Edges *edge_store = calloc2(db_graph.ht.capacity * (use_ncols+!all_colours_loaded),
+                              sizeof(Edges));
   db_graph.col_edges = edge_store;
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
@@ -422,124 +230,114 @@ int ctx_clean(CmdArgs *args)
                             .kmer_size = (uint32_t)db_graph.kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
                             .num_of_cols = (uint32_t)total_cols,
-                            .num_of_kmers = db_graph.ht.unique_kmers,
+                            .num_of_kmers = db_graph.ht.num_kmers,
                             .capacity = 0};
 
   graph_header_alloc(&outhdr, total_cols);
 
   // Merge info into header
-  size_t outcol = 0;
+  size_t gcol = 0;
   for(i = 0; i < num_files; i++) {
-    outcol += files[i].fltr.intocol;
-    for(j = 0; j < files[i].fltr.ncols; j++, outcol++)
-      graph_info_merge(outhdr.ginfo + outcol, files[i].hdr.ginfo + files[i].fltr.cols[j]);
+    for(j = 0; j < files[i].fltr.ncols; j++, gcol++) {
+      fromcol = graph_file_fromcol(&files[i], j);
+      intocol = graph_file_intocol(&files[i], j);
+      graph_info_merge(&outhdr.ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
+    }
   }
 
-  // Load into one colour
-  size_t tmpinto; boolean tmpflatten;
-  for(i = 0; i < num_files; i++)
+  if(total_cols > use_ncols)
   {
-    tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
-    // files[i].fltr.intocol = 0;
-    file_filter_update_intocol(&files[i].fltr, 0);
-    files[i].fltr.flatten = true;
-    graph_load(&files[i], gprefs, &stats);
-    // files[i].fltr.intocol = tmpinto;
-    file_filter_update_intocol(&files[i].fltr, tmpinto);
-    files[i].fltr.flatten = tmpflatten;
+    // Load into one colour
+    size_t tmpinto; boolean tmpflatten;
+    for(i = 0; i < num_files; i++)
+    {
+      tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
+      file_filter_update_intocol(&files[i].fltr, 0);
+      files[i].fltr.flatten = true;
+      graph_load(&files[i], gprefs, &stats);
+      file_filter_update_intocol(&files[i].fltr, tmpinto);
+      files[i].fltr.flatten = tmpflatten;
+    }
+  }
+  else {
+    for(i = 0; i < num_files; i++)
+      graph_load(&files[i], gprefs, &stats);
   }
 
   if(num_files > 1) {
     char num_kmers_str[100];
-    ulong_to_str(db_graph.ht.unique_kmers, num_kmers_str);
-    status("Total kmers: %s\n", num_kmers_str);
+    ulong_to_str(db_graph.ht.num_kmers, num_kmers_str);
+    status("Total kmers loaded: %s\n", num_kmers_str);
   }
 
-  size_t initial_nkmers = db_graph.ht.unique_kmers;
+  size_t initial_nkmers = db_graph.ht.num_kmers;
 
   hash_table_print_stats(&db_graph.ht);
-
-  // Variables possibly used
-  dBNodeBuffer nbuf;
-  CovgBuffer cbuf;
-  db_node_buf_alloc(&nbuf, 2048);
-  covg_buf_alloc(&cbuf, 2048);
 
   size_t visited_words = roundup_bits2words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(visited_words, sizeof(uint64_t));
 
-  char rem_kmers_str[100];
-  ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);
-  status("Initial kmers: %s\n", rem_kmers_str);
-
   // Tip clipping
   if(tip_cleaning) {
-    // Need to use _SAFE hash traverse since we remove elements in clip_tip()
-    status("Clipping tips shorter than %zu...\n", max_tip_len);
+    cleaning_remove_tips(max_tip_len, visited, &db_graph);
 
-    HASH_ITERATE_SAFE(&db_graph.ht, clip_tip,
-                      &nbuf, visited, max_tip_len, &db_graph);
-
-    ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);
-    status("Remaining kmers: %s\n", rem_kmers_str);
-    memset(visited, 0, visited_words * sizeof(uint64_t));
+    if(supernode_cleaning || dump_covgs)
+      memset(visited, 0, visited_words * sizeof(uint64_t));
   }
 
-  // Supernode cleaning or dump covg
+  // Supernode cleaning or printing coverage distribution to a file
   if(supernode_cleaning || dump_covgs) {
-    threshold = clean_supernodes(supernode_cleaning, threshold, seq_depth,
-                                 dump_covgs, &nbuf, &cbuf, visited,
-                                 &db_graph);
-    ulong_to_str(db_graph.ht.unique_kmers, rem_kmers_str);
-    status("Remaining kmers: %s\n", rem_kmers_str);
+    threshold = cleaning_remove_supernodes(supernode_cleaning, threshold,
+                                           seq_depth, dump_covgs,
+                                           visited, &db_graph);
   }
 
-  db_node_buf_dealloc(&nbuf);
-  covg_buf_dealloc(&cbuf);
   free(visited);
 
-  if(supernode_cleaning || tip_cleaning)
+  if(doing_cleaning)
   {
     // Output graph file
     Edges *intersect_edges = NULL;
-    boolean kmers_loaded = true, colours_loaded = (total_cols == 1);
-
-    db_graph.ginfo[0].cleaning.remv_low_cov_sups_thresh = threshold;
-    db_graph.ginfo[0].cleaning.remv_low_cov_sups = supernode_cleaning;
-    db_graph.ginfo[0].cleaning.tip_clipping = tip_cleaning;
+    boolean kmers_loaded = true;
+    size_t thresh;
 
     // Set output header ginfo cleaned
     for(i = 0; i < total_cols; i++)
     {
-      ErrorCleaning *cleaning = &outhdr.ginfo[i].cleaning;
-      cleaning->remv_low_cov_sups_thresh
-        = MIN2(threshold, cleaning->remv_low_cov_sups_thresh);
-      cleaning->remv_low_cov_sups
-        = MIN2(supernode_cleaning, cleaning->remv_low_cov_sups);
-      cleaning->tip_clipping |= tip_cleaning;
+      cleaning = &outhdr.ginfo[i].cleaning;
+      cleaning->cleaned_snodes |= supernode_cleaning;
+      cleaning->cleaned_tips |= tip_cleaning;
+
+      if(supernode_cleaning) {
+        thresh = cleaning->clean_snodes_thresh;
+        thresh = cleaning->cleaned_snodes ? MIN2(thresh, threshold) : threshold;
+        cleaning->clean_snodes_thresh = thresh;
+      }
     }
 
-    if(total_cols > 1)
+    if(!all_colours_loaded)
     {
+      // We haven't loaded all the colours
+      // intersect_edges are edges to mask with
+      // resets graph edges
       intersect_edges = db_graph.col_edges;
       db_graph.col_edges += db_graph.ht.capacity;
     }
 
     // Print stats on removed kmers
-    size_t removed_nkmers = initial_nkmers - db_graph.ht.unique_kmers;
+    size_t removed_nkmers = initial_nkmers - db_graph.ht.num_kmers;
     double removed_pct = (100.0 * removed_nkmers) / initial_nkmers;
-    char removed_str[100], initial_str[100];
+    char removed_str[100], init_str[100];
     ulong_to_str(removed_nkmers, removed_str);
-    ulong_to_str(initial_nkmers, initial_str);
-    status("Removed %s of %s (%.2f%%) kmers", removed_str, initial_str, removed_pct);
+    ulong_to_str(initial_nkmers, init_str);
+    status("Removed %s of %s (%.2f%%) kmers", removed_str, init_str, removed_pct);
 
-    db_graph_realloc(&db_graph, use_ncols, use_ncols);
     graph_files_merge(out_ctx_path, files, num_files,
-                      kmers_loaded, colours_loaded,
+                      kmers_loaded, all_colours_loaded,
                       intersect_edges, &outhdr, &db_graph);
   }
 
-  ctx_assert(db_graph.ht.unique_kmers == hash_table_count_assigned_nodes(&db_graph.ht));
+  ctx_check(db_graph.ht.num_kmers == hash_table_count_kmers(&db_graph.ht));
 
   graph_header_dealloc(&outhdr);
 

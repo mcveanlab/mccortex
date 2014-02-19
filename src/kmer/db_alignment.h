@@ -7,7 +7,7 @@
 
 // Buffer of uint32_t
 #include "objbuf_macro.h"
-create_objbuf(uint32_buf,uint32Buffer,uint32_t)
+create_objbuf(uint32_buf,uint32Buffer,uint32_t);
 
 typedef struct
 {

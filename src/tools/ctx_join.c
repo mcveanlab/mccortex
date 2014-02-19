@@ -248,8 +248,10 @@ int ctx_join(CmdArgs *args)
 
       // Update intersect header
       ncols = graph_file_outncols(&intersect_files[i]);
-      for(col = 0; col < ncols; col++)
-        graph_info_make_intersect(&intersect_files[i].hdr.ginfo[col], &intersect_gname);
+      for(col = 0; col < ncols; col++) {
+        graph_info_make_intersect(&intersect_files[i].hdr.ginfo[col],
+                                  &intersect_gname);
+      }
 
       gprefs.must_exist_in_graph = true;
       gprefs.must_exist_in_edges = db_graph.col_edges;

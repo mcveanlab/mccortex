@@ -28,17 +28,15 @@ static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
                                          BinaryKmer bkmer0, BinaryKmer bkmer1,
                                          const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_edge_cols == 1);
-
   Edges edges0, edges1;
   BinaryKmer shiftkmer;
   Nucleotide nuc;
   const size_t kmer_size = db_graph->kmer_size;
 
-  edges0 = db_node_get_edges(db_graph, 0, nlist[0].key);
+  edges0 = db_node_get_edges_union(db_graph, nlist[0].key);
   if(edges_get_outdegree(edges0, nlist[0].orient) != 1) return false;
 
-  edges1 = db_node_get_edges(db_graph, 0, nlist[len-1].key);
+  edges1 = db_node_get_edges_union(db_graph, nlist[len-1].key);
   if(edges_get_indegree(edges1, nlist[len-1].orient) != 1) return false;
 
   nuc = bkmer_get_last_nuc(bkmer0, nlist[0].orient, kmer_size);
@@ -117,39 +115,36 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 // Walk along nodes starting from node/or, storing the supernode in nlist
 // Returns the number of nodes added, adds no more than `limit`
 // return false if out of space and limit > 0
-boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_graph)
+boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit,
+                         const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_edge_cols == 1);
+  ctx_assert(nbuf->len > 0);
 
-  hkey_t hkey = nbuf->data[nbuf->len-1].key;
-  Orientation orient = nbuf->data[nbuf->len-1].orient;
   const size_t kmer_size = db_graph->kmer_size;
+  dBNode node0 = nbuf->data[0], node1 = nbuf->data[nbuf->len-1], node = node1;
+
+  BinaryKmer bkmer = db_graph_oriented_bkmer(db_graph, node);
+  Edges edges = db_node_get_edges_union(db_graph, node.key);
   Nucleotide nuc;
-  BinaryKmer bkey, bkmer;
-  const Edges *edges = db_graph->col_edges;
 
-  bkmer = db_graph_oriented_bkmer(db_graph, nbuf->data[nbuf->len-1]);
-
-  while(edges_has_precisely_one_edge(edges[hkey], orient, &nuc))
+  while(edges_has_precisely_one_edge(edges, node.orient, &nuc))
   {
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-    bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
-    hkey = hash_table_find(&db_graph->ht, bkey);
-    orient = bkmer_get_orientation(bkey, bkmer);
+    node = db_graph_find(db_graph, bkmer);
+    edges = db_node_get_edges_union(db_graph, node.key);
 
-    ctx_assert(hkey != HASH_NOT_FOUND);
+    ctx_assert(node.key != HASH_NOT_FOUND);
 
-    if(edges_has_precisely_one_edge(edges[hkey], rev_orient(orient), &nuc))
+    if(edges_has_precisely_one_edge(edges, rev_orient(node.orient), &nuc))
     {
-      if(hkey == nbuf->data[0].key || hkey == nbuf->data[nbuf->len-1].key) {
+      if(node.key == node0.key || node.key == node1.key) {
         // don't create a loop A->B->A or a->b->B->A
         break;
       }
 
       if(limit && nbuf->len >= limit) return false;
 
-      dBNode next = {.key = hkey, .orient = orient};
-      db_node_buf_add(nbuf, next);
+      db_node_buf_add(nbuf, node);
     }
     else break;
   }

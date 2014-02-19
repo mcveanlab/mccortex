@@ -110,7 +110,7 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
   // Update stats
   stats->total_bases_read += r->seq.end;
   stats->kmers_loaded += kmers_loaded;
-  stats->unique_kmers += kmers_loaded - found;
+  stats->num_kmers += kmers_loaded - found;
   if(num_contigs > 0) stats->total_good_reads++;
   else stats->total_bad_reads++;
 

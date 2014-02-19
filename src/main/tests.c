@@ -21,6 +21,7 @@ int main()
   test_build_graph();
   test_supernode();
   test_subgraph();
+  test_cleaning();
   test_packed_path();
   test_paths();
   test_corrected_aln();

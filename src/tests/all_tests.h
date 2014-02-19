@@ -71,6 +71,9 @@ void test_build_graph();
 // supernode_tests.c
 void test_supernode();
 
+// cleaning_tests.c
+void test_cleaning();
+
 // subgraph_tests.c
 void test_subgraph();
 

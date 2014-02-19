@@ -17,7 +17,8 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph);
 // Walk along nodes starting from node/or, storing the supernode in nlist/olist
 // Returns the number of nodes added, adds no more than `limit`
 // return false if out of space and limit > 0
-boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit, const dBGraph *db_graph);
+boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit,
+                         const dBGraph *db_graph);
 
 // Reallocates array if needs to resize
 // returns length of supernode (always >=1)

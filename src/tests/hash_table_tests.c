@@ -52,13 +52,13 @@ void test_hash_table()
     for(i = 0; i < NUM_BKMER_WORDS; i++) bkxor.b[i] ^= bkmer0.b[i];
   }
 
-  TASSERT(kmers_added - kmers_deleted == ht.unique_kmers);
+  TASSERT(kmers_added - kmers_deleted == ht.num_kmers);
 
   // Check xor of bkmers
   size_t kcount = 0;
   HASH_ITERATE(&ht, check_bkmers, &ht, &bkresult, &kcount);
 
-  TASSERT(kcount == ht.unique_kmers);
+  TASSERT(kcount == ht.num_kmers);
   for(i = 0; i < NUM_BKMER_WORDS; i++) TASSERT(bkxor.b[i] == bkresult.b[i]);
 
   hash_table_dealloc(&ht);

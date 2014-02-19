@@ -159,13 +159,13 @@ static uint8_t process_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
       if(min < qmin && !(warn_flags & WFLAG_QUAL_TOOSMALL))
       {
         warn("FASTQ qual too small [%i < %i..%i; read: %s; path: %s]",
-             (int)*tmp, qmin, qmax, r->name.b, path);
+             min, qmin, qmax, r->name.b, path);
         warn_flags |= WFLAG_QUAL_TOOSMALL;
       }
       if(max > qmax && !(warn_flags & WFLAG_QUAL_TOOBIG))
       {
         warn("FASTQ qual too big [%i > %i..%i; read: %s; path: %s]",
-             (int)*tmp, qmin, qmax, r->name.b, path);
+             max, qmin, qmax, r->name.b, path);
         warn_flags |= WFLAG_QUAL_TOOBIG;
       }
     }

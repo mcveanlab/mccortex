@@ -161,13 +161,11 @@ int ctx_subgraph(CmdArgs *args)
     tmpflatten = gfiles[i].fltr.flatten;
 
     if(total_cols > db_graph.num_of_cols) {
-      // gfiles[i].fltr.intocol = 0;
       file_filter_update_intocol(&gfiles[i].fltr, 0);
       gfiles[i].fltr.flatten = true;
     }
 
     graph_load(&gfiles[i], gprefs, &stats);
-    // gfiles[i].fltr.intocol = tmpinto;
     file_filter_update_intocol(&gfiles[i].fltr, tmpinto);
     gfiles[i].fltr.flatten = tmpflatten;
 

@@ -123,9 +123,9 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t hkey)
 
         // Sanity test
         ctx_assert(next_node.key != HASH_NOT_FOUND);
-        ctx_assert(next_node.key == hkey ||
-               (db_node_get_edges_union(db_graph, next_node.key) & remove_edge_mask)
-                  == remove_edge_mask);
+        ctx_check(next_node.key == hkey ||
+          (db_node_get_edges_union(db_graph, next_node.key) & remove_edge_mask)
+            == remove_edge_mask);
 
         for(col = 0; col < db_graph->num_edge_cols; col++)
           db_node_edges(db_graph, col, next_node.key) &= ~remove_edge_mask;

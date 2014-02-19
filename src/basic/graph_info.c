@@ -3,8 +3,8 @@
 
 static void error_cleaning_init(ErrorCleaning *ec)
 {
-  ec->tip_clipping = ec->remv_low_cov_sups = ec->remv_low_cov_nodes = false;
-  ec->remv_low_cov_sups_thresh = ec->remv_low_cov_nodes_thresh = 0;
+  ec->cleaned_tips = ec->cleaned_snodes = ec->cleaned_kmers = false;
+  ec->clean_snodes_thresh = ec->clean_kmers_thresh = 0;
   ec->is_graph_intersection = false;
   strbuf_set(&ec->intersection_name, "undefined");
 }
@@ -22,24 +22,27 @@ static void error_cleaning_dealloc(ErrorCleaning *ec)
 
 static void error_cleaning_cpy(ErrorCleaning *dst, const ErrorCleaning *src)
 {
-  dst->tip_clipping = src->tip_clipping;
-  dst->remv_low_cov_sups = src->remv_low_cov_sups;
-  dst->remv_low_cov_nodes = src->remv_low_cov_nodes;
-  dst->remv_low_cov_sups_thresh = src->remv_low_cov_sups_thresh;
-  dst->remv_low_cov_nodes_thresh = src->remv_low_cov_nodes_thresh;
+  dst->cleaned_tips = src->cleaned_tips;
+  dst->cleaned_snodes = src->cleaned_snodes;
+  dst->cleaned_kmers = src->cleaned_kmers;
+  dst->clean_snodes_thresh = src->clean_snodes_thresh;
+  dst->clean_kmers_thresh = src->clean_kmers_thresh;
   dst->is_graph_intersection = src->is_graph_intersection;
   strbuf_set(&dst->intersection_name, src->intersection_name.buff);
 }
 
-static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
+static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src,
+                                 uint64_t dst_totalseq, uint64_t src_totalseq)
 {
-  dst->tip_clipping |= src->tip_clipping;
-  dst->remv_low_cov_sups |= src->remv_low_cov_sups;
-  dst->remv_low_cov_nodes |= src->remv_low_cov_nodes;
-  dst->remv_low_cov_sups_thresh = MAX2(dst->remv_low_cov_sups_thresh,
-                                       src->remv_low_cov_sups_thresh);
-  dst->remv_low_cov_nodes_thresh = MAX2(dst->remv_low_cov_nodes_thresh,
-                                        src->remv_low_cov_nodes_thresh);
+  dst->cleaned_tips |= src->cleaned_tips;
+  dst->cleaned_snodes |= src->cleaned_snodes;
+  dst->cleaned_kmers |= src->cleaned_kmers;
+
+  // Take weighted avg, round
+  dst->clean_snodes_thresh = (dst_totalseq * dst->clean_snodes_thresh +
+                              src_totalseq * src->clean_snodes_thresh + 1)/2;
+  dst->clean_kmers_thresh = (dst_totalseq * dst->clean_kmers_thresh +
+                             src_totalseq * src->clean_kmers_thresh + 1)/2;
 
   if(src->is_graph_intersection)
     graph_info_append_intersect(dst, src->intersection_name.buff);
@@ -153,8 +156,9 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
                   total_sequence;
   }
 
-  dst->total_sequence = total_sequence;
-
   // Update error cleaning
-  error_cleaning_merge(&dst->cleaning, &src->cleaning);
+  error_cleaning_merge(&dst->cleaning, &src->cleaning,
+                       dst->total_sequence, src->total_sequence);
+
+  dst->total_sequence = total_sequence;
 }

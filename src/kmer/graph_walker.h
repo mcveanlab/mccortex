@@ -20,7 +20,7 @@ typedef struct FollowPathStruct FollowPath;
 FollowPath follow_path_create(const uint8_t *seq, PathLen plen);
 
 #include "objbuf_macro.h"
-create_objbuf(path_buf,PathBuffer,FollowPath)
+create_objbuf(path_buf,PathBuffer,FollowPath);
 
 // Result from graph_walker_choose
 typedef struct

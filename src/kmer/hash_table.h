@@ -25,7 +25,7 @@ typedef struct
   // buckets[b][0] is the size of the bucket (can only increase)
   // buckets[b][1] is the number of filled entries in a bucket (can go up/down)
   uint8_t (*const buckets)[2];
-  uint64_t unique_kmers;
+  uint64_t num_kmers;
   uint64_t collisions[REHASH_LIMIT];
 } HashTable;
 
@@ -71,7 +71,7 @@ void hash_table_print_stats(const HashTable *const htable);
 void hash_table_print_stats_brief(const HashTable *const htable);
 
 // This is for debugging
-uint64_t hash_table_count_assigned_nodes(const HashTable *const htable);
+uint64_t hash_table_count_kmers(const HashTable *const htable);
 
 // Iterate over entries in the hash table
 #define HASH_ITERATE(ht,func,...) HASH_ITERATE2(ht,func,##__VA_ARGS__)

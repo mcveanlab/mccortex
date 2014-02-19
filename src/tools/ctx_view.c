@@ -58,15 +58,15 @@ static void print_header(GraphFileHeader *h)
       printf("  sequence error rate: %Lf\n", ginfo->seq_err);
 
       ErrorCleaning *ec = &ginfo->cleaning;
-      printf("  tip clipping: %s\n", (ec->tip_clipping == 0 ? "no" : "yes"));
+      printf("  tip clipping: %s\n", (ec->cleaned_tips == 0 ? "no" : "yes"));
 
       printf("  remove low coverage supernodes: %s [threshold: %i]\n",
-             ec->remv_low_cov_sups ? "yes" : "no",
-             ec->remv_low_cov_sups_thresh);
+             ec->cleaned_snodes ? "yes" : "no",
+             ec->clean_snodes_thresh);
 
       printf("  remove low coverage kmers: %s [threshold: %i]\n",
-             ec->remv_low_cov_nodes ? "yes" : "no",
-             ec->remv_low_cov_nodes_thresh);
+             ec->cleaned_kmers ? "yes" : "no",
+             ec->clean_kmers_thresh);
 
       printf("  cleaned against graph: %s [against: '%s']\n",
              ec->is_graph_intersection ? "yes" : "no",

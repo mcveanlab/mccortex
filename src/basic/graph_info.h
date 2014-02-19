@@ -5,15 +5,15 @@
 #include "string_buffer.h"
 #include "cortex_types.h"
 
-// Thesholds are zero if not used (e.g. remv_low_cov_sups == false)
+// Thesholds are zero if not used (e.g. cleaned_snodes == false)
 // is_graph_intersection is for cleaning a low covg sample against
 // cleaned pool of population
 typedef struct
 {
-  boolean tip_clipping, remv_low_cov_sups, remv_low_cov_nodes;
-  Covg remv_low_cov_sups_thresh, remv_low_cov_nodes_thresh;
-  boolean is_graph_intersection; // formerly cleaned_against_another_graph
-  StrBuf intersection_name; // formerly cleaned_against_graph_nme
+  boolean cleaned_tips, cleaned_snodes, cleaned_kmers;
+  Covg clean_snodes_thresh, clean_kmers_thresh;
+  boolean is_graph_intersection;
+  StrBuf intersection_name;
 } ErrorCleaning;
 
 typedef struct
@@ -30,7 +30,8 @@ void graph_info_alloc(GraphInfo *ginfo);
 void graph_info_dealloc(GraphInfo *ginfo);
 
 void graph_info_make_intersect(const GraphInfo *ginfo, StrBuf *intersect_name);
-void graph_info_append_intersect(ErrorCleaning *cleaning, const char *intersect_name);
+void graph_info_append_intersect(ErrorCleaning *cleaning,
+                                 const char *intersect_name);
 
 // Update mean read length in a colour, eg when you merge a new binary
 // what it used to be, ie the previous_seq)

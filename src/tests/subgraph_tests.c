@@ -17,9 +17,9 @@ static void run_subgraph(dBGraph *graph, uint64_t *mask,
   size_t num_mask_words = roundup_bits2words64(graph->ht.capacity);
   memset(mask, 0, num_mask_words*sizeof(uint64_t));
 
-  subgraph_from_seq(graph, dist, false, 8*graph->ht.unique_kmers, mask, &seq, 1);
-  TASSERT2(graph->ht.unique_kmers == expt_nkmers,
-           "kmers %"PRIu64" dist %zu", graph->ht.unique_kmers, dist);
+  subgraph_from_seq(graph, dist, false, 8*graph->ht.num_kmers, mask, &seq, 1);
+  TASSERT2(graph->ht.num_kmers == expt_nkmers,
+           "kmers %"PRIu64" dist %zu", graph->ht.num_kmers, dist);
 }
 
 void test_subgraph()
@@ -60,7 +60,7 @@ void test_subgraph()
 "AAAATTCACGATAGTGGCGCTCGGGAGGAGTACGCAACTCAGCACCCCGGTGAGTAGCTCCCTT";
 
   add_to_graph(&graph, graphseq);
-  TASSERT2(graph.ht.unique_kmers == 1000-19+1, "%"PRIu64" kmers", graph.ht.unique_kmers);
+  TASSERT2(graph.ht.num_kmers == 1000-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
 
   // Pull out 10, 9, ... 0 bases around 2 kmers: GAGGTGGGTCCGCCTTGCGGt
   size_t dist;
@@ -84,6 +84,7 @@ void test_subgraph()
 
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
+  free(mask);
   free(graph.bktlocks);
   free(graph.col_edges);
   free(graph.col_covgs);

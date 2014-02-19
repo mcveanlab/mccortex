@@ -238,7 +238,7 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 // void db_node_buf_add(dBNodeBuffer *buf, dBNode node);
 
 #include "objbuf_macro.h"
-create_objbuf(db_node_buf,dBNodeBuffer,dBNode)
+create_objbuf(db_node_buf,dBNodeBuffer,dBNode);
 
 #define db_node_buf_safe_add(buf,node,or) {\
   dBNode n = {.key=node,.orient=or};  db_node_buf_add(buf,n); }
