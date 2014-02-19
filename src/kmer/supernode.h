@@ -26,4 +26,7 @@ void supernode_find(hkey_t node, dBNodeBuffer *nbuf, const dBGraph *db_graph);
 
 uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len);
 
+void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
+                                 uint64_t *visited, const dBGraph *db_graph);
+
 #endif

@@ -4,10 +4,10 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "db_node.h"
 #include "graph_info.h"
 #include "graph_format.h"
 #include "clean_graph.h"
+#include "supernode.h" // for saving length histogram
 
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
@@ -15,20 +15,22 @@ const char clean_usage[] =
 " Clips tips before doing supernode thresholding (when doing both [default]).\n"
 "\n"
 " Options:\n"
-"  --memory <mem>        Memory to use\n"
-"  --nkmers <hash-size>  Kmers in the hash table (e.g. 1G ~ 1 billion)\n"
-"  --ncols <colour>      Number of samples in memory at once (speedup)\n"
-"  --tips <L>            Clip tips shorter than <L> kmers\n"
-"  --supernodes          Remove low coverage supernode. Additional options:\n"
-"    --kdepth <C>        kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
-"    --threshold <T>     Cleaning threshold, remove supnodes where [coverage < T]\n"
-"  --covgs <out.csv>     Dump covg distribution before cleaning to a CSV file\n"
-"  --out <out.ctx>       Save output file\n"
+"  --memory <mem>         Memory to use\n"
+"  --nkmers <hash-size>   Kmers in the hash table (e.g. 1G ~ 1 billion)\n"
+"  --ncols <colour>       Number of samples in memory at once (speedup)\n"
+"  --tips <L>             Clip tips shorter than <L> kmers\n"
+"  --supernodes           Remove low coverage supernode. Additional options:\n"
+"    --kdepth <C>         kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
+"    --threshold <T>      Cleaning threshold, remove supnodes where [coverage < T]\n"
+"  --covgs <out.csv>      Dump covg distribution before cleaning to a CSV file\n"
+"  --out <out.ctx>        Save output file\n"
+"  --len-before <out.csv> Write supernode length before cleaning\n"
+"  --len-after <out.csv>  Write supernode length before cleaning\n"
 "\n"
-" Default: --tips 2*k-1 --supernodes\n";
+" Default: --tips 2*kmer_size --supernodes\n";
 
-// size of coverage histogram 2^11 = 2048
-#define HISTSIZE 2048
+// Size of length histogram is 2000 kmers
+#define LEN_HIST_CAP 2000
 
 #ifdef CTXVERBOSE
   #define DEBUG_SUPERNODE 1
@@ -45,7 +47,8 @@ int ctx_clean(CmdArgs *args)
   size_t max_tip_len = 0;
   Covg threshold = 0;
   double seq_depth = -1;
-  char *dump_covgs = NULL;
+  const char *dump_covgs = NULL;
+  const char *len_before_path = NULL, *len_after_path = NULL;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
@@ -77,6 +80,16 @@ int ctx_clean(CmdArgs *args)
       }
       argi++;
     }
+    else if(strcmp(argv[argi],"--len-before") == 0) {
+      if(argi+1 >= argc) cmd_print_usage("--len-before <out.csv> needs a path");
+      len_before_path = argv[argi+1];
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--len-after") == 0) {
+      if(argi+1 >= argc) cmd_print_usage("--len-after <out.csv> needs a path");
+      len_after_path = argv[argi+1];
+      argi++;
+    }
     else cmd_print_usage("Unknown argument: %s", argv[argi]);
   }
 
@@ -84,7 +97,7 @@ int ctx_clean(CmdArgs *args)
 
   if(argi == argc) cmd_print_usage("Please give input graph files");
 
-  // default behaviour
+  // Default behaviour
   if(!tip_cleaning && !supernode_cleaning) {
     if(out_ctx_path != NULL)
       supernode_cleaning = tip_cleaning = true; // do both
@@ -103,10 +116,14 @@ int ctx_clean(CmdArgs *args)
   if(!supernode_cleaning && seq_depth > 0)
     cmd_print_usage("--kdepth <C> not needed if not cleaning with --supernodes");
 
-  // Default behaviour
   if(supernode_cleaning && threshold != 0 && seq_depth > 0) {
     cmd_print_usage("supernode cleaning requires only one of "
                              "--threshold <T>, --depth <D>");
+  }
+
+  if(!doing_cleaning && len_after_path) {
+    cmd_print_usage("You use --len-after <out.csv> without any cleaning"
+                    " (set --supernodes or --tips)");
   }
 
   // Use remaining args as graph files
@@ -150,9 +167,9 @@ int ctx_clean(CmdArgs *args)
     use_ncols = total_cols;
   }
 
-  // If no arguments given we default to removing tips <= 2*kmer_size - 1
+  // If no arguments given we default to removing tips < 2*kmer_size
   if(tip_cleaning && max_tip_len == 0)
-    max_tip_len = 2 * kmer_size - 1;
+    max_tip_len = 2 * kmer_size;
 
   // Warn if any files already cleaned
   size_t fromcol, intocol;
@@ -177,17 +194,21 @@ int ctx_clean(CmdArgs *args)
   // Print steps
   size_t step = 0;
   status("Actions:\n");
+  if(len_before_path != NULL)
+    status("%zu. Saving supernode length distribution to %s", step++, len_before_path);
   if(tip_cleaning)
     status("%zu. Cleaning tips shorter than %zu nodes", step++, max_tip_len);
   if(dump_covgs != NULL)
     status("%zu. Saving coverage distribution to: %s", step++, dump_covgs);
   if(supernode_cleaning && threshold > 0)
-    status("%zu. Cleaning supernodes with threshold < %u", step++, threshold);
+    status("%zu. Cleaning supernodes with coverage < %u", step++, threshold);
   if(supernode_cleaning && threshold == 0)
     status("%zu. Cleaning supernodes with auto-detected threshold", step++);
+  if(len_after_path != NULL)
+    status("%zu. Saving supernode length distribution to %s", step++, len_after_path);
 
   //
-  // Pick hash table size
+  // Decide memory usage
   //
   boolean all_colours_loaded = (total_cols <= use_ncols);
 
@@ -199,12 +220,21 @@ int ctx_clean(CmdArgs *args)
 
   cmd_check_mem_limit(args, graph_mem);
 
+  //
   // Check output files are writable
+  //
   if(out_ctx_path != NULL && !futil_is_file_writable(out_ctx_path))
     cmd_print_usage("Cannot write to output: %s", out_ctx_path);
 
   if(dump_covgs && !futil_is_file_writable(dump_covgs))
     cmd_print_usage("Cannot write coverage distribution to: %s", dump_covgs);
+
+  FILE *len_before_fh = NULL, *len_after_fh = NULL;
+
+  if(len_before_path && (len_before_fh = fopen(len_before_path, "w")) == NULL)
+    die("Cannot write to file 'before' length histogram: %s", len_before_path);
+  if(len_after_path && (len_after_fh = fopen(len_after_path, "w")) == NULL)
+    die("Cannot write to file 'after' length histogram: %s", len_after_path);
 
   // Create db_graph
   // Load as many colours as possible
@@ -264,32 +294,50 @@ int ctx_clean(CmdArgs *args)
       graph_load(&files[i], gprefs, &stats);
   }
 
-  if(num_files > 1) {
-    char num_kmers_str[100];
-    ulong_to_str(db_graph.ht.num_kmers, num_kmers_str);
-    status("Total kmers loaded: %s\n", num_kmers_str);
-  }
+  char num_kmers_str[100];
+  ulong_to_str(db_graph.ht.num_kmers, num_kmers_str);
+  status("Total kmers loaded: %s\n", num_kmers_str);
 
   size_t initial_nkmers = db_graph.ht.num_kmers;
-
   hash_table_print_stats(&db_graph.ht);
 
   size_t visited_words = roundup_bits2words64(db_graph.ht.capacity);
   uint64_t *visited = calloc2(visited_words, sizeof(uint64_t));
+  // visited[0] is used to check if array is 'clean'
+
+  if(len_before_fh != NULL) {
+    // Save supernode lengths
+    supernode_write_len_distrib(len_before_fh, len_before_path, LEN_HIST_CAP,
+                                visited, &db_graph);
+    visited[0] = 1;
+    fclose(len_before_fh);
+  }
 
   // Tip clipping
   if(tip_cleaning) {
+    if(visited[0]) memset(visited, 0, visited_words * sizeof(uint64_t));
     cleaning_remove_tips(max_tip_len, visited, &db_graph);
-
-    if(supernode_cleaning || dump_covgs)
-      memset(visited, 0, visited_words * sizeof(uint64_t));
+    visited[0] = 1;
   }
 
   // Supernode cleaning or printing coverage distribution to a file
   if(supernode_cleaning || dump_covgs) {
+    if(visited[0]) memset(visited, 0, visited_words * sizeof(uint64_t));
+
     threshold = cleaning_remove_supernodes(supernode_cleaning, threshold,
                                            seq_depth, dump_covgs,
                                            visited, &db_graph);
+    visited[0] = 1;
+  }
+
+  if(len_after_fh != NULL) {
+    // Save supernode lengths
+    if(visited[0]) memset(visited, 0, visited_words * sizeof(uint64_t));
+
+    supernode_write_len_distrib(len_after_fh, len_after_path, LEN_HIST_CAP,
+                                visited, &db_graph);
+    visited[0] = 1;
+    fclose(len_after_fh);
   }
 
   free(visited);

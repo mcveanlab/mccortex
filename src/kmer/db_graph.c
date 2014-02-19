@@ -34,6 +34,9 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                  .path_kmer_locks = NULL,
                  .readstrt = NULL};
 
+  ctx_assert2(kmer_size >= MIN_KMER_SIZE, "kmer size: %zu", kmer_size);
+  ctx_assert2(kmer_size <= MAX_KMER_SIZE, "kmer size: %zu", kmer_size);
+
   hash_table_alloc(&tmp.ht, capacity);
   memset(&tmp.pdata, 0, sizeof(PathStore));
 

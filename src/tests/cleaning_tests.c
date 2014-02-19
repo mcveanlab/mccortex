@@ -75,8 +75,22 @@ void test_cleaning()
   build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp));
 
   size_t thresh = cleaning_remove_supernodes(true, 0, 4, NULL, visited, &graph);
+  memset(visited, 0, num_visited_words * sizeof(uint64_t));
   TASSERT2(thresh > 1, "threshold: %zu", thresh);
 
+  TASSERT(graph.ht.num_kmers == 200-19+1);
+  TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
+
+  // First 78 bp with a single SNP creating a tip 23bp -> 5kmers long
+  char tmp2[] =
+"GGCTACCTAACCAGATATCTCTGTATACAGCTGCATTGTGTTTAGTCTACAACGACAGAAATCCCCTTCGACGgCCGC";
+
+  build_graph_from_str_mt(&graph, 0, tmp2, strlen(tmp2));
+  TASSERT(graph.ht.num_kmers == 200-19+1 + 23-19+1);
+  TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
+
+  cleaning_remove_tips(2*19-1, visited, &graph);
+  memset(visited, 0, num_visited_words * sizeof(uint64_t));
   TASSERT(graph.ht.num_kmers == 200-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 

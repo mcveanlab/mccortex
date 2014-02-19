@@ -4,6 +4,7 @@
 #include "dna.h"
 
 // NUM_BKMER_WORDS is the number of 64 bit words we use to encode a kmer
+#define NUM_BKMER_WORDS (((MAX_KMER_SIZE)*2+63)/64)
 
 typedef struct {
   uint64_t b[NUM_BKMER_WORDS];

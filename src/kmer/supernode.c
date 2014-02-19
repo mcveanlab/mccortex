@@ -180,3 +180,50 @@ uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
 
   return read_starts;
 }
+
+static void get_snode_length(hkey_t hkey, uint64_t *hist, size_t histlen,
+                             dBNodeBuffer *nbuf, uint64_t *visited,
+                             const dBGraph *db_graph)
+{
+  size_t i, supernode_len;
+
+  if(!bitset_get(visited, hkey))
+  {
+    db_node_buf_reset(nbuf);
+    supernode_find(hkey, nbuf, db_graph);
+    for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
+    supernode_len = MIN2(nbuf->len, histlen-1);
+    hist[supernode_len]++;
+  }
+}
+
+void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
+                                 uint64_t *visited, const dBGraph *db_graph)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+
+  status("[supernode] Saving supernode length distribution to: %s", path);
+
+  ctx_assert(histlen >= 2);
+  uint64_t *hist = calloc2(histlen, sizeof(uint64_t));
+
+  dBNodeBuffer nbuf;
+  db_node_buf_alloc(&nbuf, 2048);
+
+  HASH_ITERATE(&db_graph->ht, get_snode_length,
+               hist, histlen, &nbuf, visited, db_graph);
+
+  db_node_buf_dealloc(&nbuf);
+  ctx_assert(hist[0] == 0);
+
+  // Write to file
+  size_t i, end;
+  fprintf(fout, "SupernodeKmerLength,bp,Count\n");
+  fprintf(fout, "1,%zu,%"PRIu64"\n", kmer_size, hist[1]);
+  for(end = histlen-1; end > 1 && hist[end] == 0; end--);
+  for(i = 2; i <= end; i++) {
+    if(hist[i] > 0) fprintf(fout, "%zu,%zu,%"PRIu64"\n", i, kmer_size+i-1, hist[i]);
+  }
+
+  free(hist);
+}

@@ -32,18 +32,21 @@ CC ?= gcc
 ##
 
 MAXK ?= 31
-NUM_BKMER_WORDS=$(shell echo $$((($(MAXK)+31)/32)))
+LOWK = $(word 1, $(sort $(MAXK) 31))
+TEST_KMER=$(shell bc <<< '(($(MAXK)+31)/32)*32 - 1')
 
-ifeq ($(NUM_BKMER_WORDS),0)
+ifneq ($(MAXK),$(TEST_KMER))
+  KMERERROR=1
+endif
+ifneq ($(LOWK),31)
+  KMERERROR=1
+endif
+ifdef KMERERROR
   $(error Invalid MAXK value '$(MAXK)'. Please choose from 31,63,95,..(32*n-1) [default: 31])
 endif
 
-MAX_KMER_SIZE=$(shell echo $$(($(NUM_BKMER_WORDS)*32-1)))
-MIN_KMER_SIZE=$(shell echo $$(($(MAX_KMER_SIZE)-30)))
-
-ifeq ($(MIN_KMER_SIZE),1)
-	MIN_KMER_SIZE=3
-endif
+MAX_KMER_SIZE=$(MAXK)
+MIN_KMER_SIZE=$(shell echo '$(MAX_KMER_SIZE)-30' | bc | sed 's/^1$$/3/g')
 
 # Use City hash instead of lookup3?
 ifdef CITY_HASH
@@ -88,8 +91,7 @@ LINK=-lpthread -lz -lm
 
 CFLAGS = -std=c99 -Wall -Wextra
 CPPFLAGS=$(HASH_KEY_FLAGS) -D_USESAM=1
-KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE) \
-         -DNUM_BKMER_WORDS=$(NUM_BKMER_WORDS)
+KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE)
 
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
@@ -193,17 +195,17 @@ src/basic/version.h:
 	echo '#define CTXVERSIONSTR "$(CTX_VERSION)"' > $@
 
 $(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
-	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -I src/basic/ $(INCS) -c $< -o $@
+	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -I src/basic/ $(INCS) -c $<
 
 $(KMER_OBJDIR)/%.o: src/kmer/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(DEPS)
-	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) -c $< -o $@
+	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) -c $<
 
 $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
-	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $< -o $@
+	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $<
 
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
-	$(CC) $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -c libs/misc/$*.c -o libs/misc/$*.o
+	$(CC) -o libs/misc/$*.o $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -c libs/misc/$*.c
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin

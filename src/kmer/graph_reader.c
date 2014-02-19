@@ -587,15 +587,16 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
   graph_loading_print_status(file);
 
   size_t i, nodes_dumped = 0, ncols = graph_file_outncols(file);
+  size_t num_usedcols = graph_file_usedcols(file);
 
   graph_write_header(out, hdr);
 
   BinaryKmer bkmer;
-  Covg kmercovgs[fltr->intocol+ncols], *covgs = kmercovgs+fltr->intocol;
-  Edges kmeredges[fltr->intocol+ncols], *edges = kmeredges+fltr->intocol;
+  Covg kmercovgs[num_usedcols], *covgs = kmercovgs+fltr->intocol;
+  Edges kmeredges[num_usedcols], *edges = kmeredges+fltr->intocol;
 
-  memset(kmercovgs, 0, sizeof(Covg)*(fltr->intocol+ncols));
-  memset(kmeredges, 0, sizeof(Edges)*(fltr->intocol+ncols));
+  memset(kmercovgs, 0, sizeof(Covg)*(num_usedcols));
+  memset(kmeredges, 0, sizeof(Edges)*(num_usedcols));
 
   while(graph_file_read(file, &bkmer, covgs, edges))
   {

@@ -107,15 +107,22 @@ void cleaning_remove_tips(size_t min_tip_len, uint64_t *visited,
   // Need to use _SAFE hash traverse since we remove elements in clip_tip()
   status("[cleaning] Clipping tips shorter than %zu...\n", min_tip_len);
 
+  char remain_nkmers_str[100], removed_nkmers_str[100];
+  size_t init_nkmers = db_graph->ht.num_kmers, remain_nkmers, removed_nkmers;
+
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 2048);
 
   HASH_ITERATE_SAFE(&db_graph->ht, clip_tip,
                     &nbuf, visited, min_tip_len, db_graph);
 
-  char rem_kmers_str[100];
-  ulong_to_str(db_graph->ht.num_kmers, rem_kmers_str);
-  status("[cleaning] Remaining kmers: %s\n", rem_kmers_str);
+  remain_nkmers = db_graph->ht.num_kmers;
+  removed_nkmers = init_nkmers - remain_nkmers;
+  ulong_to_str(remain_nkmers, remain_nkmers_str);
+  ulong_to_str(removed_nkmers, removed_nkmers_str);
+  status("[cleaning] Remaining kmers: %s removed: %s (%.1f%%)",
+         remain_nkmers_str, removed_nkmers_str,
+         (100.0*removed_nkmers)/init_nkmers);
 }
 
 size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
@@ -195,9 +202,8 @@ Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
 
   size_t visited_words = roundup_bits2words64(db_graph->ht.capacity);
 
-  char rem_kmers_str[100];
-  ulong_to_str(db_graph->ht.num_kmers, rem_kmers_str);
-  status("[cleaning] Graph has %s kmers", rem_kmers_str);
+  char remain_nkmers_str[100], removed_nkmers_str[100];
+  size_t init_nkmers = db_graph->ht.num_kmers, remain_nkmers, removed_nkmers;
 
   // Estimate optimum cleaning threshold
   if(covg_threshold == 0 || dump_covgs != NULL)
@@ -233,7 +239,8 @@ Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
   if(do_cleaning)
   {
     // Remove low coverage supernodes
-    status("[cleaning] Cleaning supernodes...\n");
+    status("[cleaning] Cleaning supernodes with coverage <%zu...",
+           (size_t)covg_threshold);
 
     if(covg_threshold <= 1)
       warn("Supernode cleaning failed, cleaning with threshold of <= 1");
@@ -243,8 +250,13 @@ Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
                    covg_threshold, db_graph);
     }
 
-    ulong_to_str(db_graph->ht.num_kmers, rem_kmers_str);
-    status("[cleaning] Remaining kmers: %s\n", rem_kmers_str);
+    remain_nkmers = db_graph->ht.num_kmers;
+    removed_nkmers = init_nkmers - remain_nkmers;
+    ulong_to_str(remain_nkmers, remain_nkmers_str);
+    ulong_to_str(removed_nkmers, removed_nkmers_str);
+    status("[cleaning] Remaining kmers: %s removed: %s (%.1f%%)",
+           remain_nkmers_str, removed_nkmers_str,
+           (100.0*removed_nkmers)/init_nkmers);
   }
 
   db_node_buf_dealloc(&nbuf);
@@ -259,7 +271,7 @@ void cleaning_dump_covg_histogram(const char *path, uint64_t *hist, size_t len)
   ctx_assert(len >= 2);
   ctx_assert(hist[0] == 0);
 
-  status("Writing covg distribution to: %s", path);
+  status("[cleaning] Writing covg distribution to: %s", path);
   size_t i, end;
   FILE *fout = fopen(path, "w");
 
