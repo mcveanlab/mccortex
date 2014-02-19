@@ -11,7 +11,7 @@
 
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
-" Clean a cortex binary. Joins binaries first, if multiple given\n"
+" Clean a cortex graph. Joins graphs first, if multiple inputs given\n"
 " Clips tips before doing supernode thresholding (when doing both [default]).\n"
 "\n"
 " Options:\n"
