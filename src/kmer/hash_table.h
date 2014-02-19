@@ -53,9 +53,6 @@ size_t hash_table_mem_limit(size_t memlimit, size_t extrabits, size_t *nkmers_pt
 void hash_table_alloc(HashTable *htable, uint64_t capacity);
 void hash_table_dealloc(HashTable *hash_table);
 
-// Delete all entries from a hash table
-void hash_table_empty(HashTable *const htable);
-
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer bkmer);
 hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer bkmer);
 hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer bkmer,
@@ -66,6 +63,9 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
                                     boolean *found, volatile uint8_t *bktlocks);
 
 void hash_table_delete(HashTable *const htable, hkey_t pos);
+
+// Delete all entries from a hash table
+void hash_table_empty(HashTable *const htable);
 
 void hash_table_print_stats(const HashTable *const htable);
 void hash_table_print_stats_brief(const HashTable *const htable);

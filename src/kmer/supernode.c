@@ -137,7 +137,7 @@ boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit,
 
     if(edges_has_precisely_one_edge(edges, rev_orient(node.orient), &nuc))
     {
-      if(node.key == node0.key || node.key == node1.key) {
+      if(node.key == node0.key || node.key == nbuf->data[nbuf->len-1].key) {
         // don't create a loop A->B->A or a->b->B->A
         break;
       }

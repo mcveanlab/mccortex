@@ -116,6 +116,8 @@ void cleaning_remove_tips(size_t min_tip_len, uint64_t *visited,
   HASH_ITERATE_SAFE(&db_graph->ht, clip_tip,
                     &nbuf, visited, min_tip_len, db_graph);
 
+  db_node_buf_dealloc(&nbuf);
+
   remain_nkmers = db_graph->ht.num_kmers;
   removed_nkmers = init_nkmers - remain_nkmers;
   ulong_to_str(remain_nkmers, remain_nkmers_str);
