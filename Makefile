@@ -33,7 +33,7 @@ CC ?= gcc
 
 MAXK ?= 31
 LOWK = $(word 1, $(sort $(MAXK) 31))
-TEST_KMER=$(shell bc <<< '(($(MAXK)+31)/32)*32 - 1')
+TEST_KMER=$(shell echo $$[(($(MAXK)+31)/32)*32 - 1])
 
 ifneq ($(MAXK),$(TEST_KMER))
   KMERERROR=1
@@ -46,7 +46,7 @@ ifdef KMERERROR
 endif
 
 MAX_KMER_SIZE=$(MAXK)
-MIN_KMER_SIZE=$(shell echo '$(MAX_KMER_SIZE)-30' | bc | sed 's/^1$$/3/g')
+MIN_KMER_SIZE=$(shell echo $$[$(MAX_KMER_SIZE)-30] | sed 's/^1$$/3/g')
 
 # Use City hash instead of lookup3?
 ifdef CITY_HASH
@@ -91,7 +91,7 @@ LINK=-lpthread -lz -lm
 
 CFLAGS = -std=c99 -Wall -Wextra
 CPPFLAGS=$(HASH_KEY_FLAGS) -D_USESAM=1
-KMERARGS=-DMAX_KMER_SIZE=$(MAX_KMER_SIZE) -DMIN_KMER_SIZE=$(MIN_KMER_SIZE)
+KMERARGS=-DMIN_KMER_SIZE=$(MIN_KMER_SIZE) -DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
 
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
