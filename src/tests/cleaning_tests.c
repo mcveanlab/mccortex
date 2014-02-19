@@ -85,13 +85,28 @@ void test_cleaning()
   char tmp2[] =
 "GGCTACCTAACCAGATATCTCTGTATACAGCTGCATTGTGTTTAGTCTACAACGACAGAAATCCCCTTCGACGgCCGC";
 
+  // Trim off new tip
   build_graph_from_str_mt(&graph, 0, tmp2, strlen(tmp2));
   TASSERT(graph.ht.num_kmers == 200-19+1 + 23-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-
   cleaning_remove_tips(2*19-1, visited, &graph);
   memset(visited, 0, num_visited_words * sizeof(uint64_t));
   TASSERT(graph.ht.num_kmers == 200-19+1);
+  TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
+
+  // clear hash table + graph
+  hash_table_empty(&graph.ht);
+  memset(graph.col_edges, 0, ncols*graph.ht.capacity*sizeof(Edges));
+  memset(graph.col_covgs, 0, ncols*graph.ht.capacity*sizeof(Covg));
+
+  // Build a graph with a single kmer and delete it
+  char tmp3[] = "AGATGTGGTTCACGGCTAG";
+  build_graph_from_str_mt(&graph, 0, tmp3, strlen(tmp3));
+  TASSERT2(graph.ht.num_kmers == 1, "%zu", (size_t)graph.ht.num_kmers);
+  TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
+  cleaning_remove_tips(2*19-1, visited, &graph);
+  memset(visited, 0, num_visited_words * sizeof(uint64_t));
+  TASSERT(graph.ht.num_kmers == 0);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   free(visited);

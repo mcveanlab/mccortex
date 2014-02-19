@@ -309,13 +309,14 @@ void cmd_print_usage(const char *errfmt,  ...)
   pthread_mutex_lock(&biglock); // lock if never released
 
   if(errfmt != NULL) {
-    fprintf(stderr, "Error: ");
+    fprintf(stderr, "\nError: ");
     va_list argptr;
     va_start(argptr, errfmt);
     vfprintf(stderr, errfmt, argptr);
     va_end(argptr);
 
     if(errfmt[strlen(errfmt)-1] != '\n') fputc('\n', stderr);
+    fputc('\n', stderr);
   }
 
   fputs(cmd_usage, stderr);

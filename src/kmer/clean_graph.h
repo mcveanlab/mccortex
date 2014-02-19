@@ -14,6 +14,8 @@ void cleaning_remove_tips(size_t min_tip_len, uint64_t *visited,
 
 // visited should be zero'd before calling,
 //   will have 1s for all remaining kmers on return
+// Returns 0 if `covg_threshold` == 0 and computed threshold also <= 1
+//  => no supernodes can be removed
 Covg cleaning_remove_supernodes(boolean clean, Covg covg_threshold,
                                 double seq_depth, const char *dump_covgs,
                                 uint64_t *visited, dBGraph *db_graph);

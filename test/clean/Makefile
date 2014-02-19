@@ -23,7 +23,7 @@ seq.k9.raw.ctx: seq.fa
 len.before.csv: seq.k9.clean.ctx
 len.after.csv: seq.k9.clean.ctx
 seq.k9.clean.ctx: seq.k9.raw.ctx
-	$(CTX) clean --supernodes --threshold 2 --tips 62 -o $@ --len-before len.before.csv --len-after len.after.csv $<
+	$(CTX) clean --covgs covg.csv --supernodes --threshold 2 --tips 62 -o $@ --len-before len.before.csv --len-after len.after.csv $<
 
 seq.k9.%.dot: seq.k9.%.ctx
 	$(MKDOT) $< > $@

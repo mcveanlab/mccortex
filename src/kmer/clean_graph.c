@@ -125,6 +125,8 @@ void cleaning_remove_tips(size_t min_tip_len, uint64_t *visited,
          (100.0*removed_nkmers)/init_nkmers);
 }
 
+#define status_return(msg,thresh) do { status(msg); return (thresh); } while(0)
+
 size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
                                     double seq_depth, const dBGraph *db_graph)
 {
@@ -139,9 +141,9 @@ size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
   for(i = 0; i < capacity; i++) covg_sum += db_graph->col_covgs[i];
   double seq_depth_est = (double)covg_sum / db_graph->ht.num_kmers;
 
-  status("Kmer depth before cleaning supernodes: %.2f\n", seq_depth_est);
+  status("[cleaning] Kmer depth before cleaning supernodes: %.2f", seq_depth_est);
   if(seq_depth <= 0) seq_depth = seq_depth_est;
-  else status("Using sequence depth argument: %f\n", seq_depth);
+  else status("[cleaning] Using sequence depth argument: %f", seq_depth);
 
   size_t fallback_thresh = (size_t)MAX2(1, (seq_depth+1)/2);
 
@@ -165,9 +167,12 @@ size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
 
   free(tmp);
 
-  if(f1 < d1len && f1 < (seq_depth*0.75)) { status("(using f1)\n"); return f1+1; }
-  if(f2 < d2len) { status("(using f2)\n"); return f2+1; }
-  else { status("(using fallback1)\n"); return fallback_thresh+1; }
+  if(f1 < d1len && f1 < (seq_depth*0.75))
+    status_return("[cleaning] (using f1)", f1+1);
+  else if(f2 < d2len)
+    status_return("[cleaning] (using f2)", f2+1);
+  else
+    status_return("[cleaning] (using fallback1)", fallback_thresh+1);
 }
 
 static inline void covg_histogram(hkey_t node,
@@ -189,6 +194,8 @@ static inline void covg_histogram(hkey_t node,
 // If covg_threshold is zero, uses covg distribution to calculate
 // Returns covg threshold used
 // visited will be dirty after calling
+// Returns 0 if `covg_threshold` == 0 and computed threshold also <= 1
+//  => no supernodes can be removed
 Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
                                 double seq_depth, const char *dump_covgs,
                                 uint64_t *visited, dBGraph *db_graph)
@@ -262,7 +269,7 @@ Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
   db_node_buf_dealloc(&nbuf);
   covg_buf_dealloc(&cbuf);
 
-  return covg_threshold;
+  return covg_threshold <= 1 ? 0 : covg_threshold;
 }
 
 void cleaning_dump_covg_histogram(const char *path, uint64_t *hist, size_t len)

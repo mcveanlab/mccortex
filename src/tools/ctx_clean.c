@@ -22,8 +22,9 @@ const char clean_usage[] =
 "  --supernodes           Remove low coverage supernode. Additional options:\n"
 "    --kdepth <C>         kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
 "    --threshold <T>      Cleaning threshold, remove supnodes where [coverage < T]\n"
+" Output:\n"
+"  --out <out.ctx>        Save output graph file\n"
 "  --covgs <out.csv>      Dump covg distribution before cleaning to a CSV file\n"
-"  --out <out.ctx>        Save output file\n"
 "  --len-before <out.csv> Write supernode length before cleaning\n"
 "  --len-after <out.csv>  Write supernode length before cleaning\n"
 "\n"
@@ -126,6 +127,10 @@ int ctx_clean(CmdArgs *args)
                     " (set --supernodes or --tips)");
   }
 
+  if(out_ctx_path != NULL && futil_file_exists(out_ctx_path)) {
+    cmd_print_usage("Output file already exists: %s", out_ctx_path);
+  }
+
   // Use remaining args as graph files
   char **paths = argv + argi;
   size_t i, j, num_files = (size_t)(argc - argi), total_cols = 0;
@@ -195,7 +200,7 @@ int ctx_clean(CmdArgs *args)
   size_t step = 0;
   status("Actions:\n");
   if(len_before_path != NULL)
-    status("%zu. Saving supernode length distribution to %s", step++, len_before_path);
+    status("%zu. Saving supernode length distribution to: %s", step++, len_before_path);
   if(tip_cleaning)
     status("%zu. Cleaning tips shorter than %zu nodes", step++, max_tip_len);
   if(dump_covgs != NULL)
@@ -205,7 +210,7 @@ int ctx_clean(CmdArgs *args)
   if(supernode_cleaning && threshold == 0)
     status("%zu. Cleaning supernodes with auto-detected threshold", step++);
   if(len_after_path != NULL)
-    status("%zu. Saving supernode length distribution to %s", step++, len_after_path);
+    status("%zu. Saving supernode length distribution to: %s", step++, len_after_path);
 
   //
   // Decide memory usage
@@ -328,6 +333,11 @@ int ctx_clean(CmdArgs *args)
                                            seq_depth, dump_covgs,
                                            visited, &db_graph);
     visited[0] = 1;
+
+    if(threshold == 0) {
+      supernode_cleaning = false;
+      doing_cleaning = (supernode_cleaning || tip_cleaning);
+    }
   }
 
   if(len_after_fh != NULL) {
