@@ -233,7 +233,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
     if(strcmp(argv[argi],"--fq_threshold") == 0) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_threshold <qual> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
+      if(!parse_entire_uint(argv[argi+1], &fq_cutoff) || fq_cutoff > 128)
         die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi += 1;
     }
