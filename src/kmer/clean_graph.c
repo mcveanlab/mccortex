@@ -248,7 +248,7 @@ Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
   if(do_cleaning)
   {
     // Remove low coverage supernodes
-    status("[cleaning] Cleaning supernodes with coverage <%zu...",
+    status("[cleaning] Cleaning supernodes with coverage < %zu...",
            (size_t)covg_threshold);
 
     if(covg_threshold <= 1)

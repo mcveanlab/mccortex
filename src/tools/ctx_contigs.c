@@ -14,6 +14,8 @@
 #include "repeat_walker.h"
 #include "seq_reader.h"
 
+#define DEFAULT_NCONTIGS 1000
+
 const char contigs_usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
 "  Pull out contigs from the graph, print statistics\n"
@@ -21,7 +23,7 @@ const char contigs_usage[] =
 "  Options: [ -n <nkmers> | -p <paths.ctp> ]\n"
 "   --memory <M>     How much memory to use\n"
 "   --colour <c>     Pull out contigs from the given colour [default: 0]\n"
-"   --ncontigs <N>   Pull out <N> contigs from random kmers\n"
+"   --ncontigs <N>   Pull out <N> contigs from random kmers [default: " QUOTE_MACRO(DEFAULT_NCONTIGS) "]\n"
 "   --print          Print contigs in FASTA format\n"
 "   --out <out.fa>   Write contigs to a file rather than STDOUT\n"
 "   --seed <in.fa>   Use seed kmers from a file. If longer than kmer-size, only\n"
@@ -333,7 +335,7 @@ int ctx_contigs(CmdArgs *args)
   if(seed_file != NULL && n_rand_contigs > 0)
     cmd_print_usage("Please specify one of --seed and --ncontigs");
 
-  if(seed_file == NULL && n_rand_contigs == 0) n_rand_contigs = 1000;
+  if(seed_file == NULL && n_rand_contigs == 0) n_rand_contigs = DEFAULT_NCONTIGS;
 
   //
   // Open graph file
