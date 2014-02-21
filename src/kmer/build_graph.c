@@ -260,7 +260,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 {
   ctx_assert(db_graph->bktlocks != NULL);
 
-  size_t i, j;
+  size_t i, f;
 
   AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
@@ -272,14 +272,14 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   // Start async io reading
   AsyncIOReadTask *async_tasks = malloc2(num_files * sizeof(AsyncIOReadTask));
 
-  for(i = 0; i < num_files; i++) {
-    files[i].idx = i;
-    AsyncIOReadTask aio_task = {.file1 = files[i].file1,
-                                .file2 = files[i].file2,
-                                .fq_offset = files[i].fq_offset,
-                                .ptr = &files[i]};
+  for(f = 0; f < num_files; f++) {
+    files[f].idx = f;
+    AsyncIOReadTask aio_task = {.file1 = files[f].file1,
+                                .file2 = files[f].file2,
+                                .fq_offset = files[f].fq_offset,
+                                .ptr = &files[f]};
 
-    memcpy(&async_tasks[i], &aio_task, sizeof(AsyncIOReadTask));
+    memcpy(&async_tasks[f], &aio_task, sizeof(AsyncIOReadTask));
   }
 
   BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
@@ -303,8 +303,8 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   // Clean up workers one by one...
   for(i = 0; i < num_build_threads; i++) {
     // Merge stats
-    for(j = 0; j < num_files; j++)
-      loading_stats_merge(&files[i].stats, &workers[i].file_stats[j]);
+    for(f = 0; f < num_files; f++)
+      loading_stats_merge(&files[f].stats, &workers[i].file_stats[f]);
 
     // Free memory
     free(workers[i].file_stats);
