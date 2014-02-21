@@ -53,7 +53,7 @@ CTX=$(CTX_PATH)/bin/ctx31
 BUILDCTX=$(CTX) build -m $(MEM)
 CLEANCTX=$(CTX) clean -m $(MEM)
 JOINCTX=$(CTX) join -m $(MEM)
-INFERCTX=$(CTX) inferedges --all
+INFERCTX=$(CTX) inferedges -m $(MEM) --all
 THREADCTX=$(CTX) thread -a 1 -t $(NTHREADS) -m $(MEM)
 CALLCTX=$(CTX) call -m $(MEM)
 PROCCTX=$(CTX) unique
@@ -280,13 +280,13 @@ reads/reads%.1.falist reads/reads%.2.falist:
 	done
 
 k$(KMER)/graphs/sample%.clean.ctx: k$(KMER)/graphs/sample%.raw.ctx
-	$(CLEANCTX) -m $(MEM) --supernodes --tips 61 --covgs k$(KMER)/graphs/sample$*.contig_covg.csv --out $@ $<
+	$(CLEANCTX) --supernodes --tips 61 --covgs k$(KMER)/graphs/sample$*.contig_covg.csv --out $@ $<
 
 k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 	mkdir -p k$(KMER)/graphs
 	b=$$(($* * $(PLOIDY))); a=$$(($$b-$(PLOIDY)+1)); \
 	files=$$(for k in `seq $$a $$b`; do echo -n " --seq2 reads/reads$$k.1.fa.gz reads/reads$$k.2.fa.gz"; done); \
-	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
+	$(BUILDCTX) -k $(KMER) --sample Sample$* $$files k$(KMER)/graphs/sample$*.raw.ctx;
 	# cleaning isn't dumping sensible supernode lengths, use this for the moment
 	# Makefile requires that we double up on dollar signs $ -> $$
 	$(CTX) supernodes $@ | awk 'BEGIN{OFS="\t"} {if(substr($$0,1,1)!=">"){ x[length($$0)]++}} END{for (i in x) print i,x[i]}' | sort -n > k$(KMER)/graphs/supernodes.sample$*.raw.csv
@@ -297,8 +297,8 @@ k$(KMER)/graphs/sample%.raw.ctx: $(READS)
 k$(KMER)/graphs/pop.noref.ctx: $(GRAPHS_noref)
 k$(KMER)/graphs/pop.ref.ctx: $(GRAPHS_ref)
 k$(KMER)/graphs/pop.%.ctx:
-	$(JOINCTX) --ncols $(NUMCOLS) -m $(MEM) $@ $(GRAPHS_$*)
-	$(INFERCTX) -m $(MEM) $@
+	$(JOINCTX) --ncols $(NUMCOLS) $@ $(GRAPHS_$*)
+	$(INFERCTX) $@
 
 # Paths
 $(PATHS): k$(KMER)/graphs/pop.noref.ctx k$(KMER)/graphs/pop.ref.ctx
@@ -332,7 +332,7 @@ k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs $< $@
+	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs $< $@
 
 # % => {se,pe,sepe}
 k$(KMER)/bubbles/samples.%.ref.bubbles.gz: k$(KMER)/graphs/pop.ref.ctx k$(KMER)/paths/pop.%.noref.ctp
@@ -342,7 +342,7 @@ k$(KMER)/bubbles/samples.%.bubbles.gz:
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
 	p=`echo $@ | grep -oE '([sp]e)*.(no)?ref.bubbles.gz$$' | grep -oE '([sp]e)*'`; \
-	$(CALLCTX) -t $(NTHREADS) -m $(MEM) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/paths/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
+	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/paths/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs
@@ -377,7 +377,7 @@ ref/ref.falist: ref/ref.fa
 	echo $(REFPATH) > ref/ref.falist
 
 ref/ref.k$(KMER).ctx: ref/ref.fa
-	$(BUILDCTX) -k $(KMER) -m $(MEM) --sample ref --seq ref/ref.fa ref/ref.k$(KMER).ctx
+	$(BUILDCTX) -k $(KMER) --sample ref --seq ref/ref.fa ref/ref.k$(KMER).ctx
 
 # Left align with vcflib or bcftools:
 # LEFTALIGN=$(VCFLIBALIGN) --reference ref/ref.fa
