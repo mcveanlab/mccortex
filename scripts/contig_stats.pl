@@ -68,9 +68,7 @@ for my $data (@contigs)
   ($stats{'kmersize'}) = ($data =~ /kmer-size: (\d+)/i);
   ($stats{'numkmers'}) = ($data =~ /Loaded (\d+).*? of kmers parsed/i);
 
-# Loading file
-
-  ($stats{'path_type'}) = ($data =~ /Loading file .*?(se|pe|sepe).*?\.ctp /i);
+  ($stats{'path_type'}) = ($data =~ /Loading file .*?((?:[sp]e)+).*?\.ctp /i);
   ($stats{'path_num'}) = ($data =~ /([0-9,]+) paths, .*? path-bytes, [0-9,]+ kmers/i);
   ($stats{'path_bytes'}) = ($data =~ /[0-9,]+ paths, (.*?) path-bytes, [0-9,]+ kmers/i);
   ($stats{'path_kmers'}) = ($data =~ /[0-9,]+ paths, .*? path-bytes, ([0-9,]+) kmers/i);
