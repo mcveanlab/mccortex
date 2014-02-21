@@ -680,6 +680,7 @@ size_t graph_files_merge(const char *out_ctx_path,
   ctx_assert(!colours_loaded || kmers_loaded);
   ctx_assert(hdr != NULL);
 
+  // DEV: Maybe we don't need to assume that colour 0.. is being used
   size_t i, ncols, output_colours = 0;
 
   for(i = 0; i < num_files; i++) {
@@ -692,6 +693,8 @@ size_t graph_files_merge(const char *out_ctx_path,
           files[0].fltr.file_path.buff, files[i].fltr.file_path.buff);
     }
   }
+
+  ctx_assert(output_colours <= hdr->num_of_cols);
 
   if(kmers_loaded && colours_loaded)
   {

@@ -28,14 +28,14 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
   fwrite(&(cleaning->cleaned_kmers), sizeof(uint8_t), 1, fh);
   fwrite(&(cleaning->is_graph_intersection), sizeof(uint8_t), 1, fh);
 
-  uint32_t supernodes_cleaning_thresh
+  uint32_t clean_snodes_thresh
     = cleaning->cleaned_snodes ? cleaning->clean_snodes_thresh : 0;
 
-  uint32_t nodes_cleaning_thresh
+  uint32_t clean_kmers_thresh
     = cleaning->cleaned_kmers ? cleaning->clean_kmers_thresh : 0;
 
-  fwrite(&supernodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
-  fwrite(&nodes_cleaning_thresh, sizeof(uint32_t), 1, fh);
+  fwrite(&clean_snodes_thresh, sizeof(uint32_t), 1, fh);
+  fwrite(&clean_kmers_thresh, sizeof(uint32_t), 1, fh);
 
   uint32_t len = (uint32_t)cleaning->intersection_name.len;
   const char *str = cleaning->intersection_name.buff;
@@ -84,6 +84,7 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
       b += sizeof(uint32_t) + len;
     }
 
+    // This fwrite seems to be upsetting valgrind - it doesn't like long doubles
     for(i = 0; i < h->num_of_cols; i++)
       fwrite(&h->ginfo[i].seq_err, sizeof(long double), 1, fh);
 
@@ -149,6 +150,8 @@ static void graph_write_node(hkey_t hkey, const dBGraph *db_graph,
                              size_t start_col, size_t num_of_cols,
                              uint64_t *num_dumped)
 {
+  ctx_assert(num_of_cols > 0);
+  ctx_assert(intocol+num_of_cols <= header->num_of_cols);
   size_t i = 0;
 
   // Check this node has coverage in one of the specified colours
@@ -202,6 +205,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   ctx_assert(db_graph->col_edges != NULL);
   ctx_assert(db_graph->col_covgs != NULL);
   ctx_assert(num_of_cols > 0);
+  ctx_assert(intocol + num_of_cols <= header->num_of_cols);
 
   size_t i;
   uint64_t num_nodes_dumped = 0;
@@ -224,6 +228,9 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
            start_col+num_of_cols-1, path);
   }
 
+  status("Writing colours %zu-%zu of %zu", intocol, intocol+num_of_cols,
+         (size_t)header->num_of_cols);
+
   if((fout = fopen(path, "w")) == NULL)
     die("Unable to open graph file to write: %s\n", path);
 
@@ -232,8 +239,9 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   // Write header
   graph_write_header(fout, header);
 
-  HASH_ITERATE(&db_graph->ht, graph_write_node, db_graph, fout, header,
-                intocol, colours, start_col, num_of_cols, &num_nodes_dumped);
+  HASH_ITERATE(&db_graph->ht, graph_write_node,
+               db_graph, fout, header, intocol, colours, start_col, num_of_cols,
+               &num_nodes_dumped);
 
   if(header->version >= 7 && num_nodes_dumped != db_graph->ht.num_kmers)
   {
