@@ -329,20 +329,16 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 static void* correct_reads_thread(void *ptr)
 {
   CorrectReadsWorker *wrkr = (CorrectReadsWorker*)ptr;
+  MsgPool *pool = wrkr->pool;
+  AsyncIOData *data;
+  int pos;
 
-  // incoming is empty, outgoing is allocated
-  AsyncIOData data0, data1, *incoming = &data0, *outgoing = &data1, *tmpdataptr;
-  asynciodata_alloc(&data1);
-
-  // Read into incoming, write out outgoing
-  while(msgpool_read(wrkr->pool, incoming, outgoing))
+  while((pos = msgpool_claim_read(pool)) != -1)
   {
-    correct_read(wrkr, incoming);
-    // Now incoming is allocated, outgoing is not, so swap
-    SWAP(incoming, outgoing, tmpdataptr);
+    memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
+    correct_read(wrkr, data);
+    msgpool_release(pool, pos, MPOOL_EMPTY);
   }
-
-  asynciodata_dealloc(outgoing);
 
   pthread_exit(NULL);
 }
@@ -468,9 +464,12 @@ int ctx_correct(CmdArgs *args)
   path_store_alloc(&db_graph.pdata, ctp_max_mem, tmp_path_mem, ctp_max_usedcols);
 
   // Run alignment
+  AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
+
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
-  msgpool_iterate(&pool, asynciodata_pool_init, NULL);
+  msgpool_alloc_yield(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*));
+  msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   CorrectReadsWorker *wrkrs = malloc2(num_work_threads * sizeof(CorrectReadsWorker));
 
@@ -497,8 +496,10 @@ int ctx_correct(CmdArgs *args)
 
   free(wrkrs);
   free(asyncio_tasks);
-  msgpool_iterate(&pool, asynciodata_pool_destroy, NULL);
   msgpool_dealloc(&pool);
+
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
+  free(data);
 
   free(inputs);
   free(db_graph.col_edges);

@@ -14,7 +14,6 @@ typedef struct
   pthread_t thread;
   dBGraph *const db_graph;
   MsgPool *pool;
-  AsyncIOData data; // current data
   LoadingStats *file_stats; // Array of stats for diff input files
 } BuildGraphWorker;
 
@@ -202,6 +201,9 @@ void build_graph_from_reads(read_t *r1, read_t *r2,
                             LoadingStats *stats, size_t colour,
                             dBGraph *db_graph)
 {
+  // status("r1: '%s' '%s'", r1->name.b, r1->seq.b);
+  // if(r2) status("r2: '%s' '%s'", r2->name.b, r2->seq.b);
+
   stats->total_bases_read += r1->seq.end + (r2 ? r2->seq.end : 0);
 
   uint8_t fq_cutoff1, fq_cutoff2;
@@ -228,17 +230,25 @@ void build_graph_from_reads(read_t *r1, read_t *r2,
 static void* grab_reads_from_pool(void *ptr)
 {
   BuildGraphWorker *wrkr = (BuildGraphWorker*)ptr;
+  MsgPool *pool = wrkr->pool;
   BuildGraphTask *task;
+  AsyncIOData *data;
+  int pos;
 
-  AsyncIOData data;
-  while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
-    wrkr->data = data;
-    task = (BuildGraphTask*)data.ptr;
-    build_graph_from_reads(&data.r1, &data.r2, data.fq_offset1, data.fq_offset2,
+  while((pos = msgpool_claim_read(pool)) != -1)
+  {
+    memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
+    task = (BuildGraphTask*)data->ptr;
+
+    build_graph_from_reads(&data->r1, &data->r2,
+                           data->fq_offset1, data->fq_offset2,
                            task->fq_cutoff, task->hp_cutoff,
-                           task->remove_dups_se, task->remove_dups_pe, task->matedir,
+                           task->remove_dups_se, task->remove_dups_pe,
+                           task->matedir,
                            &wrkr->file_stats[task->idx],
                            task->colour, wrkr->db_graph);
+
+    msgpool_release(pool, pos, MPOOL_EMPTY);
   }
 
   pthread_exit(NULL);
@@ -251,9 +261,13 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   ctx_assert(db_graph->bktlocks != NULL);
 
   size_t i, j;
+
+  AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
+
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
-  msgpool_iterate(&pool, asynciodata_pool_init, NULL);
+  msgpool_alloc_yield(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*));
+  msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   // Start async io reading
   AsyncIOReadTask *async_tasks = malloc2(num_files * sizeof(AsyncIOReadTask));
@@ -273,7 +287,6 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   for(i = 0; i < num_build_threads; i++)
   {
     BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = &pool};
-    asynciodata_alloc(&tmp_wrkr.data);
     tmp_wrkr.file_stats = calloc2(num_files, sizeof(LoadingStats));
     memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
   }
@@ -285,7 +298,6 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   // start_build_graph_workers(&pool, db_graph, files, num_files, num_build_threads);
 
   free(async_tasks);
-  msgpool_iterate(&pool, asynciodata_pool_destroy, NULL);
   msgpool_dealloc(&pool);
 
   // Clean up workers one by one...
@@ -295,9 +307,11 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
       loading_stats_merge(&files[i].stats, &workers[i].file_stats[j]);
 
     // Free memory
-    asynciodata_dealloc(&workers[i].data);
     free(workers[i].file_stats);
   }
 
   free(workers);
+
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
+  free(data);
 }

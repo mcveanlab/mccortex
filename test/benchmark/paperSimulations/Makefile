@@ -73,18 +73,17 @@ $(NAMES): $(SCRIPTS)
 	quant=`echo $* | grep -oE '(One|Many)'`; \
 	err=`echo $* | grep -oE '(NoError|Error)'`; \
 	readlen=`echo $* | grep -oE 'Reads[0-9]*' | sed 's/Reads//g'`; \
-	memwidth=25; memheight=25; \
 	errprof=; \
 	if [ $$species == 'Hs' ]; then \
+		memwidth=26; memheight=26; \
 		ref=../chr1/chr1.fa; ploidy=2; allelecovg=30; subrate=0.001; \
 		if [ $$quant == 'Many' ]; then num=10; snps=$(HsManySNPs); indels=$(HsManyIndels); \
 		else num=1; snps=$(HsOneSNPs); indels=$(HsOneIndels); fi; \
 	else \
+		memwidth=21; memheight=21; \
 		ref=../staph/staph.fa; ploidy=1; allelecovg=100; subrate=0.01; \
 		if [ $$quant == 'Many' ]; then num=1000; snps=$(StaphManySNPs); indels=$(StaphManyIndels); \
-		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); \
-				memwidth=21; memheight=21; \
-		fi; \
+		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); fi \
 	fi; \
 	if [ $$err == 'Error' ]; then errprof="ERRPROF=../$(PROFILE_READS)"; fi; \
 	echo "make -f ../../calling-comparison.mk \

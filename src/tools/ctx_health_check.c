@@ -12,8 +12,8 @@
 #include "path_store.h"
 
 const char health_usage[] =
-"usage: "CMD" healthcheck [options] <graph.ctx>\n"
-"  Load a graph into memory to check it is valid.\n"
+"usage: "CMD" check [options] <graph.ctx>\n"
+"  Load a graph into memory along with any path files to check they are valid.\n"
 "\n"
 "  Options:\n"
 "   -m <mem>       Memory to use\n"

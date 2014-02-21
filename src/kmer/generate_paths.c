@@ -32,7 +32,7 @@ struct GenPathWorker
 
   // We take jobs from the pool
   MsgPool *pool;
-  AsyncIOData data; // current data
+  AsyncIOData *data; // current data
   CorrectAlnReadsTask task; // current task
   LoadingStats stats;
 
@@ -71,7 +71,6 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
   GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL};
 
-  asynciodata_alloc(&tmp.data);
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
   loading_stats_init(&tmp.stats);
@@ -91,7 +90,6 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 
 static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 {
-  asynciodata_dealloc(&wrkr->data);
   db_alignment_dealloc(&wrkr->aln);
   correct_aln_worker_dealloc(&wrkr->corrector);
   free(wrkr->pck_fw);
@@ -287,11 +285,11 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       // Check path before we wrote it
       ctx_check2(graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen),
                                        plen, db_graph),
-                 "read: %s %s", wrkr->data.r1.name.b, wrkr->data.r1.seq.b);
+                 "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
 
       // Check path after we wrote it
       ctx_check2(graph_path_check_path(node.key, pindex, &gp, db_graph),
-                 "read: %s %s", wrkr->data.r1.name.b, wrkr->data.r1.seq.b);
+                 "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
     #endif
 
     // status("Path is:...");
@@ -393,15 +391,18 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
     worker_junctions_to_paths(wrkr, contig);
 }
 
+// wrkr->data and wrkr->task must be set before calling this functions
 static void reads_to_paths(GenPathWorker *wrkr)
 {
-  AsyncIOData *data = &wrkr->data;
+  AsyncIOData *data = wrkr->data;
   read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
 
-  // if(r1->seq.end < 100) {
-  //   printf("1>%s\n", r1->seq.b);
-  //   if(r2 != NULL) printf("2>%s\n", r2->seq.b);
-  // }
+  if(gen_paths_print_reads) {
+    pthread_mutex_lock(&biglock);
+    printf(">read %s %s\n%s %s\n", data->r1.name.b, data->r2.name.b,
+                                   data->r1.seq.b, data->r2.seq.b);
+    pthread_mutex_unlock(&biglock);
+  }
 
   uint8_t fq_cutoff1, fq_cutoff2;
   fq_cutoff1 = fq_cutoff2 = wrkr->task.fq_cutoff;
@@ -440,42 +441,27 @@ static void reads_to_paths(GenPathWorker *wrkr)
 static void* generate_paths_worker(void *ptr)
 {
   GenPathWorker *wrkr = (GenPathWorker*)ptr;
+  MsgPool *pool = wrkr->pool;
+  AsyncIOData *data;
+  int pos;
 
-  AsyncIOData data;
-  while(msgpool_read(wrkr->pool, &data, &wrkr->data)) {
-    if(gen_paths_print_reads) {
-      pthread_mutex_lock(&biglock);
-      printf(">read %s %s\n%s %s\n", data.r1.name.b, data.r2.name.b,
-                                     data.r1.seq.b, data.r2.seq.b);
-      pthread_mutex_unlock(&biglock);
-    }
-    // status("seq : %s %s", data.r1.seq.b, data.r2.seq.b);
+  while((pos = msgpool_claim_read(pool)) != -1)
+  {
+    memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
     wrkr->data = data;
-    memcpy(&wrkr->task, data.ptr, sizeof(CorrectAlnReadsTask));
+    memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnReadsTask));
     reads_to_paths(wrkr);
+    msgpool_release(pool, pos, MPOOL_EMPTY);
   }
 
   pthread_exit(NULL);
 }
 
-void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectAlnReadsTask *task,
-                         const char *seq, size_t len)
+void gen_path_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
+                         const CorrectAlnReadsTask *task)
 {
-  read_t *r1 = &wrkr->data.r1, *r2 = &wrkr->data.r2;
-  seq_read_reset(r1);
-  seq_read_reset(r2);
-
-  // Copy seq to read1
-  buffer_ensure_capacity(&r1->seq, len);
-  memcpy(r1->seq.b, seq, len);
-  r1->seq.b[len] = '\0';
-  r1->seq.end = len;
-
-  // Reset asyncio input data
-  wrkr->data.fq_offset1 = wrkr->data.fq_offset2 = 0;
-  wrkr->data.ptr = NULL;
-
   // Copy task to worker
+  wrkr->data = data;
   memcpy(&wrkr->task, task, sizeof(CorrectAlnReadsTask));
 
   reads_to_paths(wrkr);
@@ -485,9 +471,13 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {
   size_t i;
+
+  AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
+
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLRSIZE, sizeof(AsyncIOData));
-  msgpool_iterate(&pool, asynciodata_pool_init, NULL);
+  msgpool_alloc_yield(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*));
+  msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   for(i = 0; i < num_workers; i++)
     workers[i].pool = &pool;
@@ -499,8 +489,10 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
                       workers, num_workers, sizeof(GenPathWorker));
 
   free(asyncio_tasks);
-  msgpool_iterate(&pool, asynciodata_pool_destroy, NULL);
   msgpool_dealloc(&pool);
+
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
+  free(data);
 
   // Merge gap counts into worker[0]
   generate_paths_merge_stats(workers, num_workers);

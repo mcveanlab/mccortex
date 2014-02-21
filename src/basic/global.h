@@ -189,6 +189,6 @@ void cortex_destroy();
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
 
 // Number of reads to hold in the msg pool
-#define MSGPOOLRSIZE 200
+#define MSGPOOLSIZE 200
 
 #endif /* GLOBAL_H_ */

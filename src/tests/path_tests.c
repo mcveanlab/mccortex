@@ -6,7 +6,8 @@
 #include "generate_paths.h"
 #include "graph_paths.h"
 
-static void add_paths(dBGraph *graph, CorrectAlnReadsTask *task,
+static void add_paths(dBGraph *graph,
+                      AsyncIOData *iodata, CorrectAlnReadsTask *task,
                       GenPathWorker *wrkrs, const char *seq,
                       size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
 {
@@ -14,7 +15,13 @@ static void add_paths(dBGraph *graph, CorrectAlnReadsTask *task,
   size_t nkmers = graph->pdata.num_kmers_with_paths;
   uint8_t *next = graph->pdata.next;
 
-  gen_path_worker_seq(wrkrs, task, seq, strlen(seq));
+  // Set up asyncio input data
+  seq_read_set(&iodata->r1, seq);
+  seq_read_reset(&iodata->r2);
+  iodata->fq_offset1 = iodata->fq_offset2 = 0;
+  iodata->ptr = NULL;
+  // Add paths
+  gen_path_worker_seq(wrkrs, iodata, task);
 
   // Check we added the right number of paths
   TASSERT(graph->pdata.num_of_paths == npaths + exp_npaths);
@@ -92,13 +99,16 @@ void test_paths()
                               .matedir = READPAIR_FR, .crt_params = params,
                               .ptr = NULL};
 
+  AsyncIOData iodata;
+  asynciodata_alloc(&iodata);
+
   size_t nworkers = 1;
   GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph);
 
-  add_paths(&graph, &task, wrkrs, seq0, 5, 5, 5); // path lens: 3+3+2+2+2
-  add_paths(&graph, &task, wrkrs, seq1, 5, 2, 5); // path lens: 3+3+2+2+2
-  add_paths(&graph, &task, wrkrs, seq2, 3, 2, 3); // path lens: 1+1+1
-  add_paths(&graph, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
+  add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5, 5); // path lens: 3+3+2+2+2
+  add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2, 5); // path lens: 3+3+2+2+2
+  add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2, 3); // path lens: 1+1+1
+  add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
 
   // DEV: Actually test path content, colours set etc
   // seq0 fw
@@ -120,6 +130,7 @@ void test_paths()
   free(graph.kmer_paths);
   free(graph.path_kmer_locks);
 
+  asynciodata_dealloc(&iodata);
   path_store_dealloc(&graph.pdata);
   db_graph_dealloc(&graph);
 }

@@ -46,16 +46,16 @@ STAMPY_BIN=./stampy.sh
 
 NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
 # 8bytes for kmer, 4 for covgs, 1 for edges + 10MB for paths
-MEM=$(shell echo '$(MEMWIDTH) * (2^$(MEMHEIGHT)) * (8+(4+1)*$(NUMCOLS)) + 10000000')
+MEM=$(shell echo '$[ $(MEMWIDTH) * (2^$(MEMHEIGHT)) * (8+(4+1)*$(NUMCOLS)) + 10000000 ]')
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
 CTX=$(CTX_PATH)/bin/ctx31
-BUILDCTX=$(CTX) build
-CLEANCTX=$(CTX) clean
-JOINCTX=$(CTX) join
+BUILDCTX=$(CTX) build -m $(MEM)
+CLEANCTX=$(CTX) clean -m $(MEM)
+JOINCTX=$(CTX) join -m $(MEM)
 INFERCTX=$(CTX) inferedges --all
 THREADCTX=$(CTX) thread -a 1 -t $(NTHREADS) -m $(MEM)
-CALLCTX=$(CTX) call
+CALLCTX=$(CTX) call -m $(MEM)
 PROCCTX=$(CTX) unique
 PLACECTX=$(CTX) place
 TRAVERSE=$(CTX) contigs

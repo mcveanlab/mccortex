@@ -19,8 +19,8 @@ GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph);
 void gen_paths_workers_dealloc(GenPathWorker *mem, size_t n);
 
 // Add a single contig using a given worker
-void gen_path_worker_seq(GenPathWorker *wrkr, const CorrectAlnReadsTask *task,
-                         const char *seq, size_t len);
+void gen_path_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
+                         const CorrectAlnReadsTask *task);
 
 // workers array must be at least as long as tasks
 void generate_paths(CorrectAlnReadsTask *tasks, size_t num_tasks,

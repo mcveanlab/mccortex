@@ -14,19 +14,6 @@ typedef struct {
   void *ptr; // general porpoise pointer
 } CorrectAlnReadsTask;
 
-// typedef struct
-// {
-//   seq_file_t *const file1, *const file2;
-//   const Colour ctpcol, ctxcol;
-//   const uint32_t ins_gap_min, ins_gap_max;
-//   const boolean one_way_gap_traverse; // set to false for more error prone algo
-//   const uint32_t max_context, gap_wiggle;
-//   const float gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
-//   const uint8_t fq_offset, fq_cutoff, hp_cutoff;
-//   const boolean read_pair_FR; // set to false if reads are FF
-//   void *ptr;
-// } CorrectReadsInput;
-
 void correct_reads_input_init(const char *p1, const char *p2,
                               uint32_t fq_offset, uint32_t fq_cutoff,
                               uint32_t hp_cutoff, ReadMateDir matedir,
