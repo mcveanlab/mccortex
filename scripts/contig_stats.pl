@@ -71,33 +71,33 @@ for my $data (@contigs)
 # Loading file
 
   ($stats{'path_type'}) = ($data =~ /Loading file .*(se|pe|sepe).*\.ctp /i);
-  ($stats{'path_num'}) = ($data =~ /([\d,]+) paths, .* path-bytes, [\d,]+ kmers/i);
-  ($stats{'path_bytes'}) = ($data =~ /[\d,]+ paths, (.*) path-bytes, [\d,]+ kmers/i);
-  ($stats{'path_kmers'}) = ($data =~ /[\d,]+ paths, .* path-bytes, ([\d,]+) kmers/i);
+  ($stats{'path_num'}) = ($data =~ /([0-9,]+) paths, .* path-bytes, [0-9,]+ kmers/i);
+  ($stats{'path_bytes'}) = ($data =~ /[0-9,]+ paths, (.*) path-bytes, [0-9,]+ kmers/i);
+  ($stats{'path_kmers'}) = ($data =~ /[0-9,]+ paths, .* path-bytes, ([0-9,]+) kmers/i);
 
-  ($stats{'meancontig'}) = ($data =~ /Lengths: mean: ([\d\.]+)/i);
-  ($stats{'mediancontig'}) = ($data =~ /Lengths: .*?median: ([\d\.]+)/i);
-  ($stats{'N50contig'}) = ($data =~ /Lengths: .*?N50: ([\d\.]+)/i);
-  ($stats{'mincontig'}) = ($data =~ /Lengths: .*?min: ([\d\.]+)/i);
-  ($stats{'maxcontig'}) = ($data =~ /Lengths: .*?max: ([\d\.]+)/i);
-  ($stats{'totalcontig'}) = ($data =~ /Lengths: .*?total: ([\d\.]+)/i);
+  ($stats{'meancontig'}) = ($data =~ /Lengths: mean: ([0-9\.]+)/i);
+  ($stats{'mediancontig'}) = ($data =~ /Lengths: .*?median: ([0-9\.]+)/i);
+  ($stats{'N50contig'}) = ($data =~ /Lengths: .*?N50: ([0-9\.]+)/i);
+  ($stats{'mincontig'}) = ($data =~ /Lengths: .*?min: ([0-9\.]+)/i);
+  ($stats{'maxcontig'}) = ($data =~ /Lengths: .*?max: ([0-9\.]+)/i);
+  ($stats{'totalcontig'}) = ($data =~ /Lengths: .*?total: ([0-9\.]+)/i);
 
-  ($stats{'resolve_straight'}) = ($data =~ /Go straight.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'resolve_colour'}) = ($data =~ /Go colour.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'resolve_path'}) = ($data =~ /Go path.*\[.*([\d\.]+%).*\]/i);
+  ($stats{'resolve_straight'}) = ($data =~ /Go straight.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'resolve_colour'}) = ($data =~ /Go colour.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'resolve_path'}) = ($data =~ /Go path.*\[.*([0-9\.]+%).*\]/i);
 
-  ($stats{'halt_covg'}) = ($data =~ /No coverage.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'halt_colcovg'}) = ($data =~ /No colour covg.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'halt_nopaths'}) = ($data =~ /No paths.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'halt_pathssplit'}) = ($data =~ /Paths split.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'halt_missingpaths'}) = ($data =~ /Paths split.*\[.*([\d\.]+%).*\]/i);
-  ($stats{'paths_resolved_juncs'}) = ($data =~ /Paths resolved.*\[.*([\d\.]+%).*\]/i);
+  ($stats{'halt_covg'}) = ($data =~ /No coverage.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'halt_colcovg'}) = ($data =~ /No colour covg.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'halt_nopaths'}) = ($data =~ /No paths.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'halt_pathssplit'}) = ($data =~ /Paths split.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'halt_missingpaths'}) = ($data =~ /Paths split.*\[.*([0-9\.]+%).*\]/i);
+  ($stats{'paths_resolved_juncs'}) = ($data =~ /Paths resolved.*\[.*([0-9\.]+%).*\]/i);
 
   ($stats{'time'}) = ($data =~ /\[time\] (.*)/i);
 
   # Strip commas from numbers
   map {$stats{$_} = defined($stats{$_}) ? $stats{$_} : "NA"} @cols;
-  for my $col (@cols) { if($stats{$col} =~ /^[\d,]+$/) { $stats{$col} =~ s/,//g; } }
+  for my $col (@cols) { if($stats{$col} =~ /^[0-9,]+$/) { $stats{$col} =~ s/,//g; } }
   print join(",", map {$stats{$_}} @cols)."\n";
 }
 
