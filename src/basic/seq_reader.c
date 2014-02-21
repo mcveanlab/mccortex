@@ -215,6 +215,54 @@ int guess_fastq_format(seq_file_t *sf)
   return fmt;
 }
 
+void seq_parse_interleaved_sf(seq_file_t *sf,
+                              uint8_t qoffset, uint8_t qmin, uint8_t qmax,
+                              read_t *r1, read_t *r2,
+                              void (*read_func)(read_t *_r1, read_t *_r2,
+                                                uint8_t _qoffset1,
+                                                uint8_t _qoffset2,
+                                                void *_ptr),
+                              void *reader_ptr,
+                              size_t *num_se_reads_ptr, size_t *num_pe_pairs_ptr)
+{
+  status("Reading a (possibly) interleaved file (expect both S.E. & P.E. reads)");
+
+  read_t *r[2] = {r1,r2}, *tmpr;
+  int ridx = 0, s;
+  uint8_t warn_flags = 0;
+  size_t num_se_reads = 0, num_pe_pairs = 0;
+
+  while((s = seq_read(sf, r[ridx])) > 0)
+  {
+    seq_read_truncate_name(r[ridx]);
+    warn_flags = process_new_read(r[ridx], qmin, qmax, sf->path, warn_flags);
+
+    if(ridx == 1)
+    {
+      if(strcmp(r[0]->name.b, r[1]->name.b) == 0) {
+        read_func(r[0], r[1], qoffset, qoffset, reader_ptr);
+        num_pe_pairs++;
+        ridx = 0;
+      } else {
+        read_func(r[0], NULL, qoffset, 0, reader_ptr);
+        num_se_reads++;
+        SWAP(r[0], r[1], tmpr);
+        ridx = 1;
+      }
+    }
+    else ridx = 1;
+  }
+  if(s < 0) warn("Input error: %s\n", sf->path);
+
+  // Process last read
+  if(ridx == 1) {
+    read_func(r[0], NULL, qoffset, 0, reader_ptr);
+    num_se_reads++;
+  }
+
+  *num_se_reads_ptr = num_se_reads;
+  *num_pe_pairs_ptr = num_pe_pairs;
+}
 
 void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
                      read_t *r1, read_t *r2,
@@ -325,56 +373,9 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   }
   else
   {
-    // SAM / BAM single file may contain paired-reads
-    char swap_reads = 0, have_mate = 0, mates_seen = 0;
-
-    // For now assume sam format is
-    qmin=33;
-    qmax=73;
-    qoffset=33;
-
-    while(1)
-    {
-      if(swap_reads)
-      {
-        // swap r2 into r1
-        read_t tmp_read;
-        SWAP(*r1, *r2, tmp_read);
-      }
-      else {
-        int s = seq_read(sf, r1);
-        if(s < 0) { warn("Input error: %s\n", sf->path); break; }
-        if(s == 0) break;
-      }
-
-      if(seq_read(sf, r2) > 0)
-      {
-        seq_read_truncate_name(r1);
-        seq_read_truncate_name(r2);
-        have_mate = (strcmp(r1->name.b, r2->name.b) == 0);
-        swap_reads = !have_mate;
-      }
-      else have_mate = swap_reads = 0;
-
-      mates_seen = mates_seen || have_mate;
-
-      if(have_mate)
-      {
-        // pe
-        warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
-        warn_flags = process_new_read(r2, qmin, qmax, sf->path, warn_flags);
-        // seq_read_reverse_complement(r2); // now done later
-        read_func(r1, r2, qoffset, qoffset, reader_ptr);
-        num_pe_pairs++;
-      }
-      else
-      {
-        // se
-        warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
-        read_func(r1, NULL, qoffset, 0, reader_ptr);
-        num_se_reads++;
-      }
-    }
+    seq_parse_interleaved_sf(sf, qoffset, qmin, qmax, r1, r2,
+                             read_func, reader_ptr,
+                             &num_se_reads, &num_pe_pairs);
   }
 
   char num_se_reads_str[100], num_pe_pairs_str[100];
