@@ -66,9 +66,9 @@ for my $data (@contigs)
   ($stats{'pathsmem'}) = ($data =~ /paths: (.*B)/i);
   ($stats{'totalmem'}) = ($data =~ /total: (.*B)/i);
   ($stats{'kmersize'}) = ($data =~ /kmer-size: (\d+)/i);
-  ($stats{'numkmers'}) = ($data =~ /Loaded (\d+).*? of kmers parsed/i);
+  ($stats{'numkmers'}) = ($data =~ /Loaded ([0-9,]+).*? of kmers parsed/i);
 
-  ($stats{'path_type'}) = ($data =~ /Loading file .*?((?:[sp]e)+).*?\.ctp /i);
+  ($stats{'path_type'}) = map {uc($_)} ($data =~ /Loading file .*?((?:[sp]e)+).*?\.ctp /i);
   ($stats{'path_num'}) = ($data =~ /([0-9,]+) paths, .*? path-bytes, [0-9,]+ kmers/i);
   ($stats{'path_bytes'}) = ($data =~ /[0-9,]+ paths, (.*?) path-bytes, [0-9,]+ kmers/i);
   ($stats{'path_kmers'}) = ($data =~ /[0-9,]+ paths, .*? path-bytes, ([0-9,]+) kmers/i);

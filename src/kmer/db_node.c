@@ -183,6 +183,48 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
 }
 
 //
+// dBNode reversal and shifting
+//
+
+// Reverse ordering without changing node orientation
+void db_nodes_reverse(dBNode *nlist, size_t n)
+{
+  size_t i, j;
+  dBNode tmp;
+  if(n <= 1) return;
+  for(i = 0, j = n-1; i < j; i++, j--) {
+    SWAP(nlist[i], nlist[j], tmp);
+  }
+}
+
+// see http://www.geeksforgeeks.org/array-rotation/
+void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift)
+{
+  if(n == 0 || shift == 0) return;
+
+  // Method A) Using three reverse operations
+  // db_nodes_reverse(nlist, shift);
+  // db_nodes_reverse(nlist+shift, n-shift);
+  // db_nodes_reverse(nlist, n);
+
+  // Method B) Using GCD
+  size_t i, j, k, gcd = calc_GCD(n, shift);
+  dBNode tmp;
+
+  // Copy from k -> j, stop if k == i, since nlist[i] already overwritten
+  for(i = 0; i < gcd; i++) {
+    tmp = nlist[i];
+    for(j = i; 1; j = k) {
+      k = j+shift;
+      if(k >= n) k -= n;
+      if(k == i) break;
+      nlist[j] = nlist[k];
+    }
+    nlist[j] = tmp;
+  }
+}
+
+//
 // dBNode array printing
 //
 

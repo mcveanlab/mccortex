@@ -1,10 +1,10 @@
 #include "global.h"
+#include "util.h"
+#include "binary_kmer.h"
 #include "hash_table.h"
 #include "db_graph.h"
-#include "binary_kmer.h"
 #include "db_node.h"
 #include "supernode.h"
-
 
 void supernode_reverse(dBNode *nlist, size_t len)
 {
@@ -48,17 +48,6 @@ static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
   return binary_kmers_are_equal(bkmer0, shiftkmer);
 }
 
-// Reverse ordering without changing node orientation
-static void db_nodes_reverse(dBNode *nlist, size_t n)
-{
-  size_t i, j;
-  dBNode tmp;
-  if(n <= 1) return;
-  for(i = 0, j = n-1; i < j; i++, j--) {
-    SWAP(nlist[i], nlist[j], tmp);
-  }
-}
-
 // Orient supernode
 // Once oriented, supernode has lowest poosible kmerkey at the beginning,
 // oriented FORWARDs if possible
@@ -97,9 +86,8 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
       // if c is lowest and REVERSE:  c->b->a->f->e->d
 
       if(nlist[idx].orient == FORWARD) {
-        db_nodes_reverse(nlist, idx);
-        db_nodes_reverse(nlist+idx, len-idx);
-        db_nodes_reverse(nlist, len);
+        // Shift left by idx, without affecting orientations
+        db_nodes_left_shift(nlist, len, idx);
       } else {
         supernode_reverse(nlist, idx+1);
         supernode_reverse(nlist+idx+1, len-idx-1);

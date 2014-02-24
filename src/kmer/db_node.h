@@ -240,8 +240,18 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 #include "objbuf_macro.h"
 create_objbuf(db_node_buf,dBNodeBuffer,dBNode);
 
-#define db_node_buf_safe_add(buf,node,or) {\
-  dBNode n = {.key=node,.orient=or};  db_node_buf_add(buf,n); }
+#define db_node_buf_safe_add(buf,node,or) do {\
+  dBNode n = {.key=node,.orient=or}; db_node_buf_add(buf,n); \
+} while(0)
+
+//
+// dBNode reversal and shifting
+//
+
+// Reverse ordering without changing node orientation
+void db_nodes_reverse(dBNode *nlist, size_t n);
+
+void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift);
 
 //
 // Print array of dBNode
