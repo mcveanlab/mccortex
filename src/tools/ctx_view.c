@@ -88,7 +88,7 @@ int ctx_view(CmdArgs *args)
   size_t num_errors = 0, num_warnings = 0;
   int argi;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
     if(strcmp(argv[argi],"--info") == 0) print_info = true;
     else if(strcmp(argv[argi],"--check") == 0) parse_kmers = true;
@@ -204,7 +204,9 @@ int ctx_view(CmdArgs *args)
 
   if(print_kmers || parse_kmers)
   {
-    if(num_kmers_read != file.hdr.num_of_kmers) {
+    // file_size is set to -1 if we are reading from a stream,
+    // therefore won't be able to check number of kmers read
+    if(file.fltr.file_size != -1 && num_kmers_read != file.hdr.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
                       (size_t)file.hdr.num_of_kmers, (size_t)num_kmers_read);
     }

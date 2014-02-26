@@ -208,7 +208,7 @@ int ctx_join(CmdArgs *args)
   cmd_check_mem_limit(args, graph_mem);
 
   // Check out_ctx_path is writable
-  if(!futil_is_file_writable(out_ctx_path))
+  if(strcmp(out_ctx_path,"-") != 0 && !futil_is_file_writable(out_ctx_path))
     cmd_print_usage("Cannot write to output: %s", out_ctx_path);
 
   // Create db_graph

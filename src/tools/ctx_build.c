@@ -411,10 +411,15 @@ int ctx_build(CmdArgs *args)
   //
   // Check output path
   //
-  if(futil_file_exists(out_path)) die("Output file already exists: %s", out_path);
-  if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
+  const char *out_path_name = (strcmp(out_path,"-") == 0 ? "STDOUT" : out_path);
 
-  status("Writing %zu colour graph to %s\n", output_colours, out_path);
+  if(strcmp(out_path,"-") != 0)
+  {
+    if(futil_file_exists(out_path)) die("Output file already exists: %s", out_path);
+    if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
+  }
+
+  status("Writing %zu colour graph to %s\n", output_colours, out_path_name);
 
   // Create db_graph
   dBGraph db_graph;

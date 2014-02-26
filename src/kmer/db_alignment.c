@@ -127,8 +127,9 @@ size_t db_alignment_next_gap(const dBAlignment *aln, size_t start)
   return i;
 }
 
-// This is for debugging
-#include <pthread.h>
+//
+// Debugging
+//
 
 void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
 {
@@ -149,8 +150,9 @@ void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
 
     for(i = start; i < end; i++)
       printf(" %zu:%i", (size_t)aln->nodes.data[i].key, (int)aln->nodes.data[i].orient);
-    printf(": ");
-    db_nodes_print(aln->nodes.data+start,end-start,db_graph,stdout);
+    printf(":\n");
+    db_nodes_print_verbose(aln->nodes.data+start,end-start,db_graph,stdout);
+    db_nodes_print_edges(aln->nodes.data+start,end-start,db_graph,stdout);
     printf("\n");
 
     start = end;
@@ -163,4 +165,22 @@ void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
   else printf(" end gap [r1]: %zu\n", aln->r1enderr);
 
   pthread_mutex_unlock(&biglock);
+}
+
+// Check all edges between ungapped adjacent nodes
+boolean db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
+{
+  size_t start, end, i;
+
+  for(start = 0; start < aln->nodes.len; start = end) {
+    end = db_alignment_next_gap(aln, start);
+
+    // check edge between i and i+1
+    for(i = start; i+1 < end; i++) {
+      if(!db_graph_check_edges(graph, aln->nodes.data[i], aln->nodes.data[i+1]))
+        return false;
+    }
+  }
+
+  return true;
 }

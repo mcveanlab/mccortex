@@ -32,27 +32,34 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
   // Check we can handle the kmer size
   db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.file_path.buff);
 
-  // File header checks
-  // Get number of kmers
-  size_t bytes_per_kmer = sizeof(BinaryKmer) +
-                          hdr->num_of_cols * (sizeof(Covg) + sizeof(Edges));
-  size_t bytes_remaining = (size_t)(fltr->file_size - file->hdr_size);
-  size_t nkmers = (bytes_remaining / bytes_per_kmer);
+  size_t bytes_per_kmer, bytes_remaining, nkmers = 0;
 
-  if(hdr->version > 6 && hdr->num_of_kmers != nkmers) {
-    warn("File size and number of kmers do not match: %s [bytes per kmer: %zu "
-         "remaining: %zu; fsize: %zu; header: %zu; expect: %zu; got: %zu]",
-         fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
-         (size_t)fltr->file_size, (size_t)file->hdr_size,
-         (size_t)hdr->num_of_kmers, nkmers);
+  // If reading from STDIN we don't know file size
+  if(fltr->file_size != -1)
+  {
+    // File header checks
+    // Get number of kmers
+    bytes_per_kmer = sizeof(BinaryKmer) +
+                     hdr->num_of_cols * (sizeof(Covg) + sizeof(Edges));
+    bytes_remaining = (size_t)(fltr->file_size - file->hdr_size);
+    nkmers = (bytes_remaining / bytes_per_kmer);
+
+    if(hdr->version > 6 && hdr->num_of_kmers != nkmers) {
+      warn("File size and number of kmers do not match: %s [bytes per kmer: %zu "
+           "remaining: %zu; fsize: %zu; header: %zu; expect: %zu; got: %zu]",
+           fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
+           (size_t)fltr->file_size, (size_t)file->hdr_size,
+           (size_t)hdr->num_of_kmers, nkmers);
+    }
+
+    if(bytes_remaining % bytes_per_kmer != 0) {
+      warn("Truncated graph file: %s [bytes per kmer: %zu "
+           "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zu]",
+           fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
+           (size_t)fltr->file_size, (size_t)file->hdr_size, nkmers);
+    }
   }
 
-  if(bytes_remaining % bytes_per_kmer != 0) {
-    warn("Truncated graph file: %s [bytes per kmer: %zu "
-         "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zu]",
-         fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
-         (size_t)fltr->file_size, (size_t)file->hdr_size, nkmers);
-  }
   hdr->num_of_kmers = nkmers;
 
   return 1;

@@ -57,12 +57,21 @@ boolean file_filter_alloc(FileFilter *fltr, char *path,
   strbuf_set(&fltr->file_path, path_start);
   *path_end = path_lchar;
 
-  fltr->file_size = futil_get_file_size(fltr->file_path.buff);
-  if(fltr->file_size == -1) die("Cannot get file size: %s", fltr->file_path.buff);
-
-  if((fltr->fh = fopen(fltr->file_path.buff, mode)) == NULL) {
-    if(fatal) die("Cannot open file: %s", fltr->file_path.buff);
-    else return 0;
+  // Read from stdin in path is "-"
+  if(strcmp(fltr->file_path.buff, "-") == 0) {
+    fltr->fh = stdin;
+    fltr->file_size = -1;
+  }
+  else
+  {
+    if((fltr->file_size = futil_get_file_size(fltr->file_path.buff)) == -1) {
+      if(fatal) die("Cannot get file size: %s", fltr->file_path.buff);
+      else return 0;
+    }
+    if((fltr->fh = fopen(fltr->file_path.buff, mode)) == NULL) {
+      if(fatal) die("Cannot open file: %s", fltr->file_path.buff);
+      else return 0;
+    }
   }
 
   return 1;

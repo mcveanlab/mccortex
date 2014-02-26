@@ -143,7 +143,7 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 }
 
 // For debugging + healthcheck
-void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
+boolean db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 {
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
   lhs_nuc = db_node_get_first_nuc(src, db_graph);
@@ -154,8 +154,8 @@ void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
   Edges src_uedges = db_node_get_edges_union(db_graph, src.key);
   Edges tgt_uedges = db_node_get_edges_union(db_graph, tgt.key);
 
-  ctx_assert(edges_has_edge(src_uedges, rhs_nuc,      src.orient));
-  ctx_assert(edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient));
+  return edges_has_edge(src_uedges, rhs_nuc,      src.orient) &&
+         edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient);
 }
 
 //
@@ -227,7 +227,7 @@ void db_graph_check_kmer_size(size_t kmer_size, const char *path)
 // Health check
 //
 
-static inline void check_node(hkey_t node, const dBGraph *db_graph)
+static inline boolean check_node(hkey_t node, const dBGraph *db_graph)
 {
   Edges edges = db_node_get_edges_union(db_graph, node);
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
@@ -257,9 +257,11 @@ static inline void check_node(hkey_t node, const dBGraph *db_graph)
 
   // Check all edges are reciprical
   for(i = 0; i < nfw_edges; i++)
-    db_graph_check_edges(db_graph, fwnode, fwnodes[i]);
+    if(!db_graph_check_edges(db_graph, fwnode, fwnodes[i])) return false;
   for(i = 0; i < nrv_edges; i++)
-    db_graph_check_edges(db_graph, rvnode, rvnodes[i]);
+    if(!db_graph_check_edges(db_graph, rvnode, rvnodes[i])) return false;
+
+  return true;
 }
 
 void db_graph_healthcheck(const dBGraph *db_graph)

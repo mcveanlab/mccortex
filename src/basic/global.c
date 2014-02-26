@@ -5,9 +5,11 @@
 #include <pthread.h>
 
 #include "util.h"
+#include "jenkins.h" // hash functions
 
 FILE *ctx_msg_out = NULL;
 pthread_mutex_t biglock;
+char cmdcode[4];
 
 void* ctx_malloc(size_t mem, const char *file, const char *func, int line)
 {
@@ -142,12 +144,12 @@ void fmessage(FILE *fh, const char *fmt, ...)
 void ftimestamp(FILE *fh)
 {
   time_t t;
-  char tstr[100];
+  char tstr[200];
 
   if(fh != NULL) {
     time(&t);
-    strftime(tstr, 100, "[%d %b %Y %H:%M:%S]", localtime(&t));
-    fputs(tstr, fh);
+    strftime(tstr, 100, "[%d %b %Y %H:%M:%S", localtime(&t));
+    fprintf(fh, "%s-%s]", tstr, cmdcode);
   }
 }
 
@@ -190,17 +192,38 @@ void seed_random()
 {
   struct timeval now;
   gettimeofday(&now, NULL);
-  srand((unsigned int)(((now.tv_sec ^ getpid()) * 1000001) + now.tv_usec));
-  srand48(((now.tv_sec ^ getpid()) * 1000003) + now.tv_usec);
+
+  uint32_t h;
+  h = strhash_fast_mix(0, (uint32_t)now.tv_sec);
+  h = strhash_fast_mix(h, (uint32_t)now.tv_usec);
+  h = strhash_fast_mix(h, (uint32_t)getpid());
+
+  srand(h);
+  srand48(~h);
 }
 
 void cortex_init()
 {
+  // #define ALPHALEN 62
+  // static const char alphabet[ALPHALEN]
+  //   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  static const char consonants[]
+    = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ";
+  static const char vowels[] = "aeiouAEIOU";
+
   seed_random();
   if(pthread_mutex_init(&biglock, NULL) != 0) {
     printf("%s:%i: mutex init failed\n", __FILE__, __LINE__);
     exit(EXIT_FAILURE);
   }
+
+  // set unique code for this output
+  cmdcode[0] = consonants[rand() % strlen(consonants)];
+  cmdcode[1] = vowels[rand() % strlen(vowels)];
+  cmdcode[2] = consonants[rand() % strlen(consonants)];
+  cmdcode[3] = '\0';
+
+  #undef ALPHALEN
 }
 
 void cortex_destroy()

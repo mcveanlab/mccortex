@@ -93,7 +93,7 @@ void db_graph_add_edge(dBGraph *db_graph, Colour colour,
 void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt);
 
 // For debugging + healthcheck
-void db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt);
+boolean db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt);
 
 //
 // Graph Traversal

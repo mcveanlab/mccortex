@@ -45,8 +45,14 @@ void db_alignment_from_reads(dBAlignment *alignment,
 // or aln->nodes.len if no more gaps
 size_t db_alignment_next_gap(const dBAlignment *aln, size_t start);
 
-// This is for debugging
+//
+// Debugging
+//
+
 void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph);
+
+// Check all edges between ungapped adjacent nodes
+boolean db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);
 
 // dBKmer stores redundant data from the graph to speed up processing
 // typedef struct

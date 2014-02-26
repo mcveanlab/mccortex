@@ -49,7 +49,7 @@ static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
 }
 
 // Orient supernode
-// Once oriented, supernode has lowest poosible kmerkey at the beginning,
+// Once oriented, supernode has lowest possible kmerkey at the beginning,
 // oriented FORWARDs if possible
 void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 {
@@ -82,8 +82,8 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
     if(idx > 0 || nlist[0].orient != FORWARD)
     {
       // a->b->c->d->e->f->a
-      // if c is lowest and FORWARD:  c->d->e->f->a->b
-      // if c is lowest and REVERSE:  c->b->a->f->e->d
+      // if c is lowest and FORWARD:  c->d->e->f->a->b (keep orientations)
+      // if c is lowest and REVERSE:  c->b->a->f->e->d (reverse orientations)
 
       if(nlist[idx].orient == FORWARD) {
         // Shift left by idx, without affecting orientations

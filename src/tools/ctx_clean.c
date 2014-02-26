@@ -127,7 +127,9 @@ int ctx_clean(CmdArgs *args)
                     " (set --supernodes or --tips)");
   }
 
-  if(out_ctx_path != NULL && futil_file_exists(out_ctx_path)) {
+  if(out_ctx_path != NULL && strcmp(out_ctx_path,"-") != 0 &&
+     futil_file_exists(out_ctx_path))
+  {
     cmd_print_usage("Output file already exists: %s", out_ctx_path);
   }
 
@@ -228,8 +230,10 @@ int ctx_clean(CmdArgs *args)
   //
   // Check output files are writable
   //
-  if(out_ctx_path != NULL && !futil_is_file_writable(out_ctx_path))
+  if(out_ctx_path != NULL && strcmp(out_ctx_path,"-") != 0 &&
+     !futil_is_file_writable(out_ctx_path)) {
     cmd_print_usage("Cannot write to output: %s", out_ctx_path);
+  }
 
   if(dump_covgs && !futil_is_file_writable(dump_covgs))
     cmd_print_usage("Cannot write coverage distribution to: %s", dump_covgs);

@@ -210,28 +210,30 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   size_t i;
   uint64_t num_nodes_dumped = 0;
   FILE *fout;
+  const char *out_name = strcmp(path,"-") == 0 ? "STDOUT" : path;
 
   if(colours != NULL) {
     if(num_of_cols == 1)
-      status("Dumping graph colour %zu into: %s", colours[0], path);
+      status("Dumping graph colour %zu into: %s", colours[0], out_name);
     else {
       timestamp();
       message("Dumping graph colours %zu", colours[0]);
       for(i = 1; i < num_of_cols; i++) message(",%zu", colours[i]);
-      message(" into: %s\n", path);
+      message(" into: %s\n", out_name);
     }
   }
   else if(num_of_cols == 1)
-    status("Dumping graph colour %zu into: %s", start_col, path);
+    status("Dumping graph colour %zu into: %s", start_col, out_name);
   else {
     status("Dumping graph colours %zu-%zu into: %s", start_col,
-           start_col+num_of_cols-1, path);
+           start_col+num_of_cols-1, out_name);
   }
 
   status("Writing colours %zu-%zu of %zu", intocol, intocol+num_of_cols,
          (size_t)header->num_of_cols);
 
-  if((fout = fopen(path, "w")) == NULL)
+  if(strcmp(path,"-") == 0) fout = stdout;
+  else if((fout = fopen(path, "w")) == NULL)
     die("Unable to open graph file to write: %s\n", path);
 
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
@@ -251,13 +253,13 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
     if(fseek(fout, pos, SEEK_SET) == 0) {
       fwrite(&num_nodes_dumped, sizeof(uint64_t), 1, fout);
     } else {
-      warn("Couldn't update number of kmers in file [path: %s]", path);
+      warn("Couldn't update number of kmers in file [path: %s]", out_name);
     }
   }
 
-  fclose(fout);
+  if(strcmp(path,"-") != 0) fclose(fout);
 
-  graph_write_status(num_nodes_dumped, num_of_cols, path, header->version);
+  graph_write_status(num_nodes_dumped, num_of_cols, out_name, header->version);
 
   return num_nodes_dumped;
 }
@@ -283,7 +285,7 @@ uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
 
   header.ginfo = hdr_ginfo;
   return graph_file_save(path, db_graph, &header, 0,
-                          colours, start_col, num_of_cols);
+                         colours, start_col, num_of_cols);
 }
 
 void graph_write_status(uint64_t nkmers, size_t ncols,
@@ -294,5 +296,5 @@ void graph_write_status(uint64_t nkmers, size_t ncols,
 
   status("Dumped %s kmers in %zu colour%s into: %s (format version: %u)\n",
          num_kmer_str, ncols, ncols != 1 ? "s" : "",
-         path, version);
+         strcmp(path, "-") == 0 ? "STDOUT" : path, version);
 }

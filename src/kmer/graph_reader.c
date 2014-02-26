@@ -577,12 +577,16 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
 {
   const FileFilter *fltr = &file->fltr;
   boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
-  status("Filtering %s to %s with stream filter", fltr->file_path.buff, out_ctx_path);
+  status("Filtering %s to %s with stream filter", fltr->file_path.buff,
+         strcmp(out_ctx_path,"-") == 0 ? "STDOUT" : out_ctx_path);
 
   FILE *out;
-  if((out = fopen(out_ctx_path, "w")) == NULL)
-    die("Cannot open output path: %s", out_ctx_path);
-  setvbuf(out, NULL, _IOFBF, CTX_BUF_SIZE);
+  if(strcmp(out_ctx_path,"-") == 0) out = stdout;
+  else {
+    if((out = fopen(out_ctx_path, "w")) == NULL)
+      die("Cannot open output path: %s", out_ctx_path);
+    setvbuf(out, NULL, _IOFBF, CTX_BUF_SIZE);
+  }
 
   graph_loading_print_status(file);
 

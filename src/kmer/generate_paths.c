@@ -426,6 +426,10 @@ static void reads_to_paths(GenPathWorker *wrkr)
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
                           wrkr->db_graph);
 
+  ctx_check2(db_alignment_check_edges(&wrkr->aln, wrkr->db_graph),
+             "Edges missing: was read %s%s%s used to build the graph?",
+             r1->name.b, r2 ? ", " : "", r2->name.b);
+
   // For debugging
   // db_alignment_print(&wrkr->aln, wrkr->db_graph);
 

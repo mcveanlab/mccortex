@@ -428,7 +428,8 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   prev_nuc = dna_nuc_complement(prev_nuc);
   prev_edge = nuc_orient_to_edge(prev_nuc, backwards);
 
-  // status("lost: %c:%i", dna_nuc_to_char(prev_nuc), backwards);
+  status("lost: %c:%i", dna_nuc_to_char(prev_nuc), backwards);
+  status("edges: %u prev_edge: %u", (uint32_t)edges, (uint32_t)prev_edge);
 
   // Some sanity checks
   ctx_assert(edges & prev_edge);
@@ -577,7 +578,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   // Orientation or0, or1;
   // binary_kmer_to_str(wlk->bkmer, kmer_size, tmp0);
   // binary_kmer_to_str(bkmer, kmer_size, tmp1);
-  // status("%s -> %s lost: %c", tmp0, tmp1, dna_nuc_to_char(lost_nuc));
+  // status("%s -> %s lost: %c:%i", tmp0, tmp1, dna_nuc_to_char(lost_nuc), wlk->node.orient);
   // binary_kmer_to_str(wlk->bkey, kmer_size, tmp0);
   // binary_kmer_to_str(db_node_get_bkmer(wlk->db_graph,hkey), kmer_size, tmp1);
   // or0 = wlk->node.orient;

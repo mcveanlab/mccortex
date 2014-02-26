@@ -58,7 +58,7 @@ htslib: htslib/Makefile
 	cd htslib && git pull && make
 
 bcftools: htslib bcftools/Makefile
-	cd bcftools && git pull origin master && git checkout 06a5f9e99f368312bf58348b2e2e3410fbc76d0e && make
+	cd bcftools && git pull && make
 
 vcflib: vcflib/Makefile
 	cd vcflib && git pull && make

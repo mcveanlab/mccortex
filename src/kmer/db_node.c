@@ -304,14 +304,14 @@ void db_nodes_print_verbose(const dBNode *nodes, size_t num,
   bkey = db_graph_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, kmerstr);
   binary_kmer_to_str(bkey, kmer_size, keystr);
-  fprintf(out, "0: %s:%i %s\n", kmerstr, (int)nodes[0].orient, keystr);
+  fprintf(out, "%3zu: %s:%i %s\n", (size_t)0, kmerstr, (int)nodes[0].orient, keystr);
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
     bkey = db_graph_oriented_bkmer(db_graph, nodes[i]);
     binary_kmer_to_str(bkmer, kmer_size, kmerstr);
     binary_kmer_to_str(bkey, kmer_size, keystr);
-    fprintf(out, "%zu: %s:%i %s\n", i, kmerstr, (int)nodes[i].orient, keystr);
+    fprintf(out, "%3zu: %s:%i %s\n", i, kmerstr, (int)nodes[i].orient, keystr);
   }
 }
 
