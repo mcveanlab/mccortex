@@ -495,14 +495,6 @@ int ctx_build(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Update ginfo
-  for(i = 0; i < num_seq_cols; i++) {
-    colour = seq_cols[i].colour;
-    graph_info_update_contigs(&db_graph.ginfo[colour],
-                              seq_cols[i].stats.total_bases_loaded,
-                              seq_cols[i].stats.contigs_loaded);
-  }
-
   status("Dumping graph...\n");
   graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                         0, output_colours);

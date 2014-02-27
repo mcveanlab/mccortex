@@ -23,6 +23,6 @@ typedef struct
 
 // Functions for dealing with file loading statistics
 void loading_stats_init(LoadingStats *stats);
-void loading_stats_merge(LoadingStats* dst, const LoadingStats* src);
+void loading_stats_merge(LoadingStats *dst, const LoadingStats *src);
 
 #endif /* LOADING_STATS_H_ */

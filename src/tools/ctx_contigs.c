@@ -470,7 +470,7 @@ int ctx_contigs(CmdArgs *args)
     // seq_parse_se_sf() closes seed_file
   }
 
-  if(args->output_file_set && print_contigs && strcmp(args->output_file, "-") != 0)
+  if(args->output_file_set && print_contigs && fout != stdout)
     fclose(fout);
 
   status("\n");

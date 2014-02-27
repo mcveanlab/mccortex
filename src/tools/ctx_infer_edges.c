@@ -13,10 +13,11 @@ const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
 "  Infer edges in a population graph.  \n"
 "\n"
-"  -m <mem>   Memory to use (e.g. 100G or 12M)\n"
-"  -k <kmer>  Kmer size\n"
-"  --pop      Add edges that are in the union only\n"
-"  --all      Add all edges [default]\n";
+"  -m <mem>         Memory to use (e.g. 100G or 12M)\n"
+"  -k <kmer>        Kmer size\n"
+"  --out <out.ctx>  Write output [default is to edit input file]\n"
+"  --pop            Add edges that are in the union only\n"
+"  --all            Add all edges [default]\n";
 
 // If two kmers are in a sample and the population has an edges between them,
 // Add edge to sample
@@ -241,7 +242,7 @@ int ctx_infer_edges(CmdArgs *args)
   dBGraph db_graph;
   GraphFileReader file = INIT_GRAPH_READER;
   graph_file_open2(&file, path, true, "r+");
-  boolean reading_stream = (strcmp(file.fltr.file_path.buff,"-") == 0);
+  boolean reading_stream = (file.fltr.fh == stdin);
 
   if(!file.fltr.nofilter)
     cmd_print_usage("Inferedges with filter not implemented - sorry");

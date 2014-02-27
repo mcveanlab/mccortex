@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include "string_buffer.h"
 #include "cortex_types.h"
+#include "loading_stats.h"
 
 // Thesholds are zero if not used (e.g. cleaned_snodes == false)
 // is_graph_intersection is for cleaning a low covg sample against
@@ -33,12 +34,9 @@ void graph_info_make_intersect(const GraphInfo *ginfo, StrBuf *intersect_name);
 void graph_info_append_intersect(ErrorCleaning *cleaning,
                                  const char *intersect_name);
 
-// Update mean read length in a colour, eg when you merge a new binary
-// what it used to be, ie the previous_seq)
-void graph_info_update_contigs(GraphInfo *ginfo,
-                               uint64_t added_seq, uint64_t num_contigs);
-
 void graph_info_cpy(GraphInfo *dst, const GraphInfo *src);
 void graph_info_merge(GraphInfo *dst, const GraphInfo *src);
+
+void graph_info_update_stats(GraphInfo *ginfo, const LoadingStats *stats);
 
 #endif /* GRAPH_INFO_H_ */

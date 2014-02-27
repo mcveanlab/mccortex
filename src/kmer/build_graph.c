@@ -193,13 +193,13 @@ static boolean check_pcr_dupe(read_t *r1, read_t *r2,
   return false;
 }
 
-void build_graph_from_reads(read_t *r1, read_t *r2,
-                            uint8_t fq_offset1, uint8_t fq_offset2,
-                            uint8_t fq_cutoff, uint8_t hp_cutoff,
-                            boolean remove_dups_se, boolean remove_dups_pe,
-                            ReadMateDir matedir,
-                            LoadingStats *stats, size_t colour,
-                            dBGraph *db_graph)
+void build_graph_from_reads_mt(read_t *r1, read_t *r2,
+                               uint8_t fq_offset1, uint8_t fq_offset2,
+                               uint8_t fq_cutoff, uint8_t hp_cutoff,
+                               boolean remove_dups_se, boolean remove_dups_pe,
+                               ReadMateDir matedir,
+                               LoadingStats *stats, size_t colour,
+                               dBGraph *db_graph)
 {
   // status("r1: '%s' '%s'", r1->name.b, r1->seq.b);
   // if(r2) status("r2: '%s' '%s'", r2->name.b, r2->seq.b);
@@ -240,13 +240,13 @@ static void* grab_reads_from_pool(void *ptr)
     memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
     task = (BuildGraphTask*)data->ptr;
 
-    build_graph_from_reads(&data->r1, &data->r2,
-                           data->fq_offset1, data->fq_offset2,
-                           task->fq_cutoff, task->hp_cutoff,
-                           task->remove_dups_se, task->remove_dups_pe,
-                           task->matedir,
-                           &wrkr->file_stats[task->idx],
-                           task->colour, wrkr->db_graph);
+    build_graph_from_reads_mt(&data->r1, &data->r2,
+                              data->fq_offset1, data->fq_offset2,
+                              task->fq_cutoff, task->hp_cutoff,
+                              task->remove_dups_se, task->remove_dups_pe,
+                              task->matedir,
+                              &wrkr->file_stats[task->idx],
+                              task->colour, wrkr->db_graph);
 
     msgpool_release(pool, pos, MPOOL_EMPTY);
   }
@@ -311,6 +311,10 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   }
 
   free(workers);
+
+  // Copy stats into ginfo
+  for(f = 0; f < num_files; f++)
+    graph_info_update_stats(&db_graph->ginfo[files[f].colour], &files[f].stats);
 
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
   free(data);

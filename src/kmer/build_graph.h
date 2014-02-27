@@ -30,15 +30,18 @@ typedef struct
   size_t idx;
 } BuildGraphTask;
 
-void build_graph_from_reads(read_t *r1, read_t *r2,
-                            uint8_t fq_offset1, uint8_t fq_offset2,
-                            uint8_t fq_cutoff, uint8_t hp_cutoff,
-                            boolean remove_dups_se, boolean remove_dups_pe,
-                            ReadMateDir matedir,
-                            LoadingStats *stats, size_t colour,
-                            dBGraph *db_graph);
+// Threadsafe graph construction
+// Beware: this function does not update ginfo
+void build_graph_from_reads_mt(read_t *r1, read_t *r2,
+                               uint8_t fq_offset1, uint8_t fq_offset2,
+                               uint8_t fq_cutoff, uint8_t hp_cutoff,
+                               boolean remove_dups_se, boolean remove_dups_pe,
+                               ReadMateDir matedir,
+                               LoadingStats *stats, size_t colour,
+                               dBGraph *db_graph);
 
 // One thread used per input file, num_build_threads used to add reads to graph
+// Updates ginfo
 void build_graph(dBGraph *db_graph, BuildGraphTask *files,
                  size_t num_files, size_t num_build_threads);
 

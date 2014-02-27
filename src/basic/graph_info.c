@@ -97,26 +97,6 @@ void graph_info_append_intersect(ErrorCleaning *cleaning, const char *intersect_
   cleaning->is_graph_intersection = true;
 }
 
-void graph_info_update_contigs(GraphInfo *ginfo,
-                               uint64_t added_seq, uint64_t num_contigs)
-{
-  uint64_t total_sequence = ginfo->total_sequence + added_seq;
-  double mean_readlen;
-
-  if(ginfo->mean_read_length == 0) {
-    mean_readlen = (double)added_seq / num_contigs + 0.5;
-  }
-  else {
-    mean_readlen
-      = total_sequence /
-        ((double)ginfo->total_sequence / ginfo->mean_read_length + num_contigs)
-        + 0.5;
-  }
-
-  ginfo->mean_read_length = (uint32_t)mean_readlen;
-  ginfo->total_sequence = total_sequence;
-}
-
 void graph_info_cpy(GraphInfo *dst, const GraphInfo *src)
 {
   dst->mean_read_length = src->mean_read_length;
@@ -124,6 +104,25 @@ void graph_info_cpy(GraphInfo *dst, const GraphInfo *src)
   dst->seq_err = src->seq_err;
   strbuf_set(&dst->sample_name, src->sample_name.buff);
   error_cleaning_cpy(&dst->cleaning, &src->cleaning);
+}
+
+static void graph_info_update_contigs(GraphInfo *ginfo,
+                                      uint64_t added_seq, uint64_t num_contigs)
+{
+  if(!added_seq && !num_contigs) return;
+
+  size_t ginfo_num_contigs = 0;
+
+  if(ginfo->total_sequence && ginfo->mean_read_length)
+     ginfo_num_contigs = ((double)ginfo->total_sequence/ginfo->mean_read_length)+0.5;
+
+ if(ginfo_num_contigs + num_contigs > 0) {
+    ginfo->mean_read_length
+      = (uint32_t)(((ginfo->total_sequence + added_seq) /
+                    (ginfo_num_contigs + num_contigs)) + 0.5);
+  }
+
+  ginfo->total_sequence += added_seq;
 }
 
 void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
@@ -142,7 +141,6 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
 
   if(total_sequence > 0)
   {
-    // DEV: this can be better
     // Average error rates
     dst->seq_err
       = (dst->seq_err * dst->total_sequence +
@@ -150,15 +148,22 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
         total_sequence;
 
     // Update mean read length
-    dst->mean_read_length
-      = (uint32_t)(dst->mean_read_length * dst->total_sequence +
-                   src->mean_read_length * src->total_sequence) /
-                  total_sequence;
-  }
+    size_t src_num_contigs = 0;
+
+    if(src->total_sequence && src->mean_read_length)
+       src_num_contigs = ((double)src->total_sequence/src->mean_read_length)+0.5;
+
+    graph_info_update_contigs(dst, src->total_sequence, src_num_contigs);
+ }
 
   // Update error cleaning
   error_cleaning_merge(&dst->cleaning, &src->cleaning,
                        dst->total_sequence, src->total_sequence);
 
   dst->total_sequence = total_sequence;
+}
+
+void graph_info_update_stats(GraphInfo *ginfo, const LoadingStats *stats)
+{
+  graph_info_update_contigs(ginfo, stats->total_bases_loaded, stats->contigs_loaded);
 }
