@@ -117,8 +117,8 @@ static void diverge_call_node(BinaryKmer bkmer, const dBGraph *db_graph,
   Orientation orient = bkmer_get_orientation(bkmer, bkey);
 
   // Check for fork in pop and not in ref
-  Edges col0edges = db_node_get_edges(db_graph, 1, hkey) &~
-                    db_node_get_edges(db_graph, 0, hkey);
+  Edges col0edges = db_node_get_edges(db_graph, hkey, 1) &~
+                    db_node_get_edges(db_graph, hkey, 0);
 
   Edges edges;
   Nucleotide nuc;

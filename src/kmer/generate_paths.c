@@ -362,7 +362,7 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
 
   for(i = 0; i < contig_len; i++)
   {
-    edges = db_node_get_edges(db_graph, ctxcol, nodes[i].key);
+    edges = db_node_get_edges(db_graph, nodes[i].key, ctxcol);
     outdegree = edges_get_outdegree(edges, nodes[i].orient);
     indegree = edges_get_indegree(edges, nodes[i].orient);
 

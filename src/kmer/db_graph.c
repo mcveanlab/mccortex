@@ -138,8 +138,8 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
-  db_node_set_col_edge_mt(db_graph, col, src.key, rhs_nuc,      src.orient);
-  db_node_set_col_edge_mt(db_graph, col, tgt.key, lhs_nuc_rev, !tgt.orient);
+  db_node_set_col_edge_mt(db_graph, src.key, col, rhs_nuc,      src.orient);
+  db_node_set_col_edge_mt(db_graph, tgt.key, col, lhs_nuc_rev, !tgt.orient);
 }
 
 // For debugging + healthcheck
@@ -321,7 +321,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
   Orientation orient;
   Nucleotide nuc;
   hkey_t next;
-  Edges edge, *edges = &db_node_edges(db_graph,0,node), iedges = edges[0];
+  Edges edge, *edges = &db_node_edges(db_graph,node,0), iedges = edges[0];
   boolean node_has_col[db_graph->num_edge_cols];
 
   for(col = 0; col < db_graph->num_edge_cols; col++) {

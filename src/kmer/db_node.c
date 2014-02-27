@@ -31,13 +31,13 @@ BinaryKmer bkmer_get_key(const BinaryKmer bkmer, size_t kmer_size)
 Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph)
 {
   if(db_graph->num_edge_cols == db_graph->num_of_cols) {
-    Edges edges = db_node_get_edges(db_graph, col, node.key);
+    Edges edges = db_node_get_edges(db_graph, node.key, col);
     return edges_mask_orientation(edges, node.orient);
   }
 
   // Edges are merged into one colour
   ctx_assert(db_graph->num_edge_cols == 1);
-  Edges edges = db_node_get_edges(db_graph, 0, node.key);
+  Edges edges = db_node_get_edges(db_graph, node.key, 0);
 
   // Check which next nodes are in the given colour
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);

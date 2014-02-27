@@ -421,15 +421,15 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   Orientation backwards = !wlk->node.orient;
 
   // Remove edge to kmer we came from
-  edges = db_node_get_edges(db_graph, 0, wlk->node.key);
+  edges = db_node_get_edges(db_graph, wlk->node.key, 0);
 
   // Can slim down the number of nodes to look up if we can rule out
   // the node we just came from
   prev_nuc = dna_nuc_complement(prev_nuc);
   prev_edge = nuc_orient_to_edge(prev_nuc, backwards);
 
-  status("lost: %c:%i", dna_nuc_to_char(prev_nuc), backwards);
-  status("edges: %u prev_edge: %u", (uint32_t)edges, (uint32_t)prev_edge);
+  // status("lost: %c:%i", dna_nuc_to_char(prev_nuc), backwards);
+  // status("edges: %u prev_edge: %u", (uint32_t)edges, (uint32_t)prev_edge);
 
   // Some sanity checks
   ctx_assert(edges & prev_edge);
@@ -555,7 +555,7 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
 {
   #ifdef CTXCHECKS
     // This is just a sanity test
-    Edges edges = db_node_get_edges(wlk->db_graph, 0, hkey);
+    Edges edges = db_node_get_edges(wlk->db_graph, hkey, 0);
     BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, hkey);
     Orientation orient = bkmer_get_orientation(bkmer, bkey);
     ctx_assert(edges_get_indegree(edges, orient) <= 1);
@@ -604,7 +604,7 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
 boolean graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
-  Edges edges = db_node_get_edges(db_graph, 0, wlk->node.key);
+  Edges edges = db_node_get_edges(db_graph, wlk->node.key, 0);
 
   dBNode nodes[4];
   Nucleotide bases[4];
@@ -664,13 +664,13 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
   Edges edges;
   dBNode nodes[3];
 
-  edges = db_node_get_edges(wlk->db_graph, 0, wlk->node.key);
+  edges = db_node_get_edges(wlk->db_graph, wlk->node.key, 0);
   outfork[0] = edges_get_outdegree(edges, wlk->node.orient) > 1;
 
   nodes[0] = wlk->node;
   nodes[1] = forward ? arr[0] : db_node_reverse(arr[n-1]);
 
-  edges = db_node_get_edges(wlk->db_graph, 0, nodes[1].key);
+  edges = db_node_get_edges(wlk->db_graph, nodes[1].key, 0);
   outfork[1] = edges_get_outdegree(edges, nodes[1].orient) > 1;
   infork[1] = edges_get_indegree(edges, nodes[1].orient) > 1;
 
@@ -679,7 +679,7 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
     // printf("i: %zu %zu:%i\n", i, (size_t)nodes[1].key, (int)nodes[1].orient);
     nodes[2] = forward ? arr[i+1] : db_node_reverse(arr[n-i-2]);
 
-    edges = db_node_get_edges(wlk->db_graph, 0, nodes[2].key);
+    edges = db_node_get_edges(wlk->db_graph, nodes[2].key, 0);
     outfork[2] = edges_get_outdegree(edges, nodes[2].orient) > 1;
     infork[2] = edges_get_indegree(edges, nodes[2].orient) > 1;
 
@@ -714,7 +714,7 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
   const dBGraph *db_graph = wlk->db_graph;
 
   for(i = 0; i < n; i++) {
-    edges = db_node_get_edges(db_graph, 0, wlk->node.key);
+    edges = db_node_get_edges(db_graph, wlk->node.key, 0);
     is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
     nuc = db_node_get_last_nuc(next, db_graph);

@@ -229,7 +229,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
            start_col+num_of_cols-1, out_name);
   }
 
-  status("Writing colours %zu-%zu of %zu", intocol, intocol+num_of_cols,
+  status("Writing colours %zu-%zu of %zu", intocol, intocol+num_of_cols-1,
          (size_t)header->num_of_cols);
 
   if(strcmp(path,"-") == 0) fout = stdout;

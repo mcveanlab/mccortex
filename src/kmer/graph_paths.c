@@ -201,7 +201,7 @@ boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed
   for(klen = 0, plen = 0; plen < nbases; klen++)
   {
     bkmer = db_node_get_bkmer(db_graph, node.key);
-    edges = db_node_get_edges(db_graph, edgecol, node.key);
+    edges = db_node_get_edges(db_graph, node.key, edgecol);
 
     // Check this node is in this colour
     if(db_graph->node_in_cols != NULL) {

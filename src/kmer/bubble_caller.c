@@ -511,7 +511,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   size_t i, num_next;
 
   num_next = db_graph_next_nodes(db_graph, db_node_get_bkmer(db_graph, fork_n),
-                                 fork_o, db_node_edges(db_graph, 0, fork_n),
+                                 fork_o, db_node_edges(db_graph, fork_n, 0),
                                  nodes, bases);
 
   #ifdef DEBUG_CALLER
@@ -691,7 +691,7 @@ void* bubble_caller(void *args)
   for(; ptr < end; ptr++) {
     if(HASH_ENTRY_ASSIGNED(*ptr)) {
       hkey_t node = (hkey_t)(ptr - table);
-      Edges edges = db_node_get_edges(db_graph, 0, node);
+      Edges edges = db_node_get_edges(db_graph, node, 0);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
         find_bubbles(node, FORWARD, db_graph, &wlk, &rptwlk,
                      snode_hash, spp_hash, &nbuf,

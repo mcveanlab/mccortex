@@ -27,32 +27,32 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 // <0-63:col0><0-63:col1><0-63:col2><64-127:col0><64-127:col1><64-127:col2>
 
 /* Offset in word */
-#define kseto(arr,idx) ((idx)%(sizeof(*arr)*8))
+#define kseto(arr,hkey) ((hkey)%(sizeof(*arr)*8))
 /* word index */
-#define ksetw(arr,ncols,col,idx) (((idx)/(sizeof(*arr)*8))*(ncols)+(col))
+#define ksetw(arr,ncols,hkey,col) (((hkey)/(sizeof(*arr)*8))*(ncols)+(col))
 
 static inline boolean db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col) {
   return bitset2_get(graph->node_in_cols,
-                     ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+                     ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
                      kseto(graph->node_in_cols,hkey));
 }
 
 static inline void db_node_set_col(const dBGraph *graph, hkey_t hkey, size_t col) {
   bitset2_set(graph->node_in_cols,
-              ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+              ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
               kseto(graph->node_in_cols,hkey));
 }
 
 static inline void db_node_del_col(const dBGraph *graph, hkey_t hkey, size_t col) {
   bitset2_del(graph->node_in_cols,
-              ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+              ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
               kseto(graph->node_in_cols,hkey));
 }
 
 static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,
                                    size_t col, uint8_t bit) {
   bitset2_cpy(graph->node_in_cols,
-              ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+              ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
               kseto(graph->node_in_cols,hkey),bit);
 }
 
@@ -60,7 +60,7 @@ static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,
 static inline void db_node_set_col_mt(const dBGraph *graph,
                                       hkey_t hkey, size_t col) {
   bitset2_set_mt(graph->node_in_cols,
-                 ksetw(graph->node_in_cols,graph->num_of_cols,col,hkey),
+                 ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
                  kseto(graph->node_in_cols,hkey));
 }
 
@@ -161,11 +161,11 @@ boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 // dBNode Edges
 //
 
-#define db_node_edges(graph,col,hkey) \
+#define db_node_edges(graph,hkey,col) \
         ((graph)->col_edges[(hkey)*(graph)->num_edge_cols + (col)])
 
-static inline Edges db_node_get_edges(const dBGraph *graph, Colour col, hkey_t hkey) {
-  return db_node_edges(graph, col, hkey);
+static inline Edges db_node_get_edges(const dBGraph *graph, hkey_t hkey, Colour col) {
+  return db_node_edges(graph, hkey, col);
 }
 
 static inline Edges db_node_get_edges_union(const dBGraph *graph, hkey_t hkey) {
@@ -184,12 +184,12 @@ Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph);
         memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
                (graph)->num_edge_cols * sizeof(Edges))
 
-#define db_node_set_col_edge(graph,col,hkey,nuc,or) \
-        (db_node_edges(graph,col,hkey) \
-           = edges_set_edge(db_node_get_edges(graph,col,hkey),nuc,or))
+#define db_node_set_col_edge(graph,hkey,col,nuc,or) \
+        (db_node_edges(graph,hkey,col) \
+           = edges_set_edge(db_node_get_edges(graph,hkey,col),nuc,or))
 
-#define db_node_set_col_edge_mt(graph,col,hkey,nuc,or) \
-        __sync_or_and_fetch(&db_node_edges(graph,col,hkey), nuc_orient_to_edge(nuc,or))
+#define db_node_set_col_edge_mt(graph,hkey,col,nuc,or) \
+        __sync_or_and_fetch(&db_node_edges(graph,hkey,col), nuc_orient_to_edge(nuc,or))
 
 // kmer_col_edge_str should be 9 chars long
 // Return pointer to kmer_col_edge_str
