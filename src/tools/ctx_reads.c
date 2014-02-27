@@ -111,8 +111,8 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
   stats->total_bases_read += r->seq.end;
   stats->kmers_loaded += kmers_loaded;
   stats->num_kmers += kmers_loaded - found;
-  if(num_contigs > 0) stats->total_good_reads++;
-  else stats->total_bad_reads++;
+  if(num_contigs > 0) stats->num_good_reads++;
+  else stats->num_bad_reads++;
 
   return found;
 }
@@ -316,8 +316,7 @@ int ctx_reads(CmdArgs *args)
           die("Cannot write to: %s", path2);
       }
 
-      init_reads = stats.total_good_reads + stats.total_bad_reads +
-                   stats.total_dup_reads;
+      init_reads = stats.num_se_reads + stats.num_pe_reads;
 
       if(is_pe) {
         status("reading: %s %s\n", in1, in2);
@@ -336,8 +335,7 @@ int ctx_reads(CmdArgs *args)
       if(is_pe) gzclose(data.out2);
 
       total_reads_printed += data.num_of_reads_printed;
-      reads_loaded = stats.total_good_reads + stats.total_bad_reads +
-                     stats.total_dup_reads - init_reads;
+      reads_loaded = stats.num_se_reads + stats.num_pe_reads - init_reads;
 
       status("  Printed %zu / %zu inputs\n",
               data.num_of_reads_printed, reads_loaded);
@@ -350,8 +348,7 @@ int ctx_reads(CmdArgs *args)
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
 
-  size_t total_reads = stats.total_good_reads + stats.total_bad_reads +
-                       stats.total_dup_reads;
+  size_t total_reads = stats.num_se_reads + stats.num_pe_reads;
 
   status("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
 

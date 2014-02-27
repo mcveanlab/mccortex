@@ -428,7 +428,6 @@ void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir)
 
 void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 {
-  ctx_assert(r1 != NULL);
-  if(read_mate_r1(matedir)) seq_read_reverse_complement(r1);
-  if(r2 != NULL && read_mate_r2(matedir)) seq_read_reverse_complement(r2);
+  if(r1 && read_mate_r1(matedir)) seq_read_reverse_complement(r1);
+  if(r2 && read_mate_r2(matedir)) seq_read_reverse_complement(r2);
 }

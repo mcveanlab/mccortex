@@ -47,6 +47,11 @@ void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
 void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir);
 void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir);
 
+static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
+  ReadMateDir arr[4] = {READPAIR_FF, READPAIR_RF, READPAIR_FR, READPAIR_RR};
+  return arr[(uint32_t)matedir];
+}
+
 //
 // Useful MACROs
 //
@@ -79,8 +84,8 @@ void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir);
         func(_bkmer, ##__VA_ARGS__);                                           \
       }                                                                        \
     }                                                                          \
-    if(_num_contigs == 0) (stats)->total_bad_reads++;                          \
-    else (stats)->total_good_reads++;                                          \
+    if(_num_contigs == 0) (stats)->num_bad_reads++;                            \
+    else (stats)->num_good_reads++;                                            \
   }                                                                            \
 }
 

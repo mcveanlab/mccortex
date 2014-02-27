@@ -18,9 +18,10 @@ void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
   dst->num_se_reads += src->num_se_reads;
   dst->num_pe_reads += src->num_pe_reads;
 
-  dst->total_good_reads += src->total_good_reads;
-  dst->total_bad_reads += src->total_bad_reads;
-  dst->total_dup_reads += src->total_dup_reads;
+  dst->num_good_reads += src->num_good_reads;
+  dst->num_bad_reads += src->num_bad_reads;
+  dst->num_dup_se_reads += src->num_dup_se_reads;
+  dst->num_dup_pe_pairs += src->num_dup_pe_pairs;
 
   dst->total_bases_read += src->total_bases_read;
   dst->total_bases_loaded += src->total_bases_loaded;

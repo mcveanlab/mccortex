@@ -39,13 +39,13 @@ void test_build_graph()
   size_t total_seq = 0, contigs_loaded = 0;
 
   // Test loading empty reads are ok
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
                             &stats, 0, &graph);
 
   // Load a pair of reads
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTGTTCCG");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTCCTATG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
@@ -55,7 +55,7 @@ void test_build_graph()
   // Check we filter out a duplicate FF
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTAATGAT");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTTGTTTG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
@@ -64,7 +64,7 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTCCGAAG");
   seq_read_set(&r2, "AGACTAAGCTAAGCATACATCGTAG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_FR,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FR,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
@@ -73,7 +73,7 @@ void test_build_graph()
   // revcmp CTACGATGTATGCTTAGCT -> ACGTGTAGGGAACGTTCTA
   seq_read_set(&r1, "AGGAGTTGTCTTCTAAGGAAACGTGTAGGGAACGTTCTA");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTTTTCCACGAGTTAATCTAAG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_RF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_RF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
@@ -83,7 +83,7 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "AACCCTAAAAACGTGTAGGGAACGTTCTA");
   seq_read_set(&r2, "AATGCGTGTTAGCTAAGCATACATCGTAG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_RR,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_RR,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
@@ -91,7 +91,7 @@ void test_build_graph()
   // Check add a duplicate when filtering is turned off
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTAATGAT");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTTGTTTG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, false, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, READPAIR_FF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 2);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 2);
@@ -100,13 +100,13 @@ void test_build_graph()
 
   // Check SE duplicate removal with FF reads
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTAGTGTGATATCCTCC");
-  build_graph_from_reads_mt(&r1, NULL, 0, 9, 9, 9, true, false, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, NULL, 0, 9, 9, 9, true, READPAIR_FF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 2);
 
   // Check SE duplicate removal with RR reads
   seq_read_set(&r1, "GCGTTACCTACTGACAGCTAAGCATACATCGTAG");
-  build_graph_from_reads_mt(&r1, NULL, 0, 9, 9, 9, true, false, READPAIR_RR,
+  build_graph_from_reads_mt(&r1, NULL, 0, 9, 9, 9, true, READPAIR_RR,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 2);
 
@@ -115,7 +115,7 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "ACGTGTAGGGAACGTTCTA""CTTCTACCGGAGGAT");
   seq_read_set(&r2, "AGCTAAGCATACATCGTAG""TACAATGCACCCTCC");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 3);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 3);
@@ -127,7 +127,7 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "ACGTGTAGGGAACGTTCTA""CTTCTACCGGAGGAT");
   seq_read_set(&r2, "AGCTAAGCATACATCGTAG""TACAATGCACCCTCC");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, true, READPAIR_FF,
+  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
                             &stats, 0, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 3);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 3);

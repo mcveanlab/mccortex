@@ -31,7 +31,7 @@ const char build_usage[] =
 "    --load_graph <in.ctx>  Load samples from a graph file (.ctx)\n"
 "    --FR --FF --RF --RR    Mate pair orientation [default: FR] (used with --keep_pcr)\n"
 "\n"
-"  PCR duplicate removal works by ignoring read pairs (PE-only) if both reads\n"
+"  PCR duplicate removal works by ignoring read (pairs) if (both) reads\n"
 "  start at the same k-mer as any previous read. Carried out per sample, not \n"
 "  per file. --sample <name> is required before sequence input can be loaded.\n"
 "  Consecutive sequence options are loaded into the same colour.\n"
@@ -84,12 +84,10 @@ static void print_input(const CtxBuildInput *input)
     if(task->hp_cutoff > 0) sprintf(hpCutoff, "%u", task->hp_cutoff);
 
     status("[sample] input: %s%s%s; FASTQ offset: %s, threshold: %s; "
-           "cut homopolymers: %s; remove PCR duplicates SE: %s, PE: %s;\n",
+           "cut homopolymers: %s; remove PCR duplicates: %s\n",
            task->file1->path,
            task->file2 ? ", " : "", task->file2 ? task->file2->path : "",
-           fqOffset, fqCutoff, hpCutoff,
-           task->remove_dups_se ? "yes" : "no",
-           task->remove_dups_pe ? "yes" : "no");
+           fqOffset, fqCutoff, hpCutoff, task->remove_pcr_dups ? "yes" : "no");
   }
 }
 
@@ -97,8 +95,7 @@ static void ctx_input_alloc(char *load_graph_path,
                             const char *seq_path1, const char *seq_path2,
                             size_t colour, CtxBuildGraphCol *col_data,
                             uint32_t fq_offset, uint32_t fq_cutoff,
-                            uint32_t hp_cutoff,
-                            boolean remove_dups_se, boolean remove_dups_pe,
+                            uint32_t hp_cutoff, boolean remove_pcr_dups,
                             size_t kmer_size, ReadMateDir matedir,
                             CtxBuildInput *ptr)
 {
@@ -120,8 +117,7 @@ static void ctx_input_alloc(char *load_graph_path,
                               .fq_offset = (uint8_t)fq_offset,
                               .fq_cutoff = (uint8_t)fq_cutoff,
                               .hp_cutoff = (uint8_t)hp_cutoff,
-                              .remove_dups_se = remove_dups_se,
-                              .remove_dups_pe = remove_dups_pe,
+                              .remove_pcr_dups = remove_pcr_dups,
                               .matedir = matedir,
                               .stats = LOAD_STATS_INIT_MACRO};
 
@@ -160,8 +156,7 @@ static void ctx_input_create(char *load_graph_path,
                              const char *seq_path1, const char *seq_path2,
                              size_t colour, CtxBuildGraphCol *col_data,
                              uint32_t fq_offset, uint32_t fq_cutoff,
-                             uint32_t hp_cutoff,
-                             boolean remove_dups_se, boolean remove_dups_pe,
+                             uint32_t hp_cutoff, boolean remove_pcr_dups,
                              ReadMateDir matedir, size_t kmer_size,
                              CtxBuildInput *inputs, size_t *num_inputs_ptr)
 {
@@ -172,27 +167,27 @@ static void ctx_input_create(char *load_graph_path,
     ctx_input_alloc(load_graph_path, NULL, NULL,
                     colour, col_data,
                     fq_offset, fq_cutoff, hp_cutoff,
-                    remove_dups_se, remove_dups_pe, matedir,
+                    remove_pcr_dups, matedir,
                     kmer_size, &inputs[*num_inputs_ptr]);
     (*num_inputs_ptr)++;
   }
 
   if(seq_path1 != NULL) {
-    if(remove_dups_pe) {
+    if(remove_pcr_dups) {
       // Submit paired end reads together
       ctx_input_alloc(NULL, seq_path1, seq_path2,
                       colour, col_data,
                       fq_offset, fq_cutoff, hp_cutoff,
-                      remove_dups_se, remove_dups_pe, matedir,
+                      remove_pcr_dups, matedir,
                       kmer_size, &inputs[*num_inputs_ptr]);
       (*num_inputs_ptr)++;
     }
-    else if(!remove_dups_pe) {
+    else if(!remove_pcr_dups) {
       // Read files separately -> read faster
       ctx_input_alloc(NULL, seq_path1, NULL,
                       colour, col_data,
                       fq_offset, fq_cutoff, hp_cutoff,
-                      remove_dups_se, remove_dups_pe, matedir,
+                      remove_pcr_dups, matedir,
                       kmer_size, &inputs[*num_inputs_ptr]);
       (*num_inputs_ptr)++;
 
@@ -200,7 +195,7 @@ static void ctx_input_create(char *load_graph_path,
         ctx_input_alloc(NULL, seq_path2, NULL,
                         colour, col_data,
                         fq_offset, fq_cutoff, hp_cutoff,
-                        remove_dups_se, remove_dups_pe, matedir,
+                        remove_pcr_dups, matedir,
                         kmer_size, &inputs[*num_inputs_ptr]);
         (*num_inputs_ptr)++;
       }
@@ -221,8 +216,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
   int argi;
   size_t num_inputs = 0, num_seq_cols = 0;
   uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
-  // We don't allow remove_dups_se to ever be true currently...
-  boolean remove_dups_se = false, remove_dups_pe = false;
+  boolean remove_pcr_dups = false;
   ReadMateDir matedir = READPAIR_FR;
 
   size_t colour = 0;
@@ -257,8 +251,8 @@ static void load_args(int argc, char **argv, size_t kmer_size,
     else if(strcasecmp(argv[argi],"--FR") == 0) matedir = READPAIR_FR;
     else if(strcasecmp(argv[argi],"--RF") == 0) matedir = READPAIR_RF;
     else if(strcasecmp(argv[argi],"--RR") == 0) matedir = READPAIR_RR;
-    else if(!strcmp(argv[argi],"--remove_pcr")) remove_dups_pe = true;
-    else if(!strcmp(argv[argi],"--keep_pcr")) remove_dups_pe = false;
+    else if(!strcmp(argv[argi],"--remove_pcr")) remove_pcr_dups = true;
+    else if(!strcmp(argv[argi],"--keep_pcr")) remove_pcr_dups = false;
     else if(strcmp(argv[argi],"--seq") == 0)
     {
       if(!sample_named)
@@ -270,7 +264,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
       ctx_input_create(NULL, argv[argi+1], NULL,
                        colour, &seq_cols[num_seq_cols-1],
                        fq_offset, fq_cutoff, hp_cutoff,
-                       remove_dups_se, remove_dups_pe, matedir,
+                       remove_pcr_dups, matedir,
                        kmer_size, inputs, &num_inputs);
       //
       argi += 1;
@@ -287,7 +281,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
       ctx_input_create(NULL, argv[argi+1], argv[argi+2],
                        colour, &seq_cols[num_seq_cols-1],
                        fq_offset, fq_cutoff, hp_cutoff,
-                       remove_dups_se, remove_dups_pe, matedir,
+                       remove_pcr_dups, matedir,
                        kmer_size, inputs, &num_inputs);
       //
       argi += 2;
@@ -328,7 +322,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
         ctx_input_create(argv[argi+1], NULL, NULL,
                          colour, NULL,
                          fq_offset, fq_cutoff, hp_cutoff,
-                         remove_dups_se, remove_dups_pe, matedir,
+                         remove_pcr_dups, matedir,
                          kmer_size, inputs, &num_inputs);
         colour += input_ncols(&inputs[num_inputs-1]);
       }
@@ -389,9 +383,7 @@ int ctx_build(CmdArgs *args)
   boolean remove_pcr_used = false;
 
   for(i = 0; i < num_inputs; i++) {
-    if(input_is_ctx_file(&inputs[i]) &&
-       (inputs[i].seq_files.remove_dups_se || inputs[i].seq_files.remove_dups_pe))
-    {
+    if(input_is_ctx_file(&inputs[i]) && inputs[i].seq_files.remove_pcr_dups) {
       remove_pcr_used = true;
       break;
     }

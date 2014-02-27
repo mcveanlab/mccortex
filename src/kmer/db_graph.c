@@ -95,9 +95,15 @@ void db_graph_dealloc(dBGraph *db_graph)
 // Add to the de bruijn graph
 //
 
+void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col)
+{
+  if(db_graph->node_in_cols != NULL) db_node_set_col_mt(db_graph, node.key, col);
+  if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, node.key, col);
+}
+
 // Thread safe
 // Note: node may alreay exist in the graph
-dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer, Colour col)
+dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer)
 {
   BinaryKmer bkey;
   hkey_t hkey;
@@ -108,9 +114,6 @@ dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer, Colour 
   hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, &found,
                                       db_graph->bktlocks);
   orient = bkmer_get_orientation(bkey, bkmer);
-
-  if(db_graph->node_in_cols != NULL) db_node_set_col_mt(db_graph, hkey, col);
-  if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, hkey, col);
 
   dBNode node = {.key = hkey, .orient = orient};
   return node;

@@ -77,9 +77,13 @@ void db_graph_dealloc(dBGraph *db_graph);
 // Add to the de bruijn graph
 //
 
+// Threadsafe
+// Update covg, presence in colour
+void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col);
+
 // Thread safe
 // Note: node may alreay exist in the graph
-dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey, Colour col);
+dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey);
 
 dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer);
 

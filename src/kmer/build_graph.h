@@ -20,7 +20,7 @@ typedef struct
   const Colour colour;
   // FASTQ qual offset, cutoff and homopolymer cutoff
   const uint8_t fq_offset, fq_cutoff, hp_cutoff;
-  const boolean remove_dups_se, remove_dups_pe;
+  const boolean remove_pcr_dups;
   const ReadMateDir matedir;
 
   // Stats are written to here
@@ -35,8 +35,7 @@ typedef struct
 void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                uint8_t fq_offset1, uint8_t fq_offset2,
                                uint8_t fq_cutoff, uint8_t hp_cutoff,
-                               boolean remove_dups_se, boolean remove_dups_pe,
-                               ReadMateDir matedir,
+                               boolean remove_pcr_dups, ReadMateDir matedir,
                                LoadingStats *stats, size_t colour,
                                dBGraph *db_graph);
 

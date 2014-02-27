@@ -39,7 +39,7 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
 {
   const uint32_t kmer_size = db_graph->kmer_size;
   if(r->seq.end < kmer_size) {
-    stats->total_bad_reads++;
+    stats->num_bad_reads++;
     return;
   }
 
@@ -93,8 +93,8 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
   }
 
   // contig_end == 0 if no contigs from this read
-  if(contig_end == 0) stats->total_bad_reads++;
-  else stats->total_good_reads++;
+  if(contig_end == 0) stats->num_bad_reads++;
+  else stats->num_good_reads++;
 }
 
 // Attempt to reconnect with the ref
