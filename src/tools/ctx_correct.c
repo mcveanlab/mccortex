@@ -491,8 +491,11 @@ int ctx_correct(CmdArgs *args)
   for(i = 0; i < num_work_threads; i++)
     correct_reads_worker_dealloc(&wrkrs[i]);
 
-  for(i = 0; i < num_inputs; i++)
+  for(i = 0; i < num_inputs; i++) {
+    if(inputs[i].file1 != NULL) seq_close(inputs[i].file1);
+    if(inputs[i].file2 != NULL) seq_close(inputs[i].file2);
     corrected_output_close(&outputs[i]);
+  }
 
   free(wrkrs);
   free(asyncio_tasks);

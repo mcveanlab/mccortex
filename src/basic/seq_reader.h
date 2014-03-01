@@ -72,7 +72,7 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
                             &_search_start);                                   \
       _num_contigs++;                                                          \
       (stats)->total_bases_loaded += _end - _start;                            \
-      (stats)->kmers_loaded += (_end - _start) + 1 - (kmer_size);              \
+      (stats)->num_kmers_loaded += (_end - _start) + 1 - (kmer_size);          \
                                                                                \
       _bkmer = binary_kmer_from_str((r)->seq.b + _start, (kmer_size));         \
       func(_bkmer, ##__VA_ARGS__);                                             \

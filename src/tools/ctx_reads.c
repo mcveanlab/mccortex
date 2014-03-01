@@ -79,7 +79,7 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
                                   LoadingStats *stats)
 {
   boolean found = false;
-  size_t kmer_size = db_graph->kmer_size, num_contigs = 0, kmers_loaded = 0;
+  size_t kmer_size = db_graph->kmer_size, num_contigs = 0, num_kmers_loaded = 0;
 
   if(r->seq.end >= kmer_size)
   {
@@ -94,14 +94,14 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
       num_contigs++;
 
       bkmer = binary_kmer_from_str(r->seq.b + start, kmer_size);
-      kmers_loaded++;
+      num_kmers_loaded++;
       if(find_node(bkmer, db_graph) != HASH_NOT_FOUND) { found = true; break; }
 
       for(i = start+kmer_size; i < end; i++)
       {
         nuc = dna_char_to_nuc(r->seq.b[i]);
         bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-        kmers_loaded++;
+        num_kmers_loaded++;
         if(find_node(bkmer, db_graph) != HASH_NOT_FOUND) { found = true; break; }
       }
     }
@@ -109,8 +109,8 @@ static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
 
   // Update stats
   stats->total_bases_read += r->seq.end;
-  stats->kmers_loaded += kmers_loaded;
-  stats->num_kmers += kmers_loaded - found;
+  stats->num_kmers_loaded += num_kmers_loaded;
+  stats->num_kmers_novel += num_kmers_loaded - found;
   if(num_contigs > 0) stats->num_good_reads++;
   else stats->num_bad_reads++;
 
@@ -323,12 +323,16 @@ int ctx_reads(CmdArgs *args)
         status("writing: %s %s\n", path1, path2);
         seq_parse_pe_sf(seqfiles[sf], seqfiles[sf+1], 0, &r1, &r2,
                         filter_reads, &data);
+        seq_close(seqfiles[sf]);
+        seq_close(seqfiles[sf+1]);
         sf += 2;
       } else {
         status("reading: %s\n", in1);
         status("writing: %s\n", path1);
-        seq_parse_se_sf(seqfiles[sf++], 0, &r1, &r2,
+        seq_parse_se_sf(seqfiles[sf], 0, &r1, &r2,
                         filter_reads, &data);
+        seq_close(seqfiles[sf]);
+        sf++;
       }
 
       gzclose(data.out1);

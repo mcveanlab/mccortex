@@ -328,9 +328,6 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
   ulong_to_str(num_pe_pairs, num_pe_pairs_str);
   status("[seq] Loaded %s read pairs (files: %s, %s)",
          num_pe_pairs_str, sf1->path, sf2->path);
-
-  seq_close(sf1);
-  seq_close(sf2);
 }
 
 void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
@@ -383,8 +380,6 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   ulong_to_str(num_se_reads, num_se_reads_str);
   status("[seq] Loaded %s reads and %s reads pairs (file: %s)",
          num_se_reads_str, num_pe_pairs_str, sf->path);
-
-  seq_close(sf);
 }
 
 void seq_parse_pe(const char *path1, const char *path2, uint8_t ascii_fq_offset,
@@ -398,6 +393,8 @@ void seq_parse_pe(const char *path1, const char *path2, uint8_t ascii_fq_offset,
   if((sf1 = seq_open(path1)) == NULL) die("Cannot open: %s", path1);
   if((sf2 = seq_open(path2)) == NULL) die("Cannot open: %s", path2);
   seq_parse_pe_sf(sf1, sf2, ascii_fq_offset, r1, r2, read_func, reader_ptr);
+  seq_close(sf1);
+  seq_close(sf2);
 }
 
 void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
@@ -410,6 +407,7 @@ void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
   seq_file_t *sf;
   if((sf = seq_open(path)) == NULL) die("Cannot open: %s", path);
   seq_parse_se_sf(sf, ascii_fq_offset, r1, r2, read_func, reader_ptr);
+  seq_close(sf);
 }
 
 void seq_reader_orient_mp_FF_or_RR(read_t *r1, read_t *r2, ReadMateDir matedir)

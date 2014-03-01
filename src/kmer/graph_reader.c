@@ -378,7 +378,7 @@ static void graph_loading_print_status(const GraphFileReader *file)
 // returns the number of colours in the graph
 // If stats != NULL, updates:
 //   stats->num_of_colours_loaded
-//   stats->kmers_loaded
+//   stats->num_kmers_loaded
 //   stats->total_bases_read
 //   stats->ctx_files_loaded
 
@@ -510,8 +510,8 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   if(stats != NULL)
   {
     stats->num_of_colours_loaded += load_ncols;
-    stats->kmers_loaded += num_of_kmers_loaded;
-    stats->num_kmers += graph->ht.num_kmers - num_of_kmers_already_loaded;
+    stats->num_kmers_loaded += num_of_kmers_loaded;
+    stats->num_kmers_novel += graph->ht.num_kmers - num_of_kmers_already_loaded;
     for(i = 0; i < load_ncols; i++)
       stats->total_bases_read += hdr->ginfo[i].total_sequence;
     stats->ctx_files_loaded++;

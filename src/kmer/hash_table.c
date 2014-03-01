@@ -404,7 +404,7 @@ void hash_table_print_stats(const HashTable *const htable)
   if(htable->num_kmers > 0) {
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(htable->collisions[i] != 0) {
-        status("  collisions %zu: %zu\n", i, (size_t)htable->collisions[i]);
+        status("  collisions %2zu: %zu\n", i, (size_t)htable->collisions[i]);
       }
     }
   }

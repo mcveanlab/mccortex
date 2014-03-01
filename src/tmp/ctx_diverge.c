@@ -89,7 +89,7 @@ static void load_chrom(const read_t *r, dBGraph *db_graph,
 
     // Update stats
     stats->total_bases_loaded += contig_len;
-    stats->kmers_loaded += contig_len + 1 - kmer_size;
+    stats->num_kmers_loaded += contig_len + 1 - kmer_size;
   }
 
   // contig_end == 0 if no contigs from this read
@@ -304,6 +304,8 @@ int ctx_diverge(CmdArgs *args)
   seq_parse_se_sf(input_fa_file, 0, &r1, NULL, diverge_call, &data);
 
   seq_read_dealloc(&r1);
+  seq_close(input_fa_file);
+
   graph_walker_dealloc(&wlk);
   free(kmer_pos);
   free(linkedlist);

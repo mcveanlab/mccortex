@@ -39,67 +39,49 @@ const char build_usage[] =
 "  samples 0,6,7,8.  Graphs are loaded into new colours.\n"
 "  See `"CMD" join` to combine .ctx files\n";
 
-// DEV: check we update all ginfo satisfactorily
-// DEV: remove CtxBuildInput struct - not really needed
-//      keep BuildGraphTask and GraphFileReader in sep arrays,
-//      load one lot then the other
-
 typedef struct
 {
   size_t colour;
-  LoadingStats stats;
   char *sample_name;
-  boolean empty;
-} CtxBuildGraphCol;
+} SampleName;
 
-typedef struct
+static void print_graph_reader(const GraphFileReader *rdr)
 {
-  // Load graph unless it is NULL, then load seq instead
-  BuildGraphTask seq_files; // sequence files to be loaded
-  GraphFileReader ctx_file; // ctx_file.hdr.num_cols > 0 if set
-  CtxBuildGraphCol *col_data;
-} CtxBuildInput;
+  Colour colour = graph_file_intocol(rdr,0), ncols = graph_file_outncols(rdr);
+  const char *path = graph_file_orig_path(rdr);
 
-#define input_is_ctx_file(inpt) ((inpt)->ctx_file.hdr.num_of_cols > 0)
-#define input_intocol(inpt) ((inpt)->seq_files.colour)
-#define input_ncols(inpt) \
-        (input_is_ctx_file(inpt) ? graph_file_usedcols(&(inpt)->ctx_file) : 1)
-
-static void print_input(const CtxBuildInput *input)
-{
-  const BuildGraphTask *task = &input->seq_files;
-  Colour colour = input_intocol(input), ncols = input_ncols(input);
-
-  if(input_is_ctx_file(input))
-  {
-    status("[sample] %zu-%zu: load graph: %s", colour,
-           colour+ncols, graph_file_orig_path(&input->ctx_file));
-  }
-  else
-  {
-    char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
-
-    if(task->fq_cutoff > 0) sprintf(fqCutoff, "%u", task->fq_cutoff);
-    if(task->fq_offset > 0) sprintf(fqOffset, "%u", task->fq_offset);
-    if(task->hp_cutoff > 0) sprintf(hpCutoff, "%u", task->hp_cutoff);
-
-    status("[sample] input: %s%s%s; FASTQ offset: %s, threshold: %s; "
-           "cut homopolymers: %s; remove PCR duplicates: %s\n",
-           task->file1->path,
-           task->file2 ? ", " : "", task->file2 ? task->file2->path : "",
-           fqOffset, fqCutoff, hpCutoff, task->remove_pcr_dups ? "yes" : "no");
-  }
+  status("[load] %zu-%zu: load graph: %s", colour, colour+ncols-1, path);
 }
 
-static void ctx_input_alloc(char *load_graph_path,
-                            const char *seq_path1, const char *seq_path2,
-                            size_t colour, CtxBuildGraphCol *col_data,
-                            uint32_t fq_offset, uint32_t fq_cutoff,
-                            uint32_t hp_cutoff, boolean remove_pcr_dups,
-                            size_t kmer_size, ReadMateDir matedir,
-                            CtxBuildInput *ptr)
+static void graph_reader_new(char *path, size_t kmer_size, size_t colour,
+                             GraphFileReader *rdrptr)
 {
-  ctx_assert((load_graph_path == NULL) != (seq_path1 == NULL));
+  GraphFileReader rdr = INIT_GRAPH_READER_MACRO;
+  int ret = graph_file_open(&rdr, path, false);
+
+  if(ret == 0) cmd_print_usage("Cannot read input graph file: %s", path);
+  else if(ret < 0) cmd_print_usage("Input graph file isn't valid: %s", path);
+
+  if(rdr.hdr.kmer_size != kmer_size) {
+    cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]",
+                    rdr.hdr.kmer_size, kmer_size);
+  }
+
+  rdr.fltr.intocol = colour;
+
+  memcpy(rdrptr, &rdrptr, sizeof(GraphFileReader));
+}
+
+static void build_graph_task_new(const char *seq_path1,
+                                 const char *seq_path2,
+                                 size_t colour,
+                                 uint32_t fq_offset,
+                                 uint32_t fq_cutoff,
+                                 uint32_t hp_cutoff,
+                                 boolean remove_pcr_dups,
+                                 ReadMateDir matedir,
+                                 BuildGraphTask *taskptr)
+{
   ctx_assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
   ctx_assert(fq_offset < 128);
   ctx_assert(fq_cutoff < 128);
@@ -113,113 +95,71 @@ static void ctx_input_alloc(char *load_graph_path,
   if(seq_path2 != NULL && (file2 = seq_open(seq_path2)) == NULL)
     die("Cannot read %s file: %s", arg, seq_path2);
 
-  BuildGraphTask seq_files = {.file1 = file1, .file2 = file2, .colour = colour,
-                              .fq_offset = (uint8_t)fq_offset,
-                              .fq_cutoff = (uint8_t)fq_cutoff,
-                              .hp_cutoff = (uint8_t)hp_cutoff,
-                              .remove_pcr_dups = remove_pcr_dups,
-                              .matedir = matedir,
-                              .stats = LOAD_STATS_INIT_MACRO};
+  BuildGraphTask task = {.file1 = file1, .file2 = file2, .colour = colour,
+                         .fq_offset = (uint8_t)fq_offset,
+                         .fq_cutoff = (uint8_t)fq_cutoff,
+                         .hp_cutoff = (uint8_t)hp_cutoff,
+                         .remove_pcr_dups = remove_pcr_dups,
+                         .matedir = matedir,
+                         .stats = LOAD_STATS_INIT_MACRO};
 
-  CtxBuildInput input = {.seq_files = seq_files,
-                         .ctx_file = INIT_GRAPH_READER_MACRO,
-                         .col_data = col_data};
-
-  col_data->empty = false;
-
-  if(load_graph_path != NULL)
-  {
-    int ret = graph_file_open(&input.ctx_file, load_graph_path, false);
-
-    if(ret == 0)
-      cmd_print_usage("Cannot read input graph file: %s", load_graph_path);
-    else if(ret < 0)
-      cmd_print_usage("Input graph file isn't valid: %s", load_graph_path);
-
-    if(input.ctx_file.hdr.kmer_size != kmer_size) {
-      cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]",
-                  input.ctx_file.hdr.kmer_size, kmer_size);
-    }
-
-    input.ctx_file.fltr.intocol = colour;
-  }
-
-  memcpy(ptr, &input, sizeof(CtxBuildInput));
+  memcpy(taskptr, &task, sizeof(BuildGraphTask));
 }
 
-static void ctx_input_dealloc(CtxBuildInput *input)
+static void build_graph_task_destroy(BuildGraphTask *task)
 {
-  graph_file_dealloc(&input->ctx_file);
+  seq_close(task->file1);
+  if(task->file2 != NULL) seq_close(task->file2);
 }
 
-static void ctx_input_create(char *load_graph_path,
-                             const char *seq_path1, const char *seq_path2,
-                             size_t colour, CtxBuildGraphCol *col_data,
-                             uint32_t fq_offset, uint32_t fq_cutoff,
-                             uint32_t hp_cutoff, boolean remove_pcr_dups,
-                             ReadMateDir matedir, size_t kmer_size,
-                             CtxBuildInput *inputs, size_t *num_inputs_ptr)
+static void build_graph_task_new2(const char *seq_path1, const char *seq_path2,
+                                  size_t colour,
+                                  uint32_t fq_offset, uint32_t fq_cutoff,
+                                  uint32_t hp_cutoff, boolean remove_pcr_dups,
+                                  ReadMateDir matedir,
+                                  BuildGraphTask *tasks, size_t *num_tasks_ptr)
 {
   ctx_assert(!seq_path2 || seq_path1);
 
-  if(load_graph_path != NULL) {
-    // Load a graph
-    ctx_input_alloc(load_graph_path, NULL, NULL,
-                    colour, col_data,
-                    fq_offset, fq_cutoff, hp_cutoff,
-                    remove_pcr_dups, matedir,
-                    kmer_size, &inputs[*num_inputs_ptr]);
-    (*num_inputs_ptr)++;
+  if(remove_pcr_dups) {
+    // Submit paired end reads together
+    build_graph_task_new(seq_path1, seq_path2, colour,
+                         fq_offset, fq_cutoff, hp_cutoff,
+                         remove_pcr_dups, matedir,
+                         &tasks[*num_tasks_ptr]);
+    (*num_tasks_ptr)++;
   }
+  else if(!remove_pcr_dups) {
+    // Read files separately -> read faster
+    build_graph_task_new(seq_path1, NULL, colour,
+                         fq_offset, fq_cutoff, hp_cutoff,
+                         remove_pcr_dups, matedir,
+                         &tasks[*num_tasks_ptr]);
+    (*num_tasks_ptr)++;
 
-  if(seq_path1 != NULL) {
-    if(remove_pcr_dups) {
-      // Submit paired end reads together
-      ctx_input_alloc(NULL, seq_path1, seq_path2,
-                      colour, col_data,
-                      fq_offset, fq_cutoff, hp_cutoff,
-                      remove_pcr_dups, matedir,
-                      kmer_size, &inputs[*num_inputs_ptr]);
-      (*num_inputs_ptr)++;
-    }
-    else if(!remove_pcr_dups) {
-      // Read files separately -> read faster
-      ctx_input_alloc(NULL, seq_path1, NULL,
-                      colour, col_data,
-                      fq_offset, fq_cutoff, hp_cutoff,
-                      remove_pcr_dups, matedir,
-                      kmer_size, &inputs[*num_inputs_ptr]);
-      (*num_inputs_ptr)++;
-
-      if(seq_path2 != NULL) {
-        ctx_input_alloc(NULL, seq_path2, NULL,
-                        colour, col_data,
-                        fq_offset, fq_cutoff, hp_cutoff,
-                        remove_pcr_dups, matedir,
-                        kmer_size, &inputs[*num_inputs_ptr]);
-        (*num_inputs_ptr)++;
-      }
+    if(seq_path2 != NULL) {
+      build_graph_task_new(seq_path2, NULL, colour,
+                           fq_offset, fq_cutoff, hp_cutoff,
+                           remove_pcr_dups, matedir,
+                           &tasks[*num_tasks_ptr]);
+      (*num_tasks_ptr)++;
     }
   }
 }
 
-// inputs must be an already allocated array to put inputs into
-// Returns index of next untouched argv
-// *num_inputs_ptr is the number of inputs
-// *num_seq_cols_ptr is the number of colours with sequenced loaded into them
-// *num_total_cols_ptr is the total number of colours in the graph
 static void load_args(int argc, char **argv, size_t kmer_size,
-                      CtxBuildInput *inputs, size_t *num_inputs_ptr,
-                      CtxBuildGraphCol *seq_cols, size_t *num_seq_cols_ptr,
+                      BuildGraphTask *tasks, size_t *num_tasks_ptr,
+                      GraphFileReader *graphs, size_t *num_graphs_ptr,
+                      SampleName *samples, size_t *num_samples_ptr,
                       size_t *num_total_cols_ptr)
 {
   int argi;
-  size_t num_inputs = 0, num_seq_cols = 0;
+  size_t num_graphs = 0, num_tasks = 0, num_samples = 0;
   uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
   boolean remove_pcr_dups = false;
   ReadMateDir matedir = READPAIR_FR;
 
-  size_t colour = 0;
+  size_t colour = SIZE_MAX;
   boolean sample_named = false, sample_used = false, seq_loaded = false;
 
   for(argi = 0; argi < argc; argi++)
@@ -261,11 +201,10 @@ static void load_args(int argc, char **argv, size_t kmer_size,
         cmd_print_usage("--seq <file> requires an argument");
 
       // Create new task
-      ctx_input_create(NULL, argv[argi+1], NULL,
-                       colour, &seq_cols[num_seq_cols-1],
-                       fq_offset, fq_cutoff, hp_cutoff,
-                       remove_pcr_dups, matedir,
-                       kmer_size, inputs, &num_inputs);
+      build_graph_task_new2(argv[argi+1], NULL, colour,
+                            fq_offset, fq_cutoff, hp_cutoff,
+                            remove_pcr_dups, matedir,
+                            tasks, &num_tasks);
       //
       argi += 1;
       sample_used = true;
@@ -278,11 +217,10 @@ static void load_args(int argc, char **argv, size_t kmer_size,
         cmd_print_usage("--seq2 <file1> <file2> requires two arguments");
 
       // Create new task
-      ctx_input_create(NULL, argv[argi+1], argv[argi+2],
-                       colour, &seq_cols[num_seq_cols-1],
-                       fq_offset, fq_cutoff, hp_cutoff,
-                       remove_pcr_dups, matedir,
-                       kmer_size, inputs, &num_inputs);
+      build_graph_task_new2(argv[argi+1], argv[argi+2], colour,
+                            fq_offset, fq_cutoff, hp_cutoff,
+                            remove_pcr_dups, matedir,
+                            tasks, &num_tasks);
       //
       argi += 2;
       sample_used = true;
@@ -294,10 +232,11 @@ static void load_args(int argc, char **argv, size_t kmer_size,
 
       if(sample_named && !sample_used) {
         warn("Empty colour '%s' (maybe you intended this?)",
-             seq_cols[num_seq_cols-1].sample_name);
+             samples[num_samples-1].sample_name);
       }
 
-      if(sample_named) { colour++; sample_named = sample_used = false; }
+      // Move on to next colour
+      colour++;
 
       if(strcmp(argv[argi],"--sample") == 0)
       {
@@ -307,24 +246,22 @@ static void load_args(int argc, char **argv, size_t kmer_size,
           die("--sample %s is not a good name!", argv[argi+1]);
         }
 
-        seq_cols[num_seq_cols].colour = colour;
-        loading_stats_init(&seq_cols[num_seq_cols].stats);
-        seq_cols[num_seq_cols].sample_name = argv[argi+1];
-        seq_cols[num_seq_cols].empty = true;
-        num_seq_cols++;
+        samples[num_samples].colour = colour;
+        samples[num_samples].sample_name = argv[argi+1];
+        num_samples++;
 
         sample_named = true;
+        sample_used = false;
       }
       else
       {
         // --load_graph <in.ctx>
         // Load binary into new colour
-        ctx_input_create(argv[argi+1], NULL, NULL,
-                         colour, NULL,
-                         fq_offset, fq_cutoff, hp_cutoff,
-                         remove_pcr_dups, matedir,
-                         kmer_size, inputs, &num_inputs);
-        colour += input_ncols(&inputs[num_inputs-1]);
+        graph_reader_new(argv[argi+1], kmer_size, colour, &graphs[num_graphs]);
+        colour += graph_file_outncols(&graphs[num_graphs]);
+        num_graphs++;
+        sample_named = false;
+        sample_used = false;
       }
 
       argi++; // both --sample and --load_graph take a single argument
@@ -332,29 +269,20 @@ static void load_args(int argc, char **argv, size_t kmer_size,
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  if(!seq_loaded) die("No sequence loaded, to combine graph files use '"CMD" join'");
+  if(!seq_loaded)
+    die("No sequence loaded, to combine graph files use '"CMD" join'");
+
   if(sample_named && !sample_used) {
     warn("Empty colour '%s' (maybe you intended this?)",
-         seq_cols[num_seq_cols-1].sample_name);
+         samples[num_samples-1].sample_name);
   }
+
   if(sample_named) colour++;
 
-  *num_inputs_ptr = num_inputs;
-  *num_seq_cols_ptr = num_seq_cols;
+  *num_graphs_ptr = num_graphs;
+  *num_tasks_ptr = num_tasks;
+  *num_samples_ptr = num_samples;
   *num_total_cols_ptr = colour;
-}
-
-static void run_build_graph(dBGraph *db_graph,
-                            const CtxBuildInput *inputs, size_t num_inputs,
-                            size_t num_build_threads)
-{
-  status("Loading %zu files with %zu worker threads", num_inputs, num_build_threads);
-  size_t i;
-  BuildGraphTask *tasks = malloc2(num_inputs*sizeof(BuildGraphTask));
-  for(i = 0; i < num_inputs; i++)
-    memcpy(&tasks[i], &inputs[i].seq_files, sizeof(BuildGraphTask));
-  build_graph(db_graph, tasks, num_inputs, num_build_threads);
-  free(tasks);
 }
 
 int ctx_build(CmdArgs *args)
@@ -367,33 +295,33 @@ int ctx_build(CmdArgs *args)
 
   // num_seq_cols is the number of colours with sequence loaded into them
   // output_colours = num_seq_cols + num colours filled with graph files
-  size_t i, num_inputs = 0, num_seq_cols = 0, output_colours = 0;
+  size_t i, num_tasks = 0, num_graphs = 0, num_samples = 0, output_colours = 0;
 
   // Load inputs
   size_t max_inputs = (size_t)argc/2;
-  CtxBuildInput *inputs = malloc2(max_inputs * sizeof(CtxBuildInput));
-  CtxBuildGraphCol *seq_cols = malloc2(max_inputs * sizeof(CtxBuildGraphCol));
 
-  load_args(argc-1, argv, kmer_size, inputs, &num_inputs,
-            seq_cols, &num_seq_cols, &output_colours);
+  BuildGraphTask *tasks = malloc2(max_inputs * sizeof(BuildGraphTask));
+  GraphFileReader *graphs = malloc2(max_inputs * sizeof(GraphFileReader));
+  SampleName *samples = malloc2(max_inputs * sizeof(GraphFileReader));
+
+  load_args(argc-1, argv, kmer_size,
+            tasks, &num_tasks,
+            graphs, &num_graphs,
+            samples, &num_samples,
+            &output_colours);
 
   const char *out_path = argv[argc-1];
 
-  // Did any inputs require PCR duplicate removal
-  boolean remove_pcr_used = false;
-
-  for(i = 0; i < num_inputs; i++) {
-    if(input_is_ctx_file(&inputs[i]) && inputs[i].seq_files.remove_pcr_dups) {
-      remove_pcr_used = true;
-      break;
-    }
-  }
+  // Did any tasks require PCR duplicate removal
+  for(i = 0; i < num_tasks && !tasks[i].remove_pcr_dups; i++) {}
+  boolean remove_pcr_used = (i < num_tasks);
 
   //
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
+  // remove_pcr_dups requires a fw and rv bit per kmer
   bits_per_kmer = (sizeof(Covg) + sizeof(Edges))*8*output_colours +
                   remove_pcr_used*2;
 
@@ -409,6 +337,26 @@ int ctx_build(CmdArgs *args)
   {
     if(futil_file_exists(out_path)) die("Output file already exists: %s", out_path);
     if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
+  }
+
+  // Print graphs to be loaded
+  for(i = 0; i < num_graphs; i++)
+    print_graph_reader(&graphs[i]);
+
+  // Print tasks and sample names
+  size_t s;
+  status("[sample] %zu: %s", (size_t)0, samples[0].sample_name);
+
+  for(i = 0, s = 0; i < num_tasks; i++) {
+    while(samples[s].colour < tasks[i].colour) {
+      s++; status("[sample] %zu: %s", s, samples[s].sample_name);
+    }
+    build_graph_task_print(&tasks[i]);
+  }
+
+  // Print remaining empty samples
+  for(; s < num_samples; s++) {
+    status("[sample] %zu: %s", s, samples[s].sample_name);
   }
 
   status("Writing %zu colour graph to %s\n", output_colours, out_path_name);
@@ -431,70 +379,67 @@ int ctx_build(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
-  size_t j, colour, ncols, from_col;
-  GraphFileReader *ctx_file;
+  // Load graphs
+  if(num_graphs > 0)
+  {
+    GraphLoadingPrefs gprefs = LOAD_GPREFS_INIT(&db_graph);
+    LoadingStats gstats = LOAD_STATS_INIT_MACRO;
+
+    for(i = 0; i < num_graphs; i++) {
+      graph_load(&graphs[i], gprefs, &gstats);
+      graph_file_dealloc(&graphs[i]);
+    }
+
+    hash_table_print_stats(&db_graph.ht);
+  }
 
   // Set sample names using seq_colours array
-  for(i = 0; i < num_seq_cols; i++) {
-    strbuf_set(&db_graph.ginfo[seq_cols[i].colour].sample_name,
-               seq_cols[i].sample_name);
+  for(i = 0; i < num_samples; i++) {
+    strbuf_set(&db_graph.ginfo[samples[i].colour].sample_name,
+               samples[i].sample_name);
   }
 
-  for(i = 0; i < num_inputs; i++) {
-    if(i == 0 || colour != input_intocol(&inputs[i])) {
-      // New colour
-      colour = input_intocol(&inputs[i]);
-
-      if(input_is_ctx_file(&inputs[i])) {
-        ncols = input_ncols(&inputs[i]);
-        ctx_file = &inputs[i].ctx_file;
-        status("[sample] %zu-%zu: %s\n", colour, colour + ncols - 1,
-               graph_file_orig_path(ctx_file));
-        for(j = 0; j < ncols; j++) {
-          from_col = graph_file_fromcol(ctx_file, j);
-          status("[sample]   %s\n", ctx_file->hdr.ginfo[from_col].sample_name.buff);
-        }
-      }
-      else {
-        status("[sample] %zu: %s\n", colour, inputs[i].col_data->sample_name);
-      }
-    }
-    print_input(&inputs[i]);
-  }
-
-  size_t start, end, num_load, prev_colour = 0;
+  size_t start, end, num_load, colour, prev_colour = 0;
 
   // If we are using PCR duplicate removal,
-  // best to load one colour at a time
-  for(start = 0; start < num_inputs; start = end, prev_colour = colour)
+  // it's best to load one colour at a time
+  for(start = 0; start < num_tasks; start = end, prev_colour = colour)
   {
     // Wipe read starts
-    colour = input_intocol(&inputs[start]);
+    colour = tasks[start].colour;
     if(remove_pcr_used)
     {
       if(colour != prev_colour)
         memset(db_graph.readstrt, 0, 2*kmer_words*sizeof(uint64_t));
 
       end = start+1;
-      while(end < num_inputs && end-start < args->max_io_threads &&
-            input_intocol(&inputs[end]) == colour) end++;
+      while(end < num_tasks && end-start < args->max_io_threads &&
+            tasks[end].colour == colour) end++;
     }
-    else end = MIN2(start+args->max_io_threads, num_inputs);
+    else {
+      end = MIN2(start+args->max_io_threads, num_tasks);
+    }
 
     num_load = end-start;
-    run_build_graph(&db_graph, inputs+start, num_load, args->max_work_threads);
+    build_graph(&db_graph, tasks+start, num_load, args->max_work_threads);
   }
 
+  // Print stats for hash table
   hash_table_print_stats(&db_graph.ht);
+
+  // Print stats per input file
+  for(i = 0; i < num_tasks; i++) {
+    build_graph_task_print_stats(&tasks[i]);
+    build_graph_task_destroy(&tasks[i]);
+  }
 
   status("Dumping graph...\n");
   graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                         0, output_colours);
 
-  for(i = 0; i < num_inputs; i++) ctx_input_dealloc(&inputs[i]);
-
-  free(inputs);
-  free(seq_cols);
+  free(tasks);
+  free(samples);
+  free(graphs);
 
   free(db_graph.bktlocks);
   free(db_graph.col_covgs);

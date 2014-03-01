@@ -83,7 +83,8 @@ void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col);
 
 // Thread safe
 // Note: node may alreay exist in the graph
-dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkey);
+dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
+                                    boolean *found);
 
 dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer);
 

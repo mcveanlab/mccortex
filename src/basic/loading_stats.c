@@ -27,8 +27,8 @@ void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
   dst->total_bases_loaded += src->total_bases_loaded;
 
   dst->contigs_loaded += src->contigs_loaded;
-  dst->kmers_loaded += src->kmers_loaded;
-  dst->num_kmers += src->num_kmers;
+  dst->num_kmers_loaded += src->num_kmers_loaded;
+  dst->num_kmers_novel += src->num_kmers_novel;
 
   dst->num_of_colours_loaded += src->num_of_colours_loaded;
 }

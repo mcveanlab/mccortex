@@ -103,15 +103,15 @@ void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col)
 
 // Thread safe
 // Note: node may alreay exist in the graph
-dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer)
+dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
+                                    boolean *found)
 {
   BinaryKmer bkey;
   hkey_t hkey;
-  boolean found;
   Orientation orient;
 
   bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
-  hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, &found,
+  hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, found,
                                       db_graph->bktlocks);
   orient = bkmer_get_orientation(bkey, bkmer);
 

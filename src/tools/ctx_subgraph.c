@@ -185,6 +185,8 @@ int ctx_subgraph(CmdArgs *args)
   subgraph_from_reads(&db_graph, dist, invert, fringe_mem, kmer_mask,
                       seed_files, num_seed_files);
 
+  for(i = 0; i < num_seed_files; i++) seq_close(seed_files[i]);
+
   free(kmer_mask);
   hash_table_print_stats(&db_graph.ht);
 

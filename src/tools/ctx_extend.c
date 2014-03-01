@@ -227,6 +227,7 @@ int ctx_extend(CmdArgs *args)
   seq_parse_se_sf(seq_fa_file, 0, &r1, &r2, extend_reads, &contig);
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
+  seq_close(seq_fa_file);
 
   fclose(out);
 

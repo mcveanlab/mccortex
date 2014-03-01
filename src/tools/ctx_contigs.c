@@ -467,7 +467,7 @@ int ctx_contigs(CmdArgs *args)
     seq_parse_se_sf(seed_file, 0, &r1, &r2, parse_seed_reads, &ps);
     seq_read_dealloc(&r1);
     seq_read_dealloc(&r2);
-    // seq_parse_se_sf() closes seed_file
+    seq_close(seed_file);
   }
 
   if(args->output_file_set && print_contigs && fout != stdout)

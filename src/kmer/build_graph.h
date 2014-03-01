@@ -30,6 +30,9 @@ typedef struct
   size_t idx;
 } BuildGraphTask;
 
+void build_graph_task_print(const BuildGraphTask *task);
+void build_graph_task_print_stats(const BuildGraphTask *task);
+
 // Threadsafe graph construction
 // Beware: this function does not update ginfo
 void build_graph_from_reads_mt(read_t *r1, read_t *r2,
@@ -46,7 +49,8 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
 // Threadsafe
 // Sequence must be entirely ACGT and len >= kmer_size
-void build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
-                             const char *seq, size_t len);
+// Returns number of novel kmers loaded
+size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
+                               const char *seq, size_t len);
 
 #endif /* BUILD_GRAPH_H_ */

@@ -22,6 +22,12 @@ typedef struct
   boolean empty_colours;
 } GraphLoadingPrefs;
 
+#define LOAD_GPREFS_INIT(graph) {  \
+  .db_graph = (graph),             \
+  .boolean_covgs = false,          \
+  .must_exist_in_graph = false,    \
+  .must_exist_in_edges = NULL,     \
+  .empty_colours = false}
 
 void graph_header_alloc(GraphFileHeader *header, size_t num_of_cols);
 void graph_header_dealloc(GraphFileHeader *header);
@@ -52,7 +58,7 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 // returns the number of colours in the binary
 // If stats != NULL, updates:
 //   stats->num_of_colours_loaded
-//   stats->kmers_loaded
+//   stats->num_kmers_loaded
 //   stats->total_bases_read
 //   stats->ctx_files_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.

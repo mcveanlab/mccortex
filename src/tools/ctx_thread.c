@@ -318,8 +318,12 @@ int ctx_thread(CmdArgs *args)
   paths_header_update(&pheader, pstore);
   paths_format_write_header(&pheader, fout);
   paths_format_write_optimised_paths(&db_graph, fout);
-
   fclose(fout);
+
+  for(i = 0; i < num_tasks; i++) {
+    if(tasks[i].file1 != NULL) seq_close(tasks[i].file1);
+    if(tasks[i].file2 != NULL) seq_close(tasks[i].file2);
+  }
 
   free(tasks);
 

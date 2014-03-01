@@ -122,7 +122,7 @@ static void extend(EdgeNodes *enodes, size_t dist)
 
 static void print_stats(const EdgeNodes *enodes)
 {
-  size_t nseed_kmers = enodes->stats.kmers_loaded;
+  size_t nseed_kmers = enodes->stats.num_kmers_loaded;
   size_t nkmers_found = enodes->nbufs[0].len;
   char nseed_kmers_str[100], nkmers_found_str[100];
   ulong_to_str(nseed_kmers, nseed_kmers_str);
@@ -156,8 +156,10 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist, boolean invert,
   if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
     die("Out of memory");
 
-  for(i = 0; i < num_files; i++)
+  for(i = 0; i < num_files; i++) {
     seq_parse_se_sf(files[i], 0, &r1, &r2, store_read_nodes, &enodes);
+    seq_close(files[i]);
+  }
 
   print_stats(&enodes);
 

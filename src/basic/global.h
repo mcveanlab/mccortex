@@ -12,6 +12,7 @@
 #include <string.h>
 #include <strings.h> // strcasecmp
 #include <inttypes.h> // fixed size integers e.g. uint64_t
+// #include <stdbool.h> // defines bool, true, false
 #include <limits.h>
 #include <pthread.h>
 #include <zlib.h>
