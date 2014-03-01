@@ -44,7 +44,7 @@ int ctx_clean(CmdArgs *args)
   // Already checked that we have at least 2 arguments
 
   // Check cmdline args
-  boolean tip_cleaning = false, supernode_cleaning = false;
+  bool tip_cleaning = false, supernode_cleaning = false;
   size_t max_tip_len = 0;
   Covg threshold = 0;
   double seq_depth = -1;
@@ -106,7 +106,7 @@ int ctx_clean(CmdArgs *args)
       warn("No cleaning being done: you did not specify --out <out.ctx>");
   }
 
-  boolean doing_cleaning = (supernode_cleaning || tip_cleaning);
+  bool doing_cleaning = (supernode_cleaning || tip_cleaning);
 
   if(doing_cleaning && out_ctx_path == NULL) {
     cmd_print_usage("Please specify --out <out.ctx> for cleaned graph");
@@ -155,7 +155,7 @@ int ctx_clean(CmdArgs *args)
     total_cols += graph_file_usedcols(&files[i]);
     file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + offset);
 
-    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].hdr.num_of_kmers);
+    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].num_of_kmers);
   }
 
   size_t use_ncols = args->use_ncols, kmer_size = files[0].hdr.kmer_size;
@@ -217,7 +217,7 @@ int ctx_clean(CmdArgs *args)
   //
   // Decide memory usage
   //
-  boolean all_colours_loaded = (total_cols <= use_ncols);
+  bool all_colours_loaded = (total_cols <= use_ncols);
 
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
@@ -262,6 +262,7 @@ int ctx_clean(CmdArgs *args)
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
+                              .must_exist_in_edges = NULL,
                               .empty_colours = false};
 
   // Construct cleaned graph header
@@ -269,7 +270,6 @@ int ctx_clean(CmdArgs *args)
                             .kmer_size = (uint32_t)db_graph.kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
                             .num_of_cols = (uint32_t)total_cols,
-                            .num_of_kmers = db_graph.ht.num_kmers,
                             .capacity = 0};
 
   graph_header_alloc(&outhdr, total_cols);
@@ -287,7 +287,7 @@ int ctx_clean(CmdArgs *args)
   if(total_cols > use_ncols)
   {
     // Load into one colour
-    size_t tmpinto; boolean tmpflatten;
+    size_t tmpinto; bool tmpflatten;
     for(i = 0; i < num_files; i++)
     {
       tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
@@ -360,7 +360,7 @@ int ctx_clean(CmdArgs *args)
   {
     // Output graph file
     Edges *intersect_edges = NULL;
-    boolean kmers_loaded = true;
+    bool kmers_loaded = true;
     size_t thresh;
 
     // Set output header ginfo cleaned

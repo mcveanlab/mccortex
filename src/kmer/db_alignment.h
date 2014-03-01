@@ -20,11 +20,11 @@ typedef struct
   // 0 if no r1 nodes, nodes.len if
   size_t r2strtidx;
   // whether we were passed a second read
-  boolean passed_r2;
+  bool passed_r2;
   // used_r1, used_r2 are whether or not we got nodes from each read
-  boolean used_r1, used_r2;
+  bool used_r1, used_r2;
   // whether or not there are sequencing gaps
-  boolean seq_gaps;
+  bool seq_gaps;
   // if used_r1 && used_r2
   // gap between r1 last nodes[r2strtindx-1] .. nodes[r2strtindx]
   // = r1enderr + insgapsize + gaps[r2strtindx]
@@ -52,7 +52,7 @@ size_t db_alignment_next_gap(const dBAlignment *aln, size_t start);
 void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph);
 
 // Check all edges between ungapped adjacent nodes
-boolean db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);
+bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);
 
 // dBKmer stores redundant data from the graph to speed up processing
 // typedef struct

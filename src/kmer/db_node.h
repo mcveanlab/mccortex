@@ -31,7 +31,7 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 /* word index */
 #define ksetw(arr,ncols,hkey,col) (((hkey)/(sizeof(*arr)*8))*(ncols)+(col))
 
-static inline boolean db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col) {
+static inline bool db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col) {
   return bitset2_get(graph->node_in_cols,
                      ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
                      kseto(graph->node_in_cols,hkey));
@@ -154,7 +154,7 @@ static inline dBNode db_node_reverse(dBNode node) {
 
 Edges edges_get_union(const Edges *edges, size_t num);
 
-boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
+bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide);
 
 //
@@ -288,7 +288,7 @@ void db_nodes_print_edges(const dBNode *nodes, size_t num,
 
 // Check an array of nodes denote a contigous path
 // Prints warning and returns false on failure
-boolean db_node_check_nodes(const dBNode *nodes, size_t num,
+bool db_node_check_nodes(const dBNode *nodes, size_t num,
                             const dBGraph *db_graph);
 
 #endif /* DB_NODE_H_ */

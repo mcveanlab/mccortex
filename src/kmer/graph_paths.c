@@ -26,7 +26,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
           kmer_size, graphs[g].hdr.kmer_size, graphs[g].fltr.orig_path.buff);
     }
     ctx_max_cols = MAX2(ctx_max_cols, graph_file_usedcols(&graphs[g]));
-    ctx_max_kmers = MAX2(ctx_max_kmers, graphs[g].hdr.num_of_kmers);
+    ctx_max_kmers = MAX2(ctx_max_kmers, graphs[g].num_of_kmers);
   }
 
   for(p = 0; p < num_paths; p++) {
@@ -41,7 +41,8 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   const FileFilter *fltr = (num_graphs ? &graphs[0].fltr : &paths[0].fltr);
   db_graph_check_kmer_size(kmer_size, fltr->orig_path.buff);
 
-  if(ctp_max_kmers > ctx_max_kmers)
+  // ctx_max_kmers may be zero if reading from a stream
+  if(ctx_max_kmers > 0 && ctp_max_kmers > ctx_max_kmers)
     die("More kmers in path files than in graph files!");
 
   if(ctp_max_cols > ctx_max_cols)
@@ -82,7 +83,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
-boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
+bool graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
                                    const uint8_t *packed, size_t plen,
                                    PathIndex *newidx)
 {
@@ -109,7 +110,7 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
   {
     // => if already exist -> add colour -> release lock
     colset = packedpath_get_colset(pstore->store+match);
-    boolean added = !bitset_get(colset, ctpcol);
+    bool added = !bitset_get(colset, ctpcol);
     if(added) __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
     bitset_set(colset, ctpcol);
     bitlock_release(kmerlocks, node.key);
@@ -179,7 +180,7 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
 // packed is just <PackedBases>
-boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
+bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
                                size_t nbases, const dBGraph *db_graph)
 {
   check_ret(db_graph->num_edge_cols == db_graph->num_of_cols ||
@@ -268,7 +269,7 @@ boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed
   return true;
 }
 
-static boolean packed_path_check(hkey_t hkey, const uint8_t *packed,
+static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
                                  const GraphPathPairing *gp,
                                  const dBGraph *db_graph)
 {
@@ -309,7 +310,7 @@ static boolean packed_path_check(hkey_t hkey, const uint8_t *packed,
   return true;
 }
 
-static boolean kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
+static bool kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
                                 const dBGraph *db_graph,
                                 size_t *npaths_ptr, size_t *nkmers_ptr)
 {
@@ -332,7 +333,7 @@ static boolean kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
 }
 
 // Returns false on first error
-boolean graph_paths_check_all_paths(const GraphPathPairing *gp,
+bool graph_paths_check_all_paths(const GraphPathPairing *gp,
                                     const dBGraph *db_graph)
 {
   size_t num_paths = 0, num_kmers = 0, act_num_paths, act_num_kmers;
@@ -348,7 +349,7 @@ boolean graph_paths_check_all_paths(const GraphPathPairing *gp,
   return true;
 }
 
-boolean graph_path_check_path(hkey_t node, PathIndex pindex,
+bool graph_path_check_path(hkey_t node, PathIndex pindex,
                               const GraphPathPairing *gp,
                               const dBGraph *db_graph)
 {

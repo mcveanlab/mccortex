@@ -4,7 +4,7 @@ Extension: .ctx
 Version in use: 6
 
 *******************************
-Binary File Format Version 7:
+Binary File Format Version 6:
 
 version+ | datatype | no. elements | Notes
 --------------------------------------------------------------------------------
@@ -18,8 +18,6 @@ version+ | datatype | no. elements | Notes
 4 | uint32_t |    1   | kmer size (<kmer_size>)
 4 | uint32_t |    1   | number of uint64_t (64 bit words) encoding a kmer (<W>)
 4 | uint32_t |    1   | number of colours (<cols>)
-7 | uint64_t |    1   | number of kmers in this binary (<kmers>)
-7 | uint32_t |    1   | number of shades
 4 | uint32_t | <cols> | mean read length for each colour
 4 | uint64_t | <cols> | total sequence loaded into each colour
 --------------------------------------------------------------------------------
@@ -52,80 +50,11 @@ version+ | datatype | no. elements | Notes
 4 | uint64_t |  <W>  | binary kmer
 4 | uint32_t | <col> | array of coverage values for colours 0..<col-1>
 4 | uint8_t  | <col> | array of 'Edge' chars (see Notes) for colours 0..<col-1>
-  ------------------------------------------------------------------------------
-   Kmer path info (repeated <col> times)
-  ------------------------------------------------------------------------------
-  7 | uint8_t | <P> | Path colours (<P> = <shades>/8)
-  7 | uint8_t | <P> | Path ends
---------------------------------------------------------------------------------
-
-Changes:
-
-Added:
-uint32_t    |    1   | number of shades (<shades>; <P> = <shades>/8)
-uint64_t    |    1   | number of kmers in this binary (<kmers>)
-uint8_t     |   <P>  | Path colours (<P> = <shades>/8)
-uint8_t     |   <P>  | Path ends
-
-`char` written as uint8_t
-
-*******************************
-Binary File Format Version 6:
-
-datatype    | no. elements | Notes
---------------------------------------------------------------------------------
-Header start:
---------------------------------------------------------------------------------
-char        |    6   | the string "CORTEX" (Note: not null-terminated)
---------------------------------------------------------------------------------
-Header:
---------------------------------------------------------------------------------
-uint32_t    |    1   | version number
-uint32_t    |    1   | kmer size (<kmer_size>)
-uint32_t    |    1   | number of uint64_t (64 bit words) encoding a kmer (<W>)
-uint32_t    |    1   | number of colours (<cols>)
-uint32_t    | <cols> | mean read length for each colour
-uint64_t    | <cols> | total sequence loaded into each colour
---------------------------------------------------------------------------------
-Sample names (repeated <col> times):
---------------------------------------------------------------------------------
-uint32_t    |    1   | length of sample name of i-th colour (<len>)
-char        |  <len> | sample name for colour i (Note: not null-terminated)
---------------------------------------------------------------------------------
-Sequencing error rate:
---------------------------------------------------------------------------------
-long double | <cols> | estimated sequencing error rate for each colour
---------------------------------------------------------------------------------
-Sample cleaning (repeated <col> times):
---------------------------------------------------------------------------------
-char        |   1   | was there top clipping (0x1=yes | 0x0=no)
-char        |   1   | was --remove_low_covg_supernodes used (0x1=yes | 0x0=no)
-char        |   1   | was --remove_low_covg_kmers used (0x1=yes | 0x0=no)
-char        |   1   | was this colour cleaned against a graph (0x1=yes | 0x0=no)
-int32_t     |   1   | threshold for --remove_low_coverage_supernodes
-int32_t     |   1   | threshold for --remove_low_coverage_kmer
-uint32_t    |   1   | length of name of graph against which this colour was cleaned (<len>)
-char        | <len> | name of graph against which this colour was cleaned
---------------------------------------------------------------------------------
-Header end:
---------------------------------------------------------------------------------
-char        |   6   | the string "CORTEX" (Note: not null-terminated)
---------------------------------------------------------------------------------
-Kmers (there may be zero or more of these entries):
---------------------------------------------------------------------------------
-uint64_t    |  <W>  | binary kmer
-uint32_t    | <col> | array of coverage values for colours 0..<col-1>
-char        | <col> | array of 'Edge' chars (see Notes) for colours 0..<col-1>
 --------------------------------------------------------------------------------
 
 ======
 Notes:
 ======
-
-* uint64_t is an 8 byte unsigned word
-* uint32_t is a 4 byte unsigned word
-* char is a 1 byte unsigned word
-* unsigned long double is a 16 byte unsigned word
 
 * All string are NOT null-terminated.
 

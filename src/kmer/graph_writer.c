@@ -58,14 +58,6 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 
   b += strlen("CORTEX") + sizeof(uint32_t) * 4;
 
-  if(h->version >= 7)
-  {
-    uint32_t num_of_shades = 0;
-    fwrite(&(h->num_of_kmers), sizeof(uint64_t), 1, fh);
-    fwrite(&num_of_shades, sizeof(uint32_t), 1, fh);
-    b += sizeof(uint64_t) + sizeof(uint32_t);
-  }
-
   for(i = 0; i < h->num_of_cols; i++)
     fwrite(&h->ginfo[i].mean_read_length, sizeof(uint32_t), 1, fh);
   for(i = 0; i < h->num_of_cols; i++)
@@ -275,7 +267,6 @@ uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
                             .kmer_size = (uint32_t)db_graph->kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
                             .num_of_cols = (uint32_t)num_of_cols,
-                            .num_of_kmers = db_graph->ht.num_kmers,
                             .capacity = 0};
 
   size_t i;

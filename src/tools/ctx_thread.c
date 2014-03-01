@@ -92,7 +92,7 @@ int ctx_thread(CmdArgs *args)
     file_filter_update_intocol(&gfiles[i].fltr,
                                gfiles[i].fltr.intocol + ctx_total_cols);
     ctx_total_cols = graph_file_usedcols(&gfiles[i]);
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].hdr.num_of_kmers);
+    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
   }
 
   //

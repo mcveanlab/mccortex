@@ -41,21 +41,21 @@ PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
 // Returns match PathIndex if found, otherwise PATH_NULL
 PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
                                         const uint8_t *packed, size_t path_nbytes,
-                                        boolean *inserted);
+                                        bool *inserted);
 
 // Add a PackedPath, using a FileFilter to reduce to a subset of colours
 // `find` Specifies if we should try to find a duplicate first
 // Returns PATH_NULL if no colours set in colour subset
 PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
                                          const uint8_t *packed, size_t path_nbytes,
-                                         const FileFilter *fltr, boolean find,
-                                         boolean *added);
+                                         const FileFilter *fltr, bool find,
+                                         bool *added);
 
 // Add to PathStore
 PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
                                  PathLen len, const Nucleotide *bases,
                                  Orientation orient, Colour colour,
-                                 boolean *added);
+                                 bool *added);
 
 // If compatible, a FileFilter can be read straight into a PathStore without
 // parsing each path, one-by-one (much faster!)
@@ -77,9 +77,9 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore);
 //
 // Data checks for debugging / testing
 //
-boolean path_store_data_integrity_check(const uint8_t *data, size_t size,
+bool path_store_data_integrity_check(const uint8_t *data, size_t size,
                                         size_t colbytes);
 
-boolean path_store_integrity_check(const PathStore *pstore);
+bool path_store_integrity_check(const PathStore *pstore);
 
 #endif /* BINARY_PATH_H_ */

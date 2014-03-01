@@ -198,7 +198,7 @@ static inline void covg_histogram(hkey_t node,
 // visited will be dirty after calling
 // Returns 0 if `covg_threshold` == 0 and computed threshold also <= 1
 //  => no supernodes can be removed
-Covg cleaning_remove_supernodes(boolean do_cleaning, Covg covg_threshold,
+Covg cleaning_remove_supernodes(bool do_cleaning, Covg covg_threshold,
                                 double seq_depth, const char *dump_covgs,
                                 uint64_t *visited, dBGraph *db_graph)
 {

@@ -78,7 +78,7 @@ static void build_graph_task_new(const char *seq_path1,
                                  uint32_t fq_offset,
                                  uint32_t fq_cutoff,
                                  uint32_t hp_cutoff,
-                                 boolean remove_pcr_dups,
+                                 bool remove_pcr_dups,
                                  ReadMateDir matedir,
                                  BuildGraphTask *taskptr)
 {
@@ -115,7 +115,7 @@ static void build_graph_task_destroy(BuildGraphTask *task)
 static void build_graph_task_new2(const char *seq_path1, const char *seq_path2,
                                   size_t colour,
                                   uint32_t fq_offset, uint32_t fq_cutoff,
-                                  uint32_t hp_cutoff, boolean remove_pcr_dups,
+                                  uint32_t hp_cutoff, bool remove_pcr_dups,
                                   ReadMateDir matedir,
                                   BuildGraphTask *tasks, size_t *num_tasks_ptr)
 {
@@ -156,11 +156,11 @@ static void load_args(int argc, char **argv, size_t kmer_size,
   int argi;
   size_t num_graphs = 0, num_tasks = 0, num_samples = 0;
   uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
-  boolean remove_pcr_dups = false;
+  bool remove_pcr_dups = false;
   ReadMateDir matedir = READPAIR_FR;
 
   size_t colour = SIZE_MAX;
-  boolean sample_named = false, sample_used = false, seq_loaded = false;
+  bool sample_named = false, sample_used = false, seq_loaded = false;
 
   for(argi = 0; argi < argc; argi++)
   {
@@ -314,7 +314,7 @@ int ctx_build(CmdArgs *args)
 
   // Did any tasks require PCR duplicate removal
   for(i = 0; i < num_tasks && !tasks[i].remove_pcr_dups; i++) {}
-  boolean remove_pcr_used = (i < num_tasks);
+  bool remove_pcr_used = (i < num_tasks);
 
   //
   // Decide on memory

@@ -10,7 +10,7 @@
 
 typedef struct GenPathWorker GenPathWorker;
 
-extern boolean gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_reads;
+extern bool gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_reads;
 
 // Estimate memory required per worker thread
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph);
@@ -32,7 +32,7 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_tasks,
 //                 false if gaps are due to sequencing errors
 void gen_paths_dump_gap_sizes(const char *base_fmt,
                               const uint64_t *arr, size_t arrlen,
-                              size_t kmer_size, boolean insert_sizes,
+                              size_t kmer_size, bool insert_sizes,
                               size_t nreads);
 
 // Get histogram array

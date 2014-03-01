@@ -29,7 +29,7 @@ typedef struct
         bitset_set_mt((volatile uint8_t*)(graph)->readstrt, 2*(node).key+(node).orient)
 
 // Returns true if start1, start2 set and reads should be added
-static boolean seq_reads_are_novel(read_t *r1, read_t *r2,
+static bool seq_reads_are_novel(read_t *r1, read_t *r2,
                                    uint8_t fq_cutoff1, uint8_t fq_cutoff2,
                                    uint8_t hp_cutoff, ReadMateDir matedir,
                                    LoadingStats *stats, dBGraph *db_graph)
@@ -44,7 +44,7 @@ static boolean seq_reads_are_novel(read_t *r1, read_t *r2,
 
   const size_t kmer_size = db_graph->kmer_size;
   size_t start1, start2;
-  boolean got_kmer1 = false, got_kmer2 = false;
+  bool got_kmer1 = false, got_kmer2 = false;
   BinaryKmer bkmer1, bkmer2;
   dBNode node1, node2;
 
@@ -58,7 +58,7 @@ static boolean seq_reads_are_novel(read_t *r1, read_t *r2,
 
   const char *seq1 = got_kmer1 ? r1->seq.b + start1 : NULL;
   const char *seq2 = got_kmer2 ? r2->seq.b + start2 : NULL;
-  boolean found1 = false, found2 = false;
+  bool found1 = false, found2 = false;
 
   // Look up first kmer
   if(seq1) {
@@ -106,7 +106,7 @@ size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
   Nucleotide nuc;
   dBNode prev, curr;
   size_t i, num_novel_kmers = 0;
-  boolean found;
+  bool found;
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
   prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
@@ -160,7 +160,7 @@ static void load_read(const read_t *r, uint8_t qual_cutoff, uint8_t hp_cutoff,
 void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                uint8_t fq_offset1, uint8_t fq_offset2,
                                uint8_t fq_cutoff, uint8_t hp_cutoff,
-                               boolean remove_pcr_dups, ReadMateDir matedir,
+                               bool remove_pcr_dups, ReadMateDir matedir,
                                LoadingStats *stats, size_t colour,
                                dBGraph *db_graph)
 {

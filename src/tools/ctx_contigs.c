@@ -291,7 +291,7 @@ int ctx_contigs(CmdArgs *args)
   // Already checked there is at least 1 argument
 
   size_t i, n_rand_contigs = 0, colour = 0;
-  boolean print_contigs = false, no_reseed = false;
+  bool print_contigs = false, no_reseed = false;
   seq_file_t *seed_file = NULL;
 
   while(argc > 0 && argv[0][0] == '-') {
@@ -376,7 +376,7 @@ int ctx_contigs(CmdArgs *args)
   bits_per_kmer = sizeof(Edges)*8 + gfile.hdr.num_of_cols + sizeof(uint64_t)*8 +
                   no_reseed;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gfile.hdr.num_of_kmers, false, &graph_mem);
+                                        gfile.num_of_kmers, false, &graph_mem);
 
   // Paths memory
   size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);

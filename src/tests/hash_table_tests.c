@@ -19,7 +19,7 @@ void test_hash_table()
 
   HashTable ht;
   BinaryKmer bkmer0, bkmer1, bkxor = {.b = {0}}, bkresult = {.b = {0}};
-  boolean found0 = false, found1 = false;
+  bool found0 = false, found1 = false;
   hkey_t key0, key1;
   size_t i, t, kmers_added = 0, kmers_deleted = 0;
 

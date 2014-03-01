@@ -122,12 +122,12 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
-                        boolean use_pe, boolean out_arg)
+                        bool use_pe, bool out_arg)
 {
   int argi;
   size_t num_inputs = 0, col, min_ins, max_ins;
   uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
-  boolean col_set = false, col_used = false;
+  bool col_set = false, col_used = false;
   ReadMateDir matedir = READPAIR_FR;
 
   CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,

@@ -49,8 +49,8 @@ struct GenPathWorker
 #define INIT_BUFLEN 1024
 
 // Should we print all paths?
-boolean gen_paths_print_contigs = false, gen_paths_print_paths = false;
-boolean gen_paths_print_reads = false;
+bool gen_paths_print_contigs = false, gen_paths_print_paths = false;
+bool gen_paths_print_reads = false;
 volatile size_t print_contig_id = 0, print_path_id = 0;
 
 
@@ -152,7 +152,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      const size_t *restrict pos_mn,
                                      const size_t num_pl, const size_t num_mn,
                                      uint8_t *packed_ptr,
-                                     const boolean pl_is_fw,
+                                     const bool pl_is_fw,
                                      const dBNode *nodes,
                                      GenPathWorker *wrkr)
 {
@@ -163,9 +163,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   dBNode node;
   size_t start_mn, start_pl, pos;
   PathLen plen, plen_orient;
-  boolean added;
+  bool added;
   PathIndex pindex; // address of path once added
-  boolean printed = false;
+  bool printed = false;
 
   #ifdef CTXVERBOSE
     // char str[num_pl+1];
@@ -509,7 +509,7 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
 //                 false if gaps are due to sequencing errors
 void gen_paths_dump_gap_sizes(const char *base_fmt,
                               const uint64_t *arr, size_t arrlen,
-                              size_t kmer_size, boolean insert_sizes,
+                              size_t kmer_size, bool insert_sizes,
                               size_t nreads)
 {
   ctx_assert(arrlen > 0);

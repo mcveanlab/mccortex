@@ -71,12 +71,12 @@ void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
 }
 
 // Resets node buffer, GraphWalker and RepeatWalker after use
-static boolean traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
+static bool traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
                                  size_t gap_min, size_t gap_max,
                                  size_t *gap_len_ptr,
                                  GraphWalker *wlk, RepeatWalker *rptwlk)
 {
-  boolean traversed = false;
+  bool traversed = false;
 
   BinaryKmer tmpbkmer = db_node_get_bkmer(wlk->db_graph, end_node.key);
   char tmpstr[MAX_KMER_SIZE+1];
@@ -116,7 +116,7 @@ static boolean traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
 // Traversed from both sides of the gap
 // nodes in contig1 will be the *reverse*
 // Resets node buffers, GraphWalkers and RepeatWalkers after use
-static boolean traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
+static bool traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
                                  size_t gap_min, size_t gap_max,
                                  size_t *gap_len_ptr,
                                  GraphWalker *wlk0, RepeatWalker *rptwlk0,
@@ -127,13 +127,13 @@ static boolean traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
   db_node_buf_ensure_capacity(contig0, contig0->len + gap_max + 1);
   db_node_buf_ensure_capacity(contig1, contig1->len + gap_max + 1);
 
-  boolean use[2] = {true,true};
+  bool use[2] = {true,true};
   GraphWalker *wlk[2] = {wlk0, wlk1};
   RepeatWalker *rptwlk[2] = {rptwlk0, rptwlk1};
   dBNodeBuffer *contig[2] = {contig0, contig1};
   dBNode nodes[2] = {wlk0->node, wlk1->node};
   size_t i, gap_len = 0;
-  boolean traversed = false;
+  bool traversed = false;
 
   while(gap_len < gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
@@ -175,7 +175,7 @@ static boolean traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
   return traversed;
 }
 
-static boolean traverse_one_way(CorrectAlnWorker *wrkr,
+static bool traverse_one_way(CorrectAlnWorker *wrkr,
                                 size_t gap_idx, size_t end_idx,
                                 size_t gap_min, size_t gap_max,
                                 size_t *gap_len_ptr)
@@ -186,7 +186,7 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
-  boolean traversed;
+  bool traversed;
 
   // Start traversing forward
   graph_walker_prime(&wrkr->wlk, nbuf->data, nbuf->len,
@@ -213,7 +213,7 @@ static boolean traverse_one_way(CorrectAlnWorker *wrkr,
   return traversed;
 }
 
-static boolean traverse_two_way(CorrectAlnWorker *wrkr,
+static bool traverse_two_way(CorrectAlnWorker *wrkr,
                                 size_t gap_idx, size_t end_idx,
                                 size_t gap_min, size_t gap_max,
                                 size_t *gap_len_ptr)
@@ -252,10 +252,10 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   const size_t ins_gap_max = params->ins_gap_max;
 
   // worker_generate_contigs ensures contig is at least nodes->len long
-  boolean both_reads = (aln->used_r1 && aln->used_r2);
+  bool both_reads = (aln->used_r1 && aln->used_r2);
   size_t i, j, block0len, block1len;
   size_t gap_est, gap_len, gap_min, gap_max;
-  boolean traversed;
+  bool traversed;
 
   dBNodeBuffer *contig = &wrkr->contig, *revcontig = &wrkr->revcontig;
 
@@ -273,7 +273,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     // We've got a gap to traverse
     long gap_min_long, gap_max_long;
-    boolean is_mp;
+    bool is_mp;
 
     // Get bound for acceptable bridge length (min,max length values)
     is_mp = (both_reads && wrkr->gap_idx == aln->r2strtidx);

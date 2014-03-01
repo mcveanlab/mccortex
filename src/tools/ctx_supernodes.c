@@ -145,7 +145,7 @@ static void dump_supernodes(hkey_t hkey, FILE *fout, int print_syntax,
   }
 }
 
-static void dump_dot_syntax(FILE *fout, int print_syntax, boolean dot_use_points,
+static void dump_dot_syntax(FILE *fout, int print_syntax, bool dot_use_points,
                             dBNodeBuffer *nbuf, uint64_t *visited,
                             dBGraph *db_graph)
 {
@@ -176,7 +176,7 @@ int ctx_supernodes(CmdArgs *args)
   size_t i, num_files;
   char **paths;
   uint64_t max_ctx_kmers = 0;
-  boolean dot_use_points = false;
+  bool dot_use_points = false;
   int print_syntax = PRINT_FASTA;
 
   while(argc > 0 && argv[0][0] == '-') {
@@ -209,7 +209,7 @@ int ctx_supernodes(CmdArgs *args)
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
-    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].hdr.num_of_kmers);
+    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].num_of_kmers);
   }
 
   //

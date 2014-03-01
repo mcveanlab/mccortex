@@ -106,7 +106,7 @@ void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
   strbuf_free(sample_name);
 }
 
-static void print_branch(dBNode *nodes, size_t len, boolean print_first_kmer,
+static void print_branch(dBNode *nodes, size_t len, bool print_first_kmer,
                          const dBGraph *db_graph, gzFile out)
 {
   size_t i = print_first_kmer, kmer_size = db_graph->kmer_size;
@@ -239,7 +239,7 @@ static void load_allele_path(dBNode node,
   dBNode node2, *nodes; // node,node2 are start/end nodes of supernode
   int hashret;
   khiter_t k;
-  boolean supernode_already_exists;
+  bool supernode_already_exists;
   SuperOrientation snorient;
 
   const dBGraph *db_graph = wlk->db_graph;
@@ -408,7 +408,7 @@ static char is_bubble_flank(SupernodePathPos *const* spp_arr, size_t num)
 }
 
 // Returns 0 or 1
-static boolean path_in_colour(const SupernodePathPos *pp, size_t col,
+static bool path_in_colour(const SupernodePathPos *pp, size_t col,
                               const dBGraph *db_graph)
 {
   dBNodeBuffer *nbuf;

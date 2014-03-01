@@ -47,10 +47,10 @@ const PathFileReader INIT_PATH_READER;
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new PathFileReader and returns 1
-int path_file_open(PathFileReader *file, char *path, boolean fatal);
+int path_file_open(PathFileReader *file, char *path, bool fatal);
 
 // mode is "r", "r+" etc.
-int path_file_open2(PathFileReader *file, char *path, boolean fatal,
+int path_file_open2(PathFileReader *file, char *path, bool fatal,
                     const char *mode);
 
 // File header checks

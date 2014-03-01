@@ -151,7 +151,7 @@ static void var_trim_alleles(Var *var, StrBuf *flank3p)
   size_t trim;
   size_t len0 = branch0->seq.len;
   const char *allele0 = branch0->seq.buff;
-  boolean match = 1;
+  bool match = 1;
 
   for(trim = 0; trim < len0; trim++)
   {
@@ -647,7 +647,7 @@ static void reader_clean_up_var(CallReader *cr, Var *var)
 
   int cmp = strncmp(key0, key1, kmer_size);
   char *kmer0 = var->flank5p.buff + var->flank5p.len - kmer_size;
-  boolean altered = 0;
+  bool altered = 0;
 
   if(cmp > 0 || (cmp == 0 && strcmp(key0, kmer0) != 0))
   {

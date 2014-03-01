@@ -36,7 +36,7 @@ int main(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   BinaryKmer bkmer;
-  boolean found;
+  bool found;
 
   for(i = 0; i < num_ops; i++)
   {

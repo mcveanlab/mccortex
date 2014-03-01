@@ -23,11 +23,11 @@ void correct_reads_input_init(const char *p1, const char *p2,
 int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
-                        boolean use_pe, boolean out_arg);
+                        bool use_pe, bool out_arg);
 
 // void correct_reads_input_init(const char *p1, const char *p2,
 //                               size_t col, size_t min_ins, size_t max_ins,
-//                               boolean one_way_bridge, size_t max_context,
+//                               bool one_way_bridge, size_t max_context,
 //                               float gap_variance, size_t gap_wiggle,
 //                               uint32_t fq_offset, uint32_t fq_cutoff,
 //                               uint32_t hp_cutoff, CorrectReadsInput *ptr);

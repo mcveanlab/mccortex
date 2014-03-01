@@ -11,9 +11,9 @@
 // cleaned pool of population
 typedef struct
 {
-  boolean cleaned_tips, cleaned_snodes, cleaned_kmers;
+  bool cleaned_tips, cleaned_snodes, cleaned_kmers;
   Covg clean_snodes_thresh, clean_kmers_thresh;
-  boolean is_graph_intersection;
+  bool is_graph_intersection;
   StrBuf intersection_name;
 } ErrorCleaning;
 

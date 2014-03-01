@@ -10,26 +10,26 @@
 typedef struct
 {
   uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
-  uint64_t num_of_kmers; // version <=6 does not currently print this
   GraphInfo *ginfo; // Cleaning info etc for each colour
   size_t capacity; // number of ginfo objects malloc'd
 } GraphFileHeader;
 
 typedef struct
 {
+  FileFilter fltr;
   GraphFileHeader hdr;
   off_t hdr_size;
-  FileFilter fltr; // colour filter
+  uint64_t num_of_kmers; // only set if reading from file (i.e. not stream)
 } GraphFileReader;
 
 #define INIT_GRAPH_FILE_HDR_MACRO {                    \
   .version = CTX_GRAPH_FILEFORMAT,                     \
   .kmer_size = 0, .num_of_bitfields = NUM_BKMER_WORDS, \
-  .num_of_cols = 0, .num_of_kmers = 0, .capacity = 0}
+  .num_of_cols = 0, .capacity = 0}
 
-#define INIT_GRAPH_READER_MACRO {                  \
-  .hdr = INIT_GRAPH_FILE_HDR_MACRO, .hdr_size = 0, \
-  .fltr = INIT_FILE_FILTER_MACRO}
+#define INIT_GRAPH_READER_MACRO {                   \
+  .fltr = INIT_FILE_FILTER_MACRO, .num_of_kmers = 0,\
+  .hdr = INIT_GRAPH_FILE_HDR_MACRO, .hdr_size = 0}
 
 const GraphFileHeader INIT_GRAPH_FILE_HDR;
 const GraphFileReader INIT_GRAPH_READER;
@@ -52,10 +52,10 @@ const GraphFileReader INIT_GRAPH_READER;
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
-int graph_file_open(GraphFileReader *file, char *path, boolean fatal);
+int graph_file_open(GraphFileReader *file, char *path, bool fatal);
 
 // mode is "r", "r+" etc.
-int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
+int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
                      const char *mode);
 
 // Close file
@@ -69,11 +69,11 @@ void graph_file_dealloc(GraphFileReader *file);
 // prints warnings if dirty kmers in file
 // Beware: this function does not use file.intocol so you may wish to pass:
 //    graph_file_read(file, &bkmer, covgs+file.intocol, edges+file.intocol);
-boolean graph_file_read(const GraphFileReader *file,
+bool graph_file_read(const GraphFileReader *file,
                         BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // Returns true if one or more files passed loads data into colour
-boolean graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
+bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
                                     size_t num_files);
 
 #endif /* GRAPH_FILE_FILTER_H_ */

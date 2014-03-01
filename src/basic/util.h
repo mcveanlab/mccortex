@@ -23,8 +23,8 @@ char parse_entire_size(const char *str, size_t *result);
 
 size_t count_char(const char *str, char c);
 
-boolean bases_to_integer(const char *arg, size_t *bases);
-boolean mem_to_integer(const char *arg, size_t *bytes);
+bool bases_to_integer(const char *arg, size_t *bases);
+bool mem_to_integer(const char *arg, size_t *bytes);
 
 
 unsigned int num_of_digits(unsigned long num);

@@ -174,7 +174,7 @@ int ctx_extend(CmdArgs *args)
 
   bits_per_kmer = (sizeof(Edges) + 2*sizeof(uint64_t)) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.hdr.num_of_kmers, true, &graph_mem);
+                                        file.num_of_kmers, true, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 

@@ -80,7 +80,7 @@ int ctx_call(CmdArgs *args)
   for(i = 0; i < num_ref; i++) {
     if(ref_cols[i] >= gfile.hdr.num_of_cols) {
       cmd_print_usage("--ref <col> is greater than max colour [%zu > %u]",
-                  ref_cols[i], gfile.hdr.num_of_cols-1);
+                      ref_cols[i], gfile.hdr.num_of_cols-1);
     }
   }
 
@@ -115,7 +115,7 @@ int ctx_call(CmdArgs *args)
                   gfile.hdr.num_of_cols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gfile.hdr.num_of_kmers, false, &graph_mem);
+                                        gfile.num_of_kmers, false, &graph_mem);
 
   // Thread memory
   thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;

@@ -16,7 +16,7 @@ static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
 // ends:  ^           ^  ^   ^
 char* vcf_info_tag_end(char *str)
 {
-  boolean speechmrks = false;
+  bool speechmrks = false;
   for(; *str; str++) {
     if(*str == '"') speechmrks = !speechmrks;
     else if(*str == ';' && !speechmrks) return str;

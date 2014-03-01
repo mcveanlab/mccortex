@@ -127,7 +127,7 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 }
 
 // Using file so can call fseek and don't need to load whole graph
-static size_t inferedges_on_file(const dBGraph *db_graph, boolean add_all_edges,
+static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
   ctx_assert2(file->fltr.fh != stdin, "Use inferedges_on_stream() instead");
@@ -146,7 +146,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, boolean add_all_edges,
   Covg covgs[db_graph->num_of_cols];
 
   size_t num_nodes_modified = 0;
-  boolean updated;
+  bool updated;
   long edges_len = sizeof(Edges) * file->hdr.num_of_cols;
 
   while(graph_file_read(file, &bkmer, covgs, edges))
@@ -171,14 +171,14 @@ static size_t inferedges_on_file(const dBGraph *db_graph, boolean add_all_edges,
 
 // Using stream so no fseek - we've loaded all edges
 static void inferedges_on_stream_kmer(hkey_t hkey, const dBGraph *db_graph,
-                                      boolean add_all_edges,
+                                      bool add_all_edges,
                                       const GraphFileHeader *hdr, FILE *fout,
                                       size_t *num_nodes_modified)
 {
   BinaryKmer bkmer = db_node_bkmer(db_graph, hkey);
   Edges *edges = &db_node_edges(db_graph, hkey, 0);
   Covg *covgs = &db_node_covg(db_graph, hkey, 0);
-  boolean updated;
+  bool updated;
 
   updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
                            : infer_pop_edges(bkmer, edges, covgs, db_graph));
@@ -189,7 +189,7 @@ static void inferedges_on_stream_kmer(hkey_t hkey, const dBGraph *db_graph,
     (*num_nodes_modified)++;
 }
 
-static size_t inferedges_on_stream(const dBGraph *db_graph, boolean add_all_edges,
+static size_t inferedges_on_stream(const dBGraph *db_graph, bool add_all_edges,
                                    const GraphFileHeader *hdr, FILE *fout)
 {
   size_t num_nodes_modified = 0;
@@ -211,7 +211,7 @@ int ctx_infer_edges(CmdArgs *args)
   char **argv = args->argv;
   // Already checked that: 2<= argc <=3
 
-  boolean add_pop_edges = false, add_all_edges = false;
+  bool add_pop_edges = false, add_all_edges = false;
   while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
     if(strcmp(argv[0],"--all") == 0) {
       argc--; argv++; add_all_edges = true;
@@ -242,7 +242,7 @@ int ctx_infer_edges(CmdArgs *args)
   dBGraph db_graph;
   GraphFileReader file = INIT_GRAPH_READER;
   graph_file_open2(&file, path, true, "r+");
-  boolean reading_stream = (file.fltr.fh == stdin);
+  bool reading_stream = (file.fltr.fh == stdin);
 
   if(!file.fltr.nofilter)
     cmd_print_usage("Inferedges with filter not implemented - sorry");
@@ -259,7 +259,7 @@ int ctx_infer_edges(CmdArgs *args)
   extra_bits_per_kmer = file.hdr.num_of_cols * (1+8*reading_stream);
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        file.hdr.num_of_kmers, true, &graph_mem);
+                                        file.num_of_kmers, true, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 

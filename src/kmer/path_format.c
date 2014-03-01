@@ -57,7 +57,7 @@ void paths_header_update(PathFileHeader *header, const PathStore *paths)
 
 // Returns number of bytes read or -1 on error (if fatal is false)
 int paths_file_read_header(FILE *fh, PathFileHeader *h,
-                            boolean fatal, const char *path)
+                            bool fatal, const char *path)
 {
   int bytes_read = 0;
   char sig[6] = {0};
@@ -196,7 +196,7 @@ static void path_files_update_empty_sample_names(const PathFileReader *files,
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                       boolean insert_missing_kmers)
+                       bool insert_missing_kmers)
 {
   const PathFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
@@ -221,7 +221,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   size_t i;
   BinaryKmer bkmer;
   hkey_t hkey;
-  boolean found;
+  bool found;
   PathIndex pindex;
 
   // Load paths
@@ -260,13 +260,13 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
 static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
                                           PathIndex loadindex,
                                           size_t colset_bytes,
-                                          FileFilter *fltr, boolean find,
+                                          FileFilter *fltr, bool find,
                                           dBGraph *db_graph)
 {
   const uint8_t *packed;
   PathIndex pindex, new_pindex;
   PathLen pbytes;
-  boolean added = false;
+  bool added = false;
   PathStore *store = &db_graph->pdata;
 
   // Get paths this kmer already has
@@ -290,7 +290,7 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
 // db_graph.pdata must be big enough to hold all this data or we exit
 // tmpdata must be bigger than MAX(files[*].hdr.num_path_bytes)
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        boolean insert_missing_kmers, dBGraph *db_graph)
+                        bool insert_missing_kmers, dBGraph *db_graph)
 {
   if(num_files == 0) return;
 
@@ -312,7 +312,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   BinaryKmer bkey;
   hkey_t node;
   PathIndex tmpindex;
-  boolean found, find = true;
+  bool found, find = true;
   size_t i, k, colbytes, first_file = 0;
 
   // Update sample names of the graph

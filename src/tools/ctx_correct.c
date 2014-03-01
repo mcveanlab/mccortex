@@ -61,7 +61,7 @@ typedef struct {
 } CorrectReadsWorker;
 
 // Returns true on success, false on error
-static boolean corrected_output_open(CorrectedOutput *out,
+static bool corrected_output_open(CorrectedOutput *out,
                                      CorrectAlnReadsTask *in)
 {
   out->gz1 = out->gz2 = NULL;
@@ -90,7 +90,7 @@ static boolean corrected_output_open(CorrectedOutput *out,
     strbuf_append_str(out1, ".1.fa.gz");
     strbuf_append_str(out2, ".2.fa.gz");
 
-    boolean fexists = false;
+    bool fexists = false;
     if(futil_file_exists(out1->buff)) {
       warn("File already exists: %s", out1->buff);
       fexists = true;
@@ -379,7 +379,7 @@ int ctx_correct(CmdArgs *args)
                                gfiles[i].fltr.intocol + ctx_total_cols);
 
     ctx_total_cols = graph_file_usedcols(&gfiles[i]);
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].hdr.num_of_kmers);
+    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
   }
 
   //

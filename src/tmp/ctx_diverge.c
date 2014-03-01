@@ -194,7 +194,7 @@ int ctx_diverge(CmdArgs *args)
   input_ctx_path = argv[2];
 
   // Probe ctx
-  boolean is_binary = false;
+  bool is_binary = false;
   GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(input_ctx_path, &is_binary, &gheader))

@@ -15,7 +15,7 @@ typedef struct
 // GraphWalker wlk is proposing node and orient as next move
 // We determine if it is safe to make the traversal without getting stuck in
 // a loop/cycle in the graph
-static inline boolean rpt_walker_attempt_traverse(RepeatWalker *rpt,
+static inline bool rpt_walker_attempt_traverse(RepeatWalker *rpt,
                                                   const GraphWalker *wlk)
 {
   if(!db_node_has_traversed(rpt->visited, wlk->node)) {
@@ -24,7 +24,7 @@ static inline boolean rpt_walker_attempt_traverse(RepeatWalker *rpt,
   }
   else {
     uint64_t h0, h1, hash64 = graph_walker_hash64(wlk);
-    boolean collision;
+    bool collision;
     h0 = hash64 & rpt->mask;
     h1 = (hash64 >> rpt->bloom_nbits) & rpt->mask;
     collision = bitset_get(rpt->bloom, h0) && bitset_get(rpt->bloom, h1);

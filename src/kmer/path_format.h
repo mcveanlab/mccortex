@@ -28,7 +28,7 @@ void paths_header_update(PathFileHeader *header, const PathStore *paths);
 
 // Returns number of bytes read or -1 on error (if fatal == false)
 int paths_file_read_header(FILE *fh, PathFileHeader *header,
-                           boolean fatal, const char *path);
+                           bool fatal, const char *path);
 
 // Get min number of colours needed to load the files
 size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files);
@@ -40,11 +40,11 @@ size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                       boolean insert_missing_kmers);
+                       bool insert_missing_kmers);
 
 // db_graph.pdata must be big enough to hold all this data or we exit
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        boolean insert_missing_kmers, dBGraph *db_graph);
+                        bool insert_missing_kmers, dBGraph *db_graph);
 
 //
 // Write

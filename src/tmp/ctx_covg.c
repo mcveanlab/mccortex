@@ -12,7 +12,7 @@ const char ctx_usage[] =
 "usage: "CMD" covg [options] <in.ctx> <input.vcf> <out.vcf>\n"
 "  Print coverage on some input file\n";
 
-static int parse_vcf_header(StrBuf *line, gzFile vcf, boolean print,
+static int parse_vcf_header(StrBuf *line, gzFile vcf, bool print,
                             const char *in_vcf_path)
 {
   while(strbuf_gzreadline_nonempty(line, vcf) > 0)
@@ -33,7 +33,7 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
   BinaryKmer bkmer, bkey;
   Nucleotide nuc;
   size_t next_base;
-  boolean found;
+  bool found;
   size_t kmer_size = db_graph->kmer_size;
 
   bkmer = binary_kmer_from_str(contig, kmer_size);
@@ -65,7 +65,7 @@ int ctx_covg(CmdArgs *args)
   out_vcf_path = argv[2];
 
   // Probe binary
-  boolean is_binary = false;
+  bool is_binary = false;
   GraphFileHeader gheader = INIT_GRAPH_FILE_HDR;
 
   if(!graph_file_probe(in_ctx_path, &is_binary, &gheader))

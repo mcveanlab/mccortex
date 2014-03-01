@@ -37,8 +37,8 @@ static inline void file_filter_capacity(FileFilter *file, size_t ncolscap)
 // Does not read any bytes from file, but does open it
 // returns true on success
 // on failure will call die (if fatal == true) or return 0 (if fatal == false)
-boolean file_filter_alloc(FileFilter *fltr, char *path,
-                          const char *mode, boolean fatal)
+bool file_filter_alloc(FileFilter *fltr, char *path,
+                          const char *mode, bool fatal)
 {
   char *path_start, *path_end, path_lchar;
 

@@ -14,12 +14,12 @@
 typedef struct
 {
   dBGraph *db_graph;
-  boolean boolean_covgs; // Update covg by at most 1
-  boolean must_exist_in_graph;
+  bool boolean_covgs; // Update covg by at most 1
+  bool must_exist_in_graph;
   const Edges *must_exist_in_edges;
   // if empty_colours is true an error is thrown if a kmer from a graph file
   // is already in the graph
-  boolean empty_colours;
+  bool empty_colours;
 } GraphLoadingPrefs;
 
 #define LOAD_GPREFS_INIT(graph) {  \
@@ -46,7 +46,7 @@ void graph_reader_merge_headers(GraphFileHeader *hdr,
 // path is used when reporting errors
 // Note: Doesn't set num_of_kmers if version < 7
 int graph_file_read_header(FILE *fh, GraphFileHeader *header,
-                           boolean fatal, const char *path);
+                           bool fatal, const char *path);
 
 // Returns number of bytes read
 size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
@@ -87,7 +87,7 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
 
 size_t graph_files_merge(const char *out_ctx_path,
                          GraphFileReader *files, size_t num_files,
-                         boolean kmers_loaded, boolean colours_loaded,
+                         bool kmers_loaded, bool colours_loaded,
                          const Edges *only_load_if_in_edges,
                          GraphFileHeader *hdr, dBGraph *db_graph);
 
@@ -96,7 +96,7 @@ size_t graph_files_merge(const char *out_ctx_path,
 // returns number of kmers written
 size_t graph_files_merge_mkhdr(const char *out_ctx_path,
                                GraphFileReader *files, size_t num_files,
-                               boolean kmers_loaded, boolean colours_loaded,
+                               bool kmers_loaded, bool colours_loaded,
                                const Edges *only_load_if_in_edges,
                                const char *intersect_gname, dBGraph *db_graph);
 

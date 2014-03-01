@@ -103,7 +103,7 @@ void graph_walker_dealloc(GraphWalker *wlk)
 // Returns number of paths picked up
 // next_nuc only used if counter == true and node has out-degree > 1
 static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
-                                  boolean counter, Nucleotide next_nuc)
+                                  bool counter, Nucleotide next_nuc)
 {
   // printf("pickup %s paths from: %zu:%i\n", counter ? "counter" : "curr",
   //        (size_t)index, orient);
@@ -116,7 +116,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
   PathLen plen;
   Orientation porient;
   const uint8_t *path, *seq;
-  boolean cntr_filter_nuc0 = false;
+  bool cntr_filter_nuc0 = false;
 
   if(counter) {
     // cntr_filter_nuc0 is needed for picking up counter paths with outdegree > 1
@@ -460,7 +460,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
 
 
 static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
-                                       BinaryKmer bkmer, boolean is_fork)
+                                       BinaryKmer bkmer, bool is_fork)
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
 
@@ -566,7 +566,7 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
 }
 
 void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
-                          boolean is_fork)
+                          bool is_fork)
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
   BinaryKmer bkmer;
@@ -589,7 +589,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   _graph_walker_pickup_counter_paths(wlk, lost_nuc);
 }
 
-boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
+bool graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
                              const dBNode nodes[4], const Nucleotide bases[4])
 {
   wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
@@ -601,7 +601,7 @@ boolean graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
 }
 
 // return 1 on success, 0 otherwise
-boolean graph_traverse(GraphWalker *wlk)
+bool graph_traverse(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
   Edges edges = db_node_get_edges(db_graph, wlk->node.key, 0);
@@ -623,7 +623,7 @@ boolean graph_traverse(GraphWalker *wlk)
 
 // Fast traverse - avoid a bkmer_revcmp
 static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
-                                     const dBNode next_node, boolean is_fork)
+                                     const dBNode next_node, bool is_fork)
 {
   const size_t kmer_size = wlk->db_graph->kmer_size;
   BinaryKmer bkmer, bkey;
@@ -653,14 +653,14 @@ static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
 // graph_traverse or graph_traverse_nodes
 // i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
-                                boolean forward)
+                                bool forward)
 {
   if(n == 0) return;
   // Only one colour should be loaded
   ctx_assert(wlk->db_graph->num_of_cols == 1);
 
   size_t i;
-  boolean infork[3] = {false, false, false}, outfork[3] = {false, false, false};
+  bool infork[3] = {false, false, false}, outfork[3] = {false, false, false};
   Edges edges;
   dBNode nodes[3];
 
@@ -704,10 +704,10 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 // Traversal of every node in a list of nodes using the supplied GraphWalker
 // Visits each node specifed
 void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
-                                boolean forward)
+                                bool forward)
 {
   Edges edges;
-  boolean is_fork;
+  bool is_fork;
   dBNode next;
   Nucleotide nuc;
   size_t i;
@@ -724,7 +724,7 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
 void graph_walker_prime(GraphWalker *wlk,
                         const dBNode *block, size_t n,
-                        size_t max_context, boolean forward,
+                        size_t max_context, bool forward,
                         size_t ctxcol, size_t ctpcol,
                         const dBGraph *db_graph)
 {

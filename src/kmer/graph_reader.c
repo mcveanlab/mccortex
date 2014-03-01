@@ -41,7 +41,6 @@ void graph_header_print(const GraphFileHeader *header)
   printf("  kmer_size: %u\n", header->kmer_size);
   printf("  num_of_bitfields: %u\n", header->num_of_bitfields);
   printf("  num_of_cols: %u\n", header->num_of_cols);
-  printf("  num_of_kmers: %zu\n", (size_t)header->num_of_kmers);
   printf("  [capacity: %zu]\n", header->capacity);
 }
 
@@ -52,7 +51,6 @@ void graph_header_global_cpy(GraphFileHeader *dst, const GraphFileHeader *src)
   dst->kmer_size = src->kmer_size;
   dst->num_of_bitfields = src->num_of_bitfields;
   dst->num_of_cols = src->num_of_cols;
-  dst->num_of_kmers = src->num_of_kmers;
   graph_header_alloc(dst, src->num_of_cols);
   // size_t i;
   // for(i = 0; i < src->num_of_cols; i++)
@@ -92,7 +90,7 @@ void graph_reader_merge_headers(GraphFileHeader *hdr,
 // Return number of bytes read or -1 if not valid
 // Note: Doesn't set num_of_kmers if version < 7
 int graph_file_read_header(FILE *fh, GraphFileHeader *h,
-                           boolean fatal, const char *path)
+                           bool fatal, const char *path)
 {
   size_t i;
   int bytes_read = 0;
@@ -156,18 +154,6 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
 
   // graph_header_alloc will only alloc or realloc if it needs to
   graph_header_alloc(h, h->num_of_cols);
-
-  if(h->version >= 7)
-  {
-    SAFE_READ(fh, &h->num_of_kmers, sizeof(uint64_t), "number of kmers", path, fatal);
-    uint32_t tmp;
-    SAFE_READ(fh, &tmp, sizeof(uint32_t), "number of shades", path, fatal);
-    bytes_read += sizeof(uint64_t) + sizeof(uint32_t);
-
-    if((tmp & 0x7) != 0) {
-      warn("Number of shades is not a multiple of 8 [path: %s]", path);
-    }
-  }
 
   // Assume to be graph file now, any error is therefore fatal
 
@@ -302,31 +288,6 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   }
   bytes_read += strlen("CORTEX");
 
-  // If we haven't set num_of_kmers set it now using file size
-  if(h->version < 7) h->num_of_kmers = 0;
-  /*
-  if(h->version < 7)
-  {
-    off_t file_size = futil_get_file_size(path);
-    size_t bytes_remaining = file_size - bytes_read;
-    size_t shade_bytes = 0;
-
-    // 2 * num_shade_bytes for shade + shade end data
-    size_t num_bytes_per_kmer
-      = sizeof(uint64_t) * NUM_BKMER_WORDS +
-        sizeof(uint32_t) * h->num_of_cols + // coverage
-        sizeof(uint8_t) * h->num_of_cols + // edges
-        sizeof(uint8_t) * shade_bytes * 2; // shades
-
-    h->num_of_kmers = bytes_remaining / num_bytes_per_kmer;
-
-    if(num_bytes_per_kmer * h->num_of_kmers != bytes_remaining) {
-      if(!fatal) return -1;
-      die("Irregular size of graph file (corrupted?): %s", path);
-    }
-  }
-  */
-
   return bytes_read;
 }
 
@@ -360,11 +321,10 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 // Print some output
 static void graph_loading_print_status(const GraphFileReader *file)
 {
-  const GraphFileHeader *hdr = &file->hdr;
   const FileFilter *fltr = &file->fltr;
   char nkmers_str[100], filesize_str[100];
 
-  ulong_to_str(hdr->num_of_kmers, nkmers_str);
+  ulong_to_str(file->num_of_kmers, nkmers_str);
   bytes_to_str(fltr->file_size, 1, filesize_str);
 
   file_filter_status(fltr);
@@ -462,7 +422,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     }
     else
     {
-      boolean found;
+      bool found;
       node = hash_table_find_or_insert(&graph->ht, bkmer, &found);
 
       if(prefs.empty_colours && found)
@@ -500,10 +460,10 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     num_of_kmers_loaded++;
   }
 
-  if(nkmers_parsed != hdr->num_of_kmers)
+  if(file->num_of_kmers && nkmers_parsed != file->num_of_kmers)
   {
     warn("More kmers in graph than expected [expected: %zu; actual: %zu; "
-         "path: %s]", (size_t)hdr->num_of_kmers, nkmers_parsed,
+         "path: %s]", (size_t)file->num_of_kmers, nkmers_parsed,
         fltr->file_path.buff);
   }
 
@@ -533,7 +493,7 @@ size_t graph_load_colour(GraphFileReader *file,
                          size_t colour_idx, size_t intocol)
 {
   size_t *tmpcols, tmpncols, tmpinto, newcol;
-  boolean tmpflatten;
+  bool tmpflatten;
   FileFilter *fltr = &file->fltr;
 
   ctx_assert(colour_idx < fltr->ncols);
@@ -576,7 +536,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
                            const Edges *only_load_if_in_edges)
 {
   const FileFilter *fltr = &file->fltr;
-  boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
+  bool only_load_if_in_graph = (only_load_if_in_edges != NULL);
   status("Filtering %s to %s with stream filter", fltr->file_path.buff,
          strcmp(out_ctx_path,"-") == 0 ? "STDOUT" : out_ctx_path);
 
@@ -674,11 +634,11 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
 //   should already be set
 size_t graph_files_merge(const char *out_ctx_path,
                          GraphFileReader *files, size_t num_files,
-                         boolean kmers_loaded, boolean colours_loaded,
+                         bool kmers_loaded, bool colours_loaded,
                          const Edges *only_load_if_in_edges,
                          GraphFileHeader *hdr, dBGraph *db_graph)
 {
-  boolean only_load_if_in_graph = (only_load_if_in_edges != NULL);
+  bool only_load_if_in_graph = (only_load_if_in_edges != NULL);
   ctx_assert(!only_load_if_in_graph || kmers_loaded);
   ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   ctx_assert(!colours_loaded || kmers_loaded);
@@ -749,7 +709,7 @@ size_t graph_files_merge(const char *out_ctx_path,
     // Load all kmers into flat graph
     if(!kmers_loaded)
     {
-      size_t tmpinto; boolean tmpflatten;
+      size_t tmpinto; bool tmpflatten;
       for(i = 0; i < num_files; i++)
       {
         tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
@@ -773,7 +733,7 @@ size_t graph_files_merge(const char *out_ctx_path,
 
     for(firstcol = 0; firstcol < output_colours; firstcol += db_graph->num_of_cols)
     {
-      boolean loaded = false;
+      bool loaded = false;
       lastcol = MIN2(firstcol + db_graph->num_of_cols - 1, output_colours-1);
 
       // Wipe colour coverages and edges
@@ -859,7 +819,7 @@ size_t graph_files_merge(const char *out_ctx_path,
 // returns the number of kmers written
 size_t graph_files_merge_mkhdr(const char *out_ctx_path,
                                GraphFileReader *files, size_t num_files,
-                               boolean kmers_loaded, boolean colours_loaded,
+                               bool kmers_loaded, bool colours_loaded,
                                const Edges *only_load_if_in_edges,
                                const char *intersect_gname, dBGraph *db_graph)
 {

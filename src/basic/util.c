@@ -84,7 +84,7 @@ size_t count_char(const char *str, char c)
   return count;
 }
 
-boolean bases_to_integer(const char *arg, size_t *bases)
+bool bases_to_integer(const char *arg, size_t *bases)
 {
   char *endptr;
   double num = strtod(arg, &endptr);
@@ -103,7 +103,7 @@ boolean bases_to_integer(const char *arg, size_t *bases)
 
 // Convert string to unit size e.g. KB -> 2^10, TB -> 2^40
 // Returns 1 on sucess, 0 on failure
-boolean mem_to_integer(const char *arg, size_t *bytes)
+bool mem_to_integer(const char *arg, size_t *bytes)
 {
   char *endptr;
   unsigned long num = strtoul(arg, &endptr, 10);

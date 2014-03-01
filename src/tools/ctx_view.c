@@ -21,7 +21,7 @@ const char view_usage[] =
 "\n"
 " Default is [--info --check]\n";
 
-static void print_header(GraphFileHeader *h)
+static void print_header(GraphFileHeader *h, size_t num_of_kmers)
 {
   printf("version: %u\n", h->version);
   printf("kmer size: %u\n", h->kmer_size);
@@ -29,7 +29,7 @@ static void print_header(GraphFileHeader *h)
   printf("colours: %u\n", h->num_of_cols);
 
   char num_kmers_str[50];
-  ulong_to_str(h->num_of_kmers, num_kmers_str);
+  ulong_to_str(num_of_kmers, num_kmers_str);
   printf("number of kmers: %s\n", num_kmers_str);
   printf("----\n");
 
@@ -84,7 +84,7 @@ int ctx_view(CmdArgs *args)
   char **argv = args->argv;
   // Already checked that we have at least 1 argument
 
-  boolean print_info = false, parse_kmers = false, print_kmers = false;
+  bool print_info = false, parse_kmers = false, print_kmers = false;
   size_t num_errors = 0, num_warnings = 0;
   int argi;
 
@@ -133,7 +133,7 @@ int ctx_view(CmdArgs *args)
 
   // Print header
   if(print_info)
-    print_header(&outheader);
+    print_header(&outheader, file.num_of_kmers);
 
   BinaryKmer bkmer;
   Covg covgs[ncols];
@@ -206,9 +206,9 @@ int ctx_view(CmdArgs *args)
   {
     // file_size is set to -1 if we are reading from a stream,
     // therefore won't be able to check number of kmers read
-    if(file.fltr.file_size != -1 && num_kmers_read != file.hdr.num_of_kmers) {
+    if(file.fltr.file_size != -1 && num_kmers_read != file.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
-                      (size_t)file.hdr.num_of_kmers, (size_t)num_kmers_read);
+                      (size_t)file.num_of_kmers, (size_t)num_kmers_read);
     }
 
     if(num_all_zero_kmers > 1)
@@ -238,7 +238,7 @@ int ctx_view(CmdArgs *args)
     uint64_t mem, capacity, num_buckets, req_capacity;
     uint8_t bucket_size;
 
-    req_capacity = (size_t)(outheader.num_of_kmers / IDEAL_OCCUPANCY);
+    req_capacity = (size_t)(file.num_of_kmers / IDEAL_OCCUPANCY);
     capacity = hash_table_cap(req_capacity, &num_buckets, &bucket_size);
     mem = ht_mem(bucket_size, num_buckets, ncols*(sizeof(Covg)+sizeof(Edges))/8);
 

@@ -35,7 +35,7 @@ int ctx_pjoin(CmdArgs *args)
   // if(args->num_kmers_set && args->input_file_set)
   //   cmd_print_usage("Please specify only ONE of -n <num-kmers> or -f <in.ctx>");
 
-  boolean overlap = false, flatten = false;
+  bool overlap = false, flatten = false;
   size_t output_ncols = 0;
   int argi;
 
@@ -132,7 +132,7 @@ int ctx_pjoin(CmdArgs *args)
            gfile.hdr.kmer_size, pfiles[0].hdr.kmer_size,
            gfile.fltr.file_path.buff, pfiles[0].fltr.file_path.buff);
     }
-    num_kmers = MAX2(num_kmers, gfile.hdr.num_of_kmers);
+    num_kmers = MAX2(num_kmers, gfile.num_of_kmers);
   }
 
   if(args->num_kmers_set && args->num_kmers < num_kmers) {
@@ -197,7 +197,7 @@ int ctx_pjoin(CmdArgs *args)
   paths_header_alloc(&pheader, output_ncols);
 
   // Load path files
-  boolean add_kmers = true;
+  bool add_kmers = true;
   paths_format_merge(pfiles, num_pfiles, add_kmers, &db_graph);
 
   for(i = 0; i < num_pfiles; i++)

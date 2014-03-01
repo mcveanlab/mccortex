@@ -113,7 +113,7 @@ PathIndex path_store_add_packed(PathStore *store, PathIndex last_index,
 // Returns match PathIndex if found, otherwise PATH_NULL
 PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
                                         const uint8_t *packed, size_t path_nbytes,
-                                        boolean *inserted)
+                                        bool *inserted)
 {
   size_t i;
   // query points to <PathLen><PackedSeq>
@@ -141,7 +141,7 @@ PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
 static inline
 PathIndex _path_store_find_or_add_packed(PathStore *store, PathIndex last_index,
                                          const uint8_t *packed, size_t path_nbytes,
-                                         boolean find, boolean *added)
+                                         bool find, bool *added)
 {
   if(find) {
     *added = false;
@@ -157,8 +157,8 @@ PathIndex _path_store_find_or_add_packed(PathStore *store, PathIndex last_index,
 // Returns PATH_NULL if no colours set in colour subset
 PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
                                          const uint8_t *packed, size_t path_nbytes,
-                                         const FileFilter *fltr, boolean find,
-                                         boolean *added)
+                                         const FileFilter *fltr, bool find,
+                                         bool *added)
 {
   size_t i, intocol, fromcol, tmp;
   const size_t packed_bitset_bytes = roundup_bits2bytes(fltr->filencols);
@@ -215,7 +215,7 @@ PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
 PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
                                  PathLen len, const Nucleotide *bases,
                                  Orientation orient, Colour colour,
-                                 boolean *added)
+                                 bool *added)
 {
   // We add the path the end of the paths and then check if it is a duplicate
   // this is done because we need to pack the bases into somewhere first anyway
@@ -321,7 +321,7 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
 //
 
 // Check data if exactly filled by packed paths
-boolean path_store_data_integrity_check(const uint8_t *data, size_t size,
+bool path_store_data_integrity_check(const uint8_t *data, size_t size,
                                         size_t colbytes)
 {
   const uint8_t *ptr = data, *end = data+size;
@@ -342,7 +342,7 @@ boolean path_store_data_integrity_check(const uint8_t *data, size_t size,
   return true;
 }
 
-boolean path_store_integrity_check(const PathStore *pstore)
+bool path_store_integrity_check(const PathStore *pstore)
 {
   check_ret2(pstore->end >= pstore->next,
              "%p, %p, %p", pstore->store, pstore->end, pstore->next);

@@ -139,7 +139,7 @@ static inline
 const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const htable,
                                                    uint_fast32_t bucket,
                                                    const BinaryKmer bkmer,
-                                                   boolean *found)
+                                                   bool *found)
 {
   const BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
   const BinaryKmer *end = ptr + htable->buckets[bucket][HT_BSIZE];
@@ -266,7 +266,7 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
 }
 
 hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
-                                 boolean *found)
+                                 bool *found)
 {
   const BinaryKmer *ptr;
   size_t i;
@@ -308,7 +308,7 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
 }
 
 hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
-                                    boolean *found, volatile uint8_t *bktlocks)
+                                    bool *found, volatile uint8_t *bktlocks)
 {
   const BinaryKmer *ptr;
   size_t i;

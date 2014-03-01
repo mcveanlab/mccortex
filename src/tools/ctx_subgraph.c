@@ -37,7 +37,7 @@ int ctx_subgraph(CmdArgs *args)
 
   seq_file_t *seed_files[argc/2];
   size_t num_seed_files = 0;
-  boolean invert = false;
+  bool invert = false;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
@@ -90,7 +90,7 @@ int ctx_subgraph(CmdArgs *args)
     total_cols += graph_file_usedcols(&gfiles[i]);
     file_filter_update_intocol(&gfiles[i].fltr, gfiles[i].fltr.intocol + offset);
 
-    max_num_kmers = MAX2(gfiles[i].hdr.num_of_kmers, max_num_kmers);
+    max_num_kmers = MAX2(gfiles[i].num_of_kmers, max_num_kmers);
   }
 
   //
@@ -155,7 +155,7 @@ int ctx_subgraph(CmdArgs *args)
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
-  size_t tmpinto; boolean tmpflatten;
+  size_t tmpinto; bool tmpflatten;
   for(i = 0; i < num_gfiles; i++) {
     tmpinto = gfiles[i].fltr.intocol;
     tmpflatten = gfiles[i].fltr.flatten;
@@ -192,8 +192,8 @@ int ctx_subgraph(CmdArgs *args)
 
   // Dump nodes that were flagged
   Edges *intersect_edges = NULL;
-  boolean kmers_loaded = true;
-  boolean colours_loaded = (total_cols <= db_graph.num_of_cols);
+  bool kmers_loaded = true;
+  bool colours_loaded = (total_cols <= db_graph.num_of_cols);
 
   if(!colours_loaded)
   {

@@ -6,7 +6,7 @@
 const PathFileHeader INIT_PATH_FILE_HDR = INIT_PATH_FILE_HDR_MACRO;
 const PathFileReader INIT_PATH_READER = INIT_PATH_READER_MACRO;
 
-int path_file_open(PathFileReader *file, char *path, boolean fatal)
+int path_file_open(PathFileReader *file, char *path, bool fatal)
 {
   return path_file_open2(file, path, fatal, "r");
 }
@@ -16,7 +16,7 @@ int path_file_open(PathFileReader *file, char *path, boolean fatal)
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new PathFileReader and returns 1
-int path_file_open2(PathFileReader *file, char *path, boolean fatal,
+int path_file_open2(PathFileReader *file, char *path, bool fatal,
                     const char *mode)
 {
   PathFileHeader *hdr = &file->hdr;

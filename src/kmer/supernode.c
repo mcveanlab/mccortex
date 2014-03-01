@@ -24,7 +24,7 @@ void supernode_reverse(dBNode *nlist, size_t len)
   nlist[j] = db_node_reverse(tmp);
 }
 
-static boolean supernode_is_closed_cycle(const dBNode *nlist, size_t len,
+static bool supernode_is_closed_cycle(const dBNode *nlist, size_t len,
                                          BinaryKmer bkmer0, BinaryKmer bkmer1,
                                          const dBGraph *db_graph)
 {
@@ -103,7 +103,7 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 // Walk along nodes starting from node/or, storing the supernode in nlist
 // Returns the number of nodes added, adds no more than `limit`
 // return false if out of space and limit > 0
-boolean supernode_extend(dBNodeBuffer *nbuf, size_t limit,
+bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
                          const dBGraph *db_graph)
 {
   ctx_assert(nbuf->len > 0);

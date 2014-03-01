@@ -64,7 +64,7 @@ Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph)
   return edges;
 }
 
-boolean edges_has_precisely_one_edge(Edges edges, Orientation orientation,
+bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide)
 {
   edges = edges_with_orientation(edges, orientation);
@@ -338,7 +338,7 @@ void db_nodes_print_edges(const dBNode *nodes, size_t num,
 // Integrity checks
 //
 // Check an array of nodes denote a contigous path
-boolean db_node_check_nodes(const dBNode *nodes, size_t num,
+bool db_node_check_nodes(const dBNode *nodes, size_t num,
                             const dBGraph *db_graph)
 {
   if(num == 0) return true;

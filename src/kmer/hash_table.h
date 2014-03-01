@@ -56,11 +56,11 @@ void hash_table_dealloc(HashTable *hash_table);
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer bkmer);
 hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer bkmer);
 hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer bkmer,
-                                 boolean *found);
+                                 bool *found);
 
 // Threadsafe find or insert, using bucket level locks
 hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
-                                    boolean *found, volatile uint8_t *bktlocks);
+                                    bool *found, volatile uint8_t *bktlocks);
 
 void hash_table_delete(HashTable *const htable, hkey_t pos);
 

@@ -57,7 +57,7 @@ int ctx_join(CmdArgs *args)
   // Already checked we have at least 2 arguments
 
   char *out_ctx_path;
-  boolean overlap = false, flatten = false;
+  bool overlap = false, flatten = false;
 
   int argi;
   size_t num_intersect = 0;
@@ -131,7 +131,7 @@ int ctx_join(CmdArgs *args)
     ncols = graph_file_usedcols(&files[i]);
     max_cols = MAX2(max_cols, ncols);
     sum_cols += ncols;
-    ctx_max_kmers = MAX2(ctx_max_kmers, files[i].hdr.num_of_kmers);
+    ctx_max_kmers = MAX2(ctx_max_kmers, files[i].num_of_kmers);
   }
 
   if(flatten) total_cols = 1;
@@ -158,17 +158,17 @@ int ctx_join(CmdArgs *args)
 
     intersect_files[i].fltr.flatten = true;
 
-    if(i == 0) min_intersect_num_kmers = intersect_files[i].hdr.num_of_kmers;
-    else if(intersect_files[i].hdr.num_of_kmers < min_intersect_num_kmers)
+    if(i == 0) min_intersect_num_kmers = intersect_files[i].num_of_kmers;
+    else if(intersect_files[i].num_of_kmers < min_intersect_num_kmers)
     {
       // Put smallest intersection binary first
       GraphFileReader tmp;
       SWAP(intersect_files[i], intersect_files[0], tmp);
-      min_intersect_num_kmers = intersect_files[i].hdr.num_of_kmers;
+      min_intersect_num_kmers = intersect_files[i].num_of_kmers;
     }
   }
 
-  boolean take_intersect = (num_intersect > 0);
+  bool take_intersect = (num_intersect > 0);
 
   if(take_intersect)
     ctx_max_kmers = min_intersect_num_kmers;
@@ -280,7 +280,7 @@ int ctx_join(CmdArgs *args)
     db_graph.col_edges += db_graph.ht.capacity;
   }
 
-  boolean kmers_loaded = take_intersect, colours_loaded = false;
+  bool kmers_loaded = take_intersect, colours_loaded = false;
 
   graph_files_merge_mkhdr(out_ctx_path, files, num_graphs,
                           kmers_loaded, colours_loaded, intersect_edges,

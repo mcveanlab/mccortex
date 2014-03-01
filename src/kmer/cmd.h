@@ -8,15 +8,15 @@ typedef struct
 {
   char *cmdline;
   int cmdidx; // command specified
-  boolean print_help;
+  bool print_help;
   // kmer, mem, ncols
-  boolean num_kmers_set, mem_to_use_set, kmer_size_set, num_threads_set, use_ncols_set;
+  bool num_kmers_set, mem_to_use_set, kmer_size_set, num_threads_set, use_ncols_set;
   size_t num_kmers, mem_to_use, kmer_size, use_ncols;
   // Threads
-  boolean max_io_threads_set, max_work_threads_set;
+  bool max_io_threads_set, max_work_threads_set;
   size_t max_io_threads, max_work_threads;
   // Input/output files
-  boolean input_file_set, output_file_set;
+  bool input_file_set, output_file_set;
   char *input_file, *output_file;
   // ctp files
   size_t num_ctp_files;
@@ -56,7 +56,7 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
 // BinaryKmers
 // Resulting graph_mem is always < args->mem_to_use
 size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
-                             size_t min_num_kmers, boolean use_mem_limit,
+                             size_t min_num_kmers, bool use_mem_limit,
                              size_t *graph_mem_ptr);
 
 // Check memory against args->mem_to_use and total RAM

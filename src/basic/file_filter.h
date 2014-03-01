@@ -16,9 +16,9 @@ typedef struct
   size_t ncols; // number of colours being read from file
   size_t *cols, ncolscap; // array of colours to load of length ncols
   size_t filencols; // number of colours in file
-  boolean flatten; // Merge all colours into intocol
+  bool flatten; // Merge all colours into intocol
   off_t file_size;
-  boolean nofilter;
+  bool nofilter;
 } FileFilter;
 
 #define INIT_FILE_FILTER_MACRO {                                               \
@@ -39,8 +39,8 @@ typedef struct
 // Does not read any bytes from file, but does open it
 // returns true on success
 // on failure will call die (if fatal == true) or return 0 (if fatal == false)
-boolean file_filter_alloc(FileFilter *file, char *path,
-                          const char *mode, boolean fatal);
+bool file_filter_alloc(FileFilter *file, char *path,
+                          const char *mode, bool fatal);
 
 // Set nummber of colours in the file
 void file_filter_set_cols(FileFilter *fltr, size_t filencols);

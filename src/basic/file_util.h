@@ -11,15 +11,15 @@
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
 char futil_mkpath(const char *path, mode_t mode);
 
-boolean futil_file_exists(const char *file);
+bool futil_file_exists(const char *file);
 
-boolean futil_is_file_readable(const char *file);
+bool futil_is_file_readable(const char *file);
 // Creates file if it can write
-boolean futil_is_file_writable(const char *file);
+bool futil_is_file_writable(const char *file);
 off_t futil_get_file_size(const char* filepath);
 
 // Open a new output file with unused name
-boolean futil_generate_filename(const char *base_fmt, StrBuf *str);
+bool futil_generate_filename(const char *base_fmt, StrBuf *str);
 void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
 char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 

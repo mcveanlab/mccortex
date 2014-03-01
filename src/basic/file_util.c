@@ -58,12 +58,12 @@ char futil_mkpath(const char *path, mode_t mode)
   return status;
 }
 
-boolean futil_file_exists(const char *file)
+bool futil_file_exists(const char *file)
 {
   return (access(file, F_OK) != -1);
 }
 
-boolean futil_is_file_readable(const char *file)
+bool futil_is_file_readable(const char *file)
 {
   FILE *fp = fopen(file, "r");
   if(fp == NULL) return false;
@@ -72,7 +72,7 @@ boolean futil_is_file_readable(const char *file)
 }
 
 // Creates file if it can write
-boolean futil_is_file_writable(const char *file)
+bool futil_is_file_writable(const char *file)
 {
   FILE *fp = fopen(file, "a");
   if(fp == NULL) return false;
@@ -93,7 +93,7 @@ off_t futil_get_file_size(const char* filepath)
   return -1;
 }
 
-boolean futil_generate_filename(const char *base_fmt, StrBuf *str)
+bool futil_generate_filename(const char *base_fmt, StrBuf *str)
 {
   int i;
 

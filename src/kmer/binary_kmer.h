@@ -64,7 +64,7 @@ extern const BinaryKmer zero_bkmer;
 #else /* NUM_BKMER_WORDS > 2 */
   #define binary_kmers_are_equal(x,y) (binary_kmers_cmp(&(x),&(y)) == 0)
   #define binary_kmer_is_zero(x)      binary_kmers_are_equal((x), zero_bkmer)
-  boolean binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
+  bool binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
 #endif
 
 #define binary_kmer_oversized(bk,k)  ((bk).b[0] & ~(uint64_t)0<<BKMER_TOP_BITS(k))

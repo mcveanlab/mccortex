@@ -34,10 +34,10 @@ typedef struct {
   gzFile out1, out2;
   size_t num_of_reads_printed;
   void (*print)(const read_t *r, gzFile gz, size_t linewrap);
-  boolean invert;
+  bool invert;
 } AlignReadsData;
 
-static void get_out_path(char *path, size_t len, boolean use_fq, int pe_num)
+static void get_out_path(char *path, size_t len, bool use_fq, int pe_num)
 {
   if(pe_num == 0) {
     memcpy(path+len, use_fq ? ".fq.gz" : ".fa.gz", 6);
@@ -47,7 +47,7 @@ static void get_out_path(char *path, size_t len, boolean use_fq, int pe_num)
     sprintf(path+len, use_fq ? ".%i.fq.gz" : ".%i.fa.gz", pe_num);
 }
 
-static void check_outfile_exists(char *outbase, boolean is_pe, boolean use_fq)
+static void check_outfile_exists(char *outbase, bool is_pe, bool use_fq)
 {
   size_t len = strlen(outbase);
   char path[len+1+8]; // .1.fq.gz
@@ -75,10 +75,10 @@ static hkey_t find_node(BinaryKmer bkmer, const dBGraph *db_graph)
   return hash_table_find(&db_graph->ht, bkey);
 }
 
-static boolean read_touches_graph(const read_t *r, const dBGraph *db_graph,
+static bool read_touches_graph(const read_t *r, const dBGraph *db_graph,
                                   LoadingStats *stats)
 {
-  boolean found = false;
+  bool found = false;
   size_t kmer_size = db_graph->kmer_size, num_contigs = 0, num_kmers_loaded = 0;
 
   if(r->seq.end >= kmer_size)
@@ -126,7 +126,7 @@ void filter_reads(read_t *r1, read_t *r2,
   const dBGraph *db_graph = data->db_graph;
   LoadingStats *stats = data->stats;
 
-  boolean touches_graph = read_touches_graph(r1, db_graph, stats) ||
+  bool touches_graph = read_touches_graph(r1, db_graph, stats) ||
                           (r2 != NULL && read_touches_graph(r2, db_graph, stats));
 
   if(touches_graph != data->invert)
@@ -155,7 +155,7 @@ int ctx_reads(CmdArgs *args)
   // Check filelists are readable
   // Check output is writable
 
-  boolean use_fq = false, use_fa = false, invert = false;
+  bool use_fq = false, use_fa = false, invert = false;
   seq_file_t *seqfiles[argc];
   size_t num_sf = 0, sf = 0;
 
@@ -217,7 +217,7 @@ int ctx_reads(CmdArgs *args)
                   files[0].hdr.kmer_size, files[i].hdr.kmer_size);
     }
 
-    max_num_kmers = MAX2(files[i].hdr.num_of_kmers, max_num_kmers);
+    max_num_kmers = MAX2(files[i].num_of_kmers, max_num_kmers);
   }
 
   //

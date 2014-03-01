@@ -5,7 +5,7 @@
 const GraphFileHeader INIT_GRAPH_FILE_HDR = INIT_GRAPH_FILE_HDR_MACRO;
 const GraphFileReader INIT_GRAPH_READER = INIT_GRAPH_READER_MACRO;
 
-int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
+int graph_file_open(GraphFileReader *file, char *path, bool fatal)
 {
   return graph_file_open2(file, path, fatal, "r");
 }
@@ -15,7 +15,7 @@ int graph_file_open(GraphFileReader *file, char *path, boolean fatal)
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
-int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
+int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
                      const char *mode)
 {
   GraphFileHeader *hdr = &file->hdr;
@@ -44,14 +44,6 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
     bytes_remaining = (size_t)(fltr->file_size - file->hdr_size);
     nkmers = (bytes_remaining / bytes_per_kmer);
 
-    if(hdr->version > 6 && hdr->num_of_kmers != nkmers) {
-      warn("File size and number of kmers do not match: %s [bytes per kmer: %zu "
-           "remaining: %zu; fsize: %zu; header: %zu; expect: %zu; got: %zu]",
-           fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
-           (size_t)fltr->file_size, (size_t)file->hdr_size,
-           (size_t)hdr->num_of_kmers, nkmers);
-    }
-
     if(bytes_remaining % bytes_per_kmer != 0) {
       warn("Truncated graph file: %s [bytes per kmer: %zu "
            "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zu]",
@@ -60,7 +52,7 @@ int graph_file_open2(GraphFileReader *file, char *path, boolean fatal,
     }
   }
 
-  hdr->num_of_kmers = nkmers;
+  file->num_of_kmers = nkmers;
 
   return 1;
 }
@@ -81,7 +73,7 @@ void graph_file_dealloc(GraphFileReader *file)
 // Read a kmer from the file
 // returns true on success, false otherwise
 // prints warnings if dirty kmers in file
-boolean graph_file_read(const GraphFileReader *file,
+bool graph_file_read(const GraphFileReader *file,
                         BinaryKmer *bkmer, Covg *covgs, Edges *edges)
 {
   // status("Header colours: %u", file->hdr.num_of_cols);
@@ -115,7 +107,7 @@ boolean graph_file_read(const GraphFileReader *file,
 }
 
 // Returns true if one or more files passed loads data into colour
-boolean graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
+bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
                                     size_t num_files)
 {
   size_t i;

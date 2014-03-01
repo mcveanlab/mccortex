@@ -93,7 +93,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   args->num_ctp_files = 0;
 
   // Get command index
-  boolean is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
+  bool is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
 
   args->argc = 0;
   args->argv = malloc2((size_t)argc * sizeof(char**));
@@ -213,12 +213,16 @@ void cmd_free(CmdArgs *args)
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits is additional memory per node, above hash table+BinaryKmers
 size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
-                             size_t min_num_kmer_req, boolean use_mem_limit,
+                             size_t min_num_kmer_req, bool use_mem_limit,
                              size_t *graph_mem_ptr)
 {
   size_t kmers_in_hash, min_num_kmers, graph_mem, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
+
+  if(!use_mem_limit && min_num_kmer_req == 0 && !args->num_kmers_set) {
+    cmd_print_usage("Cannot read from stream without -n <nkmers> set");
+  }
 
   if(args->num_kmers_set)
     graph_mem = hash_table_mem(args->num_kmers, extra_bits, &kmers_in_hash);

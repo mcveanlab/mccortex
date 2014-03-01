@@ -104,7 +104,7 @@ void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col)
 // Thread safe
 // Note: node may alreay exist in the graph
 dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
-                                    boolean *found)
+                                    bool *found)
 {
   BinaryKmer bkey;
   hkey_t hkey;
@@ -146,7 +146,7 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 }
 
 // For debugging + healthcheck
-boolean db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
+bool db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 {
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
   lhs_nuc = db_node_get_first_nuc(src, db_graph);
@@ -230,7 +230,7 @@ void db_graph_check_kmer_size(size_t kmer_size, const char *path)
 // Health check
 //
 
-static inline boolean check_node(hkey_t node, const dBGraph *db_graph)
+static inline bool check_node(hkey_t node, const dBGraph *db_graph)
 {
   Edges edges = db_node_get_edges_union(db_graph, node);
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
@@ -325,7 +325,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
   Nucleotide nuc;
   hkey_t next;
   Edges edge, *edges = &db_node_edges(db_graph,node,0), iedges = edges[0];
-  boolean node_has_col[db_graph->num_edge_cols];
+  bool node_has_col[db_graph->num_edge_cols];
 
   for(col = 0; col < db_graph->num_edge_cols; col++) {
     iedges &= edges[col];
@@ -378,7 +378,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
   PathIndex pindex;
   PathLen plen;
   Orientation orient, porient;
-  boolean first;
+  bool first;
   const uint8_t *path;
 
   printf("\n-------- paths --------\n");

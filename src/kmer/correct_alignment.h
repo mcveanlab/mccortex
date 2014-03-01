@@ -12,7 +12,7 @@ typedef struct
 {
   Colour ctpcol, ctxcol;
   uint32_t ins_gap_min, ins_gap_max;
-  boolean one_way_gap_traverse; // set to false for more error prone algo
+  bool one_way_gap_traverse; // set to false for more error prone algo
   uint32_t max_context, gap_wiggle;
   float gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
 } CorrectAlnParam;

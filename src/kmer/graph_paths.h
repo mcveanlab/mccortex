@@ -32,7 +32,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
-boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
+bool graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
                                    const uint8_t *packed, size_t plen,
                                    PathIndex *newidx);
 
@@ -42,13 +42,13 @@ boolean graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol
 
 // col is graph colour
 // packed is just <PackedBases>
-boolean graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
+bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
                                size_t nbases, const dBGraph *db_graph);
 
-boolean graph_paths_check_all_paths(const GraphPathPairing *gp,
+bool graph_paths_check_all_paths(const GraphPathPairing *gp,
                                     const dBGraph *db_graph);
 
-boolean graph_path_check_path(hkey_t node, PathIndex pindex,
+bool graph_path_check_path(hkey_t node, PathIndex pindex,
                               const GraphPathPairing *gp,
                               const dBGraph *db_graph);
 

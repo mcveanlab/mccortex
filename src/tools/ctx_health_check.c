@@ -31,7 +31,7 @@ int ctx_health_check(CmdArgs *args)
   // Have already check that we have exactly 1 argument
 
   size_t i;
-  boolean do_edge_check = true;
+  bool do_edge_check = true;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
     if(strcmp(argv[argi],"--noedgecheck") == 0) do_edge_check = false;
@@ -77,7 +77,7 @@ int ctx_health_check(CmdArgs *args)
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        gfile.hdr.num_of_kmers, false, &graph_mem);
+                                        gfile.num_of_kmers, false, &graph_mem);
 
   // Path Memory
   if(num_pfiles) {

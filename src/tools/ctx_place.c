@@ -120,7 +120,7 @@ static void strip_allele(StrBuf *allele, const char* input, size_t len)
   }
 }
 
-static boolean is_allele_duplicate(const vcf_entry_t *vcf, const StrBuf *allele)
+static bool is_allele_duplicate(const vcf_entry_t *vcf, const StrBuf *allele)
 {
   size_t i;
   if(strcmp(vcf->cols[VCFREF].buff, allele->buff) == 0) return true;
@@ -173,7 +173,7 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
     #endif
 
     strip_allele(&outvcf->cols[VCFREF], alleles[0]+start, end-start);
-    boolean is_snp = (outvcf->cols[VCFREF].len == 1);
+    bool is_snp = (outvcf->cols[VCFREF].len == 1);
     refallelelen = outvcf->cols[VCFREF].len;
 
     outvcf->num_alts = num_alleles - 1;
@@ -427,7 +427,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   return 1;
 }
 
-static boolean isbam(const char *path, boolean bam)
+static bool isbam(const char *path, bool bam)
 {
   size_t len = strlen(path);
   return (len >= 4 && strcasecmp(path+len-4, bam ? ".bam" : ".sam") == 0);
@@ -504,7 +504,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
   size_t i;
-  boolean printed_info = false;
+  bool printed_info = false;
 
   char cwd[PATH_MAX + 1];
 
@@ -735,8 +735,8 @@ int ctx_place(CmdArgs *args)
   strbuf_alloc(&endflank, 1024);
 
   bam1_t *bam = bam_init1();
-  boolean read_sam = (sam_read1(samfh, bam_header, bam) >= 0);
-  boolean read_vcf = (line->len > 0);
+  bool read_sam = (sam_read1(samfh, bam_header, bam) >= 0);
+  bool read_vcf = (line->len > 0);
 
   // Filter statistics
   size_t num_missing_sam = 0, num_unmapped = 0, num_low_mapq = 0;

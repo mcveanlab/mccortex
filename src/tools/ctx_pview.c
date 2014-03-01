@@ -22,7 +22,7 @@ int ctx_pview(CmdArgs *args)
   int argc = args->argc;
   // Already checked we have between 1 and 3 arguments
 
-  boolean print_paths = false, do_paths_check = false;
+  bool print_paths = false, do_paths_check = false;
 
   while(argc > 1 && argv[0][0] == '-')
   {
@@ -93,7 +93,7 @@ int ctx_pview(CmdArgs *args)
   db_graph.num_of_cols_used = phdr->num_of_cols;
 
   // Add kmers as reading
-  boolean add_kmers = true;
+  bool add_kmers = true;
 
   paths_format_load(&pfile, &db_graph, add_kmers);
 
