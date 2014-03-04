@@ -26,7 +26,8 @@ void correct_reads_input_init(const char *p1, const char *p2,
 int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
-                        bool use_pe, bool out_arg);
+                        bool use_pe, bool out_arg,
+                        char **dump_seq_gaps, char **dump_mp_gaps);
 
 void correct_reads_input_print(const CorrectAlnReadsTask *c);
 

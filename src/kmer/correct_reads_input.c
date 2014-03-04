@@ -119,13 +119,16 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 //  --printpaths    if !out_arg
 //  --minIns <int>  if use_pe
 //  --maxIns <int>  if use_pe
+//  --seqgaps <out.csv> if dump_seq_gaps != NULL
+//  --mpgaps <out.csv>  if dump_mp_gaps != NULL
 //  --oneway
 //  --twoway
 //  --FF --FR --RF --RR
 int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
-                        bool use_pe, bool out_arg)
+                        bool use_pe, bool out_arg,
+                        char **dump_seq_gaps, char **dump_mp_gaps)
 {
   int argi;
   size_t num_inputs = 0, col, min_ins, max_ins;
@@ -140,6 +143,9 @@ int correct_reads_parse(int argc, char **argv,
                             .max_context = MAX_CONTEXT,
                             .gap_variance = GAP_VARIANCE,
                             .gap_wiggle = GAP_WIGGLE};
+
+  // These just used for printing warnings / checking arg combinations
+  bool seen_pe_reads = false, seen_dump_mp_gaps = false;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
@@ -209,6 +215,19 @@ int correct_reads_parse(int argc, char **argv,
       params.ins_gap_max = max_ins;
       argi++;
     }
+    else if(dump_seq_gaps && strcasecmp(argv[argi],"--seqgaps") == 0)
+    {
+      if(argi+1 >= argc) cmd_print_usage("--seqgaps <out.csv> requires arg");
+      *dump_seq_gaps = argv[argi+1];
+      argi++;
+    }
+    else if(dump_mp_gaps && strcasecmp(argv[argi],"--mpgaps") == 0)
+    {
+      if(argi+1 >= argc) cmd_print_usage("--mpgaps <out.csv> requires arg");
+      *dump_mp_gaps = argv[argi+1];
+      argi++;
+      seen_dump_mp_gaps = true;
+    }
     else if(strcasecmp(argv[argi],"--FF") == 0) matedir = READPAIR_FF;
     else if(strcasecmp(argv[argi],"--FR") == 0) matedir = READPAIR_FR;
     else if(strcasecmp(argv[argi],"--RF") == 0) matedir = READPAIR_RF;
@@ -260,6 +279,8 @@ int correct_reads_parse(int argc, char **argv,
       num_inputs++;
       col_used = true;
       argi += 2+out_arg;
+
+      seen_pe_reads = true;
     }
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
@@ -270,6 +291,9 @@ int correct_reads_parse(int argc, char **argv,
     cmd_print_usage("--seq must follow last --col <col>");
 
   correct_reads_input_sort(inputs, num_inputs);
+
+  if(!seen_pe_reads && seen_dump_mp_gaps)
+    warn("--dump_mp_gaps without paired end reads from --seq2");
 
   *num_inputs_ptr = num_inputs;
   return argi;

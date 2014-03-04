@@ -357,7 +357,8 @@ int ctx_correct(CmdArgs *args)
 
   // Load args
   // argi = load_args(argc, argv, inputs, &num_inputs);
-  argi = correct_reads_parse(argc, argv, inputs, &num_inputs, false, true);
+  argi = correct_reads_parse(argc, argv, inputs, &num_inputs,
+                             false, true, NULL, NULL);
 
   if(argi == argc) cmd_print_usage("Expected at least one graph file");
   size_t num_gfiles = argc - argi;

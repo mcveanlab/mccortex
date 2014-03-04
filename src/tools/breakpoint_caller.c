@@ -20,7 +20,7 @@ typedef struct
 } KOccur;
 
 // Malloc's and returns chrom list - remember to free
-static size_t generate_chrom_list(const read_t *reads, size_t num_reads)
+static Chrom* generate_chrom_list(const read_t *reads, size_t num_reads)
 {
   Chrom *chroms = malloc2(num_reads*sizeof(Chrom));
   size_t i, offset = 0;

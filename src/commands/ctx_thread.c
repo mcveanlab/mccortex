@@ -32,9 +32,11 @@ const char thread_usage[] =
 "    --fq_offset <qual>         FASTQ quality score offset\n"
 "    --cut_hp <N>               Cut reads afer <N> consecutive bases\n"
 "    --FR --FF --RF --RR        Mate pair orientation [default: FR] (with --keep_pcr)\n"
+"    --seqgaps <out.csv>        Save size distribution of seq gaps bridged\n"
+"    --mpgaps <out.csv>         Save size distribution of mate pair gaps bridged\n"
 "\n"
 "  Debugging Options:\n"
-"    --printcontigs --printpaths --printreads   Prob don't touch these\n"
+"    --printcontigs --printpaths --printreads   Probably best not to touch these\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n";
@@ -63,8 +65,10 @@ int ctx_thread(CmdArgs *args)
   CorrectAlnReadsTask *tasks = malloc2(max_tasks * sizeof(CorrectAlnReadsTask));
   size_t i, j, num_tasks, num_work_threads = args->max_work_threads;
   int argi; // arg index to continue from
+  char *dump_seq_sizes = NULL, *dump_mp_sizes = NULL;
 
-  argi = correct_reads_parse(argc, argv, tasks, &num_tasks, true, false);
+  argi = correct_reads_parse(argc, argv, tasks, &num_tasks,
+                             true, false, &dump_seq_sizes, &dump_mp_sizes);
 
   for(i = 0; i < num_tasks; i++) {
     tasks[i].crt_params.ctxcol = 0;
@@ -159,6 +163,11 @@ int ctx_thread(CmdArgs *args)
   //
   // Open output file
   //
+  if(dump_seq_sizes && !futil_is_file_writable(dump_seq_sizes))
+    die("Cannot write to file: %s", dump_seq_sizes);
+  if(dump_mp_sizes && !futil_is_file_writable(dump_mp_sizes))
+    die("Cannot write to file: %s", dump_mp_sizes);
+
   if(futil_file_exists(out_ctp_path))
     die("Output file already exists: %s", out_ctp_path);
 
@@ -280,16 +289,16 @@ int ctx_thread(CmdArgs *args)
   gen_paths_get_stats(workers, num_work_threads, &stats);
 
   // Print mp gap size / insert stats to a file
-  gen_paths_dump_gap_sizes("gap_sizes.%u.csv", err_gaps, err_gaps_len,
-                           db_graph.kmer_size, false,
-                           stats.num_se_reads + stats.num_pe_reads);
+  if(dump_seq_sizes != NULL) {
+    gen_paths_dump_gap_sizes(dump_seq_sizes, err_gaps, err_gaps_len,
+                             db_graph.kmer_size, false,
+                             stats.num_se_reads + stats.num_pe_reads);
+  }
 
-  if(stats.num_pe_reads > 0) {
-    gen_paths_dump_gap_sizes("mp_sizes.%u.csv", ins_gaps, ins_gaps_len,
+  if(stats.num_pe_reads > 0 && dump_mp_sizes != NULL) {
+    gen_paths_dump_gap_sizes(dump_mp_sizes, ins_gaps, ins_gaps_len,
                              db_graph.kmer_size, true, stats.num_pe_reads);
   }
-  else
-    status("No PE reads parsed");
 
   // ins_gap, err_gap no longer allocated after this line
   gen_paths_workers_dealloc(workers, num_work_threads);

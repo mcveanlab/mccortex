@@ -28,7 +28,7 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_tasks,
 // base_fmt is the beginning of the file name - the reset is <num>.csv or something
 // insert_sizes is true if gaps are insert gaps,
 //                 false if gaps are due to sequencing errors
-void gen_paths_dump_gap_sizes(const char *base_fmt,
+void gen_paths_dump_gap_sizes(const char *path,
                               const uint64_t *arr, size_t arrlen,
                               size_t kmer_size, bool insert_sizes,
                               size_t nreads);

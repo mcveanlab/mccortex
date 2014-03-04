@@ -502,10 +502,9 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
 
 
 // Save gap size distribution
-// base_fmt is the beginning of the file name - the reset is <num>.csv or something
 // insert_sizes is true if gaps are insert gaps,
 //                 false if gaps are due to sequencing errors
-void gen_paths_dump_gap_sizes(const char *base_fmt,
+void gen_paths_dump_gap_sizes(const char *path,
                               const uint64_t *arr, size_t arrlen,
                               size_t kmer_size, bool insert_sizes,
                               size_t nreads)
@@ -548,18 +547,10 @@ void gen_paths_dump_gap_sizes(const char *base_fmt,
          insert_sizes ? " pair" : "", ngaps_str, ninputs_str,
          (100.0*ngaps) / ninputs);
 
-  StrBuf *csv_dump = strbuf_new();
   FILE *fout;
 
-  if(!futil_generate_filename(base_fmt, csv_dump)) {
-    warn("Cannot dump gapsize");
-    strbuf_free(csv_dump);
-    return;
-  }
-
-  if((fout = fopen(csv_dump->buff, "w")) == NULL) {
-    warn("Cannot dump gapsize [cannot open: %s]", csv_dump->buff);
-    strbuf_free(csv_dump);
+  if((fout = fopen(path, "w")) == NULL) {
+    warn("Cannot dump gapsize [cannot open: %s]", path);
     return;
   }
 
@@ -579,10 +570,9 @@ void gen_paths_dump_gap_sizes(const char *base_fmt,
   }
 
   status("Contig %s sizes dumped to %s\n",
-         insert_sizes ? "insert" : "gap", csv_dump->buff);
+         insert_sizes ? "insert" : "gap", path);
 
   fclose(fout);
-  strbuf_free(csv_dump);
 }
 
 // Get histogram array

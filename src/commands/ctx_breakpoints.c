@@ -182,15 +182,15 @@ int ctx_breakpoints(CmdArgs *args)
   readbuf_alloc(&rbuf, 1024);
 
   // Load ref sequence
-  read_t read;
-  seq_read_alloc(&read);
+  read_t r;
+  seq_read_alloc(&r);
   for(i = 0; i < num_seq_files; i++) {
-    while(seq_read(seq_files[i], &read) > 0) {
-      readbuf_add(&rbuf, read);
-      seq_read_alloc(&read);
+    while(seq_read(seq_files[i], &r) > 0) {
+      readbuf_add(&rbuf, r);
+      seq_read_alloc(&r);
     }
   }
-  seq_read_dealloc(&read);
+  seq_read_dealloc(&r);
 
   // Load graphs
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
