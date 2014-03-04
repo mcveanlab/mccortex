@@ -286,6 +286,18 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   }
 }
 
+// Do not print first k-1 bases => 3 nodes gives 3bp instead of 3+k-1
+void db_nodes_gzprint_cont(const dBNode *nodes, size_t num,
+                           const dBGraph *db_graph, gzFile out)
+{
+  size_t i;
+  Nucleotide nuc;
+  for(i = 0; i < num; i++) {
+    nuc = db_node_get_last_nuc(nodes[i], db_graph);
+    gzputc(out, dna_nuc_to_char(nuc));
+  }
+}
+
 // Print:
 // 0: AAACCCAAATGCAAACCCAAATGCAAACCCA:1 TGGGTTTGCATTTGGGTTTGCATTTGGGTTT
 // 1: CAAACCCAAATGCAAACCCAAATGCAAACCC:1 GGGTTTGCATTTGGGTTTGCATTTGGGTTTG

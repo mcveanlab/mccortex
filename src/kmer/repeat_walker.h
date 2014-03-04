@@ -16,7 +16,7 @@ typedef struct
 // We determine if it is safe to make the traversal without getting stuck in
 // a loop/cycle in the graph
 static inline bool rpt_walker_attempt_traverse(RepeatWalker *rpt,
-                                                  const GraphWalker *wlk)
+                                               const GraphWalker *wlk)
 {
   if(!db_node_has_traversed(rpt->visited, wlk->node)) {
     db_node_set_traversed(rpt->visited, wlk->node);
@@ -77,7 +77,8 @@ static inline void rpt_walker_fast_clear(RepeatWalker *rpt,
   rpt->nbloom_entries = 0;
 }
 
-static inline void rpt_walker_fast_clear2(RepeatWalker *rpt, const dBNode node)
+static inline void rpt_walker_fast_clear_single_node(RepeatWalker *rpt,
+                                                     const dBNode node)
 {
   db_node_fast_clear_traversed(rpt->visited, node.key);
 }

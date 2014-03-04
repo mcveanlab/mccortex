@@ -1,7 +1,7 @@
 #include "global.h"
 #include <errno.h>
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"

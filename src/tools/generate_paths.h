@@ -10,8 +10,6 @@
 
 typedef struct GenPathWorker GenPathWorker;
 
-extern bool gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_reads;
-
 // Estimate memory required per worker thread
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph);
 

@@ -6,7 +6,10 @@
 #include "util.h"
 #include "cmd.h"
 #include "seq_reader.h"
-#include "generate_paths.h"
+
+// Should we print all paths in src/tools/generate_paths.c
+bool gen_paths_print_contigs = false, gen_paths_print_paths = false;
+bool gen_paths_print_reads = false;
 
 void correct_reads_input_init(const char *p1, const char *p2,
                               uint32_t fq_offset, uint32_t fq_cutoff,

@@ -48,9 +48,7 @@ struct GenPathWorker
 
 #define INIT_BUFLEN 1024
 
-// Should we print all paths?
-bool gen_paths_print_contigs = false, gen_paths_print_paths = false;
-bool gen_paths_print_reads = false;
+// Used for printint output
 volatile size_t print_contig_id = 0, print_path_id = 0;
 
 

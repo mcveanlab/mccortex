@@ -1,12 +1,12 @@
 #include "global.h"
 #include <time.h>
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 
 // To add a new command to ctx31 <cmd>:
-// 0. create a file src/tools/ctx_X.c
-// 1. add function and usage declaration to src/tools/tools.h
+// 0. create a file src/commands/ctx_X.c
+// 1. add function and usage declaration to src/commands/commands.h
 // 2. add entry to cmdobjs below
 // 3. that's it!  Write the function I guess...
 
@@ -126,6 +126,12 @@ CtxCmd cmdobjs[] = {
   .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
   .blurb = "place variants and genotype",
   .usage = place_usage
+},
+{
+  .cmd = "breakpoints", .func = ctx_breakpoints, .hide = 0,
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "op", .reqargs = "o",
+  .blurb = "Use trusted assembled genome to call large events",
+  .usage = breakpoints_usage
 }
 };
 

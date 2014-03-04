@@ -2,7 +2,7 @@
 
 #include "string_buffer.h"
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
@@ -124,7 +124,6 @@ int ctx_join(CmdArgs *args)
 
     if(flatten) {
       files[i].fltr.flatten = true;
-      // files[i].fltr.intocol = 0;
       file_filter_update_intocol(&files[i].fltr, 0);
     }
 

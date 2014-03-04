@@ -3,7 +3,7 @@
 #include "string_buffer.h"
 #include "seq_file.h"
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"

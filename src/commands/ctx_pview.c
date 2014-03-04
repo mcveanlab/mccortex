@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"

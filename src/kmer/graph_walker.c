@@ -590,7 +590,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
 }
 
 bool graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
-                             const dBNode nodes[4], const Nucleotide bases[4])
+                          const dBNode nodes[4], const Nucleotide bases[4])
 {
   wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
   int idx = wlk->last_step.idx;

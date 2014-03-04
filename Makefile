@@ -158,18 +158,24 @@ TOOLS_HDRS=$(wildcard src/tools/*.h)
 TOOLS_FILES=$(notdir $(TOOLS_SRCS))
 TOOLS_OBJS=$(addprefix $(TOOLS_OBJDIR)/, $(TOOLS_FILES:.c=.o))
 
-HDRS=$(TOOLS_HDRS) $(KMER_HDRS) $(BASIC_HDRS)
+CMDS_OBJDIR=build/commands$(MAXK)
+CMDS_SRCS=$(wildcard src/commands/*.c)
+CMDS_HDRS=$(wildcard src/commands/*.h)
+CMDS_FILES=$(notdir $(CMDS_SRCS))
+CMDS_OBJS=$(addprefix $(CMDS_OBJDIR)/, $(CMDS_FILES:.c=.o))
 
-DIRS=bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR)
+HDRS=$(CMDS_HDRS) $(KMER_HDRS) $(BASIC_HDRS)
+
+DIRS=bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR) $(CMDS_OBJDIR)
 
 # DEPS are kmer dependencies that do not need to be re-built per target
 DEPS=Makefile $(DIRS) $(LIB_OBJS)
 
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
-	OBJS=$(TOOLS_SRCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS)
+	OBJS=$(CMDS_SRCS) $(TOOLS_SRCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS)
 else
-	OBJS=$(TOOLS_OBJS) $(KMER_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
+	OBJS=$(CMDS_OBJS) $(TOOLS_OBJS) $(KMER_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
 endif
 
 .DEFAULT_GOAL := ctx
@@ -203,21 +209,24 @@ $(KMER_OBJDIR)/%.o: src/kmer/%.c $(BASIC_HDRS) $(KMER_HDRS) | $(DEPS)
 $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
 	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $<
 
+$(CMDS_OBJDIR)/%.o: src/commands/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) $(CMDS_HDRS) | $(DEPS)
+	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ $(INCS) -c $<
+
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
 	$(CC) -o libs/misc/$*.o $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -c libs/misc/$*.c
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(wildcard src/tests/*) $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS) $(LINK)
 
 # directories
 $(DIRS):

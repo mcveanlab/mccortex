@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-14 February 2014
+2 March 2014
 
 [![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
 
@@ -90,11 +90,12 @@ to the AUTHORS file.
 Code should compile on mac/linux with clang/gcc without errors or warnings.
 
 Code is organised as:
-* libs/       included library code from other projects
-* src/basic   files that do not depend on MAX_KMER_SIZE
-* src/kmer    files that need recompiling based on different MAX_KMER_SIZE
-* src/tools   one file per cortex command
-* src/main    files with a main function go in here
+* libs/         included library code from other projects
+* src/basic     files that do not depend on MAX_KMER_SIZE
+* src/kmer      files that need recompiling based on different MAX_KMER_SIZE
+* src/tools     complex operations performed on the graph
+* src/commands  one file per cortex command ctx_COMMAND
+* src/main      files with a main function go in here
 
 Files only link to files that are above them in the list above. E.g. src/kmer/*
 files only include files in src/kmer/, src/basic/ and libs/.

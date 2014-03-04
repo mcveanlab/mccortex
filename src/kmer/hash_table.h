@@ -10,7 +10,7 @@
 #define IDEAL_OCCUPANCY 0.75f
 #define WARN_OCCUPANCY 0.9f
 // bucket size must be <256
-#define MAX_BUCKET_SIZE 32
+#define MAX_BUCKET_SIZE 48
 
 #define HT_BSIZE 0
 #define HT_BITEMS 1

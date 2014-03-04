@@ -12,7 +12,7 @@
 #include "string_buffer.h"
 #include "needleman_wunsch.h"
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 #include "file_util.h"
 #include "vcf_parsing.h"

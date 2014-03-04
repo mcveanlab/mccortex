@@ -55,7 +55,7 @@ void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
   gzprintf(out, "##fileformat=CTXv1.0\n");
 
   // Cortex details
-  gzprintf(out, "##ctxCmd=%s\n", args->cmdline);
+  gzprintf(out, "##ctxCmd=\"%s\"\n", args->cmdline);
   if(futil_get_current_dir(cwd) != NULL) gzprintf(out, "##ctxCwd=%s\n", cwd);
 
   gzprintf(out, "##ctxDate=%s\n", datestr);
@@ -565,8 +565,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
         {
           snode = snode_store + supindx;
           size_t last = snode->num_of_nodes-1;
-          rpt_walker_fast_clear2(rptwlk, snode_nodes(snode)[0]);
-          rpt_walker_fast_clear2(rptwlk, snode_nodes(snode)[last]);
+          rpt_walker_fast_clear_single_node(rptwlk, snode_nodes(snode)[0]);
+          rpt_walker_fast_clear_single_node(rptwlk, snode_nodes(snode)[last]);
         }
       }
     }
@@ -679,21 +679,18 @@ void* bubble_caller(void *args)
   GraphWalker wlk;
   graph_walker_alloc(&wlk);
 
-  // BinaryKmer tmpkmer;
-  // hkey_t node;
-  // tmpkmer = binary_kmer_from_str("AAGGTGACTGATCTGCCTGAGAAATGAACCT", db_graph->kmer_size);
-  // node = hash_table_find(&db_graph->ht, tmpkmer);
+  const BinaryKmer *table = db_graph->ht.table, *bkptr;
+  const BinaryKmer *end = table + tdata->end_hkey;
 
-  BinaryKmer *table = db_graph->ht.table;
-  BinaryKmer *ptr = table + tdata->start_hkey;
-  BinaryKmer *end = table + tdata->end_hkey;
+  hkey_t hkey;
+  Edges edges;
 
-  for(; ptr < end; ptr++) {
-    if(HASH_ENTRY_ASSIGNED(*ptr)) {
-      hkey_t node = (hkey_t)(ptr - table);
-      Edges edges = db_node_get_edges(db_graph, node, 0);
+  for(bkptr = table+tdata->start_hkey; bkptr < end; bkptr++) {
+    if(HASH_ENTRY_ASSIGNED(*bkptr)) {
+      hkey = (hkey_t)(bkptr - table);
+      edges = db_node_get_edges(db_graph, hkey, 0);
       if(edges_get_outdegree(edges, FORWARD) > 1) {
-        find_bubbles(node, FORWARD, db_graph, &wlk, &rptwlk,
+        find_bubbles(hkey, FORWARD, db_graph, &wlk, &rptwlk,
                      snode_hash, spp_hash, &nbuf,
                      snode_paths, snode_store, snodepos_store,
                      out, &tdata->num_of_bubbles, tdata->threadid,
@@ -701,7 +698,7 @@ void* bubble_caller(void *args)
                      tdata->ref_cols, tdata->num_ref);
       }
       if(edges_get_outdegree(edges, REVERSE) > 1) {
-        find_bubbles(node, REVERSE, db_graph, &wlk, &rptwlk,
+        find_bubbles(hkey, REVERSE, db_graph, &wlk, &rptwlk,
                      snode_hash, spp_hash, &nbuf,
                      snode_paths, snode_store, snodepos_store,
                      out, &tdata->num_of_bubbles, tdata->threadid,
@@ -727,7 +724,7 @@ void* bubble_caller(void *args)
 
 // max_allele_len, max_flank_len in kmers
 void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
-                          const size_t num_threads, char **tmp_paths,
+                          const size_t num_threads,
                           size_t max_allele_len, size_t max_flank_len,
                           const size_t *ref_cols, size_t num_ref)
 {
@@ -753,22 +750,21 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
 
     const uint64_t capacity = db_graph->ht.capacity;
     uint64_t start = 0, end;
-    gzFile tmpout;
     size_t i;
 
     /* Initialize and set thread detached attribute */
     pthread_attr_init(&thread_attr);
     pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
 
+    // Set up temporary files
+    gzFile *tmp_files = futil_create_tmp_gzfiles(num_threads);
+
     for(i = 0; i < num_threads; i++, start = end)
     {
       end = i == num_threads-1 ? capacity : start + capacity/num_threads;
 
-      tmpout = gzopen(tmp_paths[i], "w");
-      if(tmpout == NULL) die("Cannot write to tmp output: %s", tmp_paths[i]);
-
       struct caller_region_t tmptdata
-        = {.db_graph = db_graph, .out = tmpout,
+        = {.db_graph = db_graph, .out = tmp_files[i],
            .start_hkey = start, .end_hkey = end, .threadid = i,
            .max_allele_len = max_allele_len, .max_flank_len = max_flank_len,
            .ref_cols = ref_cols, .num_ref = num_ref, .num_of_bubbles = 0};
@@ -784,24 +780,14 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
     /* wait for all threads to complete */
     pthread_attr_destroy(&thread_attr);
 
-    for(i = 0; i < num_threads; i++)
-    {
+    for(i = 0; i < num_threads; i++) {
       int rc = pthread_join(threads[i], NULL);
       if(rc != 0) die("Joining thread failed");
-      gzclose(tdata[i].out);
-
-      // merge file
-      gzFile in = gzopen(tmp_paths[i], "r");
-      if(in == NULL) die("Cannot merge file: %s", tmp_paths[i]);
-      #define MEGABYTE (1<<20)
-      char data[MEGABYTE];
-      int len;
-      while((len = gzread(in, data, MEGABYTE)) > 0)
-        gzwrite(gzout, data, (unsigned int)len);
-      gzclose(in);
-
       num_of_bubbles += tdata[i].num_of_bubbles;
     }
+
+    futil_merge_tmp_gzfiles(tmp_files, num_threads, gzout);
+    free(tmp_files);
   }
 
   char num_bubbles_str[100];

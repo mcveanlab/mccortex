@@ -9,7 +9,7 @@ void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
 
 // max_allele_len, max_flank_len in kmers
 void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
-                          size_t num_threads, char **tmp_paths,
+                          size_t num_threads,
                           size_t max_allele_len, size_t max_flank_len,
                           const size_t *ref_cols, size_t num_ref);
 

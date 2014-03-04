@@ -1,5 +1,5 @@
-#ifndef TOOLS_H_
-#define TOOLS_H_
+#ifndef COMMANDS_H_
+#define COMMANDS_H_
 
 #include "cmd.h"
 
@@ -23,6 +23,7 @@ int ctx_unique(CmdArgs *args);
 int ctx_covg(CmdArgs *args);
 int ctx_place(CmdArgs *args);
 int ctx_correct(CmdArgs *args);
+int ctx_breakpoints(CmdArgs *args);
 
 extern const char build_usage[];
 extern const char view_usage[];
@@ -44,5 +45,6 @@ extern const char unique_usage[];
 extern const char covg_usage[];
 extern const char place_usage[];
 extern const char correct_usage[];
+extern const char breakpoints_usage[];
 
-#endif /* TOOLS_H_ */
+#endif /* COMMANDS_H_ */

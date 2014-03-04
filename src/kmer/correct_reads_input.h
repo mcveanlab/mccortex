@@ -14,6 +14,9 @@ typedef struct {
   void *ptr; // general porpoise pointer
 } CorrectAlnReadsTask;
 
+// These are used in generate_paths.c
+extern bool gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_reads;
+
 void correct_reads_input_init(const char *p1, const char *p2,
                               uint32_t fq_offset, uint32_t fq_cutoff,
                               uint32_t hp_cutoff, ReadMateDir matedir,
@@ -24,13 +27,6 @@ int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
                         bool use_pe, bool out_arg);
-
-// void correct_reads_input_init(const char *p1, const char *p2,
-//                               size_t col, size_t min_ins, size_t max_ins,
-//                               bool one_way_bridge, size_t max_context,
-//                               float gap_variance, size_t gap_wiggle,
-//                               uint32_t fq_offset, uint32_t fq_cutoff,
-//                               uint32_t hp_cutoff, CorrectReadsInput *ptr);
 
 void correct_reads_input_print(const CorrectAlnReadsTask *c);
 

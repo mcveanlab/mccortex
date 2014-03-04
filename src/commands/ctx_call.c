@@ -1,6 +1,6 @@
 #include "global.h"
 
-#include "tools.h"
+#include "commands.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -157,33 +157,12 @@ int ctx_call(CmdArgs *args)
   //
   // Open output file
   //
-  gzFile gzout = gzopen(out_path, "w");
-  if(gzout == NULL)
-    die("Cannot open paths bubble caller output file: %s", out_path);
-
-  //
-  // Set up temporary files
-  //
-  StrBuf *tmppath = strbuf_new();
-  char **tmp_paths = malloc2(num_of_threads * sizeof(char*));
-
-  int r = rand() & ((1<<20)-1);
-
-  for(i = 0; i < num_of_threads; i++)
-  {
-    strbuf_set(tmppath, out_path);
-    strbuf_sprintf(tmppath, ".%i.%zu", r, i);
-    tmp_paths[i] = strbuf_dup(tmppath);
-    if(!futil_is_file_writable(tmp_paths[i])) {
-      while(i > 0) unlink(tmp_paths[--i]);
-      die("Cannot write temporary file: %s", tmp_paths[i]);
-    }
-  }
-  strbuf_free(tmppath);
+  gzFile gzout;
+  if((gzout = gzopen(out_path, "w")) == NULL)
+    die("Cannot open output file: %s", out_path);
 
   // Load graph
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
@@ -194,22 +173,18 @@ int ctx_call(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
+  if(num_pfiles > 0) {
+    paths_format_merge(pfiles, num_pfiles, false, &db_graph);
+    path_store_reclaim_tmp(&db_graph.pdata);
+  }
 
   // Now call variants
   bubble_caller_print_header(&db_graph, gzout, out_path, args);
-  invoke_bubble_caller(&db_graph, gzout, num_of_threads, tmp_paths,
+  invoke_bubble_caller(&db_graph, gzout, num_of_threads,
                        max_allele_len, max_flank_len, ref_cols, num_ref);
 
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
-
-  // Clear up threads
-  for(i = 0; i < num_of_threads; i++) {
-    unlink(tmp_paths[i]);
-    free(tmp_paths[i]);
-  }
-  free(tmp_paths);
 
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);

@@ -266,6 +266,10 @@ void db_nodes_print(const dBNode *nodes, size_t num,
 void db_nodes_gzprint(const dBNode *nodes, size_t num,
                       const dBGraph *db_graph, gzFile out);
 
+// Do not print first k-1 bases => 3 nodes gives 3bp instead of 3+k-1
+void db_nodes_gzprint_cont(const dBNode *nodes, size_t num,
+                           const dBGraph *db_graph, gzFile out);
+
 // Print:
 // 0: AAACCCAAATGCAAACCCAAATGCAAACCCA:1 TGGGTTTGCATTTGGGTTTGCATTTGGGTTT
 // 1: CAAACCCAAATGCAAACCCAAATGCAAACCC:1 GGGTTTGCATTTGGGTTTGCATTTGGGTTTG

@@ -125,3 +125,57 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1])
   else
     return NULL;
 }
+
+// Usage:
+//     gzFile *tmp_files = futil_create_tmp_gzfiles(num_tmp);
+// to clear up:
+//     for(i = 0; i < num_tmp; i++) gzclose(tmp_files[i]);
+//     free(tmp_files);
+gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files)
+{
+  size_t i;
+  StrBuf tmppath;
+  strbuf_alloc(&tmppath, 1024);
+  gzFile *tmp_files = malloc2(num_tmp_files * sizeof(gzFile));
+
+  int r = rand() & ((1<<20)-1);
+
+  for(i = 0; i < num_tmp_files; i++)
+  {
+    strbuf_reset(&tmppath);
+    strbuf_sprintf(&tmppath, "/tmp/cortex.tmp.%i.%zu", r, i);
+    if((tmp_files[i] = gzopen(tmppath.buff, "r+") == NULL)) {
+      die("Cannot write temporary file: %s", tmppath.buff);
+    }
+    unlink(tmppath.buff); // Immediately unlink to hide temp file
+  }
+  strbuf_dealloc(&tmppath);
+
+  return tmp_files;
+}
+
+// Merge temporary files, closes tmp files
+void futil_merge_tmp_gzfiles(gzFile *tmp_files, size_t num_files, gzFile gzout)
+{
+  #define GZ_BUF_SIZE (1<<25) /* 32MB */
+
+  char *data = malloc2(GZ_BUF_SIZE);
+  size_t i;
+  int len;
+  gzFile tmp_file;
+
+  for(i = 0; i < num_files; i++)
+  {
+    tmp_file = tmp_files[i];
+    if(gzseek(tmp_file, 0L, SEEK_SET) == -1) die("gzseek error");
+
+    while((len = gzread(tmp_file, data, GZ_BUF_SIZE)) > 0)
+      gzwrite(gzout, data, (unsigned int)len);
+
+    gzclose(tmp_file);
+  }
+
+  free(data);
+
+  #undef GZ_BUF_SIZE
+}

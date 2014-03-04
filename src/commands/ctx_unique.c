@@ -6,7 +6,7 @@
 #include "khash.h"
 #include "string_buffer.h"
 
-#include "tools.h"
+#include "commands.h"
 #include "dna.h"
 #include "util.h"
 #include "file_util.h"
