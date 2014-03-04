@@ -47,7 +47,8 @@ static void read_update_counts(const read_t *r, dBGraph *db_graph,
 {
   const size_t kmer_size = db_graph->kmer_size;
   LoadingStats stats;
-  READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_update_counts, db_graph, klists);
+  READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_update_counts,
+                 db_graph, klists);
 }
 
 static void bkmer_store_kmer_pos(BinaryKmer bkmer, const dBGraph *db_graph,
@@ -71,7 +72,7 @@ static void read_store_kmer_pos(const read_t *r, const dBGraph *db_graph,
   const size_t kmer_size = db_graph->kmer_size;
   LoadingStats stats;
   READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_store_kmer_pos,
-                 db_graph, klists, koccurs, roffset+_base_i-kmer_size);
+                 db_graph, klists, koccurs, roffset+_offset);
 }
 
 static void process_contig(const dBGraph *db_graph,

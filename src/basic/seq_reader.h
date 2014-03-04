@@ -62,7 +62,7 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
   (stats)->total_bases_read += (r)->seq.end;                                   \
   size_t _num_contigs = 0;                                                     \
   if((r)->seq.end >= (kmer_size)) {                                            \
-    size_t _search_start = 0, _start, _end = 0, _base_i;                       \
+    size_t _search_start = 0, _start, _end = 0, _base_i, _offset;              \
     BinaryKmer _bkmer; Nucleotide _nuc;                                        \
                                                                                \
     while((_start = seq_contig_start((r), _search_start, (kmer_size),          \
@@ -75,9 +75,10 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
       (stats)->num_kmers_loaded += (_end - _start) + 1 - (kmer_size);          \
                                                                                \
       _bkmer = binary_kmer_from_str((r)->seq.b + _start, (kmer_size));         \
+      _offset = _start;                                                        \
       func(_bkmer, ##__VA_ARGS__);                                             \
                                                                                \
-      for(_base_i = _start+(kmer_size); _base_i < _end; _base_i++)             \
+      for(_base_i = _start+(kmer_size); _base_i < _end; _base_i++, _offset++)  \
       {                                                                        \
         _nuc = dna_char_to_nuc((r)->seq.b[_base_i]);                           \
         _bkmer = binary_kmer_left_shift_add(_bkmer, (kmer_size), _nuc);        \

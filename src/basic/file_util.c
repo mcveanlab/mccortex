@@ -144,7 +144,7 @@ gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files)
   {
     strbuf_reset(&tmppath);
     strbuf_sprintf(&tmppath, "/tmp/cortex.tmp.%i.%zu", r, i);
-    if((tmp_files[i] = gzopen(tmppath.buff, "r+") == NULL)) {
+    if((tmp_files[i] = gzopen(tmppath.buff, "r+")) == NULL) {
       die("Cannot write temporary file: %s", tmppath.buff);
     }
     unlink(tmppath.buff); // Immediately unlink to hide temp file

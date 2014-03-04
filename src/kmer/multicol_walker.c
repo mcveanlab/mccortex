@@ -68,7 +68,7 @@ size_t multicol_walker_assemble_contig(MulticolWalker *walker,
         if(wlks[i].last_step.idx != last_idx)
           graph_walker_finish(&walker->wlks[i]);
         else
-          wlks[j++] = wlks[i];
+          memcpy(&wlks[j++], &wlks[i], sizeof(GraphWalker));
       }
       num_remaining_wlkrs = j;
     }
