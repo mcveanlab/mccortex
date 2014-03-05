@@ -26,8 +26,8 @@ create_objbuf(edges_buf,EdgesBuffer,Edges);
 
 static inline void print_edge(FILE *fout, Edges e)
 {
-  static const char digits[16] = "0123456789ABCDEF";
-  fputc(digits[e>>4], fout);
+  static const char digits[16] = "0123456789abcdef";
+  fputc(digits[rev_nibble_lookup(e>>4)], fout);
   fputc(digits[e&0xf], fout);
 }
 
@@ -42,7 +42,7 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   covg_buf_ensure_capacity(covgbuf, ncols * kmer_length);
   memset(covgbuf->data, 0, ncols * kmer_length * sizeof(Covg));
 
-  if(edgebuf) {
+  if(db_graph->col_edges) {
     edges_buf_ensure_capacity(edgebuf, ncols * kmer_length);
     memset(edgebuf->data, 0, ncols * kmer_length * sizeof(Edges));
   }
@@ -71,16 +71,13 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
       if(node.key != HASH_NOT_FOUND) {
         covgs = &db_node_covg(db_graph, node.key, 0);
         memcpy(covgbuf->data+i*ncols, covgs, ncols * sizeof(Covg));
-        if(edgebuf) {
+        if(db_graph->col_edges) {
           edges = &db_node_edges(db_graph, node.key, 0);
-          memcpy(edgebuf->data+i*ncols, covgs, ncols * sizeof(Edges));
+          memcpy(edgebuf->data+i*ncols, edges, ncols * sizeof(Edges));
         }
       }
     }
   }
-
-  covgs = covgbuf->data;
-  edges = edgebuf ? edgebuf->data : NULL;
 
   // Print one colour per line
   fprintf(fout, ">%s\n%s\n", r->name.b, r->seq.b);
@@ -95,17 +92,17 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
     {
       if(db_graph->col_edges) {
         // Print edges
-        print_edge(fout, edges[col]);
+        print_edge(fout, edgebuf->data[col]);
         for(i = 1; i < kmer_length; i++) {
           fputc(' ', fout);
-          print_edge(fout, edges[i*ncols+col]);
+          print_edge(fout, edgebuf->data[i*ncols+col]);
         }
         fputc('\n', fout);
       }
       // Print coverages
-      fprintf(fout, "%2u", covgs[col]);
+      fprintf(fout, "%2u", covgbuf->data[col]);
       for(i = 1; i < kmer_length; i++)
-        fprintf(fout, " %2u", covgs[i*ncols+col]);
+        fprintf(fout, " %2u", covgbuf->data[i*ncols+col]);
       fputc('\n', fout);
     }
   }
@@ -224,7 +221,7 @@ int ctx_coverage(CmdArgs *args)
   for(i = 0; i < num_seq_files; i++) {
     while(seq_read(seq_files[i], &r) > 0) {
       // Deal with read
-      print_read_covg(&db_graph, &r, &covgbuf, print_edges ? &edgebuf : NULL, fout);
+      print_read_covg(&db_graph, &r, &covgbuf, &edgebuf, fout);
     }
   }
 

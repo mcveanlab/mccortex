@@ -74,7 +74,7 @@ void graph_file_dealloc(GraphFileReader *file)
 // returns true on success, false otherwise
 // prints warnings if dirty kmers in file
 bool graph_file_read(const GraphFileReader *file,
-                        BinaryKmer *bkmer, Covg *covgs, Edges *edges)
+                     BinaryKmer *bkmer, Covg *covgs, Edges *edges)
 {
   // status("Header colours: %u", file->hdr.num_of_cols);
   Covg kmercovgs[file->hdr.num_of_cols];
@@ -83,7 +83,7 @@ bool graph_file_read(const GraphFileReader *file,
   const FileFilter *fltr = &file->fltr;
 
   if(!graph_file_read_kmer(fltr->fh, &file->hdr, fltr->file_path.buff,
-                           bkmer, kmercovgs, kmeredges)) return 0;
+                           bkmer, kmercovgs, kmeredges)) return false;
 
   // covgs += file->intocol;
   // edges += file->intocol;
@@ -103,7 +103,7 @@ bool graph_file_read(const GraphFileReader *file,
     }
   }
 
-  return 1;
+  return true;
 }
 
 // Returns true if one or more files passed loads data into colour

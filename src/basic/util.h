@@ -21,6 +21,9 @@ char parse_entire_ulong(const char *str, unsigned long *result);
 char parse_entire_double(const char *str, double *result);
 char parse_entire_size(const char *str, size_t *result);
 
+static const uint8_t rev_nibble_arr[16];
+#define rev_nibble_lookup(x) ({ ctx_assert((x) < 16), rev_nibble_arr[x]; })
+
 size_t count_char(const char *str, char c);
 
 bool bases_to_integer(const char *arg, size_t *bases);

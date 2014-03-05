@@ -228,6 +228,10 @@ hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
 	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS) $(LINK)
 
+tables: bin/tables
+bin/tables: src/main/tables.c | bin
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $<
+
 # directories
 $(DIRS):
 	mkdir -p $@
