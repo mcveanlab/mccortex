@@ -55,15 +55,15 @@ int ctx_breakpoints(CmdArgs *args)
   char **argv = args->argv;
   // Already checked that input has at least 1 argument
 
-  const char *seq_paths[argc];
+  size_t max_seq_inputs = argc / 2;
+  seq_file_t *seq_files[max_seq_inputs];
   size_t i, num_seq_files = 0;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--seq") == 0) {
       if(argi+1 == argc) cmd_print_usage("--seq <in.fa> requires a file");
-      seq_paths[num_seq_files] = argv[argi+1];
-      if(!futil_is_file_readable(seq_paths[num_seq_files]))
-        die("Cannot read --seq file %s", seq_paths[num_seq_files]);
+      if((seq_files[num_seq_files] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read --seq file %s", argv[argi+1]);
       num_seq_files++;
       argi++; // We took an argument
     }
@@ -111,15 +111,6 @@ int ctx_breakpoints(CmdArgs *args)
 
   // Check graph + paths are compatible
   graphs_paths_compatible(gfiles, num_gfiles, pfiles, num_pfiles);
-
-  //
-  // Open seq files
-  //
-  seq_file_t *seq_files[num_seq_files];
-
-  for(i = 0; i < num_seq_files; i++)
-    if((seq_files[i] = seq_open(seq_paths[i])) == NULL)
-      die("Cannot open sequence file: %s", seq_paths[i]);
 
   //
   // Decide on memory
@@ -177,22 +168,9 @@ int ctx_breakpoints(CmdArgs *args)
 
   path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
-  // Buffer to hold reads
-  ReadBuffer rbuf;
-  readbuf_alloc(&rbuf, 1024);
-
-  // Load ref sequence
-  read_t r;
-  seq_read_alloc(&r);
-  for(i = 0; i < num_seq_files; i++) {
-    while(seq_read(seq_files[i], &r) > 0) {
-      readbuf_add(&rbuf, r);
-      seq_read_alloc(&r);
-    }
-  }
-  seq_read_dealloc(&r);
-
+  //
   // Load graphs
+  //
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
@@ -205,11 +183,29 @@ int ctx_breakpoints(CmdArgs *args)
 
   hash_table_print_stats(&db_graph.ht);
 
+  //
   // Load path files
+  //
   if(num_pfiles > 0) {
     paths_format_merge(pfiles, num_pfiles, false, &db_graph);
     path_store_reclaim_tmp(&db_graph.pdata);
   }
+
+  //
+  // Load reference sequence into a read buffer
+  //
+  ReadBuffer rbuf;
+  readbuf_alloc(&rbuf, 1024);
+
+  read_t r;
+  seq_read_alloc(&r);
+  for(i = 0; i < num_seq_files; i++) {
+    while(seq_read(seq_files[i], &r) > 0) {
+      readbuf_add(&rbuf, r);
+      seq_read_alloc(&r);
+    }
+  }
+  seq_read_dealloc(&r);
 
   // Call breakpoints
   breakpoints_call(gzout, &db_graph, rbuf.data, rbuf.len, num_of_threads, args);
@@ -220,6 +216,9 @@ int ctx_breakpoints(CmdArgs *args)
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
 
   readbuf_dealloc(&rbuf);
+  free(db_graph.col_edges);
+  free(db_graph.node_in_cols);
+  free(db_graph.kmer_paths);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

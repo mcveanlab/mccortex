@@ -37,7 +37,7 @@ my $use_points = 0;
 my $print_shades = 0;
 my $simplify = 0;
 
-while(@ARGV > 1) {
+while(@ARGV > 1 && $ARGV[0] =~ /^-/) {
   if($ARGV[0] =~ /^-?-p(oints?)?$/i) {
     shift;
     $use_points = 1;
@@ -53,9 +53,10 @@ while(@ARGV > 1) {
   else { print_usage("Unknown option '$ARGV[0]'"); }
 }
 
-if(@ARGV != 1) { print_usage(); }
+if(@ARGV > 1) { print_usage(); }
 
 my $file = shift;
+# DEV: if not defined or eq "-", use STDIN
 
 if(!(-r $file))
 {

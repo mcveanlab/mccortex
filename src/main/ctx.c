@@ -81,7 +81,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "inferedges", .func = ctx_infer_edges, .hide = 0,
-  .minargs = 1, .maxargs = 3, .optargs = "mn", .reqargs = "",
+  .minargs = 1, .maxargs = 3, .optargs = "mno", .reqargs = "",
   .blurb = "infer graph edges before calling `thread`",
   .usage = inferedges_usage
 },
@@ -132,6 +132,12 @@ CtxCmd cmdobjs[] = {
   .minargs = 1, .maxargs = INT_MAX, .optargs = "op", .reqargs = "o",
   .blurb = "Use trusted assembled genome to call large events",
   .usage = breakpoints_usage
+},
+{
+  .cmd = "coverage", .func = ctx_coverage, .hide = 0,
+  .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
+  .blurb = "Get contig coverage",
+  .usage = coverage_usage
 }
 };
 

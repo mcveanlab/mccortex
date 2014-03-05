@@ -402,6 +402,8 @@ static void reads_to_paths(GenPathWorker *wrkr)
     pthread_mutex_unlock(&biglock);
   }
 
+  printf(">%s %zu\n", r1->name.b, wrkr->task.crt_params.ctpcol);
+
   uint8_t fq_cutoff1, fq_cutoff2;
   fq_cutoff1 = fq_cutoff2 = wrkr->task.fq_cutoff;
 
@@ -426,7 +428,7 @@ static void reads_to_paths(GenPathWorker *wrkr)
 
   ctx_check2(db_alignment_check_edges(&wrkr->aln, wrkr->db_graph),
              "Edges missing: was read %s%s%s used to build the graph?",
-             r1->name.b, r2 ? ", " : "", r2->name.b);
+             r1->name.b, r2 ? ", " : "", r2 ? r2->name.b : "");
 
   // For debugging
   // db_alignment_print(&wrkr->aln, wrkr->db_graph);

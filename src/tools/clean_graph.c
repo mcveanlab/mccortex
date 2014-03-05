@@ -6,6 +6,7 @@
 
 #define DUMP_COVG_ARRSIZE 1000
 
+// Define a vector of Covg
 #include "objbuf_macro.h"
 create_objbuf(covg_buf,CovgBuffer,Covg);
 

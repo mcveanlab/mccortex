@@ -179,6 +179,8 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
   if(r2) stats->num_pe_reads += 2;
   else stats->num_se_reads++;
 
+  printf(">%s %zu\n", r1->name.b, colour);
+
   if(remove_pcr_dups && !seq_reads_are_novel(r1, r2,
                                              fq_cutoff1, fq_cutoff2, hp_cutoff,
                                              matedir, stats, db_graph))
