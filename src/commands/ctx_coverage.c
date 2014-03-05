@@ -69,10 +69,10 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
       node = db_graph_find(db_graph, bkmer);
       if(node.key != HASH_NOT_FOUND) {
-        covgs = db_node_covg(db_graph, node.key, 0);
+        covgs = &db_node_covg(db_graph, node.key, 0);
         memcpy(covgbuf->data+i*ncols, covgs, ncols * sizeof(Covg));
         if(edgebuf) {
-          edges = db_node_edges(db_graph, node.key, 0);
+          edges = &db_node_edges(db_graph, node.key, 0);
           memcpy(edgebuf->data+i*ncols, covgs, ncols * sizeof(Edges));
         }
       }
