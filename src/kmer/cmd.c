@@ -135,7 +135,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
     else if(strcmp(argv[i], "-k") == 0 || strcmp(argv[i], "--kmer") == 0)
     {
       if(i + 1 == argc) die("%s <kmer-size> requires an argument", argv[i]);
-      if(args->num_kmers_set) die("-k <kmer-size> given more than once");
+      if(args->kmer_size_set) die("-k <kmer-size> given more than once");
       if(!parse_entire_size(argv[i+1], &args->kmer_size) ||
          args->kmer_size < 3 || !(args->kmer_size & 0x1)) {
         die("kmer size (-k) must be an odd int >= 3: %s", argv[i+1]);
@@ -270,8 +270,8 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
   }
 
   if(graph_mem > args->mem_to_use) {
-    die("Not enough memory for graph: require at least %s [>%s] %zu %zu",
-        min_kmers_mem_str, mem_to_use_str, graph_mem, args->mem_to_use);
+    die("Not enough memory for requested graph: require at least %s [>%s]",
+        graph_mem_str, mem_to_use_str);
   }
 
   status("[memory] graph: %s\n", graph_mem_str);
@@ -303,7 +303,7 @@ void cmd_check_mem_limit(const CmdArgs *args, size_t mem_requested)
         memstr, ramstr);
   }
 
-  status("[memory] total: %s\n", memstr);
+  status("[memory] using: %s  machine RAM: %s\n", memstr, ramstr);
 }
 
 const char *cmd_usage = "No usage set";

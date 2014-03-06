@@ -93,7 +93,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "correct", .func = ctx_correct, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "atmp", .reqargs = "",
+  .minargs = 2, .maxargs = INT_MAX, .optargs = "atmnp", .reqargs = "",
   .blurb = "error correct reads",
   .usage = correct_usage
 },
@@ -111,7 +111,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "call", .func = ctx_call, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "tnmp", .reqargs = "",
+  .minargs = 2, .maxargs = INT_MAX, .optargs = "tmnp", .reqargs = "",
   .blurb = "call variants",
   .usage = call_usage
 },
@@ -129,13 +129,13 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "breakpoints", .func = ctx_breakpoints, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "op", .reqargs = "o",
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "opmn", .reqargs = "o",
   .blurb = "Use trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },
 {
   .cmd = "coverage", .func = ctx_coverage, .hide = 0,
-  .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
+  .minargs = 3, .maxargs = INT_MAX, .optargs = "omn", .reqargs = "",
   .blurb = "Get contig coverage",
   .usage = coverage_usage
 }

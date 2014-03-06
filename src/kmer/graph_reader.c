@@ -339,11 +339,14 @@ static void graph_loading_print_status(const GraphFileReader *file)
   const FileFilter *fltr = &file->fltr;
   char nkmers_str[100], filesize_str[100];
 
-  ulong_to_str(file->num_of_kmers, nkmers_str);
-  bytes_to_str(fltr->file_size, 1, filesize_str);
-
   file_filter_status(fltr);
-  status("  %s kmers, %s filesize", nkmers_str, filesize_str);
+
+  if(file->fltr.fh == stdin) status("  reading from a stream.");
+  else {
+    ulong_to_str(file->num_of_kmers, nkmers_str);
+    bytes_to_str(fltr->file_size, 1, filesize_str);
+    status("  %s kmers, %s filesize", nkmers_str, filesize_str);
+  }
 }
 
 // if only_load_if_in_colour is >= 0, only kmers with coverage in existing

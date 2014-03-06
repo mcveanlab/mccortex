@@ -128,9 +128,12 @@ void file_filter_dealloc(FileFilter *fltr)
 void file_filter_status(const FileFilter *fltr)
 {
   size_t i;
+  const char *file;
+
   timestamp();
-  message(" Loading file %s [%zu colour%s]",
-          fltr->file_path.buff, fltr->filencols, fltr->filencols != 1 ? "s" : "");
+  file = strcmp(fltr->file_path.buff,"-") == 0 ? "STDIN" : fltr->file_path.buff;
+  message(" Loading file %s [%zu colour%s]", file, fltr->filencols,
+          fltr->filencols != 1 ? "s" : "");
   if(!fltr->nofilter) {
     message(" with colour filter: %zu", fltr->cols[0]);
     for(i = 1; i < fltr->ncols; i++) message(",%zu", fltr->cols[i]);
