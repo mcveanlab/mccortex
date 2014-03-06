@@ -24,13 +24,6 @@ const char coverage_usage[] =
 create_objbuf(covg_buf,CovgBuffer,Covg);
 create_objbuf(edges_buf,EdgesBuffer,Edges);
 
-static inline void print_edge(FILE *fout, Edges e)
-{
-  static const char digits[16] = "0123456789abcdef";
-  fputc(digits[rev_nibble_lookup(e>>4)], fout);
-  fputc(digits[e&0xf], fout);
-}
-
 static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
                                    CovgBuffer *covgbuf, EdgesBuffer *edgebuf,
                                    FILE *fout)
@@ -92,10 +85,10 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
     {
       if(db_graph->col_edges) {
         // Print edges
-        print_edge(fout, edgebuf->data[col]);
+        edges_print(fout, edgebuf->data[col]);
         for(i = 1; i < kmer_length; i++) {
           fputc(' ', fout);
-          print_edge(fout, edgebuf->data[i*ncols+col]);
+          edges_print(fout, edgebuf->data[i*ncols+col]);
         }
         fputc('\n', fout);
       }

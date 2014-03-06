@@ -23,8 +23,8 @@ const char inferedges_usage[] =
 // Add edge to sample
 
 // Return 1 if changed; 0 otherwise
-static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
-                                  const Covg *covgs, const dBGraph *db_graph)
+static inline bool infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
+                                   const Covg *covgs, const dBGraph *db_graph)
 {
   Edges uedges = 0, iedges = 0xf, add_edges, edge;
   size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
@@ -78,8 +78,8 @@ static inline int infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
 }
 
 // Return 1 if changed; 0 otherwise
-static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
-                                  const Covg *covgs, const dBGraph *db_graph)
+static inline bool infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
+                                   const Covg *covgs, const dBGraph *db_graph)
 {
   Edges iedges = 0xff, edge;
   size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
@@ -121,6 +121,7 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
     }
   }
 
+  // Check if we changed the edges
   int cmp = memcmp(edges, newedges, sizeof(Edges)*ncols);
   memcpy(edges, newedges, sizeof(Edges)*ncols);
   return (cmp != 0);
@@ -130,6 +131,7 @@ static inline int infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
+  ctx_assert(file->hdr.num_of_cols == db_graph->num_of_cols);
   ctx_assert2(file->fltr.fh != stdin, "Use inferedges_on_stream() instead");
 
   if(fout != NULL) {
@@ -147,7 +149,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
 
   size_t num_nodes_modified = 0;
   bool updated;
-  long edges_len = sizeof(Edges) * file->hdr.num_of_cols;
+  long edges_len = sizeof(Edges) * db_graph->num_of_cols;
 
   while(graph_file_read(file, &bkmer, covgs, edges))
   {
@@ -160,7 +162,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
     else if(updated) {
       if(fseek(file->fltr.fh, -edges_len, SEEK_CUR) != 0)
         die("fseek error: %s", file->fltr.file_path.buff);
-      fwrite(edges, 1, (size_t)edges_len, file->fltr.fh);
+      fwrite(edges, db_graph->num_of_cols, sizeof(Edges), file->fltr.fh);
     }
 
     if(updated) num_nodes_modified++;
@@ -170,11 +172,15 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
 }
 
 // Using stream so no fseek - we've loaded all edges
-static void inferedges_on_stream_kmer(hkey_t hkey, const dBGraph *db_graph,
-                                      bool add_all_edges,
-                                      const GraphFileHeader *hdr, FILE *fout,
-                                      size_t *num_nodes_modified)
+static inline void inferedges_on_stream_kmer(hkey_t hkey,
+                                             const dBGraph *db_graph,
+                                             bool add_all_edges,
+                                             const GraphFileHeader *hdr,
+                                             FILE *fout,
+                                             size_t *num_nodes_modified)
 {
+  ctx_assert(hdr->num_of_cols == db_graph->num_of_cols);
+
   BinaryKmer bkmer = db_node_bkmer(db_graph, hkey);
   Edges *edges = &db_node_edges(db_graph, hkey, 0);
   Covg *covgs = &db_node_covg(db_graph, hkey, 0);
@@ -285,11 +291,16 @@ int ctx_infer_edges(CmdArgs *args)
 
   // Load file into colour 0
   file_filter_update_intocol(&file.fltr, 0);
+
+  // Flatten (merge into one colour) unless we're using a stream, in which case
+  // we need to load all information
   file.fltr.flatten = !reading_stream;
 
   // We need to load the graph for both --pop and --all since we need to check
   // if the next kmer is in each of the colours
   graph_load(&file, gprefs, &stats);
+
+  file.fltr.flatten = false;
 
   if(add_pop_edges) status("Inferring edges from population...\n");
   else status("Inferring all missing edges...\n");

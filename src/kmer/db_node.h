@@ -6,6 +6,7 @@
 
 #include "cortex_types.h"
 #include "db_graph.h"
+#include "util.h"
 
 #define db_nodes_match(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
 
@@ -156,6 +157,13 @@ Edges edges_get_union(const Edges *edges, size_t num);
 
 bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                      Nucleotide *nucleotide);
+
+static inline void edges_print(FILE *fout, Edges e)
+{
+  static const char digits[16] = "0123456789abcdef";
+  fputc(digits[rev_nibble_lookup(e>>4)], fout);
+  fputc(digits[e&0xf], fout);
+}
 
 //
 // dBNode Edges

@@ -224,6 +224,10 @@ int ctx_view(CmdArgs *args)
     }
   }
 
+  // Count warnings printed by graph_reader.c
+  num_warnings += greader_zero_covg_error;
+  num_warnings += greader_missing_covg_error;
+
   if((print_kmers || parse_kmers) && print_info)
   {
     printf("----\n");

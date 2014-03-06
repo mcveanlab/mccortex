@@ -291,14 +291,14 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   return bytes_read;
 }
 
+// Only print errors once
+bool greader_zero_covg_error = false, greader_missing_covg_error = false;
+
 size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
                             BinaryKmer *bkmer, Covg *covgs, Edges *edges)
 {
   size_t i, num_bytes_read;
   char kstr[MAX_KMER_SIZE+1];
-
-  // Only print errors once
-  static bool zero_covg_error = false, missing_covg_error = false;
 
   num_bytes_read = fread(bkmer->b, 1, sizeof(uint64_t)*h->num_of_bitfields, fh);
 
@@ -316,18 +316,18 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 
   // Check covg is not 0 for all colours
   for(i = 0; i < h->num_of_cols && covgs[i] == 0; i++) {}
-  if(i == h->num_of_cols && !zero_covg_error) {
+  if(i == h->num_of_cols && !greader_zero_covg_error) {
     binary_kmer_to_str(*bkmer, h->kmer_size, kstr);
     warn("Kmer has zero covg in all colours [kmer: %s; path: %s]", kstr, path);
-    zero_covg_error = true;
+    greader_zero_covg_error = true;
   }
 
   // Check edges => coverage
   for(i = 0; i < h->num_of_cols && (!edges[i] || covgs[i]); i++) {}
-  if(i == h->num_of_cols && !missing_covg_error) {
+  if(i < h->num_of_cols && !greader_missing_covg_error) {
     binary_kmer_to_str(*bkmer, h->kmer_size, kstr);
     warn("Kmer has edges but no coverage [kmer: %s; path: %s]", kstr, path);
-    missing_covg_error = true;
+    greader_missing_covg_error = true;
   }
 
   return num_bytes_read;

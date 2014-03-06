@@ -29,6 +29,8 @@ typedef struct
   .must_exist_in_edges = NULL,     \
   .empty_colours = false}
 
+extern bool greader_zero_covg_error, greader_missing_covg_error;
+
 void graph_header_alloc(GraphFileHeader *header, size_t num_of_cols);
 void graph_header_dealloc(GraphFileHeader *header);
 
