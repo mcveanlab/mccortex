@@ -111,8 +111,8 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "call", .func = ctx_call, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "tmnp", .reqargs = "",
-  .blurb = "call variants",
+  .minargs = 2, .maxargs = INT_MAX, .optargs = "tmnpo", .reqargs = "o",
+  .blurb = "call variants with bubble caller",
   .usage = call_usage
 },
 {

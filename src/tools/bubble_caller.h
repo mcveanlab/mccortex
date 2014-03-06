@@ -11,6 +11,6 @@ void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
 void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
                           size_t num_threads,
                           size_t max_allele_len, size_t max_flank_len,
-                          const size_t *ref_cols, size_t num_ref);
+                          const size_t *haploid_cols, size_t num_haploid);
 
 #endif /* BUBBLE_CALLER_H_ */

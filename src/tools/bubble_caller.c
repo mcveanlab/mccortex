@@ -424,24 +424,24 @@ static bool path_in_colour(const SupernodePathPos *pp, size_t col,
 
 // Returns number of paths
 static size_t remove_ref_paths(SupernodePathPos **spp_arr, size_t num_paths,
-                               const size_t *ref_cols, size_t num_ref,
+                               const size_t *haploid_cols, size_t num_haploid,
                                const dBGraph *db_graph)
 {
-  size_t r, p, seen[num_ref];
-  memset(seen, 0, sizeof(size_t)*num_ref);
+  size_t r, p, seen[num_haploid];
+  memset(seen, 0, sizeof(size_t)*num_haploid);
 
   for(p = 0; p < num_paths; )
   {
-    for(r = 0; r < num_ref; r++)
+    for(r = 0; r < num_haploid; r++)
     {
-      if(path_in_colour(spp_arr[p], ref_cols[r], db_graph))
+      if(path_in_colour(spp_arr[p], haploid_cols[r], db_graph))
       {
         // Drop path if already seen
         if(seen[r]) break;
         seen[r] = 1;
       }
     }
-    if(r < num_ref)
+    if(r < num_haploid)
     {
       // Drop path
       SupernodePathPos *tmp_spp;
@@ -460,11 +460,11 @@ static void resolve_bubble(SupernodePathPos **snodepathposes, size_t num,
                            size_t max_allele_len, size_t max_flank_len,
                            dBNodeBuffer *flank5p,
                            const dBGraph *db_graph,
-                           const size_t *ref_cols, size_t num_ref,
+                           const size_t *haploid_cols, size_t num_haploid,
                            khash_t(snpps_hsh) *spp_hash)
 {
   if(num < 2 || !is_bubble_flank(snodepathposes, num)) return;
-  num = remove_ref_paths(snodepathposes, num, ref_cols, num_ref, db_graph);
+  num = remove_ref_paths(snodepathposes, num, haploid_cols, num_haploid, db_graph);
   if(num < 2) return;
   num = remove_snpath_pos_dupes(snodepathposes, num, spp_hash);
   if(num < 2) return;
@@ -497,7 +497,7 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
                          SupernodePathPos *snodepos_store,
                          gzFile out, size_t *bnum, size_t threadid,
                          size_t max_allele_len, size_t max_flank_len,
-                         const size_t *ref_cols, size_t num_ref)
+                         const size_t *haploid_cols, size_t num_haploid)
 {
   // Set number of supernodes, positions, nodes to zero
   size_t snode_count = 0, snodepos_count = 0;
@@ -584,7 +584,8 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
   {
     #ifdef DEBUG_CALLER
       char tmpsup[MAX_KMER_SIZE+1];
-      BinaryKmer bkmer = db_node_get_bkmer(db_graph, snode_nodes(&snode_store[i])[0].key);
+      hkey_t tmpkey = snode_nodes(&snode_store[i])[0].key;
+      BinaryKmer bkmer = db_node_get_bkmer(db_graph, tmpkey);
       binary_kmer_to_str(bkmer, db_graph->kmer_size, tmpsup);
       printf("check supernode: %s\n", tmpsup);
     #endif
@@ -621,11 +622,11 @@ static void find_bubbles(hkey_t fork_n, Orientation fork_o,
 
       resolve_bubble(spp_forward, num_forward, out, bnum, threadid,
                      max_allele_len, max_flank_len, &flank5p,
-                     db_graph, ref_cols, num_ref, spp_hash);
+                     db_graph, haploid_cols, num_haploid, spp_hash);
 
       resolve_bubble(spp_reverse, num_reverse, out, bnum, threadid,
                      max_allele_len, max_flank_len, &flank5p,
-                     db_graph, ref_cols, num_ref, spp_hash);
+                     db_graph, haploid_cols, num_haploid, spp_hash);
     }
   }
 }
@@ -637,7 +638,7 @@ struct caller_region_t
   const gzFile out;
   const uint64_t start_hkey, end_hkey;
   const size_t threadid;
-  const size_t max_allele_len, max_flank_len, *ref_cols, num_ref;
+  const size_t max_allele_len, max_flank_len, *haploid_cols, num_haploid;
   size_t num_of_bubbles;
 };
 
@@ -695,7 +696,7 @@ void* bubble_caller(void *args)
                      snode_paths, snode_store, snodepos_store,
                      out, &tdata->num_of_bubbles, tdata->threadid,
                      max_allele_len, max_flank_len,
-                     tdata->ref_cols, tdata->num_ref);
+                     tdata->haploid_cols, tdata->num_haploid);
       }
       if(edges_get_outdegree(edges, REVERSE) > 1) {
         find_bubbles(hkey, REVERSE, db_graph, &wlk, &rptwlk,
@@ -703,7 +704,7 @@ void* bubble_caller(void *args)
                      snode_paths, snode_store, snodepos_store,
                      out, &tdata->num_of_bubbles, tdata->threadid,
                      max_allele_len, max_flank_len,
-                     tdata->ref_cols, tdata->num_ref);
+                     tdata->haploid_cols, tdata->num_haploid);
       }
     }
   }
@@ -726,7 +727,7 @@ void* bubble_caller(void *args)
 void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
                           const size_t num_threads,
                           size_t max_allele_len, size_t max_flank_len,
-                          const size_t *ref_cols, size_t num_ref)
+                          const size_t *haploid_cols, size_t num_haploid)
 {
   ctx_assert(db_graph->num_edge_cols == 1);
 
@@ -738,7 +739,7 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
       = {.db_graph = db_graph, .out = gzout,
          .start_hkey = 0, .end_hkey = db_graph->ht.capacity, .threadid = 0,
          .max_allele_len = max_allele_len, .max_flank_len = max_flank_len,
-         .ref_cols = ref_cols, .num_ref = num_ref, .num_of_bubbles = 0};
+         .haploid_cols = haploid_cols, .num_haploid = num_haploid, .num_of_bubbles = 0};
     bubble_caller((void*)&tdata);
     num_of_bubbles += tdata.num_of_bubbles;
   }
@@ -767,7 +768,7 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
         = {.db_graph = db_graph, .out = tmp_files[i],
            .start_hkey = start, .end_hkey = end, .threadid = i,
            .max_allele_len = max_allele_len, .max_flank_len = max_flank_len,
-           .ref_cols = ref_cols, .num_ref = num_ref, .num_of_bubbles = 0};
+           .haploid_cols = haploid_cols, .num_haploid = num_haploid, .num_of_bubbles = 0};
 
       memcpy(tdata+i, &tmptdata, sizeof(struct caller_region_t));
 

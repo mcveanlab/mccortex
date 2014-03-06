@@ -331,7 +331,7 @@ k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
-	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
+	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--haploid $(NUM_INDIVS)'; fi`; \
 	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs $< $@
 
 # % => {se,pe,sepe}
@@ -340,7 +340,7 @@ k$(KMER)/bubbles/samples.%.noref.bubbles.gz: k$(KMER)/graphs/pop.noref.ctx k$(KM
 k$(KMER)/bubbles/samples.%.bubbles.gz:
 	mkdir -p k$(KMER)/bubbles
 	r=`echo $@ | grep -oE '(no)?ref'`; \
-	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--ref $(NUM_INDIVS)'; fi`; \
+	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--haploid $(NUM_INDIVS)'; fi`; \
 	p=`echo $@ | grep -oE '([sp]e)*.(no)?ref.bubbles.gz$$' | grep -oE '([sp]e)*'`; \
 	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/paths/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
 

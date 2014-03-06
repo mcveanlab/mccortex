@@ -11,17 +11,22 @@
 #include "bubble_caller.h"
 #include "db_node.h"
 
-// DEV: "usage: "CMD" call [options] <out.bubbles.gz> <in.ctx> [in2.ctx ...]\n"
+// Long flanks help us map calls
+// increasing allele length can be costly
+#define DEFAULT_MAX_FLANK 1000
+#define DEFAULT_MAX_ALLELE 300
+
 const char call_usage[] =
-"usage: "CMD" call [options] <in.ctx> <out.bubbles.gz>\n"
-"  Find bubbles (potential variants) in graph file in.ctx, save to out.bubbles.gz\n"
+"usage: "CMD" call [options] <in.ctx> [in2.ctx ...]\n"
+"  Find bubbles in the graph, which are potential variants.\n"
 "\n"
 "  Options:\n"
 "    -m <memory> | -t <threads> | -p <paths.ctp>\n"
-"    -p <in.ctp>        Load path file (can specify multiple times)\n"
-"    --ref <col>        Reference genome in given colour (can specify multiple times)\n"
-"    --maxallele <len>  Max bubble branch length in kmers [default: 300]\n"
-"    --maxflank <len>   Max flank length in kmers [default: 1000]\n"
+"    -p <in.ctp>          Load path file (can specify multiple times)\n"
+"    -o <out.bubbles.gz>  Output file [required]\n"
+"    --haploid <col>      Colour is haploid, can use repeatedly [e.g. ref colour]\n"
+"    --maxallele <len>    Max bubble branch length in kmers [default: "QUOTE_MACRO(DEFAULT_MAX_ALLELE)"]\n"
+"    --maxflank <len>     Max flank length in kmers [default: "QUOTE_MACRO(DEFAULT_MAX_FLANK)"]\n"
 "\n"
 "  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n";
@@ -30,18 +35,21 @@ int ctx_call(CmdArgs *args)
 {
   int argi, argc = args->argc;
   char **argv = args->argv;
-  if(argc < 2 || argc & 1) cmd_print_usage(NULL);
+  if(argc == 0 || argc & 1) cmd_print_usage(NULL);
 
+  const char *out_path = args->output_file;
   size_t num_of_threads = args->max_work_threads;
-  size_t i, ref_cols[argc], num_ref = 0;
-  size_t max_allele_len = 300, max_flank_len = 1000;
+  size_t i, haploid_cols[argc], num_haploid = 0;
+  size_t max_allele_len = DEFAULT_MAX_ALLELE, max_flank_len = DEFAULT_MAX_FLANK;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
   {
-    if(strcmp(argv[argi],"--ref") == 0) {
-      if(argi + 1 == argc || !parse_entire_size(argv[argi+1], &ref_cols[num_ref]))
-        cmd_print_usage("--ref <col> requires an int arg");
-      num_ref++; argi++;
+    if(strcmp(argv[argi],"--haploid") == 0) {
+      if(argi + 1 == argc ||
+         !parse_entire_size(argv[argi+1], &haploid_cols[num_haploid])) {
+        cmd_print_usage("--haploid <col> requires an int arg");
+      }
+      num_haploid++; argi++;
     }
     else if(strcmp(argv[argi],"--maxallele") == 0) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_allele_len) ||
@@ -62,26 +70,26 @@ int ctx_call(CmdArgs *args)
     }
   }
 
-  if(argi + 2 != argc) cmd_print_usage("<out.bubbles.gz> <in.ctx> required");
+  if(argi == argc) cmd_print_usage("Require input graph files (.ctx)");
 
-  char *input_ctx_path = argv[argi];
-  char *out_path = argv[argi+1];
+  //
+  // Open graph files
+  //
+  char **graph_paths = argv + argi;
+  size_t num_gfiles = argc - argi;
+  GraphFileReader gfiles[num_gfiles];
+  size_t ncols = 0, ctx_max_kmers = 0;
 
-  // Open Graph file
-  GraphFileReader gfile = INIT_GRAPH_READER;
-  int ret = graph_file_open(&gfile, input_ctx_path, false);
+  for(i = 0; i < num_gfiles; i++)
+  {
+    gfiles[i] = INIT_GRAPH_READER;
+    graph_file_open(&gfiles[i], graph_paths[i], true);
 
-  if(ret == 0)
-    cmd_print_usage("Cannot read input graph file: %s", input_ctx_path);
-  else if(ret < 0)
-    cmd_print_usage("Input graph file isn't valid: %s", input_ctx_path);
+    // Pile colours on top of each other
+    file_filter_update_intocol(&gfiles[i].fltr, gfiles[i].fltr.intocol + ncols);
+    ncols = graph_file_usedcols(&gfiles[i]);
 
-  // Check reference colours
-  for(i = 0; i < num_ref; i++) {
-    if(ref_cols[i] >= gfile.hdr.num_of_cols) {
-      cmd_print_usage("--ref <col> is greater than max colour [%zu > %u]",
-                      ref_cols[i], gfile.hdr.num_of_cols-1);
-    }
+    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
   }
 
   //
@@ -98,8 +106,18 @@ int ctx_call(CmdArgs *args)
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
-  // Check for compatibility between graph files and path files
-  graphs_paths_compatible(&gfile, 1, pfiles, num_pfiles);
+  // Check graph + paths are compatible
+  graphs_paths_compatible(gfiles, num_gfiles, pfiles, num_pfiles);
+
+  //
+  // Check haploid colours are valid
+  //
+  for(i = 0; i < num_haploid; i++) {
+    if(haploid_cols[i] >= ncols) {
+      cmd_print_usage("--haploid <col> is greater than max colour [%zu > %zu]",
+                      haploid_cols[i], ncols-1);
+    }
+  }
 
   //
   // Decide on memory
@@ -112,10 +130,10 @@ int ctx_call(CmdArgs *args)
   // visitedfw/rv(2bits/thread)
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 +
-                  gfile.hdr.num_of_cols + 2*num_of_threads;
+                  ncols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gfile.num_of_kmers, false, &graph_mem);
+                                        ctx_max_kmers, false, &graph_mem);
 
   // Thread memory
   thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;
@@ -133,20 +151,28 @@ int ctx_call(CmdArgs *args)
   size_t total_mem = graph_mem + thread_mem + path_mem;
   cmd_check_mem_limit(args, total_mem);
 
-  // Check output file writeable
-  if(!futil_is_file_writable(out_path))
-    cmd_print_usage("Cannot write output file: %s", out_path);
+  //
+  // Open output file
+  //
+  gzFile gzout;
+
+  if(strcmp("-", out_path) == 0)
+    gzout = gzdopen(fileno(stdout), "w");
+  else
+    gzout = gzopen(out_path, "w");
+
+  if(gzout == NULL) die("Cannot open output file: %s", out_path);
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, gfile.hdr.num_of_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, ncols, 1, kmers_in_hash);
 
   // Edges merged into one colour
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(uint8_t));
 
   // In colour
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, sizeof(uint8_t));
+  db_graph.node_in_cols = calloc2(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
@@ -155,21 +181,21 @@ int ctx_call(CmdArgs *args)
   path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
 
   //
-  // Open output file
+  // Load graphs
   //
-  gzFile gzout;
-  if((gzout = gzopen(out_path, "w")) == NULL)
-    die("Cannot open output file: %s", out_path);
-
-  // Load graph
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
+                              .must_exist_in_edges = NULL,
                               .empty_colours = true};
 
-  graph_load(&gfile, gprefs, &stats);
+  for(i = 0; i < num_gfiles; i++) {
+    graph_load(&gfiles[i], gprefs, &stats);
+    gprefs.empty_colours = false;
+  }
+
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
@@ -181,7 +207,7 @@ int ctx_call(CmdArgs *args)
   // Now call variants
   bubble_caller_print_header(&db_graph, gzout, out_path, args);
   invoke_bubble_caller(&db_graph, gzout, num_of_threads,
-                       max_allele_len, max_flank_len, ref_cols, num_ref);
+                       max_allele_len, max_flank_len, haploid_cols, num_haploid);
 
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
@@ -193,7 +219,7 @@ int ctx_call(CmdArgs *args)
   path_store_dealloc(&db_graph.pdata);
   db_graph_dealloc(&db_graph);
 
-  graph_file_dealloc(&gfile);
+  for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;

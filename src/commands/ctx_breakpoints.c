@@ -42,6 +42,7 @@ GATTTTTGCACATTCGTGAT [chrY:100-119:+];
 
 const char breakpoints_usage[] =
 "usage: "CMD" breakpoints [options] <in.ctx> [in2.ctx ..]\n"
+"  Use trusted assembled genome to call large events.  Output is gzipped.\n"
 "\n"
 "  --seq <in>       Trusted input (can be used multiple times)\n"
 "  --out <out.txt>  Save calls [default: STDOUT]\n";
@@ -176,10 +177,13 @@ int ctx_breakpoints(CmdArgs *args)
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
+                              .must_exist_in_edges = NULL,
                               .empty_colours = true};
 
-  for(i = 0; i < num_gfiles; i++)
+  for(i = 0; i < num_gfiles; i++) {
     graph_load(&gfiles[i], gprefs, &stats);
+    gprefs.empty_colours = false;
+  }
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -214,6 +218,8 @@ int ctx_breakpoints(CmdArgs *args)
   gzclose(gzout);
 
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
+  for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
+  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   readbuf_dealloc(&rbuf);
   free(db_graph.col_edges);
