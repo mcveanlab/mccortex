@@ -180,7 +180,7 @@ endif
 
 .DEFAULT_GOAL := ctx
 
-all: ctx tests hashtest
+all: ctx tests hashtest tables
 
 # Run tests
 test: tests
