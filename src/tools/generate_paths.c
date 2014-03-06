@@ -402,7 +402,7 @@ static void reads_to_paths(GenPathWorker *wrkr)
     pthread_mutex_unlock(&biglock);
   }
 
-  printf(">%s %zu\n", r1->name.b, wrkr->task.crt_params.ctpcol);
+  // printf(">%s %zu\n", r1->name.b, wrkr->task.crt_params.ctpcol);
 
   uint8_t fq_cutoff1, fq_cutoff2;
   fq_cutoff1 = fq_cutoff2 = wrkr->task.fq_cutoff;
