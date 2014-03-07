@@ -64,9 +64,9 @@ print join(",", @cols)."\n";
 for my $data (@contigs)
 {
   my %stats;
-  ($stats{'graphmem'}) = ($data =~ /graph: (.*B)/i);
-  ($stats{'pathsmem'}) = ($data =~ /paths: (.*B)/i);
-  ($stats{'totalmem'}) = ($data =~ /total: (.*B)/i);
+  ($stats{'graphmem'}) = ($data =~ /graph: (.*?B)/i);
+  ($stats{'pathsmem'}) = ($data =~ /paths: (.*?B)/i);
+  ($stats{'totalmem'}) = ($data =~ /total: (.*?B)/i);
   ($stats{'kmersize'}) = ($data =~ /kmer-size: (\d+)/i);
   ($stats{'numkmers'}) = ($data =~ /Loaded ([0-9,]+).*? of kmers parsed/i);
 
@@ -75,12 +75,12 @@ for my $data (@contigs)
   ($stats{'path_bytes'}) = ($data =~ /[0-9,]+ paths, (.*?) path-bytes, [0-9,]+ kmers/i);
   ($stats{'path_kmers'}) = ($data =~ /[0-9,]+ paths, .*? path-bytes, ([0-9,]+) kmers/i);
 
-  ($stats{'meancontig'}) = ($data =~ /Lengths: mean: ([0-9\.]+)/i);
-  ($stats{'mediancontig'}) = ($data =~ /Lengths: .*?median: ([0-9\.]+)/i);
-  ($stats{'N50contig'}) = ($data =~ /Lengths: .*?N50: ([0-9\.]+)/i);
-  ($stats{'mincontig'}) = ($data =~ /Lengths: .*?min: ([0-9\.]+)/i);
-  ($stats{'maxcontig'}) = ($data =~ /Lengths: .*?max: ([0-9\.]+)/i);
-  ($stats{'totalcontig'}) = ($data =~ /Lengths: .*?total: ([0-9\.]+)/i);
+  ($stats{'meancontig'}) = ($data =~ /Lengths: mean: ([0-9\.]+[KMG]?)/i);
+  ($stats{'mediancontig'}) = ($data =~ /Lengths: .*?median: ([0-9\.]+[KMG]?)/i);
+  ($stats{'N50contig'}) = ($data =~ /Lengths: .*?N50: ([0-9\.]+[KMG]?)/i);
+  ($stats{'mincontig'}) = ($data =~ /Lengths: .*?min: ([0-9\.]+[KMG]?)/i);
+  ($stats{'maxcontig'}) = ($data =~ /Lengths: .*?max: ([0-9\.]+[KMG]?)/i);
+  ($stats{'totalcontig'}) = ($data =~ /Lengths: .*?total: ([0-9\.]+[KMG]?)/i);
 
   ($stats{'resolve_straight'}) = ($data =~ /Go straight.*?\[.*?([0-9\.]+%).*?\]/i);
   ($stats{'resolve_colour'}) = ($data =~ /Go colour.*?\[.*?([0-9\.]+%).*?\]/i);
@@ -101,7 +101,12 @@ for my $data (@contigs)
 
   # Strip commas from numbers
   map {$stats{$_} = defined($stats{$_}) ? $stats{$_} : "NA"} @cols;
-  for my $col (@cols) { if($stats{$col} =~ /^[0-9,]+$/) { $stats{$col} =~ s/,//g; } }
+
+  for my $col (@cols) {
+    if($stats{$col} =~ /^[0-9,]+$/) { $stats{$col} =~ s/,//g; }
+    $stats{$col} =~ s/^([0-9]+)([KMG]B?)$/$1.0$2/g;
+  }
+
   print join(",", map {$stats{$_}} @cols)."\n";
 }
 
