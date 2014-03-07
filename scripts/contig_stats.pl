@@ -55,8 +55,9 @@ my @cols = qw(graphmem pathsmem totalmem kmersize numkmers
               meancontig mediancontig N50contig mincontig maxcontig totalcontig
               resolve_straight resolve_colour resolve_path
               halt_covg halt_colcovg halt_nopaths halt_pathssplit halt_missingpaths
-              paths_resolved_juncs time
-              exact_match_rate approx_match_thresh approx_match_rate);
+              paths_resolved_juncs
+              exact_match_rate approx_match_thresh approx_match_rate
+              time);
 
 print join(",", @cols)."\n";
 
