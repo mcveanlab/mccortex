@@ -78,7 +78,7 @@ static void print_entry(vcf_entry_t *vcfentry, FILE *out)
   // Set var num
   strbuf_reset(&vcfentry->cols[VCFID]);
   strbuf_sprintf(&vcfentry->cols[VCFID], "var%zu", num_variants_printed++);
-  vcf_entry_print(vcfentry, out, num_samples);
+  vcf_entry_print(vcfentry, out, 0);
 }
 
 // Returns msa_len if no more variants
@@ -504,7 +504,6 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
   size_t i;
-  bool printed_info = false;
 
   char cwd[PATH_MAX + 1];
 
@@ -536,7 +535,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
       if(futil_get_current_dir(cwd) != NULL) fprintf(fout, "##placeCwd=%s\n", cwd);
       fprintf(fout, "##placeDate=%s\n", datestr);
     }
-    else if(!strncasecmp(str, "##SAMPLE=", 9))
+    else if(!strncasecmp(str, "##colour=", 9))
     {
       if(num_samples == samples_capacity)
       {
@@ -545,10 +544,10 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
         sample_total_seq = realloc2(sample_total_seq, samples_capacity * sizeof(uint64_t));
       }
 
-      // strlen("##SAMPLE=<ID=") = 13
+      // strlen("##colour=<ID=") = 13
       char *sampleid = str+13, *sid_end, *totalseqstr, *seq_end;
 
-      if(strncasecmp(str, "##SAMPLE=<ID=", 13) != 0)
+      if(strncasecmp(str, "##colour=<ID=", 13) != 0)
         die("Unexpected VCF sample header line: %s", str);
 
       if((sid_end = strchr(sampleid, ',')) == NULL &&
@@ -585,7 +584,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
       fputs(str, fout);
       fputc('\n', fout);
     }
-    else if(!strncasecmp(str, "##format=", 9) && !printed_info)
+    else if(!strncasecmp(str, "#CHROM", 6))
     {
       // print additional info tag headers
       // print additional filter headers
@@ -598,17 +597,11 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
 "##FILTER=<ID=FMAP,Description=\"3 prime flank did not align with >kmer/2 base matches\">\n"
 "##FILTER=<ID=POPERR,Description=\"Pop filter classified as sequencing error\">\n"
 "##FILTER=<ID=POPREP,Description=\"Pop filter classified as repeat\">\n"
-"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
-// "##FORMAT=<ID=DP,Number=.,Type=Integer,Description=\"Read Depth\">\n" // also Number=R
-"%s\n", min_mapq, str);
-      printed_info = true;
-    }
-    else if(!strncasecmp(str, "#CHROM", 6))
-    {
-      // fprintf(fout, "%s\n", str);
+"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n", min_mapq);
+
       size_t num_columns = count_char(str, '\t')+1;
-      if(num_columns != VCFSAMPLES + num_samples)
-        die("Incorrect number of columns in VCF file [num_samples: %zu]", num_samples);
+      if(num_columns != VCFSAMPLES)
+        die("Incorrect number of columns in VCF file [expect: %i]", VCFSAMPLES);
     }
     else { fputs(str, fout); fputc('\n', fout); }
 
@@ -709,9 +702,9 @@ int ctx_place(CmdArgs *args)
             chroms[i].r.name.b, chroms[i].r.seq.end);
   }
   fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT", fout);
-  for(i = 0; i < num_samples; i++) {
-    fputc('\t', fout); fputs(sample_names[i], fout);
-  }
+  // for(i = 0; i < num_samples; i++) {
+  //   fputc('\t', fout); fputs(sample_names[i], fout);
+  // }
   fputc('\n', fout);
 
   // Setup for loading VCF lines
@@ -744,7 +737,7 @@ int ctx_place(CmdArgs *args)
 
   while(read_sam && read_vcf)
   {
-    vcf_entry_parse(line, &invcf, num_samples);
+    vcf_entry_parse(line, &invcf, 0);
     num_bubbles++;
 
     if(strcmp(invcf.cols[VCFCHROM].buff, "un") != 0 ||

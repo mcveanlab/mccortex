@@ -181,7 +181,7 @@ bool graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
 // col is graph colour
 // packed is just <PackedBases>
 bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
-                               size_t nbases, const dBGraph *db_graph)
+                            size_t nbases, const dBGraph *db_graph)
 {
   check_ret(db_graph->num_edge_cols == db_graph->num_of_cols ||
                 db_graph->node_in_cols != NULL);
@@ -191,7 +191,7 @@ bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
   dBNode nodes[4];
   Nucleotide nucs[4];
   size_t i, j, n, edgecol = db_graph->num_edge_cols > 1 ? ctxcol : 0;
-  // length is kmers and juctions
+  // length is kmers and junctions
   size_t klen, plen;
 
   // char nstr[nbases+1];

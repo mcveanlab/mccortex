@@ -332,7 +332,7 @@ k$(KMER)/bubbles/samples.oldbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 k$(KMER)/bubbles/samples.newbc.%.bubbles.gz: k$(KMER)/graphs/pop.%.ctx
 	mkdir -p k$(KMER)/bubbles
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--haploid $(NUM_INDIVS)'; fi`; \
-	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs $< $@
+	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs -o $@ $<
 
 # % => {se,pe,sepe}
 k$(KMER)/bubbles/samples.%.ref.bubbles.gz: k$(KMER)/graphs/pop.ref.ctx k$(KMER)/paths/pop.%.noref.ctp
@@ -342,7 +342,7 @@ k$(KMER)/bubbles/samples.%.bubbles.gz:
 	r=`echo $@ | grep -oE '(no)?ref'`; \
 	callargs=`if ! [[ '$*' =~ 'noref' ]]; then echo '--haploid $(NUM_INDIVS)'; fi`; \
 	p=`echo $@ | grep -oE '([sp]e)*.(no)?ref.bubbles.gz$$' | grep -oE '([sp]e)*'`; \
-	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/paths/pop.$$p.noref.ctp k$(KMER)/graphs/pop.$$r.ctx $@
+	$(CALLCTX) -t $(NTHREADS) --maxallele $(MAXALLELE) $$callargs -p k$(KMER)/paths/pop.$$p.noref.ctp -o $@ k$(KMER)/graphs/pop.$$r.ctx
 
 k$(KMER)/vcfs/truth.%.bub.vcf: ref/ref.fa $(GENOMES)
 	mkdir -p k$(KMER)/vcfs

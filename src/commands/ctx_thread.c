@@ -256,7 +256,7 @@ int ctx_thread(CmdArgs *args)
     {
       if(start > 0) {
         // wipe colour 0: just reset edges
-        db_graph_wipe_colour(&db_graph, 0);
+        memset(db_graph.col_edges, 0, db_graph.ht.capacity * sizeof(Edges));
         // DO NOT EMPTY THE HASH TABLE stupid
         // uncommenting this messes up keeping track of kmer->path matching
         // hash_table_empty(&db_graph.ht);

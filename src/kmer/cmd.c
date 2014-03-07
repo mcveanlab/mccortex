@@ -216,7 +216,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
                              size_t min_num_kmer_req, bool use_mem_limit,
                              size_t *graph_mem_ptr)
 {
-  size_t kmers_in_hash, min_num_kmers, graph_mem, min_kmers_mem;
+  size_t kmers_in_hash, graph_mem, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
 
@@ -235,15 +235,14 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
     graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);
   // ^ 1024 is a very small default hash table capacity
 
-  min_num_kmers = MAX2(min_num_kmer_req, 1024);
-  min_kmers_mem = hash_table_mem(min_num_kmers, extra_bits, NULL);
+  min_kmers_mem = hash_table_mem(min_num_kmer_req, extra_bits, NULL);
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
   bytes_to_str(min_kmers_mem, 1, min_kmers_mem_str);
 
   ulong_to_str(kmers_in_hash, kmers_in_hash_str);
-  ulong_to_str(min_num_kmers, min_num_kmers_str);
+  ulong_to_str(min_num_kmer_req, min_num_kmers_str);
 
   // Give a error/warning about occupancy
   if(kmers_in_hash < min_num_kmer_req)
@@ -251,11 +250,11 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
     die("Not enough kmers in hash: require at least %s kmers (min memory: %s)",
         min_num_kmers_str, min_kmers_mem_str);
   }
-  else if(kmers_in_hash < min_num_kmers/WARN_OCCUPANCY)
+  else if(kmers_in_hash < min_num_kmer_req/WARN_OCCUPANCY)
   {
     warn("Expected hash table occupancy %.2f%% "
          "(you may want to increase -n or -m)",
-         (100.0 * min_num_kmers) / kmers_in_hash);
+         (100.0 * min_num_kmer_req) / kmers_in_hash);
   }
 
   if(args->mem_to_use_set && args->num_kmers_set) {
@@ -303,7 +302,7 @@ void cmd_check_mem_limit(const CmdArgs *args, size_t mem_requested)
         memstr, ramstr);
   }
 
-  status("[memory] using: %s  machine RAM: %s\n", memstr, ramstr);
+  status("[memory] total: %s of %s RAM\n", memstr, ramstr);
 }
 
 const char *cmd_usage = "No usage set";

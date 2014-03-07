@@ -368,18 +368,17 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch, const char *cmdline)
   gzprintf(vcf, "##INFO=<ID=RF,Number=1,Type=String,Description=\"Right flank\">\n");
   gzprintf(vcf, "##INFO=<ID=BN,Number=.,Type=Integer,Description=\"Branch nodes; length in kmers of the alleles\">\n");
   gzprintf(vcf, "##INFO=<ID=BUB,Number=1,Type=String,Description=\"Cortex bubble index\">\n");
-  gzprintf(vcf, "##FORMAT=<ID=COVG,Number=.,Type=Integer,Description=\"Number of read arrivals\">\n");
   gzprintf(vcf, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
   gzprintf(vcf, "##contig=<ID=un,length=1000000,assembly=None>\n");
 
   gzprintf(vcf, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
 
-  for(i = 0; i < ch->num_samples; i++) {
-    if(strcmp(ch->sample_names[i], "undefined") == 0)
-      gzprintf(vcf, "\tsample%zu", i);
-    else
-      gzprintf(vcf, "\t%s", ch->sample_names[i]);
-  }
+  // for(i = 0; i < ch->num_samples; i++) {
+  //   if(strcmp(ch->sample_names[i], "undefined") == 0)
+  //     gzprintf(vcf, "\tsample%zu", i);
+  //   else
+  //     gzprintf(vcf, "\t%s", ch->sample_names[i]);
+  // }
 
   gzprintf(vcf, "\n");
 }
@@ -434,12 +433,12 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
 
       ch->sample_names = malloc2(ch->num_samples*sizeof(char*));
     }
-    else if(strncasecmp(tag, "sample", 6) == 0)
+    else if(strncasecmp(tag, "colour", 6) == 0)
     {
       if(ch->sample_names == NULL) die("missing 'ctxNumColoursUsedInCalling=' line");
 
       strbuf_ensure_capacity(tmp, line->len);
-      if(sscanf(line->buff, "##SAMPLE=<ID=%[^,],", tmp->buff) != 1)
+      if(sscanf(line->buff, "##colour=<ID=%[^,],", tmp->buff) != 1)
         die("parse error on line: %s", line->buff);
 
       if(sampleid >= ch->num_samples)
@@ -557,7 +556,7 @@ static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
     ch->sample_names[i] = strbuf_dup(line);
     strbuf_reset(line);
     strbuf_sprintf(line, "<ID=sample%zu,name=\"undefined\">", i);
-    header_add(ch, strdup("SAMPLE"), strbuf_dup(line));
+    header_add(ch, strdup("colour"), strbuf_dup(line));
   }
 
   strbuf_free(line);
@@ -571,7 +570,6 @@ typedef struct
   CallHeader *ch;
   // Temp variables used for loading
   StrBuf *line;
-  // uint32_t *covgs, covgs_cap;
   VarBranch **alleles;
   uint32_t num_alleles, alleles_cap;
 } CallReader;
@@ -581,8 +579,6 @@ static CallReader* reader_new(CallHeader *ch)
   CallReader *cr = malloc2(sizeof(CallReader));
   cr->ch = ch;
   cr->line = strbuf_new();
-  // cr->covgs_cap = 1024;
-  // cr->covgs = malloc2(cr->covgs_cap * sizeof(*cr->covgs));
   cr->num_alleles = 0;
   cr->alleles_cap = 32;
   cr->alleles = malloc2(cr->alleles_cap * sizeof(*cr->alleles));
@@ -592,7 +588,6 @@ static CallReader* reader_new(CallHeader *ch)
 static void reader_free(CallReader *cr)
 {
   strbuf_free(cr->line);
-  // free(cr->covgs);
   free(cr->alleles);
   free(cr);
 }
@@ -705,9 +700,6 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   load_assert(strbuf_reset_gzreadline(&var->flank5p, fh) != 0, line);
   strbuf_chomp(&var->flank5p);
 
-  // Skip flank5p covg lines
-  // for(i = 0; i < num_samples; i++) strbuf_gzskipline(fh);
-
   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
   strbuf_chomp(line);
 
@@ -718,9 +710,6 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
 
   load_assert(strbuf_reset_gzreadline(&var->flank3p, fh) != 0, line);
   strbuf_chomp(&var->flank3p);
-
-  // Skip flank3p covg lines
-  // for(i = 0; i < num_samples; i++) load_assert(strbuf_gzskipline(fh) > 0, line);
 
   // Start reading alleles
   load_assert(strbuf_reset_gzreadline(line, fh) != 0, line);
@@ -892,9 +881,9 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
                             Var *var, CallHeader *ch,
                             size_t entry_num, StrBuf *tmp)
 {
-  size_t i;
-  size_t kmer_size = ch->kmer_size;
-  size_t num_samples = ch->num_samples;
+  // size_t i;
+  const size_t kmer_size = ch->kmer_size;
+  // size_t num_samples = ch->num_samples;
   char is_snp = var_is_snp(var);
   strbuf_reset(tmp);
 
@@ -940,10 +929,10 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
 
   gzprintf(out_vcf, ";BUB=%s", var->name.buff);
 
-  gzprintf(out_vcf, "\tCOVG");
-  for(i = 0; i < num_samples; i++) {
-    gzprintf(out_vcf, "\t0");
-  }
+  gzprintf(out_vcf, "\t.");
+  // for(i = 0; i < num_samples; i++) {
+  //   gzprintf(out_vcf, "\t.");
+  // }
 
   gzputc(out_vcf, '\n');
 

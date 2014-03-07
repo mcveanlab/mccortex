@@ -91,7 +91,7 @@ void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
       strbuf_set(sample_name, ginfo->sample_name.buff);
     }
 
-    gzprintf(out, "##SAMPLE=<ID=%s,name=\"%s\",colour=%i,"
+    gzprintf(out, "##colour=<ID=%s,name=\"%s\",colour=%i,"
                   "meanreadlen=%zu,totalseqloaded=%zu,"
                   "seqerror=%Lf,tipclipped=%s,removelowcovgsupernodes=%u,"
                   "removelowcovgkmer=%u,cleanedagainstgraph=%s>\n",

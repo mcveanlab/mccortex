@@ -35,7 +35,6 @@ int ctx_call(CmdArgs *args)
 {
   int argi, argc = args->argc;
   char **argv = args->argv;
-  if(argc == 0 || argc & 1) cmd_print_usage(NULL);
 
   const char *out_path = args->output_file;
   size_t num_of_threads = args->max_work_threads;

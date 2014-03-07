@@ -223,7 +223,8 @@ int ctx_clean(CmdArgs *args)
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
                         (!all_colours_loaded) * sizeof(Edges) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        max_ctx_kmers, true, &graph_mem);
+                                        max_ctx_kmers,
+                                        args->mem_to_use_set, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 
@@ -370,10 +371,18 @@ int ctx_clean(CmdArgs *args)
       cleaning->cleaned_snodes |= supernode_cleaning;
       cleaning->cleaned_tips |= tip_cleaning;
 
+      if(tip_cleaning) {
+        strbuf_append_str(&outhdr.ginfo[i].sample_name, ".tipclean");
+      }
+
       if(supernode_cleaning) {
         thresh = cleaning->clean_snodes_thresh;
-        thresh = cleaning->cleaned_snodes ? MIN2(thresh, threshold) : threshold;
+        thresh = cleaning->cleaned_snodes ? MAX2(thresh, threshold) : threshold;
         cleaning->clean_snodes_thresh = thresh;
+
+        char name_append[200];
+        sprintf(name_append, ".supclean%zu", thresh);
+        strbuf_append_str(&outhdr.ginfo[i].sample_name, name_append);
       }
     }
 

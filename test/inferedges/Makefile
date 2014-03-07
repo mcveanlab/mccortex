@@ -13,8 +13,7 @@ noedges.ctx: noedges.fa
 	$(CTX) build -k 21 --sample MrsSamples --seq noedges.fa noedges.ctx
 
 noedges.nofix.ctx: noedges.ctx
-	cp noedges.ctx noedges.nofix.ctx
-	$(CTX) inferedges --pop noedges.nofix.ctx
+	$(CTX) inferedges --pop -o noedges.nofix.ctx noedges.ctx
 	$(CTX) view --kmers noedges.ctx
 	$(CTX) view --kmers noedges.nofix.ctx
 noedges.fixed.ctx: noedges.ctx
@@ -26,8 +25,7 @@ noedges.fixed.ctx: noedges.ctx
 pair.ctx: edges.ctx noedges.ctx
 	$(CTX) join pair.ctx edges.ctx noedges.ctx
 pop.ctx: pair.ctx
-	cp pair.ctx pop.ctx
-	$(CTX) inferedges pop.ctx
+	$(CTX) inferedges -o pop.ctx pair.ctx
 	$(CTX) view --kmers pair.ctx
 	$(CTX) view --kmers pop.ctx
 
