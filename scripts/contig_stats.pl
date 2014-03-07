@@ -36,7 +36,7 @@ while($line = <$fh>)
   }
   elsif($store) {
     $contig_data .= $line;
-    if($line =~ /\[time\]/) {
+    if($line =~ /\[sim_substrings.pl\].*approx/ || @contigs > 1000) {
       push(@contigs, $contig_data);
       $contig_data = "";
       $store = 0;
