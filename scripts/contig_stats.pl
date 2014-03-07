@@ -92,9 +92,9 @@ for my $data (@contigs)
   ($stats{'halt_missingpaths'}) = ($data =~ /Paths split.*?\[.*?([0-9\.]+%).*?\]/i);
   ($stats{'paths_resolved_juncs'}) = ($data =~ /Paths resolved.*?\[.*?([0-9\.]+%).*?\]/i);
 
-  ($stats{'exact_err_rate'}) = ($data =~ /\[sim_substrings.pl\] Perfect matches: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
-  ($stats{'approx_err_thresh'}, $stats{'approx_err_rate'})
-    = ($data =~ /\[sim_substrings.pl\] Perfect or approx \[([0-9]+)%\]: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
+  ($stats{'exact_match_rate'}) = ($data =~ /\[sim_substrings.pl\] Perfect matches: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
+  ($stats{'approx_match_thresh'}, $stats{'approx_match_rate'})
+    = ($data =~ /\[sim_substrings.pl\] Perfect or approx \[([0-9]+%)\]: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
 
   ($stats{'time'}) = ($data =~ /\[time\] (.*)/i);
 
