@@ -55,7 +55,8 @@ my @cols = qw(graphmem pathsmem totalmem kmersize numkmers
               meancontig mediancontig N50contig mincontig maxcontig totalcontig
               resolve_straight resolve_colour resolve_path
               halt_covg halt_colcovg halt_nopaths halt_pathssplit halt_missingpaths
-              paths_resolved_juncs time);
+              paths_resolved_juncs exact_err_rate approx_err_thresh approx_err_rate
+              time);
 
 print join(",", @cols)."\n";
 
@@ -90,6 +91,10 @@ for my $data (@contigs)
   ($stats{'halt_pathssplit'}) = ($data =~ /Paths split.*?\[.*?([0-9\.]+%).*?\]/i);
   ($stats{'halt_missingpaths'}) = ($data =~ /Paths split.*?\[.*?([0-9\.]+%).*?\]/i);
   ($stats{'paths_resolved_juncs'}) = ($data =~ /Paths resolved.*?\[.*?([0-9\.]+%).*?\]/i);
+
+  ($stats{'exact_err_rate'}) = ($data =~ /\[sim_substrings.pl\] Perfect matches: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
+  ($stats{'approx_err_thresh'}, $stats{'approx_err_rate'})
+    = ($data =~ /\[sim_substrings.pl\] Perfect or approx \[([0-9]+)%\]: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
 
   ($stats{'time'}) = ($data =~ /\[time\] (.*)/i);
 
