@@ -243,6 +243,7 @@ int ctx_infer_edges(CmdArgs *args)
       die("Output file already exists: %s", args->output_file);
     else if((fout = fopen(args->output_file,"w")) == NULL)
       die("Cannot open output file: %s", args->output_file);
+    setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
   }
 
   char *path = argv[0];
