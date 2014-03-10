@@ -30,9 +30,9 @@ typedef struct
 
 // Returns true if start1, start2 set and reads should be added
 static bool seq_reads_are_novel(read_t *r1, read_t *r2,
-                                   uint8_t fq_cutoff1, uint8_t fq_cutoff2,
-                                   uint8_t hp_cutoff, ReadMateDir matedir,
-                                   LoadingStats *stats, dBGraph *db_graph)
+                                uint8_t fq_cutoff1, uint8_t fq_cutoff2,
+                                uint8_t hp_cutoff, ReadMateDir matedir,
+                                LoadingStats *stats, dBGraph *db_graph)
 {
   // Remove SAM/BAM duplicates
   if(r1->from_sam && r1->bam->core.flag & BAM_FDUP &&
@@ -43,7 +43,7 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
   seq_reader_orient_mp_FF(r1, r2, matedir);
 
   const size_t kmer_size = db_graph->kmer_size;
-  size_t start1, start2;
+  size_t start1, start2 = 0;
   bool got_kmer1 = false, got_kmer2 = false;
   BinaryKmer bkmer1, bkmer2;
   dBNode node1, node2;
@@ -56,19 +56,17 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
     got_kmer2 = (start2 < r2->seq.end);
   }
 
-  const char *seq1 = got_kmer1 ? r1->seq.b + start1 : NULL;
-  const char *seq2 = got_kmer2 ? r2->seq.b + start2 : NULL;
   bool found1 = false, found2 = false;
 
   // Look up first kmer
-  if(seq1) {
-    bkmer1 = binary_kmer_from_str(seq1, kmer_size);
+  if(got_kmer1) {
+    bkmer1 = binary_kmer_from_str(r1->seq.b + start1, kmer_size);
     node1 = db_graph_find_or_add_node_mt(db_graph, bkmer1, &found1);
   }
 
   // Look up second kmer
-  if(seq2) {
-    bkmer2 = binary_kmer_from_str(seq2, kmer_size);
+  if(got_kmer2) {
+    bkmer2 = binary_kmer_from_str(r2->seq.b + start2, kmer_size);
     node2 = db_graph_find_or_add_node_mt(db_graph, bkmer2, &found2);
   }
 
@@ -76,15 +74,15 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
 
   // Each read gives no kmer or a duplicate kmer
   // used find_or_insert so if we have a kmer we have a graph node
-  if((!seq1 || db_node_has_read_start_mt(db_graph, node1)) &&
-     (!seq2 || db_node_has_read_start_mt(db_graph, node2)))
+  if((!got_kmer1 || db_node_has_read_start_mt(db_graph, node1)) &&
+     (!got_kmer2 || db_node_has_read_start_mt(db_graph, node2)))
   {
     return false;
   }
 
   // Read is novel
-  if(seq1) db_node_set_read_start_mt(db_graph, node1);
-  if(seq2) db_node_set_read_start_mt(db_graph, node2);
+  if(got_kmer1) db_node_set_read_start_mt(db_graph, node1);
+  if(got_kmer2) db_node_set_read_start_mt(db_graph, node2);
 
   return true;
 }
