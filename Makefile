@@ -67,7 +67,7 @@ IDIR_MISC=libs/misc
 LIB_HTS=libs/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 # LIB_STRS=libs/string_buffer/libstrbuf.a
-LIB_STRS=libs/string_buffer/string_buffer.c
+LIB_STRS=libs/string_buffer/string_buffer.o
 
 MISC_SRCS=$(wildcard libs/misc/*.c)
 MISC_OBJS=$(MISC_SRCS:.c=.o)
@@ -99,11 +99,10 @@ USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 IGNORE_CFLAGS=-Wno-cast-align -Wno-aggregate-return -Wno-conversion
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
-                  -Wstrict-aliasing -Wdiv-by-zero -Wunreachable-code \
+                  -Wstrict-aliasing -Wdiv-by-zero \
                   -Wcast-qual -Wmissing-noreturn \
                   -Wwrite-strings -Wundef \
-                  -Wshadow -Woverlength-strings \
-                  -Wenum-compare -Wfloat-equal -Wbad-function-cast \
+                  -Wshadow -Wfloat-equal -Wbad-function-cast \
                   -fstack-protector-all -D_FORTIFY_SOURCE=2
 
 CLANG_CFLAGS=-fsanitize-undefined-trap-on-error -Wno-shorten-64-to-32
@@ -113,17 +112,17 @@ CFLAGS := $(CFLAGS) $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
 PLATFORM := $(shell uname)
 COMPILER := $(shell ($(CC) -v 2>&1) | tr A-Z a-z )
 
+ifneq (,$(findstring clang,$(COMPILER)))
+	CFLAGS := $(CFLAGS) $(CLANG_CFLAGS)
+endif
+
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG
 	OPT = -O0 -g -ggdb -gdwarf-2 -g3
 else
 	# Could add -DNDEBUG=1 here to turn off asserts
-	ifneq (,$(findstring clang,$(COMPILER)))
-		# clang Link Time Optimisation (lto) seems to have issues atm
-		OPT = -O3
-		CFLAGS := $(CFLAGS) $(CLANG_CFLAGS)
-	else
-		OPT = -O4 -flto
+	OPT = -O4
+	ifneq (,$(findstring gcc,$(COMPILER)))
 		TGTFLAGS = -fwhole-program
 	endif
 endif
@@ -164,9 +163,15 @@ CMDS_HDRS=$(wildcard src/commands/*.h)
 CMDS_FILES=$(notdir $(CMDS_SRCS))
 CMDS_OBJS=$(addprefix $(CMDS_OBJDIR)/, $(CMDS_FILES:.c=.o))
 
+TESTS_OBJDIR=build/tests$(MAXK)
+TESTS_SRCS=$(wildcard src/tests/*.c)
+TESTS_HDRS=$(wildcard src/tests/*.h)
+TESTS_FILES=$(notdir $(TESTS_SRCS))
+TESTS_OBJS=$(addprefix $(TESTS_OBJDIR)/, $(TESTS_FILES:.c=.o))
+
 HDRS=$(CMDS_HDRS) $(KMER_HDRS) $(BASIC_HDRS)
 
-DIRS=bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR) $(CMDS_OBJDIR)
+DIRS=bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR) $(CMDS_OBJDIR) $(TESTS_OBJDIR)
 
 # DEPS are kmer dependencies that do not need to be re-built per target
 DEPS=Makefile $(DIRS) $(LIB_OBJS)
@@ -212,21 +217,24 @@ $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(
 $(CMDS_OBJDIR)/%.o: src/commands/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) $(CMDS_HDRS) | $(DEPS)
 	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ $(INCS) -c $<
 
+$(TESTS_OBJDIR)/%.o: src/tests/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
+	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $<
+
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
 	$(CC) -o libs/misc/$*.o $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -c libs/misc/$*.c
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ src/main/ctx.c $(INCS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
-bin/tests$(MAXK): src/main/tests.c $(wildcard src/tests/*) $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ -I src/tests/ src/tests/*.c src/main/tests.c $(INCS) $(OBJS) $(LINK)
+bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) | bin
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ -I src/tests/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ src/main/hashtest.c $(INCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) src/main/hashtest.c $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS) $(LINK)
 
 tables: bin/tables
 bin/tables: src/main/tables.c | bin
