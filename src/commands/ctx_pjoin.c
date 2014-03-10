@@ -1,5 +1,4 @@
 #include "global.h"
-#include "string_buffer.h"
 
 #include "commands.h"
 #include "util.h"

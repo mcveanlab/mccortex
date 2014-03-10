@@ -79,7 +79,7 @@ static void process_contig(const dBGraph *db_graph,
                            const KOccurList *klists, const KOccur *koccurs,
                            MulticolWalker *walker,
                            size_t *cols_used, size_t *col_lengths,
-                           dBNodeBuffer *nbuf, gzFile *gzout)
+                           dBNodeBuffer *nbuf, gzFile gzout)
 {
   // Work backwards to find last place we met the ref
   // nbuf[0] is ref node
@@ -112,7 +112,7 @@ static void assemble_contig(const dBGraph *db_graph,
                             const KOccurList *klists, const KOccur *koccurs,
                             MulticolWalker *walker,
                             size_t *cols, size_t *cols_used, size_t *col_lengths,
-                            dBNodeBuffer *nbuf, gzFile *gzout)
+                            dBNodeBuffer *nbuf, gzFile gzout)
 {
   // Follow path using multicol_walker_assemble_contig
   size_t i, ncols = db_graph->num_of_cols, ncols_used;
@@ -138,7 +138,7 @@ static void follow_break(dBNode node, const dBGraph *db_graph,
                          const KOccurList *klists, const KOccur *koccurs,
                          MulticolWalker *walker,
                          size_t *cols, size_t *cols2, size_t *cols3,
-                         dBNodeBuffer *nbuf, gzFile *gzout)
+                         dBNodeBuffer *nbuf, gzFile gzout)
 {
   size_t i, j, num_next;
   dBNode next_nodes[4];
@@ -219,11 +219,13 @@ static void* call_breakpoints(void *ptr)
         edges = db_node_get_edges(db_graph, hkey, 0);
         if(edges_get_outdegree(edges, FORWARD) > 1) {
           follow_break((dBNode){.key = hkey, .orient = FORWARD}, db_graph,
-                       klists, koccurs, &walker, cols, cols2, cols3, &nbuf, gzout);
+                       klists, koccurs, &walker, cols, cols2, cols3, &nbuf,
+                       gzout);
         }
         if(edges_get_outdegree(edges, REVERSE) > 1) {
           follow_break((dBNode){.key = hkey, .orient = REVERSE}, db_graph,
-                       klists, koccurs, &walker, cols, cols2, cols3, &nbuf, gzout);
+                       klists, koccurs, &walker, cols, cols2, cols3, &nbuf,
+                       gzout);
         }
       }
     }

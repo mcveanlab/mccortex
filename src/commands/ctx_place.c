@@ -9,7 +9,6 @@
 #include "sam.h"
 #include "khash.h"
 #include "seq_file.h"
-#include "string_buffer.h"
 #include "needleman_wunsch.h"
 
 #include "commands.h"

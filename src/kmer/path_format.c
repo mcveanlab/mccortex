@@ -390,20 +390,23 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 // returns number of bytes written
 size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout)
 {
-  fwrite("PATHS", 1, 5, fout);
-  fwrite(&header->version, sizeof(uint32_t), 1, fout);
-  fwrite(&header->kmer_size, sizeof(uint32_t), 1, fout);
-  fwrite(&header->num_of_cols, sizeof(uint32_t), 1, fout);
-  fwrite(&header->num_of_paths, sizeof(uint64_t), 1, fout);
-  fwrite(&header->num_path_bytes, sizeof(uint64_t), 1, fout);
-  fwrite(&header->num_kmers_with_paths, sizeof(uint64_t), 1, fout);
-  return 5 + sizeof(uint32_t)*3 + sizeof(uint64_t)*3;
+  size_t mem = fwrite("PATHS", 1, 5, fout) +
+               fwrite(&header->version, 1, sizeof(uint32_t), fout) +
+               fwrite(&header->kmer_size, 1, sizeof(uint32_t), fout) +
+               fwrite(&header->num_of_cols, 1, sizeof(uint32_t), fout) +
+               fwrite(&header->num_of_paths, 1, sizeof(uint64_t), fout) +
+               fwrite(&header->num_path_bytes, 1, sizeof(uint64_t), fout) +
+               fwrite(&header->num_kmers_with_paths, 1, sizeof(uint64_t), fout);
+
+  const size_t expmem = 5 + sizeof(uint32_t)*3 + sizeof(uint64_t)*3;
+  if(mem != expmem) die("Couldn't write header core");
+  return mem;
 }
 
 // returns number of bytes written
 size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
 {
-  size_t i, bytes = 0;
+  size_t i, bytes = 0, written = 0;
   uint32_t len;
   const StrBuf *buf;
 
@@ -413,11 +416,12 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
   {
     buf = &header->sample_names[i];
     len = (uint32_t)buf->len;
-    fwrite(&len, sizeof(uint32_t), 1, fout);
-    fwrite(buf->buff, sizeof(uint8_t), len, fout);
+    written += fwrite(&len, 1, sizeof(uint32_t), fout);
+    written += fwrite(buf->buff, 1, len, fout);
     bytes += sizeof(uint32_t) + len;
   }
 
+  if(written != bytes) die("Couldn't write header");
   return bytes;
 }
 
@@ -447,8 +451,12 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx,
     mem = packedpath_mem2(pstore->colset_bytes, pbytes);
     *pidx += mem;
     newidx = (pindex == PATH_NULL ? PATH_NULL : *pidx);
-    fwrite(&newidx, sizeof(PathIndex), 1, fout);
-    fwrite(path+sizeof(PathIndex), mem-sizeof(PathIndex), 1, fout);
+
+    if(fwrite(&newidx, 1, sizeof(PathIndex), fout) +
+       fwrite(path+sizeof(PathIndex), 1, mem-sizeof(PathIndex), fout) != mem)
+    {
+      die("Couldn't write to file");
+    }
   }
   while(pindex != PATH_NULL);
 }
@@ -456,12 +464,16 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx,
 static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
                                            FILE *fout)
 {
+  size_t written;
   if(db_node_paths(db_graph, hkey) != PATH_NULL)
   {
     BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
     PathIndex pindex = db_node_paths(db_graph, hkey);
-    fwrite(&bkmer, sizeof(BinaryKmer), 1, fout);
-    fwrite(&pindex, sizeof(PathIndex), 1, fout);
+    written = fwrite(&bkmer, 1, sizeof(BinaryKmer), fout) +
+              fwrite(&pindex, 1, sizeof(PathIndex), fout);
+
+    if(written != sizeof(BinaryKmer)+sizeof(PathIndex))
+      die("Couldn't write to file");
   }
 }
 

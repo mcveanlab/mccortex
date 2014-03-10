@@ -7,9 +7,11 @@
 static inline void dump_empty_bkmer(hkey_t hkey, const dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
 {
+  size_t written;
   const BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
-  fwrite(&bkmer, sizeof(BinaryKmer), 1, fh);
-  fwrite(buf, 1, mem, fh);
+  written = fwrite(&bkmer, 1, sizeof(BinaryKmer), fh) +
+            fwrite(buf, 1, mem, fh);
+  if(written != mem+sizeof(BinaryKmer)) die("Couldn't write to file");
 }
 
 void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
@@ -23,10 +25,11 @@ void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
 // Returns number of bytes written
 static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
 {
-  fwrite(&(cleaning->cleaned_tips), sizeof(uint8_t), 1, fh);
-  fwrite(&(cleaning->cleaned_snodes), sizeof(uint8_t), 1, fh);
-  fwrite(&(cleaning->cleaned_kmers), sizeof(uint8_t), 1, fh);
-  fwrite(&(cleaning->is_graph_intersection), sizeof(uint8_t), 1, fh);
+  size_t written = 0, expwrite;
+  written += fwrite(&(cleaning->cleaned_tips), 1, sizeof(uint8_t), fh);
+  written += fwrite(&(cleaning->cleaned_snodes), 1, sizeof(uint8_t), fh);
+  written += fwrite(&(cleaning->cleaned_kmers), 1, sizeof(uint8_t), fh);
+  written += fwrite(&(cleaning->is_graph_intersection), 1, sizeof(uint8_t), fh);
 
   uint32_t clean_snodes_thresh
     = cleaning->cleaned_snodes ? cleaning->clean_snodes_thresh : 0;
@@ -34,34 +37,37 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
   uint32_t clean_kmers_thresh
     = cleaning->cleaned_kmers ? cleaning->clean_kmers_thresh : 0;
 
-  fwrite(&clean_snodes_thresh, sizeof(uint32_t), 1, fh);
-  fwrite(&clean_kmers_thresh, sizeof(uint32_t), 1, fh);
+  written += fwrite(&clean_snodes_thresh, 1, sizeof(uint32_t), fh);
+  written += fwrite(&clean_kmers_thresh, 1, sizeof(uint32_t), fh);
 
   uint32_t len = (uint32_t)cleaning->intersection_name.len;
   const char *str = cleaning->intersection_name.buff;
-  fwrite(&len, sizeof(uint32_t), 1, fh);
-  fwrite(str, sizeof(uint8_t), len, fh);
+  written += fwrite(&len, 1, sizeof(uint32_t), fh);
+  written += fwrite(str, 1, len, fh);
 
-  return 4 + sizeof(uint32_t) * 2 + sizeof(uint32_t) + len;
+  expwrite = 4 + sizeof(uint32_t) * 2 + sizeof(uint32_t) + len;
+  if(written != expwrite) die("Cannot write to file");
+
+  return written;
 }
 
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 {
-  size_t i, b = 0;
+  size_t i, b = 0, act = 0;
 
-  fwrite("CORTEX", sizeof(char), strlen("CORTEX"), fh);
-  fwrite(&h->version, sizeof(uint32_t), 1, fh);
-  fwrite(&h->kmer_size, sizeof(uint32_t), 1, fh);
-  fwrite(&h->num_of_bitfields, sizeof(uint32_t), 1, fh);
-  fwrite(&h->num_of_cols, sizeof(uint32_t), 1, fh);
+  act += fwrite("CORTEX", 1, strlen("CORTEX"), fh);
+  act += fwrite(&h->version, 1, sizeof(uint32_t), fh);
+  act += fwrite(&h->kmer_size, 1, sizeof(uint32_t), fh);
+  act += fwrite(&h->num_of_bitfields, 1, sizeof(uint32_t), fh);
+  act += fwrite(&h->num_of_cols, 1, sizeof(uint32_t), fh);
 
   b += strlen("CORTEX") + sizeof(uint32_t) * 4;
 
   for(i = 0; i < h->num_of_cols; i++)
-    fwrite(&h->ginfo[i].mean_read_length, sizeof(uint32_t), 1, fh);
+    act += fwrite(&h->ginfo[i].mean_read_length, 1, sizeof(uint32_t), fh);
   for(i = 0; i < h->num_of_cols; i++)
-    fwrite(&h->ginfo[i].total_sequence, sizeof(uint64_t), 1, fh);
+    act += fwrite(&h->ginfo[i].total_sequence, 1, sizeof(uint64_t), fh);
 
   b += h->num_of_cols * (sizeof(uint32_t) + sizeof(uint64_t));
 
@@ -71,14 +77,14 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
     {
       uint32_t len = (uint32_t)h->ginfo[i].sample_name.len;
       const char *buff = h->ginfo[i].sample_name.buff;
-      fwrite(&len, sizeof(uint32_t), 1, fh);
-      fwrite(buff, sizeof(uint8_t), len, fh);
+      act += fwrite(&len, 1, sizeof(uint32_t), fh);
+      act += fwrite(buff, 1, len, fh);
       b += sizeof(uint32_t) + len;
     }
 
     // This fwrite seems to be upsetting valgrind - it doesn't like long doubles
     for(i = 0; i < h->num_of_cols; i++)
-      fwrite(&h->ginfo[i].seq_err, sizeof(long double), 1, fh);
+      act += fwrite(&h->ginfo[i].seq_err, 1, sizeof(long double), fh);
 
     b += h->num_of_cols * sizeof(long double);
 
@@ -86,8 +92,10 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
       b += write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
   }
 
-  fwrite("CORTEX", sizeof(uint8_t), strlen("CORTEX"), fh);
+  act += fwrite("CORTEX", 1, strlen("CORTEX"), fh);
   b += strlen("CORTEX");
+
+  if(act != b) die("Cannot write file");
 
   return b;
 }
@@ -97,10 +105,12 @@ size_t graph_write_kmer(FILE *fh, const GraphFileHeader *h,
                         const uint64_t *bkmer, const Covg *covgs,
                         const Edges *edges)
 {
-  fwrite(bkmer, sizeof(uint64_t), h->num_of_bitfields, fh);
-  fwrite(covgs, sizeof(uint32_t), h->num_of_cols, fh);
-  fwrite(edges, sizeof(uint8_t),  h->num_of_cols, fh);
-  return 8*h->num_of_bitfields + 5*h->num_of_cols;
+  size_t m = 0, expm = 8*h->num_of_bitfields + 5*h->num_of_cols;
+  m += fwrite(bkmer, 1, sizeof(uint64_t) * h->num_of_bitfields, fh);
+  m += fwrite(covgs, 1, sizeof(uint32_t) * h->num_of_cols, fh);
+  m += fwrite(edges, 1, sizeof(uint8_t) * h->num_of_cols, fh);
+  if(m != expm) die("Cannot write to file");
+  return m;
 }
 
 static inline void overwrite_kmer_colours(hkey_t node,
@@ -118,11 +128,17 @@ static inline void overwrite_kmer_colours(hkey_t node,
   const Covg *covg = col_covgs[node] + graphcol;
   const Edges *edges = col_edges[node] + graphcol;
 
-  fseek(fh, (long)(sizeof(BinaryKmer) + intocol * sizeof(Covg)), SEEK_CUR);
-  fwrite(covg, sizeof(Covg), write_ncols, fh);
-  fseek(fh, (long)(skip_cols * sizeof(Covg) + intocol * sizeof(Edges)), SEEK_CUR);
-  fwrite(edges, sizeof(Edges), write_ncols, fh);
-  fseek(fh, (long)(skip_cols * sizeof(Edges)), SEEK_CUR);
+  long skip0 = sizeof(BinaryKmer) + intocol * sizeof(Covg);
+  long skip1 = skip_cols * sizeof(Covg) + intocol * sizeof(Edges);
+  long skip2 = skip_cols * sizeof(Edges);
+
+  bool success = (fseek(fh, skip0, SEEK_CUR) == 0) &&
+                 (fwrite(covg, sizeof(Covg), write_ncols, fh) == write_ncols) &&
+                 (fseek(fh, skip1, SEEK_CUR) == 0) &&
+                 (fwrite(edges, sizeof(Edges), write_ncols, fh) == write_ncols) &&
+                 (fseek(fh, skip2, SEEK_CUR) == 0);
+
+  if(!success) die("Overwrite failed");
 }
 
 void graph_file_write_colours(const dBGraph *db_graph,
@@ -236,18 +252,6 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   HASH_ITERATE(&db_graph->ht, graph_write_node,
                db_graph, fout, header, intocol, colours, start_col, num_of_cols,
                &num_nodes_dumped);
-
-  if(header->version >= 7 && num_nodes_dumped != db_graph->ht.num_kmers)
-  {
-    // Need to go back and update number of kmers dumped
-    long pos = strlen("CORTEX") * sizeof(uint8_t) + 4 * sizeof(uint32_t);
-
-    if(fseek(fout, pos, SEEK_SET) == 0) {
-      fwrite(&num_nodes_dumped, sizeof(uint64_t), 1, fout);
-    } else {
-      warn("Couldn't update number of kmers in file [path: %s]", out_name);
-    }
-  }
 
   if(strcmp(path,"-") != 0) fclose(fout);
 

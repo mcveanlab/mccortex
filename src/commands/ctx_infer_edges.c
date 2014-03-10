@@ -133,6 +133,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
 {
   ctx_assert(file->hdr.num_of_cols == db_graph->num_of_cols);
   ctx_assert2(file->fltr.fh != stdin, "Use inferedges_on_stream() instead");
+  const size_t ncols = db_graph->num_of_cols;
 
   status("[inferedges] Processing file: %s", file->fltr.file_path.buff);
 
@@ -145,12 +146,12 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   fseek(file->fltr.fh, file->hdr_size, SEEK_SET);
 
   BinaryKmer bkmer;
-  Edges edges[db_graph->num_of_cols];
-  Covg covgs[db_graph->num_of_cols];
+  Edges edges[ncols];
+  Covg covgs[ncols];
 
   size_t num_nodes_modified = 0;
   bool updated;
-  long edges_len = sizeof(Edges) * db_graph->num_of_cols;
+  long edges_len = sizeof(Edges) * ncols;
 
   while(graph_file_read(file, &bkmer, covgs, edges))
   {
@@ -161,9 +162,11 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
       graph_write_kmer(fout, &file->hdr, bkmer.b, covgs, edges);
     }
     else if(updated) {
-      if(fseek(file->fltr.fh, -edges_len, SEEK_CUR) != 0)
-        die("fseek error: %s", file->fltr.file_path.buff);
-      fwrite(edges, db_graph->num_of_cols, sizeof(Edges), file->fltr.fh);
+      if(fseek(file->fltr.fh, -edges_len, SEEK_CUR) != 0 ||
+         fwrite(edges, ncols, sizeof(Edges), file->fltr.fh) != ncols)
+      {
+        die("fseek/fwrite error: %s", file->fltr.file_path.buff);
+      }
     }
 
     if(updated) num_nodes_modified++;

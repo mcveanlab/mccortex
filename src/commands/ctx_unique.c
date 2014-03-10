@@ -4,7 +4,6 @@
 #include <ctype.h> // isspace
 
 #include "khash.h"
-#include "string_buffer.h"
 
 #include "commands.h"
 #include "dna.h"

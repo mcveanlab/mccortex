@@ -18,6 +18,7 @@
 #include <zlib.h>
 
 #include "bit_macros.h" // from bit_array
+#include "string_buffer.h"
 
 #include "version.h" // defines CTXVERSIONSTR
 #include "cortex_types.h" // common basic data types

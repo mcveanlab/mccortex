@@ -1,7 +1,5 @@
 #include "global.h"
 
-#include <zlib.h>
-#include "string_buffer.h"
 #include "seq_file.h"
 
 #include "commands.h"
