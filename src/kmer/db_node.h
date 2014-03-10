@@ -8,6 +8,8 @@
 #include "db_graph.h"
 #include "util.h"
 
+#define DB_NODE_INIT {.key = HASH_NOT_FOUND, .orient = FORWARD}
+
 #define db_nodes_match(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
 
 //

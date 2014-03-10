@@ -139,8 +139,7 @@ int ctx_subgraph(CmdArgs *args)
   size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity);
   uint64_t *kmer_mask = calloc2(num_words64, sizeof(uint64_t));
 
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   //
   // Load graphs

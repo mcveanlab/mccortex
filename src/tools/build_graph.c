@@ -46,7 +46,7 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
   size_t start1, start2 = 0;
   bool got_kmer1 = false, got_kmer2 = false;
   BinaryKmer bkmer1, bkmer2;
-  dBNode node1, node2;
+  dBNode node1 = DB_NODE_INIT, node2 = DB_NODE_INIT;
 
   start1 = seq_contig_start(r1, 0, kmer_size, fq_cutoff1, hp_cutoff);
   got_kmer1 = (start1 < r1->seq.end);

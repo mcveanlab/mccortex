@@ -283,8 +283,7 @@ int ctx_thread(CmdArgs *args)
   ins_gaps = gen_paths_get_ins_gap(workers, &ins_gaps_len);
   err_gaps = gen_paths_get_err_gap(workers, &err_gaps_len);
 
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   gen_paths_get_stats(workers, num_work_threads, &stats);
 

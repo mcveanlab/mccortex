@@ -291,8 +291,7 @@ int ctx_infer_edges(CmdArgs *args)
   if(reading_stream)
     db_graph.col_edges = calloc2(file.hdr.num_of_cols*db_graph.ht.capacity, 1);
 
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,

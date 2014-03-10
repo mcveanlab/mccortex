@@ -46,7 +46,7 @@ static void read_update_counts(const read_t *r, dBGraph *db_graph,
                                KOccurList *klists)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  LoadingStats stats;
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
   READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_update_counts,
                  db_graph, klists);
 }
@@ -70,7 +70,7 @@ static void read_store_kmer_pos(const read_t *r, const dBGraph *db_graph,
                                 uint64_t roffset)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  LoadingStats stats;
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
   READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_store_kmer_pos,
                  db_graph, klists, koccurs, roffset+_offset);
 }

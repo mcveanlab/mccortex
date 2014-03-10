@@ -146,8 +146,7 @@ int ctx_covg(CmdArgs *args)
 
   // Load graph only for kmers already in the hash table
 
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs prefs = {.into_colour = 0, .db_graph = &db_graph,
                              .boolean_covgs = false,

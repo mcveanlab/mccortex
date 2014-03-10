@@ -689,8 +689,7 @@ size_t graph_files_merge(const char *out_ctx_path,
                                only_load_if_in_edges);
   }
 
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs prefs
     = {.db_graph = db_graph,

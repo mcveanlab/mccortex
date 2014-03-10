@@ -121,9 +121,15 @@ ifdef DEBUG
 	OPT = -O0 -g -ggdb -gdwarf-2 -g3
 else
 	# Could add -DNDEBUG=1 here to turn off asserts
-	OPT = -O4
 	ifneq (,$(findstring gcc,$(COMPILER)))
+		OPT = -O4
 		TGTFLAGS = -fwhole-program
+	else
+		OPT = -O3
+	endif
+
+	ifneq (,$(findstring lto,$(COMPILER)))
+		OPT := -flto $(OPT)
 	endif
 endif
 
@@ -179,6 +185,7 @@ DEPS=Makefile $(DIRS) $(LIB_OBJS)
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
 	OBJS=$(CMDS_SRCS) $(TOOLS_SRCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS)
+	TESTS_OBJS=$(TESTS_SRCS)
 else
 	OBJS=$(CMDS_OBJS) $(TOOLS_OBJS) $(KMER_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
 endif
@@ -234,7 +241,7 @@ bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) | bin
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 tables: bin/tables
 bin/tables: src/main/tables.c | bin

@@ -257,8 +257,7 @@ int ctx_clean(CmdArgs *args)
   db_graph.col_covgs = calloc2(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
   // Load graph into a single colour
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,

@@ -199,8 +199,7 @@ int ctx_extend(CmdArgs *args)
   FILE *out = fopen(out_fa_path, "w");
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);
 
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,

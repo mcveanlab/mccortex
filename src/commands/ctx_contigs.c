@@ -423,8 +423,7 @@ int ctx_contigs(CmdArgs *args)
   rpt_walker_alloc(&rptwlk, db_graph.ht.capacity, 22); // 4MB
 
   // Load graph
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,

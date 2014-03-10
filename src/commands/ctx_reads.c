@@ -248,8 +248,7 @@ int ctx_reads(CmdArgs *args)
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 0, kmers_in_hash);
 
   // Load graphs
-  LoadingStats stats;
-  loading_stats_init(&stats);
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .must_exist_in_graph = false,
