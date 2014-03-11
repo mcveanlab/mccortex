@@ -108,8 +108,7 @@ int ctx_health_check(CmdArgs *args)
   if(do_edge_check) {
     db_graph.col_edges = calloc2(db_graph.ht.capacity * ncols, sizeof(Edges));
   } else {
-    size_t nwords = roundup_bits2bytes(db_graph.ht.capacity)*ncols;
-    db_graph.node_in_cols = calloc2(nwords, sizeof(uint64_t));
+    db_graph.node_in_cols = calloc2(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
     db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   }
 

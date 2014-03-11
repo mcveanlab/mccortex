@@ -14,7 +14,7 @@ static void check_correct_aln(char *mut, const char *ans,
   r1->seq.end = strlen(mut);
   r1->seq.size = r1->seq.end+1;
 
-  db_alignment_from_reads(aln, r1, NULL, 0, 0, 0, graph);
+  db_alignment_from_reads(aln, r1, NULL, 0, 0, 0, graph, -1);
   correct_alignment_init(corrector, aln, params);
 
   dBNodeBuffer *nbuf;
@@ -43,6 +43,7 @@ static void test_correct_aln_no_paths()
   graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
   graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.node_in_cols = calloc2(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
   // Path data
   graph.kmer_paths = malloc2(graph.ht.capacity * sizeof(PathIndex));
   graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
@@ -83,6 +84,7 @@ static void test_correct_aln_no_paths()
   db_alignment_dealloc(&aln);
 
   free(graph.bktlocks);
+  free(graph.node_in_cols);
   free(graph.col_edges);
   free(graph.col_covgs);
   free(graph.kmer_paths);

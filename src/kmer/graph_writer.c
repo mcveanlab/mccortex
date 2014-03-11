@@ -54,7 +54,7 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 {
-  size_t i, b = 0, act = 0;
+  size_t i, b = 0, act = 0, tmp;
 
   act += fwrite("CORTEX", 1, strlen("CORTEX"), fh);
   act += fwrite(&h->version, 1, sizeof(uint32_t), fh);
@@ -88,8 +88,10 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 
     b += h->num_of_cols * sizeof(long double);
 
-    for(i = 0; i < h->num_of_cols; i++)
-      b += write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
+    for(i = 0; i < h->num_of_cols; i++) {
+      tmp = write_error_cleaning_object(fh, &h->ginfo[i].cleaning);
+      b += tmp; act += tmp;
+    }
   }
 
   act += fwrite("CORTEX", 1, strlen("CORTEX"), fh);

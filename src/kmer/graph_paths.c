@@ -83,12 +83,15 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
-bool graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
-                                   const uint8_t *packed, size_t plen,
-                                   PathIndex *newidx)
+bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
+                                const uint8_t *packed, size_t plen,
+                                PathStore *pstore,
+                                volatile uint8_t *kmerlocks,
+                                volatile PathIndex *kmer_paths,
+                                PathIndex *newidx)
 {
-  PathStore *pstore = &db_graph->pdata;
-  volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
+  // PathStore *pstore = &db_graph->pdata;
+  // volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
 
   // path_nbytes is the number of bytes in <PackedSeq>
   size_t path_nbytes = (plen+3)/4;
@@ -100,7 +103,8 @@ bool graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
   bitlock_yield_acquire(kmerlocks, node.key);
 
-  const PathIndex next = *db_node_paths_volptr(db_graph, node.key);
+  // const PathIndex next = *db_node_paths_volptr(db_graph, node.key);
+  const PathIndex next = kmer_paths[node.key];
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -149,7 +153,8 @@ bool graph_paths_find_or_add_mt(dBNode node, dBGraph *db_graph, Colour ctpcol,
 
   // 5) update kmer pointer
   PathIndex pindex = (uint64_t)(new_path - pstore->store);
-  *db_node_paths_volptr(db_graph, node.key) = pindex;
+  // *db_node_paths_volptr(db_graph, node.key) = pindex;
+  kmer_paths[node.key] = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer
   if(next == PATH_NULL) {

@@ -52,7 +52,7 @@ void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
                    const char *file, const char *func, int line)
 {
   ptr = ctx_realloc(ptr, newsize, file, func, line);
-  memset(ptr+oldsize, 0, newsize-oldsize);
+  memset((char*)ptr+oldsize, 0, newsize-oldsize);
   return ptr;
 }
 

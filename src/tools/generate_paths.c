@@ -244,8 +244,12 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    added = graph_paths_find_or_add_mt(node, db_graph, ctpcol,
-                                       packed_ptr, plen, &pindex);
+    added = graph_paths_find_or_add_mt(node, ctpcol, packed_ptr, plen,
+                                       &db_graph->pdata,
+                                       db_graph->path_kmer_locks,
+                                       db_graph->kmer_paths,
+                                       &pindex);
+
     packed_ptr[top_idx] = top_byte; // restore top byte
 
     #ifdef CTXVERBOSE
@@ -424,7 +428,7 @@ static void reads_to_paths(GenPathWorker *wrkr)
 
   db_alignment_from_reads(&wrkr->aln, r1, r2,
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
-                          wrkr->db_graph);
+                          wrkr->db_graph, wrkr->task.crt_params.ctxcol);
 
   ctx_check2(db_alignment_check_edges(&wrkr->aln, wrkr->db_graph),
              "Edges missing: was read %s%s%s used to build the graph?",

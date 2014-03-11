@@ -408,7 +408,7 @@ int ctx_contigs(CmdArgs *args)
   size_t nword64 = roundup_bits2words64(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, sizeof(uint8_t));
+  db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, 1);
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
   memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 

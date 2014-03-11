@@ -28,6 +28,7 @@ typedef struct
   // idx is -1 if failed, otherwise index of path
   int8_t idx;
   uint8_t status;
+  bool node_has_col;
 } GraphStep;
 
 // GraphStep.status values:

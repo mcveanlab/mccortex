@@ -23,10 +23,11 @@ void db_alignment_dealloc(dBAlignment *alignment)
   uint32_buf_dealloc(&alignment->gaps);
 }
 
+// if colour is -1 aligns to all colours, otherwise aligns to given colour only
 // Returns number of kmers lost from the end
 static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
                                      uint8_t qcutoff, uint8_t hp_cutoff,
-                                     const dBGraph *db_graph)
+                                     const dBGraph *db_graph, int colour)
 {
   size_t contig_start, contig_end = 0, search_start = 0, nxt_exp_kmer_offset = 0;
   const size_t kmer_size = db_graph->kmer_size;
@@ -64,7 +65,8 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
       tmp_key = bkmer_get_key(bkmer, kmer_size);
       node = hash_table_find(&db_graph->ht, tmp_key);
 
-      if(node != HASH_NOT_FOUND)
+      if(node != HASH_NOT_FOUND &&
+         (colour == -1 || db_node_has_col(db_graph, node, colour)))
       {
         nodes->data[n].key = node;
         nodes->data[n].orient = bkmer_get_orientation(bkmer, tmp_key);
@@ -84,25 +86,32 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
 }
 
 
+// if colour is -1 aligns to all colours, otherwise aligns to given colour only
 void db_alignment_from_reads(dBAlignment *alignment,
                              const read_t *r1, const read_t *r2,
                              uint8_t qcutoff1, uint8_t qcutoff2,
-                             uint8_t hp_cutoff, const dBGraph *db_graph)
+                             uint8_t hp_cutoff,
+                             const dBGraph *db_graph, int colour)
 {
+  ctx_assert(colour == -1 || db_graph->node_in_cols != NULL);
+
   db_node_buf_reset(&alignment->nodes);
   uint32_buf_reset(&alignment->gaps);
   alignment->seq_gaps = false;
   alignment->r2enderr = 0;
   alignment->passed_r2 = (r2 != NULL);
+  alignment->colour = colour;
 
   alignment->r1enderr = db_alignment_from_read(alignment, r1,
-                                               qcutoff1, hp_cutoff, db_graph);
+                                               qcutoff1, hp_cutoff,
+                                               db_graph, colour);
 
   alignment->r2strtidx = alignment->nodes.len;
 
   if(r2 != NULL) {
     alignment->r2enderr = db_alignment_from_read(alignment, r2,
-                                                 qcutoff2, hp_cutoff, db_graph);
+                                                 qcutoff2, hp_cutoff,
+                                                 db_graph, colour);
   }
 
   alignment->used_r1 = (alignment->r1enderr < r1->seq.end);

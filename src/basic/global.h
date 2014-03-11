@@ -28,7 +28,6 @@
 //  CTXCHECKS=1      Turns on heavy checks
 //  MIN_KMER_SIZE    Min kmer-size compiled e.g. 3 for maxk=31, 33 for maxk=63
 //  MAX_KMER_SIZE    Max kmer-size compiled e.g. 31 for maxk=31, 63 for maxk=63
-//  NUM_BKMER_WORDS  Number of 64 bit words used to store a kmer roundup(k/32)
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 
 #ifdef NDEBUG

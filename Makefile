@@ -99,9 +99,9 @@ USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 IGNORE_CFLAGS=-Wno-cast-align -Wno-aggregate-return -Wno-conversion
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
-                  -Wstrict-aliasing -Wdiv-by-zero \
-                  -Wcast-qual -Wmissing-noreturn \
-                  -Wwrite-strings -Wundef \
+                  -Wstrict-aliasing -Wdiv-by-zero -Wsign-compare \
+                  -Wcast-qual -Wmissing-noreturn -Wreturn-type \
+                  -Wwrite-strings -Wundef -Wpointer-arith \
                   -Wshadow -Wfloat-equal -Wbad-function-cast \
                   -fstack-protector-all -D_FORTIFY_SOURCE=2
 
@@ -122,10 +122,10 @@ ifdef DEBUG
 else
 	# Could add -DNDEBUG=1 here to turn off asserts
 	ifneq (,$(findstring gcc,$(COMPILER)))
-		OPT = -O4
+		OPT = -O4 -m64
 		TGTFLAGS = -fwhole-program
 	else
-		OPT = -O3
+		OPT = -O3 -m64
 	endif
 
 	ifneq (,$(findstring lto,$(COMPILER)))

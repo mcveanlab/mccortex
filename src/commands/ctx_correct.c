@@ -129,7 +129,7 @@ static void corrected_output_delete(CorrectedOutput *out)
 }
 
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
-                                       MsgPool *pool,  dBGraph *db_graph)
+                                       MsgPool *pool, dBGraph *db_graph)
 {
   wrkr->db_graph = db_graph;
   wrkr->pool = pool;
@@ -164,6 +164,8 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
   RepeatWalker *rptwlk = &wrkr->rptwlk;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t kmer_size = db_graph->kmer_size;
+  const size_t ctxcol = wrkr->input->crt_params.ctxcol;
+  const size_t ctpcol = wrkr->input->crt_params.ctpcol;
 
   size_t i, idx, gap, num_n, nbases;
   size_t init_len, end_len;
@@ -172,7 +174,7 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
   char bkmerstr[MAX_KMER_SIZE+1];
 
   db_alignment_from_reads(&wrkr->aln, r, NULL,
-                          fq_cutoff, 0, hp_cutoff, db_graph);
+                          fq_cutoff, 0, hp_cutoff, db_graph, -1);
 
   // Correct sequence errors in the alignment
   correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->input->crt_params);
@@ -199,7 +201,7 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
   {
     // Walk left
     graph_walker_prime(wlk, nbuf->data, nbuf->len, MAX_CONTEXT, false,
-                       0, 0, db_graph);
+                       ctxcol, ctpcol, db_graph);
 
     db_node_buf_reset(tmpnbuf);
     db_node_buf_ensure_capacity(nbuf, left_gap);
@@ -458,7 +460,7 @@ int ctx_correct(CmdArgs *args)
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(bytes_per_col * ctx_total_cols, sizeof(uint8_t));
+  db_graph.node_in_cols = calloc2(bytes_per_col * ctx_total_cols, 1);
   db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
   memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 

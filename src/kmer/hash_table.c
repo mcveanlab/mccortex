@@ -331,7 +331,7 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
       h = binary_kmer_hash(key,i) & htable->hash_mask;
     #endif
 
-    bitlock_acquire(bktlocks, h);
+    bitlock_yield_acquire(bktlocks, h);
 
     // We have the bucket lock so noone else can find or insert elements
     // therefore we can use non-threadsafe bucket functions

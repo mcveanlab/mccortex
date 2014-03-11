@@ -292,10 +292,10 @@ static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
   abort();
 }
 
-#define return_step(i,s) { \
-  GraphStep _stp = {.idx = (int8_t)(i), .status = (s)}; \
+#define return_step(i,s,hascol) do { \
+  GraphStep _stp = {.idx = (int8_t)(i), .status = (s), .node_has_col = (hascol)}; \
   return _stp; \
-}
+} while(0)
 
 // Returns index of choice or -1
 // Sets is_fork_in_col true if there is a fork in the given colour
@@ -314,8 +314,15 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     ctx_assert(wlk->cntr_paths.len == 0);
   }
 
-  if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG);
-  if(num_next == 1) return_step( 0, GRPHWLK_FORWARD);
+  const dBGraph *db_graph = wlk->db_graph;
+  bool multicol = db_graph->num_of_cols > 1;
+
+  if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG, false);
+  if(num_next == 1) {
+    bool incol = (!multicol ||
+                  db_node_has_col(db_graph, next_nodes[0].key, wlk->ctxcol));
+    return_step(0, GRPHWLK_FORWARD, incol);
+  }
 
   int8_t indices[4] = {0,1,2,3};
   dBNode nodes_store[4];
@@ -325,11 +332,11 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   size_t i, j;
 
   // Reduce next nodes that are in this colour
-  if(wlk->db_graph->num_of_cols > 1)
+  if(multicol)
   {
     for(i = 0, j = 0; i < num_next; i++)
     {
-      if(db_node_has_col(wlk->db_graph, next_nodes[i].key, wlk->ctxcol)) {
+      if(db_node_has_col(db_graph, next_nodes[i].key, wlk->ctxcol)) {
         nodes_store[j] = next_nodes[i];
         bases_store[j] = next_bases[i];
         indices[j] = (int8_t)i;
@@ -345,8 +352,8 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
       ctx_assert(wlk->cntr_paths.len == 0);
     }
 
-    if(num_next == 1) return_step(indices[0], GRPHWLK_COLFWD);
-    if(num_next == 0) return_step(-1,         GRPHWLK_NOCOLCOVG);
+    if(num_next == 1) return_step(indices[0], GRPHWLK_COLFWD, true);
+    if(num_next == 0) return_step(-1,         GRPHWLK_NOCOLCOVG, false);
   }
   else {
     nodes = next_nodes;
@@ -355,7 +362,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
   // We have hit a fork
   // abandon if no path info
-  if(wlk->paths.len == 0) return_step(-1, GRPHWLK_NOPATHS);
+  if(wlk->paths.len == 0) return_step(-1, GRPHWLK_NOPATHS, false);
 
   // Mark next bases available
   uint8_t forks[4] = {0,0,0,0}, taken[4] = {0,0,0,0};
@@ -385,21 +392,21 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     path = &wlk->paths.data[i];
     if(path->pos < greatest_age) break;
     if(cache_fetch(path, path->pos) != greatest_nuc)
-      return_step(-1, GRPHWLK_SPLIT_PATHS);
+      return_step(-1, GRPHWLK_SPLIT_PATHS, false);
   }
 
   #ifdef USE_COUNTER_PATHS
   // Does every next node have a path?
   // Fail if missing assembly info
   if((size_t)taken[0]+taken[1]+taken[2]+taken[3] < num_next)
-    return_step(-1, GRPHWLK_MISSING_PATHS);
+    return_step(-1, GRPHWLK_MISSING_PATHS, false);
   #endif
 
   // There is unique next node
   // Find the correct next node chosen by the paths
   for(i = 0; i < num_next; i++)
     if(bases[i] == greatest_nuc)
-      return_step(indices[i], GRPHWLK_USEPATH);
+      return_step(indices[i], GRPHWLK_USEPATH, multicol);
 
   // Should be impossible to reach here...
   ctx_assert(0);

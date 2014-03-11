@@ -64,6 +64,7 @@ void test_paths()
   graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
   graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.node_in_cols = calloc2(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
   // Path data
   graph.kmer_paths = malloc2(graph.ht.capacity * sizeof(PathIndex));
   graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
@@ -125,6 +126,7 @@ void test_paths()
   gen_paths_workers_dealloc(wrkrs, nworkers);
 
   free(graph.bktlocks);
+  free(graph.node_in_cols);
   free(graph.col_edges);
   free(graph.col_covgs);
   free(graph.kmer_paths);

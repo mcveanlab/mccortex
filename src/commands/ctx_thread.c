@@ -141,6 +141,7 @@ int ctx_thread(CmdArgs *args)
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
                   2*num_work_threads + // Have traversed
+                  1 + // node in colour
                   1; // path store kmer lock
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
@@ -228,6 +229,8 @@ int ctx_thread(CmdArgs *args)
 
   // 2. reduce number of graph colours
   db_graph_realloc(&db_graph, 1, 1);
+
+  db_graph.node_in_cols = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
 
   // Setup for loading graphs graph
   LoadingStats gstats;
@@ -335,6 +338,7 @@ int ctx_thread(CmdArgs *args)
 
   free(tasks);
 
+  free(db_graph.node_in_cols);
   free(db_graph.col_edges);
   free(db_graph.kmer_paths);
   free(db_graph.path_kmer_locks);

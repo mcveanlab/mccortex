@@ -28,6 +28,7 @@ typedef struct
   // if used_r1 && used_r2
   // gap between r1 last nodes[r2strtindx-1] .. nodes[r2strtindx]
   // = r1enderr + insgapsize + gaps[r2strtindx]
+  int colour; // -1 if colour agnostic, otherwise only nodes in colour used
 } dBAlignment;
 
 // Estimate memory required
@@ -36,10 +37,12 @@ size_t db_alignment_est_mem();
 void db_alignment_alloc(dBAlignment *alignment);
 void db_alignment_dealloc(dBAlignment *alignment);
 
+// if colour is -1 aligns to all colours, otherwise aligns to given colour only
 void db_alignment_from_reads(dBAlignment *alignment,
                              const read_t *r1, const read_t *r2,
                              uint8_t qcutoff1, uint8_t qcutoff2,
-                             uint8_t hp_cutoff, const dBGraph *db_graph);
+                             uint8_t hp_cutoff,
+                             const dBGraph *db_graph, int colour);
 
 // Returns index of node just after next gap,
 // or aln->nodes.len if no more gaps

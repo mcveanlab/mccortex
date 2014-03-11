@@ -72,9 +72,10 @@ void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
 
 // Resets node buffer, GraphWalker and RepeatWalker after use
 static bool traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
-                                 size_t gap_min, size_t gap_max,
-                                 size_t *gap_len_ptr,
-                                 GraphWalker *wlk, RepeatWalker *rptwlk)
+                              size_t gap_min, size_t gap_max,
+                              size_t *gap_len_ptr,
+                              GraphWalker *wlk, RepeatWalker *rptwlk,
+                              bool only_in_col)
 {
   bool traversed = false;
 
@@ -87,7 +88,8 @@ static bool traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
   db_node_buf_ensure_capacity(contig, contig->len + gap_max + 1);
 
   while(contig->len < max_len && graph_traverse(wlk) &&
-        rpt_walker_attempt_traverse(rptwlk, wlk))
+        rpt_walker_attempt_traverse(rptwlk, wlk) &&
+        (!only_in_col || wlk->last_step.node_has_col))
   {
     if(db_nodes_match(wlk->node, end_node)) {
       traversed = true;
@@ -117,10 +119,11 @@ static bool traverse_one_way2(dBNode end_node, dBNodeBuffer *contig,
 // nodes in contig1 will be the *reverse*
 // Resets node buffers, GraphWalkers and RepeatWalkers after use
 static bool traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
-                                 size_t gap_min, size_t gap_max,
-                                 size_t *gap_len_ptr,
-                                 GraphWalker *wlk0, RepeatWalker *rptwlk0,
-                                 GraphWalker *wlk1, RepeatWalker *rptwlk1)
+                              size_t gap_min, size_t gap_max,
+                              size_t *gap_len_ptr,
+                              GraphWalker *wlk0, RepeatWalker *rptwlk0,
+                              GraphWalker *wlk1, RepeatWalker *rptwlk1,
+                              bool only_in_col)
 {
   const size_t init_len0 = contig0->len, init_len1 = contig1->len;
 
@@ -137,7 +140,8 @@ static bool traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
 
   while(gap_len < gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
-      use[i] = use[i] && graph_traverse(wlk[i]);
+      use[i] = (use[i] && graph_traverse(wlk[i]) &&
+                (!only_in_col || wlk[i]->last_step.node_has_col));
 
       if(use[i])
       {
@@ -176,17 +180,20 @@ static bool traverse_two_way2(dBNodeBuffer *contig0, dBNodeBuffer *contig1,
 }
 
 static bool traverse_one_way(CorrectAlnWorker *wrkr,
-                                size_t gap_idx, size_t end_idx,
-                                size_t gap_min, size_t gap_max,
-                                size_t *gap_len_ptr)
+                             size_t gap_idx, size_t end_idx,
+                             size_t gap_min, size_t gap_max,
+                             size_t *gap_len_ptr)
 {
   const CorrectAlnParam *params = &wrkr->params;
+  const int aln_colour = wrkr->aln->colour; // -1 for all
   const dBNode *aln_nodes = wrkr->aln->nodes.data;
   const dBNodeBuffer *nbuf = &wrkr->contig;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
   bool traversed;
+
+  ctx_assert(aln_colour == -1 || (size_t)aln_colour == ctxcol);
 
   // Start traversing forward
   graph_walker_prime(&wrkr->wlk, nbuf->data, nbuf->len,
@@ -195,7 +202,8 @@ static bool traverse_one_way(CorrectAlnWorker *wrkr,
   traversed
     = traverse_one_way2(aln_nodes[gap_idx],
                         &wrkr->contig, gap_min, gap_max, gap_len_ptr,
-                        &wrkr->wlk, &wrkr->rptwlk);
+                        &wrkr->wlk, &wrkr->rptwlk,
+                        aln_colour != -1);
 
   // status("We had %s %zu", traversed ? "Success" : "Failure", wrkr->contig.len);
 
@@ -208,21 +216,25 @@ static bool traverse_one_way(CorrectAlnWorker *wrkr,
   traversed
     = traverse_one_way2(db_node_reverse(aln_nodes[gap_idx-1]),
                         &wrkr->revcontig, gap_min, gap_max, gap_len_ptr,
-                        &wrkr->wlk, &wrkr->rptwlk);
+                        &wrkr->wlk, &wrkr->rptwlk,
+                        aln_colour != -1);
 
   return traversed;
 }
 
 static bool traverse_two_way(CorrectAlnWorker *wrkr,
-                                size_t gap_idx, size_t end_idx,
-                                size_t gap_min, size_t gap_max,
-                                size_t *gap_len_ptr)
+                             size_t gap_idx, size_t end_idx,
+                             size_t gap_min, size_t gap_max,
+                             size_t *gap_len_ptr)
 {
   const CorrectAlnParam *params = &wrkr->params;
+  const int aln_colour = wrkr->aln->colour; // -1 for all
   const dBNode *nodes = wrkr->aln->nodes.data;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
+
+  ctx_assert(aln_colour == -1 || (size_t)aln_colour == ctxcol);
 
   graph_walker_prime(&wrkr->wlk, wrkr->contig.data, wrkr->contig.len,
                      params->max_context, true, ctxcol, ctpcol, db_graph);
@@ -232,7 +244,8 @@ static bool traverse_two_way(CorrectAlnWorker *wrkr,
   return traverse_two_way2(&wrkr->contig, &wrkr->revcontig,
                            gap_min, gap_max, gap_len_ptr,
                            &wrkr->wlk, &wrkr->rptwlk,
-                           &wrkr->wlk2, &wrkr->rptwlk2);
+                           &wrkr->wlk2, &wrkr->rptwlk2,
+                           aln_colour != -1);
 }
 
 // Returns NULL if end of alignment
