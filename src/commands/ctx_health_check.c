@@ -114,11 +114,8 @@ int ctx_health_check(CmdArgs *args)
 
   // Paths
   if(num_pfiles > 0) {
-    db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-    memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
-
-    path_store_alloc(&db_graph.pdata, path_mem-tmp_path_mem, tmp_path_mem,
-                     path_max_usedcols);
+    path_store_alloc(&db_graph.pstore, path_mem-tmp_path_mem, tmp_path_mem,
+                     db_graph.ht.capacity, path_max_usedcols);
   }
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
@@ -145,7 +142,7 @@ int ctx_health_check(CmdArgs *args)
 
     status("Running path check...");
     // Check data store
-    path_store_integrity_check(&db_graph.pdata);
+    path_store_integrity_check(&db_graph.pstore);
 
     status("  Tracing reads through the graph...");
     for(col = 0; col < ncols; col++)
@@ -156,10 +153,7 @@ int ctx_health_check(CmdArgs *args)
 
   status("All looks good!");
 
-  if(num_pfiles) {
-    free(db_graph.kmer_paths);
-    path_store_dealloc(&db_graph.pdata);
-  }
+  if(num_pfiles) path_store_dealloc(&db_graph.pstore);
   if(db_graph.node_in_cols) free(db_graph.node_in_cols);
   free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);

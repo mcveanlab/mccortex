@@ -461,10 +461,10 @@ int ctx_correct(CmdArgs *args)
 
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(bytes_per_col * ctx_total_cols, 1);
-  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
-  memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
 
-  path_store_alloc(&db_graph.pdata, ctp_max_mem, tmp_path_mem, ctp_max_usedcols);
+  // Paths
+  path_store_alloc(&db_graph.pstore, ctp_max_mem, tmp_path_mem,
+                   db_graph.ht.capacity, ctp_max_usedcols);
 
   // Run alignment
   AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
@@ -510,8 +510,8 @@ int ctx_correct(CmdArgs *args)
   free(inputs);
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
-  free(db_graph.kmer_paths);
-  path_store_dealloc(&db_graph.pdata);
+
+  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

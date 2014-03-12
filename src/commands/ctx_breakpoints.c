@@ -164,10 +164,8 @@ int ctx_breakpoints(CmdArgs *args)
   db_graph.node_in_cols = calloc2(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
-  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
-  memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
-
-  path_store_alloc(&db_graph.pdata, path_max_mem, tmp_path_mem, path_max_usedcols);
+  path_store_alloc(&db_graph.pstore, path_max_mem, tmp_path_mem,
+                   db_graph.ht.capacity, path_max_usedcols);
 
   //
   // Load graphs
@@ -192,7 +190,7 @@ int ctx_breakpoints(CmdArgs *args)
   //
   if(num_pfiles > 0) {
     paths_format_merge(pfiles, num_pfiles, false, &db_graph);
-    path_store_reclaim_tmp(&db_graph.pdata);
+    path_store_reclaim_tmp(&db_graph.pstore);
   }
 
   //
@@ -224,7 +222,8 @@ int ctx_breakpoints(CmdArgs *args)
   readbuf_dealloc(&rbuf);
   free(db_graph.col_edges);
   free(db_graph.node_in_cols);
-  free(db_graph.kmer_paths);
+
+  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

@@ -84,10 +84,8 @@ int ctx_pview(CmdArgs *args)
   path_file_set_graph_sample_names(&pfile, &db_graph);
 
   // Paths
-  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
-
-  path_store_alloc(&db_graph.pdata, phdr->num_path_bytes, 0, phdr->num_of_cols);
+  path_store_alloc(&db_graph.pstore, phdr->num_path_bytes, 0,
+                   db_graph.ht.capacity, phdr->num_of_cols);
 
   // Pretend we've read all the kmers in
   db_graph.num_of_cols_used = phdr->num_of_cols;
@@ -103,12 +101,10 @@ int ctx_pview(CmdArgs *args)
   // Check data store
   if(do_paths_check) {
     status("Checking path store integrity...");
-    path_store_integrity_check(&db_graph.pdata);
+    path_store_integrity_check(&db_graph.pstore);
   }
 
-  free(db_graph.kmer_paths);
-
-  path_store_dealloc(&db_graph.pdata);
+  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
   path_file_dealloc(&pfile);
 

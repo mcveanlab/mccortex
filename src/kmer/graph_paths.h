@@ -35,8 +35,8 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 const uint8_t *packed, size_t plen,
                                 PathStore *pstore,
-                                volatile uint8_t *kmerlocks,
                                 volatile PathIndex *kmer_paths,
+                                volatile uint8_t *kmerlocks,
                                 PathIndex *newidx);
 
 //

@@ -49,9 +49,9 @@ typedef struct
   uint8_t *node_in_cols;
 
   // path data
-  PathStore pdata;
+  PathStore pstore;
   // These need to be cast to volatile to read/write in multithreaded settings
-  PathIndex *kmer_paths;
+  // PathIndex *kmer_paths;
   uint8_t *path_kmer_locks;
 
   // Loading reads

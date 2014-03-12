@@ -202,15 +202,15 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   FileFilter *fltr = &file->fltr;
   FILE *fh = fltr->fh;
   const char *path = fltr->file_path.buff;
-  PathStore *store = &db_graph->pdata;
+  PathStore *pstore = &db_graph->pstore;
 
   // If you want to use a file filter you must use paths_format_merge
   // Check file filter and PathStore are compatible
-  ctx_assert(path_store_fltr_compatible(store, fltr));
+  ctx_assert(path_store_fltr_compatible(pstore, fltr));
 
   // Check PathStore has not been used yet
-  ctx_assert(store->next == store->store);
-  ctx_assert(store->num_of_paths == 0 && store->num_kmers_with_paths == 0);
+  ctx_assert(pstore->next == pstore->store);
+  ctx_assert(pstore->num_of_paths == 0 && pstore->num_kmers_with_paths == 0);
 
   path_files_update_empty_sample_names(file, 1, db_graph);
   path_file_load_check(file, db_graph);
@@ -225,10 +225,10 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   PathIndex pindex;
 
   // Load paths
-  safe_fread(fh, store->store, hdr->num_path_bytes, "store->store", path);
-  store->next = store->store + hdr->num_path_bytes;
-  store->num_of_paths = hdr->num_of_paths;
-  store->num_kmers_with_paths = hdr->num_kmers_with_paths;
+  safe_fread(fh, pstore->store, hdr->num_path_bytes, "pstore->store", path);
+  pstore->next = pstore->store + hdr->num_path_bytes;
+  pstore->num_of_paths = hdr->num_of_paths;
+  pstore->num_kmers_with_paths = hdr->num_kmers_with_paths;
 
   // Load kmer pointers to paths
   for(i = 0; i < hdr->num_kmers_with_paths; i++)
@@ -248,7 +248,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
           (size_t)pindex, (size_t)hdr->num_path_bytes);
     }
 
-    db_node_paths(db_graph, hkey) = pindex;
+    pstore_paths(pstore, hkey) = pindex;
   }
 
   // Test that this is the end of the file
@@ -267,19 +267,19 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
   PathIndex pindex, new_pindex;
   PathLen pbytes;
   bool added = false;
-  PathStore *store = &db_graph->pdata;
+  PathStore *pstore = &db_graph->pstore;
 
   // Get paths this kmer already has
-  pindex = db_node_paths(db_graph, hkey);
+  pindex = pstore_paths(pstore, hkey);
 
   do
   {
     packed = data+loadindex;
     pbytes = packedpath_pbytes(packed, colset_bytes);
-    new_pindex = path_store_find_or_add_packed2(store, pindex, packed, pbytes,
+    new_pindex = path_store_find_or_add_packed2(pstore, pindex, packed, pbytes,
                                                 fltr, find, &added);
     if(added) {
-      db_node_paths(db_graph, hkey) = pindex = new_pindex;
+      pstore_paths(pstore, hkey) = pindex = new_pindex;
     }
     loadindex = packedpath_get_prev(packed);
   }
@@ -287,16 +287,16 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
 }
 
 // Load 1 or more path files; can be called consecutively
-// db_graph.pdata must be big enough to hold all this data or we exit
-// tmpdata must be bigger than MAX(files[*].hdr.num_path_bytes)
+// db_graph.pstore must be big enough to hold all this data or we exit
+// tmpstore must be bigger than MAX(files[*].hdr.num_path_bytes)
 void paths_format_merge(PathFileReader *files, size_t num_files,
                         bool insert_missing_kmers, dBGraph *db_graph)
 {
   if(num_files == 0) return;
 
-  PathStore *pstore = &db_graph->pdata;
+  PathStore *pstore = &db_graph->pstore;
 
-  ctx_assert(num_files <= 1 || (pstore->tmpsize > 0 && pstore->tmpdata != NULL));
+  ctx_assert(num_files <= 1 || (pstore->tmpsize > 0 && pstore->tmpstore != NULL));
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
@@ -346,9 +346,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Print some output
     paths_loading_print_status(&files[i]);
 
-    ctx_assert(pstore->tmpdata != NULL);
+    ctx_assert(pstore->tmpstore != NULL);
     ctx_assert(hdr->num_path_bytes <= pstore->tmpsize);
-    safe_fread(fh, pstore->tmpdata, hdr->num_path_bytes, "paths->store", path);
+    safe_fread(fh, pstore->tmpstore, hdr->num_path_bytes, "paths->store", path);
 
     // Load kmer pointers to paths
     for(k = 0; k < hdr->num_kmers_with_paths; k++)
@@ -369,7 +369,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       }
 
       // Merge into currently loaded paths
-      load_packed_linkedlist(node, pstore->tmpdata, tmpindex, colbytes,
+      load_packed_linkedlist(node, pstore->tmpstore, tmpindex, colbytes,
                              fltr, find, db_graph);
     }
 
@@ -428,19 +428,19 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
 static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx,
                                          dBGraph *db_graph, FILE *fout)
 {
-  const PathStore *pstore = &db_graph->pdata;
+  const PathStore *pstore = &db_graph->pstore;
   PathIndex pindex, newidx;
   PathLen len;
   Orientation orient;
   size_t mem, pbytes;
   const uint8_t *path;
 
-  pindex = db_node_paths(db_graph, hkey);
+  pindex = pstore_paths(pstore, hkey);
 
   // Return if not paths associated with this kmer
   if(pindex == PATH_NULL) return;
 
-  db_node_paths(db_graph, hkey) = *pidx;
+  pstore_paths(pstore, hkey) = *pidx;
 
   do
   {
@@ -464,11 +464,15 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx,
 static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
                                            FILE *fout)
 {
+  const PathStore *pstore = &db_graph->pstore;
   size_t written;
-  if(db_node_paths(db_graph, hkey) != PATH_NULL)
+  PathIndex pindex;
+  BinaryKmer bkmer;
+
+  if((pindex = pstore_paths(pstore, hkey)) != PATH_NULL)
   {
-    BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
-    PathIndex pindex = db_node_paths(db_graph, hkey);
+    bkmer = db_node_get_bkmer(db_graph, hkey);
+
     written = fwrite(&bkmer, 1, sizeof(BinaryKmer), fout) +
               fwrite(&pindex, 1, sizeof(PathIndex), fout);
 

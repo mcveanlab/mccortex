@@ -42,7 +42,7 @@ size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
                        bool insert_missing_kmers);
 
-// db_graph.pdata must be big enough to hold all this data or we exit
+// db_graph.pstore must be big enough to hold all this data or we exit
 void paths_format_merge(PathFileReader *files, size_t num_files,
                         bool insert_missing_kmers, dBGraph *db_graph);
 

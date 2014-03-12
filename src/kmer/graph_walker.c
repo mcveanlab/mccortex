@@ -123,7 +123,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
     cntr_filter_nuc0 = (db_node_outdegree_in_col(node, wlk->ctxcol, db_graph) > 1);
   }
 
-  pindex = *db_node_paths_volptr(db_graph, node.key);
+  pindex = *pstore_paths_volptr(pstore, node.key);
 
   while(pindex != PATH_NULL)
   {
@@ -155,7 +155,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   ctx_assert(graph->num_edge_cols == 1);
   ctx_assert(graph->num_of_cols == 1 || graph->node_in_cols != NULL);
 
-  GraphWalker gw = {.db_graph = graph, .pstore = &graph->pdata,
+  GraphWalker gw = {.db_graph = graph, .pstore = &graph->pstore,
                     .ctxcol = ctxcol, .ctpcol = ctpcol,
                     .node = node,
                     // paths

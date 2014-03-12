@@ -245,9 +245,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
     added = graph_paths_find_or_add_mt(node, ctpcol, packed_ptr, plen,
-                                       &db_graph->pdata,
+                                       &db_graph->pstore,
+                                       db_graph->pstore.kmer_paths,
                                        db_graph->path_kmer_locks,
-                                       db_graph->kmer_paths,
                                        &pindex);
 
     packed_ptr[top_idx] = top_byte; // restore top byte
@@ -295,7 +295,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     #endif
 
     // status("Path is:...");
-    // print_path(node.key, packed_ptr, &db_graph->pdata);
+    // print_path(node.key, packed_ptr, &db_graph->pstore);
   }
 
   return num_added;

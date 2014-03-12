@@ -30,7 +30,6 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                  .col_edges = NULL,
                  .col_covgs = NULL,
                  .node_in_cols = NULL,
-                 .kmer_paths = NULL,
                  .path_kmer_locks = NULL,
                  .readstrt = NULL};
 
@@ -38,7 +37,7 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   ctx_assert2(kmer_size <= MAX_KMER_SIZE, "kmer size: %zu", kmer_size);
 
   hash_table_alloc(&tmp.ht, capacity);
-  memset(&tmp.pdata, 0, sizeof(PathStore));
+  memset(&tmp.pstore, 0, sizeof(PathStore));
 
   tmp.ginfo = malloc2(num_of_cols * sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
@@ -73,8 +72,7 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
                  .col_edges = graph->col_edges,
                  .col_covgs = graph->col_covgs,
                  .node_in_cols = graph->node_in_cols,
-                 .pdata = graph->pdata,
-                 .kmer_paths = graph->kmer_paths,
+                 .pstore = graph->pstore,
                  .path_kmer_locks = graph->path_kmer_locks,
                  .readstrt = graph->readstrt};
 
@@ -371,7 +369,7 @@ void db_graph_add_all_edges(dBGraph *db_graph)
 
 void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
 {
-  const PathStore *pstore = &db_graph->pdata;
+  const PathStore *pstore = &db_graph->pstore;
   size_t kmer_size = db_graph->kmer_size;
   char str[MAX_KMER_SIZE+1];
   hkey_t hkey;
@@ -387,7 +385,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
     if(db_graph_node_assigned(db_graph, hkey)) {
       binary_kmer_to_str(db_node_get_bkmer(db_graph, hkey), kmer_size, str);
       for(orient = 0; orient < 2; orient++) {
-        pindex = db_node_paths(db_graph, hkey);
+        pindex = pstore_paths(pstore, hkey);
         first = true;
         while(pindex != PATH_NULL) {
           path = pstore->store+pindex;

@@ -86,11 +86,11 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 const uint8_t *packed, size_t plen,
                                 PathStore *pstore,
-                                volatile uint8_t *kmerlocks,
                                 volatile PathIndex *kmer_paths,
+                                volatile uint8_t *kmerlocks,
                                 PathIndex *newidx)
 {
-  // PathStore *pstore = &db_graph->pdata;
+  // PathStore *pstore = &db_graph->pstore;
   // volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
 
   // path_nbytes is the number of bytes in <PackedSeq>
@@ -103,8 +103,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
   bitlock_yield_acquire(kmerlocks, node.key);
 
-  // const PathIndex next = *db_node_paths_volptr(db_graph, node.key);
-  const PathIndex next = kmer_paths[node.key];
+  const PathIndex next = *pstore_paths_volptr(pstore, node.key);
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -153,7 +152,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 
   // 5) update kmer pointer
   PathIndex pindex = (uint64_t)(new_path - pstore->store);
-  // *db_node_paths_volptr(db_graph, node.key) = pindex;
+  // *pstore_paths_volptr(db_graph, node.key) = pindex;
   kmer_paths[node.key] = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer
@@ -278,7 +277,7 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
                                  const GraphPathPairing *gp,
                                  const dBGraph *db_graph)
 {
-  const PathStore *pstore = &db_graph->pdata;
+  const PathStore *pstore = &db_graph->pstore;
   PathLen len_bases;
   Orientation orient;
   const uint8_t *colset, *seq;
@@ -319,14 +318,14 @@ static bool kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
                                 const dBGraph *db_graph,
                                 size_t *npaths_ptr, size_t *nkmers_ptr)
 {
-  const PathStore *pdata = &db_graph->pdata;
-  PathIndex pindex = db_node_paths(db_graph, hkey);
+  const PathStore *pstore = &db_graph->pstore;
+  PathIndex pindex = pstore_paths(pstore, hkey);
   uint8_t *packed;
   size_t num_paths = 0;
 
   while(pindex != PATH_NULL)
   {
-    packed = pdata->store+pindex;
+    packed = pstore->store+pindex;
     check_ret(packed_path_check(hkey, packed, gp, db_graph));
     pindex = packedpath_get_prev(packed);
     num_paths++;
@@ -346,8 +345,8 @@ bool graph_paths_check_all_paths(const GraphPathPairing *gp,
   HASH_ITERATE(&db_graph->ht, kmer_check_paths, gp, db_graph,
                &num_paths, &num_kmers);
 
-  act_num_paths = db_graph->pdata.num_of_paths;
-  act_num_kmers = db_graph->pdata.num_kmers_with_paths;
+  act_num_paths = db_graph->pstore.num_of_paths;
+  act_num_kmers = db_graph->pstore.num_kmers_with_paths;
 
   check_ret2(num_paths == act_num_paths, "%zu vs %zu", num_paths, act_num_paths);
   check_ret2(num_kmers == act_num_kmers, "%zu vs %zu", num_kmers, act_num_kmers);
@@ -358,7 +357,7 @@ bool graph_path_check_path(hkey_t node, PathIndex pindex,
                               const GraphPathPairing *gp,
                               const dBGraph *db_graph)
 {
-  uint8_t *packed = db_graph->pdata.store+pindex;
+  uint8_t *packed = db_graph->pstore.store+pindex;
   return packed_path_check(node, packed, gp, db_graph);
 }
 
@@ -367,8 +366,8 @@ static void _pstore_update_counts(hkey_t hkey, const dBGraph *db_graph,
                                   size_t *nkmers, size_t *npaths,
                                   size_t *nvisited)
 {
-  const PathStore *pstore = &db_graph->pdata;
-  PathIndex pindex = db_node_paths(db_graph, hkey);
+  const PathStore *pstore = &db_graph->pstore;
+  PathIndex pindex = pstore_paths(pstore, hkey);
   size_t n;
 
   (*nvisited)++;
@@ -382,7 +381,7 @@ static void _pstore_update_counts(hkey_t hkey, const dBGraph *db_graph,
 
 void graph_paths_check_counts(const dBGraph *db_graph)
 {
-  const PathStore *pstore = &db_graph->pdata;
+  const PathStore *pstore = &db_graph->pstore;
   size_t nkmers = 0, npaths = 0, nvisited = 0;
 
   HASH_ITERATE(&db_graph->ht, _pstore_update_counts,

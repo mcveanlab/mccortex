@@ -16,12 +16,22 @@ typedef struct {
   uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths, num_col_paths;
   // Temporary data used for merging
-  uint8_t *const tmpdata;
+  uint8_t *const tmpstore;
   const size_t tmpsize;
+  // Kmer pointers
+  PathIndex *kmer_paths;
 } PathStore;
 
+//
+// Paths
+#define pstore_paths(pstore,node) ((pstore)->kmer_paths[(node)])
+#define pstore_paths_volptr(pstore,node) \
+        ((volatile PathIndex *)&(pstore)->kmer_paths[(node)])
+
 // Initialise the PathStore
-void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncols);
+void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,
+                      size_t graph_capacity, size_t ncols);
+
 // Once tmp has been used for merging, it can be reclaimed to use generally
 void path_store_reclaim_tmp(PathStore *paths);
 

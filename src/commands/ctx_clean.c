@@ -223,8 +223,7 @@ int ctx_clean(CmdArgs *args)
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
                         (!all_colours_loaded) * sizeof(Edges) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        max_ctx_kmers,
-                                        args->mem_to_use_set, &graph_mem);
+                                        max_ctx_kmers, false, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 

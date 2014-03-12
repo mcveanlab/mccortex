@@ -157,7 +157,7 @@ void asyncio_run_threads(MsgPool *pool,
   if(!num_inputs) return;
   ctx_assert(num_readers > 0);
 
-  status("[asyncio] Threads: %zu; Inputs: %zu", num_inputs, num_readers);
+  status("[asyncio] Inputs: %zu; Threads: %zu", num_inputs, num_readers);
 
   // Thread attribute joinable
   pthread_attr_t thread_attr;

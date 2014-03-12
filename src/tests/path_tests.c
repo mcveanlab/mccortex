@@ -11,9 +11,9 @@ static void add_paths(dBGraph *graph,
                       GenPathWorker *wrkrs, const char *seq,
                       size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
 {
-  size_t npaths = graph->pdata.num_of_paths;
-  size_t nkmers = graph->pdata.num_kmers_with_paths;
-  uint8_t *next = graph->pdata.next;
+  size_t npaths = graph->pstore.num_of_paths;
+  size_t nkmers = graph->pstore.num_kmers_with_paths;
+  uint8_t *next = graph->pstore.next;
 
   // Set up asyncio input data
   seq_read_set(&iodata->r1, seq);
@@ -24,13 +24,13 @@ static void add_paths(dBGraph *graph,
   gen_path_worker_seq(wrkrs, iodata, task);
 
   // Check we added the right number of paths
-  TASSERT(graph->pdata.num_of_paths == npaths + exp_npaths);
-  TASSERT(graph->pdata.num_kmers_with_paths == nkmers + exp_nkmers);
+  TASSERT(graph->pstore.num_of_paths == npaths + exp_npaths);
+  TASSERT(graph->pstore.num_kmers_with_paths == nkmers + exp_nkmers);
 
   // Check memory used
-  size_t path_mem = sizeof(PathIndex) + graph->pdata.colset_bytes + sizeof(PathLen);
+  size_t path_mem = sizeof(PathIndex) + graph->pstore.colset_bytes + sizeof(PathLen);
   size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
-  TASSERT(graph->pdata.next == next + exp_mem);
+  TASSERT(graph->pstore.next == next + exp_mem);
 }
 
 static void test_all_paths(const dBGraph *graph)
@@ -43,7 +43,7 @@ static void test_all_paths(const dBGraph *graph)
     gp.ctxcols[col] = gp.ctpcols[col] = col;
 
   // Check data store
-  TASSERT(path_store_integrity_check(&graph->pdata));
+  TASSERT(path_store_integrity_check(&graph->pstore));
 
   for(col = 0; col < graph->num_of_cols; col++)
     TASSERT(graph_paths_check_all_paths(&gp, graph));
@@ -65,12 +65,10 @@ void test_paths()
   graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
   graph.node_in_cols = calloc2(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
-  // Path data
-  graph.kmer_paths = malloc2(graph.ht.capacity * sizeof(PathIndex));
-  graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
 
-  memset(graph.kmer_paths, 0xff, graph.ht.capacity * sizeof(PathIndex));
-  path_store_alloc(&graph.pdata, path_max_mem, 0, ncols);
+  // Path data
+  path_store_alloc(&graph.pstore, path_max_mem, 0, graph.ht.capacity, ncols);
+  graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
@@ -129,11 +127,10 @@ void test_paths()
   free(graph.node_in_cols);
   free(graph.col_edges);
   free(graph.col_covgs);
-  free(graph.kmer_paths);
   free(graph.path_kmer_locks);
 
   asynciodata_dealloc(&iodata);
-  path_store_dealloc(&graph.pdata);
+  path_store_dealloc(&graph.pstore);
   db_graph_dealloc(&graph);
 }
 
@@ -217,13 +214,13 @@ static inline void compare_kmer_paths(hkey_t node,
 
   PathIndex pi = db_node_paths(dbg1, node);
   while(pi != PATH_NULL) {
-    add_path(plist1, &dbg1->pdata, pi);
-    pi = packedpath_get_prev(dbg1->pdata.store+pi);
+    add_path(plist1, &dbg1->pstore, pi);
+    pi = packedpath_get_prev(dbg1->pstore.store+pi);
   }
   pi = db_node_paths(dbg2, node);
   while(pi != PATH_NULL) {
-    add_path(plist2, &dbg2->pdata, pi);
-    pi = packedpath_get_prev(dbg2->pdata.store+pi);
+    add_path(plist2, &dbg2->pstore, pi);
+    pi = packedpath_get_prev(dbg2->pstore.store+pi);
   }
 
   if(plist1->npaths != plist2->npaths) die("Mismatch in lengths");

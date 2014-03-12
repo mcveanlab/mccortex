@@ -183,19 +183,17 @@ int ctx_thread(CmdArgs *args)
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, total_cols, 1, kmers_in_hash);
   kmers_in_hash = db_graph.ht.capacity;
 
-  // path kmer locks
-  db_graph.path_kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
-
   // Edges
   db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
 
-  // Paths
-  db_graph.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  memset(db_graph.kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
-
+  // Path store
   // use total_cols instead of path_max_usedcols since we are
   // loading then ADDING more paths (which may need new colours)
-  path_store_alloc(&db_graph.pdata, main_path_mem, tmp_path_mem, total_cols);
+  path_store_alloc(&db_graph.pstore, main_path_mem, tmp_path_mem,
+                   kmers_in_hash, total_cols);
+
+  // path kmer locks for multithreaded access
+  db_graph.path_kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
@@ -213,7 +211,7 @@ int ctx_thread(CmdArgs *args)
     // Paths loaded into empty colours will update the sample names
     // and add kmers needed
     paths_format_merge(pfiles, num_pfiles, true, &db_graph);
-    path_store_reclaim_tmp(&db_graph.pdata);
+    path_store_reclaim_tmp(&db_graph.pstore);
   }
 
   // Set up paths header. This is for the output file we are creating
@@ -314,7 +312,7 @@ int ctx_thread(CmdArgs *args)
   status("[stats] single reads: %s; read pairs: %s; total: %s",
          se_num_str, pe_num_str, sepe_num_str);
 
-  PathStore *pstore = &db_graph.pdata;
+  PathStore *pstore = &db_graph.pstore;
   size_t num_path_bytes = (size_t)(pstore->next - pstore->store);
   char kmers_str[100], paths_str[100], mem_str[100], col_paths_str[100];
   ulong_to_str(pstore->num_kmers_with_paths, kmers_str);
@@ -340,12 +338,11 @@ int ctx_thread(CmdArgs *args)
 
   free(db_graph.node_in_cols);
   free(db_graph.col_edges);
-  free(db_graph.kmer_paths);
   free(db_graph.path_kmer_locks);
 
   paths_header_dealloc(&pheader);
 
-  path_store_dealloc(&db_graph.pdata);
+  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);

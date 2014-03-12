@@ -8,13 +8,18 @@
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
-void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncols)
+void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,
+                      size_t kmers_in_hash, size_t ncols)
 {
   size_t colset_bytes = roundup_bits2bytes(ncols);
 
   // all one block: <mem><padding><tmp><padding>
   uint8_t *mem = malloc2(size + PSTORE_PADDING + tmpsize + PSTORE_PADDING);
   uint8_t *tmp = tmpsize ? mem + size + PSTORE_PADDING : NULL;
+
+  // Paths
+  PathIndex *kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+  memset(kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   char main_mem_str[100], tmp_mem_str[100];
   bytes_to_str(size, 1, main_mem_str);
@@ -28,7 +33,8 @@ void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize, size_t ncol
                          .colset_bytes = colset_bytes,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
                          .num_col_paths = 0,
-                         .tmpdata = tmp, .tmpsize = tmpsize};
+                         .tmpstore = tmp, .tmpsize = tmpsize,
+                         .kmer_paths = kmer_paths};
 
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
@@ -49,7 +55,7 @@ void path_store_reclaim_tmp(PathStore *paths)
                          .num_of_paths = paths->num_of_paths,
                          .num_kmers_with_paths = paths->num_kmers_with_paths,
                          .num_col_paths = paths->num_col_paths,
-                         .tmpdata = NULL, .tmpsize = 0};
+                         .tmpstore = NULL, .tmpsize = 0};
 
   memcpy(paths, &new_paths, sizeof(PathStore));
 }
@@ -57,6 +63,7 @@ void path_store_reclaim_tmp(PathStore *paths)
 // Release memory
 void path_store_dealloc(PathStore *paths)
 {
+  free(paths->kmer_paths);
   free(paths->store);
 }
 

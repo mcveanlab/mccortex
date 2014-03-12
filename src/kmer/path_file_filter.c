@@ -60,7 +60,7 @@ void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph)
         fltr->orig_path.buff);
   }
 
-  if(hdr->num_path_bytes > db_graph->pdata.size) {
+  if(hdr->num_path_bytes > db_graph->pstore.size) {
     char mem_str[100]; bytes_to_str(hdr->num_path_bytes, 1, mem_str);
     die("Not enough memory allocated to store paths [mem: %s path: %s]",
         mem_str, fltr->orig_path.buff);

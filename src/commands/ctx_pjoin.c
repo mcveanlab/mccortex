@@ -176,10 +176,8 @@ int ctx_pjoin(CmdArgs *args)
   for(i = 0; i < num_pfiles; i++)
     path_file_set_graph_sample_names(&pfiles[i], &db_graph);
 
-  db_graph.kmer_paths = malloc2(db_graph.ht.capacity * sizeof(PathIndex));
-  memset(db_graph.kmer_paths, 0xff, db_graph.ht.capacity * sizeof(PathIndex));
-
-  path_store_alloc(&db_graph.pdata, ctp_max_path_bytes, tmp_path_mem, output_ncols);
+  path_store_alloc(&db_graph.pstore, ctp_max_path_bytes, tmp_path_mem,
+                   db_graph.ht.capacity, output_ncols);
 
   // Open output file
   FILE *fout = fopen(out_ctp_path, "w");
@@ -204,7 +202,7 @@ int ctx_pjoin(CmdArgs *args)
 
   // Dump paths file
   setvbuf(fout, NULL, _IOFBF, CTP_BUF_SIZE);
-  paths_header_update(&pheader, &db_graph.pdata);
+  paths_header_update(&pheader, &db_graph.pstore);
   paths_format_write_header(&pheader, fout);
   paths_format_write_optimised_paths(&db_graph, fout);
   fclose(fout);
@@ -217,9 +215,7 @@ int ctx_pjoin(CmdArgs *args)
   status("Paths written to: %s\n", out_ctp_path);
   status("  %s paths, %s path-bytes, %s kmers", pnum_str, pbytes_str, pkmers_str);
 
-  free(db_graph.kmer_paths);
-
-  path_store_dealloc(&db_graph.pdata);
+  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&gfile);
