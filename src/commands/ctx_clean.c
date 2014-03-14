@@ -174,6 +174,9 @@ int ctx_clean(CmdArgs *args)
     use_ncols = total_cols;
   }
 
+  status("%zu input graphs, max kmers: %"PRIu64", using %zu colours",
+         num_files, max_ctx_kmers, use_ncols);
+
   // If no arguments given we default to removing tips < 2*kmer_size
   if(tip_cleaning && max_tip_len == 0)
     max_tip_len = 2 * kmer_size;
@@ -218,12 +221,15 @@ int ctx_clean(CmdArgs *args)
   // Decide memory usage
   //
   bool all_colours_loaded = (total_cols <= use_ncols);
+  bool use_mem_limit = (args->mem_to_use_set && num_files > 1) || !max_ctx_kmers;
 
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
                         (!all_colours_loaded) * sizeof(Edges) * 8;
+
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        max_ctx_kmers, false, &graph_mem);
+                                        max_ctx_kmers, use_mem_limit,
+                                        &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 
