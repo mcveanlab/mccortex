@@ -156,10 +156,8 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist, bool invert,
   if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
     die("Out of memory");
 
-  for(i = 0; i < num_files; i++) {
+  for(i = 0; i < num_files; i++)
     seq_parse_se_sf(files[i], 0, &r1, &r2, store_read_nodes, &enodes);
-    seq_close(files[i]);
-  }
 
   print_stats(&enodes);
 

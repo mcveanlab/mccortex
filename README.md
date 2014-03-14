@@ -36,25 +36,27 @@ Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: 5854d1c; zlib: 1.2.5
+    version: b681dd3; zlib: 1.2.5 ASSERTS=ON CHECKS=ON k=3..31
 
-    Command:  build       FASTA/FASTQ/BAM -> cortex graph file
-              view        view and check a cortex graph file (.ctx)
-              healthcheck load and check a cortex graph file (.ctx)
-              clean       clean errors from a graph
-              join        combine graphs, filter graph intersections
-              supernodes  pull out supernodes
-              subgraph    filter a subgraph using seed kmers
-              reads       filter reads against a graph
-              extend      extend contigs using a graph
-              contigs     pull out contigs for a sample
-              inferedges  infer graph edges before calling `thread`
-              thread      thread reads through cleaned population
-              pview       view read threading information
-              pmerge      merge path files (.ctp)
-              call        call variants
-              unique      remove duplicated bubbles, produce VCF
-              place       place variants and genotype
+    Commands:   breakpoints  Use trusted assembled genome to call large events
+                build        construct cortex graph from FASTA/FASTQ/BAM
+                call         call variants with bubble caller
+                check        load and check graph (.ctx) and path (.ctp) files
+                clean        clean errors from a graph
+                contigs      pull out contigs for a sample
+                correct      error correct reads
+                coverage     Get contig coverage
+                inferedges   infer graph edges before calling `thread`
+                join         combine graphs, filter graph intersections
+                pjoin        merge path files (.ctp)
+                place        place variants and genotype
+                pview        view read threading information
+                reads        filter reads against a graph
+                subgraph     filter a subgraph using seed kmers
+                supernodes   pull out supernodes
+                thread       thread reads through cleaned population
+                unique       remove duplicated bubbles, produce VCF
+                view         view and check a cortex graph file (.ctx)
 
       Type a command with no arguments to see help.
 
@@ -62,11 +64,12 @@ Commands
       -m --memory <M>      Memory e.g. 1GB [default: 1GB]
       -n --nkmers <H>      Hash entries [default: 4M, ~4 million]
       -c --ncols <C>       Number of graph colours to load at once [default: 1]
-      -t --threads <T>     Number of threads [default: 2]
+      -a --asyncio <A>     Limit on file reading threads [default: 4]
+      -t --threads <T>     Limit on proccessing threads [default: 2]
       -k --kmer <K>        Kmer size [default: read from graph files]
       -f --file <file>     Input file
       -o --out <file>      Output file
-      -p --paths <in.ctp>  Assembly file
+      -p --paths <in.ctp>  Assembly file to load (can specify multiple times)
 
 Getting Helps
 -------------

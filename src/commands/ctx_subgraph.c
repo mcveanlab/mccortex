@@ -55,18 +55,19 @@ int ctx_subgraph(CmdArgs *args)
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  const char *diststr = argv[argi+1];
+  if(argi + 2 > argc)
+    cmd_print_usage("Please specify <dist> and input graph files (.ctx)");
+
+  const char *diststr = argv[argi++];
   uint32_t dist;
 
   if(!parse_entire_uint(diststr, &dist))
     cmd_print_usage("Invalid <dist> value, must be int >= 0: %s", diststr);
 
-  int num_gfiles_int = argc - 2*(int)num_seed_files - 2;
-  if(num_gfiles_int <= 0)
-    cmd_print_usage("Please specify input graph files (.ctx)");
+  size_t num_gfiles = argc - argi;
+  char **paths = argv + argi;
 
-  size_t i, j, col, num_gfiles = (size_t)num_gfiles_int, total_cols = 0;
-  char **paths = argv + 2*num_seed_files + 2;
+  size_t i, j, col, total_cols = 0;
 
   // Open graph files
   uint64_t max_num_kmers = 0;

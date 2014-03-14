@@ -57,7 +57,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "subgraph", .func = ctx_subgraph, .hide = 0,
-  .minargs = 4, .maxargs = INT_MAX, .optargs = "mnc", .reqargs = "",
+  .minargs = 4, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "",
   .blurb = "filter a subgraph using seed kmers",
   .usage = subgraph_usage
 },
