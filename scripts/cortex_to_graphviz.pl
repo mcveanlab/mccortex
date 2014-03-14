@@ -88,8 +88,8 @@ my ($pid, $in, $out);
 
 print "digraph G {\n";
 print "  edge [dir=both arrowhead=none arrowtail=none]\n";
-print "  node [".($use_points ? "shape=point, label=none" : "shape=none").", ".
-      "fontname=courier, fontsize=9]\n";
+print "  node [".($use_points ? "shape=point label=none" : "shape=none")." ".
+      "fontname=Courier fontsize=9]\n";
 
 if($simplify)
 {

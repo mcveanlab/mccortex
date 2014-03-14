@@ -81,6 +81,8 @@ static void process_contig(const dBGraph *db_graph,
                            size_t *cols_used, size_t *col_lengths,
                            dBNodeBuffer *nbuf, gzFile gzout)
 {
+  (void)koccurs; (void)walker; (void)cols_used; (void)col_lengths;
+
   // Work backwards to find last place we met the ref
   // nbuf[0] is ref node
   // nbuf[1] is first node not in ref
@@ -259,6 +261,8 @@ static void breakpoints_multithreaded(gzFile gzout, const dBGraph *db_graph,
                                       gzFile *tmp_files, size_t num_of_threads,
                                       const CmdArgs *args)
 {
+  (void)chroms; (void)num_chroms;
+
   ctx_assert((num_of_threads == 1) == (tmp_files == NULL));
 
   // Print header to gzout

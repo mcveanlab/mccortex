@@ -147,7 +147,7 @@ int correct_reads_parse(int argc, char **argv,
   // These just used for printing warnings / checking arg combinations
   bool seen_pe_reads = false, seen_dump_mp_gaps = false;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  for(argi = 0; argi < argc && argv[argi][0] == '-' &&argv[argi][1]; argi++)
   {
     if(strcmp(argv[argi],"--fq_offset") == 0) {
       if(argi + 1 >= argc)

@@ -68,8 +68,13 @@ static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
   // side0 = snode0.left && snode0.right ? !orient : snode0.right;
   // fprintf(fout, "node%zu:%c\n", (size_t)snode0.nodeid, coords[side0]);
 
+  // char tmp[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(bkmer, db_graph->kmer_size, tmp);
+  // printf("bkmer: %s [orient=%i, n=%zu]\n", tmp, orient, n);
+
   for(i = 0; i < n; i++)
   {
+    // printf("  i=%zu\n", i);
     snode1 = supernodes[next_nodes[i].key];
     ctx_assert(next_nodes[i].key != HASH_NOT_FOUND);
     ctx_assert(snode1.assigned);
@@ -130,13 +135,13 @@ static void dump_supernodes(hkey_t hkey, FILE *fout, int print_syntax,
     switch(print_syntax) {
       case PRINT_FASTA:
         fprintf(fout, ">supernode%zu\n", supernode_idx);
-        db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
+        db_nodes_print(nbuf->data, nbuf->len, db_graph, fout);
         fputc('\n', fout);
         break;
       case PRINT_DOT:
         dot_store_ends(nbuf, supernodes);
         fprintf(fout, "  node%zu [label=", supernode_idx);
-        db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
+        db_nodes_print(nbuf->data, nbuf->len, db_graph, fout);
         fputs("]\n", fout);
         break;
     }
@@ -179,7 +184,7 @@ int ctx_supernodes(CmdArgs *args)
   bool dot_use_points = false;
   int print_syntax = PRINT_FASTA;
 
-  while(argc > 0 && argv[0][0] == '-') {
+  while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
     if(!strcasecmp(argv[0],"--dot") || !strcasecmp(argv[0],"--graphviz")) {
       print_syntax = PRINT_DOT; argv++; argc--;
     }
@@ -261,12 +266,13 @@ int ctx_supernodes(CmdArgs *args)
 
   for(i = 0; i < num_files; i++) {
     files[i].fltr.flatten = true;
-    // files[i].fltr.intocol = 0;
     file_filter_update_intocol(&files[i].fltr, 0);
     graph_load(&files[i], gprefs, NULL);
   }
 
   hash_table_print_stats(&db_graph.ht);
+
+  status("Printing supernodes...");
 
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 2048);

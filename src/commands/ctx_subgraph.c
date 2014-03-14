@@ -14,7 +14,7 @@
 #include "subgraph.h"
 
 const char subgraph_usage[] =
-"usage: "CMD" subgraph [options] <out.ctx> <dist> <in.ctx>[:cols] [in2.ctx ...]\n"
+"usage: "CMD" subgraph [options] <dist> <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
 "  Loads graphs (in.ctx) and dumps a graph (out.ctx) that contains all kmers within\n"
 "  <dist> edges of kmers in <seeds.fa>.  Maintains number of colours / covgs etc.\n"
@@ -24,6 +24,7 @@ const char subgraph_usage[] =
 "  Options:\n"
 "    -m <mem>          Memory to use  <required>\n"
 "    -n <kmers>        Hash size\n"
+"    --out <out.ctx>   Output file [default: STDOUT]\n"
 "    --seq <seed.fa>   Read in a seed file\n"
 "    --invert          Dump kmers not in subgraph\n"
 "    --ncols <n>       Number of samples in memory at once (speedup)\n";
@@ -39,7 +40,7 @@ int ctx_subgraph(CmdArgs *args)
   bool invert = false;
 
   int argi;
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
     if(!strcasecmp(argv[argi], "--seq") | !strcasecmp(argv[argi], "--seed"))
     {
@@ -54,11 +55,8 @@ int ctx_subgraph(CmdArgs *args)
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  const char *out_path = argv[argi], *diststr = argv[argi+1];
+  const char *diststr = argv[argi+1];
   uint32_t dist;
-
-  if(futil_file_exists(out_path))
-    die("Output file already exists: %s", out_path);
 
   if(!parse_entire_uint(diststr, &dist))
     cmd_print_usage("Invalid <dist> value, must be int >= 0: %s", diststr);
@@ -125,9 +123,17 @@ int ctx_subgraph(CmdArgs *args)
   total_mem = graph_mem + fringe_mem;
   cmd_check_mem_limit(args, total_mem);
 
-  // Check output directory
-  if(!futil_is_file_writable(out_path))
-    die("Cannot write to output file: %s", out_path);
+  //
+  // Open output file
+  //
+
+  // Print to stdout unless --out <out> is specified
+  const char *out_path = args->output_file_set ? args->output_file : "-";
+
+  if(args->output_file_set) {
+    if(futil_file_exists(out_path)) die("File already exists: %s", out_path);
+    else if(!futil_is_file_writable(out_path)) die("Cannot write: %s", out_path);
+  }
 
   // Create db_graph
   // multiple colours may be useful later in pulling out multiple colours

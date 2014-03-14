@@ -294,7 +294,7 @@ int ctx_contigs(CmdArgs *args)
   bool print_contigs = false, no_reseed = false;
   seq_file_t *seed_file = NULL;
 
-  while(argc > 0 && argv[0][0] == '-') {
+  while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
     if(strcmp(argv[0],"--ncontigs") == 0) {
       if(argc == 1 || !parse_entire_size(argv[1], &n_rand_contigs) ||
          n_rand_contigs == 0) {

@@ -139,7 +139,8 @@ int ctx_thread(CmdArgs *args)
   size_t tmp_path_mem, path_mem_req, path_mem_used, main_path_mem;
   char path_mem_str[100];
 
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(uint64_t)*8 +
+  bits_per_kmer = sizeof(Edges)*8 +
+                  sizeof(PathIndex)*8*(num_pfiles > 0 ? 2 : 1) +
                   2*num_work_threads + // Have traversed
                   1 + // node in colour
                   1; // path store kmer lock
@@ -193,7 +194,10 @@ int ctx_thread(CmdArgs *args)
                    kmers_in_hash, total_cols);
 
   // path kmer locks for multithreaded access
-  db_graph.path_kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
+  db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
+
+  if(num_pfiles > 0)
+    db_graph.pstore.kmer_paths_update = malloc2(kmers_in_hash * sizeof(PathIndex));
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
@@ -212,6 +216,10 @@ int ctx_thread(CmdArgs *args)
     // and add kmers needed
     paths_format_merge(pfiles, num_pfiles, true, &db_graph);
     path_store_reclaim_tmp(&db_graph.pstore);
+
+    // Copy current paths over to path set to be updated
+    memcpy(db_graph.pstore.kmer_paths_update, db_graph.pstore.kmer_paths,
+           kmers_in_hash * sizeof(PathIndex));
   }
 
   // Set up paths header. This is for the output file we are creating
@@ -303,6 +311,8 @@ int ctx_thread(CmdArgs *args)
   // ins_gap, err_gap no longer allocated after this line
   gen_paths_workers_dealloc(workers, num_work_threads);
 
+  path_store_combine_updated_paths(&db_graph.pstore);
+
   // Done
 
   char se_num_str[100], pe_num_str[100], sepe_num_str[100];
@@ -338,7 +348,6 @@ int ctx_thread(CmdArgs *args)
 
   free(db_graph.node_in_cols);
   free(db_graph.col_edges);
-  free(db_graph.path_kmer_locks);
 
   paths_header_dealloc(&pheader);
 

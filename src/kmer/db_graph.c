@@ -30,7 +30,6 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                  .col_edges = NULL,
                  .col_covgs = NULL,
                  .node_in_cols = NULL,
-                 .path_kmer_locks = NULL,
                  .readstrt = NULL};
 
   ctx_assert2(kmer_size >= MIN_KMER_SIZE, "kmer size: %zu", kmer_size);
@@ -73,7 +72,6 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
                  .col_covgs = graph->col_covgs,
                  .node_in_cols = graph->node_in_cols,
                  .pstore = graph->pstore,
-                 .path_kmer_locks = graph->path_kmer_locks,
                  .readstrt = graph->readstrt};
 
   memcpy(graph, &tmp, sizeof(dBGraph));

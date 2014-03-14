@@ -406,11 +406,11 @@ size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout)
 // returns number of bytes written
 size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
 {
-  size_t i, bytes = 0, written = 0;
+  size_t i, bytes, written;
   uint32_t len;
   const StrBuf *buf;
 
-  bytes = paths_format_write_header_core(header, fout);
+  written = bytes = paths_format_write_header_core(header, fout);
 
   for(i = 0; i < header->num_of_cols; i++)
   {

@@ -8,7 +8,7 @@
 // {[1:uint64_t prev][N:uint8_t col_bitfield][1:uint16_t len][M:uint8_t data]}..
 // prev = PATH_NULL if not set
 
-void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,
+void path_store_alloc(PathStore *ps, size_t size, size_t tmpsize,
                       size_t kmers_in_hash, size_t ncols)
 {
   size_t colset_bytes = roundup_bits2bytes(ncols);
@@ -34,53 +34,63 @@ void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
                          .num_col_paths = 0,
                          .tmpstore = tmp, .tmpsize = tmpsize,
-                         .kmer_paths = kmer_paths};
+                         .kmer_paths = kmer_paths,
+                         .kmer_paths_update = kmer_paths,
+                         .kmer_locks = NULL};
 
-  memcpy(paths, &new_paths, sizeof(PathStore));
+  memcpy(ps, &new_paths, sizeof(PathStore));
 }
 
 // Once tmp has been used for merging, it can be reclaimed to use generally
-void path_store_reclaim_tmp(PathStore *paths)
+void path_store_reclaim_tmp(PathStore *ps)
 {
-  size_t size = paths->size + PSTORE_PADDING + paths->tmpsize;
+  size_t size = ps->size + PSTORE_PADDING + ps->tmpsize;
 
   char memstr[100];
   bytes_to_str(size, 1, memstr);
   status("[paths] Reclaiming tmp path memory to use %s main", memstr);
 
-  PathStore new_paths = {.store = paths->store, .end = paths->store + size,
-                         .size = size, .next = paths->next,
-                         .num_of_cols = paths->num_of_cols,
-                         .colset_bytes = paths->colset_bytes,
-                         .num_of_paths = paths->num_of_paths,
-                         .num_kmers_with_paths = paths->num_kmers_with_paths,
-                         .num_col_paths = paths->num_col_paths,
-                         .tmpstore = NULL, .tmpsize = 0};
+  PathStore new_paths = {.store = ps->store,
+                         .end = ps->store + size,
+                         .size = size,
+                         .next = ps->next,
+                         .num_of_cols = ps->num_of_cols,
+                         .colset_bytes = ps->colset_bytes,
+                         .num_of_paths = ps->num_of_paths,
+                         .num_kmers_with_paths = ps->num_kmers_with_paths,
+                         .num_col_paths = ps->num_col_paths,
+                         .tmpstore = NULL,
+                         .tmpsize = 0,
+                         .kmer_paths = ps->kmer_paths,
+                         .kmer_paths_update = ps->kmer_paths_update,
+                         .kmer_locks = ps->kmer_locks};
 
-  memcpy(paths, &new_paths, sizeof(PathStore));
+  memcpy(ps, &new_paths, sizeof(PathStore));
 }
 
 // Release memory
-void path_store_dealloc(PathStore *paths)
+void path_store_dealloc(PathStore *ps)
 {
-  free(paths->kmer_paths);
-  free(paths->store);
+  if(ps->kmer_locks) free(ps->kmer_locks);
+  if(ps->kmer_paths_update != ps->kmer_paths) free(ps->kmer_paths_update);
+  free((void *)ps->kmer_paths);
+  free(ps->store);
 }
 
 // Find a path
 // returns PATH_NULL if not found, otherwise index
 // path_nbytes is length in bytes of bases = (num bases + 3)/4
 // query is <PathLen><PackedSeq>
-PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
+PathIndex path_store_find(const PathStore *ps, PathIndex last_index,
                           const uint8_t *query, size_t path_nbytes)
 {
   uint8_t *packed;
-  size_t offset = sizeof(PathIndex) + paths->colset_bytes;
+  size_t offset = sizeof(PathIndex) + ps->colset_bytes;
   size_t mem = sizeof(PathLen) + path_nbytes;
 
   while(last_index != PATH_NULL)
   {
-    packed = paths->store + last_index;
+    packed = ps->store + last_index;
     if(memcmp(packed+offset, query, mem) == 0) return last_index;
     last_index = packedpath_get_prev(packed);
   }
@@ -88,29 +98,38 @@ PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
   return PATH_NULL;
 }
 
+void path_store_combine_updated_paths(PathStore *pstore)
+{
+  if(pstore->kmer_paths_update != pstore->kmer_paths)
+  {
+    free((void*)pstore->kmer_paths);
+    pstore->kmer_paths = pstore->kmer_paths_update;
+  }
+}
+
 // Always adds!
 // Only call this function if you're sure your path is unique
-PathIndex path_store_add_packed(PathStore *store, PathIndex last_index,
+PathIndex path_store_add_packed(PathStore *ps, PathIndex last_index,
                                 const uint8_t *packed, size_t path_nbytes)
 {
   // Not already in the PathStore
-  size_t mem = packedpath_mem2(store->colset_bytes, path_nbytes);
+  size_t mem = packedpath_mem2(ps->colset_bytes, path_nbytes);
 
   // Copy path (may already be in place)
-  if(packed != store->next)
+  if(packed != ps->next)
   {
-    if(store->next + mem >= store->end) die("Out of memory for paths");
+    if(ps->next + mem >= ps->end) die("Out of memory for paths");
 
-    uint8_t *ptr = store->next;
+    uint8_t *ptr = ps->next;
     memcpy(ptr, &last_index, sizeof(PathIndex));
     ptr += sizeof(PathIndex);
     memcpy(ptr, packed+sizeof(PathIndex), mem-sizeof(PathIndex));
   }
 
-  PathIndex pindex = (PathIndex)(store->next - store->store);
-  store->next += mem;
-  store->num_of_paths++;
-  store->num_kmers_with_paths += (last_index == PATH_NULL);
+  PathIndex pindex = (PathIndex)(ps->next - ps->store);
+  ps->next += mem;
+  ps->num_of_paths++;
+  ps->num_kmers_with_paths += (last_index == PATH_NULL);
   return pindex;
 }
 
@@ -162,7 +181,7 @@ PathIndex _path_store_find_or_add_packed(PathStore *store, PathIndex last_index,
 
 // Add a PackedPath, using a FileFilter to reduce to a subset of colours
 // Returns PATH_NULL if no colours set in colour subset
-PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
+PathIndex path_store_find_or_add_packed2(PathStore *ps, PathIndex last_index,
                                          const uint8_t *packed, size_t path_nbytes,
                                          const FileFilter *fltr, bool find,
                                          bool *added)
@@ -172,23 +191,23 @@ PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
 
   *added = false;
 
-  if(path_store_fltr_compatible(store,fltr)) {
-    return _path_store_find_or_add_packed(store, last_index, packed,
-                                         path_nbytes, find, added);
+  if(path_store_fltr_compatible(ps,fltr)) {
+    return _path_store_find_or_add_packed(ps, last_index, packed,
+                                          path_nbytes, find, added);
   }
 
   const uint8_t *packed_bitset = packed + sizeof(PathIndex);
-  uint8_t *store_bitset = store->next + sizeof(PathIndex);
+  uint8_t *store_bitset = ps->next + sizeof(PathIndex);
 
   // Check we have enough memory to add
-  size_t mem = packedpath_mem2(store->colset_bytes, path_nbytes);
-  if(store->next + mem >= store->end) die("Out of memory for paths");
+  size_t mem = packedpath_mem2(ps->colset_bytes, path_nbytes);
+  if(ps->next + mem >= ps->end) die("Out of memory for paths");
 
   // Write
-  memcpy(store->next, &last_index, sizeof(PathIndex));
+  memcpy(ps->next, &last_index, sizeof(PathIndex));
 
   // Clear memory for colour bitset
-  memset(store_bitset, 0, store->colset_bytes);
+  memset(store_bitset, 0, ps->colset_bytes);
 
   // Copy over bitset, one bit at a time
   for(i = 0; i < fltr->ncols; i++) {
@@ -198,21 +217,21 @@ PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
   }
 
   // Check colours filtered are actually used in path passed
-  for(i = 0, tmp = 0; i < store->colset_bytes; i++) tmp |= store_bitset[i];
+  for(i = 0, tmp = 0; i < ps->colset_bytes; i++) tmp |= store_bitset[i];
   if(tmp == 0) return PATH_NULL;
 
   // Copy length and path
   const uint8_t *remain_packed = packed + sizeof(PathIndex) + packed_bitset_bytes;
-  uint8_t *remain_store = store->next + sizeof(PathIndex) + store->colset_bytes;
+  uint8_t *remain_store = ps->next + sizeof(PathIndex) + ps->colset_bytes;
 
   memcpy(remain_store, remain_packed, sizeof(PathLen)+path_nbytes);
 
-  PathIndex match = _path_store_find_or_add_packed(store, last_index, store->next,
+  PathIndex match = _path_store_find_or_add_packed(ps, last_index, ps->next,
                                                    path_nbytes, find, added);
 
   // Copy path bitset over (may have been found elsewhere)
-  uint8_t *match_bitset = store->store + match + sizeof(PathIndex);
-  for(i = 0; i < store->colset_bytes; i++) match_bitset[i] |= store_bitset[i];
+  uint8_t *match_bitset = ps->store + match + sizeof(PathIndex);
+  for(i = 0; i < ps->colset_bytes; i++) match_bitset[i] |= store_bitset[i];
 
   return match;
 }

@@ -19,14 +19,22 @@ typedef struct {
   uint8_t *const tmpstore;
   const size_t tmpsize;
   // Kmer pointers
-  PathIndex *kmer_paths;
+  // kmer_paths_update may point to kmer_paths or a copy
+  PathIndex *kmer_paths, *kmer_paths_update;
+  // Multithreaded writing
+  uint8_t *kmer_locks;
 } PathStore;
 
 //
 // Paths
-#define pstore_paths(pstore,node) ((pstore)->kmer_paths[(node)])
-#define pstore_paths_volptr(pstore,node) \
-        ((volatile PathIndex *)&(pstore)->kmer_paths[(node)])
+//
+#define pstore_paths(pstore,node) \
+        ((pstore)->kmer_paths[(node)])
+#define pstore_paths_update_volptr(pstore,node) \
+        ((volatile PathIndex *)&(pstore)->kmer_paths_update[(node)])
+
+// Free ps->kmer_paths, set kmer_paths to point to kmer_paths_update.
+void path_store_combine_updated_paths(PathStore *pstore);
 
 // Initialise the PathStore
 void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,

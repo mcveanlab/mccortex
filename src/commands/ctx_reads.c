@@ -158,7 +158,7 @@ int ctx_reads(CmdArgs *args)
   size_t num_sf = 0, sf = 0;
 
   int argi;
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
     if(strcmp(argv[argi], "--fastq") == 0) use_fq = true;
     else if(strcmp(argv[argi], "--fasta") == 0) use_fa = true;

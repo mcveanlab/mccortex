@@ -68,7 +68,7 @@ void test_paths()
 
   // Path data
   path_store_alloc(&graph.pstore, path_max_mem, 0, graph.ht.capacity, ncols);
-  graph.path_kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
+  graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
@@ -109,6 +109,8 @@ void test_paths()
   add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2, 3); // path lens: 1+1+1
   add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
 
+  path_store_combine_updated_paths(&graph.pstore);
+
   // DEV: Actually test path content, colours set etc
   // seq0 fw
   // CCTGGGTGCGA:0 len:3 col:0  CGC
@@ -127,7 +129,6 @@ void test_paths()
   free(graph.node_in_cols);
   free(graph.col_edges);
   free(graph.col_covgs);
-  free(graph.path_kmer_locks);
 
   asynciodata_dealloc(&iodata);
   path_store_dealloc(&graph.pstore);

@@ -38,7 +38,7 @@ int ctx_pjoin(CmdArgs *args)
   size_t output_ncols = 0;
   int argi;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcasecmp(argv[argi],"--overlap") == 0) {
       if(overlap) warn("overlap specified twice");
       overlap = true;

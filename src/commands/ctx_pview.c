@@ -24,7 +24,7 @@ int ctx_pview(CmdArgs *args)
 
   bool print_paths = false, do_paths_check = false;
 
-  while(argc > 1 && argv[0][0] == '-')
+  while(argc > 1 && argv[0][0] == '-' && argv[0][1])
   {
     if(strcmp(argv[0],"--paths") == 0) {
       print_paths = true;

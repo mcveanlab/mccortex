@@ -85,14 +85,8 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns address of path in PathStore by setting newidx
 bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 const uint8_t *packed, size_t plen,
-                                PathStore *pstore,
-                                volatile PathIndex *kmer_paths,
-                                volatile uint8_t *kmerlocks,
-                                PathIndex *newidx)
+                                PathStore *pstore, PathIndex *newidx)
 {
-  // PathStore *pstore = &db_graph->pstore;
-  // volatile uint8_t *kmerlocks = (volatile uint8_t *)db_graph->path_kmer_locks;
-
   // path_nbytes is the number of bytes in <PackedSeq>
   size_t path_nbytes = (plen+3)/4;
 
@@ -101,9 +95,9 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 
   // 1) Get lock for kmer
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
-  bitlock_yield_acquire(kmerlocks, node.key);
+  bitlock_yield_acquire(pstore->kmer_locks, node.key);
 
-  const PathIndex next = *pstore_paths_volptr(pstore, node.key);
+  const PathIndex next = *pstore_paths_update_volptr(pstore, node.key);
 
   // 2) Search for path
   PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -116,7 +110,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
     bool added = !bitset_get(colset, ctpcol);
     if(added) __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
     bitset_set(colset, ctpcol);
-    bitlock_release(kmerlocks, node.key);
+    bitlock_release(pstore->kmer_locks, node.key);
     *newidx = match;
     return added;
   }
@@ -145,15 +139,15 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   // Length + Path
   memcpy(colset+pstore->colset_bytes, packed, sizeof(PathLen) + path_nbytes);
 
+  /* Note: below not true if we are writing to a diff set to walking */
   // path must be written before we move the kmer path pointer forward
-  // although there is a write-lock (kmerlocks), threads currently traversing
-  // the graph would fall over
+  // although there is a write-lock (pstore->kmer_locks), threads currently
+  // traversing the graph would fall over
   __sync_synchronize();
 
   // 5) update kmer pointer
   PathIndex pindex = (uint64_t)(new_path - pstore->store);
-  // *pstore_paths_volptr(db_graph, node.key) = pindex;
-  kmer_paths[node.key] = pindex;
+  *pstore_paths_update_volptr(pstore, node.key) = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer
   if(next == PATH_NULL) {
@@ -167,10 +161,8 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   // status("npaths: %zu nkmers: %zu", pstore->num_of_paths,
   //        pstore->num_kmers_with_paths);
 
-  __sync_synchronize();
-
   // 6) release kmer lock
-  bitlock_release(kmerlocks, node.key);
+  bitlock_release(pstore->kmer_locks, node.key);
 
   *newidx = pindex;
   return true;
@@ -315,8 +307,8 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
 }
 
 static bool kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
-                                const dBGraph *db_graph,
-                                size_t *npaths_ptr, size_t *nkmers_ptr)
+                             const dBGraph *db_graph,
+                             size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const PathStore *pstore = &db_graph->pstore;
   PathIndex pindex = pstore_paths(pstore, hkey);
@@ -338,7 +330,7 @@ static bool kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
 
 // Returns false on first error
 bool graph_paths_check_all_paths(const GraphPathPairing *gp,
-                                    const dBGraph *db_graph)
+                                 const dBGraph *db_graph)
 {
   size_t num_paths = 0, num_kmers = 0, act_num_paths, act_num_kmers;
 

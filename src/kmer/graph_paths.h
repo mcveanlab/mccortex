@@ -34,10 +34,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns address of path in PathStore by setting newidx
 bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 const uint8_t *packed, size_t plen,
-                                PathStore *pstore,
-                                volatile PathIndex *kmer_paths,
-                                volatile uint8_t *kmerlocks,
-                                PathIndex *newidx);
+                                PathStore *pstore, PathIndex *newidx);
 
 //
 // Functions on graph+paths

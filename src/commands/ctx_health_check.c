@@ -33,7 +33,7 @@ int ctx_health_check(CmdArgs *args)
   size_t i;
   bool do_edge_check = true;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--noedgecheck") == 0) do_edge_check = false;
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }

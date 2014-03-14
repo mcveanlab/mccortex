@@ -846,9 +846,9 @@ size_t graph_files_merge_mkhdr(const char *out_ctx_path,
   graph_reader_merge_headers(&gheader, files, num_files, intersect_gname);
 
   num_kmers = graph_files_merge(out_ctx_path, files, num_files,
-                                 kmers_loaded, colours_loaded,
-                                 only_load_if_in_edges,
-                                 &gheader, db_graph);
+                                kmers_loaded, colours_loaded,
+                                only_load_if_in_edges,
+                                &gheader, db_graph);
 
   graph_header_dealloc(&gheader);
   return num_kmers;

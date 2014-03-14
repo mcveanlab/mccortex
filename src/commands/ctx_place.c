@@ -636,7 +636,7 @@ int ctx_place(CmdArgs *args)
   int *nwargptrs[4] = {&nwmatch, &nwmismatch, &nwgapopen, &nwgapextend};
 
   // Read arguments
-  while(argv[argi][0] == '-') {
+  while(argv[argi][0] == '-' && argv[argi][1]) {
     if(strcmp(argv[argi], "--minmapq") == 0) {
       if(argi + 1 == argc) cmd_print_usage(NULL);
       if(!parse_entire_size(argv[argi+1], &min_mapq))

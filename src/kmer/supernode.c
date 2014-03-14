@@ -34,10 +34,10 @@ static bool supernode_is_closed_cycle(const dBNode *nlist, size_t len,
   const size_t kmer_size = db_graph->kmer_size;
 
   edges0 = db_node_get_edges_union(db_graph, nlist[0].key);
-  if(edges_get_outdegree(edges0, nlist[0].orient) != 1) return false;
+  if(edges_get_indegree(edges0, nlist[0].orient) != 1) return false;
 
   edges1 = db_node_get_edges_union(db_graph, nlist[len-1].key);
-  if(edges_get_indegree(edges1, nlist[len-1].orient) != 1) return false;
+  if(edges_get_outdegree(edges1, nlist[len-1].orient) != 1) return false;
 
   nuc = bkmer_get_last_nuc(bkmer0, nlist[0].orient, kmer_size);
   shiftkmer = bkmer_shift_add_last_nuc(bkmer1, nlist[len-1].orient, kmer_size, nuc);

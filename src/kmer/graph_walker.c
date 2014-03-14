@@ -123,7 +123,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
     cntr_filter_nuc0 = (db_node_outdegree_in_col(node, wlk->ctxcol, db_graph) > 1);
   }
 
-  pindex = *pstore_paths_volptr(pstore, node.key);
+  pindex = *pstore_paths_update_volptr(pstore, node.key);
 
   while(pindex != PATH_NULL)
   {

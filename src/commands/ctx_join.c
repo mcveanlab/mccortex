@@ -61,7 +61,7 @@ int ctx_join(CmdArgs *args)
   size_t num_intersect = 0;
   size_t use_ncols = args->use_ncols; // may use fewer colours if some not needed
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcasecmp(argv[argi],"--overlap") == 0) {
       if(overlap) warn("overlap specified twice");
       overlap = true;

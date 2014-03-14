@@ -41,7 +41,7 @@ int ctx_call(CmdArgs *args)
   size_t i, haploid_cols[argc], num_haploid = 0;
   size_t max_allele_len = DEFAULT_MAX_ALLELE, max_flank_len = DEFAULT_MAX_FLANK;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++)
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
     if(strcmp(argv[argi],"--haploid") == 0) {
       if(argi + 1 == argc ||

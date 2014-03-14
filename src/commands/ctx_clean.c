@@ -52,7 +52,7 @@ int ctx_clean(CmdArgs *args)
   const char *len_before_path = NULL, *len_after_path = NULL;
 
   int argi;
-  for(argi = 0; argi < argc && argv[argi][0] == '-'; argi++) {
+  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--tips") == 0) {
       if(argi + 1 >= argc || !parse_entire_size(argv[argi+1], &max_tip_len) ||
          max_tip_len <= 1) {
