@@ -1,4 +1,7 @@
 
+CTXPATH=../../
+CTX=$(CTXPATH)/bin/ctx31
+SEQRND=$(CTXPATH)/libs/seq_file/bin/seqrnd
 K=7
 GENOME=200
 KEEP=$(shell echo genome.fa genome.k$(K).{ctx,dot,pdf} genome.k$(K).old.pdf)
@@ -10,13 +13,13 @@ clean:
 
 # Sample random genome
 genome.fa:
-	seqrnd $(GENOME) > genome.fa
+	$(SEQRND) $(GENOME) > genome.fa
 
 genome.k$(K).ctx:
-	ctx31 build -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
+	$(CTX) build -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
 
 genome.k$(K).dot:
-	ctx31 supernodes --graphviz --points genome.k$(K).ctx > genome.k$(K).dot
+	$(CTX) supernodes --graphviz --points genome.k$(K).ctx > genome.k$(K).dot
 
 genome.k$(K).pdf:
 	dot -Tpdf genome.k$(K).dot > genome.k$(K).pdf

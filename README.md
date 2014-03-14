@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-2 March 2014
+14 March 2014
 
 [![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
 
@@ -30,7 +30,7 @@ to compile for a maximum kmer size of 63:
 
 Executables appear in the `bin/` directory. To update the libraries included:
 
-    cd libs; make clean; make
+    cd libs && make
 
 Commands
 --------
