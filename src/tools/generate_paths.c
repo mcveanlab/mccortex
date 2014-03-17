@@ -134,8 +134,24 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
 static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
 {
   size_t i;
-  for(i = 1; i < num_workers; i++)
-    correct_alignment_merge_hists(&wrkrs[0].corrector, &wrkrs[i].corrector);
+  for(i = 1; i < num_workers; i++) {
+    correct_aln_stats_merge(&wrkrs[0].corrector.gapstats, &wrkrs[i].corrector.gapstats);
+    correct_aln_stats_zero(&wrkrs[i].corrector.gapstats);
+    loading_stats_merge(&wrkrs[0].stats, &wrkrs[i].stats);
+    loading_stats_init(&wrkrs[i].stats);
+  }
+}
+
+/* Get stats */
+
+CorrectAlnStats gen_paths_get_gapstats(GenPathWorker *wrkr)
+{
+  return wrkr->corrector.gapstats;
+}
+
+LoadingStats gen_paths_get_stats(const GenPathWorker *wrkr)
+{
+  return wrkr->stats;
 }
 
 // Returns number of paths added
@@ -576,23 +592,4 @@ void gen_paths_dump_gap_sizes(const char *path,
          insert_sizes ? "insert" : "gap", path);
 
   fclose(fout);
-}
-
-// Get histogram array
-const uint64_t* gen_paths_get_ins_gap(GenPathWorker *worker, size_t *len)
-{
-  return correct_alignment_get_inshist(&worker->corrector, len);
-}
-
-const uint64_t* gen_paths_get_err_gap(GenPathWorker *worker, size_t *len)
-{
-  return correct_alignment_get_errhist(&worker->corrector, len);
-}
-
-void gen_paths_get_stats(const GenPathWorker *worker, size_t num_workers,
-                         LoadingStats *stats)
-{
-  size_t i;
-  for(i = 0; i < num_workers; i++)
-    loading_stats_merge(stats, &worker[i].stats);
 }

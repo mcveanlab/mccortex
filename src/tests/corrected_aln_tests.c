@@ -22,7 +22,7 @@ static void check_correct_aln(char *mut, const char *ans,
   nbuf = correct_alignment_nxt(corrector);
   TASSERT(nbuf != NULL);
   db_nodes_to_str(nbuf->data, nbuf->len, graph, outstr);
-  TASSERT2(strcmp(outstr, ans) == 0, "Got: %s", outstr);
+  TASSERT2(strcmp(outstr, ans) == 0, "Got: %s exp: %s", outstr, ans);
 
   // Next alignment should be NULL
   nbuf = correct_alignment_nxt(corrector);

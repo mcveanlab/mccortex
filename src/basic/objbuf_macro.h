@@ -37,6 +37,23 @@ typedef struct {                                                               \
   size_t len, capacity;                                                        \
 } buf_t;                                                                       \
                                                                                \
+/* Define functions with unused attribute in case they're not used */          \
+static inline void FUNC ## _alloc(buf_t *buf, size_t capacity)                 \
+ __attribute__((unused));                                                      \
+static inline void FUNC ## _dealloc(buf_t *buf)                                \
+ __attribute__((unused));                                                      \
+static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap)            \
+ __attribute__((unused));                                                      \
+static inline void FUNC ## _add(buf_t *buf, obj_t obj)                         \
+ __attribute__((unused));                                                      \
+static inline int FUNC ## _attempt_add(buf_t *buf, obj_t obj)                  \
+ __attribute__((unused));                                                      \
+static inline void FUNC ## _append(buf_t *buf, obj_t *obj, size_t n)           \
+ __attribute__((unused));                                                      \
+static inline void FUNC ## _reset(buf_t *buf)                                  \
+ __attribute__((unused));                                                      \
+                                                                               \
+                                                                               \
 static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
   buf->capacity = capacity;                                                    \
   buf->data = malloc2(sizeof(obj_t) * buf->capacity);                          \

@@ -23,6 +23,6 @@ subgraph10.ctx: graph.ctx seed.fa
 	$(CTX) subgraph --seed seed.fa -o subgraph10.ctx 10 graph.ctx
 
 clean:
-	rm -rf subgraph*.ctx graph.ctx
+	rm -rf subgraph*.ctx graph.ctx seed.fa seq.fa
 
 .PHONY: all clean

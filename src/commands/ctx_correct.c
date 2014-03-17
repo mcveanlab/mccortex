@@ -226,7 +226,7 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
   }
 
   // Append first contig
-  bkmer = db_graph_oriented_bkmer(db_graph, nbuf->data[0]);
+  bkmer = db_node_oriented_bkmer(db_graph, nbuf->data[0]);
   binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
   strbuf_append_strn(buf, bkmerstr, kmer_size);
   for(i = 1; i < nbuf->len; i++) {

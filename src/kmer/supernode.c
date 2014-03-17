@@ -111,7 +111,7 @@ bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
   const size_t kmer_size = db_graph->kmer_size;
   dBNode node0 = nbuf->data[0], node1 = nbuf->data[nbuf->len-1], node = node1;
 
-  BinaryKmer bkmer = db_graph_oriented_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_oriented_bkmer(db_graph, node);
   Edges edges = db_node_get_edges_union(db_graph, node.key);
   Nucleotide nuc;
 

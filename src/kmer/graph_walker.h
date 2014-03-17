@@ -100,7 +100,7 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
 // return 1 on success, 0 otherwise
 bool graph_traverse(GraphWalker *wlk);
 bool graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
-                             const dBNode nodes[4], const Nucleotide bases[4]);
+                          const dBNode nodes[4], const Nucleotide bases[4]);
 
 void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     hkey_t prev_nodes[4],
@@ -127,5 +127,11 @@ void graph_walker_prime(GraphWalker *wlk,
                         size_t max_context, bool forward,
                         size_t ctxcol, size_t ctpcol,
                         const dBGraph *db_graph);
+
+bool graph_walker_agrees_contig(GraphWalker *wlk, const dBNode *block, size_t n,
+                                bool forward);
+
+// How many junctions are left to be traversed in our longest remaining path
+size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk);
 
 #endif /* GRAPH_WALKER_H_ */

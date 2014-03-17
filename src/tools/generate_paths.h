@@ -33,11 +33,7 @@ void gen_paths_dump_gap_sizes(const char *path,
                               size_t kmer_size, bool insert_sizes,
                               size_t nreads);
 
-// Get histogram array
-const uint64_t* gen_paths_get_ins_gap(GenPathWorker *worker, size_t *len);
-const uint64_t* gen_paths_get_err_gap(GenPathWorker *worker, size_t *len);
-
-void gen_paths_get_stats(const GenPathWorker *worker, size_t num_workers,
-                         LoadingStats *stats);
+CorrectAlnStats gen_paths_get_gapstats(GenPathWorker *wrkr);
+LoadingStats gen_paths_get_stats(const GenPathWorker *wrkr);
 
 #endif /* GENERATE_PATHS_H_ */

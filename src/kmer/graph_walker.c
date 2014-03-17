@@ -17,6 +17,21 @@
 
 #define USE_COUNTER_PATHS 1
 
+// How many junctions are left to be traversed in our longest remaining path
+size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
+{
+  size_t i, rem, max = 0;
+  for(i = 0; i < wlk->paths.len; i++) {
+    rem = (size_t)(wlk->paths.data[i].len - wlk->paths.data[i].pos);
+    max = MAX2(rem, max);
+  }
+  for(i = 0; i < wlk->new_paths.len; i++) {
+    rem = (size_t)(wlk->new_paths.data[i].len - wlk->new_paths.data[i].pos);
+    max = MAX2(rem, max);
+  }
+  return max;
+}
+
 // For GraphWalker to work we assume all edges are merged into one colour
 // (i.e. graph->num_edge_cols == 1)
 // If only one colour loaded we assume all edges belong to this colour
@@ -173,7 +188,7 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 
   // Get bkmer oriented correctly (not bkey)
   wlk->bkey = db_node_get_bkmer(graph, node.key);
-  wlk->bkmer = db_graph_oriented_bkmer(graph, node);
+  wlk->bkmer = db_node_oriented_bkmer(graph, node);
 
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
@@ -754,4 +769,45 @@ void graph_walker_prime(GraphWalker *wlk,
 
   // For debugging
   // graph_walker_print_state(wlk);
+}
+
+bool graph_walker_agrees_contig(GraphWalker *wlk,
+                                const dBNode *block, size_t num_nodes,
+                                bool forward)
+{
+  size_t i, j, n, njuncs = graph_walker_get_max_path_junctions(wlk);
+  dBNode nodes[4], expnode;
+  Nucleotide nucs[4];
+  Edges edges;
+
+  #ifdef CTXCHECKS
+    // Check last k-1 bp of wlk->bkmer match block
+    BinaryKmer bkmer0 = wlk->bkmer;
+    BinaryKmer bkmer1 = db_node_oriented_bkmer(wlk->db_graph, block[0]);
+    bkmer0 = binary_kmer_left_shift_one_base(bkmer0, wlk->db_graph->kmer_size);
+    binary_kmer_set_last_nuc(&bkmer1, 0);
+    ctx_check(binary_kmers_are_equal(bkmer0, bkmer1));
+  #endif
+
+  for(i = 0, j = 0; i < num_nodes && j < njuncs; i++, j += (n > 1))
+  {
+    expnode = forward ? block[i] : db_node_reverse(block[num_nodes-i-1]);
+    edges = db_node_get_edges_union(wlk->db_graph, wlk->node.key);
+
+    if(edges_get_outdegree(edges, wlk->node.orient) == 1) {
+      nodes[0] = expnode;
+      nucs[0] = db_node_get_last_nuc(expnode, wlk->db_graph);
+      n = 1;
+    } else {
+      // Need to look up possible next nodes
+      n = db_graph_next_nodes(wlk->db_graph, wlk->bkey, wlk->node.orient,
+                              edges, nodes, nucs);
+    }
+
+    // If we can't progress -> success
+    // if we can and it doesn't match what we expected -> disagrees
+    if(!graph_traverse_nodes(wlk, n, nodes, nucs)) return true;
+    if(!db_nodes_match(wlk->node, expnode)) return false;
+  }
+  return true;
 }

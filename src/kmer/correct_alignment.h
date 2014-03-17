@@ -7,6 +7,7 @@
 #include "db_alignment.h"
 #include "graph_walker.h"
 #include "repeat_walker.h"
+#include "correct_aln_stats.h"
 
 typedef struct
 {
@@ -44,7 +45,7 @@ typedef struct
   dBNodeBuffer contig, revcontig;
 
   // Statistics on gap traversal
-  uint64_t *gap_ins_histgrm, *gap_err_histgrm, histgrm_len;
+  CorrectAlnStats gapstats;
 } CorrectAlnWorker;
 
 size_t correct_aln_worker_est_mem(const dBGraph *graph);
@@ -69,6 +70,7 @@ uint64_t* correct_alignment_get_errhist(CorrectAlnWorker *wrkr, size_t *n);
 uint64_t* correct_alignment_get_inshist(CorrectAlnWorker *wrkr, size_t *n);
 
 // copy to dst histrograms, zero src histograms
-void correct_alignment_merge_hists(CorrectAlnWorker *dst, CorrectAlnWorker *src);
+void correct_alignment_merge_stats(CorrectAlnWorker *restrict dst,
+                                   CorrectAlnWorker *restrict src);
 
 #endif /* CORRECTED_ALIGNMENT_H_ */

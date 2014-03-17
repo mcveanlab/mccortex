@@ -258,7 +258,7 @@ void db_nodes_print(const dBNode *nodes, size_t num,
   BinaryKmer bkmer;
   char tmp[MAX_KMER_SIZE+1];
 
-  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0]);
+  bkmer = db_node_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, tmp);
   fputs(tmp, out);
 
@@ -276,7 +276,7 @@ void db_nodes_gzprint(const dBNode *nodes, size_t num,
   BinaryKmer bkmer;
   char tmp[MAX_KMER_SIZE+1];
 
-  bkmer = db_graph_oriented_bkmer(db_graph, nodes[0]);
+  bkmer = db_node_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, tmp);
   gzputs(out, tmp);
 
@@ -313,14 +313,14 @@ void db_nodes_print_verbose(const dBNode *nodes, size_t num,
   char kmerstr[MAX_KMER_SIZE+1], keystr[MAX_KMER_SIZE+1];
 
   bkmer = db_node_get_bkmer(db_graph, nodes[0].key);
-  bkey = db_graph_oriented_bkmer(db_graph, nodes[0]);
+  bkey = db_node_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, kmerstr);
   binary_kmer_to_str(bkey, kmer_size, keystr);
   fprintf(out, "%3zu: %s:%i %s\n", (size_t)0, kmerstr, (int)nodes[0].orient, keystr);
 
   for(i = 1; i < num; i++) {
     bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
-    bkey = db_graph_oriented_bkmer(db_graph, nodes[i]);
+    bkey = db_node_oriented_bkmer(db_graph, nodes[i]);
     binary_kmer_to_str(bkmer, kmer_size, kmerstr);
     binary_kmer_to_str(bkey, kmer_size, keystr);
     fprintf(out, "%3zu: %s:%i %s\n", i, kmerstr, (int)nodes[i].orient, keystr);
@@ -360,11 +360,11 @@ bool db_node_check_nodes(const dBNode *nodes, size_t num,
   Nucleotide nuc;
   size_t i;
 
-  bkmer0 = db_graph_oriented_bkmer(db_graph, nodes[0]);
+  bkmer0 = db_node_oriented_bkmer(db_graph, nodes[0]);
 
   for(i = 0; i+1 < num; i++)
   {
-    bkmer1 = db_graph_oriented_bkmer(db_graph, nodes[i+1]);
+    bkmer1 = db_node_oriented_bkmer(db_graph, nodes[i+1]);
     nuc = binary_kmer_last_nuc(bkmer1);
     tmp = binary_kmer_left_shift_add(bkmer0, kmer_size, nuc);
     check_ret(binary_kmers_are_equal(tmp, bkmer1));

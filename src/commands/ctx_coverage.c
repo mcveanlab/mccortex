@@ -24,6 +24,20 @@ const char coverage_usage[] =
 create_objbuf(covg_buf,CovgBuffer,Covg);
 create_objbuf(edges_buf,EdgesBuffer,Edges);
 
+static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
+                                    Edges *dst)
+{
+  const size_t ncols = db_graph->num_edge_cols;
+  size_t i;
+  const Edges *edges = &db_node_edges(db_graph, node.key, 0);
+  memcpy(dst, edges, ncols * sizeof(Edges));
+  if(node.orient == REVERSE) {
+    for(i = 0; i < ncols; i++) {
+      dst[i] = (dst[i]>>4) | (dst[i]<<4);
+    }
+  }
+}
+
 static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
                                    CovgBuffer *covgbuf, EdgesBuffer *edgebuf,
                                    FILE *fout)
@@ -46,7 +60,6 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   Nucleotide nuc;
   dBNode node;
   Covg *covgs;
-  Edges *edges;
 
   while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          0, 0)) < r->seq.end)
@@ -64,10 +77,8 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
       if(node.key != HASH_NOT_FOUND) {
         covgs = &db_node_covg(db_graph, node.key, 0);
         memcpy(covgbuf->data+i*ncols, covgs, ncols * sizeof(Covg));
-        if(db_graph->col_edges) {
-          edges = &db_node_edges(db_graph, node.key, 0);
-          memcpy(edgebuf->data+i*ncols, edges, ncols * sizeof(Edges));
-        }
+        if(db_graph->col_edges)
+          fetch_node_edges(db_graph, node, edgebuf->data+i*ncols);
       }
     }
   }

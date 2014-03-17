@@ -115,7 +115,7 @@ static void print_branch(dBNode *nodes, size_t len, bool print_first_kmer,
 
   if(print_first_kmer) {
     char tmp[MAX_KMER_SIZE+1];
-    bkmer = db_graph_oriented_bkmer(db_graph, nodes[0]);
+    bkmer = db_node_oriented_bkmer(db_graph, nodes[0]);
     binary_kmer_to_str(bkmer, kmer_size, tmp);
     gzputs(out, tmp);
   }
@@ -215,7 +215,7 @@ static inline void walk_supernode_end(GraphWalker *wlk, CallerSupernode *snode,
     } else {
       lastnode = db_node_reverse(snode_nodes(snode)[0]);
     }
-    last_bkmer = db_graph_oriented_bkmer(wlk->db_graph, lastnode);
+    last_bkmer = db_node_oriented_bkmer(wlk->db_graph, lastnode);
     graph_walker_jump_along_snode(wlk, lastnode.key, last_bkmer);
   }
 }

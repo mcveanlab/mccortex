@@ -286,34 +286,44 @@ int ctx_thread(CmdArgs *args)
   }
 
   // Output statistics
-  const uint64_t *ins_gaps, *err_gaps;
-  size_t ins_gaps_len, err_gaps_len;
-
-  ins_gaps = gen_paths_get_ins_gap(workers, &ins_gaps_len);
-  err_gaps = gen_paths_get_err_gap(workers, &err_gaps_len);
-
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  gen_paths_get_stats(workers, num_work_threads, &stats);
+  LoadingStats stats = gen_paths_get_stats(workers);
+  CorrectAlnStats gapstats =  gen_paths_get_gapstats(workers);
 
   // Print mp gap size / insert stats to a file
   if(dump_seq_sizes != NULL) {
-    gen_paths_dump_gap_sizes(dump_seq_sizes, err_gaps, err_gaps_len,
+    gen_paths_dump_gap_sizes(dump_seq_sizes,
+                             gapstats.gap_err_histgrm, gapstats.histgrm_len,
                              db_graph.kmer_size, false,
                              stats.num_se_reads + stats.num_pe_reads);
   }
 
   if(stats.num_pe_reads > 0 && dump_mp_sizes != NULL) {
-    gen_paths_dump_gap_sizes(dump_mp_sizes, ins_gaps, ins_gaps_len,
+    gen_paths_dump_gap_sizes(dump_mp_sizes,
+                             gapstats.gap_ins_histgrm, gapstats.histgrm_len,
                              db_graph.kmer_size, true, stats.num_pe_reads);
   }
 
-  // ins_gap, err_gap no longer allocated after this line
-  gen_paths_workers_dealloc(workers, num_work_threads);
+  // Path Stats
+  size_t num_gap_attempts = gapstats.num_gap_attempts;
+  size_t num_gap_successes = gapstats.num_gap_successes;
+  size_t num_gaps_paths_disagreed = gapstats.num_gaps_disagreed;
+  size_t num_gaps_too_short = gapstats.num_gaps_too_short;
+  char num_gap_attempts_str[100], num_gap_successes_str[100];
+  char num_gaps_paths_disagree_str[100], num_gaps_too_short_str[100];
+  ulong_to_str(num_gap_attempts, num_gap_attempts_str);
+  ulong_to_str(num_gap_successes, num_gap_successes_str);
+  ulong_to_str(num_gaps_paths_disagreed, num_gaps_paths_disagree_str);
+  ulong_to_str(num_gaps_too_short, num_gaps_too_short_str);
 
-  path_store_combine_updated_paths(&db_graph.pstore);
-
-  // Done
+  status("[gaps] traversals succeeded: %s / %s (%.2f%%)",
+         num_gap_successes_str, num_gap_attempts_str,
+         (100.0 * num_gap_successes) / num_gap_attempts);
+  status("[gaps] failed path check: %s / %s (%.2f%%)",
+         num_gaps_paths_disagree_str, num_gap_attempts_str,
+         (100.0 * num_gaps_paths_disagreed) / num_gap_attempts);
+  status("[gaps] too short: %s / %s (%.2f%%)",
+         num_gaps_too_short_str, num_gap_attempts_str,
+         (100.0 * num_gaps_too_short) / num_gap_attempts);
 
   char se_num_str[100], pe_num_str[100], sepe_num_str[100];
   ulong_to_str(stats.num_se_reads, se_num_str);
@@ -329,6 +339,10 @@ int ctx_thread(CmdArgs *args)
   ulong_to_str(pstore->num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
   ulong_to_str(pstore->num_col_paths, col_paths_str);
+
+  // ins_gap, err_gap no longer allocated after this line
+  gen_paths_workers_dealloc(workers, num_work_threads);
+  path_store_combine_updated_paths(&db_graph.pstore);
 
   status("Saving paths: %s paths, %s path-bytes, %s kmers, coloured paths: %s",
          paths_str, mem_str, kmers_str, col_paths_str);

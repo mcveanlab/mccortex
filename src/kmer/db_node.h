@@ -21,6 +21,10 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
   return db_graph->ht.table[hkey];
 }
 
+// Get an oriented bkmer
+#define db_node_oriented_bkmer(graph,node) \
+        bkmer_oriented_bkmer(db_node_get_bkmer(graph,(node).key), \
+                               (node).orient, (graph)->kmer_size)
 
 //
 // kmer in colours
