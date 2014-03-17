@@ -3,6 +3,7 @@
 
 #include "commands.h"
 #include "util.h"
+#include "file_util.h"
 
 // To add a new command to ctx31 <cmd>:
 // 0. create a file src/commands/ctx_X.c
@@ -220,6 +221,14 @@ static const CtxCmd* ctx_get_command(const char* cmd)
   return NULL;
 }
 
+static void print_header(const char *cmdline)
+{
+  char abspath[PATH_MAX+1];
+  status("[cmd] %s", cmdline);
+  if(futil_get_current_dir(abspath) != NULL) status("[cwd] %s", abspath);
+  status("[version] "VERSION_STATUS_STR"");
+}
+
 int main(int argc, char **argv)
 {
   CmdArgs args;
@@ -242,8 +251,7 @@ int main(int argc, char **argv)
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
 
-  status("[cmd] %s\n", args.cmdline);
-  status("[version] "VERSION_STATUS_STR"\n");
+  print_header(args.cmdline);
 
   // Check number of args, required args, optional args
   cmd_accept_options(&args, cmd->optargs, cmd->usage);

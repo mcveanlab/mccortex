@@ -163,7 +163,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
     }
     else if(updated) {
       if(fseek(file->fltr.fh, -edges_len, SEEK_CUR) != 0 ||
-         fwrite(edges, ncols, sizeof(Edges), file->fltr.fh) != ncols)
+         fwrite(edges, sizeof(Edges), ncols, file->fltr.fh) != ncols)
       {
         die("fseek/fwrite error: %s", file->fltr.file_path.buff);
       }
