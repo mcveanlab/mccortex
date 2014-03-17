@@ -782,8 +782,9 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
 
   #ifdef CTXCHECKS
     // Check last k-1 bp of wlk->bkmer match block
+    expnode = forward ? block[0] : db_node_reverse(block[num_nodes-1]);
     BinaryKmer bkmer0 = wlk->bkmer;
-    BinaryKmer bkmer1 = db_node_oriented_bkmer(wlk->db_graph, block[0]);
+    BinaryKmer bkmer1 = db_node_oriented_bkmer(wlk->db_graph, expnode);
     bkmer0 = binary_kmer_left_shift_one_base(bkmer0, wlk->db_graph->kmer_size);
     binary_kmer_set_last_nuc(&bkmer1, 0);
     ctx_check(binary_kmers_are_equal(bkmer0, bkmer1));

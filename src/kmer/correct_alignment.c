@@ -103,13 +103,13 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
   rpt_walker_fast_clear(rptwlk, contig->data+init_len, result.gap_len);
 
   // Check paths match remaining nodes
-  if(result.traversed &&
-     (( forward && !graph_walker_agrees_contig(wlk, block+1, n-1, true)) ||
-      (!forward && !graph_walker_agrees_contig(wlk, block, n-1, false))))
-  {
-    // printf("1) Paths don't agree!\n");
-    result.traversed = false;
-    result.paths_disagreed = true;
+  if(result.traversed) {
+    if(( forward && !graph_walker_agrees_contig(wlk, block+1, n-1, true)) ||
+       (!forward && !graph_walker_agrees_contig(wlk, block, n-1, false))) {
+      // printf("1) Paths don't agree!\n");
+      result.traversed = false;
+      result.paths_disagreed = true;
+    }
   }
 
   // printf("gap_len: %zu contig->len: %zu; success: %i gap_min: %zu\n",
@@ -194,15 +194,17 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
   if(db_nodes_match(wlk[0]->node, right_contig[right_n-1])) { right_n--; }
   else if(db_nodes_match(wlk[1]->node, left_contig[left_n-1])) { left_n--; }
 
-  if((contig0->len > 0 &&
-      !graph_walker_agrees_contig(wlk[1], left_contig, left_n, false)) ||
-     (contig1->len > 0 &&
-      !graph_walker_agrees_contig(wlk[0], right_contig, right_n, true)) ||
-     !graph_walker_agrees_contig(wlk[0], rhs_block, rhs_n, true))
-  {
-    // printf("2) Paths don't agree!\n");
-    result.traversed = false;
-    result.paths_disagreed = true;
+  if(result.traversed) {
+    if((contig0->len > 0 &&
+        !graph_walker_agrees_contig(wlk[1], left_contig, left_n, false)) ||
+       (contig1->len > 0 &&
+        !graph_walker_agrees_contig(wlk[0], right_contig, right_n, true)) ||
+       !graph_walker_agrees_contig(wlk[0], rhs_block, rhs_n, true))
+    {
+      // printf("2) Paths don't agree!\n");
+      result.traversed = false;
+      result.paths_disagreed = true;
+    }
   }
 
   // Clear RepeatWalker
