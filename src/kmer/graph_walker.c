@@ -123,6 +123,9 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
   // printf("pickup %s paths from: %zu:%i\n", counter ? "counter" : "curr",
   //        (size_t)index, orient);
 
+  // Picking up paths is turned off
+  if(wlk->db_graph->pstore.kmer_paths == NULL) return 0;
+
   const dBGraph *db_graph = wlk->db_graph;
   const PathStore *pstore = wlk->pstore;
   PathBuffer *pbuf = counter ? &wlk->cntr_paths : &wlk->new_paths;
@@ -442,6 +445,9 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   Nucleotide next_base;
   Orientation backwards = !wlk->node.orient;
 
+  // Picking up paths is turned off
+  if(wlk->db_graph->pstore.kmer_paths == NULL) return;
+
   // Remove edge to kmer we came from
   edges = db_node_get_edges(db_graph, wlk->node.key, 0);
 
@@ -596,17 +602,6 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
   bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
 
-  // char tmp0[MAX_KMER_SIZE+1], tmp1[MAX_KMER_SIZE+1];
-  // Orientation or0, or1;
-  // binary_kmer_to_str(wlk->bkmer, kmer_size, tmp0);
-  // binary_kmer_to_str(bkmer, kmer_size, tmp1);
-  // status("%s -> %s lost: %c:%i", tmp0, tmp1, dna_nuc_to_char(lost_nuc), wlk->node.orient);
-  // binary_kmer_to_str(wlk->bkey, kmer_size, tmp0);
-  // binary_kmer_to_str(db_node_get_bkmer(wlk->db_graph,hkey), kmer_size, tmp1);
-  // or0 = wlk->node.orient;
-  // or1 = bkmer_get_orientation(bkmer, db_node_get_bkmer(wlk->db_graph,hkey));
-  // status("%s:%i -> %s:%i", tmp0, or0, tmp1, or1);
-
   _graph_traverse_force_jump(wlk, hkey, bkmer, is_fork);
   _graph_walker_pickup_counter_paths(wlk, lost_nuc);
 }
@@ -644,8 +639,8 @@ bool graph_traverse(GraphWalker *wlk)
 //
 
 // Fast traverse - avoid a bkmer_revcmp
-static inline void graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
-                                     const dBNode next_node, bool is_fork)
+static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
+                                      const dBNode next_node, bool is_fork)
 {
   const size_t kmer_size = wlk->db_graph->kmer_size;
   BinaryKmer bkmer, bkey;
@@ -710,7 +705,7 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
     // - current node has in-degree > 1 (pick up counter-paths + merge in new paths)
     // - next node has in-degree > 1 (pickup paths)
     if(outfork[0] || infork[1] || infork[2]) {
-      graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
+      _graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
     }
 
     // Rotate edges, nodes
@@ -720,7 +715,7 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
   }
 
   // Traverse last node
-  graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
+  _graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
 }
 
 // Traversal of every node in a list of nodes using the supplied GraphWalker
@@ -775,6 +770,8 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
                                 const dBNode *block, size_t num_nodes,
                                 bool forward)
 {
+  if(num_nodes == 0) return true;
+
   size_t i, j, n, njuncs = graph_walker_get_max_path_junctions(wlk);
   dBNode nodes[4], expnode;
   Nucleotide nucs[4];
@@ -810,5 +807,6 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
     if(!graph_traverse_nodes(wlk, n, nodes, nucs)) return true;
     if(!db_nodes_match(wlk->node, expnode)) return false;
   }
+
   return true;
 }

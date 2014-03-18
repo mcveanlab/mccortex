@@ -19,6 +19,7 @@ typedef struct {
   uint8_t *const tmpstore;
   const size_t tmpsize;
   // Kmer pointers
+  // kmer_paths is NULL if we don't want GraphWalker to use paths
   // kmer_paths_update may point to kmer_paths or a copy
   PathIndex *kmer_paths, *kmer_paths_update;
   // Multithreaded writing

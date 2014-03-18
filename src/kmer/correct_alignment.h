@@ -60,17 +60,9 @@ void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
 // Returns NULL if end of alignment
 dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr);
 
-
 // Get alignment coords of contig
 // Called after correct_alignment_nxt()
 size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr);
 size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr);
-
-uint64_t* correct_alignment_get_errhist(CorrectAlnWorker *wrkr, size_t *n);
-uint64_t* correct_alignment_get_inshist(CorrectAlnWorker *wrkr, size_t *n);
-
-// copy to dst histrograms, zero src histograms
-void correct_alignment_merge_stats(CorrectAlnWorker *restrict dst,
-                                   CorrectAlnWorker *restrict src);
 
 #endif /* CORRECTED_ALIGNMENT_H_ */

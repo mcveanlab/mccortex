@@ -210,7 +210,7 @@ int ctx_thread(CmdArgs *args)
     }
   }
 
-  // Load paths
+  // Load existing paths
   if(num_pfiles > 0) {
     // Paths loaded into empty colours will update the sample names
     // and add kmers needed
@@ -220,6 +220,10 @@ int ctx_thread(CmdArgs *args)
     // Copy current paths over to path set to be updated
     memcpy(db_graph.pstore.kmer_paths_update, db_graph.pstore.kmer_paths,
            kmers_in_hash * sizeof(PathIndex));
+  }
+  else {
+    // Don't pick up any paths
+    db_graph.pstore.kmer_paths = NULL;
   }
 
   // Set up paths header. This is for the output file we are creating
@@ -291,16 +295,16 @@ int ctx_thread(CmdArgs *args)
 
   // Print mp gap size / insert stats to a file
   if(dump_seq_sizes != NULL) {
-    gen_paths_dump_gap_sizes(dump_seq_sizes,
+    correct_aln_stats_dump(dump_seq_sizes,
                              gapstats.gap_err_histgrm, gapstats.histgrm_len,
                              db_graph.kmer_size, false,
                              stats.num_se_reads + stats.num_pe_reads);
   }
 
   if(stats.num_pe_reads > 0 && dump_mp_sizes != NULL) {
-    gen_paths_dump_gap_sizes(dump_mp_sizes,
-                             gapstats.gap_ins_histgrm, gapstats.histgrm_len,
-                             db_graph.kmer_size, true, stats.num_pe_reads);
+    correct_aln_stats_dump(dump_mp_sizes,
+                           gapstats.gap_ins_histgrm, gapstats.histgrm_len,
+                           db_graph.kmer_size, true, stats.num_pe_reads);
   }
 
   // Path Stats

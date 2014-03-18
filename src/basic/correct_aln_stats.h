@@ -17,4 +17,12 @@ void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
                              CorrectAlnStats *restrict src);
 void correct_aln_stats_cap(CorrectAlnStats *stats, size_t max_gap);
 
+// Save gap size distribution
+// insert_sizes is true if gaps are insert gaps,
+//                 false if gaps are due to sequencing errors
+void correct_aln_stats_dump(const char *path,
+                            const uint64_t *arr, size_t arrlen,
+                            size_t kmer_size, bool insert_sizes,
+                            size_t nreads);
+
 #endif /* CORRECT_ALN_STATS_H_ */

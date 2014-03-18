@@ -51,8 +51,6 @@ typedef struct
   const Colour ctxcol, ctpcol;
 
   // Current position
-  // hkey_t node;
-  // Orientation orient;
   dBNode node;
   BinaryKmer bkmer, bkey; // Oriented bkmer (i.e. not key) + hash bkey
 

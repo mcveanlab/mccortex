@@ -1,5 +1,6 @@
 #include "global.h"
 #include "correct_aln_stats.h"
+#include "util.h"
 
 #define INIT_BUFLEN 1024
 
@@ -59,4 +60,78 @@ void correct_aln_stats_cap(CorrectAlnStats *stats, size_t max_gap)
     memset(stats->gap_err_histgrm+stats->histgrm_len, 0, newmem);
     stats->histgrm_len = max_gap;
   }
+}
+
+// Save gap size distribution
+// insert_sizes is true if gaps are insert gaps,
+//                 false if gaps are due to sequencing errors
+void correct_aln_stats_dump(const char *path,
+                            const uint64_t *arr, size_t arrlen,
+                            size_t kmer_size, bool insert_sizes,
+                            size_t nreads)
+{
+  ctx_assert(arrlen > 0);
+
+  // Print summary statistics: min, mean, median, mode, max
+  size_t i, min, max, total, ngaps = 0, mode = 0;
+  max = total = arr[0];
+
+  for(min = 0; min < arrlen && arr[min] == 0; min++) {}
+
+  if(min == arrlen) {
+    if(insert_sizes) status("No insert gaps traversed");
+    else status("No seq error gaps traversed");
+    return;
+  }
+
+  for(i = 1; i < arrlen; i++) {
+    if(arr[i] > 0) max = i;
+    if(arr[i] > arr[mode]) mode = i;
+    ngaps += arr[i];
+    total += arr[i] * i;
+  }
+
+  double mean = (double)total / ngaps;
+  float median = find_hist_median(arr, arrlen, ngaps);
+
+  size_t ninputs = insert_sizes ? nreads/2 : nreads;
+  char ngaps_str[100], ninputs_str[100];
+  ulong_to_str(ngaps, ngaps_str);
+  ulong_to_str(ninputs, ninputs_str);
+
+  status("%s size distribution: "
+         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu",
+         insert_sizes ? "Insert" : "Seq error gap",
+         min, mean, median, mode, max);
+
+  status("  Gaps per read%s: %s / %s [%.2f%%]",
+         insert_sizes ? " pair" : "", ngaps_str, ninputs_str,
+         (100.0*ngaps) / ninputs);
+
+  FILE *fout;
+
+  if((fout = fopen(path, "w")) == NULL) {
+    warn("Cannot dump gapsize [cannot open: %s]", path);
+    return;
+  }
+
+  fprintf(fout, "gap_in_kmers\tbp\tcount\n");
+
+  if(arrlen > 0)
+  {
+    size_t start = 0, end = arrlen-1;
+
+    while(start < arrlen && arr[start] == 0) start++;
+    while(end > start && arr[end] == 0) end--;
+
+    for(i = start; i <= end; i++) {
+      fprintf(fout, "%4zu\t%4li\t%4zu\n",
+              i, (long)i-(long)kmer_size, (size_t)arr[i]);
+    }
+  }
+
+  status("Contig %s sizes dumped to %s\n",
+         insert_sizes ? "insert" : "gap", path);
+
+  fclose(fout);
 }

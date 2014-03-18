@@ -25,11 +25,9 @@
 
 // Actually hash map of hkey_t -> CallerSupernode*
 // the first and last node of a supernode are mapped to the CallerSupernode
-KHASH_MAP_INIT_INT64(supnode_hsh, CallerSupernode*)
+KHASH_INIT(supnode_hsh, uint64_t, CallerSupernode*, 1, kh_int64_hash_func, kh_int64_hash_equal)
 
-
-// Actually hash map of hkey_t -> CallerSupernode*
-// the first and last node of a supernode are mapped to the CallerSupernode
+// SupernodePathPos* -> char
 KHASH_INIT(snpps_hsh, SupernodePathPos*, char, 0, supernode_pathpos_hash, supernode_pathpos_equal)
 
 // Print absolute path to a file

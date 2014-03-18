@@ -48,6 +48,7 @@ struct GenPathWorker
 
 #define INIT_BUFLEN 1024
 
+// Printing variables defined in correct_reads_input.h
 // Used for printint output
 volatile size_t print_contig_id = 0, print_path_id = 0;
 
@@ -419,8 +420,6 @@ static void reads_to_paths(GenPathWorker *wrkr)
     pthread_mutex_unlock(&biglock);
   }
 
-  // printf(">%s %zu\n", r1->name.b, wrkr->task.crt_params.ctpcol);
-
   uint8_t fq_cutoff1, fq_cutoff2;
   fq_cutoff1 = fq_cutoff2 = wrkr->task.fq_cutoff;
 
@@ -478,8 +477,8 @@ static void* generate_paths_worker(void *ptr)
   pthread_exit(NULL);
 }
 
-void gen_path_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
-                         const CorrectAlnReadsTask *task)
+void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
+                          const CorrectAlnReadsTask *task)
 {
   // Copy task to worker
   wrkr->data = data;
@@ -517,79 +516,4 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
 
   // Merge gap counts into worker[0]
   generate_paths_merge_stats(workers, num_workers);
-}
-
-
-// Save gap size distribution
-// insert_sizes is true if gaps are insert gaps,
-//                 false if gaps are due to sequencing errors
-void gen_paths_dump_gap_sizes(const char *path,
-                              const uint64_t *arr, size_t arrlen,
-                              size_t kmer_size, bool insert_sizes,
-                              size_t nreads)
-{
-  ctx_assert(arrlen > 0);
-
-  // Print summary statistics: min, mean, median, mode, max
-  size_t i, min, max, total, ngaps = 0, mode = 0;
-  max = total = arr[0];
-
-  for(min = 0; min < arrlen && arr[min] == 0; min++) {}
-
-  if(min == arrlen) {
-    if(insert_sizes) status("No insert gaps traversed");
-    else status("No seq error gaps traversed");
-    return;
-  }
-
-  for(i = 1; i < arrlen; i++) {
-    if(arr[i] > 0) max = i;
-    if(arr[i] > arr[mode]) mode = i;
-    ngaps += arr[i];
-    total += arr[i] * i;
-  }
-
-  double mean = (double)total / ngaps;
-  float median = find_hist_median(arr, arrlen, ngaps);
-
-  size_t ninputs = insert_sizes ? nreads/2 : nreads;
-  char ngaps_str[100], ninputs_str[100];
-  ulong_to_str(ngaps, ngaps_str);
-  ulong_to_str(ninputs, ninputs_str);
-
-  status("%s size distribution: "
-         "min: %zu mean: %.1f median: %.1f mode: %zu max: %zu",
-         insert_sizes ? "Insert" : "Seq error gap",
-         min, mean, median, mode, max);
-
-  status("  Gaps per read%s: %s / %s [%.2f%%]",
-         insert_sizes ? " pair" : "", ngaps_str, ninputs_str,
-         (100.0*ngaps) / ninputs);
-
-  FILE *fout;
-
-  if((fout = fopen(path, "w")) == NULL) {
-    warn("Cannot dump gapsize [cannot open: %s]", path);
-    return;
-  }
-
-  fprintf(fout, "gap_in_kmers\tbp\tcount\n");
-
-  if(arrlen > 0)
-  {
-    size_t start = 0, end = arrlen-1;
-
-    while(start < arrlen && arr[start] == 0) start++;
-    while(end > start && arr[end] == 0) end--;
-
-    for(i = start; i <= end; i++) {
-      fprintf(fout, "%4zu\t%4li\t%4zu\n",
-              i, (long)i-(long)kmer_size, (size_t)arr[i]);
-    }
-  }
-
-  status("Contig %s sizes dumped to %s\n",
-         insert_sizes ? "insert" : "gap", path);
-
-  fclose(fout);
 }

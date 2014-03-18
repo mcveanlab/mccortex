@@ -21,7 +21,7 @@ static void add_paths(dBGraph *graph,
   iodata->fq_offset1 = iodata->fq_offset2 = 0;
   iodata->ptr = NULL;
   // Add paths
-  gen_path_worker_seq(wrkrs, iodata, task);
+  gen_paths_worker_seq(wrkrs, iodata, task);
 
   // Check we added the right number of paths
   TASSERT(graph->pstore.num_of_paths == npaths + exp_npaths);

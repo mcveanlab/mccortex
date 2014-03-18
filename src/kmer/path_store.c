@@ -72,9 +72,12 @@ void path_store_reclaim_tmp(PathStore *ps)
 void path_store_dealloc(PathStore *ps)
 {
   if(ps->kmer_locks) free(ps->kmer_locks);
-  if(ps->kmer_paths_update != ps->kmer_paths) free(ps->kmer_paths_update);
-  free((void *)ps->kmer_paths);
+  if(ps->kmer_paths_update && ps->kmer_paths_update != ps->kmer_paths)
+    free(ps->kmer_paths_update);
+  if(ps->kmer_paths) free((void *)ps->kmer_paths);
   free(ps->store);
+  ps->kmer_locks = NULL;
+  ps->kmer_paths_update = ps->kmer_paths = NULL;
 }
 
 // Find a path

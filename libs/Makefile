@@ -7,6 +7,9 @@ UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align \
 
 ALLTGTS=$(UPDATE) gsl
 
+# Only compile dependencies for compiling ninja-cortex itself
+core: htslib string_buffer bit_array seq_file seq-align msg-pool misc
+
 update: $(UPDATE)
 all: $(ALLTGTS)
 
@@ -103,5 +106,5 @@ clean:
 	cd msg-pool && make clean
 	cd misc && make clean
 
-.PHONY: all clean update
+.PHONY: all clean update core
 .PHONY: $(ALLTGTS)
