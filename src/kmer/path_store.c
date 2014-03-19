@@ -351,7 +351,7 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
 
 // Check data if exactly filled by packed paths
 bool path_store_data_integrity_check(const uint8_t *data, size_t size,
-                                        size_t colbytes)
+                                     size_t colbytes)
 {
   const uint8_t *ptr = data, *end = data+size;
   PathLen plen, nbytes;

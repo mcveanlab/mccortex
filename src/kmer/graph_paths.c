@@ -190,11 +190,6 @@ bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
   // length is kmers and junctions
   size_t klen, plen;
 
-  // char nstr[nbases+1];
-  // for(i = 0; i < nbases; i++) nstr[i] = dna_nuc_to_char(bases[i]);
-  // nstr[nbases] = '\0';
-  // status("Check: %zu:%i len %zu %s", (size_t)node.key, node.orient, nbases, nstr);
-
   for(klen = 0, plen = 0; plen < nbases; klen++)
   {
     bkmer = db_node_get_bkmer(db_graph, node.key);
@@ -266,8 +261,8 @@ bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
 }
 
 static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
-                                 const GraphPathPairing *gp,
-                                 const dBGraph *db_graph)
+                              const GraphPathPairing *gp,
+                              const dBGraph *db_graph)
 {
   const PathStore *pstore = &db_graph->pstore;
   PathLen len_bases;
@@ -299,7 +294,7 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
   for(i = 0; i < gp->n; i++) {
     if(bitset_get(colset, gp->ctpcols[i])) {
       check_ret(graph_path_check_valid(node, gp->ctxcols[i], seq, len_bases,
-                                           db_graph));
+                                       db_graph));
     }
   }
 

@@ -50,11 +50,11 @@ genome.k$(K).kmers.pdf:
 	../../scripts/cortex_to_graphviz.pl genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
 
 reads.se.k$(K).ctp:
-	$(CTX) thread -t 6 --col 0 $(SEQSE) reads.se.k$(K).ctp genome.k$(K).ctx
+	$(CTX) thread -t 6 --col 0 $(SEQSE) -o reads.se.k$(K).ctp genome.k$(K).ctx
 	$(CTX) pview reads.se.k$(K).ctp
 
 reads.pe.k$(K).ctp:
-	$(CTX) thread -t 6 --col 0 $(SEQSE) $(SEQPE) reads.pe.k$(K).ctp genome.k$(K).ctx
+	$(CTX) thread -t 6 --col 0 $(SEQSE) $(SEQPE) -o reads.pe.k$(K).ctp genome.k$(K).ctx
 	$(CTX) pview reads.pe.k$(K).ctp
 
 .PHONY: all clean plots

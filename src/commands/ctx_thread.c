@@ -12,7 +12,7 @@
 #include "graph_paths.h"
 
 const char thread_usage[] =
-"usage: "CMD" thread [options] <out.ctp> <in.ctx>[:cols] [in2.ctx ...]\n"
+"usage: "CMD" thread [options] <in.ctx> [in2.ctx[:cols] ...]\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"
 "  have everyone in it and can be a pooled graph (with only 1 colour).  Samples\n"
 "  are loaded from <in.ctx> files one at a time.\n"
@@ -21,6 +21,7 @@ const char thread_usage[] =
 "    -m <mem>                   How much memory to use\n"
 "    -n <kmers>                 How many entries in the hash table\n"
 "    -p <in.ctp>                Load existing path files first (multiple allowed)\n"
+"    --out <out.ctp>            Save output file [required]\n"
 "    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
@@ -75,10 +76,9 @@ int ctx_thread(CmdArgs *args)
     correct_reads_input_print(&tasks[i]);
   }
 
-  if(argi + 1 >= argc) cmd_print_usage("Not enough arguments");
+  if(argi+1 > argc) cmd_print_usage("Not enough arguments");
 
-  char *out_ctp_path = argv[argi++];
-
+  const char *out_ctp_path = args->output_file;
   size_t num_gfiles = (size_t)(argc - argi);
   char **graph_paths = argv + argi;
 

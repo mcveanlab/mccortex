@@ -15,7 +15,7 @@ rnd.pdf: rnd.dot
 	dot -Tpdf rnd.dot > rnd.pdf
 
 rnd.ctp: rnd.ctx
-	$(CTX) thread --col 0 --seq rnd.fa rnd.ctp rnd.ctx
+	$(CTX) thread --col 0 --seq rnd.fa -o rnd.ctp rnd.ctx
 
 clean:
 	rm -rf *.pdf *.dot *.ctx *.ctp gap_sizes.*.csv mp_sizes.*.csv
