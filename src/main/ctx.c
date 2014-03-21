@@ -40,7 +40,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "clean", .func = ctx_clean, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "o",
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "o",
   .blurb = "clean errors from a graph",
   .usage = clean_usage
 },
