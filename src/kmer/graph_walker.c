@@ -787,7 +787,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
 
     if(!binary_kmers_are_equal(bkmer0, bkmer1))
     {
-      char bstr0[MAX_KMER_SIZE+1] bstr1[MAX_KMER_SIZE+1];
+      char bstr0[MAX_KMER_SIZE+1], bstr1[MAX_KMER_SIZE+1];
       binary_kmer_to_str(bkmer0, wlk->db_graph->kmer_size, bstr0);
       binary_kmer_to_str(bkmer1, wlk->db_graph->kmer_size, bstr1);
       graph_walker_print_state(wlk);
