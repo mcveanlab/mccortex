@@ -115,6 +115,13 @@ dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
   return node;
 }
 
+dBNode db_graph_find_str(const dBGraph *db_graph, const char *str)
+{
+  BinaryKmer bkmer;
+  bkmer = binary_kmer_from_str(str, db_graph->kmer_size);
+  return db_graph_find(db_graph, bkmer);
+}
+
 dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer)
 {
   dBNode node;

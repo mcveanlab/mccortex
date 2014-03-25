@@ -25,7 +25,7 @@ create_objbuf(path_buf,PathBuffer,FollowPath);
 // Result from graph_walker_choose
 typedef struct
 {
-  // idx is -1 if failed, otherwise index of path
+  // idx is -1 if failed, otherwise index of node taken [0..3]
   int8_t idx;
   uint8_t status;
   bool node_has_col;
@@ -40,6 +40,8 @@ typedef struct
 #define GRPHWLK_SPLIT_PATHS 5 /* Fail: fork in colour, paths split */
 #define GRPHWLK_MISSING_PATHS 6 /* Fail: fork in colour, missing info */
 #define GRPHWLK_USEPATH 7 /* Success: fork in colour, paths resolved */
+
+extern const char *graph_step_str[];
 
 // Was the last step resolving a split in this colour?
 #define graphstep_is_fork(stp) ((stp).status > GRPHWLK_NOCOLCOVG)
@@ -78,11 +80,10 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 void graph_walker_finish(GraphWalker *wlk);
 
 // Hash a binary kmer + GraphWalker paths with offsets
-// uint32_t graph_walker_hash(const GraphWalker *wlk);
-uint64_t graph_walker_hash64(const GraphWalker *wlk);
+uint64_t graph_walker_hash64(GraphWalker *wlk);
 
 // Returns index of choice or -1 along with status
-GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
+GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4]);
 

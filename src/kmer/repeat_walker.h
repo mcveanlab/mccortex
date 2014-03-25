@@ -16,20 +16,33 @@ typedef struct
 // We determine if it is safe to make the traversal without getting stuck in
 // a loop/cycle in the graph
 static inline bool rpt_walker_attempt_traverse(RepeatWalker *rpt,
-                                               const GraphWalker *wlk)
+                                               GraphWalker *wlk)
 {
+  uint64_t h[3], hash64;
+  bool collision;
+
   if(!db_node_has_traversed(rpt->visited, wlk->node)) {
     db_node_set_traversed(rpt->visited, wlk->node);
     return true;
   }
   else {
-    uint64_t h0, h1, hash64 = graph_walker_hash64(wlk);
-    bool collision;
-    h0 = hash64 & rpt->mask;
-    h1 = (hash64 >> rpt->bloom_nbits) & rpt->mask;
-    collision = bitset_get(rpt->bloom, h0) && bitset_get(rpt->bloom, h1);
-    bitset_set(rpt->bloom, h0);
-    bitset_set(rpt->bloom, h1);
+    hash64 = graph_walker_hash64(wlk);
+
+    h[0] = hash64 & rpt->mask;
+    h[1] = (hash64 >>  rpt->bloom_nbits) & rpt->mask;
+    h[2] = (hash64 >> (rpt->bloom_nbits*2)) & rpt->mask;
+
+    // printf(" %zu %zu %zu / %zu\n", (size_t)h[0], (size_t)h[1], (size_t)h[2],
+    //        (size_t)(1UL<<rpt->bloom_nbits));
+
+    collision = bitset_get(rpt->bloom, h[0]) &&
+                bitset_get(rpt->bloom, h[1]) &&
+                bitset_get(rpt->bloom, h[2]);
+
+    bitset_set(rpt->bloom, h[0]);
+    bitset_set(rpt->bloom, h[1]);
+    bitset_set(rpt->bloom, h[2]);
+
     rpt->nbloom_entries++;
     return !collision;
   }
@@ -45,7 +58,7 @@ static inline size_t rpt_walker_est_mem(size_t hash_capacity, size_t nbits)
 static inline void rpt_walker_alloc(RepeatWalker *rpt,
                                     size_t hash_capacity, size_t nbits)
 {
-  ctx_assert(nbits > 0 && nbits <= 32);
+  ctx_assert(nbits > 0 && nbits < 32);
   size_t visited_words = roundup_bits2words64(hash_capacity*2);
   size_t repeat_words = roundup_bits2words64(1UL<<nbits);
   size_t nbytes = (visited_words + repeat_words) * sizeof(uint64_t);

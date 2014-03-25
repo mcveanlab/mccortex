@@ -17,6 +17,11 @@
 
 #define USE_COUNTER_PATHS 1
 
+const char *graph_step_str[] = {"Walk Forward", "Walk in Colour",
+                                "No Coverage", "No Colour Coverage",
+                                "No Paths", "Paths Split",
+                                "Missing Information", "Walk Paths"};
+
 // How many junctions are left to be traversed in our longest remaining path
 size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
 {
@@ -32,35 +37,46 @@ size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
   return max;
 }
 
+// Check if the FollowPath cache needs updated, based of path->pos value
+// if it does, update it
+static inline void cache_update(FollowPath *path, size_t pos)
+{
+  size_t fetch_offset, fetch_bytes, total_bytes;
+
+  // 4 bases per byte
+  PathLen new_cache_start = sizeof(path->cache) * 4 *
+                            (pos / (sizeof(path->cache) * 4));
+
+  if(new_cache_start != path->first_cached)
+  {
+    path->first_cached = new_cache_start;
+    fetch_offset = path->first_cached/4;
+    total_bytes = (path->len+3)/4;
+    fetch_bytes = MIN2(total_bytes-fetch_offset, sizeof(path->cache));
+    memcpy(path->cache, path->seq + fetch_offset, fetch_bytes);
+    memset(path->cache+fetch_bytes, 0, sizeof(path->cache)-fetch_bytes);
+  }
+}
+
+// Get a base from the FollowPath cache
+static inline Nucleotide cache_fetch(FollowPath *path, size_t pos)
+{
+  cache_update(path, pos);
+  return binary_seq_get(path->cache, pos - path->first_cached);
+}
+
 // For GraphWalker to work we assume all edges are merged into one colour
 // (i.e. graph->num_edge_cols == 1)
 // If only one colour loaded we assume all edges belong to this colour
 
 FollowPath follow_path_create(const uint8_t *seq, PathLen plen)
 {
-  FollowPath fpath = {.seq = seq, .len = plen, .pos = 0, .first_cached = 0};
-  memcpy(fpath.cache, fpath.seq, sizeof(fpath.cache));
+  // .first_cached = 1 is invalid (not multiple of sizeof(cache)*4), so forces
+  // fetch on first request
+  FollowPath fpath = {.seq = seq, .pos = 0, .len = plen,
+                      .first_cached = 1, .cache = {0}};
+  memset(fpath.cache, 0, sizeof(fpath.cache));
   return fpath;
-}
-
-// Get a base from the FollowPath cache
-static inline Nucleotide cache_fetch(const FollowPath *path, size_t pos)
-{
-  return binary_seq_get(path->cache, pos - path->first_cached);
-}
-
-// Check if the FollowPath cache needs updated, based of path->pos value
-// if it does, update it
-static inline void cache_update(FollowPath *path)
-{
-  // 4 bases per byte
-  PathLen new_cache_start = sizeof(path->cache) * 4 *
-                            (path->pos / (sizeof(path->cache) * 4));
-
-  if(new_cache_start != path->first_cached) {
-    path->first_cached = new_cache_start;
-    memcpy(path->cache, path->seq + path->first_cached/4, sizeof(path->cache));
-  }
 }
 
 static void print_path_list(const PathBuffer *pbuf)
@@ -208,20 +224,31 @@ void graph_walker_finish(GraphWalker *wlk)
 // Hash function
 //
 
-uint64_t graph_walker_hash64(const GraphWalker *wlk)
+uint64_t graph_walker_hash64(GraphWalker *wlk)
 {
   size_t path_bytes, new_path_bytes, cntr_path_bytes;
   path_bytes = wlk->paths.len*sizeof(FollowPath);
   new_path_bytes = wlk->new_paths.len*sizeof(FollowPath);
   cntr_path_bytes = wlk->cntr_paths.len*sizeof(FollowPath);
 
-  uint64_t hash = (wlk->node.key<<1) | wlk->node.orient;
+  // Ensure hash always the same by removing base of pointer
+  size_t i, data = (size_t)wlk->db_graph->pstore.store;
+  for(i = 0; i < wlk->paths.len; i++) wlk->paths.data[i].seq -= data;
+  for(i = 0; i < wlk->new_paths.len; i++) wlk->new_paths.data[i].seq -= data;
+  for(i = 0; i < wlk->cntr_paths.len; i++) wlk->cntr_paths.data[i].seq -= data;
+
+  uint64_t hash = ((uint64_t)wlk->node.key<<1) | wlk->node.orient;
   hash = CityHash64WithSeeds((const char*)wlk->paths.data, path_bytes,
                              hash, wlk->paths.len);
   hash = CityHash64WithSeeds((const char*)wlk->new_paths.data, new_path_bytes,
                              hash, wlk->new_paths.len);
   hash = CityHash64WithSeeds((const char*)wlk->cntr_paths.data, cntr_path_bytes,
                              hash, wlk->cntr_paths.len);
+
+  // Re-add origin
+  for(i = 0; i < wlk->paths.len; i++) wlk->paths.data[i].seq += data;
+  for(i = 0; i < wlk->new_paths.len; i++) wlk->new_paths.data[i].seq += data;
+  for(i = 0; i < wlk->cntr_paths.len; i++) wlk->cntr_paths.data[i].seq += data;
 
   return hash;
 }
@@ -230,10 +257,10 @@ uint64_t graph_walker_hash64(const GraphWalker *wlk)
 // Junction decision
 //
 
-static inline void update_path_forks(const PathBuffer *pbuf, uint8_t taken[4])
+static inline void update_path_forks(PathBuffer *pbuf, uint8_t taken[4])
 {
   size_t i;
-  const FollowPath *path;
+  FollowPath *path;
   for(i = 0; i < pbuf->len; i++) {
     path = &pbuf->data[i];
     taken[cache_fetch(path, path->pos)] = 1;
@@ -257,14 +284,14 @@ static inline size_t bases_list_to_str(const uint8_t bases[4], char *out)
   return str-out;
 }
 
-static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
+static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
                                   const dBNode nodes[4],
                                   const Nucleotide bases[4])
 __attribute__((noreturn));
 
 // If we call this funcitons, something has gone wrong
 // print some debug information then exit
-static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
+static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
                                   const dBNode nodes[4],
                                   const Nucleotide bases[4])
 {
@@ -317,7 +344,7 @@ static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
 
 // Returns index of choice or -1
 // Sets is_fork_in_col true if there is a fork in the given colour
-GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
+GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4])
 {
@@ -517,7 +544,6 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
       pnuc = cache_fetch(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
-        cache_update(path);
         wlk->paths.data[j++] = *path;
       }
     }
@@ -529,7 +555,6 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
       pnuc = cache_fetch(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
-        cache_update(path);
         wlk->paths.data[j++] = *path;
       }
     }
@@ -544,7 +569,6 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
       pnuc = cache_fetch(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
-        cache_update(path);
         wlk->cntr_paths.data[j++] = *path;
       }
     }

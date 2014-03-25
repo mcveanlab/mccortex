@@ -25,6 +25,7 @@ int main()
   test_packed_path();
   test_paths();
   test_corrected_aln();
+  test_repeat_walker();
 
   // Finished
   char num_test_str[100], num_passed_str[100];

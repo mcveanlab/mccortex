@@ -79,6 +79,7 @@ dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
                                     bool *found);
 
 dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer);
+dBNode db_graph_find_str(const dBGraph *db_graph, const char *str);
 
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge(dBGraph *db_graph, Colour colour,

@@ -128,9 +128,9 @@ else
 		OPT = -O3 -m64
 	endif
 
-	ifneq (,$(findstring lto,$(COMPILER)))
-		OPT := -flto $(OPT)
-	endif
+	# ifneq (,$(findstring lto,$(COMPILER)))
+	# 	OPT := -flto $(OPT)
+	# endif
 endif
 
 CFLAGS := $(OPT) $(CFLAGS)

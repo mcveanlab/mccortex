@@ -2,6 +2,11 @@
 #define ALL_TESTS_H_
 
 #include "db_graph.h"
+#include "db_alignment.h"
+#include "correct_alignment.h"
+#include "build_graph.h"
+#include "generate_paths.h"
+
 #include "seq_file.h"
 
 //
@@ -42,6 +47,17 @@ static inline void seq_read_set(read_t *r, const char *s) {
   memcpy(r->seq.b, s, len+1);
   r->seq.end = len;
 }
+
+//
+// Graph setup
+//
+
+void _construct_graph_with_paths(dBGraph *graph,
+                                 size_t kmer_size, size_t ncols,
+                                 char **seqs, size_t nseqs,
+                                 CorrectAlnParam path_params);
+
+void _deconstruct_graph_with_paths(dBGraph *graph);
 
 //
 // Functions of tests
@@ -85,5 +101,8 @@ void test_paths();
 
 // corrected_aln_tests.c
 void test_corrected_aln();
+
+// repeat_walker_tests.c
+void test_repeat_walker();
 
 #endif  /* ALL_TESTS_H_ */

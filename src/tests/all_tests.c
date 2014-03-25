@@ -1,5 +1,6 @@
 #include "global.h"
 #include "all_tests.h"
+#include "db_graph.h"
 
 // Common functions here
 FILE *ctx_tst_out = NULL;
@@ -38,4 +39,49 @@ void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
     }
   }
   *str = '\0';
+}
+
+//
+// Graph setup
+//
+
+void _construct_graph_with_paths(dBGraph *graph,
+                                 size_t kmer_size, size_t ncols,
+                                 char **seqs, size_t nseqs,
+                                 CorrectAlnParam path_params)
+{
+  size_t i;
+  db_graph_alloc(graph, kmer_size, ncols, ncols, 1024);
+
+  // Graph data
+  graph->bktlocks = calloc2(roundup_bits2bytes(graph->ht.num_of_buckets), 1);
+  graph->col_edges = calloc2(graph->ht.capacity * ncols, sizeof(Edges));
+  graph->col_covgs = calloc2(graph->ht.capacity * ncols, sizeof(Covg));
+  graph->node_in_cols = calloc2(roundup_bits2bytes(graph->ht.capacity) * ncols, 1);
+
+  // Path data
+  path_store_alloc(&graph->pstore, 1024, 0, graph->ht.capacity, ncols);
+  graph->pstore.kmer_locks = calloc2(roundup_bits2bytes(graph->ht.capacity), 1);
+
+  // Build graph
+  for(i = 0; i < nseqs; i++)
+    build_graph_from_str_mt(graph, 0, seqs[i], strlen(seqs[i]));
+
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
+
+  for(i = 0; i < nseqs; i++)
+    gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);
+
+  gen_paths_workers_dealloc(gen_path_wrkr, 1);
+}
+
+void _deconstruct_graph_with_paths(dBGraph *graph)
+{
+  free(graph->bktlocks);
+  free(graph->node_in_cols);
+  free(graph->col_edges);
+  free(graph->col_covgs);
+
+  path_store_dealloc(&graph->pstore);
+  db_graph_dealloc(graph);
 }
