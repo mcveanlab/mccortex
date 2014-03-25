@@ -76,7 +76,7 @@ int ctx_thread(CmdArgs *args)
     correct_reads_input_print(&tasks[i]);
   }
 
-  if(argi+1 > argc) cmd_print_usage("Not enough arguments");
+  if(argi == argc) cmd_print_usage("Not enough arguments");
 
   const char *out_ctp_path = args->output_file;
   size_t num_gfiles = (size_t)(argc - argi);

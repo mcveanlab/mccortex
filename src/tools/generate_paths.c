@@ -487,6 +487,32 @@ void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
   reads_to_paths(wrkr);
 }
 
+// Function used in tests
+void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
+                           CorrectAlnParam params)
+{
+  // Fake reads
+  size_t seqlen = strlen(seq);
+  char empty[10] = "", rname[20] = "Example";
+  read_t r1 = {.name = {.b = rname, .end = strlen(rname), .size = 10},
+               .seq  = {.b = seq, .end = seqlen, .size = seqlen+1},
+               .qual = {.b = empty, .end = 0, .size = 1}};
+
+  read_t r2 = {.name = {.b = rname, .end = strlen(rname), .size = 10},
+               .seq  = {.b = empty, .end = 0, .size = 1},
+               .qual = {.b = empty, .end = 0, .size = 1}};
+
+  AsyncIOData iodata = {.r1 = r1, .r2 = r2, .ptr = NULL,
+                        .fq_offset1 = 0, .fq_offset2 = 2};
+
+  CorrectAlnReadsTask task = {.file1 = NULL, .file2 = NULL,
+                              .fq_offset = 0, .fq_cutoff = 0, .hp_cutoff = 0,
+                              .matedir = READPAIR_FF, .crt_params = params,
+                              .ptr = NULL};
+
+  gen_paths_worker_seq(gen_path_wrkr, &iodata, &task);
+}
+
 void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {

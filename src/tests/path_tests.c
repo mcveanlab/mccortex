@@ -8,7 +8,7 @@
 
 static void add_paths(dBGraph *graph,
                       AsyncIOData *iodata, CorrectAlnReadsTask *task,
-                      GenPathWorker *wrkrs, const char *seq,
+                      GenPathWorker *wrkrs, char *seq,
                       size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
 {
   size_t npaths = graph->pstore.num_of_paths;

@@ -56,7 +56,7 @@ void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr);
 void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
                             CorrectAlnParam params);
 
-// DEV: add option to extend
+// DEV: add option to extend by n bases for read correction?
 // Returns NULL if end of alignment
 dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr);
 

@@ -20,6 +20,10 @@ void gen_paths_workers_dealloc(GenPathWorker *mem, size_t n);
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
                           const CorrectAlnReadsTask *task);
 
+// For testing
+void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
+                           CorrectAlnParam params);
+
 // workers array must be at least as long as tasks
 void generate_paths(CorrectAlnReadsTask *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers);

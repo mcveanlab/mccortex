@@ -75,7 +75,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
                                          GraphWalker *wlk, RepeatWalker *rptwlk,
                                          bool only_in_col)
 {
-  dBNode end_node = forward ? block[0] : block[n-1];
+  dBNode end_node = forward ? block[0] : db_node_reverse(block[n-1]);
 
   BinaryKmer tmpbkmer = db_node_get_bkmer(wlk->db_graph, end_node.key);
   char tmpstr[MAX_KMER_SIZE+1];
@@ -142,6 +142,9 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
 {
   const size_t init_len0 = contig0->len, init_len1 = contig1->len;
 
+  // graph_walker_print_state(wlk0);
+  // graph_walker_print_state(wlk1);
+
   db_node_buf_ensure_capacity(contig0, contig0->len + gap_max + 1);
   db_node_buf_ensure_capacity(contig1, contig1->len + gap_max + 1);
 
@@ -168,38 +171,38 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
           break;
         }
 
-        // Reverse orientation if we are going backwards (x^0=x, x^1=!x)
-        wlk[i]->node.orient ^= i;
-
         nodes[i] = wlk[i]->node;
 
-        if(db_nodes_match(nodes[0], nodes[1])) {
+        if(db_nodes_match(nodes[0], db_node_reverse(nodes[1]))) {
           result.traversed = true;
           use[0] = use[1] = false; // set both to false to exit loop
           break;
         }
 
-        contig[i]->data[contig[i]->len++] = wlk[i]->node;
+        contig[i]->data[contig[i]->len++] = nodes[i];
         gap_len++;
       }
     }
   }
 
-  // printf("TESTING! [2]\n");
+  // printf("2-way Traversal %s\n", result.traversed ? "Worked" : "Failed");
 
-  // Check paths match remaining nodes
-  dBNode *left_contig = contig0->data; size_t left_n = contig0->len;
-  dBNode *right_contig = contig1->data; size_t right_n = contig1->len;
+  if(result.traversed)
+  {
+    // Check paths match remaining nodes
+    dBNode *left_contig = contig0->data; size_t left_n = contig0->len;
+    dBNode *right_contig = contig1->data; size_t right_n = contig1->len;
 
-  if(db_nodes_match(wlk[0]->node, right_contig[right_n-1])) { right_n--; }
-  else if(db_nodes_match(wlk[1]->node, left_contig[left_n-1])) { left_n--; }
+    if(db_nodes_match(wlk[0]->node, db_node_reverse(right_contig[right_n-1]))) {
+      right_n--;
+    } else {
+      ctx_assert(db_nodes_match(db_node_reverse(wlk[1]->node), left_contig[left_n-1]));
+      left_n--;
+    }
 
-  if(result.traversed) {
-    if((contig0->len > 0 &&
-        !graph_walker_agrees_contig(wlk[1], left_contig, left_n, false)) ||
-       (contig1->len > 0 &&
-        !graph_walker_agrees_contig(wlk[0], right_contig, right_n, true)) ||
-       !graph_walker_agrees_contig(wlk[0], rhs_block, rhs_n, true))
+    if(!graph_walker_agrees_contig(wlk[0], right_contig, right_n, false) ||
+       !graph_walker_agrees_contig(wlk[0], rhs_block, rhs_n, true) ||
+       !graph_walker_agrees_contig(wlk[1], left_contig, left_n, false))
     {
       // printf("2) Paths don't agree!\n");
       result.traversed = false;
@@ -243,27 +246,21 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
   TraversalResult result;
 
-  ctx_assert(aln_colour == -1 || (size_t)aln_colour == ctxcol);
+  bool only_in_one_col = aln_colour != -1;
+
+  ctx_assert(!only_in_one_col || (size_t)aln_colour == ctxcol);
   ctx_assert(db_nodes_match(aln_nodes[gap_idx-1], nbuf->data[nbuf->len-1]));
 
   // Start traversing forward
   graph_walker_prime(&wrkr->wlk, nbuf->data, nbuf->len,
                      params->max_context, true, ctxcol, ctpcol, db_graph);
 
-  // traversed
-  //   = traverse_one_way2(aln_nodes[gap_idx],
-  //                       &wrkr->contig, gap_min, gap_max,
-  //                       &wrkr->wlk, &wrkr->rptwlk,
-  //                       aln_colour != -1);
-
   // left to right
-  result
-    = traverse_one_way2(aln_nodes+gap_idx, block1len, true,
-                        &wrkr->contig, gap_min, gap_max,
-                        &wrkr->wlk, &wrkr->rptwlk,
-                        aln_colour != -1);
+  result = traverse_one_way2(aln_nodes+gap_idx, block1len, true,
+                             &wrkr->contig, gap_min, gap_max,
+                             &wrkr->wlk, &wrkr->rptwlk,
+                             only_in_one_col);
 
-  // status("We had %s %zu", traversed ? "Success" : "Failure", wrkr->contig.len);
   correct_aln_stats_update(&wrkr->gapstats, result);
 
   if(result.traversed) return result;
@@ -272,17 +269,12 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
   graph_walker_prime(&wrkr->wlk, aln_nodes+gap_idx, block1len,
                      params->max_context, false, ctxcol, ctpcol, db_graph);
 
-  // traversed
-  //   = traverse_one_way2(db_node_reverse(aln_nodes[gap_idx-1]),
-  //                       &wrkr->revcontig, gap_min, gap_max,
-  //                       &wrkr->wlk, &wrkr->rptwlk,
-  //                       aln_colour != -1);
+  ctx_assert(wrkr->revcontig.len == 0);
 
-  result
-    = traverse_one_way2(nbuf->data, nbuf->len, false,
-                        &wrkr->revcontig, gap_min, gap_max,
-                        &wrkr->wlk, &wrkr->rptwlk,
-                        aln_colour != -1);
+  result = traverse_one_way2(nbuf->data, nbuf->len, false,
+                             &wrkr->revcontig, gap_min, gap_max,
+                             &wrkr->wlk, &wrkr->rptwlk,
+                             only_in_one_col);
 
   correct_aln_stats_update(&wrkr->gapstats, result);
 
@@ -397,9 +389,10 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     // reverse and copy from revcontig -> contig
     db_node_buf_ensure_capacity(contig, contig->len + revcontig->len);
 
-    // nodes have already had orientation reversed, just reverse order
-    for(i = 0, j = contig->len+revcontig->len-1; i < revcontig->len; i++, j--)
-      contig->data[j] = revcontig->data[i];
+    // reverse order and orientation of nodes
+    for(i = 0, j = contig->len+revcontig->len-1; i < revcontig->len; i++, j--) {
+      contig->data[j] = db_node_reverse(revcontig->data[i]);
+    }
 
     contig->len += revcontig->len;
 

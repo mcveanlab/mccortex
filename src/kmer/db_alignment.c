@@ -87,6 +87,7 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
 
 
 // if colour is -1 aligns to all colours, otherwise aligns to given colour only
+// Assumes both reads are in FF orientation
 void db_alignment_from_reads(dBAlignment *alignment,
                              const read_t *r1, const read_t *r2,
                              uint8_t qcutoff1, uint8_t qcutoff2,
