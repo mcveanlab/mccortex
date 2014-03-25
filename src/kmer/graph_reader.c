@@ -607,6 +607,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
     }
   }
 
+  fflush(out);
   fclose(out);
 
   graph_write_status(nodes_dumped, hdr->num_of_cols,

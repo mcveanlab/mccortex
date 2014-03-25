@@ -255,7 +255,9 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
                db_graph, fout, header, intocol, colours, start_col, num_of_cols,
                &num_nodes_dumped);
 
-  if(strcmp(path,"-") != 0) fclose(fout);
+  fflush(fout);
+  fclose(fout);
+  // if(strcmp(path,"-") != 0) fclose(fout);
 
   graph_write_status(num_nodes_dumped, num_of_cols, out_name, header->version);
 

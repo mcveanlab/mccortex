@@ -110,10 +110,10 @@ static void test_contig_ends_agree()
 
   //    1         2         3 < mutations
   // a --+      +-a-+      +YY a
-  //      \    /     \    Y
-  //       +X-+       +-Y+
-  //      X    \     /    \ 
-  // b XX+      +-b-+      +- b
+  //      \    /     \    Y    
+  //       +X-+       +-Y+     
+  //      X    \     /    \    
+  // b XX+      +-b-+      +-- b
 
   // Read pair XXX <gap> YYYY
   // Should fail graph_walker_agrees_contig() test
