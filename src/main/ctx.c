@@ -22,7 +22,7 @@ typedef struct
 CtxCmd cmdobjs[] = {
 {
   .cmd = "build", .func = ctx_build, .hide = 0,
-  .minargs = 3, .maxargs = INT_MAX, .optargs = "atmnk", .reqargs = "k",
+  .minargs = 3, .maxargs = INT_MAX, .optargs = "atmn", .reqargs = "",
   .blurb = "construct cortex graph from FASTA/FASTQ/BAM",
   .usage = build_usage
 },
@@ -137,7 +137,7 @@ CtxCmd cmdobjs[] = {
 {
   .cmd = "coverage", .func = ctx_coverage, .hide = 0,
   .minargs = 3, .maxargs = INT_MAX, .optargs = "omn", .reqargs = "",
-  .blurb = "Get contig coverage",
+  .blurb = "print contig coverage",
   .usage = coverage_usage
 }
 };
@@ -162,7 +162,6 @@ static const char options[] =
 "  -c --ncols <C>       Number of graph colours to load at once [default: 1]\n"
 "  -a --asyncio <A>     Limit on file reading threads [default: 4]\n"
 "  -t --threads <T>     Limit on proccessing threads [default: 2]\n"
-"  -k --kmer <K>        Kmer size [default: read from graph files]\n"
 "  -f --file <file>     Input file\n"
 "  -o --out <file>      Output file\n"
 "  -p --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"

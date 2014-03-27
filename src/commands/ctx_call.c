@@ -69,13 +69,13 @@ int ctx_call(CmdArgs *args)
     }
   }
 
-  if(argi == argc) cmd_print_usage("Require input graph files (.ctx)");
+  if(argi >= argc) cmd_print_usage("Require input graph files (.ctx)");
 
   //
   // Open graph files
   //
+  const size_t num_gfiles = argc - argi;
   char **graph_paths = argv + argi;
-  size_t num_gfiles = argc - argi;
   GraphFileReader gfiles[num_gfiles];
   size_t ncols = 0, ctx_max_kmers = 0;
 

@@ -40,9 +40,6 @@ size_t caller_supernode_create(dBNode node, CallerSupernode *snode,
   supernode_normalise(nodes, snode->num_of_nodes, db_graph);
 
   BinaryKmer bkmer0, bkmer1;
-  bkmer0 = db_node_get_bkmer(db_graph, nodes[0].key);
-  bkmer1 = db_node_get_bkmer(db_graph, nodes[snode->num_of_nodes-1].key);
-
   dBNode first, last;
   Edges union_edges;
 

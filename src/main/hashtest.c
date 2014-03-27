@@ -17,10 +17,25 @@ int main(int argc, char **argv)
   CmdArgs args;
   cmd_alloc(&args, argc, argv);
 
-  if(args.argc != 1) print_usage(usage, NULL);
-
   argv = args.argv;
   argc = args.argc;
+
+  size_t kmer_size = MAX_KMER_SIZE;
+
+  if(argc > 0 && (!strcmp(argv[0],"--kmer_size") || !strcmp(argv[0],"-k"))) {
+    if(argc == 1) die("%s <k> requires an argument", argv[0]);
+    if(!parse_entire_size(argv[1], &kmer_size) || !(kmer_size&1)) {
+      die("Invalid kmer-size (%s %s): requires odd number %i <= k <= %i",
+          argv[0], argv[1], MIN_KMER_SIZE, MAX_KMER_SIZE);
+    }
+    if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE) {
+      die("Please recompile with correct kmer size (%zu)", kmer_size);
+    }
+    argc -= 2;
+    argv += 2;
+  }
+
+  if(args.argc != 1) print_usage(usage, NULL);
 
   unsigned long i, num_ops;
   if(!parse_entire_ulong(argv[0], &num_ops))
@@ -32,7 +47,7 @@ int main(int argc, char **argv)
   cmd_check_mem_limit(&args, graph_mem);
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, args.kmer_size, 1, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);
   hash_table_print_stats(&db_graph.ht);
 
   BinaryKmer bkmer;
@@ -40,7 +55,7 @@ int main(int argc, char **argv)
 
   for(i = 0; i < num_ops; i++)
   {
-    bkmer = binary_kmer_random(args.kmer_size);
+    bkmer = binary_kmer_random(kmer_size);
     hash_table_find_or_insert(&db_graph.ht, bkmer, &found);
   }
 

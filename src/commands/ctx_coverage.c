@@ -27,8 +27,7 @@ create_objbuf(edges_buf,EdgesBuffer,Edges);
 static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
                                     Edges *dst)
 {
-  const size_t ncols = db_graph->num_edge_cols;
-  size_t i;
+  size_t i, ncols = db_graph->num_edge_cols;
   const Edges *edges = &db_node_edges(db_graph, node.key, 0);
   memcpy(dst, edges, ncols * sizeof(Edges));
   if(node.orient == REVERSE) {
@@ -69,7 +68,7 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
     bkmer = binary_kmer_from_str(r->seq.b + contig_start, kmer_size);
     bkmer = binary_kmer_right_shift_one_base(bkmer);
 
-    for(i = contig_start, j = i+kmer_size-1; j < contig_end; j++, i++)
+    for(i = contig_start, j = contig_start+kmer_size-1; j < contig_end; j++, i++)
     {
       nuc = dna_char_to_nuc(r->seq.b[j]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);

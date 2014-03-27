@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-14 March 2014
+27 March 2014
 
 [![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
 
@@ -36,7 +36,7 @@ Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: b681dd3; zlib: 1.2.5 ASSERTS=ON CHECKS=ON k=3..31
+    version: 61fa73b; zlib: 1.2.5 ASSERTS=ON CHECKS=ON k=3..31
 
     Commands:   breakpoints  Use trusted assembled genome to call large events
                 build        construct cortex graph from FASTA/FASTQ/BAM
@@ -45,7 +45,7 @@ Commands
                 clean        clean errors from a graph
                 contigs      pull out contigs for a sample
                 correct      error correct reads
-                coverage     Get contig coverage
+                coverage     print contig coverage
                 inferedges   infer graph edges before calling `thread`
                 join         combine graphs, filter graph intersections
                 pjoin        merge path files (.ctp)
@@ -54,7 +54,7 @@ Commands
                 reads        filter reads against a graph
                 subgraph     filter a subgraph using seed kmers
                 supernodes   pull out supernodes
-                thread       thread reads through cleaned population
+                thread       thread reads through cleaned graph
                 unique       remove duplicated bubbles, produce VCF
                 view         view and check a cortex graph file (.ctx)
 
@@ -66,7 +66,6 @@ Commands
       -c --ncols <C>       Number of graph colours to load at once [default: 1]
       -a --asyncio <A>     Limit on file reading threads [default: 4]
       -t --threads <T>     Limit on proccessing threads [default: 2]
-      -k --kmer <K>        Kmer size [default: read from graph files]
       -f --file <file>     Input file
       -o --out <file>      Output file
       -p --paths <in.ctp>  Assembly file to load (can specify multiple times)
@@ -102,6 +101,16 @@ Code is organised as:
 
 Files only link to files that are above them in the list above. E.g. src/kmer/*
 files only include files in src/kmer/, src/basic/ and libs/.
+
+Static analysis can be run with [cppcheck](http://cppcheck.sourceforge.net):
+
+    cppcheck src
+
+or with [clang](http://clang-analyzer.llvm.org):
+
+    rm -rf bin/ctx31
+    scan-build make RECOMPILE=1
+
 
 License: GPLv2
 --------------

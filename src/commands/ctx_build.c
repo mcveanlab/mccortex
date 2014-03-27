@@ -53,19 +53,13 @@ static void print_graph_reader(const GraphFileReader *rdr)
   status("[load] %zu-%zu: load graph: %s", colour, colour+ncols-1, path);
 }
 
-static void graph_reader_new(char *path, size_t kmer_size, size_t colour,
-                             GraphFileReader *rdrptr)
+static void graph_reader_new(char *path, size_t colour, GraphFileReader *rdrptr)
 {
   GraphFileReader rdr = INIT_GRAPH_READER_MACRO;
   int ret = graph_file_open(&rdr, path, false);
 
   if(ret == 0) cmd_print_usage("Cannot read input graph file: %s", path);
   else if(ret < 0) cmd_print_usage("Input graph file isn't valid: %s", path);
-
-  if(rdr.hdr.kmer_size != kmer_size) {
-    cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]",
-                    rdr.hdr.kmer_size, kmer_size);
-  }
 
   rdr.fltr.intocol = colour;
 
@@ -147,7 +141,7 @@ static void build_graph_task_new2(const char *seq_path1, const char *seq_path2,
   }
 }
 
-static void load_args(int argc, char **argv, size_t kmer_size,
+static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
                       BuildGraphTask *tasks, size_t *num_tasks_ptr,
                       GraphFileReader *graphs, size_t *num_graphs_ptr,
                       SampleName *samples, size_t *num_samples_ptr,
@@ -159,12 +153,23 @@ static void load_args(int argc, char **argv, size_t kmer_size,
   bool remove_pcr_dups = false;
   ReadMateDir matedir = READPAIR_FR;
 
-  size_t colour = SIZE_MAX;
+  size_t i, colour = SIZE_MAX, kmer_size = 0;
   bool sample_named = false, sample_used = false, seq_loaded = false;
 
   for(argi = 0; argi < argc; argi++)
   {
-    if(strcmp(argv[argi],"--fq_threshold") == 0) {
+    if(!strcmp(argv[argi],"--kmer_size") || !strcmp(argv[argi],"-k")) {
+      if(argi + 1 >= argc) die("%s <k> requires an argument", argv[argi]);
+      if(!parse_entire_size(argv[argi+1], &kmer_size) || !(kmer_size&1)) {
+        die("Invalid kmer-size (%s %s): requires odd number %i <= k <= %i",
+            argv[argi], argv[argi+1], MIN_KMER_SIZE, MAX_KMER_SIZE);
+      }
+      if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE) {
+        die("Please recompile with correct kmer size (%zu)", kmer_size);
+      }
+      argi += 1;
+    }
+    else if(strcmp(argv[argi],"--fq_threshold") == 0) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_cutoff) || fq_cutoff > 128)
@@ -257,7 +262,7 @@ static void load_args(int argc, char **argv, size_t kmer_size,
       {
         // --load_graph <in.ctx>
         // Load binary into new colour
-        graph_reader_new(argv[argi+1], kmer_size, colour, &graphs[num_graphs]);
+        graph_reader_new(argv[argi+1], colour, &graphs[num_graphs]);
         colour += graph_file_outncols(&graphs[num_graphs]);
         num_graphs++;
         sample_named = false;
@@ -277,12 +282,25 @@ static void load_args(int argc, char **argv, size_t kmer_size,
          samples[num_samples-1].sample_name);
   }
 
+  if(kmer_size == 0)
+    die("--kmer_size <k> not set");
+
   if(sample_named) colour++;
+
+  // Check kmer size in graphs to load
+  for(i = 0; i < num_graphs; i++) {
+    if(graphs[i].hdr.kmer_size != kmer_size) {
+      cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]: %s",
+                      graphs[i].hdr.kmer_size, kmer_size,
+                      graphs[i].fltr.orig_path.buff);
+    }
+  }
 
   *num_graphs_ptr = num_graphs;
   *num_tasks_ptr = num_tasks;
   *num_samples_ptr = num_samples;
   *num_total_cols_ptr = colour;
+  *kmer_size_ptr = kmer_size;
 }
 
 int ctx_build(CmdArgs *args)
@@ -291,11 +309,10 @@ int ctx_build(CmdArgs *args)
   char **argv = args->argv;
   // Already checked that we have at least 1 argument
 
-  size_t kmer_size = args->kmer_size;
-
   // num_seq_cols is the number of colours with sequence loaded into them
   // output_colours = num_seq_cols + num colours filled with graph files
-  size_t i, num_tasks = 0, num_graphs = 0, num_samples = 0, output_colours = 0;
+  size_t i, kmer_size;
+  size_t num_tasks = 0, num_graphs = 0, num_samples = 0, output_colours = 0;
 
   // Load inputs
   size_t max_inputs = (size_t)argc/2;
@@ -304,7 +321,7 @@ int ctx_build(CmdArgs *args)
   GraphFileReader *graphs = malloc2(max_inputs * sizeof(GraphFileReader));
   SampleName *samples = malloc2(max_inputs * sizeof(GraphFileReader));
 
-  load_args(argc-1, argv, kmer_size,
+  load_args(argc-1, argv, &kmer_size,
             tasks, &num_tasks,
             graphs, &num_graphs,
             samples, &num_samples,

@@ -344,7 +344,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   {
     // block0 [start_idx..gap_idx-1], block1 [gap_idx..end_idx]
     wrkr->end_idx = db_alignment_next_gap(aln, wrkr->end_idx);
-    block0len = wrkr->gap_idx - wrkr->start_idx;
+    // block0len = wrkr->gap_idx - wrkr->start_idx;
     block1len = wrkr->end_idx - wrkr->gap_idx;
 
     // We've got a gap to traverse

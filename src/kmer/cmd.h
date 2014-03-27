@@ -10,8 +10,8 @@ typedef struct
   int cmdidx; // command specified
   bool print_help;
   // kmer, mem, ncols
-  bool num_kmers_set, mem_to_use_set, kmer_size_set, num_threads_set, use_ncols_set;
-  size_t num_kmers, mem_to_use, kmer_size, use_ncols;
+  bool num_kmers_set, mem_to_use_set, num_threads_set, use_ncols_set;
+  size_t num_kmers, mem_to_use, use_ncols;
   // Threads
   bool max_io_threads_set, max_work_threads_set;
   size_t max_io_threads, max_work_threads;
@@ -31,7 +31,6 @@ typedef struct
   .cmdline = NULL, .cmdidx = -1, .print_help = false, \
   .num_kmers_set = false, .num_kmers = 1UL<<22 /*4Million*/, \
   .mem_to_use_set = false, .mem_to_use = 1UL<<29 /*512MB*/, \
-  .kmer_size_set = false, .kmer_size = MAX_KMER_SIZE, \
   .max_io_threads_set = false, .max_io_threads = 4, \
   .max_work_threads_set = false, .max_work_threads = 2, \
   .use_ncols_set = false, .use_ncols = 1, \

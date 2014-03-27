@@ -322,15 +322,16 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 
 static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
 {
-  size_t col, kmer_size = db_graph->kmer_size;
+  const size_t kmer_size = db_graph->kmer_size, edgencols = db_graph->num_edge_cols;
+  size_t col;
   BinaryKmer bkmer, bkey, node_bkey = db_node_get_bkmer(db_graph, node);
   Orientation orient;
   Nucleotide nuc;
   hkey_t next;
   Edges edge, *edges = &db_node_edges(db_graph,node,0), iedges = edges[0];
-  bool node_has_col[db_graph->num_edge_cols];
+  bool node_has_col[edgencols];
 
-  for(col = 0; col < db_graph->num_edge_cols; col++) {
+  for(col = 0; col < edgencols; col++) {
     iedges &= edges[col];
     node_has_col[col] = db_node_has_col(db_graph, node, col);
   }
@@ -354,7 +355,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
         next = hash_table_find(&db_graph->ht, bkey);
 
         if(next != HASH_NOT_FOUND)
-          for(col = 0; col < db_graph->num_edge_cols; col++)
+          for(col = 0; col < edgencols; col++)
             if(node_has_col[col] && db_node_has_col(db_graph, next, col))
               edges[col] |= edge;
       }

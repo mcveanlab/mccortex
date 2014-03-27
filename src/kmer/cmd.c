@@ -15,8 +15,6 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts,
     print_usage(usage, "-n <hash-entries> argument not valid for this command");
   if(args->mem_to_use_set && strchr(accptopts,'m') == NULL)
     print_usage(usage, "-m <memory> argument not valid for this command");
-  if(args->kmer_size_set && strchr(accptopts,'k') == NULL)
-    print_usage(usage, "-k <kmer-size> argument not valid for this command");
   if(args->max_io_threads_set && strchr(accptopts,'a') == NULL)
     print_usage(usage, "-a <iothreads> argument not valid for this command");
   if(args->max_work_threads_set && strchr(accptopts,'t') == NULL)
@@ -51,10 +49,6 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
     else if(*requireopts == 'm') {
       if(!args->mem_to_use_set)
         die("-m <memory> argument required for this command");
-    }
-    else if(*requireopts == 'k') {
-      if(!args->kmer_size_set)
-        die("-k <kmer-size> argument required for this command");
     }
     else if(*requireopts == 'a') {
       if(!args->max_io_threads_set)
@@ -130,21 +124,6 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
       if(!mem_to_integer(argv[i+1], &args->mem_to_use) || args->mem_to_use == 0)
         die("Invalid memory argument: %s", argv[i+1]);
       args->mem_to_use_set = true;
-      i++;
-    }
-    else if(strcmp(argv[i], "-k") == 0 || strcmp(argv[i], "--kmer") == 0)
-    {
-      if(i + 1 == argc) die("%s <kmer-size> requires an argument", argv[i]);
-      if(args->kmer_size_set) die("-k <kmer-size> given more than once");
-      if(!parse_entire_size(argv[i+1], &args->kmer_size) ||
-         args->kmer_size < 3 || !(args->kmer_size & 0x1)) {
-        die("kmer size (-k) must be an odd int >= 3: %s", argv[i+1]);
-      }
-      if(args->kmer_size < MIN_KMER_SIZE || args->kmer_size > MAX_KMER_SIZE) {
-        die("Please recompile with correct kmer size (kmer_size: %zu)",
-            args->kmer_size);
-      }
-      args->kmer_size_set = true;
       i++;
     }
     else if(strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--asyncio") == 0)

@@ -178,7 +178,7 @@ int ctx_supernodes(CmdArgs *args)
   int argc = args->argc;
   char **argv = args->argv;
 
-  size_t i, num_files;
+  size_t i;
   char **paths;
   uint64_t max_ctx_kmers = 0;
   bool dot_use_points = false;
@@ -194,13 +194,15 @@ int ctx_supernodes(CmdArgs *args)
     else cmd_print_usage("Unknown argument: %s", argv[0]);
   }
 
-  num_files = (size_t)argc;
-  paths = argv;
+  if(argc == 0) cmd_print_usage(NULL);
 
-  if(num_files == 0) cmd_print_usage(NULL);
+  const size_t num_files = (size_t)argc;
+  paths = argv;
 
   if(dot_use_points && print_syntax != PRINT_DOT)
     cmd_print_usage("--points only valid with --graphviz / --dot");
+
+  ctx_assert(num_files > 0);
 
   GraphFileReader files[num_files];
 

@@ -108,7 +108,8 @@ int ctx_join(CmdArgs *args)
   // Check all binaries are valid binaries with matching kmer size
   size_t i, col, ncols, ctx_max_kmers = 0, max_cols = 0, sum_cols = 0, total_cols;
   size_t min_intersect_num_kmers = 0;
-  GraphFileReader files[num_graphs], intersect_files[num_intersect];
+  // 1+ to avoid zero length array (always have at leat one graph file)
+  GraphFileReader files[num_graphs], intersect_files[1+num_intersect];
 
   for(i = 0; i < num_graphs; i++)
   {

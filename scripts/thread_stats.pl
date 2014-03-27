@@ -53,7 +53,7 @@ if(length($contig_data) > 0) { push(@contigs, $contig_data); $contig_data = ""; 
 
 close($fh);
 
-print STDERR "Found ".scalar(@contigs)." contig runs\n";
+print STDERR "Found ".scalar(@contigs)." thread runs\n";
 
 my @cols = qw(graphmem pathsmem totalmem kmersize numkmers
               path_type path_num path_bytes path_kmers coloured_paths

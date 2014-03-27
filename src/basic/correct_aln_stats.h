@@ -25,4 +25,6 @@ void correct_aln_stats_dump(const char *path,
                             size_t kmer_size, bool insert_sizes,
                             size_t nreads);
 
+// DEV: add functions for recording ins gap, err gap
+
 #endif /* CORRECT_ALN_STATS_H_ */

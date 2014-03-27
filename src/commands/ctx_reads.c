@@ -186,13 +186,15 @@ int ctx_reads(CmdArgs *args)
     cmd_print_usage("Cannot print in both --fasta and --fastq");
   else if(!use_fa && !use_fq) use_fq = true;
 
+  if(argi >= argc)
+    cmd_print_usage("Please specify input graph files");
+
   int argend = argi;
 
-  size_t i, num_files = (size_t)(argc - argend);
+  const size_t num_files = (size_t)(argc - argend);
+  size_t i;
   char **graph_paths = argv + argend;
 
-  if(num_files == 0)
-    cmd_print_usage("Please specify input graph files");
 
   //
   // Open input graphs

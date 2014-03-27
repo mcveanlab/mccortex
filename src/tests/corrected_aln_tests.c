@@ -108,12 +108,16 @@ static void test_contig_ends_agree()
 {
   test_status("[CorrectAln] Testing correct_aln with contig end check...");
 
-  //    1         2         3 < mutations
-  // a --+      +-a-+      +YY a
-  //      \    /     \    Y    
-  //       +X-+       +-Y+     
-  //      X    \     /    \    
-  // b XX+      +-b-+      +-- b
+  /*
+
+        1         2         3     < mutations
+     a --+      +-a-+      +YY a
+          \    /     \    Y
+           +X-+       +-Y+
+          X    \     /    \
+     b XX+      +-b-+      +-- b
+
+  */
 
   // Read pair XXX <gap> YYYY
   // Should fail graph_walker_agrees_contig() test

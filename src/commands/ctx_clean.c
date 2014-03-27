@@ -96,7 +96,7 @@ int ctx_clean(CmdArgs *args)
 
   char *out_ctx_path = args->output_file_set ? args->output_file : NULL;
 
-  if(argi == argc) cmd_print_usage("Please give input graph files");
+  if(argi >= argc) cmd_print_usage("Please give input graph files");
 
   // Default behaviour
   if(!tip_cleaning && !supernode_cleaning) {
