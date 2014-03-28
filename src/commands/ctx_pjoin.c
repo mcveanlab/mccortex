@@ -9,16 +9,17 @@
 #include "path_format.h"
 
 const char pjoin_usage[] =
-"usage: "CMD" pjoin [options] <out.ctp> <in0.ctp> [offset:]in1.ctp[:0,2-4] ...\n"
+"usage: "CMD" pjoin [options] <in1.ctp> [[offset:]in2.ctp[:0,2-4] ...]\n"
 "  Merge cortex path files.\n"
 "\n"
 " Options:\n"
-"   -m <mem>       Memory to use (required) recommend 80G for human\n"
-"   -n <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   -f <in.ctx>    Get number of hash table entries from graph file\n"
-"   --overlap      Merge corresponding colours from each graph file\n"
-"   --flatten      Dump into a single colour graph\n"
-"   --outcols <C>  How many 'colours' should the output file have\n"
+"   -o <out.ctp>     Output file [required]\n"
+"   -m <mem>         Memory to use (required) recommend 80G for human\n"
+"   -n <kmers>       Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"   --graph <in.ctx> Get number of hash table entries from graph file\n"
+"   --overlap        Merge corresponding colours from each graph file\n"
+"   --flatten        Dump into a single colour graph\n"
+"   --outcols <C>    How many 'colours' should the output file have\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctp:2,3\n"
 "  Offset specifies where to load the first colour: 3:samples.ctp\n";
@@ -27,27 +28,28 @@ int ctx_pjoin(CmdArgs *args)
 {
   int argc = args->argc;
   char **argv = args->argv;
-  // Have already checked we have at least 3 arguments
+  // Have already checked we have at least 1 argument
 
-  // if(!args->num_kmers_set && !args->input_file_set)
-  //   cmd_print_usage("Please specify -n <num-kmers> or -f <in.ctx>");
-  // if(args->num_kmers_set && args->input_file_set)
-  //   cmd_print_usage("Please specify only ONE of -n <num-kmers> or -f <in.ctx>");
-
+  int argi;
   bool overlap = false, flatten = false;
   size_t output_ncols = 0;
-  int argi;
+  char *graph_file = NULL;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcasecmp(argv[argi],"--overlap") == 0) {
+    if(strcmp(argv[argi],"--graph") == 0) {
+      if(argi+1 == argc) cmd_print_usage("--graph <in.ctx> needs an argument");
+      graph_file = argv[argi+1];
+      argi++;
+    }
+    else if(strcmp(argv[argi],"--overlap") == 0) {
       if(overlap) warn("overlap specified twice");
       overlap = true;
     }
-    else if(strcasecmp(argv[argi],"--flatten") == 0) {
+    else if(strcmp(argv[argi],"--flatten") == 0) {
       if(flatten) warn("flatten specified twice");
       flatten = true;
     }
-    else if(strcasecmp(argv[argi],"--outcols") == 0) {
+    else if(strcmp(argv[argi],"--outcols") == 0) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &output_ncols) ||
          output_ncols == 0) {
         cmd_print_usage("--outcols <C> needs an integer argument > 0");
@@ -124,8 +126,8 @@ int ctx_pjoin(CmdArgs *args)
     num_kmers = MAX2(num_kmers, args->num_kmers);
   }
 
-  if(args->input_file_set) {
-    graph_file_open(&gfile, args->input_file, true);
+  if(graph_file != NULL) {
+    graph_file_open(&gfile, graph_file, true);
     if(gfile.hdr.kmer_size != pfiles[0].hdr.kmer_size) {
       warn("Kmer-sizes don't match graph: %u paths: %u [graph: %s path: %s]",
            gfile.hdr.kmer_size, pfiles[0].hdr.kmer_size,

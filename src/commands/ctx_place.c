@@ -610,6 +610,13 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
 
 int ctx_place(CmdArgs *args)
 {
+  // hide unused function warnings
+  (void)kh_clear_ghash;
+  (void)kh_del_ghash;
+  (void)kh_clear_samplehash;
+  (void)kh_get_samplehash;
+  (void)kh_del_samplehash;
+
   int argc = args->argc;
   char **argv = args->argv;
   // Have already checked we have at least 3 arguments

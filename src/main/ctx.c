@@ -106,7 +106,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pjoin", .func = ctx_pjoin, .hide = 0,
-  .minargs = 3, .maxargs = INT_MAX, .optargs = "mnf", .reqargs = "",
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "o",
   .blurb = "merge path files (.ctp)",
   .usage = pjoin_usage
 },
@@ -162,7 +162,6 @@ static const char options[] =
 "  -c --ncols <C>       Number of graph colours to load at once [default: 1]\n"
 "  -a --asyncio <A>     Limit on file reading threads [default: 4]\n"
 "  -t --threads <T>     Limit on proccessing threads [default: 2]\n"
-"  -f --file <file>     Input file\n"
 "  -o --out <file>      Output file\n"
 "  -p --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";

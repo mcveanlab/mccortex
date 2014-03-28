@@ -943,6 +943,11 @@ KHASH_MAP_INIT_STR(vhsh, Var*);
 
 int ctx_unique(CmdArgs *args)
 {
+  // hide unused function warnings
+  (void)kh_clear_vhsh;
+  (void)kh_get_vhsh;
+  (void)kh_del_vhsh;
+
   char **argv = args->argv;
   // Have already checked we have exactly 2 arguments
 

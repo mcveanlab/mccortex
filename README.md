@@ -9,7 +9,7 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-27 March 2014
+28 March 2014
 
 [![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
 
@@ -66,7 +66,6 @@ Commands
       -c --ncols <C>       Number of graph colours to load at once [default: 1]
       -a --asyncio <A>     Limit on file reading threads [default: 4]
       -t --threads <T>     Limit on proccessing threads [default: 2]
-      -f --file <file>     Input file
       -o --out <file>      Output file
       -p --paths <in.ctp>  Assembly file to load (can specify multiple times)
 

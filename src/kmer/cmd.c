@@ -21,8 +21,6 @@ void cmd_accept_options(const CmdArgs *args, const char *accptopts,
     print_usage(usage, "-t <threads> argument not valid for this command");
   if(args->use_ncols_set && strchr(accptopts,'c') == NULL)
     print_usage(usage, "-c <ncols> argument not valid for this command");
-  if(args->input_file_set && strchr(accptopts,'f') == NULL)
-    print_usage(usage, "-f <file> argument not valid for this command");
   if(args->output_file_set && strchr(accptopts,'o') == NULL)
     print_usage(usage, "-o <file> argument not valid for this command");
   if(args->num_ctp_files > 0 && strchr(accptopts,'p') == NULL)
@@ -61,10 +59,6 @@ void cmd_require_options(const CmdArgs *args, const char *requireopts,
     else if(*requireopts == 'c') {
       if(!args->use_ncols_set)
         die("-c <ncols> argument required for this command");
-    }
-    else if(*requireopts == 'f') {
-      if(!args->input_file_set)
-        die("-f <file> argument required for this command");
     }
     else if(*requireopts == 'o') {
       if(!args->output_file_set)
@@ -151,14 +145,6 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
       if(!parse_entire_size(argv[i+1], &args->use_ncols) || args->use_ncols == 0)
         die("Invalid number of colours to use: %s", argv[i+1]);
       args->use_ncols_set = true;
-      i++;
-    }
-    else if(strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--file") == 0)
-    {
-      if(i + 1 == argc) die("%s <file> requires an argument", argv[i]);
-      if(args->input_file_set) die("%s <file> given more than once", argv[i]);
-      args->input_file = argv[i+1];
-      args->input_file_set = true;
       i++;
     }
     else if(strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--out") == 0)

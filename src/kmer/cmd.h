@@ -16,8 +16,8 @@ typedef struct
   bool max_io_threads_set, max_work_threads_set;
   size_t max_io_threads, max_work_threads;
   // Input/output files
-  bool input_file_set, output_file_set;
-  char *input_file, *output_file;
+  bool output_file_set;
+  char *output_file;
   // ctp files
   size_t num_ctp_files;
   char **ctp_files;
@@ -34,7 +34,6 @@ typedef struct
   .max_io_threads_set = false, .max_io_threads = 4, \
   .max_work_threads_set = false, .max_work_threads = 2, \
   .use_ncols_set = false, .use_ncols = 1, \
-  .input_file_set = false, .input_file = NULL, \
   .output_file_set = false, .output_file = NULL, \
   .num_ctp_files = 0, .ctp_files = NULL, \
   .argc = 0, .argv = NULL}
