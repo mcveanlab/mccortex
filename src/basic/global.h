@@ -93,7 +93,7 @@ __attribute__((format(printf, 5, 6)));
 
 // ctx_assert()
 #ifdef NDEBUG
-  #define ctx_assert2(x,msg,...) ({ (void)x, (void)msg, (void)0 })
+  #define ctx_assert2(x,msg,...) do {} while(0)
 #else
   #define ctx_assert2(x,msg,...) \
 ((x) ? (void)0 : call_assert(__FILE__,__func__,__LINE__,QUOTE_VALUE(x),msg,##__VA_ARGS__))
@@ -101,7 +101,7 @@ __attribute__((format(printf, 5, 6)));
 
 // ctx_assume(): tells the compiler a condition that always holds
 #ifdef NDEBUG
-  #define ctx_assume2(x,msg,...) do { (void)msg; if(x) (void)0; else __builtin_unreachable(); } while(0)
+  #define ctx_assume2(x,msg,...) do { if(x) (void)0; else __builtin_unreachable(); } while(0)
 #else
   #define ctx_assume2(x,msg,...) ctx_assert2(x,msg,##__VA_ARGS__)
 #endif
@@ -110,7 +110,7 @@ __attribute__((format(printf, 5, 6)));
 #ifdef CTXCHECKS
   #define ctx_check2(x,msg,...) ctx_assert2(x,msg,##__VA_ARGS__)
 #else
-  #define ctx_check2(x,msg,...) ({ (void)x, (void)msg, (void)0; })
+  #define ctx_check2(x,msg,...) do {} while(0)
 #endif
 
 // Check is turned on with CTXCHECKS=1 -> heavy lifting involved
