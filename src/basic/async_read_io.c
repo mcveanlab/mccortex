@@ -142,7 +142,7 @@ static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
   MsgPool *pool = workers[0].pool;
   msgpool_close(pool);
   msgpool_wait_til_empty(pool);
-  ctx_assert(pool->noccupied == 0);
+  ctx_assert(pool->num_full == 0);
 
   free(workers);
 }
