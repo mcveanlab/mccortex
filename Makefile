@@ -1,7 +1,8 @@
 #Arguments (all are optional):
 # MAXK=31
-# DEBUG=1       (compile with debug symbols)
-# VERBOSE=1     (print all the things!)
+# RELEASE=1     (release build)
+# DEBUG=1       (debug build)
+# VERBOSE=1     (compile to print all the things!)
 # CITY_HASH=1   (use CityHash hash function)
 # RECOMPILE=1   (recompile all from source)
 
@@ -15,9 +16,6 @@
 #  make clean
 #  make all
 #  make test
-
-# For release
-# RECOMPILE=1
 
 # Use bash as shell
 SHELL := /bin/bash
@@ -123,7 +121,7 @@ else
 	# Could add -DNDEBUG=1 here to turn off asserts
 	ifneq (,$(findstring gcc,$(COMPILER)))
 		OPT = -O4 -m64
-		TGTFLAGS = -fwhole-program
+		TGTFLAGS = -fuse-linker-plugin
 	else
 		OPT = -O3 -m64
 	endif

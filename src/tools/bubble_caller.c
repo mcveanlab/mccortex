@@ -30,6 +30,7 @@ KHASH_INIT(supnode_hsh, uint64_t, CallerSupernode*, 1, kh_int64_hash_func, kh_in
 // SupernodePathPos* -> char
 KHASH_INIT(snpps_hsh, SupernodePathPos*, char, 0, supernode_pathpos_hash, supernode_pathpos_equal)
 
+
 // Print absolute path to a file
 static void print_filepath_abs(gzFile out, const char *name, const char *file)
 {
@@ -727,6 +728,11 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
                           size_t max_allele_len, size_t max_flank_len,
                           const size_t *haploid_cols, size_t num_haploid)
 {
+  // Hide function not used warnings
+  (void)kh_get_supnode_hsh;
+  (void)kh_del_supnode_hsh;
+  (void)kh_get_snpps_hsh;
+  (void)kh_del_snpps_hsh;
   ctx_assert(db_graph->num_edge_cols == 1);
 
   size_t num_of_bubbles = 0;
