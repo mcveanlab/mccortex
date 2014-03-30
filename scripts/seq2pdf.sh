@@ -42,4 +42,6 @@ fi
 
 files=$(printf " --seq %s" $@; printf "\n")
 
-$CTX build -k $kmer --sample Test $files - | ./scripts/cortex_to_graphviz.pl $args - | dot -Tpdf
+$CTX build -k $kmer --sample Test $files - | \
+  ./scripts/cortex_to_graphviz.pl -k $kmer $args - | \
+  dot -Tpdf

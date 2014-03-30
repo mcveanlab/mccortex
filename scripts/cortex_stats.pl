@@ -10,8 +10,7 @@ use List::Util qw(sum min max);
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-
-use UsefulModule;
+use CortexScripts;
 
 sub print_usage
 {

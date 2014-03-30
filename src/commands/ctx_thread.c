@@ -196,8 +196,12 @@ int ctx_thread(CmdArgs *args)
   // path kmer locks for multithreaded access
   db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
 
+  // if no-pickup flags
   if(num_pfiles > 0)
-    db_graph.pstore.kmer_paths_update = malloc2(kmers_in_hash * sizeof(PathIndex));
+    db_graph.pstore.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+  else
+    db_graph.pstore.kmer_paths = NULL;
+  //
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;

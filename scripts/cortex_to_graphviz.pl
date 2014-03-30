@@ -24,6 +24,7 @@ sub print_usage
 
   --point    Don't print kmer values, only points
   --simplify Simplify supernodes
+  --kmer <k> Max kmer size used [default: 31]
 
   Example: ./cortex_to_graphviz.pl small.ctx > small.dot
            dot -Tpng small.dot > small.png\n";
@@ -33,6 +34,7 @@ sub print_usage
 
 my $use_points = 0;
 my $simplify = 0;
+my $maxk = 31;
 
 while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
   if($ARGV[0] =~ /^-?-p(oints?)?$/i) {
@@ -43,19 +45,29 @@ while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
     shift;
     $simplify = 1;
   }
+  elsif($ARGV[0] =~ /^-?-k(mer)?$/i) {
+    my $arg = shift;
+    $maxk = shift;
+    if(!defined($maxk) || $maxk !~ /^\d+$/) {
+      print_usage("$arg <k> requires an argument");
+    }
+  }
   else { print_usage("Unknown option '$ARGV[0]'"); }
 }
+
+# Round kmer-size up to max kmer size supported by an executable
+$maxk = int(($maxk+31)/32)*32-1;
 
 if(@ARGV != 1) { print_usage(); }
 my @files = @ARGV;
 
-my $cmd = dirname(__FILE__)."/../bin/ctx31";
+my $cmd = dirname(__FILE__)."/../bin/ctx$maxk";
 
 if(!(-e $cmd)) {
-  die("executable bin/ctx31 doesn't exist -- did you compile?\n");
+  die("executable bin/ctx$maxk doesn't exist -- did you compile for MAXK=$maxk?\n");
 }
 elsif(!(-x $cmd)) {
-  die("bin/ctx31 doesn't appear to be executable\n");
+  die("bin/ctx$maxk doesn't appear to be executable\n");
 }
 
 # graph file reader command
