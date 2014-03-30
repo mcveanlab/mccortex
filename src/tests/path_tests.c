@@ -92,9 +92,11 @@ void test_paths()
                             .one_way_gap_traverse = true, .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
+  AsyncIOReadTask io = {.file1 = NULL, .file2 = NULL,
+                        .fq_offset = 0, .interleaved = false};
+
   // Load paths
-  CorrectAlnReadsTask task = {.file1 = NULL, .file2 = NULL,
-                              .fq_offset = 0, .fq_cutoff = 0, .hp_cutoff = 0,
+  CorrectAlnReadsTask task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
                               .matedir = READPAIR_FR, .crt_params = params,
                               .ptr = NULL};
 

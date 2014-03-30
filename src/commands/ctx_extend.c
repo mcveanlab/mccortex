@@ -219,13 +219,12 @@ int ctx_extend(CmdArgs *args)
                          .stats = &stats};
 
   // Parse sequence
-  read_t r1, r2;
-  if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
+  read_t r1;
+  if(seq_read_alloc(&r1) == NULL)
     die("Out of memory");
 
-  seq_parse_se_sf(seq_fa_file, 0, &r1, &r2, extend_reads, &contig);
+  seq_parse_se_sf(seq_fa_file, 0, &r1, extend_reads, &contig);
   seq_read_dealloc(&r1);
-  seq_read_dealloc(&r2);
   seq_close(seq_fa_file);
 
   fclose(out);

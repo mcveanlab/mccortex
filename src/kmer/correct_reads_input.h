@@ -6,9 +6,10 @@
 #include "correct_alignment.h"
 #include "async_read_io.h"
 
-typedef struct {
-  seq_file_t *file1, *file2;
-  uint8_t fq_offset, fq_cutoff, hp_cutoff;
+typedef struct
+{
+  AsyncIOReadTask files;
+  uint8_t fq_cutoff, hp_cutoff;
   ReadMateDir matedir;
   CorrectAlnParam crt_params;
   void *ptr; // general porpoise pointer
@@ -16,12 +17,6 @@ typedef struct {
 
 // These are used in generate_paths.c
 extern bool gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_reads;
-
-void correct_reads_input_init(const char *p1, const char *p2,
-                              uint32_t fq_offset, uint32_t fq_cutoff,
-                              uint32_t hp_cutoff, ReadMateDir matedir,
-                              CorrectAlnParam params,
-                              CorrectAlnReadsTask *ptr);
 
 int correct_reads_parse(int argc, char **argv,
                         CorrectAlnReadsTask *inputs,

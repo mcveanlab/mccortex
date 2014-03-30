@@ -12,6 +12,12 @@ struct AsyncIOWorker
   size_t *const num_running;
 };
 
+void asyncio_task_close(AsyncIOReadTask *task)
+{
+  if(task->file1 != NULL) seq_close(task->file1);
+  if(task->file2 != NULL) seq_close(task->file2);
+}
+
 void asynciodata_alloc(AsyncIOData *iod)
 {
   if(seq_read_alloc(&iod->r1) == NULL ||
@@ -75,8 +81,14 @@ static void* async_io_reader(void *ptr)
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
 
-  seq_parse_pe_sf(task->file1, task->file2, task->fq_offset,
-                  &r1, &r2, add_to_pool, wrkr);
+  if(task->interleaved)
+  {
+    seq_parse_interleaved_sf(task->file1, task->fq_offset,
+                             &r1, &r2, add_to_pool, wrkr);
+  } else {
+    seq_parse_pe_sf(task->file1, task->file2, task->fq_offset,
+                    &r1, &r2, add_to_pool, wrkr);
+  }
 
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);

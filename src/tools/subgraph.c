@@ -152,17 +152,16 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist, bool invert,
   edge_nodes_alloc(&enodes, db_graph, kmer_mask, num_of_fringe_nodes);
 
   // Load sequence and mark in first pass
-  read_t r1, r2;
-  if(seq_read_alloc(&r1) == NULL || seq_read_alloc(&r2) == NULL)
+  read_t r1;
+  if(seq_read_alloc(&r1) == NULL)
     die("Out of memory");
 
   for(i = 0; i < num_files; i++)
-    seq_parse_se_sf(files[i], 0, &r1, &r2, store_read_nodes, &enodes);
+    seq_parse_se_sf(files[i], 0, &r1, store_read_nodes, &enodes);
 
   print_stats(&enodes);
 
   seq_read_dealloc(&r1);
-  seq_read_dealloc(&r2);
 
   extend(&enodes, dist);
   edge_nodes_dealloc(&enodes);

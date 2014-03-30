@@ -215,17 +215,27 @@ int guess_fastq_format(seq_file_t *sf)
   return fmt;
 }
 
-void seq_parse_interleaved_sf(seq_file_t *sf,
-                              uint8_t qoffset, uint8_t qmin, uint8_t qmax,
+void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
                               read_t *r1, read_t *r2,
                               void (*read_func)(read_t *_r1, read_t *_r2,
                                                 uint8_t _qoffset1,
                                                 uint8_t _qoffset2,
                                                 void *_ptr),
-                              void *reader_ptr,
-                              size_t *num_se_reads_ptr, size_t *num_pe_pairs_ptr)
+                              void *reader_ptr)
 {
-  status("Reading a (possibly) interleaved file (expect both S.E. & P.E. reads)");
+  status("[seq] Reading a (possibly) interleaved file (expect both S.E. & P.E. reads)");
+
+  // Guess offset if needed
+  uint8_t qoffset = ascii_fq_offset;
+  uint8_t qmin = ascii_fq_offset, qmax = 126;
+  int format;
+
+  if(ascii_fq_offset == 0 && (format = guess_fastq_format(sf)) != -1)
+  {
+    qmin = (uint8_t)FASTQ_MIN[format];
+    qmax = (uint8_t)FASTQ_MAX[format];
+    qoffset = (uint8_t)FASTQ_OFFSET[format];
+  }
 
   read_t *r[2] = {r1,r2}, *tmpr;
   int ridx = 0, s;
@@ -252,7 +262,6 @@ void seq_parse_interleaved_sf(seq_file_t *sf,
     }
     else ridx = 1;
   }
-  if(s < 0) warn("Input error: %s\n", sf->path);
 
   // Process last read
   if(ridx == 1) {
@@ -260,8 +269,13 @@ void seq_parse_interleaved_sf(seq_file_t *sf,
     num_se_reads++;
   }
 
-  *num_se_reads_ptr = num_se_reads;
-  *num_pe_pairs_ptr = num_pe_pairs;
+  if(s < 0) warn("Input error: %s\n", sf->path);
+
+  char num_se_reads_str[100], num_pe_pairs_str[100];
+  ulong_to_str(num_pe_pairs, num_pe_pairs_str);
+  ulong_to_str(num_se_reads, num_se_reads_str);
+  status("[seq] Loaded %s reads and %s reads pairs (file: %s)",
+         num_se_reads_str, num_pe_pairs_str, sf->path);
 }
 
 void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
@@ -272,7 +286,7 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
                      void *reader_ptr)
 {
   if(sf2 == NULL) {
-    seq_parse_se_sf(sf1, ascii_fq_offset, r1, r2, read_func, reader_ptr);
+    seq_parse_se_sf(sf1, ascii_fq_offset, r1, read_func, reader_ptr);
     return;
   }
 
@@ -331,7 +345,7 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
 }
 
 void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
-                     read_t *r1, read_t *r2,
+                     read_t *r1,
                      void (*read_func)(read_t *r1, read_t *r2,
                                        uint8_t qoffset1, uint8_t qoffset2,
                                        void *ptr),
@@ -355,25 +369,16 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   // (only print each error msg once per file)
   uint8_t warn_flags = 0;
   size_t num_se_reads = 0, num_pe_pairs = 0;
+  int s;
 
-  if(!seq_is_sam(sf) && !seq_is_bam(sf))
+  while((s = seq_read(sf, r1)) > 0)
   {
-    // Single file with single-ended reads
-    int s;
-    while((s = seq_read(sf, r1)) > 0)
-    {
-      warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
-      read_func(r1, NULL, qoffset, 0, reader_ptr);
-      num_se_reads++;
-    }
-    if(s < 0) warn("Input error: %s\n", sf->path);
+    warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
+    read_func(r1, NULL, qoffset, 0, reader_ptr);
+    num_se_reads++;
   }
-  else
-  {
-    seq_parse_interleaved_sf(sf, qoffset, qmin, qmax, r1, r2,
-                             read_func, reader_ptr,
-                             &num_se_reads, &num_pe_pairs);
-  }
+
+  if(s < 0) warn("Input error: %s\n", sf->path);
 
   char num_se_reads_str[100], num_pe_pairs_str[100];
   ulong_to_str(num_pe_pairs, num_pe_pairs_str);
@@ -398,7 +403,7 @@ void seq_parse_pe(const char *path1, const char *path2, uint8_t ascii_fq_offset,
 }
 
 void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
-                  read_t *r1, read_t *r2,
+                  read_t *r1,
                   void (*read_func)(read_t *_r1, read_t *_r2,
                                     uint8_t _qoffset1, uint8_t _qoffset2,
                                     void *_ptr),
@@ -406,7 +411,7 @@ void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
 {
   seq_file_t *sf;
   if((sf = seq_open(path)) == NULL) die("Cannot open: %s", path);
-  seq_parse_se_sf(sf, ascii_fq_offset, r1, r2, read_func, reader_ptr);
+  seq_parse_se_sf(sf, ascii_fq_offset, r1, read_func, reader_ptr);
   seq_close(sf);
 }
 

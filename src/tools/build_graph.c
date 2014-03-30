@@ -242,12 +242,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
   for(f = 0; f < num_files; f++) {
     files[f].idx = f;
-    AsyncIOReadTask aio_task = {.file1 = files[f].file1,
-                                .file2 = files[f].file2,
-                                .fq_offset = files[f].fq_offset,
-                                .ptr = &files[f]};
-
-    memcpy(&async_tasks[f], &aio_task, sizeof(AsyncIOReadTask));
+    memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOReadTask));
   }
 
   BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
@@ -291,16 +286,17 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
 void build_graph_task_print(const BuildGraphTask *task)
 {
+  const AsyncIOReadTask *io = &task->files;
   char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
 
+  if(io->fq_offset > 0) sprintf(fqOffset, "%u", io->fq_offset);
   if(task->fq_cutoff > 0) sprintf(fqCutoff, "%u", task->fq_cutoff);
-  if(task->fq_offset > 0) sprintf(fqOffset, "%u", task->fq_offset);
   if(task->hp_cutoff > 0) sprintf(hpCutoff, "%u", task->hp_cutoff);
 
   status("[task] %s%s%s; FASTQ offset: %s, threshold: %s; "
          "cut homopolymers: %s; remove PCR duplicates: %s; colour: %zu\n",
-         task->file1->path,
-         task->file2 ? ", " : "", task->file2 ? task->file2->path : "",
+         io->file1->path,
+         io->file2 ? ", " : "", io->file2 ? io->file2->path : "",
          fqOffset, fqCutoff, hpCutoff, task->remove_pcr_dups ? "yes" : "no",
          task->colour);
 }
@@ -308,10 +304,11 @@ void build_graph_task_print(const BuildGraphTask *task)
 void build_graph_task_print_stats(const BuildGraphTask *task)
 {
   const LoadingStats stats = task->stats;
+  const AsyncIOReadTask *io = &task->files;
 
   status("[task] input: %s%s%s colour: %zu",
-         task->file1->path, task->file2 ? ", " : "",
-         task->file2 ? task->file2->path : "", task->colour);
+         io->file1->path, io->file2 ? ", " : "",
+         io->file2 ? io->file2->path : "", task->colour);
 
   char se_reads_str[50], pe_reads_str[50];
   char good_reads_str[50], bad_reads_str[50];

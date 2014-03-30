@@ -505,8 +505,10 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   AsyncIOData iodata = {.r1 = r1, .r2 = r2, .ptr = NULL,
                         .fq_offset1 = 0, .fq_offset2 = 2};
 
-  CorrectAlnReadsTask task = {.file1 = NULL, .file2 = NULL,
-                              .fq_offset = 0, .fq_cutoff = 0, .hp_cutoff = 0,
+  AsyncIOReadTask iotask = {.file1 = NULL, .file2 = NULL,
+                            .fq_offset = 0, .interleaved = false};
+
+  CorrectAlnReadsTask task = {.files = iotask, .fq_cutoff = 0, .hp_cutoff = 0,
                               .matedir = READPAIR_FF, .crt_params = params,
                               .ptr = NULL};
 

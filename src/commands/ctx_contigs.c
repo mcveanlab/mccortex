@@ -459,12 +459,10 @@ int ctx_contigs(CmdArgs *args)
 
     contig_data_alloc(&cd, 1024);
 
-    read_t r1, r2;
+    read_t r1;
     seq_read_alloc(&r1);
-    seq_read_alloc(&r2);
-    seq_parse_se_sf(seed_file, 0, &r1, &r2, parse_seed_reads, &ps);
+    seq_parse_se_sf(seed_file, 0, &r1, parse_seed_reads, &ps);
     seq_read_dealloc(&r1);
-    seq_read_dealloc(&r2);
     seq_close(seed_file);
   }
 

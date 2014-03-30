@@ -12,16 +12,16 @@
 #include "cortex_types.h"
 #include "db_graph.h"
 #include "seq_reader.h"
+#include "async_read_io.h"
 #include "loading_stats.h"
 
 typedef struct
 {
-  seq_file_t *const file1, *const file2;
-  const Colour colour;
-  // FASTQ qual offset, cutoff and homopolymer cutoff
-  const uint8_t fq_offset, fq_cutoff, hp_cutoff;
-  const bool remove_pcr_dups;
+  AsyncIOReadTask files;
+  const uint8_t fq_cutoff, hp_cutoff;
   const ReadMateDir matedir;
+  const Colour colour;
+  const bool remove_pcr_dups;
 
   // Stats are written to here
   LoadingStats stats;

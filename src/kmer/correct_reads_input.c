@@ -11,12 +11,15 @@
 bool gen_paths_print_contigs = false, gen_paths_print_paths = false;
 bool gen_paths_print_reads = false;
 
-void correct_reads_input_init(const char *p1, const char *p2,
+void correct_reads_input_init(const char *p1, const char *p2, bool interleaved,
                               uint32_t fq_offset, uint32_t fq_cutoff,
                               uint32_t hp_cutoff, ReadMateDir matedir,
                               CorrectAlnParam params,
                               CorrectAlnReadsTask *ptr)
 {
+  // interleaved => p2 == NULL
+  ctx_assert(!interleaved || p2 == NULL);
+
   if(p1[0] == '-')
     die("Path appears to be an option: %s", p1);
   if(p2 != NULL && p2[0] == '-')
@@ -34,8 +37,11 @@ void correct_reads_input_init(const char *p1, const char *p2,
         (size_t)params.ins_gap_min, (size_t)params.ins_gap_max);
   }
 
-  CorrectAlnReadsTask tsk = {.file1 = f1, .file2 = f2,
-                             .fq_offset = (uint8_t)fq_offset,
+  AsyncIOReadTask iotask = {.file1 = f1, .file2 = f2,
+                            .fq_offset = (uint8_t)fq_offset,
+                            .interleaved = interleaved};
+
+  CorrectAlnReadsTask tsk = {.files = iotask,
                              .fq_cutoff = (uint8_t)fq_cutoff,
                              .hp_cutoff = (uint8_t)hp_cutoff,
                              .matedir = matedir,
@@ -46,12 +52,13 @@ void correct_reads_input_init(const char *p1, const char *p2,
 
 void correct_reads_input_print(const CorrectAlnReadsTask *c)
 {
-  int has_p2 = c->file2 != NULL;
-  const char *p1 = c->file1->path, *p2 = has_p2 ? c->file2->path : "";
+  const AsyncIOReadTask *io = &c->files;
+  int has_p2 = io->file2 != NULL;
+  const char *p1 = io->file1->path, *p2 = has_p2 ? io->file2->path : "";
   char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
 
+  if(io->fq_offset > 0) sprintf(fqOffset, "%u", io->fq_offset);
   if(c->fq_cutoff > 0) sprintf(fqCutoff, "%u", c->fq_cutoff);
-  if(c->fq_offset > 0) sprintf(fqOffset, "%u", c->fq_offset);
   if(c->hp_cutoff > 0) sprintf(hpCutoff, "%u", c->hp_cutoff);
 
   status("[task] input: %s%s%s", p1, (has_p2 ? ", " : ""), p2);
@@ -89,12 +96,7 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 {
   size_t i;
   for(i = 0; i < num_inputs; i++) {
-    AsyncIOReadTask aio_task = {.file1 = inputs[i].file1,
-                                .file2 = inputs[i].file2,
-                                .fq_offset = inputs[i].fq_offset,
-                                .ptr = &inputs[i]};
-
-    memcpy(&asyncio_tasks[i], &aio_task, sizeof(AsyncIOReadTask));
+    memcpy(&asyncio_tasks[i], &inputs[i].files, sizeof(AsyncIOReadTask));
   }
 }
 
@@ -108,8 +110,8 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 #define MAX_CONTEXT 200
 
 // returns index of next argv
-// without out_arg: --seq <in>       --seq2 <in1> <in2>
-// with out_arg:    --seq <in> <out> --seq2 <in1> <in2> <out>
+// without out_arg: --seq <in>       --seq2 <in1> <in2>       --seqi <in>
+// with out_arg:    --seq <in> <out> --seq2 <in1> <in2> <out> --seqi <in> <out>
 // Other options:
 //  --fq_offset <int>
 //  --fq_threshold <int>
@@ -234,7 +236,7 @@ int correct_reads_parse(int argc, char **argv,
     else if(strcasecmp(argv[argi],"--RR") == 0) matedir = READPAIR_RR;
     else if(strcasecmp(argv[argi],"--oneway") == 0) params.one_way_gap_traverse = true;
     else if(strcasecmp(argv[argi],"--twoway") == 0) params.one_way_gap_traverse = false;
-    else if(strcmp(argv[argi],"--seq") == 0)
+    else if(strcmp(argv[argi],"--seq") == 0 || strcmp(argv[argi],"--seqi") == 0)
     {
       if(out_arg) {
         if(argi+2 >= argc) cmd_print_usage("--seq <in> <out> missing args");
@@ -244,7 +246,9 @@ int correct_reads_parse(int argc, char **argv,
         if(!col_set) die("--seq <in.fa> before --col <colour>");
       }
 
-      correct_reads_input_init(argv[argi+1], NULL,
+      bool interleaved = (strcmp(argv[argi],"--seqi") == 0);
+
+      correct_reads_input_init(argv[argi+1], NULL, interleaved,
                                fq_offset, fq_cutoff, hp_cutoff, matedir, params,
                                &inputs[num_inputs]);
 
@@ -267,7 +271,7 @@ int correct_reads_parse(int argc, char **argv,
         if(!col_set) die("--seq2 <in1> <in2> before --col <colour>");
       }
 
-      correct_reads_input_init(argv[argi+1], argv[argi+2],
+      correct_reads_input_init(argv[argi+1], argv[argi+2], false,
                                fq_offset, fq_cutoff, hp_cutoff, matedir, params,
                                &inputs[num_inputs]);
 

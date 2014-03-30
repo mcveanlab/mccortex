@@ -28,6 +28,7 @@ const char correct_usage[] =
 "    --col <colour>           Colour to thread through\n"
 "    --seq <in> <out>         Correct reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in1> <in2> <out> Correct PE reads\n"
+"    --seqi <in.bam>          Correct PE reads from a single file\n"
 "    --twoway                 Use two-way gap filling\n"
 "    --oneway                 Use one-way gap filling\n"
 "    --fq_threshold <fq>      FASTQ quality threshold\n"
@@ -41,9 +42,9 @@ const char correct_usage[] =
 #define MAX_CONTEXT 50
 
 typedef struct {
-  StrBuf out1, out2;
-  gzFile gz1, gz2;
-  pthread_mutex_t lock;
+  StrBuf outse, outpe1, outpe2;
+  gzFile gzse, gzpe1, gzpe2;
+  pthread_mutex_t lockse, lockpe;
 } CorrectedOutput;
 
 typedef struct {
@@ -62,50 +63,56 @@ typedef struct {
 
 // Returns true on success, false on error
 static bool corrected_output_open(CorrectedOutput *out,
-                                     CorrectAlnReadsTask *in)
+                                  const CorrectAlnReadsTask *in)
 {
-  out->gz1 = out->gz2 = NULL;
+  out->gzse = out->gzpe1 = out->gzpe2 = NULL;
   const char *base = (const char*)in->ptr;
-  StrBuf *out1 = &out->out1, *out2 = &out->out2;
-  strbuf_alloc(out1, 512);
-  strbuf_alloc(out2, 512);
+  StrBuf *outse = &out->outse, *outpe1 = &out->outpe1, *outpe2 = &out->outpe2;
+  strbuf_alloc(outse, 512);
+  strbuf_alloc(outpe1, 512);
+  strbuf_alloc(outpe2, 512);
 
-  if(pthread_mutex_init(&out->lock, NULL) != 0) die("Mutex init failed");
+  if(pthread_mutex_init(&out->lockse, NULL) != 0) die("Mutex init failed");
+  if(pthread_mutex_init(&out->lockpe, NULL) != 0) die("Mutex init failed");
 
-  if(in->file2 == NULL) {
-    strbuf_append_str(out1, base);
-    strbuf_append_str(out1, ".fa.gz");
-    if(futil_file_exists(out1->buff)) {
-      warn("File already exists: %s", out1->buff);
+  if(in->files.interleaved || in->files.file2 == NULL)
+  {
+    strbuf_append_str(outse, base);
+    strbuf_append_str(outse, ".fa.gz");
+    if(futil_file_exists(outse->buff)) {
+      warn("SE File already exists: %s", outse->buff);
       return false;
     }
-    out->gz1 = gzopen(out1->buff, "w");
-    if(out->gz1 == NULL) {
-      warn("Cannot write to: %s", out1->buff);
+    out->gzse = gzopen(outse->buff, "w");
+    if(out->gzse == NULL) {
+      warn("Cannot write to: %s", outse->buff);
       return false;
     }
-  } else {
-    strbuf_append_str(out1, base);
-    strbuf_append_str(out2, base);
-    strbuf_append_str(out1, ".1.fa.gz");
-    strbuf_append_str(out2, ".2.fa.gz");
+  }
+
+  if(in->files.interleaved || in->files.file2 != NULL)
+  {
+    strbuf_append_str(outpe1, base);
+    strbuf_append_str(outpe2, base);
+    strbuf_append_str(outpe1, ".1.fa.gz");
+    strbuf_append_str(outpe2, ".2.fa.gz");
 
     bool fexists = false;
-    if(futil_file_exists(out1->buff)) {
-      warn("File already exists: %s", out1->buff);
+    if(futil_file_exists(outpe1->buff)) {
+      warn("File already exists: %s", outpe1->buff);
       fexists = true;
     }
-    if(futil_file_exists(out2->buff)) {
-      warn("File already exists: %s", out2->buff);
+    if(futil_file_exists(outpe2->buff)) {
+      warn("File already exists: %s", outpe2->buff);
       fexists = true;
     }
     if(fexists) return false;
 
-    out->gz1 = gzopen(out1->buff, "w");
-    out->gz2 = gzopen(out2->buff, "w");
-    if(out->gz1 == NULL) warn("Cannot write to: %s", out1->buff);
-    if(out->gz2 == NULL) warn("Cannot write to: %s", out2->buff);
-    if(out->gz1 == NULL || out->gz2 == NULL) return false;
+    out->gzpe1 = gzopen(outpe1->buff, "w");
+    out->gzpe2 = gzopen(outpe2->buff, "w");
+    if(out->gzpe1 == NULL) warn("Cannot write to: %s", outpe1->buff);
+    if(out->gzpe2 == NULL) warn("Cannot write to: %s", outpe2->buff);
+    if(out->gzpe1 == NULL || out->gzpe2 == NULL) return false;
   }
 
   return true;
@@ -113,18 +120,22 @@ static bool corrected_output_open(CorrectedOutput *out,
 
 static void corrected_output_close(CorrectedOutput *out)
 {
-  if(out->gz1 != NULL) gzclose(out->gz1);
-  if(out->gz2 != NULL) gzclose(out->gz2);
-  out->gz1 = out->gz2 = NULL;
-  strbuf_dealloc(&out->out1);
-  strbuf_dealloc(&out->out2);
-  pthread_mutex_destroy(&out->lock);
+  if(out->gzse != NULL) gzclose(out->gzse);
+  if(out->gzpe1 != NULL) gzclose(out->gzpe1);
+  if(out->gzpe2 != NULL) gzclose(out->gzpe2);
+  out->gzse = out->gzpe1 = out->gzpe2 = NULL;
+  strbuf_dealloc(&out->outse);
+  strbuf_dealloc(&out->outpe1);
+  strbuf_dealloc(&out->outpe2);
+  pthread_mutex_destroy(&out->lockse);
+  pthread_mutex_destroy(&out->lockpe);
 }
 
 static void corrected_output_delete(CorrectedOutput *out)
 {
-  if(out->gz1 != NULL) unlink(out->out1.buff);
-  if(out->gz2 != NULL) unlink(out->out2.buff);
+  if(out->gzse != NULL) unlink(out->outse.buff);
+  if(out->gzpe1 != NULL) unlink(out->outpe1.buff);
+  if(out->gzpe2 != NULL) unlink(out->outpe2.buff);
   corrected_output_close(out);
 }
 
@@ -308,23 +319,30 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   strbuf_reset(buf1);
   strbuf_reset(buf2);
 
-  // Update stats
-  if(r2 == NULL) wrkr->stats.num_se_reads++;
-  else wrkr->stats.num_pe_reads += 2;
+  if(r2 == NULL)
+  {
+    // Single ended read
+    handle_read(wrkr, r1, buf1, fq_cutoff1, hp_cutoff);
+    pthread_mutex_lock(&output->lockse);
+    gzputs(output->gzse, buf1->buff);
+    pthread_mutex_unlock(&output->lockse);
 
-  gzFile gz1 = output->gz1, gz2 = (output->gz2 ? output->gz2 : output->gz1);
+    // Update stats
+    wrkr->stats.num_se_reads++;
+  }
+  else
+  {
+    // Paired-end reads
+    handle_read(wrkr, r1, buf1, fq_cutoff1, hp_cutoff);
+    handle_read(wrkr, r2, buf2, fq_cutoff2, hp_cutoff);
+    pthread_mutex_lock(&output->lockpe);
+    gzputs(output->gzpe1, buf1->buff);
+    gzputs(output->gzpe2, buf2->buff);
+    pthread_mutex_unlock(&output->lockpe);
 
-  handle_read(wrkr, r1, buf1, fq_cutoff1, hp_cutoff);
-  if(r2 != NULL) handle_read(wrkr, r2, buf2, fq_cutoff2, hp_cutoff);
-
-  // Don't want two threads writing to the same file at the same time: get mutex
-  pthread_mutex_lock(&output->lock);
-
-  gzputs(gz1, buf1->buff);
-  if(r2 != NULL) gzputs(gz2 ? gz2 : gz1, buf2->buff);
-
-  // release mutex
-  pthread_mutex_unlock(&output->lock);
+    // Update stats
+    wrkr->stats.num_pe_reads += 2;
+  }
 }
 
 // pthread method, loop: grabs job, does processing
@@ -495,8 +513,7 @@ int ctx_correct(CmdArgs *args)
     correct_reads_worker_dealloc(&wrkrs[i]);
 
   for(i = 0; i < num_inputs; i++) {
-    if(inputs[i].file1 != NULL) seq_close(inputs[i].file1);
-    if(inputs[i].file2 != NULL) seq_close(inputs[i].file2);
+    asyncio_task_close(&inputs[i].files);
     corrected_output_close(&outputs[i]);
   }
 

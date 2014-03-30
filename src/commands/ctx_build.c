@@ -23,6 +23,7 @@ const char build_usage[] =
 "    --sample <name>        Sample name (required before any seq args)\n"
 "    --seq <in.fa|fq|sam>   Load sequence data\n"
 "    --seq2 <in1> <in2>     Load paired end sequence data\n"
+"    --seqi <in.bam>        Load paired end sequence from a single file\n"
 "    --fq_threshold <qual>  Filter quality scores [default: 0 (off)]\n"
 "    --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "    --cut_hp <len>         Breaks reads at homopolymers >= <len> [default: off]\n"
@@ -68,6 +69,7 @@ static void graph_reader_new(char *path, size_t colour, GraphFileReader *rdrptr)
 
 static void build_graph_task_new(const char *seq_path1,
                                  const char *seq_path2,
+                                 bool interleaved,
                                  size_t colour,
                                  uint32_t fq_offset,
                                  uint32_t fq_cutoff,
@@ -76,6 +78,7 @@ static void build_graph_task_new(const char *seq_path1,
                                  ReadMateDir matedir,
                                  BuildGraphTask *taskptr)
 {
+  ctx_assert(!(interleaved && seq_path2));
   ctx_assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
   ctx_assert(fq_offset < 128);
   ctx_assert(fq_cutoff < 128);
@@ -89,12 +92,16 @@ static void build_graph_task_new(const char *seq_path1,
   if(seq_path2 != NULL && (file2 = seq_open(seq_path2)) == NULL)
     die("Cannot read %s file: %s", arg, seq_path2);
 
-  BuildGraphTask task = {.file1 = file1, .file2 = file2, .colour = colour,
-                         .fq_offset = (uint8_t)fq_offset,
+  AsyncIOReadTask iotask = {.file1 = file1, .file2 = file2,
+                            .fq_offset = (uint8_t)fq_offset,
+                            .interleaved = interleaved};
+
+  BuildGraphTask task = {.files = iotask,
                          .fq_cutoff = (uint8_t)fq_cutoff,
                          .hp_cutoff = (uint8_t)hp_cutoff,
                          .remove_pcr_dups = remove_pcr_dups,
                          .matedir = matedir,
+                         .colour = colour,
                          .stats = LOAD_STATS_INIT_MACRO};
 
   memcpy(taskptr, &task, sizeof(BuildGraphTask));
@@ -102,22 +109,22 @@ static void build_graph_task_new(const char *seq_path1,
 
 static void build_graph_task_destroy(BuildGraphTask *task)
 {
-  seq_close(task->file1);
-  if(task->file2 != NULL) seq_close(task->file2);
+  asyncio_task_close(&task->files);
 }
 
 static void build_graph_task_new2(const char *seq_path1, const char *seq_path2,
-                                  size_t colour,
+                                  bool interleaved, size_t colour,
                                   uint32_t fq_offset, uint32_t fq_cutoff,
                                   uint32_t hp_cutoff, bool remove_pcr_dups,
                                   ReadMateDir matedir,
                                   BuildGraphTask *tasks, size_t *num_tasks_ptr)
 {
   ctx_assert(!seq_path2 || seq_path1);
+  ctx_assert(!(interleaved && seq_path2));
 
   if(remove_pcr_dups) {
     // Submit paired end reads together
-    build_graph_task_new(seq_path1, seq_path2, colour,
+    build_graph_task_new(seq_path1, seq_path2, interleaved, colour,
                          fq_offset, fq_cutoff, hp_cutoff,
                          remove_pcr_dups, matedir,
                          &tasks[*num_tasks_ptr]);
@@ -125,14 +132,14 @@ static void build_graph_task_new2(const char *seq_path1, const char *seq_path2,
   }
   else if(!remove_pcr_dups) {
     // Read files separately -> read faster
-    build_graph_task_new(seq_path1, NULL, colour,
+    build_graph_task_new(seq_path1, NULL, interleaved, colour,
                          fq_offset, fq_cutoff, hp_cutoff,
                          remove_pcr_dups, matedir,
                          &tasks[*num_tasks_ptr]);
     (*num_tasks_ptr)++;
 
     if(seq_path2 != NULL) {
-      build_graph_task_new(seq_path2, NULL, colour,
+      build_graph_task_new(seq_path2, NULL, false, colour,
                            fq_offset, fq_cutoff, hp_cutoff,
                            remove_pcr_dups, matedir,
                            &tasks[*num_tasks_ptr]);
@@ -198,15 +205,17 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
     else if(strcasecmp(argv[argi],"--RR") == 0) matedir = READPAIR_RR;
     else if(!strcmp(argv[argi],"--remove_pcr")) remove_pcr_dups = true;
     else if(!strcmp(argv[argi],"--keep_pcr")) remove_pcr_dups = false;
-    else if(strcmp(argv[argi],"--seq") == 0)
+    else if(strcmp(argv[argi],"--seq") == 0 || strcmp(argv[argi],"--seqi") == 0)
     {
       if(!sample_named)
         cmd_print_usage("Please use --sample <name> before giving sequence");
       if(argi + 1 >= argc)
         cmd_print_usage("--seq <file> requires an argument");
 
+      bool interleaved = (strcmp(argv[argi],"--seqi") == 0);
+
       // Create new task
-      build_graph_task_new2(argv[argi+1], NULL, colour,
+      build_graph_task_new2(argv[argi+1], NULL, interleaved, colour,
                             fq_offset, fq_cutoff, hp_cutoff,
                             remove_pcr_dups, matedir,
                             tasks, &num_tasks);
@@ -222,7 +231,7 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
         cmd_print_usage("--seq2 <file1> <file2> requires two arguments");
 
       // Create new task
-      build_graph_task_new2(argv[argi+1], argv[argi+2], colour,
+      build_graph_task_new2(argv[argi+1], argv[argi+2], false, colour,
                             fq_offset, fq_cutoff, hp_cutoff,
                             remove_pcr_dups, matedir,
                             tasks, &num_tasks);

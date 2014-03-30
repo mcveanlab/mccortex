@@ -24,11 +24,19 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
                      void *reader_ptr);
 
 void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
-                     read_t *r1, read_t *r2,
+                     read_t *r1,
                      void (*read_func)(read_t *_r1, read_t *_r2,
                                        uint8_t _qoffset1, uint8_t _qoffset2,
                                        void *_ptr),
                      void *reader_ptr);
+
+void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
+                              read_t *r1, read_t *r2,
+                              void (*read_func)(read_t *_r1, read_t *_r2,
+                                                uint8_t _qoffset1,
+                                                uint8_t _qoffset2,
+                                                void *_ptr),
+                              void *reader_ptr);
 
 void seq_parse_pe(const char *path1, const char *path2, uint8_t ascii_fq_offset,
                   read_t *r1, read_t *r2,
@@ -38,7 +46,7 @@ void seq_parse_pe(const char *path1, const char *path2, uint8_t ascii_fq_offset,
                   void *reader_ptr);
 
 void seq_parse_se(const char *path, uint8_t ascii_fq_offset,
-                  read_t *r1, read_t *r2,
+                  read_t *r1,
                   void (*read_func)(read_t *_r1, read_t *_r2,
                                     uint8_t _qoffset1, uint8_t _qoffset2,
                                     void *_ptr),

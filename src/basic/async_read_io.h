@@ -11,6 +11,7 @@ typedef struct
   seq_file_t *const file1, *const file2;
   void *const ptr;
   const uint8_t fq_offset;
+  const bool interleaved; // if file1 is an interleaved PE file
 } AsyncIOReadTask;
 
 typedef struct
@@ -19,6 +20,8 @@ typedef struct
   void *ptr;
   uint8_t fq_offset1, fq_offset2;
 } AsyncIOData;
+
+void asyncio_task_close(AsyncIOReadTask *task);
 
 void asynciodata_alloc(AsyncIOData *iod);
 void asynciodata_dealloc(AsyncIOData *iod);

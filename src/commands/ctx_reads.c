@@ -328,7 +328,7 @@ int ctx_reads(CmdArgs *args)
       } else {
         status("reading: %s\n", in1);
         status("writing: %s\n", path1);
-        seq_parse_se_sf(seqfiles[sf], 0, &r1, &r2,
+        seq_parse_se_sf(seqfiles[sf], 0, &r1,
                         filter_reads, &data);
         seq_close(seqfiles[sf]);
         sf++;

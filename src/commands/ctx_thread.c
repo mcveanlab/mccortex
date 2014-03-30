@@ -25,6 +25,7 @@ const char thread_usage[] =
 "    --col <colour>             Colour to thread through\n"
 "    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
 "    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
+"    --seqi <in.bam>            Thread paired end reads from a single file\n"
 "    --minIns <ins>             Minimum insert size for --seq2 [default:0]\n"
 "    --maxIns <ins>             Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
 "    --oneway                   Use one-way gap filling [default]\n"
@@ -362,8 +363,7 @@ int ctx_thread(CmdArgs *args)
   fclose(fout);
 
   for(i = 0; i < num_tasks; i++) {
-    if(tasks[i].file1 != NULL) seq_close(tasks[i].file1);
-    if(tasks[i].file2 != NULL) seq_close(tasks[i].file2);
+    asyncio_task_close(&tasks[i].files);
   }
 
   free(tasks);
