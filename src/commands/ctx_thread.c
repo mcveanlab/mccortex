@@ -36,6 +36,9 @@ const char thread_usage[] =
 "    --FR --FF --RF --RR        Mate pair orientation [default: FR] (with --keep_pcr)\n"
 "    --seqgaps <out.csv>        Save size distribution of seq gaps bridged\n"
 "    --mpgaps <out.csv>         Save size distribution of mate pair gaps bridged\n"
+"    --use-new-paths            Use paths as they are being added (higher err rate)\n"
+"    --end-check                Extra check after bridging gap [default: on]\n"
+"    --no-end-check             Skip extra check after gap bridging\n"
 "\n"
 "  Debugging Options:\n"
 "    --printcontigs --printpaths --printreads   Probably best not to touch these\n"
@@ -63,14 +66,48 @@ int ctx_thread(CmdArgs *args)
   int argc = args->argc;
   char **argv = args->argv;
 
+  bool use_new_paths = false;
+
+  // Strip out ctx_thread exclusive arguments
+  int argi, argj;
+  for(argi = argj = 0; argi < argc; argi++)
+  {
+    if(strcmp(argv[argi],"--printcontigs") == 0)
+    {
+      // ctx_thread can print out contigs
+      gen_paths_print_contigs = true;
+    }
+    else if(strcmp(argv[argi],"--printpaths") == 0)
+    {
+      // ctx_thread can print out paths
+      gen_paths_print_paths = true;
+    }
+    else if(strcmp(argv[argi],"--printreads") == 0)
+    {
+      // ctx_thread can print out reads
+      gen_paths_print_reads = true;
+    }
+    else if(strcmp(argv[argi],"--use-new-paths") == 0)
+    {
+      // use paths as they are being added
+      use_new_paths = true;
+    }
+    else {
+      argv[argj++] = argv[argi];
+    }
+  }
+
+  argc = argj;
+
   size_t max_tasks = (size_t)argc/2;
   CorrectAlnReadsTask *tasks = malloc2(max_tasks * sizeof(CorrectAlnReadsTask));
   size_t i, j, num_tasks, num_work_threads = args->max_work_threads;
-  int argi; // arg index to continue from
   char *dump_seq_sizes = NULL, *dump_mp_sizes = NULL;
 
-  argi = correct_reads_parse(argc, argv, tasks, &num_tasks,
-                             true, false, &dump_seq_sizes, &dump_mp_sizes);
+  // argi is argument index to continue from
+  argi = correct_reads_parse(argc, argv, true, false,
+                             tasks, &num_tasks,
+                             &dump_seq_sizes, &dump_mp_sizes);
 
   for(i = 0; i < num_tasks; i++) {
     tasks[i].crt_params.ctxcol = 0;
@@ -198,11 +235,12 @@ int ctx_thread(CmdArgs *args)
   db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
 
   // if no-pickup flags
-  if(num_pfiles > 0)
-    db_graph.pstore.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-  else
-    db_graph.pstore.kmer_paths = NULL;
-  //
+  if(!use_new_paths) {
+    if(num_pfiles > 0)
+      db_graph.pstore.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+    else
+      db_graph.pstore.kmer_paths = NULL;
+  }
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
@@ -225,10 +263,6 @@ int ctx_thread(CmdArgs *args)
     // Copy current paths over to path set to be updated
     memcpy(db_graph.pstore.kmer_paths_update, db_graph.pstore.kmer_paths,
            kmers_in_hash * sizeof(PathIndex));
-  }
-  else {
-    // Don't pick up any paths
-    db_graph.pstore.kmer_paths = NULL;
   }
 
   // Set up paths header. This is for the output file we are creating

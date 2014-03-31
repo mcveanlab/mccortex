@@ -73,7 +73,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
                                          bool forward, dBNodeBuffer *contig,
                                          size_t gap_min, size_t gap_max,
                                          GraphWalker *wlk, RepeatWalker *rptwlk,
-                                         bool only_in_col)
+                                         bool only_in_col, bool do_paths_check)
 {
   dBNode end_node = forward ? block[0] : db_node_reverse(block[n-1]);
 
@@ -103,7 +103,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
   rpt_walker_fast_clear(rptwlk, contig->data+init_len, result.gap_len);
 
   // Check paths match remaining nodes
-  if(result.traversed) {
+  if(result.traversed && do_paths_check) {
     if(( forward && !graph_walker_agrees_contig(wlk, block+1, n-1, true)) ||
        (!forward && !graph_walker_agrees_contig(wlk, block, n-1, false))) {
       // printf("1) Paths don't agree!\n");
@@ -138,7 +138,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
                                          size_t gap_min, size_t gap_max,
                                          GraphWalker *wlk0, RepeatWalker *rptwlk0,
                                          GraphWalker *wlk1, RepeatWalker *rptwlk1,
-                                         bool only_in_col)
+                                         bool only_in_col, bool do_paths_check)
 {
   const size_t init_len0 = contig0->len, init_len1 = contig1->len;
 
@@ -187,7 +187,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
 
   // printf("2-way Traversal %s\n", result.traversed ? "Worked" : "Failed");
 
-  if(result.traversed)
+  if(result.traversed && do_paths_check)
   {
     // Check paths match remaining nodes
     dBNode *left_contig = contig0->data; size_t left_n = contig0->len;
@@ -259,7 +259,7 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
   result = traverse_one_way2(aln_nodes+gap_idx, block1len, true,
                              &wrkr->contig, gap_min, gap_max,
                              &wrkr->wlk, &wrkr->rptwlk,
-                             only_in_one_col);
+                             only_in_one_col, params->use_end_check);
 
   correct_aln_stats_update(&wrkr->gapstats, result);
 
@@ -274,7 +274,7 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
   result = traverse_one_way2(nbuf->data, nbuf->len, false,
                              &wrkr->revcontig, gap_min, gap_max,
                              &wrkr->wlk, &wrkr->rptwlk,
-                             only_in_one_col);
+                             only_in_one_col, params->use_end_check);
 
   correct_aln_stats_update(&wrkr->gapstats, result);
 
@@ -305,7 +305,7 @@ static TraversalResult traverse_two_way(CorrectAlnWorker *wrkr,
                              gap_min, gap_max,
                              &wrkr->wlk, &wrkr->rptwlk,
                              &wrkr->wlk2, &wrkr->rptwlk2,
-                             aln_colour != -1);
+                             aln_colour != -1, params->use_end_check);
 
   correct_aln_stats_update(&wrkr->gapstats, result);
 

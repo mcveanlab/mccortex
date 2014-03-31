@@ -72,6 +72,7 @@ void correct_reads_input_print(const CorrectAlnReadsTask *c)
     message("; read pair: %s; insert min,max: (%u,%u)", MP_DIR_STRS[c->matedir],
             c->crt_params.ins_gap_min, c->crt_params.ins_gap_max);
   }
+  message(" [%sedge check]", c->crt_params.use_end_check ? "" : "no ");
   message("\n");
 }
 
@@ -110,6 +111,8 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 #define MAX_CONTEXT 200
 
 // returns index of next argv
+// use_pe means we are trying to bridge the insert gap, so take --(min|max)Ins
+//
 // without out_arg: --seq <in>       --seq2 <in1> <in2>       --seqi <in>
 // with out_arg:    --seq <in> <out> --seq2 <in1> <in2> <out> --seqi <in> <out>
 // Other options:
@@ -117,8 +120,6 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 //  --fq_threshold <int>
 //  --cut_hp <int>
 //  --col <int>
-//  --printcontigs  if !out_arg
-//  --printpaths    if !out_arg
 //  --minIns <int>  if use_pe
 //  --maxIns <int>  if use_pe
 //  --seqgaps <out.csv> if dump_seq_gaps != NULL
@@ -126,10 +127,11 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 //  --oneway
 //  --twoway
 //  --FF --FR --RF --RR
+//  --no-end-check option // --end-check
 int correct_reads_parse(int argc, char **argv,
+                        bool use_pe, bool out_arg,
                         CorrectAlnReadsTask *inputs,
                         size_t *num_inputs_ptr,
-                        bool use_pe, bool out_arg,
                         char **dump_seq_gaps, char **dump_mp_gaps)
 {
   int argi;
@@ -142,6 +144,7 @@ int correct_reads_parse(int argc, char **argv,
                             .ins_gap_min = DEFAULT_MIN_INS,
                             .ins_gap_max = DEFAULT_MAX_INS,
                             .one_way_gap_traverse = true,
+                            .use_end_check = true,
                             .max_context = MAX_CONTEXT,
                             .gap_variance = GAP_VARIANCE,
                             .gap_wiggle = GAP_WIGGLE};
@@ -186,21 +189,6 @@ int correct_reads_parse(int argc, char **argv,
       col_used = false;
       argi++;
     }
-    else if(!out_arg && strcmp(argv[argi],"--printcontigs") == 0)
-    {
-      // ctx_thread can print out contigs
-      gen_paths_print_contigs = true;
-    }
-    else if(!out_arg && strcmp(argv[argi],"--printpaths") == 0)
-    {
-      // ctx_thread can print out paths
-      gen_paths_print_paths = true;
-    }
-    else if(!out_arg && strcmp(argv[argi],"--printreads") == 0)
-    {
-      // ctx_thread can print out reads
-      gen_paths_print_reads = true;
-    }
     else if(use_pe && strcasecmp(argv[argi],"--minIns") == 0)
     {
       if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &min_ins))
@@ -215,6 +203,16 @@ int correct_reads_parse(int argc, char **argv,
       if(max_ins < 20)
         warn("--maxGap < 20 seems very low!");
       params.ins_gap_max = max_ins;
+      argi++;
+    }
+    else if(strcasecmp(argv[argi],"--end-check") == 0)
+    {
+      params.use_end_check = true;
+      argi++;
+    }
+    else if(strcasecmp(argv[argi],"--no-end-check") == 0)
+    {
+      params.use_end_check = false;
       argi++;
     }
     else if(dump_seq_gaps && strcasecmp(argv[argi],"--seqgaps") == 0)
