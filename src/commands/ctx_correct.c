@@ -490,7 +490,7 @@ int ctx_correct(CmdArgs *args)
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*));
+  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   CorrectReadsWorker *wrkrs = malloc2(num_work_threads * sizeof(CorrectReadsWorker));

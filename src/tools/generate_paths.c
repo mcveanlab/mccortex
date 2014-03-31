@@ -32,6 +32,9 @@ struct GenPathWorker
 
   // We take jobs from the pool
   MsgPool *pool;
+  volatile size_t *rcounter;
+
+  // Current job
   AsyncIOData *data; // current data
   CorrectAlnReadsTask task; // current task
   LoadingStats stats;
@@ -457,6 +460,18 @@ static void reads_to_paths(GenPathWorker *wrkr)
     worker_contig_to_junctions(wrkr, nbuf);
 }
 
+#define REPORT_RATE 500000
+
+static void gen_path_status(size_t n)
+{
+  if(n % REPORT_RATE == 0)
+  {
+    char num_str[100];
+    long_to_str(n, num_str);
+    status("[GenPaths] Read %s entries (reads / read pairs)", num_str);
+  }
+}
+
 // pthread method, loop: grabs job, does processing
 static void* generate_paths_worker(void *ptr)
 {
@@ -472,6 +487,10 @@ static void* generate_paths_worker(void *ptr)
     memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnReadsTask));
     reads_to_paths(wrkr);
     msgpool_release(pool, pos, MPOOL_EMPTY);
+
+    // Print progress
+    size_t n = __sync_fetch_and_add(wrkr->rcounter, 1);
+    gen_path_status(n);
   }
 
   pthread_exit(NULL);
@@ -523,12 +542,15 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
   AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 
+  size_t read_counter = 0;
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*));
+  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
-  for(i = 0; i < num_workers; i++)
+  for(i = 0; i < num_workers; i++) {
     workers[i].pool = &pool;
+    workers[i].rcounter = &read_counter;
+  }
 
   AsyncIOReadTask *asyncio_tasks = malloc2(num_inputs * sizeof(AsyncIOReadTask));
   correct_reads_input_to_asycio(asyncio_tasks, tasks, num_inputs);

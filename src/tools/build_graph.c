@@ -234,7 +234,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 
   MsgPool pool;
-  msgpool_alloc_yield(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*));
+  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   // Start async io reading
