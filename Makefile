@@ -121,7 +121,7 @@ else
 	# Could add -DNDEBUG=1 here to turn off asserts
 	ifneq (,$(findstring gcc,$(COMPILER)))
 		OPT = -O4 -m64
-		TGTFLAGS = -fuse-linker-plugin
+		# TGTFLAGS = -fuse-linker-plugin
 	else
 		OPT = -O3 -m64
 	endif
