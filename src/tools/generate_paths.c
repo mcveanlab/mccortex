@@ -16,12 +16,12 @@
 #include "async_read_io.h"
 #include "seq_reader.h"
 #include "binary_seq.h"
+#include "thread_pause.h"
 
 //
 // Multithreaded code to add paths to the graph from sequence data
 // Uses async_read_io to allow multiple readers, multiple workers
 //
-
 
 // #define CTXVERBOSE 1
 
@@ -47,6 +47,10 @@ struct GenPathWorker
   uint8_t *pck_fw, *pck_rv;
   size_t *pos_fw, *pos_rv;
   size_t num_fw, num_rv, junc_arrsize;
+
+  // Thread control
+  ThreadPause *thread_pause;
+  FILE *tmp_fh;
 };
 
 #define INIT_BUFLEN 1024
@@ -69,9 +73,11 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 
 #define binary_seq_mem(n) ((((n)+3)/4 + sizeof(PathLen))*4)
 
-static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
+static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph,
+                                    ThreadPause *thp, FILE *tmp_fh)
 {
-  GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL};
+  GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL,
+                       .thread_pause = thp, .tmp_fh = tmp_fh};
 
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
@@ -99,16 +105,21 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 }
 
 
-GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph)
+GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph, FILE *fout)
 {
   size_t i;
+  ThreadPause *thp = malloc2(sizeof(ThreadPause));
+  thread_pause_alloc(thp);
   GenPathWorker *workers = malloc2(n * sizeof(GenPathWorker));
-  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph);
+  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph, thp, fout);
   return workers;
 }
 
 void gen_paths_workers_dealloc(GenPathWorker *workers, size_t n)
 {
+  thread_pause_dealloc(workers[0].thread_pause);
+  free(workers[0].thread_pause);
+
   size_t i;
   for(i = 0; i < n; i++) _gen_paths_worker_dealloc(&workers[i]);
   free(workers);
@@ -462,6 +473,8 @@ static void reads_to_paths(GenPathWorker *wrkr)
 
 // Print progress every 5M reads
 #define REPORT_RATE 5000000
+// Defragment collection every 10M reads
+#define DEFRAG_RATE 10000000
 
 static void gen_paths_print_progress(size_t n)
 {
@@ -473,38 +486,20 @@ static void gen_paths_print_progress(size_t n)
   }
 }
 
-// static void gen_paths_pause(GenPathWorker *wrkr)
-// {
-//   __sync_fetch_and_sub(&threads_running, 1);
-// }
+static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
+{
+  ThreadPause *thp = wrkr->thread_pause;
 
-// static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
-// {
-//   if(pause) gen_paths_pause();
-//   else if(n % DUMP_RELOAD_RATE == 0)
-//   {
-//     if(pthread_mutex_trylock(save_output_lock))
-//     {
-//       pause = true;
-//       __sync_fetch_and_sub(&threads_running, 1);
-//       pthread_mutex_lock();
-//       while(threads_running)
-//         pthread_cond_wait();
-//       pthread_mutex_unlock();
-    
-//       // Save
-//       // DEV: Dump file, reload
+  if(n && n % DEFRAG_RATE == 0 && thread_pause_take_control(thp))
+  {
+    // Save
+    graph_paths_defragment(wrkr->db_graph, wrkr->tmp_fh);
 
-//       // Restore threads
-//       pause = false;
-//       pthread_cond_broadcast();
-
-//       // Done
-//       pthread_mutex_unlock(save_output_lock);
-//     }
-//     else gen_paths_pause();
-//   }
-// }
+    // Restore threads
+    thread_pause_release_control(thp);
+  }
+  else thread_pause_trywait(thp);
+}
 
 // pthread method, loop: grabs job, does processing
 static void* generate_paths_worker(void *ptr)
@@ -513,6 +508,8 @@ static void* generate_paths_worker(void *ptr)
   MsgPool *pool = wrkr->pool;
   AsyncIOData *data;
   int pos;
+
+  thread_pause_started(wrkr->thread_pause);
 
   while((pos = msgpool_claim_read(pool)) != -1)
   {
@@ -523,10 +520,12 @@ static void* generate_paths_worker(void *ptr)
     msgpool_release(pool, pos, MPOOL_EMPTY);
 
     // Print progress
-    size_t n = __sync_fetch_and_add(wrkr->rcounter, 1);
+    size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
     gen_paths_print_progress(n);
-    // gen_paths_sync(wrkr, n);
+    gen_paths_sync(wrkr, n);
   }
+
+  thread_pause_finished(wrkr->thread_pause);
 
   pthread_exit(NULL);
 }

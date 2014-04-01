@@ -211,7 +211,9 @@ int ctx_thread(CmdArgs *args)
   if(futil_file_exists(out_ctp_path))
     die("Output file already exists: %s", out_ctp_path);
 
-  FILE *fout = fopen(out_ctp_path, "w");
+  // Open with w+ (create/truncate+read+write) so we can use as temporary file
+  // if we need to defragment the PathStore
+  FILE *fout = fopen(out_ctp_path, "w+");
   if(fout == NULL) die("Unable to open paths file to write: %s", out_ctp_path);
   setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
 
@@ -294,7 +296,7 @@ int ctx_thread(CmdArgs *args)
   // Start up the threads, do the work
   //
   GenPathWorker *workers;
-  workers = gen_paths_workers_alloc(num_work_threads, &db_graph);
+  workers = gen_paths_workers_alloc(num_work_threads, &db_graph, fout);
 
   // ... Send jobs ...
   size_t start, end, ctpcol, prev_ctpcol = SIZE_MAX;

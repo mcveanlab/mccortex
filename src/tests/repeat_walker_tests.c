@@ -67,7 +67,7 @@ static void test_repeat_loop()
   // Allocate graph, but don't add any sequence
   _construct_graph_with_paths(&graph, kmer_size, ncols, NULL, 0, params);
 
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, &graph);
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, &graph, NULL);
 
   GraphWalker gwlk;
   RepeatWalker rptwlk;

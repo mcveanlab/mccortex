@@ -101,13 +101,24 @@ PathIndex path_store_find(const PathStore *ps, PathIndex last_index,
   return PATH_NULL;
 }
 
+// End up with both kmer_paths and kmer_paths_update pointing to the same array
 void path_store_combine_updated_paths(PathStore *pstore)
 {
-  if(pstore->kmer_paths_update != pstore->kmer_paths)
+  if(pstore->kmer_paths_update && !pstore->kmer_paths) {
+    pstore->kmer_paths = pstore->kmer_paths_update;
+  }
+  else if(!pstore->kmer_paths_update && pstore->kmer_paths) {
+    pstore->kmer_paths_update = pstore->kmer_paths;
+  }
+  else if(pstore->kmer_paths_update && pstore->kmer_paths &&
+          pstore->kmer_paths_update != pstore->kmer_paths)
   {
     free((void*)pstore->kmer_paths);
     pstore->kmer_paths = pstore->kmer_paths_update;
   }
+  ctx_assert(pstore->kmer_paths == pstore->kmer_paths_update);
+  ctx_assert(pstore->kmer_paths != NULL);
+  status("[PathStore] Path stores merged");
 }
 
 // Always adds!

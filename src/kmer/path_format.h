@@ -31,7 +31,7 @@ int paths_file_read_header(FILE *fh, PathFileHeader *header,
                            bool fatal, const char *path);
 
 // Get min number of colours needed to load the files
-size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files);
+size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files);
 
 // Get min tmp memory required to load files
 // (size of second largest num_path_bytes iff num_files > 1)
@@ -54,6 +54,10 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout);
 // returns number of bytes written
 size_t paths_format_write_header(const PathFileHeader *header, FILE *fout);
+
+
+void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout);
+void paths_format_cpy_optimised_paths_only(dBGraph *db_graph, uint8_t *mem);
 
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout);
 

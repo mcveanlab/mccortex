@@ -24,6 +24,12 @@ static inline void gp_dealloc(GraphPathPairing *gp) {
   gp->n = 0; gp->ctxcols = gp->ctpcols = NULL;
 }
 
+// De-fragment the linked list used by PathStore
+// Uses memory or disk to de-fragment the file
+// Warning: The PathStore must not be modified during the running of the
+//          function. That means it is NOT thread-safe.
+void graph_paths_defragment(dBGraph *db_graph, FILE* tmp_fh);
+
 // Similar to path_file_filter.c:path_file_load_check()
 // Check kmer size matches and sample names match
 void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,

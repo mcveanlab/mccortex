@@ -5,7 +5,45 @@
 #include "packed_path.h"
 #include "bit_macros.h"
 #include "binary_seq.h"
+#include "path_format.h"
 
+
+// De-fragment the linked list used by PathStore
+// Uses memory or disk to de-fragment the file
+// Warning: The PathStore must not be modified during the running of the
+//          function. That means it is NOT thread-safe.
+void graph_paths_defragment(dBGraph *db_graph, FILE* tmp_fh)
+{
+  PathStore *pstore = &db_graph->pstore;
+  size_t used_bytes = pstore->next - pstore->store;
+  size_t remaining = pstore->end - pstore->next;
+
+  if(remaining >= used_bytes)
+  {
+    status("[PathStore] Defragmenting in memory %zu -> %zu...", used_bytes, remaining);
+    paths_format_cpy_optimised_paths_only(db_graph, pstore->next);
+    memcpy(pstore->store, pstore->next, remaining);
+  }
+  else if(tmp_fh == NULL) {
+    warn("Not enough memory to defragment - no tmp file given");
+    return;
+  }
+  else
+  {
+    // Use file
+    status("[PathStore] Defragmenting with tmp file...");
+    paths_format_write_optimised_paths_only(db_graph, tmp_fh);
+
+    if(fseek(tmp_fh, 0, SEEK_SET) != 0)
+      die("[PathStore] fseek on tmp path store file failed");
+    if(fread(pstore->store, 1, used_bytes, tmp_fh) != used_bytes)
+      die("[PathStore] Reloading path store failed.");
+    if(fseek(tmp_fh, 0, SEEK_SET) != 0)
+      die("[PathStore] fseek on tmp path store file failed");
+  }
+
+  status("[PathStore] Finished defragmenting");
+}
 
 // Similar to path_file_filter.c:path_file_load_check()
 // Check kmer size matches and sample names match

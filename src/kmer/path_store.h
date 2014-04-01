@@ -9,10 +9,13 @@
 // Extra padding to avoid reading bad memory
 #define PSTORE_PADDING 16
 
-typedef struct {
+typedef struct
+{
+  // Constants for this instance
   uint8_t *const store, *const end;
   const size_t size;
   const size_t num_of_cols, colset_bytes;
+
   uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths, num_col_paths;
   // Temporary data used for merging
@@ -20,7 +23,10 @@ typedef struct {
   const size_t tmpsize;
   // Kmer pointers
   // kmer_paths is NULL if we don't want GraphWalker to use paths
-  // kmer_paths_update may point to kmer_paths or a copy
+  // kmer_paths_update may point to kmer_paths, elsewhere or NULL
+  //
+  // kmer_paths is used in loading paths and traversing the graph
+  // kmer_paths_update is used for generate_paths.c and dumping ctp files
   PathIndex *kmer_paths, *kmer_paths_update;
   // Multithreaded writing
   uint8_t *kmer_locks;
@@ -31,21 +37,23 @@ typedef struct {
 //
 #define pstore_paths(pstore,node) \
         ((pstore)->kmer_paths[(node)])
+#define pstore_paths_updated(pstore,node) \
+        ((pstore)->kmer_paths_update[(node)])
 #define pstore_paths_update_volptr(pstore,node) \
         ((volatile PathIndex *)&(pstore)->kmer_paths_update[(node)])
-
-// Free ps->kmer_paths, set kmer_paths to point to kmer_paths_update.
-void path_store_combine_updated_paths(PathStore *pstore);
 
 // Initialise the PathStore
 void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,
                       size_t graph_capacity, size_t ncols);
 
+// Release memory
+void path_store_dealloc(PathStore *paths);
+
 // Once tmp has been used for merging, it can be reclaimed to use generally
 void path_store_reclaim_tmp(PathStore *paths);
 
-// Release memory
-void path_store_dealloc(PathStore *paths);
+// Free ps->kmer_paths, set kmer_paths to point to kmer_paths_update.
+void path_store_combine_updated_paths(PathStore *pstore);
 
 // Find a path
 // returns PATH_NULL if not found, otherwise index

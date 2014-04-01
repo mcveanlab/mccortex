@@ -67,7 +67,7 @@ void _construct_graph_with_paths(dBGraph *graph,
   for(i = 0; i < nseqs; i++)
     build_graph_from_str_mt(graph, 0, seqs[i], strlen(seqs[i]));
 
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph, NULL);
 
   for(i = 0; i < nseqs; i++)
     gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);

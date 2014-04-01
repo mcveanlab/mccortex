@@ -105,7 +105,7 @@ void test_paths()
   asynciodata_alloc(&iodata);
 
   size_t nworkers = 1;
-  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph);
+  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph, NULL);
 
   add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5, 5); // path lens: 3+3+2+2+2
   add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2, 5); // path lens: 3+3+2+2+2

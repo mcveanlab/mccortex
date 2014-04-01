@@ -122,7 +122,7 @@ int paths_file_read_header(FILE *fh, PathFileHeader *h,
   return bytes_read;
 }
 
-size_t paths_get_min_usedcols(PathFileReader *files, size_t num_files)
+size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files)
 {
   size_t i, ncols, used_cols = path_file_usedcols(&files[0]);
 
@@ -300,7 +300,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
-  size_t required_ncols = paths_get_min_usedcols(files, num_files);
+  size_t required_ncols = paths_get_max_usedcols(files, num_files);
   size_t required_nbytes = roundup_bits2bytes(required_ncols);
   ctx_assert(required_ncols <= pstore->num_of_cols);
   ctx_assert(required_nbytes <= pstore->colset_bytes);
@@ -425,40 +425,61 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
   return bytes;
 }
 
-static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx,
-                                         dBGraph *db_graph, FILE *fout)
+static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
+                                         dBGraph *db_graph,
+                                         FILE *const fout,
+                                         uint8_t **const mem_ptr)
 {
   const PathStore *pstore = &db_graph->pstore;
-  PathIndex pindex, newidx;
-  PathLen len;
-  Orientation orient;
-  size_t mem, pbytes;
+  PathIndex pindex, newidx, pidx = *pidx_ptr;
   const uint8_t *path;
+  uint8_t *mout = mem_ptr ? *mem_ptr : NULL;
+  size_t mem;
 
-  pindex = pstore_paths(pstore, hkey);
+  ctx_assert(pstore->kmer_paths_update != NULL);
+
+  pindex = pstore_paths_updated(pstore, hkey);
 
   // Return if not paths associated with this kmer
   if(pindex == PATH_NULL) return;
 
-  pstore_paths(pstore, hkey) = *pidx;
+  bool update_kpaths = (pstore->kmer_paths != NULL &&
+                        pstore->kmer_paths_update != pstore->kmer_paths);
+  PathIndex kpidx = update_kpaths ? pstore_paths(pstore, hkey) : PATH_NULL;
+
+  pstore_paths_updated(pstore, hkey) = pidx;
 
   do
   {
-    path = pstore->store+pindex;
-    pindex = packedpath_get_prev(path);
-    packedpath_get_len_orient(path, pstore->colset_bytes, &len, &orient);
-    pbytes = packedpath_len_nbytes(len);
-    mem = packedpath_mem2(pstore->colset_bytes, pbytes);
-    *pidx += mem;
-    newidx = (pindex == PATH_NULL ? PATH_NULL : *pidx);
+    if(update_kpaths && pindex == kpidx)
+      pstore_paths(pstore, hkey) = pidx;
 
-    if(fwrite(&newidx, 1, sizeof(PathIndex), fout) +
-       fwrite(path+sizeof(PathIndex), 1, mem-sizeof(PathIndex), fout) != mem)
-    {
-      die("Couldn't write to file");
+    path = pstore->store+pindex;
+    mem = packedpath_mem(path, pstore->colset_bytes);
+    pindex = packedpath_get_prev(path);
+
+    pidx += mem;
+    newidx = (pindex == PATH_NULL ? PATH_NULL : pidx);
+
+    // printf("%zu writing %zu paths bytes next: %zu\n", pidx, mem, newidx);
+
+    if(fout) {
+      if(fwrite(&newidx, 1, sizeof(PathIndex), fout) +
+         fwrite(path+sizeof(PathIndex), 1, mem-sizeof(PathIndex), fout) != mem)
+      {
+        die("Couldn't write to file");
+      }
+    } else {
+      memcpy(mout, &newidx, sizeof(PathIndex));
+      mout += sizeof(PathIndex);
+      memcpy(mout, path+sizeof(PathIndex), mem-sizeof(PathIndex));
+      mout += mem-sizeof(PathIndex);
     }
   }
   while(pindex != PATH_NULL);
+
+  if(mem_ptr) *mem_ptr = mout;
+  *pidx_ptr = pidx;
 }
 
 static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
@@ -481,10 +502,25 @@ static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
   }
 }
 
+void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout)
+{
+  ctx_assert(db_graph->pstore.kmer_paths_update != NULL);
+  PathIndex poffset = 0;
+  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout, NULL);
+}
+
+void paths_format_cpy_optimised_paths_only(dBGraph *db_graph, uint8_t *mem)
+{
+  ctx_assert(db_graph->pstore.kmer_paths_update != NULL);
+  PathIndex poffset = 0;
+  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, NULL, &mem);
+}
+
 // Corrupts paths so they cannot be used elsewhere
+// unless you reload the optimised paths from fout
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout)
 {
-  PathIndex poffset = 0;
-  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
+  ctx_assert(db_graph->pstore.kmer_paths_update != NULL);
+  paths_format_write_optimised_paths_only(db_graph, fout);
   HASH_ITERATE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
 }

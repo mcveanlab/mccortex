@@ -94,7 +94,8 @@ static void build_graph_task_new(const char *seq_path1,
 
   AsyncIOReadTask iotask = {.file1 = file1, .file2 = file2,
                             .fq_offset = (uint8_t)fq_offset,
-                            .interleaved = interleaved};
+                            .interleaved = interleaved,
+                            .ptr = taskptr};
 
   BuildGraphTask task = {.files = iotask,
                          .fq_cutoff = (uint8_t)fq_cutoff,

@@ -252,6 +252,7 @@ int ctx_infer_edges(CmdArgs *args)
   char *path = argv[0];
   dBGraph db_graph;
   GraphFileReader file = INIT_GRAPH_READER;
+  // Mode r+ means open (not create) for update (read & write)
   graph_file_open2(&file, path, true, "r+");
   bool reading_stream = (file.fltr.fh == stdin);
 
