@@ -15,6 +15,7 @@ typedef struct
   pthread_t thread;
   dBGraph *const db_graph;
   MsgPool *pool;
+  volatile size_t *rcounter; // counter of entries taken from the pool
   LoadingStats *file_stats; // Array of stats for diff input files
 } BuildGraphWorker;
 
@@ -192,6 +193,19 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
   }
 }
 
+// Print progress every 5M reads
+#define REPORT_RATE 5000000
+
+static void build_graph_print_progress(size_t n)
+{
+  if(n % REPORT_RATE == 0)
+  {
+    char num_str[100];
+    long_to_str(n, num_str);
+    status("[BuildGraph] Read %s entries (reads / read pairs)", num_str);
+  }
+}
+
 // pthread method, loop: reads from pool, add to graph
 static void* grab_reads_from_pool(void *ptr)
 {
@@ -217,6 +231,10 @@ static void* grab_reads_from_pool(void *ptr)
                               task->colour, wrkr->db_graph);
 
     msgpool_release(pool, pos, MPOOL_EMPTY);
+
+    // Print progress
+    size_t n = __sync_fetch_and_add(wrkr->rcounter, 1);
+    build_graph_print_progress(n);
   }
 
   pthread_exit(NULL);
@@ -246,10 +264,12 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   }
 
   BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
+  size_t rcounter = 0;
 
   for(i = 0; i < num_build_threads; i++)
   {
-    BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = &pool};
+    BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = &pool,
+                                 .rcounter = &rcounter};
     tmp_wrkr.file_stats = calloc2(num_files, sizeof(LoadingStats));
     memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
   }

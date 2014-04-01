@@ -52,7 +52,6 @@ typedef struct {
   MsgPool *pool;
   dBAlignment aln;
   CorrectAlnWorker corrector;
-  CorrectAlnReadsTask *input;
   LoadingStats stats;
   // For filling in gaps
   GraphWalker wlk;
@@ -144,7 +143,6 @@ static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
 {
   wrkr->db_graph = db_graph;
   wrkr->pool = pool;
-  wrkr->input = NULL;
   db_alignment_alloc(&wrkr->aln);
   correct_aln_worker_alloc(&wrkr->corrector, db_graph);
   loading_stats_init(&wrkr->stats);
@@ -166,7 +164,9 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
   db_node_buf_dealloc(&wrkr->tmpnbuf);
 }
 
-static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
+static void handle_read(CorrectReadsWorker *wrkr,
+                        const CorrectAlnReadsTask *input,
+                        const read_t *r, StrBuf *buf,
                         uint8_t fq_cutoff, uint8_t hp_cutoff)
 {
   dBNodeBuffer *nbuf, *tmpnbuf = &wrkr->tmpnbuf;
@@ -175,8 +175,8 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
   RepeatWalker *rptwlk = &wrkr->rptwlk;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t kmer_size = db_graph->kmer_size;
-  const size_t ctxcol = wrkr->input->crt_params.ctxcol;
-  const size_t ctpcol = wrkr->input->crt_params.ctpcol;
+  const size_t ctxcol = input->crt_params.ctxcol;
+  const size_t ctpcol = input->crt_params.ctpcol;
 
   size_t i, idx, gap, num_n, nbases;
   size_t init_len, end_len;
@@ -188,7 +188,7 @@ static void handle_read(CorrectReadsWorker *wrkr, const read_t *r, StrBuf *buf,
                           fq_cutoff, 0, hp_cutoff, db_graph, -1);
 
   // Correct sequence errors in the alignment
-  correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->input->crt_params);
+  correct_alignment_init(&wrkr->corrector, &wrkr->aln, input->crt_params);
 
   // Get first alignment
   nbuf = correct_alignment_nxt(&wrkr->corrector);
@@ -301,7 +301,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 {
   uint8_t fq_cutoff1, fq_cutoff2, hp_cutoff;
 
-  CorrectAlnReadsTask *input = wrkr->input;
+  CorrectAlnReadsTask *input = (CorrectAlnReadsTask*)data->ptr;
   CorrectedOutput *output = (CorrectedOutput*)input->ptr;
   StrBuf *buf1 = &wrkr->buf1, *buf2 = &wrkr->buf2;
 
@@ -322,7 +322,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   if(r2 == NULL)
   {
     // Single ended read
-    handle_read(wrkr, r1, buf1, fq_cutoff1, hp_cutoff);
+    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
     pthread_mutex_lock(&output->lockse);
     gzputs(output->gzse, buf1->buff);
     pthread_mutex_unlock(&output->lockse);
@@ -333,8 +333,8 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   else
   {
     // Paired-end reads
-    handle_read(wrkr, r1, buf1, fq_cutoff1, hp_cutoff);
-    handle_read(wrkr, r2, buf2, fq_cutoff2, hp_cutoff);
+    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
+    handle_read(wrkr, input, r2, buf2, fq_cutoff2, hp_cutoff);
     pthread_mutex_lock(&output->lockpe);
     gzputs(output->gzpe1, buf1->buff);
     gzputs(output->gzpe2, buf2->buff);

@@ -39,7 +39,8 @@ void correct_reads_input_init(const char *p1, const char *p2, bool interleaved,
 
   AsyncIOReadTask iotask = {.file1 = f1, .file2 = f2,
                             .fq_offset = (uint8_t)fq_offset,
-                            .interleaved = interleaved};
+                            .interleaved = interleaved,
+                            .ptr = ptr};
 
   CorrectAlnReadsTask tsk = {.files = iotask,
                              .fq_cutoff = (uint8_t)fq_cutoff,

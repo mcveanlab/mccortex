@@ -460,9 +460,10 @@ static void reads_to_paths(GenPathWorker *wrkr)
     worker_contig_to_junctions(wrkr, nbuf);
 }
 
-#define REPORT_RATE 500000
+// Print progress every 5M reads
+#define REPORT_RATE 5000000
 
-static void gen_path_status(size_t n)
+static void gen_paths_print_progress(size_t n)
 {
   if(n % REPORT_RATE == 0)
   {
@@ -471,6 +472,39 @@ static void gen_path_status(size_t n)
     status("[GenPaths] Read %s entries (reads / read pairs)", num_str);
   }
 }
+
+// static void gen_paths_pause(GenPathWorker *wrkr)
+// {
+//   __sync_fetch_and_sub(&threads_running, 1);
+// }
+
+// static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
+// {
+//   if(pause) gen_paths_pause();
+//   else if(n % DUMP_RELOAD_RATE == 0)
+//   {
+//     if(pthread_mutex_trylock(save_output_lock))
+//     {
+//       pause = true;
+//       __sync_fetch_and_sub(&threads_running, 1);
+//       pthread_mutex_lock();
+//       while(threads_running)
+//         pthread_cond_wait();
+//       pthread_mutex_unlock();
+    
+//       // Save
+//       // DEV: Dump file, reload
+
+//       // Restore threads
+//       pause = false;
+//       pthread_cond_broadcast();
+
+//       // Done
+//       pthread_mutex_unlock(save_output_lock);
+//     }
+//     else gen_paths_pause();
+//   }
+// }
 
 // pthread method, loop: grabs job, does processing
 static void* generate_paths_worker(void *ptr)
@@ -490,7 +524,8 @@ static void* generate_paths_worker(void *ptr)
 
     // Print progress
     size_t n = __sync_fetch_and_add(wrkr->rcounter, 1);
-    gen_path_status(n);
+    gen_paths_print_progress(n);
+    // gen_paths_sync(wrkr, n);
   }
 
   pthread_exit(NULL);

@@ -48,7 +48,8 @@ static void async_io_worker_init(AsyncIOWorker *wrkr,
 }
 
 static void add_to_pool(read_t *r1, read_t *r2,
-                        uint8_t fq_offset1, uint8_t fq_offset2, void *ptr)
+                        uint8_t fq_offset1, uint8_t fq_offset2,
+                        void *ptr)
 {
   AsyncIOWorker *wrkr = (AsyncIOWorker*)ptr;
   MsgPool *pool = wrkr->pool;
@@ -184,7 +185,7 @@ void asyncio_run_threads(MsgPool *pool,
   // Run the workers until the pool is closed
   pthread_t *threads = calloc2(num_readers, sizeof(pthread_t));
 
-  // Start threads
+  // Start threads that read from the pool
   for(i = 0; i < num_readers; i++) {
     rc = pthread_create(&threads[i], &thread_attr, job, (char*)args+i*elsize);
     if(rc != 0) die("Creating thread failed");
