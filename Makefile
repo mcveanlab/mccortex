@@ -224,8 +224,8 @@ $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(
 $(CMDS_OBJDIR)/%.o: src/commands/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) $(CMDS_HDRS) | $(DEPS)
 	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ $(INCS) -c $<
 
-$(TESTS_OBJDIR)/%.o: src/tests/%.c $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
-	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $<
+$(TESTS_OBJDIR)/%.o: src/tests/%.c $(TESTS_HDRS) $(BASIC_HDRS) $(KMER_HDRS) $(TOOLS_HDRS) | $(DEPS)
+	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) -c $<
 
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
@@ -237,7 +237,7 @@ bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) | bin
-	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ -I src/tests/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
+	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ -I src/tests/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin

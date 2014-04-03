@@ -7,7 +7,7 @@
 
 void test_cleaning()
 {
-  test_status("[cleaning] Testing graph cleaning...");
+  test_status("Testing graph cleaning...");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;

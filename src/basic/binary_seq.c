@@ -207,8 +207,18 @@ void binary_seq_to_str(const uint8_t *arr, size_t len, char *str)
 {
   const char *end = str+len;
   size_t b = 0, o = 0;
-  for(; str < end; str++, o+=2, b += (o == 8), o &= 7) {
+  while(str < end) {
     *str = dna_nuc_to_char((arr[b] >> o) & 3);
+    str++; o += 2; b += (o == 8); o &= 7;
   }
   *str = '\0';
+}
+
+void binary_seq_print(const uint8_t *arr, size_t len, FILE *fout)
+{
+  size_t i, b = 0, o = 0;
+  for(i = 0; i < len; i++) {
+    fputc(dna_nuc_to_char((arr[b] >> o) & 3), fout);
+    o+=2; b += (o == 8); o &= 7;
+  }
 }

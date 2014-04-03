@@ -36,7 +36,8 @@ void path_store_alloc(PathStore *ps, size_t size, size_t tmpsize,
                          .tmpstore = tmp, .tmpsize = tmpsize,
                          .kmer_paths = kmer_paths,
                          .kmer_paths_update = kmer_paths,
-                         .kmer_locks = NULL};
+                         .kmer_locks = NULL,
+                         .phash = PATH_HASH_EMPTY};
 
   memcpy(ps, &new_paths, sizeof(PathStore));
 }
@@ -63,7 +64,8 @@ void path_store_reclaim_tmp(PathStore *ps)
                          .tmpsize = 0,
                          .kmer_paths = ps->kmer_paths,
                          .kmer_paths_update = ps->kmer_paths_update,
-                         .kmer_locks = ps->kmer_locks};
+                         .kmer_locks = ps->kmer_locks,
+                         .phash = ps->phash};
 
   memcpy(ps, &new_paths, sizeof(PathStore));
 }
@@ -78,6 +80,7 @@ void path_store_dealloc(PathStore *ps)
   free(ps->store);
   ps->kmer_locks = NULL;
   ps->kmer_paths_update = ps->kmer_paths = NULL;
+  if(ps->phash.table != NULL) path_hash_dealloc(&ps->phash);
 }
 
 // Find a path

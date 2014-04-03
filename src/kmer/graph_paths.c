@@ -18,6 +18,8 @@ void graph_paths_defragment(dBGraph *db_graph, FILE* tmp_fh)
   size_t used_bytes = pstore->next - pstore->store;
   size_t remaining = pstore->end - pstore->next;
 
+  if(used_bytes == 0) return;
+
   if(remaining >= used_bytes)
   {
     status("[PathStore] Defragmenting in memory %zu -> %zu...", used_bytes, remaining);
@@ -121,7 +123,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
-bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
+bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
                                 const uint8_t *packed, size_t plen,
                                 PathStore *pstore, PathIndex *newidx)
 {
@@ -138,11 +140,18 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   const PathIndex next = *pstore_paths_update_volptr(pstore, node.key);
 
   // 2) Search for path
-  PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
+  // PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
+  PathIndex match;
   uint8_t *colset;
+  size_t phash_pos = 0;
+  int pret = path_hash_find_or_insert(&pstore->phash, bkmer, packed,
+                                      pstore->store, pstore->colset_bytes,
+                                      &phash_pos);
 
-  if(match != PATH_NULL)
+  if(pret == 0)
   {
+    // Found
+    match = path_hash_get_pindex(&pstore->phash, phash_pos);
     // => if already exist -> add colour -> release lock
     colset = packedpath_get_colset(pstore->store+match);
     bool added = !bitset_get(colset, ctpcol);
@@ -162,12 +171,19 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   new_path = __sync_fetch_and_add((uint8_t * volatile *)(void*)&pstore->next,
                                   (uint8_t *)mem);
 
-  if(new_path + mem > pstore->end) die("Out of path memory!");
+  if(new_path + mem > pstore->end || pret == -1)
+  {
+    // DEV: be better, pause threads, dump graph, clear memory
+    die("Out of path memory! [%s]", pret == -1 ? "PathHash" : "PathLinkedList");
+  }
+
+  PathIndex pindex = (uint64_t)(new_path - pstore->store);
 
   // 4) Copy new entry
-
-  // Prev
+  // Point new entry to existing linked list
   packedpath_set_prev(new_path, next);
+  // Update PathHash
+  path_hash_set_pindex(&pstore->phash, phash_pos, pindex);
 
   // bitset
   colset = packedpath_get_colset(new_path);
@@ -184,7 +200,6 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   __sync_synchronize();
 
   // 5) update kmer pointer
-  PathIndex pindex = (uint64_t)(new_path - pstore->store);
   *pstore_paths_update_volptr(pstore, node.key) = pindex;
 
   // Update number of kmers with paths if this the first path for this kmer

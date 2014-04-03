@@ -7,7 +7,7 @@
 
 void test_len_orient()
 {
-  test_status("[packedpath] Testing combine_lenorient");
+  test_status("Testing packed_path.c combine_lenorient()");
 
   PathLen len, len2, merged;
   Orientation orient, orient2;

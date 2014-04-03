@@ -181,7 +181,8 @@ int ctx_thread(CmdArgs *args)
                   sizeof(PathIndex)*8*(num_pfiles > 0 ? 2 : 1) +
                   2*num_work_threads + // Have traversed
                   1 + // node in colour
-                  1; // path store kmer lock
+                  1 + // path store kmer lock
+                  128; // path hash
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
@@ -232,6 +233,8 @@ int ctx_thread(CmdArgs *args)
   // loading then ADDING more paths (which may need new colours)
   path_store_alloc(&db_graph.pstore, main_path_mem, tmp_path_mem,
                    kmers_in_hash, total_cols);
+
+  path_hash_alloc(&db_graph.pstore.phash, kmers_in_hash*16);
 
   // path kmer locks for multithreaded access
   db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);

@@ -24,7 +24,7 @@ static void run_subgraph(dBGraph *graph, uint64_t *mask,
 
 void test_subgraph()
 {
-  test_status("[subgraph] Testing subgraph...");
+  test_status("Testing subgraph...");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;

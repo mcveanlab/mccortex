@@ -5,6 +5,7 @@
 #include "file_filter.h"
 #include "cortex_types.h"
 #include "packed_path.h"
+#include "path_hash.h"
 
 // Extra padding to avoid reading bad memory
 #define PSTORE_PADDING 16
@@ -30,6 +31,8 @@ typedef struct
   PathIndex *kmer_paths, *kmer_paths_update;
   // Multithreaded writing
   uint8_t *kmer_locks;
+
+  PathHash phash;
 } PathStore;
 
 //

@@ -430,6 +430,8 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
                                          FILE *const fout,
                                          uint8_t **const mem_ptr)
 {
+  ctx_assert((fout == NULL) != (mem_ptr == NULL));
+
   const PathStore *pstore = &db_graph->pstore;
   PathIndex pindex, newidx, pidx = *pidx_ptr;
   const uint8_t *path;

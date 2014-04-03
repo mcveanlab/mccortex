@@ -15,7 +15,7 @@ static void check_bkmers(hkey_t key, HashTable *ht, BinaryKmer *ptr, size_t *c)
 
 void test_hash_table()
 {
-  test_status("[hash_table] test add/delete");
+  test_status("Test add/delete to hash_table");
 
   HashTable ht;
   BinaryKmer bkmer0, bkmer1, bkxor = {.b = {0}}, bkresult = {.b = {0}};

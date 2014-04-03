@@ -15,7 +15,7 @@ static Covg kmer_get_covg(const char *kmer, const dBGraph *db_graph)
 
 void test_build_graph()
 {
-  test_status("[build_graph] testing remove PCR duplicates...");
+  test_status("Testing remove PCR duplicates in build_graph.c");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;

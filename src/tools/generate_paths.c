@@ -193,7 +193,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   size_t start_mn, start_pl, pos;
   PathLen plen, plen_orient;
   bool added;
-  PathIndex pindex; // address of path once added
+  PathIndex pindex = 0; // address of path once added
   bool printed = false;
 
   #ifdef CTXVERBOSE
@@ -275,8 +275,23 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    added = graph_paths_find_or_add_mt(node, ctpcol, packed_ptr, plen,
+    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+
+    added = graph_paths_find_or_add_mt(node, bkmer, ctpcol, packed_ptr, plen,
                                        &db_graph->pstore, &pindex);
+
+    /*
+    // DEBUGGING
+    added = true;
+    pthread_mutex_lock(&biglock);
+    char bkmer_str[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, bkmer_str);
+    fputs(bkmer_str, stdout);
+    binary_seq_print(packed_ptr, plen, stdout);
+    fputc('\n', stdout);
+    pthread_mutex_unlock(&biglock);
+    // END
+    */
 
     packed_ptr[top_idx] = top_byte; // restore top byte
 
@@ -490,7 +505,7 @@ static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
 {
   ThreadPause *thp = wrkr->thread_pause;
 
-  if(n && n % DEFRAG_RATE == 0 && thread_pause_take_control(thp))
+  if(n % DEFRAG_RATE == 0 && thread_pause_take_control(thp))
   {
     // Save
     graph_paths_defragment(wrkr->db_graph, wrkr->tmp_fh);
@@ -522,7 +537,7 @@ static void* generate_paths_worker(void *ptr)
     // Print progress
     size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
     gen_paths_print_progress(n);
-    gen_paths_sync(wrkr, n);
+    // gen_paths_sync(wrkr, n);
   }
 
   thread_pause_finished(wrkr->thread_pause);

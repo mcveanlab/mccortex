@@ -56,7 +56,7 @@ static void _check_correct_aln(char *seq1, char *seq2,
 
 static void test_correct_aln_no_paths()
 {
-  test_status("[CorrectAln] Testing correct_aln with no paths...");
+  test_status("Testing correct_aln with no paths...");
 
   // mutations:                            **                 *
   char seq[] = "ATGCATGTTGACCAAATAAGTCAC""TGTGGGAGCCACGTAAAGCGTTCGCACCGATTTGTG";
@@ -107,7 +107,7 @@ static void test_correct_aln_no_paths()
 
 static void test_contig_ends_agree()
 {
-  test_status("[CorrectAln] Testing correct_aln with contig end check...");
+  test_status("Testing correct_aln with contig end check...");
 
   /*
 
@@ -209,7 +209,7 @@ static void test_contig_ends_agree()
 
 void test_corrected_aln()
 {
-  test_status("[CorrectAln] Testing correct_alignment.c");
+  test_status("Testing correct_alignment.c");
   test_correct_aln_no_paths();
   test_contig_ends_agree();
 }

@@ -6,7 +6,7 @@
 
 static void test_util_rev_nibble_lookup()
 {
-  test_status("[util] testing rev_nibble_lookup()");
+  test_status("Testing rev_nibble_lookup()");
   size_t i;
   for(i = 0; i < 16; i++) {
     TASSERT(rev_nibble_lookup(i) == rev_nibble(i));
@@ -24,7 +24,7 @@ static void test_util_num_to_str()
 
 static void test_util_bytes_to_str()
 {
-  test_status("[util] testing bytes_to_str()");
+  test_status("Testing bytes_to_str()");
 
   char str[100];
 
@@ -47,7 +47,7 @@ static void test_util_bytes_to_str()
 
 static void test_util_calc_GCD()
 {
-  test_status("[util] testing get_GCD()");
+  test_status("Testing get_GCD()");
   TASSERT(calc_GCD(0,0) == 0);
   TASSERT(calc_GCD(10,0) == 10);
   TASSERT(calc_GCD(0,10) == 10);
@@ -65,7 +65,7 @@ static void test_util_calc_GCD()
 
 static void test_util_calc_N50()
 {
-  test_status("[util] testing calc_N50()");
+  test_status("Testing calc_N50()");
   size_t arr[] = {1,2,3,4,5,6,7,8,9,10};
   TASSERT(calc_N50(arr, 3, 6) == 3);
   TASSERT(calc_N50(arr, 4, 10) == 3);

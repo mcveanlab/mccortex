@@ -108,6 +108,6 @@ static void test_repeat_loop()
 
 void test_repeat_walker()
 {
-  test_status("[RptWalker] Testing repeat_walker.h");
+  test_status("Testing repeat_walker.h");
   test_repeat_loop();
 }

@@ -53,7 +53,7 @@ static void test_all_paths(const dBGraph *graph)
 
 void test_paths()
 {
-  test_status("[GenPaths] Testing adding paths");
+  test_status("Testing adding paths in generate_paths.c");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
@@ -69,6 +69,7 @@ void test_paths()
   // Path data
   path_store_alloc(&graph.pstore, path_max_mem, 0, graph.ht.capacity, ncols);
   graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
+  path_hash_alloc(&graph.pstore.phash, graph.ht.capacity*16);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d

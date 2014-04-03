@@ -8,7 +8,7 @@
 
 void test_binary_seq_rev_cmp()
 {
-  test_status("[BinarySeq] binary_seq_reverse_complement() binary_seq_to_str()");
+  test_status("binary_seq_reverse_complement() binary_seq_to_str()");
 
   uint8_t data[TLEN], tmp[TLEN];
   char str[4*TLEN+1], rev[4*TLEN+1], restore[4*TLEN+1];
@@ -40,7 +40,7 @@ void test_binary_seq_rev_cmp()
 
 static void test_binary_seq_cpy()
 {
-  test_status("[BinarySeq] Testing shift copy");
+  test_status("Testing shift copy");
 
   uint8_t d0[10] = {0,0,0,0,0,0,0,0,0,0};
   uint8_t out[100];
@@ -109,7 +109,7 @@ static void print_nucs(Nucleotide *nucs, size_t len) {
 
 static void test_pack_unpack()
 {
-  test_status("[BinarySeq] Testing binary_seq_pack() / binary_seq_unpack()");
+  test_status("Testing binary_seq_pack() / binary_seq_unpack()");
 
   uint8_t packed[TLEN];
   Nucleotide bases0[TLEN], bases1[TLEN];
@@ -140,7 +140,7 @@ static void test_pack_unpack()
   }
 }
 
-static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shift)
+static void _manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shift)
 {
   TASSERT(len >= shift);
   size_t i, nbytes = (len+3)/4, outlen = len - shift;
@@ -167,28 +167,25 @@ static void manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shif
   TASSERT2(strncmp(seq+shift, seq2, outlen) == 0, "in: %s\nout:%s\n", seq, seq2);
 }
 
-static void test_pack_cpy_unpack_shifts(const char *seq, size_t len)
+static void _test_pack_cpy_unpack_shifts(const char *seq, size_t len)
 {
   size_t shift;
   for(shift = 0; shift <= len; shift++)
-    manual_test_pack_cpy_unpack(seq, len, shift);
+    _manual_test_pack_cpy_unpack(seq, len, shift);
 }
 
 static void test_pack_cpy_unpack()
 {
-  test_status("[BinarySeq] Testing pack()+cpy()+unpack()");
+  test_status("Testing pack()+cpy()+unpack()");
 
-  test_pack_cpy_unpack_shifts("CTA", 3);
-  test_pack_cpy_unpack_shifts("C", 1);
-  test_pack_cpy_unpack_shifts("CAGACAG", 7);
+  _test_pack_cpy_unpack_shifts("CTA", 3);
+  _test_pack_cpy_unpack_shifts("C", 1);
+  _test_pack_cpy_unpack_shifts("CAGACAG", 7);
 }
 
 void test_binary_seq_functions()
 {
-  test_status("[BinarySeq] testing...");
-
   test_binary_seq_rev_cmp();
-
   test_binary_seq_cpy();
   test_pack_unpack();
   test_pack_cpy_unpack();

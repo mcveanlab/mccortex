@@ -62,6 +62,7 @@ void _construct_graph_with_paths(dBGraph *graph,
   // Path data
   path_store_alloc(&graph->pstore, 1024, 0, graph->ht.capacity, ncols);
   graph->pstore.kmer_locks = calloc2(roundup_bits2bytes(graph->ht.capacity), 1);
+  path_hash_alloc(&graph->pstore.phash, graph->ht.capacity*16);
 
   // Build graph
   for(i = 0; i < nseqs; i++)

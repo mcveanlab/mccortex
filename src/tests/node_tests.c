@@ -26,7 +26,7 @@ static void edge_check(hkey_t hkey, const dBGraph *db_graph, size_t col)
 
 static void test_db_graph_next_nodes()
 {
-  test_status("[db_node] Testing db_graph_next_nodes() vs edges_ functions");
+  test_status("Testing db_graph_next_nodes() vs edges_ functions");
 
   // Construct 2 colour graph with kmer-size=11
   dBGraph graph;
@@ -60,7 +60,7 @@ static void test_db_graph_next_nodes()
 
 static void test_left_shift()
 {
-  test_status("[db_node] Testing db_nodes_left_shift()");
+  test_status("Testing db_nodes_left_shift()");
 
   dBNode nodes0[MAXLEN], nodes1[MAXLEN];
 

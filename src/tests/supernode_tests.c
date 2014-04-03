@@ -79,7 +79,7 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
 
 void test_supernode()
 {
-  test_status("[supernode] testing supernode_find()...");
+  test_status("testing supernode_find()...");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;

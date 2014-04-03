@@ -15,6 +15,7 @@
 #define HT_BSIZE 0
 #define HT_BITEMS 1
 
+// Struct is public so ITERATE macros can operate on it
 typedef struct
 {
   BinaryKmer *const table;
