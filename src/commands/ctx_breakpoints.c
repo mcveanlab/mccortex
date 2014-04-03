@@ -129,7 +129,7 @@ int ctx_breakpoints(CmdArgs *args)
                                         ctx_max_kmers, false, &graph_mem);
 
   // Path memory
-  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
+  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
   path_mem = path_max_mem + tmp_path_mem;
 
   bytes_to_str(path_mem, 1, path_mem_str);
@@ -164,7 +164,7 @@ int ctx_breakpoints(CmdArgs *args)
   db_graph.node_in_cols = calloc2(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
-  path_store_alloc(&db_graph.pstore, path_max_mem, tmp_path_mem,
+  path_store_alloc(&db_graph.pstore, path_max_mem, false,
                    db_graph.ht.capacity, path_max_usedcols);
 
   //
@@ -190,7 +190,6 @@ int ctx_breakpoints(CmdArgs *args)
   //
   if(num_pfiles > 0) {
     paths_format_merge(pfiles, num_pfiles, false, &db_graph);
-    path_store_reclaim_tmp(&db_graph.pstore);
   }
 
   //

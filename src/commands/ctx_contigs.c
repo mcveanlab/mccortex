@@ -379,7 +379,7 @@ int ctx_contigs(CmdArgs *args)
                                         gfile.num_of_kmers, false, &graph_mem);
 
   // Paths memory
-  size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
+  size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
   path_mem = path_max_mem + tmp_path_mem;
 
   bytes_to_str(path_mem, 1, path_mem_str);
@@ -410,7 +410,7 @@ int ctx_contigs(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, 1);
 
-  path_store_alloc(&db_graph.pstore, path_max_mem, tmp_path_mem,
+  path_store_alloc(&db_graph.pstore, path_max_mem, false,
                    db_graph.ht.capacity, path_max_usedcols);
 
   uint64_t *visited = no_reseed ? calloc2(nword64, sizeof(uint64_t)) : NULL;

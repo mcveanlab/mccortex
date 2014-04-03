@@ -69,9 +69,16 @@ void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   capacity = hash_table_cap(req_capacity, &num_of_buckets, &bucket_size);
   uint_fast32_t hash_mask = (uint_fast32_t)(num_of_buckets - 1);
 
-  char capacity_str[100];
-  ulong_to_str(capacity, capacity_str);
-  status("[hash] Attempting to alloc table with %s entries\n", capacity_str);
+  size_t mem = capacity * sizeof(BinaryKmer) +
+               num_of_buckets * sizeof(uint8_t[2]);
+
+  char num_bkts_str[100], bkt_size_str[100], cap_str[100], mem_str[100];
+  ulong_to_str(num_of_buckets, num_bkts_str);
+  ulong_to_str(bucket_size, bkt_size_str);
+  ulong_to_str(capacity, cap_str);
+  bytes_to_str(mem, 1, mem_str);
+  status("[KmerHash] Allocating table with %s entries, using %s", cap_str, mem_str);
+  status("[KmerHash]  number of buckets: %s bucket size: %s", num_bkts_str, bkt_size_str);
 
   // calloc is required for bucket_data to set the first element of each bucket
   // to the 0th pos

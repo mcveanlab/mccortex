@@ -13,15 +13,15 @@
 typedef struct
 {
   // Constants for this instance
-  uint8_t *const store, *const end;
-  const size_t size;
+  uint8_t *const store, *end, *next;
   const size_t num_of_cols, colset_bytes;
 
-  uint8_t *next;
   size_t num_of_paths, num_kmers_with_paths, num_col_paths;
+
   // Temporary data used for merging
-  uint8_t *const tmpstore;
-  const size_t tmpsize;
+  uint8_t *tmpstore;
+  size_t tmpsize;
+
   // Kmer pointers
   // kmer_paths is NULL if we don't want GraphWalker to use paths
   // kmer_paths_update may point to kmer_paths, elsewhere or NULL
@@ -29,6 +29,7 @@ typedef struct
   // kmer_paths is used in loading paths and traversing the graph
   // kmer_paths_update is used for generate_paths.c and dumping ctp files
   PathIndex *kmer_paths, *kmer_paths_update;
+
   // Multithreaded writing
   uint8_t *kmer_locks;
 
@@ -36,7 +37,7 @@ typedef struct
 } PathStore;
 
 //
-// Paths
+// Pointer to linked list for each kmer
 //
 #define pstore_paths(pstore,node) \
         ((pstore)->kmer_paths[(node)])
@@ -46,14 +47,20 @@ typedef struct
         ((volatile PathIndex *)&(pstore)->kmer_paths_update[(node)])
 
 // Initialise the PathStore
-void path_store_alloc(PathStore *paths, size_t size, size_t tmpsize,
-                      size_t graph_capacity, size_t ncols);
+// use_path_hash must be true if you are adding paths manual
+//   (i.e. adding paths anyway other than loading from a file)
+void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
+                      size_t kmers_in_hash, size_t ncols);
 
 // Release memory
 void path_store_dealloc(PathStore *paths);
 
+
+// Set up temporary memory for merging PathStores
+void path_store_setup_tmp(PathStore *ps, size_t tmp_mem);
+
 // Once tmp has been used for merging, it can be reclaimed to use generally
-void path_store_reclaim_tmp(PathStore *paths);
+void path_store_release_tmp(PathStore *ps);
 
 // Free ps->kmer_paths, set kmer_paths to point to kmer_paths_update.
 void path_store_combine_updated_paths(PathStore *pstore);
@@ -65,26 +72,13 @@ void path_store_combine_updated_paths(PathStore *pstore);
 PathIndex path_store_find(const PathStore *paths, PathIndex last_index,
                           const uint8_t *query, size_t path_nbytes);
 
-// Find or add a path into the PathStore
-// last_index is index of the last path belonging to the kmer which owns the
-// new path that is to be inserted
-// Returns match PathIndex if found, otherwise PATH_NULL
-PathIndex path_store_find_or_add_packed(PathStore *paths, PathIndex last_index,
-                                        const uint8_t *packed, size_t path_nbytes,
-                                        bool *inserted);
-
 // Add a PackedPath, using a FileFilter to reduce to a subset of colours
 // `find` Specifies if we should try to find a duplicate first
 // Returns PATH_NULL if no colours set in colour subset
-PathIndex path_store_find_or_add_packed2(PathStore *store, PathIndex last_index,
-                                         const uint8_t *packed, size_t path_nbytes,
-                                         const FileFilter *fltr, bool find,
-                                         bool *added);
-
-// Add to PathStore
-PathIndex path_store_find_or_add(PathStore *paths, PathIndex last_index,
-                                 PathLen len, const Nucleotide *bases,
-                                 Orientation orient, Colour colour,
+PathIndex path_store_find_or_add(PathStore *store,
+                                 BinaryKmer bkmer, PathIndex last_index,
+                                 const uint8_t *packed, size_t path_nbytes,
+                                 const FileFilter *fltr, bool find,
                                  bool *added);
 
 // If compatible, a FileFilter can be read straight into a PathStore without

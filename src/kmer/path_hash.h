@@ -16,6 +16,7 @@ struct PathHashStruct
   const uint8_t bucket_size; // max value 255
   const uint64_t capacity, mask; // num_of_buckets * bucket_size
   size_t num_entries;
+  volatile uint8_t *const bktlocks;
 };
 
 typedef struct PathHashStruct PathHash;
@@ -31,10 +32,11 @@ void path_hash_dealloc(PathHash *phash);
 //   1  inserted
 //   0  found
 //  -1  out of memory
-int path_hash_find_or_insert(PathHash *restrict phash, BinaryKmer bkmer,
-                             const uint8_t *restrict packed,
-                             const uint8_t *pstore, size_t colbytes,
-                             size_t *pos);
+// Thread Safe: uses bucket level locks
+int path_hash_find_or_insert_mt(PathHash *restrict phash, BinaryKmer bkmer,
+                                const uint8_t *restrict packed,
+                                const uint8_t *pstore, size_t colbytes,
+                                size_t *pos);
 
 // Set pindex of newly inserted paths
 void path_hash_set_pindex(PathHash *phash, size_t pos, PathIndex pindex);

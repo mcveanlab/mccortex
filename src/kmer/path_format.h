@@ -34,8 +34,9 @@ int paths_file_read_header(FILE *fh, PathFileHeader *header,
 size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files);
 
 // Get min tmp memory required to load files
-// (size of second largest num_path_bytes iff num_files > 1)
-size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files);
+// if we already have paths, return the max, otherwise second max
+size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files,
+                                   bool already_have_paths);
 
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph

@@ -134,12 +134,14 @@ size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files)
 }
 
 // Get min tmp memory required to load files
-// (size of second largest num_path_bytes iff num_files > 1)
-size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files)
+// if we already have paths, return the max, otherwise second max
+size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files,
+                                   bool already_have_paths)
 {
-  if(num_files <= 1) return 0;
+  if(num_files == 0) return 0;
+  if(num_files == 1) return already_have_paths ? files[0].hdr.num_path_bytes : 0;
 
-  // We need the size of the second largest file + path_mem
+  // We need the size of the first and second largest file path_mem
   size_t i, tmp, s0, s1;
 
   s0 = files[0].hdr.num_path_bytes;
@@ -152,7 +154,7 @@ size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files
     else if(tmp > s1) { s0 = tmp; }
   }
 
-  return s1;
+  return already_have_paths ? s0 : s1;
 }
 
 // Print some output
@@ -268,6 +270,7 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
   PathLen pbytes;
   bool added = false;
   PathStore *pstore = &db_graph->pstore;
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
 
   // Get paths this kmer already has
   pindex = pstore_paths(pstore, hkey);
@@ -276,8 +279,8 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
   {
     packed = data+loadindex;
     pbytes = packedpath_pbytes(packed, colset_bytes);
-    new_pindex = path_store_find_or_add_packed2(pstore, pindex, packed, pbytes,
-                                                fltr, find, &added);
+    new_pindex = path_store_find_or_add(pstore, bkmer, pindex, packed, pbytes,
+                                        fltr, find, &added);
     if(added) {
       pstore_paths(pstore, hkey) = pindex = new_pindex;
     }
@@ -296,7 +299,13 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   PathStore *pstore = &db_graph->pstore;
 
-  ctx_assert(num_files <= 1 || (pstore->tmpsize > 0 && pstore->tmpstore != NULL));
+  bool paths_loaded = (pstore->num_of_paths > 0);
+  size_t tmp_pmem = path_files_tmp_mem_required(files, num_files, paths_loaded);
+
+  if(tmp_pmem) path_store_setup_tmp(pstore, tmp_pmem);
+
+  ctx_assert((num_files == 1 && !pstore->num_of_paths) ||
+             (pstore->tmpsize > 0 && pstore->tmpstore != NULL));
 
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
@@ -358,8 +367,11 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       if(insert_missing_kmers) {
         node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
       }
-      else if((node = hash_table_find(&db_graph->ht, bkey)) == HASH_NOT_FOUND) {
-        die("Node missing: %zu [path: %s]", (size_t)node, path);
+      else if((node = hash_table_find(&db_graph->ht, bkey)) == HASH_NOT_FOUND)
+      {
+        char kmer_str[MAX_KMER_SIZE+1];
+        binary_kmer_to_str(bkey, db_graph->kmer_size, kmer_str);
+        die("Node missing: %s [path: %s]", kmer_str, path);
       }
 
       safe_fread(fh, &tmpindex, sizeof(uint64_t), "kmer_index", path);
@@ -380,6 +392,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   }
 
   path_store_print(pstore);
+
+  if(tmp_pmem) path_store_release_tmp(pstore);
 }
 
 

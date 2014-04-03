@@ -433,7 +433,7 @@ int ctx_correct(CmdArgs *args)
                                         ctx_max_kmers, false, &graph_mem);
 
   // Paths memory
-  size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
+  size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
   path_mem = ctp_max_mem + tmp_path_mem;
 
   bytes_to_str(path_mem, 1, path_mem_str);
@@ -482,10 +482,33 @@ int ctx_correct(CmdArgs *args)
   db_graph.node_in_cols = calloc2(bytes_per_col * ctx_total_cols, 1);
 
   // Paths
-  path_store_alloc(&db_graph.pstore, ctp_max_mem, tmp_path_mem,
+  path_store_alloc(&db_graph.pstore, ctp_max_mem, false,
                    db_graph.ht.capacity, ctp_max_usedcols);
 
+  //
+  // Load Graph and Path files
+  //
+  LoadingStats stats = LOAD_STATS_INIT_MACRO;
+
+  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
+                              .boolean_covgs = false,
+                              .must_exist_in_graph = false,
+                              .must_exist_in_edges = NULL,
+                              .empty_colours = true};
+
+  for(i = 0; i < num_gfiles; i++) {
+    graph_load(&gfiles[i], gprefs, &stats);
+    gprefs.empty_colours = false;
+  }
+
+  hash_table_print_stats(&db_graph.ht);
+
+  // Load path files (does nothing if num_fpiles == 0)
+  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
+
+  //
   // Run alignment
+  //
   AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 

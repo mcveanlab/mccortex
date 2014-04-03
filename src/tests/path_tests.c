@@ -67,9 +67,8 @@ void test_paths()
   graph.node_in_cols = calloc2(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
 
   // Path data
-  path_store_alloc(&graph.pstore, path_max_mem, 0, graph.ht.capacity, ncols);
+  path_store_alloc(&graph.pstore, path_max_mem, true, graph.ht.capacity, ncols);
   graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
-  path_hash_alloc(&graph.pstore.phash, graph.ht.capacity*16);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d

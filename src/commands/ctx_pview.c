@@ -84,7 +84,7 @@ int ctx_pview(CmdArgs *args)
   path_file_set_graph_sample_names(&pfile, &db_graph);
 
   // Paths
-  path_store_alloc(&db_graph.pstore, phdr->num_path_bytes, 0,
+  path_store_alloc(&db_graph.pstore, phdr->num_path_bytes, false,
                    db_graph.ht.capacity, phdr->num_of_cols);
 
   // Pretend we've read all the kmers in

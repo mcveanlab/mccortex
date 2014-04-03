@@ -34,13 +34,20 @@ extern size_t tests_num_run, tests_num_failed;
 // Test MACROs
 #define TASSERT2(x,fmt,...) do {                                               \
   tests_num_run++;                                                             \
-  if(!(x)) { tests_num_failed++;                                               \
-    fprintf(ctx_tst_out, "[%s:%i] Failed: %s\n",__FILE__,__LINE__,QUOTE_VALUE(x));\
+  if(!(x)) {                                                                   \
+    tests_num_failed++;                                                        \
+    fprintf(ctx_tst_out,"[%s:%i] Failed: %s\n",__FILE__,__LINE__,QUOTE_VALUE(x));\
     if((fmt) != NULL) test_status(fmt, ##__VA_ARGS__);                         \
-  } \
+  }                                                                            \
 } while(0)
 
-#define TASSERT(x) TASSERT2(x,NULL)
+#define TASSERT(x,...) do {                                                    \
+  tests_num_run++;                                                             \
+  if(!(x)) {                                                                   \
+    tests_num_failed++;                                                        \
+    fprintf(ctx_tst_out,"[%s:%i] Failed: %s\n",__FILE__,__LINE__,QUOTE_VALUE(x));\
+  }                                                                            \
+} while(0)
 
 //
 // Useful functions

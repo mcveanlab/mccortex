@@ -80,8 +80,9 @@ int ctx_health_check(CmdArgs *args)
                                         gfile.num_of_kmers, false, &graph_mem);
 
   // Path Memory
-  if(num_pfiles) {
-    tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
+  if(num_pfiles)
+  {
+    tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
     path_mem_req = path_max_mem + tmp_path_mem;
     // If we don't have enough memory, will bork out at cmd_check_mem_limit
     // Only need the required amount of memory if loading a single paths file
@@ -114,7 +115,7 @@ int ctx_health_check(CmdArgs *args)
 
   // Paths
   if(num_pfiles > 0) {
-    path_store_alloc(&db_graph.pstore, path_mem-tmp_path_mem, tmp_path_mem,
+    path_store_alloc(&db_graph.pstore, path_mem, false,
                      db_graph.ht.capacity, path_max_usedcols);
   }
 
@@ -125,10 +126,8 @@ int ctx_health_check(CmdArgs *args)
 
   graph_load(&gfile, gprefs, NULL);
 
-  // Load path files
-  if(num_pfiles) {
-    paths_format_merge(pfiles, num_pfiles, false, &db_graph);
-  }
+  // Load path files (if there are any)
+  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
 
   if(do_edge_check) {
     status("Running edge check...");

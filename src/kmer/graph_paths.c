@@ -144,9 +144,9 @@ bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
   PathIndex match;
   uint8_t *colset;
   size_t phash_pos = 0;
-  int pret = path_hash_find_or_insert(&pstore->phash, bkmer, packed,
-                                      pstore->store, pstore->colset_bytes,
-                                      &phash_pos);
+  int pret = path_hash_find_or_insert_mt(&pstore->phash, bkmer, packed,
+                                         pstore->store, pstore->colset_bytes,
+                                         &phash_pos);
 
   if(pret == 0)
   {

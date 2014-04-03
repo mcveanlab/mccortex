@@ -181,8 +181,7 @@ int ctx_thread(CmdArgs *args)
                   sizeof(PathIndex)*8*(num_pfiles > 0 ? 2 : 1) +
                   2*num_work_threads + // Have traversed
                   1 + // node in colour
-                  1 + // path store kmer lock
-                  128; // path hash
+                  1; // path store kmer lock
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
@@ -190,7 +189,7 @@ int ctx_thread(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles);
+  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
   path_mem_req = path_max_mem + tmp_path_mem;
   path_mem_used = MAX2(args->mem_to_use - graph_mem, path_mem_req);
   main_path_mem = path_mem_used - tmp_path_mem;
@@ -231,10 +230,8 @@ int ctx_thread(CmdArgs *args)
   // Path store
   // use total_cols instead of path_max_usedcols since we are
   // loading then ADDING more paths (which may need new colours)
-  path_store_alloc(&db_graph.pstore, main_path_mem, tmp_path_mem,
+  path_store_alloc(&db_graph.pstore, main_path_mem, true,
                    kmers_in_hash, total_cols);
-
-  path_hash_alloc(&db_graph.pstore.phash, kmers_in_hash*16);
 
   // path kmer locks for multithreaded access
   db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
@@ -263,7 +260,6 @@ int ctx_thread(CmdArgs *args)
     // Paths loaded into empty colours will update the sample names
     // and add kmers needed
     paths_format_merge(pfiles, num_pfiles, true, &db_graph);
-    path_store_reclaim_tmp(&db_graph.pstore);
 
     // Copy current paths over to path set to be updated
     memcpy(db_graph.pstore.kmer_paths_update, db_graph.pstore.kmer_paths,
