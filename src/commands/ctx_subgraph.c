@@ -192,7 +192,7 @@ int ctx_subgraph(CmdArgs *args)
 
   for(i = 0; i < num_seed_files; i++) seq_close(seed_files[i]);
 
-  free(kmer_mask);
+  ctx_free(kmer_mask);
   hash_table_print_stats(&db_graph.ht);
 
   // Dump nodes that were flagged
@@ -213,9 +213,9 @@ int ctx_subgraph(CmdArgs *args)
                           intersect_edges, intersect_gname.buff,
                           &db_graph);
 
-  if(intersect_edges != NULL) free(intersect_edges);
-  free(db_graph.col_edges);
-  free(db_graph.col_covgs);
+  if(intersect_edges != NULL) ctx_free(intersect_edges);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.col_covgs);
 
   for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
 

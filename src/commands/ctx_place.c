@@ -837,21 +837,21 @@ int ctx_place(CmdArgs *args)
   kh_destroy(ghash, genome);
   kh_destroy(samplehash, sample_indx);
 
-  for(i = 0; i < num_samples; i++) free(sample_names[i]);
-  free(sample_names);
-  free(sample_total_seq);
+  for(i = 0; i < num_samples; i++) ctx_free(sample_names[i]);
+  ctx_free(sample_names);
+  ctx_free(sample_total_seq);
 
   while(num_chroms > 0) chrom_free_last();
-  free(chroms);
+  ctx_free(chroms);
 
-  free(nw_scoring_flank);
-  free(nw_scoring_allele);
+  ctx_free(nw_scoring_flank);
+  ctx_free(nw_scoring_allele);
   alignment_free(alignment);
   needleman_wunsch_free(nw_aligner);
 
   sam_close(samfh);
-  free(bam_header);
-  free(bam);
+  ctx_free(bam_header);
+  ctx_free(bam);
 
   strbuf_free(line);
   vcf_entry_dealloc(&invcf, num_samples);

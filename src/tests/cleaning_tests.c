@@ -109,9 +109,9 @@ void test_cleaning()
   TASSERT(graph.ht.num_kmers == 0);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
-  free(visited);
-  free(graph.bktlocks);
-  free(graph.col_edges);
-  free(graph.col_covgs);
+  ctx_free(visited);
+  ctx_free(graph.bktlocks);
+  ctx_free(graph.col_edges);
+  ctx_free(graph.col_covgs);
   db_graph_dealloc(&graph);
 }

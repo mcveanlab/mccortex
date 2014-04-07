@@ -334,8 +334,8 @@ int ctx_infer_edges(CmdArgs *args)
   status("%s of %s (%.2f%%) nodes modified\n", modified_str, kmers_str,
          (100.0 * num_nodes_modified) / db_graph.ht.num_kmers);
 
-  if(reading_stream) free(db_graph.col_edges);
-  free(db_graph.node_in_cols);
+  if(reading_stream) ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.node_in_cols);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);

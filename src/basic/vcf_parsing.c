@@ -116,9 +116,9 @@ void vcf_entry_dealloc(vcf_entry_t *entry, size_t num_samples)
   for(i = 0; i < entry->alts_capacity; i++) strbuf_dealloc(&entry->alts[i]);
   for(i = 0; i < entry->info_capacity; i++) strbuf_dealloc(&entry->info[i]);
   
-  free(entry->cols);
-  free(entry->alts);
-  free(entry->info);
+  ctx_free(entry->cols);
+  ctx_free(entry->alts);
+  ctx_free(entry->info);
 }
 
 void vcf_entry_cpy(vcf_entry_t *dst, const vcf_entry_t *src, size_t num_samples)

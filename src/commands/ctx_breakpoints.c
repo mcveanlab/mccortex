@@ -219,8 +219,8 @@ int ctx_breakpoints(CmdArgs *args)
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   readbuf_dealloc(&rbuf);
-  free(db_graph.col_edges);
-  free(db_graph.node_in_cols);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.node_in_cols);
 
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);

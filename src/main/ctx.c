@@ -264,6 +264,9 @@ int main(int argc, char **argv)
   cmd_free(&args);
   time(&end);
 
+  size_t still_alloced = ctx_num_allocs - ctx_num_frees;
+  if(still_alloced) warn("%zu allocates not free'd.", still_alloced);
+
   status(ret == 0 ? "Done." : "Fail.");
 
   // Print time taken

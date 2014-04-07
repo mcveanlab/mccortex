@@ -79,34 +79,34 @@ FollowPath follow_path_create(const uint8_t *seq, PathLen plen)
   return fpath;
 }
 
-static void print_path_list(const PathBuffer *pbuf)
+static void print_path_list(const PathBuffer *pbuf, FILE *fout)
 {
   size_t i, j;
   FollowPath *path;
 
   for(i = 0; i < pbuf->len; i++) {
     path = &pbuf->data[i];
-    printf("   %p ", path->seq);
+    fprintf(fout, "   %p ", path->seq);
     for(j = 0; j < path->len; j++)
-      putc(dna_nuc_to_char(cache_fetch(path, j)), stdout);
-    printf(" [%zu/%zu]\n", (size_t)path->pos, (size_t)path->len);
+      fputc(dna_nuc_to_char(cache_fetch(path, j)), fout);
+    fprintf(fout, " [%zu/%zu]\n", (size_t)path->pos, (size_t)path->len);
   }
 }
 
-void graph_walker_print_state(const GraphWalker *wlk)
+void graph_walker_print_state(const GraphWalker *wlk, FILE *fout)
 {
   char bkmerstr[MAX_KMER_SIZE+1], bkeystr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, bkmerstr);
   binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkeystr);
-  printf(" GWState:%s (%s:%i) ctx: %zu ctp: %zu\n",
+  fprintf(fout, " GWState:%s (%s:%i) ctx: %zu ctp: %zu\n",
          bkmerstr, bkeystr, wlk->node.orient, wlk->ctxcol, wlk->ctpcol);
-  printf("  num_curr: %zu\n", wlk->paths.len);
-  print_path_list(&wlk->paths);
-  printf("  num_new: %zu\n", wlk->new_paths.len);
-  print_path_list(&wlk->new_paths);
-  printf("  num_counter: %zu\n", wlk->cntr_paths.len);
-  print_path_list(&wlk->cntr_paths);
-  printf("--\n");
+  fprintf(fout, "  num_curr: %zu\n", wlk->paths.len);
+  print_path_list(&wlk->paths, fout);
+  fprintf(fout, "  num_new: %zu\n", wlk->new_paths.len);
+  print_path_list(&wlk->new_paths, fout);
+  fprintf(fout, "  num_counter: %zu\n", wlk->cntr_paths.len);
+  print_path_list(&wlk->cntr_paths, fout);
+  fprintf(fout, "--\n");
 }
 
 size_t graph_walker_est_mem()
@@ -140,7 +140,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
   //        (size_t)index, orient);
 
   // Picking up paths is turned off
-  if(wlk->db_graph->pstore.kmer_paths == NULL) return 0;
+  if(wlk->db_graph->pstore.kmer_paths_read == NULL) return 0;
 
   const dBGraph *db_graph = wlk->db_graph;
   const PathStore *pstore = wlk->pstore;
@@ -157,7 +157,8 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
     cntr_filter_nuc0 = (db_node_outdegree_in_col(node, wlk->ctxcol, db_graph) > 1);
   }
 
-  pindex = *pstore_paths_update_volptr(pstore, node.key);
+  pindex = pstore_get_pindex(pstore, node.key);
+  // PathIndex init_pindex = pindex;
 
   while(pindex != PATH_NULL)
   {
@@ -178,6 +179,12 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
     pindex = packedpath_get_prev(pstore->store+pindex);
   }
+
+  // DEBUG
+  // if(pbuf->len > num_paths && !counter) {
+  //   fprintf(stderr, "  Picked up %zu paths; node: %zu pindex: %zu\n",
+  //           pbuf->len - num_paths, (size_t)node.key, (size_t)init_pindex);
+  // }
 
   return pbuf->len - num_paths;
 }
@@ -307,8 +314,7 @@ static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
     message("    %s:? [%c]\n", str, dna_nuc_to_char(bases[i]));
   }
 
-  graph_walker_print_state(wlk);
-
+  graph_walker_print_state(wlk, ctx_msg_out);
 
   // Mark next bases available
   uint8_t forks[4], taken_curr[4], taken_newp[4], taken_cntr[4];
@@ -354,15 +360,20 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   // #endif
 
   if(num_next == 0) {
+    if(wlk->paths.len) {
+      graph_walker_print_state(wlk, stderr);
+      ctx_assert(0);
+    }
+
     ctx_assert(wlk->paths.len == 0);
     ctx_assert(wlk->new_paths.len == 0);
     ctx_assert(wlk->cntr_paths.len == 0);
+    return_step(-1, GRPHWLK_NOCOVG, false);
   }
 
   const dBGraph *db_graph = wlk->db_graph;
-  bool multicol = db_graph->num_of_cols > 1;
+  bool multicol = (db_graph->num_of_cols > 1);
 
-  if(num_next == 0) return_step(-1, GRPHWLK_NOCOVG, false);
   if(num_next == 1) {
     bool incol = (!multicol ||
                   db_node_has_col(db_graph, next_nodes[0].key, wlk->ctxcol));
@@ -473,7 +484,7 @@ static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
   Orientation backwards = !wlk->node.orient;
 
   // Picking up paths is turned off
-  if(wlk->db_graph->pstore.kmer_paths == NULL) return;
+  if(wlk->db_graph->pstore.kmer_paths_read == NULL) return;
 
   // Remove edge to kmer we came from
   edges = db_node_get_edges(db_graph, wlk->node.key, 0);
@@ -779,6 +790,12 @@ void graph_walker_prime(GraphWalker *wlk,
     n = max_context;
   }
 
+  // DEBUG
+  // fprintf(stderr, "\n\n");
+  // db_nodes_print(block, n, db_graph, stderr);
+  // fprintf(stderr, " orient:%s\n", forward ? "forward" : "reverse");
+  //
+
   if(forward) { node0 = block[0]; block++; }
   else { node0 = db_node_reverse(block[n-1]); }
 
@@ -787,14 +804,14 @@ void graph_walker_prime(GraphWalker *wlk,
   graph_walker_slow_traverse(wlk, block, n-1, forward);
 
   // For debugging
-  // graph_walker_print_state(wlk);
+  // graph_walker_print_state(wlk, stderr);
 }
 
 bool graph_walker_agrees_contig(GraphWalker *wlk,
                                 const dBNode *block, size_t num_nodes,
                                 bool forward)
 {
-  if(num_nodes == 0) return true;
+  if(num_nodes == 0 || (!wlk->paths.len && !wlk->new_paths.len)) return true;
 
   size_t i, j, n, njuncs = graph_walker_get_max_path_junctions(wlk);
   dBNode nodes[4], expnode;
@@ -814,7 +831,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
       char bstr0[MAX_KMER_SIZE+1], bstr1[MAX_KMER_SIZE+1];
       binary_kmer_to_str(bkmer0, wlk->db_graph->kmer_size, bstr0);
       binary_kmer_to_str(bkmer1, wlk->db_graph->kmer_size, bstr1);
-      graph_walker_print_state(wlk);
+      graph_walker_print_state(wlk, stdout);
       printf("wlk: %s contig: %s num_nodes %zu\n", bstr0, bstr1, num_nodes);
     }
 

@@ -224,12 +224,12 @@ int ctx_covg(CmdArgs *args)
   for(i = 0; i < num_samples; i++)
       delta_arr_dealloc(&covg_array[i]);
 
-  free(covg_array);
+  ctx_free(covg_array);
 
   graph_header_dealloc(&gheader);
 
-  free(db_graph.col_edges);
-  free(db_graph.col_covgs);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

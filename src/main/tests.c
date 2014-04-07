@@ -27,6 +27,10 @@ int main()
   test_corrected_aln();
   test_repeat_walker();
 
+  // Check we free'd all our memory
+  size_t still_alloced = ctx_num_allocs - ctx_num_frees;
+  TASSERT2(still_alloced == 0, "%zu not free'd", still_alloced);
+
   // Finished
   char num_test_str[100], num_passed_str[100];
   size_t tests_num_passed = tests_num_run - tests_num_failed;

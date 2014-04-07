@@ -464,14 +464,14 @@ int ctx_build(CmdArgs *args)
   graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                         0, output_colours);
 
-  free(tasks);
-  free(samples);
-  free(graphs);
+  ctx_free(tasks);
+  ctx_free(samples);
+  ctx_free(graphs);
 
-  free(db_graph.bktlocks);
-  free(db_graph.col_covgs);
-  free(db_graph.col_edges);
-  if(db_graph.readstrt != NULL) free(db_graph.readstrt);
+  ctx_free(db_graph.bktlocks);
+  ctx_free(db_graph.col_covgs);
+  ctx_free(db_graph.col_edges);
+  if(db_graph.readstrt != NULL) ctx_free(db_graph.readstrt);
 
   db_graph_dealloc(&db_graph);
 

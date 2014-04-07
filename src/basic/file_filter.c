@@ -119,7 +119,7 @@ void file_filter_close(FileFilter *fltr)
 void file_filter_dealloc(FileFilter *fltr)
 {
   file_filter_close(fltr);
-  if(fltr->cols != NULL) { free(fltr->cols); fltr->cols = NULL, fltr->ncolscap = 0; }
+  if(fltr->cols != NULL) { ctx_free(fltr->cols); fltr->cols = NULL, fltr->ncolscap = 0; }
   if(fltr->orig_path.buff != NULL) { strbuf_dealloc(&fltr->orig_path); }
   if(fltr->file_path.buff != NULL) { strbuf_dealloc(&fltr->file_path); }
 }

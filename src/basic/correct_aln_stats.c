@@ -22,8 +22,8 @@ void correct_aln_stats_alloc(CorrectAlnStats *stats)
 
 void correct_aln_stats_dealloc(CorrectAlnStats *stats)
 {
-  free(stats->gap_ins_histgrm);
-  free(stats->gap_err_histgrm);
+  ctx_free(stats->gap_ins_histgrm);
+  ctx_free(stats->gap_err_histgrm);
 }
 
 void correct_aln_stats_zero(CorrectAlnStats *stats)
@@ -32,7 +32,7 @@ void correct_aln_stats_zero(CorrectAlnStats *stats)
   memset(stats->gap_ins_histgrm, 0, stats->histgrm_len * sizeof(uint64_t));
   stats->num_gap_attempts = 0;
   stats->num_gap_successes = 0;
-  stats->num_gaps_disagreed = 0;
+  stats->num_paths_disagreed = 0;
   stats->num_gaps_too_short = 0;
 }
 
@@ -44,7 +44,7 @@ void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
   merge_arrays(dst->gap_ins_histgrm, src->gap_ins_histgrm, src->histgrm_len);
   dst->num_gap_attempts += src->num_gap_attempts;
   dst->num_gap_successes += src->num_gap_successes;
-  dst->num_gaps_disagreed += src->num_gaps_disagreed;
+  dst->num_paths_disagreed += src->num_paths_disagreed;
   dst->num_gaps_too_short += src->num_gaps_too_short;
 }
 

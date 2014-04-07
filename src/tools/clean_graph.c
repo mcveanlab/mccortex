@@ -158,7 +158,7 @@ size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
 
   if(d1len <= 2) {
     status("(using fallback1)\n");
-    free(tmp);
+    ctx_free(tmp);
     return fallback_thresh;
   }
 
@@ -168,7 +168,7 @@ size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
   for(f1 = 0; f1 < d1len && delta1[f1] >= 1; f1++);
   for(f2 = 0; f2 < d2len && delta2[f2] > 1; f2++);
 
-  free(tmp);
+  ctx_free(tmp);
 
   if(f1 < d1len && f1 < (seq_depth*0.75))
     status_return("[cleaning] (using f1)", f1+1);
@@ -243,7 +243,7 @@ Covg cleaning_remove_supernodes(bool do_cleaning, Covg covg_threshold,
     if(covg_threshold == 0)
       covg_threshold = (Covg)threshold_est;
 
-    free(covg_hist);
+    ctx_free(covg_hist);
   }
 
   if(do_cleaning)

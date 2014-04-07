@@ -711,10 +711,10 @@ void* bubble_caller(void *args)
   rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
 
-  free(snode_store);
-  free(snodepos_store);
-  free(supernodes);
-  free(superorients);
+  ctx_free(snode_store);
+  ctx_free(snodepos_store);
+  ctx_free(supernodes);
+  ctx_free(superorients);
   kh_destroy(supnode_hsh, snode_hash);
   kh_destroy(snpps_hsh, spp_hash);
   db_node_buf_dealloc(&nbuf);
@@ -792,7 +792,7 @@ void invoke_bubble_caller(const dBGraph *db_graph, gzFile gzout,
     }
 
     futil_merge_tmp_gzfiles(tmp_files, num_threads, gzout);
-    free(tmp_files);
+    ctx_free(tmp_files);
   }
 
   char num_bubbles_str[100];

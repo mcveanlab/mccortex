@@ -137,7 +137,7 @@ bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
   bitlock_yield_acquire(pstore->kmer_locks, node.key);
 
-  const PathIndex next = *pstore_paths_update_volptr(pstore, node.key);
+  const PathIndex next = pstore_get_pindex(pstore, node.key);
 
   // 2) Search for path
   // PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
@@ -150,13 +150,20 @@ bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
 
   if(pret == 0)
   {
-    // Found
+    // Path already exists -> add colour -> release lock
     match = path_hash_get_pindex(&pstore->phash, phash_pos);
-    // => if already exist -> add colour -> release lock
-    colset = packedpath_get_colset(pstore->store+match);
-    bool added = !bitset_get(colset, ctpcol);
-    if(added) __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
-    bitset_set(colset, ctpcol);
+    bool added = false;
+
+    if(pstore->num_of_cols > 1)
+    {
+      // Add colour to bitset
+      colset = packedpath_get_colset(pstore->store+match);
+      added = !bitset_get(colset, ctpcol);
+      if(added) __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
+      bitset_set(colset, ctpcol);
+    }
+
+    // Relase lock - we're done
     bitlock_release(pstore->kmer_locks, node.key);
     *newidx = match;
     return added;
@@ -200,7 +207,7 @@ bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
   __sync_synchronize();
 
   // 5) update kmer pointer
-  *pstore_paths_update_volptr(pstore, node.key) = pindex;
+  pstore_set_pindex(pstore, node.key, pindex);
 
   // Update number of kmers with paths if this the first path for this kmer
   if(next == PATH_NULL) {
@@ -222,7 +229,7 @@ bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
 }
 
 //
-// Checking
+// Integrity Checks
 //
 
 // 1) check node after node has indegree >1 in sample ctxcol
@@ -233,7 +240,7 @@ bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
                             size_t nbases, const dBGraph *db_graph)
 {
   check_ret(db_graph->num_edge_cols == db_graph->num_of_cols ||
-                db_graph->node_in_cols != NULL);
+            db_graph->node_in_cols != NULL);
 
   BinaryKmer bkmer;
   Edges edges;
@@ -344,6 +351,7 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
 
+  // Check for each colour the path has
   for(i = 0; i < gp->n; i++) {
     if(bitset_get(colset, gp->ctpcols[i])) {
       check_ret(graph_path_check_valid(node, gp->ctxcols[i], seq, len_bases,
@@ -359,7 +367,7 @@ static bool kmer_check_paths(hkey_t hkey, const GraphPathPairing *gp,
                              size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const PathStore *pstore = &db_graph->pstore;
-  PathIndex pindex = pstore_paths(pstore, hkey);
+  PathIndex pindex = pstore_get_pindex(pstore, hkey);
   uint8_t *packed;
   size_t num_paths = 0;
 
@@ -407,7 +415,7 @@ static void _pstore_update_counts(hkey_t hkey, const dBGraph *db_graph,
                                   size_t *nvisited)
 {
   const PathStore *pstore = &db_graph->pstore;
-  PathIndex pindex = pstore_paths(pstore, hkey);
+  PathIndex pindex = pstore_get_pindex(pstore, hkey);
   size_t n;
 
   (*nvisited)++;

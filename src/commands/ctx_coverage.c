@@ -235,8 +235,8 @@ int ctx_coverage(CmdArgs *args)
   // Finished: do clean up
   if(fout != stdout) fclose(fout);
 
-  if(print_edges) free(db_graph.col_edges);
-  free(db_graph.col_covgs);
+  if(print_edges) ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

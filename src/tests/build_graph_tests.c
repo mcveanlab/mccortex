@@ -149,9 +149,9 @@ void test_build_graph()
 
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
-  free(graph.readstrt);
-  free(graph.bktlocks);
-  free(graph.col_edges);
-  free(graph.col_covgs);
+  ctx_free(graph.readstrt);
+  ctx_free(graph.bktlocks);
+  ctx_free(graph.col_edges);
+  ctx_free(graph.col_covgs);
   db_graph_dealloc(&graph);
 }

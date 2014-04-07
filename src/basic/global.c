@@ -10,6 +10,7 @@
 FILE *ctx_msg_out = NULL;
 pthread_mutex_t biglock;
 char cmdcode[4];
+volatile size_t ctx_num_allocs = 0, ctx_num_frees = 0;
 
 void* ctx_malloc(size_t mem, const char *file, const char *func, int line)
 {
@@ -19,6 +20,7 @@ void* ctx_malloc(size_t mem, const char *file, const char *func, int line)
     bytes_to_str(mem, 1, memstr);
     call_die(file, func, line, "Out of memory (malloc %s)", memstr);
   }
+  __sync_add_and_fetch(&ctx_num_allocs, 1); // ++ctx_num_allocs
   return ptr;
 }
 
@@ -33,6 +35,7 @@ void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, 
     call_die(file, func, line, "Out of memory (calloc %s x %s = %s)",
              nelstr, elsizestr, memstr);
   }
+  __sync_add_and_fetch(&ctx_num_allocs, 1); // ++ctx_num_allocs
   return ptr;
 }
 
@@ -54,6 +57,13 @@ void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
   ptr = ctx_realloc(ptr, newsize, file, func, line);
   memset((char*)ptr+oldsize, 0, newsize-oldsize);
   return ptr;
+}
+
+void ctx_free(void *ptr)
+{
+  ctx_assert(ptr != NULL);
+  free(ptr);
+  __sync_add_and_fetch(&ctx_num_frees, 1); // ++ctx_num_frees
 }
 
 //

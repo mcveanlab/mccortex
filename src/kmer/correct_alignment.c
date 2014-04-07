@@ -62,7 +62,7 @@ static inline void correct_aln_stats_update(CorrectAlnStats *stats,
 {
   stats->num_gap_attempts++;
   stats->num_gap_successes += result.traversed;
-  stats->num_gaps_disagreed += result.paths_disagreed;
+  stats->num_paths_disagreed += result.paths_disagreed;
   stats->num_gaps_too_short += result.gap_too_short;
 }
 
@@ -77,9 +77,9 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
 {
   dBNode end_node = forward ? block[0] : db_node_reverse(block[n-1]);
 
-  BinaryKmer tmpbkmer = db_node_get_bkmer(wlk->db_graph, end_node.key);
-  char tmpstr[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(tmpbkmer, wlk->db_graph->kmer_size, tmpstr);
+  // BinaryKmer tmpbkmer = db_node_get_bkmer(wlk->db_graph, end_node.key);
+  // char tmpstr[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(tmpbkmer, wlk->db_graph->kmer_size, tmpstr);
   // status("Endnode: %s contig->len: %zu", tmpstr, contig->len);
 
   size_t init_len = contig->len, max_len = contig->len + gap_max;
@@ -88,10 +88,17 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
   TraversalResult result = {.traversed = false, .paths_disagreed = false,
                             .gap_too_short = false, .gap_len = 0};
 
+  // DEBUG
+  // fprintf(stderr, "\ntraverse_one_way2:\n\n");
+  // db_nodes_print_verbose(contig->data, contig->len, wlk->db_graph, stderr);
+
   while(contig->len < max_len && graph_traverse(wlk) &&
         rpt_walker_attempt_traverse(rptwlk, wlk) &&
         (!only_in_col || wlk->last_step.node_has_col))
   {
+    // DEBUG
+    // db_nodes_print_verbose(&wlk->node, 1, wlk->db_graph, stderr);
+
     if(db_nodes_match(wlk->node, end_node)) {
       result.traversed = true;
       break;
@@ -142,8 +149,8 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
 {
   const size_t init_len0 = contig0->len, init_len1 = contig1->len;
 
-  // graph_walker_print_state(wlk0);
-  // graph_walker_print_state(wlk1);
+  // graph_walker_print_state(wlk0, stdout);
+  // graph_walker_print_state(wlk1, stdout);
 
   db_node_buf_ensure_capacity(contig0, contig0->len + gap_max + 1);
   db_node_buf_ensure_capacity(contig1, contig1->len + gap_max + 1);

@@ -99,7 +99,7 @@ static void* async_io_reader(void *ptr)
 
   if(n == 0) {
     msgpool_close(wrkr->pool);
-    free(wrkr->num_running);
+    ctx_free(wrkr->num_running);
   }
 
   pthread_exit(NULL);
@@ -157,7 +157,7 @@ static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
   msgpool_wait_til_empty(pool);
   ctx_assert(pool->num_full == 0);
 
-  free(workers);
+  ctx_free(workers);
 }
 
 void asyncio_run_threads(MsgPool *pool,
@@ -199,7 +199,7 @@ void asyncio_run_threads(MsgPool *pool,
 
   // Finished with thread attribute
   pthread_attr_destroy(&thread_attr);
-  free(threads);
+  ctx_free(threads);
 
   // Finish with the async io (waits until queue is empty)
   asyncio_read_finish(asyncio_workers, num_inputs);

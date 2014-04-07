@@ -170,9 +170,9 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
 
 void cmd_free(CmdArgs *args)
 {
-  free(args->ctp_files);
-  free(args->argv);
-  free(args->cmdline);
+  ctx_free(args->ctp_files);
+  ctx_free(args->argv);
+  ctx_free(args->cmdline);
 }
 
 // If your command accepts -n <kmers> and -m <mem> this may be useful

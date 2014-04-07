@@ -50,7 +50,7 @@ static VarBranch* branch_new()
 static void branch_free(VarBranch *branch)
 {
   strbuf_dealloc(&branch->seq);
-  free(branch);
+  ctx_free(branch);
 }
 
 /* Variants */
@@ -79,7 +79,7 @@ static void var_free(Var *var)
     next = allele->next;
     branch_free(allele);
   }
-  free(var);
+  ctx_free(var);
 }
 
 static void var_revcmp(Var *var)
@@ -318,11 +318,11 @@ static CallHeader* header_new()
 static void header_free(CallHeader *ch)
 {
   size_t i;
-  for(i = 0; i < ch->hlines; i++) { free(ch->tags[i]); free(ch->values[i]); }
-  for(i = 0; i < ch->num_samples; i++) { free(ch->sample_names[i]); }
-  free(ch->tags);
-  free(ch->values);
-  free(ch);
+  for(i = 0; i < ch->hlines; i++) { ctx_free(ch->tags[i]); ctx_free(ch->values[i]); }
+  for(i = 0; i < ch->num_samples; i++) { ctx_free(ch->sample_names[i]); }
+  ctx_free(ch->tags);
+  ctx_free(ch->values);
+  ctx_free(ch);
 }
 
 static void header_add(CallHeader *ch, char *tag, char *value)
@@ -587,8 +587,8 @@ static CallReader* reader_new(CallHeader *ch)
 static void reader_free(CallReader *cr)
 {
   strbuf_free(cr->line);
-  free(cr->alleles);
-  free(cr);
+  ctx_free(cr->alleles);
+  ctx_free(cr);
 }
 
 static void reader_alleles_array_to_linkedlist(const CallReader *cr, Var *var)
@@ -1063,8 +1063,8 @@ int ctx_unique(CmdArgs *args)
          flanks_path, out_file->buff);
   message("  "CMD" place %s %s hg19.fa\n", vcf_path, out_file->buff);
 
-  free(vcf_path);
-  free(flanks_path);
+  ctx_free(vcf_path);
+  ctx_free(flanks_path);
   strbuf_free(out_file);
 
   return EXIT_SUCCESS;

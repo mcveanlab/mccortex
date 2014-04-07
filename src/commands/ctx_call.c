@@ -206,8 +206,8 @@ int ctx_call(CmdArgs *args)
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
 
-  free(db_graph.col_edges);
-  free(db_graph.node_in_cols);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.node_in_cols);
 
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);

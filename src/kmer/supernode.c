@@ -213,5 +213,5 @@ void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
     if(hist[i] > 0) fprintf(fout, "%zu,%zu,%"PRIu64"\n", i, kmer_size+i-1, hist[i]);
   }
 
-  free(hist);
+  ctx_free(hist);
 }

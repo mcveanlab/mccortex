@@ -128,10 +128,10 @@ void test_paths()
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 
-  free(graph.bktlocks);
-  free(graph.node_in_cols);
-  free(graph.col_edges);
-  free(graph.col_covgs);
+  ctx_free(graph.bktlocks);
+  ctx_free(graph.node_in_cols);
+  ctx_free(graph.col_edges);
+  ctx_free(graph.col_covgs);
 
   asynciodata_dealloc(&iodata);
   path_store_dealloc(&graph.pstore);
@@ -160,7 +160,7 @@ static inline void path_list_init(PathList *plist) {
 }
 
 static inline void path_list_dealloc(PathList *plist) {
-  free(plist->order); free(plist->len_orients); free(plist->bases);
+  ctx_free(plist->order); ctx_free(plist->len_orients); ctx_free(plist->bases);
 }
 
 static inline void add_path(PathList *plist,

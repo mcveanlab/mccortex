@@ -280,7 +280,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
   // start_build_graph_workers(&pool, db_graph, files, num_files, num_build_threads);
 
-  free(async_tasks);
+  ctx_free(async_tasks);
   msgpool_dealloc(&pool);
 
   // Clean up workers one by one...
@@ -290,17 +290,17 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
       loading_stats_merge(&files[f].stats, &workers[i].file_stats[f]);
 
     // Free memory
-    free(workers[i].file_stats);
+    ctx_free(workers[i].file_stats);
   }
 
-  free(workers);
+  ctx_free(workers);
 
   // Copy stats into ginfo
   for(f = 0; f < num_files; f++)
     graph_info_update_stats(&db_graph->ginfo[files[f].colour], &files[f].stats);
 
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
-  free(data);
+  ctx_free(data);
 }
 
 

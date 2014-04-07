@@ -40,8 +40,8 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
                          .num_col_paths = 0,
                          .tmpstore = NULL, .tmpsize = 0,
-                         .kmer_paths = kmer_paths,
-                         .kmer_paths_update = kmer_paths,
+                         .kmer_paths_read = kmer_paths,
+                         .kmer_paths_write = kmer_paths,
                          .kmer_locks = NULL,
                          .phash = PATH_HASH_EMPTY};
 
@@ -84,13 +84,13 @@ void path_store_release_tmp(PathStore *ps)
 // Release memory
 void path_store_dealloc(PathStore *ps)
 {
-  if(ps->kmer_locks) free(ps->kmer_locks);
-  if(ps->kmer_paths_update && ps->kmer_paths_update != ps->kmer_paths)
-    free(ps->kmer_paths_update);
-  if(ps->kmer_paths) free((void *)ps->kmer_paths);
-  free(ps->store);
+  if(ps->kmer_locks) ctx_free(ps->kmer_locks);
+  if(ps->kmer_paths_read && ps->kmer_paths_read != ps->kmer_paths_write)
+    ctx_free(ps->kmer_paths_read);
+  if(ps->kmer_paths_write) ctx_free(ps->kmer_paths_write);
+  ctx_free(ps->store);
   ps->kmer_locks = NULL;
-  ps->kmer_paths_update = ps->kmer_paths = NULL;
+  ps->kmer_paths_read = ps->kmer_paths_write = NULL;
   if(ps->phash.table != NULL) path_hash_dealloc(&ps->phash);
 }
 
@@ -118,20 +118,20 @@ PathIndex path_store_find(const PathStore *ps, PathIndex last_index,
 // End up with both kmer_paths and kmer_paths_update pointing to the same array
 void path_store_combine_updated_paths(PathStore *pstore)
 {
-  if(pstore->kmer_paths_update && !pstore->kmer_paths) {
-    pstore->kmer_paths = pstore->kmer_paths_update;
+  if(pstore->kmer_paths_write && !pstore->kmer_paths_read) {
+    pstore->kmer_paths_read = pstore->kmer_paths_write;
   }
-  else if(!pstore->kmer_paths_update && pstore->kmer_paths) {
-    pstore->kmer_paths_update = pstore->kmer_paths;
+  else if(!pstore->kmer_paths_write && pstore->kmer_paths_read) {
+    pstore->kmer_paths_write = pstore->kmer_paths_read;
   }
-  else if(pstore->kmer_paths_update && pstore->kmer_paths &&
-          pstore->kmer_paths_update != pstore->kmer_paths)
+  else if(pstore->kmer_paths_write && pstore->kmer_paths_read &&
+          pstore->kmer_paths_write != pstore->kmer_paths_read)
   {
-    free((void*)pstore->kmer_paths);
-    pstore->kmer_paths = pstore->kmer_paths_update;
+    ctx_free(pstore->kmer_paths_read);
+    pstore->kmer_paths_read = pstore->kmer_paths_write;
   }
-  ctx_assert(pstore->kmer_paths == pstore->kmer_paths_update);
-  ctx_assert(pstore->kmer_paths != NULL);
+  ctx_assert(pstore->kmer_paths_read == pstore->kmer_paths_write);
+  ctx_assert(pstore->kmer_paths_read != NULL);
   status("[PathStore] Path stores merged");
 }
 

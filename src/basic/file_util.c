@@ -54,7 +54,7 @@ char futil_mkpath(const char *path, mode_t mode)
     i = j + 1;
   }
 
-  free(copypath);
+  ctx_free(copypath);
   return status;
 }
 
@@ -114,7 +114,7 @@ void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir)
   char *tmp = strdup(path);
   strbuf_set(dir, dirname(tmp));
   strbuf_append_char(dir, '/');
-  free(tmp);
+  ctx_free(tmp);
 }
 
 char* futil_get_current_dir(char abspath[PATH_MAX+1])
@@ -130,7 +130,7 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1])
 //     gzFile *tmp_files = futil_create_tmp_gzfiles(num_tmp);
 // to clear up:
 //     for(i = 0; i < num_tmp; i++) gzclose(tmp_files[i]);
-//     free(tmp_files);
+//     ctx_free(tmp_files);
 gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files)
 {
   size_t i;
@@ -175,7 +175,7 @@ void futil_merge_tmp_gzfiles(gzFile *tmp_files, size_t num_files, gzFile gzout)
     gzclose(tmp_file);
   }
 
-  free(data);
+  ctx_free(data);
 
   #undef GZ_BUF_SIZE
 }

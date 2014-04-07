@@ -23,12 +23,11 @@ typedef struct
   size_t tmpsize;
 
   // Kmer pointers
-  // kmer_paths is NULL if we don't want GraphWalker to use paths
-  // kmer_paths_update may point to kmer_paths, elsewhere or NULL
-  //
-  // kmer_paths is used in loading paths and traversing the graph
-  // kmer_paths_update is used for generate_paths.c and dumping ctp files
-  PathIndex *kmer_paths, *kmer_paths_update;
+  // kmer_paths_read is used in traversing the graph and dumping output
+  //  - may be NULL if we don't want to use paths in GraphWalker
+  // kmer_paths_write is used for adding paths and loading
+  //  - may be null or point to kmer_paths_read
+  PathIndex *kmer_paths_read, *kmer_paths_write;
 
   // Multithreaded writing
   uint8_t *kmer_locks;
@@ -39,12 +38,16 @@ typedef struct
 //
 // Pointer to linked list for each kmer
 //
-#define pstore_paths(pstore,node) \
-        ((pstore)->kmer_paths[(node)])
-#define pstore_paths_updated(pstore,node) \
-        ((pstore)->kmer_paths_update[(node)])
-#define pstore_paths_update_volptr(pstore,node) \
-        ((volatile PathIndex *)&(pstore)->kmer_paths_update[(node)])
+static inline PathIndex pstore_get_pindex(const PathStore *ps, hkey_t key)
+{
+  return *(volatile PathIndex*)&ps->kmer_paths_read[key];
+}
+
+static inline void pstore_set_pindex(const PathStore *ps, hkey_t key,
+                                     PathIndex pindex)
+{
+  *(volatile PathIndex*)&ps->kmer_paths_write[key] = pindex;
+}
 
 // Initialise the PathStore
 // use_path_hash must be true if you are adding paths manual

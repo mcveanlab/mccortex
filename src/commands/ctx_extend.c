@@ -229,11 +229,11 @@ int ctx_extend(CmdArgs *args)
 
   fclose(out);
 
-  free(buf);
+  ctx_free(buf);
   db_node_buf_dealloc(&readbuffw);
   db_node_buf_dealloc(&readbufrv);
-  free(visited);
-  free(db_graph.col_edges);
+  ctx_free(visited);
+  ctx_free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
   graph_file_dealloc(&file);

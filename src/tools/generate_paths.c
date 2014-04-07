@@ -100,8 +100,8 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 {
   db_alignment_dealloc(&wrkr->aln);
   correct_aln_worker_dealloc(&wrkr->corrector);
-  free(wrkr->pck_fw);
-  free(wrkr->pos_fw);
+  ctx_free(wrkr->pck_fw);
+  ctx_free(wrkr->pos_fw);
 }
 
 
@@ -118,11 +118,11 @@ GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph, FILE *fout)
 void gen_paths_workers_dealloc(GenPathWorker *workers, size_t n)
 {
   thread_pause_dealloc(workers[0].thread_pause);
-  free(workers[0].thread_pause);
+  ctx_free(workers[0].thread_pause);
 
   size_t i;
   for(i = 0; i < n; i++) _gen_paths_worker_dealloc(&workers[i]);
-  free(workers);
+  ctx_free(workers);
 }
 
 static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
@@ -279,19 +279,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     added = graph_paths_find_or_add_mt(node, bkmer, ctpcol, packed_ptr, plen,
                                        &db_graph->pstore, &pindex);
-
-    /*
-    // DEBUGGING
-    added = true;
-    pthread_mutex_lock(&biglock);
-    char bkmer_str[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(bkmer, db_graph->kmer_size, bkmer_str);
-    fputs(bkmer_str, stdout);
-    binary_seq_print(packed_ptr, plen, stdout);
-    fputc('\n', stdout);
-    pthread_mutex_unlock(&biglock);
-    // END
-    */
 
     packed_ptr[top_idx] = top_byte; // restore top byte
 
@@ -607,11 +594,11 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
   asyncio_run_threads(&pool, asyncio_tasks, num_inputs, generate_paths_worker,
                       workers, num_workers, sizeof(GenPathWorker));
 
-  free(asyncio_tasks);
+  ctx_free(asyncio_tasks);
   msgpool_dealloc(&pool);
 
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
-  free(data);
+  ctx_free(data);
 
   // Merge gap counts into worker[0]
   generate_paths_merge_stats(workers, num_workers);

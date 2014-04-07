@@ -42,7 +42,7 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
   visited = calloc2(roundup_bits2words64(graph->ht.capacity), 8);
   HASH_ITERATE(&graph->ht, supernode_from_kmer,
                &nbuf, visited, graph, ans, n);
-  free(visited);
+  ctx_free(visited);
 
   // 2. Check pulling out supernodes works when we iterate over inputs
   size_t i, j, len;
@@ -118,8 +118,8 @@ void test_supernode()
 
   pull_out_supernodes(seq, ans, NSEQ, &graph);
 
-  free(graph.bktlocks);
-  free(graph.col_edges);
-  free(graph.col_covgs);
+  ctx_free(graph.bktlocks);
+  ctx_free(graph.col_edges);
+  ctx_free(graph.col_covgs);
   db_graph_dealloc(&graph);
 }

@@ -30,7 +30,7 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
   ulong_to_str(cap_entries, cap_str);
   bytes_to_str(mem, 1, mem_str);
   status("[PathHash] Allocating table with %s entries, using %s", cap_str, mem_str);
-  status("[PathHash]  number of buckets: %s bucket size: %s", num_bkts_str, bkt_size_str);
+  status("[PathHash]  number of buckets: %s, bucket size: %s", num_bkts_str, bkt_size_str);
 
   KPEntry *table = malloc2(cap_entries * sizeof(KPEntry));
   uint8_t *bktlocks = calloc2(bktlocks_mem, sizeof(uint8_t));
@@ -55,8 +55,8 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
 
 void path_hash_dealloc(PathHash *phash)
 {
-  free((void*)phash->bktlocks);
-  free(phash->table);
+  ctx_free((void*)phash->bktlocks);
+  ctx_free(phash->table);
 }
 
 static inline bool _phash_entries_match(const KPEntry *entry,

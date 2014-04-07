@@ -168,7 +168,7 @@ static void dump_dot_syntax(FILE *fout, int print_syntax, bool dot_use_points,
   fprintf(fout, "\n");
   HASH_ITERATE(&db_graph->ht, dot_print_edges, supernodes, fout, db_graph);
 
-  free(supernodes);
+  ctx_free(supernodes);
   fputs("}\n", fout);
 }
 
@@ -296,8 +296,8 @@ int ctx_supernodes(CmdArgs *args)
   if(args->output_file_set) fclose(fout);
 
   db_node_buf_dealloc(&nbuf);
-  free(visited);
-  free(db_graph.col_edges);
+  ctx_free(visited);
+  ctx_free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);

@@ -52,7 +52,7 @@ int ctx_health_check(CmdArgs *args)
   //
   GraphFileReader gfile = INIT_GRAPH_READER;
   graph_file_open(&gfile, ctx_path, true); // true => errors are fatal
-  size_t col, ncols = graph_file_outncols(&gfile);
+  size_t ncols = graph_file_outncols(&gfile);
 
   //
   // Open path files
@@ -75,7 +75,7 @@ int ctx_health_check(CmdArgs *args)
   size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
   size_t path_mem = 0, path_mem_req = 0, tmp_path_mem = 0, total_mem;
 
-  extra_bits_per_kmer = sizeof(Edges) * ncols * 8;
+  extra_bits_per_kmer = sizeof(Edges) * ncols * 8 + 1; // edges + in_colour
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                         gfile.num_of_kmers, false, &graph_mem);
 
@@ -102,16 +102,10 @@ int ctx_health_check(CmdArgs *args)
 
   // Create db_graph
   dBGraph db_graph;
-  size_t num_edge_cols = do_edge_check ? ncols : 1;
-  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, num_edge_cols, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, ncols, kmers_in_hash);
 
-  // Only need one edge per colour if doing edge check
-  if(do_edge_check) {
-    db_graph.col_edges = calloc2(db_graph.ht.capacity * ncols, sizeof(Edges));
-  } else {
-    db_graph.node_in_cols = calloc2(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
-    db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  }
+  db_graph.col_edges = calloc2(db_graph.ht.capacity * ncols, sizeof(Edges));
+  db_graph.node_in_cols = calloc2(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
 
   // Paths
   if(num_pfiles > 0) {
@@ -134,7 +128,8 @@ int ctx_health_check(CmdArgs *args)
     db_graph_healthcheck(&db_graph);
   }
 
-  if(num_pfiles) {
+  if(num_pfiles)
+  {
     GraphPathPairing gp;
     gp_alloc(&gp, ncols);
     for(i = 0; i < ncols; i++) gp.ctxcols[i] = gp.ctpcols[i] = i;
@@ -144,8 +139,7 @@ int ctx_health_check(CmdArgs *args)
     path_store_integrity_check(&db_graph.pstore);
 
     status("  Tracing reads through the graph...");
-    for(col = 0; col < ncols; col++)
-      graph_paths_check_all_paths(&gp, &db_graph);
+    graph_paths_check_all_paths(&gp, &db_graph);
 
     gp_dealloc(&gp);
   }
@@ -153,8 +147,8 @@ int ctx_health_check(CmdArgs *args)
   status("All looks good!");
 
   if(num_pfiles) path_store_dealloc(&db_graph.pstore);
-  if(db_graph.node_in_cols) free(db_graph.node_in_cols);
-  free(db_graph.col_edges);
+  if(db_graph.node_in_cols) ctx_free(db_graph.node_in_cols);
+  ctx_free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

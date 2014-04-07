@@ -20,7 +20,7 @@ static inline void gp_alloc(GraphPathPairing *gp, size_t n) {
 }
 
 static inline void gp_dealloc(GraphPathPairing *gp) {
-  free(gp->ctxcols);
+  ctx_free(gp->ctxcols);
   gp->n = 0; gp->ctxcols = gp->ctpcols = NULL;
 }
 

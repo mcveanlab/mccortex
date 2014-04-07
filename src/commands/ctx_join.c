@@ -288,8 +288,8 @@ int ctx_join(CmdArgs *args)
 
   strbuf_dealloc(&intersect_gname);
 
-  free(db_graph.col_edges);
-  free(db_graph.col_covgs);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

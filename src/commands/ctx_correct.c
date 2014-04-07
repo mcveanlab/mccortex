@@ -541,16 +541,16 @@ int ctx_correct(CmdArgs *args)
     corrected_output_close(&outputs[i]);
   }
 
-  free(wrkrs);
-  free(asyncio_tasks);
+  ctx_free(wrkrs);
+  ctx_free(asyncio_tasks);
   msgpool_dealloc(&pool);
 
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
-  free(data);
+  ctx_free(data);
 
-  free(inputs);
-  free(db_graph.col_edges);
-  free(db_graph.node_in_cols);
+  ctx_free(inputs);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.node_in_cols);
 
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);

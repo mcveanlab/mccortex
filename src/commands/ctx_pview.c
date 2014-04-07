@@ -13,7 +13,7 @@ const char pview_usage[] = ""
 "  View and check a paths file.\n"
 "\n"
 "  Options:\n"
-"    --paths  Print paths\n"
+"    --print  Print paths\n"
 "    --check  Check path file integrity\n";
 
 int ctx_pview(CmdArgs *args)
@@ -26,7 +26,7 @@ int ctx_pview(CmdArgs *args)
 
   while(argc > 1 && argv[0][0] == '-' && argv[0][1])
   {
-    if(strcmp(argv[0],"--paths") == 0) {
+    if(strcmp(argv[0],"--print") == 0) {
       print_paths = true;
       argv++; argc--;
     }

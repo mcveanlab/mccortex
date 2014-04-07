@@ -29,7 +29,7 @@ void graph_header_dealloc(GraphFileHeader *h)
   if(h->capacity > 0) {
     for(i = 0; i < h->capacity; i++)
       graph_info_dealloc(h->ginfo + i);
-    free(h->ginfo);
+    ctx_free(h->ginfo);
     h->capacity = 0;
   }
 }

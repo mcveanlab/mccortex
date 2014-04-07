@@ -320,11 +320,11 @@ static void breakpoints_multithreaded(gzFile gzout, const dBGraph *db_graph,
     // Merge files and clean up
     futil_merge_tmp_gzfiles(tmp_files, num_of_threads, gzout);
     pthread_attr_destroy(&thread_attr);
-    free(threads);
+    ctx_free(threads);
   }
 
-  free(colour_lists);
-  free(callers);
+  ctx_free(colour_lists);
+  ctx_free(callers);
 }
 
 void breakpoints_call(gzFile gzout, dBGraph *db_graph,
@@ -364,9 +364,9 @@ void breakpoints_call(gzFile gzout, dBGraph *db_graph,
   breakpoints_multithreaded(gzout, db_graph, chroms, num_reads,
                             klists, koccurs, tmp_files, num_of_threads, args);
 
-  if(tmp_files) free(tmp_files);
+  if(tmp_files) ctx_free(tmp_files);
 
-  free(klists);
-  free(koccurs);
-  free(chroms);
+  ctx_free(klists);
+  ctx_free(koccurs);
+  ctx_free(chroms);
 }

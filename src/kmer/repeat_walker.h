@@ -72,7 +72,7 @@ static inline void rpt_walker_alloc(RepeatWalker *rpt,
 
 static inline void rpt_walker_dealloc(RepeatWalker *rpt)
 {
-  free(rpt->visited);
+  ctx_free(rpt->visited);
 }
 
 static inline void rpt_walker_clear(RepeatWalker *rpt)

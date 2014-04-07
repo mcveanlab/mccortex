@@ -51,6 +51,8 @@
 // dynamic memory allocation with checks
 //
 
+volatile size_t ctx_num_allocs, ctx_num_frees;
+
 #define malloc2(mem) ctx_malloc(mem,__FILE__,__func__,__LINE__)
 #define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__func__,__LINE__)
 #define realloc2(ptr,mem) ctx_realloc(ptr,mem,__FILE__,__func__,__LINE__)
@@ -63,6 +65,8 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int
 // Resize memory, zero new memory
 void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
                    const char *file, const char *func, int line);
+
+void ctx_free(void *ptr);
 
 //
 // Internal Integrity Checks: ctx_check(), ctx_assert(), ctx_assume()

@@ -32,7 +32,7 @@ static inline void multicol_walker_dealloc(MulticolWalker *walker)
   size_t i, num_of_cols = walker->db_graph->num_of_cols;
   for(i = 0; i < num_of_cols; i++)
     graph_walker_dealloc(&walker->wlks[i]);
-  free(walker->wlks);
+  ctx_free(walker->wlks);
   rpt_walker_dealloc(&walker->rptwlk);
 }
 

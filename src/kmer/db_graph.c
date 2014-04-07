@@ -84,7 +84,7 @@ void db_graph_dealloc(dBGraph *db_graph)
   hash_table_dealloc(&db_graph->ht);
   for(i = 0; i < db_graph->num_of_cols; i++)
     graph_info_dealloc(db_graph->ginfo+i);
-  free(db_graph->ginfo);
+  ctx_free(db_graph->ginfo);
 }
 
 //
@@ -391,7 +391,7 @@ void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
     if(db_graph_node_assigned(db_graph, hkey)) {
       binary_kmer_to_str(db_node_get_bkmer(db_graph, hkey), kmer_size, str);
       for(orient = 0; orient < 2; orient++) {
-        pindex = pstore_paths(pstore, hkey);
+        pindex = pstore_get_pindex(pstore, hkey);
         first = true;
         while(pindex != PATH_NULL) {
           path = pstore->store+pindex;

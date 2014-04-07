@@ -77,10 +77,10 @@ void _construct_graph_with_paths(dBGraph *graph,
 
 void _deconstruct_graph_with_paths(dBGraph *graph)
 {
-  free(graph->bktlocks);
-  free(graph->node_in_cols);
-  free(graph->col_edges);
-  free(graph->col_covgs);
+  ctx_free(graph->bktlocks);
+  ctx_free(graph->node_in_cols);
+  ctx_free(graph->col_edges);
+  ctx_free(graph->col_covgs);
 
   path_store_dealloc(&graph->pstore);
   db_graph_dealloc(graph);

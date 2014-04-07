@@ -236,14 +236,6 @@ int ctx_thread(CmdArgs *args)
   // path kmer locks for multithreaded access
   db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
 
-  // if no-pickup flags
-  if(!use_new_paths) {
-    if(num_pfiles > 0)
-      db_graph.pstore.kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
-    else
-      db_graph.pstore.kmer_paths = NULL;
-  }
-
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
   for(i = 0; i < num_gfiles; i++) {
@@ -260,10 +252,18 @@ int ctx_thread(CmdArgs *args)
     // Paths loaded into empty colours will update the sample names
     // and add kmers needed
     paths_format_merge(pfiles, num_pfiles, true, &db_graph);
+  }
 
-    // Copy current paths over to path set to be updated
-    memcpy(db_graph.pstore.kmer_paths_update, db_graph.pstore.kmer_paths,
-           kmers_in_hash * sizeof(PathIndex));
+  // if no-pickup flags
+  if(!use_new_paths) {
+    if(num_pfiles > 0) {
+      // Copy current paths over to path set to be updated
+      size_t mem = kmers_in_hash * sizeof(PathIndex);
+      db_graph.pstore.kmer_paths_read = malloc2(mem);
+      memcpy(db_graph.pstore.kmer_paths_read, db_graph.pstore.kmer_paths_write, mem);
+    }
+    else
+      db_graph.pstore.kmer_paths_read = NULL;
   }
 
   // Set up paths header. This is for the output file we are creating
@@ -350,7 +350,7 @@ int ctx_thread(CmdArgs *args)
   // Path Stats
   size_t num_gap_attempts = gapstats.num_gap_attempts;
   size_t num_gap_successes = gapstats.num_gap_successes;
-  size_t num_gaps_paths_disagreed = gapstats.num_gaps_disagreed;
+  size_t num_gaps_paths_disagreed = gapstats.num_paths_disagreed;
   size_t num_gaps_too_short = gapstats.num_gaps_too_short;
   char num_gap_attempts_str[100], num_gap_successes_str[100];
   char num_gaps_paths_disagree_str[100], num_gaps_too_short_str[100];
@@ -401,10 +401,10 @@ int ctx_thread(CmdArgs *args)
     asyncio_task_close(&tasks[i].files);
   }
 
-  free(tasks);
+  ctx_free(tasks);
 
-  free(db_graph.node_in_cols);
-  free(db_graph.col_edges);
+  ctx_free(db_graph.node_in_cols);
+  ctx_free(db_graph.col_edges);
 
   paths_header_dealloc(&pheader);
 

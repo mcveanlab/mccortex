@@ -27,7 +27,7 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 //     gzFile *tmp_files = futil_create_tmp_gzfiles(num_tmp);
 // to clear up:
 //     for(i = 0; i < num_tmp; i++) gzclose(tmp_files[i]);
-//     free(tmp_files);
+//     ctx_free(tmp_files);
 gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files);
 
 // Merge and close temporary files

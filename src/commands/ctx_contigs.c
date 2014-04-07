@@ -140,8 +140,8 @@ static inline void contig_data_ensure_capacity(ContigData *cd, size_t capacity)
 
 static inline void contig_data_dealloc(ContigData *cd)
 {
-  free(cd->lengths);
-  free(cd->junctions);
+  ctx_free(cd->lengths);
+  ctx_free(cd->junctions);
   db_node_buf_dealloc(&cd->nodes);
 }
 
@@ -564,9 +564,9 @@ int ctx_contigs(CmdArgs *args)
   rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
 
-  if(visited != NULL) free(visited);
-  free(db_graph.col_edges);
-  free(db_graph.node_in_cols);
+  if(visited != NULL) ctx_free(visited);
+  ctx_free(db_graph.col_edges);
+  ctx_free(db_graph.node_in_cols);
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 

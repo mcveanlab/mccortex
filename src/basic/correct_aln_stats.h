@@ -7,7 +7,7 @@ typedef struct
   // Count cases where traversal worked but paths disagreed with remaining
   // contig
   uint64_t num_gap_attempts, num_gap_successes;
-  uint64_t num_gaps_disagreed, num_gaps_too_short;
+  uint64_t num_paths_disagreed, num_gaps_too_short;
 } CorrectAlnStats;
 
 void correct_aln_stats_alloc(CorrectAlnStats *stats);

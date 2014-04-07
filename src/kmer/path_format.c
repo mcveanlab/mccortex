@@ -41,7 +41,7 @@ void paths_header_dealloc(PathFileHeader *h)
   size_t i;
   if(h->capacity > 0) {
     for(i = 0; i < h->capacity; i++) strbuf_dealloc(&h->sample_names[i]);
-    free(h->sample_names);
+    ctx_free(h->sample_names);
     h->capacity = 0;
   }
 }
@@ -250,7 +250,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
           (size_t)pindex, (size_t)hdr->num_path_bytes);
     }
 
-    pstore_paths(pstore, hkey) = pindex;
+    pstore_set_pindex(pstore, hkey, pindex);
   }
 
   // Test that this is the end of the file
@@ -273,7 +273,7 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
 
   // Get paths this kmer already has
-  pindex = pstore_paths(pstore, hkey);
+  pindex = pstore_get_pindex(pstore, hkey);
 
   do
   {
@@ -282,7 +282,8 @@ static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
     new_pindex = path_store_find_or_add(pstore, bkmer, pindex, packed, pbytes,
                                         fltr, find, &added);
     if(added) {
-      pstore_paths(pstore, hkey) = pindex = new_pindex;
+      pstore_set_pindex(pstore, hkey, new_pindex);
+      pindex = new_pindex;
     }
     loadindex = packedpath_get_prev(packed);
   }
@@ -452,23 +453,23 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
   uint8_t *mout = mem_ptr ? *mem_ptr : NULL;
   size_t mem;
 
-  ctx_assert(pstore->kmer_paths_update != NULL);
+  ctx_assert(pstore->kmer_paths_read != NULL);
 
-  pindex = pstore_paths_updated(pstore, hkey);
+  pindex = pstore_get_pindex(pstore, hkey);
 
   // Return if not paths associated with this kmer
   if(pindex == PATH_NULL) return;
 
-  bool update_kpaths = (pstore->kmer_paths != NULL &&
-                        pstore->kmer_paths_update != pstore->kmer_paths);
-  PathIndex kpidx = update_kpaths ? pstore_paths(pstore, hkey) : PATH_NULL;
+  bool update_kpaths = (pstore->kmer_paths_read != NULL &&
+                        pstore->kmer_paths_write != pstore->kmer_paths_read);
+  PathIndex kpidx = update_kpaths ? pstore_get_pindex(pstore, hkey) : PATH_NULL;
 
-  pstore_paths_updated(pstore, hkey) = pidx;
+  pstore_set_pindex(pstore, hkey, pidx);
 
   do
   {
     if(update_kpaths && pindex == kpidx)
-      pstore_paths(pstore, hkey) = pidx;
+      pstore_set_pindex(pstore, hkey, pidx);
 
     path = pstore->store+pindex;
     mem = packedpath_mem(path, pstore->colset_bytes);
@@ -506,7 +507,7 @@ static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
   PathIndex pindex;
   BinaryKmer bkmer;
 
-  if((pindex = pstore_paths(pstore, hkey)) != PATH_NULL)
+  if((pindex = pstore_get_pindex(pstore, hkey)) != PATH_NULL)
   {
     bkmer = db_node_get_bkmer(db_graph, hkey);
 
@@ -520,14 +521,14 @@ static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
 
 void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout)
 {
-  ctx_assert(db_graph->pstore.kmer_paths_update != NULL);
+  ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
   PathIndex poffset = 0;
   HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout, NULL);
 }
 
 void paths_format_cpy_optimised_paths_only(dBGraph *db_graph, uint8_t *mem)
 {
-  ctx_assert(db_graph->pstore.kmer_paths_update != NULL);
+  ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
   PathIndex poffset = 0;
   HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, NULL, &mem);
 }
@@ -536,7 +537,7 @@ void paths_format_cpy_optimised_paths_only(dBGraph *db_graph, uint8_t *mem)
 // unless you reload the optimised paths from fout
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout)
 {
-  ctx_assert(db_graph->pstore.kmer_paths_update != NULL);
+  ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
   paths_format_write_optimised_paths_only(db_graph, fout);
   HASH_ITERATE(&db_graph->ht, write_kmer_path_indices, db_graph, fout);
 }

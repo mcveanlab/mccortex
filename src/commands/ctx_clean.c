@@ -359,7 +359,7 @@ int ctx_clean(CmdArgs *args)
     fclose(len_after_fh);
   }
 
-  free(visited);
+  ctx_free(visited);
 
   if(doing_cleaning)
   {
@@ -416,8 +416,8 @@ int ctx_clean(CmdArgs *args)
 
   graph_header_dealloc(&outhdr);
 
-  free(edge_store);
-  free(db_graph.col_covgs);
+  ctx_free(edge_store);
+  ctx_free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
 
   for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);

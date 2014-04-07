@@ -71,7 +71,7 @@ size_t graph_walker_est_mem();
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
-void graph_walker_print_state(const GraphWalker *wlk);
+void graph_walker_print_state(const GraphWalker *wlk, FILE *fout);
 
 // Always call finish after calling init
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
