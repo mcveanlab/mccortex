@@ -214,6 +214,17 @@ void binary_seq_to_str(const uint8_t *arr, size_t len, char *str)
   *str = '\0';
 }
 
+void binary_seq_from_str(const char *str, size_t len, uint8_t *arr)
+{
+  const char *end = str+len;
+  size_t b = 0, o = 0;
+  memset(arr, 0, (len+3)/4);
+  while(str < end) {
+    arr[b] |= dna_char_to_nuc(*str) << o;
+    str++; o += 2; b += (o == 8); o &= 7;
+  }
+}
+
 void binary_seq_print(const uint8_t *arr, size_t len, FILE *fout)
 {
   size_t i, b = 0, o = 0;
@@ -221,4 +232,23 @@ void binary_seq_print(const uint8_t *arr, size_t len, FILE *fout)
     fputc(dna_nuc_to_char((arr[b] >> o) & 3), fout);
     o+=2; b += (o == 8); o &= 7;
   }
+}
+
+// Lexicographic comparison
+// len is in bases
+// Returns: -1 if arr0 < arr1, 0 if arr0 == arr1, 1 if arr0 > arr1
+int binary_seqs_cmp(const uint8_t *arr0, size_t len0,
+                    const uint8_t *arr1, size_t len1)
+{
+  size_t i, b = 0, o = 0, len = MIN2(len0, len1);
+  int_fast8_t x, y;
+  int ret;
+  // Loop over one base at a time
+  for(i = 0; i < len; i++) {
+    x = (arr0[b] >> o) & 3;
+    y = (arr1[b] >> o) & 3;
+    if((ret = x - y) != 0) return ret;
+    o+=2; b += (o == 8); o &= 7;
+  }
+  return (long)len0 - (long)len1;
 }

@@ -1,6 +1,8 @@
 #include "global.h"
 #include "all_tests.h"
 #include "db_graph.h"
+#include "graph_paths.h"
+#include "dna.h"
 
 // Common functions here
 FILE *ctx_tst_out = NULL;
@@ -10,7 +12,7 @@ size_t tests_num_run = 0, tests_num_failed = 0;
 //
 // Useful functions
 //
-void fill_rand_bytes(uint8_t *arr, size_t n)
+void rand_bytes(uint8_t *arr, size_t n)
 {
   uint32_t r; size_t i;
   for(i = 0; i+4 <= n; i+=4) { r = rand(); memcpy(&arr[i], &r, 4); }
@@ -25,6 +27,17 @@ void rand_nucs(Nucleotide *nucs, size_t len)
   for(i = 0; i < len; i++) {
     if((i & 15) == 0) r = (size_t)rand(); // 2 bits per cycle, 32 bits in rand()
     nucs[i] = r&3;
+    r >>= 2;
+  }
+}
+
+void rand_bases(char *bases, size_t len)
+{
+  if(!len) return;
+  size_t i, r = 0;
+  for(i = 0; i < len; i++) {
+    if((i & 15) == 0) r = (size_t)rand(); // 2 bits per cycle, 32 bits in rand()
+    bases[i] = dna_nuc_to_char(r&3);
     r >>= 2;
   }
 }
@@ -84,4 +97,51 @@ void _deconstruct_graph_with_paths(dBGraph *graph)
 
   path_store_dealloc(&graph->pstore);
   db_graph_dealloc(graph);
+}
+
+void _test_add_paths(dBGraph *graph,
+                     AsyncIOData *iodata, CorrectAlnReadsTask *task,
+                     GenPathWorker *wrkrs, char *seq,
+                     size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
+{
+  size_t npaths = graph->pstore.num_of_paths;
+  size_t nkmers = graph->pstore.num_kmers_with_paths;
+  uint8_t *next = graph->pstore.next;
+
+  // Set up asyncio input data
+  seq_read_set(&iodata->r1, seq);
+  seq_read_reset(&iodata->r2);
+  iodata->fq_offset1 = iodata->fq_offset2 = 0;
+  iodata->ptr = NULL;
+  // Add paths
+  gen_paths_worker_seq(wrkrs, iodata, task);
+
+  // Check we added the right number of paths
+  TASSERT(graph->pstore.num_of_paths == npaths + exp_npaths);
+  TASSERT(graph->pstore.num_kmers_with_paths == nkmers + exp_nkmers);
+
+  // Check memory used
+  size_t path_mem = sizeof(PathIndex) + graph->pstore.colset_bytes + sizeof(PathLen);
+  size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
+  TASSERT(graph->pstore.next == next + exp_mem);
+}
+
+//
+// Graph tests
+//
+
+void _test_path_store(const dBGraph *graph)
+{
+  size_t col;
+  GraphPathPairing gp;
+  gp_alloc(&gp, graph->num_of_cols);
+
+  for(col = 0; col < graph->num_of_cols; col++)
+    gp.ctxcols[col] = gp.ctpcols[col] = col;
+
+  // Check data store
+  TASSERT(path_store_integrity_check(&graph->pstore));
+  TASSERT(graph_paths_check_all_paths(&gp, graph));
+
+  gp_dealloc(&gp);
 }

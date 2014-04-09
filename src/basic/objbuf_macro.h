@@ -2,7 +2,7 @@
 #define OBJBUF_H_
 
 //
-// objbuf.h
+// objbuf_macro.h
 // Define a buffer with functions to alloc, dealloc, resize, add, append, reset
 //
 // Example:
@@ -61,7 +61,7 @@ static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _dealloc(buf_t *buf) {                              \
-  ctx_free(buf->data);                                                             \
+  ctx_free(buf->data);                                                         \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap) {          \

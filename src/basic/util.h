@@ -14,6 +14,7 @@ int cmp_uint32(const void *a, const void *b);
 int cmp_uint64(const void *a, const void *b);
 int cmp_size(const void *a, const void *b);
 int cmp_ptr(const void *a, const void *b);
+int cmp_charptr(const void *a, const void *b);
 
 char parse_entire_int(const char *str, int *result);
 char parse_entire_uint(const char *str, unsigned int *result);

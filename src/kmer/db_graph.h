@@ -10,10 +10,6 @@
 #include "graph_info.h"
 #include "path_store.h"
 
-typedef struct {
-  hkey_t orient:1, key:63;
-} dBNode;
-
 //
 // Graph
 //

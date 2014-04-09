@@ -6,6 +6,7 @@
 #include "path_store.h"
 #include "util.h"
 #include "file_util.h"
+#include "sorted_path_set.h"
 
 // Format:
 // -- Header --
@@ -133,10 +134,12 @@ size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files)
   return used_cols;
 }
 
+
+// Used internally only
 // Get min tmp memory required to load files
 // if we already have paths, return the max, otherwise second max
-size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files,
-                                   bool already_have_paths)
+static size_t path_files_tmp_mem_required(const PathFileReader *files,
+                                          size_t num_files, bool already_have_paths)
 {
   if(num_files == 0) return 0;
   if(num_files == 1) return already_have_paths ? files[0].hdr.num_path_bytes : 0;
@@ -155,6 +158,35 @@ size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files
   }
 
   return already_have_paths ? s0 : s1;
+}
+
+// Get min memory required to load files. Returns memory required in bytes.
+// remove_substr requires extra memory if only loading one file
+// (as if loading two files)
+size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
+                               bool remove_substr, bool use_path_hash)
+{
+  if(num_files == 0) return 0;
+
+  size_t multiplier = (remove_substr ? 2 : 1) * (use_path_hash ? 2 : 1);
+  size_t mem = files[0].hdr.num_path_bytes;
+
+  if(num_files == 1) return mem * multiplier;
+
+  // We need the size of the first and second largest file path_mem
+  size_t i, tmp, s0, s1;
+
+  s0 = files[0].hdr.num_path_bytes;
+  s1 = files[1].hdr.num_path_bytes;
+  if(s1 > s0) { SWAP(s0, s1, tmp); }
+
+  for(i = 2; i < num_files; i++) {
+    tmp = files[i].hdr.num_path_bytes;
+    if(tmp > s0) { s1 = s0; s0 = tmp; }
+    else if(tmp > s1) { s0 = tmp; }
+  }
+
+  return (remove_substr ? s0 * 2 : s0 + s1) * (use_path_hash ? 2 : 1);
 }
 
 // Print some output
@@ -259,42 +291,57 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
     warn("End of file not reached when loading! [path: %s]", path);
 }
 
-static inline void load_packed_linkedlist(hkey_t hkey, const uint8_t *data,
-                                          PathIndex loadindex,
-                                          size_t colset_bytes,
-                                          FileFilter *fltr, bool find,
-                                          dBGraph *db_graph)
+// pindex is index of last path
+static void load_sorted_path_set(hkey_t hkey, BinaryKmer bkey, PathIndex pindex,
+                                 const SortedPathSet *set, PathStore *ps)
 {
-  const uint8_t *packed;
-  PathIndex pindex, new_pindex;
-  PathLen pbytes;
-  bool added = false;
-  PathStore *pstore = &db_graph->pstore;
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  if(set->members.len == 0) return;
 
-  // Get paths this kmer already has
-  pindex = pstore_get_pindex(pstore, hkey);
+  size_t i;
+  const PathEntry *entry;
 
-  do
-  {
-    packed = data+loadindex;
-    pbytes = packedpath_pbytes(packed, colset_bytes);
-    new_pindex = path_store_find_or_add(pstore, bkmer, pindex, packed, pbytes,
-                                        fltr, find, &added);
-    if(added) {
-      pstore_set_pindex(pstore, hkey, new_pindex);
-      pindex = new_pindex;
-    }
-    loadindex = packedpath_get_prev(packed);
+  for(i = 0; i < set->members.len; i++) {
+    entry = &set->members.data[i];
+    pindex = path_store_add_packed(ps, bkey, pindex, entry->orient, entry->plen,
+                                   entry->seq - set->cbytes, entry->seq);
   }
-  while(loadindex != PATH_NULL);
+
+  pstore_set_pindex(ps, hkey, pindex);
+}
+
+// set0 is already loaded
+// we are considering loading from set1
+static void load_linkedlist(hkey_t hkey, BinaryKmer bkey,
+                            PathIndex loadindex, PathFileReader *pfile,
+                            SortedPathSet *set0, SortedPathSet *set1,
+                            bool rmv_redundant, PathStore *ps)
+{
+  const FileFilter *fltr = &pfile->fltr;
+
+  // Might not need to use filter
+  if(path_store_fltr_compatible(ps,fltr)) fltr = NULL;
+
+  // Create SortedPathSets
+  PathIndex pindex = pstore_get_pindex(ps, hkey);
+  sorted_path_set_init(set0, ps, hkey);
+  sorted_path_set_init2(set0, hkey, ps->colset_bytes, ps->store, pindex, NULL);
+  sorted_path_set_init2(set1, hkey, ps->colset_bytes, ps->tmpstore, loadindex, fltr);
+
+  // Remove redundant paths in paths from the file
+  if(rmv_redundant) sorted_path_set_slim(set1);
+
+  // Remove elements from set1 (from file) that are already in set0 (loaded)
+  sorted_path_set_merge(set0, set1, rmv_redundant, ps->store);
+
+  // Store new paths
+  load_sorted_path_set(hkey, bkey, pindex, set1, ps);
 }
 
 // Load 1 or more path files; can be called consecutively
-// db_graph.pstore must be big enough to hold all this data or we exit
-// tmpstore must be bigger than MAX(files[*].hdr.num_path_bytes)
+// if rmv_redundant is true we remove non-informative paths
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        bool insert_missing_kmers, dBGraph *db_graph)
+                        bool insert_missing_kmers, bool rmv_redundant,
+                        dBGraph *db_graph)
 {
   if(num_files == 0) return;
 
@@ -318,11 +365,12 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   // load files one at a time
   FileFilter *fltr;
   PathFileHeader *hdr;
-  FILE *fh; const char *path;
+  FILE *fh;
+  const char *path;
   BinaryKmer bkey;
-  hkey_t node;
+  hkey_t hkey;
   PathIndex tmpindex;
-  bool found, find = true;
+  bool found;
   size_t i, k, colbytes, first_file = 0;
 
   // Update sample names of the graph
@@ -331,21 +379,24 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   for(i = 0; i < num_files; i++)
     path_file_load_check(&files[i], db_graph);
 
+  // Temporary sets used in loading and removing duplicates
+  SortedPathSet pset0, pset1;
+  sorted_path_set_dealloc(&pset0);
+  sorted_path_set_dealloc(&pset1);
+
   // Load first file into main pstore
-  if(pstore->next == pstore->store)
+  if(pstore->next == pstore->store && !rmv_redundant)
   {
     // Currently no paths loaded
     if(path_store_fltr_compatible(pstore, &files[0].fltr)) {
       paths_format_load(&files[0], db_graph, insert_missing_kmers);
       first_file = 1;
     } else {
-      find = false;
       first_file = 0;
     }
   }
 
-  // `find` means we should try to find the path in the store before adding it
-  for(i = first_file; i < num_files; i++, find = true)
+  for(i = first_file; i < num_files; i++)
   {
     fltr = &files[i].fltr;
     hdr = &files[i].hdr;
@@ -366,9 +417,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       safe_fread(fh, bkey.b, sizeof(BinaryKmer), "bkey", path);
 
       if(insert_missing_kmers) {
-        node = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
+        hkey = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
       }
-      else if((node = hash_table_find(&db_graph->ht, bkey)) == HASH_NOT_FOUND)
+      else if((hkey = hash_table_find(&db_graph->ht, bkey)) == HASH_NOT_FOUND)
       {
         char kmer_str[MAX_KMER_SIZE+1];
         binary_kmer_to_str(bkey, db_graph->kmer_size, kmer_str);
@@ -382,8 +433,10 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       }
 
       // Merge into currently loaded paths
-      load_packed_linkedlist(node, pstore->tmpstore, tmpindex, colbytes,
-                             fltr, find, db_graph);
+      // load_packed_linkedlist(hkey, bkey, pstore->tmpstore, tmpindex, colbytes,
+      //                        fltr, find, pstore);
+      load_linkedlist(hkey, bkey, tmpindex, &files[i],
+                      &pset0, &pset1, rmv_redundant, pstore);
     }
 
     // Test that this is the end of the file
@@ -395,6 +448,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   path_store_print(pstore);
 
   if(tmp_pmem) path_store_release_tmp(pstore);
+
+  sorted_path_set_dealloc(&pset0);
+  sorted_path_set_dealloc(&pset1);
 }
 
 
@@ -441,18 +497,14 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout)
 }
 
 static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
-                                         dBGraph *db_graph,
-                                         FILE *const fout,
-                                         uint8_t **const mem_ptr)
+                                         dBGraph *db_graph, FILE *const fout)
 {
-  ctx_assert((fout == NULL) != (mem_ptr == NULL));
-
   const PathStore *pstore = &db_graph->pstore;
   PathIndex pindex, newidx, pidx = *pidx_ptr;
   const uint8_t *path;
-  uint8_t *mout = mem_ptr ? *mem_ptr : NULL;
   size_t mem;
 
+  ctx_assert(fout != NULL);
   ctx_assert(pstore->kmer_paths_read != NULL);
 
   pindex = pstore_get_pindex(pstore, hkey);
@@ -460,17 +512,10 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
   // Return if not paths associated with this kmer
   if(pindex == PATH_NULL) return;
 
-  bool update_kpaths = (pstore->kmer_paths_read != NULL &&
-                        pstore->kmer_paths_write != pstore->kmer_paths_read);
-  PathIndex kpidx = update_kpaths ? pstore_get_pindex(pstore, hkey) : PATH_NULL;
-
   pstore_set_pindex(pstore, hkey, pidx);
 
   do
   {
-    if(update_kpaths && pindex == kpidx)
-      pstore_set_pindex(pstore, hkey, pidx);
-
     path = pstore->store+pindex;
     mem = packedpath_mem(path, pstore->colset_bytes);
     pindex = packedpath_get_prev(path);
@@ -480,22 +525,14 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
 
     // printf("%zu writing %zu paths bytes next: %zu\n", pidx, mem, newidx);
 
-    if(fout) {
-      if(fwrite(&newidx, 1, sizeof(PathIndex), fout) +
-         fwrite(path+sizeof(PathIndex), 1, mem-sizeof(PathIndex), fout) != mem)
-      {
-        die("Couldn't write to file");
-      }
-    } else {
-      memcpy(mout, &newidx, sizeof(PathIndex));
-      mout += sizeof(PathIndex);
-      memcpy(mout, path+sizeof(PathIndex), mem-sizeof(PathIndex));
-      mout += mem-sizeof(PathIndex);
+    if(fwrite(&newidx, 1, sizeof(PathIndex), fout) +
+       fwrite(path+sizeof(PathIndex), 1, mem-sizeof(PathIndex), fout) != mem)
+    {
+      die("Couldn't write to file");
     }
   }
   while(pindex != PATH_NULL);
 
-  if(mem_ptr) *mem_ptr = mout;
   *pidx_ptr = pidx;
 }
 
@@ -523,14 +560,7 @@ void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout)
 {
   ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
   PathIndex poffset = 0;
-  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout, NULL);
-}
-
-void paths_format_cpy_optimised_paths_only(dBGraph *db_graph, uint8_t *mem)
-{
-  ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
-  PathIndex poffset = 0;
-  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, NULL, &mem);
+  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
 }
 
 // Corrupts paths so they cannot be used elsewhere

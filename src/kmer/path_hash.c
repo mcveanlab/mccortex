@@ -9,6 +9,7 @@
 struct KPEntryStruct
 {
   BinaryKmer bkmer;
+  // 5 bytes, 2 bytes, 1 byte
   PathIndex pindex:40, len:16, seq:8;
 } __attribute((packed));
 

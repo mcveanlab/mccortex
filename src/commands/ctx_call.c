@@ -96,12 +96,11 @@ int ctx_call(CmdArgs *args)
   //
   size_t num_pfiles = args->num_ctp_files;
   PathFileReader pfiles[num_pfiles];
-  size_t path_max_mem = 0, path_max_usedcols = 0;
+  size_t path_max_usedcols = 0;
 
   for(i = 0; i < num_pfiles; i++) {
     pfiles[i] = INIT_PATH_READER;
     path_file_open(&pfiles[i], args->ctp_files[i], true);
-    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
@@ -121,9 +120,8 @@ int ctx_call(CmdArgs *args)
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t tmp_path_mem, path_mem, thread_mem;
-  char path_mem_str[100], thread_mem_str[100];
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, thread_mem;
+  char thread_mem_str[100];
 
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/thread)
@@ -141,11 +139,8 @@ int ctx_call(CmdArgs *args)
           num_of_threads, thread_mem, thread_mem_str);
 
   // Path Memory
-  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
-  path_mem = path_max_mem + tmp_path_mem;
-
-  bytes_to_str(path_mem, 1, path_mem_str);
-  status("[memory] paths: %s\n", path_mem_str);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + thread_mem + path_mem;
   cmd_check_mem_limit(args, total_mem);
@@ -174,7 +169,7 @@ int ctx_call(CmdArgs *args)
   db_graph.node_in_cols = calloc2(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
-  path_store_alloc(&db_graph.pstore, path_max_mem, false,
+  path_store_alloc(&db_graph.pstore, path_mem, false,
                    db_graph.ht.capacity, path_max_usedcols);
 
   //
@@ -196,7 +191,7 @@ int ctx_call(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files (does nothing if num_fpiles == 0)
-  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
 
   // Now call variants
   bubble_caller_print_header(&db_graph, gzout, out_path, args);

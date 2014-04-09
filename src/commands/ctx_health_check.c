@@ -72,30 +72,15 @@ int ctx_health_check(CmdArgs *args)
   graphs_paths_compatible(&gfile, 1, pfiles, num_pfiles);
 
   // Decide on memory
-  size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t path_mem = 0, path_mem_req = 0, tmp_path_mem = 0, total_mem;
+  size_t extra_bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8 + 1; // edges + in_colour
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                         gfile.num_of_kmers, false, &graph_mem);
 
-  // Path Memory
-  if(num_pfiles)
-  {
-    tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
-    path_mem_req = path_max_mem + tmp_path_mem;
-    // If we don't have enough memory, will bork out at cmd_check_mem_limit
-    // Only need the required amount of memory if loading a single paths file
-    // May need more if having to merge path files
-    if(num_pfiles > 1)
-      path_mem = MAX2(args->mem_to_use - graph_mem, path_mem_req);
-    else
-      path_mem = path_mem_req;
-
-    char path_mem_str[100];
-    bytes_to_str(path_mem, 1, path_mem_str);
-    status("[memory] paths: %s", path_mem_str);
-  }
+  // Paths memory
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  cmd_print_mem(path_mem, "paths");
 
   total_mem = path_mem + graph_mem;
   cmd_check_mem_limit(args, total_mem);
@@ -121,7 +106,7 @@ int ctx_health_check(CmdArgs *args)
   graph_load(&gfile, gprefs, NULL);
 
   // Load path files (if there are any)
-  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, true, &db_graph);
 
   if(do_edge_check) {
     status("Running edge check...");

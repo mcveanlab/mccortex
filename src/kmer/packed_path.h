@@ -52,6 +52,63 @@ static inline void packedpath_set_prev(uint8_t *ptr, PathIndex idx) {
 // Get pointer to colset
 #define packedpath_get_colset(ptr) ((ptr) + sizeof(PathIndex))
 
+// Merge `in` into `out`
+// Returns true if out was changed
+static inline bool packedpath_colsets_or(uint8_t *restrict out,
+                                         const uint8_t *restrict in,
+                                         size_t cbytes)
+{
+  const uint8_t *end = out + cbytes;
+  uint8_t changed = 0, prev;
+  for(; out < end; out++, in++) {
+    prev = *out;
+    *out |= *in;
+    changed |= (prev != *out);
+  }
+  return changed;
+}
+
+// Returns true if set0 is a subset of set1
+static inline bool packedpath_is_colset_subset(const uint8_t *restrict set0,
+                                               const uint8_t *restrict set1,
+                                               size_t cbytes)
+{
+  const uint8_t *end;
+  for(end = set0 + cbytes; set0 < end && !(*set0 & ~*set1); set0++, set1++) {}
+  return (set0 == end);
+}
+
+// Returns true if all colour bits are zero
+static inline bool packedpath_is_colset_zero(const uint8_t *set, size_t cbytes)
+{
+  const uint8_t *end;
+  for(end = set + cbytes; set < end && !*set; set++) {}
+  return (set == end);
+}
+
+// Copy colours from `in` to `out`, set `in` bits to all zero
+static inline void packedpath_cpy_zero_colsets(uint8_t *restrict out,
+                                               uint8_t *restrict in,
+                                               size_t cbytes)
+{
+  const uint8_t *end;
+  for(end = out + cbytes; out < end; out++, in++) {
+    *out |= *in;
+    *in = 0;
+  }
+}
+
+// Remove from `set0` bits that are set in `set1`
+static inline void packedpath_colset_rm_intersect(uint8_t *restrict set0,
+                                                  const uint8_t *restrict set1,
+                                                  size_t cbytes)
+{
+  const uint8_t *end;
+  for(end = set0 + cbytes; set0 < end; set0++, set1++) {
+    *set0 &= ~*set1;
+  }
+}
+
 //
 // Length and Orientation
 //

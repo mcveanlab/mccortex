@@ -2,11 +2,11 @@
 #include "all_tests.h"
 #include "binary_seq.h"
 
-#define NTESTS 100
+#define NTESTS 200
 #define TLEN 256 /* power of two */
 
 
-void test_binary_seq_rev_cmp()
+static void test_binary_seq_rev_cmp()
 {
   test_status("binary_seq_reverse_complement() binary_seq_to_str()");
 
@@ -17,7 +17,7 @@ void test_binary_seq_rev_cmp()
   for(i = 0; i < NTESTS; i++)
   {
     // Get random sequence, mask top byte, convert to string
-    fill_rand_bytes(data, TLEN);
+    rand_bytes(data, TLEN);
     nbases = rand() & (4*TLEN-1);
     binary_seq_to_str(data, nbases, str);
 
@@ -35,6 +35,43 @@ void test_binary_seq_rev_cmp()
     binary_seq_to_str(tmp, nbases, restore);
     TASSERT(memcmp(data, tmp, TLEN) == 0);
     TASSERT(strncmp(str, restore, nbases) == 0);
+  }
+}
+
+static void _binary_seq_str_test(const char *seq)
+{
+  size_t len = strlen(seq);
+  char str[len+1];
+  uint8_t data[len];
+
+  binary_seq_from_str(seq, len, data);
+  binary_seq_to_str(data, len, str);
+  TASSERT2(strcmp(seq, str) == 0, "1: '%s' vs '%s'", seq, str);
+}
+
+static void test_binary_seq_str()
+{
+  test_status("Testing binary_seq_[to|from]_str()");
+
+  _binary_seq_str_test("");
+  _binary_seq_str_test("A");
+  _binary_seq_str_test("C");
+  _binary_seq_str_test("G");
+  _binary_seq_str_test("T");
+  _binary_seq_str_test("AAAAAA");
+  _binary_seq_str_test("TATACATA");
+  _binary_seq_str_test("AGACAATCAGAG");
+  _binary_seq_str_test("TTTTTTTTTTTTTTTT");
+
+  // random tests
+  char str[TLEN];
+  size_t i, nbases;
+
+  for(i = 0; i < NTESTS; i++) {
+    nbases = rand() & (TLEN-1);
+    rand_bases(str, nbases);
+    str[nbases] = '\0';
+    _binary_seq_str_test(str);
   }
 }
 
@@ -65,7 +102,7 @@ static void test_binary_seq_cpy()
     memset(slow, 0xff, TLEN);
     memset(med,  0xff, TLEN);
     memset(fast, 0xff, TLEN);
-    fill_rand_bytes(in, TLEN);
+    rand_bytes(in, TLEN);
 
     len = rand() % (TLEN/2+1);
     shift = rand() % 4;
@@ -186,6 +223,7 @@ static void test_pack_cpy_unpack()
 void test_binary_seq_functions()
 {
   test_binary_seq_rev_cmp();
+  test_binary_seq_str();
   test_binary_seq_cpy();
   test_pack_unpack();
   test_pack_cpy_unpack();

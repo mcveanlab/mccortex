@@ -94,7 +94,7 @@ KMERARGS=-DMIN_KMER_SIZE=$(MIN_KMER_SIZE) -DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 
-IGNORE_CFLAGS=-Wno-cast-align -Wno-aggregate-return -Wno-conversion
+# IGNORE_CFLAGS=-Wno-cast-align -Wno-aggregate-return -Wno-conversion
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                   -Wstrict-aliasing -Wdiv-by-zero -Wsign-compare \
@@ -103,7 +103,8 @@ OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                   -Wshadow -Wfloat-equal -Wbad-function-cast \
                   -fstack-protector-all -D_FORTIFY_SOURCE=2
 
-CLANG_CFLAGS=-fsanitize-undefined-trap-on-error -Wno-shorten-64-to-32
+CLANG_CFLAGS=-fsanitize-undefined-trap-on-error
+#-Wno-shorten-64-to-32
 
 CFLAGS := $(CFLAGS) $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
 

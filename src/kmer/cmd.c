@@ -175,6 +175,13 @@ void cmd_free(CmdArgs *args)
   ctx_free(args->cmdline);
 }
 
+void cmd_print_mem(size_t mem_bytes, const char *name)
+{
+  char mem_str[100];
+  bytes_to_str(mem_bytes, 1, mem_str);
+  status("[memory] %s: %s", name, mem_str);
+}
+
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 // extra_bits is additional memory per node, above hash table+BinaryKmers
 size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
@@ -238,7 +245,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
         graph_mem_str, mem_to_use_str);
   }
 
-  status("[memory] graph: %s\n", graph_mem_str);
+  cmd_print_mem(graph_mem, "graph");
 
   if(graph_mem_ptr != NULL) *graph_mem_ptr = graph_mem;
 

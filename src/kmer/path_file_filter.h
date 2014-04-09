@@ -42,6 +42,8 @@ const PathFileReader INIT_PATH_READER;
 #define path_file_fromcol(rdr,col) file_filter_fromcol(&(rdr)->fltr,col)
 #define path_file_usedcols(rdr) file_filter_usedcols(&(rdr)->fltr)
 
+#define path_file_colset_bytes(rdr) (((rdr)->hdr.num_of_paths+3)/4)
+
 // Open file
 // if cannot open file returns 0
 // if fatal is true, exits on error

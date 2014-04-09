@@ -33,10 +33,11 @@ int paths_file_read_header(FILE *fh, PathFileHeader *header,
 // Get min number of colours needed to load the files
 size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files);
 
-// Get min tmp memory required to load files
-// if we already have paths, return the max, otherwise second max
-size_t path_files_tmp_mem_required(const PathFileReader *files, size_t num_files,
-                                   bool already_have_paths);
+// Get min memory required to load files. Returns memory required in bytes.
+// remove_substr requires extra memory if only loading one file
+// (as if loading two files)
+size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
+                               bool remove_substr, bool use_path_hash);
 
 // If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
@@ -44,8 +45,11 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
                        bool insert_missing_kmers);
 
 // db_graph.pstore must be big enough to hold all this data or we exit
+// Load 1 or more path files; can be called consecutively
+// if rmv_redundant is true we remove non-informative paths
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        bool insert_missing_kmers, dBGraph *db_graph);
+                        bool insert_missing_kmers, bool rmv_redundant,
+                        dBGraph *db_graph);
 
 //
 // Write
@@ -58,8 +62,6 @@ size_t paths_format_write_header(const PathFileHeader *header, FILE *fout);
 
 
 void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout);
-void paths_format_cpy_optimised_paths_only(dBGraph *db_graph, uint8_t *mem);
-
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout);
 
 #endif /* PATH_FORMAT_H_ */

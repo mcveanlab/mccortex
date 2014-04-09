@@ -142,12 +142,11 @@ int ctx_thread(CmdArgs *args)
   //
   size_t num_pfiles = args->num_ctp_files;
   PathFileReader pfiles[num_pfiles];
-  size_t path_max_mem = 0, path_max_usedcols = 0;
+  size_t path_max_usedcols = 0;
 
   for(i = 0; i < num_pfiles; i++) {
     pfiles[i] = INIT_PATH_READER;
     path_file_open(&pfiles[i], args->ctp_files[i], true);
-    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
@@ -174,8 +173,7 @@ int ctx_thread(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, total_mem;
-  size_t tmp_path_mem, path_mem_req, path_mem_used, main_path_mem;
-  char path_mem_str[100];
+  size_t path_mem_req, path_mem;
 
   bits_per_kmer = sizeof(Edges)*8 +
                   sizeof(PathIndex)*8*(num_pfiles > 0 ? 2 : 1) +
@@ -188,16 +186,11 @@ int ctx_thread(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, ctx_max_kmers,
                                         false, &graph_mem);
 
-  // Path Memory
-  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
-  path_mem_req = path_max_mem + tmp_path_mem;
-  path_mem_used = MAX2(args->mem_to_use - graph_mem, path_mem_req);
-  main_path_mem = path_mem_used - tmp_path_mem;
+  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = MAX2(args->mem_to_use - graph_mem, path_mem_req);
+  cmd_print_mem(path_mem, "paths");
 
-  bytes_to_str(path_mem_used, 1, path_mem_str);
-  status("[memory] paths: %s", path_mem_str);
-
-  total_mem = graph_mem + path_mem_used;
+  total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(args, total_mem);
 
   //
@@ -230,7 +223,7 @@ int ctx_thread(CmdArgs *args)
   // Path store
   // use total_cols instead of path_max_usedcols since we are
   // loading then ADDING more paths (which may need new colours)
-  path_store_alloc(&db_graph.pstore, main_path_mem, true,
+  path_store_alloc(&db_graph.pstore, path_mem, true,
                    kmers_in_hash, total_cols);
 
   // path kmer locks for multithreaded access
@@ -251,7 +244,7 @@ int ctx_thread(CmdArgs *args)
   if(num_pfiles > 0) {
     // Paths loaded into empty colours will update the sample names
     // and add kmers needed
-    paths_format_merge(pfiles, num_pfiles, true, &db_graph);
+    paths_format_merge(pfiles, num_pfiles, true, false, &db_graph);
   }
 
   // if no-pickup flags

@@ -58,7 +58,20 @@ void binary_seq_cpy_fast(uint8_t *restrict dst, const uint8_t *restrict src,
 #define binary_seq_cpy(dst,src,shift,len) binary_seq_cpy_fast(dst,src,shift,len)
 
 void binary_seq_to_str(const uint8_t *arr, size_t len, char *str);
+void binary_seq_from_str(const char *str, size_t len, uint8_t *arr);
 
 void binary_seq_print(const uint8_t *arr, size_t len, FILE *fout);
+
+// Lexicographic comparison e.g.:
+//   a
+//   ac
+//   ag
+//   c
+//   cg
+//   cgt
+// len is in bases
+// Returns: -1 if arr0 < arr1, 0 if arr0 == arr1, 1 if arr0 > arr1
+int binary_seqs_cmp(const uint8_t *arr0, size_t len0,
+                    const uint8_t *arr1, size_t len1);
 
 #endif /* BINARY_SEQ_H_ */

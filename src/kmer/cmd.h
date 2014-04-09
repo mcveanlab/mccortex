@@ -41,6 +41,9 @@ typedef struct
 void cmd_alloc(CmdArgs *args, int argc, char **argv);
 void cmd_free(CmdArgs *args);
 
+// Print memory being used
+void cmd_print_mem(size_t mem_bytes, const char *name);
+
 // accptopts is a string of valid args,
 // e.g. "tk" accepts kmer-size and number of threads
 // NULL means anything valid, "" means no args valid

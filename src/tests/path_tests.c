@@ -6,51 +6,6 @@
 #include "generate_paths.h"
 #include "graph_paths.h"
 
-static void add_paths(dBGraph *graph,
-                      AsyncIOData *iodata, CorrectAlnReadsTask *task,
-                      GenPathWorker *wrkrs, char *seq,
-                      size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
-{
-  size_t npaths = graph->pstore.num_of_paths;
-  size_t nkmers = graph->pstore.num_kmers_with_paths;
-  uint8_t *next = graph->pstore.next;
-
-  // Set up asyncio input data
-  seq_read_set(&iodata->r1, seq);
-  seq_read_reset(&iodata->r2);
-  iodata->fq_offset1 = iodata->fq_offset2 = 0;
-  iodata->ptr = NULL;
-  // Add paths
-  gen_paths_worker_seq(wrkrs, iodata, task);
-
-  // Check we added the right number of paths
-  TASSERT(graph->pstore.num_of_paths == npaths + exp_npaths);
-  TASSERT(graph->pstore.num_kmers_with_paths == nkmers + exp_nkmers);
-
-  // Check memory used
-  size_t path_mem = sizeof(PathIndex) + graph->pstore.colset_bytes + sizeof(PathLen);
-  size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
-  TASSERT(graph->pstore.next == next + exp_mem);
-}
-
-static void test_all_paths(const dBGraph *graph)
-{
-  size_t col;
-  GraphPathPairing gp;
-  gp_alloc(&gp, graph->num_of_cols);
-
-  for(col = 0; col < graph->num_of_cols; col++)
-    gp.ctxcols[col] = gp.ctpcols[col] = col;
-
-  // Check data store
-  TASSERT(path_store_integrity_check(&graph->pstore));
-
-  for(col = 0; col < graph->num_of_cols; col++)
-    TASSERT(graph_paths_check_all_paths(&gp, graph));
-
-  gp_dealloc(&gp);
-}
-
 void test_paths()
 {
   test_status("Testing adding paths in generate_paths.c");
@@ -107,10 +62,10 @@ void test_paths()
   size_t nworkers = 1;
   GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph, NULL);
 
-  add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5, 5); // path lens: 3+3+2+2+2
-  add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2, 5); // path lens: 3+3+2+2+2
-  add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2, 3); // path lens: 1+1+1
-  add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5, 5); // path lens: 3+3+2+2+2
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2, 5); // path lens: 3+3+2+2+2
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2, 3); // path lens: 1+1+1
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
 
   path_store_combine_updated_paths(&graph.pstore);
 
@@ -124,7 +79,7 @@ void test_paths()
   // CGAATGACACC:1 len:2 col:0  AG
 
   // Test path store
-  test_all_paths(&graph);
+  _test_path_store(&graph);
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 

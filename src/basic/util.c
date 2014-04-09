@@ -13,9 +13,9 @@ const uint8_t rev_nibble_table[16]
 
 #define cmpfunc(fname,type_t)                                                  \
 int fname(const void *a, const void *b) {                                      \
-  const type_t *a2 = (const type_t *)a;                                        \
-  const type_t *b2 = (const type_t *)b;                                        \
-  return (*a2 < *b2 ? -1 : (*a2 > *b2));                                       \
+  const type_t a2 = *(const type_t *)a;                                        \
+  const type_t b2 = *(const type_t *)b;                                        \
+  return (a2 < b2 ? -1 : (a2 > b2));                                           \
 }
 
 cmpfunc(cmp_int, int);
@@ -26,6 +26,13 @@ cmpfunc(cmp_uint32, uint32_t);
 cmpfunc(cmp_uint64, uint64_t);
 cmpfunc(cmp_size, size_t);
 cmpfunc(cmp_ptr, void *const);
+
+
+int cmp_charptr(const void *aa, const void *bb)
+{
+  const char *a = *(const char **)aa, *b = *(const char **)bb;
+  return strcmp(a, b);
+}
 
 
 char parse_entire_int(const char *str, int *result)

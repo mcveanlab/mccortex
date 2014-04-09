@@ -31,6 +31,11 @@ typedef struct
 } HashTable;
 
 typedef uint64_t hkey_t; // don't ever use the top bit, used later for orientation
+
+typedef struct {
+  hkey_t orient:1, key:63;
+} dBNode;
+
 #define HASH_NOT_FOUND (UINT64_MAX>>1)
 
 #define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER_WORD))

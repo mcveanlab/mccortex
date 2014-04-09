@@ -20,6 +20,7 @@ const char pjoin_usage[] =
 "   --overlap        Merge corresponding colours from each graph file\n"
 "   --flatten        Dump into a single colour graph\n"
 "   --outcols <C>    How many 'colours' should the output file have\n"
+"   --noredundant    Remove redundant paths\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctp:2,3\n"
 "  Offset specifies where to load the first colour: 3:samples.ctp\n";
@@ -31,7 +32,7 @@ int ctx_pjoin(CmdArgs *args)
   // Have already checked we have at least 1 argument
 
   int argi;
-  bool overlap = false, flatten = false;
+  bool overlap = false, flatten = false, noredundant = false;
   size_t output_ncols = 0;
   char *graph_file = NULL;
 
@@ -48,6 +49,10 @@ int ctx_pjoin(CmdArgs *args)
     else if(strcmp(argv[argi],"--flatten") == 0) {
       if(flatten) warn("flatten specified twice");
       flatten = true;
+    }
+    else if(strcmp(argv[argi],"--noredundant") == 0) {
+      if(noredundant) warn("noredundant specified twice");
+      noredundant = true;
     }
     else if(strcmp(argv[argi],"--outcols") == 0) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &output_ncols) ||
@@ -74,7 +79,7 @@ int ctx_pjoin(CmdArgs *args)
   // Open all path files
   //
   size_t i, ncols, max_cols = 0, sum_cols = 0, total_cols;
-  size_t ctp_max_path_kmers = 0, ctp_max_path_bytes = 0;
+  size_t ctp_max_path_kmers = 0;
   PathFileReader pfiles[num_pfiles];
 
   for(i = 0; i < num_pfiles; i++)
@@ -96,7 +101,6 @@ int ctx_pjoin(CmdArgs *args)
     max_cols = MAX2(max_cols, ncols);
     sum_cols += ncols;
     ctp_max_path_kmers = MAX2(ctp_max_path_kmers, pfiles[i].hdr.num_kmers_with_paths);
-    ctp_max_path_bytes = MAX2(ctp_max_path_bytes, pfiles[i].hdr.num_path_bytes);
 
     file_filter_status(&pfiles[i].fltr);
   }
@@ -152,8 +156,7 @@ int ctx_pjoin(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t tmp_path_mem, req_path_mem, total_mem;
-  char path_mem_str[100];
+  size_t path_mem_req, path_mem, total_mem;
 
   // Each kmer stores a pointer to its list of paths
   bits_per_kmer = sizeof(uint64_t)*8;
@@ -161,13 +164,11 @@ int ctx_pjoin(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
-  req_path_mem = ctp_max_path_bytes + tmp_path_mem;
+  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = MAX2(args->mem_to_use - graph_mem, path_mem_req);
+  cmd_print_mem(path_mem, "paths");
 
-  total_mem = graph_mem + req_path_mem;
-
-  bytes_to_str(req_path_mem, 1, path_mem_str);
-  status("[memory] paths: %s\n", path_mem_str);
+  total_mem = graph_mem + path_mem;
 
   cmd_check_mem_limit(args, total_mem);
 
@@ -178,7 +179,7 @@ int ctx_pjoin(CmdArgs *args)
   for(i = 0; i < num_pfiles; i++)
     path_file_set_graph_sample_names(&pfiles[i], &db_graph);
 
-  path_store_alloc(&db_graph.pstore, ctp_max_path_bytes, tmp_path_mem,
+  path_store_alloc(&db_graph.pstore, path_mem, false,
                    db_graph.ht.capacity, output_ncols);
 
   // Open output file
@@ -197,7 +198,7 @@ int ctx_pjoin(CmdArgs *args)
 
   // Load path files
   bool add_kmers = true;
-  paths_format_merge(pfiles, num_pfiles, add_kmers, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, add_kmers, noredundant, &db_graph);
 
   for(i = 0; i < num_pfiles; i++)
     path_file_set_header_sample_names(&pfiles[i], &pheader);

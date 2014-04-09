@@ -348,12 +348,11 @@ int ctx_contigs(CmdArgs *args)
   //
   size_t num_pfiles = args->num_ctp_files;
   PathFileReader pfiles[num_pfiles];
-  size_t path_max_mem = 0, path_max_usedcols = 0;
+  size_t path_max_usedcols = 0;
 
   for(i = 0; i < num_pfiles; i++) {
     pfiles[i] = INIT_PATH_READER;
     path_file_open(&pfiles[i], args->ctp_files[i], true);
-    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
     path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
   }
 
@@ -370,7 +369,6 @@ int ctx_contigs(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
-  char path_mem_str[100];
 
   // 1 bit needed per kmer if we need to keep track of noreseed
   bits_per_kmer = sizeof(Edges)*8 + gfile.hdr.num_of_cols + sizeof(uint64_t)*8 +
@@ -379,11 +377,8 @@ int ctx_contigs(CmdArgs *args)
                                         gfile.num_of_kmers, false, &graph_mem);
 
   // Paths memory
-  size_t tmp_path_mem = path_files_tmp_mem_required(pfiles, num_pfiles, false);
-  path_mem = path_max_mem + tmp_path_mem;
-
-  bytes_to_str(path_mem, 1, path_mem_str);
-  status("[memory] paths: %s", path_mem_str);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  cmd_print_mem(path_mem, "paths");
 
   // Total memory
   total_mem = graph_mem + path_mem;
@@ -410,7 +405,7 @@ int ctx_contigs(CmdArgs *args)
   db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, 1);
 
-  path_store_alloc(&db_graph.pstore, path_max_mem, false,
+  path_store_alloc(&db_graph.pstore, path_mem, false,
                    db_graph.ht.capacity, path_max_usedcols);
 
   uint64_t *visited = no_reseed ? calloc2(nword64, sizeof(uint64_t)) : NULL;
@@ -434,7 +429,7 @@ int ctx_contigs(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
 
   status("Traversing graph in colour %zu...", colour);
 

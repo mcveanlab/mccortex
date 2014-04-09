@@ -52,8 +52,9 @@ extern size_t tests_num_run, tests_num_failed;
 //
 // Useful functions
 //
-void fill_rand_bytes(uint8_t *arr, size_t n);
+void rand_bytes(uint8_t *arr, size_t n);
 void rand_nucs(Nucleotide *nucs, size_t len);
+void rand_bases(char *bases, size_t len);
 void bitarr_tostr(const uint8_t *arr, size_t len, char *str);
 
 static inline void seq_read_set(read_t *r, const char *s) {
@@ -73,6 +74,17 @@ void _construct_graph_with_paths(dBGraph *graph,
                                  CorrectAlnParam path_params);
 
 void _deconstruct_graph_with_paths(dBGraph *graph);
+
+void _test_add_paths(dBGraph *graph,
+                     AsyncIOData *iodata, CorrectAlnReadsTask *task,
+                     GenPathWorker *wrkrs, char *seq,
+                     size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes);
+
+//
+// Graph tests
+//
+
+void _test_path_store(const dBGraph *graph);
 
 //
 // Functions of tests
@@ -119,5 +131,8 @@ void test_corrected_aln();
 
 // repeat_walker_tests.c
 void test_repeat_walker();
+
+// sorted_path_set_tests.c
+void test_sorted_paths();
 
 #endif  /* ALL_TESTS_H_ */

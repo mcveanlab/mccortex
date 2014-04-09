@@ -488,6 +488,7 @@ static void gen_paths_print_progress(size_t n)
   }
 }
 
+/*
 static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
 {
   ThreadPause *thp = wrkr->thread_pause;
@@ -502,6 +503,7 @@ static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
   }
   else thread_pause_trywait(thp);
 }
+*/
 
 // pthread method, loop: grabs job, does processing
 static void* generate_paths_worker(void *ptr)

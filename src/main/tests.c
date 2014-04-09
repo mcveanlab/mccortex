@@ -26,6 +26,7 @@ int main()
   test_paths();
   test_corrected_aln();
   test_repeat_walker();
+  test_sorted_paths();
 
   // Check we free'd all our memory
   size_t still_alloced = ctx_num_allocs - ctx_num_frees;
@@ -39,7 +40,9 @@ int main()
 
   test_status("Tests passed: %s / %s (%.1f%%)", num_passed_str, num_test_str,
               (100.0*tests_num_passed)/tests_num_run);
-  test_status(tests_num_failed ? "Some tests failed." : "All tests passed.");
+
+  if(tests_num_failed) test_status("%zu tests failed", tests_num_failed);
+  else test_status("All tests passed.");
 
   cortex_destroy();
 
