@@ -71,8 +71,7 @@ void path_store_combine_updated_paths(PathStore *pstore);
 // Always adds!
 // Only call this function if you're sure your path is unique
 // colset points to <colset>, seq points to <seq>
-PathIndex path_store_add_packed(PathStore *ps,
-                                BinaryKmer bkey, PathIndex last_index,
+PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index,
                                 Orientation orient, PathLen plen,
                                 const uint8_t *colset, const uint8_t *seq);
 

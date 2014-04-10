@@ -2,11 +2,12 @@
 #define PATH_HASH_H_
 
 #include "packed_path.h"
-#include "binary_kmer.h"
+#include "hash_table.h"
 
 #define PATH_HASH_EMPTY {.table = NULL, .num_of_buckets = 0, .bucket_size = 0, \
                          .capacity = 0, .mask = 0, .num_entries = 0}
 
+// typedef struct KPEntryStruct KPEntry;
 typedef struct KPEntryStruct KPEntry;
 
 struct PathHashStruct
@@ -33,10 +34,10 @@ void path_hash_dealloc(PathHash *phash);
 //   0  found
 //  -1  out of memory
 // Thread Safe: uses bucket level locks
-int path_hash_find_or_insert_mt(PathHash *restrict phash, BinaryKmer bkmer,
+int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
                                 const uint8_t *restrict packed,
-                                const uint8_t *pstore, size_t colbytes,
-                                size_t *pos);
+                                const uint8_t *restrict pstore, size_t colbytes,
+                                size_t *restrict pos);
 
 // Set pindex of newly inserted paths
 void path_hash_set_pindex(PathHash *phash, size_t pos, PathIndex pindex);

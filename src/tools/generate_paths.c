@@ -275,9 +275,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
-
-    added = graph_paths_find_or_add_mt(node, bkmer, ctpcol, packed_ptr, plen,
+    added = graph_paths_find_or_add_mt(node, ctpcol, packed_ptr, plen,
                                        &db_graph->pstore, &pindex);
 
     packed_ptr[top_idx] = top_byte; // restore top byte

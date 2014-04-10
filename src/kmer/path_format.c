@@ -292,7 +292,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
 }
 
 // pindex is index of last path
-static void load_sorted_path_set(hkey_t hkey, BinaryKmer bkey, PathIndex pindex,
+static void load_sorted_path_set(hkey_t hkey, PathIndex pindex,
                                  const SortedPathSet *set, PathStore *ps)
 {
   if(set->members.len == 0) return;
@@ -302,7 +302,7 @@ static void load_sorted_path_set(hkey_t hkey, BinaryKmer bkey, PathIndex pindex,
 
   for(i = 0; i < set->members.len; i++) {
     entry = &set->members.data[i];
-    pindex = path_store_add_packed(ps, bkey, pindex, entry->orient, entry->plen,
+    pindex = path_store_add_packed(ps, hkey, pindex, entry->orient, entry->plen,
                                    entry->seq - set->cbytes, entry->seq);
   }
 
@@ -311,8 +311,8 @@ static void load_sorted_path_set(hkey_t hkey, BinaryKmer bkey, PathIndex pindex,
 
 // set0 is already loaded
 // we are considering loading from set1
-static void load_linkedlist(hkey_t hkey, BinaryKmer bkey,
-                            PathIndex loadindex, PathFileReader *pfile,
+static void load_linkedlist(hkey_t hkey, PathIndex loadindex,
+                            PathFileReader *pfile,
                             SortedPathSet *set0, SortedPathSet *set1,
                             bool rmv_redundant, PathStore *ps)
 {
@@ -334,7 +334,7 @@ static void load_linkedlist(hkey_t hkey, BinaryKmer bkey,
   sorted_path_set_merge(set0, set1, rmv_redundant, ps->store);
 
   // Store new paths
-  load_sorted_path_set(hkey, bkey, pindex, set1, ps);
+  load_sorted_path_set(hkey, pindex, set1, ps);
 }
 
 // Load 1 or more path files; can be called consecutively
@@ -435,7 +435,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       // Merge into currently loaded paths
       // load_packed_linkedlist(hkey, bkey, pstore->tmpstore, tmpindex, colbytes,
       //                        fltr, find, pstore);
-      load_linkedlist(hkey, bkey, tmpindex, &files[i],
+      load_linkedlist(hkey, tmpindex, &files[i],
                       &pset0, &pset1, rmv_redundant, pstore);
     }
 

@@ -84,7 +84,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
-bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
+bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 const uint8_t *packed, size_t plen,
                                 PathStore *pstore, PathIndex *newidx)
 {
@@ -105,7 +105,7 @@ bool graph_paths_find_or_add_mt(dBNode node, BinaryKmer bkmer, Colour ctpcol,
   PathIndex match;
   uint8_t *colset;
   size_t phash_pos = 0;
-  int pret = path_hash_find_or_insert_mt(&pstore->phash, bkmer, packed,
+  int pret = path_hash_find_or_insert_mt(&pstore->phash, node.key, packed,
                                          pstore->store, pstore->colset_bytes,
                                          &phash_pos);
 

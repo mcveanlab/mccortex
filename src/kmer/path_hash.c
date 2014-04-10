@@ -1,21 +1,31 @@
 #include "global.h"
 #include "path_hash.h"
-#include "hash_table.h"
 #include "util.h"
 #include "city.h"
 
-// Entry is [bkmer:8][pindex:5][seq:3] :bytes
+// Entry is [hkey:5][pindex:5] = 10 bytes
 
+// We compare with REHASH_LIMIT(16)*bucket_size(<255) = 4080
+// so we need 12 bits to have 2^12 = 4096 possibilities
+
+// (1-(1/(2^12)))^4080 = 0.369 = 37% of entries would have zero collisions
+// (1-(1/(2^16)))^4080 = 0.939 = 94% of entries would have zero collisions
+
+// Packed structure is 10 bytes
+// Do not use pointes to fields in this struct - they are not aligned
 struct KPEntryStruct
 {
-  BinaryKmer bkmer;
-  // 5 bytes, 2 bytes, 1 byte
-  PathIndex pindex:40, len:16, seq:8;
+  // 5 bytes each
+  hkey_t hkey:40;
+  PathIndex pindex:40;
 } __attribute((packed));
+
+#define PATH_HASH_UNSET (0xffffffffff)
+#define PATH_HASH_ENTRY_ASSIGNED(x) ((x).hkey != PATH_HASH_UNSET)
 
 void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
 {
-  size_t i, cap_entries; uint64_t num_bkts = 0; uint8_t bkt_size = 0;
+  size_t cap_entries; uint64_t num_bkts = 0; uint8_t bkt_size = 0;
 
   // Decide on hash table capacity based on how much memory we can use
   cap_entries = mem_in_bytes / sizeof(KPEntry);
@@ -38,10 +48,10 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
 
   ctx_assert(num_bkts * bkt_size == cap_entries);
   ctx_assert(cap_entries > 0);
-  ctx_assert(sizeof(KPEntry) == sizeof(BinaryKmer) + 8);
+  ctx_assert(sizeof(KPEntry) == 10);
 
-  for(i = 0; i < cap_entries; i++)
-    table[i].bkmer.b[0] = UNSET_BKMER_WORD;
+  // Table all set to 1 to indicate empty
+  memset(table, 0xff, cap_entries * sizeof(KPEntry));
 
   PathHash tmp = {.table = table,
                   .num_of_buckets = num_bkts,
@@ -61,16 +71,12 @@ void path_hash_dealloc(PathHash *phash)
 }
 
 static inline bool _phash_entries_match(const KPEntry *entry,
-                                        BinaryKmer bkmer,
-                                        PathLen plen, const uint8_t *seq,
+                                        hkey_t hkey, PathLen plen,
+                                        const uint8_t *seq,
                                         const uint8_t *pstore, size_t colbytes)
 {
   const uint8_t *seq2 = packedpath_seq(pstore+entry->pindex, colbytes);
-
-  return (binary_kmers_are_equal(entry->bkmer, bkmer) &&
-          entry->len == plen &&
-          entry->seq == seq[0] &&
-          (plen <= 4 || memcmp(seq, seq2, (plen+3)/4) == 0));
+  return (hkey == entry->hkey && memcmp(seq, seq2, (plen+3)/4) == 0);
 }
 
 // You must acquire the lock on the kmer before adding
@@ -81,12 +87,13 @@ static inline bool _phash_entries_match(const KPEntry *entry,
 //   0  found
 //  -1  out of memory
 // Thread Safe: uses bucket level locks
-int path_hash_find_or_insert_mt(PathHash *restrict phash, BinaryKmer bkmer,
+int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
                                 const uint8_t *restrict packed,
                                 const uint8_t *restrict pstore, size_t colbytes,
                                 size_t *restrict pos)
 {
   ctx_assert(phash->table != NULL);
+  ctx_assert(hkey < PATH_HASH_UNSET);
 
   const uint64_t mask = phash->mask;
   const uint8_t *seq = packed+sizeof(PathLen);
@@ -97,15 +104,11 @@ int path_hash_find_or_insert_mt(PathHash *restrict phash, BinaryKmer bkmer,
   plen &= PP_LENMASK;
 
   size_t i, path_bytes = (plen+3)/4, mem = sizeof(PathLen) + path_bytes;
-  uint64_t hash = bkmer.b[0];
+  uint64_t hash = hkey;
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    #if NUM_BKMER_WORDS > 1
-      hash = CityHash64WithSeeds((const char*)packed, mem, hash, bkmer.b[1]-i);
-    #else
-      hash = CityHash64WithSeeds((const char*)packed, mem, hash, i);
-    #endif
+    hash = CityHash64WithSeeds((const char*)packed, mem, hash, i);
 
     hash &= mask;
     bitlock_yield_acquire(phash->bktlocks, hash);
@@ -115,15 +118,14 @@ int path_hash_find_or_insert_mt(PathHash *restrict phash, BinaryKmer bkmer,
 
     for(; entry < end; entry++)
     {
-      if(!HASH_ENTRY_ASSIGNED(entry->bkmer))
+      if(!PATH_HASH_ENTRY_ASSIGNED(*entry))
       {
-        *entry = (KPEntry){.bkmer = bkmer, .pindex = 0xffffffffff,
-                           .len = plen, .seq = seq[0]};
+        *entry = (KPEntry){.hkey = hkey, .pindex = PATH_HASH_UNSET};
         *pos = entry - phash->table;
         bitlock_release(phash->bktlocks, hash);
         return 1;
       }
-      else if(_phash_entries_match(entry, bkmer, plen, seq, pstore, colbytes))
+      else if(_phash_entries_match(entry, hkey, plen, seq, pstore, colbytes))
       {
         *pos = entry - phash->table;
         bitlock_release(phash->bktlocks, hash);

@@ -137,13 +137,13 @@ void path_store_combine_updated_paths(PathStore *pstore)
 
 // Add to PathHash
 // packed points to <len><seq>
-static inline void _path_store_add_to_hash(PathStore *ps,
-                                           BinaryKmer bkey, PathIndex pindex,
+static inline void _path_store_add_to_hash(PathStore *ps, hkey_t hkey,
+                                           PathIndex pindex,
                                            const uint8_t *packed)
 {
   if(ps->phash.table != NULL) {
     size_t phash_pos;
-    int pret = path_hash_find_or_insert_mt(&ps->phash, bkey, packed,
+    int pret = path_hash_find_or_insert_mt(&ps->phash, hkey, packed,
                                            ps->store, ps->colset_bytes,
                                            &phash_pos);
     if(pret == 0) { // inserted
@@ -155,8 +155,7 @@ static inline void _path_store_add_to_hash(PathStore *ps,
 // Always adds!
 // Only call this function if you're sure your path is unique
 // colset points to <colset>, seq points to <seq>
-PathIndex path_store_add_packed(PathStore *ps,
-                                BinaryKmer bkey, PathIndex last_index,
+PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index,
                                 Orientation orient, PathLen plen,
                                 const uint8_t *colset, const uint8_t *seq)
 {
@@ -185,7 +184,7 @@ PathIndex path_store_add_packed(PathStore *ps,
 
   // Add to PathHash
   const uint8_t *len_seq = ptr - pbytes - sizeof(PathLen);
-  _path_store_add_to_hash(ps, bkey, pindex, len_seq);
+  _path_store_add_to_hash(ps, hkey, pindex, len_seq);
 
   return pindex;
 }
