@@ -230,10 +230,12 @@ int ctx_view(CmdArgs *args)
 
   if((print_kmers || parse_kmers) && print_info)
   {
+    double mean_kmer_covg = (double)sum_covgs_read / num_kmers_read;
     printf("----\n");
-    printf("kmers read: %s\n", ulong_to_str(num_kmers_read, num_str));
-    printf("sum covgs:  %s\n", ulong_to_str(sum_covgs_read, num_str));
-    printf("seq loaded: %s\n", ulong_to_str(sum_seq_loaded, num_str));
+    printf("number of kmers:    %s\n", ulong_to_str(num_kmers_read, num_str));
+    printf("sum of coverages:   %s\n", ulong_to_str(sum_covgs_read, num_str));
+    printf("sequence loaded:    %s bp\n", ulong_to_str(sum_seq_loaded, num_str));
+    printf("mean kmer coverage: %s\n", double_to_str(mean_kmer_covg, 2, num_str));
   }
 
   if(print_info)
