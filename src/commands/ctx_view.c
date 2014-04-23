@@ -49,8 +49,8 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
     char total_sequence_str[100];
     ulong_to_str(ginfo->total_sequence, total_sequence_str);
 
-    printf("  mean read length: %u\n", ginfo->mean_read_length);
-    printf("  total sequence loaded: %s\n", total_sequence_str);
+    printf("  mean input contig length: %u\n", ginfo->mean_read_length);
+    printf("  total sequence loaded:    %s\n", total_sequence_str);
 
     if(h->version >= 6)
     {

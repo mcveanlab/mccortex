@@ -19,7 +19,7 @@ typedef struct
 
 typedef struct
 {
-  uint32_t mean_read_length;
+  uint32_t mean_read_length; // after trim = (total_seq / number of contigs)
   uint64_t total_sequence;
   StrBuf sample_name;
   long double seq_err;
