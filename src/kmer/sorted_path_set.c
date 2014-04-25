@@ -2,6 +2,10 @@
 #include "sorted_path_set.h"
 #include "binary_seq.h"
 
+//
+// SortedPathSet allows fast comparison of sets of paths and duplicate removal
+//
+
 void sorted_path_set_alloc(SortedPathSet *set)
 {
   bytebuf_alloc(&set->seqs, 512);
@@ -31,6 +35,8 @@ static int _sorted_path_entry_cmp(const void *aa, const void *bb)
   return a->pindex - b->pindex;
 }
 
+// Load a PathSet from a given PathStore
+// SortedPathSet allows fast comparison of sets and duplicate removal
 void sorted_path_set_init2(SortedPathSet *set, hkey_t hkey, size_t cbytes,
                            const uint8_t *store, PathIndex pindex,
                            const FileFilter *fltr)
@@ -69,10 +75,10 @@ void sorted_path_set_init2(SortedPathSet *set, hkey_t hkey, size_t cbytes,
   for(i = 0; i < set->members.len; i++)
   {
     pentry = &set->members.data[i];
+    colset_ptr = packedpath_get_colset(store+pentry->pindex);
 
-    // Copy colset
+    // Copy colour bitset into `seq`
     if(fltr == NULL) {
-      colset_ptr = packedpath_get_colset(store+pentry->pindex);
       memcpy(seq, colset_ptr, cbytes);
     } else {
       // Clear memory for colour bitset
