@@ -66,10 +66,10 @@ int ctx_pjoin(CmdArgs *args)
     }
   }
 
-  if(argc - argi < 2)
-    cmd_print_usage("Please specify output and input paths");
+  if(argi == argc)
+    cmd_print_usage("Please specify at least one input file");
 
-  const char *out_ctp_path = argv[argi++];
+  const char *out_ctp_path = args->output_file;
 
   // argi .. argend-1 are graphs to load
   size_t num_pfiles = (size_t)(argc - argi);
