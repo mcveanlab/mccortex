@@ -380,8 +380,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   // Temporary sets used in loading and removing duplicates
   SortedPathSet pset0, pset1;
-  sorted_path_set_alloc(&pset0, 512);
-  sorted_path_set_alloc(&pset1, 512);
+  sorted_path_set_alloc(&pset0);
+  sorted_path_set_alloc(&pset1);
 
   // Load first file into main pstore
   if(pstore->next == pstore->store && !rmv_redundant)
