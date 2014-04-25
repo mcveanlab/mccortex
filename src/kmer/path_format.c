@@ -405,7 +405,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Print some output
     paths_loading_print_status(&files[i]);
 
-    ctx_assert(pstore->tmpstore != NULL);
+    ctx_assert(num_files == 1 || pstore->tmpstore != NULL);
     ctx_assert(hdr->num_path_bytes <= pstore->tmpsize);
     safe_fread(fh, pstore->tmpstore, hdr->num_path_bytes, "paths->store", path);
 
