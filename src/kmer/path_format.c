@@ -321,9 +321,8 @@ static void load_linkedlist(hkey_t hkey, PathIndex loadindex,
   // Might not need to use filter
   if(path_store_fltr_compatible(ps,fltr)) fltr = NULL;
 
-  // Create SortedPathSets
+  // Create SortedPathSets, set0 from main PathStore, set1 from file (temp store)
   PathIndex pindex = pstore_get_pindex(ps, hkey);
-  sorted_path_set_init(set0, ps, hkey);
   sorted_path_set_init2(set0, hkey, ps->colset_bytes, ps->store, pindex, NULL);
   sorted_path_set_init2(set1, hkey, ps->colset_bytes, ps->tmpstore, loadindex, fltr);
 
@@ -371,7 +370,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   hkey_t hkey;
   PathIndex tmpindex;
   bool found;
-  size_t i, k, colbytes, first_file = 0;
+  size_t i, k, first_file = 0;
 
   // Update sample names of the graph
   path_files_update_empty_sample_names(files, num_files, db_graph);
@@ -381,8 +380,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   // Temporary sets used in loading and removing duplicates
   SortedPathSet pset0, pset1;
-  sorted_path_set_dealloc(&pset0);
-  sorted_path_set_dealloc(&pset1);
+  sorted_path_set_alloc(&pset0, 512);
+  sorted_path_set_alloc(&pset1, 512);
 
   // Load first file into main pstore
   if(pstore->next == pstore->store && !rmv_redundant)
@@ -402,7 +401,6 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     hdr = &files[i].hdr;
     path = fltr->orig_path.buff;
     fh = fltr->fh;
-    colbytes = roundup_bits2bytes(fltr->filencols);
 
     // Print some output
     paths_loading_print_status(&files[i]);
@@ -433,8 +431,6 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       }
 
       // Merge into currently loaded paths
-      // load_packed_linkedlist(hkey, bkey, pstore->tmpstore, tmpindex, colbytes,
-      //                        fltr, find, pstore);
       load_linkedlist(hkey, tmpindex, &files[i],
                       &pset0, &pset1, rmv_redundant, pstore);
     }
