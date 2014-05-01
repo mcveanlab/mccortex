@@ -20,11 +20,11 @@ extern const BinaryKmer zero_bkmer;
 // Hash functions
 #ifdef CITY_HASH
   // Use Google's CityHash
-  #include "city.h"
+  #include "misc/city.h"
   #define binary_kmer_hash(bkmer,rehash) (CityHash32((char*)bkmer.b, BKMER_BYTES) ^ rehash)
 #else
   // Use Bob Jenkin's lookup3
-  #include "lookup3.h"
+  #include "misc/lookup3.h"
   #define binary_kmer_hash(bkmer,rehash) \
           (uint_fast32_t)lk3_hashlittle(bkmer.b, BKMER_BYTES, (uint32_t)rehash)
 #endif

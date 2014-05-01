@@ -16,8 +16,8 @@ void correct_aln_stats_alloc(CorrectAlnStats *stats)
 {
   // Gap Histogram
   stats->histgrm_len = INIT_BUFLEN;
-  stats->gap_ins_histgrm = calloc2(stats->histgrm_len, sizeof(uint64_t));
-  stats->gap_err_histgrm = calloc2(stats->histgrm_len, sizeof(uint64_t));
+  stats->gap_ins_histgrm = ctx_calloc(stats->histgrm_len, sizeof(uint64_t));
+  stats->gap_err_histgrm = ctx_calloc(stats->histgrm_len, sizeof(uint64_t));
 }
 
 void correct_aln_stats_dealloc(CorrectAlnStats *stats)
@@ -52,8 +52,8 @@ void correct_aln_stats_cap(CorrectAlnStats *stats, size_t max_gap)
 {
   if(stats->histgrm_len < max_gap) {
     max_gap = roundup2pow(max_gap);
-    stats->gap_ins_histgrm = realloc2(stats->gap_ins_histgrm, max_gap*sizeof(uint64_t));
-    stats->gap_err_histgrm = realloc2(stats->gap_err_histgrm, max_gap*sizeof(uint64_t));
+    stats->gap_ins_histgrm = ctx_realloc(stats->gap_ins_histgrm, max_gap*sizeof(uint64_t));
+    stats->gap_err_histgrm = ctx_realloc(stats->gap_err_histgrm, max_gap*sizeof(uint64_t));
     // Zero new memory
     size_t newmem = (max_gap-stats->histgrm_len)*sizeof(uint64_t);
     memset(stats->gap_ins_histgrm+stats->histgrm_len, 0, newmem);

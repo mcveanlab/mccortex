@@ -1,7 +1,7 @@
 #ifndef VCF_PARSING_H_
 #define VCF_PARSING_H_
 
-#include "string_buffer.h"
+#include "string_buffer/string_buffer.h"
 
 // VCF field indices
 #define VCFCHROM   0

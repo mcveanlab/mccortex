@@ -17,9 +17,9 @@ static inline void multicol_walker_alloc(MulticolWalker *walker,
                                          const dBGraph *db_graph)
 {
   size_t i;
-  GraphWalker *wlks = malloc2(db_graph->num_of_cols * sizeof(GraphWalker));
+  GraphWalker *wlks = ctx_malloc(db_graph->num_of_cols * sizeof(GraphWalker));
   for(i = 0; i < db_graph->num_of_cols; i++)
-    graph_walker_alloc(&(walker->wlks[i]));
+    graph_walker_alloc(&wlks[i]);
 
   MulticolWalker newwalker = {.db_graph = db_graph, .wlks = wlks};
   memcpy(walker, &newwalker, sizeof(MulticolWalker));

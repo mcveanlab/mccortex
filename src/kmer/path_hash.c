@@ -1,7 +1,7 @@
 #include "global.h"
 #include "path_hash.h"
 #include "util.h"
-#include "city.h"
+#include "misc/city.h"
 
 // Entry is [hkey:5][pindex:5] = 10 bytes
 
@@ -43,8 +43,8 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
   status("[PathHash] Allocating table with %s entries, using %s", cap_str, mem_str);
   status("[PathHash]  number of buckets: %s, bucket size: %s", num_bkts_str, bkt_size_str);
 
-  KPEntry *table = malloc2(cap_entries * sizeof(KPEntry));
-  uint8_t *bktlocks = calloc2(bktlocks_mem, sizeof(uint8_t));
+  KPEntry *table = ctx_malloc(cap_entries * sizeof(KPEntry));
+  uint8_t *bktlocks = ctx_calloc(bktlocks_mem, sizeof(uint8_t));
 
   ctx_assert(num_bkts * bkt_size == cap_entries);
   ctx_assert(cap_entries > 0);
@@ -66,8 +66,14 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
 
 void path_hash_dealloc(PathHash *phash)
 {
-  ctx_free((void*)phash->bktlocks);
+  ctx_free(phash->bktlocks);
   ctx_free(phash->table);
+}
+
+void path_hash_reset(PathHash *phash)
+{
+  phash->num_entries = 0;
+  memset(phash->table, 0, phash->capacity * sizeof(KPEntry));
 }
 
 static inline bool _phash_entries_match(const KPEntry *entry,

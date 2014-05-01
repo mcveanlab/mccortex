@@ -105,6 +105,7 @@ size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
   Nucleotide nuc;
   dBNode prev, curr;
   size_t i, num_novel_kmers = 0;
+  size_t edge_col = db_graph->num_edge_cols == 1 ? 0 : colour;
   bool found;
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
@@ -118,7 +119,7 @@ size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
     curr = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
     db_graph_update_node_mt(db_graph, curr, colour);
-    db_graph_add_edge_mt(db_graph, colour, prev, curr);
+    db_graph_add_edge_mt(db_graph, edge_col, prev, curr);
     num_novel_kmers += !found;
     prev = curr;
   }
@@ -207,7 +208,7 @@ static void build_graph_print_progress(size_t n)
 }
 
 // pthread method, loop: reads from pool, add to graph
-static void* grab_reads_from_pool(void *ptr)
+static void grab_reads_from_pool(void *ptr)
 {
   BuildGraphWorker *wrkr = (BuildGraphWorker*)ptr;
   MsgPool *pool = wrkr->pool;
@@ -236,8 +237,6 @@ static void* grab_reads_from_pool(void *ptr)
     size_t n = __sync_fetch_and_add(wrkr->rcounter, 1);
     build_graph_print_progress(n);
   }
-
-  pthread_exit(NULL);
 }
 
 // One thread used per input file, num_build_threads used to add reads to graph
@@ -248,7 +247,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
   size_t i, f;
 
-  AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
+  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 
   MsgPool pool;
@@ -256,21 +255,21 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   // Start async io reading
-  AsyncIOReadTask *async_tasks = malloc2(num_files * sizeof(AsyncIOReadTask));
+  AsyncIOReadTask *async_tasks = ctx_malloc(num_files * sizeof(AsyncIOReadTask));
 
   for(f = 0; f < num_files; f++) {
     files[f].idx = f;
     memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOReadTask));
   }
 
-  BuildGraphWorker *workers = malloc2(num_build_threads * sizeof(BuildGraphWorker));
+  BuildGraphWorker *workers = ctx_malloc(num_build_threads * sizeof(BuildGraphWorker));
   size_t rcounter = 0;
 
   for(i = 0; i < num_build_threads; i++)
   {
     BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = &pool,
                                  .rcounter = &rcounter};
-    tmp_wrkr.file_stats = calloc2(num_files, sizeof(LoadingStats));
+    tmp_wrkr.file_stats = ctx_calloc(num_files, sizeof(LoadingStats));
     memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
   }
 
@@ -296,8 +295,13 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   ctx_free(workers);
 
   // Copy stats into ginfo
-  for(f = 0; f < num_files; f++)
+  size_t max_col = 0;
+  for(f = 0; f < num_files; f++) {
+    max_col = MAX2(max_col, files[f].colour);
     graph_info_update_stats(&db_graph->ginfo[files[f].colour], &files[f].stats);
+  }
+
+  db_graph->num_of_cols_used = MAX2(db_graph->num_of_cols_used, max_col+1);
 
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
   ctx_free(data);

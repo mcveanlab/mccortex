@@ -1,7 +1,7 @@
 #include "global.h"
 
-#include "msgpool.h"
 #include <pthread.h>
+#include "msg-pool/msgpool.h"
 
 #include "commands.h"
 #include "util.h"
@@ -346,7 +346,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 }
 
 // pthread method, loop: grabs job, does processing
-static void* correct_reads_thread(void *ptr)
+static void correct_reads_thread(void *ptr)
 {
   CorrectReadsWorker *wrkr = (CorrectReadsWorker*)ptr;
   MsgPool *pool = wrkr->pool;
@@ -359,8 +359,6 @@ static void* correct_reads_thread(void *ptr)
     correct_read(wrkr, data);
     msgpool_release(pool, pos, MPOOL_EMPTY);
   }
-
-  pthread_exit(NULL);
 }
 
 
@@ -371,7 +369,7 @@ int ctx_correct(CmdArgs *args)
   // Already checked that we have at least 2 arguments
 
   size_t max_ninputs = argc / 2, num_inputs = 0;
-  CorrectAlnReadsTask *inputs = malloc2(max_ninputs * sizeof(CorrectAlnReadsTask));
+  CorrectAlnReadsTask *inputs = ctx_malloc(max_ninputs * sizeof(CorrectAlnReadsTask));
   size_t i, j, num_work_threads = args->max_work_threads;
   int argi; // arg index to continue from
 
@@ -389,20 +387,11 @@ int ctx_correct(CmdArgs *args)
   // Open graph gfiles
   //
   GraphFileReader gfiles[num_gfiles];
-  size_t ctx_max_kmers = 0, ctx_total_cols = 0;
+  size_t ctx_total_cols = 0, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_gfiles; i++)
-  {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], graph_paths[i], true);
-
-    // stack graphs
-    file_filter_update_intocol(&gfiles[i].fltr,
-                               gfiles[i].fltr.intocol + ctx_total_cols);
-
-    ctx_total_cols = graph_file_usedcols(&gfiles[i]);
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
-  }
+  ctx_total_cols = graph_files_open(graph_paths, gfiles, num_gfiles,
+                                    &ctx_max_kmers, &ctx_sum_kmers,
+                                    &ctx_max_cols);
 
   //
   // Open path files
@@ -428,7 +417,8 @@ int ctx_correct(CmdArgs *args)
   // 1 bit needed per kmer if we need to keep track of noreseed
   bits_per_kmer = sizeof(Edges)*8 + ctx_max_kmers + sizeof(uint64_t)*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, false, &graph_mem);
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
@@ -473,8 +463,8 @@ int ctx_correct(CmdArgs *args)
 
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
 
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(bytes_per_col * ctx_total_cols, 1);
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.node_in_cols = ctx_calloc(bytes_per_col * ctx_total_cols, 1);
 
   // Paths
   path_store_alloc(&db_graph.pstore, path_mem, false,
@@ -504,19 +494,19 @@ int ctx_correct(CmdArgs *args)
   //
   // Run alignment
   //
-  AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
+  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 
   MsgPool pool;
   msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
-  CorrectReadsWorker *wrkrs = malloc2(num_work_threads * sizeof(CorrectReadsWorker));
+  CorrectReadsWorker *wrkrs = ctx_malloc(num_work_threads * sizeof(CorrectReadsWorker));
 
   for(i = 0; i < num_work_threads; i++)
     correct_reads_worker_alloc(&wrkrs[i], &pool, &db_graph);
 
-  AsyncIOReadTask *asyncio_tasks = malloc2(num_inputs * sizeof(AsyncIOReadTask));
+  AsyncIOReadTask *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOReadTask));
   correct_reads_input_to_asycio(asyncio_tasks, inputs, num_inputs);
 
   // Load input files num_io_threads at a time

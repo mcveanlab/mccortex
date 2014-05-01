@@ -135,4 +135,10 @@ void test_repeat_walker();
 // sorted_path_set_tests.c
 void test_sorted_paths();
 
+// bubble_caller_tests.c
+void test_bubble_caller();
+
+// breakpoint_caller_tests.c
+void test_breakpoint_caller();
+
 #endif  /* ALL_TESTS_H_ */

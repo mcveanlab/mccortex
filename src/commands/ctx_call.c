@@ -25,8 +25,8 @@ const char call_usage[] =
 "    -p <in.ctp>          Load path file (can specify multiple times)\n"
 "    -o <out.bubbles.gz>  Output file [required]\n"
 "    --haploid <col>      Colour is haploid, can use repeatedly [e.g. ref colour]\n"
-"    --maxallele <len>    Max bubble branch length in kmers [default: "QUOTE_MACRO(DEFAULT_MAX_ALLELE)"]\n"
-"    --maxflank <len>     Max flank length in kmers [default: "QUOTE_MACRO(DEFAULT_MAX_FLANK)"]\n"
+"    --maxallele <len>    Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
+"    --maxflank <len>     Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
 "\n"
 "  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n";
@@ -77,19 +77,10 @@ int ctx_call(CmdArgs *args)
   const size_t num_gfiles = argc - argi;
   char **graph_paths = argv + argi;
   GraphFileReader gfiles[num_gfiles];
-  size_t ncols = 0, ctx_max_kmers = 0;
+  size_t ncols = 0, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_gfiles; i++)
-  {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], graph_paths[i], true);
-
-    // Pile colours on top of each other
-    file_filter_update_intocol(&gfiles[i].fltr, gfiles[i].fltr.intocol + ncols);
-    ncols = graph_file_usedcols(&gfiles[i]);
-
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
-  }
+  ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
+                           &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Open path files
@@ -130,7 +121,8 @@ int ctx_call(CmdArgs *args)
                   ncols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, false, &graph_mem);
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        false, &graph_mem);
 
   // Thread memory
   thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;
@@ -162,11 +154,11 @@ int ctx_call(CmdArgs *args)
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, ncols, 1, kmers_in_hash);
 
   // Edges merged into one colour
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(uint8_t));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(uint8_t));
 
   // In colour
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  db_graph.node_in_cols = calloc2(bytes_per_col*ncols, sizeof(uint8_t));
+  db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
   path_store_alloc(&db_graph.pstore, path_mem, false,
@@ -194,9 +186,13 @@ int ctx_call(CmdArgs *args)
   paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
 
   // Now call variants
-  bubble_caller_print_header(&db_graph, gzout, out_path, args);
-  invoke_bubble_caller(&db_graph, gzout, num_of_threads,
-                       max_allele_len, max_flank_len, haploid_cols, num_haploid);
+  BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
+                                   .max_flank_len = max_flank_len,
+                                   .haploid_cols = haploid_cols,
+                                   .num_haploid = num_haploid};
+
+  invoke_bubble_caller(num_of_threads, call_prefs,
+                       gzout, out_path, args, &db_graph);
 
   status("  saved to: %s\n", out_path);
   gzclose(gzout);

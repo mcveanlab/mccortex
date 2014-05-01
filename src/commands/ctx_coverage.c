@@ -145,19 +145,10 @@ int ctx_coverage(CmdArgs *args)
   char **graph_paths = argv + argi;
   size_t num_gfiles = argc - argi;
   GraphFileReader gfiles[num_gfiles];
-  size_t ncols = 0, ctx_max_kmers = 0;
+  size_t ncols = 0, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_gfiles; i++)
-  {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], graph_paths[i], true);
-
-    // Pile colours on top of each other
-    file_filter_update_intocol(&gfiles[i].fltr, gfiles[i].fltr.intocol + ncols);
-    ncols = graph_file_usedcols(&gfiles[i]);
-
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
-  }
+  ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
+                           &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Decide on memory
@@ -167,7 +158,7 @@ int ctx_coverage(CmdArgs *args)
   // kmer memory = Edges + paths + 1 bit per colour
   bits_per_kmer = (sizeof(Covg) + print_edges*sizeof(Edges)) * 8 * ncols;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers,
+                                        ctx_max_kmers, ctx_sum_kmers,
                                         args->mem_to_use_set, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
@@ -191,10 +182,10 @@ int ctx_coverage(CmdArgs *args)
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, ncols, print_edges*ncols, kmers_in_hash);
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity*ncols, sizeof(Covg));
+  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*ncols, sizeof(Covg));
 
   if(print_edges)
-    db_graph.col_edges = calloc2(db_graph.ht.capacity*ncols, sizeof(Edges));
+    db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*ncols, sizeof(Edges));
 
   //
   // Load graphs
@@ -221,11 +212,13 @@ int ctx_coverage(CmdArgs *args)
 
   read_t r;
   seq_read_alloc(&r);
+
+  // Deal with one read at a time
   for(i = 0; i < num_seq_files; i++) {
     while(seq_read(seq_files[i], &r) > 0) {
-      // Deal with read
       print_read_covg(&db_graph, &r, &covgbuf, &edgebuf, fout);
     }
+    seq_close(seq_files[i]);
   }
 
   seq_read_dealloc(&r);

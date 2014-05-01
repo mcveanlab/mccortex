@@ -106,7 +106,8 @@ int ctx_join(CmdArgs *args)
   status("Probing %zu graph files and %zu intersect files", num_graphs, num_intersect);
 
   // Check all binaries are valid binaries with matching kmer size
-  size_t i, col, ncols, ctx_max_kmers = 0, max_cols = 0, sum_cols = 0, total_cols;
+  size_t i, col, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t max_cols = 0, sum_cols = 0, total_cols;
   size_t min_intersect_num_kmers = 0;
   // 1+ to avoid zero length array (always have at leat one graph file)
   GraphFileReader files[num_graphs], intersect_files[1+num_intersect];
@@ -130,6 +131,7 @@ int ctx_join(CmdArgs *args)
     max_cols = MAX2(max_cols, ncols);
     sum_cols += ncols;
     ctx_max_kmers = MAX2(ctx_max_kmers, files[i].num_of_kmers);
+    ctx_sum_kmers += files[i].num_of_kmers;
   }
 
   if(flatten) total_cols = 1;
@@ -160,8 +162,7 @@ int ctx_join(CmdArgs *args)
     else if(intersect_files[i].num_of_kmers < min_intersect_num_kmers)
     {
       // Put smallest intersection binary first
-      GraphFileReader tmp;
-      SWAP(intersect_files[i], intersect_files[0], tmp);
+      SWAP(intersect_files[i], intersect_files[0]);
       min_intersect_num_kmers = intersect_files[i].num_of_kmers;
     }
   }
@@ -170,6 +171,13 @@ int ctx_join(CmdArgs *args)
 
   if(take_intersect)
     ctx_max_kmers = min_intersect_num_kmers;
+
+  if(use_ncols < total_cols && strcmp(out_ctx_path,"-") == 0) {
+    if(args->use_ncols_set)
+      die("I need %zu colours if outputting to STDOUT (--ncols)", total_cols);
+    else
+      use_ncols = total_cols;
+  }
 
   if(use_ncols > 1 && flatten) {
     warn("I only need one colour for '--flatten' ('--ncols %zu' ignored)", use_ncols);
@@ -201,7 +209,8 @@ int ctx_join(CmdArgs *args)
 
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        ctx_max_kmers, true, &graph_mem);
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        true, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 
@@ -216,14 +225,14 @@ int ctx_join(CmdArgs *args)
   // Edges
   if(take_intersect) {
     db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
-    db_graph.col_edges = calloc2(db_graph.ht.capacity*(use_ncols+1), sizeof(Edges));
+    db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*(use_ncols+1), sizeof(Edges));
   }
   else {
     db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
-    db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
+    db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Edges));
   }
 
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
+  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
   // Load intersection binaries
   char *intsct_gname_ptr = NULL;

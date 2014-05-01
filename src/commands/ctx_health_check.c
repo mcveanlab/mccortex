@@ -76,7 +76,8 @@ int ctx_health_check(CmdArgs *args)
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8 + 1; // edges + in_colour
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        gfile.num_of_kmers, false, &graph_mem);
+                                        gfile.num_of_kmers, gfile.num_of_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
@@ -89,8 +90,8 @@ int ctx_health_check(CmdArgs *args)
   dBGraph db_graph;
   db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, ncols, kmers_in_hash);
 
-  db_graph.col_edges = calloc2(db_graph.ht.capacity * ncols, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity * ncols, sizeof(Edges));
+  db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
 
   // Paths
   if(num_pfiles > 0) {

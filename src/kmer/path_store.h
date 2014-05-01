@@ -17,13 +17,14 @@ typedef struct
   uint8_t *const store, *end, *next;
   const size_t num_of_cols, colset_bytes;
 
+  // Counters
   size_t num_of_paths, num_kmers_with_paths, num_col_paths;
 
   // Temporary data used for merging
   uint8_t *tmpstore;
   size_t tmpsize;
 
-  // Kmer pointers
+  // Kmer pointers, one index per kmer in the hash table
   // kmer_paths_read is used in traversing the graph and dumping output
   //  - may be NULL if we don't want to use paths in GraphWalker
   // kmer_paths_write is used for adding paths and loading
@@ -54,10 +55,12 @@ static inline void pstore_set_pindex(const PathStore *ps, hkey_t key,
 // use_path_hash must be true if you are adding paths manual
 //   (i.e. adding paths anyway other than loading from a file)
 void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
-                      size_t kmers_in_hash, size_t ncols);
+                      size_t nkmers_in_hash, size_t ncols);
 
 // Release memory
 void path_store_dealloc(PathStore *paths);
+
+void path_store_reset(PathStore *paths, size_t nkmers_in_hash);
 
 // Set up temporary memory for merging PathStores
 void path_store_setup_tmp(PathStore *ps, size_t tmp_mem);

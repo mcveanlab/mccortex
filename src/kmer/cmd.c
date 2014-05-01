@@ -3,7 +3,7 @@
 #include "util.h"
 #include "hash_table.h" // for calculating mem usage
 
-#include "mem_size.h" // in libs/misc/
+#include "misc/mem_size.h" // in libs/misc/
 
 void cmd_accept_options(const CmdArgs *args, const char *accptopts,
                         const char *usage)
@@ -77,20 +77,20 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   CmdArgs tmp = CMD_ARGS_INIT_MACRO;
   memcpy(args, &tmp, sizeof(CmdArgs));
 
-  args->ctp_files = malloc2((size_t)(argc/2) * sizeof(char*));
+  args->ctp_files = ctx_malloc((size_t)(argc/2) * sizeof(char*));
   args->num_ctp_files = 0;
 
   // Get command index
   bool is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
 
   args->argc = 0;
-  args->argv = malloc2((size_t)argc * sizeof(char**));
+  args->argv = ctx_malloc((size_t)argc * sizeof(char**));
 
   // Get cmdline string
   size_t len = (size_t)argc - 1; // spaces
   int i;
   for(i = 0; i < argc; i++) len += strlen(argv[i]);
-  args->cmdline = malloc2((len+1) * sizeof(char));
+  args->cmdline = ctx_malloc((len+1) * sizeof(char));
   sprintf(args->cmdline, "%s", argv[0]);
   for(i = 1, len = strlen(argv[0]); i < argc; len += strlen(argv[i]) + 1, i++)
     sprintf(args->cmdline+len, " %s", argv[i]);
@@ -183,12 +183,13 @@ void cmd_print_mem(size_t mem_bytes, const char *name)
 }
 
 // If your command accepts -n <kmers> and -m <mem> this may be useful
-// extra_bits is additional memory per node, above hash table+BinaryKmers
+//  `extra_bits` is additional memory per node, above hash table+BinaryKmers
+//  `use_mem_limit` if true, fill args->mem_to_use
 size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
-                             size_t min_num_kmer_req, bool use_mem_limit,
-                             size_t *graph_mem_ptr)
+                             size_t min_num_kmer_req, size_t max_num_kmers_req,
+                             bool use_mem_limit, size_t *graph_mem_ptr)
 {
-  size_t kmers_in_hash, graph_mem, min_kmers_mem;
+  size_t kmers_in_hash, graph_mem = 0, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
 
@@ -203,7 +204,11 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
   else if(min_num_kmer_req > 0)
     graph_mem = hash_table_mem((size_t)(min_num_kmer_req/IDEAL_OCCUPANCY),
                                extra_bits, &kmers_in_hash);
-  else
+
+  if(max_num_kmers_req > 0)
+    kmers_in_hash = MIN2(kmers_in_hash, max_num_kmers_req/IDEAL_OCCUPANCY);
+
+  if(kmers_in_hash < 1024)
     graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);
   // ^ 1024 is a very small default hash table capacity
 

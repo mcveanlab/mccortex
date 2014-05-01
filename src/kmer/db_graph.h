@@ -3,7 +3,7 @@
 
 #include <inttypes.h>
 
-#include "string_buffer.h"
+#include "string_buffer/string_buffer.h"
 
 #include "cortex_types.h"
 #include "hash_table.h"
@@ -40,6 +40,7 @@ typedef struct
   Edges *col_edges; // [hkey*num_of_colours + col] or [hkey][col]
   Covg *col_covgs; // [hkey*num_of_colours + col] or [hkey][col]
 
+  // 1 bit per kmer, per colour
   // [hkey/64][col] >> hkey%64
   // [num_of_colours*hkey/64+col] >> hkey%64
   uint8_t *node_in_cols;
@@ -47,7 +48,7 @@ typedef struct
   // path data
   PathStore pstore;
 
-  // Loading reads
+  // Loading reads, 2 bits per kmers
   uint8_t *readstrt;
 } dBGraph;
 
@@ -61,6 +62,8 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols);
 
 void db_graph_dealloc(dBGraph *db_graph);
 
+void db_graph_reset(dBGraph *db_graph);
+
 //
 // Add to the de bruijn graph
 //
@@ -68,6 +71,11 @@ void db_graph_dealloc(dBGraph *db_graph);
 // Threadsafe
 // Update covg, presence in colour
 void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col);
+
+// Not thread safe, use db_graph_find_or_add_node_mt for that
+// Note: node may alreay exist in the graph
+dBNode db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkmer,
+                                 bool *found);
 
 // Thread safe
 // Note: node may alreay exist in the graph

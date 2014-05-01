@@ -99,7 +99,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
     // DEBUG
     // db_nodes_print_verbose(&wlk->node, 1, wlk->db_graph, stderr);
 
-    if(db_nodes_match(wlk->node, end_node)) {
+    if(db_nodes_are_equal(wlk->node, end_node)) {
       result.traversed = true;
       break;
     }
@@ -180,7 +180,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
 
         nodes[i] = wlk[i]->node;
 
-        if(db_nodes_match(nodes[0], db_node_reverse(nodes[1]))) {
+        if(db_nodes_are_equal(nodes[0], db_node_reverse(nodes[1]))) {
           result.traversed = true;
           use[0] = use[1] = false; // set both to false to exit loop
           break;
@@ -200,10 +200,10 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
     dBNode *left_contig = contig0->data; size_t left_n = contig0->len;
     dBNode *right_contig = contig1->data; size_t right_n = contig1->len;
 
-    if(db_nodes_match(wlk[0]->node, db_node_reverse(right_contig[right_n-1]))) {
+    if(db_nodes_are_equal(wlk[0]->node, db_node_reverse(right_contig[right_n-1]))) {
       right_n--;
     } else {
-      ctx_assert(db_nodes_match(db_node_reverse(wlk[1]->node), left_contig[left_n-1]));
+      ctx_assert(db_nodes_are_equal(db_node_reverse(wlk[1]->node), left_contig[left_n-1]));
       left_n--;
     }
 
@@ -256,7 +256,7 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
   bool only_in_one_col = aln_colour != -1;
 
   ctx_assert(!only_in_one_col || (size_t)aln_colour == ctxcol);
-  ctx_assert(db_nodes_match(aln_nodes[gap_idx-1], nbuf->data[nbuf->len-1]));
+  ctx_assert(db_nodes_are_equal(aln_nodes[gap_idx-1], nbuf->data[nbuf->len-1]));
 
   // Start traversing forward
   graph_walker_prime(&wrkr->wlk, nbuf->data, nbuf->len,

@@ -139,24 +139,10 @@ int ctx_clean(CmdArgs *args)
 
   // Open graph files
   GraphFileReader files[num_files];
-  uint64_t max_ctx_kmers = 0;
+  size_t ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_files; i++)
-  {
-    files[i] = INIT_GRAPH_READER;
-    graph_file_open(&files[i], paths[i], true);
-
-    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
-                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
-    }
-
-    size_t offset = total_cols;
-    total_cols += graph_file_usedcols(&files[i]);
-    file_filter_update_intocol(&files[i].fltr, files[i].fltr.intocol + offset);
-
-    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].num_of_kmers);
-  }
+  graph_files_open(paths, files, num_files,
+                   &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   size_t use_ncols = args->use_ncols, kmer_size = files[0].hdr.kmer_size;
 
@@ -174,8 +160,8 @@ int ctx_clean(CmdArgs *args)
     use_ncols = total_cols;
   }
 
-  status("%zu input graphs, max kmers: %"PRIu64", using %zu colours",
-         num_files, max_ctx_kmers, use_ncols);
+  status("%zu input graphs, max kmers: %zu, using %zu colours",
+         num_files, ctx_max_kmers, use_ncols);
 
   // If no arguments given we default to removing tips < 2*kmer_size
   if(tip_cleaning && max_tip_len == 0)
@@ -221,15 +207,15 @@ int ctx_clean(CmdArgs *args)
   // Decide memory usage
   //
   bool all_colours_loaded = (total_cols <= use_ncols);
-  bool use_mem_limit = (args->mem_to_use_set && num_files > 1) || !max_ctx_kmers;
+  bool use_mem_limit = (args->mem_to_use_set && num_files > 1) || !ctx_max_kmers;
 
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
                         (!all_colours_loaded) * sizeof(Edges) * 8;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        max_ctx_kmers, use_mem_limit,
-                                        &graph_mem);
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        use_mem_limit, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 
@@ -256,10 +242,10 @@ int ctx_clean(CmdArgs *args)
   // Use an extra set of edge to take intersections
   dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
-  Edges *edge_store = calloc2(db_graph.ht.capacity * (use_ncols+!all_colours_loaded),
+  Edges *edge_store = ctx_calloc(db_graph.ht.capacity * (use_ncols+!all_colours_loaded),
                               sizeof(Edges));
   db_graph.col_edges = edge_store;
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity * use_ncols, sizeof(Covg));
+  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
   // Load graph into a single colour
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
@@ -316,7 +302,7 @@ int ctx_clean(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   size_t visited_words = roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *visited = calloc2(visited_words, sizeof(uint64_t));
+  uint64_t *visited = ctx_calloc(visited_words, sizeof(uint64_t));
   // visited[0] is used to check if array is 'clean'
 
   if(len_before_fh != NULL) {

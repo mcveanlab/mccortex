@@ -9,19 +9,19 @@ void test_cleaning()
 {
   test_status("Testing graph cleaning...");
 
-  // Construct 1 colour graph with kmer-size=11
+  // Construct 1 colour graph with kmer-size=19
   dBGraph graph;
   const size_t kmer_size = 19, ncols = 1;
   size_t i;
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
   // Graph data
-  graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
+  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
   size_t num_visited_words = roundup_bits2words64(graph.ht.capacity);
-  uint64_t *visited = calloc2(num_visited_words, sizeof(uint64_t));
+  uint64_t *visited = ctx_calloc(num_visited_words, sizeof(uint64_t));
 
   // Simple graph - 1000 bases, should all be cleaned off
   char graphseq[] =

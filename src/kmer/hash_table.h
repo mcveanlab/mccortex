@@ -86,19 +86,19 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 #define HASH_ITERATE_SAFE(ht,func,...) HASH_ITERATE1(ht,func,##__VA_ARGS__)
 
 // Iterate over all entries
-#define HASH_ITERATE1(ht,func, ...) {                                          \
+#define HASH_ITERATE1(ht,func, ...) do {                                       \
   const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
   for(; htt_ptr < htt_end; htt_ptr++) {                                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
       func((hkey_t)(htt_ptr - (ht)->table), ##__VA_ARGS__);                    \
     }                                                                          \
   }                                                                            \
-}
+} while(0)
 
 // Iterate over buckets, iterate over bucket contents
 // Faster in low density hash tables
 // Don't use this iterator if your func adds or removes elements
-#define HASH_ITERATE2(ht,func, ...) {                                          \
+#define HASH_ITERATE2(ht,func, ...) do {                                       \
   const BinaryKmer *bkt_strt = (ht)->table, *htt_ptr; size_t _b,_c;            \
   for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
     for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][HT_BITEMS]; htt_ptr++){\
@@ -107,6 +107,18 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
       }                                                                        \
     }                                                                          \
   }                                                                            \
-}
+} while(0)
+
+#define HASH_ITERATE_PART(ht,job,njobs,func, ...) do {                         \
+  const size_t _step = (ht)->capacity / (njobs);                               \
+  const BinaryKmer *_start, *_end, *_bkptr;                                    \
+  _start = (ht)->table + (job) * _step;                                        \
+  _end = ((job)+1 == (njobs) ? (ht)->table + (ht)->capacity : _start+_step);   \
+  for(_bkptr = _start; _bkptr < _end; _bkptr++) {                              \
+    if(HASH_ENTRY_ASSIGNED(*_bkptr)) {                                         \
+      func((hkey_t)(_bkptr - (ht)->table), ##__VA_ARGS__);                     \
+    }                                                                          \
+  }                                                                            \
+} while(0)
 
 #endif /* HASH_TABLE_H_ */

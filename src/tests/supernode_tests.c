@@ -1,10 +1,11 @@
 #include "global.h"
 #include "all_tests.h"
-#include "bit_macros.h"
 #include "binary_kmer.h"
 #include "db_node.h"
 #include "supernode.h"
 #include "build_graph.h"
+
+#include "bit_array/bit_macros.h"
 
 #define SNODEBUF 200
 
@@ -39,7 +40,7 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
 
   // 1. Check pulling out supernodes works for iterating over the graph
   uint64_t *visited;
-  visited = calloc2(roundup_bits2words64(graph->ht.capacity), 8);
+  visited = ctx_calloc(roundup_bits2words64(graph->ht.capacity), 8);
   HASH_ITERATE(&graph->ht, supernode_from_kmer,
                &nbuf, visited, graph, ans, n);
   ctx_free(visited);
@@ -87,9 +88,9 @@ void test_supernode()
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024);
   // Graph data
-  graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
+  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
   #define NSEQ 7
 

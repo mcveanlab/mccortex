@@ -100,7 +100,7 @@ int ctx_thread(CmdArgs *args)
   argc = argj;
 
   size_t max_tasks = (size_t)argc/2;
-  CorrectAlnReadsTask *tasks = malloc2(max_tasks * sizeof(CorrectAlnReadsTask));
+  CorrectAlnReadsTask *tasks = ctx_malloc(max_tasks * sizeof(CorrectAlnReadsTask));
   size_t i, j, num_tasks, num_work_threads = args->max_work_threads;
   char *dump_seq_sizes = NULL, *dump_mp_sizes = NULL;
 
@@ -124,18 +124,10 @@ int ctx_thread(CmdArgs *args)
   // Open graph graph files
   //
   GraphFileReader gfiles[num_gfiles];
-  size_t ctx_max_kmers = 0, ctx_total_cols = 0;
+  size_t ctx_total_cols, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_gfiles; i++)
-  {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], graph_paths[i], true);
-
-    file_filter_update_intocol(&gfiles[i].fltr,
-                               gfiles[i].fltr.intocol + ctx_total_cols);
-    ctx_total_cols = graph_file_usedcols(&gfiles[i]);
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
-  }
+  ctx_total_cols = graph_files_open(graph_paths, gfiles, num_gfiles,
+                                    &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Open path files
@@ -183,7 +175,8 @@ int ctx_thread(CmdArgs *args)
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, ctx_max_kmers,
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
                                         false, &graph_mem);
 
   path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false);
@@ -218,7 +211,7 @@ int ctx_thread(CmdArgs *args)
   kmers_in_hash = db_graph.ht.capacity;
 
   // Edges
-  db_graph.col_edges = calloc2(kmers_in_hash, sizeof(Edges));
+  db_graph.col_edges = ctx_calloc(kmers_in_hash, sizeof(Edges));
 
   // Path store
   // use total_cols instead of path_max_usedcols since we are
@@ -227,7 +220,7 @@ int ctx_thread(CmdArgs *args)
                    kmers_in_hash, total_cols);
 
   // path kmer locks for multithreaded access
-  db_graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
+  db_graph.pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(kmers_in_hash), 1);
 
   // 1. Merge graph file headers into the graph
   size_t intocol, fromcol;
@@ -252,7 +245,7 @@ int ctx_thread(CmdArgs *args)
     if(num_pfiles > 0) {
       // Copy current paths over to path set to be updated
       size_t mem = kmers_in_hash * sizeof(PathIndex);
-      db_graph.pstore.kmer_paths_read = malloc2(mem);
+      db_graph.pstore.kmer_paths_read = ctx_malloc(mem);
       memcpy(db_graph.pstore.kmer_paths_read, db_graph.pstore.kmer_paths_write, mem);
     }
     else
@@ -273,7 +266,7 @@ int ctx_thread(CmdArgs *args)
   // 2. reduce number of graph colours
   db_graph_realloc(&db_graph, 1, 1);
 
-  db_graph.node_in_cols = calloc2(roundup_bits2bytes(kmers_in_hash), 1);
+  db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(kmers_in_hash), 1);
 
   // Setup for loading graphs graph
   LoadingStats gstats;

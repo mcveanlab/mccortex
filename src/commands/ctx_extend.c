@@ -117,7 +117,7 @@ static void extend_read(read_t *r, ExtendContig *contig)
   size_t len = readbuffw->len + readbufrv->len;
   if(contig->buflen < len+1) {
     contig->buflen = roundup2pow(len+1);
-    contig->buf = realloc2(contig->buf, contig->buflen);
+    contig->buf = ctx_realloc(contig->buf, contig->buflen);
   }
 
   db_nodes_to_str(readbuffw->data, len, db_graph, contig->buf);
@@ -149,12 +149,7 @@ int ctx_extend(CmdArgs *args)
 
   // Probe graph file
   GraphFileReader file = INIT_GRAPH_READER;
-  int ret = graph_file_open(&file, input_ctx_path, false);
-
-  if(ret == 0)
-    cmd_print_usage("Cannot read input graph file: %s", input_ctx_path);
-  else if(ret < 0)
-    cmd_print_usage("Input graph file isn't valid: %s", input_ctx_path);
+  graph_file_open(&file, input_ctx_path, true);
 
   if((seq_fa_file = seq_open(input_fa_path)) == NULL)
     cmd_print_usage("Cannot read input FASTA/FASTQ/SAM/BAM file: %s", input_fa_path);
@@ -174,7 +169,8 @@ int ctx_extend(CmdArgs *args)
 
   bits_per_kmer = (sizeof(Edges) + 2*sizeof(uint64_t)) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        file.num_of_kmers, true, &graph_mem);
+                                        file.num_of_kmers, file.num_of_kmers,
+                                        true, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
 
@@ -183,10 +179,10 @@ int ctx_extend(CmdArgs *args)
   // Set up dBGraph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, file.hdr.kmer_size, 1, 1, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
   size_t visited_words = 2*roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *visited = calloc2(visited_words, sizeof(Edges));
+  uint64_t *visited = ctx_calloc(visited_words, sizeof(Edges));
 
     // Store edge nodes here
   dBNodeBuffer readbuffw, readbufrv;
@@ -194,7 +190,7 @@ int ctx_extend(CmdArgs *args)
   db_node_buf_alloc(&readbufrv, 1024);
 
   size_t buflen = 1024;
-  char *buf = malloc2(buflen * sizeof(char));
+  char *buf = ctx_malloc(buflen * sizeof(char));
 
   FILE *out = fopen(out_fa_path, "w");
   if(out == NULL) die("Cannot open output file: %s", out_fa_path);

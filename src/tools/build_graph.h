@@ -6,7 +6,7 @@
 // see generate_paths.h for a path threading comparison
 //
 
-#include "msgpool.h"
+#include "msg-pool/msgpool.h"
 #include "seq_file.h"
 
 #include "cortex_types.h"

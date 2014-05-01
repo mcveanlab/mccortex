@@ -193,7 +193,7 @@ void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
   status("[supernode] Saving supernode length distribution to: %s", path);
 
   ctx_assert(histlen >= 2);
-  uint64_t *hist = calloc2(histlen, sizeof(uint64_t));
+  uint64_t *hist = ctx_calloc(histlen, sizeof(uint64_t));
 
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 2048);

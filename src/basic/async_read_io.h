@@ -2,7 +2,7 @@
 #define ASYNC_READ_IO_H_
 
 #include "seq_file.h"
-#include "msgpool.h"
+#include "msg-pool/msgpool.h"
 
 #include "loading_stats.h"
 
@@ -33,7 +33,7 @@ void asynciodata_pool_destroy(void *el, size_t idx, void *args);
 
 void asyncio_run_threads(MsgPool *pool,
                          AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
-                         void* (*job)(void*),
+                         void (*job)(void*),
                          void *args, size_t num_readers, size_t elsize);
 
 #endif /* ASYNC_READ_IO_H_ */

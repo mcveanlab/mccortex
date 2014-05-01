@@ -136,7 +136,7 @@ size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
   ctx_assert(len > 5);
   ctx_assert(db_graph->ht.num_kmers > 0);
   size_t i, d1len = len-2, d2len = len-3, f1, f2;
-  double *tmp = malloc2((d1len+d2len) * sizeof(double));
+  double *tmp = ctx_malloc((d1len+d2len) * sizeof(double));
   double *delta1 = tmp, *delta2 = tmp + d1len;
 
   // Get sequencing depth from coverage
@@ -221,7 +221,7 @@ Covg cleaning_remove_supernodes(bool do_cleaning, Covg covg_threshold,
     status("[cleaning] Calculating supernode cleaning threshold...");
 
     // Get supernode coverages
-    uint64_t *covg_hist = calloc2(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
+    uint64_t *covg_hist = ctx_calloc(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
 
     HASH_ITERATE(&db_graph->ht, covg_histogram,
                  &nbuf, &cbuf, visited, covg_hist, DUMP_COVG_ARRSIZE, db_graph);

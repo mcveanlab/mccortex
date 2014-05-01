@@ -143,7 +143,8 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   }
 
   // Read the input file again
-  fseek(file->fltr.fh, file->hdr_size, SEEK_SET);
+  if(fseek(file->fltr.fh, file->hdr_size, SEEK_SET) != 0)
+    die("fseek failed: %s", strerror(errno));
 
   BinaryKmer bkmer;
   Edges edges[ncols];
@@ -276,7 +277,7 @@ int ctx_infer_edges(CmdArgs *args)
   extra_bits_per_kmer = file.hdr.num_of_cols * (1+8*reading_stream);
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        file.num_of_kmers,
+                                        file.num_of_kmers, file.num_of_kmers,
                                         args->mem_to_use_set, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
@@ -287,10 +288,10 @@ int ctx_infer_edges(CmdArgs *args)
 
   // In colour
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  db_graph.node_in_cols = calloc2(bytes_per_col*file.hdr.num_of_cols, 1);
+  db_graph.node_in_cols = ctx_calloc(bytes_per_col*file.hdr.num_of_cols, 1);
 
   if(reading_stream)
-    db_graph.col_edges = calloc2(file.hdr.num_of_cols*db_graph.ht.capacity, 1);
+    db_graph.col_edges = ctx_calloc(file.hdr.num_of_cols*db_graph.ht.capacity, 1);
 
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
 

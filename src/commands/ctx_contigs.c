@@ -113,8 +113,8 @@ static void contig_grphwlk_state(const char *str, size_t n, size_t ncontigs)
 
 static inline void contig_data_alloc(ContigData *cd, size_t capacity)
 {
-  size_t *lengths = malloc2(capacity * sizeof(size_t));
-  size_t *junctions = malloc2(capacity * sizeof(size_t));
+  size_t *lengths = ctx_malloc(capacity * sizeof(size_t));
+  size_t *junctions = ctx_malloc(capacity * sizeof(size_t));
   ContigData tmp = {.ncontigs = 0, .capacity = capacity,
                     .total_len = 0, .total_junc = 0,
                     .contigs_outdegree = {0}, .paths_held = {0},
@@ -133,8 +133,8 @@ static inline void contig_data_ensure_capacity(ContigData *cd, size_t capacity)
 {
   if(capacity > cd->capacity) {
     cd->capacity = roundup2pow(capacity);
-    cd->lengths = realloc2(cd->lengths, cd->capacity * sizeof(size_t));
-    cd->junctions = realloc2(cd->junctions, cd->capacity * sizeof(size_t));
+    cd->lengths = ctx_realloc(cd->lengths, cd->capacity * sizeof(size_t));
+    cd->junctions = ctx_realloc(cd->junctions, cd->capacity * sizeof(size_t));
   }
 }
 
@@ -374,7 +374,8 @@ int ctx_contigs(CmdArgs *args)
   bits_per_kmer = sizeof(Edges)*8 + gfile.hdr.num_of_cols + sizeof(uint64_t)*8 +
                   no_reseed;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        gfile.num_of_kmers, false, &graph_mem);
+                                        gfile.num_of_kmers, gfile.num_of_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
@@ -402,13 +403,13 @@ int ctx_contigs(CmdArgs *args)
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
   size_t nword64 = roundup_bits2words64(db_graph.ht.capacity);
 
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = calloc2(bytes_per_col*gfile.hdr.num_of_cols, 1);
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.node_in_cols = ctx_calloc(bytes_per_col*gfile.hdr.num_of_cols, 1);
 
   path_store_alloc(&db_graph.pstore, path_mem, false,
                    db_graph.ht.capacity, path_max_usedcols);
 
-  uint64_t *visited = no_reseed ? calloc2(nword64, sizeof(uint64_t)) : NULL;
+  uint64_t *visited = no_reseed ? ctx_calloc(nword64, sizeof(uint64_t)) : NULL;
 
   GraphWalker wlk;
   graph_walker_alloc(&wlk);

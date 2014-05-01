@@ -16,14 +16,14 @@ void test_paths()
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024);
   // Graph data
-  graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
-  graph.node_in_cols = calloc2(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
+  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
+  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
 
   // Path data
   path_store_alloc(&graph.pstore, path_max_mem, true, graph.ht.capacity, ncols);
-  graph.pstore.kmer_locks = calloc2(roundup_bits2bytes(graph.ht.capacity), 1);
+  graph.pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
@@ -105,9 +105,9 @@ static inline void path_list_alloc(PathList *plist)
   plist->npaths = plist->nbases = 0;
   plist->npath_cap = 512;
   plist->nbases_cap = 1024;
-  plist->len_orients = malloc2(plist->npath_cap * sizeof(*plist->len_orients));
-  plist->order = malloc2(plist->npath_cap * sizeof(*plist->order));
-  plist->bases = malloc2(plist->nbases_cap * sizeof(*plist->bases));
+  plist->len_orients = ctx_malloc(plist->npath_cap * sizeof(*plist->len_orients));
+  plist->order = ctx_malloc(plist->npath_cap * sizeof(*plist->order));
+  plist->bases = ctx_malloc(plist->nbases_cap * sizeof(*plist->bases));
 }
 
 static inline void path_list_init(PathList *plist) {
@@ -127,12 +127,12 @@ static inline void add_path(PathList *plist,
 
   if(plist->nbases + len > plist->nbases_cap) {
     plist->nbases_cap = roundup2pow(plist->nbases + len);
-    plist->bases = realloc2(plist->bases, plist->nbases_cap*sizeof(*plist->bases));
-    plist->order = realloc2(plist->order, plist->nbases_cap*sizeof(*plist->order));
+    plist->bases = ctx_realloc(plist->bases, plist->nbases_cap*sizeof(*plist->bases));
+    plist->order = ctx_realloc(plist->order, plist->nbases_cap*sizeof(*plist->order));
   }
   if(plist->npaths + 1 > plist->npath_cap) {
     plist->npath_cap *= 2;
-    plist->len_orients = realloc2(plist->len_orients, plist->npath_cap);
+    plist->len_orients = ctx_realloc(plist->len_orients, plist->npath_cap);
   }
 
   plist->len_orients[plist->npaths++] = merged;

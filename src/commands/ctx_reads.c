@@ -200,32 +200,18 @@ int ctx_reads(CmdArgs *args)
   // Open input graphs
   //
   GraphFileReader files[num_files];
-  uint64_t max_num_kmers = 0;
+  size_t ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_files; i++)
-  {
-    files[i] = INIT_GRAPH_READER;
-    int ret = graph_file_open(&files[i], graph_paths[i], false);
-
-    if(ret == 0)
-      cmd_print_usage("Cannot read input graph file: %s", graph_paths[i]);
-    else if(ret < 0)
-      cmd_print_usage("Input graph file isn't valid: %s", graph_paths[i]);
-
-    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
-                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
-    }
-
-    max_num_kmers = MAX2(files[i].num_of_kmers, max_num_kmers);
-  }
+  graph_files_open(graph_paths, files, num_files,
+                   &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Calculate memory use
   //
   size_t kmers_in_hash, graph_mem;
 
-  kmers_in_hash = cmd_get_kmers_in_hash(args, 0, max_num_kmers, true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, 0, ctx_max_kmers, ctx_sum_kmers,
+                                        true, &graph_mem);
   cmd_check_mem_limit(args, graph_mem);
 
   //

@@ -106,8 +106,8 @@ int ctx_covg(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, cols_used, 1, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity * cols_used, sizeof(Covg));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * cols_used, sizeof(Covg));
 
   // Print mem usage
   hash_table_print_stats(&db_graph.ht);
@@ -166,7 +166,7 @@ int ctx_covg(CmdArgs *args)
   size_t j;
 
   size_t nodes_cap = 2048, nodes_len = 0;
-  dBNode *nodes = malloc2(sizeof(dBNode) * nodes_cap);
+  dBNode *nodes = ctx_malloc(sizeof(dBNode) * nodes_cap);
 
   DeltaArray delta;
   delta_arr_alloc(&delta);
@@ -188,7 +188,7 @@ int ctx_covg(CmdArgs *args)
 
       if(contig.len > nodes_cap) {
         nodes_cap = roundup2pow(nodes_cap);
-        nodes = realloc2(nodes, sizeof(dBNode) * nodes_cap);
+        nodes = ctx_realloc(nodes, sizeof(dBNode) * nodes_cap);
       }
 
       // DEV check contig length vs kmer_size

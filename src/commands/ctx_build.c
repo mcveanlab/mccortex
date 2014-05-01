@@ -327,9 +327,9 @@ int ctx_build(CmdArgs *args)
   // Load inputs
   size_t max_inputs = (size_t)argc/2;
 
-  BuildGraphTask *tasks = malloc2(max_inputs * sizeof(BuildGraphTask));
-  GraphFileReader *graphs = malloc2(max_inputs * sizeof(GraphFileReader));
-  SampleName *samples = malloc2(max_inputs * sizeof(GraphFileReader));
+  BuildGraphTask *tasks = ctx_malloc(max_inputs * sizeof(BuildGraphTask));
+  GraphFileReader *graphs = ctx_malloc(max_inputs * sizeof(GraphFileReader));
+  SampleName *samples = ctx_malloc(max_inputs * sizeof(GraphFileReader));
 
   load_args(argc-1, argv, &kmer_size,
             tasks, &num_tasks,
@@ -352,7 +352,8 @@ int ctx_build(CmdArgs *args)
   bits_per_kmer = (sizeof(Covg) + sizeof(Edges))*8*output_colours +
                   remove_pcr_used*2;
 
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, SIZE_MAX,
+                                        true, &graph_mem);
   cmd_check_mem_limit(args, graph_mem);
 
   //
@@ -391,16 +392,16 @@ int ctx_build(CmdArgs *args)
   // Create db_graph
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, output_colours, output_colours, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity * output_colours, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity * output_colours, sizeof(Covg));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity * output_colours, sizeof(Edges));
+  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * output_colours, sizeof(Covg));
 
   size_t bktlocks_mem = roundup_bits2bytes(db_graph.ht.num_of_buckets);
-  db_graph.bktlocks = calloc2(bktlocks_mem, sizeof(uint8_t));
+  db_graph.bktlocks = ctx_calloc(bktlocks_mem, sizeof(uint8_t));
 
   size_t kmer_words = roundup_bits2words64(db_graph.ht.capacity);
 
   if(remove_pcr_used) {
-    db_graph.readstrt = calloc2(roundup_bits2bytes(db_graph.ht.capacity)*2,
+    db_graph.readstrt = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*2,
                                 sizeof(uint8_t));
   }
 

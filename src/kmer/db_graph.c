@@ -38,7 +38,7 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   hash_table_alloc(&tmp.ht, capacity);
   memset(&tmp.pstore, 0, sizeof(PathStore));
 
-  tmp.ginfo = malloc2(num_of_cols * sizeof(GraphInfo));
+  tmp.ginfo = ctx_malloc(num_of_cols * sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
     graph_info_alloc(tmp.ginfo + i);
 
@@ -52,7 +52,7 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
   size_t i;
   if(graph->num_of_cols == num_of_cols) return;
   if(graph->num_of_cols < num_of_cols) { // Grow
-    graph->ginfo = realloc2(graph->ginfo, num_of_cols*sizeof(GraphInfo));
+    graph->ginfo = ctx_realloc(graph->ginfo, num_of_cols*sizeof(GraphInfo));
     for(i = graph->num_of_cols; i < num_of_cols; i++)
       graph_info_alloc(graph->ginfo + i);
   }
@@ -97,22 +97,26 @@ void db_graph_update_node_mt(dBGraph *db_graph, dBNode node, Colour col)
   if(db_graph->col_covgs != NULL) db_node_increment_coverage_mt(db_graph, node.key, col);
 }
 
+// Not thread safe, use db_graph_find_or_add_node_mt for that
+// Note: node may alreay exist in the graph
+dBNode db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkmer,
+                                 bool *found)
+{
+  BinaryKmer bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
+  hkey_t hkey = hash_table_find_or_insert(&db_graph->ht, bkey, found);
+  return (dBNode){.key = hkey, .orient = bkmer_get_orientation(bkey, bkmer)};
+}
+
 // Thread safe
 // Note: node may alreay exist in the graph
 dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
                                     bool *found)
 {
-  BinaryKmer bkey;
-  hkey_t hkey;
-  Orientation orient;
+  BinaryKmer bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
+  hkey_t hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, found,
+                                             db_graph->bktlocks);
 
-  bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
-  hkey = hash_table_find_or_insert_mt(&db_graph->ht, bkey, found,
-                                      db_graph->bktlocks);
-  orient = bkmer_get_orientation(bkey, bkmer);
-
-  dBNode node = {.key = hkey, .orient = orient};
-  return node;
+  return (dBNode){.key = hkey, .orient = bkmer_get_orientation(bkey, bkmer)};
 }
 
 dBNode db_graph_find_str(const dBGraph *db_graph, const char *str)
@@ -136,6 +140,8 @@ dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer)
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 {
+  ctx_assert(col < db_graph->num_edge_cols);
+
   if(db_graph->col_edges == NULL) return;
 
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
@@ -279,6 +285,29 @@ void db_graph_healthcheck(const dBGraph *db_graph)
 // Functions applying to whole graph
 //
 
+void db_graph_reset(dBGraph *db_graph)
+{
+  size_t col, capacity = db_graph->ht.capacity;
+  size_t ncols = db_graph->num_of_cols, nedgecols = db_graph->num_edge_cols;
+
+  for(col = 0; col < ncols; col++)
+    graph_info_init(&db_graph->ginfo[col]);
+
+  hash_table_empty(&db_graph->ht);
+  db_graph->num_of_cols_used = 0;
+
+  if(db_graph->col_edges != NULL)
+    memset(db_graph->col_edges, 0, nedgecols * sizeof(Edges) * capacity);
+  if(db_graph->col_covgs != NULL)
+    memset(db_graph->col_covgs, 0, ncols * sizeof(Covg) * capacity);
+  if(db_graph->node_in_cols != NULL)
+    memset(db_graph->node_in_cols, 0, roundup_bits2bytes(capacity) * ncols);
+  if(db_graph->readstrt != NULL)
+    memset(db_graph->readstrt, 0, 2 * roundup_bits2bytes(capacity) * ncols);
+
+  path_store_reset(&db_graph->pstore, capacity);
+}
+
 // BEWARE: if num_edge_cols == 1, edges in all colours will be effectively wiped
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
@@ -289,7 +318,7 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
   const size_t capacity = db_graph->ht.capacity;
   size_t i;
 
-  graph_info_init(&db_graph->ginfo[0]);
+  graph_info_init(&db_graph->ginfo[col]);
 
   if(db_graph->node_in_cols != NULL)
   {

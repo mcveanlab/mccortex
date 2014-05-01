@@ -40,7 +40,7 @@ typedef struct
 
 static VarBranch* branch_new()
 {
-  VarBranch *branch = malloc2(sizeof(VarBranch));
+  VarBranch *branch = ctx_malloc(sizeof(VarBranch));
   strbuf_alloc(&branch->seq, 512);
   branch->num_nodes = 0;
   branch->next = NULL;
@@ -57,7 +57,7 @@ static void branch_free(VarBranch *branch)
 
 static Var* var_new(size_t kmer_size)
 {
-  Var *var = malloc2(sizeof(Var));
+  Var *var = ctx_malloc(sizeof(Var));
   var->key[0] = var->key[2*kmer_size] = 0;
   strbuf_alloc(&var->flank5p, 512);
   strbuf_alloc(&var->flank3p, 512);
@@ -84,13 +84,11 @@ static void var_free(Var *var)
 
 static void var_revcmp(Var *var)
 {
-  StrBuf tmpbuf;
-  SWAP(var->flank5p, var->flank3p, tmpbuf);
   dna_reverse_complement_str(var->flank5p.buff, var->flank5p.len);
   dna_reverse_complement_str(var->flank3p.buff, var->flank3p.len);
 
-  uint32_t tmpshift;
-  SWAP(var->shift_left, var->shift_right, tmpshift);
+  SWAP(var->flank5p, var->flank3p);
+  SWAP(var->shift_left, var->shift_right);
 
   VarBranch *allele;
   for(allele = var->first_allele; allele != NULL; allele = allele->next) {
@@ -304,13 +302,13 @@ typedef struct {
 
 static CallHeader* header_new()
 {
-  CallHeader *ch = malloc2(sizeof(CallHeader));
+  CallHeader *ch = ctx_malloc(sizeof(CallHeader));
   ch->num_samples = ch->kmer_size = 0;
   ch->sample_names = NULL;
   ch->hcap = 128;
   ch->hlines = 0;
-  ch->tags = malloc2(ch->hcap * sizeof(*ch->tags));
-  ch->values = malloc2(ch->hcap * sizeof(*ch->tags));
+  ch->tags = ctx_malloc(ch->hcap * sizeof(*ch->tags));
+  ch->values = ctx_malloc(ch->hcap * sizeof(*ch->tags));
   ch->is_old_bc = 0;
   return ch;
 }
@@ -329,8 +327,8 @@ static void header_add(CallHeader *ch, char *tag, char *value)
 {
   if(ch->hlines == ch->hcap) {
     ch->hcap <<= 1;
-    ch->tags = realloc2(ch->tags, ch->hcap * sizeof(char*));
-    ch->values = realloc2(ch->values, ch->hcap * sizeof(char*));
+    ch->tags = ctx_realloc(ch->tags, ch->hcap * sizeof(char*));
+    ch->values = ctx_realloc(ch->values, ch->hcap * sizeof(char*));
   }
 
   ch->tags[ch->hlines] = tag;
@@ -430,7 +428,7 @@ static void parse_bubble_header(gzFile in, CallHeader* ch)
         die("parse error on line: %s", line->buff);
       ch->num_samples = num_samples;
 
-      ch->sample_names = malloc2(ch->num_samples*sizeof(char*));
+      ch->sample_names = ctx_malloc(ch->num_samples*sizeof(char*));
     }
     else if(strncasecmp(tag, "colour", 6) == 0)
     {
@@ -547,7 +545,7 @@ static void synthesize_bubble_caller_header(gzFile fh, CallHeader *ch)
 
   ch->is_old_bc = 1;
 
-  ch->sample_names = malloc2(ch->num_samples * sizeof(char*));
+  ch->sample_names = ctx_malloc(ch->num_samples * sizeof(char*));
   for(i = 0; i < ch->num_samples; i++)
   {
     strbuf_reset(line);
@@ -575,12 +573,12 @@ typedef struct
 
 static CallReader* reader_new(CallHeader *ch)
 {
-  CallReader *cr = malloc2(sizeof(CallReader));
+  CallReader *cr = ctx_malloc(sizeof(CallReader));
   cr->ch = ch;
   cr->line = strbuf_new();
   cr->num_alleles = 0;
   cr->alleles_cap = 32;
-  cr->alleles = malloc2(cr->alleles_cap * sizeof(*cr->alleles));
+  cr->alleles = ctx_malloc(cr->alleles_cap * sizeof(*cr->alleles));
   return cr;
 }
 
@@ -720,7 +718,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
   {
     if(cr->num_alleles == cr->alleles_cap) {
       cr->alleles_cap <<= 1;
-      cr->alleles = realloc2(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
+      cr->alleles = ctx_realloc(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
     }
 
     VarBranch *branch = branch_new();
@@ -797,7 +795,7 @@ static char reader_next_old_bc(CallReader *cr, gzFile fh, Var *var)
   {
     if(cr->num_alleles == cr->alleles_cap) {
       cr->alleles_cap <<= 1;
-      cr->alleles = realloc2(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
+      cr->alleles = ctx_realloc(cr->alleles, cr->alleles_cap * sizeof(*cr->alleles));
     }
 
     uint32_t branch_num, branch_nodes;

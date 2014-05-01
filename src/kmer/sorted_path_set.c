@@ -37,68 +37,74 @@ static int _sorted_path_entry_cmp(const void *aa, const void *bb)
 
 // Load a PathSet from a given PathStore
 // SortedPathSet allows fast comparison of sets and duplicate removal
+//  `cbytes` is number of bytes in colourset of both PathStore and SortedPathSet
 void sorted_path_set_init2(SortedPathSet *set, hkey_t hkey, size_t cbytes,
                            const uint8_t *store, PathIndex pindex,
                            const FileFilter *fltr)
 {
   set->hkey = hkey;
   set->cbytes = cbytes;
-  bytebuf_reset(&set->seqs);
-  pentrybuf_reset(&set->members);
 
-  // Fetch paths
-  const uint8_t *packed;
+  ByteBuffer *bytebuf = &set->seqs;
+  PathEntryBuffer *membuf = &set->members;
+
+  bytebuf_reset(bytebuf);
+  pentrybuf_reset(membuf);
+
+  // Fetch paths into sorted set
   PathLen plen = 0;
   Orientation orient = FORWARD;
-  size_t total_bytes = 0;
+  size_t i, nbytes, intocol, fromcol;
 
   while(pindex != PATH_NULL)
   {
-    packed = store+pindex;
+    const uint8_t *packed = store+pindex;
+    const uint8_t *store_colset = packedpath_get_colset(packed);
+    const uint8_t *store_seq = packedpath_seq(packed, cbytes);
+
     packedpath_get_len_orient(packed, cbytes, &plen, &orient);
+
+    // Add entry
     PathEntry entry = {.seq = NULL, .pindex = pindex,
                        .orient = orient, .plen = plen};
-    pentrybuf_add(&set->members, entry);
-    total_bytes += (plen+3)/4;
-    pindex = packedpath_get_prev(packed);
-  }
+    pentrybuf_add(membuf, entry);
 
-  // Fetch path sequences
-  bytebuf_ensure_capacity(&set->seqs, total_bytes);
-  set->seqs.len = total_bytes;
+    // Copy colset+sequence to buffer
+    nbytes = (plen+3)/4;
+    bytebuf_ensure_capacity(bytebuf, bytebuf->len + cbytes + nbytes);
 
-  size_t i, nbytes = 0, intocol, fromcol;
-  const uint8_t *colset_ptr;
-  uint8_t *seq = set->seqs.data;
-  PathEntry *pentry;
+    uint8_t *set_colset = bytebuf->data + bytebuf->len;
+    uint8_t *set_seq = set_colset + cbytes;
 
-  for(i = 0; i < set->members.len; i++)
-  {
-    pentry = &set->members.data[i];
-    colset_ptr = packedpath_get_colset(store+pentry->pindex);
-
-    // Copy colour bitset into `seq`
+    // Copy colour bitset into sorted set
     if(fltr == NULL) {
-      memcpy(seq, colset_ptr, cbytes);
+      memcpy(set_colset, store_colset, cbytes);
     } else {
       // Clear memory for colour bitset
-      memset(seq, 0, cbytes);
+      memset(set_colset, 0, cbytes);
 
       // Copy over bitset, one bit at a time
       for(i = 0; i < fltr->ncols; i++) {
         intocol = file_filter_intocol(fltr, i);
         fromcol = file_filter_fromcol(fltr, i);
-        bitset_cpy(seq, intocol, bitset_get(colset_ptr, fromcol));
+        bitset_cpy(set_colset, intocol, bitset_get(store_colset, fromcol));
       }
     }
-    seq += cbytes;
 
-    // Copy sequence
-    pentry->seq = seq;
-    nbytes = (pentry->plen+3)/4;
-    packed = packedpath_seq(store+pentry->pindex, cbytes);
-    memcpy(seq, packed, nbytes);
-    seq += nbytes;
+    // Copy sequence into sorted set
+    memcpy(set_seq, store_seq, nbytes);
+    bytebuf->len += cbytes + nbytes;
+
+    pindex = packedpath_get_prev(packed);
+  }
+
+  // Set pointers for paths
+  uint8_t *seq = set->seqs.data;
+
+  for(i = 0; i < set->members.len; i++)
+  {
+    membuf->data[i].seq = seq + cbytes;
+    seq += cbytes + (membuf->data[i].plen + 3)/4;
   }
 
   // Sort paths
@@ -182,8 +188,10 @@ static inline void _update_store(const PathEntry *entry0, const SortedPathSet *s
   uint8_t *cset0 = sorted_path_colset(entry0, set0);
   const uint8_t *cset1 = sorted_path_colset(entry1, set1);
 
+  // packedpath_colsets_or returns true if colset was changed
   if(packedpath_colsets_or(cset0, cset1, set0->cbytes))
   {
+    // copy changes to store
     uint8_t *ptr = packedpath_get_colset(store + entry0->pindex);
     memcpy(ptr, cset0, set0->cbytes);
   }

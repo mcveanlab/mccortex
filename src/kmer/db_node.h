@@ -2,7 +2,7 @@
 #define DB_NODE_H_
 
 #include <inttypes.h>
-#include "bit_macros.h"
+#include "bit_array/bit_macros.h"
 
 #include "cortex_types.h"
 #include "db_graph.h"
@@ -10,7 +10,7 @@
 
 #define DB_NODE_INIT {.key = HASH_NOT_FOUND, .orient = FORWARD}
 
-#define db_nodes_match(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
+#define db_nodes_are_equal(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
 
 //
 // Get Binary kmers
@@ -188,6 +188,9 @@ Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph);
 #define db_node_outdegree_in_col(node,col,graph) \
         edges_get_outdegree(db_node_edges_in_col(node,col,graph), (node).orient)
 
+#define db_node_indegree_in_col(node,col,graph) \
+        db_node_outdegree_in_col(db_node_reverse(node),col,graph)
+
 #define db_node_zero_edges(graph,hkey) \
         memset((graph)->col_edges + (hkey)*(graph)->num_edge_cols, 0, \
                (graph)->num_edge_cols * sizeof(Edges))
@@ -265,6 +268,13 @@ void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift);
 // Print array of dBNode
 //
 
+// Get bkey:orient string representation e.g. "AGAGTTTTATC:1".
+//   :0 means forward, :1 means reverse
+//   `str` must be at least kmer_size+3 chars long
+// Returns length in bytes. Null terminates `str`.
+size_t db_node_to_str(const dBGraph *db_graph, dBNode node, char *str);
+
+// Null-terminates string
 void db_nodes_to_str(const dBNode *nodes, size_t num,
                      const dBGraph *db_graph, char *str);
 

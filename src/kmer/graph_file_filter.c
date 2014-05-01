@@ -1,6 +1,7 @@
 #include "global.h"
 #include "graph_file_filter.h"
 #include "graph_format.h"
+#include "cmd.h"
 
 const GraphFileHeader INIT_GRAPH_FILE_HDR = INIT_GRAPH_FILE_HDR_MACRO;
 const GraphFileReader INIT_GRAPH_READER = INIT_GRAPH_READER_MACRO;
@@ -108,7 +109,7 @@ bool graph_file_read(const GraphFileReader *file,
 
 // Returns true if one or more files passed loads data into colour
 bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
-                                    size_t num_files)
+                                 size_t num_files)
 {
   size_t i;
   for(i = 0; i < num_files; i++) {
@@ -116,4 +117,43 @@ bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
       return true;
   }
   return false;
+}
+
+// if one of the files is reading from stdin, sum_kmers_ptr is set to 0
+// `max_cols_ptr` is used to return the most colours being loaded from a single file
+// returns the number of colours being loaded in total
+size_t graph_files_open(char **graph_paths,
+                        GraphFileReader *gfiles, size_t num_gfiles,
+                        size_t *max_kmers_ptr, size_t *sum_kmers_ptr,
+                        size_t *max_cols_ptr)
+{
+  size_t i, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  bool ctx_uses_stdin = false;
+  size_t ncols = 0, max_cols = 0;
+
+  for(i = 0; i < num_gfiles; i++)
+  {
+    gfiles[i] = INIT_GRAPH_READER;
+    graph_file_open(&gfiles[i], graph_paths[i], true);
+
+    if(gfiles[0].hdr.kmer_size != gfiles[i].hdr.kmer_size) {
+      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
+                      gfiles[0].hdr.kmer_size, gfiles[i].hdr.kmer_size);
+    }
+
+    file_filter_update_intocol(&gfiles[i].fltr, ncols);
+    ncols = MAX2(ncols, graph_file_usedcols(&gfiles[i]));
+
+    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
+    ctx_sum_kmers += gfiles[i].num_of_kmers;
+    ctx_uses_stdin |= file_filter_isstdin(&gfiles[i].fltr);
+  }
+
+  if(ctx_uses_stdin) ctx_sum_kmers = SIZE_MAX;
+
+  *max_kmers_ptr = ctx_max_kmers;
+  *sum_kmers_ptr = ctx_sum_kmers;
+  *max_cols_ptr = max_cols;
+
+  return ncols;
 }

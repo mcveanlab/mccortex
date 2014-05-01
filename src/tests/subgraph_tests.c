@@ -32,12 +32,12 @@ void test_subgraph()
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
   // Graph data
-  graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
+  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
   size_t num_mask_words = roundup_bits2words64(graph.ht.capacity);
-  uint64_t *mask = calloc2(num_mask_words, sizeof(uint64_t));
+  uint64_t *mask = ctx_calloc(num_mask_words, sizeof(uint64_t));
 
   read_t r1, r2;
   seq_read_alloc(&r1);

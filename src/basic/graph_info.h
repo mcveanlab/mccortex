@@ -2,7 +2,7 @@
 #define DB_INFO_H_
 
 #include <inttypes.h>
-#include "string_buffer.h"
+#include "string_buffer/string_buffer.h"
 #include "cortex_types.h"
 #include "loading_stats.h"
 

@@ -7,7 +7,7 @@ static void strbuf_arr_resize(StrBuf **arr, size_t *cap, size_t newcap)
 {
   size_t i;
   newcap = roundup2pow(newcap);
-  *arr = realloc2(*arr, sizeof(StrBuf) * newcap);
+  *arr = ctx_realloc(*arr, sizeof(StrBuf) * newcap);
   for(i = *cap; i < newcap; i++) strbuf_alloc(&((*arr)[i]), 64);
   *cap = newcap;
 }
@@ -96,9 +96,9 @@ void vcf_entry_alloc(vcf_entry_t *entry, size_t num_samples)
   size_t i, num_cols = VCFSAMPLES+num_samples;
   entry->alts_capacity = entry->info_capacity = 2;
   entry->num_info = entry->num_alts = 0;
-  entry->cols = malloc2(sizeof(StrBuf) * num_cols);
-  entry->alts = malloc2(sizeof(StrBuf) * entry->alts_capacity);
-  entry->info = malloc2(sizeof(StrBuf) * entry->info_capacity);
+  entry->cols = ctx_malloc(sizeof(StrBuf) * num_cols);
+  entry->alts = ctx_malloc(sizeof(StrBuf) * entry->alts_capacity);
+  entry->info = ctx_malloc(sizeof(StrBuf) * entry->info_capacity);
 
   for(i = 0; i < num_cols; i++)
     strbuf_alloc(&entry->cols[i], 1024);
@@ -223,8 +223,7 @@ void vcf_entry_revcmp(vcf_entry_t *entry)
   // printf("lf:'%s'; rf:'%s'\n", entry->lf.buff, entry->rf.buff);
   dna_reverse_complement_str(entry->lf->buff+3, entry->lf->len-3);
   dna_reverse_complement_str(entry->rf->buff+3, entry->rf->len-3);
-  StrBuf *tmpbuf;
-  SWAP(entry->lf, entry->rf, tmpbuf);
+  SWAP(entry->lf, entry->rf);
   entry->lf->buff[0] = 'L';
   entry->rf->buff[0] = 'R';
 }

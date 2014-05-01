@@ -34,9 +34,9 @@ static void test_db_graph_next_nodes()
   char seq[60];
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024);
-  graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
+  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
   // Copy a random and shared piece of sequence to both colours
   for(col = 0; col < 2; col++) {
@@ -88,7 +88,7 @@ static void test_left_shift()
 
     // Compare
     for(j = 0; j < len; j++)
-      TASSERT(db_nodes_match(nodes0[j], nodes1[j]));
+      TASSERT(db_nodes_are_equal(nodes0[j], nodes1[j]));
   }
 }
 

@@ -44,11 +44,11 @@ static inline void FUNC ## _dealloc(buf_t *buf)                                \
  __attribute__((unused));                                                      \
 static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap)            \
  __attribute__((unused));                                                      \
-static inline void FUNC ## _add(buf_t *buf, obj_t obj)                         \
+static inline size_t FUNC ## _add(buf_t *buf, obj_t obj)                       \
  __attribute__((unused));                                                      \
 static inline int FUNC ## _attempt_add(buf_t *buf, obj_t obj)                  \
  __attribute__((unused));                                                      \
-static inline void FUNC ## _append(buf_t *buf, obj_t *obj, size_t n)           \
+static inline size_t FUNC ## _append(buf_t *buf, obj_t *obj, size_t n)         \
  __attribute__((unused));                                                      \
 static inline void FUNC ## _reset(buf_t *buf)                                  \
  __attribute__((unused));                                                      \
@@ -56,38 +56,48 @@ static inline void FUNC ## _reset(buf_t *buf)                                  \
                                                                                \
 static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
   buf->capacity = capacity;                                                    \
-  buf->data = malloc2(sizeof(obj_t) * buf->capacity);                          \
+  buf->data = ctx_malloc(sizeof(obj_t) * buf->capacity);                       \
   buf->len = 0;                                                                \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _dealloc(buf_t *buf) {                              \
   ctx_free(buf->data);                                                         \
+  buf->data = NULL;                                                            \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap) {          \
   if(cap > buf->capacity) {                                                    \
     buf->capacity = roundup2pow(cap);                                          \
-    buf->data = realloc2(buf->data, sizeof(obj_t) * buf->capacity);            \
+    buf->data = ctx_realloc(buf->data, sizeof(obj_t) * buf->capacity);         \
   }                                                                            \
 }                                                                              \
                                                                                \
-static inline void FUNC ## _add(buf_t *buf, obj_t obj) {                       \
+/* Returns index of new object in buffer */                                    \
+static inline size_t FUNC ## _add(buf_t *buf, obj_t obj) {                     \
   FUNC ## _ensure_capacity(buf, buf->len+1);                                   \
-  buf->data[buf->len++] = obj;                                                 \
+  size_t idx = buf->len;                                                       \
+  memcpy(buf->data+idx, &obj, sizeof(obj));                                    \
+  buf->len++;                                                                  \
+  return idx;                                                                  \
 }                                                                              \
                                                                                \
 static inline int FUNC ## _attempt_add(buf_t *buf, obj_t obj) {                \
   if(buf->len >= buf->capacity) return 0;                                      \
-  buf->data[buf->len++] = obj; return 1;                                       \
+  memcpy(buf->data+buf->len, &obj, sizeof(obj));                               \
+  buf->len++; return 1;                                                        \
 }                                                                              \
                                                                                \
-static inline void FUNC ## _append(buf_t *buf, obj_t *obj, size_t n) {         \
+/* Returns index of first new object in buffer */                              \
+static inline size_t FUNC ## _append(buf_t *buf, obj_t *obj, size_t n) {       \
   FUNC ## _ensure_capacity(buf, buf->len+n);                                   \
   memcpy(buf->data+buf->len, obj, n*sizeof(obj_t));                            \
+  size_t idx = buf->len;                                                       \
   buf->len += n;                                                               \
+  return idx;                                                                  \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _reset(buf_t *buf) { buf->len = 0; }                \
+\
 
 
 #endif /* OBJBUF_H_ */

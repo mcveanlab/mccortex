@@ -3,7 +3,6 @@
 #include "file_util.h"
 
 #include <libgen.h> // dirname
-#include <errno.h>
 
 // Returns 1 on success, 0 on failure
 // Sets errno to ENOTDIR if already exists but is not directory
@@ -127,16 +126,16 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1])
 }
 
 // Usage:
-//     gzFile *tmp_files = futil_create_tmp_gzfiles(num_tmp);
+//     FILE **tmp_files = futil_create_tmp_files(num_tmp);
 // to clear up:
-//     for(i = 0; i < num_tmp; i++) gzclose(tmp_files[i]);
+//     for(i = 0; i < num_tmp; i++) fclose(tmp_files[i]);
 //     ctx_free(tmp_files);
-gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files)
+FILE** futil_create_tmp_files(size_t num_tmp_files)
 {
   size_t i;
   StrBuf tmppath;
   strbuf_alloc(&tmppath, 1024);
-  gzFile *tmp_files = malloc2(num_tmp_files * sizeof(gzFile));
+  FILE **tmp_files = ctx_malloc(num_tmp_files * sizeof(FILE*));
 
   int r = rand() & ((1<<20)-1);
 
@@ -144,8 +143,8 @@ gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files)
   {
     strbuf_reset(&tmppath);
     strbuf_sprintf(&tmppath, "/tmp/cortex.tmp.%i.%zu", r, i);
-    if((tmp_files[i] = gzopen(tmppath.buff, "r+")) == NULL) {
-      die("Cannot write temporary file: %s", tmppath.buff);
+    if((tmp_files[i] = fopen(tmppath.buff, "r+")) == NULL) {
+      die("Cannot write temporary file: %s [%s]", tmppath.buff, strerror(errno));
     }
     unlink(tmppath.buff); // Immediately unlink to hide temp file
   }
@@ -155,27 +154,27 @@ gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files)
 }
 
 // Merge temporary files, closes tmp files
-void futil_merge_tmp_gzfiles(gzFile *tmp_files, size_t num_files, gzFile gzout)
+void futil_merge_tmp_files(FILE **tmp_files, size_t num_files, FILE *fout)
 {
-  #define GZ_BUF_SIZE (1<<25) /* 32MB */
+  #define TMP_BUF_SIZE (1<<25) /* 32MB */
 
-  char *data = malloc2(GZ_BUF_SIZE);
-  size_t i;
-  int len;
-  gzFile tmp_file;
+  char *data = ctx_malloc(TMP_BUF_SIZE);
+  size_t i, len;
+  FILE *tmp_file;
 
   for(i = 0; i < num_files; i++)
   {
     tmp_file = tmp_files[i];
-    if(gzseek(tmp_file, 0L, SEEK_SET) == -1) die("gzseek error");
+    if(fseek(tmp_file, 0L, SEEK_SET) == -1) die("gzseek error");
 
-    while((len = gzread(tmp_file, data, GZ_BUF_SIZE)) > 0)
-      gzwrite(gzout, data, (unsigned int)len);
+    while((len = fread(data, 1, TMP_BUF_SIZE, tmp_file)) > 0)
+      if(fwrite(data, 1, len, fout) != len)
+        die("write error [%s]", strerror(errno));
 
-    gzclose(tmp_file);
+    fclose(tmp_file);
   }
 
   ctx_free(data);
 
-  #undef GZ_BUF_SIZE
+  #undef TMP_BUF_SIZE
 }

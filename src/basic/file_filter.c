@@ -25,11 +25,11 @@ static inline void file_filter_capacity(FileFilter *file, size_t ncolscap)
 {
   if(ncolscap == 0) return;
   else if(file->ncolscap == 0) {
-    file->cols = malloc2(ncolscap * sizeof(*(file->cols)));
+    file->cols = ctx_malloc(ncolscap * sizeof(*(file->cols)));
     file->ncolscap = ncolscap;
   }
   else if(file->ncolscap < ncolscap) {
-    file->cols = realloc2(file->cols, ncolscap * sizeof(*(file->cols)));
+    file->cols = ctx_realloc(file->cols, ncolscap * sizeof(*(file->cols)));
     file->ncolscap = ncolscap;
   }
 }
@@ -105,6 +105,9 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols)
 void file_filter_update_intocol(FileFilter *fltr, size_t intocol)
 {
   size_t i;
+  if(fltr->intocol != intocol && fltr->intocol != 0)
+    warn("Setting load into colour to %zu (%s)", intocol, fltr->orig_path.buff);
+
   fltr->intocol = intocol;
   for(i = 0; i < fltr->ncols && fltr->cols[i] == i; i++);
   fltr->nofilter = (i == fltr->filencols && fltr->intocol == 0);

@@ -4,6 +4,7 @@
 // request decent POSIX version
 #define _XOPEN_SOURCE 700
 #define _BSD_SOURCE
+// #define _GNU_SOURCE
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -16,11 +17,12 @@
 #include <limits.h>
 #include <pthread.h>
 #include <zlib.h>
+#include <errno.h>
 
-#include "bit_macros.h" // from bit_array
-#include "string_buffer.h"
+#include "bit_array/bit_macros.h" // from bit_array
+#include "string_buffer/string_buffer.h"
 
-#include "version.h" // defines CTXVERSIONSTR
+#include "version.h" // defines CTX_VERSION
 #include "cortex_types.h" // common basic data types
 
 // Makefile sets:
@@ -30,43 +32,50 @@
 //  MAX_KMER_SIZE    Max kmer-size compiled e.g. 31 for maxk=31, 63 for maxk=63
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 
+#if defined(CTXCHECKS) && CTXCHECKS == 0
+#  undef CTXCHECKS
+#endif
+
 #ifdef NDEBUG
-  #define ASSERTSTR " ASSERTS=OFF"
+#  define ASSERTSTR "ASSERTS=OFF"
 #else
-  #define ASSERTSTR " ASSERTS=ON"
+#  define ASSERTSTR "ASSERTS=ON"
 #endif
 #ifdef CTXCHECKS
-  #define CHECKSTR " CHECKS=ON"
+#  define CHECKSTR "CHECKS=ON"
 #else
-  #define CHECKSTR " CHECKS=OFF"
+#  define CHECKSTR "CHECKS=OFF"
 #endif
 
-#if defined(CTXCHECKS) && CTXCHECKS == 0
-  #undef CTXCHECKS
-#endif
-
-#define VERSION_STATUS_STR "ctx="CTXVERSIONSTR" zlib="ZLIB_VERSION ASSERTSTR CHECKSTR" k="QUOTE_VALUE(MIN_KMER_SIZE)".."QUOTE_VALUE(MAX_KMER_SIZE)
+#include "htslib/version.h"
+#define LIBS_VERSION "zlib="ZLIB_VERSION" htslib="HTS_VERSION
+#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" " \
+                           ASSERTSTR" "CHECKSTR" " \
+                           "k="QUOTE_VALUE(MIN_KMER_SIZE)".."QUOTE_VALUE(MAX_KMER_SIZE)
 
 //
-// dynamic memory allocation with checks
+// Dynamic memory allocation with checks
 //
 
 volatile size_t ctx_num_allocs, ctx_num_frees;
 
-#define malloc2(mem) ctx_malloc(mem,__FILE__,__func__,__LINE__)
-#define calloc2(nel,elsize) ctx_calloc(nel,elsize,__FILE__,__func__,__LINE__)
-#define realloc2(ptr,mem) ctx_realloc(ptr,mem,__FILE__,__func__,__LINE__)
-#define recalloc2(ptr,old,new) ctx_recalloc(ptr,old,new,__FILE__,__func__,__LINE__)
+// Macros for memory management
+#define ctx_malloc(mem) call_malloc(mem,__FILE__,__func__,__LINE__)
+#define ctx_calloc(nel,elsize) call_calloc(nel,elsize,__FILE__,__func__,__LINE__)
+#define ctx_realloc(ptr,mem) call_realloc(ptr,mem,__FILE__,__func__,__LINE__)
+#define ctx_recalloc(ptr,old,new) call_recalloc(ptr,old,new,__FILE__,__func__,__LINE__)
+#define ctx_free(ptr) call_free(ptr)
 
-void* ctx_malloc(size_t mem, const char *file, const char *func, int line);
-void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line);
-void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int line);
+// Functions
+void* call_malloc(size_t mem, const char *file, const char *func, int line);
+void* call_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line);
+void* call_realloc(void *ptr, size_t mem, const char *file, const char *func, int line);
 
 // Resize memory, zero new memory
-void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
-                   const char *file, const char *func, int line);
+void* call_recalloc(void *ptr, size_t oldsize, size_t newsize,
+                    const char *file, const char *func, int line);
 
-void ctx_free(void *ptr);
+void call_free(void *ptr);
 
 //
 // Internal Integrity Checks: ctx_check(), ctx_assert(), ctx_assume()
@@ -181,7 +190,13 @@ void cortex_destroy();
 #define QUOTE_MACRO(str) #str
 #define QUOTE_VALUE(str) QUOTE_MACRO(str)
 
-#define SWAP(x,y,tmp) ((tmp) = (x), (x) = (y), (y) = (tmp))
+#define SWAP(x,y) do { __typeof(x) _tmp = (x); (x) = (y); (y) = _tmp; } while(0)
+
+// Swap macro swaps a byte at a time
+#define SWAPCPY(x,y) do {                                             \
+  char *_a = &(x), *_b = &(y), *_end = _a + sizeof(x), _tmp;          \
+  for(; _a < _end; _a++, _b++) { _tmp = *_a; *_a = *_b; *_b = _tmp; } \
+} while(0)
 
 #define MAX2(x,y) ((x) >= (y) ? (x) : (y))
 #define MIN2(x,y) ((x) <= (y) ? (x) : (y))

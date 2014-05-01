@@ -1,8 +1,8 @@
 #ifndef FILE_FILTER_H_
 #define FILE_FILTER_H_
 
-#include "string_buffer.h"
 #include <stdio.h>
+#include "string_buffer/string_buffer.h"
 
 // A filter for reading cortex files
 
@@ -35,6 +35,9 @@ typedef struct
 #define file_filter_usedcols(fltr) ((fltr)->intocol + file_filter_outncols(fltr))
 #define file_filter_iscolloaded(fltr,col) \
         ((fltr)->intocol<=(col) && (col)<file_filter_usedcols(fltr))
+
+#define file_filter_isstdin(fltr) (strcmp((fltr)->file_path.buff,"-") == 0)
+
 
 // Does not read any bytes from file, but does open it
 // returns true on success

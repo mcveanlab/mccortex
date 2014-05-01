@@ -72,6 +72,7 @@ int ctx_pview(CmdArgs *args)
   bits_per_kmer = sizeof(uint64_t) * 8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         phdr->num_kmers_with_paths,
+                                        phdr->num_kmers_with_paths,
                                         true, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);

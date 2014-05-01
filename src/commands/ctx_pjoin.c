@@ -66,7 +66,7 @@ int ctx_pjoin(CmdArgs *args)
     }
   }
 
-  if(argi == argc)
+  if(argi >= argc)
     cmd_print_usage("Please specify at least one input file");
 
   const char *out_ctp_path = args->output_file;
@@ -160,7 +160,8 @@ int ctx_pjoin(CmdArgs *args)
 
   // Each kmer stores a pointer to its list of paths
   bits_per_kmer = sizeof(uint64_t)*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, num_kmers,
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        num_kmers, num_kmers,
                                         false, &graph_mem);
 
   // Path Memory

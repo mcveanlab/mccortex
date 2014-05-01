@@ -7,14 +7,18 @@
 
 typedef struct
 {
-  uint8_t *seq; // colset is store at seq-cbytes
+  uint8_t *seq; // colset is stored at (seq-cbytes)
   PathIndex pindex;
   PathLen orient:1, plen:PATH_LEN_BITS;
 } PathEntry;
 
 #include "objbuf_macro.h"
-create_objbuf(bytebuf, ByteBuffer, uint8_t);
 create_objbuf(pentrybuf, PathEntryBuffer, PathEntry);
+
+#ifndef BYTE_BUFFER_DEFINED
+  create_objbuf(bytebuf, ByteBuffer, uint8_t);
+  #define BYTE_BUFFER_DEFINED
+#endif
 
 typedef struct
 {

@@ -23,12 +23,12 @@ void test_build_graph()
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024);
   // Graph data
-  graph.bktlocks = calloc2(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = calloc2(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = calloc2(graph.ht.capacity * ncols, sizeof(Covg));
+  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
+  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
   // 1 bit for forward, 1 bit for reverse per kmer
-  graph.readstrt = calloc2(roundup_bits2bytes(graph.ht.capacity)*2,
+  graph.readstrt = ctx_calloc(roundup_bits2bytes(graph.ht.capacity)*2,
                            sizeof(uint8_t));
 
   read_t r1, r2;

@@ -1,150 +1,161 @@
 #include "global.h"
 #include "breakpoint_caller.h"
+#include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
 #include "seq_reader.h"
 #include "multicol_walker.h"
-
-typedef struct {
-  size_t i, start, length;
-} Chrom;
-
-typedef struct {
-  uint64_t start, count;
-} KOccurList;
+#include "kmer_occur.h"
 
 typedef struct
 {
-  uint64_t orient:1, pos:63;
-} KOccur;
+  // Specific to this instance
+  const size_t threadid, nthreads;
+  const size_t ncols; // Number of colours to call in
 
-// Malloc's and returns chrom list - remember to free
-static Chrom* generate_chrom_list(const read_t *reads, size_t num_reads)
+  // Temporary memory used by this instance
+  size_t *cols, *cols_used, *col_lengths; // arrays of length ncols
+  MulticolWalker walker;
+  dBNodeBuffer nbuf;
+
+  // Passed to all instances
+  const KOGraph kograph;
+  const dBGraph *db_graph;
+  gzFile gzout;
+  pthread_mutex_t *const out_lock;
+} BreakpointCaller;
+
+static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
+                                           const KOGraph kograph,
+                                           const dBGraph *db_graph)
 {
-  Chrom *chroms = malloc2(num_reads*sizeof(Chrom));
-  size_t i, offset = 0;
+  size_t i, ncols = db_graph->num_of_cols;
 
-  for(i = 0; i < num_reads; i++)
+  BreakpointCaller *callers = ctx_malloc(num_callers * sizeof(BreakpointCaller));
+
+  // Each caller uses 3 lists of max length ncols
+  size_t *colour_lists = ctx_malloc(num_callers * ncols * 3 * sizeof(size_t));
+
+  pthread_mutex_t *out_lock = ctx_malloc(sizeof(pthread_mutex_t));
+  if(pthread_mutex_init(out_lock, NULL) != 0) die("mutex init failed");
+
+  for(i = 0; i < num_callers; i++)
   {
-    chroms[i] = (Chrom){.i = i, .start = offset, .length = reads[i].seq.end};
-    offset += reads[i].seq.end;
+    BreakpointCaller tmp = {.threadid = i, .nthreads = num_callers,
+                            .cols        = colour_lists,
+                            .cols_used   = colour_lists+ncols,
+                            .col_lengths = colour_lists+ncols+ncols,
+                            .kograph = kograph,
+                            .db_graph = db_graph,
+                            .gzout = gzout,
+                            .out_lock = out_lock};
+
+    memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
+
+    colour_lists += ncols*3;
+
+    db_node_buf_alloc(&callers[i].nbuf, 1024);
+    multicol_walker_alloc(&callers[i].walker, db_graph);
   }
 
-  return chroms;
+  return callers;
 }
 
-static void bkmer_update_counts(BinaryKmer bkmer, dBGraph *db_graph,
-                                KOccurList *klists)
+static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
 {
-  bool found;
-  hkey_t hkey = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
-  klists[hkey].count++;
+  size_t i;
+  for(i = 0; i < num_callers; i++) {
+    db_node_buf_dealloc(&callers[i].nbuf);
+    multicol_walker_dealloc(&callers[i].walker);
+  }
+  ctx_free(callers[0].cols);
+  pthread_mutex_destroy(callers[0].out_lock);
+  ctx_free(callers[0].out_lock);
+  ctx_free(callers);
 }
 
-static void read_update_counts(const read_t *r, dBGraph *db_graph,
-                               KOccurList *klists)
+static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf)
 {
-  const size_t kmer_size = db_graph->kmer_size;
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-  READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_update_counts,
-                 db_graph, klists);
-}
-
-static void bkmer_store_kmer_pos(BinaryKmer bkmer, const dBGraph *db_graph,
-                                 KOccurList *klists, KOccur *koccurs,
-                                 uint64_t pos)
-{
-  KOccurList *kl;
-  // bkmers were already added to graph -> don't need to find_or_insert
-  dBNode node = db_graph_find(db_graph, bkmer);
-  ctx_assert(node.key != HASH_NOT_FOUND);
-
-  kl = &klists[node.key];
-  koccurs[kl->start + kl->count] = (KOccur){.pos = pos, .orient = node.orient};
-  kl->count++;
-}
-
-static void read_store_kmer_pos(const read_t *r, const dBGraph *db_graph,
-                                KOccurList *klists, KOccur *koccurs,
-                                uint64_t roffset)
-{
-  const size_t kmer_size = db_graph->kmer_size;
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-  READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_store_kmer_pos,
-                 db_graph, klists, koccurs, roffset+_offset);
-}
-
-static void process_contig(const dBGraph *db_graph,
-                           const KOccurList *klists, const KOccur *koccurs,
-                           MulticolWalker *walker,
-                           size_t *cols_used, size_t *col_lengths,
-                           dBNodeBuffer *nbuf, gzFile gzout)
-{
-  (void)koccurs; (void)walker; (void)cols_used; (void)col_lengths;
+  gzFile gzout = caller->gzout;
 
   // Work backwards to find last place we met the ref
   // nbuf[0] is ref node
   // nbuf[1] is first node not in ref
-  size_t i, end;
-  for(i = nbuf->len-1; i > 1; i--)
-    if(klists[nbuf->data[i].key].count > 0)
-      break;
+  ctx_assert(kograph_num(caller->kograph, nbuf->data[0].key) > 0);
+  ctx_assert(kograph_num(caller->kograph, nbuf->data[1].key) == 0);
 
-  if(i == 1) return;
+  // AGGGCGTTAGCGGGTTGGAG
+  printf("we got: ");
+  db_nodes_print(nbuf->data, nbuf->len, caller->db_graph, stdout);
+  printf("\n");
+
+  size_t i, end;
+  for(i = nbuf->len-1; kograph_num(caller->kograph, nbuf->data[i].key) == 0; i--);
+
+  if(i == 0) {
+    status("Never met ref");
+    return; // we never met the ref again
+  }
 
   // Found second ref meeting - find first node in block that is in ref
   end = i;
-  while(klists[nbuf->data[end-1].key].count > 0) end--;
+  while(kograph_num(caller->kograph, nbuf->data[end-1].key) > 0) end--;
+
+  ctx_assert(end > 1); // nbuf[1] should not be in the ref
+
+  pthread_mutex_lock(caller->out_lock);
 
   gzprintf(gzout, ">call.5pflank\n");
   // DEV
   gzprintf(gzout, "\n");
 
   gzprintf(gzout, ">call.3pflank\n");
-  db_nodes_gzprint_cont(nbuf->data+end, nbuf->len - end, db_graph, gzout);
+  db_nodes_gzprint_cont(nbuf->data+end, nbuf->len - end, caller->db_graph, gzout);
 
   gzprintf(gzout, ">call.path\n");
-  db_nodes_gzprint_cont(nbuf->data, end, db_graph, gzout);
+  db_nodes_gzprint_cont(nbuf->data, end, caller->db_graph, gzout);
   // DEV
+
+  pthread_mutex_unlock(caller->out_lock);
 }
 
 // DEV: for speed could remember where colours split off
-static void assemble_contig(const dBGraph *db_graph,
-                            const KOccurList *klists, const KOccur *koccurs,
-                            MulticolWalker *walker,
-                            size_t *cols, size_t *cols_used, size_t *col_lengths,
-                            dBNodeBuffer *nbuf, gzFile gzout)
+static void assemble_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf)
 {
   // Follow path using multicol_walker_assemble_contig
-  size_t i, ncols = db_graph->num_of_cols, ncols_used;
-  for(i = 0; i < ncols; i++) cols[i] = i;
+  size_t i, ncols = caller->db_graph->num_of_cols, ncols_used;
+
+  // Reset list of colours we are considering
+  for(i = 0; i < ncols; i++) caller->cols[i] = i;
 
   while(ncols > 0)
   {
-    ncols_used = multicol_walker_assemble_contig(walker, cols, ncols,
-                                                 cols_used, col_lengths, nbuf);
+    ncols_used = multicol_walker_assemble_contig(&caller->walker,
+                                                 caller->cols, caller->ncols,
+                                                 caller->cols_used,
+                                                 caller->col_lengths, nbuf);
+
+    printf("ncols: %zu ncols_used: %zu\n", ncols, ncols_used);
 
     // Print with path
-    process_contig(db_graph, klists, koccurs, walker, cols_used, col_lengths,
-                   nbuf, gzout);
+    process_contig(caller, &caller->nbuf);
 
     // Remove the used colours from list of colours to use
-    ncols = multicol_walker_rem_cols(cols, ncols, cols_used, ncols_used);
+    ncols = multicol_walker_rem_cols(caller->cols, caller->ncols,
+                                     caller->cols_used, ncols_used);
   }
 }
 
 // Walk the graph remembering the last time we met the ref
 // When traversal fails, dump sequence up to last meeting with the ref
-static void follow_break(dBNode node, const dBGraph *db_graph,
-                         const KOccurList *klists, const KOccur *koccurs,
-                         MulticolWalker *walker,
-                         size_t *cols, size_t *cols2, size_t *cols3,
-                         dBNodeBuffer *nbuf, gzFile gzout)
+static void follow_break(BreakpointCaller *caller, dBNode node)
 {
   size_t i, j, num_next;
   dBNode next_nodes[4];
   Nucleotide next_nucs[4];
+  const dBGraph *db_graph = caller->db_graph;
+
   BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
   Edges edges = db_node_get_edges(db_graph, node.key, 0);
 
@@ -153,7 +164,7 @@ static void follow_break(dBNode node, const dBGraph *db_graph,
 
   // Filter out next nodes in the reference
   for(i = 0, j = 0; i < num_next; i++) {
-    if(klists[next_nodes[i].key].count > 0) {
+    if(kograph_num(caller->kograph, next_nodes[i].key) == 0) {
       next_nodes[j] = next_nodes[i];
       next_nucs[j] = next_nucs[i];
       j++;
@@ -163,80 +174,46 @@ static void follow_break(dBNode node, const dBGraph *db_graph,
   // Abandon if all options are in ref or none are
   if(j == num_next || j == 0) return;
 
+  status("Possumable fork!");
+
   num_next = j;
 
   // 2. Follow all paths not in ref, in all colours
+  dBNodeBuffer *nbuf = &caller->nbuf;
+
   for(i = 0; i < num_next; i++)
   {
     db_node_buf_reset(nbuf);
     nbuf->data[0] = node;
     nbuf->data[1] = next_nodes[i];
     nbuf->len = 2;
-    assemble_contig(db_graph, klists, koccurs, walker, cols, cols2, cols3,
-                    nbuf, gzout);
+    assemble_contig(caller, nbuf);
   }
 }
 
-struct BreakpointCaller {
-  size_t idx;
-  hkey_t start, end;
-  const dBGraph *db_graph;
-  const KOccurList *klists;
-  const KOccur *koccurs;
-  gzFile gzout;
-  size_t *cols, *cols2, *cols3;
-};
-
-static void* call_breakpoints(void *ptr)
+void breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
 {
-  const struct BreakpointCaller *caller = (struct BreakpointCaller*)ptr;
-  const dBGraph *db_graph = caller->db_graph;
-  const KOccurList *klists = caller->klists;
-  const KOccur *koccurs = caller->koccurs;
-  gzFile gzout = caller->gzout;
-  size_t *cols = caller->cols;
-  size_t *cols2 = caller->cols2;
-  size_t *cols3 = caller->cols3;
-
-  const BinaryKmer *table = db_graph->ht.table, *bkptr;
-  const BinaryKmer *start = table + caller->start;
-  const BinaryKmer *end = table + caller->end;
-
-  ctx_assert(db_graph->num_edge_cols == 1);
-
-  hkey_t hkey;
   Edges edges;
 
-  dBNodeBuffer nbuf;
-  db_node_buf_alloc(&nbuf, 1024);
-
-  MulticolWalker walker;
-  multicol_walker_alloc(&walker, db_graph);
-
-  for(bkptr = start; bkptr < end; bkptr++) {
-    if(HASH_ENTRY_ASSIGNED(*bkptr)) {
-      hkey = (hkey_t)(bkptr - table);
-      // check node is in the ref
-      if(klists[hkey].count > 0) {
-        edges = db_node_get_edges(db_graph, hkey, 0);
-        if(edges_get_outdegree(edges, FORWARD) > 1) {
-          follow_break((dBNode){.key = hkey, .orient = FORWARD}, db_graph,
-                       klists, koccurs, &walker, cols, cols2, cols3, &nbuf,
-                       gzout);
-        }
-        if(edges_get_outdegree(edges, REVERSE) > 1) {
-          follow_break((dBNode){.key = hkey, .orient = REVERSE}, db_graph,
-                       klists, koccurs, &walker, cols, cols2, cols3, &nbuf,
-                       gzout);
-        }
-      }
+  // check node is in the ref
+  if(kograph_num(caller->kograph, hkey) > 0) {
+    edges = db_node_get_edges(caller->db_graph, hkey, 0);
+    if(edges_get_outdegree(edges, FORWARD) > 1) {
+      follow_break(caller, (dBNode){.key = hkey, .orient = FORWARD});
+    }
+    if(edges_get_outdegree(edges, REVERSE) > 1) {
+      follow_break(caller, (dBNode){.key = hkey, .orient = REVERSE});
     }
   }
+}
 
-  multicol_walker_dealloc(&walker);
-  db_node_buf_dealloc(&nbuf);
+static void breakpoint_caller(void *ptr)
+{
+  BreakpointCaller *caller = (BreakpointCaller*)ptr;
+  ctx_assert(caller->db_graph->num_edge_cols == 1);
 
-  return NULL;
+  HASH_ITERATE_PART(&caller->db_graph->ht, caller->threadid, caller->nthreads,
+                    breakpoint_caller_node, caller);
 }
 
 static void breakpoints_print_header(gzFile gzout, const CmdArgs *args)
@@ -252,121 +229,26 @@ static void breakpoints_print_header(gzFile gzout, const CmdArgs *args)
 
   gzprintf(gzout, "##reference=TODO\n");
   gzprintf(gzout, "##ctxVersion=\""VERSION_STATUS_STR"\">\n");
-  gzprintf(gzout, "##ctxKmerSize=%i", MAX_KMER_SIZE);
+  gzprintf(gzout, "##ctxKmerSize=%i\n", MAX_KMER_SIZE);
 }
 
-static void breakpoints_multithreaded(gzFile gzout, const dBGraph *db_graph,
-                                      Chrom *chroms, size_t num_chroms,
-                                      KOccurList *klists, KOccur *koccurs,
-                                      gzFile *tmp_files, size_t num_of_threads,
-                                      const CmdArgs *args)
+void breakpoints_call(size_t num_of_threads,
+                      const read_t *reads, size_t num_reads,
+                      gzFile gzout, const char *out_path,
+                      const CmdArgs *args, dBGraph *db_graph)
 {
-  (void)chroms; (void)num_chroms;
+  KOGraph kograph = kograph_create(reads, num_reads, true,
+                                   num_of_threads, db_graph);
+  BreakpointCaller *callers = brkpt_callers_new(num_of_threads, gzout,
+                                                kograph, db_graph);
 
-  ctx_assert((num_of_threads == 1) == (tmp_files == NULL));
+  status("Running BreakpointCaller... output to: %s", out_path);
 
-  // Print header to gzout
   breakpoints_print_header(gzout, args);
 
-  const size_t ncols = db_graph->num_of_cols;
-  struct BreakpointCaller *callers;
-  callers = malloc2(num_of_threads * sizeof(struct BreakpointCaller));
-  size_t *colour_lists = malloc2(num_of_threads * ncols * 3 * sizeof(size_t));
+  util_run_threads(callers, num_of_threads, sizeof(callers[0]),
+                   num_of_threads, breakpoint_caller);
 
-  hkey_t start, end, step = db_graph->ht.capacity / num_of_threads;
-  gzFile gztmp;
-  int rc;
-  size_t i, *colptr;
-
-  for(i = 0; i < num_of_threads; i++)
-  {
-    start = i * step;
-    end = (i == num_of_threads-1) ? db_graph->ht.capacity : start + step;
-    gztmp = (tmp_files ? tmp_files[i] : gzout);
-    colptr = colour_lists+i*ncols*3;
-
-    callers[i]
-      = (struct BreakpointCaller){.idx = i, .start = start, .end = end,
-                                  .db_graph = db_graph, .klists = klists,
-                                  .koccurs = koccurs, .gzout = gztmp,
-                                  .cols = colptr, .cols2 = colptr+ncols,
-                                  .cols3 = colptr+ncols*2};
-  }
-
-  if(num_of_threads <= 1) {
-    call_breakpoints(&callers[0]);
-  }
-  else
-  {
-    // Multithreaded version
-    /* Initialize and set thread detached attribute */
-    pthread_t *threads = malloc2(num_of_threads * sizeof(pthread_t));
-    pthread_attr_t thread_attr;
-    pthread_attr_init(&thread_attr);
-    pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
-
-    for(i = 0; i < num_of_threads; i++) {
-      rc = pthread_create(&threads[i], &thread_attr,
-                          call_breakpoints, (void*)&callers[i]);
-      if(rc != 0) die("Creating thread failed");
-    }
-
-    /* wait for all threads to complete */
-    for(i = 0; i < num_of_threads; i++) {
-      rc = pthread_join(threads[i], NULL);
-      if(rc != 0) die("Joining thread failed");
-    }
-
-    // Merge files and clean up
-    futil_merge_tmp_gzfiles(tmp_files, num_of_threads, gzout);
-    pthread_attr_destroy(&thread_attr);
-    ctx_free(threads);
-  }
-
-  ctx_free(colour_lists);
-  ctx_free(callers);
-}
-
-void breakpoints_call(gzFile gzout, dBGraph *db_graph,
-                      const read_t *reads, size_t num_reads,
-                      size_t num_of_threads, const CmdArgs *args)
-{
-  // Set up temporary files
-  gzFile *tmp_files = NULL;
-
-  if(num_of_threads > 1) {
-    tmp_files = futil_create_tmp_gzfiles(num_of_threads);
-  }
-
-  Chrom *chroms = generate_chrom_list(reads, num_reads);
-  KOccurList *klists = calloc2(db_graph->ht.capacity, sizeof(KOccurList));
-
-  // 1. Loop through reads, add to graph and record kmer counts
-  size_t i;
-  for(i = 0; i < num_reads; i++)
-    read_update_counts(&reads[i], db_graph, klists);
-
-  // 2. alloc lists
-  uint64_t offset = 0;
-  for(i = 0; i < num_reads; i++) {
-    klists[i].start = offset;
-    offset += klists[i].count;
-    klists[i].count = 0;
-  }
-
-  KOccur *koccurs = malloc2(offset * sizeof(KOccur));
-
-  // 3. Loop through reads, record kmer pos
-  for(i = 0; i < num_reads; i++)
-    read_store_kmer_pos(&reads[i], db_graph, klists, koccurs, klists[i].start);
-
-  // 4. Call
-  breakpoints_multithreaded(gzout, db_graph, chroms, num_reads,
-                            klists, koccurs, tmp_files, num_of_threads, args);
-
-  if(tmp_files) ctx_free(tmp_files);
-
-  ctx_free(klists);
-  ctx_free(koccurs);
-  ctx_free(chroms);
+  brkpt_callers_destroy(callers, num_of_threads);
+  kograph_free(kograph);
 }

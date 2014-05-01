@@ -57,7 +57,7 @@ int ctx_breakpoints(CmdArgs *args)
   // Already checked that input has at least 1 argument
 
   size_t max_seq_inputs = argc / 2;
-  seq_file_t *seq_files[max_seq_inputs];
+  seq_file_t **seq_files = ctx_malloc(max_seq_inputs * sizeof(seq_file_t*));
   size_t i, num_seq_files = 0;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
@@ -82,19 +82,10 @@ int ctx_breakpoints(CmdArgs *args)
   char **graph_paths = argv + argi;
   size_t num_gfiles = argc - argi;
   GraphFileReader gfiles[num_gfiles];
-  size_t ncols = 0, ctx_max_kmers = 0;
+  size_t ncols = 0, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_gfiles; i++)
-  {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], graph_paths[i], true);
-
-    // Pile colours on top of each other
-    file_filter_update_intocol(&gfiles[i].fltr, gfiles[i].fltr.intocol + ncols);
-    ncols = graph_file_usedcols(&gfiles[i]);
-
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
-  }
+  ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
+                           &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Open path files
@@ -122,9 +113,10 @@ int ctx_breakpoints(CmdArgs *args)
   size_t num_of_threads = args->max_work_threads;
 
   // kmer memory = Edges + paths + 1 bit per colour
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 + ncols;
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 + ncols + 1;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, false, &graph_mem);
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        false, &graph_mem);
 
   // Path memory
   path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
@@ -137,13 +129,14 @@ int ctx_breakpoints(CmdArgs *args)
   // Open output file
   //
   gzFile gzout;
+  const char *output_file = args->output_file_set ? args->output_file : "-";
 
-  if(!args->output_file_set || strcmp("-", args->output_file) == 0)
+  if(strcmp(output_file, "-") == 0)
     gzout = gzdopen(fileno(stdout), "w");
   else
-    gzout = gzopen(args->output_file, "w");
+    gzout = gzopen(output_file, "w");
 
-  if(gzout == NULL) die("Cannot open output file: %s", args->output_file);
+  if(gzout == NULL) die("Cannot open output file: %s", output_file);
 
   //
   // Set up memory
@@ -152,11 +145,12 @@ int ctx_breakpoints(CmdArgs *args)
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, ncols, 1, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(uint8_t));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
   // In colour
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  db_graph.node_in_cols = calloc2(bytes_per_col*ncols, sizeof(uint8_t));
+  db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, 1);
+  db_graph.bktlocks = ctx_calloc(bytes_per_col, 1);
 
   // Paths
   path_store_alloc(&db_graph.pstore, path_mem, false,
@@ -197,11 +191,15 @@ int ctx_breakpoints(CmdArgs *args)
       readbuf_add(&rbuf, r);
       seq_read_alloc(&r);
     }
+    seq_close(seq_files[i]);
   }
+
   seq_read_dealloc(&r);
+  ctx_free(seq_files);
 
   // Call breakpoints
-  breakpoints_call(gzout, &db_graph, rbuf.data, rbuf.len, num_of_threads, args);
+  breakpoints_call(num_of_threads, rbuf.data, rbuf.len,
+                   gzout, output_file, args, &db_graph);
 
   // Finished: do clean up
   gzclose(gzout);
@@ -213,6 +211,7 @@ int ctx_breakpoints(CmdArgs *args)
   readbuf_dealloc(&rbuf);
   ctx_free(db_graph.col_edges);
   ctx_free(db_graph.node_in_cols);
+  ctx_free(db_graph.bktlocks);
 
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);

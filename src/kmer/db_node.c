@@ -190,10 +190,9 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
 void db_nodes_reverse(dBNode *nlist, size_t n)
 {
   size_t i, j;
-  dBNode tmp;
   if(n <= 1) return;
   for(i = 0, j = n-1; i < j; i++, j--) {
-    SWAP(nlist[i], nlist[j], tmp);
+    SWAP(nlist[i], nlist[j]);
   }
 }
 
@@ -227,6 +226,21 @@ void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift)
 //
 // dBNode array printing
 //
+
+// Get bkey:orient string representation e.g. "AGAGTTTTATC:1".
+//   :0 means forward, :1 means reverse
+//   `str` must be at least kmer_size+3 chars long
+// Returns length in bytes. Null terminates `str`.
+size_t db_node_to_str(const dBGraph *db_graph, dBNode node, char *str)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+  binary_kmer_to_str(bkmer, kmer_size, str);
+  str[kmer_size] = ':';
+  str[kmer_size+1] = '0' + node.orient;
+  str[kmer_size+2] = '\0';
+  return kmer_size + 2;
+}
 
 void db_nodes_to_str(const dBNode *nodes, size_t num,
                      const dBGraph *db_graph, char *str)

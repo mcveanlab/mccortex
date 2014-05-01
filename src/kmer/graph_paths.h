@@ -14,7 +14,7 @@ typedef struct {
 } GraphPathPairing;
 
 static inline void gp_alloc(GraphPathPairing *gp, size_t n) {
-  gp->ctxcols = malloc2(2*n*sizeof(*gp->ctxcols));
+  gp->ctxcols = ctx_malloc(2*n*sizeof(*gp->ctxcols));
   gp->ctpcols = gp->ctxcols+n;
   gp->n = n;
 }
@@ -43,24 +43,26 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 PathStore *pstore, PathIndex *newidx);
 
 //
-// Functions on graph+paths
+// Remove all redundant paths
+//
+void graph_paths_remove_redundant(dBGraph *db_graph);
+
+//
+// Integrity checks on graph+paths
 //
 
 // col is graph colour
 // packed is just <PackedBases>
-bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
-                               size_t nbases, const dBGraph *db_graph);
+bool graph_paths_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
+                             size_t nbases, const dBGraph *db_graph);
 
 bool graph_paths_check_all_paths(const GraphPathPairing *gp,
                                     const dBGraph *db_graph);
 
-bool graph_path_check_path(hkey_t node, PathIndex pindex,
+bool graph_paths_check_path(hkey_t node, PathIndex pindex,
                               const GraphPathPairing *gp,
                               const dBGraph *db_graph);
 
-//
-// Check
-//
 // For debugging
 void graph_paths_check_counts(const dBGraph *db_graph);
 

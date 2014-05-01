@@ -62,7 +62,7 @@ static inline void rpt_walker_alloc(RepeatWalker *rpt,
   size_t visited_words = roundup_bits2words64(hash_capacity*2);
   size_t repeat_words = roundup_bits2words64(1UL<<nbits);
   size_t nbytes = (visited_words + repeat_words) * sizeof(uint64_t);
-  uint64_t *mem = calloc2(visited_words+repeat_words, sizeof(uint64_t));
+  uint64_t *mem = ctx_calloc(visited_words+repeat_words, sizeof(uint64_t));
   uint32_t mask = bitmask(nbits,uint32_t);
   RepeatWalker tmp = {.visited = mem, .bloom = mem+visited_words,
                       .bloom_nbits = nbits, .mem_bytes = nbytes, .mask = mask,

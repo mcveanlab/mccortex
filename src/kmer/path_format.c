@@ -7,6 +7,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "sorted_path_set.h"
+#include "graph_paths.h"
 
 // Format:
 // -- Header --
@@ -23,10 +24,10 @@ void paths_header_alloc(PathFileHeader *h, size_t num_of_cols)
   size_t i, old_cap = h->capacity;
 
   if(h->capacity == 0) {
-    h->sample_names = malloc2(num_of_cols * sizeof(StrBuf));
+    h->sample_names = ctx_malloc(num_of_cols * sizeof(StrBuf));
   }
   else if(num_of_cols > h->capacity) {
-    h->sample_names = realloc2(h->sample_names, num_of_cols * sizeof(StrBuf));
+    h->sample_names = ctx_realloc(h->sample_names, num_of_cols * sizeof(StrBuf));
   }
 
   for(i = old_cap; i < num_of_cols; i++) {
@@ -149,7 +150,7 @@ static size_t path_files_tmp_mem_required(const PathFileReader *files,
 
   s0 = files[0].hdr.num_path_bytes;
   s1 = files[1].hdr.num_path_bytes;
-  if(s1 > s0) { SWAP(s0, s1, tmp); }
+  if(s1 > s0) { SWAP(s0, s1); }
 
   for(i = 2; i < num_files; i++) {
     tmp = files[i].hdr.num_path_bytes;
@@ -178,7 +179,7 @@ size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
 
   s0 = files[0].hdr.num_path_bytes;
   s1 = files[1].hdr.num_path_bytes;
-  if(s1 > s0) { SWAP(s0, s1, tmp); }
+  if(s1 > s0) { SWAP(s0, s1); }
 
   for(i = 2; i < num_files; i++) {
     tmp = files[i].hdr.num_path_bytes;
@@ -384,14 +385,25 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   sorted_path_set_alloc(&pset1);
 
   // Load first file into main pstore
-  if(pstore->next == pstore->store && !rmv_redundant)
+  if(pstore->next == pstore->store &&
+     path_store_fltr_compatible(pstore, &files[0].fltr))
   {
     // Currently no paths loaded
-    if(path_store_fltr_compatible(pstore, &files[0].fltr)) {
+    if(!rmv_redundant)
+    {
       paths_format_load(&files[0], db_graph, insert_missing_kmers);
       first_file = 1;
-    } else {
-      first_file = 0;
+    }
+    else if(num_files == 1)
+    {
+      // Load whole file and remove duplicates
+      paths_format_load(&files[0], db_graph, insert_missing_kmers);
+
+      // Slim paths store
+      graph_paths_remove_redundant(db_graph);
+
+      // done
+      first_file = 1;
     }
   }
 
@@ -405,8 +417,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Print some output
     paths_loading_print_status(&files[i]);
 
-    ctx_assert(num_files == 1 || pstore->tmpstore != NULL);
-    ctx_assert(num_files == 1 || hdr->num_path_bytes <= pstore->tmpsize);
+    ctx_assert(pstore->tmpstore != NULL);
+    ctx_assert(hdr->num_path_bytes <= pstore->tmpsize);
 
     safe_fread(fh, pstore->tmpstore, hdr->num_path_bytes, "paths->store", path);
 

@@ -70,26 +70,11 @@ int ctx_subgraph(CmdArgs *args)
   size_t i, j, col, total_cols = 0;
 
   // Open graph files
-  uint64_t max_num_kmers = 0;
   GraphFileReader gfiles[num_gfiles];
+  size_t ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_gfiles; i++)
-  {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], paths[i], true);
-
-    if(gfiles[0].hdr.kmer_size != gfiles[i].hdr.kmer_size) {
-      die("Graph kmer-sizes do not match [%u vs %u; %s; %s]\n",
-          gfiles[0].hdr.kmer_size, gfiles[i].hdr.kmer_size,
-          gfiles[0].fltr.file_path.buff, gfiles[i].fltr.file_path.buff);
-    }
-
-    size_t offset = total_cols;
-    total_cols += graph_file_usedcols(&gfiles[i]);
-    file_filter_update_intocol(&gfiles[i].fltr, gfiles[i].fltr.intocol + offset);
-
-    max_num_kmers = MAX2(gfiles[i].num_of_kmers, max_num_kmers);
-  }
+  graph_files_open(paths, gfiles, num_gfiles,
+                   &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Decide on memory
@@ -100,7 +85,8 @@ int ctx_subgraph(CmdArgs *args)
   char graph_mem_str[100], fringe_mem_str[100], num_fringe_nodes_str[100];
 
   bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_num_kmers,
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
                                         false, NULL);
 
   graph_mem = hash_table_mem(kmers_in_hash,bits_per_kmer,NULL);
@@ -140,11 +126,11 @@ int ctx_subgraph(CmdArgs *args)
   // multiple colours may be useful later in pulling out multiple colours
   dBGraph db_graph;
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Edges));
-  db_graph.col_covgs = calloc2(db_graph.ht.capacity*use_ncols, sizeof(Covg));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Edges));
+  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
   size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *kmer_mask = calloc2(num_words64, sizeof(uint64_t));
+  uint64_t *kmer_mask = ctx_calloc(num_words64, sizeof(uint64_t));
 
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
@@ -203,7 +189,7 @@ int ctx_subgraph(CmdArgs *args)
   if(!colours_loaded)
   {
     // Need to reload graph colours - therefore construct edge intersection set
-    intersect_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+    intersect_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
     for(i = 0; i < db_graph.ht.capacity; i++)
       intersect_edges[i] = db_node_get_edges_union(&db_graph, i);
   }

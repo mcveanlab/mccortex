@@ -100,4 +100,13 @@ size_t calc_N50(const size_t *sorted_arr, size_t n, size_t total);
 // returns number of bytes written
 size_t seconds_to_str(unsigned long seconds, char *str);
 
+//
+// Multi-threading
+//
+
+// Run function with given arguments in `nthreads` threads
+// Blocks until all jobs finished
+void util_run_threads(void *args, size_t nel, size_t elsize,
+                      size_t nthreads, void (*func)(void*));
+
 #endif /* UTIL_H_ */

@@ -24,10 +24,10 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
   }
 
   // all one block: <mem><padding><tmp><padding>
-  uint8_t *block = malloc2(pstore_mem + PSTORE_PADDING);
+  uint8_t *block = ctx_malloc(pstore_mem + PSTORE_PADDING);
 
   // Paths
-  PathIndex *kmer_paths = malloc2(kmers_in_hash * sizeof(PathIndex));
+  PathIndex *kmer_paths = ctx_malloc(kmers_in_hash * sizeof(PathIndex));
   memset(kmer_paths, 0xff, kmers_in_hash * sizeof(PathIndex));
 
   char main_mem_str[100];
@@ -85,13 +85,27 @@ void path_store_release_tmp(PathStore *ps)
 void path_store_dealloc(PathStore *ps)
 {
   if(ps->kmer_locks) ctx_free(ps->kmer_locks);
-  if(ps->kmer_paths_read && ps->kmer_paths_read != ps->kmer_paths_write)
+  if(ps->kmer_paths_read != NULL && ps->kmer_paths_read != ps->kmer_paths_write)
     ctx_free(ps->kmer_paths_read);
-  if(ps->kmer_paths_write) ctx_free(ps->kmer_paths_write);
+  if(ps->kmer_paths_write != NULL) ctx_free(ps->kmer_paths_write);
   ctx_free(ps->store);
   ps->kmer_locks = NULL;
   ps->kmer_paths_read = ps->kmer_paths_write = NULL;
   if(ps->phash.table != NULL) path_hash_dealloc(&ps->phash);
+}
+
+void path_store_reset(PathStore *ps, size_t nkmers_in_hash)
+{
+  if(ps->kmer_paths_read != NULL && ps->kmer_paths_read != ps->kmer_paths_write)
+    memset(ps->kmer_paths_read, 0, nkmers_in_hash * sizeof(PathIndex));
+  if(ps->kmer_paths_write != NULL)
+    memset(ps->kmer_paths_read, 0, nkmers_in_hash * sizeof(PathIndex));
+  ps->num_of_paths = 0;
+  ps->num_kmers_with_paths = 0;
+  ps->num_col_paths = 0;
+  ps->next = ps->store;
+  if(ps->phash.table != NULL) path_hash_reset(&ps->phash);
+  // done do anything to tmpstore, kmer_locks
 }
 
 // Find a path
@@ -182,7 +196,7 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   ps->num_of_paths++;
   ps->num_kmers_with_paths += (last_index == PATH_NULL);
 
-  // Add to PathHash
+  // Add to PathHash (does nothing if there is no PathHash in use)
   const uint8_t *len_seq = ptr - pbytes - sizeof(PathLen);
   _path_store_add_to_hash(ps, hkey, pindex, len_seq);
 

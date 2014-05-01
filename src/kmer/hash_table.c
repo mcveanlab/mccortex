@@ -3,7 +3,7 @@
 #include "util.h"
 
 // bit macros from BitArray library used for spinlocking
-#include "bit_macros.h"
+#include "bit_array/bit_macros.h"
 
 // Hash table prefetching doesn't appear to be faster
 #define HASH_PREFETCH 1
@@ -82,8 +82,8 @@ void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
 
   // calloc is required for bucket_data to set the first element of each bucket
   // to the 0th pos
-  BinaryKmer *table = malloc2(capacity * sizeof(BinaryKmer));
-  uint8_t (*const buckets)[2] = calloc2(num_of_buckets, sizeof(uint8_t[2]));
+  BinaryKmer *table = ctx_malloc(capacity * sizeof(BinaryKmer));
+  uint8_t (*const buckets)[2] = ctx_calloc(num_of_buckets, sizeof(uint8_t[2]));
 
   size_t i;
   for(i = 0; i < capacity; i++) table[i] = unset_bkmer;

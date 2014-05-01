@@ -237,7 +237,7 @@ void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
     qoffset = (uint8_t)FASTQ_OFFSET[format];
   }
 
-  read_t *r[2] = {r1,r2}, *tmpr;
+  read_t *r[2] = {r1,r2};
   int ridx = 0, s;
   uint8_t warn_flags = 0;
   size_t num_se_reads = 0, num_pe_pairs = 0;
@@ -256,7 +256,7 @@ void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
       } else {
         read_func(r[0], NULL, qoffset, 0, reader_ptr);
         num_se_reads++;
-        SWAP(r[0], r[1], tmpr);
+        SWAP(r[0], r[1]);
         ridx = 1;
       }
     }

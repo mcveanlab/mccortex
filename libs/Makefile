@@ -3,12 +3,12 @@
 # make clean    <- clean all libraries
 
 UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align \
-       readsim msg-pool misc bioinf-perl
+       readsim msg-pool sort_r misc bioinf-perl
 
 ALLTGTS=$(UPDATE) gsl
 
 # Only compile dependencies for compiling ninja-cortex itself
-core: htslib string_buffer bit_array seq_file seq-align msg-pool misc
+core: htslib string_buffer bit_array seq_file seq-align msg-pool sort_r misc
 
 update: $(UPDATE)
 all: $(ALLTGTS)
@@ -51,6 +51,9 @@ msg-pool/Makefile:
 bioinf-perl/README:
 	git clone https://github.com/noporpoise/bioinf-perl.git
 
+sort_r/Makefile:
+	git clone https://github.com/noporpoise/sort_r.git
+
 #
 # Build
 #
@@ -87,6 +90,9 @@ msg-pool: msg-pool/Makefile
 bioinf-perl: bioinf-perl/README
 	cd bioinf-perl && git pull
 
+sort_r: sort_r/Makefile
+	cd sort_r && git pull && make
+
 misc: misc/Makefile
 	cd misc && make
 
@@ -104,6 +110,7 @@ clean:
 	cd seq-align && make clean
 	cd readsim && make clean
 	cd msg-pool && make clean
+	cd sort_r && make clean
 	cd misc && make clean
 
 .PHONY: all clean update core

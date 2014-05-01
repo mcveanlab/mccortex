@@ -5,14 +5,14 @@
 #include <pthread.h>
 
 #include "util.h"
-#include "jenkins.h" // hash functions
+#include "misc/jenkins.h" // hash functions
 
 FILE *ctx_msg_out = NULL;
 pthread_mutex_t biglock;
-char cmdcode[4];
+char cmdcode[4] = "000";
 volatile size_t ctx_num_allocs = 0, ctx_num_frees = 0;
 
-void* ctx_malloc(size_t mem, const char *file, const char *func, int line)
+void* call_malloc(size_t mem, const char *file, const char *func, int line)
 {
   void *ptr = malloc(mem);
   if(ptr == NULL) {
@@ -24,7 +24,7 @@ void* ctx_malloc(size_t mem, const char *file, const char *func, int line)
   return ptr;
 }
 
-void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line)
+void* call_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line)
 {
   void *ptr = calloc(nel, elsize);
   if(ptr == NULL) {
@@ -39,7 +39,7 @@ void* ctx_calloc(size_t nel, size_t elsize, const char *file, const char *func, 
   return ptr;
 }
 
-void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int line)
+void* call_realloc(void *ptr, size_t mem, const char *file, const char *func, int line)
 {
   void *ptr2 = realloc(ptr, mem);
   if(ptr2 == NULL) {
@@ -51,15 +51,15 @@ void* ctx_realloc(void *ptr, size_t mem, const char *file, const char *func, int
 }
 
 // Resize memory, zero new memory
-void* ctx_recalloc(void *ptr, size_t oldsize, size_t newsize,
+void* call_recalloc(void *ptr, size_t oldsize, size_t newsize,
                    const char *file, const char *func, int line)
 {
-  ptr = ctx_realloc(ptr, newsize, file, func, line);
+  ptr = call_realloc(ptr, newsize, file, func, line);
   memset((char*)ptr+oldsize, 0, newsize-oldsize);
   return ptr;
 }
 
-void ctx_free(void *ptr)
+void call_free(void *ptr)
 {
   ctx_assert(ptr != NULL);
   free(ptr);
@@ -221,7 +221,10 @@ void cortex_init()
     = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ";
   static const char vowels[] = "aeiouAEIOU";
 
+  // Cannot use die/warn/message/timestamp until we have completed setup
+
   seed_random();
+
   if(pthread_mutex_init(&biglock, NULL) != 0) {
     printf("%s:%i: mutex init failed\n", __FILE__, __LINE__);
     exit(EXIT_FAILURE);
@@ -232,6 +235,9 @@ void cortex_init()
   cmdcode[1] = vowels[rand() % strlen(vowels)];
   cmdcode[2] = consonants[rand() % strlen(consonants)];
   cmdcode[3] = '\0';
+
+  // Now safe to use die/warn/message/timestamp methods
+  // since mutex and cmdcode have been set
 
   #undef ALPHALEN
 }

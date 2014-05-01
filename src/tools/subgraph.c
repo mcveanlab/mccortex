@@ -101,7 +101,7 @@ static void extend(EdgeNodes *enodes, size_t dist)
 {
   const dBGraph *db_graph = enodes->db_graph;
   uint64_t *kmer_mask = enodes->kmer_mask;
-  dBNodeBuffer *nbuf0 = &enodes->nbufs[0], *nbuf1 = &enodes->nbufs[1], *tmplist;
+  dBNodeBuffer *nbuf0 = &enodes->nbufs[0], *nbuf1 = &enodes->nbufs[1];
   size_t d, i;
 
   if(dist > 0)
@@ -115,7 +115,7 @@ static void extend(EdgeNodes *enodes, size_t dist)
         store_node_neighbours(nbuf0->data[i].key, nbuf1, kmer_mask, db_graph);
       }
       nbuf0->len = 0;
-      SWAP(nbuf0, nbuf1, tmplist);
+      SWAP(nbuf0, nbuf1);
     }
   }
 }

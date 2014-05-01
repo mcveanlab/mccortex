@@ -3,10 +3,11 @@
 #include "db_node.h"
 #include "graph_paths.h"
 #include "packed_path.h"
-#include "bit_macros.h"
 #include "binary_seq.h"
 #include "path_format.h"
+#include "sorted_path_set.h"
 
+#include "bit_array/bit_macros.h"
 
 // Similar to path_file_filter.c:path_file_load_check()
 // Check kmer size matches and sample names match
@@ -190,14 +191,52 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 }
 
 //
-// Integrity Checks
+// Remove all redundant paths
+//
+static void graph_paths_remove_redundant_node(hkey_t hkey, SortedPathSet *set,
+                                              dBGraph *db_graph)
+{
+  // Construct SortedPathSet
+  PathStore *pstore = &db_graph->pstore;
+  sorted_path_set_init(set, pstore, hkey);
+  size_t num_orig_entries = set->members.len;
+  sorted_path_set_slim(set);
+
+  size_t i;
+  PathIndex pindex0, pindex1;
+
+  // Update PathStore if set has changed
+  if(num_orig_entries != set->members.len)
+  {
+    ctx_assert(set->members.len > 0 && num_orig_entries > 0);
+
+    pindex0 = pindex1 = set->members.data[0].pindex;
+    pstore_set_pindex(pstore, hkey, pindex0);
+
+    for(i = 0; i+1 < set->members.len; i++, pindex0 = pindex1) {
+      pindex1 = set->members.data[i+1].pindex;
+      packedpath_set_prev(pstore->store + pindex0, pindex1);
+    }
+  }
+}
+
+void graph_paths_remove_redundant(dBGraph *db_graph)
+{
+  SortedPathSet set;
+  sorted_path_set_alloc(&set);
+  HASH_ITERATE(&db_graph->ht, graph_paths_remove_redundant_node, &set, db_graph);
+  sorted_path_set_dealloc(&set);
+}
+
+//
+// Integrity checks on graph+paths
 //
 
 // 1) check node after node has indegree >1 in sample ctxcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
 // packed is just <PackedBases>
-bool graph_path_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
+bool graph_paths_check_valid(dBNode node, size_t ctxcol, const uint8_t *packed,
                             size_t nbases, const dBGraph *db_graph)
 {
   check_ret(db_graph->num_edge_cols == db_graph->num_of_cols ||
@@ -315,8 +354,8 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
   // Check for each colour the path has
   for(i = 0; i < gp->n; i++) {
     if(bitset_get(colset, gp->ctpcols[i])) {
-      check_ret(graph_path_check_valid(node, gp->ctxcols[i], seq, len_bases,
-                                       db_graph));
+      check_ret(graph_paths_check_valid(node, gp->ctxcols[i], seq, len_bases,
+                                        db_graph));
     }
   }
 
@@ -362,7 +401,7 @@ bool graph_paths_check_all_paths(const GraphPathPairing *gp,
   return true;
 }
 
-bool graph_path_check_path(hkey_t node, PathIndex pindex,
+bool graph_paths_check_path(hkey_t node, PathIndex pindex,
                               const GraphPathPairing *gp,
                               const dBGraph *db_graph)
 {

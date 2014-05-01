@@ -4,7 +4,7 @@
 // needed for mode_t used by futil_mkpath(const char *path, mode_t mode)
 // and futil_get_file_size(const char* path)
 #include <sys/stat.h>
-#include "string_buffer.h"
+#include "string_buffer/string_buffer.h"
 
 // futil_mkpath - ensure all directories in path exist
 // Returns 1 on success, 0 on failure
@@ -24,14 +24,14 @@ void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
 char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 
 // Usage:
-//     gzFile *tmp_files = futil_create_tmp_gzfiles(num_tmp);
+//     FILE **tmp_files = futil_create_tmp_files(num_tmp);
 // to clear up:
-//     for(i = 0; i < num_tmp; i++) gzclose(tmp_files[i]);
+//     for(i = 0; i < num_tmp; i++) fclose(tmp_files[i]);
 //     ctx_free(tmp_files);
-gzFile* futil_create_tmp_gzfiles(size_t num_tmp_files);
+FILE** futil_create_tmp_files(size_t num_tmp_files);
 
-// Merge and close temporary files
-void futil_merge_tmp_gzfiles(gzFile *tmp_files, size_t num_files, gzFile gzout);
+// Merge temporary files, closes tmp files
+void futil_merge_tmp_files(FILE **tmp_files, size_t num_files, FILE *fout);
 
 // This is the same as futil_safe_fread
 #define SAFE_READ(fh,ptr,size,field,path,fatal) {                              \

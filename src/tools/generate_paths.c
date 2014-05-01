@@ -1,7 +1,7 @@
 #include "global.h"
 
 #include <pthread.h>
-#include "msgpool.h" // pool for getting jobs
+#include "msg-pool/msgpool.h" // pool for getting jobs
 
 #include "generate_paths.h"
 #include "util.h"
@@ -16,7 +16,6 @@
 #include "async_read_io.h"
 #include "seq_reader.h"
 #include "binary_seq.h"
-#include "thread_pause.h"
 
 //
 // Multithreaded code to add paths to the graph from sequence data
@@ -48,8 +47,6 @@ struct GenPathWorker
   size_t *pos_fw, *pos_rv;
   size_t num_fw, num_rv, junc_arrsize;
 
-  // Thread control
-  ThreadPause *thread_pause;
   FILE *tmp_fh;
 };
 
@@ -74,10 +71,10 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 #define binary_seq_mem(n) ((((n)+3)/4 + sizeof(PathLen))*4)
 
 static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph,
-                                    ThreadPause *thp, FILE *tmp_fh)
+                                    FILE *tmp_fh)
 {
   GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL,
-                       .thread_pause = thp, .tmp_fh = tmp_fh};
+                       .tmp_fh = tmp_fh};
 
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
@@ -86,10 +83,10 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph,
   // Junction data
   // only fw arrays are malloc'd, rv point to fw
   tmp.junc_arrsize = INIT_BUFLEN;
-  tmp.pck_fw = calloc2(2, binary_seq_mem(tmp.junc_arrsize));
+  tmp.pck_fw = ctx_calloc(2, binary_seq_mem(tmp.junc_arrsize));
   tmp.pck_rv = tmp.pck_fw + binary_seq_mem(tmp.junc_arrsize);
 
-  tmp.pos_fw = malloc2(tmp.junc_arrsize * sizeof(*tmp.pos_fw) * 2);
+  tmp.pos_fw = ctx_malloc(tmp.junc_arrsize * sizeof(*tmp.pos_fw) * 2);
   tmp.pos_rv = tmp.pos_fw + tmp.junc_arrsize;
   tmp.num_fw = tmp.num_rv = 0;
 
@@ -108,18 +105,13 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph, FILE *fout)
 {
   size_t i;
-  ThreadPause *thp = malloc2(sizeof(ThreadPause));
-  thread_pause_alloc(thp);
-  GenPathWorker *workers = malloc2(n * sizeof(GenPathWorker));
-  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph, thp, fout);
+  GenPathWorker *workers = ctx_malloc(n * sizeof(GenPathWorker));
+  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph, fout);
   return workers;
 }
 
 void gen_paths_workers_dealloc(GenPathWorker *workers, size_t n)
 {
-  thread_pause_dealloc(workers[0].thread_pause);
-  ctx_free(workers[0].thread_pause);
-
   size_t i;
   for(i = 0; i < n; i++) _gen_paths_worker_dealloc(&workers[i]);
   ctx_free(workers);
@@ -137,10 +129,10 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
     // Zero new memory to keep valgrind happy :(
     old_pck_mem = binary_seq_mem(old_cap);
     new_pck_mem = binary_seq_mem(wrkr->junc_arrsize);
-    wrkr->pck_fw = recalloc2(wrkr->pck_fw, old_pck_mem*2, new_pck_mem*2);
+    wrkr->pck_fw = ctx_recalloc(wrkr->pck_fw, old_pck_mem*2, new_pck_mem*2);
     wrkr->pck_rv = wrkr->pck_fw + new_pck_mem;
 
-    wrkr->pos_fw = realloc2(wrkr->pos_fw, 2 * wrkr->junc_arrsize * sizeof(size_t));
+    wrkr->pos_fw = ctx_realloc(wrkr->pos_fw, 2 * wrkr->junc_arrsize * sizeof(size_t));
     wrkr->pos_rv = wrkr->pos_fw + wrkr->junc_arrsize;
   }
 }
@@ -313,12 +305,12 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
 
       // Check path before we wrote it
-      ctx_check2(graph_path_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen),
-                                       plen, db_graph),
+      ctx_check2(graph_paths_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen),
+                                         plen, db_graph),
                  "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
 
       // Check path after we wrote it
-      ctx_check2(graph_path_check_path(node.key, pindex, &gp, db_graph),
+      ctx_check2(graph_paths_check_path(node.key, pindex, &gp, db_graph),
                  "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
     #endif
 
@@ -343,9 +335,9 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr,
   #endif
 
   // Reverse pos_rv array; reverse nucleotides if needed later
-  size_t i, j, tmp_pos;
+  size_t i, j;
   for(i = 0, j = num_rv-1; i < j; i++, j--) {
-    SWAP(pos_rv[i], pos_rv[j], tmp_pos);
+    SWAP(pos_rv[i], pos_rv[j]);
   }
 
   // _juncs_to_paths returns the number of paths added
@@ -486,32 +478,13 @@ static void gen_paths_print_progress(size_t n)
   }
 }
 
-/*
-static void gen_paths_sync(GenPathWorker *wrkr, size_t n)
-{
-  ThreadPause *thp = wrkr->thread_pause;
-
-  if(n % DEFRAG_RATE == 0 && thread_pause_take_control(thp))
-  {
-    // Save
-    graph_paths_defragment(wrkr->db_graph, wrkr->tmp_fh);
-
-    // Restore threads
-    thread_pause_release_control(thp);
-  }
-  else thread_pause_trywait(thp);
-}
-*/
-
 // pthread method, loop: grabs job, does processing
-static void* generate_paths_worker(void *ptr)
+static void generate_paths_worker(void *ptr)
 {
   GenPathWorker *wrkr = (GenPathWorker*)ptr;
   MsgPool *pool = wrkr->pool;
   AsyncIOData *data;
   int pos;
-
-  thread_pause_started(wrkr->thread_pause);
 
   while((pos = msgpool_claim_read(pool)) != -1)
   {
@@ -524,12 +497,7 @@ static void* generate_paths_worker(void *ptr)
     // Print progress
     size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
     gen_paths_print_progress(n);
-    // gen_paths_sync(wrkr, n);
   }
-
-  thread_pause_finished(wrkr->thread_pause);
-
-  pthread_exit(NULL);
 }
 
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
@@ -575,7 +543,7 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
 {
   size_t i;
 
-  AsyncIOData *data = malloc2(MSGPOOLSIZE * sizeof(AsyncIOData));
+  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
 
   size_t read_counter = 0;
@@ -588,7 +556,7 @@ void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
     workers[i].rcounter = &read_counter;
   }
 
-  AsyncIOReadTask *asyncio_tasks = malloc2(num_inputs * sizeof(AsyncIOReadTask));
+  AsyncIOReadTask *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOReadTask));
   correct_reads_input_to_asycio(asyncio_tasks, tasks, num_inputs);
 
   asyncio_run_threads(&pool, asyncio_tasks, num_inputs, generate_paths_worker,

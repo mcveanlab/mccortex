@@ -7,9 +7,9 @@
 #include "binary_seq.h"
 
 // hash functions
-#include "jenkins.h"
-#include "twang.h"
-#include "city.h"
+#include "misc/jenkins.h"
+#include "misc/twang.h"
+#include "misc/city.h"
 
 #ifdef CTXVERBOSE
 #define DEBUG_WALKER 1
@@ -682,7 +682,7 @@ static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
   Nucleotide nuc;
 
   // Only one path between two nodes
-  if(db_nodes_match(wlk->node, prev_node)) {
+  if(db_nodes_are_equal(wlk->node, prev_node)) {
     nuc = db_node_get_last_nuc(next_node, wlk->db_graph);
     graph_traverse_force(wlk, next_node.key, nuc, is_fork);
   }
@@ -856,7 +856,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
     // If we can't progress -> success
     // if we can and it doesn't match what we expected -> disagrees
     if(!graph_traverse_nodes(wlk, n, nodes, nucs)) return true;
-    if(!db_nodes_match(wlk->node, expnode)) return false;
+    if(!db_nodes_are_equal(wlk->node, expnode)) return false;
   }
 
   return true;

@@ -27,6 +27,8 @@ int main()
   test_corrected_aln();
   test_repeat_walker();
   test_sorted_paths();
+  test_bubble_caller();
+  test_breakpoint_caller();
 
   // Check we free'd all our memory
   size_t still_alloced = ctx_num_allocs - ctx_num_frees;

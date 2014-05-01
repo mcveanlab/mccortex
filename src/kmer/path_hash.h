@@ -17,14 +17,14 @@ struct PathHashStruct
   const uint8_t bucket_size; // max value 255
   const uint64_t capacity, mask; // num_of_buckets * bucket_size
   size_t num_entries;
-  volatile uint8_t *const bktlocks;
+  uint8_t *const bktlocks; // always cast to volatile
 };
 
 typedef struct PathHashStruct PathHash;
 
 void path_hash_alloc(PathHash *phash, size_t mem_in_bytes);
-
 void path_hash_dealloc(PathHash *phash);
+void path_hash_reset(PathHash *phash);
 
 // You must acquire the lock on the kmer before adding
 // packed points to <PathLen><PackedSeq>

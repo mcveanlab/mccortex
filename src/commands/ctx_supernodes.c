@@ -159,7 +159,7 @@ static void dump_dot_syntax(FILE *fout, int print_syntax, bool dot_use_points,
   fprintf(fout, "  node [%s, fontname=courier, fontsize=9]\n",
           dot_use_points ? "shape=point, label=none" : "shape=none");
 
-  sndata_t *supernodes = calloc2(db_graph->ht.capacity, sizeof(sndata_t));
+  sndata_t *supernodes = ctx_calloc(db_graph->ht.capacity, sizeof(sndata_t));
 
   HASH_ITERATE(&db_graph->ht, dump_supernodes,
                fout, print_syntax, nbuf, supernodes, visited, db_graph);
@@ -180,7 +180,6 @@ int ctx_supernodes(CmdArgs *args)
 
   size_t i;
   char **paths;
-  uint64_t max_ctx_kmers = 0;
   bool dot_use_points = false;
   int print_syntax = PRINT_FASTA;
 
@@ -205,26 +204,18 @@ int ctx_supernodes(CmdArgs *args)
   ctx_assert(num_files > 0);
 
   GraphFileReader files[num_files];
+  size_t ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  for(i = 0; i < num_files; i++)
-  {
-    files[i] = INIT_GRAPH_READER;
-    graph_file_open(&files[i], paths[i], true);
-
-    if(files[0].hdr.kmer_size != files[i].hdr.kmer_size) {
-      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
-                  files[0].hdr.kmer_size, files[i].hdr.kmer_size);
-    }
-
-    max_ctx_kmers = MAX2(max_ctx_kmers, files[i].num_of_kmers);
-  }
+  graph_files_open(paths, files, num_files,
+                   &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
 
   //
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
   bits_per_kmer = (sizeof(Edges) + sizeof(sndata_t)*(print_syntax==PRINT_DOT))*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, max_ctx_kmers,
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
 
   cmd_check_mem_limit(args, graph_mem);
@@ -255,11 +246,11 @@ int ctx_supernodes(CmdArgs *args)
   //
   dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
-  db_graph.col_edges = calloc2(db_graph.ht.capacity, sizeof(Edges));
+  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
   // Visited
   size_t numwords64 = roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *visited = calloc2(numwords64, sizeof(uint64_t));
+  uint64_t *visited = ctx_calloc(numwords64, sizeof(uint64_t));
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = true,

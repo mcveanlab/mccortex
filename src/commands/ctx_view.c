@@ -1,5 +1,4 @@
 #include "global.h"
-#include <errno.h>
 
 #include "commands.h"
 #include "util.h"

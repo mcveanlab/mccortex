@@ -70,18 +70,14 @@ LIB_STRS=libs/string_buffer/string_buffer.o
 MISC_SRCS=$(wildcard libs/misc/*.c)
 MISC_OBJS=$(MISC_SRCS:.c=.o)
 
-ifdef RELEASE
-	LIB_MISC=$(MISC_SRCS)
-else
-	LIB_MISC=$(MISC_OBJS)
-endif
+LIB_MISC=$(MISC_SRCS)
+# LIB_MISC=$(MISC_OBJS)
 
 ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-INCS=-I $(IDIR_MISC) -I $(IDIR_BITARR) -I $(IDIR_STRS) -I $(IDIR_HTS) \
-     -I $(IDIR_SEQ) -I $(IDIR_ALIGN) -I $(IDIR_MSGPOOL) $(EXTRA_INCS)
+INCS=-I libs -I $(IDIR_HTS) -I $(IDIR_SEQ) $(EXTRA_INCS)
 
 # Library linking
 LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN)
@@ -94,13 +90,14 @@ KMERARGS=-DMIN_KMER_SIZE=$(MIN_KMER_SIZE) -DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
 # -fno-strict-aliasing
 USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 
-# IGNORE_CFLAGS=-Wno-cast-align -Wno-aggregate-return -Wno-conversion
+# -Wcast-align catches htslib doing (uint32_t*)(x) where x is (uint8_t*)
+# IGNORE_CFLAGS=-Wno-aggregate-return -Wno-conversion -Wno-cast-align
 
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                   -Wstrict-aliasing -Wdiv-by-zero -Wsign-compare \
                   -Wcast-qual -Wmissing-noreturn -Wreturn-type \
                   -Wwrite-strings -Wundef -Wpointer-arith \
-                  -Wshadow -Wfloat-equal -Wbad-function-cast \
+                  -Wfloat-equal -Wbad-function-cast \
                   -fstack-protector-all -D_FORTIFY_SOURCE=2
 
 CLANG_CFLAGS=-fsanitize-undefined-trap-on-error
@@ -211,7 +208,7 @@ endif
 endif
 
 src/basic/version.h:
-	echo '#define CTXVERSIONSTR "$(CTX_VERSION)"' > $@
+	echo '#define CTX_VERSION "$(CTX_VERSION)"' > $@
 
 $(BASIC_OBJDIR)/%.o: src/basic/%.c $(BASIC_HDRS) | $(DEPS)
 	$(CC) -o $@ $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -I src/basic/ $(INCS) -c $<
@@ -259,7 +256,7 @@ libs/string_buffer/string_buffer.h:
 	cd libs; make
 
 clean:
-	rm -rf bin build lib/misc/*.o
+	rm -rf bin build libs/misc/*.o
 
 force:
 

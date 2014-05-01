@@ -9,7 +9,7 @@
 #include "sam.h"
 #include "khash.h"
 #include "seq_file.h"
-#include "needleman_wunsch.h"
+#include "seq-align/src/needleman_wunsch.h"
 
 #include "commands.h"
 #include "util.h"
@@ -132,12 +132,11 @@ static bool is_allele_duplicate(const vcf_entry_t *vcf, const StrBuf *allele)
 static void remove_duplicate_alleles(vcf_entry_t *vcf)
 {
   size_t i = 0, num_alt_alleles = vcf->num_alts;
-  StrBuf tmpbuf;
   vcf->num_alts = 0;
 
   while(i < num_alt_alleles) {
     if(is_allele_duplicate(vcf, &vcf->alts[i])) {
-      SWAP(vcf->alts[i], vcf->alts[num_alt_alleles-1], tmpbuf);
+      SWAP(vcf->alts[i], vcf->alts[num_alt_alleles-1]);
       num_alt_alleles--;
     }
     else i++;
@@ -436,7 +435,7 @@ static chrom_t* chrom_new()
 {
   if(num_chroms == chrom_capacity) {
     chrom_capacity *= 2;
-    chroms = realloc2(chroms, chrom_capacity * sizeof(chrom_t*));
+    chroms = ctx_realloc(chroms, chrom_capacity * sizeof(chrom_t*));
   }
   if(seq_read_alloc(&chroms[num_chroms].r) == NULL) die("Out of memory");
   return &chroms[num_chroms++];
@@ -458,7 +457,7 @@ static void load_ref_genome(char **paths, size_t num_files)
   genome = kh_init(ghash);
   num_chroms = 0;
   chrom_capacity = 1024;
-  chroms = malloc2(chrom_capacity * sizeof(chrom_t*));
+  chroms = ctx_malloc(chrom_capacity * sizeof(chrom_t*));
 
   for(i = 0; i < num_files; i++)
   {
@@ -507,8 +506,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
   char cwd[PATH_MAX + 1];
 
   samples_capacity = 16;
-  sample_names = malloc2(samples_capacity * sizeof(char*));
-  sample_total_seq = malloc2(samples_capacity * sizeof(uint64_t));
+  sample_names = ctx_malloc(samples_capacity * sizeof(char*));
+  sample_total_seq = ctx_malloc(samples_capacity * sizeof(uint64_t));
 
   while(strbuf_gzreadline_nonempty(line, gzvcf) > 0 && line->buff[0] == '#')
   {
@@ -539,8 +538,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
       if(num_samples == samples_capacity)
       {
         samples_capacity *= 2;
-        sample_names = realloc2(sample_names, samples_capacity * sizeof(char*));
-        sample_total_seq = realloc2(sample_total_seq, samples_capacity * sizeof(uint64_t));
+        sample_names = ctx_realloc(sample_names, samples_capacity * sizeof(char*));
+        sample_total_seq = ctx_realloc(sample_total_seq, samples_capacity * sizeof(uint64_t));
       }
 
       // strlen("##colour=<ID=") = 13
@@ -721,8 +720,8 @@ int ctx_place(CmdArgs *args)
   // Setup pairwise aligner
   nw_aligner = needleman_wunsch_new();
   alignment = alignment_create(1024);
-  nw_scoring_flank = malloc2(sizeof(scoring_t));
-  nw_scoring_allele = malloc2(sizeof(scoring_t));
+  nw_scoring_flank = ctx_malloc(sizeof(scoring_t));
+  nw_scoring_allele = ctx_malloc(sizeof(scoring_t));
   scoring_init(nw_scoring_flank, nwmatch, nwmismatch, nwgapopen, nwgapextend,
                true, true, 0, 0, 0, 0);
   scoring_init(nw_scoring_allele, nwmatch, nwmismatch, nwgapopen, nwgapextend,

@@ -30,7 +30,7 @@ cmpfunc(cmp_ptr, void *const);
 
 int cmp_charptr(const void *aa, const void *bb)
 {
-  const char *a = *(const char **)aa, *b = *(const char **)bb;
+  const char *a = *((const char *const*)aa), *b = *((const char *const*)bb);
   return strcmp(a, b);
 }
 
@@ -253,7 +253,7 @@ char* num_to_str(double num, int decimals, char* str)
 char* strdup(const char *str)
 {
   size_t n = strlen(str);
-  char *dup = malloc2(n+1);
+  char *dup = ctx_malloc(n+1);
   if(dup) memcpy(dup, str, (n+1)*sizeof(char));
   return dup;
 }
@@ -321,7 +321,7 @@ float find_hist_median(const uint64_t *arr, size_t arrlen, size_t sum)
 // http://en.wikipedia.org/wiki/Binary_GCD_algorithm
 uint32_t calc_GCD(uint32_t a, uint32_t b)
 {
-  uint32_t shift, tmp;
+  uint32_t shift;
 
   if(a == 0) return b;
   if(b == 0) return a;
@@ -337,7 +337,7 @@ uint32_t calc_GCD(uint32_t a, uint32_t b)
     // Remove remaining factors of two from b - they are not common
     while((b & 1) == 0) b >>= 1;
 
-    if(a > b) { SWAP(a, b, tmp); }
+    if(a > b) { SWAP(a, b); }
     b = b - a;
   }
   while(b != 0);
@@ -386,4 +386,85 @@ size_t seconds_to_str(unsigned long seconds, char *str)
     ptr += sprintf(ptr, "%lu min%s ", mins, mins == 1 ? "" : "s");
   ptr += sprintf(ptr, "%lu sec%s", seconds, seconds == 1 ? "" : "s");
   return (size_t)(ptr - str);
+}
+
+//
+// Multi-threading
+//
+
+typedef struct {
+  void (*const func)(void*);
+  void *const args;
+  const size_t nel, elsize;
+  volatile size_t next_job;
+} ThreadedJobs;
+
+typedef struct {
+  pthread_t thread;
+  ThreadedJobs *jobs;
+  size_t curr_job;
+} ThreadedWorker;
+
+void *threaded_worker(void *arg) __attribute__((noreturn));
+
+void *threaded_worker(void *arg)
+{
+  ThreadedWorker *worker = (ThreadedWorker*)arg;
+  ThreadedJobs *jobs = worker->jobs;
+  jobs->func((void*)((char*)jobs->args + worker->curr_job*jobs->elsize));
+
+  // try to get more work
+  while(jobs->next_job < jobs->nel)
+  {
+    worker->curr_job = __sync_fetch_and_add(&jobs->next_job, 1);
+    if(worker->curr_job >= jobs->nel) break;
+    jobs->func((void*)((char*)jobs->args + worker->curr_job*jobs->elsize));
+  }
+
+  pthread_exit(NULL);
+}
+
+// Blocks until all jobs finished
+void util_run_threads(void *args, size_t nel, size_t elsize,
+                      size_t nthreads, void (*func)(void*))
+{
+  int rc;
+  size_t i;
+  ctx_assert(nthreads > 0);
+
+  // Don't use more threads than elements
+  nthreads = MIN2(nel, nthreads);
+
+  if(nthreads == 1) {
+    for(i = 0; i < nel; i++) func((void*)((char*)args + i*elsize));
+  }
+  else
+  {
+    /* Initialize and set thread detached attribute */
+    pthread_attr_t thread_attr;
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
+
+    ThreadedJobs jobs = {.func = func, .args = args,
+                         .nel = nel, .elsize = elsize,
+                         .next_job = nthreads};
+
+    ThreadedWorker *workers = ctx_malloc(sizeof(ThreadedWorker) * nthreads);
+
+    for(i = 0; i < nthreads; i++) {
+      workers[i] = (ThreadedWorker){.jobs = &jobs, .curr_job = i};
+      rc = pthread_create(&workers[i].thread, &thread_attr,
+                          threaded_worker, (void*)&workers[i]);
+      if(rc != 0) die("Creating thread failed");
+    }
+
+    /* wait for all threads to complete */
+    for(i = 0; i < nthreads; i++) {
+      rc = pthread_join(workers[i].thread, NULL);
+      if(rc != 0) die("Joining thread failed");
+    }
+
+    pthread_attr_destroy(&thread_attr);
+    ctx_free(workers);
+  }
 }

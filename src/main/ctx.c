@@ -130,7 +130,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "breakpoints", .func = ctx_breakpoints, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "opmn", .reqargs = "o",
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "opmnt", .reqargs = "o",
   .blurb = "Use trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },

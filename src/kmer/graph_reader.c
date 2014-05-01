@@ -13,9 +13,9 @@ void graph_header_alloc(GraphFileHeader *h, size_t num_of_cols)
   size_t i, old_cap = h->capacity;
 
   if(h->capacity == 0)
-    h->ginfo = calloc2(num_of_cols, sizeof(GraphInfo));
+    h->ginfo = ctx_calloc(num_of_cols, sizeof(GraphInfo));
   else if(num_of_cols > h->capacity)
-    h->ginfo = realloc2(h->ginfo, num_of_cols * sizeof(GraphInfo));
+    h->ginfo = ctx_realloc(h->ginfo, num_of_cols * sizeof(GraphInfo));
 
   for(i = old_cap; i < num_of_cols; i++)
     graph_info_alloc(h->ginfo + i);
@@ -376,7 +376,8 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   // Print status
   graph_loading_print_status(file);
 
-  fseek(fltr->fh, file->hdr_size, SEEK_SET);
+  if(!file_filter_isstdin(fltr) && fseek(fltr->fh, file->hdr_size, SEEK_SET) != 0)
+    die("fseek failed: %s", strerror(errno));
 
   // Check we can load this graph file into db_graph (kmer size + num colours)
   if(hdr->kmer_size != graph->kmer_size)
@@ -411,8 +412,10 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.num_kmers;
 
-  status("[CtxLoad] Reading into %zu colour%s from file with %u...",
-         load_ncols, load_ncols != 1 ? "s" : "", hdr->num_of_cols);
+  status("[CtxLoad] First col %zu, into cols %zu..%zu, file has %zu cols: %s",
+         graph_file_fromcol(file, 0), graph_file_intocol(file, 0),
+         graph_file_usedcols(file)-1,
+         (size_t)hdr->num_of_cols, fltr->file_path.buff);
 
   for(nkmers_parsed = 0; graph_file_read(file, &bkmer, covgs, edges); nkmers_parsed++)
   {
@@ -714,13 +717,19 @@ size_t graph_files_merge(const char *out_ctx_path,
   }
   else
   {
+    ctx_assert2(strcmp(out_ctx_path,"-") != 0,
+                "Cannot use STDOUT for output if not enough colours to load");
+
     // Have to load a few colours at a time then dump, rinse and repeat
     status("Saving %zu colours, %zu colours at a time",
            output_colours, db_graph->num_of_cols);
 
     // Open file, write header
-    FILE *fout = fopen(out_ctx_path, "w");
-    if(fout == NULL) die("Cannot open output ctx file: %s", out_ctx_path);
+    FILE *fout = stdout;
+
+    if(strcmp(out_ctx_path,"-") != 0 && (fout = fopen(out_ctx_path, "w")) == NULL)
+      die("Cannot open output ctx file: %s", out_ctx_path);
+
     setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
     size_t header_size = graph_write_header(fout, hdr);
 
@@ -800,7 +809,9 @@ size_t graph_files_merge(const char *out_ctx_path,
                                   files[i].fltr.ncols);
           }
 
-          fseek(files[i].fltr.fh, files[i].hdr_size, SEEK_SET);
+          if(fseek(files[i].fltr.fh, files[i].hdr_size, SEEK_SET) != 0)
+            die("fseek failed: %s", strerror(errno));
+
           graph_load(&files[i], prefs, &stats);
           loaded = true;
 
@@ -817,7 +828,10 @@ size_t graph_files_merge(const char *out_ctx_path,
           status("Dumping into colour %zu...\n", firstcol);
         else
           status("Dumping into colours %zu-%zu...\n", firstcol, lastcol);
-        fseek(fout, (long)header_size, SEEK_SET);
+
+        if(fseek(fout, (long)header_size, SEEK_SET) != 0)
+          die("fseek failed: %s", strerror(errno));
+
         graph_file_write_colours(db_graph, 0, firstcol, lastcol-firstcol+1,
                                  output_colours, fout);
       }

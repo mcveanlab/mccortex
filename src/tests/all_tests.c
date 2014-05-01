@@ -67,18 +67,20 @@ void _construct_graph_with_paths(dBGraph *graph,
   db_graph_alloc(graph, kmer_size, ncols, ncols, 1024);
 
   // Graph data
-  graph->bktlocks = calloc2(roundup_bits2bytes(graph->ht.num_of_buckets), 1);
-  graph->col_edges = calloc2(graph->ht.capacity * ncols, sizeof(Edges));
-  graph->col_covgs = calloc2(graph->ht.capacity * ncols, sizeof(Covg));
-  graph->node_in_cols = calloc2(roundup_bits2bytes(graph->ht.capacity) * ncols, 1);
+  graph->bktlocks = ctx_calloc(roundup_bits2bytes(graph->ht.num_of_buckets), 1);
+  graph->col_edges = ctx_calloc(graph->ht.capacity * ncols, sizeof(Edges));
+  graph->col_covgs = ctx_calloc(graph->ht.capacity * ncols, sizeof(Covg));
+  graph->node_in_cols = ctx_calloc(roundup_bits2bytes(graph->ht.capacity) * ncols, 1);
 
   // Path data
   path_store_alloc(&graph->pstore, 1024, true, graph->ht.capacity, ncols);
-  graph->pstore.kmer_locks = calloc2(roundup_bits2bytes(graph->ht.capacity), 1);
+  graph->pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(graph->ht.capacity), 1);
 
   // Build graph
   for(i = 0; i < nseqs; i++)
     build_graph_from_str_mt(graph, 0, seqs[i], strlen(seqs[i]));
+
+  graph->num_of_cols_used = MAX2(graph->num_of_cols_used, 1);
 
   GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph, NULL);
 

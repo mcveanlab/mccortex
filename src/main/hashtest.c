@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 
   // Decide on memory
   size_t kmers_in_hash, graph_mem;
-  kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, num_ops, true, &graph_mem);
   cmd_check_mem_limit(&args, graph_mem);
 
   dBGraph db_graph;
