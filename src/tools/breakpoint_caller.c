@@ -8,13 +8,16 @@
 #include "kmer_occur.h"
 #include "graph_crawler.h"
 
+// Require 5 kmers on the reference before and after breakpoint
+#define REQ_REF_NKMERS 5
+
 typedef struct
 {
   // Specific to this instance
   const size_t threadid, nthreads;
 
   // Temporary memory used by this instance
-  GraphCrawler crawler;
+  GraphCrawler crawlers[2]; // [0] => FORWARD, [1] => REVERSE
   dBNodeBuffer nbuf;
 
   // Passed to all instances
@@ -39,16 +42,19 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
   size_t i;
   for(i = 0; i < num_callers; i++)
   {
-    callers[i] = (BreakpointCaller){.threadid = i,
-                                    .nthreads = num_callers,
-                                    .kograph = kograph,
-                                    .db_graph = db_graph,
-                                    .gzout = gzout,
-                                    .out_lock = out_lock,
-                                    .callid = callid};
+    BreakpointCaller tmp = {.threadid = i,
+                            .nthreads = num_callers,
+                            .kograph = kograph,
+                            .db_graph = db_graph,
+                            .gzout = gzout,
+                            .out_lock = out_lock,
+                            .callid = callid};
+
+    memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
 
     db_node_buf_alloc(&callers[i].nbuf, 1024);
-    graph_crawler_alloc(&callers[i].crawler, db_graph);
+    graph_crawler_alloc(&callers[i].crawlers[0], db_graph);
+    graph_crawler_alloc(&callers[i].crawlers[1], db_graph);
   }
 
   return callers;
@@ -59,7 +65,8 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
   size_t i;
   for(i = 0; i < num_callers; i++) {
     db_node_buf_dealloc(&callers[i].nbuf);
-    graph_crawler_dealloc(&callers[i].crawler);
+    graph_crawler_dealloc(&callers[i].crawlers[0]);
+    graph_crawler_dealloc(&callers[i].crawlers[1]);
   }
   pthread_mutex_destroy(callers[0].out_lock);
   ctx_free(callers[0].out_lock);
@@ -116,11 +123,32 @@ static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf,
   pthread_mutex_unlock(caller->out_lock);
 }
 
+// Traverse backwards from node1 -> node0
+static void traverse_5pflank(GraphCrawler *crawler, dBNode node0, dBNode node1)
+{
+  const dBGraph *db_graph = crawler->cache.db_graph;
+  dBNode nodes[4];
+  Nucleotide bases[4];
+  size_t i, num_next;
+  BinaryKmer bkmer0 = db_node_get_bkmer(db_graph, node0.key);
+
+  num_next = db_graph_next_nodes(db_graph, bkmer0, node0.orient,
+                                 db_node_edges(db_graph, node0.key, 0),
+                                 nodes, bases);
+
+  for(i = 0; i < num_next && !db_nodes_are_equal(nodes[i],node1); i++) {}
+
+  // Go backwards to get 5p flank
+  // NULL means loop from 0..(ncols-1)
+  graph_crawler_fetch(crawler, node0, nodes, bases, i, num_next,
+                      REQ_REF_NKMERS, NULL, db_graph->num_of_cols);
+}
+
 // Walk the graph remembering the last time we met the ref
 // When traversal fails, dump sequence up to last meeting with the ref
 static void follow_break(BreakpointCaller *caller, dBNode node)
 {
-  size_t i, j, num_next;
+  size_t i, j, k, num_next;
   dBNode next_nodes[4];
   Nucleotide next_nucs[4];
   const dBGraph *db_graph = caller->db_graph;
@@ -144,23 +172,36 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   if(j == num_next || j == 0) return;
   num_next = j;
 
-  status("Possumable fork!");
-
-  // 2. Follow all paths not in ref, in all colours
-  GraphCrawler *crawler = &caller->crawler;
+  // Follow all paths not in ref, in all colours
+  GraphCrawler *fw_crawler = &caller->crawlers[node.orient];
+  GraphCrawler *rv_crawler = &caller->crawlers[!node.orient];
   dBNodeBuffer *nbuf = &caller->nbuf;
-  graph_cache_reset(&caller->crawler.cache);
 
   for(i = 0; i < num_next; i++)
   {
-    graph_crawler_fetch(crawler, node, next_nodes[i], next_nucs[i], true);
+    // Go backwards to get 5p flank
+    traverse_5pflank(rv_crawler, db_node_reverse(next_nodes[i]),
+                     db_node_reverse(node));
 
-    // Assemble contigs
-    for(j = 0; j < crawler->num_paths; j++) {
-      db_node_buf_reset(nbuf);
-      graph_crawler_get_path_nodes(crawler, j, nbuf);
-      GCMultiColPath *multicol_path = &crawler->multicol_paths[j];
-      process_contig(caller, nbuf, multicol_path->cols, multicol_path->num_cols);
+    // Loop over the flanks we got
+    for(j = 0; j < rv_crawler->num_paths; j++)
+    {
+      // DEV
+      // Check this flank is in the ref
+
+      // Only traverse in the colours we have a flank for
+      GCMultiColPath *flankpath = &rv_crawler->multicol_paths[j];
+      graph_crawler_fetch(fw_crawler, node,
+                          next_nodes, next_nucs, j, num_next, -1,
+                          flankpath->cols, flankpath->num_cols);
+
+      // Assemble contigs - fetch forwards for each 5p flank
+      for(k = 0; k < fw_crawler->num_paths; k++) {
+        db_node_buf_reset(nbuf);
+        graph_crawler_get_path_nodes(fw_crawler, k, nbuf);
+        GCMultiColPath *multicol_path = &fw_crawler->multicol_paths[k];
+        process_contig(caller, nbuf, multicol_path->cols, multicol_path->num_cols);
+      }
     }
   }
 }
@@ -168,6 +209,9 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 void breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
 {
   Edges edges;
+
+  graph_crawler_reset(&caller->crawlers[0]);
+  graph_crawler_reset(&caller->crawlers[1]);
 
   // check node is in the ref
   if(kograph_num(caller->kograph, hkey) > 0) {

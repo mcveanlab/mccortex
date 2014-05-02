@@ -14,7 +14,7 @@ typedef struct {
   const char *name;
 } KOChrom;
 
-// 5+5 = 10 bytes instead of (8+8=16 or 8+4=12)
+// 8+4=12 bytes
 struct KONodeListStruct {
   uint64_t start;
   uint32_t count;
@@ -36,11 +36,17 @@ typedef struct
   char *chrom_name_buf;
 } KOGraph;
 
+#include "objbuf_macro.h"
+create_objbuf(kmer_occur_buf, KOccurBuffer, KOccur);
+
 // Get KOccur* to first occurance of a kmer in sequence
 #define kograph_get(kograph,hkey) ((kograph).koccurs + (kograph).klists[hkey].start)
 
 // Get the number of times a kmer is seen in the sequence
 #define kograph_num(kograph,hkey) ((kograph).klists[hkey].count)
+
+#define kograph_get_check(kograph,hkey) \
+        (!kograph_num(kograph,hkey) ? NULL : kograph_get(kograph,hkey))
 
 // Get the chromosome from which a kmer came
 #define kograph_chrom(kograph,occur) (&(kograph).chroms[(occur)->chrom])
@@ -51,5 +57,11 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
                        dBGraph *db_graph);
 
 void kograph_free(KOGraph kograph);
+
+// occur0 should be before occur1
+// kolist0 and kolist1 should already be sorted
+void kograph_get_kmer_run(const KOccur *restrict kolist0, size_t num0,
+                          const KOccur *restrict kolist1, size_t num1,
+                          size_t dist, KOccurBuffer *restrict kobuf);
 
 #endif /* KMER_OCCUR_H_ */

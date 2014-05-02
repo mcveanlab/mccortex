@@ -321,7 +321,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
 
     // Determine if this fork is a fork in the current colour
     num_edges_in_col = 0;
-    for(i = 0; i < num_next; i++) {
+    for(i = 0; i < num_next && num_edges_in_col <= 1; i++) {
       node_has_col[i] = (db_node_has_col(db_graph, nodes[i].key, colour) > 0);
       num_edges_in_col += node_has_col[i];
     }

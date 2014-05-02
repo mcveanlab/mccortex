@@ -206,3 +206,58 @@ void kograph_free(KOGraph kograph)
   if(kograph.klists != NULL) ctx_free(kograph.klists);
   if(kograph.koccurs != NULL) ctx_free(kograph.koccurs);
 }
+
+// Sort by chromosome then by position
+static inline int kmer_occur_cmp(KOccur occur0, KOccur occur1, size_t dist)
+{
+  size_t offset0 = occur0.offset + dist, offset1 = occur1.offset;
+  if(occur0.chrom != occur1.chrom) return (int)occur0.chrom - occur1.chrom;
+  if(offset0 != offset1) return (offset0 < offset1 ? -1 : 1);
+  return 0;
+}
+
+// occur0 should be before occur1
+// kolist0 and kolist1 should already be sorted
+void kograph_get_kmer_run(const KOccur *restrict kolist0, size_t num0,
+                          const KOccur *restrict kolist1, size_t num1,
+                          size_t dist, KOccurBuffer *restrict kobuf)
+{
+  size_t i, j;
+  int cmp;
+  for(i = j = 0; i < num0 && j < num1; ) {
+    cmp = kmer_occur_cmp(kolist0[i], kolist1[j], dist);
+    if(cmp < 0) i++;
+    else if(cmp > 0) j++;
+    else { kmer_occur_buf_add(kobuf, kolist0[i]); i++; j++; }
+  }
+  for(; i < num0; i++) kmer_occur_buf_add(kobuf, kolist0[i]);
+  for(; j < num1; j++) kmer_occur_buf_add(kobuf, kolist1[j]);
+}
+
+/*
+// Filter regions down to only those that stretch the whole distance
+void kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
+                            KOccurBuffer *kobuf, KOccurBuffer *kobuftmp)
+{
+  kmer_occur_buf_reset(kobuf);
+  kmer_occur_buf_reset(kobuftmp);
+  if(len == 0) return;
+
+  KOccur *kolist0, *kolist1, *kolist2;
+  size_t n;
+
+  kolist0 = kograph_get_check(kograph, nodes[0].key);
+  if(kolist0 == NULL) return;
+  if(len == 1) {
+    kmer_occur_buf_append(kobuf, kolist0, kograph_num(nodes[0].key));
+    return;
+  }
+
+  for(i = 1; i < len; i++) {
+    kolist1 = kograph_get(kograph, nodes[1].key);
+    n = kograph_num(kograph, nodes[1].key);
+    if(n == 0) { kmer_occur_buf_reset(kobuf); return; }
+
+  }
+}
+*/

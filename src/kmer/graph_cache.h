@@ -94,7 +94,7 @@ uint32_t graph_cache_new_step(GraphCache *cache, dBNode node);
 int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
                           const GraphCache *cache);
 
-void graph_cache_stepptrs_qsort(GraphCache *cache, GCacheStep **list, size_t n);
+void graph_cache_steps_qsort(GraphCache *cache, GCacheStep **list, size_t n);
 
 bool graph_cache_pathids_are_equal(GraphCache *cache,
                                    uint32_t pathid0, uint32_t pathid1);

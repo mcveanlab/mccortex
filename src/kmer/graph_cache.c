@@ -88,20 +88,20 @@ static inline void _create_supernode(GraphCache *cache, dBNode node,
   uint8_t next_packed = binary_seq_pack_byte(next_bases);
 
   GCacheSnode tmp = {.first_node_id = first_node_id,
-                        .num_nodes = num_nodes,
-                        .first_step = UINT32_MAX,
-                        .num_prev = num_prev,
-                        .prev_bases = prev_packed,
-                        .prev_nodes[0] = prev_nodes[0],
-                        .prev_nodes[1] = prev_nodes[1],
-                        .prev_nodes[2] = prev_nodes[2],
-                        .prev_nodes[3] = prev_nodes[3],
-                        .num_next = num_next,
-                        .next_bases = next_packed,
-                        .next_nodes[0] = next_nodes[0],
-                        .next_nodes[1] = next_nodes[1],
-                        .next_nodes[2] = next_nodes[2],
-                        .next_nodes[3] = next_nodes[3]};
+                     .num_nodes = num_nodes,
+                     .first_step = UINT32_MAX,
+                     .num_prev = num_prev,
+                     .prev_bases = prev_packed,
+                     .prev_nodes[0] = prev_nodes[0],
+                     .prev_nodes[1] = prev_nodes[1],
+                     .prev_nodes[2] = prev_nodes[2],
+                     .prev_nodes[3] = prev_nodes[3],
+                     .num_next = num_next,
+                     .next_bases = next_packed,
+                     .next_nodes[0] = next_nodes[0],
+                     .next_nodes[1] = next_nodes[1],
+                     .next_nodes[2] = next_nodes[2],
+                     .next_nodes[3] = next_nodes[3]};
 
   memcpy(snode, &tmp, sizeof(GCacheSnode));
 }
@@ -207,16 +207,16 @@ int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
   return (long)len0 - len1;
 }
 
-static inline int stepptr_cmp(const void *aa, const void *bb, void *arg)
+static inline int _steps_cmp(const void *aa, const void *bb, void *arg)
 {
   const GCacheStep *const*a = (const GCacheStep *const*)aa;
   const GCacheStep *const*b = (const GCacheStep *const*)bb;
   return graph_cache_steps_cmp(*a, *b, (const GraphCache *)arg);
 }
 
-void graph_cache_stepptrs_qsort(GraphCache *cache, GCacheStep **list, size_t n)
+void graph_cache_steps_qsort(GraphCache *cache, GCacheStep **list, size_t n)
 {
-  sort_r(list, n, sizeof(GCacheStep*), stepptr_cmp, cache);
+  sort_r(list, n, sizeof(GCacheStep*), _steps_cmp, cache);
 }
 
 static inline int pathids_cmp(const void *aa, const void *bb, void *arg)
@@ -354,7 +354,7 @@ size_t graph_cache_remove_dupes(GraphCache *cache,
 
   if(num_steps <= 1) return num_steps;
 
-  graph_cache_stepptrs_qsort(cache, steps, num_steps);
+  graph_cache_steps_qsort(cache, steps, num_steps);
 
   for(i = j = 0; i+1 < num_steps; i++) {
     if(graph_cache_steps_cmp(steps[i], steps[i+1], cache) != 0)

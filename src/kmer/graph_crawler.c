@@ -112,11 +112,13 @@ void graph_crawler_alloc(GraphCrawler *crawler, const dBGraph *db_graph)
   GCUniColPath *unicol_paths = ctx_calloc(ncols, sizeof(GCUniColPath));
   uint32_t *col_list = ctx_calloc(ncols, sizeof(uint32_t));
 
-  *crawler = (GraphCrawler){.ncols = ncols, .num_paths = 0,
-                            .col_paths = col_paths,
-                            .multicol_paths = multicol_paths,
-                            .unicol_paths = unicol_paths,
-                            .col_list = col_list};
+  GraphCrawler tmp = {.num_paths = 0,
+                      .col_paths = col_paths,
+                      .multicol_paths = multicol_paths,
+                      .unicol_paths = unicol_paths,
+                      .col_list = col_list};
+
+  memcpy(crawler, &tmp, sizeof(GraphCrawler));
 
   graph_cache_alloc(&crawler->cache, db_graph);
   graph_walker_alloc(&crawler->wlk);
@@ -148,36 +150,48 @@ static inline int unicol_path_cmp(const void *aa, const void *bb, void *arg)
 }
 
 // `node1` should be the first node of a supernode
-// `node0` should be the previous node or the same node
-// if `node0` != `node1`, `next_base` and `is_fork` must be passed
+// `node0` should be the previous node
 // `next_base` is the last base of `node1`
-void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0, dBNode node1,
-                         Nucleotide next_base, bool is_fork)
+// `max_len` is the max length in kmers (don't add more supernodes if over)
+//           if -1 it is ignored
+void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
+                         dBNode next_nodes[4], Nucleotide next_bases[4],
+                         size_t take_idx, size_t num_next, long max_len,
+                         uint32_t *cols, size_t ncols)
 {
   const dBGraph *db_graph = crawler->cache.db_graph;
   GraphCache *cache = &crawler->cache;
   GraphWalker *wlk = &crawler->wlk;
   RepeatWalker *rptwlk = &crawler->rptwlk;
-
-  // Fetch all paths in all colours
-  size_t col;
-  int pathid;
-
-  size_t i, num_paths = 0;
   GCUniColPath *unipaths = crawler->unicol_paths;
 
-  for(col = 0; col < crawler->ncols; col++)
+  ctx_assert(take_idx < num_next);
+  ctx_assert(!db_nodes_are_equal(node0, next_nodes[take_idx]));
+
+  // Fetch all paths in all colours
+  dBNode node1 = next_nodes[take_idx];
+  Nucleotide base1 = next_bases[take_idx];
+  bool is_fork;
+  size_t i, c, col, nedges_cols, num_paths = 0;
+  int pathid;
+
+  for(c = 0; c < ncols; c++)
   {
+    col = (cols != NULL ? cols[c] : c);
+
     if(db_node_has_col(db_graph, node0.key, col) &&
        db_node_has_col(db_graph, node1.key, col))
     {
+      // Determine if this fork is a fork in the current colour
+      for(nedges_cols = 0, i = 0; i < num_next && nedges_cols <= 1; i++)
+        nedges_cols += (db_node_has_col(db_graph, next_nodes[i].key, col) > 0);
+
+      is_fork = (nedges_cols > 1);
+
       graph_walker_init(wlk, db_graph, col, col, node0);
+      graph_traverse_force(wlk, node1.key, base1, is_fork);
 
-      if(!db_nodes_are_equal(node0, node1))
-        graph_traverse_force(wlk, node1.key, next_base, is_fork);
-
-      // DEV: no max atm
-      pathid = graph_crawler_load_path(cache, node1, wlk, rptwlk, -1);
+      pathid = graph_crawler_load_path(cache, node1, wlk, rptwlk, max_len);
 
       graph_walker_finish(wlk);
       graph_crawler_reset_rpt_walker(rptwlk, cache, pathid);
@@ -217,11 +231,11 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0, dBNode node1,
       }
       else {
         // New path
-        uint32_t *cols = multicol_paths[num_multipaths-1].cols +
-                         multicol_paths[num_multipaths-1].num_cols;
+        uint32_t *path_cols = multicol_paths[num_multipaths-1].cols +
+                              multicol_paths[num_multipaths-1].num_cols;
         pathid = unipaths[i].pathid;
         multicol_paths[num_multipaths] = (GCMultiColPath){.pathid = pathid,
-                                                          .cols = cols,
+                                                          .cols = path_cols,
                                                           .num_cols = 1};
         num_multipaths++;
       }
