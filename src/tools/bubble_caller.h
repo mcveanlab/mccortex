@@ -17,7 +17,7 @@ typedef struct
 } BubbleCallingPrefs;
 
 #include "objbuf_macro.h"
-create_objbuf(cache_stepptr_buf, CacheStepPtrBuf, CacheStep*);
+create_objbuf(cache_stepptr_buf, GCacheStepPtrBuf, GCacheStep*);
 
 typedef struct
 {
@@ -27,7 +27,7 @@ typedef struct
   // Temporary memory specific to this instance
   GraphCache cache;
   bool *const haploid_seen; // used to record which of the haploids we've seen
-  CacheStepPtrBuf spp_forward, spp_reverse;
+  GCacheStepPtrBuf spp_forward, spp_reverse;
 
   dBNodeBuffer flank5p, pathbuf;
   GraphWalker wlk;
@@ -53,9 +53,9 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers);
 // `fork_node` is a node with outdegree > 1
 void find_bubbles(BubbleCaller *caller, dBNode fork_node);
 
-// Load CacheSteps into caller->spp_forward (if they traverse the snode forward)
+// Load GCacheSteps into caller->spp_forward (if they traverse the snode forward)
 // or caller->spp_reverse (if they traverse the snode in reverse)
-void find_bubbles_ending_with(BubbleCaller *caller, CacheSupernode *snode);
+void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode);
 
 void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                           gzFile gzout, const char *out_path,

@@ -22,35 +22,35 @@ typedef struct
   const dBNode prev_nodes[4], next_nodes[4];
   const uint8_t prev_bases, next_bases; // bases packed into 2bits per base
   const uint8_t num_prev:4, num_next:4;
-} CacheSupernode;
+} GCacheSnode;
 
 typedef struct
 {
   const uint32_t orient:1, supernode:31;
   const uint32_t pathid; // path that this step belongs to
   uint32_t next_step; // linked list of steps through a single supernode
-} CacheStep;
+} GCacheStep;
 
 typedef struct
 {
   const uint32_t first_step;
   uint32_t num_steps;
-} CachePath;
+} GCachePath;
 
 #include "objbuf_macro.h"
-create_objbuf(cache_snode_buf, CacheSupernodeBuffer, CacheSupernode);
-create_objbuf(cache_step_buf, CacheStepBuffer, CacheStep);
-create_objbuf(cache_path_buf, CachePathBuffer, CachePath);
+create_objbuf(cache_snode_buf, GCacheSnodeBuffer, GCacheSnode);
+create_objbuf(cache_step_buf, GCacheStepBuffer, GCacheStep);
+create_objbuf(cache_path_buf, GCachePathBuffer, GCachePath);
 
 #define db_node_hash(x) kh_int64_hash_func((x.key << 1) | x.orient)
 KHASH_INIT(SnodeIdHash, dBNode, uint32_t, 1, db_node_hash, db_nodes_are_equal)
 
 typedef struct
 {
-  dBNodeBuffer          node_buf;
-  CacheSupernodeBuffer  snode_buf;
-  CacheStepBuffer       step_buf;
-  CachePathBuffer       path_buf;
+  dBNodeBuffer       node_buf;
+  GCacheSnodeBuffer  snode_buf;
+  GCacheStepBuffer   step_buf;
+  GCachePathBuffer   path_buf;
 
   // hash hkey_t->uint32_t (supernode_id)
   khash_t(SnodeIdHash) *snode_hash;
@@ -58,77 +58,89 @@ typedef struct
   const dBGraph *db_graph;
 } GraphCache;
 
-void supernode_cache_alloc(GraphCache *cache, const dBGraph *db_graph);
-void supernode_cache_dealloc(GraphCache *cache);
-void supernode_cache_reset(GraphCache *cache);
+void graph_cache_alloc(GraphCache *cache, const dBGraph *db_graph);
+void graph_cache_dealloc(GraphCache *cache);
+void graph_cache_reset(GraphCache *cache);
+
+#define graph_cache_node(cache,nodeid) (&(cache)->node_buf.data[nodeid])
+#define graph_cache_snode(cache,snodeid) (&(cache)->snode_buf.data[snodeid])
+#define graph_cache_step(cache,stepid) (&(cache)->step_buf.data[stepid])
+#define graph_cache_path(cache,pathid) (&(cache)->path_buf.data[pathid])
+
+#define graph_cache_num_nodes(cache) ((cache)->node_buf.len)
+#define graph_cache_num_snodes(cache) ((cache)->snode_buf.len)
+#define graph_cache_num_steps(cache) ((cache)->step_buf.len)
+#define graph_cache_num_paths(cache) ((cache)->path_buf.len)
+
+#define graph_cache_first_node(cache,snode) \
+        graph_cache_node(cache, snode->first_node_id)
+
+#define graph_cache_last_node(cache,snode) \
+        graph_cache_node(cache, snode->first_node_id + snode->num_nodes-1)
+
+#define graph_cache_path_last_step(cache,path) \
+        graph_cache_step(cache, path->first_step + path->num_steps-1)
 
 // Returns pathid
-uint32_t supernode_cache_new_path(GraphCache *cache);
+uint32_t graph_cache_new_path(GraphCache *cache);
 
 // Returns stepid
-uint32_t supernode_cache_new_step(GraphCache *cache, dBNode node);
+uint32_t graph_cache_new_step(GraphCache *cache, dBNode node);
 
-void supernode_stepptrs_qsort(GraphCache *cache,
-                              CacheStep **list, size_t n);
+//
+// Sorting
+//
+
+int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
+                          const GraphCache *cache);
+
+void graph_cache_stepptrs_qsort(GraphCache *cache, GCacheStep **list, size_t n);
+
+bool graph_cache_pathids_are_equal(GraphCache *cache,
+                                   uint32_t pathid0, uint32_t pathid1);
+
+
 
 // Get all nodes in a single step (supernode with orientation)
 // Adds to the end of the node buffer (does not reset it)
-void supernode_snode_fetch_nodes(const GraphCache *cache,
-                                 const CacheSupernode *snode,
-                                 Orientation orient,
-                                 dBNodeBuffer *nbuf);
+void graph_cache_snode_fetch_nodes(const GraphCache *cache,
+                                   const GCacheSnode *snode,
+                                   Orientation orient,
+                                   dBNodeBuffer *nbuf);
 
 // Get all nodes in a path up to, but not including the given step
 // Adds to the end of the node buffer (does not reset it)
-void supernode_step_fetch_nodes(const GraphCache *cache,
-                                const CacheStep *end_step,
-                                dBNodeBuffer *nbuf);
+void graph_cache_step_fetch_nodes(const GraphCache *cache,
+                                  const GCacheStep *end_step,
+                                  dBNodeBuffer *nbuf);
 
-static inline const dBNode* cache_supernode_first_node(const GraphCache *cache,
-                                                       const CacheSupernode *snode)
-{
-  return cache->node_buf.data + snode->first_node_id;
-}
-
-static inline const dBNode* cache_supernode_last_node(const GraphCache *cache,
-                                                      const CacheSupernode *snode)
-{
-  return cache->node_buf.data + snode->first_node_id + snode->num_nodes - 1;
-}
-
-#define cache_supernode_node(cache,nodeid) (&(cache)->node_buf.data[nodeid])
-#define cache_supernode_snode(cache,snodeid) (&(cache)->snode_buf.data[snodeid])
-#define cache_supernode_step(cache,stepid) (&(cache)->step_buf.data[stepid])
-#define cache_supernode_path(cache,pathid) (&(cache)->path_buf.data[pathid])
-
-#define cache_supernode_num_nodes(cache) ((cache)->node_buf.len)
-#define cache_supernode_num_snodes(cache) ((cache)->snode_buf.len)
-#define cache_supernode_num_steps(cache) ((cache)->step_buf.len)
-#define cache_supernode_num_paths(cache) ((cache)->path_buf.len)
+void graph_cache_path_fetch_nodes(const GraphCache *cache,
+                                  const GCachePath *path,
+                                  dBNodeBuffer *nbuf);
 
 // Looks like 3p flank if steps don't have the same n-1 supernode
-bool snode_cache_is_3p_flank(GraphCache *cache,
-                             CacheStep ** steps, size_t num_steps);
+bool graph_cache_is_3p_flank(GraphCache *cache,
+                             GCacheStep ** steps, size_t num_steps);
 
 // Remove duplicate paths
-size_t snode_cache_remove_dupes(GraphCache *cache,
-                                CacheStep **steps, size_t num_steps);
+size_t graph_cache_remove_dupes(GraphCache *cache,
+                                GCacheStep **steps, size_t num_steps);
 
 // Returns true if all nodes in supernode have given colour
-bool cache_supernode_has_colour(const GraphCache *cache,
-                                const CacheSupernode *snode,
-                                size_t colour);
+bool graph_cache_snode_has_colour(const GraphCache *cache,
+                                  const GCacheSnode *snode,
+                                  size_t colour);
 
 // Returns true if all nodes in path have given colour
-bool cache_step_has_colour(const GraphCache *cache,
-                           const CacheStep *endstep,
-                           size_t colour);
+bool graph_cache_step_has_colour(const GraphCache *cache,
+                                 const GCacheStep *endstep,
+                                 size_t colour);
 
 // Returns NULL if not found
-CacheSupernode* snode_cache_find_snode(GraphCache *cache, dBNode node);
+GCacheSnode* graph_cache_find_snode(GraphCache *cache, dBNode node);
 
-Orientation snode_cache_get_supernode_orient(const GraphCache *cache,
-                                             const CacheSupernode *snode,
+Orientation graph_cache_get_supernode_orient(const GraphCache *cache,
+                                             const GCacheSnode *snode,
                                              dBNode first_node);
 
 #endif /* GRAPH_CACHE_H_ */

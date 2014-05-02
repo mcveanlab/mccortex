@@ -3,7 +3,7 @@
 
 #include "bubble_caller.h"
 
-static void _check_alleles(GraphCache *cache, CacheStepPtrBuf *steps,
+static void _check_alleles(GraphCache *cache, GCacheStepPtrBuf *steps,
                            const char **alleles, size_t num_alleles,
                            dBNodeBuffer *nbuf, StrBuf *sbuf)
 {
@@ -13,7 +13,7 @@ static void _check_alleles(GraphCache *cache, CacheStepPtrBuf *steps,
   for(i = 0; i < steps->len; i++)
   {
     db_node_buf_reset(nbuf);
-    supernode_step_fetch_nodes(cache, steps->data[i], nbuf);
+    graph_cache_step_fetch_nodes(cache, steps->data[i], nbuf);
     strbuf_ensure_capacity(sbuf, nbuf->len+MAX_KMER_SIZE+1);
     db_nodes_to_str(nbuf->data, nbuf->len, cache->db_graph, sbuf->buff);
 
@@ -44,14 +44,14 @@ static void _call_bubble(BubbleCaller *caller,
 
   find_bubbles(caller, node5p);
 
-  CacheSupernode *snode3p;
+  GCacheSnode *snode3p;
   Orientation snorient3p;
-  CacheStepPtrBuf *stepbuf;
+  GCacheStepPtrBuf *stepbuf;
 
   // Get 3p flank and orientation
-  snode3p = snode_cache_find_snode(&caller->cache, node3p);
+  snode3p = graph_cache_find_snode(&caller->cache, node3p);
   TASSERT(snode3p != NULL);
-  snorient3p = snode_cache_get_supernode_orient(&caller->cache, snode3p, node3p);
+  snorient3p = graph_cache_get_supernode_orient(&caller->cache, snode3p, node3p);
 
   find_bubbles_ending_with(caller, snode3p);
 

@@ -5,18 +5,16 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "seq_reader.h"
-#include "multicol_walker.h"
 #include "kmer_occur.h"
+#include "graph_crawler.h"
 
 typedef struct
 {
   // Specific to this instance
   const size_t threadid, nthreads;
-  const size_t ncols; // Number of colours to call in
 
   // Temporary memory used by this instance
-  size_t *cols, *cols_used, *col_lengths; // arrays of length ncols
-  MulticolWalker walker;
+  GraphCrawler crawler;
   dBNodeBuffer nbuf;
 
   // Passed to all instances
@@ -24,39 +22,33 @@ typedef struct
   const dBGraph *db_graph;
   gzFile gzout;
   pthread_mutex_t *const out_lock;
+  size_t *callid;
 } BreakpointCaller;
 
 static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
                                            const KOGraph kograph,
                                            const dBGraph *db_graph)
 {
-  size_t i, ncols = db_graph->num_of_cols;
-
   BreakpointCaller *callers = ctx_malloc(num_callers * sizeof(BreakpointCaller));
-
-  // Each caller uses 3 lists of max length ncols
-  size_t *colour_lists = ctx_malloc(num_callers * ncols * 3 * sizeof(size_t));
 
   pthread_mutex_t *out_lock = ctx_malloc(sizeof(pthread_mutex_t));
   if(pthread_mutex_init(out_lock, NULL) != 0) die("mutex init failed");
 
+  size_t *callid = ctx_calloc(1, sizeof(size_t));
+
+  size_t i;
   for(i = 0; i < num_callers; i++)
   {
-    BreakpointCaller tmp = {.threadid = i, .nthreads = num_callers,
-                            .cols        = colour_lists,
-                            .cols_used   = colour_lists+ncols,
-                            .col_lengths = colour_lists+ncols+ncols,
-                            .kograph = kograph,
-                            .db_graph = db_graph,
-                            .gzout = gzout,
-                            .out_lock = out_lock};
-
-    memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
-
-    colour_lists += ncols*3;
+    callers[i] = (BreakpointCaller){.threadid = i,
+                                    .nthreads = num_callers,
+                                    .kograph = kograph,
+                                    .db_graph = db_graph,
+                                    .gzout = gzout,
+                                    .out_lock = out_lock,
+                                    .callid = callid};
 
     db_node_buf_alloc(&callers[i].nbuf, 1024);
-    multicol_walker_alloc(&callers[i].walker, db_graph);
+    graph_crawler_alloc(&callers[i].crawler, db_graph);
   }
 
   return callers;
@@ -67,23 +59,22 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
   size_t i;
   for(i = 0; i < num_callers; i++) {
     db_node_buf_dealloc(&callers[i].nbuf);
-    multicol_walker_dealloc(&callers[i].walker);
+    graph_crawler_dealloc(&callers[i].crawler);
   }
-  ctx_free(callers[0].cols);
   pthread_mutex_destroy(callers[0].out_lock);
   ctx_free(callers[0].out_lock);
+  ctx_free(callers[0].callid);
   ctx_free(callers);
 }
 
-static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf)
+static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf,
+                           const uint32_t *cols, size_t ncols)
 {
   gzFile gzout = caller->gzout;
 
   // Work backwards to find last place we met the ref
-  // nbuf[0] is ref node
-  // nbuf[1] is first node not in ref
-  ctx_assert(kograph_num(caller->kograph, nbuf->data[0].key) > 0);
-  ctx_assert(kograph_num(caller->kograph, nbuf->data[1].key) == 0);
+  // nbuf[0] is first node not in ref
+  ctx_assert(kograph_num(caller->kograph, nbuf->data[0].key) == 0);
 
   // AGGGCGTTAGCGGGTTGGAG
   printf("we got: ");
@@ -91,7 +82,7 @@ static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf)
   printf("\n");
 
   size_t i, end;
-  for(i = nbuf->len-1; kograph_num(caller->kograph, nbuf->data[i].key) == 0; i--);
+  for(i = nbuf->len-1; i > 0 && kograph_num(caller->kograph, nbuf->data[i].key) == 0; i--);
 
   if(i == 0) {
     status("Never met ref");
@@ -104,47 +95,25 @@ static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf)
 
   ctx_assert(end > 1); // nbuf[1] should not be in the ref
 
+  size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
+
   pthread_mutex_lock(caller->out_lock);
 
-  gzprintf(gzout, ">call.5pflank\n");
+  gzprintf(gzout, ">call.%zu.5pflank cols=%zu", callid, cols[0]);
+  for(i = 1; i < ncols; i++) gzprintf(gzout, ",%zu", cols[i]);
+  gzprintf(gzout, "\n");
   // DEV
   gzprintf(gzout, "\n");
 
-  gzprintf(gzout, ">call.3pflank\n");
+  gzprintf(gzout, ">call.%zu.3pflank\n", callid);
   db_nodes_gzprint_cont(nbuf->data+end, nbuf->len - end, caller->db_graph, gzout);
+  gzprintf(gzout, "\n");
 
-  gzprintf(gzout, ">call.path\n");
+  gzprintf(gzout, ">call.%zu.path\n", callid);
   db_nodes_gzprint_cont(nbuf->data, end, caller->db_graph, gzout);
-  // DEV
+  gzprintf(gzout, "\n\n");
 
   pthread_mutex_unlock(caller->out_lock);
-}
-
-// DEV: for speed could remember where colours split off
-static void assemble_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf)
-{
-  // Follow path using multicol_walker_assemble_contig
-  size_t i, ncols = caller->db_graph->num_of_cols, ncols_used;
-
-  // Reset list of colours we are considering
-  for(i = 0; i < ncols; i++) caller->cols[i] = i;
-
-  while(ncols > 0)
-  {
-    ncols_used = multicol_walker_assemble_contig(&caller->walker,
-                                                 caller->cols, caller->ncols,
-                                                 caller->cols_used,
-                                                 caller->col_lengths, nbuf);
-
-    printf("ncols: %zu ncols_used: %zu\n", ncols, ncols_used);
-
-    // Print with path
-    process_contig(caller, &caller->nbuf);
-
-    // Remove the used colours from list of colours to use
-    ncols = multicol_walker_rem_cols(caller->cols, caller->ncols,
-                                     caller->cols_used, ncols_used);
-  }
 }
 
 // Walk the graph remembering the last time we met the ref
@@ -173,21 +142,26 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 
   // Abandon if all options are in ref or none are
   if(j == num_next || j == 0) return;
+  num_next = j;
 
   status("Possumable fork!");
 
-  num_next = j;
-
   // 2. Follow all paths not in ref, in all colours
+  GraphCrawler *crawler = &caller->crawler;
   dBNodeBuffer *nbuf = &caller->nbuf;
+  graph_cache_reset(&caller->crawler.cache);
 
   for(i = 0; i < num_next; i++)
   {
-    db_node_buf_reset(nbuf);
-    nbuf->data[0] = node;
-    nbuf->data[1] = next_nodes[i];
-    nbuf->len = 2;
-    assemble_contig(caller, nbuf);
+    graph_crawler_fetch(crawler, node, next_nodes[i], next_nucs[i], true);
+
+    // Assemble contigs
+    for(j = 0; j < crawler->num_paths; j++) {
+      db_node_buf_reset(nbuf);
+      graph_crawler_get_path_nodes(crawler, j, nbuf);
+      GCMultiColPath *multicol_path = &crawler->multicol_paths[j];
+      process_contig(caller, nbuf, multicol_path->cols, multicol_path->num_cols);
+    }
   }
 }
 
@@ -216,9 +190,13 @@ static void breakpoint_caller(void *ptr)
                     breakpoint_caller_node, caller);
 }
 
-static void breakpoints_print_header(gzFile gzout, const CmdArgs *args)
+static void breakpoints_print_header(gzFile gzout, const CmdArgs *args,
+                                     const char **seq_paths, size_t nseq_paths)
 {
   char datestr[9], cwd[PATH_MAX + 1];
+  size_t i;
+
+  ctx_assert(nseq_paths > 0);
 
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
@@ -227,14 +205,18 @@ static void breakpoints_print_header(gzFile gzout, const CmdArgs *args)
   gzprintf(gzout, "##cmd=\"%s\"\n", args->cmdline);
   if(futil_get_current_dir(cwd) != NULL) gzprintf(gzout, "##wkdir=%s\n", cwd);
 
-  gzprintf(gzout, "##reference=TODO\n");
-  gzprintf(gzout, "##ctxVersion=\""VERSION_STATUS_STR"\">\n");
+  gzprintf(gzout, "##reference=%s", seq_paths[0]);
+  for(i = 1; i < nseq_paths; i++) gzprintf(gzout, ":%s", seq_paths[i]);
+  gzputc(gzout, '\n');
+
+  gzprintf(gzout, "##ctxVersion=\""VERSION_STATUS_STR"\"\n");
   gzprintf(gzout, "##ctxKmerSize=%i\n", MAX_KMER_SIZE);
 }
 
 void breakpoints_call(size_t num_of_threads,
                       const read_t *reads, size_t num_reads,
                       gzFile gzout, const char *out_path,
+                      const char **seq_paths, size_t num_seq_paths,
                       const CmdArgs *args, dBGraph *db_graph)
 {
   KOGraph kograph = kograph_create(reads, num_reads, true,
@@ -244,7 +226,7 @@ void breakpoints_call(size_t num_of_threads,
 
   status("Running BreakpointCaller... output to: %s", out_path);
 
-  breakpoints_print_header(gzout, args);
+  breakpoints_print_header(gzout, args, seq_paths, num_seq_paths);
 
   util_run_threads(callers, num_of_threads, sizeof(callers[0]),
                    num_of_threads, breakpoint_caller);

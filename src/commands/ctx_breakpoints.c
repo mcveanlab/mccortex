@@ -58,11 +58,13 @@ int ctx_breakpoints(CmdArgs *args)
 
   size_t max_seq_inputs = argc / 2;
   seq_file_t **seq_files = ctx_malloc(max_seq_inputs * sizeof(seq_file_t*));
+  const char **seq_paths = ctx_malloc(max_seq_inputs * sizeof(char*));
   size_t i, num_seq_files = 0;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--seq") == 0) {
       if(argi+1 == argc) cmd_print_usage("--seq <in.fa> requires a file");
+      seq_paths[num_seq_files] = argv[argi+1];
       if((seq_files[num_seq_files] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file %s", argv[argi+1]);
       num_seq_files++;
@@ -199,7 +201,8 @@ int ctx_breakpoints(CmdArgs *args)
 
   // Call breakpoints
   breakpoints_call(num_of_threads, rbuf.data, rbuf.len,
-                   gzout, output_file, args, &db_graph);
+                   gzout, output_file, seq_paths, num_seq_files,
+                   args, &db_graph);
 
   // Finished: do clean up
   gzclose(gzout);
@@ -208,6 +211,7 @@ int ctx_breakpoints(CmdArgs *args)
   for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
   for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
+  ctx_free(seq_paths);
   readbuf_dealloc(&rbuf);
   ctx_free(db_graph.col_edges);
   ctx_free(db_graph.node_in_cols);

@@ -16,6 +16,7 @@
 #include "path_store.h"
 #include "supernode.h"
 #include "binary_seq.h"
+#include "graph_crawler.h"
 
 BubbleCaller* bubble_callers_new(size_t num_callers,
                                  BubbleCallingPrefs prefs,
@@ -51,7 +52,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
     graph_walker_alloc(&callers[i].wlk);
     rpt_walker_alloc(&callers[i].rptwlk, db_graph->ht.capacity, 22); // 4MB
 
-    supernode_cache_alloc(&callers[i].cache, db_graph);
+    graph_cache_alloc(&callers[i].cache, db_graph);
     cache_stepptr_buf_alloc(&callers[i].spp_forward, 1024);
     cache_stepptr_buf_alloc(&callers[i].spp_reverse, 1024);
     strbuf_alloc(&callers[i].output_buf, 2048);
@@ -73,7 +74,7 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
     rpt_walker_dealloc(&callers[i].rptwlk);
     graph_walker_dealloc(&callers[i].wlk);
 
-    supernode_cache_dealloc(&callers[i].cache);
+    graph_cache_dealloc(&callers[i].cache);
     cache_stepptr_buf_dealloc(&callers[i].spp_forward);
     cache_stepptr_buf_dealloc(&callers[i].spp_reverse);
     strbuf_dealloc(&callers[i].output_buf);
@@ -184,80 +185,10 @@ static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer
   sbuf->buff[sbuf->len] = '\0';
 }
 
-// Returns 1 if successfully walked across supernode, 0 otherwise
-static inline void walk_supernode_end(const GraphCache *cache,
-                                      const CacheSupernode *snode,
-                                      Orientation snorient,
-                                      GraphWalker *wlk)
-{
-  // Only need to traverse the first and last nodes of a supernode
-  const dBNode *first = cache_supernode_first_node(cache, snode);
-  const dBNode *last = cache_supernode_last_node(cache, snode);
-  dBNode lastnode;
-  BinaryKmer last_bkmer;
-
-  if(last > first) {
-    lastnode = snorient == FORWARD ? *last : db_node_reverse(*first);
-    last_bkmer = db_node_oriented_bkmer(wlk->db_graph, lastnode);
-    graph_walker_jump_along_snode(wlk, lastnode.key, last_bkmer);
-  }
-}
-
-// Constructs a path of supernodes (SupernodePath)
-// `wlk` GraphWalker should be set to go
-// `rptwlk` RepeatWalker should be clear
-// returns pathid in GraphCache
-static uint32_t load_allele_path(BubbleCaller *caller, dBNode node)
-{
-  size_t kmers_in_path = 0;
-  uint32_t stepid, pathid = supernode_cache_new_path(&caller->cache);
-
-  GraphWalker *wlk = &caller->wlk;
-  RepeatWalker *rptwlk = &caller->rptwlk;
-
-  while(1)
-  {
-    stepid = supernode_cache_new_step(&caller->cache, node);
-
-    CacheStep *step = cache_supernode_step(&caller->cache, stepid);
-    CacheSupernode *snode = cache_supernode_snode(&caller->cache, step->supernode);
-
-    // Check path length
-    kmers_in_path += snode->num_nodes;
-    if(kmers_in_path > caller->prefs.max_allele_len) break;
-
-    // Traverse to the end of the supernode
-    walk_supernode_end(&caller->cache, snode, step->orient, wlk);
-
-    // Find next node
-    uint8_t num_edges;
-    const dBNode *next_nodes;
-    uint8_t next_bases[4];
-
-    if(step->orient == FORWARD) {
-      num_edges = snode->num_next;
-      next_nodes = snode->next_nodes;
-      binary_seq_unpack_byte(next_bases, snode->next_bases);
-    }
-    else {
-      num_edges = snode->num_prev;
-      next_nodes = snode->prev_nodes;
-      binary_seq_unpack_byte(next_bases, snode->prev_bases);
-    }
-
-    if(!graph_traverse_nodes(wlk, num_edges, next_nodes, next_bases) ||
-       !rpt_walker_attempt_traverse(rptwlk, wlk)) break;
-
-    node = wlk->node;
-  }
-
-  return pathid;
-}
-
 // Remove paths that are both seen in a haploid sample (e.g. repeat)
 // Returns number of paths
 static size_t remove_haploid_paths(const GraphCache *cache,
-                                   CacheStep **steps, size_t num_paths,
+                                   GCacheStep **steps, size_t num_paths,
                                    bool *haploid_seen,
                                    const size_t *haploid_cols,
                                    size_t num_haploid)
@@ -269,7 +200,7 @@ static size_t remove_haploid_paths(const GraphCache *cache,
   {
     for(r = 0; r < num_haploid; r++)
     {
-      if(cache_step_has_colour(cache, steps[p], haploid_cols[r]))
+      if(graph_cache_step_has_colour(cache, steps[p], haploid_cols[r]))
       {
         // Drop path if already haploid_seen
         if(haploid_seen[r]) break;
@@ -291,11 +222,11 @@ static size_t remove_haploid_paths(const GraphCache *cache,
 
 // Potential bubble - filter ref and duplicate alleles
 static void print_bubble(BubbleCaller *caller,
-                         CacheStep **steps, size_t num_paths)
+                         GCacheStep **steps, size_t num_paths)
 {
   const BubbleCallingPrefs prefs = caller->prefs;
   const dBGraph *db_graph = caller->db_graph;
-  CacheSupernode *snode;
+  GCacheSnode *snode;
   size_t i;
 
   dBNodeBuffer *flank5p = &caller->flank5p;
@@ -329,8 +260,8 @@ static void print_bubble(BubbleCaller *caller,
 
   // 3p flank
   db_node_buf_reset(pathbuf);
-  snode = cache_supernode_snode(&caller->cache, steps[0]->supernode);
-  supernode_snode_fetch_nodes(&caller->cache, snode, steps[0]->orient, pathbuf);
+  snode = graph_cache_snode(&caller->cache, steps[0]->supernode);
+  graph_cache_snode_fetch_nodes(&caller->cache, snode, steps[0]->orient, pathbuf);
 
   strbuf_sprintf(sbuf, ">var_%zu_3p_flank kmers=%zu\n", id, pathbuf->len);
   branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
@@ -339,7 +270,7 @@ static void print_bubble(BubbleCaller *caller,
   for(i = 0; i < num_paths; i++)
   {
     db_node_buf_reset(pathbuf);
-    supernode_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
+    graph_cache_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
     strbuf_sprintf(sbuf, ">var_%zu_branch_%zu kmers=%zu\n", id, i, pathbuf->len);
     branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
   }
@@ -357,9 +288,10 @@ static void print_bubble(BubbleCaller *caller,
 // `fork_node` is a node with outdegree > 1
 void find_bubbles(BubbleCaller *caller, dBNode fork_node)
 {
-  supernode_cache_reset(&caller->cache);
+  graph_cache_reset(&caller->cache);
 
   const dBGraph *db_graph = caller->db_graph;
+  GraphCache *cache = &caller->cache;
   GraphWalker *wlk = &caller->wlk;
   RepeatWalker *rptwlk = &caller->rptwlk;
 
@@ -381,10 +313,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   bool node_has_col[4];
 
   uint32_t pathid;
-  CachePath *path;
-  CacheStep *step, *endstep;
-  CacheSupernode *snode;
-  const dBNode *node0, *node1;
+  size_t max_allele_len = caller->prefs.max_allele_len;
 
   for(colour = 0; colour < colours_loaded; colour++)
   {
@@ -402,29 +331,13 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
       if(node_has_col[i])
       {
         graph_walker_init(wlk, db_graph, colour, colour, fork_node);
-
         graph_traverse_force(wlk, nodes[i].key, bases[i], num_edges_in_col > 1);
 
-        pathid = load_allele_path(caller, nodes[i]);
+        pathid = graph_crawler_load_path(cache, nodes[i], wlk, rptwlk,
+                                         max_allele_len);
 
         graph_walker_finish(wlk);
-
-        // Remove mark traversed
-        rpt_walker_fast_clear(rptwlk, NULL, 0);
-
-        path = cache_supernode_path(&caller->cache, pathid);
-        step = cache_supernode_step(&caller->cache, path->first_step);
-
-        // Loop over supernodes in the path
-        for(endstep = step + path->num_steps; step < endstep; step++)
-        {
-          // We don't care about orientation here
-          snode = cache_supernode_snode(&caller->cache, step->supernode);
-          node0 = cache_supernode_first_node(&caller->cache, snode);
-          node1 = cache_supernode_last_node(&caller->cache, snode);
-          rpt_walker_fast_clear_single_node(rptwlk, *node0);
-          rpt_walker_fast_clear_single_node(rptwlk, *node1);
-        }
+        graph_crawler_reset_rpt_walker(rptwlk, cache, pathid);
       }
     }
   }
@@ -434,14 +347,14 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   caller->flank5p.len = 0; // set to one to signify we haven't fetched flank yet
 }
 
-static void remove_non_bubbles(BubbleCaller *caller, CacheStepPtrBuf *endsteps)
+static void remove_non_bubbles(BubbleCaller *caller, GCacheStepPtrBuf *endsteps)
 {
-  if(!snode_cache_is_3p_flank(&caller->cache, endsteps->data, endsteps->len)) {
+  if(!graph_cache_is_3p_flank(&caller->cache, endsteps->data, endsteps->len)) {
     cache_stepptr_buf_reset(endsteps);
   }
   else
   {
-    endsteps->len = snode_cache_remove_dupes(&caller->cache,
+    endsteps->len = graph_cache_remove_dupes(&caller->cache,
                                              endsteps->data, endsteps->len);
 
     endsteps->len = remove_haploid_paths(&caller->cache,
@@ -454,9 +367,9 @@ static void remove_non_bubbles(BubbleCaller *caller, CacheStepPtrBuf *endsteps)
   }
 }
 
-// Load CacheSteps into caller->spp_forward (if they traverse the snode forward)
+// Load GCacheSteps into caller->spp_forward (if they traverse the snode forward)
 // or caller->spp_reverse (if they traverse the snode in reverse)
-void find_bubbles_ending_with(BubbleCaller *caller, CacheSupernode *snode)
+void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode)
 {
   // possible 3p flank (i.e. bubble end)
   // record paths that go through here forwards, and in reverse
@@ -464,11 +377,11 @@ void find_bubbles_ending_with(BubbleCaller *caller, CacheSupernode *snode)
   cache_stepptr_buf_reset(&caller->spp_reverse);
 
   uint32_t stepid = snode->first_step;
-  CacheStep *step;
+  GCacheStep *step;
 
   while(stepid != UINT32_MAX)
   {
-    step = cache_supernode_step(&caller->cache, stepid);
+    step = graph_cache_step(&caller->cache, stepid);
     if(step->orient == FORWARD) {
       cache_stepptr_buf_add(&caller->spp_forward, step);
     } else {
@@ -485,13 +398,13 @@ void find_bubbles_ending_with(BubbleCaller *caller, CacheSupernode *snode)
 static void write_bubbles_to_file(BubbleCaller *caller)
 {
   // Loop over supernodes checking if they are 3p flanks
-  size_t snode_count = cache_supernode_num_snodes(&caller->cache);
-  CacheSupernode *snode;
+  size_t snode_count = graph_cache_num_snodes(&caller->cache);
+  GCacheSnode *snode;
   size_t i;
 
   for(i = 0; i < snode_count; i++)
   {
-    snode = cache_supernode_snode(&caller->cache, i);
+    snode = graph_cache_snode(&caller->cache, i);
     find_bubbles_ending_with(caller, snode);
 
     if(caller->spp_forward.len > 1)
