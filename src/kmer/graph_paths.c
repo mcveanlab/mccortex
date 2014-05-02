@@ -99,7 +99,8 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   // calling bitlock_yield_acquire instead of bitlock_acquire causes
   bitlock_yield_acquire(pstore->kmer_locks, node.key);
 
-  const PathIndex next = pstore_get_pindex(pstore, node.key);
+  // const PathIndex next = pstore_get_pindex(pstore, node.key);
+  const PathIndex next = *(volatile PathIndex*)&pstore->kmer_paths_write[node.key];
 
   // 2) Search for path
   // PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
