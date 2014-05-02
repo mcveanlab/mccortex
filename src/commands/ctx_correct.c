@@ -489,7 +489,8 @@ int ctx_correct(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files (does nothing if num_fpiles == 0)
-  paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, false,
+                     args->max_work_threads, &db_graph);
 
   //
   // Run alignment

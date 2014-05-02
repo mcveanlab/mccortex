@@ -8,7 +8,7 @@ COMPILER := $(shell ($(CC) -v 2>&1) | tr A-Z a-z )
 ifneq (,$(findstring clang,$(COMPILER)))
 	OPT = -O3
 else
-	OPT = -O4 -flto
+	OPT = -O4
 endif
 
 CFLAGS=-Wall -Wextra $(OPT)

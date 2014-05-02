@@ -230,12 +230,10 @@ void kograph_get_kmer_run(const KOccur *restrict kolist0, size_t num0,
     else if(cmp > 0) j++;
     else { kmer_occur_buf_add(kobuf, kolist0[i]); i++; j++; }
   }
-  for(; i < num0; i++) kmer_occur_buf_add(kobuf, kolist0[i]);
-  for(; j < num1; j++) kmer_occur_buf_add(kobuf, kolist1[j]);
 }
 
-/*
 // Filter regions down to only those that stretch the whole distance
+// `kobuf` is left with regions that span all the nodes
 void kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
                             KOccurBuffer *kobuf, KOccurBuffer *kobuftmp)
 {
@@ -243,21 +241,25 @@ void kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
   kmer_occur_buf_reset(kobuftmp);
   if(len == 0) return;
 
-  KOccur *kolist0, *kolist1, *kolist2;
-  size_t n;
+  KOccur *kolist0, *kolist1;
+  size_t i, n0, n1;
 
-  kolist0 = kograph_get_check(kograph, nodes[0].key);
+  kolist0 = kograph_get(kograph, nodes[0].key);
+  n0 = kograph_num(kograph, nodes[0].key);
+
   if(kolist0 == NULL) return;
-  if(len == 1) {
-    kmer_occur_buf_append(kobuf, kolist0, kograph_num(nodes[0].key));
-    return;
-  }
+  if(len == 1) { kmer_occur_buf_append(kobuf, kolist0, n0); return; }
 
-  for(i = 1; i < len; i++) {
-    kolist1 = kograph_get(kograph, nodes[1].key);
-    n = kograph_num(kograph, nodes[1].key);
-    if(n == 0) { kmer_occur_buf_reset(kobuf); return; }
+  for(i = 1; i < len; i++)
+  {
+    kolist1 = kograph_get(kograph, nodes[i].key);
+    n1 = kograph_num(kograph, nodes[i].key);
+    if(n1 == 0) { kmer_occur_buf_reset(kobuf); return; }
 
+    kmer_occur_buf_reset(kobuftmp);
+    kograph_get_kmer_run(kolist0, n0, kolist1, n1, i, kobuftmp);
+    SWAP(*kobuf, *kobuftmp);
+    kolist0 = kobuf->data; n0 = kobuf->len;
   }
 }
-*/
+

@@ -107,7 +107,8 @@ int ctx_health_check(CmdArgs *args)
   graph_load(&gfile, gprefs, NULL);
 
   // Load path files (if there are any)
-  paths_format_merge(pfiles, num_pfiles, false, true, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, true,
+                     args->max_work_threads, &db_graph);
 
   if(do_edge_check) {
     status("Running edge check...");

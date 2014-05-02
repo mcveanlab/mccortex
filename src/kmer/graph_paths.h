@@ -45,7 +45,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 //
 // Remove all redundant paths
 //
-void graph_paths_remove_redundant(dBGraph *db_graph);
+void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads);
 
 //
 // Integrity checks on graph+paths

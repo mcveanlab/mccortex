@@ -44,11 +44,12 @@ size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
                        bool insert_missing_kmers);
 
-// db_graph.pstore must be big enough to hold all this data or we exit
 // Load 1 or more path files; can be called consecutively
-// if rmv_redundant is true we remove non-informative paths
+// if `rmv_redundant` is true we remove non-informative paths
+//  `thread_limit` is the number of threads to use for removing redundant paths
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        bool insert_missing_kmers, bool rmv_redundant,
+                        bool insert_missing_kmers,
+                        bool rmv_redundant, size_t thread_limit,
                         dBGraph *db_graph);
 
 //

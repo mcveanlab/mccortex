@@ -199,7 +199,8 @@ int ctx_pjoin(CmdArgs *args)
 
   // Load path files
   bool add_kmers = true;
-  paths_format_merge(pfiles, num_pfiles, add_kmers, noredundant, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, add_kmers,
+                     noredundant, args->max_work_threads, &db_graph);
 
   for(i = 0; i < num_pfiles; i++)
     path_file_set_header_sample_names(&pfiles[i], &pheader);

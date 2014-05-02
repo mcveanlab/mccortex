@@ -178,7 +178,7 @@ int ctx_breakpoints(CmdArgs *args)
 
   //
   // Load path files (does nothing if num_pfiles == 0)
-  paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, false, num_of_threads, &db_graph);
 
   //
   // Load reference sequence into a read buffer

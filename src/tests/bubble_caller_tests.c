@@ -113,7 +113,6 @@ void test_bubble_caller()
   const char flank3p0[] = "TACTGGATCTCCCT";
   const char *alleles0[] = {"ATAAAACTCTGTACTGGATCT", "ATAAAACTCTcTACTGGATCT"};
 
-  test_status("bubble0");
   test_bubbles(&graph, seqs0, 2, flank5p0, flank3p0, alleles0, 2);
 
   //   mutations:                     x                  y

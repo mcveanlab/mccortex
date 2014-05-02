@@ -338,9 +338,11 @@ static void load_linkedlist(hkey_t hkey, PathIndex loadindex,
 }
 
 // Load 1 or more path files; can be called consecutively
-// if rmv_redundant is true we remove non-informative paths
+// if `rmv_redundant` is true we remove non-informative paths
+//  `thread_limit` is the number of threads to use for removing redundant paths
 void paths_format_merge(PathFileReader *files, size_t num_files,
-                        bool insert_missing_kmers, bool rmv_redundant,
+                        bool insert_missing_kmers,
+                        bool rmv_redundant, size_t thread_limit,
                         dBGraph *db_graph)
 {
   if(num_files == 0) return;
@@ -400,7 +402,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       paths_format_load(&files[0], db_graph, insert_missing_kmers);
 
       // Slim paths store
-      graph_paths_remove_redundant(db_graph);
+      graph_paths_remove_redundant(db_graph, thread_limit);
 
       // done
       first_file = 1;

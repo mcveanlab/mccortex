@@ -221,12 +221,37 @@ static void graph_paths_remove_redundant_node(hkey_t hkey, SortedPathSet *set,
   }
 }
 
-void graph_paths_remove_redundant(dBGraph *db_graph)
+typedef struct {
+  uint32_t threadid, nthreads;
+  dBGraph *db_graph;
+} RemoveRedundantPathsJob;
+
+static void graph_paths_remove_redundant_thread(void *arg)
 {
+  RemoveRedundantPathsJob job = *((RemoveRedundantPathsJob*)arg);
   SortedPathSet set;
   sorted_path_set_alloc(&set);
-  HASH_ITERATE(&db_graph->ht, graph_paths_remove_redundant_node, &set, db_graph);
+  HASH_ITERATE_PART(&job.db_graph->ht, job.threadid, job.nthreads,
+                    graph_paths_remove_redundant_node, &set, job.db_graph);
   sorted_path_set_dealloc(&set);
+}
+
+void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)
+{
+  status("Removing redundant GraphPaths...");
+
+  size_t i;
+  RemoveRedundantPathsJob *jobs;
+  jobs = ctx_malloc(num_threads * sizeof(RemoveRedundantPathsJob));
+  for(i = 0; i < num_threads; i++) {
+    jobs[i] = (RemoveRedundantPathsJob){.threadid = i, .nthreads = num_threads,
+                                        .db_graph = db_graph};
+  }
+
+  util_run_threads(jobs, num_threads, sizeof(jobs[0]),
+                   num_threads, graph_paths_remove_redundant_thread);
+
+  ctx_free(jobs);
 }
 
 //

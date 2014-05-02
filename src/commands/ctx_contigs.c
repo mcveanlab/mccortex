@@ -430,7 +430,8 @@ int ctx_contigs(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, false,
+                     args->max_work_threads, &db_graph);
 
   status("Traversing graph in colour %zu...", colour);
 

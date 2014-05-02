@@ -183,7 +183,7 @@ int ctx_call(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files (does nothing if num_fpiles == 0)
-  paths_format_merge(pfiles, num_pfiles, false, false, &db_graph);
+  paths_format_merge(pfiles, num_pfiles, false, false, num_of_threads, &db_graph);
 
   // Now call variants
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
