@@ -100,8 +100,8 @@ void test_bubble_caller()
   dBGraph graph;
   const size_t kmer_size = 11, ncols = 3;
 
+  // Create graph
   db_graph_alloc(&graph, kmer_size, ncols, 1, 2000);
-  // Graph data
   graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
   graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
   graph.col_edges = ctx_calloc(graph.ht.capacity, sizeof(Edges));

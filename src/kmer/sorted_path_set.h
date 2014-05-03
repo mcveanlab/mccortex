@@ -50,4 +50,7 @@ void sorted_path_set_slim(SortedPathSet *set);
 void sorted_path_set_merge(SortedPathSet *out_set, SortedPathSet *in_set,
                            bool rmsubstr, uint8_t *store);
 
+// Sum of bytes required to store set
+size_t sorted_path_get_bytes_sum(const SortedPathSet *set);
+
 #endif /* SORTED_PATH_SET_H_ */

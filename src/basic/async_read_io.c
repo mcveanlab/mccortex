@@ -73,6 +73,8 @@ static void add_to_pool(read_t *r1, read_t *r2,
   msgpool_release(pool, pos, MPOOL_FULL);
 }
 
+static void* async_io_reader(void *ptr) __attribute__((noreturn));
+
 static void* async_io_reader(void *ptr)
 {
   AsyncIOWorker *wrkr = (AsyncIOWorker*)ptr;

@@ -53,7 +53,7 @@ void paths_header_update(PathFileHeader *header, const PathStore *paths)
 {
   header->num_of_cols = (uint32_t)paths->num_of_cols;
   header->num_of_paths = paths->num_of_paths;
-  header->num_path_bytes = (uint64_t)(paths->next - paths->store);
+  header->num_path_bytes = paths->num_of_bytes;
   header->num_kmers_with_paths = paths->num_kmers_with_paths;
 }
 

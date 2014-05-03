@@ -14,8 +14,13 @@
 typedef struct
 {
   // Constants for this instance
-  uint8_t *const store, *end, *next;
+  uint8_t *store, *end, *next;
   const size_t num_of_cols, colset_bytes;
+
+  // Number of bytes required to dump optimised paths
+  // This will not be `next - store` if extra data is associated with paths
+  // or if some paths have been removed
+  size_t num_of_bytes;
 
   // Counters
   size_t num_of_paths, num_kmers_with_paths, num_col_paths;

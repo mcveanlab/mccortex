@@ -34,9 +34,11 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
   bytes_to_str(pstore_mem, 1, main_mem_str);
   status("[paths] Setting up path store to use %s main", main_mem_str);
 
-  PathStore new_paths = {.store = block, .end = block + pstore_mem, .next = block,
+  PathStore new_paths = {.store = block,
+                         .end = block + pstore_mem, .next = block,
                          .num_of_cols = ncols,
                          .colset_bytes = colset_bytes,
+                         .num_of_bytes = 0,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
                          .num_col_paths = 0,
                          .tmpstore = NULL, .tmpsize = 0,
@@ -100,6 +102,7 @@ void path_store_reset(PathStore *ps, size_t nkmers_in_hash)
     memset(ps->kmer_paths_read, 0, nkmers_in_hash * sizeof(PathIndex));
   if(ps->kmer_paths_write != NULL)
     memset(ps->kmer_paths_read, 0, nkmers_in_hash * sizeof(PathIndex));
+  ps->num_of_bytes = 0;
   ps->num_of_paths = 0;
   ps->num_kmers_with_paths = 0;
   ps->num_col_paths = 0;
@@ -195,6 +198,7 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   ps->next += mem;
   ps->num_of_paths++;
   ps->num_kmers_with_paths += (last_index == PATH_NULL);
+  ps->num_of_bytes += packedpath_mem2(ps->colset_bytes, (plen+3)/4);
 
   // Add to PathHash (does nothing if there is no PathHash in use)
   const uint8_t *len_seq = ptr - pbytes - sizeof(PathLen);
@@ -210,10 +214,9 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
 void path_store_print(const PathStore *pstore)
 {
   char paths_str[100], mem_str[100], kmers_str[100];
-  size_t num_path_bytes = pstore->next - pstore->store;
 
   ulong_to_str(pstore->num_of_paths, paths_str);
-  bytes_to_str(num_path_bytes, 1, mem_str);
+  bytes_to_str(pstore->num_of_bytes, 1, mem_str);
   ulong_to_str(pstore->num_kmers_with_paths, kmers_str);
 
   status("[paths] %s paths, %s path-bytes, %s kmers",

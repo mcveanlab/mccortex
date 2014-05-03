@@ -133,15 +133,17 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   }
 
   // 3) shift store->next to make space
-  size_t mem = packedpath_mem2(pstore->colset_bytes, path_nbytes);
+  // Note: if you update mem_bytes, check where it is used - pstore->num_of_bytes
+  //       should not include extra mem
+  size_t mem_bytes = packedpath_mem2(pstore->colset_bytes, path_nbytes);
   uint8_t *new_path;
 
-  // atomic { new_path = pstore->next; pstore->next += mem; }
+  // atomic { new_path = pstore->next; pstore->next += mem_bytes; }
   // __sync_fetch_and_add(x,y) x and y need to be of same type
   new_path = __sync_fetch_and_add((uint8_t * volatile *)(void*)&pstore->next,
-                                  (uint8_t *)mem);
+                                  (uint8_t *)mem_bytes);
 
-  if(new_path + mem > pstore->end || pret == -1)
+  if(new_path + mem_bytes > pstore->end || pret == -1)
   {
     // DEV: be better, pause threads, dump graph, clear memory
     die("Out of path memory! [%s]", pret == -1 ? "PathHash" : "PathLinkedList");
@@ -180,6 +182,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   // Update number of paths
   __sync_add_and_fetch((volatile size_t*)&pstore->num_of_paths, 1);
   __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
+  __sync_add_and_fetch((volatile size_t*)&pstore->num_of_bytes, mem_bytes);
 
   // status("npaths: %zu nkmers: %zu", pstore->num_of_paths,
   //        pstore->num_kmers_with_paths);
@@ -194,17 +197,24 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 //
 // Remove all redundant paths
 //
-static void graph_paths_remove_redundant_node(hkey_t hkey, SortedPathSet *set,
-                                              dBGraph *db_graph)
+
+static inline void graph_paths_remove_redundant_node(hkey_t hkey,
+                                                     SortedPathSet *set,
+                                                     size_t *paths_removed_ptr,
+                                                     size_t *bytes_removed_ptr,
+                                                     dBGraph *db_graph)
 {
   // Construct SortedPathSet
   PathStore *pstore = &db_graph->pstore;
-  sorted_path_set_init(set, pstore, hkey);
-  size_t num_orig_entries = set->members.len;
-  sorted_path_set_slim(set);
-
-  size_t i;
+  size_t i, num_orig_entries, num_orig_bytes;
   PathIndex pindex0, pindex1;
+
+  sorted_path_set_init(set, pstore, hkey);
+
+  num_orig_entries = set->members.len;
+  num_orig_bytes = sorted_path_get_bytes_sum(set);
+
+  sorted_path_set_slim(set);
 
   // Update PathStore if set has changed
   if(num_orig_entries != set->members.len)
@@ -218,38 +228,77 @@ static void graph_paths_remove_redundant_node(hkey_t hkey, SortedPathSet *set,
       pindex1 = set->members.data[i+1].pindex;
       packedpath_set_prev(pstore->store + pindex0, pindex1);
     }
+
+    *paths_removed_ptr += num_orig_entries - set->members.len;
+    *bytes_removed_ptr += num_orig_bytes - sorted_path_get_bytes_sum(set);
   }
 }
 
 typedef struct {
   uint32_t threadid, nthreads;
   dBGraph *db_graph;
+  size_t paths_removed, bytes_removed;
 } RemoveRedundantPathsJob;
 
 static void graph_paths_remove_redundant_thread(void *arg)
 {
-  RemoveRedundantPathsJob job = *((RemoveRedundantPathsJob*)arg);
+  RemoveRedundantPathsJob *job = (RemoveRedundantPathsJob*)arg;
+  dBGraph *db_graph = job->db_graph;
   SortedPathSet set;
   sorted_path_set_alloc(&set);
-  HASH_ITERATE_PART(&job.db_graph->ht, job.threadid, job.nthreads,
-                    graph_paths_remove_redundant_node, &set, job.db_graph);
+  HASH_ITERATE_PART(&db_graph->ht, job->threadid, job->nthreads,
+                    graph_paths_remove_redundant_node,
+                    &set, &job->paths_removed, &job->bytes_removed, db_graph);
   sorted_path_set_dealloc(&set);
 }
 
 void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)
 {
-  status("Removing redundant GraphPaths...");
+  status("Removing redundant GraphPaths using %zu threads", num_threads);
 
   size_t i;
   RemoveRedundantPathsJob *jobs;
   jobs = ctx_malloc(num_threads * sizeof(RemoveRedundantPathsJob));
   for(i = 0; i < num_threads; i++) {
-    jobs[i] = (RemoveRedundantPathsJob){.threadid = i, .nthreads = num_threads,
-                                        .db_graph = db_graph};
+    jobs[i] = (RemoveRedundantPathsJob){.threadid = i,
+                                        .nthreads = num_threads,
+                                        .db_graph = db_graph,
+                                        .paths_removed = 0,
+                                        .bytes_removed = 0};
   }
 
   util_run_threads(jobs, num_threads, sizeof(jobs[0]),
                    num_threads, graph_paths_remove_redundant_thread);
+
+  // Update header
+  PathStore *pstore = &db_graph->pstore;
+  size_t paths_removed = 0, bytes_removed = 0;
+
+  for(i = 0; i < num_threads; i++) {
+    paths_removed += jobs[i].paths_removed;
+    bytes_removed += jobs[i].bytes_removed;
+  }
+
+  // Print
+  char num_paths_str[100], old_paths_str[100], new_paths_str[100];
+  char num_bytes_str[100], old_bytes_str[100], new_bytes_str[100];
+
+  ulong_to_str(paths_removed, num_paths_str);
+  ulong_to_str(pstore->num_of_paths, old_paths_str);
+  ulong_to_str(pstore->num_of_paths-paths_removed, new_paths_str);
+  ulong_to_str(bytes_removed, num_bytes_str);
+  ulong_to_str(pstore->num_of_bytes, old_bytes_str);
+  ulong_to_str(pstore->num_of_bytes-bytes_removed, new_bytes_str);
+
+  status("Removed %s paths [%s -> %s] and %s bytes [%s -> %s]",
+         num_paths_str, old_paths_str, new_paths_str,
+         num_bytes_str, old_bytes_str, new_bytes_str);
+
+  ctx_assert(pstore->num_of_paths >= paths_removed);
+  ctx_assert(pstore->num_of_bytes >= bytes_removed);
+
+  pstore->num_of_paths -= paths_removed;
+  pstore->num_of_bytes -= bytes_removed;
 
   ctx_free(jobs);
 }

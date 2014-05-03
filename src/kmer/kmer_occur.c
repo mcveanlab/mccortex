@@ -23,7 +23,7 @@ static void generate_chrom_list(KOGraph *kograph,
   size_t i, name_len_sum = 0;
 
   // Concatenate names into one string
-  for(i = 0; i < num_reads; i++) name_len_sum += reads[i].name.end+1;
+  for(i = 0; i < num_reads; i++) name_len_sum += reads[i].name.end + 1;
   kograph->chrom_name_buf = ctx_malloc(name_len_sum);
   char *names_concat = kograph->chrom_name_buf;
 
@@ -143,25 +143,20 @@ static void read_store_kmer_pos(const read_t *r, size_t chrom_id,
                  db_graph, klists, koccurs, chrom_id, _offset);
 }
 
-// BEWARE: We add the reads to the graph
-KOGraph kograph_create(const read_t *reads, size_t num_reads,
-                       bool add_missing_kmers, size_t num_threads,
-                       dBGraph *db_graph)
+static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
+                                   bool add_missing_kmers, size_t num_threads,
+                                   KONodeList *klists,
+                                   dBGraph *db_graph)
 {
-  if(add_missing_kmers) ctx_assert(db_graph->num_edge_cols == 1);
-  ctx_assert(sizeof(KONodeList) == 12);
-
-  KOGraph kograph;
-  generate_chrom_list(&kograph, reads, num_reads);
-
-  kograph.klists = ctx_calloc(db_graph->ht.capacity, sizeof(KONodeList));
-
   // 1. Loop through reads, add to graph and record kmer counts
+  struct ReadUpdateCounts *updates;
   size_t i;
-  struct ReadUpdateCounts *updates = ctx_malloc(num_reads * sizeof(struct ReadUpdateCounts));
+
+  updates = ctx_malloc(num_reads * sizeof(struct ReadUpdateCounts));
+
   for(i = 0; i < num_reads; i++) {
     updates[i] = (struct ReadUpdateCounts){.r = &reads[i],
-                                           .klists = kograph.klists,
+                                           .klists = klists,
                                            .add_missing_kmers = add_missing_kmers,
                                            .db_graph = db_graph};
   }
@@ -170,17 +165,53 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
                    num_threads, read_update_counts);
 
   ctx_free(updates);
+}
 
-  // 2. alloc lists
+// BEWARE: We add the reads to the graph
+KOGraph kograph_create(const read_t *reads, size_t num_reads,
+                       bool add_missing_kmers, size_t num_threads,
+                       dBGraph *db_graph)
+{
+  size_t i;
+
+  if(add_missing_kmers) ctx_assert(db_graph->num_edge_cols == 1);
+  ctx_assert(sizeof(KONodeList) == 12);
+
+  // Check number of reads doesn't exceed max limit
+  if(num_reads > KMER_OCCUR_MAX_CHROMS)
+    die("More chromosomes than permitted (%zu > %i)",
+        num_reads, KMER_OCCUR_MAX_CHROMS);
+
+  // Check no read is too long
+  for(i = 0; i < num_reads; i++)
+    if(reads[i].seq.end > KMER_OCCUR_MAX_LEN)
+      die("Read longer than limit (%zu > %zu; %zu: '%s')",
+          reads[i].seq.end, KMER_OCCUR_MAX_LEN, i, reads[i].name.b);
+
+  KOGraph kograph;
+  memset(&kograph, 0, sizeof(KOGraph)); // initialise
+
+  generate_chrom_list(&kograph, reads, num_reads);
+
+  kograph.klists = ctx_calloc(db_graph->ht.capacity, sizeof(KONodeList));
+
+  // 1. Loop through reads, add to graph and record kmer counts
+  load_reads_count_kmers(reads, num_reads, add_missing_kmers, num_threads,
+                         kograph.klists, db_graph);
+
+  // 2. allocate a list for each kmer (some of length zero)
   uint64_t offset = 0, total_read_length = 0;
 
-  for(i = 0; i < num_reads; i++)
+  for(i = 0; i < db_graph->ht.capacity; i++)
   {
     kograph.klists[i].start = offset;
     offset += kograph.klists[i].count;
     kograph.klists[i].count = 0;
-    total_read_length += reads[i].seq.end;
   }
+
+  // Sum lengths of reads
+  for(i = 0; i < num_reads; i++)
+    total_read_length += reads[i].seq.end;
 
   // offset should be less than sum of read lengths, which is why we wait to
   // parse all reads before mallocing to reduce memory footprint 
@@ -234,12 +265,13 @@ void kograph_get_kmer_run(const KOccur *restrict kolist0, size_t num0,
 
 // Filter regions down to only those that stretch the whole distance
 // `kobuf` is left with regions that span all the nodes
-void kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
-                            KOccurBuffer *kobuf, KOccurBuffer *kobuftmp)
+// Returns number of sites where the nodes align to the reference
+size_t kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
+                              KOccurBuffer *kobuf, KOccurBuffer *kobuftmp)
 {
   kmer_occur_buf_reset(kobuf);
   kmer_occur_buf_reset(kobuftmp);
-  if(len == 0) return;
+  if(len == 0 || kograph.nchroms == 0) return 0;
 
   KOccur *kolist0, *kolist1;
   size_t i, n0, n1;
@@ -247,19 +279,21 @@ void kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
   kolist0 = kograph_get(kograph, nodes[0].key);
   n0 = kograph_num(kograph, nodes[0].key);
 
-  if(kolist0 == NULL) return;
-  if(len == 1) { kmer_occur_buf_append(kobuf, kolist0, n0); return; }
+  if(n0 == 0) return 0;
+  if(len == 1) { kmer_occur_buf_append(kobuf, kolist0, n0); return n0; }
 
   for(i = 1; i < len; i++)
   {
     kolist1 = kograph_get(kograph, nodes[i].key);
     n1 = kograph_num(kograph, nodes[i].key);
-    if(n1 == 0) { kmer_occur_buf_reset(kobuf); return; }
+
+    if(n1 == 0) { kmer_occur_buf_reset(kobuf); return 0; }
 
     kmer_occur_buf_reset(kobuftmp);
     kograph_get_kmer_run(kolist0, n0, kolist1, n1, i, kobuftmp);
     SWAP(*kobuf, *kobuftmp);
     kolist0 = kobuf->data; n0 = kobuf->len;
   }
-}
 
+  return kobuf->len;
+}

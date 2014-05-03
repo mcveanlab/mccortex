@@ -280,3 +280,13 @@ void sorted_path_set_merge(SortedPathSet *out_set, SortedPathSet *in_set,
 
   in_set->members.len = x;
 }
+
+// Sum of bytes required to store set
+size_t sorted_path_get_bytes_sum(const SortedPathSet *set)
+{
+  size_t i, sum = 0;
+  for(i = 0; i < set->members.len; i++) {
+    sum += packedpath_mem2(set->cbytes, (set->members.data[i].plen+3)/4);
+  }
+  return sum;
+}

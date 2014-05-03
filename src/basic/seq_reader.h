@@ -85,6 +85,7 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
       _bkmer = binary_kmer_from_str((r)->seq.b + _start, (kmer_size));         \
       _offset = _start;                                                        \
       func(_bkmer, ##__VA_ARGS__);                                             \
+      _offset++;                                                               \
                                                                                \
       for(_base_i = _start+(kmer_size); _base_i < _end; _base_i++, _offset++)  \
       {                                                                        \

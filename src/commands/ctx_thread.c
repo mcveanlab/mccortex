@@ -365,18 +365,21 @@ int ctx_thread(CmdArgs *args)
 
   PathStore *pstore = &db_graph.pstore;
   size_t num_path_bytes = (size_t)(pstore->next - pstore->store);
-  char kmers_str[100], paths_str[100], mem_str[100], col_paths_str[100];
+  char kmers_str[100], paths_str[100], col_paths_str[100];
+  char mem_str[100], output_mem_str[100];
   ulong_to_str(pstore->num_kmers_with_paths, kmers_str);
   ulong_to_str(pstore->num_of_paths, paths_str);
   bytes_to_str(num_path_bytes, 1, mem_str);
+  bytes_to_str(pstore->num_of_bytes, 1, output_mem_str);
   ulong_to_str(pstore->num_col_paths, col_paths_str);
 
   // ins_gap, err_gap no longer allocated after this line
   gen_paths_workers_dealloc(workers, num_work_threads);
   path_store_combine_updated_paths(&db_graph.pstore);
 
-  status("Saving paths: %s paths, %s path-bytes, %s kmers, coloured paths: %s",
-         paths_str, mem_str, kmers_str, col_paths_str);
+  status("Saving paths: %s paths, %s path-bytes (used %s), "
+         "%s kmers, coloured paths: %s",
+         paths_str, output_mem_str, mem_str, kmers_str, col_paths_str);
 
   // Update header and write
   paths_header_update(&pheader, pstore);

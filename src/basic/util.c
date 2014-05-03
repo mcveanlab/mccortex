@@ -405,11 +405,8 @@ typedef struct {
   size_t curr_job;
 } ThreadedWorker;
 
-void *threaded_worker(void *arg) __attribute__((noreturn));
-
-void *threaded_worker(void *arg)
+static void threaded_worker_sub(ThreadedWorker *worker)
 {
-  ThreadedWorker *worker = (ThreadedWorker*)arg;
   ThreadedJobs *jobs = worker->jobs;
   jobs->func((void*)((char*)jobs->args + worker->curr_job*jobs->elsize));
 
@@ -420,7 +417,14 @@ void *threaded_worker(void *arg)
     if(worker->curr_job >= jobs->nel) break;
     jobs->func((void*)((char*)jobs->args + worker->curr_job*jobs->elsize));
   }
+}
 
+static void *threaded_worker(void *arg) __attribute__((noreturn));
+
+static void *threaded_worker(void *arg)
+{
+  ThreadedWorker *worker = (ThreadedWorker*)arg;
+  threaded_worker_sub(worker);
   pthread_exit(NULL);
 }
 
@@ -451,15 +455,18 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
 
     ThreadedWorker *workers = ctx_malloc(sizeof(ThreadedWorker) * nthreads);
 
-    for(i = 0; i < nthreads; i++) {
+    for(i = 1; i < nthreads; i++) {
       workers[i] = (ThreadedWorker){.jobs = &jobs, .curr_job = i};
       rc = pthread_create(&workers[i].thread, &thread_attr,
                           threaded_worker, (void*)&workers[i]);
       if(rc != 0) die("Creating thread failed");
     }
 
-    /* wait for all threads to complete */
-    for(i = 0; i < nthreads; i++) {
+    // Last thread
+    threaded_worker_sub(&workers[0]);
+
+    /* wait for other threads to complete */
+    for(i = 1; i < nthreads; i++) {
       rc = pthread_join(workers[i].thread, NULL);
       if(rc != 0) die("Joining thread failed");
     }
