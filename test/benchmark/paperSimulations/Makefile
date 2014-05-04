@@ -86,12 +86,12 @@ $(NAMES): $(SCRIPTS)
 		else num=1; snps=$(StaphOneSNPs); indels=$(StaphOneIndels); fi \
 	fi; \
 	if [ $$err == 'Error' ]; then errprof="ERRPROF=../$(PROFILE_READS)"; fi; \
-	echo "make -f ../../calling-comparison.mk \
-					SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31 \
-					SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100 \
-					READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof \
-					MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight \
-					MAPARGS='--substitutionrate=$$subrate' "'$$@' > $*/run-sim.sh
+	( echo "make -f ../../calling-comparison.mk" \
+	  echo "SEQ=$$ref NUM_INDIVS=$$num PLOIDY=$$ploidy KMER=31" \
+	  echo "SNPS=$$snps INDELS=$$indels INV=0 INVLEN=100" \
+	  echo "READLEN=$$readlen MPSIZE=250 ALLELECOVG=$$allelecovg $$errprof" \
+	  echo "MEMWIDTH=$$memwidth MEMHEIGHT=$$memheight" \
+	  echo "MAPARGS='--substitutionrate=$$subrate' "'$$@' ) > $*/run-sim.sh
 	chmod +x $*/run-sim.sh
 
 .PHONY: all clean test

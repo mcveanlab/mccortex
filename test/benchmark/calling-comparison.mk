@@ -46,13 +46,15 @@ endif
 $(shell (echo '#!/bin/bash'; echo '$(STAMPY_BIN) $$@';) > stampy.sh; chmod +x stampy.sh)
 STAMPY_BIN=./stampy.sh
 
+NUM_SAMPLES=$(shell echo $$[ $(NUM_INDIVS)+1 ])
+
 # 8bytes for kmer, 4 for covgs, 1 for edges + 10GB wiggle
-MEM=$(shell echo $$[ $(MEMWIDTH) * (2**$(MEMHEIGHT)) * (8+(4+1)*$(NUMCOLS)) + 10000000000 ])
+MEM=$(shell echo $$[ $(MEMWIDTH) * (2**$(MEMHEIGHT)) * (8+(4+1)*$(NUM_SAMPLES)) + 10000000000 ])
 
 # 50GB for threading
 THREADMEM=$(shell echo $$[ $(MEM)+50000000000 ])
 
-RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
+RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUM_SAMPLES) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
 CTX=$(CTX_PATH)/bin/ctx31
 BUILDCTX=$(CTX) build -m $(MEM)
 CLEANCTX=$(CTX) clean -m $(MEM)
@@ -84,7 +86,6 @@ endif
 
 # Calculate some numbers
 NCHROMS=$(shell bc <<< '$(NUM_INDIVS) * $(PLOIDY)')
-NINDIVS_REF=$(shell echo $$(($(NUM_INDIVS) + 1)))
 
 # Generate file names
 GENOMES=$(shell echo genomes/genome{1..$(NCHROMS)}.fa)
@@ -387,7 +388,7 @@ ref/ref.k$(KMER).ctx: ref/ref.fa
 # LEFTALIGN=$(VCFLIBALIGN) --reference ref/ref.fa
 LEFTALIGN=$(BCFTOOLS) norm --remove-duplicate -f ref/ref.fa -
 
-k$(KMER)/vcfs/samples.runcalls.norm.vcf: ref/ref.fa.fai reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NINDIVS_REF)
+k$(KMER)/vcfs/samples.runcalls.norm.vcf: ref/ref.fa.fai reads/reads.index ref/ref.falist ref/ref.k$(KMER).ctx $(CORTEX_PATH)/bin/cortex_var_31_c2 $(CORTEX_PATH)/bin/cortex_var_31_c$(NUM_SAMPLES)
 	@echo == Run Calls ==
 	rm -rf runcalls/runcalls.log
 	mkdir -p runcalls
