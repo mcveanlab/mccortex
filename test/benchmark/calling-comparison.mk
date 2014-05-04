@@ -45,8 +45,11 @@ $(shell (echo '#!/bin/bash'; echo '$(STAMPY_BIN) $$@';) > stampy.sh; chmod +x st
 STAMPY_BIN=./stampy.sh
 
 NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
-# 8bytes for kmer, 4 for covgs, 1 for edges + 10MB for paths
+# 8bytes for kmer, 4 for covgs, 1 for edges + 10MB wiggle
 MEM=$(shell echo $$[ $(MEMWIDTH) * (2**$(MEMHEIGHT)) * (8+(4+1)*$(NUMCOLS)) + 10000000 ])
+
+# 50GB for threading
+THREADMEM=$(shell echo $$[ $(MEM)+50000000000 ])
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUMCOLS) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
 CTX=$(CTX_PATH)/bin/ctx31
@@ -54,11 +57,11 @@ BUILDCTX=$(CTX) build -m $(MEM)
 CLEANCTX=$(CTX) clean -m $(MEM)
 JOINCTX=$(CTX) join -m $(MEM)
 INFERCTX=$(CTX) inferedges -m $(MEM) --all
-THREADCTX=$(CTX) thread -t $(NTHREADS) -m $(MEM)
-CALLCTX=$(CTX) call -m $(MEM)
+THREADCTX=$(CTX) thread -t $(NTHREADS) -m $(THREADMEM)
+CALLCTX=$(CTX) call -m $(THREADMEM)
 PROCCTX=$(CTX) unique
 PLACECTX=$(CTX) place
-TRAVERSE=$(CTX) contigs
+TRAVERSE=$(CTX) contigs -m $(THREADMEM)
 CTXSTATS=$(CTX_PATH)/scripts/cortex_stats.pl
 
 RUNCALLS=time $(CORTEX_PATH)/scripts/calling/run_calls.pl
