@@ -228,6 +228,7 @@ static inline void graph_paths_remove_redundant_node(hkey_t hkey,
       pindex1 = set->members.data[i+1].pindex;
       packedpath_set_prev(pstore->store + pindex0, pindex1);
     }
+    packedpath_set_prev(pstore->store + pindex0, PATH_NULL);
 
     *paths_removed_ptr += num_orig_entries - set->members.len;
     *bytes_removed_ptr += num_orig_bytes - sorted_path_get_bytes_sum(set);
@@ -287,11 +288,11 @@ void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)
   ulong_to_str(paths_removed, num_paths_str);
   ulong_to_str(pstore->num_of_paths, old_paths_str);
   ulong_to_str(pstore->num_of_paths-paths_removed, new_paths_str);
-  ulong_to_str(bytes_removed, num_bytes_str);
-  ulong_to_str(pstore->num_of_bytes, old_bytes_str);
-  ulong_to_str(pstore->num_of_bytes-bytes_removed, new_bytes_str);
+  bytes_to_str(bytes_removed, 1, num_bytes_str);
+  bytes_to_str(pstore->num_of_bytes, 1, old_bytes_str);
+  bytes_to_str(pstore->num_of_bytes-bytes_removed, 1, new_bytes_str);
 
-  status("Removed %s paths [%s -> %s] and %s bytes [%s -> %s]",
+  status("Removed %s paths [%s -> %s] reduced sized by %s [%s -> %s]",
          num_paths_str, old_paths_str, new_paths_str,
          num_bytes_str, old_bytes_str, new_bytes_str);
 
