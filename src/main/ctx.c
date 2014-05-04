@@ -106,7 +106,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pjoin", .func = ctx_pjoin, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "o",
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "mnot", .reqargs = "o",
   .blurb = "merge path files (.ctp)",
   .usage = pjoin_usage
 },
