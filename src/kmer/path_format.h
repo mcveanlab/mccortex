@@ -39,7 +39,6 @@ size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files);
 size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
                                bool remove_substr, bool use_path_hash);
 
-// If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
                        bool insert_missing_kmers);

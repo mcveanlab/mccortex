@@ -259,6 +259,7 @@ void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)
   size_t i;
   RemoveRedundantPathsJob *jobs;
   jobs = ctx_malloc(num_threads * sizeof(RemoveRedundantPathsJob));
+
   for(i = 0; i < num_threads; i++) {
     jobs[i] = (RemoveRedundantPathsJob){.threadid = i,
                                         .nthreads = num_threads,

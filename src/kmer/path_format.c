@@ -228,7 +228,6 @@ static void path_files_update_empty_sample_names(const PathFileReader *files,
   }
 }
 
-// If tmppaths != NULL, do merge
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, dBGraph *db_graph,
                        bool insert_missing_kmers)
@@ -264,6 +263,7 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   pstore->next = pstore->store + hdr->num_path_bytes;
   pstore->num_of_paths = hdr->num_of_paths;
   pstore->num_kmers_with_paths = hdr->num_kmers_with_paths;
+  pstore->num_of_bytes = hdr->num_path_bytes;
 
   // Load kmer pointers to paths
   for(i = 0; i < hdr->num_kmers_with_paths; i++)
