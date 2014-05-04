@@ -22,7 +22,7 @@ NTHREADS=2
 # How many contigs to print
 NCONTIGS=10000
 # How many samples to load at once
-NUMCOLS=100
+NUMCOLS=25
 
 SHELL := /bin/bash
 
