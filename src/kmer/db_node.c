@@ -196,6 +196,25 @@ void db_nodes_reverse(dBNode *nlist, size_t n)
   }
 }
 
+// Reverse ordering and orientations
+void db_nodes_reverse_complement(dBNode *nlist, size_t len)
+{
+  if(len == 0) return;
+
+  size_t i, j;
+  dBNode tmp;
+
+  for(i = 0, j = len-1; i+1 < j; i++, j--) {
+    tmp = nlist[i];
+    nlist[i] = db_node_reverse(nlist[j]);
+    nlist[j] = db_node_reverse(tmp);
+  }
+
+  tmp = nlist[i];
+  nlist[i] = db_node_reverse(nlist[j]);
+  nlist[j] = db_node_reverse(tmp);
+}
+
 // see http://www.geeksforgeeks.org/array-rotation/
 void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift)
 {

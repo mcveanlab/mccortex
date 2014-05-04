@@ -262,6 +262,8 @@ create_objbuf(db_node_buf,dBNodeBuffer,dBNode);
 // Reverse ordering without changing node orientation
 void db_nodes_reverse(dBNode *nlist, size_t n);
 
+void db_nodes_reverse_complement(dBNode *nlist, size_t len);
+
 void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift);
 
 //

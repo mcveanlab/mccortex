@@ -39,8 +39,17 @@ typedef struct
   char *chrom_name_buf;
 } KOGraph;
 
+#define STRAND_PLUS 0
+#define STRAND_MINUS 1
+
+typedef struct {
+  uint64_t start, next;
+  uint32_t chrom;
+  uint8_t strand; // 0 => + (with ref), 1 => - (revcmp ref)
+} KOccurRun;
+
 #include "objbuf_macro.h"
-create_objbuf(kmer_occur_buf, KOccurBuffer, KOccur);
+create_objbuf(kmer_run_buf, KOccurRunBuffer, KOccurRun);
 
 // We add the reads to the graph if `add_missing_kmers` is true
 KOGraph kograph_create(const read_t *reads, size_t num_reads,
@@ -58,19 +67,13 @@ void kograph_free(KOGraph kograph);
 #define kograph_get_check(kograph,hkey) \
         (!kograph_num(kograph,hkey) ? NULL : kograph_get(kograph,hkey))
 
-// Get the chromosome from which a kmer came
-#define kograph_chrom(kograph,occur) (&(kograph).chroms[(occur)->chrom])
-
-// occur0 should be before occur1
-// kolist0 and kolist1 should already be sorted
-void kograph_get_kmer_run(const KOccur *restrict kolist0, size_t num0,
-                          const KOccur *restrict kolist1, size_t num1,
-                          size_t dist, KOccurBuffer *restrict kobuf);
+// Get the chromosome from which a kmer came (occur can be KOccurRun or KOccur)
+#define kograph_chrom(kograph,occur) ((kograph).chroms[(occur).chrom])
 
 // Filter regions down to only those that stretch the whole distance
-// `kobuf` is left with regions that span all the nodes
 // Returns number of sites where the nodes align to the reference
-size_t kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
-                              KOccurBuffer *kobuf, KOccurBuffer *kobuftmp);
+size_t kograph_filter_stretch(KOGraph kograph,
+                              const dBNode *nodes, size_t len,
+                              KOccurRunBuffer *korun_buf);
 
 #endif /* KMER_OCCUR_H_ */

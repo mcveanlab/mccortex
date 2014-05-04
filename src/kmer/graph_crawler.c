@@ -37,7 +37,6 @@ uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
 
   for(i = 0; ; i++)
   {
-    status("  take step %zu", i);
     stepid = graph_cache_new_step(cache, node);
 
     GCacheStep *step = graph_cache_step(cache, stepid);
@@ -66,16 +65,11 @@ uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
       binary_seq_unpack_byte(next_bases, snode->prev_bases);
     }
 
-    status("dir %i num_next %i", (int)step->orient, (int)num_edges);
-
     if(!graph_traverse_nodes(wlk, num_edges, next_nodes, next_bases) ||
        !rpt_walker_attempt_traverse(rptwlk, wlk)) break;
 
     node = wlk->node;
   }
-
-  GCachePath *path = graph_cache_path(cache, pathid);
-  status("Crawled %u supernodes", path->num_steps);
 
   return pathid;
 }

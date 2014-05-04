@@ -20,6 +20,10 @@ typedef struct
   GraphCrawler crawlers[2]; // [0] => FORWARD, [1] => REVERSE
   dBNodeBuffer nbuf;
 
+  // 5p flank
+  KOccurRunBuffer korun_buf;
+  dBNodeBuffer flank5pbuf;
+
   // Passed to all instances
   const KOGraph kograph;
   const dBGraph *db_graph;
@@ -53,6 +57,8 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
     memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
 
     db_node_buf_alloc(&callers[i].nbuf, 1024);
+    db_node_buf_alloc(&callers[i].flank5pbuf, 1024);
+    kmer_run_buf_alloc(&callers[i].korun_buf, 512);
     graph_crawler_alloc(&callers[i].crawlers[0], db_graph);
     graph_crawler_alloc(&callers[i].crawlers[1], db_graph);
   }
@@ -65,6 +71,8 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
   size_t i;
   for(i = 0; i < num_callers; i++) {
     db_node_buf_dealloc(&callers[i].nbuf);
+    db_node_buf_dealloc(&callers[i].flank5pbuf);
+    kmer_run_buf_dealloc(&callers[i].korun_buf);
     graph_crawler_dealloc(&callers[i].crawlers[0]);
     graph_crawler_dealloc(&callers[i].crawlers[1]);
   }
@@ -74,33 +82,47 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
   ctx_free(callers);
 }
 
-static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf,
+static inline void ko_gzprint(gzFile gzout, size_t kmer_size,
+                              KOGraph kograph, KOccurRun ko)
+{
+  const char strand[] = {'+','-'};
+  const char *chrom = kograph_chrom(kograph,ko).name;
+  // get end coord as inclusive coord
+  size_t start, end;
+  if(ko.next > ko.start) {
+    start = ko.start;
+    end = ko.next-1+kmer_size-1;
+  } else {
+    start = ko.start+kmer_size-1;
+    end = ko.next+1;
+  }
+  // +1 to coords to convert to 1-based
+  gzprintf(gzout, "%s:%zu-%zu:%c", chrom, start+1, end+1, strand[ko.strand]);
+}
+
+static void process_contig(BreakpointCaller *caller,
+                           dBNodeBuffer *flank5p,
+                           const KOccurRunBuffer *korun_buf,
+                           dBNodeBuffer *nbuf,
                            const uint32_t *cols, size_t ncols)
 {
   gzFile gzout = caller->gzout;
+  KOGraph kograph = caller->kograph;
 
-  // Work backwards to find last place we met the ref
-  // nbuf[0] is first node not in ref
-  ctx_assert(kograph_num(caller->kograph, nbuf->data[0].key) == 0);
-
-  // AGGGCGTTAGCGGGTTGGAG
-  printf("we got: ");
-  db_nodes_print(nbuf->data, nbuf->len, caller->db_graph, stdout);
-  printf("\n");
-
+  // Find first place we meet the ref
+  // DEV: add requirement for REQ_REF_NKMERS kmers
   size_t i, end;
-  for(i = nbuf->len-1; i > 0 && kograph_num(caller->kograph, nbuf->data[i].key) == 0; i--);
+  const size_t kmer_size = caller->db_graph->kmer_size;
 
-  if(i == 0) {
-    status("Never met ref");
+  for(i = 0; i < nbuf->len; i++) {
+    if(kograph_num(caller->kograph, nbuf->data[i].key) > 0) break;
+  }
+  end = i;
+
+  if(end == nbuf->len) {
+    // status("Never met ref");
     return; // we never met the ref again
   }
-
-  // Found second ref meeting - find first node in block that is in ref
-  end = i;
-  while(kograph_num(caller->kograph, nbuf->data[end-1].key) > 0) end--;
-
-  ctx_assert(end > 1); // nbuf[1] should not be in the ref
 
   size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
 
@@ -108,13 +130,21 @@ static void process_contig(BreakpointCaller *caller, dBNodeBuffer *nbuf,
 
   gzprintf(gzout, ">call.%zu.5pflank cols=%zu", callid, cols[0]);
   for(i = 1; i < ncols; i++) gzprintf(gzout, ",%zu", cols[i]);
-  gzprintf(gzout, "\n");
-  // DEV
-  gzprintf(gzout, "\n");
+
+  // Print kmer occurances
+  gzprintf(gzout, " chr=");
+  for(i = 0; i < korun_buf->len; i++) {
+    if(i > 0) gzputc(gzout, ',');
+    ko_gzprint(gzout, kmer_size, kograph, korun_buf->data[i]);
+  }
+
+  gzputc(gzout, '\n');
+  db_nodes_gzprint(flank5p->data, flank5p->len, caller->db_graph, gzout);
+  gzputc(gzout, '\n');
 
   gzprintf(gzout, ">call.%zu.3pflank\n", callid);
-  db_nodes_gzprint_cont(nbuf->data+end, nbuf->len - end, caller->db_graph, gzout);
-  gzprintf(gzout, "\n");
+  db_nodes_gzprint_cont(nbuf->data+end, nbuf->len-end, caller->db_graph, gzout);
+  gzputc(gzout, '\n');
 
   gzprintf(gzout, ">call.%zu.path\n", callid);
   db_nodes_gzprint_cont(nbuf->data, end, caller->db_graph, gzout);
@@ -175,7 +205,8 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   // Follow all paths not in ref, in all colours
   GraphCrawler *fw_crawler = &caller->crawlers[node.orient];
   GraphCrawler *rv_crawler = &caller->crawlers[!node.orient];
-  dBNodeBuffer *nbuf = &caller->nbuf;
+  dBNodeBuffer *nbuf = &caller->nbuf, *flank5pbuf = &caller->flank5pbuf;
+  KOccurRunBuffer *korun_buf = &caller->korun_buf; // Kmer occurance runs
 
   for(i = 0; i < num_next; i++)
   {
@@ -186,21 +217,31 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
     // Loop over the flanks we got
     for(j = 0; j < rv_crawler->num_paths; j++)
     {
-      // DEV
+      // Get 5p flank
+      db_node_buf_reset(flank5pbuf);
+      graph_crawler_get_path_nodes(rv_crawler, j, flank5pbuf);
+      db_nodes_reverse_complement(flank5pbuf->data, flank5pbuf->len);
+
       // Check this flank is in the ref
+      kograph_filter_stretch(caller->kograph, flank5pbuf->data, flank5pbuf->len,
+                             korun_buf);
 
-      // Only traverse in the colours we have a flank for
-      GCMultiColPath *flankpath = &rv_crawler->multicol_paths[j];
-      graph_crawler_fetch(fw_crawler, node,
-                          next_nodes, next_nucs, j, num_next, -1,
-                          flankpath->cols, flankpath->num_cols);
+      if(korun_buf->len > 0)
+      {
+        // Only traverse in the colours we have a flank for
+        GCMultiColPath *flankpath = &rv_crawler->multicol_paths[j];
+        graph_crawler_fetch(fw_crawler, node,
+                            next_nodes, next_nucs, j, num_next, -1,
+                            flankpath->cols, flankpath->num_cols);
 
-      // Assemble contigs - fetch forwards for each 5p flank
-      for(k = 0; k < fw_crawler->num_paths; k++) {
-        db_node_buf_reset(nbuf);
-        graph_crawler_get_path_nodes(fw_crawler, k, nbuf);
-        GCMultiColPath *multicol_path = &fw_crawler->multicol_paths[k];
-        process_contig(caller, nbuf, multicol_path->cols, multicol_path->num_cols);
+        // Assemble contigs - fetch forwards for each 5p flank
+        for(k = 0; k < fw_crawler->num_paths; k++) {
+          db_node_buf_reset(nbuf);
+          graph_crawler_get_path_nodes(fw_crawler, k, nbuf);
+          GCMultiColPath *multicol_path = &fw_crawler->multicol_paths[k];
+          process_contig(caller, flank5pbuf, korun_buf,
+                         nbuf, multicol_path->cols, multicol_path->num_cols);
+        }
       }
     }
   }
@@ -268,7 +309,8 @@ void breakpoints_call(size_t num_of_threads,
   BreakpointCaller *callers = brkpt_callers_new(num_of_threads, gzout,
                                                 kograph, db_graph);
 
-  status("Running BreakpointCaller... output to: %s", out_path);
+  status("Running BreakpointCaller with %zu thread%s, output to: %s",
+         num_of_threads, num_of_threads == 1 ? "" : "s", out_path);
 
   breakpoints_print_header(gzout, args, seq_paths, num_seq_paths);
 

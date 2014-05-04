@@ -6,24 +6,6 @@
 #include "db_node.h"
 #include "supernode.h"
 
-void supernode_reverse(dBNode *nlist, size_t len)
-{
-  if(len == 0) return;
-
-  size_t i, j;
-  dBNode tmp;
-
-  for(i = 0, j = len-1; i+1 < j; i++, j--) {
-    tmp = nlist[i];
-    nlist[i] = db_node_reverse(nlist[j]);
-    nlist[j] = db_node_reverse(tmp);
-  }
-
-  tmp = nlist[i];
-  nlist[i] = db_node_reverse(nlist[j]);
-  nlist[j] = db_node_reverse(tmp);
-}
-
 static bool supernode_is_closed_cycle(const dBNode *nlist, size_t len,
                                          BinaryKmer bkmer0, BinaryKmer bkmer1,
                                          const dBGraph *db_graph)
@@ -89,13 +71,13 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
         // Shift left by idx, without affecting orientations
         db_nodes_left_shift(nlist, len, idx);
       } else {
-        supernode_reverse(nlist, idx+1);
-        supernode_reverse(nlist+idx+1, len-idx-1);
+        db_nodes_reverse_complement(nlist, idx+1);
+        db_nodes_reverse_complement(nlist+idx+1, len-idx-1);
       }
     }
   }
   else if(binary_kmer_less_than(bkmer1,bkmer0)) {
-    supernode_reverse(nlist, len);
+    db_nodes_reverse_complement(nlist, len);
   }
 }
 
@@ -146,7 +128,7 @@ void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
   size_t offset = nbuf->len;
   db_node_buf_add(nbuf, first);
   supernode_extend(nbuf, 0, db_graph);
-  supernode_reverse(nbuf->data+offset, nbuf->len-offset);
+  db_nodes_reverse_complement(nbuf->data+offset, nbuf->len-offset);
   supernode_extend(nbuf, 0, db_graph);
 }
 

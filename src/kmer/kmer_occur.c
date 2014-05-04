@@ -34,7 +34,7 @@ static void generate_chrom_list(KOGraph *kograph,
                                    .name = names_concat};
   
     memcpy(names_concat, reads[i].name.b, reads[i].name.end);
-    reads[i].name.b[reads[i].name.end] = '\0';
+    names_concat[reads[i].name.end] = '\0';
     names_concat += reads[i].name.end+1;
   }
 }
@@ -238,39 +238,103 @@ void kograph_free(KOGraph kograph)
   if(kograph.koccurs != NULL) ctx_free(kograph.koccurs);
 }
 
-// Sort by chromosome then by position
-static inline int kmer_occur_cmp(KOccur occur0, KOccur occur1, size_t dist)
+
+//
+// Check for a run of kmers in the reference genome
+//
+
+// Order by chrom and next
+static inline int korun_cmp(const void *aa, const void *bb)
 {
-  size_t offset0 = occur0.offset + dist, offset1 = occur1.offset;
-  if(occur0.chrom != occur1.chrom) return (int)occur0.chrom - occur1.chrom;
-  if(offset0 != offset1) return (offset0 < offset1 ? -1 : 1);
+  const KOccurRun *a = (const KOccurRun*)aa, *b = (const KOccurRun*)bb;
+  int cmp = (int)a->chrom - b->chrom;
+  if(cmp) return cmp;
+  if(a->next != b->next) return a->next > b->next ? 1 : -1;
   return 0;
 }
 
-// occur0 should be before occur1
-// kolist0 and kolist1 should already be sorted
-void kograph_get_kmer_run(const KOccur *restrict kolist0, size_t num0,
-                          const KOccur *restrict kolist1, size_t num1,
-                          size_t dist, KOccurBuffer *restrict kobuf)
+static void korun_sort(KOccurRun *run, size_t n)
 {
-  size_t i, j;
-  int cmp;
-  for(i = j = 0; i < num0 && j < num1; ) {
-    cmp = kmer_occur_cmp(kolist0[i], kolist1[j], dist);
-    if(cmp < 0) i++;
-    else if(cmp > 0) j++;
-    else { kmer_occur_buf_add(kobuf, kolist0[i]); i++; j++; }
+  qsort(run, n, sizeof(KOccurRun), korun_cmp);
+}
+
+// `run` should be of length kolist0->len
+// Returns length of run
+static size_t korun_create(dBNode node,
+                           const KOccur *kolist0, size_t num0,
+                           const KOccur *kolist1, size_t num1,
+                           KOccurRun *run)
+{
+  size_t i, j, startj = 0, k = 0, next;
+  bool fwstrand;
+  uint8_t strand;
+
+  for(i = 0; i < num0; i++) {
+
+    while(startj < num1 &&
+          (kolist0[i].chrom > kolist1[startj].chrom ||
+           kolist0[i].offset > kolist1[startj].offset+1)) { startj++; }
+
+    for(j = startj; j < num1; j++) {
+      if(kolist0[i].chrom < kolist1[j].chrom ||
+         kolist0[i].offset+1 < kolist1[j].offset) break;
+      else {
+        // Sanity checks
+        ctx_assert(kolist0[i].chrom == kolist1[j].chrom);
+        ctx_assert(kolist0[i].offset+1 == kolist1[j].offset ||
+                   kolist0[i].offset == kolist1[j].offset+1);
+
+        fwstrand = (kolist0[i].offset < kolist1[j].offset);
+        next = fwstrand ? kolist1[j].offset+1 : kolist1[j].offset-1;
+        strand = kolist0[i].orient == node.orient ? FORWARD : REVERSE;
+
+        run[k++] = (KOccurRun){.chrom = kolist0[i].chrom,
+                               .start = kolist0[i].offset,
+                               .next = next,
+                               .strand = strand};
+      }
+    }
   }
+
+  korun_sort(run, k);
+
+  return k;
+}
+
+// Returns length of run
+static size_t korun_update(KOccurRun *run, size_t nrun,
+                           const KOccur *kolist1, size_t num1)
+{
+  size_t i, j, startj = 0, k = 0;
+
+  for(i = 0; i < nrun; i++) {
+    while(startj < num1 &&
+          (run[i].chrom > kolist1[startj].chrom ||
+           run[i].next > kolist1[startj].offset)) { startj++; }
+
+    for(j = startj; j < num1; j++) {
+      if(run[i].chrom < kolist1[j].chrom ||
+         run[i].next < kolist1[j].offset) break;
+      else {
+        if(run[i].next > run[i].start) run[i].next++;
+        else run[i].next--;
+        run[k++] = run[i];
+      }
+    }
+  }
+
+  korun_sort(run, k);
+
+  return k;
 }
 
 // Filter regions down to only those that stretch the whole distance
-// `kobuf` is left with regions that span all the nodes
 // Returns number of sites where the nodes align to the reference
-size_t kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
-                              KOccurBuffer *kobuf, KOccurBuffer *kobuftmp)
+size_t kograph_filter_stretch(KOGraph kograph,
+                              const dBNode *nodes, size_t len,
+                              KOccurRunBuffer *korun_buf)
 {
-  kmer_occur_buf_reset(kobuf);
-  kmer_occur_buf_reset(kobuftmp);
+  kmer_run_buf_reset(korun_buf);
   if(len == 0 || kograph.nchroms == 0) return 0;
 
   KOccur *kolist0, *kolist1;
@@ -280,20 +344,37 @@ size_t kograph_filter_stretch(KOGraph kograph, const dBNode *nodes, size_t len,
   n0 = kograph_num(kograph, nodes[0].key);
 
   if(n0 == 0) return 0;
-  if(len == 1) { kmer_occur_buf_append(kobuf, kolist0, n0); return n0; }
+  if(len == 1) {
+    kmer_run_buf_ensure_capacity(korun_buf, n0);
+    uint8_t strand;
+    size_t next;
+    for(i = 0; i < n0; i++) {
+      strand = kolist0[i].orient == nodes[0].orient ? FORWARD : REVERSE;
+      next = strand == STRAND_PLUS ? kolist0[i].offset+1 : kolist0[i].offset-1;
+      korun_buf->data[i] = (KOccurRun){.chrom = kolist0[i].chrom,
+                                       .start = kolist0[i].offset,
+                                       .next = next,
+                                       .strand = strand};
+    }
+    korun_buf->len = n0;
+    return n0;
+  }
 
-  for(i = 1; i < len; i++)
+  kolist1 = kograph_get(kograph, nodes[1].key);
+  n1 = kograph_num(kograph, nodes[1].key);
+  if(n1 == 0) return 0;
+
+  kmer_run_buf_ensure_capacity(korun_buf, n0);
+  korun_buf->len = korun_create(nodes[0], kolist0, n0, kolist1, n1, korun_buf->data);
+
+  for(i = 2; i < len && korun_buf->len > 0; i++)
   {
     kolist1 = kograph_get(kograph, nodes[i].key);
     n1 = kograph_num(kograph, nodes[i].key);
 
-    if(n1 == 0) { kmer_occur_buf_reset(kobuf); return 0; }
-
-    kmer_occur_buf_reset(kobuftmp);
-    kograph_get_kmer_run(kolist0, n0, kolist1, n1, i, kobuftmp);
-    SWAP(*kobuf, *kobuftmp);
-    kolist0 = kobuf->data; n0 = kobuf->len;
+    korun_buf->len = korun_update(korun_buf->data, korun_buf->len,
+                                  kolist1, n1);
   }
 
-  return kobuf->len;
+  return korun_buf->len;
 }

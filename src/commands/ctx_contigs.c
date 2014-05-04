@@ -170,7 +170,7 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
   for(orient = 0; orient < 2; orient++)
   {
     if(orient == 1) {
-      supernode_reverse(nodes->data, nodes->len);
+      db_nodes_reverse_complement(nodes->data, nodes->len);
       hkey = nodes->data[nodes->len-1].key;
     }
 

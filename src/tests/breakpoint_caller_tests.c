@@ -41,6 +41,9 @@ static void test_kmer_occur_filter()
   TASSERT(kograph.nchroms == NUM_READS);
   TASSERT(kograph.koccurs != NULL);
 
+  KOccurRunBuffer kobuf;
+  kmer_run_buf_alloc(&kobuf, 16);
+
   // Check CCCGACAGGGCAA starts at CCCGACAGGGC
   // x=CCCGACAGGGC, y=CCGACAGGGCA, z=CGACAGGGCAA
   // X=GCCCTGTCGGG, Y=TGCCCTGTCGG, Z=TTGCCCTGTCG
@@ -48,21 +51,30 @@ static void test_kmer_occur_filter()
   for(i = 0; i < NUM_NODES; i++)
     nodes[i] = db_graph_find_str(&graph, &"CCCGACAGGGCAA"[i]);
 
-  KOccurBuffer kobuf, kobuftmp;
-  kmer_occur_buf_alloc(&kobuf, 16);
-  kmer_occur_buf_alloc(&kobuftmp, 16);
+  size_t n = kograph_filter_stretch(kograph, nodes, NUM_NODES, &kobuf);
 
-  size_t n = kograph_filter_stretch(kograph, nodes, NUM_NODES, &kobuf, &kobuftmp);
-
-  // Tests
+  // Checks
   TASSERT(n == kobuf.len);
   TASSERT2(kobuf.len == 1, "got: %zu", kobuf.len);
-  TASSERT(kobuf.data[0].orient == FORWARD);
+  TASSERT(kobuf.data[0].strand == STRAND_PLUS); // left-to-right with ref
   TASSERT(kobuf.data[0].chrom == 1);
-  TASSERT2(kobuf.data[0].offset == 5, "offset: %zu", (size_t)kobuf.data[0].offset);
+  TASSERT2(kobuf.data[0].start == 5, "offset: %zu", (size_t)kobuf.data[0].start);
+  TASSERT(kobuf.data[0].next == 8);
 
-  kmer_occur_buf_dealloc(&kobuf);
-  kmer_occur_buf_dealloc(&kobuftmp);
+  // Test reverse
+  db_nodes_reverse_complement(nodes, NUM_NODES);
+
+  n = kograph_filter_stretch(kograph, nodes, NUM_NODES, &kobuf);
+
+  // Checks
+  TASSERT(n == kobuf.len);
+  TASSERT2(kobuf.len == 1, "got: %zu", kobuf.len);
+  TASSERT(kobuf.data[0].strand == STRAND_MINUS); // reverse complement of ref
+  TASSERT(kobuf.data[0].chrom == 1);
+  TASSERT2(kobuf.data[0].start == 7, "offset: %zu", (size_t)kobuf.data[0].start);
+  TASSERT(kobuf.data[0].next == 4);
+
+  kmer_run_buf_dealloc(&kobuf);
 
   for(i = 0; i < NUM_READS; i++) seq_read_dealloc(&reads[i]);
   kograph_free(kograph);

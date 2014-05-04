@@ -463,6 +463,7 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
     }
 
     // Last thread
+    workers[0] = (ThreadedWorker){.jobs = &jobs, .curr_job = 0};
     threaded_worker_sub(&workers[0]);
 
     /* wait for other threads to complete */

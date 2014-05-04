@@ -6,7 +6,7 @@
 #include "db_node.h"
 
 // Reverse order and orientations of nodes
-void supernode_reverse(dBNode *nlist, size_t len);
+void db_nodes_reverse_complement(dBNode *nlist, size_t len);
 
 // Orient supernode
 // Once oriented, supernode has lowest poosible kmerkey at the beginning,

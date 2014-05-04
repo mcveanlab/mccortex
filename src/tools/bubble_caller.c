@@ -236,7 +236,7 @@ static void print_bubble(BubbleCaller *caller,
     // flank5p[0] already contains the first node
     flank5p->len = 1;
     supernode_extend(flank5p, prefs.max_flank_len, db_graph);
-    supernode_reverse(flank5p->data, flank5p->len);
+    db_nodes_reverse_complement(flank5p->data, flank5p->len);
   }
 
   //
