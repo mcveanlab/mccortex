@@ -21,6 +21,8 @@ MAXALLELE=500
 NTHREADS=2
 # How many contigs to print
 NCONTIGS=10000
+# How many samples to load at once
+NUMCOLS=100
 
 SHELL := /bin/bash
 
@@ -44,9 +46,8 @@ endif
 $(shell (echo '#!/bin/bash'; echo '$(STAMPY_BIN) $$@';) > stampy.sh; chmod +x stampy.sh)
 STAMPY_BIN=./stampy.sh
 
-NUMCOLS=$(shell echo $$(($(NUM_INDIVS)+1)))
-# 8bytes for kmer, 4 for covgs, 1 for edges + 10MB wiggle
-MEM=$(shell echo $$[ $(MEMWIDTH) * (2**$(MEMHEIGHT)) * (8+(4+1)*$(NUMCOLS)) + 10000000 ])
+# 8bytes for kmer, 4 for covgs, 1 for edges + 10GB wiggle
+MEM=$(shell echo $$[ $(MEMWIDTH) * (2**$(MEMHEIGHT)) * (8+(4+1)*$(NUMCOLS)) + 10000000000 ])
 
 # 50GB for threading
 THREADMEM=$(shell echo $$[ $(MEM)+50000000000 ])
