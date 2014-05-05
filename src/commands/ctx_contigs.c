@@ -502,18 +502,20 @@ int ctx_contigs(CmdArgs *args)
   char jnc_min_str[90], jnc_max_str[90], jnc_total_str[90];
   char jnc_mean_str[90], jnc_median_str[90], jnc_n50_str[90];
 
-  num_to_str(len_mean, 1, len_mean_str);
-  num_to_str(jnc_mean, 1, jnc_mean_str);
-  num_to_str(len_median, 1, len_median_str);
-  num_to_str(jnc_median, 1, jnc_median_str);
-  num_to_str(len_n50, 1, len_n50_str);
-  num_to_str(jnc_n50, 1, jnc_n50_str);
-  num_to_str(cd.min_len, 1, len_min_str);
-  num_to_str(cd.min_junc, 1, jnc_min_str);
-  num_to_str(cd.max_len, 1, len_max_str);
-  num_to_str(cd.max_junc, 1, jnc_max_str);
-  num_to_str(cd.total_len, 1, len_total_str);
-  num_to_str(cd.total_junc, 1, jnc_total_str);
+  // Use ulong_to_str instead of num_to_str to get better accuracy
+  // e.g. 966 instead of 1K
+  ulong_to_str(len_mean, len_mean_str);
+  ulong_to_str(jnc_mean, jnc_mean_str);
+  ulong_to_str(len_median, len_median_str);
+  ulong_to_str(jnc_median, jnc_median_str);
+  ulong_to_str(len_n50, len_n50_str);
+  ulong_to_str(jnc_n50, jnc_n50_str);
+  ulong_to_str(cd.min_len, len_min_str);
+  ulong_to_str(cd.min_junc, jnc_min_str);
+  ulong_to_str(cd.max_len, len_max_str);
+  ulong_to_str(cd.max_junc, jnc_max_str);
+  ulong_to_str(cd.total_len, len_total_str);
+  ulong_to_str(cd.total_junc, jnc_total_str);
 
   status("Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
          len_mean_str, len_median_str, len_n50_str, len_min_str, len_max_str, len_total_str);
