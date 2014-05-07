@@ -1,4 +1,4 @@
-Population De Novo Assembly and Variant Calling
+McCortex: Population De Novo Assembly and Variant Calling
 ===============================================
 
 Multi-sample de novo assembly and variant calling using de bruijn graphs.
@@ -9,7 +9,9 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly.
 
-28 March 2014
+*Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
+
+07 May 2014
 
 [![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
 
@@ -36,7 +38,7 @@ Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: 61fa73b; zlib: 1.2.5 ASSERTS=ON CHECKS=ON k=3..31
+    version: ctx=XXXX zlib=1.2.5 htslib=0.2.0-rc7-74-g996b3c0 ASSERTS=ON CHECKS=ON k=3..31
 
     Commands:   breakpoints  Use trusted assembled genome to call large events
                 build        construct cortex graph from FASTA/FASTQ/BAM
@@ -74,9 +76,9 @@ Getting Helps
 
 Type a command with no arguments to see usage.
 
-Check out the [wiki](https://github.com/noporpoise/ninja-cortex/wiki)
+Check out the [wiki](https://github.com/mcveanlab/mccortex/wiki)
 
-If you find a bug please submitted an [Issue](https://github.com/noporpoise/ninja-cortex/issues) on github.
+If you find a bug please submitted an [Issue](https://github.com/mcveanlab/mccortex/issues) on github.
 
 Cortex mailing list: https://groups.google.com/forum/#!forum/cortex_var
 
