@@ -83,7 +83,7 @@ CtxCmd cmdobjs[] = {
 {
   .cmd = "inferedges", .func = ctx_infer_edges, .hide = 0,
   .minargs = 1, .maxargs = 3, .optargs = "mno", .reqargs = "",
-  .blurb = "infer graph edges before calling `thread`",
+  .blurb = "infer graph edges between kmers before calling `thread`",
   .usage = inferedges_usage
 },
 {
@@ -111,10 +111,10 @@ CtxCmd cmdobjs[] = {
   .usage = pjoin_usage
 },
 {
-  .cmd = "call", .func = ctx_call, .hide = 0,
+  .cmd = "bubbles", .func = ctx_bubbles, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "tmnpo", .reqargs = "o",
-  .blurb = "call variants with bubble caller",
-  .usage = call_usage
+  .blurb = "find bubbles in graph which are potential variants",
+  .usage = bubbles_usage
 },
 {
   .cmd = "unique", .func = ctx_unique, .hide = 0,
@@ -125,13 +125,13 @@ CtxCmd cmdobjs[] = {
 {
   .cmd = "place", .func = ctx_place, .hide = 0,
   .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
-  .blurb = "place variants and genotype",
+  .blurb = "place variants against a reference",
   .usage = place_usage
 },
 {
   .cmd = "breakpoints", .func = ctx_breakpoints, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "opmnt", .reqargs = "o",
-  .blurb = "Use trusted assembled genome to call large events",
+  .blurb = "use a trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },
 {

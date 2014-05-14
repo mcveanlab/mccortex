@@ -16,7 +16,7 @@
 #define DEFAULT_MAX_FLANK 1000
 #define DEFAULT_MAX_ALLELE 300
 
-const char call_usage[] =
+const char bubbles_usage[] =
 "usage: "CMD" call [options] <in.ctx> [in2.ctx ...]\n"
 "  Find bubbles in the graph, which are potential variants.\n"
 "\n"
@@ -31,7 +31,7 @@ const char call_usage[] =
 "  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n";
 
-int ctx_call(CmdArgs *args)
+int ctx_bubbles(CmdArgs *args)
 {
   int argi, argc = args->argc;
   char **argv = args->argv;

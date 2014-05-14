@@ -35,7 +35,7 @@ seq%.k$(K).ctx: seq%.fa
 	$(CTX) build -m 10M -k $(K) --sample $< --seq $< $@
 
 bubbles.txt.gz: $(GRAPHS)
-	$(CTX) call -t 1 -m 10M -o bubbles.txt.gz $(GRAPHS)
+	$(CTX) bubbles -t 1 -m 10M -o bubbles.txt.gz $(GRAPHS)
 
 bubbles.txt: bubbles.txt.gz
 	gzip -df bubbles.txt.gz

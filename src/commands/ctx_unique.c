@@ -729,7 +729,7 @@ static char reader_next(CallReader *cr, gzFile fh, Var *var)
     load_assert(line->buff[0] == '>', line);
     load_assert(strncmp(line->buff+1, name->buff, name->len) == 0, line);
 
-    int n = sscanf(line->buff+1+name->len, "_branch_%u length=%u",
+    int n = sscanf(line->buff+1+name->len, "_branch_%u kmers=%u",
                    &branch_num, &branch_nodes);
 
     load_assert(n == 2, line);

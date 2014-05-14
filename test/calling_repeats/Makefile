@@ -4,7 +4,7 @@ SHELL:=/bin/bash
 
 K=9
 CTX=../../bin/ctx31
-STAMPY=python2.6 ~/bioinf/stampy-1.0.20/stampy.py
+STAMPY=python2.6 ~/bioinf/stampy-1.0.23/stampy.py
 
 SEQ=seq1.fa seq2.fa
 GRAPHS=seq.k$(K).ctx
@@ -63,7 +63,7 @@ seq.k$(K).kmers.pdf: seq.k$(K).ctx
 	../../scripts/cortex_to_graphviz.pl seq.k$(K).ctx | dot -Tpdf > seq.k$(K).kmers.pdf
 
 calls.k$(K).bubbles.gz:
-	$(CTX) call -p seq.k$(K).ctp seq.k$(K).ctx calls.k$(K).bubbles.gz
+	$(CTX) bubbles -p seq.k$(K).ctp -o calls.k$(K).bubbles.gz seq.k$(K).ctx
 
 calls.k$(K).5pflanks.fa.gz calls.k$(K).vcf.gz:
 	$(CTX) unique calls.k$(K).bubbles.gz calls.k$(K)
