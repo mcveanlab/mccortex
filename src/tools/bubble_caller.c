@@ -313,7 +313,6 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   bool node_has_col[4];
 
   uint32_t pathid;
-  size_t max_allele_len = caller->prefs.max_allele_len;
 
   for(colour = 0; colour < colours_loaded; colour++)
   {
@@ -333,8 +332,8 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
         graph_walker_init(wlk, db_graph, colour, colour, fork_node);
         graph_traverse_force(wlk, nodes[i].key, bases[i], num_edges_in_col > 1);
 
-        pathid = graph_crawler_load_path(cache, nodes[i], wlk, rptwlk,
-                                         max_allele_len);
+        pathid = graph_crawler_load_path_limit(cache, nodes[i], wlk, rptwlk,
+                                               caller->prefs.max_allele_len);
 
         graph_walker_finish(wlk);
         graph_crawler_reset_rpt_walker(rptwlk, cache, pathid);

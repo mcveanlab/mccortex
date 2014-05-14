@@ -6,7 +6,7 @@
 #include "repeat_walker.h"
 
 typedef struct {
-  int pathid;
+  int pathid; // set to -1 if not used
   uint32_t colour;
 } GCUniColPath;
 
@@ -48,12 +48,16 @@ void graph_crawler_dealloc(GraphCrawler *crawler);
 // `node1` should be the first node of a supernode
 // `node0` should be the previous node
 // `next_base` is the last base of `node1`
-// `max_len` is the max length in kmers (don't add more supernodes if over)
-//           if -1 it is ignored
+// `jmpfunc` is called with each supernode traversed and if it returns true
+//           we continue crawling, otherwise we stop
+// `endfunc` is a function called at the end of traversal
 void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
                          dBNode next_nodes[4], Nucleotide next_bases[4],
-                         size_t take_idx, size_t num_next, long max_len,
-                         uint32_t *cols, size_t ncols);
+                         size_t take_idx, size_t num_next,
+                         uint32_t *cols, size_t ncols,
+                         bool (*jmpfunc)(GraphCache *_cache, GCacheStep *_step, void *_arg),
+                         void (*endfunc)(GraphCache *_cache, uint32_t _pathid, void *_arg),
+                         void *arg);
 
 void graph_crawler_get_path_nodes(const GraphCrawler *crawler, size_t pidx,
                                   dBNodeBuffer *nbuf);
@@ -65,13 +69,53 @@ void graph_crawler_get_path_nodes(const GraphCrawler *crawler, size_t pidx,
 // Constructs a path of supernodes (SupernodePath)
 // `wlk` GraphWalker should be set to go at `node`
 // `rptwlk` RepeatWalker should be clear
+// `func` is a function that determines if we should carry on after each snode
+// returns pathid in GraphCache
+uint32_t graph_crawler_load_path2(GraphCache *cache, dBNode node,
+                                  GraphWalker *wlk, RepeatWalker *rptwlk,
+                                  bool (*func)(GraphCache *_cache,
+                                               GCacheStep *_step, void *_arg),
+                                  void *arg);
+
+// Constructs a path of supernodes (SupernodePath)
+// `wlk` GraphWalker should be set to go at `node`
+// `rptwlk` RepeatWalker should be clear
+// `kmer_length_limit` is the max length to crawl
+// returns pathid in GraphCache
+uint32_t graph_crawler_load_path_limit(GraphCache *cache, dBNode node,
+                                       GraphWalker *wlk, RepeatWalker *rptwlk,
+                                       size_t kmer_length_limit);
+
+// Constructs a path of supernodes (SupernodePath)
+// `wlk` GraphWalker should be set to go at `node`
+// `rptwlk` RepeatWalker should be clear
 // returns pathid in GraphCache
 uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
-                                 GraphWalker *wlk, RepeatWalker *rptwlk,
-                                 long kmer_length_limit);
+                                 GraphWalker *wlk, RepeatWalker *rptwlk);
 
 // Remove traversal marks in RepeatWalker after walking along a given path
 void graph_crawler_reset_rpt_walker(RepeatWalker *rptwlk,
                                     const GraphCache *cache, uint32_t pathid);
+
+// Always returns true
+static inline bool gcrawler_load_path_return_true(GraphCache *cache,
+                                                  GCacheStep *step,
+                                                  void *arg)
+{
+  (void)cache; (void)step; (void)arg;
+  return true;
+}
+
+// data[0] is number of kmers so far
+// data[1] is the kmer limit
+static inline bool gcrawler_load_path_limit_kmer_len(GraphCache *cache,
+                                                     GCacheStep *step,
+                                                     void *arg)
+{
+  const GCacheSnode *snode = graph_cache_snode(cache, step->supernode);
+  size_t *data = (size_t*)arg;
+  data[0] += snode->num_nodes;
+  return (data[0] < data[1]);
+}
 
 #endif /* GRAPH_CRAWLER_H_ */

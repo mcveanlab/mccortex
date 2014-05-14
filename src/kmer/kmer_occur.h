@@ -9,6 +9,9 @@
 // each kmer occurs in the sequences. Used in breakpoint_caller.c.
 //
 
+// Limits on number of chromosomes and max chromosome length
+// max chroms = 8,388,608
+// max chrom len = 1,099,511,627,776
 #define KMER_OCCUR_MAX_CHROMS (1<<23)
 #define KMER_OCCUR_MAX_LEN (1UL<<40)
 
@@ -25,6 +28,7 @@ struct KONodeListStruct {
 
 typedef struct KONodeListStruct KONodeList;
 
+// KOccur fits in one 64 bit word
 typedef struct
 {
   uint64_t orient:1, chrom:23, offset:40;
@@ -39,13 +43,13 @@ typedef struct
   char *chrom_name_buf;
 } KOGraph;
 
-#define STRAND_PLUS 0
-#define STRAND_MINUS 1
-
 typedef struct {
-  uint64_t start, next;
-  uint32_t chrom;
-  uint8_t strand; // 0 => + (with ref), 1 => - (revcmp ref)
+  uint64_t first, last; // 0-bases chromosome coordinates
+  uint32_t qoffset, chrom; // qoffset some query offset
+  // strand:
+  //   0 => + (with ref, first <= last)
+  //   1 => - (reverse ref, last <= first)
+  bool strand, used; // used helps mark runs that are dropped
 } KOccurRun;
 
 #include "objbuf_macro.h"
@@ -70,10 +74,28 @@ void kograph_free(KOGraph kograph);
 // Get the chromosome from which a kmer came (occur can be KOccurRun or KOccur)
 #define kograph_chrom(kograph,occur) ((kograph).chroms[(occur).chrom])
 
+#define korun_len(run) ((run).strand == STRAND_PLUS ? (run).last-(run).first+1 \
+                                                    : (run).first-(run).last+1)
+
+void koruns_sort_by_qoffset(KOccurRun *runs, size_t n);
+
 // Filter regions down to only those that stretch the whole distance
-// Returns number of sites where the nodes align to the reference
-size_t kograph_filter_stretch(KOGraph kograph,
-                              const dBNode *nodes, size_t len,
-                              KOccurRunBuffer *korun_buf);
+// Does not reset either korun or runs_ended - only adds to runs_ended
+// korun can only get shorter as KOccurRuns finish
+// `qoffset` is used for offset of new runs starting at nodes[0]
+void kograph_filter_extend(KOGraph kograph,
+                           const dBNode *nodes, size_t num_nodes, bool forward,
+                           size_t min_len, size_t qoffset,
+                           KOccurRunBuffer *korun,
+                           KOccurRunBuffer *runs_ended);
+
+// Mostly used for debugging
+void korun_print(KOccurRun run, size_t kmer_size, FILE *fout);
+
+// Get string representation of multiple runs, comma separated
+//   e.g. "chromid:1:17-5:-, chromid:1:37-47:+"
+// Does not print new line
+// Mostly used for debugging
+void koruns_print(KOccurRun *run, size_t n, size_t kmer_size, FILE *fout);
 
 #endif /* KMER_OCCUR_H_ */

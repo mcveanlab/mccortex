@@ -13,7 +13,7 @@ with better genome assembly.
 
 07 May 2014
 
-[![Build Status](https://magnum.travis-ci.com/noporpoise/ninja-cortex.png?token=HkeonfUv1FrRw6UkpJot&branch=master)](https://magnum.travis-ci.com/noporpoise/ninja-cortex)
+[![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)
 
 Build
 -----
@@ -93,7 +93,7 @@ to the AUTHORS file.
 Code should compile on mac/linux with clang/gcc without errors or warnings.
 
 Code is organised as:
-* libs/         included library code from other projects
+* libs/         included library code from other projects / third party code
 * src/basic     files that do not depend on MAX_KMER_SIZE
 * src/kmer      files that need recompiling based on different MAX_KMER_SIZE
 * src/tools     complex operations performed on the graph

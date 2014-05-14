@@ -24,15 +24,18 @@ static inline void walk_supernode_end(const GraphCache *cache,
 // Constructs a path of supernodes (SupernodePath)
 // `wlk` GraphWalker should be set to go at `node`
 // `rptwlk` RepeatWalker should be clear
+// `jmpfunc` is a function that determines if we should carry on after each snode step
 // returns pathid in GraphCache
-uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
-                                 GraphWalker *wlk, RepeatWalker *rptwlk,
-                                 long kmer_length_limit)
+uint32_t graph_crawler_load_path2(GraphCache *cache, dBNode node,
+                                  GraphWalker *wlk, RepeatWalker *rptwlk,
+                                  bool (*jmpfunc)(GraphCache *_cache,
+                                                  GCacheStep *_step, void *_arg),
+                                  void *arg)
 {
   size_t i;
-  long kmers_in_path = 0;
   uint32_t stepid, pathid = graph_cache_new_path(cache);
 
+  ctx_assert(jmpfunc != NULL);
   ctx_assert(db_nodes_are_equal(wlk->node, node));
 
   for(i = 0; ; i++)
@@ -42,12 +45,10 @@ uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
     GCacheStep *step = graph_cache_step(cache, stepid);
     GCacheSnode *snode = graph_cache_snode(cache, step->supernode);
 
-    // Check path length
-    kmers_in_path += snode->num_nodes;
-    if(kmer_length_limit > 0 && kmers_in_path > kmer_length_limit) break;
-
     // Traverse to the end of the supernode
     walk_supernode_end(cache, snode, step->orient, wlk);
+
+    if(!jmpfunc(cache, step, arg)) break;
 
     // Find next node
     uint8_t num_edges;
@@ -65,6 +66,7 @@ uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
       binary_seq_unpack_byte(next_bases, snode->prev_bases);
     }
 
+    // Traverse to next supernode
     if(!graph_traverse_nodes(wlk, num_edges, next_nodes, next_bases) ||
        !rpt_walker_attempt_traverse(rptwlk, wlk)) break;
 
@@ -73,6 +75,32 @@ uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
 
   return pathid;
 }
+
+// Constructs a path of supernodes (SupernodePath)
+// `wlk` GraphWalker should be set to go at `node`
+// `rptwlk` RepeatWalker should be clear
+// returns pathid in GraphCache
+uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
+                                 GraphWalker *wlk, RepeatWalker *rptwlk)
+{
+  return graph_crawler_load_path2(cache, node, wlk, rptwlk,
+                                  gcrawler_load_path_return_true, NULL);
+}
+
+// Constructs a path of supernodes (SupernodePath)
+// `wlk` GraphWalker should be set to go at `node`
+// `rptwlk` RepeatWalker should be clear
+// returns pathid in GraphCache
+uint32_t graph_crawler_load_path_limit(GraphCache *cache, dBNode node,
+                                       GraphWalker *wlk, RepeatWalker *rptwlk,
+                                       size_t kmer_length_limit)
+{
+  size_t path_limit[2] = {0, kmer_length_limit};
+
+  return graph_crawler_load_path2(cache, node, wlk, rptwlk,
+                                  gcrawler_load_path_limit_kmer_len, path_limit);
+}
+
 
 void graph_crawler_reset_rpt_walker(RepeatWalker *rptwlk,
                                     const GraphCache *cache, uint32_t pathid)
@@ -146,12 +174,16 @@ static inline int unicol_path_cmp(const void *aa, const void *bb, void *arg)
 // `node1` should be the first node of a supernode
 // `node0` should be the previous node
 // `next_base` is the last base of `node1`
-// `max_len` is the max length in kmers (don't add more supernodes if over)
-//           if -1 it is ignored
+// `jmpfunc` is called with each supernode traversed and if it returns true
+//           we continue crawling, otherwise we stop
+// `endfunc` is a function called at the end of traversal
 void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
                          dBNode next_nodes[4], Nucleotide next_bases[4],
-                         size_t take_idx, size_t num_next, long max_len,
-                         uint32_t *cols, size_t ncols)
+                         size_t take_idx, size_t num_next,
+                         uint32_t *cols, size_t ncols,
+                         bool (*jmpfunc)(GraphCache *_cache, GCacheStep *_step, void *_arg),
+                         void (*endfunc)(GraphCache *_cache, uint32_t _pathid, void *_arg),
+                         void *arg)
 {
   const dBGraph *db_graph = crawler->cache.db_graph;
   GraphCache *cache = &crawler->cache;
@@ -185,7 +217,9 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
       graph_walker_init(wlk, db_graph, col, col, node0);
       graph_traverse_force(wlk, node1.key, base1, is_fork);
 
-      pathid = graph_crawler_load_path(cache, node1, wlk, rptwlk, max_len);
+      pathid = graph_crawler_load_path2(cache, node1, wlk, rptwlk, jmpfunc, arg);
+
+      if(endfunc != NULL) endfunc(cache, pathid, arg);
 
       graph_walker_finish(wlk);
       graph_crawler_reset_rpt_walker(rptwlk, cache, pathid);

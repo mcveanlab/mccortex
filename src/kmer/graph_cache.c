@@ -166,7 +166,7 @@ uint32_t graph_cache_new_step(GraphCache *cache, dBNode node)
   uint32_t stepid = cache_step_buf_add(&cache->step_buf, next);
 
   // Add link from prev supernode step
-  snode->first_step =  stepid;
+  snode->first_step = stepid;
 
   path->num_steps++;
   return stepid;

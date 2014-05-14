@@ -9,7 +9,7 @@ extern const uint8_t revcmp_table[256];
 #define bases_in_top_byte(nbases) ((((nbases) - 1) & 3) + 1)
 #define bits_in_top_byte(nbases) (bases_in_top_byte(nbases) * 2)
 
-#define binary_seq_unpack_byte(arr,b) do { \
+#define binary_seq_unpack_byte(arr,b) do {   \
   (arr)[0] =  (b)     & 0x3;                 \
   (arr)[1] = ((b)>>2) & 0x3;                 \
   (arr)[2] = ((b)>>4) & 0x3;                 \
