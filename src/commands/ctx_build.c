@@ -359,7 +359,7 @@ int ctx_build(CmdArgs *args)
   //
   // Check output path
   //
-  const char *out_path_name = (strcmp(out_path,"-") == 0 ? "STDOUT" : out_path);
+  const char *out_path_name = futil_outpath_str(out_path);
 
   if(strcmp(out_path,"-") != 0)
   {

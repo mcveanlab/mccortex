@@ -159,7 +159,7 @@ int ctx_thread(CmdArgs *args)
 
   size_t total_cols = MAX2(ctx_total_cols, path_max_usedcols);
   status("Creating paths file with %zu colour%s: %s",
-         total_cols, total_cols != 1 ? "s" : "", out_ctp_path);
+         total_cols, util_plural_str(total_cols), out_ctp_path);
 
   //
   // Decide on memory

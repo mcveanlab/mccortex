@@ -8,10 +8,6 @@
 #include "kmer_occur.h"
 #include "graph_crawler.h"
 
-// Require 5 kmers on the reference before and after breakpoint
-#define MIN_REF_NKMERS 5
-#define MAX_REF_NKMERS 1000
-
 typedef struct {
   size_t first_runid, num_runs;
 } PathRefRun;
@@ -44,6 +40,8 @@ typedef struct
 } BreakpointCaller;
 
 static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
+                                           size_t min_ref_flank,
+                                           size_t max_ref_flank,
                                            const KOGraph kograph,
                                            const dBGraph *db_graph)
 {
@@ -69,8 +67,8 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
                             .out_lock = out_lock,
                             .callid = callid,
                             .path_refs = path_refs+i*ncols,
-                            .min_ref_nkmers = MIN_REF_NKMERS,
-                            .max_ref_nkmers = MAX_REF_NKMERS};
+                            .min_ref_nkmers = min_ref_flank,
+                            .max_ref_nkmers = max_ref_flank};
 
     memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
 
@@ -165,6 +163,10 @@ static void process_contig(BreakpointCaller *caller,
   size_t i, end = flank3p_runs[0].qoffset;
   size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
 
+  // Swallow up some of the path into the 3p flank
+  size_t shift3p = MIN2(kmer_size-1, end);
+  end -= shift3p;
+
   pthread_mutex_lock(caller->out_lock);
 
   // 5p flank with list of ref intersections
@@ -176,7 +178,7 @@ static void process_contig(BreakpointCaller *caller,
 
   // 3p flank with list of ref intersections
   gzprintf(gzout, ">call.%zu.3pflank chr=", callid);
-  koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs, end);
+  koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs, end+shift3p);
   gzputc(gzout, '\n');
   db_nodes_gzprint_cont(nbuf->data+end, nbuf->len-end, caller->db_graph, gzout);
   gzputc(gzout, '\n');
@@ -244,6 +246,19 @@ static bool gcrawler_stop_at_ref_covg(GraphCache *cache, GCacheStep *step,
   return (koruns_3p_ended->len == 0 || max_ref_run < caller->min_ref_nkmers);
 }
 
+// src, dst can point to the same place
+// returns number of elements added
+static inline size_t filter_koruns(KOccurRun *src, size_t n,
+                                   KOccurRun *dst, size_t min_kmers)
+{
+  size_t i, j;
+  for(i = j = 0; i < n; i++)
+    if(korun_len(src[i]) >= min_kmers)
+      dst[j++] = src[i];
+
+  return j;
+}
+
 static void gcrawler_finish_ref_covg(GraphCache *cache, uint32_t pathid,
                                      void *arg)
 {
@@ -252,17 +267,15 @@ static void gcrawler_finish_ref_covg(GraphCache *cache, uint32_t pathid,
   const KOccurRunBuffer *koruns_3p = &caller->koruns_3p;
   const KOccurRunBuffer *koruns_3p_ended = &caller->koruns_3p_ended;
   KOccurRunBuffer *dst = &caller->path_run_buf;
-  size_t i, init_len = dst->len;
+  size_t init_len = dst->len;
 
   // Copy finished runs into array
   kmer_run_buf_ensure_capacity(dst, dst->len+koruns_3p->len+koruns_3p_ended->len);
   kmer_run_buf_append(dst, koruns_3p_ended->data, koruns_3p_ended->len);
 
-  for(i = 0; i < koruns_3p->len; i++) {
-    if(korun_len(koruns_3p->data[i]) > caller->min_ref_nkmers) {
-      dst->data[dst->len++] = koruns_3p->data[i];
-    }
-  }
+  dst->len += filter_koruns(koruns_3p->data, koruns_3p->len,
+                            dst->data+dst->len,
+                            caller->min_ref_nkmers);
 
   caller->path_refs[pathid].first_runid = init_len;
   caller->path_refs[pathid].num_runs = dst->len - init_len;
@@ -360,6 +373,16 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
                             flank5pbuf->data, flank5pbuf->len, true,
                             caller->min_ref_nkmers, 0,
                             koruns_5p, koruns_5p_ended);
+
+      koruns_5p->len = filter_koruns(koruns_5p->data,
+                                     koruns_5p->len,
+                                     koruns_5p->data,
+                                     caller->min_ref_nkmers);
+
+      koruns_5p->len += filter_koruns(koruns_5p_ended->data,
+                                      koruns_5p_ended->len,
+                                      koruns_5p->data+koruns_5p->len,
+                                      caller->min_ref_nkmers);
 
       kmer_run_buf_append(koruns_5p, koruns_5p_ended->data, koruns_5p_ended->len);
 
@@ -462,20 +485,31 @@ void breakpoints_call(size_t num_of_threads,
                       const read_t *reads, size_t num_reads,
                       gzFile gzout, const char *out_path,
                       const char **seq_paths, size_t num_seq_paths,
+                      size_t min_ref_flank, size_t max_ref_flank,
                       const CmdArgs *args, dBGraph *db_graph)
 {
   KOGraph kograph = kograph_create(reads, num_reads, true,
                                    num_of_threads, db_graph);
+
   BreakpointCaller *callers = brkpt_callers_new(num_of_threads, gzout,
+                                                min_ref_flank, max_ref_flank,
                                                 kograph, db_graph);
 
   status("Running BreakpointCaller with %zu thread%s, output to: %s",
-         num_of_threads, num_of_threads == 1 ? "" : "s", out_path);
+         num_of_threads, util_plural_str(num_of_threads),
+         futil_outpath_str(out_path));
+
+  status("  Finding breakpoints after at least %zu kmers (%zubp) of homology",
+         min_ref_flank, min_ref_flank+db_graph->kmer_size-1);
 
   breakpoints_print_header(gzout, args, seq_paths, num_seq_paths);
 
   util_run_threads(callers, num_of_threads, sizeof(callers[0]),
                    num_of_threads, breakpoint_caller);
+
+  char call_num_str[100];
+  ulong_to_str(callers[0].callid[0], call_num_str);
+  status("  %s calls printed to %s", call_num_str, futil_outpath_str(out_path));
 
   brkpt_callers_destroy(callers, num_of_threads);
   kograph_free(kograph);

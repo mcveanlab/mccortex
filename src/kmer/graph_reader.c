@@ -559,7 +559,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
   const FileFilter *fltr = &file->fltr;
   bool only_load_if_in_graph = (only_load_if_in_edges != NULL);
   status("Filtering %s to %s with stream filter", fltr->file_path.buff,
-         strcmp(out_ctx_path,"-") == 0 ? "STDOUT" : out_ctx_path);
+         futil_outpath_str(out_ctx_path));
 
   FILE *out;
   if(strcmp(out_ctx_path,"-") == 0) out = stdout;

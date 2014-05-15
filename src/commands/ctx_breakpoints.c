@@ -17,26 +17,21 @@
  Output format:
 
 ##fileFormat=CtxBreakpointsv0.1
-##fileDate=20140204
-##reference=file://ref/ref.fa
-##cmd="../bin/ctx31 breakpoints --ref ref.fa --out breakpoint.fa thing.ctx"
-##wkdir=/home/isaac
-##ctxVersion=<version=8d5ff69,MAXK=31>
+##fileDate=20140515
+##cmd="../..//bin/ctx31 breakpoints -t 1 -m 10M --seq seq0.fa --seq seq1.fa --out breakpoints.txt.gz mix.k11.ctx"
+##wkdir=/Users/isaac/ninja-cortex/test/breakpoint
+##reference=seq0.fa:seq1.fa
+##ctxVersion="ctx=b871a64 zlib=1.2.5 htslib=0.2.0-rc8-6-gd49dfa6 ASSERTS=ON CHECKS=ON k=3..31"
 ##ctxKmerSize=31
->101.5pflank colours=1,2
-GATTTTTGCACATTCGTGAT [chr1:100-119:+,chr13:181-200:-];
->101.3pflank
-GATTTTTGCACATTCGTGAT [chr1:100-119:+,chr13:181-200:-];
->101.path
-  GATTTTTGCACATTCGTGAT [chr1:100-119:+,chr13:181-200:-];
-  GATTTTTGCACA [];
-  GATATTCGTGAT [chr1:100-119:+,chr13:181-200:-];
-  TTTTGCACTTCTGAT [chr1:100-119:+,chr13:181-200:-];
->102.5pflank colours=0
-GATTTTTGCACATTCGTGAT [chrX:100-119:+];
->102.3pflank
-GATTTTTGCACATTCGTGAT [chrY:100-119:+];
->102.path
+>call.0.5pflank chr=seq0:1-20:+:1
+CCCGTAGGTAAGGGCGTTAG
+>call.0.3pflank chr=seq1:21-50:+:11
+CGGGTTGGAGTTGGCCAAAGAAGTTCAACG
+>call.0.path cols=0
+A
+
+>call.1.5pflank chr=seq0:1-20:+:1
+...
 
 */
 
@@ -45,7 +40,9 @@ const char breakpoints_usage[] =
 "  Use trusted assembled genome to call large events.  Output is gzipped.\n"
 "\n"
 "  --seq <in>       Trusted input (can be used multiple times)\n"
-"  --out <out.txt>  Save calls [default: STDOUT]\n";
+"  --out <out.txt>  Save calls [default: STDOUT]\n"
+"  --min_ref <N>    Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
+"  --max_ref <N>    Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
 
 #include "objbuf_macro.h"
 create_objbuf(readbuf, ReadBuffer, read_t);
@@ -60,6 +57,8 @@ int ctx_breakpoints(CmdArgs *args)
   seq_file_t **seq_files = ctx_malloc(max_seq_inputs * sizeof(seq_file_t*));
   const char **seq_paths = ctx_malloc(max_seq_inputs * sizeof(char*));
   size_t i, num_seq_files = 0;
+  size_t min_ref_flank = DEFAULT_MIN_REF_NKMERS;
+  size_t max_ref_flank = DEFAULT_MAX_REF_NKMERS;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--seq") == 0) {
@@ -70,9 +69,29 @@ int ctx_breakpoints(CmdArgs *args)
       num_seq_files++;
       argi++; // We took an argument
     }
+    else if(!strcmp(argv[argi],"--min_ref")) {
+      if(argi+1 == argc) die("%s <N> requires an argument", argv[argi]);
+      if(!parse_entire_size(argv[argi+1], &min_ref_flank) || min_ref_flank==0) {
+        die("Invalid argument %s %s must be >= 1", argv[argi], argv[argi+1]);
+      }
+      argi++; // We took an argument
+    }
+    else if(!strcmp(argv[argi],"--max_ref")) {
+      if(argi+1 == argc) die("%s <N> requires an argument", argv[argi]);
+      if(!parse_entire_size(argv[argi+1], &max_ref_flank) || max_ref_flank==0) {
+        die("Invalid argument %s %s must be >= 1", argv[argi], argv[argi+1]);
+      }
+      argi++; // We took an argument
+    }
     else {
       cmd_print_usage("Unknown arg: %s", argv[argi]);
     }
+  }
+
+  if(min_ref_flank > max_ref_flank) {
+    warn("Setting max ref flank len to be min (was: %zu now: %zu)",
+         max_ref_flank, min_ref_flank);
+    max_ref_flank = min_ref_flank;
   }
 
   if(num_seq_files == 0) cmd_print_usage("Require at least one --seq file");
@@ -135,6 +154,8 @@ int ctx_breakpoints(CmdArgs *args)
 
   if(strcmp(output_file, "-") == 0)
     gzout = gzdopen(fileno(stdout), "w");
+  else if(futil_file_exists(output_file))
+    die("Output file already exists: %s", output_file);
   else
     gzout = gzopen(output_file, "w");
 
@@ -202,6 +223,7 @@ int ctx_breakpoints(CmdArgs *args)
   // Call breakpoints
   breakpoints_call(num_of_threads, rbuf.data, rbuf.len,
                    gzout, output_file, seq_paths, num_seq_files,
+                   min_ref_flank, max_ref_flank,
                    args, &db_graph);
 
   // Finished: do clean up

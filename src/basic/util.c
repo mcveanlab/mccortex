@@ -379,12 +379,12 @@ size_t seconds_to_str(unsigned long seconds, char *str)
   mins = seconds / 60;
   seconds -= mins * 60;
   if(days > 0)
-    ptr += sprintf(ptr, "%lu day%s ", days, days == 1 ? "" : "s");
+    ptr += sprintf(ptr, "%lu day%s ", days, util_plural_str(days));
   if(days+hours > 0)
-    ptr += sprintf(ptr, "%lu hour%s ", hours, hours == 1 ? "" : "s");
+    ptr += sprintf(ptr, "%lu hour%s ", hours, util_plural_str(hours));
   if(days+hours+mins > 0)
-    ptr += sprintf(ptr, "%lu min%s ", mins, mins == 1 ? "" : "s");
-  ptr += sprintf(ptr, "%lu sec%s", seconds, seconds == 1 ? "" : "s");
+    ptr += sprintf(ptr, "%lu min%s ", mins, util_plural_str(mins));
+  ptr += sprintf(ptr, "%lu sec%s", seconds, util_plural_str(seconds));
   return (size_t)(ptr - str);
 }
 

@@ -3,6 +3,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "util.h"
+#include "file_util.h"
 
 static inline void dump_empty_bkmer(hkey_t hkey, const dBGraph *db_graph,
                                     char *buf, size_t mem, FILE *fh)
@@ -220,7 +221,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   size_t i;
   uint64_t num_nodes_dumped = 0;
   FILE *fout;
-  const char *out_name = strcmp(path,"-") == 0 ? "STDOUT" : path;
+  const char *out_name = futil_outpath_str(path);
 
   if(colours != NULL) {
     if(num_of_cols == 1)
@@ -294,6 +295,6 @@ void graph_write_status(uint64_t nkmers, size_t ncols,
   ulong_to_str(nkmers, num_kmer_str);
 
   status("Dumped %s kmers in %zu colour%s into: %s (format version: %u)\n",
-         num_kmer_str, ncols, ncols != 1 ? "s" : "",
-         strcmp(path, "-") == 0 ? "STDOUT" : path, version);
+         num_kmer_str, ncols, util_plural_str(ncols),
+         futil_outpath_str(path), version);
 }

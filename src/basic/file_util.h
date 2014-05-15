@@ -6,6 +6,9 @@
 #include <sys/stat.h>
 #include "string_buffer/string_buffer.h"
 
+#define futil_outpath_str(path) (strcmp(path,"-") == 0 ? "STDOUT" : (path))
+#define futil_inpath_str(path) (strcmp(path,"-") == 0 ? "STDIN" : (path))
+
 // futil_mkpath - ensure all directories in path exist
 // Returns 1 on success, 0 on failure
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087

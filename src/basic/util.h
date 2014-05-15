@@ -1,6 +1,8 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#define util_plural_str(n) ((n) == 1 ? "" : "s")
+
 // comparison returns:
 //   negative iff a < b
 //          0 iff a == b

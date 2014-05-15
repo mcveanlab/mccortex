@@ -156,7 +156,7 @@ int ctx_clean(CmdArgs *args)
 
   if(total_cols < use_ncols) {
     warn("I only need %zu colour%s ('--ncols %zu' ignored)",
-         total_cols, (total_cols != 1 ? "s" : ""), use_ncols);
+         total_cols, util_plural_str(total_cols), use_ncols);
     use_ncols = total_cols;
   }
 

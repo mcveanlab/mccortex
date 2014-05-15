@@ -1,6 +1,7 @@
 #include "global.h"
 #include "file_filter.h"
 #include "range.h"
+#include "util.h"
 #include "file_util.h"
 
 // Get pointers to start and end of actual path
@@ -131,12 +132,13 @@ void file_filter_dealloc(FileFilter *fltr)
 void file_filter_status(const FileFilter *fltr)
 {
   size_t i;
-  const char *file;
 
   timestamp();
-  file = strcmp(fltr->file_path.buff,"-") == 0 ? "STDIN" : fltr->file_path.buff;
-  message(" Loading file %s [%zu colour%s]", file, fltr->filencols,
-          fltr->filencols != 1 ? "s" : "");
+
+  message(" Loading file %s [%zu colour%s]",
+          futil_inpath_str(fltr->file_path.buff),
+          fltr->filencols, util_plural_str(fltr->filencols));
+
   if(!fltr->nofilter) {
     message(" with colour filter: %zu", fltr->cols[0]);
     for(i = 1; i < fltr->ncols; i++) message(",%zu", fltr->cols[i]);
