@@ -10,6 +10,7 @@
 #include "path_format.h"
 #include "path_store.h"
 #include "breakpoint_caller.h"
+#include "kmer_occur.h"
 
 #include "seq_file.h"
 
@@ -41,8 +42,8 @@ const char breakpoints_usage[] =
 "\n"
 "  --seq <in>       Trusted input (can be used multiple times)\n"
 "  --out <out.txt>  Save calls [default: STDOUT]\n"
-"  --min_ref <N>    Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
-"  --max_ref <N>    Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
+"  --minref <N>    Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
+"  --maxref <N>    Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
 
 #include "objbuf_macro.h"
 create_objbuf(readbuf, ReadBuffer, read_t);
@@ -69,14 +70,14 @@ int ctx_breakpoints(CmdArgs *args)
       num_seq_files++;
       argi++; // We took an argument
     }
-    else if(!strcmp(argv[argi],"--min_ref")) {
+    else if(!strcmp(argv[argi],"--minref")) {
       if(argi+1 == argc) die("%s <N> requires an argument", argv[argi]);
       if(!parse_entire_size(argv[argi+1], &min_ref_flank) || min_ref_flank==0) {
         die("Invalid argument %s %s must be >= 1", argv[argi], argv[argi+1]);
       }
       argi++; // We took an argument
     }
-    else if(!strcmp(argv[argi],"--max_ref")) {
+    else if(!strcmp(argv[argi],"--maxref")) {
       if(argi+1 == argc) die("%s <N> requires an argument", argv[argi]);
       if(!parse_entire_size(argv[argi+1], &max_ref_flank) || max_ref_flank==0) {
         die("Invalid argument %s %s must be >= 1", argv[argi], argv[argi+1]);
@@ -128,7 +129,7 @@ int ctx_breakpoints(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash;
-  size_t graph_mem, path_mem;
+  size_t graph_mem, path_mem, ref_mem;
 
   // DEV: use threads in memory calculation
   size_t num_of_threads = args->max_work_threads;
@@ -143,7 +144,12 @@ int ctx_breakpoints(CmdArgs *args)
   path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
   cmd_print_mem(path_mem, "paths");
 
-  size_t total_mem = graph_mem + path_mem;
+  // Reference annotation layer memory - estimate
+  //  assume 1 byte per kmer for each base to load sequence files
+  ref_mem = ctx_max_kmers * (1 + sizeof(KONodeList) + sizeof(KOccur));
+  cmd_print_mem(ref_mem, "ref annotation");
+
+  size_t total_mem = graph_mem + path_mem + ref_mem;
   cmd_check_mem_limit(args, total_mem);
 
   //

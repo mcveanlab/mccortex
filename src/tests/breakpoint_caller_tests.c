@@ -54,7 +54,7 @@ static void test_kmer_occur_filter()
 
   kmer_run_buf_reset(&koruns);
   kmer_run_buf_reset(&koruns_ended);
-  kograph_filter_extend(kograph, nodes, NUM_NODES, true, 0, 0, &koruns, &koruns_ended);
+  kograph_filter_extend(kograph, nodes, NUM_NODES, true, 0, 0, &koruns, &koruns_ended, true);
 
   // Checks
   TASSERT2(koruns.len == 1, "koruns.len: %zu", koruns.len);
@@ -68,9 +68,9 @@ static void test_kmer_occur_filter()
 
   kmer_run_buf_reset(&koruns);
   kmer_run_buf_reset(&koruns_ended);
-  kograph_filter_extend(kograph, nodes, 1, true, 0, 0, &koruns, &koruns_ended);
-  kograph_filter_extend(kograph, nodes+1, 1, true, 0, 1, &koruns, &koruns_ended);
-  kograph_filter_extend(kograph, nodes+2, 1, true, 0, 2, &koruns, &koruns_ended);
+  kograph_filter_extend(kograph, nodes, 1, true, 0, 0, &koruns, &koruns_ended, true);
+  kograph_filter_extend(kograph, nodes+1, 1, true, 0, 1, &koruns, &koruns_ended, true);
+  kograph_filter_extend(kograph, nodes+2, 1, true, 0, 2, &koruns, &koruns_ended, true);
 
   // Print out for debugging
   // printf("koruns: ");

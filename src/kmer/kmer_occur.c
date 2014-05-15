@@ -363,7 +363,8 @@ void kograph_filter_extend(KOGraph kograph,
                            const dBNode *nodes, size_t num_nodes, bool forward,
                            size_t min_len, size_t qoffset,
                            KOccurRunBuffer *korun,
-                           KOccurRunBuffer *runs_ended)
+                           KOccurRunBuffer *runs_ended,
+                           bool pickup_at_first_node)
 {
   const KOccur *kolist;
   KOccurRun *runs0, *runs1;
@@ -386,7 +387,8 @@ void kograph_filter_extend(KOGraph kograph,
   runs0 = korun->data;
   runs1 = korun->data + max_paths;
   nruns0 = korun->len;
-  nruns1 = korun_extend(runs0, nruns0, node, kolist, num_occur, runs1, true, qoffset);
+  nruns1 = korun_extend(runs0, nruns0, node, kolist, num_occur, runs1,
+                        pickup_at_first_node, qoffset);
 
   // Store runs that could not be extended
   for(i = 0; i < nruns0; i++) {

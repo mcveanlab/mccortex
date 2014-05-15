@@ -87,7 +87,8 @@ void kograph_filter_extend(KOGraph kograph,
                            const dBNode *nodes, size_t num_nodes, bool forward,
                            size_t min_len, size_t qoffset,
                            KOccurRunBuffer *korun,
-                           KOccurRunBuffer *runs_ended);
+                           KOccurRunBuffer *runs_ended,
+                           bool pickup_at_first_node);
 
 // Mostly used for debugging
 void korun_print(KOccurRun run, size_t kmer_size, FILE *fout);
@@ -97,5 +98,28 @@ void korun_print(KOccurRun run, size_t kmer_size, FILE *fout);
 // Does not print new line
 // Mostly used for debugging
 void koruns_print(KOccurRun *run, size_t n, size_t kmer_size, FILE *fout);
+
+
+// src, dst can point to the same place
+// returns number of elements added
+static inline
+size_t koruns_filter(KOccurRun *src, size_t n, KOccurRun *dst, size_t min_kmers)
+{
+  size_t i, j;
+  for(i = j = 0; i < n; i++)
+    if(korun_len(src[i]) >= min_kmers)
+      dst[j++] = src[i];
+
+  return j;
+}
+
+static inline void koruns_reverse(KOccurRun *src, size_t n)
+{
+  size_t i, j;
+  for(i = j = 0; i < n; i++) {
+    SWAP(src[i].first, src[i].last);
+    src[i].strand = !src[i].strand;
+  }
+}
 
 #endif /* KMER_OCCUR_H_ */
