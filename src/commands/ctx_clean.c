@@ -139,25 +139,25 @@ int ctx_clean(CmdArgs *args)
 
   // Open graph files
   GraphFileReader files[num_files];
-  size_t ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  graph_files_open(paths, files, num_files,
-                   &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
+  ncols = graph_files_open(paths, files, num_files,
+                           &ctx_max_kmers, &ctx_sum_kmers);
 
   size_t use_ncols = args->use_ncols, kmer_size = files[0].hdr.kmer_size;
 
   // Flatten if we don't have to remember colours / output a graph
   if(!doing_cleaning)
   {
-    ctx_max_cols = use_ncols = 1;
+    ncols = use_ncols = 1;
     for(i = 0; i < num_files; i++)
       file_filter_update_intocol(&files[i].fltr, 0);
   }
 
-  if(ctx_max_cols < use_ncols) {
+  if(ncols < use_ncols) {
     warn("I only need %zu colour%s ('--ncols %zu' ignored)",
-         ctx_max_cols, util_plural_str(ctx_max_cols), use_ncols);
-    use_ncols = ctx_max_cols;
+         ncols, util_plural_str(ncols), use_ncols);
+    use_ncols = ncols;
   }
 
   status("%zu input graphs, max kmers: %zu, using %zu colours",
@@ -206,7 +206,7 @@ int ctx_clean(CmdArgs *args)
   //
   // Decide memory usage
   //
-  bool all_colours_loaded = (ctx_max_cols <= use_ncols);
+  bool all_colours_loaded = (ncols <= use_ncols);
   bool use_mem_limit = (args->mem_to_use_set && num_files > 1) || !ctx_max_kmers;
 
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
@@ -243,7 +243,7 @@ int ctx_clean(CmdArgs *args)
   dBGraph db_graph;
   db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
   Edges *edge_store = ctx_calloc(db_graph.ht.capacity * (use_ncols+!all_colours_loaded),
-                              sizeof(Edges));
+                                 sizeof(Edges));
   db_graph.col_edges = edge_store;
   db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
@@ -260,10 +260,10 @@ int ctx_clean(CmdArgs *args)
   GraphFileHeader outhdr = {.version = CTX_GRAPH_FILEFORMAT,
                             .kmer_size = (uint32_t)db_graph.kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = (uint32_t)ctx_max_cols,
+                            .num_of_cols = (uint32_t)ncols,
                             .capacity = 0};
 
-  graph_header_alloc(&outhdr, ctx_max_cols);
+  graph_header_alloc(&outhdr, ncols);
 
   // Merge info into header
   size_t gcol = 0;
@@ -275,7 +275,7 @@ int ctx_clean(CmdArgs *args)
     }
   }
 
-  if(ctx_max_cols > use_ncols)
+  if(ncols > use_ncols)
   {
     // Load into one colour
     size_t tmpinto; bool tmpflatten;
@@ -355,7 +355,7 @@ int ctx_clean(CmdArgs *args)
     size_t thresh;
 
     // Set output header ginfo cleaned
-    for(i = 0; i < ctx_max_cols; i++)
+    for(i = 0; i < ncols; i++)
     {
       cleaning = &outhdr.ginfo[i].cleaning;
       cleaning->cleaned_snodes |= supernode_cleaning;

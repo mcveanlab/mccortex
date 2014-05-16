@@ -124,12 +124,11 @@ bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
 // returns the number of colours being loaded in total
 size_t graph_files_open(char **graph_paths,
                         GraphFileReader *gfiles, size_t num_gfiles,
-                        size_t *max_kmers_ptr, size_t *sum_kmers_ptr,
-                        size_t *max_cols_ptr)
+                        size_t *max_kmers_ptr, size_t *sum_kmers_ptr)
 {
   size_t i, ctx_max_kmers = 0, ctx_sum_kmers = 0;
   bool ctx_uses_stdin = false;
-  size_t ncols = 0, max_cols = 0;
+  size_t ncols = 0;
 
   for(i = 0; i < num_gfiles; i++)
   {
@@ -153,7 +152,6 @@ size_t graph_files_open(char **graph_paths,
 
   *max_kmers_ptr = ctx_max_kmers;
   *sum_kmers_ptr = ctx_sum_kmers;
-  *max_cols_ptr = max_cols;
 
   return ncols;
 }

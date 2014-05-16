@@ -200,10 +200,10 @@ int ctx_reads(CmdArgs *args)
   // Open input graphs
   //
   GraphFileReader files[num_files];
-  size_t ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   graph_files_open(graph_paths, files, num_files,
-                   &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
+                   &ctx_max_kmers, &ctx_sum_kmers);
 
   //
   // Calculate memory use

@@ -81,7 +81,6 @@ bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
 // returns the number of colours being loaded in total
 size_t graph_files_open(char **graph_paths,
                         GraphFileReader *gfiles, size_t num_gfiles,
-                        size_t *max_kmers_ptr, size_t *sum_kmers_ptr,
-                        size_t *max_cols_ptr);
+                        size_t *max_kmers_ptr, size_t *sum_kmers_ptr);
 
 #endif /* GRAPH_FILE_FILTER_H_ */

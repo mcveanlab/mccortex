@@ -124,10 +124,10 @@ int ctx_thread(CmdArgs *args)
   // Open graph graph files
   //
   GraphFileReader gfiles[num_gfiles];
-  size_t ctx_total_cols, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t ctx_total_cols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   ctx_total_cols = graph_files_open(graph_paths, gfiles, num_gfiles,
-                                    &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
+                                    &ctx_max_kmers, &ctx_sum_kmers);
 
   //
   // Open path files

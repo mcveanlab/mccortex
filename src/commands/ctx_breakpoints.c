@@ -104,10 +104,10 @@ int ctx_breakpoints(CmdArgs *args)
   char **graph_paths = argv + argi;
   size_t num_gfiles = argc - argi;
   GraphFileReader gfiles[num_gfiles];
-  size_t ncols = 0, ctx_max_cols = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
-                           &ctx_max_kmers, &ctx_sum_kmers, &ctx_max_cols);
+                           &ctx_max_kmers, &ctx_sum_kmers);
 
   //
   // Open path files
