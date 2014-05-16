@@ -339,7 +339,7 @@ int ctx_infer_edges(CmdArgs *args)
   ctx_free(db_graph.node_in_cols);
   db_graph_dealloc(&db_graph);
 
-  graph_file_dealloc(&file);
+  graph_file_close(&file);
 
   return EXIT_SUCCESS;
 }

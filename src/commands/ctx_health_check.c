@@ -110,6 +110,11 @@ int ctx_health_check(CmdArgs *args)
   paths_format_merge(pfiles, num_pfiles, false, true,
                      args->max_work_threads, &db_graph);
 
+  // Close files
+  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
+
+  graph_file_close(&gfile);
+
   if(do_edge_check) {
     status("Running edge check...");
     db_graph_healthcheck(&db_graph);

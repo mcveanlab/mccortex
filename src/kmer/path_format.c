@@ -229,8 +229,8 @@ static void path_files_update_empty_sample_names(const PathFileReader *files,
 }
 
 // if insert is true, insert missing kmers into the graph
-void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                       bool insert_missing_kmers)
+void paths_format_load(PathFileReader *file, bool insert_missing_kmers,
+                       dBGraph *db_graph)
 {
   const PathFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
@@ -290,6 +290,30 @@ void paths_format_load(PathFileReader *file, dBGraph *db_graph,
   uint8_t end;
   if(fread(&end, 1, 1, fh) != 0)
     warn("End of file not reached when loading! [path: %s]", path);
+}
+
+void paths_load_colour(PathFileReader *pfile,
+                       bool insert_missing_kmers,
+                       size_t colour_idx, size_t intocol,
+                       dBGraph *db_graph)
+{
+  ctx_assert(colour_idx < pfile->fltr.ncols);
+  ctx_assert(intocol < db_graph->num_of_cols);
+
+  // Copy current values
+  FileFilter tmp = pfile->fltr;
+
+  // Set new values
+  size_t newcol = pfile->fltr.cols[colour_idx];
+  pfile->fltr.cols = &newcol;
+  pfile->fltr.ncols = 1;
+  file_filter_update_intocol(&pfile->fltr, intocol);
+
+  // Load paths
+  paths_format_load(pfile, insert_missing_kmers, db_graph);
+
+  // Restore values
+  pfile->fltr = tmp;
 }
 
 // pindex is index of last path
@@ -393,13 +417,13 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     // Currently no paths loaded
     if(!rmv_redundant)
     {
-      paths_format_load(&files[0], db_graph, insert_missing_kmers);
+      paths_format_load(&files[0], insert_missing_kmers, db_graph);
       first_file = 1;
     }
     else if(num_files == 1)
     {
       // Load whole file and remove duplicates
-      paths_format_load(&files[0], db_graph, insert_missing_kmers);
+      paths_format_load(&files[0], insert_missing_kmers, db_graph);
 
       // Slim paths store
       graph_paths_remove_redundant(db_graph, thread_limit);

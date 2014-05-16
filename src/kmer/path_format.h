@@ -40,8 +40,16 @@ size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
                                bool remove_substr, bool use_path_hash);
 
 // if insert is true, insert missing kmers into the graph
-void paths_format_load(PathFileReader *file, dBGraph *db_graph,
-                       bool insert_missing_kmers);
+void paths_format_load(PathFileReader *file, bool insert_missing_kmers,
+                       dBGraph *db_graph);
+
+// Only load a given colour
+// colour_idx is the index of an already specified colour
+// "in.ctp:0,3,9,2" colour_idx=2 loads: "in.ctp:9"
+void paths_load_colour(PathFileReader *pfile,
+                       bool insert_missing_kmers,
+                       size_t colour_idx, size_t intocol,
+                       dBGraph *db_graph);
 
 // Load 1 or more path files; can be called consecutively
 // if `rmv_redundant` is true we remove non-informative paths

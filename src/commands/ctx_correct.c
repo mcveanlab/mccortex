@@ -482,6 +482,7 @@ int ctx_correct(CmdArgs *args)
 
   for(i = 0; i < num_gfiles; i++) {
     graph_load(&gfiles[i], gprefs, &stats);
+    graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }
 
@@ -490,6 +491,8 @@ int ctx_correct(CmdArgs *args)
   // Load path files (does nothing if num_fpiles == 0)
   paths_format_merge(pfiles, num_pfiles, false, false,
                      args->max_work_threads, &db_graph);
+
+  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
 
   //
   // Run alignment

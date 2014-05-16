@@ -569,8 +569,8 @@ int ctx_contigs(CmdArgs *args)
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
-  graph_file_dealloc(&gfile);
-  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
+  graph_file_close(&gfile);
+  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
 
   return EXIT_SUCCESS;
 }

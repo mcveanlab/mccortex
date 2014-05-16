@@ -197,8 +197,10 @@ int ctx_coverage(CmdArgs *args)
                               .must_exist_in_graph = false,
                               .empty_colours = true};
 
-  for(i = 0; i < num_gfiles; i++)
+  for(i = 0; i < num_gfiles; i++) {
     graph_load(&gfiles[i], gprefs, &stats);
+    graph_file_close(&gfiles[i]);
+  }
 
   hash_table_print_stats(&db_graph.ht);
 

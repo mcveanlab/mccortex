@@ -58,11 +58,8 @@ int graph_file_open(GraphFileReader *file, char *path, bool fatal);
 int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
                      const char *mode);
 
-// Close file
+// Close file, release all memory
 void graph_file_close(GraphFileReader *file);
-
-// Release all memory (also calls close)
-void graph_file_dealloc(GraphFileReader *file);
 
 // Read a kmer from the file
 // returns true on success, false otherwise

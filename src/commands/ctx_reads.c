@@ -191,7 +191,7 @@ int ctx_reads(CmdArgs *args)
 
   int argend = argi;
 
-  const size_t num_files = (size_t)(argc - argend);
+  const size_t num_gfiles = (size_t)(argc - argend);
   size_t i;
   char **graph_paths = argv + argend;
 
@@ -199,10 +199,10 @@ int ctx_reads(CmdArgs *args)
   //
   // Open input graphs
   //
-  GraphFileReader files[num_files];
+  GraphFileReader gfiles[num_gfiles];
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  graph_files_open(graph_paths, files, num_files,
+  graph_files_open(graph_paths, gfiles, num_gfiles,
                    &ctx_max_kmers, &ctx_sum_kmers);
 
   //
@@ -233,7 +233,7 @@ int ctx_reads(CmdArgs *args)
   // Set up graph
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 0, kmers_in_hash);
 
   // Load graphs
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
@@ -243,11 +243,11 @@ int ctx_reads(CmdArgs *args)
                               .empty_colours = true,
                               .boolean_covgs = false};
 
-  for(i = 0; i < num_files; i++) {
-    files[i].fltr.flatten = true;
-    // files[i].fltr.intocol = 0;
-    file_filter_update_intocol(&files[i].fltr, 0);
-    graph_load(&files[i], gprefs, &stats);
+  for(i = 0; i < num_gfiles; i++) {
+    gfiles[i].fltr.flatten = true;
+    file_filter_update_intocol(&gfiles[i].fltr, 0);
+    graph_load(&gfiles[i], gprefs, &stats);
+    graph_file_close(&gfiles[i]);
   }
 
   if(invert) status("Printing reads that do not touch the graph\n");
@@ -342,8 +342,6 @@ int ctx_reads(CmdArgs *args)
   status("Total printed %zu / %zu reads\n", total_reads_printed, total_reads);
 
   db_graph_dealloc(&db_graph);
-
-  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
 
   return EXIT_SUCCESS;
 }

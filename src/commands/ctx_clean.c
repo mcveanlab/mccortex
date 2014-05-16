@@ -134,24 +134,24 @@ int ctx_clean(CmdArgs *args)
   }
 
   // Use remaining args as graph files
-  char **paths = argv + argi;
-  size_t i, j, num_files = (size_t)(argc - argi);
+  char **gfile_paths = argv + argi;
+  size_t i, j, num_gfiles = (size_t)(argc - argi);
 
   // Open graph files
-  GraphFileReader files[num_files];
+  GraphFileReader gfiles[num_gfiles];
   size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  ncols = graph_files_open(paths, files, num_files,
+  ncols = graph_files_open(gfile_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
 
-  size_t use_ncols = args->use_ncols, kmer_size = files[0].hdr.kmer_size;
+  size_t use_ncols = args->use_ncols, kmer_size = gfiles[0].hdr.kmer_size;
 
   // Flatten if we don't have to remember colours / output a graph
   if(!doing_cleaning)
   {
     ncols = use_ncols = 1;
-    for(i = 0; i < num_files; i++)
-      file_filter_update_intocol(&files[i].fltr, 0);
+    for(i = 0; i < num_gfiles; i++)
+      file_filter_update_intocol(&gfiles[i].fltr, 0);
   }
 
   if(ncols < use_ncols) {
@@ -161,28 +161,28 @@ int ctx_clean(CmdArgs *args)
   }
 
   status("%zu input graphs, max kmers: %zu, using %zu colours",
-         num_files, ctx_max_kmers, use_ncols);
+         num_gfiles, ctx_max_kmers, use_ncols);
 
   // If no arguments given we default to removing tips < 2*kmer_size
   if(tip_cleaning && max_tip_len == 0)
     max_tip_len = 2 * kmer_size;
 
-  // Warn if any files already cleaned
+  // Warn if any graph files already cleaned
   size_t fromcol, intocol;
   ErrorCleaning *cleaning;
 
-  for(i = 0; i < num_files; i++) {
-    for(j = 0; j < files[i].fltr.ncols; j++) {
-      fromcol = graph_file_fromcol(&files[i], j);
-      cleaning = &files[i].hdr.ginfo[fromcol].cleaning;
+  for(i = 0; i < num_gfiles; i++) {
+    for(j = 0; j < gfiles[i].fltr.ncols; j++) {
+      fromcol = graph_file_fromcol(&gfiles[i], j);
+      cleaning = &gfiles[i].hdr.ginfo[fromcol].cleaning;
       if(cleaning->cleaned_snodes && supernode_cleaning) {
         warn("%s:%zu already has supernode cleaning with threshold: <%zu",
-             files[i].fltr.file_path.buff, fromcol,
+             gfiles[i].fltr.file_path.buff, fromcol,
              (size_t)cleaning->clean_snodes_thresh);
       }
       if(cleaning->cleaned_tips && tip_cleaning) {
         warn("%s:%zu already has had tip cleaned",
-             files[i].fltr.file_path.buff, fromcol);
+             gfiles[i].fltr.file_path.buff, fromcol);
       }
     }
   }
@@ -207,7 +207,7 @@ int ctx_clean(CmdArgs *args)
   // Decide memory usage
   //
   bool all_colours_loaded = (ncols <= use_ncols);
-  bool use_mem_limit = (args->mem_to_use_set && num_files > 1) || !ctx_max_kmers;
+  bool use_mem_limit = (args->mem_to_use_set && num_gfiles > 1) || !ctx_max_kmers;
 
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
   extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
@@ -241,7 +241,7 @@ int ctx_clean(CmdArgs *args)
   // Load as many colours as possible
   // Use an extra set of edge to take intersections
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
   Edges *edge_store = ctx_calloc(db_graph.ht.capacity * (use_ncols+!all_colours_loaded),
                                  sizeof(Edges));
   db_graph.col_edges = edge_store;
@@ -267,11 +267,11 @@ int ctx_clean(CmdArgs *args)
 
   // Merge info into header
   size_t gcol = 0;
-  for(i = 0; i < num_files; i++) {
-    for(j = 0; j < files[i].fltr.ncols; j++, gcol++) {
-      fromcol = graph_file_fromcol(&files[i], j);
-      intocol = graph_file_intocol(&files[i], j);
-      graph_info_merge(&outhdr.ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
+  for(i = 0; i < num_gfiles; i++) {
+    for(j = 0; j < gfiles[i].fltr.ncols; j++, gcol++) {
+      fromcol = graph_file_fromcol(&gfiles[i], j);
+      intocol = graph_file_intocol(&gfiles[i], j);
+      graph_info_merge(&outhdr.ginfo[intocol], &gfiles[i].hdr.ginfo[fromcol]);
     }
   }
 
@@ -279,19 +279,19 @@ int ctx_clean(CmdArgs *args)
   {
     // Load into one colour
     size_t tmpinto; bool tmpflatten;
-    for(i = 0; i < num_files; i++)
+    for(i = 0; i < num_gfiles; i++)
     {
-      tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
-      file_filter_update_intocol(&files[i].fltr, 0);
-      files[i].fltr.flatten = true;
-      graph_load(&files[i], gprefs, &stats);
-      file_filter_update_intocol(&files[i].fltr, tmpinto);
-      files[i].fltr.flatten = tmpflatten;
+      tmpinto = gfiles[i].fltr.intocol; tmpflatten = gfiles[i].fltr.flatten;
+      file_filter_update_intocol(&gfiles[i].fltr, 0);
+      gfiles[i].fltr.flatten = true;
+      graph_load(&gfiles[i], gprefs, &stats);
+      file_filter_update_intocol(&gfiles[i].fltr, tmpinto);
+      gfiles[i].fltr.flatten = tmpflatten;
     }
   }
   else {
-    for(i = 0; i < num_files; i++)
-      graph_load(&files[i], gprefs, &stats);
+    for(i = 0; i < num_gfiles; i++)
+      graph_load(&gfiles[i], gprefs, &stats);
   }
 
   char num_kmers_str[100];
@@ -393,7 +393,7 @@ int ctx_clean(CmdArgs *args)
     ulong_to_str(initial_nkmers, init_str);
     status("Removed %s of %s (%.2f%%) kmers", removed_str, init_str, removed_pct);
 
-    graph_files_merge(out_ctx_path, files, num_files,
+    graph_files_merge(out_ctx_path, gfiles, num_gfiles,
                       kmers_loaded, all_colours_loaded,
                       intersect_edges, &outhdr, &db_graph);
   }
@@ -406,7 +406,7 @@ int ctx_clean(CmdArgs *args)
   ctx_free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
 
-  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
+  for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
 
   return EXIT_SUCCESS;
 }

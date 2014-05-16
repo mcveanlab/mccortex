@@ -325,8 +325,8 @@ static void gcrawler_flank5p_finish_ref_covg(GraphCache *cache, uint32_t pathid,
 }
 
 // Traverse from node0 -> node1
-static void traverse_5pflank(BreakpointCaller *caller,
-                             GraphCrawler *crawler, dBNode node0, dBNode node1)
+static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
+                             dBNode node0, dBNode node1)
 {
   const dBGraph *db_graph = crawler->cache.db_graph;
   dBNode next_nodes[4];
@@ -487,21 +487,27 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
           // Fetch nodes
           db_node_buf_reset(allelebuf);
           graph_crawler_get_path_nodes(fw_crawler, k, allelebuf);
-          allele_multicolpath = &fw_crawler->multicol_paths[k];
-          allele_pathid = allele_multicolpath->pathid;
 
-          // Fetch 3pflank ref position
-          num_flank3p_runs = caller->allele_refs[allele_pathid].num_runs;
-          flank3p_runs = fetch_ref_contact(&fw_crawler->cache, allele_pathid,
-                                           caller->allele_refs,
-                                           &caller->allele_run_buf);
+          // DEV: this should really be troo
+          // ctx_assert(allelebuf->len > 0);
+          if(allelebuf->len > 0)
+          {
+            allele_multicolpath = &fw_crawler->multicol_paths[k];
+            allele_pathid = allele_multicolpath->pathid;
 
-          process_contig(caller,
-                         allele_multicolpath->cols,
-                         allele_multicolpath->num_cols,
-                         flank5pbuf, allelebuf,
-                         flank5p_runs, num_flank5p_runs,
-                         flank3p_runs, num_flank3p_runs);
+            // Fetch 3pflank ref position
+            num_flank3p_runs = caller->allele_refs[allele_pathid].num_runs;
+            flank3p_runs = fetch_ref_contact(&fw_crawler->cache, allele_pathid,
+                                             caller->allele_refs,
+                                             &caller->allele_run_buf);
+
+            process_contig(caller,
+                           allele_multicolpath->cols,
+                           allele_multicolpath->num_cols,
+                           flank5pbuf, allelebuf,
+                           flank5p_runs, num_flank5p_runs,
+                           flank3p_runs, num_flank3p_runs);
+          }
         }
       }
     }

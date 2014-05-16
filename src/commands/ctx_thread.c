@@ -48,17 +48,32 @@ const char thread_usage[] =
 
 
 
-static void get_binary_and_colour(const GraphFileReader *files, size_t num_gfiles,
-                                  size_t col, size_t *file_idx, size_t *col_idx)
+static void get_graph_file_and_colour(const GraphFileReader *gfiles,
+                                      size_t num_gfiles, size_t col,
+                                      size_t *file_idx, size_t *col_idx)
 {
   size_t i, n = 0;
   for(i = 0; i < num_gfiles; i++) {
-    if(n + graph_file_outncols(&files[i]) > col) {
+    if(n + graph_file_outncols(&gfiles[i]) > col) {
       *col_idx = col - n; *file_idx = i; return;
     }
-    n += graph_file_outncols(&files[i]);
+    n += graph_file_outncols(&gfiles[i]);
   }
   die("Colour is greater than sum of graph colours [%zu > %zu]", col, n);
+}
+
+static bool get_path_file_and_colour(const PathFileReader *pfiles,
+                                     size_t num_pfiles, size_t col,
+                                     size_t *file_idx, size_t *col_idx)
+{
+  size_t i, n = 0;
+  for(i = 0; i < num_pfiles; i++) {
+    if(n + graph_file_outncols(&pfiles[i]) > col) {
+      *col_idx = col - n; *file_idx = i; return true;
+    }
+    n += graph_file_outncols(&pfiles[i]);
+  }
+  return false;
 }
 
 int ctx_thread(CmdArgs *args)
@@ -286,7 +301,9 @@ int ctx_thread(CmdArgs *args)
 
   // ... Send jobs ...
   size_t start, end, ctpcol, prev_ctpcol = SIZE_MAX;
-  size_t fileidx = 0, colidx = 0;
+  size_t gfileidx = 0, gcolidx = 0, pfileidx = 0, pcolidx = 0;
+  bool ctp_loaded = false;
+
   for(start = 0; start < num_tasks; start = end, prev_ctpcol = ctpcol)
   {
     // Load graph
@@ -302,8 +319,28 @@ int ctx_thread(CmdArgs *args)
         // hash_table_empty(&db_graph.ht);
       }
 
-      get_binary_and_colour(gfiles, num_gfiles, ctpcol, &fileidx, &colidx);
-      graph_load_colour(&gfiles[fileidx], gprefs, &gstats, colidx, 0);
+      get_graph_file_and_colour(gfiles, num_gfiles, ctpcol, &gfileidx, &gcolidx);
+      graph_load_colour(&gfiles[gfileidx], gprefs, &gstats, gcolidx, 0);
+
+      if(ctp_loaded) {
+        // reset kmer_paths used in traversal
+        status("Wiping old paths used in traversal...");
+        memset(db_graph.pstore.kmer_paths_read, 0xff,
+               db_graph.ht.capacity * sizeof(PathIndex));
+        ctp_loaded = false;
+      }
+
+      // Load paths if we have them for this colour (returns true if we do)
+      if(get_path_file_and_colour(pfiles, num_pfiles, ctpcol, &pfileidx, &pcolidx))
+      {
+        // Swap read/write kmer_paths
+        SWAP(db_graph.pstore.kmer_paths_read, db_graph.pstore.kmer_paths_write);
+        // Load path into kmer_paths_write
+        paths_load_colour(&pfiles[pfileidx], false, pcolidx, ctpcol, &db_graph);
+        // Swap read/write kmer_paths
+        SWAP(db_graph.pstore.kmer_paths_read, db_graph.pstore.kmer_paths_write);
+        ctp_loaded = true;
+      }
 
       hash_table_print_stats_brief(&db_graph.ht);
     }
@@ -401,8 +438,8 @@ int ctx_thread(CmdArgs *args)
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
-  for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
-  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
+  for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
+  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
 
   status("Paths written to: %s", out_ctp_path);
 

@@ -177,6 +177,7 @@ int ctx_bubbles(CmdArgs *args)
 
   for(i = 0; i < num_gfiles; i++) {
     graph_load(&gfiles[i], gprefs, &stats);
+    graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }
 
@@ -184,6 +185,8 @@ int ctx_bubbles(CmdArgs *args)
 
   // Load path files (does nothing if num_fpiles == 0)
   paths_format_merge(pfiles, num_pfiles, false, false, num_of_threads, &db_graph);
+
+  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
 
   // Now call variants
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
@@ -202,9 +205,6 @@ int ctx_bubbles(CmdArgs *args)
 
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
-
-  for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
-  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   return EXIT_SUCCESS;
 }

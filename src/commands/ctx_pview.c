@@ -94,7 +94,7 @@ int ctx_pview(CmdArgs *args)
   // Add kmers as reading
   bool add_kmers = true;
 
-  paths_format_load(&pfile, &db_graph, add_kmers);
+  paths_format_load(&pfile, add_kmers, &db_graph);
 
   if(print_paths)
     db_graph_dump_paths_by_kmer(&db_graph);
@@ -107,7 +107,7 @@ int ctx_pview(CmdArgs *args)
 
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
-  path_file_dealloc(&pfile);
+  path_file_close(&pfile);
 
   return EXIT_SUCCESS;
 }

@@ -275,7 +275,7 @@ int ctx_view(CmdArgs *args)
   }
 
   graph_header_dealloc(&outheader);
-  graph_file_dealloc(&file);
+  graph_file_close(&file);
 
   return EXIT_SUCCESS;
 }

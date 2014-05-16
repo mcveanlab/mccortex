@@ -166,6 +166,8 @@ static inline int unicol_path_cmp(const void *aa, const void *bb, void *arg)
   const GraphCache *cache = (const GraphCache*)arg;
   const GCachePath *patha = graph_cache_path(cache, a->pathid);
   const GCachePath *pathb = graph_cache_path(cache, b->pathid);
+  if(patha->num_steps == 0 || pathb->num_steps == 0)
+    return patha->num_steps - pathb->num_steps;
   const GCacheStep *stepa = graph_cache_path_last_step(cache, patha);
   const GCacheStep *stepb = graph_cache_path_last_step(cache, pathb);
   return graph_cache_steps_cmp(stepa, stepb, cache);

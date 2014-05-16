@@ -195,18 +195,18 @@ int ctx_supernodes(CmdArgs *args)
 
   if(argc == 0) cmd_print_usage(NULL);
 
-  const size_t num_files = (size_t)argc;
+  const size_t num_gfiles = (size_t)argc;
   paths = argv;
 
   if(dot_use_points && print_syntax != PRINT_DOT)
     cmd_print_usage("--points only valid with --graphviz / --dot");
 
-  ctx_assert(num_files > 0);
+  ctx_assert(num_gfiles > 0);
 
-  GraphFileReader files[num_files];
+  GraphFileReader gfiles[num_gfiles];
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  graph_files_open(paths, files, num_files,
+  graph_files_open(paths, gfiles, num_gfiles,
                    &ctx_max_kmers, &ctx_sum_kmers);
 
   //
@@ -245,7 +245,7 @@ int ctx_supernodes(CmdArgs *args)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, files[0].hdr.kmer_size, 1, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
   // Visited
@@ -257,10 +257,11 @@ int ctx_supernodes(CmdArgs *args)
                               .must_exist_in_graph = false,
                               .empty_colours = false};
 
-  for(i = 0; i < num_files; i++) {
-    files[i].fltr.flatten = true;
-    file_filter_update_intocol(&files[i].fltr, 0);
-    graph_load(&files[i], gprefs, NULL);
+  for(i = 0; i < num_gfiles; i++) {
+    gfiles[i].fltr.flatten = true;
+    file_filter_update_intocol(&gfiles[i].fltr, 0);
+    graph_load(&gfiles[i], gprefs, NULL);
+    graph_file_close(&gfiles[i]);
   }
 
   hash_table_print_stats(&db_graph.ht);
@@ -290,8 +291,6 @@ int ctx_supernodes(CmdArgs *args)
   ctx_free(visited);
   ctx_free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
-
-  for(i = 0; i < num_files; i++) graph_file_dealloc(&files[i]);
 
   return EXIT_SUCCESS;
 }

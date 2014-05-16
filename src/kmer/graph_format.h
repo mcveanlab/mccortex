@@ -67,6 +67,9 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   LoadingStats *stats);
 
+// Only load a given colour
+// colour_idx is the index of an already specified colour
+// "in.ctx:0,3,9,2" colour_idx=2 loads: "in.ctx:9"
 size_t graph_load_colour(GraphFileReader *file,
                          const GraphLoadingPrefs prefs,
                          LoadingStats *stats,

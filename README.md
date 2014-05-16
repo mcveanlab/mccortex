@@ -7,11 +7,11 @@ samples or highly diverged ones. From bacterial to mammalian genomes. Minimal
 configuration. And it's free.
 
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
-with better genome assembly.
+with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella.
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-07 May 2014
+16 May 2014
 
 [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)
 

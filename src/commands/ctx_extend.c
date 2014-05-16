@@ -232,7 +232,7 @@ int ctx_extend(CmdArgs *args)
   ctx_free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
-  graph_file_dealloc(&file);
+  graph_file_close(&file);
 
   return EXIT_SUCCESS;
 }

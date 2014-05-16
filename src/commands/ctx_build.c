@@ -415,7 +415,7 @@ int ctx_build(CmdArgs *args)
 
     for(i = 0; i < num_graphs; i++) {
       graph_load(&graphs[i], gprefs, &gstats);
-      graph_file_dealloc(&graphs[i]);
+      graph_file_close(&graphs[i]);
     }
 
     hash_table_print_stats(&db_graph.ht);

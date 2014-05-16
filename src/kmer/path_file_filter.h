@@ -55,6 +55,9 @@ int path_file_open(PathFileReader *file, char *path, bool fatal);
 int path_file_open2(PathFileReader *file, char *path, bool fatal,
                     const char *mode);
 
+// Close file, release memory
+void path_file_close(PathFileReader *file);
+
 // File header checks
 void path_file_load_check(const PathFileReader *file, const dBGraph *db_graph);
 
@@ -64,11 +67,5 @@ void path_file_set_graph_sample_names(const PathFileReader *file,
 
 void path_file_set_header_sample_names(const PathFileReader *file,
                                        PathFileHeader *hdr1);
-
-// Close file
-void path_file_close(PathFileReader *file);
-
-// Release all memory (also calls close)
-void path_file_dealloc(PathFileReader *file);
 
 #endif /* PATH_FILE_FILTER_H_ */

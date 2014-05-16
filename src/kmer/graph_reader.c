@@ -412,10 +412,11 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.num_kmers;
 
-  status("[CtxLoad] First col %zu, into cols %zu..%zu, file has %zu cols: %s",
+  status("[CtxLoad] First col %zu, into cols %zu..%zu, file has %zu col%s: %s",
          graph_file_fromcol(file, 0), graph_file_intocol(file, 0),
          graph_file_usedcols(file)-1,
-         (size_t)hdr->num_of_cols, fltr->file_path.buff);
+         (size_t)hdr->num_of_cols, util_plural_str(hdr->num_of_cols),
+         fltr->file_path.buff);
 
   for(nkmers_parsed = 0; graph_file_read(file, &bkmer, covgs, edges); nkmers_parsed++)
   {
@@ -513,29 +514,23 @@ size_t graph_load_colour(GraphFileReader *file,
                          LoadingStats *stats,
                          size_t colour_idx, size_t intocol)
 {
-  size_t *tmpcols, tmpncols, tmpinto, newcol;
-  bool tmpflatten;
-  FileFilter *fltr = &file->fltr;
-
-  ctx_assert(colour_idx < fltr->ncols);
+  ctx_assert(colour_idx < file->fltr.ncols);
   ctx_assert(intocol < prefs.db_graph->num_of_cols);
 
   // Copy current values
-  tmpcols = fltr->cols; tmpncols = fltr->ncols; tmpinto = fltr->intocol;
-  tmpflatten = fltr->flatten;
+  FileFilter tmp = file->fltr;
 
   // Set new values
-  newcol = fltr->cols[colour_idx];
-  fltr->cols = &newcol; fltr->ncols = 1;
-  file_filter_update_intocol(fltr, intocol);
+  size_t newcol = file->fltr.cols[colour_idx];
+  file->fltr.cols = &newcol;
+  file->fltr.ncols = 1;
+  file_filter_update_intocol(&file->fltr, intocol);
 
   // Load graph
   size_t kmers_loaded = graph_load(file, prefs, stats);
 
   // Restore values
-  fltr->cols = tmpcols; fltr->ncols = tmpncols;
-  file_filter_update_intocol(fltr, tmpinto);
-  fltr->flatten = tmpflatten;
+  file->fltr = tmp;
 
   return kmers_loaded;
 }
@@ -740,11 +735,9 @@ size_t graph_files_merge(const char *out_ctx_path,
       for(i = 0; i < num_files; i++)
       {
         tmpinto = files[i].fltr.intocol; tmpflatten = files[i].fltr.flatten;
-        // files[i].fltr.intocol = 0;
         file_filter_update_intocol(&files[i].fltr, 0);
         files[i].fltr.flatten = true;
         graph_load(&files[i], prefs, &stats);
-        // files[i].fltr.intocol = tmpinto;
         file_filter_update_intocol(&files[i].fltr, tmpinto);
         files[i].fltr.flatten = tmpflatten;
       }

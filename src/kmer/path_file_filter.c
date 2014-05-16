@@ -6,11 +6,6 @@
 const PathFileHeader INIT_PATH_FILE_HDR = INIT_PATH_FILE_HDR_MACRO;
 const PathFileReader INIT_PATH_READER = INIT_PATH_READER_MACRO;
 
-int path_file_open(PathFileReader *file, char *path, bool fatal)
-{
-  return path_file_open2(file, path, fatal, "r");
-}
-
 // Open file
 // if cannot open file returns 0
 // if fatal is true, exits on error
@@ -22,7 +17,7 @@ int path_file_open2(PathFileReader *file, char *path, bool fatal,
   PathFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
 
-  if(!file_filter_alloc(fltr, path, mode, fatal)) return 0;
+  if(!file_filter_open(fltr, path, mode, fatal)) return 0;
   setvbuf(fltr->fh, NULL, _IOFBF, CTP_BUF_SIZE);
 
   file->hdr_size = paths_file_read_header(fltr->fh, hdr, fatal, fltr->file_path.buff);
@@ -46,6 +41,18 @@ int path_file_open2(PathFileReader *file, char *path, bool fatal,
   }
 
   return 1;
+}
+
+int path_file_open(PathFileReader *file, char *path, bool fatal)
+{
+  return path_file_open2(file, path, fatal, "r");
+}
+
+// Close file, release memory
+void path_file_close(PathFileReader *file)
+{
+  file_filter_close(&file->fltr);
+  paths_header_dealloc(&file->hdr);
 }
 
 // File header checks
@@ -135,17 +142,4 @@ void path_file_set_header_sample_names(const PathFileReader *file,
     name0 = &hdr0->sample_names[fromcol];
     strbuf_set(name1, name0->buff);
   }
-}
-
-// Close file
-void path_file_close(PathFileReader *file)
-{
-  file_filter_close(&file->fltr);
-}
-
-// calls file_filter_dealloc which will close file if needed
-void path_file_dealloc(PathFileReader *file)
-{
-  file_filter_dealloc(&file->fltr);
-  paths_header_dealloc(&file->hdr);
 }

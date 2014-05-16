@@ -203,7 +203,7 @@ int ctx_subgraph(CmdArgs *args)
   ctx_free(db_graph.col_edges);
   ctx_free(db_graph.col_covgs);
 
-  for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
+  for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
 
   strbuf_dealloc(&intersect_gname);
   db_graph_dealloc(&db_graph);

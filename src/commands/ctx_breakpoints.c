@@ -134,7 +134,7 @@ int ctx_breakpoints(CmdArgs *args)
   // DEV: use threads in memory calculation
   size_t num_of_threads = args->max_work_threads;
 
-  // kmer memory = Edges + paths + 1 bit per colour
+  // kmer memory = Edges + paths + 1 bit per colour for in-colour
   bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 + ncols + 1;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         ctx_max_kmers, ctx_sum_kmers,
@@ -198,6 +198,7 @@ int ctx_breakpoints(CmdArgs *args)
 
   for(i = 0; i < num_gfiles; i++) {
     graph_load(&gfiles[i], gprefs, &stats);
+    graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }
 
@@ -206,6 +207,8 @@ int ctx_breakpoints(CmdArgs *args)
   //
   // Load path files (does nothing if num_pfiles == 0)
   paths_format_merge(pfiles, num_pfiles, false, false, num_of_threads, &db_graph);
+
+  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
 
   //
   // Load reference sequence into a read buffer
@@ -218,6 +221,7 @@ int ctx_breakpoints(CmdArgs *args)
   read_t r;
   seq_read_alloc(&r);
   for(i = 0; i < num_seq_files; i++) {
+    status("  file: %s", seq_paths[i]);
     while(seq_read(seq_files[i], &r) > 0) {
       readbuf_add(&rbuf, r);
       seq_read_alloc(&r);
@@ -238,8 +242,6 @@ int ctx_breakpoints(CmdArgs *args)
   gzclose(gzout);
 
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
-  for(i = 0; i < num_gfiles; i++) graph_file_dealloc(&gfiles[i]);
-  for(i = 0; i < num_pfiles; i++) path_file_dealloc(&pfiles[i]);
 
   ctx_free(seq_paths);
   readbuf_dealloc(&rbuf);
