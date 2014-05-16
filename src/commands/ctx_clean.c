@@ -135,7 +135,7 @@ int ctx_clean(CmdArgs *args)
 
   // Use remaining args as graph files
   char **paths = argv + argi;
-  size_t i, j, num_files = (size_t)(argc - argi), total_cols = 0;
+  size_t i, j, num_files = (size_t)(argc - argi);
 
   // Open graph files
   GraphFileReader files[num_files];
@@ -149,15 +149,15 @@ int ctx_clean(CmdArgs *args)
   // Flatten if we don't have to remember colours / output a graph
   if(!doing_cleaning)
   {
-    total_cols = use_ncols = 1;
+    ctx_max_cols = use_ncols = 1;
     for(i = 0; i < num_files; i++)
       file_filter_update_intocol(&files[i].fltr, 0);
   }
 
-  if(total_cols < use_ncols) {
+  if(ctx_max_cols < use_ncols) {
     warn("I only need %zu colour%s ('--ncols %zu' ignored)",
-         total_cols, util_plural_str(total_cols), use_ncols);
-    use_ncols = total_cols;
+         ctx_max_cols, util_plural_str(ctx_max_cols), use_ncols);
+    use_ncols = ctx_max_cols;
   }
 
   status("%zu input graphs, max kmers: %zu, using %zu colours",
@@ -206,7 +206,7 @@ int ctx_clean(CmdArgs *args)
   //
   // Decide memory usage
   //
-  bool all_colours_loaded = (total_cols <= use_ncols);
+  bool all_colours_loaded = (ctx_max_cols <= use_ncols);
   bool use_mem_limit = (args->mem_to_use_set && num_files > 1) || !ctx_max_kmers;
 
   size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
@@ -260,10 +260,10 @@ int ctx_clean(CmdArgs *args)
   GraphFileHeader outhdr = {.version = CTX_GRAPH_FILEFORMAT,
                             .kmer_size = (uint32_t)db_graph.kmer_size,
                             .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = (uint32_t)total_cols,
+                            .num_of_cols = (uint32_t)ctx_max_cols,
                             .capacity = 0};
 
-  graph_header_alloc(&outhdr, total_cols);
+  graph_header_alloc(&outhdr, ctx_max_cols);
 
   // Merge info into header
   size_t gcol = 0;
@@ -275,7 +275,7 @@ int ctx_clean(CmdArgs *args)
     }
   }
 
-  if(total_cols > use_ncols)
+  if(ctx_max_cols > use_ncols)
   {
     // Load into one colour
     size_t tmpinto; bool tmpflatten;
@@ -355,7 +355,7 @@ int ctx_clean(CmdArgs *args)
     size_t thresh;
 
     // Set output header ginfo cleaned
-    for(i = 0; i < total_cols; i++)
+    for(i = 0; i < ctx_max_cols; i++)
     {
       cleaning = &outhdr.ginfo[i].cleaning;
       cleaning->cleaned_snodes |= supernode_cleaning;

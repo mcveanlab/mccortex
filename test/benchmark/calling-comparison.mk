@@ -64,7 +64,7 @@ THREADCTX=$(CTX) thread -t $(NTHREADS) -m $(THREADMEM)
 BUBBLESCTX=$(CTX) bubbles -m $(THREADMEM)
 PROCCTX=$(CTX) unique
 PLACECTX=$(CTX) place
-TRAVERSE=$(CTX) contigs -m $(THREADMEM)
+CTXCONTIGS=$(CTX) contigs -m $(THREADMEM)
 CTXSTATS=$(CTX_PATH)/scripts/cortex_stats.pl
 
 RUNCALLS=time $(CORTEX_PATH)/scripts/calling/run_calls.pl
@@ -227,10 +227,10 @@ $(NORMCMPRULES): compare-%-norm: k$(KMER)/vcfs/samples.%.norm.vcf
 # 1..PLOIDY chroms per colour
 # e.g. genomes/genome{1,2}.fa loaded into colour 0 when PLOIDY=2
 traverse: $(PATHS) k$(KMER)/graphs/pop.ref.ctx
-	$(TRAVERSE)                                       --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/paths/pop.se.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/paths/pop.pe.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
-	$(TRAVERSE) -p k$(KMER)/paths/pop.sepe.noref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(CTXCONTIGS)                                      --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(CTXCONTIGS) -p k$(KMER)/paths/pop.se.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(CTXCONTIGS) -p k$(KMER)/paths/pop.pe.noref.ctp   --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
+	$(CTXCONTIGS) -p k$(KMER)/paths/pop.sepe.noref.ctp --ncontigs $(NCONTIGS) --colour 0 --print k$(KMER)/graphs/pop.ref.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl $(KMER) 0.1 - genomes/genome{1..$(PLOIDY)}.fa
 	$(CTXSTATS) k$(KMER)/graphs/pop.noref.ctx:0
 	@echo == ref copy number ==
 	$(CTX_PATH)/bin/ctx31 view --kmers ref/ref.k$(KMER).ctx | awk '{n[$$2]++} END {for (i in n) print i,n[i]}' | sort -n
