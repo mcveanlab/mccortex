@@ -40,10 +40,10 @@ const char breakpoints_usage[] =
 "usage: "CMD" breakpoints [options] <in.ctx> [in2.ctx ..]\n"
 "  Use trusted assembled genome to call large events.  Output is gzipped.\n"
 "\n"
-"  --seq <in>       Trusted input (can be used multiple times)\n"
-"  --out <out.txt>  Save calls [default: STDOUT]\n"
-"  --minref <N>    Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
-"  --maxref <N>    Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
+"  --seq <in>          Trusted input (can be used multiple times)\n"
+"  --out <out.txt.gz>  Save calls (gzipped output) [default: STDOUT]\n"
+"  --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
+"  --maxref <N>        Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
 
 #include "objbuf_macro.h"
 create_objbuf(readbuf, ReadBuffer, read_t);
@@ -212,6 +212,8 @@ int ctx_breakpoints(CmdArgs *args)
   //
   ReadBuffer rbuf;
   readbuf_alloc(&rbuf, 1024);
+
+  status("Loading reference sequences...");
 
   read_t r;
   seq_read_alloc(&r);

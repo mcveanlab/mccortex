@@ -215,6 +215,8 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
 {
   size_t i;
 
+  status("Adding reference annotations to the graph");
+
   if(add_missing_kmers) ctx_assert(db_graph->num_edge_cols == 1);
   ctx_assert(sizeof(KONodeList) == 12);
 

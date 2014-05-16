@@ -427,6 +427,14 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   size_t flank5p_pathid, allele_pathid;
   size_t num_flank5p_runs, num_flank3p_runs;
 
+  // We fetch 5' flanks in all colours then merge matching paths
+  // we stop fetching a single path if it stops tracking the reference
+  // Alternatively, we could fetch the 5' flank in everyone and stop after a
+  // given distance, then check for that set of paths how much it tracks the
+  // reference. This has the advantage of scaling much better with number of
+  // samples, but not so well as min_ref_nkmers increases (since we fetch
+  // many flanks that can't be used) - I think this is less of a worry.
+
   // Loop over possible next nodes at this junction
   for(i = 0; i < num_next; i++)
   {

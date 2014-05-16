@@ -205,7 +205,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
     graph_mem = hash_table_mem((size_t)(min_num_kmer_req/IDEAL_OCCUPANCY),
                                extra_bits, &kmers_in_hash);
 
-  if(max_num_kmers_req > 0)
+  if(max_num_kmers_req > 0 && !args->num_kmers_set)
     kmers_in_hash = MIN2(kmers_in_hash, max_num_kmers_req/IDEAL_OCCUPANCY);
 
   if(kmers_in_hash < 1024)
