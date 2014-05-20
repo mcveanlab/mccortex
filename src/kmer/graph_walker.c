@@ -150,12 +150,10 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
   PathLen plen;
   Orientation porient;
   const uint8_t *path, *seq;
-  bool cntr_filter_nuc0 = false;
 
-  if(counter) {
-    // cntr_filter_nuc0 is needed for picking up counter paths with outdegree > 1
-    cntr_filter_nuc0 = (db_node_outdegree_in_col(node, wlk->ctxcol, db_graph) > 1);
-  }
+  // cntr_filter_nuc0 is needed for picking up counter paths with outdegree > 1
+  bool cntr_filter_nuc0
+    = (counter && db_node_outdegree_in_col(node, wlk->ctxcol, db_graph) > 1);
 
   pindex = pstore_get_pindex(pstore, node.key);
   // PathIndex init_pindex = pindex;
@@ -170,15 +168,27 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
       seq = packedpath_seq(path, pstore->colset_bytes);
       FollowPath fpath = follow_path_create(seq, plen);
 
-      if(!cntr_filter_nuc0 || cache_fetch(&fpath, 0) == next_nuc) {
-        if(cntr_filter_nuc0) fpath.pos++; // already took a base
-
+      if(!cntr_filter_nuc0) path_buf_add(pbuf, fpath);
+      else if(cache_fetch(&fpath, 0) == next_nuc) {
+        // Loading a counter path
+        fpath.pos++; // already took a base
         path_buf_add(pbuf, fpath);
       }
     }
 
     pindex = packedpath_get_prev(pstore->store+pindex);
   }
+
+  #ifdef DEBUG_WALKER
+    char bkey_str[MAX_KMER_SIZE+1], node_str[MAX_KMER_SIZE+1];
+    BinaryKmer node_bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+    binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkey_str);
+    binary_kmer_to_str(node_bkey, wlk->db_graph->kmer_size, node_str);
+    status("  pickup_paths(): %s:%i node:%s:%i picked up %zu %s paths cntr_filter_nuc0:%i",
+           bkey_str, wlk->node.orient, node_str, node.orient,
+           pbuf->len - num_paths, counter ? "counter" : "forward",
+           cntr_filter_nuc0);
+  #endif
 
   // DEBUG
   // if(pbuf->len > num_paths && !counter) {
@@ -188,6 +198,67 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
   return pbuf->len - num_paths;
 }
+
+static void _graph_walker_pickup_counter_paths(GraphWalker *wlk, Edges edges)
+{
+  const dBGraph *db_graph = wlk->db_graph;
+  dBNode prev_nodes[4];
+  Nucleotide prev_bases[4];
+  size_t i, j, num_prev_nodes;
+
+  // Check if picking up paths is turned off
+  if(wlk->db_graph->pstore.kmer_paths_read == NULL) return;
+  if(edges_get_indegree(edges, wlk->node.orient) == 0) return;
+
+  num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey,
+                                       !wlk->node.orient, edges,
+                                       prev_nodes, prev_bases);
+
+  // If we have the ability, slim down nodes by those in this colour
+  if(db_graph->node_in_cols != NULL) {
+    for(i = j = 0; i < num_prev_nodes; i++) {
+      if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol)) {
+        prev_nodes[j] = prev_nodes[i];
+        prev_bases[j] = prev_bases[i];
+        j++;
+      }
+    }
+    num_prev_nodes = j;
+  }
+
+  Nucleotide next_base = binary_kmer_last_nuc(wlk->bkmer);
+
+  // Reverse orientation, pick up paths
+  for(i = 0; i < num_prev_nodes; i++)
+    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+}
+
+static void _graph_walker_pickup_counter_paths_with_mask(GraphWalker *wlk,
+                                                         Nucleotide prev_nuc)
+{
+  const dBGraph *db_graph = wlk->db_graph;
+  Edges edges, prev_edge;
+
+  edges = db_node_get_edges(db_graph, wlk->node.key, 0);
+
+  // Check if picking up paths is turned off
+  if(wlk->db_graph->pstore.kmer_paths_read == NULL) return;
+  if(edges_get_indegree(edges, wlk->node.orient) <= 1) return;
+
+  // Remove edge to kmer we came from
+  // Can slim down the number of nodes to look up if we can rule out
+  // the node we just came from
+  prev_nuc = dna_nuc_complement(prev_nuc);
+  prev_edge = nuc_orient_to_edge(prev_nuc, !wlk->node.orient);
+
+  // Some sanity checks
+  ctx_assert(edges & prev_edge);
+  ctx_assert(binary_kmers_are_equal(wlk->bkey, db_node_get_bkmer(db_graph, wlk->node.key)));
+
+  _graph_walker_pickup_counter_paths(wlk, edges & ~prev_edge);
+}
+
+
 
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
                        Colour ctxcol, Colour ctpcol, dBNode node)
@@ -216,21 +287,29 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   wlk->bkey = db_node_get_bkmer(graph, node.key);
   wlk->bkmer = db_node_oriented_bkmer(graph, node);
 
-  // DEBUG
-  // char kmer_str[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(wlk->bkey, graph->kmer_size, kmer_str);
-  // status("  graph_walker_init(): %s:%i", kmer_str, wlk->node.orient);
+  #ifdef DEBUG_WALKER
+    char kmer_str[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(wlk->bkey, graph->kmer_size, kmer_str);
+    status("  graph_walker_init(): %s:%i", kmer_str, wlk->node.orient);
+  #endif
 
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
+
+  // Don't pick up counter paths on init() - there is no point
+  // since there is no scenario where they'd help if picked up here
+  // Edges edges = db_node_get_edges(db_graph, wlk->node.key, 0);
+  // if(edges_get_indegree(edges, wlk->node.orient) > 1)
+  //   _graph_walker_pickup_counter_paths(wlk, lost_nuc);
 }
 
 void graph_walker_finish(GraphWalker *wlk)
 {
-  // DEBUG
-  // char kmer_str[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
-  // status("  graph_walker_finish(): %s:%i", kmer_str, wlk->node.orient);
+  #ifdef DEBUG_WALKER
+    char kmer_str[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+    status("  graph_walker_finish(): %s:%i", kmer_str, wlk->node.orient);
+  #endif
 
   path_buf_reset(&wlk->paths);
   path_buf_reset(&wlk->new_paths);
@@ -365,16 +444,12 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4])
 {
-  // #ifdef DEBUG_WALKER
-  //   printf("CHOOSE\n");
-  //   print_state(wlk);
-  // #endif
-
-  // DEBUG
-  // char kmer_str[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
-  // status("  graph_walker_choose(): %s:%i num_next:%zu",
-  //        kmer_str, wlk->node.orient, num_next);
+  #ifdef DEBUG_WALKER
+    char kmer_str[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+    status("  graph_walker_choose(): %s:%i num_next:%zu",
+           kmer_str, wlk->node.orient, num_next);
+  #endif
 
   if(num_next == 0) {
     if(wlk->paths.len > 0) {
@@ -488,71 +563,17 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
 #undef return_step
 
-
-
-static void _graph_walker_pickup_counter_paths(GraphWalker *wlk,
-                                               Nucleotide prev_nuc)
-{
-  const dBGraph *db_graph = wlk->db_graph;
-  dBNode prev_nodes[4];
-  Nucleotide prev_bases[4];
-  size_t i, j, num_prev_nodes;
-  Edges edges, prev_edge;
-  Nucleotide next_base;
-  Orientation backwards = !wlk->node.orient;
-
-  // Picking up paths is turned off
-  if(wlk->db_graph->pstore.kmer_paths_read == NULL) return;
-
-  // Remove edge to kmer we came from
-  edges = db_node_get_edges(db_graph, wlk->node.key, 0);
-
-  // Can slim down the number of nodes to look up if we can rule out
-  // the node we just came from
-  prev_nuc = dna_nuc_complement(prev_nuc);
-  prev_edge = nuc_orient_to_edge(prev_nuc, backwards);
-
-  // status("lost: %c:%i", dna_nuc_to_char(prev_nuc), backwards);
-  // status("edges: %u prev_edge: %u", (uint32_t)edges, (uint32_t)prev_edge);
-
-  // Some sanity checks
-  ctx_assert(edges & prev_edge);
-  ctx_assert(binary_kmers_are_equal(wlk->bkey, db_node_get_bkmer(db_graph, wlk->node.key)));
-
-  num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey,
-                                       backwards, edges & ~prev_edge,
-                                       prev_nodes, prev_bases);
-
-  // If we have the ability, slim down nodes by those in this colour
-  if(db_graph->node_in_cols != NULL) {
-    for(i = j = 0; i < num_prev_nodes; i++) {
-      if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol)) {
-        prev_nodes[j] = prev_nodes[i];
-        prev_bases[j] = prev_bases[i];
-        j++;
-      }
-    }
-    num_prev_nodes = j;
-  }
-
-  next_base = binary_kmer_last_nuc(wlk->bkmer);
-
-  // Reverse orientation, pick up paths
-  for(i = 0; i < num_prev_nodes; i++)
-    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
-}
-
-
 static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
                                        BinaryKmer bkmer, bool is_fork)
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
 
-  // DEBUG
-  // char kmer_str[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
-  // status("  _graph_traverse_force_jump(): %s:%i is_fork:%s",
-  //        kmer_str, wlk->node.orient, is_fork ? "yes" : "no");
+  #ifdef DEBUG_WALKER
+    char kmer_str[MAX_KMER_SIZE+1];
+    binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+    status("  _graph_traverse_force_jump(): %s:%i is_fork:%s",
+           kmer_str, wlk->node.orient, is_fork ? "yes" : "no");
+  #endif
 
   if(is_fork)
   {
@@ -642,6 +663,7 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
     ctx_assert(edges_get_indegree(edges, orient) <= 1);
   #endif
 
+  // Don't need to pick up counter paths since there should be none
   // Now do the work
   _graph_traverse_force_jump(wlk, hkey, bkmer, false);
 }
@@ -656,7 +678,7 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
 
   _graph_traverse_force_jump(wlk, hkey, bkmer, is_fork);
-  _graph_walker_pickup_counter_paths(wlk, lost_nuc);
+  _graph_walker_pickup_counter_paths_with_mask(wlk, lost_nuc);
 }
 
 bool graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
