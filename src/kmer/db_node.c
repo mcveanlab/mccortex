@@ -261,10 +261,11 @@ size_t db_node_to_str(const dBGraph *db_graph, dBNode node, char *str)
   return kmer_size + 2;
 }
 
-void db_nodes_to_str(const dBNode *nodes, size_t num,
-                     const dBGraph *db_graph, char *str)
+// Returns number of bytes added
+size_t db_nodes_to_str(const dBNode *nodes, size_t num,
+                       const dBGraph *db_graph, char *str)
 {
-  if(num == 0) return;
+  if(num == 0) return 0;
 
   size_t i;
   size_t kmer_size = db_graph->kmer_size;
@@ -280,6 +281,7 @@ void db_nodes_to_str(const dBNode *nodes, size_t num,
   }
 
   str[kmer_size+num-1] = '\0';
+  return kmer_size+num-1;
 }
 
 void db_nodes_print(const dBNode *nodes, size_t num,

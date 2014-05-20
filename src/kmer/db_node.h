@@ -277,8 +277,9 @@ void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift);
 size_t db_node_to_str(const dBGraph *db_graph, dBNode node, char *str);
 
 // Null-terminates string
-void db_nodes_to_str(const dBNode *nodes, size_t num,
-                     const dBGraph *db_graph, char *str);
+// Returns number of bytes added
+size_t db_nodes_to_str(const dBNode *nodes, size_t num,
+                       const dBGraph *db_graph, char *str);
 
 void db_nodes_print(const dBNode *nodes, size_t num,
                     const dBGraph *db_graph, FILE *out);

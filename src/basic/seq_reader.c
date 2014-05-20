@@ -178,7 +178,7 @@ static uint8_t process_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
 // Load reads into a buffer and use them to guess the quality score offset
 // Returns -1 if no quality scores
 // Defaults to 0 if not recognisable (offset:33, min:33, max:126)
-int guess_fastq_format(seq_file_t *sf)
+static inline int guess_fastq_format(seq_file_t *sf)
 {
   // Detect fastq offset
   int min_qual = INT_MAX, max_qual = INT_MIN;

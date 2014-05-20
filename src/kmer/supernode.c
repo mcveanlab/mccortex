@@ -132,6 +132,7 @@ void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
   supernode_extend(nbuf, 0, db_graph);
 }
 
+// Count number of read starts using coverage data
 uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
 {
   if(len == 0) return 0;

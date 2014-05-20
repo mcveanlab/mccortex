@@ -90,18 +90,20 @@ static void generate_chrom_list(KOGraph *kograph,
 
 // Add missing kmers and edges to the graph whilst keeping track of the count
 // of how many times each kmer in the graph is seen in sequence (with klists)
+// Returns number of kmers added to the graph
 // Threadsafe
-static size_t add_read_to_graph_mt(const char *seq, size_t len,
-                                   KONodeList *klists, dBGraph *db_graph)
+static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
+                                             KONodeList *klists,
+                                             dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  if(len < kmer_size) return 0;
-
+  size_t i, num_novel_kmers = 0;
   BinaryKmer bkmer;
   Nucleotide nuc;
   dBNode prev, curr;
-  size_t i, num_novel_kmers = 0;
   bool found;
+
+  ctx_assert(len >= kmer_size);
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
   prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
@@ -116,6 +118,33 @@ static size_t add_read_to_graph_mt(const char *seq, size_t len,
     __sync_fetch_and_add((volatile uint32_t*)&klists[curr.key].count, 1); // count++
     db_graph_add_edge_mt(db_graph, 0, prev, curr);
     num_novel_kmers += !found;
+  }
+
+  return num_novel_kmers;
+}
+
+// Add missing kmers and edges to the graph whilst keeping track of the count
+// of how many times each kmer in the graph is seen in sequence (with klists)
+// Returns number of kmers added to the graph
+// Threadsafe
+static inline size_t add_ref_read_to_graph_mt(const read_t *r,
+                                              KONodeList *klists,
+                                              dBGraph *db_graph)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+  size_t contig_start, contig_end, contig_len;
+  size_t search_start = 0, num_novel_kmers = 0;
+
+  if(r->seq.end < kmer_size) return 0;
+
+  while((contig_start = seq_contig_start(r, search_start, kmer_size,
+                                         0, 0)) < r->seq.end)
+  {
+    contig_end = seq_contig_end(r, contig_start, kmer_size, 0, 0, &search_start);
+
+    contig_len = contig_end - contig_start;
+    num_novel_kmers += add_ref_seq_to_graph_mt(r->seq.b+contig_start, contig_len,
+                                               klists, db_graph);
   }
 
   return num_novel_kmers;
@@ -147,7 +176,7 @@ static void read_update_counts(void *arg)
   const read_t *r = data.r;
 
   if(data.add_missing_kmers) {
-    add_read_to_graph_mt(r->seq.b, r->seq.end, data.klists, data.db_graph);
+    add_ref_read_to_graph_mt(r, data.klists, data.db_graph);
   }
   else {
     LoadingStats stats = LOAD_STATS_INIT_MACRO;
@@ -215,9 +244,10 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
 {
   size_t i;
 
-  status("Adding reference annotations to the graph");
+  status("Adding reference annotations to the graph using %zu thread%s",
+         num_threads, util_plural_str(num_threads));
 
-  if(add_missing_kmers) ctx_assert(db_graph->num_edge_cols == 1);
+  ctx_assert(!add_missing_kmers || db_graph->num_edge_cols == 1);
   ctx_assert(sizeof(KONodeList) == 12);
 
   // Check number of reads doesn't exceed max limit
@@ -269,6 +299,9 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
       read_store_kmer_pos(&reads[i], i, kograph.klists, kograph.koccurs, db_graph);
     }
   }
+
+  if(db_graph->num_edge_cols > 0)
+    db_graph_healthcheck(db_graph);
 
   return kograph;
 }
@@ -385,7 +418,7 @@ void kograph_filter_extend(KOGraph kograph,
 
   // Split korun buffer into two fixed size arrays
   // Extend current runs, and start new ones
-  kmer_run_buf_ensure_capacity(korun, max_paths);
+  kmer_run_buf_ensure_capacity(korun, 2*max_paths);
   runs0 = korun->data;
   runs1 = korun->data + max_paths;
   nruns0 = korun->len;

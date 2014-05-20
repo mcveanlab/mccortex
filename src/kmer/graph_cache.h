@@ -73,13 +73,13 @@ void graph_cache_reset(GraphCache *cache);
 #define graph_cache_num_paths(cache) ((cache)->path_buf.len)
 
 #define graph_cache_first_node(cache,snode) \
-        graph_cache_node(cache, snode->first_node_id)
+        graph_cache_node(cache, (snode)->first_node_id)
 
 #define graph_cache_last_node(cache,snode) \
-        graph_cache_node(cache, snode->first_node_id + snode->num_nodes-1)
+        graph_cache_node(cache, (snode)->first_node_id + (snode)->num_nodes - 1)
 
 #define graph_cache_path_last_step(cache,path) \
-        graph_cache_step(cache, path->first_step + path->num_steps-1)
+        graph_cache_step(cache, (path)->first_step + (path)->num_steps - 1)
 
 // Returns pathid
 uint32_t graph_cache_new_path(GraphCache *cache);
@@ -90,6 +90,8 @@ uint32_t graph_cache_new_step(GraphCache *cache, dBNode node);
 //
 // Sorting
 //
+
+int graph_cache_pathids_cmp(const void *aa, const void *bb, void *arg);
 
 int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
                           const GraphCache *cache);
@@ -108,14 +110,14 @@ void graph_cache_snode_fetch_nodes(const GraphCache *cache,
                                    Orientation orient,
                                    dBNodeBuffer *nbuf);
 
+void graph_cache_path_fetch_nodes(const GraphCache *cache,
+                                  const GCachePath *path, size_t num_steps,
+                                  dBNodeBuffer *nbuf);
+
 // Get all nodes in a path up to, but not including the given step
 // Adds to the end of the node buffer (does not reset it)
 void graph_cache_step_fetch_nodes(const GraphCache *cache,
                                   const GCacheStep *end_step,
-                                  dBNodeBuffer *nbuf);
-
-void graph_cache_path_fetch_nodes(const GraphCache *cache,
-                                  const GCachePath *path,
                                   dBNodeBuffer *nbuf);
 
 // Looks like 3p flank if steps don't have the same n-1 supernode

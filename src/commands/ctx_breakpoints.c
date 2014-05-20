@@ -146,7 +146,7 @@ int ctx_breakpoints(CmdArgs *args)
 
   // Reference annotation layer memory - estimate
   //  assume 1 byte per kmer for each base to load sequence files
-  ref_mem = ctx_max_kmers * (1 + sizeof(KONodeList) + sizeof(KOccur));
+  ref_mem = kmers_in_hash * (1 + sizeof(KONodeList) + sizeof(KOccur));
   cmd_print_mem(ref_mem, "ref annotation");
 
   size_t total_mem = graph_mem + path_mem + ref_mem;

@@ -115,10 +115,8 @@ int ctx_health_check(CmdArgs *args)
 
   graph_file_close(&gfile);
 
-  if(do_edge_check) {
-    status("Running edge check...");
+  if(do_edge_check)
     db_graph_healthcheck(&db_graph);
-  }
 
   if(num_pfiles)
   {

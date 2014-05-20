@@ -27,6 +27,7 @@ int main()
   test_corrected_aln();
   test_repeat_walker();
   test_sorted_paths();
+  test_graph_crawler();
   test_bubble_caller();
   test_breakpoint_caller();
 

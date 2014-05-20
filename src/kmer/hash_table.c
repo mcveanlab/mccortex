@@ -77,8 +77,8 @@ void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   ulong_to_str(bucket_size, bkt_size_str);
   ulong_to_str(capacity, cap_str);
   bytes_to_str(mem, 1, mem_str);
-  status("[KmerHash] Allocating table with %s entries, using %s", cap_str, mem_str);
-  status("[KmerHash]  number of buckets: %s, bucket size: %s", num_bkts_str, bkt_size_str);
+  status("[hashtable] Allocating table with %s entries, using %s", cap_str, mem_str);
+  status("[hashtable]  number of buckets: %s, bucket size: %s", num_bkts_str, bkt_size_str);
 
   // calloc is required for bucket_data to set the first element of each bucket
   // to the 0th pos

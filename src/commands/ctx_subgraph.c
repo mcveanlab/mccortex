@@ -25,8 +25,10 @@ const char subgraph_usage[] =
 "    -m <mem>          Memory to use  <required>\n"
 "    -n <kmers>        Hash size\n"
 "    --out <out.ctx>   Output file [default: STDOUT]\n"
-"    --seq <seed.fa>   Read in a seed file\n"
+"    --seq <seed.fa>   Read in a seed file [require at least one]\n"
+"    --dist <N>        Number of kmers to extend by [default: 0]\n"
 "    --invert          Dump kmers not in subgraph\n"
+"    --supernodes      Grab entire runs of kmers that are touched by a read\n"
 "    --ncols <n>       Number of samples in memory at once (speedup)\n";
 
 int ctx_subgraph(CmdArgs *args)
@@ -36,8 +38,8 @@ int ctx_subgraph(CmdArgs *args)
   // Already checked that we have at least 4 args
 
   seq_file_t *seed_files[argc/2];
-  size_t num_seed_files = 0;
-  bool invert = false;
+  size_t num_seed_files = 0, dist = 0;
+  bool invert = false, grab_supernodes = false;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
@@ -51,30 +53,31 @@ int ctx_subgraph(CmdArgs *args)
         die("Cannot read %s file: %s", argv[argi], argv[argi+1]);
       argi++; num_seed_files++;
     }
+    else if(strcasecmp(argv[argi], "--dist") == 0) {
+      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &dist)) {
+        cmd_print_usage("%s <N> requires an integer argument >= 0", argv[argi]);
+      }
+      argi++; // we took an argument
+    }
     else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
+    else if(strcasecmp(argv[argi], "--supernodes") == 0) grab_supernodes = true;
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  if(argi + 2 > argc)
-    cmd_print_usage("Please specify <dist> and input graph files (.ctx)");
-
-  const char *diststr = argv[argi++];
-  uint32_t dist;
-
-  if(!parse_entire_uint(diststr, &dist))
-    cmd_print_usage("Invalid <dist> value, must be int >= 0: %s", diststr);
+  if(argi >= argc)
+    cmd_print_usage("Please specify at least one input graph file (.ctx)");
 
   size_t num_gfiles = argc - argi;
   char **paths = argv + argi;
 
-  size_t i, j, col, total_cols = 0;
+  size_t i, j, col, total_cols;
 
   // Open graph files
   GraphFileReader gfiles[num_gfiles];
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  graph_files_open(paths, gfiles, num_gfiles,
-                   &ctx_max_kmers, &ctx_sum_kmers);
+  total_cols = graph_files_open(paths, gfiles, num_gfiles,
+                                &ctx_max_kmers, &ctx_sum_kmers);
 
   //
   // Decide on memory
@@ -173,7 +176,9 @@ int ctx_subgraph(CmdArgs *args)
   strbuf_append_char(&intersect_gname, '}');
 
   // Load sequence and mark in first pass
-  subgraph_from_reads(&db_graph, dist, invert, fringe_mem, kmer_mask,
+  subgraph_from_reads(&db_graph, dist,
+                      invert, grab_supernodes,
+                      fringe_mem, kmer_mask,
                       seed_files, num_seed_files);
 
   for(i = 0; i < num_seed_files; i++) seq_close(seed_files[i]);

@@ -141,4 +141,7 @@ void test_bubble_caller();
 // breakpoint_caller_tests.c
 void test_breakpoint_caller();
 
+// graph_crawler_tests.c
+void test_graph_crawler();
+
 #endif  /* ALL_TESTS_H_ */

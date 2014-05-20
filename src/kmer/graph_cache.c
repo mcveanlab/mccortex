@@ -33,7 +33,8 @@ void graph_cache_dealloc(GraphCache *cache)
 }
 
 // Encode supernode and orientation into a 32bit integer
-#define _graph_cache_step_encode(step) (((step)->supernode << 1) | (step)->orient)
+#define _graph_cache_step_encode(step) \
+        (((uint32_t)(step)->supernode << 1) | (step)->orient)
 
 // Returns pathid
 uint32_t graph_cache_new_path(GraphCache *cache)
@@ -181,23 +182,24 @@ void graph_cache_reset(GraphCache *cache)
   cache_path_buf_reset(&cache->path_buf);
 }
 
+// Sort by supernodes up to (and including) this point
 int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
                           const GraphCache *cache)
 {
-  // Sort by supernodes up to (and including) this point
-  const GCachePath *apath = graph_cache_path(cache, a->pathid);
-  const GCachePath *bpath = graph_cache_path(cache, b->pathid);
+  const GCachePath *path0, *path1;
+  const GCacheStep *step0, *step1, *endstep0;
 
-  const GCacheStep *step0 = graph_cache_step(cache, apath->first_step);
-  const GCacheStep *step1 = graph_cache_step(cache, bpath->first_step);
+  path0 = graph_cache_path(cache, a->pathid);
+  path1 = graph_cache_path(cache, b->pathid);
 
-  uint32_t len0 = a - step0 + 1, len1 = b - step1 + 1, minlen = MIN2(len0, len1);
+  step0 = graph_cache_step(cache, path0->first_step);
+  step1 = graph_cache_step(cache, path1->first_step);
 
   // compare path steps
+  uint32_t len0 = a - step0 + 1, len1 = b - step1 + 1, minlen = MIN2(len0, len1);
   uint32_t word0, word1;
-  size_t i;
 
-  for(i = 0; i < minlen; i++) {
+  for(endstep0 = step0+minlen; step0 < endstep0; step0++, step1++) {
     word0 = _graph_cache_step_encode(step0);
     word1 = _graph_cache_step_encode(step1);
     if(word0 < word1) return -1;
@@ -219,12 +221,14 @@ void graph_cache_steps_qsort(GraphCache *cache, GCacheStep **list, size_t n)
   sort_r(list, n, sizeof(GCacheStep*), _steps_cmp, cache);
 }
 
-static inline int pathids_cmp(const void *aa, const void *bb, void *arg)
+int graph_cache_pathids_cmp(const void *aa, const void *bb, void *arg)
 {
   uint32_t a = *(const uint32_t *)aa, b = *(const uint32_t *)bb;
   const GraphCache *cache = (const GraphCache*)arg;
   const GCachePath *patha = graph_cache_path(cache, a);
   const GCachePath *pathb = graph_cache_path(cache, b);
+  if(patha->num_steps == 0 || pathb->num_steps == 0)
+    return patha->num_steps - pathb->num_steps;
   const GCacheStep *stepa = graph_cache_path_last_step(cache, patha);
   const GCacheStep *stepb = graph_cache_path_last_step(cache, pathb);
   return graph_cache_steps_cmp(stepa, stepb, cache);
@@ -233,7 +237,7 @@ static inline int pathids_cmp(const void *aa, const void *bb, void *arg)
 bool graph_cache_pathids_are_equal(GraphCache *cache,
                                    uint32_t pathid0, uint32_t pathid1)
 {
-  return pathids_cmp(&pathid0, &pathid1, cache) == 0;
+  return graph_cache_pathids_cmp(&pathid0, &pathid1, cache) == 0;
 }
 
 // Get all nodes in a single step (supernode with orientation)
@@ -260,6 +264,21 @@ void graph_cache_snode_fetch_nodes(const GraphCache *cache,
   nbuf->len += snode->num_nodes;
 }
 
+void graph_cache_path_fetch_nodes(const GraphCache *cache,
+                                  const GCachePath *path, size_t num_steps,
+                                  dBNodeBuffer *nbuf)
+{
+  ctx_assert(num_steps <= path->num_steps);
+
+  const GCacheStep *endstep, *step = graph_cache_step(cache, path->first_step);
+  const GCacheSnode *snode;
+
+  for(endstep = step + num_steps; step < endstep; step++) {
+    snode = graph_cache_snode(cache, step->supernode);
+    graph_cache_snode_fetch_nodes(cache, snode, step->orient, nbuf);
+  }
+}
+
 // Get all nodes in a path up to, but not including the given step
 // Adds to the end of the node buffer (does not reset it)
 void graph_cache_step_fetch_nodes(const GraphCache *cache,
@@ -267,22 +286,8 @@ void graph_cache_step_fetch_nodes(const GraphCache *cache,
                                   dBNodeBuffer *nbuf)
 {
   const GCachePath *path = graph_cache_path(cache, endstep->pathid);
-  const GCacheStep *step = graph_cache_step(cache, path->first_step);
-  const GCacheSnode *snode;
-
-  // Loop over steps, load nodes
-  for(; step < endstep; step++) {
-    snode = graph_cache_snode(cache, step->supernode);
-    graph_cache_snode_fetch_nodes(cache, snode, step->orient, nbuf);
-  }
-}
-
-void graph_cache_path_fetch_nodes(const GraphCache *cache,
-                                  const GCachePath *path,
-                                  dBNodeBuffer *nbuf)
-{
-  const GCacheStep *step = graph_cache_path_last_step(cache, path);
-  graph_cache_step_fetch_nodes(cache, step+1, nbuf);
+  const GCacheStep *first_step = graph_cache_step(cache, path->first_step);
+  graph_cache_path_fetch_nodes(cache, path, endstep-first_step, nbuf);
 }
 
 // Get previous step or NULL if first step

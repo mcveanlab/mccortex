@@ -4,34 +4,44 @@
 #include "db_node.h"
 #include "seq_reader.h"
 #include "prune_nodes.h"
+#include "supernode.h"
 #include "loading_stats.h"
 #include "util.h"
 
 typedef struct
 {
-  const dBGraph *const db_graph;
-  uint64_t *const kmer_mask;
-  dBNodeBuffer nbufs[2];
-  size_t buf_idx;
+  const dBGraph *const db_graph; // graph we are operating on
+  uint64_t *const kmer_mask; // bitset of visited kmers
+  const bool grab_supernodes; // grab entire supernodes or just kmers
+  dBNodeBuffer nbufs[2], snode_buf;
   LoadingStats stats;
-} EdgeNodes;
+} SubgraphBuilder;
 
-static void edge_nodes_alloc(EdgeNodes *enodes, const dBGraph *graph,
-                             uint64_t *kmer_mask, size_t capacity)
+static void subgraph_builder_alloc(SubgraphBuilder *builder,
+                                   size_t num_fringe_nodes,
+                                   bool grab_supernodes,
+                                   uint64_t *kmer_mask,
+                                   const dBGraph *graph)
 {
-  EdgeNodes tmp = {.db_graph = graph, .kmer_mask = kmer_mask, .buf_idx = 0};
-  memcpy(enodes, &tmp, sizeof(EdgeNodes));
-  db_node_buf_alloc(&enodes->nbufs[0], capacity);
-  db_node_buf_alloc(&enodes->nbufs[1], capacity);
-  loading_stats_init(&enodes->stats);
+  SubgraphBuilder tmp = {.db_graph = graph,
+                         .kmer_mask = kmer_mask,
+                         .grab_supernodes = grab_supernodes};
+
+  memcpy(builder, &tmp, sizeof(SubgraphBuilder));
+  db_node_buf_alloc(&builder->nbufs[0], num_fringe_nodes);
+  db_node_buf_alloc(&builder->nbufs[1], num_fringe_nodes);
+  db_node_buf_alloc(&builder->snode_buf, 128);
+  loading_stats_init(&builder->stats);
 }
 
-static void edge_nodes_dealloc(EdgeNodes *enodes)
+static void subgraph_builder_dealloc(SubgraphBuilder *builder)
 {
-  db_node_buf_dealloc(&enodes->nbufs[0]);
-  db_node_buf_dealloc(&enodes->nbufs[1]);
+  db_node_buf_dealloc(&builder->nbufs[0]);
+  db_node_buf_dealloc(&builder->nbufs[1]);
+  db_node_buf_dealloc(&builder->snode_buf);
 }
 
+// Mark all kmers touched by a read, if they already exist in the graph
 static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
                        uint64_t *kmer_mask, const dBGraph *db_graph)
 {
@@ -52,19 +62,53 @@ static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
   }
 }
 
+// Mark entire supernodes that are touched by a read
+static inline void mark_snode(BinaryKmer bkmer,
+                              dBNodeBuffer *nbuf, dBNodeBuffer *snode_buf,
+                              uint64_t *kmer_mask, const dBGraph *db_graph)
+{
+  dBNode node = db_graph_find(db_graph, bkmer);
+  size_t i;
+
+  if(node.key != HASH_NOT_FOUND && !bitset_get(kmer_mask, node.key))
+  {
+    db_node_buf_reset(snode_buf);
+    supernode_find(node.key, snode_buf, db_graph);
+
+    for(i = 0; i < snode_buf->len; i++) {
+      bitset_set(kmer_mask, snode_buf->data[i].key);
+      if(nbuf->capacity > 0 && !db_node_buf_attempt_add(nbuf, snode_buf->data[i]))
+        die("Please increase <mem> size");
+    }
+  }
+}
+
 static void store_read_nodes(read_t *r1, read_t *r2,
                              uint8_t qoffset1, uint8_t qoffset2, void *ptr)
 {
   (void)qoffset1; (void)qoffset2;
-  EdgeNodes *enodes = (EdgeNodes*)ptr;
-  const dBGraph *db_graph = enodes->db_graph;
-  dBNodeBuffer *nbuf = &enodes->nbufs[0];
+  SubgraphBuilder *builder = (SubgraphBuilder*)ptr;
+  const dBGraph *db_graph = builder->db_graph;
 
-  READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &enodes->stats, mark_bkmer,
-                 nbuf, enodes->kmer_mask, db_graph);
-  if(r2 != NULL) {
-    READ_TO_BKMERS(r2, db_graph->kmer_size, 0, 0, &enodes->stats, mark_bkmer,
-                   nbuf, enodes->kmer_mask, db_graph);
+  if(builder->grab_supernodes)
+  {
+    READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &builder->stats, mark_snode,
+                   &builder->nbufs[0], &builder->snode_buf,
+                   builder->kmer_mask, db_graph);
+    if(r2 != NULL) {
+      READ_TO_BKMERS(r2, db_graph->kmer_size, 0, 0, &builder->stats, mark_snode,
+                     &builder->nbufs[0], &builder->snode_buf,
+                     builder->kmer_mask, db_graph);
+    }
+  }
+  else
+  {
+    READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &builder->stats, mark_bkmer,
+                   &builder->nbufs[0], builder->kmer_mask, db_graph);
+    if(r2 != NULL) {
+      READ_TO_BKMERS(r2, db_graph->kmer_size, 0, 0, &builder->stats, mark_bkmer,
+                     &builder->nbufs[0], builder->kmer_mask, db_graph);
+    }
   }
 }
 
@@ -97,33 +141,33 @@ static void store_node_neighbours(const hkey_t hkey, dBNodeBuffer *nbuf,
 }
 
 
-static void extend(EdgeNodes *enodes, size_t dist)
+static void extend(SubgraphBuilder *builder, size_t dist)
 {
-  const dBGraph *db_graph = enodes->db_graph;
-  uint64_t *kmer_mask = enodes->kmer_mask;
-  dBNodeBuffer *nbuf0 = &enodes->nbufs[0], *nbuf1 = &enodes->nbufs[1];
+  const dBGraph *db_graph = builder->db_graph;
+  uint64_t *kmer_mask = builder->kmer_mask;
+  dBNodeBuffer *nbuf0 = &builder->nbufs[0], *nbuf1 = &builder->nbufs[1];
   size_t d, i;
 
   if(dist > 0)
   {
-    char tmpstr[100];
-    ulong_to_str(dist, tmpstr);
-    status("Extending subgraph by %s\n", tmpstr);
+    char dist_str[100];
+    ulong_to_str(dist, dist_str);
+    status("Extending subgraph by %s kmers\n", dist_str);
 
     for(d = 0; d < dist; d++) {
+      db_node_buf_reset(nbuf1);
       for(i = 0; i < nbuf0->len; i++) {
         store_node_neighbours(nbuf0->data[i].key, nbuf1, kmer_mask, db_graph);
       }
-      nbuf0->len = 0;
       SWAP(nbuf0, nbuf1);
     }
   }
 }
 
-static void print_stats(const EdgeNodes *enodes)
+static void print_stats(const SubgraphBuilder *builder)
 {
-  size_t nseed_kmers = enodes->stats.num_kmers_loaded;
-  size_t nkmers_found = enodes->nbufs[0].len;
+  size_t nseed_kmers = builder->stats.num_kmers_loaded;
+  size_t nkmers_found = builder->nbufs[0].len;
   char nseed_kmers_str[100], nkmers_found_str[100];
   ulong_to_str(nseed_kmers, nseed_kmers_str);
   ulong_to_str(nkmers_found, nkmers_found_str);
@@ -141,15 +185,17 @@ static size_t get_num_fringe_nodes(size_t fringe_mem, size_t dist)
 // `fringe_mem` is how many bytes can be used to remember the fringe of
 // the breadth first search (we use 8 bytes per kmer)
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
-void subgraph_from_reads(dBGraph *db_graph, size_t dist, bool invert,
+void subgraph_from_reads(dBGraph *db_graph, size_t dist,
+                         bool invert, bool grab_supernodes,
                          size_t fringe_mem, uint64_t *kmer_mask,
                          seq_file_t **files, size_t num_files)
 {
   // divide by two since this is the number of nodes per list, two lists
   size_t i, num_of_fringe_nodes = get_num_fringe_nodes(fringe_mem, dist);
 
-  EdgeNodes enodes;
-  edge_nodes_alloc(&enodes, db_graph, kmer_mask, num_of_fringe_nodes);
+  SubgraphBuilder builder;
+  subgraph_builder_alloc(&builder, num_of_fringe_nodes, grab_supernodes,
+                         kmer_mask, db_graph);
 
   // Load sequence and mark in first pass
   read_t r1;
@@ -157,14 +203,14 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist, bool invert,
     die("Out of memory");
 
   for(i = 0; i < num_files; i++)
-    seq_parse_se_sf(files[i], 0, &r1, store_read_nodes, &enodes);
+    seq_parse_se_sf(files[i], 0, &r1, store_read_nodes, &builder);
 
-  print_stats(&enodes);
+  print_stats(&builder);
 
   seq_read_dealloc(&r1);
 
-  extend(&enodes, dist);
-  edge_nodes_dealloc(&enodes);
+  extend(&builder, dist);
+  subgraph_builder_dealloc(&builder);
 
   if(invert) {
     status("Inverting selection...\n");
@@ -183,15 +229,17 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist, bool invert,
 // `fringe_mem` is how many bytes can be used to remember the fringe of
 // the breadth first search (we use 8 bytes per kmer)
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
-void subgraph_from_seq(dBGraph *db_graph, size_t dist, bool invert,
+void subgraph_from_seq(dBGraph *db_graph, size_t dist,
+                       bool invert, bool grab_supernodes,
                        size_t fringe_mem, uint64_t *kmer_mask,
-                       char **seqs, size_t num_seqs)
+                       char **seqs, size_t *seqlens, size_t num_seqs)
 {
   // divide by two since this is the number of nodes per list, two lists
   size_t i, num_of_fringe_nodes = get_num_fringe_nodes(fringe_mem, dist);
 
-  EdgeNodes enodes;
-  edge_nodes_alloc(&enodes, db_graph, kmer_mask, num_of_fringe_nodes);
+  SubgraphBuilder builder;
+  subgraph_builder_alloc(&builder, num_of_fringe_nodes, grab_supernodes,
+                         kmer_mask, db_graph);
 
   // Load sequence and mark in first pass
   char empty[10] = "";
@@ -201,14 +249,14 @@ void subgraph_from_seq(dBGraph *db_graph, size_t dist, bool invert,
 
   for(i = 0; i < num_seqs; i++) {
     r1.seq.b = seqs[i];
-    r1.seq.end = strlen(seqs[i]);
-    store_read_nodes(&r1, NULL, 0, 0, &enodes);
+    r1.seq.end = seqlens[i];
+    store_read_nodes(&r1, NULL, 0, 0, &builder);
   }
 
-  print_stats(&enodes);
+  print_stats(&builder);
 
-  extend(&enodes, dist);
-  edge_nodes_dealloc(&enodes);
+  extend(&builder, dist);
+  subgraph_builder_dealloc(&builder);
 
   if(invert) {
     status("Inverting selection...\n");

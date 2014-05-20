@@ -274,7 +274,9 @@ void paths_format_load(PathFileReader *file, bool insert_missing_kmers,
       hkey = hash_table_find_or_insert(&db_graph->ht, bkmer, &found);
     }
     else if((hkey = hash_table_find(&db_graph->ht, bkmer)) == HASH_NOT_FOUND) {
-      die("Node missing: %zu [path: %s]", (size_t)hkey, path);
+      char kmer_str[MAX_KMER_SIZE+1];
+      binary_kmer_to_str(bkmer, db_graph->kmer_size, kmer_str);
+      die("Node missing: %s [path: %s]", kmer_str, path);
     }
 
     safe_fread(fh, &pindex, sizeof(uint64_t), "kmer_index", path);

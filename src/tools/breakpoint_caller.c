@@ -47,6 +47,13 @@ typedef struct
   const size_t min_ref_nkmers, max_ref_nkmers; // how many kmers of homology req
 } BreakpointCaller;
 
+// We clear the graph cache after each fork is dealt with, so there should
+// be an upper bound on how many paths the graph crawler generates.
+// This upper bound is used when allocating the memory to store ref runs
+// (stretches where the ref runs along with the sample)
+#define MAX_REFRUNS_PER_ORIENT(ncols) ((ncols)*4)
+#define MAX_REFRUNS_PER_CALLER(ncols) MAX_REFRUNS_PER_ORIENT(ncols)*2
+
 static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
                                            size_t min_ref_flank,
                                            size_t max_ref_flank,
@@ -62,7 +69,8 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
   size_t *callid = ctx_calloc(1, sizeof(size_t));
 
   // Each colour in each caller can have a GraphCache path at once
-  PathRefRun *path_ref_runs = ctx_calloc(num_callers*ncols*2, sizeof(PathRefRun));
+  PathRefRun *path_ref_runs = ctx_calloc(num_callers*MAX_REFRUNS_PER_CALLER(ncols),
+                                         sizeof(PathRefRun));
 
   size_t i;
   for(i = 0; i < num_callers; i++)
@@ -74,12 +82,14 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers, gzFile gzout,
                             .gzout = gzout,
                             .out_lock = out_lock,
                             .callid = callid,
-                            .allele_refs = path_ref_runs+i*ncols*2,
-                            .flank5p_refs = path_ref_runs+i*ncols*2+ncols,
+                            .allele_refs = path_ref_runs,
+                            .flank5p_refs = path_ref_runs+MAX_REFRUNS_PER_ORIENT(ncols),
                             .min_ref_nkmers = min_ref_flank,
                             .max_ref_nkmers = max_ref_flank};
 
     memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
+
+    path_ref_runs += MAX_REFRUNS_PER_CALLER(ncols);
 
     db_node_buf_alloc(&callers[i].allelebuf, 1024);
     db_node_buf_alloc(&callers[i].flank5pbuf, 1024);
@@ -294,6 +304,8 @@ static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
   kmer_run_buf_reset(koruns);
   kmer_run_buf_reset(koruns_ended);
 
+  ctx_assert(pathid < MAX_REFRUNS_PER_ORIENT(caller->db_graph->num_of_cols));
+
   ref_runs[pathid].first_runid = init_len;
   ref_runs[pathid].num_runs = runs_buf->len - init_len;
 }
@@ -322,39 +334,6 @@ static void gcrawler_flank5p_finish_ref_covg(GraphCache *cache, uint32_t pathid,
                            &caller->koruns_5p_ended,
                            &caller->flank5p_run_buf,
                            caller->flank5p_refs);
-}
-
-// Traverse from node0 -> node1
-static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
-                             dBNode node0, dBNode node1)
-{
-  const dBGraph *db_graph = crawler->cache.db_graph;
-  dBNode next_nodes[4];
-  Nucleotide next_nucs[4];
-  size_t i, num_next;
-  BinaryKmer bkmer0 = db_node_get_bkmer(db_graph, node0.key);
-
-  num_next = db_graph_next_nodes(db_graph, bkmer0, node0.orient,
-                                 db_node_edges(db_graph, node0.key, 0),
-                                 next_nodes, next_nucs);
-
-  // Find index of previous node
-  for(i = 0; i < num_next && !db_nodes_are_equal(next_nodes[i],node1); i++) {}
-
-  ctx_assert(i < num_next && db_nodes_are_equal(next_nodes[i],node1));
-
-  kmer_run_buf_reset(&caller->koruns_5p);
-  kmer_run_buf_reset(&caller->koruns_5p_ended);
-  kmer_run_buf_reset(&caller->flank5p_run_buf);
-
-  // Go backwards to get 5p flank
-  // NULL means loop from 0..(ncols-1)
-  graph_crawler_fetch(crawler, node0,
-                      next_nodes, next_nucs, i, num_next,
-                      NULL, db_graph->num_of_cols,
-                      gcrawler_flank5p_stop_at_ref_covg,
-                      gcrawler_flank5p_finish_ref_covg,
-                      caller);
 }
 
 static inline
@@ -390,6 +369,39 @@ KOccurRun* fetch_ref_contact(const GraphCache *cache, uint32_t pathid,
   return koruns;
 }
 
+// Traverse from node0 -> node1
+static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
+                             dBNode node0, dBNode node1)
+{
+  const dBGraph *db_graph = crawler->cache.db_graph;
+  dBNode next_nodes[4];
+  Nucleotide next_nucs[4];
+  size_t i, num_next;
+  BinaryKmer bkmer0 = db_node_get_bkmer(db_graph, node0.key);
+
+  num_next = db_graph_next_nodes(db_graph, bkmer0, node0.orient,
+                                 db_node_edges(db_graph, node0.key, 0),
+                                 next_nodes, next_nucs);
+
+  // Find index of previous node
+  for(i = 0; i < num_next && !db_nodes_are_equal(next_nodes[i],node1); i++) {}
+
+  ctx_assert(i < num_next && db_nodes_are_equal(next_nodes[i],node1));
+
+  kmer_run_buf_reset(&caller->koruns_5p);
+  kmer_run_buf_reset(&caller->koruns_5p_ended);
+  kmer_run_buf_reset(&caller->flank5p_run_buf);
+
+  // Go backwards to get 5p flank
+  // NULL means loop from 0..(ncols-1)
+  graph_crawler_fetch(crawler, node0,
+                      next_nodes, next_nucs, i, num_next,
+                      NULL, db_graph->num_of_cols,
+                      gcrawler_flank5p_stop_at_ref_covg,
+                      gcrawler_flank5p_finish_ref_covg,
+                      caller);
+}
+
 // Walk the graph remembering the last time we met the ref
 // When traversal fails, dump sequence up to last meeting with the ref
 static void follow_break(BreakpointCaller *caller, dBNode node)
@@ -397,6 +409,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   size_t i, j, k, num_next;
   dBNode next_nodes[4];
   Nucleotide next_nucs[4];
+  size_t nonref_idx[4], num_nonref_next = 0;
   const dBGraph *db_graph = caller->db_graph;
 
   BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
@@ -406,17 +419,15 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
                                  next_nodes, next_nucs);
 
   // Filter out next nodes in the reference
-  for(i = 0, j = 0; i < num_next; i++) {
+  for(i = 0; i < num_next; i++) {
     if(kograph_num(caller->kograph, next_nodes[i].key) == 0) {
-      next_nodes[j] = next_nodes[i];
-      next_nucs[j] = next_nucs[i];
-      j++;
+      nonref_idx[num_nonref_next] = i;
+      num_nonref_next++;
     }
   }
 
   // Abandon if all options are in ref or none are
-  if(j == num_next || j == 0) return;
-  num_next = j;
+  if(num_nonref_next == num_next || num_nonref_next == 0) return;
 
   // Follow all paths not in ref, in all colours
   GraphCrawler *fw_crawler = &caller->crawlers[node.orient];
@@ -436,10 +447,12 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   // many flanks that can't be used) - I think this is less of a worry.
 
   // Loop over possible next nodes at this junction
-  for(i = 0; i < num_next; i++)
+  for(i = 0; i < num_nonref_next; i++)
   {
+    size_t next_idx = nonref_idx[i];
+
     // Go backwards to get 5p flank
-    traverse_5pflank(caller, rv_crawler, db_node_reverse(next_nodes[i]),
+    traverse_5pflank(caller, rv_crawler, db_node_reverse(next_nodes[next_idx]),
                      db_node_reverse(node));
 
     // Loop over the flanks we got
@@ -474,7 +487,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 
         // Only traverse in the colours we have a flank for
         graph_crawler_fetch(fw_crawler, node,
-                            next_nodes, next_nucs, j, num_next,
+                            next_nodes, next_nucs, next_idx, num_next,
                             flank5p_multicolpath->cols,
                             flank5p_multicolpath->num_cols,
                             gcrawler_path_stop_at_ref_covg,
@@ -489,7 +502,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
           graph_crawler_get_path_nodes(fw_crawler, k, allelebuf);
 
           // DEV: this should really be troo
-          // ctx_assert(allelebuf->len > 0);
+          ctx_assert(allelebuf->len > 0);
           if(allelebuf->len > 0)
           {
             allele_multicolpath = &fw_crawler->multicol_paths[k];

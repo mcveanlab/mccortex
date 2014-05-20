@@ -17,6 +17,7 @@ static void test_kmer_occur_filter()
   db_graph_alloc(&graph, kmer_size, ncols, 1, 2000);
   graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
   graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
+  graph.col_edges = ctx_calloc(graph.ht.capacity, sizeof(Edges));
 
   //      xyz------->>>      y         >  <         X
   // TTCGACCCGACAGGGCAACGTAGTCCGACAGGGCACAGCCCTGTCGGGGGGTGCA
@@ -95,6 +96,7 @@ static void test_kmer_occur_filter()
   for(i = 0; i < NUM_READS; i++) seq_read_dealloc(&reads[i]);
   kograph_free(kograph);
 
+  ctx_free(graph.col_edges);
   ctx_free(graph.node_in_cols);
   ctx_free(graph.bktlocks);
   db_graph_dealloc(&graph);

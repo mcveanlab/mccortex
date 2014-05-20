@@ -216,12 +216,22 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   wlk->bkey = db_node_get_bkmer(graph, node.key);
   wlk->bkmer = db_node_oriented_bkmer(graph, node);
 
+  // DEBUG
+  // char kmer_str[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkey, graph->kmer_size, kmer_str);
+  // status("  graph_walker_init(): %s:%i", kmer_str, wlk->node.orient);
+
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
 }
 
 void graph_walker_finish(GraphWalker *wlk)
 {
+  // DEBUG
+  // char kmer_str[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+  // status("  graph_walker_finish(): %s:%i", kmer_str, wlk->node.orient);
+
   path_buf_reset(&wlk->paths);
   path_buf_reset(&wlk->new_paths);
   path_buf_reset(&wlk->cntr_paths);
@@ -340,7 +350,8 @@ static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
           bases_fork, bases_curr, bases_newp, bases_cntr);
 
   warn("Did you build this .ctp against THIS EXACT .ctx? (REALLY?)");
-  abort();
+  warn("If you did please report a bug to turner.isaac@gmail.com");
+  ctx_assert(0);
 }
 
 #define return_step(i,s,hascol) do { \
@@ -359,8 +370,14 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   //   print_state(wlk);
   // #endif
 
+  // DEBUG
+  // char kmer_str[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+  // status("  graph_walker_choose(): %s:%i num_next:%zu",
+  //        kmer_str, wlk->node.orient, num_next);
+
   if(num_next == 0) {
-    if(wlk->paths.len) {
+    if(wlk->paths.len > 0) {
       graph_walker_print_state(wlk, stderr);
       ctx_assert(0);
     }
@@ -372,10 +389,9 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   }
 
   const dBGraph *db_graph = wlk->db_graph;
-  bool multicol = (db_graph->num_of_cols > 1);
 
   if(num_next == 1) {
-    bool incol = (!multicol ||
+    bool incol = (db_graph->node_in_cols == NULL ||
                   db_node_has_col(db_graph, next_nodes[0].key, wlk->ctxcol));
     return_step(0, GRPHWLK_FORWARD, incol);
   }
@@ -388,7 +404,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   size_t i, j;
 
   // Reduce next nodes that are in this colour
-  if(multicol)
+  if(db_graph->node_in_cols != NULL)
   {
     for(i = 0, j = 0; i < num_next; i++)
     {
@@ -460,9 +476,11 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
   // There is unique next node
   // Find the correct next node chosen by the paths
+  // Assme next node has colour, since we used paths to find it
+  //  (paths are colour specify)
   for(i = 0; i < num_next; i++)
     if(bases[i] == greatest_nuc)
-      return_step(indices[i], GRPHWLK_USEPATH, multicol);
+      return_step(indices[i], GRPHWLK_USEPATH, true);
 
   // Should be impossible to reach here...
   ctx_assert(0);
@@ -530,11 +548,11 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
 
-  // #ifdef DEBUG_WALKER
-  //   char str[MAX_KMER_SIZE+1];
-  //   binary_kmer_to_str(bkmer, wlk->db_graph->kmer_size, str);
-  //   printf("FORCE JUMP %s (fork:%s)\n", str, fork ? "yes" : "no");
-  // #endif
+  // DEBUG
+  // char kmer_str[MAX_KMER_SIZE+1];
+  // binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+  // status("  _graph_traverse_force_jump(): %s:%i is_fork:%s",
+  //        kmer_str, wlk->node.orient, is_fork ? "yes" : "no");
 
   if(is_fork)
   {

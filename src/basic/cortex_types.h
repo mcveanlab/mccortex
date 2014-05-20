@@ -22,7 +22,4 @@ typedef uint_fast8_t ReadMateDir;
 
 // DEV: define combine READPAIR
 
-#define STRAND_PLUS 0
-#define STRAND_MINUS 1
-
 #endif /* CORTEX_TYPES_H_ */

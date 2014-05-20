@@ -32,6 +32,8 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                  .node_in_cols = NULL,
                  .readstrt = NULL};
 
+  ctx_assert(num_of_cols > 0);
+  ctx_assert(capacity > 0);
   ctx_assert2(kmer_size >= MIN_KMER_SIZE, "kmer size: %zu", kmer_size);
   ctx_assert2(kmer_size <= MAX_KMER_SIZE, "kmer size: %zu", kmer_size);
 
@@ -278,6 +280,8 @@ static inline bool check_node(hkey_t node, const dBGraph *db_graph)
 
 void db_graph_healthcheck(const dBGraph *db_graph)
 {
+  status("Running graph edge check...");
+  ctx_assert(db_graph->col_edges != NULL);
   HASH_ITERATE(&db_graph->ht, check_node, db_graph);
 }
 
