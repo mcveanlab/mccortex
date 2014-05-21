@@ -67,7 +67,7 @@ uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
     }
 
     // Traverse to next supernode
-    if(!graph_traverse_nodes(wlk, num_edges, next_nodes, next_bases) ||
+    if(!graph_walker_next_nodes(wlk, num_edges, next_nodes, next_bases) ||
        !rpt_walker_attempt_traverse(rptwlk, wlk)) break;
 
     node = wlk->node;
@@ -202,7 +202,7 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
       is_fork = (nedges_cols > 1);
 
       graph_walker_init(wlk, db_graph, col, col, node0);
-      graph_traverse_force(wlk, node1.key, base1, is_fork);
+      graph_walker_force(wlk, node1.key, base1, is_fork);
 
       pathid = graph_crawler_load_path(cache, node1, wlk, rptwlk, jmpfunc, arg);
 

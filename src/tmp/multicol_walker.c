@@ -46,7 +46,7 @@ size_t multicol_walker_assemble_contig(MulticolWalker *walker,
 
     for(i = 0; i < num_remaining_wlkrs; i++)
     {
-      if(!graph_traverse_nodes(&wlks[i], num_next, next_nodes, next_nucs))
+      if(!graph_walker_next_nodes(&wlks[i], num_next, next_nodes, next_nucs))
       {
         // colour finished
         cols_used[num_finished_cols] = wlks[i].ctxcol;

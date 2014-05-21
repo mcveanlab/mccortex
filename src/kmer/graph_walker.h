@@ -89,7 +89,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
 // Move to the next node
 // If fork is true, node is the result of taking a fork -> slim down paths
-void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
+void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
                           bool fork);
 
 // Jump to a new node within the current sample supernode
@@ -97,8 +97,8 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
 void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer);
 
 // return 1 on success, 0 otherwise
-bool graph_traverse(GraphWalker *wlk);
-bool graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
+bool graph_walker_next(GraphWalker *wlk);
+bool graph_walker_next_nodes(GraphWalker *wlk, size_t num_next,
                           const dBNode nodes[4], const Nucleotide bases[4]);
 
 void graph_walker_add_counter_paths(GraphWalker *wlk,
@@ -110,8 +110,8 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
 // Fast traversal of a list of nodes using the supplied GraphWalker
 // Only visits nodes deemed informative + last node
 // Must have previously initialised or walked to the prior node,
-// using: graph_walker_init, graph_traverse_force, graph_walker_jump_along_snode,
-// graph_traverse or graph_traverse_nodes
+// using: graph_walker_init, graph_walker_force, graph_walker_jump_along_snode,
+// graph_traverse or graph_walker_next_nodes
 // i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *nodes, size_t n,
                                 bool forward);

@@ -217,7 +217,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
     db_node_buf_reset(tmpnbuf);
     db_node_buf_ensure_capacity(nbuf, left_gap);
 
-    while(tmpnbuf->len < left_gap && graph_traverse(wlk) &&
+    while(tmpnbuf->len < left_gap && graph_walker_next(wlk) &&
           rpt_walker_attempt_traverse(rptwlk, wlk))
     {
       tmpnbuf->data[tmpnbuf->len++] = wlk->node;
@@ -275,7 +275,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
     end_len = init_len + right_gap;
     db_node_buf_ensure_capacity(nbuf, end_len);
 
-    while(nbuf->len < end_len && graph_traverse(wlk) &&
+    while(nbuf->len < end_len && graph_walker_next(wlk) &&
           rpt_walker_attempt_traverse(rptwlk, wlk))
     {
       nbuf->data[nbuf->len++] = wlk->node;
