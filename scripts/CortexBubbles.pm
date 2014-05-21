@@ -1,4 +1,4 @@
-package CortexBreakpoints;
+package CortexBubbles;
 
 use strict;
 use warnings;
@@ -52,25 +52,12 @@ sub read_fasta
   return ($header, $seq);
 }
 
-sub chr_to_hash
-{
-  my @arr = ();
-  for my $line (@_) {
-    if($line =~ /^(.*?):(\d+)-(\d+):([+-]):(\d+)/) {
-      push(@arr, {'chrom' => $1, 'start' => $2, 'end' => $3,
-                  'strand' => $4, 'offset' => $5});
-    } else { die("Bad chrom: $line"); }
-  }
-  return @arr;
-}
-
 sub next
 {
   my ($self) = @_;
-  my $callid;
-  my @flank5p_refs = ();
-  my @flank3p_refs = ();
-  my @cols = ();
+  my ($callid,$flank5p_nkmers,$flank3p_nkmers);
+  my @branches = ();
+  my @branchlens = ();
 
   my ($hdr5p,$seq5p) = $self->read_fasta();
   if(!defined($hdr5p)) { return undef; }
@@ -78,30 +65,32 @@ sub next
   my ($hdr3p,$seq3p) = $self->read_fasta();
   if(!defined($hdr3p)) { die("Missing 3p flank"); }
 
-  my ($pathhdr,$pathseq) = $self->read_fasta();
-  if(!defined($pathhdr)) { die("Missing path sequence"); }
-
-  # >call.0.path cols=0
-  if($pathhdr =~ /^>brkpnt\.(\d+)\.path cols=(\d+(?:,\d+)*)/i) {
+  # >bubble.0.5pflank kmers=8
+  if($hdr5p =~ /^>bubble\.(\d+)\.5pflank kmers=(\d+)/i) {
     $callid = $1;
-    @cols = split(/,/, $2);
+    $flank5p_nkmers = $2;
   }
-  else { die("Cannot find cols=... : $pathhdr"); }
+  else { die("Cannot find 5p flank: $hdr5p"); }
 
-  if($hdr5p =~ /^>brkpnt\.$callid\.path chr=(.*(?:,.*)*)/i) {
-    @flank5p_refs = split(/,/, $1);
+  if($hdr3p =~ /^>bubble\.$callid\.3pflank kmers=(\d+)/i) {
+    $flank3p_nkmers = $1;
   }
-  else { die("Cannot find 5p flank chrs=... : $hdr5p"); }
+  else { die("Cannot find 3p flank: $hdr3p"); }
 
-  if($hdr3p =~ /^>brkpnt\.$callid\.path chr=(.*(?:,.*)*)/i) {
-    @flank3p_refs = split(/,/, $1);
+  while(defined($self->{'_next_line'}) && $self->{'_next_line'} =~ /^>/) {
+    my ($branchhdr,$branchseq) = $self->read_fasta();
+    my $nkmers = 0;
+    # >bubble.0.path cols=0
+    if($branchhdr =~ /^>bubble\.$callid\.branch\.(\d+) kmers=(\d+)/i) { $nkmers=$2; }
+    else { die("Cannot find callid : $branchhdr"); }
+    push(@branches, $branchseq);
+    push(@branchlens, $nkmers);
   }
-  else { die("Cannot find 3p flank chrs=... : $hdr3p"); }
 
-  @flank5p_refs = chr_to_hash(@flank5p_refs);
-  @flank3p_refs = chr_to_hash(@flank3p_refs);
+  if(@branches == 0) { die("No branches"); }
 
-  return ($seq5p, $seq3p, $pathseq, \@flank5p_refs, \@flank3p_refs, \@cols, $callid);
+  return ($seq5p, $seq3p, \@branches,
+          $flank5p_nkmers, $flank3p_nkmers, \@branchlens, $callid);
 }
 
 1;

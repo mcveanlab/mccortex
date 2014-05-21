@@ -255,7 +255,7 @@ static void print_bubble(BubbleCaller *caller,
   size_t id = __sync_fetch_and_add((volatile size_t*)caller->num_bubbles_ptr, 1);
 
   // 5p flank
-  strbuf_sprintf(sbuf, ">var_%zu_5p_flank kmers=%zu\n", id, flank5p->len);
+  strbuf_sprintf(sbuf, ">bubble.%zu.5pflank kmers=%zu\n", id, flank5p->len);
   branch_to_str(flank5p->data, flank5p->len, true, sbuf, db_graph);
 
   // 3p flank
@@ -263,7 +263,7 @@ static void print_bubble(BubbleCaller *caller,
   snode = graph_cache_snode(&caller->cache, steps[0]->supernode);
   graph_cache_snode_fetch_nodes(&caller->cache, snode, steps[0]->orient, pathbuf);
 
-  strbuf_sprintf(sbuf, ">var_%zu_3p_flank kmers=%zu\n", id, pathbuf->len);
+  strbuf_sprintf(sbuf, ">bubble.%zu.3pflank kmers=%zu\n", id, pathbuf->len);
   branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
 
   // Print alleles
@@ -271,7 +271,7 @@ static void print_bubble(BubbleCaller *caller,
   {
     db_node_buf_reset(pathbuf);
     graph_cache_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
-    strbuf_sprintf(sbuf, ">var_%zu_branch_%zu kmers=%zu\n", id, i, pathbuf->len);
+    strbuf_sprintf(sbuf, ">bubble.%zu.branch.%zu kmers=%zu\n", id, i, pathbuf->len);
     branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
   }
 
