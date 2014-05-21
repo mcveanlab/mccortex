@@ -563,7 +563,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
 #undef return_step
 
-static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
+static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
                                        BinaryKmer bkmer, bool is_fork)
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
@@ -571,7 +571,7 @@ static void _graph_traverse_force_jump(GraphWalker *wlk, hkey_t hkey,
   #ifdef DEBUG_WALKER
     char kmer_str[MAX_KMER_SIZE+1];
     binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
-    status("  _graph_traverse_force_jump(): %s:%i is_fork:%s",
+    status("  _graph_walker_force_jump(): %s:%i is_fork:%s",
            kmer_str, wlk->node.orient, is_fork ? "yes" : "no");
   #endif
 
@@ -665,10 +665,10 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
 
   // Don't need to pick up counter paths since there should be none
   // Now do the work
-  _graph_traverse_force_jump(wlk, hkey, bkmer, false);
+  _graph_walker_force_jump(wlk, hkey, bkmer, false);
 }
 
-void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
+void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
                           bool is_fork)
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
@@ -677,23 +677,23 @@ void graph_traverse_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
   Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
   bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
 
-  _graph_traverse_force_jump(wlk, hkey, bkmer, is_fork);
+  _graph_walker_force_jump(wlk, hkey, bkmer, is_fork);
   _graph_walker_pickup_counter_paths_with_mask(wlk, lost_nuc);
 }
 
-bool graph_traverse_nodes(GraphWalker *wlk, size_t num_next,
+bool graph_walker_next_nodes(GraphWalker *wlk, size_t num_next,
                           const dBNode nodes[4], const Nucleotide bases[4])
 {
   wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
   int idx = wlk->last_step.idx;
   if(idx == -1) return false;
-  graph_traverse_force(wlk, nodes[idx].key, bases[idx],
+  graph_walker_force(wlk, nodes[idx].key, bases[idx],
                        graphstep_is_fork(wlk->last_step));
   return true;
 }
 
 // return 1 on success, 0 otherwise
-bool graph_traverse(GraphWalker *wlk)
+bool graph_walker_next(GraphWalker *wlk)
 {
   const dBGraph *db_graph = wlk->db_graph;
   Edges edges = db_node_get_edges(db_graph, wlk->node.key, 0);
@@ -705,7 +705,7 @@ bool graph_traverse(GraphWalker *wlk)
   num_next = db_graph_next_nodes(db_graph, wlk->bkey, wlk->node.orient, edges,
                                  nodes, bases);
 
-  return graph_traverse_nodes(wlk, num_next, nodes, bases);
+  return graph_walker_next_nodes(wlk, num_next, nodes, bases);
 }
 
 
@@ -724,7 +724,7 @@ static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
   // Only one path between two nodes
   if(db_nodes_are_equal(wlk->node, prev_node)) {
     nuc = db_node_get_last_nuc(next_node, wlk->db_graph);
-    graph_traverse_force(wlk, next_node.key, nuc, is_fork);
+    graph_walker_force(wlk, next_node.key, nuc, is_fork);
   }
   else {
     // jumping to the end of a supernode
@@ -741,8 +741,8 @@ static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
 // Fast traversal of a list of nodes using the supplied GraphWalker
 // Only visits nodes deemed informative + last node
 // Must have previously initialised or walked to the prior node,
-// using: graph_walker_init, graph_traverse_force, graph_walker_jump_along_snode,
-// graph_traverse or graph_traverse_nodes
+// using: graph_walker_init, graph_walker_force, graph_walker_jump_along_snode,
+// graph_traverse or graph_walker_next_nodes
 // i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 bool forward)
@@ -810,7 +810,7 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
     is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
     nuc = db_node_get_last_nuc(next, db_graph);
-    graph_traverse_force(wlk, next.key, nuc, is_fork);
+    graph_walker_force(wlk, next.key, nuc, is_fork);
   }
 }
 
@@ -895,7 +895,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
 
     // If we can't progress -> success
     // if we can and it doesn't match what we expected -> disagrees
-    if(!graph_traverse_nodes(wlk, n, nodes, nucs)) return true;
+    if(!graph_walker_next_nodes(wlk, n, nodes, nucs)) return true;
     if(!db_nodes_are_equal(wlk->node, expnode)) return false;
   }
 

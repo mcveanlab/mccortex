@@ -15,7 +15,7 @@ static void test_walk(GraphWalker *gwlk, RepeatWalker *rptwlk,
   do {
     db_node_buf_add(nbuf, gwlk->node);
   }
-  while(graph_traverse(gwlk) && rpt_walker_attempt_traverse(rptwlk, gwlk));
+  while(graph_walker_next(gwlk) && rpt_walker_attempt_traverse(rptwlk, gwlk));
 
   // db_nodes_print(nbuf->data, nbuf->len, graph, stdout);
   // printf("\n");

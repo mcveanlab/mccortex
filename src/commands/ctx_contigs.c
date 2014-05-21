@@ -177,7 +177,7 @@ static void pulldown_contig(hkey_t hkey, ContigData *cd,
     dBNode node = {.key = hkey, .orient = orient};
     graph_walker_init(wlk, db_graph, colour, colour, node);
 
-    while(graph_traverse(wlk) && rpt_walker_attempt_traverse(rptwlk, wlk))
+    while(graph_walker_next(wlk) && rpt_walker_attempt_traverse(rptwlk, wlk))
     {
       db_node_buf_add(nodes, wlk->node);
       cd->grphwlk_steps[wlk->last_step.status]++;
