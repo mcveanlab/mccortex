@@ -395,8 +395,7 @@ int ctx_build(CmdArgs *args)
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity * output_colours, sizeof(Edges));
   db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * output_colours, sizeof(Covg));
 
-  size_t bktlocks_mem = roundup_bits2bytes(db_graph.ht.num_of_buckets);
-  db_graph.bktlocks = ctx_calloc(bktlocks_mem, sizeof(uint8_t));
+  db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
 
   size_t kmer_words = roundup_bits2words64(db_graph.ht.capacity);
 

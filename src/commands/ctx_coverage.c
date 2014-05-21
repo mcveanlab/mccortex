@@ -15,9 +15,9 @@ const char coverage_usage[] =
 "usage: "CMD" coverage [options] <in.ctx> [in2.ctx ..]\n"
 "  Print contig coverage\n"
 "\n"
-"  --edges          Print edges as well\n"
-"  --seq <in>       Trusted input (can be used multiple times)\n"
-"  --out <out.txt>  Save calls [default: STDOUT]\n";
+"  --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
+"  --seq <in>       Sequence file to get coverages for (can be used multiple times)\n"
+"  --out <out.txt>  Save output [default: STDOUT]\n";
 
 // Define a vector of Covg
 #include "objbuf_macro.h"

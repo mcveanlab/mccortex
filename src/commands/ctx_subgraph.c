@@ -1,7 +1,4 @@
 #include "global.h"
-
-#include "seq_file.h"
-
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
@@ -13,8 +10,10 @@
 #include "graph_format.h"
 #include "subgraph.h"
 
+#include "seq_file.h"
+
 const char subgraph_usage[] =
-"usage: "CMD" subgraph [options] <dist> <in.ctx>[:cols] [in2.ctx ...]\n"
+"usage: "CMD" subgraph [options] <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
 "  Loads graphs (in.ctx) and dumps a graph (out.ctx) that contains all kmers within\n"
 "  <dist> edges of kmers in <seeds.fa>.  Maintains number of colours / covgs etc.\n"
@@ -22,7 +21,7 @@ const char subgraph_usage[] =
 "  for large (seed) graphs but means seed files cannot be pipes / sockets.\n"
 "\n"
 "  Options:\n"
-"    -m <mem>          Memory to use  <required>\n"
+"    -m <mem>          Memory to use\n"
 "    -n <kmers>        Hash size\n"
 "    --out <out.ctx>   Output file [default: STDOUT]\n"
 "    --seq <seed.fa>   Read in a seed file [require at least one]\n"
@@ -68,7 +67,7 @@ int ctx_subgraph(CmdArgs *args)
     cmd_print_usage("Please specify at least one input graph file (.ctx)");
 
   size_t num_gfiles = argc - argi;
-  char **paths = argv + argi;
+  char **gfile_paths = argv + argi;
 
   size_t i, j, col, total_cols;
 
@@ -76,7 +75,7 @@ int ctx_subgraph(CmdArgs *args)
   GraphFileReader gfiles[num_gfiles];
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  total_cols = graph_files_open(paths, gfiles, num_gfiles,
+  total_cols = graph_files_open(gfile_paths, gfiles, num_gfiles,
                                 &ctx_max_kmers, &ctx_sum_kmers);
 
   //

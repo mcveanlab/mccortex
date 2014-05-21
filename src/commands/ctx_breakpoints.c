@@ -1,6 +1,5 @@
 #include "global.h"
 #include "commands.h"
-
 #include "file_util.h"
 #include "util.h"
 #include "db_graph.h"
@@ -11,8 +10,7 @@
 #include "path_store.h"
 #include "breakpoint_caller.h"
 #include "kmer_occur.h"
-
-#include "seq_file.h"
+#include "seq_reader.h"
 
 /*
  Output format:
@@ -24,14 +22,14 @@
 ##reference=seq0.fa:seq1.fa
 ##ctxVersion="ctx=b871a64 zlib=1.2.5 htslib=0.2.0-rc8-6-gd49dfa6 ASSERTS=ON CHECKS=ON k=3..31"
 ##ctxKmerSize=31
->call.0.5pflank chr=seq0:1-20:+:1
+>brkpnt.0.5pflank chr=seq0:1-20:+:1
 CCCGTAGGTAAGGGCGTTAG
->call.0.3pflank chr=seq1:21-50:+:11
+>brkpnt.0.3pflank chr=seq1:21-50:+:11
 CGGGTTGGAGTTGGCCAAAGAAGTTCAACG
->call.0.path cols=0
+>brkpnt.0.path cols=0
 A
 
->call.1.5pflank chr=seq0:1-20:+:1
+>brkpnt.1.5pflank chr=seq0:1-20:+:1
 ...
 
 */
@@ -45,9 +43,6 @@ const char breakpoints_usage[] =
 "  --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
 "  --maxref <N>        Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
 
-#include "objbuf_macro.h"
-create_objbuf(readbuf, ReadBuffer, read_t);
-
 int ctx_breakpoints(CmdArgs *args)
 {
   int argi, argc = args->argc;
@@ -60,13 +55,28 @@ int ctx_breakpoints(CmdArgs *args)
   size_t i, num_seq_files = 0;
   size_t min_ref_flank = DEFAULT_MIN_REF_NKMERS;
   size_t max_ref_flank = DEFAULT_MAX_REF_NKMERS;
+  size_t est_num_bases = 0;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--seq") == 0) {
       if(argi+1 == argc) cmd_print_usage("--seq <in.fa> requires a file");
-      seq_paths[num_seq_files] = argv[argi+1];
-      if((seq_files[num_seq_files] = seq_open(argv[argi+1])) == NULL)
-        die("Cannot read --seq file %s", argv[argi+1]);
+
+      char *file_path = argv[argi+1];
+      if((seq_files[num_seq_files] = seq_open(file_path)) == NULL)
+        die("Cannot read --seq file %s", file_path);
+
+      off_t fsize = futil_get_file_size(file_path);
+      if(fsize < 0) warn("Cannot get file size: %s", file_path);
+      else {
+        if(seq_is_fastq(seq_files[num_seq_files]) ||
+           seq_is_sam(seq_files[num_seq_files])) {
+          est_num_bases += fsize / 2;
+        } else {
+          est_num_bases += fsize;
+        }
+      }
+
+      seq_paths[num_seq_files] = file_path;
       num_seq_files++;
       argi++; // We took an argument
     }
@@ -129,43 +139,35 @@ int ctx_breakpoints(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash;
-  size_t graph_mem, path_mem, ref_mem;
+  size_t graph_mem, path_mem;
+  size_t max_req_kmers = MAX2(est_num_bases, ctx_max_kmers);
+  size_t sum_req_kmers = est_num_bases + ctx_sum_kmers;
 
   // DEV: use threads in memory calculation
   size_t num_of_threads = args->max_work_threads;
 
-  // kmer memory = Edges + paths + 1 bit per colour for in-colour
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 + ncols + 1;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
-                                        false, &graph_mem);
-
+  // DEV: pass path memory into cmd_get_kmers_in_hash
   // Path memory
   path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
   cmd_print_mem(path_mem, "paths");
 
-  // Reference annotation layer memory - estimate
-  //  assume 1 byte per kmer for each base to load sequence files
-  ref_mem = kmers_in_hash * (1 + sizeof(KONodeList) + sizeof(KOccur));
-  cmd_print_mem(ref_mem, "ref annotation");
+  // kmer memory = Edges + paths + 1 bit per colour for in-colour
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 + ncols +
+                  sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
+                  8; // 1 byte per kmer for each base to load sequence files
 
-  size_t total_mem = graph_mem + path_mem + ref_mem;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
+                                        max_req_kmers, sum_req_kmers,
+                                        false, &graph_mem);
+
+  size_t total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(args, total_mem);
 
   //
   // Open output file
   //
-  gzFile gzout;
   const char *output_file = args->output_file_set ? args->output_file : "-";
-
-  if(strcmp(output_file, "-") == 0)
-    gzout = gzdopen(fileno(stdout), "w");
-  else if(futil_file_exists(output_file))
-    die("Output file already exists: %s", output_file);
-  else
-    gzout = gzopen(output_file, "w");
-
-  if(gzout == NULL) die("Cannot open output file: %s", output_file);
+  gzFile gzout = futil_gzopen_output(output_file);
 
   //
   // Set up memory
@@ -179,7 +181,9 @@ int ctx_breakpoints(CmdArgs *args)
   // In colour
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
   db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, 1);
-  db_graph.bktlocks = ctx_calloc(bytes_per_col, 1);
+
+  // Multithreading locks for the hash table
+  db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
 
   // Paths
   path_store_alloc(&db_graph.pstore, path_mem, false,
@@ -215,22 +219,16 @@ int ctx_breakpoints(CmdArgs *args)
   //
   ReadBuffer rbuf;
   readbuf_alloc(&rbuf, 1024);
+  seq_load_all_reads(seq_files, num_seq_files, &rbuf);
 
-  status("Loading reference sequences...");
-
-  read_t r;
-  seq_read_alloc(&r);
-  for(i = 0; i < num_seq_files; i++) {
-    status("  file: %s", seq_paths[i]);
-    while(seq_read(seq_files[i], &r) > 0) {
-      readbuf_add(&rbuf, r);
-      seq_read_alloc(&r);
-    }
-    seq_close(seq_files[i]);
+  // Remove commas and colons from read names so we can print:
+  //   chr1:start1-end1,chr2:start2-end2...
+  for(i = 0; i < rbuf.len; i++) {
+    read_t *r = &rbuf.data[i];
+    seq_read_truncate_name(r); // strip fast[aq] comments (after whitespace)
+    string_char_replace(r->name.b, ',', '.'); // change , -> . in read name
+    string_char_replace(r->name.b, ':', ';'); // change : -> ; in read name
   }
-
-  seq_read_dealloc(&r);
-  ctx_free(seq_files);
 
   // Call breakpoints
   breakpoints_call(num_of_threads, rbuf.data, rbuf.len,
@@ -242,9 +240,10 @@ int ctx_breakpoints(CmdArgs *args)
   gzclose(gzout);
 
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
-
-  ctx_free(seq_paths);
   readbuf_dealloc(&rbuf);
+
+  ctx_free(seq_files);
+  ctx_free(seq_paths);
   ctx_free(db_graph.col_edges);
   ctx_free(db_graph.node_in_cols);
   ctx_free(db_graph.bktlocks);

@@ -21,22 +21,30 @@ bool futil_is_file_readable(const char *file);
 bool futil_is_file_writable(const char *file);
 off_t futil_get_file_size(const char* filepath);
 
+// Open and return output file.
+// If "-" return stdout, if cannot open die with error message
+FILE* futil_open_output(const char *path);
+
+// Open and return gzip output file.
+// If "-" return stdout, if cannot open die with error message
+gzFile futil_gzopen_output(const char *path);
+
 // Open a new output file with unused name
 bool futil_generate_filename(const char *base_fmt, StrBuf *str);
 void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
 char* futil_get_current_dir(char abspath[PATH_MAX+1]);
 
 // Usage:
-//     FILE **tmp_files = futil_create_tmp_files(num_tmp);
-// to clear up:
-//     for(i = 0; i < num_tmp; i++) fclose(tmp_files[i]);
-//     ctx_free(tmp_files);
+//   FILE **tmp_files = futil_create_tmp_files(num_tmp);
+// To clear up:
+//   for(i = 0; i < num_tmp; i++) fclose(tmp_files[i]);
+//   ctx_free(tmp_files);
 FILE** futil_create_tmp_files(size_t num_tmp_files);
 
 // Merge temporary files, closes tmp files
 void futil_merge_tmp_files(FILE **tmp_files, size_t num_files, FILE *fout);
 
-// This is the same as futil_safe_fread
+// This is the same as futil_safe_fread, except it calls return if not `fatal`
 #define SAFE_READ(fh,ptr,size,field,path,fatal) {                              \
   size_t _read = fread(ptr,1,size,fh);                                         \
   if(_read != size) {                                                          \

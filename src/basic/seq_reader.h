@@ -7,6 +7,14 @@
 
 extern const char *MP_DIR_STRS[];
 
+#include "objbuf_macro.h"
+create_objbuf(readbuf, ReadBuffer, read_t);
+
+// Load all reads from files into a read buffer and close the seq_files
+// Returns the number of reads loaded
+size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
+                          ReadBuffer *rbuf);
+
 // Returns index of first kmer or r->seq.end if no kmers
 size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         uint8_t qual_cutoff, uint8_t hp_cutoff);

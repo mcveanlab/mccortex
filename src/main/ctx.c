@@ -139,6 +139,12 @@ CtxCmd cmdobjs[] = {
   .minargs = 3, .maxargs = INT_MAX, .optargs = "omn", .reqargs = "",
   .blurb = "print contig coverage",
   .usage = coverage_usage
+},
+{
+  .cmd = "rmsubstr", .func = ctx_rmsubstr, .hide = 0,
+  .minargs = 0, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "",
+  .blurb = "reduce set of strings to remove substrings",
+  .usage = rmsubstr_usage
 }
 };
 

@@ -25,6 +25,7 @@ int ctx_place(CmdArgs *args);
 int ctx_correct(CmdArgs *args);
 int ctx_breakpoints(CmdArgs *args);
 int ctx_coverage(CmdArgs *args);
+int ctx_rmsubstr(CmdArgs *args);
 
 extern const char build_usage[];
 extern const char view_usage[];
@@ -48,5 +49,6 @@ extern const char place_usage[];
 extern const char correct_usage[];
 extern const char breakpoints_usage[];
 extern const char coverage_usage[];
+extern const char rmsubstr_usage[];
 
 #endif /* COMMANDS_H_ */

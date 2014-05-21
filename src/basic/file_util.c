@@ -92,6 +92,44 @@ off_t futil_get_file_size(const char* filepath)
   return -1;
 }
 
+// Open and return output file.
+// If "-" return stdout, if cannot open die with error message
+FILE* futil_open_output(const char *path)
+{
+  FILE *fout;
+
+  if(strcmp(path, "-") == 0)
+    fout = stdout;
+  else if(futil_file_exists(path))
+    die("Output file already exists: %s", path);
+  else
+    fout = fopen(path, "w");
+
+  if(fout == NULL)
+    die("Cannot open output file: %s", futil_outpath_str(path));
+
+  return fout;
+}
+
+// Open and return gzip output file.
+// If "-" return stdout, if cannot open die with error message
+gzFile futil_gzopen_output(const char *path)
+{
+  gzFile gzout;
+
+  if(strcmp(path, "-") == 0)
+    gzout = gzdopen(fileno(stdout), "w");
+  else if(futil_file_exists(path))
+    die("Output file already exists: %s", path);
+  else
+    gzout = gzopen(path, "w");
+
+  if(gzout == NULL)
+    die("Cannot open output file: %s", futil_outpath_str(path));
+
+  return gzout;
+}
+
 bool futil_generate_filename(const char *base_fmt, StrBuf *str)
 {
   int i;

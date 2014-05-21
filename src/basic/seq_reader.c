@@ -8,6 +8,29 @@
 
 const char *MP_DIR_STRS[] = {"FF", "FR", "RF", "RR"};
 
+// Load all reads from files into a read buffer and close the seq_files
+// Returns the number of reads loaded
+size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
+                          ReadBuffer *rbuf)
+{
+  status("Loading sequences...");
+
+  size_t i, nreads = rbuf->len;
+  read_t r;
+  seq_read_alloc(&r);
+  for(i = 0; i < num_seq_files; i++) {
+    status("  file: %s", seq_files[i]->path);
+    while(seq_read(seq_files[i], &r) > 0) {
+      readbuf_add(rbuf, r); // copy read
+      seq_read_alloc(&r); // allocate new read
+    }
+    seq_close(seq_files[i]);
+  }
+  seq_read_dealloc(&r);
+
+  return rbuf->len - nreads;
+}
+
 // cut-offs:
 //  > quality_cutoff valid
 //  < homopolymer_cutoff valid

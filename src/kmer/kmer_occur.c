@@ -237,7 +237,8 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
   ctx_free(updates);
 }
 
-// BEWARE: We add the reads to the graph
+// BEWARE: We add the reads to the graph if add_missing_kmers is true
+// db_graph->col_edges can be NULL even if we are adding kmers
 KOGraph kograph_create(const read_t *reads, size_t num_reads,
                        bool add_missing_kmers, size_t num_threads,
                        dBGraph *db_graph)
@@ -247,7 +248,10 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
   status("Adding reference annotations to the graph using %zu thread%s",
          num_threads, util_plural_str(num_threads));
 
-  ctx_assert(!add_missing_kmers || db_graph->num_edge_cols == 1);
+  // If we are adding nodes, only have edges in one colour
+  //  - it gets confusing otherwise (which colour would we add edges to?)
+  ctx_assert(!add_missing_kmers || db_graph->num_edge_cols <= 1);
+  ctx_assert(!add_missing_kmers || db_graph->bktlocks != NULL);
   ctx_assert(sizeof(KONodeList) == 12);
 
   // Check number of reads doesn't exceed max limit
@@ -299,9 +303,6 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
       read_store_kmer_pos(&reads[i], i, kograph.klists, kograph.koccurs, db_graph);
     }
   }
-
-  if(db_graph->num_edge_cols > 0)
-    db_graph_healthcheck(db_graph);
 
   return kograph;
 }

@@ -142,9 +142,9 @@ dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer)
 // In the case of self-loops in palindromes the two edges collapse into one
 void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 {
-  ctx_assert(col < db_graph->num_edge_cols);
-
   if(db_graph->col_edges == NULL) return;
+
+  ctx_assert(col < db_graph->num_edge_cols);
 
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
   lhs_nuc = db_node_get_first_nuc(src, db_graph);
