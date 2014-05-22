@@ -113,12 +113,15 @@ size_t koruns_filter(KOccurRun *src, size_t n, KOccurRun *dst, size_t min_kmers)
   return j;
 }
 
-static inline void koruns_reverse(KOccurRun *src, size_t n)
+static inline void koruns_reverse(KOccurRun *src, size_t n, size_t nkmers)
 {
-  size_t i, j;
+  size_t i, j, len;
   for(i = j = 0; i < n; i++) {
+    len = (src[i].strand == STRAND_PLUS ? src[i].last - src[i].first
+                                        : src[i].first - src[i].last);
     SWAP(src[i].first, src[i].last);
     src[i].strand = !src[i].strand;
+    src[i].qoffset = nkmers-1-src[i].qoffset-len;
   }
 }
 

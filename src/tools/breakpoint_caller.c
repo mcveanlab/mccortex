@@ -130,7 +130,7 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
 
 static inline void ko_gzprint(gzFile gzout, size_t kmer_size,
                               KOGraph kograph, KOccurRun korun,
-                              size_t contig_start)
+                              size_t first_kmer_idx, size_t kmer_offset)
 {
   const char strand[] = {'+','-'};
   const char *chrom = kograph_chrom(kograph,korun).name;
@@ -139,13 +139,13 @@ static inline void ko_gzprint(gzFile gzout, size_t kmer_size,
   // (Note: start may be greater than end if strand is minus)
   size_t start, end, qoffset;
   if(korun.strand == STRAND_PLUS) {
-    start = korun.first;
+    start = korun.first+kmer_offset;
     end = korun.last+kmer_size-1;
   } else {
-    start = korun.first+kmer_size-1;
+    start = korun.first+kmer_size-1-kmer_offset;
     end = korun.last;
   }
-  qoffset = korun.qoffset - contig_start;
+  qoffset = korun.qoffset - first_kmer_idx;
   // +1 to coords to convert to 1-based
   gzprintf(gzout, "%s:%zu-%zu:%c:%u",
            chrom, start+1, end+1, strand[korun.strand], qoffset+1);
@@ -154,14 +154,14 @@ static inline void ko_gzprint(gzFile gzout, size_t kmer_size,
 static inline void koruns_gzprint(gzFile gzout, size_t kmer_size,
                                   KOGraph kograph,
                                   const KOccurRun *koruns, size_t n,
-                                  size_t contig_start)
+                                  size_t first_kmer_idx, size_t kmer_offset)
 {
   size_t i;
   if(n == 0) return;
-  ko_gzprint(gzout, kmer_size, kograph, koruns[0], contig_start);
+  ko_gzprint(gzout, kmer_size, kograph, koruns[0], first_kmer_idx, kmer_offset);
   for(i = 1; i < n; i++) {
     gzputc(gzout, ',');
-    ko_gzprint(gzout, kmer_size, kograph, koruns[i], contig_start);
+    ko_gzprint(gzout, kmer_size, kograph, koruns[i], first_kmer_idx, kmer_offset);
   }
 }
 
@@ -182,34 +182,38 @@ static void process_contig(BreakpointCaller *caller,
   if(num_flank3p_runs == 0) return;
 
   // Find first place we meet the ref
-  size_t i, end = flank3p_runs[0].qoffset;
   size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
 
   // Swallow up some of the path into the 3p flank
-  size_t shift3p = MIN2(kmer_size-1, end);
-  end -= shift3p;
+  size_t i, flank3pidx = flank3p_runs[0].qoffset;
+  size_t extra3pbases = MIN2(kmer_size-1, flank3pidx);
+  size_t num_path_kmers = flank3pidx - extra3pbases;
+  size_t kmer3poffset = kmer_size-1-extra3pbases;
 
   pthread_mutex_lock(caller->out_lock);
 
   // 5p flank with list of ref intersections
   gzprintf(gzout, ">brkpnt.%zu.5pflank chr=", callid);
-  koruns_gzprint(gzout, kmer_size, kograph, flank5p_runs, num_flank5p_runs, 0);
+  koruns_gzprint(gzout, kmer_size, kograph, flank5p_runs, num_flank5p_runs, 0, 0);
   gzputc(gzout, '\n');
   db_nodes_gzprint(flank5p->data, flank5p->len, caller->db_graph, gzout);
   gzputc(gzout, '\n');
 
   // 3p flank with list of ref intersections
   gzprintf(gzout, ">brkpnt.%zu.3pflank chr=", callid);
-  koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs, end+shift3p);
+  koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs,
+                 flank3pidx, kmer3poffset);
   gzputc(gzout, '\n');
-  db_nodes_gzprint_cont(allelebuf->data+end, allelebuf->len-end, caller->db_graph, gzout);
+  db_nodes_gzprint_cont(allelebuf->data+num_path_kmers,
+                        allelebuf->len-num_path_kmers,
+                        caller->db_graph, gzout);
   gzputc(gzout, '\n');
 
   // Print path with list of colours
   gzprintf(gzout, ">brkpnt.%zu.path cols=%zu", callid, cols[0]);
   for(i = 1; i < ncols; i++) gzprintf(gzout, ",%zu", cols[i]);
   gzputc(gzout, '\n');
-  db_nodes_gzprint_cont(allelebuf->data, end, caller->db_graph, gzout);
+  db_nodes_gzprint_cont(allelebuf->data, num_path_kmers, caller->db_graph, gzout);
   gzprintf(gzout, "\n\n");
 
   pthread_mutex_unlock(caller->out_lock);
@@ -470,7 +474,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
                                        caller->flank5p_refs,
                                        &caller->flank5p_run_buf);
 
-      koruns_reverse(flank5p_runs, num_flank5p_runs);
+      koruns_reverse(flank5p_runs, num_flank5p_runs, flank5pbuf->len);
       koruns_sort_by_qoffset(flank5p_runs, num_flank5p_runs);
       db_nodes_reverse_complement(flank5pbuf->data, flank5pbuf->len);
 
@@ -500,27 +504,23 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
           // Fetch nodes
           db_node_buf_reset(allelebuf);
           graph_crawler_get_path_nodes(fw_crawler, k, allelebuf);
-
-          // DEV: this should really be troo
           ctx_assert(allelebuf->len > 0);
-          if(allelebuf->len > 0)
-          {
-            allele_multicolpath = &fw_crawler->multicol_paths[k];
-            allele_pathid = allele_multicolpath->pathid;
 
-            // Fetch 3pflank ref position
-            num_flank3p_runs = caller->allele_refs[allele_pathid].num_runs;
-            flank3p_runs = fetch_ref_contact(&fw_crawler->cache, allele_pathid,
-                                             caller->allele_refs,
-                                             &caller->allele_run_buf);
+          allele_multicolpath = &fw_crawler->multicol_paths[k];
+          allele_pathid = allele_multicolpath->pathid;
 
-            process_contig(caller,
-                           allele_multicolpath->cols,
-                           allele_multicolpath->num_cols,
-                           flank5pbuf, allelebuf,
-                           flank5p_runs, num_flank5p_runs,
-                           flank3p_runs, num_flank3p_runs);
-          }
+          // Fetch 3pflank ref position
+          num_flank3p_runs = caller->allele_refs[allele_pathid].num_runs;
+          flank3p_runs = fetch_ref_contact(&fw_crawler->cache, allele_pathid,
+                                           caller->allele_refs,
+                                           &caller->allele_run_buf);
+
+          process_contig(caller,
+                         allele_multicolpath->cols,
+                         allele_multicolpath->num_cols,
+                         flank5pbuf, allelebuf,
+                         flank5p_runs, num_flank5p_runs,
+                         flank3p_runs, num_flank3p_runs);
         }
       }
     }

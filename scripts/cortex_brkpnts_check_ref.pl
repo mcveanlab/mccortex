@@ -81,9 +81,11 @@ sub check_ref_regions
        (!$fwstrand && $reg->{'start'} < $reg->{'end'})) { die("BAD Strand: $str"); }
 
     my $len = abs($reg->{'start'} - $reg->{'end'}) + 1;
+    if($reg->{'offset'}-1 + $len > length($seq)) { die("Seq too short: $str"); }
+
     my $query = substr($seq, $reg->{'offset'}-1, $len);
     if(!$fwstrand) { $query = rev_comp($query); }
-    my $start = min($reg->{'start'}, $reg->{'end'});
+    my $start = min($reg->{'start'}, $reg->{'end'}) + $reg->{'offset'} - 1;
     if(!defined($refs{$reg->{'chrom'}})) { die("Missing chrom: $str"); }
     my $ref = substr($refs{$reg->{'chrom'}}, $start-1, $len);
 
