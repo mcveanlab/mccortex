@@ -88,12 +88,12 @@ sub next
   }
   else { die("Cannot find cols=... : $pathhdr"); }
 
-  if($hdr5p =~ /^>brkpnt\.$callid\.path chr=(.*(?:,.*)*)/i) {
+  if($hdr5p =~ /^>brkpnt\.$callid\.5pflank chr=(.*(?:,.*)*)/i) {
     @flank5p_refs = split(/,/, $1);
   }
   else { die("Cannot find 5p flank chrs=... : $hdr5p"); }
 
-  if($hdr3p =~ /^>brkpnt\.$callid\.path chr=(.*(?:,.*)*)/i) {
+  if($hdr3p =~ /^>brkpnt\.$callid\.3pflank chr=(.*(?:,.*)*)/i) {
     @flank3p_refs = split(/,/, $1);
   }
   else { die("Cannot find 3p flank chrs=... : $hdr3p"); }
