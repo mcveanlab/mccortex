@@ -29,6 +29,9 @@ const char rmsubstr_usage[] =
 #define OUTPUT_FASTQ 2
 
 
+// Returns true if a read is a substring of ANY read in the list or a complete
+// match with a read before it in the list. Returns false otherwise.
+// Returns false if the read is shorter than kmer_size.
 static bool _is_substr(const ReadBuffer *rbuf, size_t idx,
                        KOGraph kograph, const dBGraph *db_graph)
 {
@@ -52,9 +55,13 @@ static bool _is_substr(const ReadBuffer *rbuf, size_t idx,
     r2 = &rbuf->data[hits[i].chrom];
     seq2 = r2->seq.b + hits[i].offset;
 
-    if(i != idx &&
-       hits[i].orient == node.orient &&
-       hits[i].offset + r->seq.end < r2->seq.end + (i < idx) &&
+    // A read is a duplicate (i.e. return true) if it is a substring of ANY
+    // read in the list or a complete match with a read before it in the list.
+    // That is why we have: (hits[i].chrom < idx || r->seq.end != r2->seq.end)
+    // since identical strings have equal length
+    if(hits[i].chrom != idx && hits[i].orient == node.orient &&
+       (hits[i].chrom < idx || r->seq.end != r2->seq.end) &&
+       hits[i].offset + r->seq.end <= r2->seq.end &&
        strncasecmp(seq, seq2, r->seq.end) == 0)
     {
       return true;
