@@ -243,12 +243,9 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
                         koruns, koruns_ended,
                         pickup_new_runs);
 
-  size_t i, max_ref_run = 0;
-  size_t min_run_qoffset = SIZE_MAX, min_ended_run_qoffset = SIZE_MAX;
-  for(i = 0; i < koruns->len; i++) {
-    max_ref_run = MAX2(max_ref_run, korun_len(koruns->data[i]));
+  size_t i, min_run_qoffset = SIZE_MAX, min_ended_run_qoffset = SIZE_MAX;
+  for(i = 0; i < koruns->len; i++)
     min_run_qoffset = MIN2(min_run_qoffset, koruns->data[i].qoffset);
-  }
 
   // Stop if all our earliest runs have finished
   for(i = 0; i < koruns_ended->len; i++) {
@@ -256,8 +253,7 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
   }
 
   // Continue if...
-  return (koruns_ended->len == 0 && max_ref_run < caller->min_ref_nkmers &&
-          min_run_qoffset <= min_ended_run_qoffset);
+  return min_run_qoffset <= min_ended_run_qoffset;
 }
 
 // Try to pick up new runs at each supernode

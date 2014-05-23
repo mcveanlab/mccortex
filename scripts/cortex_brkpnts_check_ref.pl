@@ -83,10 +83,13 @@ sub check_ref_regions
     my $len = abs($reg->{'start'} - $reg->{'end'}) + 1;
     if($reg->{'offset'}-1 + $len > length($seq)) { die("Seq too short: $str"); }
 
+    # Check chrom exists
+    if(!defined($refs{$reg->{'chrom'}})) { die("Missing chrom: $str"); }
+
     my $query = substr($seq, $reg->{'offset'}-1, $len);
     if(!$fwstrand) { $query = rev_comp($query); }
-    my $start = min($reg->{'start'}, $reg->{'end'}) + $reg->{'offset'} - 1;
-    if(!defined($refs{$reg->{'chrom'}})) { die("Missing chrom: $str"); }
+
+    my $start = min($reg->{'start'}, $reg->{'end'});
     my $ref = substr($refs{$reg->{'chrom'}}, $start-1, $len);
 
     if(uc($ref) ne uc($query)) {
