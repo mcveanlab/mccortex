@@ -37,8 +37,6 @@ extern const BinaryKmer zero_bkmer;
 #define BKMER_TOP_BITS(ksize)          (BKMER_TOP_BASES(ksize) * 2)
 #define BKMER_TOP_BP_BYTEOFFSET(ksize) (BKMER_TOP_BITS(ksize) - 2)
 
-#define binary_kmers_cmp(x,y)        memcmp((x).b,(x).b,BKMER_BYTES)
-
 #define binary_kmer_first_nuc(bkmer,ksize) \
         (((bkmer).b[0] >> BKMER_TOP_BP_BYTEOFFSET(ksize)) & 0x3)
 #define binary_kmer_last_nuc(bkmer)  ((bkmer).b[NUM_BKMER_WORDS - 1] & 0x3)
@@ -62,7 +60,7 @@ extern const BinaryKmer zero_bkmer;
   #define binary_kmer_less_than(x,y) \
           ((x).b[0] < (y).b[0] || ((x).b[0] == (y).b[0] && (x).b[1] < (y).b[1]))
 #else /* NUM_BKMER_WORDS > 2 */
-  #define binary_kmers_are_equal(x,y) (binary_kmers_cmp(&(x),&(y)) == 0)
+  #define binary_kmers_are_equal(x,y) (memcmp((x).b,(y).b,BKMER_BYTES) == 0)
   #define binary_kmer_is_zero(x)      binary_kmers_are_equal((x), zero_bkmer)
   bool binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
 #endif
