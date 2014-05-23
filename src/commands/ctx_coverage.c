@@ -13,11 +13,15 @@
 
 const char coverage_usage[] =
 "usage: "CMD" coverage [options] <in.ctx> [in2.ctx ..]\n"
+"\n"
 "  Print contig coverage\n"
 "\n"
-"  --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
-"  --seq <in>       Sequence file to get coverages for (can be used multiple times)\n"
-"  --out <out.txt>  Save output [default: STDOUT]\n";
+"  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
+"  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
+"  -1, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
+"  -o, --out <out.txt>  Save output [default: STDOUT]\n"
+"\n";
 
 // Define a vector of Covg
 #include "objbuf_macro.h"
@@ -123,14 +127,15 @@ int ctx_coverage(CmdArgs *args)
   bool print_edges = false;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcmp(argv[argi],"--seq") == 0) {
+    if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-1")) {
       if(argi+1 == argc) cmd_print_usage("--seq <in.fa> requires a file");
       if((seq_files[num_seq_files] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file %s", argv[argi+1]);
       num_seq_files++;
       argi++; // We took an argument
     }
-    else if(strcmp(argv[argi],"--edges") == 0) print_edges = true;
+    else if(!strcmp(argv[argi],"--edges") || !strcmp(argv[argi],"-e"))
+      print_edges = true;
     else {
       cmd_print_usage("Unknown arg: %s", argv[argi]);
     }

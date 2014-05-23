@@ -11,13 +11,15 @@
 
 const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
-"  Infer edges in a population graph.  \n"
 "\n"
-"  -m <mem>         Memory to use (e.g. 100G or 12M)\n"
-"  -k <kmer>        Kmer size\n"
-"  --out <out.ctx>  Write output [default is to edit input file]\n"
-"  --pop            Add edges that are in the union only\n"
-"  --all            Add all edges [default]\n";
+"  Infer edges in a population graph.  One of -P, -A required.\n"
+"\n"
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -o, --out <out.ctx>   Output file [default is to edit input file]\n"
+"  -P, --pop             Add edges that are in the union only\n"
+"  -A, --all             Add all edges [default]\n"
+"\n";
 
 // If two kmers are in a sample and the population has an edges between them,
 // Add edge to sample
@@ -223,10 +225,10 @@ int ctx_infer_edges(CmdArgs *args)
 
   bool add_pop_edges = false, add_all_edges = false;
   while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
-    if(strcmp(argv[0],"--all") == 0) {
+    if(!strcmp(argv[0],"--all") || !strcmp(argv[0],"-A")) {
       argc--; argv++; add_all_edges = true;
     }
-    else if(strcmp(argv[0],"--pop") == 0) {
+    else if(!strcmp(argv[0],"--pop") || !strcmp(argv[0],"-P")) {
       argc--; argv++; add_pop_edges = true;
     }
   }
@@ -236,7 +238,7 @@ int ctx_infer_edges(CmdArgs *args)
 
   // Can only specify one of --pop --all
   if(add_pop_edges && add_all_edges)
-    cmd_print_usage("Specify only one of --all --pop");
+    cmd_print_usage("Please specify only one of --all --pop");
 
   if(argc != 1) cmd_print_usage(NULL);
 

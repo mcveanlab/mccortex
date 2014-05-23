@@ -6,9 +6,6 @@
 #include <sys/stat.h>
 #include "string_buffer/string_buffer.h"
 
-#define futil_outpath_str(path) (strcmp(path,"-") == 0 ? "STDOUT" : (path))
-#define futil_inpath_str(path) (strcmp(path,"-") == 0 ? "STDIN" : (path))
-
 // futil_mkpath - ensure all directories in path exist
 // Returns 1 on success, 0 on failure
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
@@ -20,6 +17,9 @@ bool futil_is_file_readable(const char *file);
 // Creates file if it can write
 bool futil_is_file_writable(const char *file);
 off_t futil_get_file_size(const char* filepath);
+
+#define futil_outpath_str(path) (strcmp(path,"-") == 0 ? "STDOUT" : (path))
+#define futil_inpath_str(path) (strcmp(path,"-") == 0 ? "STDIN" : (path))
 
 // Open and return output file.
 // If "-" return stdout, if cannot open die with error message

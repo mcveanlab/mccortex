@@ -13,38 +13,40 @@
 
 const char thread_usage[] =
 "usage: "CMD" thread [options] <in.ctx> [in2.ctx[:cols] ...]\n"
+"\n"
 "  Thread reads through the graph.  Save to file <out.ctp>.  <pop.ctx> can should\n"
 "  have everyone in it and can be a pooled graph (with only 1 colour).  Samples\n"
 "  are loaded from <in.ctx> files one at a time.\n"
 "\n"
-"  Options:\n"
-"    -m <mem>                   How much memory to use\n"
-"    -n <kmers>                 How many entries in the hash table\n"
-"    -p <in.ctp>                Load existing path files first (multiple allowed)\n"
-"    --out <out.ctp>            Save output file [required]\n"
-"    --col <colour>             Colour to thread through\n"
-"    --seq <in.fa>              Thread reads from file (supports sam,bam,fq,*.gz)\n"
-"    --seq2 <in.1.fq> <in.2.fq> Thread paired end reads\n"
-"    --seqi <in.bam>            Thread paired end reads from a single file\n"
-"    --minIns <ins>             Minimum insert size for --seq2 [default:0]\n"
-"    --maxIns <ins>             Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
-"    --oneway                   Use one-way gap filling [default]\n"
-"    --twoway                   Use two-way gap filling\n"
-"    --fq_threshold <fq>        FASTQ quality threshold\n"
-"    --fq_offset <qual>         FASTQ quality score offset\n"
-"    --cut_hp <N>               Cut reads afer <N> consecutive bases\n"
-"    --FR --FF --RF --RR        Mate pair orientation [default: FR] (with --keep_pcr)\n"
-"    --seqgaps <out.csv>        Save size distribution of seq gaps bridged\n"
-"    --mpgaps <out.csv>         Save size distribution of mate pair gaps bridged\n"
-"    --use-new-paths            Use paths as they are being added (higher err rate)\n"
-"    --end-check                Extra check after bridging gap [default: on]\n"
-"    --no-end-check             Skip extra check after gap bridging\n"
+"  -o, --out <out.ctp>      Save output file [required]\n"
+"  -m, --memory <mem>       Memory to use (e.g. 1M, 20GB)\n"
+"  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
+"  -c, --colour <c>         Pull out contigs from the given colour [default: 0]\n"
+"  -1, --seq <in.fa>        Thread reads from file (supports sam,bam,fq,*.gz\n"
+"  -2, --seq2 <in1> <in2>   Thread paired end sequences\n"
+"  -i, --seqi <in.bam>      Thread PE reads from a single file\n"
+"  --FR --FF --RF --RR      Mate pair orientation [default: FR]\n"
+"  -w, --oneway             Use one-way gap filling (conservative)\n"
+"  -W, --twoway             Use two-way gap filling (liberal)\n"
+"  -q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
+"  -r, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -h, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -g, --graph <in.ctx>     Load samples from a graph file (.ctx)\n"
+"  -e, --end-check          Extra check after bridging gap [default: on]\n"
+"  -E, --no-end-check       Skip extra check after gap bridging\n"
+"  -i, --minIns <ins>       Minimum insert size for --seq2 [default:0]\n"
+"  -j, --maxIns <ins>       Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
+"  -g, --seqgaps <out.csv>  Save size distribution of seq gaps bridged\n"
+"  -G, --mpgaps <out.csv>   Save size distribution of mate pair gaps bridged\n"
+"  -P, --use-new-paths      Use paths as they are being added (higher err rate)\n"
 "\n"
 "  Debugging Options:\n"
 "    --printcontigs --printpaths --printreads   Probably best not to touch these\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
-"  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n";
+"  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n"
+"\n";
 
 
 
@@ -73,22 +75,22 @@ int ctx_thread(CmdArgs *args)
   int argi, argj;
   for(argi = argj = 0; argi < argc; argi++)
   {
-    if(strcmp(argv[argi],"--printcontigs") == 0)
+    if(!strcmp(argv[argi],"--printcontigs"))
     {
       // ctx_thread can print out contigs
       gen_paths_print_contigs = true;
     }
-    else if(strcmp(argv[argi],"--printpaths") == 0)
+    else if(!strcmp(argv[argi],"--printpaths"))
     {
       // ctx_thread can print out paths
       gen_paths_print_paths = true;
     }
-    else if(strcmp(argv[argi],"--printreads") == 0)
+    else if(!strcmp(argv[argi],"--printreads"))
     {
       // ctx_thread can print out reads
       gen_paths_print_reads = true;
     }
-    else if(strcmp(argv[argi],"--use-new-paths") == 0)
+    else if(!strcmp(argv[argi],"--use-new-paths") || !strcmp(argv[argi],"-P"))
     {
       // use paths as they are being added
       use_new_paths = true;

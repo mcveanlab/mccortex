@@ -10,11 +10,12 @@
 
 const char pview_usage[] = ""
 "usage: "CMD" pview [options] <in.ctp>\n"
+"\n"
 "  View and check a paths file.\n"
 "\n"
-"  Options:\n"
-"    --print  Print paths\n"
-"    --check  Check path file integrity\n";
+"  -v, --print  Print paths\n"
+"  -c, --check  Check path file integrity\n"
+"\n";
 
 int ctx_pview(CmdArgs *args)
 {
@@ -26,11 +27,11 @@ int ctx_pview(CmdArgs *args)
 
   while(argc > 1 && argv[0][0] == '-' && argv[0][1])
   {
-    if(strcmp(argv[0],"--print") == 0) {
+    if(!strcmp(argv[0],"--print") || !strcmp(argv[0],"-v")) {
       print_paths = true;
       argv++; argc--;
     }
-    else if(strcmp(argv[0],"--check") == 0) {
+    else if(!strcmp(argv[0],"--check") || !strcmp(argv[0],"-c")) {
       do_paths_check = true;
       argv++; argc--;
     }

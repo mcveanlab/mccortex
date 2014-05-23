@@ -20,24 +20,27 @@
 
 const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx> [...]\n"
+"\n"
 "  Pull out contigs from the graph, print statistics\n"
 "\n"
-"  Options:\n"
-"    --memory <M>             How much memory to use\n"
-"    --paths <in.ctp>         Path file to load [can specify multiple times]\n"
-"    --col <colour>           Colour to thread through\n"
-"    --seq <in> <out>         Correct reads from file (supports sam,bam,fq,*.gz)\n"
-"    --seq2 <in1> <in2> <out> Correct PE reads\n"
-"    --seqi <in.bam>          Correct PE reads from a single file\n"
-"    --twoway                 Use two-way gap filling\n"
-"    --oneway                 Use one-way gap filling\n"
-"    --fq_threshold <fq>      FASTQ quality threshold\n"
-"    --fq_offset <qual>       FASTQ quality score offset\n"
-"    --cut_hp <N>             Cut reads afer <N> consecutive bases\n"
-"    --FR --FF --RF           Mate pair orientation [default: FR]\n"
+"  -m, --memory <mem>         Memory to use (e.g. 1M, 20GB)\n"
+"  -n, --nkmers <N>           Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -p, --paths <in.ctp>       Load path file (can specify multiple times)\n"
+"  -c, --colour <c>           Pull out contigs from the given colour [default: 0]\n"
+"  -1, --seq <in> <O>         Correct reads from file (supports sam,bam,fq,*.gz\n"
+"  -2, --seq2 <in1> <in2> <O> Correct paired end sequences (output: <O>.{1,2}.fa.gz)\n"
+"  -i, --seqi <in.bam> <O>    Correct PE reads from a single file\n"
+"  --FR --FF --RF --RR        Mate pair orientation [default: FR]\n"
+"  -w, --oneway               Use one-way gap filling (conservative)\n"
+"  -W, --twoway               Use two-way gap filling (liberal)\n"
+"  -q, --fq_threshold <Q>     Filter quality scores [default: 0 (off)]\n"
+"  -r, --fq_offset <N>        FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -h, --cut_hp <bp>          Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -g, --graph <in.ctx>       Load samples from a graph file (.ctx)\n"
 "\n"
 " --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
-" --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n";
+" --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n"
+"\n";
 
 #define MAX_CONTEXT 50
 

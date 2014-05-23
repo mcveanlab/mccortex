@@ -27,7 +27,7 @@ GRAPHS=$(SEQS:.fa=.k$(K).ctx)
 TGTS=breakpoints.txt $(GRAPHS)
 # join.k$(K).ctx
 
-all: $(TGTS)
+all: $(TGTS) check
 
 seq0.fa:
 	(echo '>seq0a'; \
@@ -50,16 +50,16 @@ mix.fa:
 %.k$(K).ctx: %.fa
 	$(CTX) build -m 10M -k $(K) --sample $< --seq $< $@
 
-breakpoints.txt.gz: $(GRAPHS) $(SEQS)
-	$(CTX) breakpoints -t 1 -m 10M --minref 5 --maxref 20 --seq seq0.fa --seq seq1.fa --out $@ mix.k$(K).ctx
+breakpoints.txt: $(GRAPHS) $(SEQS)
+	$(CTX) breakpoints -t 1 -m 10M --minref 5 --maxref 20 --seq seq0.fa --seq seq1.fa --out breakpoints.txt.gz mix.k$(K).ctx
+	gzip -d breakpoints.txt.gz
 
-breakpoints.txt: breakpoints.txt.gz
-	gzip -d $<
+check: breakpoints.txt seq0.fa seq1.fa
 	cat breakpoints.txt
 	$(BRKCHCK) breakpoints.txt seq0.fa seq1.fa
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join --flatten $@ $(GRAPHS)
+	$(CTX) join --flatten -o $@ $(GRAPHS)
 
 seq.k$(K).pdf: join.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
@@ -69,4 +69,4 @@ plots: seq.k$(K).pdf
 clean:
 	rm -rf $(TGTS) $(SEQS) breakpoints.txt.gz seq.k$(K).pdf join.k$(K).ctx
 
-.PHONY: all clean plots
+.PHONY: all clean plots check

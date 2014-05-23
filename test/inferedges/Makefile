@@ -23,7 +23,7 @@ noedges.fixed.ctx: noedges.ctx
 	$(CTX) view --kmers noedges.fixed.ctx
 
 pair.ctx: edges.ctx noedges.ctx
-	$(CTX) join pair.ctx edges.ctx noedges.ctx
+	$(CTX) join -o pair.ctx edges.ctx noedges.ctx
 pop.ctx: pair.ctx
 	$(CTX) inferedges -o pop.ctx pair.ctx
 	$(CTX) view --kmers pair.ctx

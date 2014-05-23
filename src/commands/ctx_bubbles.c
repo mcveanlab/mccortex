@@ -17,19 +17,22 @@
 #define DEFAULT_MAX_ALLELE 300
 
 const char bubbles_usage[] =
-"usage: "CMD" call [options] <in.ctx> [in2.ctx ...]\n"
+"usage: "CMD" bubbles [options] <in.ctx> [in2.ctx ...]\n"
+"\n"
 "  Find bubbles in the graph, which are potential variants.\n"
 "\n"
-"  Options:\n"
-"    -m <memory> | -t <threads> | -p <paths.ctp>\n"
-"    -p <in.ctp>          Load path file (can specify multiple times)\n"
-"    -o <out.bubbles.gz>  Output file [required]\n"
-"    --haploid <col>      Colour is haploid, can use repeatedly [e.g. ref colour]\n"
-"    --maxallele <len>    Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
-"    --maxflank <len>     Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
+"  -m, --memory <mem>          Memory to use\n"
+"  -n, --nkmers <kmers>        Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>           Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -p, --paths <in.ctp>        Load path file (can specify multiple times)\n"
+"  -o, --out <out.bubbles.gz>  Output file [required]\n"
+"  -h, --haploid <col>         Colour is haploid, can use repeatedly [e.g. ref colour]\n"
+"  -l, --maxallele <len>       Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
+"  -f, --maxflank <len>        Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
 "\n"
 "  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
-"  which colour to load the data into.\n";
+"  which colour to load the data into.\n"
+"\n";
 
 int ctx_bubbles(CmdArgs *args)
 {
@@ -43,21 +46,21 @@ int ctx_bubbles(CmdArgs *args)
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
-    if(strcmp(argv[argi],"--haploid") == 0) {
+    if(!strcmp(argv[argi],"--haploid") || !strcmp(argv[argi], "-h")) {
       if(argi + 1 == argc ||
          !parse_entire_size(argv[argi+1], &haploid_cols[num_haploid])) {
         cmd_print_usage("--haploid <col> requires an int arg");
       }
       num_haploid++; argi++;
     }
-    else if(strcmp(argv[argi],"--maxallele") == 0) {
+    else if(!strcmp(argv[argi],"--maxallele") || !strcmp(argv[argi], "-l")) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_allele_len) ||
          max_allele_len == 0)  {
         cmd_print_usage("--maxallele <col> requires an +ve integer argument");
       }
       argi++;
     }
-    else if(strcmp(argv[argi],"--maxflank") == 0) {
+    else if(!strcmp(argv[argi],"--maxflank") || !strcmp(argv[argi], "-f")) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &max_flank_len) ||
          max_flank_len == 0)  {
         cmd_print_usage("--maxflank <col> requires an +ve integer argument");

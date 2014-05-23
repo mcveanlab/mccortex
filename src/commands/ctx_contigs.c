@@ -18,17 +18,18 @@
 
 const char contigs_usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
+"\n"
 "  Pull out contigs from the graph, print statistics\n"
 "\n"
-"  Options: [ -n <nkmers> | -p <paths.ctp> ]\n"
-"   --memory <M>     How much memory to use\n"
-"   --colour <c>     Pull out contigs from the given colour [default: 0]\n"
-"   --ncontigs <N>   Pull out <N> contigs from random kmers [default: " QUOTE_MACRO(DEFAULT_NCONTIGS) "]\n"
-"   --print          Print contigs in FASTA format\n"
-"   --out <out.fa>   Write contigs to a file rather than STDOUT\n"
-"   --seed <in.fa>   Use seed kmers from a file. If longer than kmer-size, only\n"
-"                    use the first kmer found from each input sequence.\n"
-"   --no-reseed      Do not use a seed kmer if it is used in a contig\n";
+"  -m, --memory <mem>   Memory to use\n"
+"  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -c, --colour <c>     Pull out contigs from the given colour [default: 0]\n"
+"  -N, --ncontigs <N>   Pull out <N> contigs from random kmers [default: " QUOTE_MACRO(DEFAULT_NCONTIGS) "]\n"
+"  -o, --out <out.fa>   Print contigs in FASTA [default: don't print]\n"
+"  -e, --seed <in.fa>   Use seed kmers from a file. If longer than kmer-size, only\n"
+"                       use the first kmer found from each input sequence.\n"
+"  -R, --no-reseed      Do not use a seed kmer if it is used in a contig\n"
+"\n";
 
 #define MAXPATH 5
 
@@ -291,23 +292,26 @@ int ctx_contigs(CmdArgs *args)
   // Already checked there is at least 1 argument
 
   size_t i, n_rand_contigs = 0, colour = 0;
-  bool print_contigs = false, no_reseed = false;
+  bool no_reseed = false;
   seq_file_t *seed_file = NULL;
 
   while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
-    if(strcmp(argv[0],"--ncontigs") == 0) {
+    if(!strcmp(argv[0],"--ncontigs") || !strcmp(argv[0],"-N")) {
       if(argc == 1 || !parse_entire_size(argv[1], &n_rand_contigs) ||
          n_rand_contigs == 0) {
-        cmd_print_usage("--ncontigs <N> requires an integer argument [>0]");
+        cmd_print_usage("-N, --ncontigs <N> requires an integer argument [>0]");
       }
       argv += 2; argc -= 2;
     }
-    else if(strcmp(argv[0],"--colour") == 0 || strcmp(argv[0],"--color") == 0) {
+    else if(!strcmp(argv[0],"--colour") || !strcmp(argv[0],"--color") ||
+            !strcmp(argv[0],"-c"))
+    {
       if(argc == 1 || !parse_entire_size(argv[1], &colour))
-        cmd_print_usage("--colour <c> requires a positive integer argument");
+        cmd_print_usage("-c, --colour <c> requires a positive integer argument");
       argv += 2; argc -= 2;
     }
-    else if(strcmp(argv[0],"--seed") == 0 || strcmp(argv[0],"--seeds") == 0) {
+    else if(!strcmp(argv[0],"--seed") || !strcmp(argv[0],"--seeds") ||
+            !strcmp(argv[0],"-e")) {
       if(argc == 1)
         cmd_print_usage("--seed <in.fa|fq|sam> requires an argument");
       if(seed_file != NULL) {
@@ -318,12 +322,8 @@ int ctx_contigs(CmdArgs *args)
         die("Cannot read --seed file: %s", argv[1]);
       argv += 2; argc -= 2;
     }
-    else if(strcmp(argv[0],"--no-reseed") == 0) {
+    else if(!strcmp(argv[0],"--no-reseed") || !strcmp(argv[0], "-R")) {
       no_reseed = true;
-      argv++; argc--;
-    }
-    else if(strcmp(argv[0],"--print") == 0) {
-      print_contigs = true;
       argv++; argc--;
     }
     else cmd_print_usage("Unknown argument: %s", argv[0]);
@@ -361,7 +361,7 @@ int ctx_contigs(CmdArgs *args)
 
   // Check colour specified
   if(colour >= graph_file_usedcols(&gfile)) {
-    cmd_print_usage("--colour is too high (%zu > %zu)",
+    cmd_print_usage("-c, --colour is too high (%zu > %zu)",
                  colour, graph_file_usedcols(&gfile)-1);
   }
 
@@ -388,13 +388,7 @@ int ctx_contigs(CmdArgs *args)
   //
   // Output file if printing
   //
-  FILE *fout = print_contigs ? stdout : NULL;
-  if(args->output_file_set) {
-    if(!print_contigs)
-      warn("Ignoring --out <out> argument (maybe you forgot --print ?)");
-    else if((fout = fopen(args->output_file, "w")) == NULL)
-      die("Cannot open output file: %s", args->output_file);
-  }
+  FILE *fout = args->output_file_set ? futil_open_output(args->output_file) : NULL;
 
   // Allocate
   dBGraph db_graph;
@@ -463,8 +457,7 @@ int ctx_contigs(CmdArgs *args)
     seq_close(seed_file);
   }
 
-  if(args->output_file_set && print_contigs && fout != stdout)
-    fclose(fout);
+  if(fout != NULL && fout != stdout) fclose(fout);
 
   status("\n");
 

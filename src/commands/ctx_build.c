@@ -1,7 +1,4 @@
 #include "global.h"
-
-#include "seq_file.h"
-
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
@@ -11,34 +8,37 @@
 #include "loading_stats.h"
 #include "build_graph.h"
 
+#include "seq_file.h"
+
 const char build_usage[] =
 "usage: "CMD" build [options] <out.ctx>\n"
+"\n"
 "  Build a cortex graph.  \n"
 "\n"
-"  Options:\n"
-"    -m <mem>               Memory to use (e.g. 100G or 12M)\n"
-"    -k <kmer>              Kmer size\n"
-"    --asyncio <N>          Number of input threads\n"
-"    --threads <N>          Number of processing threads\n"
-"    --sample <name>        Sample name (required before any seq args)\n"
-"    --seq <in.fa|fq|sam>   Load sequence data\n"
-"    --seq2 <in1> <in2>     Load paired end sequence data\n"
-"    --seqi <in.bam>        Load paired end sequence from a single file\n"
-"    --fq_threshold <qual>  Filter quality scores [default: 0 (off)]\n"
-"    --fq_offset <offset>   FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
-"    --cut_hp <len>         Breaks reads at homopolymers >= <len> [default: off]\n"
-"    --remove_pcr           Remove (or keep) PCR duplicate reads [default: keep]\n"
-"    --keep_pcr             Don't do PCR duplicate removal\n"
-"    --load_graph <in.ctx>  Load samples from a graph file (.ctx)\n"
-"    --FR --FF --RF --RR    Mate pair orientation [default: FR] (used with --keep_pcr)\n"
+"  -m, --memory <mem>       Memory to use\n"
+"  -n, --nkmers <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -k, --kmer <kmer>        Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
+"  -x, --sample <name>      Sample name (required before any seq args)\n"
+"  -1, --seq <in.fa>        Load sequence data\n"
+"  -2, --seq2 <in1> <in2>   Load paired end sequence data\n"
+"  -i, --seqi <in.bam>      Load paired end sequence from a single file\n"
+"  -q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
+"  -r, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -h, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -p, --remove_pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
+"  -P, --keep_pcr           Don't do PCR duplicate removal\n"
+"  --FR --FF --RF --RR      Mate pair orientation [default: FR] (used with --keep_pcr)\n"
+"  -g, --graph <in.ctx>     Load samples from a graph file (.ctx)\n"
 "\n"
 "  PCR duplicate removal works by ignoring read (pairs) if (both) reads\n"
 "  start at the same k-mer as any previous read. Carried out per sample, not \n"
 "  per file. --sample <name> is required before sequence input can be loaded.\n"
 "  Consecutive sequence options are loaded into the same colour.\n"
-"  --load_graph argument can have colours specifed e.g. in.ctx:0,6-8 will load\n"
+"  --graph argument can have colours specifed e.g. in.ctx:0,6-8 will load\n"
 "  samples 0,6,7,8.  Graphs are loaded into new colours.\n"
-"  See `"CMD" join` to combine .ctx files\n";
+"  See `"CMD" join` to combine .ctx files\n"
+"\n";
 
 typedef struct
 {
@@ -177,21 +177,21 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       }
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--fq_threshold") == 0) {
+    else if(!strcmp(argv[argi],"--fq_threshold") || !strcmp(argv[argi],"-q")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_cutoff) || fq_cutoff > 128)
         die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--fq_offset") == 0) {
+    else if(!strcmp(argv[argi],"--fq_offset") || !strcmp(argv[argi],"-r")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_offset <offset> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_offset argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(strcmp(argv[argi],"--cut_hp") == 0) {
+    else if(!strcmp(argv[argi],"--cut_hp") || !strcmp(argv[argi],"-h")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--cut_hp <len> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
@@ -200,20 +200,23 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
         die("--cut_hp <hp> cannot be greater than %i", UINT8_MAX);
       argi += 1;
     }
-    else if(strcasecmp(argv[argi],"--FF") == 0) matedir = READPAIR_FF;
-    else if(strcasecmp(argv[argi],"--FR") == 0) matedir = READPAIR_FR;
-    else if(strcasecmp(argv[argi],"--RF") == 0) matedir = READPAIR_RF;
-    else if(strcasecmp(argv[argi],"--RR") == 0) matedir = READPAIR_RR;
-    else if(!strcmp(argv[argi],"--remove_pcr")) remove_pcr_dups = true;
-    else if(!strcmp(argv[argi],"--keep_pcr")) remove_pcr_dups = false;
-    else if(strcmp(argv[argi],"--seq") == 0 || strcmp(argv[argi],"--seqi") == 0)
+    else if(!strcmp(argv[argi],"--FF")) matedir = READPAIR_FF;
+    else if(!strcmp(argv[argi],"--FR")) matedir = READPAIR_FR;
+    else if(!strcmp(argv[argi],"--RF")) matedir = READPAIR_RF;
+    else if(!strcmp(argv[argi],"--RR")) matedir = READPAIR_RR;
+    else if(!strcmp(argv[argi],"--remove_pcr") || !strcmp(argv[argi],"-p"))
+      remove_pcr_dups = true;
+    else if(!strcmp(argv[argi],"--keep_pcr") || !strcmp(argv[argi],"-P"))
+      remove_pcr_dups = false;
+    else if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-1") ||
+            !strcmp(argv[argi],"--seqi") || !strcmp(argv[argi],"-i"))
     {
       if(!sample_named)
         cmd_print_usage("Please use --sample <name> before giving sequence");
       if(argi + 1 >= argc)
         cmd_print_usage("--seq <file> requires an argument");
 
-      bool interleaved = (strcmp(argv[argi],"--seqi") == 0);
+      bool interleaved = (!strcmp(argv[argi],"--seqi") || !strcmp(argv[argi],"-i"));
 
       // Create new task
       build_graph_task_new2(argv[argi+1], NULL, interleaved, colour,
@@ -225,7 +228,7 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       sample_used = true;
       seq_loaded = true;
     }
-    else if(strcmp(argv[argi],"--seq2") == 0) {
+    else if(!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2")) {
       if(!sample_named)
         cmd_print_usage("Please use --sample <name> before giving sequence");
       if(argi + 2 >= argc)
@@ -241,7 +244,8 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       sample_used = true;
       seq_loaded = true;
     }
-    else if(!strcmp(argv[argi],"--sample") || !strcmp(argv[argi],"--load_graph"))
+    else if(!strcmp(argv[argi],"--sample") || !strcmp(argv[argi],"-x") ||
+            !strcmp(argv[argi],"--graph") || !strcmp(argv[argi],"-g"))
     {
       if(argi + 1 >= argc) cmd_print_usage("%s requires an arg", argv[argi]);
 
@@ -253,7 +257,7 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       // Move on to next colour
       colour++;
 
-      if(strcmp(argv[argi],"--sample") == 0)
+      if(!strcmp(argv[argi],"--sample") || !strcmp(argv[argi],"-x"))
       {
         // --sample <name>
         if(!argv[argi+1][0] || !strcmp(argv[argi+1], "undefined") ||
@@ -270,7 +274,7 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       }
       else
       {
-        // --load_graph <in.ctx>
+        // -g, --graph <in.ctx>
         // Load binary into new colour
         graph_reader_new(argv[argi+1], colour, &graphs[num_graphs]);
         colour += graph_file_outncols(&graphs[num_graphs]);
@@ -279,7 +283,7 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
         sample_used = false;
       }
 
-      argi++; // both --sample and --load_graph take a single argument
+      argi++; // both --sample and --graph take a single argument
     }
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }

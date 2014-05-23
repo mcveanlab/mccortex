@@ -36,12 +36,18 @@ A
 
 const char breakpoints_usage[] =
 "usage: "CMD" breakpoints [options] <in.ctx> [in2.ctx ..]\n"
+"\n"
 "  Use trusted assembled genome to call large events.  Output is gzipped.\n"
 "\n"
-"  --seq <in>          Trusted input (can be used multiple times)\n"
-"  --out <out.txt.gz>  Save calls (gzipped output) [default: STDOUT]\n"
-"  --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
-"  --maxref <N>        Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n";
+"  -m, --memory <mem>      Memory to use\n"
+"  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
+"  -f, --seq <in>          Trusted input (can specify multiple times)\n"
+"  -o, --out <out.txt.gz>  Save calls (gzipped output) [default: STDOUT]\n"
+"  -x, --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
+"  -y, --maxref <N>        Limit to <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n"
+"\n";
 
 int ctx_breakpoints(CmdArgs *args)
 {
@@ -58,7 +64,7 @@ int ctx_breakpoints(CmdArgs *args)
   size_t est_num_bases = 0;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcmp(argv[argi],"--seq") == 0) {
+    if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-f")) {
       if(argi+1 == argc) cmd_print_usage("--seq <in.fa> requires a file");
 
       char *file_path = argv[argi+1];
@@ -80,14 +86,14 @@ int ctx_breakpoints(CmdArgs *args)
       num_seq_files++;
       argi++; // We took an argument
     }
-    else if(!strcmp(argv[argi],"--minref")) {
+    else if(!strcmp(argv[argi],"--minref") || !strcmp(argv[argi],"-x")) {
       if(argi+1 == argc) die("%s <N> requires an argument", argv[argi]);
       if(!parse_entire_size(argv[argi+1], &min_ref_flank) || min_ref_flank==0) {
         die("Invalid argument %s %s must be >= 1", argv[argi], argv[argi+1]);
       }
       argi++; // We took an argument
     }
-    else if(!strcmp(argv[argi],"--maxref")) {
+    else if(!strcmp(argv[argi],"--maxref") || !strcmp(argv[argi],"-y")) {
       if(argi+1 == argc) die("%s <N> requires an argument", argv[argi]);
       if(!parse_entire_size(argv[argi+1], &max_ref_flank) || max_ref_flank==0) {
         die("Invalid argument %s %s must be >= 1", argv[argi], argv[argi+1]);

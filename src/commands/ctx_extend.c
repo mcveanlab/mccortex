@@ -14,9 +14,12 @@
 
 const char extend_usage[] =
 "usage: "CMD" extend [options] <in.ctx> <in.fa> <dist> <out.fa>\n"
-"  options:\n"
-"   -m <mem>   Memory to use\n"
-"   -n <kmers> Kmers in the hash\n";
+"\n"
+"  Extend contigs along supernodes using a populationg graph.\n"
+"\n"
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"\n";
 
 typedef struct
 {

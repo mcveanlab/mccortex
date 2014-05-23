@@ -13,17 +13,20 @@
 
 const char reads_usage[] =
 "usage: "CMD" reads [options] <in.ctx>[:cols] [in2.ctx ...]\n"
-"  Filters reads based on which have a kmer in the graph. \n"
-"  Options:\n"
-"    -m <mem> Memory limit\n"
-"    -n <mem> Number of kmers in hash table\n"
-"    --fasta   print output as gzipped FASTA\n"
-"    --fastq   print output as gzipped FASTQ [default]\n"
-"    --invert  print reads/read pairs with no kmer in graph\n"
-"    --seq <in> <out>         Writes output to <out>.fq.gz\n"
-"    --seq2 <in1> <in2> <out>  Writes output to <out>.1.fq.gz, <out>.2.fq.gz\n"
 "\n"
-"      Can specify --seq/--seq2 multiple times.\n";
+"  Filters reads based on which have a kmer in the graph. \n"
+"\n"
+"  -m, --memory <mem>          Memory to use\n"
+"  -n, --nkmers <kmers>        Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -f, --fasta                 Output as gzipped FASTA\n"
+"  -q, --fastq                 Output as gzipped FASTQ [default]\n"
+"  -v, --invert                Print reads/read pairs with no kmer in graph\n"
+"  -1, --seq <in> <O>          Writes output to <O>.fq.gz\n"
+"  -2, --seq2 <in1> <in2> <O>  Writes output to <O>.{1,2}.fq.gz\n"
+"  -i, --seqi <in> <O>         Writes output to <O>.{1,2}.fq.gz\n"
+"\n"
+"  Can specify --seq/--seq2 multiple times.\n"
+"\n";
 
 typedef struct {
   dBGraph *const db_graph;
@@ -160,17 +163,17 @@ int ctx_reads(CmdArgs *args)
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
-    if(strcmp(argv[argi], "--fastq") == 0) use_fq = true;
-    else if(strcmp(argv[argi], "--fasta") == 0) use_fa = true;
-    else if(strcmp(argv[argi], "--invert") == 0) invert = true;
-    else if(strcmp(argv[argi], "--seq") == 0)
+    if(!strcmp(argv[argi], "--fastq") || !strcmp(argv[argi],"-q")) use_fq = true;
+    else if(!strcmp(argv[argi], "--fasta") || !strcmp(argv[argi],"-f")) use_fa = true;
+    else if(!strcmp(argv[argi], "--invert") || !strcmp(argv[argi],"-v")) invert = true;
+    else if(!strcmp(argv[argi], "--seq") || !strcmp(argv[argi],"-1"))
     {
       if(argi + 2 >= argc) cmd_print_usage("Missing arguments");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
         die("Cannot read --seq file: %s", argv[argi+1]);
       argi += 2;
     }
-    else if(strcmp(argv[argi], "--seq2") == 0)
+    else if(!strcmp(argv[argi], "--seq2") || !strcmp(argv[argi],"-2"))
     {
       if(argi + 4 >= argc) cmd_print_usage("Missing arguments");
       if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
@@ -178,6 +181,13 @@ int ctx_reads(CmdArgs *args)
       if((seqfiles[num_sf++] = seq_open(argv[argi+2])) == NULL)
         die("Cannot read second --seq2 file: %s", argv[argi+2]);
       argi += 3;
+    }
+    else if(!strcmp(argv[argi], "--seqi") || !strcmp(argv[argi],"-i"))
+    {
+      if(argi + 2 >= argc) cmd_print_usage("Missing arguments");
+      if((seqfiles[num_sf++] = seq_open(argv[argi+1])) == NULL)
+        die("Cannot read --seq file: %s", argv[argi+1]);
+      argi += 2;
     }
     else cmd_print_usage("Unexpected argument: %s", argv[argi]);
   }
@@ -219,13 +229,17 @@ int ctx_reads(CmdArgs *args)
   //
   for(argi = 0; argi < argend; argi++)
   {
-    if(strcmp(argv[argi],"--seq") == 0) {
+    if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-1")) {
       check_outfile_exists(argv[argi+2], false, use_fq);
       argi += 2;
     }
-    else if(strcmp(argv[argi],"--seq2") == 0) {
+    else if(!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2")) {
       check_outfile_exists(argv[argi+3], true, use_fq);
       argi += 3;
+    }
+    else if(!strcmp(argv[argi],"--seqi") || !strcmp(argv[argi],"-i")) {
+      check_outfile_exists(argv[argi+2], true, use_fq);
+      argi += 2;
     }
   }
 
@@ -250,8 +264,7 @@ int ctx_reads(CmdArgs *args)
     graph_file_close(&gfiles[i]);
   }
 
-  if(invert) status("Printing reads that do not touch the graph\n");
-  else status("Printing reads that touch the graph\n");
+  status("Printing reads that do %stouch the graph\n", invert ? "not " : "");
 
   //
   // Filtering reads
@@ -264,10 +277,11 @@ int ctx_reads(CmdArgs *args)
 
   for(argi = 0; argi < argend; argi++)
   {
-    char is_se = (strcmp(argv[argi], "--seq") == 0);
-    char is_pe = (strcmp(argv[argi], "--seq2") == 0);
+    char is_se = (!strcmp(argv[argi],"--seq")  || !strcmp(argv[argi],"-1"));
+    char is_pe = (!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2"));
+    bool is_interleaved = (!strcmp(argv[argi],"--seqi")  || !strcmp(argv[argi],"-i"));
 
-    if(is_se || is_pe)
+    if(is_se || is_pe || is_interleaved)
     {
       char *in1 = NULL, *in2 = NULL, *out = NULL;
       size_t init_reads, reads_loaded;
@@ -276,7 +290,7 @@ int ctx_reads(CmdArgs *args)
                              use_fq ? seq_gzprint_fastq : seq_gzprint_fasta,
                              invert};
 
-      if(is_se) {
+      if(is_se || is_interleaved) {
         in1 = argv[argi+1];
         out = argv[argi+2];
       }
@@ -294,7 +308,7 @@ int ctx_reads(CmdArgs *args)
       if((data.out1 = gzopen(path1, "w")) == NULL)
         die("Cannot write to: %s", path1);
 
-      if(is_pe) {
+      if(is_pe || is_interleaved) {
         memcpy(path2, out, pathlen);
         get_out_path(path2, pathlen, use_fq, 2);
         if((data.out2 = gzopen(path2, "w")) == NULL)
@@ -311,7 +325,16 @@ int ctx_reads(CmdArgs *args)
         seq_close(seqfiles[sf]);
         seq_close(seqfiles[sf+1]);
         sf += 2;
-      } else {
+      }
+      else if(is_interleaved) {
+        status("reading: %s (interleaved)\n", in1);
+        status("writing: %s %s\n", path1, path2);
+        seq_parse_interleaved_sf(seqfiles[sf], 0, &r1, &r2,
+                                 filter_reads, &data);
+        seq_close(seqfiles[sf]);
+        sf++;
+      }
+      else {
         status("reading: %s\n", in1);
         status("writing: %s\n", path1);
         seq_parse_se_sf(seqfiles[sf], 0, &r1,
@@ -321,16 +344,15 @@ int ctx_reads(CmdArgs *args)
       }
 
       gzclose(data.out1);
-      if(is_pe) gzclose(data.out2);
+      if(is_pe || is_interleaved) gzclose(data.out2);
 
       total_reads_printed += data.num_of_reads_printed;
       reads_loaded = stats.num_se_reads + stats.num_pe_reads - init_reads;
 
       status("  Printed %zu / %zu inputs\n",
-              data.num_of_reads_printed, reads_loaded);
+             data.num_of_reads_printed, reads_loaded);
 
-      if(is_se) argi += 2;
-      else argi += 3;
+      argi += ((is_se || is_interleaved) ? 2 : 3);
     }
   }
 

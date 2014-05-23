@@ -10,20 +10,21 @@
 
 const char pjoin_usage[] =
 "usage: "CMD" pjoin [options] <in1.ctp> [[offset:]in2.ctp[:0,2-4] ...]\n"
+"\n"
 "  Merge cortex path files.\n"
 "\n"
-" Options:\n"
-"   -o <out.ctp>     Output file [required]\n"
-"   -m <mem>         Memory to use (required) recommend 80G for human\n"
-"   -n <kmers>       Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   --graph <in.ctx> Get number of hash table entries from graph file\n"
-"   --overlap        Merge corresponding colours from each graph file\n"
-"   --flatten        Dump into a single colour graph\n"
-"   --outcols <C>    How many 'colours' should the output file have\n"
-"   --noredundant    Remove redundant paths\n"
+"  -o, --out <out.ctp>    Output file [required]\n"
+"  -m, --memory <mem>     Memory to use (required) recommend 80G for human\n"
+"  -n, --nkmers <nkmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -g, --graph <in.ctx>   Get number of hash table entries from graph file\n"
+"  -v, --overlap          Merge corresponding colours from each graph file\n"
+"  -f, --flatten          Dump into a single colour graph\n"
+"  -c, --outcols <C>      How many 'colours' should the output file have\n"
+"  -r, --noredundant      Remove redundant paths\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctp:2,3\n"
-"  Offset specifies where to load the first colour: 3:samples.ctp\n";
+"  Offset specifies where to load the first colour: 3:samples.ctp\n"
+"\n";
 
 int ctx_pjoin(CmdArgs *args)
 {
@@ -37,24 +38,24 @@ int ctx_pjoin(CmdArgs *args)
   char *graph_file = NULL;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcmp(argv[argi],"--graph") == 0) {
+    if(strcmp(argv[argi],"--graph") == 0 || strcmp(argv[argi],"-g") == 0) {
       if(argi+1 == argc) cmd_print_usage("--graph <in.ctx> needs an argument");
       graph_file = argv[argi+1];
       argi++;
     }
-    else if(strcmp(argv[argi],"--overlap") == 0) {
+    else if(!strcmp(argv[argi],"--overlap") || !strcmp(argv[argi],"-v")) {
       if(overlap) warn("overlap specified twice");
       overlap = true;
     }
-    else if(strcmp(argv[argi],"--flatten") == 0) {
+    else if(!strcmp(argv[argi],"--flatten") || !strcmp(argv[argi],"-f")) {
       if(flatten) warn("flatten specified twice");
       flatten = true;
     }
-    else if(strcmp(argv[argi],"--noredundant") == 0) {
+    else if(!strcmp(argv[argi],"--noredundant") || !strcmp(argv[argi],"-r")) {
       if(noredundant) warn("noredundant specified twice");
       noredundant = true;
     }
-    else if(strcmp(argv[argi],"--outcols") == 0) {
+    else if(!strcmp(argv[argi],"--outcols") || !strcmp(argv[argi],"-c")) {
       if(argi+1 == argc || !parse_entire_size(argv[argi+1], &output_ncols) ||
          output_ncols == 0) {
         cmd_print_usage("--outcols <C> needs an integer argument > 0");

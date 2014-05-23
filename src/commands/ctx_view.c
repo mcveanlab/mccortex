@@ -13,12 +13,15 @@
 
 const char view_usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"
-" options:\n"
-"   --kmers  Print kmers\n"
-"   --check  Check kmers\n"
-"   --info   Print info\n"
 "\n"
-" Default is [--info --check]\n";
+"  View a cortex graph as a list of kmers with coverage and edges\n"
+"\n"
+"  -v, --kmers  Print kmers\n" // DEV: change to -k
+"  -c, --check  Check kmers\n"
+"  -i, --info   Print info\n"
+"\n"
+" Default is [--info --check]\n"
+"\n";
 
 static void print_header(GraphFileHeader *h, size_t num_of_kmers)
 {
@@ -89,9 +92,9 @@ int ctx_view(CmdArgs *args)
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
-    if(strcmp(argv[argi],"--info") == 0) print_info = true;
-    else if(strcmp(argv[argi],"--check") == 0) parse_kmers = true;
-    else if(strcmp(argv[argi],"--kmers") == 0) print_kmers = true;
+    if(!strcmp(argv[argi],"--info") || !strcmp(argv[argi],"-i")) print_info = true;
+    else if(!strcmp(argv[argi],"--check") || !strcmp(argv[argi],"-c")) parse_kmers = true;
+    else if(!strcmp(argv[argi],"--kmers") || !strcmp(argv[argi],"-v")) print_kmers = true;
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 

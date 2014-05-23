@@ -4,6 +4,8 @@
 #define CTXCMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 #define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 
+#define DEFAULT_NTHREADS 2
+
 typedef struct
 {
   char *cmdline;
@@ -32,7 +34,7 @@ typedef struct
   .num_kmers_set = false, .num_kmers = 1UL<<22 /*4Million*/, \
   .mem_to_use_set = false, .mem_to_use = 1UL<<29 /*512MB*/, \
   .max_io_threads_set = false, .max_io_threads = 4, \
-  .max_work_threads_set = false, .max_work_threads = 2, \
+  .max_work_threads_set = false, .max_work_threads = DEFAULT_NTHREADS, \
   .use_ncols_set = false, .use_ncols = 1, \
   .output_file_set = false, .output_file = NULL, \
   .num_ctp_files = 0, .ctp_files = NULL, \

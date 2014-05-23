@@ -27,21 +27,22 @@
 
 const char join_usage[] =
 "usage: "CMD" join [options] in1.ctx [[offset:]in2.ctx[:1,2,4-5] ...]\n"
+"\n"
 "  Merge cortex graphs.\n"
 "\n"
-"  Options:\n"
-"   -o, --out <out.ctp>     Output file [required]\n"
-"   -m, --memory <mem>      Memory to use\n"
-"   -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   -s, --ncols <c>         How many colours to load at once [default: 1]\n"
-"   -v, --overlap           Merge corresponding colours from each graph file\n"
-"   -f, --flatten           Dump into a single colour graph\n"
-"   -i, --intersect <a.ctx> Only load the kmers that are in graph A.ctx. Can be\n"
+"  -o, --out <out.ctx>     Output file [required]\n"
+"  -m, --memory <mem>      Memory to use\n"
+"  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -s, --ncols <c>         How many colours to load at once [default: 1]\n"
+"  -v, --overlap           Merge corresponding colours from each graph file\n"
+"  -f, --flatten           Dump into a single colour graph\n"
+"  -i, --intersect <a.ctx> Only load the kmers that are in graph A.ctx. Can be\n"
 "                           specified multiple times. <a.ctx> is NOT merged into\n"
 "                           the output file.\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctx:2,3\n"
-"  Offset specifies where to load the first colour: 3:samples.ctx\n";
+"  Offset specifies where to load the first colour: 3:samples.ctx\n"
+"\n";
 
 static inline void remove_non_intersect_nodes(hkey_t node, Covg *covgs,
                                               Covg num, HashTable *ht)

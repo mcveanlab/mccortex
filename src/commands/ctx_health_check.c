@@ -16,10 +16,11 @@ const char health_usage[] =
 "  Load a graph into memory along with any path files to check they are valid.\n"
 "\n"
 "  Options:\n"
-"   -m <mem>       Memory to use\n"
-"   -n <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   -p <in.ctp>    Load paths\n"
-"   --noedgecheck  Don't check kmer edges\n";
+"  -m, --memory <mem>     Memory to use\n"
+"  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
+"  -E, --noedgecheck      Don't check kmer edges\n"
+"\n";
 
 // DEV: should load path files one at a time and check them?
 //      doing that won't check merging code.
@@ -34,7 +35,8 @@ int ctx_health_check(CmdArgs *args)
   bool do_edge_check = true;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcmp(argv[argi],"--noedgecheck") == 0) do_edge_check = false;
+    if(!strcmp(argv[argi],"--noedgecheck") || !strcmp(argv[argi],"-E"))
+      do_edge_check = false;
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
@@ -44,7 +46,7 @@ int ctx_health_check(CmdArgs *args)
   char *ctx_path = argv[argi];
 
   if(!do_edge_check && args->num_ctp_files == 0) {
-    cmd_print_usage("--noedgecheck and no path files (-p in.ctp) - nothing to check.");
+    cmd_print_usage("-E|--noedgecheck and no path files (-p in.ctp). Nothing to check.");
   }
 
   //

@@ -1,5 +1,4 @@
 #include "global.h"
-
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
@@ -11,24 +10,24 @@
 
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
-" Clean a cortex graph. Joins graphs first, if multiple inputs given\n"
-" Clips tips before doing supernode thresholding (when doing both [default]).\n"
 "\n"
-" Options:\n"
-"  --memory <mem>         Memory to use\n"
-"  --nkmers <hash-size>   Kmers in the hash table (e.g. 1G ~ 1 billion)\n"
-"  --ncols <colour>       Number of samples in memory at once (speedup)\n"
-"  --tips <L>             Clip tips shorter than <L> kmers\n"
-"  --supernodes           Remove low coverage supernode. Additional options:\n"
-"    --kdepth <C>         kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
-"    --threshold <T>      Cleaning threshold, remove supnodes where [coverage < T]\n"
-" Output:\n"
-"  --out <out.ctx>        Save output graph file\n"
-"  --covgs <out.csv>      Dump covg distribution before cleaning to a CSV file\n"
-"  --len-before <out.csv> Write supernode length before cleaning\n"
-"  --len-after <out.csv>  Write supernode length before cleaning\n"
+"  Clean a cortex graph. Joins graphs first, if multiple inputs given\n"
+"  Clips tips before doing supernode thresholding (when doing both [default]).\n"
 "\n"
-" Default: --tips 2*kmer_size --supernodes\n";
+"  -m, --memory <mem>         Memory to use\n"
+"  -n, --nkmers <kmers>       Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -s, --ncols <c>            How many colours to load at once [default: 1]\n"
+"  -i, --tips <L>             Clip tips shorter than <L> kmers\n"
+"  -u, --supernodes           Remove low coverage supernode. Additional options:\n"
+"  -d, --kdepth <C>           kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
+"  -T, --threshold <T>        Cleaning threshold, remove supnodes where [coverage < T]\n"
+"  -o, --out <out.ctx>        Save output graph file\n"
+"  -c, --covgs <out.csv>      Dump covg distribution before cleaning to a CSV file\n"
+"  -l, --len-before <out.csv> Write supernode length before cleaning\n"
+"  -L, --len-after <out.csv>  Write supernode length before cleaning\n"
+"\n"
+" Default: --tips 2*kmer_size --supernodes\n"
+"\n";
 
 // Size of length histogram is 2000 kmers
 #define LEN_HIST_CAP 2000
@@ -53,41 +52,42 @@ int ctx_clean(CmdArgs *args)
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcmp(argv[argi],"--tips") == 0) {
+    if(!strcmp(argv[argi],"--tips") || !strcmp(argv[argi],"-i")) {
       if(argi + 1 >= argc || !parse_entire_size(argv[argi+1], &max_tip_len) ||
          max_tip_len <= 1) {
-        cmd_print_usage("--tips <L> needs an integer argument > 1");
+        cmd_print_usage("-i, --tips <L> needs an integer argument > 1");
       }
       tip_cleaning = true;
       argi++;
     }
-    else if(strcmp(argv[argi],"--supernodes") == 0) supernode_cleaning = true;
-    else if(strcmp(argv[argi],"--covgs") == 0) {
-      if(argi + 1 >= argc) cmd_print_usage("--covgs <out.csv> needs an argument");
+    else if(!strcmp(argv[argi],"--supernodes") || !strcmp(argv[argi],"-u"))
+      supernode_cleaning = true;
+    else if(!strcmp(argv[argi],"--covgs") || !strcmp(argv[argi],"-c")) {
+      if(argi + 1 >= argc) cmd_print_usage("-c, --covgs <out.csv> needs an arg");
       dump_covgs = argv[argi+1];
       argi++;
     }
-    else if(strcmp(argv[argi],"--threshold") == 0) {
+    else if(!strcmp(argv[argi],"--threshold") || !strcmp(argv[argi],"-T")) {
       if(argi+1 >= argc || !parse_entire_uint(argv[argi+1], &threshold) ||
          threshold <= 1) {
-        cmd_print_usage("--threshold <T> needs an integer argument > 1");
+        cmd_print_usage("-T, --threshold <T> needs an integer argument > 1");
       }
       argi++;
     }
-    else if(strcmp(argv[argi],"--kdepth") == 0) {
+    else if(!strcmp(argv[argi],"--kdepth") || !strcmp(argv[argi],"-d")) {
       if(argi+1 >= argc || !parse_entire_double(argv[argi+1], &seq_depth) ||
          seq_depth <= 1) {
-        cmd_print_usage("--kdepth <C> needs a positive decimal number > 1");
+        cmd_print_usage("-d, --kdepth <C> needs a positive decimal number > 1");
       }
       argi++;
     }
-    else if(strcmp(argv[argi],"--len-before") == 0) {
-      if(argi+1 >= argc) cmd_print_usage("--len-before <out.csv> needs a path");
+    else if(!strcmp(argv[argi],"--len-before") || !strcmp(argv[argi],"-l")) {
+      if(argi+1 >= argc) cmd_print_usage("-l, --len-before <out.csv> needs a path");
       len_before_path = argv[argi+1];
       argi++;
     }
-    else if(strcmp(argv[argi],"--len-after") == 0) {
-      if(argi+1 >= argc) cmd_print_usage("--len-after <out.csv> needs a path");
+    else if(!strcmp(argv[argi],"--len-after") || !strcmp(argv[argi],"-L")) {
+      if(argi+1 >= argc) cmd_print_usage("-L, --len-after <out.csv> needs a path");
       len_after_path = argv[argi+1];
       argi++;
     }
@@ -123,8 +123,8 @@ int ctx_clean(CmdArgs *args)
   }
 
   if(!doing_cleaning && len_after_path) {
-    cmd_print_usage("You use --len-after <out.csv> without any cleaning"
-                    " (set --supernodes or --tips)");
+    cmd_print_usage("You use -l, --len-after <out.csv> without any cleaning"
+                    " (set -u, --supernodes or -i, --tips)");
   }
 
   if(out_ctx_path != NULL && strcmp(out_ctx_path,"-") != 0 &&

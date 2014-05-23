@@ -10,13 +10,13 @@ const char rmsubstr_usage[] =
 "\n"
 "  Remove duplicate sequences and those that occur as substrings of others.\n"
 "\n"
-"  Options:\n"
-"    -m <mem>    Memory to use\n"
-"    -n <kmers>  Hash size\n"
-"    -k <kmer>   Output file [default: STDOUT]\n"
-"    --fasta     Print output in FASTA format [default]\n"
-"    --fastq     Print output in FASTQ format\n"
-"    --plain     Print output sequences one per line\n";
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -k, --kmer <kmer>     Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
+"  -f, --fasta           Print output in FASTA format [default]\n"
+"  -q, --fastq           Print output in FASTQ format\n"
+"  -i, --plain           Print output sequences one per line\n"
+"\n";
 
 #if MAX_KMER_SIZE == 31
 #  define DEFAULT_KMER 31
@@ -83,7 +83,7 @@ int ctx_rmsubstr(CmdArgs *args)
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
-    if(!strcasecmp(argv[argi], "--kmer") | !strcasecmp(argv[argi], "-k"))
+    if(!strcmp(argv[argi], "--kmer") | !strcmp(argv[argi], "-k"))
     {
       if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &kmer_size) || 
          (kmer_size & 1) == 0)
@@ -94,22 +94,22 @@ int ctx_rmsubstr(CmdArgs *args)
       kmer_set = true;
       argi++;
     }
-    else if(strcasecmp(argv[argi], "--plain") == 0) {
+    else if(!strcmp(argv[argi], "--plain") || !strcmp(argv[argi],"-i")) {
       output_format = OUTPUT_PLAIN;
       output_format_set++;
     }
-    else if(strcasecmp(argv[argi], "--fasta") == 0) {
+    else if(!strcmp(argv[argi], "--fasta") || !strcmp(argv[argi],"-f")) {
       output_format = OUTPUT_FASTA;
       output_format_set++;
     }
-    else if(strcasecmp(argv[argi], "--fastq") == 0) {
+    else if(!strcmp(argv[argi], "--fastq") || !strcmp(argv[argi],"-q")) {
       output_format = OUTPUT_FASTQ;
       output_format_set++;
     }
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  if(kmer_set > 1) cmd_print_usage("--kmer|-k specified more than once");
+  if(kmer_set > 1) cmd_print_usage("-k|--kmer specified more than once");
   if(output_format_set > 1) cmd_print_usage("Output format set more than once");
 
   if(argi >= argc)

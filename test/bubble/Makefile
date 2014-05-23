@@ -42,7 +42,7 @@ bubbles.txt: bubbles.txt.gz
 	cat bubbles.txt
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join --flatten $@ $(GRAPHS)
+	$(CTX) join --flatten -o $@ $(GRAPHS)
 
 seq.k$(K).pdf: join.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@

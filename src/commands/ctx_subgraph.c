@@ -20,15 +20,16 @@ const char subgraph_usage[] =
 "  Loads seed files twice: 1) get seed; 2) extend;  This lowers memory requirement\n"
 "  for large (seed) graphs but means seed files cannot be pipes / sockets.\n"
 "\n"
-"  Options:\n"
-"    -m <mem>          Memory to use\n"
-"    -n <kmers>        Hash size\n"
-"    --out <out.ctx>   Output file [default: STDOUT]\n"
-"    --seq <seed.fa>   Read in a seed file [require at least one]\n"
-"    --dist <N>        Number of kmers to extend by [default: 0]\n"
-"    --invert          Dump kmers not in subgraph\n"
-"    --supernodes      Grab entire runs of kmers that are touched by a read\n"
-"    --ncols <n>       Number of samples in memory at once (speedup)\n";
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -s, --ncols <c>       How many colours to load at once [default: 1]\n"
+"  -o, --out <out.ctx>   Save output graph file [required]\n"
+"  -1, --seq <seed.fa>   Read in a seed file [require at least one]\n"
+"  -d, --dist <N>        Number of kmers to extend by [default: 0]\n"
+// "  -D, --sdist <N>       Number of supernodes to extend by [default: 0]\n"
+"  -v, --invert          Dump kmers not in subgraph\n"
+"  -u, --supernodes      Grab entire runs of kmers that are touched by a read\n"
+"\n";
 
 int ctx_subgraph(CmdArgs *args)
 {
@@ -43,7 +44,7 @@ int ctx_subgraph(CmdArgs *args)
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
   {
-    if(!strcasecmp(argv[argi], "--seq") | !strcasecmp(argv[argi], "--seed"))
+    if(!strcmp(argv[argi], "--seq") | !strcmp(argv[argi], "--seed"))
     {
       if(argi+1 == argc)
         cmd_print_usage("%s <seed.fa> requires an argument", argv[argi]);
@@ -52,14 +53,16 @@ int ctx_subgraph(CmdArgs *args)
         die("Cannot read %s file: %s", argv[argi], argv[argi+1]);
       argi++; num_seed_files++;
     }
-    else if(strcasecmp(argv[argi], "--dist") == 0) {
+    else if(!strcmp(argv[argi], "--dist") || !strcmp(argv[argi], "-d")) {
       if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &dist)) {
         cmd_print_usage("%s <N> requires an integer argument >= 0", argv[argi]);
       }
       argi++; // we took an argument
     }
-    else if(strcasecmp(argv[argi], "--invert") == 0) invert = true;
-    else if(strcasecmp(argv[argi], "--supernodes") == 0) grab_supernodes = true;
+    else if(!strcmp(argv[argi], "--invert") || !strcmp(argv[argi], "-v"))
+      invert = true;
+    else if(!strcmp(argv[argi], "--supernodes") || !strcmp(argv[argi], "-u"))
+      grab_supernodes = true;
     else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 

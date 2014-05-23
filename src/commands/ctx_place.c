@@ -24,16 +24,18 @@ int nwmatch = 1, nwmismatch = -2, nwgapopen = -4, nwgapextend = -1;
 
 const char place_usage[] =
 "usage: "CMD" place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
-"  Align calls to a reference genome.\n"
-"  Options:\n"
-"    --minmapq <mapq>   Flank must map with MAPQ >= <mapq> [default: 30]\n"
-"    --out <out.vcf>    Output file [default: STDOUT]\n"
 "\n"
-"  Alignment:\n"
-"    --match <m>      [default:  1]\n"
-"    --mismatch <m>   [default: -2]\n"
-"    --gapopen <m>    [default: -4]\n"
-"    --gapextend <m>  [default: -1]\n";
+"  Align calls to a reference genome.\n"
+"\n"
+"  --minmapq <mapq>   Flank must map with MAPQ >= <mapq> [default: 30]\n"
+"  --out <out.vcf>    Output file [default: STDOUT]\n"
+"\n"
+"  Alignment scoring:\n"
+"  --match <m>      [default:  1]\n"
+"  --mismatch <m>   [default: -2]\n"
+"  --gapopen <m>    [default: -4]\n"
+"  --gapextend <m>  [default: -1]\n"
+"\n";
 
 typedef struct {
   read_t r;

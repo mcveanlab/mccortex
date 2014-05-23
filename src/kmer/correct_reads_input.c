@@ -155,21 +155,21 @@ int correct_reads_parse(int argc, char **argv,
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' &&argv[argi][1]; argi++)
   {
-    if(strcmp(argv[argi],"--fq_offset") == 0) {
+    if(!strcmp(argv[argi],"--fq_offset") || !strcmp(argv[argi],"-r")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_offset <offset> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_offset argument: %s", argv[argi+1]);
       argi++;
     }
-    else if(strcmp(argv[argi],"--fq_threshold") == 0) {
+    else if(!strcmp(argv[argi],"--fq_threshold") || !strcmp(argv[argi],"-q")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
         die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi++;
     }
-    else if(strcmp(argv[argi],"--cut_hp") == 0) {
+    else if(!strcmp(argv[argi],"--cut_hp") || !strcmp(argv[argi],"-h")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--cut_hp <len> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
@@ -178,7 +178,8 @@ int correct_reads_parse(int argc, char **argv,
         die("--cut_hp <hp> cannot be greater than %i", UINT8_MAX);
       argi++;
     }
-    else if(strcmp(argv[argi],"--col") == 0)
+    else if(!strcmp(argv[argi],"--col") || !strcmp(argv[argi],"--colour") ||
+            !strcmp(argv[argi],"--color") || !strcmp(argv[argi],"-c"))
     {
       if(argi+2 >= argc) cmd_print_usage("--col <colour> requires an argument");
       if(col_set && !col_used)
@@ -190,14 +191,14 @@ int correct_reads_parse(int argc, char **argv,
       col_used = false;
       argi++;
     }
-    else if(use_pe && strcasecmp(argv[argi],"--minIns") == 0)
+    else if(use_pe && (!strcmp(argv[argi],"--minIns") || !strcmp(argv[argi], "-i")))
     {
       if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &min_ins))
         cmd_print_usage("--minIns <bp> requires a positive integer arg");
       params.ins_gap_min = min_ins;
       argi++;
     }
-    else if(use_pe && strcasecmp(argv[argi],"--maxIns") == 0)
+    else if(use_pe && (!strcmp(argv[argi],"--maxIns") || !strcmp(argv[argi], "-j")))
     {
       if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &max_ins))
         cmd_print_usage("--maxIns <bp> requires a positive integer arg");
@@ -206,36 +207,39 @@ int correct_reads_parse(int argc, char **argv,
       params.ins_gap_max = max_ins;
       argi++;
     }
-    else if(strcasecmp(argv[argi],"--end-check") == 0)
+    else if(!strcmp(argv[argi],"--end-check") || !strcmp(argv[argi],"-e"))
     {
       params.use_end_check = true;
       argi++;
     }
-    else if(strcasecmp(argv[argi],"--no-end-check") == 0)
+    else if(!strcmp(argv[argi],"--no-end-check") || !strcmp(argv[argi],"-E"))
     {
       params.use_end_check = false;
       argi++;
     }
-    else if(dump_seq_gaps && strcasecmp(argv[argi],"--seqgaps") == 0)
+    else if(dump_seq_gaps && (!strcmp(argv[argi],"--seqgaps") || !strcmp(argv[argi],"-g")))
     {
       if(argi+1 >= argc) cmd_print_usage("--seqgaps <out.csv> requires arg");
       *dump_seq_gaps = argv[argi+1];
       argi++;
     }
-    else if(dump_mp_gaps && strcasecmp(argv[argi],"--mpgaps") == 0)
+    else if(dump_mp_gaps && (!strcmp(argv[argi],"--mpgaps") || !strcmp(argv[argi],"-G")))
     {
       if(argi+1 >= argc) cmd_print_usage("--mpgaps <out.csv> requires arg");
       *dump_mp_gaps = argv[argi+1];
       argi++;
       seen_dump_mp_gaps = true;
     }
-    else if(strcasecmp(argv[argi],"--FF") == 0) matedir = READPAIR_FF;
-    else if(strcasecmp(argv[argi],"--FR") == 0) matedir = READPAIR_FR;
-    else if(strcasecmp(argv[argi],"--RF") == 0) matedir = READPAIR_RF;
-    else if(strcasecmp(argv[argi],"--RR") == 0) matedir = READPAIR_RR;
-    else if(strcasecmp(argv[argi],"--oneway") == 0) params.one_way_gap_traverse = true;
-    else if(strcasecmp(argv[argi],"--twoway") == 0) params.one_way_gap_traverse = false;
-    else if(strcmp(argv[argi],"--seq") == 0 || strcmp(argv[argi],"--seqi") == 0)
+    else if(!strcmp(argv[argi],"--FF")) matedir = READPAIR_FF;
+    else if(!strcmp(argv[argi],"--FR")) matedir = READPAIR_FR;
+    else if(!strcmp(argv[argi],"--RF")) matedir = READPAIR_RF;
+    else if(!strcmp(argv[argi],"--RR")) matedir = READPAIR_RR;
+    else if(!strcmp(argv[argi],"--oneway") || !strcmp(argv[argi],"-w"))
+      params.one_way_gap_traverse = true;
+    else if(!strcmp(argv[argi],"--twoway") || !strcmp(argv[argi],"-W"))
+      params.one_way_gap_traverse = false;
+    else if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-1") ||
+            !strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-i"))
     {
       if(out_arg) {
         if(argi+2 >= argc) cmd_print_usage("--seq <in> <out> missing args");
@@ -245,7 +249,7 @@ int correct_reads_parse(int argc, char **argv,
         if(!col_set) die("--seq <in.fa> before --col <colour>");
       }
 
-      bool interleaved = (strcmp(argv[argi],"--seqi") == 0);
+      bool interleaved = (!strcmp(argv[argi],"--seqi"));
 
       correct_reads_input_init(argv[argi+1], NULL, interleaved,
                                fq_offset, fq_cutoff, hp_cutoff, matedir, params,
@@ -260,7 +264,7 @@ int correct_reads_parse(int argc, char **argv,
       col_used = true;
       argi += 1+out_arg;
     }
-    else if(strcmp(argv[argi],"--seq2") == 0)
+    else if(!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2"))
     {
       if(out_arg) {
         if(argi+3 >= argc) cmd_print_usage("--seq2 <in1> <in2> <out> missing args");
@@ -296,7 +300,7 @@ int correct_reads_parse(int argc, char **argv,
   correct_reads_input_sort(inputs, num_inputs);
 
   if(!seen_pe_reads && seen_dump_mp_gaps)
-    warn("--dump_mp_gaps without paired end reads from --seq2");
+    warn("--mpgaps without paired end reads from --seq2");
 
   *num_inputs_ptr = num_inputs;
   return argi;

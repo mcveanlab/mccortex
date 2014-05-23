@@ -11,14 +11,17 @@
 
 const char supernodes_usage[] =
 "usage: "CMD" supernodes [options] <in.ctx> [<in2.ctx> ...]\n"
+"\n"
 "  Print supernodes with k-1 bases of overlap.\n"
 "\n"
-"  Options:  --memory <M> Memory to use (e.g. 2GB)\n"
-"            --out <out>  specify output [default: STDOUT]\n"
-"            --graphviz   print in graphviz format\n"
-"            --point      with --graphviz, print contigs as points\n"
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -o, --out <out.ctx>   Save output graph file [default: STDOUT]\n"
+"  -d, --graphviz        Print in graphviz (DOT) format\n"
+"  -i, --point      with --graphviz, print contigs as points\n"
 "\n"
-"  e.g. ctx31 supernodes --graphviz in.ctx | dot -Tpdf > in.pdf\n";
+"  e.g. ctx31 supernodes --graphviz in.ctx | dot -Tpdf > in.pdf\n"
+"\n";
 
 typedef struct {
   size_t nodeid:57, left:1, right:1, lorient:1, rorient:1, assigned:1;
@@ -184,10 +187,14 @@ int ctx_supernodes(CmdArgs *args)
   int print_syntax = PRINT_FASTA;
 
   while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
-    if(!strcasecmp(argv[0],"--dot") || !strcasecmp(argv[0],"--graphviz")) {
+    if(!strcmp(argv[0],"--dot") || !strcmp(argv[0],"-d") ||
+       !strcmp(argv[0],"--graphviz"))
+    {
       print_syntax = PRINT_DOT; argv++; argc--;
     }
-    else if(!strcasecmp(argv[0],"--points")) {
+    else if(!strcmp(argv[0],"--points") || !strcmp(argv[0],"--point") ||
+            !strcmp(argv[0],"-i"))
+    {
       dot_use_points = true; argv++; argc--;
     }
     else cmd_print_usage("Unknown argument: %s", argv[0]);
