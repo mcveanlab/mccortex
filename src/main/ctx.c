@@ -46,7 +46,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "join", .func = ctx_join, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "mnc", .reqargs = "",
+  .minargs = 2, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "o",
   .blurb = "combine graphs, filter graph intersections",
   .usage = join_usage
 },
@@ -163,13 +163,13 @@ static const char options[] =
 "  Type a command with no arguments to see help.\n"
 "\n"
 "Common Options:\n"
-"  -m --memory <M>      Memory e.g. 1GB [default: 1GB]\n"
-"  -n --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
-"  -c --ncols <C>       Number of graph colours to load at once [default: 1]\n"
-"  -a --asyncio <A>     Limit on file reading threads [default: 4]\n"
-"  -t --threads <T>     Limit on proccessing threads [default: 2]\n"
-"  -o --out <file>      Output file\n"
-"  -p --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
+"  -m, --memory <M>      Memory e.g. 1GB [default: 1GB]\n"
+"  -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
+"  -c, --ncols <C>       Number of graph colours to load at once [default: 1]\n"
+"  -a, --asyncio <A>     Limit on file reading threads [default: 4]\n"
+"  -t, --threads <T>     Limit on proccessing threads [default: 2]\n"
+"  -o, --out <file>      Output file\n"
+"  -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";
 
 static int ctxcmd_cmp(const void *aa, const void *bb)

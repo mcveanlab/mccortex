@@ -26,17 +26,19 @@
 //   output: {A:0,B:0,C:0},{A:1,B:1,C:1},{B:2}
 
 const char join_usage[] =
-"usage: "CMD" join [options] <out.ctx> [offset:]in1.ctx[:1,2,4-5] [in2.ctx ...]\n"
+"usage: "CMD" join [options] in1.ctx [[offset:]in2.ctx[:1,2,4-5] ...]\n"
 "  Merge cortex graphs.\n"
 "\n"
 "  Options:\n"
-"   -m <mem>            Memory to use\n"
-"   -n <kmers>          Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"   --ncols <c>         How many colours to load at once [default: 1]\n"
-"   --overlap           Merge corresponding colours from each graph file\n"
-"   --flatten           Dump into a single colour graph\n"
-"   --intersect <a.ctx> Only load the kmers that are in graph A.ctx. Can be\n"
-"     specified multiple times. <a.ctx> is NOT merged into the output file.\n"
+"   -o, --out <out.ctp>     Output file [required]\n"
+"   -m, --memory <mem>      Memory to use\n"
+"   -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"   -s, --ncols <c>         How many colours to load at once [default: 1]\n"
+"   -v, --overlap           Merge corresponding colours from each graph file\n"
+"   -f, --flatten           Dump into a single colour graph\n"
+"   -i, --intersect <a.ctx> Only load the kmers that are in graph A.ctx. Can be\n"
+"                           specified multiple times. <a.ctx> is NOT merged into\n"
+"                           the output file.\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctx:2,3\n"
 "  Offset specifies where to load the first colour: 3:samples.ctx\n";
@@ -52,29 +54,32 @@ int ctx_join(CmdArgs *args)
 {
   int argc = args->argc;
   char **argv = args->argv;
-  // Already checked we have at least 2 arguments
+  // Already checked we have at least 1 argument
 
-  char *out_ctx_path;
+  char *out_ctx_path = args->output_file;
   bool overlap = false, flatten = false;
+  char **intersect_paths = ctx_calloc(argc / 2, sizeof(char*));
+  GraphFileReader *gfiles = ctx_calloc(argc / 2, sizeof(GraphFileReader));
+  GraphFileReader *intersect_gfiles = ctx_calloc(argc / 2, sizeof(GraphFileReader));
+  size_t num_intersect = 0;
 
   int argi;
-  size_t num_intersect = 0;
   size_t use_ncols = args->use_ncols; // may use fewer colours if some not needed
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(strcasecmp(argv[argi],"--overlap") == 0) {
+    if(strcmp(argv[argi],"--overlap") == 0 || strcmp(argv[argi],"-v") == 0) {
       if(overlap) warn("overlap specified twice");
       overlap = true;
     }
-    else if(strcasecmp(argv[argi],"--flatten") == 0) {
+    else if(strcmp(argv[argi],"--flatten") == 0 || strcmp(argv[argi],"-f") == 0) {
       if(flatten) warn("flatten specified twice");
       flatten = true;
     }
-    else if(strcasecmp(argv[argi],"--intersect") == 0)
+    else if(strcmp(argv[argi],"--intersect") == 0 || strcmp(argv[argi],"-i") == 0)
     {
       if(argi+1 >= argc)
         cmd_print_usage("--intersect <A.ctx> requires an argument");
-      num_intersect++;
+      intersect_paths[num_intersect++] = argv[argi+1];
       argi++;
     }
     else {
@@ -82,22 +87,8 @@ int ctx_join(CmdArgs *args)
     }
   }
 
-  // Store intersection files
-  char *intersect_paths[num_intersect+1];
-  int argj;
-  num_intersect = 0;
-
-  for(argj = 0; argj < argi; argj++) {
-    if(strcasecmp(argv[argj],"--intersect") == 0) {
-      intersect_paths[num_intersect++] = argv[argj+1];
-      argj++;
-    }
-  }
-
-  if(argc - argi < 2)
-    cmd_print_usage("Please specify output and input paths");
-
-  out_ctx_path = argv[argi++];
+  if(argi >= argc)
+    cmd_print_usage("Please specify at least one input graph file");
 
   // argi .. argend-1 are graphs to load
   size_t num_gfiles = (size_t)(argc - argi);
@@ -109,8 +100,6 @@ int ctx_join(CmdArgs *args)
   size_t i, col, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
   size_t max_cols = 0, sum_cols = 0, total_cols;
   size_t min_intersect_num_kmers = 0;
-  // 1+ to avoid zero length array (always have at leat one graph file)
-  GraphFileReader gfiles[num_gfiles], intersect_gfiles[1+num_intersect];
 
   for(i = 0; i < num_gfiles; i++)
   {
@@ -296,6 +285,9 @@ int ctx_join(CmdArgs *args)
   for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
 
   strbuf_dealloc(&intersect_gname);
+  ctx_free(intersect_paths);
+  ctx_free(intersect_gfiles);
+  ctx_free(gfiles);
 
   ctx_free(db_graph.col_edges);
   ctx_free(db_graph.col_covgs);
