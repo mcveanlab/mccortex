@@ -23,8 +23,8 @@ const char build_usage[] =
 "  -1, --seq <in.fa>        Load sequence data\n"
 "  -2, --seq2 <in1> <in2>   Load paired end sequence data\n"
 "  -i, --seqi <in.bam>      Load paired end sequence from a single file\n"
-"  -q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
-"  -r, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -Q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
+"  -q, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -h, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -p, --remove_pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
 "  -P, --keep_pcr           Don't do PCR duplicate removal\n"
@@ -177,14 +177,14 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       }
       argi += 1;
     }
-    else if(!strcmp(argv[argi],"--fq_threshold") || !strcmp(argv[argi],"-q")) {
+    else if(!strcmp(argv[argi],"--fq_threshold") || !strcmp(argv[argi],"-Q")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_threshold <qual> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_cutoff) || fq_cutoff > 128)
         die("Invalid --fq_threshold argument: %s", argv[argi+1]);
       argi += 1;
     }
-    else if(!strcmp(argv[argi],"--fq_offset") || !strcmp(argv[argi],"-r")) {
+    else if(!strcmp(argv[argi],"--fq_offset") || !strcmp(argv[argi],"-q")) {
       if(argi + 1 >= argc)
         cmd_print_usage("--fq_offset <offset> requires an argument");
       if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)

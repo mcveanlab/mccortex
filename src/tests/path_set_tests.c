@@ -1,6 +1,6 @@
 #include "global.h"
 #include "all_tests.h"
-#include "sorted_path_set.h"
+#include "path_set.h"
 #include "binary_seq.h"
 
 #include "string_buffer/string_buffer.h"
@@ -9,18 +9,16 @@
 // Faked sorted path set
 //
 
-static void _fake_sorted_path_set(SortedPathSet *set, size_t cbytes,
+static void _fake_path_set(PathSet *set, size_t cbytes,
                                   const char **paths, size_t npaths)
 {
   qsort(paths, npaths, sizeof(char*), cmp_charptr);
 
-  set->hkey = 0; // this is not important
   set->cbytes = cbytes;
   bytebuf_reset(&set->seqs);
   pentrybuf_reset(&set->members);
 
   size_t i, plen, total_bytes = 0;
-  uint8_t *seq;
 
   for(i = 0; i < npaths; i++) total_bytes += cbytes + strlen(paths[i]);
 
@@ -30,42 +28,41 @@ static void _fake_sorted_path_set(SortedPathSet *set, size_t cbytes,
   for(i = 0; i < npaths; i++)
   {
     plen = strlen(paths[i]);
-    seq = set->seqs.data + set->seqs.len;
-    seq[0] = 1; // single colour set in colset
-    PathEntry pentry = {.seq = seq+cbytes, .pindex = 0,
+    PathEntry pentry = {.seq = set->seqs.len + cbytes, .pindex = 0,
                         .orient = FORWARD, .plen = plen};
-    binary_seq_from_str(paths[i], plen, pentry.seq);
+    binary_seq_from_str(paths[i], plen, path_set_seq(&pentry,set));
     pentrybuf_add(&set->members, pentry);
+    path_set_colset(&pentry, set)[0] = 1; // single colour set in colset
     set->seqs.len += cbytes + (plen+3)/4;
   }
 }
 
-static void _set_paths_colsets(SortedPathSet *set, const uint8_t *colset)
+static void _set_paths_colsets(PathSet *set, const uint8_t *colset)
 {
   size_t i;
   uint8_t *cset;
   for(i = 0; i < set->members.len; i++)
   {
-    cset = sorted_path_colset(&set->members.data[i], set);
+    cset = path_set_colset(&set->members.data[i], set);
     memcpy(cset, colset, set->cbytes);
     colset += set->cbytes;
   }
 }
 
-static void _check_paths_colsets(const SortedPathSet *set, const uint8_t *colset)
+static void _check_paths_colsets(const PathSet *set, const uint8_t *colset)
 {
   size_t i;
   const uint8_t *cset;
   for(i = 0; i < set->members.len; i++)
   {
-    cset = sorted_path_colset(&set->members.data[i], set);
+    cset = path_set_colset(&set->members.data[i], set);
     TASSERT(memcmp(cset, colset, set->cbytes) == 0);
     colset += set->cbytes;
   }
 }
 
-// Construct a fake sorted_path_set and check that it paths are sorted
-static void _check_fake_test_case(SortedPathSet *set, StrBuf *sbuf,
+// Construct a fake path_set and check that it paths are sorted
+static void _check_fake_test_case(PathSet *set, StrBuf *sbuf,
                                  const char **paths, size_t npaths)
 {
   const PathEntry *entry;
@@ -76,22 +73,22 @@ static void _check_fake_test_case(SortedPathSet *set, StrBuf *sbuf,
   for(i = 0; i < set->members.len; i++) {
     entry = &set->members.data[i];
     strbuf_ensure_capacity(sbuf, entry->plen);
-    binary_seq_to_str(entry->seq, entry->plen, sbuf->buff);
+    binary_seq_to_str(path_set_seq(entry,set), entry->plen, sbuf->buff);
     TASSERT2(!strcmp(sbuf->buff,paths[i]), "'%s' vs '%s'", sbuf->buff, paths[i]);
   }
 }
 
 static void _fake_set_test()
 {
-  test_status("Testing sorted_path_set.c with fake sets...");
+  test_status("Testing path_set.c with fake sets...");
 
   StrBuf sbuf;
   strbuf_alloc(&sbuf, 1024);
 
-  SortedPathSet set0, set1, set2;
-  sorted_path_set_alloc(&set0);
-  sorted_path_set_alloc(&set1);
-  sorted_path_set_alloc(&set2);
+  PathSet set0, set1, set2;
+  path_set_alloc(&set0);
+  path_set_alloc(&set1);
+  path_set_alloc(&set2);
 
   // Check sorted paths are sorted correctly
 
@@ -99,39 +96,39 @@ static void _fake_set_test()
   const char *paths0b[4] = {"C","CG","CGC","T"};
   const char *paths0c[2] = {"CGC","T"};
   const char *paths0d[1] = {"CGC"};
-  _fake_sorted_path_set(&set0, 1, paths0a, 4);
+  _fake_path_set(&set0, 1, paths0a, 4);
   _check_fake_test_case(&set0, &sbuf, paths0b, 4);
-  sorted_path_set_slim(&set0);
+  path_set_slim(&set0);
   _check_fake_test_case(&set0, &sbuf, paths0c, 2);
 
   const char *paths1a[3] = {"TT","TT","A"}; // unsorted input
   const char *paths1b[3] = {"A","TT","TT"};
   const char *paths1c[2] = {"A","TT"};
-  _fake_sorted_path_set(&set1, 1, paths1a, 3);
+  _fake_path_set(&set1, 1, paths1a, 3);
   _check_fake_test_case(&set1, &sbuf, paths1b, 3);
 
   // Filter set1 {A,TT,TT} against set0 {CGC,T} (no change)
-  sorted_path_set_merge(&set0, &set1, false, NULL);
+  path_set_merge(&set0, &set1, false, NULL);
   _check_fake_test_case(&set1, &sbuf, paths1b, 3);
 
   // Filter set0 {CGC,T} against set1 {A,TT,TT}, including substring matches
   // removes T from set0 because it is a substr of TT
-  sorted_path_set_merge(&set1, &set0, true, NULL);
+  path_set_merge(&set1, &set0, true, NULL);
   _check_fake_test_case(&set0, &sbuf, paths0d, 1);
 
-  sorted_path_set_slim(&set1);
+  path_set_slim(&set1);
   _check_fake_test_case(&set1, &sbuf, paths1c, 2);
 
   const char *paths2a[1] = {"A"};
   const char *paths2b[1] = {"A"}; // just use as empty set
-  _fake_sorted_path_set(&set2, 1, paths2a, 0);
+  _fake_path_set(&set2, 1, paths2a, 0);
   _check_fake_test_case(&set2, &sbuf, paths2b, 0);
-  sorted_path_set_slim(&set2);
+  path_set_slim(&set2);
   _check_fake_test_case(&set2, &sbuf, paths2b, 0);
 
-  sorted_path_set_dealloc(&set0);
-  sorted_path_set_dealloc(&set1);
-  sorted_path_set_dealloc(&set2);
+  path_set_dealloc(&set0);
+  path_set_dealloc(&set1);
+  path_set_dealloc(&set2);
 
   //
   // Slimming a set with colourset
@@ -150,9 +147,9 @@ static void _fake_set_test()
   //   7=111 G
   //   4=100 TA
 
-  SortedPathSet set3, set4;
-  sorted_path_set_alloc(&set3);
-  sorted_path_set_alloc(&set4);
+  PathSet set3, set4;
+  path_set_alloc(&set3);
+  path_set_alloc(&set4);
 
   const char *paths3a[6] = {"A","AC","ACG","G","T","TA"}; // unsorted input
   const uint8_t colset3a[6] = {5,6,5,7,0,4};
@@ -161,23 +158,23 @@ static void _fake_set_test()
   const uint8_t colset3b[6] = {2,5,7,4};
 
   // Create two copies of test set
-  _fake_sorted_path_set(&set3, 1, paths3a, 6);
+  _fake_path_set(&set3, 1, paths3a, 6);
   _set_paths_colsets(&set3, colset3a);
-  _fake_sorted_path_set(&set4, 1, paths3a, 6);
+  _fake_path_set(&set4, 1, paths3a, 6);
   _set_paths_colsets(&set4, colset3a);
 
   // Test slimming set3
-  sorted_path_set_slim(&set3);
+  path_set_slim(&set3);
   _check_fake_test_case(&set3, &sbuf, paths3b, 4);
   _check_paths_colsets(&set3, colset3b);
 
   // Test slimming set3 x 2
-  sorted_path_set_slim(&set3);
+  path_set_slim(&set3);
   _check_fake_test_case(&set3, &sbuf, paths3b, 4);
   _check_paths_colsets(&set3, colset3b);
 
   // Now attempt to merge set4 into the slimmed set3
-  sorted_path_set_merge(&set3, &set4, true, NULL);
+  path_set_merge(&set3, &set4, true, NULL);
   // No change to set3
   _check_fake_test_case(&set3, &sbuf, paths3b, 4);
   _check_paths_colsets(&set3, colset3b);
@@ -185,7 +182,7 @@ static void _fake_set_test()
   _check_fake_test_case(&set4, &sbuf, paths3b, 0);
 
   // Recreate set4
-  _fake_sorted_path_set(&set4, 1, paths3a, 6);
+  _fake_path_set(&set4, 1, paths3a, 6);
   _set_paths_colsets(&set4, colset3a);
 
   // Set4:
@@ -202,7 +199,7 @@ static void _fake_set_test()
   //   4=100 TA
 
   // Merge set3 into set4
-  sorted_path_set_merge(&set4, &set3, true, NULL);
+  path_set_merge(&set4, &set3, true, NULL);
 
   // Should have no effect to set4. should empty set4
   _check_fake_test_case(&set3, &sbuf, paths3b, 0);
@@ -210,8 +207,8 @@ static void _fake_set_test()
   _check_fake_test_case(&set4, &sbuf, paths3a, 6);
   _set_paths_colsets(&set4, colset3a);
 
-  sorted_path_set_dealloc(&set3);
-  sorted_path_set_dealloc(&set4);
+  path_set_dealloc(&set3);
+  path_set_dealloc(&set4);
 
   strbuf_dealloc(&sbuf);
 }
@@ -221,17 +218,18 @@ static void _fake_set_test()
 //
 
 // Check we get paths in the order given
-static void _test_real_sorted_path_set(dBGraph *graph, BinaryKmer bkmer,
-                                       const char **paths, size_t npaths)
+static void _test_real_path_set(const dBGraph *graph, BinaryKmer bkmer,
+                                const char **paths, size_t npaths)
 {
-  SortedPathSet set;
+  PathSet set;
   size_t i;
   dBNode node = db_graph_find(graph, bkmer);
   StrBuf sbuf;
   strbuf_alloc(&sbuf, 1024);
 
-  sorted_path_set_alloc(&set);
-  sorted_path_set_init(&set, &graph->pstore, node.key);
+  path_set_alloc(&set);
+  path_set_init(&set, &graph->pstore, node.key);
+  path_set_sort(&set);
 
   TASSERT2(set.members.len == npaths, "%zu vs %zu", set.members.len, npaths);
 
@@ -239,18 +237,18 @@ static void _test_real_sorted_path_set(dBGraph *graph, BinaryKmer bkmer,
   {
     PathEntry *entry = &set.members.data[i];
     strbuf_ensure_capacity(&sbuf, entry->plen);
-    binary_seq_to_str(entry->seq, entry->plen, sbuf.buff);
+    binary_seq_to_str(path_set_seq(entry,&set), entry->plen, sbuf.buff);
     TASSERT2(strcmp(sbuf.buff, paths[i]) == 0, " %zu: '%s' vs '%s'",
              i, sbuf.buff, paths[i]);
   }
 
   strbuf_dealloc(&sbuf);
-  sorted_path_set_dealloc(&set);
+  path_set_dealloc(&set);
 }
 
 static void _real_graph_test()
 {
-  test_status("Testing sorted_path_set.c with real graph...");
+  test_status("Testing path_set.c with real graph...");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
@@ -326,27 +324,27 @@ static void _real_graph_test()
   // Test path store
   _test_path_store(&graph);
 
-  // Test sorted_path_set
+  // Test path_set
   BinaryKmer bkmer;
   const char *seqs0[4] = {"C","CG","CGC", "T"};
   const char *seqs1[1] = {"AG"};
 
   bkmer = binary_kmer_from_str("CCTGGGTGCGA", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, seqs0, 4);
+  _test_real_path_set(&graph, bkmer, seqs0, 4);
   bkmer = binary_kmer_from_str("TGCGAATGACA", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, seqs0, 4);
+  _test_real_path_set(&graph, bkmer, seqs0, 4);
   bkmer = binary_kmer_from_str("GGTGTCATTCG", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, seqs1, 1);
+  _test_real_path_set(&graph, bkmer, seqs1, 1);
   bkmer = binary_kmer_from_str("CGATTTGGTGT", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, seqs1, 1);
+  _test_real_path_set(&graph, bkmer, seqs1, 1);
   bkmer = binary_kmer_from_str("GTCATTCGATT", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, seqs1, 1);
+  _test_real_path_set(&graph, bkmer, seqs1, 1);
   bkmer = binary_kmer_from_str("AGTGTCATTCG", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, seqs1, 1);
+  _test_real_path_set(&graph, bkmer, seqs1, 1);
 
   // Test node with no paths
   bkmer = binary_kmer_from_str("GCGAATGACAC", kmer_size);
-  _test_real_sorted_path_set(&graph, bkmer, NULL, 0);
+  _test_real_path_set(&graph, bkmer, NULL, 0);
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 
@@ -360,7 +358,7 @@ static void _real_graph_test()
   db_graph_dealloc(&graph);
 }
 
-void test_sorted_paths()
+void test_path_sets()
 {
   _real_graph_test();
   _fake_set_test();

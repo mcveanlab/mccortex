@@ -7,7 +7,6 @@
 #define PATH_HASH_EMPTY {.table = NULL, .num_of_buckets = 0, .bucket_size = 0, \
                          .capacity = 0, .mask = 0, .num_entries = 0}
 
-// typedef struct KPEntryStruct KPEntry;
 typedef struct KPEntryStruct KPEntry;
 
 struct PathHashStruct
@@ -16,8 +15,12 @@ struct PathHashStruct
   const size_t num_of_buckets; // needs to store maximum of 1<<32
   const uint8_t bucket_size; // max value 255
   const uint64_t capacity, mask; // num_of_buckets * bucket_size
-  size_t num_entries;
+  uint8_t *const bucket_nitems; // number of items in each bucket
   uint8_t *const bktlocks; // always cast to volatile
+  size_t num_entries;
+
+  // Count how many times a path has been added
+  uint8_t *const path_counts;
 };
 
 typedef struct PathHashStruct PathHash;
@@ -43,6 +46,17 @@ int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
 void path_hash_set_pindex(PathHash *phash, size_t pos, PathIndex pindex);
 
 // Get pindex of a path
-PathIndex path_hash_get_pindex(PathHash *phash, size_t pos);
+PathIndex path_hash_get_pindex(const PathHash *phash, size_t pos);
+
+// Get histogram of path counts
+void path_hash_get_count_hist(const PathHash *phash, uint64_t hist[256]);
+
+// Remove entries with counts below threshold for a given colour
+void path_hash_threshold(const PathHash *phash,
+                         size_t colour, uint8_t threshold,
+                         uint8_t *restrict pstore);
+
+// Wipe path counts
+void path_hash_wipe_counts(PathHash *phash);
 
 #endif /* PATH_HASH_H_ */

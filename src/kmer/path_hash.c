@@ -45,6 +45,8 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
 
   KPEntry *table = ctx_malloc(cap_entries * sizeof(KPEntry));
   uint8_t *bktlocks = ctx_calloc(bktlocks_mem, sizeof(uint8_t));
+  uint8_t *bucket_nitems = ctx_calloc(num_bkts, sizeof(uint8_t));
+  uint8_t *path_counts = ctx_calloc(cap_entries, sizeof(uint8_t));
 
   ctx_assert(num_bkts * bkt_size == cap_entries);
   ctx_assert(cap_entries > 0);
@@ -59,13 +61,17 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
                   .capacity = cap_entries,
                   .mask = num_bkts - 1,
                   .num_entries = 0,
-                  .bktlocks = bktlocks};
+                  .bucket_nitems = bucket_nitems,
+                  .bktlocks = bktlocks,
+                  .path_counts = path_counts};
 
   memcpy(phash, &tmp, sizeof(PathHash));
 }
 
 void path_hash_dealloc(PathHash *phash)
 {
+  ctx_free(phash->path_counts);
+  ctx_free(phash->bucket_nitems);
   ctx_free(phash->bktlocks);
   ctx_free(phash->table);
 }
@@ -76,13 +82,92 @@ void path_hash_reset(PathHash *phash)
   memset(phash->table, 0, phash->capacity * sizeof(KPEntry));
 }
 
-static inline bool _phash_entries_match(const KPEntry *entry,
+static inline bool _phash_entries_match(KPEntry entry,
                                         hkey_t hkey, PathLen plen,
                                         const uint8_t *seq,
                                         const uint8_t *pstore, size_t colbytes)
 {
-  const uint8_t *seq2 = packedpath_seq(pstore+entry->pindex, colbytes);
-  return (hkey == entry->hkey && memcmp(seq, seq2, (plen+3)/4) == 0);
+  const uint8_t *seq2 = packedpath_seq(pstore+entry.pindex, colbytes);
+  return (hkey == entry.hkey && memcmp(seq, seq2, (plen+3)/4) == 0);
+}
+
+// Use a bucket lock to find or add an entry
+// Returns:
+//   1  inserted
+//   0  found
+//  -1  not found or inserted
+static inline int _find_or_add_in_bucket(PathHash *restrict phash, uint64_t hash,
+                                         hkey_t hkey, PathLen plen,
+                                         const uint8_t *restrict seq,
+                                         const uint8_t *restrict pstore,
+                                         size_t colbytes,
+                                         size_t *restrict pos)
+{
+  bitlock_yield_acquire(phash->bktlocks, hash);
+
+  KPEntry *entry = phash->table + hash * phash->bucket_size;
+  const KPEntry *end = entry + phash->bucket_size;
+
+  for(; entry < end; entry++)
+  {
+    if(!PATH_HASH_ENTRY_ASSIGNED(*entry))
+    {
+      *entry = (KPEntry){.hkey = hkey, .pindex = PATH_HASH_UNSET};
+      *pos = entry - phash->table;
+      __sync_fetch_and_add((volatile uint8_t *)&phash->bucket_nitems[hash], 1);
+      bitlock_release(phash->bktlocks, hash);
+      return 1;
+    }
+    else if(_phash_entries_match(*entry, hkey, plen, seq, pstore, colbytes))
+    {
+      *pos = entry - phash->table;
+      bitlock_release(phash->bktlocks, hash);
+      return 0;
+    }
+  }
+
+  bitlock_release(phash->bktlocks, hash);
+
+  return -1;
+}
+
+// Lock free search bucket for match.
+// We can traverse a full bucket without acquiring the lock first because
+// items are added but never removed from the hash. This allows us to remove
+// the use of locks and improve performance.
+// Returns:
+//   0  found
+//  -1  not found
+static inline int _find_in_bucket(PathHash *restrict phash, uint64_t hash,
+                                  hkey_t hkey, PathLen plen,
+                                  const uint8_t *restrict seq,
+                                  const uint8_t *restrict pstore,
+                                  size_t colbytes,
+                                  size_t *restrict pos)
+{
+  const KPEntry *entry = phash->table + hash * phash->bucket_size;
+  const KPEntry *end = entry + phash->bucket_size;
+
+  for(; entry < end; entry++) {
+    if(_phash_entries_match(*entry, hkey, plen, seq, pstore, colbytes)) {
+      *pos = entry - phash->table;
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+static inline void safe_increment(volatile uint8_t *ptr)
+{
+  uint8_t v = *ptr, newv, curr;
+  do {
+    // Compare and swap returns the value of ptr before the operation
+    curr = v;
+    newv = curr + 1;
+    v = __sync_val_compare_and_swap(ptr, curr, newv);
+  }
+  while(v != curr);
 }
 
 // You must acquire the lock on the kmer before adding
@@ -95,7 +180,8 @@ static inline bool _phash_entries_match(const KPEntry *entry,
 // Thread Safe: uses bucket level locks
 int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
                                 const uint8_t *restrict packed,
-                                const uint8_t *restrict pstore, size_t colbytes,
+                                const uint8_t *restrict pstore,
+                                size_t colbytes,
                                 size_t *restrict pos)
 {
   ctx_assert(phash->table != NULL);
@@ -103,7 +189,6 @@ int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
 
   const uint64_t mask = phash->mask;
   const uint8_t *seq = packed+sizeof(PathLen);
-  KPEntry *entry, *end;
   PathLen plen;
 
   memcpy(&plen, packed, sizeof(PathLen));
@@ -111,35 +196,28 @@ int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
 
   size_t i, path_bytes = (plen+3)/4, mem = sizeof(PathLen) + path_bytes;
   uint64_t hash = hkey;
+  int ret;
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
     hash = CityHash64WithSeeds((const char*)packed, mem, hash, i);
-
     hash &= mask;
-    bitlock_yield_acquire(phash->bktlocks, hash);
 
-    entry = phash->table + hash * phash->bucket_size;
-    end = entry + phash->bucket_size;
+    uint8_t bucket_fill = *(volatile uint8_t *)&phash->bucket_nitems[hash];
 
-    for(; entry < end; entry++)
-    {
-      if(!PATH_HASH_ENTRY_ASSIGNED(*entry))
-      {
-        *entry = (KPEntry){.hkey = hkey, .pindex = PATH_HASH_UNSET};
-        *pos = entry - phash->table;
-        bitlock_release(phash->bktlocks, hash);
-        return 1;
-      }
-      else if(_phash_entries_match(entry, hkey, plen, seq, pstore, colbytes))
-      {
-        *pos = entry - phash->table;
-        bitlock_release(phash->bktlocks, hash);
-        return 0;
-      }
+    if(bucket_fill < phash->bucket_size) {
+      ret = _find_or_add_in_bucket(phash, hash, hkey, plen, seq,
+                                   pstore, colbytes, pos);
+    }
+    else {
+      ret = _find_in_bucket(phash, hash, hkey, plen, seq,
+                            pstore, colbytes, pos);
     }
 
-    bitlock_release(phash->bktlocks, hash);
+    if(ret >= 0) {
+      safe_increment(&phash->path_counts[hash]);
+      return ret;
+    }
   }
 
   return -1; // Out of space
@@ -151,7 +229,38 @@ void path_hash_set_pindex(PathHash *phash, size_t pos, PathIndex pindex)
 }
 
 // Get pindex of a path
-PathIndex path_hash_get_pindex(PathHash *phash, size_t pos)
+PathIndex path_hash_get_pindex(const PathHash *phash, size_t pos)
 {
   return phash->table[pos].pindex;
+}
+
+// Get histogram of path counts
+void path_hash_get_count_hist(const PathHash *phash, uint64_t hist[256])
+{
+  size_t i;
+  for(i = 0; i < phash->capacity; i++)
+    if(PATH_HASH_ENTRY_ASSIGNED(phash->table[i]))
+      hist[phash->path_counts[i]]++;
+}
+
+// Remove entries with counts below threshold for a given colour
+void path_hash_threshold(const PathHash *phash,
+                         size_t colour, uint8_t threshold,
+                         uint8_t *restrict pstore)
+{
+  size_t i;
+  for(i = 0; i < phash->capacity; i++) {
+    if(PATH_HASH_ENTRY_ASSIGNED(phash->table[i]) &&
+       phash->path_counts[i] < threshold)
+    {
+      // remove colour from colset
+      uint8_t *ptr = packedpath_get_colset(pstore+phash->table[i].pindex);
+      bitset_del(ptr, colour);
+    }
+  }
+}
+
+void path_hash_wipe_counts(PathHash *phash)
+{
+  memset(phash->path_counts, 0, phash->capacity * sizeof(phash->path_counts[0]));
 }

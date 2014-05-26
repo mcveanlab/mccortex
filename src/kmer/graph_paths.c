@@ -5,7 +5,7 @@
 #include "packed_path.h"
 #include "binary_seq.h"
 #include "path_format.h"
-#include "sorted_path_set.h"
+#include "path_set.h"
 
 #include "bit_array/bit_macros.h"
 
@@ -199,22 +199,22 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 //
 
 static inline void graph_paths_remove_redundant_node(hkey_t hkey,
-                                                     SortedPathSet *set,
+                                                     PathSet *set,
                                                      size_t *paths_removed_ptr,
                                                      size_t *bytes_removed_ptr,
                                                      dBGraph *db_graph)
 {
-  // Construct SortedPathSet
+  // Construct PathSet
   PathStore *pstore = &db_graph->pstore;
   size_t i, num_orig_entries, num_orig_bytes;
   PathIndex pindex0, pindex1;
 
-  sorted_path_set_init(set, pstore, hkey);
+  path_set_init(set, pstore, hkey);
 
   num_orig_entries = set->members.len;
-  num_orig_bytes = sorted_path_get_bytes_sum(set);
+  num_orig_bytes = path_set_get_bytes_sum(set);
 
-  sorted_path_set_slim(set);
+  path_set_slim(set);
 
   // Update PathStore if set has changed
   if(num_orig_entries != set->members.len)
@@ -231,7 +231,7 @@ static inline void graph_paths_remove_redundant_node(hkey_t hkey,
     packedpath_set_prev(pstore->store + pindex0, PATH_NULL);
 
     *paths_removed_ptr += num_orig_entries - set->members.len;
-    *bytes_removed_ptr += num_orig_bytes - sorted_path_get_bytes_sum(set);
+    *bytes_removed_ptr += num_orig_bytes - path_set_get_bytes_sum(set);
   }
 }
 
@@ -245,12 +245,12 @@ static void graph_paths_remove_redundant_thread(void *arg)
 {
   RemoveRedundantPathsJob *job = (RemoveRedundantPathsJob*)arg;
   dBGraph *db_graph = job->db_graph;
-  SortedPathSet set;
-  sorted_path_set_alloc(&set);
+  PathSet set;
+  path_set_alloc(&set);
   HASH_ITERATE_PART(&db_graph->ht, job->threadid, job->nthreads,
                     graph_paths_remove_redundant_node,
                     &set, &job->paths_removed, &job->bytes_removed, db_graph);
-  sorted_path_set_dealloc(&set);
+  path_set_dealloc(&set);
 }
 
 void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)

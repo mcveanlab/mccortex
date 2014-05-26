@@ -202,7 +202,8 @@ Covg cleaning_get_threshold(size_t num_threads, size_t min_keep_tip,
                             uint8_t *visited, dBGraph *db_graph)
 {
   // Estimate optimum cleaning threshold
-  status("[cleaning] Calculating supernode cleaning threshold...");
+  status("[cleaning] Calculating supernode cleaning threshold with %zu threads...",
+         num_threads);
 
   // Get supernode coverages
   uint64_t *covg_hist = ctx_calloc(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
@@ -319,6 +320,8 @@ void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
     status("[cleaning] Removing supernodes with coverage < %zu", covg_threshold);
   else
     status("[cleaning] Removing tips shorter than %zu...", min_keep_tip);
+
+  status("[cleaning] Using %zu threads", num_threads);
 
   SupernodeCleaner *workers = supernode_cleaners_new(num_threads,
                                                      covg_threshold,

@@ -37,48 +37,6 @@ size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
   return max;
 }
 
-// Check if the FollowPath cache needs updated, based of path->pos value
-// if it does, update it
-static inline void cache_update(FollowPath *path, size_t pos)
-{
-  size_t fetch_offset, fetch_bytes, total_bytes;
-
-  // 4 bases per byte
-  PathLen new_cache_start = sizeof(path->cache) * 4 *
-                            (pos / (sizeof(path->cache) * 4));
-
-  if(new_cache_start != path->first_cached)
-  {
-    path->first_cached = new_cache_start;
-    fetch_offset = path->first_cached/4;
-    total_bytes = (path->len+3)/4;
-    fetch_bytes = MIN2(total_bytes-fetch_offset, sizeof(path->cache));
-    memcpy(path->cache, path->seq + fetch_offset, fetch_bytes);
-    memset(path->cache+fetch_bytes, 0, sizeof(path->cache)-fetch_bytes);
-  }
-}
-
-// Get a base from the FollowPath cache
-static inline Nucleotide cache_fetch(FollowPath *path, size_t pos)
-{
-  cache_update(path, pos);
-  return binary_seq_get(path->cache, pos - path->first_cached);
-}
-
-// For GraphWalker to work we assume all edges are merged into one colour
-// (i.e. graph->num_edge_cols == 1)
-// If only one colour loaded we assume all edges belong to this colour
-
-FollowPath follow_path_create(const uint8_t *seq, PathLen plen)
-{
-  // .first_cached = 1 is invalid (not multiple of sizeof(cache)*4), so forces
-  // fetch on first request
-  FollowPath fpath = {.seq = seq, .pos = 0, .len = plen,
-                      .first_cached = 1, .cache = {0}};
-  memset(fpath.cache, 0, sizeof(fpath.cache));
-  return fpath;
-}
-
 static void print_path_list(const PathBuffer *pbuf, FILE *fout)
 {
   size_t i, j;
@@ -88,7 +46,7 @@ static void print_path_list(const PathBuffer *pbuf, FILE *fout)
     path = &pbuf->data[i];
     fprintf(fout, "   %p ", path->seq);
     for(j = 0; j < path->len; j++)
-      fputc(dna_nuc_to_char(cache_fetch(path, j)), fout);
+      fputc(dna_nuc_to_char(fpath_get_base(path, j)), fout);
     fprintf(fout, " [%zu/%zu]\n", (size_t)path->pos, (size_t)path->len);
   }
 }
@@ -166,10 +124,10 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
     if(node.orient == porient && packedpath_has_col(path, wlk->ctpcol))
     {
       seq = packedpath_seq(path, pstore->colset_bytes);
-      FollowPath fpath = follow_path_create(seq, plen);
+      FollowPath fpath = fpath_create(seq, plen);
 
       if(!cntr_filter_nuc0) path_buf_add(pbuf, fpath);
-      else if(cache_fetch(&fpath, 0) == next_nuc) {
+      else if(fpath_get_base(&fpath, 0) == next_nuc) {
         // Loading a counter path
         fpath.pos++; // already took a base
         path_buf_add(pbuf, fpath);
@@ -359,7 +317,7 @@ static inline void update_path_forks(PathBuffer *pbuf, uint8_t taken[4])
   FollowPath *path;
   for(i = 0; i < pbuf->len; i++) {
     path = &pbuf->data[i];
-    taken[cache_fetch(path, path->pos)] = 1;
+    taken[fpath_get_base(path, path->pos)] = 1;
   }
 }
 
@@ -533,12 +491,12 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   Nucleotide greatest_nuc;
 
   greatest_age = oldest_path->pos;
-  greatest_nuc = cache_fetch(oldest_path, oldest_path->pos);
+  greatest_nuc = fpath_get_base(oldest_path, oldest_path->pos);
 
   for(i = 1; i < wlk->paths.len; i++) {
     path = &wlk->paths.data[i];
     if(path->pos < greatest_age) break;
-    if(cache_fetch(path, path->pos) != greatest_nuc)
+    if(fpath_get_base(path, path->pos) != greatest_nuc)
       return_step(-1, GRPHWLK_SPLIT_PATHS, false);
   }
 
@@ -591,7 +549,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
     for(i = 0, j = 0; i < npaths; i++)
     {
       path = &wlk->paths.data[i];
-      pnuc = cache_fetch(path, path->pos);
+      pnuc = fpath_get_base(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
         wlk->paths.data[j++] = *path;
@@ -602,7 +560,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
     for(i = 0; i < wlk->new_paths.len; i++)
     {
       path = &wlk->new_paths.data[i];
-      pnuc = cache_fetch(path, path->pos);
+      pnuc = fpath_get_base(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
         wlk->paths.data[j++] = *path;
@@ -616,7 +574,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
     for(i = 0, j = 0; i < wlk->cntr_paths.len; i++)
     {
       path = &wlk->cntr_paths.data[i];
-      pnuc = cache_fetch(path, path->pos);
+      pnuc = fpath_get_base(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
         wlk->cntr_paths.data[j++] = *path;

@@ -132,8 +132,8 @@ void test_corrected_aln();
 // repeat_walker_tests.c
 void test_repeat_walker();
 
-// sorted_path_set_tests.c
-void test_sorted_paths();
+// path_set_tests.c
+void test_path_sets();
 
 // bubble_caller_tests.c
 void test_bubble_caller();

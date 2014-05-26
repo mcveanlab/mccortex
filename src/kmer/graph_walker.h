@@ -4,23 +4,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "path_store.h"
-
-// This struct is packed so we can hash it quickly
-struct FollowPathStruct
-{
-  const uint8_t *seq;
-  PathLen pos, len;
-  // A small buffer of upcoming 24 bases
-  PathLen first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
-  uint8_t cache[6]; // first..first+24-1 (24 bases)
-} __attribute__((packed));
-
-typedef struct FollowPathStruct FollowPath;
-
-FollowPath follow_path_create(const uint8_t *seq, PathLen plen);
-
-#include "objbuf_macro.h"
-create_objbuf(path_buf,PathBuffer,FollowPath);
+#include "follow_path.h"
 
 // Result from graph_walker_choose
 typedef struct

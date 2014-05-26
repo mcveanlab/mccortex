@@ -6,7 +6,7 @@
 #include "path_store.h"
 #include "util.h"
 #include "file_util.h"
-#include "sorted_path_set.h"
+#include "path_set.h"
 #include "graph_paths.h"
 
 // Format:
@@ -319,8 +319,8 @@ void paths_load_colour(PathFileReader *pfile,
 }
 
 // pindex is index of last path
-static void load_sorted_path_set(hkey_t hkey, PathIndex pindex,
-                                 const SortedPathSet *set, PathStore *ps)
+static void load_path_set(hkey_t hkey, PathIndex pindex,
+                          const PathSet *set, PathStore *ps)
 {
   if(set->members.len == 0) return;
 
@@ -330,7 +330,8 @@ static void load_sorted_path_set(hkey_t hkey, PathIndex pindex,
   for(i = 0; i < set->members.len; i++) {
     entry = &set->members.data[i];
     pindex = path_store_add_packed(ps, hkey, pindex, entry->orient, entry->plen,
-                                   entry->seq - set->cbytes, entry->seq);
+                                   path_set_colset(entry,set),
+                                   path_set_seq(entry,set));
   }
 
   pstore_set_pindex(ps, hkey, pindex);
@@ -340,7 +341,7 @@ static void load_sorted_path_set(hkey_t hkey, PathIndex pindex,
 // we are considering loading from set1
 static void load_linkedlist(hkey_t hkey, PathIndex loadindex,
                             PathFileReader *pfile,
-                            SortedPathSet *set0, SortedPathSet *set1,
+                            PathSet *set0, PathSet *set1,
                             bool rmv_redundant, PathStore *ps)
 {
   const FileFilter *fltr = &pfile->fltr;
@@ -348,19 +349,19 @@ static void load_linkedlist(hkey_t hkey, PathIndex loadindex,
   // Might not need to use filter
   if(path_store_fltr_compatible(ps,fltr)) fltr = NULL;
 
-  // Create SortedPathSets, set0 from main PathStore, set1 from file (temp store)
+  // Create PathSets, set0 from main PathStore, set1 from file (temp store)
   PathIndex pindex = pstore_get_pindex(ps, hkey);
-  sorted_path_set_init2(set0, hkey, ps->colset_bytes, ps->store, pindex, NULL);
-  sorted_path_set_init2(set1, hkey, ps->colset_bytes, ps->tmpstore, loadindex, fltr);
+  path_set_init2(set0, ps->colset_bytes, ps->store, pindex, NULL);
+  path_set_init2(set1, ps->colset_bytes, ps->tmpstore, loadindex, fltr);
 
   // Remove redundant paths in paths from the file
-  if(rmv_redundant) sorted_path_set_slim(set1);
+  if(rmv_redundant) path_set_slim(set1);
 
   // Remove elements from set1 (from file) that are already in set0 (loaded)
-  sorted_path_set_merge(set0, set1, rmv_redundant, ps->store);
+  path_set_merge(set0, set1, rmv_redundant, ps->store);
 
   // Store new paths
-  load_sorted_path_set(hkey, pindex, set1, ps);
+  load_path_set(hkey, pindex, set1, ps);
 }
 
 // Load 1 or more path files; can be called consecutively
@@ -408,9 +409,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     path_file_load_check(&files[i], db_graph);
 
   // Temporary sets used in loading and removing duplicates
-  SortedPathSet pset0, pset1;
-  sorted_path_set_alloc(&pset0);
-  sorted_path_set_alloc(&pset1);
+  PathSet pset0, pset1;
+  path_set_alloc(&pset0);
+  path_set_alloc(&pset1);
 
   // Load first file into main pstore
   if(pstore->next == pstore->store &&
@@ -486,8 +487,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   if(tmp_pmem) path_store_release_tmp(pstore);
 
-  sorted_path_set_dealloc(&pset0);
-  sorted_path_set_dealloc(&pset1);
+  path_set_dealloc(&pset0);
+  path_set_dealloc(&pset1);
 }
 
 
@@ -573,6 +574,13 @@ static inline void write_optimised_paths(hkey_t hkey, PathIndex *pidx_ptr,
   *pidx_ptr = pidx;
 }
 
+void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout)
+{
+  ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
+  PathIndex poffset = 0;
+  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
+}
+
 static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
                                            FILE *fout)
 {
@@ -591,13 +599,6 @@ static inline void write_kmer_path_indices(hkey_t hkey, const dBGraph *db_graph,
     if(written != sizeof(BinaryKmer)+sizeof(PathIndex))
       die("Couldn't write to file");
   }
-}
-
-void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout)
-{
-  ctx_assert(db_graph->pstore.kmer_paths_read != NULL);
-  PathIndex poffset = 0;
-  HASH_ITERATE(&db_graph->ht, write_optimised_paths, &poffset, db_graph, fout);
 }
 
 // Corrupts paths so they cannot be used elsewhere

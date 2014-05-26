@@ -153,7 +153,7 @@ uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
 }
 
 //
-// Multithreaded fetching supernode length
+// Multithreaded fetching supernode length histogram
 //
 
 static inline void record_snode_length(hkey_t hkey, dBNodeBuffer *nbuf,
