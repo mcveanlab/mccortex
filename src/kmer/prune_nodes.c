@@ -5,29 +5,32 @@
 #include "db_graph.h"
 #include "db_node.h"
 
-static inline void prune_node_without_edges(dBGraph *db_graph, hkey_t node)
+// Remove a node from the graph, do not edit any edges / adjacent nodes
+// Threadsafe
+void prune_node_without_edges_mt(dBGraph *db_graph, hkey_t hkey)
 {
-  ctx_assert(node != HASH_NOT_FOUND);
+  ctx_assert(hkey != HASH_NOT_FOUND);
   Colour col;
 
   if(db_graph->col_edges != NULL)
-    db_node_zero_edges(db_graph,node);
+    db_node_zero_edges(db_graph,hkey);
 
   if(db_graph->col_covgs != NULL)
-    db_node_zero_covgs(db_graph, node);
+    db_node_zero_covgs(db_graph, hkey);
 
   if(db_graph->node_in_cols != NULL)
     for(col = 0; col < db_graph->num_of_cols; col++)
-      db_node_del_col(db_graph, node, col);
+      db_node_del_col_mt(db_graph, hkey, col);
 
-  hash_table_delete(&db_graph->ht, node);
+  hash_table_delete(&db_graph->ht, hkey);
 }
 
 // For all flagged nodes, trim edges to non-flagged nodes
 // After calling this function on all nodes, call:
 // prune_nodes_lacking_flag_no_edges
-static void prune_edges_to_nodes_lacking_flag(hkey_t hkey, dBGraph *db_graph,
-                                              const uint64_t *flags)
+static inline
+void prune_edges_to_nodes_lacking_flag(hkey_t hkey, const uint8_t *flags,
+                                       dBGraph *db_graph)
 {
   Edges keep_edges = 0x0;
   Orientation orient;
@@ -64,30 +67,64 @@ static void prune_edges_to_nodes_lacking_flag(hkey_t hkey, dBGraph *db_graph,
     db_node_edges(db_graph, hkey, col) &= keep_edges;
 }
 
-static void prune_nodes_lacking_flag_no_edges(hkey_t hkey, dBGraph *db_graph,
-                                              const uint64_t *flags)
+static inline
+void prune_nodes_lacking_flag_no_edges(hkey_t hkey, const uint8_t *flags,
+                                       dBGraph *db_graph)
 {
-  if(!bitset_get(flags, hkey)) {
-    // char str[MAX_KMER_SIZE+1];
-    // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
-    // binary_kmer_to_str(bkmer, db_graph->kmer_size, str);
-    // status("Removing: %s\n", str);
-    prune_node_without_edges(db_graph, hkey);
-  }
+  if(!bitset_get(flags, hkey))
+    prune_node_without_edges_mt(db_graph, hkey);
+}
+
+
+typedef struct {
+  size_t threadid, nthreads;
+  const uint8_t *keep_flags;
+  dBGraph *db_graph;
+} GraphCleaner;
+
+static void worker_prune_node_edges(void *arg)
+{
+  GraphCleaner cl = *(GraphCleaner*)arg;
+
+  // printf("== Edges == Thread %zu / %zu\n", cl.threadid, cl.nthreads);
+  HASH_ITERATE_PART(&cl.db_graph->ht, cl.threadid, cl.nthreads,
+                    prune_edges_to_nodes_lacking_flag,
+                    cl.keep_flags, cl.db_graph);
+}
+
+static void worker_prune_nodes(void *arg)
+{
+  GraphCleaner cl = *(GraphCleaner*)arg;
+
+  // printf("== Nodes == Thread %zu / %zu\n", cl.threadid, cl.nthreads);
+  HASH_ITERATE_PART(&cl.db_graph->ht, cl.threadid, cl.nthreads,
+                    prune_nodes_lacking_flag_no_edges,
+                    cl.keep_flags, cl.db_graph);
 }
 
 // Remove all nodes that do not have a given flag
-void prune_nodes_lacking_flag(dBGraph *db_graph, const uint64_t *flags)
+void prune_nodes_lacking_flag(size_t num_threads, const uint8_t *flags,
+                              dBGraph *db_graph)
 {
+  size_t i;
+  GraphCleaner *cleaners = ctx_calloc(num_threads, sizeof(GraphCleaner));
+
+  for(i = 0; i < num_threads; i++) {
+    cleaners[i] = (GraphCleaner){.threadid = i, .nthreads = num_threads,
+                                 .keep_flags = flags, .db_graph = db_graph};
+  }
+
   // Trim edges from valid nodes
   if(db_graph->col_edges != NULL) {
-    HASH_ITERATE(&db_graph->ht, prune_edges_to_nodes_lacking_flag,
-                 db_graph, flags);
+    util_run_threads(cleaners, num_threads, sizeof(GraphCleaner),
+                     num_threads, worker_prune_node_edges);
   }
 
   // Removed dead nodes
-  HASH_ITERATE_SAFE(&db_graph->ht, prune_nodes_lacking_flag_no_edges,
-                    db_graph, flags);
+  util_run_threads(cleaners, num_threads, sizeof(GraphCleaner),
+                   num_threads, worker_prune_nodes);
+
+  ctx_free(cleaners);
 }
 
 // Remove all edges in the graph that connect to the given node
@@ -137,7 +174,7 @@ static void prune_connecting_edges(dBGraph *db_graph, hkey_t hkey)
 void prune_node(dBGraph *db_graph, hkey_t hkey)
 {
   prune_connecting_edges(db_graph, hkey);
-  prune_node_without_edges(db_graph, hkey);
+  prune_node_without_edges_mt(db_graph, hkey);
 }
 
 void prune_supernode(dBNode *nodes, size_t len, dBGraph *db_graph)
@@ -149,7 +186,8 @@ void prune_supernode(dBNode *nodes, size_t len, dBGraph *db_graph)
   prune_connecting_edges(db_graph, nodes[0].key);
   if(len > 1) prune_connecting_edges(db_graph, nodes[len-1].key);
 
-  for(i = 0; i < len; i++) prune_node_without_edges(db_graph, nodes[i].key);
+  for(i = 0; i < len; i++)
+    prune_node_without_edges_mt(db_graph, nodes[i].key);
 }
 
 // Remove nodes that are in the hash table but not assigned any colours

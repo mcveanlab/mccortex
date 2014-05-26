@@ -149,7 +149,7 @@ static inline void contig_data_dealloc(ContigData *cd)
 static void pulldown_contig(hkey_t hkey, ContigData *cd,
                             const dBGraph *db_graph, size_t colour,
                             GraphWalker *wlk, RepeatWalker *rptwlk,
-                            uint64_t *visited, FILE *fout)
+                            uint8_t *visited, FILE *fout)
 {
   // Don't use a visited kmer as a seed node if --no-reseed passed
   if(visited != NULL && bitset_get(visited, hkey)) {
@@ -245,7 +245,7 @@ struct ParseSeeds {
   const size_t colour;
   GraphWalker *const wlk;
   RepeatWalker *const rptwlk;
-  uint64_t *const visited;
+  uint8_t *const visited;
   FILE *const fout;
 };
 
@@ -371,7 +371,7 @@ int ctx_contigs(CmdArgs *args)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // 1 bit needed per kmer if we need to keep track of noreseed
-  bits_per_kmer = sizeof(Edges)*8 + gfile.hdr.num_of_cols + sizeof(uint64_t)*8 +
+  bits_per_kmer = sizeof(Edges)*8 + gfile.hdr.num_of_cols + sizeof(PathIndex)*8 +
                   no_reseed;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         gfile.num_of_kmers, gfile.num_of_kmers,
@@ -395,7 +395,6 @@ int ctx_contigs(CmdArgs *args)
   db_graph_alloc(&db_graph, gfile.hdr.kmer_size, gfile.hdr.num_of_cols, 1, kmers_in_hash);
 
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  size_t nword64 = roundup_bits2words64(db_graph.ht.capacity);
 
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = ctx_calloc(bytes_per_col*gfile.hdr.num_of_cols, 1);
@@ -403,7 +402,10 @@ int ctx_contigs(CmdArgs *args)
   path_store_alloc(&db_graph.pstore, path_mem, false,
                    db_graph.ht.capacity, path_max_usedcols);
 
-  uint64_t *visited = no_reseed ? ctx_calloc(nword64, sizeof(uint64_t)) : NULL;
+  uint8_t *visited = NULL;
+
+  if(no_reseed)
+    visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   GraphWalker wlk;
   graph_walker_alloc(&wlk);
@@ -533,7 +535,7 @@ int ctx_contigs(CmdArgs *args)
   contig_print_path_dist(cd.paths_counter, MAXPATH, "Paths counter", cd.ncontigs);
 
   const size_t *states = cd.grphwlk_steps;
-  uint64_t nsteps = cd.total_len - cd.ncontigs, ncontigends = 2*cd.ncontigs;
+  size_t nsteps = cd.total_len - cd.ncontigs, ncontigends = 2*cd.ncontigs;
   status("Traversal succeeded because:");
   contig_grphwlk_state("Go straight   ", states[GRPHWLK_FORWARD], nsteps);
   contig_grphwlk_state("Go colour     ", states[GRPHWLK_COLFWD], nsteps);

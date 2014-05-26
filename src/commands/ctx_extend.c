@@ -29,7 +29,7 @@ typedef struct
   char *buf;
   size_t buflen;
   size_t max_walk;
-  uint64_t *visited;
+  uint8_t *visited;
   LoadingStats *stats;
 } ExtendContig;
 
@@ -55,7 +55,7 @@ static void add_kmer(BinaryKmer bkmer, dBGraph *db_graph, dBNodeBuffer *nodebuf)
 }
 
 static void walk_graph(dBNode node, dBNodeBuffer *buf, size_t max,
-                       dBGraph *db_graph, uint64_t *visited)
+                       dBGraph *db_graph, uint8_t *visited)
 {
   size_t i, origlen = buf->len;
   Edges edges;
@@ -170,7 +170,8 @@ int ctx_extend(CmdArgs *args)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  bits_per_kmer = (sizeof(Edges) + 2*sizeof(uint64_t)) * 8;
+  // two bits for remembering which orientation we have traversed kmers in
+  bits_per_kmer = sizeof(Edges) * 8 + 2;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         file.num_of_kmers, file.num_of_kmers,
                                         true, &graph_mem);
@@ -184,8 +185,7 @@ int ctx_extend(CmdArgs *args)
   db_graph_alloc(&db_graph, file.hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
-  size_t visited_words = 2*roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *visited = ctx_calloc(visited_words, sizeof(Edges));
+  uint8_t *visited = ctx_calloc(2*roundup_bits2bytes(db_graph.ht.capacity), 1);
 
     // Store edge nodes here
   dBNodeBuffer readbuffw, readbufrv;
@@ -206,7 +206,6 @@ int ctx_extend(CmdArgs *args)
                               .empty_colours = false};
 
   file.fltr.flatten = true;
-  // file.fltr.intocol = 0;
   file_filter_update_intocol(&file.fltr, 0);
 
   graph_load(&file, gprefs, &stats);

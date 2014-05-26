@@ -401,12 +401,8 @@ int ctx_build(CmdArgs *args)
 
   db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
 
-  size_t kmer_words = roundup_bits2words64(db_graph.ht.capacity);
-
-  if(remove_pcr_used) {
-    db_graph.readstrt = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*2,
-                                sizeof(uint8_t));
-  }
+  if(remove_pcr_used)
+    db_graph.readstrt = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*2, 1);
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -441,7 +437,7 @@ int ctx_build(CmdArgs *args)
     if(remove_pcr_used)
     {
       if(colour != prev_colour)
-        memset(db_graph.readstrt, 0, 2*kmer_words*sizeof(uint64_t));
+        memset(db_graph.readstrt, 0, roundup_bits2bytes(db_graph.ht.capacity)*2);
 
       end = start+1;
       while(end < num_tasks && end-start < args->max_io_threads &&

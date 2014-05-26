@@ -10,19 +10,21 @@ static void add_to_graph(dBGraph *graph, const char *str)
   build_graph_from_str_mt(graph, 0, str, strlen(str));
 }
 
-static void run_subgraph(dBGraph *graph, uint64_t *mask,
+static void run_subgraph(dBGraph *graph, uint8_t *mask,
                          size_t dist, bool invert, bool grab_supernodes,
                          size_t expt_nkmers, char *seq, size_t len)
 {
-  size_t num_mask_words = roundup_bits2words64(graph->ht.capacity);
-  memset(mask, 0, num_mask_words*sizeof(uint64_t));
+  memset(mask, 0, roundup_bits2bytes(graph->ht.capacity));
 
-  subgraph_from_seq(graph, dist, invert, grab_supernodes,
-                    8*graph->ht.num_kmers, mask, &seq, &len, 1);
+  size_t nthreads = 2;
+  subgraph_from_seq(graph, nthreads, dist, invert, grab_supernodes,
+                    8*graph->ht.num_kmers, mask,
+                    &seq, &len, 1);
 
   TASSERT2(graph->ht.num_kmers == expt_nkmers,
-           "expected %zu kmers, got %zu; dist %zu",
-           expt_nkmers, (size_t)graph->ht.num_kmers, dist);
+           "expected %zu kmers, got %zu; dist %zu invert: %s",
+           expt_nkmers, (size_t)graph->ht.num_kmers,
+           dist, invert ? "yes" : "no");
 }
 
 static void simple_subgraph_test()
@@ -37,8 +39,7 @@ static void simple_subgraph_test()
   graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
-  size_t num_mask_words = roundup_bits2words64(graph.ht.capacity);
-  uint64_t *mask = ctx_calloc(num_mask_words, sizeof(uint64_t));
+  uint8_t *mask = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // Simple graph - 1000 bases
   char graphseq[] =
@@ -98,8 +99,7 @@ static void test_subgraph_supernodes()
   graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
-  size_t num_mask_words = roundup_bits2words64(graph.ht.capacity);
-  uint64_t *mask = ctx_calloc(num_mask_words, sizeof(uint64_t));
+  uint8_t *mask = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // Supernode of 5 kmers with a kmer fork either side
   char seq0[] = "ATGGTGCCTAGAAGGTA";

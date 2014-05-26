@@ -68,6 +68,8 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer bkmer,
 hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
                                     bool *found, volatile uint8_t *bktlocks);
 
+// Safe to call on different entries at the same time
+// NOT safe to do find() whilst doing delete()
 void hash_table_delete(HashTable *const htable, hkey_t pos);
 
 // Delete all entries from a hash table
@@ -82,7 +84,7 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // Iterate over entries in the hash table
 #define HASH_ITERATE(ht,func,...) HASH_ITERATE2(ht,func,##__VA_ARGS__)
 
-// This allows up to add/remove items
+// This iterator allows adding/removing items
 #define HASH_ITERATE_SAFE(ht,func,...) HASH_ITERATE1(ht,func,##__VA_ARGS__)
 
 // Iterate over all entries
@@ -109,6 +111,7 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
   }                                                                            \
 } while(0)
 
+// This iterator allows adding/removing items
 #define HASH_ITERATE_PART(ht,job,njobs,func, ...) do {                         \
   const size_t _step = (ht)->capacity / (njobs);                               \
   const BinaryKmer *_start, *_end, *_bkptr;                                    \

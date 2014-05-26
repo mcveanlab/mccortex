@@ -40,7 +40,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "clean", .func = ctx_clean, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "o",
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "mncot", .reqargs = "o",
   .blurb = "clean errors from a graph",
   .usage = clean_usage
 },
@@ -58,7 +58,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "subgraph", .func = ctx_subgraph, .hide = 0,
-  .minargs = 4, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "",
+  .minargs = 4, .maxargs = INT_MAX, .optargs = "mncot", .reqargs = "",
   .blurb = "filter a subgraph using seed kmers",
   .usage = subgraph_usage
 },

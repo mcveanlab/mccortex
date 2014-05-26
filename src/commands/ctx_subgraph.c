@@ -22,6 +22,7 @@ const char subgraph_usage[] =
 "\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -s, --ncols <c>       How many colours to load at once [default: 1]\n"
 "  -o, --out <out.ctx>   Save output graph file [required]\n"
 "  -1, --seq <seed.fa>   Read in a seed file [require at least one]\n"
@@ -40,6 +41,8 @@ int ctx_subgraph(CmdArgs *args)
   seq_file_t *seed_files[argc/2];
   size_t num_seed_files = 0, dist = 0;
   bool invert = false, grab_supernodes = false;
+
+  size_t num_threads = args->max_work_threads;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
@@ -134,8 +137,7 @@ int ctx_subgraph(CmdArgs *args)
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Edges));
   db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
-  size_t num_words64 = roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *kmer_mask = ctx_calloc(num_words64, sizeof(uint64_t));
+  uint8_t *kmer_mask = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
 
@@ -178,7 +180,7 @@ int ctx_subgraph(CmdArgs *args)
   strbuf_append_char(&intersect_gname, '}');
 
   // Load sequence and mark in first pass
-  subgraph_from_reads(&db_graph, dist,
+  subgraph_from_reads(&db_graph, num_threads, dist,
                       invert, grab_supernodes,
                       fringe_mem, kmer_mask,
                       seed_files, num_seed_files);

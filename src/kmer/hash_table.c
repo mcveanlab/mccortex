@@ -366,6 +366,8 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
   rehash_error_exit(htable);
 }
 
+// Safe to call on different entries at the same time
+// NOT safe to do find() whilst doing delete()
 void hash_table_delete(HashTable *const htable, hkey_t pos)
 {
   uint64_t bucket = pos / htable->bucket_size;
@@ -376,12 +378,11 @@ void hash_table_delete(HashTable *const htable, hkey_t pos)
   ctx_assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
 
   htable->table[pos] = unset_bkmer;
-  htable->buckets[bucket][HT_BITEMS]--;
-  htable->num_kmers--;
+  __sync_fetch_and_sub((volatile uint8_t *)&htable->buckets[bucket][HT_BITEMS], 1);
+  __sync_fetch_and_sub((volatile uint64_t *)&htable->num_kmers, 1);
 
   ctx_assert(!HASH_ENTRY_ASSIGNED(htable->table[pos]));
 }
-
 
 void hash_table_print_stats_brief(const HashTable *const htable)
 {

@@ -11,7 +11,7 @@
 typedef struct
 {
   const dBGraph *const db_graph; // graph we are operating on
-  uint64_t *const kmer_mask; // bitset of visited kmers
+  uint8_t *const kmer_mask; // bitset of visited kmers
   const bool grab_supernodes; // grab entire supernodes or just kmers
   dBNodeBuffer nbufs[2], snode_buf;
   LoadingStats stats;
@@ -20,7 +20,7 @@ typedef struct
 static void subgraph_builder_alloc(SubgraphBuilder *builder,
                                    size_t num_fringe_nodes,
                                    bool grab_supernodes,
-                                   uint64_t *kmer_mask,
+                                   uint8_t *kmer_mask,
                                    const dBGraph *graph)
 {
   SubgraphBuilder tmp = {.db_graph = graph,
@@ -43,7 +43,7 @@ static void subgraph_builder_dealloc(SubgraphBuilder *builder)
 
 // Mark all kmers touched by a read, if they already exist in the graph
 static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
-                       uint64_t *kmer_mask, const dBGraph *db_graph)
+                       uint8_t *kmer_mask, const dBGraph *db_graph)
 {
   dBNode node = db_graph_find(db_graph, bkmer);
 
@@ -65,7 +65,7 @@ static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
 // Mark entire supernodes that are touched by a read
 static inline void mark_snode(BinaryKmer bkmer,
                               dBNodeBuffer *nbuf, dBNodeBuffer *snode_buf,
-                              uint64_t *kmer_mask, const dBGraph *db_graph)
+                              uint8_t *kmer_mask, const dBGraph *db_graph)
 {
   dBNode node = db_graph_find(db_graph, bkmer);
   size_t i;
@@ -113,7 +113,7 @@ static void store_read_nodes(read_t *r1, read_t *r2,
 }
 
 static void store_node_neighbours(const hkey_t hkey, dBNodeBuffer *nbuf,
-                                  uint64_t *kmer_mask, const dBGraph *db_graph)
+                                  uint8_t *kmer_mask, const dBGraph *db_graph)
 {
   // Get neighbours
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
@@ -144,7 +144,7 @@ static void store_node_neighbours(const hkey_t hkey, dBNodeBuffer *nbuf,
 static void extend(SubgraphBuilder *builder, size_t dist)
 {
   const dBGraph *db_graph = builder->db_graph;
-  uint64_t *kmer_mask = builder->kmer_mask;
+  uint8_t *kmer_mask = builder->kmer_mask;
   dBNodeBuffer *nbuf0 = &builder->nbufs[0], *nbuf1 = &builder->nbufs[1];
   size_t d, i;
 
@@ -180,14 +180,15 @@ static size_t get_num_fringe_nodes(size_t fringe_mem, size_t dist)
   return dist == 0 ? 0 : fringe_mem / (sizeof(dBNode) * 2);
 }
 
+// `nthreads` number of threads to use
 // `dist` is how many steps away from seed kmers to take
 // `invert`, if true, means only save kmers not touched
 // `fringe_mem` is how many bytes can be used to remember the fringe of
 // the breadth first search (we use 8 bytes per kmer)
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
-void subgraph_from_reads(dBGraph *db_graph, size_t dist,
+void subgraph_from_reads(dBGraph *db_graph, size_t nthreads, size_t dist,
                          bool invert, bool grab_supernodes,
-                         size_t fringe_mem, uint64_t *kmer_mask,
+                         size_t fringe_mem, uint8_t *kmer_mask,
                          seq_file_t **files, size_t num_files)
 {
   // divide by two since this is the number of nodes per list, two lists
@@ -213,25 +214,26 @@ void subgraph_from_reads(dBGraph *db_graph, size_t dist,
   subgraph_builder_dealloc(&builder);
 
   if(invert) {
-    status("Inverting selection...\n");
-    size_t num_words64 = roundup_bits2words64(db_graph->ht.capacity);
-    for(i = 0; i < num_words64; i++)
+    status("Inverting selection...");
+    size_t num_bytes = roundup_bits2bytes(db_graph->ht.capacity);
+    for(i = 0; i < num_bytes; i++)
       kmer_mask[i] = ~kmer_mask[i];
   }
 
-  status("Pruning untouched nodes...\n");
+  status("Pruning untouched nodes...");
 
-  prune_nodes_lacking_flag(db_graph, kmer_mask);
+  prune_nodes_lacking_flag(nthreads, kmer_mask, db_graph);
 }
 
+// `nthreads` number of threads to use
 // `dist` is how many steps away from seed kmers to take
 // `invert`, if true, means only save kmers not touched
 // `fringe_mem` is how many bytes can be used to remember the fringe of
 // the breadth first search (we use 8 bytes per kmer)
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
-void subgraph_from_seq(dBGraph *db_graph, size_t dist,
+void subgraph_from_seq(dBGraph *db_graph, size_t nthreads, size_t dist,
                        bool invert, bool grab_supernodes,
-                       size_t fringe_mem, uint64_t *kmer_mask,
+                       size_t fringe_mem, uint8_t *kmer_mask,
                        char **seqs, size_t *seqlens, size_t num_seqs)
 {
   // divide by two since this is the number of nodes per list, two lists
@@ -260,12 +262,12 @@ void subgraph_from_seq(dBGraph *db_graph, size_t dist,
 
   if(invert) {
     status("Inverting selection...\n");
-    size_t num_words64 = roundup_bits2words64(db_graph->ht.capacity);
-    for(i = 0; i < num_words64; i++)
+    size_t num_bytes = roundup_bits2bytes(db_graph->ht.capacity);
+    for(i = 0; i < num_bytes; i++)
       kmer_mask[i] = ~kmer_mask[i];
   }
 
   status("Pruning untouched nodes...\n");
 
-  prune_nodes_lacking_flag(db_graph, kmer_mask);
+  prune_nodes_lacking_flag(nthreads, kmer_mask, db_graph);
 }

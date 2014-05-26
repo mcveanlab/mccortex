@@ -3,22 +3,22 @@
 
 #include "db_graph.h"
 
-size_t cleaning_supernode_threshold(uint64_t *covgs, size_t len,
-                                    double seq_depth, const dBGraph *db_graph);
+// Get coverage threshold for removing supernodes
+// If `min_keep_tip` is > 0, tips shorter than `min_keep_tip` are not used
+// in measuring supernode coverage.
+// `visited`, should each be at least db_graph.ht.capcity bits long
+//   and initialised to zero
+Covg cleaning_get_threshold(size_t num_threads, size_t min_keep_tip,
+                            double seq_depth, const char *dump_covgs,
+                            uint8_t *visited, dBGraph *db_graph);
 
-// min_tip_len is the max tip length to KEEP
-// visited should be zero'd before calling,
-//   will have 1s for all remaining kmers on return
-void cleaning_remove_tips(size_t min_tip_len, uint64_t *visited,
-                          dBGraph *db_graph);
-
-// visited should be zero'd before calling,
-//   will have 1s for all remaining kmers on return
-// Returns 0 if `covg_threshold` == 0 and computed threshold also <= 1
-//  => no supernodes can be removed
-Covg cleaning_remove_supernodes(bool clean, Covg covg_threshold,
-                                double seq_depth, const char *dump_covgs,
-                                uint64_t *visited, dBGraph *db_graph);
+// Remove low coverage supernodes and clip tips
+// - Remove supernodes with coverage < `covg_threshold`
+// - Remove tips shorter than `min_keep_tip`
+// `visited`, `keep` should each be at least db_graph.ht.capcity bits long
+//   and initialised to zero.
+void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
+                 uint8_t *visited, uint8_t *keep, dBGraph *db_graph);
 
 void cleaning_dump_covg_histogram(const char *path, uint64_t *hist, size_t len);
 

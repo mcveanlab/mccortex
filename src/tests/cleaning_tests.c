@@ -11,7 +11,7 @@ void test_cleaning()
 
   // Construct 1 colour graph with kmer-size=19
   dBGraph graph;
-  const size_t kmer_size = 19, ncols = 1;
+  const size_t kmer_size = 19, ncols = 1, nthreads = 2;
   size_t i;
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
@@ -20,8 +20,8 @@ void test_cleaning()
   graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
 
-  size_t num_visited_words = roundup_bits2words64(graph.ht.capacity);
-  uint64_t *visited = ctx_calloc(num_visited_words, sizeof(uint64_t));
+  uint8_t *visited = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
+  uint8_t *keep    = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // Simple graph - 1000 bases, should all be cleaned off
   char graphseq[] =
@@ -44,21 +44,18 @@ void test_cleaning()
            "%"PRIu64" kmers", graph.ht.num_kmers);
 
   // No change (min_tip_len must be > 1)
-  cleaning_remove_tips(2, visited, &graph);
-  memset(visited, 0, num_visited_words * sizeof(uint64_t));
+  clean_graph(nthreads, 0, 2, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 1000-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // No change (min_tip_len must be > 1)
-  cleaning_remove_tips(1000-19+1, visited, &graph);
-  memset(visited, 0, num_visited_words * sizeof(uint64_t));
+  clean_graph(nthreads, 0, 1000-19+1, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 1000-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // All removed
-  cleaning_remove_tips(1000-19+2, visited, &graph);
-  memset(visited, 0, num_visited_words * sizeof(uint64_t));
-  TASSERT(graph.ht.num_kmers == 0);
+  clean_graph(nthreads, 0, 1000-19+2, visited, keep, &graph);
+  TASSERT2(graph.ht.num_kmers == 0, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // Reload first 200 bases of graph 3 times
@@ -74,11 +71,11 @@ void test_cleaning()
 
   build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp));
 
-  size_t thresh = cleaning_remove_supernodes(true, 0, 4, NULL, visited, &graph);
-  memset(visited, 0, num_visited_words * sizeof(uint64_t));
+  size_t thresh = cleaning_get_threshold(nthreads, 0, 4, NULL, visited, &graph);
+  clean_graph(nthreads, thresh, 0, visited, keep, &graph);
   TASSERT2(thresh > 1, "threshold: %zu", thresh);
 
-  TASSERT(graph.ht.num_kmers == 200-19+1);
+  TASSERT2(graph.ht.num_kmers == 200-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // First 78 bp with a single SNP creating a tip 23bp -> 5kmers long
@@ -87,11 +84,11 @@ void test_cleaning()
 
   // Trim off new tip
   build_graph_from_str_mt(&graph, 0, tmp2, strlen(tmp2));
-  TASSERT(graph.ht.num_kmers == 200-19+1 + 23-19+1);
+  TASSERT2(graph.ht.num_kmers == 200-19+1 + 23-19+1,
+           "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-  cleaning_remove_tips(2*19-1, visited, &graph);
-  memset(visited, 0, num_visited_words * sizeof(uint64_t));
-  TASSERT(graph.ht.num_kmers == 200-19+1);
+  clean_graph(nthreads, 0, 2*19-1, visited, keep, &graph);
+  TASSERT2(graph.ht.num_kmers == 200-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // clear hash table + graph
@@ -104,12 +101,12 @@ void test_cleaning()
   build_graph_from_str_mt(&graph, 0, tmp3, strlen(tmp3));
   TASSERT2(graph.ht.num_kmers == 1, "%zu", (size_t)graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-  cleaning_remove_tips(2*19-1, visited, &graph);
-  memset(visited, 0, num_visited_words * sizeof(uint64_t));
-  TASSERT(graph.ht.num_kmers == 0);
+  clean_graph(nthreads, 0, 2*19-1, visited, keep, &graph);
+  TASSERT(graph.ht.num_kmers == 0, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   ctx_free(visited);
+  ctx_free(keep);
   ctx_free(graph.bktlocks);
   ctx_free(graph.col_edges);
   ctx_free(graph.col_covgs);

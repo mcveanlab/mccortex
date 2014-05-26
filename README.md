@@ -40,20 +40,21 @@ Commands
     usage: ctx31 <command> [options] <args>
     version: ctx=XXXX zlib=1.2.5 htslib=0.2.0-rc7-74-g996b3c0 ASSERTS=ON CHECKS=ON k=3..31
 
-    Commands:   breakpoints  Use trusted assembled genome to call large events
+    Commands:   breakpoints  use a trusted assembled genome to call large events
+                bubbles      find bubbles in graph which are potential variants
                 build        construct cortex graph from FASTA/FASTQ/BAM
-                call         call variants with bubble caller
                 check        load and check graph (.ctx) and path (.ctp) files
                 clean        clean errors from a graph
                 contigs      pull out contigs for a sample
                 correct      error correct reads
                 coverage     print contig coverage
-                inferedges   infer graph edges before calling `thread`
+                inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 pjoin        merge path files (.ctp)
-                place        place variants and genotype
+                place        place variants against a reference
                 pview        view read threading information
                 reads        filter reads against a graph
+                rmsubstr     reduce set of strings to remove substrings
                 subgraph     filter a subgraph using seed kmers
                 supernodes   pull out supernodes
                 thread       thread reads through cleaned graph

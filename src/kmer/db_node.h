@@ -50,10 +50,10 @@ static inline void db_node_set_col(const dBGraph *graph, hkey_t hkey, size_t col
               kseto(graph->node_in_cols,hkey));
 }
 
-static inline void db_node_del_col(const dBGraph *graph, hkey_t hkey, size_t col) {
-  bitset2_del(graph->node_in_cols,
-              ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
-              kseto(graph->node_in_cols,hkey));
+static inline void db_node_del_col_mt(const dBGraph *graph, hkey_t hkey, size_t col) {
+  bitset2_del_mt(graph->node_in_cols,
+                 ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
+                 kseto(graph->node_in_cols,hkey));
 }
 
 static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,

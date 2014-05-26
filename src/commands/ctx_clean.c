@@ -16,7 +16,7 @@ const char clean_usage[] =
 "\n"
 "  -m, --memory <mem>         Memory to use\n"
 "  -n, --nkmers <kmers>       Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -s, --ncols <c>            How many colours to load at once [default: 1]\n"
+"  -t, --threads <T>          Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -i, --tips <L>             Clip tips shorter than <L> kmers\n"
 "  -u, --supernodes           Remove low coverage supernode. Additional options:\n"
 "  -d, --kdepth <C>           kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
@@ -44,17 +44,18 @@ int ctx_clean(CmdArgs *args)
 
   // Check cmdline args
   bool tip_cleaning = false, supernode_cleaning = false;
-  size_t max_tip_len = 0;
+  size_t min_keep_tip = 0;
   Covg threshold = 0;
   double seq_depth = -1;
   const char *dump_covgs = NULL;
   const char *len_before_path = NULL, *len_after_path = NULL;
+  size_t num_threads = args->max_work_threads;
 
   int argi;
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(!strcmp(argv[argi],"--tips") || !strcmp(argv[argi],"-i")) {
-      if(argi + 1 >= argc || !parse_entire_size(argv[argi+1], &max_tip_len) ||
-         max_tip_len <= 1) {
+      if(argi + 1 >= argc || !parse_entire_size(argv[argi+1], &min_keep_tip) ||
+         min_keep_tip <= 1) {
         cmd_print_usage("-i, --tips <L> needs an integer argument > 1");
       }
       tip_cleaning = true;
@@ -164,8 +165,8 @@ int ctx_clean(CmdArgs *args)
          num_gfiles, ctx_max_kmers, use_ncols);
 
   // If no arguments given we default to removing tips < 2*kmer_size
-  if(tip_cleaning && max_tip_len == 0)
-    max_tip_len = 2 * kmer_size;
+  if(tip_cleaning && min_keep_tip == 0)
+    min_keep_tip = 2 * kmer_size;
 
   // Warn if any graph files already cleaned
   size_t fromcol, intocol;
@@ -192,10 +193,10 @@ int ctx_clean(CmdArgs *args)
   status("Actions:\n");
   if(len_before_path != NULL)
     status("%zu. Saving supernode length distribution to: %s", step++, len_before_path);
-  if(tip_cleaning)
-    status("%zu. Cleaning tips shorter than %zu nodes", step++, max_tip_len);
   if(dump_covgs != NULL)
     status("%zu. Saving coverage distribution to: %s", step++, dump_covgs);
+  if(tip_cleaning)
+    status("%zu. Cleaning tips shorter than %zu nodes", step++, min_keep_tip);
   if(supernode_cleaning && threshold > 0)
     status("%zu. Cleaning supernodes with coverage < %u", step++, threshold);
   if(supernode_cleaning && threshold == 0)
@@ -301,51 +302,42 @@ int ctx_clean(CmdArgs *args)
   size_t initial_nkmers = db_graph.ht.num_kmers;
   hash_table_print_stats(&db_graph.ht);
 
-  size_t visited_words = roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *visited = ctx_calloc(visited_words, sizeof(uint64_t));
-  // visited[0] is used to check if array is 'clean'
+  uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
+  uint8_t *keep = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   if(len_before_fh != NULL) {
     // Save supernode lengths
     supernode_write_len_distrib(len_before_fh, len_before_path, LEN_HIST_CAP,
-                                visited, &db_graph);
-    visited[0] = 1;
+                                num_threads, visited, &db_graph);
+    memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
     fclose(len_before_fh);
   }
 
-  // Tip clipping
-  if(tip_cleaning) {
-    if(visited[0]) memset(visited, 0, visited_words * sizeof(uint64_t));
-    cleaning_remove_tips(max_tip_len, visited, &db_graph);
-    visited[0] = 1;
+  if(dump_covgs || threshold == 0) {
+    // Get coverage distribution and estimate cleaning threshold
+    size_t est_threshold = cleaning_get_threshold(num_threads, min_keep_tip,
+                                                  seq_depth, dump_covgs,
+                                                  visited, &db_graph);
+    memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
+
+    // Use estimated threshold if threshold not set
+    if(threshold == 0) threshold = est_threshold;
   }
 
-  // Supernode cleaning or printing coverage distribution to a file
-  if(supernode_cleaning || dump_covgs) {
-    if(visited[0]) memset(visited, 0, visited_words * sizeof(uint64_t));
-
-    threshold = cleaning_remove_supernodes(supernode_cleaning, threshold,
-                                           seq_depth, dump_covgs,
-                                           visited, &db_graph);
-    visited[0] = 1;
-
-    if(threshold == 0) {
-      supernode_cleaning = false;
-      doing_cleaning = (supernode_cleaning || tip_cleaning);
-    }
-  }
+  // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
+  clean_graph(num_threads, threshold, min_keep_tip, visited, keep, &db_graph);
+  memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
 
   if(len_after_fh != NULL) {
     // Save supernode lengths
-    if(visited[0]) memset(visited, 0, visited_words * sizeof(uint64_t));
-
     supernode_write_len_distrib(len_after_fh, len_after_path, LEN_HIST_CAP,
-                                visited, &db_graph);
-    visited[0] = 1;
+                                num_threads, visited, &db_graph);
+    memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
     fclose(len_after_fh);
   }
 
   ctx_free(visited);
+  ctx_free(keep);
 
   if(doing_cleaning)
   {
