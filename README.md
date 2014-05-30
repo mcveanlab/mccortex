@@ -76,7 +76,7 @@ Getting Helps
 -------------
 
 Type a command with no arguments to see usage. The following may also be useful:
-* [HipChat](www.hipchat.com/gbF6Zf4k3)
+* [HipChat](http://www.hipchat.com/gbF6Zf4k3)
 * [wiki](https://github.com/mcveanlab/mccortex/wiki)
 * [website](http://mcveanlab.github.io/mccortex)
 * [mailing list](https://groups.google.com/forum/#!forum/cortex_var)
