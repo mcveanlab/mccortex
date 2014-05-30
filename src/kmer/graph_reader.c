@@ -175,6 +175,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
     {
       uint32_t len;
       safe_fread(fh, &len, sizeof(uint32_t), "sample name length", path);
+      if(len > 10000) die("Very big sample name. Length: %u", len);
 
       StrBuf *sbuf = &h->ginfo[i].sample_name;
       strbuf_ensure_capacity(sbuf, len);
@@ -256,6 +257,7 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
       // Read cleaned against name
       uint32_t len;
       safe_fread(fh, &len, sizeof(uint32_t), "graph name length", path);
+      if(len > 10000) die("Very big sample name. Length: %u", len);
 
       StrBuf *sbuf = &err_cleaning->intersection_name;
       strbuf_ensure_capacity(sbuf, len);

@@ -242,6 +242,13 @@ int ctx_infer_edges(CmdArgs *args)
 
   if(argc != 1) cmd_print_usage(NULL);
 
+  char *path = argv[0];
+  dBGraph db_graph;
+  GraphFileReader file = INIT_GRAPH_READER;
+  // Mode r+ means open (not create) for update (read & write)
+  graph_file_open2(&file, path, true, "r+");
+  bool reading_stream = (file.fltr.fh == stdin);
+
   FILE *fout = NULL;
   if(args->output_file_set) {
     if(strcmp(args->output_file,"-") == 0) fout = stdout;
@@ -251,13 +258,10 @@ int ctx_infer_edges(CmdArgs *args)
       die("Cannot open output file: %s", args->output_file);
     setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
   }
-
-  char *path = argv[0];
-  dBGraph db_graph;
-  GraphFileReader file = INIT_GRAPH_READER;
-  // Mode r+ means open (not create) for update (read & write)
-  graph_file_open2(&file, path, true, "r+");
-  bool reading_stream = (file.fltr.fh == stdin);
+  else if(reading_stream)
+    fout = stdout;
+  else
+    status("Editing file in place: %s", path);
 
   if(!file.fltr.nofilter)
     cmd_print_usage("Inferedges with filter not implemented - sorry");
@@ -282,7 +286,7 @@ int ctx_infer_edges(CmdArgs *args)
                                         file.num_of_kmers, file.num_of_kmers,
                                         args->mem_to_use_set, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   db_graph_alloc(&db_graph, file.hdr.kmer_size,
                  file.hdr.num_of_cols, file.hdr.num_of_cols*reading_stream,

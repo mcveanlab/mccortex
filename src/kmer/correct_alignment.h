@@ -9,6 +9,24 @@
 #include "repeat_walker.h"
 #include "correct_aln_stats.h"
 
+#define DEFAULT_MIN_INS 0
+#define DEFAULT_MAX_INS 500
+
+// seq gap of N bases can be filled by MAX2(0, N±(N*GAP_VARIANCE+GAP_WIGGLE))
+#define DEFAULT_GAP_VARIANCE 0.1
+#define DEFAULT_GAP_WIGGLE 5
+
+#define DEFAULT_MAX_CONTEXT 200
+
+#define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,            \
+                                .ins_gap_min = DEFAULT_MIN_INS,      \
+                                .ins_gap_max = DEFAULT_MAX_INS,      \
+                                .one_way_gap_traverse = true,        \
+                                .use_end_check = true,               \
+                                .max_context = DEFAULT_MAX_CONTEXT,  \
+                                .gap_variance = DEFAULT_GAP_VARIANCE,\
+                                .gap_wiggle = DEFAULT_GAP_WIGGLE}
+
 typedef struct
 {
   Colour ctpcol, ctxcol;

@@ -298,7 +298,7 @@ static void _real_graph_test()
                         .fq_offset = 0, .interleaved = false};
 
   // Load paths
-  CorrectAlnReadsTask task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
+  CorrectAlnTask task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
                               .matedir = READPAIR_FR, .crt_params = params,
                               .ptr = NULL};
 

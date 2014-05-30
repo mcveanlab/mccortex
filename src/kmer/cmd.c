@@ -5,6 +5,69 @@
 
 #include "misc/mem_size.h" // in libs/misc/
 
+#include <ctype.h>
+
+void get_long_opt(const struct option *longs, char shortopt, char *cmd)
+{
+  strcpy(cmd, "-X, --Unknown");
+  cmd[1] = shortopt;
+
+  size_t i;
+  for(i = 0; longs[i].name != NULL; i++) {
+    if(longs[i].val == shortopt) {
+      cmd[0] = '-';
+      cmd[1] = shortopt;
+      strcpy(cmd+6, longs[i].name);
+      break;
+    }
+  }
+}
+
+void long_opts_to_short(const struct option *longs, char *opts)
+{
+  size_t i, j;
+  opts[0] = '+';
+  for(i = 0, j = 1; longs[i].name != NULL; i++) {
+    if(isprint(longs[i].val)) {
+      opts[j++] = longs[i].val;
+      if(longs[i].has_arg) opts[j++] = ':';
+      if(longs[i].has_arg == optional_argument) opts[j++] = ':';
+    }
+  }
+  opts[j] = '\0';
+}
+
+uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)
+{
+  unsigned int tmp;
+  if(!parse_entire_uint(arg, &tmp))
+    cmd_print_usage("%s requires an int 0 <= x < 255: %s", cmd, arg);
+  return tmp;
+}
+
+uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg)
+{
+  unsigned int tmp;
+  if(!parse_entire_uint(arg, &tmp))
+    cmd_print_usage("%s requires an int x >= 0: %s", cmd, arg);
+  return tmp;
+}
+
+uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg)
+{
+  uint32_t n = cmd_parse_arg_uint32(cmd, optarg);
+  if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmd, arg);
+  return n;
+}
+
+size_t cmd_parse_arg_mem(const char *cmd, const char *arg)
+{
+  size_t mem;
+  if(!mem_to_integer(optarg, &mem))
+    cmd_print_usage("%s %s valid options: 1024 2MB 1G", cmd, arg);
+  return mem;
+}
+
 void cmd_accept_options(const CmdArgs *args, const char *accptopts,
                         const char *usage)
 {
@@ -84,7 +147,7 @@ void cmd_alloc(CmdArgs *args, int argc, char **argv)
   bool is_ctx_cmd = (strstr(argv[0],"ctx") != NULL);
 
   args->argc = 0;
-  args->argv = ctx_malloc((size_t)argc * sizeof(char**));
+  args->argv = ctx_malloc((size_t)argc * sizeof(char*));
 
   // Get cmdline string
   size_t len = (size_t)argc - 1; // spaces
@@ -185,27 +248,29 @@ void cmd_print_mem(size_t mem_bytes, const char *name)
 // If your command accepts -n <kmers> and -m <mem> this may be useful
 //  `extra_bits` is additional memory per node, above hash table+BinaryKmers
 //  `use_mem_limit` if true, fill args->mem_to_use
-size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
-                             size_t min_num_kmer_req, size_t max_num_kmers_req,
-                             bool use_mem_limit, size_t *graph_mem_ptr)
+size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
+                              size_t num_kmers, bool num_kmers_set,
+                              size_t extra_bits,
+                              size_t min_num_kmer_req, size_t max_num_kmers_req,
+                              bool use_mem_limit, size_t *graph_mem_ptr)
 {
   size_t kmers_in_hash, graph_mem = 0, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
 
-  if(!use_mem_limit && min_num_kmer_req == 0 && !args->num_kmers_set) {
+  if(!use_mem_limit && min_num_kmer_req == 0 && !num_kmers_set) {
     cmd_print_usage("Cannot read from stream without -n <nkmers> set");
   }
 
-  if(args->num_kmers_set)
-    graph_mem = hash_table_mem(args->num_kmers, extra_bits, &kmers_in_hash);
+  if(num_kmers_set)
+    graph_mem = hash_table_mem(num_kmers, extra_bits, &kmers_in_hash);
   else if(use_mem_limit)
-    graph_mem = hash_table_mem_limit(args->mem_to_use, extra_bits, &kmers_in_hash);
+    graph_mem = hash_table_mem_limit(mem_to_use, extra_bits, &kmers_in_hash);
   else if(min_num_kmer_req > 0)
     graph_mem = hash_table_mem((size_t)(min_num_kmer_req/IDEAL_OCCUPANCY),
                                extra_bits, &kmers_in_hash);
 
-  if(max_num_kmers_req > 0 && !args->num_kmers_set)
+  if(max_num_kmers_req > 0 && !num_kmers_set)
     kmers_in_hash = MIN2(kmers_in_hash, max_num_kmers_req/IDEAL_OCCUPANCY);
 
   if(kmers_in_hash < 1024)
@@ -215,7 +280,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
   min_kmers_mem = hash_table_mem(min_num_kmer_req, extra_bits, NULL);
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
-  bytes_to_str(args->mem_to_use, 1, mem_to_use_str);
+  bytes_to_str(mem_to_use, 1, mem_to_use_str);
   bytes_to_str(min_kmers_mem, 1, min_kmers_mem_str);
 
   ulong_to_str(kmers_in_hash, kmers_in_hash_str);
@@ -234,18 +299,18 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
          (100.0 * min_num_kmer_req) / kmers_in_hash);
   }
 
-  if(args->mem_to_use_set && args->num_kmers_set) {
-    if(args->num_kmers > kmers_in_hash) {
+  if(mem_to_use_set && num_kmers_set) {
+    if(num_kmers > kmers_in_hash) {
       die("-n <kmers> requires more memory than given with -m <mem> [%s > %s]",
           graph_mem_str, mem_to_use_str);
     }
-    else if(use_mem_limit && graph_mem < args->mem_to_use) {
+    else if(use_mem_limit && graph_mem < mem_to_use) {
       status("Note: Using less memory than requested (%s < %s); allows for %s kmers",
              graph_mem_str, mem_to_use_str, kmers_in_hash_str);
     }
   }
 
-  if(graph_mem > args->mem_to_use) {
+  if(graph_mem > mem_to_use) {
     die("Not enough memory for requested graph: require at least %s [>%s]",
         graph_mem_str, mem_to_use_str);
   }
@@ -257,18 +322,25 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
   return kmers_in_hash;
 }
 
+size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
+                             size_t min_num_kmer_req, size_t max_num_kmers_req,
+                             bool use_mem_limit, size_t *graph_mem_ptr)
+{
+  return cmd_get_kmers_in_hash2(args->mem_to_use, args->mem_to_use_set,
+                                args->num_kmers, args->num_kmers_set,
+                                extra_bits,
+                                min_num_kmer_req, max_num_kmers_req,
+                                use_mem_limit, graph_mem_ptr);
+}
+
 // Check memory against memory limit and machine memory
-void cmd_check_mem_limit(const CmdArgs *args, size_t mem_requested)
+void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested)
 {
   char memstr[100], ramstr[100];
   bytes_to_str(mem_requested, 1, memstr);
 
-  if(mem_requested > args->mem_to_use) {
-    if(args->mem_to_use_set)
-      die("Need to set higher memory limit [ at least -m %s ]", memstr);
-    else
-      die("Please set a memory limit [ at least -m %s ]", memstr);
-  }
+  if(mem_requested > mem_to_use)
+    die("Need to set higher memory limit [ at least -m %s ]", memstr);
 
   // Get memory
   size_t ram = getMemorySize();

@@ -342,9 +342,9 @@ bool graph_cache_is_3p_flank(GraphCache *cache,
     word0 = _graph_cache_step_encode(step0);
     for(i = 1; i < num_steps; i++) {
       step1 = _fetch_prev_step(cache, steps[i]);
+      if(step1 == NULL) return true;
       word1 = _graph_cache_step_encode(step1);
-      if(step1 == NULL || word0 != word1)
-        return true;
+      if(word0 != word1) return true;
     }
   }
 

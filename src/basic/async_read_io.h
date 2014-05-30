@@ -9,7 +9,7 @@
 typedef struct
 {
   seq_file_t *const file1, *const file2;
-  void *const ptr; // general porpoise pointer is passes into AsyncIOData
+  void *ptr; // general porpoise pointer is passes into AsyncIOData
   const uint8_t fq_offset;
   const bool interleaved; // if file1 is an interleaved PE file
 } AsyncIOReadTask;
@@ -20,6 +20,10 @@ typedef struct
   void *ptr;
   uint8_t fq_offset1, fq_offset2;
 } AsyncIOData;
+
+// path can be a single path or a pair of paths separated by a comma or colon
+void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path,
+                        uint8_t fq_offset);
 
 void asyncio_task_close(AsyncIOReadTask *task);
 

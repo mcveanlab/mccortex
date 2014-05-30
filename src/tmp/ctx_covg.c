@@ -101,7 +101,7 @@ int ctx_covg(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         gheader.num_of_kmers, true, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   // Create db_graph
   dBGraph db_graph;

@@ -17,6 +17,7 @@ typedef struct
   int minargs, maxargs; // counts AFTER standard args taken
   int hide; // set hide to >0 to remove from listings
   int (*func)(CmdArgs *cmd_args);
+  int (*func2)(int argc, char **argv);
 } CtxCmd;
 
 CtxCmd cmdobjs[] = {
@@ -87,7 +88,7 @@ CtxCmd cmdobjs[] = {
   .usage = inferedges_usage
 },
 {
-  .cmd = "thread", .func = ctx_thread, .hide = 0,
+  .cmd = "thread", .func = NULL, .func2 = ctx_thread, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "atmnpo", .reqargs = "o",
   .blurb = "thread reads through cleaned graph",
   .usage = thread_usage,
@@ -225,17 +226,27 @@ static const CtxCmd* ctx_get_command(const char* cmd)
   return NULL;
 }
 
-static void print_header(const char *cmdline)
+// Print status updates:
+// [cmd] ...
+// [cwd] ...
+// [version] ...
+static void print_status_header(int argc, char **argv)
 {
+  int i;
   char abspath[PATH_MAX+1];
-  status("[cmd] %s", cmdline);
+  // Print command used
+  timestamp();
+  message("[cmd]");
+  for(i = 0; i < argc; i++) message(" %s", argv[i]);
+  message("\n");
+  // Print current working directory
   if(futil_get_current_dir(abspath) != NULL) status("[cwd] %s", abspath);
+  // Print command
   status("[version] "VERSION_STATUS_STR"");
 }
 
 int main(int argc, char **argv)
 {
-  CmdArgs args;
   time_t start, end;
   time(&start);
 
@@ -243,33 +254,44 @@ int main(int argc, char **argv)
   ctx_msg_out = stderr;
 
   if(argc == 1) print_help(stderr, NULL);
-
-  cmd_alloc(&args, argc, argv);
-
   const CtxCmd *cmd = ctx_get_command(argv[1]);
   if(cmd == NULL) print_help(stderr, "Unrecognised command: %s", argv[1]);
 
   // Once we have set cmd_usage, we can call cmd_print_usage() from anywhere
   cmd_usage = cmd->usage;
-
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
+  // Print status header
+  print_status_header(argc, argv);
 
-  print_header(args.cmdline);
+  // Transitioning away from using CmdArgs
+  // and allowing commands to parse their own arguments for more flexibility
+  int ret;
+  if(cmd->func != NULL)
+  {
+    CmdArgs args;
+    cmd_alloc(&args, argc, argv);
 
-  // Check number of args, required args, optional args
-  cmd_accept_options(&args, cmd->optargs, cmd->usage);
-  cmd_require_options(&args, cmd->reqargs, cmd->usage);
+    // Check number of args, required args, optional args
+    cmd_accept_options(&args, cmd->optargs, cmd->usage);
+    cmd_require_options(&args, cmd->reqargs, cmd->usage);
 
-  if(args.argc < cmd->minargs) cmd_print_usage("Too few arguments");
-  if(args.argc > cmd->maxargs) cmd_print_usage("Too many arguments");
+    if(args.argc < cmd->minargs) cmd_print_usage("Too few arguments");
+    if(args.argc > cmd->maxargs) cmd_print_usage("Too many arguments");
 
-  // Run command
-  int ret = cmd->func(&args);
+    // Run command
+    ret = cmd->func(&args);
+    cmd_free(&args);
+  }
+  else {
+    SWAP(argv[1],argv[0]);
+    print_status_header(argc-1, argv+1);
+    ret = cmd->func2(argc-1, argv+1);
+  }
 
-  cmd_free(&args);
   time(&end);
 
+  // Warn if more allocations than deallocations
   size_t still_alloced = ctx_num_allocs - ctx_num_frees;
   if(still_alloced) warn("%zu allocates not free'd.", still_alloced);
 

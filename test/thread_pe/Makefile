@@ -1,6 +1,6 @@
 
 CTX=../../bin/ctx31
-PATHS=reads.pe.one.ctp reads.pe.two.ctp
+PATHS=reads.se.ctp reads.pe.one.ctp reads.pe.two.ctp
 TGTS=genome.fa read.1.fa read.2.fa genome.k9.ctx $(PATHS)
 
 # non-default target: genome.k9.pdf
@@ -27,13 +27,13 @@ genome.k9.ctx: genome.fa
 	$(CTX) build -m 1M -k 9 --sample Genome --seq genome.fa --sample Gen2 --seq genome.fa genome.k9.ctx
 
 reads.se.ctp: genome.k9.ctx read.1.fa read.2.fa
-	$(CTX) thread -m 1M --printcontigs --printpaths --col 0 --seq read.1.fa --seq read.2.fa --col 1 --seq genome.fa -o $@ genome.k9.ctx
+	$(CTX) thread -m 1M --print-contigs --print-paths --seq read.1.fa --seq read.2.fa -o $@ genome.k9.ctx:0
 
 reads.pe.one.ctp: reads.se.ctp genome.k9.ctx read.1.fa read.2.fa
-	$(CTX) thread -m 1M --printcontigs --printpaths -p reads.se.ctp --oneway --col 0 --seq2 read.1.fa read.2.fa --col 1 --seq genome.fa -o $@ genome.k9.ctx
+	$(CTX) thread -m 1M --print-contigs --print-paths -p reads.se.ctp -c --oneway --seq2 read.1.fa:read.2.fa -o $@ genome.k9.ctx:0
 
 reads.pe.two.ctp: reads.se.ctp genome.k9.ctx read.1.fa read.2.fa
-	$(CTX) thread -m 1M --printcontigs --printpaths -p reads.se.ctp --twoway --col 0 --seq2 read.1.fa read.2.fa --col 1 --seq genome.fa -o $@ genome.k9.ctx
+	$(CTX) thread -m 1M --print-contigs --print-paths -p reads.se.ctp --twoway --seq2 read.1.fa:read.2.fa -o $@ genome.k9.ctx:0
 
 genome.k9.pdf:
 	../../scripts/cortex_to_graphviz.pl genome.k9.ctx:0 | dot -Tpdf > genome.k9.pdf

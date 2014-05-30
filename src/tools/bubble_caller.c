@@ -1,11 +1,4 @@
 #include "global.h"
-
-#include <time.h> // printing datetime
-#include <pthread.h> // multithreading
-
-#include "khash.h"
-
-// cortex_var headers
 #include "bubble_caller.h"
 #include "db_graph.h"
 #include "db_node.h"
@@ -18,11 +11,16 @@
 #include "binary_seq.h"
 #include "graph_crawler.h"
 
+#include <time.h> // printing datetime
+#include <pthread.h> // multithreading
+
 BubbleCaller* bubble_callers_new(size_t num_callers,
                                  BubbleCallingPrefs prefs,
                                  gzFile gzout,
                                  const dBGraph *db_graph)
 {
+  ctx_assert(num_callers > 0);
+
   // Max usage is 4 * max_allele_len * cols
   size_t i;
   size_t max_path_len = MAX2(prefs.max_flank_len, prefs.max_allele_len);
@@ -63,6 +61,8 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
 
 void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
 {
+  ctx_assert(num_callers > 0);
+
   size_t i;
   for(i = 0; i < num_callers; i++)
   {
@@ -320,7 +320,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
 
     // Determine if this fork is a fork in the current colour
     num_edges_in_col = 0;
-    for(i = 0; i < num_next && num_edges_in_col <= 1; i++) {
+    for(i = 0; i < num_next; i++) {
       node_has_col[i] = (db_node_has_col(db_graph, nodes[i].key, colour) > 0);
       num_edges_in_col += node_has_col[i];
     }

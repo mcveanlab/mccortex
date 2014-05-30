@@ -44,7 +44,7 @@ int main(int argc, char **argv)
   // Decide on memory
   size_t kmers_in_hash, graph_mem;
   kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, num_ops, true, &graph_mem);
-  cmd_check_mem_limit(&args, graph_mem);
+  cmd_check_mem_limit(args.mem_to_use, graph_mem);
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);

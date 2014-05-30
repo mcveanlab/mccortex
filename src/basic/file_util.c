@@ -1,61 +1,70 @@
-
 #include "global.h"
 #include "file_util.h"
 
 #include <libgen.h> // dirname
 
-// Returns 1 on success, 0 on failure
-// Sets errno to ENOTDIR if already exists but is not directory
+//
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
-static char ensure_dir_exists(const char *path, mode_t mode)
+//
+
+// Returns 0 on success, -1 on failure
+static int do_mkdir(const char *path, mode_t mode)
 {
   struct stat st;
+  int status = 0;
 
   if(stat(path, &st) != 0)
   {
-    // Directory does not exist
-    return mkdir(path, mode) == 0 ? 1 : 0;
+    /* Directory does not exist. EEXIST for race condition */
+    if(mkdir(path, mode) != 0 && errno != EEXIST)
+      status = -1;
   }
   else if(!S_ISDIR(st.st_mode))
   {
     errno = ENOTDIR;
-    return 0;
+    status = -1;
   }
 
-  return 1;
-}
-
-// futil_mkpath - ensure all directories in path exist
-// Returns 1 on success, 0 on failure
-// Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
-char futil_mkpath(const char *path, mode_t mode)
-{
-  char *copypath = strdup(path);
-
-  size_t i = 0, j = 0;
-  char status = 1;
-
-  while(1)
-  {
-    while(path[i] == '.' || path[i] == '/') i++;
-    j = i;
-
-    while(path[j] != '.' && path[j] != '/' && path[j] != '\0') j++;
-    if(i == j) break;
-
-    char tmp = copypath[j];
-    copypath[j] = '\0';
-
-    if(!(status = ensure_dir_exists(copypath, mode))) break;
-    if(tmp == '\0') break;
-
-    copypath[j] = tmp;
-    i = j + 1;
-  }
-
-  ctx_free(copypath);
   return status;
 }
+
+/**
+** Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
+** mkpath - ensure all directories in path exist
+** Algorithm takes the pessimistic view and works top-down to ensure
+** each directory in path exists, rather than optimistically creating
+** the last element and working backwards.
+** Returns 0 on success, -1 on failure
+*/
+int futil_mkpath(const char *path, mode_t mode)
+{
+  char *pp;
+  char *sp;
+  int status;
+  char *copypath = strdup(path);
+
+  status = 0;
+  pp = copypath;
+  while (status == 0 && (sp = strchr(pp, '/')) != 0)
+  {
+    if (sp != pp)
+    {
+      /* Neither root nor double slash in path */
+      *sp = '\0';
+      status = do_mkdir(copypath, mode);
+      *sp = '/';
+    }
+    pp = sp + 1;
+  }
+  if(status == 0)
+    status = do_mkdir(path, mode);
+  free(copypath);
+  return status;
+}
+
+//
+//
+//
 
 bool futil_file_exists(const char *file)
 {

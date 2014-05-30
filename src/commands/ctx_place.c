@@ -1,5 +1,12 @@
 #include "global.h"
-#include <time.h>
+#include "seq_file.h"
+#include "commands.h"
+#include "util.h"
+#include "file_util.h"
+#include "vcf_parsing.h"
+#include "binary_kmer.h"
+#include "supernode.h"
+#include "seq_reader.h"
 
 // #include <gsl/gsl_randist.h>
 // #include <gsl/gsl_cdf.h> // beta distribution
@@ -8,15 +15,9 @@
 // #include "vcf.h" // not using htslib
 #include "sam.h"
 #include "khash.h"
-#include "seq_file.h"
 #include "seq-align/src/needleman_wunsch.h"
 
-#include "commands.h"
-#include "util.h"
-#include "file_util.h"
-#include "vcf_parsing.h"
-#include "binary_kmer.h"
-#include "supernode.h"
+#include <time.h>
 
 // #define CTXVERBOSE 1
 
@@ -37,17 +38,11 @@ const char place_usage[] =
 "  --gapextend <m>  [default: -1]\n"
 "\n";
 
-typedef struct {
-  read_t r;
-  uint32_t index;
-} chrom_t;
-
 // Reference genome
 // Hash map of chromosome name -> sequence
-KHASH_MAP_INIT_STR(ghash, chrom_t*)
+KHASH_MAP_INIT_STR(ghash, read_t*);
 khash_t(ghash) *genome;
-chrom_t *chroms;
-uint32_t num_chroms = 0, chrom_capacity;
+ReadBuffer chroms;
 
 // Flank mapping
 bam_hdr_t *bam_header;
@@ -237,8 +232,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
     die("Cannot find chrom [%s]", chrname);
   }
 
-  const chrom_t *chrom = kh_value(genome, k);
-  const read_t *chr = &(chrom->r);
+  const read_t *chr = kh_value(genome, k);
 
   // check orientation, offset
   // if rev-orient, revcmp alleles and flanks
@@ -433,70 +427,38 @@ static bool isbam(const char *path, bool bam)
   return (len >= 4 && strcasecmp(path+len-4, bam ? ".bam" : ".sam") == 0);
 }
 
-static chrom_t* chrom_new()
-{
-  if(num_chroms == chrom_capacity) {
-    chrom_capacity *= 2;
-    chroms = ctx_realloc(chroms, chrom_capacity * sizeof(chrom_t*));
-  }
-  if(seq_read_alloc(&chroms[num_chroms].r) == NULL) die("Out of memory");
-  return &chroms[num_chroms++];
-}
-
-static void chrom_free_last()
-{
-  seq_read_dealloc(&chroms[--num_chroms].r);
-}
 
 // Create chrom->read genome hash
 static void load_ref_genome(char **paths, size_t num_files)
 {
-  seq_file_t *f;
   size_t i;
   khiter_t k;
   int hret;
 
-  genome = kh_init(ghash);
-  num_chroms = 0;
-  chrom_capacity = 1024;
-  chroms = ctx_malloc(chrom_capacity * sizeof(chrom_t*));
+  seq_file_t **ref_files = ctx_malloc(num_files * sizeof(seq_file_t*));
 
   for(i = 0; i < num_files; i++)
-  {
-    if((f = seq_open(paths[i])) == NULL) die("Cannot open file %s\n", paths[i]);
+    if((ref_files[i] = seq_open(paths[i])) == NULL)
+      die("Cannot read sequence file: %s", paths[i]);
 
-    while(1)
-    {
-      chrom_t *chr = chrom_new();
-      read_t *r = &(chr->r);
+  genome = kh_init(ghash);
+  readbuf_alloc(&chroms, 1024);
+  seq_load_all_reads(ref_files, num_files, &chroms);
+  ctx_free(ref_files);
 
-      if(seq_read(f,r) <= 0) { chrom_free_last(); break; }
-      status("Chromosome [%s length:%zu]", r->name.b, r->seq.end);
-
-      seq_read_to_uppercase(r);
-      seq_read_truncate_name(r);
-
-      k = kh_put(ghash, genome, r->name.b, &hret);
-      if(hret == 0) {
-        warn("duplicate chromosome (take first only): '%s'", r->name.b);
-        chrom_free_last();
-      }
-      else {
-        kh_value(genome, k) = chr;
-      }
-    }
-
-    seq_close(f);
+  for(i = 0; i < chroms.len; i++) {
+    seq_read_to_uppercase(&chroms.data[i]);
+    seq_read_truncate_name(&chroms.data[i]);
+    k = kh_put(ghash, genome, chroms.data[i].name.b, &hret);
+    if(hret == 0)
+      warn("duplicate chromosome (take first only): '%s'", chroms.data[i].name.b);
+    else
+      kh_value(genome, k) = &chroms.data[i];
   }
-
-  if(num_chroms == 0)
-    die("No reference loaded");
-
-  status("Finished loading reference genome");
 }
 
 static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
-                         char *const* refpaths, size_t num_refpaths, FILE *fout)
+                         char *const* refpaths, size_t num_ref_paths, FILE *fout)
 {
   sample_indx = kh_init(samplehash);
 
@@ -524,7 +486,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
     }
     else if(!strncasecmp(str, "##reference=", 12)) {
       fprintf(fout, "##reference=file://%s", refpaths[0]);
-      for(i = 1; i < num_refpaths; i++) {
+      for(i = 1; i < num_ref_paths; i++) {
         fputc(':', fout); fputs(refpaths[i], fout);
       }
       fputc('\n', fout);
@@ -676,7 +638,7 @@ int ctx_place(CmdArgs *args)
   char *sam_path = argv[argi++];
 
   char **ref_paths = argv + argi;
-  size_t num_refpaths = (size_t)(argc - argi);
+  size_t num_ref_paths = (size_t)(argc - argi);
 
   gzFile vcf = gzopen(vcf_path, "r");
   if(vcf == NULL) cmd_print_usage("Cannot open VCF %s", vcf_path);
@@ -698,21 +660,17 @@ int ctx_place(CmdArgs *args)
 
   // Load VCF header
   StrBuf *line = strbuf_new();
-  parse_header(vcf, line, args, ref_paths, num_refpaths, fout);
+  parse_header(vcf, line, args, ref_paths, num_ref_paths, fout);
 
   // Load reference genome
-  load_ref_genome(ref_paths, num_refpaths);
+  load_ref_genome(ref_paths, num_ref_paths);
 
   // Print remainder of VCF header
-  for(i = 0; i < num_chroms; i++) {
+  for(i = 0; i < chroms.len; i++) {
     fprintf(fout, "##contig=<ID=%s,length=%zu>\n",
-            chroms[i].r.name.b, chroms[i].r.seq.end);
+            chroms.data[i].name.b, chroms.data[i].seq.end);
   }
-  fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT", fout);
-  // for(i = 0; i < num_samples; i++) {
-  //   fputc('\t', fout); fputs(sample_names[i], fout);
-  // }
-  fputc('\n', fout);
+  fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\n", fout);
 
   // Setup for loading VCF lines
   vcf_entry_t invcf, outvcf;
@@ -842,8 +800,8 @@ int ctx_place(CmdArgs *args)
   ctx_free(sample_names);
   ctx_free(sample_total_seq);
 
-  while(num_chroms > 0) chrom_free_last();
-  ctx_free(chroms);
+  for(i = 0; i < chroms.len; i++) seq_read_dealloc(&chroms.data[i]);
+  readbuf_dealloc(&chroms);
 
   ctx_free(nw_scoring_flank);
   ctx_free(nw_scoring_allele);

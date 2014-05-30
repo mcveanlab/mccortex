@@ -13,6 +13,41 @@ struct AsyncIOWorker
   size_t *const num_running;
 };
 
+// path can be a single path or a pair of paths separated by a comma or colon
+void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path,
+                        uint8_t fq_offset)
+{
+  seq_file_t *sf1 = NULL, *sf2 = NULL;
+  bool se = false, pe = false, il = false;
+  se = (shortopt == '1');
+  pe = (shortopt == '2');
+  il = (shortopt == 'i');
+  if(!se && !pe && !il) die("Unknown command argument: ");
+  if(se || il) {
+    if((sf1 = seq_open(path)) == NULL)
+      die("Cannot open -%c file: %s", shortopt, path);
+  }
+  if(pe) {
+    char *sep = strchr(path,':'), *path2;
+    if(sep == NULL) sep = strchr(path,',');
+    if(sep == NULL || sep == path+1 || sep[1] == '\0')
+      die("%s <in1:in2> expects paths separated by a colon ':'", path);
+
+    *sep = '\0';
+    path2 = sep+1;
+
+    if((sf1 = seq_open(path)) == NULL)
+      die("Cannot open %c file: %s", shortopt, path);
+    if((sf2 = seq_open(path2)) == NULL)
+      die("Cannot open %c file: %s", shortopt, path2);
+  }
+
+  AsyncIOReadTask tmp = {.file1 = sf1, .file2 = sf2,
+                         .fq_offset = fq_offset, .interleaved = il,
+                         .ptr = NULL};
+  memcpy(task, &tmp, sizeof(AsyncIOReadTask));
+}
+
 void asyncio_task_close(AsyncIOReadTask *task)
 {
   if(task->file1 != NULL) seq_close(task->file1);
@@ -114,6 +149,8 @@ static AsyncIOWorker* asyncio_read_start(MsgPool *pool,
                                          const AsyncIOReadTask *tasks,
                                          size_t num_tasks)
 {
+  if(num_tasks == 0) return NULL;
+
   size_t i;
   int rc;
 
@@ -149,6 +186,8 @@ static AsyncIOWorker* asyncio_read_start(MsgPool *pool,
 // Wait until the pool is empty
 static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
 {
+  if(num_workers == 0) return;
+
   size_t i;
   int rc;
 

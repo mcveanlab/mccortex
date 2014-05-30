@@ -166,7 +166,7 @@ int ctx_coverage(CmdArgs *args)
                                         ctx_max_kmers, ctx_sum_kmers,
                                         args->mem_to_use_set, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   //
   // Open output file

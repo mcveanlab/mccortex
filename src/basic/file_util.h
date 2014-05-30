@@ -6,10 +6,17 @@
 #include <sys/stat.h>
 #include "string_buffer/string_buffer.h"
 
-// futil_mkpath - ensure all directories in path exist
-// Returns 1 on success, 0 on failure
-// Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
-char futil_mkpath(const char *path, mode_t mode);
+
+/**
+** Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
+** mkpath - ensure all directories in path exist
+** Algorithm takes the pessimistic view and works top-down to ensure
+** each directory in path exists, rather than optimistically creating
+** the last element and working backwards.
+** Returns 0 on success, -1 on failure
+*/
+int futil_mkpath(const char *path, mode_t mode);
+
 
 bool futil_file_exists(const char *file);
 

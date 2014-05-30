@@ -14,7 +14,7 @@ int ctx_reads(CmdArgs *args);
 int ctx_extend(CmdArgs *args);
 int ctx_contigs(CmdArgs *args);
 int ctx_infer_edges(CmdArgs *args);
-int ctx_thread(CmdArgs *args);
+int ctx_thread(int argc, char **argv);
 int ctx_pview(CmdArgs *args);
 int ctx_pjoin(CmdArgs *args);
 int ctx_bubbles(CmdArgs *args);

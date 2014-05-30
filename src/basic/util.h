@@ -18,11 +18,11 @@ int cmp_size(const void *a, const void *b);
 int cmp_ptr(const void *a, const void *b);
 int cmp_charptr(const void *a, const void *b);
 
-char parse_entire_int(const char *str, int *result);
-char parse_entire_uint(const char *str, unsigned int *result);
-char parse_entire_ulong(const char *str, unsigned long *result);
-char parse_entire_double(const char *str, double *result);
-char parse_entire_size(const char *str, size_t *result);
+bool parse_entire_int(const char *str, int *result);
+bool parse_entire_uint(const char *str, unsigned int *result);
+bool parse_entire_ulong(const char *str, unsigned long *result);
+bool parse_entire_double(const char *str, double *result);
+bool parse_entire_size(const char *str, size_t *result);
 
 const uint8_t rev_nibble_table[16];
 #define rev_nibble_lookup(x) ({ ctx_assert((x) < 16), rev_nibble_table[x]; })
@@ -110,5 +110,19 @@ size_t seconds_to_str(unsigned long seconds, char *str);
 // Blocks until all jobs finished
 void util_run_threads(void *args, size_t nel, size_t elsize,
                       size_t nthreads, void (*func)(void*));
+
+// Increment a uint8_t without overflow
+static inline void safe_incr_uint8(volatile uint8_t *ptr)
+{
+  uint8_t v = *ptr, newv, curr;
+  do {
+    // Compare and swap returns the value of ptr before the operation
+    curr = v;
+    newv = curr + 1;
+    if(curr == UINT8_MAX) break;
+    v = __sync_val_compare_and_swap(ptr, curr, newv);
+  }
+  while(v != curr);
+}
 
 #endif /* UTIL_H_ */

@@ -35,55 +35,55 @@ int cmp_charptr(const void *aa, const void *bb)
 }
 
 
-char parse_entire_int(const char *str, int *result)
+bool parse_entire_int(const char *str, int *result)
 {
   char *strtol_last_char_ptr = NULL;
   long tmp = strtol(str, &strtol_last_char_ptr, 10);
-  if(tmp > INT_MAX || tmp < INT_MIN) return 0;
-  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
+  if(tmp > INT_MAX || tmp < INT_MIN) return false;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
   *result = (int)tmp;
-  return 1;
+  return true;
 }
 
-char parse_entire_uint(const char *str, unsigned int *result)
+bool parse_entire_uint(const char *str, unsigned int *result)
 {
   char *strtol_last_char_ptr = NULL;
-  if(*str < '0' || *str > '9') return 0;
+  if(*str < '0' || *str > '9') return false;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-  if(tmp > UINT_MAX) return 0;
-  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
+  if(tmp > UINT_MAX) return false;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
   *result = (unsigned int)tmp;
-  return 1;
+  return true;
 }
 
-char parse_entire_ulong(const char *str, unsigned long *result)
+bool parse_entire_ulong(const char *str, unsigned long *result)
 {
   char *strtol_last_char_ptr = NULL;
-  if(*str < '0' || *str > '9') return 0;
+  if(*str < '0' || *str > '9') return false;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
   *result = tmp;
-  return 1;
+  return true;
 }
 
-char parse_entire_double(const char *str, double *result)
+bool parse_entire_double(const char *str, double *result)
 {
   char *strtol_last_char_ptr = NULL;
   double tmp = strtod(str, &strtol_last_char_ptr);
-  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
   *result = tmp;
-  return 1;
+  return true;
 }
 
-char parse_entire_size(const char *str, size_t *result)
+bool parse_entire_size(const char *str, size_t *result)
 {
   char *strtol_last_char_ptr = NULL;
-  if(*str < '0' || *str > '9') return 0;
+  if(*str < '0' || *str > '9') return false;
   unsigned long tmp = strtoul(str, &strtol_last_char_ptr, 10);
-  if(tmp > SIZE_MAX) return 0;
-  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return 0;
+  if(tmp > SIZE_MAX) return false;
+  if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
   *result = (size_t)tmp;
-  return 1;
+  return true;
 }
 
 size_t count_char(const char *str, char c)

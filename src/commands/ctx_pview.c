@@ -76,7 +76,7 @@ int ctx_pview(CmdArgs *args)
                                         phdr->num_kmers_with_paths,
                                         true, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   // Allocate memory
   // db graph is required to store the end position for each kmer list

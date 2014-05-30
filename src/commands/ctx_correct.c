@@ -65,7 +65,7 @@ typedef struct {
 
 // Returns true on success, false on error
 static bool corrected_output_open(CorrectedOutput *out,
-                                  const CorrectAlnReadsTask *in)
+                                  const CorrectAlnTask *in)
 {
   out->gzse = out->gzpe1 = out->gzpe2 = NULL;
   const char *base = (const char*)in->ptr;
@@ -168,7 +168,7 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
 }
 
 static void handle_read(CorrectReadsWorker *wrkr,
-                        const CorrectAlnReadsTask *input,
+                        const CorrectAlnTask *input,
                         const read_t *r, StrBuf *buf,
                         uint8_t fq_cutoff, uint8_t hp_cutoff)
 {
@@ -304,7 +304,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 {
   uint8_t fq_cutoff1, fq_cutoff2, hp_cutoff;
 
-  CorrectAlnReadsTask *input = (CorrectAlnReadsTask*)data->ptr;
+  CorrectAlnTask *input = (CorrectAlnTask*)data->ptr;
   CorrectedOutput *output = (CorrectedOutput*)input->ptr;
   StrBuf *buf1 = &wrkr->buf1, *buf2 = &wrkr->buf2;
 
@@ -372,7 +372,7 @@ int ctx_correct(CmdArgs *args)
   // Already checked that we have at least 2 arguments
 
   size_t max_ninputs = argc / 2, num_inputs = 0;
-  CorrectAlnReadsTask *inputs = ctx_malloc(max_ninputs * sizeof(CorrectAlnReadsTask));
+  CorrectAlnTask *inputs = ctx_malloc(max_ninputs * sizeof(CorrectAlnTask));
   size_t i, j, num_work_threads = args->max_work_threads;
   int argi; // arg index to continue from
 
@@ -423,12 +423,12 @@ int ctx_correct(CmdArgs *args)
                                         false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory
   total_mem = graph_mem + path_mem;
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   //
   // Check we can read all output files

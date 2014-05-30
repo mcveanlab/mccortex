@@ -154,7 +154,7 @@ int ctx_breakpoints(CmdArgs *args)
 
   // DEV: pass path memory into cmd_get_kmers_in_hash
   // Path memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
   cmd_print_mem(path_mem, "paths");
 
   // kmer memory = Edges + paths + 1 bit per colour for in-colour
@@ -167,7 +167,7 @@ int ctx_breakpoints(CmdArgs *args)
                                         false, &graph_mem);
 
   size_t total_mem = graph_mem + path_mem;
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   //
   // Open output file

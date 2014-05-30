@@ -134,11 +134,11 @@ int ctx_bubbles(CmdArgs *args)
           num_of_threads, thread_mem, thread_mem_str);
 
   // Path Memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
   cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + thread_mem + path_mem;
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   //
   // Open output file

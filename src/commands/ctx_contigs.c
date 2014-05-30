@@ -378,12 +378,12 @@ int ctx_contigs(CmdArgs *args)
                                         false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory
   total_mem = graph_mem + path_mem;
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   //
   // Output file if printing

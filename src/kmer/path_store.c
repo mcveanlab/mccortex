@@ -38,7 +38,7 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
                          .end = block + pstore_mem, .next = block,
                          .num_of_cols = ncols,
                          .colset_bytes = colset_bytes,
-                         .num_of_bytes = 0,
+                         .extra_bytes = 0, .num_of_bytes = 0,
                          .num_of_paths = 0, .num_kmers_with_paths = 0,
                          .num_col_paths = 0,
                          .tmpstore = NULL, .tmpsize = 0,
@@ -98,10 +98,10 @@ void path_store_dealloc(PathStore *ps)
 
 void path_store_reset(PathStore *ps, size_t nkmers_in_hash)
 {
-  if(ps->kmer_paths_read != NULL && ps->kmer_paths_read != ps->kmer_paths_write)
+  if(ps->kmer_paths_read != NULL)
     memset(ps->kmer_paths_read, 0, nkmers_in_hash * sizeof(PathIndex));
-  if(ps->kmer_paths_write != NULL)
-    memset(ps->kmer_paths_read, 0, nkmers_in_hash * sizeof(PathIndex));
+  if(ps->kmer_paths_write != NULL && ps->kmer_paths_read != ps->kmer_paths_write)
+    memset(ps->kmer_paths_write, 0, nkmers_in_hash * sizeof(PathIndex));
   ps->num_of_bytes = 0;
   ps->num_of_paths = 0;
   ps->num_kmers_with_paths = 0;
@@ -146,10 +146,10 @@ void path_store_combine_updated_paths(PathStore *pstore)
   {
     ctx_free(pstore->kmer_paths_read);
     pstore->kmer_paths_read = pstore->kmer_paths_write;
+    status("[PathStore] Path stores merged");
   }
   ctx_assert(pstore->kmer_paths_read == pstore->kmer_paths_write);
   ctx_assert(pstore->kmer_paths_read != NULL);
-  status("[PathStore] Path stores merged");
 }
 
 // Add to PathHash
@@ -163,7 +163,7 @@ static inline void _path_store_add_to_hash(PathStore *ps, hkey_t hkey,
     int pret = path_hash_find_or_insert_mt(&ps->phash, hkey, packed,
                                            ps->store, ps->colset_bytes,
                                            &phash_pos);
-    if(pret == 0) { // inserted
+    if(pret == 1) { // inserted
       path_hash_set_pindex(&ps->phash, phash_pos, pindex);
     }
   }
@@ -179,7 +179,7 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   plen = packedpath_combine_lenorient(plen, orient);
 
   size_t pbytes = (plen+3)/4;
-  size_t mem = packedpath_mem2(ps->colset_bytes, pbytes);
+  size_t mem = packedpath_mem2(ps->colset_bytes, pbytes) + ps->extra_bytes;
 
   if(ps->next + mem >= ps->end) die("Out of memory for paths");
 
@@ -193,6 +193,9 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   ptr += sizeof(PathLen);
   memcpy(ptr, seq, pbytes);
   ptr += pbytes;
+  // Set extra byte to max count
+  if(ps->extra_bytes == 1)
+    *ptr = 255;
 
   PathIndex pindex = (PathIndex)(ps->next - ps->store);
   ps->next += mem;
@@ -207,11 +210,28 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   return pindex;
 }
 
+static inline void _path_count_hist(size_t idx, uint64_t *hist,
+                                    const PathStore *pstore)
+{
+  PathIndex pindex = pstore->phash.table[idx].pindex;
+  uint8_t *ptr = pstore->store+pindex;
+  uint8_t count = ptr[packedpath_mem(ptr,pstore->colset_bytes)];
+  hist[count]++;
+}
+
+// Get count distribution
+// `hist` must be 256*sizeof(uint64_t)
+void path_store_counts_histogram(PathStore *pstore, uint64_t *hist)
+{
+  ctx_assert(pstore->phash.table != NULL);
+  PHASH_ITERATE(&pstore->phash, _path_count_hist, hist, pstore);
+}
+
 //
 // Printing functions
 //
 
-void path_store_print(const PathStore *pstore)
+void path_store_print_status(const PathStore *pstore)
 {
   char paths_str[100], mem_str[100], kmers_str[100];
 
@@ -286,7 +306,7 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore)
 
 // Check data if exactly filled by packed paths
 bool path_store_data_integrity_check(const uint8_t *data, size_t size,
-                                     size_t colbytes)
+                                     size_t colbytes, size_t extra_bytes)
 {
   const uint8_t *ptr = data, *end = data+size;
   PathLen plen, nbytes;
@@ -300,7 +320,7 @@ bool path_store_data_integrity_check(const uint8_t *data, size_t size,
     check_ret2(nbytes <= size && ptr + nbytes <= end,
                "nbytes: %zu size: %zu", (size_t)nbytes, (size_t)size);
 
-    ptr += packedpath_mem2(colbytes, nbytes);
+    ptr += packedpath_mem2(colbytes, nbytes) + extra_bytes;
   }
   check_ret2(ptr == end, "data: %p end: %p ptr: %p", data, end, ptr);
   return true;
@@ -311,5 +331,7 @@ bool path_store_integrity_check(const PathStore *pstore)
   check_ret(pstore->next >= pstore->store);
   check_ret(pstore->next <= pstore->end);
   size_t mem = pstore->next - pstore->store;
-  return path_store_data_integrity_check(pstore->store, mem, pstore->colset_bytes);
+  return path_store_data_integrity_check(pstore->store, mem,
+                                         pstore->colset_bytes,
+                                         pstore->extra_bytes);
 }

@@ -37,7 +37,8 @@ size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files);
 // remove_substr requires extra memory if only loading one file
 // (as if loading two files)
 size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
-                               bool remove_substr, bool use_path_hash);
+                               bool remove_substr, bool use_path_hash,
+                               size_t extra_bytes);
 
 // if insert is true, insert missing kmers into the graph
 void paths_format_load(PathFileReader *file, bool insert_missing_kmers,
@@ -67,7 +68,6 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 size_t paths_format_write_header_core(const PathFileHeader *header, FILE *fout);
 // returns number of bytes written
 size_t paths_format_write_header(const PathFileHeader *header, FILE *fout);
-
 
 void paths_format_write_optimised_paths_only(dBGraph *db_graph, FILE *fout);
 void paths_format_write_optimised_paths(dBGraph *db_graph, FILE *fout);

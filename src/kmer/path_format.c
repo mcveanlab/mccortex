@@ -139,15 +139,18 @@ size_t paths_get_max_usedcols(PathFileReader *files, size_t num_files)
 // Used internally only
 // Get min tmp memory required to load files
 // if we already have paths, return the max, otherwise second max
-static size_t path_files_tmp_mem_required(const PathFileReader *files,
-                                          size_t num_files, bool already_have_paths)
+static size_t path_files_tmp_mem_required(const PathStore *ps,
+                                          const PathFileReader *files,
+                                          size_t num_files)
 {
+  bool file0_needs_tmp = (ps->num_of_paths > 0 || ps->extra_bytes > 0);
   if(num_files == 0) return 0;
-  if(num_files == 1) return already_have_paths ? files[0].hdr.num_path_bytes : 0;
+  if(num_files == 1) return file0_needs_tmp ? files[0].hdr.num_path_bytes+1 : 0;
 
   // We need the size of the first and second largest file path_mem
   size_t i, tmp, s0, s1;
 
+  // make s0 > s1
   s0 = files[0].hdr.num_path_bytes;
   s1 = files[1].hdr.num_path_bytes;
   if(s1 > s0) { SWAP(s0, s1); }
@@ -158,18 +161,21 @@ static size_t path_files_tmp_mem_required(const PathFileReader *files,
     else if(tmp > s1) { s0 = tmp; }
   }
 
-  return already_have_paths ? s0 : s1;
+  // Return largest file size if already have paths
+  return file0_needs_tmp ? s0 : s1;
 }
 
 // Get min memory required to load files. Returns memory required in bytes.
 // remove_substr requires extra memory if only loading one file
 // (as if loading two files)
 size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
-                               bool remove_substr, bool use_path_hash)
+                               bool remove_substr, bool use_path_hash,
+                               size_t extra_bytes)
 {
   if(num_files == 0) return 0;
 
-  size_t multiplier = (remove_substr ? 2 : 1) * (use_path_hash ? 2 : 1);
+  bool use_tmp = (remove_substr || extra_bytes);
+  size_t multiplier = (use_tmp ? 2 : 1) * (use_path_hash ? 2 : 1);
   size_t mem = files[0].hdr.num_path_bytes;
 
   if(num_files == 1) return mem * multiplier;
@@ -177,17 +183,17 @@ size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
   // We need the size of the first and second largest file path_mem
   size_t i, tmp, s0, s1;
 
-  s0 = files[0].hdr.num_path_bytes;
-  s1 = files[1].hdr.num_path_bytes;
+  s0 = files[0].hdr.num_path_bytes + files[0].hdr.num_of_paths * extra_bytes;
+  s1 = files[1].hdr.num_path_bytes + files[1].hdr.num_of_paths * extra_bytes;
   if(s1 > s0) { SWAP(s0, s1); }
 
   for(i = 2; i < num_files; i++) {
-    tmp = files[i].hdr.num_path_bytes;
+    tmp = files[i].hdr.num_path_bytes + files[i].hdr.num_of_paths * extra_bytes;
     if(tmp > s0) { s1 = s0; s0 = tmp; }
     else if(tmp > s1) { s0 = tmp; }
   }
 
-  return (remove_substr ? s0 * 2 : s0 + s1) * (use_path_hash ? 2 : 1);
+  return (use_tmp ? s0 * 2 : s0 + s1) * (use_path_hash ? 2 : 1);
 }
 
 // Print some output
@@ -243,6 +249,7 @@ void paths_format_load(PathFileReader *file, bool insert_missing_kmers,
   ctx_assert(path_store_fltr_compatible(pstore, fltr));
 
   // Check PathStore has not been used yet
+  ctx_assert(pstore->extra_bytes == 0);
   ctx_assert(pstore->next == pstore->store);
   ctx_assert(pstore->num_of_paths == 0 && pstore->num_kmers_with_paths == 0);
 
@@ -259,6 +266,7 @@ void paths_format_load(PathFileReader *file, bool insert_missing_kmers,
   PathIndex pindex;
 
   // Load paths
+  ctx_assert((ptrdiff_t)hdr->num_path_bytes <= pstore->end - pstore->store);
   safe_fread(fh, pstore->store, hdr->num_path_bytes, "pstore->store", path);
   pstore->next = pstore->store + hdr->num_path_bytes;
   pstore->num_of_paths = hdr->num_of_paths;
@@ -376,8 +384,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
 
   PathStore *pstore = &db_graph->pstore;
 
-  bool paths_loaded = (pstore->num_of_paths > 0);
-  size_t tmp_pmem = path_files_tmp_mem_required(files, num_files, paths_loaded);
+  size_t tmp_pmem = path_files_tmp_mem_required(pstore, files, num_files);
+  status("[PathFormat] With %zu files, require %zu tmp memory [%zu extra bytes]",
+         num_files, tmp_pmem, pstore->extra_bytes);
 
   if(tmp_pmem) path_store_setup_tmp(pstore, tmp_pmem);
 
@@ -413,8 +422,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   path_set_alloc(&pset0);
   path_set_alloc(&pset1);
 
-  // Load first file into main pstore
-  if(pstore->next == pstore->store &&
+  // Load first file into main pstore,
+  // if no paths loaded yet and no extra bytes padding needed per path
+  if(pstore->next == pstore->store && pstore->extra_bytes == 0 &&
      path_store_fltr_compatible(pstore, &files[0].fltr))
   {
     // Currently no paths loaded
@@ -429,7 +439,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       paths_format_load(&files[0], insert_missing_kmers, db_graph);
 
       // Slim paths store
-      graph_paths_remove_redundant(db_graph, thread_limit);
+      graph_paths_clean(db_graph, thread_limit, 0);
 
       // done
       first_file = 1;
@@ -483,7 +493,7 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       warn("End of file not reached when loading! [path: %s]", path);
   }
 
-  path_store_print(pstore);
+  path_store_print_status(pstore);
 
   if(tmp_pmem) path_store_release_tmp(pstore);
 

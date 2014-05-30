@@ -56,13 +56,15 @@ BinaryKmer binary_kmer_to_old(BinaryKmer bkmer, size_t kmer_size)
 BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer)
 {
   BinaryKmer b = bkmer;
-  size_t i;
 
+#if NUM_BKMER_WORDS > 1
+  size_t i;
   for(i = NUM_BKMER_WORDS - 1; i > 0; i--)
   {
     b.b[i] >>= 2;
     b.b[i] |= (b.b[i - 1] << 62);
   }
+#endif
 
   b.b[0] >>= 2;
   return b;
@@ -75,12 +77,14 @@ BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
 {
   BinaryKmer b = bkmer;
 
+#if NUM_BKMER_WORDS > 1
   size_t i;
   for(i = 0; i+1 < NUM_BKMER_WORDS; i++)
   {
     b.b[i] <<= 2;
     b.b[i] |= (b.b[i + 1] >> 62);
   }
+#endif
 
   b.b[NUM_BKMER_WORDS - 1] <<= 2;
 
@@ -139,10 +143,13 @@ BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
     // revcmp.b[j] = ~word;
   }
 
+#if NUM_BKMER_WORDS > 1
   // Now shift bits right by unused_bits
   for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
     revcmp.b[i] = (revcmp.b[i] >> unused_bits) | (revcmp.b[i-1] << top_bits);
   }
+#endif
+
   revcmp.b[0] >>= unused_bits;
 
   return revcmp;
@@ -153,7 +160,7 @@ BinaryKmer binary_kmer_random(size_t kmer_size)
 {
   BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
   size_t i;
-  for(i = 0; i < sizeof(BinaryKmer) / 8; i++)
+  for(i = 0; i < NUM_BKMER_WORDS; i++)
     bkmer.b[i] = (((uint64_t)rand()) << 32) | (uint64_t)rand();
   bkmer.b[0] >>= 64 - BKMER_TOP_BASES(kmer_size);
   return bkmer;
@@ -163,27 +170,26 @@ BinaryKmer binary_kmer_random(size_t kmer_size)
 // Functions operating on strings
 //
 
-// Caller passes in preallocated BinaryKmer
-// which is also returned in the return value
 BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 {
   ctx_assert(seq != NULL);
   ctx_assert(strlen(seq) >= kmer_size);
 
   // Faster attempt
-  size_t i;
   const char *k = seq, *end = seq + BKMER_TOP_BASES(kmer_size);
   BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
   Nucleotide nuc;
 
-  // Do first word
+  // Do first (partial) word
   for(; k < end; k++) {
     ctx_assert(char_is_acgt(*k));
     nuc = dna_char_to_nuc(*k);
     bkmer.b[0] = (bkmer.b[0] << 2) | nuc;
   }
 
-  // Do remaining words
+#if NUM_BKMER_WORDS > 1
+  // Do remaining (whole) words
+  size_t i;
   for(i = 1; i < NUM_BKMER_WORDS; i++) {
     for(end += 32; k < end; k++) {
       ctx_assert(char_is_acgt(*k));
@@ -191,6 +197,7 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
       bkmer.b[i] = (bkmer.b[i] << 2) | nuc;
     }
   }
+#endif
 
   return bkmer;
 }
@@ -199,10 +206,12 @@ BinaryKmer binary_kmer_from_str(const char *seq, size_t kmer_size)
 // Note that the allocated space has to be kmer_size+1;
 char *binary_kmer_to_str(const BinaryKmer bkmer, size_t kmer_size, char *seq)
 {
-  size_t i, j, k = kmer_size, topbases = BKMER_TOP_BASES(kmer_size);
+  size_t j, k = kmer_size, topbases = BKMER_TOP_BASES(kmer_size);
   uint64_t word;
 
+#if NUM_BKMER_WORDS > 1
   // All but the top word
+  size_t i;
   for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
     word = bkmer.b[i];
     for(j = 0; j < 32; j++) {
@@ -210,6 +219,7 @@ char *binary_kmer_to_str(const BinaryKmer bkmer, size_t kmer_size, char *seq)
       word >>= 2;
     }
   }
+#endif
 
   // Top word
   word = bkmer.b[0];
@@ -227,10 +237,12 @@ static const char hex[16] = "0123456789abcdef";
 
 void binary_kmer_to_hex(const BinaryKmer bkmer, size_t kmer_size, char *seq)
 {
-  size_t i, j, slen = (kmer_size+1)/2, k = slen;
+  size_t j, slen = (kmer_size+1)/2, k = slen;
   size_t toppairs = (BKMER_TOP_BASES(kmer_size)+1)/2;
   uint64_t word;
 
+#if NUM_BKMER_WORDS > 1
+  size_t i;
   for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
     word = bkmer.b[i];
     for(j = 0; j < 32; j += 2) {
@@ -238,6 +250,7 @@ void binary_kmer_to_hex(const BinaryKmer bkmer, size_t kmer_size, char *seq)
       word >>= 4;
     }
   }
+#endif
 
   // Top word
   word = bkmer.b[0];

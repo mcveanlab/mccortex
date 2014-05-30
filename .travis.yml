@@ -1,9 +1,26 @@
-# Control file for continuous integration testing at http://travis-ci.org/
-
 language: c
 compiler:
-  - clang
-  - gcc
-
-install: cd libs && make core && cd .. && make all RELEASE=1 && make clean && make all
-script: make test
+- clang
+- gcc
+os:
+- linux
+- osx
+env:
+  global:
+  - secure: UcNZuEJqAL+JWMxD3wWQuZa5uWdAe8/hDKNpfkR5BiQLUTG+HHmzuzgcaefC5hC1ZukcDzXLPEDpddF+QZ+dP6MDFAKrgNoJyNvtT9hI6wRY5+hMOONj+3V6oHXB/Ntqj0O0rxLzaUe2CjU0EYXbmGcDLLDJgIszEgozpJXsLTE=
+addons:
+  coverity_scan:
+    project:
+      name: mcveanlab/McCortex
+      version: 1.0
+      description: My Project
+    notification_email: turner.isaac@gmail.com
+    build_command_prepend:
+    build_command: make all
+    branch_pattern: coverity_scan
+install: cd libs && make core && cd ..
+script: if [ ${COVERITY_SCAN_BRANCH} != 1 ]; then make all RELEASE=1 && make clean && make all && make test ; fi
+notifications:
+  hipchat:
+    rooms:
+      secure: PC+3Y1rm3ddG04qdu0eMYB4KCpr9IpDyx2Uph25jdfM9CFVIZiJ2kbortMWqPvex0RChwDKNhuwh0ogO6crhTESWJ62JnFEjSrRxh+RPb+BQy1A222DexbEo4bBeiNpmQoafiNxRgot24deKAq799lbgdNUe2SpQh0yHsxd8FTE=

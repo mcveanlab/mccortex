@@ -82,11 +82,11 @@ int ctx_health_check(CmdArgs *args)
                                         false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = path_mem + graph_mem;
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   // Create db_graph
   dBGraph db_graph;

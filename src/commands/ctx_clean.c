@@ -161,8 +161,10 @@ int ctx_clean(CmdArgs *args)
     use_ncols = ncols;
   }
 
-  status("%zu input graphs, max kmers: %zu, using %zu colours",
-         num_gfiles, ctx_max_kmers, use_ncols);
+  char max_kmers_str[100];
+  ulong_to_str(ctx_max_kmers, max_kmers_str);
+  status("%zu input graph%s, max kmers: %s, using %zu colours",
+         num_gfiles, util_plural_str(num_gfiles), max_kmers_str, use_ncols);
 
   // If no arguments given we default to removing tips < 2*kmer_size
   if(tip_cleaning && min_keep_tip == 0)
@@ -218,7 +220,7 @@ int ctx_clean(CmdArgs *args)
                                         ctx_max_kmers, ctx_sum_kmers,
                                         use_mem_limit, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   //
   // Check output files are writable

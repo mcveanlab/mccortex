@@ -6,6 +6,7 @@
 #include "binary_seq.h"
 #include "path_format.h"
 #include "path_set.h"
+#include "util.h"
 
 #include "bit_array/bit_macros.h"
 
@@ -82,6 +83,7 @@ void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 // Thread safe wrapper for path_store [mt for multithreaded]
 //
 
+// DEV: add path length in kmers
 // Returns true if new to colour, false otherwise
 // packed points to <PathLen><PackedSeq>
 // Returns address of path in PathStore by setting newidx
@@ -104,23 +106,30 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 
   // 2) Search for path
   // PathIndex match = path_store_find(pstore, next, packed, path_nbytes);
-  PathIndex match;
-  uint8_t *colset;
+  PathIndex pindex;
+  uint8_t *new_path, *colset;
   size_t phash_pos = 0;
   int pret = path_hash_find_or_insert_mt(&pstore->phash, node.key, packed,
                                          pstore->store, pstore->colset_bytes,
                                          &phash_pos);
 
+  size_t out_bytes = packedpath_mem2(pstore->colset_bytes, path_nbytes);
+  size_t mem_bytes = out_bytes + pstore->extra_bytes;
+
   if(pret == 0)
   {
     // Path already exists -> add colour -> release lock
-    match = path_hash_get_pindex(&pstore->phash, phash_pos);
+    pindex = path_hash_get_pindex(&pstore->phash, phash_pos);
+
+    if(pstore->extra_bytes == 1)
+      safe_incr_uint8(pstore->store+pindex+out_bytes);
+
     bool added = false;
 
     if(pstore->num_of_cols > 1)
     {
       // Add colour to bitset
-      colset = packedpath_get_colset(pstore->store+match);
+      colset = packedpath_get_colset(pstore->store+pindex);
       added = !bitset_get(colset, ctpcol);
       if(added) __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
       bitset_set(colset, ctpcol);
@@ -128,15 +137,13 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 
     // Relase lock - we're done
     bitlock_release(pstore->kmer_locks, node.key);
-    *newidx = match;
+    *newidx = pindex;
     return added;
   }
 
   // 3) shift store->next to make space
-  // Note: if you update mem_bytes, check where it is used - pstore->num_of_bytes
+  // Note: if you update out_bytes, check where it is used - pstore->num_of_bytes
   //       should not include extra mem
-  size_t mem_bytes = packedpath_mem2(pstore->colset_bytes, path_nbytes);
-  uint8_t *new_path;
 
   // atomic { new_path = pstore->next; pstore->next += mem_bytes; }
   // __sync_fetch_and_add(x,y) x and y need to be of same type
@@ -149,7 +156,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
     die("Out of path memory! [%s]", pret == -1 ? "PathHash" : "PathLinkedList");
   }
 
-  PathIndex pindex = (uint64_t)(new_path - pstore->store);
+  pindex = (uint64_t)(new_path - pstore->store);
 
   // 4) Copy new entry
   // Point new entry to existing linked list
@@ -164,6 +171,9 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 
   // Length + Path
   memcpy(colset+pstore->colset_bytes, packed, sizeof(PathLen) + path_nbytes);
+
+  if(pstore->extra_bytes == 1)
+    *(pstore->store+pindex+out_bytes) = 1;
 
   /* Note: below not true if we are writing to a diff set to walking */
   // path must be written before we move the kmer path pointer forward
@@ -182,7 +192,7 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
   // Update number of paths
   __sync_add_and_fetch((volatile size_t*)&pstore->num_of_paths, 1);
   __sync_add_and_fetch((volatile size_t*)&pstore->num_col_paths, 1);
-  __sync_add_and_fetch((volatile size_t*)&pstore->num_of_bytes, mem_bytes);
+  __sync_add_and_fetch((volatile size_t*)&pstore->num_of_bytes, out_bytes);
 
   // status("npaths: %zu nkmers: %zu", pstore->num_of_paths,
   //        pstore->num_kmers_with_paths);
@@ -195,32 +205,17 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
 }
 
 //
-// Remove all redundant paths
+// Update PathStore from PathSet which has had entries removed / reordered
 //
-
-static inline void graph_paths_remove_redundant_node(hkey_t hkey,
-                                                     PathSet *set,
-                                                     size_t *paths_removed_ptr,
-                                                     size_t *bytes_removed_ptr,
-                                                     dBGraph *db_graph)
+void graph_paths_update_from_set(PathStore *pstore, const PathSet *set, hkey_t hkey)
 {
-  // Construct PathSet
-  PathStore *pstore = &db_graph->pstore;
-  size_t i, num_orig_entries, num_orig_bytes;
+  size_t i;
   PathIndex pindex0, pindex1;
 
-  path_set_init(set, pstore, hkey);
-
-  num_orig_entries = set->members.len;
-  num_orig_bytes = path_set_get_bytes_sum(set);
-
-  path_set_slim(set);
-
-  // Update PathStore if set has changed
-  if(num_orig_entries != set->members.len)
-  {
-    ctx_assert(set->members.len > 0 && num_orig_entries > 0);
-
+  if(set->members.len == 0) {
+    pstore_set_pindex(pstore, hkey, PATH_NULL);
+  }
+  else {
     pindex0 = pindex1 = set->members.data[0].pindex;
     pstore_set_pindex(pstore, hkey, pindex0);
 
@@ -229,61 +224,115 @@ static inline void graph_paths_remove_redundant_node(hkey_t hkey,
       packedpath_set_prev(pstore->store + pindex0, pindex1);
     }
     packedpath_set_prev(pstore->store + pindex0, PATH_NULL);
+  }
+}
 
+//
+// Remove all redundant paths
+//
+
+static inline void _graph_paths_clean_node(hkey_t hkey, PathSet *set,
+                                           uint8_t threshold,
+                                           size_t *paths_removed_ptr,
+                                           size_t *bytes_removed_ptr,
+                                           size_t *kmers_removed_ptr,
+                                           dBGraph *db_graph)
+{
+  // Can only threshold if we have only loaded one colour
+  ctx_assert(threshold == 0 || db_graph->num_of_cols == 1);
+
+  // Construct PathSet
+  path_set_init(set, &db_graph->pstore, hkey);
+
+  size_t num_orig_entries = set->members.len;
+  size_t num_orig_bytes = path_set_get_bytes_sum(set);
+
+  if(threshold > 0) {
+    path_set_load_counts(set, &db_graph->pstore, 0);
+    path_set_threshold(set, threshold, 0, NULL);
+  }
+
+  path_set_slim(set);
+
+  // Update PathStore if set has changed
+  if(num_orig_entries != set->members.len)
+  {
+    graph_paths_update_from_set(&db_graph->pstore, set, hkey);
     *paths_removed_ptr += num_orig_entries - set->members.len;
     *bytes_removed_ptr += num_orig_bytes - path_set_get_bytes_sum(set);
+    *kmers_removed_ptr += (num_orig_entries > 0 && set->members.len == 0);
   }
 }
 
 typedef struct {
   uint32_t threadid, nthreads;
+  uint8_t threshold;
+  size_t paths_removed, bytes_removed, kmers_removed;
   dBGraph *db_graph;
-  size_t paths_removed, bytes_removed;
-} RemoveRedundantPathsJob;
+} CleanPathsWorker;
 
-static void graph_paths_remove_redundant_thread(void *arg)
+static void _graph_paths_clean_thread(void *arg)
 {
-  RemoveRedundantPathsJob *job = (RemoveRedundantPathsJob*)arg;
+  CleanPathsWorker *job = (CleanPathsWorker*)arg;
   dBGraph *db_graph = job->db_graph;
   PathSet set;
   path_set_alloc(&set);
+
+  // Can only threshold if we have only loaded one colour
+  ctx_assert(job->threshold == 0 || db_graph->num_of_cols == 1);
+
   HASH_ITERATE_PART(&db_graph->ht, job->threadid, job->nthreads,
-                    graph_paths_remove_redundant_node,
-                    &set, &job->paths_removed, &job->bytes_removed, db_graph);
+                    _graph_paths_clean_node,
+                    &set, job->threshold,
+                    &job->paths_removed,
+                    &job->bytes_removed,
+                    &job->kmers_removed,
+                    db_graph);
+
   path_set_dealloc(&set);
 }
 
-void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)
+// Remove colours from paths with counts < threshold
+void graph_paths_clean(dBGraph *db_graph, size_t num_threads, uint8_t threshold)
 {
-  status("Removing redundant GraphPaths using %zu threads", num_threads);
+  if(db_graph->pstore.num_of_paths == 0) return;
+
+  status("[CleanPaths] Removing redundant GraphPaths using %zu threads", num_threads);
+
+  if(threshold > 0)
+    status("[CleanPaths] Removing GraphPaths with threshold < %u", (uint32_t)threshold);
 
   size_t i;
-  RemoveRedundantPathsJob *jobs;
-  jobs = ctx_malloc(num_threads * sizeof(RemoveRedundantPathsJob));
+  CleanPathsWorker *workers;
+  workers = ctx_malloc(num_threads * sizeof(CleanPathsWorker));
 
   for(i = 0; i < num_threads; i++) {
-    jobs[i] = (RemoveRedundantPathsJob){.threadid = i,
-                                        .nthreads = num_threads,
-                                        .db_graph = db_graph,
-                                        .paths_removed = 0,
-                                        .bytes_removed = 0};
+    workers[i] = (CleanPathsWorker){.threadid = i,
+                                    .nthreads = num_threads,
+                                    .threshold = threshold,
+                                    .paths_removed = 0,
+                                    .bytes_removed = 0,
+                                    .kmers_removed = 0,
+                                    .db_graph = db_graph};
   }
 
-  util_run_threads(jobs, num_threads, sizeof(jobs[0]),
-                   num_threads, graph_paths_remove_redundant_thread);
+  util_run_threads(workers, num_threads, sizeof(workers[0]),
+                   num_threads, _graph_paths_clean_thread);
 
   // Update header
   PathStore *pstore = &db_graph->pstore;
-  size_t paths_removed = 0, bytes_removed = 0;
+  size_t paths_removed = 0, bytes_removed = 0, kmers_removed = 0;
 
   for(i = 0; i < num_threads; i++) {
-    paths_removed += jobs[i].paths_removed;
-    bytes_removed += jobs[i].bytes_removed;
+    paths_removed += workers[i].paths_removed;
+    bytes_removed += workers[i].bytes_removed;
+    kmers_removed += workers[i].kmers_removed;
   }
 
   // Print
   char num_paths_str[100], old_paths_str[100], new_paths_str[100];
   char num_bytes_str[100], old_bytes_str[100], new_bytes_str[100];
+  char num_kmers_str[100], old_kmers_str[100], new_kmers_str[100];
 
   ulong_to_str(paths_removed, num_paths_str);
   ulong_to_str(pstore->num_of_paths, old_paths_str);
@@ -291,18 +340,27 @@ void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads)
   bytes_to_str(bytes_removed, 1, num_bytes_str);
   bytes_to_str(pstore->num_of_bytes, 1, old_bytes_str);
   bytes_to_str(pstore->num_of_bytes-bytes_removed, 1, new_bytes_str);
+  ulong_to_str(kmers_removed, num_kmers_str);
+  ulong_to_str(pstore->num_kmers_with_paths, old_kmers_str);
+  ulong_to_str(pstore->num_kmers_with_paths-kmers_removed, new_kmers_str);
 
-  status("Removed %s paths [%s -> %s] reduced sized by %s [%s -> %s]",
+  status("[PathClean] Removed %s paths [%s -> %s] reduced sized by %s [%s -> %s], ",
          num_paths_str, old_paths_str, new_paths_str,
          num_bytes_str, old_bytes_str, new_bytes_str);
+
+  status("[PathClean] Removed all paths from %s kmers [%s -> %s]",
+         num_kmers_str, old_kmers_str, new_kmers_str);
 
   ctx_assert(pstore->num_of_paths >= paths_removed);
   ctx_assert(pstore->num_of_bytes >= bytes_removed);
 
   pstore->num_of_paths -= paths_removed;
   pstore->num_of_bytes -= bytes_removed;
+  pstore->num_kmers_with_paths -= kmers_removed;
 
-  ctx_free(jobs);
+  ctx_free(workers);
+
+  path_store_print_status(&db_graph->pstore);
 }
 
 //

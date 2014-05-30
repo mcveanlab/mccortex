@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-16 May 2014
+30 May 2014
 
 [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)
 
@@ -75,15 +75,13 @@ Commands
 Getting Helps
 -------------
 
-Type a command with no arguments to see usage.
-
-Check out the [wiki](https://github.com/mcveanlab/mccortex/wiki)
-
-If you find a bug please submitted an [Issue](https://github.com/mcveanlab/mccortex/issues) on github.
-
-Cortex mailing list: https://groups.google.com/forum/#!forum/cortex_var
-
-Isaac Turner: turner.isaac@gmail.com
+Type a command with no arguments to see usage. The following may also be useful:
+* [HipChat](www.hipchat.com/gbF6Zf4k3)
+* [wiki](https://github.com/mcveanlab/mccortex/wiki)
+* [website](http://mcveanlab.github.io/mccortex)
+* [mailing list](https://groups.google.com/forum/#!forum/cortex_var)
+* Report a [bug](https://github.com/mcveanlab/mccortex/issues)
+* Email me: Isaac Turner <turner.isaac@gmail.com>
 
 Code And Contributing
 ------------
@@ -113,6 +111,7 @@ or with [clang](http://clang-analyzer.llvm.org):
     rm -rf bin/ctx31
     scan-build make RECOMPILE=1
 
+Occasionally we also run Coverity Scan: [![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
 License: GPLv2
 --------------

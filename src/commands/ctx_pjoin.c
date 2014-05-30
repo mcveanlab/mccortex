@@ -16,6 +16,7 @@ const char pjoin_usage[] =
 "  -o, --out <out.ctp>    Output file [required]\n"
 "  -m, --memory <mem>     Memory to use (required) recommend 80G for human\n"
 "  -n, --nkmers <nkmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -g, --graph <in.ctx>   Get number of hash table entries from graph file\n"
 "  -v, --overlap          Merge corresponding colours from each graph file\n"
 "  -f, --flatten          Dump into a single colour graph\n"
@@ -36,6 +37,7 @@ int ctx_pjoin(CmdArgs *args)
   bool overlap = false, flatten = false, noredundant = false;
   size_t output_ncols = 0;
   char *graph_file = NULL;
+  size_t num_of_threads = args->max_work_threads;
 
   for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
     if(strcmp(argv[argi],"--graph") == 0 || strcmp(argv[argi],"-g") == 0) {
@@ -166,13 +168,13 @@ int ctx_pjoin(CmdArgs *args)
                                         false, &graph_mem);
 
   // Path Memory
-  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false);
+  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
   path_mem = MAX2(args->mem_to_use - graph_mem, path_mem_req);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;
 
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   // Set up graph and PathStore
   dBGraph db_graph;
@@ -201,7 +203,7 @@ int ctx_pjoin(CmdArgs *args)
   // Load path files
   bool add_kmers = true;
   paths_format_merge(pfiles, num_pfiles, add_kmers,
-                     noredundant, args->max_work_threads, &db_graph);
+                     noredundant, num_of_threads, &db_graph);
 
   for(i = 0; i < num_pfiles; i++)
     path_file_set_header_sample_names(&pfiles[i], &pheader);

@@ -1,6 +1,8 @@
 #ifndef OBJBUF_H_
 #define OBJBUF_H_
 
+#include <stdlib.h>
+
 //
 // objbuf_macro.h
 // Define a buffer with functions to alloc, dealloc, resize, add, append, reset

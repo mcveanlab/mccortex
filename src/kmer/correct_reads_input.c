@@ -15,7 +15,7 @@ void correct_reads_input_init(const char *p1, const char *p2, bool interleaved,
                               uint32_t fq_offset, uint32_t fq_cutoff,
                               uint32_t hp_cutoff, ReadMateDir matedir,
                               CorrectAlnParam params,
-                              CorrectAlnReadsTask *ptr)
+                              CorrectAlnTask *ptr)
 {
   // interleaved => p2 == NULL
   ctx_assert(!interleaved || p2 == NULL);
@@ -42,16 +42,16 @@ void correct_reads_input_init(const char *p1, const char *p2, bool interleaved,
                             .interleaved = interleaved,
                             .ptr = ptr};
 
-  CorrectAlnReadsTask tsk = {.files = iotask,
+  CorrectAlnTask tsk = {.files = iotask,
                              .fq_cutoff = (uint8_t)fq_cutoff,
                              .hp_cutoff = (uint8_t)hp_cutoff,
                              .matedir = matedir,
                              .crt_params = params, .ptr = NULL};
 
-  memcpy(ptr, &tsk, sizeof(CorrectAlnReadsTask));
+  memcpy(ptr, &tsk, sizeof(CorrectAlnTask));
 }
 
-void correct_reads_input_print(const CorrectAlnReadsTask *c)
+void correct_reads_input_print(const CorrectAlnTask *c)
 {
   const AsyncIOReadTask *io = &c->files;
   int has_p2 = io->file2 != NULL;
@@ -80,20 +80,20 @@ void correct_reads_input_print(const CorrectAlnReadsTask *c)
 // Sort by ctp colour, then by pointer address
 static int correct_reads_input_cmp(const void *aa, const void *bb)
 {
-  const CorrectAlnReadsTask *a = (const CorrectAlnReadsTask*)aa;
-  const CorrectAlnReadsTask *b = (const CorrectAlnReadsTask*)bb;
+  const CorrectAlnTask *a = (const CorrectAlnTask*)aa;
+  const CorrectAlnTask *b = (const CorrectAlnTask*)bb;
   size_t col0 = a->crt_params.ctpcol, col1 = b->crt_params.ctpcol;
   if(col0 != col1) return (int)col0 - (int)col1;
   return (a > b ? 1 : (a < b ? -1 : 0));
 }
 
-void correct_reads_input_sort(CorrectAlnReadsTask *inputs, size_t n)
+void correct_reads_input_sort(CorrectAlnTask *inputs, size_t n)
 {
-  qsort(inputs, n, sizeof(CorrectAlnReadsTask), correct_reads_input_cmp);
+  qsort(inputs, n, sizeof(CorrectAlnTask), correct_reads_input_cmp);
 }
 
 void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
-                                   CorrectAlnReadsTask *inputs,
+                                   CorrectAlnTask *inputs,
                                    size_t num_inputs)
 {
   size_t i;
@@ -131,7 +131,7 @@ void correct_reads_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
 //  --no-end-check option // --end-check
 int correct_reads_parse(int argc, char **argv,
                         bool use_pe, bool out_arg,
-                        CorrectAlnReadsTask *inputs,
+                        CorrectAlnTask *inputs,
                         size_t *num_inputs_ptr,
                         char **dump_seq_gaps, char **dump_mp_gaps)
 {

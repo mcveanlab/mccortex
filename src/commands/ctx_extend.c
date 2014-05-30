@@ -176,7 +176,7 @@ int ctx_extend(CmdArgs *args)
                                         file.num_of_kmers, file.num_of_kmers,
                                         true, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   status("Max walk: %zu\n", dist);
 

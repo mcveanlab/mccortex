@@ -4,9 +4,10 @@
 #include "cortex_types.h"
 #include "db_graph.h"
 #include "db_node.h"
-
+#include "path_hash.h"
 #include "path_file_filter.h"
 #include "graph_file_filter.h"
+#include "path_set.h"
 
 typedef struct {
   Colour *ctxcols, *ctpcols;
@@ -43,9 +44,15 @@ bool graph_paths_find_or_add_mt(dBNode node, Colour ctpcol,
                                 PathStore *pstore, PathIndex *newidx);
 
 //
+// Update PathStore from PathSet which has had entries removed / reordered
+//
+void graph_paths_update_from_set(PathStore *pstore, const PathSet *set, hkey_t hkey);
+
+//
 // Remove all redundant paths
 //
-void graph_paths_remove_redundant(dBGraph *db_graph, size_t num_threads);
+// Remove colours from paths with counts < threshold
+void graph_paths_clean(dBGraph *db_graph, size_t num_threads, uint8_t threshold);
 
 //
 // Integrity checks on graph+paths

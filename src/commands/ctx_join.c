@@ -189,6 +189,9 @@ int ctx_join(CmdArgs *args)
     // don't need to store a graph in memory
     graph_stream_filter_mkhdr(out_ctx_path, &gfiles[0], NULL, NULL, NULL);
     graph_file_close(&gfiles[0]);
+    ctx_free(intersect_paths);
+    ctx_free(gfiles);
+    ctx_free(intersect_gfiles);
     return EXIT_SUCCESS;
   }
 
@@ -202,7 +205,7 @@ int ctx_join(CmdArgs *args)
                                         ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   // Check out_ctx_path is writable
   if(strcmp(out_ctx_path,"-") != 0 && !futil_is_file_writable(out_ctx_path))

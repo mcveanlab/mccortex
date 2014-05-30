@@ -102,7 +102,7 @@ void _deconstruct_graph_with_paths(dBGraph *graph)
 }
 
 void _test_add_paths(dBGraph *graph,
-                     AsyncIOData *iodata, CorrectAlnReadsTask *task,
+                     AsyncIOData *iodata, CorrectAlnTask *task,
                      GenPathWorker *wrkrs, char *seq,
                      size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
 {
@@ -123,7 +123,8 @@ void _test_add_paths(dBGraph *graph,
   TASSERT(graph->pstore.num_kmers_with_paths == nkmers + exp_nkmers);
 
   // Check memory used
-  size_t path_mem = sizeof(PathIndex) + graph->pstore.colset_bytes + sizeof(PathLen);
+  size_t path_mem = sizeof(PathIndex) + graph->pstore.colset_bytes +
+                    sizeof(PathLen) + graph->pstore.extra_bytes;
   size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
   TASSERT(graph->pstore.next == next + exp_mem);
 }

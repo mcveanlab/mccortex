@@ -225,7 +225,7 @@ int ctx_supernodes(CmdArgs *args)
                                         ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   const char *syntax_str[3] = {"FASTA", "DOT (Graphviz)"};
   status("Output in %s format to %s\n", syntax_str[print_syntax],
@@ -260,7 +260,7 @@ int ctx_supernodes(CmdArgs *args)
   uint64_t *visited = ctx_calloc(numwords64, sizeof(uint64_t));
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = true,
+                              .boolean_covgs = false,
                               .must_exist_in_graph = false,
                               .empty_colours = false};
 

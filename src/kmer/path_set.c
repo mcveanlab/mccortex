@@ -101,7 +101,7 @@ void path_set_load(PathSet *set, size_t cbytes,
 
     // Add entry
     PathEntry entry = {.seq = bytebuf->len + cbytes, .pindex = pindex,
-                       .orient = orient, .plen = plen};
+                       .orient = orient, .plen = plen, .count = 0};
     pentrybuf_add(membuf, entry);
 
     // Copy colset+sequence to buffer
@@ -136,7 +136,8 @@ void path_set_load(PathSet *set, size_t cbytes,
   set->sorted = false;
 }
 
-// Remove redundant entries such as duplicates and substrings
+// Remove redundant entries such as duplicates, substrings and
+// paths with no colours
 // {T,TT,TT} -> {TT}
 // {A,C,CG,CGC} -> {A,CGC}
 void path_set_slim(PathSet *set)
@@ -160,8 +161,10 @@ void path_set_slim(PathSet *set)
     cset_i = path_set_colset(&members[i],set);
 
     // If sample has no colours skip it
-    if(!packedpath_is_colset_zero(cset_i, set->cbytes))
-    {
+    if(packedpath_is_colset_zero(cset_i, set->cbytes)) {
+      potential_empty_sets = true;
+    }
+    else {
       // work backwards over paths as j as they match
       for(j = i-1; j != SIZE_MAX && members[j].plen <= members[i].plen; j--)
       {
@@ -185,6 +188,12 @@ void path_set_slim(PathSet *set)
         potential_empty_sets = true;
       }
     }
+  }
+
+  // We haven't checked the first path entry
+  if(!potential_empty_sets) {
+    cset_i = path_set_colset(&members[0],set);
+    potential_empty_sets = packedpath_is_colset_zero(cset_i, set->cbytes);
   }
 
   if(!potential_empty_sets) return;
@@ -222,7 +231,7 @@ static inline void _update_store(const PathEntry *entry0, const PathSet *set0,
 
 // Remove entries from set that are in the filter set
 // if `rmsubstr` then also remove substring matches
-// Note: does not remove duplicates from `set`,
+// Note: does not remove duplicates from `out_set`,
 //       call path_set_slim() to do that
 // if passed store, we use it to update colourset of paths in out_set
 void path_set_merge(PathSet *out_set, PathSet *in_set,
@@ -320,4 +329,98 @@ size_t path_set_get_bytes_sum(const PathSet *set)
     sum += packedpath_mem2(set->cbytes, (set->members.data[i].plen+3)/4);
   }
   return sum;
+}
+
+// Load 'count' values into the set. Paths without the given colour are given
+// a count of zero
+void path_set_load_counts(PathSet *set, const PathStore *ps, size_t colour)
+{
+  ctx_assert(ps->colset_bytes == set->cbytes);
+  ctx_assert2(ps->extra_bytes == 1, "PathStore doesn't hold counts");
+
+  PathEntry *entry = set->members.data;
+  const PathEntry *end = entry + set->members.len;
+  const uint8_t *path;
+
+  for(; entry < end; entry++)
+  {
+    if(bitset_get(path_set_colset(entry,set),colour)) {
+      path = &ps->store[entry->pindex];
+      entry->count = *(path + packedpath_mem(path,set->cbytes));
+    }
+    else entry->count = 0;
+  }
+}
+
+// Get path with index before `last` which is in the colour `colour`
+static inline int _get_prev_in_col(PathSet *set, int last, size_t colour)
+{
+  int i;
+  for(i = last-1; i >= 0; i--) {
+    if(bitset_get(path_set_colset(&set->members.data[i],set), colour))
+      return i;
+  }
+
+  return -1;
+}
+
+// Remove colours from paths with 'count' < threshold
+// Updates `pstore` if != NULL
+void path_set_threshold(PathSet *set, uint8_t threshold,
+                        size_t colour, uint8_t *pstore)
+{
+  if(threshold == 0) return;
+  if(set->members.len == 0) return;
+  if(!set->sorted) path_set_sort(set);
+
+  int num_members = set->members.len;
+  PathEntry *entries = set->members.data, *prev;
+  const PathEntry *curr;
+
+  // Work backwards sum up counts
+  int j = _get_prev_in_col(set, num_members, colour);
+  int i = _get_prev_in_col(set, j, colour);
+
+  while(i >= 0)
+  {
+    prev = &entries[i];
+    curr = &entries[j];
+
+    if(prev->orient == curr->orient && prev->plen <= curr->plen &&
+       binary_seqs_cmp(path_set_seq(prev, set), prev->plen,
+                       path_set_seq(curr, set), prev->plen) == 0)
+    {
+      // path i is subset of j
+      prev->count = MIN2(255, (size_t)prev->count + curr->count);
+    }
+
+    j = i;
+    i = _get_prev_in_col(set, j, colour);
+  }
+
+  // Remove colours from low scoring paths in both this PathSet and PathStore
+  for(i = 0; i < num_members; i++) {
+    if(entries[i].count > 0 && entries[i].count < threshold) {
+      bitset_del(path_set_colset(&entries[i], set), colour);
+      if(pstore != NULL)
+        bitset_del(packedpath_get_colset(pstore + entries[i].pindex), colour);
+    }
+  }
+}
+
+// Run checks on a PathSet
+// Prints error message and returns false on error
+// Otherwise returns true
+bool path_set_check(const PathSet *set)
+{
+  size_t i;
+  bool no_errors = true;
+  for(i = 0; i < set->members.len; i++) {
+    const PathEntry *entry = &set->members.data[i];
+    if(entry->seq + (entry->plen+3)/4 > set->seqs.len) {
+      warn("[PathSet] path %zu looks corrupted", i);
+      no_errors = false;
+    }
+  }
+  return no_errors;
 }

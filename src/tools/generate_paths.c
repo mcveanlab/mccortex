@@ -35,7 +35,7 @@ struct GenPathWorker
 
   // Current job
   AsyncIOData *data; // current data
-  CorrectAlnReadsTask task; // current task
+  CorrectAlnTask task; // current task
   LoadingStats stats;
 
   dBAlignment aln;
@@ -441,8 +441,13 @@ static void reads_to_paths(GenPathWorker *wrkr)
     seq_reader_orient_mp_FF_or_RR(r1, r2, wrkr->task.matedir);
 
   // Update stats
-  if(r2 == NULL) wrkr->stats.num_se_reads++;
-  else wrkr->stats.num_pe_reads += 2;
+  wrkr->stats.total_bases_read += r1->seq.end;
+  if(r2 == NULL) {
+    wrkr->stats.num_se_reads++;
+  } else {
+    wrkr->stats.num_pe_reads += 2;
+    wrkr->stats.total_bases_read += r2->seq.end;
+  }
 
   db_alignment_from_reads(&wrkr->aln, r1, r2,
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
@@ -459,8 +464,12 @@ static void reads_to_paths(GenPathWorker *wrkr)
   correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->task.crt_params);
 
   dBNodeBuffer *nbuf;
-  while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL)
+  while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL) {
     worker_contig_to_junctions(wrkr, nbuf);
+    wrkr->stats.contigs_loaded++;
+    wrkr->stats.num_kmers_loaded += nbuf->len;
+    wrkr->stats.total_bases_loaded += nbuf->len + wrkr->db_graph->kmer_size - 1;
+  }
 }
 
 // Print progress every 5M reads
@@ -490,7 +499,7 @@ static void generate_paths_worker(void *ptr)
   {
     memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
     wrkr->data = data;
-    memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnReadsTask));
+    memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnTask));
     reads_to_paths(wrkr);
     msgpool_release(pool, pos, MPOOL_EMPTY);
 
@@ -501,11 +510,11 @@ static void generate_paths_worker(void *ptr)
 }
 
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
-                          const CorrectAlnReadsTask *task)
+                          const CorrectAlnTask *task)
 {
   // Copy task to worker
   wrkr->data = data;
-  memcpy(&wrkr->task, task, sizeof(CorrectAlnReadsTask));
+  memcpy(&wrkr->task, task, sizeof(CorrectAlnTask));
 
   reads_to_paths(wrkr);
 }
@@ -531,14 +540,14 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   AsyncIOReadTask iotask = {.file1 = NULL, .file2 = NULL,
                             .fq_offset = 0, .interleaved = false};
 
-  CorrectAlnReadsTask task = {.files = iotask, .fq_cutoff = 0, .hp_cutoff = 0,
+  CorrectAlnTask task = {.files = iotask, .fq_cutoff = 0, .hp_cutoff = 0,
                               .matedir = READPAIR_FF, .crt_params = params,
                               .ptr = NULL};
 
   gen_paths_worker_seq(gen_path_wrkr, &iodata, &task);
 }
 
-void generate_paths(CorrectAlnReadsTask *tasks, size_t num_inputs,
+void generate_paths(CorrectAlnTask *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {
   size_t i;

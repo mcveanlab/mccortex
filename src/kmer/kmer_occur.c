@@ -459,7 +459,6 @@ void kograph_filter_extend(KOGraph kograph,
   if(runs0 != korun->data) {
     // Copy final array into start position
     memmove(korun->data, runs0, nruns0 * sizeof(KOccurRun));
-    runs0 = korun->data;
   }
 
   korun->len = nruns0;

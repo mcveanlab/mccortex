@@ -11,18 +11,6 @@
 // (1-(1/(2^12)))^4080 = 0.369 = 37% of entries would have zero collisions
 // (1-(1/(2^16)))^4080 = 0.939 = 94% of entries would have zero collisions
 
-// Packed structure is 10 bytes
-// Do not use pointes to fields in this struct - they are not aligned
-struct KPEntryStruct
-{
-  // 5 bytes each
-  hkey_t hkey:40;
-  PathIndex pindex:40;
-} __attribute((packed));
-
-#define PATH_HASH_UNSET (0xffffffffff)
-#define PATH_HASH_ENTRY_ASSIGNED(x) ((x).hkey != PATH_HASH_UNSET)
-
 void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
 {
   size_t cap_entries; uint64_t num_bkts = 0; uint8_t bkt_size = 0;
@@ -46,7 +34,6 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
   KPEntry *table = ctx_malloc(cap_entries * sizeof(KPEntry));
   uint8_t *bktlocks = ctx_calloc(bktlocks_mem, sizeof(uint8_t));
   uint8_t *bucket_nitems = ctx_calloc(num_bkts, sizeof(uint8_t));
-  uint8_t *path_counts = ctx_calloc(cap_entries, sizeof(uint8_t));
 
   ctx_assert(num_bkts * bkt_size == cap_entries);
   ctx_assert(cap_entries > 0);
@@ -62,18 +49,17 @@ void path_hash_alloc(PathHash *phash, size_t mem_in_bytes)
                   .mask = num_bkts - 1,
                   .num_entries = 0,
                   .bucket_nitems = bucket_nitems,
-                  .bktlocks = bktlocks,
-                  .path_counts = path_counts};
+                  .bktlocks = bktlocks};
 
   memcpy(phash, &tmp, sizeof(PathHash));
 }
 
 void path_hash_dealloc(PathHash *phash)
 {
-  ctx_free(phash->path_counts);
   ctx_free(phash->bucket_nitems);
   ctx_free(phash->bktlocks);
   ctx_free(phash->table);
+  memset(phash, 0, sizeof(PathHash));
 }
 
 void path_hash_reset(PathHash *phash)
@@ -87,6 +73,8 @@ static inline bool _phash_entries_match(KPEntry entry,
                                         const uint8_t *seq,
                                         const uint8_t *pstore, size_t colbytes)
 {
+  ctx_assert(entry.hkey != PATH_HASH_UNSET);
+  ctx_assert(entry.pindex != PATH_HASH_UNSET);
   const uint8_t *seq2 = packedpath_seq(pstore+entry.pindex, colbytes);
   return (hkey == entry.hkey && memcmp(seq, seq2, (plen+3)/4) == 0);
 }
@@ -95,7 +83,7 @@ static inline bool _phash_entries_match(KPEntry entry,
 // Returns:
 //   1  inserted
 //   0  found
-//  -1  not found or inserted
+//  -1  not found and not inserted
 static inline int _find_or_add_in_bucket(PathHash *restrict phash, uint64_t hash,
                                          hkey_t hkey, PathLen plen,
                                          const uint8_t *restrict seq,
@@ -158,18 +146,6 @@ static inline int _find_in_bucket(PathHash *restrict phash, uint64_t hash,
   return -1;
 }
 
-static inline void safe_increment(volatile uint8_t *ptr)
-{
-  uint8_t v = *ptr, newv, curr;
-  do {
-    // Compare and swap returns the value of ptr before the operation
-    curr = v;
-    newv = curr + 1;
-    v = __sync_val_compare_and_swap(ptr, curr, newv);
-  }
-  while(v != curr);
-}
-
 // You must acquire the lock on the kmer before adding
 // packed points to <PathLen><PackedSeq>
 // *pos is set to the index of the entry if inserted or found
@@ -214,10 +190,7 @@ int path_hash_find_or_insert_mt(PathHash *restrict phash, hkey_t hkey,
                             pstore, colbytes, pos);
     }
 
-    if(ret >= 0) {
-      safe_increment(&phash->path_counts[hash]);
-      return ret;
-    }
+    if(ret >= 0) return ret;
   }
 
   return -1; // Out of space
@@ -232,35 +205,4 @@ void path_hash_set_pindex(PathHash *phash, size_t pos, PathIndex pindex)
 PathIndex path_hash_get_pindex(const PathHash *phash, size_t pos)
 {
   return phash->table[pos].pindex;
-}
-
-// Get histogram of path counts
-void path_hash_get_count_hist(const PathHash *phash, uint64_t hist[256])
-{
-  size_t i;
-  for(i = 0; i < phash->capacity; i++)
-    if(PATH_HASH_ENTRY_ASSIGNED(phash->table[i]))
-      hist[phash->path_counts[i]]++;
-}
-
-// Remove entries with counts below threshold for a given colour
-void path_hash_threshold(const PathHash *phash,
-                         size_t colour, uint8_t threshold,
-                         uint8_t *restrict pstore)
-{
-  size_t i;
-  for(i = 0; i < phash->capacity; i++) {
-    if(PATH_HASH_ENTRY_ASSIGNED(phash->table[i]) &&
-       phash->path_counts[i] < threshold)
-    {
-      // remove colour from colset
-      uint8_t *ptr = packedpath_get_colset(pstore+phash->table[i].pindex);
-      bitset_del(ptr, colour);
-    }
-  }
-}
-
-void path_hash_wipe_counts(PathHash *phash)
-{
-  memset(phash->path_counts, 0, phash->capacity * sizeof(phash->path_counts[0]));
 }

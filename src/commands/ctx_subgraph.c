@@ -116,7 +116,7 @@ int ctx_subgraph(CmdArgs *args)
 
   // Don't need to check, but it prints out memory
   total_mem = graph_mem + fringe_mem;
-  cmd_check_mem_limit(args, total_mem);
+  cmd_check_mem_limit(args->mem_to_use, total_mem);
 
   //
   // Open output file

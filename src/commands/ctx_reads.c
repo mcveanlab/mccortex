@@ -157,7 +157,7 @@ int ctx_reads(CmdArgs *args)
   // Check output is writable
 
   bool use_fq = false, use_fa = false, invert = false;
-  seq_file_t *seqfiles[argc];
+  seq_file_t **seqfiles = ctx_calloc(argc, sizeof(seq_file_t*));
   size_t num_sf = 0, sf = 0;
 
   int argi;
@@ -199,6 +199,9 @@ int ctx_reads(CmdArgs *args)
   if(argi >= argc)
     cmd_print_usage("Please specify input graph files");
 
+  if(num_sf == 0)
+    cmd_print_usage("Please specify at least one sequence file [--seq{,i,2}]");
+
   int argend = argi;
 
   const size_t num_gfiles = (size_t)(argc - argend);
@@ -222,7 +225,7 @@ int ctx_reads(CmdArgs *args)
 
   kmers_in_hash = cmd_get_kmers_in_hash(args, 0, ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   //
   // Test output files
@@ -277,8 +280,8 @@ int ctx_reads(CmdArgs *args)
 
   for(argi = 0; argi < argend; argi++)
   {
-    char is_se = (!strcmp(argv[argi],"--seq")  || !strcmp(argv[argi],"-1"));
-    char is_pe = (!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2"));
+    bool is_se = (!strcmp(argv[argi],"--seq")  || !strcmp(argv[argi],"-1"));
+    bool is_pe = (!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2"));
     bool is_interleaved = (!strcmp(argv[argi],"--seqi")  || !strcmp(argv[argi],"-i"));
 
     if(is_se || is_pe || is_interleaved)
@@ -358,6 +361,8 @@ int ctx_reads(CmdArgs *args)
 
   seq_read_dealloc(&r1);
   seq_read_dealloc(&r2);
+
+  ctx_free(seqfiles);
 
   size_t total_reads = stats.num_se_reads + stats.num_pe_reads;
 

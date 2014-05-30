@@ -31,18 +31,21 @@ const char rmsubstr_usage[] =
 
 // Returns true if a read is a substring of ANY read in the list or a complete
 // match with a read before it in the list. Returns false otherwise.
-// Returns false if the read is shorter than kmer_size.
-static bool _is_substr(const ReadBuffer *rbuf, size_t idx,
-                       KOGraph kograph, const dBGraph *db_graph)
+//  1 => is substr
+//  0 => not substr
+// -1 => not enough bases of ACGT
+static int _is_substr(const ReadBuffer *rbuf, size_t idx,
+                      KOGraph kograph, const dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
   const read_t *r = &rbuf->data[idx], *r2;
   const char *seq = r->seq.b, *seq2;
+  size_t i, contig_start;
 
-  if(r->seq.end < kmer_size) return false;
+  contig_start = seq_contig_start(r, 0, kmer_size, 0, 0);
+  if(contig_start >= r->seq.end) return -1;
 
-  size_t i;
-  BinaryKmer bkmer = binary_kmer_from_str(seq, kmer_size);
+  BinaryKmer bkmer = binary_kmer_from_str(seq+contig_start, kmer_size);
   dBNode node = db_graph_find(db_graph, bkmer);
   ctx_assert(node.key != HASH_NOT_FOUND);
 
@@ -52,23 +55,26 @@ static bool _is_substr(const ReadBuffer *rbuf, size_t idx,
 
   for(i = 0; i < num_hits; i++)
   {
-    r2 = &rbuf->data[hits[i].chrom];
-    seq2 = r2->seq.b + hits[i].offset;
-
-    // A read is a duplicate (i.e. return true) if it is a substring of ANY
-    // read in the list or a complete match with a read before it in the list.
-    // That is why we have: (hits[i].chrom < idx || r->seq.end != r2->seq.end)
-    // since identical strings have equal length
-    if(hits[i].chrom != idx && hits[i].orient == node.orient &&
-       (hits[i].chrom < idx || r->seq.end != r2->seq.end) &&
-       hits[i].offset + r->seq.end <= r2->seq.end &&
-       strncasecmp(seq, seq2, r->seq.end) == 0)
+    if(hits[i].offset >= contig_start)
     {
-      return true;
+      r2 = &rbuf->data[hits[i].chrom];
+      seq2 = r2->seq.b + hits[i].offset - contig_start;
+
+      // A read is a duplicate (i.e. return true) if it is a substring of ANY
+      // read in the list or a complete match with a read before it in the list.
+      // That is why we have: (hits[i].chrom < idx || r->seq.end != r2->seq.end)
+      // since identical strings have equal length
+      if(hits[i].chrom != idx && hits[i].orient == node.orient &&
+         (hits[i].chrom < idx || r->seq.end != r2->seq.end) &&
+         hits[i].offset + r->seq.end <= r2->seq.end &&
+         strncasecmp(seq, seq2, r->seq.end) == 0)
+      {
+        return 1;
+      }
     }
   }
 
-  return false;
+  return 0;
 }
 
 int ctx_rmsubstr(CmdArgs *args)
@@ -91,7 +97,7 @@ int ctx_rmsubstr(CmdArgs *args)
         cmd_print_usage("%s <kmer> requires an odd integer value %i >= K >= %i",
                         argv[argi], MIN_KMER_SIZE, MAX_KMER_SIZE);
       }
-      kmer_set = true;
+      kmer_set++;
       argi++;
     }
     else if(!strcmp(argv[argi], "--plain") || !strcmp(argv[argi],"-i")) {
@@ -152,7 +158,7 @@ int ctx_rmsubstr(CmdArgs *args)
                                         est_num_bases, est_num_bases,
                                         false, &graph_mem);
 
-  cmd_check_mem_limit(args, graph_mem);
+  cmd_check_mem_limit(args->mem_to_use, graph_mem);
 
   //
   // Open output file
@@ -181,28 +187,39 @@ int ctx_rmsubstr(CmdArgs *args)
   KOGraph kograph = kograph_create(rbuf.data, rbuf.len, true,
                                    num_of_threads, &db_graph);
 
-  size_t num_reads_start = rbuf.len, num_reads_end = 0;
+  size_t num_reads = rbuf.len, num_reads_printed = 0, num_bad_reads = 0;
 
   // Loop over reads printing those that are not substrings
+  int ret;
   for(i = 0; i < rbuf.len; i++) {
-    if(!_is_substr(&rbuf, i, kograph, &db_graph)) {
+    ret = _is_substr(&rbuf, i, kograph, &db_graph);
+    if(ret == 0) {
       switch(output_format) {
         case OUTPUT_PLAIN: fputs(rbuf.data[i].seq.b, fout); fputc('\n', fout); break;
         case OUTPUT_FASTA: seq_print_fasta(&rbuf.data[i], fout, 0); break;
         case OUTPUT_FASTQ: seq_print_fastq(&rbuf.data[i], fout, 0); break;
       }
-      num_reads_end++;
+      num_reads_printed++;
     }
+    else if(ret == -1) num_bad_reads++;
   }
 
-  char num_reads_start_str[100], num_reads_end_str[100];
-  ulong_to_str(num_reads_start, num_reads_start_str);
-  ulong_to_str(num_reads_end, num_reads_end_str);
+  char num_reads_str[100], num_reads_printed_str[100], num_bad_reads_str[100];
+  ulong_to_str(num_reads, num_reads_str);
+  ulong_to_str(num_reads_printed, num_reads_printed_str);
+  ulong_to_str(num_bad_reads, num_bad_reads_str);
 
   status("Printed %s / %s (%.1f%%) to %s",
-         num_reads_end_str, num_reads_start_str,
-         (100.0 * num_reads_end) / num_reads_start,
+         num_reads_printed_str, num_reads_str,
+         (100.0 * num_reads_printed) / num_reads,
          futil_outpath_str(output_path));
+
+  if(num_bad_reads > 0) {
+    status("Bad reads: %s / %s (%.1f%%) - no kmer {ACGT} of length %zu",
+           num_bad_reads_str, num_reads_str,
+           (100.0 * num_bad_reads) / num_reads,
+           kmer_size);
+  }
 
   fclose(fout);
   kograph_free(kograph);

@@ -17,6 +17,10 @@ typedef struct
   uint8_t *store, *end, *next;
   const size_t num_of_cols, colset_bytes;
 
+  size_t extra_bytes; // Extra bytes per path
+  // If no paths have been removed the following should be true:
+  //   next-store = num_of_bytes + num_of_paths*extra_bytes
+
   // Number of bytes required to dump optimised paths
   // This will not be `next - store` if extra data is associated with paths
   // or if some paths have been removed
@@ -86,13 +90,16 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
 // If compatible, a FileFilter can be read straight into a PathStore without
 // parsing each path, one-by-one (much faster!)
 #define path_store_fltr_compatible(st,fltr) \
-        ((fltr)->nofilter && \
-         roundup_bits2bytes((fltr)->filencols) == (st)->colset_bytes)
+        ((fltr)->nofilter && roundup_bits2bytes((fltr)->filencols) == (st)->colset_bytes)
+
+// Get count distribution
+// `hist` must be 256*sizeof(uint64_t)
+void path_store_counts_histogram(PathStore *pstore, uint64_t *hist);
 
 //
 // Print
 //
-void path_store_print(const PathStore *pstore);
+void path_store_print_status(const PathStore *pstore);
 
 void path_store_print_path(const PathStore *paths, PathIndex index);
 void path_store_print_all(const PathStore *paths);
@@ -104,7 +111,7 @@ void print_path(hkey_t hkey, const uint8_t *packed, const PathStore *pstore);
 // Data checks for debugging / testing
 //
 bool path_store_data_integrity_check(const uint8_t *data, size_t size,
-                                        size_t colbytes);
+                                     size_t colbytes, size_t extra_bytes);
 
 bool path_store_integrity_check(const PathStore *pstore);
 
