@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 if [ "${TRAVIS_BRANCH}" != 'coverity_scan' ] || \
    ( [ "${CC}" == "gcc" ] && \
      [ "${TRAVIS_OS_NAME}" == "linux" ] );

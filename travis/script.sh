@@ -1,8 +1,10 @@
 #!/bin/sh
 
-if [ `./travis/run.sh` == 'yes' ]
+set -e
+
+if [ "`./travis/run.sh`" == 'yes' ]
 then
-  if [ ${TRAVIS_BRANCH} == 'coverity_scan' ]
+  if [ "${TRAVIS_BRANCH}" == 'coverity_scan' ]
   then
     ./travis/travisci_build_coverity_scan.sh
   else
