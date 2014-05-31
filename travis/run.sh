@@ -4,7 +4,7 @@ set -e
 
 if [ "${TRAVIS_BRANCH}" != 'coverity_scan' ] || \
    ( [ "${CC}" == "gcc" ] && \
-     [ "${TRAVIS_OS_NAME}" == "linux" ] );
+     ( [ -z "${TRAVIS_OS_NAME}" ] || [ "${TRAVIS_OS_NAME}" == "linux" ] ));
 then
   echo yes
 else
