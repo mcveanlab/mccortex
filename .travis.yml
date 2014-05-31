@@ -16,6 +16,11 @@ install: ./travis/install.sh
 
 script: ./travis/script.sh
 
+env:
+  global:
+    # COVERITY_SCAN_TOKEN
+    - secure: "UcNZuEJqAL+JWMxD3wWQuZa5uWdAe8/hDKNpfkR5BiQLUTG+HHmzuzgcaefC5hC1ZukcDzXLPEDpddF+QZ+dP6MDFAKrgNoJyNvtT9hI6wRY5+hMOONj+3V6oHXB/Ntqj0O0rxLzaUe2CjU0EYXbmGcDLLDJgIszEgozpJXsLTE="
+
 notifications:
   hipchat:
     rooms:

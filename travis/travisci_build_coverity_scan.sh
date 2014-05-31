@@ -5,13 +5,13 @@ set -e
 #
 # Isaac added these lines [31 May 2014]
 #
-[ ${TRAVIS_BRANCH} != 'coverity_scan' ] && echo "Coverity only runs on branch coverity_scan" && exit 0
-[ ${CC} != "gcc" || ${TRAVIS_OS_NAME} != "linux" ] && echo "Coverity only runs on linux+gcc" && exit 0
+[ "${TRAVIS_BRANCH}" != 'coverity_scan' ] && echo "Coverity only runs on branch coverity_scan" && exit 0
+[ "${CC}" != "gcc" ] && echo ""echo "Coverity only runs on GCC" && exit 0
+( [ "${TRAVIS_OS_NAME}" != "" ] && [ "${TRAVIS_OS_NAME}" != "linux" ] ) && echo "Coverity only runs on linux" && exit 0
 
-COVERITY_SCAN_PROJECT_NAME='mcveanlab/mccortex'
-COVERITY_SCAN_BRANCH_PATTERN='coverity_scan'
+COVERITY_SCAN_PROJECT_NAME=mcveanlab/mccortex
+COVERITY_SCAN_BRANCH_PATTERN=coverity_scan
 COVERITY_SCAN_BUILD_COMMAND='make all'
-COVERITY_SCAN_TOKEN=UcNZuEJqAL+JWMxD3wWQuZa5uWdAe8/hDKNpfkR5BiQLUTG+HHmzuzgcaefC5hC1ZukcDzXLPEDpddF+QZ+dP6MDFAKrgNoJyNvtT9hI6wRY5+hMOONj+3V6oHXB/Ntqj0O0rxLzaUe2CjU0EYXbmGcDLLDJgIszEgozpJXsLTE=
 
 echo "COVERITY_SCAN_PROJECT_NAME=${COVERITY_SCAN_PROJECT_NAME}"
 echo "COVERITY_SCAN_BRANCH_PATTERN=${COVERITY_SCAN_BRANCH_PATTERN}"
