@@ -2,7 +2,9 @@
 
 set -e
 
-if [ "`./travis/run.sh`" == 'yes' ]
+RUN_TRAVIS=`./travis/run.sh`
+
+if [ "$RUN_TRAVIS" == "yes" ]
 then
   cd libs && make core && cd ..
 fi
