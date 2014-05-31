@@ -773,7 +773,7 @@ int ctx_place(CmdArgs *args)
   ulong_to_str(num_bubbles, total_bubbles_str);
   ulong_to_str(num_variants_printed, nvariants_str);
 
-  double pass_rate = 100.0 * (double)num_passed / num_bubbles;
+  double pass_rate = num_bubbles ? 100.0 * (double)num_passed / num_bubbles : 0;
 
   char nw_flank_str[100], nw_allele_str[100];
   ulong_to_str(num_nw_flank, nw_flank_str);

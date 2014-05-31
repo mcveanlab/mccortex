@@ -232,7 +232,8 @@ int ctx_view(CmdArgs *args)
 
   if((print_kmers || parse_kmers) && print_info)
   {
-    double mean_kmer_covg = (double)sum_covgs_read / num_kmers_read;
+    double mean_kmer_covg = 0;
+    if(num_kmers_read > 0) mean_kmer_covg = (double)sum_covgs_read / num_kmers_read;
     printf("----\n");
     printf("number of kmers:    %s\n", ulong_to_str(num_kmers_read, num_str));
     printf("sum of coverages:   %s\n", ulong_to_str(sum_covgs_read, num_str));

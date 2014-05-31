@@ -112,6 +112,9 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
   SAFE_READ(fh, &h->num_of_cols, sizeof(uint32_t), "number of colours", path, fatal);
   bytes_read += 4*sizeof(uint32_t);
 
+  if(h->num_of_cols > 10000)
+    die("Very high number of colours: %zu", (size_t)h->num_of_cols);
+
   // Checks
   if(h->version > 7 || h->version < 4)
   {

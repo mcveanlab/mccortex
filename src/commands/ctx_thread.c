@@ -127,7 +127,6 @@ int ctx_thread(int argc, char **argv)
 
   while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
     get_long_opt(longopts, c, cmd);
-    printf("parsing %i:%c %s opt is %s\n", c, (char)c, cmd, optarg ? optarg : "NULL");
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;

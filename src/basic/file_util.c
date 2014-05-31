@@ -11,21 +11,15 @@
 static int do_mkdir(const char *path, mode_t mode)
 {
   struct stat st;
-  int status = 0;
 
-  if(stat(path, &st) != 0)
-  {
-    /* Directory does not exist. EEXIST for race condition */
-    if(mkdir(path, mode) != 0 && errno != EEXIST)
-      status = -1;
-  }
-  else if(!S_ISDIR(st.st_mode))
-  {
-    errno = ENOTDIR;
-    status = -1;
-  }
+  // mkdir returns zero on success
+  //               nonzero on error, setting errno to EEXIST if dir already exists
+  // stat returns nonzero if cannot stat file
+  if((mkdir(path, mode) != 0 && errno != EEXIST) ||
+     (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)))
+    return -1;
 
-  return status;
+  return 0;
 }
 
 /**

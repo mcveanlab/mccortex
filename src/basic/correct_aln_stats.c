@@ -72,6 +72,8 @@ void correct_aln_stats_dump(const char *path,
 {
   ctx_assert(arrlen > 0);
 
+  if(nreads == 0) { warn("No results to save."); return; }
+
   // Print summary statistics: min, mean, median, mode, max
   size_t i, min, max, total, ngaps = 0, mode = 0;
   max = total = arr[0];
