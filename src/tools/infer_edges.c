@@ -167,7 +167,7 @@ size_t infer_edges(size_t nthreads, bool add_all_edges, const dBGraph *db_graph)
                             .add_all_edges = add_all_edges,
                             .db_graph = db_graph,
                             .num_nodes_modified = 0};
-    wrkrs[i] = tmp;
+    memcpy(&wrkrs[i], &tmp, sizeof(InferEdgesWorker));
   }
 
   util_run_threads(wrkrs, nthreads, sizeof(InferEdgesWorker),

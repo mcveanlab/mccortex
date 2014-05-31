@@ -369,7 +369,8 @@ int ctx_thread(int argc, char **argv)
   size_t start, end;
   for(start = 0; start < tasks.len; start += num_of_threads)
   {
-    end = MIN2(tasks.len, start+end);
+    // Can have different numbers of inputs vs threads
+    end = MIN2(tasks.len, start+num_of_threads);
     generate_paths(tasks.data+start, end-start, workers, num_of_threads);
   }
 

@@ -2,6 +2,11 @@
 
 set -e
 
+echo "Branch: ${TRAVIS_BRANCH}"
+echo "OS: ${TRAVIS_OS_NAME}"
+echo "TRAVIS_CC: ${TRAVIS_CC}"
+echo "CC: ${CC}"
+
 RUN_TRAVIS=`./travis/run.sh`
 
 if [ "$RUN_TRAVIS" == "yes" ]
