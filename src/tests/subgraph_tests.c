@@ -5,11 +5,6 @@
 #include "build_graph.h"
 #include "subgraph.h"
 
-static void add_to_graph(dBGraph *graph, const char *str)
-{
-  build_graph_from_str_mt(graph, 0, str, strlen(str));
-}
-
 static void run_subgraph(dBGraph *graph, uint8_t *mask,
                          size_t dist, bool invert, bool grab_supernodes,
                          size_t expt_nkmers, char *seq, size_t len)
@@ -29,7 +24,7 @@ static void run_subgraph(dBGraph *graph, uint8_t *mask,
 
 static void simple_subgraph_test()
 {
-  // Construct 1 colour graph with kmer-size=11
+  // Construct 1 colour graph with kmer-size=19
   dBGraph graph;
   size_t kmer_size = 19, ncols = 1;
 
@@ -57,7 +52,7 @@ static void simple_subgraph_test()
 "TAATCCCTCCTTATCAGAAGTAATCGTCGTTGCCGAGTTAGATCATGTCGGGACGTTGCCCTCAAGACGCCCAACGGA"
 "AAAATTCACGATAGTGGCGCTCGGGAGGAGTACGCAACTCAGCACCCCGGTGAGTAGCTCCCTT";
 
-  add_to_graph(&graph, graphseq);
+  _tests_add_to_graph(&graph, graphseq, 0);
   TASSERT2(graph.ht.num_kmers == 1000-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
 
   // Pull out 10, 9, ... 0 bases around 2 kmers: GAGGTGGGTCCGCCTTGCGGt
@@ -72,12 +67,12 @@ static void simple_subgraph_test()
 
   // 2) Rebuild graph
   // Still expect 0 kmers with an empty seed
-  add_to_graph(&graph, graphseq);
+  _tests_add_to_graph(&graph, graphseq, 0);
   run_subgraph(&graph, mask, 100, false, false, 0, seed2, strlen(seed2));
 
   // 3) Rebuild graph
   // Get the whole graph
-  add_to_graph(&graph, graphseq);
+  _tests_add_to_graph(&graph, graphseq, 0);
   run_subgraph(&graph, mask, 600, false, false, 1000-19+1, seed, strlen(seed));
 
   ctx_free(mask);
@@ -106,8 +101,8 @@ static void test_subgraph_supernodes()
   char seq1[] = "cTGGTGCCTAGAAGGTg";
   size_t i;
 
-  add_to_graph(&graph, seq0);
-  add_to_graph(&graph, seq1);
+  _tests_add_to_graph(&graph, seq0, 0);
+  _tests_add_to_graph(&graph, seq1, 0);
 
   for(i = 1; i <= 5; i++)
     run_subgraph(&graph, mask, 0, false, true, 5, seq0+i, kmer_size);
@@ -117,17 +112,17 @@ static void test_subgraph_supernodes()
 
   // Rebuild the graph
   // and check that we only get the ege kmer for each of the four cases
-  add_to_graph(&graph, seq0);
-  add_to_graph(&graph, seq1);
+  _tests_add_to_graph(&graph, seq0, 0);
+  _tests_add_to_graph(&graph, seq1, 0);
   run_subgraph(&graph, mask, 0, false, true, 1, seq0, kmer_size);
-  add_to_graph(&graph, seq0);
-  add_to_graph(&graph, seq1);
+  _tests_add_to_graph(&graph, seq0, 0);
+  _tests_add_to_graph(&graph, seq1, 0);
   run_subgraph(&graph, mask, 0, false, true, 1, seq1, kmer_size);
-  add_to_graph(&graph, seq0);
-  add_to_graph(&graph, seq1);
+  _tests_add_to_graph(&graph, seq0, 0);
+  _tests_add_to_graph(&graph, seq1, 0);
   run_subgraph(&graph, mask, 0, false, true, 1, seq0+6, kmer_size);
-  add_to_graph(&graph, seq0);
-  add_to_graph(&graph, seq1);
+  _tests_add_to_graph(&graph, seq0, 0);
+  _tests_add_to_graph(&graph, seq1, 0);
   run_subgraph(&graph, mask, 0, false, true, 1, seq1+6, kmer_size);
 
   ctx_free(mask);

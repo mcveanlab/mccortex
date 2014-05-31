@@ -83,7 +83,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "inferedges", .func = ctx_infer_edges, .hide = 0,
-  .minargs = 1, .maxargs = 3, .optargs = "mno", .reqargs = "",
+  .minargs = 1, .maxargs = 3, .optargs = "mnot", .reqargs = "",
   .blurb = "infer graph edges between kmers before calling `thread`",
   .usage = inferedges_usage
 },

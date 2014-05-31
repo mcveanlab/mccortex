@@ -604,7 +604,8 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
       }
 
       if(keep_kmer) {
-        graph_write_kmer(out, hdr, bkmer.b, kmercovgs, kmeredges);
+        graph_write_kmer(out, hdr->num_of_bitfields, hdr->num_of_cols,
+                         bkmer, kmercovgs, kmeredges);
         nodes_dumped++;
       }
     }

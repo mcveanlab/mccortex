@@ -179,11 +179,13 @@ DIRS=bin $(BASIC_OBJDIR) $(KMER_OBJDIR) $(TOOLS_OBJDIR) $(CMDS_OBJDIR) $(TESTS_O
 
 # DEPS are kmer dependencies that do not need to be re-built per target
 DEPS=Makefile $(DIRS) $(LIB_OBJS)
+REQ=
 
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
 	OBJS=$(CMDS_SRCS) $(TOOLS_SRCS) $(KMER_SRCS) $(BASIC_SRCS) $(LIB_OBJS)
 	TESTS_OBJS=$(TESTS_SRCS)
+	REQ=force
 else
 	OBJS=$(CMDS_OBJS) $(TOOLS_OBJS) $(KMER_OBJS) $(BASIC_OBJS) $(LIB_OBJS)
 endif
@@ -201,8 +203,8 @@ test: tests
 # Force version.h to be remade if $(CTX_VERSION) has changed.
 ifndef CTX_VERSION
 ifneq "$(wildcard .git)" ""
-#CTX_VERSION := $(shell git describe --always --dirty)
-CTX_VERSION := $(shell git log --pretty=format:'%h' -n 1 --tags)
+CTX_VERSION := $(shell git describe --always --dirty)
+# CTX_VERSION := $(shell git log --pretty=format:'%h' -n 1 --tags)
 src/basic/version.h: $(if $(wildcard src/basic/version.h),$(if $(findstring "$(CTX_VERSION)",$(shell cat src/basic/version.h)),,force))
 endif
 endif
@@ -230,15 +232,15 @@ libs/misc/%.o: libs/misc/%.c libs/misc/%.h
 	$(CC) -o libs/misc/$*.o $(OBJFLAGS) $(CFLAGS) $(CPPFLAGS) -c libs/misc/$*.c
 
 ctx: bin/ctx$(MAXK)
-bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) | bin
+bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
-bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) | bin
+bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ -I src/commands/ -I src/tests/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
-bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) | bin
+bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ $(TGTFLAGS) $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/basic/ -I src/kmer/ -I src/tools/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 tables: bin/tables

@@ -30,6 +30,7 @@ int main()
   test_graph_crawler();
   test_bubble_caller();
   test_breakpoint_caller();
+  test_infer_edges_tests();
 
   // Check we free'd all our memory
   size_t still_alloced = ctx_num_allocs - ctx_num_frees;

@@ -119,9 +119,13 @@ void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
 
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *header);
-size_t graph_write_kmer(FILE *fh, const GraphFileHeader *h,
-                        const uint64_t *bkmer, const Covg *covgs,
+
+size_t graph_write_kmer(FILE *fh, size_t num_bkmer_words, size_t num_cols,
+                        const BinaryKmer bkmer, const Covg *covgs,
                         const Edges *edges);
+
+// Dump all kmers with all colours to given file
+void graph_write_all_kmers(FILE *fh, const dBGraph *db_graph);
 
 // If you don't want to/care about graph_info, pass in NULL
 // If you want to print all nodes pass condition as NULL

@@ -80,6 +80,11 @@ void _test_add_paths(dBGraph *graph,
                      GenPathWorker *wrkrs, char *seq,
                      size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes);
 
+static inline void _tests_add_to_graph(dBGraph *graph, const char *str, size_t colour)
+{
+  build_graph_from_str_mt(graph, colour, str, strlen(str));
+}
+
 //
 // Graph tests
 //
@@ -143,5 +148,8 @@ void test_breakpoint_caller();
 
 // graph_crawler_tests.c
 void test_graph_crawler();
+
+// infer_edges_tests.c
+void test_infer_edges_tests();
 
 #endif  /* ALL_TESTS_H_ */
