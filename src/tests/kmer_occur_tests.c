@@ -1,13 +1,10 @@
 #include "global.h"
 #include "all_tests.h"
 
-#include "breakpoint_caller.h"
 #include "kmer_occur.h"
 
 static void test_kmer_occur_filter()
 {
-  test_status("Testing kmer_occur.c");
-
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
   const size_t kmer_size = 11, ncols = 3;
@@ -102,15 +99,8 @@ static void test_kmer_occur_filter()
   db_graph_dealloc(&graph);
 }
 
-static void test_find_breakpoint()
+void test_kmer_occur()
 {
-  test_status("Testing breakpoint calling... [missing]");
-  // DEV
-}
-
-// bubble_caller_tests.c
-void test_breakpoint_caller()
-{
+  test_status("Testing KOGraph...");
   test_kmer_occur_filter();
-  test_find_breakpoint();
 }

@@ -82,7 +82,7 @@ CtxCmd cmdobjs[] = {
   .usage = contigs_usage
 },
 {
-  .cmd = "inferedges", .func = ctx_infer_edges, .hide = 0,
+  .cmd = "inferedges", .func = NULL, .func2 = ctx_infer_edges, .hide = 0,
   .minargs = 1, .maxargs = 3, .optargs = "mnot", .reqargs = "",
   .blurb = "infer graph edges between kmers before calling `thread`",
   .usage = inferedges_usage
@@ -285,7 +285,6 @@ int main(int argc, char **argv)
   }
   else {
     SWAP(argv[1],argv[0]);
-    print_status_header(argc-1, argv+1);
     ret = cmd->func2(argc-1, argv+1);
   }
 

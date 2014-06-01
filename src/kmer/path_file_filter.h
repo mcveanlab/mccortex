@@ -34,6 +34,9 @@ typedef struct
 const PathFileHeader INIT_PATH_FILE_HDR;
 const PathFileReader INIT_PATH_READER;
 
+#include "objbuf_macro.h"
+create_objbuf(pfile_buf, PathFileBuffer, PathFileReader);
+
 // 4MB buffer
 #define CTP_BUF_SIZE (4UL<<20)
 

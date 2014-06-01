@@ -3,6 +3,14 @@
 
 #include <getopt.h>
 
+struct MemArgs
+{
+  bool num_kmers_set, mem_to_use_set, num_threads_set;
+  size_t num_kmers, mem_to_use;
+  // size_t extra_mem;
+  // size_t min_kmers, max_kmers;
+};
+
 void get_long_opt(const struct option *longs, char shortopt, char *cmd);
 void long_opts_to_short(const struct option *longs, char *opts);
 

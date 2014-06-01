@@ -8,6 +8,8 @@
 #include "graph_info.h"
 #include "graph_format.h"
 #include "path_format.h"
+#include "path_file_filter.h"
+#include "graph_file_filter.h"
 #include "generate_paths.h"
 #include "graph_paths.h"
 
@@ -53,13 +55,14 @@ const char thread_usage[] =
 
 static struct option longopts[] =
 {
+// General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
   {"paths",        required_argument, NULL, 'p'},
-  {"nkmers",       required_argument, NULL, 'n'},
-  {"memory",       required_argument, NULL, 'm'},
-//
+// command specific
   {"seq",          required_argument, NULL, '1'},
   {"seq2",         required_argument, NULL, '2'},
   {"seqi",         required_argument, NULL, 'i'},
@@ -86,9 +89,6 @@ static struct option longopts[] =
   {"print-reads",  no_argument,       NULL, 'Z'},
   {NULL, 0, NULL, 0}
 };
-
-#include "objbuf_macro.h"
-create_objbuf(pfile_buf, PathFileBuffer, PathFileReader);
 
 int ctx_thread(int argc, char **argv)
 {
@@ -199,8 +199,6 @@ int ctx_thread(int argc, char **argv)
     cmd_print_usage("Expected exactly one graph file");
   else if(optind+1 < argc)
     cmd_print_usage("Expected only one graph file. What is this: '%s'", argv[optind]);
-
-  printf("done parsing\n");
 
   char *graph_path = argv[optind];
   status("Reading graph: %s", graph_path);

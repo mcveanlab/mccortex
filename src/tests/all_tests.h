@@ -143,8 +143,8 @@ void test_path_sets();
 // bubble_caller_tests.c
 void test_bubble_caller();
 
-// breakpoint_caller_tests.c
-void test_breakpoint_caller();
+// kmer_occur_tests.c
+void test_kmer_occur();
 
 // graph_crawler_tests.c
 void test_graph_crawler();

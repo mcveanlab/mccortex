@@ -223,13 +223,16 @@ static bool saving_graph_as_is(const Colour *cols, Colour start_col,
                                size_t num_of_cols, size_t num_graph_cols)
 {
   size_t i;
+
   if(cols != NULL) {
     for(i = 0; i < num_of_cols; i++)
       if(cols[i] != i)
         return false;
   }
+  else if (start_col != 0)
+    return false;
 
-  return (num_of_cols == num_graph_cols && (cols == NULL || start_col == 0));
+  return (num_of_cols == num_graph_cols);
 }
 
 // This function will dump valid binaries by not printing edges to nodes that
@@ -283,7 +286,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   // Write header
   graph_write_header(fout, header);
 
-  if(saving_graph_as_is) {
+  if(saving_graph_as_is(colours, start_col, num_of_cols, db_graph->num_of_cols)) {
     graph_write_all_kmers(fout, db_graph);
   }
   else {

@@ -34,6 +34,9 @@ typedef struct
 const GraphFileHeader INIT_GRAPH_FILE_HDR;
 const GraphFileReader INIT_GRAPH_READER;
 
+#include "objbuf_macro.h"
+create_objbuf(gfile_buf, GraphFileBuffer, GraphFileReader);
+
 // 4MB buffer
 #define CTX_BUF_SIZE (4UL<<20)
 

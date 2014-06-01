@@ -29,7 +29,7 @@ int main()
   test_path_sets();
   test_graph_crawler();
   test_bubble_caller();
-  test_breakpoint_caller();
+  test_kmer_occur();
   test_infer_edges_tests();
 
   // Check we free'd all our memory
