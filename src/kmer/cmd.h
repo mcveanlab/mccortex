@@ -3,28 +3,36 @@
 
 #include <getopt.h>
 
-struct MemArgs
-{
-  bool num_kmers_set, mem_to_use_set, num_threads_set;
-  size_t num_kmers, mem_to_use;
-  // size_t extra_mem;
-  // size_t min_kmers, max_kmers;
-};
-
-void get_long_opt(const struct option *longs, char shortopt, char *cmd);
-void long_opts_to_short(const struct option *longs, char *opts);
-
-uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg);
-uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg);
-uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg);
-size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
-
 #define CTXCMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 #define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
 
 #define DEFAULT_NTHREADS 2
 #define DEFAULT_MEM 1UL<<29 /*512MB*/
 #define DEFAULT_NKMERS 1UL<<22 /*4Million*/
+
+struct MemArgs
+{
+  bool num_kmers_set, mem_to_use_set, num_threads_set;
+  size_t num_kmers, mem_to_use;
+  size_t min_kmers, max_kmers;
+};
+
+#define MEM_ARGS_INIT {.num_kmers_set = false, .num_kmers = DEFAULT_NKMERS, \
+                       .mem_to_use_set = false, .mem_to_use = DEFAULT_MEM, \
+                       .min_kmers = 0, .max_kmers = SIZE_MAX}
+
+void cmd_mem_args_set_memory(struct MemArgs *mem, const char *arg);
+void cmd_mem_args_set_nkmers(struct MemArgs *mem, const char *arg);
+
+void cmd_get_longopt_str(const struct option *longs, char shortopt,
+                         char *cmd, size_t buflen);
+void cmd_long_opts_to_short(const struct option *longs,
+                            char *opts, size_t buflen);
+
+uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg);
+uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg);
+uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg);
+size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
 
 typedef struct
 {

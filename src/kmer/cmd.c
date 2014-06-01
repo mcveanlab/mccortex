@@ -7,9 +7,29 @@
 
 #include <ctype.h>
 
-void get_long_opt(const struct option *longs, char shortopt, char *cmd)
+void cmd_mem_args_set_memory(struct MemArgs *mem, const char *arg)
 {
-  strcpy(cmd, "-X, --Unknown");
+  if(mem->mem_to_use_set)
+    cmd_print_usage("-m, --memory <M> specifed more than once");
+  mem->mem_to_use = cmd_parse_arg_mem("-m, --memory <M>", arg);
+  mem->mem_to_use_set = true;
+}
+
+void cmd_mem_args_set_nkmers(struct MemArgs *mem, const char *arg)
+{
+  if(mem->num_kmers_set)
+    cmd_print_usage("-n, --nkmers <N> specifed more than once");
+  mem->num_kmers = cmd_parse_arg_uint32_nonzero("-n, --nkmers <M>", arg);
+  mem->num_kmers_set = true;
+}
+
+void cmd_get_longopt_str(const struct option *longs, char shortopt,
+                         char *cmd, size_t buflen)
+{
+  const char def_str[] = "-X, --Unknown";
+  ctx_assert(buflen >= strlen(def_str)+1);
+
+  string_safe_ncpy(cmd, def_str, buflen);
   cmd[1] = shortopt;
 
   size_t i;
@@ -17,18 +37,21 @@ void get_long_opt(const struct option *longs, char shortopt, char *cmd)
     if(longs[i].val == shortopt) {
       cmd[0] = '-';
       cmd[1] = shortopt;
-      strcpy(cmd+6, longs[i].name);
+      string_safe_ncpy(cmd+6, longs[i].name, buflen-6);
       break;
     }
   }
 }
 
-void long_opts_to_short(const struct option *longs, char *opts)
+void cmd_long_opts_to_short(const struct option *longs,
+                            char *opts, size_t buflen)
 {
+  ctx_assert(buflen >= 2);
   size_t i, j;
   opts[0] = '+';
   for(i = 0, j = 1; longs[i].name != NULL; i++) {
     if(isprint(longs[i].val)) {
+      ctx_assert(j+4 <= buflen); // check we have space
       opts[j++] = longs[i].val;
       if(longs[i].has_arg) opts[j++] = ':';
       if(longs[i].has_arg == optional_argument) opts[j++] = ':';

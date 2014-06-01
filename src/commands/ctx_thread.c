@@ -93,8 +93,7 @@ static struct option longopts[] =
 int ctx_thread(int argc, char **argv)
 {
   size_t num_of_threads = DEFAULT_NTHREADS;
-  bool mem_to_use_set = false, nkmers_set = false;
-  size_t mem_to_use = DEFAULT_MEM, nkmers = DEFAULT_NKMERS;
+  struct MemArgs memargs = MEM_ARGS_INIT;
   char *out_ctp_path = NULL;
   size_t i, max_gap_limit = 0;
   bool use_new_paths = false, clean_paths = false;
@@ -117,7 +116,7 @@ int ctx_thread(int argc, char **argv)
   // Arg parsing
   char cmd[100];
   char shortopts[300];
-  long_opts_to_short(longopts, shortopts);
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
   int used = 1, c;
 
   printf("shortops: %s\n", shortopts);
@@ -126,27 +125,22 @@ int ctx_thread(int argc, char **argv)
   // opterr = 0;
 
   while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
-    get_long_opt(longopts, c, cmd);
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o': if(out_ctp_path){cmd_print_usage(NULL);} out_ctp_path = optarg; break;
+      case 'o':
+        if(out_ctp_path != NULL) cmd_print_usage(NULL);
+        out_ctp_path = optarg;
+        break;
       case 'p':
         tmp_pfile = INIT_PATH_READER;
         path_file_open(&tmp_pfile, optarg, true);
         pfile_buf_add(&pfiles, tmp_pfile);
         break;
       case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
-      case 'n':
-        if(nkmers_set) die("%s specifed more than once", cmd);
-        nkmers = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        nkmers_set = true;
-        break;
-      case 'm':
-        if(mem_to_use_set) die("%s specifed more than once", cmd);
-        mem_to_use = cmd_parse_arg_mem(cmd, optarg);
-        mem_to_use_set = true;
-        break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case '1':
       case '2':
       case 'i':
@@ -260,18 +254,20 @@ int ctx_thread(int argc, char **argv)
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
-  kmers_in_hash = cmd_get_kmers_in_hash2(mem_to_use, mem_to_use_set,
-                                         nkmers, nkmers_set,
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
                                          bits_per_kmer,
                                          ctx_max_kmers, ctx_max_kmers,
                                          false, &graph_mem);
 
   path_mem_req = path_files_mem_required(pfiles.data, pfiles.len, false, false, 1);
-  path_mem = MAX2(mem_to_use - graph_mem, path_mem_req);
+  path_mem = MAX2(memargs.mem_to_use - graph_mem, path_mem_req);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;
-  cmd_check_mem_limit(mem_to_use, total_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   //
   // Open output file

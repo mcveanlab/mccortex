@@ -96,34 +96,25 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
 int ctx_infer_edges(int argc, char **argv)
 {
   size_t num_of_threads = DEFAULT_NTHREADS;
-  bool mem_to_use_set = false, nkmers_set = false;
-  size_t mem_to_use = DEFAULT_MEM, nkmers = DEFAULT_NKMERS;
+  struct MemArgs memargs = MEM_ARGS_INIT;
   char *out_ctx_path = NULL;
   bool add_pop_edges = false, add_all_edges = false;
 
   // Arg parsing
   char cmd[100];
   char shortopts[100];
-  long_opts_to_short(longopts, shortopts);
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
   int c;
 
   while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
-    get_long_opt(longopts, c, cmd);
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
       case 'o': if(out_ctx_path){cmd_print_usage(NULL);} out_ctx_path = optarg; break;
       case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
-      case 'n':
-        if(nkmers_set) die("%s specifed more than once", cmd);
-        nkmers = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        nkmers_set = true;
-        break;
-      case 'm':
-        if(mem_to_use_set) die("%s specifed more than once", cmd);
-        mem_to_use = cmd_parse_arg_mem(cmd, optarg);
-        mem_to_use_set = true;
-        break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'A': add_all_edges = true; break;
       case 'P': add_pop_edges = true; break;
       case ':': /* BADARG */
@@ -194,13 +185,15 @@ int ctx_infer_edges(int argc, char **argv)
   // reading stream: 9 bits per kmer per colour: Edges + one bit for 'in colour'.
   extra_bits_per_kmer = file.hdr.num_of_cols * (sizeof(Edges)*8*reading_stream + 1);
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(mem_to_use, mem_to_use_set,
-                                         nkmers, nkmers_set,
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
                                          extra_bits_per_kmer,
                                          file.num_of_kmers, file.num_of_kmers,
-                                         mem_to_use_set, &graph_mem);
+                                         memargs.mem_to_use_set, &graph_mem);
 
-  cmd_check_mem_limit(mem_to_use, graph_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   //
   // Allocate memory

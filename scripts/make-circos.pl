@@ -398,6 +398,28 @@ sub make_data_files
 
   print "Creating data files...\n";
 
+  # For more information on colours see: brewer-palettes-swatches.pdf
+  #
+  # light blue, dark blue, light green, dark green
+  # my @cols = qw(paired-4-qual-1 paired-4-qual-2 paired-4-qual-3 paired-4-qual-4);
+  #
+  # light orange, dark orange, light purple, dark purple
+  # my @cols = qw(spectral-10-div-7 spectral-10-div-8 spectral-10-div-9 spectral-10-div-10);
+  #
+  # dark blue, dark green, dark orange, dark purple
+  # my @cols = qw(spectral-10-div-2 spectral-10-div-4 spectral-10-div-8 spectral-10-div-10);
+
+  # my @cols = qw(spectral-10-div-2 spectral-10-div-4 spectral-10-div-7 spectral-10-div-9);
+  #
+  # my @cols = qw(plyg-10-div-2 plyg-10-div-4 plyg-10-div-7 plyg-10-div-9);
+  # light/dark blue/red
+  # my @cols = qw(rdbu-10-div-2 rdbu-10-div-4 rdbu-10-div-7 rdbu-10-div-9);
+  # purple/green Green is inversion
+  my @cols = qw(prgn-10-div-2 prgn-10-div-4 prgn-10-div-7 prgn-10-div-9);
+
+  print "  Key: light/dark purple - Regular breakpoint\n";
+  print "       light/dark green  - Inversion breakpoint\n";
+
   my ($num_skipped,$num_entries) = (0,0);
   my ($fw_breakpoints, $rv_breakpoints) = (0,0);
   my @mnphist = ();
@@ -436,25 +458,6 @@ sub make_data_files
                         ($chr5p->{'idx'} == $chr3p->{'idx'} && $pos5p < $pos3p));
 
       my $inversion = ($flank5p->{'strand'} ne $flank3p->{'strand'});
-
-      # For more information on colours see: brewer-palettes-swatches.pdf
-      #
-      # light blue, dark blue, light green, dark green
-      # my @cols = qw(paired-4-qual-1 paired-4-qual-2 paired-4-qual-3 paired-4-qual-4);
-      #
-      # light orange, dark orange, light purple, dark purple
-      # my @cols = qw(spectral-10-div-7 spectral-10-div-8 spectral-10-div-9 spectral-10-div-10);
-      #
-      # dark blue, dark green, dark orange, dark purple
-      # my @cols = qw(spectral-10-div-2 spectral-10-div-4 spectral-10-div-8 spectral-10-div-10);
-
-      # my @cols = qw(spectral-10-div-2 spectral-10-div-4 spectral-10-div-7 spectral-10-div-9);
-      #
-      # my @cols = qw(plyg-10-div-2 plyg-10-div-4 plyg-10-div-7 plyg-10-div-9);
-      # light/dark blue/red
-      # my @cols = qw(rdbu-10-div-2 rdbu-10-div-4 rdbu-10-div-7 rdbu-10-div-9);
-      # puple/green Green is inversion
-      my @cols = qw(prgn-10-div-2 prgn-10-div-4 prgn-10-div-7 prgn-10-div-9);
 
       if($first_link && !$inversion) { $lcol = "color=$cols[0]"; }
       if(!$first_link && !$inversion) { $lcol = "color=$cols[1]"; }
