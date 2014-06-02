@@ -1,9 +1,15 @@
 #include "global.h"
 #include "correct_alignment.h"
 
+// Global variables to specify if we should print output - used for debugging only
+// These are used in generate_paths.c
+bool gen_paths_print_contigs = false, gen_paths_print_paths = false;
+bool gen_paths_print_reads = false;
+
+
 typedef struct {
-  bool traversed, paths_disagreed, gap_too_short;
-  uint64_t gap_len;
+  uint32_t gap_len;
+  uint8_t traversed, paths_disagreed, gap_too_short;
 } TraversalResult;
 
 #define INIT_BUFLEN 1024

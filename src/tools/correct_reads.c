@@ -23,83 +23,6 @@ typedef struct
   dBNodeBuffer tmpnbuf;
 } CorrectReadsWorker;
 
-// Returns true on success, false on error
-bool corrected_output_open(CorrectedOutput *out, const CorrectAlnTask *in)
-{
-  out->gzse = out->gzpe1 = out->gzpe2 = NULL;
-  const char *base = (const char*)in->ptr;
-  StrBuf *outse = &out->outse, *outpe1 = &out->outpe1, *outpe2 = &out->outpe2;
-  strbuf_alloc(outse, 512);
-  strbuf_alloc(outpe1, 512);
-  strbuf_alloc(outpe2, 512);
-
-  if(pthread_mutex_init(&out->lockse, NULL) != 0) die("Mutex init failed");
-  if(pthread_mutex_init(&out->lockpe, NULL) != 0) die("Mutex init failed");
-
-  if(in->files.interleaved || in->files.file2 == NULL)
-  {
-    strbuf_append_str(outse, base);
-    strbuf_append_str(outse, ".fa.gz");
-    if(futil_file_exists(outse->buff)) {
-      warn("SE File already exists: %s", outse->buff);
-      return false;
-    }
-    out->gzse = gzopen(outse->buff, "w");
-    if(out->gzse == NULL) {
-      warn("Cannot write to: %s", outse->buff);
-      return false;
-    }
-  }
-
-  if(in->files.interleaved || in->files.file2 != NULL)
-  {
-    strbuf_append_str(outpe1, base);
-    strbuf_append_str(outpe2, base);
-    strbuf_append_str(outpe1, ".1.fa.gz");
-    strbuf_append_str(outpe2, ".2.fa.gz");
-
-    bool fexists = false;
-    if(futil_file_exists(outpe1->buff)) {
-      warn("File already exists: %s", outpe1->buff);
-      fexists = true;
-    }
-    if(futil_file_exists(outpe2->buff)) {
-      warn("File already exists: %s", outpe2->buff);
-      fexists = true;
-    }
-    if(fexists) return false;
-
-    out->gzpe1 = gzopen(outpe1->buff, "w");
-    out->gzpe2 = gzopen(outpe2->buff, "w");
-    if(out->gzpe1 == NULL) warn("Cannot write to: %s", outpe1->buff);
-    if(out->gzpe2 == NULL) warn("Cannot write to: %s", outpe2->buff);
-    if(out->gzpe1 == NULL || out->gzpe2 == NULL) return false;
-  }
-
-  return true;
-}
-
-void corrected_output_close(CorrectedOutput *out)
-{
-  if(out->gzse != NULL) gzclose(out->gzse);
-  if(out->gzpe1 != NULL) gzclose(out->gzpe1);
-  if(out->gzpe2 != NULL) gzclose(out->gzpe2);
-  out->gzse = out->gzpe1 = out->gzpe2 = NULL;
-  strbuf_dealloc(&out->outse);
-  strbuf_dealloc(&out->outpe1);
-  strbuf_dealloc(&out->outpe2);
-  pthread_mutex_destroy(&out->lockse);
-  pthread_mutex_destroy(&out->lockpe);
-}
-
-void corrected_output_delete(CorrectedOutput *out)
-{
-  if(out->gzse != NULL) unlink(out->outse.buff);
-  if(out->gzpe1 != NULL) unlink(out->outpe1.buff);
-  if(out->gzpe2 != NULL) unlink(out->outpe2.buff);
-  corrected_output_close(out);
-}
-
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
                                        MsgPool *pool,
                                        const dBGraph *db_graph)
@@ -128,7 +51,7 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
 }
 
 static void handle_read(CorrectReadsWorker *wrkr,
-                        const CorrectAlnTask *input,
+                        const CorrectAlnInput *input,
                         const read_t *r, StrBuf *buf,
                         uint8_t fq_cutoff, uint8_t hp_cutoff)
 {
@@ -264,8 +187,8 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 {
   uint8_t fq_cutoff1, fq_cutoff2, hp_cutoff;
 
-  CorrectAlnTask *input = (CorrectAlnTask*)data->ptr;
-  CorrectedOutput *output = (CorrectedOutput*)input->ptr;
+  CorrectAlnInput *input = (CorrectAlnInput*)data->ptr;
+  SeqOutput *output = input->output;
   StrBuf *buf1 = &wrkr->buf1, *buf2 = &wrkr->buf2;
 
   read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
@@ -286,9 +209,9 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   {
     // Single ended read
     handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
-    pthread_mutex_lock(&output->lockse);
-    gzputs(output->gzse, buf1->buff);
-    pthread_mutex_unlock(&output->lockse);
+    pthread_mutex_lock(&output->lock_se);
+    gzputs(output->gzout_se, buf1->buff);
+    pthread_mutex_unlock(&output->lock_se);
 
     // Update stats
     wrkr->stats.num_se_reads++;
@@ -298,10 +221,10 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
     // Paired-end reads
     handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
     handle_read(wrkr, input, r2, buf2, fq_cutoff2, hp_cutoff);
-    pthread_mutex_lock(&output->lockpe);
-    gzputs(output->gzpe1, buf1->buff);
-    gzputs(output->gzpe2, buf2->buff);
-    pthread_mutex_unlock(&output->lockpe);
+    pthread_mutex_lock(&output->lock_pe);
+    gzputs(output->gzout_pe[0], buf1->buff);
+    gzputs(output->gzout_pe[1], buf2->buff);
+    pthread_mutex_unlock(&output->lock_pe);
 
     // Update stats
     wrkr->stats.num_pe_reads += 2;
@@ -324,10 +247,11 @@ static void correct_reads_thread(void *ptr)
   }
 }
 
+// Correct reads against the graph, and print out
 // `input` and `outputs` should both be of length `num_inputs`
 void correct_reads(size_t num_threads, size_t max_io_threads,
-                   CorrectAlnTask *inputs, CorrectedOutput *outputs,
-                   size_t num_inputs, const dBGraph *db_graph)
+                   CorrectAlnInput *inputs, size_t num_inputs,
+                   const dBGraph *db_graph)
 {
   size_t i, n;
   AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
@@ -345,7 +269,7 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
     correct_reads_worker_alloc(&wrkrs[i], &pool, db_graph);
 
   AsyncIOReadTask *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOReadTask));
-  correct_reads_input_to_asycio(asyncio_tasks, inputs, num_inputs);
+  correct_aln_input_to_asycio(asyncio_tasks, inputs, num_inputs);
 
   // Load input files max_io_threads at a time
   for(i = 0; i < num_inputs; i += max_io_threads) {
@@ -357,10 +281,8 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
   for(i = 0; i < num_threads; i++)
     correct_reads_worker_dealloc(&wrkrs[i]);
 
-  for(i = 0; i < num_inputs; i++) {
+  for(i = 0; i < num_inputs; i++)
     asyncio_task_close(&inputs[i].files);
-    corrected_output_close(&outputs[i]);
-  }
 
   ctx_free(wrkrs);
   ctx_free(asyncio_tasks);

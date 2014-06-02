@@ -35,7 +35,7 @@ struct GenPathWorker
 
   // Current job
   AsyncIOData *data; // current data
-  CorrectAlnTask task; // current task
+  CorrectAlnInput task; // current task
   LoadingStats stats;
 
   dBAlignment aln;
@@ -52,7 +52,7 @@ struct GenPathWorker
 
 #define INIT_BUFLEN 1024
 
-// Printing variables defined in correct_reads_input.h
+// Printing variables defined in correct_aln_input.h
 // Used for printint output
 volatile size_t print_contig_id = 0, print_path_id = 0;
 
@@ -499,7 +499,7 @@ static void generate_paths_worker(void *ptr)
   {
     memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
     wrkr->data = data;
-    memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnTask));
+    memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnInput));
     reads_to_paths(wrkr);
     msgpool_release(pool, pos, MPOOL_EMPTY);
 
@@ -510,11 +510,11 @@ static void generate_paths_worker(void *ptr)
 }
 
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
-                          const CorrectAlnTask *task)
+                          const CorrectAlnInput *task)
 {
   // Copy task to worker
   wrkr->data = data;
-  memcpy(&wrkr->task, task, sizeof(CorrectAlnTask));
+  memcpy(&wrkr->task, task, sizeof(CorrectAlnInput));
 
   reads_to_paths(wrkr);
 }
@@ -540,14 +540,15 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   AsyncIOReadTask iotask = {.file1 = NULL, .file2 = NULL,
                             .fq_offset = 0, .interleaved = false};
 
-  CorrectAlnTask task = {.files = iotask, .fq_cutoff = 0, .hp_cutoff = 0,
-                              .matedir = READPAIR_FF, .crt_params = params,
-                              .ptr = NULL};
+  CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
+  task.matedir = READPAIR_FF;
+  task.crt_params = params;
+  task.files = iotask;
 
   gen_paths_worker_seq(gen_path_wrkr, &iodata, &task);
 }
 
-void generate_paths(CorrectAlnTask *tasks, size_t num_inputs,
+void generate_paths(CorrectAlnInput *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {
   size_t i;
@@ -566,7 +567,7 @@ void generate_paths(CorrectAlnTask *tasks, size_t num_inputs,
   }
 
   AsyncIOReadTask *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOReadTask));
-  correct_reads_input_to_asycio(asyncio_tasks, tasks, num_inputs);
+  correct_aln_input_to_asycio(asyncio_tasks, tasks, num_inputs);
 
   asyncio_run_threads(&pool, asyncio_tasks, num_inputs, generate_paths_worker,
                       workers, num_workers, sizeof(GenPathWorker));

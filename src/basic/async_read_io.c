@@ -13,33 +13,53 @@ struct AsyncIOWorker
   size_t *const num_running;
 };
 
-// path can be a single path or a pair of paths separated by a comma or colon
-void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path,
-                        uint8_t fq_offset)
+
+// if out_base != NULL, we expect an output string as well:
+//   -1, --seq <in>:<out>
+//   -2, --seq2 <in1>:<in2>:<out>
+//   -i, --seqi <in>:<out>
+// if out_base == NULL, we expect:
+//   -1, --seq <in>
+//   -2, --seq2 <in1>:<in2>
+//   -i, --seqi <in>
+// If `out_base` is != NULL, it is set to point to the <out> string
+void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path_arg,
+                        uint8_t fq_offset, char **out_base)
 {
   seq_file_t *sf1 = NULL, *sf2 = NULL;
-  bool se = false, pe = false, il = false;
-  se = (shortopt == '1');
-  pe = (shortopt == '2');
-  il = (shortopt == 'i');
-  if(!se && !pe && !il) die("Unknown command argument: ");
-  if(se || il) {
-    if((sf1 = seq_open(path)) == NULL)
-      die("Cannot open -%c file: %s", shortopt, path);
+  bool se = (shortopt == '1');
+  bool pe = (shortopt == '2');
+  bool il = (shortopt == 'i');
+
+  if(!se && !pe && !il)
+    die("Unknown command argument: -%c", shortopt);
+
+  char *paths[3];
+  size_t npaths, exp_npaths;
+
+  npaths = string_split_str(path_arg, ':', paths, 3);
+  if(npaths == 1)
+    npaths = string_split_str(path_arg, ',', paths, 3);
+
+  exp_npaths = (pe ? 2 : 1) + (out_base != NULL ? 1 : 0);
+  if(npaths != exp_npaths) {
+    const char *in_str = (se || il) ? "<in>" : "<in1>:<in2>";
+    const char *out_str = out_base == NULL ? "" : ":<out>";
+    die("Expected -%c %s%s", shortopt, in_str, out_str);
   }
+
+  if(out_base != NULL)
+    out_base[0] = paths[pe ? 2 : 1];
+
   if(pe) {
-    char *sep = strchr(path,':'), *path2;
-    if(sep == NULL) sep = strchr(path,',');
-    if(sep == NULL || sep == path+1 || sep[1] == '\0')
-      die("%s <in1:in2> expects paths separated by a colon ':'", path);
-
-    *sep = '\0';
-    path2 = sep+1;
-
-    if((sf1 = seq_open(path)) == NULL)
-      die("Cannot open %c file: %s", shortopt, path);
-    if((sf2 = seq_open(path2)) == NULL)
-      die("Cannot open %c file: %s", shortopt, path2);
+    if((sf1 = seq_open(paths[0])) == NULL)
+      die("Cannot open %c file: %s", shortopt, paths[0]);
+    if((sf2 = seq_open(paths[1])) == NULL)
+      die("Cannot open %c file: %s", shortopt, paths[1]);
+  }
+  else {
+    if((sf1 = seq_open(paths[0])) == NULL)
+      die("Cannot open -%c file: %s", shortopt, paths[0]);
   }
 
   AsyncIOReadTask tmp = {.file1 = sf1, .file2 = sf2,

@@ -9,23 +9,23 @@
 #include "repeat_walker.h"
 #include "correct_aln_stats.h"
 
-#define DEFAULT_MIN_INS 0
-#define DEFAULT_MAX_INS 500
+#define DEFAULT_CRTALN_MIN_INS 0
+#define DEFAULT_CRTALN_MAX_INS 500
 
 // seq gap of N bases can be filled by MAX2(0, N±(N*GAP_VARIANCE+GAP_WIGGLE))
-#define DEFAULT_GAP_VARIANCE 0.1
-#define DEFAULT_GAP_WIGGLE 5
+#define DEFAULT_CRTALN_GAP_VARIANCE 0.1
+#define DEFAULT_CRTALN_GAP_WIGGLE 5
 
-#define DEFAULT_MAX_CONTEXT 200
+#define DEFAULT_CRTALN_MAX_CONTEXT 200
 
-#define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,            \
-                                .ins_gap_min = DEFAULT_MIN_INS,      \
-                                .ins_gap_max = DEFAULT_MAX_INS,      \
-                                .one_way_gap_traverse = true,        \
-                                .use_end_check = true,               \
-                                .max_context = DEFAULT_MAX_CONTEXT,  \
-                                .gap_variance = DEFAULT_GAP_VARIANCE,\
-                                .gap_wiggle = DEFAULT_GAP_WIGGLE}
+#define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,                    \
+                                .ins_gap_min = DEFAULT_CRTALN_MIN_INS,       \
+                                .ins_gap_max = DEFAULT_CRTALN_MAX_INS,       \
+                                .one_way_gap_traverse = true,                \
+                                .use_end_check = true,                       \
+                                .max_context = DEFAULT_CRTALN_MAX_CONTEXT,   \
+                                .gap_variance = DEFAULT_CRTALN_GAP_VARIANCE, \
+                                .gap_wiggle = DEFAULT_CRTALN_GAP_WIGGLE}
 
 typedef struct
 {
@@ -66,6 +66,11 @@ typedef struct
   // Statistics on gap traversal
   CorrectAlnStats gapstats;
 } CorrectAlnWorker;
+
+// Global variables to specify if we should print output - used for debugging only
+// These are used in generate_paths.c
+extern bool gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_reads;
+
 
 size_t correct_aln_worker_est_mem(const dBGraph *graph);
 

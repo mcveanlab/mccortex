@@ -52,9 +52,9 @@ void test_paths()
                         .fq_offset = 0, .interleaved = false};
 
   // Load paths
-  CorrectAlnTask task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
-                              .matedir = READPAIR_FR, .crt_params = params,
-                              .ptr = NULL};
+  CorrectAlnInput task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
+                         .matedir = READPAIR_FR, .crt_params = params,
+                         .out_base = NULL, .output = NULL};
 
   AsyncIOData iodata;
   asynciodata_alloc(&iodata);

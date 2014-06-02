@@ -7,11 +7,12 @@
 #include "path_format.h"
 #include "graph_paths.h"
 #include "correct_reads.h"
+#include "read_thread_cmd.h"
 
 // DEV: print read sequence in lower case instead of N
 
 const char correct_usage[] =
-"usage: "CMD" correct [options] <input.ctx> [...]\n"
+"usage: "CMD" correct [options] <input.ctx>\n"
 "\n"
 "  Correct reads against a (population) graph.\n"
 "\n"
@@ -73,53 +74,18 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-int ctx_correct(CmdArgs *args)
+
+int ctx_correct(int argc, char **argv)
 {
-  int argc = args->argc;
-  char **argv = args->argv;
-  // Already checked that we have at least 2 arguments
+  struct ReadThreadCmdArgs args = READ_THREAD_CMD_ARGS_INIT;
+  read_thread_args_alloc(&args);
+  read_thread_args_parse(&args, argc, argv, longopts, true);
 
-  size_t max_ninputs = argc / 2, num_inputs = 0;
-  CorrectAlnTask *inputs = ctx_malloc(max_ninputs * sizeof(CorrectAlnTask));
-  size_t i, j;
-  size_t num_threads = args->max_work_threads;
-  size_t max_io_threads = args->max_io_threads;
-  int argi; // arg index to continue from
-
-  // Load args
-  // argi = load_args(argc, argv, inputs, &num_inputs);
-  argi = correct_reads_parse(argc, argv, false, true,
-                             inputs, &num_inputs,
-                             NULL, NULL);
-
-  if(argi == argc) cmd_print_usage("Expected at least one graph file");
-  size_t num_gfiles = argc - argi;
-  char **graph_paths = &argv[argi];
-
-  //
-  // Open graph gfiles
-  //
-  GraphFileReader gfiles[num_gfiles];
-  size_t ctx_total_cols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
-
-  ctx_total_cols = graph_files_open(graph_paths, gfiles, num_gfiles,
-                                    &ctx_max_kmers, &ctx_sum_kmers);
-
-  //
-  // Open path files
-  //
-  size_t num_pfiles = args->num_ctp_files;
-  PathFileReader pfiles[num_pfiles];
-  size_t ctp_max_usedcols = 0;
-
-  for(i = 0; i < num_pfiles; i++) {
-    pfiles[i] = INIT_PATH_READER;
-    path_file_open(&pfiles[i], args->ctp_files[i], true);
-    ctp_max_usedcols = MAX2(ctp_max_usedcols, path_file_usedcols(&pfiles[i]));
-  }
-
-  // Check for compatibility between graph files and path files
-  graphs_paths_compatible(gfiles, num_gfiles, pfiles, num_pfiles);
+  GraphFileReader *gfile = &args.gfile;
+  PathFileBuffer *pfiles = &args.pfiles;
+  CorrectAlnInputBuffer *inputs = &args.inputs;
+  size_t ctx_total_cols = gfile->hdr.num_of_cols;
+  size_t ctx_num_kmers = gfile->num_of_kmers;
 
   //
   // Decide on memory
@@ -127,96 +93,111 @@ int ctx_correct(CmdArgs *args)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // 1 bit needed per kmer if we need to keep track of noreseed
-  bits_per_kmer = sizeof(Edges)*8 + ctx_max_kmers + sizeof(uint64_t)*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
-                                        false, &graph_mem);
+  bits_per_kmer = sizeof(Edges)*8 + ctx_num_kmers + sizeof(uint64_t)*8;
+  kmers_in_hash = cmd_get_kmers_in_hash2(args.memargs.mem_to_use,
+                                         args.memargs.mem_to_use_set,
+                                         args.memargs.num_kmers,
+                                         args.memargs.num_kmers_set,
+                                         bits_per_kmer,
+                                         ctx_num_kmers, ctx_num_kmers,
+                                         false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
+  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false, 0);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory
   total_mem = graph_mem + path_mem;
-  cmd_check_mem_limit(args->mem_to_use, total_mem);
+  cmd_check_mem_limit(args.memargs.mem_to_use, total_mem);
 
   //
   // Check we can read all output files
   //
-  // Loop over inputs, change input->ptr from char* to CorrectedOutput
-  CorrectedOutput outputs[num_inputs];
+  // Open output files
+  size_t i, j;
+  SeqOutput *outputs = ctx_calloc(inputs->len, sizeof(SeqOutput));
+  bool output_files_exist = false;
 
-  for(i = 0; i < num_inputs && corrected_output_open(&outputs[i], &inputs[i]); i++)
-    inputs[i].ptr = &outputs[i];
+  for(i = 0; i < inputs->len; i++)
+  {
+    CorrectAlnInput *input = &inputs->data[i];
+    SeqOutput *output = &outputs[i];
+    seq_output_alloc(output);
+    seq_output_set_paths(output, input->out_base,
+                         async_task_pe_output(&input->files));
+    input->output = output;
+    // output check prints warnings and returns true if errors
+    output_files_exist |= seq_output_files_exist_check(output);
+  }
 
-  // Check if something went wrong
-  if(i < num_inputs) {
+  // Abandon if some of the output files already exist
+  if(output_files_exist) die("Output files already exist");
+
+  // Attempt to open all files
+  for(i = 0; i < inputs->len && seq_output_open(&outputs[i]); i++) {}
+
+  // Check if something went wrong - if so remove all output files
+  if(i < inputs->len) {
     for(j = 0; j < i; j++)
-      corrected_output_delete(&outputs[i]);
+      seq_output_delete(&outputs[i]);
     die("Couldn't open output files");
   }
 
-  // futil_is_file_writable() creates the output file - we have to delete these
-  // if we then fail
-  for(i = 0; i < num_inputs; i++) {
-    if(futil_file_exists((char*)inputs[i].ptr)) {
-      for(j = 0; j < i; j++) unlink((char*)inputs[j].ptr);
-      die("File already exists: %s", (char*)inputs[i].ptr);
-    }
-    if(!futil_is_file_writable((char*)inputs[i].ptr)) {
-      for(j = 0; j < i; j++) unlink((char*)inputs[j].ptr);
-      die("Cannot write to output file: %s", (char*)inputs[i].ptr);
-    }
-  }
+  //
+  // Allocate memory
+  //
 
-  // Allocate
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, ctx_total_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfile->hdr.kmer_size, ctx_total_cols, 1, kmers_in_hash);
 
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
 
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = ctx_calloc(bytes_per_col * ctx_total_cols, 1);
 
+  size_t ctp_usedcols = 0;
+  for(i = 0; i < args.pfiles.len; i++) {
+    ctp_usedcols = MAX2(ctp_usedcols, path_file_usedcols(&args.pfiles.data[i]));
+  }
+
   // Paths
   path_store_alloc(&db_graph.pstore, path_mem, false,
-                   db_graph.ht.capacity, ctp_max_usedcols);
+                   db_graph.ht.capacity, ctp_usedcols);
 
   //
   // Load Graph and Path files
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
+  LoadingStats gstats = LOAD_STATS_INIT_MACRO;
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
                               .must_exist_in_edges = NULL,
                               .empty_colours = true};
 
-  for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &stats);
-    graph_file_close(&gfiles[i]);
-    gprefs.empty_colours = false;
-  }
-
-  hash_table_print_stats(&db_graph.ht);
+  // Load graph, print stats, close file
+  graph_load(gfile, gprefs, &gstats);
+  hash_table_print_stats_brief(&db_graph.ht);
+  graph_file_close(gfile);
 
   // Load path files (does nothing if num_fpiles == 0)
-  paths_format_merge(pfiles, num_pfiles, false, false,
-                     args->max_work_threads, &db_graph);
-
-  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
+  paths_format_merge(pfiles->data, pfiles->len, false, false,
+                     args.num_of_threads, &db_graph);
 
   //
   // Run alignment
   //
-  correct_reads(num_threads, max_io_threads, inputs, outputs, num_inputs,
+  correct_reads(args.num_of_threads, MAX_IO_THREADS,
+                inputs->data, inputs->len,
                 &db_graph);
 
-  ctx_free(inputs);
+  // Close and free output files
+  for(i = 0; i < inputs->len; i++) seq_output_dealloc(&outputs[i]);
+  ctx_free(outputs);
+
+  read_thread_args_dealloc(&args);
+
   ctx_free(db_graph.col_edges);
   ctx_free(db_graph.node_in_cols);
-
   path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 

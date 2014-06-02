@@ -32,6 +32,8 @@
   #define roundup2pow(x) (1UL << (64 - leading_zeros(x)))
 #endif
 
+#define OBJBUF_INIT {.data = NULL, .len = 0, .capacity = 0}
+
 #define create_objbuf(FUNC,buf_t,obj_t)                                        \
                                                                                \
 typedef struct {                                                               \
@@ -65,6 +67,7 @@ static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
 static inline void FUNC ## _dealloc(buf_t *buf) {                              \
   ctx_free(buf->data);                                                         \
   buf->data = NULL;                                                            \
+  buf->len = buf->capacity = 0;                                                \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap) {          \

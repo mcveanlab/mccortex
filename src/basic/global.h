@@ -32,6 +32,8 @@
 //  MAX_KMER_SIZE    Max kmer-size compiled e.g. 31 for maxk=31, 63 for maxk=63
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 
+#define MAX_IO_THREADS 10
+
 #if defined(CTXCHECKS) && CTXCHECKS == 0
 #  undef CTXCHECKS
 #endif

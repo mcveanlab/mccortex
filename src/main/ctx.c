@@ -94,7 +94,7 @@ CtxCmd cmdobjs[] = {
   .usage = thread_usage,
 },
 {
-  .cmd = "correct", .func = ctx_correct, .hide = 0,
+  .cmd = "correct", .func = NULL, .func2 = ctx_correct, .hide = 0,
   .minargs = 2, .maxargs = INT_MAX, .optargs = "atmnp", .reqargs = "",
   .blurb = "error correct reads",
   .usage = correct_usage

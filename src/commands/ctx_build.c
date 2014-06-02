@@ -54,19 +54,6 @@ static void print_graph_reader(const GraphFileReader *rdr)
   status("[load] %zu-%zu: load graph: %s", colour, colour+ncols-1, path);
 }
 
-static void graph_reader_new(char *path, size_t colour, GraphFileReader *rdrptr)
-{
-  GraphFileReader rdr = INIT_GRAPH_READER_MACRO;
-  int ret = graph_file_open(&rdr, path, false);
-
-  if(ret == 0) cmd_print_usage("Cannot read input graph file: %s", path);
-  else if(ret < 0) cmd_print_usage("Input graph file isn't valid: %s", path);
-
-  rdr.fltr.intocol = colour;
-
-  memcpy(rdrptr, &rdrptr, sizeof(GraphFileReader));
-}
-
 static void build_graph_task_new(const char *seq_path1,
                                  const char *seq_path2,
                                  bool interleaved,
@@ -276,7 +263,9 @@ static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
       {
         // -g, --graph <in.ctx>
         // Load binary into new colour
-        graph_reader_new(argv[argi+1], colour, &graphs[num_graphs]);
+        graphs[num_graphs] = (GraphFileReader)INIT_GRAPH_READER_MACRO;
+        graph_file_open(&graphs[num_graphs], argv[argi+1], true);
+        file_filter_update_intocol(&graphs[num_graphs].fltr, colour);
         colour += graph_file_outncols(&graphs[num_graphs]);
         num_graphs++;
         sample_named = false;

@@ -21,9 +21,19 @@ typedef struct
   uint8_t fq_offset1, fq_offset2;
 } AsyncIOData;
 
-// path can be a single path or a pair of paths separated by a comma or colon
-void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path,
-                        uint8_t fq_offset);
+#define async_task_pe_output(a) ((a)->file2 != NULL || (a)->interleaved)
+
+// if out_base != NULL, we expect an output string as well:
+//   -1, --seq <in>:<out>
+//   -2, --seq2 <in1>:<in2>:<out>
+//   -i, --seqi <in>:<out>
+// if out_base == NULL, we expect:
+//   -1, --seq <in>
+//   -2, --seq2 <in1>:<in2>
+//   -i, --seqi <in>
+// If `out_base` is != NULL, it is set to point to the <out> string
+void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path_arg,
+                        uint8_t fq_offset, char **out_base);
 
 void asyncio_task_close(AsyncIOReadTask *task);
 
