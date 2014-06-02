@@ -543,7 +543,7 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   task.matedir = READPAIR_FF;
   task.crt_params = params;
-  task.files = iotask;
+  memcpy(&task.files, &iotask, sizeof(AsyncIOReadTask));
 
   gen_paths_worker_seq(gen_path_wrkr, &iodata, &task);
 }
