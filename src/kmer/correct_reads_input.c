@@ -43,10 +43,10 @@ void correct_reads_input_init(const char *p1, const char *p2, bool interleaved,
                             .ptr = ptr};
 
   CorrectAlnTask tsk = {.files = iotask,
-                             .fq_cutoff = (uint8_t)fq_cutoff,
-                             .hp_cutoff = (uint8_t)hp_cutoff,
-                             .matedir = matedir,
-                             .crt_params = params, .ptr = NULL};
+                        .fq_cutoff = (uint8_t)fq_cutoff,
+                        .hp_cutoff = (uint8_t)hp_cutoff,
+                        .matedir = matedir,
+                        .crt_params = params, .ptr = NULL};
 
   memcpy(ptr, &tsk, sizeof(CorrectAlnTask));
 }

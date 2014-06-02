@@ -90,36 +90,34 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-int ctx_thread(int argc, char **argv)
+size_t num_of_threads = DEFAULT_NTHREADS;
+struct MemArgs memargs = MEM_ARGS_INIT;
+char *graph_path = NULL, *out_ctp_path = NULL;
+bool use_new_paths = false, clean_paths = false;
+char *dump_seq_sizes = NULL, *dump_mp_sizes = NULL;
+int clean_threshold = 0; // 0 => no calling, -1 => auto
+size_t max_gap_limit = 0;
+
+CorrectAlnTaskBuffer tasks;
+PathFileBuffer pfiles;
+
+void parse_args(int argc, char **argv)
 {
-  size_t num_of_threads = DEFAULT_NTHREADS;
-  struct MemArgs memargs = MEM_ARGS_INIT;
-  char *out_ctp_path = NULL;
-  size_t i, max_gap_limit = 0;
-  bool use_new_paths = false, clean_paths = false;
-  int tmp_thresh, clean_threshold = 0; // 0 => no calling, -1 => auto
+  size_t i;
+  int tmp_thresh; // 0 => no calling, -1 => auto
   CorrectAlnTask task = {.fq_cutoff = 0, .hp_cutoff = 0,
                          .matedir = READPAIR_FR,
                          .crt_params = CORRECT_PARAMS_DEFAULT,
                          .ptr = NULL};
   uint8_t fq_offset = 0;
-  char *dump_seq_sizes = NULL, *dump_mp_sizes = NULL;
   size_t dump_seq_n = 0, dump_mp_n = 0; // how many times are -g -G specified
   PathFileReader tmp_pfile;
-
-  CorrectAlnTaskBuffer tasks;
-  correct_aln_task_buf_alloc(&tasks, 16);
-
-  PathFileBuffer pfiles;
-  pfile_buf_alloc(&pfiles, 16);
 
   // Arg parsing
   char cmd[100];
   char shortopts[300];
   cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
   int used = 1, c;
-
-  printf("shortops: %s\n", shortopts);
 
   // silence error messages from getopt_long
   // opterr = 0;
@@ -194,30 +192,37 @@ int ctx_thread(int argc, char **argv)
   else if(optind+1 < argc)
     cmd_print_usage("Expected only one graph file. What is this: '%s'", argv[optind]);
 
-  char *graph_path = argv[optind];
+  graph_path = argv[optind];
   status("Reading graph: %s", graph_path);
 
-  if(!used) die("Ignored arguments after last --seq");
+  if(!used) cmd_print_usage("Ignored arguments after last --seq");
 
   if(dump_seq_n > 1) die("Cannot specify --seq-gaps <out> more than once");
   if(dump_mp_n > 1) die("Cannot specify --mp-gaps <out> more than once");
 
   // Check ins_gap_min < ins_gap_max
 
-  for(i = 0; i < tasks.len; i++) {
+  for(i = 0; i < tasks.len; i++){
     CorrectAlnTask *t = &tasks.data[i];
     t->files.ptr = t;
-    if(t->crt_params.
-      ins_gap_min > t->crt_params.ins_gap_max) {
+    if(t->crt_params.ins_gap_min > t->crt_params.ins_gap_max) {
       die("--min-ins %u is greater than --max-ins %u",
           t->crt_params.ins_gap_min, t->crt_params.ins_gap_max);
     }
     correct_reads_input_print(&tasks.data[i]);
     max_gap_limit = MAX2(max_gap_limit, t->crt_params.ins_gap_max);
   }
+}
+
+int ctx_thread(int argc, char **argv)
+{
+  correct_aln_task_buf_alloc(&tasks, 16);
+  pfile_buf_alloc(&pfiles, 16);
+
+  parse_args(argc, argv);
 
   //
-  // Open graph graph files
+  // Open graph graph file
   //
   GraphFileReader gfile = INIT_GRAPH_READER_MACRO;
   graph_file_open(&gfile, graph_path, true);
@@ -229,6 +234,7 @@ int ctx_thread(int argc, char **argv)
   //
   // Open path files
   //
+  size_t i;
   for(i = 0; i < pfiles.len; i++) {
     file_filter_update_intocol(&pfiles.data[i].fltr, 0);
     if(path_file_usedcols(&pfiles.data[i]) > 1) {
