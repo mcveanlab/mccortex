@@ -59,11 +59,12 @@ void* call_recalloc(void *ptr, size_t oldsize, size_t newsize,
   return ptr;
 }
 
+// `ptr` can be NULL
 void call_free(void *ptr)
 {
-  ctx_assert(ptr != NULL);
   free(ptr);
-  __sync_add_and_fetch(&ctx_num_frees, 1); // ++ctx_num_frees
+  if(ptr != NULL)
+    __sync_add_and_fetch(&ctx_num_frees, 1); // ++ctx_num_frees
 }
 
 //

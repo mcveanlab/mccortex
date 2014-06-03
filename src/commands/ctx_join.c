@@ -293,8 +293,6 @@ int ctx_join(CmdArgs *args)
   ctx_free(intersect_gfiles);
   ctx_free(gfiles);
 
-  ctx_free(db_graph.col_edges);
-  ctx_free(db_graph.col_covgs);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

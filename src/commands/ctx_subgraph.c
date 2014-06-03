@@ -208,13 +208,10 @@ int ctx_subgraph(CmdArgs *args)
                           intersect_edges, intersect_gname.buff,
                           &db_graph);
 
-  if(intersect_edges != NULL) ctx_free(intersect_edges);
-  ctx_free(db_graph.col_edges);
-  ctx_free(db_graph.col_covgs);
-
+  ctx_free(intersect_edges);
+  strbuf_dealloc(&intersect_gname);
   for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
 
-  strbuf_dealloc(&intersect_gname);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

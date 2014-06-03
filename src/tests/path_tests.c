@@ -83,13 +83,7 @@ void test_paths()
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.node_in_cols);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.col_covgs);
-
   asynciodata_dealloc(&iodata);
-  path_store_dealloc(&graph.pstore);
   db_graph_dealloc(&graph);
 }
 

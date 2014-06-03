@@ -62,13 +62,15 @@
 volatile size_t ctx_num_allocs, ctx_num_frees;
 
 // Macros for memory management
+// `ptr` can be NULL
 #define ctx_malloc(mem) call_malloc(mem,__FILE__,__func__,__LINE__)
 #define ctx_calloc(nel,elsize) call_calloc(nel,elsize,__FILE__,__func__,__LINE__)
 #define ctx_realloc(ptr,mem) call_realloc(ptr,mem,__FILE__,__func__,__LINE__)
 #define ctx_recalloc(ptr,old,new) call_recalloc(ptr,old,new,__FILE__,__func__,__LINE__)
 #define ctx_free(ptr) call_free(ptr)
 
-// Functions
+// Memory allocation functions
+// `ptr` can be NULL
 void* call_malloc(size_t mem, const char *file, const char *func, int line);
 void* call_calloc(size_t nel, size_t elsize, const char *file, const char *func, int line);
 void* call_realloc(void *ptr, size_t mem, const char *file, const char *func, int line);

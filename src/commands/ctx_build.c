@@ -346,11 +346,6 @@ int ctx_build(int argc, char **argv)
   gfile_buf_dealloc(&gfilebuf);
   sample_name_buf_dealloc(&snamebuf);
 
-  ctx_free(db_graph.bktlocks);
-  ctx_free(db_graph.col_covgs);
-  ctx_free(db_graph.col_edges);
-  if(db_graph.readstrt != NULL) ctx_free(db_graph.readstrt);
-
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

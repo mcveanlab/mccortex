@@ -231,10 +231,10 @@ int ctx_extend(CmdArgs *args)
   db_node_buf_dealloc(&readbuffw);
   db_node_buf_dealloc(&readbufrv);
   ctx_free(visited);
-  ctx_free(db_graph.col_edges);
-  db_graph_dealloc(&db_graph);
 
   graph_file_close(&file);
+
+  db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
 }

@@ -102,7 +102,7 @@ static void test_correct_aln_no_paths()
   strbuf_dealloc(&sbuf);
   correct_aln_worker_dealloc(&corrector);
   db_alignment_dealloc(&aln);
-  _deconstruct_graph_with_paths(&graph);
+  db_graph_dealloc(&graph);
 }
 
 static void test_contig_ends_agree()
@@ -204,7 +204,7 @@ static void test_contig_ends_agree()
   strbuf_dealloc(&sbuf);
   correct_aln_worker_dealloc(&corrector);
   db_alignment_dealloc(&aln);
-  _deconstruct_graph_with_paths(&graph);
+  db_graph_dealloc(&graph);
 }
 
 void test_corrected_aln()

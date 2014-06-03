@@ -103,7 +103,7 @@ static void test_repeat_loop()
   rpt_walker_dealloc(&rptwlk);
   db_node_buf_dealloc(&nbuf);
   gen_paths_workers_dealloc(gen_path_wrkr, 1);
-  _deconstruct_graph_with_paths(&graph);
+  db_graph_dealloc(&graph);
 }
 
 void test_repeat_walker()

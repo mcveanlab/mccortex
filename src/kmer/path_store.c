@@ -86,14 +86,12 @@ void path_store_release_tmp(PathStore *ps)
 // Release memory
 void path_store_dealloc(PathStore *ps)
 {
-  if(ps->kmer_locks) ctx_free(ps->kmer_locks);
-  if(ps->kmer_paths_read != NULL && ps->kmer_paths_read != ps->kmer_paths_write)
-    ctx_free(ps->kmer_paths_read);
-  if(ps->kmer_paths_write != NULL) ctx_free(ps->kmer_paths_write);
+  if(ps->kmer_paths_write != ps->kmer_paths_read) ctx_free(ps->kmer_paths_write);
+  ctx_free(ps->kmer_paths_read);
   ctx_free(ps->store);
-  ps->kmer_locks = NULL;
-  ps->kmer_paths_read = ps->kmer_paths_write = NULL;
-  if(ps->phash.table != NULL) path_hash_dealloc(&ps->phash);
+  ctx_free(ps->kmer_locks);
+  path_hash_dealloc(&ps->phash);
+  memset(ps, 0, sizeof(PathStore));
 }
 
 void path_store_reset(PathStore *ps, size_t nkmers_in_hash)

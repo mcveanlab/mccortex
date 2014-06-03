@@ -223,12 +223,12 @@ int ctx_pjoin(CmdArgs *args)
   status("Paths written to: %s\n", out_ctp_path);
   status("  %s paths, %s path-bytes, %s kmers", pnum_str, pbytes_str, pkmers_str);
 
-  path_store_dealloc(&db_graph.pstore);
-  db_graph_dealloc(&db_graph);
   paths_header_dealloc(&pheader);
 
   graph_file_close(&gfile);
   for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
+
+  db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
 }

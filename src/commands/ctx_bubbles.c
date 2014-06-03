@@ -203,10 +203,6 @@ int ctx_bubbles(CmdArgs *args)
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
 
-  ctx_free(db_graph.col_edges);
-  ctx_free(db_graph.node_in_cols);
-
-  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

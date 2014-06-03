@@ -73,8 +73,6 @@ void _construct_graph_with_paths(dBGraph *graph,
                                  char **seqs, size_t nseqs,
                                  CorrectAlnParam path_params);
 
-void _deconstruct_graph_with_paths(dBGraph *graph);
-
 void _test_add_paths(dBGraph *graph,
                      AsyncIOData *iodata, CorrectAlnInput *task,
                      GenPathWorker *wrkrs, char *seq,

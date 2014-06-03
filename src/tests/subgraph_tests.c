@@ -76,9 +76,6 @@ static void simple_subgraph_test()
   run_subgraph(&graph, mask, 600, false, false, 1000-19+1, seed, strlen(seed));
 
   ctx_free(mask);
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.col_covgs);
   db_graph_dealloc(&graph);
 }
 
@@ -126,9 +123,6 @@ static void test_subgraph_supernodes()
   run_subgraph(&graph, mask, 0, false, true, 1, seq1+6, kmer_size);
 
   ctx_free(mask);
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.col_covgs);
   db_graph_dealloc(&graph);
 }
 

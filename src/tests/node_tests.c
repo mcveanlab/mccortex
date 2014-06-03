@@ -49,9 +49,6 @@ static void test_db_graph_next_nodes()
   HASH_ITERATE(&graph.ht, edge_check, &graph, 0);
   HASH_ITERATE(&graph.ht, edge_check, &graph, 1);
 
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_covgs);
-  ctx_free(graph.col_edges);
   db_graph_dealloc(&graph);
 }
 

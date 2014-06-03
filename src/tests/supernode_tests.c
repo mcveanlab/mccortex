@@ -119,8 +119,5 @@ void test_supernode()
 
   pull_out_supernodes(seq, ans, NSEQ, &graph);
 
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.col_covgs);
   db_graph_dealloc(&graph);
 }

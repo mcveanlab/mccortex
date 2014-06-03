@@ -107,8 +107,6 @@ void test_cleaning()
 
   ctx_free(visited);
   ctx_free(keep);
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.col_covgs);
+
   db_graph_dealloc(&graph);
 }

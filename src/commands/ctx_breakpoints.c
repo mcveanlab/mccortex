@@ -250,11 +250,7 @@ int ctx_breakpoints(CmdArgs *args)
 
   ctx_free(seq_files);
   ctx_free(seq_paths);
-  ctx_free(db_graph.col_edges);
-  ctx_free(db_graph.node_in_cols);
-  ctx_free(db_graph.bktlocks);
 
-  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

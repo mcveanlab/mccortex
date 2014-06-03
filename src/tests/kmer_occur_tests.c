@@ -93,9 +93,6 @@ static void test_kmer_occur_filter()
   for(i = 0; i < NUM_READS; i++) seq_read_dealloc(&reads[i]);
   kograph_free(kograph);
 
-  ctx_free(graph.col_edges);
-  ctx_free(graph.node_in_cols);
-  ctx_free(graph.bktlocks);
   db_graph_dealloc(&graph);
 }
 

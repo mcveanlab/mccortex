@@ -106,9 +106,8 @@ int ctx_pview(CmdArgs *args)
     path_store_integrity_check(&db_graph.pstore);
   }
 
-  path_store_dealloc(&db_graph.pstore);
-  db_graph_dealloc(&db_graph);
   path_file_close(&pfile);
+  db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
 }

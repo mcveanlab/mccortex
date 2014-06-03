@@ -250,11 +250,8 @@ int ctx_infer_edges(int argc, char **argv)
   status("%s of %s (%.2f%%) nodes modified\n",
          modified_str, kmers_str, modified_rate);
 
-  if(reading_stream) ctx_free(db_graph.col_edges);
-  ctx_free(db_graph.node_in_cols);
-  db_graph_dealloc(&db_graph);
-
   graph_file_close(&file);
+  db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
 }

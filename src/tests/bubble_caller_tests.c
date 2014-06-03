@@ -149,8 +149,5 @@ void test_bubble_caller()
   test_bubbles(&graph, seqs1, 3, flank5p1c, flank3p1c, alleles1c, 2);
   test_bubbles(&graph, seqs1, 3, flank5p1d, flank3p1d, alleles1d, 2);
 
-  ctx_free(graph.node_in_cols);
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
   db_graph_dealloc(&graph);
 }

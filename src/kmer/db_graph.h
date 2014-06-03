@@ -60,6 +60,7 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
 
 void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols);
 
+// Free memory used by all fields as well
 void db_graph_dealloc(dBGraph *db_graph);
 
 void db_graph_reset(dBGraph *db_graph);

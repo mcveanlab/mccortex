@@ -90,17 +90,6 @@ void _construct_graph_with_paths(dBGraph *graph,
   gen_paths_workers_dealloc(gen_path_wrkr, 1);
 }
 
-void _deconstruct_graph_with_paths(dBGraph *graph)
-{
-  ctx_free(graph->bktlocks);
-  ctx_free(graph->node_in_cols);
-  ctx_free(graph->col_edges);
-  ctx_free(graph->col_covgs);
-
-  path_store_dealloc(&graph->pstore);
-  db_graph_dealloc(graph);
-}
-
 void _test_add_paths(dBGraph *graph,
                      AsyncIOData *iodata, CorrectAlnInput *task,
                      GenPathWorker *wrkrs, char *seq,

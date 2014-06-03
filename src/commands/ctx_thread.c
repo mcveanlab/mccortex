@@ -317,9 +317,6 @@ int ctx_thread(int argc, char **argv)
 
   read_thread_args_dealloc(&args);
 
-  ctx_free(db_graph.node_in_cols);
-  ctx_free(db_graph.col_edges);
-  path_store_dealloc(&db_graph.pstore);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

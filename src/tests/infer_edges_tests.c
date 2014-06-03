@@ -161,9 +161,6 @@ static void simple_test()
   TASSERT(get_edges("AACAATGACTCG", &graph, 3) == RGHTNODE);
   TASSERT(get_edges("AACAATGACTCG", &graph, 4) == ALLEDGES);
 
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.node_in_cols);
   db_graph_dealloc(&graph);
 }
 

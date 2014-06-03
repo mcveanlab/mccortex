@@ -83,8 +83,5 @@ void test_graph_crawler()
 
   graph_crawler_dealloc(&crawler);
 
-  ctx_free(graph.bktlocks);
-  ctx_free(graph.col_edges);
-  ctx_free(graph.node_in_cols);
   db_graph_dealloc(&graph);
 }

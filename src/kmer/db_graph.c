@@ -80,13 +80,26 @@ void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
   db_graph_status(graph);
 }
 
+// Free memory used by all fields as well
 void db_graph_dealloc(dBGraph *db_graph)
 {
   size_t i;
+
   hash_table_dealloc(&db_graph->ht);
+
   for(i = 0; i < db_graph->num_of_cols; i++)
     graph_info_dealloc(db_graph->ginfo+i);
   ctx_free(db_graph->ginfo);
+
+  ctx_free(db_graph->bktlocks);
+  ctx_free(db_graph->col_covgs);
+  ctx_free(db_graph->col_edges);
+  ctx_free(db_graph->node_in_cols);
+  ctx_free(db_graph->readstrt);
+
+  path_store_dealloc(&db_graph->pstore);
+
+  memset(db_graph, 0, sizeof(dBGraph));
 }
 
 //

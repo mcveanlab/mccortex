@@ -309,10 +309,10 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
 
 void kograph_free(KOGraph kograph)
 {
-  if(kograph.chrom_name_buf != NULL) ctx_free(kograph.chrom_name_buf);
-  if(kograph.chroms != NULL) ctx_free(kograph.chroms);
-  if(kograph.klists != NULL) ctx_free(kograph.klists);
-  if(kograph.koccurs != NULL) ctx_free(kograph.koccurs);
+  ctx_free(kograph.chrom_name_buf);
+  ctx_free(kograph.chroms);
+  ctx_free(kograph.klists);
+  ctx_free(kograph.koccurs);
 }
 
 

@@ -558,14 +558,12 @@ int ctx_contigs(CmdArgs *args)
   rpt_walker_dealloc(&rptwlk);
   graph_walker_dealloc(&wlk);
 
-  if(visited != NULL) ctx_free(visited);
-  ctx_free(db_graph.col_edges);
-  ctx_free(db_graph.node_in_cols);
-  path_store_dealloc(&db_graph.pstore);
-  db_graph_dealloc(&db_graph);
+  ctx_free(visited);
 
   graph_file_close(&gfile);
   for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
+
+  db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
 }

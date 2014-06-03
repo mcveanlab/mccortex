@@ -138,9 +138,6 @@ int ctx_health_check(CmdArgs *args)
 
   status("All looks good!");
 
-  if(num_pfiles) path_store_dealloc(&db_graph.pstore);
-  if(db_graph.node_in_cols) ctx_free(db_graph.node_in_cols);
-  ctx_free(db_graph.col_edges);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
