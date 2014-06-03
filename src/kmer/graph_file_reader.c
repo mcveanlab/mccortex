@@ -1,5 +1,5 @@
 #include "global.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 #include "graph_format.h"
 #include "cmd.h"
 

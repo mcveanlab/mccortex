@@ -6,7 +6,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_format.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 #include "loading_stats.h"
 #include "seq_reader.h"
 #include "infer_edges.h"

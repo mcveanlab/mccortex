@@ -40,9 +40,9 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   hash_table_alloc(&tmp.ht, capacity);
   memset(&tmp.pstore, 0, sizeof(PathStore));
 
-  tmp.ginfo = ctx_malloc(num_of_cols * sizeof(GraphInfo));
+  tmp.ginfo = ctx_calloc(num_of_cols, sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
-    graph_info_alloc(tmp.ginfo + i);
+    graph_info_alloc(&tmp.ginfo[i]);
 
   memcpy(db_graph, &tmp, sizeof(dBGraph));
   db_graph_status(db_graph);

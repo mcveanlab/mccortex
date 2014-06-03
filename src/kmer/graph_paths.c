@@ -10,7 +10,7 @@
 
 #include "bit_array/bit_macros.h"
 
-// Similar to path_file_filter.c:path_file_load_check()
+// Similar to path_file_reader.c:path_file_load_check()
 // Check kmer size matches and sample names match
 void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
                              const PathFileReader *paths, size_t num_paths)

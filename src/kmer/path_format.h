@@ -2,7 +2,7 @@
 #define PATH_FORMAT_H_
 
 #include "cortex_types.h"
-#include "path_file_filter.h"
+#include "path_file_reader.h"
 #include "path_store.h"
 #include "db_graph.h"
 #include "db_node.h"

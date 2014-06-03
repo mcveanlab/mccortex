@@ -295,7 +295,6 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
                  &num_nodes_dumped);
   }
 
-  fflush(fout);
   fclose(fout);
   // if(strcmp(path,"-") != 0) fclose(fout);
 

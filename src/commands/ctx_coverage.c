@@ -7,7 +7,7 @@
 #include "db_node.h"
 #include "seq_reader.h"
 #include "graph_format.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 
 #include "seq_file.h"
 

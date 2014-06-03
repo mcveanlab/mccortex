@@ -294,8 +294,8 @@ static void _real_graph_test()
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
-  AsyncIOReadTask io = {.file1 = NULL, .file2 = NULL,
-                        .fq_offset = 0, .interleaved = false};
+  AsyncIOReadInput io = {.file1 = NULL, .file2 = NULL,
+                         .fq_offset = 0, .interleaved = false};
 
   // Load paths
   CorrectAlnInput task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,

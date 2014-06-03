@@ -9,7 +9,7 @@
 #include "graph_info.h"
 #include "db_node.h"
 #include "graph_format.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 
 // Given (A,B,C) are ctx binaries, A:1 means colour 1 in A,
 // {A:1,B:0} is loading A:1 and B:0 into a single colour

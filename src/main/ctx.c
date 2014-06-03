@@ -22,7 +22,7 @@ typedef struct
 
 CtxCmd cmdobjs[] = {
 {
-  .cmd = "build", .func = ctx_build, .hide = 0,
+  .cmd = "build", .func = NULL, .func2 = ctx_build, .hide = 0,
   .minargs = 3, .maxargs = INT_MAX, .optargs = "atmn", .reqargs = "",
   .blurb = "construct cortex graph from FASTA/FASTQ/BAM",
   .usage = build_usage

@@ -5,9 +5,9 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_format.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 #include "path_format.h"
-#include "path_file_filter.h"
+#include "path_file_reader.h"
 #include "graph_paths.h"
 #include "path_store.h"
 

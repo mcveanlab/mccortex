@@ -5,7 +5,7 @@
 
 #include "loading_stats.h"
 #include "db_graph.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 
 // graph file format version
 #define CTX_GRAPH_FILEFORMAT 6

@@ -9,7 +9,7 @@
 #include "db_node.h"
 #include "graph_info.h"
 #include "graph_format.h"
-#include "graph_file_filter.h"
+#include "graph_file_reader.h"
 
 const char view_usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"

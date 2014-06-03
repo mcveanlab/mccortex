@@ -15,22 +15,26 @@ const char build_usage[] =
 "\n"
 "  Build a cortex graph.  \n"
 "\n"
+"  -h, --help               This help message\n"
 "  -m, --memory <mem>       Memory to use\n"
 "  -n, --nkmers <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+//
 "  -k, --kmer <kmer>        Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
-"  -x, --sample <name>      Sample name (required before any seq args)\n"
+"  -s, --sample <name>      Sample name (required before any seq args)\n"
 "  -1, --seq <in.fa>        Load sequence data\n"
-"  -2, --seq2 <in1> <in2>   Load paired end sequence data\n"
+"  -2, --seq2 <in1:in2>     Load paired end sequence data\n"
 "  -i, --seqi <in.bam>      Load paired end sequence from a single file\n"
 "  -Q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
-"  -h, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
-"  -p, --remove_pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
-"  -P, --keep_pcr           Don't do PCR duplicate removal\n"
-"  --FR --FF --RF --RR      Mate pair orientation [default: FR] (used with --keep_pcr)\n"
+"  -H, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -p, --remove-pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
+"  -P, --keep-pcr           Don't do PCR duplicate removal\n"
+"  -f,--FR -F,--FF          Mate pair orientation [default: FR] (for --keep_pcr)\n"
+"    -r,--RF -R--RR\n"
 "  -g, --graph <in.ctx>     Load samples from a graph file (.ctx)\n"
 "\n"
+"  Note: Argument must come before input file\n"
 "  PCR duplicate removal works by ignoring read (pairs) if (both) reads\n"
 "  start at the same k-mer as any previous read. Carried out per sample, not \n"
 "  per file. --sample <name> is required before sequence input can be loaded.\n"
@@ -40,301 +44,186 @@ const char build_usage[] =
 "  See `"CMD" join` to combine .ctx files\n"
 "\n";
 
-typedef struct
+static struct option longopts[] =
 {
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
+  {"threads",      required_argument, NULL, 't'},
+// command specific
+  {"kmer",         required_argument, NULL, 'k'},
+  {"sample",       required_argument, NULL, 's'},
+  {"seq",          required_argument, NULL, '1'},
+  {"seq2",         required_argument, NULL, '2'},
+  {"seqi",         required_argument, NULL, 'i'},
+  {"fq-cutoff",    required_argument, NULL, 'Q'},
+  {"fq-offset",    required_argument, NULL, 'q'},
+  {"cut-hp",       required_argument, NULL, 'H'},
+  {"remove-pcr",   no_argument,       NULL, 'p'},
+  {"keep-pcr",     no_argument,       NULL, 'P'},
+  {"FR",           no_argument,       NULL, 'f'},
+  {"FF",           no_argument,       NULL, 'F'},
+  {"RF",           no_argument,       NULL, 'r'},
+  {"RR",           no_argument,       NULL, 'R'},
+  {"graph",        required_argument, NULL, 'g'},
+  {NULL, 0, NULL, 0}
+};
+
+typedef struct {
   size_t colour;
-  char *sample_name;
+  const char *name;
 } SampleName;
 
-static void print_graph_reader(const GraphFileReader *rdr)
+#include "objbuf_macro.h"
+create_objbuf(sample_name_buf, SampleNameBuffer, SampleName);
+
+BuildGraphTaskBuffer gtaskbuf;
+GraphFileBuffer gfilebuf;
+SampleNameBuffer snamebuf;
+
+size_t num_of_threads = DEFAULT_NTHREADS;
+struct MemArgs memargs = MEM_ARGS_INIT;
+
+char *out_path;
+size_t output_colours = 0, kmer_size = 0;
+
+static void add_task(BuildGraphTask *task)
 {
-  Colour colour = graph_file_intocol(rdr,0), ncols = graph_file_outncols(rdr);
-  const char *path = graph_file_orig_path(rdr);
+  uint8_t fq_offset = task->files.fq_offset, fq_cutoff = task->fq_cutoff;
+  if(fq_offset >= 128) die("fq-offset too big: %i", (int)fq_offset);
+  if(fq_offset+fq_cutoff >= 128) die("fq-cutoff too big: %i", fq_offset+fq_cutoff);
 
-  status("[load] %zu-%zu: load graph: %s", colour, colour+ncols-1, path);
-}
-
-static void build_graph_task_new(const char *seq_path1,
-                                 const char *seq_path2,
-                                 bool interleaved,
-                                 size_t colour,
-                                 uint32_t fq_offset,
-                                 uint32_t fq_cutoff,
-                                 uint32_t hp_cutoff,
-                                 bool remove_pcr_dups,
-                                 ReadMateDir matedir,
-                                 BuildGraphTask *taskptr)
-{
-  ctx_assert(!(interleaved && seq_path2));
-  ctx_assert((seq_path2 == NULL) || (seq_path1 != NULL)); // seq2 => seq1
-  ctx_assert(fq_offset < 128);
-  ctx_assert(fq_cutoff < 128);
-  ctx_assert(hp_cutoff < 256);
-
-  seq_file_t *file1 = NULL, *file2 = NULL;
-  const char *arg = (seq_path2 == NULL ? "--seq" : "--seq2");
-
-  if(seq_path1 != NULL && (file1 = seq_open(seq_path1)) == NULL)
-    die("Cannot read %s file: %s", arg, seq_path1);
-  if(seq_path2 != NULL && (file2 = seq_open(seq_path2)) == NULL)
-    die("Cannot read %s file: %s", arg, seq_path2);
-
-  AsyncIOReadTask iotask = {.file1 = file1, .file2 = file2,
-                            .fq_offset = (uint8_t)fq_offset,
-                            .interleaved = interleaved,
-                            .ptr = taskptr};
-
-  BuildGraphTask task = {.files = iotask,
-                         .fq_cutoff = (uint8_t)fq_cutoff,
-                         .hp_cutoff = (uint8_t)hp_cutoff,
-                         .remove_pcr_dups = remove_pcr_dups,
-                         .matedir = matedir,
-                         .colour = colour,
-                         .stats = LOAD_STATS_INIT_MACRO};
-
-  memcpy(taskptr, &task, sizeof(BuildGraphTask));
-}
-
-static void build_graph_task_destroy(BuildGraphTask *task)
-{
-  asyncio_task_close(&task->files);
-}
-
-static void build_graph_task_new2(const char *seq_path1, const char *seq_path2,
-                                  bool interleaved, size_t colour,
-                                  uint32_t fq_offset, uint32_t fq_cutoff,
-                                  uint32_t hp_cutoff, bool remove_pcr_dups,
-                                  ReadMateDir matedir,
-                                  BuildGraphTask *tasks, size_t *num_tasks_ptr)
-{
-  ctx_assert(!seq_path2 || seq_path1);
-  ctx_assert(!(interleaved && seq_path2));
-
-  if(remove_pcr_dups) {
+  if(task->remove_pcr_dups || task->files.file2 == NULL) {
     // Submit paired end reads together
-    build_graph_task_new(seq_path1, seq_path2, interleaved, colour,
-                         fq_offset, fq_cutoff, hp_cutoff,
-                         remove_pcr_dups, matedir,
-                         &tasks[*num_tasks_ptr]);
-    (*num_tasks_ptr)++;
+    build_graph_task_buf_add(&gtaskbuf, *task);
   }
-  else if(!remove_pcr_dups) {
+  else {
     // Read files separately -> read faster
-    build_graph_task_new(seq_path1, NULL, interleaved, colour,
-                         fq_offset, fq_cutoff, hp_cutoff,
-                         remove_pcr_dups, matedir,
-                         &tasks[*num_tasks_ptr]);
-    (*num_tasks_ptr)++;
-
-    if(seq_path2 != NULL) {
-      build_graph_task_new(seq_path2, NULL, false, colour,
-                           fq_offset, fq_cutoff, hp_cutoff,
-                           remove_pcr_dups, matedir,
-                           &tasks[*num_tasks_ptr]);
-      (*num_tasks_ptr)++;
-    }
+    BuildGraphTask task2 = *task;
+    task2.files.file1 = task->files.file2;
+    task->files.file2 = task2.files.file2 = NULL;
+    build_graph_task_buf_add(&gtaskbuf, *task);
+    build_graph_task_buf_add(&gtaskbuf, task2);
   }
 }
 
-static void load_args(int argc, char **argv, size_t *kmer_size_ptr,
-                      BuildGraphTask *tasks, size_t *num_tasks_ptr,
-                      GraphFileReader *graphs, size_t *num_graphs_ptr,
-                      SampleName *samples, size_t *num_samples_ptr,
-                      size_t *num_total_cols_ptr)
+static void parse_args(int argc, char **argv)
 {
-  int argi;
-  size_t num_graphs = 0, num_tasks = 0, num_samples = 0;
-  uint32_t fq_offset = 0, fq_cutoff = 0, hp_cutoff = 0;
-  bool remove_pcr_dups = false;
-  ReadMateDir matedir = READPAIR_FR;
+  BuildGraphTask task = BUILD_GRAPH_TASK_INIT;
+  uint8_t fq_offset = 0;
+  size_t kmer_set = 0;
+  int intocolour = -1;
+  GraphFileReader tmp_gfile;
 
-  size_t i, colour = SIZE_MAX, kmer_size = 0;
-  bool sample_named = false, sample_used = false, seq_loaded = false;
+  // Arg parsing
+  char cmd[100], shortopts[100];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+  bool sample_named = false, pref_unused = false;
 
-  for(argi = 0; argi < argc; argi++)
-  {
-    if(!strcmp(argv[argi],"--kmer_size") || !strcmp(argv[argi],"-k")) {
-      if(argi + 1 >= argc) die("%s <k> requires an argument", argv[argi]);
-      if(!parse_entire_size(argv[argi+1], &kmer_size) || !(kmer_size&1)) {
-        die("Invalid kmer-size (%s %s): requires odd number %i <= k <= %i",
-            argv[argi], argv[argi+1], MIN_KMER_SIZE, MAX_KMER_SIZE);
-      }
-      if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE) {
-        die("Please recompile with correct kmer size (%zu)", kmer_size);
-      }
-      argi += 1;
-    }
-    else if(!strcmp(argv[argi],"--fq_threshold") || !strcmp(argv[argi],"-Q")) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--fq_threshold <qual> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_cutoff) || fq_cutoff > 128)
-        die("Invalid --fq_threshold argument: %s", argv[argi+1]);
-      argi += 1;
-    }
-    else if(!strcmp(argv[argi],"--fq_offset") || !strcmp(argv[argi],"-q")) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--fq_offset <offset> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &fq_offset) || fq_offset > 128)
-        die("Invalid --fq_offset argument: %s", argv[argi+1]);
-      argi += 1;
-    }
-    else if(!strcmp(argv[argi],"--cut_hp") || !strcmp(argv[argi],"-h")) {
-      if(argi + 1 >= argc)
-        cmd_print_usage("--cut_hp <len> requires an argument");
-      if(!parse_entire_uint(argv[argi+1], &hp_cutoff))
-        die("Invalid --cut_hp argument: %s", argv[argi+1]);
-      if(hp_cutoff > UINT8_MAX)
-        die("--cut_hp <hp> cannot be greater than %i", UINT8_MAX);
-      argi += 1;
-    }
-    else if(!strcmp(argv[argi],"--FF")) matedir = READPAIR_FF;
-    else if(!strcmp(argv[argi],"--FR")) matedir = READPAIR_FR;
-    else if(!strcmp(argv[argi],"--RF")) matedir = READPAIR_RF;
-    else if(!strcmp(argv[argi],"--RR")) matedir = READPAIR_RR;
-    else if(!strcmp(argv[argi],"--remove_pcr") || !strcmp(argv[argi],"-p"))
-      remove_pcr_dups = true;
-    else if(!strcmp(argv[argi],"--keep_pcr") || !strcmp(argv[argi],"-P"))
-      remove_pcr_dups = false;
-    else if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-1") ||
-            !strcmp(argv[argi],"--seqi") || !strcmp(argv[argi],"-i"))
-    {
-      if(!sample_named)
-        cmd_print_usage("Please use --sample <name> before giving sequence");
-      if(argi + 1 >= argc)
-        cmd_print_usage("--seq <file> requires an argument");
-
-      bool interleaved = (!strcmp(argv[argi],"--seqi") || !strcmp(argv[argi],"-i"));
-
-      // Create new task
-      build_graph_task_new2(argv[argi+1], NULL, interleaved, colour,
-                            fq_offset, fq_cutoff, hp_cutoff,
-                            remove_pcr_dups, matedir,
-                            tasks, &num_tasks);
-      //
-      argi += 1;
-      sample_used = true;
-      seq_loaded = true;
-    }
-    else if(!strcmp(argv[argi],"--seq2") || !strcmp(argv[argi],"-2")) {
-      if(!sample_named)
-        cmd_print_usage("Please use --sample <name> before giving sequence");
-      if(argi + 2 >= argc)
-        cmd_print_usage("--seq2 <file1> <file2> requires two arguments");
-
-      // Create new task
-      build_graph_task_new2(argv[argi+1], argv[argi+2], false, colour,
-                            fq_offset, fq_cutoff, hp_cutoff,
-                            remove_pcr_dups, matedir,
-                            tasks, &num_tasks);
-      //
-      argi += 2;
-      sample_used = true;
-      seq_loaded = true;
-    }
-    else if(!strcmp(argv[argi],"--sample") || !strcmp(argv[argi],"-x") ||
-            !strcmp(argv[argi],"--graph") || !strcmp(argv[argi],"-g"))
-    {
-      if(argi + 1 >= argc) cmd_print_usage("%s requires an arg", argv[argi]);
-
-      if(sample_named && !sample_used) {
-        warn("Empty colour '%s' (maybe you intended this?)",
-             samples[num_samples-1].sample_name);
-      }
-
-      // Move on to next colour
-      colour++;
-
-      if(!strcmp(argv[argi],"--sample") || !strcmp(argv[argi],"-x"))
-      {
-        // --sample <name>
-        if(!argv[argi+1][0] || !strcmp(argv[argi+1], "undefined") ||
-           !strcmp(argv[argi+1],"noname")) {
-          die("--sample %s is not a good name!", argv[argi+1]);
-        }
-
-        samples[num_samples].colour = colour;
-        samples[num_samples].sample_name = argv[argi+1];
-        num_samples++;
-
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'k': kmer_set++; kmer_size = cmd_parse_arg_uint32(cmd, optarg); break;
+      case 's':
+        intocolour++;
+        if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
+        if(strcmp(optarg,"undefined") == 0) die("Bad sample name: %s", optarg);
+        sample_name_buf_add(&snamebuf, (SampleName){.colour = intocolour,
+                                                    .name = optarg});
         sample_named = true;
-        sample_used = false;
-      }
-      else
-      {
-        // -g, --graph <in.ctx>
-        // Load binary into new colour
-        graphs[num_graphs] = (GraphFileReader)INIT_GRAPH_READER_MACRO;
-        graph_file_open(&graphs[num_graphs], argv[argi+1], true);
-        file_filter_update_intocol(&graphs[num_graphs].fltr, colour);
-        colour += graph_file_outncols(&graphs[num_graphs]);
-        num_graphs++;
+        break;
+      case '1':
+      case '2':
+      case 'i':
+        pref_unused = false;
+        if(!sample_named)
+          cmd_print_usage("Please give sample name first [-s,--sample <name>]");
+        asyncio_task_parse(&task.files, c, optarg, fq_offset, NULL);
+        task.colour = intocolour;
+        add_task(&task);
+        break;
+      case 'f': task.matedir = READPAIR_FR; pref_unused = true; break;
+      case 'F': task.matedir = READPAIR_FF; pref_unused = true; break;
+      case 'r': task.matedir = READPAIR_RF; pref_unused = true; break;
+      case 'R': task.matedir = READPAIR_RR; pref_unused = true; break;
+      case 'q': fq_offset = cmd_parse_arg_uint8(cmd, optarg); pref_unused = true; break;
+      case 'Q': task.fq_cutoff = cmd_parse_arg_uint8(cmd, optarg); pref_unused = true; break;
+      case 'H': task.hp_cutoff = cmd_parse_arg_uint8(cmd, optarg); pref_unused = true; break;
+      case 'p': task.remove_pcr_dups = true; pref_unused = true; break;
+      case 'P': task.remove_pcr_dups = false; pref_unused = true; break;
+      case 'g':
+        if(intocolour == -1) intocolour = 0;
+        tmp_gfile = (GraphFileReader)INIT_GRAPH_READER_MACRO;
+        graph_file_open(&tmp_gfile, optarg, true);
+        file_filter_update_intocol(&tmp_gfile.fltr, intocolour);
+        intocolour += graph_file_outncols(&tmp_gfile);
+        gfile_buf_add(&gfilebuf, tmp_gfile);
         sample_named = false;
-        sample_used = false;
-      }
-
-      argi++; // both --sample and --graph take a single argument
+        break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  if(!seq_loaded)
-    die("No sequence loaded, to combine graph files use '"CMD" join'");
+  // Check that optind+1 == argc
+  if(optind+1 > argc)
+    cmd_print_usage("Expected exactly one graph file");
+  else if(optind+1 < argc)
+    cmd_print_usage("Expected only one graph file. What is this: '%s'", argv[optind]);
 
-  if(sample_named && !sample_used) {
-    warn("Empty colour '%s' (maybe you intended this?)",
-         samples[num_samples-1].sample_name);
-  }
+  out_path = argv[optind];
+  status("Saving graph to: %s", out_path);
 
-  if(kmer_size == 0)
-    die("--kmer_size <k> not set");
+  if(snamebuf.len == 0) cmd_print_usage("No inputs given");
 
-  if(sample_named) colour++;
+  if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
+
+  if(kmer_set != 1)
+    die("kmer size must be exactly once with -k <K>");
+
+  if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE)
+    die("Please recompile with correct kmer size (%zu)", kmer_size);
 
   // Check kmer size in graphs to load
-  for(i = 0; i < num_graphs; i++) {
-    if(graphs[i].hdr.kmer_size != kmer_size) {
+  size_t i;
+  for(i = 0; i < gfilebuf.len; i++) {
+    if(gfilebuf.data[i].hdr.kmer_size != kmer_size) {
       cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]: %s",
-                      graphs[i].hdr.kmer_size, kmer_size,
-                      graphs[i].fltr.orig_path.buff);
+                      gfilebuf.data[i].hdr.kmer_size, kmer_size,
+                      gfilebuf.data[i].fltr.orig_path.buff);
     }
   }
 
-  *num_graphs_ptr = num_graphs;
-  *num_tasks_ptr = num_tasks;
-  *num_samples_ptr = num_samples;
-  *num_total_cols_ptr = colour;
-  *kmer_size_ptr = kmer_size;
+  output_colours = intocolour + (sample_named ? 1 : 0);
 }
 
-int ctx_build(CmdArgs *args)
+
+int ctx_build(int argc, char **argv)
 {
-  int argc = args->argc;
-  char **argv = args->argv;
-  // Already checked that we have at least 1 argument
+  size_t i;
+  build_graph_task_buf_alloc(&gtaskbuf, 16);
+  gfile_buf_alloc(&gfilebuf, 8);
+  sample_name_buf_alloc(&snamebuf, 16);
 
-  // num_seq_cols is the number of colours with sequence loaded into them
-  // output_colours = num_seq_cols + num colours filled with graph files
-  size_t i, kmer_size;
-  size_t num_tasks = 0, num_graphs = 0, num_samples = 0, output_colours = 0;
+  parse_args(argc, argv);
 
-  // Load inputs
-  size_t max_inputs = (size_t)argc/2;
-
-  BuildGraphTask *tasks = ctx_malloc(max_inputs * sizeof(BuildGraphTask));
-  GraphFileReader *graphs = ctx_malloc(max_inputs * sizeof(GraphFileReader));
-  SampleName *samples = ctx_malloc(max_inputs * sizeof(GraphFileReader));
-
-  load_args(argc-1, argv, &kmer_size,
-            tasks, &num_tasks,
-            graphs, &num_graphs,
-            samples, &num_samples,
-            &output_colours);
-
-  const char *out_path = argv[argc-1];
+  size_t s, t, nsamples = snamebuf.len, ntasks = gtaskbuf.len;
+  SampleName *samples = snamebuf.data;
+  BuildGraphTask *tasks = gtaskbuf.data;
 
   // Did any tasks require PCR duplicate removal
-  for(i = 0; i < num_tasks && !tasks[i].remove_pcr_dups; i++) {}
-  bool remove_pcr_used = (i < num_tasks);
+  for(i = 0; i < ntasks && !tasks[i].remove_pcr_dups; i++) {}
+  bool remove_pcr_used = (i < ntasks);
 
   //
   // Decide on memory
@@ -345,9 +234,14 @@ int ctx_build(CmdArgs *args)
   bits_per_kmer = (sizeof(Covg) + sizeof(Edges))*8*output_colours +
                   remove_pcr_used*2;
 
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer, 0, SIZE_MAX,
-                                        true, &graph_mem);
-  cmd_check_mem_limit(args->mem_to_use, graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         bits_per_kmer, 0, SIZE_MAX,
+                                         true, &graph_mem);
+
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   //
   // Check output path
@@ -361,23 +255,20 @@ int ctx_build(CmdArgs *args)
   }
 
   // Print graphs to be loaded
-  for(i = 0; i < num_graphs; i++)
-    print_graph_reader(&graphs[i]);
+  for(i = 0; i < gfilebuf.len; i++)
+    file_filter_status(&gfilebuf.data[i].fltr);
 
   // Print tasks and sample names
-  size_t s;
-  status("[sample] %zu: %s", (size_t)0, samples[0].sample_name);
-
-  for(i = 0, s = 0; i < num_tasks; i++) {
-    while(samples[s].colour < tasks[i].colour) {
-      s++; status("[sample] %zu: %s", s, samples[s].sample_name);
+  for(s = t = 0; s < nsamples || t < ntasks; )
+  {
+    if(t == ntasks || (s < nsamples && samples[s].colour <= tasks[t].colour)) {
+      status("[sample] %zu: %s", s, samples[s].name);
+      s++;
     }
-    build_graph_task_print(&tasks[i]);
-  }
-
-  // Print remaining empty samples
-  for(; s < num_samples; s++) {
-    status("[sample] %zu: %s", s, samples[s].sample_name);
+    else {
+      build_graph_task_print(&tasks[t]);
+      t++;
+    }
   }
 
   status("Writing %zu colour graph to %s\n", output_colours, out_path_name);
@@ -396,32 +287,30 @@ int ctx_build(CmdArgs *args)
   hash_table_print_stats(&db_graph.ht);
 
   // Load graphs
-  if(num_graphs > 0)
+  if(gfilebuf.len > 0)
   {
     GraphLoadingPrefs gprefs = LOAD_GPREFS_INIT(&db_graph);
     LoadingStats gstats = LOAD_STATS_INIT_MACRO;
 
-    for(i = 0; i < num_graphs; i++) {
-      graph_load(&graphs[i], gprefs, &gstats);
-      graph_file_close(&graphs[i]);
+    for(i = 0; i < gfilebuf.len; i++) {
+      graph_load(&gfilebuf.data[i], gprefs, &gstats);
+      hash_table_print_stats(&db_graph.ht);
+      graph_file_close(&gfilebuf.data[i]);
     }
-
-    hash_table_print_stats(&db_graph.ht);
   }
 
   // Set sample names using seq_colours array
-  for(i = 0; i < num_samples; i++) {
-    strbuf_set(&db_graph.ginfo[samples[i].colour].sample_name,
-               samples[i].sample_name);
+  for(i = 0; i < nsamples; i++) {
+    strbuf_set(&db_graph.ginfo[samples[i].colour].sample_name, samples[i].name);
   }
 
   size_t start, end, num_load, colour, prev_colour = 0;
 
   // If we are using PCR duplicate removal,
   // it's best to load one colour at a time
-  for(start = 0; start < num_tasks; start = end, prev_colour = colour)
+  for(start = 0; start < ntasks; start = end, prev_colour = colour)
   {
-    // Wipe read starts
+    // Wipe read start bitfield
     colour = tasks[start].colour;
     if(remove_pcr_used)
     {
@@ -429,22 +318,22 @@ int ctx_build(CmdArgs *args)
         memset(db_graph.readstrt, 0, roundup_bits2bytes(db_graph.ht.capacity)*2);
 
       end = start+1;
-      while(end < num_tasks && end-start < args->max_io_threads &&
+      while(end < ntasks && end-start < MAX_IO_THREADS &&
             tasks[end].colour == colour) end++;
     }
     else {
-      end = MIN2(start+args->max_io_threads, num_tasks);
+      end = MIN2(start+MAX_IO_THREADS, ntasks);
     }
 
     num_load = end-start;
-    build_graph(&db_graph, tasks+start, num_load, args->max_work_threads);
+    build_graph(&db_graph, tasks+start, num_load, num_of_threads);
   }
 
   // Print stats for hash table
   hash_table_print_stats(&db_graph.ht);
 
   // Print stats per input file
-  for(i = 0; i < num_tasks; i++) {
+  for(i = 0; i < ntasks; i++) {
     build_graph_task_print_stats(&tasks[i]);
     build_graph_task_destroy(&tasks[i]);
   }
@@ -453,9 +342,9 @@ int ctx_build(CmdArgs *args)
   graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                         0, output_colours);
 
-  ctx_free(tasks);
-  ctx_free(samples);
-  ctx_free(graphs);
+  build_graph_task_buf_dealloc(&gtaskbuf);
+  gfile_buf_dealloc(&gfilebuf);
+  sample_name_buf_dealloc(&snamebuf);
 
   ctx_free(db_graph.bktlocks);
   ctx_free(db_graph.col_covgs);

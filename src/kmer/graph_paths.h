@@ -5,8 +5,8 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "path_hash.h"
-#include "path_file_filter.h"
-#include "graph_file_filter.h"
+#include "path_file_reader.h"
+#include "graph_file_reader.h"
 #include "path_set.h"
 
 typedef struct {
@@ -31,7 +31,7 @@ static inline void gp_dealloc(GraphPathPairing *gp) {
 //          function. That means it is NOT thread-safe.
 void graph_paths_defragment(dBGraph *db_graph, FILE* tmp_fh);
 
-// Similar to path_file_filter.c:path_file_load_check()
+// Similar to path_file_reader.c:path_file_load_check()
 // Check kmer size matches and sample names match
 void graphs_paths_compatible(const GraphFileReader *graphs, size_t num_graphs,
                              const PathFileReader *paths, size_t num_paths);

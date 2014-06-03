@@ -22,6 +22,7 @@ const char correct_usage[] =
 "  -t, --threads <T>          Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>       Load path file (can specify multiple times)\n"
 // Non default:
+"  -c, --colour <in:out>         Correct reads from file (supports sam,bam,fq,*.gz\n"
 "  -1, --seq <in:out>         Correct reads from file (supports sam,bam,fq,*.gz\n"
 "  -2, --seq2 <in1:in2:out>   Correct paired end sequences (output: <out>.{1,2}.fa.gz)\n"
 "  -i, --seqi <in.bam:out>    Correct PE reads from a single file\n"
@@ -29,15 +30,17 @@ const char correct_usage[] =
 "    -r,--RF -R--RR\n"
 "  -w, --oneway               Use one-way gap filling (conservative)\n"
 "  -W, --twoway               Use two-way gap filling (liberal)\n"
-"  -Q, --fq_threshold <Q>     Filter quality scores [default: 0 (off)]\n"
-"  -q, --fq_offset <N>        FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
-"  -H, --cut_hp <bp>          Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -Q, --fq-threshold <Q>     Filter quality scores [default: 0 (off)]\n"
+"  -q, --fq-offset <N>        FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -H, --cut-hp <bp>          Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -e, --end-check            Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check         Skip extra check after gap bridging\n"
 "  -g, --min-ins <ins>        Minimum insert size for --seq2 [default:0]\n"
 "  -G, --max-ins <ins>        Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
 // "  -S, --seq-gaps <out.csv>   Save size distribution of seq gaps bridged\n"
 // "  -M, --mp-gaps <out.csv>    Save size distribution of mate pair gaps bridged\n"
+//
+"  -g, --min-ins <ins>        Minimum insert size for --seq2 [default:0]\n"
 "\n"
 " --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
 " --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n"
@@ -62,13 +65,16 @@ static struct option longopts[] =
   {"RR",           no_argument,       NULL, 'R'},
   {"oneway",       no_argument,       NULL, 'w'},
   {"twoway",       no_argument,       NULL, 'W'},
-  {"fq_cutoff",    required_argument, NULL, 'Q'},
-  {"fq_offset",    required_argument, NULL, 'q'},
-  {"cut_hp",       required_argument, NULL, 'H'},
+  {"fq-cutoff",    required_argument, NULL, 'Q'},
+  {"fq-offset",    required_argument, NULL, 'q'},
+  {"cut-hp",       required_argument, NULL, 'H'},
   {"end-check",    no_argument,       NULL, 'e'},
   {"no-end-check", no_argument,       NULL, 'E'},
   {"min-ins",      no_argument,       NULL, 'g'},
   {"max-ins",      no_argument,       NULL, 'G'},
+  {"colour",       required_argument, NULL, 'c'}, // allow --{col,color,colour}
+  {"color",        required_argument, NULL, 'c'},
+  {"col",          required_argument, NULL, 'c'},
   // {"seq-gaps",     required_argument, NULL, 'S'},
   // {"mp-gaps",      required_argument, NULL, 'M'},
   {NULL, 0, NULL, 0}
@@ -77,6 +83,7 @@ static struct option longopts[] =
 
 int ctx_correct(int argc, char **argv)
 {
+  size_t i, j;
   struct ReadThreadCmdArgs args = READ_THREAD_CMD_ARGS_INIT;
   read_thread_args_alloc(&args);
   read_thread_args_parse(&args, argc, argv, longopts, true);
@@ -86,6 +93,18 @@ int ctx_correct(int argc, char **argv)
   CorrectAlnInputBuffer *inputs = &args.inputs;
   size_t ctx_total_cols = gfile->hdr.num_of_cols;
   size_t ctx_num_kmers = gfile->num_of_kmers;
+
+  if(args.colour > ctx_total_cols)
+    cmd_print_usage("-c %zu is too big [> %zu]", args.colour, ctx_total_cols);
+
+  size_t ctp_usedcols = 0;
+  for(i = 0; i < pfiles->len; i++) {
+    if(!file_filter_iscolloaded(&pfiles->data[i].fltr, args.colour)) {
+      cmd_print_usage("Path file doesn't load into colour %zu: %s",
+                      args.colour, pfiles->data[i].fltr.orig_path.buff);
+    }
+    ctp_usedcols = MAX2(ctp_usedcols, path_file_usedcols(&pfiles->data[i]));
+  }
 
   //
   // Decide on memory
@@ -114,13 +133,13 @@ int ctx_correct(int argc, char **argv)
   // Check we can read all output files
   //
   // Open output files
-  size_t i, j;
   SeqOutput *outputs = ctx_calloc(inputs->len, sizeof(SeqOutput));
   bool output_files_exist = false;
 
   for(i = 0; i < inputs->len; i++)
   {
     CorrectAlnInput *input = &inputs->data[i];
+    input->crt_params.ctxcol = input->crt_params.ctpcol = args.colour;
     SeqOutput *output = &outputs[i];
     seq_output_alloc(output);
     seq_output_set_paths(output, input->out_base,
@@ -138,8 +157,7 @@ int ctx_correct(int argc, char **argv)
 
   // Check if something went wrong - if so remove all output files
   if(i < inputs->len) {
-    for(j = 0; j < i; j++)
-      seq_output_delete(&outputs[i]);
+    for(j = 0; j < i; j++) seq_output_delete(&outputs[i]);
     die("Couldn't open output files");
   }
 
@@ -154,11 +172,6 @@ int ctx_correct(int argc, char **argv)
 
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = ctx_calloc(bytes_per_col * ctx_total_cols, 1);
-
-  size_t ctp_usedcols = 0;
-  for(i = 0; i < args.pfiles.len; i++) {
-    ctp_usedcols = MAX2(ctp_usedcols, path_file_usedcols(&args.pfiles.data[i]));
-  }
 
   // Paths
   path_store_alloc(&db_graph.pstore, path_mem, false,

@@ -8,7 +8,7 @@
 
 typedef struct
 {
-  AsyncIOReadTask files;
+  AsyncIOReadInput files;
   uint8_t fq_cutoff, hp_cutoff;
   ReadMateDir matedir;
   CorrectAlnParam crt_params;
@@ -27,8 +27,8 @@ create_objbuf(correct_aln_input_buf, CorrectAlnInputBuffer, CorrectAlnInput);
 
 void correct_aln_input_print(const CorrectAlnInput *c);
 
-// Copy CorrectAlnInput to an array of AsyncIOReadTasks
-void correct_aln_input_to_asycio(AsyncIOReadTask *asyncio_tasks,
+// Copy CorrectAlnInput to an array of AsyncIOReadInputs
+void correct_aln_input_to_asycio(AsyncIOReadInput *asyncio_tasks,
                                  CorrectAlnInput *inputs,
                                  size_t num_inputs);
 

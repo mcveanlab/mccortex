@@ -537,13 +537,13 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   AsyncIOData iodata = {.r1 = r1, .r2 = r2, .ptr = NULL,
                         .fq_offset1 = 0, .fq_offset2 = 2};
 
-  AsyncIOReadTask iotask = {.file1 = NULL, .file2 = NULL,
-                            .fq_offset = 0, .interleaved = false};
+  AsyncIOReadInput iotask = {.file1 = NULL, .file2 = NULL,
+                             .fq_offset = 0, .interleaved = false};
 
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   task.matedir = READPAIR_FF;
   task.crt_params = params;
-  memcpy(&task.files, &iotask, sizeof(AsyncIOReadTask));
+  memcpy(&task.files, &iotask, sizeof(AsyncIOReadInput));
 
   gen_paths_worker_seq(gen_path_wrkr, &iodata, &task);
 }
@@ -566,7 +566,7 @@ void generate_paths(CorrectAlnInput *tasks, size_t num_inputs,
     workers[i].rcounter = &read_counter;
   }
 
-  AsyncIOReadTask *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOReadTask));
+  AsyncIOReadInput *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOReadInput));
   correct_aln_input_to_asycio(asyncio_tasks, tasks, num_inputs);
 
   asyncio_run_threads(&pool, asyncio_tasks, num_inputs, generate_paths_worker,

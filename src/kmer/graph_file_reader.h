@@ -1,5 +1,5 @@
-#ifndef GRAPH_FILE_FILTER_H_
-#define GRAPH_FILE_FILTER_H_
+#ifndef GRAPH_FILE_READER_H_
+#define GRAPH_FILE_READER_H_
 
 #include "cortex_types.h"
 #include "file_filter.h"
@@ -83,4 +83,4 @@ size_t graph_files_open(char **graph_paths,
                         GraphFileReader *gfiles, size_t num_gfiles,
                         size_t *max_kmers_ptr, size_t *sum_kmers_ptr);
 
-#endif /* GRAPH_FILE_FILTER_H_ */
+#endif /* GRAPH_FILE_READER_H_ */

@@ -268,7 +268,7 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
   for(i = 0; i < num_threads; i++)
     correct_reads_worker_alloc(&wrkrs[i], &pool, db_graph);
 
-  AsyncIOReadTask *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOReadTask));
+  AsyncIOReadInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOReadInput));
   correct_aln_input_to_asycio(asyncio_tasks, inputs, num_inputs);
 
   // Load input files max_io_threads at a time

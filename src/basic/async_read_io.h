@@ -8,11 +8,11 @@
 
 typedef struct
 {
-  seq_file_t *const file1, *const file2;
+  seq_file_t *file1, *file2;
   void *ptr; // general porpoise pointer is passes into AsyncIOData
   const uint8_t fq_offset;
   const bool interleaved; // if file1 is an interleaved PE file
-} AsyncIOReadTask;
+} AsyncIOReadInput;
 
 typedef struct
 {
@@ -32,10 +32,10 @@ typedef struct
 //   -2, --seq2 <in1>:<in2>
 //   -i, --seqi <in>
 // If `out_base` is != NULL, it is set to point to the <out> string
-void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path_arg,
+void asyncio_task_parse(AsyncIOReadInput *task, char shortopt, char *path_arg,
                         uint8_t fq_offset, char **out_base);
 
-void asyncio_task_close(AsyncIOReadTask *task);
+void asyncio_task_close(AsyncIOReadInput *task);
 
 void asynciodata_alloc(AsyncIOData *iod);
 void asynciodata_dealloc(AsyncIOData *iod);
@@ -46,7 +46,7 @@ void asynciodata_pool_init(void *el, size_t idx, void *args);
 void asynciodata_pool_destroy(void *el, size_t idx, void *args);
 
 void asyncio_run_threads(MsgPool *pool,
-                         AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
+                         AsyncIOReadInput *asyncio_tasks, size_t num_inputs,
                          void (*job)(void*),
                          void *args, size_t num_readers, size_t elsize);
 

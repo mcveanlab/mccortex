@@ -3,7 +3,7 @@
 
 #include "cmd.h"
 
-int ctx_build(CmdArgs *args);
+int ctx_build(int argc, char **argv);
 int ctx_view(CmdArgs *args);
 int ctx_health_check(CmdArgs *args);
 int ctx_clean(CmdArgs *args);
@@ -20,7 +20,6 @@ int ctx_pjoin(CmdArgs *args);
 int ctx_bubbles(CmdArgs *args);
 int ctx_diverge(CmdArgs *args);
 int ctx_unique(CmdArgs *args);
-int ctx_covg(CmdArgs *args);
 int ctx_place(CmdArgs *args);
 int ctx_correct(int argc, char **argv);
 int ctx_breakpoints(CmdArgs *args);

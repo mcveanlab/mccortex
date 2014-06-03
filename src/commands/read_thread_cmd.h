@@ -1,8 +1,8 @@
 #ifndef READ_THREAD_CMD_H_
 #define READ_THREAD_CMD_H_
 
-#include "path_file_filter.h"
-#include "graph_file_filter.h"
+#include "path_file_reader.h"
+#include "graph_file_reader.h"
 #include "correct_aln_input.h"
 
 //
@@ -17,7 +17,8 @@ struct ReadThreadCmdArgs
   char *graph_path, *out_ctp_path;
   bool use_new_paths, clean_paths;
   char *dump_seq_sizes, *dump_mp_sizes;
-  int clean_threshold; // 0 => no calling, -1 => auto
+  int clean_threshold; // 0 => no cleaning, -1 => auto
+  size_t colour; // ctx_correct only
 
   GraphFileReader gfile;
   PathFileBuffer pfiles;
@@ -27,17 +28,18 @@ struct ReadThreadCmdArgs
 };
 
 #define READ_THREAD_CMD_ARGS_INIT {.num_of_threads = DEFAULT_NTHREADS, \
-                                   .memargs = MEM_ARGS_INIT, \
-                                   .graph_path = NULL, \
-                                   .out_ctp_path = NULL, \
-                                   .use_new_paths = false, \
-                                   .clean_paths = false, \
-                                   .dump_seq_sizes = NULL, \
-                                   .dump_mp_sizes = NULL, \
-                                   .clean_threshold = 0, \
-                                   .inputs = OBJBUF_INIT, \
-                                   .pfiles = OBJBUF_INIT, \
-                                   .gfile = INIT_GRAPH_READER_MACRO, \
+                                   .memargs = MEM_ARGS_INIT,           \
+                                   .graph_path = NULL,                 \
+                                   .out_ctp_path = NULL,               \
+                                   .use_new_paths = false,             \
+                                   .clean_paths = false,               \
+                                   .dump_seq_sizes = NULL,             \
+                                   .dump_mp_sizes = NULL,              \
+                                   .clean_threshold = 0,               \
+                                   .colour = 0,                        \
+                                   .gfile = INIT_GRAPH_READER_MACRO,   \
+                                   .pfiles = OBJBUF_INIT,              \
+                                   .inputs = OBJBUF_INIT,              \
                                    .max_gap_limit = 0}
 
 void read_thread_args_alloc(struct ReadThreadCmdArgs *args);

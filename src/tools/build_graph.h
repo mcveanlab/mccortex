@@ -17,11 +17,11 @@
 
 typedef struct
 {
-  AsyncIOReadTask files;
-  const uint8_t fq_cutoff, hp_cutoff;
-  const ReadMateDir matedir;
-  const Colour colour;
-  const bool remove_pcr_dups;
+  AsyncIOReadInput files;
+  uint8_t fq_cutoff, hp_cutoff;
+  ReadMateDir matedir;
+  Colour colour;
+  bool remove_pcr_dups;
 
   // Stats are written to here
   LoadingStats stats;
@@ -29,6 +29,20 @@ typedef struct
   // used internally
   size_t idx;
 } BuildGraphTask;
+
+#define BUILD_GRAPH_TASK_INIT {.fq_cutoff = 0, .hp_cutoff = 0,       \
+                               .matedir = READPAIR_FR, .colour = 0,  \
+                               .remove_pcr_dups = false,             \
+                               .stats = LOAD_STATS_INIT_MACRO,       \
+                               .idx = 0}
+
+#include "objbuf_macro.h"
+create_objbuf(build_graph_task_buf, BuildGraphTaskBuffer, BuildGraphTask);
+
+static inline void build_graph_task_destroy(BuildGraphTask *task)
+{
+  asyncio_task_close(&task->files);
+}
 
 void build_graph_task_print(const BuildGraphTask *task);
 void build_graph_task_print_stats(const BuildGraphTask *task);

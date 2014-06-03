@@ -255,11 +255,12 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
   // Start async io reading
-  AsyncIOReadTask *async_tasks = ctx_malloc(num_files * sizeof(AsyncIOReadTask));
+  AsyncIOReadInput *async_tasks = ctx_malloc(num_files * sizeof(AsyncIOReadInput));
 
   for(f = 0; f < num_files; f++) {
     files[f].idx = f;
-    memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOReadTask));
+    files[f].files.ptr = &files[f];
+    memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOReadInput));
   }
 
   BuildGraphWorker *workers = ctx_malloc(num_build_threads * sizeof(BuildGraphWorker));
@@ -310,7 +311,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 
 void build_graph_task_print(const BuildGraphTask *task)
 {
-  const AsyncIOReadTask *io = &task->files;
+  const AsyncIOReadInput *io = &task->files;
   char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
 
   if(io->fq_offset > 0) sprintf(fqOffset, "%u", io->fq_offset);
@@ -328,7 +329,7 @@ void build_graph_task_print(const BuildGraphTask *task)
 void build_graph_task_print_stats(const BuildGraphTask *task)
 {
   const LoadingStats stats = task->stats;
-  const AsyncIOReadTask *io = &task->files;
+  const AsyncIOReadInput *io = &task->files;
 
   status("[task] input: %s%s%s colour: %zu",
          io->file1->path, io->file2 ? ", " : "",

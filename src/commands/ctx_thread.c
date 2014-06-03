@@ -5,8 +5,8 @@
 #include "loading_stats.h"
 #include "graph_format.h"
 #include "path_format.h"
-#include "path_file_filter.h"
-#include "graph_file_filter.h"
+#include "path_file_reader.h"
+#include "graph_file_reader.h"
 #include "generate_paths.h"
 #include "graph_paths.h"
 #include "read_thread_cmd.h"
@@ -32,9 +32,9 @@ const char thread_usage[] =
 "    -r,--RF -R--RR\n"
 "  -w, --oneway             Use one-way gap filling (conservative)\n"
 "  -W, --twoway             Use two-way gap filling (liberal)\n"
-"  -Q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
-"  -q, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
-"  -H, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
+"  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -g, --min-ins <ins>      Minimum insert size for --seq2 [default:0]\n"
@@ -42,7 +42,7 @@ const char thread_usage[] =
 "  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
 "  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
-"  -c, --clean [auto|N]     Threshold at auto or <N> and remove redundant paths\n"
+"  -C, --clean [auto|N]     Threshold at auto or <N> and remove redundant paths\n"
 "\n"
 "  Debugging Options: Probably best not to touch these\n"
 "    -X,--print-contigs -Y,--print-paths -Z,--print-reads\n"
@@ -70,9 +70,9 @@ static struct option longopts[] =
   {"RR",           no_argument,       NULL, 'R'},
   {"oneway",       no_argument,       NULL, 'w'},
   {"twoway",       no_argument,       NULL, 'W'},
-  {"fq_cutoff",    required_argument, NULL, 'Q'},
-  {"fq_offset",    required_argument, NULL, 'q'},
-  {"cut_hp",       required_argument, NULL, 'H'},
+  {"fq-cutoff",    required_argument, NULL, 'Q'},
+  {"fq-offset",    required_argument, NULL, 'q'},
+  {"cut-hp",       required_argument, NULL, 'H'},
   {"end-check",    no_argument,       NULL, 'e'},
   {"no-end-check", no_argument,       NULL, 'E'},
   {"min-ins",      no_argument,       NULL, 'g'},
@@ -80,7 +80,7 @@ static struct option longopts[] =
   {"seq-gaps",     required_argument, NULL, 'S'},
   {"mp-gaps",      required_argument, NULL, 'M'},
   {"use-new-paths",optional_argument, NULL, 'u'},
-  {"clean",        optional_argument, NULL, 'c'},
+  {"clean",        optional_argument, NULL, 'C'},
 // Debug options
   {"print-contigs",no_argument,       NULL, 'X'},
   {"print-paths",  no_argument,       NULL, 'Y'},

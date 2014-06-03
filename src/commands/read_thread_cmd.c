@@ -64,6 +64,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 't': args->num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&args->memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&args->memargs, optarg); break;
+      case 'c': args->colour = cmd_parse_arg_uint32(cmd, optarg);
       case '1':
       case '2':
       case 'i':
@@ -89,7 +90,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'S': args->dump_seq_sizes = optarg; dump_seq_n++; break;
       case 'M': args->dump_mp_sizes = optarg; dump_mp_n++; break;
       case 'u': args->use_new_paths = true; break;
-      case 'c':
+      case 'C':
         if(optarg == NULL || strcmp(optarg,"auto")) args->clean_threshold = -1;
         else if(parse_entire_int(optarg,&tmp_thresh) && tmp_thresh >= -1) {
           if(tmp_thresh != -1 && tmp_thresh < 2)

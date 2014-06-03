@@ -126,6 +126,18 @@ void file_filter_update_intocol(FileFilter *fltr, size_t intocol)
   fltr->nofilter = (i == fltr->filencols && fltr->intocol == 0);
 }
 
+// Returns true if the specifed filter `fltr` updates colour `col`
+// bool file_filter_iscolloaded(FileFilter *fltr, size_t col)
+// {
+//   size_t i;
+//   for(i = 0; i < fltr->ncols; i++) {
+//     if(file_filter_intocol(fltr, i) == col)
+//       return true;
+//   }
+
+//   return false;
+// }
+
 // Print file filter description
 void file_filter_status(const FileFilter *fltr)
 {

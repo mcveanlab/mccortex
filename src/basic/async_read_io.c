@@ -9,7 +9,7 @@ struct AsyncIOWorker
 {
   pthread_t thread;
   MsgPool *const pool;
-  AsyncIOReadTask task;
+  AsyncIOReadInput task;
   size_t *const num_running;
 };
 
@@ -23,7 +23,7 @@ struct AsyncIOWorker
 //   -2, --seq2 <in1>:<in2>
 //   -i, --seqi <in>
 // If `out_base` is != NULL, it is set to point to the <out> string
-void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path_arg,
+void asyncio_task_parse(AsyncIOReadInput *task, char shortopt, char *path_arg,
                         uint8_t fq_offset, char **out_base)
 {
   seq_file_t *sf1 = NULL, *sf2 = NULL;
@@ -62,13 +62,13 @@ void asyncio_task_parse(AsyncIOReadTask *task, char shortopt, char *path_arg,
       die("Cannot open -%c file: %s", shortopt, paths[0]);
   }
 
-  AsyncIOReadTask tmp = {.file1 = sf1, .file2 = sf2,
+  AsyncIOReadInput tmp = {.file1 = sf1, .file2 = sf2,
                          .fq_offset = fq_offset, .interleaved = il,
                          .ptr = NULL};
-  memcpy(task, &tmp, sizeof(AsyncIOReadTask));
+  memcpy(task, &tmp, sizeof(AsyncIOReadInput));
 }
 
-void asyncio_task_close(AsyncIOReadTask *task)
+void asyncio_task_close(AsyncIOReadInput *task)
 {
   if(task->file1 != NULL) seq_close(task->file1);
   if(task->file2 != NULL) seq_close(task->file2);
@@ -95,7 +95,7 @@ void asynciodata_pool_init(void *el, size_t idx, void *args)
 
 // No memory allocated for io worker
 static void async_io_worker_init(AsyncIOWorker *wrkr,
-                                 const AsyncIOReadTask *task,
+                                 const AsyncIOReadInput *task,
                                  MsgPool *pool, size_t *num_running)
 {
   ctx_assert(pool->elsize == sizeof(AsyncIOData*));
@@ -133,7 +133,7 @@ static void* async_io_reader(void *ptr) __attribute__((noreturn));
 static void* async_io_reader(void *ptr)
 {
   AsyncIOWorker *wrkr = (AsyncIOWorker*)ptr;
-  AsyncIOReadTask *task = &wrkr->task;
+  AsyncIOReadInput *task = &wrkr->task;
 
   read_t r1, r2;
   seq_read_alloc(&r1);
@@ -166,7 +166,7 @@ static void* async_io_reader(void *ptr)
 // returns an array of AsyncIOWorker of length len_files, each is a running
 // thread putting reading into the pool passed.
 static AsyncIOWorker* asyncio_read_start(MsgPool *pool,
-                                         const AsyncIOReadTask *tasks,
+                                         const AsyncIOReadInput *tasks,
                                          size_t num_tasks)
 {
   if(num_tasks == 0) return NULL;
@@ -226,7 +226,7 @@ static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
 }
 
 void asyncio_run_threads(MsgPool *pool,
-                         AsyncIOReadTask *asyncio_tasks, size_t num_inputs,
+                         AsyncIOReadInput *asyncio_tasks, size_t num_inputs,
                          void (*job)(void*),
                          void *args, size_t num_readers, size_t elsize)
 {

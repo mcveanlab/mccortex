@@ -30,8 +30,8 @@ typedef struct
 #define file_filter_outncols(fltr) \
         ((size_t)(fltr)->flatten + (!((fltr)->flatten))*(fltr)->ncols)
 
-#define file_filter_intocol(fltr,col) ((fltr)->intocol + (!(fltr)->flatten)*(col))
-#define file_filter_fromcol(fltr,col) ((fltr)->cols[col])
+#define file_filter_intocol(fltr,idx) ((fltr)->intocol + (!(fltr)->flatten)*(idx))
+#define file_filter_fromcol(fltr,idx) ((fltr)->cols[idx])
 #define file_filter_usedcols(fltr) ((fltr)->intocol + file_filter_outncols(fltr))
 #define file_filter_iscolloaded(fltr,col) \
         ((fltr)->intocol<=(col) && (col)<file_filter_usedcols(fltr))
@@ -51,6 +51,9 @@ void file_filter_close(FileFilter *file);
 void file_filter_set_cols(FileFilter *fltr, size_t filencols);
 // Set which colour to load the first colour into
 void file_filter_update_intocol(FileFilter *fltr, size_t intocol);
+
+// Returns true if the specifed filter `fltr` updates colour `col`
+// bool file_filter_iscolloaded(FileFilter *fltr, size_t col);
 
 // Print object
 void file_filter_status(const FileFilter *fltr);

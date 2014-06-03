@@ -1,5 +1,5 @@
-#ifndef PATH_FILE_FILTER_H_
-#define PATH_FILE_FILTER_H_
+#ifndef PATH_FILE_READER_H_
+#define PATH_FILE_READER_H_
 
 #include "cortex_types.h"
 #include "file_filter.h"
@@ -71,4 +71,4 @@ void path_file_set_graph_sample_names(const PathFileReader *file,
 void path_file_set_header_sample_names(const PathFileReader *file,
                                        PathFileHeader *hdr1);
 
-#endif /* PATH_FILE_FILTER_H_ */
+#endif /* PATH_FILE_READER_H_ */
