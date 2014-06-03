@@ -27,10 +27,10 @@ static struct option longopts[] =
   {"help",         no_argument,       NULL, 'h'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
+  {"out",          required_argument, NULL, 'o'},
 // command specific
   {"edges",        no_argument,       NULL, 'e'},
   {"seq",          required_argument, NULL, '1'},
-  {"out",          required_argument, NULL, 'o'},
   {NULL, 0, NULL, 0}
 };
 

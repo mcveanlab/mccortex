@@ -10,13 +10,35 @@ const char rmsubstr_usage[] =
 "\n"
 "  Remove duplicate sequences and those that occur as substrings of others.\n"
 "\n"
+"  -h, --help            This help message\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -k, --kmer <kmer>     Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
 "  -f, --fasta           Print output in FASTA format [default]\n"
 "  -q, --fastq           Print output in FASTQ format\n"
-"  -i, --plain           Print output sequences one per line\n"
+"  -p, --plain           Print output sequences one per line\n"
+"  -o, --out <out.txt>   Save output [default: STDOUT]\n"
 "\n";
+
+static struct option longopts[] =
+{
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
+  {"threads",      required_argument, NULL, 't'},
+  {"out",          required_argument, NULL, 'o'},
+// command specific
+  {"kmer",         required_argument, NULL, 'k'},
+  {"fasta",        no_argument,       NULL, 'f'},
+  {"FASTA",        no_argument,       NULL, 'F'},
+  {"fastq",        no_argument,       NULL, 'q'},
+  {"FASTQ",        no_argument,       NULL, 'Q'},
+  {"plain",        no_argument,       NULL, 'p'},
+  {"PLAIN",        no_argument,       NULL, 'P'},
+  {NULL, 0, NULL, 0}
+};
 
 #if MAX_KMER_SIZE == 31
 #  define DEFAULT_KMER 31
@@ -77,52 +99,54 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
   return 0;
 }
 
-int ctx_rmsubstr(CmdArgs *args)
+int ctx_rmsubstr(int argc, char **argv)
 {
-  int argc = args->argc;
-  char **argv = args->argv;
-
-  size_t kmer_size = DEFAULT_KMER;
+  struct MemArgs memargs = MEM_ARGS_INIT;
+  size_t kmer_size = DEFAULT_KMER, num_of_threads = DEFAULT_NTHREADS;
   uint8_t output_format = OUTPUT_FASTA;
   size_t kmer_set = 0, output_format_set = 0;
+  const char *output_file = NULL;
 
-  int argi;
-  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
-  {
-    if(!strcmp(argv[argi], "--kmer") | !strcmp(argv[argi], "-k"))
-    {
-      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &kmer_size) || 
-         (kmer_size & 1) == 0)
-      {
-        cmd_print_usage("%s <kmer> requires an odd integer value %i >= K >= %i",
-                        argv[argi], MIN_KMER_SIZE, MAX_KMER_SIZE);
-      }
-      kmer_set++;
-      argi++;
+  // Arg parsing
+  char cmd[100], shortopts[100];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'k': kmer_set++; kmer_size = cmd_parse_arg_uint32(cmd, optarg); break;
+      case 'f':
+      case 'F': output_format = OUTPUT_FASTA; output_format_set++; break;
+      case 'q':
+      case 'Q': output_format = OUTPUT_FASTQ; output_format_set++; break;
+      case 'p':
+      case 'P': output_format = OUTPUT_PLAIN; output_format_set++; break;
+      case 'o':
+        if(output_file != NULL) cmd_print_usage("%s given twice", cmd);
+        output_file = optarg;
+        break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
-    else if(!strcmp(argv[argi], "--plain") || !strcmp(argv[argi],"-i")) {
-      output_format = OUTPUT_PLAIN;
-      output_format_set++;
-    }
-    else if(!strcmp(argv[argi], "--fasta") || !strcmp(argv[argi],"-f")) {
-      output_format = OUTPUT_FASTA;
-      output_format_set++;
-    }
-    else if(!strcmp(argv[argi], "--fastq") || !strcmp(argv[argi],"-q")) {
-      output_format = OUTPUT_FASTQ;
-      output_format_set++;
-    }
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
   if(kmer_set > 1) cmd_print_usage("-k|--kmer specified more than once");
   if(output_format_set > 1) cmd_print_usage("Output format set more than once");
 
-  if(argi >= argc)
+  if(optind >= argc)
     cmd_print_usage("Please specify at least one input graph file (.ctx)");
 
-  size_t i, num_seq_files = argc - argi;
-  char **seq_paths = argv + argi;
+  size_t i, num_seq_files = argc - optind;
+  char **seq_paths = argv + optind;
   seq_file_t **seq_files = ctx_calloc(num_seq_files, sizeof(seq_file_t*));
   size_t est_num_bases = 0;
 
@@ -149,22 +173,25 @@ int ctx_rmsubstr(CmdArgs *args)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t num_of_threads = args->max_work_threads;
 
   bits_per_kmer = sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
                   8; // 1 byte per kmer for each base to load sequence files
 
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        est_num_bases, est_num_bases,
-                                        false, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         bits_per_kmer,
+                                         est_num_bases, est_num_bases,
+                                         false, &graph_mem);
 
-  cmd_check_mem_limit(args->mem_to_use, graph_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   //
   // Open output file
   //
-  const char *output_path = args->output_file_set ? args->output_file : "-";
-  FILE *fout = futil_open_output(output_path);
+  if(output_file == NULL) output_file = "-";
+  FILE *fout = futil_open_output(output_file);
 
   //
   // Set up memory
@@ -212,7 +239,7 @@ int ctx_rmsubstr(CmdArgs *args)
   status("Printed %s / %s (%.1f%%) to %s",
          num_reads_printed_str, num_reads_str,
          (100.0 * num_reads_printed) / num_reads,
-         futil_outpath_str(output_path));
+         futil_outpath_str(output_file));
 
   if(num_bad_reads > 0) {
     status("Bad reads: %s / %s (%.1f%%) - no kmer {ACGT} of length %zu",

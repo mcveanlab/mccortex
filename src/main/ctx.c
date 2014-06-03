@@ -142,7 +142,7 @@ CtxCmd cmdobjs[] = {
   .usage = coverage_usage
 },
 {
-  .cmd = "rmsubstr", .func = ctx_rmsubstr, .hide = 0,
+  .cmd = "rmsubstr", .func = NULL, .func2 = ctx_rmsubstr, .hide = 0,
   .minargs = 0, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "",
   .blurb = "reduce set of strings to remove substrings",
   .usage = rmsubstr_usage
