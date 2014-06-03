@@ -159,7 +159,7 @@ static inline void record_threshold(hkey_t hkey,
     {
       // Mark remaining nodes as visited
       for(i = 1; i < nbuf->len; i++)
-        bitset_set_mt(visited, hkey);
+        bitset_set_mt(visited, nbuf->data[i].key);
 
       // Check if this is not a tip that we should ignore
       if(min_keep_tip == 0 || nbuf->len >= min_keep_tip ||
