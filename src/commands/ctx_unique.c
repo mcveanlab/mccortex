@@ -336,23 +336,19 @@ static void header_add(CallHeader *ch, char *tag, char *value)
   ch->hlines++;
 }
 
-static void print_vcf_header(gzFile vcf, CallHeader *ch, const char *cmdline)
+static void print_vcf_header(gzFile vcf, CallHeader *ch)
 {
   size_t i;
   char datestr[9];
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
-  char cwd[PATH_MAX + 1];
-
   gzprintf(vcf, "##fileformat=VCFv4.1\n");
   gzprintf(vcf, "##fileDate=%s\n", datestr);
   gzprintf(vcf, "##reference=unplaced\n");
   gzprintf(vcf, "##phasing=none\n");
-  gzprintf(vcf, "##procCmd=%s\n", cmdline);
-
-  if(futil_get_current_dir(cwd) != NULL)
-    gzprintf(vcf, "##procCwd=%s\n", cwd);
+  gzprintf(vcf, "##procCmd=%s\n", cmd_line_given);
+  gzprintf(vcf, "##procCwd=%s\n", cmd_cwd);
 
   gzprintf(vcf, "##procDate=%s\n", datestr);
 
@@ -998,7 +994,7 @@ int ctx_unique(CmdArgs *args)
       die("Read error on input file: %s", input_path);
   }
 
-  print_vcf_header(vcf, ch, args->cmdline);
+  print_vcf_header(vcf, ch);
 
   CallReader *cr = reader_new(ch);
   khash_t(vhsh) *varhash = kh_init(vhsh);

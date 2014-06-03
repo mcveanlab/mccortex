@@ -7,6 +7,7 @@
 #include "seq_reader.h"
 #include "kmer_occur.h"
 #include "graph_crawler.h"
+#include "caller_output.h"
 
 typedef struct {
   size_t first_runid, num_runs;
@@ -554,26 +555,18 @@ static void breakpoint_caller(void *ptr)
                     breakpoint_caller_node, caller);
 }
 
-static void breakpoints_print_header(gzFile gzout, const CmdArgs *args,
-                                     const char **seq_paths, size_t nseq_paths,
-                                     const read_t *reads, size_t nreads)
+static void breakpoints_print_header(gzFile gzout, const char *out_path,
+                                     char **seq_paths, size_t nseq_paths,
+                                     const read_t *reads, size_t nreads,
+                                     const dBGraph *db_graph)
 {
-  char datestr[9], cwd[PATH_MAX + 1];
   size_t i;
-
   ctx_assert(nseq_paths > 0);
 
-  time_t date = time(NULL);
-  strftime(datestr, 9, "%Y%m%d", localtime(&date));
-
-  gzprintf(gzout, "##fileFormat=CtxBreakpointsv0.1\n##fileDate=%s\n", datestr);
-  gzprintf(gzout, "##cmd=\"%s\"\n", args->cmdline);
-  if(futil_get_current_dir(cwd) != NULL) gzprintf(gzout, "##wkdir=%s\n", cwd);
-  gzprintf(gzout, "##ctxVersion=\""VERSION_STATUS_STR"\"\n");
-  gzprintf(gzout, "##ctxKmerSize=%i\n", MAX_KMER_SIZE);
+  caller_gzprint_header(gzout, out_path, "CtxBreakpointsv0.1", db_graph);
 
   for(i = 0; i < nseq_paths; i++)
-    gzprintf(gzout, "##reference=%s\n", i, seq_paths[i]);
+    gzprintf(gzout, "##reference=%s\n", seq_paths[i]);
 
   for(i = 0; i < nreads; i++) {
     gzprintf(gzout, "##contig=<ID=%s,length=%zu>\n",
@@ -582,12 +575,17 @@ static void breakpoints_print_header(gzFile gzout, const CmdArgs *args,
 }
 
 void breakpoints_call(size_t num_of_threads,
-                      const read_t *reads, size_t num_reads,
                       gzFile gzout, const char *out_path,
-                      const char **seq_paths, size_t num_seq_paths,
+                      const read_t *reads, size_t num_reads,
+                      char **seq_paths, size_t num_seq_paths,
                       size_t min_ref_flank, size_t max_ref_flank,
-                      const CmdArgs *args, dBGraph *db_graph)
+                      dBGraph *db_graph)
 {
+  breakpoints_print_header(gzout, out_path,
+                           seq_paths, num_seq_paths,
+                           reads, num_reads,
+                           db_graph);
+
   KOGraph kograph = kograph_create(reads, num_reads, true,
                                    num_of_threads, db_graph);
 
@@ -601,10 +599,6 @@ void breakpoints_call(size_t num_of_threads,
 
   status("  Finding breakpoints after at least %zu kmers (%zubp) of homology",
          min_ref_flank, min_ref_flank+db_graph->kmer_size-1);
-
-  breakpoints_print_header(gzout, args,
-                           seq_paths, num_seq_paths,
-                           reads, num_reads);
 
   util_run_threads(callers, num_of_threads, sizeof(callers[0]),
                    num_of_threads, breakpoint_caller);

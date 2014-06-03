@@ -7,6 +7,8 @@
 #include "file_util.h"
 #include "msg-pool/msgpool.h"
 
+// DEV: print read sequence in lower case instead of N
+
 #define MAX_CONTEXT 50
 
 typedef struct
@@ -70,6 +72,13 @@ static void handle_read(CorrectReadsWorker *wrkr,
   Nucleotide nuc;
   char bkmerstr[MAX_KMER_SIZE+1];
 
+  // Print read in FASTA format
+  strbuf_reset(buf);
+  strbuf_append_char(buf, '>');
+  strbuf_append_strn(buf, r->name.b, r->name.end);
+  strbuf_append_char(buf, '\n');
+
+  // Get de Bruijn graph alignment
   db_alignment_from_reads(&wrkr->aln, r, NULL,
                           fq_cutoff, 0, hp_cutoff, db_graph, -1);
 
@@ -79,13 +88,8 @@ static void handle_read(CorrectReadsWorker *wrkr,
   // Get first alignment
   nbuf = correct_alignment_nxt(&wrkr->corrector);
 
-  // Extend left
-  strbuf_reset(buf);
-  strbuf_append_char(buf, '>');
-  strbuf_append_strn(buf, r->name.b, r->name.end);
-  strbuf_append_char(buf, '\n');
-
   if(nbuf == NULL) {
+    // Alignment failed
     for(i = 0; i < r->seq.end; i++) strbuf_append_char(buf, 'N');
     strbuf_append_char(buf, '\n');
     return;
@@ -280,9 +284,6 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
 
   for(i = 0; i < num_threads; i++)
     correct_reads_worker_dealloc(&wrkrs[i]);
-
-  for(i = 0; i < num_inputs; i++)
-    asyncio_task_close(&inputs[i].files);
 
   ctx_free(wrkrs);
   ctx_free(asyncio_tasks);

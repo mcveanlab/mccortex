@@ -17,7 +17,7 @@ const char coverage_usage[] =
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
-"  -1, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
+"  -s, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
 "  -o, --out <out.txt>  Save output [default: STDOUT]\n"
 "\n";
 
@@ -31,6 +31,7 @@ static struct option longopts[] =
 // command specific
   {"edges",        no_argument,       NULL, 'e'},
   {"seq",          required_argument, NULL, '1'},
+  {"seq",          required_argument, NULL, 's'},
   {NULL, 0, NULL, 0}
 };
 
@@ -128,12 +129,15 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
 
 int ctx_coverage(int argc, char **argv)
 {
-  size_t i;
   struct MemArgs memargs = MEM_ARGS_INIT;
   bool print_edges = false;
   const char *output_file = NULL;
   SeqFilePtrBuffer sfilebuf;
+
   seq_file_ptr_buf_alloc(&sfilebuf, 16);
+
+  // tmp args
+  size_t i;
   seq_file_t *tmp_sfile;
 
   // Arg parsing
@@ -154,6 +158,7 @@ int ctx_coverage(int argc, char **argv)
         output_file = optarg;
         break;
       case '1':
+      case 's':
         if((tmp_sfile = seq_open(optarg)) == NULL)
           die("Cannot read --seq file %s", optarg);
         seq_file_ptr_buf_add(&sfilebuf, tmp_sfile);

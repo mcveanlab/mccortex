@@ -51,6 +51,7 @@ FILE** futil_create_tmp_files(size_t num_tmp_files);
 // Merge temporary files, closes tmp files
 void futil_merge_tmp_files(FILE **tmp_files, size_t num_files, FILE *fout);
 
+
 // This is the same as futil_safe_fread, except it calls return if not `fatal`
 #define SAFE_READ(fh,ptr,size,field,path,fatal) {                              \
   size_t _read = fread(ptr,1,size,fh);                                         \

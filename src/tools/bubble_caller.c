@@ -10,6 +10,7 @@
 #include "supernode.h"
 #include "binary_seq.h"
 #include "graph_crawler.h"
+#include "caller_output.h"
 
 #include <time.h> // printing datetime
 #include <pthread.h> // multithreading
@@ -86,78 +87,10 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
 }
 
 
-// Print absolute path to a file
-static void print_filepath_abs(gzFile out, const char *name, const char *file)
+static void bubble_caller_print_header(gzFile gzout, const char* out_path,
+                                       const dBGraph *db_graph)
 {
-  char absolute_path[PATH_MAX + 1];
-  char *abs_path = realpath(file, absolute_path);
-
-  if(abs_path == NULL)
-    warn("Cannot get absolute path: %s\n", file);
-
-  gzprintf(out, "##%s=%s\n", name, abs_path);
-}
-
-static void bubble_caller_print_header(const dBGraph *db_graph, gzFile out,
-                                       const char* out_file, const CmdArgs *args)
-{
-  char datestr[9];
-  time_t date = time(NULL);
-  strftime(datestr, 9, "%Y%m%d", localtime(&date));
-  char cwd[PATH_MAX + 1];
-
-  gzprintf(out, "##fileformat=CTXv1.0\n");
-
-  // Cortex details
-  gzprintf(out, "##ctxCmd=\"%s\"\n", args->cmdline);
-  if(futil_get_current_dir(cwd) != NULL) gzprintf(out, "##ctxCwd=%s\n", cwd);
-
-  gzprintf(out, "##ctxDate=%s\n", datestr);
-  gzprintf(out, "##ctxVersion=<version=%s,MAXK=%i>\n",
-           CTX_VERSION, MAX_KMER_SIZE);
-
-  print_filepath_abs(out, "ctxBubblesFile", out_file);
-  gzprintf(out, "##ctxKmerSize=%u\n", db_graph->kmer_size);
-
-  // Print colours we're calling in
-  gzprintf(out, "##ctxNumColoursUsedInCalling=%i\n", db_graph->num_of_cols_used);
-
-  StrBuf *sample_name = strbuf_new();
-
-  // Print sample names
-  Colour col;
-  for(col = 0; col < db_graph->num_of_cols_used; col++)
-  {
-    const GraphInfo *ginfo = db_graph->ginfo + col;
-    const ErrorCleaning *ec = &ginfo->cleaning;
-
-    // Find and replace double quotes with single quotes
-    char *sname = ginfo->sample_name.buff;
-
-    if(strcmp(sname, "undefined") == 0 || strchr(sname, '\t') != NULL ||
-       strchr(sname, ' ') != NULL || strchr(sname, '\r') != NULL ||
-       strchr(sname, '\n') != NULL)
-    {
-      strbuf_reset(sample_name);
-      strbuf_sprintf(sample_name, "sample%zu", col);
-    }
-    else {
-      strbuf_set(sample_name, ginfo->sample_name.buff);
-    }
-
-    gzprintf(out, "##colour=<ID=%s,name=\"%s\",colour=%i,"
-                  "meanreadlen=%zu,totalseqloaded=%zu,"
-                  "seqerror=%Lf,tipclipped=%s,removelowcovgsupernodes=%u,"
-                  "removelowcovgkmer=%u,cleanedagainstgraph=%s>\n",
-             sample_name->buff, ginfo->sample_name.buff, col,
-             (size_t)ginfo->mean_read_length, (size_t)ginfo->total_sequence,
-             ginfo->seq_err,
-             ec->cleaned_tips ? "yes" : "no", ec->clean_snodes_thresh,
-             ec->clean_kmers_thresh,
-             ec->intersection_name.buff);
-  }
-
-  strbuf_free(sample_name);
+  caller_gzprint_header(gzout, out_path, "CtxBubblesv0.1", db_graph);
 }
 
 static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer,
@@ -436,7 +369,7 @@ void bubble_caller(void *args)
 
 void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                           gzFile gzout, const char *out_path,
-                          const CmdArgs *args, const dBGraph *db_graph)
+                          const dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_edge_cols == 1);
   ctx_assert(db_graph->node_in_cols != NULL);
@@ -444,7 +377,7 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   status("Calling bubbles with %zu threads, output: %s", num_of_threads, out_path);
 
   // Print header
-  bubble_caller_print_header(db_graph, gzout, out_path, args);
+  bubble_caller_print_header(gzout, out_path, db_graph);
 
   BubbleCaller *callers = bubble_callers_new(num_of_threads, prefs,
                                              gzout, db_graph);

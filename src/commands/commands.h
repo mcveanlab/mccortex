@@ -4,6 +4,18 @@
 #include "cmd.h"
 
 int ctx_build(int argc, char **argv);
+int ctx_infer_edges(int argc, char **argv);
+int ctx_thread(int argc, char **argv);
+int ctx_correct(int argc, char **argv);
+int ctx_coverage(int argc, char **argv);
+int ctx_rmsubstr(int argc, char **argv);
+int ctx_breakpoints(int argc, char **argv);
+
+int ctx_pview(CmdArgs *args);
+int ctx_pjoin(CmdArgs *args);
+int ctx_bubbles(CmdArgs *args);
+int ctx_unique(CmdArgs *args);
+int ctx_place(CmdArgs *args);
 int ctx_view(CmdArgs *args);
 int ctx_health_check(CmdArgs *args);
 int ctx_clean(CmdArgs *args);
@@ -13,17 +25,6 @@ int ctx_subgraph(CmdArgs *args);
 int ctx_reads(CmdArgs *args);
 int ctx_extend(CmdArgs *args);
 int ctx_contigs(CmdArgs *args);
-int ctx_infer_edges(int argc, char **argv);
-int ctx_thread(int argc, char **argv);
-int ctx_pview(CmdArgs *args);
-int ctx_pjoin(CmdArgs *args);
-int ctx_bubbles(CmdArgs *args);
-int ctx_unique(CmdArgs *args);
-int ctx_place(CmdArgs *args);
-int ctx_correct(int argc, char **argv);
-int ctx_breakpoints(CmdArgs *args);
-int ctx_coverage(int argc, char **argv);
-int ctx_rmsubstr(int argc, char **argv);
 
 extern const char build_usage[];
 extern const char view_usage[];

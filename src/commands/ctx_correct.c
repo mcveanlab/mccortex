@@ -9,8 +9,6 @@
 #include "correct_reads.h"
 #include "read_thread_cmd.h"
 
-// DEV: print read sequence in lower case instead of N
-
 const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx>\n"
 "\n"

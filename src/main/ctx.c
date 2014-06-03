@@ -130,7 +130,7 @@ CtxCmd cmdobjs[] = {
   .usage = place_usage
 },
 {
-  .cmd = "breakpoints", .func = ctx_breakpoints, .hide = 0,
+  .cmd = "breakpoints", .func = NULL, .func2 = ctx_breakpoints, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "opmnt", .reqargs = "o",
   .blurb = "use a trusted assembled genome to call large events",
   .usage = breakpoints_usage
@@ -230,18 +230,11 @@ static const CtxCmd* ctx_get_command(const char* cmd)
 // [cmd] ...
 // [cwd] ...
 // [version] ...
-static void print_status_header(int argc, char **argv)
+static void print_status_header()
 {
-  int i;
-  char abspath[PATH_MAX+1];
-  // Print command used
-  timestamp();
-  message("[cmd]");
-  for(i = 0; i < argc; i++) message(" %s", argv[i]);
-  message("\n");
-  // Print current working directory
-  if(futil_get_current_dir(abspath) != NULL) status("[cwd] %s", abspath);
-  // Print command
+  // Print 1) command used 2) current working directory 3) version info
+  status("[cmd] %s", cmd_line_given);
+  status("[cwd] %s", cmd_cwd);
   status("[version] "VERSION_STATUS_STR"");
 }
 
@@ -253,6 +246,17 @@ int main(int argc, char **argv)
   cortex_init();
   ctx_msg_out = stderr;
 
+  // cmd init
+  char *cmd_concat = cmd_concat_args(argc, argv);
+  cmd_line_given = cmd_concat;
+
+  char *cwd_path = ctx_malloc(PATH_MAX+1);
+  if(futil_get_current_dir(cwd_path) == NULL) {
+    warn("Couldn't get current working dir path");
+    strcpy(cwd_path, "./");
+  }
+  cmd_cwd = cwd_path;
+
   if(argc == 1) print_help(stderr, NULL);
   const CtxCmd *cmd = ctx_get_command(argv[1]);
   if(cmd == NULL) print_help(stderr, "Unrecognised command: %s", argv[1]);
@@ -262,7 +266,7 @@ int main(int argc, char **argv)
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
   // Print status header
-  print_status_header(argc, argv);
+  print_status_header();
 
   // Transitioning away from using CmdArgs
   // and allowing commands to parse their own arguments for more flexibility
@@ -287,6 +291,10 @@ int main(int argc, char **argv)
     SWAP(argv[1],argv[0]);
     ret = cmd->func2(argc-1, argv+1);
   }
+
+  // cmd clean up
+  ctx_free(cwd_path);
+  ctx_free(cmd_concat);
 
   time(&end);
 

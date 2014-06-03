@@ -457,8 +457,9 @@ static void load_ref_genome(char **paths, size_t num_files)
   }
 }
 
-static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
-                         char *const* refpaths, size_t num_ref_paths, FILE *fout)
+static void parse_header(gzFile gzvcf, StrBuf *line,
+                         char *const* refpaths, size_t num_ref_paths,
+                         FILE *fout)
 {
   sample_indx = kh_init(samplehash);
 
@@ -466,8 +467,6 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
   size_t i;
-
-  char cwd[PATH_MAX + 1];
 
   samples_capacity = 16;
   sample_names = ctx_malloc(samples_capacity * sizeof(char*));
@@ -493,8 +492,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line, CmdArgs *cmd,
     }
     else if(!strncasecmp(str, "##phasing=", 10)) {
       fprintf(fout, "##phasing=partial\n");
-      fprintf(fout, "##placeCmd=%s\n", cmd->cmdline);
-      if(futil_get_current_dir(cwd) != NULL) fprintf(fout, "##placeCwd=%s\n", cwd);
+      fprintf(fout, "##placeCmd=%s\n", cmd_line_given);
+      fprintf(fout, "##placeCwd=%s\n", cmd_cwd);
       fprintf(fout, "##placeDate=%s\n", datestr);
     }
     else if(!strncasecmp(str, "##colour=", 9))
@@ -660,7 +659,7 @@ int ctx_place(CmdArgs *args)
 
   // Load VCF header
   StrBuf *line = strbuf_new();
-  parse_header(vcf, line, args, ref_paths, num_ref_paths, fout);
+  parse_header(vcf, line, ref_paths, num_ref_paths, fout);
 
   // Load reference genome
   load_ref_genome(ref_paths, num_ref_paths);

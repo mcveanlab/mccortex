@@ -11,10 +11,10 @@
 
 // Adds input bkmers to the graph
 void breakpoints_call(size_t num_of_threads,
-                      const read_t *reads, size_t num_reads,
                       gzFile gzout, const char *out_path,
-                      const char **seq_paths, size_t num_seq_paths,
+                      const read_t *reads, size_t num_reads,
+                      char **seq_paths, size_t num_seq_paths,
                       size_t min_ref_flank, size_t max_ref_flank,
-                      const CmdArgs *args, dBGraph *db_graph);
+                      dBGraph *db_graph);
 
 #endif /* BREAKPOINT_CALLER_H_ */

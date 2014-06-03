@@ -59,6 +59,6 @@ void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode);
 
 void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                           gzFile gzout, const char *out_path,
-                          const CmdArgs *args, const dBGraph *db_graph);
+                          const dBGraph *db_graph);
 
 #endif /* BUBBLE_CALLER_H_ */

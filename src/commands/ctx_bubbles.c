@@ -198,7 +198,7 @@ int ctx_bubbles(CmdArgs *args)
                                    .num_haploid = num_haploid};
 
   invoke_bubble_caller(num_of_threads, call_prefs,
-                       gzout, out_path, args, &db_graph);
+                       gzout, out_path, &db_graph);
 
   status("  saved to: %s\n", out_path);
   gzclose(gzout);

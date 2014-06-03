@@ -91,6 +91,55 @@ size_t cmd_parse_arg_mem(const char *cmd, const char *arg)
   return mem;
 }
 
+// Remember to free return value
+char* cmd_concat_args(int argc, char **argv)
+{
+  int i; size_t len = 0; char *cmdline, *str;
+
+  for(i = 0; i < argc; i++)
+    len += strlen(argv[i]) + 1;
+
+  cmdline = ctx_malloc(len);
+
+  for(str = cmdline, i = 0; i < argc; i++) {
+    len = strlen(argv[i]);
+    memcpy(str, argv[i], len);
+    str[len] = ' ';
+    str += len+1; // length + space
+  }
+  // remove last space, terminate string
+  *(--str) = '\0';
+
+  return cmdline;
+}
+
+// These are updated in ctx.c
+const char *cmd_usage = "No usage set", *cmd_line_given = "-", *cmd_cwd = "./";
+
+void cmd_print_usage(const char *errfmt,  ...)
+{
+  pthread_mutex_lock(&biglock); // lock if never released
+
+  if(errfmt != NULL) {
+    fprintf(stderr, "\nError: ");
+    va_list argptr;
+    va_start(argptr, errfmt);
+    vfprintf(stderr, errfmt, argptr);
+    va_end(argptr);
+
+    if(errfmt[strlen(errfmt)-1] != '\n') fputc('\n', stderr);
+    fputc('\n', stderr);
+  }
+
+  fputs(cmd_usage, stderr);
+  exit(EXIT_FAILURE);
+}
+
+
+//
+// Old
+//
+
 void cmd_accept_options(const CmdArgs *args, const char *accptopts,
                         const char *usage)
 {
@@ -375,25 +424,4 @@ void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested)
   }
 
   status("[memory] total: %s of %s RAM\n", memstr, ramstr);
-}
-
-const char *cmd_usage = "No usage set";
-
-void cmd_print_usage(const char *errfmt,  ...)
-{
-  pthread_mutex_lock(&biglock); // lock if never released
-
-  if(errfmt != NULL) {
-    fprintf(stderr, "\nError: ");
-    va_list argptr;
-    va_start(argptr, errfmt);
-    vfprintf(stderr, errfmt, argptr);
-    va_end(argptr);
-
-    if(errfmt[strlen(errfmt)-1] != '\n') fputc('\n', stderr);
-    fputc('\n', stderr);
-  }
-
-  fputs(cmd_usage, stderr);
-  exit(EXIT_FAILURE);
 }

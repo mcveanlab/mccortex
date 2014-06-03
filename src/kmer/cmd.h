@@ -34,6 +34,9 @@ uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg);
 uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg);
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
 
+// Remember to free return value
+char* cmd_concat_args(int argc, char **argv);
+
 typedef struct
 {
   char *cmdline;
@@ -102,7 +105,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
 void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested);
 
 // Once we have set cmd_usage, we can call cmd_print_usage() from anywhere
-extern const char *cmd_usage;
+extern const char *cmd_usage, *cmd_line_given, *cmd_cwd;
 
 void cmd_print_usage(const char *errfmt,  ...)
   __attribute__((noreturn))

@@ -85,7 +85,7 @@ SampleNameBuffer snamebuf;
 size_t num_of_threads = DEFAULT_NTHREADS;
 struct MemArgs memargs = MEM_ARGS_INIT;
 
-char *out_path;
+char *out_path = NULL;
 size_t output_colours = 0, kmer_size = 0;
 
 static void add_task(BuildGraphTask *task)
