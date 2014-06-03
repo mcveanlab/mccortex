@@ -30,7 +30,7 @@ reads.se.ctp: genome.k9.ctx read.1.fa read.2.fa
 	$(CTX) thread -m 1M --print-contigs --print-paths --seq read.1.fa --seq read.2.fa -o $@ genome.k9.ctx:0
 
 reads.pe.one.ctp: reads.se.ctp genome.k9.ctx read.1.fa read.2.fa
-	$(CTX) thread -m 1M --print-contigs --print-paths -p reads.se.ctp -c --oneway --seq2 read.1.fa:read.2.fa -o $@ genome.k9.ctx:0
+	$(CTX) thread -m 1M --print-contigs --print-paths -p reads.se.ctp -C --oneway --seq2 read.1.fa:read.2.fa -o $@ genome.k9.ctx:0
 
 reads.pe.two.ctp: reads.se.ctp genome.k9.ctx read.1.fa read.2.fa
 	$(CTX) thread -m 1M --print-contigs --print-paths -p reads.se.ctp --twoway --seq2 read.1.fa:read.2.fa -o $@ genome.k9.ctx:0
