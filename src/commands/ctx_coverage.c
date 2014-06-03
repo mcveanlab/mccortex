@@ -1,6 +1,5 @@
 #include "global.h"
 #include "commands.h"
-
 #include "file_util.h"
 #include "util.h"
 #include "db_graph.h"
@@ -9,19 +8,31 @@
 #include "graph_format.h"
 #include "graph_file_reader.h"
 
-#include "seq_file.h"
-
 const char coverage_usage[] =
 "usage: "CMD" coverage [options] <in.ctx> [in2.ctx ..]\n"
 "\n"
 "  Print contig coverage\n"
 "\n"
+"  -h, --help           This help message\n"
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
 "  -1, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
 "  -o, --out <out.txt>  Save output [default: STDOUT]\n"
 "\n";
+
+static struct option longopts[] =
+{
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
+// command specific
+  {"edges",        no_argument,       NULL, 'e'},
+  {"seq",          required_argument, NULL, '1'},
+  {"out",          required_argument, NULL, 'o'},
+  {NULL, 0, NULL, 0}
+};
 
 // Define a vector of Covg
 #include "objbuf_macro.h"
@@ -115,41 +126,56 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   }
 }
 
-int ctx_coverage(CmdArgs *args)
+int ctx_coverage(int argc, char **argv)
 {
-  int argi, argc = args->argc;
-  char **argv = args->argv;
-  // Already checked that input has at least 3 arguments
-
-  size_t max_seq_inputs = argc / 2;
-  seq_file_t *seq_files[max_seq_inputs];
-  size_t i, num_seq_files = 0;
+  size_t i;
+  struct MemArgs memargs = MEM_ARGS_INIT;
   bool print_edges = false;
+  const char *output_file = NULL;
+  SeqFilePtrBuffer sfilebuf;
+  seq_file_ptr_buf_alloc(&sfilebuf, 16);
+  seq_file_t *tmp_sfile;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(!strcmp(argv[argi],"--seq") || !strcmp(argv[argi],"-1")) {
-      if(argi+1 == argc) cmd_print_usage("--seq <in.fa> requires a file");
-      if((seq_files[num_seq_files] = seq_open(argv[argi+1])) == NULL)
-        die("Cannot read --seq file %s", argv[argi+1]);
-      num_seq_files++;
-      argi++; // We took an argument
-    }
-    else if(!strcmp(argv[argi],"--edges") || !strcmp(argv[argi],"-e"))
-      print_edges = true;
-    else {
-      cmd_print_usage("Unknown arg: %s", argv[argi]);
+  // Arg parsing
+  char cmd[100], shortopts[100];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'e': print_edges = true; break;
+      case 'o':
+        if(output_file != NULL) cmd_print_usage("%s given twice", cmd);
+        output_file = optarg;
+        break;
+      case '1':
+        if((tmp_sfile = seq_open(optarg)) == NULL)
+          die("Cannot read --seq file %s", optarg);
+        seq_file_ptr_buf_add(&sfilebuf, tmp_sfile);
+        break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
   }
 
-  if(num_seq_files == 0) cmd_print_usage("Require at least one --seq file");
-  if(argi == argc) cmd_print_usage("Require input graph files (.ctx)");
+  if(sfilebuf.len == 0) cmd_print_usage("Require at least one --seq file");
+  if(optind == argc) cmd_print_usage("Require input graph files (.ctx)");
 
   //
   // Open graph files
   //
-  char **graph_paths = argv + argi;
-  size_t num_gfiles = argc - argi;
-  GraphFileReader gfiles[num_gfiles];
+  char **graph_paths = argv + optind;
+  size_t num_gfiles = argc - optind;
+  ctx_assert(num_gfiles > 0);
+  GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
   size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
@@ -162,23 +188,27 @@ int ctx_coverage(CmdArgs *args)
 
   // kmer memory = Edges + paths + 1 bit per colour
   bits_per_kmer = (sizeof(Covg) + print_edges*sizeof(Edges)) * 8 * ncols;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
-                                        args->mem_to_use_set, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         bits_per_kmer,
+                                         ctx_max_kmers, ctx_sum_kmers,
+                                         memargs.mem_to_use_set, &graph_mem);
 
-  cmd_check_mem_limit(args->mem_to_use, graph_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   //
   // Open output file
   //
   FILE *fout;
 
-  if(!args->output_file_set || strcmp("-", args->output_file) == 0)
+  if(output_file == NULL || strcmp(output_file, "-") == 0)
     fout = stdout;
   else
-    fout = fopen(args->output_file, "w");
+    fout = fopen(output_file, "w");
 
-  if(fout == NULL) die("Cannot open output file: %s", args->output_file);
+  if(fout == NULL) die("Cannot open output file: %s", output_file);
 
   //
   // Set up memory
@@ -206,6 +236,7 @@ int ctx_coverage(CmdArgs *args)
     graph_load(&gfiles[i], gprefs, &stats);
     graph_file_close(&gfiles[i]);
   }
+  ctx_free(gfiles);
 
   hash_table_print_stats(&db_graph.ht);
 
@@ -221,20 +252,20 @@ int ctx_coverage(CmdArgs *args)
   seq_read_alloc(&r);
 
   // Deal with one read at a time
-  for(i = 0; i < num_seq_files; i++) {
-    while(seq_read(seq_files[i], &r) > 0) {
+  for(i = 0; i < sfilebuf.len; i++) {
+    while(seq_read(sfilebuf.data[i], &r) > 0) {
       print_read_covg(&db_graph, &r, &covgbuf, &edgebuf, fout);
     }
-    seq_close(seq_files[i]);
+    seq_close(sfilebuf.data[i]);
   }
 
   seq_read_dealloc(&r);
   covg_buf_dealloc(&covgbuf);
   edges_buf_dealloc(&edgebuf);
 
-  // Finished: do clean up
-  if(fout != stdout) fclose(fout);
+  seq_file_ptr_buf_dealloc(&sfilebuf);
 
+  fclose(fout);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

@@ -9,6 +9,7 @@ extern const char *MP_DIR_STRS[];
 
 #include "objbuf_macro.h"
 create_objbuf(readbuf, ReadBuffer, read_t);
+create_objbuf(seq_file_ptr_buf, SeqFilePtrBuffer, seq_file_t*);
 
 // Load all reads from files into a read buffer and close the seq_files
 // Returns the number of reads loaded

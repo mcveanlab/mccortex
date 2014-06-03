@@ -136,7 +136,7 @@ CtxCmd cmdobjs[] = {
   .usage = breakpoints_usage
 },
 {
-  .cmd = "coverage", .func = ctx_coverage, .hide = 0,
+  .cmd = "coverage", .func = NULL, .func2 = ctx_coverage, .hide = 0,
   .minargs = 3, .maxargs = INT_MAX, .optargs = "omn", .reqargs = "",
   .blurb = "print contig coverage",
   .usage = coverage_usage

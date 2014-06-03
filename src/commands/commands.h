@@ -23,7 +23,7 @@ int ctx_unique(CmdArgs *args);
 int ctx_place(CmdArgs *args);
 int ctx_correct(int argc, char **argv);
 int ctx_breakpoints(CmdArgs *args);
-int ctx_coverage(CmdArgs *args);
+int ctx_coverage(int argc, char **argv);
 int ctx_rmsubstr(CmdArgs *args);
 
 extern const char build_usage[];
