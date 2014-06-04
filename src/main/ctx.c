@@ -100,7 +100,7 @@ CtxCmd cmdobjs[] = {
   .usage = correct_usage
 },
 {
-  .cmd = "pview", .func = ctx_pview, .hide = 0,
+  .cmd = "pview", .func = NULL, .func2 = ctx_pview, .hide = 0,
   .minargs = 1, .maxargs = 3, .optargs = "mn", .reqargs = "",
   .blurb = "view read threading information",
   .usage = pview_usage

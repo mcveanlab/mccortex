@@ -12,8 +12,8 @@ int ctx_coverage(int argc, char **argv);
 int ctx_rmsubstr(int argc, char **argv);
 int ctx_breakpoints(int argc, char **argv);
 int ctx_bubbles(int argc, char **argv);
+int ctx_pview(int argc, char **argv);
 
-int ctx_pview(CmdArgs *args);
 int ctx_pjoin(CmdArgs *args);
 int ctx_unique(CmdArgs *args);
 int ctx_place(CmdArgs *args);

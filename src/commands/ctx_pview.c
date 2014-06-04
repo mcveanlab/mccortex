@@ -13,34 +13,52 @@ const char pview_usage[] = ""
 "\n"
 "  View and check a paths file.\n"
 "\n"
-"  -v, --print  Print paths\n"
+"  -p, --print  Print paths\n"
 "  -c, --check  Check path file integrity\n"
 "\n";
 
-int ctx_pview(CmdArgs *args)
+int print_paths = 0, do_paths_check = 0;
+
+static struct option longopts[] =
 {
-  char **argv = args->argv;
-  int argc = args->argc;
-  // Already checked we have between 1 and 3 arguments
+  {"memory", required_argument, NULL,            'm'},
+  {"nkmers", required_argument, NULL,            'n'},
+  {"print",  no_argument,       &print_paths,    1},
+  {"check",  no_argument,       &do_paths_check, 1},
+  {NULL, 0, NULL, 0}
+};
 
-  bool print_paths = false, do_paths_check = false;
+int ctx_pview(int argc, char **argv)
+{
+  struct MemArgs memargs = MEM_ARGS_INIT;
 
-  while(argc > 1 && argv[0][0] == '-' && argv[0][1])
-  {
-    if(!strcmp(argv[0],"--print") || !strcmp(argv[0],"-v")) {
-      print_paths = true;
-      argv++; argc--;
+  // Arg parsing
+  char cmd[100];
+  char shortopts[300];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+
+  // silence error messages from getopt_long
+  // opterr = 0;
+
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+      default:
+        die("Programmer fail. Tell Isaac.");
     }
-    else if(!strcmp(argv[0],"--check") || !strcmp(argv[0],"-c")) {
-      do_paths_check = true;
-      argv++; argc--;
-    }
-    else cmd_print_usage("Unknown command: %s", argv[0]);
   }
 
-  if(argc != 1) cmd_print_usage(NULL);
+  if(optind+1 != argc) cmd_print_usage("Require one input path file (.ctp)");
 
-  char *input_paths_file = argv[0];
+  char *input_paths_file = argv[optind];
 
   // Open paths file
   PathFileReader pfile = INIT_PATH_READER;
@@ -71,12 +89,16 @@ int ctx_pview(CmdArgs *args)
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
   bits_per_kmer = sizeof(uint64_t) * 8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        phdr->num_kmers_with_paths,
-                                        phdr->num_kmers_with_paths,
-                                        true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         bits_per_kmer,
+                                         phdr->num_kmers_with_paths,
+                                         phdr->num_kmers_with_paths,
+                                         true, &graph_mem);
 
-  cmd_check_mem_limit(args->mem_to_use, graph_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   // Allocate memory
   // db graph is required to store the end position for each kmer list
