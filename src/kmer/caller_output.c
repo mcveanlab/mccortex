@@ -2,7 +2,7 @@
 #include "caller_output.h"
 #include "file_util.h"
 #include "graph_info.h"
-#include "cmd.h" // define cmd_line_given and cmd_cwd
+#include "cmd.h" // define cmd_get_cmdline() and cmd_get_cwd()
 
 void caller_gzprint_ginfo(const GraphInfo *ginfo, size_t ncols, gzFile gzout)
 {
@@ -64,8 +64,8 @@ void caller_gzprint_header(gzFile gzout, const char* out_file,
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
   gzprintf(gzout, "##fileFormat=%s\n", format_str);
-  gzprintf(gzout, "##ctxCmd=\"%s\"\n", cmd_line_given);
-  gzprintf(gzout, "##ctxCwd=%s\n", cmd_cwd);
+  gzprintf(gzout, "##ctxCmd=\"%s\"\n", cmd_get_cmdline());
+  gzprintf(gzout, "##ctxCwd=%s\n", cmd_get_cwd());
   gzprintf(gzout, "##ctxDate=%s\n", datestr);
   gzprintf(gzout, "##ctxVersion=<version=%s,MAXK=%i>\n",
            CTX_VERSION, MAX_KMER_SIZE);

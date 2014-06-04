@@ -161,7 +161,7 @@ static inline void increment_len_hist(const dBNodeBuffer *nbuf, size_t threadid,
 {
   (void)threadid;
   uint64_t *arr = (uint64_t*)arg, arrlen, snode_len;
-  
+
   // First element of arr is its length
   arrlen = arr[0];
   arr++;

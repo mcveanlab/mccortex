@@ -2,6 +2,7 @@
 #define COMMANDS_H_
 
 #include "cmd.h"
+#include "cmd_mem.h"
 
 int ctx_build(int argc, char **argv);
 int ctx_infer_edges(int argc, char **argv);

@@ -1,6 +1,7 @@
 #ifndef READ_THREAD_CMD_H_
 #define READ_THREAD_CMD_H_
 
+#include "cmd_mem.h"
 #include "path_file_reader.h"
 #include "graph_file_reader.h"
 #include "correct_aln_input.h"

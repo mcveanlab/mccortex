@@ -492,8 +492,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
     }
     else if(!strncasecmp(str, "##phasing=", 10)) {
       fprintf(fout, "##phasing=partial\n");
-      fprintf(fout, "##placeCmd=%s\n", cmd_line_given);
-      fprintf(fout, "##placeCwd=%s\n", cmd_cwd);
+      fprintf(fout, "##placeCmd=%s\n", cmd_get_cmdline());
+      fprintf(fout, "##placeCwd=%s\n", cmd_get_cwd());
       fprintf(fout, "##placeDate=%s\n", datestr);
     }
     else if(!strncasecmp(str, "##colour=", 9))

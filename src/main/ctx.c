@@ -233,8 +233,8 @@ static const CtxCmd* ctx_get_command(const char* cmd)
 static void print_status_header()
 {
   // Print 1) command used 2) current working directory 3) version info
-  status("[cmd] %s", cmd_line_given);
-  status("[cwd] %s", cmd_cwd);
+  status("[cmd] %s", cmd_get_cmdline());
+  status("[cwd] %s", cmd_get_cwd());
   status("[version] "VERSION_STATUS_STR"");
 }
 
@@ -243,28 +243,20 @@ int main(int argc, char **argv)
   time_t start, end;
   time(&start);
 
-  cortex_init();
   ctx_msg_out = stderr;
-
-  // cmd init
-  char *cmd_concat = cmd_concat_args(argc, argv);
-  cmd_line_given = cmd_concat;
-
-  char *cwd_path = ctx_malloc(PATH_MAX+1);
-  if(futil_get_current_dir(cwd_path) == NULL) {
-    warn("Couldn't get current working dir path");
-    strcpy(cwd_path, "./");
-  }
-  cmd_cwd = cwd_path;
+  cortex_init();
+  cmd_init(argc, argv);
 
   if(argc == 1) print_help(stderr, NULL);
   const CtxCmd *cmd = ctx_get_command(argv[1]);
   if(cmd == NULL) print_help(stderr, "Unrecognised command: %s", argv[1]);
 
   // Once we have set cmd_usage, we can call cmd_print_usage() from anywhere
-  cmd_usage = cmd->usage;
+  cmd_set_usage(cmd->usage);
+
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
+
   // Print status header
   print_status_header();
 
@@ -292,11 +284,8 @@ int main(int argc, char **argv)
     ret = cmd->func2(argc-1, argv+1);
   }
 
-  // cmd clean up
-  ctx_free(cwd_path);
-  ctx_free(cmd_concat);
-
   time(&end);
+  cmd_destroy();
 
   // Warn if more allocations than deallocations
   size_t still_alloced = alloc_get_num_allocs() - alloc_get_num_frees();
@@ -314,5 +303,6 @@ int main(int argc, char **argv)
   }
 
   cortex_destroy();
+
   return ret;
 }

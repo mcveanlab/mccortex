@@ -1,10 +1,10 @@
 #include "global.h"
+
 #include <time.h>
 #include <sys/time.h> // for seeding random
-#include <unistd.h> // getpid
+#include <unistd.h> // getpid()
 
-#include "ctx_output.h" // we are setting up cmdcode
-#include "util.h"
+#include "ctx_output.h" // ctx_output_init()
 #include "misc/jenkins.h" // hash functions
 
 void seed_random()
@@ -27,7 +27,6 @@ void cortex_init()
   ctx_output_init();
   // Now safe to use die/warn/message/timestamp methods
   // since mutex and cmdcode have been set
-
   seed_random();
 }
 

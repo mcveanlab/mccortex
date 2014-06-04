@@ -1,6 +1,7 @@
 #include "global.h"
 
 #include "cmd.h"
+#include "cmd_mem.h"
 #include "util.h"
 #include "db_graph.h"
 #include "binary_kmer.h"

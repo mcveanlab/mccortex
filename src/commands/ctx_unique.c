@@ -347,8 +347,8 @@ static void print_vcf_header(gzFile vcf, CallHeader *ch)
   gzprintf(vcf, "##fileDate=%s\n", datestr);
   gzprintf(vcf, "##reference=unplaced\n");
   gzprintf(vcf, "##phasing=none\n");
-  gzprintf(vcf, "##procCmd=%s\n", cmd_line_given);
-  gzprintf(vcf, "##procCwd=%s\n", cmd_cwd);
+  gzprintf(vcf, "##procCmd=%s\n", cmd_get_cmdline());
+  gzprintf(vcf, "##procCwd=%s\n", cmd_get_cwd());
 
   gzprintf(vcf, "##procDate=%s\n", datestr);
 
