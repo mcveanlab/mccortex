@@ -143,7 +143,7 @@ size_t db_alignment_next_gap(const dBAlignment *aln, size_t start)
 
 void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
 {
-  pthread_mutex_lock(&biglock);
+  pthread_mutex_lock(&ctx_biglock);
 
   printf("dBAlignment:\n");
   size_t i, start = 0, end = db_alignment_next_gap(aln, 0);
@@ -174,7 +174,7 @@ void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
   }
   else printf(" end gap [r1]: %zu\n", aln->r1enderr);
 
-  pthread_mutex_unlock(&biglock);
+  pthread_mutex_unlock(&ctx_biglock);
 }
 
 // Check all edges between ungapped adjacent nodes

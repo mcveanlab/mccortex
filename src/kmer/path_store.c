@@ -311,23 +311,23 @@ bool path_store_data_integrity_check(const uint8_t *data, size_t size,
   PathIndex prev;
   while(ptr < end) {
     prev = packedpath_get_prev(ptr);
-    check_ret(prev == PATH_NULL || prev < size);
+    ctx_assert_ret(prev == PATH_NULL || prev < size);
 
     plen = packedpath_get_len(ptr, colbytes);
     nbytes = packedpath_len_nbytes(plen);
-    check_ret2(nbytes <= size && ptr + nbytes <= end,
+    ctx_assert_ret2(nbytes <= size && ptr + nbytes <= end,
                "nbytes: %zu size: %zu", (size_t)nbytes, (size_t)size);
 
     ptr += packedpath_mem2(colbytes, nbytes) + extra_bytes;
   }
-  check_ret2(ptr == end, "data: %p end: %p ptr: %p", data, end, ptr);
+  ctx_assert_ret2(ptr == end, "data: %p end: %p ptr: %p", data, end, ptr);
   return true;
 }
 
 bool path_store_integrity_check(const PathStore *pstore)
 {
-  check_ret(pstore->next >= pstore->store);
-  check_ret(pstore->next <= pstore->end);
+  ctx_assert_ret(pstore->next >= pstore->store);
+  ctx_assert_ret(pstore->next <= pstore->end);
   size_t mem = pstore->next - pstore->store;
   return path_store_data_integrity_check(pstore->store, mem,
                                          pstore->colset_bytes,

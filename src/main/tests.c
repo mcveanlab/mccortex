@@ -33,7 +33,7 @@ int main()
   test_infer_edges_tests();
 
   // Check we free'd all our memory
-  size_t still_alloced = ctx_num_allocs - ctx_num_frees;
+  size_t still_alloced = alloc_get_num_allocs() - alloc_get_num_frees();
   TASSERT2(still_alloced == 0, "%zu not free'd", still_alloced);
 
   // Finished

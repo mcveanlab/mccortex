@@ -17,13 +17,13 @@ extern FILE *ctx_tst_out;
 
 // Create our own output function
 #define test_status(fmt,...) do {                                              \
-  pthread_mutex_lock(&biglock);                                                \
-  ftimestamp(ctx_tst_out);                                                     \
+  pthread_mutex_lock(&ctx_biglock);                                            \
+  timestampf(ctx_tst_out);                                                     \
   fprintf(ctx_tst_out, "[%s:%i]", BASE_FILE_NAME, __LINE__);                   \
   if(((const char*)(fmt))[0] != '[') fputc(' ', ctx_tst_out);                  \
   fprintf(ctx_tst_out, fmt, ##__VA_ARGS__);                                    \
   if(((const char*)(fmt))[strlen(fmt)-1] != '\n') fputc('\n', ctx_tst_out);    \
-  pthread_mutex_unlock(&biglock);                                              \
+  pthread_mutex_unlock(&ctx_biglock);                                          \
 } while(0)
 
 //

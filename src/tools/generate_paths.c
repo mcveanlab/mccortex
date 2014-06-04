@@ -129,7 +129,7 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
     // Zero new memory to keep valgrind happy :(
     old_pck_mem = binary_seq_mem(old_cap);
     new_pck_mem = binary_seq_mem(wrkr->junc_arrsize);
-    wrkr->pck_fw = ctx_recalloc(wrkr->pck_fw, old_pck_mem*2, new_pck_mem*2);
+    wrkr->pck_fw = ctx_recallocarray(wrkr->pck_fw, old_pck_mem*2, new_pck_mem*2, 1);
     wrkr->pck_rv = wrkr->pck_fw + new_pck_mem;
 
     wrkr->pos_fw = ctx_realloc(wrkr->pos_fw, 2 * wrkr->junc_arrsize * sizeof(size_t));
@@ -288,13 +288,13 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
       else { start = pos_pl[num_pl-1]-1, end = pos; }
       ctx_assert2(start < end, "start: %zu, end: %zu", start, end);
 
-      pthread_mutex_lock(&biglock);
+      pthread_mutex_lock(&ctx_biglock);
       fprintf(stdout, ">path%zu.%s\n", print_path_id++, pl_is_fw ? "fw" : "rv");
       db_nodes_print(nodes+start, end-start+1, db_graph, stdout);
       fputc('\n', stdout);
       db_nodes_print_edges(nodes+start, end-start+1, db_graph, stdout);
       fputc('\n', stdout);
-      pthread_mutex_unlock(&biglock);
+      pthread_mutex_unlock(&ctx_biglock);
 
       printed = true;
     }
@@ -358,11 +358,11 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
   worker_nuc_cap(wrkr, contig->len);
 
   if(gen_paths_print_contigs) {
-    pthread_mutex_lock(&biglock);
+    pthread_mutex_lock(&ctx_biglock);
     fprintf(stdout, ">contig%zu\n", print_contig_id++);
     db_nodes_print(contig->data, contig->len, wrkr->db_graph, stdout);
     fputc('\n', stdout);
-    pthread_mutex_unlock(&biglock);
+    pthread_mutex_unlock(&ctx_biglock);
   }
 
   // Find forks in this colour
@@ -420,10 +420,10 @@ static void reads_to_paths(GenPathWorker *wrkr)
   read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
 
   if(gen_paths_print_reads) {
-    pthread_mutex_lock(&biglock);
+    pthread_mutex_lock(&ctx_biglock);
     printf(">read %s %s\n%s %s\n", data->r1.name.b, data->r2.name.b,
                                    data->r1.seq.b, data->r2.seq.b);
-    pthread_mutex_unlock(&biglock);
+    pthread_mutex_unlock(&ctx_biglock);
   }
 
   uint8_t fq_cutoff1, fq_cutoff2;

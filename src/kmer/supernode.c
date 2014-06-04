@@ -156,10 +156,59 @@ uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
 // Multithreaded fetching supernode length histogram
 //
 
-static inline void record_snode_length(hkey_t hkey, dBNodeBuffer *nbuf,
-                                       uint64_t *len_hist, size_t len_arrlen,
-                                       uint8_t *visited,
-                                       const dBGraph *db_graph)
+static inline void increment_len_hist(const dBNodeBuffer *nbuf, size_t threadid,
+                                      void *arg)
+{
+  (void)threadid;
+  uint64_t *arr = (uint64_t*)arg, arrlen, snode_len;
+  
+  // First element of arr is its length
+  arrlen = arr[0];
+  arr++;
+  snode_len = MIN2(nbuf->len, arrlen-1);
+
+  // Add to histogram
+  __sync_fetch_and_add((volatile uint64_t *)&arr[snode_len], 1);
+}
+
+void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
+                                 size_t nthreads, uint8_t *visited,
+                                 const dBGraph *db_graph)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+  size_t i, end;
+
+  ctx_assert(histlen >= 2);
+  status("[supernode] Saving supernode length distribution to: %s", path);
+  status("[supernode]   using %zu thread%s", nthreads, util_plural_str(nthreads));
+
+  uint64_t *hist = ctx_calloc(histlen+1, sizeof(uint64_t));
+  hist[0] = histlen;
+  supernodes_iterate(nthreads, visited, db_graph, increment_len_hist, hist);
+
+  // Write to file
+  fprintf(fout, "SupernodeKmerLength,bp,Count\n");
+  fprintf(fout, "1,%zu,%"PRIu64"\n", kmer_size, hist[1]);
+  for(end = histlen-1; end > 1 && hist[end] == 0; end--);
+  for(i = 2; i <= end; i++) {
+    if(hist[i] > 0) fprintf(fout, "%zu,%zu,%"PRIu64"\n", i, kmer_size+i-1, hist[i]);
+  }
+
+  ctx_free(hist);
+}
+
+//
+// Iterate over supernodes in the graph with multiple threads
+//
+
+static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
+                                          dBNodeBuffer *nbuf,
+                                          uint8_t *visited,
+                                          const dBGraph *db_graph,
+                                          void (*func)(const dBNodeBuffer *_nbuf,
+                                                       size_t threadid,
+                                                       void *_arg),
+                                          void *arg)
 {
   bool got_lock = false;
   size_t i;
@@ -177,70 +226,55 @@ static inline void record_snode_length(hkey_t hkey, dBNodeBuffer *nbuf,
     {
       // Mark remaining nodes as visited
       for(i = 1; i < nbuf->len; i++)
-        bitset_set_mt(visited, hkey);
+        bitset_set_mt(visited, nbuf->data[i].key);
 
-      // Check if this is not a tip that we should ignore
-      size_t len = MIN2(nbuf->len, len_arrlen-1);
-
-      // Add to histogram
-      __sync_fetch_and_add((volatile uint64_t *)&len_hist[len], 1);
+      func(nbuf, threadid, arg);
     }
   }
 }
 
 typedef struct {
-  const size_t threadid, nthreads, len_arrlen;
-  uint64_t *const len_hist;
+  const size_t threadid, nthreads;
   uint8_t *const visited;
   const dBGraph *db_graph;
-} SnodeLenRecorder;
+  void (*func)(const dBNodeBuffer *_nbuf, size_t threadid, void *_arg);
+  void *arg;
+} SupernodeIterator;
 
-static void snode_len_recorder(void *arg)
+static void supernodes_iterate_thread(void *arg)
 {
-  SnodeLenRecorder cl = *(SnodeLenRecorder*)arg;
+  SupernodeIterator cl = *(SupernodeIterator*)arg;
 
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 2048);
 
   HASH_ITERATE_PART(&cl.db_graph->ht, cl.threadid, cl.nthreads,
-                    record_snode_length,
-                    &nbuf, cl.len_hist, cl.len_arrlen,
-                    cl.visited, cl.db_graph);
+                    supernode_iterate_node,
+                    cl.threadid, &nbuf, cl.visited, cl.db_graph,
+                    cl.func, cl.arg);
 
   db_node_buf_dealloc(&nbuf);
-  ctx_assert(cl.len_hist[0] == 0);
 }
 
-void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
-                                 size_t nthreads, uint8_t *visited,
-                                 const dBGraph *db_graph)
+void supernodes_iterate(size_t nthreads, uint8_t *visited,
+                        const dBGraph *db_graph,
+                        void (*func)(const dBNodeBuffer *_nbuf,
+                                     size_t threadid,
+                                     void *_arg),
+                        void *arg)
 {
-  const size_t kmer_size = db_graph->kmer_size;
-  size_t i, end;
+  size_t i;
+  SupernodeIterator *workers = ctx_calloc(nthreads, sizeof(SupernodeIterator));
 
-  ctx_assert(histlen >= 2);
-  status("[supernode] Saving supernode length distribution to: %s", path);
-
-  uint64_t *hist = ctx_calloc(histlen, sizeof(uint64_t));
-
-  SnodeLenRecorder workers[nthreads];
   for(i = 0; i < nthreads; i++) {
-    SnodeLenRecorder tmp = {.threadid = i, .nthreads = nthreads,
-                            .len_hist = hist, .len_arrlen = histlen,
-                            .visited = visited, .db_graph = db_graph};
-    memcpy(&workers[i], &tmp, sizeof(SnodeLenRecorder));
+    SupernodeIterator tmp = {.threadid = i, .nthreads = nthreads,
+                             .visited = visited, .db_graph = db_graph,
+                             .func = func, .arg = arg};
+    memcpy(&workers[i], &tmp, sizeof(SupernodeIterator));
   }
 
-  util_run_threads(workers, nthreads, sizeof(SnodeLenRecorder),
-                   nthreads, snode_len_recorder);
+  util_run_threads(workers, nthreads, sizeof(SupernodeIterator),
+                   nthreads, supernodes_iterate_thread);
 
-  // Write to file
-  fprintf(fout, "SupernodeKmerLength,bp,Count\n");
-  fprintf(fout, "1,%zu,%"PRIu64"\n", kmer_size, hist[1]);
-  for(end = histlen-1; end > 1 && hist[end] == 0; end--);
-  for(i = 2; i <= end; i++) {
-    if(hist[i] > 0) fprintf(fout, "%zu,%zu,%"PRIu64"\n", i, kmer_size+i-1, hist[i]);
-  }
-
-  ctx_free(hist);
+  ctx_free(workers);
 }

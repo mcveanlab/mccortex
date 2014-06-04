@@ -27,6 +27,13 @@ void supernode_find(hkey_t node, dBNodeBuffer *nbuf, const dBGraph *db_graph);
 // Count number of read starts using coverage data
 uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len);
 
+void supernodes_iterate(size_t nthreads, uint8_t *visited,
+                        const dBGraph *db_graph,
+                        void (*func)(const dBNodeBuffer *_nbuf,
+                                     size_t threadid,
+                                     void *_arg),
+                        void *arg);
+
 // Uses `nthreads` threads to get supernode length distribution and save it
 // to a file
 void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,

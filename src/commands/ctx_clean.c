@@ -259,11 +259,9 @@ int ctx_clean(CmdArgs *args)
                               .empty_colours = false};
 
   // Construct cleaned graph header
-  GraphFileHeader outhdr = {.version = CTX_GRAPH_FILEFORMAT,
-                            .kmer_size = (uint32_t)db_graph.kmer_size,
-                            .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = (uint32_t)ncols,
-                            .capacity = 0};
+  GraphFileHeader outhdr = INIT_GRAPH_FILE_HDR_MACRO;
+  outhdr.kmer_size = db_graph.kmer_size;
+  outhdr.num_of_cols = ncols;
 
   graph_header_alloc(&outhdr, ncols);
 
@@ -310,7 +308,6 @@ int ctx_clean(CmdArgs *args)
     // Save supernode lengths
     supernode_write_len_distrib(len_before_fh, len_before_path, LEN_HIST_CAP,
                                 num_threads, visited, &db_graph);
-    memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
     fclose(len_before_fh);
   }
 
@@ -319,7 +316,6 @@ int ctx_clean(CmdArgs *args)
     size_t est_threshold = cleaning_get_threshold(num_threads, min_keep_tip,
                                                   seq_depth, dump_covgs,
                                                   visited, &db_graph);
-    memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
 
     // Use estimated threshold if threshold not set
     if(threshold == 0) threshold = est_threshold;
@@ -327,13 +323,11 @@ int ctx_clean(CmdArgs *args)
 
   // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
   clean_graph(num_threads, threshold, min_keep_tip, visited, keep, &db_graph);
-  memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
 
   if(len_after_fh != NULL) {
     // Save supernode lengths
     supernode_write_len_distrib(len_after_fh, len_after_path, LEN_HIST_CAP,
                                 num_threads, visited, &db_graph);
-    memset(visited, 0, roundup_bits2bytes(db_graph.ht.capacity));
     fclose(len_after_fh);
   }
 
@@ -389,6 +383,10 @@ int ctx_clean(CmdArgs *args)
     graph_files_merge(out_ctx_path, gfiles, num_gfiles,
                       kmers_loaded, all_colours_loaded,
                       intersect_edges, &outhdr, &db_graph);
+
+    // Swap back
+    if(!all_colours_loaded)
+      db_graph.col_edges = intersect_edges;
   }
 
   ctx_check(db_graph.ht.num_kmers == hash_table_count_kmers(&db_graph.ht));

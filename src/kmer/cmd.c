@@ -62,6 +62,7 @@ void cmd_long_opts_to_short(const struct option *longs,
 
 uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)
 {
+  ctx_assert(arg != NULL);
   unsigned int tmp;
   if(!parse_entire_uint(arg, &tmp))
     cmd_print_usage("%s requires an int 0 <= x < 255: %s", cmd, arg);
@@ -70,6 +71,7 @@ uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)
 
 uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg)
 {
+  ctx_assert(arg != NULL);
   unsigned int tmp;
   if(!parse_entire_uint(arg, &tmp))
     cmd_print_usage("%s requires an int x >= 0: %s", cmd, arg);
@@ -78,15 +80,17 @@ uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg)
 
 uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg)
 {
-  uint32_t n = cmd_parse_arg_uint32(cmd, optarg);
+  ctx_assert(arg != NULL);
+  uint32_t n = cmd_parse_arg_uint32(cmd, arg);
   if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmd, arg);
   return n;
 }
 
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg)
 {
+  ctx_assert(arg != NULL);
   size_t mem;
-  if(!mem_to_integer(optarg, &mem))
+  if(!mem_to_integer(arg, &mem))
     cmd_print_usage("%s %s valid options: 1024 2MB 1G", cmd, arg);
   return mem;
 }
@@ -118,7 +122,7 @@ const char *cmd_usage = "No usage set", *cmd_line_given = "-", *cmd_cwd = "./";
 
 void cmd_print_usage(const char *errfmt,  ...)
 {
-  pthread_mutex_lock(&biglock); // lock if never released
+  pthread_mutex_lock(&ctx_biglock); // lock if never released
 
   if(errfmt != NULL) {
     fprintf(stderr, "\nError: ");

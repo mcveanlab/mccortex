@@ -25,7 +25,7 @@ typedef struct
 #define INIT_GRAPH_FILE_HDR_MACRO {                    \
   .version = CTX_GRAPH_FILEFORMAT,                     \
   .kmer_size = 0, .num_of_bitfields = NUM_BKMER_WORDS, \
-  .num_of_cols = 0, .capacity = 0}
+  .num_of_cols = 0, .ginfo = NULL, .capacity = 0}
 
 #define INIT_GRAPH_READER_MACRO {                   \
   .fltr = INIT_FILE_FILTER_MACRO, .num_of_kmers = 0,\

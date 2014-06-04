@@ -10,28 +10,23 @@
 
 void graph_header_alloc(GraphFileHeader *h, size_t num_of_cols)
 {
-  size_t i, old_cap = h->capacity;
+  size_t i;
 
-  if(h->capacity == 0)
-    h->ginfo = ctx_calloc(num_of_cols, sizeof(GraphInfo));
-  else if(num_of_cols > h->capacity)
-    h->ginfo = ctx_realloc(h->ginfo, num_of_cols * sizeof(GraphInfo));
-
-  for(i = old_cap; i < num_of_cols; i++)
-    graph_info_alloc(h->ginfo + i);
-
-  h->capacity = MAX2(old_cap, num_of_cols);
+  if(num_of_cols > h->capacity) {
+    h->ginfo = ctx_recallocarray(h->ginfo, h->capacity, num_of_cols, sizeof(GraphInfo));
+    for(i = h->capacity; i < num_of_cols; i++)
+      graph_info_alloc(&h->ginfo[i]);
+    h->capacity = num_of_cols;
+  }
 }
 
 void graph_header_dealloc(GraphFileHeader *h)
 {
   size_t i;
-  if(h->capacity > 0) {
-    for(i = 0; i < h->capacity; i++)
-      graph_info_dealloc(h->ginfo + i);
-    ctx_free(h->ginfo);
-    h->capacity = 0;
-  }
+  for(i = 0; i < h->capacity; i++)
+    graph_info_dealloc(&h->ginfo[i]);
+  ctx_free(h->ginfo);
+  *h = (GraphFileHeader)INIT_GRAPH_FILE_HDR_MACRO;
 }
 
 void graph_header_print(const GraphFileHeader *header)

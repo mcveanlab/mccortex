@@ -93,103 +93,75 @@ static inline bool nodes_are_tip(const dBNodeBuffer *nbuf,
   return (in+out <= 1);
 }
 
+static inline bool nodes_are_removable_tip(const dBNodeBuffer *nbuf,
+                                           size_t min_keep_tip,
+                                           const dBGraph *db_graph)
+{
+  return (nbuf->len < min_keep_tip && nodes_are_tip(nbuf, db_graph));
+}
+
 typedef struct {
-  size_t threadid, nthreads, covg_threshold, min_keep_tip;
-  dBNodeBuffer nbuf;
+  const size_t nthreads, covg_threshold, min_keep_tip;
+  CovgBuffer *cbufs;
   uint64_t *covg_hist;
-  size_t covg_arrlen;
-  uint8_t *visited, *keep;
-  dBGraph *db_graph;
+  const size_t covg_arrlen;
+  uint8_t *keep_flags;
+  uint64_t num_tip_kmers;
+  const dBGraph *db_graph;
 } SupernodeCleaner;
 
-static
-SupernodeCleaner* supernode_cleaners_new(size_t num,
-                                         size_t covg_threshold,
-                                         size_t min_keep_tip,
-                                         uint64_t *covg_hist,
-                                         size_t covg_arrlen,
-                                         uint8_t *visited, uint8_t *keep,
-                                         dBGraph *db_graph)
-{
-  size_t i;
-  SupernodeCleaner *workers = ctx_calloc(num, sizeof(SupernodeCleaner));
-
-  for(i = 0; i < num; i++) {
-    workers[i] = (SupernodeCleaner){.threadid = i,
-                                    .nthreads = num,
-                                    .covg_threshold = covg_threshold,
-                                    .min_keep_tip = min_keep_tip,
-                                    .covg_hist = covg_hist,
-                                    .covg_arrlen = covg_arrlen,
-                                    .visited = visited, .keep = keep,
-                                    .db_graph = db_graph};
-    db_node_buf_alloc(&workers[i].nbuf, 2048);
-  }
-
-  return workers;
-}
-
-static void supernode_cleaners_free(SupernodeCleaner *workers, size_t num)
-{
-  size_t i;
-  for(i = 0; i < num; i++)
-    db_node_buf_dealloc(&workers[i].nbuf);
-  ctx_free(workers);
-}
-
-static inline void record_threshold(hkey_t hkey,
-                                    dBNodeBuffer *nbuf, CovgBuffer *cbuf,
-                                    size_t min_keep_tip,
+static void supernode_cleaner_alloc(SupernodeCleaner *cl, size_t nthreads,
+                                    size_t covg_threshold, size_t min_keep_tip,
                                     uint64_t *covg_hist, size_t covg_arrlen,
-                                    uint8_t *visited, dBGraph *db_graph)
+                                    uint8_t *keep_flags,
+                                    const dBGraph *db_graph)
 {
-  bool got_lock = false;
   size_t i;
+  CovgBuffer *cbufs = ctx_calloc(nthreads, sizeof(CovgBuffer));
+  for(i = 0; i < nthreads; i++)
+    covg_buf_alloc(&cbufs[i], 1024);
 
-  if(!bitset_get_mt(visited, hkey))
-  {
-    db_node_buf_reset(nbuf);
-    supernode_find(hkey, nbuf, db_graph);
+  SupernodeCleaner tmp = {.nthreads = nthreads,
+                          .covg_threshold = covg_threshold,
+                          .min_keep_tip = min_keep_tip,
+                          .cbufs = cbufs,
+                          .covg_hist = covg_hist,
+                          .covg_arrlen = covg_arrlen,
+                          .keep_flags = keep_flags,
+                          .num_tip_kmers = 0,
+                          .db_graph = db_graph};
 
-    // Mark first node as visited
-    bitlock_try_acquire(visited, nbuf->data[0].key, &got_lock);
-
-    // Check if someone else marked it first
-    if(got_lock)
-    {
-      // Mark remaining nodes as visited
-      for(i = 1; i < nbuf->len; i++)
-        bitset_set_mt(visited, nbuf->data[i].key);
-
-      // Check if this is not a tip that we should ignore
-      if(min_keep_tip == 0 || nbuf->len >= min_keep_tip ||
-         !nodes_are_tip(nbuf, db_graph))
-      {
-        // Get coverage
-        fetch_coverages(nbuf, cbuf, db_graph);
-        size_t reads_arriving = supernode_covg(cbuf->data, cbuf->len);
-        reads_arriving = MIN2(reads_arriving, covg_arrlen-1);
-
-        // Add to histogram
-        __sync_fetch_and_add((volatile uint64_t *)&covg_hist[reads_arriving], 1);
-      }
-    }
-  }
+  memcpy(cl, &tmp, sizeof(SupernodeCleaner));
 }
 
-static void threshold_recorder(void *arg)
+static void supernode_cleaner_dealloc(SupernodeCleaner *cl)
 {
-  SupernodeCleaner cl = *(SupernodeCleaner*)arg;
+  size_t i;
+  for(i = 0; i < cl->nthreads; i++)
+    covg_buf_dealloc(&cl->cbufs[i]);
+  ctx_free(cl->cbufs);
+  memset(cl, 0, sizeof(SupernodeCleaner));
+}
 
-  CovgBuffer cbuf;
-  covg_buf_alloc(&cbuf, 2048);
+static inline void supernode_get_covg(const dBNodeBuffer *nbuf, size_t threadid,
+                                      void *arg)
+{
+  const SupernodeCleaner *cl = (const SupernodeCleaner*)arg;
 
-  HASH_ITERATE_PART(&cl.db_graph->ht, cl.threadid, cl.nthreads, record_threshold,
-                    &cl.nbuf, &cbuf, cl.min_keep_tip,
-                    cl.covg_hist, cl.covg_arrlen,
-                    cl.visited, cl.db_graph);
+  // Check if this is not a tip that we should ignore
+  if(nodes_are_removable_tip(nbuf, cl->min_keep_tip, cl->db_graph))
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, 1);
+  else
+  {
+    // Get coverage
+    CovgBuffer *cbuf = &cl->cbufs[threadid];
+    fetch_coverages(nbuf, cbuf, cl->db_graph);
+    size_t reads_arriving = supernode_covg(cbuf->data, cbuf->len);
+    reads_arriving = MIN2(reads_arriving, cl->covg_arrlen-1);
 
-  covg_buf_dealloc(&cbuf);
+    // Add to histogram
+    __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist[reads_arriving], 1);
+  }
 }
 
 // Get coverage threshold for removing supernodes
@@ -208,16 +180,14 @@ Covg cleaning_get_threshold(size_t num_threads, size_t min_keep_tip,
   // Get supernode coverages
   uint64_t *covg_hist = ctx_calloc(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
 
-  SupernodeCleaner *workers = supernode_cleaners_new(num_threads,
-                                                     0, min_keep_tip,
-                                                     covg_hist, DUMP_COVG_ARRSIZE,
-                                                     visited, NULL,
-                                                     db_graph);
+  SupernodeCleaner cleaner;
+  supernode_cleaner_alloc(&cleaner, num_threads, 0, min_keep_tip,
+                          covg_hist, DUMP_COVG_ARRSIZE, NULL, db_graph);
 
-  util_run_threads(workers, num_threads, sizeof(SupernodeCleaner),
-                   num_threads, threshold_recorder);
+  supernodes_iterate(num_threads, visited, db_graph,
+                     supernode_get_covg, &cleaner);
 
-  supernode_cleaners_free(workers, num_threads);
+  supernode_cleaner_dealloc(&cleaner);
 
   // Wipe memory
   memset(visited, 0, roundup_bits2bytes(db_graph->ht.capacity));
@@ -238,58 +208,29 @@ Covg cleaning_get_threshold(size_t num_threads, size_t min_keep_tip,
   return threshold_est;
 }
 
-// `min_keep_tip` is the minimum number of nodes a 'tip' must have
-// `visited`,`keep` should each be at least db_graph.ht.capcity bits long
-static inline void supernode_mark(hkey_t hkey,
-                                  dBNodeBuffer *nbuf, CovgBuffer *cbuf,
-                                  size_t covg_threshold, size_t min_keep_tip,
-                                  uint8_t *visited, uint8_t *keep_flags,
-                                  dBGraph *db_graph)
+static inline void supernode_mark(const dBNodeBuffer *nbuf, size_t threadid,
+                                   void *arg)
 {
+  const SupernodeCleaner *cl = (const SupernodeCleaner*)arg;
   bool keep = true;
   size_t i;
 
-  if(!bitset_get_mt(visited, hkey))
+  if(cl->covg_threshold > 0)
   {
-    db_node_buf_reset(nbuf);
-    supernode_find(hkey, nbuf, db_graph);
-
-    for(i = 0; i < nbuf->len; i++)
-      bitset_set_mt(visited, nbuf->data[i].key);
-
-    if(covg_threshold > 0)
-    {
-      // Clean supernodes by coverage
-      fetch_coverages(nbuf, cbuf, db_graph);
-      size_t reads_arriving = supernode_covg(cbuf->data, cbuf->len);
-      keep &= (reads_arriving >= covg_threshold);
-    }
-
-    if(keep && min_keep_tip > 0 && nbuf->len < min_keep_tip)
-    {
-      // Remove tips
-      keep &= !nodes_are_tip(nbuf, db_graph);
-    }
-
-    if(keep) {
-      for(i = 0; i < nbuf->len; i ++)
-        bitset_set_mt(keep_flags, nbuf->data[i].key);
-    }
+    // Clean supernodes by coverage
+    CovgBuffer *cbuf = &cl->cbufs[threadid];
+    fetch_coverages(nbuf, cbuf, cl->db_graph);
+    size_t reads_arriving = supernode_covg(cbuf->data, cbuf->len);
+    keep &= (reads_arriving >= cl->covg_threshold);
   }
-}
 
-void supernodes_marker(void *arg)
-{
-  SupernodeCleaner cl = *(SupernodeCleaner*)arg;
+  // Remove tips
+  keep &= !nodes_are_removable_tip(nbuf, cl->min_keep_tip, cl->db_graph);
 
-  CovgBuffer cbuf;
-  covg_buf_alloc(&cbuf, 2048);
-
-  HASH_ITERATE_PART(&cl.db_graph->ht, cl.threadid, cl.nthreads, supernode_mark,
-                    &cl.nbuf, &cbuf, cl.covg_threshold, cl.min_keep_tip,
-                    cl.visited, cl.keep, cl.db_graph);
-
-  covg_buf_dealloc(&cbuf);
+  if(keep) {
+    for(i = 0; i < nbuf->len; i ++)
+      bitset_set_mt(cl->keep_flags, nbuf->data[i].key);
+  }
 }
 
 // Remove low coverage supernodes and clip tips
@@ -323,21 +264,15 @@ void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
 
   status("[cleaning] Using %zu threads", num_threads);
 
-  SupernodeCleaner *workers = supernode_cleaners_new(num_threads,
-                                                     covg_threshold,
-                                                     min_keep_tip,
-                                                     NULL, 0,
-                                                     visited, keep,
-                                                     db_graph);
-
   // Mark nodes to keep
-  util_run_threads(workers, num_threads, sizeof(SupernodeCleaner),
-                   num_threads, supernodes_marker);
+  SupernodeCleaner cleaner;
+  supernode_cleaner_alloc(&cleaner, num_threads, covg_threshold, min_keep_tip,
+                          NULL, 0, keep, db_graph);
+  supernodes_iterate(num_threads, visited, db_graph, supernode_mark, &cleaner);
+  supernode_cleaner_dealloc(&cleaner);
 
   // Remove nodes not marked to keep
   prune_nodes_lacking_flag(num_threads, keep, db_graph);
-
-  supernode_cleaners_free(workers, num_threads);
 
   // Wipe memory
   memset(visited, 0, roundup_bits2bytes(db_graph->ht.capacity));

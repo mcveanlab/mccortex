@@ -78,7 +78,7 @@ static inline void futil_safe_fread(FILE *fh, void *ptr, size_t size,
   size_t read_nbytes = fread(ptr, 1, size, fh);
   if(read_nbytes != size)
   {
-    call_die(file, func, line,
+    dief(file, func, line,
              "Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",
              field, size, read_nbytes, path);
   }

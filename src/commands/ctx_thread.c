@@ -75,8 +75,8 @@ static struct option longopts[] =
   {"cut-hp",       required_argument, NULL, 'H'},
   {"end-check",    no_argument,       NULL, 'e'},
   {"no-end-check", no_argument,       NULL, 'E'},
-  {"min-ins",      no_argument,       NULL, 'g'},
-  {"max-ins",      no_argument,       NULL, 'G'},
+  {"min-ins",      required_argument, NULL, 'g'},
+  {"max-ins",      required_argument, NULL, 'G'},
   {"seq-gaps",     required_argument, NULL, 'S'},
   {"mp-gaps",      required_argument, NULL, 'M'},
   {"use-new-paths",optional_argument, NULL, 'u'},
@@ -207,7 +207,7 @@ int ctx_thread(int argc, char **argv)
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
                               .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+                              .empty_colours = false}; // already loaded paths
 
   // Load graph, print stats, close file
   graph_load(gfile, gprefs, &gstats);
