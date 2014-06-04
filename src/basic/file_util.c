@@ -118,6 +118,7 @@ FILE* futil_open_output(const char *path)
 // If "-" return stdout, if cannot open die with error message
 gzFile futil_gzopen_output(const char *path)
 {
+  ctx_assert(path != NULL);
   gzFile gzout;
 
   if(strcmp(path, "-") == 0)

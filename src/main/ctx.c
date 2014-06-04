@@ -112,7 +112,7 @@ CtxCmd cmdobjs[] = {
   .usage = pjoin_usage
 },
 {
-  .cmd = "bubbles", .func = ctx_bubbles, .hide = 0,
+  .cmd = "bubbles", .func = NULL, .func2 = ctx_bubbles, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "tmnpo", .reqargs = "o",
   .blurb = "find bubbles in graph which are potential variants",
   .usage = bubbles_usage

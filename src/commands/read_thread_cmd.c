@@ -61,7 +61,10 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         path_file_open(&tmp_pfile, optarg, true);
         pfile_buf_add(&args->pfiles, tmp_pfile);
         break;
-      case 't': args->num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
+      case 't':
+        if(args->num_of_threads != 0) die("%s set twice", cmd);
+        args->num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        break;
       case 'm': cmd_mem_args_set_memory(&args->memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&args->memargs, optarg); break;
       case 'c': args->colour = cmd_parse_arg_uint32(cmd, optarg);
@@ -113,6 +116,8 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       default: abort();
     }
   }
+
+  if(args->num_of_threads == 0) args->num_of_threads = DEFAULT_NTHREADS;
 
   // Check that optind+1 == argc
   if(optind+1 > argc)

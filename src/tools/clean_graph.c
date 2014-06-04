@@ -285,9 +285,20 @@ void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
                           NULL, 0, keep, db_graph);
   supernodes_iterate(num_threads, visited, db_graph, supernode_mark, &cleaner);
 
-  status("[cleaning] Removing %zu supernode kmers, %zu tip kmers and %zu of both",
-         (size_t)cleaner.num_low_covg_snode_kmers, (size_t)cleaner.num_tip_kmers,
-         (size_t)cleaner.num_tip_and_low_snode_kmers);
+  // Print numbers of kmers that are being removed
+  size_t n_lcovg_snodes = cleaner.num_low_covg_snode_kmers;
+  size_t n_tips_snodes = cleaner.num_tip_kmers;
+  size_t n_tips_lcovg_snodes = cleaner.num_tip_and_low_snode_kmers;
+
+  char snode_kmers_str[50], tip_kmers_str[50], tip_snode_kmers_str[50];
+  ulong_to_str(n_lcovg_snodes, snode_kmers_str);
+  ulong_to_str(n_tips_snodes, tip_kmers_str);
+  ulong_to_str(n_tips_lcovg_snodes, tip_snode_kmers_str);
+
+  status("[cleaning] Removing %s supernode kmer%s, %s tip kmer%s and %s of both",
+         snode_kmers_str, util_plural_str(n_lcovg_snodes),
+         tip_kmers_str, util_plural_str(n_tips_snodes),
+         tip_snode_kmers_str);
 
   supernode_cleaner_dealloc(&cleaner);
 

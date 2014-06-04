@@ -28,7 +28,7 @@ struct ReadThreadCmdArgs
   size_t max_gap_limit; // max of inputs[].crt_params.ins_gap_max
 };
 
-#define READ_THREAD_CMD_ARGS_INIT {.num_of_threads = DEFAULT_NTHREADS, \
+#define READ_THREAD_CMD_ARGS_INIT {.num_of_threads = 0,                \
                                    .memargs = MEM_ARGS_INIT,           \
                                    .graph_path = NULL,                 \
                                    .out_ctp_path = NULL,               \
