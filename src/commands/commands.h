@@ -13,11 +13,11 @@ int ctx_rmsubstr(int argc, char **argv);
 int ctx_breakpoints(int argc, char **argv);
 int ctx_bubbles(int argc, char **argv);
 int ctx_pview(int argc, char **argv);
+int ctx_view(int argc, char **argv);
 
 int ctx_pjoin(CmdArgs *args);
 int ctx_unique(CmdArgs *args);
 int ctx_place(CmdArgs *args);
-int ctx_view(CmdArgs *args);
 int ctx_health_check(CmdArgs *args);
 int ctx_clean(CmdArgs *args);
 int ctx_join(CmdArgs *args);

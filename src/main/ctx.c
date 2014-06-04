@@ -28,7 +28,7 @@ CtxCmd cmdobjs[] = {
   .usage = build_usage
 },
 {
-  .cmd = "view", .func = ctx_view, .hide = 0,
+  .cmd = "view", .func = NULL, .func2 = ctx_view, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "", .reqargs = "",
   .blurb = "view and check a cortex graph file (.ctx)",
   .usage = view_usage

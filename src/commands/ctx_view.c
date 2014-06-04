@@ -16,12 +16,22 @@ const char view_usage[] =
 "\n"
 "  View a cortex graph as a list of kmers with coverage and edges\n"
 "\n"
-"  -v, --kmers  Print kmers\n" // DEV: change to -k
+"  -k, --kmers  Print kmers\n"
 "  -c, --check  Check kmers\n"
 "  -i, --info   Print info\n"
 "\n"
 " Default is [--info --check]\n"
 "\n";
+
+int print_info = 0, parse_kmers = 0, print_kmers = 0;
+
+static struct option longopts[] =
+{
+  {"kmers", no_argument, &print_kmers, 1},
+  {"check", no_argument, &parse_kmers, 1},
+  {"info",  no_argument, &print_info,  1},
+  {NULL, 0, NULL, 0}
+};
 
 static void print_header(GraphFileHeader *h, size_t num_of_kmers)
 {
@@ -80,31 +90,41 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
 #define loading_warning(fmt,...) { num_warnings++; warn(fmt, ##__VA_ARGS__);}
 #define loading_error(fmt,...) { num_errors++; warn(fmt, ##__VA_ARGS__);}
 
-int ctx_view(CmdArgs *args)
+int ctx_view(int argc, char **argv)
 {
-  int argc = args->argc;
-  char **argv = args->argv;
-  // Already checked that we have at least 1 argument
+  // Arg parsing
+  char cmd[100];
+  char shortopts[300];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
 
-  bool print_info = false, parse_kmers = false, print_kmers = false;
-  size_t num_errors = 0, num_warnings = 0;
-  int argi;
+  // silence error messages from getopt_long
+  // opterr = 0;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
-  {
-    if(!strcmp(argv[argi],"--info") || !strcmp(argv[argi],"-i")) print_info = true;
-    else if(!strcmp(argv[argi],"--check") || !strcmp(argv[argi],"-c")) parse_kmers = true;
-    else if(!strcmp(argv[argi],"--kmers") || !strcmp(argv[argi],"-v")) print_kmers = true;
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+      default:
+        die("Programmer fail. Tell Isaac.");
+    }
   }
 
-  if(!print_info && !parse_kmers && !print_kmers)
-    print_info = parse_kmers = true;
+  if(print_kmers) parse_kmers = 1;
 
-  if(argi+1 < argc) cmd_print_usage(NULL);
+  if(!print_info && !parse_kmers && !print_kmers)
+    print_info = parse_kmers = 1;
+
+  if(optind+1 != argc) cmd_print_usage("Require one input graph file (.ctx)");
+
+  char *path = argv[optind];
+  size_t num_errors = 0, num_warnings = 0;
 
   GraphFileReader file = INIT_GRAPH_READER;
-  char *path = argv[argc-1];
   int ret = graph_file_open(&file, path, true);
   if(ret == 0) die("Cannot open file: %s", path);
 
