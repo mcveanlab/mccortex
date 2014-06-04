@@ -125,10 +125,11 @@ static inline void graph_write_graph_kmer(hkey_t hkey, FILE *fh,
                    &db_node_edges(db_graph, hkey, 0));
 }
 
-// Dump all kmers with all colours to given file
-void graph_write_all_kmers(FILE *fh, const dBGraph *db_graph)
+// Dump all kmers with all colours to given file. Return num of kmers written
+size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph)
 {
   HASH_ITERATE(&db_graph->ht, graph_write_graph_kmer, fh, db_graph);
+  return db_graph->ht.num_kmers;
 }
 
 static inline void overwrite_kmer_colours(hkey_t node,
@@ -287,7 +288,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   graph_write_header(fout, header);
 
   if(saving_graph_as_is(colours, start_col, num_of_cols, db_graph->num_of_cols)) {
-    graph_write_all_kmers(fout, db_graph);
+    num_nodes_dumped = graph_write_all_kmers(fout, db_graph);
   }
   else {
     HASH_ITERATE(&db_graph->ht, graph_write_node,
