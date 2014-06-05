@@ -9,7 +9,7 @@ if(length(args) != 2) {
 input_csv=args[1]
 output_pdf=args[2]
 
-library(ggplot2)
+require(ggplot2)
 
 d=read.csv(file=input_csv,sep=',',as.is=T)
 

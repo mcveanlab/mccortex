@@ -25,7 +25,8 @@ bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
 void supernode_find(hkey_t node, dBNodeBuffer *nbuf, const dBGraph *db_graph);
 
 // Count number of read starts using coverage data
-uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len);
+size_t supernode_read_starts(const Covg *covgs, size_t len);
+size_t supernode_covg_mean(const Covg *covgs, size_t len);
 
 void supernodes_iterate(size_t nthreads, uint8_t *visited,
                         const dBGraph *db_graph,
@@ -33,11 +34,5 @@ void supernodes_iterate(size_t nthreads, uint8_t *visited,
                                      size_t threadid,
                                      void *_arg),
                         void *arg);
-
-// Uses `nthreads` threads to get supernode length distribution and save it
-// to a file
-void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
-                                 size_t nthreads, uint8_t *visited,
-                                 const dBGraph *db_graph);
 
 #endif

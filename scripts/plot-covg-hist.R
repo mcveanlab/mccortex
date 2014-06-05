@@ -9,14 +9,23 @@ if(length(args) != 2) {
 input_csv=args[1]
 output_pdf=args[2]
 
-library(ggplot2)
+require(ggplot2)
+require(gridExtra)
 
 d=read.csv(file=input_csv,sep=',',as.is=T)
 
-p <- ggplot(data=d, aes(x=Covg, y=Supernodes)) +
+p <- ggplot(data=d, aes(x=Covg, y=NumSupernodes)) +
        geom_bar(stat="identity") +
-       xlab("Supernode Coverage (X)") +
+       xlab("Coverage (X)") +
        ylab("Number of Supernodes") +
        ggtitle("Supernode Coverage Distribution")
 
-ggsave(filename=output_pdf, plot=p, width=max(6,max(d[,'Covg'])/50), height=6)
+q <- ggplot(data=d, aes(x=Covg, y=NumKmers)) +
+       geom_bar(stat="identity") +
+       xlab("Coverage (X)") +
+       ylab("Number of kmers in supernodes") +
+       ggtitle("Supernode Length-Coverage Distribution")
+
+pdf(output_pdf,width=max(12,2*max(d[,'Covg'])/50),height=6)
+grid.arrange(p, q, ncol=2)
+dev.off()

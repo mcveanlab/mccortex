@@ -38,11 +38,19 @@ static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src,
   dst->cleaned_snodes |= src->cleaned_snodes;
   dst->cleaned_kmers |= src->cleaned_kmers;
 
-  // Take weighted avg, round
-  dst->clean_snodes_thresh = (dst_totalseq * dst->clean_snodes_thresh +
-                              src_totalseq * src->clean_snodes_thresh + 1)/2;
-  dst->clean_kmers_thresh = (dst_totalseq * dst->clean_kmers_thresh +
-                             src_totalseq * src->clean_kmers_thresh + 1)/2;
+  if(src->clean_snodes_thresh > 0 &&
+     (dst->clean_snodes_thresh == 0 ||
+      src->clean_snodes_thresh < dst->clean_snodes_thresh))
+  {
+    dst->clean_snodes_thresh = src->clean_snodes_thresh;
+  }
+
+  if(src->clean_kmers_thresh > 0 &&
+     (dst->clean_kmers_thresh == 0 ||
+      src->clean_kmers_thresh < dst->clean_kmers_thresh))
+  {
+    dst->clean_kmers_thresh = src->clean_kmers_thresh;
+  }
 
   if(src->is_graph_intersection)
     graph_info_append_intersect(dst, src->intersection_name.buff);

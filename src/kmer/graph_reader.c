@@ -215,42 +215,39 @@ int graph_file_read_header(FILE *fh, GraphFileHeader *h,
       safe_fread(fh, &(err_cleaning->is_graph_intersection),
                  sizeof(uint8_t), "cleaned against graph", path);
 
-      safe_fread(fh, &(err_cleaning->clean_snodes_thresh),
+      uint32_t clean_snodes_thresh = 0, clean_kmers_thresh = 0;
+      safe_fread(fh, &clean_snodes_thresh,
                  sizeof(uint32_t), "remove low covg supernode threshold", path);
-      safe_fread(fh, &(err_cleaning->clean_kmers_thresh),
+      safe_fread(fh, &clean_kmers_thresh,
                  sizeof(uint32_t), "remove low covg kmer threshold", path);
 
       bytes_read += 4*sizeof(uint8_t) + 2*sizeof(uint32_t);
 
       // Fix for old versions with negative thresholds
       if(h->version <= 6) {
-        if(!err_cleaning->cleaned_snodes &&
-           err_cleaning->clean_snodes_thresh == (uint32_t)-1) {
-          err_cleaning->clean_kmers_thresh = 0;
-        } else if(!err_cleaning->cleaned_kmers &&
-           err_cleaning->clean_kmers_thresh == (uint32_t)-1) {
-          err_cleaning->clean_kmers_thresh = 0;
-        }
+        if(!err_cleaning->cleaned_snodes && clean_snodes_thresh == (uint32_t)-1)
+          clean_snodes_thresh = 0;
+        if(!err_cleaning->cleaned_kmers && clean_kmers_thresh == (uint32_t)-1)
+          clean_kmers_thresh = 0;
       }
 
       // Sanity checks
-      if(!err_cleaning->cleaned_snodes &&
-         err_cleaning->clean_snodes_thresh > 0)
+      if(!err_cleaning->cleaned_snodes && clean_snodes_thresh > 0)
       {
         warn("Graph header gives cleaning threshold for supernodes "
              "when no cleaning was performed [path: %s]", path);
-
-        err_cleaning->clean_snodes_thresh = 0;
+        clean_snodes_thresh = 0;
       }
 
-      if(!err_cleaning->cleaned_kmers &&
-         err_cleaning->clean_kmers_thresh > 0)
+      if(!err_cleaning->cleaned_kmers && clean_kmers_thresh > 0)
       {
         warn("Graph header gives cleaning threshold for nodes "
              "when no cleaning was performed [path: %s]", path);
-
-        err_cleaning->clean_kmers_thresh = 0;
+        clean_kmers_thresh = 0;
       }
+
+      err_cleaning->clean_snodes_thresh = clean_snodes_thresh;
+      err_cleaning->clean_kmers_thresh = clean_kmers_thresh;
 
       // Read cleaned against name
       uint32_t len;

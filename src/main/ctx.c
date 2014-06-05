@@ -40,7 +40,7 @@ CtxCmd cmdobjs[] = {
   .usage = health_usage
 },
 {
-  .cmd = "clean", .func = ctx_clean, .hide = 0,
+  .cmd = "clean", .func = NULL, .func2 = ctx_clean, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "mncot", .reqargs = "o",
   .blurb = "clean errors from a graph",
   .usage = clean_usage

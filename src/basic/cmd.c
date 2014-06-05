@@ -55,7 +55,7 @@ void cmd_long_opts_to_short(const struct option *longs,
 {
   ctx_assert(buflen >= 2);
   size_t i, j;
-  opts[0] = '+';
+  opts[0] = '+'; // stop as soon as we hit an arg that is not one of the options
   for(i = 0, j = 1; longs[i].name != NULL; i++) {
     if(isprint(longs[i].val)) {
       ctx_assert(j+4 <= buflen); // check we have space
@@ -65,6 +65,15 @@ void cmd_long_opts_to_short(const struct option *longs,
     }
   }
   opts[j] = '\0';
+}
+
+double cmd_parse_arg_udouble_nonzero(const char *cmd, const char *arg)
+{
+  ctx_assert(arg != NULL);
+  double tmp;
+  if(!parse_entire_double(arg, &tmp) || tmp <= 0)
+    cmd_print_usage("%s requires a double > 0: %s", cmd, arg);
+  return tmp;
 }
 
 uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)

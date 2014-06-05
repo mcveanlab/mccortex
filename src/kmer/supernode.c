@@ -133,12 +133,12 @@ void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
 }
 
 // Count number of read starts using coverage data
-uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
+size_t supernode_read_starts(const Covg *covgs, size_t len)
 {
   if(len == 0) return 0;
   if(len == 1) return covgs[0];
 
-  uint32_t i, read_starts = covgs[0];
+  size_t i, read_starts = covgs[0];
 
   for(i = 1; i+1 < len; i++)
   {
@@ -152,49 +152,12 @@ uint32_t supernode_read_starts(const uint32_t *covgs, uint32_t len)
   return read_starts;
 }
 
-//
-// Multithreaded fetching supernode length histogram
-//
-
-static inline void increment_len_hist(const dBNodeBuffer *nbuf, size_t threadid,
-                                      void *arg)
+size_t supernode_covg_mean(const Covg *covgs, size_t len)
 {
-  (void)threadid;
-  uint64_t *arr = (uint64_t*)arg, arrlen, snode_len;
-
-  // First element of arr is its length
-  arrlen = arr[0];
-  arr++;
-  snode_len = MIN2(nbuf->len, arrlen-1);
-
-  // Add to histogram
-  __sync_fetch_and_add((volatile uint64_t *)&arr[snode_len], 1);
-}
-
-void supernode_write_len_distrib(FILE *fout, const char *path, size_t histlen,
-                                 size_t nthreads, uint8_t *visited,
-                                 const dBGraph *db_graph)
-{
-  const size_t kmer_size = db_graph->kmer_size;
-  size_t i, end;
-
-  ctx_assert(histlen >= 2);
-  status("[supernode] Saving supernode length distribution to: %s", path);
-  status("[supernode]   using %zu thread%s", nthreads, util_plural_str(nthreads));
-
-  uint64_t *hist = ctx_calloc(histlen+1, sizeof(uint64_t));
-  hist[0] = histlen;
-  supernodes_iterate(nthreads, visited, db_graph, increment_len_hist, hist);
-
-  // Write to file
-  fprintf(fout, "SupernodeKmerLength,bp,Count\n");
-  fprintf(fout, "1,%zu,%"PRIu64"\n", kmer_size, hist[1]);
-  for(end = histlen-1; end > 1 && hist[end] == 0; end--);
-  for(i = 2; i <= end; i++) {
-    if(hist[i] > 0) fprintf(fout, "%zu,%zu,%"PRIu64"\n", i, kmer_size+i-1, hist[i]);
-  }
-
-  ctx_free(hist);
+  ctx_assert(len > 0);
+  size_t i, sum = 0;
+  for(i = 0; i < len; i++) sum += covgs[i];
+  return (sum+len/2) / len; // round to nearest integer
 }
 
 //

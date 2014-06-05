@@ -97,7 +97,7 @@ int ctx_bubbles(int argc, char **argv)
         pfile_buf_add(&pfilesbuf, tmp_pfile);
         break;
       case 't':
-        if(max_allele_len) die("%s set twice", cmd);
+        if(num_of_threads) die("%s set twice", cmd);
         num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;

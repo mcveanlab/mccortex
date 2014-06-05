@@ -42,7 +42,7 @@ const char thread_usage[] =
 "  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
 "  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
-"  -C, --clean [auto|N]     Threshold at auto or <N> and remove redundant paths\n"
+"  -C[N], --clean[=auto|N]  Threshold at auto or <N> and remove redundant paths\n"
 "\n"
 "  Debugging Options: Probably best not to touch these\n"
 "    -X,--print-contigs -Y,--print-paths -Z,--print-reads\n"
@@ -79,7 +79,7 @@ static struct option longopts[] =
   {"max-ins",      required_argument, NULL, 'G'},
   {"seq-gaps",     required_argument, NULL, 'S'},
   {"mp-gaps",      required_argument, NULL, 'M'},
-  {"use-new-paths",optional_argument, NULL, 'u'},
+  {"use-new-paths",required_argument, NULL, 'u'},
   {"clean",        optional_argument, NULL, 'C'},
 // Debug options
   {"print-contigs",no_argument,       NULL, 'X'},
