@@ -99,7 +99,7 @@ int ctx_join(CmdArgs *args)
 
   // Check all binaries are valid binaries with matching kmer size
   size_t i, col, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
-  size_t max_cols = 0, sum_cols = 0, total_cols;
+  size_t ctx_max_cols = 0, ctx_sum_cols = 0, total_cols;
   size_t min_intersect_num_kmers = 0;
 
   for(i = 0; i < num_gfiles; i++)
@@ -118,14 +118,14 @@ int ctx_join(CmdArgs *args)
     }
 
     ncols = graph_file_usedcols(&gfiles[i]);
-    max_cols = MAX2(max_cols, ncols);
-    sum_cols += ncols;
+    ctx_max_cols = MAX2(ctx_max_cols, ncols);
+    ctx_sum_cols += ncols;
     ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
     ctx_sum_kmers += gfiles[i].num_of_kmers;
   }
 
   if(flatten) total_cols = 1;
-  else if(overlap) total_cols = max_cols;
+  else if(overlap) total_cols = ctx_max_cols;
   else {
     total_cols = 0;
     for(i = 0; i < num_gfiles; i++) {
@@ -179,14 +179,13 @@ int ctx_join(CmdArgs *args)
     use_ncols = total_cols;
   }
 
-  status("Output %zu cols; from %zu files; intersecting %zu graphs; "
-         "using %zu cols in memory",
-         total_cols, num_gfiles, num_intersect, use_ncols);
+  status("Output %zu cols; from %zu files; intersecting %zu graphs; ",
+         total_cols, num_gfiles, num_intersect);
 
   if(num_gfiles == 1 && num_intersect == 0)
   {
-    // Loading only one binary with no intersection filter
-    // don't need to store a graph in memory
+    // Loading only one file with no intersection files
+    // don't need to store a graph in memory, can filter as stream
     graph_stream_filter_mkhdr(out_ctx_path, &gfiles[0], NULL, NULL, NULL);
     graph_file_close(&gfiles[0]);
     ctx_free(intersect_paths);
@@ -204,6 +203,17 @@ int ctx_join(CmdArgs *args)
   kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
                                         ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
+
+  size_t max_usencols = (args->mem_to_use*8) / ((sizeof(Covg)+sizeof(Edges))*8);
+  use_ncols = MIN2(max_usencols, total_cols);
+
+  // Re-check memory used
+  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
+  kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        true, &graph_mem);
+
+  status("Using %zu colour%s in memory", use_ncols, util_plural_str(use_ncols));
 
   cmd_check_mem_limit(args->mem_to_use, graph_mem);
 

@@ -229,6 +229,7 @@ static inline void _update_store(const PathEntry *entry0, const PathSet *set0,
   }
 }
 
+// DEV: does not update number of path bytes - doesn't need to!
 // Remove entries from set that are in the filter set
 // if `rmsubstr` then also remove substring matches
 // Note: does not remove duplicates from `out_set`,

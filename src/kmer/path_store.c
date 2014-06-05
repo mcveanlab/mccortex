@@ -174,7 +174,7 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
                                 Orientation orient, PathLen plen,
                                 const uint8_t *colset, const uint8_t *seq)
 {
-  plen = packedpath_combine_lenorient(plen, orient);
+  PathLen plen_orient = packedpath_combine_lenorient(plen, orient);
 
   size_t pbytes = (plen+3)/4;
   size_t mem = packedpath_mem2(ps->colset_bytes, pbytes) + ps->extra_bytes;
@@ -187,7 +187,7 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   ptr += sizeof(PathIndex);
   memcpy(ptr, colset, ps->colset_bytes);
   ptr += ps->colset_bytes;
-  memcpy(ptr, &plen, sizeof(PathLen));
+  memcpy(ptr, &plen_orient, sizeof(PathLen));
   ptr += sizeof(PathLen);
   memcpy(ptr, seq, pbytes);
   ptr += pbytes;

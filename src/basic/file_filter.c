@@ -118,8 +118,11 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols)
 void file_filter_update_intocol(FileFilter *fltr, size_t intocol)
 {
   size_t i;
-  if(fltr->intocol != intocol && fltr->intocol != 0)
-    warn("Setting load into colour to %zu (%s)", intocol, fltr->orig_path.buff);
+
+  if(fltr->intocol != intocol && fltr->intocol != 0) {
+    warn("Setting load into colour to %zu from %zu (%s)",
+         intocol, fltr->intocol, fltr->orig_path.buff);
+  }
 
   fltr->intocol = intocol;
   for(i = 0; i < fltr->ncols && fltr->cols[i] == i; i++);

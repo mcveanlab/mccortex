@@ -31,8 +31,7 @@ static void error_cleaning_cpy(ErrorCleaning *dst, const ErrorCleaning *src)
   strbuf_set(&dst->intersection_name, src->intersection_name.buff);
 }
 
-static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src,
-                                 uint64_t dst_totalseq, uint64_t src_totalseq)
+static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
 {
   dst->cleaned_tips |= src->cleaned_tips;
   dst->cleaned_snodes |= src->cleaned_snodes;
@@ -165,8 +164,7 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
  }
 
   // Update error cleaning
-  error_cleaning_merge(&dst->cleaning, &src->cleaning,
-                       dst->total_sequence, src->total_sequence);
+  error_cleaning_merge(&dst->cleaning, &src->cleaning);
 
   dst->total_sequence = total_sequence;
 }
