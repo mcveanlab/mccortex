@@ -67,7 +67,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         break;
       case 'm': cmd_mem_args_set_memory(&args->memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&args->memargs, optarg); break;
-      case 'c': args->colour = cmd_parse_arg_uint32(cmd, optarg);
+      case 'c': args->colour = cmd_parse_arg_uint32(cmd, optarg); break;
       case '1':
       case '2':
       case 'i':

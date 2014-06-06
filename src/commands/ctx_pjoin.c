@@ -52,7 +52,7 @@ int ctx_pjoin(int argc, char **argv)
   bool overlap = false, flatten = false, noredundant = false;
   size_t output_ncols = 0;
   char *graph_file = NULL;
-  const char *out_ctp_path;
+  const char *out_ctp_path = NULL;
 
   // Arg parsing
   char cmd[100];

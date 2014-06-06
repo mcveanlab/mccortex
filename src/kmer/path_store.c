@@ -58,23 +58,25 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
 // Set up temporary memory for merging PathStores
 void path_store_setup_tmp(PathStore *ps, size_t tmp_mem)
 {
-  size_t max_tmp_mem = (ps->end - ps->store - PSTORE_PADDING) / 2;
-  ctx_assert(tmp_mem <= max_tmp_mem);
+  ctx_assert(ps->tmpsize == 0);
+  size_t max_tmp_mem = (ps->end - ps->next - PSTORE_PADDING);
+  ctx_assert2(tmp_mem <= max_tmp_mem, "%zu <= %zu", tmp_mem, max_tmp_mem);
 
   ps->tmpsize = tmp_mem;
-  ps->end -= PSTORE_PADDING + ps->tmpsize;
-  ps->tmpstore = ps->end + PSTORE_PADDING;
+  ps->tmpstore = ps->end - ps->tmpsize;
+  ps->end = ps->tmpstore - PSTORE_PADDING;
 
-  char mem0_str[100], mem1_str[100];
-  bytes_to_str(ps->end - ps->store, 1, mem0_str);
-  bytes_to_str(ps->tmpsize, 1, mem1_str);
-  status("[paths] Setup tmp path memory to use %s / %s", mem0_str, mem1_str);
+  char main_mem_str[100], tmp_mem_str[100];
+  bytes_to_str(ps->end - ps->store, 1, main_mem_str);
+  bytes_to_str(ps->tmpsize, 1, tmp_mem_str);
+  status("[paths] Setup tmp path memory to use %s [remaining %s]",
+         tmp_mem_str, main_mem_str);
 }
 
 // Once tmp has been used for merging, it can be reclaimed to use generally
 void path_store_release_tmp(PathStore *ps)
 {
-  ps->end += PSTORE_PADDING + ps->tmpsize;
+  ps->end = ps->tmpstore + ps->tmpsize;
   ps->tmpstore = NULL;
   ps->tmpsize = 0;
 

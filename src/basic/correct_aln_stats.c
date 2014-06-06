@@ -93,7 +93,7 @@ void correct_aln_stats_dump(const char *path,
     total += arr[i] * i;
   }
 
-  double mean = (double)total / ngaps;
+  double mean = ngaps ? (double)total / ngaps : 0;
   float median = find_hist_median(arr, arrlen, ngaps);
 
   size_t ninputs = insert_sizes ? nreads/2 : nreads;

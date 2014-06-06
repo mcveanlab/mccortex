@@ -190,7 +190,7 @@ static size_t print_all_supernodes(size_t nthreads, FILE *fout,
                                      .print_syntax = print_syntax,
                                      .db_graph = db_graph};
 
-  pthread_mutex_init(&printer.outlock, NULL);
+  if(pthread_mutex_init(&printer.outlock, NULL) != 0) die("Mutex init failed");
   supernodes_iterate(nthreads, visited, db_graph, print_supernodes, &printer);
   pthread_mutex_destroy(&printer.outlock);
 

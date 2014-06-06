@@ -76,6 +76,8 @@ int paths_file_read_header(FILE *fh, PathFileHeader *h,
 
   bytes_read += 5 + sizeof(uint32_t)*3 + sizeof(uint64_t)*3;
 
+  if(h->num_of_cols > 10000) die("Large number of colours: %u", h->num_of_cols);
+
   // paths_header_alloc will only alloc or realloc only if it needs to
   paths_header_alloc(h, h->num_of_cols);
 
@@ -189,25 +191,25 @@ size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
   // get cbytes
   size_t cbytes = (ncols+7)/8;
 
-  bool use_tmp = (remove_substr || extra_bytes || num_files > 1);
-  size_t multiplier = (use_tmp ? 2 : 1) * (use_path_hash ? 2 : 1);
-  size_t mem = files[0].hdr.num_path_bytes;
-
-  if(num_files == 1) return mem * multiplier;
-
-  // We need the size of the first and second largest file path_mem
+  bool file0needs_tmp = (remove_substr || extra_bytes);
+  size_t multiplier = (file0needs_tmp ? 2 : 1) * (use_path_hash ? 2 : 1);
 
   s0 = pfile_mem(files[0],cbytes,extra_bytes);
+  if(num_files == 1) return s0 * multiplier;
+
+  // We need the size of the first and second largest file path_mem
+  // s0 > s1
   s1 = pfile_mem(files[1],cbytes,extra_bytes);
+
   if(s1 > s0) { SWAP(s0, s1); }
 
   for(i = 2; i < num_files; i++) {
     tmp = pfile_mem(files[i],cbytes,extra_bytes);
     if(tmp > s0) { s1 = s0; s0 = tmp; }
-    else if(tmp > s1) { s0 = tmp; }
+    else if(tmp > s1) { s1 = tmp; }
   }
 
-  return (use_tmp ? s0 * 2 : s0 + s1) * (use_path_hash ? 2 : 1);
+  return (file0needs_tmp ? s0 * 2 : s0 + s1) * (use_path_hash ? 2 : 1);
 }
 
 // Print some output
@@ -403,10 +405,6 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
   status("[PathFormat] With %zu files, require %zu tmp memory [%zu extra bytes]",
          num_files, tmp_pmem, pstore->extra_bytes);
 
-  if(tmp_pmem) path_store_setup_tmp(pstore, tmp_pmem);
-
-  ctx_assert(!tmp_pmem || pstore->tmpstore);
-
   // Check number of bytes for colour bitset (path in which cols)
   // This should have been dealt with in the setup of the PathStore
   size_t required_ncols = paths_get_max_usedcols(files, num_files);
@@ -462,6 +460,8 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
     else
       break;
   }
+
+  if(tmp_pmem) path_store_setup_tmp(pstore, tmp_pmem);
 
   for(i = first_file; i < num_files; i++)
   {

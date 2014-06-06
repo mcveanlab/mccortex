@@ -128,7 +128,9 @@ int ctx_health_check(int argc, char **argv)
                                          false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfilesbuf.data, pfilesbuf.len, false, false,
+  bool remove_redundant = true;
+  path_mem = path_files_mem_required(pfilesbuf.data, pfilesbuf.len,
+                                     remove_redundant, false,
                                      path_max_usedcols, 0);
   cmd_print_mem(path_mem, "paths");
 
@@ -156,7 +158,7 @@ int ctx_health_check(int argc, char **argv)
   graph_load(&gfile, gprefs, NULL);
 
   // Load path files (if there are any)
-  paths_format_merge(pfilesbuf.data, pfilesbuf.len, false, true,
+  paths_format_merge(pfilesbuf.data, pfilesbuf.len, false, remove_redundant,
                      num_of_threads, &db_graph);
 
   // Close files

@@ -189,7 +189,7 @@ static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
     if(got_lock)
     {
       // Mark remaining nodes as visited
-      for(i = 1; i < nbuf->len; i++)
+      for(i = 0; i < nbuf->len; i++)
         bitset_set_mt(visited, nbuf->data[i].key);
 
       func(nbuf, threadid, arg);

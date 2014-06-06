@@ -463,17 +463,19 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
         db_node_add_col_covg(graph, node, graph_file_intocol(file,i), covgs[i]);
     }
 
-    // This may be an invalid pointer (if num_edge_cols == 0)
-    Edges *col_edges = graph->col_edges + node * graph->num_edge_cols;
-
     // Merge all edges into one colour
-    if(graph->num_edge_cols == 1) {
-      for(i = 0; i < load_ncols; i++)
-        col_edges[0] |= edges[i];
-    }
-    else if(graph->num_edge_cols > 0) {
-      for(i = 0; i < load_ncols; i++)
-        col_edges[graph_file_intocol(file,i)] |= edges[i];
+    if(graph->col_edges != NULL)
+    {
+      Edges *col_edges = graph->col_edges + node * graph->num_edge_cols;
+
+      if(graph->num_edge_cols == 1) {
+        for(i = 0; i < load_ncols; i++)
+          col_edges[0] |= edges[i];
+      }
+      else {
+        for(i = 0; i < load_ncols; i++)
+          col_edges[graph_file_intocol(file,i)] |= edges[i];
+      }
     }
 
     num_of_kmers_loaded++;
@@ -497,7 +499,10 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   }
 
   char parsed_nkmers_str[100], loaded_nkmers_str[100];
-  double loaded_nkmers_pct = (100.0 * num_of_kmers_loaded) / nkmers_parsed;
+  double loaded_nkmers_pct = 0;
+  if(nkmers_parsed)
+    loaded_nkmers_pct = (100.0 * num_of_kmers_loaded) / nkmers_parsed;
+
   ulong_to_str(num_of_kmers_loaded, loaded_nkmers_str);
   ulong_to_str(nkmers_parsed, parsed_nkmers_str);
   status("Loaded %s / %s (%.2f%%) of kmers parsed",

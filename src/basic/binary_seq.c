@@ -179,7 +179,7 @@ void binary_seq_cpy_fast(uint8_t *restrict dst, const uint8_t *restrict src,
   }
 
   size_t nwords64, endbyte, byte, bitshift;
-  uint64_t word;
+  uint64_t word = 0;
 
   bitshift = shift*2;
   nwords64 = (n-1)/32; // -1 so we can look ahead
