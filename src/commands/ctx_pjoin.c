@@ -106,7 +106,7 @@ int ctx_pjoin(int argc, char **argv)
   //
   // Open all path files
   //
-  size_t i, ncols, max_cols = 0, sum_cols = 0, total_cols;
+  size_t i, ncols, max_ctp_cols = 0, sum_cols = 0, total_cols;
   size_t ctp_max_path_kmers = 0;
   PathFileReader *pfiles = ctx_calloc(num_pfiles, sizeof(PathFileReader));
 
@@ -126,7 +126,7 @@ int ctx_pjoin(int argc, char **argv)
     }
 
     ncols = path_file_usedcols(&pfiles[i]);
-    max_cols = MAX2(max_cols, ncols);
+    max_ctp_cols = MAX2(max_ctp_cols, ncols);
     sum_cols += ncols;
     ctp_max_path_kmers = MAX2(ctp_max_path_kmers, pfiles[i].hdr.num_kmers_with_paths);
 
@@ -134,7 +134,7 @@ int ctx_pjoin(int argc, char **argv)
   }
 
   if(flatten) total_cols = 1;
-  else if(overlap) total_cols = max_cols;
+  else if(overlap) total_cols = max_ctp_cols;
   else {
     total_cols = 0;
     for(i = 0; i < num_pfiles; i++) {
@@ -197,7 +197,8 @@ int ctx_pjoin(int argc, char **argv)
                                          false, &graph_mem);
 
   // Path Memory
-  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
+  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false,
+                                         max_ctp_cols, 0);
   path_mem = MAX2(memargs.mem_to_use - graph_mem, path_mem_req);
   cmd_print_mem(path_mem, "paths");
 

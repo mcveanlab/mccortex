@@ -15,38 +15,83 @@ const char health_usage[] =
 "usage: "CMD" check [options] <graph.ctx>\n"
 "  Load a graph into memory along with any path files to check they are valid.\n"
 "\n"
-"  Options:\n"
+"  -h, --help             This help message\n"
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
-"  -E, --noedgecheck      Don't check kmer edges\n"
+//
+"  -E, --no-edge-check    Don't check kmer edges\n"
 "\n";
 
-// DEV: should load path files one at a time and check them?
-//      doing that won't check merging code.
+// Note: although it seems like we should load path files one at a time and
+//       check them, that has the down side of not checking merging code.
+//       Therefore we load them all at once, which requires more memory.
 
-int ctx_health_check(CmdArgs *args)
+static struct option longopts[] =
 {
-  int argi, argc = args->argc;
-  char **argv = args->argv;
-  // Have already check that we have exactly 1 argument
+// General options
+  {"help",          no_argument,       NULL, 'h'},
+  {"memory",        required_argument, NULL, 'm'},
+  {"nkmers",        required_argument, NULL, 'n'},
+  {"threads",       required_argument, NULL, 't'},
+  {"paths",         required_argument, NULL, 'p'},
+// command specific
+  {"no-edge-check", no_argument,       NULL, 'H'},
+  {NULL, 0, NULL, 0}
+};
 
-  size_t i;
+int ctx_health_check(int argc, char **argv)
+{
+  size_t num_of_threads = 0;
+  struct MemArgs memargs = MEM_ARGS_INIT;
   bool do_edge_check = true;
 
-  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
-    if(!strcmp(argv[argi],"--noedgecheck") || !strcmp(argv[argi],"-E"))
-      do_edge_check = false;
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
+  PathFileReader tmp_pfile;
+  PathFileBuffer pfilesbuf;
+  pfile_buf_alloc(&pfilesbuf, 8);
+
+  // Arg parsing
+  char cmd[100];
+  char shortopts[300];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+
+  // silence error messages from getopt_long
+  // opterr = 0;
+
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 't':
+        if(num_of_threads) die("%s set twice", cmd);
+        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'p':
+        tmp_pfile = INIT_PATH_READER;
+        path_file_open(&tmp_pfile, optarg, true);
+        pfile_buf_add(&pfilesbuf, tmp_pfile);
+        break;
+      case 'E': if(!do_edge_check) die("%s set twice", cmd); do_edge_check=false; break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        die("`"CMD" supernodes -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
+    }
   }
 
-  if(argi+1 < argc) cmd_print_usage("Too many arguments");
-  if(argi+1 > argc) cmd_print_usage("Too few arguments");
+  if(optind+1 != argc)
+    cmd_print_usage("Too %s arguments", optind == argc ? "few" : "many");
 
-  char *ctx_path = argv[argi];
+  char *ctx_path = argv[optind];
 
-  if(!do_edge_check && args->num_ctp_files == 0) {
-    cmd_print_usage("-E|--noedgecheck and no path files (-p in.ctp). Nothing to check.");
+  if(!do_edge_check && pfilesbuf.len == 0) {
+    cmd_print_usage("-E, --no-edge-check and no path files (-p in.ctp). "
+                    "Nothing to check.");
   }
 
   //
@@ -59,34 +104,36 @@ int ctx_health_check(CmdArgs *args)
   //
   // Open path files
   //
-  size_t num_pfiles = args->num_ctp_files;
-  PathFileReader pfiles[num_pfiles];
-  size_t path_max_mem = 0, path_max_usedcols = 0;
+  size_t i, path_max_mem = 0, path_max_usedcols = 0;
 
-  for(i = 0; i < num_pfiles; i++) {
-    pfiles[i] = INIT_PATH_READER;
-    path_file_open(&pfiles[i], args->ctp_files[i], true);
-    path_max_mem = MAX2(path_max_mem, pfiles[i].hdr.num_path_bytes);
-    path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(&pfiles[i]));
+  for(i = 0; i < pfilesbuf.len; i++) {
+    PathFileReader *pfile = &pfilesbuf.data[i];
+    path_max_mem = MAX2(path_max_mem, pfile->hdr.num_path_bytes);
+    path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(pfile));
   }
 
   // Check for compatibility between graph files and path files
-  graphs_paths_compatible(&gfile, 1, pfiles, num_pfiles);
+  graphs_paths_compatible(&gfile, 1, pfilesbuf.data, pfilesbuf.len);
 
   // Decide on memory
   size_t extra_bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8 + 1; // edges + in_colour
-  kmers_in_hash = cmd_get_kmers_in_hash(args, extra_bits_per_kmer,
-                                        gfile.num_of_kmers, gfile.num_of_kmers,
-                                        false, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         extra_bits_per_kmer,
+                                         gfile.num_of_kmers, gfile.num_of_kmers,
+                                         false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
+  path_mem = path_files_mem_required(pfilesbuf.data, pfilesbuf.len, false, false,
+                                     path_max_usedcols, 0);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = path_mem + graph_mem;
-  cmd_check_mem_limit(args->mem_to_use, total_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   // Create db_graph
   dBGraph db_graph;
@@ -96,7 +143,7 @@ int ctx_health_check(CmdArgs *args)
   db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
 
   // Paths
-  if(num_pfiles > 0) {
+  if(pfilesbuf.len > 0) {
     path_store_alloc(&db_graph.pstore, path_mem, false,
                      db_graph.ht.capacity, path_max_usedcols);
   }
@@ -109,18 +156,19 @@ int ctx_health_check(CmdArgs *args)
   graph_load(&gfile, gprefs, NULL);
 
   // Load path files (if there are any)
-  paths_format_merge(pfiles, num_pfiles, false, true,
-                     args->max_work_threads, &db_graph);
+  paths_format_merge(pfilesbuf.data, pfilesbuf.len, false, true,
+                     num_of_threads, &db_graph);
 
   // Close files
-  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
+  for(i = 0; i < pfilesbuf.len; i++) path_file_close(&pfilesbuf.data[i]);
+  pfile_buf_dealloc(&pfilesbuf);
 
   graph_file_close(&gfile);
 
   if(do_edge_check)
     db_graph_healthcheck(&db_graph);
 
-  if(num_pfiles)
+  if(pfilesbuf.len)
   {
     GraphPathPairing gp;
     gp_alloc(&gp, ncols);

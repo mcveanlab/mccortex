@@ -378,7 +378,8 @@ int ctx_contigs(CmdArgs *args)
                                         false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false, 0);
+  path_mem = path_files_mem_required(pfiles, num_pfiles, false, false,
+                                     path_max_usedcols, 0);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory

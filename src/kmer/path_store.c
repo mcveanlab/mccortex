@@ -23,6 +23,8 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
     hash_mem = 0;
   }
 
+  // May need padding between <mem> and <tmp> as well as at the end
+  pstore_mem += PSTORE_PADDING;
   // all one block: <mem><padding><tmp><padding>
   uint8_t *block = ctx_malloc(pstore_mem + PSTORE_PADDING);
 
@@ -179,7 +181,7 @@ PathIndex path_store_add_packed(PathStore *ps, hkey_t hkey, PathIndex last_index
   size_t pbytes = (plen+3)/4;
   size_t mem = packedpath_mem2(ps->colset_bytes, pbytes) + ps->extra_bytes;
 
-  if(ps->next + mem >= ps->end) die("Out of memory for paths");
+  if(ps->next + mem > ps->end) die("Out of memory for paths");
 
   uint8_t *ptr = ps->next;
 

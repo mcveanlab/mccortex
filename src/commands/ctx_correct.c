@@ -120,7 +120,8 @@ int ctx_correct(int argc, char **argv)
                                          false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false, 0);
+  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false,
+                                     ctp_usedcols, 0);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory

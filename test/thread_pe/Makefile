@@ -5,7 +5,7 @@ TGTS=genome.fa read.1.fa read.2.fa genome.k9.ctx $(PATHS)
 
 # non-default target: genome.k9.pdf
 
-all: $(TGTS)
+all: $(TGTS) check
 
 plots: genome.k9.pdf
 
@@ -38,4 +38,7 @@ reads.pe.two.ctp: reads.se.ctp genome.k9.ctx read.1.fa read.2.fa
 genome.k9.pdf:
 	../../scripts/cortex_to_graphviz.pl genome.k9.ctx:0 | dot -Tpdf > genome.k9.pdf
 
-.PHONY: all plots clean
+check: $(TGTS)
+	$(CTX) check -p reads.se.ctp -p reads.pe.one.ctp -p reads.pe.two.ctp genome.k9.ctx
+
+.PHONY: all plots clean check

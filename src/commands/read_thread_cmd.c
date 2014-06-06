@@ -145,13 +145,17 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   //
   // Open path files
   //
+  size_t path_max_usedcols = 0;
   for(i = 0; i < args->pfiles.len; i++) {
     // file_filter_update_intocol(&args->pfiles.data[i].fltr, 0);
     if(!correct_cmd && path_file_usedcols(&args->pfiles.data[i]) > 1) {
       die("Please specify a single colour e.g. %s:0",
           args->pfiles.data[i].fltr.file_path.buff);
     }
+    path_max_usedcols = MAX2(path_max_usedcols,
+                             path_file_usedcols(&args->pfiles.data[i]));
   }
+  args->path_max_usedcols = path_max_usedcols;
 
   // Check for compatibility between graph files and path files
   graphs_paths_compatible(gfile, 1, args->pfiles.data, args->pfiles.len);

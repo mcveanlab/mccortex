@@ -64,11 +64,11 @@ int ctx_bubbles(int argc, char **argv)
   size_t max_allele_len = 0, max_flank_len = 0;
 
   SizeBuffer haploidbuf;
-  size_buf_alloc(&haploidbuf, 32);
+  size_buf_alloc(&haploidbuf, 8);
 
   PathFileReader tmp_pfile;
   PathFileBuffer pfilesbuf;
-  pfile_buf_alloc(&pfilesbuf, 32);
+  pfile_buf_alloc(&pfilesbuf, 8);
 
   // tmp
   size_t tmp_col;
@@ -194,7 +194,7 @@ int ctx_bubbles(int argc, char **argv)
 
   // Path Memory
   path_mem = path_files_mem_required(pfilesbuf.data, pfilesbuf.len,
-                                     false, false, 0);
+                                     false, false, path_max_usedcols, 0);
   cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + thread_mem + path_mem;

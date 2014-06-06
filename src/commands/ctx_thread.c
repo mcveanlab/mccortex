@@ -121,7 +121,8 @@ int ctx_thread(int argc, char **argv)
                                          gfile->num_of_kmers,
                                          false, &graph_mem);
 
-  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false, 0);
+  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false,
+                                     args.path_max_usedcols, 0);
   path_mem = MAX2(args.memargs.mem_to_use - graph_mem, path_mem);
   cmd_print_mem(path_mem, "paths");
 

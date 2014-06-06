@@ -194,7 +194,8 @@ int ctx_breakpoints(int argc, char **argv)
 
   // DEV: pass path memory into cmd_get_kmers_in_hash
   // Path memory
-  path_mem = path_files_mem_required(pfilebuf.data, pfilebuf.len, false, false, 0);
+  path_mem = path_files_mem_required(pfilebuf.data, pfilebuf.len, false, false,
+                                     path_max_usedcols, 0);
   cmd_print_mem(path_mem, "paths");
 
   // kmer memory = Edges + paths + 1 bit per colour for in-colour

@@ -26,6 +26,7 @@ struct ReadThreadCmdArgs
   CorrectAlnInputBuffer inputs;
 
   size_t max_gap_limit; // max of inputs[].crt_params.ins_gap_max
+  size_t path_max_usedcols; // max colours in path files
 };
 
 #define READ_THREAD_CMD_ARGS_INIT {.num_of_threads = 0,                \
@@ -41,7 +42,8 @@ struct ReadThreadCmdArgs
                                    .gfile = INIT_GRAPH_READER_MACRO,   \
                                    .pfiles = OBJBUF_INIT,              \
                                    .inputs = OBJBUF_INIT,              \
-                                   .max_gap_limit = 0}
+                                   .max_gap_limit = 0,                 \
+                                   .path_max_usedcols = 0}
 
 void read_thread_args_alloc(struct ReadThreadCmdArgs *args);
 void read_thread_args_dealloc(struct ReadThreadCmdArgs *args);
