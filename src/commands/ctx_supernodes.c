@@ -14,37 +14,54 @@ const char supernodes_usage[] =
 "\n"
 "  Print supernodes with k-1 bases of overlap.\n"
 "\n"
+"  -h, --help            This help message\n"
+"  -o, --out <out.txt>   Save output graph file [default: STDOUT]\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -o, --out <out.ctx>   Save output graph file [default: STDOUT]\n"
-"  -d, --graphviz        Print in graphviz (DOT) format\n"
-"  -i, --point      with --graphviz, print contigs as points\n"
+"  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+//
+"  -d, --dot             Print in graphviz (DOT) format\n"
+"  -p, --points          Used with --dot, print contigs as points\n"
 "\n"
-"  e.g. ctx31 supernodes --graphviz in.ctx | dot -Tpdf > in.pdf\n"
+"  e.g. ctx31 supernodes --dot in.ctx | dot -Tpdf > in.pdf\n"
 "\n";
 
+static struct option longopts[] =
+{
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"out",          required_argument, NULL, 'o'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
+  {"threads",      required_argument, NULL, 't'},
+// command specific
+  {"graphviz",     no_argument,       NULL, 'g'}, // obsolete: use dot
+  {"dot",          no_argument,       NULL, 'd'},
+  {"points",       no_argument,       NULL, 'p'},
+  {NULL, 0, NULL, 0}
+};
+
+// Each supernode is packed into 64 bits, and each kmer has supernode info
 typedef struct {
   size_t nodeid:57, left:1, right:1, lorient:1, rorient:1, assigned:1;
 } sndata_t;
 
-
 #define PRINT_FASTA 0
 #define PRINT_DOT 1
 
-static size_t supernode_idx = 0;
-
 // Store ends of supernode currently stored in `nodes` and `orients` arrays
-static inline void dot_store_ends(const dBNodeBuffer *nbuf, sndata_t *supernodes)
+static inline void dot_store_ends(size_t snidx, const dBNodeBuffer *nbuf,
+                                  sndata_t *supernodes)
 {
   ctx_assert(supernodes[nbuf->data[0].key].assigned == 0);
   ctx_assert(supernodes[nbuf->data[nbuf->len-1].key].assigned == 0);
 
-  sndata_t supernode0 = {.nodeid = supernode_idx, .assigned = 1,
+  sndata_t supernode0 = {.nodeid = snidx, .assigned = 1,
                          .left = 1, .right = (nbuf->len == 1),
                          .lorient = nbuf->data[0].orient,
                          .rorient = nbuf->data[nbuf->len-1].orient};
 
-  sndata_t supernode1 = {.nodeid = supernode_idx, .assigned = 1,
+  sndata_t supernode1 = {.nodeid = snidx, .assigned = 1,
                          .left = (nbuf->len == 1), .right = 1,
                          .lorient = nbuf->data[0].orient,
                          .rorient = nbuf->data[nbuf->len-1].orient};
@@ -119,43 +136,70 @@ static inline void dot_print_edges(hkey_t hkey, sndata_t *supernodes,
   }
 }
 
-static void dump_supernodes(hkey_t hkey, FILE *fout, int print_syntax,
-                            dBNodeBuffer *nbuf, sndata_t *supernodes,
-                            uint64_t *visited, const dBGraph *db_graph)
+struct SupernodePrinter
+{
+  FILE *fout;
+  pthread_mutex_t outlock;
+  sndata_t *supernodes;
+  size_t *supernode_idx;
+  const int print_syntax;
+  const dBGraph *db_graph;
+};
+
+static void print_supernodes(const dBNodeBuffer *nbuf, size_t threadid, void *arg)
+{
+  (void)threadid;
+  struct SupernodePrinter *prtr = (struct SupernodePrinter*)arg;
+
+  supernode_normalise(nbuf->data, nbuf->len, prtr->db_graph);
+
+  size_t idx = __sync_fetch_and_add((size_t volatile*)prtr->supernode_idx, 1);
+  FILE *fout = prtr->fout;
+
+  if(prtr->print_syntax == PRINT_DOT)
+    dot_store_ends(idx, nbuf, prtr->supernodes);
+
+  pthread_mutex_lock(&prtr->outlock);
+
+  if(prtr->print_syntax == PRINT_FASTA) {
+    fprintf(fout, ">supernode%zu\n", idx);
+    db_nodes_print(nbuf->data, nbuf->len, prtr->db_graph, fout);
+    fputc('\n', fout);
+  }
+  else {
+    ctx_assert(prtr->print_syntax == PRINT_DOT);
+    fprintf(fout, "  node%zu [label=", idx);
+    db_nodes_print(nbuf->data, nbuf->len, prtr->db_graph, fout);
+    fputs("]\n", fout);
+  }
+
+  pthread_mutex_unlock(&prtr->outlock);
+}
+
+// Returns number of supernodes printed
+static size_t print_all_supernodes(size_t nthreads, FILE *fout,
+                                   int print_syntax, sndata_t *supernodes,
+                                   uint8_t *visited, const dBGraph *db_graph)
 {
   ctx_assert(print_syntax == PRINT_FASTA || supernodes != NULL);
 
-  size_t i;
+  size_t next_snode_idx = 0;
+  struct SupernodePrinter printer = {.fout = fout,
+                                     .supernodes = supernodes,
+                                     .supernode_idx = &next_snode_idx,
+                                     .print_syntax = print_syntax,
+                                     .db_graph = db_graph};
 
-  if(!bitset_get(visited, hkey))
-  {
-    db_node_buf_reset(nbuf);
-    supernode_find(hkey, nbuf, db_graph);
-    for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
+  pthread_mutex_init(&printer.outlock, NULL);
+  supernodes_iterate(nthreads, visited, db_graph, print_supernodes, &printer);
+  pthread_mutex_destroy(&printer.outlock);
 
-    supernode_normalise(nbuf->data, nbuf->len, db_graph);
-
-    switch(print_syntax) {
-      case PRINT_FASTA:
-        fprintf(fout, ">supernode%zu\n", supernode_idx);
-        db_nodes_print(nbuf->data, nbuf->len, db_graph, fout);
-        fputc('\n', fout);
-        break;
-      case PRINT_DOT:
-        dot_store_ends(nbuf, supernodes);
-        fprintf(fout, "  node%zu [label=", supernode_idx);
-        db_nodes_print(nbuf->data, nbuf->len, db_graph, fout);
-        fputs("]\n", fout);
-        break;
-    }
-
-    supernode_idx++;
-  }
+  return next_snode_idx;
 }
 
-static void dump_dot_syntax(FILE *fout, int print_syntax, bool dot_use_points,
-                            dBNodeBuffer *nbuf, uint64_t *visited,
-                            dBGraph *db_graph)
+static size_t print_dot_syntax(size_t nthreads, FILE *fout,
+                               int print_syntax, bool dot_use_points,
+                               uint8_t *visited, const dBGraph *db_graph)
 {
   fputs("digraph G {\n", fout);
   fputs("  edge [dir=both arrowhead=none arrowtail=none color=\"blue\"]\n", fout);
@@ -164,56 +208,83 @@ static void dump_dot_syntax(FILE *fout, int print_syntax, bool dot_use_points,
 
   sndata_t *supernodes = ctx_calloc(db_graph->ht.capacity, sizeof(sndata_t));
 
-  HASH_ITERATE(&db_graph->ht, dump_supernodes,
-               fout, print_syntax, nbuf, supernodes, visited, db_graph);
+  size_t num_snodes = print_all_supernodes(nthreads, fout, print_syntax,
+                                           supernodes, visited, db_graph);
 
   // Now print edges
-  fprintf(fout, "\n");
+  fputc('\n', fout);
   HASH_ITERATE(&db_graph->ht, dot_print_edges, supernodes, fout, db_graph);
+  fputs("}\n", fout);
 
   ctx_free(supernodes);
-  fputs("}\n", fout);
+
+  return num_snodes;
 }
 
 // Returns 0 on success, otherwise != 0
-int ctx_supernodes(CmdArgs *args)
+int ctx_supernodes(int argc, char **argv)
 {
-  int argc = args->argc;
-  char **argv = args->argv;
-
-  size_t i;
-  char **paths;
-  bool dot_use_points = false;
+  size_t num_of_threads = 0;
+  struct MemArgs memargs = MEM_ARGS_INIT;
+  const char *out_path = NULL;
   int print_syntax = PRINT_FASTA;
+  bool dot_use_points = false;
 
-  while(argc > 0 && argv[0][0] == '-' && argv[0][1]) {
-    if(!strcmp(argv[0],"--dot") || !strcmp(argv[0],"-d") ||
-       !strcmp(argv[0],"--graphviz"))
-    {
-      print_syntax = PRINT_DOT; argv++; argc--;
+  // Arg parsing
+  char cmd[100];
+  char shortopts[300];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+
+  // silence error messages from getopt_long
+  // opterr = 0;
+
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 'o':
+        if(out_path != NULL) cmd_print_usage(NULL);
+        out_path = optarg;
+        break;
+      case 't':
+        if(num_of_threads) die("%s set twice", cmd);
+        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'g': // --graphviz is the same as --dot, drop through case
+      case 'd': if(print_syntax) die("%s set twice", cmd); print_syntax=PRINT_DOT; break;
+      case 'p': if(dot_use_points) die("%s set twice", cmd); dot_use_points=true; break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        die("`"CMD" supernodes -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
-    else if(!strcmp(argv[0],"--points") || !strcmp(argv[0],"--point") ||
-            !strcmp(argv[0],"-i"))
-    {
-      dot_use_points = true; argv++; argc--;
-    }
-    else cmd_print_usage("Unknown argument: %s", argv[0]);
   }
 
-  if(argc == 0) cmd_print_usage(NULL);
+  if(dot_use_points && print_syntax == PRINT_FASTA)
+    cmd_print_usage("--point is only for use with --dot");
 
-  const size_t num_gfiles = (size_t)argc;
-  paths = argv;
+  // Defaults for unset values
+  if(out_path == NULL) out_path = "-";
+  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+
+  if(optind >= argc) cmd_print_usage(NULL);
+
+  size_t i, num_gfiles = (size_t)(argc - optind);
+  char **gfile_paths = argv+optind;
 
   if(dot_use_points && print_syntax != PRINT_DOT)
     cmd_print_usage("--points only valid with --graphviz / --dot");
 
   ctx_assert(num_gfiles > 0);
 
-  GraphFileReader gfiles[num_gfiles];
+  GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  graph_files_open(paths, gfiles, num_gfiles,
+  graph_files_open(gfile_paths, gfiles, num_gfiles,
                    &ctx_max_kmers, &ctx_sum_kmers);
 
   //
@@ -221,32 +292,26 @@ int ctx_supernodes(CmdArgs *args)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
   bits_per_kmer = (sizeof(Edges) + sizeof(sndata_t)*(print_syntax==PRINT_DOT))*8;
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
-                                        true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         bits_per_kmer,
+                                         ctx_max_kmers, ctx_sum_kmers,
+                                         true, &graph_mem);
 
-  cmd_check_mem_limit(args->mem_to_use, graph_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   const char *syntax_str[3] = {"FASTA", "DOT (Graphviz)"};
   status("Output in %s format to %s\n", syntax_str[print_syntax],
-         args->output_file_set ? args->output_file : "STDOUT");
+         futil_outpath_str(out_path));
 
   //
   // Open output file
   //
 
   // Print to stdout unless --out <out> is specified
-  FILE *fout = stdout;
-
-  if(args->output_file_set) {
-    if(strcmp(args->output_file, "-") == 0)
-      args->output_file_set = false;
-    else {
-      fout = fopen(args->output_file, "w");
-      if(fout == NULL) die("Cannot open output file: %s", args->output_file);
-      status("Writing supernodes to %s\n", args->output_file);
-    }
-  }
+  FILE *fout = futil_open_output(out_path);
 
   //
   // Allocate memory
@@ -255,9 +320,7 @@ int ctx_supernodes(CmdArgs *args)
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 1, kmers_in_hash);
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
-  // Visited
-  size_t numwords64 = roundup_bits2words64(db_graph.ht.capacity);
-  uint64_t *visited = ctx_calloc(numwords64, sizeof(uint64_t));
+  uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
@@ -270,33 +333,32 @@ int ctx_supernodes(CmdArgs *args)
     graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
   }
+  ctx_free(gfiles);
 
   hash_table_print_stats(&db_graph.ht);
 
-  status("Printing supernodes...");
-
-  dBNodeBuffer nbuf;
-  db_node_buf_alloc(&nbuf, 2048);
+  status("Printing supernodes using %zu threads", num_of_threads);
+  size_t num_snodes;
 
   // dump supernodes
-  switch(print_syntax) {
-    case PRINT_DOT:
-      dump_dot_syntax(fout, print_syntax, dot_use_points,
-                      &nbuf, visited, &db_graph);
-      break;
-    case PRINT_FASTA:
-      HASH_ITERATE(&db_graph.ht, dump_supernodes,
-                   fout, print_syntax, &nbuf, NULL, visited, &db_graph);
-      break;
+  if(print_syntax == PRINT_FASTA) {
+    num_snodes = print_all_supernodes(num_of_threads, fout,
+                                      print_syntax, NULL,
+                                      visited, &db_graph);
+  }
+  else {
+    num_snodes = print_dot_syntax(num_of_threads, fout,
+                                  print_syntax, dot_use_points,
+                                  visited, &db_graph);
   }
 
-  status("Dumped %zu supernodes\n", supernode_idx);
+  char num_snodes_str[50];
+  ulong_to_str(num_snodes, num_snodes_str);
+  status("Dumped %s supernodes\n", num_snodes_str);
 
-  if(args->output_file_set) fclose(fout);
+  fclose(fout);
 
-  db_node_buf_dealloc(&nbuf);
   ctx_free(visited);
-
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

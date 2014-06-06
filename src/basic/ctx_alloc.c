@@ -19,6 +19,7 @@ static inline void _oom(void *ptr, size_t nel, size_t elsize,
 }
 
 // If `zero` is true and ptr is NULL call calloc, otherwise realloc
+// Prints error message and calls exit() if out of memory / cannot alloc
 void* alloc_mem(void *ptr, size_t nel, size_t elsize, bool zero,
                 const char *file, const char *func, int line)
 {
@@ -37,7 +38,7 @@ void* alloc_mem(void *ptr, size_t nel, size_t elsize, bool zero,
   return ptr2;
 }
 
-// Resize memory, zero new memory
+// Allocate / resize memory, ensure all new memory is zero'ed
 void* alloc_recallocarray(void *ptr, size_t oldnel, size_t newnel, size_t elsize,
                           const char *file, const char *func, int line)
 {

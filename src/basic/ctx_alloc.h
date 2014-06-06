@@ -4,7 +4,12 @@
 #include <stdlib.h>
 
 //
-// Dynamic memory allocation with checks
+// Wrappers for dynamic memory allocation functions
+//
+// We do this to provide counters of all alloc+free calls so we can report
+// if there are any memory leaks on exit. It also allows us to check if malloc()
+// etc. have returned NULL and exit with an informative message with line number
+// of offending call.
 //
 
 // Macros for memory management
@@ -21,11 +26,7 @@
 void* alloc_mem(void *ptr, size_t nel, size_t elsize, bool zero,
                 const char *file, const char *func, int line);
 
-// Allocate / reallocate memory, ensure new memory is zero'ed
-void* alloc_reallocarray(void *ptr, size_t nel, size_t elsize,
-                         const char *file, const char *func, int line);
-
-// Resize memory, zero new memory
+// Allocate / resize memory, ensure all new memory is zero'ed
 void* alloc_recallocarray(void *ptr, size_t oldnel, size_t newnel, size_t elsize,
                           const char *file, const char *func, int line);
 

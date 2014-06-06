@@ -181,8 +181,9 @@ static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
     db_node_buf_reset(nbuf);
     supernode_find(hkey, nbuf, db_graph);
 
-    // Mark first node as visited
-    bitlock_try_acquire(visited, nbuf->data[0].key, &got_lock);
+    // Mark first node (lowest hkey_t value) as visited
+    hkey_t node0 = MIN2(nbuf->data[0].key, nbuf->data[nbuf->len-1].key);
+    bitlock_try_acquire(visited, node0, &got_lock);
 
     // Check if someone else marked it first
     if(got_lock)

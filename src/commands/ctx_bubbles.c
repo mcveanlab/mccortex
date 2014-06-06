@@ -117,7 +117,7 @@ int ctx_bubbles(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }

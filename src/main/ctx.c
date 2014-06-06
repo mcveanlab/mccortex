@@ -52,7 +52,7 @@ CtxCmd cmdobjs[] = {
   .usage = join_usage
 },
 {
-  .cmd = "supernodes", .func = ctx_supernodes, .hide = 0,
+  .cmd = "supernodes", .func = NULL, .func2 = ctx_supernodes, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "mnpo", .reqargs = "",
   .blurb = "pull out supernodes",
   .usage = supernodes_usage
@@ -64,7 +64,7 @@ CtxCmd cmdobjs[] = {
   .usage = subgraph_usage
 },
 {
-  .cmd = "reads", .func = ctx_reads, .hide = 0,
+  .cmd = "reads", .func = ctx_reads, .hide = 1,
   .minargs = 4, .maxargs = INT_MAX, .optargs = "mn", .reqargs = "",
   .blurb = "filter reads against a graph",
   .usage = reads_usage
@@ -118,13 +118,13 @@ CtxCmd cmdobjs[] = {
   .usage = bubbles_usage
 },
 {
-  .cmd = "unique", .func = ctx_unique, .hide = 0,
+  .cmd = "unique", .func = ctx_unique, .hide = 1,
   .minargs = 2, .maxargs = 2, .optargs = "", .reqargs = "",
   .blurb = "remove duplicated bubbles, produce VCF",
   .usage = unique_usage
 },
 {
-  .cmd = "place", .func = ctx_place, .hide = 0,
+  .cmd = "place", .func = ctx_place, .hide = 1,
   .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
   .blurb = "place variants against a reference",
   .usage = place_usage
