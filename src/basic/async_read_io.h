@@ -50,4 +50,7 @@ void asyncio_run_threads(MsgPool *pool,
                          void (*job)(void*),
                          void *args, size_t num_readers, size_t elsize);
 
+// Guess numer of kmers
+size_t asyncio_input_nkmers(const AsyncIOReadInput *io);
+
 #endif /* ASYNC_READ_IO_H_ */

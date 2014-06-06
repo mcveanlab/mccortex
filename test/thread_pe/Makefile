@@ -24,7 +24,7 @@ read.2.fa:
 	echo ACGGCCACTG > read.2.fa
 
 genome.k9.ctx: genome.fa
-	$(CTX) build -m 1M -k 9 --sample Genome --seq genome.fa --sample Gen2 --seq genome.fa genome.k9.ctx
+	$(CTX) build -k 9 --sample Genome --seq genome.fa --sample Gen2 --seq genome.fa genome.k9.ctx
 
 reads.se.ctp: genome.k9.ctx read.1.fa read.2.fa
 	$(CTX) thread -m 1M --print-contigs --print-paths --seq read.1.fa --seq read.2.fa -o $@ genome.k9.ctx:0

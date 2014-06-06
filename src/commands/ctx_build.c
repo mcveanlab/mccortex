@@ -226,6 +226,34 @@ int ctx_build(int argc, char **argv)
   bool remove_pcr_used = (i < ntasks);
 
   //
+  // Print inputs
+  //
+  size_t max_kmers = 0;
+
+  // Print graphs to be loaded
+  for(i = 0; i < gfilebuf.len; i++) {
+    file_filter_status(&gfilebuf.data[i].fltr);
+    max_kmers += gfilebuf.data[i].num_of_kmers;
+  }
+
+  // Print tasks and sample names
+  for(s = t = 0; s < nsamples || t < ntasks; ) {
+    if(t == ntasks || (s < nsamples && samples[s].colour <= tasks[t].colour)) {
+      status("[sample] %zu: %s", s, samples[s].name);
+      s++;
+    } else {
+      build_graph_task_print(&tasks[t]);
+      t++;
+    }
+  }
+
+  for(t = 0; t < ntasks; t++) {
+    size_t nkmers = asyncio_input_nkmers(&tasks[t].files);
+    if(nkmers == SIZE_MAX) { max_kmers = nkmers; break; }
+    max_kmers += nkmers;
+  }
+
+  //
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
@@ -238,7 +266,7 @@ int ctx_build(int argc, char **argv)
                                          memargs.mem_to_use_set,
                                          memargs.num_kmers,
                                          memargs.num_kmers_set,
-                                         bits_per_kmer, 0, SIZE_MAX,
+                                         bits_per_kmer, 0, max_kmers,
                                          true, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
@@ -252,23 +280,6 @@ int ctx_build(int argc, char **argv)
   {
     if(futil_file_exists(out_path)) die("Output file already exists: %s", out_path);
     if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
-  }
-
-  // Print graphs to be loaded
-  for(i = 0; i < gfilebuf.len; i++)
-    file_filter_status(&gfilebuf.data[i].fltr);
-
-  // Print tasks and sample names
-  for(s = t = 0; s < nsamples || t < ntasks; )
-  {
-    if(t == ntasks || (s < nsamples && samples[s].colour <= tasks[t].colour)) {
-      status("[sample] %zu: %s", s, samples[s].name);
-      s++;
-    }
-    else {
-      build_graph_task_print(&tasks[t]);
-      t++;
-    }
   }
 
   status("Writing %zu colour graph to %s\n", output_colours, out_path_name);

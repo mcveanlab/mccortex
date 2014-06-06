@@ -1,6 +1,7 @@
 #include "global.h"
 #include "async_read_io.h"
 #include "seq_reader.h"
+#include "file_util.h"
 #include "util.h" // util_run_threads()
 
 #include <pthread.h>
@@ -243,4 +244,27 @@ void asyncio_run_threads(MsgPool *pool,
 
   // Finish with the async io (waits until queue is empty)
   asyncio_read_finish(asyncio_workers, num_inputs);
+}
+
+// Guess numer of kmers
+size_t asyncio_input_nkmers(const AsyncIOReadInput *io)
+{
+  size_t i, est_num_bases = 0;
+  for(i = 0; i < 2; i++) {
+    seq_file_t *sf = i ? io->file1 : io->file2;
+    if(sf) {
+      off_t fsize = futil_get_file_size(sf->path);
+      if(fsize < 0) {
+        warn("Cannot get file size: %s", sf->path);
+        return SIZE_MAX;
+      }
+      else {
+        if(seq_is_fastq(sf) || seq_is_sam(sf))
+          est_num_bases += fsize / 2;
+        else
+          est_num_bases += fsize;
+      }
+    }
+  }
+  return est_num_bases;
 }
