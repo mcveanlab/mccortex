@@ -10,6 +10,8 @@ void cmd_mem_args_set_memory(struct MemArgs *mem, const char *arg)
   if(mem->mem_to_use_set)
     cmd_print_usage("-m, --memory <M> specifed more than once");
   mem->mem_to_use = cmd_parse_arg_mem("-m, --memory <M>", arg);
+  if(mem->mem_to_use == 0)
+    cmd_print_usage("--memory <M> cannot be zero");
   mem->mem_to_use_set = true;
 }
 
@@ -17,7 +19,9 @@ void cmd_mem_args_set_nkmers(struct MemArgs *mem, const char *arg)
 {
   if(mem->num_kmers_set)
     cmd_print_usage("-n, --nkmers <N> specifed more than once");
-  mem->num_kmers = cmd_parse_arg_uint32_nonzero("-n, --nkmers <M>", arg);
+  mem->num_kmers = cmd_parse_arg_mem("-n, --nkmers <M>", arg);
+  if(mem->num_kmers == 0)
+    cmd_print_usage("--nkmer <N> cannot be zero");
   mem->num_kmers_set = true;
 }
 
