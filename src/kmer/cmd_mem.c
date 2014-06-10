@@ -58,7 +58,16 @@ size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
                                extra_bits, &kmers_in_hash);
 
   if(max_num_kmers_req > 0 && !num_kmers_set)
-    kmers_in_hash = MIN2(kmers_in_hash, max_num_kmers_req/IDEAL_OCCUPANCY);
+  {
+    // Check if the max kmer capacity is less that requested
+    size_t graph_mem2, kmers_in_hash2;
+    graph_mem2 = hash_table_mem(max_num_kmers_req/IDEAL_OCCUPANCY,
+                                extra_bits, &kmers_in_hash2);
+    if(graph_mem2 < graph_mem) {
+      graph_mem = graph_mem2;
+      kmers_in_hash = kmers_in_hash2;
+    }
+  }
 
   if(kmers_in_hash < 1024)
     graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);

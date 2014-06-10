@@ -291,7 +291,10 @@ int ctx_supernodes(int argc, char **argv)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  bits_per_kmer = (sizeof(Edges) + sizeof(sndata_t)*(print_syntax==PRINT_DOT))*8;
+
+  bits_per_kmer = sizeof(Edges) * 8 + 1;
+  if(print_syntax == PRINT_DOT) bits_per_kmer += sizeof(sndata_t) * 8;
+
   kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
                                          memargs.mem_to_use_set,
                                          memargs.num_kmers,
