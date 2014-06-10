@@ -14,7 +14,8 @@
 const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
 "\n"
-"  Infer edges in a population graph.  One of -P, -A required.\n"
+"  Infer edges in a population graph.  By default adds all missing edges (--all).\n"
+"  It is important that you run this step before doing read threading.\n"
 "\n"
 "  -h, --help            This help message\n"
 "  -o, --out <out.ctp>   Save output file\n"
@@ -160,8 +161,6 @@ int ctx_infer_edges(int argc, char **argv)
   }
   else if(reading_stream)
     fout = stdout;
-  else
-    status("Editing file in place: %s", graph_path);
 
   if(!file.fltr.nofilter)
     cmd_print_usage("Inferedges with filter not implemented - sorry");
@@ -175,6 +174,8 @@ int ctx_infer_edges(int argc, char **argv)
   if(fout == stdout) status("Writing to STDOUT");
   else if(fout != NULL) status("Writing to: %s", out_ctx_path);
   else status("Editing file in place: %s", graph_path);
+
+  status("Inferring all missing %sedges", add_pop_edges ? "population " : "");
 
   //
   // Decide on memory
