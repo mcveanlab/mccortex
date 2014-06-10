@@ -168,7 +168,7 @@ static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
                                           dBNodeBuffer *nbuf,
                                           uint8_t *visited,
                                           const dBGraph *db_graph,
-                                          void (*func)(const dBNodeBuffer *_nbuf,
+                                          void (*func)(dBNodeBuffer _nbuf,
                                                        size_t threadid,
                                                        void *_arg),
                                           void *arg)
@@ -192,7 +192,7 @@ static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
       for(i = 0; i < nbuf->len; i++)
         bitset_set_mt(visited, nbuf->data[i].key);
 
-      func(nbuf, threadid, arg);
+      func(*nbuf, threadid, arg);
     }
   }
 }
@@ -201,7 +201,7 @@ typedef struct {
   const size_t threadid, nthreads;
   uint8_t *const visited;
   const dBGraph *db_graph;
-  void (*func)(const dBNodeBuffer *_nbuf, size_t threadid, void *_arg);
+  void (*func)(dBNodeBuffer _nbuf, size_t threadid, void *_arg);
   void *arg;
 } SupernodeIterator;
 
@@ -222,7 +222,7 @@ static void supernodes_iterate_thread(void *arg)
 
 void supernodes_iterate(size_t nthreads, uint8_t *visited,
                         const dBGraph *db_graph,
-                        void (*func)(const dBNodeBuffer *_nbuf,
+                        void (*func)(dBNodeBuffer _nbuf,
                                      size_t threadid,
                                      void *_arg),
                         void *arg)

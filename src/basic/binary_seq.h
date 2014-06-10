@@ -35,7 +35,7 @@ static inline void binary_seq_set(uint8_t *ptr, size_t idx, Nucleotide nuc)
   ctx_assert(nuc < 4);
   size_t byte = idx / 4, offset = (idx & 3)*2;
   // 11111100 11110011 11001111 00111111
-  uint8_t masks[4] = {0xfc, 0xf3, 0xcf, 0x3f};
+  const uint8_t masks[4] = {0xfc, 0xf3, 0xcf, 0x3f};
   ptr[byte] = (ptr[byte] & masks[idx&3]) | (nuc << offset);
 }
 

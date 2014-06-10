@@ -83,32 +83,31 @@ size_t cleaning_supernode_threshold(const uint64_t *covgs, size_t len,
 }
 
 // Get coverages from nodes in nbuf, store in cbuf
-static inline void fetch_coverages(const dBNodeBuffer *nbuf, CovgBuffer *cbuf,
+static inline void fetch_coverages(dBNodeBuffer nbuf, CovgBuffer *cbuf,
                                    const dBGraph *db_graph)
 {
   size_t i;
   covg_buf_reset(cbuf);
-  covg_buf_ensure_capacity(cbuf, nbuf->len);
-  cbuf->len = nbuf->len;
-  for(i = 0; i < nbuf->len; i++)
-    cbuf->data[i] = db_graph->col_covgs[nbuf->data[i].key];
+  covg_buf_ensure_capacity(cbuf, nbuf.len);
+  cbuf->len = nbuf.len;
+  for(i = 0; i < nbuf.len; i++)
+    cbuf->data[i] = db_graph->col_covgs[nbuf.data[i].key];
 }
 
-static inline bool nodes_are_tip(const dBNodeBuffer *nbuf,
-                                 const dBGraph *db_graph)
+static inline bool nodes_are_tip(dBNodeBuffer nbuf, const dBGraph *db_graph)
 {
-  Edges first = db_node_get_edges_union(db_graph, nbuf->data[0].key);
-  Edges last = db_node_get_edges_union(db_graph, nbuf->data[nbuf->len-1].key);
-  int in = edges_get_indegree(first, nbuf->data[0].orient);
-  int out = edges_get_outdegree(last, nbuf->data[nbuf->len-1].orient);
+  Edges first = db_node_get_edges_union(db_graph, nbuf.data[0].key);
+  Edges last = db_node_get_edges_union(db_graph, nbuf.data[nbuf.len-1].key);
+  int in = edges_get_indegree(first, nbuf.data[0].orient);
+  int out = edges_get_outdegree(last, nbuf.data[nbuf.len-1].orient);
   return (in+out <= 1);
 }
 
-static inline bool nodes_are_removable_tip(const dBNodeBuffer *nbuf,
+static inline bool nodes_are_removable_tip(dBNodeBuffer nbuf,
                                            size_t min_keep_tip,
                                            const dBGraph *db_graph)
 {
-  return (nbuf->len < min_keep_tip && nodes_are_tip(nbuf, db_graph));
+  return (nbuf.len < min_keep_tip && nodes_are_tip(nbuf, db_graph));
 }
 
 
@@ -169,7 +168,7 @@ static void supernode_cleaner_dealloc(SupernodeCleaner *cl)
   memset(cl, 0, sizeof(SupernodeCleaner));
 }
 
-static inline void supernode_get_covg(const dBNodeBuffer *nbuf, size_t threadid,
+static inline void supernode_get_covg(dBNodeBuffer nbuf, size_t threadid,
                                       void *arg)
 {
   const SupernodeCleaner *cl = (const SupernodeCleaner*)arg;
@@ -235,12 +234,12 @@ Covg cleaning_get_threshold(size_t num_threads, double seq_depth,
   return threshold_est;
 }
 
-static inline void supernode_mark(const dBNodeBuffer *nbuf, size_t threadid,
+static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
                                   void *arg)
 {
   SupernodeCleaner *cl = (SupernodeCleaner*)arg;
   bool low_covg_snode = false, removable_tip = false;
-  size_t i, covg = 0, len = nbuf->len;
+  size_t i, covg, len;
 
   CovgBuffer *cbuf = &cl->cbufs[threadid];
   fetch_coverages(nbuf, cbuf, cl->db_graph);
@@ -251,18 +250,18 @@ static inline void supernode_mark(const dBNodeBuffer *nbuf, size_t threadid,
   removable_tip = nodes_are_removable_tip(nbuf, cl->min_keep_tip, cl->db_graph);
 
   if(low_covg_snode && removable_tip)
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snode_kmers, nbuf->len);
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snode_kmers, nbuf.len);
   else if(low_covg_snode)
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_low_covg_snode_kmers, nbuf->len);
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_low_covg_snode_kmers, nbuf.len);
   else if(removable_tip)
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, nbuf->len);
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, nbuf.len);
   else {
-    for(i = 0; i < nbuf->len; i ++)
-      bitset_set_mt(cl->keep_flags, nbuf->data[i].key);
+    for(i = 0; i < nbuf.len; i ++)
+      bitset_set_mt(cl->keep_flags, nbuf.data[i].key);
 
     // Add to histograms
     covg = MIN2(covg, cl->covg_arrlen-1);
-    len = MIN2(nbuf->len, cl->covg_arrlen-1);
+    len = MIN2(nbuf.len, cl->covg_arrlen-1);
 
     __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_cleaned[covg], 1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->covg_kmers_hist_cleaned[covg], cbuf->len);

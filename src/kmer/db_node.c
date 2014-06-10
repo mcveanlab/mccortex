@@ -124,13 +124,13 @@ Edges edges_get_union(const Edges *edges_arr, size_t num)
 
 // kmer_col_edge_str should be 9 chars long
 // Return pointer to kmer_col_edge_str
-char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str)
+char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str)
 {
   int i;
   char str[] = "acgt";
 
   char left = edges >> 4;
-  left = (char)rev_nibble(left);
+  left = (char)rev_nibble_lookup(left);
   char right = edges & 0xf;
 
   for(i = 0; i < 4; i++)

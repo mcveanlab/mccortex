@@ -30,7 +30,7 @@ size_t supernode_covg_mean(const Covg *covgs, size_t len);
 
 void supernodes_iterate(size_t nthreads, uint8_t *visited,
                         const dBGraph *db_graph,
-                        void (*func)(const dBNodeBuffer *_nbuf,
+                        void (*func)(dBNodeBuffer _nbuf,
                                      size_t threadid,
                                      void *_arg),
                         void *arg);

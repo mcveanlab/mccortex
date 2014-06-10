@@ -165,6 +165,17 @@ static inline void edges_print(FILE *fout, Edges e)
   fputc(digits[e&0xf], fout);
 }
 
+static inline Edges edges_as_nibble(Edges edges, Orientation orient) {
+  if(orient == REVERSE) {
+    edges >>= 4;
+    edges = rev_nibble_lookup(edges);
+  }
+  else {
+    edges &= 0xf;
+  }
+  return edges;
+}
+
 //
 // dBNode Edges
 //

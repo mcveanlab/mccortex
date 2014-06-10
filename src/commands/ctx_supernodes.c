@@ -50,24 +50,24 @@ typedef struct {
 #define PRINT_DOT 1
 
 // Store ends of supernode currently stored in `nodes` and `orients` arrays
-static inline void dot_store_ends(size_t snidx, const dBNodeBuffer *nbuf,
+static inline void dot_store_ends(size_t snidx, dBNodeBuffer nbuf,
                                   sndata_t *supernodes)
 {
-  ctx_assert(supernodes[nbuf->data[0].key].assigned == 0);
-  ctx_assert(supernodes[nbuf->data[nbuf->len-1].key].assigned == 0);
+  ctx_assert(supernodes[nbuf.data[0].key].assigned == 0);
+  ctx_assert(supernodes[nbuf.data[nbuf.len-1].key].assigned == 0);
 
   sndata_t supernode0 = {.nodeid = snidx, .assigned = 1,
-                         .left = 1, .right = (nbuf->len == 1),
-                         .lorient = nbuf->data[0].orient,
-                         .rorient = nbuf->data[nbuf->len-1].orient};
+                         .left = 1, .right = (nbuf.len == 1),
+                         .lorient = nbuf.data[0].orient,
+                         .rorient = nbuf.data[nbuf.len-1].orient};
 
   sndata_t supernode1 = {.nodeid = snidx, .assigned = 1,
-                         .left = (nbuf->len == 1), .right = 1,
-                         .lorient = nbuf->data[0].orient,
-                         .rorient = nbuf->data[nbuf->len-1].orient};
+                         .left = (nbuf.len == 1), .right = 1,
+                         .lorient = nbuf.data[0].orient,
+                         .rorient = nbuf.data[nbuf.len-1].orient};
 
-  supernodes[nbuf->data[0].key] = supernode0;
-  supernodes[nbuf->data[nbuf->len-1].key] = supernode1;
+  supernodes[nbuf.data[0].key] = supernode0;
+  supernodes[nbuf.data[nbuf.len-1].key] = supernode1;
 }
 
 static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
@@ -146,12 +146,12 @@ struct SupernodePrinter
   const dBGraph *db_graph;
 };
 
-static void print_supernodes(const dBNodeBuffer *nbuf, size_t threadid, void *arg)
+static void print_supernodes(dBNodeBuffer nbuf, size_t threadid, void *arg)
 {
   (void)threadid;
   struct SupernodePrinter *prtr = (struct SupernodePrinter*)arg;
 
-  supernode_normalise(nbuf->data, nbuf->len, prtr->db_graph);
+  supernode_normalise(nbuf.data, nbuf.len, prtr->db_graph);
 
   size_t idx = __sync_fetch_and_add((size_t volatile*)prtr->supernode_idx, 1);
   FILE *fout = prtr->fout;
@@ -163,13 +163,13 @@ static void print_supernodes(const dBNodeBuffer *nbuf, size_t threadid, void *ar
 
   if(prtr->print_syntax == PRINT_FASTA) {
     fprintf(fout, ">supernode%zu\n", idx);
-    db_nodes_print(nbuf->data, nbuf->len, prtr->db_graph, fout);
+    db_nodes_print(nbuf.data, nbuf.len, prtr->db_graph, fout);
     fputc('\n', fout);
   }
   else {
     ctx_assert(prtr->print_syntax == PRINT_DOT);
     fprintf(fout, "  node%zu [label=", idx);
-    db_nodes_print(nbuf->data, nbuf->len, prtr->db_graph, fout);
+    db_nodes_print(nbuf.data, nbuf.len, prtr->db_graph, fout);
     fputs("]\n", fout);
   }
 

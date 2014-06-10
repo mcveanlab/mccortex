@@ -15,6 +15,9 @@
 #define HT_BSIZE 0
 #define HT_BITEMS 1
 
+#define HASH_NOT_FOUND (UINT64_MAX>>1)
+#define HASH_ENTRY_ASSIGNED(bkmer) (!((bkmer).b[0] & UNSET_BKMER_WORD))
+
 // Struct is public so ITERATE macros can operate on it
 typedef struct
 {
@@ -35,10 +38,6 @@ typedef uint64_t hkey_t; // don't ever use the top bit, used later for orientati
 typedef struct {
   hkey_t orient:1, key:63;
 } dBNode;
-
-#define HASH_NOT_FOUND (UINT64_MAX>>1)
-
-#define HASH_ENTRY_ASSIGNED(ptr) (!((ptr).b[0] & UNSET_BKMER_WORD))
 
 // Hash table capacity is x*(2^y) where x and y are parameters
 // memory is x*(2^y)*sizeof(BinaryKmer) + (2^y) * 2
