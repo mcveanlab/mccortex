@@ -95,6 +95,7 @@ int ctx_clean(int argc, char **argv)
         break;
       case 'T':
         if(tip_cleaning) die("%s set twice", cmd);
+        min_keep_tip = cmd_parse_arg_uint32_nonzero(cmd, optarg);
         tip_cleaning = true;
         break;
       case 'S':
