@@ -166,8 +166,6 @@ static const char options[] =
 "Common Options:\n"
 "  -m, --memory <M>      Memory e.g. 1GB [default: 1GB]\n"
 "  -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
-"  -s, --ncols <C>       Number of graph colours to load at once [default: 1]\n"
-"  -a, --asyncio <A>     Limit on file reading threads [default: 4]\n"
 "  -t, --threads <T>     Limit on proccessing threads [default: 2]\n"
 "  -o, --out <file>      Output file\n"
 "  -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
