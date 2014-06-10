@@ -25,7 +25,7 @@ bool parse_entire_double(const char *str, double *result);
 bool parse_entire_size(const char *str, size_t *result);
 
 const uint8_t rev_nibble_table[16];
-#define rev_nibble_lookup(x) ({ ctx_assert((x) < 16), rev_nibble_table[x]; })
+#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16), rev_nibble_table[(unsigned)(x)]; })
 
 size_t count_char(const char *str, char c);
 
