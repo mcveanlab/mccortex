@@ -17,6 +17,7 @@ p <- ggplot(data=d, aes(x=bp, y=Count)) +
        geom_bar(stat="identity") +
        xlab("Supernode Length (bp)") +
        ylab("Number of Supernodes") +
-       ggtitle("Supernode Length Distribution")
+       ggtitle("Supernode Length Distribution") +
+       xlim(0,150)
 
-ggsave(filename=output_pdf, plot=p, width=max(6,max(d[,'bp'])/50), height=6)
+ggsave(filename=output_pdf, plot=p, width=6, height=6)

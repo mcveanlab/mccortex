@@ -18,14 +18,16 @@ p <- ggplot(data=d, aes(x=Covg, y=NumSupernodes)) +
        geom_bar(stat="identity") +
        xlab("Coverage (X)") +
        ylab("Number of Supernodes") +
-       ggtitle("Supernode Coverage Distribution")
+       ggtitle("Supernode Coverage Distribution") +
+       xlim(0,150)
 
 q <- ggplot(data=d, aes(x=Covg, y=NumKmers)) +
        geom_bar(stat="identity") +
        xlab("Coverage (X)") +
        ylab("Number of kmers in supernodes") +
-       ggtitle("Supernode Length-Coverage Distribution")
+       ggtitle("Supernode Length-Coverage Distribution") +
+       xlim(0,150)
 
-pdf(output_pdf,width=max(12,2*max(d[,'Covg'])/50),height=6)
+pdf(output_pdf,width=12,height=6)
 grid.arrange(p, q, ncol=2)
 dev.off()
