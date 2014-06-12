@@ -11,26 +11,30 @@ int main()
   test_status("Tests running...");
   test_status("[version] "VERSION_STATUS_STR"\n"); // defined in global.h
 
-  // Call tests
-  test_util();
-  test_dna_functions();
-  test_binary_seq_functions();
+  // Binary Kmer tests should work for all values of MAXK
   test_bkmer_functions();
-  test_hash_table();
-  test_db_node();
-  test_build_graph();
-  test_supernode();
-  test_subgraph();
-  test_cleaning();
-  test_packed_path();
-  test_paths();
-  test_corrected_aln();
-  test_repeat_walker();
-  test_path_sets();
-  test_graph_crawler();
-  test_bubble_caller();
-  test_kmer_occur();
-  test_infer_edges_tests();
+
+  #if MAX_KMER_SIZE == 31
+    // Call remaining tests
+    test_util();
+    test_dna_functions();
+    test_binary_seq_functions();
+    test_hash_table();
+    test_db_node();
+    test_build_graph();
+    test_supernode();
+    test_subgraph();
+    test_cleaning();
+    test_packed_path();
+    test_paths();
+    test_corrected_aln();
+    test_repeat_walker();
+    test_path_sets();
+    test_graph_crawler();
+    test_bubble_caller();
+    test_kmer_occur();
+    test_infer_edges_tests();
+  #endif
 
   // Check we free'd all our memory
   size_t still_alloced = alloc_get_num_allocs() - alloc_get_num_frees();

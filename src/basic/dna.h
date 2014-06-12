@@ -23,8 +23,14 @@ extern const unsigned char dna_complement_char_arr[256];
 // the char* should have one MORE base than that allocated, to hold '\0'
 char* dna_reverse_complement_str(char *str, size_t length);
 
-// Generate a random dna str "ACGT" of length cap-1, terminated with a \0 at
-// position cap-1. If cap is 0, does nothing. Useful for testing
-char* dna_rand_str(char *str, size_t cap);
+// length is the length in number of bases
+// Null terminates dst
+// Returns pointer to dst
+char* dna_revcomp_str(char *dst, const char *src, size_t length);
+
+// Generate a random dna str "ACGT" of length `len`, terminated with a \0 at
+// position `len`. `str` must be at least of size `len`+1.
+// Useful for testing
+char* dna_rand_str(char *str, size_t len);
 
 #endif /* DNA_H_ */

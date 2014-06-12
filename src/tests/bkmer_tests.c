@@ -125,13 +125,28 @@ void test_bkmer_shifts()
   }
 }
 
-static void test_bkmer_last_nuc()
+static void test_bkmer_first_last_nuc()
 {
   test_status("Testing binary_kmer_last_nuc()");
-  BinaryKmer bkmer = binary_kmer_from_str("CCACGTAAAGC", 11);
-  TASSERT(binary_kmer_last_nuc(bkmer) == dna_char_to_nuc('C'));
-  bkmer = binary_kmer_right_shift_one_base(bkmer);
-  TASSERT(binary_kmer_last_nuc(bkmer) == dna_char_to_nuc('G'));
+
+  char tmp[MAX_KMER_SIZE+1];
+  size_t k;
+  BinaryKmer bkmer, lbkmer, rbkmer; // l/r are left/right shifted by 1 base
+
+  for(k = MIN_KMER_SIZE; k <= MAX_KMER_SIZE; k+=2)
+  {
+    dna_rand_str(tmp, k);
+    bkmer = binary_kmer_from_str(tmp, k);
+    lbkmer = binary_kmer_left_shift_one_base(bkmer,k);
+    rbkmer = binary_kmer_right_shift_one_base(bkmer);
+    TASSERT(binary_kmer_first_nuc(bkmer,k) == dna_char_to_nuc(tmp[0]));
+    TASSERT(binary_kmer_last_nuc(bkmer) == dna_char_to_nuc(tmp[k-1]));
+    TASSERT(binary_kmer_first_nuc(lbkmer,k) == dna_char_to_nuc(tmp[1]));
+    TASSERT(binary_kmer_last_nuc(rbkmer) == dna_char_to_nuc(tmp[k-2]));
+    TASSERT(!binary_kmer_oversized(bkmer, k));
+    TASSERT(!binary_kmer_oversized(lbkmer, k));
+    TASSERT(!binary_kmer_oversized(rbkmer, k));
+  }
 }
 
 void test_bkmer_functions()
@@ -140,6 +155,6 @@ void test_bkmer_functions()
   test_bkmer_str();
   test_bkmer_revcmp();
   test_bkmer_shifts();
-  test_bkmer_last_nuc();
+  test_bkmer_first_last_nuc();
   // TODO: equal, less than, cmp
 }

@@ -71,23 +71,35 @@ char* dna_reverse_complement_str(char *str, size_t length)
   return str;
 }
 
-// Generate a random dna str "ACGT" of length cap-1, terminated with a \0 at
-// position cap-1. If cap is 0, does nothing. Useful for testing
-char* dna_rand_str(char *str, size_t cap)
+// length is the length in number of bases
+// Null terminates dst
+// Returns pointer to dst
+char* dna_revcomp_str(char *dst, const char *src, size_t length)
+{
+  size_t i, j;
+  for(i = 0, j = length-1; i < length; i++, j--)
+    dst[j] = dna_char_complement(src[i]);
+  dst[length] = '\0';
+  return dst;
+}
+
+// Generate a random dna str "ACGT" of length `len`, terminated with a \0 at
+// position `len`. `str` must be at least of size `len`+1.
+// Useful for testing
+char* dna_rand_str(char *str, size_t len)
 {
   const char bases[4] = "ACGT";
   size_t i, r = 0;
 
-  if(cap == 0) return str;
-  if(cap == 1) { str[0] = '\0'; return str; }
+  if(len == 0) { str[0] = '\0'; return str; }
 
-  for(i = 0; i < cap-1; i++) {
+  for(i = 0; i < len; i++) {
     if((i & 15) == 0) r = (size_t)rand(); // 2 bits per cycle, 32 bits in rand()
     str[i] = bases[r&3];
     r >>= 2;
   }
 
-  str[cap-1] = '\0';
+  str[len] = '\0';
 
   return str;
 }

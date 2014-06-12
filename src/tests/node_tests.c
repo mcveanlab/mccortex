@@ -40,7 +40,7 @@ static void test_db_graph_next_nodes()
 
   // Copy a random and shared piece of sequence to both colours
   for(col = 0; col < 2; col++) {
-    dna_rand_str(seq, 60);
+    dna_rand_str(seq, 59);
     build_graph_from_str_mt(&graph, col, seq, strlen(seq));
     strcpy(seq, "CTTTCTTATCTGGAACCAGCTTTGCGGGGATGGAGTGTAACCTTGACAATGGGTCCTGC");
     build_graph_from_str_mt(&graph, col, seq, strlen(seq));
