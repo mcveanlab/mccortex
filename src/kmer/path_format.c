@@ -151,9 +151,11 @@ static size_t path_files_tmp_mem_required(const PathStore *ps,
                                           size_t num_files,
                                           bool remove_substr)
 {
-  bool file0_needs_tmp = (remove_substr || ps->extra_bytes || ps->num_of_paths);
+  bool file0_needs_tmp = (ps->extra_bytes || ps->num_of_paths);
   if(num_files == 0) return 0;
   if(num_files == 1) return file0_needs_tmp ? files[0].hdr.num_path_bytes+1 : 0;
+
+  file0_needs_tmp = (remove_substr || ps->extra_bytes || ps->num_of_paths);
 
   // We need the size of the first and second largest file path_mem
   size_t i, tmp, s0, s1;
@@ -191,11 +193,13 @@ size_t path_files_mem_required(const PathFileReader *files, size_t num_files,
   // get cbytes
   size_t cbytes = (ncols+7)/8;
 
-  bool file0needs_tmp = (remove_substr || extra_bytes);
+  bool file0needs_tmp = (extra_bytes);
   size_t multiplier = (file0needs_tmp ? 2 : 1) * (use_path_hash ? 2 : 1);
 
   s0 = pfile_mem(files[0],cbytes,extra_bytes);
   if(num_files == 1) return s0 * multiplier;
+
+  file0needs_tmp = (remove_substr || extra_bytes);
 
   // We need the size of the first and second largest file path_mem
   // s0 > s1

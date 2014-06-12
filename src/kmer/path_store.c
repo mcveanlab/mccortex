@@ -59,8 +59,9 @@ void path_store_alloc(PathStore *ps, size_t mem, bool use_path_hash,
 void path_store_setup_tmp(PathStore *ps, size_t tmp_mem)
 {
   ctx_assert(ps->tmpsize == 0);
+
   size_t max_tmp_mem = (ps->end - ps->next - PSTORE_PADDING);
-  ctx_assert2(tmp_mem <= max_tmp_mem, "%zu <= %zu", tmp_mem, max_tmp_mem);
+  ctx_assert2(tmp_mem <= max_tmp_mem, "%zu > %zu", tmp_mem, max_tmp_mem);
 
   ps->tmpsize = tmp_mem;
   ps->tmpstore = ps->end - ps->tmpsize;
@@ -76,6 +77,8 @@ void path_store_setup_tmp(PathStore *ps, size_t tmp_mem)
 // Once tmp has been used for merging, it can be reclaimed to use generally
 void path_store_release_tmp(PathStore *ps)
 {
+  if(ps->tmpsize == 0) return;
+
   ps->end = ps->tmpstore + ps->tmpsize;
   ps->tmpstore = NULL;
   ps->tmpsize = 0;

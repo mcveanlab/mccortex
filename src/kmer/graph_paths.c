@@ -476,12 +476,12 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
   size_t nbytes = sizeof(PathIndex) + pstore->colset_bytes +
                   sizeof(PathLen) + packedpath_len_nbytes(len_bases);
 
-  ctx_assert_ret(packed + nbytes <= pstore->end);
+  ctx_assert(packed + nbytes <= pstore->end);
 
   // Check at least one colour is set
   uint8_t colset_or = 0;
   for(i = 0; i < pstore->colset_bytes; i++) colset_or |= colset[i];
-  ctx_assert_ret(colset_or != 0);
+  ctx_assert(colset_or != 0);
 
   // print path
   // print_path(node.key, packed+sizeof(PathIndex)+pstore->colset_bytes, pstore);
@@ -489,8 +489,8 @@ static bool packed_path_check(hkey_t hkey, const uint8_t *packed,
   // Check for each colour the path has
   for(i = 0; i < gp->n; i++) {
     if(bitset_get(colset, gp->ctpcols[i])) {
-      ctx_assert_ret(graph_paths_check_valid(node, gp->ctxcols[i], seq, len_bases,
-                                        db_graph));
+      ctx_assert(graph_paths_check_valid(node, gp->ctxcols[i], seq, len_bases,
+                                         db_graph));
     }
   }
 
