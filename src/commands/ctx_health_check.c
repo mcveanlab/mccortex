@@ -84,6 +84,8 @@ int ctx_health_check(int argc, char **argv)
     }
   }
 
+  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+
   if(optind+1 != argc)
     cmd_print_usage("Too %s arguments", optind == argc ? "few" : "many");
 

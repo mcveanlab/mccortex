@@ -461,7 +461,9 @@ void paths_format_merge(PathFileReader *files, size_t num_files,
       break;
   }
 
-  if(tmp_pmem) path_store_setup_tmp(pstore, tmp_pmem);
+  // Check if we have more files that need tmp memory
+  if(first_file < num_files && tmp_pmem)
+    path_store_setup_tmp(pstore, tmp_pmem);
 
   for(i = first_file; i < num_files; i++)
   {
