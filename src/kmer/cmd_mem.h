@@ -36,4 +36,7 @@ size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
 // Check memory against args->mem_to_use and total RAM
 void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested);
 
+// Print memory being used
+void cmd_print_mem(size_t mem_bytes, const char *name);
+
 #endif /* CMD_MEM_H_ */

@@ -85,6 +85,15 @@ uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)
   return tmp;
 }
 
+int32_t cmd_parse_arg_int32(const char *cmd, const char *arg)
+{
+  ctx_assert(arg != NULL);
+  int tmp;
+  if(!parse_entire_int(arg, &tmp))
+    cmd_print_usage("%s requires an int: %s", cmd, arg);
+  return tmp;
+}
+
 uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);

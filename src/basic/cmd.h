@@ -33,6 +33,7 @@ void cmd_long_opts_to_short(const struct option *longs,
 
 double cmd_parse_arg_udouble_nonzero(const char *cmd, const char *arg);
 uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg);
+int32_t cmd_parse_arg_int32(const char *cmd, const char *arg);
 uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg);
 uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg);
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
@@ -84,9 +85,6 @@ typedef struct
 
 void cmd_alloc(CmdArgs *args, int argc, char **argv);
 void cmd_free(CmdArgs *args);
-
-// Print memory being used
-void cmd_print_mem(size_t mem_bytes, const char *name);
 
 // accptopts is a string of valid args,
 // e.g. "tk" accepts kmer-size and number of threads
