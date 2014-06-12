@@ -163,7 +163,6 @@ int ctx_health_check(int argc, char **argv)
 
   // Close files
   for(i = 0; i < pfilesbuf.len; i++) path_file_close(&pfilesbuf.data[i]);
-  pfile_buf_dealloc(&pfilesbuf);
 
   graph_file_close(&gfile);
 
@@ -189,6 +188,7 @@ int ctx_health_check(int argc, char **argv)
   status("All looks good!");
 
   db_graph_dealloc(&db_graph);
+  pfile_buf_dealloc(&pfilesbuf);
 
   return EXIT_SUCCESS;
 }
