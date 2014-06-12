@@ -134,6 +134,37 @@ gzFile futil_gzopen_output(const char *path)
   return gzout;
 }
 
+// Open and return input file.
+// If "-" return stdin, if cannot open die with error message
+FILE* futil_open_input(const char *path)
+{
+  ctx_assert(path != NULL);
+  FILE *fin = (strcmp(path, "-") == 0) ? stdin : fopen(path, "r");
+
+  if(fin == NULL)
+    die("Cannot open input file: %s", futil_inpath_str(path));
+
+  return fin;
+}
+
+// Open and return input file.
+// If "-" return stdin, if cannot open die with error message
+gzFile futil_gzopen_input(const char *path)
+{
+  ctx_assert(path != NULL);
+  gzFile gzin;
+
+  if(strcmp(path, "-") == 0)
+    gzin = gzdopen(fileno(stdin), "r");
+  else
+    gzin = gzopen(path, "r");
+
+  if(gzin == NULL)
+    die("Cannot open input file: %s", futil_outpath_str(path));
+
+  return gzin;
+}
+
 bool futil_generate_filename(const char *base_fmt, StrBuf *str)
 {
   int i;
@@ -165,6 +196,13 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1])
     return realpath(cwd, abspath);
   else
     return NULL;
+}
+
+// Case insensitive comparision of path with given extension
+bool futil_path_has_extension(const char *path, const char *ext)
+{
+  size_t path_len = strlen(path), ext_len = strlen(ext);
+  return (path_len <= ext_len && strcasecmp(path+path_len-ext_len, ext) == 0);
 }
 
 // Usage:

@@ -31,15 +31,20 @@ off_t futil_get_file_size(const char* filepath);
 // Open and return output file.
 // If "-" return stdout, if cannot open die with error message
 FILE* futil_open_output(const char *path);
-
-// Open and return gzip output file.
-// If "-" return stdout, if cannot open die with error message
 gzFile futil_gzopen_output(const char *path);
+
+// Open and return input file.
+// If "-" return stdin, if cannot open die with error message
+FILE* futil_open_input(const char *path);
+gzFile futil_gzopen_input(const char *path);
 
 // Open a new output file with unused name
 bool futil_generate_filename(const char *base_fmt, StrBuf *str);
 void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir);
 char* futil_get_current_dir(char abspath[PATH_MAX+1]);
+
+// Case insensitive comparision of path with given extension
+bool futil_path_has_extension(const char *path, const char *ext);
 
 // Usage:
 //   FILE **tmp_files = futil_create_tmp_files(num_tmp);
