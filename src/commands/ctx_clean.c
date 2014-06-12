@@ -156,8 +156,8 @@ int ctx_clean(int argc, char **argv)
     cmd_print_usage("--supernodes <T> arg makes --kdepth <D> redundant");
 
   if(!doing_cleaning && (covg_after_path || len_after_path)) {
-    cmd_print_usage("You use -l, --len-after <out.csv> without any cleaning"
-                    " (set -s, --supernodes or -t, --tips)");
+    cmd_print_usage("You gave --len-after <out> / --covg-after <out> without "
+                    "any cleaning (set -s, --supernodes or -t, --tips)");
   }
 
   if(doing_cleaning && strcmp(out_ctx_path,"-") != 0 &&
