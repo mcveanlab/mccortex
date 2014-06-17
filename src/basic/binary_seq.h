@@ -71,6 +71,7 @@ void binary_seq_to_str(const uint8_t *arr, size_t len, char *str);
 void binary_seq_from_str(const char *str, size_t len, uint8_t *arr);
 
 void binary_seq_print(const uint8_t *arr, size_t len, FILE *fout);
+void binary_seq_gzprint(const uint8_t *arr, size_t len, gzFile gzout);
 
 // Lexicographic comparison e.g.:
 //   a

@@ -72,7 +72,7 @@ static void check_outfile_exists(char *outbase, bool is_pe, bool use_fq)
 
 static hkey_t find_node(BinaryKmer bkmer, const dBGraph *db_graph)
 {
-  BinaryKmer bkey = bkmer_get_key(bkmer, db_graph->kmer_size);
+  BinaryKmer bkey = binary_kmer_get_key(bkmer, db_graph->kmer_size);
   return hash_table_find(&db_graph->ht, bkey);
 }
 

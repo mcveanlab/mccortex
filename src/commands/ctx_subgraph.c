@@ -9,6 +9,7 @@
 #include "db_node.h"
 #include "graph_format.h"
 #include "subgraph.h"
+#include "hash_mem.h" // for calculating mem usage
 
 #include "seq_file.h"
 

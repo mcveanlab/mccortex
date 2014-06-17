@@ -30,7 +30,7 @@ CtxCmd cmdobjs[] = {
 {
   .cmd = "view", .func = NULL, .func2 = ctx_view, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "", .reqargs = "",
-  .blurb = "view and check a cortex graph file (.ctx)",
+  .blurb = "text view of a cortex graph file (.ctx)",
   .usage = view_usage
 },
 {
@@ -106,7 +106,7 @@ CtxCmd cmdobjs[] = {
   .usage = pview_usage
 },
 {
-  .cmd = "pjoin", .func = NULL, .func2 = ctx_pjoin, .hide = 0,
+  .cmd = "pjoin", .func = NULL, .func2 = ctx_pjoin, .hide = true,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "mnot", .reqargs = "o",
   .blurb = "merge path files (.ctp)",
   .usage = pjoin_usage
@@ -118,13 +118,13 @@ CtxCmd cmdobjs[] = {
   .usage = bubbles_usage
 },
 {
-  .cmd = "unique", .func = ctx_unique, .hide = 1,
+  .cmd = "unique", .func = ctx_unique, .hide = true,
   .minargs = 2, .maxargs = 2, .optargs = "", .reqargs = "",
   .blurb = "remove duplicated bubbles, produce VCF",
   .usage = unique_usage
 },
 {
-  .cmd = "place", .func = ctx_place, .hide = 1,
+  .cmd = "place", .func = ctx_place, .hide = true,
   .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
   .blurb = "place variants against a reference",
   .usage = place_usage
@@ -146,6 +146,12 @@ CtxCmd cmdobjs[] = {
   .minargs = 0, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "",
   .blurb = "reduce set of strings to remove substrings",
   .usage = rmsubstr_usage
+},
+{
+  .cmd = "calls2vcf", .func = NULL, .func2 = ctx_calls2vcf, .hide = true,
+  .minargs = 0, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "",
+  .blurb = "reduce set of strings to remove substrings",
+  .usage = calls2vcf_usage
 }
 };
 

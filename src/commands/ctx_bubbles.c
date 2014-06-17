@@ -3,6 +3,7 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
+#include "common_buffers.h"
 #include "db_node.h"
 #include "db_graph.h"
 #include "graph_format.h"
@@ -52,9 +53,6 @@ static struct option longopts[] =
   {"max-flank",    required_argument, NULL, 'f'},
   {NULL, 0, NULL, 0}
 };
-
-#include "objbuf_macro.h"
-create_objbuf(size_buf, SizeBuffer, size_t);
 
 int ctx_bubbles(int argc, char **argv)
 {

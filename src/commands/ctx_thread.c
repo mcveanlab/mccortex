@@ -37,8 +37,8 @@ const char thread_usage[] =
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
-"  -g, --min-ins <ins>      Minimum insert size for --seq2 [default:0]\n"
-"  -G, --max-ins <ins>      Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
+"  -g, --min-ins <ins>      Minimum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MIN_INS)"]\n"
+"  -G, --max-ins <ins>      Maximum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MAX_INS)"]\n"
 "  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
 "  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
@@ -184,7 +184,11 @@ int ctx_thread(int argc, char **argv)
     }
     else
       db_graph.pstore.kmer_paths_read = NULL;
+
+    status("Not using new paths as they are added (safe)");
   }
+  else
+    status("Using paths as they are added (risky)");
 
   // Set up paths header. This is for the output file we are creating
   PathFileHeader pheader = INIT_PATH_FILE_HDR_MACRO;
@@ -306,18 +310,22 @@ int ctx_thread(int argc, char **argv)
       warn("Path cleaning threshold < 2 has no effect: %i", threshold);
   }
 
+  GraphPathPairing gp;
+  gp_alloc(&gp, db_graph.num_of_cols);
+  graph_paths_check_all_paths(&gp, &db_graph);
+  // graph_paths_check_all_paths(&gp, &db_graph);
+
   status("Saving paths to: %s", args.out_ctp_path);
 
   // Update header and write
+  // Note: writing optimised paths corrupts the kmer path indices!
   paths_header_update(&pheader, &db_graph.pstore);
   paths_format_write_header(&pheader, fout);
   paths_format_write_optimised_paths(&db_graph, fout);
   fclose(fout);
 
   paths_header_dealloc(&pheader);
-
   read_thread_args_dealloc(&args);
-
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

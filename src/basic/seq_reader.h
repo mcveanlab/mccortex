@@ -70,6 +70,17 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
 }
 
 //
+// Load reference genome into hash
+//
+
+// Hash map of chromosome name -> sequence
+#include "khash.h"
+KHASH_MAP_INIT_STR(ChromHash, read_t*);
+
+void seq_reader_load_ref_genome(const char **paths, size_t num_files,
+                                ReadBuffer *chroms, khash_t(ChromHash) *genome);
+
+//
 // Useful MACROs
 //
 

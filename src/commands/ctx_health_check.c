@@ -175,7 +175,6 @@ int ctx_health_check(int argc, char **argv)
   {
     GraphPathPairing gp;
     gp_alloc(&gp, ncols);
-    for(i = 0; i < ncols; i++) gp.ctxcols[i] = gp.ctpcols[i] = i;
 
     status("Running path check...");
     // Check data store

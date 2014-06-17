@@ -14,7 +14,6 @@
 
 // #include "vcf.h" // not using htslib
 #include "sam.h"
-#include "khash.h"
 #include "seq-align/src/needleman_wunsch.h"
 
 #include <time.h>
@@ -39,35 +38,33 @@ const char place_usage[] =
 "\n";
 
 // Reference genome
-// Hash map of chromosome name -> sequence
-KHASH_MAP_INIT_STR(ghash, read_t*);
-khash_t(ghash) *genome;
-ReadBuffer chroms;
+static khash_t(ChromHash) *genome;
+static ReadBuffer chroms;
 
 // Flank mapping
-bam_hdr_t *bam_header;
+static bam_hdr_t *bam_header;
 
 // VCF header info
 KHASH_MAP_INIT_STR(samplehash, uint32_t)
-khash_t(samplehash) *sample_indx;
-size_t num_samples = 0, samples_capacity;
-char **sample_names;
-uint64_t *sample_total_seq;
+static khash_t(samplehash) *sample_indx;
+static size_t num_samples = 0, samples_capacity;
+static char **sample_names;
+static uint64_t *sample_total_seq;
 
 // nw alignment
-nw_aligner_t *nw_aligner;
-alignment_t *alignment;
-scoring_t *nw_scoring_flank, *nw_scoring_allele;
-size_t num_nw_flank = 0, num_nw_allele = 0;
+static nw_aligner_t *nw_aligner;
+static alignment_t *alignment;
+static scoring_t *nw_scoring_flank, *nw_scoring_allele;
+static size_t num_nw_flank = 0, num_nw_allele = 0;
 
 // Temporary memory
-StrBuf endflank;
+static StrBuf endflank;
 
 // Filtering parameters
-size_t min_mapq = 30;
+static size_t min_mapq = 30;
 
 // VCF printing
-size_t num_variants_printed = 0;
+static size_t num_variants_printed = 0;
 
 static void print_entry(vcf_entry_t *vcfentry, FILE *out)
 {
@@ -226,7 +223,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   strbuf_set(&outvcf->cols[VCFCHROM], chrname);
 
   // look up chromosome
-  khiter_t k = kh_get(ghash, genome, chrname);
+  khiter_t k = kh_get(ChromHash, genome, chrname);
   if(k == kh_end(genome)) {
     print_entry(outvcf, stderr);
     die("Cannot find chrom [%s]", chrname);
@@ -421,44 +418,8 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   return 1;
 }
 
-static bool isbam(const char *path, bool bam)
-{
-  size_t len = strlen(path);
-  return (len >= 4 && strcasecmp(path+len-4, bam ? ".bam" : ".sam") == 0);
-}
-
-
-// Create chrom->read genome hash
-static void load_ref_genome(char **paths, size_t num_files)
-{
-  size_t i;
-  khiter_t k;
-  int hret;
-
-  seq_file_t **ref_files = ctx_malloc(num_files * sizeof(seq_file_t*));
-
-  for(i = 0; i < num_files; i++)
-    if((ref_files[i] = seq_open(paths[i])) == NULL)
-      die("Cannot read sequence file: %s", paths[i]);
-
-  genome = kh_init(ghash);
-  readbuf_alloc(&chroms, 1024);
-  seq_load_all_reads(ref_files, num_files, &chroms);
-  ctx_free(ref_files);
-
-  for(i = 0; i < chroms.len; i++) {
-    seq_read_to_uppercase(&chroms.data[i]);
-    seq_read_truncate_name(&chroms.data[i]);
-    k = kh_put(ghash, genome, chroms.data[i].name.b, &hret);
-    if(hret == 0)
-      warn("duplicate chromosome (take first only): '%s'", chroms.data[i].name.b);
-    else
-      kh_value(genome, k) = &chroms.data[i];
-  }
-}
-
 static void parse_header(gzFile gzvcf, StrBuf *line,
-                         char *const* refpaths, size_t num_ref_paths,
+                         const char *const* refpaths, size_t num_ref_paths,
                          FILE *fout)
 {
   sample_indx = kh_init(samplehash);
@@ -560,7 +521,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
 "##FILTER=<ID=POPREP,Description=\"Pop filter classified as repeat\">\n"
 "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n", min_mapq);
 
-      size_t num_columns = count_char(str, '\t')+1;
+      size_t num_columns = string_count_char(str, '\t')+1;
       if(num_columns != VCFSAMPLES)
         die("Incorrect number of columns in VCF file [expect: %i]", VCFSAMPLES);
     }
@@ -573,8 +534,8 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
 int ctx_place(CmdArgs *args)
 {
   // hide unused function warnings
-  (void)kh_clear_ghash;
-  (void)kh_del_ghash;
+  (void)kh_clear_ChromHash;
+  (void)kh_del_ChromHash;
   (void)kh_clear_samplehash;
   (void)kh_get_samplehash;
   (void)kh_del_samplehash;
@@ -636,16 +597,21 @@ int ctx_place(CmdArgs *args)
   char *vcf_path = argv[argi++];
   char *sam_path = argv[argi++];
 
-  char **ref_paths = argv + argi;
+  const char **ref_paths = (const char**)argv + argi;
   size_t num_ref_paths = (size_t)(argc - argi);
 
   gzFile vcf = gzopen(vcf_path, "r");
   if(vcf == NULL) cmd_print_usage("Cannot open VCF %s", vcf_path);
 
-  if(!isbam(sam_path, true) && !isbam(sam_path, false))
+  if(!futil_path_has_extension(sam_path, ".bam") &&
+     !futil_path_has_extension(sam_path, ".sam"))
+  {
     cmd_print_usage("Mapped flanks is not .sam or .bam file: %s", sam_path);
+  }
 
-  samFile *samfh = sam_open(sam_path, isbam(sam_path, true) ? "rb" : "rs");
+  bool isbam = futil_path_has_extension(sam_path, ".bam");
+
+  samFile *samfh = sam_open(sam_path, isbam ? "rb" : "rs");
   if(samfh == NULL) die("Cannot open SAM/BAM %s", sam_path);
 
   FILE *fout = stdout;
@@ -662,7 +628,9 @@ int ctx_place(CmdArgs *args)
   parse_header(vcf, line, ref_paths, num_ref_paths, fout);
 
   // Load reference genome
-  load_ref_genome(ref_paths, num_ref_paths);
+  readbuf_alloc(&chroms, 1024);
+  genome = kh_init(ChromHash);
+  seq_reader_load_ref_genome(ref_paths, num_ref_paths, &chroms, genome);
 
   // Print remainder of VCF header
   for(i = 0; i < chroms.len; i++) {
@@ -792,7 +760,7 @@ int ctx_place(CmdArgs *args)
 
   strbuf_dealloc(&endflank);
 
-  kh_destroy(ghash, genome);
+  kh_destroy(ChromHash, genome);
   kh_destroy(samplehash, sample_indx);
 
   for(i = 0; i < num_samples; i++) ctx_free(sample_names[i]);
@@ -808,7 +776,7 @@ int ctx_place(CmdArgs *args)
   needleman_wunsch_free(nw_aligner);
 
   sam_close(samfh);
-  ctx_free(bam_header);
+  free(bam_header);
   ctx_free(bam);
 
   strbuf_free(line);

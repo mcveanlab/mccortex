@@ -19,7 +19,7 @@ static int parse_vcf_header(StrBuf *line, gzFile vcf, bool print,
   {
     if(print) puts(line->buff);
     if(strncmp(line->buff,"#CHROM",6) == 0) {
-      size_t columns = count_char(line->buff, '\t') + 1;
+      size_t columns = string_count_char(line->buff, '\t') + 1;
       if(columns < VCFSAMPLES) die("Too few columns in VCF: %s", in_vcf_path);
       return columns - VCFSAMPLES;
     }
@@ -43,7 +43,7 @@ void add_str_to_graph(dBGraph *db_graph, const char *contig, size_t contig_len)
   {
     nuc = dna_char_to_nuc(contig[next_base]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-    bkey = bkmer_get_key(bkmer, kmer_size);
+    bkey = binary_kmer_get_key(bkmer, kmer_size);
     hash_table_find_or_insert(&db_graph->ht, bkey, &found);
   }
 }

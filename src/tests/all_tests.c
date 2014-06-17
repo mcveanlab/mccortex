@@ -124,12 +124,8 @@ void _test_add_paths(dBGraph *graph,
 
 void _test_path_store(const dBGraph *graph)
 {
-  size_t col;
   GraphPathPairing gp;
   gp_alloc(&gp, graph->num_of_cols);
-
-  for(col = 0; col < graph->num_of_cols; col++)
-    gp.ctxcols[col] = gp.ctpcols[col] = col;
 
   // Check data store
   TASSERT(path_store_integrity_check(&graph->pstore));

@@ -15,14 +15,14 @@ static void _fake_path_set(PathSet *set, size_t cbytes,
   qsort(paths, npaths, sizeof(char*), cmp_charptr);
 
   set->cbytes = cbytes;
-  bytebuf_reset(&set->seqs);
+  byte_buf_reset(&set->seqs);
   pentrybuf_reset(&set->members);
 
   size_t i, plen, total_bytes = 0;
 
   for(i = 0; i < npaths; i++) total_bytes += cbytes + strlen(paths[i]);
 
-  bytebuf_ensure_capacity(&set->seqs, total_bytes);
+  byte_buf_ensure_capacity(&set->seqs, total_bytes);
   pentrybuf_ensure_capacity(&set->members, npaths);
 
   for(i = 0; i < npaths; i++)

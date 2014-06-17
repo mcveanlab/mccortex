@@ -60,7 +60,7 @@ static inline void FUNC ## _reset(buf_t *buf)                                  \
                                                                                \
 static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
   buf->capacity = capacity;                                                    \
-  buf->data = ctx_malloc(sizeof(obj_t) * buf->capacity);                       \
+  buf->data = ctx_calloc(buf->capacity, sizeof(obj_t));                        \
   buf->len = 0;                                                                \
 }                                                                              \
                                                                                \
@@ -72,8 +72,9 @@ static inline void FUNC ## _dealloc(buf_t *buf) {                              \
                                                                                \
 static inline void FUNC ## _ensure_capacity(buf_t *buf, size_t cap) {          \
   if(cap > buf->capacity) {                                                    \
-    buf->capacity = roundup2pow(cap);                                          \
-    buf->data = ctx_realloc(buf->data, sizeof(obj_t) * buf->capacity);         \
+    cap = roundup2pow(cap);                                                    \
+    buf->data = ctx_recallocarray(buf->data, buf->capacity, cap, sizeof(obj_t)); \
+    buf->capacity = cap;                                                       \
   }                                                                            \
 }                                                                              \
                                                                                \

@@ -234,6 +234,15 @@ void binary_seq_print(const uint8_t *arr, size_t len, FILE *fout)
   }
 }
 
+void binary_seq_gzprint(const uint8_t *arr, size_t len, gzFile gzout)
+{
+  size_t i, b = 0, o = 0;
+  for(i = 0; i < len; i++) {
+    gzputc(gzout, dna_nuc_to_char((arr[b] >> o) & 3));
+    o+=2; b += (o == 8); o &= 7;
+  }
+}
+
 // Lexicographic comparison
 // len is in bases
 // Returns: -1 if arr0 < arr1, 0 if arr0 == arr1, 1 if arr0 > arr1

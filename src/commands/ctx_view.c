@@ -10,6 +10,7 @@
 #include "graph_info.h"
 #include "graph_format.h"
 #include "graph_file_reader.h"
+#include "hash_mem.h" // for calculating mem usage
 
 const char view_usage[] =
 "usage: "CMD" view [options] <in.ctx>\n"
@@ -269,7 +270,8 @@ int ctx_view(int argc, char **argv)
 
     req_capacity = (size_t)(file.num_of_kmers / IDEAL_OCCUPANCY);
     capacity = hash_table_cap(req_capacity, &num_buckets, &bucket_size);
-    mem = ht_mem(bucket_size, num_buckets, ncols*(sizeof(Covg)+sizeof(Edges))/8);
+    mem = ht_mem(bucket_size, num_buckets,
+                 sizeof(BinaryKmer)*8 + ncols*(sizeof(Covg)+sizeof(Edges))*8);
 
     char memstr[100], capacitystr[100], bucket_size_str[100], num_buckets_str[100];
     bytes_to_str(mem, 1, memstr);

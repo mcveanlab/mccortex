@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-30 May 2014
+17 June 2014
 
 [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)
 
@@ -51,15 +51,12 @@ Commands
                 inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 pjoin        merge path files (.ctp)
-                place        place variants against a reference
-                pview        view read threading information
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
                 subgraph     filter a subgraph using seed kmers
                 supernodes   pull out supernodes
                 thread       thread reads through cleaned graph
-                unique       remove duplicated bubbles, produce VCF
-                view         view and check a cortex graph file (.ctx)
+                view         text view of a cortex graph file (.ctx)
 
       Type a command with no arguments to see help.
 
@@ -67,7 +64,6 @@ Commands
       -m --memory <M>      Memory e.g. 1GB [default: 1GB]
       -n --nkmers <H>      Hash entries [default: 4M, ~4 million]
       -c --ncols <C>       Number of graph colours to load at once [default: 1]
-      -a --asyncio <A>     Limit on file reading threads [default: 4]
       -t --threads <T>     Limit on proccessing threads [default: 2]
       -o --out <file>      Output file
       -p --paths <in.ctp>  Assembly file to load (can specify multiple times)
@@ -92,12 +88,17 @@ to the AUTHORS file.
 Code should compile on mac/linux with clang/gcc without errors or warnings.
 
 Code is organised as:
-* libs/         included library code from other projects / third party code
-* src/basic     files that do not depend on MAX_KMER_SIZE
-* src/kmer      files that need recompiling based on different MAX_KMER_SIZE
-* src/tools     complex operations performed on the graph
-* src/commands  one file per cortex command ctx_COMMAND
-* src/main      files with a main function go in here
+* libs/            included library code from other projects / third party code
+* src/global       code used everywhere
+* src/basic        utility functions
+* src/paths        path information
+* src/graph*       de Bruijn graph
+* src/graph_paths* graph+path interactions + path io
+* src/tools*       complex operations performed on the graph
+* src/commands*    one file per cortex command ctx_COMMAND
+* src/main*        files with a main function go in here
+
+* = files that need recompiling based on different MAX_KMER_SIZE
 
 Files only link to files that are above them in the list above. E.g. src/kmer/*
 files only include files in src/kmer/, src/basic/ and libs/.
@@ -117,7 +118,7 @@ License: GPLv2
 --------------
 
 Bundled libraries may have different licenses:
-* [GNU Science Library](http://www.gnu.org/software/gsl/) (GPL)
+* [cJSON](http://http://sourceforge.net/projects/cjson/) (MIT)
 * [CityHash](https://code.google.com/p/cityhash/) (MIT)
 * [lookup3](http://burtleburtle.net/bob/c/lookup3.c) (Public Domain)
 * [htslib](https://github.com/samtools/htslib) (MIT)

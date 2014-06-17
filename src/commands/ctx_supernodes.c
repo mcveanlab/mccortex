@@ -1,5 +1,4 @@
 #include "global.h"
-
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"

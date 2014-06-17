@@ -33,8 +33,8 @@ const char correct_usage[] =
 "  -H, --cut-hp <bp>          Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -e, --end-check            Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check         Skip extra check after gap bridging\n"
-"  -g, --min-ins <ins>        Minimum insert size for --seq2 [default:0]\n"
-"  -G, --max-ins <ins>        Maximum insert size for --seq2 [default:"QUOTE_MACRO(DEFAULT_MAX_INS)"]\n"
+"  -g, --min-ins <ins>        Minimum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MIN_INS)"]\n"
+"  -G, --max-ins <ins>        Maximum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MAX_INS)"]\n"
 // "  -S, --seq-gaps <out.csv>   Save size distribution of seq gaps bridged\n"
 // "  -M, --mp-gaps <out.csv>    Save size distribution of mate pair gaps bridged\n"
 //

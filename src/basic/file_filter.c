@@ -38,7 +38,8 @@ static inline void file_filter_capacity(FileFilter *file, size_t ncolscap)
 // Does not read any bytes from file, but does open it
 // returns true on success
 // on failure will call die (if fatal == true) or return 0 (if fatal == false)
-bool file_filter_open(FileFilter *fltr, char *path, const char *mode, bool fatal)
+bool file_filter_open(FileFilter *fltr, char *path, const char *mode,
+                      bool gzip, bool fatal)
 {
   char *path_start, *path_end, path_lchar;
 
@@ -59,16 +60,18 @@ bool file_filter_open(FileFilter *fltr, char *path, const char *mode, bool fatal
 
   // Read from stdin in path is "-"
   if(strcmp(fltr->file_path.buff, "-") == 0) {
-    fltr->fh = stdin;
+    if(gzip) fltr->gz = gzdopen(fileno(stdin), "r");
+    else fltr->fh = stdin;
     fltr->file_size = -1;
   }
   else
   {
     if((fltr->file_size = futil_get_file_size(fltr->file_path.buff)) == -1) {
-      if(fatal) die("Cannot get file size: %s", fltr->file_path.buff);
-      else return 0;
+      warn("Cannot get file size: %s", fltr->file_path.buff);
     }
-    if((fltr->fh = fopen(fltr->file_path.buff, mode)) == NULL) {
+    if(( gzip && (fltr->gz = gzopen(fltr->file_path.buff, mode)) == NULL) ||
+       (!gzip && (fltr->fh = fopen(fltr->file_path.buff, mode)) == NULL))
+    {
       if(fatal) die("Cannot open file: %s", fltr->file_path.buff);
       else return 0;
     }
@@ -80,14 +83,20 @@ bool file_filter_open(FileFilter *fltr, char *path, const char *mode, bool fatal
 // Close file, release memory
 void file_filter_close(FileFilter *fltr)
 {
-  if(fltr->fh != NULL) { fclose(fltr->fh); fltr->fh = NULL; }
-  if(fltr->cols != NULL) {
-    ctx_free(fltr->cols);
-    fltr->cols = NULL;
-    fltr->ncolscap = 0;
-  }
-  if(fltr->orig_path.buff != NULL) strbuf_dealloc(&fltr->orig_path);
-  if(fltr->file_path.buff != NULL) strbuf_dealloc(&fltr->file_path);
+  if(fltr->fh != NULL) { fclose(fltr->fh); }
+  if(fltr->gz != NULL) { gzclose(fltr->fh); }
+  ctx_free(fltr->cols);
+  strbuf_dealloc(&fltr->orig_path);
+  strbuf_dealloc(&fltr->file_path);
+  memset(fltr, 0, sizeof(FileFilter));
+}
+
+static bool file_filter_load_as_is(const FileFilter *fltr)
+{
+  size_t i;
+  if(fltr->intocol != 0 || fltr->ncols != fltr->filencols) return false;
+  for(i = 0; i < fltr->ncols && fltr->cols[i] == i; i++);
+  return (i == fltr->ncols && fltr->intocol == 0);
 }
 
 void file_filter_set_cols(FileFilter *fltr, size_t filencols)
@@ -103,8 +112,7 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols)
     fltr->ncols = range_get_num(path_end+1, filencols-1);
     file_filter_capacity(fltr, fltr->ncols);
     range_parse_array(path_end+1, fltr->cols, filencols-1);
-    for(i = 0; i < filencols && fltr->cols[i] == i; i++);
-    fltr->nofilter = (i == filencols && fltr->intocol == 0);
+    fltr->nofilter = file_filter_load_as_is(fltr);
   }
   else {
     fltr->ncols = filencols;

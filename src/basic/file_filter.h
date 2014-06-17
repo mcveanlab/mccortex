@@ -12,6 +12,7 @@ typedef struct
   // path would be "in.ctx"
   StrBuf orig_path, file_path;
   FILE *fh;
+  gzFile gz;
   size_t intocol; // first colour loading into
   size_t ncols; // number of colours being read from file
   size_t *cols, ncolscap; // array of colours to load of length ncols
@@ -22,7 +23,8 @@ typedef struct
 } FileFilter;
 
 #define INIT_FILE_FILTER_MACRO {                                               \
-  .orig_path = {.buff = NULL}, .file_path = {.buff = NULL}, .fh = NULL,        \
+  .orig_path = {.buff = NULL}, .file_path = {.buff = NULL},                    \
+  .fh = NULL, .gz = NULL,                                                      \
   .intocol = 0, .ncols = 0, .cols = NULL, .ncolscap = 0, .flatten = false,     \
   .file_size = 0, .nofilter = false}
 
@@ -42,7 +44,8 @@ typedef struct
 // Does not read any bytes from file, but does open it
 // returns true on success
 // on failure will call die (if fatal == true) or return 0 (if fatal == false)
-bool file_filter_open(FileFilter *file, char *path, const char *mode, bool fatal);
+bool file_filter_open(FileFilter *fltr, char *path, const char *mode,
+                      bool gzip, bool fatal);
 
 // Attempt to close file (if open), release memory
 void file_filter_close(FileFilter *file);

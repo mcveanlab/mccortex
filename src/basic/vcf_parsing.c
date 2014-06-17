@@ -150,7 +150,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, size_t num_samples)
   StrBuf *buf;
 
   // Split vcf line into fields
-  // size_t num_cols = count_char(line->buff, '\t') + 1;
+  // size_t num_cols = string_count_char(line->buff, '\t') + 1;
 
   size_t num_cols = 0;
   tmp = line->buff;
@@ -169,7 +169,7 @@ void vcf_entry_parse(StrBuf *line, vcf_entry_t *entry, size_t num_samples)
     die("Incorrect number of VCF columns: '%s'", line->buff);
 
   // Split ALT alleles
-  size_t alts_count = count_char(entry->cols[VCFALT].buff, ',') + 1;
+  size_t alts_count = string_count_char(entry->cols[VCFALT].buff, ',') + 1;
 
   vcf_entry_alt_capacity(entry, alts_count);
 

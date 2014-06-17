@@ -91,6 +91,8 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
                                        const dBGraph *db_graph)
 {
   caller_gzprint_header(gzout, out_path, "CtxBubblesv0.1", db_graph);
+  // End header with empty line
+  gzprintf(gzout, "\n");
 }
 
 static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer,

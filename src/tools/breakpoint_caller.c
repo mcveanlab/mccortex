@@ -572,6 +572,9 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
     gzprintf(gzout, "##contig=<ID=%s,length=%zu>\n",
              reads[i].name.b, reads[i].seq.end);
   }
+
+  // End header with empty line
+  gzprintf(gzout, "\n");
 }
 
 void breakpoints_call(size_t num_of_threads,
