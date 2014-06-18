@@ -86,4 +86,6 @@ void cortex_destroy();
 // MSGP_LOCK_SPIN
 // MSGP_LOCK_YIELD
 
+#define ONE_MEGABYTE (1<<20)
+
 #endif /* GLOBAL_H_ */

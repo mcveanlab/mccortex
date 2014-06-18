@@ -1,8 +1,10 @@
 #include "global.h"
 #include "file_util.h"
 #include "db_graph.h"
+#include "gpath_hash.h"
 #include "gpath_reader.h"
 #include "gpath_save.h"
+#include "gpath_checks.h"
 
 int main(int argc, char **argv)
 {
@@ -26,42 +28,33 @@ int main(int argc, char **argv)
   db_graph_alloc(&db_graph, kmer_size, ncols, 1, 1024);
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
-  gpath_store_alloc(&db_graph.gpstore, 10000,
-                    db_graph.ht.capacity, db_graph.num_of_cols,
-                    true, true);
+  // Create a path store that tracks path counts
+  gpath_store_alloc(&db_graph.gpstore,
+                    db_graph.num_of_cols, db_graph.ht.capacity,
+                    ONE_MEGABYTE, true);
+
+  // Create path hash table for fast lookup
+  GPathHash phash;
+  gpath_hash_alloc(&phash, &db_graph.gpstore, ONE_MEGABYTE);
 
   // DEV: check sample names match
 
+  // Load path files
   gpath_reader_load(&pfile, false, &db_graph);
   gpath_reader_close(&pfile);
 
   hash_table_print_stats(&db_graph.ht);
 
-/*  char *ctx_path = argv[1];
-  GraphFileReader file = INIT_GRAPH_READER;
-  graph_file_open(&file, ctx_path, true); // true => errors are fatal
-
-  GraphLoadingPrefs prefs = {.db_graph = &db_graph,
-                             .boolean_covgs = false,
-                             .must_exist_in_graph = false,
-                             .must_exist_in_edges = NULL,
-                             .empty_colours = true};
-
-  graph_load(&file, prefs, NULL);
-
-  hkey_t nodes[1];
-  BinaryKmer bkmer = binary_kmer_from_str("ATATATATCTAGATATATATCTATATATAAA", kmer_size);
-  BinaryKmer bkey = binary_kmer_get_key(bkmer, kmer_size);
-  nodes[0] = hash_table_find(&db_graph.ht, bkey);
-  ctx_assert(nodes[0] != HASH_NOT_FOUND);
-
-*/
-
+  // Write output file
   gpath_save(gzout, out_path, &db_graph);
   gzclose(gzout);
 
-  db_graph_dealloc(&db_graph);
+  // Checks
+  // gpath_checks_all_paths(&db_graph);
+  gpath_checks_counts(&db_graph);
 
+  // Clean up
+  db_graph_dealloc(&db_graph);
   cortex_destroy();
 
   return EXIT_SUCCESS;

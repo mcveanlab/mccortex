@@ -6,6 +6,8 @@
 const uint8_t rev_nibble_table[16]
   = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
 
+const uint8_t byte_popcount_table[16] = {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4};
+
 // comparison returns:
 //   negative iff a < b
 //          0 iff a == b

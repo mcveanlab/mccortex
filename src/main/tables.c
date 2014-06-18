@@ -43,10 +43,21 @@ static void rev_cmp_table()
   printf("};\n\n");
 }
 
+// static const uint8_t byte_popcount_table[16] = {0,1,1,2,1,2,2,3,1,12,2,3,2,3,3,4};
+static void count_bits_table()
+{
+  int i;
+  printf("static const uint8_t byte_popcount_table[16] = {0");
+  for(i = 1; i < 16; i++)
+    printf(",%i", __builtin_popcount(i));
+  printf("};\n\n");
+}
+
 int main()
 {
   rev_nibble_table();
   rev_cmp_table();
+  count_bits_table();
   return EXIT_SUCCESS;
 }
 

@@ -146,7 +146,7 @@ endif
 # kmer and tool objects require MAXK
 GLOBAL_OBJDIR=build/global
 GLOBAL_SRCS=$(wildcard src/global/*.c)
-GLOBAL_HDRS=$(wildcard src/global/*.h)
+GLOBAL_HDRS=$(wildcard src/global/*.h) src/global/version.h
 GLOBAL_FILES=$(notdir $(GLOBAL_SRCS))
 GLOBAL_OBJS=$(addprefix $(GLOBAL_OBJDIR)/, $(GLOBAL_FILES:.c=.o))
 

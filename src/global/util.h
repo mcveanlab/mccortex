@@ -24,8 +24,20 @@ bool parse_entire_ulong(const char *str, unsigned long *result);
 bool parse_entire_double(const char *str, double *result);
 bool parse_entire_size(const char *str, size_t *result);
 
+//
+// Bits
+//
 const uint8_t rev_nibble_table[16];
 #define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16), rev_nibble_table[(unsigned)(x)]; })
+
+extern const uint8_t byte_popcount_table[16];
+
+#define byte_popcount(x) (byte_popcount_table[((x) >> 4) & 0xf] + \
+                          byte_popcount_table[(x) & 0xf])
+
+//
+// Memory
+//
 
 bool bases_to_integer(const char *arg, size_t *bases);
 bool mem_to_integer(const char *arg, size_t *bytes);
@@ -116,7 +128,7 @@ static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
   do {
     // Compare and swap returns the value of ptr before the operation
     curr = v;
-    newv = MIN2(UINT8_MAX, curr + add);
+    newv = MIN2((size_t)UINT8_MAX, (size_t)curr + add);
     if(curr == UINT8_MAX) break;
     v = __sync_val_compare_and_swap(ptr, curr, newv);
   }

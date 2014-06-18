@@ -97,6 +97,7 @@ void db_graph_dealloc(dBGraph *db_graph)
   ctx_free(db_graph->node_in_cols);
   ctx_free(db_graph->readstrt);
 
+  gpath_store_dealloc(&db_graph->gpstore);
   path_store_dealloc(&db_graph->pstore);
 
   memset(db_graph, 0, sizeof(dBGraph));
