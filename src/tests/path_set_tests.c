@@ -2,6 +2,7 @@
 #include "all_tests.h"
 #include "path_set.h"
 #include "binary_seq.h"
+#include "gpath_checks.h"
 
 #include "string_buffer/string_buffer.h"
 
@@ -10,7 +11,7 @@
 //
 
 static void _fake_path_set(PathSet *set, size_t cbytes,
-                                  const char **paths, size_t npaths)
+                           const char **paths, size_t npaths)
 {
   qsort(paths, npaths, sizeof(char*), cmp_charptr);
 
@@ -306,13 +307,13 @@ static void _real_graph_test()
   asynciodata_alloc(&iodata);
 
   size_t nworkers = 1;
-  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph, NULL);
+  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph);
 
   // Add paths
-  _test_add_paths(&graph, &iodata, &task, wrkrs, s3r0, 3, 3, 3); // T
-  _test_add_paths(&graph, &iodata, &task, wrkrs, s0r0, 3, 1, 3); // C
-  _test_add_paths(&graph, &iodata, &task, wrkrs, s0r2, 4, 2, 4); // CGC
-  _test_add_paths(&graph, &iodata, &task, wrkrs, s0r1, 2, 0, 2); // CG
+  _test_add_paths(&graph, &iodata, &task, wrkrs, s3r0, 3, 3); // T
+  _test_add_paths(&graph, &iodata, &task, wrkrs, s0r0, 3, 1); // C
+  _test_add_paths(&graph, &iodata, &task, wrkrs, s0r2, 4, 2); // CGC
+  _test_add_paths(&graph, &iodata, &task, wrkrs, s0r1, 2, 0); // CG
 
   // CCTGGGTGCGA CCTGGGTGCGA:0 C,CG,CGC,T [a->d][a->g]
   // TGCGAATGACA TGCGAATGACA:0 C,CG,CGC,T [a->d][a->g]
@@ -322,7 +323,7 @@ static void _real_graph_test()
   // AGTGTCATTCG AGTGTCATTCG:0 AG [g->a]
 
   // Test path store
-  _test_path_store(&graph);
+  gpath_checks_all_paths(&graph);
 
   // Test path_set
   BinaryKmer bkmer;

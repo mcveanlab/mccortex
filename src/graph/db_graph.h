@@ -11,6 +11,7 @@
 #include "path_store.h"
 
 #include "gpath_store.h"
+#include "gpath_hash.h"
 
 //
 // Graph
@@ -50,19 +51,20 @@ typedef struct
   // path data
   PathStore pstore;
 
+  // New path data
   GPathStore gpstore;
+  GPathHash gphash; // adding new paths quickly
 
   // Loading reads, 2 bits per kmers
   uint8_t *readstrt;
 } dBGraph;
 
+#define db_graph_has_path_hash(graph) ((graph)->gphash.table != NULL)
 #define db_graph_node_assigned(graph,hkey) HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
 
 void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                     size_t num_of_cols, size_t num_edge_cols,
                     uint64_t capacity);
-
-void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols);
 
 // Free memory used by all fields as well
 void db_graph_dealloc(dBGraph *db_graph);

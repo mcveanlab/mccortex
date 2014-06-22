@@ -8,14 +8,12 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "path_store.h"
-#include "path_format.h"
-#include "graph_paths.h"
 #include "db_alignment.h"
 #include "correct_alignment.h"
 #include "async_read_io.h"
 #include "seq_reader.h"
 #include "binary_seq.h"
+#include "gpath_checks.h"
 
 //
 // Multithreaded code to add paths to the graph from sequence data
@@ -46,8 +44,6 @@ struct GenPathWorker
   uint8_t *pck_fw, *pck_rv;
   size_t *pos_fw, *pos_rv;
   size_t num_fw, num_rv, junc_arrsize;
-
-  FILE *tmp_fh;
 };
 
 #define INIT_BUFLEN 1024
@@ -70,11 +66,9 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 
 #define binary_seq_mem(n) ((((n)+3)/4 + sizeof(PathLen))*4)
 
-static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph,
-                                    FILE *tmp_fh)
+static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
-  GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL,
-                       .tmp_fh = tmp_fh};
+  GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL};
 
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
@@ -102,11 +96,11 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 }
 
 
-GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph, FILE *fout)
+GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph)
 {
   size_t i;
   GenPathWorker *workers = ctx_malloc(n * sizeof(GenPathWorker));
-  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph, fout);
+  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph);
   return workers;
 }
 
@@ -177,15 +171,16 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
                                      const dBNode *nodes,
                                      GenPathWorker *wrkr)
 {
-  size_t i, num_added = 0;
-  const size_t ctpcol = wrkr->task.crt_params.ctpcol;
-
   dBGraph *db_graph = wrkr->db_graph;
+  const size_t ctpcol = wrkr->task.crt_params.ctpcol;
+  GPathSet *gpset = &db_graph->gphash.gpstore->gpset;
+
+  size_t i, num_added = 0;
   dBNode node;
   size_t start_mn, start_pl, pos;
-  PathLen plen, plen_orient;
-  bool added;
-  PathIndex pindex = 0; // address of path once added
+  PathLen plen;
+  // bool added;
+  // pkey_t pindex = 0; // address of path once added
   bool printed = false;
 
   #ifdef CTXVERBOSE
@@ -197,14 +192,14 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
   // <plen><seq> is in packed_ptr
   // create packed path with remaining 3 diff offsets (1..3)
-  size_t pckd_memsize = sizeof(PathLen) + (num_pl+3)/4;
-  uint8_t *packed_ptrs[4], *pckd = packed_ptr+sizeof(PathLen);
+  size_t pckd_memsize = (num_pl+3)/4;
+  uint8_t *packed_ptrs[4], *pckd = packed_ptr;
 
   for(i = 0; i < 4; i++) packed_ptrs[i] = packed_ptr + i*pckd_memsize;
 
-  binary_seq_cpy(packed_ptrs[1]+sizeof(PathLen), pckd, 1, num_pl);
-  binary_seq_cpy(packed_ptrs[2]+sizeof(PathLen), pckd, 2, num_pl);
-  binary_seq_cpy(packed_ptrs[3]+sizeof(PathLen), pckd, 3, num_pl);
+  binary_seq_cpy(packed_ptrs[1], pckd, 1, num_pl);
+  binary_seq_cpy(packed_ptrs[2], pckd, 2, num_pl);
+  binary_seq_cpy(packed_ptrs[3], pckd, 3, num_pl);
 
   // pl => plus in direction
   // mn => minus against direction
@@ -247,47 +242,56 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     //
 
     // Check path is not too long (MAX_PATHLEN is the limit)
-    plen = (PathLen)MIN2(num_pl - start_pl, MAX_PATHLEN);
+    plen = MIN2(num_pl - start_pl, GPATH_MAX_JUNCS);
 
-    #ifdef CTXVERBOSE
-      char kmerstr[MAX_KMER_SIZE+1];
-      BinaryKmer tmpkmer = db_node_get_bkmer(db_graph, node.key);
-      binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
-      printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n",
-             kmerstr, node.orient, start_pl, start_mn, pos_mn[start_mn]);
-    #endif
+    // Start and end nodes relative to `nodes` array
+    size_t start, end; // index of first, last node in `nodes`
+    if(pl_is_fw) { start = pos, end = pos_pl[start_pl+plen-1]+1; }
+    else { start = pos_pl[start_pl+plen-1]-1, end = pos; }
+    ctx_assert2(start < end, "start: %zu, end: %zu", start, end);
+
+    // #ifdef CTXVERBOSE
+    //   char kmerstr[MAX_KMER_SIZE+1];
+    //   BinaryKmer tmpkmer = db_node_get_bkmer(db_graph, node.key);
+    //   binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
+    //   printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n",
+    //          kmerstr, node.orient, start_pl, start_mn, pos_mn[start_mn]);
+    // #endif
 
     // Write orient and length to packed representation
-    plen_orient = packedpath_combine_lenorient(plen,node.orient);
     packed_ptr = packed_ptrs[start_pl&3] + start_pl/4;
-    memcpy(packed_ptr, &plen_orient, sizeof(PathLen));
 
     // mask top byte!
     size_t top_idx = sizeof(PathLen) + (plen+3)/4 - 1;
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
-    added = graph_paths_find_or_add_mt(node, ctpcol, packed_ptr, plen,
-                                       &db_graph->pstore, &pindex);
+    bool found = false;
+    GPathNew newgpath = {.seq = packed_ptr, .klen = end-start+1,
+                         .orient = node.orient, .num_juncs = plen,
+                         .colset = NULL, .nseen = NULL};
+
+    GPath *gpath = gpath_hash_find_or_insert_mt(&db_graph->gphash, node.key,
+                                                newgpath, &found);
+
+    // Add colour
+    bitset_set(gpath_get_colset(gpath, gpset->ncols), ctpcol);
+    uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
+    if(nseen != NULL) safe_add_uint8(&nseen[ctpcol], 1);
 
     packed_ptr[top_idx] = top_byte; // restore top byte
 
     #ifdef CTXVERBOSE
-      printf("We %s\n", added ? "added" : "abandoned");
+      printf("We %s\n", found ? "abandoned" : "added");
     #endif
 
     // If the path already exists, all of its subpaths also already exist
-    if(!added && plen < MAX_PATHLEN) break;
+    if(found && plen < MAX_PATHLEN) break;
     num_added++;
 
     if(gen_paths_print_paths && !printed)
     {
       // print path
-      size_t start, end;
-      if(pl_is_fw) { start = pos, end = pos_pl[num_pl-1]+1; }
-      else { start = pos_pl[num_pl-1]-1, end = pos; }
-      ctx_assert2(start < end, "start: %zu, end: %zu", start, end);
-
       pthread_mutex_lock(&ctx_biglock);
       fprintf(stdout, ">path%zu.%s\n", print_path_id++, pl_is_fw ? "fw" : "rv");
       db_nodes_print(nodes+start, end-start+1, db_graph, stdout);
@@ -300,18 +304,8 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     }
 
     #ifdef CTXCHECKS
-      const size_t ctxcol = wrkr->task.crt_params.ctxcol;
-      Colour cols[2] = {ctxcol, ctpcol};
-      GraphPathPairing gp = {.ctxcols = cols, .ctpcols = cols+1, .n = 1};
-
-      // Check path before we wrote it
-      ctx_check2(graph_paths_check_valid(node, ctxcol, packed_ptr+sizeof(PathLen),
-                                         plen, db_graph),
-                 "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
-
-      // Check path after we wrote it
-      ctx_check2(graph_paths_check_path(node.key, pindex, &gp, db_graph),
-                 "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
+      // ctx_check2(gpath_checks_path(node.key, gpath, db_graph),
+      //            "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
     #endif
 
     // status("Path is:...");

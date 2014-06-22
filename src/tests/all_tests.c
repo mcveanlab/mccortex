@@ -1,7 +1,7 @@
 #include "global.h"
 #include "all_tests.h"
 #include "db_graph.h"
-#include "graph_paths.h"
+// #include "graph_paths.h"
 #include "dna.h"
 
 // Common functions here
@@ -82,7 +82,7 @@ void _construct_graph_with_paths(dBGraph *graph,
 
   graph->num_of_cols_used = MAX2(graph->num_of_cols_used, 1);
 
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph, NULL);
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
 
   for(i = 0; i < nseqs; i++)
     gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);
@@ -93,11 +93,10 @@ void _construct_graph_with_paths(dBGraph *graph,
 void _test_add_paths(dBGraph *graph,
                      AsyncIOData *iodata, CorrectAlnInput *task,
                      GenPathWorker *wrkrs, char *seq,
-                     size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes)
+                     size_t exp_npaths, size_t exp_nkmers)
 {
-  size_t npaths = graph->pstore.num_of_paths;
-  size_t nkmers = graph->pstore.num_kmers_with_paths;
-  uint8_t *next = graph->pstore.next;
+  size_t npaths = graph->gpstore.num_paths;
+  size_t nkmers = graph->gpstore.num_kmers_with_paths;
 
   // Set up asyncio input data
   seq_read_set(&iodata->r1, seq);
@@ -108,28 +107,7 @@ void _test_add_paths(dBGraph *graph,
   gen_paths_worker_seq(wrkrs, iodata, task);
 
   // Check we added the right number of paths
-  TASSERT(graph->pstore.num_of_paths == npaths + exp_npaths);
-  TASSERT(graph->pstore.num_kmers_with_paths == nkmers + exp_nkmers);
-
-  // Check memory used
-  size_t path_mem = sizeof(PathIndex) + graph->pstore.colset_bytes +
-                    sizeof(PathLen) + graph->pstore.extra_bytes;
-  size_t exp_mem = path_mem * exp_npaths + exp_pbytes;
-  TASSERT(graph->pstore.next == next + exp_mem);
-}
-
-//
-// Graph tests
-//
-
-void _test_path_store(const dBGraph *graph)
-{
-  GraphPathPairing gp;
-  gp_alloc(&gp, graph->num_of_cols);
-
-  // Check data store
-  TASSERT(path_store_integrity_check(&graph->pstore));
-  TASSERT(graph_paths_check_all_paths(&gp, graph));
-
-  gp_dealloc(&gp);
+  TASSERT2(graph->gpstore.num_paths == npaths + exp_npaths, "%zu %zu %zu",
+           (size_t)graph->gpstore.num_paths, (size_t)npaths, (size_t)exp_npaths);
+  TASSERT(graph->gpstore.num_kmers_with_paths == nkmers + exp_nkmers);
 }

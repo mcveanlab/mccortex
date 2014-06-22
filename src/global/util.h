@@ -36,7 +36,7 @@ extern const uint8_t byte_popcount_table[16];
                           byte_popcount_table[(x) & 0xf])
 
 //
-// Memory
+// Numbers to string
 //
 
 bool bases_to_integer(const char *arg, size_t *bases);
@@ -71,6 +71,13 @@ char* bytes_to_str(unsigned long num, int decimals, char* str);
 
 // Number to string using G to mean 10^9, M to mean 10^6 etc
 char* num_to_str(double num, int decimals, char* str);
+
+//
+// Hexidecimal
+//
+
+// Generate null terminated string of length num-1
+char* hex_rand_str(char *str, size_t num);
 
 //
 // Floats and Doubles

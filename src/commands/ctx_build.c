@@ -217,7 +217,7 @@ int ctx_build(int argc, char **argv)
 
   parse_args(argc, argv);
 
-  size_t s, t, nsamples = snamebuf.len, ntasks = gtaskbuf.len;
+  size_t s, t, ncolours = snamebuf.len, ntasks = gtaskbuf.len;
   SampleName *samples = snamebuf.data;
   BuildGraphTask *tasks = gtaskbuf.data;
 
@@ -237,8 +237,8 @@ int ctx_build(int argc, char **argv)
   }
 
   // Print tasks and sample names
-  for(s = t = 0; s < nsamples || t < ntasks; ) {
-    if(t == ntasks || (s < nsamples && samples[s].colour <= tasks[t].colour)) {
+  for(s = t = 0; s < ncolours || t < ntasks; ) {
+    if(t == ntasks || (s < ncolours && samples[s].colour <= tasks[t].colour)) {
       status("[sample] %zu: %s", s, samples[s].name);
       s++;
     } else {
@@ -311,7 +311,7 @@ int ctx_build(int argc, char **argv)
   }
 
   // Set sample names using seq_colours array
-  for(i = 0; i < nsamples; i++) {
+  for(i = 0; i < ncolours; i++) {
     strbuf_set(&db_graph.ginfo[samples[i].colour].sample_name, samples[i].name);
   }
 

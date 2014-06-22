@@ -33,8 +33,6 @@ static void test_walk(GraphWalker *gwlk, RepeatWalker *rptwlk,
 
 static void test_repeat_loop()
 {
-  TASSERT(sizeof(FollowPath) == 20);
-
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
   size_t kmer_size = 11, ncols = 1;
@@ -67,7 +65,7 @@ static void test_repeat_loop()
   // Allocate graph, but don't add any sequence
   _construct_graph_with_paths(&graph, kmer_size, ncols, NULL, 0, params);
 
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, &graph, NULL);
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, &graph);
 
   GraphWalker gwlk;
   RepeatWalker rptwlk;

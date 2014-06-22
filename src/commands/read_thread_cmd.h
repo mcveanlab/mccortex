@@ -2,9 +2,11 @@
 #define READ_THREAD_CMD_H_
 
 #include "cmd_mem.h"
-#include "path_file_reader.h"
 #include "graph_file_reader.h"
+#include "gpath_reader.h"
 #include "correct_aln_input.h"
+
+#include "path_file_reader.h"
 
 //
 // ctx_thread.c and ctx_correct.c use many of the same command line arguments
@@ -23,6 +25,7 @@ struct ReadThreadCmdArgs
 
   GraphFileReader gfile;
   PathFileBuffer pfiles;
+  GPathFileBuffer gpfiles;
   CorrectAlnInputBuffer inputs;
 
   size_t max_gap_limit; // max of inputs[].crt_params.ins_gap_max
@@ -41,6 +44,7 @@ struct ReadThreadCmdArgs
                                    .colour = 0,                        \
                                    .gfile = INIT_GRAPH_READER_MACRO,   \
                                    .pfiles = OBJBUF_INIT,              \
+                                   .gpfiles = OBJBUF_INIT,             \
                                    .inputs = OBJBUF_INIT,              \
                                    .max_gap_limit = 0,                 \
                                    .path_max_usedcols = 0}

@@ -3,8 +3,8 @@
 
 #include "db_graph.h"
 #include "db_node.h"
-#include "path_store.h"
-#include "follow_path.h"
+#include "gpath_store.h"
+#include "gpath_follow.h"
 
 // Result from graph_walker_choose
 typedef struct
@@ -33,7 +33,7 @@ extern const char *graph_step_str[];
 typedef struct
 {
   const dBGraph *const db_graph;
-  const PathStore *const pstore;
+  const GPathStore *const gpstore;
   const Colour ctxcol, ctpcol;
 
   // Current position
@@ -41,7 +41,7 @@ typedef struct
   BinaryKmer bkmer, bkey; // Oriented bkmer (i.e. not key) + hash bkey
 
   // Paths we are currently following
-  PathBuffer paths, new_paths, cntr_paths;
+  GPathFollowBuffer paths, new_paths, cntr_paths;
 
   // Stats
   size_t fork_count;

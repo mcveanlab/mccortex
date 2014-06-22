@@ -4,12 +4,12 @@
 #include "db_graph.h"
 #include "loading_stats.h"
 #include "graph_format.h"
-#include "path_format.h"
-#include "path_file_reader.h"
 #include "graph_file_reader.h"
 #include "generate_paths.h"
-#include "graph_paths.h"
 #include "read_thread_cmd.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
+#include "gpath_save.h"
 
 const char thread_usage[] =
 "usage: "CMD" thread [options] <in.ctx>\n"
@@ -19,7 +19,7 @@ const char thread_usage[] =
 "  are loaded from <in.ctx> files one at a time.\n"
 "\n"
 "  -h, --help               This help message\n"
-"  -o, --out <out.ctp>      Save output file [required]\n"
+"  -o, --out <out.ctp.gz>   Save output file [required]\n"
 "  -m, --memory <mem>       Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
@@ -42,7 +42,6 @@ const char thread_usage[] =
 "  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
 "  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
-"  -C[N], --clean[=auto|N]  Threshold at auto or <N> and remove redundant paths\n"
 "\n"
 "  Debugging Options: Probably best not to touch these\n"
 "    -X,--print-contigs -Y,--print-paths -Z,--print-reads\n"
@@ -96,19 +95,18 @@ int ctx_thread(int argc, char **argv)
   read_thread_args_parse(&args, argc, argv, longopts, false);
 
   GraphFileReader *gfile = &args.gfile;
-  PathFileBuffer *pfiles = &args.pfiles;
+  GPathFileBuffer *gpfiles = &args.gpfiles;
   CorrectAlnInputBuffer *inputs = &args.inputs;
+  size_t i;
 
   //
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
+  bool sep_path_list = (!args.use_new_paths && gpfiles->len > 0);
 
-  bits_per_kmer = sizeof(Edges)*8 +
-                  sizeof(PathIndex)*8*(pfiles->len > 0 ? 2 : 1) +
-                  2*args.num_of_threads + // Have traversed
-                  1 + // node in colour
-                  1; // path store kmer lock
+  bits_per_kmer = sizeof(Edges) * 8 +
+                  2 * args.num_of_threads; // Have traversed
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
@@ -121,9 +119,18 @@ int ctx_thread(int argc, char **argv)
                                          gfile->num_of_kmers,
                                          false, &graph_mem);
 
-  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false,
-                                     args.path_max_usedcols, 0);
-  path_mem = MAX2(args.memargs.mem_to_use - graph_mem, path_mem);
+  // path_mem = gpath_store_min_mem(kmers_in_hash, sep_path_list) * 2;
+  size_t min_path_mem = 0, max_path_mem = 0;
+  gpath_reader_max_mem_req(gpfiles->data, gpfiles->len, 1, kmers_in_hash,
+                           true, sep_path_list, true,
+                           &min_path_mem, &max_path_mem);
+
+  path_mem = graph_mem + min_path_mem;
+
+  // Maximise path memory
+  if(graph_mem + path_mem < args.memargs.mem_to_use)
+    path_mem = args.memargs.mem_to_use - graph_mem;
+
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;
@@ -137,12 +144,7 @@ int ctx_thread(int argc, char **argv)
   if(args.dump_mp_sizes && !futil_is_file_writable(args.dump_mp_sizes))
     die("Cannot write to file: %s", args.dump_mp_sizes);
 
-  if(strcmp(args.out_ctp_path,"-") != 0 && futil_file_exists(args.out_ctp_path))
-    die("Output file already exists: %s", args.out_ctp_path);
-
-  FILE *fout = !strcmp(args.out_ctp_path,"-") ? stdout : fopen(args.out_ctp_path, "w");
-  if(fout == NULL) die("Unable to open paths file to write: %s", args.out_ctp_path);
-  setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
+  gzFile gzout = futil_gzopen_output(args.out_ctp_path);
 
   status("Creating paths file: %s", futil_outpath_str(args.out_ctp_path));
 
@@ -157,50 +159,28 @@ int ctx_thread(int argc, char **argv)
   // Edges
   db_graph.col_edges = ctx_calloc(kmers_in_hash, sizeof(Edges));
 
-  // Path store
-  path_store_alloc(&db_graph.pstore, path_mem, true, kmers_in_hash, 1);
+  // Split path memory 2:1 between store and hash
+  // Create a path store that tracks path counts
+  gpath_store_alloc(&db_graph.gpstore,
+                    db_graph.num_of_cols, db_graph.ht.capacity,
+                    (2*path_mem) / 3, true, args.use_new_paths);
 
-  // Keep counts in an extra byte per path
-  db_graph.pstore.extra_bytes = 1;
-
-  // path kmer locks for multithreaded access
-  db_graph.pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(kmers_in_hash), 1);
+  // Create path hash table for fast lookup
+  gpath_hash_alloc(&db_graph.gphash, &db_graph.gpstore, path_mem / 3);
 
   // Load existing paths
-  if(pfiles->len > 0) {
-    // Paths loaded into empty colours will update the sample names
-    // and add kmers needed
-    paths_format_merge(pfiles->data, pfiles->len, true, false,
-                       args.num_of_threads, &db_graph);
+  // Paths loaded into empty colours will update the sample names
+  // and add kmers needed
+  for(i = 0; i < gpfiles->len; i++) {
+    gpath_reader_load(&gpfiles->data[i], false, &db_graph);
   }
 
-  // if no-pickup flags
-  if(!args.use_new_paths) {
-    if(pfiles->len > 0) {
-      // Copy current paths over to path set to be updated
-      size_t mem = kmers_in_hash * sizeof(PathIndex);
-      db_graph.pstore.kmer_paths_read = ctx_malloc(mem);
-      memcpy(db_graph.pstore.kmer_paths_read, db_graph.pstore.kmer_paths_write, mem);
-    }
-    else
-      db_graph.pstore.kmer_paths_read = NULL;
-
+  if(args.use_new_paths) {
+    status("Using paths as they are added (risky)");
+  } else {
+    gpath_store_split_read_write(&db_graph.gpstore);
     status("Not using new paths as they are added (safe)");
   }
-  else
-    status("Using paths as they are added (risky)");
-
-  // Set up paths header. This is for the output file we are creating
-  PathFileHeader pheader = INIT_PATH_FILE_HDR_MACRO;
-  paths_header_alloc(&pheader, 1);
-
-  pheader.num_of_cols = 1;
-  pheader.kmer_size = kmer_size;
-  const char *sample_name = gfile->hdr.ginfo[gfile->fltr.cols[0]].sample_name.buff;
-  strbuf_set(&pheader.sample_names[0], sample_name);
-
-  // 2. reduce number of graph colours
-  db_graph_realloc(&db_graph, 1, 1);
 
   db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(kmers_in_hash), 1);
 
@@ -223,7 +203,7 @@ int ctx_thread(int argc, char **argv)
   // Start up the threads, do the work
   //
   GenPathWorker *workers;
-  workers = gen_paths_workers_alloc(args.num_of_threads, &db_graph, fout);
+  workers = gen_paths_workers_alloc(args.num_of_threads, &db_graph);
 
   // Deal with a set of files at once
   size_t start, end;
@@ -283,9 +263,6 @@ int ctx_thread(int argc, char **argv)
 
   // ins_gap, err_gap no longer allocated after this line
   gen_paths_workers_dealloc(workers, args.num_of_threads);
-  path_store_combine_updated_paths(&db_graph.pstore);
-
-  path_store_print_status(&db_graph.pstore);
 
   // Estimate coverage
   double covg = (double)stats.num_kmers_loaded / db_graph.ht.num_kmers;
@@ -293,38 +270,20 @@ int ctx_thread(int argc, char **argv)
   status("Estimate coverage to be %.2f [%zu / %zu], mean len: %.2f",
          covg, stats.num_kmers_loaded, (size_t)db_graph.ht.num_kmers, mean_klen);
 
-  if(args.clean_paths)
-  {
-    // Set threshold if not given
-    uint8_t threshold;;
-    if(args.clean_threshold == -1) {
-      // DEV: calculate threshold
-      threshold = 2;
-    } else {
-      threshold = args.clean_threshold;
-    }
-
-    if(threshold > 1)
-      graph_paths_clean(&db_graph, args.num_of_threads, threshold);
-    else
-      warn("Path cleaning threshold < 2 has no effect: %i", threshold);
-  }
-
-  GraphPathPairing gp;
-  gp_alloc(&gp, db_graph.num_of_cols);
-  graph_paths_check_all_paths(&gp, &db_graph);
-  // graph_paths_check_all_paths(&gp, &db_graph);
-
   status("Saving paths to: %s", args.out_ctp_path);
 
-  // Update header and write
-  // Note: writing optimised paths corrupts the kmer path indices!
-  paths_header_update(&pheader, &db_graph.pstore);
-  paths_format_write_header(&pheader, fout);
-  paths_format_write_optimised_paths(&db_graph, fout);
-  fclose(fout);
+  cJSON *hdrs[gpfiles->len];
+  for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
 
-  paths_header_dealloc(&pheader);
+  // Write output file
+  gpath_save(gzout, args.out_ctp_path, hdrs, gpfiles->len, &db_graph);
+  gzclose(gzout);
+
+  gpath_checks_all_paths(&db_graph);
+
+  for(i = 0; i < gpfiles->len; i++)
+    gpath_reader_close(&gpfiles->data[i]);
+
   read_thread_args_dealloc(&args);
   db_graph_dealloc(&db_graph);
 

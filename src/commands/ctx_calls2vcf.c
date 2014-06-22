@@ -90,7 +90,7 @@ static alignment_t *alignment;
 static scoring_t nw_scoring_flank, nw_scoring_allele;
 
 // Temporary memory
-static StrBuf endflank;
+// static StrBuf endflank;
 
 //
 // Statistics
@@ -186,6 +186,12 @@ static int sam_fetch_coords(const CallFileEntry *centry,
                             size_t *start, size_t *end,
                             bool *fw_strand)
 {
+  (void)centry;
+  (void)chr_name;
+  (void)start;
+  (void)end;
+  (void)fw_strand;
+
   if(sam_read1(samfh, bam_header, bam) < 0) {
     warn("We've run out of SAM entries!");
     return -1;
@@ -205,7 +211,8 @@ static int sam_fetch_coords(const CallFileEntry *centry,
     warn("Cannot find chrom [%s]", *chr_name);
     return -1;
   }
-  const read_t *chr = kh_value(genome, k);
+
+  // const read_t *chr = kh_value(genome, k);
 
   // DEV 4: is this left or right flank
   //        assume complete left flank for now
@@ -224,6 +231,12 @@ static int brkpnt_fetch_coords(const CallFileEntry *centry,
                                size_t *start, size_t *end,
                                bool *fw_strand)
 {
+  (void)centry;
+  (void)chr_name;
+  (void)start;
+  (void)end;
+  (void)fw_strand;
+
   // Read for 5p, 3p mapping
   // DEV 1:
   return 1;
@@ -231,6 +244,8 @@ static int brkpnt_fetch_coords(const CallFileEntry *centry,
 
 static void parse_entries(gzFile gzin, FILE *fout)
 {
+  (void)fout;
+
   CallFileEntry centry;
   call_file_entry_alloc(&centry);
   const char *chrom_name = NULL;

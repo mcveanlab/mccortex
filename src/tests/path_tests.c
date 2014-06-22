@@ -4,7 +4,7 @@
 #include "build_graph.h"
 #include "path_store.h"
 #include "generate_paths.h"
-#include "graph_paths.h"
+#include "gpath_checks.h"
 
 void test_paths()
 {
@@ -22,8 +22,16 @@ void test_paths()
   graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
 
   // Path data
-  path_store_alloc(&graph.pstore, path_max_mem, true, graph.ht.capacity, ncols);
-  graph.pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
+  // path_store_alloc(&graph.pstore, path_max_mem, true, graph.ht.capacity, ncols);
+  // graph.pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
+
+  // Create a path store that tracks path counts
+  gpath_store_alloc(&graph.gpstore,
+                    graph.num_of_cols, graph.ht.capacity,
+                    ONE_MEGABYTE, true, false);
+
+  // Create path hash table for fast lookup
+  gpath_hash_alloc(&graph.gphash, &graph.gpstore, ONE_MEGABYTE);
 
   // junctions:  >     >           <     <     <
   char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
@@ -60,12 +68,12 @@ void test_paths()
   asynciodata_alloc(&iodata);
 
   size_t nworkers = 1;
-  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph, NULL);
+  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph);
 
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5, 5); // path lens: 3+3+2+2+2
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2, 5); // path lens: 3+3+2+2+2
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2, 3); // path lens: 1+1+1
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1, 2); // path lens: 1+1
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5); // path lens: 3+3+2+2+2
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2); // path lens: 3+3+2+2+2
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2); // path lens: 1+1+1
+  _test_add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1); // path lens: 1+1
 
   path_store_combine_updated_paths(&graph.pstore);
 
@@ -79,7 +87,7 @@ void test_paths()
   // CGAATGACACC:1 len:2 col:0  AG
 
   // Test path store
-  _test_path_store(&graph);
+  gpath_checks_all_paths(&graph);
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 

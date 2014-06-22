@@ -1,6 +1,7 @@
 #include "global.h"
 #include "cmd.h"
 #include "read_thread_cmd.h"
+
 #include "graph_paths.h"
 
 //
@@ -12,6 +13,7 @@ void read_thread_args_alloc(struct ReadThreadCmdArgs *args)
 {
   correct_aln_input_buf_alloc(&args->inputs, 16);
   pfile_buf_alloc(&args->pfiles, 16);
+  gpfile_buf_alloc(&args->gpfiles, 16);
 }
 
 void read_thread_args_dealloc(struct ReadThreadCmdArgs *args)
@@ -22,6 +24,7 @@ void read_thread_args_dealloc(struct ReadThreadCmdArgs *args)
 
   correct_aln_input_buf_dealloc(&args->inputs);
   pfile_buf_dealloc(&args->pfiles);
+  gpfile_buf_dealloc(&args->gpfiles);
 }
 
 void read_thread_args_parse(struct ReadThreadCmdArgs *args,
@@ -33,7 +36,8 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   uint8_t fq_offset = 0;
   size_t dump_seq_n = 0, dump_mp_n = 0; // how many times are -g -G specified
-  PathFileReader tmp_pfile;
+  // PathFileReader tmp_pfile;
+  GPathReader tmp_gpfile;
 
   CorrectAlnInputBuffer *inputs = &args->inputs;
 
@@ -57,9 +61,9 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         args->out_ctp_path = optarg;
         break;
       case 'p':
-        tmp_pfile = INIT_PATH_READER;
-        path_file_open(&tmp_pfile, optarg, true);
-        pfile_buf_add(&args->pfiles, tmp_pfile);
+        memset(&tmp_gpfile, 0, sizeof(GPathReader));
+        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpfile_buf_add(&args->gpfiles, tmp_gpfile);
         break;
       case 't':
         if(args->num_of_threads != 0) die("%s set twice", cmd);

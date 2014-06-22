@@ -265,15 +265,15 @@ libs/cJSON/cJSON.o: libs/cJSON/cJSON.c libs/cJSON/cJSON.h
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
+	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 tables: bin/tables
 bin/tables: src/main/tables.c | bin

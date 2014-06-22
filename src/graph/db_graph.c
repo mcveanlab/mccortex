@@ -4,8 +4,6 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "path_store.h"
-#include "packed_path.h"
 #include "graph_format.h"
 
 static void db_graph_status(const dBGraph *db_graph)
@@ -48,38 +46,6 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   db_graph_status(db_graph);
 }
 
-void db_graph_realloc(dBGraph *graph, size_t num_of_cols, size_t num_edge_cols)
-{
-  // Adjust ginfo size
-  size_t i;
-  if(graph->num_of_cols == num_of_cols) return;
-  if(graph->num_of_cols < num_of_cols) { // Grow
-    graph->ginfo = ctx_realloc(graph->ginfo, num_of_cols*sizeof(GraphInfo));
-    for(i = graph->num_of_cols; i < num_of_cols; i++)
-      graph_info_alloc(graph->ginfo + i);
-  }
-  else if(graph->num_of_cols > num_of_cols) { // Shrink
-    for(i = num_of_cols; i < graph->num_of_cols; i++)
-      graph_info_dealloc(graph->ginfo + i);
-  }
-
-  dBGraph tmp = {.ht = graph->ht,
-                 .kmer_size = graph->kmer_size,
-                 .num_of_cols = num_of_cols,
-                 .num_edge_cols = num_edge_cols,
-                 .num_of_cols_used = graph->num_of_cols_used,
-                 .bktlocks = graph->bktlocks,
-                 .ginfo = graph->ginfo,
-                 .col_edges = graph->col_edges,
-                 .col_covgs = graph->col_covgs,
-                 .node_in_cols = graph->node_in_cols,
-                 .pstore = graph->pstore,
-                 .readstrt = graph->readstrt};
-
-  memcpy(graph, &tmp, sizeof(dBGraph));
-  db_graph_status(graph);
-}
-
 // Free memory used by all fields as well
 void db_graph_dealloc(dBGraph *db_graph)
 {
@@ -97,6 +63,7 @@ void db_graph_dealloc(dBGraph *db_graph)
   ctx_free(db_graph->node_in_cols);
   ctx_free(db_graph->readstrt);
 
+  gpath_hash_dealloc(&db_graph->gphash);
   gpath_store_dealloc(&db_graph->gpstore);
   path_store_dealloc(&db_graph->pstore);
 

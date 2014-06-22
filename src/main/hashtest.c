@@ -13,6 +13,7 @@ static const char usage[] =
 int main(int argc, char **argv)
 {
   cortex_init();
+  cmd_init(argc, argv);
   ctx_msg_out = stderr;
 
   CmdArgs args;

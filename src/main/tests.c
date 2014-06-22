@@ -1,10 +1,13 @@
 #include "global.h"
 #include "all_tests.h"
+#include "cmd.h"
 #include "util.h"
 
-int main()
+int main(int argc, char **argv)
 {
   cortex_init();
+  cmd_init(argc, argv);
+
   ctx_msg_out = NULL;
   ctx_tst_out = stdout;
 
@@ -25,7 +28,7 @@ int main()
     test_supernode();
     test_subgraph();
     test_cleaning();
-    test_packed_path();
+    // test_packed_path();
     test_paths();
     test_corrected_aln();
     test_repeat_walker();

@@ -76,18 +76,12 @@ void _construct_graph_with_paths(dBGraph *graph,
 void _test_add_paths(dBGraph *graph,
                      AsyncIOData *iodata, CorrectAlnInput *task,
                      GenPathWorker *wrkrs, char *seq,
-                     size_t exp_npaths, size_t exp_nkmers, size_t exp_pbytes);
+                     size_t exp_npaths, size_t exp_nkmers);
 
 static inline void _tests_add_to_graph(dBGraph *graph, const char *str, size_t colour)
 {
   build_graph_from_str_mt(graph, colour, str, strlen(str));
 }
-
-//
-// Graph tests
-//
-
-void _test_path_store(const dBGraph *graph);
 
 //
 // Functions of tests
@@ -124,7 +118,7 @@ void test_cleaning();
 void test_subgraph();
 
 // packed_path_tests.c
-void test_packed_path();
+// void test_packed_path();
 
 // path_tests.c
 void test_paths();
