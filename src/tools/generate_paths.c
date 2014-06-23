@@ -64,7 +64,7 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
   return job_mem + corrector_mem + junc_mem + packed_mem + sizeof(GenPathWorker);
 }
 
-#define binary_seq_mem(n) ((((n)+3)/4 + sizeof(PathLen))*4)
+#define binary_seq_mem(n) ((((n)+3)/4)*4)
 
 static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
@@ -157,7 +157,7 @@ LoadingStats gen_paths_get_stats(const GenPathWorker *wrkr)
 
 // Returns number of paths added
 // `pos_pl` is an array of positions in the nodes array of nodes to add paths to
-// `packed_ptr` is <plen><seq> and is the nucleotides denoting this path
+// `packed_ptr` is <seq> and is the nucleotides denoting this path
 //   nuc at [3] is the nucleotide to take leaving nodes[pos_pl[3]]
 // `pos_mn` is an array of junctions running in the opposite direction
 // both pos_pl and pos_mn are sorted in their DIRECTION
@@ -178,7 +178,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   size_t i, num_added = 0;
   dBNode node;
   size_t start_mn, start_pl, pos;
-  PathLen plen;
+  size_t plen;
   // bool added;
   // pkey_t pindex = 0; // address of path once added
   bool printed = false;
@@ -190,7 +190,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // status("[addpath] %s %s", pl_is_fw ? "fw" : "rv", str);
   #endif
 
-  // <plen><seq> is in packed_ptr
   // create packed path with remaining 3 diff offsets (1..3)
   size_t pckd_memsize = (num_pl+3)/4;
   uint8_t *packed_ptrs[4], *pckd = packed_ptr;
@@ -241,7 +240,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     //  +---> DEf
     //
 
-    // Check path is not too long (MAX_PATHLEN is the limit)
+    // Check path is not too long (GPATH_MAX_JUNCS is the limit)
     plen = MIN2(num_pl - start_pl, GPATH_MAX_JUNCS);
 
     // Start and end nodes relative to `nodes` array
@@ -262,7 +261,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     packed_ptr = packed_ptrs[start_pl&3] + start_pl/4;
 
     // mask top byte!
-    size_t top_idx = sizeof(PathLen) + (plen+3)/4 - 1;
+    size_t top_idx = (plen+3)/4 - 1;
     uint8_t top_byte = packed_ptr[top_idx];
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
@@ -286,7 +285,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     #endif
 
     // If the path already exists, all of its subpaths also already exist
-    if(found && plen < MAX_PATHLEN) break;
+    if(found && plen < GPATH_MAX_JUNCS) break;
     num_added++;
 
     if(gen_paths_print_paths && !printed)
@@ -340,7 +339,7 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr,
 
   n = _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, pck_fw, true, nodes, wrkr);
   if(n) {
-    binary_seq_reverse_complement(pck_rv+sizeof(PathLen), num_rv);
+    binary_seq_reverse_complement(pck_rv, num_rv);
     _juncs_to_paths(pos_rv, pos_fw, num_rv, num_fw, pck_rv, false, nodes, wrkr);
   }
 }
@@ -363,12 +362,9 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
   Edges edges;
   size_t  i, num_fw = 0, num_rv = 0;
   int indegree, outdegree;
-  uint8_t *pck_fw, *pck_rv;
+  uint8_t *pck_fw = wrkr->pck_fw, *pck_rv = wrkr->pck_rv;
   size_t *pos_fw = wrkr->pos_fw, *pos_rv = wrkr->pos_rv;
   Nucleotide nuc;
-
-  pck_fw = wrkr->pck_fw+sizeof(PathLen);
-  pck_rv = wrkr->pck_rv+sizeof(PathLen);
 
   dBGraph *db_graph = wrkr->db_graph;
 

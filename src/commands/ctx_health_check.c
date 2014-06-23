@@ -6,10 +6,8 @@
 #include "db_graph.h"
 #include "graph_format.h"
 #include "graph_file_reader.h"
-#include "path_format.h"
-#include "path_file_reader.h"
-#include "graph_paths.h"
-#include "path_store.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
 
 const char health_usage[] =
 "usage: "CMD" check [options] <graph.ctx>\n"
@@ -47,9 +45,9 @@ int ctx_health_check(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   bool do_edge_check = true;
 
-  PathFileReader tmp_pfile;
-  PathFileBuffer pfilesbuf;
-  pfile_buf_alloc(&pfilesbuf, 8);
+  GPathReader tmp_gpfile;
+  GPathFileBuffer gpfiles;
+  gpfile_buf_alloc(&gpfiles, 8);
 
   // Arg parsing
   char cmd[100];
@@ -72,9 +70,9 @@ int ctx_health_check(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
-        tmp_pfile = INIT_PATH_READER;
-        path_file_open(&tmp_pfile, optarg, true);
-        pfile_buf_add(&pfilesbuf, tmp_pfile);
+        memset(&tmp_gpfile, 0, sizeof(GPathReader));
+        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 'E': if(!do_edge_check) die("%s set twice", cmd); do_edge_check=false; break;
       case ':': /* BADARG */
@@ -91,7 +89,7 @@ int ctx_health_check(int argc, char **argv)
 
   char *ctx_path = argv[optind];
 
-  if(!do_edge_check && pfilesbuf.len == 0) {
+  if(!do_edge_check && gpfiles.len == 0) {
     cmd_print_usage("-E, --no-edge-check and no path files (-p in.ctp). "
                     "Nothing to check.");
   }
@@ -103,21 +101,12 @@ int ctx_health_check(int argc, char **argv)
   graph_file_open(&gfile, ctx_path, true); // true => errors are fatal
   size_t ncols = graph_file_outncols(&gfile);
 
-  //
-  // Open path files
-  //
-  size_t i, path_max_mem = 0, path_max_usedcols = 0;
-
-  for(i = 0; i < pfilesbuf.len; i++) {
-    PathFileReader *pfile = &pfilesbuf.data[i];
-    path_max_mem = MAX2(path_max_mem, pfile->hdr.num_path_bytes);
-    path_max_usedcols = MAX2(path_max_usedcols, path_file_usedcols(pfile));
-  }
-
   // Check for compatibility between graph files and path files
-  graphs_paths_compatible(&gfile, 1, pfilesbuf.data, pfilesbuf.len);
+  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len);
 
+  //
   // Decide on memory
+  //
   size_t extra_bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   extra_bits_per_kmer = sizeof(Edges) * ncols * 8 + 1; // edges + in_colour
@@ -130,10 +119,19 @@ int ctx_health_check(int argc, char **argv)
                                          false, &graph_mem);
 
   // Paths memory
-  bool remove_redundant = true;
-  path_mem = path_files_mem_required(pfilesbuf.data, pfilesbuf.len,
-                                     remove_redundant, false,
-                                     path_max_usedcols, 0);
+  size_t i, min_path_mem = 0, max_path_mem = 0;
+  gpath_reader_max_mem_req(gpfiles.data, gpfiles.len,
+                           ncols, kmers_in_hash,
+                           false, false, false,
+                           &min_path_mem, &max_path_mem);
+
+  // Maximise path memory
+  path_mem = min_path_mem;
+  if(graph_mem + path_mem < memargs.mem_to_use)
+    path_mem = memargs.mem_to_use - graph_mem;
+
+  // Don't request more than needed
+  path_mem = MIN2(path_mem, max_path_mem);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = path_mem + graph_mem;
@@ -147,9 +145,11 @@ int ctx_health_check(int argc, char **argv)
   db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
 
   // Paths
-  if(pfilesbuf.len > 0) {
-    path_store_alloc(&db_graph.pstore, path_mem, false,
-                     db_graph.ht.capacity, path_max_usedcols);
+  if(gpfiles.len > 0) {
+    // Create a path store that does not tracks path counts
+    gpath_store_alloc(&db_graph.gpstore,
+                      db_graph.num_of_cols, db_graph.ht.capacity,
+                      path_mem, false, false);
   }
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
@@ -159,37 +159,26 @@ int ctx_health_check(int argc, char **argv)
 
   graph_load(&gfile, gprefs, NULL);
 
-  // Load path files (if there are any)
-  paths_format_merge(pfilesbuf.data, pfilesbuf.len, false, remove_redundant,
-                     num_of_threads, &db_graph);
-
-  // Close files
-  for(i = 0; i < pfilesbuf.len; i++) path_file_close(&pfilesbuf.data[i]);
+  // Load path files
+  for(i = 0; i < gpfiles.len; i++) {
+    gpath_reader_load(&gpfiles.data[i], true, &db_graph);
+    gpath_reader_close(&gpfiles.data[i]);
+  }
+  gpfile_buf_dealloc(&gpfiles);
 
   graph_file_close(&gfile);
 
   if(do_edge_check)
     db_graph_healthcheck(&db_graph);
 
-  if(pfilesbuf.len)
-  {
-    GraphPathPairing gp;
-    gp_alloc(&gp, ncols);
-
-    status("Running path check...");
-    // Check data store
-    path_store_integrity_check(&db_graph.pstore);
-
+  if(gpfiles.len) {
     status("  Tracing reads through the graph...");
-    graph_paths_check_all_paths(&gp, &db_graph);
-
-    gp_dealloc(&gp);
+    gpath_checks_all_paths(&db_graph);
   }
 
   status("All looks good!");
 
   db_graph_dealloc(&db_graph);
-  pfile_buf_dealloc(&pfilesbuf);
 
   return EXIT_SUCCESS;
 }

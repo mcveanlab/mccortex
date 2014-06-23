@@ -1,8 +1,7 @@
 #include "global.h"
 #include "cmd.h"
 #include "read_thread_cmd.h"
-
-#include "graph_paths.h"
+#include "gpath_checks.h"
 
 //
 // ctx_thread.c and ctx_correct.c use many of the same command line arguments
@@ -12,7 +11,6 @@
 void read_thread_args_alloc(struct ReadThreadCmdArgs *args)
 {
   correct_aln_input_buf_alloc(&args->inputs, 16);
-  pfile_buf_alloc(&args->pfiles, 16);
   gpfile_buf_alloc(&args->gpfiles, 16);
 }
 
@@ -20,10 +18,9 @@ void read_thread_args_dealloc(struct ReadThreadCmdArgs *args)
 {
   size_t i;
   for(i = 0; i < args->inputs.len; i++) asyncio_task_close(&args->inputs.data[i].files);
-  for(i = 0; i < args->pfiles.len; i++) path_file_close(&args->pfiles.data[i]);
+  for(i = 0; i < args->gpfiles.len; i++) gpath_reader_close(&args->gpfiles.data[i]);
 
   correct_aln_input_buf_dealloc(&args->inputs);
-  pfile_buf_dealloc(&args->pfiles);
   gpfile_buf_dealloc(&args->gpfiles);
 }
 
@@ -150,19 +147,19 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   // Open path files
   //
   size_t path_max_usedcols = 0;
-  for(i = 0; i < args->pfiles.len; i++) {
+  for(i = 0; i < args->gpfiles.len; i++) {
     // file_filter_update_intocol(&args->pfiles.data[i].fltr, 0);
-    if(!correct_cmd && path_file_usedcols(&args->pfiles.data[i]) > 1) {
+    if(!correct_cmd && file_filter_usedcols(&args->gpfiles.data[i].fltr) > 1) {
       die("Please specify a single colour e.g. %s:0",
-          args->pfiles.data[i].fltr.file_path.buff);
+          args->gpfiles.data[i].fltr.file_path.buff);
     }
     path_max_usedcols = MAX2(path_max_usedcols,
-                             path_file_usedcols(&args->pfiles.data[i]));
+                             file_filter_usedcols(&args->gpfiles.data[i].fltr));
   }
   args->path_max_usedcols = path_max_usedcols;
 
   // Check for compatibility between graph files and path files
-  graphs_paths_compatible(gfile, 1, args->pfiles.data, args->pfiles.len);
+  graphs_gpaths_compatible(gfile, 1, args->gpfiles.data, args->gpfiles.len);
 
   // Check ins_gap_min < ins_gap_max
   for(i = 0; i < inputs->len; i++)

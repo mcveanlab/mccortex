@@ -102,6 +102,7 @@ int ctx_thread(int argc, char **argv)
   //
   // Decide on memory
   //
+  size_t ncols = 1;
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
   bool sep_path_list = (!args.use_new_paths && gpfiles->len > 0);
 
@@ -119,18 +120,17 @@ int ctx_thread(int argc, char **argv)
                                          gfile->num_of_kmers,
                                          false, &graph_mem);
 
-  // path_mem = gpath_store_min_mem(kmers_in_hash, sep_path_list) * 2;
+  // Paths memory
   size_t min_path_mem = 0, max_path_mem = 0;
-  gpath_reader_max_mem_req(gpfiles->data, gpfiles->len, 1, kmers_in_hash,
+  gpath_reader_max_mem_req(gpfiles->data, gpfiles->len,
+                           ncols, kmers_in_hash,
                            true, sep_path_list, true,
                            &min_path_mem, &max_path_mem);
 
-  path_mem = graph_mem + min_path_mem;
-
   // Maximise path memory
+  path_mem = min_path_mem;
   if(graph_mem + path_mem < args.memargs.mem_to_use)
     path_mem = args.memargs.mem_to_use - graph_mem;
-
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;
@@ -153,7 +153,7 @@ int ctx_thread(int argc, char **argv)
   //
   dBGraph db_graph;
   size_t kmer_size = gfile->hdr.kmer_size;
-  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, ncols, ncols, kmers_in_hash);
   kmers_in_hash = db_graph.ht.capacity;
 
   // Edges
@@ -163,7 +163,7 @@ int ctx_thread(int argc, char **argv)
   // Create a path store that tracks path counts
   gpath_store_alloc(&db_graph.gpstore,
                     db_graph.num_of_cols, db_graph.ht.capacity,
-                    (2*path_mem) / 3, true, args.use_new_paths);
+                    (2*path_mem) / 3, true, sep_path_list);
 
   // Create path hash table for fast lookup
   gpath_hash_alloc(&db_graph.gphash, &db_graph.gpstore, path_mem / 3);
@@ -171,9 +171,8 @@ int ctx_thread(int argc, char **argv)
   // Load existing paths
   // Paths loaded into empty colours will update the sample names
   // and add kmers needed
-  for(i = 0; i < gpfiles->len; i++) {
+  for(i = 0; i < gpfiles->len; i++)
     gpath_reader_load(&gpfiles->data[i], false, &db_graph);
-  }
 
   if(args.use_new_paths) {
     status("Using paths as they are added (risky)");
@@ -280,10 +279,6 @@ int ctx_thread(int argc, char **argv)
   gzclose(gzout);
 
   gpath_checks_all_paths(&db_graph);
-
-  for(i = 0; i < gpfiles->len; i++)
-    gpath_reader_close(&gpfiles->data[i]);
-
   read_thread_args_dealloc(&args);
   db_graph_dealloc(&db_graph);
 

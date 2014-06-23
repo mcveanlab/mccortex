@@ -4,8 +4,9 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_format.h"
-#include "path_store.h"
-#include "path_format.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
+#include "gpath_save.h"
 
 const char pjoin_usage[] =
 "usage: "CMD" pjoin [options] <in1.ctp> [[offset:]in2.ctp[:0,2-4] ...]\n"
@@ -106,40 +107,38 @@ int ctx_pjoin(int argc, char **argv)
   //
   // Open all path files
   //
-  size_t i, ncols, max_ctp_cols = 0, sum_cols = 0, total_cols;
-  size_t ctp_max_path_kmers = 0;
-  PathFileReader *pfiles = ctx_calloc(num_pfiles, sizeof(PathFileReader));
+  size_t i, total_cols;
+  size_t ctp_max_cols = 0, ctp_sum_cols = 0;
+  size_t ctp_max_kmers = 0, ctp_sum_kmers = 0;
+  GPathReader *pfiles = ctx_calloc(num_pfiles, sizeof(GPathReader));
 
   for(i = 0; i < num_pfiles; i++)
   {
-    pfiles[i] = INIT_PATH_READER;
-    path_file_open(&pfiles[i], paths[i], true);
-
-    if(pfiles[0].hdr.kmer_size != pfiles[i].hdr.kmer_size) {
-      cmd_print_usage("Kmer sizes don't match [%u vs %u]",
-                  pfiles[0].hdr.kmer_size, pfiles[i].hdr.kmer_size);
-    }
+    gpath_reader_open(&pfiles[i], paths[i], true);
 
     if(flatten) {
       pfiles[i].fltr.flatten = true;
       file_filter_update_intocol(&pfiles[i].fltr, 0);
     }
 
-    ncols = path_file_usedcols(&pfiles[i]);
-    max_ctp_cols = MAX2(max_ctp_cols, ncols);
-    sum_cols += ncols;
-    ctp_max_path_kmers = MAX2(ctp_max_path_kmers, pfiles[i].hdr.num_kmers_with_paths);
+    size_t nkmers = gpath_reader_get_num_kmers(&pfiles[i]);
+    size_t ncols = file_filter_usedcols(&pfiles[i].fltr);
+
+    ctp_max_cols = MAX2(ctp_max_cols, ncols);
+    ctp_sum_cols += ncols;
+    ctp_max_kmers = MAX2(ctp_max_kmers, nkmers);
+    ctp_sum_kmers += nkmers;
 
     file_filter_status(&pfiles[i].fltr);
   }
 
   if(flatten) total_cols = 1;
-  else if(overlap) total_cols = max_ctp_cols;
+  else if(overlap) total_cols = ctp_max_cols;
   else {
     total_cols = 0;
     for(i = 0; i < num_pfiles; i++) {
       size_t offset = total_cols;
-      total_cols += path_file_usedcols(&pfiles[i]);
+      total_cols += file_filter_usedcols(&pfiles[i].fltr);
       file_filter_update_intocol(&pfiles[i].fltr, pfiles[i].fltr.intocol+offset);
     }
   }
@@ -151,40 +150,40 @@ int ctx_pjoin(int argc, char **argv)
   }
 
   // Open graph file to get number of kmers is passed
-  uint64_t num_kmers = ctp_max_path_kmers;
   GraphFileReader gfile = INIT_GRAPH_READER;
 
   if(memargs.num_kmers_set) {
-    num_kmers = MAX2(num_kmers, memargs.num_kmers);
+    ctp_max_kmers = MAX2(ctp_max_kmers, memargs.num_kmers);
   }
 
   if(graph_file != NULL) {
     graph_file_open(&gfile, graph_file, true);
-    if(gfile.hdr.kmer_size != pfiles[0].hdr.kmer_size) {
-      warn("Kmer-sizes don't match graph: %u paths: %u [graph: %s path: %s]",
-           gfile.hdr.kmer_size, pfiles[0].hdr.kmer_size,
-           gfile.fltr.file_path.buff, pfiles[0].fltr.file_path.buff);
-    }
-    num_kmers = MAX2(num_kmers, gfile.num_of_kmers);
+    ctp_sum_kmers = MIN2(ctp_sum_kmers, gfile.num_of_kmers);
   }
 
-  if(memargs.num_kmers_set && memargs.num_kmers < num_kmers) {
+  // Check for compatibility between graph files and path files
+  graphs_gpaths_compatible(&gfile, graph_file ? 1 : 0, pfiles, num_pfiles);
+
+  // Done with the graph file now
+  if(graph_file != NULL)
+    graph_file_close(&gfile);
+
+  if(memargs.num_kmers_set && memargs.num_kmers > ctp_sum_kmers) {
     char num_kmers_str[100], args_num_kmers_str[100];
-    ulong_to_str(num_kmers, num_kmers_str);
+    ulong_to_str(ctp_sum_kmers, num_kmers_str);
     ulong_to_str(memargs.num_kmers, args_num_kmers_str);
     warn("Using %s kmers instead of (-n) %s", num_kmers_str, args_num_kmers_str);
   }
 
-  // if(num_kmers < ctp_max_path_kmers) {
+  // if(num_kmers < ctp_max_kmers) {
   //   cmd_print_usage("Please set a larger -n <kmers> (needs to be > %zu)",
-  //               ctp_max_path_kmers);
+  //               ctp_max_kmers);
   // }
 
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t path_mem_req, path_mem, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // Each kmer stores a pointer to its list of paths
   bits_per_kmer = sizeof(uint64_t)*8;
@@ -193,75 +192,70 @@ int ctx_pjoin(int argc, char **argv)
                                          memargs.num_kmers,
                                          memargs.num_kmers_set,
                                          bits_per_kmer,
-                                         num_kmers, num_kmers,
+                                         ctp_max_kmers, ctp_sum_kmers,
                                          false, &graph_mem);
 
-  // Path Memory
-  path_mem_req = path_files_mem_required(pfiles, num_pfiles, false, false,
-                                         max_ctp_cols, 0);
-  path_mem = MAX2(memargs.mem_to_use - graph_mem, path_mem_req);
+  // Paths memory
+  size_t min_path_mem = 0, max_path_mem = 0;
+  gpath_reader_max_mem_req(pfiles, num_pfiles,
+                           output_ncols, kmers_in_hash,
+                           true, false, false,
+                           &min_path_mem, &max_path_mem);
+
+  // Maximise path memory
+  path_mem = min_path_mem;
+  if(graph_mem + path_mem < memargs.mem_to_use)
+    path_mem = memargs.mem_to_use - graph_mem;
+
+  // Don't request more than needed
+  path_mem = MIN2(path_mem, max_path_mem);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;
 
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
+  // Open output file
+  gzFile gzout = futil_gzopen_output(out_ctp_path);
+
   // Set up graph and PathStore
+  size_t kmer_size = gpath_reader_get_kmer_size(&pfiles[0]);
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, pfiles[0].hdr.kmer_size, output_ncols, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, output_ncols, 0, kmers_in_hash);
+
+  // Create a path store that tracks path counts
+  gpath_store_alloc(&db_graph.gpstore,
+                    db_graph.num_of_cols, db_graph.ht.capacity,
+                    path_mem, true, false);
 
   for(i = 0; i < num_pfiles; i++)
-    path_file_set_graph_sample_names(&pfiles[i], &db_graph);
-
-  path_store_alloc(&db_graph.pstore, path_mem, false,
-                   db_graph.ht.capacity, output_ncols);
-
-  // Open output file
-  FILE *fout = fopen(out_ctp_path, "w");
-  if(fout == NULL) die("Cannot open output file: %s", out_ctp_path);
-
-  //
-  // Set up file header
-  //
-  PathFileHeader pheader = INIT_PATH_FILE_HDR;
-  pheader.version = CTX_PATH_FILEFORMAT;
-  pheader.kmer_size = pfiles[0].hdr.kmer_size;
-  pheader.num_of_cols = (uint32_t)output_ncols;
-
-  paths_header_alloc(&pheader, output_ncols);
-
-  status("Got %zu path bytes", (size_t)db_graph.pstore.num_of_bytes);
+    gpath_reader_load_sample_names(&pfiles[i], &db_graph);
 
   // Load path files
-  bool add_kmers = true;
-  paths_format_merge(pfiles, num_pfiles, add_kmers,
-                     noredundant, num_of_threads, &db_graph);
-
   for(i = 0; i < num_pfiles; i++)
-    path_file_set_header_sample_names(&pfiles[i], &pheader);
+    gpath_reader_load(&pfiles[i], false, &db_graph);
 
-  status("Got %zu path bytes", (size_t)db_graph.pstore.num_of_bytes);
+  status("Got %zu path bytes", (size_t)db_graph.gpstore.path_bytes);
 
-  // Dump paths file
-  setvbuf(fout, NULL, _IOFBF, CTP_BUF_SIZE);
-  paths_header_update(&pheader, &db_graph.pstore);
-  paths_format_write_header(&pheader, fout);
-  paths_format_write_optimised_paths(&db_graph, fout);
-  fclose(fout);
+  cJSON *hdrs[num_pfiles];
+  for(i = 0; i < num_pfiles; i++) hdrs[i] = pfiles[i].json;
+
+  // Write output file
+  gpath_save(gzout, out_ctp_path, hdrs, num_pfiles, &db_graph);
+  gzclose(gzout);
+
+  // Close ctp files
+  // Don't close until now since we were using their headers in the output file
+  for(i = 0; i < num_pfiles; i++) gpath_reader_close(&pfiles[i]);
+  ctx_free(pfiles);
 
   char pnum_str[100], pbytes_str[100], pkmers_str[100];
-  ulong_to_str(pheader.num_of_paths, pnum_str);
-  bytes_to_str(pheader.num_path_bytes, 1, pbytes_str);
-  ulong_to_str(pheader.num_kmers_with_paths, pkmers_str);
+  ulong_to_str(db_graph.gpstore.num_paths, pnum_str);
+  bytes_to_str(db_graph.gpstore.path_bytes, 1, pbytes_str);
+  ulong_to_str(db_graph.gpstore.num_kmers_with_paths, pkmers_str);
 
   status("Paths written to: %s\n", out_ctp_path);
   status("  %s paths, %s path-bytes, %s kmers", pnum_str, pbytes_str, pkmers_str);
-
-  paths_header_dealloc(&pheader);
-  graph_file_close(&gfile);
-
-  for(i = 0; i < num_pfiles; i++) path_file_close(&pfiles[i]);
-  ctx_free(pfiles);
 
   db_graph_dealloc(&db_graph);
 

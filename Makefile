@@ -174,6 +174,12 @@ GRAPH_PATHS_HDRS=$(wildcard src/graph_paths/*.h)
 GRAPH_PATHS_FILES=$(notdir $(GRAPH_PATHS_SRCS))
 GRAPH_PATHS_OBJS=$(addprefix $(GRAPH_PATHS_OBJDIR)/, $(GRAPH_PATHS_FILES:.c=.o))
 
+DB_ALN_OBJDIR=build/alignment$(MAXK)
+DB_ALN_SRCS=$(wildcard src/alignment/*.c)
+DB_ALN_HDRS=$(wildcard src/alignment/*.h)
+DB_ALN_FILES=$(notdir $(DB_ALN_SRCS))
+DB_ALN_OBJS=$(addprefix $(DB_ALN_OBJDIR)/, $(DB_ALN_FILES:.c=.o))
+
 TOOLS_OBJDIR=build/tools$(MAXK)
 TOOLS_SRCS=$(wildcard src/tools/*.c)
 TOOLS_HDRS=$(wildcard src/tools/*.h)
@@ -192,10 +198,12 @@ TESTS_HDRS=$(wildcard src/tests/*.h)
 TESTS_FILES=$(notdir $(TESTS_SRCS))
 TESTS_OBJS=$(addprefix $(TESTS_OBJDIR)/, $(TESTS_FILES:.c=.o))
 
-HDRS=$(CMDS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS)
+HDRS=$(GLOBAL_HDRS) $(BASIC_HDRS) $(PATHS_HDRS) $(GRAPH_HDRS) $(GRAPH_PATHS_HDRS) \
+     $(DB_ALN_HDRS) $(TOOLS_HDRS) $(CMDS_HDRS)
 
 DIRS=bin $(GLOBAL_OBJDIR) $(BASIC_OBJDIR) $(PATHS_OBJDIR) $(GRAPH_OBJDIR) \
-         $(GRAPH_PATHS_OBJDIR) $(TOOLS_OBJDIR) $(CMDS_OBJDIR) $(TESTS_OBJDIR)
+     $(GRAPH_PATHS_OBJDIR) $(DB_ALN_OBJDIR) $(TOOLS_OBJDIR) $(CMDS_OBJDIR) \
+     $(TESTS_OBJDIR)
 
 # DEPS dependencies that do not need to be re-built per target
 DEPS=Makefile $(DIRS) $(LIB_OBJS)
@@ -203,11 +211,11 @@ REQ=
 
 # RECOMPILE=1 to recompile all from source
 ifdef RECOMPILE
-	OBJS=$(CMDS_SRCS) $(TOOLS_SRCS) $(GRAPH_PATHS_SRCS) $(GRAPH_SRCS) $(PATHS_SRCS) $(BASIC_SRCS) $(GLOBAL_SRCS) $(LIB_OBJS)
+	OBJS=$(CMDS_SRCS) $(TOOLS_SRCS) $(DB_ALN_SRCS) $(GRAPH_PATHS_SRCS) $(GRAPH_SRCS) $(PATHS_SRCS) $(BASIC_SRCS) $(GLOBAL_SRCS) $(LIB_OBJS)
 	TESTS_OBJS=$(TESTS_SRCS)
 	REQ=force
 else
-	OBJS=$(CMDS_OBJS) $(TOOLS_OBJS) $(GRAPH_PATHS_OBJS) $(GRAPH_OBJS) $(PATHS_OBJS) $(BASIC_OBJS) $(GLOBAL_OBJS) $(LIB_OBJS)
+	OBJS=$(CMDS_OBJS) $(TOOLS_OBJS) $(DB_ALN_OBJS) $(GRAPH_PATHS_OBJS) $(GRAPH_OBJS) $(PATHS_OBJS) $(BASIC_OBJS) $(GLOBAL_OBJS) $(LIB_OBJS)
 endif
 
 .DEFAULT_GOAL := ctx
@@ -244,17 +252,20 @@ $(PATHS_OBJDIR)/%.o: src/paths/%.c $(PATHS_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | 
 $(GRAPH_OBJDIR)/%.o: src/graph/%.c $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
 
-$(GRAPH_PATHS_OBJDIR)/%.o: src/graph_paths/%.c $(GRAPH_PATHS_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
+$(GRAPH_PATHS_OBJDIR)/%.o: src/graph_paths/%.c $(GRAPH_PATHS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
 
+$(DB_ALN_OBJDIR)/%.o: src/alignment/%.c $(DB_ALN_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/alignment/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
+
 $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
 
 $(CMDS_OBJDIR)/%.o: src/commands/%.c $(CMDS_HDRS) $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
 
 $(TESTS_OBJDIR)/%.o: src/tests/%.c $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
-	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
+	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) -c $<
 
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
@@ -265,15 +276,15 @@ libs/cJSON/cJSON.o: libs/cJSON/cJSON.c libs/cJSON/cJSON.h
 
 ctx: bin/ctx$(MAXK)
 bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
-bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
+bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(TESTS_HDRS) $(HDRS) $(REQ) | bin
+	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 hashtest: bin/hashtest$(MAXK)
 bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 tables: bin/tables
 bin/tables: src/main/tables.c | bin
@@ -281,7 +292,7 @@ bin/tables: src/main/tables.c | bin
 
 debug: bin/debug$(MAXK)
 bin/debug$(MAXK): src/main/debug.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/debug.c $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ $(INCS) src/main/debug.c $(OBJS) $(LINK)
 
 # directories
 $(DIRS):

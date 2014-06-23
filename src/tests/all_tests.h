@@ -117,20 +117,17 @@ void test_cleaning();
 // subgraph_tests.c
 void test_subgraph();
 
-// packed_path_tests.c
-// void test_packed_path();
-
 // path_tests.c
 void test_paths();
+
+// path_set_tests.c
+// void test_path_sets();
 
 // corrected_aln_tests.c
 void test_corrected_aln();
 
 // repeat_walker_tests.c
 void test_repeat_walker();
-
-// path_set_tests.c
-void test_path_sets();
 
 // bubble_caller_tests.c
 void test_bubble_caller();

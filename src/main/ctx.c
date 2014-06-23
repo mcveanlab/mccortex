@@ -70,13 +70,7 @@ CtxCmd cmdobjs[] = {
   .usage = reads_usage
 },
 {
-  .cmd = "extend", .func = ctx_extend, .hide = 1,
-  .minargs = 4, .maxargs = 4, .optargs = "mn", .reqargs = "",
-  .blurb = "extend contigs using a graph",
-  .usage = extend_usage
-},
-{
-  .cmd = "contigs", .func = ctx_contigs, .hide = 0,
+  .cmd = "contigs", .func = NULL, .func2 = ctx_contigs, .hide = 0,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "mnpo", .reqargs = "",
   .blurb = "pull out contigs for a sample",
   .usage = contigs_usage
@@ -100,12 +94,6 @@ CtxCmd cmdobjs[] = {
   .usage = correct_usage
 },
 {
-  .cmd = "pview", .func = NULL, .func2 = ctx_pview, .hide = 0,
-  .minargs = 1, .maxargs = 3, .optargs = "mn", .reqargs = "",
-  .blurb = "view read threading information",
-  .usage = pview_usage
-},
-{
   .cmd = "pjoin", .func = NULL, .func2 = ctx_pjoin, .hide = false,
   .minargs = 1, .maxargs = INT_MAX, .optargs = "mnot", .reqargs = "o",
   .blurb = "merge path files (.ctp)",
@@ -118,6 +106,12 @@ CtxCmd cmdobjs[] = {
   .usage = bubbles_usage
 },
 {
+  .cmd = "breakpoints", .func = NULL, .func2 = ctx_breakpoints, .hide = 0,
+  .minargs = 1, .maxargs = INT_MAX, .optargs = "opmnt", .reqargs = "o",
+  .blurb = "use a trusted assembled genome to call large events",
+  .usage = breakpoints_usage
+},
+{
   .cmd = "unique", .func = ctx_unique, .hide = true,
   .minargs = 2, .maxargs = 2, .optargs = "", .reqargs = "",
   .blurb = "remove duplicated bubbles, produce VCF",
@@ -128,12 +122,6 @@ CtxCmd cmdobjs[] = {
   .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
   .blurb = "place variants against a reference",
   .usage = place_usage
-},
-{
-  .cmd = "breakpoints", .func = NULL, .func2 = ctx_breakpoints, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "opmnt", .reqargs = "o",
-  .blurb = "use a trusted assembled genome to call large events",
-  .usage = breakpoints_usage
 },
 {
   .cmd = "coverage", .func = NULL, .func2 = ctx_coverage, .hide = 0,

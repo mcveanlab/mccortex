@@ -23,11 +23,11 @@ void seed_random()
 
 void cortex_init()
 {
-  // Cannot use die/warn/message/timestamp until we have completed setup
-  ctx_output_init();
   // Now safe to use die/warn/message/timestamp methods
   // since mutex and cmdcode have been set
   seed_random();
+  // Cannot use die/warn/message/timestamp until we have completed setup
+  ctx_output_init();
 }
 
 void cortex_destroy()

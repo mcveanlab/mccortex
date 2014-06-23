@@ -477,7 +477,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
   // Do all the oldest paths pick a consistent next node?
   GPathFollow *path, *oldest_path = &wlk->paths.data[0];
-  PathLen greatest_age;
+  size_t greatest_age;
   Nucleotide greatest_nuc;
 
   greatest_age = oldest_path->pos;

@@ -28,11 +28,10 @@ int main(int argc, char **argv)
     test_supernode();
     test_subgraph();
     test_cleaning();
-    // test_packed_path();
     test_paths();
+    // test_path_sets(); // DEV: replace with test_path_subset()
     test_corrected_aln();
     test_repeat_walker();
-    test_path_sets();
     test_graph_crawler();
     test_bubble_caller();
     test_kmer_occur();

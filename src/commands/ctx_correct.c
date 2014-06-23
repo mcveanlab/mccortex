@@ -4,8 +4,8 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_format.h"
-#include "path_format.h"
-#include "graph_paths.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
 #include "correct_reads.h"
 #include "read_thread_cmd.h"
 
@@ -87,7 +87,7 @@ int ctx_correct(int argc, char **argv)
   read_thread_args_parse(&args, argc, argv, longopts, true);
 
   GraphFileReader *gfile = &args.gfile;
-  PathFileBuffer *pfiles = &args.pfiles;
+  GPathFileBuffer *gpfiles = &args.gpfiles;
   CorrectAlnInputBuffer *inputs = &args.inputs;
   size_t ctx_total_cols = gfile->hdr.num_of_cols;
   size_t ctx_num_kmers = gfile->num_of_kmers;
@@ -96,13 +96,16 @@ int ctx_correct(int argc, char **argv)
     cmd_print_usage("-c %zu is too big [> %zu]", args.colour, ctx_total_cols);
 
   size_t ctp_usedcols = 0;
-  for(i = 0; i < pfiles->len; i++) {
-    if(!file_filter_iscolloaded(&pfiles->data[i].fltr, args.colour)) {
+  for(i = 0; i < gpfiles->len; i++) {
+    if(!file_filter_iscolloaded(&gpfiles->data[i].fltr, args.colour)) {
       cmd_print_usage("Path file doesn't load into colour %zu: %s",
-                      args.colour, pfiles->data[i].fltr.orig_path.buff);
+                      args.colour, gpfiles->data[i].fltr.orig_path.buff);
     }
-    ctp_usedcols = MAX2(ctp_usedcols, path_file_usedcols(&pfiles->data[i]));
+    ctp_usedcols = MAX2(ctp_usedcols, file_filter_usedcols(&gpfiles->data[i].fltr));
   }
+
+  // Check for compatibility between graph files and path files
+  graphs_gpaths_compatible(gfile, 1, gpfiles->data, gpfiles->len);
 
   //
   // Decide on memory
@@ -120,8 +123,19 @@ int ctx_correct(int argc, char **argv)
                                          false, &graph_mem);
 
   // Paths memory
-  path_mem = path_files_mem_required(pfiles->data, pfiles->len, false, false,
-                                     ctp_usedcols, 0);
+  size_t min_path_mem = 0, max_path_mem = 0;
+  gpath_reader_max_mem_req(gpfiles->data, gpfiles->len,
+                           ctx_total_cols, kmers_in_hash,
+                           false, false, false,
+                           &min_path_mem, &max_path_mem);
+
+  // Maximise path memory
+  path_mem = min_path_mem;
+  if(graph_mem + path_mem < args.memargs.mem_to_use)
+    path_mem = args.memargs.mem_to_use - graph_mem;
+
+  // Don't request more than needed
+  path_mem = MIN2(path_mem, max_path_mem);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory
@@ -172,9 +186,10 @@ int ctx_correct(int argc, char **argv)
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
   db_graph.node_in_cols = ctx_calloc(bytes_per_col * ctx_total_cols, 1);
 
-  // Paths
-  path_store_alloc(&db_graph.pstore, path_mem, false,
-                   db_graph.ht.capacity, ctp_usedcols);
+  // Create a path store that does not tracks path counts
+  gpath_store_alloc(&db_graph.gpstore,
+                    db_graph.num_of_cols, db_graph.ht.capacity,
+                    path_mem, false, false);
 
   //
   // Load Graph and Path files
@@ -191,9 +206,11 @@ int ctx_correct(int argc, char **argv)
   hash_table_print_stats_brief(&db_graph.ht);
   graph_file_close(gfile);
 
-  // Load path files (does nothing if num_fpiles == 0)
-  paths_format_merge(pfiles->data, pfiles->len, false, false,
-                     args.num_of_threads, &db_graph);
+  // Load path files
+  for(i = 0; i < gpfiles->len; i++) {
+    gpath_reader_load(&gpfiles->data[i], true, &db_graph);
+    gpath_reader_close(&gpfiles->data[i]);
+  }
 
   //
   // Run alignment
@@ -207,7 +224,6 @@ int ctx_correct(int argc, char **argv)
   ctx_free(outputs);
 
   read_thread_args_dealloc(&args);
-
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

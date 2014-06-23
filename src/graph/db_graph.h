@@ -8,8 +8,6 @@
 #include "cortex_types.h"
 #include "hash_table.h"
 #include "graph_info.h"
-#include "path_store.h"
-
 #include "gpath_store.h"
 #include "gpath_hash.h"
 
@@ -47,9 +45,6 @@ typedef struct
   // [hkey/64][col] >> hkey%64
   // [num_of_colours*hkey/64+col] >> hkey%64
   uint8_t *node_in_cols;
-
-  // path data
-  PathStore pstore;
 
   // New path data
   GPathStore gpstore;
@@ -133,8 +128,6 @@ void db_graph_wipe_colour(dBGraph *db_graph, Colour col);
 
 // Add edges between all kmers with k-1 bases overlapping
 void db_graph_add_all_edges(dBGraph *db_graph);
-
-void db_graph_dump_paths_by_kmer(const dBGraph *db_graph);
 
 // Get a random node from the graph
 // call seed_random() before any calls to this function please

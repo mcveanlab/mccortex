@@ -36,7 +36,7 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   ctx_assert2(kmer_size <= MAX_KMER_SIZE, "kmer size: %zu", kmer_size);
 
   hash_table_alloc(&tmp.ht, capacity);
-  memset(&tmp.pstore, 0, sizeof(PathStore));
+  memset(&tmp.gpstore, 0, sizeof(GPathStore));
 
   tmp.ginfo = ctx_calloc(num_of_cols, sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
@@ -65,7 +65,6 @@ void db_graph_dealloc(dBGraph *db_graph)
 
   gpath_hash_dealloc(&db_graph->gphash);
   gpath_store_dealloc(&db_graph->gpstore);
-  path_store_dealloc(&db_graph->pstore);
 
   memset(db_graph, 0, sizeof(dBGraph));
 }
@@ -290,7 +289,7 @@ void db_graph_reset(dBGraph *db_graph)
   if(db_graph->readstrt != NULL)
     memset(db_graph->readstrt, 0, 2 * roundup_bits2bytes(capacity) * ncols);
 
-  path_store_reset(&db_graph->pstore, capacity);
+  gpath_store_reset(&db_graph->gpstore);
 }
 
 // BEWARE: if num_edge_cols == 1, edges in all colours will be effectively wiped
@@ -381,46 +380,6 @@ void db_graph_add_all_edges(dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   HASH_ITERATE(&db_graph->ht, add_all_edges, db_graph);
-}
-
-//
-// Kmer paths
-//
-
-void db_graph_dump_paths_by_kmer(const dBGraph *db_graph)
-{
-  const PathStore *pstore = &db_graph->pstore;
-  size_t kmer_size = db_graph->kmer_size;
-  char str[MAX_KMER_SIZE+1];
-  hkey_t hkey;
-  PathIndex pindex;
-  PathLen plen;
-  Orientation orient, porient;
-  bool first;
-  const uint8_t *path;
-
-  printf("\n-------- paths --------\n");
-
-  for(hkey = 0; hkey < db_graph->ht.capacity; hkey++) {
-    if(db_graph_node_assigned(db_graph, hkey)) {
-      binary_kmer_to_str(db_node_get_bkmer(db_graph, hkey), kmer_size, str);
-      for(orient = 0; orient < 2; orient++) {
-        pindex = pstore_get_pindex(pstore, hkey);
-        first = true;
-        while(pindex != PATH_NULL) {
-          path = pstore->store+pindex;
-          packedpath_get_len_orient(path, pstore->colset_bytes, &plen, &porient);
-          if(porient == orient) {
-            if(first) { printf("%s:%i\n", str, orient); first = false; }
-            path_store_print_path(pstore, pindex);
-          }
-          pindex = packedpath_get_prev(pstore->store+pindex);
-        }
-      }
-    }
-  }
-
-  printf("-----------------------\n\n");
 }
 
 // call seed_random() before any calls to this function please

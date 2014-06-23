@@ -87,7 +87,7 @@ static void test_correct_aln_no_paths()
   // Construct graph and paths
   _construct_graph_with_paths(&graph, kmer_size, ncols, gseqs, 1, params);
 
-  TASSERT(graph.pstore.num_of_paths == 0);
+  TASSERT(graph.gpstore.num_paths == 0);
 
   db_alignment_alloc(&aln);
   correct_aln_worker_alloc(&corrector, &graph);
@@ -166,9 +166,8 @@ static void test_contig_ends_agree()
            "%zu vs %zu", (size_t)graph.ht.num_kmers, expnkmers);
 
   // Check number of paths
-  TASSERT(graph.pstore.num_of_paths == 8);
-  TASSERT(graph.pstore.num_kmers_with_paths == 8);
-  TASSERT(graph.pstore.num_col_paths == 8);
+  TASSERT(graph.gpstore.num_paths == 8);
+  TASSERT(graph.gpstore.num_kmers_with_paths == 8);
 
   size_t t;
 

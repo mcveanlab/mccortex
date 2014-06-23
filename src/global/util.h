@@ -30,10 +30,10 @@ bool parse_entire_size(const char *str, size_t *result);
 const uint8_t rev_nibble_table[16];
 #define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16), rev_nibble_table[(unsigned)(x)]; })
 
-extern const uint8_t byte_popcount_table[16];
+extern const uint8_t nibble_popcount_table[16];
 
-#define byte_popcount(x) (byte_popcount_table[((x) >> 4) & 0xf] + \
-                          byte_popcount_table[(x) & 0xf])
+#define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
+                          nibble_popcount_table[(x) & 0xf])
 
 //
 // Numbers to string

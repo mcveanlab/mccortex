@@ -6,7 +6,6 @@
 #include "file_util.h"
 #include "cmd.h"
 #include "seq_reader.h"
-#include "path_store.h"
 #include "supernode.h"
 #include "binary_seq.h"
 #include "graph_crawler.h"

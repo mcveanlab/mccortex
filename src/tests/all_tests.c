@@ -1,7 +1,6 @@
 #include "global.h"
 #include "all_tests.h"
 #include "db_graph.h"
-// #include "graph_paths.h"
 #include "dna.h"
 
 // Common functions here
@@ -73,8 +72,11 @@ void _construct_graph_with_paths(dBGraph *graph,
   graph->node_in_cols = ctx_calloc(roundup_bits2bytes(graph->ht.capacity) * ncols, 1);
 
   // Path data
-  path_store_alloc(&graph->pstore, 1024, true, graph->ht.capacity, ncols);
-  graph->pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(graph->ht.capacity), 1);
+  gpath_store_alloc(&graph->gpstore, ncols, graph->ht.capacity,
+                    ONE_MEGABYTE, true, false);
+
+  // Allocate path hash table just in case
+  gpath_hash_alloc(&graph->gphash, &graph->gpstore, ONE_MEGABYTE);
 
   // Build graph
   for(i = 0; i < nseqs; i++)

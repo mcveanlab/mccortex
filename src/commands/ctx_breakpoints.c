@@ -4,13 +4,12 @@
 #include "util.h"
 #include "db_graph.h"
 #include "graph_file_reader.h"
-#include "path_file_reader.h"
-#include "graph_paths.h"
-#include "path_format.h"
-#include "path_store.h"
+#include "graph_format.h"
 #include "breakpoint_caller.h"
 #include "kmer_occur.h"
 #include "seq_reader.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
 
 /*
  Output format:
@@ -74,16 +73,17 @@ int ctx_breakpoints(int argc, char **argv)
   const char *output_file = NULL;
   size_t min_ref_flank = DEFAULT_MIN_REF_NKMERS;
   size_t max_ref_flank = DEFAULT_MAX_REF_NKMERS;
-  PathFileBuffer pfilebuf;
-  SeqFilePtrBuffer sfilebuf;
 
-  pfile_buf_alloc(&pfilebuf, 16);
+  GPathReader tmp_gpfile;
+  GPathFileBuffer gpfiles;
+  gpfile_buf_alloc(&gpfiles, 8);
+
+  seq_file_t *tmp_sfile;
+  SeqFilePtrBuffer sfilebuf;
   seq_file_ptr_buf_alloc(&sfilebuf, 16);
 
   // tmp args
   size_t i;
-  seq_file_t *tmp_sfile;
-  PathFileReader tmp_pfile;
   size_t set_min_flank = 0, set_max_flank = 0;
 
   // Arg parsing
@@ -100,9 +100,9 @@ int ctx_breakpoints(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
-        tmp_pfile = INIT_PATH_READER;
-        path_file_open(&tmp_pfile, optarg, true);
-        pfile_buf_add(&pfilebuf, tmp_pfile);
+        memset(&tmp_gpfile, 0, sizeof(GPathReader));
+        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 'r':
         min_ref_flank = cmd_parse_arg_uint32_nonzero(cmd, optarg);
@@ -151,18 +151,8 @@ int ctx_breakpoints(int argc, char **argv)
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
 
-  //
-  // Get number of colours in path files
-  //
-  size_t path_max_usedcols = 0;
-
-  for(i = 0; i < pfilebuf.len; i++) {
-    path_max_usedcols = MAX2(path_max_usedcols,
-                             path_file_usedcols(&pfilebuf.data[i]));
-  }
-
   // Check graph + paths are compatible
-  graphs_paths_compatible(gfiles, num_gfiles, pfilebuf.data, pfilebuf.len);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len);
 
   //
   // Get file sizes of sequence files
@@ -192,14 +182,8 @@ int ctx_breakpoints(int argc, char **argv)
 
   // DEV: use threads in memory calculation
 
-  // DEV: pass path memory into cmd_get_kmers_in_hash
-  // Path memory
-  path_mem = path_files_mem_required(pfilebuf.data, pfilebuf.len, false, false,
-                                     path_max_usedcols, 0);
-  cmd_print_mem(path_mem, "paths");
-
   // kmer memory = Edges + paths + 1 bit per colour for in-colour
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 + ncols +
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(GPath*)*8 + ncols +
                   sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
                   8; // 1 byte per kmer for each base to load sequence files
 
@@ -211,14 +195,29 @@ int ctx_breakpoints(int argc, char **argv)
                                          max_req_kmers, sum_req_kmers,
                                          false, &graph_mem);
 
+  // Paths memory
+  size_t min_path_mem = 0, max_path_mem = 0;
+  gpath_reader_max_mem_req(gpfiles.data, gpfiles.len,
+                           ncols, kmers_in_hash,
+                           false, false, false,
+                           &min_path_mem, &max_path_mem);
+
+  // Maximise path memory
+  path_mem = min_path_mem;
+  if(graph_mem + path_mem < memargs.mem_to_use)
+    path_mem = memargs.mem_to_use - graph_mem;
+
+  // Don't request more than needed
+  path_mem = MIN2(path_mem, max_path_mem);
+  cmd_print_mem(path_mem, "paths");
+
   size_t total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   //
   // Open output file
   //
-  if(output_file == NULL) output_file = "-";
-  gzFile gzout = futil_gzopen_output(output_file);
+  gzFile gzout = futil_gzopen_output(output_file != NULL ? output_file : "-");
 
   //
   // Set up memory
@@ -237,8 +236,12 @@ int ctx_breakpoints(int argc, char **argv)
   db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
 
   // Paths
-  path_store_alloc(&db_graph.pstore, path_mem, false,
-                   db_graph.ht.capacity, path_max_usedcols);
+  if(gpfiles.len > 0) {
+    // Create a path store that does not tracks path counts
+    gpath_store_alloc(&db_graph.gpstore,
+                      db_graph.num_of_cols, db_graph.ht.capacity,
+                      path_mem, false, false);
+  }
 
   //
   // Load graphs
@@ -260,13 +263,12 @@ int ctx_breakpoints(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  //
-  // Load path files (does nothing if pfilebuf.len == 0)
-  paths_format_merge(pfilebuf.data, pfilebuf.len, false, false,
-                     num_of_threads, &db_graph);
-
-  for(i = 0; i < pfilebuf.len; i++) path_file_close(&pfilebuf.data[i]);
-  pfile_buf_dealloc(&pfilebuf);
+  // Load path files
+  for(i = 0; i < gpfiles.len; i++) {
+    gpath_reader_load(&gpfiles.data[i], true, &db_graph);
+    gpath_reader_close(&gpfiles.data[i]);
+  }
+  gpfile_buf_dealloc(&gpfiles);
 
   // Get array of sequence file paths
   size_t num_seq_paths = sfilebuf.len;

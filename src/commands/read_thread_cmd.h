@@ -6,8 +6,6 @@
 #include "gpath_reader.h"
 #include "correct_aln_input.h"
 
-#include "path_file_reader.h"
-
 //
 // ctx_thread.c and ctx_correct.c use many of the same command line arguments
 // Therefore this file provides the common functionality to both
@@ -24,7 +22,6 @@ struct ReadThreadCmdArgs
   size_t colour; // ctx_correct only
 
   GraphFileReader gfile;
-  PathFileBuffer pfiles;
   GPathFileBuffer gpfiles;
   CorrectAlnInputBuffer inputs;
 
@@ -43,7 +40,6 @@ struct ReadThreadCmdArgs
                                    .clean_threshold = 0,               \
                                    .colour = 0,                        \
                                    .gfile = INIT_GRAPH_READER_MACRO,   \
-                                   .pfiles = OBJBUF_INIT,              \
                                    .gpfiles = OBJBUF_INIT,             \
                                    .inputs = OBJBUF_INIT,              \
                                    .max_gap_limit = 0,                 \

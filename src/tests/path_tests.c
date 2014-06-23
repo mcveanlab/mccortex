@@ -2,7 +2,6 @@
 #include "all_tests.h"
 #include "db_graph.h"
 #include "build_graph.h"
-#include "path_store.h"
 #include "generate_paths.h"
 #include "gpath_checks.h"
 
@@ -12,7 +11,7 @@ void test_paths()
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
-  size_t kmer_size = 11, ncols = 1, path_max_mem = 1024;
+  size_t kmer_size = 11, ncols = 1;
 
   db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024);
   // Graph data
@@ -20,10 +19,6 @@ void test_paths()
   graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
   graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
   graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
-
-  // Path data
-  // path_store_alloc(&graph.pstore, path_max_mem, true, graph.ht.capacity, ncols);
-  // graph.pstore.kmer_locks = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
   // Create a path store that tracks path counts
   gpath_store_alloc(&graph.gpstore,
@@ -74,8 +69,6 @@ void test_paths()
   _test_add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2); // path lens: 3+3+2+2+2
   _test_add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2); // path lens: 1+1+1
   _test_add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1); // path lens: 1+1
-
-  path_store_combine_updated_paths(&graph.pstore);
 
   // DEV: Actually test path content, colours set etc
   // seq0 fw

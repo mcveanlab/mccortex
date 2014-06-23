@@ -1,17 +1,12 @@
 #include "global.h"
-
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
-#include "common_buffers.h"
-#include "db_node.h"
 #include "db_graph.h"
 #include "graph_format.h"
-#include "path_format.h"
-#include "graph_paths.h"
-#include "graph_walker.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
 #include "bubble_caller.h"
-#include "path_file_reader.h"
 
 // Long flanks help us map calls
 // increasing allele length can be costly
@@ -64,9 +59,9 @@ int ctx_bubbles(int argc, char **argv)
   SizeBuffer haploidbuf;
   size_buf_alloc(&haploidbuf, 8);
 
-  PathFileReader tmp_pfile;
-  PathFileBuffer pfilesbuf;
-  pfile_buf_alloc(&pfilesbuf, 8);
+  GPathReader tmp_gpfile;
+  GPathFileBuffer gpfiles;
+  gpfile_buf_alloc(&gpfiles, 8);
 
   // tmp
   size_t tmp_col;
@@ -90,9 +85,9 @@ int ctx_bubbles(int argc, char **argv)
         out_path = optarg;
         break;
       case 'p':
-        tmp_pfile = INIT_PATH_READER;
-        path_file_open(&tmp_pfile, optarg, true);
-        pfile_buf_add(&pfilesbuf, tmp_pfile);
+        memset(&tmp_gpfile, 0, sizeof(GPathReader));
+        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 't':
         if(num_of_threads) die("%s set twice", cmd);
@@ -141,18 +136,8 @@ int ctx_bubbles(int argc, char **argv)
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
 
-  //
-  // Open path files
-  //
-  size_t path_max_usedcols = 0;
-
-  for(i = 0; i < pfilesbuf.len; i++) {
-    path_max_usedcols = MAX2(path_max_usedcols,
-                             path_file_usedcols(&pfilesbuf.data[i]));
-  }
-
   // Check graph + paths are compatible
-  graphs_paths_compatible(gfiles, num_gfiles, pfilesbuf.data, pfilesbuf.len);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len);
 
   //
   // Check haploid colours are valid
@@ -173,7 +158,7 @@ int ctx_bubbles(int argc, char **argv)
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/thread)
 
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(PathIndex)*8 +
+  bits_per_kmer = sizeof(Edges)*8 + sizeof(GPath*)*8 +
                   ncols + 2*num_of_threads;
 
   kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
@@ -190,9 +175,20 @@ int ctx_bubbles(int argc, char **argv)
   status("[memory] (of which threads: %zu x %zu = %s)\n",
           num_of_threads, thread_mem, thread_mem_str);
 
-  // Path Memory
-  path_mem = path_files_mem_required(pfilesbuf.data, pfilesbuf.len,
-                                     false, false, path_max_usedcols, 0);
+  // Paths memory
+  size_t min_path_mem = 0, max_path_mem = 0;
+  gpath_reader_max_mem_req(gpfiles.data, gpfiles.len,
+                           ncols, kmers_in_hash,
+                           false, false, false,
+                           &min_path_mem, &max_path_mem);
+
+  // Maximise path memory
+  path_mem = min_path_mem;
+  if(graph_mem + thread_mem + path_mem < memargs.mem_to_use)
+    path_mem = memargs.mem_to_use - graph_mem - thread_mem;
+
+  // Don't request more than needed
+  path_mem = MIN2(path_mem, max_path_mem);
   cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + thread_mem + path_mem;
@@ -215,8 +211,12 @@ int ctx_bubbles(int argc, char **argv)
   db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
-  path_store_alloc(&db_graph.pstore, path_mem, false,
-                   db_graph.ht.capacity, path_max_usedcols);
+  if(gpfiles.len > 0) {
+    // Create a path store that does not tracks path counts
+    gpath_store_alloc(&db_graph.gpstore,
+                      db_graph.num_of_cols, db_graph.ht.capacity,
+                      path_mem, false, false);
+  }
 
   //
   // Load graphs
@@ -238,11 +238,12 @@ int ctx_bubbles(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files (does nothing if num_fpiles == 0)
-  paths_format_merge(pfilesbuf.data, pfilesbuf.len, false, false,
-                     num_of_threads, &db_graph);
-
-  for(i = 0; i < pfilesbuf.len; i++) path_file_close(&pfilesbuf.data[i]);
+  // Load path files
+  for(i = 0; i < gpfiles.len; i++) {
+    gpath_reader_load(&gpfiles.data[i], true, &db_graph);
+    gpath_reader_close(&gpfiles.data[i]);
+  }
+  gpfile_buf_dealloc(&gpfiles);
 
   // Now call variants
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
