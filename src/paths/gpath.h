@@ -29,7 +29,7 @@ __attribute__((packed));
 int gpath_cmp(const GPath *a, const GPath *b);
 
 static inline int gpath_cmp_void(const void *a, const void *b) {
-  return gpath_cmp(*(const GPath**)a, *(const GPath**)b);
+  return gpath_cmp(*((const GPath*const*)a), *((const GPath*const*)b));
 }
 
 // Get number of bits set

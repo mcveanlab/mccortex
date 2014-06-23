@@ -38,26 +38,30 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 /* word index */
 #define ksetw(arr,ncols,hkey,col) (((hkey)/(sizeof(*arr)*8))*(ncols)+(col))
 
-static inline bool db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col) {
+static inline bool db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col)
+{
   return bitset2_get(graph->node_in_cols,
                      ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
                      kseto(graph->node_in_cols,hkey));
 }
 
-static inline void db_node_set_col(const dBGraph *graph, hkey_t hkey, size_t col) {
+static inline void db_node_set_col(const dBGraph *graph, hkey_t hkey, size_t col)
+{
   bitset2_set(graph->node_in_cols,
               ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
               kseto(graph->node_in_cols,hkey));
 }
 
-static inline void db_node_del_col_mt(const dBGraph *graph, hkey_t hkey, size_t col) {
-  bitset2_del_mt(graph->node_in_cols,
-                 ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
-                 kseto(graph->node_in_cols,hkey));
+static inline void db_node_del_col_mt(const dBGraph *graph, hkey_t hkey, size_t col)
+{
+  (void)bitset2_del_mt(graph->node_in_cols,
+                       ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
+                       kseto(graph->node_in_cols,hkey));
 }
 
 static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,
-                                   size_t col, uint8_t bit) {
+                                   size_t col, uint8_t bit)
+{
   bitset2_cpy(graph->node_in_cols,
               ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
               kseto(graph->node_in_cols,hkey),bit);
@@ -65,10 +69,11 @@ static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,
 
 // Threadsafe
 static inline void db_node_set_col_mt(const dBGraph *graph,
-                                      hkey_t hkey, size_t col) {
-  bitset2_set_mt(graph->node_in_cols,
-                 ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
-                 kseto(graph->node_in_cols,hkey));
+                                      hkey_t hkey, size_t col)
+{
+  (void)bitset2_set_mt(graph->node_in_cols,
+                       ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
+                       kseto(graph->node_in_cols,hkey));
 }
 
 
