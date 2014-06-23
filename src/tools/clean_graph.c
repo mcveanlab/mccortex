@@ -257,7 +257,7 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, nbuf.len);
   else {
     for(i = 0; i < nbuf.len; i ++)
-      bitset_set_mt(cl->keep_flags, nbuf.data[i].key);
+      (void)bitset_set_mt(cl->keep_flags, nbuf.data[i].key);
 
     // Add to histograms
     covg = MIN2(covg, cl->covg_arrlen-1);

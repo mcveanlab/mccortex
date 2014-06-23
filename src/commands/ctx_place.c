@@ -419,7 +419,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
 }
 
 static void parse_header(gzFile gzvcf, StrBuf *line,
-                         const char *const* refpaths, size_t num_ref_paths,
+                         char **refpaths, size_t num_ref_paths,
                          FILE *fout)
 {
   sample_indx = kh_init(samplehash);
@@ -597,7 +597,7 @@ int ctx_place(CmdArgs *args)
   char *vcf_path = argv[argi++];
   char *sam_path = argv[argi++];
 
-  const char **ref_paths = (const char**)argv + argi;
+  char **ref_paths = argv + argi;
   size_t num_ref_paths = (size_t)(argc - argi);
 
   gzFile vcf = gzopen(vcf_path, "r");

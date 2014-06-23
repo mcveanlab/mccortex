@@ -190,7 +190,7 @@ static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
     {
       // Mark remaining nodes as visited
       for(i = 0; i < nbuf->len; i++)
-        bitset_set_mt(visited, nbuf->data[i].key);
+        (void)bitset_set_mt(visited, nbuf->data[i].key);
 
       func(*nbuf, threadid, arg);
     }

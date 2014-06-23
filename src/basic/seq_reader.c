@@ -460,7 +460,7 @@ void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 
 // Create chrom->read genome hash
 // `chroms` and `genome` must already be allocated
-void seq_reader_load_ref_genome(const char **paths, size_t num_files,
+void seq_reader_load_ref_genome(char **paths, size_t num_files,
                                 ReadBuffer *chroms, khash_t(ChromHash) *genome)
 {
   size_t i;

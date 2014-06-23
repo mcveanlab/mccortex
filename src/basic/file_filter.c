@@ -84,7 +84,7 @@ bool file_filter_open(FileFilter *fltr, char *path, const char *mode,
 void file_filter_close(FileFilter *fltr)
 {
   if(fltr->fh != NULL) { fclose(fltr->fh); }
-  if(fltr->gz != NULL) { gzclose(fltr->fh); }
+  if(fltr->gz != NULL) { gzclose(fltr->gz); }
   ctx_free(fltr->cols);
   strbuf_dealloc(&fltr->orig_path);
   strbuf_dealloc(&fltr->file_path);

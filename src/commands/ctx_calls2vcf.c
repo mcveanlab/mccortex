@@ -64,7 +64,7 @@ static size_t max_path_diff = SIZE_MAX;
 // Alignment parameters
 static int nwmatch = 1, nwmismatch = -2, nwgapopen = -4, nwgapextend = -1;
 // ref paths
-static const char **ref_paths;
+static char **ref_paths;
 static size_t num_ref_paths = 0;
 // flank file
 const char *sam_path = NULL;
@@ -156,7 +156,7 @@ static void parse_cmdline_args(int argc, char **argv)
 
   input_path = argv[optind];
   optind++;
-  ref_paths = (const char**)argv + optind;
+  ref_paths = argv + optind;
   num_ref_paths = argc - optind;
 }
 

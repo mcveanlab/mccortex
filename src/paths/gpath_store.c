@@ -97,9 +97,9 @@ static void _gpstore_add_to_llist_mt(GPathStore *gpstore, hkey_t hkey, GPath *gp
 
   // Add to linked list
   do {
-    gpath->next = *(GPath*volatile*)&gpstore->paths_all[hkey];
+    gpath->next = *(GPath *volatile const*)&gpstore->paths_all[hkey];
   }
-  while(!__sync_bool_compare_and_swap((GPath*volatile*)&gpstore->paths_all[hkey],
+  while(!__sync_bool_compare_and_swap((GPath *volatile*)&gpstore->paths_all[hkey],
                                       gpath->next, gpath));
 }
 

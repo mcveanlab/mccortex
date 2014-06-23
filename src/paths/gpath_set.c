@@ -139,7 +139,7 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   if(gpset->can_resize)
   {
     _check_resize(gpset, nbytes);
-    pkey = gpath_buf_add(&gpset->entries, (GPath){});
+    pkey = gpath_buf_add(&gpset->entries, (GPath){.seq = NULL, .num_juncs = 0});
     gpath = &gpset->entries.data[pkey];
     data = gpset->seqs.data + gpset->seqs.len;
     gpset->seqs.len += nbytes;

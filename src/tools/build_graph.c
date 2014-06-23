@@ -82,8 +82,8 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
   }
 
   // Read is novel
-  if(got_kmer1) db_node_set_read_start_mt(db_graph, node1);
-  if(got_kmer2) db_node_set_read_start_mt(db_graph, node2);
+  if(got_kmer1) (void)db_node_set_read_start_mt(db_graph, node1);
+  if(got_kmer2) (void)db_node_set_read_start_mt(db_graph, node2);
 
   return true;
 }

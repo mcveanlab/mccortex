@@ -257,13 +257,13 @@ char* strdup(const char *str)
 // Hexidecimal
 //
 
-const static char hex[17] = "0123456789abcdef";
+static const char hex[17] = "0123456789abcdef";
 
 // Generate null terminated string of length num-1
 char* hex_rand_str(char *str, size_t num)
 {
   ctx_assert(num > 0);
-  size_t i, r;
+  size_t i, r = 0;
   // 4 bits per cycle, 32 bits in rand()
   #define BITS 4
   for(i = 0; i+1 < num; i++) {
