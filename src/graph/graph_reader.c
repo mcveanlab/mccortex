@@ -796,7 +796,6 @@ size_t graph_files_merge(const char *out_ctx_path,
             if(files[i].fltr.intocol < firstcol) {
               files[i].fltr.cols += firstcol - files[i].fltr.intocol;
               files[i].fltr.ncols -= firstcol - files[i].fltr.intocol;
-              // files[i].fltr.intocol = 0;
               file_filter_update_intocol(&files[i].fltr, 0);
             }
             else files[i].fltr.intocol -= firstcol;

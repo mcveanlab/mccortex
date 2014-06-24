@@ -68,7 +68,7 @@ static struct option longopts[] =
 
 int ctx_breakpoints(int argc, char **argv)
 {
-  size_t num_of_threads = DEFAULT_NTHREADS;
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *output_file = NULL;
   size_t min_ref_flank = DEFAULT_MIN_REF_NKMERS;
@@ -96,7 +96,7 @@ int ctx_breakpoints(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
@@ -104,16 +104,9 @@ int ctx_breakpoints(int argc, char **argv)
         gpath_reader_open(&tmp_gpfile, optarg, true);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
-      case 'r':
-        min_ref_flank = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        set_min_flank++; break;
-      case 'R':
-        max_ref_flank = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        set_max_flank++; break;
-      case 'o':
-        if(output_file != NULL) cmd_print_usage("%s given twice", cmd);
-        output_file = optarg;
-        break;
+      case 'r': min_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_min_flank++; break;
+      case 'R': max_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_max_flank++; break;
+      case 'o': cmd_check(output_file != NULL, cmd); output_file = optarg; break;
       case '1':
       case 's':
         if((tmp_sfile = seq_open(optarg)) == NULL)
@@ -127,6 +120,9 @@ int ctx_breakpoints(int argc, char **argv)
       default: abort();
     }
   }
+
+  // Defaults
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
 
   if(set_min_flank > 1) cmd_print_usage("Set --minref more than once");
   if(set_max_flank > 1) cmd_print_usage("Set --maxref more than once");
@@ -293,7 +289,7 @@ int ctx_breakpoints(int argc, char **argv)
   }
 
   // Call breakpoints
-  breakpoints_call(num_of_threads,
+  breakpoints_call(nthreads,
                    gzout, output_file,
                    rbuf.data, rbuf.len,
                    seq_paths, num_seq_paths,

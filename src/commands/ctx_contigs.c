@@ -335,7 +335,7 @@ int ctx_contigs(int argc, char **argv)
         break;
       case 't':
         if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        num_of_threads = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
@@ -353,8 +353,8 @@ int ctx_contigs(int argc, char **argv)
         if(no_reseed) cmd_print_usage("-R given twice");
         no_reseed = true;
         break;
-      case 'N': n_rand_contigs = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
-      case 'c': colour = cmd_parse_arg_uint32(cmd, optarg); break;
+      case 'N': n_rand_contigs = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'c': colour = cmd_uint32(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" supernodes -h` for help. Bad option: %s", argv[optind-1]);

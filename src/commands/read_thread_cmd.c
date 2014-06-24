@@ -64,11 +64,11 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         break;
       case 't':
         if(args->num_of_threads != 0) die("%s set twice", cmd);
-        args->num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        args->num_of_threads = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&args->memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&args->memargs, optarg); break;
-      case 'c': args->colour = cmd_parse_arg_uint32(cmd, optarg); break;
+      case 'c': args->colour = cmd_uint32(cmd, optarg); break;
       case '1':
       case '2':
       case 'i':
@@ -84,13 +84,13 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'R': task.matedir = READPAIR_RR; used = 0; break;
       case 'w': task.crt_params.one_way_gap_traverse = true; used = 0; break;
       case 'W': task.crt_params.one_way_gap_traverse = false; used = 0; break;
-      case 'q': fq_offset = cmd_parse_arg_uint8(cmd, optarg); used = 0; break;
-      case 'Q': task.fq_cutoff = cmd_parse_arg_uint8(cmd, optarg); used = 0; break;
-      case 'H': task.hp_cutoff = cmd_parse_arg_uint8(cmd, optarg); used = 0; break;
+      case 'q': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
+      case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
+      case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'e': task.crt_params.use_end_check = true; used = 0; break;
       case 'E': task.crt_params.use_end_check = false; used = 0; break;
-      case 'g': task.crt_params.ins_gap_min = cmd_parse_arg_uint32(cmd, optarg); used = 0; break;
-      case 'G': task.crt_params.ins_gap_max = cmd_parse_arg_uint32(cmd, optarg); used = 0; break;
+      case 'g': task.crt_params.ins_gap_min = cmd_uint32(cmd, optarg); used = 0; break;
+      case 'G': task.crt_params.ins_gap_max = cmd_uint32(cmd, optarg); used = 0; break;
       case 'S': args->dump_seq_sizes = optarg; dump_seq_n++; break;
       case 'M': args->dump_mp_sizes = optarg; dump_mp_n++; break;
       case 'u': args->use_new_paths = true; break;

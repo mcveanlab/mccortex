@@ -127,10 +127,10 @@ static void parse_args(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
+      case 't': num_of_threads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'k': kmer_set++; kmer_size = cmd_parse_arg_uint32(cmd, optarg); break;
+      case 'k': kmer_set++; kmer_size = cmd_uint32(cmd, optarg); break;
       case 's':
         intocolour++;
         if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
@@ -153,9 +153,9 @@ static void parse_args(int argc, char **argv)
       case 'F': task.matedir = READPAIR_FF; pref_unused = true; break;
       case 'r': task.matedir = READPAIR_RF; pref_unused = true; break;
       case 'R': task.matedir = READPAIR_RR; pref_unused = true; break;
-      case 'q': fq_offset = cmd_parse_arg_uint8(cmd, optarg); pref_unused = true; break;
-      case 'Q': task.fq_cutoff = cmd_parse_arg_uint8(cmd, optarg); pref_unused = true; break;
-      case 'H': task.hp_cutoff = cmd_parse_arg_uint8(cmd, optarg); pref_unused = true; break;
+      case 'q': fq_offset = cmd_uint8(cmd, optarg); pref_unused = true; break;
+      case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
+      case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
       case 'p': task.remove_pcr_dups = true; pref_unused = true; break;
       case 'P': task.remove_pcr_dups = false; pref_unused = true; break;
       case 'g':

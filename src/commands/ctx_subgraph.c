@@ -2,6 +2,7 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
+#include "seq_reader.h"
 #include "binary_kmer.h"
 #include "hash_table.h"
 #include "db_graph.h"
@@ -11,8 +12,6 @@
 #include "subgraph.h"
 #include "hash_mem.h" // for calculating mem usage
 
-#include "seq_file.h"
-
 const char subgraph_usage[] =
 "usage: "CMD" subgraph [options] <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
@@ -21,65 +20,97 @@ const char subgraph_usage[] =
 "  Loads seed files twice: 1) get seed; 2) extend;  This lowers memory requirement\n"
 "  for large (seed) graphs but means seed files cannot be pipes / sockets.\n"
 "\n"
+"  -h, --help            This help message\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -s, --ncols <c>       How many colours to load at once [default: 1]\n"
 "  -o, --out <out.ctx>   Save output graph file [required]\n"
+//
+"  -N, --ncols <c>       How many colours to load at once [default: 1]\n"
 "  -1, --seq <seed.fa>   Read in a seed file [require at least one]\n"
 "  -d, --dist <N>        Number of kmers to extend by [default: 0]\n"
 // "  -D, --sdist <N>       Number of supernodes to extend by [default: 0]\n"
 "  -v, --invert          Dump kmers not in subgraph\n"
-"  -u, --supernodes      Grab entire runs of kmers that are touched by a read\n"
+"  -S, --supernodes      Grab entire runs of kmers that are touched by a read\n"
 "\n";
 
-int ctx_subgraph(CmdArgs *args)
+static struct option longopts[] =
 {
-  int argc = args->argc;
-  char **argv = args->argv;
-  // Already checked that we have at least 4 args
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
+  {"threads",      required_argument, NULL, 't'},
+  {"out",          required_argument, NULL, 'o'},
+// command specific
+  {"ncols",        required_argument, NULL, 'N'},
+  {"seed",         required_argument, NULL, 's'},
+  {"seq",          required_argument, NULL, '1'},
+  {"dist",         required_argument, NULL, 'd'},
+  // {"sdist",        required_argument, NULL, 'D'},
+  {"invert",       required_argument, NULL, 'v'},
+  {"supernodes",   required_argument, NULL, 'S'},
+  {NULL, 0, NULL, 0}
+};
 
-  seq_file_t *seed_files[argc/2];
-  size_t num_seed_files = 0, dist = 0;
+int ctx_subgraph(int argc, char **argv)
+{
+  size_t nthreads = 0;
+  struct MemArgs memargs = MEM_ARGS_INIT;
+  const char *out_path = NULL;
+  size_t i, j, use_ncols = 0, dist = 0;
   bool invert = false, grab_supernodes = false;
 
-  size_t num_threads = args->max_work_threads;
+  seq_file_t *tmp_sfile;
+  SeqFilePtrBuffer sfilebuf;
+  seq_file_ptr_buf_alloc(&sfilebuf, 16);
 
-  int argi;
-  for(argi = 0; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++)
-  {
-    if(!strcmp(argv[argi], "--seq") | !strcmp(argv[argi], "--seed"))
-    {
-      if(argi+1 == argc)
-        cmd_print_usage("%s <seed.fa> requires an argument", argv[argi]);
-      seed_files[num_seed_files] = seq_open(argv[argi+1]);
-      if(seed_files[num_seed_files] == NULL)
-        die("Cannot read %s file: %s", argv[argi], argv[argi+1]);
-      argi++; num_seed_files++;
+  // Arg parsing
+  char cmd[100], shortopts[100];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
+
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 't': cmd_check(nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
+      case 'N': cmd_check(use_ncols,cmd); use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
+      case '1':
+      case 's':
+        if((tmp_sfile = seq_open(optarg)) == NULL)
+          die("Cannot read --seq file %s", optarg);
+        seq_file_ptr_buf_add(&sfilebuf, tmp_sfile);
+        break;
+      case 'd': cmd_check(dist,cmd); dist = cmd_uint32(cmd, optarg); break;
+      case 'v': cmd_check(invert,cmd); invert = true; break;
+      case 'S': cmd_check(grab_supernodes,cmd); grab_supernodes = true; break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" breakpoints -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
-    else if(!strcmp(argv[argi], "--dist") || !strcmp(argv[argi], "-d")) {
-      if(argi+1 >= argc || !parse_entire_size(argv[argi+1], &dist)) {
-        cmd_print_usage("%s <N> requires an integer argument >= 0", argv[argi]);
-      }
-      argi++; // we took an argument
-    }
-    else if(!strcmp(argv[argi], "--invert") || !strcmp(argv[argi], "-v"))
-      invert = true;
-    else if(!strcmp(argv[argi], "--supernodes") || !strcmp(argv[argi], "-u"))
-      grab_supernodes = true;
-    else cmd_print_usage("Unknown option: %s", argv[argi]);
   }
 
-  if(argi >= argc)
-    cmd_print_usage("Please specify at least one input graph file (.ctx)");
+  // Defaults
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
+  if(use_ncols == 0) use_ncols = 1;
 
-  size_t num_gfiles = argc - argi;
-  char **gfile_paths = argv + argi;
+  if(sfilebuf.len == 0) cmd_print_usage("Require at least one --seq file");
+  if(optind >= argc) cmd_print_usage("Require input graph files (.ctx)");
 
-  size_t i, j, col, total_cols;
+  size_t num_gfiles = argc - optind;
+  char **gfile_paths = argv + optind;
+
+  size_t col, total_cols;
 
   // Open graph files
-  GraphFileReader gfiles[num_gfiles];
+  GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   total_cols = graph_files_open(gfile_paths, gfiles, num_gfiles,
@@ -88,24 +119,29 @@ int ctx_subgraph(CmdArgs *args)
   //
   // Decide on memory
   //
-  const size_t use_ncols = MIN2(args->use_ncols, total_cols);
+  use_ncols = MIN2(use_ncols, total_cols);
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
   size_t num_of_fringe_nodes, fringe_mem, total_mem;
   char graph_mem_str[100], fringe_mem_str[100], num_fringe_nodes_str[100];
 
   bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
-  kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
-                                        false, NULL);
 
-  graph_mem = hash_table_mem(kmers_in_hash,bits_per_kmer,NULL);
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         bits_per_kmer,
+                                         ctx_max_kmers, ctx_sum_kmers,
+                                         false, &graph_mem);
+
+  graph_mem = hash_table_mem(kmers_in_hash, bits_per_kmer, NULL);
   bytes_to_str(graph_mem, 1, graph_mem_str);
 
-  if(graph_mem >= args->mem_to_use)
+  if(graph_mem >= memargs.mem_to_use)
     die("Not enough memory for graph (requires %s)", graph_mem_str);
 
   // Fringe nodes
-  fringe_mem = args->mem_to_use - graph_mem;
+  fringe_mem = memargs.mem_to_use - graph_mem;
   num_of_fringe_nodes = fringe_mem / (sizeof(dBNode) * 2);
   ulong_to_str(num_of_fringe_nodes, num_fringe_nodes_str);
   bytes_to_str(fringe_mem, 1, fringe_mem_str);
@@ -117,16 +153,16 @@ int ctx_subgraph(CmdArgs *args)
 
   // Don't need to check, but it prints out memory
   total_mem = graph_mem + fringe_mem;
-  cmd_check_mem_limit(args->mem_to_use, total_mem);
+  cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   //
   // Open output file
   //
 
   // Print to stdout unless --out <out> is specified
-  const char *out_path = args->output_file_set ? args->output_file : "-";
+  if(out_path == NULL) out_path = "-";
 
-  if(args->output_file_set) {
+  if(strcmp(out_path,"-") != 0) {
     if(futil_file_exists(out_path)) die("File already exists: %s", out_path);
     else if(!futil_is_file_writable(out_path)) die("Cannot write: %s", out_path);
   }
@@ -181,12 +217,13 @@ int ctx_subgraph(CmdArgs *args)
   strbuf_append_char(&intersect_gname, '}');
 
   // Load sequence and mark in first pass
-  subgraph_from_reads(&db_graph, num_threads, dist,
+  subgraph_from_reads(&db_graph, nthreads, dist,
                       invert, grab_supernodes,
                       fringe_mem, kmer_mask,
-                      seed_files, num_seed_files);
+                      sfilebuf.data, sfilebuf.len);
 
-  for(i = 0; i < num_seed_files; i++) seq_close(seed_files[i]);
+  for(i = 0; i < sfilebuf.len; i++) seq_close(sfilebuf.data[i]);
+  seq_file_ptr_buf_dealloc(&sfilebuf);
 
   ctx_free(kmer_mask);
   hash_table_print_stats(&db_graph.ht);
@@ -212,6 +249,7 @@ int ctx_subgraph(CmdArgs *args)
   ctx_free(intersect_edges);
   strbuf_dealloc(&intersect_gname);
   for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
+  ctx_free(gfiles);
 
   db_graph_dealloc(&db_graph);
 

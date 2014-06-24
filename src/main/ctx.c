@@ -23,43 +23,36 @@ typedef struct
 CtxCmd cmdobjs[] = {
 {
   .cmd = "build", .func = NULL, .func2 = ctx_build, .hide = 0,
-  .minargs = 3, .maxargs = INT_MAX, .optargs = "atmn", .reqargs = "",
   .blurb = "construct cortex graph from FASTA/FASTQ/BAM",
   .usage = build_usage
 },
 {
   .cmd = "view", .func = NULL, .func2 = ctx_view, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "", .reqargs = "",
   .blurb = "text view of a cortex graph file (.ctx)",
   .usage = view_usage
 },
 {
   .cmd = "check", .func = NULL, .func2 = ctx_health_check, .hide = 0,
-  .minargs = 1, .maxargs = 2, .optargs = "pmn", .reqargs = "",
   .blurb = "load and check graph (.ctx) and path (.ctp) files",
   .usage = health_usage
 },
 {
   .cmd = "clean", .func = NULL, .func2 = ctx_clean, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "mncot", .reqargs = "o",
   .blurb = "clean errors from a graph",
   .usage = clean_usage
 },
 {
-  .cmd = "join", .func = ctx_join, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "mnco", .reqargs = "o",
+  .cmd = "join", .func = NULL, .func2 = ctx_join, .hide = 0,
   .blurb = "combine graphs, filter graph intersections",
   .usage = join_usage
 },
 {
   .cmd = "supernodes", .func = NULL, .func2 = ctx_supernodes, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "mnpo", .reqargs = "",
   .blurb = "pull out supernodes",
   .usage = supernodes_usage
 },
 {
-  .cmd = "subgraph", .func = ctx_subgraph, .hide = 0,
-  .minargs = 4, .maxargs = INT_MAX, .optargs = "mncot", .reqargs = "",
+  .cmd = "subgraph", .func = NULL, .func2 = ctx_subgraph, .hide = 0,
   .blurb = "filter a subgraph using seed kmers",
   .usage = subgraph_usage
 },
@@ -71,43 +64,36 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "contigs", .func = NULL, .func2 = ctx_contigs, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "mnpo", .reqargs = "",
   .blurb = "pull out contigs for a sample",
   .usage = contigs_usage
 },
 {
   .cmd = "inferedges", .func = NULL, .func2 = ctx_infer_edges, .hide = 0,
-  .minargs = 1, .maxargs = 3, .optargs = "mnot", .reqargs = "",
   .blurb = "infer graph edges between kmers before calling `thread`",
   .usage = inferedges_usage
 },
 {
   .cmd = "thread", .func = NULL, .func2 = ctx_thread, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "atmnpo", .reqargs = "o",
   .blurb = "thread reads through cleaned graph",
   .usage = thread_usage,
 },
 {
   .cmd = "correct", .func = NULL, .func2 = ctx_correct, .hide = 0,
-  .minargs = 2, .maxargs = INT_MAX, .optargs = "atmnp", .reqargs = "",
   .blurb = "error correct reads",
   .usage = correct_usage
 },
 {
   .cmd = "pjoin", .func = NULL, .func2 = ctx_pjoin, .hide = false,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "mnot", .reqargs = "o",
   .blurb = "merge path files (.ctp)",
   .usage = pjoin_usage
 },
 {
   .cmd = "bubbles", .func = NULL, .func2 = ctx_bubbles, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "tmnpo", .reqargs = "o",
   .blurb = "find bubbles in graph which are potential variants",
   .usage = bubbles_usage
 },
 {
   .cmd = "breakpoints", .func = NULL, .func2 = ctx_breakpoints, .hide = 0,
-  .minargs = 1, .maxargs = INT_MAX, .optargs = "opmnt", .reqargs = "o",
   .blurb = "use a trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },
@@ -125,19 +111,16 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "coverage", .func = NULL, .func2 = ctx_coverage, .hide = 0,
-  .minargs = 3, .maxargs = INT_MAX, .optargs = "omn", .reqargs = "",
   .blurb = "print contig coverage",
   .usage = coverage_usage
 },
 {
   .cmd = "rmsubstr", .func = NULL, .func2 = ctx_rmsubstr, .hide = 0,
-  .minargs = 0, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "",
   .blurb = "reduce set of strings to remove substrings",
   .usage = rmsubstr_usage
 },
 {
   .cmd = "calls2vcf", .func = NULL, .func2 = ctx_calls2vcf, .hide = true,
-  .minargs = 0, .maxargs = INT_MAX, .optargs = "mno", .reqargs = "",
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage
 }

@@ -67,7 +67,7 @@ void cmd_long_opts_to_short(const struct option *longs,
   opts[j] = '\0';
 }
 
-double cmd_parse_arg_udouble_nonzero(const char *cmd, const char *arg)
+double cmd_udouble_nonzero(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);
   double tmp;
@@ -76,7 +76,7 @@ double cmd_parse_arg_udouble_nonzero(const char *cmd, const char *arg)
   return tmp;
 }
 
-uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)
+uint8_t cmd_uint8(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);
   unsigned int tmp;
@@ -85,7 +85,7 @@ uint8_t cmd_parse_arg_uint8(const char *cmd, const char *arg)
   return tmp;
 }
 
-int32_t cmd_parse_arg_int32(const char *cmd, const char *arg)
+int32_t cmd_int32(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);
   int tmp;
@@ -94,7 +94,7 @@ int32_t cmd_parse_arg_int32(const char *cmd, const char *arg)
   return tmp;
 }
 
-uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg)
+uint32_t cmd_uint32(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);
   unsigned int tmp;
@@ -103,10 +103,10 @@ uint32_t cmd_parse_arg_uint32(const char *cmd, const char *arg)
   return tmp;
 }
 
-uint32_t cmd_parse_arg_uint32_nonzero(const char *cmd, const char *arg)
+uint32_t cmd_uint32_nonzero(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);
-  uint32_t n = cmd_parse_arg_uint32(cmd, arg);
+  uint32_t n = cmd_uint32(cmd, arg);
   if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmd, arg);
   return n;
 }

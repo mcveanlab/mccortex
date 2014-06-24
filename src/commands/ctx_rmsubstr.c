@@ -117,10 +117,10 @@ int ctx_rmsubstr(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
+      case 't': num_of_threads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'k': kmer_set++; kmer_size = cmd_parse_arg_uint32(cmd, optarg); break;
+      case 'k': kmer_set++; kmer_size = cmd_uint32(cmd, optarg); break;
       case 'f':
       case 'F': output_format = OUTPUT_FASTA; output_format_set++; break;
       case 'q':

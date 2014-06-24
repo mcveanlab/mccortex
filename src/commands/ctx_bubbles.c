@@ -51,7 +51,7 @@ static struct option longopts[] =
 
 int ctx_bubbles(int argc, char **argv)
 {
-  size_t num_of_threads = 0;
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t max_allele_len = 0, max_flank_len = 0;
@@ -80,33 +80,18 @@ int ctx_bubbles(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o':
-        if(out_path != NULL) cmd_print_usage(NULL);
-        out_path = optarg;
-        break;
+      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg, true);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
-      case 't':
-        if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        break;
+      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'H':
-        tmp_col = cmd_parse_arg_uint32(cmd, optarg);
-        size_buf_add(&haploidbuf, tmp_col);
-        break;
-      case 'a':
-        if(max_allele_len) die("%s set twice", cmd);
-        max_allele_len = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        break;
-      case 'f':
-        if(max_flank_len) die("%s set twice", cmd);
-        max_flank_len = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        break;
+      case 'H': tmp_col = cmd_uint32(cmd, optarg); size_buf_add(&haploidbuf, tmp_col); break;
+      case 'a': cmd_check(max_allele_len, cmd); max_allele_len = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'f': cmd_check(max_flank_len, cmd); max_flank_len = cmd_uint32_nonzero(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -117,7 +102,7 @@ int ctx_bubbles(int argc, char **argv)
 
   // Defaults for unset values
   if(out_path == NULL) out_path = "-";
-  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
   if(max_allele_len == 0) max_allele_len = DEFAULT_MAX_ALLELE;
   if(max_flank_len == 0) max_flank_len = DEFAULT_MAX_FLANK;
 
@@ -159,7 +144,7 @@ int ctx_bubbles(int argc, char **argv)
   // visitedfw/rv(2bits/thread)
 
   bits_per_kmer = sizeof(Edges)*8 + sizeof(GPath*)*8 +
-                  ncols + 2*num_of_threads;
+                  ncols + 2*nthreads;
 
   kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
                                          memargs.mem_to_use_set,
@@ -171,9 +156,9 @@ int ctx_bubbles(int argc, char **argv)
 
   // Thread memory
   thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;
-  bytes_to_str(thread_mem * num_of_threads, 1, thread_mem_str);
+  bytes_to_str(thread_mem * nthreads, 1, thread_mem_str);
   status("[memory] (of which threads: %zu x %zu = %s)\n",
-          num_of_threads, thread_mem, thread_mem_str);
+          nthreads, thread_mem, thread_mem_str);
 
   // Paths memory
   size_t min_path_mem = 0, max_path_mem = 0;
@@ -251,7 +236,7 @@ int ctx_bubbles(int argc, char **argv)
                                    .haploid_cols = haploidbuf.data,
                                    .num_haploid = haploidbuf.len};
 
-  invoke_bubble_caller(num_of_threads, call_prefs,
+  invoke_bubble_caller(nthreads, call_prefs,
                        gzout, out_path, &db_graph);
 
   status("  saved to: %s\n", out_path);

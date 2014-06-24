@@ -58,7 +58,7 @@ static struct option longopts[] =
 
 int ctx_clean(int argc, char **argv)
 {
-  size_t num_of_threads = 0, use_ncols = 0;
+  size_t nthreads = 0, use_ncols = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_ctx_path = NULL;
   bool tip_cleaning = false, supernode_cleaning = false;
@@ -88,41 +88,23 @@ int ctx_clean(int argc, char **argv)
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'N': use_ncols = cmd_parse_arg_uint32_nonzero(cmd, optarg); break;
-      case 't':
-        if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
-        break;
+      case 'N': use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'T':
-        if(tip_cleaning) die("%s set twice", cmd);
-        min_keep_tip = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        cmd_check(tip_cleaning, cmd);
+        min_keep_tip = cmd_uint32_nonzero(cmd, optarg);
         tip_cleaning = true;
         break;
       case 'S':
-        if(supernode_cleaning) die("%s set twice", cmd);
-        if(optarg != NULL) threshold = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        cmd_check(supernode_cleaning, cmd);
+        if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
         supernode_cleaning = true;
         break;
-      case 'd':
-        if(seq_depth > 0) die("%s set twice", cmd);
-        seq_depth = cmd_parse_arg_udouble_nonzero(cmd, optarg);
-        break;
-      case 'l':
-        if(len_before_path) die("%s set twice", cmd);
-        len_before_path = optarg;
-        break;
-      case 'L':
-        if(len_after_path) die("%s set twice", cmd);
-        len_after_path = optarg;
-        break;
-      case 'c':
-        if(covg_before_path) die("%s set twice", cmd);
-        covg_before_path = optarg;
-        break;
-      case 'C':
-        if(covg_after_path) die("%s set twice", cmd);
-        covg_after_path = optarg;
-        break;
+      case 'd': cmd_check(seq_depth > 0, cmd); seq_depth = cmd_udouble_nonzero(cmd, optarg); break;
+      case 'l': cmd_check(len_before_path, cmd); len_before_path = optarg; break;
+      case 'L': cmd_check(len_after_path, cmd); len_after_path = optarg; break;
+      case 'c': cmd_check(covg_before_path, cmd); covg_before_path = optarg; break;
+      case 'C': cmd_check(covg_after_path, cmd); covg_after_path = optarg; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -131,7 +113,7 @@ int ctx_clean(int argc, char **argv)
     }
   }
 
-  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
 
   if(optind >= argc) cmd_print_usage("Please give input graph files");
 
@@ -353,7 +335,7 @@ int ctx_clean(int argc, char **argv)
 
   if(threshold == 0 || covg_before_path || len_before_path) {
     // Get coverage distribution and estimate cleaning threshold
-    size_t est_threshold = cleaning_get_threshold(num_of_threads, seq_depth,
+    size_t est_threshold = cleaning_get_threshold(nthreads, seq_depth,
                                                   covg_before_path, len_before_path,
                                                   visited, &db_graph);
 
@@ -363,7 +345,7 @@ int ctx_clean(int argc, char **argv)
 
   if(doing_cleaning) {
     // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
-    clean_graph(num_of_threads, threshold, min_keep_tip,
+    clean_graph(nthreads, threshold, min_keep_tip,
                 covg_after_path, len_after_path,
                 visited, keep, &db_graph);
   }

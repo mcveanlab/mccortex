@@ -19,10 +19,10 @@ int ctx_contigs(int argc, char **argv);
 int ctx_supernodes(int argc, char **argv);
 int ctx_health_check(int argc, char **argv);
 int ctx_calls2vcf(int argc, char **argv);
+int ctx_subgraph(int argc, char **argv);
+int ctx_join(int argc, char **argv);
 // int ctx_geno(int argc, char **argv); // not written yet
 
-int ctx_join(CmdArgs *args);
-int ctx_subgraph(CmdArgs *args);
 int ctx_reads(CmdArgs *args);
 
 int ctx_unique(CmdArgs *args); // retiring

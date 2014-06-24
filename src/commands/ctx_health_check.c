@@ -65,7 +65,7 @@ int ctx_health_check(int argc, char **argv)
       case 'h': cmd_print_usage(NULL); break;
       case 't':
         if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        num_of_threads = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;

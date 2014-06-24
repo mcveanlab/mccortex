@@ -249,7 +249,7 @@ int ctx_supernodes(int argc, char **argv)
         break;
       case 't':
         if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_parse_arg_uint32_nonzero(cmd, optarg);
+        num_of_threads = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
