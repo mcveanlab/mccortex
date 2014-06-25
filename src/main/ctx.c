@@ -16,110 +16,107 @@ typedef struct
   const char *cmd, *blurb, *usage, *optargs, *reqargs;
   int minargs, maxargs; // counts AFTER standard args taken
   int hide; // set hide to >0 to remove from listings
-  int (*func)(CmdArgs *cmd_args);
-  int (*func2)(int argc, char **argv);
+  int (*func)(int argc, char **argv);
 } CtxCmd;
 
 CtxCmd cmdobjs[] = {
 {
-  .cmd = "build", .func = NULL, .func2 = ctx_build, .hide = 0,
+  .cmd = "build", .func = ctx_build, .hide = false,
   .blurb = "construct cortex graph from FASTA/FASTQ/BAM",
   .usage = build_usage
 },
 {
-  .cmd = "view", .func = NULL, .func2 = ctx_view, .hide = 0,
+  .cmd = "view", .func = ctx_view, .hide = false,
   .blurb = "text view of a cortex graph file (.ctx)",
   .usage = view_usage
 },
 {
-  .cmd = "check", .func = NULL, .func2 = ctx_health_check, .hide = 0,
+  .cmd = "check", .func = ctx_health_check, .hide = false,
   .blurb = "load and check graph (.ctx) and path (.ctp) files",
   .usage = health_usage
 },
 {
-  .cmd = "clean", .func = NULL, .func2 = ctx_clean, .hide = 0,
+  .cmd = "clean", .func = ctx_clean, .hide = false,
   .blurb = "clean errors from a graph",
   .usage = clean_usage
 },
 {
-  .cmd = "join", .func = NULL, .func2 = ctx_join, .hide = 0,
+  .cmd = "join", .func = ctx_join, .hide = false,
   .blurb = "combine graphs, filter graph intersections",
   .usage = join_usage
 },
 {
-  .cmd = "supernodes", .func = NULL, .func2 = ctx_supernodes, .hide = 0,
+  .cmd = "supernodes", .func = ctx_supernodes, .hide = false,
   .blurb = "pull out supernodes",
   .usage = supernodes_usage
 },
 {
-  .cmd = "subgraph", .func = NULL, .func2 = ctx_subgraph, .hide = 0,
+  .cmd = "subgraph", .func = ctx_subgraph, .hide = false,
   .blurb = "filter a subgraph using seed kmers",
   .usage = subgraph_usage
 },
 {
-  .cmd = "reads", .func = NULL, .func2 = ctx_reads, .hide = 1,
+  .cmd = "reads", .func = ctx_reads, .hide = false,
   .blurb = "filter reads against a graph",
   .usage = reads_usage
 },
 {
-  .cmd = "contigs", .func = NULL, .func2 = ctx_contigs, .hide = 0,
+  .cmd = "contigs", .func = ctx_contigs, .hide = false,
   .blurb = "pull out contigs for a sample",
   .usage = contigs_usage
 },
 {
-  .cmd = "inferedges", .func = NULL, .func2 = ctx_infer_edges, .hide = 0,
+  .cmd = "inferedges", .func = ctx_infer_edges, .hide = false,
   .blurb = "infer graph edges between kmers before calling `thread`",
   .usage = inferedges_usage
 },
 {
-  .cmd = "thread", .func = NULL, .func2 = ctx_thread, .hide = 0,
+  .cmd = "thread", .func = ctx_thread, .hide = false,
   .blurb = "thread reads through cleaned graph",
   .usage = thread_usage,
 },
 {
-  .cmd = "correct", .func = NULL, .func2 = ctx_correct, .hide = 0,
+  .cmd = "correct", .func = ctx_correct, .hide = false,
   .blurb = "error correct reads",
   .usage = correct_usage
 },
 {
-  .cmd = "pjoin", .func = NULL, .func2 = ctx_pjoin, .hide = false,
+  .cmd = "pjoin", .func = ctx_pjoin, .hide = false,
   .blurb = "merge path files (.ctp)",
   .usage = pjoin_usage
 },
 {
-  .cmd = "bubbles", .func = NULL, .func2 = ctx_bubbles, .hide = 0,
+  .cmd = "bubbles", .func = ctx_bubbles, .hide = false,
   .blurb = "find bubbles in graph which are potential variants",
   .usage = bubbles_usage
 },
 {
-  .cmd = "breakpoints", .func = NULL, .func2 = ctx_breakpoints, .hide = 0,
+  .cmd = "breakpoints", .func = ctx_breakpoints, .hide = false,
   .blurb = "use a trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },
 {
   .cmd = "unique", .func = ctx_unique, .hide = true,
-  .minargs = 2, .maxargs = 2, .optargs = "", .reqargs = "",
   .blurb = "remove duplicated bubbles, produce VCF",
   .usage = unique_usage
 },
 {
   .cmd = "place", .func = ctx_place, .hide = true,
-  .minargs = 3, .maxargs = INT_MAX, .optargs = "o", .reqargs = "",
   .blurb = "place variants against a reference",
   .usage = place_usage
 },
 {
-  .cmd = "coverage", .func = NULL, .func2 = ctx_coverage, .hide = 0,
+  .cmd = "coverage", .func = ctx_coverage, .hide = false,
   .blurb = "print contig coverage",
   .usage = coverage_usage
 },
 {
-  .cmd = "rmsubstr", .func = NULL, .func2 = ctx_rmsubstr, .hide = 0,
+  .cmd = "rmsubstr", .func = ctx_rmsubstr, .hide = false,
   .blurb = "reduce set of strings to remove substrings",
   .usage = rmsubstr_usage
 },
 {
-  .cmd = "calls2vcf", .func = NULL, .func2 = ctx_calls2vcf, .hide = true,
+  .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = true,
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage
 }
@@ -234,29 +231,8 @@ int main(int argc, char **argv)
   // Print status header
   print_status_header();
 
-  // Transitioning away from using CmdArgs
-  // and allowing commands to parse their own arguments for more flexibility
-  int ret;
-  if(cmd->func != NULL)
-  {
-    CmdArgs args;
-    cmd_alloc(&args, argc, argv);
-
-    // Check number of args, required args, optional args
-    cmd_accept_options(&args, cmd->optargs, cmd->usage);
-    cmd_require_options(&args, cmd->reqargs, cmd->usage);
-
-    if(args.argc < cmd->minargs) cmd_print_usage("Too few arguments");
-    if(args.argc > cmd->maxargs) cmd_print_usage("Too many arguments");
-
-    // Run command
-    ret = cmd->func(&args);
-    cmd_free(&args);
-  }
-  else {
-    SWAP(argv[1],argv[0]);
-    ret = cmd->func2(argc-1, argv+1);
-  }
+  SWAP(argv[1],argv[0]);
+  int ret = cmd->func(argc-1, argv+1);
 
   time(&end);
   cmd_destroy();

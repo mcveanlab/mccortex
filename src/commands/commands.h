@@ -18,14 +18,15 @@ int ctx_pjoin(int argc, char **argv);
 int ctx_contigs(int argc, char **argv);
 int ctx_supernodes(int argc, char **argv);
 int ctx_health_check(int argc, char **argv);
-int ctx_calls2vcf(int argc, char **argv);
+int ctx_calls2vcf(int argc, char **argv); // unfinished
 int ctx_subgraph(int argc, char **argv);
 int ctx_join(int argc, char **argv);
 int ctx_reads(int argc, char **argv);
+
 // int ctx_geno(int argc, char **argv); // not written yet
 
-int ctx_unique(CmdArgs *args); // retiring
-int ctx_place(CmdArgs *args); // retiring
+int ctx_unique(int argc, char **argv); // retiring
+int ctx_place(int argc, char **argv); // retiring
 
 extern const char build_usage[];
 extern const char view_usage[];

@@ -935,15 +935,15 @@ static void print_vcf_entry(gzFile out_vcf, gzFile out_flank,
 
 KHASH_MAP_INIT_STR(vhsh, Var*);
 
-int ctx_unique(CmdArgs *args)
+int ctx_unique(int argc, char **argv)
 {
   // hide unused function warnings
   (void)kh_clear_vhsh;
   (void)kh_get_vhsh;
   (void)kh_del_vhsh;
 
-  char **argv = args->argv;
-  // Have already checked we have exactly 2 arguments
+  if(argc != 3 || strncmp(argv[0],"-h",2) == 0 || strncmp(argv[1],"-h",2) == 0)
+    cmd_print_usage(NULL);
 
   const char *input_path = argv[0];
   const char *output_path = argv[1];

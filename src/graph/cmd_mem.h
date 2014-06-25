@@ -29,10 +29,6 @@ size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
                               size_t min_num_kmer_req, size_t max_num_kmers_req,
                               bool use_mem_limit, size_t *graph_mem_ptr);
 
-size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits_per_kmer,
-                             size_t min_num_kmers, size_t max_num_kmers,
-                             bool use_mem_limit, size_t *graph_mem_ptr);
-
 // Check memory against args->mem_to_use and total RAM
 void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested);
 

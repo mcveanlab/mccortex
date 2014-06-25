@@ -20,22 +20,38 @@
 
 // #define CTXVERBOSE 1
 
-int nwmatch = 1, nwmismatch = -2, nwgapopen = -4, nwgapextend = -1;
-
 const char place_usage[] =
 "usage: "CMD" place [options] <calls.vcf> <calls.sam> <ref1.fa ...>\n"
 "\n"
 "  Align calls to a reference genome.\n"
 "\n"
-"  --minmapq <mapq>   Flank must map with MAPQ >= <mapq> [default: 30]\n"
-"  --out <out.vcf>    Output file [default: STDOUT]\n"
+"  -h, --help             This help message\n"
+"  -o, --out <out.vcf>    Output file [default: STDOUT]\n"
+"  -Q, --minmapq <mapq>   Flank must map with MAPQ >= <mapq> [default: 30]\n"
 "\n"
 "  Alignment scoring:\n"
-"  --match <m>      [default:  1]\n"
-"  --mismatch <m>   [default: -2]\n"
-"  --gapopen <m>    [default: -4]\n"
-"  --gapextend <m>  [default: -1]\n"
+"  -m, --match <m>      [default:  1]\n"
+"  -M, --mismatch <m>   [default: -2]\n"
+"  -g, --gapopen <m>    [default: -4]\n"
+"  -G, --gapextend <m>  [default: -1]\n"
 "\n";
+
+static struct option longopts[] =
+{
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"out",          required_argument, NULL, 'o'},
+// command specific
+  {"minmapq",      required_argument, NULL, 'Q'},
+// alignment
+  {"match",        required_argument, NULL, 'm'},
+  {"mismatch",     required_argument, NULL, 'M'},
+  {"gap-open",     required_argument, NULL, 'g'},
+  {"gap-extend",   required_argument, NULL, 'G'},
+  {NULL, 0, NULL, 0}
+};
+
+const char *out_path = NULL;
 
 // Reference genome
 static khash_t(ChromHash) *genome;
@@ -52,6 +68,7 @@ static char **sample_names;
 static uint64_t *sample_total_seq;
 
 // nw alignment
+static int nwmatch = 1, nwmismatch = -2, nwgapopen = -4, nwgapextend = -1;
 static nw_aligner_t *nw_aligner;
 static alignment_t *alignment;
 static scoring_t *nw_scoring_flank, *nw_scoring_allele;
@@ -61,7 +78,8 @@ static size_t num_nw_flank = 0, num_nw_allele = 0;
 static StrBuf endflank;
 
 // Filtering parameters
-static size_t min_mapq = 30;
+#define DEFAULT_MIN_MAPQ 30
+static size_t min_mapq = SIZE_MAX;
 
 // VCF printing
 static size_t num_variants_printed = 0;
@@ -531,7 +549,7 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
   }
 }
 
-int ctx_place(CmdArgs *args)
+int ctx_place(int argc, char **argv)
 {
   // hide unused function warnings
   (void)kh_clear_ChromHash;
@@ -540,9 +558,7 @@ int ctx_place(CmdArgs *args)
   (void)kh_get_samplehash;
   (void)kh_del_samplehash;
 
-  int argc = args->argc;
-  char **argv = args->argv;
-  // Have already checked we have at least 3 arguments
+  size_t i;
 
   // double x = gsl_sf_lnbeta(3,5);
   // printf("Result: %f\n", x);
@@ -559,34 +575,39 @@ int ctx_place(CmdArgs *args)
   // vcf_close(htsvcf);
   // exit(EXIT_FAILURE);
 
-  int argi = 0;
-  size_t i;
+  // Arg parsing
+  char cmd[100];
+  char shortopts[300];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
 
-  const char *nwargs[4] = {"--match", "--mismatch", "--gapopen", "--gapextend"};
-  int *nwargptrs[4] = {&nwmatch, &nwmismatch, &nwgapopen, &nwgapextend};
+  // silence error messages from getopt_long
+  // opterr = 0;
 
-  // Read arguments
-  while(argv[argi][0] == '-' && argv[argi][1]) {
-    if(strcmp(argv[argi], "--minmapq") == 0) {
-      if(argi + 1 == argc) cmd_print_usage(NULL);
-      if(!parse_entire_size(argv[argi+1], &min_mapq))
-        cmd_print_usage("Invalid --minmapq arg: %s", argv[argi+1]);
-      argi++;
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
+      case 'Q': cmd_check(min_mapq != SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
+      case 'g': nwmatch = cmd_int32(cmd, optarg); break;
+      case 'G': nwmismatch = cmd_int32(cmd, optarg); break;
+      case 'm': nwgapopen = cmd_int32(cmd, optarg); break;
+      case 'M': nwgapextend = cmd_int32(cmd, optarg); break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
-    else
-    {
-      // Parse an alignment parameter
-      for(i = 0; i < 4 && strcmp(argv[argi], nwargs[i]) != 0; i++);
-      if(i == 4) cmd_print_usage("Unknown argument: %s", argv[argi]);
-      if(argi + 1 == argc) cmd_print_usage(NULL);
-      if(!parse_entire_int(argv[argi+1], nwargptrs[i]))
-        cmd_print_usage("Invalid %s arg: %s", argv[argi], argv[argi+1]);
-      argi++;
-    }
-    argi++;
   }
 
-  if(argi+3 < argc) cmd_print_usage(NULL);
+  // Defaults for unset values
+  if(out_path == NULL) out_path = "-";
+  if(min_mapq == SIZE_MAX) min_mapq = DEFAULT_MIN_MAPQ;
+
+  if(optind+3 < argc) cmd_print_usage(NULL);
 
   // Check alignment args
   if(nwmatch < MAX3(nwmismatch, nwgapopen, nwgapextend)) {
@@ -594,11 +615,11 @@ int ctx_place(CmdArgs *args)
                        "mismatch, gap open and extend");
   }
 
-  char *vcf_path = argv[argi++];
-  char *sam_path = argv[argi++];
+  char *vcf_path = argv[optind++];
+  char *sam_path = argv[optind++];
 
-  char **ref_paths = argv + argi;
-  size_t num_ref_paths = (size_t)(argc - argi);
+  char **ref_paths = argv + optind;
+  size_t num_ref_paths = (size_t)(argc - optind);
 
   gzFile vcf = gzopen(vcf_path, "r");
   if(vcf == NULL) cmd_print_usage("Cannot open VCF %s", vcf_path);
@@ -614,11 +635,7 @@ int ctx_place(CmdArgs *args)
   samFile *samfh = sam_open(sam_path, isbam ? "rb" : "rs");
   if(samfh == NULL) die("Cannot open SAM/BAM %s", sam_path);
 
-  FILE *fout = stdout;
-  if(args->output_file_set) {
-    fout = fopen(args->output_file, "w");
-    if(fout == NULL) cmd_print_usage("Cannot open file: %s", args->output_file);
-  }
+  FILE *fout = futil_open_output(out_path);
 
   // Load BAM header
   bam_header = sam_hdr_read(samfh);
@@ -753,10 +770,9 @@ int ctx_place(CmdArgs *args)
   status("Bubbles 3p flank not found: %s", flank3p_not_found_str);
   status("Passed bubbles: %s / %s [%.2f%%]", passed_str, total_bubbles_str, pass_rate);
   status("Variants printed: %s", nvariants_str);
-  status("Variants written to: %s",
-         args->output_file_set ? args->output_file : "STDOUT");
+  status("Variants written to: %s", futil_outpath_str(out_path));
 
-  if(args->output_file_set) fclose(fout);
+  fclose(fout);
 
   strbuf_dealloc(&endflank);
 

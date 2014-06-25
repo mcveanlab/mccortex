@@ -112,7 +112,6 @@ static void parse_args(int argc, char **argv)
 {
   BuildGraphTask task = BUILD_GRAPH_TASK_INIT;
   uint8_t fq_offset = 0;
-  size_t kmer_set = 0;
   int intocolour = -1;
   GraphFileReader tmp_gfile;
 
@@ -130,7 +129,7 @@ static void parse_args(int argc, char **argv)
       case 't': cmd_check(nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'k': kmer_set++; kmer_size = cmd_uint32(cmd, optarg); break;
+      case 'k': cmd_check(kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
       case 's':
         intocolour++;
         if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
@@ -191,11 +190,13 @@ static void parse_args(int argc, char **argv)
 
   if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
 
-  if(kmer_set != 1)
-    die("kmer size must be exactly once with -k <K>");
-
+  if(!kmer_size) die("kmer size not set with -k <K>");
   if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE)
     die("Please recompile with correct kmer size (%zu)", kmer_size);
+  if(!(kmer_size&1)) {
+    die("Invalid kmer-size (%zu): requires odd number %i <= k <= %i",
+        kmer_size, MIN_KMER_SIZE, MAX_KMER_SIZE);
+  }
 
   // Check kmer size in graphs to load
   size_t i;

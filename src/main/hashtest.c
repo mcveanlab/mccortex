@@ -8,7 +8,25 @@
 
 static const char usage[] =
 "usage: hashtest [options] <num_ops>\n"
-"  Test hash table speed.  Assume kmer size of "QUOTE_VALUE(MAX_KMER_SIZE)" if none given\n";
+"\n"
+"  Test hash table speed.\n"
+"\n"
+"  -h, --help        This help message\n"
+"  -m, --memory <M>  Memory to use\n"
+"  -n, --nkmers <N>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -k, --kmer <K>    Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
+"\n";
+
+static struct option longopts[] =
+{
+// General options
+  {"help",         no_argument,       NULL, 'h'},
+  {"memory",       required_argument, NULL, 'm'},
+  {"nkmers",       required_argument, NULL, 'n'},
+// command specific
+  {"kmer",         required_argument, NULL, 'k'},
+  {NULL, 0, NULL, 0}
+};
 
 int main(int argc, char **argv)
 {
@@ -16,28 +34,34 @@ int main(int argc, char **argv)
   cmd_init(argc, argv);
   ctx_msg_out = stderr;
 
-  CmdArgs args;
-  cmd_alloc(&args, argc, argv);
+  size_t kmer_size = 0;
+  struct MemArgs memargs = MEM_ARGS_INIT;
 
-  argv = args.argv;
-  argc = args.argc;
+  // Arg parsing
+  char cmd[100], shortopts[100];
+  cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
+  int c;
 
-  size_t kmer_size = MAX_KMER_SIZE;
-
-  if(argc > 0 && (!strcmp(argv[0],"--kmer_size") || !strcmp(argv[0],"-k"))) {
-    if(argc == 1) die("%s <k> requires an argument", argv[0]);
-    if(!parse_entire_size(argv[1], &kmer_size) || !(kmer_size&1)) {
-      die("Invalid kmer-size (%s %s): requires odd number %i <= k <= %i",
-          argv[0], argv[1], MIN_KMER_SIZE, MAX_KMER_SIZE);
+  while((c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
+    cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
+    switch(c) {
+      case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
+      case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
+      case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'k': cmd_check(kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
     }
-    if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE) {
-      die("Please recompile with correct kmer size (%zu)", kmer_size);
-    }
-    argc -= 2;
-    argv += 2;
   }
 
-  if(args.argc != 1) print_usage(usage, NULL);
+  if(!kmer_size) die("kmer size not set with -k <K>");
+  if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE)
+    die("Please recompile with correct kmer size (%zu)", kmer_size);
+  if(!(kmer_size&1)) {
+    die("Invalid kmer-size (%zu): requires odd number %i <= k <= %i",
+        kmer_size, MIN_KMER_SIZE, MAX_KMER_SIZE);
+  }
+
+  if(optind+1 != argc) cmd_print_usage(NULL);
 
   unsigned long i, num_ops;
   if(!parse_entire_ulong(argv[0], &num_ops))
@@ -45,8 +69,15 @@ int main(int argc, char **argv)
 
   // Decide on memory
   size_t kmers_in_hash, graph_mem;
-  kmers_in_hash = cmd_get_kmers_in_hash(&args, 0, num_ops, num_ops, true, &graph_mem);
-  cmd_check_mem_limit(args.mem_to_use, graph_mem);
+
+  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
+                                         memargs.mem_to_use_set,
+                                         memargs.num_kmers,
+                                         memargs.num_kmers_set,
+                                         0, num_ops, num_ops,
+                                         true, &graph_mem);
+
+  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);
@@ -64,7 +95,6 @@ int main(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
   db_graph_dealloc(&db_graph);
 
-  cmd_free(&args);
   cortex_destroy();
   return EXIT_SUCCESS;
 }

@@ -118,17 +118,6 @@ size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
   return kmers_in_hash;
 }
 
-size_t cmd_get_kmers_in_hash(const CmdArgs *args, size_t extra_bits,
-                             size_t min_num_kmer_req, size_t max_num_kmers_req,
-                             bool use_mem_limit, size_t *graph_mem_ptr)
-{
-  return cmd_get_kmers_in_hash2(args->mem_to_use, args->mem_to_use_set,
-                                args->num_kmers, args->num_kmers_set,
-                                extra_bits,
-                                min_num_kmer_req, max_num_kmers_req,
-                                use_mem_limit, graph_mem_ptr);
-}
-
 // Check memory against memory limit and machine memory
 void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested)
 {
