@@ -10,7 +10,7 @@ struct AsyncIOWorker
 {
   pthread_t thread;
   MsgPool *const pool;
-  AsyncIOReadInput task;
+  AsyncIOInput task;
   size_t *const num_running;
 };
 
@@ -24,9 +24,11 @@ struct AsyncIOWorker
 //   -2, --seq2 <in1>:<in2>
 //   -i, --seqi <in>
 // If `out_base` is != NULL, it is set to point to the <out> string
-void asyncio_task_parse(AsyncIOReadInput *task, char shortopt, char *path_arg,
+void asyncio_task_parse(AsyncIOInput *task, char shortopt, char *path_arg,
                         uint8_t fq_offset, char **out_base)
 {
+  ctx_assert(shortopt == '1' || shortopt == '2' || shortopt == 'i');
+
   seq_file_t *sf1 = NULL, *sf2 = NULL;
   bool se = (shortopt == '1');
   bool pe = (shortopt == '2');
@@ -63,13 +65,13 @@ void asyncio_task_parse(AsyncIOReadInput *task, char shortopt, char *path_arg,
       die("Cannot open -%c file: %s", shortopt, paths[0]);
   }
 
-  AsyncIOReadInput tmp = {.file1 = sf1, .file2 = sf2,
+  AsyncIOInput tmp = {.file1 = sf1, .file2 = sf2,
                          .fq_offset = fq_offset, .interleaved = il,
                          .ptr = NULL};
-  memcpy(task, &tmp, sizeof(AsyncIOReadInput));
+  memcpy(task, &tmp, sizeof(AsyncIOInput));
 }
 
-void asyncio_task_close(AsyncIOReadInput *task)
+void asyncio_task_close(AsyncIOInput *task)
 {
   if(task->file1 != NULL) seq_close(task->file1);
   if(task->file2 != NULL) seq_close(task->file2);
@@ -96,7 +98,7 @@ void asynciodata_pool_init(void *el, size_t idx, void *args)
 
 // No memory allocated for io worker
 static void async_io_worker_init(AsyncIOWorker *wrkr,
-                                 const AsyncIOReadInput *task,
+                                 const AsyncIOInput *task,
                                  MsgPool *pool, size_t *num_running)
 {
   ctx_assert(pool->elsize == sizeof(AsyncIOData*));
@@ -134,7 +136,7 @@ static void* async_io_reader(void *ptr) __attribute__((noreturn));
 static void* async_io_reader(void *ptr)
 {
   AsyncIOWorker *wrkr = (AsyncIOWorker*)ptr;
-  AsyncIOReadInput *task = &wrkr->task;
+  AsyncIOInput *task = &wrkr->task;
 
   read_t r1, r2;
   seq_read_alloc(&r1);
@@ -167,10 +169,10 @@ static void* async_io_reader(void *ptr)
 // returns an array of AsyncIOWorker of length len_files, each is a running
 // thread putting reading into the pool passed.
 static AsyncIOWorker* asyncio_read_start(MsgPool *pool,
-                                         const AsyncIOReadInput *tasks,
-                                         size_t num_tasks)
+                                         const AsyncIOInput *inputs,
+                                         size_t num_inputs)
 {
-  if(num_tasks == 0) return NULL;
+  if(num_inputs == 0) return NULL;
 
   size_t i;
   int rc;
@@ -179,22 +181,22 @@ static AsyncIOWorker* asyncio_read_start(MsgPool *pool,
   ctx_assert(pool->elsize == sizeof(AsyncIOData*));
 
   // Create workers
-  AsyncIOWorker *workers = ctx_malloc(num_tasks * sizeof(AsyncIOWorker));
+  AsyncIOWorker *workers = ctx_malloc(num_inputs * sizeof(AsyncIOWorker));
 
   // Keep a counter of how many threads are still running
   // last thread to finish closes the pool
   size_t *num_running = ctx_malloc(sizeof(size_t));
-  *num_running = num_tasks;
+  *num_running = num_inputs;
 
-  for(i = 0; i < num_tasks; i++)
-    async_io_worker_init(&workers[i], &tasks[i], pool, num_running);
+  for(i = 0; i < num_inputs; i++)
+    async_io_worker_init(&workers[i], &inputs[i], pool, num_running);
 
   // Start threads
   pthread_attr_t thread_attr;
   pthread_attr_init(&thread_attr);
   pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
 
-  for(i = 0; i < num_tasks; i++) {
+  for(i = 0; i < num_inputs; i++) {
     rc = pthread_create(&workers[i].thread, &thread_attr,
                         async_io_reader, (void*)&workers[i]);
     if(rc != 0) die("Creating thread failed: %s", strerror(rc));
@@ -227,7 +229,7 @@ static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
 }
 
 void asyncio_run_threads(MsgPool *pool,
-                         AsyncIOReadInput *asyncio_tasks, size_t num_inputs,
+                         AsyncIOInput *asyncio_inputs, size_t num_inputs,
                          void (*job)(void*),
                          void *args, size_t num_readers, size_t elsize)
 {
@@ -238,7 +240,7 @@ void asyncio_run_threads(MsgPool *pool,
 
   // Start async io reading
   AsyncIOWorker *asyncio_workers;
-  asyncio_workers = asyncio_read_start(pool, asyncio_tasks, num_inputs);
+  asyncio_workers = asyncio_read_start(pool, asyncio_inputs, num_inputs);
 
   util_run_threads(args, num_readers, elsize, num_readers, job);
 
@@ -246,8 +248,58 @@ void asyncio_run_threads(MsgPool *pool,
   asyncio_read_finish(asyncio_workers, num_inputs);
 }
 
+typedef struct {
+  MsgPool *pool;
+  void (*func)(AsyncIOData *_data, void *_arg);
+  void *arg;
+} PoolFuncPair;
+
+// pthread method, loop: reads from pool, call function
+static void grab_reads_from_pool(void *arg)
+{
+  PoolFuncPair wrkr = *(PoolFuncPair*)arg;
+  int pos;
+  AsyncIOData *data = NULL;
+
+  while((pos = msgpool_claim_read(wrkr.pool)) != -1)
+  {
+    memcpy(&data, msgpool_get_ptr(wrkr.pool, pos), sizeof(AsyncIOData*));
+    wrkr.func(data, wrkr.arg);
+    msgpool_release(wrkr.pool, pos, MPOOL_EMPTY);
+  }
+}
+
+// `num_inputs` number of threads pushing reads into the pool
+// `num_readers` number of threads pulling reads from the pool
+void asyncio_run_pool(AsyncIOInput *asyncio_inputs, size_t num_inputs,
+                      void (*job)(AsyncIOData *_data, void *_arg),
+                      void *args, size_t num_readers, size_t elsize)
+{
+  size_t i;
+  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
+
+  MsgPool pool;
+  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
+  msgpool_iterate(&pool, asynciodata_pool_init, data);
+
+  PoolFuncPair poolfunc[num_readers];
+
+  for(i = 0; i < num_readers; i++) {
+    poolfunc[i] = (PoolFuncPair){.pool = &pool, .func = job,
+                                 .arg = (char*)args+i*elsize};
+  }
+
+  asyncio_run_threads(&pool, asyncio_inputs, num_inputs, grab_reads_from_pool,
+                      &poolfunc, num_readers, sizeof(PoolFuncPair));
+
+  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
+  ctx_free(data);
+  msgpool_dealloc(&pool);
+}
+
 // Guess numer of kmers
-size_t asyncio_input_nkmers(const AsyncIOReadInput *io)
+size_t asyncio_input_nkmers(const AsyncIOInput *io)
 {
   size_t i, est_num_bases = 0;
   for(i = 0; i < 2; i++) {

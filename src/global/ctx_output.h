@@ -40,4 +40,9 @@ void print_usage(const char *msg, const char *errfmt,  ...)
 void ctx_output_init();
 void ctx_output_destroy();
 
+// Print progress every 5M reads
+#define CTX_UPDATE_REPORT_RATE 5000000
+
+void ctx_update(const char *job_name, size_t niter);
+
 #endif /* CTX_OUTPUT_H_ */

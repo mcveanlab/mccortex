@@ -12,12 +12,9 @@
 
 typedef struct
 {
-  pthread_t thread;
   dBGraph *const db_graph;
-  MsgPool *pool;
   volatile size_t *rcounter; // counter of entries taken from the pool
-  LoadingStats *file_stats; // Array of stats for diff input files
-} BuildGraphWorker;
+} BuildGraphData;
 
 //
 // Check for PCR duplicates
@@ -71,7 +68,8 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
     node2 = db_graph_find_or_add_node_mt(db_graph, bkmer2, &found2);
   }
 
-  stats->num_kmers_novel += !found1 + !found2;
+  size_t num_kmers_novel = !found1 + !found2;
+  __sync_fetch_and_add((volatile size_t*)&stats->num_kmers_novel, num_kmers_novel);
 
   // Each read gives no kmer or a duplicate kmer
   // used find_or_insert so if we have a kmer we have a graph node
@@ -145,16 +143,16 @@ static void load_read(const read_t *r, uint8_t qual_cutoff, uint8_t hp_cutoff,
     num_novel_kmers = build_graph_from_str_mt(db_graph, colour,
                                               r->seq.b+contig_start, contig_len);
 
-    stats->total_bases_loaded += contig_len;
-    stats->num_kmers_loaded += contig_len + 1 - kmer_size;
-    stats->num_kmers_novel += num_novel_kmers;
+    size_t contig_kmers = contig_len + 1 - kmer_size;
+    __sync_fetch_and_add((volatile size_t*)&stats->total_bases_loaded, contig_len);
+    __sync_fetch_and_add((volatile size_t*)&stats->num_kmers_loaded, contig_kmers);
+    __sync_fetch_and_add((volatile size_t*)&stats->num_kmers_novel, num_novel_kmers);
     num_contigs++;
   }
 
-  stats->contigs_loaded += num_contigs;
-
-  if(num_contigs) stats->num_good_reads++;
-  else stats->num_bad_reads++;
+  __sync_fetch_and_add((volatile size_t*)&stats->contigs_loaded, num_contigs);
+  __sync_fetch_and_add((volatile size_t*)&stats->num_good_reads, num_contigs > 0);
+  __sync_fetch_and_add((volatile size_t*)&stats->num_bad_reads, num_contigs == 0);
 }
 
 void build_graph_from_reads_mt(read_t *r1, read_t *r2,
@@ -174,10 +172,11 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
     fq_cutoff2 += fq_offset2;
   }
 
-  stats->total_bases_read += r1->seq.end + (r2 ? r2->seq.end : 0);
+  size_t total_bases = r1->seq.end + (r2 ? r2->seq.end : 0);
+  __sync_fetch_and_add((volatile size_t*)&stats->total_bases_read, total_bases);
 
-  if(r2) stats->num_pe_reads += 2;
-  else stats->num_se_reads++;
+  if(r2) __sync_fetch_and_add((volatile size_t*)&stats->num_pe_reads, 2);
+  else   __sync_fetch_and_add((volatile size_t*)&stats->num_se_reads, 1);
 
   // printf(">%s %zu\n", r1->name.b, colour);
 
@@ -185,8 +184,8 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                              fq_cutoff1, fq_cutoff2, hp_cutoff,
                                              matedir, stats, db_graph))
   {
-    if(r2) stats->num_dup_pe_pairs++;
-    else stats->num_dup_se_reads++;
+    if(r2) __sync_fetch_and_add((volatile size_t*)&stats->num_dup_pe_pairs, 1);
+    else   __sync_fetch_and_add((volatile size_t*)&stats->num_dup_se_reads, 1);
   }
   else {
     load_read(r1, fq_cutoff1, hp_cutoff, stats, colour, db_graph);
@@ -194,49 +193,22 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
   }
 }
 
-// Print progress every 5M reads
-#define REPORT_RATE 5000000
-
-static void build_graph_print_progress(size_t n)
+static void add_reads_to_graph(AsyncIOData *data, void *ptr)
 {
-  if(n % REPORT_RATE == 0)
-  {
-    char num_str[100];
-    long_to_str(n, num_str);
-    status("[BuildGraph] Read %s entries (reads / read pairs)", num_str);
-  }
-}
+  BuildGraphData *wrkr = (BuildGraphData*)ptr;
+  BuildGraphTask *task = (BuildGraphTask*)data->ptr;
+  read_t *r2 = data->r2.name.end == 0 && data->r2.seq.end == 0 ? NULL : &data->r2;
 
-// pthread method, loop: reads from pool, add to graph
-static void grab_reads_from_pool(void *ptr)
-{
-  BuildGraphWorker *wrkr = (BuildGraphWorker*)ptr;
-  MsgPool *pool = wrkr->pool;
-  BuildGraphTask *task;
-  AsyncIOData *data;
-  int pos;
-  read_t *r2;
+  build_graph_from_reads_mt(&data->r1, r2,
+                            data->fq_offset1, data->fq_offset2,
+                            task->fq_cutoff, task->hp_cutoff,
+                            task->remove_pcr_dups, task->matedir,
+                            &task->stats,
+                            task->colour, wrkr->db_graph);
 
-  while((pos = msgpool_claim_read(pool)) != -1)
-  {
-    memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
-    task = (BuildGraphTask*)data->ptr;
-
-    r2 = data->r2.name.end == 0 && data->r2.seq.end == 0 ? NULL : &data->r2;
-
-    build_graph_from_reads_mt(&data->r1, r2,
-                              data->fq_offset1, data->fq_offset2,
-                              task->fq_cutoff, task->hp_cutoff,
-                              task->remove_pcr_dups, task->matedir,
-                              &wrkr->file_stats[task->idx],
-                              task->colour, wrkr->db_graph);
-
-    msgpool_release(pool, pos, MPOOL_EMPTY);
-
-    // Print progress
-    size_t n = __sync_fetch_and_add(wrkr->rcounter, 1);
-    build_graph_print_progress(n);
-  }
+  // Print progress
+  size_t n = __sync_add_and_fetch((volatile size_t*)&wrkr->rcounter, 1);
+  ctx_update("BuildGraph", n);
 }
 
 // One thread used per input file, num_build_threads used to add reads to graph
@@ -245,55 +217,22 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
 {
   ctx_assert(db_graph->bktlocks != NULL);
 
-  size_t i, f;
-
-  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
-  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
-
-  MsgPool pool;
-  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
-  msgpool_iterate(&pool, asynciodata_pool_init, data);
-
   // Start async io reading
-  AsyncIOReadInput *async_tasks = ctx_malloc(num_files * sizeof(AsyncIOReadInput));
+  AsyncIOInput *async_tasks = ctx_malloc(num_files * sizeof(AsyncIOInput));
+  size_t f;
 
   for(f = 0; f < num_files; f++) {
     files[f].idx = f;
     files[f].files.ptr = &files[f];
-    memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOReadInput));
+    memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOInput));
   }
 
-  BuildGraphWorker *workers = ctx_malloc(num_build_threads * sizeof(BuildGraphWorker));
-  size_t rcounter = 0;
+  BuildGraphData global_mem = {.db_graph = db_graph, .rcounter = 0};
 
-  for(i = 0; i < num_build_threads; i++)
-  {
-    BuildGraphWorker tmp_wrkr = {.db_graph = db_graph, .pool = &pool,
-                                 .rcounter = &rcounter};
-    tmp_wrkr.file_stats = ctx_calloc(num_files, sizeof(LoadingStats));
-    memcpy(&workers[i], &tmp_wrkr, sizeof(BuildGraphWorker));
-  }
-
-  // Create a lot of workers to build the graph
-  asyncio_run_threads(&pool, async_tasks, num_files, grab_reads_from_pool,
-                      workers, num_build_threads, sizeof(BuildGraphWorker));
-
-  // start_build_graph_workers(&pool, db_graph, files, num_files, num_build_threads);
+  asyncio_run_pool(async_tasks, num_files, add_reads_to_graph,
+                   &global_mem, num_build_threads, 0);
 
   ctx_free(async_tasks);
-  msgpool_dealloc(&pool);
-
-  // Clean up workers one by one...
-  for(i = 0; i < num_build_threads; i++) {
-    // Merge stats
-    for(f = 0; f < num_files; f++)
-      loading_stats_merge(&files[f].stats, &workers[i].file_stats[f]);
-
-    // Free memory
-    ctx_free(workers[i].file_stats);
-  }
-
-  ctx_free(workers);
 
   // Copy stats into ginfo
   size_t max_col = 0;
@@ -303,15 +242,12 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   }
 
   db_graph->num_of_cols_used = MAX2(db_graph->num_of_cols_used, max_col+1);
-
-  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
-  ctx_free(data);
 }
 
 
 void build_graph_task_print(const BuildGraphTask *task)
 {
-  const AsyncIOReadInput *io = &task->files;
+  const AsyncIOInput *io = &task->files;
   char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
 
   if(io->fq_offset > 0) sprintf(fqOffset, "%u", io->fq_offset);
@@ -329,7 +265,7 @@ void build_graph_task_print(const BuildGraphTask *task)
 void build_graph_task_print_stats(const BuildGraphTask *task)
 {
   const LoadingStats stats = task->stats;
-  const AsyncIOReadInput *io = &task->files;
+  const AsyncIOInput *io = &task->files;
 
   status("[task] input: %s%s%s colour: %zu",
          io->file1->path, io->file2 ? ", " : "",

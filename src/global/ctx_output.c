@@ -1,5 +1,6 @@
 #include "global.h"
 #include "ctx_output.h"
+#include "util.h"
 
 FILE *ctx_msg_out = NULL;
 pthread_mutex_t ctx_biglock;
@@ -117,4 +118,14 @@ void ctx_output_init()
 void ctx_output_destroy()
 {
   pthread_mutex_destroy(&ctx_biglock);
+}
+
+void ctx_update(const char *job_name, size_t niter)
+{
+  if(niter % CTX_UPDATE_REPORT_RATE == 0)
+  {
+    char num_str[100];
+    long_to_str(niter, num_str);
+    status("[%s] Read %s entries (reads / read pairs)", job_name, num_str);
+  }
 }

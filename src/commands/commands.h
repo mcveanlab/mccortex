@@ -21,9 +21,8 @@ int ctx_health_check(int argc, char **argv);
 int ctx_calls2vcf(int argc, char **argv);
 int ctx_subgraph(int argc, char **argv);
 int ctx_join(int argc, char **argv);
+int ctx_reads(int argc, char **argv);
 // int ctx_geno(int argc, char **argv); // not written yet
-
-int ctx_reads(CmdArgs *args);
 
 int ctx_unique(CmdArgs *args); // retiring
 int ctx_place(CmdArgs *args); // retiring

@@ -307,8 +307,7 @@ int ctx_join(int argc, char **argv)
     // Zero covgs
     memset(db_graph.col_covgs, 0, db_graph.ht.capacity * sizeof(Covg));
 
-    // Resize graph
-    // db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+    // Use union edges we loaded to intersect new edges
     intersect_edges = db_graph.col_edges;
     db_graph.col_edges += db_graph.ht.capacity;
   }

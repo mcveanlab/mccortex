@@ -295,7 +295,7 @@ static void _real_graph_test()
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
-  AsyncIOReadInput io = {.file1 = NULL, .file2 = NULL,
+  AsyncIOInput io = {.file1 = NULL, .file2 = NULL,
                          .fq_offset = 0, .interleaved = false};
 
   // Load paths

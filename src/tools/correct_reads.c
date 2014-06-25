@@ -14,7 +14,7 @@
 typedef struct
 {
   const dBGraph *db_graph;
-  MsgPool *pool;
+  volatile size_t *rcounter;
   dBAlignment aln;
   CorrectAlnWorker corrector;
   LoadingStats stats;
@@ -26,11 +26,9 @@ typedef struct
 } CorrectReadsWorker;
 
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
-                                       MsgPool *pool,
                                        const dBGraph *db_graph)
 {
   wrkr->db_graph = db_graph;
-  wrkr->pool = pool;
   db_alignment_alloc(&wrkr->aln);
   correct_aln_worker_alloc(&wrkr->corrector, db_graph);
   loading_stats_init(&wrkr->stats);
@@ -236,19 +234,14 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 }
 
 // pthread method, loop: grabs job, does processing
-static void correct_reads_thread(void *ptr)
+static void correct_reads_thread(AsyncIOData *data, void *ptr)
 {
   CorrectReadsWorker *wrkr = (CorrectReadsWorker*)ptr;
-  MsgPool *pool = wrkr->pool;
-  AsyncIOData *data;
-  int pos;
+  correct_read(wrkr, data);
 
-  while((pos = msgpool_claim_read(pool)) != -1)
-  {
-    memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
-    correct_read(wrkr, data);
-    msgpool_release(pool, pos, MPOOL_EMPTY);
-  }
+  // Print progress
+  size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
+  ctx_update("CorrectReads", n);
 }
 
 // Correct reads against the graph, and print out
@@ -257,29 +250,23 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
                    CorrectAlnInput *inputs, size_t num_inputs,
                    const dBGraph *db_graph)
 {
-  size_t i, n;
-  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
-  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
-
-  // Create pool of AsyncIOData* that point to elements in the above array
-  // -> swapping of pointers faster than whole AsyncIOData elements
-  MsgPool pool;
-  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
-  msgpool_iterate(&pool, asynciodata_pool_init, data);
+  size_t i, n, read_counter = 0;
 
   CorrectReadsWorker *wrkrs = ctx_calloc(num_threads, sizeof(CorrectReadsWorker));
 
-  for(i = 0; i < num_threads; i++)
-    correct_reads_worker_alloc(&wrkrs[i], &pool, db_graph);
+  for(i = 0; i < num_threads; i++) {
+    correct_reads_worker_alloc(&wrkrs[i], db_graph);
+    wrkrs[i].rcounter = &read_counter;
+  }
 
-  AsyncIOReadInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOReadInput));
+  AsyncIOInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOInput));
   correct_aln_input_to_asycio(asyncio_tasks, inputs, num_inputs);
 
   // Load input files max_io_threads at a time
   for(i = 0; i < num_inputs; i += max_io_threads) {
     n = MIN2(num_inputs - i, max_io_threads);
-    asyncio_run_threads(&pool, asyncio_tasks+i, n, correct_reads_thread,
-                        wrkrs, num_threads, sizeof(CorrectReadsWorker));
+    asyncio_run_pool(asyncio_tasks+i, n, correct_reads_thread,
+                     wrkrs, num_threads, sizeof(CorrectReadsWorker));
   }
 
   for(i = 0; i < num_threads; i++)
@@ -287,8 +274,4 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
 
   ctx_free(wrkrs);
   ctx_free(asyncio_tasks);
-  msgpool_dealloc(&pool);
-
-  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
-  ctx_free(data);
 }

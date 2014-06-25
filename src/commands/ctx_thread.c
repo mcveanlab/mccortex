@@ -206,10 +206,10 @@ int ctx_thread(int argc, char **argv)
 
   // Deal with a set of files at once
   size_t start, end;
-  for(start = 0; start < inputs->len; start += args.num_of_threads)
+  for(start = 0; start < inputs->len; start += MAX_IO_THREADS)
   {
     // Can have different numbers of inputs vs threads
-    end = MIN2(inputs->len, start+args.num_of_threads);
+    end = MIN2(inputs->len, start+MAX_IO_THREADS);
     generate_paths(inputs->data+start, end-start, workers, args.num_of_threads);
   }
 

@@ -21,7 +21,7 @@
 //   void charbuf_alloc(String *buf, size_t capacity)
 //   void charbuf_dealloc(String *buf)
 //   void charbuf_ensure_capacity(String *buf, size_t capacity)
-//   void charbuf_add(String *buf, char obj)
+//   size_t charbuf_add(String *buf, char obj)
 //   int charbuf_attempt_add(String *buf, char obj)
 //   void charbuf_append(String *buf, char *obj, size_t n)
 //   void charbuf_reset(String *buf)

@@ -78,15 +78,15 @@ typedef struct {
 #include "objbuf_macro.h"
 create_objbuf(sample_name_buf, SampleNameBuffer, SampleName);
 
-BuildGraphTaskBuffer gtaskbuf;
-GraphFileBuffer gfilebuf;
-SampleNameBuffer snamebuf;
+static BuildGraphTaskBuffer gtaskbuf;
+static GraphFileBuffer gfilebuf;
+static SampleNameBuffer snamebuf;
 
-size_t num_of_threads = DEFAULT_NTHREADS;
-struct MemArgs memargs = MEM_ARGS_INIT;
+static size_t nthreads = 0;
+static struct MemArgs memargs = MEM_ARGS_INIT;
 
-char *out_path = NULL;
-size_t output_colours = 0, kmer_size = 0;
+static char *out_path = NULL;
+static size_t output_colours = 0, kmer_size = 0;
 
 static void add_task(BuildGraphTask *task)
 {
@@ -127,7 +127,7 @@ static void parse_args(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': num_of_threads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'k': kmer_set++; kmer_size = cmd_uint32(cmd, optarg); break;
@@ -174,6 +174,9 @@ static void parse_args(int argc, char **argv)
       default: abort();
     }
   }
+
+  // Defaults
+  if(!nthreads) nthreads = DEFAULT_NTHREADS;
 
   // Check that optind+1 == argc
   if(optind+1 > argc)
@@ -337,7 +340,7 @@ int ctx_build(int argc, char **argv)
     }
 
     num_load = end-start;
-    build_graph(&db_graph, tasks+start, num_load, num_of_threads);
+    build_graph(&db_graph, tasks+start, num_load, nthreads);
   }
 
   // Print stats for hash table

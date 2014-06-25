@@ -5,7 +5,7 @@
 
 void correct_aln_input_print(const CorrectAlnInput *c)
 {
-  const AsyncIOReadInput *io = &c->files;
+  const AsyncIOInput *io = &c->files;
   int has_p2 = io->file2 != NULL;
   const char *p1 = io->file1->path, *p2 = has_p2 ? io->file2->path : "";
   char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
@@ -29,12 +29,12 @@ void correct_aln_input_print(const CorrectAlnInput *c)
   message("\n");
 }
 
-void correct_aln_input_to_asycio(AsyncIOReadInput *asyncio_tasks,
+void correct_aln_input_to_asycio(AsyncIOInput *asyncio_tasks,
                                  CorrectAlnInput *inputs,
                                  size_t num_inputs)
 {
   size_t i;
   for(i = 0; i < num_inputs; i++) {
-    memcpy(&asyncio_tasks[i], &inputs[i].files, sizeof(AsyncIOReadInput));
+    memcpy(&asyncio_tasks[i], &inputs[i].files, sizeof(AsyncIOInput));
   }
 }

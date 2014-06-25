@@ -28,7 +28,7 @@ struct GenPathWorker
   dBGraph *const db_graph;
 
   // We take jobs from the pool
-  MsgPool *pool;
+  // MsgPool *pool;
   volatile size_t *rcounter;
 
   // Current job
@@ -68,7 +68,7 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 
 static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
-  GenPathWorker tmp = {.db_graph = db_graph, .pool = NULL};
+  GenPathWorker tmp = {.db_graph = db_graph};
 
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
@@ -462,41 +462,17 @@ static void reads_to_paths(GenPathWorker *wrkr)
   }
 }
 
-// Print progress every 5M reads
-#define REPORT_RATE 5000000
-// Defragment collection every 10M reads
-#define DEFRAG_RATE 10000000
-
-static void gen_paths_print_progress(size_t n)
-{
-  if(n % REPORT_RATE == 0)
-  {
-    char num_str[100];
-    long_to_str(n, num_str);
-    status("[GenPaths] Read %s entries (reads / read pairs)", num_str);
-  }
-}
-
 // pthread method, loop: grabs job, does processing
-static void generate_paths_worker(void *ptr)
+static void generate_paths_worker(AsyncIOData *data, void *ptr)
 {
   GenPathWorker *wrkr = (GenPathWorker*)ptr;
-  MsgPool *pool = wrkr->pool;
-  AsyncIOData *data;
-  int pos;
+  wrkr->data = data;
+  memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnInput));
+  reads_to_paths(wrkr);
 
-  while((pos = msgpool_claim_read(pool)) != -1)
-  {
-    memcpy(&data, msgpool_get_ptr(pool, pos), sizeof(AsyncIOData*));
-    wrkr->data = data;
-    memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnInput));
-    reads_to_paths(wrkr);
-    msgpool_release(pool, pos, MPOOL_EMPTY);
-
-    // Print progress
-    size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
-    gen_paths_print_progress(n);
-  }
+  // Print progress
+  size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
+  ctx_update("GenPaths", n);
 }
 
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
@@ -527,13 +503,13 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   AsyncIOData iodata = {.r1 = r1, .r2 = r2, .ptr = NULL,
                         .fq_offset1 = 0, .fq_offset2 = 2};
 
-  AsyncIOReadInput iotask = {.file1 = NULL, .file2 = NULL,
+  AsyncIOInput iotask = {.file1 = NULL, .file2 = NULL,
                              .fq_offset = 0, .interleaved = false};
 
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   task.matedir = READPAIR_FF;
   task.crt_params = params;
-  memcpy(&task.files, &iotask, sizeof(AsyncIOReadInput));
+  memcpy(&task.files, &iotask, sizeof(AsyncIOInput));
 
   gen_paths_worker_seq(gen_path_wrkr, &iodata, &task);
 }
@@ -541,32 +517,18 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
 void generate_paths(CorrectAlnInput *tasks, size_t num_inputs,
                     GenPathWorker *workers, size_t num_workers)
 {
-  size_t i;
+  size_t i, read_counter = 0;
 
-  AsyncIOData *data = ctx_malloc(MSGPOOLSIZE * sizeof(AsyncIOData));
-  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_alloc(&data[i]);
-
-  size_t read_counter = 0;
-  MsgPool pool;
-  msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
-  msgpool_iterate(&pool, asynciodata_pool_init, data);
-
-  for(i = 0; i < num_workers; i++) {
-    workers[i].pool = &pool;
+  for(i = 0; i < num_workers; i++)
     workers[i].rcounter = &read_counter;
-  }
 
-  AsyncIOReadInput *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOReadInput));
+  AsyncIOInput *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOInput));
   correct_aln_input_to_asycio(asyncio_tasks, tasks, num_inputs);
 
-  asyncio_run_threads(&pool, asyncio_tasks, num_inputs, generate_paths_worker,
-                      workers, num_workers, sizeof(GenPathWorker));
+  asyncio_run_pool(asyncio_tasks, num_inputs, generate_paths_worker,
+                   workers, num_workers, sizeof(GenPathWorker));
 
   ctx_free(asyncio_tasks);
-  msgpool_dealloc(&pool);
-
-  for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
-  ctx_free(data);
 
   // Merge gap counts into worker[0]
   generate_paths_merge_stats(workers, num_workers);

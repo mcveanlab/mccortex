@@ -17,7 +17,7 @@
 
 typedef struct
 {
-  AsyncIOReadInput files;
+  AsyncIOInput files;
   uint8_t fq_cutoff, hp_cutoff;
   ReadMateDir matedir;
   Colour colour;

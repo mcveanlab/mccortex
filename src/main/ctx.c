@@ -57,8 +57,7 @@ CtxCmd cmdobjs[] = {
   .usage = subgraph_usage
 },
 {
-  .cmd = "reads", .func = ctx_reads, .hide = 1,
-  .minargs = 4, .maxargs = INT_MAX, .optargs = "mn", .reqargs = "",
+  .cmd = "reads", .func = NULL, .func2 = ctx_reads, .hide = 1,
   .blurb = "filter reads against a graph",
   .usage = reads_usage
 },
