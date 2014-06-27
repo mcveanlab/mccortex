@@ -112,6 +112,13 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
                             Orientation orient, Edges edges,
                             dBNode nodes[4], Nucleotide fw_nucs[4]);
 
+// @colour if > -1: filter next nodes for those in colour, otherwise all next nodes
+// @fw_nucs is the nuc you would add when walking forward
+// Returns number of nodes added
+uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
+                                   dBNode node, int colour,
+                                   dBNode nodes[4], Nucleotide fw_nucs[4]);
+
 // Check kmer size of a file
 void db_graph_check_kmer_size(size_t kmer_size, const char *path);
 

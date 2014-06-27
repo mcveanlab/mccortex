@@ -34,6 +34,7 @@ void cmd_get_longopt_str(const struct option *longs, char shortopt,
 void cmd_long_opts_to_short(const struct option *longs,
                             char *opts, size_t buflen);
 
+double cmd_udouble(const char *cmd, const char *arg);
 double cmd_udouble_nonzero(const char *cmd, const char *arg);
 uint8_t cmd_uint8(const char *cmd, const char *arg);
 int32_t cmd_int32(const char *cmd, const char *arg);

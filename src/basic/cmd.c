@@ -67,6 +67,15 @@ void cmd_long_opts_to_short(const struct option *longs,
   opts[j] = '\0';
 }
 
+double cmd_udouble(const char *cmd, const char *arg)
+{
+  ctx_assert(arg != NULL);
+  double tmp;
+  if(!parse_entire_double(arg, &tmp))
+    cmd_print_usage("%s requires a double >= 0: %s", cmd, arg);
+  return tmp;
+}
+
 double cmd_udouble_nonzero(const char *cmd, const char *arg)
 {
   ctx_assert(arg != NULL);

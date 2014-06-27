@@ -514,95 +514,98 @@ int ctx_contigs(int argc, char **argv)
 
   status("\n");
 
-  qsort(cd.lengths, cd.ncontigs, sizeof(size_t), cmp_size);
-  qsort(cd.junctions, cd.ncontigs, sizeof(size_t), cmp_size);
+  if(cd.ncontigs > 0)
+  {
+    qsort(cd.lengths, cd.ncontigs, sizeof(size_t), cmp_size);
+    qsort(cd.junctions, cd.ncontigs, sizeof(size_t), cmp_size);
 
-  // Calculate N50s
-  size_t len_n50, jnc_n50;
-  len_n50 = calc_N50(cd.lengths, cd.ncontigs, cd.total_len);
-  jnc_n50 = calc_N50(cd.junctions, cd.ncontigs, cd.total_junc);
+    // Calculate N50s
+    size_t len_n50, jnc_n50;
+    len_n50 = calc_N50(cd.lengths, cd.ncontigs, cd.total_len);
+    jnc_n50 = calc_N50(cd.junctions, cd.ncontigs, cd.total_junc);
 
-  // Calculate medians
-  double len_median, jnc_median, len_mean, jnc_mean;
-  len_median = MEDIAN(cd.lengths, cd.ncontigs);
-  jnc_median = MEDIAN(cd.junctions, cd.ncontigs);
-  len_mean = (double)cd.total_len / cd.ncontigs;
-  jnc_mean = (double)cd.total_junc / cd.ncontigs;
+    // Calculate medians
+    double len_median, jnc_median, len_mean, jnc_mean;
+    len_median = MEDIAN(cd.lengths, cd.ncontigs);
+    jnc_median = MEDIAN(cd.junctions, cd.ncontigs);
+    len_mean = (double)cd.total_len / cd.ncontigs;
+    jnc_mean = (double)cd.total_junc / cd.ncontigs;
 
-  // Print number of contigs
-  char ncontigs_str[90], nprint_str[90], reseed_str[90], noseedkmer_str[90];
-  long_to_str(cd.ncontigs, ncontigs_str);
-  long_to_str(cd.nprint, nprint_str);
-  long_to_str(cd.num_reseed_abort, reseed_str);
-  long_to_str(cd.num_seed_not_found, noseedkmer_str);
-  status("pulled out %s contigs", ncontigs_str);
-  status("printed out %s contigs", nprint_str);
-  if(no_reseed) {
-    status("no-reseed aborted %s times", reseed_str);
-    status("seed kmer not found %s times", noseedkmer_str);
+    // Print number of contigs
+    char ncontigs_str[90], nprint_str[90], reseed_str[90], noseedkmer_str[90];
+    long_to_str(cd.ncontigs, ncontigs_str);
+    long_to_str(cd.nprint, nprint_str);
+    long_to_str(cd.num_reseed_abort, reseed_str);
+    long_to_str(cd.num_seed_not_found, noseedkmer_str);
+    status("pulled out %s contigs", ncontigs_str);
+    status("printed out %s contigs", nprint_str);
+    if(no_reseed) {
+      status("no-reseed aborted %s times", reseed_str);
+      status("seed kmer not found %s times", noseedkmer_str);
+    }
+
+    char len_min_str[90], len_max_str[90], len_total_str[90];
+    char len_mean_str[90], len_median_str[90], len_n50_str[90];
+
+    char jnc_min_str[90], jnc_max_str[90], jnc_total_str[90];
+    char jnc_mean_str[90], jnc_median_str[90], jnc_n50_str[90];
+
+    // Use ulong_to_str instead of num_to_str to get better accuracy
+    // e.g. 966 instead of 1K
+    ulong_to_str(len_mean, len_mean_str);
+    ulong_to_str(jnc_mean, jnc_mean_str);
+    ulong_to_str(len_median, len_median_str);
+    ulong_to_str(jnc_median, jnc_median_str);
+    ulong_to_str(len_n50, len_n50_str);
+    ulong_to_str(jnc_n50, jnc_n50_str);
+    ulong_to_str(cd.min_len, len_min_str);
+    ulong_to_str(cd.min_junc, jnc_min_str);
+    ulong_to_str(cd.max_len, len_max_str);
+    ulong_to_str(cd.max_junc, jnc_max_str);
+    ulong_to_str(cd.total_len, len_total_str);
+    ulong_to_str(cd.total_junc, jnc_total_str);
+
+    status("Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
+           len_mean_str, len_median_str, len_n50_str, len_min_str, len_max_str, len_total_str);
+    status("Junctions: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [out >1]",
+           jnc_mean_str, jnc_median_str, jnc_n50_str, jnc_min_str, jnc_max_str, jnc_total_str);
+    status("Max junction density: %.2f\n", cd.max_junc_density);
+    // status("Contigs looping back to a kmer: %zu [%.2f%%]\n", nloop,
+    //        (100.0 * nloop) / cd.ncontigs);
+
+    timestamp();
+    message(" Outdegree: ");
+    char nout_str[90];
+
+    for(i = 0; i <= 4; i++) {
+      message("\t%zu:%s [%zu%%]", i, ulong_to_str(cd.contigs_outdegree[i], nout_str),
+              (size_t)((100.0*cd.contigs_outdegree[i])/(2.0*cd.ncontigs)+0.5));
+    }
+    message("\n");
+
+    contig_print_path_dist(cd.paths_held, MAXPATH, "Paths held", cd.ncontigs);
+    contig_print_path_dist(cd.paths_pickdup, MAXPATH, "Paths pickdup", cd.ncontigs);
+    contig_print_path_dist(cd.paths_counter, MAXPATH, "Paths counter", cd.ncontigs);
+
+    const size_t *states = cd.grphwlk_steps;
+    size_t nsteps = cd.total_len - cd.ncontigs, ncontigends = 2*cd.ncontigs;
+    status("Traversal succeeded because:");
+    contig_grphwlk_state("Go straight   ", states[GRPHWLK_FORWARD], nsteps);
+    contig_grphwlk_state("Go colour     ", states[GRPHWLK_COLFWD], nsteps);
+    contig_grphwlk_state("Go paths      ", states[GRPHWLK_USEPATH], nsteps);
+    status("Traversal halted because:");
+    contig_grphwlk_state("No coverage   ", states[GRPHWLK_NOCOVG], ncontigends);
+    contig_grphwlk_state("No colour covg", states[GRPHWLK_NOCOLCOVG], ncontigends);
+    contig_grphwlk_state("No paths      ", states[GRPHWLK_NOPATHS], ncontigends);
+    contig_grphwlk_state("Paths split   ", states[GRPHWLK_SPLIT_PATHS], ncontigends);
+    contig_grphwlk_state("Missing paths ", states[GRPHWLK_MISSING_PATHS], ncontigends);
+
+    size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
+                   states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];
+
+    status("Junctions:");
+    contig_grphwlk_state("Paths resolved", states[GRPHWLK_USEPATH], njunc);
   }
-
-  char len_min_str[90], len_max_str[90], len_total_str[90];
-  char len_mean_str[90], len_median_str[90], len_n50_str[90];
-
-  char jnc_min_str[90], jnc_max_str[90], jnc_total_str[90];
-  char jnc_mean_str[90], jnc_median_str[90], jnc_n50_str[90];
-
-  // Use ulong_to_str instead of num_to_str to get better accuracy
-  // e.g. 966 instead of 1K
-  ulong_to_str(len_mean, len_mean_str);
-  ulong_to_str(jnc_mean, jnc_mean_str);
-  ulong_to_str(len_median, len_median_str);
-  ulong_to_str(jnc_median, jnc_median_str);
-  ulong_to_str(len_n50, len_n50_str);
-  ulong_to_str(jnc_n50, jnc_n50_str);
-  ulong_to_str(cd.min_len, len_min_str);
-  ulong_to_str(cd.min_junc, jnc_min_str);
-  ulong_to_str(cd.max_len, len_max_str);
-  ulong_to_str(cd.max_junc, jnc_max_str);
-  ulong_to_str(cd.total_len, len_total_str);
-  ulong_to_str(cd.total_junc, jnc_total_str);
-
-  status("Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
-         len_mean_str, len_median_str, len_n50_str, len_min_str, len_max_str, len_total_str);
-  status("Junctions: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [out >1]",
-         jnc_mean_str, jnc_median_str, jnc_n50_str, jnc_min_str, jnc_max_str, jnc_total_str);
-  status("Max junction density: %.2f\n", cd.max_junc_density);
-  // status("Contigs looping back to a kmer: %zu [%.2f%%]\n", nloop,
-  //        (100.0 * nloop) / cd.ncontigs);
-
-  timestamp();
-  message(" Outdegree: ");
-  char nout_str[90];
-
-  for(i = 0; i <= 4; i++) {
-    message("\t%zu:%s [%zu%%]", i, ulong_to_str(cd.contigs_outdegree[i], nout_str),
-            (size_t)((100.0*cd.contigs_outdegree[i])/(2.0*cd.ncontigs)+0.5));
-  }
-  message("\n");
-
-  contig_print_path_dist(cd.paths_held, MAXPATH, "Paths held", cd.ncontigs);
-  contig_print_path_dist(cd.paths_pickdup, MAXPATH, "Paths pickdup", cd.ncontigs);
-  contig_print_path_dist(cd.paths_counter, MAXPATH, "Paths counter", cd.ncontigs);
-
-  const size_t *states = cd.grphwlk_steps;
-  size_t nsteps = cd.total_len - cd.ncontigs, ncontigends = 2*cd.ncontigs;
-  status("Traversal succeeded because:");
-  contig_grphwlk_state("Go straight   ", states[GRPHWLK_FORWARD], nsteps);
-  contig_grphwlk_state("Go colour     ", states[GRPHWLK_COLFWD], nsteps);
-  contig_grphwlk_state("Go paths      ", states[GRPHWLK_USEPATH], nsteps);
-  status("Traversal halted because:");
-  contig_grphwlk_state("No coverage   ", states[GRPHWLK_NOCOVG], ncontigends);
-  contig_grphwlk_state("No colour covg", states[GRPHWLK_NOCOLCOVG], ncontigends);
-  contig_grphwlk_state("No paths      ", states[GRPHWLK_NOPATHS], ncontigends);
-  contig_grphwlk_state("Paths split   ", states[GRPHWLK_SPLIT_PATHS], ncontigends);
-  contig_grphwlk_state("Missing paths ", states[GRPHWLK_MISSING_PATHS], ncontigends);
-
-  size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
-                 states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];
-
-  status("Junctions:");
-  contig_grphwlk_state("Paths resolved", states[GRPHWLK_USEPATH], njunc);
 
   contig_data_dealloc(&cd);
   rpt_walker_dealloc(&rptwlk);

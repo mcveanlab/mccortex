@@ -35,16 +35,20 @@ const char thread_usage[] =
 "  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
-"  -e, --end-check          Extra check after bridging gap [default: on]\n"
-"  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -g, --min-ins <ins>      Minimum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MIN_INS)"]\n"
 "  -G, --max-ins <ins>      Maximum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MAX_INS)"]\n"
 "  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
 "  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
+"  -a, --aln-const            -a, -A set parameters for allowable gap lengths\n"
+"  -A, --aln-coeff              (gap_exp*A - a) <= gap_actual <= (gap_exp*A + a)\n"
+"  -X, --max-context          Number of kmers to use either side of a gap\n"
+"  -e, --end-check            Extra check after bridging gap [default: on]\n"
+"  -E, --no-end-check         Skip extra check after gap bridging\n"
+"\n"
 "  Debugging Options: Probably best not to touch these\n"
-"    -X,--print-contigs -Y,--print-paths -Z,--print-reads\n"
+"    -x,--print-contigs -y,--print-paths -z,--print-reads\n"
 "\n"
 "  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n"
@@ -53,37 +57,40 @@ const char thread_usage[] =
 static struct option longopts[] =
 {
 // General options
-  {"help",         no_argument,       NULL, 'h'},
-  {"out",          required_argument, NULL, 'o'},
-  {"memory",       required_argument, NULL, 'm'},
-  {"nkmers",       required_argument, NULL, 'n'},
-  {"threads",      required_argument, NULL, 't'},
-  {"paths",        required_argument, NULL, 'p'},
+  {"help",          no_argument,       NULL, 'h'},
+  {"out",           required_argument, NULL, 'o'},
+  {"memory",        required_argument, NULL, 'm'},
+  {"nkmers",        required_argument, NULL, 'n'},
+  {"threads",       required_argument, NULL, 't'},
+  {"paths",         required_argument, NULL, 'p'},
 // command specific
-  {"seq",          required_argument, NULL, '1'},
-  {"seq2",         required_argument, NULL, '2'},
-  {"seqi",         required_argument, NULL, 'i'},
-  {"FR",           no_argument,       NULL, 'f'},
-  {"FF",           no_argument,       NULL, 'F'},
-  {"RF",           no_argument,       NULL, 'r'},
-  {"RR",           no_argument,       NULL, 'R'},
-  {"oneway",       no_argument,       NULL, 'w'},
-  {"twoway",       no_argument,       NULL, 'W'},
-  {"fq-cutoff",    required_argument, NULL, 'Q'},
-  {"fq-offset",    required_argument, NULL, 'q'},
-  {"cut-hp",       required_argument, NULL, 'H'},
-  {"end-check",    no_argument,       NULL, 'e'},
-  {"no-end-check", no_argument,       NULL, 'E'},
-  {"min-ins",      required_argument, NULL, 'g'},
-  {"max-ins",      required_argument, NULL, 'G'},
-  {"seq-gaps",     required_argument, NULL, 'S'},
-  {"mp-gaps",      required_argument, NULL, 'M'},
-  {"use-new-paths",required_argument, NULL, 'u'},
-  {"clean",        optional_argument, NULL, 'C'},
+  {"seq",           required_argument, NULL, '1'},
+  {"seq2",          required_argument, NULL, '2'},
+  {"seqi",          required_argument, NULL, 'i'},
+  {"FR",            no_argument,       NULL, 'f'},
+  {"FF",            no_argument,       NULL, 'F'},
+  {"RF",            no_argument,       NULL, 'r'},
+  {"RR",            no_argument,       NULL, 'R'},
+  {"oneway",        no_argument,       NULL, 'w'},
+  {"twoway",        no_argument,       NULL, 'W'},
+  {"fq-cutoff",     required_argument, NULL, 'Q'},
+  {"fq-offset",     required_argument, NULL, 'q'},
+  {"cut-hp",        required_argument, NULL, 'H'},
+  {"min-ins",       required_argument, NULL, 'g'},
+  {"max-ins",       required_argument, NULL, 'G'},
+  {"seq-gaps",      required_argument, NULL, 'S'},
+  {"mp-gaps",       required_argument, NULL, 'M'},
+  {"use-new-paths", required_argument, NULL, 'u'},
+//
+  {"gap-diff-const",required_argument, NULL, 'd'},
+  {"gap-diff-coeff",required_argument, NULL, 'D'},
+  {"max-context",   required_argument, NULL, 'X'},
+  {"end-check",     no_argument,       NULL, 'e'},
+  {"no-end-check",  no_argument,       NULL, 'E'},
 // Debug options
-  {"print-contigs",no_argument,       NULL, 'X'},
-  {"print-paths",  no_argument,       NULL, 'Y'},
-  {"print-reads",  no_argument,       NULL, 'Z'},
+  {"print-contigs", no_argument,       NULL, 'X'},
+  {"print-paths",   no_argument,       NULL, 'Y'},
+  {"print-reads",   no_argument,       NULL, 'Z'},
   {NULL, 0, NULL, 0}
 };
 

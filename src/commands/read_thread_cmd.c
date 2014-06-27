@@ -29,7 +29,6 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
                             const struct option *longopts, bool correct_cmd)
 {
   size_t i;
-  int tmp_thresh; // 0 => no calling, -1 => auto
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   uint8_t fq_offset = 0;
   size_t dump_seq_n = 0, dump_mp_n = 0; // how many times are -g -G specified
@@ -87,29 +86,19 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'q': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
-      case 'e': task.crt_params.use_end_check = true; used = 0; break;
-      case 'E': task.crt_params.use_end_check = false; used = 0; break;
       case 'g': task.crt_params.ins_gap_min = cmd_uint32(cmd, optarg); used = 0; break;
       case 'G': task.crt_params.ins_gap_max = cmd_uint32(cmd, optarg); used = 0; break;
+      case 'd': task.crt_params.gap_wiggle = cmd_udouble(cmd, optarg); used = 0; break;
+      case 'D': task.crt_params.gap_variance = cmd_udouble(cmd, optarg); used = 0; break;
+      case 'X': task.crt_params.max_context = cmd_uint32(cmd, optarg); used = 0; break;
+      case 'e': task.crt_params.use_end_check = true; used = 0; break;
+      case 'E': task.crt_params.use_end_check = false; used = 0; break;
       case 'S': args->dump_seq_sizes = optarg; dump_seq_n++; break;
       case 'M': args->dump_mp_sizes = optarg; dump_mp_n++; break;
       case 'u': args->use_new_paths = true; break;
-      case 'C':
-        if(optarg == NULL || strcmp(optarg,"auto")) args->clean_threshold = -1;
-        else if(parse_entire_int(optarg,&tmp_thresh) && tmp_thresh >= -1) {
-          if(tmp_thresh != -1 && tmp_thresh < 2)
-            warn("Ignoring --clean %u (too small < 2)", tmp_thresh);
-          else if(tmp_thresh > 255)
-            warn("Ignoring --clean %u (too big > 255)", tmp_thresh);
-          else
-            args->clean_threshold = tmp_thresh;
-        }
-        else die("Bad argument for %s <auto|N> where N > 1", cmd);
-        args->clean_paths = (args->clean_threshold != 0);
-        break;
-      case 'X': gen_paths_print_contigs = true; break;
-      case 'Y': gen_paths_print_paths = true; break;
-      case 'Z': gen_paths_print_reads = true; break;
+      case 'x': gen_paths_print_contigs = true; break;
+      case 'y': gen_paths_print_paths = true; break;
+      case 'z': gen_paths_print_reads = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -160,6 +149,13 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
 
   // Check for compatibility between graph files and path files
   graphs_gpaths_compatible(gfile, 1, args->gpfiles.data, args->gpfiles.len);
+
+  // if no paths loaded, set all max_context values to 1, since >1 kmer only
+  // useful if can pickup paths
+  if(args->gpfiles.len == 0) {
+    for(i = 0; i < inputs->len; i++)
+      inputs->data[i].crt_params.max_context = 1;
+  }
 
   // Check ins_gap_min < ins_gap_max
   for(i = 0; i < inputs->len; i++)

@@ -32,8 +32,8 @@ typedef struct
 {
   Colour ctpcol, ctxcol;
   uint32_t ins_gap_min, ins_gap_max;
-  uint32_t max_context, gap_wiggle;
-  float gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
+  uint32_t max_context; // how many kmers to use either side of a gap
+  float gap_wiggle, gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
   bool one_way_gap_traverse; // set to false for more error prone algo
   bool use_end_check; // check paths match remaining contig
 } CorrectAlnParam;

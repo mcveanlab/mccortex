@@ -206,6 +206,52 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
   return count;
 }
 
+// @colour if > -1: filter next nodes for those in colour, otherwise all next nodes
+// @fw_nucs is the nuc you would add when walking forward
+// Returns number of nodes added
+uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
+                                   dBNode node, int colour,
+                                   dBNode nodes[4], Nucleotide fw_nucs[4])
+{
+  size_t i, j;
+  Edges edges;
+  BinaryKmer bkey;
+  uint8_t count;
+
+  if(colour < 0)
+    edges = db_node_get_edges_union(db_graph, node.key);
+  else if(db_graph->num_edge_cols < db_graph->num_of_cols)
+    edges = db_node_edges(db_graph, node.key, 0);
+  else
+    edges = db_node_edges(db_graph, node.key, colour);
+
+  bkey = db_node_get_bkmer(db_graph, node.key);
+
+  count = db_graph_next_nodes(db_graph, bkey, node.orient, edges,
+                              nodes, fw_nucs);
+
+  // Filter next nodes if needed
+  if(colour >= 0 && db_graph->num_edge_cols < db_graph->num_of_cols)
+  {
+    for(i = j = 0; i < count; i++) {
+      if((db_graph->node_in_cols && db_node_has_col(db_graph, nodes[i].key, colour)) ||
+         (!db_graph->node_in_cols && db_node_col_covg(db_graph, nodes[i].key, colour) > 0))
+      {
+        nodes[j] = nodes[i];
+        fw_nucs[j] = fw_nucs[i];
+        j++;
+      }
+    }
+    count = j;
+  }
+
+  return count;
+}
+
+//
+//
+//
+
 // Check kmer size of a file
 // Used when loading graph and path files
 void db_graph_check_kmer_size(size_t kmer_size, const char *path)

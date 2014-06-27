@@ -16,9 +16,8 @@ struct ReadThreadCmdArgs
   size_t num_of_threads;
   struct MemArgs memargs;
   char *graph_path, *out_ctp_path;
-  bool use_new_paths, clean_paths;
+  bool use_new_paths;
   char *dump_seq_sizes, *dump_mp_sizes;
-  int clean_threshold; // 0 => no cleaning, -1 => auto
   size_t colour; // ctx_correct only
 
   GraphFileReader gfile;
@@ -34,10 +33,8 @@ struct ReadThreadCmdArgs
                                    .graph_path = NULL,                 \
                                    .out_ctp_path = NULL,               \
                                    .use_new_paths = false,             \
-                                   .clean_paths = false,               \
                                    .dump_seq_sizes = NULL,             \
                                    .dump_mp_sizes = NULL,              \
-                                   .clean_threshold = 0,               \
                                    .colour = 0,                        \
                                    .gfile = INIT_GRAPH_READER_MACRO,   \
                                    .gpfiles = OBJBUF_INIT,             \

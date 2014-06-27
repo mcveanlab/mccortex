@@ -184,6 +184,7 @@ void binary_seq_cpy_fast(uint8_t *restrict dst, const uint8_t *restrict src,
   bitshift = shift*2;
   nwords64 = (n-1)/32; // -1 so we can look ahead
   endbyte = nwords64*8;
+  dst[dst_bytes-1] = 0; // zero top byte, so we don't complain when masking later
 
   for(byte=0; byte<endbyte; byte+=8) {
     memcpy(&word, &src[byte], 8);

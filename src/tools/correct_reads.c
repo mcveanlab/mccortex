@@ -7,10 +7,6 @@
 #include "file_util.h"
 #include "msg-pool/msgpool.h"
 
-// DEV: print read sequence in lower case instead of N
-
-#define MAX_CONTEXT 50
-
 typedef struct
 {
   const dBGraph *db_graph;
@@ -50,6 +46,7 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
   db_node_buf_dealloc(&wrkr->tmpnbuf);
 }
 
+// Prints read sequence in lower case instead of N
 static void handle_read(CorrectReadsWorker *wrkr,
                         const CorrectAlnInput *input,
                         const read_t *r, StrBuf *buf,
@@ -87,19 +84,23 @@ static void handle_read(CorrectReadsWorker *wrkr,
   nbuf = correct_alignment_nxt(&wrkr->corrector);
 
   if(nbuf == NULL) {
-    // Alignment failed
-    for(i = 0; i < r->seq.end; i++) strbuf_append_char(buf, 'N');
+    // Alignment failed - copy read in lower case
+    size_t offset = buf->len;
+    strbuf_append_strn(buf, r->seq.b, r->seq.end);
+    for(i = offset; i < buf->len; i++) buf->buff[i] = tolower(buf->buff[i]);
     strbuf_append_char(buf, '\n');
     return;
   }
 
   // extend left
   size_t left_gap = aln->gaps.data[0], right_gap = aln->r1enderr;
+  size_t bases_printed = 0;
 
   if(left_gap > 0)
   {
     // Walk left
-    graph_walker_prime(wlk, nbuf->data, nbuf->len, MAX_CONTEXT, false,
+    graph_walker_prime(wlk, nbuf->data, nbuf->len,
+                       input->crt_params.max_context, false,
                        ctxcol, ctpcol, db_graph);
 
     db_node_buf_reset(tmpnbuf);
@@ -115,13 +116,17 @@ static void handle_read(CorrectReadsWorker *wrkr,
     rpt_walker_fast_clear(rptwlk, tmpnbuf->data, tmpnbuf->len);
 
     // Add Ns for bases we couldn't resolve
-    for(i = tmpnbuf->len; i < left_gap; i++) strbuf_append_char(buf, 'N');
+    for(i = tmpnbuf->len; i < left_gap; i++) {
+      strbuf_append_char(buf, tolower(r->seq.b[i])); // N
+    }
 
     // Append bases
     for(i = tmpnbuf->len-1; i != SIZE_MAX; i--) {
       nuc = db_node_get_first_nuc(db_node_reverse(tmpnbuf->data[i]), db_graph);
       strbuf_append_char(buf, dna_nuc_to_char(nuc));
     }
+
+    bases_printed += left_gap + tmpnbuf->len;
   }
 
   // Append first contig
@@ -132,6 +137,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
     nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
     strbuf_append_char(buf, dna_nuc_to_char(nuc));
   }
+  bases_printed += kmer_size + nbuf->len - 1;
 
   while(correct_alignment_get_endidx(&wrkr->corrector) < aln->nodes.len)
   {
@@ -140,9 +146,13 @@ static void handle_read(CorrectReadsWorker *wrkr,
     idx = correct_alignment_get_strtidx(&wrkr->corrector);
     gap = aln->gaps.data[idx];
     num_n = gap < kmer_size ? 0 : gap - kmer_size + 1;
-    for(i = 0; i < num_n; i++) strbuf_append_char(buf, 'N');
+
+    for(i = 0; i < num_n; i++) {
+      strbuf_append_char(buf, tolower(r->seq.b[bases_printed++])); // N
+    }
 
     nbases = MIN2(gap+1, kmer_size);
+    bkmer = db_node_oriented_bkmer(db_graph, nbuf->data[0]);
     binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
     strbuf_append_strn(buf, bkmerstr+kmer_size-nbases, nbases);
 
@@ -150,13 +160,16 @@ static void handle_read(CorrectReadsWorker *wrkr,
       nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
       strbuf_append_char(buf, dna_nuc_to_char(nuc));
     }
+
+    bases_printed += nbases + nbuf->len - 1;
   }
 
   // extend right
   if(right_gap > 0)
   {
     // walk right
-    graph_walker_prime(wlk, nbuf->data, nbuf->len, MAX_CONTEXT, true,
+    graph_walker_prime(wlk, nbuf->data, nbuf->len,
+                       input->crt_params.max_context, true,
                        0, 0, db_graph);
 
     init_len = nbuf->len;
@@ -177,9 +190,12 @@ static void handle_read(CorrectReadsWorker *wrkr,
       nuc = db_node_get_first_nuc(nbuf->data[i], db_graph);
       strbuf_append_char(buf, dna_nuc_to_char(nuc));
     }
+    bases_printed += nbuf->len - init_len;
 
     // Add Ns for bases we couldn't resolve
-    for(i = nbuf->len; i < end_len; i++) strbuf_append_char(buf, 'N');
+    for(i = nbuf->len; i < end_len; i++) {
+      strbuf_append_char(buf, tolower(r->seq.b[bases_printed++])); // N
+    }
   }
 
   strbuf_append_char(buf, '\n');

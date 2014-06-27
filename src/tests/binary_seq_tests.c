@@ -42,7 +42,7 @@ static void _binary_seq_str_test(const char *seq)
 {
   size_t len = strlen(seq);
   char str[len+1];
-  uint8_t data[len];
+  uint8_t data[len+1];
 
   binary_seq_from_str(seq, len, data);
   binary_seq_to_str(data, len, str);

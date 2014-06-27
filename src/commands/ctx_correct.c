@@ -12,7 +12,8 @@
 const char correct_usage[] =
 "usage: "CMD" correct [options] <input.ctx>\n"
 "\n"
-"  Correct reads against a (population) graph.\n"
+"  Correct reads against a (population) graph. Uses paths if specified.\n"
+"  Bases are printed in lower case if they cannot be corrected.\n"
 "\n"
 "  -h, --help                 This help message\n"
 "  -m, --memory <mem>         Memory to use (e.g. 1M, 20GB)\n"
@@ -20,7 +21,7 @@ const char correct_usage[] =
 "  -t, --threads <T>          Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>       Load path file (can specify multiple times)\n"
 // Non default:
-"  -c, --colour <in:out>         Correct reads from file (supports sam,bam,fq,*.gz\n"
+"  -c, --colour <in:out>      Correct reads from file (supports sam,bam,fq,*.gz\n"
 "  -1, --seq <in:out>         Correct reads from file (supports sam,bam,fq,*.gz\n"
 "  -2, --seq2 <in1:in2:out>   Correct paired end sequences (output: <out>.{1,2}.fa.gz)\n"
 "  -i, --seqi <in.bam:out>    Correct PE reads from a single file\n"
@@ -31,14 +32,18 @@ const char correct_usage[] =
 "  -Q, --fq-threshold <Q>     Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>        FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>          Breaks reads at homopolymers >= <bp> [default: off]\n"
-"  -e, --end-check            Extra check after bridging gap [default: on]\n"
-"  -E, --no-end-check         Skip extra check after gap bridging\n"
 "  -g, --min-ins <ins>        Minimum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MIN_INS)"]\n"
 "  -G, --max-ins <ins>        Maximum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MAX_INS)"]\n"
+"\n"
+"  -d, --gap-diff-const       -d, -D set parameters for allowable gap lengths\n"
+"  -D, --gap-diff-coeff        (gap_exp*D - d) <= gap_actual <= (gap_exp*D + d)\n"
+"  -X, --max-context          Number of kmers to use either side of a gap\n"
+"  -e, --end-check            Extra check after bridging gap [default: on]\n"
+"  -E, --no-end-check         Skip extra check after gap bridging\n"
+//
 // "  -S, --seq-gaps <out.csv>   Save size distribution of seq gaps bridged\n"
 // "  -M, --mp-gaps <out.csv>    Save size distribution of mate pair gaps bridged\n"
 //
-"  -g, --min-ins <ins>        Minimum insert size for --seq2 [default:0]\n"
 "\n"
 " --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
 " --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n"
@@ -47,32 +52,37 @@ const char correct_usage[] =
 static struct option longopts[] =
 {
 // General options
-  {"help",         no_argument,       NULL, 'h'},
-  {"out",          required_argument, NULL, 'o'},
-  {"memory",       required_argument, NULL, 'm'},
-  {"nkmers",       required_argument, NULL, 'n'},
-  {"threads",      required_argument, NULL, 't'},
-  {"paths",        required_argument, NULL, 'p'},
+  {"help",          no_argument,       NULL, 'h'},
+  {"out",           required_argument, NULL, 'o'},
+  {"memory",        required_argument, NULL, 'm'},
+  {"nkmers",        required_argument, NULL, 'n'},
+  {"threads",       required_argument, NULL, 't'},
+  {"paths",         required_argument, NULL, 'p'},
 // command specific
-  {"seq",          required_argument, NULL, '1'},
-  {"seq2",         required_argument, NULL, '2'},
-  {"seqi",         required_argument, NULL, 'i'},
-  {"FR",           no_argument,       NULL, 'f'},
-  {"FF",           no_argument,       NULL, 'F'},
-  {"RF",           no_argument,       NULL, 'r'},
-  {"RR",           no_argument,       NULL, 'R'},
-  {"oneway",       no_argument,       NULL, 'w'},
-  {"twoway",       no_argument,       NULL, 'W'},
-  {"fq-cutoff",    required_argument, NULL, 'Q'},
-  {"fq-offset",    required_argument, NULL, 'q'},
-  {"cut-hp",       required_argument, NULL, 'H'},
-  {"end-check",    no_argument,       NULL, 'e'},
-  {"no-end-check", no_argument,       NULL, 'E'},
-  {"min-ins",      no_argument,       NULL, 'g'},
-  {"max-ins",      no_argument,       NULL, 'G'},
-  {"colour",       required_argument, NULL, 'c'}, // allow --{col,color,colour}
-  {"color",        required_argument, NULL, 'c'},
-  {"col",          required_argument, NULL, 'c'},
+  {"seq",           required_argument, NULL, '1'},
+  {"seq2",          required_argument, NULL, '2'},
+  {"seqi",          required_argument, NULL, 'i'},
+  {"FR",            no_argument,       NULL, 'f'},
+  {"FF",            no_argument,       NULL, 'F'},
+  {"RF",            no_argument,       NULL, 'r'},
+  {"RR",            no_argument,       NULL, 'R'},
+  {"oneway",        no_argument,       NULL, 'w'},
+  {"twoway",        no_argument,       NULL, 'W'},
+  {"fq-cutoff",     required_argument, NULL, 'Q'},
+  {"fq-offset",     required_argument, NULL, 'q'},
+  {"cut-hp",        required_argument, NULL, 'H'},
+  {"min-ins",       no_argument,       NULL, 'g'},
+  {"max-ins",       no_argument,       NULL, 'G'},
+  {"colour",        required_argument, NULL, 'c'}, // allow --{col,color,colour}
+  {"color",         required_argument, NULL, 'c'},
+  {"col",           required_argument, NULL, 'c'},
+//
+  {"gap-diff-const",required_argument, NULL, 'd'},
+  {"gap-diff-coeff",required_argument, NULL, 'D'},
+  {"max-context",   required_argument, NULL, 'X'},
+  {"end-check",     no_argument,       NULL, 'e'},
+  {"no-end-check",  no_argument,       NULL, 'E'},
+//
   // {"seq-gaps",     required_argument, NULL, 'S'},
   // {"mp-gaps",      required_argument, NULL, 'M'},
   {NULL, 0, NULL, 0}

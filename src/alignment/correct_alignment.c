@@ -88,8 +88,9 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
   // binary_kmer_to_str(tmpbkmer, wlk->db_graph->kmer_size, tmpstr);
   // status("Endnode: %s contig->len: %zu", tmpstr, contig->len);
 
-  size_t init_len = contig->len, max_len = contig->len + gap_max;
-  db_node_buf_ensure_capacity(contig, contig->len + gap_max + 1);
+  // max_len allows for node on other side of gap
+  size_t init_len = contig->len, max_len = contig->len + gap_max + 1;
+  db_node_buf_ensure_capacity(contig, max_len);
 
   TraversalResult result = {.traversed = false, .paths_disagreed = false,
                             .gap_too_short = false, .gap_len = 0};
@@ -158,6 +159,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
   // graph_walker_print_state(wlk0, stdout);
   // graph_walker_print_state(wlk1, stdout);
 
+  // +1 to allow for node on other side of gap
   db_node_buf_ensure_capacity(contig0, contig0->len + gap_max + 1);
   db_node_buf_ensure_capacity(contig1, contig1->len + gap_max + 1);
 
@@ -171,7 +173,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
   TraversalResult result = {.traversed = false, .paths_disagreed = false,
                             .gap_too_short = false, .gap_len = 0};
 
-  while(gap_len < gap_max && (use[0] || use[1])) {
+  while(gap_len <= gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
       use[i] = (use[i] && graph_walker_next(wlk[i]) &&
                 (!only_in_col || wlk[i]->last_step.node_has_col));
@@ -187,7 +189,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
         nodes[i] = wlk[i]->node;
 
         if(db_nodes_are_equal(nodes[0], db_node_reverse(nodes[1]))) {
-          result.traversed = true;
+          result.traversed = (gap_len <= gap_max);
           use[0] = use[1] = false; // set both to false to exit loop
           break;
         }

@@ -21,29 +21,16 @@ Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph)
   ctx_assert(db_graph->num_edge_cols == 1);
   ctx_assert(db_graph->node_in_cols != NULL || db_graph->col_covgs != NULL);
 
-  Edges edges = db_node_get_edges(db_graph, node.key, 0);
-
   // Check which next nodes are in the given colour
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
   dBNode nodes[4];
   Nucleotide nucs[4];
+  Edges edges = 0;
   size_t i, n;
 
-  n = db_graph_next_nodes(db_graph, bkmer, node.orient,
-                          edges, nodes, nucs);
+  n = db_graph_next_nodes_in_col(db_graph, node, col, nodes, nucs);
 
-  edges = 0;
-  if(db_graph->node_in_cols != NULL) {
-    for(i = 0; i < n; i++)
-      if(db_node_has_col(db_graph, nodes[i].key, col))
-        edges = edges_set_edge(edges, nucs[i], node.orient);
-  }
-  else if(db_graph->col_covgs != NULL) {
-    for(i = 0; i < n; i++)
-      if(db_node_col_covg(db_graph, nodes[i].key, col) > 0)
-        edges = edges_set_edge(edges, nucs[i], node.orient);
-  }
-  else ctx_assert(0);
+  for(i = 0; i < n; i++)
+    edges = edges_set_edge(edges, nucs[i], node.orient);
 
   return edges;
 }

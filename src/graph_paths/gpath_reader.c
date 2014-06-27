@@ -18,7 +18,7 @@ kmer [num] .. ignored
 [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
 */
 
-#define load_assert(x,msg,...) if(!(x)) { die("[LoadPathError] "msg, ##__VA_ARGS__); }
+#define load_check(x,msg,...) if(!(x)) { die("[LoadPathError] "msg, ##__VA_ARGS__); }
 
 static int _json_demand_int(cJSON *root, const char *field, const char *path)
 {
@@ -83,8 +83,8 @@ static void _gpath_reader_load_json_hdr(gzFile gzin, const char *path,
   size_t nread;
   strbuf_reset(hdrstr);
 
-  load_assert((nread = strbuf_gzreadline(hdrstr, gzin)) > 0, "Empty file: %s", path);
-  load_assert(hdrstr->buff[0] == '{', "Expected JSON header: %s", path);
+  load_check((nread = strbuf_gzreadline(hdrstr, gzin)) > 0, "Empty file: %s", path);
+  load_check(hdrstr->buff[0] == '{', "Expected JSON header: %s", path);
 
   size_t i, prev_offset = 0;
   size_t num_curly_open = 0, num_curly_close = 0; // '{' '}'
@@ -111,11 +111,11 @@ static void _gpath_reader_load_json_hdr(gzFile gzin, const char *path,
       break;
 
     // header is not finished yet
-    load_assert(num_curly_open > num_curly_close, "'}' before '{': %s", path);
-    load_assert(num_brkt_open >= num_brkt_close, "']' before '[': %s", path);
-    load_assert(hdrstr->len < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
-    load_assert((nread = strbuf_gzreadline(hdrstr, gzin)) > 0,
-                "Premature end of JSON header: %s", path);
+    load_check(num_curly_open > num_curly_close, "'}' before '{': %s", path);
+    load_check(num_brkt_open >= num_brkt_close, "']' before '[': %s", path);
+    load_check(hdrstr->len < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
+    load_check((nread = strbuf_gzreadline(hdrstr, gzin)) > 0,
+               "Premature end of JSON header: %s", path);
   }
 }
 
@@ -209,7 +209,7 @@ static void _gpath_reader_load_kmer_line(const char *path,
   size_t i, num_paths_exp = 0;
 
   for(i = 0; i < line->len && char_is_acgt(line->buff[i]); i++) {}
-  load_assert(i == kmer_size, "Bad kmer line: %s\n%s\n", path, line->buff);
+  load_check(i == kmer_size, "Bad kmer line: %s\n%s\n", path, line->buff);
 
   BinaryKmer bkmer, bkey;
   hkey_t hkey;
@@ -218,21 +218,21 @@ static void _gpath_reader_load_kmer_line(const char *path,
   bkmer = binary_kmer_from_str(line->buff, kmer_size);
   // check bkmer is kmer key
   bkey = binary_kmer_get_key(bkmer, kmer_size);
-  load_assert(binary_kmers_are_equal(bkmer, bkey), "Bkmer not bkey: %s", path);
+  load_check(binary_kmers_are_equal(bkmer, bkey), "Bkmer not bkey: %s", path);
 
   if(dont_add_kmers) {
     hkey = hash_table_find(&db_graph->ht, bkey);
-    load_assert(hkey != HASH_NOT_FOUND, "BKmer not already loaded: %s", path);
+    load_check(hkey != HASH_NOT_FOUND, "BKmer not already loaded: %s", path);
   } else {
     hkey = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
   }
 
   // Parse number of paths
   numpstr = line->buff+kmer_size;
-  load_assert(numpstr[0] == ' ', "Bad kmer line: %s", path);
+  load_check(numpstr[0] == ' ', "Bad kmer line: %s", path);
   numpstr++;
   num_paths_exp = strtoul(numpstr, &endpstr, 10);
-  load_assert(endpstr > numpstr && (*endpstr == '\0' || *endpstr == ' '),
+  load_check(endpstr > numpstr && (*endpstr == '\0' || *endpstr == ' '),
               "Bad kmer line: %s\n%s\n", path, line->buff);
 
   *npaths_ptr = num_paths_exp;
@@ -250,38 +250,38 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
   char *pstr, *endpstr;
 
   orient = (line->buff[0] == 'F') ? FORWARD : REVERSE;
-  load_assert(line->buff[1] == ' ', "Bad path line: %s", path);
+  load_check(line->buff[1] == ' ', "Bad path line: %s", path);
   pstr = line->buff+2;
 
   // [nkmers]
   num_kmers = strtoul(pstr, &endpstr, 10);
-  load_assert(endpstr > pstr && *endpstr == ' ', "Bad path line: %s", path);
+  load_check(endpstr > pstr && *endpstr == ' ', "Bad path line: %s", path);
   pstr = endpstr+1;
 
   // [njuncs]
   num_juncs = strtoul(pstr, &endpstr, 10);
-  load_assert(endpstr > pstr && *endpstr == ' ', "Bad path line: %s", path);
+  load_check(endpstr > pstr && *endpstr == ' ', "Bad path line: %s", path);
   pstr = endpstr+1;
 
   // [nseen,nseen,...]
   endpstr = strchr(pstr, ' ');
-  load_assert(endpstr != NULL && endpstr > pstr, "Bad path line: %s", path);
+  load_check(endpstr != NULL && endpstr > pstr, "Bad path line: %s", path);
   
   for(i = 0; i < file->fltr.filencols; i++, pstr = endpstr+1)
   {
     size_t num_seen = strtoul(pstr, &endpstr, 10);
     nseenbuf[i] = MIN2(UINT8_MAX, num_seen);
-    load_assert((i+1 < file->fltr.filencols && *endpstr == ',') || *endpstr == ' ',
-                "Bad path line: %s\n%s", path, line->buff);
+    load_check((i+1 < file->fltr.filencols && *endpstr == ',') || *endpstr == ' ',
+               "Bad path line: %s\n%s", path, line->buff);
   }
 
   // [seq]
   endpstr = pstr;
   do {
-    load_assert(char_is_acgt(*endpstr), "Bad path line: %s", path);
+    load_check(char_is_acgt(*endpstr), "Bad path line: %s", path);
     endpstr++;
   } while(*endpstr && *endpstr != ' ');
-  load_assert((size_t)(endpstr - pstr) == num_juncs, "Bad path line: %s", path);
+  load_check((size_t)(endpstr - pstr) == num_juncs, "Bad path line: %s", path);
   byte_buf_ensure_capacity(seqbuf, (num_juncs+3)/4);
   binary_seq_from_str(pstr, num_juncs, seqbuf->data);
 
@@ -319,9 +319,9 @@ static void _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
 
   size_t i;
 
-  load_assert(gpset->entries.len == num_paths_exp,
-              "Too many/few paths: %s (exp %zu vs act %zu)",
-              file_path, num_paths_exp, gpset->entries.len);
+  load_check(gpset->entries.len == num_paths_exp,
+             "Too many/few paths: %s (exp %zu vs act %zu)",
+             file_path, num_paths_exp, gpset->entries.len);
 
   gpath_subset_init(subset0, &gpstore->gpset);
   gpath_subset_init(subset1, gpset);
@@ -389,12 +389,12 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
       if(line.buff[0] == 'F' || line.buff[0] == 'R') {
         // Assume path line
         // status("Path line: %s", line.buff);
-        load_assert(hkey != HASH_NOT_FOUND, "Path before kmer: %s", path);
+        load_check(hkey != HASH_NOT_FOUND, "Path before kmer: %s", path);
 
         _gpath_reader_load_path_line(file, path, &line, nseenbuf, &seqbuf,
                                      &gpset);
 
-        load_assert(gpset.entries.len <= num_paths_exp, "Too many paths: %s", path);
+        load_check(gpset.entries.len <= num_paths_exp, "Too many paths: %s", path);
       }
       else {
         // Assume kmer line
@@ -418,9 +418,9 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
                          hkey, num_paths_exp, path);
   }
 
-  load_assert(num_kmers == (size_t)num_kmers_exp,
-              "num_kmers don't match (exp %zu vs %zu)",
-              num_kmers, (size_t)num_kmers_exp);
+  load_check(num_kmers == (size_t)num_kmers_exp,
+             "num_kmers don't match (exp %zu vs %zu)",
+             num_kmers, (size_t)num_kmers_exp);
 
   gpath_subset_dealloc(&subset0);
   gpath_subset_dealloc(&subset1);
