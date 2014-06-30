@@ -73,7 +73,7 @@ void _construct_graph_with_paths(dBGraph *graph,
 
   // Path data
   gpath_store_alloc(&graph->gpstore, ncols, graph->ht.capacity,
-                    ONE_MEGABYTE, true, false);
+                    0, ONE_MEGABYTE, true, false);
 
   // Allocate path hash table just in case
   gpath_hash_alloc(&graph->gphash, &graph->gpstore, ONE_MEGABYTE);

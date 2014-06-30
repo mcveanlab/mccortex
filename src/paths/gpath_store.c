@@ -4,27 +4,34 @@
 
 // @split_linked_lists whether you intend to have traverse linked list and
 //                     all linked list separate
-size_t gpath_store_min_mem(size_t graph_capacity, bool split_linked_lists)
+size_t gpath_store_mem(size_t graph_capacity, bool split_linked_lists)
 {
   return graph_capacity*sizeof(GPath*) * (split_linked_lists ? 2 : 1);
 }
 
+// If num_paths != 0, we ensure at least num_paths capacity
 void gpath_store_alloc(GPathStore *gpstore, size_t ncols, size_t graph_capacity,
-                       size_t mem, bool count_nseen, bool split_linked_lists)
+                       size_t num_paths, size_t mem,
+                       bool count_nseen, bool split_linked_lists)
 {
   memset(gpstore, 0, sizeof(*gpstore));
 
-  size_t min_mem = gpath_store_min_mem(count_nseen, split_linked_lists);
-  ctx_assert2(min_mem < mem, "%zu is not less than %zu", min_mem, mem);
+  size_t store_mem = gpath_store_mem(count_nseen, split_linked_lists);
+  if(store_mem > mem)
+    die("Need at least %zu bytes (only got %zu bytes)", store_mem, mem);
+
+  size_t gpset_mem = mem - store_mem;
 
   // Don't allow resizing - this allows use to the thread safe
   // and control memory usage (die when we fill up allowed memory)
-  gpath_set_alloc(&gpstore->gpset, ncols, mem - min_mem, false, count_nseen);
+  if(num_paths)
+    gpath_set_alloc2(&gpstore->gpset, ncols, num_paths, gpset_mem, false, count_nseen);
+  else
+    gpath_set_alloc(&gpstore->gpset, ncols, gpset_mem, false, count_nseen);
 
   gpstore->graph_capacity = graph_capacity;
   gpstore->paths_all = ctx_calloc(graph_capacity, sizeof(GPath*));
   gpstore->paths_traverse = gpstore->paths_all;
-  // gpstore->kmer_locks = ctx_calloc((graph_capacity+7)/8, 1);
 }
 
 void gpath_store_dealloc(GPathStore *gpstore)
@@ -32,7 +39,6 @@ void gpath_store_dealloc(GPathStore *gpstore)
   gpath_set_dealloc(&gpstore->gpset);
   gpath_store_merge_read_write(gpstore);
   ctx_free(gpstore->paths_all);
-  // ctx_free(gpstore->kmer_locks);
   memset(gpstore, 0, sizeof(*gpstore));
 }
 
@@ -126,7 +132,7 @@ GPath* gpath_store_add_mt(GPathStore *gpstore, hkey_t hkey, GPathNew newgpath)
   return gpath;
 }
 
-
+/*
 // NOT USED ATM
 // Linear time search to find or add a given path
 // Note: it is not safe to call _add and _find_add simultaneously, since _add
@@ -156,3 +162,4 @@ GPath* gpath_store_find_add_mt(GPathStore *gpstore,
 
   return gpath;
 }
+*/

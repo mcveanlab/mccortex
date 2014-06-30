@@ -31,11 +31,6 @@ void gpath_subset_load_set(GPathSubset *subset);
 // You still need to update the pointer to the first item (e.g. in GPathStore)
 void gpath_subset_update_linkedlist(GPathSubset *subset);
 
-// Throw out paths seen < `threshold` times (keep >= threshold).
-// Note: doesn't update linked list, call gpath_subset_update_linkedlist() to
-//       do that
-void gpath_subset_threshold(GPathSubset *subset, uint8_t threshold);
-
 // Remove duplicate entries
 // {T,TT,TT} -> {T,TT}
 void gpath_subset_rmdup(GPathSubset *subset);

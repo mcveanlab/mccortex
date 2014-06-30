@@ -46,11 +46,24 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx);
 // Copy sample names into the graph
 void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph);
 
+//
+// Memory Calculations
+//
+
 // Get max mem required to load ctp files
 void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
                               size_t ncols, size_t graph_capacity,
                               bool store_nseen_klen,
                               bool split_lists, bool use_hash,
                               size_t *min_mem_ptr, size_t *max_mem_ptr);
+
+size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
+                            size_t ncols, size_t max_mem,
+                            bool count_nseen);
+
+// Create a path store that does not tracks path counts
+void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
+                                size_t mem, bool count_nseen,
+                                dBGraph *db_graph);
 
 #endif /* GPATH_READER_H_ */

@@ -318,5 +318,6 @@ size_t asyncio_input_nkmers(const AsyncIOInput *io)
       }
     }
   }
-  return est_num_bases;
+  // Heuristic: multiply by 5 to correct for compression
+  return est_num_bases * 5;
 }

@@ -179,7 +179,8 @@ int ctx_breakpoints(int argc, char **argv)
   // DEV: use threads in memory calculation
 
   // kmer memory = Edges + paths + 1 bit per colour for in-colour
-  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 +
+                  (gpfiles.len > 0 ? sizeof(GPath*)*8 : 0) +
                   ncols +
                   sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
                   8; // 1 byte per kmer for each base to load sequence files
@@ -193,19 +194,8 @@ int ctx_breakpoints(int argc, char **argv)
                                         false, &graph_mem);
 
   // Paths memory
-  size_t min_path_mem = 0, max_path_mem = 0;
-  gpath_reader_max_mem_req(gpfiles.data, gpfiles.len,
-                           ncols, kmers_in_hash,
-                           false, false, false,
-                           &min_path_mem, &max_path_mem);
-
-  // Maximise path memory
-  path_mem = min_path_mem;
-  if(graph_mem + path_mem < memargs.mem_to_use)
-    path_mem = memargs.mem_to_use - graph_mem;
-
-  // Don't request more than needed
-  path_mem = MIN2(path_mem, max_path_mem);
+  size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
+  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
   cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + path_mem;
@@ -233,12 +223,8 @@ int ctx_breakpoints(int argc, char **argv)
   db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
 
   // Paths
-  if(gpfiles.len > 0) {
-    // Create a path store that does not tracks path counts
-    gpath_store_alloc(&db_graph.gpstore,
-                      db_graph.num_of_cols, db_graph.ht.capacity,
-                      path_mem, false, false);
-  }
+  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len,
+                             path_mem, false, &db_graph);
 
   //
   // Load graphs

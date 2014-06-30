@@ -13,6 +13,19 @@ struct GPEntryStruct
   pkey_t gpindex:40;
 } __attribute((packed));
 
+/*
+// 5+5+1+11 = 22 bytes
+// GPath:18 + GPEntry:10 + klen:4 + count:1 + colset:1 = 34
+// 22/34 = 64%
+struct GPEntryStruct
+{
+  hkey_t hkey:40; // 5 bytes
+  pkey_t next:40; // 5 bytes
+  uint8_t count; // 1 bytes
+  uint64_t klen:32, orient:1, seq_len:15, seq_offset:40; // 11 bytes
+} __attribute((packed));
+*/
+
 typedef struct GPEntryStruct GPEntry;
 
 typedef struct
@@ -24,6 +37,8 @@ typedef struct
   const uint64_t capacity, mask; // num_of_buckets * bucket_size
   uint8_t *const bucket_nitems; // number of items in each bucket
   uint8_t *const bktlocks; // always cast to volatile
+  // uint8_t *const seq;
+  // size_t seq_len, seq_capacity;
   size_t num_entries;
 } GPathHash;
 
@@ -36,8 +51,5 @@ void gpath_hash_reset(GPathHash *phash);
 GPath* gpath_hash_find_or_insert_mt(GPathHash *restrict phash,
                                     hkey_t hkey, GPathNew newgpath,
                                     bool *found);
-
-// Load all paths already in GPathStore into this hash table
-// void gpath_hash_load_all(GPathHash *gphash, size_t nkmer_capacity);
 
 #endif /* GPATH_HASH_H_ */

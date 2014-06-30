@@ -9,8 +9,9 @@
 
 // Hash table capacity is x*(2^y) where x and y are parameters
 // memory is x*(2^y)*sizeof(BinaryKmer) + (2^y) * 2
-#define ht_mem(bktsize,nbkts,nbits) \
-        (((bktsize) * (nbkts) * (nbits))/8 + (nbkts) * sizeof(uint8_t[2]))
+static inline size_t ht_mem(size_t bktsize, size_t nbkts, size_t nbits) {
+  return (bktsize * nbkts * nbits)/8 + (nbkts) * sizeof(uint8_t[2]);
+}
 
 // Returns capacity of a hash table that holds at least nkmers
 size_t hash_table_cap(size_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_ptr);

@@ -18,7 +18,6 @@
 
 #define DEFAULT_CRTALN_MAX_CONTEXT 200
 
-// DEV: what is max_context
 #define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,                    \
                                 .ins_gap_min = DEFAULT_CRTALN_MIN_INS,       \
                                 .ins_gap_max = DEFAULT_CRTALN_MAX_INS,       \

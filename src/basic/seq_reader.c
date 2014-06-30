@@ -241,7 +241,7 @@ static inline int guess_fastq_format(seq_file_t *sf)
 // Compare read names up to first whitespace / end of line. Both read names
 // must be of the same length.
 // Returns true (1) if they match, false (0) otherwise
-static bool read_names_match(const char *a, const char *b)
+static inline bool read_names_match(const char *a, const char *b)
 {
   // Both match until end of string, or whitespace
   while(*a && *b && *a == *b && !isspace(*a)) { a++; b++; }

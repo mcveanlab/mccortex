@@ -13,7 +13,7 @@ typedef uint64_t pkey_t;
 typedef struct
 {
   uint8_t *seq;
-  uint8_t *colset, *nseen; // if not null, both must be of size ncol
+  uint8_t *colset, *nseen; // if not null, colset of size ncol bits, nseen ncol bytes
   uint32_t klen;
   uint16_t num_juncs;
   Orientation orient;
@@ -29,6 +29,13 @@ typedef struct
   bool can_resize;
 } GPathSet;
 
+// Proposal:
+// paths, seqs point to same memory, paths builds forwards, seqs backwards
+// GPath *paths;
+// uint8_t *seqs;
+// uint8_t *path_has_col; // packed bitstring
+
+
 static inline pkey_t gpset_get_pkey(const GPathSet *gpset, const GPath *gpath)
 {
   ctx_assert2(gpath >= gpset->entries.data &&
@@ -36,6 +43,12 @@ static inline pkey_t gpset_get_pkey(const GPathSet *gpset, const GPath *gpath)
               "GPath is not in GPathSet");
   return gpath - gpset->entries.data;
 }
+
+// If resize true, cannot do multithreaded but can resize array
+// If resize false, die if out of mem, but can multithread
+void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
+                      size_t initpaths, size_t initmem,
+                      bool resize, bool keep_path_counts);
 
 // If resize true, cannot do multithreaded but can resize array
 // If resize false, die if out of mem, but can multithread

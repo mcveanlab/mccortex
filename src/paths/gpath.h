@@ -4,19 +4,17 @@
 // 20 bytes per path
 typedef struct GPathStruct GPath;
 
-#define GPATH_MAX_KMERS (UINT32_MAX>>1)
-#define GPATH_MAX_JUNCS UINT16_MAX
+#define GPATH_MAX_KMERS UINT32_MAX
+#define GPATH_MAX_JUNCS (UINT16_MAX>>1)
 #define GPATH_MAX_SEEN UINT8_MAX
 
-// 8+8+2=18bytes
+// 8+2+8=18bytes (could be 5+2+5 = 12)
 struct GPathStruct
 {
   uint8_t *seq;
   uint16_t num_juncs:15, orient:1;
-  // only used for threading with single colour
-  // uint32_t num_kmers;
-  // uint8_t num_seen;
   GPath *next;
+  // uint64_t seq_offset:40, next_offset:40;
 }
 __attribute__((packed));
 

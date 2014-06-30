@@ -183,19 +183,8 @@ int ctx_pjoin(int argc, char **argv)
                                         false, &graph_mem);
 
   // Paths memory
-  size_t min_path_mem = 0, max_path_mem = 0;
-  gpath_reader_max_mem_req(pfiles, num_pfiles,
-                           output_ncols, kmers_in_hash,
-                           true, false, false,
-                           &min_path_mem, &max_path_mem);
-
-  // Maximise path memory
-  path_mem = min_path_mem;
-  if(graph_mem + path_mem < memargs.mem_to_use)
-    path_mem = memargs.mem_to_use - graph_mem;
-
-  // Don't request more than needed
-  path_mem = MIN2(path_mem, max_path_mem);
+  size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
+  path_mem = gpath_reader_mem_req(pfiles, num_pfiles, output_ncols, rem_mem, true);
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;
@@ -211,9 +200,8 @@ int ctx_pjoin(int argc, char **argv)
   db_graph_alloc(&db_graph, kmer_size, output_ncols, 0, kmers_in_hash);
 
   // Create a path store that tracks path counts
-  gpath_store_alloc(&db_graph.gpstore,
-                    db_graph.num_of_cols, db_graph.ht.capacity,
-                    path_mem, true, false);
+  gpath_reader_alloc_gpstore(pfiles, num_pfiles,
+                             path_mem, true, &db_graph);
 
   for(i = 0; i < num_pfiles; i++)
     gpath_reader_load_sample_names(&pfiles[i], &db_graph);

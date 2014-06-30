@@ -8,11 +8,56 @@
 
 // If resize true, cannot do multithreaded but can resize array
 // If resize false, die if out of mem, but can multithread
-void gpath_set_alloc(GPathSet *gpset, size_t ncols, size_t initmem,
-                     bool resize, bool keep_path_counts)
+void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
+                      size_t initpaths, size_t initmem,
+                      bool resize, bool keep_path_counts)
 {
   GPathSet tmp = {.ncols = ncols, .can_resize = resize};
 
+  // 1:1 split between seq and paths (6 bytes each)
+  size_t entry_size = 0, klen_size = 0;
+
+  entry_size = sizeof(GPath) + (ncols+7)/8;
+
+  if(keep_path_counts)
+    klen_size = sizeof(uint8_t)*ncols + sizeof(uint32_t);
+
+  size_t mem_used = initpaths * (entry_size + klen_size);
+
+  if(initmem < mem_used)
+    die("[GPathSet] Not enough memory for number of paths");
+
+  size_t seq_mem = initmem - mem_used;
+  size_t seq_col_mem = initpaths * ((ncols+7)/8) + seq_mem;
+  size_t total_mem = initpaths * (sizeof(GPath)+klen_size) + seq_col_mem;
+  ctx_assert(total_mem <= initmem);
+
+  char npathstr[50], colseqmemstr[50], totalmemstr[50];
+  ulong_to_str(initpaths, npathstr);
+  bytes_to_str(seq_col_mem, 1, colseqmemstr);
+  bytes_to_str(total_mem, 1, totalmemstr);
+  status("[GPathSet] Allocating for %s paths, %s col+seq mem, %s total",
+         npathstr, colseqmemstr, totalmemstr);
+
+  gpath_buf_alloc(&tmp.entries, initpaths);
+  byte_buf_alloc(&tmp.seqs, seq_col_mem);
+
+  if(keep_path_counts) {
+    byte_buf_alloc(&tmp.nseen_buf, initpaths * ncols);
+    uint32_buf_alloc(&tmp.klen_buf, initpaths);
+  } else {
+    memset(&tmp.nseen_buf, 0, sizeof(tmp.nseen_buf));
+    memset(&tmp.klen_buf, 0, sizeof(tmp.klen_buf));
+  }
+
+  memcpy(gpset, &tmp, sizeof(GPathSet));
+}
+
+// If resize true, cannot do multithreaded but can resize array
+// If resize false, die if out of mem, but can multithread
+void gpath_set_alloc(GPathSet *gpset, size_t ncols, size_t initmem,
+                     bool resize, bool keep_path_counts)
+{
   // 1:1 split between seq and paths (6 bytes each)
   size_t entry_size
     = sizeof(GPath) + sizeof(GPath) + (ncols+7)/8 +
@@ -20,18 +65,7 @@ void gpath_set_alloc(GPathSet *gpset, size_t ncols, size_t initmem,
 
   size_t nentries = initmem / entry_size;
 
-  gpath_buf_alloc(&tmp.entries, nentries);
-  byte_buf_alloc(&tmp.seqs, nentries);
-
-  if(keep_path_counts) {
-    byte_buf_alloc(&tmp.nseen_buf, nentries * ncols);
-    uint32_buf_alloc(&tmp.klen_buf, nentries);
-  } else {
-    memset(&tmp.nseen_buf, 0, sizeof(tmp.nseen_buf));
-    memset(&tmp.klen_buf, 0, sizeof(tmp.klen_buf));
-  }
-
-  memcpy(gpset, &tmp, sizeof(GPathSet));
+  gpath_set_alloc2(gpset, ncols, nentries, initmem, resize, keep_path_counts);
 }
 
 void gpath_set_dealloc(GPathSet *gpset)
@@ -152,7 +186,11 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
     if(gpath >= gpset->entries.data + gpset->entries.capacity ||
        data+nbytes+STORE_PADDING >= gpset->seqs.data + gpset->seqs.capacity)
     {
-      die("Out of memory");
+      die("Out of memory (paths: %zu/%zu [%.2f%%], seqs: %zu/%zu [%.2f%%])",
+          gpset->entries.len, gpset->entries.capacity,
+          (100.0 * gpset->entries.len) / gpset->entries.capacity,
+          gpset->seqs.len, gpset->seqs.capacity,
+          (100.0 * gpset->seqs.len) / gpset->seqs.capacity);
     }
 
     pkey = gpath - gpset->entries.data;

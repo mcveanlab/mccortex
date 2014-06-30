@@ -23,7 +23,7 @@ void test_paths()
   // Create a path store that tracks path counts
   gpath_store_alloc(&graph.gpstore,
                     graph.num_of_cols, graph.ht.capacity,
-                    ONE_MEGABYTE, true, false);
+                    0, ONE_MEGABYTE, true, false);
 
   // Create path hash table for fast lookup
   gpath_hash_alloc(&graph.gphash, &graph.gpstore, ONE_MEGABYTE);

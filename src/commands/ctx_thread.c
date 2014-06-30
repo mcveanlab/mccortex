@@ -110,10 +110,11 @@ int ctx_thread(int argc, char **argv)
   // Decide on memory
   //
   size_t ncols = 1;
-  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, total_mem;
+  size_t path_hash_mem, path_store_mem, path_mem;
   bool sep_path_list = (!args.use_new_paths && gpfiles->len > 0);
 
-  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
                   2 * args.num_of_threads; // Have traversed
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
@@ -138,7 +139,11 @@ int ctx_thread(int argc, char **argv)
   path_mem = min_path_mem;
   if(graph_mem + path_mem < args.memargs.mem_to_use)
     path_mem = args.memargs.mem_to_use - graph_mem;
-  cmd_print_mem(path_mem, "paths");
+
+  path_hash_mem = path_mem / 3;
+  cmd_print_mem(path_hash_mem, "paths hash");
+  path_store_mem = (2*path_mem) / 3;
+  cmd_print_mem(path_store_mem, "paths store");
 
   total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(args.memargs.mem_to_use, total_mem);
@@ -170,10 +175,10 @@ int ctx_thread(int argc, char **argv)
   // Create a path store that tracks path counts
   gpath_store_alloc(&db_graph.gpstore,
                     db_graph.num_of_cols, db_graph.ht.capacity,
-                    (2*path_mem) / 3, true, sep_path_list);
+                    0, path_store_mem, true, sep_path_list);
 
   // Create path hash table for fast lookup
-  gpath_hash_alloc(&db_graph.gphash, &db_graph.gpstore, path_mem / 3);
+  gpath_hash_alloc(&db_graph.gphash, &db_graph.gpstore, path_hash_mem);
 
   // Load existing paths
   // Paths loaded into empty colours will update the sample names

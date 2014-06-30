@@ -143,7 +143,8 @@ int ctx_bubbles(int argc, char **argv)
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/thread)
 
-  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 +
+                  (gpfiles.len > 0 ? sizeof(GPath*)*8 : 0) +
                   ncols + 2*nthreads;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
@@ -161,19 +162,8 @@ int ctx_bubbles(int argc, char **argv)
           nthreads, thread_mem, thread_mem_str);
 
   // Paths memory
-  size_t min_path_mem = 0, max_path_mem = 0;
-  gpath_reader_max_mem_req(gpfiles.data, gpfiles.len,
-                           ncols, kmers_in_hash,
-                           false, false, false,
-                           &min_path_mem, &max_path_mem);
-
-  // Maximise path memory
-  path_mem = min_path_mem;
-  if(graph_mem + thread_mem + path_mem < memargs.mem_to_use)
-    path_mem = memargs.mem_to_use - graph_mem - thread_mem;
-
-  // Don't request more than needed
-  path_mem = MIN2(path_mem, max_path_mem);
+  size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem+thread_mem);
+  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
   cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + thread_mem + path_mem;
@@ -196,12 +186,7 @@ int ctx_bubbles(int argc, char **argv)
   db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, sizeof(uint8_t));
 
   // Paths
-  if(gpfiles.len > 0) {
-    // Create a path store that does not tracks path counts
-    gpath_store_alloc(&db_graph.gpstore,
-                      db_graph.num_of_cols, db_graph.ht.capacity,
-                      path_mem, false, false);
-  }
+  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, false, &db_graph);
 
   //
   // Load graphs

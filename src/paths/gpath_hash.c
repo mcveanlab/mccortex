@@ -173,32 +173,7 @@ GPath* gpath_hash_find_or_insert_mt(GPathHash *gphash,
   }
 
   // Out of space
-  die("Out of memory");
+  die("[GPathHash] Out of memory (%zu / %zu occupancy [%.2f%%])",
+      (size_t)gphash->num_entries, (size_t)gphash->capacity,
+      (100.0 * gphash->num_entries) / gphash->capacity);
 }
-
-/*
-// Load all paths already in GPathStore into this hash table
-void gpath_hash_load_all(GPathHash *gphash, size_t nkmer_capacity)
-{
-  const GPathStore *gpstore = gphash->gpstore;
-  hkey_t hkey;
-  bool found = false;
-  GPath *gpath;
-
-  char tmp[100];
-
-  for(hkey = 0; hkey < nkmer_capacity; hkey++) {
-    for(gpath = gpstore->paths_all[hkey]; gpath != NULL; gpath = gpath->next) {
-      printf("adding num_juncs %zu: %s\n", (size_t)gpath->num_juncs,
-                                           binary_seq_to_str(gpath->seq, gpath->num_juncs, tmp));
-      GPathNew gpnew = {.seq = gpath->seq,
-                        .klen = 0, // Not needed, since already in set
-                        .colset = NULL, .nseen = NULL,
-                        .num_juncs = gpath->num_juncs,
-                        .orient = gpath->orient};
-      gpath_hash_find_or_insert_mt(gphash, hkey, gpnew, &found);
-      ctx_assert2(found, "GPath not already in GPathSet");
-    }
-  }
-}
-*/

@@ -123,7 +123,8 @@ int ctx_correct(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // 1 bit needed per kmer if we need to keep track of noreseed
-  bits_per_kmer = sizeof(GPath)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
+  bits_per_kmer = sizeof(GPath)*8 + sizeof(Edges)*8 +
+                  (gpfiles->len > 0 ? sizeof(GPath*)*8 : 0) +
                   ctx_num_kmers;
 
   kmers_in_hash = cmd_get_kmers_in_hash(args.memargs.mem_to_use,
@@ -135,19 +136,9 @@ int ctx_correct(int argc, char **argv)
                                         false, &graph_mem);
 
   // Paths memory
-  size_t min_path_mem = 0, max_path_mem = 0;
-  gpath_reader_max_mem_req(gpfiles->data, gpfiles->len,
-                           ctx_total_cols, kmers_in_hash,
-                           false, false, false,
-                           &min_path_mem, &max_path_mem);
-
-  // Maximise path memory
-  path_mem = min_path_mem;
-  if(graph_mem + path_mem < args.memargs.mem_to_use)
-    path_mem = args.memargs.mem_to_use - graph_mem;
-
-  // Don't request more than needed
-  path_mem = MIN2(path_mem, max_path_mem);
+  size_t rem_mem = args.memargs.mem_to_use - MIN2(args.memargs.mem_to_use, graph_mem);
+  path_mem = gpath_reader_mem_req(gpfiles->data, gpfiles->len,
+                                  ctx_total_cols, rem_mem, false);
   cmd_print_mem(path_mem, "paths");
 
   // Total memory
@@ -199,9 +190,7 @@ int ctx_correct(int argc, char **argv)
   db_graph.node_in_cols = ctx_calloc(bytes_per_col * ctx_total_cols, 1);
 
   // Create a path store that does not tracks path counts
-  gpath_store_alloc(&db_graph.gpstore,
-                    db_graph.num_of_cols, db_graph.ht.capacity,
-                    path_mem, false, false);
+  gpath_reader_alloc_gpstore(gpfiles->data, gpfiles->len, path_mem, false, &db_graph);
 
   //
   // Load Graph and Path files

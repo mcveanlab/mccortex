@@ -431,39 +431,6 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
   ctx_free(nseenbuf);
 }
 
-// Get max mem required to load ctp files
-void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
-                              size_t ncols, size_t graph_capacity,
-                              bool store_nseen_klen,
-                              bool split_lists, bool use_hash,
-                              size_t *min_mem_ptr, size_t *max_mem_ptr)
-{
-  size_t i, path_bytes, hash_bytes;
-  size_t max_npaths = 0, sum_npaths = 0, max_pbytes = 0, sum_pbytes = 0;
-
-  path_bytes = sizeof(GPath) +
-               (store_nseen_klen ? sizeof(uint8_t)*ncols + sizeof(uint32_t) : 0);
-  hash_bytes = (use_hash ? sizeof(GPEntry)/IDEAL_OCCUPANCY : 0);
-
-  for(i = 0; i < nfiles; i++) {
-    size_t npaths = gpath_reader_get_num_paths(&files[i]);
-    size_t pbytes = gpath_reader_get_path_bytes(&files[i]);
-    max_npaths = MAX2(max_npaths, npaths);
-    max_pbytes = MAX2(max_pbytes, pbytes);
-    sum_npaths += npaths;
-    sum_pbytes += pbytes;
-  }
-
-  size_t list_mem = graph_capacity*sizeof(GPath*) * (split_lists ? 2 : 1);
-
-  // Memory is split three ways between path entries, sequence+colsets, hashtable
-  size_t mult = use_hash ? 3 : 2;
-  *min_mem_ptr = MAX3(max_npaths*path_bytes, max_pbytes, max_npaths*hash_bytes)*mult
-                 + list_mem;
-  *max_mem_ptr = MAX3(sum_npaths*path_bytes, sum_pbytes, sum_npaths*hash_bytes)*mult
-                 + list_mem;
-}
-
 void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph)
 {
   const FileFilter *fltr = &file->fltr;
@@ -486,4 +453,84 @@ void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph)
           fromcol, intocol, gname->buff, pname);
     }
   }
+}
+
+//
+// Memory Calculations
+//
+
+// Get max mem required to load ctp files
+// Assume equal three-way split between: GPath, seq+colset, hashtable
+void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
+                              size_t ncols, size_t graph_capacity,
+                              bool store_nseen_klen,
+                              bool split_lists, bool use_hash,
+                              size_t *min_mem_ptr, size_t *max_mem_ptr)
+{
+  size_t i, path_bytes, hash_bytes;
+  size_t max_npaths = 0, sum_npaths = 0, max_pbytes = 0, sum_pbytes = 0;
+
+  path_bytes = sizeof(GPath) +
+               (store_nseen_klen ? sizeof(uint8_t)*ncols + sizeof(uint32_t) : 0);
+  hash_bytes = (use_hash ? sizeof(GPEntry)/IDEAL_OCCUPANCY : 0);
+
+  for(i = 0; i < nfiles; i++) {
+    size_t npaths = gpath_reader_get_num_paths(&files[i]);
+    size_t pbytes = gpath_reader_get_path_bytes(&files[i]) + npaths*(ncols+7)/8;
+    max_npaths = MAX2(max_npaths, npaths);
+    max_pbytes = MAX2(max_pbytes, pbytes);
+    sum_npaths += npaths;
+    sum_pbytes += pbytes;
+  }
+
+  size_t list_mem = graph_capacity*sizeof(GPath*) * (split_lists ? 2 : 1);
+
+  // Memory is split three ways between path entries, sequence+colsets, hashtable
+  size_t mult = use_hash ? 3 : 2;
+  *min_mem_ptr = MAX3(max_npaths*path_bytes, max_pbytes, max_npaths*hash_bytes)*mult
+                 + list_mem;
+  *max_mem_ptr = MAX3(sum_npaths*path_bytes, sum_pbytes, sum_npaths*hash_bytes)*mult
+                 + list_mem;
+}
+
+size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
+                            size_t ncols, size_t max_mem,
+                            bool count_nseen)
+{
+  size_t i, npaths, path_bytes, file_mem, path_mem = 0;
+
+  for(i = 0; i < nfiles; i++)
+  {
+    npaths = gpath_reader_get_num_paths(&files[i]);
+    path_bytes = gpath_reader_get_path_bytes(&files[i]);
+    file_mem = npaths*sizeof(GPath) + // GPath
+               path_bytes + // Sequence
+               npaths * (ncols+7)/8 + // Colset
+               (count_nseen ? npaths*(ncols*sizeof(uint8_t)+sizeof(uint32_t)) : 0);
+
+    path_mem += file_mem;
+    if(file_mem > max_mem) {
+      char memstr[50];
+      bytes_to_str(file_mem, 1, memstr);
+      die("Require at least %s memory for paths", memstr);
+    }
+  }
+
+  return MIN2(max_mem, path_mem);
+}
+
+// Create a path store that does not tracks path counts
+void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
+                                size_t mem, bool count_nseen,
+                                dBGraph *db_graph)
+{
+  if(nfiles == 0) return;
+
+  size_t npaths = gpath_reader_get_num_paths(&files[0]);
+
+  gpath_store_alloc(&db_graph->gpstore,
+                     db_graph->num_of_cols,
+                     db_graph->ht.capacity,
+                     nfiles == 1 ? npaths : 0, mem,
+                     count_nseen, false);
 }

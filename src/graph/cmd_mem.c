@@ -49,6 +49,8 @@ size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
     cmd_print_usage("Cannot read from stream without -n <nkmers> set");
   }
 
+  status("[memory] %zu bits per kmer", entry_bits);
+
   if(num_kmers_set)
     graph_mem = hash_table_mem(num_kmers, entry_bits, &kmers_in_hash);
   else if(use_mem_limit)
@@ -64,6 +66,8 @@ size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
     graph_mem2 = hash_table_mem(max_num_kmers_req/IDEAL_OCCUPANCY,
                                 entry_bits, &kmers_in_hash2);
     if(graph_mem2 < graph_mem) {
+      status("[memory] do not need more than %zu bytes, downsizing (from %zu)",
+             graph_mem2, graph_mem);
       graph_mem = graph_mem2;
       kmers_in_hash = kmers_in_hash2;
     }

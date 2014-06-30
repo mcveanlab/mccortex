@@ -69,24 +69,6 @@ void gpath_subset_update_linkedlist(GPathSubset *subset)
   subset->list.data[subset->list.len-1]->next = NULL;
 }
 
-// Throw out paths seen < `threshold` times (keep >= threshold).
-// Note: doesn't update linked list, call gpath_subset_update_linkedlist() to
-//       do that
-void gpath_subset_threshold(GPathSubset *subset, uint8_t threshold)
-{
-  const GPathSet *gpset = subset->gpset;
-  GPath **list = subset->list.data;
-  size_t i, j;
-  // DEV: sum backwards here
-  // DEV: assume colour zero
-  for(i = 0, j = 0; i < subset->list.len; i++) {
-    uint8_t *gpnseen = gpath_set_get_nseen(gpset, list[i]);
-    if(gpnseen[0] >= threshold)
-      list[j++] = list[i];
-  }
-  subset->list.len = j;
-}
-
 // Remove duplicate entries
 // {T,TT,TT} -> {T,TT}
 void gpath_subset_rmdup(GPathSubset *subset)
