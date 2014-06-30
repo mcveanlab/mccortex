@@ -9,6 +9,8 @@
 #include "graph_format.h"
 #include "async_read_io.h"
 
+#include <libgen.h>
+
 const char reads_usage[] =
 "usage: "CMD" reads [options] <in.ctx>[:cols] [in2.ctx ...]\n"
 "\n"
@@ -17,7 +19,7 @@ const char reads_usage[] =
 "  -h, --help                  This help message\n"
 "  -m, --memory <mem>          Memory to use\n"
 "  -n, --nkmers <kmers>        Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -t, --threads <T>           Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
 "  -f, --fasta                 Output as gzipped FASTA\n"
 "  -q, --fastq                 Output as gzipped FASTQ [default]\n"
@@ -26,7 +28,8 @@ const char reads_usage[] =
 "  -2, --seq2 <in1>:<in2>:<O>  Writes output to <O>.{1,2}.fq.gz\n"
 "  -i, --seqi <in>:<O>         Writes output to <O>.{1,2}.fq.gz\n"
 "\n"
-"  Can specify --seq/--seq2 multiple times.\n"
+"  Can specify --seq/--seq2/--seqi multiple times. If either read of a pair\n"
+"  touches the graph, both are printed.\n"
 "\n";
 
 static struct option longopts[] =
@@ -50,8 +53,10 @@ typedef struct
   // Set by command line parsing
   char *out_base;
   bool is_pe;
-  char *out_path1, *out_path2;
-  gzFile gzout1, gzout2;
+  char *out_path, *out_path1, *out_path2;
+  gzFile gzout, gzout1, gzout2;
+
+  pthread_mutex_t outlock;
 
   // Stats
   size_t num_of_reads_printed;
@@ -76,56 +81,88 @@ static struct MemArgs memargs = MEM_ARGS_INIT;
 static size_t num_gfiles = 0;
 static char **gfile_paths = NULL;
 
+static volatile size_t read_counter = 0;
+
 static void input_clean_up(AlignReadsData *input, bool rm)
 {
   // Clean up input
+  if(input->gzout != NULL) { gzclose(input->gzout); }
   if(input->gzout1 != NULL) { gzclose(input->gzout1); }
   if(input->gzout2 != NULL) { gzclose(input->gzout2); }
   if(rm) {
+    if(input->gzout != NULL && unlink(input->out_path) != 0)
+      warn("Cannot delete file %s", input->out_path);
     if(input->gzout1 != NULL && unlink(input->out_path1) != 0)
       warn("Cannot delete file %s", input->out_path1);
     if(input->gzout2 != NULL && unlink(input->out_path2) != 0)
       warn("Cannot delete file %s", input->out_path2);
   }
+  ctx_free(input->out_path);
   ctx_free(input->out_path1);
   ctx_free(input->out_path2);
+  pthread_mutex_destroy(&input->outlock);
   memset(input, 0, sizeof(AlignReadsData));
+}
+
+static char* input_alloc_path(char *out_base, const char *suffix)
+{
+  size_t len1 = strlen(out_base), len2 = strlen(suffix);
+  char *path = ctx_malloc((len1+len2+1) * sizeof(char));
+  memcpy(path, out_base, len1);
+  memcpy(path+len1, suffix, len2);
+  path[len1+len2] = '\0';
+  return path;
+}
+
+static gzFile input_output_open(const char *path)
+{
+  gzFile gzout;
+
+  if(futil_file_exists(path)) {
+    warn("Output file already exists: %s", path);
+    return NULL;
+  }
+
+  // dirname, basename may modify string, so make copy
+  char *pathcpy = strdup(path);
+  char *fname = basename(pathcpy);
+
+  if(path[0] == '\0' || path[strlen(path)-1] == '\0' ||
+     fname[0] == '/' || fname[0] == '.')
+  {
+    warn("Bad output name: %s", path);
+    free(pathcpy);
+    return NULL;
+  }
+
+  strcpy(pathcpy, path);
+  char *dir = dirname(pathcpy);
+  futil_mkpath(dir, 0777);
+  free(pathcpy);
+
+  if((gzout = gzopen(path, "w")) == NULL) {
+    warn("Cannot open %s", path);
+    return NULL;
+  }
+
+  return gzout;
 }
 
 static bool input_paths_init(AlignReadsData *input)
 {
-  size_t len = strlen(input->out_base), out_len = 0;
-  char *path1 = NULL, *path2 = NULL;
+  input->out_path = input->out_path1 = input->out_path2 = NULL;
 
-  path1 = ctx_malloc(len+strlen(".1.fq.gz")+1 * sizeof(char));
-  memcpy(path1, input->out_base, len);
+  input->out_path = input_alloc_path(input->out_base, input->use_fq ? ".fq.gz" : ".fa.gz");
+  if((input->gzout = input_output_open(input->out_path)) == NULL) return false;
 
   if(input->is_pe) {
-    path2 = ctx_malloc(len+strlen(".2.fq.gz")+1 * sizeof(char));
-    memcpy(path2, input->out_base, len);
-    memcpy(path1+len, input->use_fq ? ".1.fq.gz" : ".1.fa.gz", strlen(".1.fq.gz"));
-    memcpy(path2+len, input->use_fq ? ".2.fq.gz" : ".2.fa.gz", strlen(".2.fq.gz"));
-    out_len = len+strlen(".1.fq.gz");
-    path1[out_len] = '\0';
-    path2[out_len] = '\0';
-  }
-  else {
-    memcpy(path1+len, input->use_fq ? ".fq.gz" : ".fa.gz", strlen(".fq.gz"));
-    out_len = len+strlen(".fq.gz");
-    path1[out_len] = '\0';
+    input->out_path1 = input_alloc_path(input->out_base, input->use_fq ? ".1.fq.gz" : ".1.fa.gz");
+    input->out_path2 = input_alloc_path(input->out_base, input->use_fq ? ".2.fq.gz" : ".2.fa.gz");
+    if((input->gzout1 = input_output_open(input->out_path1)) == NULL) return false;
+    if((input->gzout2 = input_output_open(input->out_path2)) == NULL) return false;
   }
 
-  input->out_path1 = path1;
-  input->out_path2 = path2;
-
-  if((input->gzout1 = gzopen(path1, "w")) == NULL) {
-    warn("Cannot open %s", path1);
-    return false;
-  }
-  if(path2 && (input->gzout2 = gzopen(path2, "w")) == NULL) {
-    warn("Cannot open %s", path2);
-    return false;
-  }
+  if(pthread_mutex_init(&input->outlock, NULL) != 0) die("Mutex init failed");
 
   return true;
 }
@@ -170,14 +207,14 @@ static void parse_args(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" build -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" reads -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
 
   // Defaults
   if(!nthreads) nthreads = DEFAULT_NTHREADS;
-  if(!fasta_output && !fastq_output) fasta_output = true;
+  if(!fasta_output && !fastq_output) fastq_output = true;
 
   if(inputs.len == 0)
     cmd_print_usage("Please specify at least one sequence file (-1, -2 or -i)");
@@ -204,12 +241,12 @@ static void inputs_attempt_open()
   size_t i;
 
   for(i = 0; i < inputs.len && !err_occurred; i++)
-    err_occurred = input_paths_init(&inputs.data[i]);
+    err_occurred = !input_paths_init(&inputs.data[i]);
 
   if(err_occurred) {
     for(i = 0; i < inputs.len; i++)
       input_clean_up(&inputs.data[i], true);
-    exit(EXIT_FAILURE);
+    die("Error creating output files");
   }
 }
 
@@ -259,37 +296,45 @@ static bool read_touches_graph(const read_t *r, const dBGraph *db_graph,
   return found;
 }
 
+static inline void print_read(const read_t *r, bool use_fq, gzFile gzout)
+{
+  if(use_fq) seq_gzprint_fastq(r, gzout, 0);
+  else       seq_gzprint_fasta(r, gzout, 0);
+}
+
 void filter_reads(AsyncIOData *data, void *arg)
 {
   (void)arg;
-  read_t *r1 = (read_t*)&data->r1, *r2 = (read_t*)&data->r2;
+  read_t *r1 = (read_t*)&data->r1, *r2 = data->r2.seq.end ? (read_t*)&data->r2 : NULL;
   AlignReadsData *input = (AlignReadsData*)data->ptr;
   const dBGraph *db_graph = input->db_graph;
   LoadingStats *stats = input->stats;
 
-  ctx_assert((r2 != NULL) == input->is_pe);
+  ctx_assert2(r2 == NULL || input->is_pe, "%p %i", r2, (int)input->is_pe);
 
   bool touches_graph = read_touches_graph(r1, db_graph, stats) ||
                        (r2 != NULL && read_touches_graph(r2, db_graph, stats));
 
   if(touches_graph != input->invert)
   {
-    if(input->use_fq)
-      seq_gzprint_fastq(input->gzout1, r1, 0);
-    else
-      seq_gzprint_fasta(input->gzout1, r1, 0);
+    pthread_mutex_lock(&input->outlock);
 
-    if(r2 != NULL) {
-      if(input->use_fq)
-        seq_gzprint_fastq(input->gzout2, r2, 0);
-      else
-        seq_gzprint_fasta(input->gzout2, r2, 0);
+    if(r2 == NULL) {
+      print_read(r1, input->use_fq, input->gzout);
+    } else {
+      print_read(r1, input->use_fq, input->gzout1);
+      print_read(r2, input->use_fq, input->gzout2);
     }
 
-    input->num_of_reads_printed++;
+    pthread_mutex_unlock(&input->outlock);
+
+    input->num_of_reads_printed += 1 + (r2 != NULL);
   }
 
-  size_t n = __sync_add_and_fetch(input->rcounter, 1);
+  if(r2 == NULL) __sync_add_and_fetch((volatile size_t*)&stats->num_se_reads, 1);
+  else           __sync_add_and_fetch((volatile size_t*)&stats->num_pe_reads, 2);
+
+  size_t n = __sync_add_and_fetch(&read_counter, 1);
   ctx_update("FilterReads", n);
 }
 
@@ -312,15 +357,15 @@ int ctx_reads(int argc, char **argv)
   //
   // Calculate memory use
   //
-  size_t kmers_in_hash, graph_mem, extra_bits_per_kmer = 0;
+  size_t kmers_in_hash, graph_mem, bits_per_kmer = sizeof(BinaryKmer)*8;
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         extra_bits_per_kmer,
-                                         ctx_max_kmers, ctx_sum_kmers,
-                                         true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        true, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
@@ -365,7 +410,7 @@ int ctx_reads(int argc, char **argv)
   for(start = 0; start < inputs.len; start += MAX_IO_THREADS)
   {
     // Can have different numbers of inputs vs threads
-    end = MIN2(inputs.len, start+nthreads);
+    end = MIN2(inputs.len, start+MAX_IO_THREADS);
     asyncio_run_pool(files.data+start, end-start, filter_reads, NULL, nthreads, 0);
   }
 

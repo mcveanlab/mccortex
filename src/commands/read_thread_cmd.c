@@ -102,7 +102,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" thread -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" thread/correct -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }

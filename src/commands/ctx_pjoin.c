@@ -172,14 +172,15 @@ int ctx_pjoin(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // Each kmer stores a pointer to its list of paths
-  bits_per_kmer = sizeof(uint64_t)*8;
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         bits_per_kmer,
-                                         ctp_max_kmers, ctp_sum_kmers,
-                                         false, &graph_mem);
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(GPath*)*8;
+
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctp_max_kmers, ctp_sum_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   size_t min_path_mem = 0, max_path_mem = 0;

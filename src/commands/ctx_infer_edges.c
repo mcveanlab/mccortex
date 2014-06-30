@@ -180,19 +180,20 @@ int ctx_infer_edges(int argc, char **argv)
   //
   // Decide on memory
   //
-  size_t kmers_in_hash, graph_mem, extra_bits_per_kmer;
+  size_t kmers_in_hash, graph_mem, bits_per_kmer;
 
   // reading file: one bit per kmer per colour: for 'in colour'
   // reading stream: 9 bits per kmer per colour: Edges + one bit for 'in colour'.
-  extra_bits_per_kmer = file.hdr.num_of_cols * (sizeof(Edges)*8*reading_stream + 1);
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  file.hdr.num_of_cols * (sizeof(Edges)*8*reading_stream + 1);
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         extra_bits_per_kmer,
-                                         file.num_of_kmers, file.num_of_kmers,
-                                         memargs.mem_to_use_set, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        file.num_of_kmers, file.num_of_kmers,
+                                        memargs.mem_to_use_set, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 

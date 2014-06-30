@@ -231,19 +231,19 @@ int ctx_clean(int argc, char **argv)
   bool all_colours_loaded = (ncols <= use_ncols);
   bool use_mem_limit = (memargs.mem_to_use_set && num_gfiles > 1) || !ctx_max_kmers;
 
-  size_t kmers_in_hash, extra_bits_per_kmer, graph_mem;
-  size_t per_kmer_per_col_bits = (sizeof(Covg) + sizeof(Edges)) * 8;
-  size_t pop_edges_per_kmer_bits = (!all_colours_loaded) * sizeof(Edges) * 8;
+  size_t kmers_in_hash, bits_per_kmer, graph_mem;
+  size_t per_kmer_per_col_bits = (sizeof(BinaryKmer)+sizeof(Covg)+sizeof(Edges)) * 8;
+  size_t pop_edges_per_kmer_bits = (all_colours_loaded ? 0 : sizeof(Edges) * 8);
 
-  extra_bits_per_kmer = per_kmer_per_col_bits * use_ncols + pop_edges_per_kmer_bits;
+  bits_per_kmer = per_kmer_per_col_bits * use_ncols + pop_edges_per_kmer_bits;
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         extra_bits_per_kmer,
-                                         ctx_max_kmers, ctx_sum_kmers,
-                                         use_mem_limit, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        use_mem_limit, &graph_mem);
 
   // Maximise the number of colours we load to fill the mem
   size_t max_usencols = (memargs.mem_to_use*8 - pop_edges_per_kmer_bits * kmers_in_hash) /

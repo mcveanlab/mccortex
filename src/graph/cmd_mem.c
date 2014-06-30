@@ -33,13 +33,13 @@ void cmd_print_mem(size_t mem_bytes, const char *name)
 }
 
 // If your command accepts -n <kmers> and -m <mem> this may be useful
-//  `extra_bits` is additional memory per node, above hash table+BinaryKmers
+//  `entry_bits` is memory per node, including hash table BinaryKmer
 //  `use_mem_limit` if true, fill args->mem_to_use
-size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
-                              size_t num_kmers, bool num_kmers_set,
-                              size_t extra_bits,
-                              size_t min_num_kmer_req, size_t max_num_kmers_req,
-                              bool use_mem_limit, size_t *graph_mem_ptr)
+size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
+                             size_t num_kmers, bool num_kmers_set,
+                             size_t entry_bits,
+                             size_t min_num_kmer_req, size_t max_num_kmers_req,
+                             bool use_mem_limit, size_t *graph_mem_ptr)
 {
   size_t kmers_in_hash, graph_mem = 0, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
@@ -50,19 +50,19 @@ size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
   }
 
   if(num_kmers_set)
-    graph_mem = hash_table_mem(num_kmers, extra_bits, &kmers_in_hash);
+    graph_mem = hash_table_mem(num_kmers, entry_bits, &kmers_in_hash);
   else if(use_mem_limit)
-    graph_mem = hash_table_mem_limit(mem_to_use, extra_bits, &kmers_in_hash);
+    graph_mem = hash_table_mem_limit(mem_to_use, entry_bits, &kmers_in_hash);
   else if(min_num_kmer_req > 0)
     graph_mem = hash_table_mem((size_t)(min_num_kmer_req/IDEAL_OCCUPANCY),
-                               extra_bits, &kmers_in_hash);
+                               entry_bits, &kmers_in_hash);
 
   if(max_num_kmers_req > 0 && !num_kmers_set)
   {
     // Check if the max kmer capacity is less that requested
     size_t graph_mem2, kmers_in_hash2;
     graph_mem2 = hash_table_mem(max_num_kmers_req/IDEAL_OCCUPANCY,
-                                extra_bits, &kmers_in_hash2);
+                                entry_bits, &kmers_in_hash2);
     if(graph_mem2 < graph_mem) {
       graph_mem = graph_mem2;
       kmers_in_hash = kmers_in_hash2;
@@ -70,10 +70,10 @@ size_t cmd_get_kmers_in_hash2(size_t mem_to_use, bool mem_to_use_set,
   }
 
   if(kmers_in_hash < 1024)
-    graph_mem = hash_table_mem(1024, extra_bits, &kmers_in_hash);
+    graph_mem = hash_table_mem(1024, entry_bits, &kmers_in_hash);
   // ^ 1024 is a very small default hash table capacity
 
-  min_kmers_mem = hash_table_mem(min_num_kmer_req, extra_bits, NULL);
+  min_kmers_mem = hash_table_mem(min_num_kmer_req, entry_bits, NULL);
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(mem_to_use, 1, mem_to_use_str);

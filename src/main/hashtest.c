@@ -68,14 +68,17 @@ int main(int argc, char **argv)
     print_usage(usage, "Invalid <num_ops>");
 
   // Decide on memory
-  size_t kmers_in_hash, graph_mem;
+  size_t kmers_in_hash, graph_mem, bits_per_kmer = sizeof(BinaryKmer)*8;
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         0, num_ops, num_ops,
-                                         true, &graph_mem);
+  // Min and max number of kmers both `num_ops`, since each iterations adds a
+  // (probably unique) kmer to the graph
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        num_ops, num_ops,
+                                        true, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 

@@ -123,14 +123,16 @@ int ctx_correct(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // 1 bit needed per kmer if we need to keep track of noreseed
-  bits_per_kmer = sizeof(Edges)*8 + ctx_num_kmers + sizeof(uint64_t)*8;
-  kmers_in_hash = cmd_get_kmers_in_hash2(args.memargs.mem_to_use,
-                                         args.memargs.mem_to_use_set,
-                                         args.memargs.num_kmers,
-                                         args.memargs.num_kmers_set,
-                                         bits_per_kmer,
-                                         ctx_num_kmers, ctx_num_kmers,
-                                         false, &graph_mem);
+  bits_per_kmer = sizeof(GPath)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
+                  ctx_num_kmers;
+
+  kmers_in_hash = cmd_get_kmers_in_hash(args.memargs.mem_to_use,
+                                        args.memargs.mem_to_use_set,
+                                        args.memargs.num_kmers,
+                                        args.memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_num_kmers, ctx_num_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   size_t min_path_mem = 0, max_path_mem = 0;

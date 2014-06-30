@@ -97,7 +97,7 @@ int ctx_covg(CmdArgs *args)
 
   // Figure out how much memory to use
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  bits_per_kmer = (sizeof(Edges) + sizeof(Covg)*cols_used) * 8;
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(Covg)*cols_used*8;
   kmers_in_hash = cmd_get_kmers_in_hash(args, bits_per_kmer,
                                         gheader.num_of_kmers, true, &graph_mem);
 

@@ -263,15 +263,16 @@ int ctx_build(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
   // remove_pcr_dups requires a fw and rv bit per kmer
-  bits_per_kmer = (sizeof(Covg) + sizeof(Edges))*8*output_colours +
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  (sizeof(Covg) + sizeof(Edges)) * 8 * output_colours +
                   remove_pcr_used*2;
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         bits_per_kmer, 0, max_kmers,
-                                         true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer, 0, max_kmers,
+                                        true, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 

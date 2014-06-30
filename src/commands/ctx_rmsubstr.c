@@ -174,16 +174,17 @@ int ctx_rmsubstr(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  bits_per_kmer = sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
                   8; // 1 byte per kmer for each base to load sequence files
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         bits_per_kmer,
-                                         est_num_bases, est_num_bases,
-                                         false, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        est_num_bases, est_num_bases,
+                                        false, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 

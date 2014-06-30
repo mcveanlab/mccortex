@@ -92,7 +92,7 @@ int ctx_subgraph(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" breakpoints -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" subgraph -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -124,15 +124,16 @@ int ctx_subgraph(int argc, char **argv)
   size_t num_of_fringe_nodes, fringe_mem, total_mem;
   char graph_mem_str[100], fringe_mem_str[100], num_fringe_nodes_str[100];
 
-  bits_per_kmer = ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  ((sizeof(Edges) + sizeof(Covg))*use_ncols*8 + 1);
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         bits_per_kmer,
-                                         ctx_max_kmers, ctx_sum_kmers,
-                                         false, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        false, &graph_mem);
 
   graph_mem = hash_table_mem(kmers_in_hash, bits_per_kmer, NULL);
   bytes_to_str(graph_mem, 1, graph_mem_str);

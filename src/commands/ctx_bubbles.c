@@ -143,16 +143,16 @@ int ctx_bubbles(int argc, char **argv)
   // edges(1bytes) + kmer_paths(8bytes) + in_colour(1bit/col) +
   // visitedfw/rv(2bits/thread)
 
-  bits_per_kmer = sizeof(Edges)*8 + sizeof(GPath*)*8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
                   ncols + 2*nthreads;
 
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         bits_per_kmer,
-                                         ctx_max_kmers, ctx_sum_kmers,
-                                         false, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        false, &graph_mem);
 
   // Thread memory
   thread_mem = roundup_bits2bytes(kmers_in_hash) * 2;

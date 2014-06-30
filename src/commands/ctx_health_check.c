@@ -77,7 +77,7 @@ int ctx_health_check(int argc, char **argv)
       case 'E': if(!do_edge_check) die("%s set twice", cmd); do_edge_check=false; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
-        die("`"CMD" supernodes -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" check -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -107,16 +107,18 @@ int ctx_health_check(int argc, char **argv)
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
-  extra_bits_per_kmer = sizeof(Edges) * ncols * 8 + 1; // edges + in_colour
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         extra_bits_per_kmer,
-                                         gfile.num_of_kmers, gfile.num_of_kmers,
-                                         false, &graph_mem);
+  // edges + in_colour
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges) * ncols * 8 + 1;
+
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        gfile.num_of_kmers, gfile.num_of_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   size_t i, min_path_mem = 0, max_path_mem = 0;

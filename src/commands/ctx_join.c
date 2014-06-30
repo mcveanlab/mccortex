@@ -105,7 +105,7 @@ int ctx_join(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" breakpoints -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" join -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -219,29 +219,30 @@ int ctx_join(int argc, char **argv)
   //
   // Decide on memory
   //
-  size_t extra_bits_per_kmer, kmers_in_hash, graph_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         extra_bits_per_kmer,
-                                         ctx_max_kmers, ctx_sum_kmers,
-                                         true, &graph_mem);
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
 
-  size_t max_usencols = (memargs.mem_to_use*8) / ((sizeof(Covg)+sizeof(Edges))*8);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        true, &graph_mem);
+
+  size_t max_usencols = (memargs.mem_to_use*8) / bits_per_kmer;
   use_ncols = MIN2(max_usencols, total_cols);
 
   // Re-check memory used
-  extra_bits_per_kmer = (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
-  kmers_in_hash = cmd_get_kmers_in_hash2(memargs.mem_to_use,
-                                         memargs.mem_to_use_set,
-                                         memargs.num_kmers,
-                                         memargs.num_kmers_set,
-                                         extra_bits_per_kmer,
-                                         ctx_max_kmers, ctx_sum_kmers,
-                                         true, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                        memargs.mem_to_use_set,
+                                        memargs.num_kmers,
+                                        memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        ctx_max_kmers, ctx_sum_kmers,
+                                        true, &graph_mem);
 
   status("Using %zu colour%s in memory", use_ncols, util_plural_str(use_ncols));
 

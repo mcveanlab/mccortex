@@ -128,7 +128,7 @@ static void parse_cmdline_args(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" calls2vcf -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }

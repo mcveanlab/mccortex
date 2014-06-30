@@ -238,6 +238,18 @@ static inline int guess_fastq_format(seq_file_t *sf)
   return fmt;
 }
 
+// Compare read names up to first whitespace / end of line. Both read names
+// must be of the same length.
+// Returns true (1) if they match, false (0) otherwise
+static bool read_names_match(const char *a, const char *b)
+{
+  // Both match until end of string, or whitespace
+  while(*a && *b && *a == *b && !isspace(*a)) { a++; b++; }
+
+  // One or both of the strings ended
+  return (!*a || isspace(*a)) && (!*b || isspace(*b));
+}
+
 void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
                               read_t *r1, read_t *r2,
                               void (*read_func)(read_t *_r1, read_t *_r2,
@@ -267,12 +279,12 @@ void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
 
   while((s = seq_read(sf, r[ridx])) > 0)
   {
-    seq_read_truncate_name(r[ridx]);
     warn_flags = process_new_read(r[ridx], qmin, qmax, sf->path, warn_flags);
 
-    if(ridx == 1)
+    if(ridx)
     {
-      if(strcmp(r[0]->name.b, r[1]->name.b) == 0) {
+      // ridx == 1
+      if(read_names_match(r[0]->name.b, r[1]->name.b)) {
         read_func(r[0], r[1], qoffset, qoffset, reader_ptr);
         num_pe_pairs++;
         ridx = 0;

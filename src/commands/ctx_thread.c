@@ -113,19 +113,19 @@ int ctx_thread(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
   bool sep_path_list = (!args.use_new_paths && gpfiles->len > 0);
 
-  bits_per_kmer = sizeof(Edges) * 8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 +
                   2 * args.num_of_threads; // Have traversed
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
-  kmers_in_hash = cmd_get_kmers_in_hash2(args.memargs.mem_to_use,
-                                         args.memargs.mem_to_use_set,
-                                         args.memargs.num_kmers,
-                                         args.memargs.num_kmers_set,
-                                         bits_per_kmer,
-                                         gfile->num_of_kmers,
-                                         gfile->num_of_kmers,
-                                         false, &graph_mem);
+  kmers_in_hash = cmd_get_kmers_in_hash(args.memargs.mem_to_use,
+                                        args.memargs.mem_to_use_set,
+                                        args.memargs.num_kmers,
+                                        args.memargs.num_kmers_set,
+                                        bits_per_kmer,
+                                        gfile->num_of_kmers,
+                                        gfile->num_of_kmers,
+                                        false, &graph_mem);
 
   // Paths memory
   size_t min_path_mem = 0, max_path_mem = 0;

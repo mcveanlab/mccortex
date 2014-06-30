@@ -2,18 +2,6 @@
 #include "binary_kmer.h"
 #include "binary_seq.h"
 
-// bswap only used for approach 2 in binary_kmer_reverse_complement
-#ifdef _MSC_VER
-  #define bswap_32(x) _byteswap_ulong(x)
-  #define bswap_64(x) _byteswap_uint64(x)
-#elif defined(__APPLE__)
-  #include <libkern/OSByteOrder.h>
-  #define bswap_32(x) OSSwapInt32(x)
-  #define bswap_64(x) OSSwapInt64(x)
-#else
-  #include <byteswap.h>
-#endif
-
 // This is exported
 const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 
@@ -152,7 +140,7 @@ BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
     }
     // Approach 2
     // // Swap byte order
-    // word = bswap_64(word);
+    // word = __builtin_bswap64(word);
     // // 4 bases within a byte, so swap their order
     // word = (((word & 0x0303030303030303UL) << 6) |
     //         ((word & 0x0c0c0c0c0c0c0c0cUL) << 2) |

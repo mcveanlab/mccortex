@@ -188,7 +188,10 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
 
         nodes[i] = wlk[i]->node;
 
-        if(db_nodes_are_equal(nodes[0], db_node_reverse(nodes[1]))) {
+        if(db_nodes_are_equal(nodes[0], db_node_reverse(nodes[1])))
+        {
+          // gap_len may now be > gap_max since we loop twice before
+          // checking outer loop condition
           result.traversed = (gap_len <= gap_max);
           use[0] = use[1] = false; // set both to false to exit loop
           break;
