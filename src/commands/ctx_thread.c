@@ -88,9 +88,9 @@ static struct option longopts[] =
   {"end-check",     no_argument,       NULL, 'e'},
   {"no-end-check",  no_argument,       NULL, 'E'},
 // Debug options
-  {"print-contigs", no_argument,       NULL, 'X'},
-  {"print-paths",   no_argument,       NULL, 'Y'},
-  {"print-reads",   no_argument,       NULL, 'Z'},
+  {"print-contigs", no_argument,       NULL, 'x'},
+  {"print-paths",   no_argument,       NULL, 'y'},
+  {"print-reads",   no_argument,       NULL, 'z'},
   {NULL, 0, NULL, 0}
 };
 

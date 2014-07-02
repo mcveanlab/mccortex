@@ -185,6 +185,10 @@ int ctx_pjoin(int argc, char **argv)
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
   path_mem = gpath_reader_mem_req(pfiles, num_pfiles, output_ncols, rem_mem, true);
+
+  // Shift path store memory from graphs->paths
+  graph_mem -= sizeof(GPath*)*kmers_in_hash;
+  path_mem  += sizeof(GPath*)*kmers_in_hash;
   cmd_print_mem(path_mem, "paths");
 
   total_mem = graph_mem + path_mem;

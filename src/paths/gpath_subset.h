@@ -24,7 +24,9 @@ void gpath_subset_sort(GPathSubset *subset);
 // Load linked list pointed to by first. If NULL load nothing.
 // Does not reset subset before loading
 void gpath_subset_load_llist(GPathSubset *subset, GPath *first);
+
 // Load all paths from a given set
+// Does not reset subset before loading
 void gpath_subset_load_set(GPathSubset *subset);
 
 // Update the linked list of paths in set `subset->set`

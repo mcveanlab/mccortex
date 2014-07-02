@@ -50,6 +50,7 @@ void gpath_subset_load_llist(GPathSubset *subset, GPath *first)
 }
 
 // Load all paths from a given set
+// Does not reset subset before loading
 void gpath_subset_load_set(GPathSubset *subset)
 {
   GPathSet *gpset = subset->gpset;

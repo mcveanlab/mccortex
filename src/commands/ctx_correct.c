@@ -85,6 +85,9 @@ static struct option longopts[] =
 //
   // {"seq-gaps",     required_argument, NULL, 'S'},
   // {"mp-gaps",      required_argument, NULL, 'M'},
+  // {"print-contigs", no_argument,       NULL, 'x'},
+  // {"print-paths",   no_argument,       NULL, 'y'},
+  // {"print-reads",   no_argument,       NULL, 'z'},
   {NULL, 0, NULL, 0}
 };
 
@@ -139,6 +142,10 @@ int ctx_correct(int argc, char **argv)
   size_t rem_mem = args.memargs.mem_to_use - MIN2(args.memargs.mem_to_use, graph_mem);
   path_mem = gpath_reader_mem_req(gpfiles->data, gpfiles->len,
                                   ctx_total_cols, rem_mem, false);
+
+  // Shift path store memory from graphs->paths
+  graph_mem -= sizeof(GPath*)*kmers_in_hash;
+  path_mem  += sizeof(GPath*)*kmers_in_hash;
   cmd_print_mem(path_mem, "paths");
 
   // Total memory

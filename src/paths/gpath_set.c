@@ -24,8 +24,10 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
 
   size_t mem_used = initpaths * (entry_size + klen_size);
 
-  if(initmem < mem_used)
-    die("[GPathSet] Not enough memory for number of paths");
+  if(initmem < mem_used) {
+    die("[GPathSet] Not enough memory for number of paths (%zu < %zu)",
+        initmem, mem_used);
+  }
 
   size_t seq_mem = initmem - mem_used;
   size_t seq_col_mem = initpaths * ((ncols+7)/8) + seq_mem;

@@ -164,6 +164,10 @@ int ctx_bubbles(int argc, char **argv)
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem+thread_mem);
   path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
+
+  // Shift path store memory from graphs->paths
+  graph_mem -= sizeof(GPath*)*kmers_in_hash;
+  path_mem  += sizeof(GPath*)*kmers_in_hash;
   cmd_print_mem(path_mem, "paths");
 
   size_t total_mem = graph_mem + thread_mem + path_mem;

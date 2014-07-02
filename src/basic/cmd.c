@@ -69,7 +69,8 @@ void cmd_long_opts_to_short(const struct option *longs,
 
 double cmd_udouble(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   double tmp;
   if(!parse_entire_double(arg, &tmp))
     cmd_print_usage("%s requires a double >= 0: %s", cmd, arg);
@@ -78,7 +79,8 @@ double cmd_udouble(const char *cmd, const char *arg)
 
 double cmd_udouble_nonzero(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   double tmp;
   if(!parse_entire_double(arg, &tmp) || tmp <= 0)
     cmd_print_usage("%s requires a double > 0: %s", cmd, arg);
@@ -87,7 +89,8 @@ double cmd_udouble_nonzero(const char *cmd, const char *arg)
 
 uint8_t cmd_uint8(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   unsigned int tmp;
   if(!parse_entire_uint(arg, &tmp))
     cmd_print_usage("%s requires an int 0 <= x < 255: %s", cmd, arg);
@@ -96,7 +99,8 @@ uint8_t cmd_uint8(const char *cmd, const char *arg)
 
 int32_t cmd_int32(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   int tmp;
   if(!parse_entire_int(arg, &tmp))
     cmd_print_usage("%s requires an int: %s", cmd, arg);
@@ -105,7 +109,8 @@ int32_t cmd_int32(const char *cmd, const char *arg)
 
 uint32_t cmd_uint32(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   unsigned int tmp;
   if(!parse_entire_uint(arg, &tmp))
     cmd_print_usage("%s requires an int x >= 0: %s", cmd, arg);
@@ -114,7 +119,8 @@ uint32_t cmd_uint32(const char *cmd, const char *arg)
 
 uint32_t cmd_uint32_nonzero(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   uint32_t n = cmd_uint32(cmd, arg);
   if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmd, arg);
   return n;
@@ -122,7 +128,8 @@ uint32_t cmd_uint32_nonzero(const char *cmd, const char *arg)
 
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg)
 {
-  ctx_assert(arg != NULL);
+  ctx_assert(cmd != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmd);
   size_t mem;
   if(!mem_to_integer(arg, &mem))
     cmd_print_usage("%s %s valid options: 1024 2MB 1G", cmd, arg);

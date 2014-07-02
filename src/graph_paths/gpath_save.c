@@ -1,6 +1,7 @@
 #include "global.h"
 #include "gpath_save.h"
 #include "gpath_set.h"
+#include "gpath_subset.h"
 #include "binary_seq.h"
 #include "cmd.h"
 #include "util.h"
@@ -15,26 +16,29 @@
 // <KMER> <num> .. (ignored)
 // [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
 
-static void _gpath_save_node(hkey_t hkey, gzFile gzout, const dBGraph *db_graph)
+// @subset is a temp variable that is reused each time
+static void _gpath_save_node(hkey_t hkey, gzFile gzout,
+                             GPathSubset *subset, const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
-  const GPath *first_gpath = gpath_store_fetch(gpstore, hkey), *gpath = first_gpath;
   const size_t ncols = gpstore->gpset.ncols;
-  size_t i, num_gpaths = 0;
+  GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
+  const GPath *gpath;
+  size_t i;
 
-  // if(first_gpath == NULL) status("Oh now!");
+  // Load and sort paths for given kmer
+  gpath_subset_reset(subset);
+  gpath_subset_load_llist(subset, first_gpath);
+  gpath_subset_sort(subset);
 
-  for(num_gpaths = 0; gpath != NULL; num_gpaths++)
-    gpath = gpath->next;
-
-  if(num_gpaths == 0) return;
+  if(subset->list.len == 0) return;
 
   // Print "<kmer> <npaths>"
   BinaryKmer bkmer = db_graph->ht.table[hkey];
   char bkstr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(bkmer, db_graph->kmer_size, bkstr);
-  gzprintf(gzout, "%s %zu\n", bkstr, num_gpaths);
+  gzprintf(gzout, "%s %zu\n", bkstr, subset->list.len);
 
   char orchar[2] = {0};
   orchar[FORWARD] = 'F';
@@ -42,8 +46,9 @@ static void _gpath_save_node(hkey_t hkey, gzFile gzout, const dBGraph *db_graph)
   const uint8_t *nseenptr;
   size_t klen;
 
-  for(gpath = first_gpath; gpath != NULL; gpath = gpath->next)
+  for(i = 0; i < subset->list.len; i++)
   {
+    gpath = subset->list.data[i];
     nseenptr = gpath_set_get_nseen(gpset, gpath);
     klen = gpath_set_get_klen(gpset, gpath);
     gzprintf(gzout, "%c %zu %u %u", orchar[gpath->orient], klen,
@@ -190,7 +195,7 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
 // @hdrs is array of JSON headers of input files
 void gpath_save(gzFile gzout, const char *path,
                 cJSON **hdrs, size_t nhdrs,
-                const dBGraph *db_graph)
+                dBGraph *db_graph)
 {
   ctx_assert(gpath_set_has_nseen(&db_graph->gpstore.gpset));
 
@@ -209,7 +214,11 @@ void gpath_save(gzFile gzout, const char *path,
   gzputs(gzout, "\n");
 
   // Iterate over kmers writing paths
-  HASH_ITERATE(&db_graph->ht, _gpath_save_node, gzout, db_graph);
+  GPathSubset subset;
+  gpath_subset_alloc(&subset);
+  gpath_subset_init(&subset, &db_graph->gpstore.gpset);
+  HASH_ITERATE(&db_graph->ht, _gpath_save_node, gzout, &subset, db_graph);
+  gpath_subset_dealloc(&subset);
 
   status("[GPathSave] Graph paths saved to %s", path);
 }
