@@ -1,6 +1,6 @@
 #include "global.h"
 #include "gpath_store.h"
-
+#include "util.h"
 
 // @split_linked_lists whether you intend to have traverse linked list and
 //                     all linked list separate
@@ -51,6 +51,18 @@ void gpath_store_reset(GPathStore *gpstore)
     memset(gpstore->paths_traverse, 0, gpstore->graph_capacity * sizeof(GPath*));
 }
 
+void gpath_store_print_stats(const GPathStore *gpstore)
+{
+  gpath_set_print_stats(&gpstore->gpset);
+
+  char kmers_str[50], paths_str[50], bytes_str[50];
+  ulong_to_str(gpstore->num_kmers_with_paths, kmers_str);
+  ulong_to_str(gpstore->num_paths, paths_str);
+  bytes_to_str(gpstore->path_bytes, 1, bytes_str);
+  status("[GPathStore] kmers-with-paths: %s, num paths: %s, path-bytes: %s",
+         kmers_str, paths_str, bytes_str);
+}
+
 void gpath_store_split_read_write(GPathStore *gpstore)
 {
   if(gpstore->num_paths > 0) {
@@ -94,19 +106,19 @@ void gpstore_path_removal_update_stats(GPathStore *gpstore, GPath *gpath)
 // You do not need to acquire the kmer lock before calling this function
 static void _gpstore_add_to_llist_mt(GPathStore *gpstore, hkey_t hkey, GPath *gpath)
 {
-  // Update stats
-  size_t nbytes = (gpath->num_juncs+3)/4;
-  size_t new_kmer = (gpstore->paths_all[hkey] == NULL);
-  __sync_fetch_and_add((volatile uint64_t*)&gpstore->num_kmers_with_paths, new_kmer);
-  __sync_fetch_and_add((volatile uint64_t*)&gpstore->num_paths, 1);
-  __sync_fetch_and_add((volatile uint64_t*)&gpstore->path_bytes, nbytes);
-
   // Add to linked list
   do {
     gpath->next = *(GPath *volatile const*)&gpstore->paths_all[hkey];
   }
   while(!__sync_bool_compare_and_swap((GPath *volatile*)&gpstore->paths_all[hkey],
                                       gpath->next, gpath));
+
+  // Update stats
+  size_t nbytes = (gpath->num_juncs+3)/4;
+  size_t new_kmer = (gpath->next == NULL ? 1 : 0);
+  __sync_fetch_and_add((volatile uint64_t*)&gpstore->num_kmers_with_paths, new_kmer);
+  __sync_fetch_and_add((volatile uint64_t*)&gpstore->num_paths, 1);
+  __sync_fetch_and_add((volatile uint64_t*)&gpstore->path_bytes, nbytes);
 }
 
 // Linear search to find a given path

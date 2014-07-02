@@ -208,14 +208,7 @@ int ctx_coverage(int argc, char **argv)
   //
   // Open output file
   //
-  FILE *fout;
-
-  if(output_file == NULL || strcmp(output_file, "-") == 0)
-    fout = stdout;
-  else
-    fout = fopen(output_file, "w");
-
-  if(fout == NULL) die("Cannot open output file: %s", output_file);
+  FILE *fout = futil_open_output(output_file ? output_file : "-");
 
   //
   // Set up memory

@@ -70,7 +70,7 @@ static void test_repeat_loop()
   GraphWalker gwlk;
   RepeatWalker rptwlk;
   graph_walker_alloc(&gwlk);
-  rpt_walker_alloc(&rptwlk, graph.ht.capacity, 12);
+  rpt_walker_alloc(&rptwlk, graph.ht.capacity, 15); // 2^15 = 32KB
 
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 1024);

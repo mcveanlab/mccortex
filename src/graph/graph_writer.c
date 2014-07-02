@@ -238,7 +238,6 @@ static bool saving_graph_as_is(const Colour *cols, Colour start_col,
 
 // This function will dump valid binaries by not printing edges to nodes that
 // are not themselves printed
-// graph info is REQUIRED!
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
 uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
@@ -255,7 +254,6 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
 
   size_t i;
   uint64_t num_nodes_dumped = 0;
-  FILE *fout;
   const char *out_name = futil_outpath_str(path);
 
   if(colours != NULL) {
@@ -278,11 +276,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   status("Writing colours %zu-%zu of %zu", intocol, intocol+num_of_cols-1,
          (size_t)header->num_of_cols);
 
-  if(strcmp(path,"-") == 0) fout = stdout;
-  else if((fout = fopen(path, "w")) == NULL)
-    die("Unable to open graph file to write: %s\n", path);
-
-  setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
+  FILE *fout = futil_open_output2(path, "w");
 
   // Write header
   graph_write_header(fout, header);

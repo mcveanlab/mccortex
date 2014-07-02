@@ -225,6 +225,10 @@ int ctx_thread(int argc, char **argv)
     generate_paths(inputs->data+start, end-start, workers, args.num_of_threads);
   }
 
+  // Print memory statistics
+  gpath_hash_print_stats(&db_graph.gphash);
+  gpath_store_print_stats(&db_graph.gpstore);
+
   // Output statistics
   LoadingStats stats = gen_paths_get_stats(workers);
   CorrectAlnStats gapstats =  gen_paths_get_gapstats(workers);

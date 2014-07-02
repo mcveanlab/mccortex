@@ -151,16 +151,9 @@ int ctx_infer_edges(int argc, char **argv)
   bool reading_stream = (file.fltr.fh == stdin);
 
   FILE *fout = NULL;
-  if(out_ctx_path != NULL) {
-    if(strcmp(out_ctx_path,"-") == 0) fout = stdout;
-    else if(futil_file_exists(out_ctx_path))
-      die("Output file already exists: %s", out_ctx_path);
-    else if((fout = fopen(out_ctx_path,"w")) == NULL)
-      die("Cannot open output file: %s", out_ctx_path);
-    setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
-  }
-  else if(reading_stream)
-    fout = stdout;
+
+  if(out_ctx_path || reading_stream)
+    fout = futil_open_output(out_ctx_path ? out_ctx_path : "-");
 
   if(!file.fltr.nofilter)
     cmd_print_usage("Inferedges with filter not implemented - sorry");

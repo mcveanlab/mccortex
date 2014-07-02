@@ -32,7 +32,9 @@
 //  MAX_KMER_SIZE    Max kmer-size compiled e.g. 31 for maxk=31, 63 for maxk=63
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 
+#define ONE_MEGABYTE (1<<20)
 #define MAX_IO_THREADS 10
+#define DEFAULT_IO_BUFSIZE (4*ONE_MEGABYTE)
 
 #include "ctx_assert.h"
 
@@ -85,7 +87,5 @@ void cortex_destroy();
 
 // MSGP_LOCK_SPIN
 // MSGP_LOCK_YIELD
-
-#define ONE_MEGABYTE (1<<20)
 
 #endif /* GLOBAL_H_ */

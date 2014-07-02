@@ -145,6 +145,11 @@ static gzFile input_output_open(const char *path)
     return NULL;
   }
 
+  // Set buffer size
+  #if ZLIB_VERNUM >= 0x1240
+    gzbuffer(gzout, DEFAULT_IO_BUFSIZE);
+  #endif
+
   return gzout;
 }
 

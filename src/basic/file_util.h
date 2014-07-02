@@ -28,6 +28,10 @@ off_t futil_get_file_size(const char* filepath);
 #define futil_outpath_str(path) (strcmp(path,"-") == 0 ? "STDOUT" : (path))
 #define futil_inpath_str(path) (strcmp(path,"-") == 0 ? "STDIN" : (path))
 
+// Open output file without error if file already exists
+FILE *futil_open_output2(const char *path, const char *mode);
+gzFile futil_gzopen_output2(const char *path, const char *mode);
+
 // Open and return output file.
 // If "-" return stdout, if cannot open die with error message
 FILE* futil_open_output(const char *path);

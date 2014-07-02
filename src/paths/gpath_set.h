@@ -57,6 +57,8 @@ void gpath_set_alloc(GPathSet *set, size_t ncols, size_t initmem,
 void gpath_set_dealloc(GPathSet *set);
 void gpath_set_reset(GPathSet *set);
 
+void gpath_set_print_stats(const GPathSet *gpset);
+
 // Threadsafe if only if resize is false
 GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath);
 

@@ -19,9 +19,6 @@ typedef struct
 #include "objbuf_macro.h"
 create_objbuf(gpfile_buf, GPathFileBuffer, GPathReader);
 
-// 4MB buffer
-// #define CTP_BUF_SIZE (4*ONE_MEGABYTE)
-
 // Open file
 // if cannot open file returns 0
 // if fatal is true, exits on error

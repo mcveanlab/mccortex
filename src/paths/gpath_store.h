@@ -25,6 +25,8 @@ void gpath_store_alloc(GPathStore *gpstore, size_t ncols, size_t graph_capacity,
 void gpath_store_dealloc(GPathStore *gpstore);
 void gpath_store_reset(GPathStore *gpstore);
 
+void gpath_store_print_stats(const GPathStore *gpstore);
+
 void gpath_store_split_read_write(GPathStore *gpstore);
 void gpath_store_merge_read_write(GPathStore *gpstore);
 

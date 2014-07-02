@@ -23,7 +23,6 @@ int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
   FileFilter *fltr = &file->fltr;
 
   if(!file_filter_open(fltr, path, mode, false, fatal)) return 0;
-  setvbuf(fltr->fh, NULL, _IOFBF, CTX_BUF_SIZE);
 
   file->hdr_size = graph_file_read_header(fltr->fh, hdr, fatal, fltr->file_path.buff);
   if(file->hdr_size == -1) return -1;

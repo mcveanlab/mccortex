@@ -86,6 +86,20 @@ void gpath_set_reset(GPathSet *gpset)
   byte_buf_reset(&gpset->nseen_buf);
 }
 
+void gpath_set_print_stats(const GPathSet *gpset)
+{
+  char paths_str[50], paths_cap_str[50], seq_str[50], seq_cap_str[50];
+  ulong_to_str(gpset->entries.len, paths_str);
+  ulong_to_str(gpset->entries.capacity, paths_cap_str);
+  bytes_to_str(gpset->seqs.len, 1, seq_str);
+  bytes_to_str(gpset->seqs.capacity, 1, seq_cap_str);
+  status("[GPathSet] Paths: %s / %s [%.2f%%], seqs: %s / %s [%.2f%%])",
+         paths_str, paths_cap_str,
+         (100.0 * gpset->entries.len) / gpset->entries.capacity,
+         seq_str, seq_cap_str,
+         (100.0 * gpset->seqs.len) / gpset->seqs.capacity);
+}
+
 // Get kmer length of a GPath
 uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath)
 {
@@ -186,11 +200,8 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
     if(gpath >= gpset->entries.data + gpset->entries.capacity ||
        data+nbytes+STORE_PADDING >= gpset->seqs.data + gpset->seqs.capacity)
     {
-      die("Out of memory (paths: %zu/%zu [%.2f%%], seqs: %zu/%zu [%.2f%%])",
-          gpset->entries.len, gpset->entries.capacity,
-          (100.0 * gpset->entries.len) / gpset->entries.capacity,
-          gpset->seqs.len, gpset->seqs.capacity,
-          (100.0 * gpset->seqs.len) / gpset->seqs.capacity);
+      gpath_set_print_stats(gpset);
+      die("Out of memory");
     }
 
     pkey = gpath - gpset->entries.data;

@@ -73,6 +73,16 @@ void gpath_hash_reset(GPathHash *gphash)
   memset(gphash->table, 0xff, gphash->capacity * sizeof(GPEntry));
 }
 
+void gpath_hash_print_stats(const GPathHash *gphash)
+{
+  char entries_str[50], cap_str[50];
+  ulong_to_str(gphash->num_entries, entries_str);
+  ulong_to_str(gphash->capacity, cap_str);
+  status("[GPathHash] Paths: %s / %s occupancy [%.2f%%]",
+         entries_str, cap_str,
+         (100.0 * gphash->num_entries) / gphash->capacity);
+}
+
 static inline bool _gphash_entries_match(const GPathSet *gpset, GPEntry entry,
                                          hkey_t hkey, GPathNew newgpath)
 {

@@ -261,6 +261,8 @@ static bool _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
 // Returns false on first error
 bool gpath_checks_all_paths(const dBGraph *db_graph)
 {
+  status("[GPathCheck] Running paths check...");
+
   size_t num_gpaths = 0, num_kmers = 0, act_num_gpaths, act_num_kmers;
 
   HASH_ITERATE(&db_graph->ht, _kmer_check_paths, db_graph,

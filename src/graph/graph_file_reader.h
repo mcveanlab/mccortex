@@ -37,9 +37,6 @@ const GraphFileReader INIT_GRAPH_READER;
 #include "objbuf_macro.h"
 create_objbuf(gfile_buf, GraphFileBuffer, GraphFileReader);
 
-// 4MB buffer
-#define CTX_BUF_SIZE (4UL<<20)
-
 #define graph_file_outncols(rdr) file_filter_outncols(&(rdr)->fltr)
 #define graph_file_intocol(rdr,col) file_filter_intocol(&(rdr)->fltr,col)
 #define graph_file_fromcol(rdr,col) file_filter_fromcol(&(rdr)->fltr,col)

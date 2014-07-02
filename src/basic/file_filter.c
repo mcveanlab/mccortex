@@ -69,15 +69,16 @@ bool file_filter_open(FileFilter *fltr, char *path, const char *mode,
     if((fltr->file_size = futil_get_file_size(fltr->file_path.buff)) == -1) {
       warn("Cannot get file size: %s", fltr->file_path.buff);
     }
-    if(( gzip && (fltr->gz = gzopen(fltr->file_path.buff, mode)) == NULL) ||
-       (!gzip && (fltr->fh = fopen(fltr->file_path.buff, mode)) == NULL))
+
+    if((gzip  && (fltr->gz = futil_gzopen_output2(fltr->file_path.buff, mode)) == NULL) ||
+       (!gzip && (fltr->fh = futil_open_output2(fltr->file_path.buff, mode)) == NULL))
     {
       if(fatal) die("Cannot open file: %s", fltr->file_path.buff);
-      else return 0;
+      return false;
     }
   }
 
-  return 1;
+  return true;
 }
 
 // Close file, release memory

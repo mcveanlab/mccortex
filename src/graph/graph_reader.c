@@ -542,7 +542,7 @@ size_t graph_load_colour(GraphFileReader *file,
 //
 
 // Load a kmer and write to a file one kmer at a time
-// Optionally filter a against the graph currently loaded
+// Optionally filter against the graph currently loaded
 //   (i.e. only keep nodes and edges that are in the graph)
 // Same functionality as graph_files_merge, but faster if dealing with only one
 // input file. Reads in and dumps one kmer at a time
@@ -558,13 +558,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
   status("Filtering %s to %s with stream filter", fltr->file_path.buff,
          futil_outpath_str(out_ctx_path));
 
-  FILE *out;
-  if(strcmp(out_ctx_path,"-") == 0) out = stdout;
-  else {
-    if((out = fopen(out_ctx_path, "w")) == NULL)
-      die("Cannot open output path: %s", out_ctx_path);
-    setvbuf(out, NULL, _IOFBF, CTX_BUF_SIZE);
-  }
+  FILE *out = futil_open_output2(out_ctx_path, "w");
 
   graph_loading_print_status(file);
 
@@ -723,12 +717,8 @@ size_t graph_files_merge(const char *out_ctx_path,
            output_colours, db_graph->num_of_cols);
 
     // Open file, write header
-    FILE *fout = stdout;
+    FILE *fout = futil_open_output2(out_ctx_path, "w");
 
-    if(strcmp(out_ctx_path,"-") != 0 && (fout = fopen(out_ctx_path, "w")) == NULL)
-      die("Cannot open output ctx file: %s", out_ctx_path);
-
-    setvbuf(fout, NULL, _IOFBF, CTX_BUF_SIZE);
     size_t header_size = graph_write_header(fout, hdr);
 
     // Load all kmers into flat graph

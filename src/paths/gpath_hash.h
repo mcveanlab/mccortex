@@ -46,6 +46,8 @@ void gpath_hash_alloc(GPathHash *phash, GPathStore *gpstore, size_t mem_in_bytes
 void gpath_hash_dealloc(GPathHash *phash);
 void gpath_hash_reset(GPathHash *phash);
 
+void gpath_hash_print_stats(const GPathHash *phash);
+
 // Returns NULL if out of memory
 // Thread Safe: uses bucket level locks
 GPath* gpath_hash_find_or_insert_mt(GPathHash *restrict phash,

@@ -153,20 +153,11 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
   return ptr;
 }
 
-// static inline void rehash_error_exit(const HashTable *const htable)
-// __attribute__((noreturn));
-
-// static inline void rehash_error_exit(const HashTable *const htable)
-// {
-//   hash_table_print_stats(htable);
-//   die("Hash table is full");
-// }
-
-#define rehash_error_exit(ht) { \
+#define rehash_error_exit(ht) do { \
   ctx_msg_out = stderr; \
   hash_table_print_stats(htable); \
   die("Hash table is full"); \
-}
+} while(0)
 
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
 {

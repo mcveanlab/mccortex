@@ -380,10 +380,12 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     gap_max_long = (long)gap_est + (long)(gap_est * gap_variance + gap_wiggle);
 
     if(is_mp) {
+      // dev: work out using fragment length
       gap_min_long += ins_gap_min;
       gap_max_long += ins_gap_max;
     }
 
+    // Note: we don't deal with negative gaps currently
     gap_min = (size_t)MAX2(0, gap_min_long);
     gap_max = (size_t)MAX2(0, gap_max_long);
 

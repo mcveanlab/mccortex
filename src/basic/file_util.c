@@ -95,23 +95,47 @@ off_t futil_get_file_size(const char* filepath)
   return -1;
 }
 
-// Open and return output file.
-// If "-" return stdout, if cannot open die with error message
-FILE* futil_open_output(const char *path)
+// Open output file without error if file already exists
+FILE *futil_open_output2(const char *path, const char *mode)
 {
-  FILE *fout;
-
-  if(strcmp(path, "-") == 0)
-    fout = stdout;
-  else if(futil_file_exists(path))
-    die("Output file already exists: %s", path);
-  else
-    fout = fopen(path, "w");
+  ctx_assert(strcmp(path, "-") != 0 || strcmp(mode,"w") == 0);
+  FILE *fout = strcmp(path, "-") == 0 ? stdout : fopen(path, mode);
 
   if(fout == NULL)
     die("Cannot open output file: %s", futil_outpath_str(path));
 
+  // Set buffer size
+  setvbuf(fout, NULL, _IOFBF, DEFAULT_IO_BUFSIZE);
+
   return fout;
+}
+
+// Open output file without error if file already exists
+gzFile futil_gzopen_output2(const char *path, const char *mode)
+{
+  ctx_assert(strcmp(path, "-") != 0 || strcmp(mode,"w") == 0);
+  gzFile gzout = strcmp(path, "-") == 0 ? gzdopen(fileno(stdout), mode)
+                                        : gzopen(path, mode);
+
+  if(gzout == NULL)
+    die("Cannot open output file: %s", futil_outpath_str(path));
+
+  // Set buffer size
+  #if ZLIB_VERNUM >= 0x1240
+    gzbuffer(gzout, DEFAULT_IO_BUFSIZE);
+  #endif
+
+  return gzout;
+}
+
+// Open and return output file.
+// If "-" return stdout, if cannot open die with error message
+FILE* futil_open_output(const char *path)
+{
+  ctx_assert(path != NULL);
+  if(strcmp(path, "-") != 0 && futil_file_exists(path))
+    die("Output file already exists: %s", futil_outpath_str(path));
+  return futil_open_output2(path, "w");
 }
 
 // Open and return gzip output file.
@@ -119,19 +143,9 @@ FILE* futil_open_output(const char *path)
 gzFile futil_gzopen_output(const char *path)
 {
   ctx_assert(path != NULL);
-  gzFile gzout;
-
-  if(strcmp(path, "-") == 0)
-    gzout = gzdopen(fileno(stdout), "w");
-  else if(futil_file_exists(path))
-    die("Output file already exists: %s", path);
-  else
-    gzout = gzopen(path, "w");
-
-  if(gzout == NULL)
-    die("Cannot open output file: %s", futil_outpath_str(path));
-
-  return gzout;
+  if(strcmp(path, "-") != 0 && futil_file_exists(path))
+    die("Output file already exists: %s", futil_outpath_str(path));
+  return futil_gzopen_output2(path, "w");
 }
 
 // Open and return input file.
@@ -143,6 +157,9 @@ FILE* futil_open_input(const char *path)
 
   if(fin == NULL)
     die("Cannot open input file: %s", futil_inpath_str(path));
+
+  // Set buffer size
+  setvbuf(fin, NULL, _IOFBF, DEFAULT_IO_BUFSIZE);
 
   return fin;
 }
@@ -161,6 +178,11 @@ gzFile futil_gzopen_input(const char *path)
 
   if(gzin == NULL)
     die("Cannot open input file: %s", futil_outpath_str(path));
+
+  // Set buffer size
+  #if ZLIB_VERNUM >= 0x1240
+    gzbuffer(gzin, DEFAULT_IO_BUFSIZE);
+  #endif
 
   return gzin;
 }
