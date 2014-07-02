@@ -23,7 +23,7 @@ void correct_aln_input_print(const CorrectAlnInput *c)
   message("  %s-way gap traversal", c->crt_params.one_way_gap_traverse ? "one" : "two");
   if(has_p2) {
     message("; read pair: %s; insert min,max: (%u,%u)", MP_DIR_STRS[c->matedir],
-            c->crt_params.ins_gap_min, c->crt_params.ins_gap_max);
+            c->crt_params.frag_len_min, c->crt_params.frag_len_max);
   }
   message(" [%sedge check]", c->crt_params.use_end_check ? "" : "no ");
   message("\n");

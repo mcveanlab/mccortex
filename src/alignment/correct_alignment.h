@@ -9,8 +9,8 @@
 #include "repeat_walker.h"
 #include "correct_aln_stats.h"
 
-#define DEFAULT_CRTALN_MIN_INS 0
-#define DEFAULT_CRTALN_MAX_INS 500
+#define DEFAULT_CRTALN_FRAGLEN_MIN 0
+#define DEFAULT_CRTALN_FRAGLEN_MAX 1000
 
 // seq gap of N bases can be filled by MAX2(0, N±(N*GAP_VARIANCE+GAP_WIGGLE))
 #define DEFAULT_CRTALN_GAP_VARIANCE 0.1
@@ -18,19 +18,20 @@
 
 #define DEFAULT_CRTALN_MAX_CONTEXT 200
 
-#define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,                    \
-                                .ins_gap_min = DEFAULT_CRTALN_MIN_INS,       \
-                                .ins_gap_max = DEFAULT_CRTALN_MAX_INS,       \
-                                .one_way_gap_traverse = true,                \
-                                .use_end_check = true,                       \
-                                .max_context = DEFAULT_CRTALN_MAX_CONTEXT,   \
-                                .gap_variance = DEFAULT_CRTALN_GAP_VARIANCE, \
+#define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,                      \
+                                .frag_len_min = DEFAULT_CRTALN_FRAGLEN_MIN,    \
+                                .frag_len_max = DEFAULT_CRTALN_FRAGLEN_MAX,    \
+                                .one_way_gap_traverse = true,                  \
+                                .use_end_check = true,                         \
+                                .max_context = DEFAULT_CRTALN_MAX_CONTEXT,     \
+                                .gap_variance = DEFAULT_CRTALN_GAP_VARIANCE,   \
                                 .gap_wiggle = DEFAULT_CRTALN_GAP_WIGGLE}
 
 typedef struct
 {
   Colour ctpcol, ctxcol;
-  uint32_t ins_gap_min, ins_gap_max;
+  // uint32_t ins_gap_min, ins_gap_max;
+  uint32_t frag_len_min, frag_len_max; // For PE reads
   uint32_t max_context; // how many kmers to use either side of a gap
   float gap_wiggle, gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
   bool one_way_gap_traverse; // set to false for more error prone algo

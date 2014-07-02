@@ -191,6 +191,16 @@ int ctx_join(int argc, char **argv)
   if(use_ncols < total_cols && strcmp(out_path,"-") == 0)
     die("I need %zu colours if outputting to STDOUT (--ncols)", total_cols);
 
+  if(strcmp(out_path,"-") != 0 && !futil_is_file_writable(out_path))
+
+  // Check out_path is writable
+  if(strcmp(out_path,"-") != 0) {
+    if(futil_file_exists(out_path))
+      cmd_print_usage("File already exists: %s", out_path);
+    if(!futil_is_file_writable(out_path))
+      cmd_print_usage("Cannot write to output: %s", out_path);
+  }
+
   if(use_ncols > 1 && flatten) {
     warn("I only need one colour for '--flatten' ('--ncols %zu' ignored)", use_ncols);
     use_ncols = 1;
@@ -247,10 +257,6 @@ int ctx_join(int argc, char **argv)
   status("Using %zu colour%s in memory", use_ncols, util_plural_str(use_ncols));
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
-
-  // Check out_path is writable
-  if(strcmp(out_path,"-") != 0 && !futil_is_file_writable(out_path))
-    cmd_print_usage("Cannot write to output: %s", out_path);
 
   // Create db_graph
   dBGraph db_graph;

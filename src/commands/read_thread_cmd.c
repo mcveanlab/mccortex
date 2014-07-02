@@ -86,8 +86,8 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'q': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
-      case 'g': task.crt_params.ins_gap_min = cmd_uint32(cmd, optarg); used = 0; break;
-      case 'G': task.crt_params.ins_gap_max = cmd_uint32(cmd, optarg); used = 0; break;
+      case 'l': task.crt_params.frag_len_min = cmd_uint32(cmd, optarg); used = 0; break;
+      case 'L': task.crt_params.frag_len_max = cmd_uint32(cmd, optarg); used = 0; break;
       case 'd': task.crt_params.gap_wiggle = cmd_udouble(cmd, optarg); used = 0; break;
       case 'D': task.crt_params.gap_variance = cmd_udouble(cmd, optarg); used = 0; break;
       case 'X': task.crt_params.max_context = cmd_uint32(cmd, optarg); used = 0; break;
@@ -157,16 +157,16 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       inputs->data[i].crt_params.max_context = 1;
   }
 
-  // Check ins_gap_min < ins_gap_max
+  // Check frag_len_min < frag_len_max
   for(i = 0; i < inputs->len; i++)
   {
     CorrectAlnInput *t = &inputs->data[i];
     t->files.ptr = t;
-    if(t->crt_params.ins_gap_min > t->crt_params.ins_gap_max) {
+    if(t->crt_params.frag_len_min > t->crt_params.frag_len_max) {
       die("--min-ins %u is greater than --max-ins %u",
-          t->crt_params.ins_gap_min, t->crt_params.ins_gap_max);
+          t->crt_params.frag_len_min, t->crt_params.frag_len_max);
     }
     correct_aln_input_print(&inputs->data[i]);
-    args->max_gap_limit = MAX2(args->max_gap_limit, t->crt_params.ins_gap_max);
+    args->max_gap_limit = MAX2(args->max_gap_limit, t->crt_params.frag_len_max);
   }
 }

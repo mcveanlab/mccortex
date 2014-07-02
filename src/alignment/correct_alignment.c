@@ -335,16 +335,13 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 {
   if(wrkr->start_idx == wrkr->end_idx) return NULL;
 
+  const size_t kmer_size = wrkr->db_graph->kmer_size;
+
   const dBAlignment *aln = wrkr->aln;
   const dBNodeBuffer *nodes = &aln->nodes;
   const Uint32Buffer *gaps = &aln->gaps;
   const size_t num_align_nodes = nodes->len;
-
-  const CorrectAlnParam *const params = &wrkr->params;
-  const float gap_variance = params->gap_variance;
-  const size_t gap_wiggle = params->gap_wiggle;
-  const size_t ins_gap_min = params->ins_gap_min;
-  const size_t ins_gap_max = params->ins_gap_max;
+  const CorrectAlnParam params = wrkr->params;
 
   // worker_generate_contigs ensures contig is at least nodes->len long
   bool both_reads = (aln->used_r1 && aln->used_r2);
@@ -376,14 +373,18 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     gap_est = gaps->data[wrkr->gap_idx];
     if(is_mp) gap_est += aln->r1enderr;
 
-    gap_min_long = (long)gap_est - (long)(gap_est * gap_variance + gap_wiggle);
-    gap_max_long = (long)gap_est + (long)(gap_est * gap_variance + gap_wiggle);
+    long wiggle = gap_est * params.gap_variance + params.gap_wiggle;
+    gap_min_long = gap_est - wiggle;
+    gap_max_long = gap_est + wiggle;
 
     if(is_mp) {
-      // dev: work out using fragment length
-      gap_min_long += ins_gap_min;
-      gap_max_long += ins_gap_max;
+      // Work out insert-gap kmers using fragment length
+      size_t sum_read_bases = aln->r1bases + aln->r2bases;
+      gap_min_long += params.frag_len_min - sum_read_bases + kmer_size-1;
+      gap_max_long += params.frag_len_max - sum_read_bases + kmer_size-1;
     }
+
+    if(gap_max_long < 0) break;
 
     // Note: we don't deal with negative gaps currently
     gap_min = (size_t)MAX2(0, gap_min_long);
@@ -395,7 +396,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     // gap len is the number of kmers filling the gap
     TraversalResult result;
 
-    if(params->one_way_gap_traverse)
+    if(params.one_way_gap_traverse)
       result = traverse_one_way(wrkr, wrkr->gap_idx, wrkr->end_idx,
                                 gap_min, gap_max);
     else

@@ -102,6 +102,8 @@ void db_alignment_from_reads(dBAlignment *alignment,
   alignment->r2enderr = 0;
   alignment->passed_r2 = (r2 != NULL);
   alignment->colour = colour;
+  alignment->r1bases = r1->seq.end;
+  alignment->r2bases = r2 ? r2->seq.end : 0;
 
   alignment->r1enderr = db_alignment_from_read(alignment, r1,
                                                qcutoff1, hp_cutoff,

@@ -39,7 +39,7 @@ static void test_repeat_loop()
 
   // Set up alignment correction params
   CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,
-                            .ins_gap_min = 0, .ins_gap_max = 0,
+                            .frag_len_min = 0, .frag_len_max = 0,
                             .one_way_gap_traverse = true, .use_end_check = true,
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};

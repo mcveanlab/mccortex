@@ -77,7 +77,7 @@ static void test_correct_aln_no_paths()
 
   // Set up alignment correction params
   CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,
-                            .ins_gap_min = 0, .ins_gap_max = 0,
+                            .frag_len_min = 0, .frag_len_max = 0,
                             .one_way_gap_traverse = true, .use_end_check = true,
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
@@ -146,7 +146,7 @@ static void test_contig_ends_agree()
 
   // Set up alignment correction params
   CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,
-                            .ins_gap_min = 0, .ins_gap_max = 30,
+                            .frag_len_min = 57, .frag_len_max = 57,
                             .one_way_gap_traverse = true, .use_end_check = true,
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};

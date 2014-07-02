@@ -35,8 +35,8 @@ const char thread_usage[] =
 "  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
-"  -g, --min-ins <ins>      Minimum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MIN_INS)"]\n"
-"  -G, --max-ins <ins>      Maximum insert size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_MAX_INS)"]\n"
+"  -l, --frag-len-min <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
+"  -L, --frag-len-max <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
 "  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
 "  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
@@ -76,8 +76,8 @@ static struct option longopts[] =
   {"fq-cutoff",     required_argument, NULL, 'Q'},
   {"fq-offset",     required_argument, NULL, 'q'},
   {"cut-hp",        required_argument, NULL, 'H'},
-  {"min-ins",       required_argument, NULL, 'g'},
-  {"max-ins",       required_argument, NULL, 'G'},
+  {"min-frag-len",  required_argument, NULL, 'l'},
+  {"max-frag-len",  required_argument, NULL, 'L'},
   {"seq-gaps",      required_argument, NULL, 'S'},
   {"mp-gaps",       required_argument, NULL, 'M'},
   {"use-new-paths", required_argument, NULL, 'u'},

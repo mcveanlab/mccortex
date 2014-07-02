@@ -8,6 +8,7 @@
 
 typedef struct
 {
+  size_t r1bases, r2bases;
   dBNodeBuffer nodes; // Nodes found in the graph
   Uint32Buffer gaps; // gap (num nodes) preceeding each node covered by sequence
   size_t r1enderr, r2enderr; // how many nodes are lost at the end of reads 1,2
