@@ -145,6 +145,15 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   cJSON_Delete(json);
 }
 
+static inline void _gpath_save_flush(gzFile gzout, StrBuf *sbuf,
+                                     pthread_mutex_t *outlock)
+{
+  pthread_mutex_lock(outlock);
+  gzputs(gzout, sbuf->buff);
+  pthread_mutex_unlock(outlock);
+  strbuf_reset(sbuf);
+}
+
 // @subset is a temp variable that is reused each time
 // @sbuf   is a temp variable that is reused each time
 static inline void _gpath_save_node(hkey_t hkey,
@@ -165,8 +174,6 @@ static inline void _gpath_save_node(hkey_t hkey,
   gpath_subset_sort(subset);
 
   if(subset->list.len == 0) return;
-
-  strbuf_reset(sbuf);
 
   // Print "<kmer> <npaths>"
   BinaryKmer bkmer = db_graph->ht.table[hkey];
@@ -198,9 +205,8 @@ static inline void _gpath_save_node(hkey_t hkey,
     strbuf_append_char(sbuf, '\n');
   }
 
-  pthread_mutex_lock(outlock);
-  gzputs(gzout, sbuf->buff);
-  pthread_mutex_unlock(outlock);
+  if(sbuf->len > DEFAULT_IO_BUFSIZE)
+    _gpath_save_flush(gzout, sbuf, outlock);
 }
 
 typedef struct
@@ -221,11 +227,13 @@ static void gpath_save_thread(void *arg)
 
   gpath_subset_alloc(&subset);
   gpath_subset_init(&subset, &wrkr.db_graph->gpstore.gpset);
-  strbuf_alloc(&sbuf, 4*1024); // 4K initial buffer
+  strbuf_alloc(&sbuf, 2 * DEFAULT_IO_BUFSIZE);
 
   HASH_ITERATE_PART(&db_graph->ht, wrkr.threadid, wrkr.nthreads,
                     _gpath_save_node,
                     wrkr.gzout, wrkr.outlock, &sbuf, &subset, db_graph);
+
+  _gpath_save_flush(wrkr.gzout, &sbuf, wrkr.outlock);
 
   gpath_subset_dealloc(&subset);
   strbuf_dealloc(&sbuf);
