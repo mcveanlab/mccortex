@@ -113,7 +113,8 @@ static inline GPath* _find_or_add_in_bucket(GPathHash *gphash, uint64_t hash,
       GPath *gpath = gpath_store_add_mt(gphash->gpstore, hkey, newgpath);
       *entry = (GPEntry){.hkey = hkey,
                          .gpindex = gpath - gpset->entries.data};
-      __sync_fetch_and_add((volatile uint8_t *)&gphash->bucket_nitems[hash], 1);
+      __sync_fetch_and_add((volatile uint8_t*)&gphash->bucket_nitems[hash], 1);
+      __sync_fetch_and_add((volatile size_t*)&gphash->num_entries, 1);
       bitlock_release(gphash->bktlocks, hash);
       return gpath;
     }
