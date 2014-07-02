@@ -209,7 +209,7 @@ static void _gpath_reader_load_kmer_line(const char *path,
   size_t i, num_paths_exp = 0;
 
   for(i = 0; i < line->len && char_is_acgt(line->buff[i]); i++) {}
-  load_check(i == kmer_size, "Bad kmer line: %s\n%s\n", path, line->buff);
+  load_check(i == kmer_size, "Bad kmer line: %s\n'%s'\n", path, line->buff);
 
   BinaryKmer bkmer, bkey;
   hkey_t hkey;

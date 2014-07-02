@@ -16,53 +16,6 @@
 // <KMER> <num> .. (ignored)
 // [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
 
-// @subset is a temp variable that is reused each time
-static void _gpath_save_node(hkey_t hkey, gzFile gzout,
-                             GPathSubset *subset, const dBGraph *db_graph)
-{
-  const GPathStore *gpstore = &db_graph->gpstore;
-  const GPathSet *gpset = &gpstore->gpset;
-  const size_t ncols = gpstore->gpset.ncols;
-  GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
-  const GPath *gpath;
-  size_t i;
-
-  // Load and sort paths for given kmer
-  gpath_subset_reset(subset);
-  gpath_subset_load_llist(subset, first_gpath);
-  gpath_subset_sort(subset);
-
-  if(subset->list.len == 0) return;
-
-  // Print "<kmer> <npaths>"
-  BinaryKmer bkmer = db_graph->ht.table[hkey];
-  char bkstr[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(bkmer, db_graph->kmer_size, bkstr);
-  gzprintf(gzout, "%s %zu\n", bkstr, subset->list.len);
-
-  char orchar[2] = {0};
-  orchar[FORWARD] = 'F';
-  orchar[REVERSE] = 'R';
-  const uint8_t *nseenptr;
-  size_t klen;
-
-  for(i = 0; i < subset->list.len; i++)
-  {
-    gpath = subset->list.data[i];
-    nseenptr = gpath_set_get_nseen(gpset, gpath);
-    klen = gpath_set_get_klen(gpset, gpath);
-    gzprintf(gzout, "%c %zu %u %u", orchar[gpath->orient], klen,
-                                    gpath->num_juncs, (uint32_t)nseenptr[0]);
-
-    for(i = 1; i < ncols; i++)
-      gzprintf(gzout, ",%u", (uint32_t)nseenptr[i]);
-
-    gzputc(gzout, ' ');
-    binary_seq_gzprint(gpath->seq, gpath->num_juncs, gzout);
-    gzputc(gzout, '\n');
-  }
-}
-
 static void _gpath_save_hdr(gzFile gzout, const char *path,
                             cJSON **hdrs, size_t nhdrs,
                             const dBGraph *db_graph)
@@ -192,12 +145,102 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   cJSON_Delete(json);
 }
 
+// @subset is a temp variable that is reused each time
+// @sbuf   is a temp variable that is reused each time
+static inline void _gpath_save_node(hkey_t hkey,
+                                    gzFile gzout, pthread_mutex_t *outlock,
+                                    StrBuf *sbuf, GPathSubset *subset,
+                                    const dBGraph *db_graph)
+{
+  const GPathStore *gpstore = &db_graph->gpstore;
+  const GPathSet *gpset = &gpstore->gpset;
+  const size_t ncols = gpstore->gpset.ncols;
+  GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
+  const GPath *gpath;
+  size_t i;
+
+  // Load and sort paths for given kmer
+  gpath_subset_reset(subset);
+  gpath_subset_load_llist(subset, first_gpath);
+  gpath_subset_sort(subset);
+
+  if(subset->list.len == 0) return;
+
+  strbuf_reset(sbuf);
+
+  // Print "<kmer> <npaths>"
+  BinaryKmer bkmer = db_graph->ht.table[hkey];
+  char bkstr[MAX_KMER_SIZE+1];
+  binary_kmer_to_str(bkmer, db_graph->kmer_size, bkstr);
+  strbuf_sprintf(sbuf, "%s %zu\n", bkstr, subset->list.len);
+
+  char orchar[2] = {0};
+  orchar[FORWARD] = 'F';
+  orchar[REVERSE] = 'R';
+  const uint8_t *nseenptr;
+  size_t klen;
+
+  for(i = 0; i < subset->list.len; i++)
+  {
+    gpath = subset->list.data[i];
+    nseenptr = gpath_set_get_nseen(gpset, gpath);
+    klen = gpath_set_get_klen(gpset, gpath);
+    strbuf_sprintf(sbuf, "%c %zu %u %u", orchar[gpath->orient], klen,
+                                         gpath->num_juncs, (uint32_t)nseenptr[0]);
+
+    for(i = 1; i < ncols; i++)
+      strbuf_sprintf(sbuf, ",%u", (uint32_t)nseenptr[i]);
+
+    strbuf_append_char(sbuf, ' ');
+    strbuf_ensure_capacity(sbuf, sbuf->len + gpath->num_juncs + 2);
+    binary_seq_to_str(gpath->seq, gpath->num_juncs, sbuf->buff+sbuf->len);
+    sbuf->len += gpath->num_juncs;
+    strbuf_append_char(sbuf, '\n');
+  }
+
+  pthread_mutex_lock(outlock);
+  gzputs(gzout, sbuf->buff);
+  pthread_mutex_unlock(outlock);
+}
+
+typedef struct
+{
+  const size_t threadid, nthreads;
+  gzFile gzout;
+  pthread_mutex_t *outlock;
+  dBGraph *db_graph;
+} GPathSaver;
+
+static void gpath_save_thread(void *arg)
+{
+  GPathSaver wrkr = *(GPathSaver*)arg;
+  const dBGraph *db_graph = wrkr.db_graph;
+
+  GPathSubset subset;
+  StrBuf sbuf;
+
+  gpath_subset_alloc(&subset);
+  gpath_subset_init(&subset, &wrkr.db_graph->gpstore.gpset);
+  strbuf_alloc(&sbuf, 4*1024); // 4K initial buffer
+
+  HASH_ITERATE_PART(&db_graph->ht, wrkr.threadid, wrkr.nthreads,
+                    _gpath_save_node,
+                    wrkr.gzout, wrkr.outlock, &sbuf, &subset, db_graph);
+
+  gpath_subset_dealloc(&subset);
+  strbuf_dealloc(&sbuf);
+}
+
 // @hdrs is array of JSON headers of input files
-void gpath_save(gzFile gzout, const char *path,
+void gpath_save(gzFile gzout, const char *path, size_t nthreads,
                 cJSON **hdrs, size_t nhdrs,
                 dBGraph *db_graph)
 {
+  ctx_assert(nthreads > 0);
   ctx_assert(gpath_set_has_nseen(&db_graph->gpstore.gpset));
+
+  status("Saving paths to: %s", path);
+  status("  using %zu threads", nthreads);
 
   // Write header
   _gpath_save_hdr(gzout, path, hdrs, nhdrs, db_graph);
@@ -213,12 +256,26 @@ void gpath_save(gzFile gzout, const char *path,
   gzputs(gzout, "#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n");
   gzputs(gzout, "\n");
 
+  // Multithreaded
+  GPathSaver *wrkrs = ctx_calloc(nthreads, sizeof(GPathSaver));
+  pthread_mutex_t outlock;
+  size_t i;
+
+  if(pthread_mutex_init(&outlock, NULL) != 0) die("Mutex init failed");
+
+  for(i = 0; i < nthreads; i++) {
+    wrkrs[i] = (GPathSaver){.threadid = i,
+                            .nthreads = nthreads,
+                            .gzout = gzout,
+                            .outlock = &outlock,
+                            .db_graph = db_graph};
+  }
+
   // Iterate over kmers writing paths
-  GPathSubset subset;
-  gpath_subset_alloc(&subset);
-  gpath_subset_init(&subset, &db_graph->gpstore.gpset);
-  HASH_ITERATE(&db_graph->ht, _gpath_save_node, gzout, &subset, db_graph);
-  gpath_subset_dealloc(&subset);
+  util_run_threads(wrkrs, nthreads, sizeof(*wrkrs), nthreads, gpath_save_thread);
+
+  pthread_mutex_destroy(&outlock);
+  ctx_free(wrkrs);
 
   status("[GPathSave] Graph paths saved to %s", path);
 }

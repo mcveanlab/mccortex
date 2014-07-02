@@ -17,6 +17,7 @@ const char pjoin_usage[] =
 "  -o, --out <out.ctp>    Output file [required]\n"
 "  -m, --memory <mem>     Memory to use (required) recommend 80G for human\n"
 "  -n, --nkmers <nkmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
 "  -g, --graph <in.ctx>   Get number of hash table entries from graph file\n"
 "  -v, --overlap          Merge corresponding colours from each graph file\n"
@@ -35,6 +36,7 @@ static struct option longopts[] =
   {"out",          required_argument, NULL, 'o'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
+  {"threads",      required_argument, NULL, 't'},
 // command specific
   {"graph",        required_argument, NULL, 'g'},
   {"overlap",      required_argument, NULL, 'v'},
@@ -46,6 +48,7 @@ static struct option longopts[] =
 
 int ctx_pjoin(int argc, char **argv)
 {
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   bool overlap = false, flatten = false, noredundant = false;
   size_t output_ncols = 0;
@@ -69,6 +72,7 @@ int ctx_pjoin(int argc, char **argv)
       case 'o': cmd_check(out_ctp_path != NULL, cmd); out_ctp_path = optarg; break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'g': cmd_check(graph_file,cmd); graph_file = optarg; break;
       case 'v': cmd_check(overlap,cmd); overlap=true; break;
       case 'f': cmd_check(flatten,cmd); flatten=true; break;
@@ -83,6 +87,8 @@ int ctx_pjoin(int argc, char **argv)
   }
 
   // Defaults for unset values
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
+
   if(out_ctp_path == NULL) cmd_print_usage("--out <out.ctp> required");
   if(optind >= argc) cmd_print_usage("Please specify at least one input file");
 
@@ -216,11 +222,13 @@ int ctx_pjoin(int argc, char **argv)
 
   status("Got %zu path bytes", (size_t)db_graph.gpstore.path_bytes);
 
+  size_t output_threads = MIN2(nthreads, MAX_IO_THREADS);
+
   cJSON *hdrs[num_pfiles];
   for(i = 0; i < num_pfiles; i++) hdrs[i] = pfiles[i].json;
 
   // Write output file
-  gpath_save(gzout, out_ctp_path, hdrs, num_pfiles, &db_graph);
+  gpath_save(gzout, out_ctp_path, output_threads, hdrs, num_pfiles, &db_graph);
   gzclose(gzout);
 
   // Close ctp files

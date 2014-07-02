@@ -285,13 +285,14 @@ int ctx_thread(int argc, char **argv)
   status("Estimate coverage to be %.2f [%zu / %zu], mean len: %.2f",
          covg, stats.num_kmers_loaded, (size_t)db_graph.ht.num_kmers, mean_klen);
 
-  status("Saving paths to: %s", args.out_ctp_path);
-
   cJSON *hdrs[gpfiles->len];
   for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
 
+  size_t output_threads = MIN2(args.num_of_threads, MAX_IO_THREADS);
+
   // Write output file
-  gpath_save(gzout, args.out_ctp_path, hdrs, gpfiles->len, &db_graph);
+  gpath_save(gzout, args.out_ctp_path, output_threads,
+             hdrs, gpfiles->len, &db_graph);
   gzclose(gzout);
 
   gpath_checks_all_paths(&db_graph);
