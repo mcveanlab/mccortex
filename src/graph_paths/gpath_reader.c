@@ -493,9 +493,9 @@ void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
                  + list_mem;
 }
 
-static size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
-                                   size_t ncols, bool count_nseen,
-                                   size_t *max_file_mem_ptr)
+size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
+                            size_t ncols, bool count_nseen, bool use_gphash,
+                            size_t *max_file_mem_ptr)
 {
   size_t i, npaths, path_bytes, file_mem;
   size_t path_sum_mem = 0, max_file_mem = 0;
@@ -507,7 +507,8 @@ static size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
     file_mem = npaths * sizeof(GPath) + // GPath
                path_bytes + // Sequence
                npaths * (ncols+7)/8 + // Colset
-               npaths * (count_nseen ? ncols*sizeof(uint8_t) + sizeof(uint32_t) : 0);
+               npaths * (count_nseen ? ncols*sizeof(uint8_t) + sizeof(uint32_t) : 0) +
+               (npaths/IDEAL_OCCUPANCY) * (use_gphash ? sizeof(GPEntry) : 0);
 
     path_sum_mem += file_mem;
     max_file_mem = MAX2(max_file_mem, file_mem);
@@ -523,7 +524,7 @@ size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
                             bool count_nseen)
 {
   size_t max_file_mem = 0, path_sum_mem;
-  path_sum_mem = gpath_reader_sum_mem(files, nfiles, ncols, count_nseen,
+  path_sum_mem = gpath_reader_sum_mem(files, nfiles, ncols, count_nseen, false,
                                       &max_file_mem);
 
   if(max_file_mem > max_mem) {
@@ -542,9 +543,8 @@ void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
 {
   if(nfiles == 0) return;
 
-  size_t sum_mem = gpath_reader_sum_mem(files, nfiles,
-                                        db_graph->num_of_cols, count_nseen,
-                                        NULL);
+  size_t sum_mem = gpath_reader_sum_mem(files, nfiles, db_graph->num_of_cols,
+                                        count_nseen, false, NULL);
 
   size_t i, npaths, max_npaths = 0, sum_npaths = 0;
 

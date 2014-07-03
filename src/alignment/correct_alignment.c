@@ -6,12 +6,6 @@
 bool gen_paths_print_contigs = false, gen_paths_print_paths = false;
 bool gen_paths_print_reads = false;
 
-
-typedef struct {
-  uint32_t gap_len;
-  uint8_t traversed, paths_disagreed, gap_too_short;
-} TraversalResult;
-
 #define INIT_BUFLEN 1024
 
 size_t correct_aln_worker_est_mem(const dBGraph *graph) {
@@ -35,9 +29,8 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
   db_node_buf_alloc(&tmp.contig, INIT_BUFLEN);
   db_node_buf_alloc(&tmp.revcontig, INIT_BUFLEN);
 
-  correct_aln_stats_alloc(&tmp.gapstats);
-
   memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
+  correct_aln_stats_reset(&wrkr->gapstats);
 }
 
 void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr)
@@ -48,7 +41,6 @@ void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr)
   rpt_walker_dealloc(&wrkr->rptwlk2);
   db_node_buf_dealloc(&wrkr->contig);
   db_node_buf_dealloc(&wrkr->revcontig);
-  correct_aln_stats_dealloc(&wrkr->gapstats);
 }
 
 void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
@@ -61,15 +53,6 @@ void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
   // reset state
   wrkr->start_idx = wrkr->prev_start_idx = 0;
   wrkr->gap_idx = wrkr->end_idx = db_alignment_next_gap(aln, 0);
-}
-
-static inline void correct_aln_stats_update(CorrectAlnStats *stats,
-                                            TraversalResult result)
-{
-  stats->num_gap_attempts++;
-  stats->num_gap_successes += result.traversed;
-  stats->num_paths_disagreed += result.paths_disagreed;
-  stats->num_gaps_too_short += result.gap_too_short;
 }
 
 // block is nodes that we are walking towards
@@ -222,7 +205,6 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
        !graph_walker_agrees_contig(wlk[0], rhs_block, rhs_n, true) ||
        !graph_walker_agrees_contig(wlk[1], left_contig, left_n, false))
     {
-      // printf("2) Paths don't agree!\n");
       result.traversed = false;
       result.paths_disagreed = true;
     }
@@ -373,10 +355,14 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     gap_est = gaps->data[wrkr->gap_idx];
     if(is_mp) gap_est += aln->r1enderr;
 
+    // Wiggle due to variation / error
     long wiggle = gap_est * params.gap_variance + params.gap_wiggle;
+
     gap_min_long = gap_est - wiggle;
     gap_max_long = gap_est + wiggle;
 
+    // Note: do not apply wiggle to insert gap
+    // Work out insert gap kmers using fragment length
     if(is_mp) {
       // Work out insert-gap kmers using fragment length
       size_t sum_read_bases = aln->r1bases + aln->r2bases;
@@ -411,9 +397,9 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     db_node_buf_ensure_capacity(contig, contig->len + revcontig->len);
 
     // reverse order and orientation of nodes
-    for(i = 0, j = contig->len+revcontig->len-1; i < revcontig->len; i++, j--) {
-      contig->data[j] = db_node_reverse(revcontig->data[i]);
-    }
+    size_t new_contig_len = contig->len + revcontig->len;
+    for(i = contig->len, j = revcontig->len-1; i < new_contig_len; i++, j--)
+      contig->data[i] = db_node_reverse(revcontig->data[j]);
 
     contig->len += revcontig->len;
 
@@ -421,25 +407,15 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     db_node_buf_append(contig, nodes->data+wrkr->gap_idx, block1len);
 
     // Update gap stats
-    correct_aln_stats_cap(&wrkr->gapstats, result.gap_len);
-
-    // gap_est is the sequence gap (number of missing kmers)
     if(is_mp) {
-      size_t ins_gap = (size_t)MAX2((long)result.gap_len - (long)gap_est, 0);
-      wrkr->gapstats.gap_ins_histgrm[ins_gap]++;
-      // size_t err_gap = result.gap_len - ins_gap;
-      // if(err_gap) wrkr->gapstats.gap_err_histgrm[err_gap]++;
+      correct_aln_stats_add_mp(&wrkr->gapstats, gap_est, result.gap_len,
+                               aln->r1bases, aln->r2bases, kmer_size);
     } else {
-      wrkr->gapstats.gap_err_histgrm[result.gap_len]++;
+      correct_aln_stats_add(&wrkr->gapstats, gap_est, result.gap_len);
     }
 
     wrkr->gap_idx = wrkr->end_idx;
   }
-
-  // status("start: %zu gap: %zu end: %zu",
-  //        wrkr->start_idx, wrkr->gap_idx, wrkr->end_idx);
-  // db_nodes_print(wrkr->contig.data, wrkr->contig.len, wrkr->db_graph, stdout);
-  // printf("\n");
 
   wrkr->prev_start_idx = wrkr->start_idx;
   wrkr->start_idx = wrkr->gap_idx;

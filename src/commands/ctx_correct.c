@@ -27,8 +27,8 @@ const char correct_usage[] =
 "  -i, --seqi <in.bam:out>   Correct PE reads from a single file\n"
 "  -f,--FR -F,--FF           Mate pair orientation [default: FR]\n"
 "    -r,--RF -R--RR\n"
-"  -w, --oneway              Use one-way gap filling (conservative)\n"
-"  -W, --twoway              Use two-way gap filling (liberal)\n"
+"  -w, --one-way             Use one-way gap filling (conservative)\n"
+"  -W, --two-way             Use two-way gap filling (liberal)\n"
 "  -Q, --fq-threshold <Q>    Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>       FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>         Breaks reads at homopolymers >= <bp> [default: off]\n"
@@ -40,10 +40,8 @@ const char correct_usage[] =
 "  -X, --max-context         Number of kmers to use either side of a gap\n"
 "  -e, --end-check           Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check        Skip extra check after gap bridging\n"
-//
-// "  -S, --seq-gaps <out.csv>   Save size distribution of seq gaps bridged\n"
-// "  -M, --mp-gaps <out.csv>    Save size distribution of mate pair gaps bridged\n"
-//
+"  -S, --gap-hist <o.csv>    Save size distribution of sequence gaps bridged\n"
+"  -M, --frag-hist <o.csv>   Save size distribution of PE fragments recovered\n"
 "\n"
 " --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
 " --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n"
@@ -66,8 +64,8 @@ static struct option longopts[] =
   {"FF",            no_argument,       NULL, 'F'},
   {"RF",            no_argument,       NULL, 'r'},
   {"RR",            no_argument,       NULL, 'R'},
-  {"oneway",        no_argument,       NULL, 'w'},
-  {"twoway",        no_argument,       NULL, 'W'},
+  {"one-way",       no_argument,       NULL, 'w'},
+  {"two-way",       no_argument,       NULL, 'W'},
   {"fq-cutoff",     required_argument, NULL, 'Q'},
   {"fq-offset",     required_argument, NULL, 'q'},
   {"cut-hp",        required_argument, NULL, 'H'},
@@ -83,8 +81,8 @@ static struct option longopts[] =
   {"end-check",     no_argument,       NULL, 'e'},
   {"no-end-check",  no_argument,       NULL, 'E'},
 //
-  // {"seq-gaps",     required_argument, NULL, 'S'},
-  // {"mp-gaps",      required_argument, NULL, 'M'},
+  {"gap-hist",      required_argument, NULL, 'S'},
+  {"frag-hist",     required_argument, NULL, 'M'},
   // {"print-contigs", no_argument,       NULL, 'x'},
   // {"print-paths",   no_argument,       NULL, 'y'},
   // {"print-reads",   no_argument,       NULL, 'z'},
@@ -153,7 +151,7 @@ int ctx_correct(int argc, char **argv)
   cmd_check_mem_limit(args.memargs.mem_to_use, total_mem);
 
   //
-  // Check we can read all output files
+  // Check we can write all output files
   //
   // Open output files
   SeqOutput *outputs = ctx_calloc(inputs->len, sizeof(SeqOutput));
@@ -223,9 +221,9 @@ int ctx_correct(int argc, char **argv)
   //
   // Run alignment
   //
-  correct_reads(args.num_of_threads, MAX_IO_THREADS,
-                inputs->data, inputs->len,
-                &db_graph);
+  correct_reads(inputs->data, inputs->len,
+                args.dump_seq_sizes, args.dump_frag_sizes,
+                args.num_of_threads, &db_graph);
 
   // Close and free output files
   for(i = 0; i < inputs->len; i++) seq_output_dealloc(&outputs[i]);

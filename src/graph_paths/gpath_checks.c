@@ -56,11 +56,15 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   db_graph_check_kmer_size(kmer_size, fltr->orig_path.buff);
 
   // ctx_max_kmers may be zero if reading from a stream
-  if(ctx_max_kmers > 0 && ctp_max_kmers > ctx_max_kmers)
-    die("More kmers in path files than in graph files!");
+  if(ctx_max_kmers > 0 && ctp_max_kmers > ctx_max_kmers) {
+    die("More kmers in path files than in graph files! (%zu > %zu)",
+        ctp_max_kmers, ctx_max_kmers);
+  }
 
-  if(num_graphs > 0 && ctp_max_cols > ctx_max_cols)
-    die("More colours in path files than in graph files!");
+  if(num_graphs > 0 && ctp_max_cols > ctx_max_cols) {
+    die("More colours in path files than in graph files! (%zu > %zu)",
+        ctp_max_cols, ctx_max_cols);
+  }
 
   // Check sample names
   ColourSample *samples = ctx_calloc(colours_loaded, sizeof(ColourSample));

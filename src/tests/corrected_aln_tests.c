@@ -175,24 +175,24 @@ static void test_contig_ends_agree()
   {
     params.one_way_gap_traverse = (t == 0);
 
-    correct_aln_stats_zero(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = seqa;
     _check_correct_aln(r1a, r2a, alns, 1, &aln, &corrector, params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 1);
 
-    correct_aln_stats_zero(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = seqb;
     _check_correct_aln(r1b, r2b, alns, 1, &aln, &corrector, params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 1);
 
-    correct_aln_stats_zero(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = r1a;
     alns[1] = r2b;
     _check_correct_aln(r1a, r2b, alns, 2, &aln, &corrector, params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 0);
     TASSERT(corrector.gapstats.num_paths_disagreed > 0);
 
-    correct_aln_stats_zero(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = r1b;
     alns[1] = r2a;
     _check_correct_aln(r1b, r2a, alns, 2, &aln, &corrector, params, &graph, &sbuf);

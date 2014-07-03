@@ -30,16 +30,18 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   }
 
   size_t seq_mem = initmem - mem_used;
-  size_t seq_col_mem = initpaths * ((ncols+7)/8) + seq_mem;
+  size_t col_mem = initpaths * ((ncols+7)/8);
+  size_t seq_col_mem = col_mem + seq_mem;
   size_t total_mem = initpaths * (sizeof(GPath)+klen_size) + seq_col_mem;
   ctx_assert(total_mem <= initmem);
 
-  char npathstr[50], colseqmemstr[50], totalmemstr[50];
+  char npathstr[50], colmemstr[50], seqmemstr[50], totalmemstr[50];
   ulong_to_str(initpaths, npathstr);
-  bytes_to_str(seq_col_mem, 1, colseqmemstr);
+  bytes_to_str(col_mem, 1, colmemstr);
+  bytes_to_str(seq_mem, 1, seqmemstr);
   bytes_to_str(total_mem, 1, totalmemstr);
-  status("[GPathSet] Allocating for %s paths, %s col+seq mem, %s total",
-         npathstr, colseqmemstr, totalmemstr);
+  status("[GPathSet] Allocating for %s paths, %s colset, %s seq => %s total",
+         npathstr, colmemstr, seqmemstr, totalmemstr);
 
   gpath_buf_alloc(&tmp.entries, initpaths);
   byte_buf_alloc(&tmp.seqs, seq_col_mem);

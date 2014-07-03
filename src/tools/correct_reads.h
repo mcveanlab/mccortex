@@ -5,9 +5,9 @@
 #include "db_graph.h"
 
 // Correct reads against the graph, and print out
-// `input` and `outputs` should both be of length `num_inputs`
-void correct_reads(size_t num_threads, size_t max_io_threads,
-                   CorrectAlnInput *inputs, size_t num_inputs,
-                   const dBGraph *db_graph);
+void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
+                   const char *dump_seqgap_hist_path,
+                   const char *dump_fraglen_hist_path,
+                   size_t num_threads, const dBGraph *db_graph);
 
 #endif /* CORRECT_READS_H_ */

@@ -137,7 +137,7 @@ static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
   size_t i;
   for(i = 1; i < num_workers; i++) {
     correct_aln_stats_merge(&wrkrs[0].corrector.gapstats, &wrkrs[i].corrector.gapstats);
-    correct_aln_stats_zero(&wrkrs[i].corrector.gapstats);
+    correct_aln_stats_reset(&wrkrs[i].corrector.gapstats);
     loading_stats_merge(&wrkrs[0].stats, &wrkrs[i].stats);
     loading_stats_init(&wrkrs[i].stats);
   }
@@ -442,6 +442,8 @@ static void reads_to_paths(GenPathWorker *wrkr)
   db_alignment_from_reads(&wrkr->aln, r1, r2,
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
                           wrkr->db_graph, wrkr->task.crt_params.ctxcol);
+
+  wrkr->stats.num_kmers_parsed += wrkr->aln.nodes.len;
 
   ctx_check2(db_alignment_check_edges(&wrkr->aln, wrkr->db_graph),
              "Edges missing: was read %s%s%s used to build the graph?",

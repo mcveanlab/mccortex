@@ -29,16 +29,16 @@ const char thread_usage[] =
 "  -2, --seq2 <in1:in2>     Thread paired end sequences\n"
 "  -i, --seqi <in.bam>      Thread PE reads from a single file\n"
 "  -f,--FR -F,--FF          Mate pair orientation [default: FR]\n"
-"    -r,--RF -R--RR\n"
-"  -w, --oneway             Use one-way gap filling (conservative)\n"
-"  -W, --twoway             Use two-way gap filling (liberal)\n"
+"    -r,--RF -R,--RR\n"
+"  -w, --one-way            Use one-way gap filling (conservative)\n"
+"  -W, --two-way            Use two-way gap filling (liberal)\n"
 "  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -l, --frag-len-min <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
 "  -L, --frag-len-max <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
-"  -S, --seq-gaps <out.csv> Save size distribution of seq gaps bridged\n"
-"  -M, --mp-gaps <out.csv>  Save size distribution of mate pair gaps bridged\n"
+"  -S, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
+"  -M, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
 "  -a, --aln-const            -a, -A set parameters for allowable gap lengths\n"
@@ -71,15 +71,15 @@ static struct option longopts[] =
   {"FF",            no_argument,       NULL, 'F'},
   {"RF",            no_argument,       NULL, 'r'},
   {"RR",            no_argument,       NULL, 'R'},
-  {"oneway",        no_argument,       NULL, 'w'},
-  {"twoway",        no_argument,       NULL, 'W'},
+  {"one-way",       no_argument,       NULL, 'w'},
+  {"two-way",       no_argument,       NULL, 'W'},
   {"fq-cutoff",     required_argument, NULL, 'Q'},
   {"fq-offset",     required_argument, NULL, 'q'},
   {"cut-hp",        required_argument, NULL, 'H'},
   {"min-frag-len",  required_argument, NULL, 'l'},
   {"max-frag-len",  required_argument, NULL, 'L'},
-  {"seq-gaps",      required_argument, NULL, 'S'},
-  {"mp-gaps",       required_argument, NULL, 'M'},
+  {"gap-hist",      required_argument, NULL, 'S'},
+  {"frag-hist",     required_argument, NULL, 'M'},
   {"use-new-paths", required_argument, NULL, 'u'},
 //
   {"gap-diff-const",required_argument, NULL, 'd'},
@@ -129,20 +129,25 @@ int ctx_thread(int argc, char **argv)
                                         false, &graph_mem);
 
   // Paths memory
-  size_t min_path_mem = 0, max_path_mem = 0;
-  gpath_reader_max_mem_req(gpfiles->data, gpfiles->len,
-                           ncols, kmers_in_hash,
-                           true, sep_path_list, true,
-                           &min_path_mem, &max_path_mem);
+  size_t min_path_mem = 0;
+  gpath_reader_sum_mem(gpfiles->data, gpfiles->len, ncols, true, true, &min_path_mem);
 
-  // Maximise path memory
-  path_mem = min_path_mem;
-  if(graph_mem + path_mem < args.memargs.mem_to_use)
-    path_mem = args.memargs.mem_to_use - graph_mem;
+  if(graph_mem + min_path_mem > args.memargs.mem_to_use) {
+    char buf[50];
+    die("Require at least %s memory", bytes_to_str(graph_mem+min_path_mem, 1, buf));
+  }
 
-  path_hash_mem = path_mem / 3;
+  path_mem = args.memargs.mem_to_use - graph_mem;
+  size_t pentry_hash_mem = sizeof(GPEntry)/0.7;
+  size_t pentry_store_mem = sizeof(GPath) + 8 + // struct + sequence
+                            1 + // in colour
+                            sizeof(uint8_t)*ncols + // counts
+                            sizeof(uint32_t); // kmer length
+
+  size_t max_paths = path_mem / (pentry_store_mem + pentry_hash_mem);
+  path_store_mem = max_paths * pentry_store_mem;
+  path_hash_mem = max_paths * pentry_hash_mem;
   cmd_print_mem(path_hash_mem, "paths hash");
-  path_store_mem = (2*path_mem) / 3;
   cmd_print_mem(path_store_mem, "paths store");
 
   total_mem = graph_mem + path_mem;
@@ -151,11 +156,6 @@ int ctx_thread(int argc, char **argv)
   //
   // Open output file
   //
-  if(args.dump_seq_sizes && !futil_is_file_writable(args.dump_seq_sizes))
-    die("Cannot write to file: %s", args.dump_seq_sizes);
-  if(args.dump_mp_sizes && !futil_is_file_writable(args.dump_mp_sizes))
-    die("Cannot write to file: %s", args.dump_mp_sizes);
-
   gzFile gzout = futil_gzopen_output(args.out_ctp_path);
 
   status("Creating paths file: %s", futil_outpath_str(args.out_ctp_path));
@@ -231,59 +231,15 @@ int ctx_thread(int argc, char **argv)
 
   // Output statistics
   LoadingStats stats = gen_paths_get_stats(workers);
-  CorrectAlnStats gapstats =  gen_paths_get_gapstats(workers);
+  CorrectAlnStats gapstats = gen_paths_get_gapstats(workers);
 
-  // Print mp gap size / insert stats to a file
-  if(args.dump_seq_sizes != NULL) {
-    correct_aln_stats_dump(args.dump_seq_sizes,
-                             gapstats.gap_err_histgrm, gapstats.histgrm_len,
-                             db_graph.kmer_size, false,
-                             stats.num_se_reads + stats.num_pe_reads);
-  }
-
-  if(stats.num_pe_reads > 0 && args.dump_mp_sizes != NULL) {
-    correct_aln_stats_dump(args.dump_mp_sizes,
-                           gapstats.gap_ins_histgrm, gapstats.histgrm_len,
-                           db_graph.kmer_size, true, stats.num_pe_reads);
-  }
-
-  // Path Stats
-  size_t num_gap_attempts = gapstats.num_gap_attempts;
-  size_t num_gap_successes = gapstats.num_gap_successes;
-  size_t num_gaps_paths_disagreed = gapstats.num_paths_disagreed;
-  size_t num_gaps_too_short = gapstats.num_gaps_too_short;
-  char num_gap_attempts_str[100], num_gap_successes_str[100];
-  char num_gaps_paths_disagree_str[100], num_gaps_too_short_str[100];
-  ulong_to_str(num_gap_attempts, num_gap_attempts_str);
-  ulong_to_str(num_gap_successes, num_gap_successes_str);
-  ulong_to_str(num_gaps_paths_disagreed, num_gaps_paths_disagree_str);
-  ulong_to_str(num_gaps_too_short, num_gaps_too_short_str);
-
-  status("[gaps] traversals succeeded: %s / %s (%.2f%%)",
-         num_gap_successes_str, num_gap_attempts_str,
-         (100.0 * num_gap_successes) / num_gap_attempts);
-  status("[gaps] failed path check: %s / %s (%.2f%%)",
-         num_gaps_paths_disagree_str, num_gap_attempts_str,
-         (100.0 * num_gaps_paths_disagreed) / num_gap_attempts);
-  status("[gaps] too short: %s / %s (%.2f%%)",
-         num_gaps_too_short_str, num_gap_attempts_str,
-         (100.0 * num_gaps_too_short) / num_gap_attempts);
-
-  char se_num_str[100], pe_num_str[100], sepe_num_str[100];
-  ulong_to_str(stats.num_se_reads, se_num_str);
-  ulong_to_str(stats.num_pe_reads / 2, pe_num_str);
-  ulong_to_str(stats.num_se_reads + stats.num_pe_reads, sepe_num_str);
-  status("[stats] single reads: %s; read pairs: %s; total: %s",
-         se_num_str, pe_num_str, sepe_num_str);
+  correct_aln_dump_stats(&stats, &gapstats,
+                         args.dump_seq_sizes,
+                         args.dump_frag_sizes,
+                         db_graph.ht.num_kmers);
 
   // ins_gap, err_gap no longer allocated after this line
   gen_paths_workers_dealloc(workers, args.num_of_threads);
-
-  // Estimate coverage
-  double covg = (double)stats.num_kmers_loaded / db_graph.ht.num_kmers;
-  double mean_klen = (double)stats.num_kmers_loaded / stats.contigs_loaded;
-  status("Estimate coverage to be %.2f [%zu / %zu], mean len: %.2f",
-         covg, stats.num_kmers_loaded, (size_t)db_graph.ht.num_kmers, mean_klen);
 
   cJSON *hdrs[gpfiles->len];
   for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;

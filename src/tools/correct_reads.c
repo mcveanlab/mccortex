@@ -260,11 +260,23 @@ static void correct_reads_thread(AsyncIOData *data, void *ptr)
   ctx_update("CorrectReads", n);
 }
 
+// Merge stats into workers[0]
+static void correct_reads_merge_stats(CorrectReadsWorker *wrkrs, size_t num_workers)
+{
+  size_t i;
+  for(i = 1; i < num_workers; i++) {
+    correct_aln_stats_merge(&wrkrs[0].corrector.gapstats, &wrkrs[i].corrector.gapstats);
+    correct_aln_stats_reset(&wrkrs[i].corrector.gapstats);
+    loading_stats_merge(&wrkrs[0].stats, &wrkrs[i].stats);
+    loading_stats_init(&wrkrs[i].stats);
+  }
+}
+
 // Correct reads against the graph, and print out
-// `input` and `outputs` should both be of length `num_inputs`
-void correct_reads(size_t num_threads, size_t max_io_threads,
-                   CorrectAlnInput *inputs, size_t num_inputs,
-                   const dBGraph *db_graph)
+void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
+                   const char *dump_seqgap_hist_path,
+                   const char *dump_fraglen_hist_path,
+                   size_t num_threads, const dBGraph *db_graph)
 {
   size_t i, n, read_counter = 0;
 
@@ -278,12 +290,22 @@ void correct_reads(size_t num_threads, size_t max_io_threads,
   AsyncIOInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOInput));
   correct_aln_input_to_asycio(asyncio_tasks, inputs, num_inputs);
 
-  // Load input files max_io_threads at a time
-  for(i = 0; i < num_inputs; i += max_io_threads) {
-    n = MIN2(num_inputs - i, max_io_threads);
+  // Load input files MAX_IO_THREADS at a time
+  for(i = 0; i < num_inputs; i += MAX_IO_THREADS) {
+    n = MIN2(num_inputs - i, MAX_IO_THREADS);
     asyncio_run_pool(asyncio_tasks+i, n, correct_reads_thread,
                      wrkrs, num_threads, sizeof(CorrectReadsWorker));
   }
+
+  correct_reads_merge_stats(wrkrs, num_inputs);
+
+  LoadingStats *stats = &wrkrs[0].stats;
+  CorrectAlnStats *gapstats = &wrkrs[0].corrector.gapstats;
+
+  correct_aln_dump_stats(stats, gapstats,
+                         dump_seqgap_hist_path,
+                         dump_fraglen_hist_path,
+                         db_graph->ht.num_kmers);
 
   for(i = 0; i < num_threads; i++)
     correct_reads_worker_dealloc(&wrkrs[i]);

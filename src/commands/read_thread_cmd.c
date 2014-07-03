@@ -2,6 +2,7 @@
 #include "cmd.h"
 #include "read_thread_cmd.h"
 #include "gpath_checks.h"
+#include "file_util.h"
 
 //
 // ctx_thread.c and ctx_correct.c use many of the same command line arguments
@@ -31,7 +32,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   size_t i;
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   uint8_t fq_offset = 0;
-  size_t dump_seq_n = 0, dump_mp_n = 0; // how many times are -g -G specified
+  size_t dump_seq_hist_n = 0, dump_frag_hist_n = 0; // how many times are -g -G specified
   // PathFileReader tmp_pfile;
   GPathReader tmp_gpfile;
 
@@ -93,8 +94,8 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'X': task.crt_params.max_context = cmd_uint32(cmd, optarg); used = 0; break;
       case 'e': task.crt_params.use_end_check = true; used = 0; break;
       case 'E': task.crt_params.use_end_check = false; used = 0; break;
-      case 'S': args->dump_seq_sizes = optarg; dump_seq_n++; break;
-      case 'M': args->dump_mp_sizes = optarg; dump_mp_n++; break;
+      case 'S': args->dump_seq_sizes = optarg; dump_seq_hist_n++; break;
+      case 'M': args->dump_frag_sizes = optarg; dump_frag_hist_n++; break;
       case 'u': args->use_new_paths = true; break;
       case 'x': gen_paths_print_contigs = true; break;
       case 'y': gen_paths_print_paths = true; break;
@@ -120,8 +121,8 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
 
   if(!used) cmd_print_usage("Ignored arguments after last --seq");
 
-  if(dump_seq_n > 1) die("Cannot specify --seq-gaps <out> more than once");
-  if(dump_mp_n > 1) die("Cannot specify --mp-gaps <out> more than once");
+  if(dump_seq_hist_n > 1) die("Cannot specify --gap-hist <out> more than once");
+  if(dump_frag_hist_n > 1) die("Cannot specify --frag-hist <out> more than once");
 
   //
   // Open graph graph file
@@ -169,4 +170,10 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
     correct_aln_input_print(&inputs->data[i]);
     args->max_gap_limit = MAX2(args->max_gap_limit, t->crt_params.frag_len_max);
   }
+
+  // Check we can write to output files
+  if(args->dump_seq_sizes && !futil_is_file_writable(args->dump_seq_sizes))
+    die("Cannot write to file: %s", args->dump_seq_sizes);
+  if(args->dump_frag_sizes && !futil_is_file_writable(args->dump_frag_sizes))
+    die("Cannot write to file: %s", args->dump_frag_sizes);
 }
