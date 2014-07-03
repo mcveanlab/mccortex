@@ -60,9 +60,9 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
 void gpath_set_alloc(GPathSet *gpset, size_t ncols, size_t initmem,
                      bool resize, bool keep_path_counts)
 {
-  // 1:1 split between seq and paths (6 bytes each)
+  // Assume 8 bytes of sequence per path
   size_t entry_size
-    = sizeof(GPath) + sizeof(GPath) + (ncols+7)/8 +
+    = sizeof(GPath) + 8 + (ncols+7)/8 +
       (keep_path_counts ? sizeof(uint8_t)*ncols + sizeof(uint32_t) : 0);
 
   size_t nentries = initmem / entry_size;

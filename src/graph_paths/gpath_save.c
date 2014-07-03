@@ -166,7 +166,7 @@ static inline void _gpath_save_node(hkey_t hkey,
   const size_t ncols = gpstore->gpset.ncols;
   GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
   const GPath *gpath;
-  size_t i;
+  size_t i, col;
 
   // Load and sort paths for given kmer
   gpath_subset_reset(subset);
@@ -195,8 +195,8 @@ static inline void _gpath_save_node(hkey_t hkey,
     strbuf_sprintf(sbuf, "%c %zu %u %u", orchar[gpath->orient], klen,
                                          gpath->num_juncs, (uint32_t)nseenptr[0]);
 
-    for(i = 1; i < ncols; i++)
-      strbuf_sprintf(sbuf, ",%u", (uint32_t)nseenptr[i]);
+    for(col = 1; col < ncols; col++)
+      strbuf_sprintf(sbuf, ",%u", (uint32_t)nseenptr[col]);
 
     strbuf_append_char(sbuf, ' ');
     strbuf_ensure_capacity(sbuf, sbuf->len + gpath->num_juncs + 2);
@@ -211,7 +211,7 @@ static inline void _gpath_save_node(hkey_t hkey,
 
 typedef struct
 {
-  const size_t threadid, nthreads;
+  size_t threadid, nthreads;
   gzFile gzout;
   pthread_mutex_t *outlock;
   dBGraph *db_graph;
