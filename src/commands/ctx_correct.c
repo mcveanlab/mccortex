@@ -126,7 +126,7 @@ int ctx_correct(int argc, char **argv)
   // 1 bit needed per kmer if we need to keep track of noreseed
   bits_per_kmer = sizeof(GPath)*8 + sizeof(Edges)*8 +
                   (gpfiles->len > 0 ? sizeof(GPath*)*8 : 0) +
-                  ctx_num_kmers;
+                  ctx_total_cols; // in colour
 
   kmers_in_hash = cmd_get_kmers_in_hash(args.memargs.mem_to_use,
                                         args.memargs.mem_to_use_set,
