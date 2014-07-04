@@ -65,6 +65,7 @@ typedef struct
   dBNodeBuffer contig, revcontig;
 
   // Statistics on gap traversal
+  LoadingStats stats;
   CorrectAlnStats gapstats;
 } CorrectAlnWorker;
 
@@ -77,6 +78,10 @@ size_t correct_aln_worker_est_mem(const dBGraph *graph);
 
 void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph);
 void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr);
+
+// Merge stats into dst and reset src
+void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
+                             CorrectAlnWorker *restrict src);
 
 void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
                             CorrectAlnParam params);

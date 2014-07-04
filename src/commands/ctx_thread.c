@@ -230,10 +230,10 @@ int ctx_thread(int argc, char **argv)
   gpath_store_print_stats(&db_graph.gpstore);
 
   // Output statistics
-  LoadingStats stats = gen_paths_get_stats(workers);
-  CorrectAlnStats gapstats = gen_paths_get_gapstats(workers);
+  LoadingStats *stats = gen_paths_get_stats(workers);
+  CorrectAlnStats *gapstats = gen_paths_get_gapstats(workers);
 
-  correct_aln_dump_stats(&stats, &gapstats,
+  correct_aln_dump_stats(stats, gapstats,
                          args.dump_seq_sizes,
                          args.dump_frag_sizes,
                          db_graph.ht.num_kmers);

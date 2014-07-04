@@ -30,6 +30,8 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
   db_node_buf_alloc(&tmp.revcontig, INIT_BUFLEN);
 
   memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
+
+  loading_stats_init(&wrkr->stats);
   correct_aln_stats_reset(&wrkr->gapstats);
 }
 
@@ -53,6 +55,23 @@ void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
   // reset state
   wrkr->start_idx = wrkr->prev_start_idx = 0;
   wrkr->gap_idx = wrkr->end_idx = db_alignment_next_gap(aln, 0);
+
+  // Update stats
+  wrkr->stats.total_bases_read += aln->r1bases + aln->r2bases;
+  wrkr->stats.num_kmers_parsed += aln->nodes.len;
+
+  if(aln->passed_r2) wrkr->stats.num_pe_reads += 2;
+  else               wrkr->stats.num_se_reads++;
+}
+
+// Merge stats into dst and reset src
+void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
+                             CorrectAlnWorker *restrict src)
+{
+  correct_aln_stats_merge(&dst->gapstats, &src->gapstats);
+  correct_aln_stats_reset(&src->gapstats);
+  loading_stats_merge(&dst->stats, &src->stats);
+  loading_stats_init(&src->stats);
 }
 
 // block is nodes that we are walking towards
@@ -423,6 +442,10 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
   // db_nodes_print_verbose(contig->data, contig->len, wrkr->db_graph, stdout);
   ctx_check(db_node_check_nodes(contig->data, contig->len, wrkr->db_graph));
+
+  wrkr->stats.contigs_loaded++;
+  wrkr->stats.num_kmers_loaded += contig->len;
+  wrkr->stats.total_bases_loaded += contig->len + kmer_size - 1;
 
   return contig;
 }

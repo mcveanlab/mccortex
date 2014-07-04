@@ -13,7 +13,6 @@ typedef struct
   volatile size_t *rcounter;
   dBAlignment aln;
   CorrectAlnWorker corrector;
-  LoadingStats stats;
   // For filling in gaps
   GraphWalker wlk;
   RepeatWalker rptwlk;
@@ -27,7 +26,6 @@ static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
   wrkr->db_graph = db_graph;
   db_alignment_alloc(&wrkr->aln);
   correct_aln_worker_alloc(&wrkr->corrector, db_graph);
-  loading_stats_init(&wrkr->stats);
   graph_walker_alloc(&wrkr->wlk);
   rpt_walker_alloc(&wrkr->rptwlk, db_graph->ht.capacity, 22); // 4MB bloom
   strbuf_alloc(&wrkr->buf1, 1024);
@@ -230,9 +228,6 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
     pthread_mutex_lock(&output->lock_se);
     gzputs(output->gzout_se, buf1->buff);
     pthread_mutex_unlock(&output->lock_se);
-
-    // Update stats
-    wrkr->stats.num_se_reads++;
   }
   else
   {
@@ -243,9 +238,6 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
     gzputs(output->gzout_pe[0], buf1->buff);
     gzputs(output->gzout_pe[1], buf2->buff);
     pthread_mutex_unlock(&output->lock_pe);
-
-    // Update stats
-    wrkr->stats.num_pe_reads += 2;
   }
 }
 
@@ -258,18 +250,6 @@ static void correct_reads_thread(AsyncIOData *data, void *ptr)
   // Print progress
   size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
   ctx_update("CorrectReads", n);
-}
-
-// Merge stats into workers[0]
-static void correct_reads_merge_stats(CorrectReadsWorker *wrkrs, size_t num_workers)
-{
-  size_t i;
-  for(i = 1; i < num_workers; i++) {
-    correct_aln_stats_merge(&wrkrs[0].corrector.gapstats, &wrkrs[i].corrector.gapstats);
-    correct_aln_stats_reset(&wrkrs[i].corrector.gapstats);
-    loading_stats_merge(&wrkrs[0].stats, &wrkrs[i].stats);
-    loading_stats_init(&wrkrs[i].stats);
-  }
 }
 
 // Correct reads against the graph, and print out
@@ -297,9 +277,11 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
                      wrkrs, num_threads, sizeof(CorrectReadsWorker));
   }
 
-  correct_reads_merge_stats(wrkrs, num_inputs);
+  // Merge stats into workers[0]
+  for(i = 1; i < num_inputs; i++)
+    correct_aln_merge_stats(&wrkrs[0].corrector, &wrkrs[i].corrector);
 
-  LoadingStats *stats = &wrkrs[0].stats;
+  LoadingStats *stats = &wrkrs[0].corrector.stats;
   CorrectAlnStats *gapstats = &wrkrs[0].corrector.gapstats;
 
   correct_aln_dump_stats(stats, gapstats,

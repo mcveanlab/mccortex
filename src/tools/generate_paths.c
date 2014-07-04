@@ -34,7 +34,6 @@ struct GenPathWorker
   // Current job
   AsyncIOData *data; // current data
   CorrectAlnInput task; // current task
-  LoadingStats stats;
 
   dBAlignment aln;
   CorrectAlnWorker corrector;
@@ -72,7 +71,6 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 
   db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
-  loading_stats_init(&tmp.stats);
 
   // Junction data
   // only fw arrays are malloc'd, rv point to fw
@@ -131,28 +129,16 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
   }
 }
 
-// Merge stats into workers[0]
-static void generate_paths_merge_stats(GenPathWorker *wrkrs, size_t num_workers)
-{
-  size_t i;
-  for(i = 1; i < num_workers; i++) {
-    correct_aln_stats_merge(&wrkrs[0].corrector.gapstats, &wrkrs[i].corrector.gapstats);
-    correct_aln_stats_reset(&wrkrs[i].corrector.gapstats);
-    loading_stats_merge(&wrkrs[0].stats, &wrkrs[i].stats);
-    loading_stats_init(&wrkrs[i].stats);
-  }
-}
-
 /* Get stats */
 
-CorrectAlnStats gen_paths_get_gapstats(GenPathWorker *wrkr)
+CorrectAlnStats* gen_paths_get_gapstats(GenPathWorker *wrkr)
 {
-  return wrkr->corrector.gapstats;
+  return &wrkr->corrector.gapstats;
 }
 
-LoadingStats gen_paths_get_stats(const GenPathWorker *wrkr)
+LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr)
 {
-  return wrkr->stats;
+  return &wrkr->corrector.stats;
 }
 
 // Returns number of paths added
@@ -430,20 +416,9 @@ static void reads_to_paths(GenPathWorker *wrkr)
   if(r2 != NULL)
     seq_reader_orient_mp_FF_or_RR(r1, r2, wrkr->task.matedir);
 
-  // Update stats
-  wrkr->stats.total_bases_read += r1->seq.end;
-  if(r2 == NULL) {
-    wrkr->stats.num_se_reads++;
-  } else {
-    wrkr->stats.num_pe_reads += 2;
-    wrkr->stats.total_bases_read += r2->seq.end;
-  }
-
   db_alignment_from_reads(&wrkr->aln, r1, r2,
                           fq_cutoff1, fq_cutoff2, hp_cutoff,
                           wrkr->db_graph, wrkr->task.crt_params.ctxcol);
-
-  wrkr->stats.num_kmers_parsed += wrkr->aln.nodes.len;
 
   ctx_check2(db_alignment_check_edges(&wrkr->aln, wrkr->db_graph),
              "Edges missing: was read %s%s%s used to build the graph?",
@@ -458,9 +433,6 @@ static void reads_to_paths(GenPathWorker *wrkr)
   dBNodeBuffer *nbuf;
   while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL) {
     worker_contig_to_junctions(wrkr, nbuf);
-    wrkr->stats.contigs_loaded++;
-    wrkr->stats.num_kmers_loaded += nbuf->len;
-    wrkr->stats.total_bases_loaded += nbuf->len + wrkr->db_graph->kmer_size - 1;
   }
 }
 
@@ -532,6 +504,7 @@ void generate_paths(CorrectAlnInput *tasks, size_t num_inputs,
 
   ctx_free(asyncio_tasks);
 
-  // Merge gap counts into worker[0]
-  generate_paths_merge_stats(workers, num_workers);
+  // Merge stats into workers[0]
+  for(i = 1; i < num_workers; i++)
+    correct_aln_merge_stats(&workers[0].corrector, &workers[i].corrector);
 }

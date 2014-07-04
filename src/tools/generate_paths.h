@@ -31,7 +31,7 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
 void generate_paths(CorrectAlnInput *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers);
 
-CorrectAlnStats gen_paths_get_gapstats(GenPathWorker *wrkr);
-LoadingStats gen_paths_get_stats(const GenPathWorker *wrkr);
+CorrectAlnStats* gen_paths_get_gapstats(GenPathWorker *wrkr);
+LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr);;
 
 #endif /* GENERATE_PATHS_H_ */
