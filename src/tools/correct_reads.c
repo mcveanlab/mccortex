@@ -278,7 +278,7 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
   }
 
   // Merge stats into workers[0]
-  for(i = 1; i < num_inputs; i++)
+  for(i = 1; i < num_threads; i++)
     correct_aln_merge_stats(&wrkrs[0].corrector, &wrkrs[i].corrector);
 
   LoadingStats *stats = &wrkrs[0].corrector.stats;

@@ -158,7 +158,8 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
   }
 
   // Print fragment size statistics
-  ctx_assert(num_frags_resolved <= num_read_pairs);
+  ctx_assert2(num_frags_resolved <= num_read_pairs, "%zu, %zu",
+              num_frags_resolved,   num_read_pairs);
 
   if(num_read_pairs == 0)
   {
