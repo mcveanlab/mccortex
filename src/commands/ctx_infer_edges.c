@@ -18,6 +18,7 @@ const char inferedges_usage[] =
 "  It is important that you run this step before doing read threading.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -f, --force           Overwrite output files\n"
 "  -o, --out <out.ctp>   Save output file\n"
 "  -m, --memory <mem>    Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>      Number of hash table entries (e.g. 1G ~ 1 billion)\n"
@@ -31,6 +32,7 @@ static struct option longopts[] =
 // General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
@@ -112,7 +114,8 @@ int ctx_infer_edges(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o': if(out_ctx_path){cmd_print_usage(NULL);} out_ctx_path = optarg; break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!out_ctx_path,cmd); out_ctx_path = optarg; break;
       case 't': num_of_threads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;

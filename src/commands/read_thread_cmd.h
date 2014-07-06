@@ -13,7 +13,7 @@
 
 struct ReadThreadCmdArgs
 {
-  size_t num_of_threads;
+  size_t nthreads;
   struct MemArgs memargs;
   char *graph_path, *out_ctp_path;
   bool use_new_paths;
@@ -28,7 +28,7 @@ struct ReadThreadCmdArgs
   size_t path_max_usedcols; // max colours in path files
 };
 
-#define READ_THREAD_CMD_ARGS_INIT {.num_of_threads = 0,                \
+#define READ_THREAD_CMD_ARGS_INIT {.nthreads = 0,                      \
                                    .memargs = MEM_ARGS_INIT,           \
                                    .graph_path = NULL,                 \
                                    .out_ctp_path = NULL,               \

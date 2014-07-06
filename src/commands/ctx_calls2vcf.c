@@ -116,11 +116,11 @@ static void parse_cmdline_args(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
-      case 'f': cmd_check(sam_path,cmd); sam_path = optarg; break;
-      case 'Q': cmd_check(min_mapq != SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
-      case 'A': cmd_check(max_allele_len != SIZE_MAX,cmd); max_allele_len = cmd_uint32(cmd, optarg); break;
-      case 'D': cmd_check(max_path_diff != SIZE_MAX, cmd); max_path_diff = cmd_uint32(cmd, optarg); break;
+      case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 'f': cmd_check(!sam_path,cmd); sam_path = optarg; break;
+      case 'Q': cmd_check(min_mapq == SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
+      case 'A': cmd_check(max_allele_len == SIZE_MAX,cmd); max_allele_len = cmd_uint32(cmd, optarg); break;
+      case 'D': cmd_check(max_path_diff == SIZE_MAX, cmd); max_path_diff = cmd_uint32(cmd, optarg); break;
       case 'g': nwmatch = cmd_int32(cmd, optarg); break;
       case 'G': nwmismatch = cmd_int32(cmd, optarg); break;
       case 'm': nwgapopen = cmd_int32(cmd, optarg); break;

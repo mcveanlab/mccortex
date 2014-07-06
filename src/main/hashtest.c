@@ -49,7 +49,7 @@ int main(int argc, char **argv)
       case 'h': cmd_print_usage(NULL); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'k': cmd_check(kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
     }
   }
 

@@ -141,6 +141,7 @@ static const char options[] =
 "  -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
 "  -t, --threads <T>     Limit on proccessing threads [default: 2]\n"
 "  -o, --out <file>      Output file\n"
+"  -f, --force           Overwrite output files if they already exist\n"
 "  -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";
 

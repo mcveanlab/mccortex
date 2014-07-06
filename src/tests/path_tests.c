@@ -80,7 +80,7 @@ void test_paths()
   // CGAATGACACC:1 len:2 col:0  AG
 
   // Test path store
-  gpath_checks_all_paths(&graph);
+  gpath_checks_all_paths(&graph, 1); // use one thread
 
   gen_paths_workers_dealloc(wrkrs, nworkers);
 

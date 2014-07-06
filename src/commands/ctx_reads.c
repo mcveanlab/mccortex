@@ -17,12 +17,14 @@ const char reads_usage[] =
 "  Filters reads based on which have a kmer in the graph. \n"
 "\n"
 "  -h, --help                  This help message\n"
+"  -f, --force                 Overwrite output files\n"
 "  -m, --memory <mem>          Memory to use\n"
 "  -n, --nkmers <kmers>        Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>           Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
-"  -f, --fasta                 Output as gzipped FASTA\n"
-"  -q, --fastq                 Output as gzipped FASTQ [default]\n"
+"  -F, --fasta                 Output as gzipped FASTA\n"
+"  -Q, --fastq                 Output as gzipped FASTQ [default]\n"
+// "  -P, --plain                 Print output sequences one per line\n"
 "  -v, --invert                Print reads/read pairs with no kmer in graph\n"
 "  -1, --seq  <in>:<O>         Writes output to <O>.fq.gz\n"
 "  -2, --seq2 <in1>:<in2>:<O>  Writes output to <O>.{1,2}.fq.gz\n"
@@ -36,11 +38,13 @@ static struct option longopts[] =
 {
 // General options
   {"help",         no_argument,       NULL, 'h'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
 // command specific
-  {"fasta",        no_argument,       NULL, 'f'},
-  {"fastq",        no_argument,       NULL, 'q'},
+  {"fasta",        no_argument,       NULL, 'F'},
+  {"fastq",        no_argument,       NULL, 'Q'},
+  {"plain",        no_argument,       NULL, 'P'},
   {"invert",       no_argument,       NULL, 'v'},
   {"seq",          required_argument, NULL, '1'},
   {"seq2",         required_argument, NULL, '2'},
@@ -118,7 +122,7 @@ static gzFile input_output_open(const char *path)
 {
   gzFile gzout;
 
-  if(futil_file_exists(path)) {
+  if(!futil_get_force() && futil_file_exists(path)) {
     warn("Output file already exists: %s", path);
     return NULL;
   }
@@ -193,12 +197,13 @@ static void parse_args(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': cmd_check(nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 't': cmd_check(!nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'f': cmd_check(fasta_output,cmd); fasta_output = true; break;
-      case 'q': cmd_check(fastq_output,cmd); fastq_output = true; break;
-      case 'v': cmd_check(invert,cmd); invert = true; break;
+      case 'F': cmd_check(!fasta_output,cmd); fasta_output = true; break;
+      case 'Q': cmd_check(!fastq_output,cmd); fastq_output = true; break;
+      case 'v': cmd_check(!invert,cmd); invert = true; break;
       case '1':
       case '2':
       case 'i':

@@ -19,6 +19,7 @@ const char bubbles_usage[] =
 "  Find bubbles in the graph, which are potential variants.\n"
 "\n"
 "  -h, --help              This help message\n"
+"  -f, --force             Overwrite output files\n"
 "  -o, --out <bub.txt.gz>  Output file [required]\n"
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
@@ -26,8 +27,8 @@ const char bubbles_usage[] =
 "  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
 //
 "  -H, --haploid <col>     Colour is haploid, can use repeatedly [e.g. ref colour]\n"
-"  -a, --max-allele <len>  Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
-"  -f, --max-flank <len>   Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
+"  -A, --max-allele <len>  Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
+"  -F, --max-flank <len>   Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
 "\n"
 "  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n"
@@ -42,10 +43,11 @@ static struct option longopts[] =
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
   {"paths",        required_argument, NULL, 'p'},
+  {"force",        no_argument,       NULL, 'f'},
 // command specific
   {"haploid",      required_argument, NULL, 'H'},
-  {"max-allele",   required_argument, NULL, 'a'},
-  {"max-flank",    required_argument, NULL, 'f'},
+  {"max-allele",   required_argument, NULL, 'A'},
+  {"max-flank",    required_argument, NULL, 'F'},
   {NULL, 0, NULL, 0}
 };
 
@@ -80,18 +82,19 @@ int ctx_bubbles(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
+      case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg, true);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
-      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'H': tmp_col = cmd_uint32(cmd, optarg); size_buf_add(&haploidbuf, tmp_col); break;
-      case 'a': cmd_check(max_allele_len, cmd); max_allele_len = cmd_uint32_nonzero(cmd, optarg); break;
-      case 'f': cmd_check(max_flank_len, cmd); max_flank_len = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'A': cmd_check(!max_allele_len, cmd); max_allele_len = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'F': cmd_check(!max_flank_len, cmd); max_flank_len = cmd_uint32_nonzero(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);

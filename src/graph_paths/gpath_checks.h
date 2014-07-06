@@ -21,8 +21,8 @@ bool gpath_checks_path_col(dBNode node, const GPath *gpath, int exp_klen,
 bool gpath_checks_path(hkey_t hkey, const GPath *gpath, int exp_klen,
                        const dBGraph *db_graph);
 
-// Returns false on first error
-bool gpath_checks_all_paths(const dBGraph *db_graph);
+// Returns false on error
+bool gpath_checks_all_paths(const dBGraph *db_graph, size_t nthreads);
 
 // Dies on first error
 void gpath_checks_counts(const dBGraph *db_graph);

@@ -149,9 +149,9 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
     float gaps_per_read_mean = (double)num_seq_gaps / num_reads;
 
     // Print seqn gap statistics
-    status("[CorrectAln] SE: expected gap mean: %.2f median: %.2f mode: %zu (%zu)",
+    status("[CorrectAln] SE: expected gap mean: %.1f median: %.1f mode: %zu (%zu)",
            exp_gap_mean, exp_gap_median, exp_gap_mode, exp_gap_maxc);
-    status("[CorrectAln] SE: actual   gap mean: %.2f median: %.2f mode: %zu (%zu)",
+    status("[CorrectAln] SE: actual   gap mean: %.1f median: %.1f mode: %zu (%zu)",
            act_gap_mean, act_gap_median, act_gap_mode, act_gap_maxc);
     status("[CorrectAln]     %.3f gaps per read; mean gap length diff: %.2f",
            gaps_per_read_mean, gap_diff_mean);

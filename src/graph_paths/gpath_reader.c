@@ -20,7 +20,7 @@ kmer [num] .. ignored
 
 #define load_check(x,msg,...) if(!(x)) { die("[LoadPathError] "msg, ##__VA_ARGS__); }
 
-static int _json_demand_int(cJSON *root, const char *field, const char *path)
+static long _json_demand_int(cJSON *root, const char *field, const char *path)
 {
   cJSON *json = cJSON_GetObjectItem(root, field);
   if(json == NULL || json->type != cJSON_Number)
@@ -30,9 +30,9 @@ static int _json_demand_int(cJSON *root, const char *field, const char *path)
 
 size_t gpath_reader_get_kmer_size(const GPathReader *file)
 {
-  int val = _json_demand_int(file->json, "kmer_size", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "kmer_size", file->fltr.file_path.buff);
   if(val < MIN_KMER_SIZE || val > MAX_KMER_SIZE || !(val & 1)) {
-    die("kmer size is not an odd int between %i..%i: %i",
+    die("kmer size is not an odd int between %i..%i: %li",
         MIN_KMER_SIZE, MAX_KMER_SIZE, val);
   }
   return val;
@@ -40,29 +40,37 @@ size_t gpath_reader_get_kmer_size(const GPathReader *file)
 
 size_t gpath_reader_get_num_kmers(const GPathReader *file)
 {
-  int val = _json_demand_int(file->json, "num_kmers", file->fltr.file_path.buff);
+  // May be "num_kmers" or "kmers_with_paths"
+  cJSON *json = cJSON_GetObjectItem(file->json, "num_kmers");
+  if(json == NULL) json = cJSON_GetObjectItem(file->json, "num_kmers_with_paths");
+  if(json == NULL || json->type != cJSON_Number) {
+    die("No 'num_kmers' or 'num_kmers_with_paths' field in header: %s",
+        file->fltr.file_path.buff);
+  }
+  long val = json->valueint;
+  // long val = _json_demand_int(file->json, "kmers_with_paths", file->fltr.file_path.buff);
   if(val < 0) die("num_kmers is negative");
   return val;
 }
 
 size_t gpath_reader_get_num_paths(const GPathReader *file)
 {
-  int val = _json_demand_int(file->json, "num_paths", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "num_paths", file->fltr.file_path.buff);
   if(val < 0) die("num_paths is negative");
   return val;
 }
 
 size_t gpath_reader_get_path_bytes(const GPathReader *file)
 {
-  int val = _json_demand_int(file->json, "path_bytes", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "path_bytes", file->fltr.file_path.buff);
   if(val < 0) die("path_bytes is negative");
   return val;
 }
 
 static size_t _gpath_reader_get_filencols(const GPathReader *file)
 {
-  int val = _json_demand_int(file->json, "ncols", file->fltr.file_path.buff);
-  if(val < 1 || val > 100000) die("Invalid number of colours: %i", val);
+  long val = _json_demand_int(file->json, "ncols", file->fltr.file_path.buff);
+  if(val < 1 || val > 100000) die("Invalid number of colours: %li", val);
   return val;
 }
 
@@ -379,9 +387,7 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
   hkey_t hkey = HASH_NOT_FOUND;
   size_t num_paths_exp = 0, num_kmers = 0;
 
-  int num_kmers_exp = _json_demand_int(file->json, "num_kmers",
-                                       file->fltr.file_path.buff);
-  if(num_kmers_exp < 0) die("Invlaid num_kmers: %i", num_kmers_exp);
+  size_t num_kmers_exp = gpath_reader_get_num_kmers(file);
 
   while(strbuf_reset_gzreadline(&line, gzin) > 0) {
     strbuf_chomp(&line);

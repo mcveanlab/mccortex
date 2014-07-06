@@ -16,7 +16,7 @@ const char health_usage[] =
 "  -h, --help             This help message\n"
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
 //
 "  -E, --no-edge-check    Don't check kmer edges\n"
@@ -41,7 +41,7 @@ static struct option longopts[] =
 
 int ctx_health_check(int argc, char **argv)
 {
-  size_t num_of_threads = 0;
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   bool do_edge_check = true;
 
@@ -64,8 +64,8 @@ int ctx_health_check(int argc, char **argv)
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
       case 't':
-        if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_uint32_nonzero(cmd, optarg);
+        if(nthreads) die("%s set twice", cmd);
+        nthreads = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
@@ -82,7 +82,7 @@ int ctx_health_check(int argc, char **argv)
     }
   }
 
-  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
 
   if(optind+1 != argc)
     cmd_print_usage("Too %s arguments", optind == argc ? "few" : "many");
@@ -164,7 +164,7 @@ int ctx_health_check(int argc, char **argv)
 
   if(gpfiles.len) {
     status("  Tracing reads through the graph...");
-    gpath_checks_all_paths(&db_graph);
+    gpath_checks_all_paths(&db_graph, nthreads);
   }
 
   status("All looks good!");

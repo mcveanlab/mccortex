@@ -114,8 +114,9 @@ static void handle_read(CorrectReadsWorker *wrkr,
     rpt_walker_fast_clear(rptwlk, tmpnbuf->data, tmpnbuf->len);
 
     // Add Ns for bases we couldn't resolve
-    for(i = tmpnbuf->len; i < left_gap; i++) {
-      strbuf_append_char(buf, tolower(r->seq.b[i])); // N
+    size_t unresolved = left_gap - tmpnbuf->len;
+    for(; bases_printed < unresolved; bases_printed++) {
+      strbuf_append_char(buf, tolower(r->seq.b[bases_printed])); // N
     }
 
     // Append bases
@@ -124,7 +125,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
       strbuf_append_char(buf, dna_nuc_to_char(nuc));
     }
 
-    bases_printed += left_gap + tmpnbuf->len;
+    bases_printed += tmpnbuf->len;
   }
 
   // Append first contig
@@ -185,14 +186,14 @@ static void handle_read(CorrectReadsWorker *wrkr,
 
     // Copy added bases into buffer
     for(i = init_len; i < nbuf->len; i++) {
-      nuc = db_node_get_first_nuc(nbuf->data[i], db_graph);
+      nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
       strbuf_append_char(buf, dna_nuc_to_char(nuc));
     }
     bases_printed += nbuf->len - init_len;
 
     // Add Ns for bases we couldn't resolve
-    for(i = nbuf->len; i < end_len; i++) {
-      strbuf_append_char(buf, tolower(r->seq.b[bases_printed++])); // N
+    for(; bases_printed < r->seq.end; bases_printed++) {
+      strbuf_append_char(buf, tolower(r->seq.b[bases_printed])); // N
     }
   }
 

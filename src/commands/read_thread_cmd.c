@@ -53,18 +53,16 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o':
-        if(args->out_ctp_path != NULL) cmd_print_usage(NULL);
-        args->out_ctp_path = optarg;
-        break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!args->out_ctp_path,cmd); args->out_ctp_path = optarg; break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg, true);
         gpfile_buf_add(&args->gpfiles, tmp_gpfile);
         break;
       case 't':
-        if(args->num_of_threads != 0) die("%s set twice", cmd);
-        args->num_of_threads = cmd_uint32_nonzero(cmd, optarg);
+        cmd_check(!args->nthreads, cmd);
+        args->nthreads = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'm': cmd_mem_args_set_memory(&args->memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&args->memargs, optarg); break;
@@ -78,24 +76,27 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
                            fq_offset, correct_cmd ? &tmp_path : NULL);
         if(correct_cmd) inputs->data[inputs->len-1].out_base = tmp_path;
         break;
-      case 'f': task.matedir = READPAIR_FR; used = 0; break;
-      case 'F': task.matedir = READPAIR_FF; used = 0; break;
-      case 'r': task.matedir = READPAIR_RF; used = 0; break;
-      case 'R': task.matedir = READPAIR_RR; used = 0; break;
-      case 'w': task.crt_params.one_way_gap_traverse = true; used = 0; break;
-      case 'W': task.crt_params.one_way_gap_traverse = false; used = 0; break;
+      case 'M':
+             if(!strcmp(optarg,"FF")) task.matedir = READPAIR_FF;
+        else if(!strcmp(optarg,"FR")) task.matedir = READPAIR_FR;
+        else if(!strcmp(optarg,"RF")) task.matedir = READPAIR_RF;
+        else if(!strcmp(optarg,"RR")) task.matedir = READPAIR_RR;
+        else die("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
+        used = 0; break;
       case 'q': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'l': task.crt_params.frag_len_min = cmd_uint32(cmd, optarg); used = 0; break;
       case 'L': task.crt_params.frag_len_max = cmd_uint32(cmd, optarg); used = 0; break;
+      case 'w': task.crt_params.one_way_gap_traverse = true; used = 0; break;
+      case 'W': task.crt_params.one_way_gap_traverse = false; used = 0; break;
       case 'd': task.crt_params.gap_wiggle = cmd_udouble(cmd, optarg); used = 0; break;
       case 'D': task.crt_params.gap_variance = cmd_udouble(cmd, optarg); used = 0; break;
       case 'X': task.crt_params.max_context = cmd_uint32(cmd, optarg); used = 0; break;
       case 'e': task.crt_params.use_end_check = true; used = 0; break;
       case 'E': task.crt_params.use_end_check = false; used = 0; break;
-      case 'S': args->dump_seq_sizes = optarg; dump_seq_hist_n++; break;
-      case 'M': args->dump_frag_sizes = optarg; dump_frag_hist_n++; break;
+      case 'G': args->dump_seq_sizes = optarg; dump_seq_hist_n++; break;
+      case 'F': args->dump_frag_sizes = optarg; dump_frag_hist_n++; break;
       case 'u': args->use_new_paths = true; break;
       case 'x': gen_paths_print_contigs = true; break;
       case 'y': gen_paths_print_paths = true; break;
@@ -108,7 +109,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
     }
   }
 
-  if(args->num_of_threads == 0) args->num_of_threads = DEFAULT_NTHREADS;
+  if(args->nthreads == 0) args->nthreads = DEFAULT_NTHREADS;
 
   // Check that optind+1 == argc
   if(optind+1 > argc)

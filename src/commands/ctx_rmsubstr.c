@@ -11,32 +11,33 @@ const char rmsubstr_usage[] =
 "  Remove duplicate sequences and those that occur as substrings of others.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -f, --force           Overwrite output files\n"
+"  -o, --out <out.txt>   Save output [default: STDOUT]\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -k, --kmer <kmer>     Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
-"  -f, --fasta           Print output in FASTA format [default]\n"
-"  -q, --fastq           Print output in FASTQ format\n"
-"  -p, --plain           Print output sequences one per line\n"
-"  -o, --out <out.txt>   Save output [default: STDOUT]\n"
+"  -F, --fasta           Print output in FASTA format [default]\n"
+"  -Q, --fastq           Print output in FASTQ format\n"
+"  -P, --plain           Print output sequences one per line\n"
+// "  -v, --invert                Print reads/read pairs with no kmer in graph\n"
 "\n";
 
 static struct option longopts[] =
 {
 // General options
   {"help",         no_argument,       NULL, 'h'},
+  {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
-  {"out",          required_argument, NULL, 'o'},
 // command specific
   {"kmer",         required_argument, NULL, 'k'},
-  {"fasta",        no_argument,       NULL, 'f'},
-  {"FASTA",        no_argument,       NULL, 'F'},
-  {"fastq",        no_argument,       NULL, 'q'},
-  {"FASTQ",        no_argument,       NULL, 'Q'},
-  {"plain",        no_argument,       NULL, 'p'},
-  {"PLAIN",        no_argument,       NULL, 'P'},
+  {"fasta",        no_argument,       NULL, 'F'},
+  {"fastq",        no_argument,       NULL, 'Q'},
+  {"plain",        no_argument,       NULL, 'P'},
+  // {"invert",       no_argument,       NULL, 'v'},
   {NULL, 0, NULL, 0}
 };
 
@@ -117,20 +118,15 @@ int ctx_rmsubstr(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!output_file, cmd); output_file = optarg; break;
       case 't': num_of_threads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'k': kmer_set++; kmer_size = cmd_uint32(cmd, optarg); break;
-      case 'f':
       case 'F': output_format = OUTPUT_FASTA; output_format_set++; break;
-      case 'q':
       case 'Q': output_format = OUTPUT_FASTQ; output_format_set++; break;
-      case 'p':
       case 'P': output_format = OUTPUT_PLAIN; output_format_set++; break;
-      case 'o':
-        if(output_file != NULL) cmd_print_usage("%s given twice", cmd);
-        output_file = optarg;
-        break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);

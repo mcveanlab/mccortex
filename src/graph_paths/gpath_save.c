@@ -34,7 +34,8 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   cJSON_AddNumberToObject(json, "formatVersion", 2);
   cJSON_AddNumberToObject(json, "ncols", gpset->ncols);
   cJSON_AddNumberToObject(json, "kmer_size", db_graph->kmer_size);
-  cJSON_AddNumberToObject(json, "num_kmers", gpstore->num_kmers_with_paths);
+  cJSON_AddNumberToObject(json, "num_kmers_in_graph", db_graph->ht.num_kmers);
+  cJSON_AddNumberToObject(json, "num_kmers_with_paths", gpstore->num_kmers_with_paths);
   cJSON_AddNumberToObject(json, "num_paths", gpstore->num_paths);
   cJSON_AddNumberToObject(json, "path_bytes", gpstore->path_bytes);
   cJSON *colours = cJSON_CreateArray();
@@ -43,9 +44,19 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   size_t i;
   for(i = 0; i < gpset->ncols; i++)
   {
+    bool cleaned_snodes = db_graph->ginfo[i].cleaning.cleaned_snodes;
+    bool cleaned_tips   = db_graph->ginfo[i].cleaning.cleaned_tips;
     cJSON *sample = cJSON_CreateObject();
     cJSON_AddNumberToObject(sample, "colour", i);
     cJSON_AddStringToObject(sample, "sample", db_graph->ginfo[i].sample_name.buff);
+    cJSON_AddNumberToObject(sample, "total_sequence", db_graph->ginfo[i].total_sequence);
+    cJSON_AddBoolToObject(sample, "cleaned_tips", cleaned_tips);
+    if(cleaned_snodes) {
+      cJSON_AddNumberToObject(sample, "cleaned_supernodes",
+                              db_graph->ginfo[i].cleaning.clean_snodes_thresh);
+    } else {
+      cJSON_AddBoolToObject(sample, "cleaned_supernodes", false);
+    }
     cJSON_AddItemToArray(colours, sample);
   }
 
@@ -256,7 +267,8 @@ void gpath_save(gzFile gzout, const char *path, size_t nthreads,
   // Print comments about the format
   gzputs(gzout, "\n");
   gzputs(gzout, "# This file was generated with Cortex\n");
-  gzputs(gzout, "#   written by Isaac Turner\n");
+  gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
+  gzputs(gzout, "#   url: "CORTEX_URL"\n");
   gzputs(gzout, "# \n");
   gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
   gzputs(gzout, "# Format is:\n");

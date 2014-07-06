@@ -15,6 +15,7 @@ const char clean_usage[] =
 "  If neither -t or -s specified, just saves output statistics.\n"
 "\n"
 "  -h, --help                  This help message\n"
+"  -f, --force                 Overwrite output files\n"
 "  -o, --out <out.ctx>         Save output graph file [required]\n"
 "  -m, --memory <mem>          Memory to use\n"
 "  -n, --nkmers <kmers>        Number of hash table entries (e.g. 1G ~ 1 billion)\n"
@@ -41,6 +42,7 @@ static struct option longopts[] =
 // General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
@@ -82,6 +84,7 @@ int ctx_clean(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'o':
         if(out_ctx_path != NULL) cmd_print_usage(NULL);
         out_ctx_path = optarg;
@@ -89,9 +92,9 @@ int ctx_clean(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'N': use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
-      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'T':
-        cmd_check(tip_cleaning, cmd);
+        cmd_check(!tip_cleaning, cmd);
         min_keep_tip = cmd_uint32_nonzero(cmd, optarg);
         tip_cleaning = true;
         break;
@@ -100,11 +103,11 @@ int ctx_clean(int argc, char **argv)
         if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
         supernode_cleaning = true;
         break;
-      case 'd': cmd_check(seq_depth > 0, cmd); seq_depth = cmd_udouble_nonzero(cmd, optarg); break;
-      case 'l': cmd_check(len_before_path, cmd); len_before_path = optarg; break;
-      case 'L': cmd_check(len_after_path, cmd); len_after_path = optarg; break;
-      case 'c': cmd_check(covg_before_path, cmd); covg_before_path = optarg; break;
-      case 'C': cmd_check(covg_after_path, cmd); covg_after_path = optarg; break;
+      case 'd': cmd_check(seq_depth <= 0, cmd); seq_depth = cmd_udouble_nonzero(cmd, optarg); break;
+      case 'l': cmd_check(!len_before_path, cmd); len_before_path = optarg; break;
+      case 'L': cmd_check(!len_after_path, cmd); len_after_path = optarg; break;
+      case 'c': cmd_check(!covg_before_path, cmd); covg_before_path = optarg; break;
+      case 'C': cmd_check(!covg_after_path, cmd); covg_after_path = optarg; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -143,7 +146,7 @@ int ctx_clean(int argc, char **argv)
   }
 
   if(doing_cleaning && strcmp(out_ctx_path,"-") != 0 &&
-     futil_file_exists(out_ctx_path))
+     !futil_get_force() && futil_file_exists(out_ctx_path))
   {
     cmd_print_usage("Output file already exists: %s", out_ctx_path);
   }

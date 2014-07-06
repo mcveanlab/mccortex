@@ -19,33 +19,36 @@ const char thread_usage[] =
 "  are loaded from <in.ctx> files one at a time.\n"
 "\n"
 "  -h, --help               This help message\n"
+"  -f, --force              Overwrite output files\n"
 "  -o, --out <out.ctp.gz>   Save output file [required]\n"
 "  -m, --memory <mem>       Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
-// Non default:
+"\n"
+"  Input:\n"
 "  -1, --seq <in.fa>        Thread reads from file (supports sam,bam,fq,*.gz\n"
 "  -2, --seq2 <in1:in2>     Thread paired end sequences\n"
 "  -i, --seqi <in.bam>      Thread PE reads from a single file\n"
-"  -f,--FR -F,--FF          Mate pair orientation [default: FR]\n"
-"    -r,--RF -R,--RR\n"
-"  -w, --one-way            Use one-way gap filling (conservative)\n"
-"  -W, --two-way            Use two-way gap filling (liberal)\n"
+"  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
 "  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -l, --frag-len-min <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
 "  -L, --frag-len-max <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
-"  -S, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
-"  -M, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
-"  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
-"  -a, --aln-const            -a, -A set parameters for allowable gap lengths\n"
-"  -A, --aln-coeff              (gap_exp*A - a) <= gap_actual <= (gap_exp*A + a)\n"
-"  -X, --max-context          Number of kmers to use either side of a gap\n"
-"  -e, --end-check            Extra check after bridging gap [default: on]\n"
-"  -E, --no-end-check         Skip extra check after gap bridging\n"
+"  Path Params:\n"
+"  -w, --one-way            Use one-way gap filling (conservative)\n"
+"  -W, --two-way            Use two-way gap filling (liberal)\n"
+"  -d, --gap-diff-const     -d, -D set parameters for allowable gap lengths\n"
+"  -D, --gap-diff-coeff       (gap_exp*D - d) <= gap_actual <= (gap_exp*D + d)\n"
+"  -X, --max-context        Number of kmers to use either side of a gap\n"
+"  -e, --end-check          Extra check after bridging gap [default: on]\n"
+"  -E, --no-end-check       Skip extra check after gap bridging\n"
+"  -G, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
+"  -F, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
+"\n"
+"  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
 "  Debugging Options: Probably best not to touch these\n"
 "    -x,--print-contigs -y,--print-paths -z,--print-reads\n"
@@ -59,6 +62,7 @@ static struct option longopts[] =
 // General options
   {"help",          no_argument,       NULL, 'h'},
   {"out",           required_argument, NULL, 'o'},
+  {"force",         no_argument,       NULL, 'f'},
   {"memory",        required_argument, NULL, 'm'},
   {"nkmers",        required_argument, NULL, 'n'},
   {"threads",       required_argument, NULL, 't'},
@@ -67,26 +71,24 @@ static struct option longopts[] =
   {"seq",           required_argument, NULL, '1'},
   {"seq2",          required_argument, NULL, '2'},
   {"seqi",          required_argument, NULL, 'i'},
-  {"FR",            no_argument,       NULL, 'f'},
-  {"FF",            no_argument,       NULL, 'F'},
-  {"RF",            no_argument,       NULL, 'r'},
-  {"RR",            no_argument,       NULL, 'R'},
-  {"one-way",       no_argument,       NULL, 'w'},
-  {"two-way",       no_argument,       NULL, 'W'},
+  {"matepair",      required_argument, NULL, 'M'},
   {"fq-cutoff",     required_argument, NULL, 'Q'},
   {"fq-offset",     required_argument, NULL, 'q'},
   {"cut-hp",        required_argument, NULL, 'H'},
   {"min-frag-len",  required_argument, NULL, 'l'},
   {"max-frag-len",  required_argument, NULL, 'L'},
-  {"gap-hist",      required_argument, NULL, 'S'},
-  {"frag-hist",     required_argument, NULL, 'M'},
-  {"use-new-paths", required_argument, NULL, 'u'},
 //
+  {"one-way",       no_argument,       NULL, 'w'},
+  {"two-way",       no_argument,       NULL, 'W'},
   {"gap-diff-const",required_argument, NULL, 'd'},
   {"gap-diff-coeff",required_argument, NULL, 'D'},
   {"max-context",   required_argument, NULL, 'X'},
   {"end-check",     no_argument,       NULL, 'e'},
   {"no-end-check",  no_argument,       NULL, 'E'},
+  {"gap-hist",      required_argument, NULL, 'G'},
+  {"frag-hist",     required_argument, NULL, 'F'},
+//
+  {"use-new-paths", required_argument, NULL, 'u'},
 // Debug options
   {"print-contigs", no_argument,       NULL, 'x'},
   {"print-paths",   no_argument,       NULL, 'y'},
@@ -115,7 +117,7 @@ int ctx_thread(int argc, char **argv)
   bool sep_path_list = (!args.use_new_paths && gpfiles->len > 0);
 
   bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
-                  2 * args.num_of_threads; // Have traversed
+                  2 * args.nthreads; // Have traversed
 
   // false -> don't use mem_to_use to decide how many kmers to store in hash
   // since we need some of that memory for storing paths
@@ -214,7 +216,7 @@ int ctx_thread(int argc, char **argv)
   // Start up the threads, do the work
   //
   GenPathWorker *workers;
-  workers = gen_paths_workers_alloc(args.num_of_threads, &db_graph);
+  workers = gen_paths_workers_alloc(args.nthreads, &db_graph);
 
   // Deal with a set of files at once
   size_t start, end;
@@ -222,7 +224,7 @@ int ctx_thread(int argc, char **argv)
   {
     // Can have different numbers of inputs vs threads
     end = MIN2(inputs->len, start+MAX_IO_THREADS);
-    generate_paths(inputs->data+start, end-start, workers, args.num_of_threads);
+    generate_paths(inputs->data+start, end-start, workers, args.nthreads);
   }
 
   // Print memory statistics
@@ -239,19 +241,22 @@ int ctx_thread(int argc, char **argv)
                          db_graph.ht.num_kmers);
 
   // ins_gap, err_gap no longer allocated after this line
-  gen_paths_workers_dealloc(workers, args.num_of_threads);
+  gen_paths_workers_dealloc(workers, args.nthreads);
+
+  // Don't need GPathHash anymore
+  gpath_hash_dealloc(&db_graph.gphash);
 
   cJSON *hdrs[gpfiles->len];
   for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
 
-  size_t output_threads = MIN2(args.num_of_threads, MAX_IO_THREADS);
+  size_t output_threads = MIN2(args.nthreads, MAX_IO_THREADS);
 
   // Write output file
   gpath_save(gzout, args.out_ctp_path, output_threads,
              hdrs, gpfiles->len, &db_graph);
   gzclose(gzout);
 
-  gpath_checks_all_paths(&db_graph);
+  // gpath_checks_all_paths(&db_graph, args.nthreads);
   read_thread_args_dealloc(&args);
   db_graph_dealloc(&db_graph);
 

@@ -26,8 +26,8 @@ const char* cmd_get_cwd();
 // General argument parsing
 //
 
-// Check a value hasn't already been set
-#define cmd_check(check,cmd) do {if(check) {cmd_print_usage("%s given twice", cmd);} } while(0)
+// if !x print error message
+#define cmd_check(x,cmd) do {if(!(x)) {cmd_print_usage("%s given twice", cmd);} } while(0)
 
 void cmd_get_longopt_str(const struct option *longs, char shortopt,
                          char *cmd, size_t buflen);

@@ -20,6 +20,8 @@ const char contigs_usage[] =
 "\n"
 "  Pull out contigs from the graph, print statistics\n"
 "\n"
+"  -h, --help           This help message\n"
+"  -f, --force          Overwrite output files\n"
 "  -m, --memory <mem>   Memory to use\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 // "  -t, --threads <T>    Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
@@ -36,6 +38,7 @@ static struct option longopts[] =
 // General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   // {"threads",      required_argument, NULL, 't'},
@@ -305,7 +308,7 @@ static inline void parse_seed_reads(read_t *r1, read_t *r2,
 
 int ctx_contigs(int argc, char **argv)
 {
-  size_t num_of_threads = 0;
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t i, n_rand_contigs = 0, colour = 0;
@@ -329,14 +332,9 @@ int ctx_contigs(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o':
-        if(out_path != NULL) cmd_print_usage(NULL);
-        out_path = optarg;
-        break;
-      case 't':
-        if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_uint32_nonzero(cmd, optarg);
-        break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!out_path,cmd); out_path = optarg; break;
+      case 't': cmd_check(!nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
@@ -345,16 +343,16 @@ int ctx_contigs(int argc, char **argv)
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 's': // --seed <in.fa>
-        if(seed_file != NULL) cmd_print_usage(NULL);
-        else if((seed_file = seq_open(optarg)) == NULL)
+        cmd_check(!seed_file,cmd);
+        if((seed_file = seq_open(optarg)) == NULL)
           die("Cannot read --seed file: %s", optarg);
         break;
-      case 'R':
-        if(no_reseed) cmd_print_usage("-R given twice");
-        no_reseed = true;
+      case 'R': cmd_check(!no_reseed,cmd); no_reseed = true; break;
+      case 'N':
+        cmd_check(!n_rand_contigs,cmd);
+        n_rand_contigs = cmd_uint32_nonzero(cmd, optarg);
         break;
-      case 'N': n_rand_contigs = cmd_uint32_nonzero(cmd, optarg); break;
-      case 'c': colour = cmd_uint32(cmd, optarg); break;
+      case 'c': cmd_check(!colour,cmd); colour = cmd_uint32(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" contigs -h` for help. Bad option: %s", argv[optind-1]);
@@ -363,7 +361,7 @@ int ctx_contigs(int argc, char **argv)
   }
 
   // Defaults
-  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
   if(seed_file == NULL && n_rand_contigs == 0) n_rand_contigs = DEFAULT_NCONTIGS;
 
   if(optind+1 != argc)

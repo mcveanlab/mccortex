@@ -14,6 +14,7 @@ const char coverage_usage[] =
 "  Print contig coverage\n"
 "\n"
 "  -h, --help           This help message\n"
+"  -f, --force          Overwrite output files\n"
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
@@ -25,9 +26,10 @@ static struct option longopts[] =
 {
 // General options
   {"help",         no_argument,       NULL, 'h'},
+  {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
-  {"out",          required_argument, NULL, 'o'},
 // command specific
   {"edges",        no_argument,       NULL, 'e'},
   {"seq",          required_argument, NULL, '1'},
@@ -150,13 +152,11 @@ int ctx_coverage(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!output_file, cmd); output_file = optarg; break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'e': print_edges = true; break;
-      case 'o':
-        if(output_file != NULL) cmd_print_usage("%s given twice", cmd);
-        output_file = optarg;
-        break;
       case '1':
       case 's':
         if((tmp_sfile = seq_open(optarg)) == NULL)

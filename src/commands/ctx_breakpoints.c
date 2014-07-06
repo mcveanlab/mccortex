@@ -39,6 +39,7 @@ const char breakpoints_usage[] =
 "  Use trusted assembled genome to call large events.  Output is gzipped.\n"
 "\n"
 "  -h, --help              This help message\n"
+"  -f, --force             Overwrite output files\n"
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
@@ -58,6 +59,7 @@ static struct option longopts[] =
   {"threads",      required_argument, NULL, 't'},
   {"paths",        required_argument, NULL, 'p'},
   {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
 // command specific
   {"seq",          required_argument, NULL, '1'},
   {"seq",          required_argument, NULL, 's'},
@@ -96,9 +98,10 @@ int ctx_breakpoints(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg, true);
@@ -106,7 +109,7 @@ int ctx_breakpoints(int argc, char **argv)
         break;
       case 'r': min_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_min_flank++; break;
       case 'R': max_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_max_flank++; break;
-      case 'o': cmd_check(output_file != NULL, cmd); output_file = optarg; break;
+      case 'o': cmd_check(!output_file, cmd); output_file = optarg; break;
       case '1':
       case 's':
         if((tmp_sfile = seq_open(optarg)) == NULL)

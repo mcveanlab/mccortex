@@ -3,6 +3,11 @@
 
 #include <libgen.h> // dirname
 
+bool force_file_overwrite = false;
+
+bool futil_get_force() { return force_file_overwrite; }
+void futil_set_force(bool f) { force_file_overwrite = f; }
+
 //
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
 //
@@ -133,7 +138,7 @@ gzFile futil_gzopen_output2(const char *path, const char *mode)
 FILE* futil_open_output(const char *path)
 {
   ctx_assert(path != NULL);
-  if(strcmp(path, "-") != 0 && futil_file_exists(path))
+  if(strcmp(path, "-") != 0 && !force_file_overwrite && futil_file_exists(path))
     die("Output file already exists: %s", futil_outpath_str(path));
   return futil_open_output2(path, "w");
 }
@@ -143,7 +148,7 @@ FILE* futil_open_output(const char *path)
 gzFile futil_gzopen_output(const char *path)
 {
   ctx_assert(path != NULL);
-  if(strcmp(path, "-") != 0 && futil_file_exists(path))
+  if(strcmp(path, "-") != 0 && !force_file_overwrite && futil_file_exists(path))
     die("Output file already exists: %s", futil_outpath_str(path));
   return futil_gzopen_output2(path, "w");
 }

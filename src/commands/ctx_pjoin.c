@@ -14,14 +14,15 @@ const char pjoin_usage[] =
 "  Merge cortex path files.\n"
 "\n"
 "  -h, --help             This help message\n"
+"  -f, --force            Overwrite output files\n"
 "  -o, --out <out.ctp>    Output file [required]\n"
 "  -m, --memory <mem>     Memory to use (required) recommend 80G for human\n"
 "  -n, --nkmers <nkmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
 "  -g, --graph <in.ctx>   Get number of hash table entries from graph file\n"
-"  -v, --overlap          Merge corresponding colours from each graph file\n"
-"  -f, --flatten          Dump into a single colour graph\n"
+"  -O, --overlap          Merge corresponding colours from each graph file\n"
+"  -F, --flatten          Dump into a single colour graph\n"
 "  -c, --outcols <C>      How many 'colours' should the output file have\n"
 "  -r, --noredundant      Remove redundant paths\n"
 "\n"
@@ -34,15 +35,16 @@ static struct option longopts[] =
 // General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
 // command specific
   {"graph",        required_argument, NULL, 'g'},
-  {"overlap",      required_argument, NULL, 'v'},
-  {"flatten",      required_argument, NULL, 'f'},
+  {"overlap",      required_argument, NULL, 'O'},
+  {"flatten",      required_argument, NULL, 'F'},
   {"outcols",      required_argument, NULL, 'c'},
-  {"noredundant",  required_argument, NULL, 'R'},
+  {"noredundant",  required_argument, NULL, 'r'},
   {NULL, 0, NULL, 0}
 };
 
@@ -69,15 +71,16 @@ int ctx_pjoin(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o': cmd_check(out_ctp_path != NULL, cmd); out_ctp_path = optarg; break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!out_ctp_path, cmd); out_ctp_path = optarg; break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 't': cmd_check(nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
-      case 'g': cmd_check(graph_file,cmd); graph_file = optarg; break;
-      case 'v': cmd_check(overlap,cmd); overlap=true; break;
-      case 'f': cmd_check(flatten,cmd); flatten=true; break;
-      case 'c': cmd_check(output_ncols, cmd); output_ncols = cmd_uint32_nonzero(cmd, optarg); break;
-      case 'R': cmd_check(noredundant,cmd); noredundant = true; break;
+      case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'g': cmd_check(!graph_file,cmd); graph_file = optarg; break;
+      case 'O': cmd_check(!overlap,cmd); overlap = true; break;
+      case 'F': cmd_check(!flatten,cmd); flatten = true; break;
+      case 'c': cmd_check(!output_ncols, cmd); output_ncols = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'r': cmd_check(!noredundant,cmd); noredundant = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);

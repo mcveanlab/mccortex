@@ -262,21 +262,53 @@ static bool _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
   return true;
 }
 
-// Returns false on first error
-bool gpath_checks_all_paths(const dBGraph *db_graph)
+typedef struct
+{
+  size_t threadid, nthreads;
+  size_t num_gpaths, num_kmers;
+  const dBGraph *db_graph;
+} GPathChecker;
+
+void _gpath_check_all_paths_thread(void *arg)
+{
+  GPathChecker *ch = (GPathChecker*)arg;
+  const dBGraph *db_graph = ch->db_graph;
+  size_t num_gpaths = 0, num_kmers = 0;
+  HASH_ITERATE(&db_graph->ht, _kmer_check_paths,
+               db_graph, &num_gpaths, &num_kmers);
+  ch->num_gpaths = num_gpaths;
+  ch->num_kmers = num_kmers;
+}
+
+bool gpath_checks_all_paths(const dBGraph *db_graph, size_t nthreads)
 {
   status("[GPathCheck] Running paths check...");
 
-  size_t num_gpaths = 0, num_kmers = 0, act_num_gpaths, act_num_kmers;
+  size_t i;
+  GPathChecker *checkers = ctx_calloc(nthreads, sizeof(GPathChecker));
+  for(i = 0; i < nthreads; i++) {
+    checkers[i].threadid = i;
+    checkers[i].nthreads = nthreads;
+    checkers[i].db_graph = db_graph;
+  }
 
-  HASH_ITERATE(&db_graph->ht, _kmer_check_paths, db_graph,
-               &num_gpaths, &num_kmers);
+  util_run_threads(checkers, nthreads, sizeof(GPathChecker),
+                   nthreads, _gpath_check_all_paths_thread);
 
-  act_num_gpaths = db_graph->gpstore.gpset.entries.len;
-  act_num_kmers = db_graph->gpstore.num_kmers_with_paths;
+  // Merge thread results
+  size_t num_gpaths = 0, num_kmers = 0;
+  for(i = 0; i < nthreads; i++) {
+    num_gpaths += checkers[i].num_gpaths;
+    num_kmers += checkers[i].num_kmers;
+  }
+  ctx_free(checkers);
+
+  size_t act_num_gpaths = db_graph->gpstore.gpset.entries.len;
+  size_t act_num_kmers = db_graph->gpstore.num_kmers_with_paths;
 
   ctx_assert_ret2(num_gpaths == act_num_gpaths, "%zu vs %zu", num_gpaths, act_num_gpaths);
   ctx_assert_ret2(num_kmers == act_num_kmers, "%zu vs %zu", num_kmers, act_num_kmers);
+
   return true;
 }
 

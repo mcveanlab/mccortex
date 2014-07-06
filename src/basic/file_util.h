@@ -6,6 +6,9 @@
 #include <sys/stat.h>
 #include "string_buffer/string_buffer.h"
 
+// Whether to overwrite files without warning (default: false)
+bool futil_get_force();
+void futil_set_force(bool f);
 
 /**
 ** Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087

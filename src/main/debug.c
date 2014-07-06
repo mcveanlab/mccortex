@@ -56,7 +56,7 @@ int main(int argc, char **argv)
   gzclose(gzout);
 
   // Checks
-  // gpath_checks_all_paths(&db_graph);
+  // gpath_checks_all_paths(&db_graph, 2); // use two threads
   gpath_checks_counts(&db_graph);
 
   // Clean up

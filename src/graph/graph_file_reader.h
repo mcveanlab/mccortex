@@ -67,11 +67,11 @@ void graph_file_close(GraphFileReader *file);
 // Beware: this function does not use file.intocol so you may wish to pass:
 //    graph_file_read(file, &bkmer, covgs+file.intocol, edges+file.intocol);
 bool graph_file_read(const GraphFileReader *file,
-                        BinaryKmer *bkmer, Covg *covgs, Edges *edges);
+                     BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // Returns true if one or more files passed loads data into colour
 bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
-                                    size_t num_files);
+                                 size_t num_files);
 
 // if one of the files is reading from stdin, sum_kmers_ptr is set to 0
 // `max_cols_ptr` is used to return the most colours being loaded from a single file

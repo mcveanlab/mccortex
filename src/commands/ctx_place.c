@@ -589,8 +589,8 @@ int ctx_place(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
-      case 'Q': cmd_check(min_mapq != SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
+      case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 'Q': cmd_check(min_mapq == SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
       case 'g': nwmatch = cmd_int32(cmd, optarg); break;
       case 'G': nwmismatch = cmd_int32(cmd, optarg); break;
       case 'm': nwgapopen = cmd_int32(cmd, optarg); break;

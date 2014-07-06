@@ -14,6 +14,7 @@ const char supernodes_usage[] =
 "  Print supernodes with k-1 bases of overlap.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -f, --force           Overwrite output files\n"
 "  -o, --out <out.txt>   Save output graph file [default: STDOUT]\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
@@ -30,6 +31,7 @@ static struct option longopts[] =
 // General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
@@ -223,7 +225,7 @@ static size_t print_dot_syntax(size_t nthreads, FILE *fout,
 // Returns 0 on success, otherwise != 0
 int ctx_supernodes(int argc, char **argv)
 {
-  size_t num_of_threads = 0;
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   int print_syntax = PRINT_FASTA;
@@ -243,14 +245,9 @@ int ctx_supernodes(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 'o':
-        if(out_path != NULL) cmd_print_usage(NULL);
-        out_path = optarg;
-        break;
-      case 't':
-        if(num_of_threads) die("%s set twice", cmd);
-        num_of_threads = cmd_uint32_nonzero(cmd, optarg);
-        break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'g': // --graphviz is the same as --dot, drop through case
@@ -268,7 +265,7 @@ int ctx_supernodes(int argc, char **argv)
 
   // Defaults for unset values
   if(out_path == NULL) out_path = "-";
-  if(num_of_threads == 0) num_of_threads = DEFAULT_NTHREADS;
+  if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
 
   if(optind >= argc) cmd_print_usage(NULL);
 
@@ -339,17 +336,17 @@ int ctx_supernodes(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  status("Printing supernodes using %zu threads", num_of_threads);
+  status("Printing supernodes using %zu threads", nthreads);
   size_t num_snodes;
 
   // dump supernodes
   if(print_syntax == PRINT_FASTA) {
-    num_snodes = print_all_supernodes(num_of_threads, fout,
+    num_snodes = print_all_supernodes(nthreads, fout,
                                       print_syntax, NULL,
                                       visited, &db_graph);
   }
   else {
-    num_snodes = print_dot_syntax(num_of_threads, fout,
+    num_snodes = print_dot_syntax(nthreads, fout,
                                   print_syntax, dot_use_points,
                                   visited, &db_graph);
   }

@@ -16,6 +16,7 @@ const char build_usage[] =
 "  Build a cortex graph.  \n"
 "\n"
 "  -h, --help               This help message\n"
+"  -f, --force              Overwrite output files\n"
 "  -m, --memory <mem>       Memory to use\n"
 "  -n, --nkmers <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
@@ -30,8 +31,8 @@ const char build_usage[] =
 "  -H, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -p, --remove-pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
 "  -P, --keep-pcr           Don't do PCR duplicate removal\n"
-"  -f,--FR -F,--FF          Mate pair orientation [default: FR] (for --keep_pcr)\n"
-"    -r,--RF -R--RR\n"
+"  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
+"                           (for --keep_pcr only)\n"
 "  -g, --graph <in.ctx>     Load samples from a graph file (.ctx)\n"
 "\n"
 "  Note: Argument must come before input file\n"
@@ -51,12 +52,14 @@ static struct option longopts[] =
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
+  {"force",        no_argument,       NULL, 'f'},
 // command specific
   {"kmer",         required_argument, NULL, 'k'},
   {"sample",       required_argument, NULL, 's'},
   {"seq",          required_argument, NULL, '1'},
   {"seq2",         required_argument, NULL, '2'},
   {"seqi",         required_argument, NULL, 'i'},
+  {"matepair",     required_argument, NULL, 'M'},
   {"fq-cutoff",    required_argument, NULL, 'Q'},
   {"fq-offset",    required_argument, NULL, 'q'},
   {"cut-hp",       required_argument, NULL, 'H'},
@@ -126,10 +129,11 @@ static void parse_args(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': cmd_check(nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(!nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'k': cmd_check(kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
       case 's':
         intocolour++;
         if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
@@ -148,10 +152,13 @@ static void parse_args(int argc, char **argv)
         task.colour = intocolour;
         add_task(&task);
         break;
-      case 'f': task.matedir = READPAIR_FR; pref_unused = true; break;
-      case 'F': task.matedir = READPAIR_FF; pref_unused = true; break;
-      case 'r': task.matedir = READPAIR_RF; pref_unused = true; break;
-      case 'R': task.matedir = READPAIR_RR; pref_unused = true; break;
+      case 'M':
+             if(!strcmp(optarg,"FF")) task.matedir = READPAIR_FF;
+        else if(!strcmp(optarg,"FR")) task.matedir = READPAIR_FR;
+        else if(!strcmp(optarg,"RF")) task.matedir = READPAIR_RF;
+        else if(!strcmp(optarg,"RR")) task.matedir = READPAIR_RR;
+        else die("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
+        pref_unused = true; break;
       case 'q': fq_offset = cmd_uint8(cmd, optarg); pref_unused = true; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
       case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
@@ -283,7 +290,8 @@ int ctx_build(int argc, char **argv)
 
   if(strcmp(out_path,"-") != 0)
   {
-    if(futil_file_exists(out_path)) die("Output file already exists: %s", out_path);
+    if(!!futil_get_force() && futil_file_exists(out_path))
+      die("Output file already exists: %s", out_path);
     if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
   }
 

@@ -21,10 +21,11 @@ const char subgraph_usage[] =
 "  for large (seed) graphs but means seed files cannot be pipes / sockets.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -f, --force           Overwrite output files\n"
+"  -o, --out <out.ctx>   Save output graph file [required]\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -o, --out <out.ctx>   Save output graph file [required]\n"
 //
 "  -N, --ncols <c>       How many colours to load at once [default: 1]\n"
 "  -1, --seq <seed.fa>   Read in a seed file [require at least one]\n"
@@ -38,10 +39,11 @@ static struct option longopts[] =
 {
 // General options
   {"help",         no_argument,       NULL, 'h'},
+  {"force",        no_argument,       NULL, 'f'},
+  {"out",          required_argument, NULL, 'o'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
-  {"out",          required_argument, NULL, 'o'},
 // command specific
   {"ncols",        required_argument, NULL, 'N'},
   {"seed",         required_argument, NULL, 's'},
@@ -75,20 +77,21 @@ int ctx_subgraph(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
-      case 't': cmd_check(nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 't': cmd_check(!nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'o': cmd_check(out_path != NULL, cmd); out_path = optarg; break;
-      case 'N': cmd_check(use_ncols,cmd); use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'N': cmd_check(!use_ncols,cmd); use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
       case '1':
       case 's':
         if((tmp_sfile = seq_open(optarg)) == NULL)
           die("Cannot read --seq file %s", optarg);
         seq_file_ptr_buf_add(&sfilebuf, tmp_sfile);
         break;
-      case 'd': cmd_check(dist,cmd); dist = cmd_uint32(cmd, optarg); break;
-      case 'v': cmd_check(invert,cmd); invert = true; break;
-      case 'S': cmd_check(grab_supernodes,cmd); grab_supernodes = true; break;
+      case 'd': cmd_check(!dist,cmd); dist = cmd_uint32(cmd, optarg); break;
+      case 'v': cmd_check(!invert,cmd); invert = true; break;
+      case 'S': cmd_check(!grab_supernodes,cmd); grab_supernodes = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -164,7 +167,8 @@ int ctx_subgraph(int argc, char **argv)
   if(out_path == NULL) out_path = "-";
 
   if(strcmp(out_path,"-") != 0) {
-    if(futil_file_exists(out_path)) die("File already exists: %s", out_path);
+    if(!futil_get_force() && futil_file_exists(out_path))
+      die("File already exists: %s", out_path);
     else if(!futil_is_file_writable(out_path)) die("Cannot write: %s", out_path);
   }
 

@@ -13,7 +13,7 @@
 typedef struct
 {
   dBGraph *const db_graph;
-  volatile size_t *rcounter; // counter of entries taken from the pool
+  size_t rcounter; // counter of entries taken from the pool
 } BuildGraphData;
 
 //
