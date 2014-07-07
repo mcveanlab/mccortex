@@ -1,7 +1,7 @@
 #ifndef CORRECT_ALN_INPUT_H_
 #define CORRECT_ALN_INPUT_H_
 
-#include "seq_output.h"
+#include "seqout.h"
 #include "cortex_types.h"
 #include "correct_alignment.h"
 #include "async_read_io.h"

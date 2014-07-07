@@ -256,7 +256,10 @@ int ctx_thread(int argc, char **argv)
              hdrs, gpfiles->len, &db_graph);
   gzclose(gzout);
 
+  // Optionally run path checks for debugging
   // gpath_checks_all_paths(&db_graph, args.nthreads);
+
+  // Close and free input files etc.
   read_thread_args_dealloc(&args);
   db_graph_dealloc(&db_graph);
 

@@ -37,37 +37,45 @@ void asyncio_task_parse(AsyncIOInput *task, char shortopt, char *path_arg,
   if(!se && !pe && !il)
     die("Unknown command argument: -%c", shortopt);
 
-  char *paths[3];
-  size_t npaths, exp_npaths;
-
-  npaths = string_split_str(path_arg, ':', paths, 3);
-  if(npaths == 1)
-    npaths = string_split_str(path_arg, ',', paths, 3);
-
-  exp_npaths = (pe ? 2 : 1) + (out_base != NULL ? 1 : 0);
-  if(npaths != exp_npaths) {
-    const char *in_str = (se || il) ? "<in>" : "<in1>:<in2>";
-    const char *out_str = out_base == NULL ? "" : ":<out>";
-    die("Expected -%c %s%s", shortopt, in_str, out_str);
+  if(!out_base && !pe) {
+    // Simple single input file
+    if((sf1 = seq_open(path_arg)) == NULL)
+      die("Cannot open -%c file: %s", shortopt, path_arg);
   }
+  else
+  {
+    char *paths[3];
+    size_t npaths, exp_npaths;
 
-  if(out_base != NULL)
-    out_base[0] = paths[pe ? 2 : 1];
+    npaths = string_split_str(path_arg, ':', paths, 3);
+    if(npaths == 1)
+      npaths = string_split_str(path_arg, ',', paths, 3);
 
-  if(pe) {
-    if((sf1 = seq_open(paths[0])) == NULL)
-      die("Cannot open %c file: %s", shortopt, paths[0]);
-    if((sf2 = seq_open(paths[1])) == NULL)
-      die("Cannot open %c file: %s", shortopt, paths[1]);
-  }
-  else {
-    if((sf1 = seq_open(paths[0])) == NULL)
-      die("Cannot open -%c file: %s", shortopt, paths[0]);
+    exp_npaths = (pe ? 2 : 1) + (out_base != NULL ? 1 : 0);
+    if(npaths != exp_npaths) {
+      const char *in_str = (se || il) ? "<in>" : "<in1>:<in2>";
+      const char *out_str = out_base == NULL ? "" : ":<out>";
+      die("Expected -%c %s%s", shortopt, in_str, out_str);
+    }
+
+    if(out_base != NULL)
+      out_base[0] = paths[pe ? 2 : 1];
+
+    if(pe) {
+      if((sf1 = seq_open(paths[0])) == NULL)
+        die("Cannot open %c file: %s", shortopt, paths[0]);
+      if((sf2 = seq_open(paths[1])) == NULL)
+        die("Cannot open %c file: %s", shortopt, paths[1]);
+    }
+    else {
+      if((sf1 = seq_open(paths[0])) == NULL)
+        die("Cannot open -%c file: %s", shortopt, paths[0]);
+    }
   }
 
   AsyncIOInput tmp = {.file1 = sf1, .file2 = sf2,
-                         .fq_offset = fq_offset, .interleaved = il,
-                         .ptr = NULL};
+                      .fq_offset = fq_offset, .interleaved = il,
+                      .ptr = NULL};
   memcpy(task, &tmp, sizeof(AsyncIOInput));
 }
 
@@ -75,6 +83,7 @@ void asyncio_task_close(AsyncIOInput *task)
 {
   if(task->file1 != NULL) seq_close(task->file1);
   if(task->file2 != NULL) seq_close(task->file2);
+  task->file1 = task->file2 = NULL;
 }
 
 void asynciodata_alloc(AsyncIOData *iod)

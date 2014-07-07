@@ -7,9 +7,8 @@
 #include "binary_kmer.h"
 #include "seq_reader.h"
 #include "graph_format.h"
+#include "seqout.h"
 #include "async_read_io.h"
-
-#include <libgen.h>
 
 const char reads_usage[] =
 "usage: "CMD" reads [options] <in.ctx>[:cols] [in2.ctx ...]\n"
@@ -56,11 +55,9 @@ typedef struct
 {
   // Set by command line parsing
   char *out_base;
-  bool is_pe;
-  char *out_path, *out_path1, *out_path2;
-  gzFile gzout, gzout1, gzout2;
 
-  pthread_mutex_t outlock;
+  // Write output
+  SeqOutput seqout;
 
   // Stats
   size_t num_of_reads_printed;
@@ -87,94 +84,6 @@ static char **gfile_paths = NULL;
 
 static volatile size_t read_counter = 0;
 
-static void input_clean_up(AlignReadsData *input, bool rm)
-{
-  // Clean up input
-  if(input->gzout != NULL) { gzclose(input->gzout); }
-  if(input->gzout1 != NULL) { gzclose(input->gzout1); }
-  if(input->gzout2 != NULL) { gzclose(input->gzout2); }
-  if(rm) {
-    if(input->gzout != NULL && unlink(input->out_path) != 0)
-      warn("Cannot delete file %s", input->out_path);
-    if(input->gzout1 != NULL && unlink(input->out_path1) != 0)
-      warn("Cannot delete file %s", input->out_path1);
-    if(input->gzout2 != NULL && unlink(input->out_path2) != 0)
-      warn("Cannot delete file %s", input->out_path2);
-  }
-  ctx_free(input->out_path);
-  ctx_free(input->out_path1);
-  ctx_free(input->out_path2);
-  pthread_mutex_destroy(&input->outlock);
-  memset(input, 0, sizeof(AlignReadsData));
-}
-
-static char* input_alloc_path(char *out_base, const char *suffix)
-{
-  size_t len1 = strlen(out_base), len2 = strlen(suffix);
-  char *path = ctx_malloc((len1+len2+1) * sizeof(char));
-  memcpy(path, out_base, len1);
-  memcpy(path+len1, suffix, len2);
-  path[len1+len2] = '\0';
-  return path;
-}
-
-static gzFile input_output_open(const char *path)
-{
-  gzFile gzout;
-
-  if(!futil_get_force() && futil_file_exists(path)) {
-    warn("Output file already exists: %s", path);
-    return NULL;
-  }
-
-  // dirname, basename may modify string, so make copy
-  char *pathcpy = strdup(path);
-  char *fname = basename(pathcpy);
-
-  if(path[0] == '\0' || path[strlen(path)-1] == '\0' ||
-     fname[0] == '/' || fname[0] == '.')
-  {
-    warn("Bad output name: %s", path);
-    free(pathcpy);
-    return NULL;
-  }
-
-  strcpy(pathcpy, path);
-  char *dir = dirname(pathcpy);
-  futil_mkpath(dir, 0777);
-  free(pathcpy);
-
-  if((gzout = gzopen(path, "w")) == NULL) {
-    warn("Cannot open %s", path);
-    return NULL;
-  }
-
-  // Set buffer size
-  #if ZLIB_VERNUM >= 0x1240
-    gzbuffer(gzout, DEFAULT_IO_BUFSIZE);
-  #endif
-
-  return gzout;
-}
-
-static bool input_paths_init(AlignReadsData *input)
-{
-  input->out_path = input->out_path1 = input->out_path2 = NULL;
-
-  input->out_path = input_alloc_path(input->out_base, input->use_fq ? ".fq.gz" : ".fa.gz");
-  if((input->gzout = input_output_open(input->out_path)) == NULL) return false;
-
-  if(input->is_pe) {
-    input->out_path1 = input_alloc_path(input->out_base, input->use_fq ? ".1.fq.gz" : ".1.fa.gz");
-    input->out_path2 = input_alloc_path(input->out_base, input->use_fq ? ".2.fq.gz" : ".2.fa.gz");
-    if((input->gzout1 = input_output_open(input->out_path1)) == NULL) return false;
-    if((input->gzout2 = input_output_open(input->out_path2)) == NULL) return false;
-  }
-
-  if(pthread_mutex_init(&input->outlock, NULL) != 0) die("Mutex init failed");
-
-  return true;
-}
 
 static void parse_args(int argc, char **argv)
 {
@@ -210,7 +119,6 @@ static void parse_args(int argc, char **argv)
         memset(&input, 0, sizeof(input));
         memset(&seqfiles, 0, sizeof(seqfiles));
         asyncio_task_parse(&seqfiles, c, optarg, 0, &input.out_base);
-        input.is_pe = (c == '2' || c == 'i');
         aln_reads_buf_add(&inputs, input);
         asyncio_buf_add(&files, seqfiles);
         break;
@@ -221,6 +129,8 @@ static void parse_args(int argc, char **argv)
       default: abort();
     }
   }
+
+  ctx_assert(inputs.len == files.len);
 
   // Defaults
   if(!nthreads) nthreads = DEFAULT_NTHREADS;
@@ -250,12 +160,15 @@ static void inputs_attempt_open()
   bool err_occurred = false;
   size_t i;
 
-  for(i = 0; i < inputs.len && !err_occurred; i++)
-    err_occurred = !input_paths_init(&inputs.data[i]);
+  for(i = 0; i < inputs.len && !err_occurred; i++) {
+    AlignReadsData *input = &inputs.data[i];
+    err_occurred = !seqout_open(&input->seqout, input->out_base, input->use_fq,
+                                asyncio_task_is_pe(&files.data[i]));
+  }
 
   if(err_occurred) {
     for(i = 0; i < inputs.len; i++)
-      input_clean_up(&inputs.data[i], true);
+      seqout_close(&inputs.data[i].seqout, true);
     die("Error creating output files");
   }
 }
@@ -306,12 +219,6 @@ static bool read_touches_graph(const read_t *r, const dBGraph *db_graph,
   return found;
 }
 
-static inline void print_read(const read_t *r, bool use_fq, gzFile gzout)
-{
-  if(use_fq) seq_gzprint_fastq(r, gzout, 0);
-  else       seq_gzprint_fasta(r, gzout, 0);
-}
-
 void filter_reads(AsyncIOData *data, void *arg)
 {
   (void)arg;
@@ -320,24 +227,15 @@ void filter_reads(AsyncIOData *data, void *arg)
   const dBGraph *db_graph = input->db_graph;
   LoadingStats *stats = input->stats;
 
-  ctx_assert2(r2 == NULL || input->is_pe, "%p %i", r2, (int)input->is_pe);
+  ctx_assert2(r2 == NULL || input->seqout.is_pe,
+              "Were not expecting r2: %p %i", r2, (int)input->seqout.is_pe);
 
   bool touches_graph = read_touches_graph(r1, db_graph, stats) ||
                        (r2 != NULL && read_touches_graph(r2, db_graph, stats));
 
   if(touches_graph != input->invert)
   {
-    pthread_mutex_lock(&input->outlock);
-
-    if(r2 == NULL) {
-      print_read(r1, input->use_fq, input->gzout);
-    } else {
-      print_read(r1, input->use_fq, input->gzout1);
-      print_read(r2, input->use_fq, input->gzout2);
-    }
-
-    pthread_mutex_unlock(&input->outlock);
-
+    seqout_print(&input->seqout, r1, r2);
     input->num_of_reads_printed += 1 + (r2 != NULL);
   }
 
@@ -431,7 +329,7 @@ int ctx_reads(int argc, char **argv)
     total_reads_printed += inputs.data[i].num_of_reads_printed;
 
   for(i = 0; i < inputs.len; i++) {
-    input_clean_up(&inputs.data[i], false);
+    seqout_close(&inputs.data[i].seqout, false);
     asyncio_task_close(&files.data[i]);
   }
 

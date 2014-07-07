@@ -24,7 +24,7 @@ typedef struct
   uint8_t fq_offset1, fq_offset2;
 } AsyncIOData;
 
-#define async_task_pe_output(a) ((a)->file2 != NULL || (a)->interleaved)
+#define asyncio_task_is_pe(a) ((a)->file2 != NULL || (a)->interleaved)
 
 // if out_base != NULL, we expect an output string as well:
 //   -1, --seq <in>:<out>

@@ -23,9 +23,9 @@ const char correct_usage[] =
 "  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
 "\n"
 "  Input:\n"
-"  -1, --seq <in:out>       Correct reads from file (supports sam,bam,fq,*.gz\n"
-"  -2, --seq2 <in1:in2:out> Correct paired end sequences (output: <out>.{1,2}.fa.gz)\n"
-"  -i, --seqi <in.bam:out>  Correct PE reads from a single file\n"
+"  -1, --seq <in:out>       Correct reads (output: <out>.fa.gz)\n"
+"  -2, --seq2 <in1:in2:out> Correct reads (output: <out>{,.1,.2}.fa.gz)\n"
+"  -i, --seqi <in.bam:out>  Correct reads (output: <out>{,.1,.2}.fa.gz)\n"
 "  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
 "  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
 "  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
@@ -93,7 +93,7 @@ static struct option longopts[] =
 
 int ctx_correct(int argc, char **argv)
 {
-  size_t i, j;
+  size_t i;
   struct ReadThreadCmdArgs args = READ_THREAD_CMD_ARGS_INIT;
   read_thread_args_alloc(&args);
   read_thread_args_parse(&args, argc, argv, longopts, true);
@@ -156,33 +156,23 @@ int ctx_correct(int argc, char **argv)
   //
   // Open output files
   SeqOutput *outputs = ctx_calloc(inputs->len, sizeof(SeqOutput));
-  bool output_files_exist = false;
+  bool err_occurred = false;
 
-  for(i = 0; i < inputs->len; i++)
+  for(i = 0; i < inputs->len && !err_occurred; i++)
   {
     CorrectAlnInput *input = &inputs->data[i];
     input->crt_params.ctxcol = input->crt_params.ctpcol = args.colour;
-    SeqOutput *output = &outputs[i];
-    seq_output_alloc(output);
-    seq_output_set_paths(output, input->out_base,
-                         async_task_pe_output(&input->files));
-    input->output = output;
-
-    // output check prints warnings and returns true if errors
-    if(!futil_get_force())
-      output_files_exist |= seq_output_files_exist_check(output);
+    bool is_pe = asyncio_task_is_pe(&input->files);
+    bool use_fq = false; // Always print with FASTA format
+    err_occurred = !seqout_open(&outputs[i], input->out_base, use_fq, is_pe);
+    input->output = &outputs[i];
   }
 
   // Abandon if some of the output files already exist
-  if(output_files_exist) die("Output files already exist");
-
-  // Attempt to open all files
-  for(i = 0; i < inputs->len && seq_output_open(&outputs[i]); i++) {}
-
-  // Check if something went wrong - if so remove all output files
-  if(i < inputs->len) {
-    for(j = 0; j < i; j++) seq_output_delete(&outputs[i]);
-    die("Couldn't open output files");
+  if(err_occurred) {
+    for(i = 0; i < inputs->len; i++)
+      seqout_close(&outputs[i], true);
+    die("Error creating output files");
   }
 
   //
@@ -229,9 +219,11 @@ int ctx_correct(int argc, char **argv)
                 args.nthreads, &db_graph);
 
   // Close and free output files
-  for(i = 0; i < inputs->len; i++) seq_output_dealloc(&outputs[i]);
+  for(i = 0; i < inputs->len; i++)
+    seqout_close(&outputs[i], false);
   ctx_free(outputs);
 
+  // Closes input files
   read_thread_args_dealloc(&args);
   db_graph_dealloc(&db_graph);
 
