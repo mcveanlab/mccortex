@@ -65,10 +65,6 @@ static struct option longopts[] =
   {"cut-hp",       required_argument, NULL, 'H'},
   {"remove-pcr",   no_argument,       NULL, 'p'},
   {"keep-pcr",     no_argument,       NULL, 'P'},
-  {"FR",           no_argument,       NULL, 'f'},
-  {"FF",           no_argument,       NULL, 'F'},
-  {"RF",           no_argument,       NULL, 'r'},
-  {"RR",           no_argument,       NULL, 'R'},
   {"graph",        required_argument, NULL, 'g'},
   {NULL, 0, NULL, 0}
 };
@@ -290,7 +286,7 @@ int ctx_build(int argc, char **argv)
 
   if(strcmp(out_path,"-") != 0)
   {
-    if(!!futil_get_force() && futil_file_exists(out_path))
+    if(!futil_get_force() && futil_file_exists(out_path))
       die("Output file already exists: %s", out_path);
     if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
   }
