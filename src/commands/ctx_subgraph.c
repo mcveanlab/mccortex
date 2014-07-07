@@ -21,6 +21,7 @@ const char subgraph_usage[] =
 "  for large (seed) graphs but means seed files cannot be pipes / sockets.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
 "  -f, --force           Overwrite output files\n"
 "  -o, --out <out.ctx>   Save output graph file [required]\n"
 "  -m, --memory <mem>    Memory to use\n"

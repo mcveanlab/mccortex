@@ -137,11 +137,13 @@ static const char options[] =
 "  Type a command with no arguments to see help.\n"
 "\n"
 "Common Options:\n"
+"  -h, --help            Help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
+"  -f, --force           Overwrite output files if they already exist\n"
 "  -m, --memory <M>      Memory e.g. 1GB [default: 1GB]\n"
 "  -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
 "  -t, --threads <T>     Limit on proccessing threads [default: 2]\n"
 "  -o, --out <file>      Output file\n"
-"  -f, --force           Overwrite output files if they already exist\n"
 "  -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
 "\n";
 
@@ -198,18 +200,6 @@ static const CtxCmd* ctx_get_command(const char* cmd)
   return NULL;
 }
 
-// Print status updates:
-// [cmd] ...
-// [cwd] ...
-// [version] ...
-static void print_status_header()
-{
-  // Print 1) command used 2) current working directory 3) version info
-  status("[cmd] %s", cmd_get_cmdline());
-  status("[cwd] %s", cmd_get_cwd());
-  status("[version] "VERSION_STATUS_STR"");
-}
-
 int main(int argc, char **argv)
 {
   time_t start, end;
@@ -229,8 +219,21 @@ int main(int argc, char **argv)
   // If no arguments after command, print help
   if(argc == 2) cmd_print_usage(NULL);
 
+  // Look for -q, --quiet argument, if given silence output
+  int argi = 1;
+  while(argi < argc && !(!strcmp(argv[argi],"-q") || !strcmp(argv[argi],"--quiet")))
+    argi++;
+
+  if(argi < argc) {
+    // Found -q, --quiet argument
+    ctx_msg_out = NULL;
+    // Remove argument
+    for(--argc; argi < argc; argi++)
+      argv[argi] = argv[argi+1];
+  }
+
   // Print status header
-  print_status_header();
+  cmd_print_status_header();
 
   SWAP(argv[1],argv[0]);
   int ret = cmd->func(argc-1, argv+1);

@@ -39,6 +39,7 @@ const char breakpoints_usage[] =
 "  Use trusted assembled genome to call large events.  Output is gzipped.\n"
 "\n"
 "  -h, --help              This help message\n"
+"  -q, --quiet             Silence status output normally printed to STDERR\n"
 "  -f, --force             Overwrite output files\n"
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"

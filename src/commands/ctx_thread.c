@@ -19,6 +19,7 @@ const char thread_usage[] =
 "  are loaded from <in.ctx> files one at a time.\n"
 "\n"
 "  -h, --help               This help message\n"
+"  -q, --quiet              Silence status output normally printed to STDERR\n"
 "  -f, --force              Overwrite output files\n"
 "  -o, --out <out.ctp.gz>   Save output file [required]\n"
 "  -m, --memory <mem>       Memory to use (e.g. 1M, 20GB)\n"
@@ -31,8 +32,8 @@ const char thread_usage[] =
 "  -2, --seq2 <in1:in2>     Thread paired end sequences\n"
 "  -i, --seqi <in.bam>      Thread PE reads from a single file\n"
 "  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
-"  -Q, --fq-threshold <Q>   Filter quality scores [default: 0 (off)]\n"
-"  -q, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -Q, --fq-cutoff <Q>      Filter quality scores [default: 0 (off)]\n"
+"  -O, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -l, --frag-len-min <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
 "  -L, --frag-len-max <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
@@ -73,7 +74,7 @@ static struct option longopts[] =
   {"seqi",          required_argument, NULL, 'i'},
   {"matepair",      required_argument, NULL, 'M'},
   {"fq-cutoff",     required_argument, NULL, 'Q'},
-  {"fq-offset",     required_argument, NULL, 'q'},
+  {"fq-offset",     required_argument, NULL, 'O'},
   {"cut-hp",        required_argument, NULL, 'H'},
   {"min-frag-len",  required_argument, NULL, 'l'},
   {"max-frag-len",  required_argument, NULL, 'L'},

@@ -14,6 +14,7 @@ const char health_usage[] =
 "  Load a graph into memory along with any path files to check they are valid.\n"
 "\n"
 "  -h, --help             This help message\n"
+"  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"

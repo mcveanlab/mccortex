@@ -15,6 +15,7 @@ const char clean_usage[] =
 "  If neither -t or -s specified, just saves output statistics.\n"
 "\n"
 "  -h, --help                  This help message\n"
+"  -q, --quiet                 Silence status output normally printed to STDERR\n"
 "  -f, --force                 Overwrite output files\n"
 "  -o, --out <out.ctx>         Save output graph file [required]\n"
 "  -m, --memory <mem>          Memory to use\n"

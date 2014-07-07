@@ -19,6 +19,7 @@ const char bubbles_usage[] =
 "  Find bubbles in the graph, which are potential variants.\n"
 "\n"
 "  -h, --help              This help message\n"
+"  -q, --quiet             Silence status output normally printed to STDERR\n"
 "  -f, --force             Overwrite output files\n"
 "  -o, --out <bub.txt.gz>  Output file [required]\n"
 "  -m, --memory <mem>      Memory to use\n"

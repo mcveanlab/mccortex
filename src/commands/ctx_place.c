@@ -26,6 +26,7 @@ const char place_usage[] =
 "  Align calls to a reference genome.\n"
 "\n"
 "  -h, --help             This help message\n"
+"  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -o, --out <out.vcf>    Output file [default: STDOUT]\n"
 "  -Q, --minmapq <mapq>   Flank must map with MAPQ >= <mapq> [default: 30]\n"
 "\n"

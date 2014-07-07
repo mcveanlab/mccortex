@@ -7,6 +7,7 @@
 
 const char *cmd_usage = NULL;
 char *cmd_line_given = NULL, *cmd_cwd = NULL;
+bool printed_header = false; // If we have called cmd_print_status_header()
 
 void cmd_init(int argc, char **argv)
 {
@@ -29,6 +30,19 @@ void cmd_set_usage(const char *usage) { cmd_usage = usage; }
 const char* cmd_get_usage() { return cmd_usage; }
 const char* cmd_get_cmdline() { return cmd_line_given; }
 const char* cmd_get_cwd() { return cmd_cwd; }
+
+// Print status updates:
+// [cmd] ...
+// [cwd] ...
+// [version] ...
+void cmd_print_status_header()
+{
+  // Print 1) command used 2) current working directory 3) version info
+  printed_header |= (ctx_msg_out != NULL);
+  status("[cmd] %s", cmd_get_cmdline());
+  status("[cwd] %s", cmd_get_cwd());
+  status("[version] "VERSION_STATUS_STR"");
+}
 
 void cmd_get_longopt_str(const struct option *longs, char shortopt,
                          char *cmd, size_t buflen)
@@ -160,6 +174,11 @@ char* cmd_concat_args(int argc, char **argv)
 
 void cmd_print_usage(const char *errfmt,  ...)
 {
+  ctx_msg_out = stderr;
+
+  if(!printed_header)
+    cmd_print_status_header();
+
   pthread_mutex_lock(&ctx_biglock); // lock is never released
 
   if(errfmt != NULL) {

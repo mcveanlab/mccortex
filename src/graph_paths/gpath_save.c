@@ -160,7 +160,7 @@ static inline void _gpath_save_flush(gzFile gzout, StrBuf *sbuf,
                                      pthread_mutex_t *outlock)
 {
   pthread_mutex_lock(outlock);
-  gzputs(gzout, sbuf->buff);
+  gzwrite(gzout, sbuf->buff, sbuf->len);
   pthread_mutex_unlock(outlock);
   strbuf_reset(sbuf);
 }

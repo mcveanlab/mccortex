@@ -22,6 +22,12 @@ const char* cmd_get_usage();
 const char* cmd_get_cmdline();
 const char* cmd_get_cwd();
 
+// Print status updates:
+// [cmd] ...
+// [cwd] ...
+// [version] ...
+void cmd_print_status_header();
+
 //
 // General argument parsing
 //

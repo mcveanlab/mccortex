@@ -14,6 +14,7 @@ const char supernodes_usage[] =
 "  Print supernodes with k-1 bases of overlap.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
 "  -f, --force           Overwrite output files\n"
 "  -o, --out <out.txt>   Save output graph file [default: STDOUT]\n"
 "  -m, --memory <mem>    Memory to use\n"

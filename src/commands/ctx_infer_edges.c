@@ -18,6 +18,7 @@ const char inferedges_usage[] =
 "  It is important that you run this step before doing read threading.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
 "  -f, --force           Overwrite output files\n"
 "  -o, --out <out.ctp>   Save output file\n"
 "  -m, --memory <mem>    Memory to use (e.g. 1M, 20GB)\n"

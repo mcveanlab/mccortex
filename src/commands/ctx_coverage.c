@@ -14,6 +14,7 @@ const char coverage_usage[] =
 "  Print contig coverage\n"
 "\n"
 "  -h, --help           This help message\n"
+"  -q, --quiet          Silence status output normally printed to STDERR\n"
 "  -f, --force          Overwrite output files\n"
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"

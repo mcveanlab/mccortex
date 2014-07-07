@@ -49,6 +49,6 @@ merge.gaps.txt: merge.gaps.use1.ctx
 	$(CTX) view --kmers merge.gaps.use1.ctx | sort > merge.gaps.txt
 
 clean:
-	rm -rf $(TGTS) $(TXT)
+	rm -rf $(TGTS) $(TXT) seq*.fa
 
 .PHONY: all clean

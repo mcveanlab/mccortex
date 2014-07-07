@@ -11,6 +11,7 @@ const char rmsubstr_usage[] =
 "  Remove duplicate sequences and those that occur as substrings of others.\n"
 "\n"
 "  -h, --help            This help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
 "  -f, --force           Overwrite output files\n"
 "  -o, --out <out.txt>   Save output [default: STDOUT]\n"
 "  -m, --memory <mem>    Memory to use\n"

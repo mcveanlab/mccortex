@@ -83,7 +83,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         else if(!strcmp(optarg,"RR")) task.matedir = READPAIR_RR;
         else die("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
         used = 0; break;
-      case 'q': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
+      case 'O': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); used = 0; break;
       case 'l': task.crt_params.frag_len_min = cmd_uint32(cmd, optarg); used = 0; break;

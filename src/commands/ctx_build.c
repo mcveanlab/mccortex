@@ -16,6 +16,7 @@ const char build_usage[] =
 "  Build a cortex graph.  \n"
 "\n"
 "  -h, --help               This help message\n"
+"  -q, --quiet              Silence status output normally printed to STDERR\n"
 "  -f, --force              Overwrite output files\n"
 "  -m, --memory <mem>       Memory to use\n"
 "  -n, --nkmers <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
@@ -26,8 +27,8 @@ const char build_usage[] =
 "  -1, --seq <in.fa>        Load sequence data\n"
 "  -2, --seq2 <in1:in2>     Load paired end sequence data\n"
 "  -i, --seqi <in.bam>      Load paired end sequence from a single file\n"
-"  -Q, --fq_threshold <Q>   Filter quality scores [default: 0 (off)]\n"
-"  -q, --fq_offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
+"  -Q, --fq-cutoff <Q>      Filter quality scores [default: 0 (off)]\n"
+"  -O, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
 "  -p, --remove-pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
 "  -P, --keep-pcr           Don't do PCR duplicate removal\n"
@@ -61,7 +62,7 @@ static struct option longopts[] =
   {"seqi",         required_argument, NULL, 'i'},
   {"matepair",     required_argument, NULL, 'M'},
   {"fq-cutoff",    required_argument, NULL, 'Q'},
-  {"fq-offset",    required_argument, NULL, 'q'},
+  {"fq-offset",    required_argument, NULL, 'O'},
   {"cut-hp",       required_argument, NULL, 'H'},
   {"remove-pcr",   no_argument,       NULL, 'p'},
   {"keep-pcr",     no_argument,       NULL, 'P'},
@@ -155,7 +156,7 @@ static void parse_args(int argc, char **argv)
         else if(!strcmp(optarg,"RR")) task.matedir = READPAIR_RR;
         else die("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
         pref_unused = true; break;
-      case 'q': fq_offset = cmd_uint8(cmd, optarg); pref_unused = true; break;
+      case 'O': fq_offset = cmd_uint8(cmd, optarg); pref_unused = true; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
       case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
       case 'p': task.remove_pcr_dups = true; pref_unused = true; break;

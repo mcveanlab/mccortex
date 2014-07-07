@@ -14,6 +14,7 @@ const char pjoin_usage[] =
 "  Merge cortex path files.\n"
 "\n"
 "  -h, --help             This help message\n"
+"  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -f, --force            Overwrite output files\n"
 "  -o, --out <out.ctp>    Output file [required]\n"
 "  -m, --memory <mem>     Memory to use (required) recommend 80G for human\n"
@@ -21,7 +22,7 @@ const char pjoin_usage[] =
 "  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
 "  -g, --graph <in.ctx>   Get number of hash table entries from graph file\n"
-"  -O, --overlap          Merge corresponding colours from each graph file\n"
+"  -O, --overlap          Load first colour from each file into colour 0\n"
 "  -F, --flatten          Dump into a single colour graph\n"
 "  -c, --outcols <C>      How many 'colours' should the output file have\n"
 "  -r, --noredundant      Remove redundant paths\n"

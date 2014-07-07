@@ -109,9 +109,9 @@ int ctx_view(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" view -h` for help. Bad option: %s", argv[optind-1]);
+        cmd_print_usage("`"CMD" view -h` for help. Bad option: %s", argv[optind-1]);
       default:
-        die("Programmer fail. Tell Isaac.");
+        cmd_print_usage("Programmer fail. Tell Isaac.");
     }
   }
 
