@@ -17,11 +17,12 @@ typedef struct {
   gzFile gzout_se, gzout_pe[2];
   pthread_mutex_t lock_se, lock_pe;
   bool is_pe; // if we have X.{1,2}.fq.gz as well as X.fq.gz
-  bool use_fq; // .fa.gz or .fq.gz
+  seq_format fmt; // output format
 } SeqOutput;
 
 // Returns true on success, false on failure
-bool seqout_open(SeqOutput *seqout, char *out_base, bool use_fq, bool is_pe);
+// fmt may be: SEQ_FMT_FASTQ, SEQ_FMT_FASTA, SEQ_FMT_PLAIN
+bool seqout_open(SeqOutput *seqout, char *out_base, seq_format fmt, bool is_pe);
 
 // Free memory
 // @rm if true, delete files as well

@@ -127,10 +127,17 @@ bool mem_to_integer(const char *arg, size_t *bytes)
 
 /* Formating Numbers */
 
-unsigned int num_of_digits(unsigned long num)
+size_t num_of_digits(size_t num)
 {
-  unsigned int digits;
-  for(digits = 1; num >= 10; digits++) num /= 10;
+  size_t digits = 1;
+  while(1) {
+    if(num < 10) return digits;
+    if(num < 100) return digits+1;
+    if(num < 1000) return digits+2;
+    if(num < 10000) return digits+3;
+    num /= 10000;
+    digits += 4;
+  }
   return digits;
 }
 

@@ -163,7 +163,8 @@ static void inputs_attempt_open()
 
   for(i = 0; i < inputs.len && !err_occurred; i++) {
     AlignReadsData *input = &inputs.data[i];
-    err_occurred = !seqout_open(&input->seqout, input->out_base, input->use_fq,
+    err_occurred = !seqout_open(&input->seqout, input->out_base,
+                                input->use_fq ? SEQ_FMT_FASTQ : SEQ_FMT_FASTQ,
                                 asyncio_task_is_pe(&files.data[i]));
   }
 

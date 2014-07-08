@@ -43,7 +43,7 @@ bool bases_to_integer(const char *arg, size_t *bases);
 bool mem_to_integer(const char *arg, size_t *bytes);
 
 
-unsigned int num_of_digits(unsigned long num);
+size_t num_of_digits(size_t num);
 
 // result must be long enough for result + 1 ('\0'). Max length required is:
 // strlen('18,446,744,073,709,551,615')+1 = 27 bytes

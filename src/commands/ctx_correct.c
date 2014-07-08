@@ -159,13 +159,13 @@ int ctx_correct(int argc, char **argv)
   SeqOutput *outputs = ctx_calloc(inputs->len, sizeof(SeqOutput));
   bool err_occurred = false;
 
+  // Always print with FASTA format
   for(i = 0; i < inputs->len && !err_occurred; i++)
   {
     CorrectAlnInput *input = &inputs->data[i];
     input->crt_params.ctxcol = input->crt_params.ctpcol = args.colour;
     bool is_pe = asyncio_task_is_pe(&input->files);
-    bool use_fq = false; // Always print with FASTA format
-    err_occurred = !seqout_open(&outputs[i], input->out_base, use_fq, is_pe);
+    err_occurred = !seqout_open(&outputs[i], input->out_base, SEQ_FMT_FASTQ, is_pe);
     input->output = &outputs[i];
   }
 

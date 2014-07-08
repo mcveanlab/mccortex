@@ -45,17 +45,23 @@ void loading_stats_print_summary(const LoadingStats *stats, size_t ht_num_kmers)
   status("[SeqStats] single reads: %s; read pairs: %s; total: %s",
          se_num_str, pe_num_str, sepe_num_str);
 
+  char nkmers_parsed_str[50], nkmers_loaded_str[50], nkmers_ht_str[50];
+  ulong_to_str(stats->num_kmers_parsed, nkmers_parsed_str);
+  ulong_to_str(stats->num_kmers_loaded, nkmers_loaded_str);
+  ulong_to_str(ht_num_kmers,            nkmers_ht_str);
+
   // Estimate coverage
-  if(ht_num_kmers > 0) {
+  if(ht_num_kmers > 0)
+  {
     double covg      = (double)stats->num_kmers_parsed / ht_num_kmers;
     double covg_inf  = (double)stats->num_kmers_loaded / ht_num_kmers;
-    status("[SeqStats] Input coverage: %.2fX (%zu / %zu) reconstructed: %.2fX (%zu / %zu)",
-           covg,     stats->num_kmers_parsed, ht_num_kmers,
-           covg_inf, stats->num_kmers_loaded, ht_num_kmers);
+    status("[SeqStats] Input coverage: %.2fX (%s / %s) reconstructed: %.2fX (%s / %s)",
+           covg,     nkmers_parsed_str, nkmers_ht_str,
+           covg_inf, nkmers_loaded_str, nkmers_ht_str);
   }
   else {
     status("[SeqStats] Input kmers: %zu reconstructed: %zu",
-           stats->num_kmers_parsed, stats->num_kmers_loaded);
+           nkmers_parsed_str, nkmers_loaded_str);
   }
 
   if(stats->contigs_loaded > 0) {
