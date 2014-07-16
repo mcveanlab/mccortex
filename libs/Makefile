@@ -2,7 +2,8 @@
 # make all      <- compile all libraries
 # make clean    <- clean all libraries
 
-UPDATE=htslib bcftools vcflib string_buffer bit_array seq_file seq-align \
+UPDATE=htslib bcftools samtools vcflib \
+       string_buffer bit_array seq_file seq-align \
        readsim msg-pool sort_r misc bioinf-perl
 
 ALLTGTS=$(UPDATE) gsl
@@ -22,10 +23,13 @@ gsl-1.16/configure:
 	cd gsl-1.16; ./configure; make
 
 htslib/Makefile:
-	git clone --branch 'bcftools+calling' git://github.com/samtools/htslib.git htslib
+	git clone --branch develop git://github.com/samtools/htslib.git htslib
 
 bcftools/Makefile:
-	git clone https://github.com/samtools/bcftools.git
+	git clone --branch develop https://github.com/samtools/bcftools.git
+
+samtools/Makefile:
+	git clone --branch develop https://github.com/samtools/samtools.git
 
 vcflib/Makefile:
 	git clone --recursive https://github.com/ekg/vcflib.git
@@ -66,6 +70,9 @@ htslib: htslib/Makefile
 bcftools: htslib bcftools/Makefile
 	cd bcftools && git pull && make
 
+samtools: htslib samtools/Makefile
+	cd samtools && git pull && make
+
 vcflib: vcflib/Makefile
 	cd vcflib && git pull && make
 
@@ -103,6 +110,7 @@ clean:
 	# [ -d gsl-1.16 ] && cd gsl-1.16 && make clean
 	[ -d htslib ] && cd htslib && make clean
 	[ -d bcftools ] && cd bcftools && make clean
+	[ -d samtools ] && cd samtools && make clean
 	[ -d vcflib ] && cd vcflib && make clean
 	[ -d string_buffer ] && cd string_buffer && make clean
 	[ -d bit_array ] && cd bit_array && make clean
