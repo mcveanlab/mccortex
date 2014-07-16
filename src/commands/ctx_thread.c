@@ -46,8 +46,8 @@ const char thread_usage[] =
 "  -X, --max-context        Number of kmers to use either side of a gap\n"
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
-"  -G, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
-"  -F, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
+"  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
+"  -G, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
 "\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
@@ -86,8 +86,8 @@ static struct option longopts[] =
   {"max-context",   required_argument, NULL, 'X'},
   {"end-check",     no_argument,       NULL, 'e'},
   {"no-end-check",  no_argument,       NULL, 'E'},
-  {"gap-hist",      required_argument, NULL, 'G'},
-  {"frag-hist",     required_argument, NULL, 'F'},
+  {"gap-hist",      required_argument, NULL, 'g'},
+  {"frag-hist",     required_argument, NULL, 'G'},
 //
   {"use-new-paths", required_argument, NULL, 'u'},
 // Debug options

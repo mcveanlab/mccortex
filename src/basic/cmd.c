@@ -2,6 +2,7 @@
 #include "cmd.h"
 #include "util.h"
 #include "file_util.h"
+#include "seqout.h"
 
 #include <ctype.h>
 
@@ -149,6 +150,14 @@ size_t cmd_parse_arg_mem(const char *cmd, const char *arg)
   if(!mem_to_integer(arg, &mem))
     cmd_print_usage("%s %s valid options: 1024 2MB 1G", cmd, arg);
   return mem;
+}
+
+seq_format cmd_parse_format(const char *cmd, const char *arg)
+{
+  int tmp = seqout_str2fmt(optarg);
+  if(tmp != SEQ_FMT_FASTQ && tmp != SEQ_FMT_FASTA && tmp != SEQ_FMT_PLAIN)
+    cmd_print_usage("Invalid %s {FASTA,FASTQ,PLAIN} option: %s", cmd, arg);
+  return (seq_format)tmp;
 }
 
 // Remember to free return value

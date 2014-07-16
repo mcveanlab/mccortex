@@ -3,6 +3,8 @@
 
 #include <getopt.h> // struct option
 
+#include "seq_file.h"
+
 // Constants
 
 #define CTXCMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
@@ -49,6 +51,8 @@ int32_t cmd_int32(const char *cmd, const char *arg);
 uint32_t cmd_uint32(const char *cmd, const char *arg);
 uint32_t cmd_uint32_nonzero(const char *cmd, const char *arg);
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
+
+seq_format cmd_parse_format(const char *cmd, const char *arg);
 
 // Remember to free return value
 char* cmd_concat_args(int argc, char **argv);

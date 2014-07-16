@@ -45,6 +45,8 @@ static gzFile _seqout_open(const char *path)
 }
 
 // Returns true on success, false on failure
+// fmt may be: SEQ_FMT_FASTQ, SEQ_FMT_FASTA, SEQ_FMT_PLAIN
+// file extensions are: <O>.fq.gz, <O>.fa.gz, <O>.txt.gz
 bool seqout_open(SeqOutput *seqout, char *out_base, seq_format fmt, bool is_pe)
 {
   memset(seqout, 0, sizeof(SeqOutput));
@@ -103,7 +105,9 @@ void seqout_close(SeqOutput *seqout, bool rm)
 #define print_read(r,fmt,gzout)                                                \
 do {                                                                           \
   switch(fmt) {                                                                \
-    case SEQ_FMT_PLAIN: gzputs(gzout, r->seq.b); gzputc(gzout, '\n'); break;   \
+    case SEQ_FMT_PLAIN:                                                        \
+      gzwrite(gzout, r->seq.b, r->seq.end);                                    \
+      gzputc(gzout, '\n'); break;                                              \
     case SEQ_FMT_FASTA: seq_gzprint_fasta(r, gzout, 0); break;                 \
     case SEQ_FMT_FASTQ: seq_gzprint_fastq(r, gzout, 0); break;                 \
     default: die("Invalid output format: %i", fmt);                            \

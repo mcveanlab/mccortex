@@ -27,7 +27,7 @@ const char correct_usage[] =
 "  -1, --seq <in:out>       Correct reads (output: <out>.fa.gz)\n"
 "  -2, --seq2 <in1:in2:out> Correct reads (output: <out>{,.1,.2}.fa.gz)\n"
 "  -i, --seqi <in.bam:out>  Correct reads (output: <out>{,.1,.2}.fa.gz)\n"
-// "  -F, --format <f>         Output format, may be: FASTA or FASTQ\n"
+"  -F, --format <f>         Output format may be: FASTA or FASTQ\n"
 "  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
 "  -Q, --fq-cutoff <Q>      Filter quality scores [default: 0 (off)]\n"
 "  -O, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
@@ -43,13 +43,14 @@ const char correct_usage[] =
 "  -X, --max-context        Number of kmers to use either side of a gap\n"
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
-"  -G, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
-"  -F, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n" // change to -H
+"  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
+"  -G, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
 "\n"
 "  -c, --colour <in:out>    Correct reads from file (supports sam,bam,fq,*.gz\n"
 "\n"
-" --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
-" --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n"
+"  Output is <O>.fq.gz for FASTQ, <O>.fa.gz for FASTA, <O>.txt.gz for plain\n"
+"  --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
+"  --seq must come AFTER two/oneway options. Output may be slightly shuffled.\n"
 "\n";
 
 static struct option longopts[] =
@@ -66,6 +67,7 @@ static struct option longopts[] =
   {"seq2",          required_argument, NULL, '2'},
   {"seqi",          required_argument, NULL, 'i'},
   {"matepair",      required_argument, NULL, 'M'},
+  {"format",        required_argument, NULL, 'F'},
   {"fq-cutoff",     required_argument, NULL, 'Q'},
   {"fq-offset",     required_argument, NULL, 'O'},
   {"cut-hp",        required_argument, NULL, 'H'},
@@ -79,8 +81,8 @@ static struct option longopts[] =
   {"max-context",   required_argument, NULL, 'X'},
   {"end-check",     no_argument,       NULL, 'e'},
   {"no-end-check",  no_argument,       NULL, 'E'},
-  {"gap-hist",      required_argument, NULL, 'G'},
-  {"frag-hist",     required_argument, NULL, 'F'},
+  {"gap-hist",      required_argument, NULL, 'g'},
+  {"frag-hist",     required_argument, NULL, 'G'},
 //
   {"colour",        required_argument, NULL, 'c'}, // allow --{col,color,colour}
   {"color",         required_argument, NULL, 'c'},
@@ -161,13 +163,12 @@ int ctx_correct(int argc, char **argv)
   SeqOutput *outputs = ctx_calloc(inputs->len, sizeof(SeqOutput));
   bool err_occurred = false;
 
-  // Always print with FASTA format
   for(i = 0; i < inputs->len && !err_occurred; i++)
   {
     CorrectAlnInput *input = &inputs->data[i];
     input->crt_params.ctxcol = input->crt_params.ctpcol = args.colour;
     bool is_pe = asyncio_task_is_pe(&input->files);
-    err_occurred = !seqout_open(&outputs[i], input->out_base, SEQ_FMT_FASTA, is_pe);
+    err_occurred = !seqout_open(&outputs[i], input->out_base, args.fmt, is_pe);
     input->output = &outputs[i];
   }
 

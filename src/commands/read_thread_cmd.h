@@ -19,6 +19,7 @@ struct ReadThreadCmdArgs
   bool use_new_paths;
   char *dump_seq_sizes, *dump_frag_sizes;
   size_t colour; // ctx_correct only
+  seq_format fmt; // ctx_correct only
 
   GraphFileReader gfile;
   GPathFileBuffer gpfiles;
@@ -27,20 +28,6 @@ struct ReadThreadCmdArgs
   size_t max_gap_limit; // max of inputs[].crt_params.ins_gap_max
   size_t path_max_usedcols; // max colours in path files
 };
-
-#define READ_THREAD_CMD_ARGS_INIT {.nthreads = 0,                      \
-                                   .memargs = MEM_ARGS_INIT,           \
-                                   .graph_path = NULL,                 \
-                                   .out_ctp_path = NULL,               \
-                                   .use_new_paths = false,             \
-                                   .dump_seq_sizes = NULL,             \
-                                   .dump_frag_sizes = NULL,            \
-                                   .colour = 0,                        \
-                                   .gfile = INIT_GRAPH_READER_MACRO,   \
-                                   .gpfiles = OBJBUF_INIT,             \
-                                   .inputs = OBJBUF_INIT,              \
-                                   .max_gap_limit = 0,                 \
-                                   .path_max_usedcols = 0}
 
 void read_thread_args_alloc(struct ReadThreadCmdArgs *args);
 void read_thread_args_dealloc(struct ReadThreadCmdArgs *args);

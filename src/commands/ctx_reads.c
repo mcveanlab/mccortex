@@ -22,14 +22,13 @@ const char reads_usage[] =
 "  -n, --nkmers <kmers>        Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>           Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
-"  -F, --fasta                 Output as gzipped FASTA\n"
-"  -Q, --fastq                 Output as gzipped FASTQ [default]\n"
-// "  -P, --plain                 Print output sequences one per line\n"
+"  -F, --format <f>            Output format may be: FASTA, FASTQ [default: FASTQ]\n"
 "  -v, --invert                Print reads/read pairs with no kmer in graph\n"
 "  -1, --seq  <in>:<O>         Writes output to <O>.fq.gz\n"
 "  -2, --seq2 <in1>:<in2>:<O>  Writes output to <O>.{1,2}.fq.gz\n"
 "  -i, --seqi <in>:<O>         Writes output to <O>.{1,2}.fq.gz\n"
 "\n"
+"  Output is <O>.fq.gz for FASTQ, <O>.fa.gz for FASTA, <O>.txt.gz for plain\n"
 "  Can specify --seq/--seq2/--seqi multiple times. If either read of a pair\n"
 "  touches the graph, both are printed.\n"
 "\n";
@@ -42,9 +41,7 @@ static struct option longopts[] =
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
 // command specific
-  {"fasta",        no_argument,       NULL, 'F'},
-  {"fastq",        no_argument,       NULL, 'Q'},
-  {"plain",        no_argument,       NULL, 'P'},
+  {"format",       required_argument, NULL, 'F'},
   {"invert",       no_argument,       NULL, 'v'},
   {"seq",          required_argument, NULL, '1'},
   {"seq2",         required_argument, NULL, '2'},
@@ -67,7 +64,8 @@ typedef struct
   dBGraph *db_graph;
   volatile size_t *rcounter;
   LoadingStats *stats;
-  bool invert, use_fq;
+  bool invert;
+  seq_format fmt; // output format
 
 } AlignReadsData;
 
@@ -88,7 +86,8 @@ static volatile size_t read_counter = 0;
 
 static void parse_args(int argc, char **argv)
 {
-  bool invert = false, fasta_output = false, fastq_output = false;
+  seq_format fmt = SEQ_FMT_FASTQ;
+  bool invert = false;
   size_t i;
 
   aln_reads_buf_alloc(&inputs, 8);
@@ -111,8 +110,7 @@ static void parse_args(int argc, char **argv)
       case 't': cmd_check(!nthreads,cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'F': cmd_check(!fasta_output,cmd); fasta_output = true; break;
-      case 'Q': cmd_check(!fastq_output,cmd); fastq_output = true; break;
+      case 'F': cmd_check(fmt==SEQ_FMT_FASTQ, cmd); fmt = cmd_parse_format(cmd, optarg); break;
       case 'v': cmd_check(!invert,cmd); invert = true; break;
       case '1':
       case '2':
@@ -135,13 +133,9 @@ static void parse_args(int argc, char **argv)
 
   // Defaults
   if(!nthreads) nthreads = DEFAULT_NTHREADS;
-  if(!fasta_output && !fastq_output) fastq_output = true;
 
   if(inputs.len == 0)
     cmd_print_usage("Please specify at least one sequence file (-1, -2 or -i)");
-
-  if(fasta_output && fastq_output)
-    cmd_print_usage("Cannot use both --fasta and --fastq");
 
   if(optind >= argc)
     cmd_print_usage("Please specify input graph file(s)");
@@ -151,7 +145,7 @@ static void parse_args(int argc, char **argv)
 
   for(i = 0; i < inputs.len; i++) {
     inputs.data[i].invert = invert;
-    inputs.data[i].use_fq = fastq_output;
+    inputs.data[i].fmt = fmt;
     files.data[i].ptr = &inputs.data[i];
   }
 }
@@ -163,8 +157,8 @@ static void inputs_attempt_open()
 
   for(i = 0; i < inputs.len && !err_occurred; i++) {
     AlignReadsData *input = &inputs.data[i];
-    err_occurred = !seqout_open(&input->seqout, input->out_base,
-                                input->use_fq ? SEQ_FMT_FASTQ : SEQ_FMT_FASTQ,
+    err_occurred = !seqout_open(&input->seqout, input->out_base, input->fmt,
+                                // input->use_fq ? SEQ_FMT_FASTQ : SEQ_FMT_FASTQ,
                                 asyncio_task_is_pe(&files.data[i]));
   }
 

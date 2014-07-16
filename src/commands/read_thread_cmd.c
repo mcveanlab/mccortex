@@ -37,6 +37,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
 
   CorrectAlnInputBuffer *inputs = &args->inputs;
   args->memargs = (struct MemArgs)MEM_ARGS_INIT;
+  args->fmt = SEQ_FMT_FASTQ;
 
   // Arg parsing
   char cmd[100];
@@ -67,6 +68,10 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'm': cmd_mem_args_set_memory(&args->memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&args->memargs, optarg); break;
       case 'c': args->colour = cmd_uint32(cmd, optarg); break;
+      case 'F':
+        cmd_check(args->fmt == SEQ_FMT_FASTQ, cmd);
+        args->fmt = cmd_parse_format(cmd, optarg);
+        break;
       case '1':
       case '2':
       case 'i':
@@ -95,8 +100,8 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'X': task.crt_params.max_context = cmd_uint32(cmd, optarg); used = 0; break;
       case 'e': task.crt_params.use_end_check = true; used = 0; break;
       case 'E': task.crt_params.use_end_check = false; used = 0; break;
-      case 'G': args->dump_seq_sizes = optarg; dump_seq_hist_n++; break;
-      case 'F': args->dump_frag_sizes = optarg; dump_frag_hist_n++; break;
+      case 'g': args->dump_seq_sizes = optarg; dump_seq_hist_n++; break;
+      case 'G': args->dump_frag_sizes = optarg; dump_frag_hist_n++; break;
       case 'u': args->use_new_paths = true; break;
       case 'x': gen_paths_print_contigs = true; break;
       case 'y': gen_paths_print_paths = true; break;

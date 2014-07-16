@@ -44,11 +44,27 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
   db_node_buf_dealloc(&wrkr->tmpnbuf);
 }
 
+static inline void _buf_append_qual_scores(StrBuf *buf, const read_t *r)
+{
+  // Print quality scores
+  strbuf_append_str(buf, "+\n");
+  if(r->qual.end) {
+    strbuf_append_strn(buf, r->qual.b, r->qual.end);
+  } else {
+    strbuf_ensure_capacity(buf, buf->end + r->qual.end + 2);
+    memset(buf->b+buf->end, '.', r->seq.end);
+    buf->end += r->seq.end;
+    buf->b[buf->end] = '\0';
+  }
+  strbuf_append_char(buf, '\n');
+}
+
 // Prints read sequence in lower case instead of N
 static void handle_read(CorrectReadsWorker *wrkr,
                         const CorrectAlnInput *input,
                         const read_t *r, StrBuf *buf,
-                        uint8_t fq_cutoff, uint8_t hp_cutoff)
+                        uint8_t fq_cutoff, uint8_t hp_cutoff,
+                        seq_format format)
 {
   dBNodeBuffer *nbuf, *tmpnbuf = &wrkr->tmpnbuf;
   dBAlignment *aln = &wrkr->aln;
@@ -67,9 +83,12 @@ static void handle_read(CorrectReadsWorker *wrkr,
 
   // Print read in FASTA format
   strbuf_reset(buf);
-  strbuf_append_char(buf, '>');
-  strbuf_append_strn(buf, r->name.b, r->name.end);
-  strbuf_append_char(buf, '\n');
+
+  if(format & (SEQ_FMT_FASTA | SEQ_FMT_FASTQ)) {
+    strbuf_append_char(buf, format == SEQ_FMT_FASTA ? '>' : '@');
+    strbuf_append_strn(buf, r->name.b, r->name.end);
+    strbuf_append_char(buf, '\n');
+  }
 
   // Get de Bruijn graph alignment
   db_alignment_from_reads(&wrkr->aln, r, NULL,
@@ -87,6 +106,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
     strbuf_append_strn(buf, r->seq.b, r->seq.end);
     for(i = offset; i < buf->end; i++) buf->b[i] = tolower(buf->b[i]);
     strbuf_append_char(buf, '\n');
+    if(format == SEQ_FMT_FASTQ) _buf_append_qual_scores(buf, r);
     return;
   }
 
@@ -198,6 +218,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
   }
 
   strbuf_append_char(buf, '\n');
+  if(format == SEQ_FMT_FASTQ) _buf_append_qual_scores(buf, r);
 }
 
 static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
@@ -207,6 +228,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   CorrectAlnInput *input = (CorrectAlnInput*)data->ptr;
   SeqOutput *output = input->output;
   StrBuf *buf1 = &wrkr->buf1, *buf2 = &wrkr->buf2;
+  seq_format format = output->fmt;
 
   read_t *r1 = &data->r1, *r2 = data->r2.seq.end > 0 ? &data->r2 : NULL;
 
@@ -225,7 +247,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   if(r2 == NULL)
   {
     // Single ended read
-    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
+    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff, format);
     pthread_mutex_lock(&output->lock_se);
     gzwrite(output->gzout_se, buf1->b, buf1->end);
     pthread_mutex_unlock(&output->lock_se);
@@ -233,8 +255,8 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   else
   {
     // Paired-end reads
-    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
-    handle_read(wrkr, input, r2, buf2, fq_cutoff2, hp_cutoff);
+    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff, format);
+    handle_read(wrkr, input, r2, buf2, fq_cutoff2, hp_cutoff, format);
     pthread_mutex_lock(&output->lock_pe);
     gzwrite(output->gzout_pe[0], buf1->b, buf1->end);
     gzwrite(output->gzout_pe[1], buf2->b, buf2->end);
