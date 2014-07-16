@@ -20,7 +20,8 @@ bad.fa:
 	echo nnnnnnnnnnnnnnAnnnnnnnnnnnnnnTaannnnnnaaaaaaaaaaaaN >> $@
 
 ref.k$(K).ctx: ref.fa
-	$(CTX) build -m 10M -k $(K) -s ref -1 ref.fa ref.k9.ctx
+	$(CTX) build -m 10M -k $(K) -s ref -1 $< $@
+	$(CTX) check -q $@
 
 # Correct reads
 good.fa: bad.fa ref.k$(K).ctx

@@ -3,7 +3,7 @@ build
 libs
 docs
 src/basic/version.h
-test
+tests
 benchmark
 dev
 *.RData

@@ -12,7 +12,8 @@ int main(int argc, char **argv)
   ctx_tst_out = stdout;
 
   test_status("Tests running...");
-  test_status("[version] "VERSION_STATUS_STR"\n"); // defined in global.h
+  test_status("[version] "VERSION_STATUS_STR" k=%i..%i\n",
+              get_min_kmer_size(), get_max_kmer_size());
 
   // Binary Kmer tests should work for all values of MAXK
   test_bkmer_functions();

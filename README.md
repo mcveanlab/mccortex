@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-17 June 2014
+16 July 2014
 
 [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)
 
@@ -38,7 +38,7 @@ Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: ctx=XXXX zlib=1.2.5 htslib=0.2.0-rc7-74-g996b3c0 ASSERTS=ON CHECKS=ON k=3..31
+    version: ctx=XXXX zlib=1.2.5 htslib=0.2.0-rc10-8-g4b024e1 ASSERTS=ON CHECKS=ON k=3..31
 
     Commands:   breakpoints  use a trusted assembled genome to call large events
                 bubbles      find bubbles in graph which are potential variants
@@ -61,12 +61,14 @@ Commands
       Type a command with no arguments to see help.
 
     Common Options:
-      -m --memory <M>      Memory e.g. 1GB [default: 1GB]
-      -n --nkmers <H>      Hash entries [default: 4M, ~4 million]
-      -c --ncols <C>       Number of graph colours to load at once [default: 1]
-      -t --threads <T>     Limit on proccessing threads [default: 2]
-      -o --out <file>      Output file
-      -p --paths <in.ctp>  Assembly file to load (can specify multiple times)
+      -h, --help            Help message
+      -q, --quiet           Silence status output normally printed to STDERR
+      -f, --force           Overwrite output files if they already exist
+      -m, --memory <M>      Memory e.g. 1GB [default: 1GB]
+      -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]
+      -t, --threads <T>     Limit on proccessing threads [default: 2]
+      -o, --out <file>      Output file
+      -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)
 
 Getting Helps
 -------------

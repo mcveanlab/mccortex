@@ -24,6 +24,7 @@
 
 #include "version.h" // defines CTX_VERSION
 #include "cortex_types.h" // common basic data types
+#include "kmer_size.h"
 
 // Makefile sets:
 //  NDEBUG=1         Turns off debugging
@@ -43,9 +44,7 @@
 
 #include "htslib/version.h"
 #define LIBS_VERSION "zlib="ZLIB_VERSION" htslib="HTS_VERSION
-#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" " \
-                           ASSERTSTR" "CHECKSTR" " \
-                           "k="QUOTE_VALUE(MIN_KMER_SIZE)".."QUOTE_VALUE(MAX_KMER_SIZE)
+#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" "CHECKSTR
 
 //
 // Setup / clear up of library functions

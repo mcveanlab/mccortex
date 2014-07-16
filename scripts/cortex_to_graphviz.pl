@@ -249,7 +249,7 @@ sub print_supernode
   my ($kmer1, $key1);
   if($key0 eq $key1a) { $kmer1 = $kmer1a; $key1 = $key1a; }
   elsif($key0 eq $key1b) { $kmer1 = $kmer1b; $key1 = $key1b; }
-  else { die("Mismatch in supernode edges"); }
+  else { die("Error: Mismatch in supernode edges"); }
 
   my $arrive_left = $kmer0 eq ($going_right ? $kmer1a : revcmp($kmer1a));
 

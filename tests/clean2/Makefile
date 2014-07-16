@@ -1,17 +1,17 @@
 
-CTXPATH=../../
+CTXPATH=../..
 CTX=$(CTXPATH)/bin/ctx31
 PLOTCTX=$(CTXPATH)/scripts/cortex_to_graphviz.pl
 
 KMER=17
 
-KEEP=seq.fa seq.k$(KMER).raw.ctx seq.k$(KMER).clean.ctx \
-     seq.k$(KMER).supernodes.clean.dot seq.k$(KMER).supernodes.raw.dot
+GRAPHS=seq.k$(KMER).raw.ctx seq.k$(KMER).clean.ctx
+DOTS=$(GRAPHS:.ctx=.dot) $(GRAPHS:.ctx=.supernodes.dot)
+PLOTS=$(DOTS:.dot=.pdf)
 
-PLOTS=seq.k$(KMER).clean.pdf seq.k$(KMER).raw.pdf \
-      seq.k$(KMER).supernodes.clean.pdf seq.k$(KMER).supernodes.raw.pdf
+all: seq.fa $(GRAPHS) $(DOTS)
 
-all: $(KEEP)
+plots: $(PLOTS)
 
 seq.fa: Makefile
 	# Repeat of CAAAGGCCTCACGGGTA
@@ -22,22 +22,23 @@ seq.fa: Makefile
 
 seq.k$(KMER).raw.ctx: seq.fa
 	$(CTX) build -m 10M -k $(KMER) --sample SeqJr --seq $< $@
+	$(CTX) check -q $@
 
 seq.k$(KMER).clean.ctx: seq.k$(KMER).raw.ctx
 	$(CTX) clean --supernodes=2 -o $@ $<
+	$(CTX) check -q $@
 
-seq.k$(KMER).supernodes.%.dot: seq.k$(KMER).%.ctx
-	$(PLOTCTX) --simplify $< > $@
+%.supernodes.dot: %.ctx
+	$(CTX) supernodes -m 1M --graphviz $< > $@
+	# $(PLOTCTX) --simplify $< > $@
 
-seq.k$(KMER).%.dot: seq.k$(KMER).%.ctx
+%.dot: %.ctx
 	$(PLOTCTX) $< > $@
 
-seq.k$(KMER).%.pdf: seq.k$(KMER).%.dot
+%.pdf: %.dot
 	dot -Tpdf $< > $@
 
-plots: $(PLOTS)
-
 clean:
-	rm -rf $(KEEP) $(PLOTS)
+	rm -rf seq.fa $(GRAPHS) $(DOTS) $(PLOTS)
 
 .PHONY: all plots clean

@@ -127,12 +127,6 @@ CtxCmd cmdobjs[] = {
 // Command listing
 //
 
-static const char header[] =
-"\n"
-"usage: "CMD" <command> [options] <args>\n"
-"version: "VERSION_STATUS_STR"\n"
-"\n";
-
 static const char options[] =
 "  Type a command with no arguments to see help.\n"
 "\n"
@@ -174,7 +168,10 @@ static void print_help(FILE *out, const char *errfmt,  ...)
   for(i = 0; i < n; i++)
     if(!cmdobjs[i].hide) maxlen = MAX2(maxlen, strlen(cmdobjs[i].cmd));
 
-  fprintf(out, "%s", header);
+  fprintf(out, "\n"
+"usage: "CMD" <command> [options] <args>\n"
+"version: "VERSION_STATUS_STR" k=%i..%i\n"
+"\n", get_min_kmer_size(), get_max_kmer_size());
 
   fprintf(out, "Commands:   ");
   for(i = 0, j = 0; i < n; i++) {
