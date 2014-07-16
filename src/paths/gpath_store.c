@@ -107,11 +107,12 @@ void gpstore_path_removal_update_stats(GPathStore *gpstore, GPath *gpath)
 static void _gpstore_add_to_llist_mt(GPathStore *gpstore, hkey_t hkey, GPath *gpath)
 {
   // Add to linked list
+  ctx_assert(sizeof(size_t) == sizeof(GPath*));
   do {
     gpath->next = *(GPath *volatile const*)&gpstore->paths_all[hkey];
   }
-  while(!__sync_bool_compare_and_swap((GPath *volatile*)&gpstore->paths_all[hkey],
-                                      gpath->next, gpath));
+  while(!__sync_bool_compare_and_swap((volatile size_t*)&gpstore->paths_all[hkey],
+                                      (size_t)gpath->next, (size_t)gpath));
 
   // Update stats
   size_t nbytes = (gpath->num_juncs+3)/4;

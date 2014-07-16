@@ -46,7 +46,7 @@ const char correct_usage[] =
 "  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
 "  -G, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
 "\n"
-"  -c, --colour <in:out>    Correct reads from file (supports sam,bam,fq,*.gz\n"
+"  -c, --colour <col>       Sample graph colour to correct against\n"
 "\n"
 "  Output is <O>.fq.gz for FASTQ, <O>.fa.gz for FASTA, <O>.txt.gz for plain\n"
 "  --seq outputs <out>.fa.gz, --seq2 outputs <out>.1.fa.gz, <out>.2.fa.gz\n"
@@ -97,7 +97,7 @@ static struct option longopts[] =
 
 int ctx_correct(int argc, char **argv)
 {
-  size_t i;
+  size_t i, p;
   struct ReadThreadCmdArgs args;
   memset(&args, 0, sizeof(args));
   read_thread_args_alloc(&args);
@@ -106,20 +106,34 @@ int ctx_correct(int argc, char **argv)
   GraphFileReader *gfile = &args.gfile;
   GPathFileBuffer *gpfiles = &args.gpfiles;
   CorrectAlnInputBuffer *inputs = &args.inputs;
-  size_t ctx_total_cols = gfile->hdr.num_of_cols;
-  size_t ctx_num_kmers = gfile->num_of_kmers;
 
-  if(args.colour > ctx_total_cols)
-    cmd_print_usage("-c %zu is too big [> %zu]", args.colour, ctx_total_cols);
-
-  size_t ctp_usedcols = 0;
-  for(i = 0; i < gpfiles->len; i++) {
-    if(!file_filter_iscolloaded(&gpfiles->data[i].fltr, args.colour)) {
-      cmd_print_usage("Path file doesn't load into colour %zu: %s",
-                      args.colour, file_filter_input(&gpfiles->data[i].fltr));
-    }
-    ctp_usedcols = MAX2(ctp_usedcols, file_filter_into_ncols(&gpfiles->data[i].fltr));
+  // Update colours in graph file - sample in 0, all others in 1
+  bool tgt_col_loaded = false;
+  for(i = 0; i < gfile->fltr.ncols; i++) {
+    if(gfile->fltr.filter[i].into == args.colour) {
+      gfile->fltr.filter[i].into = 0;
+      tgt_col_loaded = true;
+    } else
+      gfile->fltr.filter[i].into = 1;
   }
+
+  if(!tgt_col_loaded)
+    die("You didn't load any colours into --colour %zu", args.colour);
+
+  for(p = 0; p < gpfiles->len; p++) {
+    GPathReader *gpfile = &gpfiles->data[p];
+    for(i = 0; i < gpfile->fltr.ncols; i++) {
+      if(gpfile->fltr.filter[i].into == args.colour)
+        gpfile->fltr.filter[i].into = 0;
+      else {
+        die("No point loading paths for colours other than --colour %zu",
+            args.colour);
+      }
+    }
+  }
+
+  size_t ncols = file_filter_into_ncols(&gfile->fltr);
+  int64_t ctx_num_kmers = gfile->num_of_kmers;
 
   // Check for compatibility between graph files and path files
   graphs_gpaths_compatible(gfile, 1, gpfiles->data, gpfiles->len);
@@ -132,7 +146,7 @@ int ctx_correct(int argc, char **argv)
   // 1 bit needed per kmer if we need to keep track of noreseed
   bits_per_kmer = sizeof(GPath)*8 + sizeof(Edges)*8 +
                   (gpfiles->len > 0 ? sizeof(GPath*)*8 : 0) +
-                  ctx_total_cols; // in colour
+                  ncols; // in colour
 
   kmers_in_hash = cmd_get_kmers_in_hash(args.memargs.mem_to_use,
                                         args.memargs.mem_to_use_set,
@@ -144,13 +158,13 @@ int ctx_correct(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = args.memargs.mem_to_use - MIN2(args.memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles->data, gpfiles->len,
-                                  ctx_total_cols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles->data, gpfiles->len, ncols, rem_mem, false);
+
+  cmd_print_mem(path_mem, "paths");
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
   path_mem  += sizeof(GPath*)*kmers_in_hash;
-  cmd_print_mem(path_mem, "paths");
 
   // Total memory
   total_mem = graph_mem + path_mem;
@@ -166,7 +180,8 @@ int ctx_correct(int argc, char **argv)
   for(i = 0; i < inputs->len && !err_occurred; i++)
   {
     CorrectAlnInput *input = &inputs->data[i];
-    input->crt_params.ctxcol = input->crt_params.ctpcol = args.colour;
+    // We loaded target colour into colour zero
+    input->crt_params.ctxcol = input->crt_params.ctpcol = 0;
     bool is_pe = asyncio_task_is_pe(&input->files);
     err_occurred = !seqout_open(&outputs[i], input->out_base, args.fmt, is_pe);
     input->output = &outputs[i];
@@ -184,12 +199,12 @@ int ctx_correct(int argc, char **argv)
   //
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfile->hdr.kmer_size, ctx_total_cols, 1, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfile->hdr.kmer_size, ncols, 1, kmers_in_hash);
 
   size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
 
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = ctx_calloc(bytes_per_col * ctx_total_cols, 1);
+  db_graph.node_in_cols = ctx_calloc(bytes_per_col * ncols, 1);
 
   // Create a path store that does not tracks path counts
   gpath_reader_alloc_gpstore(gpfiles->data, gpfiles->len, path_mem, false, &db_graph);

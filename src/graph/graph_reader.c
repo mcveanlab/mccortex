@@ -93,9 +93,6 @@ size_t graph_file_read_header(FILE *fh, GraphFileHeader *h, const char *path)
   safe_fread(fh, &h->num_of_cols, sizeof(uint32_t), "number of colours", path);
   bytes_read += 4*sizeof(uint32_t);
 
-  if(h->num_of_cols > 10000)
-    die("Very high number of colours: %zu", (size_t)h->num_of_cols);
-
   // Checks
   if(h->version > 7 || h->version < 4)
   {
@@ -126,9 +123,10 @@ size_t graph_file_read_header(FILE *fh, GraphFileHeader *h, const char *path)
     die("using more than the minimum number of bitfields [path: %s]\n", path);
   }
 
-  if(h->num_of_cols == 0) {
+  if(h->num_of_cols == 0)
     die("number of colours is zero [path: %s]\n", path);
-  }
+  if(h->num_of_cols > 10000)
+    die("Very high number of colours: %zu [path: %s]", (size_t)h->num_of_cols, path);
 
   // graph_header_alloc will only alloc or realloc if it needs to
   graph_header_alloc(h, h->num_of_cols);

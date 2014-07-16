@@ -125,8 +125,8 @@ static void graph_info_update_contigs(GraphInfo *ginfo,
 
  if(ginfo_num_contigs + num_contigs > 0) {
     ginfo->mean_read_length
-      = (uint32_t)(((ginfo->total_sequence + added_seq) /
-                    (ginfo_num_contigs + num_contigs)) + 0.5);
+      = (uint32_t)((double)(ginfo->total_sequence + added_seq) /
+                           (ginfo_num_contigs + num_contigs));
   }
 
   ginfo->total_sequence += added_seq;

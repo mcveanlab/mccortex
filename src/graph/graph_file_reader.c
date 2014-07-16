@@ -45,9 +45,10 @@ int graph_file_open2(GraphFileReader *file, char *input, const char *mode)
 
     if(bytes_remaining % bytes_per_kmer != 0) {
       warn("Truncated graph file: %s [bytes per kmer: %zu "
-           "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zi]",
+           "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zu]",
            path, bytes_per_kmer, bytes_remaining,
-           (size_t)file->file_size, (size_t)file->hdr_size, file->num_of_kmers);
+           (size_t)file->file_size, (size_t)file->hdr_size,
+           (size_t)file->num_of_kmers);
     }
   }
   else
