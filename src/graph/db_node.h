@@ -34,7 +34,7 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 // <0-63:col0><0-63:col1><0-63:col2><64-127:col0><64-127:col1><64-127:col2>
 
 /* Offset in word */
-#define kseto(arr,hkey) ((hkey)%(sizeof(*arr)*8))
+#define kseto(arr,hkey)           ((hkey)%(sizeof(*arr)*8))
 /* word index */
 #define ksetw(arr,ncols,hkey,col) (((hkey)/(sizeof(*arr)*8))*(ncols)+(col))
 
@@ -59,12 +59,12 @@ static inline void db_node_del_col_mt(const dBGraph *graph, hkey_t hkey, size_t 
                        kseto(graph->node_in_cols,hkey));
 }
 
-static inline void db_node_cpy_col(const dBGraph *graph, hkey_t hkey,
-                                   size_t col, uint8_t bit)
+static inline void db_node_or_col(const dBGraph *graph, hkey_t hkey,
+                                  size_t col, uint8_t bit)
 {
-  bitset2_cpy(graph->node_in_cols,
-              ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
-              kseto(graph->node_in_cols,hkey),bit);
+  bitset2_or(graph->node_in_cols,
+             ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
+             kseto(graph->node_in_cols,hkey),bit);
 }
 
 // Threadsafe
@@ -221,6 +221,9 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
 //
 // Coverages
 //
+
+#define SAFE_ADD_COVG(a,b) ((uint64_t)(a)+(b) > COVG_MAX ? COVG_MAX : (a)+(b))
+#define SAFE_SUM_COVG(a,b) ((a) = SAFE_ADD_COVG((a), (b)))
 
 #define db_node_covg(graph,hkey,col) \
         ((graph)->col_covgs[(hkey)*(graph)->num_of_cols+(col)])

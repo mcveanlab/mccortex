@@ -1,26 +1,34 @@
 
-all: rnd.ctx rnd.ctp
+TGTS=ref.fa ref.ctx ref.ctp.gz
+PLOTS=ref.pdf ref.dot
 
-plots: rnd.dot rnd.pdf
+all: $(TGTS)
+
+plots: ref.dot ref.pdf
 
 CTXPATH=../../
 CTX=$(CTXPATH)/bin/ctx31
 CTX2GV=$(CTXPATH)/scripts/cortex_to_graphviz.pl
 KMER=31
 
-rnd.ctx: rnd.fa
-	$(CTX) build -k $(KMER) -m 100MB --sample MsSample --seq rnd.fa rnd.ctx
+ref.fa:
+	echo CGATTGAATTCCACCGATAATGCAGATGTGAGCCTCAGCATCTACTGCTTCCTCGTCGTCGGGGACTTTTGTTGACCTACCACATGATACATGCGGCCAT >  $@
+	echo ACAAGCTAAAGAAGCTAGCCAGTGCAGGCTCCCTTCAGCATCTACTGCTTCCTCGTCGTCGGGGACTAGAAACGTGACCATCGGCCACCGAAAGATAAGG >> $@
+	echo ACAAGCTAAAGAAGCTAGCCAGTGCAGGCTCCCTTCAGCATCTACTGCTGGCTCGTCGTCGGGGACTAGAAACGTGACCATCGGCCACCGAAAGATAAGG >> $@
 
-rnd.dot: rnd.ctx
+ref.ctx: ref.fa
+	$(CTX) build -m 1M -k $(KMER) --sample MsSample --seq ref.fa ref.ctx
+
+ref.ctp.gz: ref.ctx
+	$(CTX) thread -m 1M --seq ref.fa -o $@ $<
+
+ref.dot: ref.ctx
 	$(CTX2GV) --simplify $< > $@
 
-rnd.pdf: rnd.dot
+ref.pdf: ref.dot
 	dot -Tpdf $< > $@
 
-rnd.ctp: rnd.ctx
-	$(CTX) thread --col 0 --seq rnd.fa -o $@ $<
-
 clean:
-	rm -rf *.pdf *.dot *.ctx *.ctp gap_sizes.*.csv mp_sizes.*.csv
+	rm -rf $(TGTS) $(PLOTS)
 
 .PHONY: all plots clean

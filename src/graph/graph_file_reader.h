@@ -11,52 +11,35 @@ typedef struct
 {
   uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
   GraphInfo *ginfo; // Cleaning info etc for each colour
-  size_t capacity; // number of ginfo objects malloc'd
+  size_t capacity;
 } GraphFileHeader;
 
 typedef struct
 {
+  FILE *fh;
   FileFilter fltr;
   GraphFileHeader hdr;
-  off_t hdr_size;
-  uint64_t num_of_kmers; // only set if reading from file (i.e. not stream)
+  off_t hdr_size, file_size;
+  int64_t num_of_kmers; // set if reading from file (i.e. not stream) else -1
 } GraphFileReader;
 
-#define INIT_GRAPH_FILE_HDR_MACRO {                    \
-  .version = CTX_GRAPH_FILEFORMAT,                     \
-  .kmer_size = 0, .num_of_bitfields = NUM_BKMER_WORDS, \
-  .num_of_cols = 0, .ginfo = NULL, .capacity = 0}
+#define graph_file_reset(rdr) memset(rdr, 0, sizeof(GraphFileReader))
 
-#define INIT_GRAPH_READER_MACRO {                   \
-  .fltr = INIT_FILE_FILTER_MACRO, .num_of_kmers = 0,\
-  .hdr = INIT_GRAPH_FILE_HDR_MACRO, .hdr_size = 0}
-
-const GraphFileHeader INIT_GRAPH_FILE_HDR;
-const GraphFileReader INIT_GRAPH_READER;
+// Returns 0 if not set instead of -1
+#define graph_file_nkmers(rdr) ((uint64_t)MAX2((rdr)->num_of_kmers, 0))
 
 #include "objbuf_macro.h"
 create_objbuf(gfile_buf, GraphFileBuffer, GraphFileReader);
-
-#define graph_file_outncols(rdr) file_filter_outncols(&(rdr)->fltr)
-#define graph_file_intocol(rdr,col) file_filter_intocol(&(rdr)->fltr,col)
-#define graph_file_fromcol(rdr,col) file_filter_fromcol(&(rdr)->fltr,col)
-#define graph_file_usedcols(rdr) file_filter_usedcols(&(rdr)->fltr)
-
-// File path plus colour specification e.g. in.ctx:1,3
-#define graph_file_orig_path(rdr) ((rdr)->fltr.orig_path.buff)
-// Just the file path e.g. in.ctx
-#define graph_file_file_path(rdr) ((rdr)->fltr.orig_path.buff)
 
 // Open file
 // if cannot open file returns 0
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
-int graph_file_open(GraphFileReader *file, char *path, bool fatal);
+int graph_file_open(GraphFileReader *file, char *path);
 
 // mode is "r", "r+" etc.
-int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
-                     const char *mode);
+int graph_file_open2(GraphFileReader *file, char *path, const char *mode);
 
 // Close file, release all memory
 void graph_file_close(GraphFileReader *file);
@@ -68,6 +51,13 @@ void graph_file_close(GraphFileReader *file);
 //    graph_file_read(file, &bkmer, covgs+file.intocol, edges+file.intocol);
 bool graph_file_read(const GraphFileReader *file,
                      BinaryKmer *bkmer, Covg *covgs, Edges *edges);
+
+// Read a kmer from the file
+// returns true on success, false otherwise
+// prints warnings if dirty kmers in file
+// @ncols is file_filter_into_ncols(&file->fltr)
+bool graph_file_read_reset(const GraphFileReader *file, size_t ncols,
+                           BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // Returns true if one or more files passed loads data into colour
 bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,

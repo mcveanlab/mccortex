@@ -135,9 +135,9 @@ static void strip_allele(StrBuf *allele, const char* input, size_t len)
 static bool is_allele_duplicate(const vcf_entry_t *vcf, const StrBuf *allele)
 {
   size_t i;
-  if(strcmp(vcf->cols[VCFREF].buff, allele->buff) == 0) return true;
+  if(strcmp(vcf->cols[VCFREF].b, allele->b) == 0) return true;
   for(i = 0; i < vcf->num_alts; i++)
-    if(strcmp(vcf->alts[i].buff, allele->buff) == 0)
+    if(strcmp(vcf->alts[i].b, allele->b) == 0)
       return true;
   return false;
 }
@@ -184,15 +184,15 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
     #endif
 
     strip_allele(&outvcf->cols[VCFREF], alleles[0]+start, end-start);
-    bool is_snp = (outvcf->cols[VCFREF].len == 1);
-    refallelelen = outvcf->cols[VCFREF].len;
+    bool is_snp = (outvcf->cols[VCFREF].end == 1);
+    refallelelen = outvcf->cols[VCFREF].end;
 
     outvcf->num_alts = num_alleles - 1;
 
     for(i = 0; i < outvcf->num_alts; i++) {
       strip_allele(&outvcf->alts[i], alleles[i+1]+start, end-start);
-      ctx_assert(outvcf->alts[i].len == strlen(outvcf->alts[i].buff));
-      is_snp &= (outvcf->alts[i].len == 1);
+      ctx_assert(outvcf->alts[i].end == strlen(outvcf->alts[i].b));
+      is_snp &= (outvcf->alts[i].end == 1);
     }
 
     // vcf_info_tag_del(outvcf, "SNP");
@@ -233,8 +233,8 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
 static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
                        vcf_entry_t *outvcf, FILE *fout)
 {
-  if(bam_is_rev(bam)) ctx_assert(invcf->lf->len <= invcf->rf->len);
-  else ctx_assert(invcf->lf->len >= invcf->rf->len);
+  if(bam_is_rev(bam)) ctx_assert(invcf->lf->end <= invcf->rf->end);
+  else ctx_assert(invcf->lf->end >= invcf->rf->end);
 
   // Copy details to output vcf and set chromosome field
   const char *chrname = bam_header->target_name[bam->core.tid];
@@ -258,31 +258,31 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   // Both left and right flanks are prefixed with LF= and RF= respectively
   // hence lots of +3 etc
   const size_t FPREFIX = 3; // strlen("LF=")
-  const size_t kmer_size = MAX2(invcf->lf->len,invcf->rf->len)-FPREFIX;
+  const size_t kmer_size = MAX2(invcf->lf->end,invcf->rf->end)-FPREFIX;
   ctx_assert(kmer_size >= 3);
 
   size_t endfl_missing;
 
   const StrBuf *lf, *rf;
-  lf = (invcf->lf->len <= FPREFIX ? invcf->rf : invcf->lf);
-  rf = (invcf->rf->len <= FPREFIX ? invcf->lf : invcf->rf);
+  lf = (invcf->lf->end <= FPREFIX ? invcf->rf : invcf->lf);
+  rf = (invcf->rf->end <= FPREFIX ? invcf->lf : invcf->rf);
 
   strbuf_reset(&endflank);
 
   if(bam_is_rev(bam)) {
-    endfl_missing = kmer_size - (lf->len-FPREFIX);
-    strbuf_append_strn(&endflank, lf->buff+FPREFIX, lf->len-FPREFIX);
-    strbuf_append_strn(&endflank, rf->buff+FPREFIX, endfl_missing);
+    endfl_missing = kmer_size - (lf->end-FPREFIX);
+    strbuf_append_strn(&endflank, lf->b+FPREFIX, lf->end-FPREFIX);
+    strbuf_append_strn(&endflank, rf->b+FPREFIX, endfl_missing);
   } else {
-    endfl_missing = kmer_size - (rf->len-FPREFIX);
-    strbuf_append_strn(&endflank, lf->buff+lf->len-endfl_missing, endfl_missing);
-    strbuf_append_strn(&endflank, rf->buff+FPREFIX, rf->len-FPREFIX);
+    endfl_missing = kmer_size - (rf->end-FPREFIX);
+    strbuf_append_strn(&endflank, lf->b+lf->end-endfl_missing, endfl_missing);
+    strbuf_append_strn(&endflank, rf->b+FPREFIX, rf->end-FPREFIX);
   }
 
   #ifdef CTXVERBOSE
     printf(" %s\n", bam_is_rev(bam) ? "reverse" : "forward");
-    printf(" lf:%s rf:%s\n", lf->buff, rf->buff);
-    printf(" endflank: %s\n", endflank.buff);
+    printf(" lf:%s rf:%s\n", lf->b, rf->b);
+    printf(" endflank: %s\n", endflank.b);
   #endif
 
   // Choose a region of the ref to search for the end flank
@@ -317,9 +317,9 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   char save_ref_base = search_region[search_len];
   search_region[search_len] = '\0';
 
-  char *kmer_match = strstr(search_region, endflank.buff), *search = kmer_match;
+  char *kmer_match = strstr(search_region, endflank.b), *search = kmer_match;
   if(!bam_is_rev(bam) && kmer_match != NULL) {
-    while((search = strstr(search+1, endflank.buff)) != NULL) {
+    while((search = strstr(search+1, endflank.b)) != NULL) {
       kmer_match = search;
     }
   }
@@ -340,7 +340,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
       printf("sr:%.*s\nsr:", (int)search_len, search_region);
       size_t pos = kmer_match - search_region;
       for(i = 0; i < pos; i++) fputc('.', stdout);
-      fputs(endflank.buff, stdout);
+      fputs(endflank.b, stdout);
       for(i = pos+kmer_size; i < (unsigned)search_len; i++) fputc('.', stdout);
       fputc('\n', stdout);
     #endif
@@ -348,7 +348,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
   else
   {
     // Look for approximate match
-    needleman_wunsch_align2(search_region, endflank.buff, search_len, kmer_size,
+    needleman_wunsch_align2(search_region, endflank.b, search_len, kmer_size,
                             nw_scoring_flank, nw_aligner, alignment);
     num_nw_flank++;
 
@@ -398,7 +398,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
     reflen = search_trim_right < kmer_size ? 0 : search_trim_right - kmer_size;
     refpos = (size_t)(search_region + search_len - (reflen+kmer_size) - chr->seq.b);
     // Add flank_trim_right to the beginning of each allele
-    const char *end = endflank.buff+endflank.len-flank_trim_right;
+    const char *end = endflank.b+endflank.end-flank_trim_right;
     for(i = 0; i < invcf->num_alts; i++)
       strbuf_insert(&invcf->alts[i], 0, end, flank_trim_right);
   }
@@ -407,7 +407,7 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
     reflen = search_trim_left < kmer_size ? 0 : search_trim_left - kmer_size;
     // Append flank_trim_left onto the end of each allele
     for(i = 0; i < invcf->num_alts; i++)
-      strbuf_append_strn(&invcf->alts[i], endflank.buff, flank_trim_left);
+      strbuf_append_strn(&invcf->alts[i], endflank.b, flank_trim_left);
   }
 
   const char *ref_allele_str = chr->seq.b + refpos;
@@ -417,11 +417,11 @@ static int parse_entry(const vcf_entry_t *invcf, const bam1_t *bam,
 
   for(i = 0; i < invcf->num_alts; i++)
   {
-    if(reflen != invcf->alts[i].len ||
-       strcmp(ref_allele_str, invcf->alts[i].buff) != 0)
+    if(reflen != invcf->alts[i].end ||
+       strcmp(ref_allele_str, invcf->alts[i].b) != 0)
     {
-      needleman_wunsch_align2(ref_allele_str, invcf->alts[i].buff,
-                              reflen, invcf->alts[i].len,
+      needleman_wunsch_align2(ref_allele_str, invcf->alts[i].b,
+                              reflen, invcf->alts[i].end,
                               nw_scoring_allele, nw_aligner, alignment);
       num_nw_allele++;
 
@@ -452,10 +452,10 @@ static void parse_header(gzFile gzvcf, StrBuf *line,
   sample_names = ctx_malloc(samples_capacity * sizeof(char*));
   sample_total_seq = ctx_malloc(samples_capacity * sizeof(uint64_t));
 
-  while(strbuf_gzreadline_nonempty(line, gzvcf) > 0 && line->buff[0] == '#')
+  while(strbuf_gzreadline_nonempty(line, gzvcf) > 0 && line->b[0] == '#')
   {
     strbuf_chomp(line);
-    char *str = line->buff;
+    char *str = line->b;
 
     if(!strncasecmp(str, "##fileformat=", 13)) {
       fprintf(fout, "##fileformat=VCFv4.1\n");
@@ -636,13 +636,13 @@ int ctx_place(int argc, char **argv)
   samFile *samfh = sam_open(sam_path, isbam ? "rb" : "rs");
   if(samfh == NULL) die("Cannot open SAM/BAM %s", sam_path);
 
-  FILE *fout = futil_open_output(out_path);
+  FILE *fout = futil_open_create(out_path, "w");
 
   // Load BAM header
   bam_header = sam_hdr_read(samfh);
 
   // Load VCF header
-  StrBuf *line = strbuf_new();
+  StrBuf *line = strbuf_new(1024);
   parse_header(vcf, line, ref_paths, num_ref_paths, fout);
 
   // Load reference genome
@@ -679,7 +679,7 @@ int ctx_place(int argc, char **argv)
 
   bam1_t *bam = bam_init1();
   bool read_sam = (sam_read1(samfh, bam_header, bam) >= 0);
-  bool read_vcf = (line->len > 0);
+  bool read_vcf = (line->end > 0);
 
   // Filter statistics
   size_t num_missing_sam = 0, num_unmapped = 0, num_low_mapq = 0;
@@ -690,17 +690,17 @@ int ctx_place(int argc, char **argv)
     vcf_entry_parse(line, &invcf, 0);
     num_bubbles++;
 
-    if(strcmp(invcf.cols[VCFCHROM].buff, "un") != 0 ||
-       strcmp(invcf.cols[VCFPOS].buff, "1") != 0 ||
-       strcmp(invcf.cols[VCFREF].buff, "N") != 0)
+    if(strcmp(invcf.cols[VCFCHROM].b, "un") != 0 ||
+       strcmp(invcf.cols[VCFPOS].b, "1") != 0 ||
+       strcmp(invcf.cols[VCFREF].b, "N") != 0)
     {
-      die("Unexpected VCF line: %s", line->buff);
+      die("Unexpected VCF line: %s", line->b);
     }
 
     // Get bam query name
     char *bname = bam_get_qname(bam);
 
-    if(strcmp(invcf.cols[VCFID].buff, bname) != 0)
+    if(strcmp(invcf.cols[VCFID].b, bname) != 0)
     {
       // BAM entry and VCF name do not match - skip
       vcf_entry_add_filter(&invcf, "NOSAM");
@@ -744,7 +744,7 @@ int ctx_place(int argc, char **argv)
   }
 
   if(read_sam) warn("Excess sam entries: %s", bam_get_qname(bam));
-  if(read_vcf) warn("Excess vcf entries: %s", line->buff);
+  if(read_vcf) warn("Excess vcf entries: %s", line->b);
 
   char missing_sam_str[100], unmapped_str[100], minmapq_str[100];
   char flank3p_not_found_str[100];

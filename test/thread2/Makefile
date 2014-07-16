@@ -8,13 +8,13 @@ GRAPHS=$(shell echo genome.k$(K).{ctx,dot})
 PLOTS=$(shell echo genome.k$(K).{pdf,kmers.pdf})
 READSSE=$(shell echo read{1,2}{a,b}.fa)
 READSPE=$(shell echo read{3,4}.{1,2}.fa)
-PATHS=$(shell echo reads.{se,pe}.k$(K).ctp)
+PATHS=$(shell echo reads.{se,pe}.k$(K).ctp.gz)
 
 KEEP=genome.fa $(GRAPHS) $(READSSE) $(READSPE) $(PATHS)
 
 # ctx thread arguments
 SEQSE=$(shell printf " --seq %s" $(READSSE))
-SEQPE=$(shell echo --seq2 read3.{1,2}.fa --seq2 read4.{1,2}.fa)
+SEQPE=--seq2 read3.1.fa:read3.2.fa --seq2 read4.1.fa:read4.2.fa
 
 all: $(KEEP)
 
@@ -38,7 +38,7 @@ read%.fa:
 	echo GCTCAGGAA > read4.1.fa; echo GGTACTGTG | $(REVCMP) > read4.2.fa
 
 genome.k$(K).ctx:
-	$(CTX) build -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
+	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
 
 genome.k$(K).dot:
 	$(CTX) supernodes --graphviz genome.k$(K).ctx > genome.k$(K).dot
@@ -49,12 +49,12 @@ genome.k$(K).pdf:
 genome.k$(K).kmers.pdf:
 	../../scripts/cortex_to_graphviz.pl genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
 
-reads.se.k$(K).ctp:
-	$(CTX) thread -t 6 --col 0 $(SEQSE) -o reads.se.k$(K).ctp genome.k$(K).ctx
-	$(CTX) pview reads.se.k$(K).ctp
+reads.se.k$(K).ctp.gz:
+	$(CTX) thread -m 1M -t 6 $(SEQSE) -o reads.se.k$(K).ctp.gz genome.k$(K).ctx
+	zcat reads.se.k$(K).ctp.gz
 
-reads.pe.k$(K).ctp:
-	$(CTX) thread -t 6 --col 0 $(SEQSE) $(SEQPE) -o reads.pe.k$(K).ctp genome.k$(K).ctx
-	$(CTX) pview reads.pe.k$(K).ctp
+reads.pe.k$(K).ctp.gz:
+	$(CTX) thread -m 1M -t 6 $(SEQSE) $(SEQPE) -o reads.pe.k$(K).ctp.gz genome.k$(K).ctx
+	zcat reads.pe.k$(K).ctp.gz
 
 .PHONY: all clean plots

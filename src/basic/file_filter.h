@@ -6,59 +6,61 @@
 
 // A filter for reading cortex files
 
+typedef struct {
+  uint32_t from, into;
+} Filter;
+
 typedef struct
 {
   // if `orig_path` was "2:in.ctx:0,3",
   // path would be "in.ctx"
-  StrBuf orig_path, file_path;
-  FILE *fh;
-  gzFile gz;
-  size_t intocol; // first colour loading into
-  size_t ncols; // number of colours being read from file
-  size_t *cols, ncolscap; // array of colours to load of length ncols
-  size_t filencols; // number of colours in file
-  bool flatten; // Merge all colours into intocol
-  off_t file_size;
-  bool nofilter;
+  StrBuf input, path;
+  size_t orig_first_col; // colour originally specified to load into 2:in.ctx => 2
+  uint32_t filencols; // number of colours in file
+  Filter *filter;
+  uint32_t ncols, capacity; // filter length and allocated memory
 } FileFilter;
 
-#define INIT_FILE_FILTER_MACRO {                                               \
-  .orig_path = {.buff = NULL}, .file_path = {.buff = NULL},                    \
-  .fh = NULL, .gz = NULL,                                                      \
-  .intocol = 0, .ncols = 0, .cols = NULL, .ncolscap = 0, .flatten = false,     \
-  .file_size = 0, .nofilter = false}
+// Fetch strings
+#define file_filter_input(fltr) ((const char*)(fltr)->input.b)
+#define file_filter_path(fltr) futil_inpath_str((const char*)(fltr)->path.b)
 
-// returns 1 or ncols [fltr->flatten is 0 or 1]
-#define file_filter_outncols(fltr) \
-        ((size_t)(fltr)->flatten + (!((fltr)->flatten))*(fltr)->ncols)
-
-#define file_filter_intocol(fltr,idx) ((fltr)->intocol + (!(fltr)->flatten)*(idx))
-#define file_filter_fromcol(fltr,idx) ((fltr)->cols[idx])
-#define file_filter_usedcols(fltr) ((fltr)->intocol + file_filter_outncols(fltr))
-#define file_filter_iscolloaded(fltr,col) \
-        ((fltr)->intocol<=(col) && (col)<file_filter_usedcols(fltr))
-
-#define file_filter_isstdin(fltr) (strcmp((fltr)->file_path.buff,"-") == 0)
-
-
-// Does not read any bytes from file, but does open it
-// returns true on success
-// on failure will call die (if fatal == true) or return 0 (if fatal == false)
-bool file_filter_open(FileFilter *fltr, char *path, const char *mode,
-                      bool gzip, bool fatal);
-
-// Attempt to close file (if open), release memory
+// Parse path and create FileFilter, calls die() with msg on error
+void file_filter_open(FileFilter *fltr, const char *path);
+// Free memory
 void file_filter_close(FileFilter *file);
 
-// Set number of colours in the file
+// FileFilter is not ready to be used until you have call set_cols
 void file_filter_set_cols(FileFilter *fltr, size_t filencols);
-// Set which colour to load the first colour into
-void file_filter_update_intocol(FileFilter *fltr, size_t intocol);
+
+// @add amount to add to each value of intocols
+void file_filter_shift_cols(FileFilter *fltr, size_t add);
+
+#define file_filter_intocol(fltr,idx) ((fltr)->filter[idx].into)
+#define file_filter_fromcol(fltr,idx) ((fltr)->filter[idx].from)
+#define file_filter_isstdin(fltr) (strcmp((fltr)->path.b,"-") == 0)
+
+uint32_t file_filter_from_ncols(const FileFilter *fltr);
+uint32_t file_filter_into_ncols(const FileFilter *fltr);
+
+// Returns true if each colour is loaded directly into the same colour
+// 0->0, ... N->N where N is filencols
+bool file_filter_is_direct(const FileFilter *fltr);
 
 // Returns true if the specifed filter `fltr` updates colour `col`
-// bool file_filter_iscolloaded(FileFilter *fltr, size_t col);
+bool file_filter_iscolloaded(const FileFilter *fltr, size_t col);
 
 // Print object
 void file_filter_status(const FileFilter *fltr);
+
+// Clone struct, need to call file_filter_close() to release memory
+FileFilter* file_filter_copy(FileFilter *newfltr, const FileFilter *fltr);
+
+// @intocols value to set all intocols to
+void file_filter_flatten(FileFilter *fltr, size_t intocol);
+
+// Updates filter a using filter b (push a through b: a->b)
+// Note: sorts filters in @b
+void file_filter_merge(FileFilter *a, FileFilter *b);
 
 #endif /* FILE_FILTER_H_ */

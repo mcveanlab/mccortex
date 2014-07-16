@@ -54,7 +54,10 @@ seq.k$(K).ctx: seq1.fa seq2.fa
 	$(CTX) build -k $(K) --sample seq1 --seq seq1.fa --sample seq2 --seq seq2.fa seq.k$(K).ctx
 
 seq.k$(K).ctp: seq1.fa seq2.fa
-	$(CTX) thread --col 0 --seq seq1.fa --col 1 --seq seq2.fa -o seq.k$(K).ctp seq.k$(K).ctx
+	$(CTX) thread --seq seq1.fa -o seq.0.k$(K).ctp seq.k$(K).ctx:0
+	$(CTX) thread --seq seq2.fa -o seq.1.k$(K).ctp seq.k$(K).ctx:1
+	$(CTX) pjoin -o $@ seq.0.k$(K).ctp seq.1.k$(K).ctp
+	rm seq.0.k$(K).ctp seq.1.k$(K).ctp
 
 seq.k$(K).pdf: seq.k$(K).ctx
 	 $(CTX) supernodes --graphviz seq.k$(K).ctx | dot -Tpdf > seq.k$(K).pdf

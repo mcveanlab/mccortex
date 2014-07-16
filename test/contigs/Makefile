@@ -1,19 +1,22 @@
 
-SEQRND=../../libs/seq_file/bin/seqrnd
-FACAT=../../libs/seq_file/bin/facat
-CTX=../../bin/ctx31
-BIOINF=../../libs/bioinf-perl
+CTXDIR=../../
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dna
+BIOINF=$(CTXDIR)/libs/bioinf-perl
+CTX=$(CTXDIR)/bin/ctx31
+
+K=9
 
 all: test
 
 seq.fa:
-	$(SEQRND) 1001 | $(FACAT) > seq.fa
+	$(DNACAT) -n 1001 -f > seq.fa
 
 seq.k9.ctx: seq.fa
-	$(CTX) build -k 9 --sample MrsSample --seq seq.fa seq.k9.ctx
+	$(CTX) build -k $(K) --sample MrsSample --seq seq.fa seq.k$(K).ctx
 
-test: seq.fa seq.k9.ctx
-	 $(CTX) contigs --ncontigs 10 --print seq.k9.ctx | $(BIOINF)/sim_mutations/sim_substrings.pl 9 0.1 - seq.fa
+test: seq.fa seq.k$(K).ctx
+	 $(CTX) contigs --ncontigs 10 --out - seq.k$(K).ctx | \
+	 $(BIOINF)/sim_mutations/sim_substrings.pl $(K) 0.1 - seq.fa
 
 clean:
 	rm -rf seq.fa seq.k9.ctx

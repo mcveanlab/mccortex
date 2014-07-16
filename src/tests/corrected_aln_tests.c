@@ -42,10 +42,10 @@ static void _check_correct_aln(char *seq1, char *seq2,
     TASSERT(nbuf != NULL);
 
     strbuf_ensure_capacity(sbuf, nbuf->len+MAX_KMER_SIZE+1);
-    db_nodes_to_str(nbuf->data, nbuf->len, graph, sbuf->buff);
+    db_nodes_to_str(nbuf->data, nbuf->len, graph, sbuf->b);
 
-    TASSERT2(strcmp(sbuf->buff, ans[i]) == 0,
-             "%zu) exp: %s got: %s", i, ans[i], sbuf->buff);
+    TASSERT2(strcmp(sbuf->b, ans[i]) == 0,
+             "%zu) exp: %s got: %s", i, ans[i], sbuf->b);
   }
 
   // Next alignment should be NULL

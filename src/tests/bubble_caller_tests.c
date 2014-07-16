@@ -15,11 +15,11 @@ static void _check_alleles(GraphCache *cache, GCacheStepPtrBuf *steps,
     db_node_buf_reset(nbuf);
     graph_cache_step_fetch_nodes(cache, steps->data[i], nbuf);
     strbuf_ensure_capacity(sbuf, nbuf->len+MAX_KMER_SIZE+1);
-    db_nodes_to_str(nbuf->data, nbuf->len, cache->db_graph, sbuf->buff);
+    db_nodes_to_str(nbuf->data, nbuf->len, cache->db_graph, sbuf->b);
 
     // Find this node
-    for(j = 0; j < num_alleles && strcasecmp(sbuf->buff,alleles[j]); j++) {}
-    TASSERT2(j < num_alleles, "Couldn't find allele: %s", sbuf->buff);
+    for(j = 0; j < num_alleles && strcasecmp(sbuf->b,alleles[j]); j++) {}
+    TASSERT2(j < num_alleles, "Couldn't find allele: %s", sbuf->b);
   }
 }
 

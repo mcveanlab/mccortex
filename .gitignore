@@ -1,8 +1,10 @@
-test
 bin
 build
 libs
 docs
 src/basic/version.h
+test
+benchmark
+dev
 *.RData
 *.RHistory

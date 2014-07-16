@@ -41,8 +41,8 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
   written += fwrite(&clean_snodes_thresh, 1, sizeof(uint32_t), fh);
   written += fwrite(&clean_kmers_thresh, 1, sizeof(uint32_t), fh);
 
-  uint32_t len = (uint32_t)cleaning->intersection_name.len;
-  const char *str = cleaning->intersection_name.buff;
+  uint32_t len = (uint32_t)cleaning->intersection_name.end;
+  const char *str = cleaning->intersection_name.b;
   written += fwrite(&len, 1, sizeof(uint32_t), fh);
   written += fwrite(str, 1, len, fh);
 
@@ -76,8 +76,8 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
   {
     for(i = 0; i < h->num_of_cols; i++)
     {
-      uint32_t len = (uint32_t)h->ginfo[i].sample_name.len;
-      const char *buff = h->ginfo[i].sample_name.buff;
+      uint32_t len = (uint32_t)h->ginfo[i].sample_name.end;
+      const char *buff = h->ginfo[i].sample_name.b;
       act += fwrite(&len, 1, sizeof(uint32_t), fh);
       act += fwrite(buff, 1, len, fh);
       b += sizeof(uint32_t) + len;
@@ -161,13 +161,13 @@ static inline void overwrite_kmer_colours(hkey_t node,
 }
 
 void graph_file_write_colours(const dBGraph *db_graph,
-                             Colour graphcol, Colour intocol,
-                             size_t write_ncols, size_t file_ncols,
-                             FILE *fh)
+                              Colour graphcol, Colour intocol,
+                              size_t write_ncols, size_t file_ncols,
+                              FILE *fh)
 {
   ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   HASH_ITERATE(&db_graph->ht, overwrite_kmer_colours,
-                db_graph, graphcol, intocol, write_ncols, file_ncols, fh);
+               db_graph, graphcol, intocol, write_ncols, file_ncols, fh);
 }
 
 // Dump node: only print kmers with coverages in given colours
@@ -236,9 +236,6 @@ static bool saving_graph_as_is(const Colour *cols, Colour start_col,
   return (num_of_cols == num_graph_cols);
 }
 
-// This function will dump valid binaries by not printing edges to nodes that
-// are not themselves printed
-// If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
 uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
                          const GraphFileHeader *header, size_t intocol,
@@ -250,6 +247,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   ctx_assert(db_graph->col_edges != NULL);
   ctx_assert(db_graph->col_covgs != NULL);
   ctx_assert(num_of_cols > 0);
+  ctx_assert(colours || start_col + num_of_cols <= db_graph->num_of_cols);
   ctx_assert(intocol + num_of_cols <= header->num_of_cols);
 
   size_t i;
@@ -273,10 +271,10 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
            start_col+num_of_cols-1, out_name);
   }
 
-  status("Writing colours %zu-%zu of %zu", intocol, intocol+num_of_cols-1,
-         (size_t)header->num_of_cols);
+  status("[graph_file_save] Writing colours %zu-%zu of %zu into: %s",
+         intocol, intocol+num_of_cols-1, (size_t)header->num_of_cols, path);
 
-  FILE *fout = futil_open_output2(path, "w");
+  FILE *fout = futil_fopen(path, "w");
 
   // Write header
   graph_write_header(fout, header);

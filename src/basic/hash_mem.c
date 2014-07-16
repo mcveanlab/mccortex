@@ -2,7 +2,7 @@
 #include "hash_mem.h"
 
 // Returns capacity of a hash table that holds at least nkmers
-size_t hash_table_cap(size_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_ptr)
+size_t hash_table_cap(uint64_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_ptr)
 {
   ctx_assert(nkmers < UINT64_MAX>>1);
   uint64_t num_of_buckets, bucket_size, num_of_bits = 10;
@@ -15,7 +15,7 @@ size_t hash_table_cap(size_t nkmers, uint64_t *num_bkts_ptr, uint8_t *bkt_size_p
 }
 
 // Returns memory required to hold nkmers
-size_t hash_table_mem(size_t nkmers, size_t entrybits, size_t *nkmers_ptr)
+size_t hash_table_mem(uint64_t nkmers, size_t entrybits, uint64_t *nkmers_ptr)
 {
   uint64_t num_of_buckets, capacity; uint8_t bktsize;
   capacity = hash_table_cap(nkmers, &num_of_buckets, &bktsize);
@@ -24,7 +24,7 @@ size_t hash_table_mem(size_t nkmers, size_t entrybits, size_t *nkmers_ptr)
 }
 
 // Returns memory used for hashtable no more than some memory limit
-size_t hash_table_mem_limit(size_t memlimit, size_t entrybits, size_t *nkmers_ptr)
+size_t hash_table_mem_limit(size_t memlimit, size_t entrybits, uint64_t *nkmers_ptr)
 {
   size_t bktsize, num_of_bits = 10, num_of_buckets = 1UL<<num_of_bits, num_of_kmers;
 

@@ -25,7 +25,7 @@ int main(int argc, char **argv)
   size_t i, kmer_size = 7, ncols = 3;
 
   gpath_reader_check(&pfile, kmer_size, ncols);
-  gzFile gzout = futil_gzopen_output(out_path);
+  gzFile gzout = futil_gzopen_create(out_path, "w");
 
   dBGraph db_graph;
   db_graph_alloc(&db_graph, kmer_size, ncols, 1, 1024);

@@ -294,8 +294,7 @@ int ctx_reads(int argc, char **argv)
                               .boolean_covgs = false};
 
   for(i = 0; i < num_gfiles; i++) {
-    gfiles[i].fltr.flatten = true;
-    file_filter_update_intocol(&gfiles[i].fltr, 0);
+    file_filter_flatten(&gfiles[i].fltr, 0);
     graph_load(&gfiles[i], gprefs, &gstats);
     graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;

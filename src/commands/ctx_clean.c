@@ -100,7 +100,7 @@ int ctx_clean(int argc, char **argv)
         tip_cleaning = true;
         break;
       case 'S':
-        cmd_check(supernode_cleaning, cmd);
+        cmd_check(!supernode_cleaning, cmd);
         if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
         supernode_cleaning = true;
         break;
@@ -173,7 +173,7 @@ int ctx_clean(int argc, char **argv)
   {
     ncols = use_ncols = 1;
     for(i = 0; i < num_gfiles; i++)
-      file_filter_update_intocol(&gfiles[i].fltr, 0);
+      file_filter_flatten(&gfiles[i].fltr, 0);
   }
 
   if(ncols < use_ncols) {
@@ -197,16 +197,16 @@ int ctx_clean(int argc, char **argv)
 
   for(i = 0; i < num_gfiles; i++) {
     for(j = 0; j < gfiles[i].fltr.ncols; j++) {
-      fromcol = graph_file_fromcol(&gfiles[i], j);
+      fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
       cleaning = &gfiles[i].hdr.ginfo[fromcol].cleaning;
       if(cleaning->cleaned_snodes && supernode_cleaning) {
         warn("%s:%zu already has supernode cleaning with threshold: <%zu",
-             gfiles[i].fltr.file_path.buff, fromcol,
+             file_filter_path(&gfiles[i].fltr), fromcol,
              (size_t)cleaning->clean_snodes_thresh);
       }
       if(cleaning->cleaned_tips && tip_cleaning) {
         warn("%s:%zu already has had tip cleaned",
-             gfiles[i].fltr.file_path.buff, fromcol);
+             file_filter_path(&gfiles[i].fltr), fromcol);
       }
     }
   }
@@ -259,19 +259,13 @@ int ctx_clean(int argc, char **argv)
   //
   // Check output files are writable
   //
-  if(out_ctx_path != NULL && strcmp(out_ctx_path,"-") != 0 &&
-     !futil_is_file_writable(out_ctx_path)) {
-    cmd_print_usage("Cannot write to output: %s", out_ctx_path);
-  }
+  futil_create_output(out_ctx_path);
 
-  if(covg_before_path && !futil_is_file_writable(covg_before_path))
-    die("Cannot write 'before' coverage histogram to: %s", covg_before_path);
-  if(covg_after_path && !futil_is_file_writable(covg_after_path))
-    die("Cannot write 'after' coverage histogram to: %s", covg_after_path);
-  if(len_before_path && !futil_is_file_writable(len_before_path))
-    die("Cannot write 'before' length histogram to: %s", len_before_path);
-  if(len_after_path && !futil_is_file_writable(len_after_path))
-    die("Cannot write 'after' length histogram to: %s", len_after_path);
+  // Does nothing if arg is NULL
+  futil_create_output(covg_before_path);
+  futil_create_output(covg_after_path);
+  futil_create_output(len_before_path);
+  futil_create_output(len_after_path);
 
   // Create db_graph
   // Load as many colours as possible
@@ -292,37 +286,27 @@ int ctx_clean(int argc, char **argv)
                               .empty_colours = false};
 
   // Construct cleaned graph header
-  GraphFileHeader outhdr = INIT_GRAPH_FILE_HDR_MACRO;
+  GraphFileHeader outhdr;
+  memset(&outhdr, 0, sizeof(GraphFileHeader));
+  outhdr.version = CTX_GRAPH_FILEFORMAT;
   outhdr.kmer_size = db_graph.kmer_size;
   outhdr.num_of_cols = ncols;
-
+  outhdr.num_of_bitfields = (db_graph.kmer_size*2+63)/64;
   graph_header_alloc(&outhdr, ncols);
 
   // Merge info into header
   size_t gcol = 0;
   for(i = 0; i < num_gfiles; i++) {
     for(j = 0; j < gfiles[i].fltr.ncols; j++, gcol++) {
-      fromcol = graph_file_fromcol(&gfiles[i], j);
-      intocol = graph_file_intocol(&gfiles[i], j);
+      fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
+      intocol = file_filter_intocol(&gfiles[i].fltr, j);
       graph_info_merge(&outhdr.ginfo[intocol], &gfiles[i].hdr.ginfo[fromcol]);
     }
   }
 
-  if(ncols > use_ncols)
-  {
-    // Load into one colour
-    size_t tmpinto; bool tmpflatten;
-    for(i = 0; i < num_gfiles; i++)
-    {
-      tmpinto = gfiles[i].fltr.intocol; tmpflatten = gfiles[i].fltr.flatten;
-      file_filter_update_intocol(&gfiles[i].fltr, 0);
-      gfiles[i].fltr.flatten = true;
-      graph_load(&gfiles[i], gprefs, &stats);
-      file_filter_update_intocol(&gfiles[i].fltr, tmpinto);
-      gfiles[i].fltr.flatten = tmpflatten;
-    }
-  }
-  else {
+  if(ncols > use_ncols) {
+    graph_files_load_flat(gfiles, num_gfiles, gprefs, &stats);
+  } else {
     for(i = 0; i < num_gfiles; i++)
       graph_load(&gfiles[i], gprefs, &stats);
   }

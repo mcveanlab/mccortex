@@ -1,5 +1,6 @@
 #include "global.h"
 #include "gpath_reader.h"
+#include "file_util.h"
 #include "util.h"
 #include "hash_mem.h"
 #include "common_buffers.h"
@@ -30,7 +31,7 @@ static long _json_demand_int(cJSON *root, const char *field, const char *path)
 
 size_t gpath_reader_get_kmer_size(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "kmer_size", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "kmer_size", file->fltr.path.b);
   if(val < MIN_KMER_SIZE || val > MAX_KMER_SIZE || !(val & 1)) {
     die("kmer size is not an odd int between %i..%i: %li",
         MIN_KMER_SIZE, MAX_KMER_SIZE, val);
@@ -45,31 +46,31 @@ size_t gpath_reader_get_num_kmers(const GPathReader *file)
   if(json == NULL) json = cJSON_GetObjectItem(file->json, "num_kmers_with_paths");
   if(json == NULL || json->type != cJSON_Number) {
     die("No 'num_kmers' or 'num_kmers_with_paths' field in header: %s",
-        file->fltr.file_path.buff);
+        file->fltr.path.b);
   }
   long val = json->valueint;
-  // long val = _json_demand_int(file->json, "kmers_with_paths", file->fltr.file_path.buff);
+  // long val = _json_demand_int(file->json, "kmers_with_paths", file->fltr.path.b);
   if(val < 0) die("num_kmers is negative");
   return val;
 }
 
 size_t gpath_reader_get_num_paths(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "num_paths", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "num_paths", file->fltr.path.b);
   if(val < 0) die("num_paths is negative");
   return val;
 }
 
 size_t gpath_reader_get_path_bytes(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "path_bytes", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "path_bytes", file->fltr.path.b);
   if(val < 0) die("path_bytes is negative");
   return val;
 }
 
 static size_t _gpath_reader_get_filencols(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "ncols", file->fltr.file_path.buff);
+  long val = _json_demand_int(file->json, "ncols", file->fltr.path.b);
   if(val < 1 || val > 100000) die("Invalid number of colours: %li", val);
   return val;
 }
@@ -78,10 +79,10 @@ static size_t _gpath_reader_get_filencols(const GPathReader *file)
 const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx)
 {
   if(idx >= file->ncolours)
-    die("Sample %zu > %zu: %s", idx, file->ncolours, file->fltr.file_path.buff);
+    die("Sample %zu > %zu: %s", idx, file->ncolours, file->fltr.path.b);
   cJSON *json = cJSON_GetObjectItem(file->colours_json[idx], "sample");
   if(json == NULL || json->type != cJSON_String)
-    die("Sample %zu has no field 'sample': %s", idx, file->fltr.file_path.buff);
+    die("Sample %zu has no field 'sample': %s", idx, file->fltr.path.b);
   return json->valuestring;
 }
 
@@ -92,7 +93,7 @@ static void _gpath_reader_load_json_hdr(gzFile gzin, const char *path,
   strbuf_reset(hdrstr);
 
   load_check((nread = strbuf_gzreadline(hdrstr, gzin)) > 0, "Empty file: %s", path);
-  load_check(hdrstr->buff[0] == '{', "Expected JSON header: %s", path);
+  load_check(hdrstr->b[0] == '{', "Expected JSON header: %s", path);
 
   size_t i, prev_offset = 0;
   size_t num_curly_open = 0, num_curly_close = 0; // '{' '}'
@@ -101,19 +102,19 @@ static void _gpath_reader_load_json_hdr(gzFile gzin, const char *path,
 
   while(1)
   {
-    for(i = prev_offset; i < hdrstr->len; i++) {
+    for(i = prev_offset; i < hdrstr->end; i++) {
       if(in_string) {
         if(escape_char) escape_char = false;
-        else if(hdrstr->buff[i] == '\\') escape_char = true;
-        else if(hdrstr->buff[i] == '"') in_string = false;
+        else if(hdrstr->b[i] == '\\') escape_char = true;
+        else if(hdrstr->b[i] == '"') in_string = false;
       }
-      else if(hdrstr->buff[i] == '"') in_string = true;
-      else if(hdrstr->buff[i] == '{') num_curly_open++;
-      else if(hdrstr->buff[i] == '}') num_curly_close++;
-      else if(hdrstr->buff[i] == '[') num_brkt_open++;
-      else if(hdrstr->buff[i] == ']') num_brkt_close++;
+      else if(hdrstr->b[i] == '"') in_string = true;
+      else if(hdrstr->b[i] == '{') num_curly_open++;
+      else if(hdrstr->b[i] == '}') num_curly_close++;
+      else if(hdrstr->b[i] == '[') num_brkt_open++;
+      else if(hdrstr->b[i] == ']') num_brkt_close++;
     }
-    prev_offset = hdrstr->len;
+    prev_offset = hdrstr->end;
 
     if(num_curly_open == num_curly_close && num_brkt_open == num_brkt_close)
       break;
@@ -121,7 +122,7 @@ static void _gpath_reader_load_json_hdr(gzFile gzin, const char *path,
     // header is not finished yet
     load_check(num_curly_open > num_curly_close, "'}' before '{': %s", path);
     load_check(num_brkt_open >= num_brkt_close, "']' before '[': %s", path);
-    load_check(hdrstr->len < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
+    load_check(hdrstr->end < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
     load_check((nread = strbuf_gzreadline(hdrstr, gzin)) > 0,
                "Premature end of JSON header: %s", path);
   }
@@ -142,23 +143,20 @@ void _parse_json_header(GPathReader *file)
   if(file->ncolours == 0) die("No colours in JSON header");
 }
 
-// Open file
-// if cannot open file returns 0
-// if fatal is true, exits on error
-// if !fatal, returns -1 on error
+// Open file, exit on error
 // if successful creates a new GPathReader and returns 1
-int gpath_reader_open2(GPathReader *file, char *path, const char *mode,
-                       bool fatal)
+void gpath_reader_open2(GPathReader *file, char *path, const char *mode)
 {
   FileFilter *fltr = &file->fltr;
+  file_filter_open(fltr, path); // calls die() on error
 
-  if(!file_filter_open(fltr, path, mode, true, fatal)) return 0;
+  file->gz = futil_gzopen(fltr->path.b, mode);
 
   // Load JSON header into file->hdrstr
   StrBuf *hdrstr = &file->hdrstr;
-  if(hdrstr->buff == NULL) strbuf_alloc(hdrstr, 1024);
-  _gpath_reader_load_json_hdr(fltr->gz, path, hdrstr);
-  file->json = cJSON_Parse(hdrstr->buff);
+  if(hdrstr->b == NULL) strbuf_alloc(hdrstr, 1024);
+  _gpath_reader_load_json_hdr(file->gz, path, hdrstr);
+  file->json = cJSON_Parse(hdrstr->b);
   if(file->json == NULL) die("Invalid JSON header: %s", path);
 
   // DEV: validate json header
@@ -171,9 +169,22 @@ int gpath_reader_open2(GPathReader *file, char *path, const char *mode,
   file_filter_set_cols(fltr, filencols);
 
   // Check we can handle the kmer size
-  db_graph_check_kmer_size(kmer_size, file->fltr.file_path.buff);
+  db_graph_check_kmer_size(kmer_size, file->fltr.path.b);
+}
 
-  return 1;
+void gpath_reader_open(GPathReader *file, char *path)
+{
+  gpath_reader_open2(file, path, "r");
+}
+
+void gpath_reader_close(GPathReader *file)
+{
+  if(file->gz) gzclose(file->gz);
+  file_filter_close(&file->fltr);
+  cJSON_Delete(file->json);
+  strbuf_dealloc(&file->hdrstr);
+  ctx_free(file->colours_json);
+  memset(file, 0, sizeof(GPathReader));
 }
 
 
@@ -183,27 +194,13 @@ void gpath_reader_check(const GPathReader *file, size_t db_kmer_size,
   size_t kmer_size = gpath_reader_get_kmer_size(file);
   if(kmer_size != db_kmer_size) {
     die("Path file kmer size doesn't match [path: %s kmer: %zu, graph-kmer: %zu]",
-        file->fltr.file_path.buff, kmer_size, db_kmer_size);
+        file->fltr.path.b, kmer_size, db_kmer_size);
   }
-  size_t used_ncols = file_filter_usedcols(&file->fltr);
+  size_t used_ncols = file_filter_into_ncols(&file->fltr);
   if(used_ncols > db_ncols) {
     die("Path file requires at least %zu colours [path: %s, curr colours: %zu]",
-        used_ncols, file->fltr.orig_path.buff, db_ncols);
+        used_ncols, file->fltr.input.b, db_ncols);
   }
-}
-
-int gpath_reader_open(GPathReader *file, char *path, bool fatal)
-{
-  return gpath_reader_open2(file, path, "r", fatal);
-}
-
-void gpath_reader_close(GPathReader *file)
-{
-  file_filter_close(&file->fltr);
-  cJSON_Delete(file->json);
-  strbuf_dealloc(&file->hdrstr);
-  ctx_free(file->colours_json);
-  memset(file, 0, sizeof(GPathReader));
 }
 
 // <KMER> <num> .. (ignored)
@@ -216,14 +213,14 @@ static void _gpath_reader_load_kmer_line(const char *path,
   char *numpstr, *endpstr;
   size_t i, num_paths_exp = 0;
 
-  for(i = 0; i < line->len && char_is_acgt(line->buff[i]); i++) {}
-  load_check(i == kmer_size, "Bad kmer line: %s\n'%s'\n", path, line->buff);
+  for(i = 0; i < line->end && char_is_acgt(line->b[i]); i++) {}
+  load_check(i == kmer_size, "Bad kmer line: %s\n'%s'\n", path, line->b);
 
   BinaryKmer bkmer, bkey;
   hkey_t hkey;
   bool found = false;
 
-  bkmer = binary_kmer_from_str(line->buff, kmer_size);
+  bkmer = binary_kmer_from_str(line->b, kmer_size);
   // check bkmer is kmer key
   bkey = binary_kmer_get_key(bkmer, kmer_size);
   load_check(binary_kmers_are_equal(bkmer, bkey), "Bkmer not bkey: %s", path);
@@ -236,12 +233,12 @@ static void _gpath_reader_load_kmer_line(const char *path,
   }
 
   // Parse number of paths
-  numpstr = line->buff+kmer_size;
+  numpstr = line->b+kmer_size;
   load_check(numpstr[0] == ' ', "Bad kmer line: %s", path);
   numpstr++;
   num_paths_exp = strtoul(numpstr, &endpstr, 10);
   load_check(endpstr > numpstr && (*endpstr == '\0' || *endpstr == ' '),
-              "Bad kmer line: %s\n%s\n", path, line->buff);
+              "Bad kmer line: %s\n%s\n", path, line->b);
 
   *npaths_ptr = num_paths_exp;
   *hkey_ptr = hkey;
@@ -257,9 +254,9 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
   Orientation orient;
   char *pstr, *endpstr;
 
-  orient = (line->buff[0] == 'F') ? FORWARD : REVERSE;
-  load_check(line->buff[1] == ' ', "Bad path line: %s", path);
-  pstr = line->buff+2;
+  orient = (line->b[0] == 'F') ? FORWARD : REVERSE;
+  load_check(line->b[1] == ' ', "Bad path line: %s", path);
+  pstr = line->b+2;
 
   // [nkmers]
   num_kmers = strtoul(pstr, &endpstr, 10);
@@ -274,14 +271,17 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
   // [nseen,nseen,...]
   endpstr = strchr(pstr, ' ');
   load_check(endpstr != NULL && endpstr > pstr, "Bad path line: %s", path);
-  
+
   for(i = 0; i < file->fltr.filencols; i++, pstr = endpstr+1)
   {
     size_t num_seen = strtoul(pstr, &endpstr, 10);
     nseenbuf[i] = MIN2(UINT8_MAX, num_seen);
     load_check((i+1 < file->fltr.filencols && *endpstr == ',') || *endpstr == ' ',
-               "Bad path line: %s\n%s", path, line->buff);
+               "Bad path line: %s\n%s", path, line->b);
   }
+
+  ctx_assert2(num_kmers < GPATH_MAX_KMERS, "%zu", (size_t)num_kmers);
+  ctx_assert2(num_juncs < GPATH_MAX_JUNCS, "%zu", (size_t)num_juncs);
 
   // [seq]
   endpstr = pstr;
@@ -360,8 +360,8 @@ static void _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
 
 void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph)
 {
-  gzFile gzin = file->fltr.gz;
-  const char *path = file->fltr.file_path.buff;
+  gzFile gzin = file->gz;
+  const char *path = file->fltr.path.b;
 
   status("Loading path file: %s", path);
 
@@ -391,10 +391,10 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
 
   while(strbuf_reset_gzreadline(&line, gzin) > 0) {
     strbuf_chomp(&line);
-    if(line.len > 0 && line.buff[0] != '#') {
-      if(line.buff[0] == 'F' || line.buff[0] == 'R') {
+    if(line.end > 0 && line.b[0] != '#') {
+      if(line.b[0] == 'F' || line.b[0] == 'R') {
         // Assume path line
-        // status("Path line: %s", line.buff);
+        // status("Path line: %s", line.b);
         load_check(hkey != HASH_NOT_FOUND, "Path before kmer: %s", path);
 
         _gpath_reader_load_path_line(file, path, &line, nseenbuf, &seqbuf,
@@ -404,7 +404,7 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
       }
       else {
         // Assume kmer line
-        // status("Kmer line: %s", line.buff);
+        // status("Kmer line: %s", line.b);
 
         if(num_kmers > 0) {
           _load_paths_from_set(db_graph, &gpset, &subset0, &subset1,
@@ -452,11 +452,11 @@ void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph)
     gname = &db_graph->ginfo[intocol].sample_name;
     pname = gpath_reader_get_sample_name(file, fromcol);
 
-    if(strcmp(gname->buff, "undefined") == 0) {
+    if(strcmp(gname->b, "undefined") == 0) {
       strbuf_set(gname, pname);
-    } else if(strcmp(gname->buff, pname) != 0) {
+    } else if(strcmp(gname->b, pname) != 0) {
       die("Graph/path sample names do not match [%zu->%zu] '%s' vs '%s'",
-          fromcol, intocol, gname->buff, pname);
+          fromcol, intocol, gname->b, pname);
     }
   }
 }

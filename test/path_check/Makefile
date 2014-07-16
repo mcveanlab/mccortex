@@ -33,12 +33,12 @@ reads.1.fa.gz reads.2.fa.gz:
 	../../libs/readsim/readsim -r genome.fa -l 10 -i 20 -v 0.1 -d 2 reads
 
 genome.k$(K).ctp: genome.k$(K).ctx
-	$(CTX) thread -m 10M -a 1 -t 1 --col 0 --seq genome.fa -o $@ $<
+	$(CTX) thread -m 10M -t 1 --seq genome.fa -o $@ $<
 
 reads.se.k$(K).ctp: genome.k$(K).ctx reads.1.fa.gz reads.2.fa.gz
-	$(CTX) thread -m 10M -a 1 -t 1 --col 0 --seq reads.1.fa.gz --seq reads.2.fa.gz -o reads.se.k$(K).ctp genome.k$(K).ctx
+	$(CTX) thread -m 10M -t 1 --seq reads.1.fa.gz --seq reads.2.fa.gz -o reads.se.k$(K).ctp genome.k$(K).ctx
 
 reads.pe.k$(K).ctp: genome.k$(K).ctx reads.1.fa.gz reads.2.fa.gz
-	$(CTX) thread -m 10M -a 1 -t 1 --col 0 --seq2 reads.1.fa.gz reads.2.fa.gz -o reads.pe.k$(K).ctp genome.k$(K).ctx
+	$(CTX) thread -m 10M -t 1 --seq2 reads.1.fa.gz:reads.2.fa.gz -o reads.pe.k$(K).ctp genome.k$(K).ctx
 
 .PHONY: all plots clean

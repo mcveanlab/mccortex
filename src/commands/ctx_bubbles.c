@@ -87,7 +87,7 @@ int ctx_bubbles(int argc, char **argv)
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
-        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
@@ -180,7 +180,7 @@ int ctx_bubbles(int argc, char **argv)
   //
   // Open output file
   //
-  gzFile gzout = futil_gzopen_output(out_path);
+  gzFile gzout = futil_gzopen_create(out_path, "w");
 
   // Allocate memory
   dBGraph db_graph;
@@ -235,6 +235,7 @@ int ctx_bubbles(int argc, char **argv)
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
 
+  size_buf_dealloc(&haploidbuf);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

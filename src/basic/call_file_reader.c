@@ -21,8 +21,8 @@ void call_file_read_hdr(gzFile gzin, const char *path, StrBuf *hdr)
 {
   size_t len;
   while((len = strbuf_gzreadline(hdr, gzin)) > 1) {
-    if(hdr->buff[hdr->len-len] != '#')
-      die("Bad header line [path: %s]:\n%s", path, hdr->buff);
+    if(hdr->b[hdr->end-len] != '#')
+      die("Bad header line [path: %s]:\n%s", path, hdr->b);
   }
   strbuf_chomp(hdr);
 }
@@ -48,21 +48,21 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
   }
 
   if(len == 0) return 0;
-  if(!hdr_line) die("Odd number of lines [path: %s]: %s", path, txt->buff);
+  if(!hdr_line) die("Odd number of lines [path: %s]: %s", path, txt->b);
 
-  if(txt->len < 2 || txt->buff[txt->len-1] != '\n' || txt->buff[txt->len-2] != '\n')
+  if(txt->end < 2 || txt->b[txt->end-1] != '\n' || txt->b[txt->end-2] != '\n')
     die("Calls must end with 2 EOL chars: \\n");
-  
-  // Trim last two end of line characters
-  txt->buff[txt->len -= 2] = '\0';
 
-  // printf("READ: '%s'\n", txt->buff);
+  // Trim last two end of line characters
+  txt->b[txt->end -= 2] = '\0';
+
+  // printf("READ: '%s'\n", txt->b);
 
   // Don't do anything that would cause entry->txt to be realloc'd now!
   // We are storing pointers to each line
   char_ptr_buf_reset(&entry->lines);
 
-  ptr = txt->buff;
+  ptr = txt->b;
   end = strchr(ptr, '\n');
 
   while(1)
@@ -98,8 +98,8 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
   // Reverse complement flank3p
   strbuf_reset(&entry->flank3p_rc);
   strbuf_ensure_capacity(&entry->flank3p_rc, fl3plen);
-  dna_revcomp_str(entry->flank3p_rc.buff, fl3p, fl3plen);
-  entry->flank3p_rc.buff[entry->flank3p_rc.len = fl3plen] = '\0';
+  dna_revcomp_str(entry->flank3p_rc.b, fl3p, fl3plen);
+  entry->flank3p_rc.b[entry->flank3p_rc.len = fl3plen] = '\0';
 
   // Set shift left / shift right
   size_t num_alleles = entry->lines.len/2 - 2;

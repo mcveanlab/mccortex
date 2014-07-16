@@ -1,9 +1,9 @@
 
 CTX=../../bin/ctx31
-PATHS=paths.0.ctp paths.1.ctp
+PATHS=paths.0.ctp.gz paths.1.ctp.gz
 SEQ=genome.0.fa genome.1.fa
 GRAPHS=$(SEQ:.fa=.ctx)
-MERGED=genomes.ctx genomes.ctp
+MERGED=genomes.ctx genomes.ctp.gz
 
 TGTS=$(SEQ) $(GRAPHS) $(PATHS) $(MERGED)
 
@@ -25,15 +25,15 @@ genome.1.fa:
 genome.%.ctx: genome.%.fa
 	$(CTX) build -m 1M -k 9 --sample Gnome$* --seq genome.$*.fa $@
 
-paths.%.ctp: genome.%.ctx genome.%.fa
+paths.%.ctp.gz: genome.%.ctx genome.%.fa
 	$(CTX) thread -m 1M --seq genome.$*.fa -o $@ genome.$*.ctx
-	$(CTX) pview $@
+	zcat $@
 
 genomes.ctx: $(PATHS)
 	$(CTX) join -o $@ $(GRAPHS)
 
-genomes.ctp: $(PATHS)
+genomes.ctp.gz: $(PATHS)
 	$(CTX) pjoin -o $@ $(PATHS)
-	$(CTX) pview $@
+	zcat $@
 
 .PHONY: all plots clean

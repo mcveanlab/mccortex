@@ -83,9 +83,9 @@ static void handle_read(CorrectReadsWorker *wrkr,
 
   if(nbuf == NULL) {
     // Alignment failed - copy read in lower case
-    size_t offset = buf->len;
+    size_t offset = buf->end;
     strbuf_append_strn(buf, r->seq.b, r->seq.end);
-    for(i = offset; i < buf->len; i++) buf->buff[i] = tolower(buf->buff[i]);
+    for(i = offset; i < buf->end; i++) buf->b[i] = tolower(buf->b[i]);
     strbuf_append_char(buf, '\n');
     return;
   }
@@ -227,7 +227,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
     // Single ended read
     handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
     pthread_mutex_lock(&output->lock_se);
-    gzputs(output->gzout_se, buf1->buff);
+    gzwrite(output->gzout_se, buf1->b, buf1->end);
     pthread_mutex_unlock(&output->lock_se);
   }
   else
@@ -236,8 +236,8 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
     handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff);
     handle_read(wrkr, input, r2, buf2, fq_cutoff2, hp_cutoff);
     pthread_mutex_lock(&output->lock_pe);
-    gzputs(output->gzout_pe[0], buf1->buff);
-    gzputs(output->gzout_pe[1], buf2->buff);
+    gzwrite(output->gzout_pe[0], buf1->b, buf1->end);
+    gzwrite(output->gzout_pe[1], buf2->b, buf2->end);
     pthread_mutex_unlock(&output->lock_pe);
   }
 }

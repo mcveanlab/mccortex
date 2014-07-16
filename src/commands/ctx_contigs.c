@@ -340,7 +340,7 @@ int ctx_contigs(int argc, char **argv)
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
-        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 's': // --seed <in.fa>
@@ -376,18 +376,17 @@ int ctx_contigs(int argc, char **argv)
   //
   // Open Graph file
   //
-  GraphFileReader gfile = INIT_GRAPH_READER;
-  graph_file_open(&gfile, ctx_path, true); // true => errors are fatal
-  size_t ncols = graph_file_usedcols(&gfile);
+  GraphFileReader gfile;
+  memset(&gfile, 0, sizeof(GraphFileReader));
+  graph_file_open(&gfile, ctx_path);
+  size_t ncols = file_filter_into_ncols(&gfile.fltr);
 
   // Check for compatibility between graph files and path files
   graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len);
 
   // Check colour specified
-  if(colour >= ncols) {
-    cmd_print_usage("-c, --colour is too high (%zu > %zu)",
-                 colour, graph_file_usedcols(&gfile)-1);
-  }
+  if(colour >= ncols)
+    cmd_print_usage("-c, --colour is too high (%zu > %zu)", colour, ncols-1);
 
   //
   // Decide on memory
@@ -422,7 +421,7 @@ int ctx_contigs(int argc, char **argv)
   //
   // Output file if printing
   //
-  FILE *fout = out_path ? futil_open_output(out_path) : NULL;
+  FILE *fout = out_path ? futil_open_create(out_path, "w") : NULL;
 
   // Allocate
   dBGraph db_graph;

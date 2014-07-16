@@ -100,7 +100,8 @@ static struct option longopts[] =
 
 int ctx_thread(int argc, char **argv)
 {
-  struct ReadThreadCmdArgs args = READ_THREAD_CMD_ARGS_INIT;
+  struct ReadThreadCmdArgs args;
+  memset(&args, 0, sizeof(args));
   read_thread_args_alloc(&args);
   read_thread_args_parse(&args, argc, argv, longopts, false);
 
@@ -159,7 +160,7 @@ int ctx_thread(int argc, char **argv)
   //
   // Open output file
   //
-  gzFile gzout = futil_gzopen_output(args.out_ctp_path);
+  gzFile gzout = futil_gzopen_create(args.out_ctp_path, "w");
 
   status("Creating paths file: %s", futil_outpath_str(args.out_ctp_path));
 

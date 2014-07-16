@@ -51,8 +51,8 @@ static struct option longopts[] =
   {"seq",          required_argument, NULL, '1'},
   {"dist",         required_argument, NULL, 'd'},
   // {"sdist",        required_argument, NULL, 'D'},
-  {"invert",       required_argument, NULL, 'v'},
-  {"supernodes",   required_argument, NULL, 'S'},
+  {"invert",       no_argument,       NULL, 'v'},
+  {"supernodes",   no_argument,       NULL, 'S'},
   {NULL, 0, NULL, 0}
 };
 
@@ -166,12 +166,7 @@ int ctx_subgraph(int argc, char **argv)
 
   // Print to stdout unless --out <out> is specified
   if(out_path == NULL) out_path = "-";
-
-  if(strcmp(out_path,"-") != 0) {
-    if(!futil_get_force() && futil_file_exists(out_path))
-      die("File already exists: %s", out_path);
-    else if(!futil_is_file_writable(out_path)) die("Cannot write: %s", out_path);
-  }
+  futil_create_output(out_path);
 
   // Create db_graph
   // multiple colours may be useful later in pulling out multiple colours
@@ -196,22 +191,18 @@ int ctx_subgraph(int argc, char **argv)
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
-  size_t tmpinto; bool tmpflatten;
+  if(total_cols > db_graph.num_of_cols) {
+    graph_files_load_flat(gfiles, num_gfiles, gprefs, &stats);
+  }
+  else {
+    for(i = 0; i < num_gfiles; i++)
+      graph_load(&gfiles[i], gprefs, &stats);
+  }
+
+  // Create header
   for(i = 0; i < num_gfiles; i++) {
-    tmpinto = gfiles[i].fltr.intocol;
-    tmpflatten = gfiles[i].fltr.flatten;
-
-    if(total_cols > db_graph.num_of_cols) {
-      file_filter_update_intocol(&gfiles[i].fltr, 0);
-      gfiles[i].fltr.flatten = true;
-    }
-
-    graph_load(&gfiles[i], gprefs, &stats);
-    file_filter_update_intocol(&gfiles[i].fltr, tmpinto);
-    gfiles[i].fltr.flatten = tmpflatten;
-
     for(j = 0; j < gfiles[i].fltr.ncols; j++) {
-      col = gfiles[i].fltr.cols[j];
+      col = file_filter_intocol(&gfiles[i].fltr, j);
       graph_info_make_intersect(&gfiles[i].hdr.ginfo[col], &intersect_gname);
     }
   }
@@ -249,7 +240,7 @@ int ctx_subgraph(int argc, char **argv)
 
   graph_files_merge_mkhdr(out_path, gfiles, num_gfiles,
                           kmers_loaded, colours_loaded,
-                          intersect_edges, intersect_gname.buff,
+                          intersect_edges, intersect_gname.b,
                           &db_graph);
 
   ctx_free(intersect_edges);

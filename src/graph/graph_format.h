@@ -36,19 +36,13 @@ void graph_header_dealloc(GraphFileHeader *header);
 
 void graph_header_print(const GraphFileHeader *header);
 
-// Copy non-colour specific values
-void graph_header_global_cpy(GraphFileHeader *dst, const GraphFileHeader *src);
-
 // Merge headers and set intersect name (if intersect_gname != NULL)
 void graph_reader_merge_headers(GraphFileHeader *hdr,
                                 const GraphFileReader *files, size_t num_files,
                                 const char *intersect_gname);
 
-// If fatal == false, returns -1 on error
-// path is used when reporting errors
-// Note: Doesn't set num_of_kmers if version < 7
-int graph_file_read_header(FILE *fh, GraphFileHeader *header,
-                           bool fatal, const char *path);
+// Return number of bytes read or die() with error
+size_t graph_file_read_header(FILE *fh, GraphFileHeader *header, const char *path);
 
 // Returns number of bytes read
 size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
@@ -67,13 +61,9 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   LoadingStats *stats);
 
-// Only load a given colour
-// colour_idx is the index of an already specified colour
-// "in.ctx:0,3,9,2" colour_idx=2 loads: "in.ctx:9"
-size_t graph_load_colour(GraphFileReader *file,
-                         const GraphLoadingPrefs prefs,
-                         LoadingStats *stats,
-                         size_t colour_idx, size_t intocol);
+// Load all files into colour 0
+void graph_files_load_flat(GraphFileReader *gfiles, size_t num_files,
+                           GraphLoadingPrefs prefs, LoadingStats *stats);
 
 // Load a kmer and write to a file one kmer at a time
 // Optionally filter a against the graph currently loaded

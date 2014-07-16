@@ -105,20 +105,18 @@ int ctx_pjoin(int argc, char **argv)
   //
   size_t i, total_cols;
   size_t ctp_max_cols = 0, ctp_sum_cols = 0;
-  size_t ctp_max_kmers = 0, ctp_sum_kmers = 0;
+  uint64_t ctp_max_kmers = 0, ctp_sum_kmers = 0;
   GPathReader *pfiles = ctx_calloc(num_pfiles, sizeof(GPathReader));
 
   for(i = 0; i < num_pfiles; i++)
   {
-    gpath_reader_open(&pfiles[i], paths[i], true);
+    gpath_reader_open(&pfiles[i], paths[i]);
 
-    if(flatten) {
-      pfiles[i].fltr.flatten = true;
-      file_filter_update_intocol(&pfiles[i].fltr, 0);
-    }
+    if(flatten)
+      file_filter_flatten(&pfiles[i].fltr, 0);
 
     size_t nkmers = gpath_reader_get_num_kmers(&pfiles[i]);
-    size_t ncols = file_filter_usedcols(&pfiles[i].fltr);
+    size_t ncols = file_filter_into_ncols(&pfiles[i].fltr);
 
     ctp_max_cols = MAX2(ctp_max_cols, ncols);
     ctp_sum_cols += ncols;
@@ -133,9 +131,8 @@ int ctx_pjoin(int argc, char **argv)
   else {
     total_cols = 0;
     for(i = 0; i < num_pfiles; i++) {
-      size_t offset = total_cols;
-      total_cols += file_filter_usedcols(&pfiles[i].fltr);
-      file_filter_update_intocol(&pfiles[i].fltr, pfiles[i].fltr.intocol+offset);
+      file_filter_shift_cols(&pfiles[i].fltr, total_cols);
+      total_cols = file_filter_into_ncols(&pfiles[i].fltr);
     }
   }
 
@@ -146,15 +143,16 @@ int ctx_pjoin(int argc, char **argv)
   }
 
   // Open graph file to get number of kmers is passed
-  GraphFileReader gfile = INIT_GRAPH_READER;
+  GraphFileReader gfile;
+  memset(&gfile, 0, sizeof(GraphFileReader));
 
   if(memargs.num_kmers_set) {
     ctp_max_kmers = MAX2(ctp_max_kmers, memargs.num_kmers);
   }
 
   if(graph_file != NULL) {
-    graph_file_open(&gfile, graph_file, true);
-    ctp_sum_kmers = MIN2(ctp_sum_kmers, gfile.num_of_kmers);
+    graph_file_open(&gfile, graph_file);
+    ctp_sum_kmers = MIN2(ctp_sum_kmers, graph_file_nkmers(&gfile));
   }
 
   // Check for compatibility between graph files and path files
@@ -206,7 +204,7 @@ int ctx_pjoin(int argc, char **argv)
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   // Open output file
-  gzFile gzout = futil_gzopen_output(out_ctp_path);
+  gzFile gzout = futil_gzopen_create(out_ctp_path, "w");
 
   // Set up graph and PathStore
   size_t kmer_size = gpath_reader_get_kmer_size(&pfiles[0]);
@@ -228,12 +226,13 @@ int ctx_pjoin(int argc, char **argv)
 
   size_t output_threads = MIN2(nthreads, MAX_IO_THREADS);
 
-  cJSON *hdrs[num_pfiles];
+  cJSON **hdrs = ctx_calloc(num_pfiles, sizeof(cJSON*));
   for(i = 0; i < num_pfiles; i++) hdrs[i] = pfiles[i].json;
 
   // Write output file
   gpath_save(gzout, out_ctp_path, output_threads, hdrs, num_pfiles, &db_graph);
   gzclose(gzout);
+  ctx_free(hdrs);
 
   // Close ctp files
   // Don't close until now since we were using their headers in the output file

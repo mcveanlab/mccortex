@@ -311,7 +311,7 @@ int ctx_supernodes(int argc, char **argv)
   //
 
   // Print to stdout unless --out <out> is specified
-  FILE *fout = futil_open_output(out_path);
+  FILE *fout = futil_open_create(out_path, "w");
 
   //
   // Allocate memory
@@ -328,8 +328,7 @@ int ctx_supernodes(int argc, char **argv)
                               .empty_colours = false};
 
   for(i = 0; i < num_gfiles; i++) {
-    gfiles[i].fltr.flatten = true;
-    file_filter_update_intocol(&gfiles[i].fltr, 0);
+    file_filter_flatten(&gfiles[i].fltr, 0);
     graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
   }

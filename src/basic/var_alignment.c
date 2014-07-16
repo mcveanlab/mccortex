@@ -102,18 +102,18 @@ int var_aln_find_end_flank(const bam1_t *bam,
 
   if(bam_is_rev(bam)) {
     endfl_missing = kmer_size - (lf->len-FPREFIX);
-    strbuf_append_strn(&endflank, lf->buff+FPREFIX, lf->len-FPREFIX);
-    strbuf_append_strn(&endflank, rf->buff+FPREFIX, endfl_missing);
+    strbuf_append_strn(&endflank, lf->b+FPREFIX, lf->len-FPREFIX);
+    strbuf_append_strn(&endflank, rf->b+FPREFIX, endfl_missing);
   } else {
     endfl_missing = kmer_size - (rf->len-FPREFIX);
-    strbuf_append_strn(&endflank, lf->buff+lf->len-endfl_missing, endfl_missing);
-    strbuf_append_strn(&endflank, rf->buff+FPREFIX, rf->len-FPREFIX);
+    strbuf_append_strn(&endflank, lf->b+lf->len-endfl_missing, endfl_missing);
+    strbuf_append_strn(&endflank, rf->b+FPREFIX, rf->len-FPREFIX);
   }
 
   // Choose a region of the ref to search for the end flank
   // end is index after last char
   long search_start, search_end;
- 
+
   if(bam_is_rev(bam)) {
     search_start = (long)bam->core.pos - (long)(longest_allele_bp + kmer_size + 10);
     search_end = (long)bam->core.pos + (long)kmer_size;
@@ -136,9 +136,9 @@ int var_aln_find_end_flank(const bam1_t *bam,
   char save_ref_base = search_region[search_len];
   search_region[search_len] = '\0';
 
-  char *kmer_match = strstr(search_region, endflank.buff), *search = kmer_match;
+  char *kmer_match = strstr(search_region, endflank.b), *search = kmer_match;
   if(!bam_is_rev(bam) && kmer_match != NULL) {
-    while((search = strstr(search+1, endflank.buff)) != NULL) {
+    while((search = strstr(search+1, endflank.b)) != NULL) {
       kmer_match = search;
     }
   }
@@ -155,7 +155,7 @@ int var_aln_find_end_flank(const bam1_t *bam,
       printf("sr:%.*s\nsr:", (int)search_len, search_region);
       size_t pos = kmer_match - search_region;
       for(i = 0; i < pos; i++) fputc('.', stdout);
-      fputs(endflank.buff, stdout);
+      fputs(endflank.b, stdout);
       for(i = pos+kmer_size; i < (unsigned)search_len; i++) fputc('.', stdout);
       fputc('\n', stdout);
     #endif
@@ -163,7 +163,7 @@ int var_aln_find_end_flank(const bam1_t *bam,
   else
   {
     // Look for approximate match
-    needleman_wunsch_align2(search_region, endflank.buff, search_len, kmer_size,
+    needleman_wunsch_align2(search_region, endflank.b, search_len, kmer_size,
                             nw_scoring_flank, nw_aligner, alignment);
 
     char *r1 = alignment->result_a, *r2 = alignment->result_b;
@@ -203,7 +203,7 @@ int var_aln_find_end_flank(const bam1_t *bam,
     reflen = search_trim_right < kmer_size ? 0 : search_trim_right - kmer_size;
     refpos = (size_t)(search_region + search_len - (reflen+kmer_size) - chr->seq.b);
     // Add flank_trim_right to the beginning of each allele
-    const char *end = endflank.buff+endflank.len-flank_trim_right;
+    const char *end = endflank.b+endflank.len-flank_trim_right;
     for(i = 0; i < invcf->num_alts; i++)
       strbuf_insert(&invcf->alts[i], 0, end, flank_trim_right);
   }
@@ -212,7 +212,7 @@ int var_aln_find_end_flank(const bam1_t *bam,
     reflen = search_trim_left < kmer_size ? 0 : search_trim_left - kmer_size;
     // Append flank_trim_left onto the end of each allele
     for(i = 0; i < invcf->num_alts; i++)
-      strbuf_append_strn(&invcf->alts[i], endflank.buff, flank_trim_left);
+      strbuf_append_strn(&invcf->alts[i], endflank.b, flank_trim_left);
   }
 
   const char *ref_allele_str = chr->seq.b + refpos;
@@ -250,7 +250,7 @@ static void parse_alignment(char **alleles, size_t num_alleles, size_t msa_len,
 
     for(i = 0; i < outvcf->num_alts; i++) {
       strip_allele(&outvcf->alts[i], alleles[i+1]+start, end-start);
-      ctx_assert(outvcf->alts[i].len == strlen(outvcf->alts[i].buff));
+      ctx_assert(outvcf->alts[i].len == strlen(outvcf->alts[i].b));
       is_snp &= (outvcf->alts[i].len == 1);
     }
 

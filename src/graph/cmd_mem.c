@@ -38,14 +38,16 @@ void cmd_print_mem(size_t mem_bytes, const char *name)
 size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
                              size_t num_kmers, bool num_kmers_set,
                              size_t entry_bits,
-                             size_t min_num_kmer_req, size_t max_num_kmers_req,
+                             int64_t min_num_kmer_req,
+                             int64_t max_num_kmers_req,
                              bool use_mem_limit, size_t *graph_mem_ptr)
 {
-  size_t kmers_in_hash, graph_mem = 0, min_kmers_mem;
+  uint64_t kmers_in_hash = 0;
+  size_t graph_mem = 0, min_kmers_mem;
   char graph_mem_str[100], mem_to_use_str[100];
   char kmers_in_hash_str[100], min_num_kmers_str[100], min_kmers_mem_str[100];
 
-  if(!use_mem_limit && min_num_kmer_req == 0 && !num_kmers_set) {
+  if(!use_mem_limit && min_num_kmer_req < 0 && !num_kmers_set) {
     cmd_print_usage("Cannot read from stream without -n <nkmers> set");
   }
 
@@ -62,41 +64,45 @@ size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
   if(max_num_kmers_req > 0 && !num_kmers_set)
   {
     // Check if the max kmer capacity is less that requested
-    size_t graph_mem2, kmers_in_hash2;
+    size_t graph_mem2; uint64_t kmers_in_hash2;
     graph_mem2 = hash_table_mem(max_num_kmers_req/IDEAL_OCCUPANCY,
                                 entry_bits, &kmers_in_hash2);
     if(graph_mem2 < graph_mem) {
-      status("[memory] do not need more than %zu bytes, downsizing (from %zu)",
-             graph_mem2, graph_mem);
+      // status("[memory] do not need more than %zu bytes, downsizing (from %zu)",
+      //        graph_mem2, graph_mem);
       graph_mem = graph_mem2;
       kmers_in_hash = kmers_in_hash2;
     }
   }
 
+  // Not yet set or too small
+  // 1024 is a very small default hash table capacity
   if(kmers_in_hash < 1024)
     graph_mem = hash_table_mem(1024, entry_bits, &kmers_in_hash);
-  // ^ 1024 is a very small default hash table capacity
 
-  min_kmers_mem = hash_table_mem(min_num_kmer_req, entry_bits, NULL);
+  uint64_t min_nkmers = min_num_kmer_req < 0 ? 1024 : min_num_kmer_req;
+  min_kmers_mem = hash_table_mem(min_nkmers, entry_bits, NULL);
 
   bytes_to_str(graph_mem, 1, graph_mem_str);
   bytes_to_str(mem_to_use, 1, mem_to_use_str);
   bytes_to_str(min_kmers_mem, 1, min_kmers_mem_str);
 
   ulong_to_str(kmers_in_hash, kmers_in_hash_str);
-  ulong_to_str(min_num_kmer_req, min_num_kmers_str);
+  ulong_to_str(min_nkmers, min_num_kmers_str);
 
   // Give a error/warning about occupancy
-  if(kmers_in_hash < min_num_kmer_req)
-  {
-    die("Not enough kmers in hash: require at least %s kmers (min memory: %s)",
-        min_num_kmers_str, min_kmers_mem_str);
-  }
-  else if(kmers_in_hash < min_num_kmer_req/WARN_OCCUPANCY)
-  {
-    warn("Expected hash table occupancy %.2f%% "
-         "(you may want to increase -n or -m)",
-         (100.0 * min_num_kmer_req) / kmers_in_hash);
+  if(min_num_kmer_req >= 0) {
+    if(kmers_in_hash < (uint64_t)min_num_kmer_req)
+    {
+      die("Not enough kmers in hash: require at least %s kmers (min memory: %s)",
+          min_num_kmers_str, min_kmers_mem_str);
+    }
+    else if(kmers_in_hash < min_num_kmer_req/WARN_OCCUPANCY)
+    {
+      warn("Expected hash table occupancy %.2f%% "
+           "(you may want to increase -n or -m)",
+           (100.0 * min_num_kmer_req) / kmers_in_hash);
+    }
   }
 
   if(mem_to_use_set && num_kmers_set) {

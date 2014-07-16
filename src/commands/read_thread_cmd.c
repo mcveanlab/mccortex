@@ -33,10 +33,10 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   uint8_t fq_offset = 0;
   size_t dump_seq_hist_n = 0, dump_frag_hist_n = 0; // how many times are -g -G specified
-  // PathFileReader tmp_pfile;
   GPathReader tmp_gpfile;
 
   CorrectAlnInputBuffer *inputs = &args->inputs;
+  args->memargs = (struct MemArgs)MEM_ARGS_INIT;
 
   // Arg parsing
   char cmd[100];
@@ -57,7 +57,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'o': cmd_check(!args->out_ctp_path,cmd); args->out_ctp_path = optarg; break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
-        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_add(&args->gpfiles, tmp_gpfile);
         break;
       case 't':
@@ -129,10 +129,15 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   // Open graph graph file
   //
   GraphFileReader *gfile = &args->gfile;
-  graph_file_open(gfile, graph_path, true);
-  file_filter_update_intocol(&gfile->fltr, 0);
-  if(!correct_cmd && graph_file_usedcols(gfile) > 1)
-    die("Please specify a single colour e.g. %s:0", gfile->fltr.file_path.buff);
+  graph_file_open(gfile, graph_path);
+
+  if(gfile->fltr.orig_first_col != 0) {
+    die("No need to specify first colour to load into %zu in '%s'",
+        gfile->fltr.orig_first_col, file_filter_input(&gfile->fltr));
+  }
+
+  if(!correct_cmd && file_filter_into_ncols(&gfile->fltr) > 1)
+    die("Please specify a single colour e.g. %s:0", file_filter_path(&gfile->fltr));
 
   //
   // Open path files
@@ -140,12 +145,12 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   size_t path_max_usedcols = 0;
   for(i = 0; i < args->gpfiles.len; i++) {
     // file_filter_update_intocol(&args->pfiles.data[i].fltr, 0);
-    if(!correct_cmd && file_filter_usedcols(&args->gpfiles.data[i].fltr) > 1) {
+    if(!correct_cmd && file_filter_into_ncols(&args->gpfiles.data[i].fltr) > 1) {
       die("Please specify a single colour e.g. %s:0",
-          args->gpfiles.data[i].fltr.file_path.buff);
+          file_filter_path(&args->gpfiles.data[i].fltr));
     }
     path_max_usedcols = MAX2(path_max_usedcols,
-                             file_filter_usedcols(&args->gpfiles.data[i].fltr));
+                             file_filter_into_ncols(&args->gpfiles.data[i].fltr));
   }
   args->path_max_usedcols = path_max_usedcols;
 
@@ -172,9 +177,6 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
     args->max_gap_limit = MAX2(args->max_gap_limit, t->crt_params.frag_len_max);
   }
 
-  // Check we can write to output files
-  if(args->dump_seq_sizes && !futil_is_file_writable(args->dump_seq_sizes))
-    die("Cannot write to file: %s", args->dump_seq_sizes);
-  if(args->dump_frag_sizes && !futil_is_file_writable(args->dump_frag_sizes))
-    die("Cannot write to file: %s", args->dump_frag_sizes);
+  futil_create_output(args->dump_seq_sizes);
+  futil_create_output(args->dump_frag_sizes);
 }

@@ -23,7 +23,7 @@ static void supernode_from_kmer(hkey_t hkey, dBNodeBuffer *nbuf,
     for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
 
     supernode_normalise(nbuf->data, nbuf->len, graph);
-  
+
     TASSERT(nbuf->len < SNODEBUF);
     db_nodes_to_str(nbuf->data, nbuf->len, graph, tmpstr);
     for(i = 0; i < n && strcmp(tmpstr,ans[i]) != 0; i++);

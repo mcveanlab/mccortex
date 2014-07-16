@@ -117,20 +117,14 @@ char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str)
 // Coverages
 //
 
-static inline void safe_add_covg(Covg *a, Covg b)
-{
-  uint64_t y = (uint64_t)*a+b;
-  *a = y > COVG_MAX ? COVG_MAX : (Covg)y;
-}
-
 void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, Covg update)
 {
-  safe_add_covg(&db_node_col_covg(graph,col,hkey), update);
+  SAFE_SUM_COVG(db_node_col_covg(graph,col,hkey), update);
 }
 
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col)
 {
-  safe_add_covg(&db_node_col_covg(graph,col,hkey), 1);
+  SAFE_SUM_COVG(db_node_col_covg(graph,col,hkey), 1);
 }
 
 // Thread safe, overflow safe, coverage increment
@@ -148,7 +142,7 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
   size_t col;
 
   for(col = 0; col < graph->num_of_cols; col++)
-    safe_add_covg(&sum_covg, covgs[col]);
+    SAFE_SUM_COVG(sum_covg, covgs[col]);
 
   return sum_covg;
 }

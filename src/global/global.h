@@ -62,7 +62,7 @@ void cortex_destroy();
 
 #define SWAP(x,y) do { __typeof(x) _tmp = (x); (x) = (y); (y) = _tmp; } while(0)
 
-// Swap macro swaps a byte at a time
+// Swap macro swaps a byte at a time. x and y must not be overlapping.
 #define SWAPCPY(x,y) do {                                             \
   char *_a = &(x), *_b = &(y), *_end = _a + sizeof(x), _tmp;          \
   for(; _a < _end; _a++, _b++) { _tmp = *_a; *_a = *_b; *_b = _tmp; } \

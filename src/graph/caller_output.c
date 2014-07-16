@@ -7,7 +7,7 @@
 void caller_gzprint_ginfo(const GraphInfo *ginfo, size_t ncols, gzFile gzout)
 {
   size_t col;
-  StrBuf *sample_name = strbuf_new();
+  StrBuf *sample_name = strbuf_new(256);
 
   // Print sample names
   for(col = 0; col < ncols; col++, ginfo++)
@@ -15,7 +15,7 @@ void caller_gzprint_ginfo(const GraphInfo *ginfo, size_t ncols, gzFile gzout)
     const ErrorCleaning *ec = &ginfo->cleaning;
 
     // Find and replace double quotes with single quotes
-    char *sname = ginfo->sample_name.buff;
+    char *sname = ginfo->sample_name.b;
 
     if(strcmp(sname, "undefined") == 0 || strchr(sname, '\t') != NULL ||
        strchr(sname, ' ') != NULL || strchr(sname, '\r') != NULL ||
@@ -25,19 +25,19 @@ void caller_gzprint_ginfo(const GraphInfo *ginfo, size_t ncols, gzFile gzout)
       strbuf_sprintf(sample_name, "sample%zu", col);
     }
     else {
-      strbuf_set(sample_name, ginfo->sample_name.buff);
+      strbuf_set_buff(sample_name, &ginfo->sample_name);
     }
 
     gzprintf(gzout, "##colour=<ID=%s,name=\"%s\",colour=%i,"
                     "meanreadlen=%zu,totalseqloaded=%zu,"
                     "seqerror=%Lf,tipclipped=%s,removelowcovgsupernodes=%u,"
                     "removelowcovgkmer=%u,cleanedagainstgraph=%s>\n",
-             sample_name->buff, ginfo->sample_name.buff, col,
+             sample_name->b, ginfo->sample_name.b, col,
              (size_t)ginfo->mean_read_length, (size_t)ginfo->total_sequence,
              ginfo->seq_err,
              ec->cleaned_tips ? "yes" : "no", ec->clean_snodes_thresh,
              ec->clean_kmers_thresh,
-             ec->intersection_name.buff);
+             ec->intersection_name.b);
   }
 
   strbuf_free(sample_name);

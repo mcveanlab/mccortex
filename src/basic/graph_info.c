@@ -28,7 +28,7 @@ static void error_cleaning_cpy(ErrorCleaning *dst, const ErrorCleaning *src)
   dst->clean_snodes_thresh = src->clean_snodes_thresh;
   dst->clean_kmers_thresh = src->clean_kmers_thresh;
   dst->is_graph_intersection = src->is_graph_intersection;
-  strbuf_set(&dst->intersection_name, src->intersection_name.buff);
+  strbuf_set_buff(&dst->intersection_name, &src->intersection_name);
 }
 
 static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
@@ -52,7 +52,7 @@ static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
   }
 
   if(src->is_graph_intersection)
-    graph_info_append_intersect(dst, src->intersection_name.buff);
+    graph_info_append_intersect(dst, src->intersection_name.b);
 
   dst->is_graph_intersection |= src->is_graph_intersection;
 }
@@ -81,12 +81,12 @@ void graph_info_dealloc(GraphInfo *ginfo)
 
 void graph_info_make_intersect(const GraphInfo *ginfo, StrBuf *intersect_name)
 {
-  if(intersect_name->len > 0) strbuf_append_char(intersect_name, ',');
-  strbuf_append_str(intersect_name, ginfo->sample_name.buff);
+  if(intersect_name->end > 0) strbuf_append_char(intersect_name, ',');
+  strbuf_append_str(intersect_name, ginfo->sample_name.b);
 
   if(ginfo->cleaning.is_graph_intersection) {
     strbuf_append_char(intersect_name, ',');
-    strbuf_append_str(intersect_name, ginfo->cleaning.intersection_name.buff);
+    strbuf_append_str(intersect_name, ginfo->cleaning.intersection_name.b);
   }
 }
 
@@ -109,7 +109,7 @@ void graph_info_cpy(GraphInfo *dst, const GraphInfo *src)
   dst->mean_read_length = src->mean_read_length;
   dst->total_sequence = src->total_sequence;
   dst->seq_err = src->seq_err;
-  strbuf_set(&dst->sample_name, src->sample_name.buff);
+  strbuf_set_buff(&dst->sample_name, &src->sample_name);
   error_cleaning_cpy(&dst->cleaning, &src->cleaning);
 }
 
@@ -135,12 +135,12 @@ static void graph_info_update_contigs(GraphInfo *ginfo,
 void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
 {
   // Update sample name
-  if(strcmp(src->sample_name.buff,"undefined") != 0) {
-    if(strcmp(dst->sample_name.buff,"undefined") == 0) {
-      strbuf_set(&dst->sample_name, src->sample_name.buff);
+  if(strcmp(src->sample_name.b,"undefined") != 0) {
+    if(strcmp(dst->sample_name.b,"undefined") == 0) {
+      strbuf_set_buff(&dst->sample_name, &src->sample_name);
     } else {
       strbuf_append_char(&dst->sample_name, ',');
-      strbuf_append_str(&dst->sample_name, src->sample_name.buff);
+      strbuf_append_str(&dst->sample_name, src->sample_name.b);
     }
   }
 

@@ -81,7 +81,7 @@ static void generate_chrom_list(KOGraph *kograph,
     kograph->chroms[i] = (KOChrom){.id = i,
                                    .length = reads[i].seq.end,
                                    .name = names_concat};
-  
+
     memcpy(names_concat, reads[i].name.b, reads[i].name.end);
     names_concat[reads[i].name.end] = '\0';
     names_concat += reads[i].name.end+1;
@@ -291,7 +291,7 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
     total_read_length += reads[i].seq.end;
 
   // offset should be less than sum of read lengths, which is why we wait to
-  // parse all reads before mallocing to reduce memory footprint 
+  // parse all reads before mallocing to reduce memory footprint
   ctx_assert(offset < total_read_length);
 
   if(offset == 0) kograph.koccurs = NULL;

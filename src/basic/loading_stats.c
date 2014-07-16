@@ -60,13 +60,15 @@ void loading_stats_print_summary(const LoadingStats *stats, size_t ht_num_kmers)
            covg_inf, nkmers_loaded_str, nkmers_ht_str);
   }
   else {
-    status("[SeqStats] Input kmers: %zu reconstructed: %zu",
+    status("[SeqStats] Input kmers: %s reconstructed: %s",
            nkmers_parsed_str, nkmers_loaded_str);
   }
 
-  if(stats->contigs_loaded > 0) {
+  if(stats->contigs_loaded > 0)
+  {
+    char klen_str[50];
     double mean_klen = (double)stats->num_kmers_loaded / stats->contigs_loaded;
-    status("[SeqStats]  mean reconstructed contig length: %zu (kmers)",
-           (size_t)(mean_klen+0.5));
+    ulong_to_str((size_t)(mean_klen+0.5), klen_str);
+    status("[SeqStats]  mean reconstructed contig length: %s (kmers)", klen_str);
   }
 }

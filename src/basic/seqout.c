@@ -2,7 +2,7 @@
 #include "seqout.h"
 #include "file_util.h"
 
-#include <libgen.h> // basename(), dirname()
+#include <fcntl.h> // open
 
 // Malloc and return path with given suffix
 // @pe 0 if se, 1/2 if one of a pair (out.fq.gz out.1.fq.gz, out.2.fq.gz)
@@ -18,34 +18,18 @@ static char* _seqout_alloc_path(char *out_base, int pe, const char *suffix)
   return path;
 }
 
-// Returns path to file or NULL if file already exists and futil_get_force()
-// returns false
+// Returns gzFile or NULL if file already exists and !futil_get_force()
 // Creates directories as required
 static gzFile _seqout_open(const char *path)
 {
   gzFile gzout;
 
-  if(!futil_get_force() && futil_file_exists(path)) {
-    warn("Output file already exists: %s", path);
+  int ret = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY);
+  if(ret == -1) {
+    if(errno == EEXIST) warn("Output file already exists: %s", path);
+    else warn("Cannot create file: %s [%s]", path, strerror(errno));
     return NULL;
   }
-
-  // dirname, basename may modify string, so make copy
-  char *pathcpy = strdup(path);
-  char *fname = basename(pathcpy);
-
-  if(path[0] == '\0' || path[strlen(path)-1] == '\0' ||
-     fname[0] == '/' || fname[0] == '.')
-  {
-    warn("Bad seqout name: %s", path);
-    free(pathcpy);
-    return NULL;
-  }
-
-  strcpy(pathcpy, path);
-  char *dir = dirname(pathcpy);
-  futil_mkpath(dir, 0777);
-  free(pathcpy);
 
   if((gzout = gzopen(path, "w")) == NULL) {
     warn("Cannot open %s", path);

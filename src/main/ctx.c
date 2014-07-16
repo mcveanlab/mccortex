@@ -245,6 +245,10 @@ int main(int argc, char **argv)
   size_t still_alloced = alloc_get_num_allocs() - alloc_get_num_frees();
   if(still_alloced) warn("%zu allocates not free'd.", still_alloced);
 
+  char nallocs_str[50];
+  ulong_to_str(alloc_get_num_allocs(), nallocs_str);
+  status("[memory] We made %s allocs", nallocs_str);
+
   status(ret == 0 ? "Done." : "Fail.");
 
   // Print time taken

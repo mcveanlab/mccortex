@@ -300,19 +300,19 @@ static void read_input_header(gzFile gzin, StrBuf *hdr)
   call_file_read_hdr(gzin, input_path, hdr);
 
   // Check file format to ensure it is BubbleCTX or BreakpointCTX
-  char *line0end = strchr(hdr->buff, '\n');
+  char *line0end = strchr(hdr->b, '\n');
   if(line0end == NULL) die("Empty file header? [path: %s]", input_path);
   *line0end = '\0';
 
-  if(!line_is_vcfhdr(hdr->buff,"##fileformat="))
-    die("Expected ##fileformat= to be first line [path: %s]: %s", input_path, hdr->buff);
+  if(!line_is_vcfhdr(hdr->b,"##fileformat="))
+    die("Expected ##fileformat= to be first line [path: %s]: %s", input_path, hdr->b);
 
-  if(strncasecmp2(hdr->buff+strlen("##fileformat="),"CtxBreakpoints") == 0)
+  if(strncasecmp2(hdr->b+strlen("##fileformat="),"CtxBreakpoints") == 0)
     input_bubble_format = false;
-  else if(strncasecmp2(hdr->buff+strlen("##fileformat="),"CtxBubbles") == 0)
+  else if(strncasecmp2(hdr->b+strlen("##fileformat="),"CtxBubbles") == 0)
     input_bubble_format = true;
   else
-    die("Unknown input format [path: %s]: %s", input_path, hdr->buff);
+    die("Unknown input format [path: %s]: %s", input_path, hdr->b);
 
   *line0end = '\n';
 }
@@ -326,7 +326,7 @@ static void print_vcf_header(StrBuf *hdr, FILE *fout)
   fprintf(fout, "##fileformat=VCFv4.1\n##fileDate=%s\n", datestr);
 
   // Print header lines, stripping out fileformat= and fileDate=
-  char *str = hdr->buff, *lineend = strchr(str, '\n');
+  char *str = hdr->b, *lineend = strchr(str, '\n');
   while(1)
   {
     if(lineend) *lineend = '\0';
@@ -356,7 +356,7 @@ static void brkpnt_check_refs_match(StrBuf *hdr)
   size_t num_contigs_parsed = 0;
 
   // Print header lines, stripping out fileformat= and fileDate=
-  char *str = hdr->buff, *lineend = strchr(str, '\n');
+  char *str = hdr->b, *lineend = strchr(str, '\n');
   while(1)
   {
     if(line_is_vcfhdr(str,"##contig=<ID="))
@@ -397,8 +397,8 @@ int ctx_calls2vcf(int argc, char **argv)
 {
   parse_cmdline_args(argc, argv);
 
-  gzFile gzin = futil_gzopen_input(input_path);
-  FILE *fout = futil_open_output(out_path);
+  gzFile gzin = futil_gzopen(input_path, "r");
+  FILE *fout = futil_open_create(out_path, "w");
 
   nw_aligner_setup();
 

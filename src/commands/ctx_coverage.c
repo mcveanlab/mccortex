@@ -209,7 +209,7 @@ int ctx_coverage(int argc, char **argv)
   //
   // Open output file
   //
-  FILE *fout = futil_open_output(output_file ? output_file : "-");
+  FILE *fout = futil_open_create(output_file ? output_file : "-", "w");
 
   //
   // Set up memory

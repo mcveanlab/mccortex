@@ -56,7 +56,7 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
     if(h->version >= 6)
     {
       // Version 6 only output
-      printf("  sample name: '%s'\n", ginfo->sample_name.buff);
+      printf("  sample name: '%s'\n", ginfo->sample_name.b);
     }
 
     char total_sequence_str[100];
@@ -83,7 +83,7 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
 
       printf("  cleaned against graph: %s [against: '%s']\n",
              ec->is_graph_intersection ? "yes" : "no",
-             ec->intersection_name.buff);
+             ec->intersection_name.b);
     }
   }
 }
@@ -125,38 +125,43 @@ int ctx_view(int argc, char **argv)
   char *path = argv[optind];
   size_t num_errors = 0, num_warnings = 0;
 
-  GraphFileReader file = INIT_GRAPH_READER;
-  int ret = graph_file_open(&file, path, true);
+  GraphFileReader file;
+  memset(&file, 0, sizeof(file));
+  int ret = graph_file_open(&file, path);
   if(ret == 0) die("Cannot open file: %s", path);
 
   if(print_info)
   {
     char fsize_str[50];
-    bytes_to_str((size_t)file.fltr.file_size, 0, fsize_str);
-    printf("Loading file: %s\n", file.fltr.file_path.buff);
+    bytes_to_str((size_t)file.file_size, 0, fsize_str);
+    printf("Loading file: %s\n", file_filter_path(&file.fltr));
     printf("File size: %s\n", fsize_str);
     printf("----\n");
   }
 
-  size_t ncols = graph_file_outncols(&file);
+  size_t ncols = file_filter_into_ncols(&file.fltr);
   ctx_assert(ncols > 0);
 
-  GraphFileHeader outheader = INIT_GRAPH_FILE_HDR;
-  graph_header_global_cpy(&outheader, &file.hdr);
-  graph_header_alloc(&outheader, ncols);
-  outheader.num_of_cols = (uint32_t)ncols;
+  GraphFileHeader hdr;
+  memset(&hdr, 0, sizeof(hdr));
+  hdr.version = file.hdr.version;
+  hdr.num_of_bitfields = file.hdr.num_of_bitfields;
+  hdr.kmer_size = file.hdr.kmer_size;
+  hdr.num_of_cols = ncols;
+  graph_header_alloc(&hdr, ncols);
 
-  size_t i, sum_covgs_read = 0, sum_seq_loaded = 0;
+  size_t i, col, sum_covgs_read = 0, sum_seq_loaded = 0;
   size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
   for(i = 0; i < file.fltr.ncols; i++) {
-    graph_info_merge(outheader.ginfo + i, file.hdr.ginfo + file.fltr.cols[i]);
-    sum_seq_loaded += outheader.ginfo[i].total_sequence;
+    col = file_filter_intocol(&file.fltr, i);
+    graph_info_merge(hdr.ginfo + i, file.hdr.ginfo + col);
+    sum_seq_loaded += hdr.ginfo[i].total_sequence;
   }
 
   // Print header
   if(print_info)
-    print_header(&outheader, file.num_of_kmers);
+    print_header(&hdr, file.num_of_kmers);
 
   BinaryKmer bkmer;
   Covg covgs[ncols];
@@ -166,13 +171,13 @@ int ctx_view(int argc, char **argv)
   {
     if(print_info && print_kmers) printf("----\n");
 
-    for(; graph_file_read(&file, &bkmer, covgs, edges); num_kmers_read++)
+    for(; graph_file_read_reset(&file, ncols, &bkmer, covgs, edges); num_kmers_read++)
     {
       // If kmer has no covg or edges -> don't load
       Covg keep_kmer = 0, covgs_sum = 0;
       for(i = 0; i < ncols; i++) {
         keep_kmer |= covgs[i] | edges[i];
-        covgs_sum += covgs[i];
+        covgs_sum = SAFE_ADD_COVG(covgs_sum, covgs[i]);
       }
       if(keep_kmer == 0) continue;
 
@@ -217,11 +222,9 @@ int ctx_view(int argc, char **argv)
   if(errno != 0)
     loading_error("errno set [%i]: %s\n", (int)errno, strerror(errno));
 
-  int err = ferror(file.fltr.fh);
+  int err = ferror(file.fh);
   if(err != 0)
     loading_error("occurred after file reading [%i]\n", err);
-
-  graph_file_close(&file);
 
   char num_str[50];
 
@@ -229,7 +232,7 @@ int ctx_view(int argc, char **argv)
   {
     // file_size is set to -1 if we are reading from a stream,
     // therefore won't be able to check number of kmers read
-    if(file.fltr.file_size != -1 && num_kmers_read != file.num_of_kmers) {
+    if(file.file_size != -1 && num_kmers_read != (uint64_t)file.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
                       (size_t)file.num_of_kmers, (size_t)num_kmers_read);
     }
@@ -246,6 +249,9 @@ int ctx_view(int argc, char **argv)
                       ulong_to_str(num_zero_covg_kmers, num_str));
     }
   }
+
+  // Close file (which zeros it)
+  graph_file_close(&file);
 
   // Count warnings printed by graph_reader.c
   num_warnings += greader_zero_covg_error;
@@ -300,7 +306,7 @@ int ctx_view(int argc, char **argv)
       printf(num_warnings ? "Graph may be ok\n" : "Graph is valid\n");
   }
 
-  graph_header_dealloc(&outheader);
+  graph_header_dealloc(&hdr);
   graph_file_close(&file);
 
   return EXIT_SUCCESS;

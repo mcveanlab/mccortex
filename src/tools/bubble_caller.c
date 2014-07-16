@@ -40,7 +40,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
                         .prefs = prefs,
                         .db_graph = db_graph, .gzout = gzout,
                         .out_lock = out_lock};
-  
+
     memcpy(&callers[i], &tmp, sizeof(BubbleCaller));
 
     // First two buffers don't actually need to grow
@@ -102,21 +102,21 @@ static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer
   BinaryKmer bkmer;
 
   if(print_first_kmer) {
-    strbuf_ensure_capacity(sbuf, sbuf->len + kmer_size);
+    strbuf_ensure_capacity(sbuf, sbuf->end + kmer_size);
     bkmer = db_node_oriented_bkmer(db_graph, nodes[0]);
-    binary_kmer_to_str(bkmer, kmer_size, sbuf->buff+sbuf->len);
-    sbuf->len += kmer_size;
+    binary_kmer_to_str(bkmer, kmer_size, sbuf->b+sbuf->end);
+    sbuf->end += kmer_size;
   }
 
   // i == 1 if print_first_kmer, otherwise 0
-  strbuf_ensure_capacity(sbuf, sbuf->len + len + 1); // +1 for '\n'
+  strbuf_ensure_capacity(sbuf, sbuf->end + len + 1); // +1 for '\n'
   for(; i < len; i++) {
     nuc = db_node_get_last_nuc(nodes[i], db_graph);
-    sbuf->buff[sbuf->len++] = dna_nuc_to_char(nuc);
+    sbuf->b[sbuf->end++] = dna_nuc_to_char(nuc);
   }
 
-  sbuf->buff[sbuf->len++] = '\n';
-  sbuf->buff[sbuf->len] = '\0';
+  sbuf->b[sbuf->end++] = '\n';
+  sbuf->b[sbuf->end] = '\0';
 }
 
 // Remove paths that are both seen in a haploid sample (e.g. repeat)
@@ -211,11 +211,11 @@ static void print_bubble(BubbleCaller *caller,
 
   strbuf_append_char(sbuf, '\n');
 
-  ctx_assert(strlen(sbuf->buff) == sbuf->len);
+  ctx_assert(strlen(sbuf->b) == sbuf->end);
 
   // lock, print, unlock
   pthread_mutex_lock(caller->out_lock);
-  gzputs(caller->gzout, sbuf->buff);
+  gzwrite(caller->gzout, sbuf->b, sbuf->end);
   pthread_mutex_unlock(caller->out_lock);
 }
 

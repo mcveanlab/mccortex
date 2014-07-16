@@ -22,9 +22,8 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
                               const GPathReader *gpaths, size_t num_gpaths)
 {
   size_t g, p, kmer_size, kmer_size2;
-  size_t ctx_max_cols = 0, ctp_max_cols = 0;
-  size_t ctx_max_kmers = 0, ctp_max_kmers = 0;
-  size_t colours_loaded = 0;
+  size_t ctx_max_cols = 0, ctp_max_cols = 0, colours_loaded = 0;
+  uint64_t ctx_max_kmers = 0, ctp_max_kmers = 0;
 
   if(num_graphs) kmer_size = graphs[0].hdr.kmer_size;
   else if(num_gpaths) kmer_size = gpath_reader_get_kmer_size(&gpaths[0]);
@@ -34,10 +33,10 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
     kmer_size2 = graphs[g].hdr.kmer_size;
     if(kmer_size2 != kmer_size) {
       die("Kmer-size doesn't match between files [%zu vs %zu]: %s",
-          kmer_size, kmer_size2, graphs[g].fltr.orig_path.buff);
+          kmer_size, kmer_size2, file_filter_input(&graphs[g].fltr));
     }
-    ctx_max_cols = MAX2(ctx_max_cols, file_filter_usedcols(&graphs[g].fltr));
-    ctx_max_kmers = MAX2(ctx_max_kmers, graphs[g].num_of_kmers);
+    ctx_max_cols = MAX2(ctx_max_cols, file_filter_into_ncols(&graphs[g].fltr));
+    ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&graphs[g]));
     colours_loaded += graphs[g].fltr.ncols;
   }
 
@@ -45,20 +44,20 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
     kmer_size2 = gpath_reader_get_kmer_size(&gpaths[p]);
     if(kmer_size2 != kmer_size) {
       die("Kmer-size doesn't match between files [%zu vs %zu]: %s",
-          kmer_size, kmer_size2, gpaths[p].fltr.orig_path.buff);
+          kmer_size, kmer_size2, file_filter_input(&gpaths[p].fltr));
     }
-    ctp_max_cols = MAX2(ctp_max_cols, file_filter_usedcols(&gpaths[p].fltr));
+    ctp_max_cols = MAX2(ctp_max_cols, file_filter_into_ncols(&gpaths[p].fltr));
     ctp_max_kmers = MAX2(ctp_max_kmers, gpath_reader_get_num_kmers(&gpaths[p]));
-    colours_loaded += gpaths[g].fltr.ncols;
+    colours_loaded += gpaths[p].fltr.ncols;
   }
 
   const FileFilter *fltr = (num_graphs ? &graphs[0].fltr : &gpaths[0].fltr);
-  db_graph_check_kmer_size(kmer_size, fltr->orig_path.buff);
+  db_graph_check_kmer_size(kmer_size, file_filter_input(fltr));
 
   // ctx_max_kmers may be zero if reading from a stream
   if(ctx_max_kmers > 0 && ctp_max_kmers > ctx_max_kmers) {
     die("More kmers in path files than in graph files! (%zu > %zu)",
-        ctp_max_kmers, ctx_max_kmers);
+        (size_t)ctp_max_kmers, (size_t)ctx_max_kmers);
   }
 
   if(num_graphs > 0 && ctp_max_cols > ctx_max_cols) {
@@ -69,31 +68,30 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   // Check sample names
   ColourSample *samples = ctx_calloc(colours_loaded, sizeof(ColourSample));
 
-  size_t pinto, pfrom, ginto, gfrom, i;
-  const char *pname, *gname;
+  size_t i;
   colours_loaded = 0;
 
   for(p = 0; p < num_gpaths; p++) {
     for(i = 0; i < gpaths[p].fltr.ncols; i++) {
-      pinto = file_filter_intocol(&gpaths[p].fltr, i);
-      pfrom = file_filter_fromcol(&gpaths[p].fltr, i);
-      pname = gpath_reader_get_sample_name(&gpaths[p], pfrom);
+      size_t pinto = file_filter_intocol(&gpaths[p].fltr, i);
+      size_t pfrom = file_filter_fromcol(&gpaths[p].fltr, i);
+      const char *pname = gpath_reader_get_sample_name(&gpaths[p], pfrom);
       samples[colours_loaded++]
         = (ColourSample){.col = pinto, .name = pname,
-                         .src = gpaths[p].fltr.orig_path.buff,
-                         .from_col = gpaths[p].fltr.cols[i]};
+                         .src = file_filter_input(&gpaths[p].fltr),
+                         .from_col = pfrom};
     }
   }
 
   for(g = 0; g < num_graphs; g++) {
     for(i = 0; i < graphs[g].fltr.ncols; i++) {
-      ginto = file_filter_intocol(&graphs[g].fltr, i);
-      gfrom = file_filter_fromcol(&graphs[g].fltr, i);
-      gname = graphs[g].hdr.ginfo[gfrom].sample_name.buff;
+      size_t ginto = file_filter_intocol(&graphs[g].fltr, i);
+      size_t gfrom = file_filter_fromcol(&graphs[g].fltr, i);
+      const char *gname = graphs[g].hdr.ginfo[gfrom].sample_name.b;
       samples[colours_loaded++]
         = (ColourSample){.col = ginto, .name = gname,
-                         .src = graphs[g].fltr.orig_path.buff,
-                         .from_col = graphs[g].fltr.cols[i]};
+                         .src = file_filter_input(&graphs[g].fltr),
+                         .from_col = gfrom};
     }
   }
 

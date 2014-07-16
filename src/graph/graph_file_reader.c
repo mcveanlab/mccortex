@@ -1,14 +1,13 @@
 #include "global.h"
 #include "graph_file_reader.h"
 #include "graph_format.h"
+#include "db_node.h"
 #include "cmd.h"
+#include "file_util.h"
 
-const GraphFileHeader INIT_GRAPH_FILE_HDR = INIT_GRAPH_FILE_HDR_MACRO;
-const GraphFileReader INIT_GRAPH_READER = INIT_GRAPH_READER_MACRO;
-
-int graph_file_open(GraphFileReader *file, char *path, bool fatal)
+int graph_file_open(GraphFileReader *file, char *path)
 {
-  return graph_file_open2(file, path, fatal, "r");
+  return graph_file_open2(file, path, "r");
 }
 
 // Open file
@@ -16,43 +15,43 @@ int graph_file_open(GraphFileReader *file, char *path, bool fatal)
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
-int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
-                     const char *mode)
+int graph_file_open2(GraphFileReader *file, char *input, const char *mode)
 {
   GraphFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
+  file_filter_open(fltr, input); // calls die() on error
+  const char *path = fltr->path.b;
 
-  if(!file_filter_open(fltr, path, mode, false, fatal)) return 0;
-
-  file->hdr_size = graph_file_read_header(fltr->fh, hdr, fatal, fltr->file_path.buff);
-  if(file->hdr_size == -1) return -1;
+  file->fh = futil_fopen(path, mode);
+  file->file_size = futil_get_file_size(path);
+  file->hdr_size = graph_file_read_header(file->fh, hdr, path);
 
   file_filter_set_cols(fltr, hdr->num_of_cols);
 
   // Check we can handle the kmer size
-  db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.file_path.buff);
+  db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.path.b);
 
-  size_t bytes_per_kmer, bytes_remaining, nkmers = 0;
+  size_t bytes_per_kmer, bytes_remaining;
 
   // If reading from STDIN we don't know file size
-  if(fltr->file_size != -1)
+  if(file->file_size != -1)
   {
     // File header checks
     // Get number of kmers
     bytes_per_kmer = sizeof(BinaryKmer) +
                      hdr->num_of_cols * (sizeof(Covg) + sizeof(Edges));
-    bytes_remaining = (size_t)(fltr->file_size - file->hdr_size);
-    nkmers = (bytes_remaining / bytes_per_kmer);
+    bytes_remaining = (size_t)(file->file_size - file->hdr_size);
+    file->num_of_kmers = (bytes_remaining / bytes_per_kmer);
 
     if(bytes_remaining % bytes_per_kmer != 0) {
       warn("Truncated graph file: %s [bytes per kmer: %zu "
-           "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zu]",
-           fltr->file_path.buff, bytes_per_kmer, bytes_remaining,
-           (size_t)fltr->file_size, (size_t)file->hdr_size, nkmers);
+           "remaining: %zu; fsize: %zu; header: %zu; nkmers: %zi]",
+           path, bytes_per_kmer, bytes_remaining,
+           (size_t)file->file_size, (size_t)file->hdr_size, file->num_of_kmers);
     }
   }
-
-  file->num_of_kmers = nkmers;
+  else
+    file->num_of_kmers = -1;
 
   return 1;
 }
@@ -60,44 +59,48 @@ int graph_file_open2(GraphFileReader *file, char *path, bool fatal,
 // Close file
 void graph_file_close(GraphFileReader *file)
 {
+  if(file->fh) fclose(file->fh);
   file_filter_close(&file->fltr);
   graph_header_dealloc(&file->hdr);
+  memset(file, 0, sizeof(*file));
 }
 
 // Read a kmer from the file
 // returns true on success, false otherwise
 // prints warnings if dirty kmers in file
+// be sure to zero covgs, edges before reading in
 bool graph_file_read(const GraphFileReader *file,
                      BinaryKmer *bkmer, Covg *covgs, Edges *edges)
 {
   // status("Header colours: %u", file->hdr.num_of_cols);
   Covg kmercovgs[file->hdr.num_of_cols];
   Edges kmeredges[file->hdr.num_of_cols];
-  size_t i;
+  size_t i, from, into;
   const FileFilter *fltr = &file->fltr;
 
-  if(!graph_file_read_kmer(fltr->fh, &file->hdr, fltr->file_path.buff,
+  if(!graph_file_read_kmer(file->fh, &file->hdr, fltr->path.b,
                            bkmer, kmercovgs, kmeredges)) return false;
 
-  // covgs += file->intocol;
-  // edges += file->intocol;
-
-  if(fltr->flatten) {
-    covgs[0] = 0;
-    edges[0] = 0;
-    for(i = 0; i < fltr->ncols; i++) {
-      covgs[0] += kmercovgs[fltr->cols[i]];
-      edges[0] |= kmeredges[fltr->cols[i]];
-    }
-  }
-  else {
-    for(i = 0; i < fltr->ncols; i++) {
-      covgs[i] = kmercovgs[fltr->cols[i]];
-      edges[i] = kmeredges[fltr->cols[i]];
-    }
+  for(i = 0; i < fltr->ncols; i++) {
+    from = file_filter_fromcol(fltr, i);
+    into = file_filter_intocol(fltr, i);
+    covgs[into] = SAFE_ADD_COVG(covgs[into], kmercovgs[from]);
+    edges[into] |= kmeredges[from];
   }
 
   return true;
+}
+
+// Read a kmer from the file
+// returns true on success, false otherwise
+// prints warnings if dirty kmers in file
+// @ncols is file_filter_into_ncols(&file->fltr)
+bool graph_file_read_reset(const GraphFileReader *file, size_t ncols,
+                           BinaryKmer *bkmer, Covg *covgs, Edges *edges)
+{
+  memset(covgs, 0, ncols*sizeof(Covg));
+  memset(edges, 0, ncols*sizeof(Edges));
+  return graph_file_read(file, bkmer, covgs, edges);
 }
 
 // Returns true if one or more files passed loads data into colour
@@ -125,19 +128,19 @@ size_t graph_files_open(char **graph_paths,
 
   for(i = 0; i < num_gfiles; i++)
   {
-    gfiles[i] = INIT_GRAPH_READER;
-    graph_file_open(&gfiles[i], graph_paths[i], true);
+    memset(&gfiles[i], 0, sizeof(GraphFileReader));
+    graph_file_open(&gfiles[i], graph_paths[i]);
 
     if(gfiles[0].hdr.kmer_size != gfiles[i].hdr.kmer_size) {
       cmd_print_usage("Kmer sizes don't match [%u vs %u]",
                       gfiles[0].hdr.kmer_size, gfiles[i].hdr.kmer_size);
     }
 
-    file_filter_update_intocol(&gfiles[i].fltr, ncols);
-    ncols = MAX2(ncols, graph_file_usedcols(&gfiles[i]));
+    file_filter_shift_cols(&gfiles[i].fltr, ncols);
+    ncols = MAX2(ncols, file_filter_into_ncols(&gfiles[i].fltr));
 
-    ctx_max_kmers = MAX2(ctx_max_kmers, gfiles[i].num_of_kmers);
-    ctx_sum_kmers += gfiles[i].num_of_kmers;
+    ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfiles[i]));
+    ctx_sum_kmers += graph_file_nkmers(&gfiles[i]);
     ctx_uses_stdin |= file_filter_isstdin(&gfiles[i].fltr);
   }
 

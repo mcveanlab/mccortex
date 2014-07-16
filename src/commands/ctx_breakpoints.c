@@ -105,7 +105,7 @@ int ctx_breakpoints(int argc, char **argv)
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
-        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 'r': min_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_min_flank++; break;
@@ -177,8 +177,8 @@ int ctx_breakpoints(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash;
   size_t graph_mem, path_mem;
-  size_t max_req_kmers = MAX2(est_num_bases, ctx_max_kmers);
-  size_t sum_req_kmers = est_num_bases + ctx_sum_kmers;
+  int64_t max_req_kmers = MAX2(est_num_bases, ctx_max_kmers);
+  int64_t sum_req_kmers = est_num_bases + ctx_sum_kmers;
 
   // DEV: use threads in memory calculation
 
@@ -212,7 +212,7 @@ int ctx_breakpoints(int argc, char **argv)
   //
   // Open output file
   //
-  gzFile gzout = futil_gzopen_output(output_file != NULL ? output_file : "-");
+  gzFile gzout = futil_gzopen_create(output_file != NULL ? output_file : "-", "w");
 
   //
   // Set up memory

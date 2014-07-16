@@ -132,6 +132,7 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
 // Increment a uint8_t without overflow
 static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
 {
+  ctx_assert(ptr != NULL);
   uint8_t v = *ptr, newv, curr;
   do {
     // Compare and swap returns the value of ptr before the operation

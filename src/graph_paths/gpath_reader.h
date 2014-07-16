@@ -7,9 +7,10 @@
 
 typedef struct
 {
+  gzFile gz;
+  FileFilter fltr; // colour filter
   StrBuf hdrstr;
   cJSON *json;
-  FileFilter fltr; // colour filter
   // Header is decomposed here
   // size_t kmer_size, num_paths, path_bytes, kmers_with_paths;
   size_t ncolours;
@@ -19,15 +20,12 @@ typedef struct
 #include "objbuf_macro.h"
 create_objbuf(gpfile_buf, GPathFileBuffer, GPathReader);
 
-// Open file
-// if cannot open file returns 0
-// if fatal is true, exits on error
-// if !fatal, returns -1 on error
-// if successful creates a new GPathReader and returns 1
-int gpath_reader_open(GPathReader *file, char *path, bool fatal);
+// Open file, exits on error
+// if successful creates a new GPathReader
+void gpath_reader_open(GPathReader *file, char *path);
 
 // mode is "r", "r+" etc.
-int gpath_reader_open2(GPathReader *file, char *path, const char *mode, bool fatal);
+void gpath_reader_open2(GPathReader *file, char *path, const char *mode);
 
 void gpath_reader_check(const GPathReader *file, size_t kmer_size, size_t ncols);
 void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph);

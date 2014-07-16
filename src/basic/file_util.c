@@ -2,6 +2,7 @@
 #include "file_util.h"
 
 #include <libgen.h> // dirname
+#include <fcntl.h> // open
 
 bool force_file_overwrite = false;
 
@@ -95,19 +96,65 @@ off_t futil_get_file_size(const char* filepath)
   if (stat(filepath, &st) == 0)
       return st.st_size;
 
-  warn("Cannot determine size of %s: %s\n", filepath, strerror(errno));
+  warn("Cannot determine file size: %s [%s]\n", filepath, strerror(errno));
 
   return -1;
 }
 
-// Open output file without error if file already exists
-FILE *futil_open_output2(const char *path, const char *mode)
+/*!
+  Create file and parent directories
+  @param path Path to file
+  @param mode e.g. O_CREAT | O_EXCL | O_WRONLY | O_APPEND
+  @return 0 on sucess, -1 if file error and sets errno
+ */
+int futil_create_file(const char *path, int mode)
+{
+  int ret, fd;
+
+  ctx_assert(mode & O_CREAT);
+
+  // dirname may modify string, so make copy
+  char *pathcpy = strdup(path);
+  char *dir = dirname(pathcpy);
+  ret = futil_mkpath(dir, 0777);
+  free(pathcpy);
+
+  if(ret == -1) return -1;
+
+  if(futil_get_force()) mode &= ~O_EXCL;
+
+  fd = open(path, mode, 0666);
+  if(fd != -1) close(fd);
+
+  return fd >= 0 ? 0 : -1;
+}
+
+/*!
+  Check we can create/write to file. If not call die() on error
+  @param path does nothing if path is "-" or NULL.
+ */
+void futil_create_output(const char *path) {
+  if(path && strcmp(path,"-") != 0) {
+    int ret = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY | O_APPEND);
+    if(ret == -1) {
+      if(errno == EEXIST) die("File already exists: %s", path);
+      else die("Cannot write to file: %s [%s]", path, strerror(errno));
+    }
+  }
+}
+
+/*!
+  Open a file and set the buffer to be DEFAULT_IO_BUFSIZE. Call die() if cannot
+  open the file.
+  @param path If "-" return stdout
+  @param mode one of: "r","rw","rw+","a"
+ */
+FILE *futil_fopen(const char *path, const char *mode)
 {
   ctx_assert(strcmp(path, "-") != 0 || strcmp(mode,"w") == 0);
   FILE *fout = strcmp(path, "-") == 0 ? stdout : fopen(path, mode);
-
   if(fout == NULL)
-    die("Cannot open output file: %s", futil_outpath_str(path));
+    die("Cannot open file: %s [%s]", futil_outpath_str(path), strerror(errno));
 
   // Set buffer size
   setvbuf(fout, NULL, _IOFBF, DEFAULT_IO_BUFSIZE);
@@ -115,15 +162,16 @@ FILE *futil_open_output2(const char *path, const char *mode)
   return fout;
 }
 
-// Open output file without error if file already exists
-gzFile futil_gzopen_output2(const char *path, const char *mode)
+/*!
+  @see futil_open()
+ */
+gzFile futil_gzopen(const char *path, const char *mode)
 {
   ctx_assert(strcmp(path, "-") != 0 || strcmp(mode,"w") == 0);
   gzFile gzout = strcmp(path, "-") == 0 ? gzdopen(fileno(stdout), mode)
                                         : gzopen(path, mode);
-
   if(gzout == NULL)
-    die("Cannot open output file: %s", futil_outpath_str(path));
+    die("Cannot open gzfile: %s [%s]", futil_outpath_str(path), strerror(errno));
 
   // Set buffer size
   #if ZLIB_VERNUM >= 0x1240
@@ -133,63 +181,27 @@ gzFile futil_gzopen_output2(const char *path, const char *mode)
   return gzout;
 }
 
-// Open and return output file.
-// If "-" return stdout, if cannot open die with error message
-FILE* futil_open_output(const char *path)
+/*!
+  @abstract Create, open and return output file. Call die() on error.
+  @description If file already exists and !futil_get_force() die() with error.
+  @param path If "-" return stdout
+  @param mode one of: "r","rw","rw+","a"
+ */
+FILE* futil_open_create(const char *path, const char *mode)
 {
   ctx_assert(path != NULL);
-  if(strcmp(path, "-") != 0 && !force_file_overwrite && futil_file_exists(path))
-    die("Output file already exists: %s", futil_outpath_str(path));
-  return futil_open_output2(path, "w");
+  futil_create_output(path);
+  return futil_fopen(path, mode);
 }
 
-// Open and return gzip output file.
-// If "-" return stdout, if cannot open die with error message
-gzFile futil_gzopen_output(const char *path)
+/*!
+  @see futil_open_create()
+ */
+gzFile futil_gzopen_create(const char *path, const char *mode)
 {
   ctx_assert(path != NULL);
-  if(strcmp(path, "-") != 0 && !force_file_overwrite && futil_file_exists(path))
-    die("Output file already exists: %s", futil_outpath_str(path));
-  return futil_gzopen_output2(path, "w");
-}
-
-// Open and return input file.
-// If "-" return stdin, if cannot open die with error message
-FILE* futil_open_input(const char *path)
-{
-  ctx_assert(path != NULL);
-  FILE *fin = (strcmp(path, "-") == 0) ? stdin : fopen(path, "r");
-
-  if(fin == NULL)
-    die("Cannot open input file: %s", futil_inpath_str(path));
-
-  // Set buffer size
-  setvbuf(fin, NULL, _IOFBF, DEFAULT_IO_BUFSIZE);
-
-  return fin;
-}
-
-// Open and return input file.
-// If "-" return stdin, if cannot open die with error message
-gzFile futil_gzopen_input(const char *path)
-{
-  ctx_assert(path != NULL);
-  gzFile gzin;
-
-  if(strcmp(path, "-") == 0)
-    gzin = gzdopen(fileno(stdin), "r");
-  else
-    gzin = gzopen(path, "r");
-
-  if(gzin == NULL)
-    die("Cannot open input file: %s", futil_outpath_str(path));
-
-  // Set buffer size
-  #if ZLIB_VERNUM >= 0x1240
-    gzbuffer(gzin, DEFAULT_IO_BUFSIZE);
-  #endif
-
-  return gzin;
+  futil_create_output(path);
+  return futil_gzopen(path, mode);
 }
 
 bool futil_generate_filename(const char *base_fmt, StrBuf *str)
@@ -201,7 +213,7 @@ bool futil_generate_filename(const char *base_fmt, StrBuf *str)
     strbuf_reset(str);
     strbuf_sprintf(str, base_fmt, i);
     struct stat st;
-    if(stat(str->buff, &st) != 0) return true;
+    if(stat(str->b, &st) != 0) return true;
   }
 
   return false;
@@ -250,10 +262,10 @@ FILE** futil_create_tmp_files(size_t num_tmp_files)
   {
     strbuf_reset(&tmppath);
     strbuf_sprintf(&tmppath, "/tmp/cortex.tmp.%i.%zu", r, i);
-    if((tmp_files[i] = fopen(tmppath.buff, "r+")) == NULL) {
-      die("Cannot write temporary file: %s [%s]", tmppath.buff, strerror(errno));
+    if((tmp_files[i] = fopen(tmppath.b, "r+")) == NULL) {
+      die("Cannot write temporary file: %s [%s]", tmppath.b, strerror(errno));
     }
-    unlink(tmppath.buff); // Immediately unlink to hide temp file
+    unlink(tmppath.b); // Immediately unlink to hide temp file
   }
   strbuf_dealloc(&tmppath);
 

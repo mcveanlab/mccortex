@@ -163,10 +163,10 @@ static void parse_args(int argc, char **argv)
       case 'P': task.remove_pcr_dups = false; pref_unused = true; break;
       case 'g':
         if(intocolour == -1) intocolour = 0;
-        tmp_gfile = (GraphFileReader)INIT_GRAPH_READER_MACRO;
-        graph_file_open(&tmp_gfile, optarg, true);
-        file_filter_update_intocol(&tmp_gfile.fltr, intocolour);
-        intocolour += graph_file_outncols(&tmp_gfile);
+        graph_file_reset(&tmp_gfile);
+        graph_file_open(&tmp_gfile, optarg);
+        file_filter_shift_cols(&tmp_gfile.fltr, intocolour);
+        intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr));
         gfile_buf_add(&gfilebuf, tmp_gfile);
         sample_named = false;
         break;
@@ -208,7 +208,7 @@ static void parse_args(int argc, char **argv)
     if(gfilebuf.data[i].hdr.kmer_size != kmer_size) {
       cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]: %s",
                       gfilebuf.data[i].hdr.kmer_size, kmer_size,
-                      gfilebuf.data[i].fltr.orig_path.buff);
+                      file_filter_input(&gfilebuf.data[i].fltr));
     }
   }
 
@@ -283,16 +283,9 @@ int ctx_build(int argc, char **argv)
   //
   // Check output path
   //
-  const char *out_path_name = futil_outpath_str(out_path);
+  futil_create_output(out_path);
 
-  if(strcmp(out_path,"-") != 0)
-  {
-    if(!futil_get_force() && futil_file_exists(out_path))
-      die("Output file already exists: %s", out_path);
-    if(!futil_is_file_writable(out_path)) die("Cannot write to file: %s", out_path);
-  }
-
-  status("Writing %zu colour graph to %s\n", output_colours, out_path_name);
+  status("Writing %zu colour graph to %s\n", output_colours, futil_outpath_str(out_path));
 
   // Create db_graph
   dBGraph db_graph;

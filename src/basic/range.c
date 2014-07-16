@@ -34,7 +34,8 @@ static int range_parse(const char *range_str, size_t *start, size_t *end,
   return (int)(endptr - range_str);
 }
 
-size_t range_get_num(const char *str, size_t range_max)
+// Returns number of items in range, or -1 if there is a syntax error
+int range_get_num(const char *str, size_t range_max)
 {
   const char *ptr = str;
   size_t start, end, num_cols = 0;
@@ -42,8 +43,7 @@ size_t range_get_num(const char *str, size_t range_max)
 
   while(*ptr != '\0')
   {
-    if((bytes = range_parse(ptr, &start, &end, range_max)) == -1)
-      die("Invalid range specifier: %s [max: %zu]", str, range_max);
+    if((bytes = range_parse(ptr, &start, &end, range_max)) == -1) return -1;
     ptr += bytes;
     num_cols += ABSDIFF(start,end)+1;
     if(*ptr == ',') ptr++;
@@ -52,7 +52,9 @@ size_t range_get_num(const char *str, size_t range_max)
   return num_cols == 0 ? range_max+1 : num_cols;
 }
 
-void range_parse_array(const char *str, size_t *arr, size_t range_max)
+// Parse range into array arr
+// Returns 0 on success, -1 on error
+int range_parse_array(const char *str, size_t *arr, size_t range_max)
 {
   const char *ptr = str;
   size_t num_cols = 0, j, start, end;
@@ -60,8 +62,7 @@ void range_parse_array(const char *str, size_t *arr, size_t range_max)
 
   while(*ptr != '\0')
   {
-    if((bytes = range_parse(ptr, &start, &end, range_max)) == -1)
-      die("Invalid range specifier: %s [max: %zu]", str, range_max);
+    if((bytes = range_parse(ptr, &start, &end, range_max)) == -1) return -1;
     ptr += bytes;
     if(*ptr == ',') ptr++;
     if(start <= end)
@@ -70,11 +71,12 @@ void range_parse_array(const char *str, size_t *arr, size_t range_max)
       for(j = start; j <= start; j--) arr[num_cols++] = j;
   }
 
-  if(ptr > str && *(ptr-1) == ',')
-      die("Invalid range specifier: %s [max: %zu]", str, range_max);
+  if(ptr > str && *(ptr-1) == ',') return -1;
 
   if(num_cols == 0) {
     for(num_cols = 0; num_cols <= range_max; num_cols++)
       arr[num_cols] = num_cols;
   }
+
+  return 0;
 }

@@ -6,6 +6,7 @@
 // GPathStore is a map from {[kmer/hkey] -> [GPath linked list]}
 typedef struct
 {
+  // num_paths may not match gpset->num_paths if we have dropped paths
   uint64_t num_kmers_with_paths, num_paths, path_bytes;
   uint64_t graph_capacity;
   GPathSet gpset;

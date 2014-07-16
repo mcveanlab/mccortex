@@ -2,30 +2,32 @@
 CTXPATH=../../
 CTX=$(CTXPATH)/bin/ctx31
 SEQRND=$(CTXPATH)/libs/seq_file/bin/seqrnd
+
 K=7
-GENOME=200
-KEEP=$(shell echo genome.fa genome.k$(K).{ctx,dot,pdf} genome.k$(K).perl.pdf)
+PLOTS=genome.k$(K).ctx.pdf genome.k$(K).perl.pdf
+KEEP=genome.fa genome.k$(K).ctx $(PLOTS:.pdf=.dot)
 
 all: $(KEEP)
 
 clean:
-	rm -rf $(KEEP)
+	rm -rf $(KEEP) $(PLOTS) $(PLOTS:.pdf=.dot)
 
 # Sample random genome
 genome.fa:
-	$(SEQRND) $(GENOME) > genome.fa
+	$(SEQRND) 200 > genome.fa
 
-genome.k$(K).ctx:
-	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
+genome.k$(K).ctx: genome.fa
+	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq $< $@
 
-genome.k$(K).dot:
-	$(CTX) supernodes -m 1M --graphviz --points genome.k$(K).ctx > genome.k$(K).dot
+genome.k$(K).ctx.dot: genome.k$(K).ctx
+	$(CTX) supernodes -m 1M --graphviz --points $< > $@
 
-genome.k$(K).pdf:
-	dot -Tpdf genome.k$(K).dot > genome.k$(K).pdf
+genome.k$(K).perl.dot: genome.k$(K).ctx
+	../../scripts/cortex_to_graphviz.pl --simplify $< > $@
 
-# Generate a dot file using perl
-genome.k$(K).perl.pdf:
-	../../scripts/cortex_to_graphviz.pl --simplify genome.k$(K).ctx | dot -Tpdf > $@
+%.pdf: %.dot
+	dot -Tpdf $< > $@
 
-.PHONY: all clean
+plots: $(PLOTS)
+
+.PHONY: all clean plots

@@ -33,7 +33,9 @@ void cmd_print_status_header();
 //
 
 // if !x print error message
-#define cmd_check(x,cmd) do {if(!(x)) {cmd_print_usage("%s given twice", cmd);} } while(0)
+#define cmd_check(x,cmd) do {                               \
+  if(!(x)) cmd_print_usage("%s given twice", cmd);          \
+} while(0)
 
 void cmd_get_longopt_str(const struct option *longs, char shortopt,
                          char *cmd, size_t buflen);

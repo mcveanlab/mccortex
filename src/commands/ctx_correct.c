@@ -27,6 +27,7 @@ const char correct_usage[] =
 "  -1, --seq <in:out>       Correct reads (output: <out>.fa.gz)\n"
 "  -2, --seq2 <in1:in2:out> Correct reads (output: <out>{,.1,.2}.fa.gz)\n"
 "  -i, --seqi <in.bam:out>  Correct reads (output: <out>{,.1,.2}.fa.gz)\n"
+// "  -F, --format <f>         Output format, may be: FASTA or FASTQ\n"
 "  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
 "  -Q, --fq-cutoff <Q>      Filter quality scores [default: 0 (off)]\n"
 "  -O, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
@@ -34,7 +35,7 @@ const char correct_usage[] =
 "  -l, --frag-len-min <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
 "  -L, --frag-len-max <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
 "\n"
-"  Path Params:\n"
+"  Correction:\n"
 "  -w, --one-way            Use one-way gap filling (conservative)\n"
 "  -W, --two-way            Use two-way gap filling (liberal)\n"
 "  -d, --gap-diff-const     -d, -D set parameters for allowable gap lengths\n"
@@ -43,7 +44,7 @@ const char correct_usage[] =
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -G, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
-"  -F, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
+"  -F, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n" // change to -H
 "\n"
 "  -c, --colour <in:out>    Correct reads from file (supports sam,bam,fq,*.gz\n"
 "\n"
@@ -95,7 +96,8 @@ static struct option longopts[] =
 int ctx_correct(int argc, char **argv)
 {
   size_t i;
-  struct ReadThreadCmdArgs args = READ_THREAD_CMD_ARGS_INIT;
+  struct ReadThreadCmdArgs args;
+  memset(&args, 0, sizeof(args));
   read_thread_args_alloc(&args);
   read_thread_args_parse(&args, argc, argv, longopts, true);
 
@@ -112,9 +114,9 @@ int ctx_correct(int argc, char **argv)
   for(i = 0; i < gpfiles->len; i++) {
     if(!file_filter_iscolloaded(&gpfiles->data[i].fltr, args.colour)) {
       cmd_print_usage("Path file doesn't load into colour %zu: %s",
-                      args.colour, gpfiles->data[i].fltr.orig_path.buff);
+                      args.colour, file_filter_input(&gpfiles->data[i].fltr));
     }
-    ctp_usedcols = MAX2(ctp_usedcols, file_filter_usedcols(&gpfiles->data[i].fltr));
+    ctp_usedcols = MAX2(ctp_usedcols, file_filter_into_ncols(&gpfiles->data[i].fltr));
   }
 
   // Check for compatibility between graph files and path files
@@ -165,7 +167,7 @@ int ctx_correct(int argc, char **argv)
     CorrectAlnInput *input = &inputs->data[i];
     input->crt_params.ctxcol = input->crt_params.ctpcol = args.colour;
     bool is_pe = asyncio_task_is_pe(&input->files);
-    err_occurred = !seqout_open(&outputs[i], input->out_base, SEQ_FMT_FASTQ, is_pe);
+    err_occurred = !seqout_open(&outputs[i], input->out_base, SEQ_FMT_FASTA, is_pe);
     input->output = &outputs[i];
   }
 

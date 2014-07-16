@@ -72,7 +72,7 @@ int ctx_health_check(int argc, char **argv)
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
-        gpath_reader_open(&tmp_gpfile, optarg, true);
+        gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
       case 'E': if(!do_edge_check) die("%s set twice", cmd); do_edge_check=false; break;
@@ -98,9 +98,10 @@ int ctx_health_check(int argc, char **argv)
   //
   // Open Graph file
   //
-  GraphFileReader gfile = INIT_GRAPH_READER;
-  graph_file_open(&gfile, ctx_path, true); // true => errors are fatal
-  size_t ncols = graph_file_outncols(&gfile);
+  GraphFileReader gfile;
+  memset(&gfile, 0, sizeof(GraphFileReader));
+  graph_file_open(&gfile, ctx_path); // true => errors are fatal
+  size_t ncols = file_filter_into_ncols(&gfile.fltr);
 
   // Check for compatibility between graph files and path files
   graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len);

@@ -41,7 +41,10 @@ void cmd_print_status_header()
   printed_header |= (ctx_msg_out != NULL);
   status("[cmd] %s", cmd_get_cmdline());
   status("[cwd] %s", cmd_get_cwd());
-  status("[version] "VERSION_STATUS_STR"");
+  // status("[version] "VERSION_STATUS_STR);
+  status("[VERSION] ctx="CTX_VERSION" "LIBS_VERSION" " \
+         ASSERTSTR" "CHECKSTR" " \
+         "k="QUOTE_VALUE(MIN_KMER_SIZE)".."QUOTE_VALUE(MAX_KMER_SIZE));
 }
 
 void cmd_get_longopt_str(const struct option *longs, char shortopt,

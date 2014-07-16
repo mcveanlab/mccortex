@@ -232,6 +232,8 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
     __sync_fetch_and_add((volatile size_t*)&gpset->nseen_buf.len, gpset->ncols);
 
     uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
+    ctx_assert(nseen != NULL);
+
     if(newgpath.nseen) {
       for(i = 0; i < gpset->ncols; i++)
         safe_add_uint8(&nseen[i], newgpath.nseen[i]);

@@ -48,7 +48,7 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
     bool cleaned_tips   = db_graph->ginfo[i].cleaning.cleaned_tips;
     cJSON *sample = cJSON_CreateObject();
     cJSON_AddNumberToObject(sample, "colour", i);
-    cJSON_AddStringToObject(sample, "sample", db_graph->ginfo[i].sample_name.buff);
+    cJSON_AddStringToObject(sample, "sample", db_graph->ginfo[i].sample_name.b);
     cJSON_AddNumberToObject(sample, "total_sequence", db_graph->ginfo[i].total_sequence);
     cJSON_AddBoolToObject(sample, "cleaned_tips", cleaned_tips);
     if(cleaned_snodes) {
@@ -160,7 +160,7 @@ static inline void _gpath_save_flush(gzFile gzout, StrBuf *sbuf,
                                      pthread_mutex_t *outlock)
 {
   pthread_mutex_lock(outlock);
-  gzwrite(gzout, sbuf->buff, sbuf->len);
+  gzwrite(gzout, sbuf->b, sbuf->end);
   pthread_mutex_unlock(outlock);
   strbuf_reset(sbuf);
 }
@@ -210,13 +210,13 @@ static inline void _gpath_save_node(hkey_t hkey,
       strbuf_sprintf(sbuf, ",%u", (uint32_t)nseenptr[col]);
 
     strbuf_append_char(sbuf, ' ');
-    strbuf_ensure_capacity(sbuf, sbuf->len + gpath->num_juncs + 2);
-    binary_seq_to_str(gpath->seq, gpath->num_juncs, sbuf->buff+sbuf->len);
-    sbuf->len += gpath->num_juncs;
+    strbuf_ensure_capacity(sbuf, sbuf->end + gpath->num_juncs + 2);
+    binary_seq_to_str(gpath->seq, gpath->num_juncs, sbuf->b+sbuf->end);
+    sbuf->end += gpath->num_juncs;
     strbuf_append_char(sbuf, '\n');
   }
 
-  if(sbuf->len > DEFAULT_IO_BUFSIZE)
+  if(sbuf->end > DEFAULT_IO_BUFSIZE)
     _gpath_save_flush(gzout, sbuf, outlock);
 }
 
@@ -258,7 +258,10 @@ void gpath_save(gzFile gzout, const char *path, size_t nthreads,
   ctx_assert(nthreads > 0);
   ctx_assert(gpath_set_has_nseen(&db_graph->gpstore.gpset));
 
-  status("Saving paths to: %s", path);
+  char npaths_str[50];
+  ulong_to_str(db_graph->gpstore.num_paths, npaths_str);
+
+  status("Saving %s paths to: %s", npaths_str, path);
   status("  using %zu threads", nthreads);
 
   // Write header

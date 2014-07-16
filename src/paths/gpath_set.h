@@ -69,6 +69,7 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath);
 uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath);
 
 uint8_t* gpath_set_get_nseen(const GPathSet *gpset, const GPath *gpath);
+
 // Copy nseen counts to dst from src
 void gpath_set_nseen_sum_mt(const GPath *dst, GPathSet *dstset,
                             const GPath *src, const GPathSet *srcset);

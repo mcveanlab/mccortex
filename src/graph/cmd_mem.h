@@ -25,7 +25,8 @@ void cmd_mem_args_set_nkmers(struct MemArgs *mem, const char *arg);
 size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
                              size_t num_kmers, bool num_kmers_set,
                              size_t entry_bits,
-                             size_t min_num_kmer_req, size_t max_num_kmers_req,
+                             int64_t min_num_kmer_req,
+                             int64_t max_num_kmers_req,
                              bool use_mem_limit, size_t *graph_mem_ptr);
 
 // Check memory against args->mem_to_use and total RAM

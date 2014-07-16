@@ -6,7 +6,7 @@ K=9
 all: seq.k$(K).ctx
 
 clean:
-	rm -rf seq.fa seq.k*.ctx test.ctx
+	rm -rf seq.fa seq.k*.ctx test.ctx A:2.fa
 
 seq.fa:
 	$(SEQRND) 50 > seq.fa

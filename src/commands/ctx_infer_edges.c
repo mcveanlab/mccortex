@@ -50,11 +50,13 @@ static struct option longopts[] =
 static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
-  ctx_assert(file->hdr.num_of_cols == db_graph->num_of_cols);
-  ctx_assert2(file->fltr.fh != stdin, "Use inferedges_on_stream() instead");
-  const size_t ncols = db_graph->num_of_cols;
+  const size_t ncols = file_filter_into_ncols(&file->fltr);
 
-  status("[inferedges] Processing file: %s", file->fltr.file_path.buff);
+  ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
+  ctx_assert(db_graph->num_of_cols == ncols);
+  ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
+
+  status("[inferedges] Processing file: %s", file_filter_path(&file->fltr));
 
   if(fout != NULL) {
     // Print header
@@ -62,7 +64,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   }
 
   // Read the input file again
-  if(fseek(file->fltr.fh, file->hdr_size, SEEK_SET) != 0)
+  if(fseek(file->fh, file->hdr_size, SEEK_SET) != 0)
     die("fseek failed: %s", strerror(errno));
 
   BinaryKmer bkmer;
@@ -73,7 +75,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   bool updated;
   long edges_len = sizeof(Edges) * ncols;
 
-  while(graph_file_read(file, &bkmer, covgs, edges))
+  while(graph_file_read_reset(file, ncols, &bkmer, covgs, edges))
   {
     updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
                              : infer_pop_edges(bkmer, edges, covgs, db_graph));
@@ -83,10 +85,10 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                        bkmer, covgs, edges);
     }
     else if(updated) {
-      if(fseek(file->fltr.fh, -edges_len, SEEK_CUR) != 0 ||
-         fwrite(edges, sizeof(Edges), ncols, file->fltr.fh) != ncols)
+      if(fseek(file->fh, -edges_len, SEEK_CUR) != 0 ||
+         fwrite(edges, sizeof(Edges), ncols, file->fh) != ncols)
       {
-        die("fseek/fwrite error: %s", file->fltr.file_path.buff);
+        die("fseek/fwrite error: %s", file_filter_path(&file->fltr));
       }
     }
 
@@ -149,21 +151,22 @@ int ctx_infer_edges(int argc, char **argv)
   char *graph_path = argv[optind];
   status("Reading graph: %s", graph_path);
 
-  GraphFileReader file = INIT_GRAPH_READER;
+  GraphFileReader file;
+  memset(&file, 0, sizeof(file));
   // Mode r+ means open (not create) for update (read & write)
-  graph_file_open2(&file, graph_path, true, "r+");
-  bool reading_stream = (file.fltr.fh == stdin);
+  graph_file_open2(&file, graph_path, "r+");
+  bool reading_stream = (file.fh == stdin);
 
   FILE *fout = NULL;
 
+  // Editing input file or writing a new file
   if(out_ctx_path || reading_stream)
-    fout = futil_open_output(out_ctx_path ? out_ctx_path : "-");
-
-  if(!file.fltr.nofilter)
-    cmd_print_usage("Inferedges with filter not implemented - sorry");
-
-  if(!futil_is_file_writable(graph_path))
+    fout = futil_open_create(out_ctx_path ? out_ctx_path : "-", "w");
+  else if(!futil_is_file_writable(graph_path))
     cmd_print_usage("Cannot write to file: %s", graph_path);
+
+  if(!file_filter_is_direct(&file.fltr))
+    cmd_print_usage("Inferedges with filter not implemented - sorry");
 
   ctx_assert(file.hdr.num_of_cols == file.fltr.ncols);
 
