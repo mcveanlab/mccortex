@@ -87,7 +87,7 @@ static struct option longopts[] =
   {"colour",        required_argument, NULL, 'c'}, // allow --{col,color,colour}
   {"color",         required_argument, NULL, 'c'},
   {"col",           required_argument, NULL, 'c'},
-//
+// used in ctx_thread
   // {"print-contigs", no_argument,       NULL, 'x'},
   // {"print-paths",   no_argument,       NULL, 'y'},
   // {"print-reads",   no_argument,       NULL, 'z'},
@@ -97,7 +97,7 @@ static struct option longopts[] =
 
 int ctx_correct(int argc, char **argv)
 {
-  size_t i, p;
+  size_t i;
   struct ReadThreadCmdArgs args;
   memset(&args, 0, sizeof(args));
   read_thread_args_alloc(&args);

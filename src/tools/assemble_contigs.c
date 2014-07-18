@@ -231,7 +231,7 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
   AssembleContigStats *stats = &assem->stats;
 
   // Don't use a visited kmer as a seed node if --no-reseed passed
-  if(assem->visited != NULL && bitset_get(assem->visited, hkey)) {
+  if(assem->visited != NULL && bitset_get_mt(assem->visited, hkey)) {
     stats->num_reseed_abort++;
     return 0;
   }
@@ -285,7 +285,7 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
   // Don't use to seed another contig
   if(assem->visited != NULL) {
     for(i = 0; i < nodes->len; i++)
-      bitset_set_mt(assem->visited, nodes->data[i].key);
+      (void)bitset_set_mt(assem->visited, nodes->data[i].key);
   }
 
   size_t contig_id;
@@ -305,13 +305,13 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     pthread_mutex_lock(assem->outlock);
     contig_id = assem->num_contig_ptr[0]++;
 
-    if(assem->contig_limit && contig_id < assem->contig_limit)
+    if(!assem->contig_limit || contig_id < assem->contig_limit)
     {
       // Print in FASTA format with additional info in name
-      fprintf(assem->fout, ">contig%zu seed=%s "
+      fprintf(assem->fout, ">contig%zu len=%zu seed=%s "
               "lf.status=%s lf.paths.held=%zu lf.paths.new=%zu lf.paths.cntr=%zu "
               "rt.status=%s rt.paths.held=%zu rt.paths.new=%zu rt.paths.cntr=%zu\n",
-              contig_id, kmer_str,
+              contig_id, nodes->len, kmer_str,
               left_stat, paths_held[0], paths_new[0], paths_cntr[0],
               rght_stat, paths_held[1], paths_new[1], paths_cntr[1]);
 
@@ -327,8 +327,9 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
 
   // Generated too many contigs - drop this one without printing or
   // recording any information/statistics on it
-  if(assem->contig_limit && contig_id >= assem->contig_limit)
+  if(assem->contig_limit && contig_id >= assem->contig_limit) {
     return 1; // => stop iterating
+  }
 
   for(orient = 0; orient < 2; orient++) {
     stats->grphwlk_steps[wlk_step_last[orient]]++;
@@ -456,10 +457,14 @@ void assemble_contigs(size_t nthreads,
   if(num_seed_files)
   {
     // Start async io reading
+    status("[Assemble] Sample seed kmers from:");
+
     AsyncIOInput *async_tasks = ctx_calloc(num_seed_files, sizeof(AsyncIOInput));
 
-    for(i = 0; i < num_seed_files; i++)
+    for(i = 0; i < num_seed_files; i++) {
       async_tasks[i].file1 = seed_files[i];
+      status("[Assemble]   %s", futil_outpath_str(seed_files[i]->path));
+    }
 
     asyncio_run_pool(async_tasks, num_seed_files, _seed_from_file,
                      workers, nthreads, sizeof(workers[0]));
@@ -469,6 +474,7 @@ void assemble_contigs(size_t nthreads,
   else
   {
     // Use random kmers as seeds
+    status("[Assemble]   Sample random seed kmers");
     util_run_threads(workers, nthreads, sizeof(workers[0]),
                      nthreads, _seed_rnd_kmers);
   }

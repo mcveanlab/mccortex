@@ -18,12 +18,16 @@ seq.k9.ctp.gz: seq.k9.ctx seq.fa
 	$(CTX) thread -m 1M --seq seq.fa --out $@ seq.k$(K).ctx
 
 contigs.fa: seq.k9.ctx seq.k9.ctp.gz
-	$(CTX) contigs --ncontigs 10 --out $@ -p seq.k9.ctp.gz seq.k$(K).ctx
+	$(CTX) contigs --no-reseed --out $@ -p seq.k9.ctp.gz seq.k$(K).ctx
 
-test: seq.fa contigs.fa
+contigs.rmdup.fa: contigs.fa
+	$(CTX) rmsubstr $< > $@
+
+test: seq.fa contigs.fa contigs.rmdup.fa
 	$(BIOINF)/sim_mutations/sim_substrings.pl $(K) 0.1 contigs.fa seq.fa
+	$(BIOINF)/sim_mutations/sim_substrings.pl $(K) 0.1 contigs.rmdup.fa seq.fa
 
 clean:
-	rm -rf seq.fa seq.k9.ctx seq.k$(K).ctp.gz contigs.fa
+	rm -rf seq.fa seq.k9.ctx seq.k$(K).ctp.gz contigs.fa contigs.rmdup.fa
 
 .PHONY: all clean test

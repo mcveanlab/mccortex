@@ -47,50 +47,6 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-/*
-// Returns first kmer that is in the graph
-// Or HASH_NOT_FOUND if no kmers are in the graph
-hkey_t seq_reader_first_node(const read_t *r, uint8_t qcutoff, uint8_t hp_cutoff,
-                             size_t colour, const dBGraph *db_graph)
-{
-  const size_t kmer_size = db_graph->kmer_size;
-  size_t contig_start, contig_end, search_start = 0;
-  BinaryKmer bkmer, bkey;
-  Nucleotide nuc;
-  hkey_t node;
-  size_t next_base;
-
-  ctx_assert(db_graph->node_in_cols != NULL);
-  ctx_assert(r != NULL);
-
-  while((contig_start = seq_contig_start(r, search_start, kmer_size,
-                                         qcutoff, hp_cutoff)) < r->seq.end)
-  {
-    contig_end = seq_contig_end(r, contig_start, kmer_size,
-                                qcutoff, hp_cutoff, &search_start);
-
-    const char *contig = r->seq.b + contig_start;
-    size_t contig_len = contig_end - contig_start;
-
-    bkmer = binary_kmer_from_str(contig, kmer_size);
-    bkmer = binary_kmer_right_shift_one_base(bkmer);
-
-    for(next_base = kmer_size-1; next_base < contig_len; next_base++)
-    {
-      nuc = dna_char_to_nuc(contig[next_base]);
-      bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-      bkey = binary_kmer_get_key(bkmer, kmer_size);
-      node = hash_table_find(&db_graph->ht, bkey);
-
-      if(node != HASH_NOT_FOUND &&
-        db_node_has_col(db_graph, node, colour)) return node;
-    }
-  }
-
-  return HASH_NOT_FOUND;
-}
-*/
-
 int ctx_contigs(int argc, char **argv)
 {
   size_t nthreads = 0;

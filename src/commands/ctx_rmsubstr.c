@@ -205,8 +205,9 @@ int ctx_rmsubstr(int argc, char **argv)
   readbuf_alloc(&rbuf, 1024);
   seq_load_all_reads(seq_files, num_seq_files, &rbuf);
 
-  for(i = 0; i < num_seq_files && rbuf.data[i].seq.end >= kmer_size; i++) {}
-  if(i < num_seq_files)
+  // Check for reads too short
+  for(i = 0; i < rbuf.len && rbuf.data[i].seq.end >= kmer_size; i++) {}
+  if(i < rbuf.len)
     warn("Reads shorter than kmer size (%zu) will not be filtered", kmer_size);
 
   KOGraph kograph = kograph_create(rbuf.data, rbuf.len, true,
@@ -236,7 +237,7 @@ int ctx_rmsubstr(int argc, char **argv)
 
   status("Printed %s / %s (%.1f%%) to %s",
          num_reads_printed_str, num_reads_str,
-         (100.0 * num_reads_printed) / num_reads,
+         !num_reads ? 0.0 : (100.0 * num_reads_printed) / num_reads,
          futil_outpath_str(output_file));
 
   if(num_bad_reads > 0) {

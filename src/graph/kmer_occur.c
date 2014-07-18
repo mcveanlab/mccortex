@@ -218,6 +218,8 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
                                    KONodeList *klists,
                                    dBGraph *db_graph)
 {
+  if(!num_reads) return;
+
   // 1. Loop through reads, add to graph and record kmer counts
   struct ReadUpdateCounts *updates;
   size_t i;
@@ -292,7 +294,7 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
 
   // offset should be less than sum of read lengths, which is why we wait to
   // parse all reads before mallocing to reduce memory footprint
-  ctx_assert(offset < total_read_length);
+  ctx_assert(total_read_length == 0 || offset < total_read_length);
 
   if(offset == 0) kograph.koccurs = NULL;
   else {
