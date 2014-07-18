@@ -296,6 +296,7 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     char kmer_str[MAX_KMER_SIZE+1], left_stat[25], rght_stat[25];
     BinaryKmer seed_bkmer = db_node_get_bkmer(db_graph, first_node.key);
     binary_kmer_to_str(seed_bkmer, db_graph->kmer_size, kmer_str);
+    dna_revcomp_str(kmer_str, kmer_str, db_graph->kmer_size);
 
     // We have reversed the contig, so left end is now the end we hit when
     // traversing from the seed node forward... FORWARD == 0, REVERSE == 1

@@ -72,13 +72,17 @@ char* dna_reverse_complement_str(char *str, size_t length)
 }
 
 // length is the length in number of bases
+// dst, src can point to the same string
 // Null terminates dst
 // Returns pointer to dst
 char* dna_revcomp_str(char *dst, const char *src, size_t length)
 {
   size_t i, j;
-  for(i = 0, j = length-1; i < length; i++, j--)
-    dst[j] = dna_char_complement(src[i]);
+  for(i = 0, j = length-1; i < length; i++, j--) {
+    char a = dna_char_complement(src[i]), b = dna_char_complement(src[j]);
+    dst[i] = b;
+    dst[j] = a;
+  }
   dst[length] = '\0';
   return dst;
 }
