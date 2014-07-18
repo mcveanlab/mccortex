@@ -11,6 +11,14 @@
 void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
                               const GPathReader *gpaths, size_t num_gpaths);
 
+/*!
+  Load colour -> colour0, rest -> pop colour1
+  @return number of colours to load (1 or 2: sample + [population optional])
+ */
+size_t gpath_load_sample_pop(GraphFileReader *gfile,
+                             GPathReader *gpfiles, size_t num_gpfiles,
+                             size_t colour);
+
 // 1) check dBNode following `node` has indegree >1 in sample ctxcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour

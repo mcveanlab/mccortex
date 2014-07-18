@@ -347,7 +347,7 @@ static void write_bubbles_to_file(BubbleCaller *caller)
   }
 }
 
-void bubble_caller_node(hkey_t hkey, BubbleCaller *caller)
+static inline int bubble_caller_node(hkey_t hkey, BubbleCaller *caller)
 {
   Edges edges = db_node_get_edges(caller->db_graph, hkey, 0);
   if(edges_get_outdegree(edges, FORWARD) > 1) {
@@ -358,6 +358,8 @@ void bubble_caller_node(hkey_t hkey, BubbleCaller *caller)
     find_bubbles(caller, (dBNode){.key = hkey, .orient = REVERSE});
     write_bubbles_to_file(caller);
   }
+
+  return 0; // => keep iterating
 }
 
 void bubble_caller(void *args)

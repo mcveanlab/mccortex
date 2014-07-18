@@ -527,7 +527,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   }
 }
 
-void breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
+static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
 {
   Edges edges;
 
@@ -544,6 +544,8 @@ void breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
       follow_break(caller, (dBNode){.key = hkey, .orient = REVERSE});
     }
   }
+
+  return 0; // => keep iterating
 }
 
 static void breakpoint_caller(void *ptr)

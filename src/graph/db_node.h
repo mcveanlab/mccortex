@@ -15,8 +15,6 @@
 //
 // Get Binary kmers
 //
-#define db_node_bkmer(graph,key) ((graph)->ht.table[key])
-
 static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey) {
   return db_graph->ht.table[hkey];
 }
@@ -32,6 +30,8 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 
 // kset is short for a kmer bitset. A three colour kset is organised like so:
 // <0-63:col0><0-63:col1><0-63:col2><64-127:col0><64-127:col1><64-127:col2>
+// This is so we can wipe a single colour by zero-ing whole bytes, whilst still
+// keeping the same node in multiple colours close together.
 
 /* Offset in word */
 #define kseto(arr,hkey)           ((hkey)%(sizeof(*arr)*8))

@@ -108,35 +108,13 @@ int ctx_correct(int argc, char **argv)
   CorrectAlnInputBuffer *inputs = &args.inputs;
 
   // Update colours in graph file - sample in 0, all others in 1
-  bool tgt_col_loaded = false;
-  for(i = 0; i < gfile->fltr.ncols; i++) {
-    if(gfile->fltr.filter[i].into == args.colour) {
-      gfile->fltr.filter[i].into = 0;
-      tgt_col_loaded = true;
-    } else
-      gfile->fltr.filter[i].into = 1;
-  }
-
-  if(!tgt_col_loaded)
-    die("You didn't load any colours into --colour %zu", args.colour);
-
-  for(p = 0; p < gpfiles->len; p++) {
-    GPathReader *gpfile = &gpfiles->data[p];
-    for(i = 0; i < gpfile->fltr.ncols; i++) {
-      if(gpfile->fltr.filter[i].into == args.colour)
-        gpfile->fltr.filter[i].into = 0;
-      else {
-        die("No point loading paths for colours other than --colour %zu",
-            args.colour);
-      }
-    }
-  }
-
-  size_t ncols = file_filter_into_ncols(&gfile->fltr);
-  int64_t ctx_num_kmers = gfile->num_of_kmers;
+  size_t ncols = gpath_load_sample_pop(gfile, gpfiles->data, gpfiles->len,
+                                       args.colour);
 
   // Check for compatibility between graph files and path files
   graphs_gpaths_compatible(gfile, 1, gpfiles->data, gpfiles->len);
+
+  int64_t ctx_num_kmers = gfile->num_of_kmers;
 
   //
   // Decide on memory

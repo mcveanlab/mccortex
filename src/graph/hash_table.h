@@ -27,6 +27,7 @@ typedef struct
   uint8_t (*const buckets)[2];
   uint64_t num_kmers;
   uint64_t collisions[REHASH_LIMIT];
+  uint32_t seed; // random seed used in hashing
 } HashTable;
 
 // Returns NULL if not enough memory
@@ -86,6 +87,7 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 } while(0)
 
 // This iterator allows adding/removing items
+// Ends if func() returns != 0
 #define HASH_ITERATE_PART(ht,job,njobs,func, ...) do {                         \
   const size_t _step = (ht)->capacity / (njobs);                               \
   const BinaryKmer *_start, *_end, *_bkptr;                                    \
@@ -93,7 +95,7 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
   _end = ((job)+1 == (njobs) ? (ht)->table + (ht)->capacity : _start+_step);   \
   for(_bkptr = _start; _bkptr < _end; _bkptr++) {                              \
     if(HASH_ENTRY_ASSIGNED(*_bkptr)) {                                         \
-      func((hkey_t)(_bkptr - (ht)->table), ##__VA_ARGS__);                     \
+      if(func((hkey_t)(_bkptr - (ht)->table), ##__VA_ARGS__)) break;           \
     }                                                                          \
   }                                                                            \
 } while(0)

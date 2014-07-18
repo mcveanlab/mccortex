@@ -167,10 +167,10 @@ static inline void _gpath_save_flush(gzFile gzout, StrBuf *sbuf,
 
 // @subset is a temp variable that is reused each time
 // @sbuf   is a temp variable that is reused each time
-static inline void _gpath_save_node(hkey_t hkey,
-                                    gzFile gzout, pthread_mutex_t *outlock,
-                                    StrBuf *sbuf, GPathSubset *subset,
-                                    const dBGraph *db_graph)
+static inline int _gpath_save_node(hkey_t hkey,
+                                   gzFile gzout, pthread_mutex_t *outlock,
+                                   StrBuf *sbuf, GPathSubset *subset,
+                                   const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
@@ -184,7 +184,7 @@ static inline void _gpath_save_node(hkey_t hkey,
   gpath_subset_load_llist(subset, first_gpath);
   gpath_subset_sort(subset);
 
-  if(subset->list.len == 0) return;
+  if(subset->list.len == 0) return 0; // => keep iterating
 
   // Print "<kmer> <npaths>"
   BinaryKmer bkmer = db_graph->ht.table[hkey];
@@ -218,6 +218,8 @@ static inline void _gpath_save_node(hkey_t hkey,
 
   if(sbuf->end > DEFAULT_IO_BUFSIZE)
     _gpath_save_flush(gzout, sbuf, outlock);
+
+  return 0; // => keep iterating
 }
 
 typedef struct

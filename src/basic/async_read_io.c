@@ -117,9 +117,9 @@ static void async_io_worker_init(AsyncIOWorker *wrkr,
 
 static void add_to_pool(read_t *r1, read_t *r2,
                         uint8_t fq_offset1, uint8_t fq_offset2,
-                        void *ptr)
+                        void *arg)
 {
-  AsyncIOWorker *wrkr = (AsyncIOWorker*)ptr;
+  AsyncIOWorker *wrkr = (AsyncIOWorker*)arg;
   MsgPool *pool = wrkr->pool;
   int pos;
   AsyncIOData *data;

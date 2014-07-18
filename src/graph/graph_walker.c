@@ -51,6 +51,23 @@ static void print_path_list(const GPathFollowBuffer *pbuf, FILE *fout)
   }
 }
 
+char* graph_walker_status2str(uint8_t status, char *str, size_t len)
+{
+  ctx_assert(len >= 20);
+  switch(status) {
+    case GRPHWLK_FORWARD:       strcpy(str, "GoForward"); break;
+    case GRPHWLK_COLFWD:        strcpy(str, "GoColForward"); break;
+    case GRPHWLK_NOCOVG:        strcpy(str, "FailNoCovg"); break;
+    case GRPHWLK_NOCOLCOVG:     strcpy(str, "FailNoColCovg"); break;
+    case GRPHWLK_NOPATHS:       strcpy(str, "FailNoPaths"); break;
+    case GRPHWLK_SPLIT_PATHS:   strcpy(str, "FailSplitPaths"); break;
+    case GRPHWLK_MISSING_PATHS: strcpy(str, "FailMissingPaths"); break;
+    case GRPHWLK_USEPATH:       strcpy(str, "GoUsePath"); break;
+    default: die("Bad status: %i", (int)status);
+  }
+  return str;
+}
+
 void graph_walker_print_state(const GraphWalker *wlk, FILE *fout)
 {
   char bkmerstr[MAX_KMER_SIZE+1], bkeystr[MAX_KMER_SIZE+1];

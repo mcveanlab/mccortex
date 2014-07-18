@@ -55,6 +55,7 @@ size_t graph_walker_est_mem();
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
+char* graph_walker_status2str(uint8_t status, char *str, size_t len);
 void graph_walker_print_state(const GraphWalker *wlk, FILE *fout);
 
 // Always call finish after calling init

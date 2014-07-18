@@ -164,14 +164,14 @@ size_t supernode_covg_mean(const Covg *covgs, size_t len)
 // Iterate over supernodes in the graph with multiple threads
 //
 
-static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
-                                          dBNodeBuffer *nbuf,
-                                          uint8_t *visited,
-                                          const dBGraph *db_graph,
-                                          void (*func)(dBNodeBuffer _nbuf,
-                                                       size_t threadid,
-                                                       void *_arg),
-                                          void *arg)
+static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
+                                         dBNodeBuffer *nbuf,
+                                         uint8_t *visited,
+                                         const dBGraph *db_graph,
+                                         void (*func)(dBNodeBuffer _nbuf,
+                                                      size_t threadid,
+                                                      void *_arg),
+                                         void *arg)
 {
   bool got_lock = false;
   size_t i;
@@ -195,6 +195,8 @@ static inline void supernode_iterate_node(hkey_t hkey, size_t threadid,
       func(*nbuf, threadid, arg);
     }
   }
+
+  return 0; // => keep iterating
 }
 
 typedef struct {

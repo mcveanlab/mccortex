@@ -12,7 +12,7 @@
 typedef struct
 {
   seq_file_t *file1, *file2;
-  void *ptr; // general porpoise pointer is passes into AsyncIOData
+  void *ptr; // general porpoise pointer for this file is passed into AsyncIOData
   const uint8_t fq_offset;
   const bool interleaved; // if file1 is an interleaved PE file
 } AsyncIOInput;
@@ -20,7 +20,7 @@ typedef struct
 typedef struct
 {
   read_t r1, r2;
-  void *ptr;
+  void *ptr; // pointer from AsyncIOInput (specific to source sequence file(s))
   uint8_t fq_offset1, fq_offset2;
 } AsyncIOData;
 

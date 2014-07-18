@@ -29,8 +29,8 @@ void prune_node_without_edges_mt(dBGraph *db_graph, hkey_t hkey)
 // After calling this function on all nodes, call:
 // prune_nodes_lacking_flag_no_edges
 static inline
-void prune_edges_to_nodes_lacking_flag(hkey_t hkey, const uint8_t *flags,
-                                       dBGraph *db_graph)
+int prune_edges_to_nodes_lacking_flag(hkey_t hkey, const uint8_t *flags,
+                                      dBGraph *db_graph)
 {
   Edges keep_edges = 0x0;
   Orientation orient;
@@ -65,14 +65,18 @@ void prune_edges_to_nodes_lacking_flag(hkey_t hkey, const uint8_t *flags,
 
   for(col = 0; col < db_graph->num_edge_cols; col++)
     db_node_edges(db_graph, hkey, col) &= keep_edges;
+
+  return 0; // => keep iterating
 }
 
 static inline
-void prune_nodes_lacking_flag_no_edges(hkey_t hkey, const uint8_t *flags,
+int prune_nodes_lacking_flag_no_edges(hkey_t hkey, const uint8_t *flags,
                                        dBGraph *db_graph)
 {
   if(!bitset_get(flags, hkey))
     prune_node_without_edges_mt(db_graph, hkey);
+
+  return 0; // => keep iterating
 }
 
 

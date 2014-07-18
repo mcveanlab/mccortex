@@ -111,6 +111,43 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   ctx_free(samples);
 }
 
+/*!
+  Update colours in graph files and path files - sample in 0, all others in 1
+  @return number of colours to load (1 or 2: sample + [population optional])
+ */
+size_t gpath_load_sample_pop(GraphFileReader *gfile,
+                             GPathReader *gpfiles, size_t num_gpfiles,
+                             size_t colour)
+{
+  size_t p, i;
+  bool tgt_col_loaded = false, pop_col_loaded = false;
+
+  for(i = 0; i < gfile->fltr.ncols; i++) {
+    if(gfile->fltr.filter[i].into == colour) {
+      gfile->fltr.filter[i].into = 0;
+      tgt_col_loaded = true;
+    } else {
+      gfile->fltr.filter[i].into = 1;
+      pop_col_loaded = true;
+    }
+  }
+
+  if(!tgt_col_loaded)
+    die("You didn't load any colours into --colour %zu", colour);
+
+  for(p = 0; p < num_gpfiles; p++) {
+    for(i = 0; i < gpfiles[p].fltr.ncols; i++) {
+      if(gpfiles[p].fltr.filter[i].into == colour) {
+        gpfiles[p].fltr.filter[i].into = 0;
+      } else {
+        die("No point loading paths for colours other than --colour %zu", colour);
+      }
+    }
+  }
+
+  return (pop_col_loaded ? 2 : 1);
+}
+
 //
 // Integrity checks on graph+paths
 //

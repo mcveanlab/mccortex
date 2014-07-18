@@ -13,7 +13,7 @@ static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER_WORD}};
 
 #define ht_bckt_ptr(ht,bckt) ((ht)->table + (size_t)bckt * (ht)->bucket_size)
 
-void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
+void hash_table_alloc(HashTable *ht, uint64_t req_capacity)
 {
   uint64_t num_of_buckets, capacity;
   uint8_t bucket_size;
@@ -29,8 +29,8 @@ void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
   ulong_to_str(bucket_size, bkt_size_str);
   ulong_to_str(capacity, cap_str);
   bytes_to_str(mem, 1, mem_str);
-  status("[hashtable] Allocating table with %s entries, using %s", cap_str, mem_str);
-  status("[hashtable]  number of buckets: %s, bucket size: %s", num_bkts_str, bkt_size_str);
+  status("[hasht] Allocating table with %s entries, using %s", cap_str, mem_str);
+  status("[hasht]  number of buckets: %s, bucket size: %s", num_bkts_str, bkt_size_str);
 
   // calloc is required for bucket_data to set the first element of each bucket
   // to the 0th pos
@@ -48,9 +48,10 @@ void hash_table_alloc(HashTable *htable, uint64_t req_capacity)
     .capacity = capacity,
     .buckets = buckets,
     .num_kmers = 0,
-    .collisions = {0}};
+    .collisions = {0},
+    .seed = rand()};
 
-  memcpy(htable, &data, sizeof(data));
+  memcpy(ht, &data, sizeof(data));
 }
 
 void hash_table_dealloc(HashTable *hash_table)
@@ -59,32 +60,32 @@ void hash_table_dealloc(HashTable *hash_table)
   ctx_free(hash_table->buckets);
 }
 
-void hash_table_empty(HashTable *const htable)
+void hash_table_empty(HashTable *const ht)
 {
   size_t i;
-  BinaryKmer *table = htable->table;
-  for(i = 0; i < htable->capacity; i++) table[i] = unset_bkmer;
-  memset(htable->buckets, 0, htable->num_of_buckets * sizeof(uint8_t[2]));
+  BinaryKmer *table = ht->table;
+  for(i = 0; i < ht->capacity; i++) table[i] = unset_bkmer;
+  memset(ht->buckets, 0, ht->num_of_buckets * sizeof(uint8_t[2]));
 
   HashTable data = {
-    .table = htable->table,
-    .num_of_buckets = htable->num_of_buckets,
-    .hash_mask = htable->hash_mask,
-    .bucket_size = htable->bucket_size,
-    .capacity = htable->capacity,
-    .buckets = htable->buckets,
+    .table = ht->table,
+    .num_of_buckets = ht->num_of_buckets,
+    .hash_mask = ht->hash_mask,
+    .bucket_size = ht->bucket_size,
+    .capacity = ht->capacity,
+    .buckets = ht->buckets,
     .num_kmers = 0,
     .collisions = {0}};
 
-  memcpy(htable, &data, sizeof(data));
+  memcpy(ht, &data, sizeof(data));
 }
 
-static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const htable,
+static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const ht,
                                                           uint_fast32_t bucket,
                                                           const BinaryKmer bkmer)
 {
-  const BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
-  const BinaryKmer *end = ptr + htable->buckets[bucket][HT_BSIZE];
+  const BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
+  const BinaryKmer *end = ptr + ht->buckets[bucket][HT_BSIZE];
 
   while(ptr < end) {
     if(binary_kmers_are_equal(bkmer, *ptr)) return ptr;
@@ -95,13 +96,13 @@ static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const
 
 /*
 static inline
-const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const htable,
+const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const ht,
                                                    uint_fast32_t bucket,
                                                    const BinaryKmer bkmer,
                                                    bool *found)
 {
-  const BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
-  const BinaryKmer *end = ptr + htable->buckets[bucket][HT_BSIZE];
+  const BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
+  const BinaryKmer *end = ptr + ht->buckets[bucket][HT_BSIZE];
   const BinaryKmer *empty = NULL;
 
   for(; ptr < end && !binary_kmers_are_equal(bkmer, *ptr); ptr++) {
@@ -111,37 +112,37 @@ const BinaryKmer* hash_table_find_insert_in_bucket(const HashTable *const htable
   *found = (ptr < end);
 
   if(ptr == end && empty == NULL &&
-     htable->buckets[bucket][HT_BSIZE] < htable->bucket_size)
+     ht->buckets[bucket][HT_BSIZE] < ht->bucket_size)
   {
     *empty = bkmer;
-    htable->num_kmers++;
-    htable->buckets[bucket][HT_BITEMS]++;
-    htable->buckets[bucket][HT_BSIZE]++;
+    ht->num_kmers++;
+    ht->buckets[bucket][HT_BITEMS]++;
+    ht->buckets[bucket][HT_BSIZE]++;
   }
 
   return ptr < end ? ptr : empty;
 }
 
 // Code to find/insert:
-// h = binary_kmer_hash(key,i) & htable->hash_mask;
-// ptr = hash_table_find_insert_in_bucket(htable, h, key, &f);
+// h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
+// ptr = hash_table_find_insert_in_bucket(ht, h, key, &f);
 // if(ptr != NULL) {
 //   *found = f;
 //   return ptr;
 // }
 */
 
-// Remember to increment htable->num_kmers
-static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
+// Remember to increment ht->num_kmers
+static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *ht,
                                                       uint_fast32_t bucket,
                                                       const BinaryKmer bkmer)
 {
-  ctx_assert(htable->buckets[bucket][HT_BITEMS] < htable->bucket_size);
-  BinaryKmer *ptr = ht_bckt_ptr(htable, bucket);
+  ctx_assert(ht->buckets[bucket][HT_BITEMS] < ht->bucket_size);
+  BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
 
-  if(htable->buckets[bucket][HT_BSIZE] == htable->buckets[bucket][HT_BITEMS]) {
-    ptr += htable->buckets[bucket][HT_BSIZE];
-    htable->buckets[bucket][HT_BSIZE]++;
+  if(ht->buckets[bucket][HT_BSIZE] == ht->buckets[bucket][HT_BITEMS]) {
+    ptr += ht->buckets[bucket][HT_BSIZE];
+    ht->buckets[bucket][HT_BSIZE]++;
   }
   else {
     // Find an entry that has been deleted from this bucket previously
@@ -149,52 +150,52 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *htable,
   }
 
   *ptr = bkmer;
-  htable->buckets[bucket][HT_BITEMS]++;
+  ht->buckets[bucket][HT_BITEMS]++;
   return ptr;
 }
 
 #define rehash_error_exit(ht) do { \
   ctx_msg_out = stderr; \
-  hash_table_print_stats(htable); \
+  hash_table_print_stats(ht); \
   die("Hash table is full"); \
 } while(0)
 
-hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer key)
+hkey_t hash_table_find(const HashTable *const ht, const BinaryKmer key)
 {
   const BinaryKmer *ptr;
   size_t i;
   uint_fast32_t h;
 
   #ifdef HASH_PREFETCH
-    uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
-    __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+    uint_fast32_t h2 = binary_kmer_hash(key,ht->seed+0) & ht->hash_mask;
+    __builtin_prefetch(ht_bckt_ptr(ht, h2), 0, 1);
   #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
     #ifdef HASH_PREFETCH
       h = h2;
-      if(htable->buckets[h][HT_BSIZE] == htable->bucket_size) {
-        h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
-        __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+      if(ht->buckets[h][HT_BSIZE] == ht->bucket_size) {
+        h2 = binary_kmer_hash(key,ht->seed+i+1) & ht->hash_mask;
+        __builtin_prefetch(ht_bckt_ptr(ht, h2), 0, 1);
       }
     #else
-      h = binary_kmer_hash(key,i) & htable->hash_mask;
+      h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
     #endif
 
-    ptr = hash_table_find_in_bucket(htable, h, key);
-    if(ptr != NULL) return (hkey_t)(ptr - htable->table);
-    if(htable->buckets[h][HT_BSIZE] < htable->bucket_size) return HASH_NOT_FOUND;
+    ptr = hash_table_find_in_bucket(ht, h, key);
+    if(ptr != NULL) return (hkey_t)(ptr - ht->table);
+    if(ht->buckets[h][HT_BSIZE] < ht->bucket_size) return HASH_NOT_FOUND;
   }
 
-  rehash_error_exit(htable);
+  rehash_error_exit(ht);
 }
 
 // This methods inserts an element in the next available bucket
 // It doesn't check whether another element with the same key is present in the
 // table used for fast loading when it is known that all the elements in the
 // input have different key
-hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
+hkey_t hash_table_insert(HashTable *const ht, const BinaryKmer key)
 {
   const BinaryKmer *ptr;
   size_t i;
@@ -203,19 +204,19 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer key)
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    h = binary_kmer_hash(key,i) & htable->hash_mask;
-    if(htable->buckets[h][HT_BITEMS] < htable->bucket_size) {
-      ptr = hash_table_insert_in_bucket(htable, h, key);
-      htable->collisions[i]++; // only increment collisions when inserting
-      htable->num_kmers++;
-      return (hkey_t)(ptr - htable->table);
+    h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
+    if(ht->buckets[h][HT_BITEMS] < ht->bucket_size) {
+      ptr = hash_table_insert_in_bucket(ht, h, key);
+      ht->collisions[i]++; // only increment collisions when inserting
+      ht->num_kmers++;
+      return (hkey_t)(ptr - ht->table);
     }
   }
 
-  rehash_error_exit(htable);
+  rehash_error_exit(ht);
 }
 
-hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
+hkey_t hash_table_find_or_insert(HashTable *ht, const BinaryKmer key,
                                  bool *found)
 {
   const BinaryKmer *ptr;
@@ -223,41 +224,41 @@ hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer key,
   uint_fast32_t h;
 
   #ifdef HASH_PREFETCH
-    uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
-    __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+    uint_fast32_t h2 = binary_kmer_hash(key,ht->seed+0) & ht->hash_mask;
+    __builtin_prefetch(ht_bckt_ptr(ht, h2), 0, 1);
   #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
     #ifdef HASH_PREFETCH
       h = h2;
-      if(htable->buckets[h][HT_BSIZE] == htable->bucket_size) {
-        h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
-        __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+      if(ht->buckets[h][HT_BSIZE] == ht->bucket_size) {
+        h2 = binary_kmer_hash(key,ht->seed+i+1) & ht->hash_mask;
+        __builtin_prefetch(ht_bckt_ptr(ht, h2), 0, 1);
       }
     #else
-      h = binary_kmer_hash(key,i) & htable->hash_mask;
+      h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
     #endif
 
-    ptr = hash_table_find_in_bucket(htable, h, key);
+    ptr = hash_table_find_in_bucket(ht, h, key);
 
     if(ptr != NULL)  {
       *found = true;
-      return (hkey_t)(ptr - htable->table);
+      return (hkey_t)(ptr - ht->table);
     }
-    else if(htable->buckets[h][HT_BITEMS] < htable->bucket_size) {
+    else if(ht->buckets[h][HT_BITEMS] < ht->bucket_size) {
       *found = false;
-      ptr = hash_table_insert_in_bucket(htable, h, key);
-      htable->collisions[i]++; // only increment collisions when inserting
-      htable->num_kmers++;
-      return (hkey_t)(ptr - htable->table);
+      ptr = hash_table_insert_in_bucket(ht, h, key);
+      ht->collisions[i]++; // only increment collisions when inserting
+      ht->num_kmers++;
+      return (hkey_t)(ptr - ht->table);
     }
   }
 
-  rehash_error_exit(htable);
+  rehash_error_exit(ht);
 }
 
-hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
+hkey_t hash_table_find_or_insert_mt(HashTable *ht, const BinaryKmer key,
                                     bool *found, volatile uint8_t *bktlocks)
 {
   const BinaryKmer *ptr;
@@ -265,20 +266,20 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
   uint_fast32_t h;
 
   #ifdef HASH_PREFETCH
-    uint_fast32_t h2 = binary_kmer_hash(key,0) & htable->hash_mask;
-    __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+    uint_fast32_t h2 = binary_kmer_hash(key,ht->seed+0) & ht->hash_mask;
+    __builtin_prefetch(ht_bckt_ptr(ht, h2), 0, 1);
   #endif
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
     #ifdef HASH_PREFETCH
       h = h2;
-      if(htable->buckets[h][HT_BSIZE] == htable->bucket_size) {
-        h2 = binary_kmer_hash(key,i+1) & htable->hash_mask;
-        __builtin_prefetch(ht_bckt_ptr(htable, h2), 0, 1);
+      if(ht->buckets[h][HT_BSIZE] == ht->bucket_size) {
+        h2 = binary_kmer_hash(key,ht->seed+i+1) & ht->hash_mask;
+        __builtin_prefetch(ht_bckt_ptr(ht, h2), 0, 1);
       }
     #else
-      h = binary_kmer_hash(key,i) & htable->hash_mask;
+      h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
     #endif
 
     bitlock_yield_acquire(bktlocks, h);
@@ -286,76 +287,76 @@ hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
     // We have the bucket lock so noone else can find or insert elements
     // therefore we can use non-threadsafe bucket functions
     // bitlock_acquire/release provide memory barriers
-    ptr = hash_table_find_in_bucket(htable, h, key);
+    ptr = hash_table_find_in_bucket(ht, h, key);
 
     if(ptr != NULL)  {
       *found = true;
       bitlock_release(bktlocks, h);
-      return (hkey_t)(ptr - htable->table);
+      return (hkey_t)(ptr - ht->table);
     }
-    else if(htable->buckets[h][HT_BITEMS] < htable->bucket_size) {
+    else if(ht->buckets[h][HT_BITEMS] < ht->bucket_size) {
       *found = false;
-      ptr = hash_table_insert_in_bucket(htable, h, key);
+      ptr = hash_table_insert_in_bucket(ht, h, key);
       bitlock_release(bktlocks, h);
-      __sync_add_and_fetch((volatile uint64_t*)&htable->collisions[i], 1);
-      __sync_add_and_fetch((volatile uint64_t*)&htable->num_kmers, 1);
-      return (hkey_t)(ptr - htable->table);
+      __sync_add_and_fetch((volatile uint64_t*)&ht->collisions[i], 1);
+      __sync_add_and_fetch((volatile uint64_t*)&ht->num_kmers, 1);
+      return (hkey_t)(ptr - ht->table);
     }
     else {
       bitlock_release(bktlocks, h);
     }
   }
 
-  rehash_error_exit(htable);
+  rehash_error_exit(ht);
 }
 
 // Safe to call on different entries at the same time
 // NOT safe to do find() whilst doing delete()
-void hash_table_delete(HashTable *const htable, hkey_t pos)
+void hash_table_delete(HashTable *const ht, hkey_t pos)
 {
-  uint64_t bucket = pos / htable->bucket_size;
+  uint64_t bucket = pos / ht->bucket_size;
 
   ctx_assert(pos != HASH_NOT_FOUND);
-  ctx_assert(htable->buckets[bucket][HT_BITEMS] > 0);
-  ctx_assert(htable->num_kmers > 0);
-  ctx_assert(HASH_ENTRY_ASSIGNED(htable->table[pos]));
+  ctx_assert(ht->buckets[bucket][HT_BITEMS] > 0);
+  ctx_assert(ht->num_kmers > 0);
+  ctx_assert(HASH_ENTRY_ASSIGNED(ht->table[pos]));
 
-  htable->table[pos] = unset_bkmer;
-  __sync_fetch_and_sub((volatile uint8_t *)&htable->buckets[bucket][HT_BITEMS], 1);
-  __sync_fetch_and_sub((volatile uint64_t *)&htable->num_kmers, 1);
+  ht->table[pos] = unset_bkmer;
+  __sync_fetch_and_sub((volatile uint8_t *)&ht->buckets[bucket][HT_BITEMS], 1);
+  __sync_fetch_and_sub((volatile uint64_t *)&ht->num_kmers, 1);
 
-  ctx_assert(!HASH_ENTRY_ASSIGNED(htable->table[pos]));
+  ctx_assert(!HASH_ENTRY_ASSIGNED(ht->table[pos]));
 }
 
-void hash_table_print_stats_brief(const HashTable *const htable)
+void hash_table_print_stats_brief(const HashTable *const ht)
 {
   size_t nbytes, nkeybits;
-  double occupancy = (100.0 * htable->num_kmers) / htable->capacity;
-  nbytes = htable->capacity * sizeof(BinaryKmer) +
-           htable->num_of_buckets * sizeof(uint8_t[2]);
-  nkeybits = (size_t)__builtin_ctzl(htable->num_of_buckets);
+  double occupancy = (100.0 * ht->num_kmers) / ht->capacity;
+  nbytes = ht->capacity * sizeof(BinaryKmer) +
+           ht->num_of_buckets * sizeof(uint8_t[2]);
+  nkeybits = (size_t)__builtin_ctzl(ht->num_of_buckets);
 
   char mem_str[50], num_buckets_str[100], num_entries_str[100], capacity_str[100];
-  ulong_to_str(htable->num_of_buckets, num_buckets_str);
+  ulong_to_str(ht->num_of_buckets, num_buckets_str);
   bytes_to_str(nbytes, 1, mem_str);
-  ulong_to_str(htable->capacity, capacity_str);
-  ulong_to_str(htable->num_kmers, num_entries_str);
+  ulong_to_str(ht->capacity, capacity_str);
+  ulong_to_str(ht->num_kmers, num_entries_str);
 
   status("[hash] buckets: %s [2^%zu]; bucket size: %zu; "
          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
-         num_buckets_str, nkeybits, (size_t)htable->bucket_size, mem_str,
+         num_buckets_str, nkeybits, (size_t)ht->bucket_size, mem_str,
          num_entries_str, capacity_str, occupancy);
 }
 
-void hash_table_print_stats(const HashTable *const htable)
+void hash_table_print_stats(const HashTable *const ht)
 {
   size_t i;
-  hash_table_print_stats_brief(htable);
+  hash_table_print_stats_brief(ht);
 
-  if(htable->num_kmers > 0) {
+  if(ht->num_kmers > 0) {
     for(i = 0; i < REHASH_LIMIT; i++) {
-      if(htable->collisions[i] != 0) {
-        status("  collisions %2zu: %zu\n", i, (size_t)htable->collisions[i]);
+      if(ht->collisions[i] != 0) {
+        status("  collisions %2zu: %zu\n", i, (size_t)ht->collisions[i]);
       }
     }
   }
@@ -368,9 +369,9 @@ static inline void increment_count(hkey_t hkey, uint64_t *count)
   (*count)++;
 }
 
-uint64_t hash_table_count_kmers(const HashTable *const htable)
+uint64_t hash_table_count_kmers(const HashTable *const ht)
 {
   uint64_t count = 0;
-  HASH_ITERATE(htable, increment_count, &count);
+  HASH_ITERATE(ht, increment_count, &count);
   return count;
 }

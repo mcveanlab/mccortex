@@ -129,6 +129,10 @@ size_t seconds_to_str(unsigned long seconds, char *str);
 void util_run_threads(void *args, size_t nel, size_t elsize,
                       size_t nthreads, void (*func)(void*));
 
+//
+// Safe Counting (thread-safe + no overflow)
+//
+
 // Increment a uint8_t without overflow
 static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
 {
