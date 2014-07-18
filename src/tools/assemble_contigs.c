@@ -5,6 +5,7 @@
 #include "repeat_walker.h"
 #include "async_read_io.h"
 #include "util.h"
+#include "file_util.h"
 
 // sorted_arr must be a sorted array
 size_t _calc_N50(const uint64_t *sorted_arr, size_t n, uint64_t total)
@@ -86,12 +87,13 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
   dst->num_seeds_not_found += src->num_seeds_not_found;
 }
 
+#define PREFIX "[Assembled] "
 
 static inline void _print_grphwlk_state(const char *str, uint64_t num,
                                         size_t num_contigs)
 {
   char nout_str[50];
-  status("  %s: %s\t[ %2zu%% ]", str, ulong_to_str(num, nout_str),
+  status(PREFIX"  %s: %s\t[ %2zu%% ]", str, ulong_to_str(num, nout_str),
          (size_t)(((100.0*num)/num_contigs)+0.5));
 }
 
@@ -102,7 +104,7 @@ static inline void _print_path_dist(const uint64_t *hist, size_t n,
   size_t i;
 
   timestamp();
-  message(" %s: ", name);
+  message(PREFIX" %s: ", name);
   for(i = 0; i < n; i++) {
     message("\t%zu:%s [%zu%%]", i, ulong_to_str(hist[i], nout_str),
             (size_t)((100.0*hist[i])/(2.0*num_contigs)+0.5));
@@ -137,9 +139,9 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   long_to_str(s->num_contigs, num_contigs_str);
   long_to_str(s->num_reseed_abort, reseed_str);
   long_to_str(s->num_seeds_not_found, seed_not_fnd_str);
-  status("pulled out %s contigs", num_contigs_str);
-  status("no-reseed aborted %s times", reseed_str);
-  status("seed kmer not found %s times", seed_not_fnd_str);
+  status(PREFIX"pulled out %s contigs", num_contigs_str);
+  status(PREFIX"no-reseed aborted %s times", reseed_str);
+  status(PREFIX"seed kmer not found %s times", seed_not_fnd_str);
 
   char len_min_str[50], len_max_str[50], len_total_str[50];
   char len_mean_str[50], len_median_str[50], len_n50_str[50];
@@ -162,14 +164,14 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   ulong_to_str(s->total_len, len_total_str);
   ulong_to_str(s->total_junc, jnc_total_str);
 
-  status("Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
+  status(PREFIX"Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
          len_mean_str, len_median_str, len_n50_str, len_min_str, len_max_str, len_total_str);
-  status("Junctions: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [out >1]",
+  status(PREFIX"Junctions: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [out >1]",
          jnc_mean_str, jnc_median_str, jnc_n50_str, jnc_min_str, jnc_max_str, jnc_total_str);
-  status("Max junction density: %.2f\n", s->max_junc_density);
+  status(PREFIX"Max junction density: %.2f\n", s->max_junc_density);
 
   timestamp();
-  message(" Outdegree: ");
+  message(PREFIX" Outdegree: ");
   char nout_str[50];
 
   for(i = 0; i <= 4; i++) {
@@ -184,11 +186,11 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
 
   const uint64_t *states = s->grphwlk_steps;
   size_t nsteps = s->total_len - s->num_contigs, ncontigends = 2*s->num_contigs;
-  status("Traversal succeeded because:");
+  status(PREFIX"Traversal succeeded because:");
   _print_grphwlk_state("Go straight   ", states[GRPHWLK_FORWARD], nsteps);
   _print_grphwlk_state("Go colour     ", states[GRPHWLK_COLFWD], nsteps);
   _print_grphwlk_state("Go paths      ", states[GRPHWLK_USEPATH], nsteps);
-  status("Traversal halted because:");
+  status(PREFIX"Traversal halted because:");
   _print_grphwlk_state("No coverage   ", states[GRPHWLK_NOCOVG], ncontigends);
   _print_grphwlk_state("No colour covg", states[GRPHWLK_NOCOLCOVG], ncontigends);
   _print_grphwlk_state("No paths      ", states[GRPHWLK_NOPATHS], ncontigends);
@@ -198,7 +200,7 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
                  states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];
 
-  status("Junctions:");
+  status(PREFIX"Junctions:");
   _print_grphwlk_state("Paths resolved", states[GRPHWLK_USEPATH], njunc);
 }
 
@@ -413,11 +415,20 @@ static void _seed_from_file(AsyncIOData *data, void *arg)
 void assemble_contigs(size_t nthreads,
                       seq_file_t **seed_files, size_t num_seed_files,
                       size_t contig_limit, uint8_t *visited,
-                      FILE *fout, AssembleContigStats *stats,
+                      FILE *fout, const char *out_path,
+                      AssembleContigStats *stats,
                       const dBGraph *db_graph, size_t colour)
 {
   ctx_assert(nthreads > 0);
   ctx_assert(!num_seed_files || seed_files);
+
+  status("[Assemble] Assembling contigs with %zu threads, walking colour %zu",
+         nthreads, colour);
+
+  if(fout == NULL)
+    status("[Assemble]   Not printing contigs");
+  else
+    status("[Assemble]   Writing contigs to %s", futil_outpath_str(out_path));
 
   Assembler *workers = ctx_calloc(nthreads, sizeof(Assembler));
   size_t i;

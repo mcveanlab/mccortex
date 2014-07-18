@@ -162,8 +162,6 @@ int ctx_contigs(int argc, char **argv)
 
   char *ctx_path = argv[optind];
 
-  // DEV: only use max 2 colours
-
   //
   // Open Graph file
   //
@@ -172,6 +170,7 @@ int ctx_contigs(int argc, char **argv)
   graph_file_open(&gfile, ctx_path);
 
   // Update colours in graph file - sample in 0, all others in 1
+  // never need more than two colours
   size_t ncols = gpath_load_sample_pop(&gfile, gpfiles.data, gpfiles.len, colour);
 
   // Check for compatibility between graph files and path files
@@ -249,15 +248,13 @@ int ctx_contigs(int argc, char **argv)
   }
   gpfile_buf_dealloc(&gpfiles);
 
-  status("Traversing graph in colour %zu...", colour);
-
   AssembleContigStats assem_stats;
   assemble_contigs_stats_init(&assem_stats);
 
   assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
                    contig_limit, visited,
-                   fout, &assem_stats,
-                   &db_graph, colour);
+                   fout, out_path, &assem_stats,
+                   &db_graph, 0); // Sample always loaded into colour zero
 
   if(fout && fout != stdout) fclose(fout);
 

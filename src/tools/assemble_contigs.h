@@ -37,7 +37,8 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
 void assemble_contigs(size_t nthreads,
                       seq_file_t **seed_files, size_t num_seed_files,
                       size_t contig_limit, uint8_t *visited,
-                      FILE *fout, AssembleContigStats *stats,
+                      FILE *fout, const char *out_path,
+                      AssembleContigStats *stats,
                       const dBGraph *db_graph, size_t colour);
 
 #endif /* ASSEMBLE_CONTIGS_H_ */
