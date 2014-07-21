@@ -1,11 +1,10 @@
 
 SHELL:=/bin/bash
 
-CTXPATH=../../
-CTX=$(CTXPATH)/bin/ctx31
-SEQRND=$(CTXPATH)/libs/seq_file/bin/seqrnd
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=7
-GENOME=200
 KEEP=$(shell echo genome.fa genome.k$(K).{ctx,ctp} reads.1.fa.gz reads.2.fa.gz reads.{se,pe}.k$(K).ctp)
 PLOTS=genome.k$(K).dot genome.k$(K).pdf
 
@@ -18,7 +17,7 @@ clean:
 
 # Sample random genome
 genome.fa:
-	$(SEQRND) $(GENOME) > genome.fa
+	$(DNACAT) -F -n 200 > genome.fa
 
 genome.k$(K).ctx: genome.fa
 	$(CTX) build -m 10M -k $(K) --sample MssrGenome --seq $< $@

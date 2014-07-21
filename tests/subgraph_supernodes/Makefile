@@ -1,6 +1,6 @@
 
-CTXPATH=../../
-CTX=$(CTXPATH)/bin/ctx31
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
 
 all: subgraph0.ctx subgraph1.ctx
 

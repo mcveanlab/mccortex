@@ -1,15 +1,15 @@
 
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+CTX2GV=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+KMER=31
+
 TGTS=ref.fa ref.ctx ref.ctp.gz
 PLOTS=ref.pdf ref.dot
 
 all: $(TGTS)
 
 plots: ref.dot ref.pdf
-
-CTXPATH=../../
-CTX=$(CTXPATH)/bin/ctx31
-CTX2GV=$(CTXPATH)/scripts/cortex_to_graphviz.pl
-KMER=31
 
 ref.fa:
 	echo CGATTGAATTCCACCGATAATGCAGATGTGAGCCTCAGCATCTACTGCTTCCTCGTCGTCGGGGACTTTTGTTGACCTACCACATGATACATGCGGCCAT >  $@

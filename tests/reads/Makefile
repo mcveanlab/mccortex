@@ -1,6 +1,6 @@
 
 CTXDIR=../..
-DNA=$(CTXDIR)/libs/seq_file/bin/dna
+DNA=$(CTXDIR)/libs/seq_file/bin/dnacat
 CTX=$(CTXDIR)/bin/ctx31
 K=9
 

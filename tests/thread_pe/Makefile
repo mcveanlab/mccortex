@@ -1,5 +1,8 @@
 
-CTX=../../bin/ctx31
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+
 PATHS=reads.se.one.ctp.gz reads.se.two.ctp.gz \
       reads.pe.one.ctp.gz reads.pe.two.ctp.gz \
       join.ctp.gz
@@ -52,7 +55,7 @@ join.ctp.gz: reads.se.one.ctp.gz reads.se.two.ctp.gz reads.pe.one.ctp.gz reads.p
 	$(CTX) pjoin -m 1M --out $@ reads.{se,pe}.{one,two}.ctp.gz
 
 genome.k9.pdf:
-	../../scripts/cortex_to_graphviz.pl genome.k9.ctx:0 | dot -Tpdf > genome.k9.pdf
+	$(CTX2DOT) genome.k9.ctx:0 | dot -Tpdf > genome.k9.pdf
 
 tmp.k9.ctx: 
 	$(CTX) join -m 1M -o $@ genome.k9.ctx:0 genome.k9.ctx:0 genome.k9.ctx:0 genome.k9.ctx:0

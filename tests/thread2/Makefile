@@ -1,8 +1,11 @@
 
 SHELL:=/bin/bash
+
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=9
-CTX=../../bin/ctx31
-REVCMP=../../libs/seq_file/bin/revcmp
 
 GRAPHS=$(shell echo genome.k$(K).{ctx,dot})
 PLOTS=$(shell echo genome.k$(K).{pdf,kmers.pdf})
@@ -34,8 +37,8 @@ read%.fa:
 	echo TATACGGTACAGTG > read1b.fa
 	echo GCTCAGGAATACAG > read2a.fa
 	echo GATACGGTACTGTG > read2b.fa
-	echo GCTAAGGAA > read3.1.fa; echo GGTACAGTG | $(REVCMP) > read3.2.fa
-	echo GCTCAGGAA > read4.1.fa; echo GGTACTGTG | $(REVCMP) > read4.2.fa
+	echo GCTAAGGAA > read3.1.fa; echo GGTACAGTG | $(DNACAT) --revcmp - > read3.2.fa
+	echo GCTCAGGAA > read4.1.fa; echo GGTACTGTG | $(DNACAT) --revcmp - > read4.2.fa
 
 genome.k$(K).ctx:
 	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
@@ -47,7 +50,7 @@ genome.k$(K).pdf:
 	dot -Tpdf genome.k$(K).dot > genome.k$(K).pdf
 
 genome.k$(K).kmers.pdf:
-	../../scripts/cortex_to_graphviz.pl genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
+	$(CTX2DOT) genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
 
 reads.se.k$(K).ctp.gz:
 	$(CTX) thread -m 1M -t 6 $(SEQSE) -o reads.se.k$(K).ctp.gz genome.k$(K).ctx

@@ -1,6 +1,7 @@
 
-CTX=../../bin/ctx31
-SEQRND=../../libs/seq_file/bin/seqrnd
+CTXDIR=../..
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
+CTX=$(CTXDIR)/bin/ctx31
 K=5
 
 TGTS=seq.fa rnd.fa seq.k$(K).ctx coverage.txt
@@ -11,7 +12,7 @@ clean:
 	rm -rf $(TGTS)
 
 %.fa:
-	$(SEQRND) 50 > $*.fa
+	$(DNACAT) -F -n 50 > $@
 
 seq.k$(K).ctx: seq.fa
 	$(CTX) build -k $(K) --sample Wallace \

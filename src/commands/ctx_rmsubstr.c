@@ -4,11 +4,13 @@
 #include "file_util.h"
 #include "seq_reader.h"
 #include "kmer_occur.h"
+#include "seqout.h"
 
 const char rmsubstr_usage[] =
 "usage: "CMD" rmsubstr [options] <in.fa> [in2.fq ...]\n"
 "\n"
 "  Remove duplicate sequences and those that occur as substrings of others.\n"
+"  Matching is case insensitive and includes matching reverse complement.\n"
 "\n"
 "  -h, --help            This help message\n"
 "  -q, --quiet           Silence status output normally printed to STDERR\n"
@@ -18,10 +20,8 @@ const char rmsubstr_usage[] =
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -k, --kmer <kmer>     Kmer size must be odd ("QUOTE_VALUE(MAX_KMER_SIZE)" >= k >= "QUOTE_VALUE(MIN_KMER_SIZE)")\n"
-"  -F, --fasta           Print output in FASTA format [default]\n"
-"  -Q, --fastq           Print output in FASTQ format\n"
-"  -P, --plain           Print output sequences one per line\n"
-// "  -v, --invert                Print reads/read pairs with no kmer in graph\n"
+"  -F, --format <f>      Output format may be: FASTA, FASTQ [default: FASTQ]\n"
+"  -v, --invert          Only print strings that are substrings\n"
 "\n";
 
 static struct option longopts[] =
@@ -35,10 +35,8 @@ static struct option longopts[] =
   {"threads",      required_argument, NULL, 't'},
 // command specific
   {"kmer",         required_argument, NULL, 'k'},
-  {"fasta",        no_argument,       NULL, 'F'},
-  {"fastq",        no_argument,       NULL, 'Q'},
-  {"plain",        no_argument,       NULL, 'P'},
-  // {"invert",       no_argument,       NULL, 'v'},
+  {"format",       required_argument, NULL, 'F'},
+  {"invert",       no_argument,       NULL, 'v'},
   {NULL, 0, NULL, 0}
 };
 
@@ -47,11 +45,6 @@ static struct option longopts[] =
 #else
 #  define DEFAULT_KMER MIN_KMER_SIZE
 #endif
-
-#define OUTPUT_PLAIN 0
-#define OUTPUT_FASTA 1
-#define OUTPUT_FASTQ 2
-
 
 // Returns true if a read is a substring of ANY read in the list or a complete
 // match with a read before it in the list. Returns false otherwise.
@@ -63,11 +56,11 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
 {
   const size_t kmer_size = db_graph->kmer_size;
   const read_t *r = &rbuf->data[idx], *r2;
-  const char *seq = r->seq.b, *seq2;
+  const char *seq = r->seq.b;
   size_t i, contig_start;
 
   contig_start = seq_contig_start(r, 0, kmer_size, 0, 0);
-  if(contig_start >= r->seq.end) return -1;
+  if(contig_start >= r->seq.end) return -1; // No kmers in this sequence
 
   BinaryKmer bkmer = binary_kmer_from_str(seq+contig_start, kmer_size);
   dBNode node = db_graph_find(db_graph, bkmer);
@@ -79,21 +72,37 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
 
   for(i = 0; i < num_hits; i++)
   {
-    if(hits[i].offset >= contig_start)
+    if(hits[i].chrom != idx)
     {
       r2 = &rbuf->data[hits[i].chrom];
-      seq2 = r2->seq.b + hits[i].offset - contig_start;
 
-      // A read is a duplicate (i.e. return true) if it is a substring of ANY
+      // A read is a duplicate (i.e. return 1) if it is a substring of ANY
       // read in the list or a complete match with a read before it in the list.
-      // That is why we have: (hits[i].chrom < idx || r->seq.end != r2->seq.end)
+      // That is why we have: (hits[i].chrom < idx || r->seq.end < r2->seq.end)
       // since identical strings have equal length
-      if(hits[i].chrom != idx && hits[i].orient == node.orient &&
-         (hits[i].chrom < idx || r->seq.end != r2->seq.end) &&
-         hits[i].offset + r->seq.end <= r2->seq.end &&
-         strncasecmp(seq, seq2, r->seq.end) == 0)
-      {
-        return 1;
+      if(hits[i].chrom < idx || r->seq.end < r2->seq.end) {
+        if(hits[i].orient == node.orient) {
+          // potential FORWARD match
+          if(hits[i].offset >= contig_start &&
+             hits[i].offset + r->seq.end <= r2->seq.end &&
+             strncasecmp(seq, r2->seq.b+hits[i].offset-contig_start, r->seq.end) == 0)
+          {
+            return 1;
+          }
+        }
+        else {
+          // potential REVERSE match
+          // if read is '<NNNN>[kmer]<rem>' rX_rem is the number of chars after
+          // the first valid kmer
+          size_t r1_rem =  r->seq.end - (contig_start   + kmer_size);
+          size_t r2_rem = r2->seq.end - (hits[i].offset + kmer_size);
+
+          if(r1_rem <= hits[i].offset && r2_rem >= contig_start &&
+             dna_revncasecmp(seq, r2->seq.b+hits[i].offset-r1_rem, r->seq.end) == 0)
+          {
+            return 1;
+          }
+        }
       }
     }
   }
@@ -104,10 +113,10 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
 int ctx_rmsubstr(int argc, char **argv)
 {
   struct MemArgs memargs = MEM_ARGS_INIT;
-  size_t kmer_size = DEFAULT_KMER, num_of_threads = DEFAULT_NTHREADS;
-  uint8_t output_format = OUTPUT_FASTA;
-  size_t kmer_set = 0, output_format_set = 0;
+  size_t kmer_size = 0, nthreads = 0;
   const char *output_file = NULL;
+  seq_format fmt = SEQ_FMT_FASTA;
+  bool invert = false;
 
   // Arg parsing
   char cmd[100], shortopts[100];
@@ -121,23 +130,27 @@ int ctx_rmsubstr(int argc, char **argv)
       case 'h': cmd_print_usage(NULL); break;
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'o': cmd_check(!output_file, cmd); output_file = optarg; break;
-      case 't': num_of_threads = cmd_uint32_nonzero(cmd, optarg); break;
+      case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'k': kmer_set++; kmer_size = cmd_uint32(cmd, optarg); break;
-      case 'F': output_format = OUTPUT_FASTA; output_format_set++; break;
-      case 'Q': output_format = OUTPUT_FASTQ; output_format_set++; break;
-      case 'P': output_format = OUTPUT_PLAIN; output_format_set++; break;
+      case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_uint32(cmd, optarg); break;
+      case 'F': cmd_check(fmt==SEQ_FMT_FASTA, cmd); fmt = cmd_parse_format(cmd, optarg); break;
+      case 'v': cmd_check(!invert,cmd); invert = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" rmsubstr -h` for help. Bad option: %s", argv[optind-1]);
+        cmd_print_usage("`"CMD" rmsubstr -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
 
-  if(kmer_set > 1) cmd_print_usage("-k|--kmer specified more than once");
-  if(output_format_set > 1) cmd_print_usage("Output format set more than once");
+  // Defaults
+  if(!nthreads) nthreads = DEFAULT_NTHREADS;
+  if(!kmer_size) kmer_size = DEFAULT_KMER;
+
+  if(!(kmer_size&1)) cmd_print_usage("Kmer size must be odd");
+  if(kmer_size < MIN_KMER_SIZE) cmd_print_usage("Kmer size too small (recompile)");
+  if(kmer_size > MAX_KMER_SIZE) cmd_print_usage("Kmer size too large (recompile?)");
 
   if(optind >= argc)
     cmd_print_usage("Please specify at least one input graph file (.ctx)");
@@ -145,14 +158,14 @@ int ctx_rmsubstr(int argc, char **argv)
   size_t i, num_seq_files = argc - optind;
   char **seq_paths = argv + optind;
   seq_file_t **seq_files = ctx_calloc(num_seq_files, sizeof(seq_file_t*));
-  size_t est_num_bases = 0;
+  int64_t est_num_bases = 0; // set to -1 if we cannot calc
 
   for(i = 0; i < num_seq_files; i++)
   {
     if((seq_files[i] = seq_open(seq_paths[i])) == NULL)
       die("Cannot read sequence file %s", seq_paths[i]);
 
-    if(strcmp(seq_paths[i],"-") != 0) {
+    if(strcmp(seq_paths[i],"-") != 0 && est_num_bases != -1) {
       off_t fsize = futil_get_file_size(seq_paths[i]);
       if(fsize < 0) warn("Cannot get file size: %s", seq_paths[i]);
       else {
@@ -162,6 +175,8 @@ int ctx_rmsubstr(int argc, char **argv)
           est_num_bases += fsize;
       }
     }
+    else
+      est_num_bases = -1;
   }
 
   // Use file sizes to decide on memory
@@ -211,7 +226,7 @@ int ctx_rmsubstr(int argc, char **argv)
     warn("Reads shorter than kmer size (%zu) will not be filtered", kmer_size);
 
   KOGraph kograph = kograph_create(rbuf.data, rbuf.len, true,
-                                   num_of_threads, &db_graph);
+                                   nthreads, &db_graph);
 
   size_t num_reads = rbuf.len, num_reads_printed = 0, num_bad_reads = 0;
 
@@ -219,15 +234,11 @@ int ctx_rmsubstr(int argc, char **argv)
   int ret;
   for(i = 0; i < rbuf.len; i++) {
     ret = _is_substr(&rbuf, i, kograph, &db_graph);
-    if(ret == 0) {
-      switch(output_format) {
-        case OUTPUT_PLAIN: fputs(rbuf.data[i].seq.b, fout); fputc('\n', fout); break;
-        case OUTPUT_FASTA: seq_print_fasta(&rbuf.data[i], fout, 0); break;
-        case OUTPUT_FASTQ: seq_print_fastq(&rbuf.data[i], fout, 0); break;
-      }
+    if(ret == -1) num_bad_reads++;
+    else if((ret && invert) || (!ret && !invert)) {
+      seqout_print_read(&rbuf.data[i], fmt, fout);
       num_reads_printed++;
     }
-    else if(ret == -1) num_bad_reads++;
   }
 
   char num_reads_str[100], num_reads_printed_str[100], num_bad_reads_str[100];

@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 
-CTX=../../bin/ctx31
-SEQRND=../../libs/seq_file/bin/seqrnd
+CTXDIR=../..
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
+CTX=$(CTXDIR)/bin/ctx31
 
 SAMPLES=$(shell echo in{,{0..2}}.ctx)
 MERGED=$(shell echo flatten013.ctx merge013.ctx merge.gaps.use{1..2}.ctx)
@@ -11,7 +12,7 @@ TXTS=$(MERGED:.ctx=.txt)
 all: $(GRAPHS) compare
 
 seq%.fa:
-	$(SEQRND) 100 > $@
+	$(DNACAT) -F -n 100 > $@
 
 in%.ctx: seq%.fa
 	$(CTX) build -m 1M -k 7 --sample Sampe$* --seq $< $@

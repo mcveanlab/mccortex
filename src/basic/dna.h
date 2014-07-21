@@ -33,4 +33,7 @@ char* dna_revcomp_str(char *dst, const char *src, size_t length);
 // Useful for testing
 char* dna_rand_str(char *str, size_t len);
 
+// compare a with the reverse complement of b
+int dna_revncasecmp(const char *a, const char *b, size_t len);
+
 #endif /* DNA_H_ */

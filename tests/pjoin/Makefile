@@ -1,5 +1,7 @@
 
-CTX=../../bin/ctx31
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+
 PATHS=paths.0.ctp.gz paths.1.ctp.gz
 SEQ=genome.0.fa genome.1.fa
 GRAPHS=$(SEQ:.fa=.ctx)

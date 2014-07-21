@@ -1,7 +1,8 @@
 
-CTXPATH=../../
-CTX=$(CTXPATH)/bin/ctx31
-SEQRND=$(CTXPATH)/libs/seq_file/bin/seqrnd
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 K=7
 PLOTS=genome.k$(K).ctx.pdf genome.k$(K).perl.pdf
@@ -14,7 +15,7 @@ clean:
 
 # Sample random genome
 genome.fa:
-	$(SEQRND) 200 > genome.fa
+	$(DNACAT) -F -n 200 > genome.fa
 
 genome.k$(K).ctx: genome.fa
 	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq $< $@
@@ -23,7 +24,7 @@ genome.k$(K).ctx.dot: genome.k$(K).ctx
 	$(CTX) supernodes -m 1M --graphviz --points $< > $@
 
 genome.k$(K).perl.dot: genome.k$(K).ctx
-	../../scripts/cortex_to_graphviz.pl --simplify $< > $@
+	$(CTX2DOT) --simplify $< > $@
 
 %.pdf: %.dot
 	dot -Tpdf $< > $@

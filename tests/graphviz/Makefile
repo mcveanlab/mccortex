@@ -1,6 +1,6 @@
 
-CTXPATH=../../
-CTX=$(CTXPATH)/bin/ctx31
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
 
 all: seq.k15.ctx seq.k15.dot
 

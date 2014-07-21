@@ -1,6 +1,6 @@
 
-CTXDIR=../../
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dna
+CTXDIR=../..
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 BIOINF=$(CTXDIR)/libs/bioinf-perl
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 CTX=$(CTXDIR)/bin/ctx31
@@ -10,7 +10,7 @@ K=9
 all: test
 
 seq.fa:
-	$(DNACAT) -n 1001 -f > seq.fa
+	$(DNACAT) -F -n 1001 > seq.fa
 
 seq.k$(K).ctx: seq.fa
 	$(CTX) build -m 1M -k $(K) --sample MrsSample --seq seq.fa $@

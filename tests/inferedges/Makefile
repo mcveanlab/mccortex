@@ -1,4 +1,6 @@
-CTX=../../bin/ctx31
+
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
 
 all: pop.ctx noedges.fixed.ctx noedges.nofix.ctx
 

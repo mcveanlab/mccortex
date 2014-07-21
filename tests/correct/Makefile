@@ -1,7 +1,7 @@
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dna
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=9
 
 TGTS=ref.txt \
@@ -24,7 +24,7 @@ bad.txt:
 	echo nnnnnnnnnnnnnnAnnnnnnnnnnnnnnTaannnnnnaaaaaaaaaaaaN >> $@
 
 rand.fq:
-	$(DNACAT) -n 40 -q > $@
+	$(DNACAT) -n 40 -Q > $@
 
 ref.k$(K).ctx: ref.txt
 	$(CTX) build -m 10M -k $(K) -s ref -1 $< $@

@@ -102,28 +102,16 @@ void seqout_close(SeqOutput *seqout, bool rm)
   memset(seqout, 0, sizeof(SeqOutput));
 }
 
-#define print_read(r,fmt,gzout)                                                \
-do {                                                                           \
-  switch(fmt) {                                                                \
-    case SEQ_FMT_PLAIN:                                                        \
-      gzwrite(gzout, r->seq.b, r->seq.end);                                    \
-      gzputc(gzout, '\n'); break;                                              \
-    case SEQ_FMT_FASTA: seq_gzprint_fasta(r, gzout, 0); break;                 \
-    case SEQ_FMT_FASTQ: seq_gzprint_fastq(r, gzout, 0); break;                 \
-    default: die("Invalid output format: %i", fmt);                            \
-  }                                                                            \
-} while(0)
-
 void seqout_print(SeqOutput *seqout, const read_t *r1, const read_t *r2)
 {
   if(r2 == NULL) {
     pthread_mutex_lock(&seqout->lock_se);
-    print_read(r1, seqout->fmt, seqout->gzout_se);
+    seqout_gzprint_read(r1, seqout->fmt, seqout->gzout_se);
     pthread_mutex_unlock(&seqout->lock_se);
   } else {
     pthread_mutex_lock(&seqout->lock_pe);
-    print_read(r1, seqout->fmt, seqout->gzout_pe[0]);
-    print_read(r2, seqout->fmt, seqout->gzout_pe[1]);
+    seqout_gzprint_read(r1, seqout->fmt, seqout->gzout_pe[0]);
+    seqout_gzprint_read(r2, seqout->fmt, seqout->gzout_pe[1]);
     pthread_mutex_unlock(&seqout->lock_pe);
   }
 }

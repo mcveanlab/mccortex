@@ -107,3 +107,17 @@ char* dna_rand_str(char *str, size_t len)
 
   return str;
 }
+
+// compare a with the reverse complement of b
+int dna_revncasecmp(const char *a, const char *b, size_t len)
+{
+  ctx_assert(strlen(a) >= len);
+  ctx_assert(strlen(b) >= len);
+
+  size_t i, j;
+  for(i = 0, j = len-1; i < len; i++, j--) {
+    int cmp = (int)tolower(a[i]) - tolower(dna_complement_char_arr[(uint8_t)b[j]]);
+    if(cmp) return cmp;
+  }
+  return 0;
+}

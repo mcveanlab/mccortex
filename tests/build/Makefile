@@ -1,6 +1,7 @@
 
-CTX=../../bin/ctx31
-SEQRND=../../libs/seq_file/bin/seqrnd
+CTXDIR=../..
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
+CTX=$(CTXDIR)/bin/ctx31
 K=9
 
 all: seq.k$(K).ctx
@@ -9,7 +10,7 @@ clean:
 	rm -rf seq.fa seq.k*.ctx test.ctx A:2.fa
 
 seq.fa:
-	$(SEQRND) 50 > seq.fa
+	$(DNACAT) -F -n 50 > $@
 
 seq.k$(K).ctx: seq.fa
 	$(CTX) build -k $(K) --sample Wallace \

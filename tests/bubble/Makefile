@@ -10,7 +10,7 @@
 #
 
 K=11
-CTXDIR=../../
+CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 

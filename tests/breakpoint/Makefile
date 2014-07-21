@@ -17,7 +17,7 @@
 #     2222222222222222222222 2222222222222222222222222..
 
 K=11
-CTXDIR=../../
+CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl

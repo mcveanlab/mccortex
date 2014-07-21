@@ -1,5 +1,5 @@
 
-CTXDIR=../../
+CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
 MKDOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 PLOTCOVG=$(CTXDIR)/scripts/plot-covg-hist.R

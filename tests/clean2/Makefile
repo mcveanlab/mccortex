@@ -1,7 +1,7 @@
 
-CTXPATH=../..
-CTX=$(CTXPATH)/bin/ctx31
-PLOTCTX=$(CTXPATH)/scripts/cortex_to_graphviz.pl
+CTXDIR=../..
+CTX=$(CTXDIR)/bin/ctx31
+PLOTCTX=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 
 KMER=17
 
