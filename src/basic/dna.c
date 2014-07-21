@@ -1,5 +1,6 @@
 #include "global.h"
 #include "dna.h"
+#include <ctype.h> // tolower()
 
 const char dna_nuc_to_char_arr[4] = "ACGT";
 

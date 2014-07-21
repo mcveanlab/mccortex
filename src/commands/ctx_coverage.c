@@ -44,7 +44,6 @@ static struct option longopts[] =
 #include "objbuf_macro.h"
 create_objbuf(covg_buf,CovgBuffer,Covg);
 create_objbuf(edges_buf,EdgesBuffer,Edges);
-create_objbuf(orient_buf,OrientBuffer,Orientation);
 
 // [c]AGG[t]
 // [a]CCT[g]
@@ -67,14 +66,29 @@ static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
 // 00: ! 01: + 02: {
 // 10: - 11: = 12: <
 // 20: } 21: > 22: *
-void _print_edge_degrees(const Edges *edges, size_t num, FILE *fout)
+static inline
+void _print_edge_degrees(const Edges *edges, size_t col, size_t ncols,
+                         size_t num, FILE *fout)
 {
   size_t i, indegree, outdegree;
   const char symbols[3][3] = {"!+{", "-=<", "}>*"};
   for(i = 0; i < num; i++) {
-    indegree  = MIN2(edges_get_indegree(edges[i],  FORWARD), 2);
-    outdegree = MIN2(edges_get_outdegree(edges[i], FORWARD), 2);
+    indegree  = MIN2(edges_get_indegree(edges[i*ncols+col],  FORWARD), 2);
+    outdegree = MIN2(edges_get_outdegree(edges[i*ncols+col], FORWARD), 2);
     fputc(symbols[indegree][outdegree], fout);
+  }
+  fputc('\n', fout);
+}
+
+static inline
+void _print_edges(const Edges *edges, size_t col, size_t ncols,
+                  size_t num, FILE *fout)
+{
+  size_t i;
+  edges_print(fout, edges[col]);
+  for(i = 1; i < num; i++) {
+    fputc(' ', fout);
+    edges_print(fout, edges[i*ncols+col]);
   }
   fputc('\n', fout);
 }
@@ -137,17 +151,11 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   else {
     for(col = 0; col < ncols; col++)
     {
-      if(print_edges) {
-        edges_print(fout, edgebuf->data[col]);
-        for(i = 1; i < kmer_length; i++) {
-          fputc(' ', fout);
-          edges_print(fout, edgebuf->data[i*ncols+col]);
-        }
-        fputc('\n', fout);
-      }
+      if(print_edges)
+        _print_edges(edgebuf->data, col, ncols, kmer_length, fout);
 
       if(print_edge_degrees)
-        _print_edge_degrees(edgebuf->data, kmer_length, fout);
+        _print_edge_degrees(edgebuf->data, col, ncols, kmer_length, fout);
 
       // Print coverages
       fprintf(fout, "%2u", covgbuf->data[col]);
