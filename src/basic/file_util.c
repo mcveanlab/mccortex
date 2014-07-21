@@ -151,10 +151,16 @@ void futil_create_output(const char *path) {
  */
 FILE *futil_fopen(const char *path, const char *mode)
 {
-  ctx_assert(strcmp(path, "-") != 0 || strcmp(mode,"w") == 0);
-  FILE *fout = strcmp(path, "-") == 0 ? stdout : fopen(path, mode);
-  if(fout == NULL)
+  FILE *fout;
+
+  if(strcmp(path,"-") == 0) {
+    if(!strcmp(mode,"w")) fout = stdout;
+    else if(!strcmp(mode,"r")) fout = stdin;
+    else die("Cannot open pipe with mode: %s", mode);
+  }
+  else if((fout = fopen(path, mode)) == NULL) {
     die("Cannot open file: %s [%s]", futil_outpath_str(path), strerror(errno));
+  }
 
   // Set buffer size
   setvbuf(fout, NULL, _IOFBF, DEFAULT_IO_BUFSIZE);

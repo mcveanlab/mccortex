@@ -58,8 +58,8 @@ void db_graph_dealloc(dBGraph *db_graph)
   ctx_free(db_graph->ginfo);
 
   ctx_free(db_graph->bktlocks);
-  ctx_free(db_graph->col_covgs);
-  ctx_free(db_graph->col_edges);
+  ctx_free(db_graph->col_covgs); // num_of_cols * capacity
+  ctx_free(db_graph->col_edges); // num_col_edges * capacity
   ctx_free(db_graph->node_in_cols);
   ctx_free(db_graph->readstrt);
 

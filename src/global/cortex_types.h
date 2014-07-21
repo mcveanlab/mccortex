@@ -7,11 +7,11 @@ typedef uint32_t Covg;
 
 #define COVG_MAX UINT_MAX
 
-typedef uint_fast8_t Orientation;
+typedef uint8_t Orientation;
 #define FORWARD 0
 #define REVERSE 1
 
-typedef uint_fast8_t ReadMateDir;
+typedef uint8_t ReadMateDir;
 #define READPAIR_FF 0
 #define READPAIR_FR 1
 #define READPAIR_RF 2

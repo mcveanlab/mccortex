@@ -57,6 +57,7 @@ void hash_table_print_stats_brief(const HashTable *const htable);
 uint64_t hash_table_count_kmers(const HashTable *const htable);
 
 // Iterate over entries in the hash table
+// calls func(hkey,...)
 #define HASH_ITERATE(ht,func,...) HASH_ITERATE2(ht,func,##__VA_ARGS__)
 
 // This iterator allows adding/removing items

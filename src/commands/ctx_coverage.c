@@ -19,6 +19,7 @@ const char coverage_usage[] =
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
+"  -E, --degree         Print edge degree: 00!,01+,02{, 10-,11=,12<, 20},21>,22*\n"
 "  -s, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
 "  -o, --out <out.txt>  Save output [default: STDOUT]\n"
 "\n";
@@ -33,6 +34,7 @@ static struct option longopts[] =
   {"nkmers",       required_argument, NULL, 'n'},
 // command specific
   {"edges",        no_argument,       NULL, 'e'},
+  {"degrees",      no_argument,       NULL, 'E'},
   {"seq",          required_argument, NULL, '1'},
   {"seq",          required_argument, NULL, 's'},
   {NULL, 0, NULL, 0}
@@ -42,7 +44,10 @@ static struct option longopts[] =
 #include "objbuf_macro.h"
 create_objbuf(covg_buf,CovgBuffer,Covg);
 create_objbuf(edges_buf,EdgesBuffer,Edges);
+create_objbuf(orient_buf,OrientBuffer,Orientation);
 
+// [c]AGG[t]
+// [a]CCT[g]
 static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
                                     Edges *dst)
 {
@@ -51,13 +56,32 @@ static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
   memcpy(dst, edges, ncols * sizeof(Edges));
   if(node.orient == REVERSE) {
     for(i = 0; i < ncols; i++) {
+      // dst[i] = rev_nibble_lookup(dst[i]>>4) | (rev_nibble_lookup(dst[i]&0xf)<<4);
       dst[i] = (dst[i]>>4) | (dst[i]<<4);
     }
   }
 }
 
+// Print in/outdegree - For debugging mostly
+// indegree/outdegree (2 means >=2)
+// 00: ! 01: + 02: {
+// 10: - 11: = 12: <
+// 20: } 21: > 22: *
+void _print_edge_degrees(const Edges *edges, size_t num, FILE *fout)
+{
+  size_t i, indegree, outdegree;
+  const char symbols[3][3] = {"!+{", "-=<", "}>*"};
+  for(i = 0; i < num; i++) {
+    indegree  = MIN2(edges_get_indegree(edges[i],  FORWARD), 2);
+    outdegree = MIN2(edges_get_outdegree(edges[i], FORWARD), 2);
+    fputc(symbols[indegree][outdegree], fout);
+  }
+  fputc('\n', fout);
+}
+
 static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
                                    CovgBuffer *covgbuf, EdgesBuffer *edgebuf,
+                                   bool print_edges, bool print_edge_degrees,
                                    FILE *fout)
 {
   // Find nodes, set covgs
@@ -95,8 +119,9 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
       if(node.key != HASH_NOT_FOUND) {
         covgs = &db_node_covg(db_graph, node.key, 0);
         memcpy(covgbuf->data+i*ncols, covgs, ncols * sizeof(Covg));
-        if(db_graph->col_edges)
+        if(db_graph->col_edges) {
           fetch_node_edges(db_graph, node, edgebuf->data+i*ncols);
+        }
       }
     }
   }
@@ -112,8 +137,7 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   else {
     for(col = 0; col < ncols; col++)
     {
-      if(db_graph->col_edges) {
-        // Print edges
+      if(print_edges) {
         edges_print(fout, edgebuf->data[col]);
         for(i = 1; i < kmer_length; i++) {
           fputc(' ', fout);
@@ -121,6 +145,10 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
         }
         fputc('\n', fout);
       }
+
+      if(print_edge_degrees)
+        _print_edge_degrees(edgebuf->data, kmer_length, fout);
+
       // Print coverages
       fprintf(fout, "%2u", covgbuf->data[col]);
       for(i = 1; i < kmer_length; i++)
@@ -133,7 +161,7 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
 int ctx_coverage(int argc, char **argv)
 {
   struct MemArgs memargs = MEM_ARGS_INIT;
-  bool print_edges = false;
+  bool print_edges = false, print_edge_degrees = false;
   const char *output_file = NULL;
   SeqFilePtrBuffer sfilebuf;
 
@@ -157,7 +185,8 @@ int ctx_coverage(int argc, char **argv)
       case 'o': cmd_check(!output_file, cmd); output_file = optarg; break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'e': print_edges = true; break;
+      case 'e': cmd_check(!print_edges,cmd); print_edges = true; break;
+      case 'E': cmd_check(!print_edge_degrees,cmd); print_edge_degrees = true; break;
       case '1':
       case 's':
         if((tmp_sfile = seq_open(optarg)) == NULL)
@@ -255,7 +284,8 @@ int ctx_coverage(int argc, char **argv)
   // Deal with one read at a time
   for(i = 0; i < sfilebuf.len; i++) {
     while(seq_read(sfilebuf.data[i], &r) > 0) {
-      print_read_covg(&db_graph, &r, &covgbuf, &edgebuf, fout);
+      print_read_covg(&db_graph, &r, &covgbuf, &edgebuf,
+                      print_edges, print_edge_degrees, fout);
     }
     seq_close(sfilebuf.data[i]);
   }
