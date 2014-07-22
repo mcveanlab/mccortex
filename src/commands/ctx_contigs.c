@@ -24,7 +24,8 @@ const char contigs_usage[] =
 "  -c, --colour <c>     Pull out contigs from the given colour [default: 0]\n"
 "  -N, --ncontigs <N>   Pull out <N> contigs from random kmers [default: 0, no limit]\n"
 "  -s, --seed <in.fa>   Use seed kmers from a file. Reads must be of kmer length\n"
-"  -R, --no-reseed      Do not use a seed kmer if it is used in a contig\n"
+"  -r, --reseed         Sample seed kmers with replacement\n"
+"  -R, --no-reseed      Do not use a seed kmer if it is used in a contig [default]\n"
 "\n";
 
 static struct option longopts[] =
@@ -40,6 +41,7 @@ static struct option longopts[] =
 // command specific
   {"seed",         required_argument, NULL, 's'},
   {"seq",          required_argument, NULL, '1'},
+  {"reseed",       no_argument,       NULL, 'r'},
   {"no-reseed",    no_argument,       NULL, 'R'},
   {"ncontigs",     required_argument, NULL, 'N'},
   {"colour",       required_argument, NULL, 'c'},
@@ -53,7 +55,7 @@ int ctx_contigs(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t i, contig_limit = 0, colour = 0;
-  bool no_reseed = false;
+  bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
 
   seq_file_t *tmp_seed_file = NULL;
   SeqFilePtrBuffer seed_buf;
@@ -92,7 +94,8 @@ int ctx_contigs(int argc, char **argv)
           die("Cannot read --seed file: %s", optarg);
         seq_file_ptr_buf_add(&seed_buf, tmp_seed_file);
         break;
-      case 'R': cmd_check(!no_reseed,cmd); no_reseed = true; break;
+      case 'r': cmd_check(!cmd_reseed,cmd); cmd_reseed = true; break;
+      case 'R': cmd_check(!cmd_no_reseed,cmd); cmd_no_reseed = true; break;
       case 'N':
         cmd_check(!contig_limit,cmd);
         contig_limit = cmd_uint32_nonzero(cmd, optarg);
@@ -105,10 +108,15 @@ int ctx_contigs(int argc, char **argv)
     }
   }
 
+  if(cmd_no_reseed && cmd_reseed)
+    cmd_print_usage("Cannot specify both -r and -R");
+
+  bool sample_with_replacement = cmd_reseed;
+
   // Defaults
   if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
 
-  if(!seed_buf.len && !contig_limit && !no_reseed) {
+  if(!seed_buf.len && !contig_limit && sample_with_replacement) {
     cmd_print_usage("Please specify one or more of: "
                     "--no-reseed | --ncontigs | --seed <in.fa>");
   }
@@ -137,9 +145,9 @@ int ctx_contigs(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
-  // 1 bit needed per kmer if we need to keep track of no_reseed
+  // 1 bit needed per kmer if we need to keep track of kmer usage
   bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath)*8 +
-                  ncols + no_reseed;
+                  ncols + !sample_with_replacement;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -181,7 +189,7 @@ int ctx_contigs(int argc, char **argv)
 
   uint8_t *visited = NULL;
 
-  if(no_reseed)
+  if(!sample_with_replacement)
     visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   // Load graph

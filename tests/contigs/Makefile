@@ -19,7 +19,7 @@ seq.k$(K).ctp.gz: seq.k$(K).ctx seq.fa
 	$(CTX) thread -m 1M --seq seq.fa --out $@ seq.k$(K).ctx
 
 contigs.fa: seq.k$(K).ctx seq.k$(K).ctp.gz
-	$(CTX) contigs --no-reseed --out $@ -p seq.k$(K).ctp.gz seq.k$(K).ctx
+	$(CTX) contigs --out $@ -p seq.k$(K).ctp.gz seq.k$(K).ctx
 
 contigs.rmdup.fa: contigs.fa
 	$(CTX) rmsubstr $< > $@
