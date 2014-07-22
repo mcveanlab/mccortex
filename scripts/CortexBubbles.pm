@@ -46,8 +46,10 @@ sub read_fasta
   # No more entries
   if(!defined($header)) { return undef; }
   chomp($header);
-  if($header !~ /^>/) { die("Bad line: $header"); }
-  if(!defined($seq = $self->read_line())) { die("Missing seq line, truncated?"); }
+  if($header !~ /^>/) { die("Bad line: $header [$self->path]"); }
+  if(!defined($seq = $self->read_line())) {
+    die("Missing seq line, truncated? [$self->path]");
+  }
   chomp($seq);
   return ($header, $seq);
 }
