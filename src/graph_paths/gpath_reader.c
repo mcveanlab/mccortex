@@ -9,8 +9,7 @@
 #include "gpath_set.h"
 #include "gpath_store.h"
 #include "gpath_subset.h"
-
-#define MAX_JSON_HDR_BYTES (1<<20) /* 1M max json header */
+#include "json_hdr.h"
 
 /*
 // File format:
@@ -86,48 +85,6 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx)
   return json->valuestring;
 }
 
-static void _gpath_reader_load_json_hdr(gzFile gzin, const char *path,
-                                        StrBuf *hdrstr)
-{
-  size_t nread;
-  strbuf_reset(hdrstr);
-
-  load_check((nread = strbuf_gzreadline(hdrstr, gzin)) > 0, "Empty file: %s", path);
-  load_check(hdrstr->b[0] == '{', "Expected JSON header: %s", path);
-
-  size_t i, prev_offset = 0;
-  size_t num_curly_open = 0, num_curly_close = 0; // '{' '}'
-  size_t num_brkt_open = 0, num_brkt_close = 0; // '[' ']'
-  bool in_string = false, escape_char = false; // '\'
-
-  while(1)
-  {
-    for(i = prev_offset; i < hdrstr->end; i++) {
-      if(in_string) {
-        if(escape_char) escape_char = false;
-        else if(hdrstr->b[i] == '\\') escape_char = true;
-        else if(hdrstr->b[i] == '"') in_string = false;
-      }
-      else if(hdrstr->b[i] == '"') in_string = true;
-      else if(hdrstr->b[i] == '{') num_curly_open++;
-      else if(hdrstr->b[i] == '}') num_curly_close++;
-      else if(hdrstr->b[i] == '[') num_brkt_open++;
-      else if(hdrstr->b[i] == ']') num_brkt_close++;
-    }
-    prev_offset = hdrstr->end;
-
-    if(num_curly_open == num_curly_close && num_brkt_open == num_brkt_close)
-      break;
-
-    // header is not finished yet
-    load_check(num_curly_open > num_curly_close, "'}' before '{': %s", path);
-    load_check(num_brkt_open >= num_brkt_close, "']' before '[': %s", path);
-    load_check(hdrstr->end < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
-    load_check((nread = strbuf_gzreadline(hdrstr, gzin)) > 0,
-               "Premature end of JSON header: %s", path);
-  }
-}
-
 void _parse_json_header(GPathReader *file)
 {
   cJSON *sample, *colours = cJSON_GetObjectItem(file->json, "colours");
@@ -155,7 +112,7 @@ void gpath_reader_open2(GPathReader *file, char *path, const char *mode)
   // Load JSON header into file->hdrstr
   StrBuf *hdrstr = &file->hdrstr;
   if(hdrstr->b == NULL) strbuf_alloc(hdrstr, 1024);
-  _gpath_reader_load_json_hdr(file->gz, path, hdrstr);
+  json_hdr_read(NULL, file->gz, path, hdrstr);
   file->json = cJSON_Parse(hdrstr->b);
   if(file->json == NULL) die("Invalid JSON header: %s", path);
 

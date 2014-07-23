@@ -9,7 +9,7 @@
 #include "supernode.h"
 #include "binary_seq.h"
 #include "graph_crawler.h"
-#include "caller_output.h"
+#include "json_hdr.h"
 
 #include <time.h> // printing datetime
 #include <pthread.h> // multithreading
@@ -85,13 +85,25 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
   ctx_free(callers);
 }
 
-
+// Print JSON header to gzout
 static void bubble_caller_print_header(gzFile gzout, const char* out_path,
+                                       cJSON **hdrs, size_t nhdrs,
                                        const dBGraph *db_graph)
 {
-  caller_gzprint_header(gzout, out_path, "CtxBubblesv0.1", db_graph);
-  // End header with empty line
-  gzprintf(gzout, "\n");
+  // Construct cJSON
+  cJSON *json = cJSON_CreateObject();
+
+  cJSON_AddStringToObject(json, "fileFormat", "CtxBubbles");
+  cJSON_AddNumberToObject(json, "formatVersion", 1);
+
+  // Add standard cortex headers
+  json_hdr_add_std(json, out_path, hdrs, nhdrs, db_graph);
+
+  // Write header to file
+  json_hdr_gzprint(json, gzout);
+  gzputc(gzout, '\n');
+
+  cJSON_Delete(json);
 }
 
 static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer,
@@ -372,6 +384,7 @@ void bubble_caller(void *args)
 
 void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                           gzFile gzout, const char *out_path,
+                          cJSON **hdrs, size_t nhdrs,
                           const dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_edge_cols == 1);
@@ -380,7 +393,7 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   status("Calling bubbles with %zu threads, output: %s", num_of_threads, out_path);
 
   // Print header
-  bubble_caller_print_header(gzout, out_path, db_graph);
+  bubble_caller_print_header(gzout, out_path, hdrs, nhdrs, db_graph);
 
   BubbleCaller *callers = bubble_callers_new(num_of_threads, prefs,
                                              gzout, db_graph);

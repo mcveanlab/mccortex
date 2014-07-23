@@ -7,6 +7,8 @@
 #include "repeat_walker.h"
 #include "cmd.h"
 
+#include "cJSON/cJSON.h"
+
 typedef struct
 {
   // Max lengths in kmers (not bases)
@@ -57,8 +59,12 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node);
 // or caller->spp_reverse (if they traverse the snode in reverse)
 void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode);
 
+// Run bubble caller, write output to gzout
+// @param hdrs JSON headers of input files
+// @param nhdrs number of JSON headers of input files
 void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                           gzFile gzout, const char *out_path,
+                          cJSON **hdrs, size_t nhdrs,
                           const dBGraph *db_graph);
 
 #endif /* BUBBLE_CALLER_H_ */

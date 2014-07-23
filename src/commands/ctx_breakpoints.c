@@ -11,28 +11,6 @@
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 
-/*
- Output format:
-
-##fileFormat=CtxBreakpointsv0.1
-##fileDate=20140515
-##cmd="../..//bin/ctx31 breakpoints -t 1 -m 10M --seq seq0.fa --seq seq1.fa --out breakpoints.txt.gz mix.k11.ctx"
-##wkdir=/Users/isaac/ninja-cortex/test/breakpoint
-##reference=seq0.fa:seq1.fa
-##ctxVersion="ctx=b871a64 zlib=1.2.5 htslib=0.2.0-rc8-6-gd49dfa6 ASSERTS=ON CHECKS=ON k=3..31"
-##ctxKmerSize=31
->brkpnt.0.5pflank chr=seq0:1-20:+:1
-CCCGTAGGTAAGGGCGTTAG
->brkpnt.0.3pflank chr=seq1:21-50:+:11
-CGGGTTGGAGTTGGCCAAAGAAGTTCAACG
->brkpnt.0.path cols=0
-A
-
->brkpnt.1.5pflank chr=seq0:1-20:+:1
-...
-
-*/
-
 const char breakpoints_usage[] =
 "usage: "CMD" breakpoints [options] <in.ctx> [in2.ctx ..]\n"
 "\n"
@@ -255,11 +233,8 @@ int ctx_breakpoints(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  for(i = 0; i < gpfiles.len; i++) {
+  for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.data[i], true, &db_graph);
-    gpath_reader_close(&gpfiles.data[i]);
-  }
-  gpfile_buf_dealloc(&gpfiles);
 
   // Get array of sequence file paths
   size_t num_seq_paths = sfilebuf.len;
@@ -283,16 +258,26 @@ int ctx_breakpoints(int argc, char **argv)
     string_char_replace(r->name.b, ':', ';'); // change : -> ; in read name
   }
 
+  // Create array of cJSON** from input files
+  cJSON *hdrs[gpfiles.len];
+  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
+
   // Call breakpoints
   breakpoints_call(nthreads,
                    gzout, output_file,
                    rbuf.data, rbuf.len,
                    seq_paths, num_seq_paths,
                    min_ref_flank, max_ref_flank,
+                   hdrs, gpfiles.len,
                    &db_graph);
 
   // Finished: do clean up
   gzclose(gzout);
+
+  // Close input files
+  for(i = 0; i < gpfiles.len; i++)
+    gpath_reader_close(&gpfiles.data[i]);
+  gpfile_buf_dealloc(&gpfiles);
 
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
   readbuf_dealloc(&rbuf);

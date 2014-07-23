@@ -4,23 +4,19 @@ use strict;
 use warnings;
 use Carp;
 
+use CortexScripts; # load_json_hdr()
+
 sub new
 {
   my ($class,$handle,$path) = @_;
 
-  my $next_line;
-  my @header = ();
-  while(defined($next_line = <$handle>)) {
-    chomp($next_line);
-    if($next_line =~ /^$/) {}
-    elsif($next_line =~ /^#/) { push(@header, $next_line); }
-    else { last; }
-  }
+  my $header = load_json_hdr($handle,$path);
+  my $next_line = <$handle>;
 
   my $self = {
       _handle => $handle,
       _path => $path,
-      _header => \@header,
+      _header => $header,
       _next_line => $next_line
   };
 
@@ -40,18 +36,18 @@ sub read_line
 sub read_fasta
 {
   my ($self) = @_;
-  my ($header, $seq);
+  my ($title, $seq);
   # Read past empy lines
-  while(defined($header = $self->read_line()) && $header =~ /^$/) {}
+  while(defined($title = $self->read_line()) && $title =~ /^$/) {}
   # No more entries
-  if(!defined($header)) { return undef; }
-  chomp($header);
-  if($header !~ /^>/) { die("Bad line: $header [$self->path]"); }
+  if(!defined($title)) { return undef; }
+  chomp($title);
+  if($title !~ /^>/) { die("Bad line: $title [$self->path]"); }
   if(!defined($seq = $self->read_line())) {
     die("Missing seq line, truncated? [$self->path]");
   }
   chomp($seq);
-  return ($header, $seq);
+  return ($title, $seq);
 }
 
 sub next

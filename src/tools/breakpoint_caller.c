@@ -7,7 +7,7 @@
 #include "seq_reader.h"
 #include "kmer_occur.h"
 #include "graph_crawler.h"
-#include "caller_output.h"
+#include "json_hdr.h"
 
 typedef struct {
   size_t first_runid, num_runs;
@@ -557,26 +557,50 @@ static void breakpoint_caller(void *ptr)
                     breakpoint_caller_node, caller);
 }
 
+// Print JSON header to gzout
 static void breakpoints_print_header(gzFile gzout, const char *out_path,
                                      char **seq_paths, size_t nseq_paths,
                                      const read_t *reads, size_t nreads,
+                                     cJSON **hdrs, size_t nhdrs,
                                      const dBGraph *db_graph)
 {
   size_t i;
   ctx_assert(nseq_paths > 0);
 
-  caller_gzprint_header(gzout, out_path, "CtxBreakpointsv0.1", db_graph);
+  // Construct cJSON
+  cJSON *json = cJSON_CreateObject();
 
-  for(i = 0; i < nseq_paths; i++)
-    gzprintf(gzout, "##reference=%s\n", seq_paths[i]);
+  cJSON_AddStringToObject(json, "fileFormat", "CtxBreakpoints");
+  cJSON_AddNumberToObject(json, "formatVersion", 1);
 
-  for(i = 0; i < nreads; i++) {
-    gzprintf(gzout, "##contig=<ID=%s,length=%zu>\n",
-             reads[i].name.b, reads[i].seq.end);
+  // Add paths to reference files
+  cJSON *ref_files = cJSON_CreateArray();
+  cJSON_AddItemToObject(json, "ref_files", ref_files);
+
+  for(i = 0; i < nseq_paths; i++) {
+    cJSON *ref = cJSON_CreateString(seq_paths[i]);
+    cJSON_AddItemToArray(ref_files, ref);
   }
 
-  // End header with empty line
-  gzprintf(gzout, "\n");
+  // List contigs
+  cJSON *contigs = cJSON_CreateArray();
+  cJSON_AddItemToObject(json, "contigs", contigs);
+
+  for(i = 0; i < nreads; i++) {
+    cJSON *contig = cJSON_CreateObject();
+    cJSON_AddStringToObject(contig, "id", reads[i].name.b);
+    cJSON_AddNumberToObject(contig, "length", reads[i].seq.end);
+    cJSON_AddItemToArray(contigs, contig);
+  }
+
+  // Add standard cortex headers
+  json_hdr_add_std(json, out_path, hdrs, nhdrs, db_graph);
+
+  // Write header to file
+  json_hdr_gzprint(json, gzout);
+  gzputc(gzout, '\n');
+
+  cJSON_Delete(json);
 }
 
 void breakpoints_call(size_t num_of_threads,
@@ -584,11 +608,13 @@ void breakpoints_call(size_t num_of_threads,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,
                       size_t min_ref_flank, size_t max_ref_flank,
+                      cJSON **hdrs, size_t nhdrs,
                       dBGraph *db_graph)
 {
   breakpoints_print_header(gzout, out_path,
                            seq_paths, num_seq_paths,
                            reads, num_reads,
+                           hdrs, nhdrs,
                            db_graph);
 
   KOGraph kograph = kograph_create(reads, num_reads, true,

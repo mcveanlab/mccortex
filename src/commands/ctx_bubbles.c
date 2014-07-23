@@ -217,11 +217,12 @@ int ctx_bubbles(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  for(i = 0; i < gpfiles.len; i++) {
+  for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.data[i], true, &db_graph);
-    gpath_reader_close(&gpfiles.data[i]);
-  }
-  gpfile_buf_dealloc(&gpfiles);
+
+  // Create array of cJSON** from input files
+  cJSON *hdrs[gpfiles.len];
+  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
 
   // Now call variants
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
@@ -230,10 +231,17 @@ int ctx_bubbles(int argc, char **argv)
                                    .num_haploid = haploidbuf.len};
 
   invoke_bubble_caller(nthreads, call_prefs,
-                       gzout, out_path, &db_graph);
+                       gzout, out_path,
+                       hdrs, gpfiles.len,
+                       &db_graph);
 
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
+
+  // Close input path files
+  for(i = 0; i < gpfiles.len; i++)
+    gpath_reader_close(&gpfiles.data[i]);
+  gpfile_buf_dealloc(&gpfiles);
 
   size_buf_dealloc(&haploidbuf);
   db_graph_dealloc(&db_graph);

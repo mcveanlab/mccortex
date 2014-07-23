@@ -95,12 +95,12 @@ CtxCmd cmdobjs[] = {
   .blurb = "use a trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },
-{
+{ // To be replaced by calls2vcf
   .cmd = "unique", .func = ctx_unique, .hide = true,
   .blurb = "remove duplicated bubbles, produce VCF",
   .usage = unique_usage
 },
-{
+{ // To be replaced by calls2vcf
   .cmd = "place", .func = ctx_place, .hide = true,
   .blurb = "place variants against a reference",
   .usage = place_usage
@@ -115,7 +115,7 @@ CtxCmd cmdobjs[] = {
   .blurb = "reduce set of strings to remove substrings",
   .usage = rmsubstr_usage
 },
-{
+{ // soon to replace commands 'unique' and 'place'
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = true,
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage
