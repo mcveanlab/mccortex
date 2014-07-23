@@ -62,7 +62,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "contigs", .func = ctx_contigs, .hide = false,
-  .blurb = "pull out contigs for a sample",
+  .blurb = "assemble contigs for a sample",
   .usage = contigs_usage
 },
 {

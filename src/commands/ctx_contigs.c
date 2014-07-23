@@ -12,7 +12,7 @@
 const char contigs_usage[] =
 "usage: "CMD" contigs [options] <input.ctx>\n"
 "\n"
-"  Pull out contigs from the graph, print statistics\n"
+"  Assemble contigs from the graph, print statistics\n"
 "\n"
 "  -h, --help           This help message\n"
 "  -q, --quiet          Silence status output normally printed to STDERR\n"
