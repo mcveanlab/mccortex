@@ -167,6 +167,8 @@ int ctx_view(int argc, char **argv)
   Covg covgs[ncols];
   Edges edges[ncols];
 
+  bool direct_read = file_filter_is_direct(&file.fltr);
+
   if(parse_kmers || print_kmers)
   {
     if(print_info && print_kmers) printf("----\n");
@@ -179,7 +181,7 @@ int ctx_view(int argc, char **argv)
         keep_kmer |= covgs[i] | edges[i];
         covgs_sum = SAFE_ADD_COVG(covgs_sum, covgs[i]);
       }
-      if(keep_kmer == 0) continue;
+      if(!direct_read && !keep_kmer) continue;
 
       sum_covgs_read += covgs_sum;
 

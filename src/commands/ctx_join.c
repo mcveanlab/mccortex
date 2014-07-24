@@ -116,6 +116,8 @@ int ctx_join(int argc, char **argv)
   GraphFileReader *igfiles = isec_gfiles_buf.data;
   size_t num_igfiles = isec_gfiles_buf.len;
 
+  bool use_ncols_set = (use_ncols > 0);
+
   if(use_ncols == 0) use_ncols = 1;
   if(!out_path) cmd_print_usage("--out <out.ctx> required");
 
@@ -228,18 +230,6 @@ int ctx_join(int argc, char **argv)
   bits_per_kmer = sizeof(BinaryKmer)*8 +
                   (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
 
-  cmd_get_kmers_in_hash(memargs.mem_to_use,
-                        memargs.mem_to_use_set,
-                        memargs.num_kmers,
-                        memargs.num_kmers_set,
-                        bits_per_kmer,
-                        ctx_max_kmers, ctx_sum_kmers,
-                        true, &graph_mem);
-
-  size_t max_usencols = (memargs.mem_to_use*8) / bits_per_kmer;
-  use_ncols = MIN2(max_usencols, total_cols);
-
-  // Re-check memory used
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
                                         memargs.num_kmers,
@@ -247,6 +237,22 @@ int ctx_join(int argc, char **argv)
                                         bits_per_kmer,
                                         ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
+
+  if(!use_ncols_set)
+  {
+    // Maximise use_ncols
+    size_t max_usencols = (memargs.mem_to_use*8) / bits_per_kmer;
+    use_ncols = MIN2(max_usencols, total_cols);
+
+    // Re-check memory used
+    kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+                                          memargs.mem_to_use_set,
+                                          memargs.num_kmers,
+                                          memargs.num_kmers_set,
+                                          bits_per_kmer,
+                                          ctx_max_kmers, ctx_sum_kmers,
+                                          true, &graph_mem);
+  }
 
   status("Using %zu colour%s in memory", use_ncols, util_plural_str(use_ncols));
 

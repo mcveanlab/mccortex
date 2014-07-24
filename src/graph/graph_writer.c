@@ -5,22 +5,28 @@
 #include "util.h"
 #include "file_util.h"
 
-static inline void dump_empty_bkmer(hkey_t hkey, const dBGraph *db_graph,
-                                    char *buf, size_t mem, FILE *fh)
+static inline void _dump_empty_bkmer(hkey_t hkey, const dBGraph *db_graph,
+                                     char *buf, size_t mem, FILE *fh)
 {
   size_t written;
   const BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
-  written = fwrite(&bkmer, 1, sizeof(BinaryKmer), fh) +
+  written = fwrite(bkmer.b, 1, sizeof(BinaryKmer), fh) +
             fwrite(buf, 1, mem, fh);
   if(written != mem+sizeof(BinaryKmer)) die("Couldn't write to file");
 }
 
-void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
+/*!
+  Write kmers from the graph to a file. The file header should already have been
+  written.
+  @return Number of bytes written
+ */
+size_t graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
 {
   size_t mem = num_of_cols * (sizeof(Covg)+sizeof(Edges));
   char buf[mem];
   memset(buf, 0, mem);
-  HASH_ITERATE(&db_graph->ht, dump_empty_bkmer, db_graph, buf, mem, fh);
+  HASH_ITERATE(&db_graph->ht, _dump_empty_bkmer, db_graph, buf, mem, fh);
+  return db_graph->ht.num_kmers * (sizeof(BinaryKmer) + mem);
 }
 
 // Returns number of bytes written
@@ -132,42 +138,52 @@ size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph)
   return db_graph->ht.num_kmers;
 }
 
-static inline void overwrite_kmer_colours(hkey_t node,
-                                          const dBGraph *db_graph,
-                                          Colour graphcol, Colour intocol,
-                                          size_t write_ncols, size_t file_ncols,
-                                          FILE *fh)
+
+// only called by graph_update_mmap_kmers()
+static inline void _graph_write_update_kmer(hkey_t hkey,
+                                           const dBGraph *db_graph,
+                                           size_t first_graphcol, size_t ngraphcols,
+                                           size_t first_filecol, size_t nfilecols,
+                                           char **ptr, size_t filekmersize)
 {
-  const Edges (*col_edges)[db_graph->num_of_cols]
-    = (const Edges (*)[db_graph->num_of_cols])db_graph->col_edges;
-  const Covg (*col_covgs)[db_graph->num_of_cols]
-    = (const Covg (*)[db_graph->num_of_cols])db_graph->col_covgs;
+  const Covg *covgs = &db_node_covg(db_graph, hkey, first_graphcol);
+  const Edges *edges = &db_node_edges(db_graph, hkey, first_graphcol);
 
-  size_t skip_cols = file_ncols - (intocol + write_ncols);
-  const Covg *covg = col_covgs[node] + graphcol;
-  const Edges *edges = col_edges[node] + graphcol;
+  void *covgs_out = *ptr+sizeof(BinaryKmer) + sizeof(Covg)*first_filecol;
+  void *edges_out = *ptr+sizeof(BinaryKmer) + sizeof(Covg)*nfilecols +
+                     sizeof(Edges)*first_filecol;
 
-  long skip0 = sizeof(BinaryKmer) + intocol * sizeof(Covg);
-  long skip1 = skip_cols * sizeof(Covg) + intocol * sizeof(Edges);
-  long skip2 = skip_cols * sizeof(Edges);
+  memcpy(covgs_out, covgs, ngraphcols*sizeof(Covg));
+  memcpy(edges_out, edges, ngraphcols*sizeof(Edges));
 
-  bool success = (fseek(fh, skip0, SEEK_CUR) == 0) &&
-                 (fwrite(covg, sizeof(Covg), write_ncols, fh) == write_ncols) &&
-                 (fseek(fh, skip1, SEEK_CUR) == 0) &&
-                 (fwrite(edges, sizeof(Edges), write_ncols, fh) == write_ncols) &&
-                 (fseek(fh, skip2, SEEK_CUR) == 0);
-
-  if(!success) die("Overwrite failed");
+  *ptr += filekmersize;
 }
 
-void graph_file_write_colours(const dBGraph *db_graph,
-                              Colour graphcol, Colour intocol,
-                              size_t write_ncols, size_t file_ncols,
-                              FILE *fh)
+/*!
+  Overwrite kmers in an existing file.
+  @param first_graphcol first colour in the dBGraph to read from
+  @param first_filecol first colour in the file to write into
+  @param ngraphcols Number of colours to write to file
+  @param nfilecols Total number of colours in file
+  @param mmap_ptr Memory mapped file pointer
+  @param hdrsize Size of file header i.e. byte pos of first kmer in file
+ */
+void graph_update_mmap_kmers(const dBGraph *db_graph,
+                             size_t first_graphcol, size_t ngraphcols,
+                             size_t first_filecol, size_t nfilecols,
+                             char *mmap_ptr, size_t hdrsize)
 {
+  ctx_assert(db_graph->col_edges != NULL);
+  ctx_assert(db_graph->col_covgs != NULL);
   ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
-  HASH_ITERATE(&db_graph->ht, overwrite_kmer_colours,
-               db_graph, graphcol, intocol, write_ncols, file_ncols, fh);
+  ctx_assert(first_graphcol+ngraphcols <= db_graph->num_of_cols);
+
+  char *ptr = mmap_ptr + hdrsize;
+  size_t filekmersize = sizeof(BinaryKmer)+(sizeof(Edges)+sizeof(Covg))*nfilecols;
+
+  HASH_ITERATE(&db_graph->ht, _graph_write_update_kmer,
+               db_graph, first_graphcol, ngraphcols, first_filecol, nfilecols,
+               &ptr, filekmersize);
 }
 
 // Dump node: only print kmers with coverages in given colours
@@ -291,7 +307,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   fclose(fout);
   // if(strcmp(path,"-") != 0) fclose(fout);
 
-  graph_write_status(num_nodes_dumped, num_of_cols, out_name, header->version);
+  graph_writer_print_status(num_nodes_dumped, num_of_cols, out_name, header->version);
 
   return num_nodes_dumped;
 }
@@ -319,8 +335,8 @@ uint64_t graph_file_save_mkhdr(const char *path, const dBGraph *db_graph,
                          colours, start_col, num_of_cols);
 }
 
-void graph_write_status(uint64_t nkmers, size_t ncols,
-                        const char *path, uint32_t version)
+void graph_writer_print_status(uint64_t nkmers, size_t ncols,
+                               const char *path, uint32_t version)
 {
   char num_kmer_str[100];
   ulong_to_str(nkmers, num_kmer_str);

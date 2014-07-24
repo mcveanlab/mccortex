@@ -6,8 +6,8 @@ CTX=$(CTXDIR)/bin/ctx31
 
 SAMPLES=$(shell echo in{,{0..2}}.ctx)
 MERGED=$(shell echo flatten013.ctx merge013.ctx merge.gaps.use{1..2}.ctx)
-GRAPHS=$(SAMPLES) $(MERGED)
-TXTS=$(MERGED:.ctx=.txt)
+GRAPHS=$(SAMPLES) $(MERGED) in.use2.ctx
+TXTS=$(MERGED:.ctx=.txt) in.txt in.use2.txt
 
 all: $(GRAPHS) compare
 
@@ -19,7 +19,10 @@ in%.ctx: seq%.fa
 
 # Output colours are {0,1,2,0+0,1+2,2}
 in.ctx: in0.ctx in1.ctx in2.ctx
-	$(CTX) join --overlap -o in.ctx 0:in0.ctx 1:in1.ctx 2:in2.ctx 3:in0.ctx 3:in0.ctx 4:in1.ctx 4:in2.ctx 5:in2.ctx
+	$(CTX) join --overlap -o $@ 0:in0.ctx 1:in1.ctx 2:in2.ctx 3:in0.ctx 3:in0.ctx 4:in1.ctx 4:in2.ctx 5:in2.ctx
+
+in.use2.ctx: in0.ctx in1.ctx in2.ctx
+	$(CTX) join --ncols 2 --overlap -o $@ 0:in0.ctx 1:in1.ctx 2:in2.ctx 3:in0.ctx 3:in0.ctx 4:in1.ctx 4:in2.ctx 5:in2.ctx
 
 # flatten013.ctx and merge013.ctx should be identical (int.ctx:0,1,3 flattened)
 flatten013.ctx: in.ctx
@@ -38,6 +41,7 @@ merge.gaps.use2.ctx: in.ctx
 	$(CTX) view --kmers $< | sort > $@
 
 compare: $(TXTS)
+	diff -q in.txt in.use2.txt
 	diff -q flatten013.txt merge013.txt
 	diff -q merge.gaps.use*.txt
 

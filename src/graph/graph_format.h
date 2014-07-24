@@ -99,13 +99,26 @@ size_t graph_files_merge_mkhdr(const char *out_ctx_path,
 // Writing
 //
 
-void graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols);
+/*!
+  Write kmers from the graph to a file. The file header should already have been
+  written.
+  @return Number of bytes written
+ */
+size_t graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols);
 
-// Dump colours into an existing binary
-// FILE *fh must already point to the first bkmer
-void graph_file_write_colours(const dBGraph *db_graph, Colour graphcol,
-                              Colour intocol, size_t write_ncols,
-                              size_t file_ncols, FILE *fh);
+/*!
+  Overwrite kmers in an existing file.
+  @param first_graphcol first colour in the dBGraph to read from
+  @param first_filecol first colour in the file to write into
+  @param ngraphcols Number of colours to write to file
+  @param nfilecols Total number of colours in file
+  @param mmap_ptr Memory mapped file pointer
+  @param hdrsize Size of file header i.e. byte pos of first kmer in file
+ */
+void graph_update_mmap_kmers(const dBGraph *db_graph,
+                             size_t first_graphcol, size_t ngraphcols,
+                             size_t first_filecol, size_t nfilecols,
+                             char *mmap_ptr, size_t hdrsize);
 
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *header);
@@ -132,7 +145,7 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
                          const Colour *colours, Colour start_col,
                          size_t num_of_cols);
 
-void graph_write_status(uint64_t nkmers, size_t ncols,
-                        const char *path, uint32_t version);
+void graph_writer_print_status(uint64_t nkmers, size_t ncols,
+                               const char *path, uint32_t version);
 
 #endif /* GRAPH_FORMAT_H_ */

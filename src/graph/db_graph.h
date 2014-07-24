@@ -17,29 +17,24 @@
 typedef struct
 {
   HashTable ht;
-  // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
   const size_t kmer_size;
   const size_t num_of_cols; // How many colours malloc'd for node_in_cols,col_covgs,ginfo
   const size_t num_edge_cols; // How many colours malloc'd for col_edges
+  // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
+
   size_t num_of_cols_used; // how many colours currently used
 
-  // This should be cast to volatile to read / write
-  uint8_t *bktlocks;
-
-  // Array of GraphInfo objects, one per colour
+  // Array of GraphInfo objects, one per colour (num_of_cols)
   GraphInfo *ginfo;
 
   // Optional fields:
 
   // Colour specific arrays
-  // cast to 2d array with:
-  // Edges (*col_edges)[graph->num_of_cols]
-  //   = (Edges (*)[graph->num_of_cols])graph->col_edges;
-  // Covg (*col_covgs)[graph->num_of_cols]
-  //   = (Covg (*)[graph->num_of_cols])graph->col_covgs;
-  // then access with col_edges[hkey][col]
-  Edges *col_edges; // [hkey*num_of_colours + col] or [hkey][col]
-  Covg *col_covgs; // [hkey*num_of_colours + col] or [hkey][col]
+  Edges *col_edges; // num_of_cols*ht.capacity size addr: [hkey*num_of_cols + col]
+  Covg *col_covgs; // num_edge_cols*ht.capacity size addr: [hkey*num_edge_cols + col]
+
+  // This should be cast to volatile to read / write
+  uint8_t *bktlocks;
 
   // 1 bit per kmer, per colour
   // [hkey/64][col] >> hkey%64

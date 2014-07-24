@@ -230,6 +230,7 @@ int ctx_infer_edges(int argc, char **argv)
 
   if(reading_stream)
   {
+    ctx_assert(fout != NULL);
     num_nodes_modified = infer_edges(num_of_threads, add_all_edges, &db_graph);
     graph_write_header(fout, &file.hdr);
     graph_write_all_kmers(fout, &db_graph);

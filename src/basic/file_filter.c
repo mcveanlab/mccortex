@@ -149,7 +149,7 @@ void file_filter_status(const FileFilter *fltr)
           fltr->filencols, util_plural_str(fltr->filencols));
 
   if(!file_filter_is_direct(fltr)) {
-    message(" with colour filter: %u->%u", fltr->filter[0].from, fltr->filter[0].into);
+    message(" with filter: %u->%u", fltr->filter[0].from, fltr->filter[0].into);
     for(i = 1; i < fltr->ncols; i++)
       message(",%u->%u", fltr->filter[i].from, fltr->filter[i].into);
   }

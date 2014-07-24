@@ -117,7 +117,10 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
 {
   size_t i;
 
-  if(s->num_contigs == 0) status("[asm] No contigs assembled");
+  if(s->num_contigs == 0) {
+    status("[asm] No contigs assembled");
+    return;
+  }
 
   qsort(s->lengths, s->num_contigs, sizeof(size_t), cmp_size);
   qsort(s->junctns, s->num_contigs, sizeof(size_t), cmp_size);

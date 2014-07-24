@@ -8,6 +8,9 @@
 #include "graph_info.h"
 #include "range.h"
 
+// Memory mapped files used in graph_files_merge()
+#include <sys/mman.h>
+
 void graph_header_alloc(GraphFileHeader *h, size_t num_of_cols)
 {
   size_t i;
@@ -265,7 +268,7 @@ size_t graph_file_read_header(FILE *fh, GraphFileHeader *h, const char *path)
   return bytes_read;
 }
 
-// Only print errors once
+// Only print errors once - these are externally visible
 bool greader_zero_covg_error = false, greader_missing_covg_error = false;
 
 size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path,
@@ -274,7 +277,7 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
   size_t i, num_bytes_read;
   char kstr[MAX_KMER_SIZE+1];
 
-  num_bytes_read = fread(bkmer->b, 1, sizeof(uint64_t)*h->num_of_bitfields, fh);
+  num_bytes_read = fread(bkmer->b, 1, sizeof(BinaryKmer), fh);
 
   if(num_bytes_read == 0) return 0;
   if(num_bytes_read != sizeof(uint64_t)*h->num_of_bitfields)
@@ -319,7 +322,7 @@ static void graph_loading_print_status(const GraphFileReader *file)
   else {
     ulong_to_str(file->num_of_kmers, nkmers_str);
     bytes_to_str(file->file_size, 1, filesize_str);
-    status("  %s kmers, %s filesize", nkmers_str, filesize_str);
+    status("[GReader] %s kmers, %s filesize", nkmers_str, filesize_str);
   }
 }
 
@@ -327,13 +330,15 @@ static void graph_loading_print_status(const GraphFileReader *file)
 // colour only_load_if_in_colour will be loaded.
 // We assume only_load_if_in_colour < load_first_colour_into
 // if all_kmers_are_unique != 0 an error is thrown if a node already exists
-// returns the number of colours in the graph
 // If stats != NULL, updates:
 //   stats->num_of_colours_loaded
 //   stats->num_kmers_loaded
 //   stats->total_bases_read
 //   stats->ctx_files_loaded
 
+/*!
+  @return number of kmers loaded
+ */
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   LoadingStats *stats)
 {
@@ -368,8 +373,6 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
         graph->num_of_cols, ncols_used, fltr->path.b);
   }
 
-  status("[ctxload] ncols_used: %zu", ncols_used);
-
   for(i = 0; i < fltr->ncols; i++) {
     fromcol = file_filter_fromcol(fltr, i);
     intocol = file_filter_intocol(fltr, i);
@@ -387,12 +390,6 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 
   size_t nkmers_parsed, num_of_kmers_loaded = 0;
   uint64_t num_of_kmers_already_loaded = graph->ht.num_kmers;
-
-  status("[CtxLoad] First col %u, into cols %u..%u, file has %zu col%s: %s",
-         file_filter_fromcol(fltr, 0), file_filter_intocol(fltr, 0),
-         file_filter_into_ncols(fltr)-1,
-         (size_t)hdr->num_of_cols, util_plural_str(hdr->num_of_cols),
-         fltr->path.b);
 
   for(nkmers_parsed = 0;
       graph_file_read_reset(file, ncols_used, &bkmer, covgs, edges);
@@ -484,7 +481,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 
   ulong_to_str(num_of_kmers_loaded, loaded_nkmers_str);
   ulong_to_str(nkmers_parsed, parsed_nkmers_str);
-  status("Loaded %s / %s (%.2f%%) of kmers parsed",
+  status("[GReader] Loaded %s / %s (%.2f%%) of kmers parsed",
          loaded_nkmers_str, parsed_nkmers_str, loaded_nkmers_pct);
 
   return num_of_kmers_loaded;
@@ -554,7 +551,7 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
   fflush(out);
   fclose(out);
 
-  graph_write_status(nodes_dumped, hdr->num_of_cols,
+  graph_writer_print_status(nodes_dumped, hdr->num_of_cols,
                      out_ctx_path, CTX_GRAPH_FILEFORMAT);
 
   return nodes_dumped;
@@ -668,13 +665,13 @@ size_t graph_files_merge(const char *out_ctx_path,
                 "Cannot use STDOUT for output if not enough colours to load");
 
     // Have to load a few colours at a time then dump, rinse and repeat
-    status("Saving %zu colours, %zu colours at a time",
+    status("[mmap] Saving %zu colours, %zu colours at a time",
            output_colours, db_graph->num_of_cols);
 
     // Open file, write header
-    FILE *fout = futil_fopen(out_ctx_path, "w");
+    FILE *fout = futil_fopen(out_ctx_path, "r+");
 
-    size_t header_size = graph_write_header(fout, hdr);
+    size_t hdr_size = graph_write_header(fout, hdr);
 
     // Load all kmers into flat graph
     if(!kmers_loaded)
@@ -683,64 +680,83 @@ size_t graph_files_merge(const char *out_ctx_path,
     // print file outline
     status("Generated merged hash table\n");
     hash_table_print_stats(&db_graph->ht);
-    graph_write_empty(db_graph, fout, output_colours);
+
+    // Write empty file
+    size_t file_len = hdr_size;
+    file_len += graph_write_empty(db_graph, fout, output_colours);
+    fflush(fout);
+
+    // Open memory mapped file
+    void *mmap_ptr = mmap(NULL, file_len, PROT_WRITE, MAP_SHARED, fileno(fout), 0);
+
+    if(mmap_ptr == MAP_FAILED)
+      die("Cannot memory map file: %s [%s]", out_ctx_path, strerror(errno));
 
     size_t num_kmer_cols = db_graph->ht.capacity * db_graph->num_of_cols;
     size_t firstcol, lastcol, fromcol, intocol;
 
     FileFilter tmpfltr;
     memset(&tmpfltr, 0, sizeof(tmpfltr));
+    bool files_loaded = false;
 
     for(firstcol = 0; firstcol < output_colours; firstcol += db_graph->num_of_cols)
     {
-      bool loaded = false;
       lastcol = MIN2(firstcol + db_graph->num_of_cols - 1, output_colours-1);
 
-      // Wipe colour coverages and edges
-      memset(db_graph->col_edges, 0, num_kmer_cols * sizeof(Edges));
-      memset(db_graph->col_covgs, 0, num_kmer_cols * sizeof(Covg));
+      // Wipe colour coverages and edges if needed
+      if(firstcol == 0 || files_loaded) {
+        status("Wiping colours");
+        memset(db_graph->col_edges, 0, num_kmer_cols * sizeof(Edges));
+        memset(db_graph->col_covgs, 0, num_kmer_cols * sizeof(Covg));
+      }
 
+      files_loaded = false;
+
+      // Loop over files, loading only the colours currently required
       for(f = 0; f < num_files; f++)
       {
         FileFilter *fltr = &files[f].fltr;
         file_filter_copy(&tmpfltr, fltr);
 
+        // Update filter to only load useful colours
         for(i = j = 0; i < fltr->ncols; i++) {
           fromcol = file_filter_fromcol(fltr, i);
           intocol = file_filter_intocol(fltr, i);
-          if(intocol >= firstcol && intocol < firstcol + db_graph->num_of_cols)
-            fltr->filter[j++] = (Filter){.from = fromcol, .into = intocol};
+          if(firstcol <= intocol && intocol <= lastcol) {
+            fltr->filter[j++] = (Filter){.from = fromcol, .into = intocol-firstcol};
+          }
         }
         fltr->ncols = j;
 
-        if(fltr->ncols > 0) {
-          graph_load(&files[i], prefs, &stats);
-          loaded = true;
-        }
+        if(fltr->ncols > 0)
+          files_loaded |= (graph_load(&files[f], prefs, &stats) > 0);
 
+        // Restore original filter
         file_filter_copy(fltr, &tmpfltr);
       }
 
-      // if loaded, dump
-      if(loaded) {
+      // if files_loaded, dump
+      if(files_loaded) {
         if(db_graph->num_of_cols == 1)
           status("Dumping into colour %zu...\n", firstcol);
         else
           status("Dumping into colours %zu-%zu...\n", firstcol, lastcol);
 
-        if(fseek(fout, (long)header_size, SEEK_SET) != 0)
-          die("fseek failed: %s", strerror(errno));
-
-        graph_file_write_colours(db_graph, 0, firstcol, lastcol-firstcol+1,
-                                 output_colours, fout);
+        graph_update_mmap_kmers(db_graph, 0, lastcol-firstcol+1,
+                                firstcol, output_colours,
+                                mmap_ptr, hdr_size);
       }
     }
+
+    if(munmap(mmap_ptr, file_len) == -1)
+      die("Cannot release mmap file: %s [%s]", out_ctx_path, strerror(errno));
 
     fclose(fout);
     file_filter_close(&tmpfltr);
 
-    graph_write_status(db_graph->ht.num_kmers, output_colours,
-                       out_ctx_path, CTX_GRAPH_FILEFORMAT);
+    // Print output status
+    graph_writer_print_status(db_graph->ht.num_kmers, output_colours,
+                              out_ctx_path, CTX_GRAPH_FILEFORMAT);
   }
 
   return db_graph->ht.num_kmers;
