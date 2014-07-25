@@ -93,8 +93,8 @@ off_t futil_get_file_size(const char* filepath)
 {
   struct stat st;
 
-  if (stat(filepath, &st) == 0)
-      return st.st_size;
+  if(stat(filepath, &st) == 0)
+    return st.st_size;
 
   warn("Cannot determine file size: %s [%s]\n", filepath, strerror(errno));
 

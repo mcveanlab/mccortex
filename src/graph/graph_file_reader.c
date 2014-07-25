@@ -22,8 +22,12 @@ int graph_file_open2(GraphFileReader *file, char *input, const char *mode)
   file_filter_open(fltr, input); // calls die() on error
   const char *path = fltr->path.b;
 
+  // Stat will fail on streams, so file_size and num_of_kmers with both be -1
+  struct stat st;
+  file->file_size = stat(path, &st) == 0 ? st.st_size : -1;
+  file->num_of_kmers = -1;
+
   file->fh = futil_fopen(path, mode);
-  file->file_size = futil_get_file_size(path);
   file->hdr_size = graph_file_read_header(file->fh, hdr, path);
 
   file_filter_set_cols(fltr, hdr->num_of_cols);
@@ -51,8 +55,6 @@ int graph_file_open2(GraphFileReader *file, char *input, const char *mode)
            (size_t)file->num_of_kmers);
     }
   }
-  else
-    file->num_of_kmers = -1;
 
   return 1;
 }

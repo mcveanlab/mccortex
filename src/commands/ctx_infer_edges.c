@@ -11,6 +11,9 @@
 #include "seq_reader.h"
 #include "infer_edges.h"
 
+// Memory mapped files used in inferedges_on_mmap()
+#include <sys/mman.h>
+
 const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
 "\n"
@@ -47,55 +50,105 @@ static struct option longopts[] =
 // Add edge to sample
 
 // Using file so can call fseek and don't need to load whole graph
+static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
+                                 GraphFileReader *file)
+{
+  ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
+  ctx_assert(file_filter_is_direct(&file->fltr));
+  ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
+  ctx_assert(file->num_of_kmers >= 0);
+  ctx_assert(file->file_size >= 0);
+
+  status("[inferedges] Processing mmap file: %s [%zu / %zu]",
+         file_filter_path(&file->fltr),
+         (size_t)file->hdr_size, (size_t)file->file_size);
+
+  if(fseek(file->fh, 0, SEEK_SET) != 0)
+    die("fseek failed: %s", strerror(errno));
+
+  // Open memory mapped file
+  void *mmap_ptr = mmap(NULL, file->file_size, PROT_WRITE, MAP_SHARED,
+                        fileno(file->fh), 0);
+
+  if(mmap_ptr == MAP_FAILED)
+    die("Cannot memory map file: %s [%s]", file->fltr.path.b, strerror(errno));
+
+  const size_t ncols = file->hdr.num_of_cols;
+  BinaryKmer bkmer;
+  Edges edges[ncols];
+  Covg covgs[ncols];
+
+  bool updated;
+  size_t i, num_kmers = file->num_of_kmers, num_kmers_edited = 0;
+  size_t filekmersize = sizeof(BinaryKmer) + (sizeof(Edges)+sizeof(Covg)) * ncols;
+
+  char *ptr = (char*)mmap_ptr + file->hdr_size;
+
+  for(i = 0; i < num_kmers; i++, ptr += filekmersize)
+  {
+    char *fh_covgs = ptr      + sizeof(BinaryKmer);
+    char *fh_edges = fh_covgs + sizeof(Covg)*ncols;
+
+    memcpy(bkmer.b, ptr,      sizeof(BinaryKmer));
+    memcpy(covgs,   fh_covgs, ncols * sizeof(Covg));
+    memcpy(edges,   fh_edges, ncols * sizeof(Edges));
+
+    updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
+                             : infer_pop_edges(bkmer, edges, covgs, db_graph));
+
+    if(updated) {
+      memcpy(fh_covgs, covgs, ncols * sizeof(Covg));
+      memcpy(fh_edges, edges, ncols * sizeof(Edges));
+      num_kmers_edited++;
+    }
+  }
+
+  if(munmap(mmap_ptr, file->file_size) == -1)
+    die("Cannot release mmap file: %s [%s]", file->fltr.path.b, strerror(errno));
+
+  return num_kmers_edited;
+}
+
+
+// Using file so can call fseek and don't need to load whole graph
 static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
-  const size_t ncols = file_filter_into_ncols(&file->fltr);
-
   ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
-  ctx_assert(db_graph->num_of_cols == ncols);
+  ctx_assert(file_filter_is_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
+  ctx_assert(fout != NULL);
+  ctx_assert(fileno(file->fh) != fileno(fout));
 
   status("[inferedges] Processing file: %s", file_filter_path(&file->fltr));
 
-  if(fout != NULL) {
-    // Print header
-    graph_write_header(fout, &file->hdr);
-  }
+  // Print header
+  graph_write_header(fout, &file->hdr);
 
   // Read the input file again
   if(fseek(file->fh, file->hdr_size, SEEK_SET) != 0)
     die("fseek failed: %s", strerror(errno));
 
+  const size_t ncols = file->hdr.num_of_cols;
   BinaryKmer bkmer;
   Edges edges[ncols];
   Covg covgs[ncols];
 
-  size_t num_nodes_modified = 0;
+  size_t num_kmers_edited = 0;
   bool updated;
-  long edges_len = sizeof(Edges) * ncols;
 
   while(graph_file_read_reset(file, ncols, &bkmer, covgs, edges))
   {
     updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
                              : infer_pop_edges(bkmer, edges, covgs, db_graph));
 
-    if(fout != NULL) {
-      graph_write_kmer(fout, file->hdr.num_of_bitfields, file->hdr.num_of_cols,
-                       bkmer, covgs, edges);
-    }
-    else if(updated) {
-      if(fseek(file->fh, -edges_len, SEEK_CUR) != 0 ||
-         fwrite(edges, sizeof(Edges), ncols, file->fh) != ncols)
-      {
-        die("fseek/fwrite error: %s", file_filter_path(&file->fltr));
-      }
-    }
+    graph_write_kmer(fout, file->hdr.num_of_bitfields, file->hdr.num_of_cols,
+                     bkmer, covgs, edges);
 
-    num_nodes_modified += updated;
+    num_kmers_edited += updated;
   }
 
-  return num_nodes_modified;
+  return num_kmers_edited;
 }
 
 
@@ -151,24 +204,31 @@ int ctx_infer_edges(int argc, char **argv)
   char *graph_path = argv[optind];
   status("Reading graph: %s", graph_path);
 
+  if(strchr(graph_path,':') != NULL)
+    cmd_print_usage("Cannot use ':' in input graph for `"CMD" inferedges`");
+
   GraphFileReader file;
   memset(&file, 0, sizeof(file));
+
+  file_filter_open(&file.fltr, graph_path);
+
+  // Use stat to detect if we are reading from a stream
+  struct stat st;
+  bool reading_stream = (stat(file.fltr.path.b, &st) != 0);
+
   // Mode r+ means open (not create) for update (read & write)
-  graph_file_open2(&file, graph_path, "r+");
-  bool reading_stream = (file.fh == stdin);
-
-  FILE *fout = NULL;
-
-  // Editing input file or writing a new file
-  if(out_ctx_path || reading_stream)
-    fout = futil_open_create(out_ctx_path ? out_ctx_path : "-", "w");
-  else if(!futil_is_file_writable(graph_path))
-    cmd_print_usage("Cannot write to file: %s", graph_path);
+  graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+");
 
   if(!file_filter_is_direct(&file.fltr))
     cmd_print_usage("Inferedges with filter not implemented - sorry");
 
-  ctx_assert(file.hdr.num_of_cols == file.fltr.ncols);
+  bool editing_file = !(out_ctx_path || reading_stream);
+
+  FILE *fout = NULL;
+
+  // Editing input file or writing a new file
+  if(!editing_file)
+    fout = futil_open_create(out_ctx_path ? out_ctx_path : "-", "w");
 
   // Print output status
   if(fout == stdout) status("Writing to STDOUT");
@@ -180,12 +240,18 @@ int ctx_infer_edges(int argc, char **argv)
   //
   // Decide on memory
   //
+  const size_t ncols = file.hdr.num_of_cols;
   size_t kmers_in_hash, graph_mem, bits_per_kmer;
 
-  // reading file: one bit per kmer per colour: for 'in colour'
-  // reading stream: 9 bits per kmer per colour: Edges + one bit for 'in colour'.
-  bits_per_kmer = sizeof(BinaryKmer)*8 +
-                  file.hdr.num_of_cols * (sizeof(Edges)*8*reading_stream + 1);
+  // reading stream: all covgs + edges
+  // reading file: one bit per kmer per colour for 'in colour'
+  bits_per_kmer = sizeof(BinaryKmer)*8;
+
+  if(reading_stream) {
+    bits_per_kmer += ncols * 8 * (sizeof(Edges) + sizeof(Covg));
+  } else {
+    bits_per_kmer += ncols; // in colour
+  }
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -202,15 +268,17 @@ int ctx_infer_edges(int argc, char **argv)
   //
   dBGraph db_graph;
   db_graph_alloc(&db_graph, file.hdr.kmer_size,
-                 file.hdr.num_of_cols, file.hdr.num_of_cols*reading_stream,
+                 ncols, reading_stream ? ncols : 1,
                  kmers_in_hash);
 
-  // In colour
-  size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  db_graph.node_in_cols = ctx_calloc(bytes_per_col*file.hdr.num_of_cols, 1);
-
-  if(reading_stream)
-    db_graph.col_edges = ctx_calloc(file.hdr.num_of_cols*db_graph.ht.capacity, 1);
+  if(reading_stream) {
+    db_graph.col_edges = ctx_calloc(ncols*db_graph.ht.capacity, sizeof(Edges));
+    db_graph.col_covgs = ctx_calloc(ncols*db_graph.ht.capacity, sizeof(Covg));
+  } else {
+    // In colour
+    size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
+    db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, 1);
+  }
 
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
@@ -226,29 +294,30 @@ int ctx_infer_edges(int argc, char **argv)
   if(add_pop_edges) status("Inferring edges from population...\n");
   else status("Inferring all missing edges...\n");
 
-  size_t num_nodes_modified;
+  size_t num_kmers_edited;
 
   if(reading_stream)
   {
     ctx_assert(fout != NULL);
-    num_nodes_modified = infer_edges(num_of_threads, add_all_edges, &db_graph);
+    num_kmers_edited = infer_edges(num_of_threads, add_all_edges, &db_graph);
     graph_write_header(fout, &file.hdr);
     graph_write_all_kmers(fout, &db_graph);
   }
-  else {
-    num_nodes_modified = inferedges_on_file(&db_graph, add_all_edges,
-                                            &file, fout);
+  else if(fout == NULL) {
+    num_kmers_edited = inferedges_on_mmap(&db_graph, add_all_edges, &file);
+  } else {
+    num_kmers_edited = inferedges_on_file(&db_graph, add_all_edges, &file, fout);
   }
 
   if(fout != NULL && fout != stdout) fclose(fout);
 
   char modified_str[100], kmers_str[100];
-  ulong_to_str(num_nodes_modified, modified_str);
+  ulong_to_str(num_kmers_edited, modified_str);
   ulong_to_str(db_graph.ht.num_kmers, kmers_str);
 
   double modified_rate = 0;
   if(db_graph.ht.num_kmers)
-    modified_rate = (100.0 * num_nodes_modified) / db_graph.ht.num_kmers;
+    modified_rate = (100.0 * num_kmers_edited) / db_graph.ht.num_kmers;
 
   status("%s of %s (%.2f%%) nodes modified\n",
          modified_str, kmers_str, modified_rate);

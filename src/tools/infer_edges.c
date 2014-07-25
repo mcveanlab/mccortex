@@ -3,7 +3,28 @@
 #include "db_graph.h"
 #include "graph_format.h"
 
-// DEV: add infer edges tests
+static inline void _add_edge_to_colours(hkey_t next_hkey,
+                                        const Covg *covgs, Edges *edges,
+                                        Edges new_edge,
+                                        const dBGraph *db_graph)
+{
+  size_t col, ncols = db_graph->num_of_cols;
+
+  if(db_graph->col_covgs != NULL) {
+    for(col = 0; col < ncols; col++) {
+      if(covgs[col] > 0 && db_node_covg(db_graph, next_hkey, col)) {
+        edges[col] |= new_edge;
+      }
+    }
+  }
+  else {
+    for(col = 0; col < ncols; col++) {
+      if(covgs[col] > 0 && db_node_has_col(db_graph, next_hkey, col)) {
+        edges[col] |= new_edge;
+      }
+    }
+  }
+}
 
 // If two kmers are in a sample and the population has an edges between them,
 // Add edge to sample
@@ -51,9 +72,7 @@ bool infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
         next = hash_table_find(&db_graph->ht, bkey);
         ctx_assert(next != HASH_NOT_FOUND);
 
-        for(col = 0; col < ncols; col++)
-          if(covgs[col] > 0 && db_node_has_col(db_graph, next, col))
-            newedges[col] |= edge;
+        _add_edge_to_colours(next, covgs, newedges, edge, db_graph);
       }
     }
   }
@@ -97,11 +116,7 @@ bool infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
         next = hash_table_find(&db_graph->ht, bkey);
 
         if(next != HASH_NOT_FOUND) {
-          for(col = 0; col < ncols; col++) {
-            if(covgs[col] > 0 && db_node_has_col(db_graph, next, col)) {
-              newedges[col] |= edge;
-            }
-          }
+          _add_edge_to_colours(next, covgs, newedges, edge, db_graph);
         }
       }
     }
@@ -115,6 +130,7 @@ bool infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 
 static inline int infer_edges_node(hkey_t hkey,
                                    bool add_all_edges,
+                                   Covg *tmp_covgs,
                                    const dBGraph *db_graph,
                                    size_t *num_nodes_modified)
 {
@@ -123,13 +139,16 @@ static inline int infer_edges_node(hkey_t hkey,
   size_t col;
 
   // Create coverages that are zero or one depending on if node has colour
-  Covg covgs[db_graph->num_of_cols];
-  for(col = 0; col < db_graph->num_of_cols; col++)
-    covgs[col] = db_node_has_col(db_graph, hkey, col);
+  if(db_graph->col_covgs == NULL) {
+    for(col = 0; col < db_graph->num_of_cols; col++)
+      tmp_covgs[col] = db_node_has_col(db_graph, hkey, col);
+  } else {
+    tmp_covgs = &db_node_covg(db_graph, hkey, 0);
+  }
 
   (*num_nodes_modified)
-    += (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
-                      : infer_pop_edges(bkmer, edges, covgs, db_graph));
+    += (add_all_edges ? infer_all_edges(bkmer, edges, tmp_covgs, db_graph)
+                      : infer_pop_edges(bkmer, edges, tmp_covgs, db_graph));
 
   return 0; // => keep iterating
 }
@@ -145,10 +164,11 @@ static void infer_edges_worker(void *arg)
 {
   InferEdgesWorker *wrkr = (InferEdgesWorker*)arg;
   size_t num_nodes_modified = 0;
+  Covg covgs[wrkr->db_graph->num_of_cols];
 
   HASH_ITERATE_PART(&wrkr->db_graph->ht, wrkr->threadid, wrkr->nthreads,
                     infer_edges_node,
-                    wrkr->add_all_edges, wrkr->db_graph,
+                    wrkr->add_all_edges, covgs, wrkr->db_graph,
                     &num_nodes_modified);
 
   wrkr->num_nodes_modified = num_nodes_modified;
@@ -156,7 +176,7 @@ static void infer_edges_worker(void *arg)
 
 size_t infer_edges(size_t nthreads, bool add_all_edges, const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->node_in_cols != NULL);
+  ctx_assert(db_graph->node_in_cols != NULL || db_graph->col_covgs != NULL);
   ctx_assert(db_graph->col_edges != NULL);
 
   size_t i, num_nodes_modified = 0;

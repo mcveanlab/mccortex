@@ -395,7 +395,7 @@ static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
 
   warn("Did you build this .ctp against THIS EXACT .ctx? (REALLY?)");
   warn("If you did please report a bug to turner.isaac@gmail.com");
-  ctx_assert(0);
+  abort();
 }
 
 #define return_step(i,s,hascol) do { \
@@ -419,7 +419,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   if(num_next == 0) {
     if(wlk->paths.len > 0) {
       graph_walker_print_state(wlk, stderr);
-      ctx_assert(0);
+      die("Shouldn't be able to reach here");
     }
 
     ctx_assert(wlk->paths.len == 0);
@@ -523,7 +523,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
       return_step(indices[i], GRPHWLK_USEPATH, true);
 
   // Should be impossible to reach here...
-  ctx_assert(0);
+  die("Should be impossible to reach here");
 }
 
 #undef return_step

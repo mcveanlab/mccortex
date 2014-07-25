@@ -28,7 +28,7 @@ bool parse_entire_size(const char *str, size_t *result);
 // Bits
 //
 const uint8_t rev_nibble_table[16];
-#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16), rev_nibble_table[(unsigned)(x)]; })
+#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16); rev_nibble_table[(unsigned)(x)]; })
 
 extern const uint8_t nibble_popcount_table[16];
 
