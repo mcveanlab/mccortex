@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -eu
-set -o pipefail
+set -euo pipefail
 
 #
 # Run all the tests!
@@ -11,11 +10,15 @@ set -o pipefail
 # cd into each directory and run `make`
 #
 
+cwd=`pwd`
+echo $cwd
+
+# Get all dependencies used in testing (bioinf-perl, bcftools, samtools etc.)
+cd ../libs && make update && cd $cwd
+
 dirs=`ls | grep -v '.*run.sh' | grep -v '^\.' | grep -v old`
 echo $dirs
 
-cwd=`pwd`
-echo $cwd
 cd .. && make MAXK=31 && make MAXK=63 && cd $cwd
 
 for f in $dirs

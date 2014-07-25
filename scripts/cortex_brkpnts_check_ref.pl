@@ -8,7 +8,7 @@ use List::Util qw(min max);
 # Use current directory to find modules as well as bioinf-perl module
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin.'/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
 use CortexBreakpoints;
 use GeneticsModule;
@@ -25,10 +25,11 @@ sub print_usage
   exit(-1);
 }
 
-my $file = shift;
+if(@ARGV < 2) { print_usage(); }
+
+my $file = shift(@ARGV);
 my @ref_paths = @ARGV;
 
-if(!defined($file)) { $file = "-"; }
 if($file =~ /^-?-h(elp)?/) { print_usage(); }
 my $fh;
 open($fh, $file) or die("Cannot read file $file");

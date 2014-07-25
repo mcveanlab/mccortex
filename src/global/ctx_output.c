@@ -19,8 +19,8 @@ void dief(const char *file, const char *func, int line, const char *fmt, ...)
   // Print a timestamp so we know when the crash occurred
   timestampf(stderr);
   fputs(" Fatal Error\n", stderr);
-  // exit(EXIT_FAILURE);
-  abort();
+  exit(EXIT_FAILURE);
+  // abort();
 }
 
 void warnf(const char *file, const char *func, int line, const char *fmt, ...)
