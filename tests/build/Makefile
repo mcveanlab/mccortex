@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat

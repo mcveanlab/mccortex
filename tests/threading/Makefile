@@ -1,4 +1,6 @@
 
+SHELL:=/bin/bash
+
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
 CTX2GV=$(CTXDIR)/scripts/cortex_to_graphviz.pl

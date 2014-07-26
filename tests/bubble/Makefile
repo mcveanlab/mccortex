@@ -9,6 +9,8 @@
 # s1: CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACtTTGGGACACGAGTTGAT
 #
 
+SHELL:=/bin/bash
+
 K=11
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -50,13 +52,13 @@ bubbles.join.txt: join.k$(K).ctx
 	cat bubbles.join.txt
 
 compare: bubbles.join.txt bubbles.seq.txt
-	@L1=`wc -l bubbles.join.txt | grep -oE '[0-9]+'`; \
+	set -euo pipefail; L1=`wc -l bubbles.join.txt | grep -oE '[0-9]+'`; \
 	L2=`wc -l bubbles.seq.txt | grep -oE '[0-9]+'`; \
 	echo join=$$L1; echo seq=$$L2; [ $$L1 == $$L2 ]
 	@echo bubbles.join.txt, bubbles.seq.txt have same number of lines
 
 seq.k$(K).pdf: join.k$(K).ctx
-	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
+	set -euo pipefail; $(CTX2DOT) --simplify $< | dot -Tpdf > $@
 
 plots: $(PLOTS)
 

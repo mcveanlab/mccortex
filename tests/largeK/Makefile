@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 
 TARGETS=rnd.fa rnd.k39.ctx rnd.clean.k39.ctx
 

@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31

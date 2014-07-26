@@ -38,7 +38,7 @@ merge.gaps.use2.ctx: in.ctx
 	$(CTX) join --overlap --ncols 2 -o merge.gaps.use2.ctx 1:in.ctx:0 0:in.ctx:1 4:in.ctx:3
 
 %.txt: %.ctx
-	$(CTX) view --kmers $< | sort > $@
+	set -euo pipefail; $(CTX) view --kmers $< | sort > $@
 
 compare: $(TXTS)
 	diff -q in.txt in.use2.txt

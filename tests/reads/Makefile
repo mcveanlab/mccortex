@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 
 CTXDIR=../..
 DNA=$(CTXDIR)/libs/seq_file/bin/dnacat
@@ -10,8 +11,6 @@ RESULTS=out/se.fq.gz out/se.1.fq.gz out/se.2.fq.gz \
         out/pe.fq.gz out/pe.1.fq.gz out/pe.2.fq.gz \
 				out/ipe.fq.gz out/ipe.1.fq.gz out/ipe.2.fq.gz \
         out/pe.fa.gz out/pe.1.fa.gz out/pe.2.fa.gz \
-
-SHELL := /bin/bash
 
 all: $(TGTS) $(RESULTS)
 
@@ -31,7 +30,7 @@ reads.fa:
 '>r5\n'\
 'TTGTGACCTCCTTTAGCCTG\n' > $@
 reads.1.fa.gz:
-	printf \
+	set -euo pipefail; printf \
 '>r1/1\n'\
 'GCGAGTGGAACAGACGTTGA\n'\
 '>r2/1 hit    |\n'\
@@ -43,7 +42,7 @@ reads.1.fa.gz:
 '>r5/1\n'\
 'GAGAAAACACAATCCCGAAC\n' | gzip -c > $@
 reads.2.fa.gz:
-	printf \
+	set -euo pipefail; printf \
 '>r1/2 hit          |\n'\
 'GCGAGTGGAACGTAGACGAT\n'\
 '>r2/2 hi|t\n'\
@@ -55,6 +54,7 @@ reads.2.fa.gz:
 '>r5/2\n'\
 'GAGAAAACACAATCCCGAAG\n' | gzip -c > $@
 reads.interleaved.fq.gz:
+	set -euo pipefail; \
 	$(DNA) --interleave reads.1.fa.gz reads.2.fa.gz | \
 	  cat - <(printf '>hit\nTACCGCCAGGTCAGGGCT\n>moo\nACA') | gzip -c >$@
 

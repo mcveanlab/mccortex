@@ -16,6 +16,8 @@
 #     cAACACCCTTTGGTTTAAGCCG-GTTGGAGTTGGCCAAAGAAGTTCAAgg
 #     2222222222222222222222 2222222222222222222222222..
 
+SHELL:=/bin/bash
+
 K=11
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -62,7 +64,7 @@ join.k$(K).ctx: $(GRAPHS)
 	$(CTX) join --flatten -o $@ $(GRAPHS)
 
 seq.k$(K).pdf: join.k$(K).ctx
-	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
+	set -euo pipefail; $(CTX2DOT) --simplify $< | dot -Tpdf > $@
 
 plots: seq.k$(K).pdf
 

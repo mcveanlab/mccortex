@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -13,8 +14,6 @@ K=11
 
 # 1) pop edges
 # 2) all edges
-
-SHELL:=/bin/bash
 
 GRAPHS=seq.k$(K).ctx noedges.k$(K).ctx \
        mix.00.k$(K).ctx mix.01.k$(K).ctx mix.10.k$(K).ctx mix.11.k$(K).ctx \
@@ -36,7 +35,9 @@ seq.k$(K).ctx: seq.fa
 	$(CTX) inferedges --all $@
 
 noedges.k$(K).ctx: seq.k$(K).ctx
-	$(CTX) build -k $(K) -m 1M --sample Puma --seq <($(CTX) view -q -k $< | awk '{print $$1}') $@
+	set -euo pipefail; \
+	$(CTX) build -k $(K) -m 1M --sample Puma \
+	             --seq <($(CTX) view -q -k $< | awk '{print $$1}') $@
 
 mix.11.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
 	$(CTX) join -m 1M -o $@ seq.k$(K).ctx seq.k$(K).ctx
