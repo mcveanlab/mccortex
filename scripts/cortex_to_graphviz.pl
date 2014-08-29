@@ -79,7 +79,9 @@ open($in, '-|', $cmdline) or die $!;
 print "digraph G {\n";
 print "  edge [dir=both arrowhead=none arrowtail=none]\n";
 print "  node [".($use_points ? "shape=point label=none" : "shape=none")." ".
-      "fontname=Courier fontsize=9]\n";
+      'fontname="Courier New" fontsize=9]'."\n";
+
+# Change fontname to "Courier New bold" to make bold
 
 if($simplify)
 {
