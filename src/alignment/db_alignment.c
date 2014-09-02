@@ -204,7 +204,7 @@ bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
 
     // check edge between i and i+1
     for(i = start; i+1 < end; i++) {
-      if(!db_graph_check_edges(graph, aln->nodes.data[i], aln->nodes.data[i+1]))
+      if(db_graph_check_edges(graph, aln->nodes.data[i], aln->nodes.data[i+1]))
         return false;
     }
   }

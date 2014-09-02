@@ -137,19 +137,35 @@ void db_graph_add_edge_mt(dBGraph *db_graph, Colour col, dBNode src, dBNode tgt)
 }
 
 // For debugging + healthcheck
+// dies with message if edge from src->tgt and not tgt->src or vice-versa
+// returns true if edges would be added by infer edges
 bool db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
 {
   Nucleotide lhs_nuc, rhs_nuc, lhs_nuc_rev;
+  Edges src_edges, tgt_edges;
+  size_t col;
+  bool fw_edge, rv_edge, missing_edges = false;
+
   lhs_nuc = db_node_get_first_nuc(src, db_graph);
   rhs_nuc = db_node_get_last_nuc(tgt, db_graph);
 
   lhs_nuc_rev = dna_nuc_complement(lhs_nuc);
 
-  Edges src_uedges = db_node_get_edges_union(db_graph, src.key);
-  Edges tgt_uedges = db_node_get_edges_union(db_graph, tgt.key);
+  for(col = 0; col < db_graph->num_edge_cols; col++) {
+    src_edges = db_node_get_edges(db_graph, src.key, col);
+    tgt_edges = db_node_get_edges(db_graph, tgt.key, col);
 
-  return edges_has_edge(src_uedges, rhs_nuc,      src.orient) &&
-         edges_has_edge(tgt_uedges, lhs_nuc_rev, !tgt.orient);
+    fw_edge = edges_has_edge(src_edges, rhs_nuc,      src.orient);
+    rv_edge = edges_has_edge(tgt_edges, lhs_nuc_rev, !tgt.orient);
+
+    if(fw_edge != rv_edge) die("Missing edge pair");
+
+    missing_edges |= !fw_edge &&
+                     db_node_has_col(db_graph, src.key, col) &&
+                     db_node_has_col(db_graph, tgt.key, col);
+  }
+
+  return missing_edges;
 }
 
 //
@@ -267,7 +283,11 @@ void db_graph_check_kmer_size(size_t kmer_size, const char *path)
 // Health check
 //
 
-static inline bool check_node(hkey_t node, const dBGraph *db_graph)
+/*
+  @param missing_edges edges would be added by infer edges operation
+*/
+static inline void check_node(hkey_t node, const dBGraph *db_graph,
+                              bool *missing_edges_ptr)
 {
   Edges edges = db_node_get_edges_union(db_graph, node);
   BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
@@ -295,20 +315,26 @@ static inline bool check_node(hkey_t node, const dBGraph *db_graph)
   dBNode fwnode = {.key = node, .orient = FORWARD};
   dBNode rvnode = {.key = node, .orient = REVERSE};
 
+  bool missing_edges = false;
+
   // Check all edges are reciprical
   for(i = 0; i < nfw_edges; i++)
-    if(!db_graph_check_edges(db_graph, fwnode, fwnodes[i])) return false;
-  for(i = 0; i < nrv_edges; i++)
-    if(!db_graph_check_edges(db_graph, rvnode, rvnodes[i])) return false;
+    missing_edges |= db_graph_check_edges(db_graph, fwnode, fwnodes[i]);
 
-  return true;
+  for(i = 0; i < nrv_edges; i++)
+    missing_edges |= db_graph_check_edges(db_graph, rvnode, rvnodes[i]);
+
+  *missing_edges_ptr |= missing_edges;
 }
 
 void db_graph_healthcheck(const dBGraph *db_graph)
 {
   status("Running graph edge check...");
   ctx_assert(db_graph->col_edges != NULL);
-  HASH_ITERATE(&db_graph->ht, check_node, db_graph);
+  bool missing_edges = false;
+  HASH_ITERATE(&db_graph->ht, check_node, db_graph, &missing_edges);
+  if(missing_edges) status("  edges would be added with infer edges");
+  if(missing_edges) status("  all edges present");
 }
 
 //
