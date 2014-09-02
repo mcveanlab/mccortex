@@ -17,16 +17,6 @@ void call_file_entry_dealloc(CallFileEntry *entry)
   char_ptr_buf_dealloc(&entry->lines);
 }
 
-void call_file_read_hdr(gzFile gzin, const char *path, StrBuf *hdr)
-{
-  size_t len;
-  while((len = strbuf_gzreadline(hdr, gzin)) > 1) {
-    if(hdr->b[hdr->end-len] != '#')
-      die("Bad header line [path: %s]:\n%s", path, hdr->b);
-  }
-  strbuf_chomp(hdr);
-}
-
 void call_file_entry_reset(CallFileEntry *entry)
 {
   strbuf_reset(&entry->txt);

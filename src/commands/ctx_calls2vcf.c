@@ -5,6 +5,7 @@
 #include "db_graph.h"
 #include "seq_reader.h"
 #include "call_file_reader.h"
+#include "json_hdr.h"
 
 #include "sam.h"
 #include "seq-align/src/needleman_wunsch.h"
@@ -292,56 +293,80 @@ static void flanks_sam_close()
   free(bam);
 }
 
-#define strncasecmp2(str1,str2) strncasecmp((str1),(str2),strlen(str2))
-#define line_is_vcfhdr(str,tag) (strncasecmp2((str),(tag)) == 0)
-
-static void read_input_header(gzFile gzin, StrBuf *hdr)
+static cJSON* read_input_header(gzFile gzin)
 {
-  call_file_read_hdr(gzin, input_path, hdr);
+  cJSON *json;
+  StrBuf hdrstr;
+  strbuf_alloc(&hdrstr, 1024);
+  json_hdr_read(NULL, gzin, input_path, &hdrstr);
+  json = cJSON_Parse(hdrstr.b);
+  if(json == NULL) die("Invalid JSON header: %s", input_path);
 
-  // Check file format to ensure it is BubbleCTX or BreakpointCTX
-  char *line0end = strchr(hdr->b, '\n');
-  if(line0end == NULL) die("Empty file header? [path: %s]", input_path);
-  *line0end = '\0';
+  // DEV: check JSON header
 
-  if(!line_is_vcfhdr(hdr->b,"##fileformat="))
-    die("Expected ##fileformat= to be first line [path: %s]: %s", input_path, hdr->b);
+  // Check we can handle the kmer size
+  size_t kmer_size = json_hdr_get_kmer_size(json, input_path);
+  db_graph_check_kmer_size(kmer_size, input_path);
 
-  if(strncasecmp2(hdr->b+strlen("##fileformat="),"CtxBreakpoints") == 0)
-    input_bubble_format = false;
-  else if(strncasecmp2(hdr->b+strlen("##fileformat="),"CtxBubbles") == 0)
-    input_bubble_format = true;
-  else
-    die("Unknown input format [path: %s]: %s", input_path, hdr->b);
+  strbuf_dealloc(&hdrstr);
 
-  *line0end = '\n';
+  return json;
 }
 
-static void print_vcf_header(StrBuf *hdr, FILE *fout)
+static void print_vcf_header(cJSON *json, FILE *fout)
 {
+  ctx_assert(json != NULL);
+
   char datestr[9];
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
   fprintf(fout, "##fileformat=VCFv4.1\n##fileDate=%s\n", datestr);
 
-  // Print header lines, stripping out fileformat= and fileDate=
-  char *str = hdr->b, *lineend = strchr(str, '\n');
-  while(1)
-  {
-    if(lineend) *lineend = '\0';
+  // Print commands used to generate header
+  cJSON *commands = cJSON_GetObjectItem(json, "commands");
+  if(commands == NULL || commands->type != cJSON_Array)
+    die("Missing 'commands' field in JSON header");
 
-    if(!line_is_vcfhdr(str,"##fileformat=") &&
-       !line_is_vcfhdr(str,"##fileDate="))
-    {
-      fputs(str, fout);
-      fputc('\n', fout);
-    }
+  cJSON *command = commands->child;
 
-    if(!lineend) break;
-    else { *lineend = '\n'; str = lineend+1; lineend = strchr(str, '\n'); }
+  // Print this command
+  char keystr[8];
+  char *prevstr = NULL;
+
+  if(command) {
+    cJSON *key = cJSON_GetObjectItem(command, "key");
+    if(key == NULL || key->type != cJSON_String) die("Invalid 'key' field");
+    prevstr = key->string;
   }
 
+  // Print command entry for this command
+  fprintf(fout, "##CMD=<key=%s,prev=%s,cmd=\"%s\",cwd=%s>",
+          hex_rand_str(keystr, sizeof(keystr)),
+          prevstr ? prevstr : "NULL",
+          cmd_get_cmdline(), cmd_get_cwd());
+
+  // Print previous commands
+  while(command != NULL) {
+    cJSON *key = cJSON_GetObjectItem(command, "key");
+    cJSON *cmd = cJSON_GetObjectItem(command, "cmd");
+    cJSON *cwd = cJSON_GetObjectItem(command, "cwd");
+    cJSON *prev = cJSON_GetObjectItem(command, "prev");
+    if(key == NULL || key->type != cJSON_String) die("Invalid 'key' field");
+    if(cmd == NULL || cmd->type != cJSON_String) die("Invalid 'cmd' field");
+    if(cwd == NULL || cwd->type != cJSON_String) die("Invalid 'cwd' field");
+    if(prev == NULL || prev->type != cJSON_Array) die("Invalid 'prev' field");
+    prev = prev->child; // prev may be NULL
+    if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
+    fprintf(fout, "##CMD=<key=%s,prev=%s", key->string, prev ? prev->string : "NULL");
+    while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->string);
+    fprintf(fout, ",cmd=\"%s\",cwd=%s>\n", cmd->string, cwd->string);
+    command = command->next;
+  }
+
+  // TODO: print more header info
+
+  // Print VCF column header
   fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\n", fout);
 }
 
@@ -349,8 +374,12 @@ static void print_vcf_header(StrBuf *hdr, FILE *fout)
 // input file (breakpoint / bubble file) header contains lines:
 //   ##contig=<ID=blah,length=123>
 // We check that these match the reference just loaded
-static void brkpnt_check_refs_match(StrBuf *hdr)
+static void brkpnt_check_refs_match(cJSON *json)
 {
+  // DEV: check breakpoint ref lengths match
+  (void)json;
+
+  /*
   size_t reflen, chrlen;
   char *name, *len;
   size_t num_contigs_parsed = 0;
@@ -391,6 +420,7 @@ static void brkpnt_check_refs_match(StrBuf *hdr)
     die("Number of chromosomes differ: %zu in header vs %zu in ref",
         num_contigs_parsed, chroms.len);
   }
+  */
 }
 
 int ctx_calls2vcf(int argc, char **argv)
@@ -403,9 +433,7 @@ int ctx_calls2vcf(int argc, char **argv)
   nw_aligner_setup();
 
   // Read file header
-  StrBuf hdr;
-  strbuf_alloc(&hdr, 2048);
-  read_input_header(gzin, &hdr);
+  cJSON *json = read_input_header(gzin);
 
   status("Reading %s in %s format", futil_inpath_str(input_path),
          input_bubble_format ? "bubble" : "breakpoint");
@@ -418,10 +446,10 @@ int ctx_calls2vcf(int argc, char **argv)
   genome = kh_init(ChromHash);
   seq_reader_load_ref_genome(ref_paths, num_ref_paths, &chroms, genome);
 
-  if(!input_bubble_format) brkpnt_check_refs_match(&hdr);
+  if(!input_bubble_format) brkpnt_check_refs_match(json);
 
   // Run
-  print_vcf_header(&hdr, fout);
+  print_vcf_header(json, fout);
   parse_entries(gzin, fout);
 
   char num_vars_printed_str[50], num_entries_read_str[50];
@@ -431,6 +459,7 @@ int ctx_calls2vcf(int argc, char **argv)
          num_entries_read_str, num_vars_printed_str, futil_outpath_str(out_path));
 
   // Finished - clean up
+  cJSON_Delete(json);
   gzclose(gzin);
   fclose(fout);
   readbuf_dealloc(&chroms);

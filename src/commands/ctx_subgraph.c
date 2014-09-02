@@ -109,7 +109,7 @@ int ctx_subgraph(int argc, char **argv)
   if(optind >= argc) cmd_print_usage("Require input graph files (.ctx)");
 
   size_t num_gfiles = argc - optind;
-  char **gfile_paths = argv + optind;
+  const char **gfile_paths = (const char**)(argv + optind);
 
   size_t col, total_cols;
 

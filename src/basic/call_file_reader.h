@@ -14,8 +14,6 @@ typedef struct
 void call_file_entry_alloc(CallFileEntry *entry);
 void call_file_entry_dealloc(CallFileEntry *entry);
 
-void call_file_read_hdr(gzFile gzin, const char *path, StrBuf *hdr);
-
 // Returns 1 on success 0 on end of file
 // dies with error message on bad file
 int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry);

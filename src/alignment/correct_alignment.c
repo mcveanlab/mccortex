@@ -16,8 +16,11 @@ size_t correct_aln_worker_est_mem(const dBGraph *graph) {
 
 void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
 {
-  CorrectAlnWorker tmp = {.db_graph = db_graph, .aln = NULL,
+  CorrectAlnWorker tmp = {.db_graph = db_graph,
                           .start_idx = 0, .gap_idx = 0, .end_idx = 0};
+
+  // Graph alignment of reads
+  db_alignment_alloc(&tmp.aln);
 
   // Graph traversal
   graph_walker_alloc(&tmp.wlk);
@@ -28,6 +31,7 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
   // Node buffers
   db_node_buf_alloc(&tmp.contig, INIT_BUFLEN);
   db_node_buf_alloc(&tmp.revcontig, INIT_BUFLEN);
+  int32_buf_alloc(&tmp.rpos, INIT_BUFLEN);
 
   memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
 
@@ -37,20 +41,37 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
 
 void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr)
 {
+  db_alignment_dealloc(&wrkr->aln);
   graph_walker_dealloc(&wrkr->wlk);
   graph_walker_dealloc(&wrkr->wlk2);
   rpt_walker_dealloc(&wrkr->rptwlk);
   rpt_walker_dealloc(&wrkr->rptwlk2);
   db_node_buf_dealloc(&wrkr->contig);
   db_node_buf_dealloc(&wrkr->revcontig);
+  int32_buf_dealloc(&wrkr->rpos);
 }
 
-void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
-                            CorrectAlnParam params)
+/*!
+  @param params Settings for correction - needs to be passed since we don't know
+                which source the reads came from and diff input sources have
+                different requirements (e.g. expected insert size)
+ */
+void correct_alignment_init(CorrectAlnWorker *wrkr,
+                            const CorrectAlnParam *params,
+                            const read_t *r1, const read_t *r2,
+                            uint8_t fq_cutoff1, uint8_t fq_cutoff2,
+                            int8_t hp_cutoff)
 {
-  // Copy input
-  wrkr->aln = aln;
-  wrkr->params = params;
+  ctx_assert(params->ctxcol == params->ctpcol);
+
+  db_alignment_from_reads(&wrkr->aln, r1, r2,
+                          fq_cutoff1, fq_cutoff2, hp_cutoff,
+                          wrkr->db_graph, params->ctxcol);
+
+  const dBAlignment *aln = &wrkr->aln;
+
+  // Copy parameters
+  wrkr->params = *params;
 
   // reset state
   wrkr->start_idx = wrkr->prev_start_idx = 0;
@@ -257,8 +278,8 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
                                         size_t gap_min, size_t gap_max)
 {
   const CorrectAlnParam *params = &wrkr->params;
-  const int aln_colour = wrkr->aln->colour; // -1 for all
-  const dBNode *aln_nodes = wrkr->aln->nodes.data;
+  const int aln_colour = wrkr->aln.colour; // -1 for all
+  const dBNode *aln_nodes = wrkr->aln.nodes.data;
   const dBNodeBuffer *nbuf = &wrkr->contig;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
@@ -305,8 +326,8 @@ static TraversalResult traverse_two_way(CorrectAlnWorker *wrkr,
                                         size_t gap_min, size_t gap_max)
 {
   const CorrectAlnParam *params = &wrkr->params;
-  const int aln_colour = wrkr->aln->colour; // -1 for all
-  const dBNode *nodes = wrkr->aln->nodes.data;
+  const int aln_colour = wrkr->aln.colour; // -1 for all
+  const dBNode *nodes = wrkr->aln.nodes.data;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
   const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
@@ -331,30 +352,35 @@ static TraversalResult traverse_two_way(CorrectAlnWorker *wrkr,
   return result;
 }
 
-// Returns NULL if end of alignment
+// @return NULL if end of alignment, otherwise returns pointer to wrkr->contig
 dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 {
   if(wrkr->start_idx == wrkr->end_idx) return NULL;
 
   const size_t kmer_size = wrkr->db_graph->kmer_size;
 
-  const dBAlignment *aln = wrkr->aln;
-  const dBNodeBuffer *nodes = &aln->nodes;
-  const Uint32Buffer *gaps = &aln->gaps;
-  const size_t num_align_nodes = nodes->len;
+  const dBAlignment *aln = &wrkr->aln;
   const CorrectAlnParam params = wrkr->params;
+  const size_t num_align_nodes = aln->nodes.len;
 
-  // worker_generate_contigs ensures contig is at least nodes->len long
+  // Get arrays for nodes and kmer positions in alignment
+  const dBNode *aln_nodes = aln->nodes.data;
+  const int32_t *aln_rpos = aln->rpos.data;
+
+  // worker_generate_contigs ensures contig is at least aln_nodes->len long
   bool both_reads = (aln->used_r1 && aln->used_r2);
   size_t i, j, block0len, block1len;
   size_t gap_est, gap_min, gap_max;
 
   dBNodeBuffer *contig = &wrkr->contig, *revcontig = &wrkr->revcontig;
+  Int32Buffer *contig_rpos = &wrkr->rpos;
 
   block0len = wrkr->gap_idx - wrkr->start_idx;
 
   db_node_buf_reset(contig);
-  db_node_buf_append(contig, nodes->data+wrkr->start_idx, block0len);
+  int32_buf_reset(contig_rpos);
+  db_node_buf_append(contig,    aln_nodes+wrkr->start_idx, block0len);
+  int32_buf_append(contig_rpos, aln_rpos+wrkr->start_idx,  block0len);
 
   while(wrkr->end_idx < num_align_nodes)
   {
@@ -371,7 +397,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     is_mp = (both_reads && wrkr->gap_idx == aln->r2strtidx);
 
     // gap_est is how many kmers we lost through low qual scores, hp runs etc.
-    gap_est = gaps->data[wrkr->gap_idx];
+    gap_est = aln_rpos[wrkr->gap_idx] - aln_rpos[wrkr->gap_idx-1];
     if(is_mp) gap_est += aln->r1enderr;
 
     // Wiggle due to variation / error
@@ -422,8 +448,15 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     contig->len += revcontig->len;
 
-    // Copy block1
-    db_node_buf_append(contig, nodes->data+wrkr->gap_idx, block1len);
+    // Append -1 values to rpos for gap
+    size_t len_and_gap = contig_rpos->len + result.gap_len;
+    int32_buf_ensure_capacity(contig_rpos, len_and_gap);
+    while(contig_rpos->len < len_and_gap)
+      contig_rpos->data[contig_rpos->len++] = -1;
+
+    // Copy block1, after gap
+    db_node_buf_append(contig,    aln_nodes+wrkr->gap_idx, block1len);
+    int32_buf_append(contig_rpos, aln_rpos+wrkr->gap_idx,  block1len);
 
     // Update gap stats
     if(is_mp) {
@@ -458,4 +491,113 @@ size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr) {
 // Called after correct_alignment_nxt()
 size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr) {
   return wrkr->start_idx; // start has moved on, so is now where gap_idx was
+}
+
+
+/*!
+  Correct a whole read, filling in gaps caused by sequencing error with the
+  graph
+  @param wrkr     Initialised temporary memory to use in doing alignment
+  @param r        Read to align to the graph
+  @param nodebuf  Store nodebuf from read and inferred in gaps in buffer
+  @param posbuf   Positions in the read of kmers (-1 means inferred from graph)
+ */
+void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
+                      const read_t *r, uint8_t fq_cutoff, uint8_t hp_cutoff,
+                      dBNodeBuffer *nodebuf, Int32Buffer *posbuf)
+{
+  size_t i, j, end_len;
+
+  db_node_buf_reset(nodebuf);
+  int32_buf_reset(posbuf);
+
+  db_node_buf_ensure_capacity(nodebuf, r->seq.end);
+  int32_buf_ensure_capacity(posbuf, r->seq.end);
+
+  // Correct sequence errors in the alignment
+  correct_alignment_init(wrkr, params, r, NULL, fq_cutoff, 0, hp_cutoff);
+
+  const dBAlignment *aln = &wrkr->aln;
+
+  // All or no nodes aligned
+  if(db_alignment_is_perfect(aln) || aln->nodes.len == 0) {
+    memcpy(nodebuf->data, aln->nodes.data, aln->nodes.len * sizeof(dBNode));
+    for(i = 0; i < aln->nodes.len; i++) posbuf->data[i] = i;
+    nodebuf->len = posbuf->len = aln->nodes.len;
+    return;
+  }
+
+  size_t left_gap = aln->rpos.data[0], right_gap = aln->r1enderr;
+  const dBNodeBuffer *nbuf;
+
+  // Temporary walkers used to traverse the graph
+  GraphWalker *wlk = &wrkr->wlk;
+  RepeatWalker *rptwlk = &wrkr->rptwlk;
+
+  // Get first alignment, if there are gaps, backtrack
+  nbuf = correct_alignment_nxt(wrkr);
+  ctx_assert(nbuf != NULL); // We've already checked aln->nodes.len > 0
+
+  if(left_gap > 0)
+  {
+    // Try to fill in missing kmers
+    graph_walker_prime(wlk, nbuf->data, nbuf->len,
+                       params->max_context, false,
+                       params->ctxcol, params->ctpcol,
+                       wrkr->db_graph);
+
+    db_node_buf_ensure_capacity(nodebuf, left_gap);
+    int32_buf_ensure_capacity(  posbuf,  left_gap);
+
+    for(i = 0; i < left_gap && graph_walker_next(wlk) &&
+               rpt_walker_attempt_traverse(rptwlk, wlk);  i++)
+    {
+      nodebuf->data[nodebuf->len] = wlk->node;
+      posbuf->data[nodebuf->len] = -1;
+    }
+    nodebuf->len = posbuf->len = i;
+
+    graph_walker_finish(wlk);
+    rpt_walker_fast_clear(rptwlk, nodebuf->data, nodebuf->len);
+
+    // Reverse lists, reverse nodes
+    for(i = 0, j = nodebuf->len-1; i < nodebuf->len; i++, j--) {
+      dBNode n = nodebuf->data[i];
+      nodebuf->data[i] = db_node_reverse(nodebuf->data[j]);
+      nodebuf->data[j] = db_node_reverse(n);
+      SWAP(posbuf->data[i], posbuf->data[j]);
+    }
+  }
+
+  // Append contigs
+  while((nbuf = correct_alignment_nxt(wrkr)) != NULL)
+  {
+    ctx_assert(wrkr->contig.len ==  wrkr->rpos.len);
+    db_node_buf_append(nodebuf, wrkr->contig.data, wrkr->contig.len);
+    int32_buf_append(posbuf, wrkr->rpos.data, wrkr->rpos.len);
+  }
+
+  if(right_gap > 0)
+  {
+    // Extend to the right
+    graph_walker_prime(wlk, nbuf->data, nbuf->len,
+                       params->max_context, true,
+                       params->ctxcol, params->ctpcol,
+                       wrkr->db_graph);
+
+    end_len = nodebuf->len + right_gap;
+    db_node_buf_ensure_capacity(nodebuf, end_len);
+    int32_buf_ensure_capacity(  posbuf,  end_len);
+
+    for(i = nodebuf->len; i < end_len && graph_walker_next(wlk) &&
+                          rpt_walker_attempt_traverse(rptwlk, wlk); i++)
+    {
+      nodebuf->data[i] = wlk->node;
+      posbuf->data[i]  = -1;
+    }
+    nodebuf->len = posbuf->len = i;
+
+    graph_walker_finish(wlk);
+    rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
+  }
 }

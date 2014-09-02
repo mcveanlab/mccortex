@@ -52,7 +52,7 @@ static inline size_t FUNC ## _add(buf_t *buf, obj_t obj)                       \
  __attribute__((unused));                                                      \
 static inline int FUNC ## _attempt_add(buf_t *buf, obj_t obj)                  \
  __attribute__((unused));                                                      \
-static inline size_t FUNC ## _append(buf_t *buf, obj_t *obj, size_t n)         \
+static inline size_t FUNC ## _append(buf_t *buf, const obj_t *obj, size_t n)   \
  __attribute__((unused));                                                      \
 static inline void FUNC ## _reset(buf_t *buf)                                  \
  __attribute__((unused));                                                      \
@@ -94,7 +94,7 @@ static inline int FUNC ## _attempt_add(buf_t *buf, obj_t obj) {                \
 }                                                                              \
                                                                                \
 /* Returns index of first new object in buffer */                              \
-static inline size_t FUNC ## _append(buf_t *buf, obj_t *obj, size_t n) {       \
+static inline size_t FUNC ## _append(buf_t *buf, const obj_t *obj, size_t n) { \
   FUNC ## _ensure_capacity(buf, buf->len+n);                                   \
   memcpy(buf->data+buf->len, obj, n*sizeof(obj_t));                            \
   size_t idx = buf->len;                                                       \

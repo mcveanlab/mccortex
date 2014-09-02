@@ -31,29 +31,36 @@ void seqout_close(SeqOutput *output, bool rm);
 
 void seqout_print(SeqOutput *output, const read_t *r1, const read_t *r2);
 
-#define seqout_gzprint_read(r,fmt,gzout)                                       \
-do {                                                                           \
-  switch(fmt) {                                                                \
-    case SEQ_FMT_PLAIN:                                                        \
-      gzwrite(gzout, (r)->seq.b, (r)->seq.end);                                \
-      gzputc(gzout, '\n'); break;                                              \
-    case SEQ_FMT_FASTA: seq_gzprint_fasta(r, gzout, 0); break;                 \
-    case SEQ_FMT_FASTQ: seq_gzprint_fastq(r, gzout, 0); break;                 \
-    default: die("Invalid output format: %i", fmt);                            \
-  }                                                                            \
-} while(0)
+// DEV: check gzwrite, gzputc return type
+static inline void seqout_gzprint_read(const read_t *r, seq_format fmt, gzFile gzout)
+{
+  int ret = 0;
+  switch(fmt) {
+    case SEQ_FMT_PLAIN:
+      if(gzwrite(gzout, (r)->seq.b, (r)->seq.end) != (int)(r)->seq.end ||
+         gzputc(gzout, '\n') != '\n') ret = -1;
+      break;
+    case SEQ_FMT_FASTA: ret = seq_gzprint_fasta(r, gzout, 0); break;
+    case SEQ_FMT_FASTQ: ret = seq_gzprint_fastq(r, gzout, 0); break;
+    default: die("Invalid output format: %i", fmt);
+  }
+  if(ret == -1) die("Cannot write sequence");
+}
 
-#define seqout_print_read(r,fmt,fout)                                          \
-do {                                                                           \
-  switch(fmt) {                                                                \
-    case SEQ_FMT_PLAIN:                                                        \
-      fwrite((r)->seq.b, 1, (r)->seq.end, fout);                               \
-      fputc('\n', fout); break;                                                \
-    case SEQ_FMT_FASTA: seq_print_fasta(r, fout, 0); break;                    \
-    case SEQ_FMT_FASTQ: seq_print_fastq(r, fout, 0); break;                    \
-    default: die("Invalid output format: %i", fmt);                            \
-  }                                                                            \
-} while(0)
+static inline void seqout_print_read(const read_t *r, seq_format fmt, FILE *fout)
+{
+  int ret = 0;
+  switch(fmt) {
+    case SEQ_FMT_PLAIN:
+      if(fwrite((r)->seq.b, 1, (r)->seq.end, fout) != (r)->seq.end ||
+         fputc('\n', fout) != '\n') ret = -1;
+      break;
+    case SEQ_FMT_FASTA: ret = seq_print_fasta(r, fout, 0); break;
+    case SEQ_FMT_FASTQ: ret = seq_print_fastq(r, fout, 0); break;
+    default: die("Invalid output format: %i", fmt);
+  }
+  if(ret == -1) die("Cannot write sequence");
+}
 
 static inline int seqout_str2fmt(const char *str)
 {

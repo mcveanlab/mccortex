@@ -8,9 +8,9 @@
 
 typedef struct
 {
-  size_t r1bases, r2bases;
+  size_t r1bases, r2bases; // number of bases in input reads
   dBNodeBuffer nodes; // Nodes found in the graph
-  Uint32Buffer gaps; // gap (num nodes) preceeding each node covered by sequence
+  Int32Buffer rpos; // Position of kmer start in read e.g {0,1,5,6,0,1,2} in PE
   size_t r1enderr, r2enderr; // how many nodes are lost at the end of reads 1,2
   // index of buf where r2 starts
   // (-1 if no r2, nodes.len if r2 did not provide any nodes)
@@ -24,8 +24,8 @@ typedef struct
   // whether or not there are sequencing gaps
   bool seq_gaps;
   // if used_r1 && used_r2
-  // gap between r1 last nodes[r2strtindx-1] .. nodes[r2strtindx]
-  // = r1enderr + insgapsize + gaps[r2strtindx]
+  // gap between r1 and r2: nodes[r2strtindx-1] .. nodes[r2strtindx]
+  // = r1enderr + insgapsize + rpos[r2strtindx]
   int colour; // -1 if colour agnostic, otherwise only nodes in colour used
 } dBAlignment;
 
@@ -46,6 +46,9 @@ void db_alignment_from_reads(dBAlignment *alignment,
 // Returns index of node just after next gap,
 // or aln->nodes.len if no more gaps
 size_t db_alignment_next_gap(const dBAlignment *aln, size_t start);
+
+// @return true iff alignment has no gaps, all kmers found
+bool db_alignment_is_perfect(const dBAlignment *aln);
 
 //
 // Debugging

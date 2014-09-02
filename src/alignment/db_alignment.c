@@ -11,16 +11,17 @@ size_t db_alignment_est_mem()
   return (sizeof(size_t)+sizeof(dBNode))*INIT_BUFLEN;
 }
 
-void db_alignment_alloc(dBAlignment *alignment)
+void db_alignment_alloc(dBAlignment *aln)
 {
-  db_node_buf_alloc(&alignment->nodes, INIT_BUFLEN);
-  uint32_buf_alloc(&alignment->gaps, INIT_BUFLEN);
+  db_node_buf_alloc(&aln->nodes, INIT_BUFLEN);
+  int32_buf_alloc(&aln->rpos, INIT_BUFLEN);
 }
 
-void db_alignment_dealloc(dBAlignment *alignment)
+void db_alignment_dealloc(dBAlignment *aln)
 {
-  db_node_buf_dealloc(&alignment->nodes);
-  uint32_buf_dealloc(&alignment->gaps);
+  db_node_buf_dealloc(&aln->nodes);
+  int32_buf_dealloc(&aln->rpos);
+  memset(aln, 0, sizeof(dBAlignment));
 }
 
 // if colour is -1 aligns to all colours, otherwise aligns to given colour only
@@ -29,7 +30,7 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
                                      uint8_t qcutoff, uint8_t hp_cutoff,
                                      const dBGraph *db_graph, int colour)
 {
-  size_t contig_start, contig_end = 0, search_start = 0, nxt_exp_kmer_offset = 0;
+  size_t contig_start, contig_end = 0, search_start = 0;
   const size_t kmer_size = db_graph->kmer_size;
 
   BinaryKmer bkmer, tmp_key;
@@ -38,13 +39,13 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
   size_t offset, nxtbse;
 
   dBNodeBuffer *nodes = &alignment->nodes;
-  Uint32Buffer *gaps = &alignment->gaps;
+  Int32Buffer *rpos = &alignment->rpos;
 
-  ctx_assert(nodes->len == gaps->len);
-  size_t n = gaps->len;
+  ctx_assert(nodes->len == rpos->len);
+  size_t n = nodes->len;
 
   db_node_buf_ensure_capacity(nodes, n + r->seq.end);
-  uint32_buf_ensure_capacity(gaps, n + r->seq.end);
+  int32_buf_ensure_capacity(rpos, n + r->seq.end);
 
   while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          qcutoff, hp_cutoff)) < r->seq.end)
@@ -58,7 +59,7 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
     bkmer = binary_kmer_from_str(contig, kmer_size);
     bkmer = binary_kmer_right_shift_one_base(bkmer);
 
-    for(offset=0, nxtbse=kmer_size-1; nxtbse < contig_len; nxtbse++,offset++)
+    for(offset=contig_start, nxtbse=kmer_size-1; nxtbse < contig_len; nxtbse++,offset++)
     {
       nuc = dna_char_to_nuc(contig[nxtbse]);
       bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
@@ -70,19 +71,20 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
       {
         nodes->data[n].key = node;
         nodes->data[n].orient = bkmer_get_orientation(bkmer, tmp_key);
-        gaps->data[n] = (uint32_t)(contig_start+offset - nxt_exp_kmer_offset);
-        nxt_exp_kmer_offset = contig_start+offset+1;
+        rpos->data[n] = offset;
         n++;
       }
       else alignment->seq_gaps = true;
     }
   }
 
-  nodes->len = gaps->len = n;
+  // Return number of bases from the last kmer found until read end
+  size_t ret = (n == rpos->len ? r->seq.end /* No kmers found */
+                               : r->seq.end - (rpos->data[n] + kmer_size-1));
 
-  // If contig_end == 0 we never found any kmers
-  size_t end_of_last_kmer = nxt_exp_kmer_offset+kmer_size-1;
-  return contig_end == 0 ? r->seq.end : r->seq.end - end_of_last_kmer;
+  nodes->len = rpos->len = n;
+
+  return ret;
 }
 
 
@@ -97,7 +99,7 @@ void db_alignment_from_reads(dBAlignment *alignment,
   ctx_assert(colour == -1 || db_graph->node_in_cols != NULL);
 
   db_node_buf_reset(&alignment->nodes);
-  uint32_buf_reset(&alignment->gaps);
+  int32_buf_reset(&alignment->rpos);
   alignment->seq_gaps = false;
   alignment->r2enderr = 0;
   alignment->passed_r2 = (r2 != NULL);
@@ -129,14 +131,27 @@ void db_alignment_from_reads(dBAlignment *alignment,
 // or aln->nodes.len if no more gaps
 size_t db_alignment_next_gap(const dBAlignment *aln, size_t start)
 {
-  size_t i, end = aln->nodes.len;
+  size_t i, end = aln->rpos.len;
+  int32_t *rpos = aln->rpos.data;
+
   if(end == 0) return 0;
 
   if(aln->used_r1 && aln->used_r2 && start < aln->r2strtidx)
     end = aln->r2strtidx;
 
-  for(i = start+1; i < end && aln->gaps.data[i] == 0; i++) {}
+  for(i = start+1; i < end && rpos[i-1]+1 == rpos[i]; i++) {}
+
+  // Return position after gap
   return i;
+}
+
+// @return true iff alignment has no gaps, all kmers found
+bool db_alignment_is_perfect(const dBAlignment *aln)
+{
+  return (!aln->passed_r2 && aln->used_r1 && // we only given one read and used it
+          !aln->seq_gaps && // there are no gaps
+          aln->rpos.len > 0 && aln->rpos.data[0] == 0 && // no missing at start
+          aln->r1enderr == 0); // no missing kmers at the end
 }
 
 //
@@ -152,11 +167,11 @@ void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
   while(start < aln->nodes.len)
   {
     if(start == aln->r2strtidx)
-      printf("    gap: %zu -[ins]- %u\n", aln->r1enderr, aln->gaps.data[start]);
+      printf("    gap: %zu -[ins]- %u\n", aln->r1enderr, aln->rpos.data[start]);
     else if(start == 0)
-      printf("    start gap: %u\n", aln->gaps.data[start]);
+      printf("    start gap: %u\n", aln->rpos.data[start]);
     else
-      printf("    gap: %u\n", aln->gaps.data[start]);
+      printf("    gap: %u\n", aln->rpos.data[start]);
 
     printf("  %zu nodes\n", end-start);
 
@@ -171,7 +186,7 @@ void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
     end = db_alignment_next_gap(aln, end);
   }
   if(aln->passed_r2) {
-    if(!aln->used_r2) printf("    [ins] unused r2: %u\n", aln->gaps.data[end]);
+    if(!aln->used_r2) printf("    [ins] unused r2: %u\n", aln->rpos.data[end]);
     else printf(" end gap [r2]: %zu\n", aln->r2enderr);
   }
   else printf(" end gap [r1]: %zu\n", aln->r1enderr);

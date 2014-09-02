@@ -112,7 +112,7 @@ int ctx_correct(int argc, char **argv)
                                        args.colour);
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(gfile, 1, gpfiles->data, gpfiles->len);
+  graphs_gpaths_compatible(gfile, 1, gpfiles->data, gpfiles->len, 1);
 
   int64_t ctx_num_kmers = gfile->num_of_kmers;
 

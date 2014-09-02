@@ -11,9 +11,9 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-16 July 2014
+1 September 2014
 
-[![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)
+[![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)[![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
 Build
 -----
@@ -82,7 +82,7 @@ Type a command with no arguments to see usage. The following may also be useful:
 * Email me: Isaac Turner <turner.isaac@gmail.com>
 
 Code And Contributing
-------------
+---------------------
 
 Issues can be submitted on github. Pull requests welcome. Please add your name
 to the AUTHORS file.
@@ -102,8 +102,10 @@ Code is organised as:
 
 * = files that need recompiling based on different MAX_KMER_SIZE
 
-Files only link to files that are above them in the list above. E.g. src/kmer/*
-files only include files in src/kmer/, src/basic/ and libs/.
+Files only link to files that are above them in the list above. E.g. src/graph/*
+files only include files in src/graph/, src/paths/, src/basic/, src/global/ and libs/.
+
+Thread-safe functions are named *_mt().
 
 Static analysis can be run with [cppcheck](http://cppcheck.sourceforge.net):
 
@@ -114,7 +116,9 @@ or with [clang](http://clang-analyzer.llvm.org):
     rm -rf bin/ctx31
     scan-build make RECOMPILE=1
 
-Occasionally we also run Coverity Scan: [![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
+Occasionally we also run Coverity Scan. This is done by pushing to the `coverity_scan` branch on github, which triggers Travis CI to upload the latest code to Coverity.
+
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
 License: GPLv2
 --------------

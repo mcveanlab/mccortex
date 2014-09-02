@@ -24,6 +24,16 @@ bad.txt:
 	echo gGACAGGCATGcAGAGnnnnnnnnnnGGCTTGCACGAGCGAGAACCCATagNtcaaacaTagaga >> $@
 	echo nnnnnnnnnnnnnnAnnnnnnnnnnnnnnTaannnnnnaaaaaaaaaaaaN >> $@
 
+indels.bad.fq:
+	echo '@ins_T>TT' > $@
+	echo AGACAGGCATGTAGAGCTGGTtGCGGAGGCTTGCACGAGCGAGAACCCATCAA >> $@
+	echo + >> $@
+	echo abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
+	echo '@del_GG>G' >> $@
+	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGCGAGAACCCATCAA >> $@
+	echo + >> $@
+	echo abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY >> $@
+
 rand.fq:
 	$(DNACAT) -n 40 -Q > $@
 
@@ -54,5 +64,13 @@ fix.fq: rand.fq ref.k$(K).ctx
 	cat ref.txt
 	cat rand.fq
 	cat fix.fq
+
+indels.good.fq: indels.bad.fq
+	$(CTX) correct -m 10M -F FASTQ -1 $<:indels.good ref.k9.ctx
+	gzip -d indels.good.fq.gz
+	echo == in
+	cat $<
+	echo == out
+	cat $@
 
 .PHONY: all clean

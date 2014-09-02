@@ -192,3 +192,21 @@ void json_hdr_gzprint(cJSON *json, gzFile gzout)
   gzputc(gzout, '\n');
   free(jstr);
 }
+
+long json_hdr_demand_int(cJSON *root, const char *field, const char *path)
+{
+  cJSON *json = cJSON_GetObjectItem(root, field);
+  if(json == NULL || json->type != cJSON_Number)
+    die("No '%s' field in header: %s", field, path);
+  return json->valueint;
+}
+
+size_t json_hdr_get_kmer_size(cJSON *json, const char *path)
+{
+  long val = json_hdr_demand_int(json, "kmer_size", path);
+  if(val < MIN_KMER_SIZE || val > MAX_KMER_SIZE || !(val & 1)) {
+    die("kmer size is not an odd int between %i..%i: %li [%s]",
+        MIN_KMER_SIZE, MAX_KMER_SIZE, val, path);
+  }
+  return val;
+}

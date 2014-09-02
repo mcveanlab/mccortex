@@ -156,7 +156,7 @@ int ctx_pjoin(int argc, char **argv)
   }
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(&gfile, graph_file ? 1 : 0, pfiles, num_pfiles);
+  graphs_gpaths_compatible(&gfile, graph_file ? 1 : 0, pfiles, num_pfiles, -1);
 
   // Done with the graph file now
   if(graph_file != NULL)

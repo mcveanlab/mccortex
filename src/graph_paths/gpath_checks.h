@@ -6,10 +6,14 @@
 #include "graph_file_reader.h"
 #include "gpath_reader.h"
 
-// Similar to path_file_reader.c:path_file_load_check()
-// Check kmer size matches and sample names match
+/*!
+  Similar to path_file_reader.c:path_file_load_check()
+  Check kmer size matches and sample names match
+  @param pop_colour is not -1, colour `pop_colour` is excused from clashing names
+*/
 void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
-                              const GPathReader *gpaths, size_t num_gpaths);
+                              const GPathReader *gpaths, size_t num_gpaths,
+                              int32_t pop_colour);
 
 /*!
   Load colour -> colour0, rest -> pop colour1

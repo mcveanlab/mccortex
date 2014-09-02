@@ -35,7 +35,6 @@ struct GenPathWorker
   AsyncIOData *data; // current data
   CorrectAlnInput task; // current task
 
-  dBAlignment aln;
   CorrectAlnWorker corrector;
 
   // Nucleotides and positions of junctions
@@ -69,7 +68,6 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
   GenPathWorker tmp = {.db_graph = db_graph};
 
-  db_alignment_alloc(&tmp.aln);
   correct_aln_worker_alloc(&tmp.corrector, db_graph);
 
   // Junction data
@@ -87,7 +85,6 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 
 static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 {
-  db_alignment_dealloc(&wrkr->aln);
   correct_aln_worker_dealloc(&wrkr->corrector);
   ctx_free(wrkr->pck_fw);
   ctx_free(wrkr->pos_fw);
@@ -416,19 +413,12 @@ static void reads_to_paths(GenPathWorker *wrkr)
   if(r2 != NULL)
     seq_reader_orient_mp_FF_or_RR(r1, r2, wrkr->task.matedir);
 
-  db_alignment_from_reads(&wrkr->aln, r1, r2,
-                          fq_cutoff1, fq_cutoff2, hp_cutoff,
-                          wrkr->db_graph, wrkr->task.crt_params.ctxcol);
+  correct_alignment_init(&wrkr->corrector, &wrkr->task.crt_params,
+                         r1, r2, fq_cutoff1, fq_cutoff2, hp_cutoff);
 
-  ctx_check2(db_alignment_check_edges(&wrkr->aln, wrkr->db_graph),
+  ctx_check2(db_alignment_check_edges(&wrkr->corrector.aln, wrkr->db_graph),
              "Edges missing: was read %s%s%s used to build the graph?",
              r1->name.b, r2 ? ", " : "", r2 ? r2->name.b : "");
-
-  // For debugging
-  // db_alignment_print(&wrkr->aln, wrkr->db_graph);
-
-  // Correct sequence errors in the alignment
-  correct_alignment_init(&wrkr->corrector, &wrkr->aln, wrkr->task.crt_params);
 
   dBNodeBuffer *nbuf;
   while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL) {

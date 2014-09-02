@@ -20,22 +20,9 @@ kmer [num] .. ignored
 
 #define load_check(x,msg,...) if(!(x)) { die("[LoadPathError] "msg, ##__VA_ARGS__); }
 
-static long _json_demand_int(cJSON *root, const char *field, const char *path)
-{
-  cJSON *json = cJSON_GetObjectItem(root, field);
-  if(json == NULL || json->type != cJSON_Number)
-    die("No '%s' field in header: %s", field, path);
-  return json->valueint;
-}
-
 size_t gpath_reader_get_kmer_size(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "kmer_size", file->fltr.path.b);
-  if(val < MIN_KMER_SIZE || val > MAX_KMER_SIZE || !(val & 1)) {
-    die("kmer size is not an odd int between %i..%i: %li",
-        MIN_KMER_SIZE, MAX_KMER_SIZE, val);
-  }
-  return val;
+  return json_hdr_get_kmer_size(file->json, file->fltr.path.b);
 }
 
 size_t gpath_reader_get_num_kmers(const GPathReader *file)
@@ -48,28 +35,28 @@ size_t gpath_reader_get_num_kmers(const GPathReader *file)
         file->fltr.path.b);
   }
   long val = json->valueint;
-  // long val = _json_demand_int(file->json, "kmers_with_paths", file->fltr.path.b);
+  // long val = json_hdr_demand_int(file->json, "kmers_with_paths", file->fltr.path.b);
   if(val < 0) die("num_kmers is negative");
   return val;
 }
 
 size_t gpath_reader_get_num_paths(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "num_paths", file->fltr.path.b);
+  long val = json_hdr_demand_int(file->json, "num_paths", file->fltr.path.b);
   if(val < 0) die("num_paths is negative");
   return val;
 }
 
 size_t gpath_reader_get_path_bytes(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "path_bytes", file->fltr.path.b);
+  long val = json_hdr_demand_int(file->json, "path_bytes", file->fltr.path.b);
   if(val < 0) die("path_bytes is negative");
   return val;
 }
 
 static size_t _gpath_reader_get_filencols(const GPathReader *file)
 {
-  long val = _json_demand_int(file->json, "ncols", file->fltr.path.b);
+  long val = json_hdr_demand_int(file->json, "ncols", file->fltr.path.b);
   if(val < 1 || val > 100000) die("Invalid number of colours: %li", val);
   return val;
 }
@@ -102,7 +89,7 @@ void _parse_json_header(GPathReader *file)
 
 // Open file, exit on error
 // if successful creates a new GPathReader and returns 1
-void gpath_reader_open2(GPathReader *file, char *path, const char *mode)
+void gpath_reader_open2(GPathReader *file, const char *path, const char *mode)
 {
   FileFilter *fltr = &file->fltr;
   file_filter_open(fltr, path); // calls die() on error
@@ -129,7 +116,7 @@ void gpath_reader_open2(GPathReader *file, char *path, const char *mode)
   db_graph_check_kmer_size(kmer_size, file->fltr.path.b);
 }
 
-void gpath_reader_open(GPathReader *file, char *path)
+void gpath_reader_open(GPathReader *file, const char *path)
 {
   gpath_reader_open2(file, path, "r");
 }
@@ -320,7 +307,7 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
   gzFile gzin = file->gz;
   const char *path = file->fltr.path.b;
 
-  status("Loading path file: %s", path);
+  file_filter_status(&file->fltr);
 
   // Read kmer lines
   // <KMER> <num>

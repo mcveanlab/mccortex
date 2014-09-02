@@ -116,7 +116,7 @@ int ctx_bubbles(int argc, char **argv)
   // Open graph files
   //
   const size_t num_gfiles = argc - optind;
-  char **graph_paths = argv + optind;
+  const char **graph_paths = (const char**)(argv + optind);
   ctx_assert(num_gfiles > 0);
 
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
@@ -126,7 +126,7 @@ int ctx_bubbles(int argc, char **argv)
                            &ctx_max_kmers, &ctx_sum_kmers);
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
 
   //
   // Check haploid colours are valid

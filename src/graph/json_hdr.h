@@ -19,4 +19,8 @@ void json_hdr_add_std(cJSON *json, const char *path,
 
 void json_hdr_gzprint(cJSON *json, gzFile gzout);
 
+// Get values from a JSON header
+long json_hdr_demand_int(cJSON *root, const char *field, const char *path);
+size_t json_hdr_get_kmer_size(cJSON *root, const char *path);
+
 #endif /* JSON_HDR_H_ */

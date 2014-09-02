@@ -7,9 +7,8 @@
 
 static void _check_correct_aln(char *seq1, char *seq2,
                                char **ans, size_t num_ans,
-                               dBAlignment *aln,
                                CorrectAlnWorker *corrector,
-                               const CorrectAlnParam params,
+                               const CorrectAlnParam *params,
                                const dBGraph *graph, StrBuf *sbuf)
 {
   size_t i, seqlen = strlen(seq1);
@@ -33,8 +32,7 @@ static void _check_correct_aln(char *seq1, char *seq2,
     r2ptr = &r2;
   }
 
-  db_alignment_from_reads(aln, &r1, r2ptr, 0, 0, 0, graph, -1);
-  correct_alignment_init(corrector, aln, params);
+  correct_alignment_init(corrector, params, &r1, r2ptr, 0, 0, 0);
 
   for(i = 0; i < num_ans; i++)
   {
@@ -71,7 +69,6 @@ static void test_correct_aln_no_paths()
   size_t kmer_size = 11, ncols = 1;
 
   // Start alignment
-  dBAlignment aln;
   CorrectAlnWorker corrector;
   StrBuf sbuf;
 
@@ -89,19 +86,17 @@ static void test_correct_aln_no_paths()
 
   TASSERT(graph.gpstore.num_paths == 0);
 
-  db_alignment_alloc(&aln);
   correct_aln_worker_alloc(&corrector, &graph);
   strbuf_alloc(&sbuf, 1024);
 
   alns[0] = re0;
-  _check_correct_aln(mu0, NULL, alns, 1, &aln, &corrector, params, &graph, &sbuf);
+  _check_correct_aln(mu0, NULL, alns, 1, &corrector, &params, &graph, &sbuf);
 
   alns[0] = re1;
-  _check_correct_aln(mu1, NULL, alns, 1, &aln, &corrector, params, &graph, &sbuf);
+  _check_correct_aln(mu1, NULL, alns, 1, &corrector, &params, &graph, &sbuf);
 
   strbuf_dealloc(&sbuf);
   correct_aln_worker_dealloc(&corrector);
-  db_alignment_dealloc(&aln);
   db_graph_dealloc(&graph);
 }
 
@@ -140,7 +135,6 @@ static void test_contig_ends_agree()
   size_t kmer_size = 11, ncols = 1;
 
   // Start alignment
-  dBAlignment aln;
   CorrectAlnWorker corrector;
   StrBuf sbuf;
 
@@ -156,7 +150,6 @@ static void test_contig_ends_agree()
   // Construct graph and paths
   _construct_graph_with_paths(&graph, kmer_size, ncols, seqs, 2, params);
 
-  db_alignment_alloc(&aln);
   correct_aln_worker_alloc(&corrector, &graph);
   strbuf_alloc(&sbuf, 1024);
 
@@ -177,32 +170,31 @@ static void test_contig_ends_agree()
 
     correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = seqa;
-    _check_correct_aln(r1a, r2a, alns, 1, &aln, &corrector, params, &graph, &sbuf);
+    _check_correct_aln(r1a, r2a, alns, 1, &corrector, &params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 1);
 
     correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = seqb;
-    _check_correct_aln(r1b, r2b, alns, 1, &aln, &corrector, params, &graph, &sbuf);
+    _check_correct_aln(r1b, r2b, alns, 1, &corrector, &params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 1);
 
     correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = r1a;
     alns[1] = r2b;
-    _check_correct_aln(r1a, r2b, alns, 2, &aln, &corrector, params, &graph, &sbuf);
+    _check_correct_aln(r1a, r2b, alns, 2, &corrector, &params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 0);
     TASSERT(corrector.gapstats.num_paths_disagreed > 0);
 
     correct_aln_stats_reset(&corrector.gapstats);
     alns[0] = r1b;
     alns[1] = r2a;
-    _check_correct_aln(r1b, r2a, alns, 2, &aln, &corrector, params, &graph, &sbuf);
+    _check_correct_aln(r1b, r2a, alns, 2, &corrector, &params, &graph, &sbuf);
     TASSERT(corrector.gapstats.num_gap_successes == 0);
     TASSERT(corrector.gapstats.num_paths_disagreed > 0);
   }
 
   strbuf_dealloc(&sbuf);
   correct_aln_worker_dealloc(&corrector);
-  db_alignment_dealloc(&aln);
   db_graph_dealloc(&graph);
 }
 

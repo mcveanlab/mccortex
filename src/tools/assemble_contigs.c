@@ -94,7 +94,7 @@ static inline void _print_grphwlk_state(const char *str, uint64_t num,
 {
   char nout_str[50];
   status(PREFIX"  %s: %s\t[ %2zu%% ]", str, ulong_to_str(num, nout_str),
-         (size_t)(((100.0*num)/num_contigs)+0.5));
+         !num_contigs ? 0 : (size_t)(((100.0*num)/num_contigs)+0.5));
 }
 
 static inline void _print_path_dist(const uint64_t *hist, size_t n,
@@ -232,6 +232,10 @@ typedef struct
 static int pulldown_contig(hkey_t hkey, Assembler *assem)
 {
   AssembleContigStats *stats = &assem->stats;
+  const dBGraph *db_graph = assem->db_graph;
+
+  // Don't use a kmer if it is not in the sample we are assembling
+  if(!db_node_has_col(db_graph, hkey, assem->colour)) return 0;
 
   // Don't use a visited kmer as a seed node if --no-reseed passed
   if(assem->visited != NULL && bitset_get_mt(assem->visited, hkey)) {
@@ -242,7 +246,6 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
   GraphWalker *wlk = &assem->wlk;
   RepeatWalker *rptwlk = &assem->rptwlk;
   dBNodeBuffer *nodes = &assem->nodes;
-  const dBGraph *db_graph = assem->db_graph;
 
   dBNode first_node = {.key = hkey, .orient = FORWARD};
   Orientation orient;
@@ -305,6 +308,10 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     // traversing from the seed node forward... FORWARD == 0, REVERSE == 1
     graph_walker_status2str(wlk_step_last[0], left_stat, sizeof(left_stat));
     graph_walker_status2str(wlk_step_last[1], rght_stat, sizeof(rght_stat));
+
+    // If end status is healthy, then we got stuck in a repeat
+    if(grphwlk_status_is_good(wlk_step_last[0])) strcpy(left_stat, "HitRepeat");
+    if(grphwlk_status_is_good(wlk_step_last[1])) strcpy(rght_stat, "HitRepeat");
 
     pthread_mutex_lock(assem->outlock);
     contig_id = assem->num_contig_ptr[0]++;
@@ -454,7 +461,7 @@ void assemble_contigs(size_t nthreads,
     graph_walker_alloc(&tmp.wlk);
     rpt_walker_alloc(&tmp.rptwlk, db_graph->ht.capacity, 22); // 4MB
     assemble_contigs_stats_init(&tmp.stats);
-  
+
     memcpy(&workers[i], &tmp, sizeof(Assembler));
   }
 

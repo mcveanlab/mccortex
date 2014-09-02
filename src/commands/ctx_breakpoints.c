@@ -121,7 +121,7 @@ int ctx_breakpoints(int argc, char **argv)
   //
   // Open graph files
   //
-  char **graph_paths = argv + optind;
+  const char **graph_paths = (const char**)(argv + optind);
   size_t num_gfiles = argc - optind;
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
   size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
@@ -130,7 +130,7 @@ int ctx_breakpoints(int argc, char **argv)
                            &ctx_max_kmers, &ctx_sum_kmers);
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
 
   //
   // Get file sizes of sequence files

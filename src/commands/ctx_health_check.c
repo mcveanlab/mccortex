@@ -88,7 +88,7 @@ int ctx_health_check(int argc, char **argv)
   if(optind+1 != argc)
     cmd_print_usage("Too %s arguments", optind == argc ? "few" : "many");
 
-  char *ctx_path = argv[optind];
+  const char *ctx_path = argv[optind];
 
   if(!do_edge_check && gpfiles.len == 0) {
     cmd_print_usage("-E, --no-edge-check and no path files (-p in.ctp). "
@@ -100,11 +100,11 @@ int ctx_health_check(int argc, char **argv)
   //
   GraphFileReader gfile;
   memset(&gfile, 0, sizeof(GraphFileReader));
-  graph_file_open(&gfile, ctx_path); // true => errors are fatal
+  graph_file_open(&gfile, ctx_path);
   size_t ncols = file_filter_into_ncols(&gfile.fltr);
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len);
+  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, -1);
 
   //
   // Decide on memory

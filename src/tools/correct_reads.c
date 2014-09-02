@@ -11,7 +11,6 @@ typedef struct
 {
   const dBGraph *db_graph;
   volatile size_t *rcounter;
-  dBAlignment aln;
   CorrectAlnWorker corrector;
   // For filling in gaps
   GraphWalker wlk;
@@ -24,7 +23,6 @@ static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
                                        const dBGraph *db_graph)
 {
   wrkr->db_graph = db_graph;
-  db_alignment_alloc(&wrkr->aln);
   correct_aln_worker_alloc(&wrkr->corrector, db_graph);
   graph_walker_alloc(&wrkr->wlk);
   rpt_walker_alloc(&wrkr->rptwlk, db_graph->ht.capacity, 22); // 4MB bloom
@@ -35,7 +33,6 @@ static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
 
 static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
 {
-  db_alignment_dealloc(&wrkr->aln);
   correct_aln_worker_dealloc(&wrkr->corrector);
   graph_walker_dealloc(&wrkr->wlk);
   rpt_walker_dealloc(&wrkr->rptwlk);
@@ -59,21 +56,88 @@ static inline void _buf_append_qual_scores(StrBuf *buf, const read_t *r)
   strbuf_append_char(buf, '\n');
 }
 
+/*
+// Prints read sequence in lower case instead of N
+static void handle_read2(CorrectReadsWorker *wrkr,
+                         const CorrectAlnParam *params,
+                         const read_t *r, StrBuf *buf, StrBuf *qbuf,
+                         uint8_t fq_cutoff, uint8_t hp_cutoff,
+                         dBNodeBuffer *nodebuf, Int32Buffer *posbuf,
+                         seq_format format)
+{
+  const dBGraph *db_graph = wrkr->db_graph;
+  const size_t kmer_size = db_graph->kmer_size;
+  CorrectAlnWorker *corrector = &wrkr->corrector;
+
+  if((format & SEQ_FMT_FASTQ) && r->qual.end && r->seq.end != r->qual.end) {
+    die("Read qual scores don't match seq length (%zu vs %zu): %s",
+        r->qual.end, r->seq.end, r->name.b);
+  }
+
+  correct_aln_read(corrector, params, r, fq_cutoff, hp_cutoff,
+                   nodebuf, posbuf);
+
+  ctx_assert(nodebuf->len == posbuf->len);
+
+  // Print read in FASTA, FASTQ or PLAIN format
+  strbuf_reset(buf);
+  strbuf_reset(qbuf); // quality scores go here
+
+  if(format & (SEQ_FMT_FASTA | SEQ_FMT_FASTQ)) {
+    strbuf_append_char(buf, format == SEQ_FMT_FASTA ? '>' : '@');
+    strbuf_append_strn(buf, r->name.b, r->name.end);
+    strbuf_append_char(buf, '\n');
+  }
+
+  if(nodebuf->len == 0) {
+    strbuf_append_strn(buf, r->seq.b, r->seq.end);
+    if(format & SEQ_FMT_FASTQ) {
+      strbuf_append_str(buf, "\n+\n");
+      strbuf_append_strn(buf, r->qual.b, r->qual.end);
+      strbuf_append_char(buf, '\n');
+    }
+  }
+
+  // There must be at least one kmer where rpos != -1
+
+  size_t i, j, k;
+  size_t bases_printed = 0;
+
+  for(i = j = 0; i < nodebuf->len; i = j)
+  {
+    // Find first node that is not rpos -1
+    while(j < nodebuf->len && posbuf->data[j] == -1) j++;
+
+    // Print bases before kmer i
+
+    // Print the nodes i..j-1
+
+    for(k = j; k < nodebuf->len && posbuf->data[k] != -1; k++) {}
+
+    // print nodes j..k-1
+
+  }
+
+  // Print end of read
+
+  strbuf_append_char(buf, '\n');
+}
+*/
+
 // Prints read sequence in lower case instead of N
 static void handle_read(CorrectReadsWorker *wrkr,
-                        const CorrectAlnInput *input,
+                        const CorrectAlnParam *params,
                         const read_t *r, StrBuf *buf,
                         uint8_t fq_cutoff, uint8_t hp_cutoff,
                         seq_format format)
 {
   dBNodeBuffer *nbuf, *tmpnbuf = &wrkr->tmpnbuf;
-  dBAlignment *aln = &wrkr->aln;
   GraphWalker *wlk = &wrkr->wlk;
   RepeatWalker *rptwlk = &wrkr->rptwlk;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t kmer_size = db_graph->kmer_size;
-  const size_t ctxcol = input->crt_params.ctxcol;
-  const size_t ctpcol = input->crt_params.ctpcol;
+  const size_t ctxcol = params->ctxcol;
+  const size_t ctpcol = params->ctpcol;
 
   size_t i, idx, gap, num_n, nbases;
   size_t init_len, end_len;
@@ -90,12 +154,9 @@ static void handle_read(CorrectReadsWorker *wrkr,
     strbuf_append_char(buf, '\n');
   }
 
-  // Get de Bruijn graph alignment
-  db_alignment_from_reads(&wrkr->aln, r, NULL,
-                          fq_cutoff, 0, hp_cutoff, db_graph, -1);
-
   // Correct sequence errors in the alignment
-  correct_alignment_init(&wrkr->corrector, &wrkr->aln, input->crt_params);
+  correct_alignment_init(&wrkr->corrector, params,
+                         r, NULL, fq_cutoff, 0, hp_cutoff);
 
   // Get first alignment
   nbuf = correct_alignment_nxt(&wrkr->corrector);
@@ -111,14 +172,15 @@ static void handle_read(CorrectReadsWorker *wrkr,
   }
 
   // extend left
-  size_t left_gap = aln->gaps.data[0], right_gap = aln->r1enderr;
+  dBAlignment *aln = &wrkr->corrector.aln;
+  size_t left_gap = aln->rpos.data[0], right_gap = aln->r1enderr;
   size_t bases_printed = 0;
 
   if(left_gap > 0)
   {
     // Walk left
     graph_walker_prime(wlk, nbuf->data, nbuf->len,
-                       input->crt_params.max_context, false,
+                       params->max_context, false,
                        ctxcol, ctpcol, db_graph);
 
     db_node_buf_reset(tmpnbuf);
@@ -163,7 +225,8 @@ static void handle_read(CorrectReadsWorker *wrkr,
     nbuf = correct_alignment_nxt(&wrkr->corrector);
     ctx_assert(nbuf != NULL);
     idx = correct_alignment_get_strtidx(&wrkr->corrector);
-    gap = aln->gaps.data[idx];
+    ctx_assert(idx > 0);
+    gap = aln->rpos.data[idx] - aln->rpos.data[idx-1] - 1;
     num_n = gap < kmer_size ? 0 : gap - kmer_size + 1;
 
     for(i = 0; i < num_n; i++) {
@@ -188,7 +251,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
   {
     // walk right
     graph_walker_prime(wlk, nbuf->data, nbuf->len,
-                       input->crt_params.max_context, true,
+                       params->max_context, true,
                        0, 0, db_graph);
 
     init_len = nbuf->len;
@@ -226,6 +289,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   uint8_t fq_cutoff1, fq_cutoff2, hp_cutoff;
 
   CorrectAlnInput *input = (CorrectAlnInput*)data->ptr;
+  const CorrectAlnParam *params = &input->crt_params;
   SeqOutput *output = input->output;
   StrBuf *buf1 = &wrkr->buf1, *buf2 = &wrkr->buf2;
   seq_format format = output->fmt;
@@ -247,7 +311,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   if(r2 == NULL)
   {
     // Single ended read
-    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff, format);
+    handle_read(wrkr, params, r1, buf1, fq_cutoff1, hp_cutoff, format);
     pthread_mutex_lock(&output->lock_se);
     gzwrite(output->gzout_se, buf1->b, buf1->end);
     pthread_mutex_unlock(&output->lock_se);
@@ -255,8 +319,8 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   else
   {
     // Paired-end reads
-    handle_read(wrkr, input, r1, buf1, fq_cutoff1, hp_cutoff, format);
-    handle_read(wrkr, input, r2, buf2, fq_cutoff2, hp_cutoff, format);
+    handle_read(wrkr, params, r1, buf1, fq_cutoff1, hp_cutoff, format);
+    handle_read(wrkr, params, r2, buf2, fq_cutoff2, hp_cutoff, format);
     pthread_mutex_lock(&output->lock_pe);
     gzwrite(output->gzout_pe[0], buf1->b, buf1->end);
     gzwrite(output->gzout_pe[1], buf2->b, buf2->end);

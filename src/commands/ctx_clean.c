@@ -153,7 +153,7 @@ int ctx_clean(int argc, char **argv)
   }
 
   // Use remaining args as graph files
-  char **gfile_paths = argv + optind;
+  const char **gfile_paths = (const char**)(argv + optind);
   size_t i, j, num_gfiles = (size_t)(argc - optind);
 
   // Open graph files

@@ -30,6 +30,9 @@ extern const char *graph_step_str[];
 // Was the last step resolving a split in this colour?
 #define graphstep_is_fork(stp) ((stp).status > GRPHWLK_NOCOLCOVG)
 
+// Are we still walking?
+#define grphwlk_status_is_good(stat) ((stat) <= GRPHWLK_COLFWD)
+
 typedef struct
 {
   const dBGraph *const db_graph;

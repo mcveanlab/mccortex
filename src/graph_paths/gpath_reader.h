@@ -22,10 +22,10 @@ create_objbuf(gpfile_buf, GPathFileBuffer, GPathReader);
 
 // Open file, exits on error
 // if successful creates a new GPathReader
-void gpath_reader_open(GPathReader *file, char *path);
+void gpath_reader_open(GPathReader *file, const char *path);
 
 // mode is "r", "r+" etc.
-void gpath_reader_open2(GPathReader *file, char *path, const char *mode);
+void gpath_reader_open2(GPathReader *file, const char *path, const char *mode);
 
 void gpath_reader_check(const GPathReader *file, size_t kmer_size, size_t ncols);
 void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph);

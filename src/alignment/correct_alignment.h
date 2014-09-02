@@ -2,6 +2,7 @@
 #define CORRECTED_ALIGNMENT_H_
 
 #include "cortex_types.h"
+#include "common_buffers.h" // Int32Buffer
 #include "db_graph.h"
 #include "db_node.h"
 #include "db_alignment.h"
@@ -45,7 +46,7 @@ typedef struct
   RepeatWalker rptwlk, rptwlk2;
 
   // Alignment
-  const dBAlignment *aln;
+  dBAlignment aln;
   CorrectAlnParam params;
 
   // Current State
@@ -54,7 +55,7 @@ typedef struct
   // v..........v........v
   //
   // with no gap:
-  // start_idx           gap_idx|end_idx
+  // start_idx           gap_idx,end_idx
   // v...................v
   // return alignment from [start_idx..gap_idx]
   size_t start_idx, gap_idx, end_idx;
@@ -63,6 +64,7 @@ typedef struct
   // contig with gaps filled
   // we use revcontig when walking backwards
   dBNodeBuffer contig, revcontig;
+  Int32Buffer rpos;
 
   // Statistics on gap traversal
   LoadingStats stats;
@@ -83,16 +85,38 @@ void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr);
 void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
                              CorrectAlnWorker *restrict src);
 
-void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
-                            CorrectAlnParam params);
+// void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
+//                             CorrectAlnParam params);
 
-// DEV: add option to extend by n bases for read correction?
-// Returns NULL if end of alignment
+/*!
+  @param params Settings for correction - needs to be passed since we don't know
+                which source the reads came from and diff input sources have
+                different requirements (e.g. expected insert size)
+ */
+void correct_alignment_init(CorrectAlnWorker *wrkr,
+                            const CorrectAlnParam *params,
+                            const read_t *r1, const read_t *r2,
+                            uint8_t fq_cutoff1, uint8_t fq_cutoff2,
+                            int8_t hp_cutoff);
+
+// @return NULL if end of alignment, otherwise returns pointer to wrkr->contig
 dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr);
 
 // Get alignment coords of contig
 // Called after correct_alignment_nxt()
 size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr);
 size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr);
+
+/*!
+  Correct a whole read, filling in gaps caused by sequencing error with the
+  graph
+  @param wrkr     Initialised temporary memory to use in doing alignment
+  @param r        Read to align to the graph
+  @param nodebuf  Store nodebuf from read and inferred in gaps in buffer
+  @param posbuf   Positions in the read of kmers (-1 means inferred from graph)
+ */
+void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
+                      const read_t *r, uint8_t fq_cutoff, uint8_t hp_cutoff,
+                      dBNodeBuffer *nodebuf, Int32Buffer *posbuf);
 
 #endif /* CORRECTED_ALIGNMENT_H_ */

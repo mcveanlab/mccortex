@@ -138,7 +138,8 @@ int ctx_contigs(int argc, char **argv)
   size_t ncols = gpath_load_sample_pop(&gfile, gpfiles.data, gpfiles.len, colour);
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len);
+  // pop_colour is colour 1
+  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, 1);
 
   //
   // Decide on memory

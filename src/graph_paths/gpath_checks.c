@@ -16,10 +16,14 @@ static int _col_sample_cmp(const void *aa, const void *bb)
   return strcmp(a->name, b->name);
 }
 
-// Similar to path_file_reader.c:path_file_load_check()
-// Check kmer size matches and sample names match
+/*!
+  Similar to path_file_reader.c:path_file_load_check()
+  Check kmer size matches and sample names match
+  @param pop_colour is not -1, colour `pop_colour` is excused from clashing names
+*/
 void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
-                              const GPathReader *gpaths, size_t num_gpaths)
+                              const GPathReader *gpaths, size_t num_gpaths,
+                              int32_t pop_colour)
 {
   size_t g, p, kmer_size, kmer_size2;
   size_t ctx_max_cols = 0, ctp_max_cols = 0, colours_loaded = 0;
@@ -99,10 +103,11 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   qsort(samples, colours_loaded, sizeof(ColourSample), _col_sample_cmp);
 
   for(i = 0; i+1 < colours_loaded; i++) {
-    if(samples[i].col == samples[i+1].col &&
+    if((int32_t)samples[i].col != pop_colour &&
+       samples[i].col == samples[i+1].col &&
        strcmp(samples[i].name, samples[i+1].name) != 0)
     {
-      die("Sample names don't match\n%s:%zu%s\n%s:%zu%s\n",
+      die("Sample names don't match\n%s:%zu [%s]\n%s:%zu [%s]\n",
           samples[i].src, samples[i].from_col, samples[i].name,
           samples[i+1].src, samples[i+1].from_col, samples[i+1].name);
     }
@@ -119,9 +124,10 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
                              GPathReader *gpfiles, size_t num_gpfiles,
                              size_t colour)
 {
-  size_t p, i;
+  size_t p, i, j;
   bool tgt_col_loaded = false, pop_col_loaded = false;
 
+  // Update graph file colours
   for(i = 0; i < gfile->fltr.ncols; i++) {
     if(gfile->fltr.filter[i].into == colour) {
       gfile->fltr.filter[i].into = 0;
@@ -135,13 +141,22 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
   if(!tgt_col_loaded)
     die("You didn't load any colours into --colour %zu", colour);
 
+  // Update path files
   for(p = 0; p < num_gpfiles; p++) {
-    for(i = 0; i < gpfiles[p].fltr.ncols; i++) {
+    for(i = j = 0; i < gpfiles[p].fltr.ncols; i++) {
       if(gpfiles[p].fltr.filter[i].into == colour) {
-        gpfiles[p].fltr.filter[i].into = 0;
-      } else {
-        die("No point loading paths for colours other than --colour %zu", colour);
+        gpfiles[p].fltr.filter[j] = gpfiles[p].fltr.filter[i];
+        gpfiles[p].fltr.filter[j].into = 0;
+        j++;
       }
+      // else {
+      //   die("No point loading paths for colours other than --colour %zu", colour);
+      // }
+    }
+    gpfiles[p].fltr.ncols = j;
+    if(j == 0) {
+      die("Path file does not provide any paths in colour %zu: %s",
+          colour, file_filter_input(&gpfiles[p].fltr));
     }
   }
 
