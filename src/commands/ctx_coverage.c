@@ -254,11 +254,8 @@ int ctx_coverage(int argc, char **argv)
   size_t kmer_size = gfiles[0].hdr.kmer_size;
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, ncols, print_edges*ncols, kmers_in_hash);
-  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*ncols, sizeof(Covg));
-
-  if(print_edges)
-    db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*ncols, sizeof(Edges));
+  db_graph_alloc(&db_graph, kmer_size, ncols, print_edges*ncols, kmers_in_hash,
+                 DBG_ALLOC_COVGS | (print_edges ? DBG_ALLOC_EDGES : 0));
 
   //
   // Load graphs

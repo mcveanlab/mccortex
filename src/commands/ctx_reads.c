@@ -277,7 +277,7 @@ int ctx_reads(int argc, char **argv)
   // Set up graph
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 0, kmers_in_hash, 0);
 
   // Load graphs
   LoadingStats gstats = LOAD_STATS_INIT_MACRO;

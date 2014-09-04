@@ -266,19 +266,13 @@ int ctx_infer_edges(int argc, char **argv)
   //
   // Allocate memory
   //
+  int alloc_flags = reading_stream ? DBG_ALLOC_EDGES | DBG_ALLOC_COVGS
+                                   : DBG_ALLOC_NODE_IN_COL;
+
   dBGraph db_graph;
   db_graph_alloc(&db_graph, file.hdr.kmer_size,
                  ncols, reading_stream ? ncols : 1,
-                 kmers_in_hash);
-
-  if(reading_stream) {
-    db_graph.col_edges = ctx_calloc(ncols*db_graph.ht.capacity, sizeof(Edges));
-    db_graph.col_covgs = ctx_calloc(ncols*db_graph.ht.capacity, sizeof(Covg));
-  } else {
-    // In colour
-    size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-    db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, 1);
-  }
+                 kmers_in_hash, alloc_flags);
 
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,

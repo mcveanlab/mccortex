@@ -263,9 +263,11 @@ int ctx_join(int argc, char **argv)
   Edges *intersect_edges = NULL;
   size_t edge_cols = (use_ncols + take_intersect);
 
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols,
+                 kmers_in_hash, DBG_ALLOC_COVGS);
+
+  // We allocate edges ourself since it's a special case
   db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*edge_cols, sizeof(Edges));
-  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Covg));
 
   // Load intersection binaries
   char *intsct_gname_ptr = NULL;

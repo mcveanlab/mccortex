@@ -113,7 +113,6 @@ int ctx_thread(int argc, char **argv)
   //
   // Decide on memory
   //
-  size_t ncols = 1;
   size_t bits_per_kmer, kmers_in_hash, graph_mem, total_mem;
   size_t path_hash_mem, path_store_mem, path_mem;
   bool sep_path_list = (!args.use_new_paths && gpfiles->len > 0);
@@ -134,7 +133,7 @@ int ctx_thread(int argc, char **argv)
 
   // Paths memory
   size_t min_path_mem = 0;
-  gpath_reader_sum_mem(gpfiles->data, gpfiles->len, ncols, true, true, &min_path_mem);
+  gpath_reader_sum_mem(gpfiles->data, gpfiles->len, 1, true, true, &min_path_mem);
 
   if(graph_mem + min_path_mem > args.memargs.mem_to_use) {
     char buf[50];
@@ -145,7 +144,7 @@ int ctx_thread(int argc, char **argv)
   size_t pentry_hash_mem = sizeof(GPEntry)/0.7;
   size_t pentry_store_mem = sizeof(GPath) + 8 + // struct + sequence
                             1 + // in colour
-                            sizeof(uint8_t)*ncols + // counts
+                            sizeof(uint8_t) + // counts
                             sizeof(uint32_t); // kmer length
 
   size_t max_paths = path_mem / (pentry_store_mem + pentry_hash_mem);
@@ -169,11 +168,7 @@ int ctx_thread(int argc, char **argv)
   //
   dBGraph db_graph;
   size_t kmer_size = gfile->hdr.kmer_size;
-  db_graph_alloc(&db_graph, kmer_size, ncols, ncols, kmers_in_hash);
-  kmers_in_hash = db_graph.ht.capacity;
-
-  // Edges
-  db_graph.col_edges = ctx_calloc(kmers_in_hash, sizeof(Edges));
+  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash, DBG_ALLOC_EDGES);
 
   // Split path memory 2:1 between store and hash
   // Create a path store that tracks path counts

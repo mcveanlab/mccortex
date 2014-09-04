@@ -289,14 +289,11 @@ int ctx_build(int argc, char **argv)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, output_colours, output_colours, kmers_in_hash);
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity * output_colours, sizeof(Edges));
-  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * output_colours, sizeof(Covg));
+  int alloc_flags = DBG_ALLOC_EDGES | DBG_ALLOC_COVGS | DBG_ALLOC_BKTLOCKS |
+                    (remove_pcr_used ? DBG_ALLOC_READSTRT : 0);
 
-  db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
-
-  if(remove_pcr_used)
-    db_graph.readstrt = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*2, 1);
+  db_graph_alloc(&db_graph, kmer_size, output_colours, output_colours,
+                 kmers_in_hash, alloc_flags);
 
   hash_table_print_stats(&db_graph.ht);
 

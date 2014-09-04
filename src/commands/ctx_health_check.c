@@ -137,10 +137,8 @@ int ctx_health_check(int argc, char **argv)
 
   // Create db_graph
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, ncols, kmers_in_hash);
-
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity * ncols, sizeof(Edges));
-  db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity)*ncols, 1);
+  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, ncols, kmers_in_hash,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
   gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, false, &db_graph);

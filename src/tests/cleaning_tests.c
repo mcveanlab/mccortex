@@ -14,11 +14,8 @@ void test_cleaning()
   const size_t kmer_size = 19, ncols = 1, nthreads = 2;
   size_t i;
 
-  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
-  // Graph data
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
+  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_COVGS | DBG_ALLOC_BKTLOCKS);
 
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
   uint8_t *keep    = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);

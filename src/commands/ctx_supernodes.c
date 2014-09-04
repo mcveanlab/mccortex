@@ -317,8 +317,8 @@ int ctx_supernodes(int argc, char **argv)
   // Allocate memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 1, kmers_in_hash);
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 1, kmers_in_hash,
+                 DBG_ALLOC_EDGES);
 
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 

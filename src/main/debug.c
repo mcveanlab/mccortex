@@ -28,8 +28,7 @@ int main(int argc, char **argv)
   gzFile gzout = futil_gzopen_create(out_path, "w");
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, ncols, 1, 1024);
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
+  db_graph_alloc(&db_graph, kmer_size, ncols, 1, 1024, DBG_ALLOC_EDGES);
 
   // Create a path store that tracks path counts
   gpath_store_alloc(&db_graph.gpstore,

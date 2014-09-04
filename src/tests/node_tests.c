@@ -33,10 +33,8 @@ static void test_db_graph_next_nodes()
   size_t col, kmer_size = 11, ncols = 2;
   char seq[60];
 
-  db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024);
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
+  db_graph_alloc(&graph, kmer_size, ncols, ncols, 1024,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_COVGS | DBG_ALLOC_BKTLOCKS);
 
   // Copy a random and shared piece of sequence to both colours
   for(col = 0; col < 2; col++) {

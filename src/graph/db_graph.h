@@ -11,6 +11,12 @@
 #include "gpath_store.h"
 #include "gpath_hash.h"
 
+extern const int DBG_ALLOC_EDGES;
+extern const int DBG_ALLOC_COVGS;
+extern const int DBG_ALLOC_BKTLOCKS;
+extern const int DBG_ALLOC_READSTRT;
+extern const int DBG_ALLOC_NODE_IN_COL;
+
 //
 // Graph
 //
@@ -52,9 +58,10 @@ typedef struct
 #define db_graph_has_path_hash(graph) ((graph)->gphash.table != NULL)
 #define db_graph_node_assigned(graph,hkey) HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
 
+// alloc_flags specifies where fields to malloc. OR together DBG_ALLOC_* values
 void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                     size_t num_of_cols, size_t num_edge_cols,
-                    uint64_t capacity);
+                    uint64_t capacity, int alloc_flags);
 
 // Free memory used by all fields as well
 void db_graph_dealloc(dBGraph *db_graph);

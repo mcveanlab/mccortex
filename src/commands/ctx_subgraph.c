@@ -171,9 +171,8 @@ int ctx_subgraph(int argc, char **argv)
   // Create db_graph
   // multiple colours may be useful later in pulling out multiple colours
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Edges));
-  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity*use_ncols, sizeof(Covg));
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols,
+                 kmers_in_hash, DBG_ALLOC_EDGES | DBG_ALLOC_COVGS);
 
   uint8_t *kmer_mask = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 

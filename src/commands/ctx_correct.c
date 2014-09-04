@@ -177,12 +177,8 @@ int ctx_correct(int argc, char **argv)
   //
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfile->hdr.kmer_size, ncols, 1, kmers_in_hash);
-
-  size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
-  db_graph.node_in_cols = ctx_calloc(bytes_per_col * ncols, 1);
+  db_graph_alloc(&db_graph, gfile->hdr.kmer_size, ncols, 1, kmers_in_hash,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Create a path store that does not tracks path counts
   gpath_reader_alloc_gpstore(gpfiles->data, gpfiles->len, path_mem, false, &db_graph);

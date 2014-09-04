@@ -14,11 +14,8 @@ void test_graph_crawler()
   dBGraph graph;
   const size_t kmer_size = 11, ncols = 3;
 
-  db_graph_alloc(&graph, kmer_size, ncols, 1, 2048);
-  // Graph data
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = ctx_calloc(graph.ht.capacity, sizeof(Edges));
-  graph.node_in_cols = ctx_calloc(roundup_bits2words64(graph.ht.capacity)*ncols, 8);
+  db_graph_alloc(&graph, kmer_size, ncols, 1, 2048,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL | DBG_ALLOC_BKTLOCKS);
 
   char graphseq[3][77] =
 //           <               X                 X              X...............

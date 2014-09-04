@@ -45,13 +45,8 @@ static void simple_test()
   dBGraph graph;
   size_t kmer_size = 11, ncols = 5;
 
-  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
-  // Graph data
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets),
-                              sizeof(graph.bktlocks[0]));
-  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity)*ncols,
-                                  sizeof(graph.node_in_cols[0]));
+  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL | DBG_ALLOC_BKTLOCKS);
 
   // TAACAATGACT -> AACAATGACTC -> ACAATGACTCC
   //                            -> ACAATGACTCG

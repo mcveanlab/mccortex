@@ -209,7 +209,7 @@ int ctx_pjoin(int argc, char **argv)
   // Set up graph and PathStore
   size_t kmer_size = gpath_reader_get_kmer_size(&pfiles[0]);
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, output_ncols, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, output_ncols, 0, kmers_in_hash, 0);
 
   // Create a path store that tracks path counts
   gpath_reader_alloc_gpstore(pfiles, num_pfiles,

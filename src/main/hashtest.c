@@ -83,7 +83,7 @@ int main(int argc, char **argv)
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);
+  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash, 0);
   hash_table_print_stats(&db_graph.ht);
 
   BinaryKmer bkmer;

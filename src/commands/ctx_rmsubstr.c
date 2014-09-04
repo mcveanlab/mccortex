@@ -210,8 +210,7 @@ int ctx_rmsubstr(int argc, char **argv)
   // Set up memory
   //
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash);
-  db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
+  db_graph_alloc(&db_graph, kmer_size, 1, 0, kmers_in_hash, DBG_ALLOC_BKTLOCKS);
 
   //
   // Load reference sequence into a read buffer

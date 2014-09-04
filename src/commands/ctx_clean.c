@@ -271,10 +271,12 @@ int ctx_clean(int argc, char **argv)
   // Load as many colours as possible
   // Use an extra set of edge to take intersections
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols, kmers_in_hash);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols,
+                 kmers_in_hash, DBG_ALLOC_COVGS);
+
+  // Edges is a special case
   size_t num_edges = db_graph.ht.capacity * (use_ncols + !all_colours_loaded);
   db_graph.col_edges = ctx_calloc(num_edges, sizeof(Edges));
-  db_graph.col_covgs = ctx_calloc(db_graph.ht.capacity * use_ncols, sizeof(Covg));
 
   // Load graph into a single colour
   LoadingStats stats = LOAD_STATS_INIT_MACRO;

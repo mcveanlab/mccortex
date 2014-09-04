@@ -198,15 +198,8 @@ int ctx_breakpoints(int argc, char **argv)
   size_t kmer_size = gfiles[0].hdr.kmer_size;
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, ncols, 1, kmers_in_hash);
-  db_graph.col_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
-
-  // In colour
-  size_t bytes_per_col = roundup_bits2bytes(db_graph.ht.capacity);
-  db_graph.node_in_cols = ctx_calloc(bytes_per_col*ncols, 1);
-
-  // Multithreading locks for the hash table
-  db_graph.bktlocks = ctx_calloc(roundup_bits2bytes(db_graph.ht.num_of_buckets), 1);
+  db_graph_alloc(&db_graph, kmer_size, ncols, 1, kmers_in_hash,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL | DBG_ALLOC_BKTLOCKS);
 
   // Paths
   gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len,

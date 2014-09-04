@@ -11,10 +11,8 @@ static void test_kmer_occur_filter()
   size_t i;
 
   // Create graph
-  db_graph_alloc(&graph, kmer_size, ncols, 1, 2000);
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.node_in_cols = ctx_calloc(roundup_bits2bytes(graph.ht.capacity) * ncols, 1);
-  graph.col_edges = ctx_calloc(graph.ht.capacity, sizeof(Edges));
+  db_graph_alloc(&graph, kmer_size, ncols, 1, 2000,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL | DBG_ALLOC_BKTLOCKS);
 
   //      xyz------->>>      y         >  <         X
   // TTCGACCCGACAGGGCAACGTAGTCCGACAGGGCACAGCCCTGTCGGGGGGTGCA

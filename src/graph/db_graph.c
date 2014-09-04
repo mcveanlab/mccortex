@@ -14,9 +14,16 @@ static void db_graph_status(const dBGraph *db_graph)
          db_graph->kmer_size, db_graph->num_of_cols, capacity_str);
 }
 
+const int DBG_ALLOC_EDGES       =  1;
+const int DBG_ALLOC_COVGS       =  2;
+const int DBG_ALLOC_BKTLOCKS    =  4;
+const int DBG_ALLOC_READSTRT    =  8;
+const int DBG_ALLOC_NODE_IN_COL = 16;
+
+// alloc_flags specifies where fields to malloc. OR together DBG_ALLOC_* values
 void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                     size_t num_of_cols, size_t num_edge_cols,
-                    uint64_t capacity)
+                    uint64_t capacity, int alloc_flags)
 {
   size_t i;
   dBGraph tmp = {.kmer_size = kmer_size,
@@ -31,6 +38,7 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
                  .readstrt = NULL};
 
   ctx_assert(num_of_cols > 0);
+  ctx_assert(num_edge_cols == 0 || num_edge_cols == 1 || num_edge_cols == num_of_cols);
   ctx_assert(capacity > 0);
   ctx_assert2(kmer_size >= MIN_KMER_SIZE, "kmer size: %zu", kmer_size);
   ctx_assert2(kmer_size <= MAX_KMER_SIZE, "kmer size: %zu", kmer_size);
@@ -41,6 +49,24 @@ void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
   tmp.ginfo = ctx_calloc(num_of_cols, sizeof(GraphInfo));
   for(i = 0; i < num_of_cols; i++)
     graph_info_alloc(&tmp.ginfo[i]);
+
+  if(alloc_flags & DBG_ALLOC_EDGES)
+    tmp.col_edges = ctx_calloc(tmp.ht.capacity * num_edge_cols, sizeof(Edges));
+
+  if(alloc_flags & DBG_ALLOC_COVGS)
+    tmp.col_covgs = ctx_calloc(tmp.ht.capacity * num_of_cols, sizeof(Covg));
+
+  if(alloc_flags & DBG_ALLOC_BKTLOCKS)
+    tmp.bktlocks = ctx_calloc(roundup_bits2bytes(tmp.ht.num_of_buckets), 1);
+
+  // 1 bit for forward, 1 bit for reverse per kmer
+  if(alloc_flags & DBG_ALLOC_READSTRT)
+    tmp.readstrt = ctx_calloc(roundup_bits2bytes(tmp.ht.capacity)*2, 1);
+
+  if(alloc_flags & DBG_ALLOC_NODE_IN_COL) {
+    size_t bytes_per_col = roundup_bits2bytes(tmp.ht.capacity);
+    tmp.node_in_cols = ctx_calloc(bytes_per_col*num_of_cols, 1);
+  }
 
   memcpy(db_graph, &tmp, sizeof(dBGraph));
   db_graph_status(db_graph);

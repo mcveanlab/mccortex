@@ -28,11 +28,8 @@ static void simple_subgraph_test()
   dBGraph graph;
   size_t kmer_size = 19, ncols = 1;
 
-  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
-  // Graph data
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
+  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_COVGS | DBG_ALLOC_BKTLOCKS);
 
   uint8_t *mask = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
@@ -85,11 +82,8 @@ static void test_subgraph_supernodes()
   dBGraph graph;
   size_t kmer_size = 11, ncols = 1;
 
-  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000);
-  // Graph data
-  graph.bktlocks = ctx_calloc(roundup_bits2bytes(graph.ht.num_of_buckets), 1);
-  graph.col_edges = ctx_calloc(graph.ht.capacity * ncols, sizeof(Edges));
-  graph.col_covgs = ctx_calloc(graph.ht.capacity * ncols, sizeof(Covg));
+  db_graph_alloc(&graph, kmer_size, ncols, ncols, 2000,
+                  DBG_ALLOC_EDGES | DBG_ALLOC_COVGS | DBG_ALLOC_BKTLOCKS);
 
   uint8_t *mask = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
