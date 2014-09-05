@@ -41,6 +41,7 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
   db_node_buf_dealloc(&wrkr->tmpnbuf);
 }
 
+// Don't need this now
 static inline void _buf_append_qual_scores(StrBuf *buf, const read_t *r)
 {
   // Print quality scores
@@ -56,73 +57,188 @@ static inline void _buf_append_qual_scores(StrBuf *buf, const read_t *r)
   strbuf_append_char(buf, '\n');
 }
 
+static inline void strbuf_append_strn_lc(StrBuf *buf, const char *str, size_t len)
+{
+  strbuf_ensure_capacity(buf, buf->end + len);
+  size_t i; char *s = buf->b + buf->end;
+  for(i = 0; i < len; i++, s++) *s = tolower(str[i]);
+  buf->end += len;
+  buf->b[buf->end] = '\0';
+}
+
+static inline void strbuf_append_strn_uc(StrBuf *buf, const char *str, size_t len)
+{
+  strbuf_ensure_capacity(buf, buf->end + len);
+  size_t i; char *s = buf->b + buf->end;
+  for(i = 0; i < len; i++, s++) *s = toupper(str[i]);
+  buf->end += len;
+  buf->b[buf->end] = '\0';
+}
+
 /*
+// Quality score may be too short, so this function is useful
+static inline void _append_quals(StrBuf *buf, const read_t *r,
+                                 size_t start, size_t len)
+{
+  size_t end = start + len, limit = MIN2(end, r->qual.end), n;
+  strbuf_ensure_capacity(buf, buf->end + len);
+  if(start < limit)
+  {
+    // Copy quality scores
+    n = limit - start;
+    memcpy(buf->b+buf->end, r->qual.b + start, n);
+    start += n;
+    buf->end += n;
+  }
+  if(start < end)
+  {
+    // Fill in missing quality scores with '.'
+    n = end - start;
+    memset(buf->b+buf->end, '.', n);
+    buf->end += n;
+  }
+  buf->b[buf->end] = '\0';
+}
+*/
+
+// Returns the new number of bases printed
+static inline
+size_t _print_read_kmer(const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
+                        size_t pos, size_t num_bases_printed,
+                        const dBGraph *db_graph)
+{
+  size_t n;
+
+  if(pos > num_bases_printed) {
+    // Fill in missing seq
+    n = pos - num_bases_printed;
+    strbuf_append_strn_lc(rbuf, r->seq.b+num_bases_printed,  n);
+    strbuf_append_strn(   qbuf, r->qual.b+num_bases_printed, n);
+    num_bases_printed = pos;
+  }
+
+  // Append bases that match a kmer
+  n = pos + db_graph->kmer_size - num_bases_printed;
+  strbuf_append_strn_uc(rbuf, r->seq.b  + num_bases_printed, n);
+  strbuf_append_strn(   qbuf, r->qual.b + num_bases_printed, n);
+
+  return pos + db_graph->kmer_size;
+}
+
+/*
+// Get run of -1 values
+static size_t _get_run_neg(const int32_t *arr, size_t len)
+{
+  size_t i = 0;
+  while(i < len && arr[i] < 0) i++;
+  return i;
+}
+*/
+
 // Prints read sequence in lower case instead of N
-static void handle_read2(CorrectReadsWorker *wrkr,
+static void handle_read3(CorrectReadsWorker *wrkr,
                          const CorrectAlnParam *params,
-                         const read_t *r, StrBuf *buf, StrBuf *qbuf,
+                         const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
                          uint8_t fq_cutoff, uint8_t hp_cutoff,
-                         dBNodeBuffer *nodebuf, Int32Buffer *posbuf,
-                         seq_format format)
+                         dBNodeBuffer *nodebuf, Int32Buffer *posbuf)
 {
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t kmer_size = db_graph->kmer_size;
   CorrectAlnWorker *corrector = &wrkr->corrector;
-
-  if((format & SEQ_FMT_FASTQ) && r->qual.end && r->seq.end != r->qual.end) {
-    die("Read qual scores don't match seq length (%zu vs %zu): %s",
-        r->qual.end, r->seq.end, r->name.b);
-  }
 
   correct_aln_read(corrector, params, r, fq_cutoff, hp_cutoff,
                    nodebuf, posbuf);
 
   ctx_assert(nodebuf->len == posbuf->len);
 
-  // Print read in FASTA, FASTQ or PLAIN format
-  strbuf_reset(buf);
-  strbuf_reset(qbuf); // quality scores go here
-
-  if(format & (SEQ_FMT_FASTA | SEQ_FMT_FASTQ)) {
-    strbuf_append_char(buf, format == SEQ_FMT_FASTA ? '>' : '@');
-    strbuf_append_strn(buf, r->name.b, r->name.end);
-    strbuf_append_char(buf, '\n');
-  }
-
-  if(nodebuf->len == 0) {
-    strbuf_append_strn(buf, r->seq.b, r->seq.end);
-    if(format & SEQ_FMT_FASTQ) {
-      strbuf_append_str(buf, "\n+\n");
-      strbuf_append_strn(buf, r->qual.b, r->qual.end);
-      strbuf_append_char(buf, '\n');
-    }
+  if(nodebuf->len == 0)
+  {
+    // Didn't get any kmers
+    // Copy whole sequence as lowercase
+    strbuf_append_strn_lc(rbuf, r->seq.b,  r->seq.end);
+    // Copy whole quality score
+    strbuf_append_strn(   qbuf, r->qual.b, r->qual.end);
+    return;
   }
 
   // There must be at least one kmer where rpos != -1
 
-  size_t i, j, k;
+  size_t i = 0, j, num_neg;
   size_t bases_printed = 0;
+  Nucleotide nuc;
 
-  for(i = j = 0; i < nodebuf->len; i = j)
+  const size_t num_nodes = nodebuf->len;
+  const dBNode *node_arr = nodebuf->data;
+  const int32_t *pos_arr = posbuf->data;
+
+  // DEV: deal with neg kmers at start here
+
+  while(i < num_nodes)
   {
-    // Find first node that is not rpos -1
-    while(j < nodebuf->len && posbuf->data[j] == -1) j++;
+    j = i;
+    while(j < num_nodes && pos_arr[j] < 0) j++;
+    num_neg = j - i;
 
-    // Print bases before kmer i
+    if(num_neg == 0) {
+      // Print non-neg
+      bases_printed = _print_read_kmer(r, rbuf, qbuf, pos_arr[i],
+                                       bases_printed, db_graph);
+      i++; // Go to next node
+    }
+    else if(i + num_neg == num_nodes) {
+      // Run at end
 
-    // Print the nodes i..j-1
+    }
+    else if(num_neg >= kmer_size) {
+      // Deal with run of missing kmers
+      size_t end = i + num_neg - kmer_size;
 
-    for(k = j; k < nodebuf->len && posbuf->data[k] != -1; k++) {}
+      for(; i < end; i++) {
+        // Grab last base
+        nuc = db_node_get_last_nuc(node_arr[i+j], db_graph);
+        strbuf_append_char(rbuf, dna_nuc_to_char(nuc)); // prints uppercase
+        strbuf_append_char(qbuf, '.');
+      }
 
-    // print nodes j..k-1
+      bases_printed = pos_arr[j];
+    }
+  }
+}
 
+// Print read in FASTA, FASTQ or PLAIN format
+static void handle_read2(CorrectReadsWorker *wrkr,
+                         const CorrectAlnParam *params,
+                         const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
+                         uint8_t fq_cutoff, uint8_t hp_cutoff,
+                         dBNodeBuffer *nodebuf, Int32Buffer *posbuf,
+                         seq_format format)
+{
+  strbuf_reset(rbuf);
+  strbuf_reset(qbuf); // quality scores go here
+
+  if((format & SEQ_FMT_FASTQ) && r->qual.end && r->seq.end != r->qual.end) {
+    die("Read qual scores don't match seq length (%zu vs %zu): %s",
+        r->qual.end, r->seq.end, r->name.b);
   }
 
-  // Print end of read
+  if(format & (SEQ_FMT_FASTA | SEQ_FMT_FASTQ)) {
+    strbuf_append_char(rbuf, format == SEQ_FMT_FASTA ? '>' : '@');
+    strbuf_append_strn(rbuf, r->name.b, r->name.end);
+    strbuf_append_char(rbuf, '\n');
+  }
 
-  strbuf_append_char(buf, '\n');
+  // Write read sequence string to rbuf, quality scores string to qbuf
+  handle_read3(wrkr, params, r, rbuf, qbuf, fq_cutoff, hp_cutoff, nodebuf, posbuf);
+
+  // Copy quality scores to read buffer ready to print
+  if(format & SEQ_FMT_FASTQ) {
+    strbuf_append_str(rbuf, "\n+\n");
+    strbuf_append_strn(rbuf, qbuf->b, qbuf->end);
+    strbuf_append_char(rbuf, '\n');
+  }
+
+  strbuf_reset(qbuf);
 }
-*/
 
 // Prints read sequence in lower case instead of N
 static void handle_read(CorrectReadsWorker *wrkr,

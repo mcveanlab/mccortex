@@ -26,6 +26,11 @@ CtxCmd cmdobjs[] = {
   .usage = build_usage
 },
 {
+  .cmd = "sort", .func = ctx_sort, .hide = false,
+  .blurb = "sort graph file by kmer",
+  .usage = sort_usage
+},
+{
   .cmd = "view", .func = ctx_view, .hide = false,
   .blurb = "text view of a cortex graph file (.ctx)",
   .usage = view_usage

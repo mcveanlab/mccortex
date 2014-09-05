@@ -5,6 +5,7 @@
 #include "cmd_mem.h"
 
 int ctx_build(int argc, char **argv);
+int ctx_sort(int argc, char **argv);
 int ctx_infer_edges(int argc, char **argv);
 int ctx_thread(int argc, char **argv);
 int ctx_correct(int argc, char **argv);
@@ -29,6 +30,7 @@ int ctx_unique(int argc, char **argv); // retiring
 int ctx_place(int argc, char **argv); // retiring
 
 extern const char build_usage[];
+extern const char sort_usage[];
 extern const char view_usage[];
 extern const char health_usage[];
 extern const char clean_usage[];

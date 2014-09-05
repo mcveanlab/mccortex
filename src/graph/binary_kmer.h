@@ -50,6 +50,8 @@ extern const BinaryKmer zero_bkmer;
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
            = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffcUL) | (nuc))
 
+int binary_kmers_cmp(BinaryKmer a, BinaryKmer b);
+
 #if NUM_BKMER_WORDS == 1
   #define binary_kmers_are_equal(x,y) ((x).b[0] == (y).b[0])
   #define binary_kmer_is_zero(x)      ((x).b[0] == 0UL)
@@ -75,18 +77,51 @@ extern const BinaryKmer zero_bkmer;
 // the lower of the kmer vs reverse complement of itself
 BinaryKmer binary_kmer_get_key(const BinaryKmer kmer, size_t kmer_size);
 
-// CTAGT -> ACTAG (add blank 'A' to first position)
-BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer);
+#if NUM_BKMER_WORDS == 1
 
-// CTAGT -> TAGTA (add blank 'A' to last position)
-BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
-                                           size_t kmer_size);
+  static inline BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer)
+  {
+    BinaryKmer b = bkmer; b.b[0] >>= 2; return b;
+  }
 
+  static inline BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
+                                                           size_t kmer_size)
+  {
+    BinaryKmer b = bkmer;
+    b.b[NUM_BKMER_WORDS - 1] <<= 2;
+    b.b[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
+    return b;
+  }
+
+#else
+
+  // CTAGT -> ACTAG (add blank 'A' to first position)
+  // Shift towards most significant position
+  BinaryKmer binary_kmer_right_shift_one_base(const BinaryKmer bkmer);
+
+  // CTAGT -> TAGTA (add blank 'A' to last position)
+  BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
+                                             size_t kmer_size);
+
+#endif
+
+static inline
 BinaryKmer binary_kmer_left_shift_add(const BinaryKmer bkmer, size_t kmer_size,
-                                      Nucleotide nuc);
+                                      Nucleotide nuc)
+{
+  BinaryKmer b = binary_kmer_left_shift_one_base(bkmer, kmer_size);
+  b.b[NUM_BKMER_WORDS - 1] |= nuc;
+  return b;
+}
 
+static inline
 BinaryKmer binary_kmer_right_shift_add(const BinaryKmer bkmer, size_t kmer_size,
-                                       Nucleotide nuc);
+                                       Nucleotide nuc)
+{
+  BinaryKmer b = binary_kmer_right_shift_one_base(bkmer);
+  b.b[0] |= ((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(kmer_size);
+  return b;
+}
 
 // Reverse complement a binary kmer from kmer into revcmp_kmer
 BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer, size_t kmer_size);

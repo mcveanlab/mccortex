@@ -72,8 +72,58 @@ static const uint8_t revcmp_table[256] =
   0xD0, 0x90, 0x50, 0x10, 0xC0, 0x80, 0x40, 0x00
 };
 
+// uses revcmp_table in src/basic/binary_seq.c
+BinaryKmer binary_kmer_reverse_complement4(const BinaryKmer bkmer,
+                                           size_t kmer_size)
+{
+  const size_t top_bits = BKMER_TOP_BITS(kmer_size), unused_bits = 64 - top_bits;
+  BinaryKmer revcmp = BINARY_KMER_ZERO_MACRO;
+  uint64_t word;
 
-BinaryKmer binary_kmer_reverse_complement2(const BinaryKmer bkmer,
+#if NUM_BKMER_WORDS == 1
+
+  // In word: reversing base order and bit negate (complementing base)
+  // using revcmp_table
+  // Unrolled loop
+  word = bkmer.b[0];
+  revcmp.b[0]  = revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[0] <<= 8;
+  revcmp.b[0] |= revcmp_table[word];
+
+#else /* NUM_BKMER_WORDS > 1 */
+
+  size_t i, j;
+  for(i = 0, j = NUM_BKMER_WORDS-1; i < NUM_BKMER_WORDS; i++, j--)
+  {
+    // swap word i into word j
+    word = bkmer.b[i];
+    revcmp.b[j]  = revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word & 0xff]; word >>= 8; revcmp.b[j] <<= 8;
+    revcmp.b[j] |= revcmp_table[word];
+  }
+
+  // Now shift bits right by unused_bits
+  for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
+    revcmp.b[i] = (revcmp.b[i] >> unused_bits) | (revcmp.b[i-1] << top_bits);
+  }
+
+#endif
+
+  revcmp.b[0] >>= unused_bits;
+  return revcmp;
+}
+
+BinaryKmer binary_kmer_reverse_complement3(const BinaryKmer bkmer,
                                            size_t kmer_size)
 {
   const size_t top_bits = BKMER_TOP_BITS(kmer_size), unused_bits = 64 - top_bits;
@@ -104,8 +154,55 @@ BinaryKmer binary_kmer_reverse_complement2(const BinaryKmer bkmer,
   return revcmp;
 }
 
-BinaryKmer binary_kmer_reverse_complement(const BinaryKmer bkmer,
-                                          size_t kmer_size)
+BinaryKmer binary_kmer_reverse_complement2(const BinaryKmer bkmer,
+                                           size_t kmer_size)
+{
+  const size_t top_bits = BKMER_TOP_BITS(kmer_size), unused_bits = 64 - top_bits;
+  BinaryKmer revcmp = BINARY_KMER_ZERO_MACRO;
+  uint64_t word;
+
+#if NUM_BKMER_WORDS == 1
+
+  // Swap byte order
+  word = bswap_64(bkmer.b[0]);
+  // 4 bases within a byte, so swap their order
+  word = (((word & 0x0303030303030303UL) << 6) |
+          ((word & 0x0c0c0c0c0c0c0c0cUL) << 2) |
+          ((word & 0x3030303030303030UL) >> 2) |
+          ((word & 0xc0c0c0c0c0c0c0c0UL) >> 6));
+  // Bitwise negate to complement bases
+  revcmp.b[0] = ~word;
+
+#else /* NUM_BKMER_WORDS > 1 */
+
+  size_t i, j;
+  for(i = 0, j = NUM_BKMER_WORDS-1; i < NUM_BKMER_WORDS; i++, j--)
+  {
+    // Swap byte order
+    word = bswap_64(bkmer.b[i]);
+    // 4 bases within a byte, so swap their order
+    word = (((word & 0x0303030303030303UL) << 6) |
+            ((word & 0x0c0c0c0c0c0c0c0cUL) << 2) |
+            ((word & 0x3030303030303030UL) >> 2) |
+            ((word & 0xc0c0c0c0c0c0c0c0UL) >> 6));
+    // Bitwise negate to complement bases
+    revcmp.b[j] = ~word;
+  }
+
+  // Need to shift right
+  for(i = NUM_BKMER_WORDS-1; i > 0; i--) {
+    revcmp.b[i] = (revcmp.b[i] >> unused_bits) | (revcmp.b[i-1] << top_bits);
+  }
+
+#endif
+
+  revcmp.b[0] >>= unused_bits;
+
+  return revcmp;
+}
+
+BinaryKmer binary_kmer_reverse_complement1(const BinaryKmer bkmer,
+                                           size_t kmer_size)
 {
   const size_t top_bits = BKMER_TOP_BITS(kmer_size), unused_bits = 64 - top_bits;
   size_t i, j;
@@ -145,29 +242,39 @@ int main(int argc, char **argv)
 {
   // Read args
   int c;
-  size_t i, j, use_one = 1, n = 1000000, k = 32*NUM_BKMER_WORDS-1;
+  size_t i, j, method = 1, n = 1000000, k = 32*NUM_BKMER_WORDS-1;
   uint64_t r = 0;
 
   seed_random();
 
-  while((c = getopt(argc, argv, "12n:k:")) >= 0) {
-    if(c == '1') use_one = 1;
-    else if(c == '2') use_one = 0;
+  while((c = getopt(argc, argv, "m:n:k:")) >= 0) {
+    if(c == 'm') method = atoi(optarg);
     else if(c == 'n') n = atoi(optarg);
     else if(c == 'k') k = atoi(optarg);
-    else { printf("Bad arg: -1 -2 -n <n>\n"); exit(EXIT_FAILURE); }
+    else { printf("Bad arg: -m <1..3> -n <n>\n"); exit(EXIT_FAILURE); }
   }
 
-  printf("Using %s for %zu loops k: %zu\n", use_one ? "old" : "new", n, k);
+  printf("Using %zu for %zu loops k: %zu\n", method, n, k);
 
   BinaryKmer x, y;
+  
+  for(j = 0; j < NUM_BKMER_WORDS; j++) {
+    x.b[j] = ((uint64_t)rand() << 32) | rand();
+  }
+
   for(i = 0; i < n; i++) {
-    for(j = 0; j < NUM_BKMER_WORDS; j++) {
-      x.b[j] = ((uint64_t)rand() << 32) | rand();
+    switch(method) {
+      case 0: y = x; break;
+      case 1: y = binary_kmer_reverse_complement1(x, k); break;
+      case 2: y = binary_kmer_reverse_complement2(x, k); break;
+      case 3: y = binary_kmer_reverse_complement3(x, k); break;
+      case 4: y = binary_kmer_reverse_complement4(x, k); break;
+      default: exit(-1);
     }
-    y = (use_one ? binary_kmer_reverse_complement(x, k)
-                 : binary_kmer_reverse_complement2(x, k));
     r += y.b[0];
+
+    for(j = 0; j < NUM_BKMER_WORDS; j++) x.b[j] ^= y.b[j];
+    x.b[0]++;
   }
 
   printf("b[0]: %zu\n", (size_t)r);
