@@ -157,7 +157,7 @@ static inline dBNode db_node_reverse(dBNode node) {
 Edges edges_get_union(const Edges *edges, size_t num);
 
 bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
-                                     Nucleotide *nucleotide);
+                                  Nucleotide *nucleotide);
 
 static inline void edges_print(FILE *fout, Edges e)
 {

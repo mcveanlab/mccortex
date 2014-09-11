@@ -2,9 +2,13 @@ bin
 build
 libs
 docs
-src/basic/version.h
+src/global/version.h
 tests
 benchmark
 dev
 *.RData
 *.RHistory
+
+commit.txt
+notes.txt
+tests.txt

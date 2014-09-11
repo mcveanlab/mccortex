@@ -75,19 +75,25 @@ static inline void rpt_walker_dealloc(RepeatWalker *rpt)
   ctx_free(rpt->visited);
 }
 
+static inline void _rpt_walker_clear_bloom(RepeatWalker *rpt)
+{
+  size_t bmem = roundup_bits2words64(1UL<<rpt->bloom_nbits)*sizeof(uint64_t);
+  if(rpt->nbloom_entries) memset(rpt->bloom, 0, bmem);
+  rpt->nbloom_entries = 0;
+}
+
 static inline void rpt_walker_clear(RepeatWalker *rpt)
 {
   memset(rpt->visited, 0, rpt->mem_bytes);
-  rpt->nbloom_entries = 0;
+  _rpt_walker_clear_bloom(rpt);
 }
 
 static inline void rpt_walker_fast_clear(RepeatWalker *rpt,
                                          const dBNode *nodes, size_t n)
 {
-  size_t i, bmem = roundup_bits2words64(1UL<<rpt->bloom_nbits)*sizeof(uint64_t);
+  size_t i;
   for(i = 0; i < n; i++) db_node_fast_clear_traversed(rpt->visited, nodes[i].key);
-  if(rpt->nbloom_entries) memset(rpt->bloom, 0, bmem);
-  rpt->nbloom_entries = 0;
+  _rpt_walker_clear_bloom(rpt);
 }
 
 static inline void rpt_walker_fast_clear_single_node(RepeatWalker *rpt,

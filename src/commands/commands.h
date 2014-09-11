@@ -29,6 +29,9 @@ int ctx_reads(int argc, char **argv);
 int ctx_unique(int argc, char **argv); // retiring
 int ctx_place(int argc, char **argv); // retiring
 
+// Experiments
+int ctx_exp_abc(int argc, char **argv);
+
 extern const char build_usage[];
 extern const char sort_usage[];
 extern const char view_usage[];
@@ -52,5 +55,8 @@ extern const char calls2vcf_usage[];
 
 extern const char unique_usage[]; // retiring
 extern const char place_usage[]; // retiring
+
+// Experiments
+extern const char exp_abc_usage[];
 
 #endif /* COMMANDS_H_ */

@@ -45,7 +45,7 @@ Commands
                 build        construct cortex graph from FASTA/FASTQ/BAM
                 check        load and check graph (.ctx) and path (.ctp) files
                 clean        clean errors from a graph
-                contigs      pull out contigs for a sample
+                contigs      assemble contigs for a sample
                 correct      error correct reads
                 coverage     print contig coverage
                 inferedges   infer graph edges between kmers before calling `thread`
@@ -53,6 +53,7 @@ Commands
                 pjoin        merge path files (.ctp)
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
+                sort         sort the kmers in a graph file
                 subgraph     filter a subgraph using seed kmers
                 supernodes   pull out supernodes
                 thread       thread reads through cleaned graph

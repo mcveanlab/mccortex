@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Exit immediately if a command exits with a non-zero status.
-set -e
+set -euo pipefail
 
 if [[ $# -ne 1 && $# -ne 2 ]];
 then

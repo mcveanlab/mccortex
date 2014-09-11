@@ -139,12 +139,14 @@ int ctx_sort(int argc, char **argv)
 
   // check we are at the end of the file
   int b;
-  if(nkread == num_kmers && (b = fgetc(gfile.fh)) != -1)
-    die("More kmers in file than believed (%i; kmers: %zu ncols: %zu).", b, num_kmers, ncols);
+  if(nkread == num_kmers && (b = fgetc(gfile.fh)) != -1) {
+    die("More kmers in file than believed (%i; kmers: %zu ncols: %zu).",
+        b, num_kmers, ncols);
+  }
 
   num_kmers = nkread;
 
-  status("Got %zu kmers", num_kmers);
+  status("Read %zu kmers", num_kmers);
 
   for(i = 0; i < num_kmers; i++)
     kmers[i] = mem + kmer_mem*i;

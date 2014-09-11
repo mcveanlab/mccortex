@@ -22,6 +22,7 @@ const char contigs_usage[] =
 "  -t, --threads <T>    Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -o, --out <out.fa>   Print contigs in FASTA [default: don't print]\n"
 "  -c, --colour <c>     Pull out contigs from the given colour [default: 0]\n"
+"  -p, --paths <in.ctp> Load path file (can specify multiple times)\n"
 "  -N, --ncontigs <N>   Pull out <N> contigs from random kmers [default: 0, no limit]\n"
 "  -s, --seed <in.fa>   Use seed kmers from a file. Reads must be of kmer length\n"
 "  -r, --reseed         Sample seed kmers with replacement\n"

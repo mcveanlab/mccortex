@@ -27,7 +27,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "sort", .func = ctx_sort, .hide = false,
-  .blurb = "sort graph file by kmer",
+  .blurb = "sort the kmers in a graph file",
   .usage = sort_usage
 },
 {
@@ -124,6 +124,12 @@ CtxCmd cmdobjs[] = {
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = true,
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage
+},
+/* Experiments */
+{
+  .cmd = "exp_abc", .func = ctx_exp_abc, .hide = true,
+  .blurb = "Run experiment on traversal properties",
+  .usage = exp_abc_usage
 }
 };
 

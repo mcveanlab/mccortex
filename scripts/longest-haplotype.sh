@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+
 if [[ $# -ne 1 ]]; then
   echo "usage: ./longest-haplotype.sh <in.vcf>"
   exit -1
