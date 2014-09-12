@@ -138,34 +138,46 @@ int ctx_index(int argc, char **argv)
   // Start
   size_t ncols = gfile.hdr.num_of_cols;
   size_t kmer_mem = sizeof(BinaryKmer) + (sizeof(Edges)+sizeof(Covg))*ncols;
-  size_t nkmers, num_of_blocks = 0, num_kmers = 0, offset = 0;
+  size_t nkmers, num_blocks = 0, num_kmers = 0, offset = gfile.hdr_size;
 
   if(block_size) {
     block_kmers = block_size / kmer_mem;
-  } else if(block_kmers) {
-    block_size = block_kmers * kmer_mem;
-  } else {
+  } else if(!block_size && !block_kmers) {
     block_size = 4 * ONE_MEGABYTE;
     block_kmers = block_size / kmer_mem;
   }
+
+  // Update block-size
+  block_size = block_kmers * kmer_mem;
 
   if(block_kmers == 0) die("Cannot set block_kmers to zero");
 
   char tmp[kmer_mem];
   memset(tmp, 0, sizeof(tmp));
 
+  // Print header
+  fputs("#start_kmer end_kmer num_kmer byte_start byte_end\n", fout);
+
   // Read in file, print index
   while(1)
   {
     nkmers = index_block(&gfile, tmp, kmer_mem, block_kmers, &offset, fout);
     num_kmers += nkmers;
-    num_of_blocks += (nkmers > 0);
+    num_blocks += (nkmers > 0);
     if(nkmers < block_kmers) break;
   }
 
   // done
-  status("Read %zu kmers in %zu block%s", num_kmers, num_of_blocks,
-                                          util_plural_str(num_of_blocks));
+  char num_kmers_str[50], num_blocks_str[50];
+  char block_mem_str[50], block_kmers_str[50];
+  ulong_to_str(num_kmers, num_kmers_str);
+  ulong_to_str(num_blocks, num_blocks_str);
+  bytes_to_str(block_size, 1, block_mem_str);
+  ulong_to_str(block_kmers, block_kmers_str);
+
+  status("Read %s kmers in %s block%s (block size %s / %s kmers)",
+         num_kmers_str, num_blocks_str, util_plural_str(num_blocks),
+         block_mem_str, block_kmers_str);
 
   if(fout != stdout) status("Saved to %s", out_path);
 

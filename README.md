@@ -48,7 +48,7 @@ Commands
                 contigs      assemble contigs for a sample
                 correct      error correct reads
                 coverage     print contig coverage
-                index        index a cortex graph file
+                index        index a sorted cortex graph file
                 inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 pjoin        merge path files (.ctp)

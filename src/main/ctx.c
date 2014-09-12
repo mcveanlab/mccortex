@@ -32,7 +32,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "index", .func = ctx_index, .hide = false,
-  .blurb = "index a cortex graph file",
+  .blurb = "index a sorted cortex graph file",
   .usage = index_usage
 },
 {

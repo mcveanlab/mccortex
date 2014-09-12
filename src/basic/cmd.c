@@ -146,7 +146,7 @@ size_t cmd_size(const char *cmd, const char *arg)
 {
   ctx_assert(cmd != NULL);
   ctx_assert2(arg != NULL, "cmd: %s", cmd);
-  unsigned int tmp;
+  size_t tmp;
   if(!parse_entire_size(arg, &tmp))
     cmd_print_usage("%s requires an int x >= 0: %s", cmd, arg);
   return tmp;
