@@ -50,6 +50,8 @@ uint8_t cmd_uint8(const char *cmd, const char *arg);
 int32_t cmd_int32(const char *cmd, const char *arg);
 uint32_t cmd_uint32(const char *cmd, const char *arg);
 uint32_t cmd_uint32_nonzero(const char *cmd, const char *arg);
+size_t cmd_size(const char *cmd, const char *arg);
+size_t cmd_size_nonzero(const char *cmd, const char *arg);
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
 
 seq_format cmd_parse_format(const char *cmd, const char *arg);
