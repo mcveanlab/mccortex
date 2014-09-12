@@ -153,7 +153,7 @@ FILE *futil_fopen(const char *path, const char *mode)
 {
   FILE *fout;
 
-  if(strcmp(path,"-") == 0) {
+  if(path == NULL || strcmp(path,"-") == 0) {
     if(!strcmp(mode,"w")) fout = stdout;
     else if(!strcmp(mode,"r")) fout = stdin;
     else die("Cannot open pipe with mode: %s", mode);

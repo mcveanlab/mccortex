@@ -5,10 +5,12 @@ DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 CTX=$(CTXDIR)/bin/ctx31
 K=9
 
-all: seq.k$(K).ctx sort.k$(K).ctx
+TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
+
+all: $(TGTS)
 
 clean:
-	rm -rf seq.fa seq.k*.ctx test.ctx A:2.fa
+	rm -rf $(TGTS)
 
 seq.fa:
 	$(DNACAT) -F -n 50 > $@
@@ -26,6 +28,10 @@ sort.k$(K).ctx: seq.k$(K).ctx
 	$(CTX) sort $@
 	$(CTX) check -q $@
 	$(CTX) view -k $@
+
+%.ctx.idx: %.ctx
+	$(CTX) index $< > $@
+	cat $@
 
 test.ctx:
 	$(SEQRND) 20 > A:2.fa

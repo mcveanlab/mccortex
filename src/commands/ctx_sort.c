@@ -86,12 +86,13 @@ int ctx_sort(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" sort -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
 
-  if(optind+1 != argc) cmd_print_usage("Require exactly one input graph file (.ctx)");
+  if(optind+1 != argc)
+    cmd_print_usage("Require exactly one input graph file (.ctx)");
 
   const char *ctx_path = argv[optind];
 

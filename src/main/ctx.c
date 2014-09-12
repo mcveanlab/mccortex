@@ -31,6 +31,11 @@ CtxCmd cmdobjs[] = {
   .usage = sort_usage
 },
 {
+  .cmd = "index", .func = ctx_index, .hide = false,
+  .blurb = "index a cortex graph file",
+  .usage = index_usage
+},
+{
   .cmd = "view", .func = ctx_view, .hide = false,
   .blurb = "text view of a cortex graph file (.ctx)",
   .usage = view_usage
