@@ -8,31 +8,40 @@ K=9
 TGTS=ref.txt \
      bad.txt good.fa good.fq \
      rand.fq fix.fq \
+     indels.bad.fq indels.good.fq \
      ref.k$(K).ctx
 
 all: $(TGTS)
 
 clean:
-	rm -rf $(TGTS)
+	rm -rf $(TGTS) good.fa.gz good.fq.gz fix.fq.gz indels.good.fq.gz
 
 ref.txt:
-	echo AGACAGGCATGTAGAGTTTTTTTTTTGGCTTGCACGAGCGAGAACCCATCAA > $@
-	echo AGACAGGCATGTAGAGCTGGTGCGGAGGCTTGCACGAGCGAGAACCCATCAA >> $@
+	echo AGACAGGCATGTAGAGTTTTTTTTTTGGCTTGCACGAGGGAGAACCCATCAA > $@
+	echo AGACAGGCATGTAGAGCTGGTGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
 
 bad.txt:
-	echo gGACAGGCATGcAGAGCTGGTGCGnnGGCTTGCACGAGCGAGAACCCATagNtcatacagata > $@
-	echo gGACAGGCATGcAGAGnnnnnnnnnnGGCTTGCACGAGCGAGAACCCATagNtcaaacaTagaga >> $@
+	echo gGACAGGCATGcAGAGCTGGTGCGnnGGCTTGCACGAGGGAGAACCCATagNtcatacagata > $@
+	echo gGACAGGCATGcAGAGnnnnnnnnnnGGCTTGCACGAGGGAGAACCCATagNtcaaacaTagaga >> $@
 	echo nnnnnnnnnnnnnnAnnnnnnnnnnnnnnTaannnnnnaaaaaaaaaaaaN >> $@
 
 indels.bad.fq:
 	echo '@ins_T>TT' > $@
-	echo AGACAGGCATGTAGAGCTGGTtGCGGAGGCTTGCACGAGCGAGAACCCATCAA >> $@
+	echo AGACAGGCATGTAGAGCTGGTtGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
 	echo + >> $@
 	echo abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
-	echo '@del_GG>G' >> $@
-	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGCGAGAACCCATCAA >> $@
+	echo '@ins_T>TTT' >> $@
+	echo AGACAGGCATGTAGAGCTGGTttGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
 	echo + >> $@
-	echo abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY >> $@
+	echo abcdefghijklmnopqrstuvvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
+	echo '@del_GG>G' >> $@
+	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
+	echo + >> $@
+	echo abcdefghijklmnopqrsuwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
+	echo '@del_GGG>G' >> $@
+	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGAGAACCCATCAA >> $@
+	echo + >> $@
+	echo abcdefghijklmnopqrsuwxyzABCDEFGHIJKLMPQRSTUVWXYZ1 >> $@
 
 rand.fq:
 	$(DNACAT) -n 40 -Q > $@
@@ -68,9 +77,17 @@ fix.fq: rand.fq ref.k$(K).ctx
 indels.good.fq: indels.bad.fq
 	$(CTX) correct -m 10M -F FASTQ -1 $<:indels.good ref.k9.ctx
 	gzip -d indels.good.fq.gz
-	echo == in
+	@echo == in ==
 	cat $<
-	echo == out
+	@echo == out ==
 	cat $@
+
+indel.AA.pdf:
+	printf 'CTGTTCCAAGAGTAACGTTA\nCTGTTCCAAGAAAGTAACGTTA\n' | \
+	$(CTXDIR)/scripts/seq2pdf.sh $(K) - > $@
+
+snp.AT.pdf:
+	printf 'CTGTTCCAAGAGTAACGTTA\nCTGTTCCAAGTGTAACGTTA\n' | \
+	$(CTXDIR)/scripts/seq2pdf.sh $(K) - > $@
 
 .PHONY: all clean

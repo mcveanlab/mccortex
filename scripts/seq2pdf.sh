@@ -6,7 +6,7 @@ set +o posix
 
 args=
 
-if [[ $1 == "--simplify" ]]
+if [[ ($# -gt 1) && ($1 == "--simplify") ]]
 then
   args=$1
   shift
@@ -33,7 +33,7 @@ fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CTX="$DIR/../bin/ctx$maxk"
-
+CTX2GRAPHVIZ="$DIR/cortex_to_graphviz.pl"
 if [[ !(-e $CTX) || !(-x $CTX) ]]
 then
   echo "Did you compile for MAXK=$maxk? I cannot run $CTX"
@@ -43,5 +43,5 @@ fi
 files=$(printf " --seq %s" $@; printf "\n")
 
 $CTX build -k $kmer --sample Test $files - | \
-  ./scripts/cortex_to_graphviz.pl -k $kmer $args - | \
+  $CTX2GRAPHVIZ -k $kmer $args - | \
   dot -Tpdf

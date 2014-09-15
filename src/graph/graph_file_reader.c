@@ -24,8 +24,13 @@ int graph_file_open2(GraphFileReader *file, const char *input, const char *mode)
 
   // Stat will fail on streams, so file_size and num_of_kmers with both be -1
   struct stat st;
-  file->file_size = stat(path, &st) == 0 ? st.st_size : -1;
+  file->file_size = -1;
   file->num_of_kmers = -1;
+
+  if(strcmp(input,"-") != 0) {
+    if(stat(path, &st) == 0) file->file_size = st.st_size;
+    else warn("Couldn't get file size: %s", futil_outpath_str(path));
+  }
 
   file->fh = futil_fopen(path, mode);
   file->hdr_size = graph_file_read_header(file->fh, hdr, path);

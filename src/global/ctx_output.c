@@ -28,6 +28,7 @@ void warnf(const char *file, const char *func, int line, const char *fmt, ...)
   pthread_mutex_lock(&ctx_biglock);
   va_list argptr;
   fflush(stdout);
+  timestampf(stderr);
   fprintf(stderr, "[%s:%i] Warning %s(): ", file, line, func);
   va_start(argptr, fmt);
   vfprintf(stderr, fmt, argptr);

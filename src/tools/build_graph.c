@@ -6,6 +6,7 @@
 #include "async_read_io.h"
 #include "loading_stats.h"
 #include "util.h"
+#include "file_util.h"
 
 #include <pthread.h>
 #include "seq_file.h"
@@ -256,8 +257,9 @@ void build_graph_task_print(const BuildGraphTask *task)
 
   status("[task] %s%s%s; FASTQ offset: %s, threshold: %s; "
          "cut homopolymers: %s; remove PCR duplicates: %s; colour: %zu\n",
-         io->file1->path,
-         io->file2 ? ", " : "", io->file2 ? io->file2->path : "",
+         futil_inpath_str(io->file1->path),
+         io->file2 ? ", " : "",
+         io->file2 ? futil_inpath_str(io->file2->path) : "",
          fqOffset, fqCutoff, hpCutoff, task->remove_pcr_dups ? "yes" : "no",
          task->colour);
 }
@@ -268,8 +270,8 @@ void build_graph_task_print_stats(const BuildGraphTask *task)
   const AsyncIOInput *io = &task->files;
 
   status("[task] input: %s%s%s colour: %zu",
-         io->file1->path, io->file2 ? ", " : "",
-         io->file2 ? io->file2->path : "", task->colour);
+         futil_inpath_str(io->file1->path), io->file2 ? ", " : "",
+         io->file2 ? futil_inpath_str(io->file2->path) : "", task->colour);
 
   char se_reads_str[50], pe_reads_str[50];
   char good_reads_str[50], bad_reads_str[50];

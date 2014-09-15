@@ -20,9 +20,11 @@ void cmd_init(int argc, char **argv);
 void cmd_destroy();
 
 void cmd_set_usage(const char *usage);
-const char* cmd_get_usage();
-const char* cmd_get_cmdline();
-const char* cmd_get_cwd();
+const char*  cmd_get_usage();
+const char*  cmd_get_cmdline();
+const char*  cmd_get_cwd();
+const char** cmd_get_argv();
+int          cmd_get_argc();
 
 // Print status updates:
 // [cmd] ...
@@ -56,8 +58,15 @@ size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
 
 seq_format cmd_parse_format(const char *cmd, const char *arg);
 
+// Beware: we don't escape spaces etc.
 // Remember to free return value
 char* cmd_concat_args(int argc, char **argv);
+
+// Remember to free pointers and strings
+//    char **args = cmd_clone_args(argc, argv);
+//    free(args[0]);
+//    free(args);
+char** cmd_clone_args(int argc, char **argv);
 
 void cmd_print_usage(const char *errfmt,  ...)
   __attribute__((noreturn))

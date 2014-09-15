@@ -188,7 +188,7 @@ static void parse_args(int argc, char **argv)
     cmd_print_usage("Expected only one graph file. What is this: '%s'", argv[optind]);
 
   out_path = argv[optind];
-  status("Saving graph to: %s", out_path);
+  status("Saving graph to: %s", futil_outpath_str(out_path));
 
   if(snamebuf.len == 0) cmd_print_usage("No inputs given");
 

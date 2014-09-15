@@ -20,9 +20,11 @@ const char supernodes_usage[] =
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+// "  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
 //
 "  -d, --dot             Print in graphviz (DOT) format\n"
-"  -p, --points          Used with --dot, print contigs as points\n"
+"  -P, --points          Used with --dot, print contigs as points\n"
+// "  -s, --seq <in.fa>     Highlight certain kmers\n"
 "\n"
 "  e.g. ctx31 supernodes --dot in.ctx | dot -Tpdf > in.pdf\n"
 "\n";
@@ -36,11 +38,13 @@ static struct option longopts[] =
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
+  // {"paths",        required_argument, NULL, 'p'},
 // command specific
   {"graphviz",     no_argument,       NULL, 'g'}, // obsolete: use dot
   {"dot",          no_argument,       NULL, 'd'},
-  {"points",       no_argument,       NULL, 'p'},
-  {NULL, 0, NULL, 0}
+  {"points",       no_argument,       NULL, 'P'},
+  // {"seq",          required_argument, NULL, 's'},
+   {NULL, 0, NULL, 0}
 };
 
 // Each supernode is packed into 64 bits, and each kmer has supernode info
@@ -252,8 +256,8 @@ int ctx_supernodes(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'g': // --graphviz is the same as --dot, drop through case
-      case 'd': if(print_syntax) die("%s set twice", cmd); print_syntax=PRINT_DOT; break;
-      case 'p': if(dot_use_points) die("%s set twice", cmd); dot_use_points=true; break;
+      case 'd': cmd_check(!print_syntax, cmd); print_syntax = PRINT_DOT; break;
+      case 'P': cmd_check(!dot_use_points, cmd); dot_use_points = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" supernodes -h` for help. Bad option: %s", argv[optind-1]);

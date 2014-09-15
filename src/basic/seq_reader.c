@@ -1,10 +1,10 @@
 #include "global.h"
-#include "seq_file.h"
-#include "sam.h"
-
 #include "seq_reader.h"
 #include "util.h"
+#include "file_util.h"
 #include "dna.h"
+
+#include "seq_file.h"
 
 const char *MP_DIR_STRS[] = {"FF", "FR", "RF", "RR"};
 
@@ -298,7 +298,7 @@ void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   ulong_to_str(num_pe_pairs, num_pe_pairs_str);
   ulong_to_str(num_se_reads, num_se_reads_str);
   status("[seq] Loaded %s reads and %s reads pairs (file: %s)",
-         num_se_reads_str, num_pe_pairs_str, sf->path);
+         num_se_reads_str, num_pe_pairs_str, futil_inpath_str(sf->path));
 }
 
 void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
@@ -313,7 +313,8 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
     return;
   }
 
-  status("[seq] Parsing sequence files %s %s\n", sf1->path, sf2->path);
+  status("[seq] Parsing sequence files %s %s\n",
+         futil_inpath_str(sf1->path), futil_inpath_str(sf2->path));
   // Guess offset if needed
   uint8_t qoffset1 = ascii_fq_offset, qoffset2 = ascii_fq_offset;
   uint8_t qmin1 = ascii_fq_offset, qmin2 = ascii_fq_offset;
@@ -363,8 +364,8 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
 
   char num_pe_pairs_str[100];
   ulong_to_str(num_pe_pairs, num_pe_pairs_str);
-  status("[seq] Loaded %s read pairs (files: %s, %s)",
-         num_pe_pairs_str, sf1->path, sf2->path);
+  status("[seq] Loaded %s read pairs (files: %s, %s)", num_pe_pairs_str,
+         futil_inpath_str(sf1->path), futil_inpath_str(sf2->path));
 }
 
 void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
@@ -374,7 +375,7 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
                                        void *ptr),
                      void *reader_ptr)
 {
-  status("[seq] Parsing sequence file %s", sf->path);
+  status("[seq] Parsing sequence file %s", futil_inpath_str(sf->path));
 
   // Guess offset if needed
   uint8_t qoffset = ascii_fq_offset;
@@ -407,7 +408,7 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   ulong_to_str(num_pe_pairs, num_pe_pairs_str);
   ulong_to_str(num_se_reads, num_se_reads_str);
   status("[seq] Loaded %s reads and %s reads pairs (file: %s)",
-         num_se_reads_str, num_pe_pairs_str, sf->path);
+         num_se_reads_str, num_pe_pairs_str, futil_inpath_str(sf->path));
 }
 
 void seq_parse_pe(const char *path1, const char *path2, uint8_t ascii_fq_offset,

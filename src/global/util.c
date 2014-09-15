@@ -144,7 +144,7 @@ size_t num_of_digits(size_t num)
 // result must be long enough for result + 1 ('\0'). Max length required is:
 // strlen('18,446,744,073,709,551,615')+1 = 27
 // returns pointer to result
-char* ulong_to_str(unsigned long num, char* result)
+char* ulong_to_str(unsigned long num, char *result)
 {
   unsigned int digits = num_of_digits(num);
   unsigned int i, num_commas = (digits-1) / 3;
@@ -161,7 +161,7 @@ char* ulong_to_str(unsigned long num, char* result)
 
 // result must be long enough for result + 1 ('\0'). Max length required is:
 // strlen('-9,223,372,036,854,775,808')+1 = 27
-char* long_to_str(long num, char* result)
+char* long_to_str(long num, char *result)
 {
   if(num < 0) {
     result[0] = '-';
@@ -259,6 +259,33 @@ char* strdup(const char *str)
   return dup;
 }
 */
+
+//
+// Pretty printing
+//
+
+// @linelen is number of characters in the line (30 is good default)
+void util_print_nums(const char **titles, const size_t *nums,
+                     size_t n, size_t linelen)
+{
+  if(!linelen) linelen = 30;
+  size_t i, titlelen, numlen, s;
+  char numstr[50], padding[50];
+  for(i = 0; i < n; i++)
+  {
+    ulong_to_str(nums[i], numstr);
+    titlelen = strlen(titles[i]);
+    numlen = strlen(numstr);
+    if(titlelen + numlen < linelen) {
+      s = linelen - (titlelen + numlen);
+      memset(padding, ' ', s);
+      padding[s] = '\0';
+    } else {
+      padding[0] = '\0';
+    }
+    status("  %s: %s%s", titles[i], padding, numstr);
+  }
+}
 
 //
 // Hexidecimal

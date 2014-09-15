@@ -19,14 +19,17 @@
 
 #define DEFAULT_CRTALN_MAX_CONTEXT 200
 
-#define CORRECT_PARAMS_DEFAULT {.ctpcol = 0, .ctxcol = 0,                      \
-                                .frag_len_min = DEFAULT_CRTALN_FRAGLEN_MIN,    \
-                                .frag_len_max = DEFAULT_CRTALN_FRAGLEN_MAX,    \
-                                .one_way_gap_traverse = true,                  \
-                                .use_end_check = true,                         \
-                                .max_context = DEFAULT_CRTALN_MAX_CONTEXT,     \
-                                .gap_variance = DEFAULT_CRTALN_GAP_VARIANCE,   \
-                                .gap_wiggle = DEFAULT_CRTALN_GAP_WIGGLE}
+#define CORRECT_PARAMS_DEFAULT \
+{ \
+  .ctpcol = 0, .ctxcol = 0,                      \
+  .frag_len_min = DEFAULT_CRTALN_FRAGLEN_MIN,    \
+  .frag_len_max = DEFAULT_CRTALN_FRAGLEN_MAX,    \
+  .one_way_gap_traverse = true,                  \
+  .use_end_check = true,                         \
+  .max_context = DEFAULT_CRTALN_MAX_CONTEXT,     \
+  .gap_variance = DEFAULT_CRTALN_GAP_VARIANCE,   \
+  .gap_wiggle = DEFAULT_CRTALN_GAP_WIGGLE        \
+}
 
 typedef struct
 {

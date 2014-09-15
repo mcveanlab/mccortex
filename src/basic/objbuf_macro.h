@@ -56,6 +56,8 @@ static inline size_t FUNC ## _append(buf_t *buf, const obj_t *obj, size_t n)   \
  __attribute__((unused));                                                      \
 static inline void FUNC ## _reset(buf_t *buf)                                  \
  __attribute__((unused));                                                      \
+static inline void FUNC ## _shift(buf_t *buf, size_t nel)                      \
+ __attribute__((unused));                                                      \
                                                                                \
                                                                                \
 static inline void FUNC ## _alloc(buf_t *buf, size_t capacity) {               \
@@ -100,6 +102,13 @@ static inline size_t FUNC ## _append(buf_t *buf, const obj_t *obj, size_t n) { \
   size_t idx = buf->len;                                                       \
   buf->len += n;                                                               \
   return idx;                                                                  \
+}                                                                              \
+                                                                               \
+static inline void FUNC ## _shift(buf_t *buf, size_t n)                        \
+{                                                                              \
+  FUNC ## _ensure_capacity(buf, buf->len+n);                                   \
+  memmove(buf->data+n, buf->data, buf->len);                                   \
+  buf->len += n;                                                               \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _reset(buf_t *buf) { buf->len = 0; }                \

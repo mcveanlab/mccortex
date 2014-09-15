@@ -73,7 +73,7 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
   dst->paths_new_max  = MAX2(dst->paths_new_max,  src->paths_new_max);
   dst->paths_cntr_max = MAX2(dst->paths_cntr_max, src->paths_cntr_max);
 
-  for(i = 0; i < 8; i++)
+  for(i = 0; i < GRPHWLK_NUM_STATES; i++)
     dst->grphwlk_steps[i] += src->grphwlk_steps[i];
 
   dst->max_len  = MAX2(dst->max_len,  src->max_len);

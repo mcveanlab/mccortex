@@ -506,7 +506,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
                       const read_t *r, uint8_t fq_cutoff, uint8_t hp_cutoff,
                       dBNodeBuffer *nodebuf, Int32Buffer *posbuf)
 {
-  size_t i, j, end_len;
+  size_t i, j;
 
   db_node_buf_reset(nodebuf);
   int32_buf_reset(posbuf);
@@ -528,64 +528,78 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
   }
 
   size_t left_gap = aln->rpos.data[0], right_gap = aln->r1enderr;
-  const dBNodeBuffer *nbuf;
 
   // Temporary walkers used to traverse the graph
   GraphWalker *wlk = &wrkr->wlk;
   RepeatWalker *rptwlk = &wrkr->rptwlk;
 
   // Get first alignment, if there are gaps, backtrack
-  nbuf = correct_alignment_nxt(wrkr);
-  ctx_assert(nbuf != NULL); // We've already checked aln->nodes.len > 0
-
-  if(left_gap > 0)
-  {
-    // Try to fill in missing kmers
-    graph_walker_prime(wlk, nbuf->data, nbuf->len,
-                       params->max_context, false,
-                       params->ctxcol, params->ctpcol,
-                       wrkr->db_graph);
-
-    db_node_buf_ensure_capacity(nodebuf, left_gap);
-    int32_buf_ensure_capacity(  posbuf,  left_gap);
-
-    for(i = 0; i < left_gap && graph_walker_next(wlk) &&
-               rpt_walker_attempt_traverse(rptwlk, wlk);  i++)
-    {
-      nodebuf->data[nodebuf->len] = wlk->node;
-      posbuf->data[nodebuf->len] = -1;
-    }
-    nodebuf->len = posbuf->len = i;
-
-    graph_walker_finish(wlk);
-    rpt_walker_fast_clear(rptwlk, nodebuf->data, nodebuf->len);
-
-    // Reverse lists, reverse nodes
-    for(i = 0, j = nodebuf->len-1; i < nodebuf->len; i++, j--) {
-      dBNode n = nodebuf->data[i];
-      nodebuf->data[i] = db_node_reverse(nodebuf->data[j]);
-      nodebuf->data[j] = db_node_reverse(n);
-      SWAP(posbuf->data[i], posbuf->data[j]);
-    }
-  }
+  // nbuf = correct_alignment_nxt(wrkr);
+  // ctx_assert(nbuf != NULL); // We've already checked aln->nodes.len > 0
 
   // Append contigs
-  while((nbuf = correct_alignment_nxt(wrkr)) != NULL)
+  while(correct_alignment_nxt(wrkr) != NULL)
   {
+    // printf("got thing!\n");
     ctx_assert(wrkr->contig.len ==  wrkr->rpos.len);
     db_node_buf_append(nodebuf, wrkr->contig.data, wrkr->contig.len);
     int32_buf_append(posbuf, wrkr->rpos.data, wrkr->rpos.len);
   }
 
+  // Couldn't get any kmers
+  if(nodebuf->len == 0) {
+    // printf("\nGot no kmers!\n\n");
+    return;
+  }
+
+  if(left_gap > 0)
+  {
+    dBNodeBuffer *revcontig = &wrkr->revcontig;
+    db_node_buf_reset(revcontig);
+    db_node_buf_ensure_capacity(revcontig, left_gap);
+
+    // Try to fill in missing kmers
+    size_t n = 1;
+    while(n < nodebuf->len && posbuf->data[n] == posbuf->data[n-1]+1) { n++; }
+
+    graph_walker_prime(wlk, nodebuf->data, n,
+                       params->max_context, false,
+                       params->ctxcol, params->ctpcol,
+                       wrkr->db_graph);
+
+    for(i = 0; i < left_gap && graph_walker_next(wlk) &&
+                               rpt_walker_attempt_traverse(rptwlk, wlk);  i++)
+    {
+      revcontig->data[i] = wlk->node;
+    }
+    revcontig->len = i;
+
+    graph_walker_finish(wlk);
+    rpt_walker_fast_clear(rptwlk, revcontig->data, revcontig->len);
+
+    int32_buf_shift(posbuf, revcontig->len);
+    db_node_buf_shift(nodebuf, revcontig->len);
+
+    // copy in reverse order
+    for(i = 0, j = revcontig->len-1; i < revcontig->len; i++, j--) {
+      nodebuf->data[i] = db_node_reverse(nodebuf->data[j]);
+      posbuf->data[i] = -1;
+    }
+  }
+
   if(right_gap > 0)
   {
     // Extend to the right
-    graph_walker_prime(wlk, nbuf->data, nbuf->len,
+    size_t n = nodebuf->len-1;
+    while(n > 0 && posbuf->data[n] == posbuf->data[n-1]+1) { n--; }
+
+    graph_walker_prime(wlk, nodebuf->data + n, nodebuf->len - n,
                        params->max_context, true,
                        params->ctxcol, params->ctpcol,
                        wrkr->db_graph);
 
-    end_len = nodebuf->len + right_gap;
+    size_t orig_len = nodebuf->len;
+    size_t end_len = nodebuf->len + right_gap;
     db_node_buf_ensure_capacity(nodebuf, end_len);
     int32_buf_ensure_capacity(  posbuf,  end_len);
 
@@ -598,6 +612,6 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     nodebuf->len = posbuf->len = i;
 
     graph_walker_finish(wlk);
-    rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
+    rpt_walker_fast_clear(rptwlk, nodebuf->data+orig_len, nodebuf->len-orig_len);
   }
 }

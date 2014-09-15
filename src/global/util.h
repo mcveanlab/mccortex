@@ -73,6 +73,13 @@ char* bytes_to_str(unsigned long num, int decimals, char* str);
 char* num_to_str(double num, int decimals, char* str);
 
 //
+// Pretty printing
+//
+// @linelen is number of characters in the line (30 is good default)
+void util_print_nums(const char **titles, const size_t *nums,
+                     size_t n, size_t linelen);
+
+//
 // Hexidecimal
 //
 

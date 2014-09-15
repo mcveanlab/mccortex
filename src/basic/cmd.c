@@ -6,31 +6,47 @@
 
 #include <ctype.h>
 
-const char *cmd_usage = NULL;
-char *cmd_line_given = NULL, *cmd_cwd = NULL;
-bool printed_header = false; // If we have called cmd_print_status_header()
+// Global object that clones input arguments
+struct Cmd {
+  // These arrays are allocated
+  char **init_argv;
+  int init_argc;
+  char *cmd_line_str, *cwd;
+  // This is just a pointer -- not allocated
+  const char *usage;
+  bool printed_header; // If we have called cmd_print_status_header()
+} cmd;
 
 void cmd_init(int argc, char **argv)
 {
-  cmd_line_given = cmd_concat_args(argc, argv);
-  cmd_cwd = ctx_malloc(PATH_MAX+1);
-  if(futil_get_current_dir(cmd_cwd) == NULL) {
+  memset(&cmd, 0, sizeof(cmd));
+
+  cmd.init_argc = argc;
+  cmd.init_argv = cmd_clone_args(argc, argv);
+  cmd.cmd_line_str = cmd_concat_args(argc, argv);
+
+  cmd.cwd = ctx_malloc(PATH_MAX+1);
+  if(futil_get_current_dir(cmd.cwd) == NULL) {
     warn("Couldn't get current working dir path");
-    strcpy(cmd_cwd, "./");
+    strcpy(cmd.cwd, "./");
   }
 }
 
 void cmd_destroy()
 {
-  ctx_free(cmd_line_given);
-  ctx_free(cmd_cwd);
-  cmd_usage = cmd_line_given = cmd_cwd = NULL;
+  ctx_free(cmd.init_argv[0]);
+  ctx_free(cmd.init_argv);
+  ctx_free(cmd.cmd_line_str);
+  ctx_free(cmd.cwd);
+  memset(&cmd, 0, sizeof(cmd));
 }
 
-void cmd_set_usage(const char *usage) { cmd_usage = usage; }
-const char* cmd_get_usage() { return cmd_usage; }
-const char* cmd_get_cmdline() { return cmd_line_given; }
-const char* cmd_get_cwd() { return cmd_cwd; }
+void cmd_set_usage(const char *usage) { cmd.usage = usage; }
+const char*  cmd_get_usage() { return cmd.usage; }
+const char*  cmd_get_cmdline() { return cmd.cmd_line_str; }
+const char*  cmd_get_cwd() { return cmd.cwd; }
+const char** cmd_get_argv() { return (const char**)cmd.init_argv; }
+int          cmd_get_argc() { return cmd.init_argc; }
 
 // Print status updates:
 // [cmd] ...
@@ -39,7 +55,7 @@ const char* cmd_get_cwd() { return cmd_cwd; }
 void cmd_print_status_header()
 {
   // Print 1) command used 2) current working directory 3) version info
-  printed_header |= (ctx_msg_out != NULL);
+  cmd.printed_header |= (ctx_msg_out != NULL);
   status("[cmd] %s", cmd_get_cmdline());
   status("[cwd] %s", cmd_get_cwd());
   status("[version] "VERSION_STATUS_STR" k=%i..%i",
@@ -47,20 +63,20 @@ void cmd_print_status_header()
 }
 
 void cmd_get_longopt_str(const struct option *longs, char shortopt,
-                         char *cmd, size_t buflen)
+                         char *cmdstr, size_t buflen)
 {
   const char def_str[] = "-X, --Unknown";
   ctx_assert(buflen >= strlen(def_str)+1);
 
-  string_safe_ncpy(cmd, def_str, buflen);
-  cmd[1] = shortopt;
+  string_safe_ncpy(cmdstr, def_str, buflen);
+  cmdstr[1] = shortopt;
 
   size_t i;
   for(i = 0; longs[i].name != NULL; i++) {
     if(longs[i].val == shortopt) {
-      cmd[0] = '-';
-      cmd[1] = shortopt;
-      string_safe_ncpy(cmd+6, longs[i].name, buflen-6);
+      cmdstr[0] = '-';
+      cmdstr[1] = shortopt;
+      string_safe_ncpy(cmdstr+6, longs[i].name, buflen-6);
       break;
     }
   }
@@ -83,102 +99,103 @@ void cmd_long_opts_to_short(const struct option *longs,
   opts[j] = '\0';
 }
 
-double cmd_udouble(const char *cmd, const char *arg)
+double cmd_udouble(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   double tmp;
   if(!parse_entire_double(arg, &tmp))
-    cmd_print_usage("%s requires a double >= 0: %s", cmd, arg);
+    cmd_print_usage("%s requires a double >= 0: %s", cmdstr, arg);
   return tmp;
 }
 
-double cmd_udouble_nonzero(const char *cmd, const char *arg)
+double cmd_udouble_nonzero(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   double tmp;
   if(!parse_entire_double(arg, &tmp) || tmp <= 0)
-    cmd_print_usage("%s requires a double > 0: %s", cmd, arg);
+    cmd_print_usage("%s requires a double > 0: %s", cmdstr, arg);
   return tmp;
 }
 
-uint8_t cmd_uint8(const char *cmd, const char *arg)
+uint8_t cmd_uint8(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   unsigned int tmp;
   if(!parse_entire_uint(arg, &tmp))
-    cmd_print_usage("%s requires an int 0 <= x < 255: %s", cmd, arg);
+    cmd_print_usage("%s requires an int 0 <= x < 255: %s", cmdstr, arg);
   return tmp;
 }
 
-int32_t cmd_int32(const char *cmd, const char *arg)
+int32_t cmd_int32(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   int tmp;
   if(!parse_entire_int(arg, &tmp))
-    cmd_print_usage("%s requires an int: %s", cmd, arg);
+    cmd_print_usage("%s requires an int: %s", cmdstr, arg);
   return tmp;
 }
 
-uint32_t cmd_uint32(const char *cmd, const char *arg)
+uint32_t cmd_uint32(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   unsigned int tmp;
   if(!parse_entire_uint(arg, &tmp))
-    cmd_print_usage("%s requires an int x >= 0: %s", cmd, arg);
+    cmd_print_usage("%s requires an int x >= 0: %s", cmdstr, arg);
   return tmp;
 }
 
-uint32_t cmd_uint32_nonzero(const char *cmd, const char *arg)
+uint32_t cmd_uint32_nonzero(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
-  uint32_t n = cmd_uint32(cmd, arg);
-  if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmd, arg);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
+  uint32_t n = cmd_uint32(cmdstr, arg);
+  if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmdstr, arg);
   return n;
 }
 
-size_t cmd_size(const char *cmd, const char *arg)
+size_t cmd_size(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   size_t tmp;
   if(!parse_entire_size(arg, &tmp))
-    cmd_print_usage("%s requires an int x >= 0: %s", cmd, arg);
+    cmd_print_usage("%s requires an int x >= 0: %s", cmdstr, arg);
   return tmp;
 }
 
-size_t cmd_size_nonzero(const char *cmd, const char *arg)
+size_t cmd_size_nonzero(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
-  size_t n = cmd_size(cmd, arg);
-  if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmd, arg);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
+  size_t n = cmd_size(cmdstr, arg);
+  if(n == 0) cmd_print_usage("%s <N> must be > 0: %s", cmdstr, arg);
   return n;
 }
 
-size_t cmd_parse_arg_mem(const char *cmd, const char *arg)
+size_t cmd_parse_arg_mem(const char *cmdstr, const char *arg)
 {
-  ctx_assert(cmd != NULL);
-  ctx_assert2(arg != NULL, "cmd: %s", cmd);
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
   size_t mem;
   if(!mem_to_integer(arg, &mem))
-    cmd_print_usage("%s %s valid options: 1024 2MB 1G", cmd, arg);
+    cmd_print_usage("%s %s valid options: 1024 2MB 1G", cmdstr, arg);
   return mem;
 }
 
-seq_format cmd_parse_format(const char *cmd, const char *arg)
+seq_format cmd_parse_format(const char *cmdstr, const char *arg)
 {
   int tmp = seqout_str2fmt(optarg);
   if(tmp != SEQ_FMT_FASTQ && tmp != SEQ_FMT_FASTA && tmp != SEQ_FMT_PLAIN)
-    cmd_print_usage("Invalid %s {FASTA,FASTQ,PLAIN} option: %s", cmd, arg);
+    cmd_print_usage("Invalid %s {FASTA,FASTQ,PLAIN} option: %s", cmdstr, arg);
   return (seq_format)tmp;
 }
 
+// Beware: we don't escape spaces etc.
 // Remember to free return value
 char* cmd_concat_args(int argc, char **argv)
 {
@@ -201,11 +218,37 @@ char* cmd_concat_args(int argc, char **argv)
   return cmdline;
 }
 
+// Remember to free pointers and strings
+//    char **args = cmd_clone_args(argc, argv);
+//    free(args[0]);
+//    free(args);
+char** cmd_clone_args(int argc, char **argv)
+{
+  int i; size_t len = 0; char *str;
+
+  for(i = 0; i < argc; i++)
+    len += strlen(argv[i]) + 1;
+
+  char *cmds_merged = ctx_malloc(len);
+  char **cmd_ptrs = ctx_malloc(argc * sizeof(char*));
+
+  for(str = cmds_merged, i = 0; i < argc; i++) {
+    cmd_ptrs[i] = str;
+    len = strlen(argv[i]);
+    memcpy(str, argv[i], len);
+    str[len] = '\0';
+    str += len+1; // length + null byte
+  }
+
+  return cmd_ptrs;
+}
+
+
 void cmd_print_usage(const char *errfmt,  ...)
 {
   ctx_msg_out = stderr;
 
-  if(!printed_header)
+  if(!cmd.printed_header)
     cmd_print_status_header();
 
   pthread_mutex_lock(&ctx_biglock); // lock is never released
@@ -221,6 +264,6 @@ void cmd_print_usage(const char *errfmt,  ...)
     fputc('\n', stderr);
   }
 
-  fputs(cmd_usage, stderr);
+  fputs(cmd.usage, stderr);
   exit(EXIT_FAILURE);
 }

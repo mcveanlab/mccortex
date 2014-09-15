@@ -24,6 +24,17 @@ typedef struct
 #define GRPHWLK_SPLIT_PATHS 5 /* Fail: fork in colour, paths split */
 #define GRPHWLK_MISSING_PATHS 6 /* Fail: fork in colour, missing info */
 #define GRPHWLK_USEPATH 7 /* Success: fork in colour, paths resolved */
+#define GRPHWLK_NUM_STATES 8
+
+#define GRPHWLK_FORWARD_STR       "GoForward"
+#define GRPHWLK_COLFWD_STR        "GoColForward"
+#define GRPHWLK_NOCOVG_STR        "FailNoCovg"
+#define GRPHWLK_NOCOLCOVG_STR     "FailNoColCovg"
+#define GRPHWLK_NOPATHS_STR       "FailNoPaths"
+#define GRPHWLK_SPLIT_PATHS_STR   "FailSplitPaths"
+#define GRPHWLK_MISSING_PATHS_STR "FailMissingPaths"
+#define GRPHWLK_USEPATH_STR       "GoUsePath"
+
 
 extern const char *graph_step_str[];
 
@@ -59,6 +70,7 @@ void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
 
 char* graph_walker_status2str(uint8_t status, char *str, size_t len);
+void graph_walker_print_state_hist(const size_t arr[GRPHWLK_NUM_STATES]);
 void graph_walker_print_state(const GraphWalker *wlk, FILE *fout);
 
 // Always call finish after calling init

@@ -2,6 +2,7 @@
 #define ASSEMBLE_CONTIGS_H_
 
 #include "db_graph.h"
+#include "graph_walker.h"
 #include "seq_file.h"
 
 #define AC_MAX_PATHS 5
@@ -14,7 +15,7 @@ typedef struct
   uint64_t paths_new[AC_MAX_PATHS];
   uint64_t paths_cntr[AC_MAX_PATHS];
   uint64_t paths_held_max, paths_new_max, paths_cntr_max;
-  uint64_t grphwlk_steps[8]; // 8 states in graph_walker.h
+  uint64_t grphwlk_steps[GRPHWLK_NUM_STATES]; // states in graph_walker.h
   uint64_t *lengths, *junctns, capacity; // length, njuncs for each contig
   uint64_t min_len, max_len, min_junc, max_junc;
   double max_junc_density;

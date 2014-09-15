@@ -14,7 +14,8 @@ void correct_aln_input_print(const CorrectAlnInput *c)
   if(c->fq_cutoff > 0) sprintf(fqCutoff, "%u", c->fq_cutoff);
   if(c->hp_cutoff > 0) sprintf(hpCutoff, "%u", c->hp_cutoff);
 
-  status("[task] input: %s%s%s", p1, (has_p2 ? ", " : ""), p2);
+  status("[task] input: %s%s%s", futil_inpath_str(p1),
+         (has_p2 ? ", " : ""), futil_inpath_str(p2));
   status("  FASTQ offset: %s, threshold: %s; cut homopolymers: %s",
          fqOffset, fqCutoff, hpCutoff);
 

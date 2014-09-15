@@ -53,19 +53,28 @@ static void print_path_list(const GPathFollowBuffer *pbuf, FILE *fout)
 
 char* graph_walker_status2str(uint8_t status, char *str, size_t len)
 {
-  ctx_assert(len >= 20);
+  ctx_assert(len >= 20); (void)len;
   switch(status) {
-    case GRPHWLK_FORWARD:       strcpy(str, "GoForward"); break;
-    case GRPHWLK_COLFWD:        strcpy(str, "GoColForward"); break;
-    case GRPHWLK_NOCOVG:        strcpy(str, "FailNoCovg"); break;
-    case GRPHWLK_NOCOLCOVG:     strcpy(str, "FailNoColCovg"); break;
-    case GRPHWLK_NOPATHS:       strcpy(str, "FailNoPaths"); break;
-    case GRPHWLK_SPLIT_PATHS:   strcpy(str, "FailSplitPaths"); break;
-    case GRPHWLK_MISSING_PATHS: strcpy(str, "FailMissingPaths"); break;
-    case GRPHWLK_USEPATH:       strcpy(str, "GoUsePath"); break;
+    case GRPHWLK_FORWARD:       strcpy(str, GRPHWLK_FORWARD_STR); break;
+    case GRPHWLK_COLFWD:        strcpy(str, GRPHWLK_COLFWD_STR); break;
+    case GRPHWLK_NOCOVG:        strcpy(str, GRPHWLK_NOCOVG_STR); break;
+    case GRPHWLK_NOCOLCOVG:     strcpy(str, GRPHWLK_NOCOLCOVG_STR); break;
+    case GRPHWLK_NOPATHS:       strcpy(str, GRPHWLK_NOPATHS_STR); break;
+    case GRPHWLK_SPLIT_PATHS:   strcpy(str, GRPHWLK_SPLIT_PATHS_STR); break;
+    case GRPHWLK_MISSING_PATHS: strcpy(str, GRPHWLK_MISSING_PATHS_STR); break;
+    case GRPHWLK_USEPATH:       strcpy(str, GRPHWLK_USEPATH_STR); break;
     default: die("Bad status: %i", (int)status);
   }
   return str;
+}
+
+void graph_walker_print_state_hist(const size_t arr[GRPHWLK_NUM_STATES])
+{
+  const char *strs[] = {GRPHWLK_FORWARD_STR,       GRPHWLK_COLFWD_STR,
+                        GRPHWLK_NOCOVG_STR,        GRPHWLK_NOCOLCOVG_STR,
+                        GRPHWLK_NOPATHS_STR,       GRPHWLK_SPLIT_PATHS_STR,
+                        GRPHWLK_MISSING_PATHS_STR, GRPHWLK_USEPATH_STR};
+  util_print_nums(strs, arr, GRPHWLK_NUM_STATES, 30);
 }
 
 void graph_walker_print_state(const GraphWalker *wlk, FILE *fout)

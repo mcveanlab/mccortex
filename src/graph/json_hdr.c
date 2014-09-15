@@ -97,7 +97,13 @@ void json_hdr_add_std(cJSON *json, const char *path,
   cJSON *command = cJSON_CreateObject();
   cJSON_AddItemToArray(commands, command);
   cJSON_AddStringToObject(command, "key", hex_rand_str(keystr, sizeof(keystr)));
-  cJSON_AddStringToObject(command, "cmd", cmd_get_cmdline());
+
+  // Add command line arguments
+  const char **argv = cmd_get_argv();
+  int argc = cmd_get_argc();
+  cJSON *cmdargs = cJSON_CreateStringArray(argv, argc);
+  cJSON_AddItemToObject(command, "cmd", cmdargs);
+
   cJSON_AddStringToObject(command, "cwd", cmd_get_cwd());
 
   // Get absolute path to output file

@@ -156,7 +156,7 @@ int ctx_index(int argc, char **argv)
   memset(tmp, 0, sizeof(tmp));
 
   // Print header
-  fputs("#start_kmer end_kmer num_kmer byte_start byte_end\n", fout);
+  fputs("#start_kmer end_kmer num_kmers byte_start byte_end\n", fout);
 
   // Read in file, print index
   while(1)

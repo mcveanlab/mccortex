@@ -316,7 +316,7 @@ size_t asyncio_input_nkmers(const AsyncIOInput *io)
     if(sf) {
       off_t fsize = futil_get_file_size(sf->path);
       if(fsize < 0) {
-        warn("Cannot get file size: %s", sf->path);
+        // warn("Cannot get file size: %s", sf->path);
         return SIZE_MAX;
       }
       else {

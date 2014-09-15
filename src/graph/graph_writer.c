@@ -288,7 +288,8 @@ uint64_t graph_file_save(const char *path, const dBGraph *db_graph,
   }
 
   status("[graph_file_save] Writing colours %zu-%zu of %zu into: %s",
-         intocol, intocol+num_of_cols-1, (size_t)header->num_of_cols, path);
+         intocol, intocol+num_of_cols-1, (size_t)header->num_of_cols,
+         futil_outpath_str(path));
 
   FILE *fout = futil_fopen(path, "w");
 

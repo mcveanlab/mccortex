@@ -93,6 +93,8 @@ off_t futil_get_file_size(const char* filepath)
 {
   struct stat st;
 
+  if(strcmp(filepath,"-") == 0) return -1;
+
   if(stat(filepath, &st) == 0)
     return st.st_size;
 

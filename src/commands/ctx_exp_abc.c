@@ -41,14 +41,14 @@ static struct option longopts[] =
 };
 
 #define NUM_RESULT_VALUES 8
-#define ABC_SUCCESS  0
-#define AB_WRONG     1 /* after B->A, A->B went wrong */      /* unused */
-#define AB_FAILED    2 /* after B->A, couldn't get A->B */    /* unused */
-#define BC_WRONG     3 /* after A->B->C, B->C went wrong */
-#define BC_FAILED    4 /* after A->B->C, couldn't get B->C */ /* unused */
-#define BC_OVERSHOT  5 /* after A->B->C, B->C went too far */
-#define LOST_IN_RPT  6 /* All cases where we get lost in a repeat */
-#define NO_TRAVERSAL 7 /* Can't get anywhere from B */
+#define RES_ABC_SUCCESS  0
+#define RES_AB_WRONG     1 /* after B->A, A->B went wrong */      /* unused */
+#define RES_AB_FAILED    2 /* after B->A, couldn't get A->B */    /* unused */
+#define RES_BC_WRONG     3 /* after A->B->C, B->C went wrong */
+#define RES_BC_FAILED    4 /* after A->B->C, couldn't get B->C */ /* unused */
+#define RES_BC_OVERSHOT  5 /* after A->B->C, B->C went too far */
+#define RES_LOST_IN_RPT  6 /* All cases where we get lost in a repeat */
+#define RES_NO_TRAVERSAL 7 /* Can't get anywhere from B */
 
 typedef struct {
   size_t colour, threadid, nthreads;
@@ -56,6 +56,7 @@ typedef struct {
   size_t num_tests, num_limit; // Counting how many tests we've run / limit
   size_t max_AB_dist; // Max contig to assemble finding A from B
   size_t results[NUM_RESULT_VALUES];
+  size_t ab_fail_state[GRPHWLK_NUM_STATES], bc_fail_state[GRPHWLK_NUM_STATES];
   dBNodeBuffer nbuf;
   GraphWalker gwlk;
   RepeatWalker rptwlk;
@@ -75,6 +76,8 @@ static inline void reset(GraphWalker *wlk, RepeatWalker *rptwlk,
 #define CONFIRM_WRONG    3
 #define CONFIRM_SHORT    4
 
+// Check we can walk along a set of nodes through the graph
+// If @allow_extend is true, traverse past the end of the buffer and add nodes
 static inline int confirm_seq(size_t startidx, bool allow_extend,
                               GraphWalker *wlk, RepeatWalker *rpt,
                               dBNodeBuffer *nbuf, size_t colour,
@@ -85,18 +88,21 @@ static inline int confirm_seq(size_t startidx, bool allow_extend,
 
   for(i = startidx+1; graph_walker_next(wlk); i++) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
-      reset(wlk,rpt,nbuf); return CONFIRM_REPEAT;
+      reset(wlk,rpt,nbuf);
+      return CONFIRM_REPEAT;
     }
     if(i < init_len) {
       if(!db_nodes_are_equal(nbuf->data[i], wlk->node)) {
-        reset(wlk,rpt,nbuf); return CONFIRM_WRONG;
+        reset(wlk,rpt,nbuf);
+        return CONFIRM_WRONG;
       }
     }
     else {
-      if(allow_extend) {
-        db_node_buf_add(nbuf, wlk->node);
-      } else {
-        reset(wlk,rpt,nbuf); nbuf->len--; return CONFIRM_OVERSHOT;
+      db_node_buf_add(nbuf, wlk->node);
+      if(!allow_extend) {
+        reset(wlk,rpt,nbuf);
+        nbuf->len--; // Remove node we added
+        return CONFIRM_OVERSHOT;
       }
     }
   }
@@ -127,14 +133,14 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
   graph_walker_init(wlk, db_graph, col, col, nbuf->data[0]);
   while(graph_walker_next(wlk) && nbuf->len < AB_limit) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
-      reset(wlk,rpt,nbuf); return LOST_IN_RPT;
+      reset(wlk,rpt,nbuf); return RES_LOST_IN_RPT;
     }
     db_node_buf_add(nbuf, wlk->node);
   }
 
   reset(wlk,rpt,nbuf);
 
-  if(nbuf->len == 1) return NO_TRAVERSAL;
+  if(nbuf->len == 1) return RES_NO_TRAVERSAL;
 
   // Traverse A->B
   db_nodes_reverse_complement(nbuf->data, nbuf->len);
@@ -148,60 +154,46 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
 
     while(graph_walker_next(wlk)) {
       if(!rpt_walker_attempt_traverse(rpt, wlk)) {
-        reset(wlk,rpt,nbuf); return LOST_IN_RPT;
+        reset(wlk,rpt,nbuf); return RES_LOST_IN_RPT;
       }
       db_node_buf_add(nbuf, wlk->node);
     }
   }
   else
   {
+    // Attempt to traverse A->B then extend past B
     int r = confirm_seq(0, true, wlk, rpt, nbuf, col, db_graph);
     switch(r) {
-      case CONFIRM_REPEAT: return LOST_IN_RPT;
-      case CONFIRM_OVERSHOT: ctx_assert2(0,"Should be unreachable");
-      case CONFIRM_WRONG: return AB_WRONG;
-      case CONFIRM_SHORT: return AB_FAILED;
+      case CONFIRM_REPEAT: return RES_LOST_IN_RPT;
+      case CONFIRM_OVERSHOT: ctx_assert2(0,"Can't 'overshoot' when extending");
+      case CONFIRM_WRONG: return RES_AB_WRONG;
+      case CONFIRM_SHORT:
+        wrkr->ab_fail_state[wlk->last_step.status]++;
+        return RES_AB_FAILED;
     }
   }
 
   reset(wlk,rpt,nbuf);
 
-  if(nbuf->len == b_idx+1) return NO_TRAVERSAL; // Couldn't get past B
+  if(nbuf->len == b_idx+1) return RES_NO_TRAVERSAL; // Couldn't get past B
 
   // Last node is now C
-  // Walk B... do we reach C?
+  // Walk from B... record whether or not we reach C
   ctx_assert(db_nodes_are_equal(nbuf->data[b_idx], db_node_reverse(node)));
 
   int r = confirm_seq(b_idx, false, wlk, rpt, nbuf, col, db_graph);
   switch(r) {
-    case CONFIRM_REPEAT: return LOST_IN_RPT;
-    case CONFIRM_OVERSHOT: return BC_OVERSHOT;
-    case CONFIRM_WRONG: return BC_WRONG;
-    case CONFIRM_SHORT: return BC_FAILED;
-    case CONFIRM_SUCCESS: return ABC_SUCCESS;
+    case CONFIRM_REPEAT: return RES_LOST_IN_RPT;
+    case CONFIRM_OVERSHOT: return RES_BC_OVERSHOT;
+    case CONFIRM_WRONG: return RES_BC_WRONG;
+    case CONFIRM_SHORT:
+      wrkr->bc_fail_state[wlk->last_step.status]++;
+      return RES_BC_FAILED;
+    case CONFIRM_SUCCESS: return RES_ABC_SUCCESS;
   }
 
   die("Shouldn't reach here: r=%i", r);
-
-  // graph_walker_init(wlk, db_graph, col, col, nbuf->data[b_idx]);
-  // size_t i = b_idx+1;
-
-  // while(graph_walker_next(wlk)) {
-  //   if(!rpt_walker_attempt_traverse(rpt, wlk)) {
-  //     reset(wlk,rpt,nbuf); return LOST_IN_RPT;
-  //   }
-  //   db_node_buf_add(nbuf, wlk->node);
-  //   if(i >= nbuf->len) {
-  //     reset(wlk,rpt,nbuf); return BC_OVERSHOT;
-  //   } else if(!db_nodes_are_equal(nbuf->data[i], wlk->node)) {
-  //     reset(wlk,rpt,nbuf); return BC_WRONG;
-  //   }
-  //   i++;
-  // }
-  //
-  // reset(wlk,rpt,nbuf);
-
-  return ABC_SUCCESS;
+  return -1;
 }
 
 // called by run_exp_abc_thread() for each entry in hash table
@@ -256,26 +248,35 @@ static void run_exp_abc(const dBGraph *db_graph, bool prime_AB,
 
   // Merge results
   size_t num_tests = 0, results[NUM_RESULT_VALUES] = {0};
+  size_t ab_fail_state[GRPHWLK_NUM_STATES] = {0};
+  size_t bc_fail_state[GRPHWLK_NUM_STATES] = {0};
 
   for(i = 0; i < nthreads; i++) {
     num_tests += wrkrs[i].num_tests;
     for(j = 0; j < NUM_RESULT_VALUES; j++) results[j] += wrkrs[i].results[j];
+    for(j = 0; j < GRPHWLK_NUM_STATES; j++) ab_fail_state[j] += wrkrs[i].ab_fail_state[j];
+    for(j = 0; j < GRPHWLK_NUM_STATES; j++) bc_fail_state[j] += wrkrs[i].bc_fail_state[j];
     db_node_buf_dealloc(&wrkrs[i].nbuf);
     graph_walker_dealloc(&wrkrs[i].gwlk);
     rpt_walker_dealloc(&wrkrs[i].rptwlk);
   }
 
   // Print results
-  status("Ran %zu tests with %zu threads", num_tests, nthreads);
+  char nrunstr[50];
+  ulong_to_str(num_tests, nrunstr);
+  status("Ran %s tests with %zu threads", nrunstr, nthreads);
 
-  status(" Success: %zu", results[ABC_SUCCESS]);
-  status(" AB_WRONG: %zu", results[AB_WRONG]);
-  status(" AB_FAILED: %zu", results[AB_FAILED]);
-  status(" BC_WRONG: %zu", results[BC_WRONG]);
-  status(" BC_FAILED: %zu", results[BC_FAILED]);
-  status(" BC_OVERSHOT: %zu", results[BC_OVERSHOT]);
-  status(" LOST_IN_RPT: %zu", results[LOST_IN_RPT]);
-  status(" NO_TRAVERSAL: %zu", results[NO_TRAVERSAL]);
+  const char *titles[] = {"RES_ABC_SUCCESS", "RES_AB_WRONG",
+                          "RES_AB_FAILED",   "RES_BC_WRONG",
+                          "RES_BC_FAILED",   "RES_BC_OVERSHOT",
+                          "RES_LOST_IN_RPT", "RES_NO_TRAVERSAL"};
+
+  util_print_nums(titles, results, NUM_RESULT_VALUES, 30);
+
+  status("AB_FAILED:");
+  graph_walker_print_state_hist(ab_fail_state);
+  status("BC_FAILED:");
+  graph_walker_print_state_hist(bc_fail_state);
 
   ctx_free(wrkrs);
 }
@@ -405,10 +406,10 @@ int ctx_exp_abc(int argc, char **argv)
   gpfile_buf_dealloc(&gpfiles);
 
   status("");
-  status("Test 1: Priming region A->B");
+  status("Test 1: Priming region A->B (max_AB_dist: %zu)", max_AB_dist);
   run_exp_abc(&db_graph, true, nthreads, num_repeats, max_AB_dist);
   status("");
-  status("Test 2: Trying to traverse A->B");
+  status("Test 2: Trying to traverse A->B (max_AB_dist: %zu)", max_AB_dist);
   run_exp_abc(&db_graph, false, nthreads, num_repeats, max_AB_dist);
 
   db_graph_dealloc(&db_graph);
