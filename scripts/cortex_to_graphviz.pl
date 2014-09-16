@@ -9,7 +9,9 @@ use File::Basename;
 use FindBin;
 use lib $FindBin::Bin;
 
+use CortexScripts;
 use CortexGraph;
+use CortexPaths;
 
 sub print_usage
 {
@@ -19,12 +21,13 @@ sub print_usage
   }
   
   print STDERR "" .
-"Usage: ./cortex_to_graphviz.pl [--point|--simplify] <in.ctx> [...]
+"Usage: ./cortex_to_graphviz.pl [options] <in.ctx> [...]
   Prints graphviz `dot' output.  Not to be used with large graphs!
 
-  --point    Don't print kmer values, only points
-  --simplify Simplify supernodes
-  --kmer <k> Max kmer size used [default: 31]
+  --point          Don't print kmer values, only points
+  --simplify       Simplify supernodes
+  --kmer <k>       Max kmer size used [default: 31]
+  --path <in.ctp>  Load paths from file
 
   Example: ./cortex_to_graphviz.pl small.ctx > small.dot
            dot -Tpng small.dot > small.png\n";
@@ -35,22 +38,28 @@ sub print_usage
 my $use_points = 0;
 my $simplify = 0;
 my $maxk = 31;
+my $ctp_path;
 
 while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
-  if($ARGV[0] =~ /^-?-p(oints?)?$/i) {
-    shift;
+  if($ARGV[0] =~ /^-?-(P|[pP]oints)$/) {
+    shift(@ARGV);
     $use_points = 1;
   }
   elsif($ARGV[0] =~ /^-?-s(implify)?$/i) {
-    shift;
+    shift(@ARGV);
     $simplify = 1;
   }
   elsif($ARGV[0] =~ /^-?-k(mer)?$/i) {
-    my $arg = shift;
-    $maxk = shift;
+    my $arg = shift(@ARGV);
+    $maxk = shift(@ARGV);
     if(!defined($maxk) || $maxk !~ /^\d+$/) {
       print_usage("$arg <k> requires an argument");
     }
+  }
+  elsif($ARGV[0] =~ /^-?-p(ath)?$/i) {
+    my $arg = shift(@ARGV);
+    $ctp_path = shift(@ARGV);
+    if(!defined($ctp_path)) { print_usage("$arg <in.ctp> requires argument");}
   }
   else { print_usage("Unknown option '$ARGV[0]'"); }
 }
@@ -58,7 +67,11 @@ while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
 # Round kmer-size up to max kmer size supported by an executable
 $maxk = int(($maxk+31)/32)*32-1;
 
-if(@ARGV != 1) { print_usage(); }
+if(defined($ctp_path) && $simplify) {
+  print_usage("--path <in> and --simplify are not supported together currently");
+}
+
+if(@ARGV != 1) { print_usage("Got extra commands: @ARGV"); }
 my @files = @ARGV;
 
 my $cmd = dirname(__FILE__)."/../bin/ctx$maxk";
@@ -74,6 +87,22 @@ elsif(!(-x $cmd)) {
 my $cmdline = "$cmd view --quiet --kmers @files";
 my $in;
 open($in, '-|', $cmdline) or die $!;
+
+my %paths = (); # kmer->path string
+
+# Read paths
+if(defined($ctp_path)) {
+  my $ctp_fh = open_file($ctp_path);
+  my $ctp_file = new CortexPaths($ctp_fh, $ctp_path);
+
+  while(1) {
+    my ($kmer, @paths) = $ctp_file->next();
+    if(!defined($kmer)) { last; }
+    if(defined($paths{$kmer})) { die("Duplicate kmer: $kmer"); }
+    $paths{$kmer} = ctp_path_to_str(@paths);
+  }
+  close($ctp_fh);
+}
 
 # Print beggining of graphviz file
 print "digraph G {\n";
@@ -179,6 +208,12 @@ else
     {
       my $num_edges_printed = 0;
 
+      if(defined($paths{$kmer})) {
+        print "  $kmer [label=\"$kmer\n$paths{$kmer}\"]\n";
+      } else {
+        print "  $kmer\n";
+      }
+
       for(my $i = 0; $i < $num_cols; $i++)
       {
         for(my $base = 0; $base < 4; $base++)
@@ -199,11 +234,6 @@ else
             dump_edge($kmer, uc($edge), 1);
             $num_edges_printed++;
           }
-        }
-
-        if($num_edges_printed == 0)
-        {
-          print "  ".kmer_key($kmer)."\n";
         }
       }
     }

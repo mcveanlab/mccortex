@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use File::Basename;
+use File::Basename; # dirname()
 
 # Use current directory to find modules
 use FindBin;
@@ -11,8 +11,6 @@ use lib $FindBin::Bin;
 
 use CortexScripts;
 use CortexPaths;
-use FASTNFile;
-use GeneticsModule;
 
 sub print_usage
 {
@@ -46,18 +44,6 @@ my ($ctx_path, $ctp_path) = @ARGV;
 my $ctp_fh = open_file($ctp_path);
 my $ctp_file = new CortexPaths($ctp_fh, $ctp_path);
 
-my %paths = (); # kmer->path string
-
-# Read paths
-while(1)
-{
-  my ($kmer, @paths) = $ctp_file->next();
-  if(!defined($kmer)) { last; }
-  $paths{$kmer} = ctp_path_to_str(@paths);
-}
-
-close($ctp_fh);
-
 # Pipe cortex graph through cortex
 # graph file reader command
 my $cmd = dirname(__FILE__)."/../bin/ctx$maxk";
@@ -65,6 +51,20 @@ my $cmdline = "$cmd view --quiet --kmers $ctx_path";
 my $in;
 open($in, '-|', $cmdline) or die $!;
 
+my %paths = (); # kmer->path string
+
+# Read paths
+while(1)
+{
+  my ($kmer, @paths) = $ctp_file->next();
+  if(!defined($kmer)) { last; }
+  if(defined($paths{$kmer})) { die("Duplicate kmer: $kmer"); }
+  $paths{$kmer} = ctp_path_to_str(@paths);
+}
+
+close($ctp_fh);
+
+# Read graph file
 while(defined(my $line = <$in>))
 {
   if($line =~ /^([ACGT]+)/) {
