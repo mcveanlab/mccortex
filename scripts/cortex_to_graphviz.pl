@@ -12,6 +12,7 @@ use lib $FindBin::Bin;
 use CortexScripts;
 use CortexGraph;
 use CortexPaths;
+use FASTNFile;
 
 sub print_usage
 {
@@ -28,6 +29,7 @@ sub print_usage
   --simplify       Simplify supernodes
   --kmer <k>       Max kmer size used [default: 31]
   --path <in.ctp>  Load paths from file
+  --mark <in.fa>   Mark given kmers
 
   Example: ./cortex_to_graphviz.pl small.ctx > small.dot
            dot -Tpng small.dot > small.png\n";
@@ -37,8 +39,9 @@ sub print_usage
 
 my $use_points = 0;
 my $simplify = 0;
-my $maxk = 31;
+my $kmer_size = 31;
 my $ctp_path;
+my $contig_path;
 
 while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
   if($ARGV[0] =~ /^-?-(P|[pP]oints)$/) {
@@ -51,8 +54,8 @@ while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
   }
   elsif($ARGV[0] =~ /^-?-k(mer)?$/i) {
     my $arg = shift(@ARGV);
-    $maxk = shift(@ARGV);
-    if(!defined($maxk) || $maxk !~ /^\d+$/) {
+    $kmer_size = shift(@ARGV);
+    if(!defined($kmer_size) || $kmer_size !~ /^\d+$/ || ($kmer_size % 2) == 0) {
       print_usage("$arg <k> requires an argument");
     }
   }
@@ -61,14 +64,23 @@ while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
     $ctp_path = shift(@ARGV);
     if(!defined($ctp_path)) { print_usage("$arg <in.ctp> requires argument");}
   }
+  elsif($ARGV[0] =~ /^-?-m(ark)?$/i) {
+    my $arg = shift(@ARGV);
+    $contig_path = shift(@ARGV);
+    if(!defined($ctp_path)) { print_usage("$arg <in.fa> requires argument");}
+  }
   else { print_usage("Unknown option '$ARGV[0]'"); }
 }
 
 # Round kmer-size up to max kmer size supported by an executable
-$maxk = int(($maxk+31)/32)*32-1;
+my $maxk = int(($kmer_size+31)/32)*32-1;
 
 if(defined($ctp_path) && $simplify) {
   print_usage("--path <in> and --simplify are not supported together currently");
+}
+
+if(defined($contig_path) && $simplify) {
+  print_usage("--mark <in> and --simplify are not supported together currently");
 }
 
 if(@ARGV != 1) { print_usage("Got extra commands: @ARGV"); }
@@ -102,6 +114,23 @@ if(defined($ctp_path)) {
     $paths{$kmer} = ctp_path_to_str(@paths);
   }
   close($ctp_fh);
+}
+
+my %marked_kmers = ();
+
+if(defined($contig_path)) {
+  my $fastn = open_fastn_file($contig_path);
+  my ($title,$seq);
+  while((($title,$seq) = $fastn->read_next()) && defined($title)) {
+    my $len = length($seq);
+    if($len < $kmer_size) { warn("len(seq) < k [$len < $kmer_size]"); }
+    for(my $i = 0; $i + $kmer_size <= $len; $i++) {
+      my $kmer = substr($seq, $i, $kmer_size);
+      $kmer = kmer_key($kmer);
+      $marked_kmers{$kmer} = 1;
+    }
+  }
+  close_fastn_file($fastn);
 }
 
 # Print beggining of graphviz file
@@ -208,11 +237,12 @@ else
     {
       my $num_edges_printed = 0;
 
-      if(defined($paths{$kmer})) {
-        print "  $kmer [label=\"$kmer\n$paths{$kmer}\"]\n";
-      } else {
-        print "  $kmer\n";
-      }
+      my @attr = ();
+
+      if(defined($marked_kmers{$kmer})) { push(@attr, 'shape="box"'); }
+      if(defined($paths{$kmer})) { push(@attr, 'label="'.$kmer.'\n'.$paths{$kmer}.'"'); }
+
+      print "  $kmer".(@attr ? " [".join(' ', @attr)."]" : "")."\n";
 
       for(my $i = 0; $i < $num_cols; $i++)
       {
