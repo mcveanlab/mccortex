@@ -82,6 +82,9 @@ indels.good.fq: indels.bad.fq
 	@echo == out ==
 	cat $@
 
+# Plots to help understand what is going on
+plots: indel.AA.pdf snp.AT.pdf
+
 indel.AA.pdf:
 	printf 'CTGTTCCAAGAGTAACGTTA\nCTGTTCCAAGAAAGTAACGTTA\n' | \
 	$(CTXDIR)/scripts/seq2pdf.sh $(K) - > $@
@@ -90,4 +93,4 @@ snp.AT.pdf:
 	printf 'CTGTTCCAAGAGTAACGTTA\nCTGTTCCAAGTGTAACGTTA\n' | \
 	$(CTXDIR)/scripts/seq2pdf.sh $(K) - > $@
 
-.PHONY: all clean
+.PHONY: all clean plots

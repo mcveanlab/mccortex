@@ -220,7 +220,7 @@ int ctx_pjoin(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < num_pfiles; i++)
-    gpath_reader_load(&pfiles[i], false, &db_graph);
+    gpath_reader_load(&pfiles[i], GPATH_ADD_MISSING_KMERS, &db_graph);
 
   status("Got %zu path bytes", (size_t)db_graph.gpstore.path_bytes);
 

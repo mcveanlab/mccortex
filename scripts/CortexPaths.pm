@@ -6,7 +6,7 @@ use Carp;
 use CortexScripts; # load_json_hdr()
 
 use base 'Exporter';
-our @EXPORT = qw(ctp_print_path);
+our @EXPORT = qw(ctp_print_path ctp_path_to_str);
 
 sub new
 {
@@ -68,18 +68,26 @@ sub next
   return ($kmer,@paths);
 }
 
+sub ctp_path_to_str
+{
+  my $str = "";
+  for my $p (@_) {
+    my $other = ""; # Other info
+
+    if(defined($p->{'other'}) && length($p->{'other'}) > 0) {
+      $other = " ".$p->{'other'};
+    }
+
+    $str .= $p->{'dir'} . " " . $p->{'num_kmers'} . " ". $p->{'num_juncs'} . " " .
+            join(',', @{$p->{'counts'}}) . " " . $p->{'seq'} . $other . "\n";
+  }
+  return $str;
+}
+
 sub ctp_print_path
 {
   my ($p,$out) = @_;
-  my $other = "";
-
-  if(defined($p->{'other'}) && length($p->{'other'}) > 0) {
-    $other = " ".$p->{'other'};
-  }
-
-  my $txt = $p->{'dir'} . " " . $p->{'num_kmers'} . " ". $p->{'num_juncs'} . " " .
-            join(',', @{$p->{'counts'}}) . " " . $p->{'seq'} . $other . "\n";
-
+  my $txt = ctp_print_path_str($p);
   if(defined($out)) { print $out $txt; }
   else { print $txt; }
 }

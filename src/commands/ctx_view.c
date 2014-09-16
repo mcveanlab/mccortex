@@ -17,6 +17,9 @@ const char view_usage[] =
 "\n"
 "  View a cortex graph as a list of kmers with coverage and edges\n"
 "\n"
+"  -h, --help   This help message\n"
+"  -q, --quiet  Silence status output normally printed to STDERR\n"
+"\n"
 "  -k, --kmers  Print kmers\n"
 "  -c, --check  Check kmers\n"
 "  -i, --info   Print info\n"
@@ -28,9 +31,10 @@ int print_info = 0, parse_kmers = 0, print_kmers = 0;
 
 static struct option longopts[] =
 {
-  {"kmers", no_argument, &print_kmers, 1},
-  {"check", no_argument, &parse_kmers, 1},
-  {"info",  no_argument, &print_info,  1},
+  {"help",  no_argument, NULL,        'h'},
+  {"kmers", no_argument, &print_kmers,  1},
+  {"check", no_argument, &parse_kmers,  1},
+  {"info",  no_argument, &print_info,   1},
   {NULL, 0, NULL, 0}
 };
 
@@ -106,6 +110,7 @@ int ctx_view(int argc, char **argv)
     cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
     switch(c) {
       case 0: /* flag set */ break;
+      case 'h': cmd_print_usage(NULL); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -125,55 +130,55 @@ int ctx_view(int argc, char **argv)
   char *path = argv[optind];
   size_t num_errors = 0, num_warnings = 0;
 
-  GraphFileReader file;
-  memset(&file, 0, sizeof(file));
-  int ret = graph_file_open(&file, path);
+  GraphFileReader gfile;
+  memset(&gfile, 0, sizeof(gfile));
+  int ret = graph_file_open(&gfile, path);
   if(ret == 0) die("Cannot open file: %s", path);
 
   if(print_info)
   {
     char fsize_str[50];
-    bytes_to_str((size_t)file.file_size, 0, fsize_str);
-    printf("Loading file: %s\n", file_filter_path(&file.fltr));
+    bytes_to_str((size_t)gfile.file_size, 0, fsize_str);
+    printf("Loading file: %s\n", file_filter_path(&gfile.fltr));
     printf("File size: %s\n", fsize_str);
     printf("----\n");
   }
 
-  size_t ncols = file_filter_into_ncols(&file.fltr);
+  size_t ncols = file_filter_into_ncols(&gfile.fltr);
   ctx_assert(ncols > 0);
 
   GraphFileHeader hdr;
   memset(&hdr, 0, sizeof(hdr));
-  hdr.version = file.hdr.version;
-  hdr.num_of_bitfields = file.hdr.num_of_bitfields;
-  hdr.kmer_size = file.hdr.kmer_size;
+  hdr.version = gfile.hdr.version;
+  hdr.num_of_bitfields = gfile.hdr.num_of_bitfields;
+  hdr.kmer_size = gfile.hdr.kmer_size;
   hdr.num_of_cols = ncols;
   graph_header_alloc(&hdr, ncols);
 
   size_t i, col, sum_covgs_read = 0, sum_seq_loaded = 0;
   size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
-  for(i = 0; i < file.fltr.ncols; i++) {
-    col = file_filter_intocol(&file.fltr, i);
-    graph_info_merge(hdr.ginfo + i, file.hdr.ginfo + col);
+  for(i = 0; i < gfile.fltr.ncols; i++) {
+    col = file_filter_intocol(&gfile.fltr, i);
+    graph_info_merge(hdr.ginfo + i, gfile.hdr.ginfo + col);
     sum_seq_loaded += hdr.ginfo[i].total_sequence;
   }
 
   // Print header
   if(print_info)
-    print_header(&hdr, file.num_of_kmers);
+    print_header(&hdr, gfile.num_of_kmers);
 
   BinaryKmer bkmer;
   Covg covgs[ncols];
   Edges edges[ncols];
 
-  bool direct_read = file_filter_is_direct(&file.fltr);
+  bool direct_read = file_filter_is_direct(&gfile.fltr);
 
   if(parse_kmers || print_kmers)
   {
     if(print_info && print_kmers) printf("----\n");
 
-    for(; graph_file_read_reset(&file, ncols, &bkmer, covgs, edges); num_kmers_read++)
+    for(; graph_file_read_reset(&gfile, ncols, &bkmer, covgs, edges); num_kmers_read++)
     {
       // If kmer has no covg or edges -> don't load
       Covg keep_kmer = 0, covgs_sum = 0;
@@ -193,7 +198,7 @@ int ctx_view(int argc, char **argv)
       // Check for all-zeros (i.e. all As kmer: AAAAAA)
       uint64_t kmer_words_or = 0;
 
-      for(i = 0; i < file.hdr.num_of_bitfields; i++)
+      for(i = 0; i < gfile.hdr.num_of_bitfields; i++)
         kmer_words_or |= bkmer.b[i];
 
       if(kmer_words_or == 0)
@@ -215,7 +220,7 @@ int ctx_view(int argc, char **argv)
       if(print_kmers)
       {
         db_graph_print_kmer2(bkmer, covgs, edges,
-                             ncols, file.hdr.kmer_size, stdout);
+                             ncols, gfile.hdr.kmer_size, stdout);
       }
     }
   }
@@ -224,7 +229,7 @@ int ctx_view(int argc, char **argv)
   if(errno != 0)
     loading_error("errno set [%i]: %s\n", (int)errno, strerror(errno));
 
-  int err = ferror(file.fh);
+  int err = ferror(gfile.fh);
   if(err != 0)
     loading_error("occurred after file reading [%i]\n", err);
 
@@ -234,9 +239,9 @@ int ctx_view(int argc, char **argv)
   {
     // file_size is set to -1 if we are reading from a stream,
     // therefore won't be able to check number of kmers read
-    if(file.file_size != -1 && num_kmers_read != (uint64_t)file.num_of_kmers) {
+    if(gfile.file_size != -1 && num_kmers_read != (uint64_t)gfile.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
-                      (size_t)file.num_of_kmers, (size_t)num_kmers_read);
+                      (size_t)gfile.num_of_kmers, (size_t)num_kmers_read);
     }
 
     if(num_all_zero_kmers > 1)
@@ -251,9 +256,6 @@ int ctx_view(int argc, char **argv)
                       ulong_to_str(num_zero_covg_kmers, num_str));
     }
   }
-
-  // Close file (which zeros it)
-  graph_file_close(&file);
 
   // Count warnings printed by graph_reader.c
   num_warnings += greader_zero_covg_error;
@@ -276,7 +278,7 @@ int ctx_view(int argc, char **argv)
     uint64_t mem, capacity, num_buckets, req_capacity;
     uint8_t bucket_size;
 
-    req_capacity = (size_t)(file.num_of_kmers / IDEAL_OCCUPANCY);
+    req_capacity = (size_t)(gfile.num_of_kmers / IDEAL_OCCUPANCY);
     capacity = hash_table_cap(req_capacity, &num_buckets, &bucket_size);
     mem = ht_mem(bucket_size, num_buckets,
                  sizeof(BinaryKmer)*8 + ncols*(sizeof(Covg)+sizeof(Edges))*8);
@@ -294,7 +296,7 @@ int ctx_view(int argc, char **argv)
     printf("  bucket size: %s; number of buckets: %s\n",
             bucket_size_str, num_buckets_str);
     printf("  --kmer_size %u --mem_height %zu --mem_width %i\n",
-           file.hdr.kmer_size, mem_height, bucket_size);
+           gfile.hdr.kmer_size, mem_height, bucket_size);
   }
 
   if((print_kmers || parse_kmers) && print_info)
@@ -309,7 +311,9 @@ int ctx_view(int argc, char **argv)
   }
 
   graph_header_dealloc(&hdr);
-  graph_file_close(&file);
+
+  // Close file (which zeros it)
+  graph_file_close(&gfile);
 
   return EXIT_SUCCESS;
 }

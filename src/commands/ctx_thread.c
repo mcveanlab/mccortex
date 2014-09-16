@@ -179,12 +179,6 @@ int ctx_thread(int argc, char **argv)
   // Create path hash table for fast lookup
   gpath_hash_alloc(&db_graph.gphash, &db_graph.gpstore, path_hash_mem);
 
-  // Load existing paths
-  // Paths loaded into empty colours will update the sample names
-  // and add kmers needed
-  for(i = 0; i < gpfiles->len; i++)
-    gpath_reader_load(&gpfiles->data[i], false, &db_graph);
-
   if(args.use_new_paths) {
     status("Using paths as they are added (risky)");
   } else {
@@ -208,6 +202,10 @@ int ctx_thread(int argc, char **argv)
   graph_load(gfile, gprefs, &gstats);
   hash_table_print_stats_brief(&db_graph.ht);
   graph_file_close(gfile);
+
+  // Load existing paths
+  for(i = 0; i < gpfiles->len; i++)
+    gpath_reader_load(&gpfiles->data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
   //
   // Start up the threads, do the work

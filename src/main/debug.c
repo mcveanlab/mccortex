@@ -45,8 +45,8 @@ int main(int argc, char **argv)
     strbuf_set(&db_graph.ginfo[i].sample_name, sample_name);
   }
 
-  // Load path files
-  gpath_reader_load(&pfile, false, &db_graph);
+  // Load path files, add kmers that are missing
+  gpath_reader_load(&pfile, GPATH_ADD_MISSING_KMERS, &db_graph);
 
   hash_table_print_stats(&db_graph.ht);
 

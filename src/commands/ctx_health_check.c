@@ -152,7 +152,7 @@ int ctx_health_check(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++) {
-    gpath_reader_load(&gpfiles.data[i], true, &db_graph);
+    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.data[i]);
   }
   gpfile_buf_dealloc(&gpfiles);

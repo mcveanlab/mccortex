@@ -17,6 +17,10 @@ typedef struct
   cJSON **colours_json;
 } GPathReader;
 
+#define GPATH_ADD_MISSING_KMERS   0
+#define GPATH_DIE_MISSING_KMERS   1
+#define GPATH_SKIP_MISSING_KMERS  2
+
 #include "objbuf_macro.h"
 create_objbuf(gpfile_buf, GPathFileBuffer, GPathReader);
 
@@ -28,7 +32,12 @@ void gpath_reader_open(GPathReader *file, const char *path);
 void gpath_reader_open2(GPathReader *file, const char *path, const char *mode);
 
 void gpath_reader_check(const GPathReader *file, size_t kmer_size, size_t ncols);
-void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph);
+
+// @kmer_flags must be one of:
+//   GPATH_ADD_MISSING_KMERS - add kmers to the graph before loading path
+//   GPATH_DIE_MISSING_KMERS - die with error if cannot find kmer
+//   GPATH_SKIP_MISSING_KMERS - skip paths where kmer is not in graph
+void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph);
 void gpath_reader_close(GPathReader *file);
 
 // Fetch information from header

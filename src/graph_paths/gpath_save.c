@@ -106,6 +106,44 @@ static inline int _gpath_save_node(hkey_t hkey,
   return 0; // => keep iterating
 }
 
+// Save paths for a single kmer
+// @subset is temporary memory
+void gpath_fwrite_single_kmer(hkey_t hkey, FILE *fout,
+                              GPathSubset *subset,
+                              const dBGraph *db_graph)
+{
+  const GPathStore *gpstore = &db_graph->gpstore;
+  const GPathSet *gpset = &gpstore->gpset;
+  const size_t ncols = gpstore->gpset.ncols;
+  GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
+  const GPath *gpath;
+  char orchar[2] = {0};
+  orchar[FORWARD] = 'F';
+  orchar[REVERSE] = 'R';
+  const uint8_t *nseenptr;
+  size_t i, col, klen;
+
+  // Load and sort paths for given kmer
+  gpath_subset_reset(subset);
+  gpath_subset_load_llist(subset, first_gpath);
+
+  for(i = 0; i < subset->list.len; i++)
+  {
+    gpath = subset->list.data[i];
+    nseenptr = gpath_set_get_nseen(gpset, gpath);
+    klen = gpath_set_get_klen(gpset, gpath);
+    fprintf(fout, "%c %zu %u %u", orchar[gpath->orient], klen,
+                                  gpath->num_juncs, (uint32_t)nseenptr[0]);
+
+    for(col = 1; col < ncols; col++)
+      fprintf(fout, ",%u", (uint32_t)nseenptr[col]);
+
+    fputc(' ', fout);
+    binary_seq_print(gpath->seq, gpath->num_juncs, fout);
+    fputc('\n', fout);
+  }
+}
+
 typedef struct
 {
   size_t threadid, nthreads;

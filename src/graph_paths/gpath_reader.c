@@ -148,9 +148,13 @@ void gpath_reader_check(const GPathReader *file, size_t db_kmer_size,
 }
 
 // <KMER> <num> .. (ignored)
+// @kmer_flags must be one of:
+//   GPATH_ADD_MISSING_KMERS - add kmers to the graph before loading path
+//   GPATH_DIE_MISSING_KMERS - die with error if cannot find kmer
+//   GPATH_SKIP_MISSING_KMERS - skip paths where kmer is not in graph
 static void _gpath_reader_load_kmer_line(const char *path,
                                          StrBuf *line, dBGraph *db_graph,
-                                         bool dont_add_kmers,
+                                         int kmer_flags,
                                          size_t *npaths_ptr, hkey_t *hkey_ptr)
 {
   const size_t kmer_size = db_graph->kmer_size;
@@ -169,11 +173,18 @@ static void _gpath_reader_load_kmer_line(const char *path,
   bkey = binary_kmer_get_key(bkmer, kmer_size);
   load_check(binary_kmers_are_equal(bkmer, bkey), "Bkmer not bkey: %s", path);
 
-  if(dont_add_kmers) {
-    hkey = hash_table_find(&db_graph->ht, bkey);
-    load_check(hkey != HASH_NOT_FOUND, "BKmer not already loaded: %s", path);
-  } else {
-    hkey = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
+  switch(kmer_flags) {
+    case GPATH_ADD_MISSING_KMERS:
+      hkey = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
+      break;
+    case GPATH_DIE_MISSING_KMERS:
+      hkey = hash_table_find(&db_graph->ht, bkey);
+      load_check(hkey != HASH_NOT_FOUND, "BKmer not already loaded: %s", path);
+      break;
+    case GPATH_SKIP_MISSING_KMERS:
+      hkey = hash_table_find(&db_graph->ht, bkey);
+      break;
+    default: die("Bad switch value: %i", kmer_flags);
   }
 
   // Parse number of paths
@@ -261,6 +272,8 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
   }
 }
 
+// @subset0 and @subset1 are temporary memory to be used in the loading
+// of paths. Both are reset before being used.
 static void _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
                                  GPathSubset *subset0, GPathSubset *subset1,
                                  hkey_t hkey, size_t num_paths_exp,
@@ -302,7 +315,11 @@ static void _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
   gpath_set_reset(gpset);
 }
 
-void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph)
+// @kmer_flags must be one of:
+//   GPATH_ADD_MISSING_KMERS - add kmers to the graph before loading path
+//   GPATH_DIE_MISSING_KMERS - die with error if cannot find kmer
+//   GPATH_SKIP_MISSING_KMERS - skip paths where kmer is not in graph
+void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
 {
   gzFile gzin = file->gz;
   const char *path = file->fltr.path.b;
@@ -339,7 +356,7 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
       if(line.b[0] == 'F' || line.b[0] == 'R') {
         // Assume path line
         // status("Path line: %s", line.b);
-        load_check(hkey != HASH_NOT_FOUND, "Path before kmer: %s", path);
+        load_check(num_kmers != 0, "Path before kmer: %s", path);
 
         _gpath_reader_load_path_line(file, path, &line, nseenbuf, &seqbuf,
                                      &gpset);
@@ -350,12 +367,20 @@ void gpath_reader_load(GPathReader *file, bool dont_add_kmers, dBGraph *db_graph
         // Assume kmer line
         // status("Kmer line: %s", line.b);
 
-        if(num_kmers > 0) {
+        load_check(gpset.entries.len == num_paths_exp,
+                   "Expected %zu paths, got %zu: %s",
+                   gpset.entries.len, num_paths_exp, path);
+
+        if(hkey == HASH_NOT_FOUND) {
+          // reset - not loading paths for this kmer
+          gpath_set_reset(&gpset);
+        }
+        else if(num_kmers > 0) {
           _load_paths_from_set(db_graph, &gpset, &subset0, &subset1,
                                hkey, num_paths_exp, path);
         }
 
-        _gpath_reader_load_kmer_line(path, &line, db_graph, dont_add_kmers,
+        _gpath_reader_load_kmer_line(path, &line, db_graph, kmer_flags,
                                      &num_paths_exp, &hkey);
 
         num_kmers++;

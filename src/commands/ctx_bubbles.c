@@ -212,7 +212,7 @@ int ctx_bubbles(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_load(&gpfiles.data[i], true, &db_graph);
+    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
   // Create array of cJSON** from input files
   cJSON *hdrs[gpfiles.len];

@@ -4,9 +4,11 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "graph_format.h"
 #include "binary_kmer.h"
 #include "supernode.h"
+#include "graph_format.h"
+#include "gpath_reader.h"
+#include "gpath_checks.h"
 
 const char supernodes_usage[] =
 "usage: "CMD" supernodes [options] <in.ctx> [<in2.ctx> ...]\n"
@@ -19,7 +21,7 @@ const char supernodes_usage[] =
 "  -o, --out <out.txt>   Save output graph file [default: STDOUT]\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 // "  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
 //
 "  -d, --dot             Print in graphviz (DOT) format\n"
@@ -54,6 +56,8 @@ typedef struct {
 
 #define PRINT_FASTA 0
 #define PRINT_DOT 1
+
+const char *syntax_strs[2] = {"FASTA", "DOT (Graphviz)"};
 
 // Store ends of supernode currently stored in `nodes` and `orients` arrays
 static inline void dot_store_ends(size_t snidx, dBNodeBuffer nbuf,
@@ -236,6 +240,10 @@ int ctx_supernodes(int argc, char **argv)
   int print_syntax = PRINT_FASTA;
   bool dot_use_points = false;
 
+  GPathReader tmp_gpfile;
+  GPathFileBuffer gpfiles;
+  gpfile_buf_alloc(&gpfiles, 8);
+
   // Arg parsing
   char cmd[100];
   char shortopts[300];
@@ -255,6 +263,11 @@ int ctx_supernodes(int argc, char **argv)
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'p':
+        memset(&tmp_gpfile, 0, sizeof(GPathReader));
+        gpath_reader_open(&tmp_gpfile, optarg);
+        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        break;
       case 'g': // --graphviz is the same as --dot, drop through case
       case 'd': cmd_check(!print_syntax, cmd); print_syntax = PRINT_DOT; break;
       case 'P': cmd_check(!dot_use_points, cmd); dot_use_points = true; break;
@@ -282,19 +295,26 @@ int ctx_supernodes(int argc, char **argv)
 
   ctx_assert(num_gfiles > 0);
 
+  // Open graph files
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
   size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   graph_files_open(gfile_paths, gfiles, num_gfiles,
                    &ctx_max_kmers, &ctx_sum_kmers);
 
+  // Check graph + paths are compatible
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
+
   //
   // Decide on memory
   //
-  size_t bits_per_kmer, kmers_in_hash, graph_mem;
+  size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + 1;
+  if(gpfiles.len > 0) bits_per_kmer += sizeof(GPath*)*8;
   if(print_syntax == PRINT_DOT) bits_per_kmer += sizeof(sndata_t) * 8;
+
+  bool use_all_mem = (gpfiles.len == 0);
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -302,12 +322,17 @@ int ctx_supernodes(int argc, char **argv)
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
                                         ctx_max_kmers, ctx_sum_kmers,
-                                        true, &graph_mem);
+                                        use_all_mem, &graph_mem);
 
-  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
+  // Paths memory
+  size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
+  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, 1, rem_mem, false);
 
-  const char *syntax_str[3] = {"FASTA", "DOT (Graphviz)"};
-  status("Output in %s format to %s\n", syntax_str[print_syntax],
+  total_mem = graph_mem + path_mem;
+
+  cmd_check_mem_limit(memargs.mem_to_use, total_mem);
+
+  status("Output in %s format to %s\n", syntax_strs[print_syntax],
          futil_outpath_str(out_path));
 
   //
@@ -340,6 +365,10 @@ int ctx_supernodes(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
+  // Load path files
+  for(i = 0; i < gpfiles.len; i++)
+    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+
   status("Printing supernodes using %zu threads", nthreads);
   size_t num_snodes;
 
@@ -360,6 +389,11 @@ int ctx_supernodes(int argc, char **argv)
   status("Dumped %s supernodes\n", num_snodes_str);
 
   fclose(fout);
+
+  // Close input path files
+  for(i = 0; i < gpfiles.len; i++)
+    gpath_reader_close(&gpfiles.data[i]);
+  gpfile_buf_dealloc(&gpfiles);
 
   ctx_free(visited);
   db_graph_dealloc(&db_graph);

@@ -136,7 +136,7 @@ int futil_create_file(const char *path, int mode)
   @param path does nothing if path is "-" or NULL.
  */
 void futil_create_output(const char *path) {
-  if(path && strcmp(path,"-") != 0) {
+  if(path != NULL && strcmp(path,"-") != 0) {
     int ret = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY | O_APPEND);
     if(ret == -1) {
       if(errno == EEXIST) die("File already exists: %s", path);

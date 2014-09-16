@@ -71,7 +71,7 @@ elsif(!(-x $cmd)) {
 }
 
 # graph file reader command
-my $cmdline = "$cmd view --kmers @files";
+my $cmdline = "$cmd view --quiet --kmers @files";
 my $in;
 open($in, '-|', $cmdline) or die $!;
 
