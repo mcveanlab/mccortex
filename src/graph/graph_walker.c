@@ -17,10 +17,13 @@
 
 #define USE_COUNTER_PATHS 1
 
-const char *graph_step_str[] = {"Walk Forward", "Walk in Colour",
-                                "No Coverage", "No Colour Coverage",
-                                "No Paths", "Paths Split",
-                                "Missing Information", "Walk Paths"};
+const char *graph_step_str[] = {GRPHWLK_FORWARD_STR,       GRPHWLK_COLFWD_STR,
+                                GRPHWLK_NOCOVG_STR,        GRPHWLK_NOCOLCOVG_STR,
+                                GRPHWLK_NOPATHS_STR,       GRPHWLK_SPLIT_PATHS_STR,
+                                GRPHWLK_MISSING_PATHS_STR, GRPHWLK_USEPATH_STR};
+
+// DEV: do we need to keep new_paths in separate array?
+// DEV: could we remove new_paths if we update age at the right time?
 
 // How many junctions are left to be traversed in our longest remaining path
 size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
@@ -47,34 +50,22 @@ static void print_path_list(const GPathFollowBuffer *pbuf, FILE *fout)
     fprintf(fout, "   %p ", path->gpath->seq);
     for(j = 0; j < path->len; j++)
       fputc(dna_nuc_to_char(gpath_follow_get_base(path, j)), fout);
-    fprintf(fout, " [%zu/%zu]\n", (size_t)path->pos, (size_t)path->len);
+    fprintf(fout, " [%zu/%zu] age: %zu\n", (size_t)path->pos,
+            (size_t)path->len, (size_t)path->age);
   }
 }
 
 char* graph_walker_status2str(uint8_t status, char *str, size_t len)
 {
   ctx_assert(len >= 20); (void)len;
-  switch(status) {
-    case GRPHWLK_FORWARD:       strcpy(str, GRPHWLK_FORWARD_STR); break;
-    case GRPHWLK_COLFWD:        strcpy(str, GRPHWLK_COLFWD_STR); break;
-    case GRPHWLK_NOCOVG:        strcpy(str, GRPHWLK_NOCOVG_STR); break;
-    case GRPHWLK_NOCOLCOVG:     strcpy(str, GRPHWLK_NOCOLCOVG_STR); break;
-    case GRPHWLK_NOPATHS:       strcpy(str, GRPHWLK_NOPATHS_STR); break;
-    case GRPHWLK_SPLIT_PATHS:   strcpy(str, GRPHWLK_SPLIT_PATHS_STR); break;
-    case GRPHWLK_MISSING_PATHS: strcpy(str, GRPHWLK_MISSING_PATHS_STR); break;
-    case GRPHWLK_USEPATH:       strcpy(str, GRPHWLK_USEPATH_STR); break;
-    default: die("Bad status: %i", (int)status);
-  }
+  ctx_assert(status < GRPHWLK_NUM_STATES);
+  strcpy(str, graph_step_str[status]);
   return str;
 }
 
-void graph_walker_print_state_hist(const size_t arr[GRPHWLK_NUM_STATES])
+void graph_walker_print_state_hist(const size_t hist[GRPHWLK_NUM_STATES])
 {
-  const char *strs[] = {GRPHWLK_FORWARD_STR,       GRPHWLK_COLFWD_STR,
-                        GRPHWLK_NOCOVG_STR,        GRPHWLK_NOCOLCOVG_STR,
-                        GRPHWLK_NOPATHS_STR,       GRPHWLK_SPLIT_PATHS_STR,
-                        GRPHWLK_MISSING_PATHS_STR, GRPHWLK_USEPATH_STR};
-  util_print_nums(strs, arr, GRPHWLK_NUM_STATES, 30);
+  util_print_nums(graph_step_str, hist, GRPHWLK_NUM_STATES, 30);
 }
 
 void graph_walker_print_state(const GraphWalker *wlk, FILE *fout)
@@ -122,6 +113,14 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 {
   // printf("pickup %s paths from: %zu:%i\n", counter ? "counter" : "curr",
   //        (size_t)index, orient);
+  size_t i;
+
+  if(!counter) {
+    // age all existing paths
+    ctx_assert(wlk->new_paths.len == 0);
+    for(i = 0; i < wlk->paths.len; i++)
+      wlk->paths.data[i].age++;
+  }
 
   const dBGraph *db_graph = wlk->db_graph;
   const GPathStore *gpstore = wlk->gpstore;
@@ -423,6 +422,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
     binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
     status("  graph_walker_choose(): %s:%i num_next:%zu",
            kmer_str, wlk->node.orient, num_next);
+    graph_walker_print_state(wlk, stderr);
   #endif
 
   if(num_next == 0) {
@@ -506,12 +506,13 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   size_t greatest_age;
   Nucleotide greatest_nuc;
 
-  greatest_age = oldest_path->pos;
+  greatest_age = oldest_path->age;
   greatest_nuc = gpath_follow_get_base(oldest_path, oldest_path->pos);
 
+  // Check all oldest paths agree with first oldest
   for(i = 1; i < wlk->paths.len; i++) {
     path = &wlk->paths.data[i];
-    if(path->pos < greatest_age) break;
+    if(path->age < greatest_age) break;
     if(gpath_follow_get_base(path, path->pos) != greatest_nuc)
       return_step(-1, GRPHWLK_SPLIT_PATHS, false);
   }

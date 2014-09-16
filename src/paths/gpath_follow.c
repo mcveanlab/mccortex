@@ -39,7 +39,7 @@ GPathFollow gpath_follow_create(const GPath *gpath)
   // .first_cached = 1 is invalid (not multiple of sizeof(cache)*4), so forces
   // fetch on first request
   GPathFollow fpath = {.gpath = gpath, .pos = 0, .len = gpath->num_juncs,
-                       .first_cached = 1};
+                       .age = 0, .first_cached = 1};
   memset(fpath.cache, 0, sizeof(fpath.cache));
   return fpath;
 }

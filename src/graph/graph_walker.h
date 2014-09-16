@@ -16,15 +16,15 @@ typedef struct
 } GraphStep;
 
 // GraphStep.status values:
-#define GRPHWLK_FORWARD 0 /* Success: only one choice */
-#define GRPHWLK_COLFWD 1 /* Success: only one choice in colour */
-#define GRPHWLK_NOCOVG 2 /* Fail: no choices */
-#define GRPHWLK_NOCOLCOVG 3 /* Fail: fork in pop but no choices in colour */
-#define GRPHWLK_NOPATHS 4 /* Fail: fork in colour, no paths */
-#define GRPHWLK_SPLIT_PATHS 5 /* Fail: fork in colour, paths split */
+#define GRPHWLK_FORWARD       0 /* Success: only one choice */
+#define GRPHWLK_COLFWD        1 /* Success: only one choice in colour */
+#define GRPHWLK_NOCOVG        2 /* Fail: no choices */
+#define GRPHWLK_NOCOLCOVG     3 /* Fail: fork in pop but no choices in colour */
+#define GRPHWLK_NOPATHS       4 /* Fail: fork in colour, no paths */
+#define GRPHWLK_SPLIT_PATHS   5 /* Fail: fork in colour, paths split */
 #define GRPHWLK_MISSING_PATHS 6 /* Fail: fork in colour, missing info */
-#define GRPHWLK_USEPATH 7 /* Success: fork in colour, paths resolved */
-#define GRPHWLK_NUM_STATES 8
+#define GRPHWLK_USEPATH       7 /* Success: fork in colour, paths resolved */
+#define GRPHWLK_NUM_STATES    8
 
 #define GRPHWLK_FORWARD_STR       "GoForward"
 #define GRPHWLK_COLFWD_STR        "GoColForward"
@@ -34,7 +34,6 @@ typedef struct
 #define GRPHWLK_SPLIT_PATHS_STR   "FailSplitPaths"
 #define GRPHWLK_MISSING_PATHS_STR "FailMissingPaths"
 #define GRPHWLK_USEPATH_STR       "GoUsePath"
-
 
 extern const char *graph_step_str[];
 
@@ -90,7 +89,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 // Move to the next node
 // If fork is true, node is the result of taking a fork -> slim down paths
 void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
-                          bool fork);
+                        bool fork);
 
 // Jump to a new node within the current sample supernode
 // (can actually be any node up until the end of the current supernode)

@@ -26,7 +26,14 @@ const char exp_abc_usage[] =
 "  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
 "  -N, --repeat <N>        Sample N kmers (Default "QUOTE_MACRO(DEFAULT_NUM_REPEATS)")\n"
 "  -M, --max-AB-dist <M>   Test 2: Max A->B contig (Default "QUOTE_MACRO(DEFAULT_MAX_AB_DIST)")\n"
+"  -P, --print             Print failed contigs\n"
 "\n";
+
+// Investigating failed contigs with:
+//  ctx31 exp_abc -M 10 -N 1000 -P -p k31/perf.k31.se.ctp.gz k31/perf.k31.ctx > tmp.fa
+//  ctx31 subgraph -f --seq sample.fa -dist 2 --out sample.k31.ctx k31/perf.k31.ctx
+//  ~/ninja-cortex/scripts/cortex_to_graphviz.pl -k 31 --mark sample.fa -p <(zcat k31/perf.k31.se.ctp.gz) sample.k31.ctx > sample.dot
+//  dot -Tpdf sample.dot > sample.pdf
 
 static struct option longopts[] =
 {
@@ -37,6 +44,7 @@ static struct option longopts[] =
   {"paths",        required_argument, NULL, 'p'},
   {"repeat",       required_argument, NULL, 'N'},
   {"max-AB-dist",  required_argument, NULL, 'M'},
+  {"print",        no_argument,       NULL, 'P'},
   {NULL, 0, NULL, 0}
 };
 
@@ -61,6 +69,7 @@ typedef struct {
   GraphWalker gwlk;
   RepeatWalker rptwlk;
   const dBGraph *db_graph;
+  bool print_failed_contigs;
 } ExpABCWorker;
 
 static inline void reset(GraphWalker *wlk, RepeatWalker *rptwlk,
@@ -83,6 +92,7 @@ static inline int confirm_seq(size_t startidx, bool allow_extend,
                               dBNodeBuffer *nbuf, size_t colour,
                               const dBGraph *db_graph)
 {
+  ctx_assert(startidx < nbuf->len);
   size_t i, init_len = nbuf->len;
   graph_walker_init(wlk, db_graph, colour, colour, nbuf->data[startidx]);
 
@@ -113,6 +123,19 @@ static inline int confirm_seq(size_t startidx, bool allow_extend,
   return i < init_len ? CONFIRM_SHORT : CONFIRM_SUCCESS;
 }
 
+static void print_failed(dBNode node, const dBNodeBuffer *nbuf,
+                         const dBGraph *db_graph, bool is_AB, bool prime_AB)
+{
+  const size_t kmer_size = db_graph->kmer_size;
+  char bkmerstr[MAX_KMER_SIZE+1];
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+  binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
+  printf(">%s:%i %s %s\n", bkmerstr, node.orient,
+         is_AB ? "A->B" : "B->C", prime_AB ? "prime_AB" : "walk_AB");
+  db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
+  fputc('\n', stdout);
+}
+
 static inline
 int test_statement_node(dBNode node, ExpABCWorker *wrkr)
 {
@@ -127,11 +150,13 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
   db_node_buf_reset(nbuf);
   db_node_buf_add(nbuf, node);
 
-  size_t AB_limit = wrkr->prime_AB ? SIZE_MAX : wrkr->max_AB_dist;
+  // size_t AB_limit = wrkr->prime_AB ? SIZE_MAX : wrkr->max_AB_dist;
+  size_t walk_limit = wrkr->max_AB_dist;
+  // status("walk_limit: %zu", walk_limit);
 
   // Walk from B to find A
   graph_walker_init(wlk, db_graph, col, col, nbuf->data[0]);
-  while(graph_walker_next(wlk) && nbuf->len < AB_limit) {
+  while(graph_walker_next(wlk) && nbuf->len < walk_limit) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
       reset(wlk,rpt,nbuf); return RES_LOST_IN_RPT;
     }
@@ -168,6 +193,7 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
       case CONFIRM_OVERSHOT: ctx_assert2(0,"Can't 'overshoot' when extending");
       case CONFIRM_WRONG: return RES_AB_WRONG;
       case CONFIRM_SHORT:
+        print_failed(node, nbuf, db_graph, true, wrkr->prime_AB);
         wrkr->ab_fail_state[wlk->last_step.status]++;
         return RES_AB_FAILED;
     }
@@ -187,6 +213,7 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
     case CONFIRM_OVERSHOT: return RES_BC_OVERSHOT;
     case CONFIRM_WRONG: return RES_BC_WRONG;
     case CONFIRM_SHORT:
+      print_failed(node, nbuf, db_graph, false, wrkr->prime_AB);
       wrkr->bc_fail_state[wlk->last_step.status]++;
       return RES_BC_FAILED;
     case CONFIRM_SUCCESS: return RES_ABC_SUCCESS;
@@ -199,8 +226,15 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
 // called by run_exp_abc_thread() for each entry in hash table
 static inline int test_statement_bkmer(hkey_t hkey, ExpABCWorker *wrkr)
 {
-  int r, orient;
+  // BinaryKmer bkmer = binary_kmer_from_str("TGAGGTCAGGAGTTCAAGACCAGCCTGGGCA", 31);
+  // hkey = hash_table_find(&wrkr->db_graph->ht, bkmer);
+  // dBNode node = {.key = hkey, .orient = FORWARD};
+  // int r = test_statement_node(node, wrkr);
+  // wrkr->results[r]++;
+  // wrkr->num_tests++;
+  // return 1;
 
+  int r, orient;
   for(orient = 0; orient < 2 && wrkr->num_tests < wrkr->num_limit; orient++) {
     dBNode node = (dBNode){.key = hkey, .orient = orient};
     r = test_statement_node(node, wrkr);
@@ -223,7 +257,8 @@ static void run_exp_abc_thread(void *ptr)
 }
 
 static void run_exp_abc(const dBGraph *db_graph, bool prime_AB,
-                        size_t nthreads, size_t num_repeats, size_t max_AB_dist)
+                        size_t nthreads, size_t num_repeats,
+                        size_t max_AB_dist, bool print_failed_contigs)
 {
   ExpABCWorker *wrkrs = ctx_calloc(nthreads, sizeof(ExpABCWorker));
   size_t i, j;
@@ -238,6 +273,7 @@ static void run_exp_abc(const dBGraph *db_graph, bool prime_AB,
     wrkrs[i].prime_AB = prime_AB;
     wrkrs[i].num_limit = num_repeats / nthreads;
     wrkrs[i].max_AB_dist = max_AB_dist;
+    wrkrs[i].print_failed_contigs = print_failed_contigs;
     db_node_buf_alloc(&wrkrs[i].nbuf, 1024);
     graph_walker_alloc(&wrkrs[i].gwlk);
     rpt_walker_alloc(&wrkrs[i].rptwlk, db_graph->ht.capacity, 22); // 4MB
@@ -285,6 +321,7 @@ int ctx_exp_abc(int argc, char **argv)
 {
   size_t i, nthreads = 0, num_repeats = 0, max_AB_dist = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
+  bool print_failed_contigs = false;
 
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
@@ -314,6 +351,7 @@ int ctx_exp_abc(int argc, char **argv)
         break;
       case 'N': cmd_check(!num_repeats,cmd); num_repeats = cmd_uint32_nonzero(cmd, optarg); break;
       case 'M': cmd_check(!max_AB_dist,cmd); max_AB_dist = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'P': cmd_check(!print_failed_contigs,cmd); print_failed_contigs = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -326,6 +364,11 @@ int ctx_exp_abc(int argc, char **argv)
   if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
   if(num_repeats == 0) num_repeats = DEFAULT_NUM_REPEATS;
   if(max_AB_dist == 0) max_AB_dist = DEFAULT_MAX_AB_DIST;
+
+  if(print_failed_contigs && nthreads != 1) {
+    warn("--print forces nthreads to be one. soz.");
+    nthreads = 1;
+  }
 
   if(optind+1 != argc) cmd_print_usage("Require exactly one input graph file (.ctx)");
 
@@ -407,10 +450,13 @@ int ctx_exp_abc(int argc, char **argv)
 
   status("");
   status("Test 1: Priming region A->B (max_AB_dist: %zu)", max_AB_dist);
-  run_exp_abc(&db_graph, true, nthreads, num_repeats, max_AB_dist);
+  run_exp_abc(&db_graph, true, nthreads, num_repeats,
+              max_AB_dist, print_failed_contigs);
+
   status("");
   status("Test 2: Trying to traverse A->B (max_AB_dist: %zu)", max_AB_dist);
-  run_exp_abc(&db_graph, false, nthreads, num_repeats, max_AB_dist);
+  run_exp_abc(&db_graph, false, nthreads, num_repeats,
+              max_AB_dist, print_failed_contigs);
 
   db_graph_dealloc(&db_graph);
 

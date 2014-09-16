@@ -67,7 +67,7 @@ while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
   elsif($ARGV[0] =~ /^-?-m(ark)?$/i) {
     my $arg = shift(@ARGV);
     $contig_path = shift(@ARGV);
-    if(!defined($ctp_path)) { print_usage("$arg <in.fa> requires argument");}
+    if(!defined($contig_path)) { print_usage("$arg <in.fa> requires argument");}
   }
   else { print_usage("Unknown option '$ARGV[0]'"); }
 }

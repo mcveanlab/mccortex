@@ -351,6 +351,9 @@ int ctx_supernodes(int argc, char **argv)
 
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
+  // Paths
+  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, true, &db_graph);
+
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
@@ -366,8 +369,11 @@ int ctx_supernodes(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files
-  for(i = 0; i < gpfiles.len; i++)
+  for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_close(&gpfiles.data[i]);
+  }
+  gpfile_buf_dealloc(&gpfiles);
 
   status("Printing supernodes using %zu threads", nthreads);
   size_t num_snodes;
@@ -389,11 +395,6 @@ int ctx_supernodes(int argc, char **argv)
   status("Dumped %s supernodes\n", num_snodes_str);
 
   fclose(fout);
-
-  // Close input path files
-  for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_close(&gpfiles.data[i]);
-  gpfile_buf_dealloc(&gpfiles);
 
   ctx_free(visited);
   db_graph_dealloc(&db_graph);
