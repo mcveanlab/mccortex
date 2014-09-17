@@ -7,7 +7,7 @@ K=9
 
 TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
 
-all: $(TGTS)
+all: $(TGTS) test_assemble
 
 clean:
 	rm -rf $(TGTS)
@@ -35,8 +35,13 @@ sort.k$(K).ctx: seq.k$(K).ctx
 
 test.ctx:
 	$(SEQRND) 20 > A:2.fa
-	$(CTX) build -k $(K) --sample Colon -1 A:2.fa $@
+	$(CTX) build -k $(K) --sample Goofy -1 A:2.fa $@
 	$(CTX) check -q $@
 	rm A:2.fa
 
-.PHONY: all clean
+test_assemble:
+	ctx31 contigs -q -o - seq.k9.ctx:1 | \
+	  ctx31 rmsubstr -q -n 1M - | \
+	  $(CTXDIR)/scripts/contig_stats.pl -
+
+.PHONY: all clean test_assemble
