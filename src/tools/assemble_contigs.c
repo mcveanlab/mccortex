@@ -7,56 +7,36 @@
 #include "util.h"
 #include "file_util.h"
 
-// sorted_arr must be a sorted array
-size_t _calc_N50(const uint64_t *sorted_arr, size_t n, uint64_t total)
-{
-  uint64_t i, sum = 0, half = total/2;
-
-  if(n == 0 || half == 0) return 0;
-  ctx_assert2(sorted_arr[0] <= sorted_arr[n-1], "Not sorted!");
-
-  for(i = n; i > 0 && sum < half; i--)
-    sum += sorted_arr[i-1];
-
-  return sorted_arr[i];
-}
-
-
-void assemble_contigs_stats_ensure_capacity(AssembleContigStats *s, size_t n)
-{
-  if(n >= s->capacity)
-  {
-    s->capacity = roundup2pow(n);
-    s->lengths = ctx_reallocarray(s->lengths, s->capacity, sizeof(s->lengths[0]));
-    s->junctns = ctx_reallocarray(s->junctns, s->capacity, sizeof(s->junctns[0]));
-  }
-}
-
 void assemble_contigs_stats_init(AssembleContigStats *stats)
 {
   memset(stats, 0, sizeof(*stats));
   // Zero doubles
   stats->max_junc_density = 0;
-  assemble_contigs_stats_ensure_capacity(stats, 1<<20); // ~1 Million
+  size_buf_ensure_capacity(&stats->lengths, 1<<20); // ~1 Million
+  size_buf_ensure_capacity(&stats->junctns, 1<<20); // ~1 Million
 }
 
 void assemble_contigs_stats_destroy(AssembleContigStats *stats)
 {
-  ctx_free(stats->lengths);
-  ctx_free(stats->junctns);
+  size_buf_dealloc(&stats->lengths);
+  size_buf_dealloc(&stats->junctns);
   memset(stats, 0, sizeof(*stats));
 }
 
 void assemble_contigs_stats_merge(AssembleContigStats *dst,
                                   const AssembleContigStats *src)
 {
+  ctx_assert(dst->lengths.len == dst->junctns.len);
+  ctx_assert(dst->lengths.len == dst->num_contigs);
+  ctx_assert(src->lengths.len == src->junctns.len);
+  ctx_assert(src->lengths.len == src->num_contigs);
+
   size_t i;
 
-  assemble_contigs_stats_ensure_capacity(dst, dst->num_contigs+src->num_contigs);
-  memcpy(dst->lengths, src->lengths, src->num_contigs * sizeof(src->lengths[0]));
-  memcpy(dst->junctns, src->junctns, src->num_contigs * sizeof(src->junctns[0]));
-  dst->num_contigs += src->num_contigs;
+  size_buf_append(&dst->lengths, src->lengths.data, src->lengths.len);
+  size_buf_append(&dst->junctns, src->junctns.data, src->junctns.len);
 
+  dst->num_contigs += src->num_contigs;
   dst->total_len += src->total_len;
   dst->total_junc += src->total_junc;
 
@@ -75,11 +55,6 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
 
   for(i = 0; i < GRPHWLK_NUM_STATES; i++)
     dst->grphwlk_steps[i] += src->grphwlk_steps[i];
-
-  dst->max_len  = MAX2(dst->max_len,  src->max_len);
-  dst->max_junc = MAX2(dst->max_junc, src->max_junc);
-  dst->min_len  = MIN2(dst->min_len,  src->min_len);
-  dst->min_junc = MIN2(dst->min_junc, src->min_junc);
 
   dst->max_junc_density = MAX2(dst->max_junc_density, src->max_junc_density);
 
@@ -115,31 +90,42 @@ static inline void _print_path_dist(const uint64_t *hist, size_t n,
 
 void assemble_contigs_stats_print(const AssembleContigStats *s)
 {
-  size_t i;
+  ctx_assert(s->lengths.len == s->junctns.len);
+  ctx_assert(s->lengths.len == s->num_contigs);
 
-  if(s->num_contigs == 0) {
+  size_t i, ncontigs = s->num_contigs;
+
+  if(ncontigs == 0) {
     status("[asm] No contigs assembled");
     return;
   }
 
-  qsort(s->lengths, s->num_contigs, sizeof(size_t), cmp_size);
-  qsort(s->junctns, s->num_contigs, sizeof(size_t), cmp_size);
+  qsort(s->lengths.data, ncontigs, sizeof(s->lengths.data[0]), cmp_size);
+  qsort(s->junctns.data, ncontigs, sizeof(s->junctns.data[0]), cmp_size);
+
+  size_t len_n50, jnc_n50;
+  size_t len_median, jnc_median, len_mean, jnc_mean;
+  size_t len_min, len_max, jnc_min, jnc_max;
 
   // Calculate N50s
-  size_t len_n50, jnc_n50;
-  len_n50 = _calc_N50(s->lengths, s->num_contigs, s->total_len);
-  jnc_n50 = _calc_N50(s->junctns, s->num_contigs, s->total_junc);
+  len_n50 = calc_N50(s->lengths.data, ncontigs, s->total_len);
+  jnc_n50 = calc_N50(s->junctns.data, ncontigs, s->total_junc);
 
-  // Calculate medians
-  double len_median, jnc_median, len_mean, jnc_mean;
-  len_median = MEDIAN(s->lengths, s->num_contigs);
-  jnc_median = MEDIAN(s->junctns, s->num_contigs);
-  len_mean = (double)s->total_len / s->num_contigs;
-  jnc_mean = (double)s->total_junc / s->num_contigs;
+  // Calculate medians, means
+  len_median = MEDIAN(s->lengths.data, ncontigs);
+  jnc_median = MEDIAN(s->junctns.data, ncontigs);
+  len_mean = (double)s->total_len / ncontigs;
+  jnc_mean = (double)s->total_junc / ncontigs;
+
+  // Calculate min, max
+  len_min = s->lengths.data[0];
+  jnc_min = s->junctns.data[0];
+  len_max = s->lengths.data[ncontigs-1];
+  jnc_max = s->junctns.data[ncontigs-1];
 
   // Print number of contigs
   char num_contigs_str[50], reseed_str[50], seed_not_fnd_str[50];
-  long_to_str(s->num_contigs, num_contigs_str);
+  long_to_str(ncontigs, num_contigs_str);
   long_to_str(s->num_reseed_abort, reseed_str);
   long_to_str(s->num_seeds_not_found, seed_not_fnd_str);
   status(PREFIX"pulled out %s contigs", num_contigs_str);
@@ -160,16 +146,16 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   ulong_to_str(jnc_median, jnc_median_str);
   ulong_to_str(len_n50, len_n50_str);
   ulong_to_str(jnc_n50, jnc_n50_str);
-  ulong_to_str(s->min_len, len_min_str);
-  ulong_to_str(s->min_junc, jnc_min_str);
-  ulong_to_str(s->max_len, len_max_str);
-  ulong_to_str(s->max_junc, jnc_max_str);
+  ulong_to_str(len_min, len_min_str);
+  ulong_to_str(jnc_min, jnc_min_str);
+  ulong_to_str(len_max, len_max_str);
+  ulong_to_str(jnc_max, jnc_max_str);
   ulong_to_str(s->total_len, len_total_str);
   ulong_to_str(s->total_junc, jnc_total_str);
 
-  status(PREFIX"Lengths: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [kmers]",
+  status(PREFIX"Lengths: mean: %s  median: %s  N50: %s  min: %s  max: %s  total: %s [kmers]",
          len_mean_str, len_median_str, len_n50_str, len_min_str, len_max_str, len_total_str);
-  status(PREFIX"Junctions: mean: %s, median: %s, N50: %s, min: %s, max: %s, total: %s [out >1]",
+  status(PREFIX"Junctions: mean: %s  median: %s  N50: %s  min: %s  max: %s  total: %s [out >1]",
          jnc_mean_str, jnc_median_str, jnc_n50_str, jnc_min_str, jnc_max_str, jnc_total_str);
   status(PREFIX"Max junction density: %.2f\n", s->max_junc_density);
 
@@ -179,13 +165,13 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
 
   for(i = 0; i <= 4; i++) {
     message("\t%zu:%s [%zu%%]", i, ulong_to_str(s->contigs_outdegree[i], nout_str),
-            (size_t)((100.0*s->contigs_outdegree[i])/(2.0*s->num_contigs)+0.5));
+            (size_t)((100.0*s->contigs_outdegree[i])/(2.0*ncontigs)+0.5));
   }
   message("\n");
 
-  _print_path_dist(s->paths_held, AC_MAX_PATHS, "Paths held",    s->num_contigs);
-  _print_path_dist(s->paths_new,  AC_MAX_PATHS, "Paths pickdup", s->num_contigs);
-  _print_path_dist(s->paths_cntr, AC_MAX_PATHS, "Paths counter", s->num_contigs);
+  _print_path_dist(s->paths_held, AC_MAX_PATHS, "Paths held",    ncontigs);
+  _print_path_dist(s->paths_new,  AC_MAX_PATHS, "Paths pickdup", ncontigs);
+  _print_path_dist(s->paths_cntr, AC_MAX_PATHS, "Paths counter", ncontigs);
 
   const uint64_t *states = s->grphwlk_steps;
   size_t nsteps = s->total_len - s->num_contigs, ncontigends = 2*s->num_contigs;
@@ -352,6 +338,8 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     stats->paths_cntr_max = MAX2(stats->paths_cntr_max, paths_cntr[orient]);
   }
 
+  printf("%zu\n", njunc);
+
   // Out degree
   dBNode first = db_node_reverse(nodes->data[0]), last = nodes->data[nodes->len-1];
 
@@ -361,18 +349,24 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
   stats->contigs_outdegree[outdegree_fw]++;
   stats->contigs_outdegree[outdegree_rv]++;
 
-  assemble_contigs_stats_ensure_capacity(stats, stats->num_contigs+1);
+  size_buf_add(&stats->lengths, nodes->len);
+  size_buf_add(&stats->junctns, njunc);
 
-  stats->lengths[stats->num_contigs] = nodes->len;
-  stats->junctns[stats->num_contigs] = njunc;
-  stats->total_len += nodes->len;
+  stats->total_len  += nodes->len;
   stats->total_junc += njunc;
 
-  stats->max_junc_density = MAX2(stats->max_junc_density, (double)njunc / nodes->len);
-  stats->max_len = MAX2(stats->max_len, nodes->len);
-  stats->max_junc = MAX2(stats->max_junc, njunc);
-  stats->min_len = MIN2(stats->min_len, nodes->len);
-  stats->min_junc = MIN2(stats->min_junc, njunc);
+  if(stats->num_contigs == 0) {
+    stats->max_junc_density = (double)njunc / nodes->len;
+    // stats->min_len  = stats->max_len  = nodes->len;
+    // stats->min_junc = stats->max_junc = njunc;
+  } else {
+    stats->max_junc_density = MAX2(stats->max_junc_density, (double)njunc / nodes->len);
+    // stats->max_len  = MAX2(stats->max_len,  nodes->len);
+    // stats->max_junc = MAX2(stats->max_junc, njunc);
+    // stats->min_len  = MIN2(stats->min_len,  nodes->len);
+    // stats->min_junc = MIN2(stats->min_junc, njunc);
+  }
+
   stats->num_contigs++;
 
   return 0; // 0 => keep iterating

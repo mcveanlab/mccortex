@@ -1,5 +1,6 @@
 #include "global.h"
 #include "range.h"
+#include "util.h"
 
 // If range is empty assume 0..(N-1) inclusive
 

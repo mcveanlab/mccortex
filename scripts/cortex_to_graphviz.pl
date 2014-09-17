@@ -20,7 +20,7 @@ sub print_usage
   {
     print STDERR "Error: $err\n";
   }
-  
+
   print STDERR "" .
 "Usage: ./cortex_to_graphviz.pl [options] <in.ctx> [...]
   Prints graphviz `dot' output.  Not to be used with large graphs!

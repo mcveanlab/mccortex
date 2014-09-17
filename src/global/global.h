@@ -73,10 +73,6 @@ void cortex_destroy();
 #define MAX3(x,y,z) ((x) >= (y) && (x) >= (z) ? (x) : MAX2(y,z))
 #define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
 
-#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
-#define MEDIAN(arr,len) \
-        (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
-
 // Number of reads to hold in the msg pool
 #define MSGPOOLSIZE 2048
 #define USE_MSG_POOL MSGP_LOCK_MUTEX

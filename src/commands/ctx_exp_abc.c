@@ -193,7 +193,8 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
       case CONFIRM_OVERSHOT: ctx_assert2(0,"Can't 'overshoot' when extending");
       case CONFIRM_WRONG: return RES_AB_WRONG;
       case CONFIRM_SHORT:
-        print_failed(node, nbuf, db_graph, true, wrkr->prime_AB);
+        if(wrkr->print_failed_contigs)
+          print_failed(node, nbuf, db_graph, true, wrkr->prime_AB);
         wrkr->ab_fail_state[wlk->last_step.status]++;
         return RES_AB_FAILED;
     }
@@ -213,7 +214,8 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
     case CONFIRM_OVERSHOT: return RES_BC_OVERSHOT;
     case CONFIRM_WRONG: return RES_BC_WRONG;
     case CONFIRM_SHORT:
-      print_failed(node, nbuf, db_graph, false, wrkr->prime_AB);
+      if(wrkr->print_failed_contigs)
+        print_failed(node, nbuf, db_graph, false, wrkr->prime_AB);
       wrkr->bc_fail_state[wlk->last_step.status]++;
       return RES_BC_FAILED;
     case CONFIRM_SUCCESS: return RES_ABC_SUCCESS;

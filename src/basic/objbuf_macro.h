@@ -25,6 +25,7 @@
 //   int charbuf_attempt_add(String *buf, char obj)
 //   void charbuf_append(String *buf, char *obj, size_t n)
 //   void charbuf_reset(String *buf)
+//   void charbuf_shift(String *buf, size_t n)
 //
 
 // Round a number up to the nearest number that is a power of two

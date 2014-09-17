@@ -3,115 +3,123 @@
 use strict;
 use warnings;
 
-use List::Util qw(sum min max);
+use List::Util qw(sum);
 
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
+
 use CortexScripts;
+use FASTNFile;
+use UsefulModule;
 
 sub print_usage
 {
-  if(@_ > 0) { print STDERR map {"Error: $_\n"} @_; }
-  
+  for my $err (@_) { print STDERR "Error: $err\n"; }
+
   print STDERR "" .
-"Usage: ./contig_stats.pl [in.txt]
-  Convert ctx-contig output to csv, print to STDOUT\n";
+"Usage: ./contig_stats.pl <in.fa|fq>
+  Length distribution stats.
+";
 
   exit(-1);
 }
 
-if(@ARGV > 1) { print_usage(); }
-my $file = shift;
+if(@ARGV != 1) { print_usage(); }
 
-if(!defined($file)) { $file = "-"; }
+my $path = shift(@ARGV);
+my @lengths = ();
 
-my $fh = open_file($file);
-my $line;
-my $contig_data = "";
-my @contigs = ();
-my $store = 0;
+my $fastn = open_fastn_file($path);
+my ($title,$seq);
+while((($title,$seq) = $fastn->read_next()) && defined($title)) {
+  push(@lengths, length($seq));
+}
+close_fastn_file($fastn);
 
-while($line = <$fh>)
+# min max median mode n50
+@lengths = sort{$a <=> $b} @lengths;
+my $ncontigs = scalar(@lengths);
+my $sum = sum(@lengths);
+
+if($ncontigs == 0) { print STDERR "[contig_stats.pl] No sequences\n"; exit -1; }
+
+my $median = find_median(@lengths);
+my $mode = find_mode(@lengths);
+my $n50 = find_N50(@lengths);
+my $linewidth = 30;
+
+# Some lines $linewidth+2 for 1 decimal place
+print_cols("contigs:", num2str($ncontigs), $linewidth);
+print_cols(" length:", num2str($sum), $linewidth);
+print_cols("    min:", num2str($lengths[0]), $linewidth);
+print_cols("    max:", num2str($lengths[$ncontigs-1]), $linewidth);
+print_cols("   mean:", fnum2str($sum/$ncontigs,1), $linewidth+2);
+print_cols(" median:", fnum2str($median,1), $linewidth+2);
+print_cols("   mode:", num2str($mode), $linewidth);
+print_cols("    N50:", num2str($n50), $linewidth);
+
+sub fnum2str
 {
-  if($line =~ /\[cmd\].*ctx\d+ contigs/) {
-    if(length($contig_data) > 0) { push(@contigs, $contig_data); $contig_data = ""; }
-    $contig_data .= $line;
-    $store = 1;
-  }
-  elsif($store) {
-    $contig_data .= $line;
-    if($line =~ /\[sim_substrings.pl\].*approx/ || @contigs > 1000) {
-      push(@contigs, $contig_data);
-      $contig_data = "";
-      $store = 0;
+  my ($num,$decplaces) = @_;
+  my $txt = num2str($num, ',', $decplaces);
+  $txt =~ /([0-9,]+)\.?(.*?)$/ or die("bad");
+  my $extra = "0"x($decplaces-length($2));
+  return $1.'.'.$2.$extra;
+}
+
+sub print_cols
+{
+  my ($ltext,$rtext,$width) = @_;
+  my $llen = length($ltext);
+  my $rlen = length($rtext);
+  my ($padding, $gap);
+  if($llen + $rlen < $width) { $padding = $width - $llen - $rlen; }
+  if($padding > 2) { $gap = " ".("."x($padding-2))." "; }
+  else { $gap = " "x$padding; }
+  print "[contig_stats.pl] ".$ltext.$gap.$rtext."\n";
+}
+
+# @_ must be sorted
+# If there is a tie for the mode, return the first value
+# e.g. 1,2,2,3,4,4 => 2
+sub find_mode
+{
+  if(@_ == 0) { return undef; }
+  my ($maxidx,$maxrun,$run) = (0,0,0);
+  for(my $i = 1; $i < @_; $i++) {
+    if($_[$i] == $_[$i-1]) {
+      $run++;
+      if($run > $maxrun) { $maxidx = $i; $maxrun = $run; }
     }
+    else { $run = 1; }
+  }
+  return $_[$maxidx];
+}
+
+# @_ must be sorted
+sub find_median
+{
+  if(@_ == 0) { return undef; }
+  if(@_ % 2 == 0) {
+    return ($_[@_ / 2 - 1] + $_[@_ / 2]) / 2;
+  } else {
+    return $_[int(@_ / 2)];
   }
 }
 
-if(length($contig_data) > 0) { push(@contigs, $contig_data); $contig_data = ""; }
-
-close($fh);
-
-print STDERR "Found ".scalar(@contigs)." contig runs\n";
-
-my @cols = qw(graphmem pathsmem totalmem kmersize numkmers
-              path_type path_num path_bytes path_kmers coloured_paths
-              meancontig mediancontig N50contig mincontig maxcontig totalcontig
-              resolve_straight resolve_colour resolve_path
-              halt_covg halt_colcovg halt_nopaths halt_pathssplit halt_missingpaths
-              paths_resolved_juncs
-              exact_match_rate approx_match_thresh approx_match_rate
-              time);
-
-print join(",", @cols)."\n";
-
-for my $data (@contigs)
+# usage: find_N50($total,@array)
+# @array must be sorted
+sub find_N50
 {
-  my %stats;
-  ($stats{'graphmem'}) = ($data =~ /graph: (.*?B)/i);
-  ($stats{'pathsmem'}) = ($data =~ /paths: (.*?B)/i);
-  ($stats{'totalmem'}) = ($data =~ /total: (.*?B)/i);
-  ($stats{'kmersize'}) = ($data =~ /kmer-size: (\d+)/i);
-  ($stats{'numkmers'}) = ($data =~ /Loaded ([0-9,]+).*? of kmers parsed/i);
+  my $total = shift;
+  my ($i, $sum, $half) = (0, 0, $total/2);
 
-  ($stats{'path_type'}) = map {uc($_)} ($data =~ /Loading file .*?((?:[sp]e)+).*?\.ctp /i);
-  ($stats{'path_num'}) = ($data =~ /([0-9,]+) paths, .*? path-bytes, [0-9,]+ kmers/i);
-  ($stats{'path_bytes'}) = ($data =~ /[0-9,]+ paths, (.*?) path-bytes, [0-9,]+ kmers/i);
-  ($stats{'path_kmers'}) = ($data =~ /[0-9,]+ paths, .*? path-bytes, ([0-9,]+) kmers/i);
-  ($stats{'coloured_paths'}) = ($data =~ /[0-9,]+ paths, .*? path-bytes, [0-9,]+ kmers, coloured paths: ([0-9,]+)/i);
+  if(@_ == 0 || $half == 0) { return undef; }
 
-  ($stats{'meancontig'}) = ($data =~ /Lengths: mean: ([0-9\.]+[KMG]?)/i);
-  ($stats{'mediancontig'}) = ($data =~ /Lengths: .*?median: ([0-9\.]+[KMG]?)/i);
-  ($stats{'N50contig'}) = ($data =~ /Lengths: .*?N50: ([0-9\.]+[KMG]?)/i);
-  ($stats{'mincontig'}) = ($data =~ /Lengths: .*?min: ([0-9\.]+[KMG]?)/i);
-  ($stats{'maxcontig'}) = ($data =~ /Lengths: .*?max: ([0-9\.]+[KMG]?)/i);
-  ($stats{'totalcontig'}) = ($data =~ /Lengths: .*?total: ([0-9\.]+[KMG]?)/i);
-
-  ($stats{'resolve_straight'}) = ($data =~ /Go straight.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'resolve_colour'}) = ($data =~ /Go colour.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'resolve_path'}) = ($data =~ /Go path.*?\[.*?([0-9\.]+%).*?\]/i);
-
-  ($stats{'halt_covg'}) = ($data =~ /No coverage.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'halt_colcovg'}) = ($data =~ /No colour covg.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'halt_nopaths'}) = ($data =~ /No paths.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'halt_pathssplit'}) = ($data =~ /Paths split.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'halt_missingpaths'}) = ($data =~ /Paths split.*?\[.*?([0-9\.]+%).*?\]/i);
-  ($stats{'paths_resolved_juncs'}) = ($data =~ /Paths resolved.*?\[.*?([0-9\.]+%).*?\]/i);
-
-  ($stats{'exact_match_rate'}) = ($data =~ /\[sim_substrings.pl\] Perfect matches: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
-  ($stats{'approx_match_thresh'}, $stats{'approx_match_rate'})
-    = ($data =~ /\[sim_substrings.pl\] Perfect or approx \[([0-9]+%)\]: [0-9,]+ \/ [0-9,]+ \(([0-9,\.]+%)\)/i);
-
-  ($stats{'time'}) = ($data =~ /\[time\] (.*)/i);
-
-  # Strip commas from numbers
-  map {$stats{$_} = defined($stats{$_}) ? $stats{$_} : "NA"} @cols;
-
-  for my $col (@cols) {
-    if($stats{$col} =~ /^[0-9,]+$/) { $stats{$col} =~ s/,//g; }
-    $stats{$col} =~ s/^([0-9]+)([KMG]B?)$/$1.0$2/g;
+  for($i = @_; $i > 0 && $sum < $half; $i--) {
+    $sum += $_[$i-1];
   }
 
-  print join(",", map {$stats{$_}} @cols)."\n";
+  return $_[$i];
 }

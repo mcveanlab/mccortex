@@ -153,7 +153,7 @@ int ctx_rmsubstr(int argc, char **argv)
   if(kmer_size > MAX_KMER_SIZE) cmd_print_usage("Kmer size too large (recompile?)");
 
   if(optind >= argc)
-    cmd_print_usage("Please specify at least one input graph file (.ctx)");
+    cmd_print_usage("Please specify at least one input sequence file (.fq, .fq etc.)");
 
   size_t i, num_seq_files = argc - optind;
   char **seq_paths = argv + optind;

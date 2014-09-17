@@ -1,6 +1,14 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+//
+// Macros
+//
+
+#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
+#define MEDIAN(arr,len) \
+        (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
+
 #define util_plural_str(n) ((n) == 1 ? "" : "s")
 
 // comparison returns:
