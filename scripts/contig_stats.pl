@@ -46,7 +46,7 @@ if($ncontigs == 0) { print STDERR "[contig_stats.pl] No sequences\n"; exit -1; }
 
 my $median = find_median(@lengths);
 my $mode = find_mode(@lengths);
-my $n50 = find_N50(@lengths);
+my $n50 = find_N50($sum,@lengths);
 my $linewidth = 30;
 
 # Some lines $linewidth+2 for 1 decimal place

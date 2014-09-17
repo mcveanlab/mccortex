@@ -203,7 +203,7 @@ typedef struct
   AssembleContigStats stats;
 
   // Shared data
-  volatile uint64_t *num_contig_ptr;
+  volatile size_t *num_contig_ptr;
   size_t contig_limit;
   uint8_t *visited;
   const dBGraph *db_graph;
@@ -263,8 +263,8 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
 
     // Record numbers of paths
     paths_held[orient] = wlk->paths.len;
-    paths_new[orient] = wlk->new_paths.len;
-    paths_cntr[orient]   = wlk->cntr_paths.len;
+    paths_new[orient]  = wlk->new_paths.len;
+    paths_cntr[orient] = wlk->cntr_paths.len;
 
     // Get failed status
     wlk_step_last[orient] = wlk->last_step.status;
@@ -319,7 +319,8 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     pthread_mutex_unlock(assem->outlock);
   }
   else {
-    contig_id = assem->num_contig_ptr[0]++;
+    // Lockless update
+    contig_id = __sync_fetch_and_add(assem->num_contig_ptr, 1);
   }
 
   // Generated too many contigs - drop this one without printing or
@@ -328,6 +329,7 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     return 1; // => stop iterating
   }
 
+  // Update statistics
   for(orient = 0; orient < 2; orient++) {
     stats->grphwlk_steps[wlk_step_last[orient]]++;
     stats->paths_held[MIN2(paths_held[orient], AC_MAX_PATHS-1)]++;
@@ -337,8 +339,6 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     stats->paths_new_max  = MAX2(stats->paths_new_max,  paths_new[orient]);
     stats->paths_cntr_max = MAX2(stats->paths_cntr_max, paths_cntr[orient]);
   }
-
-  printf("%zu\n", njunc);
 
   // Out degree
   dBNode first = db_node_reverse(nodes->data[0]), last = nodes->data[nodes->len-1];
@@ -357,14 +357,9 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
 
   if(stats->num_contigs == 0) {
     stats->max_junc_density = (double)njunc / nodes->len;
-    // stats->min_len  = stats->max_len  = nodes->len;
-    // stats->min_junc = stats->max_junc = njunc;
   } else {
-    stats->max_junc_density = MAX2(stats->max_junc_density, (double)njunc / nodes->len);
-    // stats->max_len  = MAX2(stats->max_len,  nodes->len);
-    // stats->max_junc = MAX2(stats->max_junc, njunc);
-    // stats->min_len  = MIN2(stats->min_len,  nodes->len);
-    // stats->min_junc = MIN2(stats->min_junc, njunc);
+    stats->max_junc_density = MAX2(stats->max_junc_density,
+                                   (double)njunc / nodes->len);
   }
 
   stats->num_contigs++;
@@ -437,8 +432,7 @@ void assemble_contigs(size_t nthreads,
     status("[Assemble]   Writing contigs to %s", futil_outpath_str(out_path));
 
   Assembler *workers = ctx_calloc(nthreads, sizeof(Assembler));
-  size_t i;
-  volatile uint64_t num_contigs = 0;
+  size_t i, num_contigs = 0;
 
   pthread_mutex_t outlock;
   if(pthread_mutex_init(&outlock, NULL) != 0) die("Mutex init failed");
