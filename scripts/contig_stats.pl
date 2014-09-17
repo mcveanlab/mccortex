@@ -54,19 +54,10 @@ print_cols("contigs:", num2str($ncontigs), $linewidth);
 print_cols(" length:", num2str($sum), $linewidth);
 print_cols("    min:", num2str($lengths[0]), $linewidth);
 print_cols("    max:", num2str($lengths[$ncontigs-1]), $linewidth);
-print_cols("   mean:", fnum2str($sum/$ncontigs,1), $linewidth+2);
-print_cols(" median:", fnum2str($median,1), $linewidth+2);
+print_cols("   mean:", num2str($sum/$ncontigs,',',1,1), $linewidth+2);
+print_cols(" median:", num2str($median,',',1,1), $linewidth+2);
 print_cols("   mode:", num2str($mode), $linewidth);
 print_cols("    N50:", num2str($n50), $linewidth);
-
-sub fnum2str
-{
-  my ($num,$decplaces) = @_;
-  my $txt = num2str($num, ',', $decplaces);
-  $txt =~ /([0-9,]+)\.?(.*?)$/ or die("bad");
-  my $extra = "0"x($decplaces-length($2));
-  return $1.'.'.$2.$extra;
-}
 
 sub print_cols
 {
