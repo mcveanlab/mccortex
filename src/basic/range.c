@@ -79,5 +79,35 @@ int range_parse_array(const char *str, size_t *arr, size_t range_max)
       arr[num_cols] = num_cols;
   }
 
-  return 0;
+  return num_cols;
+}
+
+/**
+ * Parse range into array arr, filling array to ensure exactly a given number
+ * of entries. If empty, array is filled 0..num_entries-1, if only one entry,
+ * array is filled with same entry num_entries times
+ *
+ * @param str nul terminated string to parse
+ * @param arr place parsed array here
+ * @param range_max max value permitted in the array
+ * @param num_entries Force exactly `num_entries` to be placed in `arr`
+ * @return 0 on success, -1 on error
+ */
+int range_parse_array_fill(const char *str, size_t *arr,
+                           size_t range_max, size_t num_entries)
+{
+  size_t i;
+  int r = range_parse_array(str, arr, range_max);
+  // status("r=%i str: %s", r, str);
+  if(r < 0) {
+    return -1;
+  } else if(r == 0) {
+    for(i = 0; i < num_entries; i++) arr[i] = i;
+  }
+  else if(r == 1) {
+    for(i = 1; i < num_entries; i++) arr[i] = arr[0];
+  } else if((size_t)r != num_entries) {
+    return -1;
+  }
+  return (int)num_entries;
 }

@@ -21,6 +21,7 @@ seq.k$(K).ctx: seq.fa
 	                     --sample Trousers --seq seq.fa --seq2 seq.fa:seq.fa $@
 	$(CTX) check -q $@
 	$(CTX) view $@
+	$(CTX) view -k 1,3,5:$@:2,1,0
 
 sort.k$(K).ctx: seq.k$(K).ctx
 	cp $< $@

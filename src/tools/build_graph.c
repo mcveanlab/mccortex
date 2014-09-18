@@ -151,7 +151,7 @@ static void load_read(const read_t *r, uint8_t qual_cutoff, uint8_t hp_cutoff,
     num_contigs++;
   }
 
-  __sync_fetch_and_add((volatile size_t*)&stats->contigs_loaded, num_contigs);
+  __sync_fetch_and_add((volatile size_t*)&stats->contigs_parsed, num_contigs);
   __sync_fetch_and_add((volatile size_t*)&stats->num_good_reads, num_contigs > 0);
   __sync_fetch_and_add((volatile size_t*)&stats->num_bad_reads, num_contigs == 0);
 }
@@ -287,7 +287,7 @@ void build_graph_task_print_stats(const BuildGraphTask *task)
   ulong_to_str(stats.num_dup_pe_pairs, dup_pe_pairs_str);
   ulong_to_str(stats.total_bases_read, bases_read_str);
   ulong_to_str(stats.total_bases_loaded, bases_loaded_str);
-  ulong_to_str(stats.contigs_loaded, num_contigs_str);
+  ulong_to_str(stats.contigs_parsed, num_contigs_str);
   ulong_to_str(stats.num_kmers_loaded, num_kmers_loaded_str);
   ulong_to_str(stats.num_kmers_novel, num_kmers_novel_str);
 

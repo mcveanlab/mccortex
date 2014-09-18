@@ -476,7 +476,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   // db_nodes_print_verbose(contig->data, contig->len, wrkr->db_graph, stdout);
   ctx_check(db_node_check_nodes(contig->data, contig->len, wrkr->db_graph));
 
-  wrkr->stats.contigs_loaded++;
+  wrkr->stats.contigs_parsed++;
   wrkr->stats.num_kmers_loaded += contig->len;
   wrkr->stats.total_bases_loaded += contig->len + kmer_size - 1;
 

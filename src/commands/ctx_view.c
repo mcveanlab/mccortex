@@ -155,12 +155,13 @@ int ctx_view(int argc, char **argv)
   hdr.num_of_cols = ncols;
   graph_header_alloc(&hdr, ncols);
 
-  size_t i, col, sum_covgs_read = 0, sum_seq_loaded = 0;
+  size_t i, fromcol, intocol, sum_covgs_read = 0, sum_seq_loaded = 0;
   size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
   for(i = 0; i < gfile.fltr.ncols; i++) {
-    col = file_filter_intocol(&gfile.fltr, i);
-    graph_info_merge(hdr.ginfo + i, gfile.hdr.ginfo + col);
+    fromcol = file_filter_fromcol(&gfile.fltr, i);
+    intocol = file_filter_intocol(&gfile.fltr, i);
+    graph_info_merge(hdr.ginfo + intocol, gfile.hdr.ginfo + fromcol);
     sum_seq_loaded += hdr.ginfo[i].total_sequence;
   }
 

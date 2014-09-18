@@ -13,9 +13,6 @@ void loading_stats_init(LoadingStats *stats)
 
 void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
 {
-  dst->num_files_loaded += src->num_files_loaded;
-  dst->ctx_files_loaded += src->ctx_files_loaded;
-
   dst->num_se_reads += src->num_se_reads;
   dst->num_pe_reads += src->num_pe_reads;
 
@@ -27,12 +24,10 @@ void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
   dst->total_bases_read += src->total_bases_read;
   dst->total_bases_loaded += src->total_bases_loaded;
 
-  dst->contigs_loaded += src->contigs_loaded;
+  dst->contigs_parsed += src->contigs_parsed;
   dst->num_kmers_parsed += src->num_kmers_parsed;
   dst->num_kmers_loaded += src->num_kmers_loaded;
   dst->num_kmers_novel += src->num_kmers_novel;
-
-  dst->num_of_colours_loaded += src->num_of_colours_loaded;
 }
 
 // @ht_num_kmers is the number of kmers loaded into the graph
@@ -64,10 +59,10 @@ void loading_stats_print_summary(const LoadingStats *stats, size_t ht_num_kmers)
            nkmers_parsed_str, nkmers_loaded_str);
   }
 
-  if(stats->contigs_loaded > 0)
+  if(stats->contigs_parsed > 0)
   {
     char klen_str[50];
-    double mean_klen = (double)stats->num_kmers_loaded / stats->contigs_loaded;
+    double mean_klen = (double)stats->num_kmers_loaded / stats->contigs_parsed;
     ulong_to_str((size_t)(mean_klen+0.5), klen_str);
     status("[SeqStats]  mean reconstructed contig length: %s (kmers)", klen_str);
   }

@@ -12,22 +12,24 @@ void file_filter_ensure_capacity(FileFilter *fltr, size_t size)
   }
 }
 
+#define is_range_char(c) (((c) >= '0' && (c) <= '9') || (c) == '-' || (c) == ',')
+
 // Get pointers to start and end of actual path
 // (\d+:)?path.ctx(:\d+(-\d+)?(,\d+(-\d+)?)*)?
 static inline void file_filter_deconstruct_path(const char *path,
                                                 const char **start,
                                                 const char **end)
 {
-  const char *ptr, *c;
+  const char *ptr = path;
   *start = path;
-  for(ptr = path; *ptr >= '0' && *ptr <= '9'; ptr++);
+  while(is_range_char(*ptr)) ptr++;
   if(ptr > path && *ptr == ':') { ptr++; *start = ptr; }
   // Count backwards to match /:[-,0123456789]*$/
-  c = *end = path + strlen(path);
-  while(c > (*start)+1) {
-    c--;
-    if(*c == ':') { *end = c; break; }
-    else if(!(*c == ',' || *c == '-' || (*c >= '0' && *c <= '9'))) break;
+  ptr = *end = path + strlen(path);
+  while(ptr > (*start)+1) {
+    ptr--;
+    if(*ptr == ':') { *end = ptr; break; }
+    else if(!is_range_char(*ptr)) break;
   }
 }
 
@@ -77,37 +79,70 @@ uint32_t file_filter_into_ncols(const FileFilter *fltr)
 void file_filter_set_cols(FileFilter *fltr, size_t filencols)
 {
   size_t i;
-  const char *path_start, *path_end;
-  file_filter_deconstruct_path(fltr->input.b, &path_start, &path_end);
+  const char *path_start_c, *path_end_c;
+  file_filter_deconstruct_path(fltr->input.b, &path_start_c, &path_end_c);
 
-  fltr->orig_first_col = (size_t)(path_start == fltr->input.b ? 0 : atoi(fltr->input.b));
+  // This is a hack to get non-const pointer
+  size_t offset_start = path_start_c - fltr->input.b;
+  size_t offset_end = path_end_c - fltr->input.b;
+  char *path_start = fltr->input.b + offset_start;
+  char *path_end = fltr->input.b + offset_end;
 
-  fltr->ncols = filencols;
-  if(*path_end == ':') {
-    int s = range_get_num(path_end+1, filencols-1);
+  char *from_fltr = (*path_end == ':' ? path_end+1 : NULL);
+  char *into_fltr = (path_start > fltr->input.b ? fltr->input.b : NULL);
+
+  if(from_fltr) {
+    int s = range_get_num(from_fltr, filencols-1);
     if(s == -1) die("Invalid filter path: %s", fltr->input.b);
     fltr->ncols = s;
+  } else {
+    fltr->ncols = filencols;
+  }
+
+  if(into_fltr) {
+    *(path_start-1) = '\0';
+    int s = range_get_num(into_fltr, SIZE_MAX);
+    *(path_start-1) = ':';
+    if(s < 0 || (s != 1 && (size_t)s != fltr->ncols))
+      die("Invalid filter path: %s (s:%i ncols:%u)", fltr->input.b, s, fltr->ncols);
   }
 
   fltr->filencols = filencols;
   file_filter_ensure_capacity(fltr, fltr->ncols);
 
-  if(*path_end == ':')
+  size_t *tmp = ctx_calloc(fltr->ncols, sizeof(size_t));
+
+  if(from_fltr)
   {
-    size_t *tmp = ctx_calloc(fltr->ncols, sizeof(size_t));
-    if(range_parse_array(path_end+1, tmp, filencols-1) == -1)
+    if(range_parse_array(from_fltr, tmp, filencols-1) == -1)
       die("Invalid filter path: %s", fltr->input.b);
     for(i = 0; i < fltr->ncols; i++)
       fltr->filter[i].from = tmp[i];
-    ctx_free(tmp);
   }
   else {
     for(i = 0; i < fltr->ncols; i++)
       fltr->filter[i].from = i;
   }
 
-  for(i = 0; i < fltr->ncols; i++)
-    fltr->filter[i].into = fltr->orig_first_col + i;
+  if(into_fltr)
+  {
+    *(path_start-1) = '\0';
+    int s = range_parse_array_fill(into_fltr, tmp, SIZE_MAX, fltr->ncols);
+    *(path_start-1) = ':';
+    if(s < 0 || (size_t)s != fltr->ncols)
+      die("Invalid filter path: %s (s:%i ncols:%u)", fltr->input.b, s, fltr->ncols);
+    for(i = 0; i < fltr->ncols; i++)
+      fltr->filter[i].into = tmp[i];
+  }
+  else {
+    for(i = 0; i < fltr->ncols; i++)
+      fltr->filter[i].into = i;
+  }
+
+  ctx_free(tmp);
+
+  // for(i = 0; i < fltr->ncols; i++)
+  //   status("%u -> %u", fltr->filter[i].from, fltr->filter[i].into);
 }
 
 // @add amount to add to each value of intocols

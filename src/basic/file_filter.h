@@ -15,7 +15,7 @@ typedef struct
   // if `orig_path` was "2:in.ctx:0,3",
   // path would be "in.ctx"
   StrBuf input, path;
-  size_t orig_first_col; // colour originally specified to load into 2:in.ctx => 2
+  // size_t orig_first_col; // colour originally specified to load into 2:in.ctx => 2
   uint32_t filencols; // number of colours in file
   Filter *filter;
   uint32_t ncols, capacity; // filter length and allocated memory

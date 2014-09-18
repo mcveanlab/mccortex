@@ -331,10 +331,8 @@ static void graph_loading_print_status(const GraphFileReader *file)
 // We assume only_load_if_in_colour < load_first_colour_into
 // if all_kmers_are_unique != 0 an error is thrown if a node already exists
 // If stats != NULL, updates:
-//   stats->num_of_colours_loaded
 //   stats->num_kmers_loaded
 //   stats->total_bases_read
-//   stats->ctx_files_loaded
 
 /*!
   @return number of kmers loaded
@@ -464,14 +462,12 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 
   if(stats != NULL)
   {
-    stats->num_of_colours_loaded += ncols_used;
     stats->num_kmers_loaded += num_of_kmers_loaded;
     stats->num_kmers_novel += graph->ht.num_kmers - num_of_kmers_already_loaded;
     for(i = 0; i < fltr->ncols; i++) {
       fromcol = file_filter_fromcol(fltr,i);
       stats->total_bases_read += hdr->ginfo[fromcol].total_sequence;
     }
-    stats->ctx_files_loaded++;
   }
 
   char parsed_nkmers_str[100], loaded_nkmers_str[100];

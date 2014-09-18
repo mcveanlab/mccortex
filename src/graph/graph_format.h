@@ -53,10 +53,8 @@ size_t graph_file_read_kmer(FILE *fh, const GraphFileHeader *h, const char *path
 // if clean_colours != 0 an error is thrown if a node already exists
 // returns the number of colours in the binary
 // If stats != NULL, updates:
-//   stats->num_of_colours_loaded
 //   stats->num_kmers_loaded
 //   stats->total_bases_read
-//   stats->ctx_files_loaded
 // If header is != NULL, header will be stored there.  Be sure to free.
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   LoadingStats *stats);

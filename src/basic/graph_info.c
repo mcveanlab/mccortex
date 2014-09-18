@@ -171,5 +171,5 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
 
 void graph_info_update_stats(GraphInfo *ginfo, const LoadingStats *stats)
 {
-  graph_info_update_contigs(ginfo, stats->total_bases_loaded, stats->contigs_loaded);
+  graph_info_update_contigs(ginfo, stats->total_bases_loaded, stats->contigs_parsed);
 }
