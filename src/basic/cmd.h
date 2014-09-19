@@ -63,10 +63,11 @@ seq_format cmd_parse_format(const char *cmd, const char *arg);
 char* cmd_concat_args(int argc, char **argv);
 
 // Remember to free pointers and strings
-//    char **args = cmd_clone_args(argc, argv);
-//    free(args[0]);
+//    char *strmem;
+//    const char **args = cmd_clone_args(argc, argv, &strmem);
+//    free(strmem);
 //    free(args);
-char** cmd_clone_args(int argc, char **argv);
+const char** cmd_clone_args(int argc, char **argv, char **strmem);
 
 void cmd_print_usage(const char *errfmt,  ...)
   __attribute__((noreturn))

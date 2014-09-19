@@ -9,7 +9,8 @@
 // Global object that clones input arguments
 struct Cmd {
   // These arrays are allocated
-  char **init_argv;
+  char *merged_args;
+  const char **init_argv;
   int init_argc;
   char *cmd_line_str, *cwd;
   // This is just a pointer -- not allocated
@@ -22,7 +23,7 @@ void cmd_init(int argc, char **argv)
   memset(&cmd, 0, sizeof(cmd));
 
   cmd.init_argc = argc;
-  cmd.init_argv = cmd_clone_args(argc, argv);
+  cmd.init_argv = cmd_clone_args(argc, argv, &cmd.merged_args);
   cmd.cmd_line_str = cmd_concat_args(argc, argv);
 
   cmd.cwd = ctx_malloc(PATH_MAX+1);
@@ -34,7 +35,7 @@ void cmd_init(int argc, char **argv)
 
 void cmd_destroy()
 {
-  ctx_free(cmd.init_argv[0]);
+  ctx_free(cmd.merged_args);
   ctx_free(cmd.init_argv);
   ctx_free(cmd.cmd_line_str);
   ctx_free(cmd.cwd);
@@ -45,7 +46,7 @@ void cmd_set_usage(const char *usage) { cmd.usage = usage; }
 const char*  cmd_get_usage() { return cmd.usage; }
 const char*  cmd_get_cmdline() { return cmd.cmd_line_str; }
 const char*  cmd_get_cwd() { return cmd.cwd; }
-const char** cmd_get_argv() { return (const char**)cmd.init_argv; }
+const char** cmd_get_argv() { return cmd.init_argv; }
 int          cmd_get_argc() { return cmd.init_argc; }
 
 // Print status updates:
@@ -219,20 +220,21 @@ char* cmd_concat_args(int argc, char **argv)
 }
 
 // Remember to free pointers and strings
-//    char **args = cmd_clone_args(argc, argv);
-//    free(args[0]);
+//    char *strmem;
+//    const char **args = cmd_clone_args(argc, argv, &strmem);
+//    free(strmem);
 //    free(args);
-char** cmd_clone_args(int argc, char **argv)
+const char** cmd_clone_args(int argc, char **argv, char **strmem)
 {
   int i; size_t len = 0; char *str;
 
   for(i = 0; i < argc; i++)
     len += strlen(argv[i]) + 1;
 
-  char *cmds_merged = ctx_malloc(len);
-  char **cmd_ptrs = ctx_malloc(argc * sizeof(char*));
+  *strmem = ctx_malloc(len);
+  const char **cmd_ptrs = ctx_malloc(argc * sizeof(char*));
 
-  for(str = cmds_merged, i = 0; i < argc; i++) {
+  for(str = *strmem, i = 0; i < argc; i++) {
     cmd_ptrs[i] = str;
     len = strlen(argv[i]);
     memcpy(str, argv[i], len);

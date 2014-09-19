@@ -288,7 +288,7 @@ int ctx_supernodes(int argc, char **argv)
   if(optind >= argc) cmd_print_usage(NULL);
 
   size_t i, num_gfiles = (size_t)(argc - optind);
-  const char **gfile_paths = (const char**)(argv + optind);
+  char **gfile_paths = argv + optind;
 
   if(dot_use_points && print_syntax != PRINT_DOT)
     cmd_print_usage("--points only valid with --graphviz / --dot");

@@ -69,7 +69,7 @@ bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
 // if one of the files is reading from stdin, sum_kmers_ptr is set to 0
 // `max_cols_ptr` is used to return the most colours being loaded from a single file
 // returns the number of colours being loaded in total
-size_t graph_files_open(const char **graph_paths,
+size_t graph_files_open(char **graph_paths,
                         GraphFileReader *gfiles, size_t num_gfiles,
                         size_t *max_kmers_ptr, size_t *sum_kmers_ptr);
 

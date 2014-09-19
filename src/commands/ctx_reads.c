@@ -79,7 +79,7 @@ static size_t nthreads = 0;
 static struct MemArgs memargs = MEM_ARGS_INIT;
 
 static size_t num_gfiles = 0;
-static const char **gfile_paths = NULL;
+static char **gfile_paths = NULL;
 
 static volatile size_t read_counter = 0;
 
@@ -141,7 +141,7 @@ static void parse_args(int argc, char **argv)
     cmd_print_usage("Please specify input graph file(s)");
 
   num_gfiles = (size_t)(argc - optind);
-  gfile_paths = (const char**)(argv + optind);
+  gfile_paths = argv + optind;
 
   for(i = 0; i < inputs.len; i++) {
     inputs.data[i].invert = invert;

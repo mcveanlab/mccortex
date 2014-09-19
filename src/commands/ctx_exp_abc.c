@@ -450,12 +450,12 @@ int ctx_exp_abc(int argc, char **argv)
   }
   gpfile_buf_dealloc(&gpfiles);
 
-  status("");
+  status("\n");
   status("Test 1: Priming region A->B (max_AB_dist: %zu)", max_AB_dist);
   run_exp_abc(&db_graph, true, nthreads, num_repeats,
               max_AB_dist, print_failed_contigs);
 
-  status("");
+  status("\n");
   status("Test 2: Trying to traverse A->B (max_AB_dist: %zu)", max_AB_dist);
   run_exp_abc(&db_graph, false, nthreads, num_repeats,
               max_AB_dist, print_failed_contigs);

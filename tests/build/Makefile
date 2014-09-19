@@ -3,6 +3,7 @@ SHELL:=/bin/bash
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 CTX=$(CTXDIR)/bin/ctx31
+CONTIGSTATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 K=9
 
 TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
@@ -43,6 +44,6 @@ test.ctx:
 test_assemble:
 	$(CTX) contigs -q -o - seq.k9.ctx:1 | \
 	  $(CTX) rmsubstr -q -n 1M - | \
-	  $(CTXDIR)/scripts/contig_stats.pl -
+	  $(CONTIGSTATS) -
 
 .PHONY: all clean test_assemble

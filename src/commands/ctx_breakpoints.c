@@ -121,7 +121,7 @@ int ctx_breakpoints(int argc, char **argv)
   //
   // Open graph files
   //
-  const char **graph_paths = (const char**)(argv + optind);
+  char **graph_paths = argv + optind;
   size_t num_gfiles = argc - optind;
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
   size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;

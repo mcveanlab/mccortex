@@ -2,6 +2,10 @@
 # make all      <- compile all libraries
 # make clean    <- clean all libraries
 
+ALLTGTS=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r misc \
+        bcftools samtools readsim bioinf-perl \
+        vcflib
+
 # Only compile dependencies for compiling ninja-cortex itself
 core: htslib string_buffer bit_array seq_file seq-align msg-pool sort_r misc
 
