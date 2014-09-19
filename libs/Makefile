@@ -2,17 +2,14 @@
 # make all      <- compile all libraries
 # make clean    <- clean all libraries
 
-UPDATE=htslib bcftools samtools vcflib \
-       string_buffer bit_array seq_file seq-align \
-       readsim msg-pool sort_r misc bioinf-perl
-
-ALLTGTS=$(UPDATE) gsl
-
 # Only compile dependencies for compiling ninja-cortex itself
 core: htslib string_buffer bit_array seq_file seq-align msg-pool sort_r misc
 
-update: $(UPDATE)
-all: $(ALLTGTS)
+common: bcftools samtools readsim bioinf-perl
+
+analysis: vcflib
+
+all: core common analysis
 
 #
 # Download
@@ -107,7 +104,7 @@ misc: misc/Makefile
 # Clean
 #
 clean:
-	# [ -d gsl-1.16 ] && cd gsl-1.16 && make clean
+	[ -d gsl-1.16 ] && cd gsl-1.16 && make clean
 	[ -d htslib ] && cd htslib && make clean
 	[ -d bcftools ] && cd bcftools && make clean
 	[ -d samtools ] && cd samtools && make clean
