@@ -68,7 +68,6 @@ void graph_files_load_flat(GraphFileReader *gfiles, size_t num_files,
 //   (i.e. only keep nodes and edges that are in the graph)
 // Same functionality as graph_files_merge, but faster if dealing with only one
 // input file. Reads in and dumps one kmer at a time
-// parameter: flatten: if true merge colours into one
 size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file,
                            const dBGraph *db_graph, const GraphFileHeader *hdr,
                            const Edges *only_load_if_in_edges);
@@ -84,7 +83,6 @@ size_t graph_files_merge(const char *out_ctx_path,
                          const Edges *only_load_if_in_edges,
                          GraphFileHeader *hdr, dBGraph *db_graph);
 
-// if flatten, pool all colours into colour 0
 // if intersect only load kmers that are already in the hash table
 // returns number of kmers written
 size_t graph_files_merge_mkhdr(const char *out_ctx_path,

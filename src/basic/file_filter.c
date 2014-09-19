@@ -4,18 +4,10 @@
 #include "util.h"
 #include "file_util.h"
 
-void file_filter_ensure_capacity(FileFilter *fltr, size_t size)
-{
-  if(fltr->capacity < size) {
-    fltr->capacity = roundup2pow(size);
-    fltr->filter = ctx_reallocarray(fltr->filter, fltr->capacity, sizeof(Filter));
-  }
-}
-
 #define is_range_char(c) (((c) >= '0' && (c) <= '9') || (c) == '-' || (c) == ',')
 
 // Get pointers to start and end of actual path
-// (\d+:)?path.ctx(:\d+(-\d+)?(,\d+(-\d+)?)*)?
+// (\d+(-\d+)?(,\d+(-\d+)?)*:)?path.ctx(:\d+(-\d+)?(,\d+(-\d+)?)*)?
 static inline void file_filter_deconstruct_path(const char *path,
                                                 const char **start,
                                                 const char **end)
@@ -54,7 +46,7 @@ void file_filter_close(FileFilter *fltr)
 {
   strbuf_dealloc(&fltr->input);
   strbuf_dealloc(&fltr->path);
-  ctx_free(fltr->filter);
+  filter_buf_dealloc(&fltr->filter);
   memset(fltr, 0, sizeof(FileFilter));
 }
 
@@ -62,8 +54,8 @@ void file_filter_close(FileFilter *fltr)
 uint32_t file_filter_from_ncols(const FileFilter *fltr)
 {
   uint32_t i, max = 0;
-  for(i = 0; i < fltr->ncols; i++)
-    max = MAX2(max, fltr->filter[i].from+1);
+  for(i = 0; i < file_filter_num(fltr); i++)
+    max = MAX2(max, file_filter_fromcol(fltr,i)+1);
   return max;
 }
 
@@ -71,12 +63,14 @@ uint32_t file_filter_from_ncols(const FileFilter *fltr)
 uint32_t file_filter_into_ncols(const FileFilter *fltr)
 {
   uint32_t i, max = 0;
-  for(i = 0; i < fltr->ncols; i++)
-    max = MAX2(max, fltr->filter[i].into+1);
+  for(i = 0; i < file_filter_num(fltr); i++)
+    max = MAX2(max, file_filter_intocol(fltr,i)+1);
   return max;
 }
 
-void file_filter_set_cols(FileFilter *fltr, size_t filencols)
+// If there is no 'into' filter (e.g. 0,1:in.ctx 0,1 is 'into filter'),
+// load into `into_offset..into_offset+N-1`
+void file_filter_set_cols(FileFilter *fltr, size_t filencols, size_t into_offset)
 {
   size_t i;
   const char *path_start_c, *path_end_c;
@@ -91,82 +85,87 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols)
   char *from_fltr = (*path_end == ':' ? path_end+1 : NULL);
   char *into_fltr = (path_start > fltr->input.b ? fltr->input.b : NULL);
 
+  size_t ncols;
+
   if(from_fltr) {
     int s = range_get_num(from_fltr, filencols-1);
     if(s == -1) die("Invalid filter path: %s", fltr->input.b);
-    fltr->ncols = s;
+    ncols = s;
   } else {
-    fltr->ncols = filencols;
+    ncols = filencols;
   }
 
   if(into_fltr) {
     *(path_start-1) = '\0';
     int s = range_get_num(into_fltr, SIZE_MAX);
     *(path_start-1) = ':';
-    if(s < 0 || (s != 1 && (size_t)s != fltr->ncols))
-      die("Invalid filter path: %s (s:%i ncols:%u)", fltr->input.b, s, fltr->ncols);
+    if(s < 0 || (s != 1 && (size_t)s != ncols))
+      die("Invalid filter path: %s (s:%i ncols:%zu)", fltr->input.b, s, ncols);
   }
 
   fltr->filencols = filencols;
-  file_filter_ensure_capacity(fltr, fltr->ncols);
+  filter_buf_ensure_capacity(&fltr->filter, ncols);
+  file_filter_num(fltr) = ncols;
 
-  size_t *tmp = ctx_calloc(fltr->ncols, sizeof(size_t));
+  size_t *tmp = ctx_calloc(ncols, sizeof(size_t));
 
   if(from_fltr)
   {
     if(range_parse_array(from_fltr, tmp, filencols-1) == -1)
       die("Invalid filter path: %s", fltr->input.b);
-    for(i = 0; i < fltr->ncols; i++)
-      fltr->filter[i].from = tmp[i];
+    for(i = 0; i < ncols; i++)
+      file_filter_fromcol(fltr, i) = tmp[i];
   }
   else {
-    for(i = 0; i < fltr->ncols; i++)
-      fltr->filter[i].from = i;
+    for(i = 0; i < ncols; i++)
+      file_filter_fromcol(fltr, i) = i;
   }
 
   if(into_fltr)
   {
     *(path_start-1) = '\0';
-    int s = range_parse_array_fill(into_fltr, tmp, SIZE_MAX, fltr->ncols);
+    int s = range_parse_array_fill(into_fltr, tmp, SIZE_MAX, ncols);
     *(path_start-1) = ':';
-    if(s < 0 || (size_t)s != fltr->ncols)
-      die("Invalid filter path: %s (s:%i ncols:%u)", fltr->input.b, s, fltr->ncols);
-    for(i = 0; i < fltr->ncols; i++)
-      fltr->filter[i].into = tmp[i];
+    if(s < 0 || (size_t)s != ncols)
+      die("Invalid filter path: %s (s:%i ncols:%zu)", fltr->input.b, s, ncols);
+    for(i = 0; i < ncols; i++)
+      file_filter_intocol(fltr, i) = tmp[i];
   }
   else {
-    for(i = 0; i < fltr->ncols; i++)
-      fltr->filter[i].into = i;
+    for(i = 0; i < ncols; i++)
+      file_filter_intocol(fltr, i) = into_offset + i;
   }
 
   ctx_free(tmp);
 
-  // for(i = 0; i < fltr->ncols; i++)
-  //   status("%u -> %u", fltr->filter[i].from, fltr->filter[i].into);
+  // for(i = 0; i < file_filter_num(fltr); i++)
+  //   status("%u -> %u", file_filter_fromcol(fltr,i), file_filter_intocol(fltr,i));
 }
 
 // @add amount to add to each value of intocols
 void file_filter_shift_cols(FileFilter *fltr, size_t add)
 {
   size_t i;
-  for(i = 0; i < fltr->ncols; i++) fltr->filter[i].into += add;
+  for(i = 0; i < file_filter_num(fltr); i++)
+    file_filter_intocol(fltr, i) += add;
 }
 
 // Returns true if each colour is loaded directly into the same colour
 // 0->0, ... N->N where N is filencols
 bool file_filter_is_direct(const FileFilter *fltr)
 {
-  size_t i;
-  if(fltr->ncols != fltr->filencols) return false;
-  for(i = 0; i < fltr->ncols && fltr->filter[i].from == fltr->filter[i].into; i++);
-  return (i == fltr->ncols);
+  size_t i = 0;
+  if(file_filter_num(fltr) != fltr->filencols) return false;
+  while(i < file_filter_num(fltr) &&
+        file_filter_fromcol(fltr, i) == file_filter_intocol(fltr,i)) i++;
+  return (i == file_filter_num(fltr));
 }
 
 // Returns true if the specifed filter `fltr` updates colour `col`
 bool file_filter_iscolloaded(const FileFilter *fltr, size_t col)
 {
   size_t i;
-  for(i = 0; i < fltr->ncols; i++) {
+  for(i = 0; i < file_filter_num(fltr); i++) {
     if(file_filter_intocol(fltr, i) == col)
       return true;
   }
@@ -183,10 +182,13 @@ void file_filter_status(const FileFilter *fltr)
   message("[FileFilter] Loading file %s [%u colour%s]", file_filter_path(fltr),
           fltr->filencols, util_plural_str(fltr->filencols));
 
-  if(!file_filter_is_direct(fltr)) {
-    message(" with filter: %u->%u", fltr->filter[0].from, fltr->filter[0].into);
-    for(i = 1; i < fltr->ncols; i++)
-      message(",%u->%u", fltr->filter[i].from, fltr->filter[i].into);
+  if(!file_filter_is_direct(fltr))
+  {
+    message(" with filter: %u->%u", file_filter_fromcol(fltr, 0),
+                                    file_filter_intocol(fltr, 0));
+
+    for(i = 1; i < file_filter_num(fltr); i++)
+      message(",%u->%u", file_filter_fromcol(fltr,i), file_filter_intocol(fltr,i));
   }
   message("\n");
   pthread_mutex_unlock(&ctx_biglock);
@@ -197,9 +199,8 @@ FileFilter* file_filter_copy(FileFilter *dst, const FileFilter *src)
 {
   strbuf_set_buff(&dst->input, &src->input);
   strbuf_set_buff(&dst->path, &src->path);
-  file_filter_ensure_capacity(dst, src->ncols);
-  memcpy(dst->filter, src->filter, src->ncols * sizeof(Filter));
-  dst->ncols = src->ncols;
+  filter_buf_reset(&dst->filter);
+  filter_buf_append(&dst->filter, src->filter.data, src->filter.len);
   dst->filencols = src->filencols;
   return dst;
 }
@@ -208,15 +209,14 @@ FileFilter* file_filter_copy(FileFilter *dst, const FileFilter *src)
 void file_filter_flatten(FileFilter *fltr, size_t intocol)
 {
   size_t i;
-  ctx_assert(fltr->filter != NULL);
-  for(i = 0; i < fltr->ncols; i++)
-    fltr->filter[i].into = intocol;
+  ctx_assert(fltr->filter.data != NULL);
+  for(i = 0; i < file_filter_num(fltr); i++)
+    file_filter_intocol(fltr,i) = intocol;
 }
 
 void file_filter_add(FileFilter *fltr, uint32_t from, uint32_t into)
 {
-  file_filter_ensure_capacity(fltr, fltr->ncols+1);
-  fltr->filter[fltr->ncols++] = (Filter){.from = from, .into = into};
+  filter_buf_add(&fltr->filter, (Filter){.from = from, .into = into});
 }
 
 //
@@ -230,8 +230,8 @@ static inline int _from_cmp(const void *a, const void *b) {
   return (long)((const Filter*)a)->from - ((const Filter*)b)->from;
 }
 
-#define filters_sort_by_into(fltr) qsort(fltr->filter, fltr->ncols, sizeof(fltr->filter[0]), _into_cmp)
-#define filters_sort_by_from(fltr) qsort(fltr->filter, fltr->ncols, sizeof(fltr->filter[0]), _from_cmp)
+#define filters_sort_by_into(fltr) qsort((fltr)->filter.data, file_filter_num(fltr), sizeof(fltr->filter.data[0]), _into_cmp)
+#define filters_sort_by_from(fltr) qsort((fltr)->filter.data, file_filter_num(fltr), sizeof(fltr->filter.data[0]), _from_cmp)
 
 // Updates filter a using filter b (push a through b: a->b)
 // Note: sorts filters in @b
@@ -243,14 +243,15 @@ void file_filter_merge(FileFilter *a, FileFilter *b)
   filters_sort_by_into(a);
   filters_sort_by_from(b);
 
-  size_t i, j, k, n = a->ncols, m = b->ncols;
+  size_t i, j, k, n = file_filter_num(a), m = file_filter_num(b);
 
+  // Append onto the end of a, then shift down
   for(i = j = 0; i < n; i++) {
-    while(j < m && a->filter[i].into > b->filter[j].from) j++;
-    for(k = j; k < m && a->filter[i].into == b->filter[k].from; k++)
-      file_filter_add(a, a->filter[i].from, b->filter[k].into);
+    while(j < m && file_filter_intocol(a,i) > file_filter_fromcol(b,j)) j++;
+    for(k = j; k < m && file_filter_intocol(a,i) == file_filter_fromcol(b,k); k++)
+      file_filter_add(a, file_filter_fromcol(a,i), file_filter_intocol(b,k));
   }
 
-  memmove(a->filter, a->filter+n, a->ncols - n);
-  a->ncols -= n;
+  // Shift towards zero
+  filter_buf_shift_right(&a->filter, n);
 }

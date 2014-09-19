@@ -123,8 +123,8 @@ bool infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
   }
 
   // Check if we changed the edges
-  int cmp = memcmp(edges, newedges, sizeof(Edges)*ncols);
-  memcpy(edges, newedges, sizeof(Edges)*ncols);
+  int cmp = memcmp(edges, newedges, ncols*sizeof(Edges));
+  memcpy(edges, newedges, ncols*sizeof(Edges));
   return (cmp != 0);
 }
 

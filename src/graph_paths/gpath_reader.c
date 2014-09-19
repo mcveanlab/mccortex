@@ -89,7 +89,8 @@ void _parse_json_header(GPathReader *file)
 
 // Open file, exit on error
 // if successful creates a new GPathReader and returns 1
-void gpath_reader_open2(GPathReader *file, const char *path, const char *mode)
+void gpath_reader_open2(GPathReader *file, const char *path, const char *mode,
+                        size_t into_offset)
 {
   FileFilter *fltr = &file->fltr;
   file_filter_open(fltr, path); // calls die() on error
@@ -110,7 +111,7 @@ void gpath_reader_open2(GPathReader *file, const char *path, const char *mode)
   // are missing
   size_t kmer_size = gpath_reader_get_kmer_size(file);
   size_t filencols = _gpath_reader_get_filencols(file);
-  file_filter_set_cols(fltr, filencols);
+  file_filter_set_cols(fltr, filencols, into_offset);
 
   // Check we can handle the kmer size
   db_graph_check_kmer_size(kmer_size, file->fltr.path.b);
@@ -118,7 +119,7 @@ void gpath_reader_open2(GPathReader *file, const char *path, const char *mode)
 
 void gpath_reader_open(GPathReader *file, const char *path)
 {
-  gpath_reader_open2(file, path, "r");
+  gpath_reader_open2(file, path, "r", 0);
 }
 
 void gpath_reader_close(GPathReader *file)
@@ -264,7 +265,7 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
 
   memset(nseen, 0, gpset->ncols);
 
-  for(i = 0; i < file->fltr.ncols; i++) {
+  for(i = 0; i < file_filter_num(&file->fltr); i++) {
     from = file_filter_fromcol(&file->fltr, i);
     to = file_filter_intocol(&file->fltr, i);
     nseen[to] = MIN2((size_t)UINT8_MAX, (size_t)nseen[to] + nseenbuf[from]);
@@ -414,7 +415,7 @@ void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph)
   StrBuf *gname;
   const char *pname;
 
-  for(i = 0; i < fltr->ncols; i++)
+  for(i = 0; i < file_filter_num(fltr); i++)
   {
     intocol = file_filter_intocol(fltr, i);
     fromcol = file_filter_fromcol(fltr, i);

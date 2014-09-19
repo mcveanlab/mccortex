@@ -111,7 +111,7 @@ int ctx_subgraph(int argc, char **argv)
   size_t num_gfiles = argc - optind;
   const char **gfile_paths = (const char**)(argv + optind);
 
-  size_t col, total_cols;
+  size_t total_cols;
 
   // Open graph files
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
@@ -200,9 +200,9 @@ int ctx_subgraph(int argc, char **argv)
 
   // Create header
   for(i = 0; i < num_gfiles; i++) {
-    for(j = 0; j < gfiles[i].fltr.ncols; j++) {
-      col = file_filter_intocol(&gfiles[i].fltr, j);
-      graph_info_make_intersect(&gfiles[i].hdr.ginfo[col], &intersect_gname);
+    for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++) {
+      size_t fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
+      graph_info_make_intersect(&gfiles[i].hdr.ginfo[fromcol], &intersect_gname);
     }
   }
 

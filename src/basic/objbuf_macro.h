@@ -57,7 +57,9 @@ static inline size_t FUNC ## _append(buf_t *buf, const obj_t *obj, size_t n)   \
  __attribute__((unused));                                                      \
 static inline void FUNC ## _reset(buf_t *buf)                                  \
  __attribute__((unused));                                                      \
-static inline void FUNC ## _shift(buf_t *buf, size_t nel)                      \
+static inline void FUNC ## _shift_left(buf_t *buf, size_t nel)                 \
+ __attribute__((unused));                                                      \
+static inline void FUNC ## _shift_right(buf_t *buf, size_t nel)                \
  __attribute__((unused));                                                      \
                                                                                \
                                                                                \
@@ -105,11 +107,18 @@ static inline size_t FUNC ## _append(buf_t *buf, const obj_t *obj, size_t n) { \
   return idx;                                                                  \
 }                                                                              \
                                                                                \
-static inline void FUNC ## _shift(buf_t *buf, size_t n)                        \
+static inline void FUNC ## _shift_left(buf_t *buf, size_t n)                   \
 {                                                                              \
   FUNC ## _ensure_capacity(buf, buf->len+n);                                   \
-  memmove(buf->data+n, buf->data, buf->len);                                   \
+  memmove(buf->data+n, buf->data, buf->len * sizeof(obj_t));                   \
   buf->len += n;                                                               \
+}                                                                              \
+                                                                               \
+static inline void FUNC ## _shift_right(buf_t *buf, size_t n)                  \
+{                                                                              \
+  ctx_assert(n <= buf->len);                                                   \
+  memmove(buf->data, buf->data+n, (buf->len - n)*sizeof(obj_t));               \
+  buf->len -= n;                                                               \
 }                                                                              \
                                                                                \
 static inline void FUNC ## _reset(buf_t *buf) { buf->len = 0; }                \

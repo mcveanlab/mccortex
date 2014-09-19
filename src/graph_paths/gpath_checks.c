@@ -41,7 +41,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
     }
     ctx_max_cols = MAX2(ctx_max_cols, file_filter_into_ncols(&graphs[g].fltr));
     ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&graphs[g]));
-    colours_loaded += graphs[g].fltr.ncols;
+    colours_loaded += file_filter_num(&graphs[g].fltr);
   }
 
   for(p = 0; p < num_gpaths; p++) {
@@ -52,7 +52,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
     }
     ctp_max_cols = MAX2(ctp_max_cols, file_filter_into_ncols(&gpaths[p].fltr));
     ctp_max_kmers = MAX2(ctp_max_kmers, gpath_reader_get_num_kmers(&gpaths[p]));
-    colours_loaded += gpaths[p].fltr.ncols;
+    colours_loaded += file_filter_num(&gpaths[p].fltr);
   }
 
   const FileFilter *fltr = (num_graphs ? &graphs[0].fltr : &gpaths[0].fltr);
@@ -76,7 +76,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   colours_loaded = 0;
 
   for(p = 0; p < num_gpaths; p++) {
-    for(i = 0; i < gpaths[p].fltr.ncols; i++) {
+    for(i = 0; i < file_filter_num(&gpaths[p].fltr); i++) {
       size_t pinto = file_filter_intocol(&gpaths[p].fltr, i);
       size_t pfrom = file_filter_fromcol(&gpaths[p].fltr, i);
       const char *pname = gpath_reader_get_sample_name(&gpaths[p], pfrom);
@@ -88,7 +88,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   }
 
   for(g = 0; g < num_graphs; g++) {
-    for(i = 0; i < graphs[g].fltr.ncols; i++) {
+    for(i = 0; i < file_filter_num(&graphs[g].fltr); i++) {
       size_t ginto = file_filter_intocol(&graphs[g].fltr, i);
       size_t gfrom = file_filter_fromcol(&graphs[g].fltr, i);
       const char *gname = graphs[g].hdr.ginfo[gfrom].sample_name.b;
@@ -126,14 +126,15 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
 {
   size_t p, i, j;
   bool tgt_col_loaded = false, pop_col_loaded = false;
+  FileFilter *fltr = &gfile->fltr;
 
   // Update graph file colours
-  for(i = 0; i < gfile->fltr.ncols; i++) {
-    if(gfile->fltr.filter[i].into == colour) {
-      gfile->fltr.filter[i].into = 0;
+  for(i = 0; i < file_filter_num(fltr); i++) {
+    if(file_filter_intocol(fltr,i) == colour) {
+      file_filter_intocol(fltr,i) = 0;
       tgt_col_loaded = true;
     } else {
-      gfile->fltr.filter[i].into = 1;
+      file_filter_intocol(fltr,i) = 1;
       pop_col_loaded = true;
     }
   }
@@ -143,20 +144,19 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
 
   // Update path files
   for(p = 0; p < num_gpfiles; p++) {
-    for(i = j = 0; i < gpfiles[p].fltr.ncols; i++) {
-      if(gpfiles[p].fltr.filter[i].into == colour) {
-        gpfiles[p].fltr.filter[j] = gpfiles[p].fltr.filter[i];
-        gpfiles[p].fltr.filter[j].into = 0;
-        j++;
+    fltr = &gpfiles[p].fltr;
+    for(i = j = 0; i < file_filter_num(fltr); i++) {
+      // only load paths that match given colour
+      if(file_filter_intocol(fltr,i) == colour) {
+        file_filter_intocol(fltr,i) = 0;
+        fltr->filter.data[j++] = fltr->filter.data[i];
       }
-      // else {
-      //   die("No point loading paths for colours other than --colour %zu", colour);
-      // }
     }
-    gpfiles[p].fltr.ncols = j;
+    file_filter_num(fltr) = j;
+
     if(j == 0) {
       die("Path file does not provide any paths in colour %zu: %s",
-          colour, file_filter_input(&gpfiles[p].fltr));
+          colour, file_filter_input(fltr));
     }
   }
 

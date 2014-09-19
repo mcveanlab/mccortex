@@ -47,24 +47,6 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
   int32_buf_dealloc(&wrkr->posbuf);
 }
 
-/*
-// Don't need this now
-static inline void _buf_append_qual_scores(StrBuf *buf, const read_t *r)
-{
-  // Print quality scores
-  strbuf_append_str(buf, "+\n");
-  if(r->qual.end) {
-    strbuf_append_strn(buf, r->qual.b, r->qual.end);
-  } else {
-    strbuf_ensure_capacity(buf, buf->end + r->qual.end + 2);
-    memset(buf->b+buf->end, '.', r->seq.end);
-    buf->end += r->seq.end;
-    buf->b[buf->end] = '\0';
-  }
-  strbuf_append_char(buf, '\n');
-}
-*/
-
 static inline void strbuf_append_strn_lc(StrBuf *buf, const char *str, size_t len)
 {
   strbuf_ensure_capacity(buf, buf->end + len);
@@ -93,32 +75,6 @@ static inline void strbuf_append_charn(StrBuf *buf, char c, size_t n)
   buf->end += n;
   buf->b[buf->end] = '\0';
 }
-
-/*
-// Quality score may be too short, so this function is useful
-static inline void _append_quals(StrBuf *buf, const read_t *r,
-                                 size_t start, size_t len)
-{
-  size_t end = start + len, limit = MIN2(end, r->qual.end), n;
-  strbuf_ensure_capacity(buf, buf->end + len);
-  if(start < limit)
-  {
-    // Copy quality scores
-    n = limit - start;
-    memcpy(buf->b+buf->end, r->qual.b + start, n);
-    start += n;
-    buf->end += n;
-  }
-  if(start < end)
-  {
-    // Fill in missing quality scores with '.'
-    n = end - start;
-    memset(buf->b+buf->end, '.', n);
-    buf->end += n;
-  }
-  buf->b[buf->end] = '\0';
-}
-*/
 
 // Returns the new number of bases printed
 static inline
@@ -149,16 +105,6 @@ size_t _print_read_kmer(const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
 
   return pos + kmer_size;
 }
-
-/*
-// Get run of -1 values
-static size_t _get_run_neg(const int32_t *arr, size_t len)
-{
-  size_t i = 0;
-  while(i < len && arr[i] < 0) i++;
-  return i;
-}
-*/
 
 // Prints read sequence in lower case instead of N
 static void handle_read3(CorrectReadsWorker *wrkr,
@@ -329,167 +275,6 @@ static void handle_read2(CorrectReadsWorker *wrkr,
   strbuf_reset(qbuf);
 }
 
-/*
-// Prints read sequence in lower case instead of N
-static void handle_read(CorrectReadsWorker *wrkr,
-                        const CorrectAlnParam *params,
-                        const read_t *r, StrBuf *buf,
-                        uint8_t fq_cutoff, uint8_t hp_cutoff,
-                        seq_format format)
-{
-  dBNodeBuffer *nbuf, *tmpnbuf = &wrkr->tmpnbuf;
-  GraphWalker *wlk = &wrkr->wlk;
-  RepeatWalker *rptwlk = &wrkr->rptwlk;
-  const dBGraph *db_graph = wrkr->db_graph;
-  const size_t kmer_size = db_graph->kmer_size;
-  const size_t ctxcol = params->ctxcol;
-  const size_t ctpcol = params->ctpcol;
-
-  size_t i, idx, gap, num_n, nbases;
-  size_t init_len, end_len;
-  BinaryKmer bkmer;
-  Nucleotide nuc;
-  char bkmerstr[MAX_KMER_SIZE+1];
-
-  // Print read in FASTA format
-  strbuf_reset(buf);
-
-  if(format & (SEQ_FMT_FASTA | SEQ_FMT_FASTQ)) {
-    strbuf_append_char(buf, format == SEQ_FMT_FASTA ? '>' : '@');
-    strbuf_append_strn(buf, r->name.b, r->name.end);
-    strbuf_append_char(buf, '\n');
-  }
-
-  // Correct sequence errors in the alignment
-  correct_alignment_init(&wrkr->corrector, params,
-                         r, NULL, fq_cutoff, 0, hp_cutoff);
-
-  // Get first alignment
-  nbuf = correct_alignment_nxt(&wrkr->corrector);
-
-  if(nbuf == NULL) {
-    // Alignment failed - copy read in lower case
-    size_t offset = buf->end;
-    strbuf_append_strn(buf, r->seq.b, r->seq.end);
-    for(i = offset; i < buf->end; i++) buf->b[i] = tolower(buf->b[i]);
-    strbuf_append_char(buf, '\n');
-    if(format == SEQ_FMT_FASTQ) _buf_append_qual_scores(buf, r);
-    return;
-  }
-
-  // extend left
-  dBAlignment *aln = &wrkr->corrector.aln;
-  size_t left_gap = aln->rpos.data[0], right_gap = aln->r1enderr;
-  size_t bases_printed = 0;
-
-  if(left_gap > 0)
-  {
-    // Walk left
-    graph_walker_prime(wlk, nbuf->data, nbuf->len,
-                       params->max_context, false,
-                       ctxcol, ctpcol, db_graph);
-
-    db_node_buf_reset(tmpnbuf);
-    db_node_buf_ensure_capacity(nbuf, left_gap);
-
-    while(tmpnbuf->len < left_gap && graph_walker_next(wlk) &&
-          rpt_walker_attempt_traverse(rptwlk, wlk))
-    {
-      tmpnbuf->data[tmpnbuf->len++] = wlk->node;
-    }
-
-    graph_walker_finish(wlk);
-    rpt_walker_fast_clear(rptwlk, tmpnbuf->data, tmpnbuf->len);
-
-    // Add Ns for bases we couldn't resolve
-    size_t unresolved = left_gap - tmpnbuf->len;
-    for(; bases_printed < unresolved; bases_printed++) {
-      strbuf_append_char(buf, tolower(r->seq.b[bases_printed])); // N
-    }
-
-    // Append bases
-    for(i = tmpnbuf->len-1; i != SIZE_MAX; i--) {
-      nuc = db_node_get_first_nuc(db_node_reverse(tmpnbuf->data[i]), db_graph);
-      strbuf_append_char(buf, dna_nuc_to_char(nuc));
-    }
-
-    bases_printed += tmpnbuf->len;
-  }
-
-  // Append first contig
-  bkmer = db_node_oriented_bkmer(db_graph, nbuf->data[0]);
-  binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
-  strbuf_append_strn(buf, bkmerstr, kmer_size);
-  for(i = 1; i < nbuf->len; i++) {
-    nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
-    strbuf_append_char(buf, dna_nuc_to_char(nuc));
-  }
-  bases_printed += kmer_size + nbuf->len - 1;
-
-  while(correct_alignment_get_endidx(&wrkr->corrector) < aln->nodes.len)
-  {
-    nbuf = correct_alignment_nxt(&wrkr->corrector);
-    ctx_assert(nbuf != NULL);
-    idx = correct_alignment_get_strtidx(&wrkr->corrector);
-    ctx_assert(idx > 0);
-    gap = aln->rpos.data[idx] - aln->rpos.data[idx-1] - 1;
-    num_n = gap < kmer_size ? 0 : gap - kmer_size + 1;
-
-    for(i = 0; i < num_n; i++) {
-      strbuf_append_char(buf, tolower(r->seq.b[bases_printed++])); // N
-    }
-
-    nbases = MIN2(gap+1, kmer_size);
-    bkmer = db_node_oriented_bkmer(db_graph, nbuf->data[0]);
-    binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
-    strbuf_append_strn(buf, bkmerstr+kmer_size-nbases, nbases);
-
-    for(i = 1; i < nbuf->len; i++) {
-      nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
-      strbuf_append_char(buf, dna_nuc_to_char(nuc));
-    }
-
-    bases_printed += nbases + nbuf->len - 1;
-  }
-
-  // extend right
-  if(right_gap > 0)
-  {
-    // walk right
-    graph_walker_prime(wlk, nbuf->data, nbuf->len,
-                       params->max_context, true,
-                       0, 0, db_graph);
-
-    init_len = nbuf->len;
-    end_len = init_len + right_gap;
-    db_node_buf_ensure_capacity(nbuf, end_len);
-
-    while(nbuf->len < end_len && graph_walker_next(wlk) &&
-          rpt_walker_attempt_traverse(rptwlk, wlk))
-    {
-      nbuf->data[nbuf->len++] = wlk->node;
-    }
-
-    graph_walker_finish(wlk);
-    rpt_walker_fast_clear(rptwlk, nbuf->data+init_len, nbuf->len-init_len);
-
-    // Copy added bases into buffer
-    for(i = init_len; i < nbuf->len; i++) {
-      nuc = db_node_get_last_nuc(nbuf->data[i], db_graph);
-      strbuf_append_char(buf, dna_nuc_to_char(nuc));
-    }
-    bases_printed += nbuf->len - init_len;
-
-    // Add Ns for bases we couldn't resolve
-    for(; bases_printed < r->seq.end; bases_printed++) {
-      strbuf_append_char(buf, tolower(r->seq.b[bases_printed])); // N
-    }
-  }
-
-  strbuf_append_char(buf, '\n');
-  if(format == SEQ_FMT_FASTQ) _buf_append_qual_scores(buf, r);
-}
-*/
 
 static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 {

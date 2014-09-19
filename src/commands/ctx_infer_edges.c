@@ -217,7 +217,7 @@ int ctx_infer_edges(int argc, char **argv)
   bool reading_stream = (stat(file.fltr.path.b, &st) != 0);
 
   // Mode r+ means open (not create) for update (read & write)
-  graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+");
+  graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+", 0);
 
   if(!file_filter_is_direct(&file.fltr))
     cmd_print_usage("Inferedges with filter not implemented - sorry");

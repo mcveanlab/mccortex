@@ -10,11 +10,20 @@ set -euo pipefail
 # cd into each directory and run `make`
 #
 
+if [[ ( $# -gt 1 ) || ( $# -eq 1 && $1 != 'noupdate' && $1 != 'update' ) ]]
+then
+  echo "./run [update|noupdate]"
+  exit -1
+fi
+
 cwd=`pwd`
 echo $cwd
 
-# Get all dependencies used in testing (bioinf-perl, bcftools, samtools etc.)
-cd ../libs && make update && cd $cwd
+if [[ $# -eq 0 || $1 == 'update' ]]
+then
+  # Get all dependencies used in testing (bioinf-perl, bcftools, samtools etc.)
+  cd ../libs && make update && cd $cwd
+fi
 
 dirs=`ls | grep -v '.*run.sh' | grep -v '^\.' | grep -v old`
 echo $dirs

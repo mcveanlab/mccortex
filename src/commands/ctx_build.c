@@ -164,8 +164,7 @@ static void parse_args(int argc, char **argv)
       case 'g':
         if(intocolour == -1) intocolour = 0;
         graph_file_reset(&tmp_gfile);
-        graph_file_open(&tmp_gfile, optarg);
-        file_filter_shift_cols(&tmp_gfile.fltr, intocolour);
+        graph_file_open2(&tmp_gfile, optarg, "r", intocolour);
         intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr));
         gfile_buf_add(&gfilebuf, tmp_gfile);
         sample_named = false;

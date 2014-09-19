@@ -17,13 +17,6 @@
 // Default behaviour is to load colours consecutively
 //   output: {A:0},{A:1},{B:0},{B:1},{B:2},{C:0},{C:1}
 //
-// --flatten
-//   All colours into one
-//   output: {A:0,A:1,B:0,B:1,B:2,C:0,C:1}
-//
-// --overlap
-//   All colour 0s go into colour 0, colour 1s go into colour 1 etc.
-//   output: {A:0,B:0,C:0},{A:1,B:1,C:1},{B:2}
 
 const char join_usage[] =
 "usage: "CMD" join [options] in1.ctx [[offset:]in2.ctx[:1,2,4-5] ...]\n"
@@ -38,8 +31,6 @@ const char join_usage[] =
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 //
 "  -N, --ncols <c>         How many colours to load at once [default: 1]\n"
-"  -O, --overlap           Load first colour from each file into colour 0\n"
-"  -F, --flatten           Dump into a single colour graph\n"
 "  -i, --intersect <a.ctx> Only load the kmers that are in graph A.ctx. Can be\n"
 "                          specified multiple times. <a.ctx> is NOT merged into\n"
 "                          the output file.\n"
@@ -58,8 +49,6 @@ static struct option longopts[] =
   {"nkmers",       required_argument, NULL, 'n'},
 // command specific
   {"ncols",        required_argument, NULL, 'N'},
-  {"overlap",      no_argument,       NULL, 'O'},
-  {"flatten",      no_argument,       NULL, 'F'},
   {"intersect",    required_argument, NULL, 'i'},
   {NULL, 0, NULL, 0}
 };
@@ -76,7 +65,6 @@ int ctx_join(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t use_ncols = 0;
-  bool overlap = false, flatten = false;
 
   GraphFileReader tmp_gfile;
   GraphFileBuffer isec_gfiles_buf;
@@ -97,11 +85,11 @@ int ctx_join(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'N': cmd_check(!use_ncols, cmd); use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
-      case 'O': cmd_check(!overlap, cmd); overlap = true; break;
-      case 'F': cmd_check(!flatten, cmd); flatten = true; break;
       case 'i':
         memset(&tmp_gfile, 0, sizeof(GraphFileReader));
         graph_file_open(&tmp_gfile, optarg);
+        if(!file_filter_into_ncols(&tmp_gfile.fltr) > 1)
+          warn("Flattening intersection graph into colour 0: %s", optarg);
         file_filter_flatten(&tmp_gfile.fltr, 0);
         gfile_buf_add(&isec_gfiles_buf, tmp_gfile);
         break;
@@ -133,38 +121,22 @@ int ctx_join(int argc, char **argv)
   status("Probing %zu graph files and %zu intersect files", num_gfiles, num_igfiles);
 
   // Check all binaries are valid binaries with matching kmer size
-  size_t i, col, ncols;
-  size_t ctx_max_cols = 0, ctx_sum_cols = 0, total_cols = 0;
+  size_t i;
+  size_t ctx_max_cols = 0;
   uint64_t min_intersect_num_kmers = 0, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   for(i = 0; i < num_gfiles; i++)
   {
-    graph_file_open(&gfiles[i], gfile_paths[i]);
+    graph_file_open2(&gfiles[i], gfile_paths[i], "r", ctx_max_cols);
 
     if(gfiles[0].hdr.kmer_size != gfiles[i].hdr.kmer_size) {
       cmd_print_usage("Kmer sizes don't match [%u vs %u]",
-                  gfiles[0].hdr.kmer_size, gfiles[i].hdr.kmer_size);
+                      gfiles[0].hdr.kmer_size, gfiles[i].hdr.kmer_size);
     }
 
-    if(flatten) {
-      file_filter_flatten(&gfiles[i].fltr, 0);
-    }
-
-    ncols = file_filter_into_ncols(&gfiles[i].fltr);
-    ctx_max_cols = MAX2(ctx_max_cols, ncols);
-    ctx_sum_cols += ncols;
+    ctx_max_cols = MAX2(ctx_max_cols, file_filter_into_ncols(&gfiles[i].fltr));
     ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfiles[i]));
     ctx_sum_kmers += gfiles[i].num_of_kmers;
-  }
-
-  if(flatten) total_cols = 1;
-  else if(overlap) total_cols = ctx_max_cols;
-  else {
-    total_cols = 0;
-    for(i = 0; i < num_gfiles; i++) {
-      file_filter_shift_cols(&gfiles[i].fltr, total_cols);
-      total_cols = MAX2(total_cols, file_filter_into_ncols(&gfiles[i].fltr));
-    }
   }
 
   // Probe intersection graph files
@@ -191,24 +163,20 @@ int ctx_join(int argc, char **argv)
   if(take_intersect)
     ctx_max_kmers = min_intersect_num_kmers;
 
-  if(use_ncols < total_cols && strcmp(out_path,"-") == 0)
-    die("I need %zu colours if outputting to STDOUT (--ncols)", total_cols);
+  if(use_ncols < ctx_max_cols && strcmp(out_path,"-") == 0)
+    die("I need %zu colours if outputting to STDOUT (--ncols)", ctx_max_cols);
 
   // Check out_path is writable
   futil_create_output(out_path);
 
-  if(use_ncols > 1 && flatten) {
-    warn("I only need one colour for '--flatten' ('--ncols %zu' ignored)", use_ncols);
-    use_ncols = 1;
-  }
-  else if(use_ncols > total_cols) {
+  if(use_ncols > ctx_max_cols) {
     warn("I only need %zu colour%s ('--ncols %zu' ignored)",
-         total_cols, util_plural_str(total_cols), use_ncols);
-    use_ncols = total_cols;
+         ctx_max_cols, util_plural_str(ctx_max_cols), use_ncols);
+    use_ncols = ctx_max_cols;
   }
 
   status("Output %zu cols; from %zu files; intersecting %zu graphs; ",
-         total_cols, num_gfiles, num_igfiles);
+         ctx_max_cols, num_gfiles, num_igfiles);
 
   if(num_gfiles == 1 && num_igfiles == 0)
   {
@@ -242,7 +210,7 @@ int ctx_join(int argc, char **argv)
   {
     // Maximise use_ncols
     size_t max_usencols = (memargs.mem_to_use*8) / bits_per_kmer;
-    use_ncols = MIN2(max_usencols, total_cols);
+    use_ncols = MIN2(max_usencols, ctx_max_cols);
 
     // Re-check memory used
     kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
@@ -287,11 +255,8 @@ int ctx_join(int argc, char **argv)
       graph_load(&igfiles[i], gprefs, NULL);
 
       // Update intersect header
-      ncols = file_filter_into_ncols(&igfiles[i].fltr);
-      for(col = 0; col < ncols; col++) {
-        graph_info_make_intersect(&igfiles[i].hdr.ginfo[col],
-                                  &intersect_gname);
-      }
+      // note: intersection graphs all load exactly one colour into colour 0
+      graph_info_make_intersect(&igfiles[i].hdr.ginfo[0], &intersect_gname);
 
       gprefs.must_exist_in_graph = true;
       gprefs.must_exist_in_edges = db_graph.col_edges;

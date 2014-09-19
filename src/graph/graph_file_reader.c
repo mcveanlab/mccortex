@@ -7,7 +7,7 @@
 
 int graph_file_open(GraphFileReader *file, const char *path)
 {
-  return graph_file_open2(file, path, "r");
+  return graph_file_open2(file, path, "r", 0);
 }
 
 // Open file
@@ -15,7 +15,8 @@ int graph_file_open(GraphFileReader *file, const char *path)
 // if fatal is true, exits on error
 // if !fatal, returns -1 on error
 // if successful creates a new GraphFileReader and returns 1
-int graph_file_open2(GraphFileReader *file, const char *input, const char *mode)
+int graph_file_open2(GraphFileReader *file, const char *input, const char *mode,
+                     size_t into_offset)
 {
   GraphFileHeader *hdr = &file->hdr;
   FileFilter *fltr = &file->fltr;
@@ -35,7 +36,7 @@ int graph_file_open2(GraphFileReader *file, const char *input, const char *mode)
   file->fh = futil_fopen(path, mode);
   file->hdr_size = graph_file_read_header(file->fh, hdr, path);
 
-  file_filter_set_cols(fltr, hdr->num_of_cols);
+  file_filter_set_cols(fltr, hdr->num_of_cols, into_offset);
 
   // Check we can handle the kmer size
   db_graph_check_kmer_size(file->hdr.kmer_size, file->fltr.path.b);
@@ -89,7 +90,7 @@ bool graph_file_read(const GraphFileReader *file,
   if(!graph_file_read_kmer(file->fh, &file->hdr, fltr->path.b,
                            bkmer, kmercovgs, kmeredges)) return false;
 
-  for(i = 0; i < fltr->ncols; i++) {
+  for(i = 0; i < file_filter_num(fltr); i++) {
     from = file_filter_fromcol(fltr, i);
     into = file_filter_intocol(fltr, i);
     covgs[into] = SAFE_ADD_COVG(covgs[into], kmercovgs[from]);
@@ -137,7 +138,7 @@ size_t graph_files_open(const char **graph_paths,
   for(i = 0; i < num_gfiles; i++)
   {
     memset(&gfiles[i], 0, sizeof(GraphFileReader));
-    graph_file_open(&gfiles[i], graph_paths[i]);
+    graph_file_open2(&gfiles[i], graph_paths[i], "r", ncols);
 
     if(gfiles[0].hdr.kmer_size != gfiles[i].hdr.kmer_size) {
       cmd_print_usage("Kmer sizes don't match [%u vs %u]",

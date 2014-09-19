@@ -124,8 +124,8 @@ empty.k5.ctx:
 # Colour 3 has all kmers but no edges (gets them from infer)
 # Colour 4 has no kmers
 CAAGG.k5.ctx: CAAGG.left.kmers.k5.ctx CAAGG.right.kmers.k5.ctx CAAGG.left.edges.k5.ctx CAAGG.right.edges.k5.ctx empty.k5.ctx
-	$(CTX) join --out $@ --overlap \
-	  CAAGG.left.edges.k5.ctx CAAGG.right.edges.k5.ctx \
+	$(CTX) join --out $@ \
+	  0:CAAGG.left.edges.k5.ctx 0:CAAGG.right.edges.k5.ctx \
     1:CAAGG.left.kmers.k5.ctx \
     2:CAAGG.right.kmers.k5.ctx \
     3:CAAGG.left.kmers.k5.ctx 3:CAAGG.right.kmers.k5.ctx \

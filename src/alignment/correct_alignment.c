@@ -577,8 +577,9 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     graph_walker_finish(wlk);
     rpt_walker_fast_clear(rptwlk, revcontig->data, revcontig->len);
 
-    int32_buf_shift(posbuf, revcontig->len);
-    db_node_buf_shift(nodebuf, revcontig->len);
+    // Shift away from zero
+    int32_buf_shift_left(posbuf, revcontig->len);
+    db_node_buf_shift_left(nodebuf, revcontig->len);
 
     // copy in reverse order
     for(i = 0, j = revcontig->len-1; i < revcontig->len; i++, j--) {

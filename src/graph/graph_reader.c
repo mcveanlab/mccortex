@@ -59,7 +59,7 @@ void graph_reader_merge_headers(GraphFileHeader *hdr,
   graph_header_alloc(hdr, ncols);
 
   for(i = 0; i < num_files; i++) {
-    for(j = 0; j < files[i].fltr.ncols; j++) {
+    for(j = 0; j < file_filter_num(&files[i].fltr); j++) {
       intocol = file_filter_intocol(&files[i].fltr, j);
       fromcol = file_filter_fromcol(&files[i].fltr, j);
       graph_info_merge(&hdr->ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
@@ -349,7 +349,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   FileFilter *fltr = &file->fltr;
   GraphFileHeader *hdr = &file->hdr;
 
-  ctx_assert(fltr->ncols > 0);
+  ctx_assert(file_filter_num(fltr) > 0);
 
   // Print status
   graph_loading_print_status(file);
@@ -371,7 +371,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
         graph->num_of_cols, ncols_used, fltr->path.b);
   }
 
-  for(i = 0; i < fltr->ncols; i++) {
+  for(i = 0; i < file_filter_num(fltr); i++) {
     fromcol = file_filter_fromcol(fltr, i);
     intocol = file_filter_intocol(fltr, i);
     graph_info_merge(ginfo+intocol, hdr->ginfo+fromcol);
@@ -464,7 +464,7 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   {
     stats->num_kmers_loaded += num_of_kmers_loaded;
     stats->num_kmers_novel += graph->ht.num_kmers - num_of_kmers_already_loaded;
-    for(i = 0; i < fltr->ncols; i++) {
+    for(i = 0; i < file_filter_num(fltr); i++) {
       fromcol = file_filter_fromcol(fltr,i);
       stats->total_bases_read += hdr->ginfo[fromcol].total_sequence;
     }
@@ -493,7 +493,6 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 // Same functionality as graph_files_merge, but faster if dealing with only one
 // input file. Reads in and dumps one kmer at a time
 // parameters:
-//   `flatten`: if true merge colours into one
 //   `only_load_if_in_edges`: Edges to mask edges with, 1 per hash table entry
 size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file,
                            const dBGraph *db_graph, const GraphFileHeader *hdr,
@@ -574,7 +573,7 @@ size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file
   graph_header_alloc(&outheader, outheader.num_of_cols);
 
   uint32_t fromcol, intocol;
-  for(i = 0; i < fltr->ncols; i++) {
+  for(i = 0; i < file_filter_num(fltr); i++) {
     fromcol = file_filter_fromcol(fltr, i);
     intocol = file_filter_intocol(fltr, i);
     GraphInfo *ginfo = &outheader.ginfo[intocol];
@@ -691,8 +690,8 @@ size_t graph_files_merge(const char *out_ctx_path,
     size_t num_kmer_cols = db_graph->ht.capacity * db_graph->num_of_cols;
     size_t firstcol, lastcol, fromcol, intocol;
 
-    FileFilter tmpfltr;
-    memset(&tmpfltr, 0, sizeof(tmpfltr));
+    FileFilter origfltr;
+    memset(&origfltr, 0, sizeof(origfltr));
     bool files_loaded = false;
 
     for(firstcol = 0; firstcol < output_colours; firstcol += db_graph->num_of_cols)
@@ -712,23 +711,24 @@ size_t graph_files_merge(const char *out_ctx_path,
       for(f = 0; f < num_files; f++)
       {
         FileFilter *fltr = &files[f].fltr;
-        file_filter_copy(&tmpfltr, fltr);
+        file_filter_copy(&origfltr, fltr);
 
         // Update filter to only load useful colours
-        for(i = j = 0; i < fltr->ncols; i++) {
+        for(i = j = 0; i < file_filter_num(fltr); i++) {
           fromcol = file_filter_fromcol(fltr, i);
           intocol = file_filter_intocol(fltr, i);
           if(firstcol <= intocol && intocol <= lastcol) {
-            fltr->filter[j++] = (Filter){.from = fromcol, .into = intocol-firstcol};
+            fltr->filter.data[j++] = (Filter){.from = fromcol,
+                                              .into = intocol-firstcol};
           }
         }
-        fltr->ncols = j;
+        file_filter_num(fltr) = j;
 
-        if(fltr->ncols > 0)
+        if(file_filter_num(fltr) > 0)
           files_loaded |= (graph_load(&files[f], prefs, &stats) > 0);
 
         // Restore original filter
-        file_filter_copy(fltr, &tmpfltr);
+        file_filter_copy(fltr, &origfltr);
       }
 
       // if files_loaded, dump
@@ -748,7 +748,7 @@ size_t graph_files_merge(const char *out_ctx_path,
       die("Cannot release mmap file: %s [%s]", out_ctx_path, strerror(errno));
 
     fclose(fout);
-    file_filter_close(&tmpfltr);
+    file_filter_close(&origfltr);
 
     // Print output status
     graph_writer_print_status(db_graph->ht.num_kmers, output_colours,
@@ -790,17 +790,17 @@ void graph_files_load_flat(GraphFileReader *gfiles, size_t num_files,
                            GraphLoadingPrefs prefs, LoadingStats *stats)
 {
   size_t i;
-  FileFilter tmpfltr;
-  memset(&tmpfltr, 0, sizeof(tmpfltr));
+  FileFilter origfltr;
+  memset(&origfltr, 0, sizeof(origfltr));
 
   for(i = 0; i < num_files; i++)
   {
-    file_filter_copy(&tmpfltr, &gfiles[i].fltr);
+    file_filter_copy(&origfltr, &gfiles[i].fltr);
     file_filter_flatten(&gfiles[i].fltr, 0);
     graph_load(&gfiles[i], prefs, stats);
-    file_filter_copy(&gfiles[i].fltr, &tmpfltr);
+    file_filter_copy(&gfiles[i].fltr, &origfltr);
   }
 
-  file_filter_close(&tmpfltr);
+  file_filter_close(&origfltr);
 }
 

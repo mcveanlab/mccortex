@@ -196,7 +196,7 @@ int ctx_clean(int argc, char **argv)
   ErrorCleaning *cleaning;
 
   for(i = 0; i < num_gfiles; i++) {
-    for(j = 0; j < gfiles[i].fltr.ncols; j++) {
+    for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++) {
       fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
       cleaning = &gfiles[i].hdr.ginfo[fromcol].cleaning;
       if(cleaning->cleaned_snodes && supernode_cleaning) {
@@ -299,7 +299,7 @@ int ctx_clean(int argc, char **argv)
   // Merge info into header
   size_t gcol = 0;
   for(i = 0; i < num_gfiles; i++) {
-    for(j = 0; j < gfiles[i].fltr.ncols; j++, gcol++) {
+    for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++, gcol++) {
       fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
       intocol = file_filter_intocol(&gfiles[i].fltr, j);
       graph_info_merge(&outhdr.ginfo[intocol], &gfiles[i].hdr.ginfo[fromcol]);

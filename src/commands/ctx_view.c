@@ -158,7 +158,7 @@ int ctx_view(int argc, char **argv)
   size_t i, fromcol, intocol, sum_covgs_read = 0, sum_seq_loaded = 0;
   size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
-  for(i = 0; i < gfile.fltr.ncols; i++) {
+  for(i = 0; i < file_filter_num(&gfile.fltr); i++) {
     fromcol = file_filter_fromcol(&gfile.fltr, i);
     intocol = file_filter_intocol(&gfile.fltr, i);
     graph_info_merge(hdr.ginfo + intocol, gfile.hdr.ginfo + fromcol);

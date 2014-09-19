@@ -26,6 +26,7 @@ BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl
 
 SEQS=seq0.fa seq1.fa mix.fa
 GRAPHS=$(SEQS:.fa=.k$(K).ctx)
+FLAT_GRAPHS=$(shell printf "0:%s\n" $(GRAPHS))
 TGTS=breakpoints.txt $(GRAPHS)
 # join.k$(K).ctx
 
@@ -61,7 +62,7 @@ check: breakpoints.txt seq0.fa seq1.fa
 	$(BRKCHCK) breakpoints.txt seq0.fa seq1.fa
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join --flatten -o $@ $(GRAPHS)
+	$(CTX) join -o $@ $(FLAT_GRAPHS)
 
 seq.k$(K).pdf: join.k$(K).ctx
 	set -euo pipefail; $(CTX2DOT) --simplify $< | dot -Tpdf > $@

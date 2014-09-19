@@ -18,6 +18,7 @@ CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 
 SEQS=seq0.fa seq1.fa
 GRAPHS=$(SEQS:.fa=.k$(K).ctx)
+FLAT_GRAPHS=$(shell printf "0:%s\n" $(GRAPHS))
 BUBBLES=bubbles.seq.txt bubbles.join.txt
 PLOTS=seq.k$(K).pdf
 TGTS=$(SEQS) $(GRAPHS) join.k$(K).ctx $(BUBBLES)
@@ -39,7 +40,7 @@ seq%.k$(K).ctx: seq%.fa
 	$(CTX) build -m 10M -k $(K) --sample $< --seq $< $@
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join --flatten -o $@ $(GRAPHS)
+	$(CTX) join -o $@ $(FLAT_GRAPHS)
 
 bubbles.seq.txt: $(GRAPHS)
 	$(CTX) bubbles -t 1 -m 10M -o bubbles.seq.txt.gz $(GRAPHS)

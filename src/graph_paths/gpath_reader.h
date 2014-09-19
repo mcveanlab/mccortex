@@ -29,7 +29,10 @@ create_objbuf(gpfile_buf, GPathFileBuffer, GPathReader);
 void gpath_reader_open(GPathReader *file, const char *path);
 
 // mode is "r", "r+" etc.
-void gpath_reader_open2(GPathReader *file, const char *path, const char *mode);
+// If there is no 'into' filter (e.g. 0,1:in.ctx 0,1 is 'into filter'),
+// load into `into_offset..into_offset+N-1`
+void gpath_reader_open2(GPathReader *file, const char *path, const char *mode,
+                        size_t into_offset);
 
 void gpath_reader_check(const GPathReader *file, size_t kmer_size, size_t ncols);
 

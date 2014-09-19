@@ -39,7 +39,10 @@ create_objbuf(gfile_buf, GraphFileBuffer, GraphFileReader);
 int graph_file_open(GraphFileReader *file, const char *path);
 
 // mode is "r", "r+" etc.
-int graph_file_open2(GraphFileReader *file, const char *path, const char *mode);
+// If there is no 'into' filter (e.g. 0,1:in.ctx 0,1 is 'into filter'),
+// load into `into_offset..into_offset+N-1`
+int graph_file_open2(GraphFileReader *file, const char *path, const char *mode,
+                     size_t into_offset);
 
 // Close file, release all memory
 void graph_file_close(GraphFileReader *file);

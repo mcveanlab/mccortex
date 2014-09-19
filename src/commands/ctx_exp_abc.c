@@ -383,7 +383,7 @@ int ctx_exp_abc(int argc, char **argv)
   memset(&gfile, 0, sizeof(GraphFileReader));
   graph_file_open(&gfile, ctx_path);
 
-  size_t ncols = gfile.fltr.ncols;
+  size_t ncols = file_filter_into_ncols(&gfile.fltr);
 
   // Check only loading one colour
   if(ncols > 1) die("Only implemented for one colour currently");

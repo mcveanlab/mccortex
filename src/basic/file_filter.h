@@ -10,34 +10,40 @@ typedef struct {
   uint32_t from, into;
 } Filter;
 
+#include "objbuf_macro.h"
+create_objbuf(filter_buf, FilterBuffer, Filter);
+
 typedef struct
 {
   // if `orig_path` was "2:in.ctx:0,3",
   // path would be "in.ctx"
   StrBuf input, path;
-  // size_t orig_first_col; // colour originally specified to load into 2:in.ctx => 2
   uint32_t filencols; // number of colours in file
-  Filter *filter;
-  uint32_t ncols, capacity; // filter length and allocated memory
+  FilterBuffer filter;
 } FileFilter;
 
 // Fetch strings
 #define file_filter_input(fltr) ((const char*)(fltr)->input.b)
 #define file_filter_path(fltr) futil_inpath_str((const char*)(fltr)->path.b)
 
+// Get the number of Filters within a FileFilter
+#define file_filter_num(fltr) ((fltr)->filter.len)
+
 // Parse path and create FileFilter, calls die() with msg on error
 void file_filter_open(FileFilter *fltr, const char *path);
 // Free memory
 void file_filter_close(FileFilter *file);
 
-// FileFilter is not ready to be used until you have call set_cols
-void file_filter_set_cols(FileFilter *fltr, size_t filencols);
+// FileFilter is not ready to be used until you have called set_cols
+// If there is no 'into' filter (e.g. 0,1:in.ctx 0,1 is 'into filter'),
+// load into `into_offset..into_offset+N-1`
+void file_filter_set_cols(FileFilter *fltr, size_t filencols, size_t into_offset);
 
-// @add amount to add to each value of intocols
+// @param add  Amount to add to each value of intocols
 void file_filter_shift_cols(FileFilter *fltr, size_t add);
 
-#define file_filter_intocol(fltr,idx) ((fltr)->filter[idx].into)
-#define file_filter_fromcol(fltr,idx) ((fltr)->filter[idx].from)
+#define file_filter_intocol(fltr,idx) ((fltr)->filter.data[idx].into)
+#define file_filter_fromcol(fltr,idx) ((fltr)->filter.data[idx].from)
 #define file_filter_isstdin(fltr) (strcmp((fltr)->path.b,"-") == 0)
 
 uint32_t file_filter_from_ncols(const FileFilter *fltr);

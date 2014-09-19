@@ -136,11 +136,6 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   GraphFileReader *gfile = &args->gfile;
   graph_file_open(gfile, graph_path);
 
-  // if(gfile->fltr.orig_first_col != 0) {
-  //   die("No need to specify first colour to load into %zu in '%s'",
-  //       gfile->fltr.orig_first_col, file_filter_input(&gfile->fltr));
-  // }
-
   if(!correct_cmd && file_filter_into_ncols(&gfile->fltr) > 1)
     die("Please specify a single colour e.g. %s:0", file_filter_path(&gfile->fltr));
 

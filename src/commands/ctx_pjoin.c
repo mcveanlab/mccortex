@@ -22,8 +22,6 @@ const char pjoin_usage[] =
 "  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 //
 "  -g, --graph <in.ctx>   Get number of hash table entries from graph file\n"
-"  -O, --overlap          Load first colour from each file into colour 0\n"
-"  -F, --flatten          Dump into a single colour graph\n"
 "  -c, --outcols <C>      How many 'colours' should the output file have\n"
 "  -r, --noredundant      Remove redundant paths\n"
 "\n"
@@ -42,8 +40,6 @@ static struct option longopts[] =
   {"threads",      required_argument, NULL, 't'},
 // command specific
   {"graph",        required_argument, NULL, 'g'},
-  {"overlap",      required_argument, NULL, 'O'},
-  {"flatten",      required_argument, NULL, 'F'},
   {"outcols",      required_argument, NULL, 'c'},
   {"noredundant",  required_argument, NULL, 'r'},
   {NULL, 0, NULL, 0}
@@ -53,7 +49,7 @@ int ctx_pjoin(int argc, char **argv)
 {
   size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
-  bool overlap = false, flatten = false, noredundant = false;
+  bool noredundant = false;
   size_t output_ncols = 0;
   char *graph_file = NULL;
   const char *out_ctp_path = NULL;
@@ -78,8 +74,6 @@ int ctx_pjoin(int argc, char **argv)
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'g': cmd_check(!graph_file,cmd); graph_file = optarg; break;
-      case 'O': cmd_check(!overlap,cmd); overlap = true; break;
-      case 'F': cmd_check(!flatten,cmd); flatten = true; break;
       case 'c': cmd_check(!output_ncols, cmd); output_ncols = cmd_uint32_nonzero(cmd, optarg); break;
       case 'r': cmd_check(!noredundant,cmd); noredundant = true; break;
       case ':': /* BADARG */
@@ -103,43 +97,30 @@ int ctx_pjoin(int argc, char **argv)
   //
   // Open all path files
   //
-  size_t i, total_cols;
-  size_t ctp_max_cols = 0, ctp_sum_cols = 0;
+  size_t i;
+  // size_t total_cols;
+  size_t ctp_max_cols = 0;
   uint64_t ctp_max_kmers = 0, ctp_sum_kmers = 0;
   GPathReader *pfiles = ctx_calloc(num_pfiles, sizeof(GPathReader));
 
   for(i = 0; i < num_pfiles; i++)
   {
-    gpath_reader_open(&pfiles[i], paths[i]);
-
-    if(flatten)
-      file_filter_flatten(&pfiles[i].fltr, 0);
+    gpath_reader_open2(&pfiles[i], paths[i], "r", ctp_max_cols);
 
     size_t nkmers = gpath_reader_get_num_kmers(&pfiles[i]);
-    size_t ncols = file_filter_into_ncols(&pfiles[i].fltr);
 
-    ctp_max_cols = MAX2(ctp_max_cols, ncols);
-    ctp_sum_cols += ncols;
+    ctp_max_cols = MAX2(ctp_max_cols, file_filter_into_ncols(&pfiles[i].fltr));
     ctp_max_kmers = MAX2(ctp_max_kmers, nkmers);
     ctp_sum_kmers += nkmers;
 
     file_filter_status(&pfiles[i].fltr);
   }
 
-  if(flatten) total_cols = 1;
-  else if(overlap) total_cols = ctp_max_cols;
-  else {
-    total_cols = 0;
-    for(i = 0; i < num_pfiles; i++) {
-      file_filter_shift_cols(&pfiles[i].fltr, total_cols);
-      total_cols = file_filter_into_ncols(&pfiles[i].fltr);
-    }
-  }
 
-  if(output_ncols == 0) output_ncols = total_cols;
-  else if(total_cols > output_ncols) {
+  if(output_ncols == 0) output_ncols = ctp_max_cols;
+  else if(ctp_max_cols > output_ncols) {
     cmd_print_usage("You specified --outcols %zu but inputs need at %zu colours",
-                output_ncols, total_cols);
+                    output_ncols, ctp_max_cols);
   }
 
   // Open graph file to get number of kmers is passed
