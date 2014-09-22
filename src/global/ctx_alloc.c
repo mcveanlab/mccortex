@@ -14,8 +14,9 @@ static inline void _oom(void *ptr, size_t nel, size_t elsize,
   char memstr[50];
   if(SIZE_MAX / elsize < nel) strcpy(memstr, "overflow");
   else bytes_to_str(nel*elsize, 1, memstr);
-  dief(file, func, line, "Out of memory (%p, %zu x %zu = %s)",
-       ptr, nel, elsize, memstr);
+  warnf(file, func, line, "Out of memory (%p, %zu x %zu = %s)",
+        ptr, nel, elsize, memstr);
+  abort();
 }
 
 // If `zero` is true and ptr is NULL call calloc, otherwise realloc

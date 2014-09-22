@@ -397,8 +397,12 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     is_mp = (both_reads && wrkr->gap_idx == aln->r2strtidx);
 
     // gap_est is how many kmers we lost through low qual scores, hp runs etc.
-    gap_est = aln_rpos[wrkr->gap_idx] - aln_rpos[wrkr->gap_idx-1];
-    if(is_mp) gap_est += aln->r1enderr;
+    if(is_mp) {
+      ctx_assert(aln->r1enderr == db_aln_r1enderr(aln,kmer_size));
+      gap_est = aln->r1enderr + aln_rpos[wrkr->gap_idx];
+    } else {
+      gap_est = aln_rpos[wrkr->gap_idx] - aln_rpos[wrkr->gap_idx-1];
+    }
 
     // Wiggle due to variation / error
     long wiggle = gap_est * params.gap_variance + params.gap_wiggle;

@@ -24,8 +24,8 @@ typedef struct
   // whether or not there are sequencing gaps
   bool seq_gaps;
   // if used_r1 && used_r2
-  // gap between r1 and r2: nodes[r2strtindx-1] .. nodes[r2strtindx]
-  // = r1enderr + insgapsize + rpos[r2strtindx]
+  // gap between r1 and r2: nodes[r2strtidx-1] .. nodes[r2strtidx]
+  // = r1enderr + insgapsize + rpos[r2strtidx]
   int colour; // -1 if colour agnostic, otherwise only nodes in colour used
 } dBAlignment;
 
@@ -34,6 +34,9 @@ size_t db_alignment_est_mem();
 
 void db_alignment_alloc(dBAlignment *alignment);
 void db_alignment_dealloc(dBAlignment *alignment);
+
+#define db_aln_r1enderr(aln,k) ((aln)->r1bases - \
+  ((aln)->r2strtidx > 0 ? (aln)->rpos.data[(aln)->r2strtidx-1] + (k) : 0))
 
 // if colour is -1 aligns to all colours, otherwise aligns to given colour only
 // Assumes both reads are in FF orientation

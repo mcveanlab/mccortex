@@ -42,7 +42,7 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
   Int32Buffer *rpos = &alignment->rpos;
 
   ctx_assert(nodes->len == rpos->len);
-  size_t n = nodes->len;
+  size_t n = nodes->len, init_len = n;
 
   db_node_buf_capacity(nodes, n + r->seq.end);
   int32_buf_capacity(rpos, n + r->seq.end);
@@ -79,8 +79,8 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
   }
 
   // Return number of bases from the last kmer found until read end
-  size_t ret = (n == rpos->len ? r->seq.end /* No kmers found */
-                               : r->seq.end - (rpos->data[n] + kmer_size-1));
+  size_t ret = (n == init_len ? r->seq.end /* No kmers found */
+                              : r->seq.end - (rpos->data[n-1] + kmer_size));
 
   nodes->len = rpos->len = n;
 

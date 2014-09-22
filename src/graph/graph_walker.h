@@ -6,6 +6,12 @@
 #include "gpath_store.h"
 #include "gpath_follow.h"
 
+typedef struct
+{
+  uint8_t inleft:1, outleft:1, inright:1, outright:1;
+  size_t num_nodes;
+} GraphSection;
+
 // Result from graph_walker_choose
 typedef struct
 {
