@@ -52,8 +52,8 @@ typedef struct {
   bool strand, used; // used helps mark runs that are dropped
 } KOccurRun;
 
-#include "objbuf_macro.h"
-create_objbuf(kmer_run_buf, KOccurRunBuffer, KOccurRun);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(kmer_run_buf, KOccurRunBuffer, KOccurRun);
 
 // We add the reads to the graph if `add_missing_kmers` is true
 KOGraph kograph_create(const read_t *reads, size_t num_reads,

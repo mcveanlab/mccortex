@@ -12,8 +12,8 @@ void assemble_contigs_stats_init(AssembleContigStats *stats)
   memset(stats, 0, sizeof(*stats));
   // Zero doubles
   stats->max_junc_density = 0;
-  size_buf_ensure_capacity(&stats->lengths, 1<<20); // ~1 Million
-  size_buf_ensure_capacity(&stats->junctns, 1<<20); // ~1 Million
+  size_buf_capacity(&stats->lengths, 1<<20); // ~1 Million
+  size_buf_capacity(&stats->junctns, 1<<20); // ~1 Million
 }
 
 void assemble_contigs_stats_destroy(AssembleContigStats *stats)

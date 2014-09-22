@@ -67,7 +67,7 @@ bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);
 //   Edges edges;
 // } dBKmer;
 
-// #include "objbuf_macro.h"
-// create_objbuf(db_kmer_buf,dBKmerBuffer,dBKmer)
+// #include "madcrowlib/madcrow_buffer.h"
+// madcrow_buffer(db_kmer_buf,dBKmerBuffer,dBKmer)
 
 #endif /* DB_ALIGNMENT_H_ */

@@ -18,8 +18,8 @@ typedef struct
   const size_t *haploid_cols, num_haploid;
 } BubbleCallingPrefs;
 
-#include "objbuf_macro.h"
-create_objbuf(cache_stepptr_buf, GCacheStepPtrBuf, GCacheStep*);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(cache_stepptr_buf, GCacheStepPtrBuf, GCacheStep*);
 
 typedef struct
 {

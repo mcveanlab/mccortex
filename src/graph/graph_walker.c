@@ -558,7 +558,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
     GPathFollow *path;
     size_t i, j, npaths = wlk->paths.len;
 
-    gpath_follow_buf_ensure_capacity(&wlk->paths, wlk->paths.len + wlk->new_paths.len);
+    gpath_follow_buf_capacity(&wlk->paths, wlk->paths.len + wlk->new_paths.len);
 
     // Check curr paths
     gpath_follow_buf_reset(&wlk->paths);
@@ -607,7 +607,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
   {
     // Merge in (previously new) paths
     // New paths -> curr paths (no filtering required)
-    gpath_follow_buf_ensure_capacity(&wlk->paths, wlk->paths.len + wlk->new_paths.len);
+    gpath_follow_buf_capacity(&wlk->paths, wlk->paths.len + wlk->new_paths.len);
     size_t mem = wlk->new_paths.len * sizeof(GPathFollow);
     memcpy(wlk->paths.data+wlk->paths.len, wlk->new_paths.data, mem);
     wlk->paths.len += wlk->new_paths.len;

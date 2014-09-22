@@ -44,7 +44,7 @@ static inline int cmp_bkmer(const void *aa, const void *bb)
 // test representation of kmer
 static inline void sort_block(char **entries, size_t num)
 {
-  qsort(entries, num, sizeof(char**), cmp_bkmer);
+  qsort(entries, num, sizeof(char*), cmp_bkmer);
 }
 
 /*
@@ -125,7 +125,7 @@ int ctx_sort(int argc, char **argv)
   size_t ncols = gfile.hdr.num_of_cols;
   size_t kmer_mem = sizeof(BinaryKmer) + (sizeof(Edges)+sizeof(Covg))*ncols;
 
-  memory = (sizeof(char**) + kmer_mem) * num_kmers;
+  memory = (sizeof(char*) + kmer_mem) * num_kmers;
 
   char mem_str[50];
   bytes_to_str(memory, 1, mem_str);
@@ -136,7 +136,7 @@ int ctx_sort(int argc, char **argv)
   status("[memory] Total: %s", mem_str);
 
   char *mem = ctx_malloc(memory);
-  char **kmers = ctx_malloc(num_kmers*sizeof(char**));
+  char **kmers = ctx_malloc(num_kmers*sizeof(char*));
 
   // Read in file
   // This fseek not needed

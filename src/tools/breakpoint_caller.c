@@ -298,7 +298,7 @@ static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
   size_t init_len = runs_buf->len;
 
   // Copy finished runs into array
-  kmer_run_buf_ensure_capacity(runs_buf, runs_buf->len+koruns->len+koruns_ended->len);
+  kmer_run_buf_capacity(runs_buf, runs_buf->len+koruns->len+koruns_ended->len);
   kmer_run_buf_append(runs_buf, koruns_ended->data, koruns_ended->len);
 
   runs_buf->len += koruns_filter(koruns->data, koruns->len,

@@ -113,7 +113,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
 
   // max_len allows for node on other side of gap
   size_t init_len = contig->len, max_len = contig->len + gap_max + 1;
-  db_node_buf_ensure_capacity(contig, max_len);
+  db_node_buf_capacity(contig, max_len);
 
   TraversalResult result = {.traversed = false, .paths_disagreed = false,
                             .gap_too_short = false, .gap_len = 0};
@@ -183,8 +183,8 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
   // graph_walker_print_state(wlk1, stdout);
 
   // +1 to allow for node on other side of gap
-  db_node_buf_ensure_capacity(contig0, contig0->len + gap_max + 1);
-  db_node_buf_ensure_capacity(contig1, contig1->len + gap_max + 1);
+  db_node_buf_capacity(contig0, contig0->len + gap_max + 1);
+  db_node_buf_capacity(contig1, contig1->len + gap_max + 1);
 
   bool use[2] = {true,true};
   GraphWalker *wlk[2] = {wlk0, wlk1};
@@ -439,7 +439,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     if(!result.traversed) break;
 
     // reverse and copy from revcontig -> contig
-    db_node_buf_ensure_capacity(contig, contig->len + revcontig->len);
+    db_node_buf_capacity(contig, contig->len + revcontig->len);
 
     // reverse order and orientation of nodes
     size_t new_contig_len = contig->len + revcontig->len;
@@ -450,7 +450,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     // Append -1 values to rpos for gap
     size_t len_and_gap = contig_rpos->len + result.gap_len;
-    int32_buf_ensure_capacity(contig_rpos, len_and_gap);
+    int32_buf_capacity(contig_rpos, len_and_gap);
     while(contig_rpos->len < len_and_gap)
       contig_rpos->data[contig_rpos->len++] = -1;
 
@@ -511,8 +511,8 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
   db_node_buf_reset(nodebuf);
   int32_buf_reset(posbuf);
 
-  db_node_buf_ensure_capacity(nodebuf, r->seq.end);
-  int32_buf_ensure_capacity(posbuf, r->seq.end);
+  db_node_buf_capacity(nodebuf, r->seq.end);
+  int32_buf_capacity(posbuf, r->seq.end);
 
   // Correct sequence errors in the alignment
   correct_alignment_init(wrkr, params, r, NULL, fq_cutoff, 0, hp_cutoff);
@@ -556,7 +556,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
   {
     dBNodeBuffer *revcontig = &wrkr->revcontig;
     db_node_buf_reset(revcontig);
-    db_node_buf_ensure_capacity(revcontig, left_gap);
+    db_node_buf_capacity(revcontig, left_gap);
 
     // Try to fill in missing kmers
     size_t n = 1;
@@ -601,8 +601,8 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
 
     size_t orig_len = nodebuf->len;
     size_t end_len = nodebuf->len + right_gap;
-    db_node_buf_ensure_capacity(nodebuf, end_len);
-    int32_buf_ensure_capacity(  posbuf,  end_len);
+    db_node_buf_capacity(nodebuf, end_len);
+    int32_buf_capacity(  posbuf,  end_len);
 
     for(i = nodebuf->len; i < end_len && graph_walker_next(wlk) &&
                           rpt_walker_attempt_traverse(rptwlk, wlk); i++)

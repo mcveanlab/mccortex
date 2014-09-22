@@ -44,8 +44,8 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
   ctx_assert(nodes->len == rpos->len);
   size_t n = nodes->len;
 
-  db_node_buf_ensure_capacity(nodes, n + r->seq.end);
-  int32_buf_ensure_capacity(rpos, n + r->seq.end);
+  db_node_buf_capacity(nodes, n + r->seq.end);
+  int32_buf_capacity(rpos, n + r->seq.end);
 
   while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          qcutoff, hp_cutoff)) < r->seq.end)

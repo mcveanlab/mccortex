@@ -4,8 +4,8 @@
 #include "gpath.h"
 #include "gpath_set.h"
 
-#include "objbuf_macro.h"
-create_objbuf(gpath_ptr_buf, GPathPtrBuffer, GPath*);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(gpath_ptr_buf, GPathPtrBuffer, GPath*);
 
 typedef struct
 {

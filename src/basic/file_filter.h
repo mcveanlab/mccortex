@@ -10,8 +10,8 @@ typedef struct {
   uint32_t from, into;
 } Filter;
 
-#include "objbuf_macro.h"
-create_objbuf(filter_buf, FilterBuffer, Filter);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(filter_buf, FilterBuffer, Filter);
 
 typedef struct
 {

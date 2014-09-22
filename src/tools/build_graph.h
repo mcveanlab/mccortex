@@ -36,8 +36,8 @@ typedef struct
                                .stats = LOAD_STATS_INIT_MACRO,       \
                                .idx = 0}
 
-#include "objbuf_macro.h"
-create_objbuf(build_graph_task_buf, BuildGraphTaskBuffer, BuildGraphTask);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(build_graph_task_buf, BuildGraphTaskBuffer, BuildGraphTask);
 
 static inline void build_graph_task_destroy(BuildGraphTask *task)
 {

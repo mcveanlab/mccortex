@@ -28,8 +28,8 @@ typedef struct
 // Returns 0 if not set instead of -1
 #define graph_file_nkmers(rdr) ((uint64_t)MAX2((rdr)->num_of_kmers, 0))
 
-#include "objbuf_macro.h"
-create_objbuf(gfile_buf, GraphFileBuffer, GraphFileReader);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(gfile_buf, GraphFileBuffer, GraphFileReader);
 
 // Open file
 // if cannot open file returns 0

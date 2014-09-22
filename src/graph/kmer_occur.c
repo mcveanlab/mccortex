@@ -421,7 +421,7 @@ void kograph_filter_extend(KOGraph kograph,
 
   // Split korun buffer into two fixed size arrays
   // Extend current runs, and start new ones
-  kmer_run_buf_ensure_capacity(korun, 2*max_paths);
+  kmer_run_buf_capacity(korun, 2*max_paths);
   runs0 = korun->data;
   runs1 = korun->data + max_paths;
   nruns0 = korun->len;

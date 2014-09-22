@@ -22,8 +22,8 @@ typedef struct
                                 .crt_params = CORRECT_PARAMS_DEFAULT, \
                                 .out_base = NULL, .output = NULL}
 
-#include "objbuf_macro.h"
-create_objbuf(correct_aln_input_buf, CorrectAlnInputBuffer, CorrectAlnInput);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(correct_aln_input_buf, CorrectAlnInputBuffer, CorrectAlnInput);
 
 void correct_aln_input_print(const CorrectAlnInput *c);
 

@@ -41,9 +41,9 @@ static struct option longopts[] =
 };
 
 // Define a vector of Covg
-#include "objbuf_macro.h"
-create_objbuf(covg_buf,CovgBuffer,Covg);
-create_objbuf(edges_buf,EdgesBuffer,Edges);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(covg_buf,  CovgBuffer,  Covg);
+madcrow_buffer(edges_buf, EdgesBuffer, Edges);
 
 // [c]AGG[t]
 // [a]CCT[g]
@@ -102,11 +102,11 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   const size_t kmer_size = db_graph->kmer_size, ncols = db_graph->num_of_cols;
   size_t kmer_length = r->seq.end < kmer_size ? 0 : r->seq.end - kmer_size + 1;
 
-  covg_buf_ensure_capacity(covgbuf, ncols * kmer_length);
+  covg_buf_capacity(covgbuf, ncols * kmer_length);
   memset(covgbuf->data, 0, ncols * kmer_length * sizeof(Covg));
 
   if(db_graph->col_edges) {
-    edges_buf_ensure_capacity(edgebuf, ncols * kmer_length);
+    edges_buf_capacity(edgebuf, ncols * kmer_length);
     memset(edgebuf->data, 0, ncols * kmer_length * sizeof(Edges));
   }
 

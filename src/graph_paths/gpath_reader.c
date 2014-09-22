@@ -246,7 +246,7 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
     endpstr++;
   } while(*endpstr && *endpstr != ' ');
   load_check((size_t)(endpstr - pstr) == num_juncs, "Bad path line: %s", path);
-  byte_buf_ensure_capacity(seqbuf, (num_juncs+3)/4);
+  byte_buf_capacity(seqbuf, (num_juncs+3)/4);
   binary_seq_from_str(pstr, num_juncs, seqbuf->data);
 
     // Add to GPathSet

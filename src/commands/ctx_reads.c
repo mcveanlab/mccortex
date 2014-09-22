@@ -69,9 +69,9 @@ typedef struct
 
 } AlignReadsData;
 
-#include "objbuf_macro.h"
-create_objbuf(aln_reads_buf,AlignReadsBuffer,AlignReadsData);
-create_objbuf(asyncio_buf,AsyncIOInputBuffer,AsyncIOInput);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(aln_reads_buf, AlignReadsBuffer,   AlignReadsData);
+madcrow_buffer(asyncio_buf,   AsyncIOInputBuffer, AsyncIOInput);
 
 static AsyncIOInputBuffer files;
 static AlignReadsBuffer inputs;

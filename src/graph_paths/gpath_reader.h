@@ -21,8 +21,8 @@ typedef struct
 #define GPATH_DIE_MISSING_KMERS   1
 #define GPATH_SKIP_MISSING_KMERS  2
 
-#include "objbuf_macro.h"
-create_objbuf(gpfile_buf, GPathFileBuffer, GPathReader);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(gpfile_buf, GPathFileBuffer, GPathReader);
 
 // Open file, exits on error
 // if successful creates a new GPathReader

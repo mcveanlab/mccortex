@@ -130,16 +130,18 @@ Bundled libraries may have different licenses:
 * [CityHash](https://code.google.com/p/cityhash/) (MIT)
 * [lookup3](http://burtleburtle.net/bob/c/lookup3.c) (Public Domain)
 * [htslib](https://github.com/samtools/htslib) (MIT)
-* [bcftools](https://github.com/samtools/bcftools) (MIT)
-* [vcflib](https://github.com/ekg/vcflib) (MIT)
 * [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
 * [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
 * [BitArray](https://github.com/noporpoise/BitArray) (Public Domain)
 * [msg-pool](https://github.com/noporpoise/msg-pool) (Public Domain)
 * [seq-align](https://github.com/noporpoise/seq-align) (Public Domain)
+* [madcrowlib](https://github.com/noporpoise/madcrowlib) (MIT)
 
 Used in testing:
 * [bioinf-perl](https://github.com/noporpoise/bioinf-perl) (Public Domain)
+* [samtools](https://github.com/samtools/samtools) (MIT)
+* [bcftools](https://github.com/samtools/bcftools) (MIT)
+* [vcflib](https://github.com/ekg/vcflib) (MIT)
 
 Citing
 ------

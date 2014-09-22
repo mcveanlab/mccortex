@@ -141,7 +141,7 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
 
   GPath *old_entries = gpset->entries.data;
   size_t old_num_entries = gpset->entries.capacity;
-  gpath_buf_ensure_capacity(&gpset->entries, gpset->entries.len+1);
+  gpath_buf_capacity(&gpset->entries, gpset->entries.len+1);
 
   if(old_entries != gpset->entries.data) {
     // Correct all path pointers
@@ -157,13 +157,13 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
   {
     if(gpath_set_has_nseen(gpset)) {
       // Increase size of nseen buffer to match (zero'd by default)
-      byte_buf_ensure_capacity(&gpset->nseen_buf, gpset->entries.capacity * ncols);
-      uint32_buf_ensure_capacity(&gpset->klen_buf, gpset->entries.capacity);
+      byte_buf_capacity(&gpset->nseen_buf, gpset->entries.capacity * ncols);
+      uint32_buf_capacity(&gpset->klen_buf, gpset->entries.capacity);
     }
   }
 
   uint8_t *old_seq = gpset->seqs.data;
-  byte_buf_ensure_capacity(&gpset->seqs, gpset->seqs.len+req_num_bytes+STORE_PADDING);
+  byte_buf_capacity(&gpset->seqs, gpset->seqs.len+req_num_bytes+STORE_PADDING);
 
   if(gpset->seqs.data != old_seq) {
     // Correct all seq pointers

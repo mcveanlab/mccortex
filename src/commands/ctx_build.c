@@ -75,8 +75,8 @@ typedef struct {
   const char *name;
 } SampleName;
 
-#include "objbuf_macro.h"
-create_objbuf(sample_name_buf, SampleNameBuffer, SampleName);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(sample_name_buf, SampleNameBuffer, SampleName);
 
 static BuildGraphTaskBuffer gtaskbuf;
 static GraphFileBuffer gfilebuf;

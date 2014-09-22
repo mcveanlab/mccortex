@@ -251,7 +251,7 @@ void graph_cache_snode_fetch_nodes(const GraphCache *cache,
   const dBNode *end = nodes + snode->num_nodes;
   dBNode *into;
 
-  db_node_buf_ensure_capacity(nbuf, nbuf->len + snode->num_nodes);
+  db_node_buf_capacity(nbuf, nbuf->len + snode->num_nodes);
 
   if(orient == FORWARD) {
     memcpy(nbuf->data + nbuf->len, nodes, sizeof(dBNode) * snode->num_nodes);

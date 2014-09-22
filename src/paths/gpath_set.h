@@ -4,8 +4,9 @@
 #include "gpath.h"
 #include "common_buffers.h"
 #include "binary_seq.h"
-#include "objbuf_macro.h"
-create_objbuf(gpath_buf, GPathBuffer, GPath);
+
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(gpath_buf, GPathBuffer, GPath);
 
 typedef uint64_t pkey_t;
 

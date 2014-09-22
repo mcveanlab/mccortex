@@ -104,7 +104,7 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols, size_t into_offset
   }
 
   fltr->filencols = filencols;
-  filter_buf_ensure_capacity(&fltr->filter, ncols);
+  filter_buf_capacity(&fltr->filter, ncols);
   file_filter_num(fltr) = ncols;
 
   size_t *tmp = ctx_calloc(ncols, sizeof(size_t));

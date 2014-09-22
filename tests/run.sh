@@ -23,6 +23,7 @@ if [[ $# -eq 0 || $1 == 'update' ]]
 then
   # Get all dependencies used in testing (bioinf-perl, bcftools, samtools etc.)
   cd ../libs && make core common && cd $cwd
+  if [ $? -ne 0 ]; then exit -1; fi
 fi
 
 dirs=`ls | grep -v '.*run.sh' | grep -v '^\.' | grep -v old`

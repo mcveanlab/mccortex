@@ -2,16 +2,18 @@
 # make all      <- compile all libraries
 # make clean    <- clean all libraries
 
-ALLTGTS=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r misc \
-        bcftools samtools readsim bioinf-perl \
-        vcflib
+CORE=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
+COMMON=bcftools samtools readsim bioinf-perl
+ANALYSIS=vcflib
+
+ALLTGTS=$(CORE) $(COMMON) $(ANALYSIS)
 
 # Only compile dependencies for compiling ninja-cortex itself
-core: htslib string_buffer bit_array seq_file seq-align msg-pool sort_r misc
+core: $(CORE)
 
-common: bcftools samtools readsim bioinf-perl
+common: $(COMMON)
 
-analysis: vcflib
+analysis: $(ANALYSIS)
 
 all: core common analysis
 
@@ -59,6 +61,9 @@ bioinf-perl/README:
 sort_r/Makefile:
 	git clone https://github.com/noporpoise/sort_r.git
 
+madcrowlib/Makefile:
+	git clone https://github.com/noporpoise/madcrowlib.git
+
 #
 # Build
 #
@@ -101,6 +106,9 @@ bioinf-perl: bioinf-perl/README
 sort_r: sort_r/Makefile
 	cd sort_r && git pull && make
 
+madcrowlib: madcrowlib/Makefile
+	cd madcrowlib && git pull && make
+
 misc: misc/Makefile
 	cd misc && make
 
@@ -120,6 +128,7 @@ clean:
 	[ -d readsim ] && cd readsim && make clean
 	[ -d msg-pool ] && cd msg-pool && make clean
 	[ -d sort_r ] && cd sort_r && make clean
+	[ -d madcrowlib ] && cd madcrowlib && make clean
 	[ -d misc ] && cd misc && make clean
 
 .PHONY: all clean update core

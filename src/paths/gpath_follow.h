@@ -17,8 +17,8 @@ struct GPathFollowStruct
 
 typedef struct GPathFollowStruct GPathFollow;
 
-#include "objbuf_macro.h"
-create_objbuf(gpath_follow_buf,GPathFollowBuffer,GPathFollow);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(gpath_follow_buf,GPathFollowBuffer,GPathFollow);
 
 void gpath_follow_cache_update(GPathFollow *path, size_t pos);
 Nucleotide gpath_follow_get_base(GPathFollow *path, size_t pos);

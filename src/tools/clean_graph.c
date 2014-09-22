@@ -9,8 +9,8 @@
 #define DUMP_LEN_ARRSIZE 1000
 
 // Define a vector of Covg
-#include "objbuf_macro.h"
-create_objbuf(covg_buf,CovgBuffer,Covg);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(covg_buf,CovgBuffer,Covg);
 
 
 typedef struct
@@ -88,7 +88,7 @@ static inline void fetch_coverages(dBNodeBuffer nbuf, CovgBuffer *cbuf,
 {
   size_t i;
   covg_buf_reset(cbuf);
-  covg_buf_ensure_capacity(cbuf, nbuf.len);
+  covg_buf_capacity(cbuf, nbuf.len);
   cbuf->len = nbuf.len;
   for(i = 0; i < nbuf.len; i++)
     cbuf->data[i] = db_graph->col_covgs[nbuf.data[i].key];

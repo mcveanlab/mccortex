@@ -88,7 +88,7 @@ int ctx_join(int argc, char **argv)
       case 'i':
         memset(&tmp_gfile, 0, sizeof(GraphFileReader));
         graph_file_open(&tmp_gfile, optarg);
-        if(!file_filter_into_ncols(&tmp_gfile.fltr) > 1)
+        if(file_filter_into_ncols(&tmp_gfile.fltr) > 1)
           warn("Flattening intersection graph into colour 0: %s", optarg);
         file_filter_flatten(&tmp_gfile.fltr, 0);
         gfile_buf_add(&isec_gfiles_buf, tmp_gfile);

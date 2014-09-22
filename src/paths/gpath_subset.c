@@ -167,7 +167,7 @@ void gpath_subset_merge(GPathSubset *dst, GPathSubset *src, bool rmsubstr)
   ctx_assert2(dst->gpset->ncols == src->gpset->ncols, "%zu vs %zu",
               dst->gpset->ncols, src->gpset->ncols);
 
-  gpath_ptr_buf_ensure_capacity(&dst->list, dst->list.len+src->list.len);
+  gpath_ptr_buf_capacity(&dst->list, dst->list.len+src->list.len);
   size_t dstlen = dst->list.len, srclen = src->list.len;
   size_t i = 0, j = 0, k, ncols = dst->gpset->ncols, min_num_juncs;
   int cmp;

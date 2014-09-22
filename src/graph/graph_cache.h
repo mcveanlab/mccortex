@@ -37,10 +37,10 @@ typedef struct
   uint32_t num_steps;
 } GCachePath;
 
-#include "objbuf_macro.h"
-create_objbuf(cache_snode_buf, GCacheSnodeBuffer, GCacheSnode);
-create_objbuf(cache_step_buf, GCacheStepBuffer, GCacheStep);
-create_objbuf(cache_path_buf, GCachePathBuffer, GCachePath);
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(cache_snode_buf, GCacheSnodeBuffer, GCacheSnode);
+madcrow_buffer(cache_step_buf,  GCacheStepBuffer,  GCacheStep);
+madcrow_buffer(cache_path_buf,  GCachePathBuffer,  GCachePath);
 
 #define db_node_hash(x) kh_int64_hash_func((x.key << 1) | x.orient)
 KHASH_INIT(SnodeIdHash, dBNode, uint32_t, 1, db_node_hash, db_nodes_are_equal)
