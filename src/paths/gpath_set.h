@@ -60,7 +60,9 @@ void gpath_set_reset(GPathSet *set);
 
 void gpath_set_print_stats(const GPathSet *gpset);
 
-// Threadsafe if only if resize is false
+// Always adds new path. If newpath could be a duplicate, use gpathhash
+// Threadsafe only if resize is false. GPath* not safe to edit until it returns
+// Copies newgpath.seq over and wipe new colset
 GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath);
 
 // Returns true if we are storing number of sightings and kmer length

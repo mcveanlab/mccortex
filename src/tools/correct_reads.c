@@ -47,35 +47,6 @@ static void correct_reads_worker_dealloc(CorrectReadsWorker *wrkr)
   int32_buf_dealloc(&wrkr->posbuf);
 }
 
-static inline void strbuf_append_strn_lc(StrBuf *buf, const char *str, size_t len)
-{
-  strbuf_ensure_capacity(buf, buf->end + len);
-  char *to = buf->b + buf->end;
-  const char *end = str + len;
-  for(; str < end; str++, to++) *to = tolower(*str);
-  buf->end += len;
-  buf->b[buf->end] = '\0';
-}
-
-static inline void strbuf_append_strn_uc(StrBuf *buf, const char *str, size_t len)
-{
-  strbuf_ensure_capacity(buf, buf->end + len);
-  char *to = buf->b + buf->end;
-  const char *end = str + len;
-  for(; str < end; str++, to++) *to = toupper(*str);
-  buf->end += len;
-  buf->b[buf->end] = '\0';
-}
-
-// Append char `c` `n` times
-static inline void strbuf_append_charn(StrBuf *buf, char c, size_t n)
-{
-  strbuf_ensure_capacity(buf, buf->end + n);
-  memset(buf->b+buf->end, c, n);
-  buf->end += n;
-  buf->b[buf->end] = '\0';
-}
-
 // Returns the new number of bases printed
 static inline
 size_t _print_read_kmer(const read_t *r, StrBuf *rbuf, StrBuf *qbuf,

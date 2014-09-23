@@ -87,6 +87,7 @@ void graph_walker_finish(GraphWalker *wlk);
 // Hash a binary kmer + GraphWalker paths with offsets
 uint64_t graph_walker_hash64(GraphWalker *wlk);
 
+// GraphWalker is not const because we update the path junction cache
 // Returns index of choice or -1 along with status
 GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
@@ -104,26 +105,12 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
 // return 1 on success, 0 otherwise
 bool graph_walker_next(GraphWalker *wlk);
 bool graph_walker_next_nodes(GraphWalker *wlk, size_t num_next,
-                          const dBNode nodes[4], const Nucleotide bases[4]);
+                             const dBNode nodes[4], const Nucleotide bases[4]);
 
 void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     hkey_t prev_nodes[4],
                                     Orientation prev_orients[4],
                                     size_t num_prev);
-
-
-// Fast traversal of a list of nodes using the supplied GraphWalker
-// Only visits nodes deemed informative + last node
-// Must have previously initialised or walked to the prior node,
-// using: graph_walker_init, graph_walker_force, graph_walker_jump_along_snode,
-// graph_traverse or graph_walker_next_nodes
-// i.e. wlk->node is a node adjacent to arr[0]
-void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *nodes, size_t n,
-                                bool forward);
-
-// Force traversal of every node
-void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
-                                bool forward);
 
 // Prime for traversal
 void graph_walker_prime(GraphWalker *wlk,
@@ -134,8 +121,5 @@ void graph_walker_prime(GraphWalker *wlk,
 
 bool graph_walker_agrees_contig(GraphWalker *wlk, const dBNode *block, size_t n,
                                 bool forward);
-
-// How many junctions are left to be traversed in our longest remaining path
-size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk);
 
 #endif /* GRAPH_WALKER_H_ */

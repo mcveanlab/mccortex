@@ -53,9 +53,10 @@ static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
     status("got bkmer %s\n", tmp);
   #endif
 
+  // attempt_add return index of item or -1 on failure
   if(node.key != HASH_NOT_FOUND) {
     if(!bitset_get(kmer_mask, node.key) && nbuf->capacity > 0 &&
-       !db_node_buf_attempt_add(nbuf, node)) {
+       db_node_buf_attempt_add(nbuf, node) < 0) {
       die("Please increase <mem> size");
     }
     bitset_set(kmer_mask, node.key);
@@ -77,8 +78,11 @@ static inline void mark_snode(BinaryKmer bkmer,
 
     for(i = 0; i < snode_buf->len; i++) {
       bitset_set(kmer_mask, snode_buf->data[i].key);
-      if(nbuf->capacity > 0 && !db_node_buf_attempt_add(nbuf, snode_buf->data[i]))
+      // attempt_add return index of item or -1 on failure
+      if(nbuf->capacity > 0 &&
+         db_node_buf_attempt_add(nbuf, snode_buf->data[i]) < 0) {
         die("Please increase <mem> size");
+      }
     }
   }
 }
@@ -131,9 +135,10 @@ static void store_node_neighbours(const hkey_t hkey, dBNodeBuffer *nbuf,
                                   next_nodes+num_next, next_bases+num_next);
 
   // if not flagged add to list
+  // attempt_add return index of item or -1 on failure
   for(i = 0; i < num_next; i++) {
     if(!bitset_get(kmer_mask, next_nodes[i].key) &&
-       !db_node_buf_attempt_add(nbuf, next_nodes[i])) {
+       db_node_buf_attempt_add(nbuf, next_nodes[i]) < 0) {
       die("Please increase <mem> size");
     }
     bitset_set(kmer_mask, next_nodes[i].key);

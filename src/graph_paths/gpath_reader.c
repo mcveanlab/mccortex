@@ -263,8 +263,6 @@ static void _gpath_reader_load_path_line(GPathReader *file, const char *path,
   uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
   uint8_t *colset = gpath_get_colset(gpath, gpset->ncols);
 
-  memset(nseen, 0, gpset->ncols);
-
   for(i = 0; i < file_filter_num(&file->fltr); i++) {
     from = file_filter_fromcol(&file->fltr, i);
     to = file_filter_intocol(&file->fltr, i);
@@ -298,6 +296,7 @@ static void _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
   gpath_subset_rmdup(subset1);
 
   // Merge entries from subset1 into subset0
+  // false => do not remove duplicates
   gpath_subset_merge(subset0, subset1, false);
 
   bool found;

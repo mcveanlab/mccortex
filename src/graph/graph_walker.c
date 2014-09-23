@@ -26,7 +26,7 @@ const char *graph_step_str[] = {GRPHWLK_FORWARD_STR,       GRPHWLK_COLFWD_STR,
 // DEV: could we remove new_paths if we update age at the right time?
 
 // How many junctions are left to be traversed in our longest remaining path
-size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
+static size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
 {
   size_t i, rem, max = 0;
   for(i = 0; i < wlk->paths.len; i++) {

@@ -132,7 +132,7 @@ GPath* gpstore_find(const GPathStore *gpstore, hkey_t hkey, GPathNew find)
   return NULL;
 }
 
-// Always adds
+// Always adds new path. If newpath could be a duplicate, use gpathhash
 // Note: it is not safe to call _add and _find_add simultaneously, since _add
 //       avoids the use of locks.
 GPath* gpath_store_add_mt(GPathStore *gpstore, hkey_t hkey, GPathNew newgpath)

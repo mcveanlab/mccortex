@@ -47,6 +47,7 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   byte_buf_alloc(&tmp.seqs, seq_col_mem);
 
   if(keep_path_counts) {
+    // madcrowlib allocates with calloc, so these are all zero'd
     byte_buf_alloc(&tmp.nseen_buf, initpaths * ncols);
     uint32_buf_alloc(&tmp.klen_buf, initpaths);
   } else {
@@ -176,7 +177,8 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
   }
 }
 
-// Threadsafe only if resize is false
+// Always adds new path. If newpath could be a duplicate, use gpathhash
+// Threadsafe only if resize is false. GPath* not safe to edit until it returns
 // Copies newgpath.seq over and wipe new colset
 GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
 {
@@ -186,7 +188,7 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   GPath *gpath;
   uint8_t *data;
   size_t colset_bytes = (gpset->ncols+7)/8, junc_bytes = (newgpath.num_juncs+3)/4;
-  size_t i, nbytes = colset_bytes + junc_bytes;
+  size_t nbytes = colset_bytes + junc_bytes;
 
   if(gpset->can_resize)
   {
@@ -211,6 +213,7 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
     pkey = gpath - gpset->entries.data;
   }
 
+  uint8_t *colset = data;
   gpath->seq = data + colset_bytes;
   gpath->num_juncs = newgpath.num_juncs;
   gpath->orient = newgpath.orient;
@@ -219,14 +222,14 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   // copy seq and zero colset
   memcpy(gpath->seq, newgpath.seq, junc_bytes);
 
-  if(newgpath.colset) {
-    // Copy colours
-    for(i = 0; i < colset_bytes; i++)
-      __sync_fetch_and_or((volatile uint8_t*)&data[i], newgpath.colset[i]);
-  }
+  if(newgpath.colset)
+    memcpy(colset, newgpath.colset, colset_bytes);
+  else
+    memset(colset, 0, colset_bytes);
 
   // klen, nseen
-  if(gpath_set_has_nseen(gpset)) {
+  if(gpath_set_has_nseen(gpset))
+  {
     gpset->klen_buf.data[pkey] = newgpath.klen;
     __sync_fetch_and_add((volatile size_t*)&gpset->klen_buf.len, 1);
     __sync_fetch_and_add((volatile size_t*)&gpset->nseen_buf.len, gpset->ncols);
@@ -234,10 +237,10 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
     uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
     ctx_assert(nseen != NULL);
 
-    if(newgpath.nseen) {
-      for(i = 0; i < gpset->ncols; i++)
-        safe_add_uint8(&nseen[i], newgpath.nseen[i]);
-    }
+    if(newgpath.nseen)
+      memcpy(nseen, newgpath.nseen, gpset->ncols);
+    else
+      memset(nseen, 0, gpset->ncols);
   }
 
   return gpath;

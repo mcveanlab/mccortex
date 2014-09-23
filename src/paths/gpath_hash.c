@@ -100,6 +100,8 @@ static inline GPath* _find_or_add_in_bucket(GPathHash *gphash, uint64_t hash,
 {
   const GPathSet *gpset = &gphash->gpstore->gpset;
 
+  // Add GPath within a lock to ensure we do not add the same path more than
+  // once
   bitlock_yield_acquire(gphash->bktlocks, hash);
 
   GPEntry *entry = gphash->table + hash * gphash->bucket_size;

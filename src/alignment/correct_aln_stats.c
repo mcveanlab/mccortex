@@ -89,8 +89,11 @@ void correct_aln_stats_dump_fraglen(const CorrectAlnStats *stats, const char *pa
 }
 
 void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
-                                     size_t num_reads, size_t num_read_pairs)
+                                     size_t num_se_reads, size_t num_read_pairs)
 {
+  size_t num_reads = num_se_reads + num_read_pairs * 2;
+  ctx_assert(stats->num_gap_attempts == 0 || num_reads > 0);
+
   if(stats->num_gap_attempts == 0) {
     status("[CorrectAln] No gap attempts");
     return;
