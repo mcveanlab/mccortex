@@ -26,7 +26,7 @@ sub print_usage
 "Usage: ./cortex_to_graphviz.pl [options] <in.ctx> [...]
   Prints graphviz `dot' output.  Not to be used with large graphs!
 
-  --point          Don't print kmer values, only points
+  --points         Don't print kmer values, only points
   --simplify       Simplify supernodes
   --kmer <k>       Max kmer size used [default: 31]
   --path <in.ctp>  Load paths from file
@@ -45,7 +45,7 @@ my $ctp_path;
 my $contig_path;
 
 while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
-  if($ARGV[0] =~ /^-?-(P|[pP]oints)$/) {
+  if($ARGV[0] =~ /^-?-(P|[pP]oints?)$/) {
     shift(@ARGV);
     $use_points = 1;
   }

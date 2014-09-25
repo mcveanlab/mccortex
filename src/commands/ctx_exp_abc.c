@@ -8,7 +8,7 @@
 #include "graph_walker.h"
 #include "repeat_walker.h"
 
-#define DEFAULT_NUM_REPEATS 10000
+#define DEFAULT_NUM_REPEATS 2000
 #define DEFAULT_MAX_AB_DIST 1000
 
 const char exp_abc_usage[] =
@@ -25,7 +25,7 @@ const char exp_abc_usage[] =
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
 "  -N, --repeat <N>        Sample N kmers (Default "QUOTE_MACRO(DEFAULT_NUM_REPEATS)")\n"
-"  -M, --max-AB-dist <M>   Test 2: Max A->B contig (Default "QUOTE_MACRO(DEFAULT_MAX_AB_DIST)")\n"
+"  -M, --max-AB-dist <M>   Max A->B contig (Default "QUOTE_MACRO(DEFAULT_MAX_AB_DIST)")\n"
 "  -P, --print             Print failed contigs\n"
 "\n";
 
@@ -451,12 +451,16 @@ int ctx_exp_abc(int argc, char **argv)
   gpfile_buf_dealloc(&gpfiles);
 
   status("\n");
-  status("Test 1: Priming region A->B (max_AB_dist: %zu)", max_AB_dist);
+  status("Test 1: Priming region A->B (n: %zu max_AB_dist: %zu)",
+         num_repeats, max_AB_dist);
+
   run_exp_abc(&db_graph, true, nthreads, num_repeats,
               max_AB_dist, print_failed_contigs);
 
   status("\n");
-  status("Test 2: Trying to traverse A->B (max_AB_dist: %zu)", max_AB_dist);
+  status("Test 2: Trying to traverse A->B (n: %zu max_AB_dist: %zu)",
+         num_repeats, max_AB_dist);
+
   run_exp_abc(&db_graph, false, nthreads, num_repeats,
               max_AB_dist, print_failed_contigs);
 
