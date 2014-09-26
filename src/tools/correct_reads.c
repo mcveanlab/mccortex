@@ -16,14 +16,18 @@ typedef struct
   GraphWalker wlk;
   RepeatWalker rptwlk;
   StrBuf rbuf1, rbuf2, qbuf;
+  char fq_zero; // character to use to zero fastq [default: '.']
 
   // Corrected alignment
   dBNodeBuffer nodebuf; Int32Buffer posbuf;
 } CorrectReadsWorker;
 
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
+                                       size_t *read_cntr_ptr, char fq_zero,
                                        const dBGraph *db_graph)
 {
+  wrkr->rcounter = read_cntr_ptr;
+  wrkr->fq_zero = fq_zero;
   wrkr->db_graph = db_graph;
   correct_aln_worker_alloc(&wrkr->corrector, db_graph);
   graph_walker_alloc(&wrkr->wlk);
@@ -78,12 +82,13 @@ size_t _print_read_kmer(const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
 }
 
 // Prints read sequence in lower case instead of N
-static void handle_read3(CorrectReadsWorker *wrkr,
+static void handle_read2(CorrectReadsWorker *wrkr,
                          const CorrectAlnParam *params,
                          const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
                          uint8_t fq_cutoff, uint8_t hp_cutoff,
                          dBNodeBuffer *nodebuf, Int32Buffer *posbuf)
 {
+  const char fq_zero = wrkr->fq_zero;
   const dBGraph *db_graph = wrkr->db_graph;
   const size_t kmer_size = db_graph->kmer_size;
   CorrectAlnWorker *corrector = &wrkr->corrector;
@@ -117,28 +122,34 @@ static void handle_read3(CorrectReadsWorker *wrkr,
   for(num_neg = 0; num_neg < num_nodes && pos_arr[num_neg] == -1; num_neg++) {}
   ctx_assert(num_neg < num_nodes);
 
+  // Append existing up until first "filled in" kmer
+  strbuf_append_strn_lc(rbuf, r->seq.b, pos_arr[num_neg] - num_neg);
+  if(r->qual.end > 0) strbuf_append_strn(qbuf, r->qual.b, pos_arr[num_neg] - num_neg);
+
   if(num_neg > 0)
   {
-    // Append existing up until first "filled in" kmer
-    strbuf_append_strn_lc(rbuf, r->seq.b, pos_arr[num_neg] - num_neg);
-    if(r->qual.end > 0) strbuf_append_strn(qbuf, r->qual.b, pos_arr[num_neg] - num_neg);
-
     strbuf_ensure_capacity(rbuf, rbuf->end + num_neg);
     strbuf_ensure_capacity(qbuf, qbuf->end + num_neg);
 
     // Copy first base from each kmer
     for(j = 0; j < num_neg; j++) {
+      // printf("%zu: %zu\n", j, node_arr[j].key);
+      ctx_assert(HASH_ENTRY_ASSIGNED(db_graph->ht.table[node_arr[j].key]));
       nuc = db_node_get_first_nuc(node_arr[j], db_graph);
       rbuf->b[rbuf->end++] = dna_nuc_to_char(nuc);
-      qbuf->b[qbuf->end++] = '.';
+      qbuf->b[qbuf->end++] = fq_zero;
     }
+
+    rbuf->b[rbuf->end] = qbuf->b[qbuf->end] = '\0';
   }
 
+  i = num_neg;
+  bases_printed = pos_arr[num_neg];
 
   while(i < num_nodes)
   {
-    j = i;
-    while(j < num_nodes && pos_arr[j] < 0) j++;
+    // get num_neg -- the number of kmers filling a gap
+    for(j = i; j < num_nodes && pos_arr[j] < 0; j++) {}
     num_neg = j - i;
 
     if(num_neg == 0) {
@@ -148,37 +159,33 @@ static void handle_read3(CorrectReadsWorker *wrkr,
       i++; // Go to next node
     }
     else if(i + num_neg == num_nodes) break;
-    else {
-      // size_t end = (size_t)pos_arr[i + num_neg];
-      // int32_t exp_kmers = pos_arr[i+num_neg] + kmer_size - bases_printed - 2;
+    else
+    {
+      size_t exp_kmers = pos_arr[i+num_neg] - pos_arr[i-1] - 1;
+      ctx_assert(pos_arr[i+num_neg] >= 0);
 
-      if(num_neg >= kmer_size) {
+      // status("num_neg: %zu exp_kmers: %zu kmer_size: %zu [%s]",
+      //        num_neg, exp_kmers, kmer_size, r->name.b);
+
+      size_t nprint = 0;
+      if(num_neg >= kmer_size) nprint = num_neg - kmer_size + 1;
+      if(num_neg > exp_kmers) nprint = num_neg - exp_kmers;
+
+      if(nprint) {
         // Deal with run of missing kmers
-        size_t end = i + num_neg - kmer_size;
-
-        for(; i < end; i++) {
+        size_t end = i + nprint;
+        // status("print: %zu", nprint);
+        for(j = i; j < end; j++) {
           // Grab last base
-          nuc = db_node_get_last_nuc(node_arr[i+j], db_graph);
+          nuc = db_node_get_last_nuc(node_arr[j], db_graph);
           strbuf_append_char(rbuf, dna_nuc_to_char(nuc)); // prints uppercase
-          strbuf_append_char(qbuf, '.');
+          strbuf_append_char(qbuf, fq_zero);
         }
-
-        // bases_printed = pos_arr[i + num_neg];
-        // bases_printed = pos_arr[i + num_neg] + exp_kmers - num_neg;
-      }
-      else {
-        // bases_printed = pos_arr[i + num_neg] + exp_kmers - num_neg;
       }
 
       size_t nextpos = pos_arr[i + num_neg];
-      if(num_neg < kmer_size) nextpos += kmer_size - num_neg;
-
+      if(num_neg < kmer_size) nextpos += kmer_size - num_neg - 1;
       bases_printed = MAX2(bases_printed, nextpos);
-
-      // bases_printed = pos_arr[i + num_neg] + kmer_size -
-      //                 (num_neg >= kmer_size ? kmer_size : num_neg) - 1;
-        // bases_printed = MAX2(bases_printed + num_neg - kmer_size - 1,
-        //                      (size_t)pos_arr[i + num_neg] + exp_kmers - num_neg);
 
       i += num_neg;
     }
@@ -193,28 +200,33 @@ static void handle_read3(CorrectReadsWorker *wrkr,
     strbuf_ensure_capacity(qbuf, qbuf->end + num_neg);
 
     // Copy first base from each kmer
-    for(j = 0; j < num_neg; j++) {
+    for(j = i; j < num_nodes; j++) {
       nuc = db_node_get_last_nuc(node_arr[j], db_graph);
       rbuf->b[rbuf->end++] = dna_nuc_to_char(nuc);
-      qbuf->b[qbuf->end++] = '.';
+      qbuf->b[qbuf->end++] = fq_zero;
     }
 
+    ctx_assert(bases_printed == pos_arr[i-1]+kmer_size);
     bases_printed += num_neg;
-    size_t rem_bases = r->seq.end - bases_printed;
-    strbuf_append_strn_lc(rbuf, r->seq.b  + bases_printed, rem_bases);
-    if(r->qual.end > 0) strbuf_append_strn(qbuf, r->qual.b+bases_printed, rem_bases);
   }
+
+  size_t rem_bases = r->seq.end - bases_printed;
+  strbuf_append_strn_lc(rbuf, r->seq.b + bases_printed, rem_bases);
+  if(r->qual.end > 0) strbuf_append_strn(qbuf, r->qual.b+bases_printed, rem_bases);
+  bases_printed += rem_bases;
+
+  ctx_assert2(bases_printed == r->seq.end, "%zu vs %zu", bases_printed, r->seq.end);
 
   if(r->qual.end == 0) strbuf_reset(qbuf);
 }
 
 // Print read in FASTA, FASTQ or PLAIN format
-static void handle_read2(CorrectReadsWorker *wrkr,
-                         const CorrectAlnParam *params,
-                         const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
-                         uint8_t fq_cutoff, uint8_t hp_cutoff,
-                         dBNodeBuffer *nodebuf, Int32Buffer *posbuf,
-                         seq_format format)
+static void handle_read(CorrectReadsWorker *wrkr,
+                        const CorrectAlnParam *params,
+                        const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
+                        uint8_t fq_cutoff, uint8_t hp_cutoff,
+                        dBNodeBuffer *nodebuf, Int32Buffer *posbuf,
+                        seq_format format)
 {
   strbuf_reset(rbuf);
   strbuf_reset(qbuf); // quality scores go here
@@ -232,17 +244,17 @@ static void handle_read2(CorrectReadsWorker *wrkr,
 
   // Write read sequence string to rbuf, quality scores string to qbuf
   size_t orig_len = rbuf->end;
-  handle_read3(wrkr, params, r, rbuf, qbuf, fq_cutoff, hp_cutoff, nodebuf, posbuf);
+  handle_read2(wrkr, params, r, rbuf, qbuf, fq_cutoff, hp_cutoff, nodebuf, posbuf);
   size_t readlen = rbuf->end - orig_len;
 
   // Copy quality scores to read buffer ready to print
   if(format & SEQ_FMT_FASTQ) {
     strbuf_append_str(rbuf, "\n+\n");
-    if(r->qual.end == 0) strbuf_append_charn(rbuf, '.', readlen);
+    if(r->qual.end == 0) strbuf_append_charn(rbuf, wrkr->fq_zero, readlen);
     else                 strbuf_append_strn(rbuf, qbuf->b, qbuf->end);
-    strbuf_append_char(rbuf, '\n');
   }
 
+  strbuf_append_char(rbuf, '\n');
   strbuf_reset(qbuf);
 }
 
@@ -276,8 +288,8 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   if(r2 == NULL)
   {
     // Single ended read
-    handle_read2(wrkr, params, r1, rbuf1, qbuf, fq_cutoff1, hp_cutoff,
-                 nodebuf, posbuf, format);
+    handle_read(wrkr, params, r1, rbuf1, qbuf, fq_cutoff1, hp_cutoff,
+                nodebuf, posbuf, format);
     pthread_mutex_lock(&output->lock_se);
     gzwrite(output->gzout_se, rbuf1->b, rbuf1->end);
     pthread_mutex_unlock(&output->lock_se);
@@ -285,10 +297,10 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   else
   {
     // Paired-end reads
-    handle_read2(wrkr, params, r1, rbuf1, qbuf, fq_cutoff1, hp_cutoff,
-                 nodebuf, posbuf, format);
-    handle_read2(wrkr, params, r2, rbuf2, qbuf, fq_cutoff2, hp_cutoff,
-                 nodebuf, posbuf, format);
+    handle_read(wrkr, params, r1, rbuf1, qbuf, fq_cutoff1, hp_cutoff,
+                nodebuf, posbuf, format);
+    handle_read(wrkr, params, r2, rbuf2, qbuf, fq_cutoff2, hp_cutoff,
+                nodebuf, posbuf, format);
     pthread_mutex_lock(&output->lock_pe);
     gzwrite(output->gzout_pe[0], rbuf1->b, rbuf1->end);
     gzwrite(output->gzout_pe[1], rbuf2->b, rbuf2->end);
@@ -308,18 +320,21 @@ static void correct_reads_thread(AsyncIOData *data, void *ptr)
 }
 
 // Correct reads against the graph, and print out
+// @param fq_zero use to fill quality scores; defaults to '.' if zero
 void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
                    const char *dump_seqgap_hist_path,
                    const char *dump_fraglen_hist_path,
-                   size_t num_threads, const dBGraph *db_graph)
+                   char fq_zero, size_t num_threads,
+                   const dBGraph *db_graph)
 {
   size_t i, n, read_counter = 0;
+
+  if(!fq_zero) fq_zero = '.';
 
   CorrectReadsWorker *wrkrs = ctx_calloc(num_threads, sizeof(CorrectReadsWorker));
 
   for(i = 0; i < num_threads; i++) {
-    correct_reads_worker_alloc(&wrkrs[i], db_graph);
-    wrkrs[i].rcounter = &read_counter;
+    correct_reads_worker_alloc(&wrkrs[i], &read_counter, fq_zero, db_graph);
   }
 
   AsyncIOInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOInput));

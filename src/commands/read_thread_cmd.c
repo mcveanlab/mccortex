@@ -11,6 +11,7 @@
 
 void read_thread_args_alloc(struct ReadThreadCmdArgs *args)
 {
+  memset(args, 0, sizeof(*args));
   correct_aln_input_buf_alloc(&args->inputs, 16);
   gpfile_buf_alloc(&args->gpfiles, 16);
 }
@@ -106,6 +107,12 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'x': gen_paths_print_contigs = true; break;
       case 'y': gen_paths_print_paths = true; break;
       case 'z': gen_paths_print_reads = true; break;
+      case 'Z':
+        cmd_check(!args->fq_zero, cmd);
+        if(strlen(optarg) != 1)
+          cmd_print_usage("--fq-zero <c> requires a single char");
+        args->fq_zero = optarg[0];
+        break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);

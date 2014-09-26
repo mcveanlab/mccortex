@@ -582,12 +582,13 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     rpt_walker_fast_clear(rptwlk, revcontig->data, revcontig->len);
 
     // Shift away from zero
-    int32_buf_shift_left(posbuf, revcontig->len);
     db_node_buf_shift_left(nodebuf, revcontig->len);
+    int32_buf_shift_left(  posbuf,  revcontig->len);
 
     // copy in reverse order
     for(i = 0, j = revcontig->len-1; i < revcontig->len; i++, j--) {
-      nodebuf->data[i] = db_node_reverse(nodebuf->data[j]);
+      // printf("[add] %zu: %zu\n", j, revcontig->data[j].key);
+      nodebuf->data[i] = db_node_reverse(revcontig->data[j]);
       posbuf->data[i] = -1;
     }
   }

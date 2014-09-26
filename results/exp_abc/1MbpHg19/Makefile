@@ -3,7 +3,7 @@
 # 2014-09-05
 # Using 1Mb of chr22 and error free reads with both perfect & stochstic coverage
 
-CTXDIR=~/ninja-cortex
+CTXDIR=../../..
 CTX=$(CTXDIR)/bin/ctx$(K)
 READSIM=$(CTXDIR)/libs/readsim/readsim
 ALLREADS=$(CTXDIR)/libs/readsim/perfect_covg.sh

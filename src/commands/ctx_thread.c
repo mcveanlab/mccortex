@@ -101,7 +101,6 @@ static struct option longopts[] =
 int ctx_thread(int argc, char **argv)
 {
   struct ReadThreadCmdArgs args;
-  memset(&args, 0, sizeof(args));
   read_thread_args_alloc(&args);
   read_thread_args_parse(&args, argc, argv, longopts, false);
 

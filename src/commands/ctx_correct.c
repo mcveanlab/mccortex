@@ -45,6 +45,7 @@ const char correct_usage[] =
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
 "  -G, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
+"  -Z, --fq-zero <char>     Replace zero'd quality score with character <char>\n"
 "\n"
 "  -c, --colour <col>       Sample graph colour to correct against\n"
 "\n"
@@ -83,6 +84,7 @@ static struct option longopts[] =
   {"no-end-check",  no_argument,       NULL, 'E'},
   {"gap-hist",      required_argument, NULL, 'g'},
   {"frag-hist",     required_argument, NULL, 'G'},
+  {"fq-zero",       required_argument, NULL, 'Z'},
 //
   {"colour",        required_argument, NULL, 'c'}, // allow --{col,color,colour}
   {"color",         required_argument, NULL, 'c'},
@@ -99,7 +101,6 @@ int ctx_correct(int argc, char **argv)
 {
   size_t i;
   struct ReadThreadCmdArgs args;
-  memset(&args, 0, sizeof(args));
   read_thread_args_alloc(&args);
   read_thread_args_parse(&args, argc, argv, longopts, true);
 
@@ -209,7 +210,7 @@ int ctx_correct(int argc, char **argv)
   //
   correct_reads(inputs->data, inputs->len,
                 args.dump_seq_sizes, args.dump_frag_sizes,
-                args.nthreads, &db_graph);
+                args.fq_zero, args.nthreads, &db_graph);
 
   // Close and free output files
   for(i = 0; i < inputs->len; i++)

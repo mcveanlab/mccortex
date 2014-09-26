@@ -20,6 +20,7 @@ struct ReadThreadCmdArgs
   char *dump_seq_sizes, *dump_frag_sizes;
   size_t colour; // ctx_correct only
   seq_format fmt; // ctx_correct only
+  char fq_zero; // ctx_correct only
 
   GraphFileReader gfile;
   GPathFileBuffer gpfiles;

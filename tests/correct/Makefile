@@ -30,18 +30,22 @@ indels.bad.fq:
 	echo AGACAGGCATGTAGAGCTGGTtGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
 	echo + >> $@
 	echo abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
-	echo '@ins_T>TTT' >> $@
-	echo AGACAGGCATGTAGAGCTGGTttGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
+	echo '@ins_T>TT_and_SNP_A>C' >> $@
+	echo AGACAGGCATGTAGAGCTGGTtGCGGAGGCTTGCACGcGGGAGAACCCATCAA >> $@
+	echo + >> $@
+	echo abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
+	echo '@ins_T>TTT_and_SNP_g>A' >> $@
+	echo AGACAGGCATGTAGAGCTGGTttGCGGAGGCTTaCACGAGGGAGAACCCATCAA >> $@
 	echo + >> $@
 	echo abcdefghijklmnopqrstuvvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
-	echo '@del_GG>G' >> $@
-	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGGGAGAACCCATCAA >> $@
+	echo '@del_GG>G_and_extra' >> $@
+	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGGGAGAACCCATgattgcaattgaa >> $@
 	echo + >> $@
-	echo abcdefghijklmnopqrsuwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1 >> $@
-	echo '@del_GGG>G' >> $@
-	echo AGACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGAGAACCCATCAA >> $@
+	echo abcdefghijklmnopqrsuwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789ab >> $@
+	echo '@extra_del_GG>G_and_GGG>G' >> $@
+	echo accttgttACAGGCATGTAGAGCTgTGCGGAGGCTTGCACGAGAGAACCCATCAA >> $@
 	echo + >> $@
-	echo abcdefghijklmnopqrsuwxyzABCDEFGHIJKLMPQRSTUVWXYZ1 >> $@
+	echo 654321abcdefghijklmnopqrsuwxyzABCDEFGHIJKLMPQRSTUVWXYZ1 >> $@
 
 rand.fq:
 	$(DNACAT) -n 40 -Q > $@
@@ -52,7 +56,7 @@ ref.k$(K).ctx: ref.txt
 
 # Correct reads
 good.fa: bad.txt ref.k$(K).ctx
-	$(CTX) correct -m 10M -F FASTA -1 bad.txt:good ref.k9.ctx
+	$(CTX) correct -t 1 -m 10M -F FASTA -1 bad.txt:good ref.k$(K).ctx
 	gzip -d good.fa.gz
 	cat ref.txt
 	cat bad.txt
@@ -60,7 +64,7 @@ good.fa: bad.txt ref.k$(K).ctx
 
 # input: plain output: fastq
 good.fq: bad.txt ref.k$(K).ctx
-	$(CTX) correct -m 10M -F FASTQ -1 bad.txt:good ref.k9.ctx
+	$(CTX) correct -t 1 -m 10M -F FASTQ -1 bad.txt:good ref.k$(K).ctx
 	gzip -d good.fq.gz
 	cat ref.txt
 	cat bad.txt
@@ -68,14 +72,14 @@ good.fq: bad.txt ref.k$(K).ctx
 
 # input: fastq output: fastq
 fix.fq: rand.fq ref.k$(K).ctx
-	$(CTX) correct -m 10M -F FASTQ -1 rand.fq:fix ref.k9.ctx
+	$(CTX) correct -t 1 -m 10M -F FASTQ -1 rand.fq:fix ref.k$(K).ctx
 	gzip -d fix.fq.gz
 	cat ref.txt
 	cat rand.fq
 	cat fix.fq
 
 indels.good.fq: indels.bad.fq
-	$(CTX) correct -m 10M -F FASTQ -1 $<:indels.good ref.k9.ctx
+	$(CTX) correct -t 1 -m 10M -F FASTQ -1 $<:indels.good ref.k$(K).ctx
 	gzip -d indels.good.fq.gz
 	@echo == in ==
 	cat $<
