@@ -168,7 +168,7 @@ static inline uint32_t bklk3_hashlittle(const BinaryKmer bkmer, uint32_t initval
 
   const uint32_t *k = (const uint32_t *)bkmer.b;    /* read 32-bit chunks */
 
-  // #if BKMER_BYTES > 12
+  #if BKMER_BYTES > 12
     /*------ all but last block: aligned reads and affect 32 bits of (a,b,c) */
     size_t i;
     for(i = 0; i+12 < BKMER_BYTES; i += 12)
@@ -179,7 +179,7 @@ static inline uint32_t bklk3_hashlittle(const BinaryKmer bkmer, uint32_t initval
       bklk3_mix(a, b, c);
       k += 3;
     }
-  // #endif
+  #endif
 
   #if (BKMER_BYTES % 12 == 0) && (BKMER_BYTES > 0)
     a += k[0];
