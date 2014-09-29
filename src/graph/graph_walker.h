@@ -6,11 +6,15 @@
 #include "gpath_store.h"
 #include "gpath_follow.h"
 
+#include "madcrowlib/madcrow_list.h"
+
 typedef struct
 {
   uint8_t inleft:1, outleft:1, inright:1, outright:1;
   size_t num_nodes;
 } GraphSection;
+
+madcrow_list(gsec_list,GSecList,GraphSection);
 
 // Result from graph_walker_choose
 typedef struct
@@ -100,18 +104,23 @@ void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
 
 // Jump to a new node within the current sample supernode
 // (can actually be any node up until the end of the current supernode)
-void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer);
+void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey,
+                                   BinaryKmer bkmer, size_t num_nodes);
 
 // return 1 on success, 0 otherwise
 bool graph_walker_next(GraphWalker *wlk);
 bool graph_walker_next_nodes(GraphWalker *wlk, size_t num_next,
                              const dBNode nodes[4], const Nucleotide bases[4]);
 
+/**
+ * Pick up counter paths for missing information check
+ * @param prev_nodes nodes before wlk->node, oriented away from wlk->node
+ *        i.e. the nodes you would reach if you walked from
+ *        db_node_reverse(wlk->node)
+*/
 void graph_walker_add_counter_paths(GraphWalker *wlk,
-                                    hkey_t prev_nodes[4],
-                                    Orientation prev_orients[4],
+                                    const dBNode prev_nodes[4],
                                     size_t num_prev);
-
 // Prime for traversal
 void graph_walker_prime(GraphWalker *wlk,
                         const dBNode *block, size_t n,

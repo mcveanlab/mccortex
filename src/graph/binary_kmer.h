@@ -10,7 +10,8 @@ typedef struct {
   uint64_t b[NUM_BKMER_WORDS];
 } BinaryKmer;
 
-#define BKMER_BYTES (NUM_BKMER_WORDS * sizeof(uint64_t))
+// #define BKMER_BYTES (NUM_BKMER_WORDS * sizeof(uint64_t))
+#define BKMER_BYTES (NUM_BKMER_WORDS * 8)
 
 // BinaryKmer that is all zeros
 extern const BinaryKmer zero_bkmer;
@@ -24,9 +25,11 @@ extern const BinaryKmer zero_bkmer;
   #define binary_kmer_hash(bkmer,rehash) (CityHash32((char*)bkmer.b, BKMER_BYTES) ^ rehash)
 #else
   // Use Bob Jenkin's lookup3
-  #include "misc/lookup3.h"
-  #define binary_kmer_hash(bkmer,rehash) \
-          (uint_fast32_t)lk3_hashlittle(bkmer.b, BKMER_BYTES, (uint32_t)rehash)
+  #include "kmer_hash.h"
+  #define binary_kmer_hash(bkmer,rehash) bklk3_hashlittle(bkmer, rehash)
+  // #include "misc/lookup3.h"
+  // #define binary_kmer_hash(bkmer,rehash) \
+  //         (uint_fast32_t)lk3_hashlittle(bkmer.b, BKMER_BYTES, (uint32_t)rehash)
 #endif
 
 

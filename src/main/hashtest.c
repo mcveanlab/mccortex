@@ -37,6 +37,8 @@ int main(int argc, char **argv)
   size_t kmer_size = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
 
+  if(argc == 1) print_usage(usage, NULL);
+
   // Arg parsing
   char cmd[100], shortopts[100];
   cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
@@ -46,7 +48,7 @@ int main(int argc, char **argv)
     cmd_get_longopt_str(longopts, c, cmd, sizeof(cmd));
     switch(c) {
       case 0: /* flag set */ break;
-      case 'h': cmd_print_usage(NULL); break;
+      case 'h': print_usage(usage, NULL); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
@@ -61,10 +63,10 @@ int main(int argc, char **argv)
         kmer_size, MIN_KMER_SIZE, MAX_KMER_SIZE);
   }
 
-  if(optind+1 != argc) cmd_print_usage(NULL);
+  if(optind+1 != argc) print_usage(usage, NULL);
 
   unsigned long i, num_ops;
-  if(!parse_entire_ulong(argv[0], &num_ops))
+  if(!parse_entire_ulong(argv[optind], &num_ops))
     print_usage(usage, "Invalid <num_ops>");
 
   // Decide on memory

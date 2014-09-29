@@ -171,38 +171,53 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
   return pbuf->len - num_paths;
 }
 
+/**
+ * Pick up counter paths for missing information check
+ * @param prev_nodes nodes before wlk->node, oriented away from wlk->node
+ *        i.e. the nodes you would reach if you walked from
+ *        db_node_reverse(wlk->node)
+*/
+void graph_walker_add_counter_paths(GraphWalker *wlk,
+                                    const dBNode prev_nodes[4],
+                                    size_t num_prev)
+{
+  size_t i;
+  Nucleotide next_base = binary_kmer_last_nuc(wlk->bkmer);
+
+  // Reverse orientation, pick up paths
+  for(i = 0; i < num_prev; i++)
+    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+}
+
+
 static void _graph_walker_pickup_counter_paths(GraphWalker *wlk, Edges edges)
 {
   const dBGraph *db_graph = wlk->db_graph;
   dBNode prev_nodes[4];
   Nucleotide prev_bases[4];
-  size_t i, j, num_prev_nodes;
+  size_t i, j, num_prev;
 
   // Check if picking up paths is turned off
   if(!gpath_store_use_traverse(wlk->gpstore)) return;
   if(edges_get_indegree(edges, wlk->node.orient) == 0) return;
 
-  num_prev_nodes = db_graph_next_nodes(db_graph, wlk->bkey,
-                                       !wlk->node.orient, edges,
-                                       prev_nodes, prev_bases);
+  num_prev = db_graph_next_nodes(db_graph, wlk->bkey,
+                                 !wlk->node.orient, edges,
+                                 prev_nodes, prev_bases);
 
   // If we have the ability, slim down nodes by those in this colour
   if(db_graph->node_in_cols != NULL) {
-    for(i = j = 0; i < num_prev_nodes; i++) {
+    for(i = j = 0; i < num_prev; i++) {
       if(db_node_has_col(db_graph, prev_nodes[i].key, wlk->ctxcol)) {
         prev_nodes[j] = prev_nodes[i];
         prev_bases[j] = prev_bases[i];
         j++;
       }
     }
-    num_prev_nodes = j;
+    num_prev = j;
   }
 
-  Nucleotide next_base = binary_kmer_last_nuc(wlk->bkmer);
-
-  // Reverse orientation, pick up paths
-  for(i = 0; i < num_prev_nodes; i++)
-    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+  graph_walker_add_counter_paths(wlk, prev_nodes, num_prev);
 }
 
 static void _graph_walker_pickup_counter_paths_with_mask(GraphWalker *wlk,
@@ -624,12 +639,16 @@ static void _graph_walker_force_jump(GraphWalker *wlk, hkey_t hkey,
   pickup_paths(wlk, wlk->node, false, 0);
 }
 
-// Jump to a new node within the current sample supernode
-// (can actually be any node up until the end of the current supernode)
-// If fork is true, node is the result of taking a fork -> slim down paths
-// prev is array of nodes with edges to the node we are moving to
-void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkmer)
+/**
+ * Jump to a new node within the current sample supernode
+ * (can actually be any node up until the end of the current supernode)
+ * @param num_nodes is number of nodes we have moved forward
+ */
+void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey,
+                                   BinaryKmer bkmer, size_t num_nodes)
 {
+  (void)num_nodes; // TODO: counting not implemented yet
+
   #ifdef CTXCHECKS
     // This is just a sanity test
     Edges edges = db_node_get_edges(wlk->db_graph, hkey, 0);
@@ -644,7 +663,7 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey, BinaryKmer bkm
 }
 
 void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
-                          bool is_fork)
+                        bool is_fork)
 {
   ctx_assert(hkey != HASH_NOT_FOUND);
   BinaryKmer bkmer;
@@ -689,8 +708,11 @@ bool graph_walker_next(GraphWalker *wlk)
 //
 
 // Fast traverse - avoid a bkmer_revcmp
-static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
-                                      const dBNode next_node, bool is_fork)
+static inline void _graph_walker_fast(GraphWalker *wlk,
+                                      const dBNode prev_node,
+                                      const dBNode next_node,
+                                      bool is_fork,
+                                      size_t num_nodes)
 {
   const size_t kmer_size = wlk->db_graph->kmer_size;
   BinaryKmer bkmer, bkey;
@@ -698,6 +720,8 @@ static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
 
   // Only one path between two nodes
   if(db_nodes_are_equal(wlk->node, prev_node)) {
+    // num_nodes is 0 is starting new supernode, 1 if end of 2 node supernode
+    ctx_assert2(num_nodes <= 1, "%zu", num_nodes);
     nuc = db_node_get_last_nuc(next_node, wlk->db_graph);
     graph_walker_force(wlk, next_node.key, nuc, is_fork);
   }
@@ -705,7 +729,7 @@ static inline void _graph_walker_fast(GraphWalker *wlk, const dBNode prev_node,
     // jumping to the end of a supernode
     bkey = db_node_get_bkmer(wlk->db_graph, next_node.key);
     bkmer = bkmer_oriented_bkmer(bkey, next_node.orient, kmer_size);
-    graph_walker_jump_along_snode(wlk, next_node.key, bkmer);
+    graph_walker_jump_along_snode(wlk, next_node.key, bkmer, num_nodes);
   }
 
   // char tmpbkmer[MAX_KMER_SIZE+1];
@@ -723,10 +747,12 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
                                 bool forward)
 {
   if(n == 0) return;
-  // Only one colour should be loaded
-  ctx_assert(wlk->db_graph->num_of_cols == 1);
 
-  size_t i;
+  // Only one colour should be loaded
+  // (so we don't have to use union edges to figure out forks in given colour)
+  ctx_assert(wlk->db_graph->num_edge_cols == 1);
+
+  size_t i, supnode_start = 0;
   bool infork[3] = {false, false, false}, outfork[3] = {false, false, false};
   Edges edges;
   dBNode nodes[3];
@@ -743,19 +769,21 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
   for(i = 0; i+1 < n; i++)
   {
-    // printf("i: %zu %zu:%i\n", i, (size_t)nodes[1].key, (int)nodes[1].orient);
     nodes[2] = forward ? arr[i+1] : db_node_reverse(arr[n-i-2]);
 
     edges = db_node_get_edges(wlk->db_graph, nodes[2].key, 0);
     outfork[2] = edges_get_outdegree(edges, nodes[2].orient) > 1;
     infork[2] = edges_get_indegree(edges, nodes[2].orient) > 1;
 
+    if(outfork[0] || infork[1])
+      supnode_start = i;
+
     // Traverse nodes[i] if:
     // - previous node had out-degree > 1 (update/drop paths)
     // - current node has in-degree > 1 (pick up counter-paths + merge in new paths)
     // - next node has in-degree > 1 (pickup paths)
     if(outfork[0] || infork[1] || infork[2]) {
-      _graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
+      _graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0], i - supnode_start);
     }
 
     // Rotate edges, nodes
@@ -764,8 +792,11 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
     nodes[0] = nodes[1]; nodes[1] = nodes[2];
   }
 
+  if(outfork[0] || infork[1])
+    supnode_start = i;
+
   // Traverse last node
-  _graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0]);
+  _graph_walker_fast(wlk, nodes[0], nodes[1], outfork[0], i - supnode_start);
 }
 
 // Traversal of every node in a list of nodes using the supplied GraphWalker
@@ -815,8 +846,8 @@ void graph_walker_prime(GraphWalker *wlk,
   else { node0 = db_node_reverse(block[n-1]); }
 
   graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0);
-  // graph_walker_fast_traverse(wlk, block, n-1, forward);
-  graph_walker_slow_traverse(wlk, block, n-1, forward);
+  graph_walker_fast_traverse(wlk, block, n-1, forward);
+  // graph_walker_slow_traverse(wlk, block, n-1, forward);
 
   // For debugging
   // graph_walker_print_state(wlk, stderr);
