@@ -118,7 +118,7 @@ static void test_contig_ends_agree()
   // Read pair XXX <gap> YYYY
   // Should fail graph_walker_agrees_contig() test
 
-  // mutations:   1               2                       3
+  // mutations:   1               2                            3
   char seqa[] = "CCGATTAAAGGGTTACTATAGCACAGGAATGGTCTGGCCTGTAAGAAGTCCAGCTTC"; // a
   char seqb[] = "CAGATTAAAGGGTTACTGTAGCACAGGAATGGTCTGGCCTGTAAGATGTCCAGCTTC"; // b
 

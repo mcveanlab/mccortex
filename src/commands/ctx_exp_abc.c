@@ -312,9 +312,9 @@ static void run_exp_abc(const dBGraph *db_graph, bool prime_AB,
   util_print_nums(titles, results, NUM_RESULT_VALUES, 30);
 
   status("AB_FAILED:");
-  graph_walker_print_state_hist(ab_fail_state);
+  graph_step_print_state_hist(ab_fail_state);
   status("BC_FAILED:");
-  graph_walker_print_state_hist(bc_fail_state);
+  graph_step_print_state_hist(bc_fail_state);
 
   ctx_free(wrkrs);
 }

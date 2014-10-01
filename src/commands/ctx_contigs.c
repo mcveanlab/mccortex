@@ -14,19 +14,21 @@ const char contigs_usage[] =
 "\n"
 "  Assemble contigs from the graph, print statistics\n"
 "\n"
-"  -h, --help           This help message\n"
-"  -q, --quiet          Silence status output normally printed to STDERR\n"
-"  -f, --force          Overwrite output files\n"
-"  -m, --memory <mem>   Memory to use\n"
-"  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -t, --threads <T>    Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -o, --out <out.fa>   Print contigs in FASTA [default: don't print]\n"
-"  -c, --colour <c>     Pull out contigs from the given colour [default: 0]\n"
-"  -p, --paths <in.ctp> Load path file (can specify multiple times)\n"
-"  -N, --ncontigs <N>   Pull out <N> contigs from random kmers [default: 0, no limit]\n"
-"  -s, --seed <in.fa>   Use seed kmers from a file. Reads must be of kmer length\n"
-"  -r, --reseed         Sample seed kmers with replacement\n"
-"  -R, --no-reseed      Do not use a seed kmer if it is used in a contig [default]\n"
+"  -h, --help            This help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
+"  -f, --force           Overwrite output files\n"
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <N>      Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -o, --out <out.fa>    Print contigs in FASTA [default: don't print]\n"
+"  -c, --colour <c>      Pull out contigs from the given colour [default: 0]\n"
+"  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
+"  -N, --ncontigs <N>    Pull out <N> contigs from random kmers [default: 0, no limit]\n"
+"  -s, --seed <in.fa>    Use seed kmers from a file. Reads must be of kmer length\n"
+"  -r, --reseed          Sample seed kmers with replacement\n"
+"  -R, --no-reseed       Do not use a seed kmer if it is used in a contig [default]\n"
+"  -L, --read-length <R> Expected read length for calc. contig confidences\n"
+"  -C, --coverage <C>    Expected coverage for calc. contig confidences\n"
 "\n";
 
 static struct option longopts[] =
@@ -47,6 +49,8 @@ static struct option longopts[] =
   {"ncontigs",     required_argument, NULL, 'N'},
   {"colour",       required_argument, NULL, 'c'},
   {"color",        required_argument, NULL, 'c'},
+  {"read-length",  required_argument, NULL, 'L'},
+  {"coverage",     required_argument, NULL, 'C'},
   {NULL, 0, NULL, 0}
 };
 
@@ -57,6 +61,10 @@ int ctx_contigs(int argc, char **argv)
   const char *out_path = NULL;
   size_t i, contig_limit = 0, colour = 0;
   bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
+
+  // Read length and expected coverage for calculating confidences
+  size_t exp_read_length = 0;
+  double exp_avg_bp_covg = -1;
 
   seq_file_t *tmp_seed_file = NULL;
   SeqFilePtrBuffer seed_buf;
@@ -102,6 +110,8 @@ int ctx_contigs(int argc, char **argv)
         contig_limit = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'c': cmd_check(!colour,cmd); colour = cmd_uint32(cmd, optarg); break;
+      case 'L': cmd_check(!exp_read_length,cmd); exp_read_length = cmd_size(cmd, optarg); break;
+      case 'C': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" contigs -h` for help. Bad option: %s", argv[optind-1]);
@@ -141,6 +151,14 @@ int ctx_contigs(int argc, char **argv)
   // Check for compatibility between graph files and path files
   // pop_colour is colour 1
   graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, 1);
+
+  if(!exp_read_length) {
+    exp_read_length = gfile.hdr.ginfo[0].mean_read_length;
+  }
+  if(exp_avg_bp_covg < 0) {
+    if(gfile.num_of_kmers <= 0) die("Please pass --coverage <R> if streaming");
+    exp_avg_bp_covg = gfile.hdr.ginfo[0].total_sequence / gfile.num_of_kmers;
+  }
 
   //
   // Decide on memory
@@ -216,6 +234,7 @@ int ctx_contigs(int argc, char **argv)
   assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
                    contig_limit, visited,
                    fout, out_path, &assem_stats,
+                   exp_read_length, exp_avg_bp_covg,
                    &db_graph, 0); // Sample always loaded into colour zero
 
   if(fout && fout != stdout) fclose(fout);

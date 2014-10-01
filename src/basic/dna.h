@@ -36,4 +36,7 @@ char* dna_rand_str(char *str, size_t len);
 // compare a with the reverse complement of b
 int dna_revncasecmp(const char *a, const char *b, size_t len);
 
+// out must be at least 11 bytes long: "A, C, G, T"
+size_t dna_bases_list_to_str(const bool bases[4], char *out);
+
 #endif /* DNA_H_ */

@@ -1,0 +1,262 @@
+Cortex Graph File Format v7
+
+Note: this is a proposal
+Isaac Turner
+2014-09-17
+
+Extension: .ctx
+Version: 7
+
+{
+  "fileFormat": "CtxGraph",
+  "formatVersion":  7,
+  "fileid": "a1c6b3f2e9864b2c",
+  "kmer_size": 15,
+  "ncols":  1,
+  "sorted": true,
+  "idx_kmers_per_bckt": 2048,
+  "colours":  [{
+      "colour": 0,
+      "sample": "WTCHG_101",
+      "inferred_edges": false,
+      "colourid": "7621b712cf5434a1"
+    }],
+  "commands": [{
+      "key":  "6d8e1b05",
+      "cmd":  ["../../bin/ctx31", "build", "--sample", "RoadRunner", "-1", "in.sam", "-1", "thing.sam", "mix.k11.ctx"],
+      "cwd":  "/Users/isaac/ninja-cortex/",
+      "outpath":  "/Users/isaac/ninja-cortex/mix.k11.ctx",
+      "date": "2014-09-18 00:38:28",
+      "cortex": "v0.0.3-83-g267b955",
+      "htslib": "1.0-11-g830ea73",
+      "zlib": "1.2.5",
+      "user": "isaac",
+      "host": "montag",
+      "os": "Darwin",
+      "osrelease":  "13.3.0",
+      "osversion":  "Darwin Kernel Version 13.3.0: Tue Jun  3 21:27:35 PDT 2014; root:xnu-2422.110.17~1/RELEASE_X86_64",
+      "hardware": "x86_64",
+      "prev": [],
+      "build": {
+        "colours": [
+          {"sample": "RoadRunner",
+           "files": [{"paths": ["/asdf/in.sam"],
+                      "sources": [{"SM": 101, "CN": "WTCHG"}, {}],
+                      "total_bases": 31231231231,
+                      "bases_used": 31231231231,
+                      "num_se_reads": 123123123,
+                      "num_pe_reads": 12312312,
+                      "dup_se_reads": 0,
+                      "dup_pe_pairs": 0,
+                      "num_good_reads": 12,
+                      "num_bad_reads": 12,
+                      "num_contigs": 1231231231,
+                      "num_kmers_parsed": 123123123
+                      "num_kmers_loaded": 123123123
+                      "num_kmers_novel": 123123123
+                     },
+                    {"paths": ["/asdf/thing.sam"],
+                      "sources": [{"SM": 101, "CN": "WTCHG"}, {}],
+                      "total_bases": 31231231231,
+                      "bases_used": 31231231231,
+                      "num_se_reads": 123123123,
+                      "num_pe_reads": 12312312,
+                      "dup_se_reads": 0,
+                      "dup_pe_pairs": 0,
+                      "num_good_reads": 12,
+                      "num_bad_reads": 12,
+                      "num_contigs": 1231231231,
+                      "num_kmers_parsed": 123123123
+                      "num_kmers_loaded": 123123123
+                      "num_kmers_novel": 123123123
+                     }]
+           },
+          {},
+          {}
+        ]
+      }
+    }]
+}\n\0
+<8:kmers_offset>                Offset of first kmer entry
+<X:padding_with_zeros>
+[ <B:kmer> [ <4:coverages> ]xcols [ <1:edges> ]xcols ]xN  kmer entries
+<8:ones>[ <5:zeros> ]xcols      Spacer 8 bytes 0xff then 5xcols bytes 0x00
+[ <B:kmer><8:byte_offset> ]xD   Index entries
+<8:ones><8:zeros>               Spacer 8 bytes 0xff then 8 bytes 0x00
+<8:kmers_offset>                Offset of first kmer entry
+<8:idx_offset>                  Offset of first index entry
+
+typedef struct {
+  BinaryKmer bkmer;
+  uint64_t offset;
+} GFileIdxEntry;
+
+typedef struct {
+  cJSON *hdr_json;
+  const char *hdr_txt;
+  FILE *fh;
+  StreamBuffer iobuf;
+  FileFilter fltr;
+  off_t file_size;
+  bool sorted, has_idx;
+  ssize_t header_len, kmer_offset, idx_offset;
+  GFileIdxEntryBuf idx;
+} GraphFile;
+
+
+Key
+---
+
+B    - number of bytes to store a binary kmer: ceil(k/4) (2 bits per base)
+cols - number of colours in the graph file
+D    - number of buckets used by the index
+
+1. Header
+---------
+Header is json text ending '}\n\0', after which is an 8 byte integer storing
+the size of the header, followed by padded with NUL bytes (0). This facilitates
+quick reheadering operations. Also allows header to be read simply with
+less, cat etc.
+
+1.1 Required fields
+-------------------
+
+  "fileFormat": "CtxGraph",
+  "formatVersion":  7,
+  "fileid": "a1c6b3f2e9864b2c",
+  "kmer_size": 15,
+  "ncols":  1,
+
+"fileid" is a random generated 16 digit hexadecimal key used to identify this
+file. This should be regenerated everytime the file content is modified.
+
+If there is an index, '"sorted": true' is required.
+Index bucket size, if fixed, may be reported in the header, but this is optional:
+
+  "idx_kmers_per_bckt": 2048
+
+Colours must be reported with fields:
+
+  "colours":  [{
+      "colour": 0,
+      "sample": "WTCHG_101",
+      "inferred_edges": false,
+      "colourid": "7621b712cf5434a1"
+    }],
+
+colourid, similar to fileid, is a random 16 digit hex number that is changed
+every time the content of colour is changed. inferred_edges indicates if ALL
+edges have been inferred in the sample.
+
+2. Kmer Entries
+---------------
+
+Kmer entries are of a fixed size for a given kmer size and number of colour
+
+kmer entry size in bytes = ceil(k/4) + (1+4) * num_of_cols
+
+Kmer entries end with an invalid kmer entry:
+
+<kmer of all bits set><edges and coverages zero'd>
+
+
+2.1 Kmer
+--------
+Each kmer uses ceil(k/4) bytes where k is the "kmersize" field from the header.
+Most significant byte first (k=15 example): 0ACT ACGG GATA CTCA
+
+2.2 Coverages
+-------------
+Coverage is a 32 bit unsigned integer. There is one for each colour.
+
+2.3 Edges
+---------
+An 'Edge' is an 8 bit byte.  Each kmer has one of them for each colour, where
+number of colours is the "num_colours" field from the header.
+The top 4 most significant bits represent edges to the left of the kmer and the
+4 least significant bits represent edges to the right of the kmer.  
+
+Example: Kmer ACCGT has edge char 10100100 (i.e. 164 in decimal, or 0xA4 in hex)
+
+  10100100
+  | |  |
+  tgcaACGT  (lowercase means before kmer, uppercase means after)
+  t c  C
+
+so this kmer if preceeded by a T or C and followed by a C: [TC]ACCGT[C]
+
+3. Index
+--------
+
+Each entry in the index contains a binary kmer as enconded for kmer entries,
+followed by an 8 byte unsigned integer that stores the byte offset of that kmer
+in this file, relative to the start of kmer entries (i.e. <kmers_offset>).
+
+4. Footer
+---------
+
+There are two 8 byte numbers stored at the end of the file:
+
+<8:kmers_offset>                Offset of first kmer entry
+<8:idx_offset>                  Offset of first index entry
+
+From which we can calculate:
+
+kmer_bytes is <idx_offset> - <kmers_offset> - 8
+index length is file_length - <idx_offset> - 8*4
+
+5. Endianness
+-------------
+
+All binary numbers are unsigned integers stored in little endian format.
+
+6. Final Notes
+--------------
+
+This file format is designed so it can be streamed and also supports random
+access through sorting and indexing (without using external files). End-of-file
+markers also give a warning if the file is truncated.
+
+7. Modifications to this spec
+-----------------------------
+
+Jerome recommends against adding an index. If the file is sorted binary search
+is fast enough without an index in memory. Can run fseek test to check this.
+
+
+Pseudo code for multithreaded loading
+-------------------------------------
+
+void load_mt(gfile, worker)
+{
+  ctx_assert2(idx_offset > 0, "Must have loaded index position");
+  bool loop = true;
+  size_t block_size = 4*ONE_MEGABYTE;
+  uint8_t *block = ctx_malloc(blockck_size);
+
+  while(loop) {
+    pthread_mutex_lock(worker->lock);
+    long pos = tell(gfile->fh);
+    if(pos < idx_offset) {
+      size_t len = MIN2(block_size, idx_offset - pos);
+      fread(gfile->fh, block);
+      loop = load_kmer_block(block, len);
+      if(pos + block_size + 8 < idx_offset && !loop) die("Early end block");
+    }
+    else loop = false;
+    pthread_mutex_unlock(worker->lock);
+  }
+  ctx_free(block);
+}
+
+void load()
+{
+  bool loop = true;
+  size_t block_size = 4*ONE_MEGABYTE;
+  uint8_t *block = ctx_malloc(blockck_size);
+
+  while(loop && (len = fread(gfile->fh, block, block_size)) > 0) {
+    loop = load_kmer_block(block, len);
+  }
+  ctx_free(block);
+}

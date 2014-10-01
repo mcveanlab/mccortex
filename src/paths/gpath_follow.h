@@ -12,7 +12,7 @@ struct GPathFollowStruct
   uint32_t age;
   // A small buffer of upcoming 24 bases
   uint16_t first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
-  uint8_t cache[6]; // first..first+24-1 (24 bases)
+  uint8_t cache[6]; // first..first+23 (24 bases)
 } __attribute__((packed));
 
 typedef struct GPathFollowStruct GPathFollow;

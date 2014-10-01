@@ -3,6 +3,8 @@ Paths File Format
 Extension: .ctp
 Version in use: 1
 
+NOTE: This file format is no longer used or supported (Wed 1 Oct 2014) - Isaac
+
 Paths File Format Version 1:
 
 Informally:

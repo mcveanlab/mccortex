@@ -122,6 +122,18 @@ uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
                                    dBNode node, int colour,
                                    dBNode nodes[4], Nucleotide fw_nucs[4]);
 
+/**
+ * Get previous nodes in this colour, ignoring the the node we just came from
+ * @param node      Current node
+ * @param lost_nuc  The first nucleotide of the previous BinaryKmer - the one
+ *                  that was lost when traversing to the current node
+ * @param colour    Filter down to nodes only in this colour (if >= 0)
+ */
+uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
+                                      Nucleotide lost_nuc, int colour,
+                                      dBNode prev_nodes[4],
+                                      Nucleotide prev_bases[4]);
+
 // Check kmer size of a file
 void db_graph_check_kmer_size(size_t kmer_size, const char *path);
 

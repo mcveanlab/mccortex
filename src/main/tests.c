@@ -31,6 +31,7 @@ int main(int argc, char **argv)
     test_cleaning();
     test_paths();
     // test_path_sets(); // DEV: replace with test_path_subset()
+    test_graph_walker();
     test_corrected_aln();
     test_repeat_walker();
     test_graph_crawler();

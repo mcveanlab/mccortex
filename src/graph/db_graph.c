@@ -290,6 +290,54 @@ uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
   return count;
 }
 
+/**
+ * Get previous nodes in this colour, ignoring the the node we just came from
+ * @param node      Current node
+ * @param lost_nuc  The first nucleotide of the previous BinaryKmer - the one
+ *                  that was lost when traversing to the current node
+ * @param colour    Filter down to nodes only in this colour (if >= 0)
+ */
+uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
+                                      Nucleotide lost_nuc, int colour,
+                                      dBNode prev_nodes[4],
+                                      Nucleotide prev_bases[4])
+{
+  Edges edges, prev_edge;
+  edges = db_node_get_edges(db_graph, node.key, 0);
+
+  // Remove edge to kmer we came from
+  // Can slim down the number of nodes to look up if we can rule out
+  // the node we just came from
+  lost_nuc = dna_nuc_complement(lost_nuc);
+  prev_edge = nuc_orient_to_edge(lost_nuc, rev_orient(node.orient));
+
+  // Some sanity checks
+  ctx_assert(edges & prev_edge);
+  edges &= ~prev_edge;
+
+  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
+
+  uint8_t i, j, num_prev;
+
+  num_prev = db_graph_next_nodes(db_graph, bkey,
+                                 rev_orient(node.orient), edges,
+                                 prev_nodes, prev_bases);
+
+  // If we have the ability, slim down nodes by those in this colour
+  if(colour >= 0 && db_graph->node_in_cols != NULL) {
+    for(i = j = 0; i < num_prev; i++) {
+      if(db_node_has_col(db_graph, prev_nodes[i].key, colour)) {
+        prev_nodes[j] = prev_nodes[i];
+        prev_bases[j] = prev_bases[i];
+        j++;
+      }
+    }
+    num_prev = j;
+  }
+
+  return num_prev;
+}
+
 //
 //
 //

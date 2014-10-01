@@ -13,12 +13,12 @@ static inline void walk_supernode_end(const GraphCache *cache,
   const dBNode *last = graph_cache_last_node(cache, snode);
   dBNode lastnode;
   BinaryKmer last_bkmer;
-  size_t index = last - first;
+  size_t num_nodes = last - first;
 
-  if(index > 0) {
+  if(num_nodes > 0) {
     lastnode = (snorient == FORWARD ? *last : db_node_reverse(*first));
     last_bkmer = db_node_oriented_bkmer(wlk->db_graph, lastnode);
-    graph_walker_jump_along_snode(wlk, lastnode.key, last_bkmer, index);
+    graph_walker_jump_along_snode(wlk, lastnode.key, last_bkmer, num_nodes);
   }
 }
 

@@ -6,6 +6,7 @@
 #include "async_read_io.h"
 #include "util.h"
 #include "file_util.h"
+#include "contig_confidence.h"
 
 void assemble_contigs_stats_init(AssembleContigStats *stats)
 {
@@ -45,12 +46,10 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
 
   for(i = 0; i < AC_MAX_PATHS; i++) {
     dst->paths_held[i] += src->paths_held[i];
-    dst->paths_new[i]  += src->paths_new[i];
     dst->paths_cntr[i] += src->paths_cntr[i];
   }
 
   dst->paths_held_max = MAX2(dst->paths_held_max, src->paths_held_max);
-  dst->paths_new_max  = MAX2(dst->paths_new_max,  src->paths_new_max);
   dst->paths_cntr_max = MAX2(dst->paths_cntr_max, src->paths_cntr_max);
 
   for(i = 0; i < GRPHWLK_NUM_STATES; i++)
@@ -64,12 +63,26 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
 
 #define PREFIX "[Assembled] "
 
-static inline void _print_grphwlk_state(const char *str, uint64_t num,
-                                        size_t num_contigs)
+static inline void pad_str(char *str, char c, size_t minlen)
 {
-  char nout_str[50];
-  status(PREFIX"  %s: %s\t[ %2zu%% ]", str, ulong_to_str(num, nout_str),
-         !num_contigs ? 0 : (size_t)(((100.0*num)/num_contigs)+0.5));
+  size_t len = strlen(str);
+  if(len < minlen) {
+    size_t shift = minlen - len;
+    memmove(str+shift, str, len+1); // +1 to copy nul byte
+    memset(str, c, shift);
+  }
+}
+
+static inline void _print_grphwlk_state(const char *str, uint64_t nom,
+                                        size_t denom)
+{
+  char nom_str[100], denom_str[100];
+  ulong_to_str(nom, nom_str);
+  ulong_to_str(denom, denom_str);
+  pad_str(nom_str, ' ', 15);
+  pad_str(denom_str, ' ', 15);
+  status(PREFIX"  %s: %s / %s\t[ %2zu%% ]", str, nom_str, denom_str,
+         !denom ? 0 : (size_t)(((100.0*nom)/denom)+0.5));
 }
 
 static inline void _print_path_dist(const uint64_t *hist, size_t n,
@@ -170,7 +183,6 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   message("\n");
 
   _print_path_dist(s->paths_held, AC_MAX_PATHS, "Paths held",    ncontigs);
-  _print_path_dist(s->paths_new,  AC_MAX_PATHS, "Paths pickdup", ncontigs);
   _print_path_dist(s->paths_cntr, AC_MAX_PATHS, "Paths counter", ncontigs);
 
   const uint64_t *states = s->grphwlk_steps;
@@ -188,6 +200,8 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
 
   size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
                  states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];
+
+  ctx_assert(s->total_junc == states[GRPHWLK_USEPATH]);
 
   status(PREFIX"Junctions:");
   _print_grphwlk_state("Paths resolved", states[GRPHWLK_USEPATH], njunc);
@@ -208,6 +222,7 @@ typedef struct
   uint8_t *visited;
   const dBGraph *db_graph;
   size_t colour;
+  const ContigConfidenceTable *conf_table;
 
   // Output
   FILE *fout;
@@ -215,7 +230,7 @@ typedef struct
 } Assembler;
 
 // Returns 0 if keep iterating, 1 if hit assem->contig_limit
-static int pulldown_contig(hkey_t hkey, Assembler *assem)
+static int _pulldown_contig(hkey_t hkey, Assembler *assem)
 {
   AssembleContigStats *stats = &assem->stats;
   const dBGraph *db_graph = assem->db_graph;
@@ -236,12 +251,15 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
   dBNode first_node = {.key = hkey, .orient = FORWARD};
   Orientation orient;
   size_t i, njunc = 0;
+  GraphStep step;
 
   db_node_buf_reset(nodes);
   db_node_buf_add(nodes, first_node);
 
-  size_t paths_held[2] = {0}, paths_new[2] = {0}, paths_cntr[2] = {0};
+  size_t paths_held[2] = {0}, paths_cntr[2] = {0};
   uint8_t wlk_step_last[2] = {0};
+  size_t max_step_gap[2] = {0, 0};
+  double gap_conf[2] = {1, 1};
 
   for(orient = 0; orient < 2; orient++)
   {
@@ -255,7 +273,17 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     while(graph_walker_next(wlk) && rpt_walker_attempt_traverse(rptwlk, wlk))
     {
       db_node_buf_add(nodes, wlk->node);
-      stats->grphwlk_steps[wlk->last_step.status]++;
+
+      // Do some stats
+      step = wlk->last_step;
+      stats->grphwlk_steps[step.status]++;
+
+      if(step.status == GRPHWLK_USEPATH) {
+        ctx_assert(step.path_gap > 0);
+        size_t read_length = step.path_gap + db_graph->kmer_size-1 + 2;
+        max_step_gap[orient] = MAX2(max_step_gap[orient], read_length);
+        gap_conf[orient] *= conf_table_lookup(assem->conf_table, read_length);
+      }
     }
 
     // Grab some stats
@@ -263,7 +291,6 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
 
     // Record numbers of paths
     paths_held[orient] = wlk->paths.len;
-    paths_new[orient]  = wlk->new_paths.len;
     paths_cntr[orient] = wlk->cntr_paths.len;
 
     // Get failed status
@@ -292,12 +319,12 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
 
     // We have reversed the contig, so left end is now the end we hit when
     // traversing from the seed node forward... FORWARD == 0, REVERSE == 1
-    graph_walker_status2str(wlk_step_last[0], left_stat, sizeof(left_stat));
-    graph_walker_status2str(wlk_step_last[1], rght_stat, sizeof(rght_stat));
+    graph_step_status2str(wlk_step_last[0], left_stat, sizeof(left_stat));
+    graph_step_status2str(wlk_step_last[1], rght_stat, sizeof(rght_stat));
 
     // If end status is healthy, then we got stuck in a repeat
-    if(grphwlk_status_is_good(wlk_step_last[0])) strcpy(left_stat, "HitRepeat");
-    if(grphwlk_status_is_good(wlk_step_last[1])) strcpy(rght_stat, "HitRepeat");
+    if(grap_step_status_is_good(wlk_step_last[0])) strcpy(left_stat, "HitRepeat");
+    if(grap_step_status_is_good(wlk_step_last[1])) strcpy(rght_stat, "HitRepeat");
 
     pthread_mutex_lock(assem->outlock);
     contig_id = assem->num_contig_ptr[0]++;
@@ -306,11 +333,13 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
     {
       // Print in FASTA format with additional info in name
       fprintf(assem->fout, ">contig%zu len=%zu seed=%s "
-              "lf.status=%s lf.paths.held=%zu lf.paths.new=%zu lf.paths.cntr=%zu "
-              "rt.status=%s rt.paths.held=%zu rt.paths.new=%zu rt.paths.cntr=%zu\n",
+              "lf.status=%s lf.paths.held=%zu lf.paths.cntr=%zu "
+              "lf.max_gap=%zu lf.conf=%f "
+              "rt.status=%s rt.paths.held=%zu rt.paths.cntr=%zu "
+              "rf.max_gap=%zu rf.conf=%f\n",
               contig_id, nodes->len, kmer_str,
-              left_stat, paths_held[0], paths_new[0], paths_cntr[0],
-              rght_stat, paths_held[1], paths_new[1], paths_cntr[1]);
+              left_stat, paths_held[0], paths_cntr[0], max_step_gap[0], gap_conf[0],
+              rght_stat, paths_held[1], paths_cntr[1], max_step_gap[1], gap_conf[1]);
 
       db_nodes_print(nodes->data, nodes->len, db_graph, assem->fout);
       putc('\n', assem->fout);
@@ -333,10 +362,8 @@ static int pulldown_contig(hkey_t hkey, Assembler *assem)
   for(orient = 0; orient < 2; orient++) {
     stats->grphwlk_steps[wlk_step_last[orient]]++;
     stats->paths_held[MIN2(paths_held[orient], AC_MAX_PATHS-1)]++;
-    stats->paths_new [MIN2(paths_new[orient],  AC_MAX_PATHS-1)]++;
     stats->paths_cntr[MIN2(paths_cntr[orient], AC_MAX_PATHS-1)]++;
     stats->paths_held_max = MAX2(stats->paths_held_max, paths_held[orient]);
-    stats->paths_new_max  = MAX2(stats->paths_new_max,  paths_new[orient]);
     stats->paths_cntr_max = MAX2(stats->paths_cntr_max, paths_cntr[orient]);
   }
 
@@ -373,7 +400,7 @@ static inline void _seed_rnd_kmers(void *arg)
   const dBGraph *db_graph = assem->db_graph;
 
   HASH_ITERATE_PART(&db_graph->ht, assem->threadid, assem->nthreads,
-                    pulldown_contig, assem);
+                    _pulldown_contig, assem);
 }
 
 static void _seed_from_file(AsyncIOData *data, void *arg)
@@ -400,7 +427,7 @@ static void _seed_from_file(AsyncIOData *data, void *arg)
   dBNode node = db_graph_find(assem->db_graph, bkmer);
 
   if(node.key != HASH_NOT_FOUND)
-    pulldown_contig(node.key, assem);
+    _pulldown_contig(node.key, assem);
   else
     assem->stats.num_seeds_not_found++;
 }
@@ -418,10 +445,15 @@ void assemble_contigs(size_t nthreads,
                       size_t contig_limit, uint8_t *visited,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
+                      size_t read_length, double avg_bp_covg,
                       const dBGraph *db_graph, size_t colour)
 {
   ctx_assert(nthreads > 0);
   ctx_assert(!num_seed_files || seed_files);
+
+  ContigConfidenceTable conf_table;
+  conf_table_alloc(&conf_table, read_length, avg_bp_covg);
+  // conf_table_print(&conf_table);
 
   status("[Assemble] Assembling contigs with %zu threads, walking colour %zu",
          nthreads, colour);
@@ -442,6 +474,7 @@ void assemble_contigs(size_t nthreads,
                      .num_contig_ptr = &num_contigs,
                      .contig_limit = contig_limit,
                      .db_graph = db_graph, .colour = colour,
+                     .conf_table = &conf_table,
                      .visited = visited,
                      .fout = fout, .outlock = &outlock};
 
@@ -488,4 +521,6 @@ void assemble_contigs(size_t nthreads,
 
   pthread_mutex_destroy(&outlock);
   ctx_free(workers);
+
+  conf_table_dealloc(&conf_table);
 }

@@ -8,6 +8,7 @@ CTX=$(CTXDIR)/bin/ctx$(K)
 READSIM=$(CTXDIR)/libs/readsim/readsim
 ALLREADS=$(CTXDIR)/libs/readsim/perfect_covg.sh
 STRCHK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_substrings.pl
+CONTIG_STATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 
 REF=chr22.1Mbp.uniq.fa
 READLEN=100 # if we start a 100bp read at each base, coverage is 100X
@@ -26,7 +27,7 @@ TGTS=reads/stochstic.1.fa.gz reads/stochstic.2.fa.gz reads/perfect.fa.gz \
      k$(K)/perf.k$(K).ctx  k$(K)/perf.k$(K).se.ctp.gz \
      $(CONTIGS)
 
-all: $(TGTS) test_abc check_contigs
+all: $(TGTS) test_abc contig_stats contig_check
 
 # Simulate PE reads of each chrom each 50X, only use
 reads/stochstic.1.fa.gz: reads/stochstic.2.fa.gz
@@ -65,8 +66,14 @@ test_abc: $(TGTS)
 $(DIRS):
 	mkdir -p $@
 
+contig_stats: $(CONTIGS)
+	$(CONTIG_STATS) k$(K)/perf.contigs.fa
+	$(CONTIG_STATS) k$(K)/perf.contigs.rmdup.fa
+	$(CONTIG_STATS) k$(K)/stoch.contigs.fa
+	$(CONTIG_STATS) k$(K)/stoch.contigs.rmdup.fa
+
 # Check error rate
-check_contigs: $(CONTIGS)
+contig_check: $(CONTIGS)
 	$(STRCHK) $(K) 0.1 k$(K)/perf.contigs.fa $(REF)
 	$(STRCHK) $(K) 0.1 k$(K)/perf.contigs.rmdup.fa $(REF)
 	$(STRCHK) $(K) 0.1 k$(K)/stoch.contigs.fa $(REF)
@@ -75,4 +82,4 @@ check_contigs: $(CONTIGS)
 clean:
 	rm -rf $(DIRS)
 
-.PHONY: all clean check_contigs test_abc
+.PHONY: all clean contig_stats contig_check test_abc

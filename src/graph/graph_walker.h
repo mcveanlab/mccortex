@@ -5,71 +5,37 @@
 #include "db_node.h"
 #include "gpath_store.h"
 #include "gpath_follow.h"
+#include "graph_step.h"
 
 #include "madcrowlib/madcrow_list.h"
 
 typedef struct
 {
-  uint8_t inleft:1, outleft:1, inright:1, outright:1;
-  size_t num_nodes;
-} GraphSection;
+  uint32_t num_nodes:30, in_fork:1, out_fork:1;
+} GraphSegment;
 
-madcrow_list(gsec_list,GSecList,GraphSection);
-
-// Result from graph_walker_choose
-typedef struct
-{
-  // idx is -1 if failed, otherwise index of node taken [0..3]
-  int8_t idx;
-  uint8_t status;
-  bool node_has_col;
-} GraphStep;
-
-// GraphStep.status values:
-#define GRPHWLK_FORWARD       0 /* Success: only one choice */
-#define GRPHWLK_COLFWD        1 /* Success: only one choice in colour */
-#define GRPHWLK_NOCOVG        2 /* Fail: no choices */
-#define GRPHWLK_NOCOLCOVG     3 /* Fail: fork in pop but no choices in colour */
-#define GRPHWLK_NOPATHS       4 /* Fail: fork in colour, no paths */
-#define GRPHWLK_SPLIT_PATHS   5 /* Fail: fork in colour, paths split */
-#define GRPHWLK_MISSING_PATHS 6 /* Fail: fork in colour, missing info */
-#define GRPHWLK_USEPATH       7 /* Success: fork in colour, paths resolved */
-#define GRPHWLK_NUM_STATES    8
-
-#define GRPHWLK_FORWARD_STR       "GoForward"
-#define GRPHWLK_COLFWD_STR        "GoColForward"
-#define GRPHWLK_NOCOVG_STR        "FailNoCovg"
-#define GRPHWLK_NOCOLCOVG_STR     "FailNoColCovg"
-#define GRPHWLK_NOPATHS_STR       "FailNoPaths"
-#define GRPHWLK_SPLIT_PATHS_STR   "FailSplitPaths"
-#define GRPHWLK_MISSING_PATHS_STR "FailMissingPaths"
-#define GRPHWLK_USEPATH_STR       "GoUsePath"
-
-extern const char *graph_step_str[];
-
-// Was the last step resolving a split in this colour?
-#define graphstep_is_fork(stp) ((stp).status > GRPHWLK_NOCOLCOVG)
-
-// Are we still walking?
-#define grphwlk_status_is_good(stat) ((stat) <= GRPHWLK_COLFWD)
+madcrow_list(gseg_list,GSegList,GraphSegment);
 
 typedef struct
 {
-  const dBGraph *const db_graph;
-  const GPathStore *const gpstore;
-  const Colour ctxcol, ctpcol;
+  const dBGraph *db_graph;
+  const GPathStore *gpstore;
+  Colour ctxcol, ctpcol;
 
   // Current position
   dBNode node;
   BinaryKmer bkmer, bkey; // Oriented bkmer (i.e. not key) + hash bkey
 
   // Paths we are currently following
-  GPathFollowBuffer paths, new_paths, cntr_paths;
+  GPathFollowBuffer paths, cntr_paths;
+  GSegList gsegs;
 
-  // Stats
-  size_t fork_count;
+  // Statistics
+  size_t fork_count; // how many forks we have traversed
   GraphStep last_step;
 } GraphWalker;
+
+void graph_walker_print_state(const GraphWalker *wlk, FILE *fout);
 
 // Get initial memory requirement
 size_t graph_walker_est_mem();
@@ -77,10 +43,6 @@ size_t graph_walker_est_mem();
 // Need to pass number of colours in the graph
 void graph_walker_alloc(GraphWalker *wlk);
 void graph_walker_dealloc(GraphWalker *gw);
-
-char* graph_walker_status2str(uint8_t status, char *str, size_t len);
-void graph_walker_print_state_hist(const size_t arr[GRPHWLK_NUM_STATES]);
-void graph_walker_print_state(const GraphWalker *wlk, FILE *fout);
 
 // Always call finish after calling init
 void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
@@ -91,8 +53,11 @@ void graph_walker_finish(GraphWalker *wlk);
 // Hash a binary kmer + GraphWalker paths with offsets
 uint64_t graph_walker_hash64(GraphWalker *wlk);
 
-// GraphWalker is not const because we update the path junction cache
-// Returns index of choice or -1 along with status
+/**
+ * Make a choice at a junction
+ * GraphWalker is not const because we update the path junction cache
+ * @return index of choice or -1
+ */
 GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4]);
@@ -128,6 +93,14 @@ void graph_walker_prime(GraphWalker *wlk,
                         size_t ctxcol, size_t ctpcol,
                         const dBGraph *db_graph);
 
+/**
+ * Check the graph walker doesn't veer away from the given contig
+ * At each node:
+ *  a. If we can't progress -> success
+ *  b. If we can and it doesn't match what we expected -> disagrees
+ * @param forward Traverse contig forward, otherwise reverse complement nodes
+ *                 and work backwards
+ */
 bool graph_walker_agrees_contig(GraphWalker *wlk, const dBNode *block, size_t n,
                                 bool forward);
 

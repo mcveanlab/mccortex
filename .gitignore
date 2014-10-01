@@ -1,14 +1,14 @@
-bin
-build
-libs
-docs
-src/global/version.h
-tests
-benchmark
-dev
+/bin
+/build/
+/libs
+/docs
+/src/global/version.h
+/tests
+/benchmark
+/dev
 *.RData
 *.RHistory
 
-commit.txt
-notes.txt
-tests.txt
+/commit.txt
+/notes.txt
+/tests.txt

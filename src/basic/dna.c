@@ -122,3 +122,20 @@ int dna_revncasecmp(const char *a, const char *b, size_t len)
   }
   return 0;
 }
+
+// out must be at least 11 bytes long: "A, C, G, T"
+size_t dna_bases_list_to_str(const bool bases[4], char *out)
+{
+  size_t i;
+  char *str = out;
+  const char seq[] = "ACGT";
+  for(i = 0; i < 4; i++) {
+    if(bases[i]) {
+      if(str > out) { memcpy(str, ", ", 2); str += 2; }
+      *str = seq[i];
+      str++;
+    }
+  }
+  *str = '\0';
+  return str-out;
+}

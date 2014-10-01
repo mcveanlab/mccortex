@@ -42,6 +42,7 @@ void assemble_contigs(size_t nthreads,
                       size_t contig_limit, uint8_t *visited,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
+                      size_t read_length, double avg_bp_covg,
                       const dBGraph *db_graph, size_t colour);
 
 #endif /* ASSEMBLE_CONTIGS_H_ */

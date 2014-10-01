@@ -73,6 +73,9 @@ void _construct_graph_with_paths(dBGraph *graph,
                                  char **seqs, size_t nseqs,
                                  CorrectAlnParam path_params);
 
+void _tests_add_paths(dBGraph *graph, char **seqs, size_t nseqs,
+                      CorrectAlnParam path_params);
+
 void _test_add_paths(dBGraph *graph,
                      AsyncIOData *iodata, CorrectAlnInput *task,
                      GenPathWorker *wrkrs, char *seq,
@@ -122,6 +125,9 @@ void test_paths();
 
 // path_set_tests.c
 // void test_path_sets();
+
+// graph_walker_tests.c
+void test_graph_walker();
 
 // corrected_aln_tests.c
 void test_corrected_aln();

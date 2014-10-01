@@ -162,34 +162,46 @@ acceptable.  Do NOT use for cryptographic purposes.
 static inline uint32_t bklk3_hashlittle(const BinaryKmer bkmer, uint32_t initval)
 {
   uint32_t a, b, c; /* internal state */
+  uint32_t a1, b1;
+  #if BKMER_BYTES > 8
+    uint32_t c1;
+  #endif
 
   /* Set up the internal state */
   a = b = c = 0xdeadbeef + ((uint32_t)BKMER_BYTES) + initval;
 
-  const uint32_t *k = (const uint32_t *)bkmer.b;    /* read 32-bit chunks */
+  const uint8_t *k = (const uint8_t *)bkmer.b;    /* read 32-bit chunks */
 
   #if BKMER_BYTES > 12
     /*------ all but last block: aligned reads and affect 32 bits of (a,b,c) */
     size_t i;
     for(i = 0; i+12 < BKMER_BYTES; i += 12)
     {
-      a += k[0];
-      b += k[1];
-      c += k[2];
+      memcpy(&a1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+      memcpy(&b1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+      memcpy(&c1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+      a += a1;
+      b += b1;
+      c += c1;
       bklk3_mix(a, b, c);
-      k += 3;
     }
   #endif
 
   #if (BKMER_BYTES % 12 == 0) && (BKMER_BYTES > 0)
-    a += k[0];
-    b += k[1];
-    c += k[2];
+    memcpy(&a1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+    memcpy(&b1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+    memcpy(&c1, k, sizeof(uint32_t));
+    a += a1;
+    b += b1;
+    c += c1;
   #elif BKMER_BYTES % 12 == 8
-    a += k[0];
-    b += k[1];
+    memcpy(&a1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+    memcpy(&b1, k, sizeof(uint32_t));
+    a += a1;
+    b += b1;
   #elif BKMER_BYTES % 12 == 4
-    a += k[0];
+    memcpy(&a1, k, sizeof(uint32_t));
+    a += a1;
   #else
     #error BKMER_BYTES is not a multiple of 4 and greater than zero
   #endif

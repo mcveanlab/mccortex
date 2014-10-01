@@ -57,6 +57,18 @@ void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
 // Graph setup
 //
 
+void _tests_add_paths(dBGraph *graph, char **seqs, size_t nseqs,
+                      CorrectAlnParam path_params)
+{
+  size_t i;
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
+
+  for(i = 0; i < nseqs; i++)
+    gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);
+
+  gen_paths_workers_dealloc(gen_path_wrkr, 1);
+}
+
 void _construct_graph_with_paths(dBGraph *graph,
                                  size_t kmer_size, size_t ncols,
                                  char **seqs, size_t nseqs,
@@ -80,12 +92,7 @@ void _construct_graph_with_paths(dBGraph *graph,
 
   graph->num_of_cols_used = MAX2(graph->num_of_cols_used, 1);
 
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
-
-  for(i = 0; i < nseqs; i++)
-    gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);
-
-  gen_paths_workers_dealloc(gen_path_wrkr, 1);
+  _tests_add_paths(graph, seqs, nseqs, path_params);
 }
 
 void _test_add_paths(dBGraph *graph,
