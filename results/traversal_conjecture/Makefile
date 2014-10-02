@@ -10,7 +10,7 @@ ALLREADS=$(CTXDIR)/libs/readsim/perfect_covg.sh
 STRCHK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_substrings.pl
 CONTIG_STATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 
-REF=chr22.1Mbp.uniq.fa
+REF=$(CTXDIR)/results/data/chr22/uniq_flanks/chr22.1Mbp.uniq.fa
 READLEN=100 # if we start a 100bp read at each base, coverage is 100X
 DEPTH=100
 K=31

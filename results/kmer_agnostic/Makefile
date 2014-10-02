@@ -37,12 +37,6 @@ TGTS=reads/perfect.fa.gz $(GRAPHS) $(PATHS) $(CONTIGS) $(CSVS) $(JOINCSVS) \
      links.lengths.txt
      
 
-# test:
-# 	@echo $(DIRS)
-# 	@echo $(GRAPHS)
-# 	@echo $(PATHS)
-# 	@echo $(CONTIGS)
-
 REQ=$(DIRS) $(cmds)
 
 all: $(TGTS) make_plots

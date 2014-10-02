@@ -1,0 +1,12 @@
+Isaac Turner
+2014-10-01
+
+1Mbp of chr22 from hg19 (GRCh37)
+
+To generate:
+
+    samtools faidx chr22.fa chr22:17000000-17999999 | tr -d 'n' | tr -d 'N' > chr22_17M_18M.fa
+
+Check it is 1Mbp still
+
+    dnacat -s chr22_17M_18M.fa
