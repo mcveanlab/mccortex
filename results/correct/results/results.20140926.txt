@@ -1,0 +1,218 @@
+Montag:correct isaac$ make clean
+rm -rf diploid/genome0.fa diploid/genome1.fa diploid/chrom0.fa diploid/chrom1.fa reads/chrom0.50X.1.fa.gz reads/chrom1.50X.1.fa.gz correct/chrom0.50X.1.fa.gz correct/chrom1.50X.1.fa.gz k31/graph.k31.ctx k31/cleaned.k31.ctx k31 correct reads diploid logs
+Montag:correct isaac$ make
+mkdir -p k31
+mkdir -p correct
+mkdir -p reads
+mkdir -p diploid
+mkdir -p logs
+../../libs/bioinf-perl/sim_mutations/sim_mutations.pl --snps 1000 --indels 10 --invs 0 diploid 2 ../data/chr22/chr22_17M_18M.fa
+Genome size: 1,000,000
+ snps: 999 / 1,000 (99.90%) generated
+ insertions: 5 / 5 (100.00%) generated
+ deletions: 5 / 5 (100.00%) generated
+ inversions: 0 / 0 generated
+cat diploid/genome0.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom0.fa
+cat diploid/genome1.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom1.fa
+../../libs/readsim/readsim -l 250 -r diploid/chrom0.fa -d 50 -p ../data/PhiX/PhiX.1.fq.gz reads/chrom0.50X
+ profile: ../data/PhiX/PhiX.1.fq.gz [offset: 33]
+Sampling from diploid/chrom0.fa
+ read length: 250
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ sequencing depth: 50.00
+ read pairs: yes
+ seq error files: ../data/PhiX/PhiX.1.fq.gz
+ Loaded contigs: genome0[999986]
+ Genome size: 999986
+Sampling 99998 paired-end reads...
+Wrote 49999000 bases to: reads/chrom0.50X.1.fa.gz and reads/chrom0.50X.2.fa.gz
+Errors: 219141 / 49999000 (0.44%)
+ 380 336 370 293 354 310 321 301 298 248 290 273 246 271 288 287 189 198 187 195 225 220 187 194 232 200 209 214 240 238 241 235 230 221 275 228 242 219 251 231 231 273 262 280 236 267 285 271 277 297 280 308 282 320 317 306 343 350 339 373 386 310 333 392 402 395 343 347 316 321 344 329 357 376 373 381 378 429 402 429 399 426 403 401 377 405 438 456 431 428 485 440 455 503 497 495 518 505 542 442 456 449 455 527 484 525 513 469 513 459 577 570 542 543 551 555 555 568 553 567 576 609 643 684 665 670 684 695 733 770 771 772 752 793 717 748 756 752 819 781 865 890 833 877 858 883 897 887 886 962 964 972 1021 892 1061 958 1000 1047 1061 1039 1123 952 1026 1119 1161 1096 1129 1129 1155 1149 1121 1170 1142 1183 1093 1241 1283 1246 1328 1272 1246 1301 1205 1340 1322 1318 1353 1351 1392 1290 1389 1341 1405 1364 1355 1408 1482 1450 1423 1475 1506 1528 1510 1456 1557 1541 1627 1553 1581 1620 1619 1687 1679 1665 1674 1660 1687 1674 1724 1685 1814 1788 1701 1740 1730 1793 1880 1886 1889 1956 1966 1933 1958 1989 2124 1951 2017 1998 2222 2192 2100 2124 2247 2198 2227 2339 2279 2210 2157 2045
+../../libs/readsim/readsim -l 250 -r diploid/chrom1.fa -d 50 -p ../data/PhiX/PhiX.1.fq.gz reads/chrom1.50X
+ profile: ../data/PhiX/PhiX.1.fq.gz [offset: 33]
+Sampling from diploid/chrom1.fa
+ read length: 250
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ sequencing depth: 50.00
+ read pairs: yes
+ seq error files: ../data/PhiX/PhiX.1.fq.gz
+ Loaded contigs: genome1[999995]
+ Genome size: 999995
+Sampling 99999 paired-end reads...
+Wrote 49999500 bases to: reads/chrom1.50X.1.fa.gz and reads/chrom1.50X.2.fa.gz
+Errors: 219883 / 49999500 (0.44%)
+ 358 332 351 297 338 297 291 294 295 250 292 279 280 261 278 270 209 193 173 239 232 196 174 207 169 216 231 211 242 254 208 223 223 220 220 247 254 252 233 236 259 283 262 290 271 241 255 288 263 276 270 274 298 292 356 344 317 305 331 358 337 332 414 385 366 383 356 314 306 375 343 355 388 407 357 366 389 407 412 417 381 434 425 383 409 401 465 435 438 430 477 453 453 482 485 501 503 556 577 450 435 425 461 491 447 471 522 502 494 471 599 493 547 605 546 621 518 570 582 583 596 596 652 661 665 688 691 701 676 776 697 708 782 787 735 747 801 799 884 799 890 900 928 899 872 858 939 901 927 963 897 975 933 986 1043 984 955 1052 1066 1002 1035 1040 1051 1077 1200 1090 1146 1124 1130 1187 1174 1177 1120 1221 1162 1210 1277 1308 1250 1246 1214 1334 1295 1393 1314 1274 1337 1262 1352 1310 1400 1345 1367 1380 1431 1427 1506 1503 1390 1501 1489 1556 1504 1552 1540 1559 1661 1559 1592 1722 1593 1671 1671 1736 1575 1615 1630 1726 1761 1763 1787 1739 1764 1842 1680 1719 1792 1926 1888 2031 1971 1864 1974 1926 2202 1990 1955 2048 2246 2228 2135 2152 2112 2159 2229 2320 2367 2360 2219 2024
+../../bin/ctx31 build -m 100M -k 31 --sample chr22_17M_18M --seq reads/chrom0.50X.1.fa.gz --seq reads/chrom1.50X.1.fa.gz k31/graph.k31.ctx
+[26 Sep 2014 01:57:38-VuQ][cmd] ../../bin/ctx31 build -m 100M -k 31 --sample chr22_17M_18M --seq reads/chrom0.50X.1.fa.gz --seq reads/chrom1.50X.1.fa.gz k31/graph.k31.ctx
+[26 Sep 2014 01:57:38-VuQ][cwd] /Users/isaac/ninja-cortex/results/correct
+[26 Sep 2014 01:57:38-VuQ][version] ctx=v0.0.3-92-ge20e8b3-dirty zlib=1.2.5 htslib=1.1-2-gf2080d5 ASSERTS=ON CHECKS=ON k=3..31
+[26 Sep 2014 01:57:38-VuQ] Saving graph to: k31/graph.k31.ctx
+[26 Sep 2014 01:57:38-VuQ][sample] 0: chr22_17M_18M
+[26 Sep 2014 01:57:38-VuQ][task] reads/chrom0.50X.1.fa.gz; FASTQ offset: auto-detect, threshold: off; cut homopolymers: off; remove PCR duplicates: no; colour: 0
+[26 Sep 2014 01:57:38-VuQ][task] reads/chrom1.50X.1.fa.gz; FASTQ offset: auto-detect, threshold: off; cut homopolymers: off; remove PCR duplicates: no; colour: 0
+[26 Sep 2014 01:57:38-VuQ][memory] 104 bits per kmer
+[26 Sep 2014 01:57:38-VuQ][memory] graph: 98MB
+[26 Sep 2014 01:57:38-VuQ][memory] total: 98MB of 4GB RAM
+[26 Sep 2014 01:57:38-VuQ] Writing 1 colour graph to k31/graph.k31.ctx
+[26 Sep 2014 01:57:38-VuQ][hasht] Allocating table with 7,864,320 entries, using 60.5MB
+[26 Sep 2014 01:57:38-VuQ][hasht]  number of buckets: 262,144, bucket size: 30
+[26 Sep 2014 01:57:38-VuQ][graph] kmer-size: 31; colours: 1; capacity: 7,864,320
+[26 Sep 2014 01:57:38-VuQ][hash] buckets: 262,144 [2^18]; bucket size: 30; memory: 60.5MB; occupancy: 0 / 7,864,320 (0.00%)
+[26 Sep 2014 01:57:38-VuQ][asyncio] Inputs: 2; Threads: 2
+[26 Sep 2014 01:57:38-VuQ][seq] Parsing sequence file reads/chrom0.50X.1.fa.gz
+[26 Sep 2014 01:57:38-VuQ][seq] Parsing sequence file reads/chrom1.50X.1.fa.gz
+[26 Sep 2014 01:57:56-VuQ][seq] Loaded 99,999 reads and 0 reads pairs (file: reads/chrom1.50X.1.fa.gz)
+[26 Sep 2014 01:57:57-VuQ][seq] Loaded 99,998 reads and 0 reads pairs (file: reads/chrom0.50X.1.fa.gz)
+[26 Sep 2014 01:57:57-VuQ][hash] buckets: 262,144 [2^18]; bucket size: 30; memory: 60.5MB; occupancy: 4,437,488 / 7,864,320 (56.43%)
+[26 Sep 2014 01:57:57-VuQ]  collisions  0: 4436847
+[26 Sep 2014 01:57:57-VuQ]  collisions  1: 641
+[26 Sep 2014 01:57:57-VuQ][task] input: reads/chrom0.50X.1.fa.gz colour: 0
+[26 Sep 2014 01:57:57-VuQ]  SE reads: 99,998  PE reads: 0
+[26 Sep 2014 01:57:57-VuQ]  good reads: 99,998  bad reads: 0
+[26 Sep 2014 01:57:57-VuQ]  dup SE reads: 0  dup PE pairs: 0
+[26 Sep 2014 01:57:57-VuQ]  bases read: 24,999,500  bases loaded: 24,988,110
+[26 Sep 2014 01:57:57-VuQ]  num contigs: 100,326  num kmers: 21,978,330 novel kmers: 2,371,474
+[26 Sep 2014 01:57:57-VuQ][task] input: reads/chrom1.50X.1.fa.gz colour: 0
+[26 Sep 2014 01:57:57-VuQ]  SE reads: 99,999  PE reads: 0
+[26 Sep 2014 01:57:57-VuQ]  good reads: 99,999  bad reads: 0
+[26 Sep 2014 01:57:57-VuQ]  dup SE reads: 0  dup PE pairs: 0
+[26 Sep 2014 01:57:57-VuQ]  bases read: 24,999,750  bases loaded: 24,988,360
+[26 Sep 2014 01:57:57-VuQ]  num contigs: 100,327  num kmers: 21,978,550 novel kmers: 2,066,014
+[26 Sep 2014 01:57:57-VuQ] Dumping graph...
+[26 Sep 2014 01:57:57-VuQ] Dumping graph colour 0 into: k31/graph.k31.ctx
+[26 Sep 2014 01:57:57-VuQ][graph_file_save] Writing colours 0-0 of 1 into: k31/graph.k31.ctx
+[26 Sep 2014 01:58:00-VuQ] Dumped 4,437,488 kmers in 1 colour into: k31/graph.k31.ctx (format version: 6)
+[26 Sep 2014 01:58:00-VuQ][memory] We made 15 allocs
+[26 Sep 2014 01:58:00-VuQ] Done.
+[26 Sep 2014 01:58:00-VuQ][time] 22.00 seconds
+../../bin/ctx31 clean -m 100M --covg-before logs/cleaning-covg-before.csv --covg-after logs/cleaning-covg-after.csv --len-before logs/cleaning-len-before.csv --len-after logs/cleaning-len-after.csv --out k31/cleaned.k31.ctx k31/graph.k31.ctx
+[26 Sep 2014 01:58:02-GuQ][cmd] ../../bin/ctx31 clean -m 100M --covg-before logs/cleaning-covg-before.csv --covg-after logs/cleaning-covg-after.csv --len-before logs/cleaning-len-before.csv --len-after logs/cleaning-len-after.csv --out k31/cleaned.k31.ctx k31/graph.k31.ctx
+[26 Sep 2014 01:58:02-GuQ][cwd] /Users/isaac/ninja-cortex/results/correct
+[26 Sep 2014 01:58:02-GuQ][version] ctx=v0.0.3-92-ge20e8b3-dirty zlib=1.2.5 htslib=1.1-2-gf2080d5 ASSERTS=ON CHECKS=ON k=3..31
+[26 Sep 2014 01:58:02-GuQ] 1 input graph, max kmers: 4,437,488, using 1 colours
+[26 Sep 2014 01:58:02-GuQ] Actions:
+[26 Sep 2014 01:58:02-GuQ] 0. Saving supernode coverage distribution to: logs/cleaning-covg-before.csv
+[26 Sep 2014 01:58:02-GuQ] 1. Saving supernode length distribution to: logs/cleaning-len-before.csv
+[26 Sep 2014 01:58:02-GuQ] 2. Cleaning tips shorter than 62 nodes
+[26 Sep 2014 01:58:02-GuQ] 3. Cleaning supernodes with auto-detected threshold
+[26 Sep 2014 01:58:02-GuQ] 4. Saving supernode coverage distribution to: logs/cleaning-covg-after.csv
+[26 Sep 2014 01:58:02-GuQ] 5. Saving supernode length distribution to: logs/cleaning-len-after.csv
+[26 Sep 2014 01:58:02-GuQ][memory] 104 bits per kmer
+[26 Sep 2014 01:58:02-GuQ][memory] graph: 75MB
+[26 Sep 2014 01:58:02-GuQ][memory] total: 75MB of 4GB RAM
+[26 Sep 2014 01:58:02-GuQ][hasht] Allocating table with 6,029,312 entries, using 46.2MB
+[26 Sep 2014 01:58:02-GuQ][hasht]  number of buckets: 131,072, bucket size: 46
+[26 Sep 2014 01:58:02-GuQ][graph] kmer-size: 31; colours: 1; capacity: 6,029,312
+[26 Sep 2014 01:58:02-GuQ][FileFilter] Loading file k31/graph.k31.ctx [1 colour]
+[26 Sep 2014 01:58:02-GuQ][GReader] 4,437,488 kmers, 55MB filesize
+[26 Sep 2014 01:58:06-GuQ][GReader] Loaded 4,437,488 / 4,437,488 (100.00%) of kmers parsed
+[26 Sep 2014 01:58:06-GuQ] Total kmers loaded: 4,437,488
+[26 Sep 2014 01:58:06-GuQ][hash] buckets: 131,072 [2^17]; bucket size: 46; memory: 46.2MB; occupancy: 4,437,488 / 6,029,312 (73.60%)
+[26 Sep 2014 01:58:06-GuQ]  collisions  0: 4430362
+[26 Sep 2014 01:58:06-GuQ]  collisions  1: 7039
+[26 Sep 2014 01:58:06-GuQ]  collisions  2: 83
+[26 Sep 2014 01:58:06-GuQ]  collisions  3: 4
+[26 Sep 2014 01:58:06-GuQ][cleaning] Calculating supernode statistiscs with 2 threads...
+[26 Sep 2014 01:58:07-GuQ][cleaning] Writing supernode coverage distribution to: logs/cleaning-covg-before.csv
+[26 Sep 2014 01:58:07-GuQ][cleaning] Writing supernode length distribution to: logs/cleaning-len-before.csv
+[26 Sep 2014 01:58:07-GuQ][cleaning] Kmer depth before cleaning supernodes: 9.91
+[26 Sep 2014 01:58:07-GuQ][cleaning]   (using f1)
+[26 Sep 2014 01:58:07-GuQ][cleaning] Recommended supernode cleaning threshold: < 6
+[26 Sep 2014 01:58:07-GuQ][cleaning] Removing supernodes with coverage < 6...
+[26 Sep 2014 01:58:07-GuQ][cleaning] Removing tips shorter than 62...
+[26 Sep 2014 01:58:07-GuQ][cleaning]   using 2 threads
+[26 Sep 2014 01:58:08-GuQ][cleaning] Removing 2,746,018 supernode kmers, 0 tip kmers and 698,325 of both
+[26 Sep 2014 01:58:09-GuQ][cleaning] Remaining kmers: 993,145 removed: 3,444,343 (77.6%)
+[26 Sep 2014 01:58:09-GuQ][cleaning] Writing supernode coverage distribution to: logs/cleaning-covg-after.csv
+[26 Sep 2014 01:58:09-GuQ][cleaning] Writing supernode length distribution to: logs/cleaning-len-after.csv
+[26 Sep 2014 01:58:09-GuQ] Removed 3,444,343 of 4,437,488 (77.62%) kmers
+[26 Sep 2014 01:58:09-GuQ] Dumping graph colour 0 into: k31/cleaned.k31.ctx
+[26 Sep 2014 01:58:09-GuQ][graph_file_save] Writing colours 0-0 of 1 into: k31/cleaned.k31.ctx
+[26 Sep 2014 01:58:10-GuQ] Dumped 993,145 kmers in 1 colour into: k31/cleaned.k31.ctx (format version: 6)
+[26 Sep 2014 01:58:10-GuQ][memory] We made 37 allocs
+[26 Sep 2014 01:58:10-GuQ] Done.
+[26 Sep 2014 01:58:10-GuQ][time] 8.00 seconds
+../../bin/ctx31 correct -m 100M --format FASTA --seq reads/chrom0.50X.1.fa.gz:correct/chrom0.50X.1 --seq reads/chrom1.50X.1.fa.gz:correct/chrom1.50X.1 k31/cleaned.k31.ctx
+[26 Sep 2014 01:58:10-Yun][cmd] ../../bin/ctx31 correct -m 100M --format FASTA --seq reads/chrom0.50X.1.fa.gz:correct/chrom0.50X.1 --seq reads/chrom1.50X.1.fa.gz:correct/chrom1.50X.1 k31/cleaned.k31.ctx
+[26 Sep 2014 01:58:10-Yun][cwd] /Users/isaac/ninja-cortex/results/correct
+[26 Sep 2014 01:58:10-Yun][version] ctx=v0.0.3-92-ge20e8b3-dirty zlib=1.2.5 htslib=1.1-2-gf2080d5 ASSERTS=ON CHECKS=ON k=3..31
+[26 Sep 2014 01:58:10-Yun] Reading graph: k31/cleaned.k31.ctx
+[26 Sep 2014 01:58:10-Yun][task] input: reads/chrom0.50X.1.fa.gz
+[26 Sep 2014 01:58:10-Yun]  FASTQ offset: auto-detect, threshold: off; cut homopolymers: off
+[26 Sep 2014 01:58:10-Yun]  one-way gap traversal [edge check]
+[26 Sep 2014 01:58:10-Yun][task] input: reads/chrom1.50X.1.fa.gz
+[26 Sep 2014 01:58:10-Yun]  FASTQ offset: auto-detect, threshold: off; cut homopolymers: off
+[26 Sep 2014 01:58:10-Yun]  one-way gap traversal [edge check]
+[26 Sep 2014 01:58:10-Yun][memory] 153 bits per kmer
+[26 Sep 2014 01:58:10-Yun][memory] graph: 24.6MB
+[26 Sep 2014 01:58:10-Yun][memory] paths: 0B
+[26 Sep 2014 01:58:10-Yun][memory] total: 24.6MB of 4GB RAM
+[26 Sep 2014 01:58:10-Yun][hasht] Allocating table with 1,343,488 entries, using 10.3MB
+[26 Sep 2014 01:58:10-Yun][hasht]  number of buckets: 32,768, bucket size: 41
+[26 Sep 2014 01:58:10-Yun][graph] kmer-size: 31; colours: 1; capacity: 1,343,488
+[26 Sep 2014 01:58:10-Yun][FileFilter] Loading file k31/cleaned.k31.ctx [1 colour]
+[26 Sep 2014 01:58:10-Yun][GReader] 993,145 kmers, 12.3MB filesize
+[26 Sep 2014 01:58:11-Yun][GReader] Loaded 993,145 / 993,145 (100.00%) of kmers parsed
+[26 Sep 2014 01:58:11-Yun][hash] buckets: 32,768 [2^15]; bucket size: 41; memory: 10.3MB; occupancy: 993,145 / 1,343,488 (73.92%)
+[26 Sep 2014 01:58:11-Yun][asyncio] Inputs: 2; Threads: 2
+[26 Sep 2014 01:58:11-Yun][seq] Parsing sequence file reads/chrom0.50X.1.fa.gz
+[26 Sep 2014 01:58:11-Yun][seq] Parsing sequence file reads/chrom1.50X.1.fa.gz
+[26 Sep 2014 01:58:32-Yun][seq] Loaded 99,999 reads and 0 reads pairs (file: reads/chrom1.50X.1.fa.gz)
+[26 Sep 2014 01:58:32-Yun][seq] Loaded 99,998 reads and 0 reads pairs (file: reads/chrom0.50X.1.fa.gz)
+[26 Sep 2014 01:58:32-Yun][CorrectAln] SE: expected gap mean: 38.8 median: 32.0 mode: 32 (34358)
+[26 Sep 2014 01:58:32-Yun][CorrectAln] SE: actual   gap mean: 37.8 median: 31.0 mode: 31 (34356)
+[26 Sep 2014 01:58:32-Yun][CorrectAln]     0.241 gaps per read; mean gap length diff: 1.00
+[26 Sep 2014 01:58:32-Yun][CorrectAln] Didn't see any PE reads
+[26 Sep 2014 01:58:32-Yun][CorrectAln] traversals succeeded: 48,134 / 68,662 (70.10%)
+[26 Sep 2014 01:58:32-Yun][CorrectAln] failed path check: 0 / 68,662 (0.00%)
+[26 Sep 2014 01:58:32-Yun][CorrectAln] too short: 14,125 / 68,662 (20.57%)
+[26 Sep 2014 01:58:32-Yun][SeqStats] single reads: 199,997; read pairs: 0; total: 199,997
+[26 Sep 2014 01:58:32-Yun][SeqStats] Input coverage: 40.76X (40,477,880 / 993,145) reconstructed: 11.27X (11,190,791 / 993,145)
+[26 Sep 2014 01:58:32-Yun][SeqStats]  mean reconstructed contig length: 165 (kmers)
+[26 Sep 2014 01:58:35-Yun][memory] We made 28 allocs
+[26 Sep 2014 01:58:35-Yun] Done.
+[26 Sep 2014 01:58:35-Yun][time] 25.00 seconds
+zcat reads/chrom0.50X.1.fa.gz reads/chrom1.50X.1.fa.gz    | ../../libs/bioinf-perl/sim_mutations/sim_corrected.pl - diploid/chrom{0,1}.fa
+Loading ref...
+Chrom: genome1
+Chrom: genome0
+Genome size: 1,999,981
+Loading reads...
+Uppercase:
+     total: 49,987,278 / 49,999,250 (99.98%)
+     match: 49,768,741 / 49,987,278 (99.56%)
+  mismatch: 218,537 / 49,987,278 (0.44%)
+Lowercase:
+     total: 0 / 49,999,250 (0.00%)
+     match: 0 / 0
+  mismatch: 0 / 0
+All:
+     match: 49,780,713 / 49,999,250 (99.56%)
+  mismatch: 218,537 / 49,999,250 (0.44%)
+   N bases: 11,972 / 49,999,250 (0.02%)
+     reads: 199,998
+  ACGTN coverage: 25.0X (49,999,250/1,999,981)
+  ACGT  coverage: 25.0X (49,987,278/1,999,981)
+zcat correct/chrom0.50X.1.fa.gz correct/chrom1.50X.1.fa.gz | ../../libs/bioinf-perl/sim_mutations/sim_corrected.pl - diploid/chrom{0,1}.fa
+Loading ref...
+Chrom: genome1
+Chrom: genome0
+Genome size: 1,999,981
+Loading reads...
+Uppercase:
+     total: 49,687,800 / 49,999,236 (99.38%)
+     match: 49,681,335 / 49,687,800 (99.99%)
+  mismatch: 6,465 / 49,687,800 (0.01%)
+Lowercase:
+     total: 306,966 / 49,999,236 (0.61%)
+     match: 276,489 / 306,966 (90.07%)
+  mismatch: 30,477 / 306,966 (9.93%)
+All:
+     match: 49,962,294 / 49,999,236 (99.93%)
+  mismatch: 36,942 / 49,999,236 (0.07%)
+   N bases: 4,470 / 49,999,236 (0.01%)
+     reads: 199,998
+  ACGTN coverage: 25.0X (49,999,236/1,999,981)
+  ACGT  coverage: 25.0X (49,994,766/1,999,981)

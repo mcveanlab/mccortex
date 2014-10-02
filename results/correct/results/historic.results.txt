@@ -1,0 +1,43 @@
+turner@banyan:/data1/users/turner/cortex_sims/chr22/1Mbp$ cat logs/reads.diploid.match.txt 
+Loading ref...
+Chrom: genome1
+Chrom: genome0
+Genome size: 1,999,977
+Loading reads...
+Uppercase:
+     total: 49,924,550 / 49,999,250 (99.85%)
+     match: 49,686,187 / 49,924,550 (99.52%)
+  mismatch: 238,363 / 49,924,550 (0.48%)
+Lowercase:
+     total: 74,700 / 49,999,250 (0.15%)
+     match: 74,700 / 74,700 (100.00%)
+  mismatch: 0 / 74,700 (0.00%)
+All:
+     match: 49,760,887 / 49,999,250 (99.52%)
+  mismatch: 238,363 / 49,999,250 (0.48%)
+   N bases: 74,700 / 49,999,250 (0.15%)
+     reads: 199,998
+  ACGTN coverage: 25.0X (49,999,250/1,999,977)
+  ACGT  coverage: 25.0X (49,924,550/1,999,977)
+
+turner@banyan:/data1/users/turner/cortex_sims/chr22/1Mbp$ cat logs/corrected.diploid.match.txt 
+Loading ref...
+Chrom: genome1
+Chrom: genome0
+Genome size: 1,999,977
+Loading reads...
+Uppercase:
+     total: 49,645,430 / 49,999,248 (99.29%)
+     match: 49,638,264 / 49,645,430 (99.99%)
+  mismatch: 7,166 / 49,645,430 (0.01%)
+Lowercase:
+     total: 353,818 / 49,999,248 (0.71%)
+     match: 319,723 / 353,818 (90.36%)
+  mismatch: 34,095 / 353,818 (9.64%)
+All:
+     match: 49,957,987 / 49,999,248 (99.92%)
+  mismatch: 41,261 / 49,999,248 (0.08%)
+   N bases: 17,575 / 49,999,248 (0.04%)
+     reads: 199,998
+  ACGTN coverage: 25.0X (49,999,248/1,999,977)
+  ACGT  coverage: 25.0X (49,981,673/1,999,977)

@@ -29,7 +29,7 @@ CC ?= gcc
 ##
 
 MAXK ?= 31
-LOWK = $(word 1, $(sort $(MAXK) 31))
+LOWK = $(word 1, $(shell echo 31 $(MAXK) | sort -n))
 TEST_KMER=$(shell echo $$[(($(MAXK)+31)/32)*32 - 1])
 
 ifneq ($(MAXK),$(TEST_KMER))
@@ -39,7 +39,7 @@ ifneq ($(LOWK),31)
   KMERERROR=1
 endif
 ifdef KMERERROR
-  $(error Invalid MAXK value '$(MAXK)'. Please choose from 31,63,95,..(32*n-1) [default: 31])
+  $(error Invalid MAXK value '$(MAXK)'. Please choose from 31,63,95,..(32*n-1) [default: 31] $(TEST_KMER) $(LOWK))
 endif
 
 MAX_KMER_SIZE=$(MAXK)

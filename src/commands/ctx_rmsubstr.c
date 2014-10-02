@@ -46,8 +46,8 @@ static struct option longopts[] =
 #  define DEFAULT_KMER MIN_KMER_SIZE
 #endif
 
-// Returns true if a read is a substring of ANY read in the list or a complete
-// match with a read before it in the list. Returns false otherwise.
+// Returns 1 if a read is a substring of ANY read in the list or a complete
+// match with a read before it in the list. Returns <= 0 otherwise.
 //  1 => is substr
 //  0 => not substr
 // -1 => not enough bases of ACGT
@@ -56,19 +56,17 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
 {
   const size_t kmer_size = db_graph->kmer_size;
   const read_t *r = &rbuf->data[idx], *r2;
-  const char *seq = r->seq.b;
   size_t i, contig_start;
 
   contig_start = seq_contig_start(r, 0, kmer_size, 0, 0);
   if(contig_start >= r->seq.end) return -1; // No kmers in this sequence
 
-  BinaryKmer bkmer = binary_kmer_from_str(seq+contig_start, kmer_size);
-  dBNode node = db_graph_find(db_graph, bkmer);
+  dBNode node = db_graph_find_str(db_graph, r->seq.b+contig_start);
   ctx_assert(node.key != HASH_NOT_FOUND);
 
   size_t num_hits = kograph_num(kograph, node.key);
   KOccur *hits = kograph_get(kograph, node.key);
-  ctx_assert(num_hits > 0); // at least one hit (for this read!)
+  ctx_assert(num_hits > 0); // expect at least one hit (for this read!)
 
   for(i = 0; i < num_hits; i++)
   {
@@ -85,7 +83,7 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
           // potential FORWARD match
           if(hits[i].offset >= contig_start &&
              hits[i].offset + r->seq.end <= r2->seq.end &&
-             strncasecmp(seq, r2->seq.b+hits[i].offset-contig_start, r->seq.end) == 0)
+             strncasecmp(r->seq.b, r2->seq.b+hits[i].offset-contig_start, r->seq.end) == 0)
           {
             return 1;
           }
@@ -98,7 +96,7 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
           size_t r2_rem = r2->seq.end - (hits[i].offset + kmer_size);
 
           if(r1_rem <= hits[i].offset && r2_rem >= contig_start &&
-             dna_revncasecmp(seq, r2->seq.b+hits[i].offset-r1_rem, r->seq.end) == 0)
+             dna_revncasecmp(r->seq.b, r2->seq.b+hits[i].offset-r1_rem, r->seq.end) == 0)
           {
             return 1;
           }
