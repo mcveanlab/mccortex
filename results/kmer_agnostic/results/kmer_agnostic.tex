@@ -1,0 +1,39 @@
+\documentclass{article}
+\title{Kmer agnostic: simulations with perfect coverage}
+
+\usepackage{graphicx}
+\usepackage{subcaption}
+
+\begin{document}
+
+\begin{figure}[ht]
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \caption{Contig median length}
+  \includegraphics[width=2in]{../plots/median.pdf}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \caption{Contig mean length}
+  \includegraphics[width=2in]{../plots/mean.pdf}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \caption{Assembly N50}
+  \includegraphics[width=2in]{../plots/N50.pdf}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \caption{Number of contigs}
+  \includegraphics[width=2in]{../plots/contigs.pdf}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \caption{Total assembled length}
+  \includegraphics[width=2in]{../plots/length.pdf}
+\end{subfigure}
+\caption{Simulations with varied $k$mer-size}
+\label{fig:kmer_agnostic}
+\end{figure}
+
+\end{document}

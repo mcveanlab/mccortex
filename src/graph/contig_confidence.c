@@ -8,9 +8,9 @@ static double calc_confid(double bp_covg_depth, size_t read_length_bp,
                           size_t kmer_size)
 {
   double lambda = bp_covg_depth / read_length_bp;
-  double read_kmer_length = read_length_bp - kmer_size + 1;
-  double power = (1 - expl(-lambda * read_kmer_length)) *
-                 expl(-lambda * expl(-lambda * read_kmer_length));
+  double read_kmers = read_length_bp - kmer_size + 1;
+  double power = (1 - expl(-lambda * read_kmers)) *
+                 expl(-lambda * expl(-lambda * read_kmers));
   return power;
 }
 

@@ -10,3 +10,8 @@ To generate:
 Check it is 1Mbp still
 
     dnacat -s chr22_17M_18M.fa
+
+Index with BWA and samtools
+
+    bwa index chr22_17M_18M.fa
+    samtools faidx chr22_17M_18M.fa

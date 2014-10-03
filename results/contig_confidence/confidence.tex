@@ -1,0 +1,25 @@
+\documentclass{article}
+\title{Assembly confidence}
+
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{subcaption}
+
+\begin{document}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=5in]{confidence_plot.pdf}
+\caption{Confidence values for various read lengths and coverages}
+\label{fig:contig_conf_values_plot}
+\end{figure}
+
+Shown in Figure \ref{fig:contig_conf_values_plot}.
+
+\begin{gather*}
+\lambda = Coverage / ReadLength \\
+R_k = ReadLength - JunctionDistance + 1 \\
+confidence = \left(1 - e^{-\lambda R_k}\right) e^{-\lambda e^{-\lambda R_k}}
+\end{gather*}
+
+\end{document}
