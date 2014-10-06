@@ -21,7 +21,7 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
   for(i = 0; i < num_seq_files; i++) {
     status("  file: %s", seq_files[i]->path);
     while(seq_read(seq_files[i], &r) > 0) {
-      readbuf_add(rbuf, r); // copy read
+      read_buf_add(rbuf, r); // copy read
       seq_read_alloc(&r); // allocate new read
     }
     seq_close(seq_files[i]);

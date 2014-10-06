@@ -8,7 +8,7 @@
 extern const char *MP_DIR_STRS[];
 
 #include "madcrowlib/madcrow_buffer.h"
-madcrow_buffer(readbuf, ReadBuffer, read_t);
+madcrow_buffer(read_buf, ReadBuffer, read_t);
 madcrow_buffer(seq_file_ptr_buf, SeqFilePtrBuffer, seq_file_t*);
 
 // Load all reads from files into a read buffer and close the seq_files

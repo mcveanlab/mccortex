@@ -214,7 +214,7 @@ int ctx_rmsubstr(int argc, char **argv)
   // Load reference sequence into a read buffer
   //
   ReadBuffer rbuf;
-  readbuf_alloc(&rbuf, 1024);
+  read_buf_alloc(&rbuf, 1024);
   seq_load_all_reads(seq_files, num_seq_files, &rbuf);
 
   // Check for reads too short
@@ -260,7 +260,7 @@ int ctx_rmsubstr(int argc, char **argv)
 
   // Free sequence memory
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
-  readbuf_dealloc(&rbuf);
+  read_buf_dealloc(&rbuf);
   ctx_free(seq_files);
 
   db_graph_dealloc(&db_graph);

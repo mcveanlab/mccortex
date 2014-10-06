@@ -239,7 +239,7 @@ int ctx_breakpoints(int argc, char **argv)
   // Load reference sequence into a read buffer
   //
   ReadBuffer rbuf;
-  readbuf_alloc(&rbuf, 1024);
+  read_buf_alloc(&rbuf, 1024);
   seq_load_all_reads(sfilebuf.data, sfilebuf.len, &rbuf);
 
   // Remove commas and colons from read names so we can print:
@@ -273,7 +273,7 @@ int ctx_breakpoints(int argc, char **argv)
   gpfile_buf_dealloc(&gpfiles);
 
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
-  readbuf_dealloc(&rbuf);
+  read_buf_dealloc(&rbuf);
 
   seq_file_ptr_buf_dealloc(&sfilebuf);
 

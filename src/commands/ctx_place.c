@@ -646,7 +646,7 @@ int ctx_place(int argc, char **argv)
   parse_header(vcf, line, ref_paths, num_ref_paths, fout);
 
   // Load reference genome
-  readbuf_alloc(&chroms, 1024);
+  read_buf_alloc(&chroms, 1024);
   genome = kh_init(ChromHash);
   seq_reader_load_ref_genome(ref_paths, num_ref_paths, &chroms, genome);
 
@@ -785,7 +785,7 @@ int ctx_place(int argc, char **argv)
   ctx_free(sample_total_seq);
 
   for(i = 0; i < chroms.len; i++) seq_read_dealloc(&chroms.data[i]);
-  readbuf_dealloc(&chroms);
+  read_buf_dealloc(&chroms);
 
   ctx_free(nw_scoring_flank);
   ctx_free(nw_scoring_allele);

@@ -6,7 +6,6 @@
 #include "binary_kmer.h"
 
 // DEV: add .ctp.gz sorting
-// DEV: add -o option
 
 const char sort_usage[] =
 "usage: "CMD" sort [options] <in.ctx>\n"
@@ -135,7 +134,7 @@ int ctx_sort(int argc, char **argv)
 
   status("[memory] Total: %s", mem_str);
 
-  char *mem = ctx_malloc(memory);
+  char *mem = ctx_malloc(kmer_mem * num_kmers);
   char **kmers = ctx_malloc(num_kmers*sizeof(char*));
 
   // Read in file

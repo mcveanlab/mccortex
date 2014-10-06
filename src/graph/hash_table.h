@@ -27,7 +27,7 @@ typedef struct
   uint8_t (*const buckets)[2];
   uint64_t num_kmers;
   uint64_t collisions[REHASH_LIMIT];
-  uint32_t seed; // random seed used in hashing
+  const uint32_t seed; // random seed used in hashing
 } HashTable;
 
 // Returns NULL if not enough memory
