@@ -19,6 +19,9 @@ READLEN=100
 
 KMERS=15 21 31 41 51 63 75 99
 
+# How many contigs to pull out to find median walk distance
+NSEED_WALK=5000
+
 # Count number of kmers
 NKMERS=$(shell echo $(KMERS) | tr ' ' '\n' | awk 'END{print NR}')
 MIN_KMER=$(shell echo $(KMERS) | awk -F ' ' '{print $$1}')
@@ -67,11 +70,17 @@ k%/perf.se.ctp.gz: k%/perf.ctx reads/perfect.fa.gz | $(REQ)
 # Contigs
 k%/perf.contigs.plain.fa: k%/perf.ctx | $(REQ)
 	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k contigs -o $@ k$*/perf.ctx
+	$(CTXK)$$k contigs -o $@ k$*/perf.ctx; \
+	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) k$*/perf.ctx 2>&1 | \
+			 	  grep -io 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
+	printf "med_walk,$$walk\n" > k$*/perf.medwalk.plain.txt
 
 k%/perf.contigs.links.fa: k%/perf.ctx k%/perf.se.ctp.gz | $(REQ)
 	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k contigs -o $@ -p k$*/perf.se.ctp.gz k$*/perf.ctx
+	$(CTXK)$$k contigs -o $@ -p k$*/perf.se.ctp.gz k$*/perf.ctx; \
+	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) -p k$*/perf.se.ctp.gz k$*/perf.ctx 2>&1 | \
+	  	 	  grep -io 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
+	printf "med_walk,$$walk\n" > k$*/perf.medwalk.links.txt
 
 # Remove duplicates
 %.rmdup.fa: %.fa
@@ -100,6 +109,9 @@ make_plots: $(JOINCSVS) | $(DIRS)
 # Stats
 %.csv: %.fa
 	$(CONTIG_STATS) --print-csv $< > $@
+	dir=$$(echo $< | grep -oE 'k[0-9]+'); \
+	annot=$$(echo $< | grep -oE 'plain|links'); \
+	cat $$dir/perf.medwalk.$$annot.txt >> $@
 
 $(DIRS):
 	mkdir -p $@

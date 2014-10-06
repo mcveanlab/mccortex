@@ -57,7 +57,7 @@ bool db_alignment_is_perfect(const dBAlignment *aln);
 // Debugging
 //
 
-void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph);
+void db_alignment_print(const dBAlignment *aln);
 
 // Check all edges between ungapped adjacent nodes
 bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);

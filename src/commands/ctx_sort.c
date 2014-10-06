@@ -46,22 +46,6 @@ static inline void sort_block(char **entries, size_t num)
   qsort(entries, num, sizeof(char*), cmp_bkmer);
 }
 
-/*
-// Sort blocks of a given size
-static void qsort_blocks_ctx(FILE *fh)
-{
-
-}
-
-// Merge blocks from original file into new file
-// Blocks are memory mapped file - may be in memory or on disk
-static void mergesort_blocks_ctx(FILE *fh, size_t entry_size, size_t nblocks,
-                                 FILE *fout)
-{
-
-}
-*/
-
 int ctx_sort(int argc, char **argv)
 {
   const char *out_path = NULL;
@@ -81,6 +65,7 @@ int ctx_sort(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
@@ -88,7 +73,7 @@ int ctx_sort(int argc, char **argv)
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
         die("`"CMD" sort -h` for help. Bad option: %s", argv[optind-1]);
-      default: abort();
+      default: die("Bad option: [%c]: %s", c, cmd);
     }
   }
 
@@ -151,7 +136,8 @@ int ctx_sort(int argc, char **argv)
 
   num_kmers = nkread;
 
-  status("Read %zu kmers", num_kmers);
+  status("Read %zu kmers with %zu colour%s", num_kmers,
+         ncols, util_plural_str(ncols));
 
   for(i = 0; i < num_kmers; i++)
     kmers[i] = mem + kmer_mem*i;

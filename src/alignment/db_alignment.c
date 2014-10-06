@@ -26,7 +26,7 @@ void db_alignment_dealloc(dBAlignment *aln)
 
 // if colour is -1 aligns to all colours, otherwise aligns to given colour only
 // Returns number of kmers lost from the end
-static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
+static size_t db_alignment_from_read(dBAlignment *aln, const read_t *r,
                                      uint8_t qcutoff, uint8_t hp_cutoff,
                                      const dBGraph *db_graph, int colour)
 {
@@ -36,10 +36,10 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
   BinaryKmer bkmer, tmp_key;
   Nucleotide nuc;
   hkey_t node;
-  size_t offset, nxtbse;
+  size_t i, offset, nxtbse;
 
-  dBNodeBuffer *nodes = &alignment->nodes;
-  Int32Buffer *rpos = &alignment->rpos;
+  dBNodeBuffer *nodes = &aln->nodes;
+  Int32Buffer *rpos = &aln->rpos;
 
   ctx_assert(nodes->len == rpos->len);
   size_t n = nodes->len, init_len = n;
@@ -74,7 +74,6 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
         rpos->data[n] = offset;
         n++;
       }
-      else alignment->seq_gaps = true;
     }
   }
 
@@ -83,6 +82,14 @@ static size_t db_alignment_from_read(dBAlignment *alignment, const read_t *r,
                               : r->seq.end - (rpos->data[n-1] + kmer_size));
 
   nodes->len = rpos->len = n;
+
+  // Check for sequence gaps
+  for(i = init_len; i+1 < nodes->len; i++) {
+    if(rpos->data[i]+1 < rpos->data[i+1]) {
+      aln->seq_gaps = true;
+      break;
+    }
+  }
 
   return ret;
 }
@@ -123,7 +130,7 @@ void db_alignment_from_reads(dBAlignment *alignment,
   alignment->used_r2 = (r2 != NULL && alignment->r2enderr < r2->seq.end);
 
   #ifdef CTXVERBOSE
-    db_alignment_print(alignment, db_graph);
+    db_alignment_print(alignment);
   #endif
 }
 
@@ -158,38 +165,24 @@ bool db_alignment_is_perfect(const dBAlignment *aln)
 // Debugging
 //
 
-void db_alignment_print(const dBAlignment *aln, const dBGraph *db_graph)
+void db_alignment_print(const dBAlignment *aln)
 {
   pthread_mutex_lock(&ctx_biglock);
 
   printf("dBAlignment:\n");
-  size_t i, start = 0, end = db_alignment_next_gap(aln, 0);
-  while(start < aln->nodes.len)
-  {
-    if(start == aln->r2strtidx)
-      printf("    gap: %zu -[ins]- %u\n", aln->r1enderr, aln->rpos.data[start]);
-    else if(start == 0)
-      printf("    start gap: %u\n", aln->rpos.data[start]);
-    else
-      printf("    gap: %u\n", aln->rpos.data[start]);
+  printf("  r1bases: %zu r2bases: %zu\n",   aln->r1bases,  aln->r2bases);
+  printf("  r1enderr: %zu r2enderr: %zu\n", aln->r1enderr, aln->r2enderr);
+  printf("  passed_r2: %s r2strtidx: %zu\n", aln->passed_r2 ? "yes" : "no", aln->r2strtidx);
+  printf("  used_r1: %s used_r2: %s\n", aln->used_r1 ? "yes" : "no", aln->used_r2 ? "yes" : "no");
+  printf("  seq_gaps: %s\n", aln->seq_gaps ? "yes" : "no");
+  printf("  colour: %i\n", aln->colour);
 
-    printf("  %zu nodes\n", end-start);
+  size_t i;
 
-    for(i = start; i < end; i++)
-      printf(" %zu:%i", (size_t)aln->nodes.data[i].key, (int)aln->nodes.data[i].orient);
-    printf(":\n");
-    db_nodes_print_verbose(aln->nodes.data+start,end-start,db_graph,stdout);
-    db_nodes_print_edges(aln->nodes.data+start,end-start,db_graph,stdout);
-    printf("\n");
-
-    start = end;
-    end = db_alignment_next_gap(aln, end);
+  for(i = 0; i < aln->nodes.len; i++) {
+    printf("  [%zu] %i: %zu:%i\n", i, aln->rpos.data[i],
+           (size_t)aln->nodes.data[i].key, aln->nodes.data[i].orient);
   }
-  if(aln->passed_r2) {
-    if(!aln->used_r2) printf("    [ins] unused r2: %u\n", aln->rpos.data[end]);
-    else printf(" end gap [r2]: %zu\n", aln->r2enderr);
-  }
-  else printf(" end gap [r1]: %zu\n", aln->r1enderr);
 
   pthread_mutex_unlock(&ctx_biglock);
 }

@@ -50,7 +50,11 @@ extern const BinaryKmer zero_bkmer;
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
            = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffcUL) | (nuc))
 
-int binary_kmers_cmp(BinaryKmer a, BinaryKmer b);
+#if NUM_BKMER_WORDS == 1
+  #define binary_kmers_cmp(x,y) ((x).b[0] < (y).b[0] ? -1 : (x).b[0] > (y).b[0])
+#else
+  int binary_kmers_cmp(BinaryKmer a, BinaryKmer b);
+#endif
 
 #if NUM_BKMER_WORDS == 1
   #define binary_kmers_are_equal(x,y) ((x).b[0] == (y).b[0])

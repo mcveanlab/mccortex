@@ -15,6 +15,10 @@ typedef struct
   // Count cases where traversal worked but paths disagreed with remaining contig
   uint64_t num_gap_attempts, num_gap_successes;
   uint64_t num_paths_disagreed, num_gaps_too_short;
+  // Specific gap type counts
+  uint64_t num_ins_gaps, num_ins_traversed; // gaps between pairs of reads
+  uint64_t num_mid_gaps, num_mid_traversed; // gaps in the middle of reads
+  uint64_t num_end_gaps, num_end_traversed; // gaps at the ends of reads
 } CorrectAlnStats;
 
 typedef struct {

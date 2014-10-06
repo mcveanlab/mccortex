@@ -47,15 +47,17 @@ BinaryKmer binary_kmer_to_old(BinaryKmer bkmer, size_t kmer_size)
   return nbkmer;
 }
 
-int binary_kmers_cmp(BinaryKmer a, BinaryKmer b)
-{
-  size_t i;
-  for(i = 0; i < NUM_BKMER_WORDS; i++) {
-    if(a.b[0] < b.b[0]) return -1;
-    if(a.b[0] > b.b[0]) return  1;
+#if NUM_BKMER_WORDS > 1
+  int binary_kmers_cmp(BinaryKmer a, BinaryKmer b)
+  {
+    size_t i;
+    for(i = 0; i < NUM_BKMER_WORDS; i++) {
+      if(a.b[i] < b.b[i]) return -1;
+      if(a.b[i] > b.b[i]) return  1;
+    }
+    return 0;
   }
-  return 0;
-}
+#endif
 
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself

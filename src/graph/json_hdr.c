@@ -125,16 +125,20 @@ void json_hdr_add_std(cJSON *json, const char *path,
   cJSON_AddStringToObject(command, "zlib",   ZLIB_VERSION);
 
   // Get username
-  // uid_t uid = geteuid();
-  // struct passwd *pw = getpwuid(uid);
+  // struct passwd *pw = getpwuid(geteuid());
   // if(pw != NULL)
   //   cJSON_AddStringToObject(command, "user",     pw->pw_name);
+  struct passwd pwd;
+  struct passwd *pwd_result;
+  char username[1024+1] = "noname";
 
-  char username[1024+1];
-  if(getlogin_r(username, sizeof(username)) == 0)
-    cJSON_AddStringToObject(command, "user",     username);
-  else
-    warn("Couldn't get username");
+  // getpwuid may succeed when getlogin fails (e.g. when running not in terminal)
+  if(getlogin_r(username, sizeof(username)) == 0 ||
+     (getpwuid_r(geteuid(), &pwd, username, sizeof(username), &pwd_result) == 0 &&
+      pwd_result != NULL))
+  {
+    cJSON_AddStringToObject(command, "user", username);
+  }
 
   // Get system info
   struct utsname sysdata;

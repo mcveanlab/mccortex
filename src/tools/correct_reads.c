@@ -64,7 +64,7 @@ size_t _print_read_kmer(const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
   if(pos > num_bases_printed) {
     // Fill in missing seq
     n = pos - num_bases_printed;
-    // printf("  fill: %zu\n", n);
+    // printf("  fill: %zu '%.*s'\n", n, (int)n, r->seq.b + num_bases_printed);
     strbuf_append_strn_lc(rbuf, r->seq.b+num_bases_printed,  n);
     if(r->qual.end > 0) strbuf_append_strn(qbuf, r->qual.b+num_bases_printed, n);
     num_bases_printed = pos;
@@ -73,8 +73,8 @@ size_t _print_read_kmer(const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
   // Append bases that match a kmer
   if(pos + kmer_size > num_bases_printed) {
     n = pos + kmer_size - num_bases_printed;
-    // printf("  mtch: %zu\n", n);
-    strbuf_append_strn_uc(rbuf, r->seq.b  + num_bases_printed, n);
+    // printf("  mtch: %zu '%.*s'\n", n, (int)n, r->seq.b + num_bases_printed);
+    strbuf_append_strn_uc(rbuf, r->seq.b + num_bases_printed, n);
     if(r->qual.end > 0) strbuf_append_strn(qbuf, r->qual.b + num_bases_printed, n);
   }
 
@@ -95,6 +95,8 @@ static void handle_read2(CorrectReadsWorker *wrkr,
 
   correct_aln_read(corrector, params, r, fq_cutoff, hp_cutoff,
                    nodebuf, posbuf);
+
+  // db_alignment_print(&corrector->aln);
 
   ctx_assert(nodebuf->len == posbuf->len);
 
@@ -154,6 +156,7 @@ static void handle_read2(CorrectReadsWorker *wrkr,
 
     if(num_neg == 0) {
       // Print non-neg
+      // printf(" pos_arr[i:%zu]: %i\n", i, pos_arr[i]);
       bases_printed = _print_read_kmer(r, rbuf, qbuf, pos_arr[i],
                                        bases_printed, db_graph);
       i++; // Go to next node

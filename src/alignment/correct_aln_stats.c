@@ -17,6 +17,13 @@ void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
   for(i = 0; i < ALN_STATS_MAX_FRAGLEN; i++)
     dst->fraglen_histgrm[i] += src->fraglen_histgrm[i];
 
+  dst->num_ins_gaps += src->num_ins_gaps;
+  dst->num_mid_gaps += src->num_mid_gaps;
+  dst->num_end_gaps += src->num_end_gaps;
+  dst->num_ins_traversed += src->num_ins_traversed;
+  dst->num_mid_traversed += src->num_mid_traversed;
+  dst->num_end_traversed += src->num_end_traversed;
+
   dst->num_gap_attempts += src->num_gap_attempts;
   dst->num_gap_successes += src->num_gap_successes;
   dst->num_paths_disagreed += src->num_paths_disagreed;
@@ -130,6 +137,16 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
     sum_fraglen        += i * curr;
     if(curr > fraglen_maxc) { fraglen_mode = i; fraglen_maxc = curr; }
   }
+
+  status("[CorrectAln] Traversed %zu / %zu of insert gaps (%.2f%%)",
+         (size_t)stats->num_ins_traversed, (size_t)stats->num_ins_gaps,
+         (100.0 * stats->num_ins_traversed) / stats->num_ins_gaps);
+  status("[CorrectAln] Traversed %zu / %zu of mid-read gaps (%.2f%%)",
+         (size_t)stats->num_mid_traversed, (size_t)stats->num_mid_gaps,
+         (100.0 * stats->num_mid_traversed) / stats->num_mid_gaps);
+  status("[CorrectAln] Traversed %zu / %zu of read-end gaps (%.2f%%)",
+         (size_t)stats->num_end_traversed, (size_t)stats->num_end_gaps,
+         (100.0 * stats->num_end_traversed) / stats->num_end_gaps);
 
   if(num_seq_gaps == 0)
   {
