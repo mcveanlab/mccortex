@@ -137,6 +137,10 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   if(dump_seq_hist_n > 1) die("Cannot specify --gap-hist <out> more than once");
   if(dump_frag_hist_n > 1) die("Cannot specify --frag-hist <out> more than once");
 
+  // ctx_thread requires output file
+  if(!correct_cmd && !args->out_ctp_path)
+    cmd_print_usage("--out <out.ctp> is required");
+
   //
   // Open graph graph file
   //

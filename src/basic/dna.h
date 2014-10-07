@@ -17,15 +17,20 @@ extern const unsigned char dna_complement_char_arr[256];
 #define dna_nuc_to_char(n) ({ ctx_assert(((n)&3)==(n)); dna_nuc_to_char_arr[n]; })
 #define dna_nuc_complement(n) ({ ctx_assert(((n)&3)==(n)); (Nucleotide)(~(n) & 0x3); })
 #define dna_char_to_nuc(c)  ({ ctx_assert2(char_is_acgt(c),"%c",c); dna_char_to_nuc_arr[(uint8_t)(c)]; })
-#define dna_char_complement(c) ({ ctx_assert2(char_is_acgt(c),"%c",c); (char)dna_complement_char_arr[(uint8_t)(c)]; })
+#define dna_char_complement(c) ({ ctx_assert2(char_is_acgt(c),"%i",c); (char)dna_complement_char_arr[(uint8_t)(c)]; })
 
-// length is the length in number of bases
-// the char* should have one MORE base than that allocated, to hold '\0'
-char* dna_reverse_complement_str(char *str, size_t length);
+#define dna_reverse_complement_str(str,len) dna_revcomp_str(str,str,len)
 
-// length is the length in number of bases
-// Null terminates dst
-// Returns pointer to dst
+/**
+ * Reverse complement a string, copying the result into a different memory
+ * location. src,dst can point to the same string.
+ * DOES NOT NULL TERMINATE dst
+ *
+ * @param length is the length in number of bases to reverse complement
+ * @param dst read characters from dst
+ * @param src result written to memory pointed to by src
+ * @return pointer to dst
+**/
 char* dna_revcomp_str(char *dst, const char *src, size_t length);
 
 // Generate a random dna str "ACGT" of length `len`, terminated with a \0 at

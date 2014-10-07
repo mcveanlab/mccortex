@@ -116,7 +116,7 @@ int ctx_uniqkmers(int argc, char **argv)
   graphs_gpaths_compatible(gfilebuf.data, gfilebuf.len, NULL, 0, -1);
 
   bool ctx_uses_stdin = false;
-  size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t ctx_max_kmers = num_uniqkmers, ctx_sum_kmers = num_uniqkmers;
 
   for(i = 0; i < gfilebuf.len; i++) {
     ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfilebuf.data[i]));

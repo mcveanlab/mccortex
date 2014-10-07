@@ -52,39 +52,31 @@ const unsigned char dna_complement_char_arr[256]
      240,241,242,243,244,245,246,247,248,249,
      250,251,252,253,254,255};
 
-// length is the length in number of bases
-// the char* should have one MORE base than that allocated, to hold '\0'
-char* dna_reverse_complement_str(char *str, size_t length)
-{
-  ctx_assert(strlen(str) >= length);
-
-  if(length == 0) return str;
-  if(length == 1) { str[0] = dna_char_complement(str[0]); return str; }
-
-  size_t i, j;
-  for(i = 0, j = length - 1; i <= j; i++, j--)
-  {
-    char tmp = str[i];
-    str[i] = dna_char_complement(str[j]);
-    str[j] = dna_char_complement(tmp);
-  }
-
-  return str;
-}
-
-// length is the length in number of bases
-// dst, src can point to the same string
-// Null terminates dst
-// Returns pointer to dst
+/**
+ * Reverse complement a string, copying the result into a different memory
+ * location. src,dst can point to the same string.
+ * DOES NOT NULL TERMINATE DST
+ *
+ * @param length is the length in number of bases
+ * @param dst characters read from dst
+ * @param src result written to memory pointed to by src
+ * @return pointer to dst
+**/
 char* dna_revcomp_str(char *dst, const char *src, size_t length)
 {
   size_t i, j;
-  for(i = 0, j = length-1; i < length; i++, j--) {
+
+  ctx_assert(strlen(src) >= length);
+
+  if(length == 0) { return dst; }
+  if(length == 1) { dst[0] = dna_char_complement(src[0]); return dst; }
+
+  for(i = 0, j = length-1; i <= j; i++, j--) {
     char a = dna_char_complement(src[i]), b = dna_char_complement(src[j]);
     dst[i] = b;
     dst[j] = a;
   }
-  dst[length] = '\0';
+
   return dst;
 }
 
