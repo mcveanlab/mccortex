@@ -114,7 +114,7 @@ BinaryKmer binary_kmer_left_shift_one_base(const BinaryKmer bkmer,
   b.b[NUM_BKMER_WORDS - 1] <<= 2;
 
   // Mask top word
-  b.b[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
+  b.b[0] &= (UINT64_MAX >> (64 - BKMER_TOP_BITS(kmer_size)));
   return b;
 }
 

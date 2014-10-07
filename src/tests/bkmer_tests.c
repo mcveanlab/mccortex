@@ -63,7 +63,7 @@ void test_bkmer_shifts()
     bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
     bkmer1 = binary_kmer_right_shift_one_base(bkmer1);
     binary_kmer_set_first_nuc(&bkmer2, 0, k);
-    TASSERT(binary_kmers_are_equal(bkmer1,bkmer2));
+    TASSERT2(binary_kmers_are_equal(bkmer1,bkmer2), "k:%zu", k);
     TASSERT(!binary_kmer_oversized(bkmer1, k));
     TASSERT(!binary_kmer_oversized(bkmer2, k));
 

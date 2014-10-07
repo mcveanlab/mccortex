@@ -1,6 +1,7 @@
 #ifndef BINARY_KMER_H_
 #define BINARY_KMER_H_
 
+#include "bit_array/bit_macros.h"
 #include "dna.h"
 
 // NUM_BKMER_WORDS is the number of 64 bit words we use to encode a kmer
@@ -38,13 +39,13 @@ extern const BinaryKmer zero_bkmer;
 #define BKMER_TOP_BP_BYTEOFFSET(ksize) (BKMER_TOP_BITS(ksize) - 2)
 
 #define binary_kmer_first_nuc(bkmer,ksize) \
-        (((bkmer).b[0] >> BKMER_TOP_BP_BYTEOFFSET(ksize)) & 0x3)
+  (((bkmer).b[0] >> BKMER_TOP_BP_BYTEOFFSET(ksize)) & 0x3)
+
 #define binary_kmer_last_nuc(bkmer)  ((bkmer).b[NUM_BKMER_WORDS - 1] & 0x3)
 
-#define binary_kmer_set_first_nuc(bkmer,nuc,ksize)                             \
-        ((bkmer)->b[0] = ((bkmer)->b[0] &                                      \
-                          (~(uint64_t)0 >> (64-BKMER_TOP_BP_BYTEOFFSET(ksize)))) |\
-                         (((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize)))
+#define binary_kmer_set_first_nuc(bkmer,nuc,ksize)                              \
+  ((bkmer)->b[0] = ((bkmer)->b[0] & bitmask64(BKMER_TOP_BP_BYTEOFFSET(ksize))) |\
+                   (((uint64_t)(nuc)) << BKMER_TOP_BP_BYTEOFFSET(ksize)))
 
 #define binary_kmer_set_last_nuc(bkmer,nuc) \
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
@@ -71,7 +72,7 @@ extern const BinaryKmer zero_bkmer;
   bool binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
 #endif
 
-#define binary_kmer_oversized(bk,k)  ((bk).b[0] & ~(uint64_t)0<<BKMER_TOP_BITS(k))
+#define binary_kmer_oversized(bk,k)  ((bk).b[0] & (UINT64_MAX << BKMER_TOP_BITS(k)))
 
 //
 // Functions
@@ -93,7 +94,7 @@ BinaryKmer binary_kmer_get_key(const BinaryKmer kmer, size_t kmer_size);
   {
     BinaryKmer b = bkmer;
     b.b[NUM_BKMER_WORDS - 1] <<= 2;
-    b.b[0] &= (~(uint64_t)0 >> (64 - BKMER_TOP_BITS(kmer_size)));
+    b.b[0] &= (UINT64_MAX >> (64 - BKMER_TOP_BITS(kmer_size)));
     return b;
   }
 
