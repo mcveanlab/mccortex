@@ -125,6 +125,11 @@ CtxCmd cmdobjs[] = {
   .blurb = "reduce set of strings to remove substrings",
   .usage = rmsubstr_usage
 },
+{
+  .cmd = "uniqkmers", .func = ctx_uniqkmers, .hide = false,
+  .blurb = "generate random unique kmers",
+  .usage = uniqkmers_usage
+},
 { // soon to replace commands 'unique' and 'place'
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = true,
   .blurb = "reduce set of strings to remove substrings",

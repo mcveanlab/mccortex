@@ -130,7 +130,7 @@ static void parse_args(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
-      case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_kmer_size(cmd, optarg); break;
       case 's':
         intocolour++;
         if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
@@ -173,7 +173,7 @@ static void parse_args(int argc, char **argv)
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
         die("`"CMD" build -h` for help. Bad option: %s", argv[optind-1]);
-      default: abort();
+      default: die("Bad option: %s", cmd);
     }
   }
 
@@ -194,12 +194,6 @@ static void parse_args(int argc, char **argv)
   if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
 
   if(!kmer_size) die("kmer size not set with -k <K>");
-  if(kmer_size < MIN_KMER_SIZE || kmer_size > MAX_KMER_SIZE)
-    die("Please recompile with correct kmer size (%zu)", kmer_size);
-  if(!(kmer_size&1)) {
-    die("Invalid kmer-size (%zu): requires odd number %i <= k <= %i",
-        kmer_size, MIN_KMER_SIZE, MAX_KMER_SIZE);
-  }
 
   // Check kmer size in graphs to load
   size_t i;

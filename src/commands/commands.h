@@ -24,6 +24,7 @@ int ctx_calls2vcf(int argc, char **argv); // unfinished
 int ctx_subgraph(int argc, char **argv);
 int ctx_join(int argc, char **argv);
 int ctx_reads(int argc, char **argv);
+int ctx_uniqkmers(int argc, char **argv);
 
 // int ctx_geno(int argc, char **argv); // not written yet
 
@@ -53,6 +54,7 @@ extern const char breakpoints_usage[];
 extern const char coverage_usage[];
 extern const char rmsubstr_usage[];
 extern const char calls2vcf_usage[];
+extern const char uniqkmers_usage[];
 // extern const char geno_usage[];
 
 extern const char unique_usage[]; // retiring

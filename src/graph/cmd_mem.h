@@ -5,7 +5,7 @@
 
 struct MemArgs
 {
-  bool num_kmers_set, mem_to_use_set, num_threads_set;
+  bool num_kmers_set, mem_to_use_set;
   size_t num_kmers, mem_to_use;
   size_t min_kmers, max_kmers;
 };

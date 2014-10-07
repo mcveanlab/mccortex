@@ -111,7 +111,7 @@ void json_hdr_add_std(cJSON *json, const char *path,
   if(realpath(path, abspath) != NULL)
     cJSON_AddStringToObject(command, "outpath", abspath);
   else {
-    warn("Cannot get absolute path for: %s", path);
+    status("Warning: Cannot get absolute path for: %s", path);
     cJSON_AddStringToObject(command, "outpath", path);
   }
 
@@ -138,6 +138,8 @@ void json_hdr_add_std(cJSON *json, const char *path,
       pwd_result != NULL))
   {
     cJSON_AddStringToObject(command, "user", username);
+  } else {
+    status("Warning: Cannot get username for JSON header");
   }
 
   // Get system info

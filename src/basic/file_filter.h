@@ -62,7 +62,10 @@ void file_filter_status(const FileFilter *fltr);
 // Clone struct, need to call file_filter_close() to release memory
 FileFilter* file_filter_copy(FileFilter *newfltr, const FileFilter *fltr);
 
-// @intocols value to set all intocols to
+/**
+ * Set FileFilter to load all samples into a given single colour
+ * @param intocols value to set all intocols to
+ */
 void file_filter_flatten(FileFilter *fltr, size_t intocol);
 
 // Updates filter a using filter b (push a through b: a->b)

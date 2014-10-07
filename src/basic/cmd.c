@@ -178,6 +178,20 @@ size_t cmd_size_nonzero(const char *cmdstr, const char *arg)
   return n;
 }
 
+size_t cmd_kmer_size(const char *cmdstr, const char *arg)
+{
+  size_t min_kmer_size = get_min_kmer_size();
+  size_t max_kmer_size = get_max_kmer_size();
+  size_t kmer_size = cmd_size_nonzero(cmdstr, arg);
+  if(kmer_size < min_kmer_size || kmer_size > max_kmer_size)
+    die("Please recompile with correct kmer size (%zu)", kmer_size);
+  if(!(kmer_size&1)) {
+    die("Invalid kmer-size (%zu): requires odd number %zu <= k <= %zu",
+        kmer_size, min_kmer_size, max_kmer_size);
+  }
+  return kmer_size;
+}
+
 size_t cmd_parse_arg_mem(const char *cmdstr, const char *arg)
 {
   ctx_assert(cmdstr != NULL);

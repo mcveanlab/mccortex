@@ -159,9 +159,15 @@ BinaryKmer binary_kmer_random(size_t kmer_size)
 {
   BinaryKmer bkmer = BINARY_KMER_ZERO_MACRO;
   size_t i;
-  for(i = 0; i < NUM_BKMER_WORDS; i++)
-    bkmer.b[i] = (((uint64_t)rand()) << 32) | (uint64_t)rand();
-  bkmer.b[0] >>= 64 - BKMER_TOP_BASES(kmer_size);
+  // RAND_MAX is implementation dependent, usually 2^31, so assume we get
+  // at least 16 bits per rand() call
+  for(i = 0; i < NUM_BKMER_WORDS; i++) {
+    bkmer.b[i] =  (rand() & 0xfffful) |
+                 ((rand() & 0xfffful) << 16) |
+                 ((rand() & 0xfffful) << 32) |
+                 ((rand() & 0xfffful) << 48);
+  }
+  bkmer.b[0] >>= 64 - BKMER_TOP_BITS(kmer_size);
   return bkmer;
 }
 
