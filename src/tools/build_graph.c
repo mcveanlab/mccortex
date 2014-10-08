@@ -245,6 +245,32 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   db_graph->num_of_cols_used = MAX2(db_graph->num_of_cols_used, max_col+1);
 }
 
+// One thread used per input file, num_build_threads used to add reads to graph
+// Updates ginfo
+void build_graph_from_seq(dBGraph *db_graph,
+                          seq_file_t **files, size_t num_files,
+                          size_t num_build_threads,
+                          size_t colour)
+{
+  size_t i;
+  BuildGraphTask *tasks = ctx_calloc(num_files, sizeof(BuildGraphTask));
+
+  for(i = 0; i < num_files; i++) {
+    AsyncIOInput input = {.file1 = files[i], .file2 = NULL,
+                          .fq_offset = 0, .interleaved = false};
+
+    BuildGraphTask tmp = {.files = input, .fq_cutoff = 0, .hp_cutoff = 0,
+                          .matedir = READPAIR_FR, .colour = colour,
+                          .remove_pcr_dups = false};
+
+    loading_stats_init(&tmp.stats);
+    tasks[i] = tmp;
+  }
+
+  build_graph(db_graph, tasks, num_files, num_build_threads);
+
+  ctx_free(tasks);
+}
 
 void build_graph_task_print(const BuildGraphTask *task)
 {

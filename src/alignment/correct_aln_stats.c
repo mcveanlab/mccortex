@@ -315,7 +315,8 @@ void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
     correct_aln_stats_dump_fraglen(aln_stats, dump_fraglen_hist_path);
   }
 
-  correct_aln_stats_dump_contiglen(aln_stats, dump_contiglen_hist_path);
+  if(dump_contiglen_hist_path)
+    correct_aln_stats_dump_contiglen(aln_stats, dump_contiglen_hist_path);
 
   loading_stats_print_summary(load_stats, ht_num_kmers);
 }

@@ -61,6 +61,12 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
 void build_graph(dBGraph *db_graph, BuildGraphTask *files,
                  size_t num_files, size_t num_build_threads);
 
+// One thread used per input file, num_build_threads used to add reads to graph
+// Updates ginfo
+void build_graph_from_seq(dBGraph *db_graph, seq_file_t **files,
+                          size_t num_files, size_t num_build_threads,
+                          size_t colour);
+
 // Threadsafe
 // Sequence must be entirely ACGT and len >= kmer_size
 // Returns number of novel kmers loaded

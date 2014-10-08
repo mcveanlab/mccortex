@@ -30,7 +30,7 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-static inline int cmp_bkmer(const void *aa, const void *bb)
+static inline int binary_kmers_qcmp_ptrs(const void *aa, const void *bb)
 {
   BinaryKmer b1, b2;
   const char *a = *(const char *const*)aa, *b = *(const char *const*)bb;
@@ -43,7 +43,7 @@ static inline int cmp_bkmer(const void *aa, const void *bb)
 // test representation of kmer
 static inline void sort_block(char **entries, size_t num)
 {
-  qsort(entries, num, sizeof(char*), cmp_bkmer);
+  qsort(entries, num, sizeof(char*), binary_kmers_qcmp_ptrs);
 }
 
 int ctx_sort(int argc, char **argv)

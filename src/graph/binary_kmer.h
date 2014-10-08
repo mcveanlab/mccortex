@@ -74,6 +74,12 @@ extern const BinaryKmer zero_bkmer;
 
 #define binary_kmer_oversized(bk,k)  ((bk).b[0] & (UINT64_MAX << BKMER_TOP_BITS(k)))
 
+static inline int binary_kmers_qcmp(const void *aa, const void *bb)
+{
+  const BinaryKmer *a = (const BinaryKmer*)aa, *b = (const BinaryKmer*)bb;
+  return binary_kmers_cmp(*a, *b);
+}
+
 //
 // Functions
 //

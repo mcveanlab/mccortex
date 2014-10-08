@@ -31,7 +31,6 @@ void seqout_close(SeqOutput *output, bool rm);
 
 void seqout_print(SeqOutput *output, const read_t *r1, const read_t *r2);
 
-// DEV: check gzwrite, gzputc return type
 static inline void seqout_gzprint_read(const read_t *r, seq_format fmt, gzFile gzout)
 {
   int ret = 0;
@@ -60,6 +59,28 @@ static inline void seqout_print_read(const read_t *r, seq_format fmt, FILE *fout
     default: die("Invalid output format: %i", fmt);
   }
   if(ret == -1) die("Cannot write sequence");
+}
+
+static inline void seqout_print_strs(const char *name,
+                                     const char *seq, size_t slen,
+                                     const char *quals, size_t qlen,
+                                     seq_format fmt,
+                                     FILE *fout)
+{
+  size_t i;
+  if(fmt == SEQ_FMT_PLAIN) fputs(seq, fout);
+  else if(fmt == SEQ_FMT_FASTA) fprintf(fout, ">%s\n%s\n", name, seq);
+  else if(fmt == SEQ_FMT_FASTQ) {
+    fprintf(fout, "@%s\n%s\n+\n", name, seq);
+    if(quals) {
+      if(qlen <= slen) fputs(quals, fout);
+      else {
+        for(i = 0; i < slen; i++) fputc(quals[i], fout);
+      }
+    } else qlen = 0;
+    for(i = qlen; i < slen; i++) fputc('.', fout);
+    fputc('\n', fout);
+  }
 }
 
 static inline int seqout_str2fmt(const char *str)
