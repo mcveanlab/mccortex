@@ -24,14 +24,14 @@ static gzFile _seqout_open(const char *path)
 {
   gzFile gzout;
 
-  int ret = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY);
-  if(ret == -1) {
+  int fd = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY);
+  if(fd == -1) {
     if(errno == EEXIST) warn("Output file already exists: %s", path);
     else warn("Cannot create file: %s [%s]", path, strerror(errno));
     return NULL;
   }
 
-  if((gzout = gzopen(path, "w")) == NULL) {
+  if((gzout = gzdopen(fd, "w")) == NULL) {
     warn("Cannot open %s", path);
     return NULL;
   }

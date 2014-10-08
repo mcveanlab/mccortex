@@ -135,7 +135,8 @@ void correct_aln_stats_dump_contiglen(const CorrectAlnStats *stats, const char *
   fprintf(fout, "contig_len_bp\tcount\n");
 
   for(i = 0; i < stats->contig_histgrm.len; i++) {
-    fprintf(fout, "%4zu\t%4zu\n", i, stats->contig_histgrm.data[i]);
+    if(stats->contig_histgrm.data[i])
+      fprintf(fout, "%4zu\t%4zu\n", i, stats->contig_histgrm.data[i]);
   }
   fclose(fout);
 }

@@ -445,15 +445,11 @@ void assemble_contigs(size_t nthreads,
                       size_t contig_limit, uint8_t *visited,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
-                      size_t read_length, double avg_bp_covg,
+                      const ContigConfidenceTable *conf_table,
                       const dBGraph *db_graph, size_t colour)
 {
   ctx_assert(nthreads > 0);
   ctx_assert(!num_seed_files || seed_files);
-
-  ContigConfidenceTable conf_table;
-  conf_table_alloc(&conf_table, read_length, avg_bp_covg);
-  // conf_table_print(&conf_table);
 
   status("[Assemble] Assembling contigs with %zu threads, walking colour %zu",
          nthreads, colour);
@@ -474,7 +470,7 @@ void assemble_contigs(size_t nthreads,
                      .num_contig_ptr = &num_contigs,
                      .contig_limit = contig_limit,
                      .db_graph = db_graph, .colour = colour,
-                     .conf_table = &conf_table,
+                     .conf_table = conf_table,
                      .visited = visited,
                      .fout = fout, .outlock = &outlock};
 
@@ -521,6 +517,4 @@ void assemble_contigs(size_t nthreads,
 
   pthread_mutex_destroy(&outlock);
   ctx_free(workers);
-
-  conf_table_dealloc(&conf_table);
 }

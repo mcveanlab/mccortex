@@ -34,7 +34,7 @@ off_t futil_get_file_size(const char* filepath);
   Create file and parent directories
   @param path Path to file
   @param mode e.g. O_CREAT | O_EXCL | O_WRONLY | O_APPEND
-  @return 0 on sucess, -1 if file error, -2 if file already exists
+  @return file descriptor on sucess, -1 if file error and sets errno
  */
 int futil_create_file(const char *path, int mode);
 

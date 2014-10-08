@@ -28,7 +28,10 @@ const char contigs_usage[] =
 "  -r, --reseed          Sample seed kmers with replacement\n"
 "  -R, --no-reseed       Do not use a seed kmer if it is used in a contig [default]\n"
 "  -L, --read-length <R> Expected read length for calc. contig confidences\n"
-"  -C, --coverage <C>    Expected coverage for calc. contig confidences\n"
+"  -d, --depth <C>       Expected depth for calc. contig confidences\n"
+"  -G, --genome <G>      Genome size in bases\n"
+"  -C, --contig-hist <h.csv>   Length distrib. from 'thread' [can have multiple]\n"
+"  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
 "\n";
 
 static struct option longopts[] =
@@ -50,7 +53,10 @@ static struct option longopts[] =
   {"colour",       required_argument, NULL, 'c'},
   {"color",        required_argument, NULL, 'c'},
   {"read-length",  required_argument, NULL, 'L'},
-  {"coverage",     required_argument, NULL, 'C'},
+  {"depth",        required_argument, NULL, 'd'},
+  {"genome",       required_argument, NULL, 'G'},
+  {"contig-hist",  required_argument, NULL, 'C'},
+  {"confid-csv",   required_argument, NULL, 'S'},
   {NULL, 0, NULL, 0}
 };
 
@@ -61,9 +67,10 @@ int ctx_contigs(int argc, char **argv)
   const char *out_path = NULL;
   size_t i, contig_limit = 0, colour = 0;
   bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
+  const char *conf_table_path = NULL; // save confidence table to here
 
-  // Read length and expected coverage for calculating confidences
-  size_t exp_read_length = 0;
+  // Read length and expected depth for calculating confidences
+  size_t exp_read_length = 0, genome_size = 0;
   double exp_avg_bp_covg = -1;
 
   seq_file_t *tmp_seed_file = NULL;
@@ -73,6 +80,9 @@ int ctx_contigs(int argc, char **argv)
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
   gpfile_buf_alloc(&gpfiles, 8);
+
+  CharPtrBuffer contig_hist_paths;
+  char_ptr_buf_alloc(&contig_hist_paths, 8);
 
   // Arg parsing
   char cmd[100], shortopts[300];
@@ -111,7 +121,10 @@ int ctx_contigs(int argc, char **argv)
         break;
       case 'c': cmd_check(!colour,cmd); colour = cmd_uint32(cmd, optarg); break;
       case 'L': cmd_check(!exp_read_length,cmd); exp_read_length = cmd_size(cmd, optarg); break;
-      case 'C': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
+      case 'd': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
+      case 'G': cmd_check(!genome_size,cmd); genome_size = cmd_size_nonzero(cmd, optarg); break;
+      case 'C': char_ptr_buf_add(&contig_hist_paths, optarg); break;
+      case 'S': cmd_check(!conf_table_path,cmd); conf_table_path = optarg; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" contigs -h` for help. Bad option: %s", argv[optind-1]);
@@ -123,6 +136,9 @@ int ctx_contigs(int argc, char **argv)
     cmd_print_usage("Cannot specify both -r and -R");
 
   bool sample_with_replacement = cmd_reseed;
+
+  if(contig_hist_paths.len > 0 && (exp_read_length || exp_avg_bp_covg >= 0))
+    cmd_print_usage("Only need --covg-hist <in.csv> (don't need --read-length / --depth)");
 
   // Defaults
   if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
@@ -155,10 +171,18 @@ int ctx_contigs(int argc, char **argv)
   if(!exp_read_length) {
     exp_read_length = gfile.hdr.ginfo[0].mean_read_length;
   }
-  if(exp_avg_bp_covg < 0) {
-    if(gfile.num_of_kmers <= 0) die("Please pass --coverage <R> if streaming");
-    exp_avg_bp_covg = gfile.hdr.ginfo[0].total_sequence / gfile.num_of_kmers;
+
+  if(!genome_size)
+  {
+    char nk_str[50];
+    if(gfile.num_of_kmers <= 0) die("Please pass --genome <G> if streaming");
+    genome_size = gfile.num_of_kmers;
+    ulong_to_str(genome_size, nk_str);
+    status("Taking number of kmers as genome size: %s", nk_str);
   }
+
+  if(exp_avg_bp_covg < 0)
+    exp_avg_bp_covg = gfile.hdr.ginfo[0].total_sequence / genome_size;
 
   //
   // Decide on memory
@@ -189,6 +213,30 @@ int ctx_contigs(int argc, char **argv)
   // Total memory
   total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
+
+  // Load contig lengths
+  ContigConfidenceTable conf_table;
+  memset(&conf_table, 0, sizeof(conf_table));
+
+  if(contig_hist_paths.len > 0)
+  {
+    FILE *contig_fh;
+    const char *contig_path;
+    for(i = 0; i < contig_hist_paths.len; i++) {
+      contig_path = contig_hist_paths.data[i];
+      if((contig_fh = fopen(contig_path, "r")) == NULL)
+        die("Cannot open --contig-hist file: %s", contig_path);
+      conf_table_load_csv(&conf_table, contig_fh, contig_path);
+    }
+    conf_table_calc_csv(&conf_table, genome_size);
+  }
+  else {
+    conf_table_calc(&conf_table, exp_read_length, exp_avg_bp_covg);
+  }
+
+  if(conf_table_path != NULL) {
+    conf_table_save(&conf_table, conf_table_path);
+  }
 
   //
   // Output file if printing
@@ -233,8 +281,7 @@ int ctx_contigs(int argc, char **argv)
 
   assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
                    contig_limit, visited,
-                   fout, out_path, &assem_stats,
-                   exp_read_length, exp_avg_bp_covg,
+                   fout, out_path, &assem_stats, &conf_table,
                    &db_graph, 0); // Sample always loaded into colour zero
 
   if(fout && fout != stdout) fclose(fout);
@@ -242,10 +289,13 @@ int ctx_contigs(int argc, char **argv)
   assemble_contigs_stats_print(&assem_stats);
   assemble_contigs_stats_destroy(&assem_stats);
 
+  conf_table_destroy(&conf_table);
+
   for(i = 0; i < seed_buf.len; i++)
     seq_close(seed_buf.data[i]);
 
   seq_file_ptr_buf_dealloc(&seed_buf);
+  char_ptr_buf_dealloc(&contig_hist_paths);
 
   ctx_free(visited);
   db_graph_dealloc(&db_graph);

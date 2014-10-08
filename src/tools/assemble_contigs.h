@@ -4,8 +4,9 @@
 #include "db_graph.h"
 #include "graph_walker.h"
 #include "common_buffers.h"
+#include "contig_confidence.h"
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 #define AC_MAX_PATHS 5
 
@@ -42,7 +43,7 @@ void assemble_contigs(size_t nthreads,
                       size_t contig_limit, uint8_t *visited,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
-                      size_t read_length, double avg_bp_covg,
+                      const ContigConfidenceTable *conf_table,
                       const dBGraph *db_graph, size_t colour);
 
 #endif /* ASSEMBLE_CONTIGS_H_ */

@@ -107,7 +107,8 @@ off_t futil_get_file_size(const char* filepath)
   Create file and parent directories
   @param path Path to file
   @param mode e.g. O_CREAT | O_EXCL | O_WRONLY | O_APPEND
-  @return 0 on sucess, -1 if file error and sets errno
+  @param fh   If not NULL, open file handle and return in fh
+  @return file descriptor on sucess, -1 if file error and sets errno
  */
 int futil_create_file(const char *path, int mode)
 {
@@ -126,9 +127,8 @@ int futil_create_file(const char *path, int mode)
   if(futil_get_force()) mode &= ~O_EXCL;
 
   fd = open(path, mode, 0666);
-  if(fd != -1) close(fd);
 
-  return fd >= 0 ? 0 : -1;
+  return fd >= 0 ? fd : -1;
 }
 
 /*!
@@ -137,10 +137,12 @@ int futil_create_file(const char *path, int mode)
  */
 void futil_create_output(const char *path) {
   if(path != NULL && strcmp(path,"-") != 0) {
-    int ret = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY | O_APPEND);
-    if(ret == -1) {
+    int fd = futil_create_file(path, O_CREAT | O_EXCL | O_WRONLY | O_APPEND);
+    if(fd < 0) {
       if(errno == EEXIST) die("File already exists: %s", path);
       else die("Cannot write to file: %s [%s]", path, strerror(errno));
+    } else {
+      close(fd);
     }
   }
 }
