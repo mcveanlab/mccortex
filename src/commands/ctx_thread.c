@@ -47,7 +47,8 @@ const char thread_usage[] =
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
-"  -G, --frag-hist <o.csv>  Save size distribution of PE fragments recovered\n"
+"  -G, --frag-hist <o.csv>  Save size distribution of PE fragments\n"
+"  -C, --contig-hist <.csv> Save size distribution of assembled contigs\n"
 "\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
@@ -88,6 +89,7 @@ static struct option longopts[] =
   {"no-end-check",  no_argument,       NULL, 'E'},
   {"gap-hist",      required_argument, NULL, 'g'},
   {"frag-hist",     required_argument, NULL, 'G'},
+  {"contig-hist",   required_argument, NULL, 'C'},
 //
   {"use-new-paths", required_argument, NULL, 'u'},
 // Debug options
@@ -210,7 +212,9 @@ int ctx_thread(int argc, char **argv)
   // Start up the threads, do the work
   //
   GenPathWorker *workers;
-  workers = gen_paths_workers_alloc(args.nthreads, &db_graph);
+  workers = gen_paths_workers_alloc(args.nthreads,
+                                    args.dump_contig_sizes != NULL,
+                                    &db_graph);
 
   // Deal with a set of files at once
   size_t start, end;
@@ -226,12 +230,13 @@ int ctx_thread(int argc, char **argv)
   gpath_store_print_stats(&db_graph.gpstore);
 
   // Output statistics
-  LoadingStats *stats = gen_paths_get_stats(workers);
-  CorrectAlnStats *gapstats = gen_paths_get_gapstats(workers);
+  LoadingStats *load_stats = gen_paths_get_stats(workers);
+  CorrectAlnStats *aln_stats = gen_paths_get_aln_stats(workers);
 
-  correct_aln_dump_stats(stats, gapstats,
+  correct_aln_dump_stats(aln_stats, load_stats,
                          args.dump_seq_sizes,
                          args.dump_frag_sizes,
+                         args.dump_contig_sizes,
                          db_graph.ht.num_kmers);
 
   // ins_gap, err_gap no longer allocated after this line

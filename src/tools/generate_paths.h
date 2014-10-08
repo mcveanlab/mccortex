@@ -13,9 +13,8 @@ typedef struct GenPathWorker GenPathWorker;
 // Estimate memory required per worker thread
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph);
 
-// fout can be NULL - it is used as a tmp file if available (for defragging)
-// if fout is passed, it must be opened with "r+" so we can fseek, write, read
-GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph);
+GenPathWorker* gen_paths_workers_alloc(size_t n, bool store_contig_lens,
+                                       dBGraph *graph);
 
 void gen_paths_workers_dealloc(GenPathWorker *mem, size_t n);
 
@@ -31,7 +30,7 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
 void generate_paths(CorrectAlnInput *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers);
 
-CorrectAlnStats* gen_paths_get_gapstats(GenPathWorker *wrkr);
+CorrectAlnStats* gen_paths_get_aln_stats(GenPathWorker *wrkr);
 LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr);;
 
 #endif /* GENERATE_PATHS_H_ */

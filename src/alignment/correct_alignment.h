@@ -70,8 +70,9 @@ typedef struct
   Int32Buffer rpos;
 
   // Statistics on gap traversal
-  LoadingStats stats;
-  CorrectAlnStats gapstats;
+  LoadingStats load_stats;
+  CorrectAlnStats aln_stats;
+  bool store_contig_lens;
 } CorrectAlnWorker;
 
 // Global variables to specify if we should print output - used for debugging only
@@ -81,15 +82,14 @@ extern bool gen_paths_print_contigs, gen_paths_print_paths, gen_paths_print_read
 
 size_t correct_aln_worker_est_mem(const dBGraph *graph);
 
-void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph);
+void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, bool store_contig_lens,
+                              const dBGraph *db_graph);
+
 void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr);
 
 // Merge stats into dst and reset src
 void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
                              CorrectAlnWorker *restrict src);
-
-// void correct_alignment_init(CorrectAlnWorker *wrkr, const dBAlignment *aln,
-//                             CorrectAlnParam params);
 
 /*!
   @param params Settings for correction - needs to be passed since we don't know
@@ -104,11 +104,6 @@ void correct_alignment_init(CorrectAlnWorker *wrkr,
 
 // @return NULL if end of alignment, otherwise returns pointer to wrkr->contig
 dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr);
-
-// Get alignment coords of contig
-// Called after correct_alignment_nxt()
-size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr);
-size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr);
 
 /*!
   Correct a whole read, filling in gaps caused by sequencing error with the

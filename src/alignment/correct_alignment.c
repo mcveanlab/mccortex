@@ -14,10 +14,12 @@ size_t correct_aln_worker_est_mem(const dBGraph *graph) {
          2*INIT_BUFLEN*sizeof(size_t) + sizeof(CorrectAlnWorker);
 }
 
-void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
+void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, bool store_contig_lens,
+                              const dBGraph *db_graph)
 {
   CorrectAlnWorker tmp = {.db_graph = db_graph,
-                          .start_idx = 0, .gap_idx = 0, .end_idx = 0};
+                          .start_idx = 0, .gap_idx = 0, .end_idx = 0,
+                          .store_contig_lens = store_contig_lens};
 
   // Graph alignment of reads
   db_alignment_alloc(&tmp.aln);
@@ -33,10 +35,10 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, const dBGraph *db_graph)
   db_node_buf_alloc(&tmp.revcontig, INIT_BUFLEN);
   int32_buf_alloc(&tmp.rpos, INIT_BUFLEN);
 
-  memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
+  correct_aln_stats_alloc(&tmp.aln_stats);
+  loading_stats_init(&tmp.load_stats);
 
-  loading_stats_init(&wrkr->stats);
-  correct_aln_stats_reset(&wrkr->gapstats);
+  memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
 }
 
 void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr)
@@ -49,6 +51,7 @@ void correct_aln_worker_dealloc(CorrectAlnWorker *wrkr)
   db_node_buf_dealloc(&wrkr->contig);
   db_node_buf_dealloc(&wrkr->revcontig);
   int32_buf_dealloc(&wrkr->rpos);
+  correct_aln_stats_dealloc(&wrkr->aln_stats);
 }
 
 /*!
@@ -78,23 +81,23 @@ void correct_alignment_init(CorrectAlnWorker *wrkr,
   wrkr->gap_idx = wrkr->end_idx = db_alignment_next_gap(aln, 0);
 
   // Update stats
-  wrkr->stats.total_bases_read += aln->r1bases + aln->r2bases;
-  wrkr->stats.num_kmers_parsed += aln->nodes.len;
+  wrkr->load_stats.total_bases_read += aln->r1bases + aln->r2bases;
+  wrkr->load_stats.num_kmers_parsed += aln->nodes.len;
 
-  if(aln->passed_r2) wrkr->stats.num_pe_reads += 2;
-  else               wrkr->stats.num_se_reads++;
+  if(aln->passed_r2) wrkr->load_stats.num_pe_reads += 2;
+  else               wrkr->load_stats.num_se_reads++;
 
-  wrkr->gapstats.num_ins_gaps += aln->used_r2;
+  wrkr->aln_stats.num_ins_gaps += aln->used_r2;
 }
 
 // Merge stats into dst and reset src
 void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
                              CorrectAlnWorker *restrict src)
 {
-  correct_aln_stats_merge(&dst->gapstats, &src->gapstats);
-  correct_aln_stats_reset(&src->gapstats);
-  loading_stats_merge(&dst->stats, &src->stats);
-  loading_stats_init(&src->stats);
+  correct_aln_stats_merge(&dst->aln_stats, &src->aln_stats);
+  correct_aln_stats_dealloc(&src->aln_stats);
+  loading_stats_merge(&dst->load_stats, &src->load_stats);
+  loading_stats_init(&src->load_stats);
 }
 
 // block is nodes that we are walking towards
@@ -303,7 +306,7 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
                              &wrkr->wlk, &wrkr->rptwlk,
                              only_in_one_col, params->use_end_check);
 
-  correct_aln_stats_update(&wrkr->gapstats, result);
+  correct_aln_stats_update(&wrkr->aln_stats, result);
 
   if(result.traversed) return result;
 
@@ -318,7 +321,7 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
                              &wrkr->wlk, &wrkr->rptwlk,
                              only_in_one_col, params->use_end_check);
 
-  correct_aln_stats_update(&wrkr->gapstats, result);
+  correct_aln_stats_update(&wrkr->aln_stats, result);
 
   return result;
 }
@@ -349,7 +352,7 @@ static TraversalResult traverse_two_way(CorrectAlnWorker *wrkr,
                              &wrkr->wlk2, &wrkr->rptwlk2,
                              aln_colour != -1, params->use_end_check);
 
-  correct_aln_stats_update(&wrkr->gapstats, result);
+  correct_aln_stats_update(&wrkr->aln_stats, result);
 
   return result;
 }
@@ -402,10 +405,10 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     if(is_mp) {
       ctx_assert(aln->r1enderr == db_aln_r1enderr(aln,kmer_size));
       gap_est = aln->r1enderr + aln_rpos[wrkr->gap_idx];
-      wrkr->gapstats.num_ins_gaps++;
+      wrkr->aln_stats.num_ins_gaps++;
     } else {
       gap_est = aln_rpos[wrkr->gap_idx] - aln_rpos[wrkr->gap_idx-1];
-      wrkr->gapstats.num_mid_gaps++;
+      wrkr->aln_stats.num_mid_gaps++;
     }
 
     // Wiggle due to variation / error
@@ -446,8 +449,8 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     if(!result.traversed) break;
 
-    if(is_mp) wrkr->gapstats.num_ins_traversed++;
-    else      wrkr->gapstats.num_mid_traversed++;
+    if(is_mp) wrkr->aln_stats.num_ins_traversed++;
+    else      wrkr->aln_stats.num_mid_traversed++;
 
     // reverse and copy from revcontig -> contig
     db_node_buf_capacity(contig, contig->len + revcontig->len);
@@ -471,10 +474,10 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
 
     // Update gap stats
     if(is_mp) {
-      correct_aln_stats_add_mp(&wrkr->gapstats, gap_est, result.gap_len,
+      correct_aln_stats_add_mp(&wrkr->aln_stats, result.gap_len,
                                aln->r1bases, aln->r2bases, kmer_size);
     } else {
-      correct_aln_stats_add(&wrkr->gapstats, gap_est, result.gap_len);
+      correct_aln_stats_add(&wrkr->aln_stats, gap_est, result.gap_len);
     }
 
     wrkr->gap_idx = wrkr->end_idx;
@@ -487,23 +490,17 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   // db_nodes_print_verbose(contig->data, contig->len, wrkr->db_graph, stdout);
   ctx_check(db_node_check_nodes(contig->data, contig->len, wrkr->db_graph));
 
-  wrkr->stats.contigs_parsed++;
-  wrkr->stats.num_kmers_loaded += contig->len;
-  wrkr->stats.total_bases_loaded += contig->len + kmer_size - 1;
+  size_t contig_length_bp = contig->len + kmer_size - 1;
+
+  wrkr->load_stats.contigs_parsed++;
+  wrkr->load_stats.num_kmers_loaded += contig->len;
+  wrkr->load_stats.total_bases_loaded += contig_length_bp;
+
+  if(wrkr->store_contig_lens)
+    correct_aln_stats_add_contig(&wrkr->aln_stats, contig_length_bp);
 
   return contig;
 }
-
-// Called after correct_alignment_nxt()
-size_t correct_alignment_get_strtidx(CorrectAlnWorker *wrkr) {
-  return wrkr->prev_start_idx;
-}
-
-// Called after correct_alignment_nxt()
-size_t correct_alignment_get_endidx(CorrectAlnWorker *wrkr) {
-  return wrkr->start_idx; // start has moved on, so is now where gap_idx was
-}
-
 
 /*!
   Correct a whole read, filling in gaps caused by sequencing error with the
@@ -566,7 +563,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
   if(left_gap > 0)
   {
     // Extend to the left
-    wrkr->gapstats.num_end_gaps++;
+    wrkr->aln_stats.num_end_gaps++;
 
     dBNodeBuffer *revcontig = &wrkr->revcontig;
     db_node_buf_reset(revcontig);
@@ -592,7 +589,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     rpt_walker_fast_clear(rptwlk, revcontig->data, revcontig->len);
 
     if(revcontig->len > 0)
-      wrkr->gapstats.num_end_traversed++;
+      wrkr->aln_stats.num_end_traversed++;
 
     // Shift away from zero
     db_node_buf_shift_left(nodebuf, revcontig->len);
@@ -609,7 +606,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
   if(right_gap > 0)
   {
     // Extend to the right
-    wrkr->gapstats.num_end_gaps++;
+    wrkr->aln_stats.num_end_gaps++;
 
     size_t n = nodebuf->len-1;
     while(n > 0 && posbuf->data[n] == posbuf->data[n-1]+1) { n--; }
@@ -633,7 +630,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     nodebuf->len = posbuf->len = i;
 
     if(nodebuf->len > orig_len)
-      wrkr->gapstats.num_end_traversed++;
+      wrkr->aln_stats.num_end_traversed++;
 
     graph_walker_finish(wlk);
     rpt_walker_fast_clear(rptwlk, nodebuf->data+orig_len, nodebuf->len-orig_len);

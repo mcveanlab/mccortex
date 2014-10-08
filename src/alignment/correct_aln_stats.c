@@ -2,21 +2,46 @@
 #include "correct_aln_stats.h"
 #include "util.h"
 
-void correct_aln_stats_reset(CorrectAlnStats *stats) {
-  memset(stats, 0, sizeof(CorrectAlnStats));
+void correct_aln_stats_alloc(CorrectAlnStats *stats)
+{
+  memset(stats, 0, sizeof(*stats));
+  zsize_buf_alloc(&stats->contig_histgrm, 1024);
+}
+
+void correct_aln_stats_dealloc(CorrectAlnStats *stats)
+{
+  zsize_buf_dealloc(&stats->contig_histgrm);
+  memset(stats, 0, sizeof(*stats));
+}
+
+void correct_aln_stats_reset(CorrectAlnStats *stats)
+{
+  zsize_buf_reset(&stats->contig_histgrm);
+  memset(stats, 0, sizeof(*stats));
 }
 
 void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
                              CorrectAlnStats *restrict src)
 {
   size_t i, j;
+
+  // Contig histogram
+  zsize_buf_capacity(&dst->contig_histgrm, src->contig_histgrm.len);
+  dst->contig_histgrm.len = MAX2(dst->contig_histgrm.len, src->contig_histgrm.len);
+
+  for(i = 0; i < src->contig_histgrm.len; i++)
+    dst->contig_histgrm.data[i] += src->contig_histgrm.data[i];
+
+  // Sequencing error histogram matrix (2D)
   for(i = 0; i < ALN_STATS_MAX_GAP; i++)
     for(j = 0; j < ALN_STATS_MAX_GAP; j++)
       dst->gap_err_histgrm[i][j] += src->gap_err_histgrm[i][j];
 
+  // Fragment length histogram
   for(i = 0; i < ALN_STATS_MAX_FRAGLEN; i++)
     dst->fraglen_histgrm[i] += src->fraglen_histgrm[i];
 
+  // Counts
   dst->num_ins_gaps += src->num_ins_gaps;
   dst->num_mid_gaps += src->num_mid_gaps;
   dst->num_end_gaps += src->num_end_gaps;
@@ -40,18 +65,21 @@ void correct_aln_stats_add(CorrectAlnStats *stats,
 }
 
 // @exp_seq_gap does not include mate pair gap
-void correct_aln_stats_add_mp(CorrectAlnStats *stats,
-                              size_t exp_seq_gap, size_t gap_kmers,
+void correct_aln_stats_add_mp(CorrectAlnStats *stats, size_t gap_kmers,
                               size_t r1bases, size_t r2bases,
                               size_t kmer_size)
 {
-  // We want to record fragment length in kmers, therefore:
-  //   frag_kmers = (r1-k+1) + gap_kmers + (r2-k+1)
-  //   frag_bp = frag_kmers+k-1 = r1+r2 + gap_kmers - k + 1
-  size_t fraglen_bp = r1bases + r2bases + gap_kmers -
-                      (long)(exp_seq_gap + kmer_size - 1);
+  // We want to record fragment length in bases, therefore:
+  size_t fraglen_bp = r1bases + r2bases + gap_kmers - kmer_size + 1;
   fraglen_bp = MIN2(fraglen_bp, ALN_STATS_MAX_FRAGLEN-1);
   stats->fraglen_histgrm[fraglen_bp]++;
+}
+
+void correct_aln_stats_add_contig(CorrectAlnStats *stats, size_t contig_len_bp)
+{
+  zsize_buf_capacity(&stats->contig_histgrm, contig_len_bp+1);
+  stats->contig_histgrm.len = MAX2(stats->contig_histgrm.len, contig_len_bp+1);
+  stats->contig_histgrm.data[contig_len_bp]++;
 }
 
 // Save gap size distribution matrix
@@ -91,6 +119,23 @@ void correct_aln_stats_dump_fraglen(const CorrectAlnStats *stats, const char *pa
 
   for(i = 0; i < ALN_STATS_MAX_FRAGLEN; i++) {
     fprintf(fout, "%4zu\t%4zu\n", i, stats->fraglen_histgrm[i]);
+  }
+  fclose(fout);
+}
+
+// Save fragment size vector
+void correct_aln_stats_dump_contiglen(const CorrectAlnStats *stats, const char *path)
+{
+  status("[CorrectAln] Saving contig length distribution to: %s", path);
+
+  size_t i;
+  FILE *fout = fopen(path, "w");
+  if(fout == NULL) { warn("Cannot cannot open: %s", path); return; }
+
+  fprintf(fout, "contig_len_bp\tcount\n");
+
+  for(i = 0; i < stats->contig_histgrm.len; i++) {
+    fprintf(fout, "%4zu\t%4zu\n", i, stats->contig_histgrm.data[i]);
   }
   fclose(fout);
 }
@@ -243,25 +288,33 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
          (100.0 * stats->num_gaps_too_short) / stats->num_gap_attempts);
 }
 
-// Print summary stats and write output files
-// @ht_num_kmers is the number of kmers loaded into the graph
-void correct_aln_dump_stats(const LoadingStats *stats,
-                            const CorrectAlnStats *gapstats,
+/**
+ * Print summary stats and write output files
+ * @param ht_num_kmers The number of kmers loaded into the graph
+ * @param dump_seqgap_hist_path    path to save seqgap matrix - can be null
+ * @param dump_fraglen_hist_path   path to save fragment lengths - can be null
+ * @param dump_contiglen_hist_path path to save contig lengths - can be null
+**/
+void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
+                            const LoadingStats *load_stats,
                             const char *dump_seqgap_hist_path,
                             const char *dump_fraglen_hist_path,
+                            const char *dump_contiglen_hist_path,
                             size_t ht_num_kmers)
 {
-  correct_aln_stats_print_summary(gapstats, stats->num_se_reads,
-                                  stats->num_pe_reads/2);
+  correct_aln_stats_print_summary(aln_stats, load_stats->num_se_reads,
+                                  load_stats->num_pe_reads/2);
 
   // Print mp gap size / insert stats to a file
   if(dump_seqgap_hist_path != NULL) {
-    correct_aln_stats_dump_gaps(gapstats, dump_seqgap_hist_path);
+    correct_aln_stats_dump_gaps(aln_stats, dump_seqgap_hist_path);
   }
 
-  if(stats->num_pe_reads > 0 && dump_fraglen_hist_path != NULL) {
-    correct_aln_stats_dump_fraglen(gapstats, dump_fraglen_hist_path);
+  if(load_stats->num_pe_reads > 0 && dump_fraglen_hist_path != NULL) {
+    correct_aln_stats_dump_fraglen(aln_stats, dump_fraglen_hist_path);
   }
 
-  loading_stats_print_summary(stats, ht_num_kmers);
+  correct_aln_stats_dump_contiglen(aln_stats, dump_contiglen_hist_path);
+
+  loading_stats_print_summary(load_stats, ht_num_kmers);
 }

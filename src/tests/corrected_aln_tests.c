@@ -86,7 +86,7 @@ static void test_correct_aln_no_paths()
 
   TASSERT(graph.gpstore.num_paths == 0);
 
-  correct_aln_worker_alloc(&corrector, &graph);
+  correct_aln_worker_alloc(&corrector, false, &graph);
   strbuf_alloc(&sbuf, 1024);
 
   alns[0] = re0;
@@ -150,7 +150,7 @@ static void test_contig_ends_agree()
   // Construct graph and paths
   _construct_graph_with_paths(&graph, kmer_size, ncols, seqs, 2, params);
 
-  correct_aln_worker_alloc(&corrector, &graph);
+  correct_aln_worker_alloc(&corrector, false, &graph);
   strbuf_alloc(&sbuf, 1024);
 
   // Check number of kmers in the graph
@@ -168,29 +168,29 @@ static void test_contig_ends_agree()
   {
     params.one_way_gap_traverse = (t == 0);
 
-    correct_aln_stats_reset(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.aln_stats);
     alns[0] = seqa;
     _check_correct_aln(r1a, r2a, alns, 1, &corrector, &params, &graph, &sbuf);
-    TASSERT(corrector.gapstats.num_gap_successes == 1);
+    TASSERT(corrector.aln_stats.num_gap_successes == 1);
 
-    correct_aln_stats_reset(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.aln_stats);
     alns[0] = seqb;
     _check_correct_aln(r1b, r2b, alns, 1, &corrector, &params, &graph, &sbuf);
-    TASSERT(corrector.gapstats.num_gap_successes == 1);
+    TASSERT(corrector.aln_stats.num_gap_successes == 1);
 
-    correct_aln_stats_reset(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.aln_stats);
     alns[0] = r1a;
     alns[1] = r2b;
     _check_correct_aln(r1a, r2b, alns, 2, &corrector, &params, &graph, &sbuf);
-    TASSERT(corrector.gapstats.num_gap_successes == 0);
-    TASSERT(corrector.gapstats.num_paths_disagreed > 0);
+    TASSERT(corrector.aln_stats.num_gap_successes == 0);
+    TASSERT(corrector.aln_stats.num_paths_disagreed > 0);
 
-    correct_aln_stats_reset(&corrector.gapstats);
+    correct_aln_stats_reset(&corrector.aln_stats);
     alns[0] = r1b;
     alns[1] = r2a;
     _check_correct_aln(r1b, r2a, alns, 2, &corrector, &params, &graph, &sbuf);
-    TASSERT(corrector.gapstats.num_gap_successes == 0);
-    TASSERT(corrector.gapstats.num_paths_disagreed > 0);
+    TASSERT(corrector.aln_stats.num_gap_successes == 0);
+    TASSERT(corrector.aln_stats.num_paths_disagreed > 0);
   }
 
   strbuf_dealloc(&sbuf);

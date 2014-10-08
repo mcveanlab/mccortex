@@ -33,7 +33,6 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   size_t i;
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   uint8_t fq_offset = 0;
-  size_t dump_seq_hist_n = 0, dump_frag_hist_n = 0; // how many times are -g -G specified
   GPathReader tmp_gpfile;
 
   CorrectAlnInputBuffer *inputs = &args->inputs;
@@ -101,8 +100,9 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'X': task.crt_params.max_context = cmd_uint32(cmd, optarg); used = 0; break;
       case 'e': task.crt_params.use_end_check = true; used = 0; break;
       case 'E': task.crt_params.use_end_check = false; used = 0; break;
-      case 'g': args->dump_seq_sizes = optarg; dump_seq_hist_n++; break;
-      case 'G': args->dump_frag_sizes = optarg; dump_frag_hist_n++; break;
+      case 'g': cmd_check(!args->dump_seq_sizes, cmd); args->dump_seq_sizes = optarg; break;
+      case 'G': cmd_check(!args->dump_frag_sizes, cmd); args->dump_frag_sizes = optarg; break;
+      case 'C': cmd_check(!args->dump_contig_sizes, cmd); args->dump_contig_sizes = optarg; break;
       case 'u': args->use_new_paths = true; break;
       case 'x': gen_paths_print_contigs = true; break;
       case 'y': gen_paths_print_paths = true; break;
@@ -133,9 +133,6 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   status("Reading graph: %s", graph_path);
 
   if(!used) cmd_print_usage("Ignored arguments after last --seq");
-
-  if(dump_seq_hist_n > 1) die("Cannot specify --gap-hist <out> more than once");
-  if(dump_frag_hist_n > 1) die("Cannot specify --frag-hist <out> more than once");
 
   // ctx_thread requires output file
   if(!correct_cmd && !args->out_ctp_path)
@@ -190,4 +187,5 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
 
   futil_create_output(args->dump_seq_sizes);
   futil_create_output(args->dump_frag_sizes);
+  futil_create_output(args->dump_contig_sizes);
 }

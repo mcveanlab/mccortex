@@ -64,11 +64,12 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 
 #define binary_seq_mem(n) ((((n)+3)/4)*4)
 
-static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
+static void _gen_paths_worker_alloc(GenPathWorker *wrkr, bool store_contig_lens,
+                                    dBGraph *db_graph)
 {
   GenPathWorker tmp = {.db_graph = db_graph};
 
-  correct_aln_worker_alloc(&tmp.corrector, db_graph);
+  correct_aln_worker_alloc(&tmp.corrector, store_contig_lens, db_graph);
 
   // Junction data
   // only fw arrays are malloc'd, rv point to fw
@@ -91,11 +92,13 @@ static void _gen_paths_worker_dealloc(GenPathWorker *wrkr)
 }
 
 
-GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph)
+GenPathWorker* gen_paths_workers_alloc(size_t n, bool store_contig_lens,
+                                       dBGraph *graph)
 {
   size_t i;
   GenPathWorker *workers = ctx_malloc(n * sizeof(GenPathWorker));
-  for(i = 0; i < n; i++) _gen_paths_worker_alloc(&workers[i], graph);
+  for(i = 0; i < n; i++)
+    _gen_paths_worker_alloc(&workers[i], store_contig_lens, graph);
   return workers;
 }
 
@@ -128,14 +131,14 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
 
 /* Get stats */
 
-CorrectAlnStats* gen_paths_get_gapstats(GenPathWorker *wrkr)
+CorrectAlnStats* gen_paths_get_aln_stats(GenPathWorker *wrkr)
 {
-  return &wrkr->corrector.gapstats;
+  return &wrkr->corrector.aln_stats;
 }
 
 LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr)
 {
-  return &wrkr->corrector.stats;
+  return &wrkr->corrector.load_stats;
 }
 
 // Returns number of paths added

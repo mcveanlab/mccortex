@@ -181,11 +181,19 @@ int ctx_join(int argc, char **argv)
   if(num_gfiles == 1 && num_igfiles == 0)
   {
     // Loading only one file with no intersection files
-    // don't need to store a graph in memory, can filter as stream
-    graph_stream_filter_mkhdr(out_path, &gfiles[0], NULL, NULL, NULL);
+    // Don't need to store a graph in memory, can filter as stream
+    // Don't actually store anything in the de Bruijn graph, but we need to
+    // pass it, so mock one up
+    dBGraph db_graph;
+    db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size,
+                   file_filter_into_ncols(&gfiles[0].fltr), 0, 1024, 0);
+
+    graph_stream_filter_mkhdr(out_path, &gfiles[0], &db_graph, NULL, NULL);
     graph_file_close(&gfiles[0]);
     gfile_buf_dealloc(&isec_gfiles_buf);
     ctx_free(gfiles);
+
+    db_graph_dealloc(&db_graph);
 
     return EXIT_SUCCESS;
   }

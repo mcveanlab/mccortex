@@ -24,12 +24,13 @@ typedef struct
 
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
                                        size_t *read_cntr_ptr, char fq_zero,
+                                       bool store_contig_lens,
                                        const dBGraph *db_graph)
 {
   wrkr->rcounter = read_cntr_ptr;
   wrkr->fq_zero = fq_zero;
   wrkr->db_graph = db_graph;
-  correct_aln_worker_alloc(&wrkr->corrector, db_graph);
+  correct_aln_worker_alloc(&wrkr->corrector, store_contig_lens, db_graph);
   graph_walker_alloc(&wrkr->wlk);
   rpt_walker_alloc(&wrkr->rptwlk, db_graph->ht.capacity, 22); // 4MB bloom
   strbuf_alloc(&wrkr->rbuf1, 1024); // read1
@@ -327,6 +328,7 @@ static void correct_reads_thread(AsyncIOData *data, void *ptr)
 void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
                    const char *dump_seqgap_hist_path,
                    const char *dump_fraglen_hist_path,
+                   const char *dump_contiglen_hist_path,
                    char fq_zero, size_t num_threads,
                    const dBGraph *db_graph)
 {
@@ -336,8 +338,12 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
 
   CorrectReadsWorker *wrkrs = ctx_calloc(num_threads, sizeof(CorrectReadsWorker));
 
+  bool store_contig_lens = (dump_contiglen_hist_path != NULL);
+
   for(i = 0; i < num_threads; i++) {
-    correct_reads_worker_alloc(&wrkrs[i], &read_counter, fq_zero, db_graph);
+    correct_reads_worker_alloc(&wrkrs[i], &read_counter,
+                               fq_zero, store_contig_lens,
+                               db_graph);
   }
 
   AsyncIOInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOInput));
@@ -354,12 +360,13 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
   for(i = 1; i < num_threads; i++)
     correct_aln_merge_stats(&wrkrs[0].corrector, &wrkrs[i].corrector);
 
-  LoadingStats *stats = &wrkrs[0].corrector.stats;
-  CorrectAlnStats *gapstats = &wrkrs[0].corrector.gapstats;
+  LoadingStats *load_stats = &wrkrs[0].corrector.load_stats;
+  CorrectAlnStats *aln_stats = &wrkrs[0].corrector.aln_stats;
 
-  correct_aln_dump_stats(stats, gapstats,
+  correct_aln_dump_stats(aln_stats, load_stats,
                          dump_seqgap_hist_path,
                          dump_fraglen_hist_path,
+                         dump_contiglen_hist_path,
                          db_graph->ht.num_kmers);
 
   for(i = 0; i < num_threads; i++)
