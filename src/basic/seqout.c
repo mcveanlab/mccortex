@@ -33,6 +33,7 @@ static gzFile _seqout_open(const char *path)
 
   if((gzout = gzdopen(fd, "w")) == NULL) {
     warn("Cannot open %s", path);
+    close(fd);
     return NULL;
   }
 
