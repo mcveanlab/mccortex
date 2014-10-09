@@ -175,7 +175,7 @@ int ctx_contigs(int argc, char **argv)
   if(!genome_size)
   {
     char nk_str[50];
-    if(gfile.num_of_kmers <= 0) die("Please pass --genome <G> if streaming");
+    if(gfile.num_of_kmers < 0) die("Please pass --genome <G> if streaming");
     genome_size = gfile.num_of_kmers;
     ulong_to_str(genome_size, nk_str);
     status("Taking number of kmers as genome size: %s", nk_str);

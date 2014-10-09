@@ -55,8 +55,9 @@ ref.k$(K).ctx: ref.txt
 	$(CTX) check -q $@
 
 # Correct reads
+# -P, --print-orig means add original sequence to read name 'orig=SEQ'
 good.fa: bad.txt ref.k$(K).ctx
-	$(CTX) correct -t 1 -m 10M -F FASTA -1 bad.txt:good ref.k$(K).ctx
+	$(CTX) correct -t 1 -m 10M -F FASTA --print-orig -1 bad.txt:good ref.k$(K).ctx
 	gzip -d good.fa.gz
 	cat ref.txt
 	cat bad.txt
@@ -64,7 +65,7 @@ good.fa: bad.txt ref.k$(K).ctx
 
 # input: plain output: fastq
 good.fq: bad.txt ref.k$(K).ctx
-	$(CTX) correct -t 1 -m 10M -F FASTQ -1 bad.txt:good ref.k$(K).ctx
+	$(CTX) correct -t 1 -m 10M -F FASTQ --print-orig -1 bad.txt:good ref.k$(K).ctx
 	gzip -d good.fq.gz
 	cat ref.txt
 	cat bad.txt
@@ -72,14 +73,14 @@ good.fq: bad.txt ref.k$(K).ctx
 
 # input: fastq output: fastq
 fix.fq: rand.fq ref.k$(K).ctx
-	$(CTX) correct -t 1 -m 10M -F FASTQ -1 rand.fq:fix ref.k$(K).ctx
+	$(CTX) correct -t 1 -m 10M -F FASTQ --print-orig -1 rand.fq:fix ref.k$(K).ctx
 	gzip -d fix.fq.gz
 	cat ref.txt
 	cat rand.fq
 	cat fix.fq
 
 indels.good.fq: indels.bad.fq
-	$(CTX) correct -t 1 -m 10M -F FASTQ -1 $<:indels.good ref.k$(K).ctx
+	$(CTX) correct -t 1 -m 10M -F FASTQ --print-orig -1 $<:indels.good ref.k$(K).ctx
 	gzip -d indels.good.fq.gz
 	@echo == in ==
 	cat $<

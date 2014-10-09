@@ -7,7 +7,8 @@
   the GraphWalker at each "step".
 */
 
-const char *graph_step_str[] = {GRPHWLK_FORWARD_STR,       GRPHWLK_COLFWD_STR,
+const char *graph_step_str[] = {GRPHWLK_POPFWD_STR,        GRPHWLK_COLFWD_STR,
+                                GRPHWLK_POPFRK_COLFWD_STR,
                                 GRPHWLK_NOCOVG_STR,        GRPHWLK_NOCOLCOVG_STR,
                                 GRPHWLK_NOPATHS_STR,       GRPHWLK_SPLIT_PATHS_STR,
                                 GRPHWLK_MISSING_PATHS_STR, GRPHWLK_USEPATH_STR};

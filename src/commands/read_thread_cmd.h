@@ -21,6 +21,7 @@ struct ReadThreadCmdArgs
   size_t colour; // ctx_correct only
   seq_format fmt; // ctx_correct only
   char fq_zero; // ctx_correct only
+  bool append_orig_seq; // ctx_correct only
 
   GraphFileReader gfile;
   GPathFileBuffer gpfiles;

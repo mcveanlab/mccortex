@@ -226,7 +226,8 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
 
   // stats
   wlk->fork_count = 0;
-  wlk->last_step = (GraphStep){.idx = -1, 0};
+  memset(&wlk->last_step, 0, sizeof(wlk->last_step));
+  wlk->last_step.idx = -1;
 
   // Get bkmer oriented correctly (not bkey)
   wlk->bkey = db_node_get_bkmer(graph, node.key);
@@ -348,13 +349,9 @@ static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
   abort();
 }
 
-#define _gw_choose_return(i,s,hascol,gap) do { \
-  GraphStep _stp = {.idx = (int8_t)(i),        \
-                    .status = (s),             \
-                    .node_has_col = (hascol),  \
-                    .path_gap = (gap)          \
-                   };                          \
-  return _stp;                                 \
+#define _gw_choose_return(i,s,gap) do {                                     \
+  GraphStep _stp = {.idx = (int8_t)(i), .status = (s), .path_gap = (gap)};  \
+  return _stp;                                                              \
 } while(0)
 
 /**
@@ -382,7 +379,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
     ctx_assert(wlk->paths.len == 0);
     ctx_assert(wlk->cntr_paths.len == 0);
-    _gw_choose_return(-1, GRPHWLK_NOCOVG, false, 0);
+    _gw_choose_return(-1, GRPHWLK_NOCOVG, 0);
   }
 
   const dBGraph *db_graph = wlk->db_graph;
@@ -390,7 +387,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   if(num_next == 1) {
     bool incol = (db_graph->node_in_cols == NULL ||
                   db_node_has_col(db_graph, next_nodes[0].key, wlk->ctxcol));
-    _gw_choose_return(0, GRPHWLK_FORWARD, incol, 0);
+    _gw_choose_return(0, incol ? GRPHWLK_COLFWD : GRPHWLK_POPFWD, 0);
   }
 
   int8_t indices[4] = {0,1,2,3};
@@ -420,8 +417,8 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
       ctx_assert(wlk->cntr_paths.len == 0);
     }
 
-    if(num_next == 1) _gw_choose_return(indices[0], GRPHWLK_COLFWD,    true, 0);
-    if(num_next == 0) _gw_choose_return(-1,         GRPHWLK_NOCOLCOVG, false,0);
+    if(num_next == 1) _gw_choose_return(indices[0], GRPHWLK_POPFRK_COLFWD, 0);
+    if(num_next == 0) _gw_choose_return(-1,         GRPHWLK_NOCOLCOVG,     0);
   }
   else {
     nodes = next_nodes;
@@ -430,7 +427,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
   // We have hit a fork
   // abandon if no path info
-  if(wlk->paths.len == 0) _gw_choose_return(-1, GRPHWLK_NOPATHS, false, 0);
+  if(wlk->paths.len == 0) _gw_choose_return(-1, GRPHWLK_NOPATHS, 0);
 
   // Mark next bases available
   bool forks[4] = {false}, taken[4] = {false};
@@ -457,7 +454,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
   ctx_assert(oldest_path->pos < oldest_path->len);
 
-  if(greatest_age == 0) _gw_choose_return(-1, GRPHWLK_NOPATHS, false, 0);
+  if(greatest_age == 0) _gw_choose_return(-1, GRPHWLK_NOPATHS, 0);
 
   // Set i to the index of the oldest path to disagree with our oldest path
   // OR wlk->paths.length if all paths agree
@@ -468,7 +465,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
   // If a path of the same age disagrees, cannot proceed
   if(i < wlk->paths.len && wlk->paths.data[i].age == greatest_age)
-    _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, false, 0);
+    _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, 0);
 
   size_t choice_age = (i < wlk->paths.len ? wlk->paths.data[i].age : 0);
   GraphSegment *gseg, *choice_seg, *first_seg = gseg_list_get(&wlk->gsegs, 0);
@@ -497,7 +494,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   // Does every next node have a path?
   // Fail if missing assembly info
   if((size_t)taken[0]+taken[1]+taken[2]+taken[3] < num_next)
-    _gw_choose_return(-1, GRPHWLK_MISSING_PATHS, false, path_gap);
+    _gw_choose_return(-1, GRPHWLK_MISSING_PATHS, path_gap);
   #endif
 
   // There is unique next node
@@ -506,7 +503,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   //  (paths are colour specify)
   for(i = 0; i < num_next; i++)
     if(bases[i] == greatest_nuc)
-      _gw_choose_return(indices[i], GRPHWLK_USEPATH, true, path_gap);
+      _gw_choose_return(indices[i], GRPHWLK_USEPATH, path_gap);
 
   // Should be impossible to reach here...
   die("Should be impossible to reach here");
@@ -531,6 +528,13 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
     status("  _graph_walker_force_jump(): %s:%i is_fork:%s",
            kmer_str, wlk->node.orient, is_fork ? "yes" : "no");
   #endif
+
+  // last_step should be set by now
+  // if we used a path to move to the next node, we must be at a fork
+  // The reverse is NOT true, as the caller may have forced us down a junction
+  // with graph_walker_force() rather than use a path
+  ctx_assert2((wlk->last_step.status != GRPHWLK_USEPATH) || is_fork, "%i vs %i",
+              (int)wlk->last_step.status, (int)is_fork);
 
   if(is_fork)
   {
@@ -610,6 +614,8 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
 void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey,
                                    BinaryKmer bkmer, size_t num_nodes)
 {
+  ctx_assert(num_nodes > 0);
+
   #ifdef CTXCHECKS
     // This is just a sanity test
     Edges edges = db_node_get_edges(wlk->db_graph, hkey, 0);
@@ -617,6 +623,13 @@ void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey,
     Orientation orient = bkmer_get_orientation(bkmer, bkey);
     ctx_assert(edges_get_indegree(edges, orient) <= 1);
   #endif
+
+  // Need to check if node is in colour
+  bool incol = (wlk->db_graph->node_in_cols == NULL ||
+                db_node_has_col(wlk->db_graph, hkey, wlk->ctxcol));
+
+  int status = incol ? GRPHWLK_COLFWD : GRPHWLK_POPFWD;
+  wlk->last_step = (GraphStep){.idx = 0, .status = status, .path_gap = 0};
 
   // Don't need to pick up counter paths since there should be none
   // Now do the work

@@ -17,18 +17,21 @@ typedef struct
   RepeatWalker rptwlk;
   StrBuf rbuf1, rbuf2, qbuf;
   char fq_zero; // character to use to zero fastq [default: '.']
+  bool append_orig_seq; // append sequence to name ">name prev=OLDSEQ"
 
   // Corrected alignment
   dBNodeBuffer nodebuf; Int32Buffer posbuf;
 } CorrectReadsWorker;
 
 static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
-                                       size_t *read_cntr_ptr, char fq_zero,
+                                       size_t *read_cntr_ptr,
+                                       bool append_orig_seq, char fq_zero,
                                        bool store_contig_lens,
                                        const dBGraph *db_graph)
 {
   wrkr->rcounter = read_cntr_ptr;
   wrkr->fq_zero = fq_zero;
+  wrkr->append_orig_seq = append_orig_seq;
   wrkr->db_graph = db_graph;
   correct_aln_worker_alloc(&wrkr->corrector, store_contig_lens, db_graph);
   graph_walker_alloc(&wrkr->wlk);
@@ -230,7 +233,7 @@ static void handle_read(CorrectReadsWorker *wrkr,
                         const read_t *r, StrBuf *rbuf, StrBuf *qbuf,
                         uint8_t fq_cutoff, uint8_t hp_cutoff,
                         dBNodeBuffer *nodebuf, Int32Buffer *posbuf,
-                        seq_format format)
+                        seq_format format, bool append_orig_seq)
 {
   strbuf_reset(rbuf);
   strbuf_reset(qbuf); // quality scores go here
@@ -243,6 +246,10 @@ static void handle_read(CorrectReadsWorker *wrkr,
   if(format & (SEQ_FMT_FASTA | SEQ_FMT_FASTQ)) {
     strbuf_append_char(rbuf, format == SEQ_FMT_FASTA ? '>' : '@');
     strbuf_append_strn(rbuf, r->name.b, r->name.end);
+    if(append_orig_seq) {
+      strbuf_append_str(rbuf, " orig=");
+      strbuf_append_strn(rbuf, r->seq.b, r->seq.end);
+    }
     strbuf_append_char(rbuf, '\n');
   }
 
@@ -293,7 +300,7 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   {
     // Single ended read
     handle_read(wrkr, params, r1, rbuf1, qbuf, fq_cutoff1, hp_cutoff,
-                nodebuf, posbuf, format);
+                nodebuf, posbuf, format, wrkr->append_orig_seq);
     pthread_mutex_lock(&output->lock_se);
     gzwrite(output->gzout_se, rbuf1->b, rbuf1->end);
     pthread_mutex_unlock(&output->lock_se);
@@ -302,9 +309,9 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
   {
     // Paired-end reads
     handle_read(wrkr, params, r1, rbuf1, qbuf, fq_cutoff1, hp_cutoff,
-                nodebuf, posbuf, format);
+                nodebuf, posbuf, format, wrkr->append_orig_seq);
     handle_read(wrkr, params, r2, rbuf2, qbuf, fq_cutoff2, hp_cutoff,
-                nodebuf, posbuf, format);
+                nodebuf, posbuf, format, wrkr->append_orig_seq);
     pthread_mutex_lock(&output->lock_pe);
     gzwrite(output->gzout_pe[0], rbuf1->b, rbuf1->end);
     gzwrite(output->gzout_pe[1], rbuf2->b, rbuf2->end);
@@ -329,8 +336,8 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
                    const char *dump_seqgap_hist_path,
                    const char *dump_fraglen_hist_path,
                    const char *dump_contiglen_hist_path,
-                   char fq_zero, size_t num_threads,
-                   const dBGraph *db_graph)
+                   char fq_zero, bool append_orig_seq,
+                   size_t num_threads, const dBGraph *db_graph)
 {
   size_t i, n, read_counter = 0;
 
@@ -342,8 +349,8 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
 
   for(i = 0; i < num_threads; i++) {
     correct_reads_worker_alloc(&wrkrs[i], &read_counter,
-                               fq_zero, store_contig_lens,
-                               db_graph);
+                               fq_zero, append_orig_seq,
+                               store_contig_lens, db_graph);
   }
 
   AsyncIOInput *asyncio_tasks = ctx_calloc(num_inputs, sizeof(AsyncIOInput));

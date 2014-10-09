@@ -264,7 +264,7 @@ void build_graph_from_seq(dBGraph *db_graph,
                           .remove_pcr_dups = false};
 
     loading_stats_init(&tmp.stats);
-    tasks[i] = tmp;
+    memcpy(&tasks[i], &tmp, sizeof(tmp));
   }
 
   build_graph(db_graph, tasks, num_files, num_build_threads);

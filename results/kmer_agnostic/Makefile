@@ -7,9 +7,10 @@ CTXDIR=../..
 CTX31=$(CTXDIR)/bin/ctx31
 CTXK=$(CTXDIR)/bin/ctx
 # READSIM=$(CTXDIR)/libs/readsim/readsim
-ALLREADS=$(CTXDIR)/libs/readsim/perfect_covg.sh
+ALLREADS=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
 STRCHK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_substrings.pl
 CONTIG_STATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
+# DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 BWA=bwa
 SAMTOOLS=$(CTXDIR)/libs/samtools/samtools
@@ -20,7 +21,7 @@ READLEN=100
 KMERS=15 21 31 41 51 63 75 99
 
 # How many contigs to pull out to find median walk distance
-NSEED_WALK=5000
+NSEED_WALK=50
 
 # Count number of kmers
 NKMERS=$(shell echo $(KMERS) | tr ' ' '\n' | awk 'END{print NR}')
@@ -72,14 +73,14 @@ k%/perf.contigs.plain.fa: k%/perf.ctx | $(REQ)
 	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
 	$(CTXK)$$k contigs -o $@ k$*/perf.ctx; \
 	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) k$*/perf.ctx 2>&1 | \
-			 	  grep -io 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
+			 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
 	printf "med_walk,$$walk\n" > k$*/perf.medwalk.plain.txt
 
 k%/perf.contigs.links.fa: k%/perf.ctx k%/perf.se.ctp.gz | $(REQ)
 	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
 	$(CTXK)$$k contigs -o $@ -p k$*/perf.se.ctp.gz k$*/perf.ctx; \
 	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) -p k$*/perf.se.ctp.gz k$*/perf.ctx 2>&1 | \
-	  	 	  grep -io 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
+	  	 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
 	printf "med_walk,$$walk\n" > k$*/perf.medwalk.links.txt
 
 # Remove duplicates

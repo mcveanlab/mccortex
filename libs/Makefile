@@ -26,13 +26,13 @@ gsl-1.16/configure:
 	cd gsl-1.16; ./configure; make
 
 htslib/Makefile:
-	git clone git://github.com/samtools/htslib.git htslib
+	git clone --branch master git://github.com/samtools/htslib.git htslib
 
 bcftools/Makefile:
-	git clone https://github.com/samtools/bcftools.git
+	git clone --branch master https://github.com/samtools/bcftools.git
 
 samtools/Makefile:
-	git clone https://github.com/samtools/samtools.git
+	git clone --branch master https://github.com/samtools/samtools.git
 
 vcflib/Makefile:
 	git clone --recursive https://github.com/ekg/vcflib.git

@@ -6,7 +6,7 @@
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx$(K)
 READSIM=$(CTXDIR)/libs/readsim/readsim
-ALLREADS=$(CTXDIR)/libs/readsim/perfect_covg.sh
+ALLREADS=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
 STRCHK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_substrings.pl
 CONTIG_STATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 

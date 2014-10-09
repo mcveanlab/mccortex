@@ -1,0 +1,6 @@
+Illumina PhiX data
+
+PhiX generated from: http://blog.basespace.illumina.com/2012/10/02/new-miseq-datasets/
+
+zcat /data/illumina/PhiX_S1_L001_R1_001.fastq.gz | \
+  head -4000000 | tail -400000 | gzip -c > PhiX.100K.1.fq.gz

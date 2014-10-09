@@ -113,6 +113,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
           cmd_print_usage("--fq-zero <c> requires a single char");
         args->fq_zero = optarg[0];
         break;
+      case 'P': cmd_check(!args->append_orig_seq,cmd); args->append_orig_seq = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);

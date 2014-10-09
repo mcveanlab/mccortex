@@ -129,7 +129,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
 
   while(contig->len < max_len && graph_walker_next(wlk) &&
         rpt_walker_attempt_traverse(rptwlk, wlk) &&
-        (!only_in_col || wlk->last_step.node_has_col))
+        (!only_in_col || graph_step_in_col(wlk->last_step)))
   {
     // DEBUG
     // db_nodes_print_verbose(&wlk->node, 1, wlk->db_graph, stderr);
@@ -204,7 +204,7 @@ static TraversalResult traverse_two_way2(dBNodeBuffer *contig0,
   while(gap_len <= gap_max && (use[0] || use[1])) {
     for(i = 0; i < 2; i++) {
       use[i] = (use[i] && graph_walker_next(wlk[i]) &&
-                (!only_in_col || wlk[i]->last_step.node_has_col));
+                (!only_in_col || graph_step_in_col(wlk[i]->last_step)));
 
       if(use[i])
       {

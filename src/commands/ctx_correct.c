@@ -44,6 +44,7 @@ const char correct_usage[] =
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -Z, --fq-zero <char>     Replace zero'd quality score with character <char>\n"
+"  -P, --print-orig         Print original sequence in the read name ('orig=SEQ')\n"
 "  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
 "  -G, --frag-hist <o.csv>  Save size distribution of PE fragments\n"
 "  -C, --contig-hist <.csv> Save size distribution of assembled contigs\n"
@@ -84,6 +85,7 @@ static struct option longopts[] =
   {"end-check",     no_argument,       NULL, 'e'},
   {"no-end-check",  no_argument,       NULL, 'E'},
   {"fq-zero",       required_argument, NULL, 'Z'},
+  {"print-orig",    no_argument,       NULL, 'P'},
   {"gap-hist",      required_argument, NULL, 'g'},
   {"frag-hist",     required_argument, NULL, 'G'},
   {"contig-hist",   required_argument, NULL, 'C'},
@@ -213,7 +215,7 @@ int ctx_correct(int argc, char **argv)
   //
   correct_reads(inputs->data, inputs->len,
                 args.dump_seq_sizes, args.dump_frag_sizes, args.dump_contig_sizes,
-                args.fq_zero, args.nthreads, &db_graph);
+                args.fq_zero, args.append_orig_seq, args.nthreads, &db_graph);
 
   // Close and free output files
   for(i = 0; i < inputs->len; i++)
