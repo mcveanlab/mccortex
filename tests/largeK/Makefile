@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 TARGETS=rnd.fa rnd.k39.ctx rnd.clean.k39.ctx
 

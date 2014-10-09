@@ -110,9 +110,11 @@ static inline void _add_uniq_flanks(read_t *r, const char *path,
   size_t i, kmer_size = db_graph->kmer_size;
 
   int side;
-  BinaryKmer uniqbkmers[2];
   char bkmerstr[2][MAX_KMER_SIZE+1];
 
+  // side: 0 => left, 1 => right
+  // Add to right side, then do left side,
+  // in case sequence is shorter than kmer_size
   for(side = 1; side >= 0; side--)
   {
     for(i = 0; i < 100; i++) {
@@ -120,7 +122,6 @@ static inline void _add_uniq_flanks(read_t *r, const char *path,
       dBNode node = db_graph_add_random_node(db_graph, &bkmer);
 
       if(_is_valid_flank(bkmer, r, side == 0, db_graph)) {
-        uniqbkmers[side] = bkmer;
         binary_kmer_to_str(bkmer, kmer_size, bkmerstr[side]);
         if(side == 1) buffer_append_str(&r->seq, bkmerstr[1]);
         break;

@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
@@ -54,7 +54,6 @@ kmers.%.k$(K).pdf: seq.%.k$(K).ctx
 plots: $(PLOTS)
 
 test: $(CONTIGS) $(RMDUP_CONTIGS) $(SEQS)
-	set -euo pipefail; \
 	for i in {0..$(LAST_SAMP)}; do \
 		echo \# Sample $$i; \
 		$(BIOINF)/sim_mutations/sim_substrings.pl $(K) 0.1 contigs.$$i.fa seq.$$i.fa; \

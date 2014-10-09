@@ -1,5 +1,4 @@
-
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -38,6 +37,6 @@ reads.pe.two.ctp: genome.k$(KMER).ctx read.1.fa read.2.fa
 	$(CTX) thread -m 1M --print-contigs --two-way --seq2 read.1.fa:read.2.fa -o $@ genome.k$(KMER).ctx
 
 genome.k$(KMER).pdf:
-	set -euo pipefail; $(CTX2DOT) genome.k$(KMER).ctx | dot -Tpdf > genome.k$(KMER).pdf
+	$(CTX2DOT) genome.k$(KMER).ctx | dot -Tpdf > genome.k$(KMER).pdf
 
 .PHONY: all clean plots

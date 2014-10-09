@@ -1,5 +1,4 @@
-
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -37,8 +36,8 @@ read%.fa:
 	echo TATACGGTACAGTG > read1b.fa
 	echo GCTCAGGAATACAG > read2a.fa
 	echo GATACGGTACTGTG > read2b.fa
-	set -euo pipefail; echo GCTAAGGAA > read3.1.fa; echo GGTACAGTG | $(DNACAT) --revcmp - > read3.2.fa
-	set -euo pipefail; echo GCTCAGGAA > read4.1.fa; echo GGTACTGTG | $(DNACAT) --revcmp - > read4.2.fa
+	echo GCTAAGGAA > read3.1.fa; echo GGTACAGTG | $(DNACAT) --revcmp - > read3.2.fa
+	echo GCTCAGGAA > read4.1.fa; echo GGTACTGTG | $(DNACAT) --revcmp - > read4.2.fa
 
 genome.k$(K).ctx:
 	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
@@ -50,7 +49,7 @@ genome.k$(K).pdf:
 	dot -Tpdf genome.k$(K).dot > genome.k$(K).pdf
 
 genome.k$(K).kmers.pdf:
-	set -euo pipefail; $(CTX2DOT) genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
+	$(CTX2DOT) genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
 
 reads.se.k$(K).ctp.gz:
 	$(CTX) thread -m 1M -t 6 $(SEQSE) -o reads.se.k$(K).ctp.gz genome.k$(K).ctx

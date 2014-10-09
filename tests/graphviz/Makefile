@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -20,7 +20,7 @@ seq.k15.dot: seq.k15.ctx
 	$(CTX) supernodes --dot $< > $@
 
 seq.k15.pdf: seq.k15.dot
-	set -euo pipefail; cat $< | dot -Tpdf > $@
+	cat $< | dot -Tpdf > $@
 
 clean:
 	rm -rf seq.fa seq.k15.ctx seq.k15.dot seq.k15.pdf

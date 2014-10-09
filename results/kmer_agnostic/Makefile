@@ -1,3 +1,4 @@
+SHELL:=/bin/bash -euo pipefail
 # Makefile
 # Isaac Turner
 # 2014-10-01
@@ -21,7 +22,7 @@ READLEN=100
 KMERS=15 21 31 41 51 63 75 99
 
 # How many contigs to pull out to find median walk distance
-NSEED_WALK=50
+NSEED_WALK=100
 
 # Count number of kmers
 NKMERS=$(shell echo $(KMERS) | tr ' ' '\n' | awk 'END{print NR}')
@@ -38,6 +39,9 @@ CONTIGS=$(foreach K,$(KMERS),k$(K)/perf.contigs.links.fa) \
 UNITIGS=$(CONTIGS:.fa=.rmdup.fa)
 ALLCONTIGS=$(CONTIGS) $(UNITIGS)
 
+MEDWALKS=$(foreach K,$(KMERS),k$(K)/perf.medwalk.plain.txt) \
+         $(foreach K,$(KMERS),k$(K)/perf.medwalk.links.txt)
+
 LINKS_CSVS=$(foreach K,$(KMERS),k$(K)/perf.contigs.links.rmdup.csv)
 PLAIN_CSVS=$(foreach K,$(KMERS),k$(K)/perf.contigs.plain.rmdup.csv)
 
@@ -45,8 +49,9 @@ BAMS=$(UNITIGS:.fa=.bam)
 
 JOINCSVS=join.links.csv join.plain.csv
 
+# removed $(BAMS)
 TGTS=reads/perfect.fa.gz $(GRAPHS) $(PATHS) $(ALLCONTIGS) $(JOINCSVS) \
-     links.lengths.txt $(BAMS)
+     links.lengths.txt $(MEDWALKS)
 
 
 REQ=$(DIRS) $(cmds)
@@ -71,17 +76,23 @@ k%/perf.se.ctp.gz: k%/perf.ctx reads/perfect.fa.gz | $(REQ)
 # Contigs
 k%/perf.contigs.plain.fa: k%/perf.ctx | $(REQ)
 	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k contigs -o $@ k$*/perf.ctx; \
-	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) k$*/perf.ctx 2>&1 | \
-			 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
-	printf "med_walk,$$walk\n" > k$*/perf.medwalk.plain.txt
+	$(CTXK)$$k contigs -o $@ k$*/perf.ctx
 
 k%/perf.contigs.links.fa: k%/perf.ctx k%/perf.se.ctp.gz | $(REQ)
 	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k contigs -o $@ -p k$*/perf.se.ctp.gz k$*/perf.ctx; \
+	$(CTXK)$$k contigs -o $@ -p k$*/perf.se.ctp.gz k$*/perf.ctx;
+
+k%/perf.medwalk.plain.txt:
+	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
+	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) k$*/perf.ctx 2>&1 | \
+			 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
+	printf "med_walk,$$walk\n" > $@
+
+k%/perf.medwalk.links.txt:
+	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
 	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) -p k$*/perf.se.ctp.gz k$*/perf.ctx 2>&1 | \
 	  	 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
-	printf "med_walk,$$walk\n" > k$*/perf.medwalk.links.txt
+	printf "med_walk,$$walk\n" > $@
 
 # Remove duplicates
 %.rmdup.fa: %.fa
@@ -108,7 +119,7 @@ make_plots: $(JOINCSVS) | $(DIRS)
 	R --vanilla -f plot-results.R --args join.links.csv join.plain.csv
 
 # Stats
-%.csv: %.fa
+%.csv: %.fa $(MEDWALKS)
 	$(CONTIG_STATS) --print-csv $< > $@
 	dir=$$(echo $< | grep -oE 'k[0-9]+'); \
 	annot=$$(echo $< | grep -oE 'plain|links'); \

@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 all: confidence_plot.pdf confidence.pdf
 

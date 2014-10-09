@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
@@ -35,7 +35,6 @@ seq.k$(K).ctx: seq.fa
 	$(CTX) inferedges --all $@
 
 noedges.k$(K).ctx: seq.k$(K).ctx
-	set -euo pipefail; \
 	$(CTX) build -k $(K) -m 1M --sample Puma \
 	             --seq <($(CTX) view -q -k $< | awk '{print $$1}') $@
 
@@ -53,9 +52,9 @@ mix.00.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
 
 # 1) Stream
 fix.1a.ctx: mix.10.k$(K).ctx
-	set -euo pipefail; cat $< | $(CTX) inferedges -m 1M --all - > $@
+	cat $< | $(CTX) inferedges -m 1M --all - > $@
 fix.1b.ctx: mix.10.k$(K).ctx
-	set -euo pipefail; cat $< | $(CTX) inferedges -m 1M --pop - > $@
+	cat $< | $(CTX) inferedges -m 1M --pop - > $@
 
 # Edit file in place (mmap)
 fix.1c.ctx: mix.10.k$(K).ctx
@@ -135,13 +134,13 @@ CAAGG.infer.k5.ctx: CAAGG.k5.ctx
 	$(CTX) inferedges --pop -o $@ $<
 
 CAAGG.infer.k5.col%.txt: CAAGG.infer.k5.ctx
-	set -euo pipefail; $(CTX) view --kmers $<:$* | sort > $@
+	$(CTX) view --kmers $<:$* | sort > $@
 
 CAAGG.k5.col%.txt: CAAGG.k5.ctx
-	set -euo pipefail; $(CTX) view --kmers $<:$* | sort > $@
+	$(CTX) view --kmers $<:$* | sort > $@
 
 %.txt: %.ctx
-	set -euo pipefail; $(CTX) view --kmers $< | sort > $@
+	$(CTX) view --kmers $< | sort > $@
 
 test: $(TXTS) $(CAAGG_TXTS)
 	# diff -q fix.1a.txt mix.11.k$(K).txt

@@ -1,7 +1,8 @@
+SHELL:=/bin/bash -euo pipefail
+#
 # Isaac Turner
 # 2014-09-05
-
-SHELL:=/bin/bash
+#
 
 CTXDIR=../../../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat

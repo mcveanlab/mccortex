@@ -34,9 +34,9 @@ plain=read.csv(file=plain_file,as.is=T,row.names=1)
 kmers=as.numeric(links['kmer',])
 cols=c('firebrick','dodgerblue')
 
-fields=c('median','mean','N50','length','contigs')
+fields=c('median','mean','N50','length','contigs','med_walk')
 descriptions=c("Median contig length","Mean contig length","Contig N50",
-               "Assembled length","Number of contigs")
+               "Assembled length","Number of contigs", "Median walking distance")
 path='plots/'
 
 for(i in 1:length(fields)) {

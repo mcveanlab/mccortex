@@ -1,4 +1,4 @@
-SHELL := /bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
@@ -34,7 +34,7 @@ merge.gaps.use2.ctx: in.ctx
 	$(CTX) join --ncols 2 -o merge.gaps.use2.ctx 1:in.ctx:0 0:in.ctx:1 4:in.ctx:3
 
 %.txt: %.ctx
-	set -euo pipefail; $(CTX) view --kmers $< | sort > $@
+	$(CTX) view --kmers $< | sort > $@
 
 compare: $(TXTS)
 	diff -q in.txt in.use2.txt

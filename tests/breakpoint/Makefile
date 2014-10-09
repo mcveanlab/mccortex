@@ -1,4 +1,4 @@
-
+SHELL:=/bin/bash -euo pipefail
 
 #
 # s0: CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA
@@ -15,8 +15,6 @@
 #     deletion of 1bp
 #     cAACACCCTTTGGTTTAAGCCG-GTTGGAGTTGGCCAAAGAAGTTCAAgg
 #     2222222222222222222222 2222222222222222222222222..
-
-SHELL:=/bin/bash
 
 K=11
 CTXDIR=../..
@@ -65,7 +63,7 @@ join.k$(K).ctx: $(GRAPHS)
 	$(CTX) join -o $@ $(FLAT_GRAPHS)
 
 seq.k$(K).pdf: join.k$(K).ctx
-	set -euo pipefail; $(CTX2DOT) --simplify $< | dot -Tpdf > $@
+	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
 
 plots: seq.k$(K).pdf
 

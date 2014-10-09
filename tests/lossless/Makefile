@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 #
 # Isaac Turner 2014-10-08
@@ -39,7 +39,7 @@ seq.regen.fa: seq.uniq.k$(K).ctx seq.uniq.k$(K).ctp.gz
 
 check: seq.fa seq.regen.fa seq.uniq.k7.ctx
 	@echo Check kmer count distribution...
-	ctx31 view -q -k seq.uniq.k7.ctx | awk '{print $$2}' | sort | uniq -c
+	$(CTX) view -q -k seq.uniq.k7.ctx | awk '{print $$2}' | sort | uniq -c
 	@echo; echo Checking if regenerated file matches original...
 	diff -q <($(DNACAT) -r -k -P seq.fa) <($(DNACAT) -r -k -P seq.regen.fa)
 	@echo

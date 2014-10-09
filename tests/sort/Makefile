@@ -1,4 +1,4 @@
-SHELL:=/bin/bash
+SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
