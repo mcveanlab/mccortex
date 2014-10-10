@@ -61,37 +61,52 @@ static inline dBNode db_graph_add_random_node(dBGraph *db_graph,
   die("Ran 1000 times but couldn't find a unique binary kmer");
 }
 
-static inline bool _is_valid_flank(BinaryKmer bkmer, read_t *r,
+/**
+ * Generate set of kmers from appending bkmer to sequence on given side (left/right).
+ * If new kmer keys do not match flank kmer key, add all kmer keys to the graph.
+ * Otherwise don't add any kmers and return false.
+ * @param left_side  If true add binary kmer to left side of `r`, otherwise add
+ *                   to the right side
+ * @return           true if addd all kmer keys, false if duplicate kmer key
+ */
+static inline bool _is_valid_flank(BinaryKmer bkmer, const read_t *r,
                                    bool left_side, dBGraph *db_graph)
 {
   if(r->seq.end == 0) return true;
 
-  BinaryKmer bkmers[MAX_KMER_SIZE], tmp_bkmer = bkmer;
+  BinaryKmer bkey = binary_kmer_get_key(bkmer, db_graph->kmer_size);
+  BinaryKmer tmp_bkmer = bkmer, tmp_bkey = bkey;
+  BinaryKmer bkeys[MAX_KMER_SIZE];
   const size_t kmer_size = db_graph->kmer_size;
   const size_t nkmers = MIN2(kmer_size, r->seq.end);
+  Nucleotide nuc;
   size_t i;
 
+  bkeys[0] = tmp_bkey;
+
   if(left_side) {
-    bkmers[0] = tmp_bkmer;
     for(i = 1; i < nkmers; i++) {
-      Nucleotide nuc = dna_char_to_nuc(r->seq.b[i-1]);
-      bkmers[i] = binary_kmer_left_shift_add(tmp_bkmer, kmer_size, nuc);
-      if(binary_kmers_are_equal(bkmer, bkmers[i])) return false;
+      nuc = dna_char_to_nuc(r->seq.b[i-1]);
+      tmp_bkmer = binary_kmer_left_shift_add(tmp_bkmer, kmer_size, nuc);
+      tmp_bkey = binary_kmer_get_key(tmp_bkmer, kmer_size);
+      if(binary_kmers_are_equal(bkey, tmp_bkey)) return false;
+      bkeys[i] = tmp_bkey;
     }
   }
   else {
-    bkmers[nkmers-1] = tmp_bkmer;
     for(i = 1; i < nkmers; i++) {
-      Nucleotide nuc = dna_char_to_nuc(r->seq.b[r->seq.end-i]);
-      bkmers[nkmers-1-i] = binary_kmer_right_shift_add(tmp_bkmer, kmer_size, nuc);
-      if(binary_kmers_are_equal(bkmer, bkmers[nkmers-1-i])) return false;
+      nuc = dna_char_to_nuc(r->seq.b[r->seq.end-i]);
+      tmp_bkmer = binary_kmer_right_shift_add(tmp_bkmer, kmer_size, nuc);
+      tmp_bkey = binary_kmer_get_key(tmp_bkmer, kmer_size);
+      if(binary_kmers_are_equal(bkey, tmp_bkey)) return false;
+      bkeys[i] = tmp_bkey;
     }
   }
 
   // Add new kmers
   bool found;
-  for(i = 0; i < nkmers; i++)
-    db_graph_find_or_add_node(db_graph, bkmers[i], &found);
+  for(i = 1; i < nkmers; i++)
+    hash_table_find_or_insert(&db_graph->ht, bkeys[i], &found);
 
   return true;
 }
