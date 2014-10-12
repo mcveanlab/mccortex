@@ -12,6 +12,11 @@ DIRS=reads logs $(foreach K,$(KMERS),k$(K)) plots
 all:
 	./run.sh
 
+plots:
+	mkdir -p plots
+	R --vanilla -f plot-results.R --args perf.links.join.csv  perf.plain.join.csv stoch.links.join.csv stoch.plain.join.csv
+	cd results && $(MAKE)
+
 clean:
 	rm -rf $(DIRS) {perf,stoch}.{plain,links}.join.csv
 

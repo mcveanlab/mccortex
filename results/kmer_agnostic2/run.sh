@@ -1,4 +1,6 @@
-#!/bin/bash -euo pipefail
+#!/bin/bash
+
+set -euo pipefail
 
 CTXDIR=../..
 CTXK=$CTXDIR/bin/ctx
@@ -11,7 +13,7 @@ CONTIG_STATS=$CTXDIR/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 REF=$CTXDIR/results/data/chr22/uniq_flanks/chr22.1Mbp.uniq.fa
 ERR_PROFILE=$CTXDIR/results/data/PhiX/PhiX.1.fq.gz
 READLEN=100
-DEPTH=50
+DEPTH=100
 
 # How many contigs to pull out to find median walk distance
 NSEED_WALK=100
@@ -31,6 +33,8 @@ getctx () {
 kmers=$(echo 15 21 31 41 51 63 75 99)
 nkmers=$(echo $kmers | tr ' ' '\n' | awk 'END{print NR}')
 
+MEM=5G
+
 # create directories
 for k in $kmers; do [ ! -d k$k ] && run mkdir -p k$k; done
 mkdir -p logs reads
@@ -43,16 +47,16 @@ mkdir -p logs reads
 echo == Building cortex graphs ==
 
 for k in $kmers; do
-  for p in perf stoch; do
-    [ ! -f k$k/$p.ctx ] && run `getctx $k` build -m 500M -k $k --sample chr22_17M_18M --seq reads/$p.fa.gz k$k/$p.ctx
-  done
+  [ ! -f k$k/perf.ctx ]      && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx
+  [ ! -f k$k/stoch.raw.ctx ] && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.raw.ctx
+  [ ! -f k$k/stoch.ctx ]     && run `getctx $k` clean -m $MEM --covg-before k$k/stoch.raw.covg.csv --out k$k/stoch.ctx k$k/stoch.raw.ctx
 done
 
 echo == Read threading ==
 
 for k in $kmers; do
   for p in perf stoch; do
-    [ ! -f k$k/$p.se.ctp.gz ] && run `getctx $k` thread -m 500M --seq reads/$p.fa.gz --out k$k/$p.se.ctp.gz k$k/$p.ctx
+    [ ! -f k$k/$p.se.ctp.gz ] && run `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --out k$k/$p.se.ctp.gz k$k/$p.ctx
   done
 done
 
@@ -60,10 +64,10 @@ echo == Assembling contigs ==
 
 for k in $kmers; do
   for p in perf stoch; do
-    [ ! -f k$k/$p.plain.contigs.fa       ] && run `getctx $k` contigs -o k$k/$p.plain.contigs.fa k$k/$p.ctx
-    [ ! -f k$k/$p.links.contigs.fa       ] && run `getctx $k` contigs -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx
-    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m 500M -q k$k/$p.plain.contigs.fa ) > k$k/$p.plain.contigs.rmdup.fa
-    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m 500M -q k$k/$p.links.contigs.fa ) > k$k/$p.links.contigs.rmdup.fa
+    [ ! -f k$k/$p.plain.contigs.fa       ] && run `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx
+    [ ! -f k$k/$p.links.contigs.fa       ] && run `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx
+    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m $MEM -q k$k/$p.plain.contigs.fa ) > k$k/$p.plain.contigs.rmdup.fa
+    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m $MEM -q k$k/$p.links.contigs.fa ) > k$k/$p.links.contigs.rmdup.fa
   done
 done
 
@@ -101,18 +105,28 @@ done
 echo == Merging CSV files ==
 
 colidx=$(echo $(eval echo '{1,$[{1..'$nkmers'}*2]}') | tr ' ' ',');
-echo $colidx
 
 for p in perf stoch; do
   for annot in plain links; do
     [ ! -f $p.$annot.join.csv ] && \
-      run (printf "metric,%s\n" $(echo $kmers | sed 's/ /,k/g');
-           printf "kmer,%s\n" $(echo $kmers | tr ' ' ',');
-           paste -d, k*/$p.$annot.contigs.rmdup.csv | \
-           cut -d, -f $colidx - | tail -n +2) > $p.$annot.join.csv
+      (printf "metric,%s\n" $(echo $kmers | sed 's/ /,k/g');
+       printf "kmer,%s\n" $(echo $kmers | tr ' ' ',');
+       paste -d, k*/$p.$annot.contigs.rmdup.csv | \
+       cut -d, -f $colidx - | tail -n +2) > $p.$annot.join.csv
   done
 done
 
+# Stats
+echo == Checking contig matches ==
 
-# Make plots
-run R --vanilla -f plot-results.R --args perf.links.join.csv perf.plain.join.csv
+for k in $kmers; do
+  for p in perf stoch; do
+    for annot in plain links; do
+      run $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa ../../results/data/chr22/chr22_17M_18M.fa
+    done
+  done
+done
+
+# Now make plots with:
+echo Plot with:
+echo "  " R --vanilla -f plot-results.R --args perf.links.join.csv perf.plain.join.csv stoch.links.join.csv stoch.plain.join.csv
