@@ -87,27 +87,9 @@ Code And Contributing
 ---------------------
 
 Issues can be submitted on github. Pull requests welcome. Please add your name
-to the AUTHORS file.
+to the AUTHORS file. Code should compile on mac/linux with clang/gcc without errors or warnings.
 
-Code should compile on mac/linux with clang/gcc without errors or warnings.
-
-Code is organised as:
-* libs/            included library code from other projects / third party code
-* src/global       code used everywhere
-* src/basic        utility functions
-* src/paths        path information
-* src/graph*       de Bruijn graph
-* src/graph_paths* graph+path interactions + path io
-* src/tools*       complex operations performed on the graph
-* src/commands*    one file per cortex command ctx_COMMAND
-* src/main*        files with a main function go in here
-
-* = files that need recompiling based on different MAX_KMER_SIZE
-
-Files only link to files that are above them in the list above. E.g. src/graph/*
-files only include files in src/graph/, src/paths/, src/basic/, src/global/ and libs/.
-
-Thread-safe functions are named *_mt().
+More on the [wiki](https://github.com/mcveanlab/mccortex/wiki/Contributing)
 
 Static analysis can be run with [cppcheck](http://cppcheck.sourceforge.net):
 

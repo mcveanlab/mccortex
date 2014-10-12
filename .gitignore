@@ -4,6 +4,7 @@
 /docs
 /src/global/version.h
 /tests
+/results
 /benchmark
 /dev
 *.RData

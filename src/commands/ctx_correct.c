@@ -128,7 +128,7 @@ int ctx_correct(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // 1 bit needed per kmer if we need to keep track of noreseed
-  bits_per_kmer = sizeof(GPath)*8 + sizeof(Edges)*8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 +
                   (gpfiles->len > 0 ? sizeof(GPath*)*8 : 0) +
                   ncols; // in colour
 

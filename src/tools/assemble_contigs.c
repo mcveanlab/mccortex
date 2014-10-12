@@ -71,6 +71,7 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
     }
 
     graph_walker_init(wlk, db_graph, assem->colour, assem->colour, first_node);
+    bool hit_cycle = false;
 
     while(graph_walker_next(wlk))
     {
@@ -87,8 +88,10 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
         gap_conf[orient] *= conf_table_lookup(assem->conf_table, read_length);
       }
 
-      if(!rpt_walker_attempt_traverse(rptwlk, wlk)) { ncycles++; break; }
+      if(!rpt_walker_attempt_traverse(rptwlk, wlk)) { hit_cycle = true; break; }
     }
+
+    ncycles += hit_cycle;
 
     // Grab some stats
     njunc += wlk->fork_count;
@@ -100,7 +103,7 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
     // Get failed status
     step = wlk->last_step;
     wlk_step_last[orient] = step.status;
-    wlk_steps[step.status]++;
+    if(!hit_cycle) wlk_steps[step.status]++;
 
     graph_walker_finish(wlk);
     rpt_walker_fast_clear(rptwlk, nodes->data, nodes->len);

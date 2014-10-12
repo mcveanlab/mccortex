@@ -397,7 +397,7 @@ int ctx_exp_abc(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem, path_mem, total_mem;
 
   // 1 bit needed per kmer if we need to keep track of kmer usage
-  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath)*8 +
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 + sizeof(GPath*)*8 +
                   ncols;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,

@@ -18,6 +18,7 @@ SAMTOOLS=$(CTXDIR)/libs/samtools/samtools
 
 REF=$(CTXDIR)/results/data/chr22/uniq_flanks/chr22.1Mbp.uniq.fa
 READLEN=100
+ERR_PROFILE=$(CTXDIR)/results/data/PhiX/PhiX.1.fq.gz
 
 KMERS=15 21 31 41 51 63 75 99
 
@@ -30,27 +31,34 @@ MIN_KMER=$(shell echo $(KMERS) | awk -F ' ' '{print $$1}')
 
 cmds=$(foreach K,$(KMERS),$(shell echo $(CTXK)$$[ ($K+31)/32*32-1 ]))
 
+PREFIXES=$(foreach K,$(KMERS),k/perf) $(foreach K,$(KMERS),k/stoch)
+
 # Expand these for all k values
 DIRS=reads logs $(foreach K,$(KMERS),k$(K)) plots
-GRAPHS=$(foreach K,$(KMERS),k$(K)/perf.ctx)
-PATHS=$(foreach K,$(KMERS),k$(K)/perf.se.ctp.gz)
-CONTIGS=$(foreach K,$(KMERS),k$(K)/perf.contigs.links.fa) \
-				$(foreach K,$(KMERS),k$(K)/perf.contigs.plain.fa)
+GRAPHS=$(foreach PRE,$(PREFIXES),k$(PRE).ctx)
+PATHS=$(foreach PRE,$(PREFIXES),k$(PRE).se.ctp.gz)
+CONTIGS=$(foreach PRE,$(PREFIXES),k$(PRE).contigs.links.fa) \
+				$(foreach PRE,$(PREFIXES),k$(PRE).contigs.plain.fa)
+
 UNITIGS=$(CONTIGS:.fa=.rmdup.fa)
 ALLCONTIGS=$(CONTIGS) $(UNITIGS)
 
-MEDWALKS=$(foreach K,$(KMERS),k$(K)/perf.medwalk.plain.txt) \
-         $(foreach K,$(KMERS),k$(K)/perf.medwalk.links.txt)
+MEDWALKS=$(foreach PRE,$(PREFIXES),k$(PRE).medwalk.plain.txt) \
+         $(foreach PRE,$(PREFIXES),k$(PRE).medwalk.links.txt)
 
-LINKS_CSVS=$(foreach K,$(KMERS),k$(K)/perf.contigs.links.rmdup.csv)
-PLAIN_CSVS=$(foreach K,$(KMERS),k$(K)/perf.contigs.plain.rmdup.csv)
+PERF_LINKS_CSVS=$(foreach K,$(KMERS),k$(K)/perf.contigs.links.rmdup.csv)
+PERF_PLAIN_CSVS=$(foreach K,$(KMERS),k$(K)/perf.contigs.plain.rmdup.csv)
+STOCH_LINKS_CSVS=$(foreach K,$(KMERS),k$(K)/stoch.contigs.links.rmdup.csv)
+STOCH_PLAIN_CSVS=$(foreach K,$(KMERS),k$(K)/stoch.contigs.plain.rmdup.csv)
 
-BAMS=$(UNITIGS:.fa=.bam)
+# BAMS=$(UNITIGS:.fa=.bam)
 
-JOINCSVS=join.links.csv join.plain.csv
+JOINCSVS=perf.links.join.csv perf.plain.join.csv \
+         stoch.links.join.csv stoch.plain.join.csv
 
 # removed $(BAMS)
-TGTS=reads/perfect.fa.gz $(GRAPHS) $(PATHS) $(ALLCONTIGS) $(JOINCSVS) \
+TGTS=reads/perfect.fa.gz reads/error.fa.gz \
+     $(GRAPHS) $(PATHS) $(ALLCONTIGS) $(JOINCSVS) \
      links.lengths.txt $(MEDWALKS)
 
 
@@ -60,37 +68,43 @@ all: $(TGTS) make_plots
 
 checks: contig_stats contig_check hierachy_check
 
-reads/perfect.fa.gz: $(REF) | $(REQ)
+reads/perf.fa.gz: $(REF) | $(REQ)
 	$(ALLREADS) $(READLEN) $(REF) | gzip -c > reads/perfect.fa.gz
 
+reads/stoch.fa.gz: $(REF) | $(REQ)
+	$(READSIM) -l $(READLEN) -r $(REF) -s reads/error
+
 # Cortex build k=$(K)
-k%/perf.ctx: reads/perfect.fa.gz | $(REQ)
-	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k build -m 50M -k $* --sample everybase.chr22:17M-18M.errorfree --seq reads/perfect.fa.gz $@ >& logs/perf.build.k$*.log
+k%.ctx: reads/perfect.fa.gz | $(REQ)
+	k=`echo $* | grep -oE '^\d+'`; maxk=$$[ ($$k+31)/32*32-1 ]; \
+	src=`echo $* | grep -oE '(perf|stoch)' `; echo $(CTXK)$$maxk; \
+	$(CTXK)$$maxk build -m 50M -k $$k --sample everybase.chr22:17M-18M.errorfree --seq reads/$$src.fa.gz $@ >& $@.log
 
 # Thread
-k%/perf.se.ctp.gz: k%/perf.ctx reads/perfect.fa.gz | $(REQ)
-	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k thread -m 200M --seq reads/perfect.fa.gz --out $@ k$*/perf.ctx >& logs/perf.thread.k$*.log
+k%.se.ctp.gz: k%.ctx reads/perfect.fa.gz | $(REQ)
+	k=`echo $* | grep -oE '^\d+'`; maxk=$$[ ($$k+31)/32*32-1 ]; \
+	src=`echo $* | grep -oE '(perf|stoch)' `; echo $(CTXK)$$maxk; \
+	$(CTXK)$$maxk thread -m 200M --seq reads/$$src.fa.gz --out $@ $< >& $@.log
 
 # Contigs
-k%/perf.contigs.plain.fa: k%/perf.ctx | $(REQ)
-	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k contigs -o $@ k$*/perf.ctx
+k%.contigs.plain.fa: k%.ctx | $(REQ)
+	k=`echo $* | grep -oE '^\d+'`; maxk=$$[ ($$k+31)/32*32-1 ]; echo $(CTXK)$$maxk; \
+	$(CTXK)$$maxk contigs -o $@ k$*.ctx
 
-k%/perf.contigs.links.fa: k%/perf.ctx k%/perf.se.ctp.gz | $(REQ)
-	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	$(CTXK)$$k contigs -o $@ -p k$*/perf.se.ctp.gz k$*/perf.ctx;
+# % is 31/perf or 15/stoch
+k%.contigs.links.fa: k%.ctx k%.se.ctp.gz | $(REQ)
+	k=`echo $* | grep -oE '^\d+'`; maxk=$$[ ($$k+31)/32*32-1 ]; echo $(CTXK)$$maxk; \
+	$(CTXK)$$maxk contigs -o $@ -p k$*.se.ctp.gz $<;
 
-k%/perf.medwalk.plain.txt:
-	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) k$*/perf.ctx 2>&1 | \
+k%.medwalk.plain.txt:
+	k=`echo $* | grep -oE '^\d+'`; maxk=$$[ ($$k+31)/32*32-1 ]; echo $(CTXK)$$maxk; \
+	walk=$$($(CTXK)$$maxk contigs --reseed --ncontigs $(NSEED_WALK) k$*.ctx 2>&1 | \
 			 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
 	printf "med_walk,$$walk\n" > $@
 
-k%/perf.medwalk.links.txt:
-	k=$$[ ($*+31)/32*32-1 ]; echo $(CTXK)$$k; \
-	walk=$$($(CTXK)$$k contigs --reseed --ncontigs $(NSEED_WALK) -p k$*/perf.se.ctp.gz k$*/perf.ctx 2>&1 | \
+k%.medwalk.links.txt:
+	k=`echo $* | grep -oE '^\d+'`; maxk=$$[ ($$k+31)/32*32-1 ]; echo $(CTXK)$$maxk; \
+	walk=$$($(CTXK)$$maxk contigs --reseed --ncontigs $(NSEED_WALK) -p k$*.se.ctp.gz k$*.ctx 2>&1 | \
 	  	 	  grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$$' | tr -d ','); \
 	printf "med_walk,$$walk\n" > $@
 
@@ -101,14 +115,18 @@ k%/perf.medwalk.links.txt:
 %.rmdup.bam: %.rmdup.fa
 	$(BWA) mem $(REF) $< | $(SAMTOOLS) sort -O bam -T tmp - > $@
 
-join.links.csv: $(LINKS_CSVS)
-join.plain.csv: $(PLAIN_CSVS)
-join.%.csv:
+perf.links.join.csv: $(PERF_LINKS_CSVS)
+perf.plain.join.csv: $(PERF_PLAIN_CSVS)
+stoch.links.join.csv: $(STOCH_LINKS_CSVS)
+stoch.plain.join.csv: $(STOCH_PLAIN_CSVS)
+%.join.csv:
+	src=`echo $* | grep -oE '(perf|stoch)' `; \
+	annot=`echo $* | grep -oE '(links|plain)' `; \
 	colidx=$$(echo {1,$$[{1..$(NKMERS)}*2]} | tr ' ' ','); \
 	hdr=$$(printf "metric,%s\n" $$(echo $(KMERS) | sed 's/ /,k/g')); \
  	(echo $$hdr; \
  	 printf "kmer,%s\n" $$(echo $(KMERS) | tr ' ' ','); \
-	 paste -d, k*/perf.contigs.$*.rmdup.csv | \
+	 paste -d, k*/$$src.contigs.$$annot.rmdup.csv | \
 	 cut -d, -f $$colidx - | tail -n +2) > $@
 
 links.lengths.txt:
@@ -121,9 +139,9 @@ make_plots: $(JOINCSVS) | $(DIRS)
 # Stats
 %.csv: %.fa $(MEDWALKS)
 	$(CONTIG_STATS) --print-csv $< > $@
-	dir=$$(echo $< | grep -oE 'k[0-9]+'); \
+	base=$$(echo $< | grep -oE 'k[0-9]+/(perf|stoch)'); \
 	annot=$$(echo $< | grep -oE 'plain|links'); \
-	cat $$dir/perf.medwalk.$$annot.txt >> $@
+	cat $$base.medwalk.$$annot.txt >> $@
 
 $(DIRS):
 	mkdir -p $@
@@ -159,5 +177,6 @@ contig_check: $(ALLCONTIGS)
 clean:
 	rm -rf $(DIRS) $(TGTS)
 
-.INTERMEDIATE: $(LINKS_CSVS) $(PLAIN_CSVS)
+.INTERMEDIATE: $(PERF_LINKS_CSVS) $(PLAIN_CSVS)
+	.INTERMEDIATE: $(PERF_LINKS_CSVS) $(PLAIN_CSVS)
 .PHONY: all clean checks contig_stats contig_check make_plots hierachy_check

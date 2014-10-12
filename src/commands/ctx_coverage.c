@@ -230,8 +230,8 @@ int ctx_coverage(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
   // kmer memory = Edges + paths + 1 bit per colour
-  bits_per_kmer = sizeof(GPath)*8 +
-                  (sizeof(Covg) + print_edges*sizeof(Edges)) * 8 * ncols;
+  bits_per_kmer = sizeof(BinaryKmer)*8 + //sizeof(GPath*)*8 +
+                  (sizeof(Covg) + (print_edges ? sizeof(Edges) : 0)) * 8 * ncols;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
