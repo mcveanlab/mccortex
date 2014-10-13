@@ -40,30 +40,32 @@ for k in $kmers; do [ ! -d k$k ] && run mkdir -p k$k; done
 mkdir -p logs reads
 
 # Generate reads
-[ ! -f reads/perf.fa.gz  ] && run $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz
-[ ! -f reads/stoch.fa.gz ] && run $READSIM -l $READLEN -r $REF -d $DEPTH -p $ERR_PROFILE -s reads/stoch
+[ ! -f reads/perf.fa.gz  ]    && run $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz
+[ ! -f reads/stoch.fa.gz ]    && run $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch
+[ ! -f reads/stocherr.fa.gz ] && run $READSIM -l $READLEN -r $REF -d $DEPTH -e 0.005 -s reads/stocherr
 
 # Cortex build k=$(K)
 echo == Building cortex graphs ==
 
 for k in $kmers; do
-  [ ! -f k$k/perf.ctx ]      && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx
-  [ ! -f k$k/stoch.raw.ctx ] && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.raw.ctx
-  [ ! -f k$k/stoch.ctx ]     && run `getctx $k` clean -m $MEM --covg-before k$k/stoch.raw.covg.csv --out k$k/stoch.ctx k$k/stoch.raw.ctx
+  [ ! -f k$k/perf.ctx ]         && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx
+  [ ! -f k$k/stoch.ctx ]        && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx
+  [ ! -f k$k/stocherr.raw.ctx ] && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/stocherr.raw.ctx
+  [ ! -f k$k/stocherr.ctx ]     && run `getctx $k` clean -m $MEM --covg-before k$k/stocherr.raw.covg.csv --out k$k/stocherr.ctx k$k/stocherr.raw.ctx
 done
 
 echo == Read threading ==
 
 for k in $kmers; do
-  for p in perf stoch; do
-    [ ! -f k$k/$p.se.ctp.gz ] && run `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --out k$k/$p.se.ctp.gz k$k/$p.ctx
+  for p in perf stoch stocherr; do
+    [ ! -f k$k/$p.se.ctp.gz ] && run `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --contig-hist k$k/$p.se.rlenhist.csv --out k$k/$p.se.ctp.gz k$k/$p.ctx
   done
 done
 
 echo == Assembling contigs ==
 
 for k in $kmers; do
-  for p in perf stoch; do
+  for p in perf stoch stocherr; do
     [ ! -f k$k/$p.plain.contigs.fa       ] && run `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx
     [ ! -f k$k/$p.links.contigs.fa       ] && run `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx
     [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m $MEM -q k$k/$p.plain.contigs.fa ) > k$k/$p.plain.contigs.rmdup.fa
@@ -82,7 +84,7 @@ med_walk() {
 }
 
 for k in $kmers; do
-  for p in perf stoch; do
+  for p in perf stoch stocherr; do
     [ ! -f k$k/$p.plain.medwalk.txt ] && med_walk $k $p ''                    > k$k/$p.plain.medwalk.txt
     [ ! -f k$k/$p.links.medwalk.txt ] && med_walk $k $p "-p k$k/$p.se.ctp.gz" > k$k/$p.links.medwalk.txt
   done
@@ -92,7 +94,7 @@ done
 echo == Contig stats ==
 
 for k in $kmers; do
-  for p in perf stoch; do
+  for p in perf stoch stocherr; do
     for annot in plain links; do
       [ ! -f k$k/$p.$annot.contigs.rmdup.csv ] && \
         run $CONTIG_STATS --print-csv k$k/$p.$annot.contigs.rmdup.fa | \
@@ -106,7 +108,7 @@ echo == Merging CSV files ==
 
 colidx=$(echo $(eval echo '{1,$[{1..'$nkmers'}*2]}') | tr ' ' ',');
 
-for p in perf stoch; do
+for p in perf stoch stocherr; do
   for annot in plain links; do
     [ ! -f $p.$annot.join.csv ] && \
       (printf "metric,%s\n" $(echo $kmers | sed 's/ /,k/g');
@@ -120,7 +122,7 @@ done
 echo == Checking contig matches ==
 
 for k in $kmers; do
-  for p in perf stoch; do
+  for p in perf stoch stocherr; do
     for annot in plain links; do
       run $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa ../../results/data/chr22/chr22_17M_18M.fa
     done
@@ -128,5 +130,6 @@ for k in $kmers; do
 done
 
 # Now make plots with:
+run mkdir -p plots
 echo Plot with:
-echo "  " R --vanilla -f plot-results.R --args perf.links.join.csv perf.plain.join.csv stoch.links.join.csv stoch.plain.join.csv
+echo "  " R --vanilla -f plot-results.R --args {perf,stoch,stocherr}.{links,plain}.join.csv

@@ -4,40 +4,45 @@
 \usepackage{graphicx}
 \usepackage{subcaption}
 
+% \usepackage{fullpage} % smaller margins
+\usepackage[margin=1.2in]{geometry}
+
 \begin{document}
 
 \begin{figure}[ht]
 \begin{subfigure}{.5\textwidth}
   \centering
-  \caption{Contig median length}
-  \includegraphics[width=2in]{../plots/median.pdf}
+  \caption{Assembly N50}
+  \includegraphics[width=2.5in]{../plots/N50.pdf}
 \end{subfigure}
 \begin{subfigure}{.5\textwidth}
   \centering
   \caption{Contig mean length}
-  \includegraphics[width=2in]{../plots/mean.pdf}
+  \includegraphics[width=2.5in]{../plots/mean.pdf}
+\end{subfigure}
+
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \caption{Median assembly distance ($n=100$)}
+  \includegraphics[width=2.5in]{../plots/med_walk.pdf}
 \end{subfigure}
 \begin{subfigure}{.5\textwidth}
   \centering
-  \caption{Assembly N50}
-  \includegraphics[width=2in]{../plots/N50.pdf}
+  \caption{Contig median length}
+  \includegraphics[width=2.5in]{../plots/median.pdf}
 \end{subfigure}
+
 \begin{subfigure}{.5\textwidth}
   \centering
   \caption{Number of contigs}
-  \includegraphics[width=2in]{../plots/contigs.pdf}
+  \includegraphics[width=2.5in]{../plots/contigs.pdf}
 \end{subfigure}
 \begin{subfigure}{.5\textwidth}
   \centering
   \caption{Total assembled length}
-  \includegraphics[width=2in]{../plots/length.pdf}
+  \includegraphics[width=2.5in]{../plots/length.pdf}
 \end{subfigure}
-\begin{subfigure}{.5\textwidth}
-  \centering
-  \caption{Median assembly distance ($n=100$)}
-  \includegraphics[width=2in]{../plots/med_walk.pdf}
-\end{subfigure}
-\caption{Simulations with varied $k$mer-size}
+\caption{Simulations with varied $k$mer-size. Perfect coverage is an error free read starting at each base. Stochastic coverage is 100X coverage with empirical seqeuncing error. Reads are 100bp single-ended. Reference is haploid 1Mbp from GRCh37 chr22:17,000,000-17,999,999.}
 \label{fig:kmer_agnostic}
 \end{figure}
 
