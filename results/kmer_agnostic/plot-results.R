@@ -15,15 +15,12 @@ require(tikzDevice)
 # R --vanilla -f plot-results.R --args <links.csv> <plain.csv>
 #options(echo=FALSE)
 args <- commandArgs(trailingOnly = TRUE)
-if(length(args) != 4) {
-  message("Usage: R --vanilla -f plot-results.R --args <perf.links.csv> <perf.plain.csv> <stoch.links.csv> <stoch.plain.csv>")
+if(length(args) != 6) {
+  message("Usage: R --vanilla -f plot-results.R --args <{perf,stoch,stocherr}.{links,paths}.csv>")
   quit()
 }
 
-perf_links_file=args[1]
-perf_plain_file=args[2]
-stoch_links_file=args[3]
-stoch_plain_file=args[4]
+files=args
 
 set_margin <- function() {
   par(oma=c(0,0,0,0))
@@ -31,13 +28,13 @@ set_margin <- function() {
 }
 
 data = list()
-data[[1]]=read.csv(file=perf_links_file, as.is=T,row.names=1)
-data[[2]]=read.csv(file=perf_plain_file, as.is=T,row.names=1)
-data[[3]]=read.csv(file=stoch_links_file,as.is=T,row.names=1)
-data[[4]]=read.csv(file=stoch_plain_file,as.is=T,row.names=1)
+for(i in 1:6) {
+  data[[i]]=read.csv(file=files[i], as.is=T,row.names=1)
+  cat("files[",i,"] = '",files[i],"'\n",sep='')
+}
 
 kmers=as.numeric(data[[1]]['kmer',])
-cols=c('firebrick','dodgerblue', 'darkolivegreen', 'darkorchid')
+cols=c('firebrick','dodgerblue', 'darkolivegreen', 'darkorchid', 'orange', 'black')
 
 fields=c('median','mean','N50','length','contigs','med_walk')
 descriptions=c("Median contig length","Mean contig length","Contig N50",
@@ -53,7 +50,7 @@ for(i in 1:length(fields)) {
   set_margin()
 
   m = 0;
-  for(j in 1:4) { m = max(m, as.numeric(data[[j]][field,])); }
+  for(j in 1:6) { m = max(m, as.numeric(data[[j]][field,])); }
 
   plot(kmers,as.numeric(data[[1]][field,]),type='b',col=cols[1],
        ylim=c(0,m),axes=F,ylab=description,xlab="kmer",
@@ -61,17 +58,20 @@ for(i in 1:length(fields)) {
   axis(side = 2)
   axis(side = 1,at=kmers)
 
-  for(j in 2:4) {
+  for(j in 2:6) {
     points(kmers,as.numeric(data[[j]][field,]),type='b',col=cols[j])
   }
 
   s0=0; sn=0;
-  for(j in 1:4) {
+  for(j in 1:6) {
     s0 = s0 + as.numeric(data[[j]][field,1]);
     sn = sn + as.numeric(data[[j]][field,length(kmers)-1]);
   }
   lpos='topright';
   if(s0 < sn) { lpos='bottomright' }
-  legend(lpos,c('Perfect Links','Perfect Plain','Stoch. Links','Stoch. Plain'),fill=cols)
+  legtxt = c('Perfect Links', 'Perfect Plain',
+             'Stoch. Links', 'Stoch. Plain',
+             'Stoch. Err Links', 'Stoch. Err Plain');
+  legend(lpos,legtxt,fill=cols)
   dev.off()
 }

@@ -1,6 +1,8 @@
 #!/bin/bash
 
+# xtrace prints commands as we run them
 set -euo pipefail
+set -o xtrace
 
 CTXDIR=../..
 CTXK=$CTXDIR/bin/ctx
@@ -19,14 +21,17 @@ DEPTH=100
 NSEED_WALK=100
 
 run () {
-  cmd="$@"
+  # cmd="$@"
   # Print to STDERR
-  echo $cmd 1>&2
-  $cmd
+  # echo $cmd 1>&2
+  set -o xtrace
+  $@
+  set +o xtrace
+  # $@
 }
 
 getctx () {
-  k=$1
+  k="$1"
   echo "$CTXK"$[ ($k+31)/32*32-1 ];
 }
 
@@ -36,29 +41,29 @@ nkmers=$(echo $kmers | tr ' ' '\n' | awk 'END{print NR}')
 MEM=5G
 
 # create directories
-for k in $kmers; do [ ! -d k$k ] && run mkdir -p k$k; done
+for k in $kmers; do [ ! -d k$k ] && mkdir -p k$k; done
 mkdir -p logs reads
 
 # Generate reads
-[ ! -f reads/perf.fa.gz  ]    && run $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz
-[ ! -f reads/stoch.fa.gz ]    && run $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch
-[ ! -f reads/stocherr.fa.gz ] && run $READSIM -l $READLEN -r $REF -d $DEPTH -e 0.005 -s reads/stocherr
+[ ! -f reads/perf.fa.gz  ]    && $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz >& reads/perf.fa.gz.log
+[ ! -f reads/stoch.fa.gz ]    && $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch >& reads/stoch.fa.gz.log
+[ ! -f reads/stocherr.fa.gz ] && $READSIM -l $READLEN -r $REF -d $DEPTH -e 0.005 -s reads/stocherr >& reads/stocherr.fa.gz.log
 
 # Cortex build k=$(K)
 echo == Building cortex graphs ==
 
 for k in $kmers; do
-  [ ! -f k$k/perf.ctx ]         && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx
-  [ ! -f k$k/stoch.ctx ]        && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx
-  [ ! -f k$k/stocherr.raw.ctx ] && run `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/stocherr.raw.ctx
-  [ ! -f k$k/stocherr.ctx ]     && run `getctx $k` clean -m $MEM --covg-before k$k/stocherr.raw.covg.csv --out k$k/stocherr.ctx k$k/stocherr.raw.ctx
+  [ ! -f k$k/perf.ctx ]         && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx >& perf.ctx.log
+  [ ! -f k$k/stoch.ctx ]        && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx >& stoch.ctx.log
+  [ ! -f k$k/stocherr.raw.ctx ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/stocherr.raw.ctx >& k$k/stocherr.raw.ctx.log
+  [ ! -f k$k/stocherr.ctx ]     && `getctx $k` clean -m $MEM --covg-before k$k/stocherr.raw.covg.csv --out k$k/stocherr.ctx k$k/stocherr.raw.ctx >& k$k/stocherr.ctx.log
 done
 
 echo == Read threading ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.se.ctp.gz ] && run `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --contig-hist k$k/$p.se.rlenhist.csv --out k$k/$p.se.ctp.gz k$k/$p.ctx
+    [ ! -f k$k/$p.se.ctp.gz ] && `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --contig-hist k$k/$p.se.rlenhist.csv --out k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.se.ctp.gz.log
   done
 done
 
@@ -66,19 +71,19 @@ echo == Assembling contigs ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.plain.contigs.fa       ] && run `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx
-    [ ! -f k$k/$p.links.contigs.fa       ] && run `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx
-    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m $MEM -q k$k/$p.plain.contigs.fa ) > k$k/$p.plain.contigs.rmdup.fa
-    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && ( run `getctx $k` rmsubstr -k $k -m $MEM -q k$k/$p.links.contigs.fa ) > k$k/$p.links.contigs.rmdup.fa
+    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx >& k$k/$p.ctx.log
+    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx
+    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.plain.contigs.rmdup.fa k$k/$p.plain.contigs.fa
+    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.links.contigs.rmdup.fa k$k/$p.links.contigs.fa
   done
 done
 
 echo == Median walk distance ==
 
 med_walk() {
-  k=$1; p=$2; pathargs=$3;
+  k="$1"; p="$2"; pathargs="$3";
   ctx=$(getctx $k)
-  dist=$($ctx contigs --reseed --ncontigs $NSEED_WALK $pathargs k$k/$p.ctx 2>&1 | \
+  dist=$($ctx contigs -m $MEM --reseed --ncontigs $NSEED_WALK $pathargs k$k/$p.ctx 2>&1 | \
          grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$' | tr -d ',')
   printf "med_walk,$dist\n"
 }
@@ -97,7 +102,7 @@ for k in $kmers; do
   for p in perf stoch stocherr; do
     for annot in plain links; do
       [ ! -f k$k/$p.$annot.contigs.rmdup.csv ] && \
-        run $CONTIG_STATS --print-csv k$k/$p.$annot.contigs.rmdup.fa | \
+        $CONTIG_STATS --print-csv k$k/$p.$annot.contigs.rmdup.fa | \
         cat - k$k/$p.$annot.medwalk.txt > k$k/$p.$annot.contigs.rmdup.csv
     done
   done
@@ -124,12 +129,12 @@ echo == Checking contig matches ==
 for k in $kmers; do
   for p in perf stoch stocherr; do
     for annot in plain links; do
-      run $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa ../../results/data/chr22/chr22_17M_18M.fa
+      [ ! -f k$k/$p.$annot.contigs.rmdup.txt ] && $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa ../../results/data/chr22/chr22_17M_18M.fa >& k$k/$p.$annot.contigs.rmdup.txt
     done
   done
 done
 
 # Now make plots with:
-run mkdir -p plots
+mkdir -p plots
 echo Plot with:
 echo "  " R --vanilla -f plot-results.R --args {perf,stoch,stocherr}.{links,plain}.join.csv
