@@ -104,8 +104,8 @@ Occasionally we also run Coverity Scan. This is done by pushing to the `coverity
 
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
-License: GPLv2
---------------
+License: MIT
+------------
 
 Bundled libraries may have different licenses:
 * [cJSON](http://http://sourceforge.net/projects/cjson/) (MIT)

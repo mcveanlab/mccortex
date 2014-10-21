@@ -23,6 +23,7 @@ typedef struct
   uint64_t *len_hist_init, *len_hist_cleaned;
   const size_t covg_arrlen, len_arrlen;
   uint8_t *keep_flags;
+  uint64_t num_tips,      num_low_covg_snodes,      num_tip_and_low_snodes;
   uint64_t num_tip_kmers, num_low_covg_snode_kmers, num_tip_and_low_snode_kmers;
   const dBGraph *db_graph;
 } SupernodeCleaner;
@@ -145,6 +146,9 @@ static void supernode_cleaner_alloc(SupernodeCleaner *cl, size_t nthreads,
                           .covg_arrlen = DUMP_COVG_ARRSIZE,
                           .len_arrlen = DUMP_LEN_ARRSIZE,
                           .keep_flags = keep_flags,
+                          .num_tips = 0,
+                          .num_low_covg_snodes = 0,
+                          .num_tip_and_low_snodes = 0,
                           .num_tip_kmers = 0,
                           .num_low_covg_snode_kmers = 0,
                           .num_tip_and_low_snode_kmers = 0,
@@ -249,13 +253,16 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
   // Remove tips
   removable_tip = nodes_are_removable_tip(nbuf, cl->min_keep_tip, cl->db_graph);
 
-  if(low_covg_snode && removable_tip)
+  if(low_covg_snode && removable_tip) {
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snodes, 1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snode_kmers, nbuf.len);
-  else if(low_covg_snode)
+  } else if(low_covg_snode) {
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_low_covg_snodes, 1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_low_covg_snode_kmers, nbuf.len);
-  else if(removable_tip)
+  } else if(removable_tip) {
+    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tips, 1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, nbuf.len);
-  else {
+  } else {
     for(i = 0; i < nbuf.len; i ++)
       (void)bitset_set_mt(cl->keep_flags, nbuf.data[i].key);
 
@@ -305,19 +312,25 @@ void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
   supernodes_iterate(num_threads, visited, db_graph, supernode_mark, &cl);
 
   // Print numbers of kmers that are being removed
-  size_t n_lcovg_snodes = cl.num_low_covg_snode_kmers;
-  size_t n_tips_snodes = cl.num_tip_kmers;
-  size_t n_tips_lcovg_snodes = cl.num_tip_and_low_snode_kmers;
 
-  char snode_kmers_str[50], tip_kmers_str[50], tip_snode_kmers_str[50];
-  ulong_to_str(n_lcovg_snodes, snode_kmers_str);
-  ulong_to_str(n_tips_snodes, tip_kmers_str);
-  ulong_to_str(n_tips_lcovg_snodes, tip_snode_kmers_str);
+  char num_snodes_str[50], num_tips_str[50], num_tip_snodes_str[50];
+  char num_snode_kmers_str[50], num_tip_kmers_str[50], num_tip_snode_kmers_str[50];
+  ulong_to_str(cl.num_low_covg_snodes, num_snodes_str);
+  ulong_to_str(cl.num_tips, num_tips_str);
+  ulong_to_str(cl.num_tip_and_low_snodes, num_tip_snodes_str);
+  ulong_to_str(cl.num_low_covg_snode_kmers, num_snode_kmers_str);
+  ulong_to_str(cl.num_tip_kmers, num_tip_kmers_str);
+  ulong_to_str(cl.num_tip_and_low_snode_kmers, num_tip_snode_kmers_str);
 
-  status("[cleaning] Removing %s supernode kmer%s, %s tip kmer%s and %s of both",
-         snode_kmers_str, util_plural_str(n_lcovg_snodes),
-         tip_kmers_str, util_plural_str(n_tips_snodes),
-         tip_snode_kmers_str);
+  status("[cleaning] Removing %s low coverage supernode%s [%s kmer%s], "
+         "%s supernode tip%s [%s kmer%s] "
+         "and %s of both [%s kmer%s]",
+         num_snodes_str, util_plural_str(cl.num_low_covg_snodes),
+         num_snode_kmers_str, util_plural_str(cl.num_low_covg_snode_kmers),
+         num_tips_str, util_plural_str(cl.num_tips),
+         num_tip_kmers_str, util_plural_str(cl.num_tip_kmers),
+         num_tip_snodes_str,
+         num_tip_snode_kmers_str, util_plural_str(cl.num_tip_and_low_snode_kmers));
 
   // Remove nodes not marked to keep
   prune_nodes_lacking_flag(num_threads, keep, db_graph);
