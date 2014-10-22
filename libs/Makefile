@@ -3,7 +3,7 @@
 # make clean    <- clean all libraries
 
 CORE=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
-COMMON=bcftools samtools readsim bioinf-perl
+COMMON=bcftools samtools readsim bioinf-perl maximal_substrs
 ANALYSIS=vcflib
 
 ALLTGTS=$(CORE) $(COMMON) $(ANALYSIS)
@@ -109,6 +109,9 @@ sort_r: sort_r/Makefile
 madcrowlib: madcrowlib/Makefile
 	cd madcrowlib && git pull && make
 
+maximal_substrs:
+	cd maximal_substrs && make
+
 misc: misc/Makefile
 	cd misc && make
 
@@ -129,6 +132,7 @@ clean:
 	[ -d msg-pool ] && cd msg-pool && make clean
 	[ -d sort_r ] && cd sort_r && make clean
 	[ -d madcrowlib ] && cd madcrowlib && make clean
+	[ -d maximal_substrs ] && cd maximal_substrs && make clean
 	[ -d misc ] && cd misc && make clean
 
 .PHONY: all clean update core

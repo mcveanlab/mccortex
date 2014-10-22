@@ -1,15 +1,21 @@
 #!/usr/bin/perl
 
+#
+# Stand alone script print maximal substrings in O(N^3) time
+# An O(N^2) time dynamic programming solution written in C can be found in:
+#   libs/maximal_substrs
+#
+
 use strict;
 use warnings;
 
 if(@ARGV != 1) {
-  print STDERR "usage ./find_maximal_substrings.pl <string>\n";
+  print STDERR "usage ./find_maximal_substrings.pl <file>\n";
   print STDERR "  Find all maximal substrings in O(n^3) time and O(n^2) space\n";
   exit(-1);
 }
 
-my $str = shift(@ARGV);
+my $file = shift(@ARGV);
 
 # noccur(str,s)
 #   Return number of (potentially overlapping) occurrance of s in str
@@ -35,6 +41,11 @@ sub getsubstr
   return substr($str,$i,$j-$i+1);
 }
 
+# find all occurances of a given substring
+#  str  string to search
+#  l    length of string str
+#  i    start location (inclusive)
+#  i    end location (inclusive)
 sub findall
 {
   my ($str,$l,$i,$j) = @_;
@@ -45,6 +56,28 @@ sub findall
   while($j+1 < $l && noccur($str,getsubstr($str,$i  ,$j+1)) == $n) { $j++; }
   return (getsubstr($str, $i, $j), $n);
 }
+
+sub open_file
+{
+  my ($file) = @_;
+  if(!defined($file)) { die("No file specified to open"); }
+  my $handle;
+  # -p checks if connected to a pipe
+  if($file ne "-") {
+    open($handle, $file) or die("Cannot open file: $file\n");
+  }
+  elsif(-p STDIN) {
+    open($handle, "<&=STDIN") or die("Cannot read pipe");
+  }
+  else { die("Must specify or pipe in a file"); }
+  return $handle;
+}
+
+# Read all lines into a string
+my $str = "";
+my $fh = open_file($file);
+while(defined(my $line = <$fh>)) { $str .= $line; }
+close($fh);
 
 my ($i,$j);
 my $l = length($str);
