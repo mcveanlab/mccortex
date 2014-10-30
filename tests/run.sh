@@ -26,6 +26,15 @@ then
   if [ $? -ne 0 ]; then exit -1; fi
 fi
 
+# Run cortex unit tests
+cd ..
+for k in 31 63 95 127
+do
+  make test MAXK=$k
+done
+cd $cwd
+
+# Get list of current tests (all directories except 'old')
 dirs=`ls | grep -v '.*run.sh' | grep -v '^\.' | grep -v old`
 echo $dirs
 

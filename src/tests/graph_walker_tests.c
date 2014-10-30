@@ -61,10 +61,10 @@ static void _test_graph_walker_test1()
   _construct_graph_with_paths(&graph, kmer_size, ncols, seqs, 2, params);
 
   GraphWalker wlk;
-  graph_walker_alloc(&wlk);
+  graph_walker_alloc(&wlk, &graph);
 
   dBNode node = db_graph_find_str(&graph, "CAGATTAAAGG");
-  graph_walker_init(&wlk, &graph, 0, 0, node);
+  graph_walker_start(&wlk, node);
   size_t exp_gap1[2] = {5, 18};
 
   _check_junction_gaps(&wlk, exp_gap1, sizeof(exp_gap1) / sizeof(exp_gap1[0]));
@@ -73,7 +73,7 @@ static void _test_graph_walker_test1()
   // Add the third read which should disrupt expected path gap
   _tests_add_paths(&graph, seqs+2, 1, params);
 
-  graph_walker_init(&wlk, &graph, 0, 0, node);
+  graph_walker_start(&wlk, node);
   size_t exp_gap2[2] = {5, 5+11+18};
 
   _check_junction_gaps(&wlk, exp_gap2, sizeof(exp_gap2) / sizeof(exp_gap2[0]));

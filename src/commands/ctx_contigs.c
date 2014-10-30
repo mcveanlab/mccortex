@@ -31,6 +31,7 @@ const char contigs_usage[] =
 "  -d, --depth <C>       Expected depth for calc. contig confidences\n"
 "  -G, --genome <G>      Genome size in bases\n"
 "  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
+"  -M, --no-missing-check      Do not use the missing information check\n"
 "\n";
 
 static struct option longopts[] =
@@ -55,6 +56,7 @@ static struct option longopts[] =
   {"depth",        required_argument, NULL, 'd'},
   {"genome",       required_argument, NULL, 'G'},
   {"confid-csv",   required_argument, NULL, 'S'},
+  {"no-missing-check",   no_argument, NULL, 'M'},
   {NULL, 0, NULL, 0}
 };
 
@@ -66,6 +68,7 @@ int ctx_contigs(int argc, char **argv)
   size_t i, contig_limit = 0, colour = 0;
   bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
   const char *conf_table_path = NULL; // save confidence table to here
+  bool use_missing_info_check = true;
 
   // Read length and expected depth for calculating confidences
   size_t exp_read_length = 0, genome_size = 0;
@@ -119,6 +122,7 @@ int ctx_contigs(int argc, char **argv)
       case 'd': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
       case 'G': cmd_check(!genome_size,cmd); genome_size = cmd_size_nonzero(cmd, optarg); break;
       case 'S': cmd_check(!conf_table_path,cmd); conf_table_path = optarg; break;
+      case 'M': cmd_check(use_missing_info_check,cmd); use_missing_info_check = false; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" contigs -h` for help. Bad option: %s", argv[optind-1]);
@@ -271,6 +275,7 @@ int ctx_contigs(int argc, char **argv)
 
   assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
                    contig_limit, visited,
+                   use_missing_info_check,
                    fout, out_path, &assem_stats, &conf_table,
                    &db_graph, 0); // Sample always loaded into colour zero
 

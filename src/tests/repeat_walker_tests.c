@@ -10,7 +10,7 @@ static void test_walk(GraphWalker *gwlk, RepeatWalker *rptwlk,
                       size_t expnkmers, const char *ans)
 {
   db_node_buf_reset(nbuf);
-  graph_walker_init(gwlk, graph, 0, 0, node0);
+  graph_walker_start(gwlk, node0);
 
   do {
     db_node_buf_add(nbuf, gwlk->node);
@@ -69,7 +69,7 @@ static void test_repeat_loop()
 
   GraphWalker gwlk;
   RepeatWalker rptwlk;
-  graph_walker_alloc(&gwlk);
+  graph_walker_alloc(&gwlk, &graph);
   rpt_walker_alloc(&rptwlk, graph.ht.capacity, 15); // 2^15 = 32KB
 
   dBNodeBuffer nbuf;

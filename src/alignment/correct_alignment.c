@@ -25,8 +25,8 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, bool store_contig_lens,
   db_alignment_alloc(&tmp.aln);
 
   // Graph traversal
-  graph_walker_alloc(&tmp.wlk);
-  graph_walker_alloc(&tmp.wlk2);
+  graph_walker_alloc(&tmp.wlk, db_graph);
+  graph_walker_alloc(&tmp.wlk2, db_graph);
   rpt_walker_alloc(&tmp.rptwlk, db_graph->ht.capacity, 22); // 4MB
   rpt_walker_alloc(&tmp.rptwlk2, db_graph->ht.capacity, 22); // 4MB
 
@@ -286,19 +286,17 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
   const int aln_colour = wrkr->aln.colour; // -1 for all
   const dBNode *aln_nodes = wrkr->aln.nodes.data;
   const dBNodeBuffer *nbuf = &wrkr->contig;
-  const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
-  const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
   TraversalResult result;
 
   bool only_in_one_col = aln_colour != -1;
 
-  ctx_assert(!only_in_one_col || (size_t)aln_colour == ctxcol);
+  ctx_assert(!only_in_one_col || (size_t)aln_colour == params->ctxcol);
   ctx_assert(db_nodes_are_equal(aln_nodes[gap_idx-1], nbuf->data[nbuf->len-1]));
 
   // Start traversing forward
   graph_walker_prime(&wrkr->wlk, nbuf->data, nbuf->len,
-                     params->max_context, true, ctxcol, ctpcol, db_graph);
+                     params->max_context, true);
 
   // left to right
   result = traverse_one_way2(aln_nodes+gap_idx, block1len, true,
@@ -312,7 +310,7 @@ static TraversalResult traverse_one_way(CorrectAlnWorker *wrkr,
 
   // right to left
   graph_walker_prime(&wrkr->wlk, aln_nodes+gap_idx, block1len,
-                     params->max_context, false, ctxcol, ctpcol, db_graph);
+                     params->max_context, false);
 
   ctx_assert(wrkr->revcontig.len == 0);
 
@@ -333,17 +331,15 @@ static TraversalResult traverse_two_way(CorrectAlnWorker *wrkr,
   const CorrectAlnParam *params = &wrkr->params;
   const int aln_colour = wrkr->aln.colour; // -1 for all
   const dBNode *nodes = wrkr->aln.nodes.data;
-  const dBGraph *db_graph = wrkr->db_graph;
   const size_t block1len = end_idx-gap_idx;
-  const size_t ctxcol = params->ctxcol, ctpcol = params->ctpcol;
   TraversalResult result;
 
-  ctx_assert(aln_colour == -1 || (size_t)aln_colour == ctxcol);
+  ctx_assert(aln_colour == -1 || (size_t)aln_colour == params->ctxcol);
 
   graph_walker_prime(&wrkr->wlk, wrkr->contig.data, wrkr->contig.len,
-                     params->max_context, true, ctxcol, ctpcol, db_graph);
+                     params->max_context, true);
   graph_walker_prime(&wrkr->wlk2, nodes+gap_idx, block1len,
-                     params->max_context, false, ctxcol, ctpcol, db_graph);
+                     params->max_context, false);
 
   result = traverse_two_way2(&wrkr->contig, &wrkr->revcontig,
                              nodes+gap_idx, block1len,
@@ -573,10 +569,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     size_t n = 1;
     while(n < nodebuf->len && posbuf->data[n] == posbuf->data[n-1]+1) { n++; }
 
-    graph_walker_prime(wlk, nodebuf->data, n,
-                       params->max_context, false,
-                       params->ctxcol, params->ctpcol,
-                       wrkr->db_graph);
+    graph_walker_prime(wlk, nodebuf->data, n, params->max_context, false);
 
     for(i = 0; i < left_gap && graph_walker_next(wlk) &&
                                rpt_walker_attempt_traverse(rptwlk, wlk);  i++)
@@ -612,9 +605,7 @@ void correct_aln_read(CorrectAlnWorker *wrkr, const CorrectAlnParam *params,
     while(n > 0 && posbuf->data[n] == posbuf->data[n-1]+1) { n--; }
 
     graph_walker_prime(wlk, nodebuf->data + n, nodebuf->len - n,
-                       params->max_context, true,
-                       params->ctxcol, params->ctpcol,
-                       wrkr->db_graph);
+                       params->max_context, true);
 
     size_t orig_len = nodebuf->len;
     size_t end_len = nodebuf->len + right_gap;

@@ -135,7 +135,7 @@ void graph_crawler_alloc(GraphCrawler *crawler, const dBGraph *db_graph)
   memcpy(crawler, &tmp, sizeof(GraphCrawler));
 
   graph_cache_alloc(&crawler->cache, db_graph);
-  graph_walker_alloc(&crawler->wlk);
+  graph_walker_alloc(&crawler->wlk, db_graph);
   rpt_walker_alloc(&crawler->rptwlk, db_graph->ht.capacity, 22); // 4MB
 }
 
@@ -202,7 +202,8 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
 
       is_fork = (nedges_cols > 1);
 
-      graph_walker_init(wlk, db_graph, col, col, node0);
+      graph_walker_setup(wlk, true, col, col, db_graph);
+      graph_walker_start(wlk, node0);
       graph_walker_force(wlk, node1.key, base1, is_fork);
 
       pathid = graph_crawler_load_path(cache, node1, wlk, rptwlk, jmpfunc, arg);

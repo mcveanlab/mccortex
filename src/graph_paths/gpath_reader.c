@@ -84,7 +84,6 @@ void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
       zsize_buf_extend(hist, len->valueint+1);
       hist->data[len->valueint] += cnt->valueint;
     }
-    printf(" array length: %zu\n", i);
 
     if(len || cnt) {
       die("Contig histogram arrays not the same lengths");

@@ -16,6 +16,7 @@
 void assemble_contigs(size_t nthreads,
                       seq_file_t **seed_files, size_t num_seed_files,
                       size_t contig_limit, uint8_t *visited,
+                      bool use_missing_info_check,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
                       const ContigConfidenceTable *conf_table,

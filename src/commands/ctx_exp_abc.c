@@ -94,7 +94,9 @@ static inline int confirm_seq(size_t startidx, bool allow_extend,
 {
   ctx_assert(startidx < nbuf->len);
   size_t i, init_len = nbuf->len;
-  graph_walker_init(wlk, db_graph, colour, colour, nbuf->data[startidx]);
+
+  graph_walker_setup(wlk, true, colour, colour, db_graph);
+  graph_walker_start(wlk, nbuf->data[startidx]);
 
   for(i = startidx+1; graph_walker_next(wlk); i++) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
@@ -155,7 +157,9 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
   // status("walk_limit: %zu", walk_limit);
 
   // Walk from B to find A
-  graph_walker_init(wlk, db_graph, col, col, nbuf->data[0]);
+  graph_walker_setup(wlk, true, col, col, db_graph);
+  graph_walker_start(wlk, nbuf->data[0]);
+
   while(graph_walker_next(wlk) && nbuf->len < walk_limit) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
       reset(wlk,rpt,nbuf); return RES_LOST_IN_RPT;
@@ -174,8 +178,7 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
   if(wrkr->prime_AB)
   {
     // Prime A->B without attempting to cross
-    graph_walker_prime(wlk, nbuf->data, nbuf->len, nbuf->len, true,
-                       col, col, db_graph);
+    graph_walker_prime(wlk, nbuf->data, nbuf->len, nbuf->len, true);
 
     while(graph_walker_next(wlk)) {
       if(!rpt_walker_attempt_traverse(rpt, wlk)) {
@@ -277,7 +280,7 @@ static void run_exp_abc(const dBGraph *db_graph, bool prime_AB,
     wrkrs[i].max_AB_dist = max_AB_dist;
     wrkrs[i].print_failed_contigs = print_failed_contigs;
     db_node_buf_alloc(&wrkrs[i].nbuf, 1024);
-    graph_walker_alloc(&wrkrs[i].gwlk);
+    graph_walker_alloc(&wrkrs[i].gwlk, db_graph);
     rpt_walker_alloc(&wrkrs[i].rptwlk, db_graph->ht.capacity, 22); // 4MB
   }
 

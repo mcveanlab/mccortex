@@ -21,6 +21,7 @@ typedef struct
   const dBGraph *db_graph;
   const GPathStore *gpstore;
   Colour ctxcol, ctpcol;
+  bool missing_path_check; // if true do missing path check
 
   // Current position
   dBNode node;
@@ -41,13 +42,15 @@ void graph_walker_print_state(const GraphWalker *wlk, FILE *fout);
 size_t graph_walker_est_mem();
 
 // Need to pass number of colours in the graph
-void graph_walker_alloc(GraphWalker *wlk);
+void graph_walker_alloc(GraphWalker *wlk, const dBGraph *graph);
 void graph_walker_dealloc(GraphWalker *gw);
 
-// Always call finish after calling init
-void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
-                       Colour ctxcol, Colour ctpcol, dBNode node);
+void graph_walker_setup(GraphWalker *wlk, bool missing_path_check,
+                        Colour ctxcol, Colour ctpcol,
+                        const dBGraph *graph);
 
+// Always call finish after calling start
+void graph_walker_start(GraphWalker *wlk, dBNode node);
 void graph_walker_finish(GraphWalker *wlk);
 
 // Hash a binary kmer + GraphWalker paths with offsets
@@ -89,9 +92,7 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
 // Prime for traversal
 void graph_walker_prime(GraphWalker *wlk,
                         const dBNode *block, size_t n,
-                        size_t max_context, bool forward,
-                        size_t ctxcol, size_t ctpcol,
-                        const dBGraph *db_graph);
+                        size_t max_context, bool forward);
 
 /**
  * Check the graph walker doesn't veer away from the given contig

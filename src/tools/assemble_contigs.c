@@ -21,6 +21,7 @@ typedef struct
   volatile size_t *num_contig_ptr;
   size_t contig_limit;
   uint8_t *visited;
+  bool use_missing_info_check;
   const dBGraph *db_graph;
   size_t colour;
   const ContigConfidenceTable *conf_table;
@@ -70,7 +71,7 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
       first_node = db_node_reverse(first_node);
     }
 
-    graph_walker_init(wlk, db_graph, assem->colour, assem->colour, first_node);
+    graph_walker_start(wlk, first_node);
     bool hit_cycle = false;
 
     while(graph_walker_next(wlk))
@@ -255,6 +256,7 @@ static void _seed_from_file(AsyncIOData *data, void *arg)
 void assemble_contigs(size_t nthreads,
                       seq_file_t **seed_files, size_t num_seed_files,
                       size_t contig_limit, uint8_t *visited,
+                      bool use_missing_info_check,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
                       const ContigConfidenceTable *conf_table,
@@ -265,6 +267,8 @@ void assemble_contigs(size_t nthreads,
 
   status("[Assemble] Assembling contigs with %zu threads, walking colour %zu",
          nthreads, colour);
+  status("[Assemble] Using missing info check: %s",
+         use_missing_info_check ? "yes" : "no");
 
   if(fout == NULL)
     status("[Assemble]   Not printing contigs");
@@ -281,13 +285,15 @@ void assemble_contigs(size_t nthreads,
     Assembler tmp = {.threadid = i, .nthreads = nthreads,
                      .num_contig_ptr = &num_contigs,
                      .contig_limit = contig_limit,
+                     .use_missing_info_check = use_missing_info_check,
                      .db_graph = db_graph, .colour = colour,
                      .conf_table = conf_table,
                      .visited = visited,
                      .fout = fout, .outlock = &outlock};
 
     db_node_buf_alloc(&tmp.nodes, 1024);
-    graph_walker_alloc(&tmp.wlk);
+    graph_walker_alloc(&tmp.wlk, db_graph);
+    graph_walker_setup(&tmp.wlk, use_missing_info_check, colour, colour, db_graph);
     rpt_walker_alloc(&tmp.rptwlk, db_graph->ht.capacity, 22); // 4MB
     assemble_contigs_stats_init(&tmp.stats);
 

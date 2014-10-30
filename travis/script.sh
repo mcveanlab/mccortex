@@ -14,9 +14,7 @@ then
   then
     ./travis/travisci_build_coverity_scan.sh
   else
-    make all RELEASE=1 && make clean && make all && make test
-    make test MAXK=63
-    make test MAXK=95
+    make all RELEASE=1 && make clean
     cd tests && ./run.sh
   fi
 fi

@@ -47,7 +47,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
     db_node_buf_alloc(&callers[i].flank5p, prefs.max_flank_len);
     db_node_buf_alloc(&callers[i].pathbuf, max_path_len);
 
-    graph_walker_alloc(&callers[i].wlk);
+    graph_walker_alloc(&callers[i].wlk, db_graph);
     rpt_walker_alloc(&callers[i].rptwlk, db_graph->ht.capacity, 22); // 4MB
 
     graph_cache_alloc(&callers[i].cache, db_graph);
@@ -271,11 +271,13 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
       num_edges_in_col += node_has_col[i];
     }
 
+    graph_walker_setup(wlk, true, colour, colour, db_graph);
+
     for(i = 0; i < num_next; i++)
     {
       if(node_has_col[i])
       {
-        graph_walker_init(wlk, db_graph, colour, colour, fork_node);
+        graph_walker_start(wlk, fork_node);
         graph_walker_force(wlk, nodes[i].key, bases[i], num_edges_in_col > 1);
 
         pathid = graph_crawler_load_path_limit(cache, nodes[i], wlk, rptwlk,

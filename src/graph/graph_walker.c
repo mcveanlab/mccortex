@@ -15,8 +15,6 @@
 #define DEBUG_WALKER 1
 #endif
 
-#define USE_COUNTER_PATHS 1
-
 // How many junctions are left to be traversed in our longest remaining path
 static size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
 {
@@ -62,13 +60,12 @@ size_t graph_walker_est_mem()
   return sizeof(GPathFollow)*1024;
 }
 
-// Only set up memory
-// need to call graph_walker_init to reset/initialise state
-void graph_walker_alloc(GraphWalker *wlk)
+void graph_walker_alloc(GraphWalker *wlk, const dBGraph *graph)
 {
   gpath_follow_buf_alloc(&wlk->paths, 256);
   gpath_follow_buf_alloc(&wlk->cntr_paths, 512);
   gseg_list_alloc(&wlk->gsegs, 128);
+  graph_walker_setup(wlk, true, 0, 0, graph);
 }
 
 // Free memory
@@ -77,6 +74,21 @@ void graph_walker_dealloc(GraphWalker *wlk)
   gpath_follow_buf_dealloc(&wlk->paths);
   gpath_follow_buf_dealloc(&wlk->cntr_paths);
   gseg_list_dealloc(&wlk->gsegs);
+}
+
+void graph_walker_setup(GraphWalker *wlk, bool missing_path_check,
+                        Colour ctxcol, Colour ctpcol,
+                        const dBGraph *graph)
+{
+  // Check that the graph is loaded properly (all edges merged into one colour)
+  ctx_assert(graph->num_edge_cols == 1);
+  ctx_assert(graph->num_of_cols == 1 || graph->node_in_cols != NULL);
+
+  wlk->db_graph = graph;
+  wlk->gpstore = &graph->gpstore;
+  wlk->ctxcol = ctxcol;
+  wlk->ctpcol = ctpcol;
+  wlk->missing_path_check = missing_path_check;
 }
 
 static inline void _gw_gseg_init(GraphWalker *wlk)
@@ -201,27 +213,21 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
   size_t i;
   Nucleotide next_base = binary_kmer_last_nuc(wlk->bkmer);
 
+  // No point in calling this functions if the following isn't true
+  ctx_assert(wlk->missing_path_check);
+
   // Reverse orientation, pick up paths
   for(i = 0; i < num_prev; i++)
     pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
 }
 
 
-void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
-                       Colour ctxcol, Colour ctpcol, dBNode node)
+void graph_walker_start(GraphWalker *wlk, dBNode node)
 {
-  // Check that the graph is loaded properly (all edges merged into one colour)
-  ctx_assert(graph->num_edge_cols == 1);
-  ctx_assert(graph->num_of_cols == 1 || graph->node_in_cols != NULL);
-
   ctx_assert(wlk->paths.len == 0);
   ctx_assert(wlk->cntr_paths.len == 0);
   ctx_assert(gseg_list_length(&wlk->gsegs) == 0);
 
-  wlk->db_graph = graph;
-  wlk->gpstore = &graph->gpstore;
-  wlk->ctxcol = ctxcol;
-  wlk->ctpcol = ctpcol,
   wlk->node = node;
 
   // stats
@@ -230,13 +236,13 @@ void graph_walker_init(GraphWalker *wlk, const dBGraph *graph,
   wlk->last_step.idx = -1;
 
   // Get bkmer oriented correctly (not bkey)
-  wlk->bkey = db_node_get_bkmer(graph, node.key);
-  wlk->bkmer = db_node_oriented_bkmer(graph, node);
+  wlk->bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+  wlk->bkmer = db_node_oriented_bkmer(wlk->db_graph, node);
 
   #ifdef DEBUG_WALKER
     char kmer_str[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(wlk->bkey, graph->kmer_size, kmer_str);
-    status("  graph_walker_init(): %s:%i", kmer_str, wlk->node.orient);
+    binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+    status("  graph_walker_start(): %s:%i", kmer_str, wlk->node.orient);
   #endif
 
   _gw_gseg_init(wlk);
@@ -490,12 +496,12 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   for(gseg = first_seg; gseg <= choice_seg; gseg++)
     path_gap += gseg->num_nodes;
 
-  #ifdef USE_COUNTER_PATHS
   // Does every next node have a path?
   // Fail if missing assembly info
-  if((size_t)taken[0]+taken[1]+taken[2]+taken[3] < num_next)
+  if(wlk->missing_path_check &&
+     (size_t)taken[0]+taken[1]+taken[2]+taken[3] < num_next) {
     _gw_choose_return(-1, GRPHWLK_MISSING_PATHS, path_gap);
-  #endif
+  }
 
   // There is unique next node
   // Find the correct next node chosen by the paths
@@ -585,7 +591,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
   Nucleotide prev_bases[4];
   size_t num_prev = 0;
 
-  if(lost_nuc >= 0)
+  if(wlk->missing_path_check && lost_nuc >= 0)
   {
     num_prev = db_graph_prev_nodes_with_mask(wlk->db_graph, wlk->node,
                                              (Nucleotide)lost_nuc,
@@ -717,7 +723,7 @@ static inline void _graph_walker_fast(GraphWalker *wlk,
 // Fast traversal of a list of nodes using the supplied GraphWalker
 // Only visits nodes deemed informative + last node
 // Must have previously initialised or walked to the prior node,
-// using: graph_walker_init, graph_walker_force, graph_walker_jump_along_snode,
+// using: graph_walker_start, graph_walker_force, graph_walker_jump_along_snode,
 // graph_traverse or graph_walker_next_nodes
 // i.e. wlk->node is a node adjacent to arr[0]
 void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
@@ -799,12 +805,10 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
 void graph_walker_prime(GraphWalker *wlk,
                         const dBNode *block, size_t n,
-                        size_t max_context, bool forward,
-                        size_t ctxcol, size_t ctpcol,
-                        const dBGraph *db_graph)
+                        size_t max_context, bool forward)
 {
   ctx_assert(n > 0);
-  ctx_check(db_node_check_nodes(block, n, db_graph));
+  ctx_check(db_node_check_nodes(block, n, wlk->db_graph));
 
   dBNode node0;
 
@@ -822,7 +826,7 @@ void graph_walker_prime(GraphWalker *wlk,
   if(forward) { node0 = block[0]; block++; }
   else { node0 = db_node_reverse(block[n-1]); }
 
-  graph_walker_init(wlk, db_graph, ctxcol, ctpcol, node0);
+  graph_walker_start(wlk, node0);
   // graph_walker_fast_traverse(wlk, block, n-1, forward);
   graph_walker_slow_traverse(wlk, block, n-1, forward);
 

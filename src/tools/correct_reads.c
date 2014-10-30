@@ -33,7 +33,7 @@ static void correct_reads_worker_alloc(CorrectReadsWorker *wrkr,
   wrkr->append_orig_seq = append_orig_seq;
   wrkr->db_graph = db_graph;
   correct_aln_worker_alloc(&wrkr->corrector, false, db_graph);
-  graph_walker_alloc(&wrkr->wlk);
+  graph_walker_alloc(&wrkr->wlk, db_graph);
   rpt_walker_alloc(&wrkr->rptwlk, db_graph->ht.capacity, 22); // 4MB bloom
   strbuf_alloc(&wrkr->rbuf1, 1024); // read1
   strbuf_alloc(&wrkr->rbuf2, 1024); // read2
