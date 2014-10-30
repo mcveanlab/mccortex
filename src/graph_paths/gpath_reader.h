@@ -5,6 +5,8 @@
 #include "db_graph.h"
 #include "cJSON/cJSON.h"
 
+#include "common_buffers.h"
+
 typedef struct
 {
   gzFile gz;
@@ -22,6 +24,7 @@ typedef struct
 #define GPATH_SKIP_MISSING_KMERS  2
 
 #include "madcrowlib/madcrow_buffer.h"
+
 madcrow_buffer(gpfile_buf, GPathFileBuffer, GPathReader);
 
 // Open file, exits on error
@@ -52,6 +55,9 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx);
 
 // Copy sample names into the graph
 void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph);
+
+void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
+                                   ZeroSizeBuffer *hist);
 
 //
 // Memory Calculations

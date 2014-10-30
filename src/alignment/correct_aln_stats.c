@@ -25,9 +25,8 @@ void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
 {
   size_t i, j;
 
-  // Contig histogram
-  zsize_buf_capacity(&dst->contig_histgrm, src->contig_histgrm.len);
-  dst->contig_histgrm.len = MAX2(dst->contig_histgrm.len, src->contig_histgrm.len);
+  // Contig histogram - extend length if needed
+  zsize_buf_extend(&dst->contig_histgrm, src->contig_histgrm.len);
 
   for(i = 0; i < src->contig_histgrm.len; i++)
     dst->contig_histgrm.data[i] += src->contig_histgrm.data[i];
@@ -77,8 +76,7 @@ void correct_aln_stats_add_mp(CorrectAlnStats *stats, size_t gap_kmers,
 
 void correct_aln_stats_add_contig(CorrectAlnStats *stats, size_t contig_len_bp)
 {
-  zsize_buf_capacity(&stats->contig_histgrm, contig_len_bp+1);
-  stats->contig_histgrm.len = MAX2(stats->contig_histgrm.len, contig_len_bp+1);
+  zsize_buf_extend(&stats->contig_histgrm, contig_len_bp+1);
   stats->contig_histgrm.data[contig_len_bp]++;
 }
 
@@ -119,24 +117,6 @@ void correct_aln_stats_dump_fraglen(const CorrectAlnStats *stats, const char *pa
 
   for(i = 0; i < ALN_STATS_MAX_FRAGLEN; i++) {
     fprintf(fout, "%4zu\t%4zu\n", i, stats->fraglen_histgrm[i]);
-  }
-  fclose(fout);
-}
-
-// Save fragment size vector
-void correct_aln_stats_dump_contiglen(const CorrectAlnStats *stats, const char *path)
-{
-  status("[CorrectAln] Saving contig length distribution to: %s", path);
-
-  size_t i;
-  FILE *fout = fopen(path, "w");
-  if(fout == NULL) { warn("Cannot cannot open: %s", path); return; }
-
-  fprintf(fout, "contig_len_bp\tcount\n");
-
-  for(i = 0; i < stats->contig_histgrm.len; i++) {
-    if(stats->contig_histgrm.data[i])
-      fprintf(fout, "%4zu\t%4zu\n", i, stats->contig_histgrm.data[i]);
   }
   fclose(fout);
 }
@@ -300,7 +280,6 @@ void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
                             const LoadingStats *load_stats,
                             const char *dump_seqgap_hist_path,
                             const char *dump_fraglen_hist_path,
-                            const char *dump_contiglen_hist_path,
                             size_t ht_num_kmers)
 {
   correct_aln_stats_print_summary(aln_stats, load_stats->num_se_reads,
@@ -314,9 +293,6 @@ void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
   if(load_stats->num_pe_reads > 0 && dump_fraglen_hist_path != NULL) {
     correct_aln_stats_dump_fraglen(aln_stats, dump_fraglen_hist_path);
   }
-
-  if(dump_contiglen_hist_path)
-    correct_aln_stats_dump_contiglen(aln_stats, dump_contiglen_hist_path);
 
   loading_stats_print_summary(load_stats, ht_num_kmers);
 }

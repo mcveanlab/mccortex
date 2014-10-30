@@ -214,8 +214,9 @@ int ctx_correct(int argc, char **argv)
   // Run alignment
   //
   correct_reads(inputs->data, inputs->len,
-                args.dump_seq_sizes, args.dump_frag_sizes, args.dump_contig_sizes,
-                args.fq_zero, args.append_orig_seq, args.nthreads, &db_graph);
+                args.dump_seq_sizes, args.dump_frag_sizes,
+                args.fq_zero, args.append_orig_seq,
+                args.nthreads, &db_graph);
 
   // Close and free output files
   for(i = 0; i < inputs->len; i++)

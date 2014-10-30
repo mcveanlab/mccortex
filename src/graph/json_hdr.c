@@ -63,12 +63,23 @@ void json_hdr_add_std(cJSON *json, const char *path,
                       cJSON **hdrs, size_t nhdrs,
                       const dBGraph *db_graph)
 {
-  cJSON_AddNumberToObject(json, "ncols", db_graph->num_of_cols);
-  cJSON_AddNumberToObject(json, "kmer_size", db_graph->kmer_size);
-  cJSON_AddNumberToObject(json, "num_kmers_in_graph", db_graph->ht.num_kmers);
+  // Add random id string
+  #define FILE_ID_PREFIX "file:"
+  #define FILE_ID_LEN 16
+  char fileidstr[strlen(FILE_ID_PREFIX)+FILE_ID_LEN+1];
+  strcpy(fileidstr, FILE_ID_PREFIX);
+  hex_rand_str(fileidstr+strlen(FILE_ID_PREFIX), FILE_ID_LEN+1);
+  cJSON_AddStringToObject(json, "file_id", fileidstr);
+
+  cJSON *graph = cJSON_CreateObject();
+  cJSON_AddItemToObject(json, "graph", graph);
+
+  cJSON_AddNumberToObject(graph, "num_colours",        db_graph->num_of_cols);
+  cJSON_AddNumberToObject(graph, "kmer_size",          db_graph->kmer_size);
+  cJSON_AddNumberToObject(graph, "num_kmers_in_graph", db_graph->ht.num_kmers);
 
   cJSON *colours = cJSON_CreateArray();
-  cJSON_AddItemToObject(json, "colours", colours);
+  cJSON_AddItemToObject(graph, "colours", colours);
 
   size_t i;
   for(i = 0; i < db_graph->num_of_cols; i++)
@@ -93,10 +104,13 @@ void json_hdr_add_std(cJSON *json, const char *path,
   cJSON_AddItemToObject(json, "commands", commands);
 
   // Add latest command
-  char keystr[9];
+  char keystr[4+8+1];
+  strcpy(keystr, "cmd:");
+  hex_rand_str(keystr+4, 9);
+
   cJSON *command = cJSON_CreateObject();
   cJSON_AddItemToArray(commands, command);
-  cJSON_AddStringToObject(command, "key", hex_rand_str(keystr, sizeof(keystr)));
+  cJSON_AddStringToObject(command, "key", keystr);
 
   // Add command line arguments
   const char **argv = cmd_get_argv();
@@ -205,20 +219,55 @@ void json_hdr_gzprint(cJSON *json, gzFile gzout)
   free(jstr);
 }
 
-long json_hdr_demand_int(cJSON *root, const char *field, const char *path)
+cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path)
 {
-  cJSON *json = cJSON_GetObjectItem(root, field);
-  if(json == NULL || json->type != cJSON_Number)
-    die("No '%s' field in header: %s", field, path);
-  return json->valueint;
+  cJSON *obj = cJSON_GetObjectItem(json, field);
+  if(obj == NULL)
+    die("Cannot find field in JSON header: %s [path: %s]", field, path);
+  if(obj->type != type)
+    die("JSON field not of correct type: %s [path: %s]", field, path);
+  return obj;
+}
+
+long json_hdr_demand_int(cJSON *json, const char *field, const char *path)
+{
+  cJSON *obj = json_hdr_get(json, field, cJSON_Number, path);
+  return obj->valueint;
+}
+
+size_t json_hdr_demand_uint(cJSON *json, const char *field, const char *path)
+{
+  cJSON *obj = json_hdr_get(json, field, cJSON_Number, path);
+  if(obj->valueint < 0) {
+    die("JSON field should not be less than zero: %s (%li) [path: %s]",
+        field, obj->valueint, path);
+  }
+  return obj->valueint;
 }
 
 size_t json_hdr_get_kmer_size(cJSON *json, const char *path)
 {
-  long val = json_hdr_demand_int(json, "kmer_size", path);
+  cJSON *graph = json_hdr_get_graph(json, path);
+
+  long val = json_hdr_demand_int(graph, "kmer_size", path);
   if(val < MIN_KMER_SIZE || val > MAX_KMER_SIZE || !(val & 1)) {
     die("kmer size is not an odd int between %i..%i: %li [%s]",
         MIN_KMER_SIZE, MAX_KMER_SIZE, val, path);
   }
   return val;
+}
+
+size_t json_hdr_get_ncols(cJSON *json, const char *path)
+{
+  cJSON *graph = json_hdr_get_graph(json, path);
+  size_t val = json_hdr_demand_uint(graph, "num_colours", path);
+  if(val < 1 || val > 100000) die("Invalid number of colours: %zu", val);
+  return val;
+}
+
+cJSON* json_hdr_get_curr_cmd(cJSON *json, const char *path)
+{
+  cJSON *cmds = json_hdr_get(json, "commands", cJSON_Array, path);
+  if(cmds->child == NULL) die("No 'commands' field in header");
+  return cmds->child;
 }

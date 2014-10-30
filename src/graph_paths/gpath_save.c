@@ -12,8 +12,32 @@
 // <KMER> <num> .. (ignored)
 // [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
 
+static void _gpath_save_contig_hist2json(cJSON *json_paths,
+                                         const size_t *arr_counts,
+                                         size_t arr_len)
+{
+  cJSON *lens = cJSON_CreateArray();
+  cJSON *cnts = cJSON_CreateArray();
+  size_t i;
+
+  for(i = 1; i < arr_len; i++) {
+    if(arr_counts[i]) {
+      cJSON_AddItemToArray(lens, cJSON_CreateInt(i));
+      cJSON_AddItemToArray(cnts, cJSON_CreateInt(arr_counts[i]));
+    }
+  }
+
+  cJSON_AddItemToObject(json_paths, "contig_lengths", lens);
+  cJSON_AddItemToObject(json_paths, "contig_counts", cnts);
+}
+
+/**
+ * @param contig_hist histgram of read contig lengths
+ * @param hist_len    length of array contig_hist
+ */
 static void _gpath_save_hdr(gzFile gzout, const char *path,
                             cJSON **hdrs, size_t nhdrs,
+                            const size_t *contig_hist, size_t hist_len,
                             const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
@@ -22,17 +46,30 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   // Construct cJSON
   cJSON *json = cJSON_CreateObject();
 
-  cJSON_AddStringToObject(json, "fileFormat", "ctp");
-  cJSON_AddNumberToObject(json, "formatVersion", 2);
-  cJSON_AddNumberToObject(json, "num_kmers_with_paths", gpstore->num_kmers_with_paths);
-  cJSON_AddNumberToObject(json, "num_paths", gpstore->num_paths);
-  cJSON_AddNumberToObject(json, "path_bytes", gpstore->path_bytes);
+  cJSON_AddStringToObject(json, "file_format", "ctp");
+  cJSON_AddNumberToObject(json, "format_version", 3);
 
   // using json_hdr_add_std assumes the following
   ctx_assert(gpset->ncols == db_graph->num_of_cols);
 
   // Add standard cortex header info
   json_hdr_add_std(json, path, hdrs, nhdrs, db_graph);
+
+  // Get first command (this one)
+  // cJSON *cmd = json_hdr_get_curr_cmd(json);
+
+  // Paths info
+  cJSON *paths = cJSON_CreateObject();
+  cJSON_AddItemToObject(json, "paths", paths);
+
+  // Add command specific header fields
+  cJSON_AddNumberToObject(paths, "num_kmers_with_paths", gpstore->num_kmers_with_paths);
+  cJSON_AddNumberToObject(paths, "num_paths", gpstore->num_paths);
+  cJSON_AddNumberToObject(paths, "path_bytes", gpstore->path_bytes);
+
+  // Add size distribution
+  // _gpath_save_contig_hist_merge(paths, hdrs, nhdrs, contig_hist, hist_len);
+  _gpath_save_contig_hist2json(paths, contig_hist, hist_len);
 
   // Write header to file
   json_hdr_gzprint(json, gzout);
@@ -177,6 +214,7 @@ static void gpath_save_thread(void *arg)
 // @hdrs is array of JSON headers of input files
 void gpath_save(gzFile gzout, const char *path, size_t nthreads,
                 cJSON **hdrs, size_t nhdrs,
+                size_t *contig_len_hist, size_t hist_len,
                 dBGraph *db_graph)
 {
   ctx_assert(nthreads > 0);
@@ -189,7 +227,7 @@ void gpath_save(gzFile gzout, const char *path, size_t nthreads,
   status("  using %zu threads", nthreads);
 
   // Write header
-  _gpath_save_hdr(gzout, path, hdrs, nhdrs, db_graph);
+  _gpath_save_hdr(gzout, path, hdrs, nhdrs, contig_len_hist, hist_len, db_graph);
 
   // Print comments about the format
   gzputs(gzout, "\n");

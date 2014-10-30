@@ -2,9 +2,7 @@
 #define CORRECT_ALN_STATS_H_
 
 #include "loading_stats.h"
-
-#include "madcrowlib/madcrow_buffer.h"
-madcrow_buffer_wipe(zsize_buf, ZeroSizeBuffer, size_t);
+#include "common_buffers.h"
 
 #define ALN_STATS_MAX_GAP 128
 #define ALN_STATS_MAX_FRAGLEN 1024
@@ -79,7 +77,6 @@ void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
                             const LoadingStats *load_stats,
                             const char *dump_seqgap_hist_path,
                             const char *dump_fraglen_hist_path,
-                            const char *dump_contiglen_hist_path,
                             size_t ht_num_kmers);
 
 #endif /* CORRECT_ALN_STATS_H_ */

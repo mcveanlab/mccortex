@@ -5,22 +5,16 @@
 madcrow_buffer(double_buf,DoubleBuffer,double);
 
 typedef struct {
-  size_t contig_len, num;
-} ContigHistItem;
-
-madcrow_buffer(contig_hist,ContigHistogram,ContigHistItem);
-
-typedef struct {
-  ContigHistogram hist; // loaded from CSV
   DoubleBuffer table;
 } ContigConfidenceTable;
 
 // Call conf_table_destroy to release memory after calling this function
-void conf_table_load_csv(ContigConfidenceTable *conf_table,
-                         FILE *fh, const char *path);
+// void conf_table_load_csv(ContigConfidenceTable *conf_table,
+//                          FILE *fh, const char *path);
 
 // Call conf_table_destroy to release memory after calling this function
-void conf_table_calc_csv(ContigConfidenceTable *conf_table, size_t genome_size);
+void conf_table_update_hist(ContigConfidenceTable *conf_table, size_t genome_size,
+                            size_t *contig_hist, size_t hist_len);
 
 // Call conf_table_destroy to release memory after calling this function
 void conf_table_calc(ContigConfidenceTable *conf_table,

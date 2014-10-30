@@ -61,7 +61,7 @@ void _tests_add_paths(dBGraph *graph, char **seqs, size_t nseqs,
                       CorrectAlnParam path_params)
 {
   size_t i;
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, false, graph);
+  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
 
   for(i = 0; i < nseqs; i++)
     gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);

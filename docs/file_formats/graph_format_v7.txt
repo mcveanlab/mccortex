@@ -8,21 +8,23 @@ Extension: .ctx
 Version: 7
 
 {
-  "fileFormat": "CtxGraph",
-  "formatVersion":  7,
-  "fileid": "a1c6b3f2e9864b2c",
-  "kmer_size": 15,
-  "ncols":  1,
+  "file_id": "file:a1c6b3f2e9864b2c",
+  "file_format": "CtxGraph",
+  "format_version":  7,
   "sorted": true,
   "idx_kmers_per_bckt": 2048,
-  "colours":  [{
-      "colour": 0,
-      "sample": "WTCHG_101",
-      "inferred_edges": false,
-      "colourid": "7621b712cf5434a1"
-    }],
+  "graph": {
+      "kmer_size": 15,
+      "num_colours":  1,
+      "colours":  [{
+          "colour": 0,
+          "sample": "WTCHG_101",
+          "inferred_edges": false,
+          "colourid": "7621b712cf5434a1"
+        }]
+  },
   "commands": [{
-      "key":  "6d8e1b05",
+      "key":  "cmd:6d8e1b05",
       "cmd":  ["../../bin/ctx31", "build", "--sample", "RoadRunner", "-1", "in.sam", "-1", "thing.sam", "mix.k11.ctx"],
       "cwd":  "/Users/isaac/ninja-cortex/",
       "outpath":  "/Users/isaac/ninja-cortex/mix.k11.ctx",
@@ -125,7 +127,7 @@ less, cat etc.
   "formatVersion":  7,
   "fileid": "a1c6b3f2e9864b2c",
   "kmer_size": 15,
-  "ncols":  1,
+  "num_colours":  1,
 
 "fileid" is a random generated 16 digit hexadecimal key used to identify this
 file. This should be regenerated everytime the file content is modified.

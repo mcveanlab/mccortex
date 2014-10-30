@@ -12,7 +12,6 @@
 void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
                    const char *dump_seqgap_hist_path,
                    const char *dump_fraglen_hist_path,
-                   const char *dump_contiglen_hist_path,
                    char fq_zero, bool append_orig_seq,
                    size_t num_threads, const dBGraph *db_graph);
 

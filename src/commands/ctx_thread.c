@@ -48,7 +48,6 @@ const char thread_usage[] =
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
 "  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
 "  -G, --frag-hist <o.csv>  Save size distribution of PE fragments\n"
-"  -C, --contig-hist <.csv> Save size distribution of assembled contigs\n"
 "\n"
 "  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
 "\n"
@@ -89,7 +88,6 @@ static struct option longopts[] =
   {"no-end-check",  no_argument,       NULL, 'E'},
   {"gap-hist",      required_argument, NULL, 'g'},
   {"frag-hist",     required_argument, NULL, 'G'},
-  {"contig-hist",   required_argument, NULL, 'C'},
 //
   {"use-new-paths", required_argument, NULL, 'u'},
 // Debug options
@@ -189,9 +187,26 @@ int ctx_thread(int argc, char **argv)
 
   db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(kmers_in_hash), 1);
 
+  //
+  // Start up workers to add paths to the graph
+  //
+  GenPathWorker *workers;
+  workers = gen_paths_workers_alloc(args.nthreads, &db_graph);
+
   // Setup for loading graphs graph
   LoadingStats gstats;
   loading_stats_init(&gstats);
+
+  // Path statistics
+  LoadingStats *load_stats = gen_paths_get_stats(workers);
+  CorrectAlnStats *aln_stats = gen_paths_get_aln_stats(workers);
+
+  // Load contig hist distribution
+  for(i = 0; i < gpfiles->len; i++) {
+    gpath_reader_load_contig_hist(gpfiles->data[i].json,
+                                  gpfiles->data[i].fltr.path.b,
+                                  &aln_stats->contig_histgrm);
+  }
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
@@ -208,19 +223,11 @@ int ctx_thread(int argc, char **argv)
   for(i = 0; i < gpfiles->len; i++)
     gpath_reader_load(&gpfiles->data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
-  //
-  // Start up the threads, do the work
-  //
-  GenPathWorker *workers;
-  workers = gen_paths_workers_alloc(args.nthreads,
-                                    args.dump_contig_sizes != NULL,
-                                    &db_graph);
-
   // Deal with a set of files at once
+  // Can have different numbers of inputs vs threads
   size_t start, end;
   for(start = 0; start < inputs->len; start += MAX_IO_THREADS)
   {
-    // Can have different numbers of inputs vs threads
     end = MIN2(inputs->len, start+MAX_IO_THREADS);
     generate_paths(inputs->data+start, end-start, workers, args.nthreads);
   }
@@ -229,18 +236,10 @@ int ctx_thread(int argc, char **argv)
   gpath_hash_print_stats(&db_graph.gphash);
   gpath_store_print_stats(&db_graph.gpstore);
 
-  // Output statistics
-  LoadingStats *load_stats = gen_paths_get_stats(workers);
-  CorrectAlnStats *aln_stats = gen_paths_get_aln_stats(workers);
-
   correct_aln_dump_stats(aln_stats, load_stats,
                          args.dump_seq_sizes,
                          args.dump_frag_sizes,
-                         args.dump_contig_sizes,
                          db_graph.ht.num_kmers);
-
-  // ins_gap, err_gap no longer allocated after this line
-  gen_paths_workers_dealloc(workers, args.nthreads);
 
   // Don't need GPathHash anymore
   gpath_hash_dealloc(&db_graph.gphash);
@@ -252,11 +251,16 @@ int ctx_thread(int argc, char **argv)
 
   // Write output file
   gpath_save(gzout, args.out_ctp_path, output_threads,
-             hdrs, gpfiles->len, &db_graph);
+             hdrs, gpfiles->len,
+             aln_stats->contig_histgrm.data, aln_stats->contig_histgrm.len,
+             &db_graph);
   gzclose(gzout);
 
   // Optionally run path checks for debugging
   // gpath_checks_all_paths(&db_graph, args.nthreads);
+
+  // ins_gap, err_gap no longer allocated after this line
+  gen_paths_workers_dealloc(workers, args.nthreads);
 
   // Close and free input files etc.
   read_thread_args_dealloc(&args);

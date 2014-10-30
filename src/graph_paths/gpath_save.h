@@ -15,6 +15,7 @@ kmer [num] .. ignored
 // @hdrs is array of JSON headers of input files
 void gpath_save(gzFile gzout, const char *path, size_t nthreads,
                 cJSON **hdrs, size_t nhdrs,
+                size_t *contig_len_hist, size_t hist_len,
                 dBGraph *db_graph);
 
 // Save paths for a single kmer

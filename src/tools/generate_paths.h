@@ -13,8 +13,7 @@ typedef struct GenPathWorker GenPathWorker;
 // Estimate memory required per worker thread
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph);
 
-GenPathWorker* gen_paths_workers_alloc(size_t n, bool store_contig_lens,
-                                       dBGraph *graph);
+GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph);
 
 void gen_paths_workers_dealloc(GenPathWorker *mem, size_t n);
 

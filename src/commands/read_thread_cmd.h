@@ -17,7 +17,7 @@ struct ReadThreadCmdArgs
   struct MemArgs memargs;
   char *graph_path, *out_ctp_path;
   bool use_new_paths;
-  char *dump_seq_sizes, *dump_frag_sizes, *dump_contig_sizes;
+  char *dump_seq_sizes, *dump_frag_sizes;
   size_t colour; // ctx_correct only
   seq_format fmt; // ctx_correct only
   char fq_zero; // ctx_correct only

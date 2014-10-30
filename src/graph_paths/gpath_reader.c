@@ -27,38 +27,25 @@ size_t gpath_reader_get_kmer_size(const GPathReader *file)
 
 size_t gpath_reader_get_num_kmers(const GPathReader *file)
 {
-  // May be "num_kmers" or "kmers_with_paths"
-  cJSON *json = cJSON_GetObjectItem(file->json, "num_kmers");
-  if(json == NULL) json = cJSON_GetObjectItem(file->json, "num_kmers_with_paths");
-  if(json == NULL || json->type != cJSON_Number) {
-    die("No 'num_kmers' or 'num_kmers_with_paths' field in header: %s",
-        file->fltr.path.b);
-  }
-  long val = json->valueint;
-  // long val = json_hdr_demand_int(file->json, "kmers_with_paths", file->fltr.path.b);
-  if(val < 0) die("num_kmers is negative");
-  return val;
+  cJSON *paths = json_hdr_get_paths(file->json, file->fltr.path.b);
+  return json_hdr_demand_uint(paths, "num_kmers_with_paths", file->fltr.path.b);
 }
 
 size_t gpath_reader_get_num_paths(const GPathReader *file)
 {
-  long val = json_hdr_demand_int(file->json, "num_paths", file->fltr.path.b);
-  if(val < 0) die("num_paths is negative");
-  return val;
+  cJSON *paths = json_hdr_get_paths(file->json, file->fltr.path.b);
+  return json_hdr_demand_uint(paths, "num_paths", file->fltr.path.b);
 }
 
 size_t gpath_reader_get_path_bytes(const GPathReader *file)
 {
-  long val = json_hdr_demand_int(file->json, "path_bytes", file->fltr.path.b);
-  if(val < 0) die("path_bytes is negative");
-  return val;
+  cJSON *paths = json_hdr_get_paths(file->json, file->fltr.path.b);
+  return json_hdr_demand_uint(paths, "path_bytes", file->fltr.path.b);
 }
 
 static size_t _gpath_reader_get_filencols(const GPathReader *file)
 {
-  long val = json_hdr_demand_int(file->json, "ncols", file->fltr.path.b);
-  if(val < 1 || val > 100000) die("Invalid number of colours: %li", val);
-  return val;
+  return json_hdr_get_ncols(file->json, file->fltr.path.b);
 }
 
 // idx is 0..filencols
@@ -72,9 +59,54 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx)
   return json->valuestring;
 }
 
+void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
+                                   ZeroSizeBuffer *hist)
+{
+  size_t i;
+  cJSON *json_fmt = json_hdr_get(json_root, "file_format", cJSON_String, path);
+  cJSON *hdr_paths, *json_lens, *json_cnts;
+
+  if(strcmp(json_fmt->valuestring,"ctp") == 0)
+  {
+    // File is ctp
+    hdr_paths = json_hdr_get(json_root, "paths", cJSON_Object, path);
+    json_lens = json_hdr_get(hdr_paths, "contig_lengths", cJSON_Array, path);
+    json_cnts = json_hdr_get(hdr_paths, "contig_counts" , cJSON_Array, path);
+
+    // Loop over entries
+    cJSON *len = json_lens->child, *cnt = json_cnts->child;
+    for(i = 0; len && cnt; i++, len = len->next, cnt = cnt->next) {
+      if(len->type != cJSON_Number || cnt->type != cJSON_Number ||
+         len->valueint < 0 || cnt->valueint < 0) {
+        die("JSON array entry is not a number");
+      }
+      ctx_assert2(len->valueint < 1<<30, "%li is too big", len->valueint);
+      zsize_buf_extend(hist, len->valueint+1);
+      hist->data[len->valueint] += cnt->valueint;
+    }
+    printf(" array length: %zu\n", i);
+
+    if(len || cnt) {
+      die("Contig histogram arrays not the same lengths");
+    }
+  }
+  else {
+    die("File is not CTP '%s' [%s]", json_fmt->valuestring, path);
+  }
+}
+
+/**
+ * Parse values from file->json into fields in file
+ */
 void _parse_json_header(GPathReader *file)
 {
-  cJSON *sample, *colours = cJSON_GetObjectItem(file->json, "colours");
+  cJSON *graph, *colours, *sample;
+
+  graph = cJSON_GetObjectItem(file->json, "graph");
+  if(graph == NULL || graph->type != cJSON_Object)
+    die("No 'graph' array entry in header");
+
+  colours = cJSON_GetObjectItem(graph, "colours");
   if(colours == NULL || colours->type != cJSON_Array)
     die("No 'colours' array entry in header");
 

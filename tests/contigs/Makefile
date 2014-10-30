@@ -31,7 +31,7 @@ seq.%.k$(K).ctx: seq.%.fa
 	$(CTX) inferedges $@
 
 seq.%.k$(K).ctp.gz: seq.%.k$(K).ctx seq.%.fa
-	$(CTX) thread -m 1M --contig-hist seq.$*.k$(K).contig-hist.csv --seq seq.$*.fa --out $@ seq.$*.k$(K).ctx
+	$(CTX) thread -m 1M --seq seq.$*.fa --out $@ seq.$*.k$(K).ctx
 
 pop.ctx: $(POP_GRAPHS)
 	$(CTX) join --out $@ $(POP_GRAPHS)
@@ -40,7 +40,7 @@ pop.ctp.gz: $(POP_PATHS)
 	$(CTX) pjoin --out $@ $(POP_PATHS)
 
 contigs.%.fa: pop.ctx pop.ctp.gz
-	$(CTX) contigs --out $@ --colour $* --genome $(GENOME) --contig-hist seq.$*.k$(K).contig-hist.csv --confid-csv seq.$*.k$(K).confid.csv -p pop.ctp.gz pop.ctx
+	$(CTX) contigs --out $@ --colour $* --genome $(GENOME) --confid-csv seq.$*.k$(K).confid.csv -p pop.ctp.gz pop.ctx
 
 rmdup.contigs.%.fa: contigs.%.fa
 	$(CTX) rmsubstr -k $(K) $< > $@

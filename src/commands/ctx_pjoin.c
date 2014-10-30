@@ -199,6 +199,15 @@ int ctx_pjoin(int argc, char **argv)
   for(i = 0; i < num_pfiles; i++)
     gpath_reader_load_sample_names(&pfiles[i], &db_graph);
 
+  // Load contig hist distribution
+  ZeroSizeBuffer contig_histgrm;
+  memset(&contig_histgrm, 0, sizeof(contig_histgrm));
+
+  for(i = 0; i < num_pfiles; i++) {
+    gpath_reader_load_contig_hist(pfiles[i].json, pfiles[i].fltr.path.b,
+                                  &contig_histgrm);
+  }
+
   // Load path files
   for(i = 0; i < num_pfiles; i++)
     gpath_reader_load(&pfiles[i], GPATH_ADD_MISSING_KMERS, &db_graph);
@@ -211,7 +220,12 @@ int ctx_pjoin(int argc, char **argv)
   for(i = 0; i < num_pfiles; i++) hdrs[i] = pfiles[i].json;
 
   // Write output file
-  gpath_save(gzout, out_ctp_path, output_threads, hdrs, num_pfiles, &db_graph);
+  gpath_save(gzout, out_ctp_path, output_threads, hdrs, num_pfiles,
+             contig_histgrm.data, contig_histgrm.len,
+             &db_graph);
+
+  zsize_buf_dealloc(&contig_histgrm);
+
   gzclose(gzout);
   ctx_free(hdrs);
 

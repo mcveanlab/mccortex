@@ -53,10 +53,10 @@ genome.k$(K).kmers.pdf:
 
 reads.se.k$(K).ctp.gz:
 	$(CTX) thread -m 1M -t 6 $(SEQSE) -o reads.se.k$(K).ctp.gz genome.k$(K).ctx
-	zcat reads.se.k$(K).ctp.gz
+	gunzip -c reads.se.k$(K).ctp.gz
 
 reads.pe.k$(K).ctp.gz:
 	$(CTX) thread -m 1M -t 6 $(SEQSE) $(SEQPE) -o reads.pe.k$(K).ctp.gz genome.k$(K).ctx
-	zcat reads.pe.k$(K).ctp.gz
+	gunzip -c reads.pe.k$(K).ctp.gz
 
 .PHONY: all clean plots

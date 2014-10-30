@@ -102,7 +102,6 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'E': task.crt_params.use_end_check = false; used = 0; break;
       case 'g': cmd_check(!args->dump_seq_sizes, cmd); args->dump_seq_sizes = optarg; break;
       case 'G': cmd_check(!args->dump_frag_sizes, cmd); args->dump_frag_sizes = optarg; break;
-      case 'C': cmd_check(!args->dump_contig_sizes, cmd); args->dump_contig_sizes = optarg; break;
       case 'u': args->use_new_paths = true; break;
       case 'x': gen_paths_print_contigs = true; break;
       case 'y': gen_paths_print_paths = true; break;
@@ -188,5 +187,4 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
 
   futil_create_output(args->dump_seq_sizes);
   futil_create_output(args->dump_frag_sizes);
-  futil_create_output(args->dump_contig_sizes);
 }

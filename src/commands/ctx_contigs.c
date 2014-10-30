@@ -30,7 +30,6 @@ const char contigs_usage[] =
 "  -L, --read-length <R> Expected read length for calc. contig confidences\n"
 "  -d, --depth <C>       Expected depth for calc. contig confidences\n"
 "  -G, --genome <G>      Genome size in bases\n"
-"  -C, --contig-hist <h.csv>   Length distrib. from 'thread' [can have multiple]\n"
 "  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
 "\n";
 
@@ -55,7 +54,6 @@ static struct option longopts[] =
   {"read-length",  required_argument, NULL, 'L'},
   {"depth",        required_argument, NULL, 'd'},
   {"genome",       required_argument, NULL, 'G'},
-  {"contig-hist",  required_argument, NULL, 'C'},
   {"confid-csv",   required_argument, NULL, 'S'},
   {NULL, 0, NULL, 0}
 };
@@ -80,9 +78,6 @@ int ctx_contigs(int argc, char **argv)
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
   gpfile_buf_alloc(&gpfiles, 8);
-
-  CharPtrBuffer contig_hist_paths;
-  char_ptr_buf_alloc(&contig_hist_paths, 8);
 
   // Arg parsing
   char cmd[100], shortopts[300];
@@ -123,7 +118,6 @@ int ctx_contigs(int argc, char **argv)
       case 'L': cmd_check(!exp_read_length,cmd); exp_read_length = cmd_size(cmd, optarg); break;
       case 'd': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
       case 'G': cmd_check(!genome_size,cmd); genome_size = cmd_size_nonzero(cmd, optarg); break;
-      case 'C': char_ptr_buf_add(&contig_hist_paths, optarg); break;
       case 'S': cmd_check(!conf_table_path,cmd); conf_table_path = optarg; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -136,9 +130,6 @@ int ctx_contigs(int argc, char **argv)
     cmd_print_usage("Cannot specify both -r and -R");
 
   bool sample_with_replacement = cmd_reseed;
-
-  if(contig_hist_paths.len > 0 && (exp_read_length || exp_avg_bp_covg >= 0))
-    cmd_print_usage("Only need --covg-hist <in.csv> (don't need --read-length / --depth)");
 
   // Defaults
   if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
@@ -214,29 +205,28 @@ int ctx_contigs(int argc, char **argv)
   total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
-  // Load contig lengths
+  // Load contig hist distribution
+  ZeroSizeBuffer contig_hist;
+  memset(&contig_hist, 0, sizeof(contig_hist));
+
+  for(i = 0; i < gpfiles.len; i++) {
+    gpath_reader_load_contig_hist(gpfiles.data[i].json,
+                                  gpfiles.data[i].fltr.path.b,
+                                  &contig_hist);
+  }
+
+  // Calculate confidences
   ContigConfidenceTable conf_table;
   memset(&conf_table, 0, sizeof(conf_table));
 
-  if(contig_hist_paths.len > 0)
-  {
-    FILE *contig_fh;
-    const char *contig_path;
-    for(i = 0; i < contig_hist_paths.len; i++) {
-      contig_path = contig_hist_paths.data[i];
-      if((contig_fh = fopen(contig_path, "r")) == NULL)
-        die("Cannot open --contig-hist file: %s", contig_path);
-      conf_table_load_csv(&conf_table, contig_fh, contig_path);
-    }
-    conf_table_calc_csv(&conf_table, genome_size);
-  }
-  else {
-    conf_table_calc(&conf_table, exp_read_length, exp_avg_bp_covg);
-  }
+  conf_table_update_hist(&conf_table, genome_size,
+                         contig_hist.data, contig_hist.len);
 
   if(conf_table_path != NULL) {
     conf_table_save(&conf_table, conf_table_path);
   }
+
+  zsize_buf_dealloc(&contig_hist);
 
   //
   // Output file if printing
@@ -295,7 +285,6 @@ int ctx_contigs(int argc, char **argv)
     seq_close(seed_buf.data[i]);
 
   seq_file_ptr_buf_dealloc(&seed_buf);
-  char_ptr_buf_dealloc(&contig_hist_paths);
 
   ctx_free(visited);
   db_graph_dealloc(&db_graph);

@@ -30,13 +30,13 @@ genome.%.ctx: genome.%.fa
 
 paths.%.ctp.gz: genome.%.ctx genome.%.fa
 	$(CTX) thread -m 1M --seq genome.$*.fa -o $@ genome.$*.ctx
-	zcat $@
+	gunzip -c $@
 
 genomes.ctx: $(PATHS)
 	$(CTX) join -o $@ $(GRAPHS)
 
 genomes.ctp.gz: $(PATHS)
 	$(CTX) pjoin -o $@ $(PATHS)
-	zcat $@
+	gunzip -c $@
 
 .PHONY: all plots clean

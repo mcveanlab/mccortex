@@ -20,7 +20,17 @@ void json_hdr_add_std(cJSON *json, const char *path,
 void json_hdr_gzprint(cJSON *json, gzFile gzout);
 
 // Get values from a JSON header
-long json_hdr_demand_int(cJSON *root, const char *field, const char *path);
+cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path);
+
+long   json_hdr_demand_int( cJSON *root, const char *field, const char *path);
+size_t json_hdr_demand_uint(cJSON *json, const char *field, const char *path);
+
+#define json_hdr_get_graph(root,fpath) json_hdr_get(root,"graph",cJSON_Object,fpath)
+#define json_hdr_get_paths(root,fpath) json_hdr_get(root,"paths",cJSON_Object,fpath)
+
 size_t json_hdr_get_kmer_size(cJSON *root, const char *path);
+size_t json_hdr_get_ncols(cJSON *json, const char *path);
+
+cJSON* json_hdr_get_curr_cmd(cJSON *json, const char *path);
 
 #endif /* JSON_HDR_H_ */
