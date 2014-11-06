@@ -90,6 +90,7 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // This iterator allows adding/removing items
 // Stops if func() returns non-zero value
 #define HASH_ITERATE_PART(ht,job,njobs,func, ...) do {                         \
+  ctx_assert((job) < (njobs));                                                 \
   const size_t _step = (ht)->capacity / (njobs);                               \
   const BinaryKmer *_start, *_end, *_bkptr;                                    \
   _start = (ht)->table + (job) * _step;                                        \

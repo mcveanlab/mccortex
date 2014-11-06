@@ -79,10 +79,11 @@ static void test_correct_aln_no_paths()
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
-  char *gseqs[1] = {seq}, *alns[1];
+  const char *gseqs[1] = {seq};
+  char *alns[1];
 
   // Construct graph and paths
-  _construct_graph_with_paths(&graph, kmer_size, ncols, gseqs, 1, params);
+  all_tests_construct_graph(&graph, kmer_size, ncols, gseqs, 1, params);
 
   TASSERT(graph.gpstore.num_paths == 0);
 
@@ -145,10 +146,11 @@ static void test_contig_ends_agree()
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
-  char *seqs[2] = {seqa, seqb}, *alns[2];
+  const char *seqs[2] = {seqa, seqb};
+  char *alns[2];
 
   // Construct graph and paths
-  _construct_graph_with_paths(&graph, kmer_size, ncols, seqs, 2, params);
+  all_tests_construct_graph(&graph, kmer_size, ncols, seqs, 2, params);
 
   correct_aln_worker_alloc(&corrector, false, &graph);
   strbuf_alloc(&sbuf, 1024);

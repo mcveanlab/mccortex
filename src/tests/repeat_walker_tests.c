@@ -63,7 +63,7 @@ static void test_repeat_loop()
   char p1[] = "GATAGGGCCAGT""GATAGGGCCAGT""CGTCAGGAGCTAACT";
 
   // Allocate graph, but don't add any sequence
-  _construct_graph_with_paths(&graph, kmer_size, ncols, NULL, 0, params);
+  all_tests_construct_graph(&graph, kmer_size, ncols, NULL, 0, params);
 
   GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, &graph);
 

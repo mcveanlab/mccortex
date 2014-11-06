@@ -32,6 +32,7 @@ const char contigs_usage[] =
 "  -G, --genome <G>      Genome size in bases\n"
 "  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
 "  -M, --no-missing-check      Do not use the missing information check\n"
+// "  -P, --no-path-seeds         Do not use unused paths to seed contigs\n"
 "\n";
 
 static struct option longopts[] =
@@ -56,7 +57,8 @@ static struct option longopts[] =
   {"depth",        required_argument, NULL, 'd'},
   {"genome",       required_argument, NULL, 'G'},
   {"confid-csv",   required_argument, NULL, 'S'},
-  {"no-missing-check",   no_argument, NULL, 'M'},
+  {"no-missing-check", no_argument,   NULL, 'M'},
+  {"no-path-seeds",    no_argument,   NULL, 'P'},
   {NULL, 0, NULL, 0}
 };
 
@@ -68,7 +70,7 @@ int ctx_contigs(int argc, char **argv)
   size_t i, contig_limit = 0, colour = 0;
   bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
   const char *conf_table_path = NULL; // save confidence table to here
-  bool use_missing_info_check = true;
+  bool use_missing_info_check = true, seed_with_unused_paths = true;
 
   // Read length and expected depth for calculating confidences
   size_t exp_read_length = 0, genome_size = 0;
@@ -120,9 +122,10 @@ int ctx_contigs(int argc, char **argv)
       case 'c': cmd_check(!colour,cmd); colour = cmd_uint32(cmd, optarg); break;
       case 'L': cmd_check(!exp_read_length,cmd); exp_read_length = cmd_size(cmd, optarg); break;
       case 'd': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
-      case 'G': cmd_check(!genome_size,cmd); genome_size = cmd_size_nonzero(cmd, optarg); break;
+      case 'G': cmd_check(!genome_size,cmd); genome_size = cmd_bases(cmd, optarg); break;
       case 'S': cmd_check(!conf_table_path,cmd); conf_table_path = optarg; break;
       case 'M': cmd_check(use_missing_info_check,cmd); use_missing_info_check = false; break;
+      case 'P': cmd_check(seed_with_unused_paths,cmd); seed_with_unused_paths = false; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" contigs -h` for help. Bad option: %s", argv[optind-1]);
@@ -275,7 +278,7 @@ int ctx_contigs(int argc, char **argv)
 
   assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
                    contig_limit, visited,
-                   use_missing_info_check,
+                   use_missing_info_check, seed_with_unused_paths,
                    fout, out_path, &assem_stats, &conf_table,
                    &db_graph, 0); // Sample always loaded into colour zero
 

@@ -57,22 +57,61 @@ void bitarr_tostr(const uint8_t *arr, size_t len, char *str)
 // Graph setup
 //
 
-void _tests_add_paths(dBGraph *graph, char **seqs, size_t nseqs,
-                      CorrectAlnParam path_params)
+void all_tests_add_paths_multi(dBGraph *graph, const char **seqs, size_t nseqs,
+                               CorrectAlnParam params,
+                               int exp_npaths, int exp_nkmers)
 {
-  size_t i;
-  GenPathWorker *gen_path_wrkr = gen_paths_workers_alloc(1, graph);
+  size_t npaths = graph->gpstore.num_paths;
+  size_t nkmers = graph->gpstore.num_kmers_with_paths;
 
-  for(i = 0; i < nseqs; i++)
-    gen_paths_from_str_mt(gen_path_wrkr, seqs[i], path_params);
+  size_t i, nworkers = 1;
+  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, graph);
 
-  gen_paths_workers_dealloc(gen_path_wrkr, 1);
+  // Set up asyncio input data
+  AsyncIOInput io = {.file1 = NULL, .file2 = NULL,
+                     .fq_offset = 0, .interleaved = false};
+
+  CorrectAlnInput task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
+                          .matedir = READPAIR_FR, .crt_params = params,
+                          .out_base = NULL, .output = NULL};
+
+  AsyncIOData iodata;
+  asynciodata_alloc(&iodata);
+  seq_read_reset(&iodata.r2);
+  iodata.fq_offset1 = iodata.fq_offset2 = 0;
+  iodata.ptr = NULL;
+
+  // Add paths
+  for(i = 0; i < nseqs; i++) {
+    seq_read_set(&iodata.r1, seqs[i]);
+    gen_paths_worker_seq(wrkrs, &iodata, &task);
+  }
+
+  asynciodata_dealloc(&iodata);
+  gen_paths_workers_dealloc(wrkrs, nworkers);
+
+  // Check we added the right number of paths
+  if(exp_npaths >= 0) {
+    TASSERT2(graph->gpstore.num_paths == npaths + (size_t)exp_npaths, "%zu %zu %zu",
+             (size_t)graph->gpstore.num_paths, (size_t)npaths, (size_t)exp_npaths);
+  }
+
+  if(exp_nkmers >= 0) {
+    TASSERT(graph->gpstore.num_kmers_with_paths == nkmers + (size_t)exp_nkmers);
+  }
 }
 
-void _construct_graph_with_paths(dBGraph *graph,
-                                 size_t kmer_size, size_t ncols,
-                                 char **seqs, size_t nseqs,
-                                 CorrectAlnParam path_params)
+void all_tests_add_paths(dBGraph *graph, const char *seq,
+                         CorrectAlnParam params,
+                         int exp_npaths, int exp_nkmers)
+{
+  all_tests_add_paths_multi(graph, &seq, 1, params, exp_npaths, exp_nkmers);
+}
+
+void all_tests_construct_graph(dBGraph *graph,
+                               size_t kmer_size, size_t ncols,
+                               const char **seqs, size_t nseqs,
+                               CorrectAlnParam path_params)
 {
   size_t i;
   db_graph_alloc(graph, kmer_size, ncols, ncols, 1024,
@@ -92,27 +131,5 @@ void _construct_graph_with_paths(dBGraph *graph,
 
   graph->num_of_cols_used = MAX2(graph->num_of_cols_used, 1);
 
-  _tests_add_paths(graph, seqs, nseqs, path_params);
-}
-
-void _test_add_paths(dBGraph *graph,
-                     AsyncIOData *iodata, CorrectAlnInput *task,
-                     GenPathWorker *wrkrs, char *seq,
-                     size_t exp_npaths, size_t exp_nkmers)
-{
-  size_t npaths = graph->gpstore.num_paths;
-  size_t nkmers = graph->gpstore.num_kmers_with_paths;
-
-  // Set up asyncio input data
-  seq_read_set(&iodata->r1, seq);
-  seq_read_reset(&iodata->r2);
-  iodata->fq_offset1 = iodata->fq_offset2 = 0;
-  iodata->ptr = NULL;
-  // Add paths
-  gen_paths_worker_seq(wrkrs, iodata, task);
-
-  // Check we added the right number of paths
-  TASSERT2(graph->gpstore.num_paths == npaths + exp_npaths, "%zu %zu %zu",
-           (size_t)graph->gpstore.num_paths, (size_t)npaths, (size_t)exp_npaths);
-  TASSERT(graph->gpstore.num_kmers_with_paths == nkmers + exp_nkmers);
+  all_tests_add_paths_multi(graph, seqs, nseqs, path_params, -1, -1);
 }

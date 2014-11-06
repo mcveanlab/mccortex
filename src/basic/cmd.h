@@ -56,6 +56,7 @@ size_t cmd_size(const char *cmd, const char *arg);
 size_t cmd_size_nonzero(const char *cmd, const char *arg);
 size_t cmd_parse_arg_mem(const char *cmd, const char *arg);
 size_t cmd_kmer_size(const char *cmdstr, const char *arg);
+size_t cmd_bases(const char *cmdstr, const char *arg);// bases_to_integer
 
 seq_format cmd_parse_format(const char *cmd, const char *arg);
 

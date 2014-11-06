@@ -47,7 +47,6 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
 
   // 2. Check pulling out supernodes works when we iterate over inputs
   size_t i, j, len;
-  BinaryKmer bkmer;
   dBNode node;
   char tmpstr[SNODEBUF];
 
@@ -56,8 +55,7 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
     for(j = 0; j+graph->kmer_size <= len; j++)
     {
       // Find node
-      bkmer = binary_kmer_from_str(seq[i]+j, graph->kmer_size);
-      node = db_graph_find(graph, bkmer);
+      node = db_graph_find_str(graph, seq[i]+j);
       TASSERT(node.key != HASH_NOT_FOUND);
 
       // Fetch supernode

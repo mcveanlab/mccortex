@@ -192,6 +192,16 @@ size_t cmd_kmer_size(const char *cmdstr, const char *arg)
   return kmer_size;
 }
 
+size_t cmd_bases(const char *cmdstr, const char *arg)// bases_to_integer
+{
+  ctx_assert(cmdstr != NULL);
+  ctx_assert2(arg != NULL, "cmd: %s", cmdstr);
+  size_t n = 0;
+  if(!bases_to_integer(arg, &n) || !n)
+    cmd_print_usage("%s <N> must be a genome size, e.g. 1M, 3.1Gbp: %s", cmdstr, arg);
+  return n;
+}
+
 size_t cmd_parse_arg_mem(const char *cmdstr, const char *arg)
 {
   ctx_assert(cmdstr != NULL);

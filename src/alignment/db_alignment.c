@@ -190,16 +190,13 @@ void db_alignment_print(const dBAlignment *aln)
 // Check all edges between ungapped adjacent nodes
 bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
 {
-  size_t start, end, i;
+  size_t start, end;
 
-  for(start = 0; start < aln->nodes.len; start = end) {
+  for(start = 0; start < aln->nodes.len; start = end)
+  {
     end = db_alignment_next_gap(aln, start);
-
-    // check edge between i and i+1
-    for(i = start; i+1 < end; i++) {
-      if(db_graph_check_edges(graph, aln->nodes.data[i], aln->nodes.data[i+1]))
-        return false;
-    }
+    if(db_graph_check_all_edges(graph, aln->nodes.data+start, end-start))
+      return false;
   }
 
   return true;

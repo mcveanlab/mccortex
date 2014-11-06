@@ -48,7 +48,7 @@ static void _test_graph_walker_test1()
   dBGraph graph;
   size_t kmer_size = 11, ncols = 1;
 
-  char *seqs[3] = {seq0, seq1, seq2};
+  const char *seqs[3] = {seq0, seq1, seq2};
 
   // Set up alignment correction params
   CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,
@@ -58,7 +58,7 @@ static void _test_graph_walker_test1()
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
   // Construct graph and paths with first two sequences only
-  _construct_graph_with_paths(&graph, kmer_size, ncols, seqs, 2, params);
+  all_tests_construct_graph(&graph, kmer_size, ncols, seqs, 2, params);
 
   GraphWalker wlk;
   graph_walker_alloc(&wlk, &graph);
@@ -71,7 +71,8 @@ static void _test_graph_walker_test1()
   graph_walker_finish(&wlk);
 
   // Add the third read which should disrupt expected path gap
-  _tests_add_paths(&graph, seqs+2, 1, params);
+  // 4 new paths, 0 new kmer paths
+  all_tests_add_paths(&graph, seqs[2], params, 4, 0);
 
   graph_walker_start(&wlk, node);
   size_t exp_gap2[2] = {5, 5+11+18};

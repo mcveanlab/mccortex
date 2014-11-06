@@ -163,6 +163,68 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
   return (pop_col_loaded ? 2 : 1);
 }
 
+/**
+ * Fetch sequence of nodes represented by a given path.
+ * Note: doesn't reset nbuf before adding. Remember to reset nbuf before calling
+ *       this function.
+ *
+ * @return number of nodes added to nbuf
+ */
+size_t gpath_fetch(dBNode node, const GPath *gpath, dBNodeBuffer *nbuf,
+                   size_t ctxcol, const dBGraph *db_graph)
+{
+  ctx_assert(db_graph->num_edge_cols == 1);
+  ctx_assert(db_graph->num_of_cols == 1 || db_graph->node_in_cols);
+  ctx_assert(node.orient == gpath->orient);
+
+  size_t init_num_nodes = nbuf->len;
+  size_t i, j, n, njuncs = 0; // number of junctions seen
+  BinaryKmer bkey;
+  Edges edges;
+  dBNode nodes[4];
+  Nucleotide nucs[4];
+
+  db_node_buf_add(nbuf, node);
+
+  while(njuncs < gpath->num_juncs)
+  {
+    ctx_assert(node.key != HASH_NOT_FOUND);
+
+    bkey = db_node_get_bkmer(db_graph, node.key);
+    edges = db_node_get_edges(db_graph, node.key, 0);
+    n = db_graph_next_nodes(db_graph, bkey, node.orient, edges, nodes, nucs);
+
+    // Reduce to nodes in our colour if edges limited
+    if(db_graph->num_of_cols > 1) {
+      for(i = 0, j = 0; i < n; i++) {
+        if(db_node_has_col(db_graph, nodes[i].key, ctxcol)) {
+          nodes[j] = nodes[i];
+          nucs[j] = nucs[i];
+          j++;
+        }
+      }
+      n = j; // update number of next nodes
+    }
+
+    ctx_assert(n > 0);
+
+    if(n > 1) {
+      Nucleotide expbase = binary_seq_get(gpath->seq, njuncs);
+      for(i = 0; i < n && nucs[i] != expbase; i++);
+      ctx_assert(i < n);
+      node = nodes[i];
+      njuncs++;
+    }
+    else {
+      node = nodes[0];
+    }
+
+    db_node_buf_add(nbuf, node);
+  }
+
+  return nbuf->len - init_num_nodes;
+}
+
 //
 // Integrity checks on graph+paths
 //
@@ -291,8 +353,8 @@ bool gpath_checks_path(hkey_t hkey, const GPath *gpath, int exp_klen,
   return true;
 }
 
-static bool _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
-                              size_t *npaths_ptr, size_t *nkmers_ptr)
+static int _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
+                             size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
@@ -309,7 +371,8 @@ static bool _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
 
   *npaths_ptr += num_gpaths;
   *nkmers_ptr += (num_gpaths > 0);
-  return true;
+
+  return 0; // 0 => keep iterating
 }
 
 typedef struct
@@ -324,8 +387,10 @@ void _gpath_check_all_paths_thread(void *arg)
   GPathChecker *ch = (GPathChecker*)arg;
   const dBGraph *db_graph = ch->db_graph;
   size_t num_gpaths = 0, num_kmers = 0;
-  HASH_ITERATE(&db_graph->ht, _kmer_check_paths,
-               db_graph, &num_gpaths, &num_kmers);
+
+  HASH_ITERATE_PART(&db_graph->ht, ch->threadid, ch->nthreads,
+                    _kmer_check_paths, db_graph, &num_gpaths, &num_kmers);
+
   ch->num_gpaths = num_gpaths;
   ch->num_kmers = num_kmers;
 }
@@ -336,6 +401,7 @@ bool gpath_checks_all_paths(const dBGraph *db_graph, size_t nthreads)
 
   size_t i;
   GPathChecker *checkers = ctx_calloc(nthreads, sizeof(GPathChecker));
+
   for(i = 0; i < nthreads; i++) {
     checkers[i].threadid = i;
     checkers[i].nthreads = nthreads;

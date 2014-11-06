@@ -118,7 +118,7 @@ void gpath_subset_rmsubstr(GPathSubset *subset)
         {
           min_juncs = MIN2(list[i]->num_juncs, list[j]->num_juncs);
 
-          // Can't be a subset if longer
+          // j can't be a subset of i if it's longer
           if(list[j]->num_juncs > list[i]->num_juncs ||
              binary_seqs_cmp(list[i]->seq, min_juncs,
                              list[j]->seq, min_juncs) != 0)
@@ -127,7 +127,7 @@ void gpath_subset_rmsubstr(GPathSubset *subset)
           }
           else if(list[i]->num_juncs == list[j]->num_juncs)
           {
-            // paths match, steal colours and remove it
+            // paths match, steal colours from j and remove it
             gpath_colset_or_mt(list[i], list[j], ncols);
             gpath_set_nseen_sum_mt(list[i], subset->gpset,
                                    list[j], subset->gpset);

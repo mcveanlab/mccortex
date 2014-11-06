@@ -22,6 +22,7 @@ typedef struct
   const GPathStore *gpstore;
   Colour ctxcol, ctpcol;
   bool missing_path_check; // if true do missing path check
+  size_t *used_paths; // bit array for used paths; cast volatile when used
 
   // Current position
   dBNode node;

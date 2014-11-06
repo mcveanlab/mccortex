@@ -59,7 +59,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
   ctx_assert(file->num_of_kmers >= 0);
   ctx_assert(file->file_size >= 0);
 
-  status("[inferedges] Processing mmap file: %s [%zu / %zu]",
+  status("[inferedges] Processing mmap file: %s [hdr: %zu bytes file: %zu bytes]",
          file_filter_path(&file->fltr),
          (size_t)file->hdr_size, (size_t)file->file_size);
 

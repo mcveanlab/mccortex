@@ -5,9 +5,123 @@
 #include "generate_paths.h"
 #include "gpath_checks.h"
 
-void test_paths()
+//       junctions:  >     >           <     <     <
+const char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
+const char seq1[] = "ACTGGGTGCGAATGACACCAAATCGAATGAT"; // b->e
+const char seq2[] = "GACTATAGCGAATGACACCAAATCAGGGAGA"; // c->f
+const char seq3[] = "GACTATAGCGAATGACACTTCTACCTGTCTC"; // c->g
+
+// a--+--+--+--+--+--d
+// b-/  /    \  \  \_e
+// c___/      \  \___f
+//             \_____g
+
+// "CCTGGGTGCGA", "CCTGGGTGCGAATGACACCAAATCGAATGAC"
+// "ACTGGGTGCGA", "ACTGGGTGCGAATGACACCAAATCGAATGAT"
+
+const char kmerA[] = "CCTGGGTGCGA"; // a->
+#define NPATHS_A 1
+const char *kmerApaths[NPATHS_A] = {"CCTGGGTGCGAATGACACCAAATCGAATGAC"};
+
+const char kmerB[] = "ACTGGGTGCGA"; // b->
+#define NPATHS_B 1
+const char *kmerBpaths[NPATHS_B] = {"ACTGGGTGCGAATGACACCAAATCGAATGAT"};
+
+// where seq0 and seq1 meet
+const char kmerAB[] = "TGCGAATGACA"; // {a->,b->}->
+#define NPATHS_AB 2
+const char *kmerABpaths[NPATHS_AB] = {"TGCGAATGACACCAAATCGAATGAC",
+                                      "TGCGAATGACACCAAATCGAATGAT"};
+
+const char kmerC[] = "AGCGAATGACA"; // c->
+#define NPATHS_C 2
+const char *kmerCpaths[NPATHS_C] = {"AGCGAATGACACCAAATCA", // c->f
+                                     "AGCGAATGACACT"};      // c->g
+
+/* Reverse */
+const char kmerG[] = "AGTGTCATTCG"; // ->g revcmp(CGAATGACACT)
+#define NPATHS_G 1
+const char *kmerGpaths[NPATHS_G] = {"AGTGTCATTCGCT"}; // revcmp(AGCGAATGACACT)
+
+const char kmerF[] = "TGATTTGGTGT"; // ->f revcmp(ACACCAAATCA)
+#define NPATHS_F 1
+const char *kmerFpaths[NPATHS_F] = {"TGATTTGGTGTCATTCGCT"}; // revcmp(AGCGAATGACACCAAATCA)
+
+const char kmerE[] = "ATCATTCGATT"; // ->e revcmp(AATCGAATGAT)
+#define NPATHS_E 1
+const char *kmerEpaths[NPATHS_E] = {"ATCATTCGATTTGGTGTCATTCGCACCCAGT"}; // revcmp(ACTGGGTGCGAATGACACCAAATCGAATGAT)
+
+const char kmerD[] = "GTCATTCGATT"; // ->d revcmp(AATCGAATGAC)
+#define NPATHS_D 1
+const char *kmerDpaths[NPATHS_D] = {"GTCATTCGATTTGGTGTCATTCGCACCCAGG"}; // revcmp(CCTGGGTGCGAATGACACCAAATCGAATGAC)
+
+const char kmerDEF[] = "GGTGTCATTCG"; // ->def revcmp(CGAATGACACC)
+#define NPATHS_DEF 3
+const char *kmerDEFpaths[NPATHS_DEF] = {"GGTGTCATTCGCACCCAGG", // revcmp(CCTGGGTGCGAATGACACC)
+                                        "GGTGTCATTCGCACCCAGT", // revcmp(ACTGGGTGCGAATGACACC)
+                                        "GGTGTCATTCGCT"};      // revcmp(AGCGAATGACACC)
+
+const char kmerDE[]  = "CGATTTGGTGT"; // ->de  revcmp(ACACCAAATCG)
+#define NPATHS_DE 2
+const char *kmerDEpaths[NPATHS_DE] = {"CGATTTGGTGTCATTCGCACCCAGG", // revcmp(CCTGGGTGCGAATGACACCAAATCG)
+                                      "CGATTTGGTGTCATTCGCACCCAGT"};// revcmp(ACTGGGTGCGAATGACACCAAATCG)
+
+static void _check_node_paths(const char *kmer,
+                              const char **path_strs, size_t npaths,
+                              size_t colour, const dBGraph *graph)
 {
-  test_status("Testing adding paths in generate_paths.c");
+  TASSERT(strlen(kmer) == graph->kmer_size);
+
+  const GPath *paths[npaths]; // corresponding to path_strs
+  memset(paths, 0, sizeof(paths));
+  size_t i, num_paths_seen = 0;
+
+  const GPathStore *gpstore = &graph->gpstore;
+  dBNode node = db_graph_find_str(graph, kmer);
+
+
+  const GPath *path = gpath_store_fetch_traverse(gpstore, node.key);
+  dBNodeBuffer nbuf;
+  db_node_buf_alloc(&nbuf, 64);
+
+  #define MAX_SEQ 128
+  char seq[MAX_SEQ];
+
+  for(; path != NULL; path = path->next)
+  {
+    if(path->orient == node.orient &&
+       gpath_has_colour(path, gpstore->gpset.ncols, colour))
+    {
+      TASSERT(num_paths_seen < npaths);
+      db_node_buf_reset(&nbuf);
+      gpath_fetch(node, path, &nbuf, colour, graph);
+      if(nbuf.len > MAX_SEQ) die("Too many nodes. Cannot continue. %zu", nbuf.len);
+      db_nodes_to_str(nbuf.data, nbuf.len, graph, seq);
+      TASSERT(strlen(seq) == graph->kmer_size + nbuf.len - 1);
+      for(i = 0; i < npaths; i++) {
+        if(strcmp(path_strs[i],seq) == 0) {
+          TASSERT(paths[i] == NULL, "Duplicate paths: %s", seq);
+          paths[i] = path;
+          break;
+        }
+      }
+      TASSERT2(i < npaths, "Path not found: %s", seq);
+      num_paths_seen++;
+    }
+  }
+
+  TASSERT(num_paths_seen == npaths);
+
+  for(i = 0; i < npaths; i++) {
+    TASSERT2(paths[i] != NULL, "path not in graph: %s", path_strs[i]);
+  }
+
+  db_node_buf_dealloc(&nbuf);
+}
+
+static void _test_add_paths()
+{
+  test_status("Testing adding paths in generate_paths.c and gpath_fetch()");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
@@ -25,17 +139,6 @@ void test_paths()
   // Create path hash table for fast lookup
   gpath_hash_alloc(&graph.gphash, &graph.gpstore, ONE_MEGABYTE);
 
-  // junctions:  >     >           <     <     <
-  char seq0[] = "CCTGGGTGCGAATGACACCAAATCGAATGAC"; // a->d
-  char seq1[] = "ACTGGGTGCGAATGACACCAAATCGAATGAT"; // b->e
-  char seq2[] = "GACTATAGCGAATGACACCAAATCAGGGAGA"; // c->f
-  char seq3[] = "GACTATAGCGAATGACACTTCTACCTGTCTC"; // c->g
-
-  // a--+--+--+--+--+--d
-  // b-/  /    \  \  \_e
-  // c___/      \  \___f
-  //             \_____g
-
   build_graph_from_str_mt(&graph, 0, seq0, strlen(seq0));
   build_graph_from_str_mt(&graph, 0, seq1, strlen(seq1));
   build_graph_from_str_mt(&graph, 0, seq2, strlen(seq2));
@@ -48,160 +151,30 @@ void test_paths()
                             .max_context = 10,
                             .gap_variance = 0.1, .gap_wiggle = 5};
 
-  AsyncIOInput io = {.file1 = NULL, .file2 = NULL,
-                         .fq_offset = 0, .interleaved = false};
-
-  // Load paths
-  CorrectAlnInput task = {.files = io, .fq_cutoff = 0, .hp_cutoff = 0,
-                         .matedir = READPAIR_FR, .crt_params = params,
-                         .out_base = NULL, .output = NULL};
-
-  AsyncIOData iodata;
-  asynciodata_alloc(&iodata);
-
-  size_t nworkers = 1;
-  GenPathWorker *wrkrs = gen_paths_workers_alloc(nworkers, &graph);
-
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq0, 5, 5); // path lens: 3+3+2+2+2
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq1, 5, 2); // path lens: 3+3+2+2+2
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq2, 3, 2); // path lens: 1+1+1
-  _test_add_paths(&graph, &iodata, &task, wrkrs, seq3, 2, 1); // path lens: 1+1
-
-  // DEV: Actually test path content, colours set etc
-  // seq0 fw
-  // CCTGGGTGCGA:0 len:3 col:0  CGC
-  // TGCGAATGACA:0 len:3 col:0  CGC
-  // seq0 rv
-  // AATCGAATGAC:1 len:2 col:0  AG
-  // ACACCAAATCG:1 len:2 col:0  AG
-  // CGAATGACACC:1 len:2 col:0  AG
+  all_tests_add_paths(&graph, seq0, params, 5, 5); // path lens: 3+3+2+2+2
+  all_tests_add_paths(&graph, seq1, params, 5, 2); // path lens: 3+3+2+2+2
+  all_tests_add_paths(&graph, seq2, params, 3, 2); // path lens: 1+1+1
+  all_tests_add_paths(&graph, seq3, params, 2, 1); // path lens: 1+1
 
   // Test path store
   gpath_checks_all_paths(&graph, 1); // use one thread
 
-  gen_paths_workers_dealloc(wrkrs, nworkers);
+  // Test path content
+  _check_node_paths(kmerA,  kmerApaths,  NPATHS_A,  0, &graph);
+  _check_node_paths(kmerB,  kmerBpaths,  NPATHS_B,  0, &graph);
+  _check_node_paths(kmerAB, kmerABpaths, NPATHS_AB, 0, &graph);
+  _check_node_paths(kmerC,  kmerCpaths,  NPATHS_C,  0, &graph);
+  _check_node_paths(kmerG,  kmerGpaths,  NPATHS_G,  0, &graph);
+  _check_node_paths(kmerF,  kmerFpaths,  NPATHS_F,  0, &graph);
+  _check_node_paths(kmerE,  kmerEpaths,  NPATHS_E,  0, &graph);
+  _check_node_paths(kmerD,  kmerDpaths,  NPATHS_D,  0, &graph);
+  _check_node_paths(kmerDEF,kmerDEFpaths,NPATHS_DEF,0, &graph);
+  _check_node_paths(kmerDE, kmerDEpaths, NPATHS_DE, 0, &graph);
 
-  asynciodata_dealloc(&iodata);
   db_graph_dealloc(&graph);
 }
 
-/*
-typedef struct {
-  size_t npaths, npath_cap, nbases, nbases_cap, *order;
-  PathLen *len_orients;
-  Nucleotide *bases;
-} PathList;
-
-static inline void path_list_alloc(PathList *plist)
+void test_paths()
 {
-  plist->npaths = plist->nbases = 0;
-  plist->npath_cap = 512;
-  plist->nbases_cap = 1024;
-  plist->len_orients = ctx_malloc(plist->npath_cap * sizeof(*plist->len_orients));
-  plist->order = ctx_malloc(plist->npath_cap * sizeof(*plist->order));
-  plist->bases = ctx_malloc(plist->nbases_cap * sizeof(*plist->bases));
+  _test_add_paths();
 }
-
-static inline void path_list_init(PathList *plist) {
-  plist->npaths = plist->nbases = 0;
-}
-
-static inline void path_list_dealloc(PathList *plist) {
-  ctx_free(plist->order); ctx_free(plist->len_orients); ctx_free(plist->bases);
-}
-
-static inline void add_path(PathList *plist,
-                            const PathStore *pstore, PathIndex pi)
-{
-  PathLen len, merged; Orientation orient;
-  merged = packedpath_get_len_orient(pstore->store + pi, pstore->colset_bytes,
-                                     &len, &orient);
-
-  if(plist->nbases + len > plist->nbases_cap) {
-    plist->nbases_cap = roundup2pow(plist->nbases + len);
-    plist->bases = ctx_realloc(plist->bases, plist->nbases_cap*sizeof(*plist->bases));
-    plist->order = ctx_realloc(plist->order, plist->nbases_cap*sizeof(*plist->order));
-  }
-  if(plist->npaths + 1 > plist->npath_cap) {
-    plist->npath_cap *= 2;
-    plist->len_orients = ctx_realloc(plist->len_orients, plist->npath_cap);
-  }
-
-  plist->len_orients[plist->npaths++] = merged;
-  // path_store_fetch_bases(pstore, pi, plist->bases+plist->nbases, len);
-  plist->nbases += len;
-}
-
-static inline int plist_cmp(const void *a, const void *b, void *arg)
-{
-  size_t x = *(const size_t*)a, y = *(const size_t*)b;
-  PathList *plist = (PathList*)arg;
-  ptrdiff_t cmp = plist->len_orients[y] - plist->len_orients[x];
-  if(cmp != 0) return cmp;
-  // DEV:
-  // return memcmp(plist->bases+);
-  return 0;
-}
-
-static inline void compare_kmer_paths(hkey_t node,
-                                      const dBGraph *dbg1, const dBGraph *dbg2,
-                                      PathList *plist1,
-                                      PathList *plist2)
-{
-  TASSERT(binary_kmers_are_equal(dbg1->ht.table[node], dbg2->ht.table[node]));
-
-  // Fecth path list, sort, and compare paths
-  if((db_node_paths(dbg1, node) == PATH_NULL) !=
-     (db_node_paths(dbg2, node) == PATH_NULL))
-  {
-    char bstr[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(db_node_get_bkmer(dbg1, node), dbg1->kmer_size, bstr);
-    die("Kmer has path in only one graph [%zu vs %zu]: %s",
-        (size_t)db_node_paths(dbg1, node), (size_t)db_node_paths(dbg2, node), bstr);
-  }
-
-  path_list_init(plist1);
-  path_list_init(plist2);
-
-  PathIndex pi = db_node_paths(dbg1, node);
-  while(pi != PATH_NULL) {
-    add_path(plist1, &dbg1->pstore, pi);
-    pi = packedpath_get_prev(dbg1->pstore.store+pi);
-  }
-  pi = db_node_paths(dbg2, node);
-  while(pi != PATH_NULL) {
-    add_path(plist2, &dbg2->pstore, pi);
-    pi = packedpath_get_prev(dbg2->pstore.store+pi);
-  }
-
-  if(plist1->npaths != plist2->npaths) die("Mismatch in lengths");
-
-  // Sort plist1, plist2
-  size_t i;
-  for(i = 0; i < plist1->npaths; i++) plist1->order[i] = plist2->order[i] = i;
-  // sort_r(plist1->order, plist1->npaths, sizeof(*plist1->order), plist_cmp);
-
-  // Compare
-  // reset plist1, plist2
-}
-
-//
-void test_path_stores_match(const dBGraph *dbg1, const dBGraph *dbg2)
-{
-  // Test not valid unless graphs were built in the same way
-  TASSERT(dbg1->ht.capacity == dbg2->ht.capacity);
-  TASSERT(dbg1->ht.num_of_buckets == dbg2->ht.num_of_buckets);
-  TASSERT(dbg1->ht.bucket_size == dbg2->ht.bucket_size);
-  TASSERT(dbg1->kmer_size == dbg2->kmer_size);
-
-  PathList plist1, plist2;
-
-  path_list_alloc(&plist1);
-  path_list_alloc(&plist2);
-
-  HASH_ITERATE(&dbg1->ht, compare_kmer_paths, dbg1, dbg2, &plist1, &plist2);
-
-  path_list_dealloc(&plist1);
-  path_list_dealloc(&plist2);
-}
-*/

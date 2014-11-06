@@ -14,7 +14,7 @@ typedef uint64_t pkey_t;
 typedef struct
 {
   uint8_t *seq;
-  uint8_t *colset, *nseen; // if not null, colset of size ncol bits, nseen ncol bytes
+  uint8_t *colset, *nseen; // if not null, colset: ncol bits; nseen: ncol bytes
   uint32_t klen;
   uint16_t num_juncs;
   Orientation orient;
@@ -29,12 +29,6 @@ typedef struct
   Uint32Buffer klen_buf; // kmer length of buffer
   bool can_resize;
 } GPathSet;
-
-// Proposal:
-// paths, seqs point to same memory, paths builds forwards, seqs backwards
-// GPath *paths;
-// uint8_t *seqs;
-// uint8_t *path_has_col; // packed bitstring
 
 
 static inline pkey_t gpset_get_pkey(const GPathSet *gpset, const GPath *gpath)

@@ -41,6 +41,11 @@ CtxCmd cmdobjs[] = {
   .usage = view_usage
 },
 {
+  .cmd = "pview", .func = ctx_pview, .hide = false,
+  .blurb = "text view of a cortex path file (.ctp)",
+  .usage = pview_usage
+},
+{
   .cmd = "check", .func = ctx_health_check, .hide = false,
   .blurb = "load and check graph (.ctx) and path (.ctp) files",
   .usage = health_usage

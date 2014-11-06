@@ -8,8 +8,7 @@
 
 static Covg kmer_get_covg(const char *kmer, const dBGraph *db_graph)
 {
-  BinaryKmer bkmer = binary_kmer_from_str(kmer, db_graph->kmer_size);
-  dBNode node = db_graph_find(db_graph, bkmer);
+  dBNode node = db_graph_find_str(db_graph, kmer);
   return db_node_get_covg(db_graph, node.key, 0);
 }
 

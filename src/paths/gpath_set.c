@@ -109,7 +109,7 @@ void gpath_set_print_stats(const GPathSet *gpset)
 uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath)
 {
   pkey_t pkey = gpset_get_pkey(gpset, gpath);
-  return gpset->klen_buf.data[pkey];
+  return gpath_set_has_nseen(gpset) ? gpset->klen_buf.data[pkey] : 0;
 }
 
 uint8_t* gpath_set_get_nseen(const GPathSet *gpset, const GPath *gpath)

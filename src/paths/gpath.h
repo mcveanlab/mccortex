@@ -14,9 +14,7 @@ struct GPathStruct
   uint8_t *seq;
   uint16_t num_juncs:15, orient:1;
   GPath *next;
-  // uint64_t seq_offset:40, next_offset:40;
-}
-__attribute__((packed));
+} __attribute__((packed));
 
 #define gpath_get_colset(gp,ncols) ((gp)->seq - (((ncols)+7)/8))
 #define gpath_has_colour(gp,ncols,col) bitset_get(gpath_get_colset(gp,ncols),col)

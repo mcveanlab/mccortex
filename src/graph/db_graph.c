@@ -194,6 +194,18 @@ bool db_graph_check_edges(const dBGraph *db_graph, dBNode src, dBNode tgt)
   return missing_edges;
 }
 
+// Returns true on missing edges, false otherwise
+bool db_graph_check_all_edges(const dBGraph *db_graph,
+                              const dBNode *nodes, size_t num_nodes)
+{
+  size_t i;
+  for(i = 0; i+1 < num_nodes; i++)
+    if(db_graph_check_edges(db_graph, nodes[i], nodes[i+1]))
+      return true;
+
+  return false;
+}
+
 //
 // Graph Traversal
 //

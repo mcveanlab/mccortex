@@ -469,7 +469,7 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
                         .fq_offset1 = 0, .fq_offset2 = 2};
 
   AsyncIOInput iotask = {.file1 = NULL, .file2 = NULL,
-                             .fq_offset = 0, .interleaved = false};
+                         .fq_offset = 0, .interleaved = false};
 
   CorrectAlnInput task = CORRECT_ALN_INPUT_INIT;
   task.matedir = READPAIR_FF;

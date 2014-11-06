@@ -155,21 +155,20 @@ int ctx_health_check(int argc, char **argv)
     gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.data[i]);
   }
-  gpfile_buf_dealloc(&gpfiles);
-
-  graph_file_close(&gfile);
 
   if(do_edge_check)
     db_graph_healthcheck(&db_graph);
 
   if(gpfiles.len) {
-    status("  Tracing reads through the graph...");
+    status("Tracing reads through the graph...");
     gpath_checks_all_paths(&db_graph, nthreads);
   }
 
-  status("All looks good!");
-
+  graph_file_close(&gfile);
+  gpfile_buf_dealloc(&gpfiles);
   db_graph_dealloc(&db_graph);
+
+  status("All looks good!");
 
   return EXIT_SUCCESS;
 }
