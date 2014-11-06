@@ -17,6 +17,46 @@ void assemble_contigs_stats_destroy(AssembleContigStats *stats)
   memset(stats, 0, sizeof(*stats));
 }
 
+void assemble_contigs_stats_add(AssembleContigStats *stats,
+                                const struct ContigStats *s)
+{
+  size_t i;
+
+  // Update statistics
+  for(i = 0; i < 2; i++) {
+    stats->paths_held[MIN2(s->paths_held[i], AC_MAX_PATHS-1)]++;
+    stats->paths_cntr[MIN2(s->paths_cntr[i], AC_MAX_PATHS-1)]++;
+    stats->paths_held_max = MAX2(stats->paths_held_max, s->paths_held[i]);
+    stats->paths_cntr_max = MAX2(stats->paths_cntr_max, s->paths_cntr[i]);
+  }
+
+  for(i = 0; i < GRPHWLK_NUM_STATES; i++)
+    stats->grphwlk_steps[i] += s->wlk_steps[i];
+
+  // Out degree
+  stats->contigs_outdegree[s->outdegree_fw]++;
+  stats->contigs_outdegree[s->outdegree_rv]++;
+
+  size_buf_add(&stats->lengths, s->num_nodes);
+  size_buf_add(&stats->junctns, s->njunc);
+
+  stats->num_cycles += s->ncycles;
+  stats->total_len  += s->num_nodes;
+  stats->total_junc += s->njunc;
+
+  stats->num_contigs_from_seed_paths += s->seed_path;
+  stats->num_contigs_from_seed_kmers += s->seed_kmer;
+
+  if(stats->num_contigs == 0) {
+    stats->max_junc_density = (double)s->njunc / s->num_nodes;
+  } else {
+    stats->max_junc_density = MAX2(stats->max_junc_density,
+                                   (double)s->njunc / s->num_nodes);
+  }
+
+  stats->num_contigs++;
+}
+
 void assemble_contigs_stats_merge(AssembleContigStats *dst,
                                   const AssembleContigStats *src)
 {
@@ -50,6 +90,9 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
     dst->grphwlk_steps[i] += src->grphwlk_steps[i];
 
   dst->max_junc_density = MAX2(dst->max_junc_density, src->max_junc_density);
+
+  dst->num_contigs_from_seed_kmers += src->num_contigs_from_seed_kmers;
+  dst->num_contigs_from_seed_paths += src->num_contigs_from_seed_paths;
 
   dst->num_reseed_abort += src->num_reseed_abort;
   dst->num_seeds_not_found += src->num_seeds_not_found;
@@ -132,10 +175,14 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
 
   // Print number of contigs
   char num_contigs_str[50], reseed_str[50], seed_not_fnd_str[50];
+  char seed_kmers_str[50], seed_paths_str[50];
   long_to_str(ncontigs, num_contigs_str);
   long_to_str(s->num_reseed_abort, reseed_str);
   long_to_str(s->num_seeds_not_found, seed_not_fnd_str);
-  status(PREFIX"pulled out %s contigs", num_contigs_str);
+  long_to_str(s->num_contigs_from_seed_kmers, seed_kmers_str);
+  long_to_str(s->num_contigs_from_seed_paths, seed_paths_str);
+  status(PREFIX"pulled out %s contigs, %s from seed kmers, %s from seed paths",
+         num_contigs_str, seed_kmers_str, seed_paths_str);
   status(PREFIX"no-reseed aborted %s times", reseed_str);
   status(PREFIX"seed kmer not found %s times", seed_not_fnd_str);
 

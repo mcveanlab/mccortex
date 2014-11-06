@@ -222,7 +222,9 @@ size_t gpath_fetch(dBNode node, const GPath *gpath, dBNodeBuffer *nbuf,
     db_node_buf_add(nbuf, node);
   }
 
-  return nbuf->len - init_num_nodes;
+  size_t num_added = nbuf->len - init_num_nodes;
+
+  return num_added;
 }
 
 //

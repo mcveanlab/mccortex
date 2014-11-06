@@ -379,18 +379,13 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
     graph_walker_print_state(wlk, stderr);
   #endif
 
-  if(num_next == 0) {
-    if(wlk->paths.len > 0) {
-      graph_walker_print_state(wlk, stderr);
-      die("Shouldn't be able to reach here");
-    }
+  const dBGraph *db_graph = wlk->db_graph;
 
+  if(num_next == 0) {
     ctx_assert(wlk->paths.len == 0);
     ctx_assert(wlk->cntr_paths.len == 0);
     _gw_choose_return(-1, GRPHWLK_NOCOVG, 0);
   }
-
-  const dBGraph *db_graph = wlk->db_graph;
 
   if(num_next == 1) {
     bool incol = (db_graph->node_in_cols == NULL ||
@@ -401,13 +396,16 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   int8_t indices[4] = {0,1,2,3};
   dBNode nodes_store[4];
   Nucleotide bases_store[4];
-  const dBNode *nodes = nodes_store;
-  const Nucleotide* bases = bases_store;
+  const dBNode *nodes = next_nodes;
+  const Nucleotide* bases = next_bases;
   size_t i, j;
 
   // Reduce next nodes that are in this colour
   if(db_graph->node_in_cols != NULL)
   {
+    nodes = nodes_store;
+    bases = bases_store;
+
     for(i = 0, j = 0; i < num_next; i++)
     {
       if(db_node_has_col(db_graph, next_nodes[i].key, wlk->ctxcol)) {
@@ -427,10 +425,6 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
 
     if(num_next == 1) _gw_choose_return(indices[0], GRPHWLK_POPFRK_COLFWD, 0);
     if(num_next == 0) _gw_choose_return(-1,         GRPHWLK_NOCOLCOVG,     0);
-  }
-  else {
-    nodes = next_nodes;
-    bases = next_bases;
   }
 
   // We have hit a fork
@@ -758,13 +752,13 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
   Edges edges;
   dBNode nodes[3];
 
-  edges = db_node_get_edges(wlk->db_graph, wlk->node.key, 0);
+  edges = db_node_both_edges_in_col(wlk->node.key, wlk->ctxcol, wlk->db_graph);
   outfork[0] = edges_get_outdegree(edges, wlk->node.orient) > 1;
 
   nodes[0] = wlk->node;
   nodes[1] = forward ? arr[0] : db_node_reverse(arr[n-1]);
 
-  edges = db_node_get_edges(wlk->db_graph, nodes[1].key, 0);
+  edges = db_node_both_edges_in_col(nodes[1].key, wlk->ctxcol, wlk->db_graph);
   outfork[1] = edges_get_outdegree(edges, nodes[1].orient) > 1;
   infork[1] = edges_get_indegree(edges, nodes[1].orient) > 1;
 
@@ -775,7 +769,7 @@ void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
 
     nodes[2] = forward ? arr[i+1] : db_node_reverse(arr[n-i-2]);
 
-    edges = db_node_get_edges(wlk->db_graph, nodes[2].key, 0);
+    edges = db_node_both_edges_in_col(nodes[2].key, wlk->ctxcol, wlk->db_graph);
     outfork[2] = edges_get_outdegree(edges, nodes[2].orient) > 1;
     infork[2] = edges_get_indegree(edges, nodes[2].orient) > 1;
 
@@ -813,7 +807,7 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
   const dBGraph *db_graph = wlk->db_graph;
 
   for(i = 0; i < n; i++) {
-    edges = db_node_get_edges(db_graph, wlk->node.key, 0);
+    edges = db_node_edges_in_col(wlk->node, wlk->ctxcol, db_graph);
     is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
     nuc = db_node_get_last_nuc(next, db_graph);

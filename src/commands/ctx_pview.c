@@ -177,8 +177,6 @@ int ctx_pview(int argc, char **argv)
   // Paths
   gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, true, &db_graph);
 
-  ctx_assert(db_graph.num_of_cols > db_graph.num_edge_cols && db_graph.node_in_cols);
-
   //
   // Load graphs
   //

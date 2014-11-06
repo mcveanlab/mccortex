@@ -38,15 +38,6 @@ typedef struct
   pthread_mutex_t *outlock;
 } Assembler;
 
-struct ContigStats {
-  size_t njunc, ncycles;
-  size_t wlk_steps[GRPHWLK_NUM_STATES];
-  size_t paths_held[2], paths_cntr[2];
-  uint8_t wlk_step_last[2];
-  size_t max_step_gap[2];
-  double gap_conf[2];
-};
-
 static void contig_stats_init(struct ContigStats *stats)
 {
   memset(stats, 0, sizeof(struct ContigStats));
@@ -66,44 +57,36 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
   ctx_assert(assem->colour == wlk->ctxcol);
   ctx_assert(assem->colour == wlk->ctpcol);
 
-  GraphStep step;
-  size_t i;
+  struct ContigStats s;
+  contig_stats_init(&s);
 
   db_node_buf_reset(nbuf);
 
   if(gpath) {
     // Add gpath to nodes buffer
     dBNode first_node = {.key = hkey, .orient = gpath->orient};
-    gpath_fetch(first_node, gpath, nbuf, assem->colour, db_graph);
+    size_t n = gpath_fetch(first_node, gpath, nbuf, assem->colour, db_graph);
+    ctx_assert(n == nbuf->len);
+    s.seed_path = true;
   } else {
     dBNode first_node = {.key = hkey, .orient = FORWARD};
     db_node_buf_add(nbuf, first_node);
+    s.seed_kmer = true;
   }
 
-  size_t init_len = nbuf->len;
+  GraphStep step;
+  size_t dir, init_len = nbuf->len;
 
-  struct ContigStats s;
-  contig_stats_init(&s);
-
-  for(i = 0; i < 2; i++)
+  for(dir = 0; dir < 2; dir++)
   {
-    if(gpath) {
-      printf(" Assembling %zu %zu\n", i, (size_t)gpath->orient);
-    }
-
     ctx_assert(nbuf->len >= init_len);
     ctx_assert(!db_graph_check_all_edges(db_graph, nbuf->data, nbuf->len));
 
-    if(i == 1)
+    if(dir == 1)
       db_nodes_reverse_complement(nbuf->data, nbuf->len);
 
-    // printf("prime %zu -> %zu\n", nbuf->len-init_len, nbuf->len);
     graph_walker_prime(wlk, nbuf->data+nbuf->len-init_len, init_len,
                        init_len, true);
-
-    // graph_walker_prime(wlk, nbuf->data, init_len, init_len, i==0);
-    // if(i == 1)
-    //   db_nodes_reverse_complement(nbuf->data, nbuf->len);
 
     size_t init_junc_count = wlk->fork_count;
     bool hit_cycle = false;
@@ -119,8 +102,8 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
       if(step.status == GRPHWLK_USEPATH) {
         ctx_assert(step.path_gap > 0);
         size_t read_length = step.path_gap + db_graph->kmer_size-1 + 2;
-        s.max_step_gap[i] = MAX2(s.max_step_gap[i], read_length);
-        s.gap_conf[i] *= conf_table_lookup(assem->conf_table, read_length);
+        s.max_step_gap[dir] = MAX2(s.max_step_gap[dir], read_length);
+        s.gap_conf[dir] *= conf_table_lookup(assem->conf_table, read_length);
       }
 
       if(!rpt_walker_attempt_traverse(rptwlk, wlk)) { hit_cycle = true; break; }
@@ -132,20 +115,27 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
     s.njunc += wlk->fork_count - init_junc_count;
 
     // Record numbers of paths
-    s.paths_held[i] = wlk->paths.len;
-    s.paths_cntr[i] = wlk->cntr_paths.len;
+    s.paths_held[dir] = wlk->paths.len;
+    s.paths_cntr[dir] = wlk->cntr_paths.len;
 
     // Get failed status
     step = wlk->last_step;
-    s.wlk_step_last[i] = step.status;
+    s.wlk_step_last[dir] = step.status;
     if(!hit_cycle) s.wlk_steps[step.status]++;
 
     graph_walker_finish(wlk);
     rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
   }
 
+  dBNode first = db_node_reverse(nbuf->data[0]), last = nbuf->data[nbuf->len-1];
+  s.outdegree_rv = db_node_outdegree_in_col(first, assem->colour, db_graph);
+  s.outdegree_fw = db_node_outdegree_in_col(last,  assem->colour, db_graph);
+
+  s.num_nodes = nbuf->len;
+
   // If --no-reseed set, mark visited nodes are visited
   // Don't use to seed another contig
+  size_t i;
   if(gpath == NULL && assem->visited != NULL) {
     for(i = 0; i < nbuf->len; i++)
       (void)bitset_set_mt(assem->visited, nbuf->data[i].key);
@@ -156,12 +146,12 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 
 // returns 0 on success, 1 otherwise
 static int _dump_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
-                        struct ContigStats s)
+                        const struct ContigStats *s)
 {
   AssembleContigStats *stats = &assem->stats;
   const dBGraph *db_graph = assem->db_graph;
   dBNodeBuffer *nbuf = &assem->nbuf;
-  size_t i, contig_id;
+  size_t contig_id;
 
   if(assem->fout != NULL)
   {
@@ -173,12 +163,12 @@ static int _dump_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 
     // We have reversed the contig, so left end is now the end we hit when
     // traversing from the seed node forward... FORWARD == 0, REVERSE == 1
-    graph_step_status2str(s.wlk_step_last[0], left_stat, sizeof(left_stat));
-    graph_step_status2str(s.wlk_step_last[1], rght_stat, sizeof(rght_stat));
+    graph_step_status2str(s->wlk_step_last[0], left_stat, sizeof(left_stat));
+    graph_step_status2str(s->wlk_step_last[1], rght_stat, sizeof(rght_stat));
 
     // If end status is healthy, then we got stuck in a repeat
-    if(grap_step_status_is_good(s.wlk_step_last[0])) strcpy(left_stat, "HitRepeat");
-    if(grap_step_status_is_good(s.wlk_step_last[1])) strcpy(rght_stat, "HitRepeat");
+    if(grap_step_status_is_good(s->wlk_step_last[0])) strcpy(left_stat, "HitRepeat");
+    if(grap_step_status_is_good(s->wlk_step_last[1])) strcpy(rght_stat, "HitRepeat");
 
     pthread_mutex_lock(assem->outlock);
     contig_id = assem->num_contig_ptr[0]++;
@@ -193,8 +183,8 @@ static int _dump_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
               "rt.status=%s rt.paths.held=%zu rt.paths.cntr=%zu "
               "rf.max_gap=%zu rf.conf=%f\n",
               contig_id, nbuf->len, kmer_str, gpath ? "PATH " : "",
-              left_stat, s.paths_held[0], s.paths_cntr[0], s.max_step_gap[0], s.gap_conf[0],
-              rght_stat, s.paths_held[1], s.paths_cntr[1], s.max_step_gap[1], s.gap_conf[1]);
+              left_stat, s->paths_held[0], s->paths_cntr[0], s->max_step_gap[0], s->gap_conf[0],
+              rght_stat, s->paths_held[1], s->paths_cntr[1], s->max_step_gap[1], s->gap_conf[1]);
 
       db_nodes_print(nbuf->data, nbuf->len, db_graph, assem->fout);
       putc('\n', assem->fout);
@@ -213,41 +203,8 @@ static int _dump_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
     return 1; // => stop iterating
   }
 
-  // Update statistics
-  for(i = 0; i < 2; i++) {
-    stats->paths_held[MIN2(s.paths_held[i], AC_MAX_PATHS-1)]++;
-    stats->paths_cntr[MIN2(s.paths_cntr[i], AC_MAX_PATHS-1)]++;
-    stats->paths_held_max = MAX2(stats->paths_held_max, s.paths_held[i]);
-    stats->paths_cntr_max = MAX2(stats->paths_cntr_max, s.paths_cntr[i]);
-  }
+  assemble_contigs_stats_add(stats, s);
 
-  for(i = 0; i < GRPHWLK_NUM_STATES; i++)
-    stats->grphwlk_steps[i] += s.wlk_steps[i];
-
-  // Out degree
-  dBNode first = db_node_reverse(nbuf->data[0]), last = nbuf->data[nbuf->len-1];
-
-  int outdegree_fw, outdegree_rv;
-  outdegree_fw = edges_get_outdegree(db_graph->col_edges[first.key], first.orient);
-  outdegree_rv = edges_get_outdegree(db_graph->col_edges[last.key], last.orient);
-  stats->contigs_outdegree[outdegree_fw]++;
-  stats->contigs_outdegree[outdegree_rv]++;
-
-  size_buf_add(&stats->lengths, nbuf->len);
-  size_buf_add(&stats->junctns, s.njunc);
-
-  stats->num_cycles += s.ncycles;
-  stats->total_len  += nbuf->len;
-  stats->total_junc += s.njunc;
-
-  if(stats->num_contigs == 0) {
-    stats->max_junc_density = (double)s.njunc / nbuf->len;
-  } else {
-    stats->max_junc_density = MAX2(stats->max_junc_density,
-                                   (double)s.njunc / nbuf->len);
-  }
-
-  stats->num_contigs++;
   return 0; // => keep iterating
 }
 
@@ -267,7 +224,7 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
 
   _assemble_contig(assem, hkey, NULL, &s);
 
-  return _dump_contig(assem, hkey, NULL, s);
+  return _dump_contig(assem, hkey, NULL, &s);
 }
 
 static inline void _seed_rnd_kmers(void *arg)
@@ -324,17 +281,10 @@ static int _assemble_from_paths(hkey_t hkey, Assembler *assem)
   {
     pathid = gpset_get_pkey(&gpstore->gpset, gpath);
 
-    if(!gpath_has_colour(gpath, ncols, colour)) {
-      printf("Path doesn't have colour\n");
-    }
-    else if(bitset_get(used_paths, pathid)) {
-      printf("Path used\n");
-    }
-    else
+    if(gpath_has_colour(gpath, ncols, colour) && !bitset_get(used_paths, pathid))
     {
       GPathNew gpath_cpy = gpath_set_get(&gpstore->gpset, gpath);
       gpath_set_add_mt(gpset, gpath_cpy);
-      printf("  Fresh Path!\n");
     }
   }
 
@@ -347,7 +297,7 @@ static int _assemble_from_paths(hkey_t hkey, Assembler *assem)
   for(i = 0; i < gpsubset->list.len; i++)
   {
     _assemble_contig(assem, hkey, list[i], &s);
-    _dump_contig(assem, hkey, list[i], s);
+    _dump_contig(assem, hkey, list[i], &s);
   }
 
   return 0; // 0 => keep iterating
@@ -358,8 +308,9 @@ static void assemble_from_paths(void *arg)
   Assembler *assem = (Assembler*)arg;
   const dBGraph *db_graph = assem->db_graph;
 
+  const bool resize = true, keep_path_counts = false;
   gpath_set_alloc(&assem->gpset, db_graph->gpstore.gpset.ncols,
-                  ONE_MEGABYTE, true, false);
+                  ONE_MEGABYTE, resize, keep_path_counts);
 
   gpath_subset_alloc(&assem->gpsubset);
 
@@ -464,11 +415,10 @@ void assemble_contigs(size_t nthreads,
     util_run_threads(workers, nthreads, sizeof(workers[0]),
                      nthreads, _seed_rnd_kmers);
 
-    /*
     if(seed_with_unused_paths && npaths > 0)
     {
       // Check if there are unused paths
-      size_t top_bits = npaths - (npaths / sizeof(size_t)) * sizeof(size_t);
+      size_t top_bits = npaths - (npaths / (sizeof(size_t)*8)) * (sizeof(size_t)*8);
       for(i = 0; i+1 < npathwords && used_paths[i] != SIZE_MAX; i++) {}
 
       if(i+1 < npathwords || used_paths[npathwords-1] < bitmask64(top_bits)) {
@@ -479,7 +429,6 @@ void assemble_contigs(size_t nthreads,
         status("[Assemble] No unused paths to seed with");
       }
     }
-    */
   }
 
   for(i = 0; i < nthreads; i++) {

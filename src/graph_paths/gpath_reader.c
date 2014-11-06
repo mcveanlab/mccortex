@@ -211,7 +211,7 @@ static void _gpath_reader_load_kmer_line(const char *path,
       break;
     case GPATH_DIE_MISSING_KMERS:
       hkey = hash_table_find(&db_graph->ht, bkey);
-      load_check(hkey != HASH_NOT_FOUND, "BKmer not already loaded: %s", path);
+      load_check(hkey != HASH_NOT_FOUND, "BKmer not already loaded: %s [%s]", line->b, path);
       break;
     case GPATH_SKIP_MISSING_KMERS:
       hkey = hash_table_find(&db_graph->ht, bkey);

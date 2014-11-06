@@ -106,13 +106,13 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
   ((or) == FORWARD ? binary_kmer_last_nuc(bkmer) \
                    : dna_nuc_complement(binary_kmer_first_nuc(bkmer,ksize)))
 
-#define bkmer_shift_add_first_nuc(bkmer,or,ksize,nuc) \
-  ((or) == FORWARD ? binary_kmer_right_shift_add(bkmer,ksize,nuc) \
-                   : binary_kmer_left_shift_add(bkmer,ksize,binary_kmer_first_nuc(nuc)))
+#define bkmer_shift_add_first_nuc(bkey,or,ksize,nuc) \
+  ((or) == FORWARD ? binary_kmer_right_shift_add(bkey,ksize,nuc) \
+                   : binary_kmer_left_shift_add(bkey,ksize,dna_nuc_complement(nuc)))
 
-#define bkmer_shift_add_last_nuc(bkmer,or,ksize,nuc) \
-  ((or) == FORWARD ? binary_kmer_left_shift_add(bkmer,ksize, nuc) \
-                   : binary_kmer_right_shift_add(bkmer,ksize,dna_nuc_complement(nuc)))
+#define bkmer_shift_add_last_nuc(bkey,or,ksize,nuc) \
+  ((or) == FORWARD ? binary_kmer_left_shift_add(bkey,ksize, nuc) \
+                   : binary_kmer_right_shift_add(bkey,ksize,dna_nuc_complement(nuc)))
 
 //
 // Orientations
@@ -196,6 +196,9 @@ static inline Edges db_node_get_edges_union(const dBGraph *graph, hkey_t hkey) {
 // Edges restricted to this colour, only in one direction (node.orient)
 Edges db_node_edges_in_col(dBNode node, size_t col, const dBGraph *db_graph);
 
+// Edges in both directions
+Edges db_node_both_edges_in_col(hkey_t hkey, size_t col, const dBGraph *db_graph);
+
 // Outdegree of edges restricted to a given colour
 #define db_node_outdegree_in_col(node,col,graph) \
         edges_get_outdegree(db_node_edges_in_col(node,col,graph), (node).orient)
@@ -252,23 +255,8 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 // dBNodeBuffer
 //
 
-// The following is defined by the create_objbuf MACRO
-// typedef struct {
-//   dBNode *data;
-//   size_t len, capacity;
-// } dBNodeBuffer;
-
-// void db_node_buf_alloc(dBNodeBuffer *buf, size_t capacity);
-// void db_node_buf_dealloc(dBNodeBuffer *buf);
-// void db_node_buf_capacity(dBNodeBuffer *buf, size_t capacity);
-// void db_node_buf_add(dBNodeBuffer *buf, dBNode node);
-
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(db_node_buf,dBNodeBuffer,dBNode);
-
-#define db_node_buf_safe_add(buf,node,or) do {\
-  dBNode n = {.key=node,.orient=or}; db_node_buf_add(buf,n); \
-} while(0)
 
 //
 // dBNode reversal and shifting
@@ -329,6 +317,6 @@ void db_nodes_print_edges(const dBNode *nodes, size_t num,
 // Check an array of nodes denote a contigous path
 // Prints warning and returns false on failure
 bool db_node_check_nodes(const dBNode *nodes, size_t num,
-                            const dBGraph *db_graph);
+                         const dBGraph *db_graph);
 
 #endif /* DB_NODE_H_ */

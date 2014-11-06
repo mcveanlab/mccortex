@@ -215,14 +215,8 @@ dBNode db_graph_next_node(const dBGraph *db_graph,
                           Orientation orient)
 {
   size_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer;
-
-  if(orient == FORWARD)
-    bkmer = binary_kmer_left_shift_add(node_bkey, kmer_size, next_nuc);
-  else {
-    next_nuc = dna_nuc_complement(next_nuc);
-    bkmer = binary_kmer_right_shift_add(node_bkey, kmer_size, next_nuc);
-  }
+  BinaryKmer bkmer = bkmer_shift_add_last_nuc(node_bkey, orient,
+                                              kmer_size, next_nuc);
 
   dBNode next_node = db_graph_find(db_graph, bkmer);
   next_node.orient ^= orient;

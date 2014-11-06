@@ -13,7 +13,7 @@ int main(int argc, char **argv)
   cortex_init();
   cmd_init(argc, argv);
 
-  if(argc != 3) die("usage: ./debug <in.ctp> <out.ctp>");
+  if(argc != 3) die("usage: ./debug <in.ctp> <in.ctx>");
 
   const char *out_path = argv[2];
 

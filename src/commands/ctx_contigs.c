@@ -246,7 +246,8 @@ int ctx_contigs(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, false, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem,
+                             false, &db_graph);
 
   uint8_t *visited = NULL;
 
