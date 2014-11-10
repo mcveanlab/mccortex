@@ -12,7 +12,7 @@
 // <KMER> <num> .. (ignored)
 // [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
 
-static void _gpath_save_contig_hist2json(cJSON *json_paths,
+static void _gpath_save_contig_hist2json(cJSON *json_hists,
                                          const size_t *arr_counts,
                                          size_t arr_len)
 {
@@ -27,8 +27,11 @@ static void _gpath_save_contig_hist2json(cJSON *json_paths,
     }
   }
 
-  cJSON_AddItemToObject(json_paths, "contig_lengths", lens);
-  cJSON_AddItemToObject(json_paths, "contig_counts", cnts);
+  cJSON *hist = cJSON_CreateObject();
+  cJSON_AddItemToObject(hist, "lengths", lens);
+  cJSON_AddItemToObject(hist, "counts",  cnts);
+
+  cJSON_AddItemToArray(json_hists, hist);
 }
 
 /**
@@ -37,7 +40,7 @@ static void _gpath_save_contig_hist2json(cJSON *json_paths,
  */
 static void _gpath_save_hdr(gzFile gzout, const char *path,
                             cJSON **hdrs, size_t nhdrs,
-                            const size_t *contig_hist, size_t hist_len,
+                            const ZeroSizeBuffer *contig_hists, size_t ncols,
                             const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
@@ -69,7 +72,12 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
 
   // Add size distribution
   // _gpath_save_contig_hist_merge(paths, hdrs, nhdrs, contig_hist, hist_len);
-  _gpath_save_contig_hist2json(paths, contig_hist, hist_len);
+  cJSON *json_hists = cJSON_CreateArray();
+  cJSON_AddItemToObject(paths, "contig_hists", json_hists);
+
+  size_t i;
+  for(i = 0; i < ncols; i++)
+    _gpath_save_contig_hist2json(json_hists, contig_hists[i].data, contig_hists[i].len);
 
   // Write header to file
   json_hdr_gzprint(json, gzout);
@@ -214,11 +222,12 @@ static void gpath_save_thread(void *arg)
 // @hdrs is array of JSON headers of input files
 void gpath_save(gzFile gzout, const char *path, size_t nthreads,
                 cJSON **hdrs, size_t nhdrs,
-                size_t *contig_len_hist, size_t hist_len,
+                const ZeroSizeBuffer *contig_hists, size_t ncols,
                 dBGraph *db_graph)
 {
   ctx_assert(nthreads > 0);
   ctx_assert(gpath_set_has_nseen(&db_graph->gpstore.gpset));
+  ctx_assert(ncols == db_graph->gpstore.gpset.ncols);
 
   char npaths_str[50];
   ulong_to_str(db_graph->gpstore.num_paths, npaths_str);
@@ -227,7 +236,7 @@ void gpath_save(gzFile gzout, const char *path, size_t nthreads,
   status("  using %zu threads", nthreads);
 
   // Write header
-  _gpath_save_hdr(gzout, path, hdrs, nhdrs, contig_len_hist, hist_len, db_graph);
+  _gpath_save_hdr(gzout, path, hdrs, nhdrs, contig_hists, ncols, db_graph);
 
   // Print comments about the format
   gzputs(gzout, "\n");

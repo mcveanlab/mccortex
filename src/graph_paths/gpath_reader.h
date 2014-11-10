@@ -57,7 +57,7 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx);
 void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph);
 
 void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
-                                   ZeroSizeBuffer *hist);
+                                   size_t fromcol, ZeroSizeBuffer *hist);
 
 //
 // Memory Calculations

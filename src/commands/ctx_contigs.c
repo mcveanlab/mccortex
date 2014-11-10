@@ -158,6 +158,10 @@ int ctx_contigs(int argc, char **argv)
   memset(&gfile, 0, sizeof(GraphFileReader));
   graph_file_open(&gfile, ctx_path);
 
+  // DEV: don't load all colours of path files
+  // Check each path file only loads one colour
+  // gpaths_only_for_colour(gpfiles.data, gpfiles.len, colour);
+
   // Update colours in graph file - sample in 0, all others in 1
   // never need more than two colours
   size_t ncols = gpath_load_sample_pop(&gfile, gpfiles.data, gpfiles.len, colour);
@@ -219,14 +223,14 @@ int ctx_contigs(int argc, char **argv)
   for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load_contig_hist(gpfiles.data[i].json,
                                   gpfiles.data[i].fltr.path.b,
+                                  file_filter_fromcol(&gpfiles.data[i].fltr, 0),
                                   &contig_hist);
   }
 
-  // Calculate confidences
+  // Calculate confidences, only for one colour
   ContigConfidenceTable conf_table;
-  memset(&conf_table, 0, sizeof(conf_table));
-
-  conf_table_update_hist(&conf_table, genome_size,
+  conf_table_alloc(&conf_table, 1);
+  conf_table_update_hist(&conf_table, 0, genome_size,
                          contig_hist.data, contig_hist.len);
 
   if(conf_table_path != NULL) {
@@ -288,7 +292,7 @@ int ctx_contigs(int argc, char **argv)
   assemble_contigs_stats_print(&assem_stats);
   assemble_contigs_stats_destroy(&assem_stats);
 
-  conf_table_destroy(&conf_table);
+  conf_table_dealloc(&conf_table);
 
   for(i = 0; i < seed_buf.len; i++)
     seq_close(seed_buf.data[i]);

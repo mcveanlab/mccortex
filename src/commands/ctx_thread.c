@@ -109,6 +109,9 @@ int ctx_thread(int argc, char **argv)
   CorrectAlnInputBuffer *inputs = &args.inputs;
   size_t i;
 
+  // Check each path file only loads one colour
+  gpaths_only_for_colour(gpfiles->data, gpfiles->len, 0);
+
   //
   // Decide on memory
   //
@@ -205,6 +208,7 @@ int ctx_thread(int argc, char **argv)
   for(i = 0; i < gpfiles->len; i++) {
     gpath_reader_load_contig_hist(gpfiles->data[i].json,
                                   gpfiles->data[i].fltr.path.b,
+                                  file_filter_fromcol(&gpfiles->data[i].fltr, 0),
                                   &aln_stats->contig_histgrm);
   }
 
@@ -252,7 +256,7 @@ int ctx_thread(int argc, char **argv)
   // Write output file
   gpath_save(gzout, args.out_ctp_path, output_threads,
              hdrs, gpfiles->len,
-             aln_stats->contig_histgrm.data, aln_stats->contig_histgrm.len,
+             &aln_stats->contig_histgrm, 1,
              &db_graph);
   gzclose(gzout);
 

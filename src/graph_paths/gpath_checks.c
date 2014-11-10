@@ -16,6 +16,26 @@ static int _col_sample_cmp(const void *aa, const void *bb)
   return strcmp(a->name, b->name);
 }
 
+/**
+ * Check we are only loading path files into the given colour. Calls die()
+ * with error message on failure.
+ */
+void gpaths_only_for_colour(const GPathReader *gpfiles, size_t num_gpfiles,
+                            size_t colour)
+{
+  size_t i;
+
+  // Check each path file only loads one colour
+  for(i = 0; i < num_gpfiles; i++) {
+    if(file_filter_num(&gpfiles[i].fltr) > 1 ||
+       file_filter_intocol(&gpfiles[i].fltr, 0) != colour)
+    {
+      die("Can only load paths into colour %zu [%s]",
+          colour, file_filter_input(&gpfiles[i].fltr));
+    }
+  }
+}
+
 /*!
   Similar to path_file_reader.c:path_file_load_check()
   Check kmer size matches and sample names match

@@ -6,6 +6,13 @@
 #include <fcntl.h> // O_CREAT et al
 #include <math.h>
 
+static void conf_table_capacity(ContigConfidenceTable *table, size_t max_read)
+{
+  size_t i, init_len = table->table.len;
+  double_buf_extend(&table->table, (max_read+1)*table->ncols);
+  for(i = init_len; i < table->table.len; i++) table->table.data[i] = 0.0;
+}
+
 // expl(x) is the same as doing powl(M_E, x) a.k.a. 2**x for type long double
 static double calc_confid(double bp_covg_depth, size_t read_length_bp,
                           size_t kmer_size)
@@ -19,79 +26,98 @@ static double calc_confid(double bp_covg_depth, size_t read_length_bp,
   return power;
 }
 
-static void _update_table_with_length_count(ContigConfidenceTable *conf_table,
-                                            size_t genome_size,
+static void _update_table_with_length_count(ContigConfidenceTable *table,
+                                            size_t col, size_t genome_size,
                                             size_t contig_len, size_t num)
 {
-  size_t i, init_len = conf_table->table.len;
-  if(contig_len+1 > init_len) {
-    double_buf_extend(&conf_table->table, contig_len+1);
-    for(i = init_len; i <= contig_len; i++) conf_table->table.data[i] = 0;
-  }
+  ctx_assert(col < table->ncols);
+
+  size_t i;
+  conf_table_capacity(table, contig_len);
 
   for(i = 1; i <= contig_len; i++) {
     double covg = (double)(contig_len * num) / genome_size;
-    double old_conf = conf_table->table.data[i];
+    double old_conf = table->table.data[i];
     double new_conf = 1.0 - ((1.0 - old_conf) *
                              (1.0 - calc_confid(covg, contig_len, i)));
     // printf("  contig: %zu num: %zu genome: %zu covg: %.2f\n", contig_len, num,
     //        genome_size, covg);
     // printf("updating %zu from %.2f -> %.2f [%.2f]\n", i, old_conf, new_conf,
     //        calc_confid(covg, contig_len, i));
-    conf_table->table.data[i] = new_conf;
+    table->table.data[i*table->ncols+col] = new_conf;
   }
 }
 
-void conf_table_update_hist(ContigConfidenceTable *conf_table, size_t genome_size,
+void conf_table_update_hist(ContigConfidenceTable *table,
+                            size_t col, size_t genome_size,
                             size_t *contig_hist, size_t hist_len)
 {
+  ctx_assert(col < table->ncols);
   size_t i;
 
   for(i = 1; i < hist_len; i++) {
     if(contig_hist[i]) {
-      _update_table_with_length_count(conf_table, genome_size,
+      _update_table_with_length_count(table, col, genome_size,
                                       i, contig_hist[i]);
     }
   }
 }
 
-// Call conf_table_destroy to release memory after calling this function
-void conf_table_calc(ContigConfidenceTable *conf_table,
+// Call conf_table_dealloc to release memory after calling this function
+void conf_table_calc(ContigConfidenceTable *table, size_t col,
                      size_t max_read_len, double avg_bp_covg)
 {
+  ctx_assert(col < table->ncols);
   size_t i;
 
   status("Confidences for max. read length %zu and expected coverage %.2fX",
          max_read_len, avg_bp_covg);
 
-  double_buf_extend(&conf_table->table, max_read_len+1);
+  conf_table_capacity(table, max_read_len);
 
   for(i = 1; i <= max_read_len; i++) {
-    conf_table->table.data[i] = calc_confid(avg_bp_covg, max_read_len, i);
+    table->table.data[i*table->ncols+col] = calc_confid(avg_bp_covg, max_read_len, i);
   }
 }
 
-void conf_table_destroy(ContigConfidenceTable *conf_table)
+void conf_table_alloc(ContigConfidenceTable *table, size_t ncols)
 {
-  double_buf_dealloc(&conf_table->table);
-  memset(conf_table, 0, sizeof(ContigConfidenceTable));
+  double_buf_alloc(&table->table, 512*ncols);
+  table->ncols = ncols;
 }
 
-double conf_table_lookup(const ContigConfidenceTable *table, size_t rlen)
+void conf_table_dealloc(ContigConfidenceTable *table)
 {
-  if(rlen >= table->table.len) die("%zu > %zu", rlen, table->table.len);
-  return table->table.data[rlen];
+  double_buf_dealloc(&table->table);
+  memset(table, 0, sizeof(ContigConfidenceTable));
+}
+
+double conf_table_lookup(const ContigConfidenceTable *table,
+                         size_t col, size_t dist)
+{
+  ctx_assert(col < table->ncols);
+  size_t idx = table->ncols * dist + col;
+  if(idx >= table->table.len) die("%zu > %zu", idx, table->table.len);
+  return table->table.data[idx];
 }
 
 void conf_table_print(const ContigConfidenceTable *table, FILE *fh)
 {
-  fprintf(fh, "gap_dist\tconfidence\n");
+  size_t i, j, endj, num_rows = table->table.len / table->ncols;
+
+  fprintf(fh, "gap_dist");
+  for(i = 0; i < table->ncols; i++)
+    fprintf(fh, "\tconfidence_%zu", i);
+  fprintf(fh, "\n");
+
   if(table->table.len == 0) return;
 
-  size_t i, max_read = table->table.len-1;
-  for(i = 1; i <= max_read; i++)
-    fprintf(fh, "%zu\t%f\n", i, table->table.data[i]);
-  fprintf(fh, "\n");
+  for(i = 1, j = table->ncols; i < num_rows; i++) {
+    fprintf(fh, "%zu", i);
+    for(endj = j + table->ncols; j < endj; j++)
+      fprintf(fh, "\t%.5f", table->table.data[j]);
+    fprintf(fh, "\n");
+  }
 }
 
 void conf_table_save(const ContigConfidenceTable *table, const char *path)

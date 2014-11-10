@@ -60,37 +60,40 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx)
 }
 
 void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
-                                   ZeroSizeBuffer *hist)
+                                   size_t fromcol, ZeroSizeBuffer *hist)
 {
   size_t i;
   cJSON *json_fmt = json_hdr_get(json_root, "file_format", cJSON_String, path);
-  cJSON *hdr_paths, *json_lens, *json_cnts;
+  cJSON *hdr_paths, *contig_hists, *json_hist, *json_lens, *json_cnts;
 
-  if(strcmp(json_fmt->valuestring,"ctp") == 0)
-  {
-    // File is ctp
-    hdr_paths = json_hdr_get(json_root, "paths", cJSON_Object, path);
-    json_lens = json_hdr_get(hdr_paths, "contig_lengths", cJSON_Array, path);
-    json_cnts = json_hdr_get(hdr_paths, "contig_counts" , cJSON_Array, path);
-
-    // Loop over entries
-    cJSON *len = json_lens->child, *cnt = json_cnts->child;
-    for(i = 0; len && cnt; i++, len = len->next, cnt = cnt->next) {
-      if(len->type != cJSON_Number || cnt->type != cJSON_Number ||
-         len->valueint < 0 || cnt->valueint < 0) {
-        die("JSON array entry is not a number");
-      }
-      ctx_assert2(len->valueint < 1<<30, "%li is too big", len->valueint);
-      zsize_buf_extend(hist, len->valueint+1);
-      hist->data[len->valueint] += cnt->valueint;
-    }
-
-    if(len || cnt) {
-      die("Contig histogram arrays not the same lengths");
-    }
-  }
-  else {
+  if(strcmp(json_fmt->valuestring,"ctp") != 0) {
     die("File is not CTP '%s' [%s]", json_fmt->valuestring, path);
+  }
+
+  // File is ctp
+  hdr_paths = json_hdr_get(json_root, "paths", cJSON_Object, path);
+  contig_hists = json_hdr_get(hdr_paths, "contig_hists", cJSON_Array, path);
+
+  json_hist = cJSON_GetArrayItem(contig_hists, fromcol);
+  if(json_hist == NULL) die("No hist for colour %zu [path: %s]", fromcol, path);
+
+  json_lens = json_hdr_get(json_hist, "lengths", cJSON_Array, path);
+  json_cnts = json_hdr_get(json_hist, "counts" , cJSON_Array, path);
+
+  // Loop over entries
+  cJSON *len = json_lens->child, *cnt = json_cnts->child;
+  for(i = 0; len && cnt; i++, len = len->next, cnt = cnt->next) {
+    if(len->type != cJSON_Number || cnt->type != cJSON_Number ||
+       len->valueint < 0 || cnt->valueint < 0) {
+      die("JSON array entry is not a number");
+    }
+    ctx_assert2(len->valueint < 1<<30, "%li is too big", len->valueint);
+    zsize_buf_extend(hist, len->valueint+1);
+    hist->data[len->valueint] += cnt->valueint;
+  }
+
+  if(len || cnt) {
+    die("Contig histogram arrays not the same lengths");
   }
 }
 

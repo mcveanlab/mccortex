@@ -7,6 +7,13 @@
 #include "gpath_reader.h"
 #include "db_node.h"
 
+/**
+ * Check we are only loading path files into the given colour. Calls die()
+ * with error message on failure.
+ */
+void gpaths_only_for_colour(const GPathReader *gpfiles, size_t num_gpfiles,
+                            size_t colour);
+
 /*!
   Similar to path_file_reader.c:path_file_load_check()
   Check kmer size matches and sample names match

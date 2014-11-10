@@ -101,9 +101,10 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 
       if(step.status == GRPHWLK_USEPATH) {
         ctx_assert(step.path_gap > 0);
-        size_t read_length = step.path_gap + db_graph->kmer_size-1 + 2;
-        s.max_step_gap[dir] = MAX2(s.max_step_gap[dir], read_length);
-        s.gap_conf[dir] *= conf_table_lookup(assem->conf_table, read_length);
+        size_t gap_length = step.path_gap + db_graph->kmer_size-1 + 2;
+        s.max_step_gap[dir] = MAX2(s.max_step_gap[dir], gap_length);
+        s.gap_conf[dir] *= conf_table_lookup(assem->conf_table, assem->colour,
+                                             gap_length);
       }
 
       if(!rpt_walker_attempt_traverse(rptwlk, wlk)) { hit_cycle = true; break; }

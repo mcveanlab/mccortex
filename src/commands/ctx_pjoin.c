@@ -97,8 +97,7 @@ int ctx_pjoin(int argc, char **argv)
   //
   // Open all path files
   //
-  size_t i;
-  // size_t total_cols;
+  size_t i, j;
   size_t ctp_max_cols = 0;
   uint64_t ctp_max_kmers = 0, ctp_sum_kmers = 0;
   GPathReader *pfiles = ctx_calloc(num_pfiles, sizeof(GPathReader));
@@ -200,12 +199,20 @@ int ctx_pjoin(int argc, char **argv)
     gpath_reader_load_sample_names(&pfiles[i], &db_graph);
 
   // Load contig hist distribution
-  ZeroSizeBuffer contig_histgrm;
-  memset(&contig_histgrm, 0, sizeof(contig_histgrm));
+  ZeroSizeBuffer *contig_histgrms = ctx_calloc(output_ncols, sizeof(ZeroSizeBuffer));
+
+  for(i = 0; i < output_ncols; i++)
+    zsize_buf_alloc(&contig_histgrms[i], 512);
+
+  size_t fromcol, intocol;
 
   for(i = 0; i < num_pfiles; i++) {
-    gpath_reader_load_contig_hist(pfiles[i].json, pfiles[i].fltr.path.b,
-                                  &contig_histgrm);
+    for(j = 0; j < file_filter_num(&pfiles[i].fltr); j++) {
+      fromcol = file_filter_fromcol(&pfiles[i].fltr, j);
+      intocol = file_filter_intocol(&pfiles[i].fltr, j);
+      gpath_reader_load_contig_hist(pfiles[i].json, pfiles[i].fltr.path.b,
+                                    fromcol, &contig_histgrms[intocol]);
+    }
   }
 
   // Load path files
@@ -220,11 +227,14 @@ int ctx_pjoin(int argc, char **argv)
   for(i = 0; i < num_pfiles; i++) hdrs[i] = pfiles[i].json;
 
   // Write output file
-  gpath_save(gzout, out_ctp_path, output_threads, hdrs, num_pfiles,
-             contig_histgrm.data, contig_histgrm.len,
+  gpath_save(gzout, out_ctp_path, output_threads,
+             hdrs, num_pfiles, contig_histgrms, output_ncols,
              &db_graph);
 
-  zsize_buf_dealloc(&contig_histgrm);
+  for(i = 0; i < output_ncols; i++)
+    zsize_buf_alloc(&contig_histgrms[i], 512);
+
+  ctx_free(contig_histgrms);
 
   gzclose(gzout);
   ctx_free(hdrs);
