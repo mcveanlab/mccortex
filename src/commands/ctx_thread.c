@@ -248,7 +248,7 @@ int ctx_thread(int argc, char **argv)
   // Don't need GPathHash anymore
   gpath_hash_dealloc(&db_graph.gphash);
 
-  cJSON *hdrs[gpfiles->len];
+  cJSON **hdrs = ctx_malloc(gpfiles->len * sizeof(cJSON*));
   for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
 
   size_t output_threads = MIN2(args.nthreads, MAX_IO_THREADS);
@@ -258,7 +258,9 @@ int ctx_thread(int argc, char **argv)
              hdrs, gpfiles->len,
              &aln_stats->contig_histgrm, 1,
              &db_graph);
+
   gzclose(gzout);
+  ctx_free(hdrs);
 
   // Optionally run path checks for debugging
   // gpath_checks_all_paths(&db_graph, args.nthreads);

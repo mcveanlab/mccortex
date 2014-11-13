@@ -52,12 +52,14 @@ Commands
                 inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 pjoin        merge path files (.ctp)
+                pview        text view of a cortex path file (.ctp)
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
                 sort         sort the kmers in a graph file
                 subgraph     filter a subgraph using seed kmers
                 supernodes   pull out supernodes
                 thread       thread reads through cleaned graph
+                uniqkmers    generate random unique kmers
                 view         text view of a cortex graph file (.ctx)
 
       Type a command with no arguments to see help.

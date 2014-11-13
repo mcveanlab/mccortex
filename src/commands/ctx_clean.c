@@ -8,6 +8,8 @@
 #include "clean_graph.h"
 #include "supernode.h" // for saving length histogram
 
+const bool use_supernode_covg = true;
+
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
@@ -29,8 +31,8 @@ const char clean_usage[] =
 "  -d, --kdepth <C>            kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
 "\n"
 "  Statistics:\n"
-"  -c, --covg-before <out.csv> Save supernode coverage histogram before cleaning\n"
-"  -C, --covg-after <out.csv>  Save supernode coverage histogram after cleaning\n"
+"  -c, --covg-before <out.csv> Save kmer coverage histogram before cleaning\n"
+"  -C, --covg-after <out.csv>  Save kmer coverage histogram after cleaning\n"
 "  -l, --len-before <out.csv>  Save supernode length histogram before cleaning\n"
 "  -L, --len-after <out.csv>   Save supernode length histogram after cleaning\n"
 "\n"
@@ -325,7 +327,8 @@ int ctx_clean(int argc, char **argv)
 
   if(threshold == 0 || covg_before_path || len_before_path) {
     // Get coverage distribution and estimate cleaning threshold
-    size_t est_threshold = cleaning_get_threshold(nthreads, seq_depth,
+    size_t est_threshold = cleaning_get_threshold(nthreads, use_supernode_covg,
+                                                  seq_depth,
                                                   covg_before_path, len_before_path,
                                                   visited, &db_graph);
 
@@ -335,7 +338,7 @@ int ctx_clean(int argc, char **argv)
 
   if(doing_cleaning) {
     // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
-    clean_graph(nthreads, threshold, min_keep_tip,
+    clean_graph(nthreads, use_supernode_covg, threshold, min_keep_tip,
                 covg_after_path, len_after_path,
                 visited, keep, &db_graph);
   }

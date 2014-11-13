@@ -27,12 +27,10 @@ const char contigs_usage[] =
 "  -s, --seed <in.fa>    Use seed kmers from a file. Reads must be of kmer length\n"
 "  -r, --reseed          Sample seed kmers with replacement\n"
 "  -R, --no-reseed       Do not use a seed kmer if it is used in a contig [default]\n"
-"  -L, --read-length <R> Expected read length for calc. contig confidences\n"
-"  -d, --depth <C>       Expected depth for calc. contig confidences\n"
+"  -P, --use-seed-paths  Use unused paths to seed contigs [default: off]\n"
 "  -G, --genome <G>      Genome size in bases\n"
 "  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
 "  -M, --no-missing-check      Do not use the missing information check\n"
-// "  -P, --no-path-seeds         Do not use unused paths to seed contigs\n"
 "\n";
 
 static struct option longopts[] =
@@ -50,15 +48,13 @@ static struct option longopts[] =
   {"seq",          required_argument, NULL, '1'},
   {"reseed",       no_argument,       NULL, 'r'},
   {"no-reseed",    no_argument,       NULL, 'R'},
+  {"use-seed-paths",no_argument,      NULL, 'P'},
   {"ncontigs",     required_argument, NULL, 'N'},
   {"colour",       required_argument, NULL, 'c'},
   {"color",        required_argument, NULL, 'c'},
-  {"read-length",  required_argument, NULL, 'L'},
-  {"depth",        required_argument, NULL, 'd'},
   {"genome",       required_argument, NULL, 'G'},
   {"confid-csv",   required_argument, NULL, 'S'},
   {"no-missing-check", no_argument,   NULL, 'M'},
-  {"no-path-seeds",    no_argument,   NULL, 'P'},
   {NULL, 0, NULL, 0}
 };
 
@@ -70,11 +66,10 @@ int ctx_contigs(int argc, char **argv)
   size_t i, contig_limit = 0, colour = 0;
   bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
   const char *conf_table_path = NULL; // save confidence table to here
-  bool use_missing_info_check = true, seed_with_unused_paths = true;
+  bool use_missing_info_check = true, seed_with_unused_paths = false;
 
   // Read length and expected depth for calculating confidences
-  size_t exp_read_length = 0, genome_size = 0;
-  double exp_avg_bp_covg = -1;
+  size_t genome_size = 0;
 
   seq_file_t *tmp_seed_file = NULL;
   SeqFilePtrBuffer seed_buf;
@@ -120,12 +115,10 @@ int ctx_contigs(int argc, char **argv)
         contig_limit = cmd_uint32_nonzero(cmd, optarg);
         break;
       case 'c': cmd_check(!colour,cmd); colour = cmd_uint32(cmd, optarg); break;
-      case 'L': cmd_check(!exp_read_length,cmd); exp_read_length = cmd_size(cmd, optarg); break;
-      case 'd': cmd_check(exp_avg_bp_covg<0,cmd); exp_avg_bp_covg = cmd_udouble(cmd, optarg); break;
       case 'G': cmd_check(!genome_size,cmd); genome_size = cmd_bases(cmd, optarg); break;
       case 'S': cmd_check(!conf_table_path,cmd); conf_table_path = optarg; break;
       case 'M': cmd_check(use_missing_info_check,cmd); use_missing_info_check = false; break;
-      case 'P': cmd_check(seed_with_unused_paths,cmd); seed_with_unused_paths = false; break;
+      case 'P': cmd_check(!seed_with_unused_paths,cmd); seed_with_unused_paths = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         die("`"CMD" contigs -h` for help. Bad option: %s", argv[optind-1]);
@@ -170,10 +163,6 @@ int ctx_contigs(int argc, char **argv)
   // pop_colour is colour 1
   graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, 1);
 
-  if(!exp_read_length) {
-    exp_read_length = gfile.hdr.ginfo[0].mean_read_length;
-  }
-
   if(!genome_size)
   {
     char nk_str[50];
@@ -182,9 +171,6 @@ int ctx_contigs(int argc, char **argv)
     ulong_to_str(genome_size, nk_str);
     status("Taking number of kmers as genome size: %s", nk_str);
   }
-
-  if(exp_avg_bp_covg < 0)
-    exp_avg_bp_covg = gfile.hdr.ginfo[0].total_sequence / genome_size;
 
   //
   // Decide on memory

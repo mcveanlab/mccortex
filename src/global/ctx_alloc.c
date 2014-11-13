@@ -43,6 +43,7 @@ void* alloc_mem(void *ptr, size_t nel, size_t elsize, bool zero,
 void* alloc_recallocarray(void *ptr, size_t oldnel, size_t newnel, size_t elsize,
                           const char *file, const char *func, int line)
 {
+  ctx_assert(newnel > 0);
   void *ptr2 = alloc_mem(ptr, newnel, elsize, true, file, func, line);
   if(ptr != NULL && newnel > oldnel)
     memset((char*)ptr2+oldnel*elsize, 0, (newnel-oldnel)*elsize);

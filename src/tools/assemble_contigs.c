@@ -65,13 +65,14 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
   if(gpath) {
     // Add gpath to nodes buffer
     dBNode first_node = {.key = hkey, .orient = gpath->orient};
-    size_t n = gpath_fetch(first_node, gpath, nbuf, assem->colour, db_graph);
-    ctx_assert(n == nbuf->len);
+    gpath_fetch(first_node, gpath, nbuf, assem->colour, db_graph);
     s.seed_path = true;
+    s.num_seed_kmers = nbuf->len;
   } else {
     dBNode first_node = {.key = hkey, .orient = FORWARD};
     db_node_buf_add(nbuf, first_node);
     s.seed_kmer = true;
+    s.num_seed_kmers = 1;
   }
 
   GraphStep step;
@@ -146,7 +147,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 }
 
 // returns 0 on success, 1 otherwise
-static int _dump_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
+static int _dump_contig(Assembler *assem, hkey_t hkey,
                         const struct ContigStats *s)
 {
   AssembleContigStats *stats = &assem->stats;
@@ -176,14 +177,13 @@ static int _dump_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 
     if(!assem->contig_limit || contig_id < assem->contig_limit)
     {
-      // DEV: add gpath sequence
       // Print in FASTA format with additional info in name
-      fprintf(assem->fout, ">contig%zu len=%zu seed=%s %s"
+      fprintf(assem->fout, ">contig%zu len=%zu seed=%s seedkmers=%zu "
               "lf.status=%s lf.paths.held=%zu lf.paths.cntr=%zu "
               "lf.max_gap=%zu lf.conf=%f "
               "rt.status=%s rt.paths.held=%zu rt.paths.cntr=%zu "
               "rf.max_gap=%zu rf.conf=%f\n",
-              contig_id, nbuf->len, kmer_str, gpath ? "PATH " : "",
+              contig_id, nbuf->len, kmer_str, s->num_seed_kmers,
               left_stat, s->paths_held[0], s->paths_cntr[0], s->max_step_gap[0], s->gap_conf[0],
               rght_stat, s->paths_held[1], s->paths_cntr[1], s->max_step_gap[1], s->gap_conf[1]);
 
@@ -225,7 +225,7 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
 
   _assemble_contig(assem, hkey, NULL, &s);
 
-  return _dump_contig(assem, hkey, NULL, &s);
+  return _dump_contig(assem, hkey, &s);
 }
 
 static inline void _seed_rnd_kmers(void *arg)
@@ -298,7 +298,7 @@ static int _assemble_from_paths(hkey_t hkey, Assembler *assem)
   for(i = 0; i < gpsubset->list.len; i++)
   {
     _assemble_contig(assem, hkey, list[i], &s);
-    _dump_contig(assem, hkey, list[i], &s);
+    _dump_contig(assem, hkey, &s);
   }
 
   return 0; // 0 => keep iterating

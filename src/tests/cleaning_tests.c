@@ -5,7 +5,31 @@
 #include "build_graph.h"
 #include "clean_graph.h"
 
-void test_cleaning()
+#include <float.h>
+
+void _test_pick_theshold()
+{
+  test_status("Testing graph cleaning thresholds...");
+
+  uint64_t kmer_covg[50] =
+  {0,850162595,491126976,257485953,123269745,56011040,26052551,13244708,7794102,5359446,
+   4146083,3436803,2975971,2639644,2378544,2171244,1994462,1853408,1729215,1623824,
+   1531549,1446237,1374893,1313321,1254029,1200727,1151012,1108859,1068353,1032062,
+   998714,967214,934593,903374,877277,851058,825934,801614,780270,756232,
+   735778,719226,699749,680650,665111,647841,628028,612052,597275,581144};
+
+  const size_t nitems = sizeof(kmer_covg) / sizeof(kmer_covg[0]);
+  int thresh;
+
+  thresh = cleaning_pick_kmer_threshold(kmer_covg, nitems, 0.001);
+  TASSERT2(thresh == 20, "thresh: %i", thresh);
+
+  // DBL_MIN is smallest double greater than zero
+  thresh = cleaning_pick_kmer_threshold(kmer_covg, nitems, DBL_MIN);
+  TASSERT2(thresh == -1, "thresh: %i", thresh);
+}
+
+void _test_graph_cleaning()
 {
   test_status("Testing graph cleaning...");
 
@@ -40,18 +64,21 @@ void test_cleaning()
   TASSERT2(graph.ht.num_kmers == 1000-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
 
+  // Use supernode coverage rather than kmer coverage
+  const bool use_supernode_covg = false;
+
   // No change (min_tip_len must be > 1)
-  clean_graph(nthreads, 0, 2, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, use_supernode_covg, 0, 2, NULL, NULL, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 1000-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // No change (min_tip_len must be > 1)
-  clean_graph(nthreads, 0, 1000-19+1, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, use_supernode_covg, 0, 1000-19+1, NULL, NULL, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 1000-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // All removed
-  clean_graph(nthreads, 0, 1000-19+2, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, use_supernode_covg, 0, 1000-19+2, NULL, NULL, visited, keep, &graph);
   TASSERT2(graph.ht.num_kmers == 0, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
@@ -68,8 +95,8 @@ void test_cleaning()
 
   build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp));
 
-  size_t thresh = cleaning_get_threshold(nthreads, 4, NULL, NULL, visited, &graph);
-  clean_graph(nthreads, thresh, 0, NULL, NULL, visited, keep, &graph);
+  size_t thresh = cleaning_get_threshold(nthreads, true, 4, NULL, NULL, visited, &graph);
+  clean_graph(nthreads, use_supernode_covg, thresh, 0, NULL, NULL, visited, keep, &graph);
   TASSERT2(thresh > 1, "threshold: %zu", thresh);
 
   TASSERT2(graph.ht.num_kmers == 200-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
@@ -84,7 +111,7 @@ void test_cleaning()
   TASSERT2(graph.ht.num_kmers == 200-19+1 + 23-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-  clean_graph(nthreads, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, use_supernode_covg, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
   TASSERT2(graph.ht.num_kmers == 200-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
@@ -98,7 +125,7 @@ void test_cleaning()
   build_graph_from_str_mt(&graph, 0, tmp3, strlen(tmp3));
   TASSERT2(graph.ht.num_kmers == 1, "%zu", (size_t)graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-  clean_graph(nthreads, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, use_supernode_covg, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 0, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
@@ -107,3 +134,10 @@ void test_cleaning()
 
   db_graph_dealloc(&graph);
 }
+
+void test_cleaning()
+{
+  _test_pick_theshold();
+  _test_graph_cleaning();
+}
+

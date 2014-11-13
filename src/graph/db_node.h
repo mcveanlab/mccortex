@@ -231,6 +231,9 @@ char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
 #define db_node_covg(graph,hkey,col) \
         ((graph)->col_covgs[(hkey)*(graph)->num_of_cols+(col)])
 
+#define db_node_col_covg(graph,colour,node) \
+        ((graph)->col_covgs[(node)*(graph)->num_of_cols + (colour)])
+
 static inline Covg db_node_get_covg(const dBGraph *db_graph,
                                     hkey_t hkey, Colour col) {
   return db_node_covg(db_graph, hkey, col);
@@ -239,9 +242,6 @@ static inline Covg db_node_get_covg(const dBGraph *db_graph,
 #define db_node_zero_covgs(graph,hkey) \
         memset((graph)->col_covgs + (hkey)*(graph)->num_of_cols, 0, \
                (graph)->num_of_cols * sizeof(Covg))
-
-#define db_node_col_covg(graph,colour,node) \
-        ((graph)->col_covgs[(node)*(graph)->num_of_cols + (colour)])
 
 void db_node_add_col_covg(dBGraph *graph, hkey_t hkey, Colour col, Covg update);
 void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);

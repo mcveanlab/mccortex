@@ -36,6 +36,7 @@ struct ContigStats {
   double gap_conf[2];
   uint8_t outdegree_rv, outdegree_fw;
   bool seed_kmer, seed_path;
+  size_t num_seed_kmers; // number of kmers used to seed
 };
 
 void assemble_contigs_stats_init(AssembleContigStats *stats);

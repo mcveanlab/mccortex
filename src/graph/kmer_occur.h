@@ -10,10 +10,10 @@
 //
 
 // Limits on number of chromosomes and max chromosome length
-// max chroms = 8,388,608
-// max chrom len = 1,099,511,627,776
-#define KMER_OCCUR_MAX_CHROMS (1<<23)
-#define KMER_OCCUR_MAX_LEN (1UL<<40)
+// [31] max chroms = 2,147,483,648
+// [32] max chrom len = 4,294,967,296
+#define KMER_OCCUR_MAX_CHROMS (1U<<31)
+#define KMER_OCCUR_MAX_LEN (1UL<<32)
 
 typedef struct {
   size_t id, length;
@@ -31,7 +31,7 @@ typedef struct KONodeListStruct KONodeList;
 // KOccur fits in one 64 bit word
 typedef struct
 {
-  uint64_t orient:1, chrom:23, offset:40;
+  uint64_t orient:1, chrom:31, offset:32;
 } KOccur;
 
 typedef struct

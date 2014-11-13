@@ -252,7 +252,7 @@ int ctx_breakpoints(int argc, char **argv)
   }
 
   // Create array of cJSON** from input files
-  cJSON *hdrs[gpfiles.len];
+  cJSON **hdrs = ctx_malloc(gpfiles.len * sizeof(cJSON*));
   for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
 
   // Call breakpoints
@@ -266,6 +266,7 @@ int ctx_breakpoints(int argc, char **argv)
 
   // Finished: do clean up
   gzclose(gzout);
+  ctx_free(hdrs);
 
   // Close input files
   for(i = 0; i < gpfiles.len; i++)

@@ -39,6 +39,7 @@ bool infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
   BinaryKmer bkey, bkmer;
   hkey_t next;
   Edges newedges[ncols];
+  memcpy(newedges, edges, ncols * sizeof(Edges));
 
   // char tmp[MAX_KMER_SIZE+1];
   // binary_kmer_to_str(node_bkey, db_graph->kmer_size, tmp);
@@ -47,7 +48,6 @@ bool infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
   for(col = 0; col < ncols; col++) {
     uedges |= edges[col]; // union of edges
     iedges &= edges[col]; // intersection of edges
-    newedges[col] = edges[col];
   }
 
   add_edges = uedges & ~iedges;

@@ -40,7 +40,7 @@ pop.ctp.gz: $(POP_PATHS)
 	$(CTX) pjoin --out $@ $(POP_PATHS)
 
 contigs.%.fa: pop.ctx pop.ctp.gz
-	$(CTX) contigs --no-missing-check --out $@ --colour $* --genome $(GENOME) --confid-csv seq.$*.k$(K).confid.csv -p pop.ctp.gz pop.ctx
+	$(CTX) contigs --use-seed-paths --no-missing-check --out $@ --colour $* --genome $(GENOME) --confid-csv seq.$*.k$(K).confid.csv -p pop.ctp.gz pop.ctx
 
 rmdup.contigs.%.fa: contigs.%.fa
 	$(CTX) rmsubstr -k $(K) $< > $@

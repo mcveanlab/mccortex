@@ -318,11 +318,20 @@ int ctx_uniqkmers(int argc, char **argv)
   seq_format fmt = SEQ_FMT_FASTA;
 
   // Add random kmers to flank input sequences
-  if(flankbuf.len > 0) {
+  if(flankbuf.len > 0)
+  {
+    seq_file_t *sf;
     read_t r;
     seq_read_alloc(&r);
-    for(i = 0; i < flankbuf.len; i++) {
-      seq_file_t *sf = flankbuf.data[i] = seq_reopen(flankbuf.data[i]);
+
+    for(i = 0; i < flankbuf.len; i++)
+    {
+      // Copy path in case we cannot reopen sequence file
+      char *path = strdup(flankbuf.data[i]->path);
+      sf = flankbuf.data[i] = seq_reopen(flankbuf.data[i]);
+      if(sf == NULL) die("Couldn't reopen file: %s", path);
+      free(path);
+
       while(seq_read(sf, &r) > 0) {
         _add_uniq_flanks(&r, sf->path, fout, fmt, &db_graph);
       }

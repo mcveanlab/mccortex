@@ -5,6 +5,9 @@
 #include "prune_nodes.h"
 #include "clean_graph.h"
 
+#include <math.h> // lgamma, tgamma
+#include <float.h> // DBL_MAX
+
 #define DUMP_COVG_ARRSIZE 1000
 #define DUMP_LEN_ARRSIZE 1000
 
@@ -12,30 +15,88 @@
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(covg_buf,CovgBuffer,Covg);
 
-
-typedef struct
+/**
+ * Pick a cleaning threshold from kmer coverage histogram. Assumes low coverage
+ * kmers are all due to error, to which it fits a gamma distribution. Then
+ * chooses a cleaning threshold such than FDR (uncleaned kmers) occur at a rate
+ * of < the FDR paramater.
+ *
+ * Translated from Gil McVean's proposed method in R code
+ *
+ * @param kmer_covg Histogram of kmer counts at coverages 1,2,.. arrlen-1
+ * @param arrlen    Length of array kmer_covg
+ * @param fdr_limit False discovery rate for a single kmer coverage
+ *                  (1/1000 i.e. 0.001 is reasonable)
+ * @return -1 if no cut-off satisfies FDR, otherwise returs coverage cutoff
+ */
+int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
+                                 double fdr_limit)
 {
-  const size_t nthreads, covg_threshold, min_keep_tip;
-  CovgBuffer *cbufs;
-  // uint64_t *covg_hist;
-  uint64_t *covg_hist_init, *covg_hist_cleaned;
-  uint64_t *covg_kmers_hist_init, *covg_kmers_hist_cleaned;
-  uint64_t *len_hist_init, *len_hist_cleaned;
-  const size_t covg_arrlen, len_arrlen;
-  uint8_t *keep_flags;
-  uint64_t num_tips,      num_low_covg_snodes,      num_tip_and_low_snodes;
-  uint64_t num_tip_kmers, num_low_covg_snode_kmers, num_tip_and_low_snode_kmers;
-  const dBGraph *db_graph;
-} SupernodeCleaner;
+  ctx_assert(arrlen >= 10);
+  ctx_assert2(0 < fdr_limit && fdr_limit < 1, "expected 0 < FDR < 1: %f", fdr_limit);
+  ctx_assert2(kmer_covg[0] == 0, "Shouldn't see any kmers with coverage zero");
+
+  size_t i, min_a_est_idx = 0;
+  double r1, r2, rr, min_a_est = DBL_MAX, tmp;
+  double aa, faa, a_est, b_est, c0;
+
+  r1 = (double)kmer_covg[2] / kmer_covg[1];
+  r2 = (double)kmer_covg[3] / kmer_covg[2];
+  rr = r2 / r1;
+
+  // printf("r1: %.2f r2: %.2f rr: %.2f\n", r1, r2, rr);
+
+  // iterate aa = { 0.01, 0.02, ..., 1.99, 2.00 }
+  // find aa value that minimises abs(faa-rr)
+  for(i = 1; i <= 200; i++)
+  {
+    aa = i*0.01;
+    faa = tgamma(aa)*tgamma(aa+2) / (2*pow(tgamma(aa+1),2));
+    tmp = fabs(faa-rr);
+    if(tmp < min_a_est) { min_a_est = tmp; min_a_est_idx = i; }
+  }
+
+  a_est = min_a_est_idx*0.01;
+  b_est = tgamma(a_est + 1.0) / (r1 * tgamma(a_est)) - 1.0;
+  c0 = kmer_covg[1] * pow(b_est/(1+b_est),-a_est);
+
+  // printf("min_a_est_idx: %zu\n", min_a_est_idx);
+  // printf("a_est: %f b_est %f c0: %f\n", a_est, b_est, c0);
+
+  // Initialise fdr to be greater than fdr_limit
+  double e_cov, e_cov_c0, fdr = 2.0, log_b_est, log_one_plus_b_est, lgamma_a_est;
+
+  // Calculate some values here
+  log_b_est          = log(b_est);
+  log_one_plus_b_est = log(1 + b_est);
+  lgamma_a_est       = lgamma(a_est);
+
+  // note: lfactorial(x) = lgamma(x+1)
+
+  for(i = 0; i < arrlen; i++) {
+    e_cov = a_est * log_b_est - lgamma_a_est - lgamma(i) + lgamma(a_est + i - 1) -
+            (a_est + i - 1) * log_one_plus_b_est;
+    e_cov_c0 = exp(e_cov) * c0;
+    fdr = 1.0 - (kmer_covg[i] - e_cov_c0) / kmer_covg[i];
+    // printf("i: %zu e_cov: %f e_cov_c0: %f fdr: %f limit %f\n",
+    //        i, e_cov, e_cov_c0, fdr, fdr_limit);
+    if(fdr < fdr_limit) break;
+  }
+
+  return fdr < fdr_limit ? i : -1;
+}
 
 // #define supernode_covg(covgs,len) supernode_covg_mean(covgs,len)
 #define supernode_covg(covgs,len) supernode_read_starts(covgs,len)
 
-// Calculate cleaning threshold for supernodes from a given distribution
-// of supernode coverages
-size_t cleaning_supernode_threshold(const uint64_t *covgs, size_t len,
-                                    double seq_depth,
-                                    const dBGraph *db_graph)
+/**
+ * Calculate cleaning threshold for supernodes from a given distribution
+ * of supernode coverages
+ * @param covgs histogram of supernode coverages
+ */
+size_t cleaning_pick_supernode_threshold(const uint64_t *covgs, size_t len,
+                                         double seq_depth,
+                                         const dBGraph *db_graph)
 {
   ctx_assert(len > 5);
   ctx_assert(db_graph->ht.num_kmers > 0);
@@ -83,6 +144,22 @@ size_t cleaning_supernode_threshold(const uint64_t *covgs, size_t len,
   { status("[cleaning]   (using fallback1)"); return fallback_thresh+1; }
 }
 
+typedef struct
+{
+  const size_t nthreads, covg_threshold, min_keep_tip;
+  bool use_supernode_covg; // if true use supernode otherwise kmer coverage
+  CovgBuffer *cbufs;
+  // uint64_t *covg_hist;
+  uint64_t *covg_hist_init, *covg_hist_cleaned;
+  uint64_t *covg_kmers_hist_init, *covg_kmers_hist_cleaned;
+  uint64_t *len_hist_init, *len_hist_cleaned;
+  const size_t covg_arrlen, len_arrlen;
+  uint8_t *keep_flags;
+  uint64_t num_tips,      num_low_covg_snodes,      num_tip_and_low_snodes;
+  uint64_t num_tip_kmers, num_low_covg_snode_kmers, num_tip_and_low_snode_kmers;
+  const dBGraph *db_graph;
+} SupernodeCleaner;
+
 // Get coverages from nodes in nbuf, store in cbuf
 static inline void fetch_coverages(dBNodeBuffer nbuf, CovgBuffer *cbuf,
                                    const dBGraph *db_graph)
@@ -113,6 +190,7 @@ static inline bool nodes_are_removable_tip(dBNodeBuffer nbuf,
 
 
 static void supernode_cleaner_alloc(SupernodeCleaner *cl, size_t nthreads,
+                                    bool use_supernode_covg,
                                     size_t covg_threshold, size_t min_keep_tip,
                                     uint8_t *keep_flags,
                                     const dBGraph *db_graph)
@@ -130,12 +208,13 @@ static void supernode_cleaner_alloc(SupernodeCleaner *cl, size_t nthreads,
   covg_hist_cleaned       = ctx_calloc(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
   covg_kmers_hist_init    = ctx_calloc(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
   covg_kmers_hist_cleaned = ctx_calloc(DUMP_COVG_ARRSIZE, sizeof(uint64_t));
-  len_hist_init           = ctx_calloc(DUMP_LEN_ARRSIZE, sizeof(uint64_t));
-  len_hist_cleaned        = ctx_calloc(DUMP_LEN_ARRSIZE, sizeof(uint64_t));
+  len_hist_init           = ctx_calloc(DUMP_LEN_ARRSIZE,  sizeof(uint64_t));
+  len_hist_cleaned        = ctx_calloc(DUMP_LEN_ARRSIZE,  sizeof(uint64_t));
 
   SupernodeCleaner tmp = {.nthreads = nthreads,
                           .covg_threshold = covg_threshold,
                           .min_keep_tip = min_keep_tip,
+                          .use_supernode_covg = use_supernode_covg,
                           .cbufs = cbufs,
                           .covg_hist_init    = covg_hist_init,
                           .covg_hist_cleaned = covg_hist_cleaned,
@@ -176,30 +255,71 @@ static inline void supernode_get_covg(dBNodeBuffer nbuf, size_t threadid,
                                       void *arg)
 {
   const SupernodeCleaner *cl = (const SupernodeCleaner*)arg;
-  size_t covg, len;
+  size_t i, covg, len;
 
   // Get coverage
   CovgBuffer *cbuf = &cl->cbufs[threadid];
   fetch_coverages(nbuf, cbuf, cl->db_graph);
-  covg = supernode_covg(cbuf->data, cbuf->len);
-  covg = MIN2(covg, cl->covg_arrlen-1);
-  len = MIN2(cbuf->len, cl->len_arrlen-1);
 
-  // Add to histograms
-  __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_init[covg], 1);
-  __sync_fetch_and_add((volatile uint64_t *)&cl->covg_kmers_hist_init[covg], cbuf->len);
+  if(cl->use_supernode_covg) {
+    // Histogram is of supernode coverage
+    covg = supernode_covg(cbuf->data, cbuf->len);
+    covg = MIN2(covg, cl->covg_arrlen-1);
+    __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_init[covg], 1);
+    __sync_fetch_and_add((volatile uint64_t *)&cl->covg_kmers_hist_init[covg], cbuf->len);
+  }
+  else {
+    // Histogram is of each kmer coverage
+    for(i = 0; i < cbuf->len; i++) {
+      covg = MIN2(cbuf->data[i], cl->covg_arrlen-1);
+      __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_init[covg], 1);
+    }
+  }
+
+  // Length histgogram
+  len = MIN2(cbuf->len, cl->len_arrlen-1);
   __sync_fetch_and_add((volatile uint64_t *)&cl->len_hist_init[len], 1);
 }
 
-// Get coverage threshold for removing supernodes
-// If `min_keep_tip` is > 0, tips shorter than `min_keep_tip` are not used
-// in measuring supernode coverage.
-// `visited`, should each be at least db_graph.ht.capcity bits long
-//   and initialised to zero. On return, it will be 1 at each original kmer index
-Covg cleaning_get_threshold(size_t num_threads, double seq_depth,
-                            const char *covgs_csv_path,
-                            const char *lens_csv_path,
-                            uint8_t *visited, dBGraph *db_graph)
+/*
+typedef struct {
+  size_t threadid, nthreads;
+  SupernodeCleaner *cl;
+} KmerCleanerIterator;
+
+static inline void kmer_get_covg_node(hkey_t hkey, void *arg)
+{
+  const SupernodeCleaner *cl = (const SupernodeCleaner*)arg;
+  size_t covg = db_node_sum_covg(cl->db_graph, hkey);
+  covg = MIN2(covg, cl->covg_arrlen-1);
+  __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_init[covg], 1);
+}
+
+static void kmer_get_covg(void *arg)
+{
+  const KmerCleanerIterator *kcl = (const KmerCleanerIterator*)arg;
+  HASH_ITERATE_PART(&kcl->db_graph->ht, kcl->threadid, kcl->nthreads,
+                    kmer_get_covg_node, kcl->cl);
+}
+*/
+
+/**
+ * Get coverage threshold for removing supernodes
+ *
+ * @param visited should be at least db_graph.ht.capcity bits long and initialised
+ *                to zero. On return, it will be 1 at each original kmer index
+ * @param covgs_csv_path
+ * @param lens_csv_path  paths to files to write CSV histogram of supernodes
+                         coverages and lengths BEFORE ANY CLEANING.
+ *                       If NULL these are ignored.
+ * @return threshold to clean or -1 on error
+ */
+int cleaning_get_threshold(size_t num_threads, bool use_supernode_covg,
+                           double seq_depth,
+                           const char *covgs_csv_path,
+                           const char *lens_csv_path,
+                           uint8_t *visited,
+                           const dBGraph *db_graph)
 {
   // Estimate optimum cleaning threshold
   status("[cleaning] Calculating supernode statistiscs with %zu threads...",
@@ -207,9 +327,16 @@ Covg cleaning_get_threshold(size_t num_threads, double seq_depth,
 
   // Get supernode coverages and lengths
   SupernodeCleaner cl;
-  supernode_cleaner_alloc(&cl, num_threads, 0, 0, NULL, db_graph);
+  supernode_cleaner_alloc(&cl, num_threads, use_supernode_covg,
+                          0, 0, NULL, db_graph);
 
   supernodes_iterate(num_threads, visited, db_graph, supernode_get_covg, &cl);
+
+  // KmerCleanerIterator kcls[nthreads];
+  // for(i = 0; i < nthreads; i++)
+  //   kcls[i] = (KmerCleanerIterator){.threadid = i, .nthreads = nthreads, .cl = &cl};
+
+  // util_run_threads(kcls, nthreads, sizeof(kcls[0]), nthreads, kmer_get_covg);
 
   // Wipe visited kmer memory
   memset(visited, 0, roundup_bits2bytes(db_graph->ht.capacity));
@@ -225,13 +352,30 @@ Covg cleaning_get_threshold(size_t num_threads, double seq_depth,
   }
 
   // set threshold using histogram and genome size
-  size_t threshold_est = cleaning_supernode_threshold(cl.covg_hist_init,
+  int threshold_est = -1;
+
+  if(use_supernode_covg) {
+    threshold_est = cleaning_pick_supernode_threshold(cl.covg_hist_init,
                                                       cl.covg_arrlen,
                                                       seq_depth,
                                                       db_graph);
+  } else {
+    double fdr = 0.001;
+    while(fdr < 1) {
+      threshold_est = cleaning_pick_kmer_threshold(cl.covg_hist_init,
+                                                   cl.covg_arrlen,
+                                                   fdr);
+      if(threshold_est >= 0) break;
+      fdr *= 10;
+    }
+    if(threshold_est < 0) warn("Cannot pick a cleaning threshold");
+    else status("[cleaning] FDR set to %.2f", fdr);
+  }
 
-  status("[cleaning] Recommended supernode cleaning threshold: < %zu",
-         threshold_est);
+  if(threshold_est >= 0) {
+    status("[cleaning] Recommended supernode cleaning threshold: < %i",
+           threshold_est);
+  }
 
   supernode_cleaner_dealloc(&cl);
 
@@ -243,11 +387,20 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
 {
   SupernodeCleaner *cl = (SupernodeCleaner*)arg;
   bool low_covg_snode = false, removable_tip = false;
-  size_t i, covg, len;
+  size_t i, covg = 0, len;
 
   CovgBuffer *cbuf = &cl->cbufs[threadid];
   fetch_coverages(nbuf, cbuf, cl->db_graph);
-  covg = supernode_covg(cbuf->data, cbuf->len);
+
+  if(cl->use_supernode_covg) {
+    covg = supernode_covg(cbuf->data, cbuf->len);
+  }
+  else {
+    // Covg is max coverage of all kmers
+    for(i = 0; i < cbuf->len; i++)
+      covg = MAX2(covg, cbuf->data[i]);
+  }
+
   low_covg_snode = (covg < cl->covg_threshold);
 
   // Remove tips
@@ -283,7 +436,8 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
 //   and initialised to zero. On return,
 //   `visited` will be 1 at each original kmer index
 //   `keep` will be 1 at each retained kmer index
-void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
+void clean_graph(size_t num_threads, bool use_supernode_covg,
+                 size_t covg_threshold, size_t min_keep_tip,
                  const char *covgs_csv_path, const char *lens_csv_path,
                  uint8_t *visited, uint8_t *keep, dBGraph *db_graph)
 {
@@ -307,8 +461,8 @@ void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
 
   // Mark nodes to keep
   SupernodeCleaner cl;
-  supernode_cleaner_alloc(&cl, num_threads, covg_threshold, min_keep_tip,
-                          keep, db_graph);
+  supernode_cleaner_alloc(&cl, num_threads, use_supernode_covg, covg_threshold,
+                          min_keep_tip, keep, db_graph);
   supernodes_iterate(num_threads, visited, db_graph, supernode_mark, &cl);
 
   // Print numbers of kmers that are being removed

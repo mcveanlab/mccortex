@@ -215,7 +215,7 @@ int ctx_bubbles(int argc, char **argv)
     gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
   // Create array of cJSON** from input files
-  cJSON *hdrs[gpfiles.len];
+  cJSON **hdrs = ctx_malloc(gpfiles.len * sizeof(cJSON*));
   for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
 
   // Now call variants
@@ -231,6 +231,7 @@ int ctx_bubbles(int argc, char **argv)
 
   status("  saved to: %s\n", out_path);
   gzclose(gzout);
+  ctx_free(hdrs);
 
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)

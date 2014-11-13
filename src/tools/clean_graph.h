@@ -3,28 +3,59 @@
 
 #include "db_graph.h"
 
-// Get coverage threshold for removing supernodes
-// If `min_keep_tip` is > 0, tips shorter than `min_keep_tip` are not used
-// in measuring supernode coverage.
-// `visited`, should each be at least db_graph.ht.capcity bits long
-//   and initialised to zero
-// `covgs_csv_path` and `lens_csv_path` are paths to files to write CSV
-//   histogram of supernodes coverages and lengths BEFORE ANY CLEANING.
-//   If NULL these are ignored.
-Covg cleaning_get_threshold(size_t num_threads, double seq_depth,
-                            const char *covgs_csv_path,
-                            const char *lens_csv_path,
-                            uint8_t *visited, dBGraph *db_graph);
+/**
+ * Pick a cleaning threshold from kmer coverage histogram. Assumes low coverage
+ * kmers are all due to error, fits a gamma distribution. Then chooses a
+ * cleaning threshold such than FDR (uncleaned kmers) occur at a rate of <=
+ * FDR paramater.
+ * Translated from Gil McVean's proposed method in R code
+ *
+ * @param fdr_limit False discovery rate for single kmer coverage
+ *                  (1/1000 i.e. 0.001 is reasonable)
+ * @return -1 if not cut-off satisfies FDR, or coverage cutoff
+ */
+int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
+                                 double fdr_limit);
 
-// Remove low coverage supernodes and clip tips
-// - Remove supernodes with coverage < `covg_threshold`
-// - Remove tips shorter than `min_keep_tip`
-// `visited`, `keep` should each be at least db_graph.ht.capcity bits long
-//   and initialised to zero.
-// `covgs_csv_path` and `lens_csv_path` are paths to files to write CSV
-//   histogram of supernodes coverages and lengths AFTER CLEANING.
-//   If NULL these are ignored.
-void clean_graph(size_t num_threads, size_t covg_threshold, size_t min_keep_tip,
+/**
+ * Calculate cleaning threshold for supernodes from a given distribution
+ * of supernode coverages
+ * @param covgs histogram of supernode coverages
+ */
+size_t cleaning_pick_supernode_threshold(const uint64_t *covgs, size_t len,
+                                         double seq_depth,
+                                         const dBGraph *db_graph);
+
+/**
+ * Get coverage threshold for removing supernodes
+ *
+ * @param visited should be at least db_graph.ht.capcity bits long and initialised
+ *                to zero. On return, it will be 1 at each original kmer index
+ * @param covgs_csv_path
+ * @param lens_csv_path  paths to files to write CSV histogram of supernodes
+                         coverages and lengths BEFORE ANY CLEANING.
+ *                       If NULL these are ignored.
+ * @return threshold to clean or -1 on error
+ */
+int cleaning_get_threshold(size_t num_threads,
+                           bool use_supernode_covg, double seq_depth,
+                           const char *covgs_csv_path,
+                           const char *lens_csv_path,
+                           uint8_t *visited,
+                           const dBGraph *db_graph);
+
+/**
+ * Remove low coverage supernodes and clip tips
+ * - Remove supernodes with coverage < `covg_threshold`
+ * - Remove tips shorter than `min_keep_tip`
+ * `visited`, `keep` should each be at least db_graph.ht.capcity bits long
+ *   and initialised to zero.
+ * `covgs_csv_path` and `lens_csv_path` are paths to files to write CSV
+ *   histogram of supernodes coverages and lengths AFTER CLEANING.
+ *   If NULL these are ignored.
+ */
+void clean_graph(size_t num_threads, bool use_supernode_covg,
+                 size_t covg_threshold, size_t min_keep_tip,
                  const char *covgs_csv_path, const char *lens_csv_path,
                  uint8_t *visited, uint8_t *keep, dBGraph *db_graph);
 
