@@ -356,10 +356,10 @@ static void print_vcf_header(cJSON *json, FILE *fout)
     if(cmd == NULL || cmd->type != cJSON_String) die("Invalid 'cmd' field");
     if(cwd == NULL || cwd->type != cJSON_String) die("Invalid 'cwd' field");
     if(prev == NULL || prev->type != cJSON_Array) die("Invalid 'prev' field");
-    prev = prev->child; // prev may be NULL
+    prev = prev->child; // result could be NULL
+    if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
+    fprintf(fout, "##CMD=<key=%s,prev=%s", key->string, prev ? prev->string : "NULL");
     if(prev) {
-      if(prev->type != cJSON_String) die("Invalid 'prev' field");
-      fprintf(fout, "##CMD=<key=%s,prev=%s", key->string, prev ? prev->string : "NULL");
       while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->string);
     }
     fprintf(fout, ",cmd=\"%s\",cwd=%s>\n", cmd->string, cwd->string);

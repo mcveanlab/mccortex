@@ -283,7 +283,7 @@ uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
   {
     for(i = j = 0; i < count; i++) {
       if((db_graph->node_in_cols && db_node_has_col(db_graph, nodes[i].key, colour)) ||
-         (!db_graph->node_in_cols && db_node_col_covg(db_graph, nodes[i].key, colour) > 0))
+         (!db_graph->node_in_cols && db_node_covg(db_graph, nodes[i].key, colour) > 0))
       {
         nodes[j] = nodes[i];
         fw_nucs[j] = fw_nucs[i];
