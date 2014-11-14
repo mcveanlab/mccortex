@@ -57,7 +57,7 @@ int main(int argc, char **argv)
   }
 
   // Print matches
-  print_seqs(s, len, (uint32_t (*)[len])arr);
+  print_seqs(s, len, (const uint32_t (*)[len])arr);
 
   free(arr);
   free(s);

@@ -83,7 +83,7 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
     if(fdr < fdr_limit) break;
   }
 
-  return fdr < fdr_limit ? i : -1;
+  return fdr < fdr_limit ? (int)i : -1;
 }
 
 // #define supernode_covg(covgs,len) supernode_covg_mean(covgs,len)

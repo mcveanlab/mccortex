@@ -571,7 +571,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
           if(wlk->used_paths) {
             // mark as used
             size_t pathid = gpset_get_pkey(&wlk->gpstore->gpset, path->gpath);
-            bitset_set_mt(wlk->used_paths, pathid);
+            (void)bitset_set_mt(wlk->used_paths, pathid);
           }
         }
       }
