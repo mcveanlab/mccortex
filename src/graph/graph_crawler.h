@@ -45,14 +45,16 @@ void graph_crawler_dealloc(GraphCrawler *crawler);
 // reduce memory usage
 #define graph_crawler_reset(crawler) graph_cache_reset(&(crawler)->cache)
 
-// `node1` should be the first node of a supernode
-// `node0` should be the previous node
-// `next_base` is the last base of `node1`
-// `jmpfunc` is called with each supernode traversed and if it returns true
-//           we continue crawling, otherwise we stop. If NULL assume always true
-// `endfunc` is a function called at the end of traversal
+/**
+ * @param node1 should be the first node of a supernode
+ * @param node0 should be the previous node
+ * @param next_base is the last base of `node1`
+ * @param jmpfunc is called with each supernode traversed and if it returns true
+ *                we continue crawling, otherwise we stop. If NULL assume always true
+ * @param endfunc is a function called at the end of traversal
+ */
 void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
-                         dBNode next_nodes[4], Nucleotide next_bases[4],
+                         dBNode next_nodes[4],
                          size_t take_idx, size_t num_next,
                          uint32_t *cols, size_t ncols,
                          bool (*jmpfunc)(GraphCache *_cache, GCacheStep *_step, void *_arg),

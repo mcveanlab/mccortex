@@ -53,7 +53,7 @@ void test_graph_crawler()
   TASSERT(next_idx < num_next && db_nodes_are_equal(next_nodes[next_idx],next_node));
 
   // Crawl in all colours
-  graph_crawler_fetch(&crawler, node, next_nodes, next_nucs, next_idx, num_next,
+  graph_crawler_fetch(&crawler, node, next_nodes, next_idx, num_next,
                       NULL, graph.num_of_cols, NULL, NULL, NULL);
 
   TASSERT2(crawler.num_paths == 2, "crawler.num_paths: %u", crawler.num_paths);

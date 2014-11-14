@@ -278,7 +278,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
       if(node_has_col[i])
       {
         graph_walker_start(wlk, fork_node);
-        graph_walker_force(wlk, nodes[i].key, bases[i], num_edges_in_col > 1);
+        graph_walker_force(wlk, nodes[i], num_edges_in_col > 1);
 
         pathid = graph_crawler_load_path_limit(cache, nodes[i], wlk, rptwlk,
                                                caller->prefs.max_allele_len);

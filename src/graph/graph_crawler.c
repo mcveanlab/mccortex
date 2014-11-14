@@ -12,13 +12,11 @@ static inline void walk_supernode_end(const GraphCache *cache,
   const dBNode *first = graph_cache_first_node(cache, snode);
   const dBNode *last = graph_cache_last_node(cache, snode);
   dBNode lastnode;
-  BinaryKmer last_bkmer;
   size_t num_nodes = last - first;
 
   if(num_nodes > 0) {
     lastnode = (snorient == FORWARD ? *last : db_node_reverse(*first));
-    last_bkmer = db_node_oriented_bkmer(wlk->db_graph, lastnode);
-    graph_walker_jump_along_snode(wlk, lastnode.key, last_bkmer, num_nodes);
+    graph_walker_jump_along_snode(wlk, lastnode, num_nodes);
   }
 }
 
@@ -166,7 +164,7 @@ static inline int unicol_path_cmp(const void *aa, const void *bb, void *arg)
 //           we continue crawling, otherwise we stop
 // `endfunc` is a function called at the end of traversal
 void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
-                         dBNode next_nodes[4], Nucleotide next_bases[4],
+                         dBNode next_nodes[4],
                          size_t take_idx, size_t num_next,
                          uint32_t *cols, size_t ncols,
                          bool (*jmpfunc)(GraphCache *_cache, GCacheStep *_step, void *_arg),
@@ -184,7 +182,6 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
 
   // Fetch all paths in all colours
   dBNode node1 = next_nodes[take_idx];
-  Nucleotide base1 = next_bases[take_idx];
   bool is_fork;
   size_t i, c, col, nedges_cols, num_unicol_paths = 0;
   int pathid;
@@ -204,7 +201,7 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
 
       graph_walker_setup(wlk, true, col, col, db_graph);
       graph_walker_start(wlk, node0);
-      graph_walker_force(wlk, node1.key, base1, is_fork);
+      graph_walker_force(wlk, node1, is_fork);
 
       pathid = graph_crawler_load_path(cache, node1, wlk, rptwlk, jmpfunc, arg);
 

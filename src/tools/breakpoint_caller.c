@@ -399,7 +399,7 @@ static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
   // Go backwards to get 5p flank
   // NULL means loop from 0..(ncols-1)
   graph_crawler_fetch(crawler, node0,
-                      next_nodes, next_nucs, i, num_next,
+                      next_nodes, i, num_next,
                       NULL, db_graph->num_of_cols,
                       gcrawler_flank5p_stop_at_ref_covg,
                       gcrawler_flank5p_finish_ref_covg,
@@ -491,7 +491,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 
         // Only traverse in the colours we have a flank for
         graph_crawler_fetch(fw_crawler, node,
-                            next_nodes, next_nucs, next_idx, num_next,
+                            next_nodes, next_idx, num_next,
                             flank5p_multicolpath->cols,
                             flank5p_multicolpath->num_cols,
                             gcrawler_path_stop_at_ref_covg,

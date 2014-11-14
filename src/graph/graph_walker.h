@@ -26,7 +26,7 @@ typedef struct
 
   // Current position
   dBNode node;
-  BinaryKmer bkmer, bkey; // Oriented bkmer (i.e. not key) + hash bkey
+  BinaryKmer bkey;
 
   // Paths we are currently following
   GPathFollowBuffer paths, cntr_paths;
@@ -66,15 +66,18 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4]);
 
-// Move to the next node
-// If fork is true, node is the result of taking a fork -> slim down paths
-void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
-                        bool fork);
+/**
+ * Move to the next node
+ * @param is_fork If true, node is the result of taking a fork (updates paths)
+ */
+void graph_walker_force(GraphWalker *wlk, dBNode node, bool is_fork);
 
-// Jump to a new node within the current sample supernode
-// (can actually be any node up until the end of the current supernode)
-void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey,
-                                   BinaryKmer bkmer, size_t num_nodes);
+/**
+ * Jump to a new node within the current sample supernode
+ * (can actually be any node up until the end of the current supernode)
+ * @param num_nodes is number of nodes we have moved forward
+ */
+void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes);
 
 // return 1 on success, 0 otherwise
 bool graph_walker_next(GraphWalker *wlk);
@@ -90,6 +93,14 @@ bool graph_walker_next_nodes(GraphWalker *wlk, size_t num_next,
 void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     const dBNode prev_nodes[4],
                                     size_t num_prev);
+
+/**
+ * Traversal of every node in a list of nodes using the supplied GraphWalker
+ * Visits each node specifed
+ */
+void graph_walker_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
+                           bool forward);
+
 // Prime for traversal
 void graph_walker_prime(GraphWalker *wlk,
                         const dBNode *block, size_t n,

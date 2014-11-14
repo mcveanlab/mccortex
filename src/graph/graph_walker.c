@@ -43,11 +43,10 @@ static void print_path_list(const GPathFollowBuffer *pbuf, FILE *fout)
 
 void graph_walker_print_state(const GraphWalker *wlk, FILE *fout)
 {
-  char bkmerstr[MAX_KMER_SIZE+1], bkeystr[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, bkmerstr);
+  char bkeystr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkeystr);
-  fprintf(fout, " GWState:%s (%s:%i) ctx: %zu ctp: %zu\n",
-         bkmerstr, bkeystr, wlk->node.orient, wlk->ctxcol, wlk->ctpcol);
+  fprintf(fout, " GWState: %s:%i ctx: %zu ctp: %zu\n",
+         bkeystr, wlk->node.orient, wlk->ctxcol, wlk->ctpcol);
   fprintf(fout, "  num_curr: %zu\n", wlk->paths.len);
   print_path_list(&wlk->paths, fout);
   fprintf(fout, "  num_counter: %zu\n", wlk->cntr_paths.len);
@@ -216,7 +215,8 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
   if(!wlk->missing_path_check) return;
 
   size_t i;
-  Nucleotide next_base = binary_kmer_last_nuc(wlk->bkmer);
+  Nucleotide next_base = bkmer_get_last_nuc(wlk->bkey, wlk->node.orient,
+                                            wlk->db_graph->kmer_size);
 
   // Reverse orientation, pick up paths
   for(i = 0; i < num_prev; i++)
@@ -237,9 +237,8 @@ void graph_walker_start(GraphWalker *wlk, dBNode node)
   memset(&wlk->last_step, 0, sizeof(wlk->last_step));
   wlk->last_step.idx = -1;
 
-  // Get bkmer oriented correctly (not bkey)
+  // Get binary kmer
   wlk->bkey = db_node_get_bkmer(wlk->db_graph, node.key);
-  wlk->bkmer = db_node_oriented_bkmer(wlk->db_graph, node);
 
   #ifdef DEBUG_WALKER
     char kmer_str[MAX_KMER_SIZE+1];
@@ -521,12 +520,12 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
  * @param lost_nuc  Base lost when moving forward. -1 if moving more than one node
  */
 static void _graph_walker_force_jump(GraphWalker *wlk,
-                                     hkey_t hkey, BinaryKmer bkmer,
+                                     dBNode node,
                                      bool is_fork,
                                      size_t num_nodes,
                                      int lost_nuc) // -1 if jump
 {
-  ctx_assert(hkey != HASH_NOT_FOUND);
+  ctx_assert(node.key != HASH_NOT_FOUND);
   ctx_assert(num_nodes > 0);
 
   #ifdef DEBUG_WALKER
@@ -543,13 +542,19 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
   ctx_assert2((wlk->last_step.status != GRPHWLK_USEPATH) || is_fork, "%i vs %i",
               (int)wlk->last_step.status, (int)is_fork);
 
+  // Update GraphWalker position
+  wlk->bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+  wlk->node = node;
+
   if(is_fork)
   {
     // We passed a fork - take all paths that agree with said nucleotide and
     // haven't ended, also update junction progress for each path
-    Nucleotide base = binary_kmer_last_nuc(bkmer), pnuc;
+    Nucleotide base, pnuc;
     GPathFollow *path;
     size_t i, j, npaths = wlk->paths.len;
+
+    base = bkmer_get_last_nuc(wlk->bkey, node.orient, wlk->db_graph->kmer_size);
 
     // Check curr pathh
     for(i = 0, j = 0; i < npaths; i++)
@@ -591,12 +596,6 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
     wlk->fork_count++;
   }
 
-  // Update GraphWalker position
-  wlk->bkmer = bkmer;
-  wlk->bkey = db_node_get_bkmer(wlk->db_graph, hkey);
-  wlk->node.key = hkey;
-  wlk->node.orient = bkmer_get_orientation(wlk->bkmer, wlk->bkey);
-
   // Find previous nodes
   dBNode prev_nodes[4];
   Nucleotide prev_bases[4];
@@ -629,45 +628,40 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
  * (can actually be any node up until the end of the current supernode)
  * @param num_nodes is number of nodes we have moved forward
  */
-void graph_walker_jump_along_snode(GraphWalker *wlk, hkey_t hkey,
-                                   BinaryKmer bkmer, size_t num_nodes)
+void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes)
 {
   ctx_assert(num_nodes > 0);
 
   #ifdef CTXCHECKS
     // This is just a sanity test
-    Edges edges = db_node_get_edges(wlk->db_graph, hkey, 0);
-    BinaryKmer bkey = db_node_get_bkmer(wlk->db_graph, hkey);
-    Orientation orient = bkmer_get_orientation(bkmer, bkey);
-    ctx_assert(edges_get_indegree(edges, orient) <= 1);
+    Edges edges = db_node_edges_in_col(db_node_reverse(node), wlk->ctxcol, wlk->db_graph);
+    ctx_assert(edges_get_indegree(edges, node.orient) <= 1);
   #endif
 
   // Need to check if node is in colour
   bool incol = (wlk->db_graph->node_in_cols == NULL ||
-                db_node_has_col(wlk->db_graph, hkey, wlk->ctxcol));
+                db_node_has_col(wlk->db_graph, node.key, wlk->ctxcol));
 
   int status = incol ? GRPHWLK_COLFWD : GRPHWLK_POPFWD;
   wlk->last_step = (GraphStep){.idx = 0, .status = status, .path_gap = 0};
 
   // Don't need to pick up counter paths since there should be none
   // Now do the work
-  _graph_walker_force_jump(wlk, hkey, bkmer, false, num_nodes, -1);
+  _graph_walker_force_jump(wlk, node, false, num_nodes, -1);
 }
 
 /**
  * Move to the next node
+ * @param is_fork If true, node is the result of taking a fork (updates paths)
  */
-void graph_walker_force(GraphWalker *wlk, hkey_t hkey, Nucleotide base,
-                        bool is_fork)
+void graph_walker_force(GraphWalker *wlk, dBNode node, bool is_fork)
 {
-  ctx_assert(hkey != HASH_NOT_FOUND);
-  BinaryKmer bkmer;
+  ctx_assert(node.key != HASH_NOT_FOUND);
   const size_t kmer_size = wlk->db_graph->kmer_size;
-  Nucleotide lost_nuc = binary_kmer_first_nuc(wlk->bkmer, kmer_size);
-  bkmer = binary_kmer_left_shift_add(wlk->bkmer, kmer_size, base);
+  Nucleotide lost_nuc = bkmer_get_first_nuc(wlk->bkey, wlk->node.orient, kmer_size);
 
   // _graph_walker_force_jump now picks up counter paths
-  _graph_walker_force_jump(wlk, hkey, bkmer, is_fork, 1, (int)lost_nuc);
+  _graph_walker_force_jump(wlk, node, is_fork, 1, (int)lost_nuc);
 }
 
 // return 1 on success, 0 otherwise
@@ -677,7 +671,7 @@ bool graph_walker_next_nodes(GraphWalker *wlk, size_t num_next,
   wlk->last_step = graph_walker_choose(wlk, num_next, nodes, bases);
   int idx = wlk->last_step.idx;
   if(idx == -1) return false;
-  graph_walker_force(wlk, nodes[idx].key, bases[idx],
+  graph_walker_force(wlk, nodes[idx],
                      graph_step_status_is_fork(wlk->last_step.status));
   return true;
 }
@@ -703,106 +697,16 @@ bool graph_walker_next(GraphWalker *wlk)
 // Force traversal along an array of nodes (`priming' a GraphWalker)
 //
 
-// Fast traverse - avoid a bkmer_revcmp
-static inline void _graph_walker_fast(GraphWalker *wlk,
-                                      const dBNode next_node,
-                                      bool is_fork,
-                                      size_t num_nodes)
-{
-  const size_t kmer_size = wlk->db_graph->kmer_size;
-  BinaryKmer bkmer, bkey;
-  Nucleotide nuc;
-  ctx_assert(num_nodes > 0);
-
-  // Only one path between two nodes
-  if(num_nodes == 1) {
-    nuc = db_node_get_last_nuc(next_node, wlk->db_graph);
-    graph_walker_force(wlk, next_node.key, nuc, is_fork);
-  }
-  else {
-    // jumping to the end of a supernode
-    bkey = db_node_get_bkmer(wlk->db_graph, next_node.key);
-    bkmer = bkmer_oriented_bkmer(bkey, next_node.orient, kmer_size);
-    graph_walker_jump_along_snode(wlk, next_node.key, bkmer, num_nodes);
-  }
-
-  // char tmpbkmer[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(wlk->bkmer, wlk->db_graph->kmer_size, tmpbkmer);
-  // printf("  forced: %s\n", tmpbkmer);
-}
-
-// DEV: not currently working
-// Fast traversal of a list of nodes using the supplied GraphWalker
-// Only visits nodes deemed informative + last node
-// Must have previously initialised or walked to the prior node,
-// using: graph_walker_start, graph_walker_force, graph_walker_jump_along_snode,
-// graph_traverse or graph_walker_next_nodes
-// i.e. wlk->node is a node adjacent to arr[0]
-void graph_walker_fast_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
-                                bool forward)
-{
-  if(n == 0) return;
-
-  // Only one colour should be loaded
-  // (so we don't have to use union edges to figure out forks in given colour)
-  ctx_assert(wlk->db_graph->num_edge_cols == 1);
-
-  size_t i, num_nodes, walk_start = 0;
-  bool infork[3] = {false, false, false}, outfork[3] = {false, false, false};
-  Edges edges;
-  dBNode nodes[3];
-
-  edges = db_node_both_edges_in_col(wlk->node.key, wlk->ctxcol, wlk->db_graph);
-  outfork[0] = edges_get_outdegree(edges, wlk->node.orient) > 1;
-
-  nodes[0] = wlk->node;
-  nodes[1] = forward ? arr[0] : db_node_reverse(arr[n-1]);
-
-  edges = db_node_both_edges_in_col(nodes[1].key, wlk->ctxcol, wlk->db_graph);
-  outfork[1] = edges_get_outdegree(edges, nodes[1].orient) > 1;
-  infork[1] = edges_get_indegree(edges, nodes[1].orient) > 1;
-
-  for(i = 0; i+1 < n; i++)
-  {
-    // Move to node i if informative (given nodes i-1, i+1)
-    // node i refers to infork[1] and outfork[1]
-
-    nodes[2] = forward ? arr[i+1] : db_node_reverse(arr[n-i-2]);
-
-    edges = db_node_both_edges_in_col(nodes[2].key, wlk->ctxcol, wlk->db_graph);
-    outfork[2] = edges_get_outdegree(edges, nodes[2].orient) > 1;
-    infork[2] = edges_get_indegree(edges, nodes[2].orient) > 1;
-
-    // Traverse nodes[i] if:
-    // - previous node had out-degree > 1 (update/drop paths)
-    // - current node has in-degree > 1 (pick up counter-paths + merge in new paths)
-    // - next node has in-degree > 1 (pickup paths)
-    if(outfork[0] || infork[1] || infork[2]) {
-      num_nodes = i - walk_start + 1;
-      _graph_walker_fast(wlk, nodes[1], outfork[0], num_nodes);
-      walk_start = i + 1;
-    }
-
-    // Rotate edges, nodes
-    infork[0] = infork[1]; infork[1] = infork[2];
-    outfork[0] = outfork[1]; outfork[1] = outfork[2];
-    nodes[0] = nodes[1]; nodes[1] = nodes[2];
-  }
-
-  // Traverse last node
-  num_nodes = n - walk_start;
-  _graph_walker_fast(wlk, nodes[1], outfork[0], num_nodes);
-}
-
-// Traversal of every node in a list of nodes using the supplied GraphWalker
-// Visits each node specifed
-void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
-                                bool forward)
+/**
+ * Traversal of every node in a list of nodes using the supplied GraphWalker
+ * Visits each node specifed
+ */
+void graph_walker_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
+                           bool forward)
 {
   Edges edges;
   bool is_fork;
   dBNode next;
-  Nucleotide nuc;
   size_t i;
   const dBGraph *db_graph = wlk->db_graph;
 
@@ -810,8 +714,7 @@ void graph_walker_slow_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
     edges = db_node_edges_in_col(wlk->node, wlk->ctxcol, db_graph);
     is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
     next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
-    nuc = db_node_get_last_nuc(next, db_graph);
-    graph_walker_force(wlk, next.key, nuc, is_fork);
+    graph_walker_force(wlk, next, is_fork);
   }
 }
 
@@ -839,8 +742,7 @@ void graph_walker_prime(GraphWalker *wlk,
   else { node0 = db_node_reverse(block[n-1]); }
 
   graph_walker_start(wlk, node0);
-  // graph_walker_fast_traverse(wlk, block, n-1, forward);
-  graph_walker_slow_traverse(wlk, block, n-1, forward);
+  graph_walker_traverse(wlk, block, n-1, forward);
 
   // For debugging
   // graph_walker_print_state(wlk, stderr);
@@ -866,9 +768,9 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
   Edges edges;
 
   #ifdef CTXCHECKS
-    // Check last k-1 bp of wlk->bkmer match block
+    // Check last k-1 bp of bkmer match block
     expnode = forward ? block[0] : db_node_reverse(block[num_nodes-1]);
-    BinaryKmer bkmer0 = wlk->bkmer;
+    BinaryKmer bkmer0 = db_node_oriented_bkmer(wlk->db_graph, wlk->node);
     BinaryKmer bkmer1 = db_node_oriented_bkmer(wlk->db_graph, expnode);
     bkmer0 = binary_kmer_left_shift_one_base(bkmer0, wlk->db_graph->kmer_size);
     binary_kmer_set_last_nuc(&bkmer1, 0);
