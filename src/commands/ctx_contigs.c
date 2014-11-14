@@ -151,10 +151,6 @@ int ctx_contigs(int argc, char **argv)
   memset(&gfile, 0, sizeof(GraphFileReader));
   graph_file_open(&gfile, ctx_path);
 
-  // DEV: don't load all colours of path files
-  // Check each path file only loads one colour
-  // gpaths_only_for_colour(gpfiles.data, gpfiles.len, colour);
-
   // Update colours in graph file - sample in 0, all others in 1
   // never need more than two colours
   size_t ncols = gpath_load_sample_pop(&gfile, gpfiles.data, gpfiles.len, colour);
@@ -202,7 +198,7 @@ int ctx_contigs(int argc, char **argv)
   total_mem = graph_mem + path_mem;
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
-  // Load contig hist distribution
+  // Load contig hist distribution from ctp files
   ZeroSizeBuffer contig_hist;
   memset(&contig_hist, 0, sizeof(contig_hist));
 

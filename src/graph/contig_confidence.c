@@ -95,9 +95,9 @@ void conf_table_dealloc(ContigConfidenceTable *table)
 double conf_table_lookup(const ContigConfidenceTable *table,
                          size_t col, size_t dist)
 {
-  ctx_assert(col < table->ncols);
   size_t idx = table->ncols * dist + col;
-  if(idx >= table->table.len) die("%zu > %zu", idx, table->table.len);
+  ctx_assert(col < table->ncols);
+  ctx_assert(idx < table->table.len);
   return table->table.data[idx];
 }
 

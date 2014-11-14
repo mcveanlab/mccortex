@@ -15,7 +15,7 @@ CTX=$(CTXDIR)/bin/ctx31
 
 # 4**7 = 16,384
 K=9
-GENOME=100
+GENOME=10000
 TGTS=seq.fa seq.uniq.fa seq.uniq.k$(K).ctx seq.uniq.k$(K).ctp.gz seq.regen.fa
 
 all: $(TGTS) check
