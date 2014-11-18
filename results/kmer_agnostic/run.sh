@@ -45,7 +45,8 @@ for k in $kmers; do [ ! -d k$k ] && mkdir -p k$k; done
 mkdir -p reads
 
 # Generate reads
-[ ! -f reads/perf.fa.gz  ]    && $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz >& reads/perf.fa.gz.log
+# Redirect stderr with 2>
+[ ! -f reads/perf.fa.gz  ]    && $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz 2> reads/perf.fa.gz.log
 [ ! -f reads/stoch.fa.gz ]    && $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch >& reads/stoch.fa.gz.log
 [ ! -f reads/stocherr.fa.gz ] && $READSIM -l $READLEN -r $REF -d $DEPTH -e 0.005 -s reads/stocherr >& reads/stocherr.fa.gz.log
 
