@@ -7,7 +7,7 @@ SHELL:=/bin/bash -euo pipefail
 KMERS=15 21 31 41 51 63 75 99
 
 # Expand these for all k values
-DIRS=reads logs $(foreach K,$(KMERS),k$(K)) plots
+DIRS=reads $(foreach K,$(KMERS),k$(K)) plots
 
 all:
 	./run.sh

@@ -42,7 +42,7 @@ MEM=5G
 
 # create directories
 for k in $kmers; do [ ! -d k$k ] && mkdir -p k$k; done
-mkdir -p logs reads
+mkdir -p reads
 
 # Generate reads
 [ ! -f reads/perf.fa.gz  ]    && $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz >& reads/perf.fa.gz.log
@@ -63,7 +63,7 @@ echo == Read threading ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.se.ctp.gz ] && `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --contig-hist k$k/$p.se.rlenhist.csv --out k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.se.ctp.gz.log
+    [ ! -f k$k/$p.se.ctp.gz ] && `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --out k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.se.ctp.gz.log
   done
 done
 
@@ -71,10 +71,10 @@ echo == Assembling contigs ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx >& k$k/$p.ctx.log
-    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx
-    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.plain.contigs.rmdup.fa k$k/$p.plain.contigs.fa
-    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.links.contigs.rmdup.fa k$k/$p.links.contigs.fa
+    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx >& k$k/$p.plain.contigs.log
+    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.links.contigs.log
+    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.plain.contigs.rmdup.fa k$k/$p.plain.contigs.fa >& k$k/$p.plain.rmdup.log
+    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.links.contigs.rmdup.fa k$k/$p.links.contigs.fa >& k$k/$p.links.rmdup.log
   done
 done
 
