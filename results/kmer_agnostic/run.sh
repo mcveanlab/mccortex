@@ -53,8 +53,8 @@ mkdir -p reads
 echo == Building cortex graphs ==
 
 for k in $kmers; do
-  [ ! -f k$k/perf.ctx ]         && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx >& perf.ctx.log
-  [ ! -f k$k/stoch.ctx ]        && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx >& stoch.ctx.log
+  [ ! -f k$k/perf.ctx ]         && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx >& k$k/perf.ctx.log
+  [ ! -f k$k/stoch.ctx ]        && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx >& k$k/stoch.ctx.log
   [ ! -f k$k/stocherr.raw.ctx ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/stocherr.raw.ctx >& k$k/stocherr.raw.ctx.log
   [ ! -f k$k/stocherr.ctx ]     && `getctx $k` clean -m $MEM --covg-before k$k/stocherr.raw.covg.csv --out k$k/stocherr.ctx k$k/stocherr.raw.ctx >& k$k/stocherr.ctx.log
 done
@@ -71,7 +71,7 @@ echo == Assembling contigs ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa k$k/$p.ctx >& k$k/$p.plain.contigs.log
+    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa                     k$k/$p.ctx >& k$k/$p.plain.contigs.log
     [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.links.contigs.log
     [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.plain.contigs.rmdup.fa k$k/$p.plain.contigs.fa >& k$k/$p.plain.rmdup.log
     [ ! -f k$k/$p.links.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.links.contigs.rmdup.fa k$k/$p.links.contigs.fa >& k$k/$p.links.rmdup.log
