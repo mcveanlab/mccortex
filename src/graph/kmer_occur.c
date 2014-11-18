@@ -41,6 +41,42 @@ void koruns_print(KOccurRun *runs, size_t n, size_t kmer_size, FILE *fout)
   }
 }
 
+void korun_gzprint(gzFile gzout, size_t kmer_size,
+                   KOGraph kograph, KOccurRun korun,
+                   size_t first_kmer_idx, size_t kmer_offset)
+{
+  const char strand[] = {'+','-'};
+  const char *chrom = kograph_chrom(kograph,korun).name;
+  ctx_assert(korun.first <= korun.last || korun.strand == STRAND_MINUS);
+  // get end coord as inclusive coord as start-end
+  // (Note: start may be greater than end if strand is minus)
+  size_t start, end, qoffset;
+  if(korun.strand == STRAND_PLUS) {
+    start = korun.first+kmer_offset;
+    end = korun.last+kmer_size-1;
+  } else {
+    start = korun.first+kmer_size-1-kmer_offset;
+    end = korun.last;
+  }
+  qoffset = korun.qoffset - first_kmer_idx;
+  // +1 to coords to convert to 1-based
+  gzprintf(gzout, "%s:%zu-%zu:%c:%u",
+           chrom, start+1, end+1, strand[korun.strand], qoffset+1);
+}
+
+void koruns_gzprint(gzFile gzout, size_t kmer_size, KOGraph kograph,
+                    const KOccurRun *koruns, size_t n,
+                    size_t first_kmer_idx, size_t kmer_offset)
+{
+  size_t i;
+  if(n == 0) return;
+  korun_gzprint(gzout, kmer_size, kograph, koruns[0], first_kmer_idx, kmer_offset);
+  for(i = 1; i < n; i++) {
+    gzputc(gzout, ',');
+    korun_gzprint(gzout, kmer_size, kograph, koruns[i], first_kmer_idx, kmer_offset);
+  }
+}
+
 // Sort KOccurRun by qoffset, chrom, first, last then strand
 static int korun_cmp_qoffset(const void *aa, const void *bb)
 {

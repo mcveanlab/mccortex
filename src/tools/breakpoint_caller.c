@@ -132,43 +132,6 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
   ctx_free(callers);
 }
 
-static inline void ko_gzprint(gzFile gzout, size_t kmer_size,
-                              KOGraph kograph, KOccurRun korun,
-                              size_t first_kmer_idx, size_t kmer_offset)
-{
-  const char strand[] = {'+','-'};
-  const char *chrom = kograph_chrom(kograph,korun).name;
-  ctx_assert(korun.first <= korun.last || korun.strand == STRAND_MINUS);
-  // get end coord as inclusive coord as start-end
-  // (Note: start may be greater than end if strand is minus)
-  size_t start, end, qoffset;
-  if(korun.strand == STRAND_PLUS) {
-    start = korun.first+kmer_offset;
-    end = korun.last+kmer_size-1;
-  } else {
-    start = korun.first+kmer_size-1-kmer_offset;
-    end = korun.last;
-  }
-  qoffset = korun.qoffset - first_kmer_idx;
-  // +1 to coords to convert to 1-based
-  gzprintf(gzout, "%s:%zu-%zu:%c:%u",
-           chrom, start+1, end+1, strand[korun.strand], qoffset+1);
-}
-
-static inline void koruns_gzprint(gzFile gzout, size_t kmer_size,
-                                  KOGraph kograph,
-                                  const KOccurRun *koruns, size_t n,
-                                  size_t first_kmer_idx, size_t kmer_offset)
-{
-  size_t i;
-  if(n == 0) return;
-  ko_gzprint(gzout, kmer_size, kograph, koruns[0], first_kmer_idx, kmer_offset);
-  for(i = 1; i < n; i++) {
-    gzputc(gzout, ',');
-    ko_gzprint(gzout, kmer_size, kograph, koruns[i], first_kmer_idx, kmer_offset);
-  }
-}
-
 static void process_contig(BreakpointCaller *caller,
                            const uint32_t *cols, size_t ncols,
                            const dBNodeBuffer *flank5p,
@@ -570,21 +533,31 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   // Construct cJSON
   cJSON *json = cJSON_CreateObject();
 
-  cJSON_AddStringToObject(json, "fileFormat", "CtxBreakpoints");
-  cJSON_AddNumberToObject(json, "formatVersion", 1);
+  cJSON_AddStringToObject(json, "file_format", "CtxBreakpoints");
+  cJSON_AddNumberToObject(json, "format_version", 2);
+
+  // Add standard cortex headers
+  json_hdr_add_std(json, out_path, hdrs, nhdrs, db_graph);
+
+  // Add breakpoint specific header
+  cJSON *brkpnt = cJSON_CreateObject();
+  cJSON_AddItemToObject(json, "breakpoints", brkpnt);
 
   // Add paths to reference files
   cJSON *ref_files = cJSON_CreateArray();
-  cJSON_AddItemToObject(json, "ref_files", ref_files);
+  cJSON_AddItemToObject(brkpnt, "ref_files", ref_files);
 
-  for(i = 0; i < nseq_paths; i++) {
-    cJSON *ref = cJSON_CreateString(seq_paths[i]);
-    cJSON_AddItemToArray(ref_files, ref);
+  for(i = 0; i < nseq_paths; i++)
+  {
+    // Get absolute path to output file if possible
+    char abspath[PATH_MAX + 1];
+    char *ref_path = realpath(seq_paths[i], abspath) ? abspath : seq_paths[i];
+    cJSON_AddItemToArray(ref_files, cJSON_CreateString(ref_path));
   }
 
   // List contigs
   cJSON *contigs = cJSON_CreateArray();
-  cJSON_AddItemToObject(json, "contigs", contigs);
+  cJSON_AddItemToObject(brkpnt, "contigs", contigs);
 
   for(i = 0; i < nreads; i++) {
     cJSON *contig = cJSON_CreateObject();
@@ -593,12 +566,21 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
     cJSON_AddItemToArray(contigs, contig);
   }
 
-  // Add standard cortex headers
-  json_hdr_add_std(json, out_path, hdrs, nhdrs, db_graph);
-
   // Write header to file
   json_hdr_gzprint(json, gzout);
-  gzputc(gzout, '\n');
+
+  // Print comments about the format
+  gzputs(gzout, "\n");
+  gzputs(gzout, "# This file was generated with McCortex\n");
+  gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
+  gzputs(gzout, "#   url: "CORTEX_URL"\n");
+  gzputs(gzout, "# \n");
+  gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
+  gzputs(gzout, "# Format is:\n");
+  gzputs(gzout, "#   chrs=chr:start-end:strand:offset\n");
+  gzputs(gzout, "#   all coordinates are 1-based\n");
+  gzputs(gzout, "#   <offset> is the position in the sequence where ref starts agreeing\n");
+  gzputs(gzout, "\n");
 
   cJSON_Delete(json);
 }

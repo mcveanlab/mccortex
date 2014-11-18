@@ -240,7 +240,7 @@ void gpath_save(gzFile gzout, const char *path, size_t nthreads,
 
   // Print comments about the format
   gzputs(gzout, "\n");
-  gzputs(gzout, "# This file was generated with Cortex\n");
+  gzputs(gzout, "# This file was generated with McCortex\n");
   gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
   gzputs(gzout, "#   url: "CORTEX_URL"\n");
   gzputs(gzout, "# \n");

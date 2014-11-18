@@ -93,15 +93,23 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   // Construct cJSON
   cJSON *json = cJSON_CreateObject();
 
-  cJSON_AddStringToObject(json, "fileFormat", "CtxBubbles");
-  cJSON_AddNumberToObject(json, "formatVersion", 1);
+  cJSON_AddStringToObject(json, "file_format", "CtxBubbles");
+  cJSON_AddNumberToObject(json, "format_version", 2);
 
   // Add standard cortex headers
   json_hdr_add_std(json, out_path, hdrs, nhdrs, db_graph);
 
   // Write header to file
   json_hdr_gzprint(json, gzout);
-  gzputc(gzout, '\n');
+
+  // Print comments about the format
+  gzputs(gzout, "\n");
+  gzputs(gzout, "# This file was generated with McCortex\n");
+  gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
+  gzputs(gzout, "#   url: "CORTEX_URL"\n");
+  gzputs(gzout, "# \n");
+  gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
+  gzputs(gzout, "\n");
 
   cJSON_Delete(json);
 }

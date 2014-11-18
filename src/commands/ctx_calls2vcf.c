@@ -25,7 +25,7 @@ const char calls2vcf_usage[] =
 "  -f, --force            Overwrite output files\n"
 "  -o, --out <out.txt>    Save output graph file [default: STDOUT]\n"
 "\n"
-"  -f, --flanks <in.bam>  Mapped flanks in SAM or BAM file\n"
+"  -F, --flanks <in.bam>  Mapped flanks in SAM or BAM file\n"
 "  -Q, --min-mapq <Q>     Flank must map with MAPQ >= <Q> [default: "QUOTE_VALUE(DEFAULT_MIN_MAPQ)"]\n"
 "  -A, --max-allele <M>   Max allele length considered [default: "QUOTE_VALUE(DEFAULT_MAX_ALEN)"]\n"
 "  -D, --max-diff <D>     Max difference in path lengths [default: "QUOTE_VALUE(DEFAULT_MAX_PDIFF)"]\n"
@@ -44,7 +44,7 @@ static struct option longopts[] =
   {"out",          required_argument, NULL, 'o'},
   {"force",        no_argument,       NULL, 'f'},
 // command specific
-  {"flanks",       required_argument, NULL, 'f'},
+  {"flanks",       required_argument, NULL, 'F'},
   {"min-mapq",     required_argument, NULL, 'Q'},
   {"max-allele",   required_argument, NULL, 'A'},
   {"max-diff",     required_argument, NULL, 'D'},
@@ -121,19 +121,20 @@ static void parse_cmdline_args(int argc, char **argv)
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
       case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
-      case 'f': cmd_check(!sam_path,cmd); sam_path = optarg; break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
+      case 'F': cmd_check(!sam_path,cmd); sam_path = optarg; break;
       case 'Q': cmd_check(min_mapq == SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
       case 'A': cmd_check(max_allele_len == SIZE_MAX,cmd); max_allele_len = cmd_uint32(cmd, optarg); break;
       case 'D': cmd_check(max_path_diff == SIZE_MAX, cmd); max_path_diff = cmd_uint32(cmd, optarg); break;
-      case 'g': nwmatch = cmd_int32(cmd, optarg); break;
-      case 'G': nwmismatch = cmd_int32(cmd, optarg); break;
-      case 'm': nwgapopen = cmd_int32(cmd, optarg); break;
-      case 'M': nwgapextend = cmd_int32(cmd, optarg); break;
+      case 'm': nwmatch = cmd_int32(cmd, optarg); break;
+      case 'M': nwmismatch = cmd_int32(cmd, optarg); break;
+      case 'g': nwgapopen = cmd_int32(cmd, optarg); break;
+      case 'G': nwgapextend = cmd_int32(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
         die("`"CMD" calls2vcf -h` for help. Bad option: %s", argv[optind-1]);
-      default: abort();
+      default: ctx_assert2(0, "shouldn't reach here: %c", c);
     }
   }
 
@@ -229,6 +230,9 @@ static int brkpnt_fetch_coords(const CallFileEntry *centry,
   (void)end;
   (void)fw_strand;
 
+  // Parse chr=seq0b:1-20:+:1,seq0a:2-20:+:2
+  // on 5pflank and 3pflank
+
   // Read for 5p, 3p mapping
   // DEV 1:
   return 1;
@@ -302,8 +306,6 @@ static cJSON* read_input_header(gzFile gzin)
   json = cJSON_Parse(hdrstr.b);
   if(json == NULL) die("Invalid JSON header: %s", input_path);
 
-  // DEV: check JSON header
-
   // Check we can handle the kmer size
   size_t kmer_size = json_hdr_get_kmer_size(json, input_path);
   db_graph_check_kmer_size(kmer_size, input_path);
@@ -321,7 +323,7 @@ static void print_vcf_header(cJSON *json, FILE *fout)
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
-  fprintf(fout, "##fileformat=VCFv4.1\n##fileDate=%s\n", datestr);
+  fprintf(fout, "##fileFormat=VCFv4.1\n##fileDate=%s\n", datestr);
 
   // Print commands used to generate header
   cJSON *commands = cJSON_GetObjectItem(json, "commands");
@@ -333,115 +335,115 @@ static void print_vcf_header(cJSON *json, FILE *fout)
   // Print this command
   char keystr[8];
   char *prevstr = NULL;
+  size_t i;
 
   if(command) {
     cJSON *key = cJSON_GetObjectItem(command, "key");
     if(key == NULL || key->type != cJSON_String) die("Invalid 'key' field");
-    prevstr = key->string;
+    prevstr = key->valuestring;
   }
 
   // Print command entry for this command
-  fprintf(fout, "##CMD=<key=%s,prev=%s,cmd=\"%s\",cwd=%s>",
+  fprintf(fout, "##CMD=<key=\"%s\",prev=\"%s\",cmd=\"%s\",cwd=\"%s\">\n",
           hex_rand_str(keystr, sizeof(keystr)),
           prevstr ? prevstr : "NULL",
           cmd_get_cmdline(), cmd_get_cwd());
 
   // Print previous commands
-  while(command != NULL) {
-    cJSON *key = cJSON_GetObjectItem(command, "key");
-    cJSON *cmd = cJSON_GetObjectItem(command, "cmd");
-    cJSON *cwd = cJSON_GetObjectItem(command, "cwd");
-    cJSON *prev = cJSON_GetObjectItem(command, "prev");
-    if(key == NULL || key->type != cJSON_String) die("Invalid 'key' field");
-    if(cmd == NULL || cmd->type != cJSON_String) die("Invalid 'cmd' field");
-    if(cwd == NULL || cwd->type != cJSON_String) die("Invalid 'cwd' field");
-    if(prev == NULL || prev->type != cJSON_Array) die("Invalid 'prev' field");
+  for(; command != NULL; command = command->next) {
+    cJSON *key = json_hdr_get(command, "key", cJSON_String, input_path);
+    cJSON *cmd = json_hdr_get(command, "cmd", cJSON_Array, input_path);
+    cJSON *cwd = json_hdr_get(command, "cwd", cJSON_String, input_path);
+    cJSON *prev = json_hdr_get(command, "prev", cJSON_Array, input_path);
     prev = prev->child; // result could be NULL
     if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
-    fprintf(fout, "##CMD=<key=%s,prev=%s", key->string, prev ? prev->string : "NULL");
+    fprintf(fout, "##CMD=<key=\"%s\",prev=\"%s", key->valuestring, prev ? prev->valuestring : "NULL");
     if(prev) {
-      while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->string);
+      while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->valuestring);
     }
-    fprintf(fout, ",cmd=\"%s\",cwd=%s>\n", cmd->string, cwd->string);
-    command = command->next;
+    fprintf(fout, "\",cmd=\"");
+    for(i = 0, cmd = cmd->child; cmd; cmd = cmd->next, i++) {
+      if(i > 0) fputc(' ', fout);
+      fputs(cmd->valuestring, fout);
+    }
+    fprintf(fout, "\",cwd=\"%s\">\n", cwd->valuestring);
   }
 
-  // TODO: print more header info
+  // Print contigs lengths
+  for(i = 0; i < chroms.len; i++) {
+    fprintf(fout, "##contig=<id=%s,length=%zu>\n",
+            chroms.data[i].name.b, chroms.data[i].seq.end);
+  }
 
   // Print VCF column header
   fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\n", fout);
 }
 
 // Check contig entries match reference
-// input file (breakpoint / bubble file) header contains lines:
-//   ##contig=<ID=blah,length=123>
 // We check that these match the reference just loaded
 static void brkpnt_check_refs_match(cJSON *json)
 {
-  // DEV: check breakpoint ref lengths match
-  (void)json;
+  cJSON *brkpnts = json_hdr_get(json,    "breakpoints", cJSON_Object, input_path);
+  cJSON *contigs = json_hdr_get(brkpnts, "contigs",     cJSON_Array,  input_path);
+  cJSON *contig;
+  size_t num_chroms = 0;
 
-  /*
-  size_t reflen, chrlen;
-  char *name, *len;
-  size_t num_contigs_parsed = 0;
-
-  // Print header lines, stripping out fileformat= and fileDate=
-  char *str = hdr->b, *lineend = strchr(str, '\n');
-  while(1)
+  for(contig = contigs->child; contig; contig = contig->next, num_chroms++)
   {
-    if(line_is_vcfhdr(str,"##contig=<ID="))
-    {
-      name = str + strlen("##contig=<ID=");
-      len = strstr(name, ",length=");
-      if(len) {
-        *len = '\0';
-        len += strlen(",length=");
-        chrlen = strtol(len, NULL, 10);
-        // Find chrom
-        khiter_t k = kh_get(ChromHash, genome, name);
-        if(k == kh_end(genome))
-          die("Cannot find ref chrom: %s", name);
-        else {
-          reflen = kh_value(genome, k)->seq.end;
-          if(reflen != chrlen) {
-            die("Chrom lengths do not match %s input:%zu ref:%zu",
-                name, chrlen, reflen);
-          }
-        }
+    cJSON *id  = json_hdr_get(contig, "id",     cJSON_String, input_path);
+    cJSON *len = json_hdr_get(contig, "length", cJSON_Number, input_path);
+
+    const char *chrom_name = id->valuestring;
+    long chrom_len = len->valueint;
+    size_t reflen;
+
+    khiter_t k = kh_get(ChromHash, genome, chrom_name);
+    if(k == kh_end(genome))
+      die("Cannot find ref chrom: %s", chrom_name);
+    else {
+      reflen = kh_value(genome, k)->seq.end;
+      if(reflen != (size_t)chrom_len) {
+        die("Chrom lengths do not match %s input:%li ref:%zu",
+            chrom_name, chrom_len, reflen);
       }
-      else die("Cannot parse contig entry");
-      num_contigs_parsed++;
     }
-
-    if(!lineend) break;
-    else { str = lineend+1; lineend = strchr(str, '\n'); }
   }
 
-  if(num_contigs_parsed != chroms.len) {
+  if(num_chroms != chroms.len) {
     die("Number of chromosomes differ: %zu in header vs %zu in ref",
-        num_contigs_parsed, chroms.len);
+        num_chroms, chroms.len);
   }
-  */
 }
 
 int ctx_calls2vcf(int argc, char **argv)
 {
   parse_cmdline_args(argc, argv);
 
+  // These functions call die() on error
   gzFile gzin = futil_gzopen(input_path, "r");
-  FILE *fout = futil_open_create(out_path, "w");
 
   nw_aligner_setup();
 
   // Read file header
   cJSON *json = read_input_header(gzin);
 
+  // Get format (bubble or breakpoint file)
+  cJSON *json_fmt = json_hdr_get(json, "file_format", cJSON_String, input_path);
+  if(strcmp(json_fmt->valuestring,"CtxBreakpoints") == 0) input_bubble_format = false;
+  else if(strcmp(json_fmt->valuestring,"CtxBubbles") == 0) input_bubble_format = true;
+  else die("Unknown format: '%s'", json_fmt->valuestring);
+
   status("Reading %s in %s format", futil_inpath_str(input_path),
          input_bubble_format ? "bubble" : "breakpoint");
 
+  if(input_bubble_format && sam_path == NULL)
+    cmd_print_usage("Require -f <flanks.sam> with bubble file");
+
   // Open flank file if it exists
   if(sam_path) flanks_sam_open();
+
+  // Open output file
+  FILE *fout = futil_open_create(out_path, "w");
 
   // Load reference genome
   read_buf_alloc(&chroms, 1024);

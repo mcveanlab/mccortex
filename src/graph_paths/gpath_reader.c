@@ -558,7 +558,11 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
              "num_kmers don't match (exp %zu vs %zu)",
              num_kmers, (size_t)num_kmers_exp);
 
-  status("Loaded %zu paths from %zu kmers", num_paths_loaded, num_kmers_loaded);
+  // Print status update
+  char npaths_str[50], nkmers_str[50];
+  ulong_to_str(num_paths_loaded, npaths_str);
+  ulong_to_str(num_kmers_loaded, nkmers_str);
+  status("Loaded %s paths from %s kmers", npaths_str, nkmers_str);
 
   gpath_subset_dealloc(&subset0);
   gpath_subset_dealloc(&subset1);

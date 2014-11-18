@@ -58,8 +58,8 @@ $(DIRS):
 	mkdir -p $@
 
 test: $(READS) $(CORREADS)
-	zcat $(READS)    | $(SIMCHECK) - diploid/chrom{0,1}.fa
-	zcat $(CORREADS) | $(SIMCHECK) - diploid/chrom{0,1}.fa
+	gzip -dc $(READS)    | $(SIMCHECK) - diploid/chrom{0,1}.fa
+	gzip -dc $(CORREADS) | $(SIMCHECK) - diploid/chrom{0,1}.fa
 
 clean:
 	rm -rf $(TGTS) $(DIRS)

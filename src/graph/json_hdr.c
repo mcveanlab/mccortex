@@ -64,12 +64,12 @@ void json_hdr_add_std(cJSON *json, const char *path,
                       const dBGraph *db_graph)
 {
   // Add random id string
-  #define FILE_ID_PREFIX "file:"
-  #define FILE_ID_LEN 16
-  char fileidstr[strlen(FILE_ID_PREFIX)+FILE_ID_LEN+1];
-  strcpy(fileidstr, FILE_ID_PREFIX);
-  hex_rand_str(fileidstr+strlen(FILE_ID_PREFIX), FILE_ID_LEN+1);
-  cJSON_AddStringToObject(json, "file_id", fileidstr);
+  #define FILE_KEY_PREFIX ""
+  #define FILE_KEY_LEN 16
+  char fileidstr[strlen(FILE_KEY_PREFIX)+FILE_KEY_LEN+1];
+  strcpy(fileidstr, FILE_KEY_PREFIX);
+  hex_rand_str(fileidstr+strlen(FILE_KEY_PREFIX), FILE_KEY_LEN+1);
+  cJSON_AddStringToObject(json, "file_key", fileidstr);
 
   cJSON *graph = cJSON_CreateObject();
   cJSON_AddItemToObject(json, "graph", graph);
@@ -104,9 +104,11 @@ void json_hdr_add_std(cJSON *json, const char *path,
   cJSON_AddItemToObject(json, "commands", commands);
 
   // Add latest command
-  char keystr[4+8+1];
-  strcpy(keystr, "cmd:");
-  hex_rand_str(keystr+4, 9);
+  #define CMD_KEY_PREFIX ""
+  #define CMD_KEY_LEN 8
+  char keystr[strlen(CMD_KEY_PREFIX)+CMD_KEY_LEN+1];
+  strcpy(keystr, CMD_KEY_PREFIX);
+  hex_rand_str(keystr+strlen(CMD_KEY_PREFIX), CMD_KEY_LEN+1);
 
   cJSON *command = cJSON_CreateObject();
   cJSON_AddItemToArray(commands, command);
@@ -123,11 +125,12 @@ void json_hdr_add_std(cJSON *json, const char *path,
   // Get absolute path to output file
   char abspath[PATH_MAX + 1];
   if(realpath(path, abspath) != NULL)
-    cJSON_AddStringToObject(command, "outpath", abspath);
+    cJSON_AddStringToObject(command, "out_path", abspath);
   else {
     status("Warning: Cannot get absolute path for: %s", path);
-    cJSON_AddStringToObject(command, "outpath", path);
+    cJSON_AddStringToObject(command, "out_path", path);
   }
+  cJSON_AddStringToObject(command, "out_key", fileidstr);
 
   char datestr[50];
   time_t date = time(NULL);

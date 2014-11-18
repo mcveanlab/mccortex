@@ -23,30 +23,56 @@ void call_file_entry_reset(CallFileEntry *entry)
   char_ptr_buf_reset(&entry->lines);
 }
 
+// Read a single line fasta entry
+// of the form: ">name\nseq" with optional new line on the end
+// returns:
+// * 1 on success
+// * 0 if no more entries
+// * -1 on error
+static int fasta_gzread(gzFile gzin, bool ret_on_empty, StrBuf *txt)
+{
+  size_t linestrt = txt->end;
+  // Read past empty lines and comments
+  while(strbuf_gzreadline(txt, gzin) > 0 &&
+        (txt->b[linestrt] == '#' || txt->b[linestrt] == '\n'))
+  {
+    // Empty line or comment
+    if(ret_on_empty && txt->b[linestrt] == '\n') return 0;
+    // Reset line
+    txt->b[txt->end = linestrt] = '\0';
+  }
+  if(txt->end == linestrt) return 0; // no more entries
+  if(txt->b[linestrt] != '>') return -1; // bad line
+  if(strbuf_gzreadline(txt, gzin) == 0) return -1; // missing sequence
+  return 1;
+}
+
 // Returns 1 on success 0 on end of file
 // dies with error message on bad file
 int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
 {
   char *ptr, *end;
-  size_t i, len;
+  size_t i;
   call_file_entry_reset(entry);
   StrBuf *txt = &entry->txt;
-  bool hdr_line = true;
 
-  while((len = strbuf_gzreadline(txt, gzin)) > 0 && (!hdr_line || len > 1)) {
-    hdr_line = !hdr_line;
-  }
+  // Lines starting # are comment lines and should be ignored
+  int r = fasta_gzread(gzin, false, txt);
+  if(r == 0) return 0;
+  else if(r < 0) die("Bad entry [%s]: %s", path, txt->b);
 
-  if(len == 0) return 0;
-  if(!hdr_line) die("Odd number of lines [path: %s]: %s", path, txt->b);
+  // Read remainder
+  for(i = 0; (r = fasta_gzread(gzin, true, txt)) > 0; i++) {}
+  if(r < 0) die("Bad entry [%s]: %s", path, txt->b);
 
+  if(i < 2) die("Too few entries [%s]: %s", path, txt->b);
   if(txt->end < 2 || txt->b[txt->end-1] != '\n' || txt->b[txt->end-2] != '\n')
-    die("Calls must end with 2 EOL chars: \\n");
+    die("Calls must end with 2 EOL chars \\n [%s]: %s", path, txt->b);
 
   // Trim last two end of line characters
   txt->b[txt->end -= 2] = '\0';
 
-  // printf("READ: '%s'\n", txt->b);
+  fprintf(stderr, "Got: %s\n", txt->b);
 
   // Don't do anything that would cause entry->txt to be realloc'd now!
   // We are storing pointers to each line

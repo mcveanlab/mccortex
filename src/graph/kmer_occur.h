@@ -99,6 +99,13 @@ void korun_print(KOccurRun run, size_t kmer_size, FILE *fout);
 // Mostly used for debugging
 void koruns_print(KOccurRun *run, size_t n, size_t kmer_size, FILE *fout);
 
+void korun_gzprint(gzFile gzout, size_t kmer_size,
+                   KOGraph kograph, KOccurRun korun,
+                   size_t first_kmer_idx, size_t kmer_offset);
+
+void koruns_gzprint(gzFile gzout, size_t kmer_size, KOGraph kograph,
+                    const KOccurRun *koruns, size_t n,
+                    size_t first_kmer_idx, size_t kmer_offset);
 
 // src, dst can point to the same place
 // returns number of elements added
