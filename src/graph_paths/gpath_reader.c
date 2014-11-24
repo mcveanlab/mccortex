@@ -534,10 +534,10 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
         // Assume kmer line
         // Load previous paths if this is not the first kmer
         if(num_kmers > 0 && load_kmer.hkey != HASH_NOT_FOUND) {
+          num_kmers_loaded += (gpset.entries.len > 0);
           num_paths_loaded += _load_paths_from_set(db_graph, &gpset,
                                                    &subset0, &subset1,
                                                    &load_kmer, path);
-          num_kmers_loaded += (gpset.entries.len > 0);
         }
 
         _gpath_reader_load_kmer_line(path, &line, kmer_flags, &load_kmer, db_graph);
@@ -548,10 +548,10 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
   }
 
   if(num_kmers > 0 && load_kmer.hkey != HASH_NOT_FOUND) {
+    num_kmers_loaded += (gpset.entries.len > 0);
     num_paths_loaded += _load_paths_from_set(db_graph, &gpset,
                                              &subset0, &subset1,
                                              &load_kmer, path);
-    num_kmers_loaded += (gpset.entries.len > 0);
   }
 
   load_check(num_kmers == (size_t)num_kmers_exp,

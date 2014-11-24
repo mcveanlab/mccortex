@@ -40,6 +40,7 @@ int cmp_charptr(const void *aa, const void *bb)
 bool parse_entire_int(const char *str, int *result)
 {
   char *strtol_last_char_ptr = NULL;
+  if(!*str) return false;
   long tmp = strtol(str, &strtol_last_char_ptr, 10);
   if(tmp > INT_MAX || tmp < INT_MIN) return false;
   if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
@@ -71,6 +72,7 @@ bool parse_entire_ulong(const char *str, unsigned long *result)
 bool parse_entire_double(const char *str, double *result)
 {
   char *strtol_last_char_ptr = NULL;
+  if(!*str) return false;
   double tmp = strtod(str, &strtol_last_char_ptr);
   if(strtol_last_char_ptr == NULL || *strtol_last_char_ptr != '\0') return false;
   *result = tmp;
