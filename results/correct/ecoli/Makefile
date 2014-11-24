@@ -1,12 +1,12 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../../..
-CTX=$(CTXDIR)/bin/ctx$(K)
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMMUT=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_mutations.pl
 READSIM=$(CTXDIR)/libs/readsim/readsim
 SIMCHECK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_corrected.pl
 K=21
+CTX=$(shell echo $(CTXDIR)/bin/ctx$$[(($(K)+31)/32)*32-1])
 
 REF=$(CTXDIR)/results/data/ecoli/ecoli.fa
 
