@@ -105,6 +105,7 @@ static size_t num_flanks_not_uniquely_mapped = 0;
 static size_t num_flanks_diff_chroms = 0;
 static size_t num_flanks_diff_strands = 0;
 static size_t num_flanks_overlap_too_large = 0;
+static size_t num_flanks_too_far_apart = 0;
 
 static size_t num_entries_well_mapped = 0;
 
@@ -392,12 +393,21 @@ static void align_entry(CallFileEntry *centry,
     else                         ref_end   += ncpy;
   }
 
-  num_entries_well_mapped++;
+  ctx_assert(ref_start <= ref_end);
+
+  if(ref_end-ref_start > max_allele_len) {
+    num_flanks_too_far_apart++;
+    return;
+  }
 
   // Fetch chromosome
   khiter_t k = kh_get(ChromHash, genome, chrom_name);
   if(k == kh_end(genome)) die("Cannot find chrom [%s]", chrom_name);
   const read_t *chr = kh_value(genome, k);
+
+  if(ref_end > chr->seq.end) die("Out of range: %zu > %zu", ref_end, chr->seq.end);
+
+  num_entries_well_mapped++;
 
   // If not fw strand, we need to flip each allele
 
@@ -678,6 +688,7 @@ int ctx_calls2vcf(int argc, char **argv)
   print_vcf_header(json, fout);
   parse_entries(gzin, fout);
 
+  // Print stats
   char num_vars_printed_str[50], num_entries_read_str[50];
   ulong_to_str(num_entries_read, num_entries_read_str);
   ulong_to_str(num_vars_printed, num_vars_printed_str);
@@ -685,14 +696,19 @@ int ctx_calls2vcf(int argc, char **argv)
          num_entries_read_str, num_vars_printed_str, futil_outpath_str(out_path));
 
   char num_nt_uniq_map_str[50], num_diff_chr_str[50], num_diff_strands_str[50];
-  char num_fl_overlaps_big_str[50], num_well_mapped_str[50];
+  char num_fl_overlaps_big_str[50], num_fl_too_far_apart_str[50];
+  char num_well_mapped_str[50];
 
   ulong_to_str(num_flanks_not_uniquely_mapped, num_nt_uniq_map_str);
   ulong_to_str(num_flanks_diff_chroms, num_diff_chr_str);
   ulong_to_str(num_flanks_diff_strands, num_diff_strands_str);
   ulong_to_str(num_flanks_overlap_too_large, num_fl_overlaps_big_str);
+  ulong_to_str(num_flanks_too_far_apart, num_fl_too_far_apart_str);
   ulong_to_str(num_entries_well_mapped, num_well_mapped_str);
 
+  status("   %s / %s (%.2f%%) flank pairs too far apart",
+         num_fl_too_far_apart_str, num_entries_read_str,
+         (100.0 * num_flanks_too_far_apart) / num_entries_read);
   status("   %s / %s (%.2f%%) flank pairs contain one flank not mapped uniquely",
          num_nt_uniq_map_str, num_entries_read_str,
          (100.0 * num_flanks_not_uniquely_mapped) / num_entries_read);
