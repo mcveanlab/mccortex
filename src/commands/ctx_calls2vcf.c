@@ -6,6 +6,7 @@
 #include "seq_reader.h"
 #include "call_file_reader.h"
 #include "json_hdr.h"
+#include "chrom_pos_list.h" // Parse chromosome position lists
 
 #include "sam.h"
 #include "seq-align/src/needleman_wunsch.h"
@@ -73,15 +74,14 @@ static size_t num_ref_paths = 0;
 // flank file
 const char *sam_path = NULL;
 
+bool input_bubble_format = false;
+
 //
 // Reference genome
 //
 // Hash map of chromosome name -> sequence
 static khash_t(ChromHash) *genome;
 static ReadBuffer chroms;
-
-// Input file format
-static bool input_bubble_format = false; // false => breakpoint format
 
 // Flank mapping
 static samFile *samfh;
@@ -90,11 +90,8 @@ static bam1_t *bam;
 
 // nw alignment
 static nw_aligner_t *nw_aligner;
-static alignment_t *alignment;
+static alignment_t *aln;
 static scoring_t nw_scoring_flank, nw_scoring_allele;
-
-// Temporary memory
-// static StrBuf endflank;
 
 //
 // Statistics
@@ -103,6 +100,13 @@ static scoring_t nw_scoring_flank, nw_scoring_allele;
 static size_t num_entries_read = 0, num_vars_printed = 0;
 // Alignment stats
 // static size_t num_nw_flank = 0, num_nw_allele = 0;
+
+static size_t num_flanks_not_uniquely_mapped = 0;
+static size_t num_flanks_diff_chroms = 0;
+static size_t num_flanks_diff_strands = 0;
+static size_t num_flanks_overlap_too_large = 0;
+
+static size_t num_entries_well_mapped = 0;
 
 static void parse_cmdline_args(int argc, char **argv)
 {
@@ -157,7 +161,7 @@ static void parse_cmdline_args(int argc, char **argv)
 static void nw_aligner_setup()
 {
   nw_aligner = needleman_wunsch_new();
-  alignment = alignment_create(1024);
+  aln = alignment_create(1024);
   scoring_init(&nw_scoring_flank, nwmatch, nwmismatch, nwgapopen, nwgapextend,
                true, true, 0, 0, 0, 0);
   scoring_init(&nw_scoring_allele, nwmatch, nwmismatch, nwgapopen, nwgapextend,
@@ -167,17 +171,14 @@ static void nw_aligner_setup()
 // Clean up pairwise aligner
 static void nw_aligner_destroy()
 {
-  alignment_free(alignment);
+  alignment_free(aln);
   needleman_wunsch_free(nw_aligner);
 }
 
-// Returns 1 on success
-//         0 if not mapped
-//        -1 on error
-static int sam_fetch_coords(const CallFileEntry *centry,
-                            const char **chr_name,
-                            size_t *start, size_t *end,
-                            bool *fw_strand)
+static bool sam_fetch_coords(const CallFileEntry *centry,
+                             const char **chr_name,
+                             size_t *start, size_t *end,
+                             bool *fw_strand)
 {
   (void)centry;
   (void)chr_name;
@@ -193,49 +194,266 @@ static int sam_fetch_coords(const CallFileEntry *centry,
   int unmapped = bam->core.flag & BAM_FUNMAP;
   int low_mapq = bam->core.qual < min_mapq;
 
-  if(unmapped || low_mapq) return 0;
+  if(unmapped || low_mapq) return false;
 
-  // look up chromosome
   *chr_name = bam_header->target_name[bam->core.tid];
 
-  // Check ref name exists
-  khiter_t k = kh_get(ChromHash, genome, *chr_name);
-  if(k == kh_end(genome)) {
-    warn("Cannot find chrom [%s]", *chr_name);
-    return -1;
-  }
+  // TODO is this left or right flank
+  //      assume complete left flank for now
 
-  // const read_t *chr = kh_value(genome, k);
-
-  // DEV 4: is this left or right flank
-  //        assume complete left flank for now
-
-  // DEV 3: Find other flank position
+  // TODO Find other flank position
 
 
-  return 1;
+  return true;
 }
 
-// Returns 1 on success
-//         0 if not mapped
-//        -1 on error
-static int brkpnt_fetch_coords(const CallFileEntry *centry,
-                               const char **chr_name,
-                               size_t *start, size_t *end,
-                               bool *fw_strand)
+/**
+ * Fetch the largest match from a breakpoint call
+ * @param is line to be parsed '>seqname ... chr=...'
+ * @param buf is temporary buffer
+ * @param flank is used to return result of largest match
+ * @return 1 on success, 0 if not mapped. Calls die() on error
+ */
+static int brkpnt_fetch_first_match(const char *line, ChromPosBuffer *buf,
+                                    ChromPosOffset *flank)
 {
-  (void)centry;
-  (void)chr_name;
-  (void)start;
-  (void)end;
-  (void)fw_strand;
-
+  char *list = strstr(line, " chr=");
+  if(list == NULL) die("Cannot find flank position: %s", line);
   // Parse chr=seq0b:1-20:+:1,seq0a:2-20:+:2
-  // on 5pflank and 3pflank
+  if(chrom_pos_list_parse(list+5, buf) < 0) die("Invalid positions: %s", line);
+  return chrom_pos_list_get_largest(buf, flank);
+}
 
-  // Read for 5p, 3p mapping
-  // DEV 1:
-  return 1;
+static bool brkpnt_fetch_coords(const CallFileEntry *centry,
+                                ChromPosBuffer *chrposbuf,
+                                const char **chrom, size_t *start, size_t *end,
+                                bool *fw_strand)
+{
+  ChromPosOffset flank5p, flank3p;
+  size_t n;
+
+  if((n = call_file_num_lines(centry)) < 6) die("Fewer than 6 lines: %zu", n);
+
+  char *line0 = call_file_get_line(centry,0);
+  char *line2 = call_file_get_line(centry,2);
+
+  bool success = (brkpnt_fetch_first_match(line0, chrposbuf, &flank5p) &&
+                  brkpnt_fetch_first_match(line2, chrposbuf, &flank3p));
+
+  // Didn't map uniquely, with mismatching chromosomes or strands
+  if(!success) { num_flanks_not_uniquely_mapped++; return false; }
+  if(strcmp(flank5p.chrom,flank3p.chrom) != 0) { num_flanks_diff_chroms++; return false; }
+  if(flank5p.fw_strand != flank3p.fw_strand) { num_flanks_diff_strands++; return false; }
+
+  // Copy results. ChromPosOffset coords are 1-based.
+  *chrom = flank5p.chrom;
+  *fw_strand = flank5p.fw_strand;
+  if(flank5p.fw_strand) { *start = flank5p.end+1; *end = flank3p.start; }
+  else                  { *start = flank3p.end+1; *end = flank5p.start; }
+
+  // Convert to 0-based coords
+  (*start)--;
+  (*end)--;
+
+  return true;
+}
+
+static void strbuf_append_dna(StrBuf *buf, const char *src, size_t len,
+                              bool fw_strand)
+{
+  strbuf_ensure_capacity(buf, buf->end + len);
+  if(fw_strand) {
+    strbuf_append_strn(buf, src, len);
+  } else {
+    dna_revcomp_str(buf->b+buf->end, src, len);
+    buf->end += len;
+    buf->b[buf->end] = '\0';
+  }
+}
+
+static size_t align_get_start(const char *ref, const char *alt, size_t len,
+                              size_t offset)
+{
+  size_t i;
+  for(i = offset; i < len; i++) {
+    if(ref[i] != alt[i]) return offset;
+  }
+  return len;
+}
+
+static size_t align_get_end(const char *ref, const char *alt, size_t len,
+                            size_t offset)
+{
+  size_t i;
+  for(i = offset; i < len; i++) {
+    if(ref[i] == alt[i]) return offset;
+  }
+  return len;
+}
+
+static size_t align_get_len(const char *allele, size_t len)
+{
+  size_t i, nbases = 0;
+  for(i = 0; i < len; i++)
+    if(allele[i] != '-')
+      nbases++;
+  return nbases;
+}
+
+// Print allele with previous base and no deletions
+// 'A--CG-T' with prev_base 'C' => print 'CACGT'
+static void print_vcf_allele(int prev_base, const char *allele, size_t len,
+                             FILE *fout)
+{
+  size_t i;
+  if(prev_base > 0) fputc((char)prev_base, fout);
+  for(i = 0; i < len; i++)
+    if(allele[i] != '-')
+      fputc(allele[i], fout);
+}
+
+// @param vcf_pos is 1-based
+// @param prev_base is -1 if SNP otherwise previous base
+static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_base,
+                            const char *ref, const char *alt,
+                            size_t aligned_len, FILE *fout)
+{
+  // CHROM POS ID REF ALT QUAL FILTER INFO
+  fprintf(fout, "%s\t%zu\tvar%zu\t", chrom_name, vcf_pos, num_vars_printed);
+  print_vcf_allele(prev_base, ref, aligned_len, fout);
+  fputc('\t', fout);
+  print_vcf_allele(prev_base, alt, aligned_len, fout);
+  fputs("\t.\tPASS\t", fout);
+  fputs(input_bubble_format ? "BUBBLE" : "BRKPNT", fout);
+  fputs("\tGT\n", fout);
+  num_vars_printed++;
+}
+
+// @param ref_pos is 0-based here
+static void align_biallelic(const char *ref, const char *alt, size_t aligned_len,
+                            const read_t *chr, size_t ref_pos, FILE *fout)
+{
+  size_t i, start, end = 0;
+  size_t ref_allele_len, alt_allele_len;
+  int prev_base, vcf_pos;
+  bool is_snp;
+
+  while((start = align_get_start(ref, alt, aligned_len, end)) < aligned_len)
+  {
+    // Update ref offset
+    for(i = end; i < start; i++)
+      if(ref[i] != '-') ref_pos++;
+
+    end = align_get_end(ref, alt, aligned_len, start);
+
+    ref_allele_len = align_get_len(ref+start, end-start);
+    alt_allele_len = align_get_len(alt+start, end-start);
+    is_snp = ref_allele_len == 1 && alt_allele_len == 1;
+
+    vcf_pos = ref_pos+1; // Convert to 1-based
+
+    if(!is_snp) {
+      prev_base = ref_pos > 0 ? chr->seq.b[ref_pos-1] : 'N';
+      vcf_pos--;
+    } else {
+      prev_base = -1;
+    }
+
+    print_vcf_entry(chr->name.b, vcf_pos, prev_base,
+                    ref+start, alt+start, end-start, fout);
+
+    ref_pos += ref_allele_len;
+  }
+}
+
+static void align_entry(CallFileEntry *centry,
+                        const char *chrom_name, size_t ref_start, size_t ref_end,
+                        bool fw_strand,
+                        StrBuf *tmpbuf, FILE *fout)
+{
+  size_t i, ncpy = 0;
+  size_t nlines = call_file_num_lines(centry);
+  ctx_assert2(!(nlines&1) && nlines >= 6, "Too few lines: %zu", nlines);
+  char *flank5p = call_file_get_line(centry,1);
+  char *flank3p = call_file_get_line(centry,3);
+  size_t flank5p_len = call_file_line_len(centry,1);
+  size_t flank3p_len = call_file_line_len(centry,3);
+  bool cpy_flnk_5p = false;
+
+  if(ref_start > ref_end) {
+    ncpy = ref_start - ref_end;
+    if(ncpy > flank5p_len && ncpy > flank3p_len) {
+      num_flanks_overlap_too_large++;
+      // printf("Copy too much %zu > %zu %zu\n", ncpy, flank5p_len, flank3p_len);
+      return; // can't align
+    }
+    cpy_flnk_5p = (ncpy > flank5p_len);
+    if(fw_strand == cpy_flnk_5p) ref_start -= ncpy;
+    else                         ref_end   += ncpy;
+  }
+
+  num_entries_well_mapped++;
+
+  // Fetch chromosome
+  khiter_t k = kh_get(ChromHash, genome, chrom_name);
+  if(k == kh_end(genome)) die("Cannot find chrom [%s]", chrom_name);
+  const read_t *chr = kh_value(genome, k);
+
+  // If not fw strand, we need to flip each allele
+
+  // Deal with alleles one at a time vs ref
+  // First allele stored in line 5:
+  //   >flank5p\n<seq>\n>flank3p\n<seq>\n>allele1\n<seq>
+  char *line, *seq;
+  size_t linelen, seqlen;
+
+  for(i = 5; i < nlines; i+=2)
+  {
+    line = call_file_get_line(centry,i);
+    linelen = call_file_line_len(centry,i);
+
+    if(ncpy == 0 && fw_strand) {
+      seq = line;
+      seqlen = linelen;
+    } else {
+      strbuf_reset(tmpbuf);
+
+      // printf(" ref_start: %zu ref_end: %zu\n", ref_start, ref_end);
+      // printf(" ncpy: %zu fw_strand: %i cpy_flnk_5p: %i\n", ncpy, fw_strand, cpy_flnk_5p);
+
+      if(ncpy > 0) {
+        if(fw_strand && cpy_flnk_5p)
+          strbuf_append_dna(tmpbuf, flank5p+flank5p_len-ncpy, ncpy, fw_strand);
+        else if(!fw_strand && !cpy_flnk_5p)
+          strbuf_append_dna(tmpbuf, flank3p, ncpy, fw_strand);
+      }
+
+      // Copy allele
+      strbuf_append_dna(tmpbuf, line, linelen, fw_strand);
+
+      if(ncpy > 0) {
+        if(!fw_strand && cpy_flnk_5p)
+          strbuf_append_dna(tmpbuf, flank5p+flank5p_len-ncpy, ncpy, fw_strand);
+        else if(fw_strand && !cpy_flnk_5p)
+          strbuf_append_dna(tmpbuf, flank3p, ncpy, fw_strand);
+      }
+
+      seq = tmpbuf->b;
+      seqlen = tmpbuf->end;
+    }
+
+    // printf("%.*s vs %.*s\n", (int)(ref_end-ref_start), chr->seq.b + ref_start,
+    //                          (int)seqlen, seq);
+
+    // Align chrom and seq
+    needleman_wunsch_align2(chr->seq.b + ref_start, seq,
+                            ref_end-ref_start, seqlen,
+                            &nw_scoring_allele, nw_aligner, aln);
+
+    // Break into variants and print VCF
+    align_biallelic(aln->result_a, aln->result_b, aln->length,
+                    chr, ref_start, fout);
+  }
 }
 
 static void parse_entries(gzFile gzin, FILE *fout)
@@ -244,32 +462,36 @@ static void parse_entries(gzFile gzin, FILE *fout)
 
   CallFileEntry centry;
   call_file_entry_alloc(&centry);
-  const char *chrom_name = NULL;
-  size_t start = 0, end = 0;
-  bool fw_strand = true, mapped = false;
+
+  ChromPosBuffer chrposbuf;
+  chrompos_buf_alloc(&chrposbuf, 32);
+
+  StrBuf tmpbuf;
+  strbuf_alloc(&tmpbuf, 1024);
+
+  const char *chrom_name;
+  size_t ref_start, ref_end;
+  bool mapped, fw_strand;
 
   for(; call_file_read(gzin, input_path, &centry); num_entries_read++)
   {
     // Read a corresponding SAM entry
     if(sam_path) {
-      int ret = sam_fetch_coords(&centry, &chrom_name, &start, &end, &fw_strand);
-      if(ret < 0) break;
-      mapped = (ret > 0);
+      mapped = sam_fetch_coords(&centry,
+                                &chrom_name, &ref_start, &ref_end, &fw_strand);
     }
     else {
-      mapped = brkpnt_fetch_coords(&centry, &chrom_name, &start, &end, &fw_strand);
+      mapped = brkpnt_fetch_coords(&centry, &chrposbuf,
+                                   &chrom_name, &ref_start, &ref_end, &fw_strand);
     }
 
     if(mapped)
-    {
-      // DEV 2a: Check coords
-
-      // DEV 2b: align
-      
-    }
+      align_entry(&centry, chrom_name, ref_start, ref_end, fw_strand, &tmpbuf, fout);
   }
 
   call_file_entry_dealloc(&centry);
+  chrompos_buf_dealloc(&chrposbuf);
+  strbuf_dealloc(&tmpbuf);
 }
 
 static void flanks_sam_open()
@@ -461,6 +683,31 @@ int ctx_calls2vcf(int argc, char **argv)
   ulong_to_str(num_vars_printed, num_vars_printed_str);
   status("Read %s entries, printed %s vcf entries to: %s",
          num_entries_read_str, num_vars_printed_str, futil_outpath_str(out_path));
+
+  char num_nt_uniq_map_str[50], num_diff_chr_str[50], num_diff_strands_str[50];
+  char num_fl_overlaps_big_str[50], num_well_mapped_str[50];
+
+  ulong_to_str(num_flanks_not_uniquely_mapped, num_nt_uniq_map_str);
+  ulong_to_str(num_flanks_diff_chroms, num_diff_chr_str);
+  ulong_to_str(num_flanks_diff_strands, num_diff_strands_str);
+  ulong_to_str(num_flanks_overlap_too_large, num_fl_overlaps_big_str);
+  ulong_to_str(num_entries_well_mapped, num_well_mapped_str);
+
+  status("   %s / %s (%.2f%%) flank pairs contain one flank not mapped uniquely",
+         num_nt_uniq_map_str, num_entries_read_str,
+         (100.0 * num_flanks_not_uniquely_mapped) / num_entries_read);
+  status("   %s / %s (%.2f%%) flank pairs map to diff chroms",
+         num_diff_chr_str, num_entries_read_str,
+         (100.0 * num_flanks_diff_chroms) / num_entries_read);
+  status("   %s / %s (%.2f%%) flank pairs map to diff strands",
+         num_diff_strands_str, num_entries_read_str,
+         (100.0 * num_flanks_diff_strands) / num_entries_read);
+  status("   %s / %s (%.2f%%) flank pairs overlap too much",
+         num_fl_overlaps_big_str, num_entries_read_str,
+         (100.0 * num_flanks_overlap_too_large) / num_entries_read);
+  status("   %s / %s (%.2f%%) flank pairs map well",
+         num_well_mapped_str, num_entries_read_str,
+         (100.0 * num_entries_well_mapped) / num_entries_read);
 
   // Finished - clean up
   cJSON_Delete(json);

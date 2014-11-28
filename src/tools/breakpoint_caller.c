@@ -577,8 +577,9 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   gzputs(gzout, "# \n");
   gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
   gzputs(gzout, "# Format is:\n");
-  gzputs(gzout, "#   chrs=chr:start-end:strand:offset\n");
+  gzputs(gzout, "#   chr=seq:start-end:strand:offset\n");
   gzputs(gzout, "#   all coordinates are 1-based\n");
+  gzputs(gzout, "#   <strand> is + or -. If +, start <= end otherwise start >= end.\n");
   gzputs(gzout, "#   <offset> is the position in the sequence where ref starts agreeing\n");
   gzputs(gzout, "\n");
 
