@@ -50,7 +50,14 @@ extern const uint8_t nibble_popcount_table[16];
 bool bases_to_integer(const char *arg, size_t *bases);
 bool mem_to_integer(const char *arg, size_t *bytes);
 
-
+/**
+ * Return number of digits required to represent `num` in base 10.
+ * Examples:
+ *   num_of_digits(0)   = 1
+ *   num_of_digits(1)   = 1
+ *   num_of_digits(10)  = 2
+ *   num_of_digits(123) = 3
+ */
 size_t num_of_digits(size_t num);
 
 // result must be long enough for result + 1 ('\0'). Max length required is:

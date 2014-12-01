@@ -208,8 +208,11 @@ static void print_bubble(BubbleCaller *caller,
   // Get bubble number (threadsafe num_bubbles_ptr++)
   size_t id = __sync_fetch_and_add((volatile size_t*)caller->num_bubbles_ptr, 1);
 
+  // This can be set to anything without a '.' in it
+  const char prefix[] = "call";
+
   // 5p flank
-  strbuf_sprintf(sbuf, ">bubble.%zu.5pflank kmers=%zu\n", id, flank5p->len);
+  strbuf_sprintf(sbuf, ">bubble.%s%zu.5pflank kmers=%zu\n", prefix, id, flank5p->len);
   branch_to_str(flank5p->data, flank5p->len, true, sbuf, db_graph);
 
   // 3p flank
@@ -217,7 +220,7 @@ static void print_bubble(BubbleCaller *caller,
   snode = graph_cache_snode(&caller->cache, steps[0]->supernode);
   graph_cache_snode_fetch_nodes(&caller->cache, snode, steps[0]->orient, pathbuf);
 
-  strbuf_sprintf(sbuf, ">bubble.%zu.3pflank kmers=%zu\n", id, pathbuf->len);
+  strbuf_sprintf(sbuf, ">bubble.%s%zu.3pflank kmers=%zu\n", prefix, id, pathbuf->len);
   branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
 
   // Print alleles
@@ -225,7 +228,8 @@ static void print_bubble(BubbleCaller *caller,
   {
     db_node_buf_reset(pathbuf);
     graph_cache_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
-    strbuf_sprintf(sbuf, ">bubble.%zu.branch.%zu kmers=%zu\n", id, i, pathbuf->len);
+    strbuf_sprintf(sbuf, ">bubble.%s%zu.branch.%zu kmers=%zu\n",
+                   prefix, id, i, pathbuf->len);
     branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
   }
 
@@ -417,6 +421,12 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   char num_bubbles_str[100];
   ulong_to_str(num_of_bubbles, num_bubbles_str);
   status("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
+
+  status("   bwa index ref.fa");
+  status("   gzip -cdf %s | awk -F '[ \t]' 'm{print $0;m=0;} />bubble\\..*\\.5pflank/{print $1;m=1;}' > %s.flanks", out_path, out_path);
+  status("   bwa mem ref.fa %s.flanks > %s.sam", out_path, out_path);
+  status("   ctx%i calls2vcf -F %s.sam -o output.vcf %s ref.fa",
+         (int)get_max_kmer_size(), out_path, out_path);
 
   // Clean up
   bubble_callers_destroy(callers, num_of_threads);

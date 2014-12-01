@@ -78,7 +78,7 @@ sub next
   if(!defined($pathhdr)) { die("Missing path sequence"); }
 
   # >call.0.path cols=0
-  if($pathhdr =~ /^>brkpnt\.(\d+)\.path cols=(\d+(?:,\d+)*)/i) {
+  if($pathhdr =~ /^>brkpnt\.([^\.]+)\.path cols=(\d+(?:,\d+)*)/i) {
     $callid = $1;
     @cols = split(/,/, $2);
   }

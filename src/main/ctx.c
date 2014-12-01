@@ -110,16 +110,6 @@ CtxCmd cmdobjs[] = {
   .blurb = "use a trusted assembled genome to call large events",
   .usage = breakpoints_usage
 },
-{ // To be replaced by calls2vcf
-  .cmd = "unique", .func = ctx_unique, .hide = true,
-  .blurb = "remove duplicated bubbles, produce VCF",
-  .usage = unique_usage
-},
-{ // To be replaced by calls2vcf
-  .cmd = "place", .func = ctx_place, .hide = true,
-  .blurb = "place variants against a reference",
-  .usage = place_usage
-},
 {
   .cmd = "coverage", .func = ctx_coverage, .hide = false,
   .blurb = "print contig coverage",

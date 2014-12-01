@@ -159,15 +159,18 @@ static void process_contig(BreakpointCaller *caller,
 
   pthread_mutex_lock(caller->out_lock);
 
+  // This can be set to anything without a '.' in it
+  const char prefix[] = "call";
+
   // 5p flank with list of ref intersections
-  gzprintf(gzout, ">brkpnt.%zu.5pflank chr=", callid);
+  gzprintf(gzout, ">brkpnt.%s%zu.5pflank chr=", prefix, callid);
   koruns_gzprint(gzout, kmer_size, kograph, flank5p_runs, num_flank5p_runs, 0, 0);
   gzputc(gzout, '\n');
   db_nodes_gzprint(flank5p->data, flank5p->len, caller->db_graph, gzout);
   gzputc(gzout, '\n');
 
   // 3p flank with list of ref intersections
-  gzprintf(gzout, ">brkpnt.%zu.3pflank chr=", callid);
+  gzprintf(gzout, ">brkpnt.%s%zu.3pflank chr=", prefix, callid);
   koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs,
                  flank3pidx, kmer3poffset);
   gzputc(gzout, '\n');
@@ -177,7 +180,7 @@ static void process_contig(BreakpointCaller *caller,
   gzputc(gzout, '\n');
 
   // Print path with list of colours
-  gzprintf(gzout, ">brkpnt.%zu.path cols=%zu", callid, cols[0]);
+  gzprintf(gzout, ">brkpnt.%s%zu.path cols=%zu", prefix, callid, cols[0]);
   for(i = 1; i < ncols; i++) gzprintf(gzout, ",%zu", cols[i]);
   gzputc(gzout, '\n');
   db_nodes_gzprint_cont(allelebuf->data, num_path_kmers, caller->db_graph, gzout);

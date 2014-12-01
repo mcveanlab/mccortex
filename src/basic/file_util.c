@@ -251,7 +251,7 @@ char* futil_get_current_dir(char abspath[PATH_MAX+1])
 bool futil_path_has_extension(const char *path, const char *ext)
 {
   size_t path_len = strlen(path), ext_len = strlen(ext);
-  return (path_len <= ext_len && strcasecmp(path+path_len-ext_len, ext) == 0);
+  return (ext_len <= path_len && strcasecmp(path+path_len-ext_len, ext) == 0);
 }
 
 // Usage:

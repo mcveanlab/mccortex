@@ -64,7 +64,7 @@ sub next
   if(!defined($hdr3p)) { die("Missing 3p flank"); }
 
   # >bubble.0.5pflank kmers=8
-  if($hdr5p =~ /^>bubble\.(\d+)\.5pflank kmers=(\d+)/i) {
+  if($hdr5p =~ /^>bubble\.([^\.]+)\.5pflank kmers=(\d+)/i) {
     $callid = $1;
     $flank5p_nkmers = $2;
   }

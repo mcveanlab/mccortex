@@ -54,7 +54,6 @@ void chrom_pos_validate(const ChromPosOffset *pos)
 {
   // chrom_pos_print(pos);
   ctx_assert2(pos->start < pos->end, "end before start");
-  ctx_assert2(pos->start + pos->offset-1 <= pos->end, "Offset too big");
   ctx_assert(pos->chrom != NULL);
   ctx_assert(pos->fw_strand == 0 || pos->fw_strand == 1);
 }

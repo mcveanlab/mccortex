@@ -28,12 +28,15 @@ test:
 	echo $(SEQS)
 	echo $(GRAPHS)
 
+ref.fa:
+	echo '>chr1'; echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA > $@
+
 seq0.fa:
-	echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA > seq0.fa
-	echo CCCGTAGGTAAGtGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA >> seq0.fa
+	echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA > $@
+	echo CCCGTAGGTAAGtGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA >> $@
 
 seq1.fa:
-	echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACtTTGGGACACGAGTTGAT > seq1.fa
+	echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACtTTGGGACACGAGTTGAT > $@
 
 seq%.k$(K).ctx: seq%.fa
 	$(CTX) build -m 10M -k $(K) --sample $< --seq $< $@
@@ -60,9 +63,17 @@ compare: bubbles.join.txt bubbles.seq.txt
 seq.k$(K).pdf: join.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
 
+bubbles.vcf: ref.fa bubbles.join.txt
+	bwa index ref.fa
+	cat bubbles.join.txt | awk -F '[ \t]' 'm{print $$0;m=0;} />bubble\..*\.5pflank/{print $$1; m=1;}' > bubbles.join.txt.flanks
+	bwa bwasw ref.fa bubbles.join.txt.flanks > bubbles.join.txt.sam
+	$(CTX) calls2vcf -F bubbles.join.txt.sam -o $@ bubbles.join.txt ref.fa
+
+decompose: bubbles.vcf
+
 plots: $(PLOTS)
 
 clean:
-	rm -rf $(TGTS) $(PLOTS)
+	rm -rf $(TGTS) $(PLOTS) ref.fa* bubbles.vcf bubbles.join.txt.flanks bubbles.join.txt.sam
 
-.PHONY: all clean plots compare
+.PHONY: all clean compare plots decompose
