@@ -65,7 +65,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
   if(gpath) {
     // Add gpath to nodes buffer
     dBNode first_node = {.key = hkey, .orient = gpath->orient};
-    gpath_fetch(first_node, gpath, nbuf, assem->colour, db_graph);
+    gpath_fetch(first_node, gpath, nbuf, NULL, assem->colour, db_graph);
     s.seed_path = true;
     s.num_seed_kmers = nbuf->len;
   } else {

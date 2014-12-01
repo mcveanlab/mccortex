@@ -188,9 +188,11 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
  * Note: doesn't reset nbuf before adding. Remember to reset nbuf before calling
  *       this function.
  *
+ * @param jposbuf If not NULL, add indices of junctions to this buffer
  * @return number of nodes added to nbuf
  */
-size_t gpath_fetch(dBNode node, const GPath *gpath, dBNodeBuffer *nbuf,
+size_t gpath_fetch(dBNode node, const GPath *gpath,
+                   dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
                    size_t ctxcol, const dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_edge_cols == 1);
@@ -233,6 +235,7 @@ size_t gpath_fetch(dBNode node, const GPath *gpath, dBNodeBuffer *nbuf,
       for(i = 0; i < n && nucs[i] != expbase; i++);
       ctx_assert(i < n);
       node = nodes[i];
+      if(jposbuf) size_buf_add(jposbuf, nbuf->len-1); // index of last added node
       njuncs++;
     }
     else {

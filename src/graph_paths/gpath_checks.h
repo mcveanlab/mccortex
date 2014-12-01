@@ -33,9 +33,11 @@ size_t gpath_load_sample_pop(GraphFileReader *gfile,
 
 /**
  * Fetch sequence of nodes represented by a given path
+ * @param jposbuf If not NULL, add indices of junctions to this buffer
  * @return number of nodes added to nbuf
  */
-size_t gpath_fetch(dBNode node, const GPath *gpath, dBNodeBuffer *nbuf,
+size_t gpath_fetch(dBNode node, const GPath *gpath,
+                   dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
                    size_t ctxcol, const dBGraph *db_graph);
 
 // 1) check dBNode following `node` has indegree >1 in sample ctxcol

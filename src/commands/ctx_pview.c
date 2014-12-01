@@ -30,8 +30,8 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-static int _print_paths(hkey_t hkey, dBNodeBuffer *nbuf, FILE *fout,
-                        const dBGraph *db_graph)
+static int _print_paths(hkey_t hkey, dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
+                        FILE *fout, const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
@@ -66,8 +66,10 @@ static int _print_paths(hkey_t hkey, dBNodeBuffer *nbuf, FILE *fout,
     if(col == ncols) die("path is not in any colours");
 
     db_node_buf_reset(nbuf);
-    gpath_fetch(node, gpath, nbuf, col, db_graph);
-    ctx_assert(nbuf->len == klen);
+    size_buf_reset(jposbuf); // indices of junctions in nbuf
+    gpath_fetch(node, gpath, nbuf, jposbuf, col, db_graph);
+    ctx_assert(nbuf->len == klen && klen > 0);
+    ctx_assert(jposbuf->len == njuncs && njuncs > 0);
 
     fprintf(fout, "%c %zu %zu %zu", dir[gpath->orient], klen, njuncs,
                                     (size_t)nseen[0]);
@@ -77,8 +79,10 @@ static int _print_paths(hkey_t hkey, dBNodeBuffer *nbuf, FILE *fout,
 
     fputc(' ', fout);
     binary_seq_print(gpath->seq, njuncs, fout);
-    fputc(' ', fout);
+    fputs(" seq=", fout);
     db_nodes_print(nbuf->data, nbuf->len, db_graph, fout);
+    fprintf(fout, " juncpos=%zu", jposbuf->data[0]);
+    for(i = 1; i < jposbuf->len; i++) fprintf(fout, ",%zu", jposbuf->data[i]);
     fputc('\n', fout);
   }
 
@@ -203,9 +207,12 @@ int ctx_pview(int argc, char **argv)
 
   // Print paths
   dBNodeBuffer nbuf;
+  SizeBuffer sbuf;
   db_node_buf_alloc(&nbuf, 1024);
-  HASH_ITERATE(&db_graph.ht, _print_paths, &nbuf, stdout, &db_graph);
+  size_buf_alloc(&sbuf, 256);
+  HASH_ITERATE(&db_graph.ht, _print_paths, &nbuf, &sbuf, stdout, &db_graph);
   db_node_buf_dealloc(&nbuf);
+  size_buf_dealloc(&sbuf);
 
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)
