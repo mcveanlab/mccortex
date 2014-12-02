@@ -222,6 +222,14 @@ void json_hdr_gzprint(cJSON *json, gzFile gzout)
   free(jstr);
 }
 
+void json_hdr_fprint(cJSON *json, FILE *fout)
+{
+  char *jstr = cJSON_Print(json);
+  fputs(jstr, fout);
+  fputc('\n', fout);
+  free(jstr);
+}
+
 cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path)
 {
   cJSON *obj = cJSON_GetObjectItem(json, field);

@@ -795,9 +795,9 @@ static void parse_entries(gzFile gzin, FILE *fout)
   const char *flank5p, *flank3p;
   size_t flank5p_len, flank3p_len;
 
-  const read_t *chrom;
-  size_t ref_start, ref_end;
-  bool mapped, fw_strand;
+  const read_t *chrom = NULL;
+  size_t ref_start = 0, ref_end = 0;
+  bool mapped = false, fw_strand = false;
 
   const char **genotypes = NULL;
 

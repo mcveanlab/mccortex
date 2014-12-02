@@ -65,7 +65,7 @@ seq.k$(K).pdf: join.k$(K).ctx
 
 bubbles.vcf: ref.fa bubbles.join.txt
 	bwa index ref.fa
-	cat bubbles.join.txt | awk -F '[ \t]' 'm{print $$0;m=0;} />bubble\..*\.5pflank/{print $$1; m=1;}' > bubbles.join.txt.flanks
+	cat bubbles.join.txt | awk -F '[ \t]' 'm{print $$0;m=0;} /^>bubble\..*\.5pflank/{print $$1; m=1;}' > bubbles.join.txt.flanks
 	bwa bwasw ref.fa bubbles.join.txt.flanks > bubbles.join.txt.sam
 	$(CTX) calls2vcf -F bubbles.join.txt.sam -o $@ bubbles.join.txt ref.fa
 

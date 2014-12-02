@@ -29,6 +29,7 @@ const char contigs_usage[] =
 "  -R, --no-reseed       Do not use a seed kmer if it is used in a contig [default]\n"
 "  -P, --use-seed-paths  Use unused paths to seed contigs [default: off]\n"
 "  -G, --genome <G>      Genome size in bases\n"
+// "  -C, --min-conf <C>    Stop traversal if min conf is less than <C> {0..1}\n"
 "  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
 "  -M, --no-missing-check      Do not use the missing information check\n"
 "\n";

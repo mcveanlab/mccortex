@@ -6,6 +6,8 @@
 #include "graph_format.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
+#include "gpath_save.h"
+#include "json_hdr.h"
 
 const char pview_usage[] =
 "usage: "CMD" pview [options] [-p <in.ctp>] <in.ctx> [in2.ctx ...]\n"
@@ -17,6 +19,7 @@ const char pview_usage[] =
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
+// "  -H, --header           Print a header [default: off]\n"
 "\n";
 
 
@@ -30,62 +33,14 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-static int _print_paths(hkey_t hkey, dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
+static int _print_paths(hkey_t hkey,
+                        StrBuf *sbuf, GPathSubset *subset,
+                        dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
                         FILE *fout, const dBGraph *db_graph)
 {
-  const GPathStore *gpstore = &db_graph->gpstore;
-  const GPathSet *gpset = &gpstore->gpset;
-  const GPath *gpath, *first_gpath = gpath_store_fetch_traverse(gpstore, hkey);
-  dBNode node = {.key = hkey, .orient = FORWARD};
-  size_t i, npaths = 0, col, ncols = gpstore->gpset.ncols;
-
-  for(gpath = first_gpath; gpath != NULL; gpath = gpath->next) npaths++;
-
-  if(npaths == 0) return 0;
-
-  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
-  char bkeystr[MAX_KMER_SIZE+1];
-  binary_kmer_to_str(bkey, db_graph->kmer_size, bkeystr);
-  fprintf(fout, "%s %zu\n", bkeystr, npaths);
-
-  char dir[2];
-  dir[FORWARD] = 'F';
-  dir[REVERSE] = 'R';
-
-  for(gpath = first_gpath; gpath != NULL; gpath = gpath->next)
-  {
-    // Print gpath
-    node.orient = gpath->orient;
-
-    size_t klen = gpath_set_get_klen(gpset, gpath);
-    size_t njuncs = gpath->num_juncs;
-    const uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
-
-    // Find a colour this path is in
-    for(col = 0; col < ncols && !gpath_has_colour(gpath, ncols, col); col++) {}
-    if(col == ncols) die("path is not in any colours");
-
-    db_node_buf_reset(nbuf);
-    size_buf_reset(jposbuf); // indices of junctions in nbuf
-    gpath_fetch(node, gpath, nbuf, jposbuf, col, db_graph);
-    ctx_assert(nbuf->len == klen && klen > 0);
-    ctx_assert(jposbuf->len == njuncs && njuncs > 0);
-
-    fprintf(fout, "%c %zu %zu %zu", dir[gpath->orient], klen, njuncs,
-                                    (size_t)nseen[0]);
-
-    for(i = 1; i < ncols; i++)
-      fprintf(fout, ",%zu", (size_t)nseen[i]);
-
-    fputc(' ', fout);
-    binary_seq_print(gpath->seq, njuncs, fout);
-    fputs(" seq=", fout);
-    db_nodes_print(nbuf->data, nbuf->len, db_graph, fout);
-    fprintf(fout, " juncpos=%zu", jposbuf->data[0]);
-    for(i = 1; i < jposbuf->len; i++) fprintf(fout, ",%zu", jposbuf->data[i]);
-    fputc('\n', fout);
-  }
-
+  strbuf_reset(sbuf);
+  gpath_save_sbuf(hkey, sbuf, subset, nbuf, jposbuf, db_graph);
+  fputs(sbuf->b, fout);
   return 0; // 0 => keep iterating
 }
 
@@ -205,14 +160,38 @@ int ctx_pview(int argc, char **argv)
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
+  // TODO merge headers properly
+  // Print bare header
+  cJSON *hdrs[gpfiles.len];
+  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddStringToObject(json, "file_format", "ctp");
+  cJSON_AddNumberToObject(json, "format_version", 3);
+  json_hdr_add_std(json, "STDOUT", hdrs, gpfiles.len, &db_graph);
+  json_hdr_fprint(json, stdout);
+  cJSON_Delete(json);
+
   // Print paths
+  StrBuf sbuf;
   dBNodeBuffer nbuf;
-  SizeBuffer sbuf;
+  SizeBuffer jposbuf;
+
+  strbuf_alloc(&sbuf, 4096);
   db_node_buf_alloc(&nbuf, 1024);
-  size_buf_alloc(&sbuf, 256);
-  HASH_ITERATE(&db_graph.ht, _print_paths, &nbuf, &sbuf, stdout, &db_graph);
+  size_buf_alloc(&jposbuf, 256);
+
+  GPathSubset subset;
+  gpath_subset_alloc(&subset);
+  gpath_subset_init(&subset, &db_graph.gpstore.gpset);
+
+  HASH_ITERATE(&db_graph.ht, _print_paths,
+               &sbuf, &subset, &nbuf, &jposbuf,
+               stdout, &db_graph);
+
+  strbuf_dealloc(&sbuf);
   db_node_buf_dealloc(&nbuf);
-  size_buf_dealloc(&sbuf);
+  size_buf_dealloc(&jposbuf);
+  gpath_subset_dealloc(&subset);
 
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)

@@ -235,7 +235,7 @@ size_t db_node_to_str(const dBGraph *db_graph, dBNode node, char *str)
   return kmer_size + 2;
 }
 
-// Returns number of bytes added
+// Returns number of bytes added not including \0
 size_t db_nodes_to_str(const dBNode *nodes, size_t num,
                        const dBGraph *db_graph, char *str)
 {

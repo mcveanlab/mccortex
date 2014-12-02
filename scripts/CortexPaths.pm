@@ -6,7 +6,7 @@ use Carp;
 use CortexScripts; # load_json_hdr()
 
 use base 'Exporter';
-our @EXPORT = qw(ctp_print_path ctp_path_to_str);
+our @EXPORT = qw(ctp_print_path ctp_path_to_str ctp_create_path);
 
 sub new
 {
@@ -35,6 +35,13 @@ sub read_line
   return $tmp_line;
 }
 
+sub ctp_create_path
+{
+  my ($dir,$nkmers,$njuncs,$countsarr,$juncstr,$other) = @_;
+  return {'dir' => $dir, 'num_kmers' => $nkmers, 'num_juncs' => $njuncs,
+          'counts' => $countsarr, 'juncs' => $juncstr, 'other' => $other};
+}
+
 sub next
 {
   my ($self) = @_;
@@ -54,13 +61,13 @@ sub next
     # Read over empty lines and comment lines
     if($line !~ /^\s*(?:#.*)?$/)
     {
-      my ($dir,$nkmers,$njuncs,$counts_str,$seq,$other)
+      my ($dir,$nkmers,$njuncs,$counts_str,$juncs,$other)
         = ($line =~ /^([FR]) (\d+) (\d+) (\d+(?:,\d+)*) ([ACGT]+)(?: ?(.*))/);
 
       if(!defined($dir)) { die("Quak: Bad line [$self->{_path}]: $line"); }
 
       push(@paths, {'dir'=>$dir, 'num_kmers'=>$nkmers, 'num_juncs'=>$njuncs,
-                    'counts'=>[split(',',$counts_str)], 'seq'=>$seq,
+                    'counts'=>[split(',',$counts_str)], 'juncs'=>$juncs,
                     'other'=>$other});
     }
   }
@@ -79,7 +86,7 @@ sub ctp_path_to_str
     }
 
     $str .= $p->{'dir'} . " " . $p->{'num_kmers'} . " ". $p->{'num_juncs'} . " " .
-            join(',', @{$p->{'counts'}}) . " " . $p->{'seq'} . $other . "\n";
+            join(',', @{$p->{'counts'}}) . " " . $p->{'juncs'} . $other . "\n";
   }
   return $str;
 }
@@ -87,7 +94,7 @@ sub ctp_path_to_str
 sub ctp_print_path
 {
   my ($p,$out) = @_;
-  my $txt = ctp_print_path_str($p);
+  my $txt = ctp_path_to_str($p);
   if(defined($out)) { print $out $txt; }
   else { print $txt; }
 }

@@ -1,5 +1,6 @@
 #include "global.h"
 #include "gpath_save.h"
+#include "gpath_checks.h"
 #include "gpath_set.h"
 #include "gpath_subset.h"
 #include "binary_seq.h"
@@ -35,6 +36,7 @@ static void _gpath_save_contig_hist2json(cJSON *json_hists,
 }
 
 /**
+ * @param path        path to output file
  * @param contig_hist histgram of read contig lengths
  * @param hist_len    length of array contig_hist
  */
@@ -94,26 +96,32 @@ static inline void _gpath_save_flush(gzFile gzout, StrBuf *sbuf,
   strbuf_reset(sbuf);
 }
 
-// @subset is a temp variable that is reused each time
-// @sbuf   is a temp variable that is reused each time
-static inline int _gpath_save_node(hkey_t hkey,
-                                   gzFile gzout, pthread_mutex_t *outlock,
-                                   StrBuf *sbuf, GPathSubset *subset,
-                                   const dBGraph *db_graph)
+/**
+ * Print paths to a string buffer. Paths are sorted before being written.
+ *
+ * @param hkey    All paths associated with hkey are written to the buffer
+ * @param sbuf    paths are written this string buffer
+ * @param subset  is a temp variable that is reused each time
+ * @param nbuf    temporary buffer, if not NULL, used to add seq=... to output
+ * @param jposbuf temporary buffer, if not NULL, used to add juncpos=... to output
+ */
+void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
+                     dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
+                     const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
   const size_t ncols = gpstore->gpset.ncols;
   GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
   const GPath *gpath;
-  size_t i, col;
+  size_t i, j, col;
 
   // Load and sort paths for given kmer
   gpath_subset_reset(subset);
   gpath_subset_load_llist(subset, first_gpath);
   gpath_subset_sort(subset);
 
-  if(subset->list.len == 0) return 0; // => keep iterating
+  if(subset->list.len == 0) return;
 
   // Print "<kmer> <npaths>"
   BinaryKmer bkmer = db_graph->ht.table[hkey];
@@ -142,51 +150,49 @@ static inline int _gpath_save_node(hkey_t hkey,
     strbuf_ensure_capacity(sbuf, sbuf->end + gpath->num_juncs + 2);
     binary_seq_to_str(gpath->seq, gpath->num_juncs, sbuf->b+sbuf->end);
     sbuf->end += gpath->num_juncs;
+
+    if(nbuf)
+    {
+      // Trace this path through the graph
+      // First, find a colour this path is in
+      for(col = 0; col < ncols && !gpath_has_colour(gpath, ncols, col); col++) {}
+      if(col == ncols) die("path is not in any colours");
+
+      dBNode node = {.key = hkey, .orient = gpath->orient};
+      db_node_buf_reset(nbuf);
+      if(jposbuf) size_buf_reset(jposbuf); // indices of junctions in nbuf
+      gpath_fetch(node, gpath, nbuf, jposbuf, col, db_graph);
+
+      strbuf_append_str(sbuf, " seq=");
+      strbuf_ensure_capacity(sbuf, sbuf->end + db_graph->kmer_size + nbuf->len);
+      sbuf->end += db_nodes_to_str(nbuf->data, nbuf->len, db_graph,
+                                   sbuf->b+sbuf->end);
+
+      if(jposbuf) {
+        strbuf_sprintf(sbuf, " juncpos=%zu", jposbuf->data[0]);
+        for(j = 1; j < jposbuf->len; j++)
+          strbuf_sprintf(sbuf, ",%zu", jposbuf->data[j]);
+      }
+    }
+
     strbuf_append_char(sbuf, '\n');
   }
+}
+
+// @subset is a temp variable that is reused each time
+// @sbuf   is a temp variable that is reused each time
+static inline int _gpath_gzsave_node(hkey_t hkey,
+                                     StrBuf *sbuf, GPathSubset *subset,
+                                     dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
+                                     gzFile gzout, pthread_mutex_t *outlock,
+                                     const dBGraph *db_graph)
+{
+  gpath_save_sbuf(hkey, sbuf, subset, nbuf, jposbuf, db_graph);
 
   if(sbuf->end > DEFAULT_IO_BUFSIZE)
     _gpath_save_flush(gzout, sbuf, outlock);
 
   return 0; // => keep iterating
-}
-
-// Save paths for a single kmer
-// @subset is temporary memory
-void gpath_fwrite_single_kmer(hkey_t hkey, FILE *fout,
-                              GPathSubset *subset,
-                              const dBGraph *db_graph)
-{
-  const GPathStore *gpstore = &db_graph->gpstore;
-  const GPathSet *gpset = &gpstore->gpset;
-  const size_t ncols = gpstore->gpset.ncols;
-  GPath *first_gpath = gpath_store_fetch(gpstore, hkey);
-  const GPath *gpath;
-  char orchar[2] = {0};
-  orchar[FORWARD] = 'F';
-  orchar[REVERSE] = 'R';
-  const uint8_t *nseenptr;
-  size_t i, col, klen;
-
-  // Load and sort paths for given kmer
-  gpath_subset_reset(subset);
-  gpath_subset_load_llist(subset, first_gpath);
-
-  for(i = 0; i < subset->list.len; i++)
-  {
-    gpath = subset->list.data[i];
-    nseenptr = gpath_set_get_nseen(gpset, gpath);
-    klen = gpath_set_get_klen(gpset, gpath);
-    fprintf(fout, "%c %zu %u %u", orchar[gpath->orient], klen,
-                                  gpath->num_juncs, (uint32_t)nseenptr[0]);
-
-    for(col = 1; col < ncols; col++)
-      fprintf(fout, ",%u", (uint32_t)nseenptr[col]);
-
-    fputc(' ', fout);
-    binary_seq_print(gpath->seq, gpath->num_juncs, fout);
-    fputc('\n', fout);
-  }
 }
 
 typedef struct
@@ -209,12 +215,21 @@ static void gpath_save_thread(void *arg)
   gpath_subset_init(&subset, &wrkr.db_graph->gpstore.gpset);
   strbuf_alloc(&sbuf, 2 * DEFAULT_IO_BUFSIZE);
 
+  dBNodeBuffer nbuf;
+  SizeBuffer jposbuf;
+  db_node_buf_alloc(&nbuf, 1024);
+  size_buf_alloc(&jposbuf, 256);
+
   HASH_ITERATE_PART(&db_graph->ht, wrkr.threadid, wrkr.nthreads,
-                    _gpath_save_node,
-                    wrkr.gzout, wrkr.outlock, &sbuf, &subset, db_graph);
+                    _gpath_gzsave_node,
+                    &sbuf, &subset, &nbuf, &jposbuf,
+                    wrkr.gzout, wrkr.outlock,
+                    db_graph);
 
   _gpath_save_flush(wrkr.gzout, &sbuf, wrkr.outlock);
 
+  db_node_buf_dealloc(&nbuf);
+  size_buf_dealloc(&jposbuf);
   gpath_subset_dealloc(&subset);
   strbuf_dealloc(&sbuf);
 }

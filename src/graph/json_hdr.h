@@ -18,6 +18,7 @@ void json_hdr_add_std(cJSON *json, const char *path,
                       const dBGraph *db_graph);
 
 void json_hdr_gzprint(cJSON *json, gzFile gzout);
+void json_hdr_fprint(cJSON *json, FILE *fout);
 
 // Get values from a JSON header
 cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path);
