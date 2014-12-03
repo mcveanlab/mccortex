@@ -198,6 +198,7 @@ static inline int _gpath_gzsave_node(hkey_t hkey,
 typedef struct
 {
   size_t threadid, nthreads;
+  bool save_seq; // write seq=... juncpos=...
   gzFile gzout;
   pthread_mutex_t *outlock;
   dBGraph *db_graph;
@@ -205,14 +206,14 @@ typedef struct
 
 static void gpath_save_thread(void *arg)
 {
-  GPathSaver wrkr = *(GPathSaver*)arg;
-  const dBGraph *db_graph = wrkr.db_graph;
+  GPathSaver *wrkr = (GPathSaver*)arg;
+  const dBGraph *db_graph = wrkr->db_graph;
 
   GPathSubset subset;
   StrBuf sbuf;
 
   gpath_subset_alloc(&subset);
-  gpath_subset_init(&subset, &wrkr.db_graph->gpstore.gpset);
+  gpath_subset_init(&subset, &wrkr->db_graph->gpstore.gpset);
   strbuf_alloc(&sbuf, 2 * DEFAULT_IO_BUFSIZE);
 
   dBNodeBuffer nbuf;
@@ -220,13 +221,14 @@ static void gpath_save_thread(void *arg)
   db_node_buf_alloc(&nbuf, 1024);
   size_buf_alloc(&jposbuf, 256);
 
-  HASH_ITERATE_PART(&db_graph->ht, wrkr.threadid, wrkr.nthreads,
+  HASH_ITERATE_PART(&db_graph->ht, wrkr->threadid, wrkr->nthreads,
                     _gpath_gzsave_node,
-                    &sbuf, &subset, &nbuf, &jposbuf,
-                    wrkr.gzout, wrkr.outlock,
+                    &sbuf, &subset,
+                    wrkr->save_seq ? &nbuf : NULL, wrkr->save_seq ? &jposbuf : NULL,
+                    wrkr->gzout, wrkr->outlock,
                     db_graph);
 
-  _gpath_save_flush(wrkr.gzout, &sbuf, wrkr.outlock);
+  _gpath_save_flush(wrkr->gzout, &sbuf, wrkr->outlock);
 
   db_node_buf_dealloc(&nbuf);
   size_buf_dealloc(&jposbuf);
@@ -234,8 +236,12 @@ static void gpath_save_thread(void *arg)
   strbuf_dealloc(&sbuf);
 }
 
-// @hdrs is array of JSON headers of input files
-void gpath_save(gzFile gzout, const char *path, size_t nthreads,
+/**
+ * Save paths to a file.
+ * @param hdrs is array of JSON headers of input files
+ */
+void gpath_save(gzFile gzout, const char *path,
+                size_t nthreads, bool save_path_seq,
                 cJSON **hdrs, size_t nhdrs,
                 const ZeroSizeBuffer *contig_hists, size_t ncols,
                 dBGraph *db_graph)
@@ -275,6 +281,7 @@ void gpath_save(gzFile gzout, const char *path, size_t nthreads,
   for(i = 0; i < nthreads; i++) {
     wrkrs[i] = (GPathSaver){.threadid = i,
                             .nthreads = nthreads,
+                            .save_seq = save_path_seq,
                             .gzout = gzout,
                             .outlock = &outlock,
                             .db_graph = db_graph};

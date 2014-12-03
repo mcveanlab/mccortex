@@ -254,13 +254,24 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
   return count;
 }
 
-// @colour if > -1: filter next nodes for those in colour, otherwise all next nodes
-// @fw_nucs is the nuc you would add when walking forward
-// Returns number of nodes added
+/**
+ * @param colour if > -1: filter next nodes for those in colour, otherwise all next nodes
+ * @param fw_nucs is the nuc you would add when walking forward
+ * @return Number of nodes added
+ */
 uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
                                    dBNode node, int colour,
                                    dBNode nodes[4], Nucleotide fw_nucs[4])
 {
+  ctx_assert2(colour < 0 ||
+              (db_graph->num_of_cols == 1 && colour == 0) ||
+              db_graph->num_of_cols == db_graph->num_edge_cols ||
+              (db_graph->num_of_cols > 1 && db_graph->num_edge_cols == 1 &&
+                (db_graph->node_in_cols || db_graph->col_covgs)),
+              "col: %i; cols: %zu edges: %zu node_in_cols: %i col_covgs: %i",
+              colour, db_graph->num_of_cols, db_graph->num_edge_cols,
+              !!db_graph->node_in_cols, !!db_graph->col_covgs);
+
   size_t i, j;
   Edges edges;
   BinaryKmer bkey;

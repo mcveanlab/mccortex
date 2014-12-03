@@ -195,14 +195,10 @@ size_t gpath_fetch(dBNode node, const GPath *gpath,
                    dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
                    size_t ctxcol, const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_edge_cols == 1);
-  ctx_assert(db_graph->num_of_cols == 1 || db_graph->node_in_cols);
   ctx_assert(node.orient == gpath->orient);
 
   size_t init_num_nodes = nbuf->len;
-  size_t i, j, n, njuncs = 0; // number of junctions seen
-  BinaryKmer bkey;
-  Edges edges;
+  size_t i, n, njuncs = 0; // number of junctions seen
   dBNode nodes[4];
   Nucleotide nucs[4];
 
@@ -211,23 +207,7 @@ size_t gpath_fetch(dBNode node, const GPath *gpath,
   while(njuncs < gpath->num_juncs)
   {
     ctx_assert(node.key != HASH_NOT_FOUND);
-
-    bkey = db_node_get_bkmer(db_graph, node.key);
-    edges = db_node_get_edges(db_graph, node.key, 0);
-    n = db_graph_next_nodes(db_graph, bkey, node.orient, edges, nodes, nucs);
-
-    // Reduce to nodes in our colour if edges limited
-    if(db_graph->num_of_cols > 1) {
-      for(i = 0, j = 0; i < n; i++) {
-        if(db_node_has_col(db_graph, nodes[i].key, ctxcol)) {
-          nodes[j] = nodes[i];
-          nucs[j] = nucs[i];
-          j++;
-        }
-      }
-      n = j; // update number of next nodes
-    }
-
+    n = db_graph_next_nodes_in_col(db_graph, node, ctxcol, nodes, nucs);
     ctx_assert(n > 0);
 
     if(n > 1) {
@@ -245,9 +225,7 @@ size_t gpath_fetch(dBNode node, const GPath *gpath,
     db_node_buf_add(nbuf, node);
   }
 
-  size_t num_added = nbuf->len - init_num_nodes;
-
-  return num_added;
+  return nbuf->len - init_num_nodes;
 }
 
 //

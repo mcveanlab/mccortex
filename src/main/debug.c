@@ -51,7 +51,7 @@ int main(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Write output file
-  gpath_save(gzout, out_path, &pfile.json, 1, &db_graph);
+  gpath_save(gzout, out_path, 1, true, &pfile.json, 1, &db_graph);
   gzclose(gzout);
 
   // Checks

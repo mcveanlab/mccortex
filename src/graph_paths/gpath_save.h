@@ -27,9 +27,11 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
                      const dBGraph *db_graph);
 
 /**
+ * Save paths to a file.
  * @param hdrs is array of JSON headers of input files
  */
-void gpath_save(gzFile gzout, const char *path, size_t nthreads,
+void gpath_save(gzFile gzout, const char *path,
+                size_t nthreads, bool save_path_seq,
                 cJSON **hdrs, size_t nhdrs,
                 const ZeroSizeBuffer *contig_hists, size_t ncols,
                 dBGraph *db_graph);

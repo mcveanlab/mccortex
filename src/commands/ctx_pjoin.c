@@ -227,7 +227,7 @@ int ctx_pjoin(int argc, char **argv)
   for(i = 0; i < num_pfiles; i++) hdrs[i] = pfiles[i].json;
 
   // Write output file
-  gpath_save(gzout, out_ctp_path, output_threads,
+  gpath_save(gzout, out_ctp_path, output_threads, false,
              hdrs, num_pfiles, contig_histgrms, output_ncols,
              &db_graph);
 

@@ -254,7 +254,7 @@ int ctx_thread(int argc, char **argv)
   size_t output_threads = MIN2(args.nthreads, MAX_IO_THREADS);
 
   // Write output file
-  gpath_save(gzout, args.out_ctp_path, output_threads,
+  gpath_save(gzout, args.out_ctp_path, output_threads, true,
              hdrs, gpfiles->len,
              &aln_stats->contig_histgrm, 1,
              &db_graph);
