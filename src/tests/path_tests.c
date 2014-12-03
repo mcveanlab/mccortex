@@ -82,7 +82,9 @@ static void _check_node_paths(const char *kmer,
 
   const GPath *path = gpath_store_fetch_traverse(gpstore, node.key);
   dBNodeBuffer nbuf;
+  SizeBuffer jposbuf;
   db_node_buf_alloc(&nbuf, 64);
+  size_buf_alloc(&jposbuf, 64);
 
   #define MAX_SEQ 128
   char seq[MAX_SEQ];
@@ -94,7 +96,7 @@ static void _check_node_paths(const char *kmer,
     {
       TASSERT(num_paths_seen < npaths);
       db_node_buf_reset(&nbuf);
-      gpath_fetch(node, path, &nbuf, colour, graph);
+      gpath_fetch(node, path, &nbuf, &jposbuf, colour, graph);
       if(nbuf.len > MAX_SEQ) die("Too many nodes. Cannot continue. %zu", nbuf.len);
       db_nodes_to_str(nbuf.data, nbuf.len, graph, seq);
       TASSERT(strlen(seq) == graph->kmer_size + nbuf.len - 1);
@@ -117,6 +119,7 @@ static void _check_node_paths(const char *kmer,
   }
 
   db_node_buf_dealloc(&nbuf);
+  size_buf_dealloc(&jposbuf);
 }
 
 static void _test_add_paths()
