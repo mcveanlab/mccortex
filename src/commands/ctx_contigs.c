@@ -29,9 +29,10 @@ const char contigs_usage[] =
 "  -R, --no-reseed       Do not use a seed kmer if it is used in a contig [default]\n"
 "  -P, --use-seed-paths  Use unused paths to seed contigs [default: off]\n"
 "  -G, --genome <G>      Genome size in bases\n"
-"  -C, --confid-min <C>  Stop traversal if min conf is less than <C> {0..1}\n"
-"  -S, --confid-csv <save.csv> Save confidence table to <save.csv>\n"
-"  -M, --no-missing-check      Do not use the missing information check\n"
+"  -C, --confid-cumul <C>   Halt if cumulative confidence is < C {0..1} [default: off]\n"
+"  -T, --confid-step <C>    Halt if single step confidence is < C {0..1} [default: off]\n"
+"  -S, --confid-csv <f.csv> Save confidence table to <save.csv>\n"
+"  -M, --no-missing-check   Do not use the missing information check\n"
 "\n";
 
 static struct option longopts[] =
@@ -54,7 +55,8 @@ static struct option longopts[] =
   {"colour",       required_argument, NULL, 'c'},
   {"color",        required_argument, NULL, 'c'},
   {"genome",       required_argument, NULL, 'G'},
-  {"confid-min",   required_argument, NULL, 'C'},
+  {"confid-cumul", required_argument, NULL, 'C'},
+  {"confid-step",  required_argument, NULL, 'T'},
   {"confid-csv",   required_argument, NULL, 'S'},
   {"no-missing-check", no_argument,   NULL, 'M'},
   {NULL, 0, NULL, 0}
@@ -69,7 +71,7 @@ int ctx_contigs(int argc, char **argv)
   bool cmd_reseed = false, cmd_no_reseed = false; // -r, -R
   const char *conf_table_path = NULL; // save confidence table to here
   bool use_missing_info_check = true, seed_with_unused_paths = false;
-  double min_confid = -1.0; // less than 0 => no mininum
+  double min_step_confid = -1.0, min_cumul_confid = -1.0; // < 0 => no min
 
   // Read length and expected depth for calculating confidences
   size_t genome_size = 0;
@@ -123,9 +125,14 @@ int ctx_contigs(int argc, char **argv)
       case 'M': cmd_check(use_missing_info_check,cmd); use_missing_info_check = false; break;
       case 'P': cmd_check(!seed_with_unused_paths,cmd); seed_with_unused_paths = true; break;
       case 'C':
-        cmd_check(min_confid < 0,cmd);
-        min_confid = cmd_udouble(cmd,optarg);
-        if(min_confid > 1) die("%s must be 0 <= x <= 1", cmd);
+        cmd_check(min_cumul_confid < 0,cmd);
+        min_cumul_confid = cmd_udouble(cmd,optarg);
+        if(min_cumul_confid > 1) die("%s must be 0 <= x <= 1", cmd);
+        break;
+      case 'T':
+        cmd_check(min_step_confid < 0,cmd);
+        min_step_confid = cmd_udouble(cmd,optarg);
+        if(min_step_confid > 1) die("%s must be 0 <= x <= 1", cmd);
         break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -273,7 +280,8 @@ int ctx_contigs(int argc, char **argv)
 
   assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
                    contig_limit, visited,
-                   use_missing_info_check, seed_with_unused_paths, min_confid,
+                   use_missing_info_check, seed_with_unused_paths,
+                   min_step_confid, min_cumul_confid,
                    fout, out_path, &assem_stats, &conf_table,
                    &db_graph, 0); // Sample always loaded into colour zero
 

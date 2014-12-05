@@ -5,6 +5,32 @@
 #include "common_buffers.h"
 #include "graph_walker.h"
 
+#define ASSEM_STOP_UNKNOWN        0
+#define ASSEM_STOP_NOCOVG         1 /* Fail: no choices */
+#define ASSEM_STOP_NOCOLCOVG      2 /* Fail: fork in pop but no choices in colour */
+#define ASSEM_STOP_NOPATHS        3 /* Fail: fork in colour, no paths */
+#define ASSEM_STOP_SPLIT_PATHS    4 /* Fail: fork in colour, paths split */
+#define ASSEM_STOP_MISSING_PATHS  5 /* Fail: fork in colour, missing info */
+#define ASSEM_STOP_CYCLE          6
+#define ASSEM_STOP_LOW_STEP_CONF  7
+#define ASSEM_STOP_LOW_CUMUL_CONF 8
+#define ASSEM_NUM_STOPS           9
+
+#define ASSEM_STOP_UNKNOWN_STR        "StopUnknown"
+#define ASSEM_STOP_NOCOVG_STR         "StopNoCovg"
+#define ASSEM_STOP_NOCOLCOVG_STR      "StopPopForkNoColCovg"
+#define ASSEM_STOP_NOPATHS_STR        "StopForkNoPaths"
+#define ASSEM_STOP_SPLIT_PATHS_STR    "StopForkInPaths"
+#define ASSEM_STOP_MISSING_PATHS_STR  "StopMissingPaths"
+#define ASSEM_STOP_CYCLE_STR          "StopHitLoop"
+#define ASSEM_STOP_LOW_STEP_CONF_STR  "StopLowStepConfidence"
+#define ASSEM_STOP_LOW_CUMUL_CONF_STR "StopLowCumulativeConfidence"
+
+uint8_t graphstep2assem(uint8_t step, bool hit_cycle,
+                        bool low_step_confid, bool low_cumul_confid);
+
+char* assem2str(uint8_t assem, char *str, size_t size);
+
 #define AC_MAX_PATHS 5
 
 typedef struct
@@ -17,8 +43,7 @@ typedef struct
   uint64_t paths_cntr[AC_MAX_PATHS];
   uint64_t paths_held_max, paths_new_max, paths_cntr_max;
   uint64_t grphwlk_steps[GRPHWLK_NUM_STATES]; // states in graph_walker.h
-  uint64_t num_cycles; // instances where the repeat_walker stopped us
-  uint64_t num_low_confid; // traversal stopped by low confidence
+  uint64_t stop_causes[ASSEM_NUM_STOPS]; // ASSEM_STOP_* defined above
   SizeBuffer lengths, junctns;
   double max_junc_density;
   uint64_t num_contigs_from_seed_kmers;
@@ -29,10 +54,10 @@ typedef struct
 
 // Results from a single contig
 struct ContigStats {
-  size_t num_nodes, num_junc, num_cycles, num_low_confid;
+  size_t num_nodes, num_junc;
   size_t wlk_steps[GRPHWLK_NUM_STATES];
   size_t paths_held[2], paths_cntr[2];
-  uint8_t wlk_step_last[2];
+  uint8_t stop_causes[2]; // one of ASSEM_STOP_* for each direction
   size_t max_step_gap[2];
   double gap_conf[2];
   uint8_t outdegree_rv, outdegree_fw;

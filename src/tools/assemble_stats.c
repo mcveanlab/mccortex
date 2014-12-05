@@ -1,6 +1,45 @@
 #include "global.h"
 #include "assemble_stats.h"
 
+const char *assem_stop_str[] = {ASSEM_STOP_UNKNOWN_STR,
+                                ASSEM_STOP_NOCOVG_STR,
+                                ASSEM_STOP_NOCOLCOVG_STR,
+                                ASSEM_STOP_NOPATHS_STR,
+                                ASSEM_STOP_SPLIT_PATHS_STR,
+                                ASSEM_STOP_MISSING_PATHS_STR,
+                                ASSEM_STOP_CYCLE_STR,
+                                ASSEM_STOP_LOW_STEP_CONF_STR,
+                                ASSEM_STOP_LOW_CUMUL_CONF_STR};
+
+uint8_t graphstep2assem(uint8_t step, bool hit_cycle,
+                        bool low_step_confid, bool low_cumul_confid)
+{
+  ctx_assert2(!!step + !!low_step_confid + !!low_cumul_confid == 1,
+              "One and only one should be true %i %i %i",
+              (int)step, (int)low_step_confid, (int)low_cumul_confid);
+
+  if(hit_cycle) return ASSEM_STOP_CYCLE;
+  if(low_step_confid) return ASSEM_STOP_LOW_STEP_CONF;
+  if(low_cumul_confid) return ASSEM_STOP_LOW_CUMUL_CONF;
+
+  switch(step) {
+    case GRPHWLK_NOCOVG: return ASSEM_STOP_NOCOVG;
+    case GRPHWLK_NOCOLCOVG: return ASSEM_STOP_NOCOLCOVG;
+    case GRPHWLK_NOPATHS: return ASSEM_STOP_NOPATHS;
+    case GRPHWLK_SPLIT_PATHS: return ASSEM_STOP_SPLIT_PATHS;
+    case GRPHWLK_MISSING_PATHS: return ASSEM_STOP_MISSING_PATHS;
+    default: die("Unknown %i", (int)step);
+  }
+}
+
+char* assem2str(uint8_t assem, char *str, size_t size)
+{
+  ctx_assert(assem < ASSEM_NUM_STOPS);
+  ctx_assert(strlen(assem_stop_str[assem]) < size);
+  strcpy(str, assem_stop_str[assem]);
+  return str;
+}
+
 void assemble_contigs_stats_init(AssembleContigStats *stats)
 {
   memset(stats, 0, sizeof(*stats));
@@ -33,6 +72,9 @@ void assemble_contigs_stats_add(AssembleContigStats *stats,
   for(i = 0; i < GRPHWLK_NUM_STATES; i++)
     stats->grphwlk_steps[i] += s->wlk_steps[i];
 
+  stats->stop_causes[s->stop_causes[0]]++;
+  stats->stop_causes[s->stop_causes[1]]++;
+
   // Out degree
   stats->contigs_outdegree[s->outdegree_fw]++;
   stats->contigs_outdegree[s->outdegree_rv]++;
@@ -40,10 +82,8 @@ void assemble_contigs_stats_add(AssembleContigStats *stats,
   size_buf_add(&stats->lengths, s->num_nodes);
   size_buf_add(&stats->junctns, s->num_junc);
 
-  stats->num_cycles     += s->num_cycles;
-  stats->num_low_confid += s->num_low_confid;
-  stats->total_len      += s->num_nodes;
-  stats->total_junc     += s->num_junc;
+  stats->total_len  += s->num_nodes;
+  stats->total_junc += s->num_junc;
 
   stats->num_contigs_from_seed_paths += s->seed_path;
   stats->num_contigs_from_seed_kmers += s->seed_kmer;
@@ -71,11 +111,9 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
   size_buf_append(&dst->lengths, src->lengths.data, src->lengths.len);
   size_buf_append(&dst->junctns, src->junctns.data, src->junctns.len);
 
-  dst->num_contigs    += src->num_contigs;
-  dst->num_cycles     += src->num_cycles;
-  dst->num_low_confid += src->num_low_confid;
-  dst->total_len      += src->total_len;
-  dst->total_junc     += src->total_junc;
+  dst->num_contigs += src->num_contigs;
+  dst->total_len   += src->total_len;
+  dst->total_junc  += src->total_junc;
 
   for(i = 0; i < 5; i++)
     dst->contigs_outdegree[i] += src->contigs_outdegree[i];
@@ -90,6 +128,9 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
 
   for(i = 0; i < GRPHWLK_NUM_STATES; i++)
     dst->grphwlk_steps[i] += src->grphwlk_steps[i];
+
+  for(i = 0; i < ASSEM_NUM_STOPS; i++)
+    dst->stop_causes[i] += src->stop_causes[i];
 
   dst->max_junc_density = MAX2(dst->max_junc_density, src->max_junc_density);
 
@@ -231,18 +272,21 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   const uint64_t *states = s->grphwlk_steps;
   size_t nsteps = s->total_len - s->num_contigs, ncontigends = 2*s->num_contigs;
   status(PREFIX"Traversal succeeded because:");
-  _print_grphwlk_state("Pop straight   ", states[GRPHWLK_POPFWD],       nsteps);
-  _print_grphwlk_state("Col straight   ", states[GRPHWLK_COLFWD],       nsteps);
-  _print_grphwlk_state("PopFork use col", states[GRPHWLK_POPFRK_COLFWD],nsteps);
-  _print_grphwlk_state("Go paths       ", states[GRPHWLK_USEPATH],      nsteps);
+  _print_grphwlk_state("Pop straight ......... ", states[GRPHWLK_POPFWD],       nsteps);
+  _print_grphwlk_state("Col straight ......... ", states[GRPHWLK_COLFWD],       nsteps);
+  _print_grphwlk_state("PopFork use colour ... ", states[GRPHWLK_POPFRK_COLFWD],nsteps);
+  _print_grphwlk_state("Go paths ............. ", states[GRPHWLK_USEPATH],      nsteps);
+
+  const uint64_t *stops = s->stop_causes;
   status(PREFIX"Traversal halted because:");
-  _print_grphwlk_state("No coverage    ", states[GRPHWLK_NOCOVG],       ncontigends);
-  _print_grphwlk_state("No colour covg ", states[GRPHWLK_NOCOLCOVG],    ncontigends);
-  _print_grphwlk_state("No paths       ", states[GRPHWLK_NOPATHS],      ncontigends);
-  _print_grphwlk_state("Paths split    ", states[GRPHWLK_SPLIT_PATHS],  ncontigends);
-  _print_grphwlk_state("Missing paths  ", states[GRPHWLK_MISSING_PATHS],ncontigends);
-  _print_grphwlk_state("Graph cycles   ", s->num_cycles,                ncontigends);
-  _print_grphwlk_state("Low confidence ", s->num_low_confid,            ncontigends);
+  _print_grphwlk_state("No coverage .......... ", stops[ASSEM_STOP_NOCOVG],        ncontigends);
+  _print_grphwlk_state("No colour covg ....... ", stops[ASSEM_STOP_NOCOLCOVG],     ncontigends);
+  _print_grphwlk_state("No paths ............. ", stops[ASSEM_STOP_NOPATHS],       ncontigends);
+  _print_grphwlk_state("Paths split .......... ", stops[ASSEM_STOP_SPLIT_PATHS],   ncontigends);
+  _print_grphwlk_state("Missing paths ........ ", stops[ASSEM_STOP_MISSING_PATHS], ncontigends);
+  _print_grphwlk_state("Graph cycles ......... ", stops[ASSEM_STOP_CYCLE],         ncontigends);
+  _print_grphwlk_state("Low step confidence .. ", stops[ASSEM_STOP_LOW_CUMUL_CONF],ncontigends);
+  _print_grphwlk_state("Low cumul. confidence  ", stops[ASSEM_STOP_LOW_STEP_CONF], ncontigends);
 
   size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
                  states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];

@@ -28,7 +28,7 @@ typedef struct
   size_t contig_limit;
   uint8_t *visited;
   bool use_missing_info_check;
-  double min_confid;
+  double min_step_confid, min_cumul_confid;
   size_t *used_paths;
   const dBGraph *db_graph;
   size_t colour;
@@ -91,7 +91,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
                        init_len, true);
 
     size_t init_junc_count = wlk->fork_count;
-    bool hit_cycle = false, low_confid = false;
+    bool hit_cycle = false, low_step_confid = false, low_cumul_confid = false;
 
     while(graph_walker_next(wlk))
     {
@@ -103,6 +103,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 
       if(step.status == GRPHWLK_USEPATH)
       {
+        // Junction resolved using paths
         ctx_assert(step.path_gap > 0);
         size_t gap_length = step.path_gap + db_graph->kmer_size-1 + 2;
         double confid = conf_table_lookup(assem->conf_table, assem->colour,
@@ -111,7 +112,8 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
         s.max_step_gap[dir] = MAX2(s.max_step_gap[dir], gap_length);
         s.gap_conf[dir] *= confid;
 
-        if(s.gap_conf[dir] < assem->min_confid) { low_confid = true; break; }
+        if(confid < assem->min_step_confid) { low_step_confid = true; break; }
+        if(s.gap_conf[dir] < assem->min_cumul_confid) { low_cumul_confid = true; break; }
       }
 
       if(!rpt_walker_attempt_traverse(rptwlk, wlk)) { hit_cycle = true; break; }
@@ -126,11 +128,8 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
 
     // Get failed status
     step = wlk->last_step;
-    s.wlk_step_last[dir] = step.status;
-
-    if(hit_cycle)       s.num_cycles++;
-    else if(low_confid) s.num_low_confid++;
-    else                s.wlk_steps[step.status]++;
+    s.stop_causes[dir] = graphstep2assem(step.status, hit_cycle,
+                                         low_step_confid, low_cumul_confid);
 
     graph_walker_finish(wlk);
     rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
@@ -172,12 +171,8 @@ static int _dump_contig(Assembler *assem, hkey_t hkey,
 
     // We have reversed the contig, so left end is now the end we hit when
     // traversing from the seed node forward... FORWARD == 0, REVERSE == 1
-    graph_step_status2str(s->wlk_step_last[0], left_stat, sizeof(left_stat));
-    graph_step_status2str(s->wlk_step_last[1], rght_stat, sizeof(rght_stat));
-
-    // If end status is healthy, then we got stuck in a repeat
-    if(grap_step_status_is_good(s->wlk_step_last[0])) strcpy(left_stat, "HitRepeat");
-    if(grap_step_status_is_good(s->wlk_step_last[1])) strcpy(rght_stat, "HitRepeat");
+    assem2str(s->stop_causes[0], left_stat, sizeof(left_stat));
+    assem2str(s->stop_causes[1], rght_stat, sizeof(rght_stat));
 
     pthread_mutex_lock(assem->outlock);
     contig_id = assem->num_contig_ptr[0]++;
@@ -341,19 +336,23 @@ static void assemble_from_paths(void *arg)
  * @param seed_with_unused_paths If set, mark paths as used once entirely
  *                               contained in a contig. Unused paths are then
  *                               used to seed contigs.
- * @param min_confid Stop traversal if confidence drops below the given min
- *                   If less than 0 ignore.
+ * @param min_step_confid  Stop traversal if confidence of a single step is
+ *                         below the given min. If less than 0 ignore.
+ * @param min_cumul_confid Stop traversal if cumulative confidence drops below
+ *                         the given min. If less than 0 ignore.
  */
 void assemble_contigs(size_t nthreads,
                       seq_file_t **seed_files, size_t num_seed_files,
                       size_t contig_limit, uint8_t *visited,
                       bool use_missing_info_check, bool seed_with_unused_paths,
-                      double min_confid,
+                      double min_step_confid, double min_cumul_confid,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
                       const ContigConfidenceTable *conf_table,
                       const dBGraph *db_graph, size_t colour)
 {
+  ctx_assert(min_step_confid <= 1);
+  ctx_assert(min_cumul_confid <= 1);
   ctx_assert(nthreads > 0);
   ctx_assert(!num_seed_files || seed_files);
   ctx_assert(!seed_with_unused_paths || num_seed_files == 0);
@@ -384,7 +383,8 @@ void assemble_contigs(size_t nthreads,
                      .num_contig_ptr = &num_contigs,
                      .contig_limit = contig_limit,
                      .use_missing_info_check = use_missing_info_check,
-                     .min_confid = min_confid,
+                     .min_step_confid = min_step_confid,
+                     .min_cumul_confid = min_cumul_confid,
                      .used_paths = used_paths,
                      .db_graph = db_graph, .colour = colour,
                      .conf_table = conf_table,
