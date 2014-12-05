@@ -28,6 +28,7 @@ typedef struct
   size_t contig_limit;
   uint8_t *visited;
   bool use_missing_info_check;
+  double min_confid;
   size_t *used_paths;
   const dBGraph *db_graph;
   size_t colour;
@@ -90,7 +91,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
                        init_len, true);
 
     size_t init_junc_count = wlk->fork_count;
-    bool hit_cycle = false;
+    bool hit_cycle = false, low_confid = false;
 
     while(graph_walker_next(wlk))
     {
@@ -100,21 +101,24 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
       step = wlk->last_step;
       s.wlk_steps[step.status]++;
 
-      if(step.status == GRPHWLK_USEPATH) {
+      if(step.status == GRPHWLK_USEPATH)
+      {
         ctx_assert(step.path_gap > 0);
         size_t gap_length = step.path_gap + db_graph->kmer_size-1 + 2;
+        double confid = conf_table_lookup(assem->conf_table, assem->colour,
+                                          gap_length);
+
         s.max_step_gap[dir] = MAX2(s.max_step_gap[dir], gap_length);
-        s.gap_conf[dir] *= conf_table_lookup(assem->conf_table, assem->colour,
-                                             gap_length);
+        s.gap_conf[dir] *= confid;
+
+        if(s.gap_conf[dir] < assem->min_confid) { low_confid = true; break; }
       }
 
       if(!rpt_walker_attempt_traverse(rptwlk, wlk)) { hit_cycle = true; break; }
     }
 
-    s.ncycles += hit_cycle;
-
     // Grab some stats
-    s.njunc += wlk->fork_count - init_junc_count;
+    s.num_junc += wlk->fork_count - init_junc_count;
 
     // Record numbers of paths
     s.paths_held[dir] = wlk->paths.len;
@@ -123,7 +127,10 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
     // Get failed status
     step = wlk->last_step;
     s.wlk_step_last[dir] = step.status;
-    if(!hit_cycle) s.wlk_steps[step.status]++;
+
+    if(hit_cycle)       s.num_cycles++;
+    else if(low_confid) s.num_low_confid++;
+    else                s.wlk_steps[step.status]++;
 
     graph_walker_finish(wlk);
     rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
@@ -334,11 +341,14 @@ static void assemble_from_paths(void *arg)
  * @param seed_with_unused_paths If set, mark paths as used once entirely
  *                               contained in a contig. Unused paths are then
  *                               used to seed contigs.
+ * @param min_confid Stop traversal if confidence drops below the given min
+ *                   If less than 0 ignore.
  */
 void assemble_contigs(size_t nthreads,
                       seq_file_t **seed_files, size_t num_seed_files,
                       size_t contig_limit, uint8_t *visited,
                       bool use_missing_info_check, bool seed_with_unused_paths,
+                      double min_confid,
                       FILE *fout, const char *out_path,
                       AssembleContigStats *stats,
                       const ContigConfidenceTable *conf_table,
@@ -374,6 +384,7 @@ void assemble_contigs(size_t nthreads,
                      .num_contig_ptr = &num_contigs,
                      .contig_limit = contig_limit,
                      .use_missing_info_check = use_missing_info_check,
+                     .min_confid = min_confid,
                      .used_paths = used_paths,
                      .db_graph = db_graph, .colour = colour,
                      .conf_table = conf_table,

@@ -38,20 +38,21 @@ void assemble_contigs_stats_add(AssembleContigStats *stats,
   stats->contigs_outdegree[s->outdegree_rv]++;
 
   size_buf_add(&stats->lengths, s->num_nodes);
-  size_buf_add(&stats->junctns, s->njunc);
+  size_buf_add(&stats->junctns, s->num_junc);
 
-  stats->num_cycles += s->ncycles;
-  stats->total_len  += s->num_nodes;
-  stats->total_junc += s->njunc;
+  stats->num_cycles     += s->num_cycles;
+  stats->num_low_confid += s->num_low_confid;
+  stats->total_len      += s->num_nodes;
+  stats->total_junc     += s->num_junc;
 
   stats->num_contigs_from_seed_paths += s->seed_path;
   stats->num_contigs_from_seed_kmers += s->seed_kmer;
 
   if(stats->num_contigs == 0) {
-    stats->max_junc_density = (double)s->njunc / s->num_nodes;
+    stats->max_junc_density = (double)s->num_junc / s->num_nodes;
   } else {
     stats->max_junc_density = MAX2(stats->max_junc_density,
-                                   (double)s->njunc / s->num_nodes);
+                                   (double)s->num_junc / s->num_nodes);
   }
 
   stats->num_contigs++;
@@ -70,10 +71,11 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
   size_buf_append(&dst->lengths, src->lengths.data, src->lengths.len);
   size_buf_append(&dst->junctns, src->junctns.data, src->junctns.len);
 
-  dst->num_contigs += src->num_contigs;
-  dst->num_cycles += src->num_cycles;
-  dst->total_len += src->total_len;
-  dst->total_junc += src->total_junc;
+  dst->num_contigs    += src->num_contigs;
+  dst->num_cycles     += src->num_cycles;
+  dst->num_low_confid += src->num_low_confid;
+  dst->total_len      += src->total_len;
+  dst->total_junc     += src->total_junc;
 
   for(i = 0; i < 5; i++)
     dst->contigs_outdegree[i] += src->contigs_outdegree[i];
@@ -94,7 +96,7 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
   dst->num_contigs_from_seed_kmers += src->num_contigs_from_seed_kmers;
   dst->num_contigs_from_seed_paths += src->num_contigs_from_seed_paths;
 
-  dst->num_reseed_abort += src->num_reseed_abort;
+  dst->num_reseed_abort    += src->num_reseed_abort;
   dst->num_seeds_not_found += src->num_seeds_not_found;
 }
 
@@ -240,6 +242,7 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   _print_grphwlk_state("Paths split    ", states[GRPHWLK_SPLIT_PATHS],  ncontigends);
   _print_grphwlk_state("Missing paths  ", states[GRPHWLK_MISSING_PATHS],ncontigends);
   _print_grphwlk_state("Graph cycles   ", s->num_cycles,                ncontigends);
+  _print_grphwlk_state("Low confidence ", s->num_low_confid,            ncontigends);
 
   size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
                  states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];

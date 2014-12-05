@@ -8,7 +8,7 @@
 #include "clean_graph.h"
 #include "supernode.h" // for saving length histogram
 
-const bool use_supernode_covg = true;
+const bool use_supernode_covg = false;
 
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"

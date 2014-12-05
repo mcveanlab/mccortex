@@ -18,6 +18,7 @@ typedef struct
   uint64_t paths_held_max, paths_new_max, paths_cntr_max;
   uint64_t grphwlk_steps[GRPHWLK_NUM_STATES]; // states in graph_walker.h
   uint64_t num_cycles; // instances where the repeat_walker stopped us
+  uint64_t num_low_confid; // traversal stopped by low confidence
   SizeBuffer lengths, junctns;
   double max_junc_density;
   uint64_t num_contigs_from_seed_kmers;
@@ -28,7 +29,7 @@ typedef struct
 
 // Results from a single contig
 struct ContigStats {
-  size_t num_nodes, njunc, ncycles;
+  size_t num_nodes, num_junc, num_cycles, num_low_confid;
   size_t wlk_steps[GRPHWLK_NUM_STATES];
   size_t paths_held[2], paths_cntr[2];
   uint8_t wlk_step_last[2];
