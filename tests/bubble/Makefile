@@ -74,6 +74,7 @@ decompose: bubbles.vcf
 plots: $(PLOTS)
 
 clean:
-	rm -rf $(TGTS) $(PLOTS) ref.fa* bubbles.vcf bubbles.join.txt.flanks bubbles.join.txt.sam
+	rm -rf $(TGTS) $(PLOTS) bubbles.seq.txt.gz bubbles.join.txt.gz
+	rm -rf ref.fa* bubbles.vcf bubbles.join.txt.flanks bubbles.join.txt.sam
 
 .PHONY: all clean compare plots decompose

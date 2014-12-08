@@ -80,15 +80,16 @@ void hash_table_empty(HashTable *const ht)
   memcpy(ht, &data, sizeof(data));
 }
 
-static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const ht,
-                                                          uint_fast32_t bucket,
-                                                          const BinaryKmer bkmer)
+static inline const BinaryKmer* hash_table_find_in_bucket_mt(const HashTable *const ht,
+                                                             uint_fast32_t bucket,
+                                                             const BinaryKmer bkmer)
 {
   const BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
-  const BinaryKmer *end = ptr + ht->buckets[bucket][HT_BSIZE];
+  const BinaryKmer *end = ptr + *(volatile __typeof(ht->buckets[0][0])*)&ht->buckets[bucket][HT_BSIZE];
 
   while(ptr < end) {
-    if(binary_kmers_are_equal(bkmer, *ptr)) return ptr;
+    BinaryKmer tgt = *(volatile BinaryKmer*)ptr;
+    if(binary_kmers_are_equal(bkmer, tgt)) return ptr;
     ptr++;
   }
   return NULL; // Not found
@@ -183,7 +184,7 @@ hkey_t hash_table_find(const HashTable *const ht, const BinaryKmer key)
       h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
     #endif
 
-    ptr = hash_table_find_in_bucket(ht, h, key);
+    ptr = hash_table_find_in_bucket_mt(ht, h, key);
     if(ptr != NULL) return (hkey_t)(ptr - ht->table);
     if(ht->buckets[h][HT_BSIZE] < ht->bucket_size) return HASH_NOT_FOUND;
   }
@@ -240,7 +241,7 @@ hkey_t hash_table_find_or_insert(HashTable *ht, const BinaryKmer key,
       h = binary_kmer_hash(key,ht->seed+i) & ht->hash_mask;
     #endif
 
-    ptr = hash_table_find_in_bucket(ht, h, key);
+    ptr = hash_table_find_in_bucket_mt(ht, h, key);
 
     if(ptr != NULL)  {
       *found = true;
@@ -287,7 +288,7 @@ hkey_t hash_table_find_or_insert_mt(HashTable *ht, const BinaryKmer key,
     // We have the bucket lock so noone else can find or insert elements
     // therefore we can use non-threadsafe bucket functions
     // bitlock_acquire/release provide memory barriers
-    ptr = hash_table_find_in_bucket(ht, h, key);
+    ptr = hash_table_find_in_bucket_mt(ht, h, key);
 
     if(ptr != NULL)  {
       *found = true;
