@@ -218,7 +218,7 @@ void json_hdr_gzprint(cJSON *json, gzFile gzout)
 {
   char *jstr = cJSON_Print(json);
   gzputs(gzout, jstr);
-  gzputc(gzout, '\n');
+  gzputs(gzout, "\n\n");
   free(jstr);
 }
 
@@ -226,7 +226,7 @@ void json_hdr_fprint(cJSON *json, FILE *fout)
 {
   char *jstr = cJSON_Print(json);
   fputs(jstr, fout);
-  fputc('\n', fout);
+  fputs("\n\n", fout);
   free(jstr);
 }
 

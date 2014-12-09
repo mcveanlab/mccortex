@@ -16,10 +16,13 @@ const char pview_usage[] =
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
+// "  -f, --force            Overwrite output files\n"
+// "  -o, --out <out.txt>    Output file [required]\n"
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
-// "  -H, --header           Print a header [default: off]\n"
+// "  -H, --header-only      Only print the header (no paths)\n"
+// "  -P, --paths-only       Only print the paths (no header)\n"
 "\n";
 
 
@@ -27,9 +30,14 @@ static struct option longopts[] =
 {
 // General options
   {"help",         no_argument,       NULL, 'h'},
+  {"out",          required_argument, NULL, 'o'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"paths",        required_argument, NULL, 'p'},
+  {"force",        no_argument,       NULL, 'f'},
+// command specific
+  {"header-only",  no_argument,       NULL, 'H'},
+  {"paths-only",   no_argument,       NULL, 'P'},
   {NULL, 0, NULL, 0}
 };
 
@@ -44,14 +52,50 @@ static int _print_paths(hkey_t hkey,
   return 0; // 0 => keep iterating
 }
 
+static cJSON* _get_header(GPathFileBuffer *gpfiles, const dBGraph *db_graph)
+{
+  // Load contig hist distribution
+  size_t i;
+  ZeroSizeBuffer *contig_histgrms = ctx_calloc(db_graph->num_of_cols,
+                                               sizeof(ZeroSizeBuffer));
+
+  for(i = 0; i < db_graph->num_of_cols; i++)
+    zsize_buf_alloc(&contig_histgrms[i], 512);
+
+  size_t j, fromcol, intocol;
+  for(i = 0; i < gpfiles->len; i++) {
+    for(j = 0; j < file_filter_num(&gpfiles->data[i].fltr); j++) {
+      fromcol = file_filter_fromcol(&gpfiles->data[i].fltr, j);
+      intocol = file_filter_intocol(&gpfiles->data[i].fltr, j);
+      gpath_reader_load_contig_hist(gpfiles->data[i].json,
+                                    gpfiles->data[i].fltr.path.b,
+                                    fromcol, &contig_histgrms[intocol]);
+    }
+  }
+
+  cJSON *hdrs[gpfiles->len];
+  for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
+  cJSON *json = gpath_save_mkhdr("STDOUT", hdrs, gpfiles->len,
+                                 contig_histgrms, db_graph->num_of_cols,
+                                 db_graph);
+
+  for(i = 0; i < db_graph->num_of_cols; i++)
+    zsize_buf_dealloc(&contig_histgrms[i]);
+
+  ctx_free(contig_histgrms);
+
+  return json;
+}
+
 int ctx_pview(int argc, char **argv)
 {
   struct MemArgs memargs = MEM_ARGS_INIT;
+  const char *out_path = NULL;
+  bool header_only = false, paths_only = false;
 
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
   gpfile_buf_alloc(&gpfiles, 8);
-
 
   // Arg parsing
   char cmd[100];
@@ -67,6 +111,8 @@ int ctx_pview(int argc, char **argv)
     switch(c) {
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
+      case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'p':
@@ -74,6 +120,8 @@ int ctx_pview(int argc, char **argv)
         gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_add(&gpfiles, tmp_gpfile);
         break;
+      case 'H': cmd_check(!header_only, cmd); header_only = true; break;
+      case 'P': cmd_check(!paths_only,  cmd); paths_only  = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -82,8 +130,13 @@ int ctx_pview(int argc, char **argv)
     }
   }
 
+  // Defaults for unset values
+  if(out_path == NULL) out_path = "-";
+
   if(optind >= argc)   cmd_print_usage("Please give input graph files");
   if(gpfiles.len == 0) cmd_print_usage("Please give input path files");
+
+  if(header_only && paths_only) cmd_print_usage("Cannot use both -H and -P");
 
   // Use remaining args as graph files
   char **gfile_paths = argv + optind;
@@ -127,6 +180,11 @@ int ctx_pview(int argc, char **argv)
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   //
+  // Open output file
+  //
+  FILE *fout = futil_open_create(out_path, "w");
+
+  //
   // Allocate memory
   //
   dBGraph db_graph;
@@ -160,35 +218,14 @@ int ctx_pview(int argc, char **argv)
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
-  // Load contig hist distribution
-  ZeroSizeBuffer *contig_histgrms = ctx_calloc(ncols, sizeof(ZeroSizeBuffer));
-
-  for(i = 0; i < ncols; i++)
-    zsize_buf_alloc(&contig_histgrms[i], 512);
-
-  size_t j, fromcol, intocol;
-  for(i = 0; i < gpfiles.len; i++) {
-    for(j = 0; j < file_filter_num(&gpfiles.data[i].fltr); j++) {
-      fromcol = file_filter_fromcol(&gpfiles.data[i].fltr, j);
-      intocol = file_filter_intocol(&gpfiles.data[i].fltr, j);
-      gpath_reader_load_contig_hist(gpfiles.data[i].json, gpfiles.data[i].fltr.path.b,
-                                    fromcol, &contig_histgrms[intocol]);
-    }
+  // Generate merged header
+  if(!paths_only) {
+    cJSON *json = _get_header(&gpfiles, &db_graph);
+    json_hdr_fprint(json, fout);
+    fputs(ctp_explanation_comment, fout);
+    cJSON_Delete(json);
+    if(header_only) return EXIT_SUCCESS;
   }
-
-  cJSON *hdrs[gpfiles.len];
-  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
-  cJSON *json = gpath_save_mkhdr("STDOUT", hdrs, gpfiles.len,
-                                 contig_histgrms, ncols,
-                                 &db_graph);
-
-  for(i = 0; i < ncols; i++)
-    zsize_buf_dealloc(&contig_histgrms[i]);
-
-  ctx_free(contig_histgrms);
-
-  json_hdr_fprint(json, stdout);
-  cJSON_Delete(json);
 
   // Print paths
   StrBuf sbuf;
@@ -205,7 +242,9 @@ int ctx_pview(int argc, char **argv)
 
   HASH_ITERATE(&db_graph.ht, _print_paths,
                &sbuf, &subset, &nbuf, &jposbuf,
-               stdout, &db_graph);
+               fout, &db_graph);
+
+  if(fout != stdout) fclose(fout);
 
   strbuf_dealloc(&sbuf);
   db_node_buf_dealloc(&nbuf);

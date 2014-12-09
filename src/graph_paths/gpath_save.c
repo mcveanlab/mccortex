@@ -7,6 +7,17 @@
 #include "util.h"
 #include "json_hdr.h"
 
+const char ctp_explanation_comment[] =
+"# This file was generated with McCortex\n"
+"#   written by Isaac Turner <turner.isaac@gmail.com>\n"
+"#   url: "CORTEX_URL"\n"
+"# \n"
+"# Comment lines begin with a # and are ignored, but must come after the header\n"
+"# Format is:\n"
+"#   [kmer] [num_paths] ...(ignored)\n"
+"#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n"
+"\n";
+
 // {
 //   <JSON header>
 // }
@@ -259,16 +270,7 @@ void gpath_save(gzFile gzout, const char *path,
   cJSON_Delete(json);
 
   // Print comments about the format
-  gzputs(gzout, "\n");
-  gzputs(gzout, "# This file was generated with McCortex\n");
-  gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
-  gzputs(gzout, "#   url: "CORTEX_URL"\n");
-  gzputs(gzout, "# \n");
-  gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
-  gzputs(gzout, "# Format is:\n");
-  gzputs(gzout, "#   [kmer] [num_paths] ...(ignored)\n");
-  gzputs(gzout, "#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n");
-  gzputs(gzout, "\n");
+  gzputs(gzout, ctp_explanation_comment);
 
   // Multithreaded
   GPathSaver *wrkrs = ctx_calloc(nthreads, sizeof(GPathSaver));

@@ -13,6 +13,8 @@ kmer [num] .. ignored
 [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
 */
 
+extern const char ctp_explanation_comment[];
+
 cJSON* gpath_save_mkhdr(const char *path,
                         cJSON **hdrs, size_t nhdrs,
                         const ZeroSizeBuffer *contig_hists, size_t ncols,

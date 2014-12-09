@@ -8,7 +8,7 @@ use FindBin;
 use lib $FindBin::Bin;
 use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
-use List::Util qw(sum);
+use List::Util qw(min max sum);
 
 use GeneticsModule;
 
@@ -66,9 +66,10 @@ if(!defined($kmer)) {
 
 my $colour = 0;
 my $kmer_size = length($kmer);
-my $max_count = 150;
-my $threshold = 0.01;
+my $max_count = 100;
+my $threshold = 0.001;
 my $expect_tbl;
+my $cutoff_dist;
 
 if($filter_paths)
 {
@@ -77,11 +78,13 @@ if($filter_paths)
   my ($contigs) = json_hdr_load_contig_hist($hdr_txt,$colour);
   print STDERR "Calculating likelihoods...\n";
   print STDERR "  (Generating ".scalar(@$contigs)." x $max_count table)\n";
-  ($expect_tbl) = calc_exp_runlens($genome_size, $kmer_size, $max_count, @$contigs);
+  ($expect_tbl,undef) = calc_exp_runlens($genome_size, $kmer_size, $max_count, @$contigs);
   # Find length cutoff (keep links <$cutoff)
-  my $cutoff = find_link_cutoff($expect_tbl,$kmer_size,$threshold);
-  print STDERR "Cutoff is <$cutoff\n";
+  $cutoff_dist = find_link_cutoff($expect_tbl,$kmer_size,$threshold);
+  print STDERR "Cutoff is <$cutoff_dist\n";
   print STDERR "Filtering paths...\n";
+  print "$hdr_txt\n\n";
+  # print_expect_table($expect_tbl, $kmer_size);
 }
 
 # Format is:
@@ -124,26 +127,65 @@ while(defined($kmer))
 
   if($filter_paths)
   {
+    print STDERR "-- PREFILTER --\n";
+    print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
+
     # Threshold paths
-    # TODO
-
-    # Now print .ctp to STDOUT
-    print_links_in_ctp_format($trees{'F'},"F",$print_leaves_only,1);
-    print_links_in_ctp_format($trees{'R'},"R",$print_leaves_only,1);
-  }
-  else {
-    # Print graphviz .dot format to STDOUT
-    print_tree_in_dot_format($trees{'F'});
-    print_tree_in_dot_format($trees{'R'});
-    # Now print .ctp to STDERR
-    print_links_in_ctp_format($trees{'F'},"F",$print_leaves_only,0);
-    print_links_in_ctp_format($trees{'R'},"R",$print_leaves_only,0);
+    threshold_tree($trees{'F'});
+    threshold_tree($trees{'R'});
   }
 
+  if(tree_has_branches($trees{'F'}) || tree_has_branches($trees{'R'}))
+  {
+    if($filter_paths)
+    {
+      # Now print .ctp to STDOUT
+      print_links_in_ctp_format(\*STDOUT, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
+    }
+    else {
+      # Print graphviz .dot format to STDOUT
+      print_tree_in_dot_format($trees{'F'});
+      print_tree_in_dot_format($trees{'R'});
+
+      print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
+    }
+  } else{
+    print STDERR "  bare.\n";
+  }
+
+  exit;
   ($kmer, @paths) = $ctp_file->next();
 }
 
 close($ctp_fh);
+
+sub tree_has_branches
+{
+  my ($node) = @_;
+  return (defined($node->{'A'}) || defined($node->{'C'}) ||
+          defined($node->{'G'}) || defined($node->{'T'}));
+}
+
+sub threshold_tree
+{
+  my ($node) = @_;
+  for my $base (qw(A C G T)) {
+    if(defined($node->{$base})) {
+      my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
+      my $count = $node->{$base}->{'count'};
+      if(!should_keep_link($expect_tbl, $max_count, $threshold, $cutoff_dist,
+                           $dist, $count))
+      {
+        my $exp = $expect_tbl->[$dist]->[min($max_count,$count)];
+        print STDERR "Drop dist:$dist count:$count exp:$exp [cutoff_dist: $cutoff_dist]\n";
+        $node->{$base} = undef;
+      }
+      else {
+        threshold_tree($node->{$base});
+      }
+    }
+  }
+}
 
 # If leaf_only, only print links that end at leaf nodes.
 #   Otherwise print all original links.
@@ -174,19 +216,31 @@ sub ctp_emit_links
   }
 }
 
-sub print_links_in_ctp_format
+sub ctp_emit_links_root
 {
-  my ($tree,$dir,$leaf_only,$printstdout) = @_;
-  my @links = ();
+  my ($tree,$dir,$leaf_only,$linksarr) = @_;
   for my $base (qw{A C G T}) {
     if(defined($tree->{$base})) {
       ctp_emit_links($tree->{$base}, $dir, "", $tree->{'label'}.$tree->{'seq'}, "",
-                     $leaf_only, \@links);
+                     $leaf_only, $linksarr);
     }
   }
+}
+
+sub print_links_in_ctp_format
+{
+  my ($fh,$kmer,$tree_fw,$tree_rv,$leaf_only,$printstdout) = @_;
+  my @links = ();
+
+  # Collect all links
+  ctp_emit_links_root($tree_fw,'F',$leaf_only,\@links);
+  ctp_emit_links_root($tree_rv,'R',$leaf_only,\@links);
+
   # Print
-  if($printstdout) { map {print STDOUT ctp_path_to_str($_)} @links; }
-  else             { map {print STDERR ctp_path_to_str($_)} @links; }
+  if(@links > 0) {
+    print $fh "$kmer ".scalar(@links)."\n";
+    for my $link (@links) { print $fh ctp_path_to_str($link); }
+  }
 }
 
 sub dot_print_node
@@ -269,6 +323,11 @@ sub add_link_to_tree
       my @tmp = @$dists;
       @tmp = @tmp[$i..$#tmp];
       ($node->{$base},$nodeid) = create_tree_node(substr($juncs,$i),\@tmp,$seq,$count,$nodeid);
+      if($i > 0) {
+        # Add seq to new node
+        $node->{'seq'} = substr($seq, length($kmer)+$dists->[$i-1]+1,
+                                      $dists->[$i]-$dists->[$i-1]-1);
+      }
       last;
     }
   }

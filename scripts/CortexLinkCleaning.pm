@@ -9,24 +9,34 @@ use FindBin;
 use lib $FindBin::Bin;
 
 use JSON;
-use List::Util qw(sum max);
+use List::Util qw(min max sum);
 
 use base 'Exporter';
-our @EXPORT = qw(should_keep_link find_link_cutoff json_hdr_load_contig_hist calc_exp_runlens);
+our @EXPORT = qw(should_keep_link find_link_cutoff json_hdr_load_contig_hist
+                 calc_exp_runlens print_expect_table);
 
 sub should_keep_link
 {
-  my ($expect, $max_count, $threshold, $cutoff_dist, $dist, $count) = @_;
+  my ($expect_tbl, $max_count, $threshold, $cutoff_dist, $dist, $count) = @_;
+  if(!defined($expect_tbl->[$dist])) { die("Wat."); }
   return ($dist < $cutoff_dist &&
-          $expect->[$dist]->[min($count,$max_count)] > $threshold);
+          ($count > $max_count || $expect_tbl->[$dist]->[$count] > $threshold));
 }
 
 sub find_link_cutoff
 {
-  my ($expect,$kmer_size,$threshold) = @_;
+  my ($expect_tbl,$kmer_size,$threshold) = @_;
   my $cutoff = $kmer_size;
-  while($cutoff < @$expect && $expect->[$cutoff]->[1] < $threshold) { $cutoff++; }
+  while($cutoff < @$expect_tbl && $expect_tbl->[$cutoff]->[1] < $threshold) { $cutoff++; }
   return $cutoff;
+}
+
+sub print_expect_table
+{
+  my ($expect_tbl, $kmer_size) = @_;
+  for(my $i = $kmer_size; $i < @$expect_tbl; $i++) {
+    print $i."  ".join(' ', map {sprintf("%.3f",$_)} @{$expect_tbl->[$i]})."\n";
+  }
 }
 
 sub json_hdr_load_contig_hist
