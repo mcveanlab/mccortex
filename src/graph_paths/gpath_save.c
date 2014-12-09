@@ -40,22 +40,22 @@ static void _gpath_save_contig_hist2json(cJSON *json_hists,
  * @param contig_hist histgram of read contig lengths
  * @param hist_len    length of array contig_hist
  */
-static void _gpath_save_hdr(gzFile gzout, const char *path,
-                            cJSON **hdrs, size_t nhdrs,
-                            const ZeroSizeBuffer *contig_hists, size_t ncols,
-                            const dBGraph *db_graph)
+cJSON* gpath_save_mkhdr(const char *path,
+                        cJSON **hdrs, size_t nhdrs,
+                        const ZeroSizeBuffer *contig_hists, size_t ncols,
+                        const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
+
+  // using json_hdr_add_std assumes the following
+  ctx_assert(gpset->ncols == db_graph->num_of_cols);
 
   // Construct cJSON
   cJSON *json = cJSON_CreateObject();
 
   cJSON_AddStringToObject(json, "file_format", "ctp");
   cJSON_AddNumberToObject(json, "format_version", 3);
-
-  // using json_hdr_add_std assumes the following
-  ctx_assert(gpset->ncols == db_graph->num_of_cols);
 
   // Add standard cortex header info
   json_hdr_add_std(json, path, hdrs, nhdrs, db_graph);
@@ -73,7 +73,6 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   cJSON_AddNumberToObject(paths, "path_bytes", gpstore->path_bytes);
 
   // Add size distribution
-  // _gpath_save_contig_hist_merge(paths, hdrs, nhdrs, contig_hist, hist_len);
   cJSON *json_hists = cJSON_CreateArray();
   cJSON_AddItemToObject(paths, "contig_hists", json_hists);
 
@@ -81,11 +80,9 @@ static void _gpath_save_hdr(gzFile gzout, const char *path,
   for(i = 0; i < ncols; i++)
     _gpath_save_contig_hist2json(json_hists, contig_hists[i].data, contig_hists[i].len);
 
-  // Write header to file
-  json_hdr_gzprint(json, gzout);
-
-  cJSON_Delete(json);
+  return json;
 }
+
 
 static inline void _gpath_save_flush(gzFile gzout, StrBuf *sbuf,
                                      pthread_mutex_t *outlock)
@@ -257,7 +254,9 @@ void gpath_save(gzFile gzout, const char *path,
   status("  using %zu threads", nthreads);
 
   // Write header
-  _gpath_save_hdr(gzout, path, hdrs, nhdrs, contig_hists, ncols, db_graph);
+  cJSON *json = gpath_save_mkhdr(path, hdrs, nhdrs, contig_hists, ncols, db_graph);
+  json_hdr_gzprint(json, gzout);
+  cJSON_Delete(json);
 
   // Print comments about the format
   gzputs(gzout, "\n");

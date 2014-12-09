@@ -322,8 +322,10 @@ int cleaning_get_threshold(size_t num_threads, bool use_supernode_covg,
                            const dBGraph *db_graph)
 {
   // Estimate optimum cleaning threshold
-  status("[cleaning] Calculating supernode statistiscs with %zu threads...",
+  status("[cleaning] Calculating supernode statistics with %zu threads...",
          num_threads);
+
+  status("[cleaning]   Using %s method", use_supernode_covg ? "supernode" : "kmer gamma");
 
   // Get supernode coverages and lengths
   SupernodeCleaner cl;
@@ -452,8 +454,11 @@ void clean_graph(size_t num_threads, bool use_supernode_covg,
     return;
   }
 
-  if(covg_threshold > 0)
+  if(covg_threshold > 0) {
     status("[cleaning] Removing supernodes with coverage < %zu...", covg_threshold);
+    status("[cleaning]   Using %s method", use_supernode_covg ? "supernode" : "kmer gamma");
+  }
+
   if(min_keep_tip > 0)
     status("[cleaning] Removing tips shorter than %zu...", min_keep_tip);
 

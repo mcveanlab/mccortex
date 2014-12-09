@@ -17,7 +17,7 @@ READS=reads/ecoli.$(DEPTH)X.fa.gz
 CORREADS=correct/ecoli.$(DEPTH)X.fa.gz
 CORREADS_PATHS=correct/ecoli.$(DEPTH)X.paths.fa.gz
 
-TGTS=$(READS) $(CORREADS) k$(K)/graph.k$(K).ctx k$(K)/cleaned.k$(K).ctx
+TGTS=$(READS) $(CORREADS) $(CORREADS_PATHS) k$(K)/graph.k$(K).ctx k$(K)/cleaned.k$(K).ctx
 
 DIRS=k$(K) correct reads logs
 
@@ -44,12 +44,12 @@ correct/ecoli.$(DEPTH)X.fa.gz: k$(K)/cleaned.k$(K).ctx $(READS) | $(DIRS)
 	$(CTX) correct -m 2G --format FASTA --seq reads/ecoli.$(DEPTH)X.fa.gz:correct/ecoli.$(DEPTH)X k$(K)/cleaned.k$(K).ctx
 
 correct/ecoli.$(DEPTH)X.paths.fa.gz: k$(K)/cleaned.k$(K).ctx k$(K)/cleaned.k$(K).ctp.gz $(READS) | $(DIRS)
-	$(CTX) correct -m 2G --format FASTA --seq reads/ecoli.$(DEPTH)X.fa.gz:correct/ecoli.$(DEPTH)X -p k$(K)/cleaned.k$(K).ctp.gz k$(K)/cleaned.k$(K).ctx
+	$(CTX) correct -m 2G --format FASTA --seq reads/ecoli.$(DEPTH)X.fa.gz:correct/ecoli.$(DEPTH)X.paths -p k$(K)/cleaned.k$(K).ctp.gz k$(K)/cleaned.k$(K).ctx
 
 $(DIRS):
 	mkdir -p $@
 
-test: $(READS) $(CORREADS)
+test: $(READS) $(CORREADS) $(CORREADS_PATHS)
 	gzip -dc $(READS)          | $(SIMCHECK) - $(REF)
 	gzip -dc $(CORREADS)       | $(SIMCHECK) - $(REF)
 	gzip -dc $(CORREADS_PATHS) | $(SIMCHECK) - $(REF)

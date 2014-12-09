@@ -160,14 +160,33 @@ int ctx_pview(int argc, char **argv)
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
-  // TODO merge headers properly
-  // Print bare header
+  // Load contig hist distribution
+  ZeroSizeBuffer *contig_histgrms = ctx_calloc(ncols, sizeof(ZeroSizeBuffer));
+
+  for(i = 0; i < ncols; i++)
+    zsize_buf_alloc(&contig_histgrms[i], 512);
+
+  size_t j, fromcol, intocol;
+  for(i = 0; i < gpfiles.len; i++) {
+    for(j = 0; j < file_filter_num(&gpfiles.data[i].fltr); j++) {
+      fromcol = file_filter_fromcol(&gpfiles.data[i].fltr, j);
+      intocol = file_filter_intocol(&gpfiles.data[i].fltr, j);
+      gpath_reader_load_contig_hist(gpfiles.data[i].json, gpfiles.data[i].fltr.path.b,
+                                    fromcol, &contig_histgrms[intocol]);
+    }
+  }
+
   cJSON *hdrs[gpfiles.len];
   for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
-  cJSON *json = cJSON_CreateObject();
-  cJSON_AddStringToObject(json, "file_format", "ctp");
-  cJSON_AddNumberToObject(json, "format_version", 3);
-  json_hdr_add_std(json, "STDOUT", hdrs, gpfiles.len, &db_graph);
+  cJSON *json = gpath_save_mkhdr("STDOUT", hdrs, gpfiles.len,
+                                 contig_histgrms, ncols,
+                                 &db_graph);
+
+  for(i = 0; i < ncols; i++)
+    zsize_buf_dealloc(&contig_histgrms[i]);
+
+  ctx_free(contig_histgrms);
+
   json_hdr_fprint(json, stdout);
   cJSON_Delete(json);
 

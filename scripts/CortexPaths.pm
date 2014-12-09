@@ -26,6 +26,12 @@ sub new
   return $self;
 }
 
+sub ctp_get_header
+{
+  my ($self) = @_;
+  return $self->{'_header'};
+}
+
 sub read_line
 {
   my ($self) = @_;

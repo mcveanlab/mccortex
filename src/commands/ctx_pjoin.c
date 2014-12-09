@@ -205,7 +205,6 @@ int ctx_pjoin(int argc, char **argv)
     zsize_buf_alloc(&contig_histgrms[i], 512);
 
   size_t fromcol, intocol;
-
   for(i = 0; i < num_pfiles; i++) {
     for(j = 0; j < file_filter_num(&pfiles[i].fltr); j++) {
       fromcol = file_filter_fromcol(&pfiles[i].fltr, j);
@@ -232,7 +231,7 @@ int ctx_pjoin(int argc, char **argv)
              &db_graph);
 
   for(i = 0; i < output_ncols; i++)
-    zsize_buf_alloc(&contig_histgrms[i], 512);
+    zsize_buf_dealloc(&contig_histgrms[i]);
 
   ctx_free(contig_histgrms);
 
