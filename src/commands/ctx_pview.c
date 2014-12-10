@@ -224,32 +224,33 @@ int ctx_pview(int argc, char **argv)
     json_hdr_fprint(json, fout);
     fputs(ctp_explanation_comment, fout);
     cJSON_Delete(json);
-    if(header_only) return EXIT_SUCCESS;
   }
 
-  // Print paths
-  StrBuf sbuf;
-  dBNodeBuffer nbuf;
-  SizeBuffer jposbuf;
+  if(!header_only)
+  {
+    // Print paths
+    StrBuf sbuf;
+    dBNodeBuffer nbuf;
+    SizeBuffer jposbuf;
+    GPathSubset subset;
 
-  strbuf_alloc(&sbuf, 4096);
-  db_node_buf_alloc(&nbuf, 1024);
-  size_buf_alloc(&jposbuf, 256);
+    strbuf_alloc(&sbuf, 4096);
+    db_node_buf_alloc(&nbuf, 1024);
+    size_buf_alloc(&jposbuf, 256);
+    gpath_subset_alloc(&subset);
+    gpath_subset_init(&subset, &db_graph.gpstore.gpset);
 
-  GPathSubset subset;
-  gpath_subset_alloc(&subset);
-  gpath_subset_init(&subset, &db_graph.gpstore.gpset);
+    HASH_ITERATE(&db_graph.ht, _print_paths,
+                 &sbuf, &subset, &nbuf, &jposbuf,
+                 fout, &db_graph);
 
-  HASH_ITERATE(&db_graph.ht, _print_paths,
-               &sbuf, &subset, &nbuf, &jposbuf,
-               fout, &db_graph);
+    strbuf_dealloc(&sbuf);
+    db_node_buf_dealloc(&nbuf);
+    size_buf_dealloc(&jposbuf);
+    gpath_subset_dealloc(&subset);
+  }
 
   if(fout != stdout) fclose(fout);
-
-  strbuf_dealloc(&sbuf);
-  db_node_buf_dealloc(&nbuf);
-  size_buf_dealloc(&jposbuf);
-  gpath_subset_dealloc(&subset);
 
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)
