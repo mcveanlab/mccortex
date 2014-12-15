@@ -56,6 +56,7 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
     if(tmp < min_a_est) { min_a_est = tmp; min_a_est_idx = i; }
   }
 
+  // a_est, b_est are estimates for alpha, beta of gamma distribution
   a_est = min_a_est_idx*0.01;
   b_est = tgamma(a_est + 1.0) / (r1 * tgamma(a_est)) - 1.0;
   c0 = kmer_covg[1] * pow(b_est/(1+b_est),-a_est);
@@ -66,14 +67,15 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
   // Initialise fdr to be greater than fdr_limit
   double e_cov, e_cov_c0, fdr = 2.0, log_b_est, log_one_plus_b_est, lgamma_a_est;
 
-  // Calculate some values here
+  // Calculate some values here for speed
   log_b_est          = log(b_est);
   log_one_plus_b_est = log(1 + b_est);
   lgamma_a_est       = lgamma(a_est);
 
   // note: lfactorial(x) = lgamma(x+1)
 
-  for(i = 0; i < arrlen; i++) {
+  for(i = 0; i < arrlen; i++)
+  {
     e_cov = a_est * log_b_est - lgamma_a_est - lgamma(i) + lgamma(a_est + i - 1) -
             (a_est + i - 1) * log_one_plus_b_est;
     e_cov_c0 = exp(e_cov) * c0;

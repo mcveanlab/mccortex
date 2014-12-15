@@ -52,8 +52,10 @@ abline(v=cut, col="blue");
 r1<-data[3,2]/data[2,2];
 r2<-data[4,2]/data[3,2];
 rr<-r2/r1;
+
 aa<-seq(0.01,2,0.01);
-f.aa<-gamma(aa)*gamma(aa+2)/(2*gamma(aa+1)^2);
+f.aa<-gamma(aa)*gamma(aa+2)/(2*gamma(aa+1)^2); # r2/r1
+# Estimate alpha, beta for gamma distribution
 a.est<-aa[which.min(abs(f.aa-rr))];
 b.est<-gamma(a.est+1)/(r1*gamma(a.est))-1;
 c0<-data[2,2]*(b.est/(1+b.est))^(-a.est);

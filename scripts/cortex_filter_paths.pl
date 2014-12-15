@@ -9,9 +9,18 @@ use lib $FindBin::Bin;
 use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
 use List::Util qw(min max sum);
+use Fcntl qw(SEEK_SET);
+use Cwd qw(getcwd abs_path);
+use Sys::Hostname qw(hostname);
+use Config;
+use JSON;
+use POSIX;
 
+# bioinf-perl modules
 use GeneticsModule;
+use UsefulModule;
 
+# McCortex modules
 use CortexScripts;
 use CortexPaths;
 use CortexLinkCleaning;
@@ -30,8 +39,11 @@ sub print_usage
   exit(-1);
 }
 
+# Save args for later
+my @CMDARGS = ($0, @ARGV);
+
 if(@ARGV < 2) { print_usage(); }
-my $cmd = shift;
+my $cmd = shift(@ARGV);
 if($cmd ne "plot" && $cmd ne "filter") { print_usage("Bad command: $cmd"); }
 
 # Options
@@ -39,13 +51,14 @@ my $print_leaves_only = 1;
 my $genome_size;
 
 while(@ARGV > 1) {
-  my $arg = shift;
+  my $arg = shift(@ARGV);
   if($arg eq "--keep-subsets") { $print_leaves_only = 0; }
   elsif($arg eq "--genome") {
-    $genome_size = shift;
-    if(!defined($genome_size) || $genome_size !~ /^\d+$/) {
+    $genome_size = shift(@ARGV);
+    if(!defined($genome_size)) {
       print_usage("--genome <G> requires positive number: '$genome_size'");
     }
+    $genome_size = str2num($genome_size);
   }
   else { print_usage("Bad arg: $arg"); }
 }
@@ -71,19 +84,38 @@ my $threshold = 0.001;
 my $expect_tbl;
 my $cutoff_dist;
 
+my $hdr_txt = $ctp_file->ctp_get_header();
+my $hdr_json;
+my $tmp_file_path;
+my $tmp_fh;
+
 if($filter_paths)
 {
-  my $hdr_txt = $ctp_file->ctp_get_header();
   print STDERR "Loading JSON header...\n";
-  my ($contigs) = json_hdr_load_contig_hist($hdr_txt,$colour);
+  $hdr_json = decode_json($hdr_txt);
+  my ($contigs) = json_hdr_load_contig_hist($hdr_json,$colour);
+
+  # Open a temporary file for read/write
+  for(my $i = 0; $i < 20; $i++) {
+    $tmp_file_path = "tmp.filter.".int(rand(10000)).".ctp";
+    if(!(-e $tmp_file_path)) { last; }
+  }
+  if(-e $tmp_file_path) { die("Cannot create random temp file."); }
+
+  # Create and immediately remove a temporary file
+  # File will exists only to us until we close
+  print STDERR "Opening temporary file: $tmp_file_path\n";
+  open($tmp_fh, "+>$tmp_file_path") or die("Cannot open tmp file: $tmp_file_path");
+  unlink($tmp_file_path) or warn("Cannot delete temporary file $tmp_file_path");
+
   print STDERR "Calculating likelihoods...\n";
   print STDERR "  (Generating ".scalar(@$contigs)." x $max_count table)\n";
   ($expect_tbl,undef) = calc_exp_runlens($genome_size, $kmer_size, $max_count, @$contigs);
   # Find length cutoff (keep links <$cutoff)
   $cutoff_dist = find_link_cutoff($expect_tbl,$kmer_size,$threshold);
-  print STDERR "Cutoff is <$cutoff_dist\n";
+  print STDERR "Cutoff is length <$cutoff_dist bp\n";
   print STDERR "Filtering paths...\n";
-  print "$hdr_txt\n\n";
+  # print "$hdr_txt\n\n";
   # print_expect_table($expect_tbl, $kmer_size);
 }
 
@@ -94,6 +126,10 @@ if($filter_paths)
 # R 5 1 0,0,0,1 G
 # CAGTGGCCG 1
 # R 5 1 0,0,0,1 A
+
+my $num_kmers_with_paths = 0;
+my $num_paths = 0;
+my $num_path_bytes = 0;
 
 # Each node has: {'A' => undef, 'C' => undef, 'G' => undef, 'T' => undef,
 #                 'dist' => 12, 'count' => 12, 'id' = "node0"}
@@ -108,8 +144,6 @@ while(defined($kmer))
                  'label' => rev_comp($kmer), 'seq' => ''};
 
   my $nodeid = 1;
-  # print STDERR "$kmer ".scalar(@paths)."\n";
-  # print STDERR "".ctp_path_to_str(@paths)."\n";
 
   for my $path (@paths)
   {
@@ -118,7 +152,6 @@ while(defined($kmer))
     if(!defined($seqstr) || !defined($juncstr)) { die("Cannot find seq= juncpos="); }
     my @juncs = split(',', $juncstr);
     if(length($path->{'juncs'}) != @juncs) { die("Mismatch in lengths"); }
-    $trees{$path->{'dir'}}->{'seq'} = substr($seqstr,length($kmer),$juncs[0]);
     $nodeid = add_link_to_tree($trees{$path->{'dir'}}, $path->{'juncs'},
                                \@juncs, $seqstr,
                                $path->{'counts'}->[$colour],
@@ -127,8 +160,8 @@ while(defined($kmer))
 
   if($filter_paths)
   {
-    print STDERR "-- PREFILTER --\n";
-    print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
+    # print STDERR "-- PREFILTER --\n";
+    # print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
 
     # Threshold paths
     threshold_tree($trees{'F'});
@@ -140,7 +173,7 @@ while(defined($kmer))
     if($filter_paths)
     {
       # Now print .ctp to STDOUT
-      print_links_in_ctp_format(\*STDOUT, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
+      print_links_in_ctp_format($tmp_fh, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
     }
     else {
       # Print graphviz .dot format to STDOUT
@@ -149,15 +182,97 @@ while(defined($kmer))
 
       print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
     }
-  } else{
-    print STDERR "  bare.\n";
   }
+  # else {  print STDERR "  bare.\n"; }
 
-  exit;
   ($kmer, @paths) = $ctp_file->next();
 }
 
 close($ctp_fh);
+
+
+if($filter_paths)
+{
+  # Need to update header and merge with temporary file
+  print STDERR "Writing filtered paths with new header...\n";
+
+  # Reheader file
+  my $hex = "0123456789abcdef";
+  my $file_key = gen_rand_key(16);
+  my $cmd_key  = gen_rand_key(8);
+  $hdr_json->{'file_key'} = $file_key;
+
+  my $datetime = strftime("%Y-%m-%d %H:%M:%S", localtime(time));
+  my $user = getlogin() || getpwuid($<) || "Unknowable";
+  my $cwd = abs_path(getcwd());
+  my $host = hostname();
+
+  # my $os = $Config{'osname'};
+  # my $osversion = $Config{'osvers'};
+  # my $osrelease = $^O;
+  # my $hardware = $Config{'archname'};
+  my $os = `uname -s` or warn("Cannot call uname");
+  my $osrelease = `uname -r` or warn("Cannot call uname");
+  my $osversion = `uname -v` or warn("Cannot call uname");
+  my $hardware = `uname -m` or warn("Cannot call uname");
+
+  chomp($os);
+  chomp($osrelease);
+  chomp($osversion);
+  chomp($hardware);
+
+  # Add new command
+  my $new_cmd = {
+    'key' => $cmd_key,
+    'cmd' => \@CMDARGS,
+    'out_key' => $file_key,
+    'out_path' => "-",
+    'date' => $datetime,
+    'os' => $os,
+    'osversion' => $osversion,
+    'osrelease' => $osrelease,
+    'hardware' => $hardware,
+    'cwd' => $cwd,
+    'user' => $user,
+    'host' => $host,
+    'prev' => [$hdr_json->{'commands'}->[0]->{'key'}]
+    };
+  unshift(@{$hdr_json->{'commands'}}, $new_cmd);
+
+  # Update path info
+  $hdr_json->{'paths'}->{'num_kmers_with_paths'} = $num_kmers_with_paths;
+  $hdr_json->{'paths'}->{'num_paths'}            = $num_paths;
+  $hdr_json->{'paths'}->{'path_bytes'}           = $num_path_bytes;
+
+  # Print updated JSON header
+  my $new_hdr_txt = to_json($hdr_json, {utf8 => 1, pretty => 1});
+  print "$new_hdr_txt\n\n";
+
+  # Print lines from temporary file
+  my $tmp_line;
+  seek($tmp_fh, 0, SEEK_SET);
+  while(defined($tmp_line = <$tmp_fh>)) {
+    print $tmp_line;
+  }
+
+  # Close temporary file (should disappear on close since already deleted)
+  close($tmp_fh) or warn("Cannot close temporary file $tmp_file_path");
+  if(-e $tmp_file_path) { warn("Temporary file still exists: $tmp_file_path"); }
+
+  print STDERR "Done.\n";
+}
+
+exit;
+
+
+sub gen_rand_key
+{
+  my ($length) = @_;
+  my $key = "";
+  my $hex = "0123456789abcdef";
+  map {$key .= substr($hex, rand(16), 1)} 1..$length;
+  return $key;
+}
 
 sub tree_has_branches
 {
@@ -177,7 +292,7 @@ sub threshold_tree
                            $dist, $count))
       {
         my $exp = $expect_tbl->[$dist]->[min($max_count,$count)];
-        print STDERR "Drop dist:$dist count:$count exp:$exp [cutoff_dist: $cutoff_dist]\n";
+        # print STDERR "Drop dist:$dist count:$count exp:$exp [cutoff_dist: $cutoff_dist]\n";
         $node->{$base} = undef;
       }
       else {
@@ -240,6 +355,12 @@ sub print_links_in_ctp_format
   if(@links > 0) {
     print $fh "$kmer ".scalar(@links)."\n";
     for my $link (@links) { print $fh ctp_path_to_str($link); }
+
+    # Update stats
+    $num_kmers_with_paths++;
+    $num_paths += @links;
+    # 4 bases per byte, round up
+    $num_path_bytes += sum(map {int(($_->{'num_juncs'} + 3) / 4)} @links);
   }
 }
 
