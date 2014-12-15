@@ -36,9 +36,9 @@ seq.k$(K).ctx: seq.fa
 
 noedges.k$(K).ctx: seq.k$(K).ctx
 	$(CTX) build -k $(K) -m 1M --sample Puma \
-	             --seq <($(CTX) view -q -k $< | awk '{print $$1}') $@
+	             --seq <($(CTX) view -q -k $< | awk '{for(i=0;i<$$2;i++){print $$1}}') $@
 
-mix.11.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
+mix.11.k$(K).ctx: seq.k$(K).ctx
 	$(CTX) join -m 1M -o $@ seq.k$(K).ctx seq.k$(K).ctx
 
 mix.10.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
