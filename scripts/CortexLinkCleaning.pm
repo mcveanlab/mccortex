@@ -33,9 +33,10 @@ sub find_link_cutoff
 
 sub print_expect_table
 {
-  my ($expect_tbl, $kmer_size) = @_;
+  my ($expect_tbl, $kmer_size, $fh) = @_;
+  if(!defined($fh)) { $fh = \*STDOUT; }
   for(my $i = $kmer_size; $i < @$expect_tbl; $i++) {
-    print $i."  ".join(' ', map {sprintf("%.3f",$_)} @{$expect_tbl->[$i]})."\n";
+    print $fh $i."  ".join(' ', map {sprintf("%.3f",$_)} @{$expect_tbl->[$i]})."\n";
   }
 }
 
@@ -70,10 +71,54 @@ sub factorial
   return $ret;
 }
 
+sub combinatorial
+{
+  my ($n,$k) = @_;
+  return factorial($n)/(factorial($k)*factorial($n-$k));
+}
+
+sub combinatorial_fast
+{
+  my ($n,$k,$factorial_arr) = @_;
+  return $factorial_arr->[$n]/($factorial_arr->[$k]*$factorial_arr->[$n-$k]);
+}
+
+sub binomial_pdf
+{
+  my ($n,$k,$p) = @_;
+  return combinatorial($n,$k) * $p**$k * (1-$p)**($n-$k);
+}
+
+sub binomial_pdf_fast
+{
+  my ($n,$k,$p,$factorial_arr) = @_;
+  return combinatorial_fast($n,$k,$factorial_arr) * $p**$k * (1-$p)**($n-$k);
+}
+
+sub binomial_cdf
+{
+  my ($n,$k,$p) = @_;
+  my $binom = 0;
+  for(my $i = 0; $i <= $k; $i++) { $binom += binomial_pdf($n,$k,$p); }
+}
+
+sub binomial_cdf_fast
+{
+  my ($n,$k,$p,$factorial_arr) = @_;
+  my $binom = 0;
+  for(my $i = 0; $i <= $k; $i++) { $binom += binomial_pdf_fast($n,$k,$p,$factorial_arr); }
+}
+
 sub poisson_cdf
 {
   my ($lambda,$i) = @_;
   return exp(1) ** -$lambda * sum(map {($lambda ** $_) / factorial($_)} (0..$i));
+}
+
+sub poisson_cdf_fast
+{
+  my ($lambda,$i,$factorial_arr) = @_;
+  return exp(1) ** -$lambda * sum(map {($lambda ** $_) / $factorial_arr->[$_]} (0..$i));
 }
 
 # returns 2d array of expectation
@@ -87,10 +132,18 @@ sub calc_exp_runlens
       $counts[$i] += ($j-$i+1)*$hist[$j];
     }
   }
+
+  my $accum = 1;
+  my @factorials = (1);
+  for(my $i = 1; $i < @hist; $i++) {
+    $accum *= $i;
+    push(@factorials, $accum);
+  }
+
   # print "Contig counts: @counts\n";
   my @exp = ();
   for(my $i = $k; $i < @hist; $i++) {
-    $exp[$i] = [map {poisson_cdf($counts[$i] / $genome_size, $_)} 0..$maxcount];
+    $exp[$i] = [map {poisson_cdf_fast($counts[$i] / $genome_size, $_, \@factorials)} 0..$maxcount];
   }
   return (\@exp,\@counts);
 }

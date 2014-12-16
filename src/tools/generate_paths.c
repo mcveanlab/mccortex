@@ -233,14 +233,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     else { start = pos_pl[start_pl+plen-1]-1, end = pos; }
     ctx_assert2(start < end, "start: %zu, end: %zu", start, end);
 
-    // #ifdef CTXVERBOSE
-    //   char kmerstr[MAX_KMER_SIZE+1];
-    //   BinaryKmer tmpkmer = db_node_get_bkmer(db_graph, node.key);
-    //   binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
-    //   printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n",
-    //          kmerstr, node.orient, start_pl, start_mn, pos_mn[start_mn]);
-    // #endif
-
     // Write orient and length to packed representation
     packed_ptr = packed_ptrs[start_pl&3] + start_pl/4;
 
@@ -253,6 +245,17 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     GPathNew newgpath = {.seq = packed_ptr, .klen = end-start+1,
                          .orient = node.orient, .num_juncs = plen,
                          .colset = NULL, .nseen = NULL};
+
+    // #ifdef CTXVERBOSE
+    //   char kmerstr[MAX_KMER_SIZE+1];
+    //   BinaryKmer tmpkmer = db_node_get_bkmer(db_graph, node.key);
+    //   binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
+    //   fputs(kmerstr, stdout);
+    //   binary_seq_print(newgpath.seq, newgpath.num_juncs, stdout);
+    //   fputc('\n', stdout);
+    //   printf(" %s:%i) start_pl: %zu start_mn: %zu {%zu}\n",
+    //          kmerstr, node.orient, start_pl, start_mn, pos_mn[start_mn]);
+    // #endif
 
     GPath *gpath = gpath_hash_find_or_insert_mt(&db_graph->gphash, node.key,
                                                 newgpath, &found);
@@ -269,7 +272,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     #endif
 
     // If the path already exists, all of its subpaths also already exist
-    if(found && plen < GPATH_MAX_JUNCS) break;
+    // if(found && plen < GPATH_MAX_JUNCS) break;
     num_added++;
 
     if(gen_paths_print_paths && !printed)
@@ -317,15 +320,11 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr,
     SWAP(pos_rv[i], pos_rv[j]);
   }
 
-  // _juncs_to_paths returns the number of paths added
-  size_t n;
   const dBNode *nodes = contig->data;
 
-  n = _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, pck_fw, true, nodes, wrkr);
-  if(n) {
-    binary_seq_reverse_complement(pck_rv, num_rv);
-    _juncs_to_paths(pos_rv, pos_fw, num_rv, num_fw, pck_rv, false, nodes, wrkr);
-  }
+  _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, pck_fw, true, nodes, wrkr);
+  binary_seq_reverse_complement(pck_rv, num_rv);
+  _juncs_to_paths(pos_rv, pos_fw, num_rv, num_fw, pck_rv, false, nodes, wrkr);
 }
 
 static void worker_contig_to_junctions(GenPathWorker *wrkr,

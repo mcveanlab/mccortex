@@ -13,7 +13,7 @@
 // (1-(1/(2^12)))^4080 = 0.369 = 37% of entries would have zero collisions
 // (1-(1/(2^16)))^4080 = 0.939 = 94% of entries would have zero collisions
 
-#define PATH_HASH_UNSET (0xffffffffff)
+#define PATH_HASH_UNSET (0xffffffffffUL)
 #define PATH_HASH_ENTRY_ASSIGNED(x) ((x).hkey != PATH_HASH_UNSET)
 
 void gpath_hash_alloc(GPathHash *gphash, GPathStore *gpstore, size_t mem_in_bytes)
@@ -86,51 +86,54 @@ void gpath_hash_print_stats(const GPathHash *gphash)
 static inline bool _gphash_entries_match(const GPathSet *gpset, GPEntry entry,
                                          hkey_t hkey, GPathNew newgpath)
 {
-  ctx_assert(entry.hkey != PATH_HASH_UNSET);
-  ctx_assert(entry.gpindex != PATH_HASH_UNSET);
-  GPath epath = gpset->entries.data[entry.gpindex];
-  return (hkey == entry.hkey && gpaths_are_equal(epath, newgpath));
+  return (hkey == entry.hkey &&
+          gpaths_are_equal(gpset->entries.data[entry.gpindex], newgpath));
 }
 
 // Use a bucket lock to find or add an entry
 // Returns NULL if not found or inserted
-static inline GPath* _find_or_add_in_bucket(GPathHash *gphash, uint64_t hash,
-                                            hkey_t hkey, GPathNew newgpath,
-                                            bool *found)
+static inline GPath* _find_or_add_in_bucket_mt(GPathHash *gphash, uint64_t hash,
+                                               hkey_t hkey, GPathNew newgpath,
+                                               bool *found)
 {
   const GPathSet *gpset = &gphash->gpstore->gpset;
+
+  GPath *gpath_ret = NULL;
+  *found = false;
 
   // Add GPath within a lock to ensure we do not add the same path more than
   // once
   bitlock_yield_acquire(gphash->bktlocks, hash);
 
-  GPEntry *entry = gphash->table + hash * gphash->bucket_size;
-  const GPEntry *end = entry + gphash->bucket_size;
-  *found = false;
+        GPEntry *start = gphash->table + hash * gphash->bucket_size;
+  const GPEntry *end   = start + gphash->bucket_size;
+  volatile GPEntry *entryptr;
 
-  for(; entry < end; entry++)
+  for(entryptr = start; entryptr < end; entryptr++)
   {
-    if(!PATH_HASH_ENTRY_ASSIGNED(*entry))
+    GPEntry entry = *entryptr;
+    if(_gphash_entries_match(gpset, entry, hkey, newgpath))
     {
-      GPath *gpath = gpath_store_add_mt(gphash->gpstore, hkey, newgpath);
-      *entry = (GPEntry){.hkey = hkey,
-                         .gpindex = gpath - gpset->entries.data};
+      *found = true;
+      gpath_ret = gpset->entries.data + entry.gpindex;
+      break;
+    }
+    else if(!PATH_HASH_ENTRY_ASSIGNED(entry))
+    {
+      gpath_ret = gpath_store_add_mt(gphash->gpstore, hkey, newgpath);
+      *entryptr = (GPEntry){.hkey = hkey,
+                            .gpindex = gpath_ret - gpset->entries.data};
+
+      __sync_synchronize(); // add entry before updating count
       __sync_fetch_and_add((volatile uint8_t*)&gphash->bucket_nitems[hash], 1);
       __sync_fetch_and_add((volatile size_t*)&gphash->num_entries, 1);
-      bitlock_release(gphash->bktlocks, hash);
-      return gpath;
-    }
-    else if(_gphash_entries_match(gpset, *entry, hkey, newgpath))
-    {
-      bitlock_release(gphash->bktlocks, hash);
-      *found = true;
-      return gpset->entries.data + entry->gpindex;
+      break;
     }
   }
 
   bitlock_release(gphash->bktlocks, hash);
 
-  return NULL;
+  return gpath_ret;
 }
 
 // Lock free search bucket for match.
@@ -138,14 +141,15 @@ static inline GPath* _find_or_add_in_bucket(GPathHash *gphash, uint64_t hash,
 // items are added but never removed from the hash. This allows us to remove
 // the use of locks and improve performance.
 // Returns NULL if not found
-static inline GPath* _find_in_bucket(const GPathHash *gphash, uint64_t hash,
-                                     hkey_t hkey, GPathNew newgpath)
+static inline GPath* _find_in_bucket_mt(const GPathHash *gphash, uint64_t hash,
+                                        hkey_t hkey, GPathNew newgpath)
 {
   const GPathSet *gpset = &gphash->gpstore->gpset;
-  const GPEntry *entry = gphash->table + hash * gphash->bucket_size;
-  const GPEntry *end = entry + gphash->bucket_size;
+  const GPEntry *start = gphash->table + hash * gphash->bucket_size;
+  const GPEntry *end   = start + gphash->bucket_size;
+  volatile const GPEntry *entry;
 
-  for(; entry < end; entry++)
+  for(entry = start; entry < end; entry++)
     if(_gphash_entries_match(gpset, *entry, hkey, newgpath))
       return gpset->entries.data + entry->gpindex;
 
@@ -174,11 +178,12 @@ GPath* gpath_hash_find_or_insert_mt(GPathHash *gphash,
     hash &= gphash->mask;
 
     uint8_t bucket_fill = *(volatile uint8_t *)&gphash->bucket_nitems[hash];
+    ctx_assert(bucket_fill <= gphash->bucket_size);
 
     if(bucket_fill < gphash->bucket_size)
-      gpath = _find_or_add_in_bucket(gphash, hash, hkey, newgpath, found);
+      gpath = _find_or_add_in_bucket_mt(gphash, hash, hkey, newgpath, found);
     else {
-      gpath = _find_in_bucket(gphash, hash, hkey, newgpath);
+      gpath = _find_in_bucket_mt(gphash, hash, hkey, newgpath);
       *found = (gpath != NULL);
     }
 
