@@ -253,8 +253,7 @@ int binary_seqs_cmp(const uint8_t *arr0, size_t len0,
                     const uint8_t *arr1, size_t len1)
 {
   size_t i, b = 0, o = 0, len = MIN2(len0, len1);
-  int_fast8_t x, y;
-  int ret;
+  int x, y, ret;
   // Loop over one base at a time
   for(i = 0; i < len; i++) {
     x = (arr0[b] >> o) & 3;

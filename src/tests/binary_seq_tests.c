@@ -5,6 +5,40 @@
 #define NTESTS 200
 #define TLEN 256 /* power of two */
 
+#define int2cmp(i) ((i) < 0 ? -1 : (i > 0))
+
+static void _binary_seq_cmp_test(const char *aa, size_t lena,
+                                 const char *bb, size_t lenb,
+                                 int cmp)
+{
+  uint8_t a[100], b[100];
+  size_t i;
+  int cmp1, cmp2;
+  for(i = 0; i < 100; i++) { a[i] = i; b[i] = 256-i; } // random assignment
+  binary_seq_from_str(aa, lena, a);
+  binary_seq_from_str(bb, lenb, b);
+  cmp1 = binary_seqs_cmp(a,lena,b,lenb);
+  cmp2 = binary_seqs_cmp(b,lenb,a,lena);
+  cmp1 = int2cmp(cmp1);
+  cmp2 = int2cmp(cmp2);
+  TASSERT2(cmp1 ==  cmp, "Got '%.*s' '%.*s' %i", (int)lena, aa, (int)lenb, bb, cmp);
+  TASSERT2(cmp2 == -cmp, "Got '%.*s' '%.*s' %i", (int)lena, aa, (int)lenb, bb, cmp);
+}
+
+static void test_binary_seq_cmp()
+{
+  _binary_seq_cmp_test("A",1,"",0,1);
+  _binary_seq_cmp_test("",0,"",0,0);
+
+  const char seq[] = "AGCGATCCGA";
+  size_t i, j, len = strlen(seq);
+
+  for(i = 0; i <= len; i++) {
+    for(j = 0; j <= len; j++) {
+      _binary_seq_cmp_test(seq, i, seq, j, (i < j ? -1 : (i > j)));
+    }
+  }
+}
 
 static void test_binary_seq_rev_cmp()
 {
@@ -225,6 +259,7 @@ void test_binary_seq_functions()
   test_binary_seq_rev_cmp();
   test_binary_seq_str();
   test_binary_seq_cpy();
+  test_binary_seq_cmp();
   test_pack_unpack();
   test_pack_cpy_unpack();
 }

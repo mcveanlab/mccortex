@@ -7,7 +7,7 @@
 int gpath_cmp(const GPath *a, const GPath *b)
 {
   int ret;
-  if((ret = (int)a->orient - b->orient) != 0) return ret;
+  if((ret = (int)a->orient - (int)b->orient) != 0) return ret;
   if((ret = binary_seqs_cmp(a->seq, a->num_juncs, b->seq, b->num_juncs)) != 0)
     return ret;
   return 0;

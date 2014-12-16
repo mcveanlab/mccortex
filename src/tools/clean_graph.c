@@ -373,7 +373,7 @@ int cleaning_get_threshold(size_t num_threads, bool use_supernode_covg,
       fdr *= 10;
     }
     if(threshold_est < 0) warn("Cannot pick a cleaning threshold");
-    else status("[cleaning] FDR set to %.2f", fdr);
+    else status("[cleaning] FDR set to %f", fdr);
   }
 
   if(threshold_est >= 0) {
