@@ -78,9 +78,16 @@ void gpath_hash_print_stats(const GPathHash *gphash)
   char entries_str[50], cap_str[50];
   ulong_to_str(gphash->num_entries, entries_str);
   ulong_to_str(gphash->capacity, cap_str);
-  status("[GPathHash] Paths: %s / %s occupancy [%.2f%%]",
-         entries_str, cap_str,
-         (100.0 * gphash->num_entries) / gphash->capacity);
+
+  char mem_total_str[50], mem_used_str[50];
+  size_t mem_total = gphash->capacity*sizeof(GPEntry);
+  size_t mem_used = (gphash->num_entries/IDEAL_OCCUPANCY) * sizeof(GPEntry);
+  bytes_to_str(mem_total, 1, mem_total_str);
+  bytes_to_str(mem_used,  1, mem_used_str);
+
+  status("[GPathHash] Paths: %s / %s occupancy [%.2f%%] %s / %s [%.2f]",
+         entries_str, cap_str, (100.0 * gphash->num_entries) / gphash->capacity,
+         mem_used_str, mem_total_str, (100.0 * mem_used) / mem_total);
 }
 
 static inline bool _gphash_entries_match(const GPathSet *gpset, GPEntry entry,
@@ -191,7 +198,6 @@ GPath* gpath_hash_find_or_insert_mt(GPathHash *gphash,
   }
 
   // Out of space
-  die("[GPathHash] Out of memory (%zu / %zu occupancy [%.2f%%])",
-      (size_t)gphash->num_entries, (size_t)gphash->capacity,
-      (100.0 * gphash->num_entries) / gphash->capacity);
+  gpath_hash_print_stats(gphash);
+  die("[GPathHash] Out of memory");
 }
