@@ -42,6 +42,7 @@ sub print_usage
   Options:
     --keep-subsets    Don't throw out redundant substrings
     --use-err-model   Use link/error model
+    --limit <N>       Stop after print <N> kmers [default: 0 (off)]
 ";
   exit(-1);
 }
@@ -62,11 +63,16 @@ else { print_usage("Bad command: $cmd"); }
 # Options
 my $print_leaves_only = 1;
 my $use_err_model = 0;
+my $limit = 0;
 
 while(@ARGV > $reqargs) {
   my $arg = shift(@ARGV);
   if($arg eq "--keep-subsets")     { $print_leaves_only = 0; }
   elsif($arg eq "--use-err-model") { $use_err_model     = 1; }
+  elsif($arg eq "--limit") {
+    $limit = shift(@ARGV);
+    if($limit !~ /^\d+$/) { print_usage("Invalid --limit <N> arg: $limit"); }
+  }
   else { print_usage("Bad arg: $arg"); }
 }
 
@@ -168,6 +174,7 @@ if($action == CMD_LIST) {
   for(my $i = $kmer_size; $i < @eff_covg_hist; $i++) {
     print $eff_covg_fh "$i,$eff_covg_hist[$i]\n";
   }
+  close($eff_covg_fh);
   print STDERR "Saving link CSV to $link_csv_path...\n";
   print $link_csv_fh "LinkLength,Count,LinkModel,ErrModel\n";
 }
@@ -190,8 +197,7 @@ my $num_output_nodes      = 0;
 my $num_dropped_cutoff = 0;
 my $num_dropped_unlikely = 0;
 
-# for(my $kmer_num = 0; $kmer_num < 1 && defined($kmer); $kmer_num++)
-while(defined($kmer))
+for(my $kmer_num = 0; ($limit == 0 || $kmer_num < $limit) && defined($kmer); $kmer_num++)
 {
   my %trees = ();
   $trees{'F'} = {'A'=>undef, 'C'=>undef, 'G'=>undef, 'T'=>undef,
@@ -350,7 +356,6 @@ if($action == CMD_FILTER)
   if(-e $tmp_file_path) { warn("Temporary file still exists: $tmp_file_path"); }
 }
 elsif($action == CMD_LIST) {
-  close($eff_covg_fh);
   close($link_csv_fh);
 }
 
