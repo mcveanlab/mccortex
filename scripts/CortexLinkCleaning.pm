@@ -12,30 +12,41 @@ use JSON;
 use List::Util qw(min max sum);
 
 use base 'Exporter';
-our @EXPORT = qw(should_keep_link find_link_cutoff json_hdr_load_contig_hist
-                 calc_exp_runlens print_expect_table);
+our @EXPORT = qw(should_keep_link should_keep_link_err_model
+                 find_link_cutoff json_hdr_load_contig_hist
+                 calc_eff_covg_hist calc_exp_runlens print_expect_table);
 
 sub should_keep_link
 {
-  my ($expect_tbl, $max_count, $threshold, $cutoff_dist, $dist, $count) = @_;
-  if(!defined($expect_tbl->[$dist])) { die("Wat."); }
-  return ($dist < $cutoff_dist &&
-          ($count > $max_count || $expect_tbl->[$dist]->[$count] > $threshold));
+  my ($link_model, $threshold, $cutoff_dist, $dist, $count) = @_;
+  if(!defined($link_model->[$dist])) { die("Wat."); }
+  return $count > 1 &&
+         ($dist < $cutoff_dist &&
+          ($count >= scalar(@{$link_model->[$dist]}) ||
+           $link_model->[$dist]->[$count] > $threshold));
+}
+
+sub should_keep_link_err_model
+{
+  my ($link_model, $err_model, $threshold, $dist, $count) = @_;
+  return $count > 1 &&
+         ($count > scalar(@{$link_model->[$dist]}) ||
+          $err_model->[$dist]->[$count] <= $threshold * $link_model->[$dist]->[$count]);
 }
 
 sub find_link_cutoff
 {
-  my ($expect_tbl,$kmer_size,$threshold) = @_;
+  my ($link_model,$kmer_size,$threshold) = @_;
   my $cutoff = $kmer_size;
-  while($cutoff < @$expect_tbl && $expect_tbl->[$cutoff]->[1] < $threshold) { $cutoff++; }
+  while($cutoff < @$link_model && $link_model->[$cutoff]->[1] < $threshold) { $cutoff++; }
   return $cutoff;
 }
 
 sub print_expect_table
 {
-  my ($expect_tbl, $kmer_size, $fh) = @_;
+  my ($expect_tbl, $fh) = @_;
   if(!defined($fh)) { $fh = \*STDOUT; }
-  for(my $i = $kmer_size; $i < @$expect_tbl; $i++) {
+  for(my $i = 0; $i < @$expect_tbl; $i++) {
     print $fh $i."  ".join(' ', map {sprintf("%.3f",$_)} @{$expect_tbl->[$i]})."\n";
   }
 }
@@ -69,6 +80,21 @@ sub factorial
   my $ret = 1;
   for(; $i > 1; $i--) { $ret *= $i; }
   return $ret;
+}
+
+sub calc_factorial_arr
+{
+  my ($len) = @_;
+
+  my $accum = 1;
+  my @factorials = (1);
+
+  for(my $i = 1; $i < $len; $i++) {
+    $accum *= $i;
+    push(@factorials, $accum);
+  }
+
+  return @factorials;
 }
 
 sub combinatorial
@@ -112,40 +138,52 @@ sub binomial_cdf_fast
 sub poisson_cdf
 {
   my ($lambda,$i) = @_;
-  return exp(1) ** -$lambda * sum(map {($lambda ** $_) / factorial($_)} (0..$i));
+  if($lambda == 0) { return 0; }
+  return (exp(1) ** -$lambda) * sum(map {($lambda ** $_) / factorial($_)} (0..$i));
 }
 
 sub poisson_cdf_fast
 {
   my ($lambda,$i,$factorial_arr) = @_;
-  return exp(1) ** -$lambda * sum(map {($lambda ** $_) / $factorial_arr->[$_]} (0..$i));
+  if($lambda == 0) { return 0; }
+  return (exp(1) ** -$lambda) * sum(map {($lambda ** $_) / $factorial_arr->[$_]} (0..$i));
+}
+
+sub calc_eff_covg_hist
+{
+  my (@hist) = @_;
+  my @eff_covg = (0) x scalar(@hist);
+  for(my $i = 0; $i < @hist; $i++) {
+    for(my $j = $i; $j < @hist; $j++) {
+      $eff_covg[$i] += ($j-$i+1)*$hist[$j];
+    }
+  }
+  return @eff_covg;
 }
 
 # returns 2d array of expectation
-# exp[x][y] is expectation of y or fewer counts of length x
+# model->[x]->[y] is expectation of y or fewer counts of length x
+#   x is of range 0..length($eff_covg_arr)
+#   y is of range 0..$max_count
 sub calc_exp_runlens
 {
-  my ($genome_size,$k,$maxcount,@hist) = @_;
-  my @counts = (0) x scalar(@hist);
-  for(my $i = $k; $i < @hist; $i++) {
-    for(my $j = $i; $j < @hist; $j++) {
-      $counts[$i] += ($j-$i+1)*$hist[$j];
-    }
+  my ($genome_size, $max_count, $eff_covg_arr, $err_rate) = @_;
+
+  my $covg_len = scalar(@$eff_covg_arr);
+  my @factorials = calc_factorial_arr($max_count+1);
+
+  if(!defined($err_rate)) { $err_rate = 0.01; }
+
+  my @link_model = ();
+  my @err_model = ();
+
+  for(my $i = 0; $i < $covg_len; $i++) {
+    my $contig_arrival = $eff_covg_arr->[$i] / $genome_size;
+    $link_model[$i] = [map {    poisson_cdf_fast($contig_arrival,           $_, \@factorials)} 0..$max_count];
+    $err_model[$i]  = [map {abs($_)} map {1 - poisson_cdf_fast($contig_arrival*$err_rate, $_, \@factorials)} 0..$max_count];
   }
 
-  my $accum = 1;
-  my @factorials = (1);
-  for(my $i = 1; $i < @hist; $i++) {
-    $accum *= $i;
-    push(@factorials, $accum);
-  }
-
-  # print "Contig counts: @counts\n";
-  my @exp = ();
-  for(my $i = $k; $i < @hist; $i++) {
-    $exp[$i] = [map {poisson_cdf_fast($counts[$i] / $genome_size, $_, \@factorials)} 0..$maxcount];
-  }
-  return (\@exp,\@counts);
+  return (\@link_model,\@err_model);
 }
 
 1;

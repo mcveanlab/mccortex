@@ -31,11 +31,17 @@ sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage: ./cortex_filter_paths.pl [plot|filter|list] [options] <genome_size> <in.ctp>
+"Usage: ./cortex_filter_paths.pl [cmd] [args]
   Plot or filter graph path trees. Only works on colour 0 atm.
 
+  Commands
+    plot   [options] <genome_size> <file>
+    filter [options] <genome_size> <file>
+    list   [options] <genome_size> <file> <eff_covg.csv> <paths.csv>
+
   Options:
-    --keep-subsets    Don't through out redundant substrings
+    --keep-subsets    Don't throw out redundant substrings
+    --use-err-model   Use link/error model
 ";
   exit(-1);
 }
@@ -43,28 +49,36 @@ sub print_usage
 # Save args for later
 my @CMDARGS = ($0, @ARGV);
 
-
-
 if(@ARGV < 3) { print_usage(); }
 my $action = 0;
+my $reqargs = 0;
 my $cmd = shift(@ARGV);
 
-if($cmd eq "plot")      { $action = CMD_PLOT; }
-elsif($cmd eq "filter") { $action = CMD_FILTER; }
-elsif($cmd eq "list")   { $action = CMD_LIST; }
+if($cmd eq "plot")      { $reqargs = 2; $action = CMD_PLOT;   }
+elsif($cmd eq "filter") { $reqargs = 2; $action = CMD_FILTER; }
+elsif($cmd eq "list")   { $reqargs = 4; $action = CMD_LIST;   }
 else { print_usage("Bad command: $cmd"); }
 
 # Options
 my $print_leaves_only = 1;
+my $use_err_model = 0;
 
-while(@ARGV > 2) {
+while(@ARGV > $reqargs) {
   my $arg = shift(@ARGV);
-  if($arg eq "--keep-subsets") { $print_leaves_only = 0; }
+  if($arg eq "--keep-subsets")     { $print_leaves_only = 0; }
+  elsif($arg eq "--use-err-model") { $use_err_model     = 1; }
   else { print_usage("Bad arg: $arg"); }
 }
 
-if(@ARGV != 2) { print_usage(); }
-my ($genome_size,$ctp_path) = @ARGV;
+if(@ARGV != $reqargs) { print_usage(); }
+
+my ($eff_covg_fh,$link_csv_fh);
+my ($genome_size,$ctp_path,$eff_covg_path,$link_csv_path) = @ARGV;
+
+if($action == CMD_LIST) {
+  open($eff_covg_fh,">$eff_covg_path") or die("Cannot open $eff_covg_path");
+  open($link_csv_fh,">$link_csv_path") or die("Cannot open $link_csv_path");
+}
 
 $genome_size = str2num($genome_size);
 
@@ -82,6 +96,7 @@ my $colour = 0;
 my $kmer_size = length($kmer);
 my $max_count = 100;
 my $threshold = 0.01;
+my $err_rate = 0.01; # Assume 1% base sequencing error rate
 
 # Temp file used by filter command
 my $tmp_file_path;
@@ -90,7 +105,7 @@ my $tmp_fh;
 print STDERR "Loading JSON header...\n";
 my $hdr_txt = $ctp_file->ctp_get_header();
 my $hdr_json = decode_json($hdr_txt);
-my ($contigs) = json_hdr_load_contig_hist($hdr_json,$colour);
+my ($contigs_hist) = json_hdr_load_contig_hist($hdr_json,$colour);
 
 if($action == CMD_FILTER)
 {
@@ -109,27 +124,52 @@ if($action == CMD_FILTER)
 }
 
 print STDERR "Calculating likelihoods...\n";
-print STDERR "  (Generating ".scalar(@$contigs)." x $max_count table)\n";
-my ($expect_tbl,$counts_hist) = calc_exp_runlens($genome_size, $kmer_size, $max_count, @$contigs);
+print STDERR "  (Generating ".scalar(@$contigs_hist)." x $max_count table)\n";
+
+my @eff_covg_hist = calc_eff_covg_hist(@$contigs_hist);
+# print STDERR "".join(' ', map {"$_:$eff_covg_hist[$_]"} 0..$#eff_covg_hist)."\n";
+
+my ($link_model, $err_model) = calc_exp_runlens($genome_size, $max_count,
+                                                \@eff_covg_hist, $err_rate);
+
 # Find length cutoff (keep links <$cutoff)
-my $cutoff_dist = find_link_cutoff($expect_tbl,$kmer_size,$threshold);
-print STDERR "Cutoff is length <$cutoff_dist bp\n";
+my $cutoff_dist;
+if(!$use_err_model) {
+  $cutoff_dist = find_link_cutoff($link_model,$kmer_size,$threshold);
+  print STDERR "Cutoff is length <$cutoff_dist bp\n";
+}
+
 print STDERR "Threshold is >$threshold (".($threshold*100)."%)\n";
-# print_expect_table($expect_tbl, $kmer_size, \*STDERR);
+
+# print STDERR "\n -- LinkModel --\n";
+# print_expect_table($link_model, \*STDERR);
+# print STDERR "\n -- ErrModel --\n";
+# print_expect_table($err_model, \*STDERR);
+# print STDERR "\n";
+
+# my @use_links = ();
+# for(my $i = 0; $i < @eff_covg_hist; $i++) {
+#   $use_links[$i] = [map { should_keep_link_err_model($link_model,$err_model,$threshold,$i,$_) } 0..$max_count];
+# }
+
+# print STDERR "\n -- UseLink --\n";
+# print_expect_table(\@use_links, \*STDERR);
+# print STDERR "\n";
+
+# exit;
 
 if($action == CMD_FILTER) { print STDERR "Filtering paths...\n"; }
 elsif($action == CMD_PLOT) { print STDERR "Plotting paths...\n"; }
 elsif($action == CMD_LIST) { print STDERR "Listing paths...\n"; }
 
 if($action == CMD_LIST) {
-  print "\n#\n# Read Segment histogram\n#\n";
-  print "ReadLength,Counts\n";
-  for(my $i = $kmer_size; $i < @$counts_hist; $i++) {
-    print "$i,$counts_hist->[$i]\n";
+  print STDERR "Saving read segment histogram to $eff_covg_path...\n";
+  print $eff_covg_fh "ReadLength,Counts\n";
+  for(my $i = $kmer_size; $i < @eff_covg_hist; $i++) {
+    print $eff_covg_fh "$i,$eff_covg_hist[$i]\n";
   }
-  print "\n\n";
-  print "#\n# Link Data\n#\n";
-  print "LinkLength,Count,Prob<=Count\n";
+  print STDERR "Saving link CSV to $link_csv_path...\n";
+  print $link_csv_fh "LinkLength,Count,LinkModel,ErrModel\n";
 }
 
 # Statistics on paths printed
@@ -150,6 +190,7 @@ my $num_output_nodes      = 0;
 my $num_dropped_cutoff = 0;
 my $num_dropped_unlikely = 0;
 
+# for(my $kmer_num = 0; $kmer_num < 1 && defined($kmer); $kmer_num++)
 while(defined($kmer))
 {
   my %trees = ();
@@ -177,19 +218,18 @@ while(defined($kmer))
 
     # Collect all links
   my @links = ();
-  ctp_emit_links_root($trees{'F'},'F',$print_leaves_only,\@links);
-  ctp_emit_links_root($trees{'R'},'R',$print_leaves_only,\@links);
+  ctp_emit_links_root($trees{'F'},'F',\@links);
+  ctp_emit_links_root($trees{'R'},'R',\@links);
 
   $num_init_path_kmers++;
   $num_init_paths += scalar(@links);
   $num_init_nodes += sum(map {$_->{'num_juncs'}} @links);
   $num_init_path_bytes += sum(map {int(($_->{'num_juncs'} + 3) / 4)} @links);
 
+  # print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'});
+
   if($action == CMD_FILTER)
   {
-    # print STDERR "-- PREFILTER --\n";
-    # print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
-
     # Threshold paths
     threshold_tree($trees{'F'});
     threshold_tree($trees{'R'});
@@ -200,21 +240,24 @@ while(defined($kmer))
     if($action == CMD_FILTER)
     {
       # Now print .ctp to STDOUT
-      print_links_in_ctp_format($tmp_fh, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only);
+      print_links_in_ctp_format($tmp_fh, $kmer, $trees{'F'}, $trees{'R'});
     }
     elsif($action == CMD_PLOT) {
       # Print graphviz .dot format to STDOUT
-      print_tree_in_dot_format($trees{'F'});
-      print_tree_in_dot_format($trees{'R'});
+      my $printed = 1;
+      if(   tree_has_branches($trees{'F'})) { print_tree_in_dot_format($trees{'F'}); }
+      elsif(tree_has_branches($trees{'R'})) { print_tree_in_dot_format($trees{'R'}); }
+      else { $printed = 0; }
 
-      if(print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'}, $print_leaves_only)) {
+      if($printed) {
+        print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'});
         # Exit after printing one link
         last;
       }
     }
     elsif($action == CMD_LIST) {
-      if(tree_has_branches($trees{'F'})) { list_paths($trees{'F'},$print_leaves_only); }
-      if(tree_has_branches($trees{'R'})) { list_paths($trees{'R'},$print_leaves_only); }
+      if(tree_has_branches($trees{'F'})) { list_paths($trees{'F'}); }
+      if(tree_has_branches($trees{'R'})) { list_paths($trees{'R'}); }
     }
   }
 
@@ -306,6 +349,10 @@ if($action == CMD_FILTER)
   close($tmp_fh) or warn("Cannot close temporary file $tmp_file_path");
   if(-e $tmp_file_path) { warn("Temporary file still exists: $tmp_file_path"); }
 }
+elsif($action == CMD_LIST) {
+  close($eff_covg_fh);
+  close($link_csv_fh);
+}
 
 print STDERR "Done.\n";
 exit;
@@ -359,8 +406,10 @@ sub should_keep_edge
   my ($node,$base) = @_;
   my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
   my $count = $node->{$base}->{'count'};
-  return should_keep_link($expect_tbl, $max_count, $threshold, $cutoff_dist,
-                          $dist, $count);
+  return !$use_err_model
+         ? should_keep_link($link_model, $threshold, $cutoff_dist, $dist, $count)
+         : should_keep_link_err_model($link_model, $err_model, $threshold,
+                                      $dist, $count);
 }
 
 sub threshold_tree
@@ -373,9 +422,9 @@ sub threshold_tree
         # Stats
         my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
         my $count = $node->{$base}->{'count'};
-        if($dist >= $cutoff_dist) { $num_dropped_cutoff += tree_count_paths($node->{$base}); }
+        if(!$use_err_model && $dist >= $cutoff_dist) { $num_dropped_cutoff += tree_count_paths($node->{$base}); }
         else { $num_dropped_unlikely += tree_count_paths($node->{$base}); }
-        # my $exp = $expect_tbl->[$dist]->[min($max_count,$count)];
+        # my $exp = $link_model->[$dist]->[min($max_count,$count)];
         # print STDERR "Drop dist:$dist count:$count exp:$exp [cutoff_dist: $cutoff_dist]\n";
 
         $node->{$base} = undef;
@@ -396,31 +445,34 @@ sub emit_path_from_node
 
 sub list_paths
 {
-  my ($node,$leaf_only) = @_;
+  my ($node) = @_;
 
-  for my $base (qw(A C G T))
-  {
+  for my $base (qw(A C G T)) {
     if(defined($node->{$base})) {
-      my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
-      my $count = $node->{$base}->{'count'};
-      my $prob = $count > $max_count ? 1 : $expect_tbl->[$dist]->[$count];
-      print "$dist,$count,$prob\n";
+      # if(emit_path_from_node($node,$print_leaves_only)) {
+        my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
+        my $count = $node->{$base}->{'count'};
+        my $link_prob = $count > $max_count ? 1 : $link_model->[$dist]->[$count];
+        my $err_prob  = $count > $max_count ? 0 : $err_model->[$dist]->[$count];
+        print $link_csv_fh "$dist,$count,$link_prob,$err_prob\n";
+      # }
+      list_paths($node->{$base});
     }
   }
 }
 
-# If leaf_only, only print links that end at leaf nodes.
+# If print_leaves_only, only print links that end at leaf nodes.
 #   Otherwise print all original links.
 # Adds links to $linksarr
 sub ctp_emit_links
 {
-  my ($node,$dir,$juncs,$seq,$juncstr,$leaf_only,$linksarr) = @_;
+  my ($node, $dir, $juncs, $seq, $juncstr, $linksarr) = @_;
 
   $juncstr .= ($juncstr eq "" ? "" : ",").$node->{'dist'};
   $juncs .= $node->{'label'};
   $seq .= $node->{'label'}.$node->{'seq'};
 
-  if(emit_path_from_node($node,$leaf_only))
+  if(emit_path_from_node($node,$print_leaves_only))
   {
     # Link ends here -> output it
     my $link = ctp_create_path($dir, $node->{'dist'}+2, length($juncs),
@@ -431,18 +483,18 @@ sub ctp_emit_links
 
   for my $base (qw(A C G T)) {
     if(defined($node->{$base})) {
-      ctp_emit_links($node->{$base}, $dir, $juncs, $seq, $juncstr,$leaf_only,$linksarr);
+      ctp_emit_links($node->{$base}, $dir, $juncs, $seq, $juncstr, $linksarr);
     }
   }
 }
 
 sub ctp_emit_links_root
 {
-  my ($tree,$dir,$leaf_only,$linksarr) = @_;
+  my ($tree,$dir,$linksarr) = @_;
   for my $base (qw{A C G T}) {
     if(defined($tree->{$base})) {
-      ctp_emit_links($tree->{$base}, $dir, "", $tree->{'label'}.$tree->{'seq'}, "",
-                     $leaf_only, $linksarr);
+      ctp_emit_links($tree->{$base}, $dir, "", $tree->{'label'}.$tree->{'seq'},
+                     "", $linksarr);
     }
   }
 }
@@ -450,12 +502,12 @@ sub ctp_emit_links_root
 # Returns number of links printed
 sub print_links_in_ctp_format
 {
-  my ($fh,$kmer,$tree_fw,$tree_rv,$leaf_only,$printstdout) = @_;
+  my ($fh,$kmer,$tree_fw,$tree_rv,$printstdout) = @_;
 
   # Collect all links
   my @links = ();
-  ctp_emit_links_root($tree_fw,'F',$leaf_only,\@links);
-  ctp_emit_links_root($tree_rv,'R',$leaf_only,\@links);
+  ctp_emit_links_root($tree_fw,'F',\@links);
+  ctp_emit_links_root($tree_rv,'R',\@links);
 
   # Print
   if(@links > 0) {
@@ -476,7 +528,9 @@ sub print_links_in_ctp_format
 sub dot_print_node
 {
   my ($node) = @_;
-  print "  ".$node->{'id'}." [label=\"$node->{'label'} $node->{'seq'} (dist: ".($node->{'dist'}+1)." count: $node->{'count'})\"]\n";
+  my $label = $node->{'label'} . ' ' . $node->{'seq'} .
+              " (dist: " . ($node->{'dist'}+1) . " count: $node->{'count'})";
+  print "  node" . $node->{'id'} . " [label=\"$label\"]\n";
   for my $base (qw{A C G T}) {
     if(defined($node->{$base})) { dot_print_node($node->{$base}); }
   }
@@ -526,12 +580,12 @@ sub create_tree_node
     # Trim off first junction choice
     my @tmp = @$dists;
     @tmp = @tmp[1..$#tmp];
-    ($node->{substr($juncs,1,1)},$nodeid) = create_tree_node(substr($juncs,1),\@tmp,$seq,$count,$nodeid);
+    ($node->{substr($juncs,1,1)},$nodeid)
+      = create_tree_node(substr($juncs,1),\@tmp,$seq,$count,$nodeid);
   }
 
   return ($node,$nodeid);
 }
-
 
 sub add_link_to_tree
 {
@@ -553,11 +607,14 @@ sub add_link_to_tree
     else {
       my @tmp = @$dists;
       @tmp = @tmp[$i..$#tmp];
-      ($node->{$base},$nodeid) = create_tree_node(substr($juncs,$i),\@tmp,$seq,$count,$nodeid);
+      ($node->{$base}, $nodeid) = create_tree_node(substr($juncs,$i), \@tmp,
+                                                   $seq, $count, $nodeid);
+
       if($i > 0) {
-        # Add seq to new node
         $node->{'seq'} = substr($seq, length($kmer)+$dists->[$i-1]+1,
                                       $dists->[$i]-$dists->[$i-1]-1);
+      } else {
+        $node->{'seq'} = substr($seq, length($kmer), $dists->[$i]);
       }
       last;
     }
