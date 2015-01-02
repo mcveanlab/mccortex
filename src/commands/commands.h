@@ -29,9 +29,6 @@ int ctx_uniqkmers(int argc, char **argv);
 
 // int ctx_geno(int argc, char **argv); // not written yet
 
-int ctx_unique(int argc, char **argv); // retiring
-int ctx_place(int argc, char **argv); // retiring
-
 // Experiments
 int ctx_exp_abc(int argc, char **argv);
 
@@ -58,9 +55,6 @@ extern const char rmsubstr_usage[];
 extern const char calls2vcf_usage[];
 extern const char uniqkmers_usage[];
 // extern const char geno_usage[];
-
-extern const char unique_usage[]; // retiring
-extern const char place_usage[]; // retiring
 
 // Experiments
 extern const char exp_abc_usage[];

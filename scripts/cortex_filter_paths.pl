@@ -147,6 +147,8 @@ if(!$use_err_model) {
 
 print STDERR "Threshold is >$threshold (".($threshold*100)."%)\n";
 
+if($limit > 0) { print STDERR "Printing only the first $limit kmers\n"; }
+
 # print STDERR "\n -- LinkModel --\n";
 # print_expect_table($link_model, \*STDERR);
 # print STDERR "\n -- ErrModel --\n";

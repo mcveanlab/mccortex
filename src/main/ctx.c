@@ -125,7 +125,7 @@ CtxCmd cmdobjs[] = {
   .blurb = "generate random unique kmers",
   .usage = uniqkmers_usage
 },
-{ // soon to replace commands 'unique' and 'place'
+{
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = false,
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage

@@ -212,7 +212,13 @@ static void print_bubble(BubbleCaller *caller,
   const char prefix[] = "call";
 
   // 5p flank
-  strbuf_sprintf(sbuf, ">bubble.%s%zu.5pflank kmers=%zu\n", prefix, id, flank5p->len);
+  // strbuf_sprintf(sbuf, ">bubble.%s%zu.5pflank kmers=%zu\n", prefix, id, flank5p->len);
+  strbuf_append_str(sbuf, ">bubble.");
+  strbuf_append_str(sbuf, prefix);
+  strbuf_append_ulong(sbuf, id);
+  strbuf_append_str(sbuf, ".5pflank kmers=");
+  strbuf_append_ulong(sbuf, flank5p->len);
+  strbuf_append_char(sbuf, '\n');
   branch_to_str(flank5p->data, flank5p->len, true, sbuf, db_graph);
 
   // 3p flank
@@ -220,7 +226,13 @@ static void print_bubble(BubbleCaller *caller,
   snode = graph_cache_snode(&caller->cache, steps[0]->supernode);
   graph_cache_snode_fetch_nodes(&caller->cache, snode, steps[0]->orient, pathbuf);
 
-  strbuf_sprintf(sbuf, ">bubble.%s%zu.3pflank kmers=%zu\n", prefix, id, pathbuf->len);
+  // strbuf_sprintf(sbuf, ">bubble.%s%zu.3pflank kmers=%zu\n", prefix, id, pathbuf->len);
+  strbuf_append_str(sbuf, ">bubble.");
+  strbuf_append_str(sbuf, prefix);
+  strbuf_append_ulong(sbuf, id);
+  strbuf_append_str(sbuf, ".3pflank kmers=");
+  strbuf_append_ulong(sbuf, pathbuf->len);
+  strbuf_append_char(sbuf, '\n');
   branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
 
   // Print alleles
@@ -228,8 +240,18 @@ static void print_bubble(BubbleCaller *caller,
   {
     db_node_buf_reset(pathbuf);
     graph_cache_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
-    strbuf_sprintf(sbuf, ">bubble.%s%zu.branch.%zu kmers=%zu\n",
-                   prefix, id, i, pathbuf->len);
+
+    // strbuf_sprintf(sbuf, ">bubble.%s%zu.branch.%zu kmers=%zu\n",
+    //                prefix, id, i, pathbuf->len);
+    strbuf_append_str(sbuf, ">bubble.");
+    strbuf_append_str(sbuf, prefix);
+    strbuf_append_ulong(sbuf, id);
+    strbuf_append_str(sbuf, ".branch.");
+    strbuf_append_ulong(sbuf, i);
+    strbuf_append_str(sbuf, " kmers=");
+    strbuf_append_ulong(sbuf, pathbuf->len);
+    strbuf_append_char(sbuf, '\n');
+
     branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
   }
 

@@ -135,7 +135,12 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
   BinaryKmer bkmer = db_graph->ht.table[hkey];
   char bkstr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(bkmer, db_graph->kmer_size, bkstr);
-  strbuf_sprintf(sbuf, "%s %zu\n", bkstr, subset->list.len);
+
+  // strbuf_sprintf(sbuf, "%s %zu\n", bkstr, subset->list.len);
+  strbuf_append_strn(sbuf, bkstr, db_graph->kmer_size);
+  strbuf_append_char(sbuf, ' ');
+  strbuf_append_ulong(sbuf, subset->list.len);
+  strbuf_append_char(sbuf, '\n');
 
   char orchar[2] = {0};
   orchar[FORWARD] = 'F';
@@ -148,11 +153,23 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
     gpath = subset->list.data[i];
     nseenptr = gpath_set_get_nseen(gpset, gpath);
     klen = gpath_set_get_klen(gpset, gpath);
-    strbuf_sprintf(sbuf, "%c %zu %u %u", orchar[gpath->orient], klen,
-                                         gpath->num_juncs, (uint32_t)nseenptr[0]);
 
-    for(col = 1; col < ncols; col++)
-      strbuf_sprintf(sbuf, ",%u", (uint32_t)nseenptr[col]);
+    // strbuf_sprintf(sbuf, "%c %zu %u %u", orchar[gpath->orient], klen,
+    //                                      gpath->num_juncs, (uint32_t)nseenptr[0]);
+
+    strbuf_append_char(sbuf, orchar[gpath->orient]);
+    strbuf_append_char(sbuf, ' ');
+    strbuf_append_ulong(sbuf, klen);
+    strbuf_append_char(sbuf, ' ');
+    strbuf_append_ulong(sbuf, gpath->num_juncs);
+    strbuf_append_char(sbuf, ' ');
+    strbuf_append_ulong(sbuf, nseenptr[0]);
+
+    for(col = 1; col < ncols; col++) {
+      // strbuf_sprintf(sbuf, ",%u", (uint32_t)nseenptr[col]);
+      strbuf_append_char(sbuf, ',');
+      strbuf_append_ulong(sbuf, nseenptr[col]);
+    }
 
     strbuf_append_char(sbuf, ' ');
     strbuf_ensure_capacity(sbuf, sbuf->end + gpath->num_juncs + 2);
@@ -177,9 +194,15 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
                                    sbuf->b+sbuf->end);
 
       if(jposbuf) {
-        strbuf_sprintf(sbuf, " juncpos=%zu", jposbuf->data[0]);
-        for(j = 1; j < jposbuf->len; j++)
-          strbuf_sprintf(sbuf, ",%zu", jposbuf->data[j]);
+        // strbuf_sprintf(sbuf, " juncpos=%zu", jposbuf->data[0]);
+        strbuf_append_str(sbuf, " juncpos=");
+        strbuf_append_ulong(sbuf, jposbuf->data[0]);
+
+        for(j = 1; j < jposbuf->len; j++) {
+          // strbuf_sprintf(sbuf, ",%zu", jposbuf->data[j]);
+          strbuf_append_char(sbuf, ',');
+          strbuf_append_ulong(sbuf, jposbuf->data[j]);
+        }
       }
     }
 
