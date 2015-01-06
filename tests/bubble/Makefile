@@ -14,6 +14,7 @@ K=11
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 
 SEQS=seq0.fa seq1.fa
 GRAPHS=$(SEQS:.fa=.k$(K).ctx)
@@ -65,7 +66,7 @@ seq.k$(K).pdf: join.k$(K).ctx
 
 bubbles.vcf: ref.fa bubbles.join.txt
 	bwa index ref.fa
-	cat bubbles.join.txt | awk -F '[ \t]' 'm{print $$0;m=0;} /^>bubble\..*\.5pflank/{print $$1; m=1;}' > bubbles.join.txt.flanks
+	$(CTXFLANKS) bubbles.join.txt > bubbles.join.txt.flanks
 	bwa bwasw ref.fa bubbles.join.txt.flanks > bubbles.join.txt.sam
 	$(CTX) calls2vcf -F bubbles.join.txt.sam -o $@ bubbles.join.txt ref.fa
 

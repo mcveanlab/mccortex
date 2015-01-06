@@ -130,6 +130,11 @@ CtxCmd cmdobjs[] = {
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage
 },
+{
+  .cmd = "geno", .func = ctx_geno, .hide = true,
+  .blurb = "genotype a VCF file",
+  .usage = geno_usage
+},
 /* Experiments */
 {
   .cmd = "exp_abc", .func = ctx_exp_abc, .hide = true,
