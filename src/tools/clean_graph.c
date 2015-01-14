@@ -61,6 +61,8 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
   b_est = tgamma(a_est + 1.0) / (r1 * tgamma(a_est)) - 1.0;
   c0 = kmer_covg[1] * pow(b_est/(1+b_est),-a_est);
 
+  status("Estimated alpha = %.3f beta = %.3f", a_est, b_est);
+
   // printf("min_a_est_idx: %zu\n", min_a_est_idx);
   // printf("a_est: %f b_est %f c0: %f\n", a_est, b_est, c0);
 

@@ -17,6 +17,7 @@ use JSON;
 use POSIX;
 
 use constant {CMD_LIST => 1, CMD_PLOT => 2, CMD_FILTER => 3};
+use constant {EMIT_NODES_ALL => 0, EMIT_NODES_LEAVES => 2, EMIT_NODES_INPUT => 3};
 
 # bioinf-perl modules
 use GeneticsModule;
@@ -61,14 +62,17 @@ elsif($cmd eq "list")   { $reqargs = 4; $action = CMD_LIST;   }
 else { print_usage("Bad command: $cmd"); }
 
 # Options
-my $print_leaves_only = 1;
+my $emit_nodes_mode = ($action == CMD_LIST ? EMIT_NODES_ALL : EMIT_NODES_LEAVES);
 my $use_err_model = 0;
 my $limit = 0;
 
 while(@ARGV > $reqargs) {
   my $arg = shift(@ARGV);
-  if($arg eq "--keep-subsets")     { $print_leaves_only = 0; }
-  elsif($arg eq "--use-err-model") { $use_err_model     = 1; }
+  if($arg eq "--keep-subsets") {
+    if($action == CMD_LIST) { print_usage("$arg not for use with `list`"); }
+    $action = EMIT_NODES_INPUT;
+  }
+  elsif($arg eq "--use-err-model") { $use_err_model    = 1; }
   elsif($arg eq "--limit") {
     $limit = shift(@ARGV);
     if($limit !~ /^\d+$/) { print_usage("Invalid --limit <N> arg: $limit"); }
@@ -198,6 +202,11 @@ my $num_output_nodes      = 0;
 
 my $num_dropped_cutoff = 0;
 my $num_dropped_unlikely = 0;
+
+#
+# dist of a node is the index of the junction in the path, where index 0 is the
+# initial kmer where the link started
+#
 
 for(my $kmer_num = 0; ($limit == 0 || $kmer_num < $limit) && defined($kmer); $kmer_num++)
 {
@@ -445,9 +454,12 @@ sub threshold_tree
 
 sub emit_path_from_node
 {
-  my ($node,$leaf_only) = @_;
+  my ($node) = @_;
+  if($node->{'dist'} == 0) { return 0; }
+  if($emit_nodes_mode == EMIT_NODES_ALL) { return 1; }
   my $nxt_counts = sum(map {defined($node->{$_}) ? $node->{$_}->{'count'} : 0} qw(A C G T));
-  return ($nxt_counts == 0 || (!$leaf_only && $nxt_counts < $node->{'count'}));
+  return ($nxt_counts == 0 ||
+          ($emit_nodes_mode == EMIT_NODES_INPUT && $nxt_counts < $node->{'count'}));
 }
 
 sub list_paths
@@ -456,13 +468,11 @@ sub list_paths
 
   for my $base (qw(A C G T)) {
     if(defined($node->{$base})) {
-      # if(emit_path_from_node($node,$print_leaves_only)) {
-        my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
-        my $count = $node->{$base}->{'count'};
-        my $link_prob = $count > $max_count ? 1 : $link_model->[$dist]->[$count];
-        my $err_prob  = $count > $max_count ? 0 : $err_model->[$dist]->[$count];
-        print $link_csv_fh "$dist,$count,$link_prob,$err_prob\n";
-      # }
+      my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
+      my $count = $node->{$base}->{'count'};
+      my $link_prob = $count > $max_count ? 1 : $link_model->[$dist]->[$count];
+      my $err_prob  = $count > $max_count ? 0 : $err_model->[$dist]->[$count];
+      print $link_csv_fh "$dist,$count,$link_prob,$err_prob\n";
       list_paths($node->{$base});
     }
   }
@@ -479,7 +489,7 @@ sub ctp_emit_links
   $juncs .= $node->{'label'};
   $seq .= $node->{'label'}.$node->{'seq'};
 
-  if(emit_path_from_node($node,$print_leaves_only))
+  if(emit_path_from_node($node))
   {
     # Link ends here -> output it
     my $link = ctp_create_path($dir, $node->{'dist'}+2, length($juncs),
@@ -509,7 +519,7 @@ sub ctp_emit_links_root
 # Returns number of links printed
 sub print_links_in_ctp_format
 {
-  my ($fh,$kmer,$tree_fw,$tree_rv,$printstdout) = @_;
+  my ($fh,$kmer,$tree_fw,$tree_rv) = @_;
 
   # Collect all links
   my @links = ();
