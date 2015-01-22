@@ -1,4 +1,4 @@
-package CortexPaths;
+package CortexLinks;
 
 use strict;
 use warnings;
@@ -6,7 +6,7 @@ use Carp;
 use CortexScripts; # load_json_hdr()
 
 use base 'Exporter';
-our @EXPORT = qw(ctp_print_path ctp_path_to_str ctp_create_path);
+our @EXPORT = qw(ctp_print_link ctp_link_to_str ctp_create_link);
 
 sub new
 {
@@ -41,7 +41,7 @@ sub read_line
   return $tmp_line;
 }
 
-sub ctp_create_path
+sub ctp_create_link
 {
   my ($dir,$nkmers,$njuncs,$countsarr,$juncstr,$other) = @_;
   return {'dir' => $dir, 'num_kmers' => $nkmers, 'num_juncs' => $njuncs,
@@ -81,7 +81,7 @@ sub next
   return ($kmer,@paths);
 }
 
-sub ctp_path_to_str
+sub ctp_link_to_str
 {
   my $str = "";
   for my $p (@_) {
@@ -97,10 +97,10 @@ sub ctp_path_to_str
   return $str;
 }
 
-sub ctp_print_path
+sub ctp_print_link
 {
   my ($p,$out) = @_;
-  my $txt = ctp_path_to_str($p);
+  my $txt = ctp_link_to_str($p);
   if(defined($out)) { print $out $txt; }
   else { print $txt; }
 }

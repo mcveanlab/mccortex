@@ -16,7 +16,7 @@ use Config;
 use JSON;
 use POSIX;
 
-use constant {CMD_LIST => 1, CMD_PLOT => 2, CMD_FILTER => 3};
+use constant {CMD_LIST => 1, CMD_PLOT => 2, CMD_CLEAN => 3};
 use constant {EMIT_NODES_ALL => 0, EMIT_NODES_LEAVES => 2, EMIT_NODES_INPUT => 3};
 
 # bioinf-perl modules
@@ -25,24 +25,32 @@ use UsefulModule;
 
 # McCortex modules
 use CortexScripts;
-use CortexPaths;
+use CortexLinks;
 use CortexLinkCleaning;
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage: ./cortex_filter_paths.pl [cmd] [args]
-  Plot or filter graph path trees. Only works on colour 0 atm.
+"Usage: ./cortex_links.pl [cmd] [args]
+  Plot, list, clean graph path trees. Only works on colour 0 atm.
 
-  Commands
-    plot   [options] <genome_size> <file>
-    filter [options] <genome_size> <file>
-    list   [options] <genome_size> <file> <eff_covg.csv> <paths.csv>
+  Commands:
+    plot   [options] <file> <min_coverage>
 
-  Options:
-    --keep-subsets    Don't throw out redundant substrings
-    --use-err-model   Use link/error model
+      Produce a Graphviz (DOT) plot of the links
+        --keep-subsets    Don't throw out redundant substrings
+
+    list   [options] <file> <eff_covg.csv> <links.csv>
+
+      Print all branches as CSV entries
+
+    clean [options] <file> <min_coverage>
+
+      Clean errors from the link file. input.csv is of form: <len>,<cutoff>
+        --keep-subsets    Don't throw out redundant substrings
+
+  General Options:
     --limit <N>       Stop after print <N> kmers [default: 0 (off)]
 ";
   exit(-1);
@@ -56,9 +64,9 @@ my $action = 0;
 my $reqargs = 0;
 my $cmd = shift(@ARGV);
 
-if($cmd eq "plot")      { $reqargs = 2; $action = CMD_PLOT;   }
-elsif($cmd eq "filter") { $reqargs = 2; $action = CMD_FILTER; }
-elsif($cmd eq "list")   { $reqargs = 4; $action = CMD_LIST;   }
+if($cmd eq "plot")      { $reqargs = 2; $action = CMD_PLOT;  }
+elsif($cmd eq "list")   { $reqargs = 3; $action = CMD_LIST;  }
+elsif($cmd eq "clean")  { $reqargs = 2; $action = CMD_CLEAN; }
 else { print_usage("Bad command: $cmd"); }
 
 # Options
@@ -82,20 +90,28 @@ while(@ARGV > $reqargs) {
 
 if(@ARGV != $reqargs) { print_usage(); }
 
+my ($ctp_path,$min_coverage);
+my ($eff_covg_path,$link_csv_path);
 my ($eff_covg_fh,$link_csv_fh);
-my ($genome_size,$ctp_path,$eff_covg_path,$link_csv_path) = @ARGV;
 
-if($action == CMD_LIST) {
+if($action == CMD_PLOT) {
+  ($ctp_path,$min_coverage) = @ARGV;
+}
+elsif($action == CMD_LIST) {
+  ($ctp_path,$eff_covg_path,$link_csv_path) = @ARGV;
   open($eff_covg_fh,">$eff_covg_path") or die("Cannot open $eff_covg_path");
   open($link_csv_fh,">$link_csv_path") or die("Cannot open $link_csv_path");
 }
+elsif($action == CMD_CLEAN) {
+  ($ctp_path,$min_coverage) = @ARGV;
+}
 
-$genome_size = str2num($genome_size);
+if(defined($min_coverage)) { print STDERR "Min coverage $min_coverage\n"; }
 
 my $ctp_fh = open_file($ctp_path);
-my $ctp_file = new CortexPaths($ctp_fh, $ctp_path);
+my $ctp_file = new CortexLinks($ctp_fh, $ctp_path);
 
-my ($kmer, @paths) = $ctp_file->next();
+my ($kmer, @links_read) = $ctp_file->next();
 
 if(!defined($kmer)) {
   print STDERR "No links in .ctp file\n";
@@ -117,11 +133,11 @@ my $hdr_txt = $ctp_file->ctp_get_header();
 my $hdr_json = decode_json($hdr_txt);
 my ($contigs_hist) = json_hdr_load_contig_hist($hdr_json,$colour);
 
-if($action == CMD_FILTER)
+if($action == CMD_CLEAN)
 {
   # Open a temporary file for read/write
   for(my $i = 0; $i < 20; $i++) {
-    $tmp_file_path = "tmp.filter.".int(rand(10000)).".ctp";
+    $tmp_file_path = "tmp.clean.".int(rand(10000)).".ctp";
     if(!(-e $tmp_file_path)) { last; }
   }
   if(-e $tmp_file_path) { die("Cannot create random temp file."); }
@@ -139,17 +155,17 @@ print STDERR "  (Generating ".scalar(@$contigs_hist)." x $max_count table)\n";
 my @eff_covg_hist = calc_eff_covg_hist(@$contigs_hist);
 # print STDERR "".join(' ', map {"$_:$eff_covg_hist[$_]"} 0..$#eff_covg_hist)."\n";
 
-my ($link_model, $err_model) = calc_exp_runlens($genome_size, $max_count,
-                                                \@eff_covg_hist, $err_rate);
+# my ($link_model, $err_model) = calc_exp_runlens($genome_size, $max_count,
+#                                                 \@eff_covg_hist, $err_rate);
 
 # Find length cutoff (keep links <$cutoff)
-my $cutoff_dist;
-if(!$use_err_model) {
-  $cutoff_dist = find_link_cutoff($link_model,$kmer_size,$threshold);
-  print STDERR "Cutoff is length <$cutoff_dist bp\n";
-}
+# my $cutoff_dist;
+# if(!$use_err_model) {
+#   $cutoff_dist = find_link_cutoff($link_model,$kmer_size,$threshold);
+#   print STDERR "Cutoff is length <$cutoff_dist bp\n";
+# }
 
-print STDERR "Threshold is >$threshold (".($threshold*100)."%)\n";
+# print STDERR "Threshold is >$threshold (".($threshold*100)."%)\n";
 
 if($limit > 0) { print STDERR "Printing only the first $limit kmers\n"; }
 
@@ -170,9 +186,9 @@ if($limit > 0) { print STDERR "Printing only the first $limit kmers\n"; }
 
 # exit;
 
-if($action == CMD_FILTER) { print STDERR "Filtering paths...\n"; }
-elsif($action == CMD_PLOT) { print STDERR "Plotting paths...\n"; }
-elsif($action == CMD_LIST) { print STDERR "Listing paths...\n"; }
+if($action == CMD_CLEAN)   { print STDERR "Cleaning links...\n"; }
+elsif($action == CMD_PLOT) { print STDERR "Plotting links...\n"; }
+elsif($action == CMD_LIST) { print STDERR "Listing links...\n";  }
 
 if($action == CMD_LIST) {
   print STDERR "Saving read segment histogram to $eff_covg_path...\n";
@@ -182,29 +198,26 @@ if($action == CMD_LIST) {
   }
   close($eff_covg_fh);
   print STDERR "Saving link CSV to $link_csv_path...\n";
-  print $link_csv_fh "LinkLength,Count,LinkModel,ErrModel\n";
+  print $link_csv_fh "LinkLength,Count\n";
 }
 
-# Statistics on paths printed
-my $num_inithdr_path_kmers = $hdr_json->{'paths'}->{'num_kmers_with_paths'};
-my $num_inithdr_paths      = $hdr_json->{'paths'}->{'num_paths'};
-my $num_inithdr_path_bytes = $hdr_json->{'paths'}->{'path_bytes'};
+# Statistics on links printed
+my $num_inithdr_link_kmers = $hdr_json->{'paths'}->{'num_kmers_with_paths'};
+my $num_inithdr_links      = $hdr_json->{'paths'}->{'num_paths'};
+my $num_inithdr_link_bytes = $hdr_json->{'paths'}->{'path_bytes'};
 
-my $num_init_path_kmers = 0;
-my $num_init_paths      = 0;
-my $num_init_path_bytes = 0;
-my $num_init_nodes      = 0;
+my $num_init_link_kmers = 0;
+my $num_init_links      = 0;
+my $num_init_link_bytes = 0;
+my $num_init_link_nodes = 0;
 
-my $num_output_path_kmers = 0;
-my $num_output_paths      = 0;
-my $num_output_path_bytes = 0;
-my $num_output_nodes      = 0;
-
-my $num_dropped_cutoff = 0;
-my $num_dropped_unlikely = 0;
+my $num_output_link_kmers = 0;
+my $num_output_links      = 0;
+my $num_output_link_bytes = 0;
+my $num_output_link_nodes = 0;
 
 #
-# dist of a node is the index of the junction in the path, where index 0 is the
+# dist of a node is the index of the junction in the link, where index 0 is the
 # initial kmer where the link started
 #
 
@@ -220,88 +233,86 @@ for(my $kmer_num = 0; ($limit == 0 || $kmer_num < $limit) && defined($kmer); $km
 
   my $nodeid = 1;
 
-  for my $path (@paths)
+  for my $link (@links_read)
   {
-    my ($seqstr) = ($path->{'other'} =~ /seq=([ACGT]+)/);
-    my ($juncstr) = ($path->{'other'} =~ /juncpos=([^ ]+)/);
+    my ($seqstr) = ($link->{'other'} =~ /seq=([ACGT]+)/);
+    my ($juncstr) = ($link->{'other'} =~ /juncpos=([^ ]+)/);
     if(!defined($seqstr) || !defined($juncstr)) { die("Cannot find seq= juncpos="); }
     my @juncs = split(',', $juncstr);
-    if(length($path->{'juncs'}) != @juncs) { die("Mismatch in lengths"); }
-    $nodeid = add_link_to_tree($trees{$path->{'dir'}}, $path->{'juncs'},
+    if(length($link->{'juncs'}) != @juncs) { die("Mismatch in lengths"); }
+    $nodeid = add_link_to_tree($trees{$link->{'dir'}}, $link->{'juncs'},
                                \@juncs, $seqstr,
-                               $path->{'counts'}->[$colour],
+                               $link->{'counts'}->[$colour],
                                $nodeid);
   }
 
     # Collect all links
-  my @links = ();
-  ctp_emit_links_root($trees{'F'},'F',\@links);
-  ctp_emit_links_root($trees{'R'},'R',\@links);
+  my @links_out = ();
+  ctp_emit_links_root($trees{'F'},'F',\@links_out);
+  ctp_emit_links_root($trees{'R'},'R',\@links_out);
 
-  $num_init_path_kmers++;
-  $num_init_paths += scalar(@links);
-  $num_init_nodes += sum(map {$_->{'num_juncs'}} @links);
-  $num_init_path_bytes += sum(map {int(($_->{'num_juncs'} + 3) / 4)} @links);
+  $num_init_link_kmers++;
+  $num_init_links += scalar(@links_out);
+  $num_init_link_nodes += tree_count_nodes_root($trees{'F'}) +
+                          tree_count_nodes_root($trees{'R'});
+  $num_init_link_bytes += sum(map {int(($_->{'num_juncs'} + 3) / 4)} @links_out);
 
   # print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'});
 
-  if($action == CMD_FILTER)
+  if($action == CMD_CLEAN)
   {
-    # Threshold paths
+    # Threshold links
     threshold_tree($trees{'F'});
     threshold_tree($trees{'R'});
   }
 
   if(tree_has_branches($trees{'F'}) || tree_has_branches($trees{'R'}))
   {
-    if($action == CMD_FILTER)
+    if($action == CMD_CLEAN)
     {
       # Now print .ctp to STDOUT
       print_links_in_ctp_format($tmp_fh, $kmer, $trees{'F'}, $trees{'R'});
     }
     elsif($action == CMD_PLOT) {
       # Print graphviz .dot format to STDOUT
-      my $printed = 1;
       if(   tree_has_branches($trees{'F'})) { print_tree_in_dot_format($trees{'F'}); }
       elsif(tree_has_branches($trees{'R'})) { print_tree_in_dot_format($trees{'R'}); }
-      else { $printed = 0; }
 
-      if($printed) {
-        print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'});
-        # Exit after printing one link
-        last;
-      }
+      print_links_in_ctp_format(\*STDERR, $kmer, $trees{'F'}, $trees{'R'});
+      # Exit after printing one link
+      last;
     }
     elsif($action == CMD_LIST) {
-      if(tree_has_branches($trees{'F'})) { list_paths($trees{'F'}); }
-      if(tree_has_branches($trees{'R'})) { list_paths($trees{'R'}); }
+      if(tree_has_branches($trees{'F'})) { list_links($trees{'F'}); }
+      if(tree_has_branches($trees{'R'})) { list_links($trees{'R'}); }
     }
   }
 
-  ($kmer, @paths) = $ctp_file->next();
+  ($kmer, @links_read) = $ctp_file->next();
 }
 
 close($ctp_fh);
 
 print STDERR "-- Storage after duplicate removal --\n";
-print STDERR "  Number of kmers with paths: ".pretty_fraction($num_init_path_kmers,   $num_inithdr_path_kmers)."\n";
-print STDERR "  Number of paths:            ".pretty_fraction($num_init_paths,        $num_inithdr_paths)     ."\n";
-print STDERR "  Number of path bytes:       ".pretty_fraction($num_init_path_bytes,   $num_inithdr_path_bytes)."\n";
+print STDERR "  Number of kmers with links: ".pretty_fraction($num_init_link_kmers,   $num_inithdr_link_kmers)."\n";
+print STDERR "  Number of links:            ".pretty_fraction($num_init_links,        $num_inithdr_links)     ."\n";
+print STDERR "  Number of link bytes:       ".pretty_fraction($num_init_link_bytes,   $num_inithdr_link_bytes)."\n";
+print STDERR "  Number of link nodes:       ".num2str($num_init_link_nodes)."\n";
 
 print STDERR "-- Output --\n";
-print STDERR "  Number of kmers with paths: ".pretty_fraction($num_output_path_kmers, $num_init_path_kmers)."\n";
-print STDERR "  Number of paths:            ".pretty_fraction($num_output_paths,      $num_init_paths)     ."\n";
-print STDERR "  Number of path bytes:       ".pretty_fraction($num_output_path_bytes, $num_init_path_bytes)."\n";
-print STDERR "  Number of nodes:            ".pretty_fraction($num_output_nodes,      $num_init_nodes)     ."\n";
+print STDERR "  Number of kmers with links: ".pretty_fraction($num_output_link_kmers, $num_init_link_kmers)."\n";
+print STDERR "  Number of links:            ".pretty_fraction($num_output_links,      $num_init_links)     ."\n";
+print STDERR "  Number of link bytes:       ".pretty_fraction($num_output_link_bytes, $num_init_link_bytes)."\n";
+print STDERR "  Number of link nodes:       ".pretty_fraction($num_output_link_nodes, $num_init_link_nodes)     ."\n";
 
 print STDERR "-- Cleaning --\n";
-print STDERR "  Number of dropped cutoff:   ".pretty_fraction($num_dropped_cutoff,    $num_init_paths)."\n";
-print STDERR "  Number of dropped unlikely: ".pretty_fraction($num_dropped_unlikely,  $num_init_paths)."\n";
+# print STDERR "  Number of dropped cutoff:   ".pretty_fraction($num_dropped_cutoff,    $num_init_links)."\n";
+# print STDERR "  Number of dropped unlikely: ".pretty_fraction($num_dropped_unlikely,  $num_init_links)."\n";
 
-if($action == CMD_FILTER)
+if($action == CMD_CLEAN)
 {
   # Need to update header and merge with temporary file
-  print STDERR "Writing filtered paths with new header...\n";
+  print STDERR "Writing cleaned links with new header...\n";
 
   # Reheader file
   my $hex = "0123456789abcdef";
@@ -347,9 +358,9 @@ if($action == CMD_FILTER)
   unshift(@{$hdr_json->{'commands'}}, $new_cmd);
 
   # Update path info
-  $hdr_json->{'paths'}->{'num_kmers_with_paths'} = $num_output_path_kmers;
-  $hdr_json->{'paths'}->{'num_paths'}            = $num_output_paths;
-  $hdr_json->{'paths'}->{'path_bytes'}           = $num_output_path_bytes;
+  $hdr_json->{'paths'}->{'num_kmers_with_paths'} = $num_output_link_kmers;
+  $hdr_json->{'paths'}->{'num_paths'}            = $num_output_links;
+  $hdr_json->{'paths'}->{'path_bytes'}           = $num_output_link_bytes;
 
   # Print updated JSON header
   my $new_hdr_txt = to_json($hdr_json, {utf8 => 1, pretty => 1});
@@ -390,18 +401,18 @@ sub tree_has_branches
           defined($node->{'G'}) || defined($node->{'T'}));
 }
 
-# Count paths resulting from a tree
-sub tree_count_paths
+# Count links resulting from a tree
+sub tree_count_links
 {
   my ($node) = @_;
-  my $count = sum(map {defined($node->{$_}) ? tree_count_paths($node->{$_}) : 0} qw(A C G T));
+  my $count = sum(map {defined($node->{$_}) ? tree_count_links($node->{$_}) : 0} qw(A C G T));
   return $count == 0 ? 1 : $count;
 }
 
-sub tree_count_paths_root
+sub tree_count_links_root
 {
   my ($tree) = @_;
-  return tree_has_branches($tree) ? tree_count_paths($tree) : 0;
+  return tree_has_branches($tree) ? tree_count_links($tree) : 0;
 }
 
 sub tree_count_nodes
@@ -417,15 +428,13 @@ sub tree_count_nodes_root
   return $count == 1 ? 0 : $count;
 }
 
-sub should_keep_edge
+sub should_keep_branch
 {
   my ($node,$base) = @_;
-  my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
-  my $count = $node->{$base}->{'count'};
-  return !$use_err_model
-         ? should_keep_link($link_model, $threshold, $cutoff_dist, $dist, $count)
-         : should_keep_link_err_model($link_model, $err_model, $threshold,
-                                      $dist, $count);
+  # my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
+  # my $count = $node->{$base}->{'count'};
+  # return ($count > $min_coverage);
+  return ($node->{$base}->{'count'} > $min_coverage);
 }
 
 sub threshold_tree
@@ -433,26 +442,16 @@ sub threshold_tree
   my ($node) = @_;
   for my $base (qw(A C G T)) {
     if(defined($node->{$base})) {
-      if(!should_keep_edge($node,$base))
-      {
-        # Stats
-        my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
-        my $count = $node->{$base}->{'count'};
-        if(!$use_err_model && $dist >= $cutoff_dist) { $num_dropped_cutoff += tree_count_paths($node->{$base}); }
-        else { $num_dropped_unlikely += tree_count_paths($node->{$base}); }
-        # my $exp = $link_model->[$dist]->[min($max_count,$count)];
-        # print STDERR "Drop dist:$dist count:$count exp:$exp [cutoff_dist: $cutoff_dist]\n";
-
+      if(!should_keep_branch($node,$base)) {
         $node->{$base} = undef;
-      }
-      else {
+      } else {
         threshold_tree($node->{$base});
       }
     }
   }
 }
 
-sub emit_path_from_node
+sub emit_link_from_node
 {
   my ($node) = @_;
   if($node->{'dist'} == 0) { return 0; }
@@ -462,7 +461,7 @@ sub emit_path_from_node
           ($emit_nodes_mode == EMIT_NODES_INPUT && $nxt_counts < $node->{'count'}));
 }
 
-sub list_paths
+sub list_links
 {
   my ($node) = @_;
 
@@ -470,10 +469,8 @@ sub list_paths
     if(defined($node->{$base})) {
       my $dist = $kmer_size + $node->{$base}->{'dist'} + 1;
       my $count = $node->{$base}->{'count'};
-      my $link_prob = $count > $max_count ? 1 : $link_model->[$dist]->[$count];
-      my $err_prob  = $count > $max_count ? 0 : $err_model->[$dist]->[$count];
-      print $link_csv_fh "$dist,$count,$link_prob,$err_prob\n";
-      list_paths($node->{$base});
+      print $link_csv_fh "$dist,$count\n";
+      list_links($node->{$base});
     }
   }
 }
@@ -489,10 +486,10 @@ sub ctp_emit_links
   $juncs .= $node->{'label'};
   $seq .= $node->{'label'}.$node->{'seq'};
 
-  if(emit_path_from_node($node))
+  if(emit_link_from_node($node))
   {
     # Link ends here -> output it
-    my $link = ctp_create_path($dir, $node->{'dist'}+2, length($juncs),
+    my $link = ctp_create_link($dir, $node->{'dist'}+2, length($juncs),
                                [$node->{'count'}], $juncs,
                                "seq=$seq juncpos=$juncstr");
     push(@$linksarr, $link);
@@ -529,13 +526,14 @@ sub print_links_in_ctp_format
   # Print
   if(@links > 0) {
     print $fh "$kmer ".scalar(@links)."\n";
-    for my $link (@links) { print $fh ctp_path_to_str($link); }
+    for my $link (@links) { print $fh ctp_link_to_str($link); }
 
     # Update stats
-    $num_output_path_kmers++;
-    $num_output_paths += scalar(@links);
-    $num_output_nodes += sum(map {$_->{'num_juncs'}} @links);
-    $num_output_path_bytes += sum(map {int(($_->{'num_juncs'} + 3) / 4)} @links);
+    $num_output_link_kmers++;
+    $num_output_links += scalar(@links);
+    $num_output_link_nodes += tree_count_nodes_root($tree_fw) +
+                              tree_count_nodes_root($tree_rv);
+    $num_output_link_bytes += sum(map {int(($_->{'num_juncs'} + 3) / 4)} @links);
     # ^ 4 bases per byte, round up
   }
 
@@ -559,7 +557,7 @@ sub dot_print_node_edges
   for my $base (qw{A C G T}) {
     if(defined($node->{$base})) {
       print "  node".$node->{'id'}." -> node".$node->{$base}->{'id'}.
-            (should_keep_edge($node,$base) ? "" : " [color=\"red\"]")."\n";
+            (should_keep_branch($node,$base) ? "" : " [color=\"red\"]")."\n";
       dot_print_node_edges($node->{$base});
     }
   }

@@ -10,6 +10,7 @@ READSIM=$CTXDIR/libs/readsim/readsim
 ALLREADS=$CTXDIR/libs/seq_file/scripts/perfect_covg.sh
 STRCHK=$CTXDIR/libs/bioinf-perl/sim_mutations/sim_substrings.pl
 CONTIG_STATS=$CTXDIR/libs/bioinf-perl/fastn_scripts/contig_stats.pl
+LINK_PROC=$CTXDIR/scripts/cortex_links.pl
 # DNACAT=$CTXDIR/libs/seq_file/bin/dnacat
 
 REF=$CTXDIR/results/data/chr22/uniq_flanks/chr22.1Mbp.uniq.fa
@@ -64,8 +65,23 @@ echo == Read threading ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.se.ctp.gz ] && `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --out k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.se.ctp.gz.log
+    [ ! -f k$k/$p.se.raw.ctp.gz ] && `getctx $k` thread -m $MEM --seq reads/$p.fa.gz --out k$k/$p.se.raw.ctp.gz k$k/$p.ctx >& k$k/$p.se.raw.ctp.gz.log
   done
+done
+
+echo == Link Cleaning ==
+
+LINK_THRESH_SCRIPT=$CTXDIR/scripts/R/make_link_cutoffs.R
+
+for k in $kmers; do
+  if[ ! -f k$k/stocherr.se.ctp.gz ]; then
+    # Generate table of first 1000 kmers with links
+    $LINK_PROC list --limit 1000 <(gzip -cd k$k/stocherr.se.raw.ctp.gz) k$k/stocherr.se.raw.effcovg.csv k$k/stocherr.se.raw.links.csv >& k$k/stocherr.se.raw.links.csv.log
+    # Pick a threshold
+    R --slave --vanilla --quiet -f $LINK_THRESH_SCRIPT --args $k stocherr/stocherr.se.raw.ctp.links.csv 1> stocherr/stocherr.se.raw.ctp.thresh.txt
+    thresh=`tail -1 stocherr/stocherr.se.raw.ctp.thresh.txt`
+    $LINK_PROC clean 1M <(gzip -cd k$k/stocherr.se.raw.ctp.gz) $thresh | gzip -c > k$k/stocherr.se.ctp.gz
+  fi
 done
 
 echo == Assembling contigs ==

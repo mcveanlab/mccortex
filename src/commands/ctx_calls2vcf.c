@@ -331,12 +331,15 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
     // Find positions of first and last match
     size_t i, l, r, matches = 0;
     size_t ref_offset_left = 0, ref_offset_rght = 0;
+    size_t alt_offset_left = 0, alt_offset_rght = 0;
 
     for(l = 0; l < aln->length && (ref[l] == '-' || alt[l] == '-'); l++) {
       ref_offset_left += (ref[l] != '-');
+      alt_offset_left += (alt[l] != '-');
     }
     for(r = aln->length-1; r != SIZE_MAX && (ref[l] == '-' || alt[l] == '-'); r--) {
       ref_offset_rght += (ref[l] != '-');
+      alt_offset_rght += (alt[l] != '-');
     }
 
     for(i = l; i <= r; i++) matches += (ref[i] == alt[i]);
@@ -349,6 +352,8 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
     }
 
     num_flank3p_approx_match++;
+
+    // DEV: add alt_offset_left / alt_offset_right to alleles!
 
     if(bam_is_rev(bam)) {
       *start = search_region + ref_offset_left - (*chrom)->seq.b;

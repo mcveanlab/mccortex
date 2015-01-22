@@ -59,6 +59,7 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
   // a_est, b_est are estimates for alpha, beta of gamma distribution
   a_est = min_a_est_idx*0.01;
   b_est = tgamma(a_est + 1.0) / (r1 * tgamma(a_est)) - 1.0;
+  b_est = MAX2(b_est, 0.000001); // Avoid negative beta
   c0 = kmer_covg[1] * pow(b_est/(1+b_est),-a_est);
 
   status("Estimated alpha = %.3f beta = %.3f", a_est, b_est);
