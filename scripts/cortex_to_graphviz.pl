@@ -12,7 +12,7 @@ use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
 use CortexScripts;
 use CortexGraph;
-use CortexPaths;
+use CortexLinks;
 use FASTNFile;
 
 sub print_usage
@@ -29,7 +29,7 @@ sub print_usage
   --points         Don't print kmer values, only points
   --simplify       Simplify supernodes
   --kmer <k>       Max kmer size used [default: 31]
-  --path <in.ctp>  Load paths from file
+  --path <in.ctp>  Load links from file
   --mark <in.fa>   Mark given kmers
 
   Example: ./cortex_to_graphviz.pl small.ctx > small.dot
@@ -101,18 +101,18 @@ my $cmdline = "$cmd view --quiet --kmers @files";
 my $in;
 open($in, '-|', $cmdline) or die $!;
 
-my %paths = (); # kmer->path string
+my %kmerlinks = (); # kmer->path string
 
-# Read paths
+# Read links
 if(defined($ctp_path)) {
   my $ctp_fh = open_file($ctp_path);
-  my $ctp_file = new CortexPaths($ctp_fh, $ctp_path);
+  my $ctp_file = new CortexLinks($ctp_fh, $ctp_path);
 
   while(1) {
-    my ($kmer, @paths) = $ctp_file->next();
+    my ($kmer, @links) = $ctp_file->next();
     if(!defined($kmer)) { last; }
-    if(defined($paths{$kmer})) { die("Duplicate kmer: $kmer"); }
-    $paths{$kmer} = ctp_path_to_str(@paths);
+    if(defined($kmerlinks{$kmer})) { die("Duplicate kmer: $kmer"); }
+    $kmerlinks{$kmer} = ctp_path_to_str(@links);
   }
   close($ctp_fh);
 }
@@ -241,7 +241,7 @@ else
       my @attr = ();
 
       if(defined($marked_kmers{$kmer})) { push(@attr, 'shape="box"'); }
-      if(defined($paths{$kmer})) { push(@attr, 'label="'.$kmer.'\n'.$paths{$kmer}.'"'); }
+      if(defined($kmerlinks{$kmer})) { push(@attr, 'label="'.$kmer.'\n'.$kmerlinks{$kmer}.'"'); }
 
       print "  $kmer".(@attr ? " [".join(' ', @attr)."]" : "")."\n";
 
