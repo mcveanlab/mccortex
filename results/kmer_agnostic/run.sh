@@ -74,7 +74,7 @@ echo == Link Cleaning ==
 LINK_THRESH_SCRIPT=$CTXDIR/scripts/R/make_link_cutoffs.R
 
 for k in $kmers; do
-  if[ ! -f k$k/stocherr.se.ctp.gz ]; then
+  if [ ! -f k$k/stocherr.se.ctp.gz ]; then
     # Generate table of first 1000 kmers with links
     $LINK_PROC list --limit 1000 <(gzip -cd k$k/stocherr.se.raw.ctp.gz) k$k/stocherr.se.raw.effcovg.csv k$k/stocherr.se.raw.links.csv >& k$k/stocherr.se.raw.links.csv.log
     # Pick a threshold
