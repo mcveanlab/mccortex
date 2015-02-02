@@ -37,6 +37,13 @@ krange <- minlen:maxlen;
 thresh <- 0.05
 
 d <- read.table(links_csv, as.is=T, head=T, sep=",");
+
+if(nrow(d) == 0) {
+  warning(paste("No links in",links_csv));
+  cat(0,'\n');
+  quit(save="no",status=0);
+}
+
 z <- matrix(0,maxlen,maxcount)
 cutoffs <- c()
 

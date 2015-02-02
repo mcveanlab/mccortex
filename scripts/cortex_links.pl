@@ -115,11 +115,9 @@ my ($kmer, @links_read) = $ctp_file->next();
 
 if(!defined($kmer)) {
   print STDERR "No links in .ctp file\n";
-  exit;
 }
 
 my $colour = 0;
-my $kmer_size = length($kmer);
 my $max_count = 100;
 my $threshold = 0.01;
 my $err_rate = 0.01; # Assume 1% base sequencing error rate
@@ -132,6 +130,12 @@ print STDERR "Loading JSON header...\n";
 my $hdr_txt = $ctp_file->ctp_get_header();
 my $hdr_json = decode_json($hdr_txt);
 my ($contigs_hist) = json_hdr_load_contig_hist($hdr_json,$colour);
+
+# Get kmer size
+my $kmer_size = $hdr_json->{'kmer_size'};
+if(defined($kmer) && length($kmer) != $hdr_json->{'kmer_size'}) {
+  die("Kmer size mismatch with header (".length($kmer)." != ".$hdr_json->{'kmer_size'}.")");
+}
 
 if($action == CMD_CLEAN)
 {
