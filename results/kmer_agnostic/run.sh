@@ -21,16 +21,7 @@ DEPTH=100
 # How many contigs to pull out to find median walk distance
 NSEED_WALK=100
 
-run () {
-  # cmd="$@"
-  # Print to STDERR
-  # echo $cmd 1>&2
-  set -o xtrace
-  $@
-  set +o xtrace
-  # $@
-}
-
+# Get executable for a given kmer size
 getctx () {
   k="$1"
   echo "$CTXK"$[ ($k+31)/32*32-1 ];
@@ -42,7 +33,11 @@ nkmers=$(echo $kmers | tr ' ' '\n' | awk 'END{print NR}')
 MEM=5G
 
 # create directories
-for k in $kmers; do [ ! -d k$k ] && mkdir -p k$k; done
+for k in $kmers; do
+  [ ! -d k$k ] && mkdir -p k$k;
+  [ ! -x $(getctx $k) ] && echo "Please compile cortex with 'make MAXK=$[ ($k+31)/32*32-1 ]'" 1>&2 && false
+done
+
 mkdir -p reads
 
 # Generate reads
