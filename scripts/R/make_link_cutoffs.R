@@ -8,12 +8,13 @@ if(length(args) != 2) {
 kmer<-as.integer(args[1])
 links_csv<-args[2]
 
-fit_gamma_poiss_model <- function(data,step=0.005)
+fit_gamma_poiss_model <- function(data,stepsize=0.005)
 {
+  data<-data+0.0001 # To avoid div by zero
   r1<-data[2]/data[1];
   r2<-data[3]/data[2];
   rr<-r2/r1;
-  aa<-seq(step,2,step);
+  aa<-seq(stepsize,2,stepsize);
   f.aa<-gamma(aa)*gamma(aa+2)/(2*gamma(aa+1)^2);
   a.est<-aa[which.min(abs(f.aa-rr))];
   b.est<-gamma(a.est+1)/(r1*gamma(a.est))-1;
@@ -49,7 +50,6 @@ for(linklen in krange) {
 
 for(linklen in krange) {
   e.cov <- fit_gamma_poiss_model(z[linklen,])
-  e.cov <- pmax(e.cov,0.5)
   data <- pmax(z[linklen,]-e.cov,1)
   cut <- 0
   for(i in 3:maxcount) {
