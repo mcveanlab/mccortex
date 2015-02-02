@@ -124,12 +124,12 @@ ifdef DEBUG
 	OPT = -O0 -g -ggdb -gdwarf-2 -g3
 else
 	# Could add -DNDEBUG=1 here to turn off asserts
-	ifneq (,$(findstring gcc,$(COMPILER)))
-		OPT = -O4 -m64
+	# ifneq (,$(findstring gcc,$(COMPILER)))
+		# OPT = -O4 -m64
 		# TGTFLAGS = -fuse-linker-plugin
-	else
+	# else
 		OPT = -O3 -m64
-	endif
+	# endif
 
 	# ifneq (,$(findstring lto,$(COMPILER)))
 	# 	OPT := -flto $(OPT)
@@ -280,8 +280,8 @@ $(TOOLS_OBJDIR)/%.o: src/tools/%.c $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(G
 $(CMDS_OBJDIR)/%.o: src/commands/%.c $(CMDS_HDRS) $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) -c $<
 
-$(TESTS_OBJDIR)/%.o: src/tests/%.c $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
-	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) -c $<
+$(TESTS_OBJDIR)/%.o: src/tests/%.c $(TESTS_HDRS) $(TOOLS_HDRS) $(GRAPH_HDRS) $(BASIC_HDRS) $(GLOBAL_HDRS) | $(DEPS)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) -c $<
 
 # Misc library code
 libs/misc/%.o: libs/misc/%.c libs/misc/%.h
@@ -296,7 +296,7 @@ bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(TESTS_HDRS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 tables: bin/tables
 bin/tables: src/main/tables.c | bin

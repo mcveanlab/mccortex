@@ -9,6 +9,8 @@
 
 #include "seq_file.h"
 
+#include <libgen.h> // basename
+
 //
 // Output
 //
@@ -19,7 +21,8 @@ extern FILE *ctx_tst_out;
 #define test_status(fmt,...) do {                                              \
   pthread_mutex_lock(&ctx_biglock);                                            \
   timestampf(ctx_tst_out);                                                     \
-  fprintf(ctx_tst_out, "[%s:%i]", BASE_FILE_NAME, __LINE__);                   \
+  char _path[] = __FILE__;                                                     \
+  fprintf(ctx_tst_out, "[%s:%i]", basename(_path), __LINE__);                  \
   if(((const char*)(fmt))[0] != '[') fputc(' ', ctx_tst_out);                  \
   fprintf(ctx_tst_out, fmt, ##__VA_ARGS__);                                    \
   if(((const char*)(fmt))[strlen(fmt)-1] != '\n') fputc('\n', ctx_tst_out);    \
