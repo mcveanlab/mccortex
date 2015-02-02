@@ -90,7 +90,7 @@ static ReadBuffer chroms;
 // Flank mapping
 static samFile *samfh;
 static bam_hdr_t *bam_header;
-static bam1_t *bam;
+static bam1_t *bamentry;
 
 // nw alignment
 static nw_aligner_t *nw_aligner;
@@ -247,19 +247,19 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
                              size_t *start, size_t *end,
                              bool *fw_strand)
 {
-  if(sam_read1(samfh, bam_header, bam) < 0) die("We've run out of SAM entries!");
+  if(sam_read1(samfh, bam_header, bamentry) < 0) die("We've run out of SAM entries!");
 
-  if(bam->core.flag & BAM_FUNMAP) { num_flank5p_unmapped++; return false; }
-  if(bam->core.qual < min_mapq)   { num_flank5p_lowqual++;  return false; }
+  if(bamentry->core.flag & BAM_FUNMAP) { num_flank5p_unmapped++; return false; }
+  if(bamentry->core.qual < min_mapq)   { num_flank5p_lowqual++;  return false; }
 
-  const char *chrom_name = bam_header->target_name[bam->core.tid];
+  const char *chrom_name = bam_header->target_name[bamentry->core.tid];
   *chrom = fetch_chrom(chrom_name);
-  *fw_strand = !bam_is_rev(bam);
+  *fw_strand = !bam_is_rev(bamentry);
 
-  int cigar2rlen = bam_cigar2rlen(bam->core.n_cigar, bam_get_cigar(bam));
+  int cigar2rlen = bam_cigar2rlen(bamentry->core.n_cigar, bam_get_cigar(bamentry));
 
   // Get bam query name
-  char *bname = bam_get_qname(bam);
+  char *bname = bam_get_qname(bamentry);
 
   // Check entry/flank names match
   const char *hdrline = call_file_get_line(centry, 0);
@@ -273,7 +273,7 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   ctx_assert(kmer_size < sizeof(endkmer));
   ctx_assert(flank3p_len >= kmer_size || call_file_min_allele_len(centry) == 0);
   bubble_get_end_kmer(flank5p, flank5p_len, flank3p, flank3p_len, kmer_size, endkmer);
-  if(bam_is_rev(bam)) dna_revcomp_str(endkmer, endkmer, kmer_size);
+  if(bam_is_rev(bamentry)) dna_revcomp_str(endkmer, endkmer, kmer_size);
 
   // Determine search space
   // Choose a region of the ref to search for the end flank
@@ -281,12 +281,12 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   long search_start, search_end;
   size_t longest_allele = call_file_max_allele_len(centry);
 
-  if(bam_is_rev(bam)) {
-    search_start = (long)bam->core.pos - (longest_allele + kmer_size*2 + 10);
-    search_end = (long)bam->core.pos + kmer_size*2;
+  if(bam_is_rev(bamentry)) {
+    search_start = (long)bamentry->core.pos - (longest_allele + kmer_size*2 + 10);
+    search_end = (long)bamentry->core.pos + kmer_size*2;
   } else {
-    search_start = (long)bam->core.pos + cigar2rlen - kmer_size*2;
-    search_end = (long)bam->core.pos + cigar2rlen + longest_allele + kmer_size*2 + 10;
+    search_start = (long)bamentry->core.pos + cigar2rlen - kmer_size*2;
+    search_end = (long)bamentry->core.pos + cigar2rlen + longest_allele + kmer_size*2 + 10;
   }
 
   search_start = MAX2(search_start, 0);
@@ -311,11 +311,11 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   if(multiple_hits) { num_flank3p_multihits++; return false; }
 
   if(kmer_match != NULL) {
-    if(bam_is_rev(bam)) {
+    if(bam_is_rev(bamentry)) {
       *start = kmer_match - (*chrom)->seq.b;
-      *end   = bam->core.pos;
+      *end   = bamentry->core.pos;
     } else {
-      *start = bam->core.pos + cigar2rlen - 1;
+      *start = bamentry->core.pos + cigar2rlen - 1;
       *end   = kmer_match + kmer_size - 1 - (*chrom)->seq.b;
     }
     return true;
@@ -355,11 +355,11 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
 
     // DEV: add alt_offset_left / alt_offset_right to alleles!
 
-    if(bam_is_rev(bam)) {
+    if(bam_is_rev(bamentry)) {
       *start = search_region + ref_offset_left - (*chrom)->seq.b;
-      *end   = bam->core.pos;
+      *end   = bamentry->core.pos;
     } else {
-      *start = bam->core.pos + cigar2rlen - 1;
+      *start = bamentry->core.pos + cigar2rlen - 1;
       *end   = search_region + search_len - 1 - ref_offset_rght - (*chrom)->seq.b;
     }
     return true;
@@ -874,14 +874,14 @@ static void flanks_sam_open()
 
   // Load BAM header
   bam_header = sam_hdr_read(samfh);
-  bam = bam_init1();
+  bamentry = bam_init1();
 }
 
 static void flanks_sam_close()
 {
   sam_close(samfh);
   free(bam_header);
-  free(bam);
+  free(bamentry);
 }
 
 static cJSON* read_input_header(gzFile gzin)
