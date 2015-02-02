@@ -140,6 +140,11 @@ CtxCmd cmdobjs[] = {
   .cmd = "exp_abc", .func = ctx_exp_abc, .hide = true,
   .blurb = "Run experiment on traversal properties",
   .usage = exp_abc_usage
+},
+{
+  .cmd = "hashtest", .func = ctx_exp_hashtest, .hide = true,
+  .blurb = "Test hash table speed",
+  .usage = exp_hashtest_usage
 }
 };
 

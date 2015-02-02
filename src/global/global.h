@@ -32,6 +32,15 @@
 //  MIN_KMER_SIZE    Min kmer-size compiled e.g. 3 for maxk=31, 33 for maxk=63
 //  MAX_KMER_SIZE    Max kmer-size compiled e.g. 31 for maxk=31, 63 for maxk=63
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
+//  USE_XXHASH=1     Use xxHash instead of Bob Jenkin's lookup3
+
+#if defined(USE_CITY_HASH)
+  #define HASH_NAME_STR "CityHash32"
+#elif defined(USE_XXHASH)
+  #define HASH_NAME_STR "xxHash32"
+#else
+  #define HASH_NAME_STR "Lookup3"
+#endif
 
 #define ONE_MEGABYTE (1<<20)
 #define MAX_IO_THREADS 10
@@ -44,7 +53,7 @@
 
 #include "htslib/version.h"
 #define LIBS_VERSION "zlib="ZLIB_VERSION" htslib="HTS_VERSION
-#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" "CHECKSTR
+#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" "HASH_NAME_STR" "CHECKSTR
 
 //
 // Setup / clear up of library functions

@@ -2,7 +2,7 @@
 # make all      <- compile all libraries
 # make clean    <- clean all libraries
 
-CORE=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
+CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
 COMMON=bcftools samtools readsim bioinf-perl maximal_substrs
 ANALYSIS=vcflib
 
@@ -24,6 +24,9 @@ gsl-1.16/configure:
 	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.16.tar.gz
 	tar xfz gsl-1.16.tar.gz
 	cd gsl-1.16; ./configure; make
+
+xxHash/Makefile:
+	git clone https://github.com/Cyan4973/xxHash.git
 
 htslib/Makefile:
 	git clone --branch master git://github.com/samtools/htslib.git htslib
@@ -69,6 +72,9 @@ madcrowlib/Makefile:
 #
 gsl: gsl-1.16/configure
 	cd gsl-1.16 && make clean && ./configure && make
+
+xxHash: xxHash/Makefile
+	cd xxHash && git pull && make
 
 htslib: htslib/Makefile
 	cd htslib && git pull && make
@@ -120,6 +126,7 @@ misc: misc/Makefile
 #
 clean:
 	[ -d gsl-1.16 ] && cd gsl-1.16 && make clean
+	[ -d xxHash ] && cd xxHash && make clean
 	[ -d htslib ] && cd htslib && make clean
 	[ -d bcftools ] && cd bcftools && make clean
 	[ -d samtools ] && cd samtools && make clean

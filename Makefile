@@ -1,10 +1,11 @@
 #Arguments (all are optional):
 # MAXK=31
-# RELEASE=1     (release build)
-# DEBUG=1       (debug build)
-# VERBOSE=1     (compile to print all the things!)
-# CITY_HASH=1   (use CityHash hash function)
-# RECOMPILE=1   (recompile all from source)
+# RELEASE=1       (release build)
+# DEBUG=1         (debug build)
+# VERBOSE=1       (compile to print all the things!)
+# USE_CITY_HASH=1 (use CityHash hash function)
+# USE_XXHASH=1    ()
+# RECOMPILE=1     (recompile all from source)
 
 # Resolve some issues linking libz:
 # e.g. for WTCHG cluster3
@@ -15,7 +16,8 @@
 #  make
 #  make clean
 #  make all
-#  make test
+#  make [ctx|tables|debug|test]
+#  make tests   <- run tests
 
 # Use bash as shell
 SHELL := /bin/bash
@@ -46,8 +48,12 @@ MAX_KMER_SIZE=$(MAXK)
 MIN_KMER_SIZE=$(shell echo $$[$(MAX_KMER_SIZE)-30] | sed 's/^1$$/3/g')
 
 # Use City hash instead of lookup3?
-ifdef CITY_HASH
+ifdef USE_CITY_HASH
 	HASH_KEY_FLAGS=-DUSE_CITY_HASH=1
+endif
+
+ifdef USE_XXHASH
+	HASH_KEY_FLAGS=-DUSE_XXHASH=1
 endif
 
 # Library paths
@@ -70,7 +76,7 @@ MISC_SRCS=$(wildcard libs/misc/*.c)
 MISC_HDRS=$(wildcard libs/misc/*.h)
 MISC_OBJS=$(MISC_SRCS:.c=.o)
 
-LIB_MISC=$(MISC_SRCS)
+LIB_MISC=$(MISC_SRCS) libs/xxHash/xxhash.c
 # LIB_MISC=$(MISC_OBJS)
 
 ifdef LIB_PATH
@@ -227,7 +233,7 @@ endif
 
 .DEFAULT_GOAL := ctx
 
-all: ctx tests hashtest tables
+all: ctx tests tables
 
 # Run tests
 test: tests
@@ -291,10 +297,6 @@ bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(TESTS_HDRS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ -D BASE_FILE_NAME=\"$(<F)\" $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
-
-hashtest: bin/hashtest$(MAXK)
-bin/hashtest$(MAXK): src/main/hashtest.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/hashtest.c $(OBJS) $(LINK)
 
 tables: bin/tables
 bin/tables: src/main/tables.c | bin

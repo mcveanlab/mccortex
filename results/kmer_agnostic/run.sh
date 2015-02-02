@@ -78,9 +78,9 @@ for k in $kmers; do
     # Generate table of first 1000 kmers with links
     $LINK_PROC list --limit 1000 <(gzip -cd k$k/stocherr.se.raw.ctp.gz) k$k/stocherr.se.raw.effcovg.csv k$k/stocherr.se.raw.links.csv >& k$k/stocherr.se.raw.links.csv.log
     # Pick a threshold
-    R --slave --vanilla --quiet -f $LINK_THRESH_SCRIPT --args $k stocherr/stocherr.se.raw.ctp.links.csv > k$k/stocherr.se.raw.ctp.thresh.txt
+    R --slave --vanilla --quiet -f $LINK_THRESH_SCRIPT --args $k k$k/stocherr.se.raw.links.csv > k$k/stocherr.se.raw.ctp.thresh.txt
     thresh=`tail -1 k$k/stocherr.se.raw.ctp.thresh.txt`
-    $LINK_PROC clean 1M <(gzip -cd k$k/stocherr.se.raw.ctp.gz) $thresh | gzip -c > k$k/stocherr.se.ctp.gz
+    $LINK_PROC clean <(gzip -cd k$k/stocherr.se.raw.ctp.gz) $thresh | gzip -c > k$k/stocherr.se.ctp.gz 2> k$k/stocherr.se.ctp.gz.log
   fi
 done
 
