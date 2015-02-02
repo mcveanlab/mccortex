@@ -217,7 +217,7 @@ int ctx_clean(int argc, char **argv)
   size_t step = 0;
   status("Actions:\n");
   if(covg_before_path != NULL)
-    status("%zu. Saving supernode coverage distribution to: %s", step++, covg_before_path);
+    status("%zu. Saving kmer coverage distribution to: %s", step++, covg_before_path);
   if(len_before_path != NULL)
     status("%zu. Saving supernode length distribution to: %s", step++, len_before_path);
   if(tip_cleaning)
@@ -227,7 +227,7 @@ int ctx_clean(int argc, char **argv)
   if(supernode_cleaning && threshold == 0)
     status("%zu. Cleaning supernodes with auto-detected threshold", step++);
   if(covg_after_path != NULL)
-    status("%zu. Saving supernode coverage distribution to: %s", step++, covg_after_path);
+    status("%zu. Saving kmer coverage distribution to: %s", step++, covg_after_path);
   if(len_after_path != NULL)
     status("%zu. Saving supernode length distribution to: %s", step++, len_after_path);
 
@@ -327,13 +327,17 @@ int ctx_clean(int argc, char **argv)
 
   if(threshold == 0 || covg_before_path || len_before_path) {
     // Get coverage distribution and estimate cleaning threshold
-    size_t est_threshold = cleaning_get_threshold(nthreads, use_supernode_covg,
-                                                  seq_depth,
-                                                  covg_before_path, len_before_path,
-                                                  visited, &db_graph);
+    int est_threshold = cleaning_get_threshold(nthreads, use_supernode_covg,
+                                               seq_depth,
+                                               covg_before_path, len_before_path,
+                                               visited, &db_graph);
 
     // Use estimated threshold if threshold not set
-    if(threshold == 0) threshold = est_threshold;
+    if(threshold == 0) {
+      // Die if we failed to find suitable cleaning threshold
+      if(est_threshold < 0) die("Cannot find suitable cleaning threshold");
+      else threshold = est_threshold;
+    }
   }
 
   if(doing_cleaning) {

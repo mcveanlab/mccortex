@@ -288,8 +288,10 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   _print_grphwlk_state("Low step confidence .. ", stops[ASSEM_STOP_LOW_CUMUL_CONF],ncontigends);
   _print_grphwlk_state("Low cumul. confidence  ", stops[ASSEM_STOP_LOW_STEP_CONF], ncontigends);
 
-  size_t njunc = states[GRPHWLK_USEPATH] + states[GRPHWLK_NOPATHS] +
-                 states[GRPHWLK_SPLIT_PATHS] + states[GRPHWLK_MISSING_PATHS];
+  size_t njunc = states[GRPHWLK_USEPATH] +
+                 stops[ASSEM_STOP_NOPATHS] +
+                 stops[ASSEM_STOP_SPLIT_PATHS] +
+                 stops[ASSEM_STOP_MISSING_PATHS];
 
   ctx_assert2(s->total_junc == states[GRPHWLK_USEPATH], "%zu vs %zu",
               (size_t)s->total_junc, (size_t)states[GRPHWLK_USEPATH]);

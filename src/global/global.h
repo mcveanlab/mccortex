@@ -53,7 +53,7 @@
 
 #include "htslib/version.h"
 #define LIBS_VERSION "zlib="ZLIB_VERSION" htslib="HTS_VERSION
-#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" "HASH_NAME_STR" "CHECKSTR
+#define VERSION_STATUS_STR "ctx="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" hash="HASH_NAME_STR" "CHECKSTR
 
 //
 // Setup / clear up of library functions

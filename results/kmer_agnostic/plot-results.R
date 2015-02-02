@@ -53,7 +53,7 @@ for(i in 1:length(fields)) {
   for(j in 1:6) { m = max(m, as.numeric(data[[j]][field,])); }
 
   plot(kmers,as.numeric(data[[1]][field,]),type='b',col=cols[1],
-       ylim=c(0,m),axes=F,ylab=description,xlab="kmer",
+       ylim=c(0,2*m),axes=F,ylab=description,xlab="kmer",
        )#main=paste(description,"vs kmer-size"))
   axis(side = 2)
   axis(side = 1,at=kmers)
@@ -68,7 +68,7 @@ for(i in 1:length(fields)) {
     sn = sn + as.numeric(data[[j]][field,length(kmers)-1]);
   }
   lpos='topright';
-  if(s0 < sn) { lpos='bottomright' }
+  # if(s0 < sn) { lpos='bottomright' }
   legtxt = c('Perfect Links', 'Perfect Plain',
              'Stoch. Links', 'Stoch. Plain',
              'Stoch. Err Links', 'Stoch. Err Plain');

@@ -47,18 +47,19 @@ mkdir -p reads
 
 # Generate reads
 # Redirect stderr with 2>
-[ ! -f reads/perf.fa.gz  ]    && $ALLREADS $READLEN $REF | gzip -c > reads/perf.fa.gz 2> reads/perf.fa.gz.log
-[ ! -f reads/stoch.fa.gz ]    && $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch >& reads/stoch.fa.gz.log
+[ ! -f reads/perf.fa.gz     ] && ($ALLREADS $READLEN $REF | gzip -c) > reads/perf.fa.gz 2> reads/perf.fa.gz.log
+[ ! -f reads/stoch.fa.gz    ] && $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch             >& reads/stoch.fa.gz.log
 [ ! -f reads/stocherr.fa.gz ] && $READSIM -l $READLEN -r $REF -d $DEPTH -e 0.005 -s reads/stocherr >& reads/stocherr.fa.gz.log
 
 # Cortex build k=$(K)
 echo == Building cortex graphs ==
 
 for k in $kmers; do
-  [ ! -f k$k/perf.ctx ]         && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx >& k$k/perf.ctx.log
-  [ ! -f k$k/stoch.ctx ]        && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx >& k$k/stoch.ctx.log
-  [ ! -f k$k/stocherr.raw.ctx ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/stocherr.raw.ctx >& k$k/stocherr.raw.ctx.log
-  [ ! -f k$k/stocherr.ctx ]     && `getctx $k` clean -m $MEM --covg-before k$k/stocherr.raw.covg.csv --out k$k/stocherr.ctx k$k/stocherr.raw.ctx >& k$k/stocherr.ctx.log
+  [ ! -f k$k/perf.ctx         ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/perf.fa.gz k$k/perf.ctx                    >& k$k/perf.ctx.log
+  [ ! -f k$k/stoch.ctx        ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz k$k/stoch.ctx                  >& k$k/stoch.ctx.log
+  [ ! -f k$k/stocherr.raw.ctx ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/stocherr.raw.ctx        >& k$k/stocherr.raw.ctx.log
+  if [ $k == 99 ]; then clean_thresh="--supernodes=3"; else clean_thresh=""; fi
+  [ ! -f k$k/stocherr.ctx     ] && `getctx $k` clean -m $MEM $clean_thresh --covg-before k$k/stocherr.raw.covg.csv --out k$k/stocherr.ctx k$k/stocherr.raw.ctx >& k$k/stocherr.ctx.log
 done
 
 echo == Read threading ==
@@ -80,16 +81,19 @@ for k in $kmers; do
     # Pick a threshold
     R --slave --vanilla --quiet -f $LINK_THRESH_SCRIPT --args $k k$k/stocherr.se.raw.links.csv > k$k/stocherr.se.raw.ctp.thresh.txt
     thresh=$(tail -1 k$k/stocherr.se.raw.ctp.thresh.txt)
-    $LINK_PROC clean <(gzip -cd k$k/stocherr.se.raw.ctp.gz) $thresh | gzip -c > k$k/stocherr.se.ctp.gz 2> k$k/stocherr.se.ctp.gz.log
+    ($LINK_PROC clean <(gzip -cd k$k/stocherr.se.raw.ctp.gz) $thresh | gzip -c) > k$k/stocherr.se.ctp.gz 2> k$k/stocherr.se.ctp.gz.log
   fi
+  # Hard link to uncleaned for links generated without error
+  [ ! -f k$k/perf.se.ctp.gz  ] && ln k$k/perf.se.raw.ctp.gz  k$k/perf.se.ctp.gz
+  [ ! -f k$k/stoch.se.ctp.gz ] && ln k$k/stoch.se.raw.ctp.gz k$k/stoch.se.ctp.gz
 done
 
 echo == Assembling contigs ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa                     k$k/$p.ctx >& k$k/$p.plain.contigs.log
-    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx >& k$k/$p.links.contigs.log
+    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa                     k$k/$p.ctx          >& k$k/$p.plain.contigs.log
+    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx          >& k$k/$p.links.contigs.log
     [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.plain.contigs.rmdup.fa k$k/$p.plain.contigs.fa >& k$k/$p.plain.rmdup.log
     [ ! -f k$k/$p.links.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.links.contigs.rmdup.fa k$k/$p.links.contigs.fa >& k$k/$p.links.rmdup.log
   done
@@ -97,6 +101,8 @@ done
 
 echo == Median walk distance ==
 
+# Get median walk distance
+# example: med_walk $kmer_size "perf"/"stoch"/"stocherr" "-p link_file.ctp"
 med_walk() {
   k="$1"; p="$2"; pathargs="$3";
   ctx=$(getctx $k)

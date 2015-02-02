@@ -132,9 +132,9 @@ my $hdr_json = decode_json($hdr_txt);
 my ($contigs_hist) = json_hdr_load_contig_hist($hdr_json,$colour);
 
 # Get kmer size
-my $kmer_size = $hdr_json->{'kmer_size'};
-if(defined($kmer) && length($kmer) != $hdr_json->{'kmer_size'}) {
-  die("Kmer size mismatch with header (".length($kmer)." != ".$hdr_json->{'kmer_size'}.")");
+my $kmer_size = $hdr_json->{'graph'}->{'kmer_size'};
+if(defined($kmer) && length($kmer) != $kmer_size) {
+  die("Kmer size mismatch with header (".length($kmer)." != ".$kmer_size.")");
 }
 
 if($action == CMD_CLEAN)
