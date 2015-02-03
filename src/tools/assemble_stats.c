@@ -11,12 +11,15 @@ const char *assem_stop_str[] = {ASSEM_STOP_UNKNOWN_STR,
                                 ASSEM_STOP_LOW_STEP_CONF_STR,
                                 ASSEM_STOP_LOW_CUMUL_CONF_STR};
 
-uint8_t graphstep2assem(uint8_t step, bool hit_cycle,
-                        bool low_step_confid, bool low_cumul_confid)
+enum AssemStopCause graphstep2assem(enum GraphStepStatus step, bool hit_cycle,
+                                    bool low_step_confid, bool low_cumul_confid)
 {
-  ctx_assert2(!!step + !!low_step_confid + !!low_cumul_confid == 1,
-              "One and only one should be true %i %i %i",
-              (int)step, (int)low_step_confid, (int)low_cumul_confid);
+  // There should only be one reason to stop traversal
+  ctx_assert2((!grap_step_status_is_good(step) +
+               !!hit_cycle + !!low_step_confid + !!low_cumul_confid) == 1,
+              "One and only one should be true %i %i %i %i",
+              (int)step, (int)hit_cycle,
+              (int)low_step_confid, (int)low_cumul_confid);
 
   if(hit_cycle) return ASSEM_STOP_CYCLE;
   if(low_step_confid) return ASSEM_STOP_LOW_STEP_CONF;
@@ -32,7 +35,7 @@ uint8_t graphstep2assem(uint8_t step, bool hit_cycle,
   }
 }
 
-char* assem2str(uint8_t assem, char *str, size_t size)
+char* assem2str(enum AssemStopCause assem, char *str, size_t size)
 {
   ctx_assert(assem < ASSEM_NUM_STOPS);
   ctx_assert(strlen(assem_stop_str[assem]) < size);
@@ -285,8 +288,8 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   _print_grphwlk_state("Paths split .......... ", stops[ASSEM_STOP_SPLIT_PATHS],   ncontigends);
   _print_grphwlk_state("Missing paths ........ ", stops[ASSEM_STOP_MISSING_PATHS], ncontigends);
   _print_grphwlk_state("Graph cycles ......... ", stops[ASSEM_STOP_CYCLE],         ncontigends);
-  _print_grphwlk_state("Low step confidence .. ", stops[ASSEM_STOP_LOW_CUMUL_CONF],ncontigends);
-  _print_grphwlk_state("Low cumul. confidence  ", stops[ASSEM_STOP_LOW_STEP_CONF], ncontigends);
+  _print_grphwlk_state("Low step confidence .. ", stops[ASSEM_STOP_LOW_STEP_CONF], ncontigends);
+  _print_grphwlk_state("Low cumul. confidence  ", stops[ASSEM_STOP_LOW_CUMUL_CONF],ncontigends);
 
   size_t njunc = states[GRPHWLK_USEPATH] +
                  stops[ASSEM_STOP_NOPATHS] +

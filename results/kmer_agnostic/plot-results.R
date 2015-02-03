@@ -1,5 +1,5 @@
 # R script for plotting experimental results
-require(tikzDevice)
+# require(tikzDevice)
 
 # Set fonts to match Latex
   library(Cairo)
@@ -14,9 +14,10 @@ require(tikzDevice)
 
 # R --vanilla -f plot-results.R --args <links.csv> <plain.csv>
 #options(echo=FALSE)
+nfiles=9
 args <- commandArgs(trailingOnly = TRUE)
-if(length(args) != 6) {
-  message("Usage: R --vanilla -f plot-results.R --args <{perf,stoch,stocherr}.{links,paths}.csv>")
+if(length(args) != nfiles) {
+  message("Usage: R --vanilla -f plot-results.R --args <{perf,stoch,stocherr}.{plain,links,string}.csv>")
   quit()
 }
 
@@ -28,13 +29,14 @@ set_margin <- function() {
 }
 
 data = list()
-for(i in 1:6) {
+for(i in 1:nfiles) {
   data[[i]]=read.csv(file=files[i], as.is=T,row.names=1)
   cat("files[",i,"] = '",files[i],"'\n",sep='')
 }
 
 kmers=as.numeric(data[[1]]['kmer',])
-cols=c('firebrick','dodgerblue', 'darkolivegreen', 'darkorchid', 'orange', 'black')
+# cols=c('firebrick','dodgerblue', 'darkolivegreen', 'darkorchid', 'orange', 'black')
+cols=rainbow(nfiles)
 
 fields=c('median','mean','N50','length','contigs','med_walk')
 descriptions=c("Median contig length","Mean contig length","Contig N50",
@@ -42,6 +44,7 @@ descriptions=c("Median contig length","Mean contig length","Contig N50",
 path='plots/'
 
 for(i in 1:length(fields)) {
+  cat('run',i,'\n');
   field = fields[i]
   description = descriptions[i]
 
@@ -50,7 +53,7 @@ for(i in 1:length(fields)) {
   set_margin()
 
   m = 0;
-  for(j in 1:6) { m = max(m, as.numeric(data[[j]][field,])); }
+  for(j in 1:nfiles) { m = max(m, as.numeric(data[[j]][field,])); }
 
   plot(kmers,as.numeric(data[[1]][field,]),type='b',col=cols[1],
        ylim=c(0,2*m),axes=F,ylab=description,xlab="kmer",
@@ -58,20 +61,20 @@ for(i in 1:length(fields)) {
   axis(side = 2)
   axis(side = 1,at=kmers)
 
-  for(j in 2:6) {
+  for(j in 2:nfiles) {
     points(kmers,as.numeric(data[[j]][field,]),type='b',col=cols[j])
   }
 
   s0=0; sn=0;
-  for(j in 1:6) {
+  for(j in 1:nfiles) {
     s0 = s0 + as.numeric(data[[j]][field,1]);
     sn = sn + as.numeric(data[[j]][field,length(kmers)-1]);
   }
   lpos='topright';
   # if(s0 < sn) { lpos='bottomright' }
-  legtxt = c('Perfect Links', 'Perfect Plain',
-             'Stoch. Links', 'Stoch. Plain',
-             'Stoch. Err Links', 'Stoch. Err Plain');
+  legtxt = c('Perfect Plain', 'Perfect Links', 'Perfect String',
+             'Stoch. Plain', 'Stoch. Links', 'Stoch. String',
+             'Stoch. Err Plain', 'Stoch. Err Links', 'Stoch. Err String');
   legend(lpos,legtxt,fill=cols)
   dev.off()
 }

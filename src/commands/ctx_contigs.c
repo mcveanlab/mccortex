@@ -144,6 +144,9 @@ int ctx_contigs(int argc, char **argv)
   if(cmd_no_reseed && cmd_reseed)
     cmd_print_usage("Cannot specify both -r and -R");
 
+  if(contig_limit && seed_with_unused_paths)
+    cmd_print_usage("Cannot combine --ncontigs with --use-seed-paths");
+
   bool sample_with_replacement = cmd_reseed;
 
   // Defaults

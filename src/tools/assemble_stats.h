@@ -5,16 +5,19 @@
 #include "common_buffers.h"
 #include "graph_walker.h"
 
-#define ASSEM_STOP_UNKNOWN        0
-#define ASSEM_STOP_NOCOVG         1 /* Fail: no choices */
-#define ASSEM_STOP_NOCOLCOVG      2 /* Fail: fork in pop but no choices in colour */
-#define ASSEM_STOP_NOPATHS        3 /* Fail: fork in colour, no paths */
-#define ASSEM_STOP_SPLIT_PATHS    4 /* Fail: fork in colour, paths split */
-#define ASSEM_STOP_MISSING_PATHS  5 /* Fail: fork in colour, missing info */
-#define ASSEM_STOP_CYCLE          6
-#define ASSEM_STOP_LOW_STEP_CONF  7
-#define ASSEM_STOP_LOW_CUMUL_CONF 8
-#define ASSEM_NUM_STOPS           9
+enum AssemStopCause {
+  ASSEM_STOP_UNKNOWN        = 0,
+  ASSEM_STOP_NOCOVG         = 1, /* Fail: no choices */
+  ASSEM_STOP_NOCOLCOVG      = 2, /* Fail: fork in pop but no choices in colour */
+  ASSEM_STOP_NOPATHS        = 3, /* Fail: fork in colour, no paths */
+  ASSEM_STOP_SPLIT_PATHS    = 4, /* Fail: fork in colour, paths split */
+  ASSEM_STOP_MISSING_PATHS  = 5, /* Fail: fork in colour, missing info */
+  ASSEM_STOP_CYCLE          = 6,
+  ASSEM_STOP_LOW_STEP_CONF  = 7,
+  ASSEM_STOP_LOW_CUMUL_CONF = 8
+};
+
+#define ASSEM_NUM_STOPS 9
 
 #define ASSEM_STOP_UNKNOWN_STR        "StopUnknown"
 #define ASSEM_STOP_NOCOVG_STR         "StopNoCovg"
@@ -26,10 +29,10 @@
 #define ASSEM_STOP_LOW_STEP_CONF_STR  "StopLowStepConfidence"
 #define ASSEM_STOP_LOW_CUMUL_CONF_STR "StopLowCumulativeConfidence"
 
-uint8_t graphstep2assem(uint8_t step, bool hit_cycle,
-                        bool low_step_confid, bool low_cumul_confid);
+enum AssemStopCause graphstep2assem(enum GraphStepStatus step, bool hit_cycle,
+                                    bool low_step_confid, bool low_cumul_confid);
 
-char* assem2str(uint8_t assem, char *str, size_t size);
+char* assem2str(enum AssemStopCause assem, char *str, size_t size);
 
 #define AC_MAX_PATHS 5
 

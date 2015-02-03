@@ -362,6 +362,11 @@ void assemble_contigs(size_t nthreads,
   status("[Assemble] Using missing info check: %s",
          use_missing_info_check ? "yes" : "no");
 
+  if(min_step_confid > 0 && min_step_confid < 1)
+    status("[Assemble] Stop traversal if step confidence < %f", min_step_confid);
+  if(min_cumul_confid > 0 && min_cumul_confid < 1)
+    status("[Assemble] Stop traversal if step cummulative confidence < %f", min_cumul_confid);
+
   if(fout == NULL)
     status("[Assemble]   Not printing contigs");
   else

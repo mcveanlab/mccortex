@@ -14,10 +14,10 @@ all:
 
 plots:
 	mkdir -p plots
-	R --vanilla -f plot-results.R --args {perf,stoch,stocherr}.{links,plain}.join.csv
+	R --vanilla -f plot-results.R --args {perf,stoch,stocherr}.{plain,links,string}.join.csv
 	cd report && $(MAKE)
 
 clean:
-	rm -rf $(DIRS) {perf,stoch,stocherr}.{plain,links}.join.csv
+	rm -rf $(DIRS) {perf,stoch,stocherr}.{plain,links,string}.join.csv
 
 .PHONY: all clean plots

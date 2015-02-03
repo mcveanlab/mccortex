@@ -83,14 +83,19 @@ for k in $kmers; do
   [ ! -f k$k/stoch.se.ctp.gz ] && ln k$k/stoch.se.raw.ctp.gz k$k/stoch.se.ctp.gz
 done
 
-echo == Assembling contigs ==
+echo == Assembling contigs for N50 ==
 
+# Used for N50
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa                     k$k/$p.ctx          >& k$k/$p.plain.contigs.log
-    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa -p k$k/$p.se.ctp.gz k$k/$p.ctx          >& k$k/$p.links.contigs.log
-    [ ! -f k$k/$p.plain.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.plain.contigs.rmdup.fa k$k/$p.plain.contigs.fa >& k$k/$p.plain.rmdup.log
-    [ ! -f k$k/$p.links.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -q -o k$k/$p.links.contigs.rmdup.fa k$k/$p.links.contigs.fa >& k$k/$p.links.rmdup.log
+    [ ! -f k$k/$p.plain.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.plain.contigs.fa                                                          k$k/$p.ctx  >& k$k/$p.plain.contigs.log
+    [ ! -f k$k/$p.links.contigs.fa       ] && `getctx $k` contigs -m $MEM -o k$k/$p.links.contigs.fa                   --confid-step 0.95 -p k$k/$p.se.ctp.gz k$k/$p.ctx  >& k$k/$p.links.contigs.log
+    [ ! -f k$k/$p.string.contigs.fa      ] && `getctx $k` contigs -m $MEM -o k$k/$p.string.contigs.fa --use-seed-paths --confid-step 0.95 -p k$k/$p.se.ctp.gz k$k/$p.ctx  >& k$k/$p.string.contigs.log
+
+    # Remove duplicates in contigs
+    for annot in plain links string; do
+      [ ! -f k$k/$p.$annot.contigs.rmdup.fa ] && `getctx $k` rmsubstr -k $k -m $MEM -o k$k/$p.$annot.contigs.rmdup.fa k$k/$p.$annot.contigs.fa >& k$k/$p.$annot.rmdup.log
+    done
   done
 done
 
@@ -108,17 +113,17 @@ med_walk() {
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    [ ! -f k$k/$p.plain.medwalk.txt ] && med_walk $k $p ''                    > k$k/$p.plain.medwalk.txt
-    [ ! -f k$k/$p.links.medwalk.txt ] && med_walk $k $p "-p k$k/$p.se.ctp.gz" > k$k/$p.links.medwalk.txt
+    [ ! -f k$k/$p.plain.medwalk.txt  ] && med_walk $k $p ''                                     > k$k/$p.plain.medwalk.txt
+    [ ! -f k$k/$p.links.medwalk.txt  ] && med_walk $k $p "-p k$k/$p.se.ctp.gz"                  > k$k/$p.links.medwalk.txt
+    [ ! -f k$k/$p.string.medwalk.txt ] && cp k$k/$p.links.medwalk.txt k$k/$p.string.medwalk.txt
   done
 done
 
-# Contig stats
 echo == Contig stats ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    for annot in plain links; do
+    for annot in plain links string; do
       [ ! -f k$k/$p.$annot.contigs.rmdup.csv ] && \
         $CONTIG_STATS --print-csv k$k/$p.$annot.contigs.rmdup.fa | \
         cat - k$k/$p.$annot.medwalk.txt > k$k/$p.$annot.contigs.rmdup.csv
@@ -132,7 +137,7 @@ echo == Merging CSV files ==
 colidx=$(echo $(eval echo '{1,$[{1..'$nkmers'}*2]}') | tr ' ' ',');
 
 for p in perf stoch stocherr; do
-  for annot in plain links; do
+  for annot in plain links string; do
     [ ! -f $p.$annot.join.csv ] && \
       (printf "metric,%s\n" $(echo $kmers | sed 's/ /,k/g');
        printf "kmer,%s\n" $(echo $kmers | tr ' ' ',');
@@ -146,7 +151,7 @@ echo == Checking contig matches ==
 
 for k in $kmers; do
   for p in perf stoch stocherr; do
-    for annot in plain links; do
+    for annot in plain links string; do
       [ ! -f k$k/$p.$annot.contigs.rmdup.txt ] && $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa ../../results/data/chr22/chr22_17M_18M.fa >& k$k/$p.$annot.contigs.rmdup.txt
     done
   done
@@ -155,4 +160,4 @@ done
 # Now make plots with:
 mkdir -p plots
 echo Plot with:
-echo "  " R --vanilla -f plot-results.R --args {perf,stoch,stocherr}.{links,plain}.join.csv
+echo "  " R --vanilla -f plot-results.R --args {perf,stoch,stocherr}.{plain,links,string}.join.csv
