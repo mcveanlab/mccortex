@@ -3,22 +3,32 @@ package CortexLinks;
 use strict;
 use warnings;
 use Carp;
+
+# Use current directory to find modules
+use FindBin;
+use lib $FindBin::Bin;
+
+use JSON;
 use CortexScripts; # load_json_hdr()
 
 use base 'Exporter';
-our @EXPORT = qw(ctp_print_link ctp_link_to_str ctp_create_link);
+our @EXPORT = qw(ctp_print_link ctp_link_to_str ctp_create_link
+                 ctp_get_hdr_txt ctp_get_hdr_json ctp_get_hdr_contig_hist);
 
 sub new
 {
   my ($class,$fh,$path) = @_;
 
-  my $header = load_json_hdr($fh,$path);
+  my $hdr_txt = load_json_hdr($fh,$path);
+  my $hdr_json = decode_json($hdr_txt);
+
   my $next_line = <$fh>;
 
   my $self = {
       _fh => $fh,
       _path => $path,
-      _header => $header,
+      _hdr_txt => $hdr_txt,
+      _hdr_json => $hdr_json,
       _next_line => $next_line
   };
 
@@ -26,10 +36,39 @@ sub new
   return $self;
 }
 
-sub ctp_get_header
+sub ctp_get_hdr_txt
 {
   my ($self) = @_;
-  return $self->{'_header'};
+  return $self->{'_hdr_txt'};
+}
+
+sub ctp_get_hdr_json
+{
+  my ($self) = @_;
+  return $self->{'_hdr_json'};
+}
+
+sub ctp_get_hdr_contig_hist
+{
+  my ($self,$colour) = (@_,0); # colour defaults to zero
+
+  my $json = $self->{'_hdr_json'};
+  my $length_arr = $json->{'paths'}->{'contig_hists'}->[$colour]->{'lengths'};
+  my $counts_arr = $json->{'paths'}->{'contig_hists'}->[$colour]->{'counts'};
+
+  if(!defined($length_arr)) { die("Missing lengths array [$colour]"); }
+  if(!defined($counts_arr)) { die("Missing counts array [$colour]"); }
+
+  if(@$length_arr != @$counts_arr) { die("Mismatch [$colour]: @$length_arr != @$counts_arr"); }
+
+  my $max_len = max(@$length_arr);
+  my @contigs = map {0} 0..$max_len;
+
+  for(my $i = 0; $i < @$length_arr; $i++) {
+    $contigs[$length_arr->[$i]] += $counts_arr->[$i];
+  }
+
+  return \@contigs;
 }
 
 sub read_line

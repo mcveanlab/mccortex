@@ -5,7 +5,7 @@ use warnings;
 use Carp;
 
 use base 'Exporter';
-our @EXPORT = qw(open_file load_json_hdr);
+our @EXPORT = qw(open_file get_rand_hex_key load_json_hdr);
 
 sub open_file
 {
@@ -21,6 +21,15 @@ sub open_file
   }
   else { die("Must specify or pipe in a file"); }
   return $handle;
+}
+
+sub get_rand_hex_key
+{
+  my ($length) = @_;
+  my $key = "";
+  my $hex = "0123456789abcdef";
+  map {$key .= substr($hex, rand(16), 1)} 1..$length;
+  return $key;
 }
 
 sub load_json_hdr

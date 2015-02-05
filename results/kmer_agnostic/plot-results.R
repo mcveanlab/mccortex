@@ -30,18 +30,28 @@ set_margin <- function() {
 
 data = list()
 for(i in 1:nfiles) {
-  data[[i]]=read.csv(file=files[i], as.is=T,row.names=1)
+  data[[i]]=read.table(file=files[i], sep=',', as.is=T, row.names=1, header=T)
   cat("files[",i,"] = '",files[i],"'\n",sep='')
 }
 
 kmers=as.numeric(data[[1]]['kmer',])
 # cols=c('firebrick','dodgerblue', 'darkolivegreen', 'darkorchid', 'orange', 'black')
-cols=rainbow(nfiles)
+tmpcols=rainbow(3)
+cols=tmpcols[rep(1:3,each=3)]
+linetyp=rep(c(1,2,3),times=3)
 
-fields=c('median','mean','N50','length','contigs','med_walk')
+
+fields=c('median','mean','N50','sum_length','contigs','med_walk')
 descriptions=c("Median contig length","Mean contig length","Contig N50",
                "Assembled length","Number of contigs", "Median walking distance")
 path='plots/'
+
+# Correct length field to account for kmer overlap
+for(f in 1:nfiles) {
+  data[[f]]['sum_length',] = data[[f]]['length',] -
+                             pmax(as.numeric(data[[f]]['contigs',])-1, 0) *
+                             (kmers-1);
+}
 
 for(i in 1:length(fields)) {
   cat('run',i,'\n');
@@ -55,14 +65,14 @@ for(i in 1:length(fields)) {
   m = 0;
   for(j in 1:nfiles) { m = max(m, as.numeric(data[[j]][field,])); }
 
-  plot(kmers,as.numeric(data[[1]][field,]),type='b',col=cols[1],
+  plot(kmers,as.numeric(data[[1]][field,]),type='b',col=cols[1], lty=linetyp[1],
        ylim=c(0,2*m),axes=F,ylab=description,xlab="kmer",
        )#main=paste(description,"vs kmer-size"))
   axis(side = 2)
   axis(side = 1,at=kmers)
 
   for(j in 2:nfiles) {
-    points(kmers,as.numeric(data[[j]][field,]),type='b',col=cols[j])
+    points(kmers,as.numeric(data[[j]][field,]),type='b',col=cols[j],lty=linetyp[j])
   }
 
   s0=0; sn=0;
@@ -75,6 +85,6 @@ for(i in 1:length(fields)) {
   legtxt = c('Perfect Plain', 'Perfect Links', 'Perfect String',
              'Stoch. Plain', 'Stoch. Links', 'Stoch. String',
              'Stoch. Err Plain', 'Stoch. Err Links', 'Stoch. Err String');
-  legend(lpos,legtxt,fill=cols)
+  legend(lpos,legtxt,fill=cols,lty=linetyp)
   dev.off()
 }

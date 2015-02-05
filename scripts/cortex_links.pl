@@ -26,7 +26,6 @@ use UsefulModule;
 # McCortex modules
 use CortexScripts;
 use CortexLinks;
-use CortexLinkCleaning;
 
 sub print_usage
 {
@@ -118,18 +117,14 @@ if(!defined($kmer)) {
 }
 
 my $colour = 0;
-my $max_count = 100;
-my $threshold = 0.01;
-my $err_rate = 0.01; # Assume 1% base sequencing error rate
 
 # Temp file used by filter command
 my $tmp_file_path;
 my $tmp_fh;
 
 print STDERR "Loading JSON header...\n";
-my $hdr_txt = $ctp_file->ctp_get_header();
-my $hdr_json = decode_json($hdr_txt);
-my ($contigs_hist) = json_hdr_load_contig_hist($hdr_json,$colour);
+my $hdr_json = $ctp_file->ctp_get_hdr_json();
+my ($contigs_hist) = $ctp_file->ctp_get_hdr_contig_hist($colour);
 
 # Get kmer size
 my $kmer_size = $hdr_json->{'graph'}->{'kmer_size'};
@@ -153,48 +148,16 @@ if($action == CMD_CLEAN)
   unlink($tmp_file_path) or warn("Cannot delete temporary file $tmp_file_path");
 }
 
-print STDERR "Calculating likelihoods...\n";
-print STDERR "  (Generating ".scalar(@$contigs_hist)." x $max_count table)\n";
-
-my @eff_covg_hist = calc_eff_covg_hist(@$contigs_hist);
-# print STDERR "".join(' ', map {"$_:$eff_covg_hist[$_]"} 0..$#eff_covg_hist)."\n";
-
-# my ($link_model, $err_model) = calc_exp_runlens($genome_size, $max_count,
-#                                                 \@eff_covg_hist, $err_rate);
-
-# Find length cutoff (keep links <$cutoff)
-# my $cutoff_dist;
-# if(!$use_err_model) {
-#   $cutoff_dist = find_link_cutoff($link_model,$kmer_size,$threshold);
-#   print STDERR "Cutoff is length <$cutoff_dist bp\n";
-# }
-
-# print STDERR "Threshold is >$threshold (".($threshold*100)."%)\n";
-
 if($limit > 0) { print STDERR "Printing only the first $limit kmers\n"; }
-
-# print STDERR "\n -- LinkModel --\n";
-# print_expect_table($link_model, \*STDERR);
-# print STDERR "\n -- ErrModel --\n";
-# print_expect_table($err_model, \*STDERR);
-# print STDERR "\n";
-
-# my @use_links = ();
-# for(my $i = 0; $i < @eff_covg_hist; $i++) {
-#   $use_links[$i] = [map { should_keep_link_err_model($link_model,$err_model,$threshold,$i,$_) } 0..$max_count];
-# }
-
-# print STDERR "\n -- UseLink --\n";
-# print_expect_table(\@use_links, \*STDERR);
-# print STDERR "\n";
-
-# exit;
 
 if($action == CMD_CLEAN)   { print STDERR "Cleaning links...\n"; }
 elsif($action == CMD_PLOT) { print STDERR "Plotting links...\n"; }
-elsif($action == CMD_LIST) { print STDERR "Listing links...\n";  }
+elsif($action == CMD_LIST)
+{
+  print STDERR "Calculating likelihoods...\n";
 
-if($action == CMD_LIST) {
+  my @eff_covg_hist = calc_eff_covg_hist(@$contigs_hist);
+
   print STDERR "Saving read segment histogram to $eff_covg_path...\n";
   print $eff_covg_fh "ReadLength,Counts\n";
   for(my $i = $kmer_size; $i < @eff_covg_hist; $i++) {
@@ -203,6 +166,8 @@ if($action == CMD_LIST) {
   close($eff_covg_fh);
   print STDERR "Saving link CSV to $link_csv_path...\n";
   print $link_csv_fh "LinkLength,Count\n";
+
+  print STDERR "Listing links...\n";
 }
 
 # Statistics on links printed
@@ -320,8 +285,8 @@ if($action == CMD_CLEAN)
 
   # Reheader file
   my $hex = "0123456789abcdef";
-  my $file_key = gen_rand_key(16);
-  my $cmd_key  = gen_rand_key(8);
+  my $file_key = get_rand_hex_key(16);
+  my $cmd_key  = get_rand_hex_key(8);
   $hdr_json->{'file_key'} = $file_key;
 
   my $datetime = strftime("%Y-%m-%d %H:%M:%S", localtime(time));
@@ -389,14 +354,18 @@ print STDERR "Done.\n";
 exit;
 
 
-sub gen_rand_key
+sub calc_eff_covg_hist
 {
-  my ($length) = @_;
-  my $key = "";
-  my $hex = "0123456789abcdef";
-  map {$key .= substr($hex, rand(16), 1)} 1..$length;
-  return $key;
+  my (@hist) = @_;
+  my @eff_covg = (0) x scalar(@hist);
+  for(my $i = 0; $i < @hist; $i++) {
+    for(my $j = $i; $j < @hist; $j++) {
+      $eff_covg[$i] += ($j-$i+1)*$hist[$j];
+    }
+  }
+  return @eff_covg;
 }
+
 
 sub tree_has_branches
 {

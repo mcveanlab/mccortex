@@ -139,7 +139,7 @@ colidx=$(echo $(eval echo '{1,$[{1..'$nkmers'}*2]}') | tr ' ' ',');
 for p in perf stoch stocherr; do
   for annot in plain links string; do
     [ ! -f $p.$annot.join.csv ] && \
-      (printf "metric,%s\n" $(echo $kmers | sed 's/ /,k/g');
+      (printf "metric,k%s\n" $(echo $kmers | sed 's/ /,k/g');
        printf "kmer,%s\n" $(echo $kmers | tr ' ' ',');
        paste -d, k*/$p.$annot.contigs.rmdup.csv | \
        cut -d, -f $colidx - | tail -n +2) > $p.$annot.join.csv
@@ -152,7 +152,7 @@ echo == Checking contig matches ==
 for k in $kmers; do
   for p in perf stoch stocherr; do
     for annot in plain links string; do
-      [ ! -f k$k/$p.$annot.contigs.rmdup.txt ] && $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa ../../results/data/chr22/chr22_17M_18M.fa >& k$k/$p.$annot.contigs.rmdup.txt
+      [ ! -f k$k/$p.$annot.contigs.rmdup.txt ] && $STRCHK $k 0.1 k$k/$p.$annot.contigs.rmdup.fa $REF >& k$k/$p.$annot.contigs.rmdup.txt
     done
   done
 done
