@@ -23,9 +23,9 @@ typedef struct
 
 // Read start (duplicate removal during read loading)
 #define db_node_has_read_start_mt(graph,node) \
-        bitset_get_mt((volatile uint8_t*)(graph)->readstrt, 2*(node).key+(node).orient)
+        bitset_get_mt((graph)->readstrt, 2*(node).key+(node).orient)
 #define db_node_set_read_start_mt(graph,node) \
-        bitset_set_mt((volatile uint8_t*)(graph)->readstrt, 2*(node).key+(node).orient)
+        bitset_set_mt((graph)->readstrt, 2*(node).key+(node).orient)
 
 // Returns true if start1, start2 set and reads should be added
 static bool seq_reads_are_novel(read_t *r1, read_t *r2,
