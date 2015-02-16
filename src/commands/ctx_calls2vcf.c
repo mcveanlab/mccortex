@@ -222,7 +222,7 @@ static size_t call_file_min_allele_len(const CallFileEntry *centry)
 
 static const char* str_fasta_name_end(const char *title)
 {
-  while(!isspace(*title)) title++;
+  while(!isspace(*title)) { title++; }
   return title;
 }
 
@@ -233,7 +233,7 @@ static void bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
   // 3p flank may not be long enough to give kmer bases
   size_t flank3pcpy = MIN2(ksize, flank3p_len);
   size_t flank5pcpy = ksize - flank3pcpy; // Make up remaining sequence
-  ctx_assert(flank5p_len <= flank5pcpy);
+  ctx_assert(flank5pcpy <= flank5p_len);
 
   memcpy(endkmer,            flank5p, flank5pcpy);
   memcpy(endkmer+flank5pcpy, flank3p, flank3pcpy);
@@ -264,9 +264,12 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   // Check entry/flank names match
   const char *hdrline = call_file_get_line(centry, 0);
   if(hdrline[0] != '>') die("Unexpected line: %s", hdrline);
+  hdrline++;
   const char *hdrline_end = str_fasta_name_end(hdrline);
-  if(strncmp(hdrline+1,bname, hdrline_end - hdrline) != 0)
-    die("SAM/BAM and call entries mismatch '%s' vs '%s'", bname, hdrline);
+  int hdrline_len = hdrline_end - hdrline;
+
+  if(strncmp(hdrline, bname, hdrline_len) != 0)
+    die("SAM/BAM and call entries mismatch '%s' vs '%s'", hdrline, bname);
 
   // Find 3p flank position using search for first kmer
   char endkmer[200];
