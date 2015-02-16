@@ -34,7 +34,7 @@ MEM=5G
 
 # create directories
 for k in $kmers; do
-  mkdir -p k$k''{,graphs,links,contigs,results,kmer_cleaning,link_cleaning}
+  mkdir -p k$k/{,graphs,links,contigs,results,kmer_cleaning,link_cleaning}
   [ -x $(getctx $k) ] || ( echo "Please compile cortex with 'make MAXK=$[ ($k+31)/32*32-1 ]'" 1>&2 && false )
 done
 

@@ -97,7 +97,7 @@ bit_array: bit_array/Makefile
 seq_file: seq_file/Makefile htslib
 	cd seq_file && git pull && make HTSLIB=../htslib
 
-seq-align: seq-align/Makefile bit_array string_buffer
+seq-align: seq-align/Makefile seq_file bit_array string_buffer sort_r
 	cd seq-align && git pull && make LIBS_PATH=../
 
 readsim: readsim/Makefile htslib
