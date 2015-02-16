@@ -41,7 +41,6 @@ diploid/chrom%.fa: diploid/genome%.fa
 reads/chrom%.$(HAPDEPTH)X.fa.gz: diploid/chrom%.fa | $(DIRS)
 	$(READSIM) -l $(READLEN) -r $< -d $(HAPDEPTH) -p $(PHIX) -s reads/chrom$*.$(HAPDEPTH)X
 
-# Take only the left hand read for 50X diploid coverage
 # Cortex build k=$(K)
 k$(K)/graph.k$(K).ctx: $(READS) | $(DIRS)
 	$(CTX) build -m 100M -k $(K) --sample chr22_17M_18M --seq reads/chrom0.$(HAPDEPTH)X.fa.gz --seq reads/chrom1.$(HAPDEPTH)X.fa.gz $@
