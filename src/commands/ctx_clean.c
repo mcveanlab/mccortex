@@ -36,7 +36,7 @@ const char clean_usage[] =
 "  -l, --len-before <out.csv>  Save supernode length histogram before cleaning\n"
 "  -L, --len-after <out.csv>   Save supernode length histogram after cleaning\n"
 "\n"
-"  --supernodes without a threshold, causes a caclulated threshold to be used\n"
+"  --supernodes without a threshold, causes a calculated threshold to be used\n"
 "  Default: --tips 2*kmer_size --supernodes\n"
 "\n";
 
