@@ -12,6 +12,13 @@ os:
 - linux
 - osx
 
+# Multi language support on TravisCI would be nice
+# language: perl
+# perl: "5.20"
+
+before_install:
+  - cpanm JSON
+
 install: ./travis/install.sh
 
 script: ./travis/script.sh

@@ -5,6 +5,7 @@ set -e
 echo "Branch: ${TRAVIS_BRANCH}"
 echo "OS: ${TRAVIS_OS_NAME}"
 echo "CC: ${CC}"
+echo "Perl: ${TRAVIS_PERL_VERSION}"
 
 RUN_TRAVIS=`./travis/run.sh`
 
