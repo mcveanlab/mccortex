@@ -16,10 +16,9 @@ os:
 # language: perl
 # perl: "5.20"
 
-before_install:
-  - cpanm JSON
-
-install: ./travis/install.sh
+install:
+  - ./travis/install.sh
+  - apt-get install libjson-pp-perl
 
 script: ./travis/script.sh
 
