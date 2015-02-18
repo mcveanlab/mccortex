@@ -87,7 +87,7 @@ cmp_breakpoint: breakpoints.txt.gz ref.fa
 # Check no entries private to either truth.vcf.gz or breakpoints.norm.vcf.gz
 cmp_vcf: breakpoints.norm.vcf.gz truth.vcf.gz
 	@$(BCFTOOLS) stats breakpoints.norm.vcf.gz truth.vcf.gz | \
-	  grep '^SN\t[01]\t' | grep -v 'number of samples' | \
+	  grep '^SN\s*[01]\s' | grep -v 'number of samples' | \
 		awk 'BEGIN{FS="\t"}{ if($$4 != 0){ print "Missing VCF entries!"; exit -1; } }'
 	@echo 'VCF files match!'
 

@@ -61,6 +61,8 @@ void chrom_pos_validate(const ChromPosOffset *pos)
 // chr:start-end:strand:offset
 int _parse(char *str, ChromPosOffset *obj)
 {
+  ctx_assert(str != NULL);
+
   char *chrom = NULL;
   size_t i, start = 0, end = 0, offset = 0;
   bool fw_strand = false;
@@ -105,6 +107,7 @@ int _parse(char *str, ChromPosOffset *obj)
 // Return 0 on success, -1 on error
 int chrom_pos_list_parse(char *str, ChromPosBuffer *buf)
 {
+  ctx_assert(str != NULL);
   chrompos_buf_reset(buf);
 
   size_t len = strlen(str);

@@ -95,7 +95,7 @@ bubbles.norm.vcf.gz: bubbles.sort.vcf
 # compare truth.vcf and bubbles.norm.vcf.gz
 # Check no entries private to either truth.vcf.gz or bubbles.norm.vcf.gz
 cmp_vcf: bubbles.norm.vcf.gz truth.vcf.gz
-	@$(BCFTOOLS) stats bubbles.norm.vcf.gz truth.vcf.gz | grep '^SN\t[01]\t' | \
+	$(BCFTOOLS) stats bubbles.norm.vcf.gz truth.vcf.gz | grep -E '^SN\s*[01]\s' | \
 		awk 'BEGIN{FS="\t"}{ if($$4 != 0){ print "Missing VCF entries!"; exit -1; } }'
 	@echo 'VCF files match!'
 

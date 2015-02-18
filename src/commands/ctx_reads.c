@@ -333,7 +333,7 @@ int ctx_reads(int argc, char **argv)
 
   status("Total printed %zu / %zu (%.2f%%) reads\n",
          total_reads_printed, total_reads,
-         (100.0 * total_reads_printed) / total_reads);
+         total_reads ? (100.0 * total_reads_printed) / total_reads : 0.0);
 
   db_graph_dealloc(&db_graph);
 
