@@ -104,9 +104,6 @@ int ctx_join(int argc, char **argv)
   GraphFileReader *igfiles = isec_gfiles_buf.data;
   size_t num_igfiles = isec_gfiles_buf.len;
 
-  bool use_ncols_set = (use_ncols > 0);
-
-  if(use_ncols == 0) use_ncols = 1;
   if(!out_path) cmd_print_usage("--out <out.ctx> required");
 
   if(optind >= argc)
@@ -136,7 +133,7 @@ int ctx_join(int argc, char **argv)
 
     ctx_max_cols = MAX2(ctx_max_cols, file_filter_into_ncols(&gfiles[i].fltr));
     ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfiles[i]));
-    ctx_sum_kmers += gfiles[i].num_of_kmers;
+    ctx_sum_kmers += graph_file_nkmers(&gfiles[i]);
   }
 
   // Probe intersection graph files
@@ -160,20 +157,30 @@ int ctx_join(int argc, char **argv)
 
   bool take_intersect = (num_igfiles > 0);
 
+  // If we are taking an intersection,
+  // all kmers intersection kmers will need to be loaded
   if(take_intersect)
-    ctx_max_kmers = min_intersect_num_kmers;
+    ctx_max_kmers = ctx_sum_kmers = min_intersect_num_kmers;
 
-  if(use_ncols < ctx_max_cols && strcmp(out_path,"-") == 0)
-    die("I need %zu colours if outputting to STDOUT (--ncols)", ctx_max_cols);
+  bool use_ncols_set = (use_ncols > 0);
+  bool output_to_stdout = (strcmp(out_path,"-") == 0);
+
+  // if(use_ncols == 0) use_ncols = 1;
+  if(use_ncols_set) {
+    if(use_ncols < ctx_max_cols && output_to_stdout)
+      die("I need %zu colours if outputting to STDOUT (--ncols)", ctx_max_cols);
+    if(use_ncols > ctx_max_cols) {
+      warn("I only need %zu colour%s ('--ncols %zu' ignored)",
+           ctx_max_cols, util_plural_str(ctx_max_cols), use_ncols);
+      use_ncols = ctx_max_cols;
+    }
+  }
+  else {
+    use_ncols = output_to_stdout ? ctx_max_cols : 1;
+  }
 
   // Check out_path is writable
   futil_create_output(out_path);
-
-  if(use_ncols > ctx_max_cols) {
-    warn("I only need %zu colour%s ('--ncols %zu' ignored)",
-         ctx_max_cols, util_plural_str(ctx_max_cols), use_ncols);
-    use_ncols = ctx_max_cols;
-  }
 
   status("Output %zu cols; from %zu files; intersecting %zu graphs; ",
          ctx_max_cols, num_gfiles, num_igfiles);
@@ -218,7 +225,10 @@ int ctx_join(int argc, char **argv)
   {
     // Maximise use_ncols
     size_t max_usencols = (memargs.mem_to_use*8) / bits_per_kmer;
+
     use_ncols = MIN2(max_usencols, ctx_max_cols);
+    bits_per_kmer = sizeof(BinaryKmer)*8 +
+                    (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
 
     // Re-check memory used
     kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
