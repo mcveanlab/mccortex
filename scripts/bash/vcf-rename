@@ -1,0 +1,13 @@
+#!/bin/bash
+
+gzip -fdc $1 | \
+awk 'BEGIN{ OFS="\t"; id=0; }
+{
+  if($0 ~ /^#/) { print $0; }
+  else {
+    printf("%s%s%s%s%s",$1,OFS,$2,OFS,"id"id);
+    for(i=4;i<=NF;i=i+1) { printf("%s%s", OFS, $i); }
+    print "";
+    id=id+1;
+  }
+}'

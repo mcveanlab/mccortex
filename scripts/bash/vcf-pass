@@ -1,0 +1,3 @@
+#!/bin/bash
+
+gzip -fcd | awk '$1 ~ /^#/ || $7 ~ /^(PASS|\.)$/'

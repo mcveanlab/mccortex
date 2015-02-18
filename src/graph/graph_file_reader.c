@@ -145,7 +145,6 @@ size_t graph_files_open(char **graph_paths,
                       gfiles[0].hdr.kmer_size, gfiles[i].hdr.kmer_size);
     }
 
-    file_filter_shift_cols(&gfiles[i].fltr, ncols);
     ncols = MAX2(ncols, file_filter_into_ncols(&gfiles[i].fltr));
 
     ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfiles[i]));

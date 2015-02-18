@@ -105,8 +105,8 @@ static size_t num_entries_read = 0, num_entries_well_mapped = 0, num_vars_printe
 
 // Bubble statistics
 static size_t num_flank5p_unmapped = 0, num_flank5p_lowqual = 0;
-static size_t num_flank3p_multihits = 0, num_flank3p_approx_match = 0;
-static size_t num_flank3p_not_found = 0;
+static size_t num_flank3p_exact_match = 0, num_flank3p_approx_match = 0;
+static size_t num_flank3p_multihits = 0, num_flank3p_not_found = 0;
 
 // Breakpoint statistics
 static size_t num_flanks_not_uniquely_mapped = 0;
@@ -273,7 +273,7 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
 
   // Find 3p flank position using search for first kmer
   char endkmer[200];
-  ctx_assert(kmer_size < sizeof(endkmer));
+  ctx_assert(kmer_size+1 <= sizeof(endkmer));
   ctx_assert(flank3p_len >= kmer_size || call_file_min_allele_len(centry) == 0);
   bubble_get_end_kmer(flank5p, flank5p_len, flank3p, flank3p_len, kmer_size, endkmer);
   if(bam_is_rev(bamentry)) dna_revcomp_str(endkmer, endkmer, kmer_size);
@@ -298,6 +298,8 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   char *search_region = (*chrom)->seq.b+search_start;
   size_t search_len = (size_t)(search_end - search_start);
 
+  // DEV: implement strnstr to avoid modifying reference sequence!
+
   // Now do search with kmer
   // Attempt to find perfect match for kmer within search region
   // temporarily null terminate ref
@@ -313,23 +315,27 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
 
   if(multiple_hits) { num_flank3p_multihits++; return false; }
 
-  if(kmer_match != NULL) {
+  if(kmer_match != NULL)
+  {
     if(bam_is_rev(bamentry)) {
-      *start = kmer_match - (*chrom)->seq.b;
+      *start = kmer_match + kmer_size - (*chrom)->seq.b;
       *end   = bamentry->core.pos;
     } else {
-      *start = bamentry->core.pos + cigar2rlen - 1;
-      *end   = kmer_match + kmer_size - 1 - (*chrom)->seq.b;
+      *start = bamentry->core.pos + cigar2rlen;
+      *end   = kmer_match - (*chrom)->seq.b;
     }
+    num_flank3p_exact_match++;
     return true;
-  } else {
+  }
+  else
+  {
     // Look for approximate match
     needleman_wunsch_align2(search_region, endkmer, search_len, kmer_size,
                             &nw_scoring_flank, nw_aligner, aln);
     num_nw_flank++;
     const char *ref = aln->result_a, *alt = aln->result_b;
-    // --aa--cc-cge
-    // aa--ccd-dcge
+    // --aa--dd-cge
+    // bb--ccd-ecge
 
     // Find positions of first and last match
     size_t i, l, r, matches = 0;
@@ -345,6 +351,7 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
       alt_offset_rght += (alt[l] != '-');
     }
 
+    // Count matches
     for(i = l; i <= r; i++) matches += (ref[i] == alt[i]);
 
     if(matches < kmer_size / 2)
@@ -356,15 +363,17 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
 
     num_flank3p_approx_match++;
 
-    // DEV: add alt_offset_left / alt_offset_right to alleles!
+    // DEV: return alt_offset_left / alt_offset_right in
+    //      alt_copy_left_flank, alt_copy_rght_flank pointers
 
     if(bam_is_rev(bamentry)) {
-      *start = search_region + ref_offset_left - (*chrom)->seq.b;
+      *start = (search_region + search_len - ref_offset_rght) - (*chrom)->seq.b;
       *end   = bamentry->core.pos;
     } else {
-      *start = bamentry->core.pos + cigar2rlen - 1;
-      *end   = search_region + search_len - 1 - ref_offset_rght - (*chrom)->seq.b;
+      *start = bamentry->core.pos + cigar2rlen;
+      *end   = search_region + ref_offset_left - (*chrom)->seq.b;
     }
+
     return true;
   }
 }
@@ -467,24 +476,27 @@ static void strbuf_append_dna(StrBuf *buf, const char *src, size_t len,
   }
 }
 
-static size_t align_get_start(const char *ref, const char *alt, size_t len,
-                              size_t offset)
+// `ref` and `alt` are aligned alleles - should both be same length strings
+// of 'ACGT-'
+// return first mismatch position or -1
+static int align_get_start(const char *ref, const char *alt)
 {
-  size_t i;
-  for(i = offset; i < len; i++) {
-    if(ref[i] != alt[i]) return offset;
+  const char *start = ref;
+  while(*ref) {
+    if(*ref != *alt) return (ref - start);
+    ref++; alt++;
   }
-  return len;
+  return -1;
 }
 
-static size_t align_get_end(const char *ref, const char *alt, size_t len,
-                            size_t offset)
+// `ref` and `alt` are aligned alleles - should both be same length strings
+// of 'ACGT-'
+// return first matching position
+static int align_get_end(const char *ref, const char *alt)
 {
-  size_t i;
-  for(i = offset; i < len; i++) {
-    if(ref[i] == alt[i]) return offset;
-  }
-  return len;
+  int i = 0;
+  while(ref[i] && ref[i] != alt[i]) i++;
+  return i;
 }
 
 static size_t align_get_len(const char *allele, size_t len)
@@ -534,10 +546,6 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
       fputc('\t', fout);
       fputs(genotypes[i], fout);
     }
-  } else {
-    for(i = 0; i < num_samples; i++) {
-      fputs("\t.", fout);
-    }
   }
 
   fputc('\n', fout);
@@ -550,28 +558,31 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
  * @param genotypes is strings to print in genotypes columns, of length num_samples.
 *                   It may be NULL.
  */
-static void align_biallelic(const char *ref, const char *alt, size_t aligned_len,
+static void align_biallelic(const char *ref, const char *alt,
                             const read_t *chr, size_t ref_pos,
                             const char *info, const char **genotypes,
                             FILE *fout)
 {
-  size_t i, start, end = 0;
+  int start, len;
   size_t ref_allele_len, alt_allele_len;
   int prev_base, vcf_pos;
   bool is_snp;
 
-  while((start = align_get_start(ref, alt, aligned_len, end)) < aligned_len)
+  // printf("--\n ref: %s\n alt: %s\n", ref, alt);
+
+  while((start = align_get_start(ref, alt)) > -1)
   {
-    // Update ref offset
-    for(i = end; i < start; i++)
-      if(ref[i] != '-') ref_pos++;
+    ref_pos += start; // assume ref[i]==alt[i] means ref[i]!='-'
+    ref += start;
+    alt += start;
+    len = align_get_end(ref, alt);
 
-    end = align_get_end(ref, alt, aligned_len, start);
+    // printf("ref: %.*s\nalt: %.*s\nref_pos: %zu start: %i len %i\n",
+    //        len, ref, len, alt, ref_pos, start, len);
 
-    ref_allele_len = align_get_len(ref+start, end-start);
-    alt_allele_len = align_get_len(alt+start, end-start);
-    is_snp = ref_allele_len == 1 && alt_allele_len == 1;
-
+    ref_allele_len = align_get_len(ref, len);
+    alt_allele_len = align_get_len(alt, len);
+    is_snp = (ref_allele_len == 1 && alt_allele_len == 1);
     vcf_pos = ref_pos+1; // Convert to 1-based
 
     if(!is_snp) {
@@ -582,10 +593,12 @@ static void align_biallelic(const char *ref, const char *alt, size_t aligned_len
     }
 
     print_vcf_entry(chr->name.b, vcf_pos, prev_base,
-                    ref+start, alt+start, end-start,
+                    ref, alt, len,
                     info, genotypes, fout);
 
     ref_pos += ref_allele_len;
+    ref += len;
+    alt += len;
   }
 }
 
@@ -640,10 +653,13 @@ static void align_entry_allele(const char *line, size_t linelen,
   const char *seq;
   size_t seqlen;
 
-  if(ncpy == 0 && fw_strand) {
+  if(ncpy == 0 && fw_strand)
+  {
     seq = line;
     seqlen = linelen;
-  } else {
+  }
+  else
+  {
     strbuf_reset(tmpbuf);
 
     // printf(" ref_start: %zu ref_end: %zu\n", ref_start, ref_end);
@@ -680,7 +696,7 @@ static void align_entry_allele(const char *line, size_t linelen,
   num_nw_allele++;
 
   // Break into variants and print VCF
-  align_biallelic(aln->result_a, aln->result_b, aln->length,
+  align_biallelic(aln->result_a, aln->result_b,
                   chr, ref_start,
                   info, genotypes, fout);
 }
@@ -718,7 +734,7 @@ static void brkpnt_parse_genotype_colours(const char *hdrline,
   }
 }
 
-static void align_entry(CallFileEntry *centry, const char *callid,
+static void align_entry(const CallFileEntry *centry, const char *callid,
                         const char *flank5p, size_t flank5p_len,
                         const char *flank3p, size_t flank3p_len,
                         const read_t *chr,
@@ -759,7 +775,7 @@ static void align_entry(CallFileEntry *centry, const char *callid,
   // Deal with alleles one at a time vs ref
   // First allele stored in line 5:
   //   >flank5p\n<seq>\n>flank3p\n<seq>\n>allele1\n<seq>
-  char *line;
+  const char *line;
   size_t linelen;
 
   char info[200];
@@ -775,7 +791,7 @@ static void align_entry(CallFileEntry *centry, const char *callid,
 
     if(genotypes) {
       ctx_assert(!input_bubble_format);
-      char *hdrline = call_file_get_line(centry,i-1);
+      const char *hdrline = call_file_get_line(centry,i-1);
       brkpnt_parse_genotype_colours(hdrline, genotypes, num_samples);
     }
 
@@ -908,7 +924,7 @@ static cJSON* read_input_header(gzFile gzin)
 /**
  * @return number of samples found in json header
  */
-static size_t print_vcf_header(cJSON *json, FILE *fout)
+static size_t print_vcf_header(cJSON *json, bool print_genotypes, FILE *fout)
 {
   ctx_assert(json != NULL);
 
@@ -916,7 +932,7 @@ static size_t print_vcf_header(cJSON *json, FILE *fout)
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
-  fprintf(fout, "##fileFormat=VCFv4.1\n##fileDate=%s\n", datestr);
+  fprintf(fout, "##fileformat=VCFv4.1\n##fileDate=%s\n", datestr);
 
   // Print commands used to generate header
   cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, input_path);
@@ -960,6 +976,11 @@ static size_t print_vcf_header(cJSON *json, FILE *fout)
     fprintf(fout, "\",cwd=\"%s\">\n", cwd->valuestring);
   }
 
+  // Print field definitions
+  fprintf(fout, "##INFO=<ID=BUBBLE,Number=1,Type=String,Description=\"Bubble name\">\n");
+  fprintf(fout, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
+  fprintf(fout, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
+
   // Print contigs lengths
   for(i = 0; i < chroms.len; i++) {
     fprintf(fout, "##contig=<id=%s,length=%zu>\n",
@@ -969,24 +990,26 @@ static size_t print_vcf_header(cJSON *json, FILE *fout)
   // Print VCF column header
   fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT", fout);
 
-  // Print a column for each sample
-  cJSON *graph_json   = json_hdr_get(json,       "graph",   cJSON_Object, input_path);
-  cJSON *colours_json = json_hdr_get(graph_json, "colours", cJSON_Array,  input_path);
-  cJSON *colour_json  = colours_json->child;
-  if(colour_json == NULL) die("Missing colours");
+  size_t nsamples_printed = 0;
 
-  // Also count the number of samples
-  size_t nsamples;
+  if(print_genotypes)
+  {
+    // Print a column for each sample
+    cJSON *graph_json   = json_hdr_get(json,       "graph",   cJSON_Object, input_path);
+    cJSON *colours_json = json_hdr_get(graph_json, "colours", cJSON_Array,  input_path);
+    cJSON *colour_json  = colours_json->child;
+    if(colour_json == NULL) die("Missing colours");
 
-  for(nsamples = 0; colour_json; colour_json = colour_json->next, nsamples++) {
-    cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
-    fputc('\t', fout);
-    fputs(sample_json->valuestring, fout);
+    for(; colour_json; colour_json = colour_json->next, nsamples_printed++) {
+      cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
+      fputc('\t', fout);
+      fputs(sample_json->valuestring, fout);
+    }
   }
 
   fputc('\n', fout);
 
-  return nsamples;
+  return nsamples_printed;
 }
 
 // Check contig entries match reference
@@ -1063,7 +1086,7 @@ int ctx_calls2vcf(int argc, char **argv)
   if(!input_bubble_format) brkpnt_check_refs_match(json);
 
   // Run
-  num_samples = print_vcf_header(json, fout);
+  num_samples = print_vcf_header(json, !input_bubble_format, fout);
   parse_entries(gzin, fout);
 
   // Print stats
@@ -1082,6 +1105,7 @@ int ctx_calls2vcf(int argc, char **argv)
     print_stat(num_flank3p_not_found,   num_entries_read, "flank 3p not found");
     print_stat(num_flank3p_multihits,   num_entries_read, "flank 3p multiple hits");
     print_stat(num_flank3p_approx_match,num_entries_read, "flank 3p approx match used");
+    print_stat(num_flank3p_exact_match, num_entries_read, "flank 3p exact match");
   } else {
     // Breakpoint caller specific
     print_stat(num_flanks_not_uniquely_mapped, num_entries_read, "flank pairs contain one flank not mapped uniquely");

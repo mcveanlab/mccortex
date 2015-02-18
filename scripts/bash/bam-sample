@@ -1,0 +1,3 @@
+#!/bin/bash
+
+samtools view -H $1 | grep -o -m 1 'SM:\w*' | sed 's/^SM://g'

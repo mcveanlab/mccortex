@@ -3,7 +3,7 @@
 # make clean    <- clean all libraries
 
 CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
-COMMON=bcftools samtools readsim bioinf-perl maximal_substrs
+COMMON=bcftools samtools bwa readsim bioinf-perl maximal_substrs
 ANALYSIS=vcflib
 
 ALLTGTS=$(CORE) $(COMMON) $(ANALYSIS)
@@ -36,6 +36,9 @@ bcftools/Makefile:
 
 samtools/Makefile:
 	git clone --branch master https://github.com/samtools/samtools.git
+
+bwa/Makefile:
+	git clone https://github.com/lh3/bwa.git
 
 vcflib/Makefile:
 	git clone --recursive https://github.com/ekg/vcflib.git
@@ -85,8 +88,11 @@ bcftools: htslib bcftools/Makefile
 samtools: htslib samtools/Makefile
 	cd samtools && git pull && make
 
+bwa: bwa/Makefile
+	cd bwa && git pull && make
+
 vcflib: vcflib/Makefile
-	cd vcflib && git pull && make
+	cd vcflib && git pull #&& make
 
 string_buffer: string_buffer/Makefile
 	cd string_buffer && git pull && make
