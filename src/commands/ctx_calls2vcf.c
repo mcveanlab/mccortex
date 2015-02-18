@@ -924,7 +924,7 @@ static cJSON* read_input_header(gzFile gzin)
 /**
  * @return number of samples found in json header
  */
-static size_t print_vcf_header(cJSON *json, bool print_genotypes, FILE *fout)
+static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
 {
   ctx_assert(json != NULL);
 
@@ -977,7 +977,11 @@ static size_t print_vcf_header(cJSON *json, bool print_genotypes, FILE *fout)
   }
 
   // Print field definitions
-  fprintf(fout, "##INFO=<ID=BUBBLE,Number=1,Type=String,Description=\"Bubble name\">\n");
+  if(is_breakpoint)
+    fprintf(fout, "##INFO=<ID=BRKPNT,Number=1,Type=String,Description=\"Breakpoint call\">\n");
+  else
+    fprintf(fout, "##INFO=<ID=BUBBLE,Number=1,Type=String,Description=\"Bubble call\">\n");
+
   fprintf(fout, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
   fprintf(fout, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
 
@@ -992,7 +996,7 @@ static size_t print_vcf_header(cJSON *json, bool print_genotypes, FILE *fout)
 
   size_t nsamples_printed = 0;
 
-  if(print_genotypes)
+  if(is_breakpoint)
   {
     // Print a column for each sample
     cJSON *graph_json   = json_hdr_get(json,       "graph",   cJSON_Object, input_path);

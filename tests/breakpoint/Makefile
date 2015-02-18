@@ -1,10 +1,9 @@
 SHELL:=/bin/bash -euo pipefail
 
 #
-# s0: CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA
-#     gCCGTAGGTAAGGGCGTTAGTGC
-#
-# s1: GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG
+# chr1: CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA
+# chr2: gCCGTAGGTAAGGGCGTTAGTGC
+# chr3: GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG
 #
 # mx: gCCGTAGGTAAGGGCGTTAGaCGGGTTGGAGTTGGCCAAAGAAGTTCAAgg
 #     .1111111111111111111.2222222222222222222222222222..
@@ -21,56 +20,87 @@ CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl
+VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
+VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
 
-SEQS=seq0.fa seq1.fa mix.fa
+BGZIP=$(CTXDIR)/libs/htslib/bgzip
+BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
+
+SEQS=sample.fa ref.fa
 GRAPHS=$(SEQS:.fa=.k$(K).ctx)
-FLAT_GRAPHS=$(shell printf "0:%s\n" $(GRAPHS))
-TGTS=breakpoints.txt breakpoints.vcf $(GRAPHS)
+TGTS=breakpoints.txt.gz breakpoints.norm.vcf.gz $(GRAPHS)
 # join.k$(K).ctx
 
-all: $(TGTS) check
+all: $(TGTS) cmp_breakpoint cmp_vcf
 
-seq0.fa:
-	(echo '>seq0a'; \
-	 echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA; \
-	 echo '>seq0b'; \
-	 echo gCCGTAGGTAAGGGCGTTAGTGC) > seq0.fa
+ref.fa:
+	( echo '>chr1'; \
+	  echo CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA; \
+	  echo '>chr2'; \
+	  echo gCCGTAGGTAAGGGCGTTAGTGC; \
+	  echo '>chr3'; \
+	  echo GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG; ) > $@
 
-seq1.fa:
-	(echo '>seq1a'; \
-	 echo GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG) > seq1.fa
+sample.fa:
+	( echo '>sample0'; \
+	  echo gCCGTAGGTAAGGGCGTTAGaCGGGTTGGAGTTGGCCAAAGAAGTTCAAgg; \
+	  echo '>sample1'; \
+	  echo gCCGTAGGTAAGGGCGTTAGTGCAGTGCAAGGCCACATTGGGACACGAGTTGAgg; \
+	  echo '>sample2'; \
+	  echo cAACACCCTTTGGTTTAAGCCGGTTGGAGTTGGCCAAAGAAGTTCAAgg; ) > $@
 
-mix.fa:
-	(echo '>mix1'; \
-	 echo gCCGTAGGTAAGGGCGTTAGaCGGGTTGGAGTTGGCCAAAGAAGTTCAAgg; \
-	 echo '>mix2'; \
-	 echo gCCGTAGGTAAGGGCGTTAGTGCAGTGCAAGGCCACATTGGGACACGAGTTGAgg; \
-	 echo '>mix3'; \
-	 echo cAACACCCTTTGGTTTAAGCCGGTTGGAGTTGGCCAAAGAAGTTCAAgg;) > mix.fa
+truth.vcf.gz:
+	( printf "##fileformat=VCF4.1\n##fileDate="`date '+%Y%m%d'`"\n"; \
+		printf "##reference=ref.fa\n"; \
+		printf "##contig=<id=chr1,length=50>\n"; \
+		printf "##contig=<id=chr2,length=23>\n"; \
+		printf "##contig=<id=chr3,length=50>\n"; \
+		printf "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"; \
+		echo "chr1	18	truth0	T	TAGTGC	.	.	.	GT	1"; \
+	  echo "chr3	21	truth1	CG	C	.	.	.	GT	1"; ) > truth.vcf
+	$(BGZIP) truth.vcf
+	$(BCFTOOLS) index truth.vcf.gz
 
 %.k$(K).ctx: %.fa
-	$(CTX) build -m 10M -k $(K) --sample $< --seq $< $@
+	$(CTX) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
 
-breakpoints.txt: $(GRAPHS) $(SEQS)
-	$(CTX) breakpoints -t 1 -m 10M --minref 5 --maxref 20 --seq seq0.fa --seq seq1.fa --out breakpoints.txt.gz mix.k$(K).ctx
-	gzip -d breakpoints.txt.gz
+breakpoints.txt.gz: sample.k$(K).ctx ref.fa
+	$(CTX) breakpoints -t 1 -m 10M --minref 5 --maxref 20 \
+	                  --seq ref.fa --out $@ sample.k$(K).ctx >& $@.log
 
-breakpoints.vcf: breakpoints.txt $(SEQS)
-	$(CTX) calls2vcf -o $@ breakpoints.txt seq0.fa seq1.fa
+breakpoints.raw.vcf: breakpoints.txt.gz $(SEQS)
+	$(CTX) calls2vcf -o $@ breakpoints.txt.gz ref.fa >& $@.log
 
-check: breakpoints.txt seq0.fa seq1.fa
-	cat breakpoints.txt
-	$(BRKCHCK) breakpoints.txt seq0.fa seq1.fa
+breakpoints.sort.vcf: breakpoints.raw.vcf
+	$(VCFSORT) $< > $@
+
+breakpoints.norm.vcf.gz: breakpoints.sort.vcf
+	$(BCFTOOLS) norm --remove-duplicates --fasta-ref ref.fa --multiallelics +both $< | \
+		$(VCFRENAME) > breakpoints.norm.vcf
+	$(BGZIP) breakpoints.norm.vcf
+	$(BCFTOOLS) index breakpoints.norm.vcf.gz
+
+cmp_breakpoint: breakpoints.txt.gz ref.fa
+	$(BRKCHCK) <(gzip -fcd breakpoints.txt.gz) ref.fa
+
+# compare truth.vcf and breakpoints.norm.vcf.gz
+# Check no entries private to either truth.vcf.gz or breakpoints.norm.vcf.gz
+cmp_vcf: breakpoints.norm.vcf.gz truth.vcf.gz
+	@$(BCFTOOLS) stats breakpoints.norm.vcf.gz truth.vcf.gz | \
+	  grep '^SN\t[01]\t' | grep -v 'number of samples' | \
+		awk 'BEGIN{FS="\t"}{ if($$4 != 0){ print "Missing VCF entries!"; exit -1; } }'
+	@echo 'VCF files match!'
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join -o $@ $(FLAT_GRAPHS)
+	$(CTX) join -o $@ $(GRAPHS)
 
-seq.k$(K).pdf: join.k$(K).ctx
+join.k$(K).pdf: join.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
 
-plots: seq.k$(K).pdf
+plots: join.k$(K).pdf
 
 clean:
-	rm -rf $(TGTS) $(SEQS) breakpoints.txt.gz seq.k$(K).pdf join.k$(K).ctx
+	rm -rf $(TGTS) $(SEQS)
+	rm -rf ref.* breakpoints.* truth.* join.* *.log
 
-.PHONY: all clean plots check
+.PHONY: all clean plots cmp_breakpoint cmp_vcf
