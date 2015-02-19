@@ -9,9 +9,9 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella. Based at the Wellcome Trust Centre for Human Genetics, University of Oxford.
 
-*Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
+*Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-1 September 2014
+19 February 2015
 
 [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)[![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
@@ -34,17 +34,18 @@ Executables appear in the `bin/` directory. To update the libraries included:
 
     cd libs && make
 
-The perl scripts require the [JSON Module](http://search.cpan.org/~makamaka/JSON-2.90/lib/JSON.pm).
+The perl scripts require the [JSON Module](http://search.cpan.org/~makamaka/JSON-2.90/lib/JSON.pm). Install with cpanm with: `cpanm JSON` or with apt-get: `sudo apt-get install libjson-pp-perl`
 
 Commands
 --------
 
     usage: ctx31 <command> [options] <args>
-    version: ctx=XXXX zlib=1.2.5 htslib=0.2.0-rc10-8-g4b024e1 ASSERTS=ON CHECKS=ON k=3..31
+    version: ctx=XXXX zlib=1.2.5 htslib=1.2.1 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
 
     Commands:   breakpoints  use a trusted assembled genome to call large events
                 bubbles      find bubbles in graph which are potential variants
                 build        construct cortex graph from FASTA/FASTQ/BAM
+                calls2vcf    reduce set of strings to remove substrings
                 check        load and check graph (.ctx) and path (.ctp) files
                 clean        clean errors from a graph
                 contigs      assemble contigs for a sample
@@ -80,11 +81,11 @@ Getting Helps
 -------------
 
 Type a command with no arguments to see usage. The following may also be useful:
-* [HipChat](http://www.hipchat.com/gbF6Zf4k3)
 * [wiki](https://github.com/mcveanlab/mccortex/wiki)
 * [website](http://mcveanlab.github.io/mccortex)
+* [HipChat](http://www.hipchat.com/gbF6Zf4k3) to instant message -- please email me first to arrange a time
 * [mailing list](https://groups.google.com/forum/#!forum/cortex_var)
-* Report a [bug](https://github.com/mcveanlab/mccortex/issues)
+* Report a [bug / feature request](https://github.com/mcveanlab/mccortex/issues) on GitHub
 * Email me: Isaac Turner <turner.isaac@gmail.com>
 
 Code And Contributing
@@ -94,6 +95,8 @@ Issues can be submitted on github. Pull requests welcome. Please add your name
 to the AUTHORS file. Code should compile on mac/linux with clang/gcc without errors or warnings.
 
 More on the [wiki](https://github.com/mcveanlab/mccortex/wiki/Contributing)
+
+Unit tests are run with `make test` and integration tests with `cd tests; ./run`. Both of these test suites are run automatically with Travis CI when commits are pushed to GitHub. 
 
 Static analysis can be run with [cppcheck](http://cppcheck.sourceforge.net):
 
@@ -115,6 +118,7 @@ Bundled libraries may have different licenses:
 * [cJSON](http://http://sourceforge.net/projects/cjson/) (MIT)
 * [CityHash](https://code.google.com/p/cityhash/) (MIT)
 * [lookup3](http://burtleburtle.net/bob/c/lookup3.c) (Public Domain)
+* [xxHash](https://github.com/Cyan4973/xxHash.git) (BSD)
 * [htslib](https://github.com/samtools/htslib) (MIT)
 * [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
 * [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
@@ -128,6 +132,7 @@ Used in testing:
 * [samtools](https://github.com/samtools/samtools) (MIT)
 * [bcftools](https://github.com/samtools/bcftools) (MIT)
 * [vcflib](https://github.com/ekg/vcflib) (MIT)
+* [bwa](https://github.com/lh3/bwa) (MIT)
 
 Citing
 ------
