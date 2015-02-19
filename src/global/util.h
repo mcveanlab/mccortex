@@ -11,6 +11,9 @@
 
 #define util_plural_str(n) ((n) == 1 ? "" : "s")
 
+// strnstr
+char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
+
 // comparison returns:
 //   negative iff a < b
 //          0 iff a == b

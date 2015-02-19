@@ -8,6 +8,31 @@ const uint8_t rev_nibble_table[16]
 
 const uint8_t nibble_popcount_table[16] = {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4};
 
+char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
+{
+  size_t nlen = strlen(needle);
+  if(nlen == 0) return (char*)haystack; // search string is empty
+
+  char nc, hc;
+  nc = *needle; needle++; nlen--; // take first char to find
+
+  do
+  {
+    // Find a match for the first character
+    do {
+      if(hlen == 0 || (hc = *haystack) == '\0') return NULL;
+      hlen--; haystack++;
+    } while(hc != nc);
+
+    // Check if we have run out of characters
+    if(nlen > hlen) return NULL;
+
+  } while(strncmp(needle, haystack, nlen) != 0);
+
+  // s matched second char so need to de-increment
+  return (char*)(--haystack);
+}
+
 // comparison returns:
 //   negative iff a < b
 //          0 iff a == b

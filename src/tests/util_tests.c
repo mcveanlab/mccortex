@@ -4,6 +4,41 @@
 
 #include <math.h> // NAN, INFINITY
 
+static void test_strnstr()
+{
+  test_status("Testing strnstr");
+  
+  const char a[] = "";
+  TASSERT(ctx_strnstr(a,a,0) == a);
+  TASSERT(ctx_strnstr(a,"",0) == a);
+  TASSERT(ctx_strnstr(a,"x",0) == NULL);
+
+  const char b[] = "abc";
+  TASSERT(ctx_strnstr(b,"",0) == b);
+  TASSERT(ctx_strnstr(b,"",1000) == b);
+  TASSERT(ctx_strnstr(b,"x",10000) == NULL);
+
+  TASSERT(ctx_strnstr(b,"a",0) == NULL);
+  TASSERT(ctx_strnstr(b,"a",1) == b);
+  TASSERT(ctx_strnstr(b,"a",2) == b);
+  TASSERT(ctx_strnstr(b,"a",3) == b);
+  TASSERT(ctx_strnstr(b,"a",10000) == b);
+
+  TASSERT(ctx_strnstr(b,"b",0) == NULL);
+  TASSERT(ctx_strnstr(b,"b",1) == NULL);
+  TASSERT(ctx_strnstr(b,"b",2) == b+1);
+  TASSERT(ctx_strnstr(b,"b",3) == b+1);
+  TASSERT(ctx_strnstr(b,"b",1000) == b+1);
+
+  const char c[] = "asdfasdfasdf asdfasdf asdf asdf xyz asdf asdf xyz";
+  TASSERT(ctx_strnstr(c,"xyza",100) == NULL);
+  TASSERT(ctx_strnstr(c,"xyz",30) == NULL);
+  TASSERT(ctx_strnstr(c,"xyz",34) == NULL);
+  TASSERT(ctx_strnstr(c,"xyz",35) == strstr(c,"xyz"));
+  TASSERT(ctx_strnstr(c,"xyz",36) == strstr(c,"xyz"));
+  TASSERT(ctx_strnstr(c,"xyz",1000000) == strstr(c,"xyz"));
+}
+
 static void test_util_rev_nibble_lookup()
 {
   test_status("Testing rev_nibble_lookup()");
@@ -79,4 +114,5 @@ void test_util()
   test_util_bytes_to_str();
   test_util_calc_GCD();
   test_util_calc_N50();
+  test_strnstr();
 }
