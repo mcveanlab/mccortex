@@ -240,23 +240,55 @@ static void bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
   endkmer[ksize] = '\0';
 }
 
+// Return sum of bases on right of alignment with:
+// * hard masked (H)
+// * soft masked (S)
+// * inserted bases relative to ref (I)
+static inline uint32_t bam_get_end_padding(int n_cigar, const uint32_t *cigar)
+{
+  ctx_assert(n_cigar > 0);
+
+  uint32_t i, l = 0;
+  const uint32_t c = (1<<BAM_CINS)|(1<<BAM_CSOFT_CLIP)|(1<<BAM_CHARD_CLIP);
+
+  for(i = n_cigar-1; i > 0; i--)
+    if((c >> bam_cigar_op(cigar[i])) & 1)
+      l += bam_cigar_oplen(cigar[i]);
+
+  return l;
+}
+
 static bool sam_fetch_coords(const CallFileEntry *centry,
                              const char *flank5p, size_t flank5p_len,
                              const char *flank3p, size_t flank3p_len,
-                             const read_t **chrom,
+                             size_t *cpy_flnk_5p, size_t *cpy_flnk_3p,
+                             const read_t **chrom_ptr,
                              size_t *start, size_t *end,
-                             bool *fw_strand)
+                             bool *fw_strand_ptr)
 {
-  if(sam_read1(samfh, bam_header, bamentry) < 0) die("We've run out of SAM entries!");
+  // Get the next primary alignment
+  do {
+    if(sam_read1(samfh, bam_header, bamentry) < 0)
+      die("We've run out of SAM entries!");
+  } while(bamentry->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY));
 
   if(bamentry->core.flag & BAM_FUNMAP) { num_flank5p_unmapped++; return false; }
   if(bamentry->core.qual < min_mapq)   { num_flank5p_lowqual++;  return false; }
 
-  const char *chrom_name = bam_header->target_name[bamentry->core.tid];
-  *chrom = fetch_chrom(chrom_name);
-  *fw_strand = !bam_is_rev(bamentry);
+  bool fw_strand = !bam_is_rev(bamentry);
+  *fw_strand_ptr = fw_strand;
 
-  int cigar2rlen = bam_cigar2rlen(bamentry->core.n_cigar, bam_get_cigar(bamentry));
+  const char *chrom_name = bam_header->target_name[bamentry->core.tid];
+  const read_t *chrom = fetch_chrom(chrom_name);
+  *chrom_ptr = chrom;
+
+  const uint32_t *cigar = bam_get_cigar(bamentry);
+  int cigar2rlen = bam_cigar2rlen(bamentry->core.n_cigar, cigar);
+
+  // cpy_flnk_5p is soft clipped at right end of flank
+  // Eat up hard masked (H), soft masked (S) and inserted bases (relative to ref) (I)
+  *cpy_flnk_5p = bam_get_end_padding(bamentry->core.n_cigar, cigar);
+  *cpy_flnk_3p = 0; // set this later
 
   // Get bam query name
   char *bname = bam_get_qname(bamentry);
@@ -276,7 +308,7 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   ctx_assert(kmer_size+1 <= sizeof(endkmer));
   ctx_assert(flank3p_len >= kmer_size || call_file_min_allele_len(centry) == 0);
   bubble_get_end_kmer(flank5p, flank5p_len, flank3p, flank3p_len, kmer_size, endkmer);
-  if(bam_is_rev(bamentry)) dna_revcomp_str(endkmer, endkmer, kmer_size);
+  if(!fw_strand) dna_revcomp_str(endkmer, endkmer, kmer_size);
 
   // Determine search space
   // Choose a region of the ref to search for the end flank
@@ -284,45 +316,41 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   long search_start, search_end;
   size_t longest_allele = call_file_max_allele_len(centry);
 
-  if(bam_is_rev(bamentry)) {
-    search_start = (long)bamentry->core.pos - (longest_allele + kmer_size*2 + 10);
-    search_end = (long)bamentry->core.pos + kmer_size*2;
-  } else {
+  if(fw_strand) {
     search_start = (long)bamentry->core.pos + cigar2rlen - kmer_size*2;
     search_end = (long)bamentry->core.pos + cigar2rlen + longest_allele + kmer_size*2 + 10;
+  } else {
+    search_start = (long)bamentry->core.pos - (longest_allele + kmer_size*2 + 10);
+    search_end = (long)bamentry->core.pos + kmer_size*2;
   }
 
   search_start = MAX2(search_start, 0);
-  search_end   = MIN2(search_end,   (long)(*chrom)->seq.end);
+  search_end   = MIN2(search_end,   (long)chrom->seq.end);
 
-  char *search_region = (*chrom)->seq.b+search_start;
+  const char *search_region = chrom->seq.b + search_start;
   size_t search_len = (size_t)(search_end - search_start);
-
-  // DEV: implement strnstr to avoid modifying reference sequence!
 
   // Now do search with kmer
   // Attempt to find perfect match for kmer within search region
-  // temporarily null terminate ref
-  char save_ref_base = search_region[search_len];
-  search_region[search_len] = '\0';
 
   // Search, if there is more than one match -> abandon
-  char *kmer_match = strstr(search_region, endkmer);
-  bool multiple_hits = (kmer_match && strstr(kmer_match+1, endkmer) != NULL);
-
-  // Restore last base
-  search_region[search_len] = save_ref_base;
-
-  if(multiple_hits) { num_flank3p_multihits++; return false; }
+  const char *kmer_match = ctx_strnstr(search_region, endkmer, search_len);
 
   if(kmer_match != NULL)
   {
-    if(bam_is_rev(bamentry)) {
-      *start = kmer_match + kmer_size - (*chrom)->seq.b;
-      *end   = bamentry->core.pos;
-    } else {
+    // Check for multiple hits
+    size_t rem_search_len = search_region+search_len-kmer_match;
+    if(ctx_strnstr(kmer_match+1, endkmer, rem_search_len-1) != NULL) {
+      num_flank3p_multihits++;
+      return false;
+    }
+
+    if(fw_strand) {
       *start = bamentry->core.pos + cigar2rlen;
-      *end   = kmer_match - (*chrom)->seq.b;
+      *end   = kmer_match - chrom->seq.b;
+    } else {
+      *start = kmer_match + kmer_size - chrom->seq.b;
+      *end   = bamentry->core.pos;
     }
     num_flank3p_exact_match++;
     return true;
@@ -342,13 +370,13 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
     size_t ref_offset_left = 0, ref_offset_rght = 0;
     size_t alt_offset_left = 0, alt_offset_rght = 0;
 
-    for(l = 0; l < aln->length && (ref[l] == '-' || alt[l] == '-'); l++) {
+    for(l = 0; l < aln->length && ref[l] != alt[l]; l++) {
       ref_offset_left += (ref[l] != '-');
       alt_offset_left += (alt[l] != '-');
     }
-    for(r = aln->length-1; r != SIZE_MAX && (ref[l] == '-' || alt[l] == '-'); r--) {
-      ref_offset_rght += (ref[l] != '-');
-      alt_offset_rght += (alt[l] != '-');
+    for(r = aln->length-1; r != SIZE_MAX && ref[r] != alt[r]; r--) {
+      ref_offset_rght += (ref[r] != '-');
+      alt_offset_rght += (alt[r] != '-');
     }
 
     // Count matches
@@ -363,15 +391,14 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
 
     num_flank3p_approx_match++;
 
-    // DEV: return alt_offset_left / alt_offset_right in
-    //      alt_copy_left_flank, alt_copy_rght_flank pointers
+    *cpy_flnk_3p += fw_strand ? alt_offset_left : alt_offset_rght;
 
-    if(bam_is_rev(bamentry)) {
-      *start = (search_region + search_len - ref_offset_rght) - (*chrom)->seq.b;
-      *end   = bamentry->core.pos;
-    } else {
+    if(fw_strand) {
       *start = bamentry->core.pos + cigar2rlen;
-      *end   = search_region + ref_offset_left - (*chrom)->seq.b;
+      *end   = search_region + ref_offset_left - chrom->seq.b;
+    } else {
+      *start = (search_region + search_len - ref_offset_rght) - chrom->seq.b;
+      *end   = bamentry->core.pos;
     }
 
     return true;
@@ -461,19 +488,6 @@ static bool brkpnt_fetch_coords(const CallFileEntry *centry,
   (*end)--;
 
   return true;
-}
-
-static void strbuf_append_dna(StrBuf *buf, const char *src, size_t len,
-                              bool fw_strand)
-{
-  strbuf_ensure_capacity(buf, buf->end + len);
-  if(fw_strand) {
-    strbuf_append_strn(buf, src, len);
-  } else {
-    dna_revcomp_str(buf->b+buf->end, src, len);
-    buf->end += len;
-    buf->b[buf->end] = '\0';
-  }
 }
 
 // `ref` and `alt` are aligned alleles - should both be same length strings
@@ -602,26 +616,11 @@ static void align_biallelic(const char *ref, const char *alt,
   }
 }
 
-/*
-// Return -1 on error
-static long get_entry_id(const char *hdrline, bool bubble_format)
-{
-  const char *start;
-  char *end = NULL;
-  const char *expstr = bubble_format ? ">bubble." : ">brkpnt.";
-  if(strncmp(hdrline,expstr,strlen(expstr)) != 0) return -1;
-  start = hdrline + strlen(expstr);
-  unsigned long id = strtoul(start, &end, 10);
-  if(end == NULL || *end != '.') return -1;
-  return id;
-}
-*/
-
 /**
- * Parse header line from FASTA to fetch call id
- * Expect ">bubble.<id>." or ">brkpnt.<id>."
- * @param idstr copy call id string to memory pointed to by idstr
- * @param size is size of memory pointed to by idstr
+ * @abstract Parse header line from FASTA to fetch call id
+ *           Expect ">bubble.<id>." or ">brkpnt.<id>."
+ * @param  idstr copy call id string to memory pointed to by idstr
+ * @param  size is size of memory pointed to by idstr
  * @return length of string or -1 on error format error, -2 if idstr not big enough
  */
 static int get_callid_str(const char *hdrline, bool bubble_format,
@@ -641,57 +640,47 @@ static int get_callid_str(const char *hdrline, bool bubble_format,
 static void align_entry_allele(const char *line, size_t linelen,
                                const char *flank5p, size_t flank5p_len,
                                const char *flank3p, size_t flank3p_len,
+                               size_t cpy_flnk_5p, size_t cpy_flnk_3p,
                                const read_t *chr,
                                size_t ref_start, size_t ref_end,
-                               size_t ncpy, bool cpy_flnk_5p,
                                bool fw_strand,
                                const char *info, const char **genotypes,
                                StrBuf *tmpbuf, FILE *fout)
 {
   (void)flank3p_len;
+  ctx_assert(ref_start <= ref_end);
 
-  const char *seq;
-  size_t seqlen;
+  // Ref allele
+  const char *ref_allele = chr->seq.b + ref_start;
+  size_t ref_len = ref_end-ref_start;
 
-  if(ncpy == 0 && fw_strand)
+  // Construct alt allele
+  const char *alt_allele;
+  size_t alt_len;
+
+  if(cpy_flnk_5p + cpy_flnk_3p == 0 && fw_strand)
   {
-    seq = line;
-    seqlen = linelen;
+    alt_allele = line;
+    alt_len = linelen;
   }
   else
   {
     strbuf_reset(tmpbuf);
+    strbuf_append_strn(tmpbuf, flank5p+flank5p_len-cpy_flnk_5p, cpy_flnk_5p);
+    strbuf_append_strn(tmpbuf, line, linelen);
+    strbuf_append_strn(tmpbuf, flank3p, cpy_flnk_3p);
 
-    // printf(" ref_start: %zu ref_end: %zu\n", ref_start, ref_end);
-    // printf(" ncpy: %zu fw_strand: %i cpy_flnk_5p: %i\n", ncpy, fw_strand, cpy_flnk_5p);
+    if(!fw_strand) dna_revcomp_str(tmpbuf->b, tmpbuf->b, tmpbuf->end);
 
-    if(ncpy > 0) {
-      if(fw_strand && cpy_flnk_5p)
-        strbuf_append_dna(tmpbuf, flank5p+flank5p_len-ncpy, ncpy, fw_strand);
-      else if(!fw_strand && !cpy_flnk_5p)
-        strbuf_append_dna(tmpbuf, flank3p, ncpy, fw_strand);
-    }
-
-    // Copy allele
-    strbuf_append_dna(tmpbuf, line, linelen, fw_strand);
-
-    if(ncpy > 0) {
-      if(!fw_strand && cpy_flnk_5p)
-        strbuf_append_dna(tmpbuf, flank5p+flank5p_len-ncpy, ncpy, fw_strand);
-      else if(fw_strand && !cpy_flnk_5p)
-        strbuf_append_dna(tmpbuf, flank3p, ncpy, fw_strand);
-    }
-
-    seq = tmpbuf->b;
-    seqlen = tmpbuf->end;
+    alt_allele = tmpbuf->b;
+    alt_len = tmpbuf->end;
   }
 
   // printf("%.*s vs %.*s\n", (int)(ref_end-ref_start), chr->seq.b + ref_start,
-  //                          (int)seqlen, seq);
+  //                          (int)alt_len, seq);
 
   // Align chrom and seq
-  needleman_wunsch_align2(chr->seq.b + ref_start, seq,
-                          ref_end-ref_start, seqlen,
+  needleman_wunsch_align2(ref_allele, alt_allele, ref_len, alt_len,
                           &nw_scoring_allele, nw_aligner, aln);
   num_nw_allele++;
 
@@ -701,9 +690,9 @@ static void align_entry_allele(const char *line, size_t linelen,
                   info, genotypes, fout);
 }
 
-#define GENO_0     0
-#define GENO_1     1
-#define GENO_UNDEF 2
+#define GENO_REF    0
+#define GENO_ALT    1
+#define GENO_UNDEF  2
 static const char genotype_strs[3][2] = {"0", "1", "."};
 
 /**
@@ -728,7 +717,7 @@ static void brkpnt_parse_genotype_colours(const char *hdrline,
        tmp >= nsamples) {
       die("Bad line [nsamples: %zu]: %s", nsamples, hdrline);
     }
-    genotypes[tmp] = genotype_strs[GENO_1];
+    genotypes[tmp] = genotype_strs[GENO_ALT];
     if(*end != ',') break;
     str = end+1;
   }
@@ -737,40 +726,55 @@ static void brkpnt_parse_genotype_colours(const char *hdrline,
 static void align_entry(const CallFileEntry *centry, const char *callid,
                         const char *flank5p, size_t flank5p_len,
                         const char *flank3p, size_t flank3p_len,
+                        size_t cpy_flnk_5p, size_t cpy_flnk_3p,
                         const read_t *chr,
                         size_t ref_start, size_t ref_end,
                         bool fw_strand,
                         StrBuf *tmpbuf, const char **genotypes,
                         FILE *fout)
 {
-  size_t i, ncpy = 0;
-  bool cpy_flnk_5p = false;
+  size_t i;
 
   // If variant starts after it ends, we need to copy some sequence to fix this
-  if(ref_start > ref_end) {
-    ncpy = ref_start - ref_end;
-    if(ncpy > flank5p_len && ncpy > flank3p_len) {
+  if(ref_start > ref_end)
+  {
+    size_t ncpy = ref_start - ref_end;
+    size_t rem_flank5p = flank5p_len - cpy_flnk_5p;
+    size_t rem_flank3p = flank3p_len - cpy_flnk_3p;
+
+    if(ncpy <= rem_flank3p &&
+       ((fw_strand && ref_end+ncpy < chr->seq.end) ||
+        (!fw_strand && ref_start > ncpy)))
+    {
+      cpy_flnk_3p += ncpy;
+      if(fw_strand) ref_end += ncpy;
+      else          ref_start -= ncpy;
+    }
+    else if(ncpy <= rem_flank5p &&
+            ((fw_strand && ref_start > ncpy) ||
+             (!fw_strand && ref_end+ncpy < chr->seq.end)))
+    {
+      cpy_flnk_5p += ncpy;
+      if(fw_strand) ref_start -= ncpy;
+      else          ref_end += ncpy;
+    }
+    else {
       num_flanks_overlap_too_large++;
-      // printf("Copy too much %zu > %zu %zu\n", ncpy, flank5p_len, flank3p_len);
       return; // can't align
     }
-    cpy_flnk_5p = (ncpy > flank5p_len);
-    if(fw_strand == cpy_flnk_5p) ref_start -= ncpy;
-    else                         ref_end   += ncpy;
   }
 
   ctx_assert(ref_start <= ref_end);
 
   if(ref_end-ref_start > max_allele_len) {
     num_flanks_too_far_apart++;
-    return;
+    return; // can't align
   }
 
   if(ref_end > chr->seq.end) die("Out of range: %zu > %zu", ref_end, chr->seq.end);
 
+  // We now have mapped to a valid site in the reference genome
   num_entries_well_mapped++;
-
-  // If not fw strand, we need to flip each allele
 
   // Deal with alleles one at a time vs ref
   // First allele stored in line 5:
@@ -797,7 +801,8 @@ static void align_entry(const CallFileEntry *centry, const char *callid,
 
     align_entry_allele(line, linelen,
                        flank5p, flank5p_len, flank3p, flank3p_len,
-                       chr, ref_start, ref_end, ncpy, cpy_flnk_5p,
+                       cpy_flnk_5p, cpy_flnk_3p,
+                       chr, ref_start, ref_end,
                        fw_strand,
                        info, genotypes,
                        tmpbuf, fout);
@@ -818,6 +823,7 @@ static void parse_entries(gzFile gzin, FILE *fout)
 
   const char *flank5p, *flank3p;
   size_t flank5p_len, flank3p_len;
+  size_t cpy_flnk_5p, cpy_flnk_3p;
 
   const read_t *chrom = NULL;
   size_t ref_start = 0, ref_end = 0;
@@ -835,6 +841,7 @@ static void parse_entries(gzFile gzin, FILE *fout)
 
     flank5p = call_file_get_line(&centry,1);
     flank5p_len = call_file_line_len(&centry,1);
+    cpy_flnk_5p = cpy_flnk_3p = 0;
 
     // Read a corresponding SAM entry
     if(input_bubble_format)
@@ -845,6 +852,7 @@ static void parse_entries(gzFile gzin, FILE *fout)
       flank3p_len = flank3pbuf.end;
 
       mapped = sam_fetch_coords(&centry, flank5p, flank5p_len, flank3p, flank3p_len,
+                                &cpy_flnk_5p, &cpy_flnk_3p,
                                 &chrom, &ref_start, &ref_end, &fw_strand);
     }
     else {
@@ -865,6 +873,7 @@ static void parse_entries(gzFile gzin, FILE *fout)
       if(r == -2) die("Call id string is too long: %s", hdrline);
 
       align_entry(&centry, callid, flank5p, flank5p_len, flank3p, flank3p_len,
+                  cpy_flnk_5p, cpy_flnk_3p,
                   chrom, ref_start, ref_end, fw_strand,
                   &tmpbuf, genotypes,
                   fout);
