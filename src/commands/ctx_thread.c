@@ -89,7 +89,7 @@ static struct option longopts[] =
   {"gap-hist",      required_argument, NULL, 'g'},
   {"frag-hist",     required_argument, NULL, 'G'},
 //
-  {"use-new-paths", required_argument, NULL, 'u'},
+  {"use-new-paths", no_argument,       NULL, 'u'},
 // Debug options
   {"print-contigs", no_argument,       NULL, 'x'},
   {"print-paths",   no_argument,       NULL, 'y'},
@@ -184,7 +184,6 @@ int ctx_thread(int argc, char **argv)
   if(args.use_new_paths) {
     status("Using paths as they are added (risky)");
   } else {
-    gpath_store_split_read_write(&db_graph.gpstore);
     status("Not using new paths as they are added (safe)");
   }
 
@@ -226,6 +225,9 @@ int ctx_thread(int argc, char **argv)
   // Load existing paths
   for(i = 0; i < gpfiles->len; i++)
     gpath_reader_load(&gpfiles->data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+
+  if(!args.use_new_paths)
+    gpath_store_split_read_write(&db_graph.gpstore);
 
   // Deal with a set of files at once
   // Can have different numbers of inputs vs threads

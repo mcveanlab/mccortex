@@ -433,15 +433,16 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   // Mark next bases available
   bool forks[4] = {false}, taken[4] = {false};
 
-  // mark in d the branches that are available
-  for(i = 0; i < num_next; i++) forks[bases[i]] = 1;
+  // mark in forks the branches that are available
+  for(i = 0; i < num_next; i++) forks[bases[i]] = true;
 
   // Check for path corruption
   update_path_forks(&wlk->paths,      taken);
   update_path_forks(&wlk->cntr_paths, taken);
 
   if((taken[0] && !forks[0]) || (taken[1] && !forks[1]) ||
-     (taken[2] && !forks[2]) || (taken[3] && !forks[3])) {
+     (taken[2] && !forks[2]) || (taken[3] && !forks[3]))
+  {
     _corrupt_paths(wlk, num_next, nodes, bases);
   }
 
@@ -725,6 +726,12 @@ void graph_walker_prime(GraphWalker *wlk,
   ctx_assert(n > 0);
   ctx_check(db_node_check_nodes(block, n, wlk->db_graph));
 
+  // If picking up paths is turned off, jump to last
+  if(!gpath_store_use_traverse(wlk->gpstore)) {
+    graph_walker_start(wlk, forward ? block[n-1] : db_node_reverse(block[0]));
+    return;
+  }
+
   dBNode node0;
 
   if(n > max_context) {
@@ -763,9 +770,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
   if(num_nodes == 0 || !wlk->paths.len) return true;
 
   size_t i, j, n, njuncs = graph_walker_get_max_path_junctions(wlk);
-  dBNode nodes[4], expnode;
-  Nucleotide nucs[4];
-  Edges edges;
+  dBNode expnode;
 
   #ifdef CTXCHECKS
     // Check last k-1 bp of bkmer match block
@@ -787,7 +792,11 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
     ctx_check(binary_kmers_are_equal(bkmer0, bkmer1));
   #endif
 
-  for(i = 0, j = 0; i < num_nodes && j < njuncs; i++, j += (n > 1))
+  dBNode nodes[4];
+  Nucleotide nucs[4];
+  Edges edges;
+
+  for(i = j = 0; i < num_nodes && j < njuncs; i++, j += (n > 1))
   {
     expnode = forward ? block[i] : db_node_reverse(block[num_nodes-i-1]);
     edges = db_node_get_edges_union(wlk->db_graph, wlk->node.key);

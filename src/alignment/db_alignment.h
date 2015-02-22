@@ -13,9 +13,7 @@ typedef struct
   Int32Buffer rpos; // Position of kmer start in read e.g {0,1,5,6,0,1,2} in PE
   size_t r1enderr, r2enderr; // how many nodes are lost at the end of reads 1,2
   // index of buf where r2 starts
-  // (-1 if no r2, nodes.len if r2 did not provide any nodes)
-  // int r2strtidx;
-  // 0 if no r1 nodes, nodes.len if
+  // 0 if no r1 nodes, nodes.len if no r2 does not provide any nodes
   size_t r2strtidx;
   // whether we were passed a second read
   bool passed_r2;
@@ -46,9 +44,16 @@ void db_alignment_from_reads(dBAlignment *alignment,
                              uint8_t hp_cutoff,
                              const dBGraph *db_graph, int colour);
 
-// Returns index of node just after next gap,
-// or aln->nodes.len if no more gaps
-size_t db_alignment_next_gap(const dBAlignment *aln, size_t start);
+/*
+ * Get position after current segment. A segement is a stretch of kmers aligned
+ * to the graph with no gaps.
+ * @param aln           alignment of read to the graph
+ * @param start         offset in the alignment that starts this segments
+ * @param missing_edge  set to 1 if the segment was ended due to a missing edge
+ * @return index of node after next gap or aln->nodes.len if no more gaps
+ */
+size_t db_alignment_next_gap(const dBAlignment *aln, size_t start,
+                             bool *missing_edge, const dBGraph *db_graph);
 
 // @return true iff alignment has no gaps, all kmers found
 bool db_alignment_is_perfect(const dBAlignment *aln);
@@ -60,7 +65,7 @@ bool db_alignment_is_perfect(const dBAlignment *aln);
 void db_alignment_print(const dBAlignment *aln);
 
 // Check all edges between ungapped adjacent nodes
-bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);
+// bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph);
 
 // dBKmer stores redundant data from the graph to speed up processing
 // typedef struct

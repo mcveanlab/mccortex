@@ -95,31 +95,31 @@ vcflib: vcflib/Makefile
 	cd vcflib && git pull #&& make
 
 string_buffer: string_buffer/Makefile
-	cd string_buffer && git pull && make
+	cd string_buffer && git pull && make all test >& /dev/null
 
 bit_array: bit_array/Makefile
-	cd bit_array && git pull && make
+	cd bit_array && git pull && make all test >& /dev/null
 
 seq_file: seq_file/Makefile htslib
-	cd seq_file && git pull && make HTSLIB=../htslib
+	cd seq_file && git pull && make HTSLIB=../htslib all test >& /dev/null
 
 seq-align: seq-align/Makefile seq_file bit_array string_buffer sort_r
-	cd seq-align && git pull && make LIBS_PATH=../
+	cd seq-align && git pull && make LIBS_PATH=../ all test >& /dev/null
 
 readsim: readsim/Makefile htslib
 	cd readsim && git pull && make HTSLIB=../htslib
 
 msg-pool: msg-pool/Makefile
-	cd msg-pool && git pull && make
+	cd msg-pool && git pull && make all test >& /dev/null
 
 bioinf-perl: bioinf-perl/README
 	cd bioinf-perl && git pull
 
 sort_r: sort_r/Makefile
-	cd sort_r && git pull && make
+	cd sort_r && git pull && make all test >& /dev/null
 
 madcrowlib: madcrowlib/Makefile
-	cd madcrowlib && git pull && make
+	cd madcrowlib && git pull && make all test >& /dev/null
 
 maximal_substrs:
 	cd maximal_substrs && make

@@ -23,6 +23,7 @@ typedef struct
   uint64_t num_ins_gaps, num_ins_traversed; // gaps between pairs of reads
   uint64_t num_mid_gaps, num_mid_traversed; // gaps in the middle of reads
   uint64_t num_end_gaps, num_end_traversed; // gaps at the ends of reads
+  uint64_t num_missing_edges; // gaps due to missing edges
 } CorrectAlnStats;
 
 typedef struct {

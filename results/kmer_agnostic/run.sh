@@ -45,9 +45,9 @@ mkdir -p reads
 # raw = pre-cleaning, clean = after cleaning
 # e.g. gPF.lPF.raw.ctp.gz
 
-name_list=(gP.l0     gS.l0      gE.l0         gP.lP.raw  gS.lS.raw  gS.lS.clean gE.lE.clean    gS.lE.clean        gE.lS.clean)
-glist=(    perf.ctx  stoch.ctx  stocherr.ctx  perf.ctx   stoch.ctx  stoch.ctx   perfedges.ctx  err_isec_perf.ctx  stoch_err_union.ctx)
-llist=(    ''        ''         ''            gP.lP.raw  gS.lS.raw  gS.lS.clean gE.lE.clean    gS.lE.clean        gE.lS.clean)
+name_list=(gP.l0     gS.l0      gE.l0         gP.lP.raw  gS.lS.raw  gS.lS.clean gE.lE.clean    gS.lE.clean  gE.lS.clean)
+glist=(    perf.ctx  stoch.ctx  stocherr.ctx  perf.ctx   stoch.ctx  stoch.ctx   perfedges.ctx  stoch.ctx    stocherr.ctx)
+llist=(    ''        ''         ''            gP.lP.raw  gS.lS.raw  gS.lS.clean gE.lE.clean    gS.lE.clean  gE.lS.clean)
 all_indices=$(echo {0..8})
 plain_indices=$(echo {0..2})
 link_indices=$(echo {3..8})
@@ -70,15 +70,15 @@ for k in $kmers; do
 
   if [ $k == 99 ]; then clean_thresh="--supernodes=3"; else clean_thresh=""; fi # Use auto threshold for k<99
   [ ! -f k$k/graphs/stocherr.raw.ctx ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stocherr.fa.gz k$k/graphs/stocherr.raw.ctx                             >& k$k/graphs/stocherr.raw.ctx.log
-  [ ! -f k$k/graphs/stocherr.ctx     ] && `getctx $k` clean -m $MEM $clean_thresh --covg-before k$k/stocherr.raw.covg.csv --out k$k/graphs/stocherr.ctx k$k/graphs/stocherr.raw.ctx >& k$k/graphs/stocherr.ctx.log
+  [ ! -f k$k/graphs/stocherr.ctx     ] && `getctx $k` clean -m $MEM $clean_thresh --covg-before k$k/graphs/stocherr.raw.covg.csv --out k$k/graphs/stocherr.ctx k$k/graphs/stocherr.raw.ctx >& k$k/graphs/stocherr.ctx.log
 
   thresh=$(cat k$k/graphs/stocherr.ctx.log | grep -m 1 'Removing supernodes with coverage < ' | grep -o '[0-9]*' | tail -1)
   [ ! -f k$k/graphs/stoch.raw.ctx    ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz    k$k/graphs/stoch.raw.ctx                                                           >& k$k/graphs/stoch.raw.ctx.log
-  [ ! -f k$k/graphs/stoch.ctx        ] && `getctx $k` clean -m $MEM --tips $[$k*2] --supernodes=$thresh --covg-before k$k/stoch.raw.covg.csv --out k$k/graphs/stoch.ctx k$k/graphs/stoch.raw.ctx >& k$k/graphs/stoch.ctx.log
+  [ ! -f k$k/graphs/stoch.ctx        ] && `getctx $k` clean -m $MEM --tips $[$k*2] --supernodes=$thresh --covg-before k$k/graphs/stoch.raw.covg.csv --out k$k/graphs/stoch.ctx k$k/graphs/stoch.raw.ctx >& k$k/graphs/stoch.ctx.log
 
   # Add edges from stocherr to stoch to make stochedges
-  [ ! -f k$k/graphs/err_isec_perf.ctx   ] && `getctx $k` join -m $MEM -o k$k/graphs/err_isec_perf.ctx -i k$k/graphs/perf.ctx k$k/graphs/stocherr.ctx >& k$k/graphs/err_isec_perf.ctx.log
-  [ ! -f k$k/graphs/stoch_err_union.ctx ] && `getctx $k` join -m $MEM -o k$k/graphs/stoch_err_union.ctx 0:k$k/graphs/stoch.ctx 0:k$k/graphs/stocherr.ctx >& k$k/graphs/stoch_err_union.ctx.log
+  # [ ! -f k$k/graphs/err_isec_perf.ctx   ] && `getctx $k` join -m $MEM -o k$k/graphs/err_isec_perf.ctx -i k$k/graphs/perf.ctx k$k/graphs/stocherr.ctx >& k$k/graphs/err_isec_perf.ctx.log
+  # [ ! -f k$k/graphs/stoch_err_union.ctx ] && `getctx $k` join -m $MEM -o k$k/graphs/stoch_err_union.ctx 0:k$k/graphs/stoch.ctx 0:k$k/graphs/stocherr.ctx >& k$k/graphs/stoch_err_union.ctx.log
 done
 
 echo == Read threading ==
@@ -88,8 +88,8 @@ for k in $kmers; do
   [ ! -f k$k/links/gS.lS.raw.ctp.gz ] && `getctx $k` thread -m $MEM --out k$k/links/gS.lS.raw.ctp.gz --seq reads/stoch.fa.gz    k$k/graphs/stoch.ctx    >& k$k/links/gS.lS.raw.ctp.gz.log
   [ ! -f k$k/links/gE.lE.raw.ctp.gz ] && `getctx $k` thread -m $MEM --out k$k/links/gE.lE.raw.ctp.gz --seq reads/stocherr.fa.gz k$k/graphs/stocherr.ctx >& k$k/links/gE.lE.raw.ctp.gz.log
 
-  [ ! -f k$k/links/gS.lE.raw.ctp.gz ] && `getctx $k` thread -m $MEM --out k$k/links/gS.lE.raw.ctp.gz --seq reads/stocherr.fa.gz k$k/graphs/err_isec_perf.ctx   >& k$k/links/gS.lE.raw.ctp.gz.log
-  [ ! -f k$k/links/gE.lS.raw.ctp.gz ] && `getctx $k` thread -m $MEM --out k$k/links/gE.lS.raw.ctp.gz --seq reads/stoch.fa.gz    k$k/graphs/stoch_err_union.ctx >& k$k/links/gE.lS.raw.ctp.gz.log
+  [ ! -f k$k/links/gS.lE.raw.ctp.gz ] && `getctx $k` thread -m $MEM --out k$k/links/gS.lE.raw.ctp.gz --seq reads/stocherr.fa.gz k$k/graphs/stoch.ctx    >& k$k/links/gS.lE.raw.ctp.gz.log
+  [ ! -f k$k/links/gE.lS.raw.ctp.gz ] && `getctx $k` thread -m $MEM --out k$k/links/gE.lS.raw.ctp.gz --seq reads/stoch.fa.gz    k$k/graphs/stocherr.ctx >& k$k/links/gE.lS.raw.ctp.gz.log
 done
 
 echo == Link Cleaning ==

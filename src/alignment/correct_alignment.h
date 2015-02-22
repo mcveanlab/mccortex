@@ -10,6 +10,7 @@
 #include "repeat_walker.h"
 #include "correct_aln_stats.h"
 
+// Default min and max values for the length of a correct fragment
 #define DEFAULT_CRTALN_FRAGLEN_MIN 0
 #define DEFAULT_CRTALN_FRAGLEN_MAX 1000
 
@@ -34,7 +35,6 @@
 typedef struct
 {
   Colour ctpcol, ctxcol;
-  // uint32_t ins_gap_min, ins_gap_max;
   uint32_t frag_len_min, frag_len_max; // For PE reads
   uint32_t max_context; // how many kmers to use either side of a gap
   float gap_wiggle, gap_variance; // permitted gap size = X*gap_variance + gap_wiggle
@@ -63,6 +63,9 @@ typedef struct
   // return alignment from [start_idx..gap_idx]
   size_t start_idx, gap_idx, end_idx;
   size_t prev_start_idx;
+
+  // current gap_idx is caused by a missing edge
+  bool gap_idx_missing_edge, end_idx_missing_edge;
 
   // contig with gaps filled
   // we use revcontig when walking backwards

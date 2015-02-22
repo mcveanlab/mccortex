@@ -78,7 +78,12 @@ void correct_alignment_init(CorrectAlnWorker *wrkr,
 
   // reset state
   wrkr->start_idx = wrkr->prev_start_idx = 0;
-  wrkr->gap_idx = wrkr->end_idx = db_alignment_next_gap(aln, 0);
+  wrkr->gap_idx = wrkr->end_idx = db_alignment_next_gap(aln, 0,
+                                                        &wrkr->gap_idx_missing_edge,
+                                                        wrkr->db_graph);
+  wrkr->end_idx_missing_edge = wrkr->gap_idx_missing_edge;
+
+  wrkr->aln_stats.num_missing_edges += wrkr->gap_idx_missing_edge;
 
   // Update stats
   wrkr->load_stats.total_bases_read += aln->r1bases + aln->r2bases;
@@ -383,10 +388,15 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   db_node_buf_append(contig,    aln_nodes+wrkr->start_idx, block0len);
   int32_buf_append(contig_rpos, aln_rpos +wrkr->start_idx, block0len);
 
-  while(wrkr->end_idx < num_align_nodes)
+  while(!wrkr->gap_idx_missing_edge && wrkr->end_idx < num_align_nodes)
   {
     // block0 [start_idx..gap_idx-1], block1 [gap_idx..end_idx]
-    wrkr->end_idx = db_alignment_next_gap(aln, wrkr->end_idx);
+    wrkr->end_idx = db_alignment_next_gap(aln, wrkr->end_idx,
+                                          &wrkr->end_idx_missing_edge,
+                                          wrkr->db_graph);
+
+    wrkr->aln_stats.num_missing_edges += wrkr->end_idx_missing_edge;
+
     // block0len = wrkr->gap_idx - wrkr->start_idx;
     block1len = wrkr->end_idx - wrkr->gap_idx;
 
@@ -477,11 +487,13 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
     }
 
     wrkr->gap_idx = wrkr->end_idx;
+    wrkr->gap_idx_missing_edge = wrkr->end_idx_missing_edge;
   }
 
   wrkr->prev_start_idx = wrkr->start_idx;
   wrkr->start_idx = wrkr->gap_idx;
   wrkr->gap_idx = wrkr->end_idx;
+  wrkr->gap_idx_missing_edge = wrkr->end_idx_missing_edge;
 
   // db_nodes_print_verbose(contig->data, contig->len, wrkr->db_graph, stdout);
   ctx_check(db_node_check_nodes(contig->data, contig->len, wrkr->db_graph));

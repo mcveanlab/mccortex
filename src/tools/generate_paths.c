@@ -302,8 +302,10 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 }
 
 static void worker_junctions_to_paths(GenPathWorker *wrkr,
-                                      const dBNodeBuffer *contig)
+                                      const dBNode *nodes, size_t num_nodes)
 {
+  (void)num_nodes;
+
   size_t num_fw = wrkr->num_fw, num_rv = wrkr->num_rv;
   size_t *pos_fw = wrkr->pos_fw, *pos_rv = wrkr->pos_rv;
   uint8_t *pck_fw = wrkr->pck_fw, *pck_rv = wrkr->pck_rv;
@@ -320,23 +322,21 @@ static void worker_junctions_to_paths(GenPathWorker *wrkr,
     SWAP(pos_rv[i], pos_rv[j]);
   }
 
-  const dBNode *nodes = contig->data;
-
   _juncs_to_paths(pos_fw, pos_rv, num_fw, num_rv, pck_fw, true, nodes, wrkr);
   binary_seq_reverse_complement(pck_rv, num_rv);
   _juncs_to_paths(pos_rv, pos_fw, num_rv, num_fw, pck_rv, false, nodes, wrkr);
 }
 
 static void worker_contig_to_junctions(GenPathWorker *wrkr,
-                                       const dBNodeBuffer *contig)
+                                       const dBNode *nodes, size_t num_nodes)
 {
   // status("nodebuf: %zu", wrkr->contig.len+MAX_KMER_SIZE+1);
-  worker_nuc_cap(wrkr, contig->len);
+  worker_nuc_cap(wrkr, num_nodes);
 
   if(gen_paths_print_contigs) {
     pthread_mutex_lock(&ctx_biglock);
     fprintf(stdout, ">contig%zu\n", print_contig_id++);
-    db_nodes_print(contig->data, contig->len, wrkr->db_graph, stdout);
+    db_nodes_print(nodes, num_nodes, wrkr->db_graph, stdout);
     fputc('\n', stdout);
     pthread_mutex_unlock(&ctx_biglock);
   }
@@ -350,16 +350,28 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
   Nucleotide nuc;
 
   dBGraph *db_graph = wrkr->db_graph;
-
-  const dBNode *nodes = contig->data;
-  const size_t contig_len = contig->len;
   const size_t ctxcol = wrkr->task.crt_params.ctxcol;
 
-  for(i = 0; i < contig_len; i++)
+  for(i = 0; i < num_nodes; i++)
   {
     edges = db_node_get_edges(db_graph, nodes[i].key, ctxcol);
     outdegree = edges_get_outdegree(edges, nodes[i].orient);
     indegree = edges_get_indegree(edges, nodes[i].orient);
+
+    if(i+1 < num_nodes)
+    {
+      nuc = db_node_get_last_nuc(nodes[i+1], db_graph);
+      ctx_assert(edges_has_edge(edges, nuc, nodes[i].orient));
+
+      // Only adding forward junctions after num_rv > 0 seems like a nice
+      // optimisation but is actually a bad idea, in the case of outdegree > 1
+      // just before first indegree >1, we need that junction
+      if(outdegree > 1)
+      {
+        binary_seq_set(pck_fw, num_fw, nuc);
+        pos_fw[num_fw++] = i;
+      }
+    }
 
     if(indegree > 1 && i > 0)
     {
@@ -367,23 +379,13 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
       binary_seq_set(pck_rv, num_rv, nuc);
       pos_rv[num_rv++] = i;
     }
-
-    // Only adding forward junctions after num_rv > 0 seems like a nice
-    // optimisation but is actually a bad idea, in the case of outdegree > 1
-    // just before first indegree >1, we need that junction
-    if(outdegree > 1 && i+1 < contig_len)
-    {
-      nuc = db_node_get_last_nuc(nodes[i+1], db_graph);
-      binary_seq_set(pck_fw, num_fw, nuc);
-      pos_fw[num_fw++] = i;
-    }
   }
 
   wrkr->num_fw = num_fw;
   wrkr->num_rv = num_rv;
 
   if(num_fw > 0 && num_rv > 0)
-    worker_junctions_to_paths(wrkr, contig);
+    worker_junctions_to_paths(wrkr, nodes, num_nodes);
 }
 
 // wrkr->data and wrkr->task must be set before calling this functions
@@ -416,13 +418,14 @@ static void reads_to_paths(GenPathWorker *wrkr)
   correct_alignment_init(&wrkr->corrector, &wrkr->task.crt_params,
                          r1, r2, fq_cutoff1, fq_cutoff2, hp_cutoff);
 
-  ctx_check2(db_alignment_check_edges(&wrkr->corrector.aln, wrkr->db_graph),
-             "Edges missing: was read %s%s%s used to build the graph?",
-             r1->name.b, r2 ? ", " : "", r2 ? r2->name.b : "");
+  // ctx_check2(db_alignment_check_edges(&wrkr->corrector.aln, wrkr->db_graph),
+  //            "Edges missing: was read %s%s%s used to build the graph?",
+  //            r1->name.b, r2 ? ", " : "", r2 ? r2->name.b : "");
 
   dBNodeBuffer *nbuf;
-  while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL) {
-    worker_contig_to_junctions(wrkr, nbuf);
+  while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL)
+  {
+    worker_contig_to_junctions(wrkr, nbuf->data, nbuf->len);
   }
 }
 

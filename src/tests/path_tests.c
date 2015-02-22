@@ -79,7 +79,6 @@ static void _check_node_paths(const char *kmer,
   const GPathStore *gpstore = &graph->gpstore;
   dBNode node = db_graph_find_str(graph, kmer);
 
-
   const GPath *path = gpath_store_fetch_traverse(gpstore, node.key);
   dBNodeBuffer nbuf;
   SizeBuffer jposbuf;

@@ -295,7 +295,7 @@ bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
-bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(OBJS) $(TESTS_HDRS) $(HDRS) $(REQ) | bin
+bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(TESTS_HDRS) $(OBJS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 tables: bin/tables

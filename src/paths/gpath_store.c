@@ -2,21 +2,17 @@
 #include "gpath_store.h"
 #include "util.h"
 
-// @split_linked_lists whether you intend to have traverse linked list and
-//                     all linked list separate
-size_t gpath_store_mem(size_t graph_capacity, bool split_linked_lists)
-{
-  return graph_capacity*sizeof(GPath*) * (split_linked_lists ? 2 : 1);
-}
 
 // If num_paths != 0, we ensure at least num_paths capacity
+// @split_linked_lists whether you intend to have traverse linked list and
+//                     all linked list separate
 void gpath_store_alloc(GPathStore *gpstore, size_t ncols, size_t graph_capacity,
                        size_t num_paths, size_t mem,
                        bool count_nseen, bool split_linked_lists)
 {
   memset(gpstore, 0, sizeof(*gpstore));
 
-  size_t store_mem = gpath_store_mem(count_nseen, split_linked_lists);
+  size_t store_mem = graph_capacity*sizeof(GPath*) * (split_linked_lists ? 2 : 1);
   if(store_mem > mem)
     die("Need at least %zu bytes (only got %zu bytes)", store_mem, mem);
 
@@ -30,6 +26,8 @@ void gpath_store_alloc(GPathStore *gpstore, size_t ncols, size_t graph_capacity,
     gpath_set_alloc(&gpstore->gpset, ncols, gpset_mem, false, count_nseen);
 
   gpstore->graph_capacity = graph_capacity;
+
+  // paths_traverse is always a subset of paths_all
   gpstore->paths_all = ctx_calloc(graph_capacity, sizeof(GPath*));
   gpstore->paths_traverse = gpstore->paths_all;
 }
@@ -39,6 +37,7 @@ void gpath_store_dealloc(GPathStore *gpstore)
   gpath_set_dealloc(&gpstore->gpset);
   gpath_store_merge_read_write(gpstore);
   ctx_free(gpstore->paths_all);
+  if(gpstore->paths_traverse != gpstore->paths_all) ctx_free(gpstore->paths_traverse);
   memset(gpstore, 0, sizeof(*gpstore));
 }
 
@@ -48,7 +47,8 @@ void gpath_store_reset(GPathStore *gpstore)
   gpstore->num_kmers_with_paths = gpstore->num_paths = gpstore->path_bytes = 0;
   memset(gpstore->paths_all, 0, gpstore->graph_capacity * sizeof(GPath*));
   if(gpstore->paths_traverse != gpstore->paths_all)
-    memset(gpstore->paths_traverse, 0, gpstore->graph_capacity * sizeof(GPath*));
+    ctx_free(gpstore->paths_traverse);
+  gpstore->paths_traverse = gpstore->paths_all;
 }
 
 void gpath_store_print_stats(const GPathStore *gpstore)
@@ -65,12 +65,21 @@ void gpath_store_print_stats(const GPathStore *gpstore)
 
 void gpath_store_split_read_write(GPathStore *gpstore)
 {
-  if(gpstore->num_paths > 0) {
-    // Copy current paths over to path set to be updated
-    status("[PathStore] Creating separate read/write GraphPath linked lists");
-    size_t mem = gpstore->graph_capacity * sizeof(GPath*);
-    gpstore->paths_traverse = ctx_calloc(gpstore->graph_capacity, sizeof(GPath*));
-    memcpy(gpstore->paths_traverse, gpstore->paths_all, mem);
+  if(gpstore->paths_traverse == gpstore->paths_all)
+  {
+    status("[GPathStore] Creating separate read/write GraphPath linked lists");
+    if(gpstore->num_paths == 0)
+    {
+      gpstore->paths_traverse = NULL;
+    }
+    else
+    {
+      // Copy current paths over to path set to be updated
+      status("[GPathStore]   (allocating new linked lists)");
+      size_t mem = gpstore->graph_capacity * sizeof(GPath*);
+      gpstore->paths_traverse = ctx_calloc(gpstore->graph_capacity, sizeof(GPath*));
+      memcpy(gpstore->paths_traverse, gpstore->paths_all, mem);
+    }
   }
 }
 
@@ -78,8 +87,8 @@ void gpath_store_merge_read_write(GPathStore *gpstore)
 {
   if(gpstore->paths_traverse != gpstore->paths_all)
   {
-    status("[PathStore] Merging read/write GraphPath linked lists");
-    ctx_free(gpstore->paths_traverse);
+    status("[GPathStore] Merging read/write GraphPath linked lists");
+    ctx_free(gpstore->paths_traverse); // does nothing if NULL
     gpstore->paths_traverse = gpstore->paths_all;
   }
 }

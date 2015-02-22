@@ -52,6 +52,8 @@ void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
   dst->num_gap_successes += src->num_gap_successes;
   dst->num_paths_disagreed += src->num_paths_disagreed;
   dst->num_gaps_too_short += src->num_gaps_too_short;
+
+  dst->num_missing_edges += src->num_missing_edges;
 }
 
 // Sequencing error gap
@@ -195,9 +197,9 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
     float gaps_per_read_mean = (double)num_seq_gaps / num_reads;
 
     // Print seqn gap statistics
-    status("[CorrectAln] SE: expected gap mean: %.1f median: %.1f mode: %zu (%zu)",
+    status("[CorrectAln] SE: expected gap mean: %.1f median: %.1f mode: %zu N(mode)=%zu",
            exp_gap_mean, exp_gap_median, exp_gap_mode, exp_gap_maxc);
-    status("[CorrectAln] SE: actual   gap mean: %.1f median: %.1f mode: %zu (%zu)",
+    status("[CorrectAln] SE: actual   gap mean: %.1f median: %.1f mode: %zu N(mode)=%zu",
            act_gap_mean, act_gap_median, act_gap_mode, act_gap_maxc);
     status("[CorrectAln]     %.3f gaps per read; mean gap length diff: %.2f",
            gaps_per_read_mean, gap_diff_mean);
@@ -267,6 +269,12 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
   status("[CorrectAln] too short: %s / %s (%.2f%%)",
          num_gaps_too_short_str, num_gap_attempts_str,
          (100.0 * stats->num_gaps_too_short) / stats->num_gap_attempts);
+
+  // Missing edges
+  char num_missing_edges_str[50];
+  ulong_to_str(stats->num_missing_edges, num_missing_edges_str);
+  status("[CorrectAln] %s edge%s missing",
+         num_missing_edges_str, util_plural_str(stats->num_missing_edges));
 }
 
 /**

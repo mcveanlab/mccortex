@@ -134,19 +134,44 @@ void db_alignment_from_reads(dBAlignment *alignment,
   #endif
 }
 
-// Returns index of node just after next gap,
-// or aln->nodes.len if no more gaps
-size_t db_alignment_next_gap(const dBAlignment *aln, size_t start)
+/*
+ * Get position after current segment. A segement is a stretch of kmers aligned
+ * to the graph with no gaps.
+ * @param aln           alignment of read to the graph
+ * @param start         offset in the alignment that starts this segments
+ * @param missing_edge  set to 1 if the segment was ended due to a missing edge
+ * @return index of node after next gap or aln->nodes.len if no more gaps
+ */
+size_t db_alignment_next_gap(const dBAlignment *aln, size_t start,
+                             bool *missing_edge, const dBGraph *db_graph)
 {
   size_t i, end = aln->rpos.len;
-  int32_t *rpos = aln->rpos.data;
+  const int32_t *rpos = aln->rpos.data;
+  const dBNode *nodes = aln->nodes.data;
+  int colour = aln->colour;
+  Edges edges;
+  Nucleotide nuc;
+
+  *missing_edge = false;
 
   if(end == 0) return 0;
 
+  // Set upper bound on position of the next gap as within this read
   if(aln->used_r1 && aln->used_r2 && start < aln->r2strtidx)
     end = aln->r2strtidx;
 
-  for(i = start+1; i < end && rpos[i-1]+1 == rpos[i]; i++) {}
+  for(i = start+1; i < end && rpos[i-1]+1 == rpos[i]; i++)
+  {
+    // Check for a missing edge
+    edges = colour < 0 ? db_node_get_edges_union(db_graph, nodes[i-1].key)
+                       : db_node_get_edges(db_graph, nodes[i-1].key, colour);
+    nuc = db_node_get_last_nuc(nodes[i], db_graph);
+
+    if(!edges_has_edge(edges, nuc, nodes[i-1].orient)) {
+      *missing_edge = true;
+      break;
+    }
+  }
 
   // Return position after gap
   return i;
@@ -187,6 +212,8 @@ void db_alignment_print(const dBAlignment *aln)
   pthread_mutex_unlock(&ctx_biglock);
 }
 
+// Alignment needn't have all edges now, so this is removed
+/*
 // Check all edges between ungapped adjacent nodes
 bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
 {
@@ -201,3 +228,4 @@ bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
 
   return true;
 }
+*/

@@ -122,12 +122,17 @@ void all_tests_construct_graph(dBGraph *graph,
   gpath_store_alloc(&graph->gpstore, ncols, graph->ht.capacity,
                     0, ONE_MEGABYTE, true, false);
 
+  // Don't use links to add new links
+  gpath_store_split_read_write(&graph->gpstore);
+
   // Allocate path hash table just in case
   gpath_hash_alloc(&graph->gphash, &graph->gpstore, ONE_MEGABYTE);
 
   // Build graph
   for(i = 0; i < nseqs; i++)
     build_graph_from_str_mt(graph, 0, seqs[i], strlen(seqs[i]));
+
+  gpath_store_merge_read_write(&graph->gpstore);
 
   graph->num_of_cols_used = MAX2(graph->num_of_cols_used, 1);
 
