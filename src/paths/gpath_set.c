@@ -4,7 +4,7 @@
 
 // Save 16 bytes at the end of the sequence store
 // This is relied on by GPathFollow
-#define STORE_PADDING 16
+#define SEQ_STORE_PADDING 16
 
 // If resize true, cannot do multithreaded but can resize array
 // If resize false, die if out of mem, but can multithread
@@ -44,7 +44,7 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
          npathstr, colmemstr, seqmemstr, totalmemstr);
 
   gpath_buf_alloc(&tmp.entries, initpaths);
-  byte_buf_alloc(&tmp.seqs, seq_col_mem);
+  byte_buf_alloc(&tmp.seqs, seq_col_mem + SEQ_STORE_PADDING);
 
   if(keep_path_counts) {
     // madcrowlib allocates with calloc, so these are all zero'd
@@ -84,8 +84,6 @@ void gpath_set_dealloc(GPathSet *gpset)
 
 void gpath_set_reset(GPathSet *gpset)
 {
-  memset(gpset->seqs.data, 0, gpset->seqs.len);
-  memset(gpset->nseen_buf.data, 0, gpset->nseen_buf.len);
   gpath_buf_reset(&gpset->entries);
   byte_buf_reset(&gpset->seqs);
   byte_buf_reset(&gpset->nseen_buf);
@@ -98,11 +96,12 @@ void gpath_set_print_stats(const GPathSet *gpset)
   ulong_to_str(gpset->entries.capacity, paths_cap_str);
   bytes_to_str(gpset->seqs.len, 1, seq_str);
   bytes_to_str(gpset->seqs.capacity, 1, seq_cap_str);
-  status("[GPathSet] Paths: %s / %s [%.2f%%], seqs: %s / %s [%.2f%%])",
+  status("[GPathSet] Paths: %s / %s [%.2f%%], seqs: %s / %s [%.2f%%] (%zu / %zu)",
          paths_str, paths_cap_str,
          (100.0 * gpset->entries.len) / gpset->entries.capacity,
          seq_str, seq_cap_str,
-         (100.0 * gpset->seqs.len) / gpset->seqs.capacity);
+         (100.0 * gpset->seqs.len) / gpset->seqs.capacity,
+         gpset->seqs.len, gpset->seqs.capacity);
 }
 
 // Get kmer length of a GPath
@@ -164,7 +163,7 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
   }
 
   uint8_t *old_seq = gpset->seqs.data;
-  byte_buf_capacity(&gpset->seqs, gpset->seqs.len+req_num_bytes+STORE_PADDING);
+  byte_buf_capacity(&gpset->seqs, gpset->seqs.len+req_num_bytes+SEQ_STORE_PADDING);
 
   if(gpset->seqs.data != old_seq) {
     // Correct all seq pointers
@@ -204,9 +203,15 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
     data = gpset->seqs.data + __sync_fetch_and_add((volatile size_t*)&gpset->seqs.len, nbytes);
 
     if(gpath >= gpset->entries.data + gpset->entries.capacity ||
-       data+nbytes+STORE_PADDING >= gpset->seqs.data + gpset->seqs.capacity)
+       data+nbytes+SEQ_STORE_PADDING > gpset->seqs.data + gpset->seqs.capacity)
     {
       gpath_set_print_stats(gpset);
+      status("%zu >= %zu; %zu > %zu nbytes: %zu\n",
+             gpath - gpset->entries.data,
+             gpset->entries.capacity,
+             data+nbytes+SEQ_STORE_PADDING - gpset->seqs.data,
+             gpset->seqs.capacity,
+             nbytes);
       die("Out of memory");
     }
 

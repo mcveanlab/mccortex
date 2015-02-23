@@ -1,3 +1,5 @@
+SHELL=/bin/bash
+
 # make          <- compile all libraries
 # make all      <- compile all libraries
 # make clean    <- clean all libraries

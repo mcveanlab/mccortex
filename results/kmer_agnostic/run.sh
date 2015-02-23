@@ -11,15 +11,24 @@ ALLREADS=$CTXDIR/libs/seq_file/scripts/perfect_covg.sh
 STRCHK=$CTXDIR/libs/bioinf-perl/sim_mutations/sim_substrings.pl
 CONTIG_STATS=$CTXDIR/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 LINK_PROC=$CTXDIR/scripts/cortex_links.pl
+LINK_THRESH_SCRIPT=$CTXDIR/scripts/R/make_link_cutoffs.R
 # DNACAT=$CTXDIR/libs/seq_file/bin/dnacat
 
 REF=$CTXDIR/results/data/chr22/uniq_flanks/chr22.1Mbp.uniq.fa
 ERR_PROFILE=$CTXDIR/results/data/PhiX/PhiX.1.fq.gz
 READLEN=100
 DEPTH=100
+ERR_RATE=0.005 # 0.5% per base sequencing error
 
 # How many contigs to pull out to find median walk distance
-NSEED_WALK=100
+NSEED_MEDIAN_WALK=100
+
+# Memory to use for each command
+MEM=5G
+
+#
+# Finished configure
+#
 
 # Get executable for a given kmer size
 getctx () {
@@ -29,8 +38,6 @@ getctx () {
 
 kmers=$(echo 15 21 31 41 51 63 75 99)
 nkmers=$(echo $kmers | tr ' ' '\n' | awk 'END{print NR}')
-
-MEM=5G
 
 # create directories
 for k in $kmers; do
@@ -46,7 +53,7 @@ mkdir -p reads
 # e.g. gPF.lPF.raw.ctp.gz
 
 name_list=(gP.l0     gS.l0      gE.l0         gP.lP.raw  gS.lS.raw  gS.lS.clean gE.lE.clean    gS.lE.clean  gE.lS.clean)
-glist=(    perf.ctx  stoch.ctx  stocherr.ctx  perf.ctx   stoch.ctx  stoch.ctx   perfedges.ctx  stoch.ctx    stocherr.ctx)
+glist=(    perf.ctx  stoch.ctx  stocherr.ctx  perf.ctx   stoch.ctx  stoch.ctx   stocherr.ctx   stoch.ctx    stocherr.ctx)
 llist=(    ''        ''         ''            gP.lP.raw  gS.lS.raw  gS.lS.clean gE.lE.clean    gS.lE.clean  gE.lS.clean)
 all_indices=$(echo {0..8})
 plain_indices=$(echo {0..2})
@@ -59,7 +66,7 @@ annot_list=$(for i in $plain_indices; do echo ${name_list[$i]}.plain; done;
 # Redirect stderr with 2>
 [ ! -f reads/perf.fa.gz     ] && ($ALLREADS $READLEN $REF | gzip -c) > reads/perf.fa.gz 2> reads/perf.fa.gz.log
 [ ! -f reads/stoch.fa.gz    ] && $READSIM -l $READLEN -r $REF -d $DEPTH -s reads/stoch             >& reads/stoch.fa.gz.log
-[ ! -f reads/stocherr.fa.gz ] && $READSIM -l $READLEN -r $REF -d $DEPTH -e 0.005 -s reads/stocherr >& reads/stocherr.fa.gz.log
+[ ! -f reads/stocherr.fa.gz ] && $READSIM -l $READLEN -r $REF -d $DEPTH -e $ERR_RATE -s reads/stocherr >& reads/stocherr.fa.gz.log
 
 # Cortex build k=$(K)
 echo == Building cortex graphs ==
@@ -75,10 +82,6 @@ for k in $kmers; do
   thresh=$(cat k$k/graphs/stocherr.ctx.log | grep -m 1 'Removing supernodes with coverage < ' | grep -o '[0-9]*' | tail -1)
   [ ! -f k$k/graphs/stoch.raw.ctx    ] && `getctx $k` build -m $MEM -k $k --sample chr22_17M_18M --seq reads/stoch.fa.gz    k$k/graphs/stoch.raw.ctx                                                           >& k$k/graphs/stoch.raw.ctx.log
   [ ! -f k$k/graphs/stoch.ctx        ] && `getctx $k` clean -m $MEM --tips $[$k*2] --supernodes=$thresh --covg-before k$k/graphs/stoch.raw.covg.csv --out k$k/graphs/stoch.ctx k$k/graphs/stoch.raw.ctx >& k$k/graphs/stoch.ctx.log
-
-  # Add edges from stocherr to stoch to make stochedges
-  # [ ! -f k$k/graphs/err_isec_perf.ctx   ] && `getctx $k` join -m $MEM -o k$k/graphs/err_isec_perf.ctx -i k$k/graphs/perf.ctx k$k/graphs/stocherr.ctx >& k$k/graphs/err_isec_perf.ctx.log
-  # [ ! -f k$k/graphs/stoch_err_union.ctx ] && `getctx $k` join -m $MEM -o k$k/graphs/stoch_err_union.ctx 0:k$k/graphs/stoch.ctx 0:k$k/graphs/stocherr.ctx >& k$k/graphs/stoch_err_union.ctx.log
 done
 
 echo == Read threading ==
@@ -94,22 +97,21 @@ done
 
 echo == Link Cleaning ==
 
-LINK_THRESH_SCRIPT=$CTXDIR/scripts/R/make_link_cutoffs.R
-
 for k in $kmers; do
 
-  # Pick a threshold
+  # Pick a threshold using stocherr links on stocherr graph
   if [ ! -f k$k/links/cleaning.txt ]; then
     # Generate table of first 1000 kmers with links
-    $LINK_PROC list --limit 1000 <(gzip -cd k$k/links/gE.lE.raw.ctp.gz) k$k/links/gE.lE.raw.ctp.gz.effcovg.csv k$k/links/gE.lE.raw.ctp.gz.links.csv >& k$k/links/gE.lE.raw.ctp.gz.links.csv.log
+    $LINK_PROC list --limit 1000 <(gzip -fcd k$k/links/gE.lE.raw.ctp.gz) k$k/links/gE.lE.raw.ctp.gz.effcovg.csv k$k/links/gE.lE.raw.ctp.gz.links.csv >& k$k/links/gE.lE.raw.ctp.gz.links.csv.log
     R --slave --vanilla --quiet -f $LINK_THRESH_SCRIPT --args $k k$k/links/gE.lE.raw.ctp.gz.links.csv > k$k/links/cleaning.txt
   fi
 
+  # Use this threshold for all graphs
   thresh=$(tail -1 k$k/links/cleaning.txt)
 
   for f in gP.lP gS.lS gE.lE gS.lE gE.lS; do
     if [ ! -f k$k/links/$f.clean.ctp.gz ]; then
-      ($LINK_PROC clean <(gzip -cd k$k/links/$f.raw.ctp.gz) $thresh | gzip -c) > k$k/links/$f.clean.ctp.gz 2> k$k/links/$f.clean.ctp.gz.log
+      ($LINK_PROC clean <(gzip -fcd k$k/links/$f.raw.ctp.gz) $thresh | gzip -c) > k$k/links/$f.clean.ctp.gz 2> k$k/links/$f.clean.ctp.gz.log
     fi
   done
 done
@@ -130,7 +132,7 @@ for k in $kmers; do
   done
 
   # Remove duplicates in contigs
-  for $annot in $annot_list; do
+  for annot in $annot_list; do
     [ ! -f k$k/contigs/$annot.contigs.rmdup.fa ] && \
       `getctx $k` rmsubstr -k $k -m $MEM -o k$k/contigs/$annot.contigs.rmdup.fa k$k/contigs/$annot.contigs.fa >& k$k/contigs/$annot.rmdup.fa.log
   done
@@ -143,7 +145,7 @@ echo == Median walk distance ==
 med_walk() {
   k="$1"; g="$2"; pathargs="$3";
   ctx=$(getctx $k)
-  dist=$($ctx contigs -m $MEM --reseed --ncontigs $NSEED_WALK $pathargs  2>&1 | \
+  dist=$($ctx contigs -m $MEM --reseed --ncontigs $NSEED_MEDIAN_WALK $pathargs $g 2>&1 | \
          grep -ioE 'Lengths:.*median: [0-9,]*' | grep -oE '[0-9,]+$' | tr -d ',')
   printf "med_walk,$dist\n"
 }
@@ -157,7 +159,7 @@ for k in $kmers; do
   for i in $link_indices; do
     g=${glist[$i]}; o=${name_list[$i]}; l=${llist[$i]}
     [ ! -f k$k/results/$o.links.medwalk.txt  ] && med_walk $k k$k/graphs/$g "-p k$k/links/$l.ctp.gz"     > k$k/results/$o.links.medwalk.txt
-    [ ! -f k$k/results/$o.string.medwalk.txt ] && cp k$k/$o.links.medwalk.txt k$k/$o.string.medwalk.txt
+    [ ! -f k$k/results/$o.string.medwalk.txt ] && cp k$k/results/$o.links.medwalk.txt k$k/results/$o.string.medwalk.txt
   done
 done
 
@@ -166,7 +168,7 @@ echo == Contig stats ==
 for k in $kmers; do
   mkdir -p k$k/results
 
-  for $annot in $annot_list; do
+  for annot in $annot_list; do
     [ ! -f k$k/results/$annot.contigs.rmdup.csv ] && \
       ( $CONTIG_STATS --print-csv k$k/contigs/$annot.contigs.rmdup.fa | \
         cat - k$k/results/$annot.medwalk.txt ) \
@@ -199,17 +201,18 @@ done
 # Check various kmer cleaning thresholds
 for k in $kmers; do
   mkdir -p k$k/kmer_cleaning
-  thresholds=`seq 0 1 100`
+  thresholds=`seq 1 1 100`
+  ctx=`getctx $k`
 
   for i in $thresholds; do
     # Clean kmers with given threshold
     if [ ! -f k$k/kmer_cleaning/stocherr.clean.$i.ctx ]; then
-      $CTX clean -m $MEM -o k$k/kmer_cleaning/stocherr.clean.$i.ctx --supernodes $i --tips $[2*$k] k$k/graphs/stocherr.ctx >& k$k/kmer_cleaning/stocherr.clean.$i.ctx.log
+      $ctx clean -m $MEM -o k$k/kmer_cleaning/stocherr.clean.$i.ctx --supernodes=$i --tips $[2*$k] k$k/graphs/stocherr.ctx >& k$k/kmer_cleaning/stocherr.clean.$i.ctx.log
     fi
     # Get rate of kmer match/mismatch
     if [ ! -f k$k/kmer_cleaning/stocherr.clean.$i.stats.txt ]; then
       ( echo 'threshold,errorKmers,missingKmers,correctKmers';
-        $CTX join -m $MEM k$k/kmer_cleaning/stocherr.clean.$i.ctx $k/graphs/perf.ctx | $CTX view --kmers - | \
+        $ctx join -q -m $MEM -o - k$k/kmer_cleaning/stocherr.clean.$i.ctx k$k/graphs/perf.ctx | $ctx view -q --kmers - | \
          awk 'BEGIN{OFS=",";a=b=ab=0} {a+=($2>0 && $3==0); b+=($2==0 && $3>0); ab+=($2>0 && $3>0);} END{print '$i',a,b,ab}'; ) \
         > k$k/kmer_cleaning/stocherr.clean.$i.stats.txt
       fi
@@ -224,23 +227,23 @@ done
 # Check various link cleaning thresholds
 for k in $kmers; do
   mkdir -p k$k/link_cleaning
-  thresholds=`seq 0 1 30`
+  thresholds=`seq 0 2 20`
 
   for i in $thresholds; do
-    if [ ! -f k$k/link_cleaning/stocherr.se.clean.$i.ctp ]; then gzip -cd k$k/links/stocherr.se.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.se.clean.$i.ctp 2> k$k/link_cleaning/stocherr.se.clean.$i.ctp.log; fi
-    if [ ! -f k$k/link_cleaning/stocherr.se.clean.$i.stats.txt ]; then cat k$k/link_cleaning/stocherr.se.clean.$i.ctp | grep -o 'seq=[ACGT]*' | tr '=' ' ' | awk '{print ">seq\n"$2"\n"}' | $STRCHK $k 0 - $REF >& k$k/links/stocherr.se.clean.$i.stats.txt; fi
+    if [ ! -f k$k/link_cleaning/stocherr.clean.$i.ctp ]; then gzip -fcd k$k/links/gE.lE.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.clean.$i.ctp 2> k$k/link_cleaning/stocherr.clean.$i.ctp.log; fi
+    if [ ! -f k$k/link_cleaning/stocherr.clean.$i.stats.txt ]; then cat k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o 'seq=[ACGT]*' | tr '=' ' ' | awk '{print ">seq\n"$2"\n"}' | $STRCHK $k 0 - $REF >& k$k/link_cleaning/stocherr.clean.$i.stats.txt; fi
   done
 
   # Make CSV of results
   ( echo linkThresh,numKmers,numLinks,numMatch,matchRate;
     for i in $thresholds; do
-      stats=$(cat k31/links/stocherr.se.clean.$i.stats.txt | grep 'Perfect matches *:' | grep -oE '[0-9,\.]{2,}')
-      num_match=$(echo $stats | awk {print $1});
-      num_links=$(echo $stats | awk {print $2});
-      match_rate=$(echo $stats | awk {print $3});
-      ctp_num_kmers_with_links=$(grep -m 1 "num_kmers_with_paths" k31/link_cleaning/stocherr.se.clean.$i.ctp | grep -o '[0-9]*')
-      ctp_num_links=$(grep -m 1 "num_paths" k31/link_cleaning/stocherr.se.clean.$i.ctp | grep -o '[0-9]*')
-      [ $num_links == $ctp_num_links ] || ( echo THIS IS BAD $i $count $npaths && false )
+      stats=$(cat k$k/link_cleaning/stocherr.clean.$i.stats.txt | grep 'Perfect matches *:' | grep -oE '[0-9,\.]{2,}')
+      num_match=$(echo $stats  | awk '{print $1}' | tr -d ',');
+      num_links=$(echo $stats  | awk '{print $2}' | tr -d ',');
+      match_rate=$(echo $stats | awk '{print $3}' | tr -d ',');
+      ctp_num_kmers_with_links=$(grep -m 1 "num_kmers_with_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
+      ctp_num_links=$(grep -m 1 "num_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
+      [ "$num_links" == "$ctp_num_links" ] || ( echo THIS IS BAD "$i $count $npaths" && false )
       echo "$i,$ctp_num_kmers_with_links,$ctp_num_links,$num_match,$match_rate"
     done ) > k$k/link_cleaning/link_cleaning.csv
 done

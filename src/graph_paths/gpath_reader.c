@@ -691,15 +691,18 @@ void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
                                         count_nseen, false, NULL);
 
   size_t i, npaths, max_npaths = 0, sum_npaths = 0;
+  size_t path_bytes, sum_path_bytes = 0;
 
   for(i = 0; i < nfiles; i++) {
     npaths = gpath_reader_get_num_paths(&files[i]);
     max_npaths = MAX2(max_npaths, npaths);
     sum_npaths += npaths;
+    path_bytes = gpath_reader_get_path_bytes(&files[i]);
+    sum_path_bytes += path_bytes;
   }
 
   npaths = sum_mem <= mem ? sum_npaths : 0;
-  status("[GPathReader] need %zu paths", npaths);
+  status("[GPathReader] need %zu paths %zu bytes", npaths, sum_path_bytes);
 
   gpath_store_alloc(&db_graph->gpstore,
                     db_graph->num_of_cols,

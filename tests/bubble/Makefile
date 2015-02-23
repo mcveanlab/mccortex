@@ -1,4 +1,4 @@
-SHELL:=/bin/bash -euo pipefail
+SHELL=/bin/bash -euo pipefail
 
 #
 # 1 het site in s0, 1 het between s0,s1
@@ -89,7 +89,7 @@ bubbles.sort.vcf: bubbles.raw.vcf
 bubbles.norm.vcf.gz: bubbles.sort.vcf
 	$(BCFTOOLS) norm --remove-duplicates --fasta-ref ref.fa --multiallelics +both $< | \
 	$(VCFRENAME) > bubbles.norm.vcf
-	$(BGZIP) bubbles.norm.vcf
+	$(BGZIP) -f bubbles.norm.vcf
 	$(BCFTOOLS) index bubbles.norm.vcf.gz
 
 # compare truth.vcf and bubbles.norm.vcf.gz

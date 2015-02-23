@@ -333,7 +333,15 @@ if($action == CMD_CLEAN)
 
   # Print updated JSON header
   my $new_hdr_txt = to_json($hdr_json, {utf8 => 1, pretty => 1});
-  print "$new_hdr_txt\n\n";
+  print "$new_hdr_txt\n
+# This file was generated with McCortex
+#   written by Isaac Turner <turner.isaac\@gmail.com>
+#   url: https://github.com/mcveanlab/mccortex
+#
+# Comment lines begin with a # and are ignored, but must come after the header
+# Format is:
+#   [kmer] [num_paths] ...(ignored)
+#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n\n";
 
   # Print lines from temporary file
   my $tmp_line;

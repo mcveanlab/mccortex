@@ -444,11 +444,13 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   ulong_to_str(num_of_bubbles, num_bubbles_str);
   status("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
 
+  status("Turn bubble file into VCF with:");
   status("   bwa index ref.fa");
-  status("   gzip -cdf %s | awk -F '[ \t]' 'm{print $0;m=0;} /^>bubble\\..*\\.5pflank/{print $1;m=1;}' > %s.flanks", out_path, out_path);
+  status("   scripts/cortex_print_flanks.sh %s > %s.flanks", out_path, out_path);
   status("   bwa mem ref.fa %s.flanks > %s.sam", out_path, out_path);
   status("   ctx%i calls2vcf -F %s.sam -o output.vcf %s ref.fa",
          (int)get_max_kmer_size(), out_path, out_path);
+  status("");
 
   // Clean up
   bubble_callers_destroy(callers, num_of_threads);

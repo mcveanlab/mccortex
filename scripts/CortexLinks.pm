@@ -8,6 +8,7 @@ use Carp;
 use FindBin;
 use lib $FindBin::Bin;
 
+use List::Util qw(min max);
 use JSON;
 use CortexScripts; # load_json_hdr()
 
