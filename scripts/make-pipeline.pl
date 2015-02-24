@@ -39,9 +39,6 @@ sub print_usage
   exit(-1);
 }
 
-# TODO:
-# * create union VCF across kmers
-
 my $args = "$0 @ARGV";
 
 my $default_mem = "1G";
@@ -99,6 +96,8 @@ while(defined(my $line = <$sfh>)) {
 }
 close($sfh);
 
+my $union_bubble_vcf = "$proj/vcfs/bubbles.".join('.',map {"k$_"} @kmers).".vcf.gz";
+my $union_brkpnt_vcf = "$proj/vcfs/breakpoints.".join('.',map {"k$_"} @kmers).".vcf.gz";
 
 print '# '.strftime("%F %T", localtime($^T)).'
 #
@@ -138,7 +137,6 @@ REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 # Paths to scripts
 CTXLINKS=$(CTXDIR)/scripts/cortex_links.pl
 MEDIAN_LINK_THRESH=$(CTXDIR)/scripts/median-link-threshold.sh
-# LINK_THRESH_SCRIPT=$(CTXDIR)/scripts/R/make_link_cutoffs.R
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
 VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
@@ -175,9 +173,10 @@ my @dirlist = ();
 for my $k (@kmers) {
   my $dirs = join(' ', "$proj/k$k/graphs/", "$proj/k$k/links/",
                        "$proj/k$k/bubbles/", "$proj/k$k/breakpoints/",
-                       "$proj/k$k/vcfs/", "$proj/k$k/ref/");
+                       "$proj/k$k/ref/");
   push(@dirlist, $dirs);
 }
+push(@dirlist, "$proj/vcfs/");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
 
@@ -211,7 +210,7 @@ LOG_FILES=$(HAVE_LOGS:=.log)
 .SECONDARY: $(RAW_GRAPHS) $(COVG_CSV_FILES) $(RAW_LINKS) $(LINK_TMP_FILES) $(VCF_TMP_FILES)
 .DELETE_ON_ERROR:
 
-all: checks $(BUBBLES) $(BREAKPOINTS)
+all: checks graphs links bubbles breakpoints bubblevcf breakpointvcf
 
 graphs: $(CLEAN_GRAPHS)
 
@@ -222,15 +221,15 @@ bubbles: $(BUBBLES)
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
-  print "\t@[ -x \$(CTXDIR)/bin/ctx$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` [cortex: \$(CTXDIR)]' 1>&2 && false )\n";
+  print "\t@[ -x \$(CTXDIR)/bin/ctx$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR= [cortex: \$(CTXDIR)]' 1>&2 && false )\n";
 }
 print "\n";
 
 # Can only create VCFs if we have a reference
 if(defined($ref_path)) {
   print "breakpoints: \$(BREAKPOINTS)\n\n";
-  print "bubblevcf: \$(BUBBLE_VCFS)\n\n";
-  print "breakpointvcf: \$(BREAKPOINT_VCFS)\n\n";
+  print "bubblevcf: $union_bubble_vcf\n\n";
+  print "breakpointvcf: $union_brkpnt_vcf\n\n";
 } else {
   for my $tgt (qw(breakpoints bubblevcf breakpointvcf)) {
     print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
@@ -312,7 +311,6 @@ for my $k (@kmers) {
 
   # Generate coverage CSV from first N kmers with links
   print "# link cleaning at k=$k\n";
-  # print "$ctp_effcovg_file: $ctp_tree_file\n";
   print "$ctp_effcovg_file $ctp_tree_file: $ctp_raw_file\n";
   print "\t\$(CTXLINKS) list --limit \$(LINK_CLEAN_NKMERS) <(gzip -fcd \$<) $proj/k$k/links/\$*.effcovg.csv $proj/k$k/links/\$*.tree.csv >& $proj/k$k/links/\$*.tree.csv.log\n\n";
 
@@ -320,7 +318,6 @@ for my $k (@kmers) {
   # Can use any version of cortex for this
   print "$ctp_thresh_file: $ctp_tree_file\n";
   print "\t".'$(MEDIAN_LINK_THRESH) $(LINK_THRESH) '.$k.' $< > $@'."\n\n";
-  # print "\t".'R --slave --vanilla --quiet -f $(LINK_THRESH_SCRIPT) --args '.$k.' $< > $@ 2> $@.log'."\n\n";
 
   # Clean links
   # $(word 1,$^) is the 1st dependency, $(word 2,$^) is the 2nd ...
@@ -401,8 +398,11 @@ if(defined($ref_path))
   print "\t\$(BCFTOOLS) index \$@\n\n";
 
   # Generate union VCF
-  print "#\n# Create union VCF\n#\n";
-  print "\n";
+  print "#\n# Create union compressed VCF\n#\n";
+  print "$proj/vcfs/bubbles.".join('.',map {"k$_"} @kmers).".vcf.gz: \$(BUBBLE_VCFS)\n";
+  print "\t\$(BCFTOOLS) concat --output-type z --output \$@ \$(BUBBLE_VCFS)\n\n";
+  print "$proj/vcfs/breakpoints.".join('.',map {"k$_"} @kmers).".vcf.gz: \$(BREAKPOINT_VCFS)\n";
+  print "\t\$(BCFTOOLS) concat --output-type z --output \$@ \$(BREAKPOINT_VCFS)\n\n";
 }
 
 

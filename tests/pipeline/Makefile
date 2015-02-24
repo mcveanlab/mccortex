@@ -9,7 +9,7 @@ MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 SEQ_FILES=ben.fa jerry.fa ref.fa
 
 all: job.mk $(SEQ_FILES)
-	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) CLEANING_ARGS='--supernodes=1'
+	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) CLEANING_ARGS='--supernodes=1' all
 
 ref.fa:
 	$(DNACAT) -F -n 200 > $@
