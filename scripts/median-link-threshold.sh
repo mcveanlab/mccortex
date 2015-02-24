@@ -1,4 +1,6 @@
-#!/bin/bash -eou pipefail
+#!/bin/bash
+
+set -eou pipefail
 
 if [ $# -ne 3 ]; then
   echo "usage: $0 <fdr> <k> <tree.csv>" &&
