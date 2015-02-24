@@ -38,7 +38,6 @@ sub print_usage
 # TODO:
 # * create union VCF across kmers
 # * include ref in calling
-# * dump CSV of coverage before cleaning
 
 my $args = "$0 @ARGV";
 
@@ -174,6 +173,7 @@ BREAKPOINTS='."@brkpnt_files".'
 DIRS='."@dirs".'
 
 CLEAN_GRAPHS=$(RAW_GRAPHS:.raw.ctx=.clean.ctx)
+COVG_CSV_FILES=$(RAW_GRAPHS:.raw.ctx=.raw.covg.csv)
 GRAPHS=$(RAW_GRAPHS) $(CLEAN_GRAPHS)
 
 CLEAN_LINKS=$(RAW_LINKS:.raw.ctp.gz=.clean.ctp.gz)
@@ -192,7 +192,7 @@ VCF_TMP_FILES=$(BUBBLE_VCFS:.txt.gz=.flanks.fa.gz) $(BUBBLE_VCFS:.txt.gz=.flanks
 HAVE_LOGS=$(GRAPHS) $(LINKS) $(LINK_TMP_FILES) $(CALL_VCFS)
 LOG_FILES=$(HAVE_LOGS:=.log)
 
-.SECONDARY: $(RAW_GRAPHS) $(RAW_LINKS) $(LINK_TMP_FILES) $(VCF_TMP_FILES)
+.SECONDARY: $(RAW_GRAPHS) $(COVG_CSV_FILES) $(RAW_LINKS) $(LINK_TMP_FILES) $(VCF_TMP_FILES)
 .DELETE_ON_ERROR:
 
 all: checks $(BUBBLES) $(BREAKPOINTS)
@@ -210,6 +210,7 @@ for my $maxk (@ctx_maxks) {
 }
 print "\n";
 
+# Can only create VCFs if we have a reference
 if(defined($ref_path)) {
   print "breakpoints: \$(BREAKPOINTS)\n\n";
   print "bubblevcf: \$(BUBBLE_VCFS)\n\n";
@@ -224,7 +225,7 @@ print "\$(DIRS):
 \tmkdir -p \$@
 
 clean:
-\trm -rf \$(GRAPHS) \$(LINKS) \$(LINK_TMP_FILES)
+\trm -rf \$(GRAPHS) \$(COVG_CSV_FILES) \$(LINKS) \$(LINK_TMP_FILES)
 \trm -rf \$(BUBBLES) \$(BREAKPOINTS)
 \trm -rf \$(CALL_VCFS) \$(VCF_TMP_FILES) \$(LOG_FILES)
 
@@ -252,8 +253,8 @@ for my $k (@kmers) {
   # Clean graph files at k=$k
   my $ctx = get_ctx($k);
   print "# graph cleaning at k=$k\n";
-  print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx".' clean -t $(NTHREADS) -o $@ $(CLEANING_ARGS) $< >& $@.log'."\n\n";
+  print "$proj/k$k/graphs/%.raw.covg.csv $proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
+  print "\t$ctx clean -t \$(NTHREADS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$< >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
 }
 
 # Create and clean link files

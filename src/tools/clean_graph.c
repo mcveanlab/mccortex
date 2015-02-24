@@ -557,9 +557,8 @@ void cleaning_write_covg_histogram(const char *path,
   if(fout == NULL) return;
 
   fprintf(fout, "Covg,NumSupernodes,NumKmers\n");
-  for(end = len-1; end > 1 && covg_hist[end] == 0; end--) {}
-  fprintf(fout, "1,%"PRIu64",%"PRIu64"\n", covg_hist[1], kmer_hist[1]);
-  for(i = 2; i <= end; i++) {
+  for(end = len-1; end > 2 && covg_hist[end] == 0; end--) {}
+  for(i = 1; i <= end; i++) {
     if(covg_hist[i] > 0)
       fprintf(fout, "%zu,%"PRIu64",%"PRIu64"\n", i, covg_hist[i], kmer_hist[i]);
   }
