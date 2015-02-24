@@ -6,10 +6,13 @@ CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 
-SEQ_FILES=ben.fa jerry.fa
+SEQ_FILES=ben.fa jerry.fa ref.fa
 
 all: job.mk $(SEQ_FILES)
 	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) CLEANING_ARGS='--supernodes=1'
+
+ref.fa:
+	$(DNACAT) -F -n 200 > $@
 
 %.fa:
 	$(DNACAT) -n 200 > $@.tmp
@@ -20,9 +23,9 @@ samples.txt:
 	( echo "ben ben.fa . ."; echo "jerry jerry.fa" ) > $@
 
 job.mk: samples.txt
-	$(MKPIPELINE) 31 proj $< > $@
+	$(MKPIPELINE) -r ref.fa 29,31 proj $< > $@
 
 clean:
-	rm -rf $(SEQ_FILES) samples.txt job.mk proj
+	rm -rf $(SEQ_FILES) samples.txt job.mk proj ref.*
 
 .PHONY: all clean
