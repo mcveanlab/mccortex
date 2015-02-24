@@ -27,10 +27,13 @@ madcrow_buffer(covg_buf,CovgBuffer,Covg);
  * @param arrlen    Length of array kmer_covg
  * @param fdr_limit False discovery rate for a single kmer coverage
  *                  (1/1000 i.e. 0.001 is reasonable)
+ * @param alpha_est_ptr If not NULL, used to return estimate for alpha
+ * @param beta_est_ptr  If not NULL, used to return estimate for beta
  * @return -1 if no cut-off satisfies FDR, otherwise returs coverage cutoff
  */
 int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
-                                 double fdr_limit)
+                                 double fdr_limit,
+                                 double *alpha_est_ptr, double *beta_est_ptr)
 {
   ctx_assert(arrlen >= 10);
   ctx_assert2(0 < fdr_limit && fdr_limit < 1, "expected 0 < FDR < 1: %f", fdr_limit);
@@ -62,7 +65,8 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
   b_est = MAX2(b_est, 0.000001); // Avoid negative beta
   c0 = kmer_covg[1] * pow(b_est/(1+b_est),-a_est);
 
-  status("Estimated alpha = %.3f beta = %.3f", a_est, b_est);
+  if(alpha_est_ptr) *alpha_est_ptr = a_est;
+  if(beta_est_ptr)  *beta_est_ptr  = b_est;
 
   // printf("min_a_est_idx: %zu\n", min_a_est_idx);
   // printf("a_est: %f b_est %f c0: %f\n", a_est, b_est, c0);
@@ -367,16 +371,18 @@ int cleaning_get_threshold(size_t num_threads, bool use_supernode_covg,
                                                       seq_depth,
                                                       db_graph);
   } else {
-    double fdr = 0.001;
+    double fdr = 0.001, alpha = 0, beta = 0;
     while(fdr < 1) {
       threshold_est = cleaning_pick_kmer_threshold(cl.covg_hist_init,
                                                    cl.covg_arrlen,
-                                                   fdr);
+                                                   fdr, &alpha, &beta);
       if(threshold_est >= 0) break;
       fdr *= 10;
     }
-    if(threshold_est < 0) warn("Cannot pick a cleaning threshold");
-    else status("[cleaning] FDR set to %f", fdr);
+    if(threshold_est < 0)
+      warn("Cannot pick a cleaning threshold");
+    else
+      status("[cleaning] FDR set to %f [alpha=%f, beta=%f]", fdr, alpha, beta);
   }
 
   if(threshold_est >= 0) {

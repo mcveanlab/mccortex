@@ -21,11 +21,11 @@ void _test_pick_theshold()
   const size_t nitems = sizeof(kmer_covg) / sizeof(kmer_covg[0]);
   int thresh;
 
-  thresh = cleaning_pick_kmer_threshold(kmer_covg, nitems, 0.001);
+  thresh = cleaning_pick_kmer_threshold(kmer_covg, nitems, 0.001, NULL, NULL);
   TASSERT2(thresh == 20, "thresh: %i", thresh);
 
   // DBL_MIN is smallest double greater than zero
-  thresh = cleaning_pick_kmer_threshold(kmer_covg, nitems, DBL_MIN);
+  thresh = cleaning_pick_kmer_threshold(kmer_covg, nitems, DBL_MIN, NULL, NULL);
   TASSERT2(thresh == -1, "thresh: %i", thresh);
 }
 

@@ -147,13 +147,15 @@ SHELL=/bin/bash -eou pipefail
 CTXDIR='.$default_ctxdir.'
 MEM='.$default_mem.'
 NTHREADS='.$default_nthreads.'
+LINK_THRESH=0.001
 CLEANING_ARGS=
 LINK_CLEAN_NKMERS='.$default_link_clean_nkmers.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 
 # Paths to scripts
 CTXLINKS=$(CTXDIR)/scripts/cortex_links.pl
-LINK_THRESH_SCRIPT=$(CTXDIR)/scripts/R/make_link_cutoffs.R
+MEDIAN_LINK_THRESH=$(CTXDIR)/scripts/median-link-threshold.sh
+# LINK_THRESH_SCRIPT=$(CTXDIR)/scripts/R/make_link_cutoffs.R
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
 VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
@@ -257,8 +259,9 @@ for my $k (@kmers) {
 # Create and clean link files
 print "#\n# Generate link files\n#\n";
 for my $k (@kmers) {
+  my $ctx = get_ctx($k);
+
   for my $sample (@samples) {
-    my $ctx = get_ctx($k);
     my $sname = $sample->{'name'};
     my @files = get_all_sample_files($sample);
 
@@ -286,9 +289,11 @@ for my $k (@kmers) {
   print "$ctp_effcovg_file $ctp_tree_file: $ctp_raw_file\n";
   print "\t\$(CTXLINKS) list --limit \$(LINK_CLEAN_NKMERS) <(gzip -fcd \$<) $proj/k$k/links/\$*.effcovg.csv $proj/k$k/links/\$*.tree.csv >& $proj/k$k/links/\$*.tree.csv.log\n\n";
 
-  # Use R to fit a model and pick threshold
+  # Removed R dependency to fit a model and pick threshold
+  # Can use any version of cortex for this
   print "$ctp_thresh_file: $ctp_tree_file\n";
-  print "\t".'R --slave --vanilla --quiet -f $(LINK_THRESH_SCRIPT) --args '.$k.' $< > $@ 2> $@.log'."\n\n";
+  print "\t".'$(MEDIAN_LINK_THRESH) $(LINK_THRESH) '.$k.' $< > $@'."\n\n";
+  # print "\t".'R --slave --vanilla --quiet -f $(LINK_THRESH_SCRIPT) --args '.$k.' $< > $@ 2> $@.log'."\n\n";
 
   # Clean links
   # $(word 1,$^) is the 1st dependency, $(word 2,$^) is the 2nd ...

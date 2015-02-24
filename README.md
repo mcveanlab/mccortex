@@ -34,7 +34,7 @@ Executables appear in the `bin/` directory. To update the libraries included:
 
     cd libs && make
 
-The perl scripts require the [JSON Module](http://search.cpan.org/~makamaka/JSON-2.90/lib/JSON.pm). Install with cpanm with: `cpanm JSON` or with apt-get: `sudo apt-get install libjson-pp-perl`
+The perl scripts require the [JSON Module](http://search.cpan.org/~makamaka/JSON-2.90/lib/JSON.pm). Install with cpanm with: `cpanm JSON` or with apt-get: `sudo apt-get install libjson-pp-perl`.
 
 Commands
 --------

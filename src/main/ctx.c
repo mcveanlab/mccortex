@@ -126,6 +126,11 @@ CtxCmd cmdobjs[] = {
   .usage = uniqkmers_usage
 },
 {
+  .cmd = "linkthresh", .func = ctx_linkthresh, .hide = false,
+  .blurb = "Pick link threshold from CSV",
+  .usage = linkthresh_usage
+},
+{
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = false,
   .blurb = "reduce set of strings to remove substrings",
   .usage = calls2vcf_usage

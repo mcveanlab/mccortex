@@ -13,7 +13,7 @@ all: job.mk $(SEQ_FILES)
 
 %.fa:
 	$(DNACAT) -n 200 > $@.tmp
-	cat $@.tmp $@.tmp $@.tmp > $@
+	$(DNACAT) $@.tmp $@.tmp $@.tmp | $(DNACAT) -F - > $@
 	rm $@.tmp
 
 samples.txt:

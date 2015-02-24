@@ -5,17 +5,23 @@
 
 /**
  * Pick a cleaning threshold from kmer coverage histogram. Assumes low coverage
- * kmers are all due to error, fits a gamma distribution. Then chooses a
- * cleaning threshold such than FDR (uncleaned kmers) occur at a rate of <=
- * FDR paramater.
+ * kmers are all due to error, to which it fits a gamma distribution. Then
+ * chooses a cleaning threshold such than FDR (uncleaned kmers) occur at a rate
+ * of < the FDR paramater.
+ *
  * Translated from Gil McVean's proposed method in R code
  *
- * @param fdr_limit False discovery rate for single kmer coverage
+ * @param kmer_covg Histogram of kmer counts at coverages 1,2,.. arrlen-1
+ * @param arrlen    Length of array kmer_covg
+ * @param fdr_limit False discovery rate for a single kmer coverage
  *                  (1/1000 i.e. 0.001 is reasonable)
- * @return -1 if not cut-off satisfies FDR, or coverage cutoff
+ * @param alpha_est_ptr If not NULL, used to return estimate for alpha
+ * @param beta_est_ptr  If not NULL, used to return estimate for beta
+ * @return -1 if no cut-off satisfies FDR, otherwise returs coverage cutoff
  */
 int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
-                                 double fdr_limit);
+                                 double fdr_limit,
+                                 double *alpha_est_ptr, double *beta_est_ptr);
 
 /**
  * Calculate cleaning threshold for supernodes from a given distribution

@@ -226,26 +226,28 @@ done
 
 # Check various link cleaning thresholds
 for k in $kmers; do
-  mkdir -p k$k/link_cleaning
-  thresholds=`seq 0 2 20`
+  if [ $k -lt 99 ]; then # k=99 has no links, so fails
+    mkdir -p k$k/link_cleaning
+    thresholds=`seq 0 2 20`
 
-  for i in $thresholds; do
-    if [ ! -f k$k/link_cleaning/stocherr.clean.$i.ctp ]; then gzip -fcd k$k/links/gE.lE.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.clean.$i.ctp 2> k$k/link_cleaning/stocherr.clean.$i.ctp.log; fi
-    if [ ! -f k$k/link_cleaning/stocherr.clean.$i.stats.txt ]; then cat k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o 'seq=[ACGT]*' | tr '=' ' ' | awk '{print ">seq\n"$2"\n"}' | $STRCHK $k 0 - $REF >& k$k/link_cleaning/stocherr.clean.$i.stats.txt; fi
-  done
-
-  # Make CSV of results
-  ( echo linkThresh,numKmers,numLinks,numMatch,matchRate;
     for i in $thresholds; do
-      stats=$(cat k$k/link_cleaning/stocherr.clean.$i.stats.txt | grep 'Perfect matches *:' | grep -oE '[0-9,\.]{2,}')
-      num_match=$(echo $stats  | awk '{print $1}' | tr -d ',');
-      num_links=$(echo $stats  | awk '{print $2}' | tr -d ',');
-      match_rate=$(echo $stats | awk '{print $3}' | tr -d ',');
-      ctp_num_kmers_with_links=$(grep -m 1 "num_kmers_with_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
-      ctp_num_links=$(grep -m 1 "num_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
-      [ "$num_links" == "$ctp_num_links" ] || ( echo THIS IS BAD "$i $count $npaths" && false )
-      echo "$i,$ctp_num_kmers_with_links,$ctp_num_links,$num_match,$match_rate"
-    done ) > k$k/link_cleaning/link_cleaning.csv
+      if [ ! -f k$k/link_cleaning/stocherr.clean.$i.ctp ]; then gzip -fcd k$k/links/gE.lE.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.clean.$i.ctp 2> k$k/link_cleaning/stocherr.clean.$i.ctp.log; fi
+      if [ ! -f k$k/link_cleaning/stocherr.clean.$i.stats.txt ]; then cat k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o 'seq=[ACGT]*' | tr '=' ' ' | awk '{print ">seq\n"$2"\n"}' | $STRCHK $k 0 - $REF >& k$k/link_cleaning/stocherr.clean.$i.stats.txt; fi
+    done
+
+    # Make CSV of results
+    ( echo linkThresh,numKmers,numLinks,numMatch,matchRate;
+      for i in $thresholds; do
+        stats=$(cat k$k/link_cleaning/stocherr.clean.$i.stats.txt | grep 'Perfect matches *:' | grep -oE '[0-9,\.]{2,}')
+        num_match=$(echo $stats  | awk '{print $1}' | tr -d ',');
+        num_links=$(echo $stats  | awk '{print $2}' | tr -d ',');
+        match_rate=$(echo $stats | awk '{print $3}' | tr -d ',');
+        ctp_num_kmers_with_links=$(grep -m 1 "num_kmers_with_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
+        ctp_num_links=$(grep -m 1 "num_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
+        [ "$num_links" == "$ctp_num_links" ] || ( echo THIS IS BAD "$i $count $npaths" && false )
+        echo "$i,$ctp_num_kmers_with_links,$ctp_num_links,$num_match,$match_rate"
+      done ) > k$k/link_cleaning/link_cleaning.csv
+  fi
 done
 
 # Now make plots with:

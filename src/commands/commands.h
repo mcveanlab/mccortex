@@ -26,6 +26,7 @@ int ctx_subgraph(int argc, char **argv);
 int ctx_join(int argc, char **argv);
 int ctx_reads(int argc, char **argv);
 int ctx_uniqkmers(int argc, char **argv);
+int ctx_linkthresh(int argc, char **argv);
 int ctx_geno(int argc, char **argv); // work in progress
 
 // Experiments
@@ -54,6 +55,7 @@ extern const char coverage_usage[];
 extern const char rmsubstr_usage[];
 extern const char calls2vcf_usage[];
 extern const char uniqkmers_usage[];
+extern const char linkthresh_usage[];
 extern const char geno_usage[];
 
 // Experiments
