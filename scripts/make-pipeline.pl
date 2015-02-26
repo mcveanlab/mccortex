@@ -14,14 +14,14 @@ sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage: ./make-pipeline.pl [options] <list-of-kmers> <proj> <sample-file>
+"Usage: ./make-pipeline.pl [options] <list-of-kmers> <out-dir> <samples.txt>
   Generate a Makefile to run common McCortex pipelines
 
   Options:
     -r,--ref <ref.fa>  Reference sequence
 
   Example:
-    ./make-pipeline.pl 31:39:2 proj samples.txt > job.mk
+    ./make-pipeline.pl 31:39:2 my_proj samples.txt > job.mk
     make -f job.mk bubblevcf
 
   To list all the commands without running:
@@ -31,7 +31,7 @@ sub print_usage
   list e.g. '21,33', or of the form <firstK[:lastK[:stepK]]>. Examples:
     '27' => 27;  '27:31' => 27,29,31; '27:39:4' => 27,31,35,49
 
-  samples.txt should space or tab separated with 2-4 columns of the format:
+  <samples.txt> should space or tab separated with 2-4 columns of the format:
     # comment
     <sample-name> <se_file,...> <pefile1:pefile2,...> <interleaved_file,...>
     ...
@@ -152,8 +152,10 @@ for my $k (@kmers) {
   print "# Files at k=$k\n";
   print "RAW_GRAPHS_K$k=".join(' ', map {"$proj/k$k/graphs/$_->{'name'}.raw.ctx"} @samples)."\n";
   print "CLEAN_GRAPHS_K$k=\$(RAW_GRAPHS_K$k:.raw.ctx=.clean.ctx)\n";
-  print "RAW_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.raw.ctp.gz"}   @samples)."\n";
-  print "CLEAN_LINKS_K$k=\$(RAW_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
+  print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"}   @samples)."\n";
+  print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
+  print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
+  print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "BUBBLES_K$k=$proj/k$k/bubbles/bubbles.txt.gz\n";
   if(defined($ref_path)) {
     print "BREAKPOINTS_K$k=$proj/k$k/breakpoints/breakpoints.txt.gz\n";
@@ -162,12 +164,15 @@ for my $k (@kmers) {
   }
   print "\n";
 }
+
 print "RAW_GRAPHS=" .join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
-print "RAW_LINKS="  .join(' ', map {"\$(RAW_LINKS_K$_)"}   @kmers)."\n";
-print "CLEAN_LINKS=\$(RAW_LINKS:.raw.ctp.gz=.clean.ctp.gz)\n";
-print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}     @kmers)."\n";
-print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"} @kmers)."\n";
+print "RAW_LINKS="  .join(' ', map {"\$(RAW_SE_LINKS_K$_) \$(RAW_PE_LINKS_K$_) "} @kmers)."\n";
+print "CLEAN_SE_LINKS=".join(' ', map {"\$(CLEAN_SE_LINKS_K$_)"} @kmers)."\n";
+print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
+print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
+print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
+print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 
 my @dirlist = ();
 for my $k (@kmers) {
@@ -182,54 +187,59 @@ print 'DIRS='.join(" \\\n     ", @dirlist).'
 
 COVG_CSV_FILES=$(RAW_GRAPHS:.raw.ctx=.raw.covg.csv)
 
-LINK_TMP_FILES=$(RAW_LINKS:.raw.ctp.gz=.effcovg.csv) \
-               $(RAW_LINKS:.raw.ctp.gz=.tree.csv) \
-               $(RAW_LINKS:.raw.ctp.gz=.thresh.txt)
-
+# .csi are index files (for VCF in this case)
 BUBBLE_VCFS=$(BUBBLES:.txt.gz=.norm.vcf.gz)
+BUBBLE_CSIS=$(BUBBLE_VCFS:=.csi)
 BREAKPOINT_VCFS=$(BREAKPOINTS:.txt.gz=.norm.vcf.gz)
+BREAKPOINT_CSIS=$(BREAKPOINT_VCFS:=.csi)
 CALL_FILES=$(BUBBLES) $(BREAKPOINTS)
+RAW_VCFS=$(CALL_FILES:.txt.gz=.raw.vcf)
+CALL_VCFS=$(CALL_FILES:.txt.gz=.norm.vcf.gz)
+CALL_CSIS=$(BUBBLE_CSIS) $(BREAKPOINT_CSIS)
 VCF_TMP_FILES=$(BUBBLES:.txt.gz=.flanks.fa.gz) $(BUBBLES:.txt.gz=.flanks.sam) \
-              $(CALL_FILES:.txt.gz=.raw.vcf) $(CALL_FILES:.txt.gz=.sort.vcf) \
-              $(CALL_FILES:.txt.gz=.norm.vcf)
+              $(CALL_FILES:.txt.gz=.sort.vcf) $(CALL_FILES:.txt.gz=.norm.vcf)
 
 # Referece Graphs
 ';
 
 if(defined($ref_path)) {
-  for my $k (@kmers) { print "REF_K$k=$proj/k$k/ref/ref.ctx\n"; }
+  for my $k (@kmers) { print "REF_GRAPH_K$k=$proj/k$k/ref/ref.ctx\n"; }
 } else {
-  for my $k (@kmers) { print "REF_K$k=\n"; }
+  for my $k (@kmers) { print "REF_GRAPH_K$k=\n"; }
 }
 
-print 'REF_GRAPHS='.join(' ', map {'$(REF_K'.$_.')'} @kmers).'
+print 'REF_GRAPHS='.join(' ', map {'$(REF_GRAPH_K'.$_.')'} @kmers).'
 
-HAVE_LOGS=$(RAW_GRAPHS) $(CLEAN_GRAPHS) $(RAW_LINKS) $(CLEAN_LINKS) $(LINK_TMP_FILES) $(CALL_FILES)
+HAVE_LOGS=$(RAW_GRAPHS) $(CLEAN_GRAPHS) $(REF_GRAPHS) $(RAW_LINKS) $(CLEAN_SE_LINKS) $(CLEAN_PE_LINKS) $(LINK_TMP_FILES) $(CALL_FILES) $(RAW_VCFS)
 LOG_FILES=$(HAVE_LOGS:=.log)
 
-.SECONDARY: $(RAW_GRAPHS) $(COVG_CSV_FILES) $(RAW_LINKS) $(LINK_TMP_FILES) $(VCF_TMP_FILES)
+# Mark all dependencies as secondary
+# It means don\'t re-run if the dependency file disappears -- allows us to delete unused files
+.SECONDARY:
+
+# Delete files if their recipe fails
 .DELETE_ON_ERROR:
 
-all: checks graphs links bubbles breakpoints bubblevcf breakpointvcf
+all: ' .(defined($ref_path) ? 'bubblevcf breakpointvcf' : 'bubbles').' | checks
 
-graphs: $(CLEAN_GRAPHS)
+graphs: $(CLEAN_GRAPHS) | checks
 
-links: $(CLEAN_LINKS)
+links: $(FINAL_LINKS) | checks
 
-bubbles: $(BUBBLES)
+bubbles: $(BUBBLES) | checks
 
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
-  print "\t@[ -x \$(CTXDIR)/bin/ctx$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR= [cortex: \$(CTXDIR)]' 1>&2 && false )\n";
+  print "\t@[ -x \$(CTXDIR)/bin/ctx$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
 }
 print "\n";
 
 # Can only create VCFs if we have a reference
 if(defined($ref_path)) {
   print "breakpoints: \$(BREAKPOINTS)\n\n";
-  print "bubblevcf: $union_bubble_vcf\n\n";
-  print "breakpointvcf: $union_brkpnt_vcf\n\n";
+  print "bubblevcf: $union_bubble_vcf $union_bubble_vcf.csi\n\n";
+  print "breakpointvcf: $union_brkpnt_vcf $union_brkpnt_vcf.csi\n\n";
 } else {
   for my $tgt (qw(breakpoints bubblevcf breakpointvcf)) {
     print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
@@ -240,10 +250,7 @@ print "\$(DIRS):
 \tmkdir -p \$@
 
 clean:
-\trm -rf \$(RAW_GRAPHS) \$(CLEAN_GRAPHS) \$(COVG_CSV_FILES)
-\trm -rf \$(RAW_LINKS) \$(CLEAN_LINKS) \$(LINK_TMP_FILES)
-\trm -rf \$(BUBBLES) \$(BREAKPOINTS)
-\trm -rf \$(CALL_VCFS) \$(VCF_TMP_FILES) \$(LOG_FILES)
+\t\@echo To delete: rm -rf $proj
 
 .PHONY: all clean checks graphs links bubbles breakpoints bubblevcf breakpointvcf
 
@@ -268,17 +275,18 @@ for my $k (@kmers) {
     my @files = get_all_sample_files($sample);
 
     print "$proj/k$k/graphs/$sname.raw.ctx: ".join(' ', @files)." | \$(DIRS)\n";
-    print "\t$ctx build -m \$(MEM) -t \$(NTHREADS) -k $k --sample $sname";
-    for my $file  (@{$sample->{'se_files'}}) { print " --seq $file";   }
-    for my $files (@{$sample->{'pe_files'}}) { print " --seq2 $files"; }
-    for my $ifile (@{$sample->{'i_files'}})  { print " --seqi $ifile"; }
-    print ' $@ >& $@.log'."\n\n";
+    print "\t$ctx build -m \$(MEM) -t \$(NTHREADS) -k $k --sample $sname " .
+          join(' ', (map {"--seq $_"}               @{$sample->{'se_files'}}),
+                    (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
+                    (map {"--seqi $_"}              @{$sample->{'i_files'}})) .
+          ' $@ >& $@.log'."\n\n";
   }
 
   # Clean graph files at k=$k
   print "# graph cleaning at k=$k\n";
   print "$proj/k$k/graphs/%.raw.covg.csv $proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean -m \$(MEM) -t \$(NTHREADS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$< >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
+  print "\t($ctx clean -m \$(MEM) -t \$(NTHREADS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$<; \\\n";
+  print "\t $ctx inferedges -m \$(MEM) -t \$(NTHREADS) $proj/k$k/graphs/\$*.clean.ctx) >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
 }
 
 # Create and clean link files
@@ -289,17 +297,34 @@ for my $k (@kmers) {
 
   for my $sample (@samples) {
     my $sname = $sample->{'name'};
-    my @files = get_all_sample_files($sample);
+    my @pe_files = (map {($_->[0], $_->[1])} @{$sample->{'pe_files'}},
+                    @{$sample->{'i_files'}});
+    my @se_files = (@{$sample->{'se_files'}}, @pe_files);
 
-    my $ctx_clean_file = "$proj/k$k/graphs/$sname.clean.ctx";
-    my $ctp_raw_file   = "$proj/k$k/links/$sname.raw.ctp.gz";
+    my $ctx_clean_file      = "$proj/k$k/graphs/$sname.clean.ctx";
+    my $ctp_se_raw_file     = "$proj/k$k/links/$sname.se.raw.ctp.gz";
+    my $ctp_pe_raw_file   = "$proj/k$k/links/$sname.pe.raw.ctp.gz";
+    my $ctp_se_clean_file   = "$proj/k$k/links/$sname.se.clean.ctp.gz";
+    my $ctp_pe_clean_file = "$proj/k$k/links/$sname.pe.clean.ctp.gz";
 
-    print "$ctp_raw_file: $ctx_clean_file ".join(' ', @files)." | \$(DIRS)\n";
-    print "\t$ctx thread -m \$(MEM) -t \$(NTHREADS)";
-    for my $f (@{$sample->{'se_files'}}) { print " --seq $f";   }
-    for my $f (@{$sample->{'pe_files'}}) { print " --seq2 $f->[0]:$f->[1]"; }
-    for my $f (@{$sample->{'i_files'}})  { print " --seqi $f"; }
-    print ' -o $@ $< >& $@.log'."\n\n";
+    # Single ended threading
+    print "$ctp_se_raw_file: $ctx_clean_file @se_files | \$(DIRS)\n";
+    print "\t$ctx thread -m \$(MEM) -t \$(NTHREADS) " .
+          join(' ', (map {"--seq $_"}                    @{$sample->{'se_files'}}),
+                    (map {"--seq $_->[0] --seq $_->[1]"} @{$sample->{'pe_files'}}),
+                    (map {"--seq $_"}                    @{$sample->{'i_files'}})) .
+          ' -o $@ $< >& $@.log'."\n\n";
+
+    if(@{$sample->{'pe_files'}} > 0 || @{$sample->{'i_files'}} > 0) {
+      print "$ctp_pe_raw_file: $ctx_clean_file $ctp_se_clean_file @pe_files | \$(DIRS)\n";
+      print "\t$ctx thread -m \$(MEM) -t \$(NTHREADS) -p $ctp_se_clean_file " .
+              join(' ', (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
+                        (map {"--seqi $_"}              @{$sample->{'i_files'}})) .
+              ' -o $@ $< >& $@.log'."\n\n";
+    } else {
+      print "$ctp_pe_clean_file: $ctp_se_clean_file\n";
+      print "\tln \$< \$@\n\n";
+    }
   }
 
   # Clean link files at k=$k
@@ -331,8 +356,8 @@ for my $k (@kmers) {
   my $ctx = get_ctx($k);
   my $ctp_txt = get_p_args($k);
   print "# bubble calls k=$k\n";
-  print "$proj/k$k/bubbles/bubbles.txt.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_K$k) \$(CLEAN_LINKS_K$k) | \$(DIRS)\n";
-  print "\t$ctx bubbles -m \$(MEM) -t \$(NTHREADS) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_K$k) >& \$@.log\n\n";
+  print "$proj/k$k/bubbles/bubbles.txt.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+  print "\t$ctx bubbles -m \$(MEM) -t \$(NTHREADS) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
 }
 
 # Some things require a reference to be used
@@ -346,8 +371,8 @@ if(defined($ref_path))
     my $brkpnt_file = "$proj/k$k/breakpoints/breakpoints.txt.gz";
 
     print "# breakpoint calls k=$k\n";
-    print "$brkpnt_file: \$(CLEAN_GRAPHS_K$k) \$(REF_K$k) \$(CLEAN_LINKS_K$k) | \$(DIRS)\n";
-    print "\t$ctx breakpoints -m \$(MEM) -t \$(NTHREADS) -s \$(REF_FILE) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_K$k) >& \$@.log\n\n";
+    print "$brkpnt_file: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "\t$ctx breakpoints -m \$(MEM) -t \$(NTHREADS) -s \$(REF_FILE) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
   }
 
   # Generate buble VCFs
@@ -393,16 +418,22 @@ if(defined($ref_path))
   print "\t\$(BCFTOOLS) norm --remove-duplicates --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
   print "\t\$(VCFRENAME) > \$@\n\n";
 
-  print "$proj/%.norm.vcf.gz: $proj/%.norm.vcf\n";
-  print "\t\$(BGZIP) -f \$<\n";
-  print "\t\$(BCFTOOLS) index \$@\n\n";
-
   # Generate union VCF
   print "#\n# Create union compressed VCF\n#\n";
-  print "$proj/vcfs/bubbles.".join('.',map {"k$_"} @kmers).".vcf.gz: \$(BUBBLE_VCFS)\n";
+  print "$union_bubble_vcf: \$(BUBBLE_VCFS) \$(BUBBLE_CSIS)\n";
   print "\t\$(BCFTOOLS) concat --output-type z --output \$@ \$(BUBBLE_VCFS)\n\n";
-  print "$proj/vcfs/breakpoints.".join('.',map {"k$_"} @kmers).".vcf.gz: \$(BREAKPOINT_VCFS)\n";
+
+  print "$union_brkpnt_vcf: \$(BREAKPOINT_VCFS) \$(BREAKPOINT_CSIS)\n";
   print "\t\$(BCFTOOLS) concat --output-type z --output \$@ \$(BREAKPOINT_VCFS)\n\n";
+
+  print "#\n# General VCF rules\n#\n";
+  # Compress a VCF
+  print "%.vcf.gz: %.vcf\n";
+  print "\t\$(BGZIP) -f \$<\n\n";
+
+  # Create VCF index files .vcf.gz.csi
+  print "%.vcf.gz.csi: %.vcf.gz\n";
+  print "\t\$(BCFTOOLS) index -f \$<\n\n";
 }
 
 
@@ -410,32 +441,18 @@ if(defined($ref_path))
 exit(0);
 
 
-sub print_vcf_post_processing
-{
-  my ($raw,$sort,$norm,$norm_gz) = @_;
-
-  print "$sort: $raw\n";
-  print "\t\$(VCFSORT) \$< > \$@\n\n";
-
-  print "$norm: $sort \$(REF_FILE)\n";
-  print "\t\$(BCFTOOLS) norm --remove-duplicates --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
-  print "\t\$(VCFRENAME) > \$@\n\n";
-
-  print "$norm_gz: $norm\n";
-  print "\t\$(BGZIP) -f \$<\n";
-  print "\t\$(BCFTOOLS) index \$@\n";
-}
-
 sub get_p_args
 {
   my ($k) = @_;
-  return join(' ', map {"-p $_:$proj/k$k/links/$samples[$_]->{'name'}.clean.ctp.gz"} 0..$#samples);
+  return join(' ', map {"-p $_:$proj/k$k/links/$samples[$_]->{'name'}.pe.clean.ctp.gz"} 0..$#samples);
 }
 
 sub get_all_sample_files
 {
   my ($sample) = @_;
-  return (@{$sample->{'se_files'}}, @{$sample->{'pe_files'}}, @{$sample->{'i_files'}});
+  return (@{$sample->{'se_files'}},
+          (map {($_->[0], $_->[1])} @{$sample->{'pe_files'}}),
+          @{$sample->{'i_files'}});
 }
 
 sub get_required_binaries
@@ -475,7 +492,7 @@ sub parse_pe_file_list
 sub parse_file_list
 {
   my ($txt) = @_;
-  if(!defined($txt) || $txt eq "" || $txt eq ".") { return (); }
+  if(!defined($txt) || $txt eq "" || $txt eq "." || $txt eq "-") { return (); }
   my @files = split(',', $txt);
   for my $f (@files) { if($f eq "") { die("Empty file entry: $txt"); } }
   return @files;
