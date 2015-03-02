@@ -3,7 +3,7 @@
 
 // needed for mode_t used by futil_mkpath(const char *path, mode_t mode)
 // and futil_get_file_size(const char* path)
-#include <sys/stat.h>
+#include <sys/stat.h> // mkdir, mode_t
 #include "string_buffer/string_buffer.h"
 
 // Whether to overwrite files without warning (default: false)

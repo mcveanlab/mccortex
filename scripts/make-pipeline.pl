@@ -10,6 +10,10 @@ use lib $FindBin::Bin;
 use POSIX qw/strftime/;
 use CortexScripts;
 
+# TODO:
+# * Record KMER used for calling and when merging
+# * Add bubble calling pipeline test
+
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
@@ -421,10 +425,15 @@ if(defined($ref_path))
   # Generate union VCF
   print "#\n# Create union compressed VCF\n#\n";
   print "$union_bubble_vcf: \$(BUBBLE_VCFS) \$(BUBBLE_CSIS)\n";
-  print "\t\$(BCFTOOLS) concat --output-type z --output \$@ \$(BUBBLE_VCFS)\n\n";
+  # print "\t\$(BCFTOOLS) concat --allow-overlaps --output-type z --output \$@ \$(BUBBLE_VCFS)\n\n";
+  print "\t\$(BCFTOOLS) concat --allow-overlaps --remove-duplicates \$(BUBBLE_VCFS) | \\\n";
+  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+
 
   print "$union_brkpnt_vcf: \$(BREAKPOINT_VCFS) \$(BREAKPOINT_CSIS)\n";
-  print "\t\$(BCFTOOLS) concat --output-type z --output \$@ \$(BREAKPOINT_VCFS)\n\n";
+  # print "\t\$(BCFTOOLS) concat --allow-overlaps --output-type z --output \$@ \$(BREAKPOINT_VCFS)\n\n";
+  print "\t\$(BCFTOOLS) concat --allow-overlaps --remove-duplicates \$(BREAKPOINT_VCFS) | \\\n";
+  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "#\n# General VCF rules\n#\n";
   # Compress a VCF

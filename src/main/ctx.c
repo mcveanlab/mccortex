@@ -127,7 +127,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "linkthresh", .func = ctx_linkthresh, .hide = false,
-  .blurb = "Pick link threshold from CSV",
+  .blurb = "pick link threshold from a CSV file of links",
   .usage = linkthresh_usage
 },
 {

@@ -1,11 +1,10 @@
 #Arguments (all are optional):
 # MAXK=31
-# RELEASE=1       (release build)
-# DEBUG=1         (debug build)
-# VERBOSE=1       (compile to print all the things!)
-# USE_CITY_HASH=1 (use CityHash hash function)
-# USE_XXHASH=1    ()
-# RECOMPILE=1     (recompile all from source)
+# RELEASE=1                  (release build)
+# DEBUG=1                    (debug build)
+# VERBOSE=1                  (compile to print all the things!)
+# HASH=<CITY,LOOKUP3,XXHASH> (default hash function)
+# RECOMPILE=1                (recompile all from source)
 
 # Resolve some issues linking libz:
 # e.g. for WTCHG cluster3
@@ -48,12 +47,16 @@ MAX_KMER_SIZE=$(MAXK)
 MIN_KMER_SIZE=$(shell echo $$[$(MAX_KMER_SIZE)-30] | sed 's/^1$$/3/g')
 
 # Use City hash instead of lookup3?
-ifdef USE_CITY_HASH
-	HASH_KEY_FLAGS=-DUSE_CITY_HASH=1
-endif
-
-ifdef USE_XXHASH
-	HASH_KEY_FLAGS=-DUSE_XXHASH=1
+ifdef HASH
+  ifeq ($(HASH),CITY)
+    HASH_KEY_FLAGS=-DUSE_CITY_HASH=1
+  else ifeq ($(HASH),XXHASH)
+    HASH_KEY_FLAGS=-DUSE_XXHASH=1
+  else ifeq ($(HASH),LOOKUP3)
+    # default
+  else
+    $(error Please set HASH to a valid value HASH=<LOOKUP3,CITY,XXHASH>)
+  endif
 endif
 
 # Library paths

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-gzip -fcd | grep -v '^@'
+gzip -fcd $1 | grep -v '^@'
