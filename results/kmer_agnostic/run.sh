@@ -201,7 +201,7 @@ done
 # Check various kmer cleaning thresholds
 for k in $kmers; do
   mkdir -p k$k/kmer_cleaning
-  thresholds=`seq 1 1 100`
+  thresholds=`seq 1 1 30`
   ctx=`getctx $k`
 
   for i in $thresholds; do
@@ -228,7 +228,7 @@ done
 for k in $kmers; do
   if [ $k -lt 99 ]; then # k=99 has no links, so fails
     mkdir -p k$k/link_cleaning
-    thresholds=`seq 0 2 20`
+    thresholds=`seq 0 1 20`
 
     for i in $thresholds; do
       if [ ! -f k$k/link_cleaning/stocherr.clean.$i.ctp ]; then gzip -fcd k$k/links/gE.lE.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.clean.$i.ctp 2> k$k/link_cleaning/stocherr.clean.$i.ctp.log; fi

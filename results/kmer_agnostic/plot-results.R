@@ -14,14 +14,18 @@
 
 # R --vanilla -f plot-results.R --args <links.csv> <plain.csv>
 #options(echo=FALSE)
-nfiles=9
+# nfiles=9
 args <- commandArgs(trailingOnly = TRUE)
-if(length(args) != nfiles) {
-  message("Usage: R --vanilla -f plot-results.R --args <{perf,stoch,stocherr}.{plain,links,string}.csv>")
-  quit()
-}
+# if(length(args) != nfiles) {
+#   message("Usage: R --vanilla -f plot-results.R --args <{perf,stoch,stocherr}.{plain,links,string}.csv>")
+#   quit()
+# }
 
 files=args
+nfiles=length(files)
+
+titles=c()
+for(i in 1:nfiles) { titles[i] = substr(files[i],1,nchar(files[i])-10) }
 
 set_margin <- function() {
   par(oma=c(0,0,0,0))
@@ -35,11 +39,13 @@ for(i in 1:nfiles) {
 }
 
 kmers=as.numeric(data[[1]]['kmer',])
-# cols=c('firebrick','dodgerblue', 'darkolivegreen', 'darkorchid', 'orange', 'black')
-tmpcols=rainbow(3)
-cols=tmpcols[rep(1:3,each=3)]
-linetyp=rep(c(1,2,3),times=3)
 
+# tmpcols=rainbow(3)
+# cols=tmpcols[rep(1:3,each=3)]
+# linetypes=rep(c(1,2,3),times=3)
+cols=rainbow(nfiles)
+linetypes=rep(c(1,2,3),length.out=nfiles)
+pchtypes=rep(c(0,3,4),length.out=nfiles)
 
 fields=c('median','mean','N50','sum_length','contigs','med_walk')
 descriptions=c("Median contig length","Mean contig length","Contig N50",
@@ -58,21 +64,25 @@ for(i in 1:length(fields)) {
   field = fields[i]
   description = descriptions[i]
 
-  pdf(file=paste(path,field,'.pdf',sep=''),width=7,height=7)
+  f=paste(path,field,'.pdf',sep='')
+  cat('f=',f,'\n');
+  pdf(file=f,width=7,height=7)
   # tikz(paste(path,field,'.tex',sep=''),width=2.5,height=2.5)
   set_margin()
 
   m = 0;
   for(j in 1:nfiles) { m = max(m, as.numeric(data[[j]][field,])); }
 
-  plot(kmers,as.numeric(data[[1]][field,]),type='b',col=cols[1], lty=linetyp[1],
+  plot(kmers,as.numeric(data[[1]][field,]),type='b',
+       col=cols[1], pch=pchtypes[1], lty=linetypes[1],
        ylim=c(0,2*m),axes=F,ylab=description,xlab="kmer",
        )#main=paste(description,"vs kmer-size"))
   axis(side = 2)
   axis(side = 1,at=kmers)
 
   for(j in 2:nfiles) {
-    points(kmers,as.numeric(data[[j]][field,]),type='b',col=cols[j],lty=linetyp[j])
+    points(kmers,as.numeric(data[[j]][field,]),type='b',
+           col=cols[j], pch=pchtypes[j], lty=linetypes[j])
   }
 
   s0=0; sn=0;
@@ -80,11 +90,15 @@ for(i in 1:length(fields)) {
     s0 = s0 + as.numeric(data[[j]][field,1]);
     sn = sn + as.numeric(data[[j]][field,length(kmers)-1]);
   }
+
   lpos='topright';
   # if(s0 < sn) { lpos='bottomright' }
-  legtxt = c('Perfect Plain', 'Perfect Links', 'Perfect String',
-             'Stoch. Plain', 'Stoch. Links', 'Stoch. String',
-             'Stoch. Err Plain', 'Stoch. Err Links', 'Stoch. Err String');
-  legend(lpos,legtxt,fill=cols,lty=linetyp)
+
+  # legtxt = c('Perfect Plain', 'Perfect Links', 'Perfect String',
+  #            'Stoch. Plain', 'Stoch. Links', 'Stoch. String',
+  #            'Stoch. Err Plain', 'Stoch. Err Links', 'Stoch. Err String');
+  legtxt=titles
+
+  legend(lpos,legtxt,col=cols,pch=pchtypes,lty=linetypes)
   dev.off()
 }
