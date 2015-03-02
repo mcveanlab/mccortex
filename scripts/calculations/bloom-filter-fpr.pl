@@ -18,6 +18,8 @@ for(my $i = 0; $i < $num_rep_kmers; $i++) {
   $success *= (1-$false_pos_rate);
 }
 
+# Complete => traversing $num_rep_kmers without a false positive
+print "$k hash functions; $m bits;\n";
 print "$num_rep_kmers false positive rate: $false_pos_rate\n";
 print "complete success rate: $success\n";
 print "complete failure rate: ".(1-$success)."\n";
