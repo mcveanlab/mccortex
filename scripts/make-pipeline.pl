@@ -138,6 +138,12 @@ CLEANING_ARGS=
 LINK_CLEAN_NKMERS='.$default_link_clean_nkmers.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 
+ifdef NKMERS
+  CTX_ARGS=-m $(MEM) -t $(NTHREADS) -n $(NKMERS)
+else
+  CTX_ARGS=-m $(MEM) -t $(NTHREADS)
+endif
+
 # Paths to scripts
 CTXLINKS=$(CTXDIR)/scripts/cortex_links.pl
 MEDIAN_LINK_THRESH=$(CTXDIR)/scripts/median-link-threshold.sh
@@ -269,7 +275,7 @@ for my $k (@kmers) {
   if(defined($ref_path)) {
     print "# reference at k=$k\n";
     print "$proj/k$k/ref/ref.ctx: $ref_path\n";
-    print "\t$ctx build -m \$(MEM) -t \$(NTHREADS) -k $k -s \$< \$@ >& \$@.log\n\n";
+    print "\t$ctx build \$(CTX_ARGS) -k $k -s \$< \$@ >& \$@.log\n\n";
   }
 
   print "# building graphs at k=$k\n";
@@ -279,7 +285,7 @@ for my $k (@kmers) {
     my @files = get_all_sample_files($sample);
 
     print "$proj/k$k/graphs/$sname.raw.ctx: ".join(' ', @files)." | \$(DIRS)\n";
-    print "\t$ctx build -m \$(MEM) -t \$(NTHREADS) -k $k --sample $sname " .
+    print "\t$ctx build \$(CTX_ARGS) -k $k --sample $sname " .
           join(' ', (map {"--seq $_"}               @{$sample->{'se_files'}}),
                     (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
                     (map {"--seqi $_"}              @{$sample->{'i_files'}})) .
@@ -289,8 +295,8 @@ for my $k (@kmers) {
   # Clean graph files at k=$k
   print "# graph cleaning at k=$k\n";
   print "$proj/k$k/graphs/%.raw.covg.csv $proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t($ctx clean -m \$(MEM) -t \$(NTHREADS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$<; \\\n";
-  print "\t $ctx inferedges -m \$(MEM) -t \$(NTHREADS) $proj/k$k/graphs/\$*.clean.ctx) >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
+  print "\t($ctx clean \$(CTX_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$<; \\\n";
+  print "\t $ctx inferedges \$(CTX_ARGS) $proj/k$k/graphs/\$*.clean.ctx) >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
 }
 
 # Create and clean link files
@@ -313,7 +319,7 @@ for my $k (@kmers) {
 
     # Single ended threading
     print "$ctp_se_raw_file: $ctx_clean_file @se_files | \$(DIRS)\n";
-    print "\t$ctx thread -m \$(MEM) -t \$(NTHREADS) " .
+    print "\t$ctx thread \$(CTX_ARGS) " .
           join(' ', (map {"--seq $_"}                    @{$sample->{'se_files'}}),
                     (map {"--seq $_->[0] --seq $_->[1]"} @{$sample->{'pe_files'}}),
                     (map {"--seq $_"}                    @{$sample->{'i_files'}})) .
@@ -321,7 +327,7 @@ for my $k (@kmers) {
 
     if(@{$sample->{'pe_files'}} > 0 || @{$sample->{'i_files'}} > 0) {
       print "$ctp_pe_raw_file: $ctx_clean_file $ctp_se_clean_file @pe_files | \$(DIRS)\n";
-      print "\t$ctx thread -m \$(MEM) -t \$(NTHREADS) -p $ctp_se_clean_file " .
+      print "\t$ctx thread \$(CTX_ARGS) -p $ctp_se_clean_file " .
               join(' ', (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
                         (map {"--seqi $_"}              @{$sample->{'i_files'}})) .
               ' -o $@ $< >& $@.log'."\n\n";
@@ -361,7 +367,7 @@ for my $k (@kmers) {
   my $ctp_txt = get_p_args($k);
   print "# bubble calls k=$k\n";
   print "$proj/k$k/bubbles/bubbles.txt.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
-  print "\t$ctx bubbles -m \$(MEM) -t \$(NTHREADS) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "\t$ctx bubbles \$(CTX_ARGS) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
 }
 
 # Some things require a reference to be used
@@ -376,7 +382,7 @@ if(defined($ref_path))
 
     print "# breakpoint calls k=$k\n";
     print "$brkpnt_file: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
-    print "\t$ctx breakpoints -m \$(MEM) -t \$(NTHREADS) -s \$(REF_FILE) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+    print "\t$ctx breakpoints \$(CTX_ARGS) -s \$(REF_FILE) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
   }
 
   # Generate buble VCFs
@@ -466,7 +472,7 @@ sub get_all_sample_files
 
 sub get_required_binaries
 {
-  return map { get_ctx($_) } keys get_maxk_values(@_);
+  return map { get_ctx($_) } get_maxk_values(@_);
 }
 
 sub get_maxk_values

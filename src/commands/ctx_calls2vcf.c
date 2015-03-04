@@ -78,7 +78,9 @@ const char *sam_path = NULL;
 // Things we figure out by looking at the input
 //
 bool input_bubble_format = false;
-size_t kmer_size, num_samples;
+size_t kmer_size;
+// samples in VCF, (0 for bubble, does not include ref in breakpoint calls)
+size_t num_samples;
 
 //
 // Reference genome
@@ -785,6 +787,7 @@ static void align_entry(const CallFileEntry *centry, const char *callid,
   char info[200];
   strcpy(info, input_bubble_format ? "BUBBLE=" : "BRKPNT=");
   strcpy(info+7, callid);
+  sprintf(info+strlen(info), ";K%zu", kmer_size);
 
   size_t nlines = call_file_num_lines(centry);
 
@@ -931,7 +934,8 @@ static cJSON* read_input_header(gzFile gzin)
 }
 
 /**
- * @return number of samples found in json header
+ * @return number of samples found in json header,
+ *         not including ref if breakpoint calls
  */
 static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
 {
@@ -958,7 +962,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   }
 
   // Print command entry for this command
-  fprintf(fout, "##CMD=<key=\"%s\",prev=\"%s\",cmd=\"%s\",cwd=\"%s\">\n",
+  fprintf(fout, "##mccortex=<key=\"%s\",prev=\"%s\",cmd=\"%s\",cwd=\"%s\">\n",
           hex_rand_str(keystr, sizeof(keystr)),
           prevstr ? prevstr : "NULL",
           cmd_get_cmdline(), cmd_get_cwd());
@@ -972,7 +976,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
     cJSON *prev = json_hdr_get(command, "prev", cJSON_Array,  input_path);
     prev = prev->child; // result could be NULL
     if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
-    fprintf(fout, "##CMD=<key=\"%s\",prev=\"%s", key->valuestring,
+    fprintf(fout, "##mccortex=<key=\"%s\",prev=\"%s", key->valuestring,
                   prev ? prev->valuestring : "NULL");
     if(prev) {
       while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->valuestring);
@@ -991,12 +995,19 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   else
     fprintf(fout, "##INFO=<ID=BUBBLE,Number=1,Type=String,Description=\"Bubble call\">\n");
 
+  fprintf(fout, "##INFO=<ID=K%zu,Number=0,Type=Flag,Description=\"Found at k=%zu\">\n", kmer_size, kmer_size);
+
   fprintf(fout, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
   fprintf(fout, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
 
+  // Print reference paths
+  fprintf(fout, "##reference=%s", ref_paths[0]);
+  for(i = 1; i < num_ref_paths; i++) printf(",%s", ref_paths[i]);
+  fprintf(fout, "\n");
+
   // Print contigs lengths
   for(i = 0; i < chroms.len; i++) {
-    fprintf(fout, "##contig=<id=%s,length=%zu>\n",
+    fprintf(fout, "##contig=<ID=%s,length=%zu>\n",
             chroms.data[i].name.b, chroms.data[i].seq.end);
   }
 
@@ -1013,7 +1024,10 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
     cJSON *colour_json  = colours_json->child;
     if(colour_json == NULL) die("Missing colours");
 
-    for(; colour_json; colour_json = colour_json->next, nsamples_printed++) {
+    // Don't print the last colour (it's the ref)
+    for(; colour_json && colour_json->next;
+        colour_json = colour_json->next, nsamples_printed++)
+    {
       cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
       fputc('\t', fout);
       fputs(sample_json->valuestring, fout);
