@@ -1024,9 +1024,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
     cJSON *colour_json  = colours_json->child;
     if(colour_json == NULL) die("Missing colours");
 
-    // Don't print the last colour (it's the ref)
-    for(; colour_json && colour_json->next;
-        colour_json = colour_json->next, nsamples_printed++)
+    for(; colour_json; colour_json = colour_json->next, nsamples_printed++)
     {
       cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
       fputc('\t', fout);
@@ -1114,6 +1112,8 @@ int ctx_calls2vcf(int argc, char **argv)
 
   // Run
   num_samples = print_vcf_header(json, !input_bubble_format, fout);
+  status("Reading %s call file with %zu samples",
+         input_bubble_format ? "Bubble" : "Breakpoint", num_samples);
   parse_entries(gzin, fout);
 
   // Print stats
