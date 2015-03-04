@@ -11,8 +11,7 @@ use POSIX qw/strftime/;
 use CortexScripts;
 
 # TODO:
-# * Record KMER used for calling and when merging
-# * Add bubble calling pipeline test
+# * Merge info fields when merging VCF files
 
 sub print_usage
 {
@@ -73,32 +72,11 @@ print STDERR "sample_file: $sample_path\n";
 # Set up paths to executables, defaults etc.
 my $link_thresh_script = "\$(CTXDIR)/scripts/R/make_link_cutoffs.R";
 
-
-# Load sample file
-# ## Comment lines
-# <sample>  <se_file,...>  <pe_file1:file2,...>  <interleaved_files,...>
-my @samples = (); # ({'name','se_files','pe_files','i_files'}, ...)
-my %sample_names = ();
-my $sfh = open_file($sample_path);
-while(defined(my $line = <$sfh>)) {
-  if($line !~ /^\s*$/ && $line !~ /^#/) {
-    my @cols = split(/\s/, $line);
-    if(@cols < 2 || @cols > 4) { die("Bad line"); }
-    my ($sname, $se_txt, $pe_txt, $i_txt) = @cols;
-    # Check sample name is sane and unique
-    if($sname !~ /^[a-z0-9_\-\.]+$/i) { print STDERR "Bad name: $sname"; exit(-1); }
-    if(defined($sample_names{$sname})) { die("Duplicate sample name"); }
-    # Parse file lists
-    my @se_files = parse_file_list($se_txt);
-    my @pe_files = parse_pe_file_list($pe_txt);
-    my @i_files  = parse_file_list($i_txt);
-    push(@samples, {'name'     => $sname,
-                    'se_files' => \@se_files,
-                    'pe_files' => \@pe_files,
-                    'i_files'  => \@i_files});
-  }
-}
-close($sfh);
+# Load samples file
+# returns array of ({'name','se_files','pe_files','i_files'}, ...)
+my @samples = load_samples_file($sample_path);
+if(@samples == 0) { die("No samples given in: $sample_path"); }
+print "Samples: @samples\n";
 
 my $union_bubble_vcf = "$proj/vcfs/bubbles.".join('.',map {"k$_"} @kmers).".vcf.gz";
 my $union_brkpnt_vcf = "$proj/vcfs/breakpoints.".join('.',map {"k$_"} @kmers).".vcf.gz";
@@ -274,11 +252,11 @@ for my $k (@kmers) {
   # Build reference
   if(defined($ref_path)) {
     print "# reference at k=$k\n";
-    print "$proj/k$k/ref/ref.ctx: $ref_path\n";
+    print "$proj/k$k/ref/ref.ctx: $ref_path | \$(DIRS)\n";
     print "\t$ctx build \$(CTX_ARGS) -k $k -s \$< \$@ >& \$@.log\n\n";
   }
 
-  print "# building graphs at k=$k\n";
+  print "# building sample graphs at k=$k\n";
   for my $sample (@samples) {
     # Create raw graph file
     my $sname = $sample->{'name'};
@@ -293,7 +271,7 @@ for my $k (@kmers) {
   }
 
   # Clean graph files at k=$k
-  print "# graph cleaning at k=$k\n";
+  print "# sample graph cleaning at k=$k\n";
   print "$proj/k$k/graphs/%.raw.covg.csv $proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
   print "\t($ctx clean \$(CTX_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$<; \\\n";
   print "\t $ctx inferedges \$(CTX_ARGS) $proj/k$k/graphs/\$*.clean.ctx) >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
@@ -455,6 +433,38 @@ if(defined($ref_path))
 # Done!
 exit(0);
 
+
+# Load sample file
+# ## Comment lines
+# <sample>  <se_file,...>  <pe_file1:file2,...>  <interleaved_files,...>
+# returns array of ({'name','se_files','pe_files','i_files'}, ...)
+sub load_samples_file
+{
+  my ($path) = @_;
+  my @samples = ();
+  my %sample_names = ();
+  my $sfh = open_file($path);
+  while(defined(my $line = <$sfh>)) {
+    if($line !~ /^\s*$/ && $line !~ /^#/) {
+      my @cols = split(/\s/, $line);
+      if(@cols < 2 || @cols > 4) { die("Bad line"); }
+      my ($sname, $se_txt, $pe_txt, $i_txt) = @cols;
+      # Check sample name is sane and unique
+      if($sname !~ /^[a-z0-9_\-\.]+$/i) { print STDERR "Bad name: $sname"; exit(-1); }
+      if(defined($sample_names{$sname})) { die("Duplicate sample name"); }
+      # Parse file lists
+      my @se_files = parse_file_list($se_txt);
+      my @pe_files = parse_pe_file_list($pe_txt);
+      my @i_files  = parse_file_list($i_txt);
+      push(@samples, {'name'     => $sname,
+                      'se_files' => \@se_files,
+                      'pe_files' => \@pe_files,
+                      'i_files'  => \@i_files});
+    }
+  }
+  close($sfh);
+  return @samples;
+}
 
 sub get_p_args
 {

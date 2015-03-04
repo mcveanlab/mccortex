@@ -1,7 +1,6 @@
 SHELL=/bin/bash -euo pipefail
 
 
-K=11
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
