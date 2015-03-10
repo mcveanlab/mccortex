@@ -1,6 +1,8 @@
 McCortex: Population De Novo Assembly and Variant Calling
 ===============================================
 
+[![Join the chat at https://gitter.im/mcveanlab/mccortex](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/mcveanlab/mccortex?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Multi-sample de novo assembly and variant calling using de bruijn graphs.
 Variant calling with and without a reference genome. Between closely related
 samples or highly diverged ones. From bacterial to mammalian genomes. Minimal
