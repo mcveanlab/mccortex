@@ -54,10 +54,10 @@ static void test_kmer_occur_filter()
 
   // Checks
   TASSERT2(koruns.len == 1, "koruns.len: %zu", koruns.len);
-  TASSERT(koruns.data[0].strand == STRAND_PLUS); // left-to-right with ref
-  TASSERT2(koruns.data[0].chrom == 1, "chrom: %zu", (size_t)koruns.data[0].chrom);
-  TASSERT2(koruns.data[0].first == 5, "offset: %zu", (size_t)koruns.data[0].first);
-  TASSERT2(koruns.data[0].last == 7, "last: %zu", (size_t)koruns.data[0].last);
+  TASSERT(koruns.b[0].strand == STRAND_PLUS); // left-to-right with ref
+  TASSERT2(koruns.b[0].chrom == 1, "chrom: %zu", (size_t)koruns.b[0].chrom);
+  TASSERT2(koruns.b[0].first == 5, "offset: %zu", (size_t)koruns.b[0].first);
+  TASSERT2(koruns.b[0].last == 7, "last: %zu", (size_t)koruns.b[0].last);
 
   // Test reverse
   db_nodes_reverse_complement(nodes, NUM_NODES);
@@ -70,9 +70,9 @@ static void test_kmer_occur_filter()
 
   // Print out for debugging
   // printf("koruns: ");
-  // koruns_print(koruns.data, koruns.len, kmer_size, stdout);
+  // koruns_print(koruns.b, koruns.len, kmer_size, stdout);
   // printf("\nkoruns_ended: ");
-  // koruns_print(koruns_ended.data, koruns_ended.len, kmer_size, stdout);
+  // koruns_print(koruns_ended.b, koruns_ended.len, kmer_size, stdout);
   // printf("\n");
 
   // Check results match:
@@ -80,10 +80,10 @@ static void test_kmer_occur_filter()
   // koruns_ended: chromid:1:34-24:-
   TASSERT2(koruns.len == 2, "koruns.len: %zu", koruns.len);
   TASSERT2(koruns_ended.len == 1, "koruns_ended.len: %zu", koruns_ended.len);
-  TASSERT(koruns.data[0].strand == STRAND_MINUS); // reverse complement of ref
-  TASSERT2(koruns.data[0].chrom == 1, "chrom: %zu", (size_t)koruns.data[0].chrom);
-  TASSERT2(koruns.data[0].first == 7, "offset: %zu", (size_t)koruns.data[0].first);
-  TASSERT2(koruns.data[0].last == 5, "last: %zu", (size_t)koruns.data[0].last);
+  TASSERT(koruns.b[0].strand == STRAND_MINUS); // reverse complement of ref
+  TASSERT2(koruns.b[0].chrom == 1, "chrom: %zu", (size_t)koruns.b[0].chrom);
+  TASSERT2(koruns.b[0].first == 7, "offset: %zu", (size_t)koruns.b[0].first);
+  TASSERT2(koruns.b[0].last == 5, "last: %zu", (size_t)koruns.b[0].last);
 
   kmer_run_buf_dealloc(&koruns);
   kmer_run_buf_dealloc(&koruns_ended);

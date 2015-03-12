@@ -172,7 +172,7 @@ size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
       // only load paths that match given colour
       if(file_filter_intocol(fltr,i) == colour) {
         file_filter_intocol(fltr,i) = 0;
-        fltr->filter.data[j++] = fltr->filter.data[i];
+        fltr->filter.b[j++] = fltr->filter.b[i];
       }
     }
     file_filter_num(fltr) = j;

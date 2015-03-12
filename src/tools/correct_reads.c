@@ -120,8 +120,8 @@ static void handle_read2(CorrectReadsWorker *wrkr,
   Nucleotide nuc;
 
   const size_t num_nodes = nodebuf->len;
-  const dBNode *node_arr = nodebuf->data;
-  const int32_t *pos_arr = posbuf->data;
+  const dBNode *node_arr = nodebuf->b;
+  const int32_t *pos_arr = posbuf->b;
 
   // Deal with neg kmers at start here
   for(num_neg = 0; num_neg < num_nodes && pos_arr[num_neg] == -1; num_neg++) {}

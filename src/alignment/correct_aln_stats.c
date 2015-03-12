@@ -26,10 +26,10 @@ void correct_aln_stats_merge(CorrectAlnStats *restrict dst,
   size_t i, j;
 
   // Contig histogram - extend length if needed
-  zsize_buf_extend(&dst->contig_histgrm, src->contig_histgrm.len);
+  zsize_buf_resize(&dst->contig_histgrm, src->contig_histgrm.len);
 
   for(i = 0; i < src->contig_histgrm.len; i++)
-    dst->contig_histgrm.data[i] += src->contig_histgrm.data[i];
+    dst->contig_histgrm.b[i] += src->contig_histgrm.b[i];
 
   // Sequencing error histogram matrix (2D)
   for(i = 0; i < ALN_STATS_MAX_GAP; i++)
@@ -78,8 +78,8 @@ void correct_aln_stats_add_mp(CorrectAlnStats *stats, size_t gap_kmers,
 
 void correct_aln_stats_add_contig(CorrectAlnStats *stats, size_t contig_len_bp)
 {
-  zsize_buf_extend(&stats->contig_histgrm, contig_len_bp+1);
-  stats->contig_histgrm.data[contig_len_bp]++;
+  zsize_buf_resize(&stats->contig_histgrm, contig_len_bp+1);
+  stats->contig_histgrm.b[contig_len_bp]++;
 }
 
 // Save gap size distribution matrix

@@ -92,7 +92,7 @@ cJSON* gpath_save_mkhdr(const char *path,
 
   size_t i;
   for(i = 0; i < ncols; i++)
-    _gpath_save_contig_hist2json(json_hists, contig_hists[i].data, contig_hists[i].len);
+    _gpath_save_contig_hist2json(json_hists, contig_hists[i].b, contig_hists[i].len);
 
   return json;
 }
@@ -153,7 +153,7 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
 
   for(i = 0; i < subset->list.len; i++)
   {
-    gpath = subset->list.data[i];
+    gpath = subset->list.b[i];
     nseenptr = gpath_set_get_nseen(gpset, gpath);
     klen = gpath_set_get_klen(gpset, gpath);
 
@@ -193,18 +193,18 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
 
       strbuf_append_str(sbuf, " seq=");
       strbuf_ensure_capacity(sbuf, sbuf->end + db_graph->kmer_size + nbuf->len);
-      sbuf->end += db_nodes_to_str(nbuf->data, nbuf->len, db_graph,
+      sbuf->end += db_nodes_to_str(nbuf->b, nbuf->len, db_graph,
                                    sbuf->b+sbuf->end);
 
       if(jposbuf) {
-        // strbuf_sprintf(sbuf, " juncpos=%zu", jposbuf->data[0]);
+        // strbuf_sprintf(sbuf, " juncpos=%zu", jposbuf->b[0]);
         strbuf_append_str(sbuf, " juncpos=");
-        strbuf_append_ulong(sbuf, jposbuf->data[0]);
+        strbuf_append_ulong(sbuf, jposbuf->b[0]);
 
         for(j = 1; j < jposbuf->len; j++) {
-          // strbuf_sprintf(sbuf, ",%zu", jposbuf->data[j]);
+          // strbuf_sprintf(sbuf, ",%zu", jposbuf->b[j]);
           strbuf_append_char(sbuf, ',');
-          strbuf_append_ulong(sbuf, jposbuf->data[j]);
+          strbuf_append_ulong(sbuf, jposbuf->b[j]);
         }
       }
     }

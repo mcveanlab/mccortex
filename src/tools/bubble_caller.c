@@ -190,7 +190,7 @@ static void print_bubble(BubbleCaller *caller,
     // flank5p[0] already contains the first node
     flank5p->len = 1;
     supernode_extend(flank5p, prefs.max_flank_len, db_graph);
-    db_nodes_reverse_complement(flank5p->data, flank5p->len);
+    db_nodes_reverse_complement(flank5p->b, flank5p->len);
   }
 
   //
@@ -219,7 +219,7 @@ static void print_bubble(BubbleCaller *caller,
   strbuf_append_str(sbuf, ".5pflank kmers=");
   strbuf_append_ulong(sbuf, flank5p->len);
   strbuf_append_char(sbuf, '\n');
-  branch_to_str(flank5p->data, flank5p->len, true, sbuf, db_graph);
+  branch_to_str(flank5p->b, flank5p->len, true, sbuf, db_graph);
 
   // 3p flank
   db_node_buf_reset(pathbuf);
@@ -233,7 +233,7 @@ static void print_bubble(BubbleCaller *caller,
   strbuf_append_str(sbuf, ".3pflank kmers=");
   strbuf_append_ulong(sbuf, pathbuf->len);
   strbuf_append_char(sbuf, '\n');
-  branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
+  branch_to_str(pathbuf->b, pathbuf->len, false, sbuf, db_graph);
 
   // Print alleles
   for(i = 0; i < num_paths; i++)
@@ -252,7 +252,7 @@ static void print_bubble(BubbleCaller *caller,
     strbuf_append_ulong(sbuf, pathbuf->len);
     strbuf_append_char(sbuf, '\n');
 
-    branch_to_str(pathbuf->data, pathbuf->len, false, sbuf, db_graph);
+    branch_to_str(pathbuf->b, pathbuf->len, false, sbuf, db_graph);
   }
 
   strbuf_append_char(sbuf, '\n');
@@ -324,22 +324,22 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   }
 
   // Set up 5p flank
-  caller->flank5p.data[0] = db_node_reverse(fork_node);
+  caller->flank5p.b[0] = db_node_reverse(fork_node);
   caller->flank5p.len = 0; // set to one to signify we haven't fetched flank yet
 }
 
 static void remove_non_bubbles(BubbleCaller *caller, GCacheStepPtrBuf *endsteps)
 {
-  if(!graph_cache_is_3p_flank(&caller->cache, endsteps->data, endsteps->len)) {
+  if(!graph_cache_is_3p_flank(&caller->cache, endsteps->b, endsteps->len)) {
     cache_stepptr_buf_reset(endsteps);
   }
   else
   {
     endsteps->len = graph_cache_remove_dupes(&caller->cache,
-                                             endsteps->data, endsteps->len);
+                                             endsteps->b, endsteps->len);
 
     endsteps->len = remove_haploid_paths(&caller->cache,
-                                         endsteps->data, endsteps->len,
+                                         endsteps->b, endsteps->len,
                                          caller->haploid_seen,
                                          caller->prefs.haploid_cols,
                                          caller->prefs.num_haploid);
@@ -364,9 +364,9 @@ void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode)
   {
     step = graph_cache_step(&caller->cache, stepid);
     if(step->orient == FORWARD) {
-      cache_stepptr_buf_add(&caller->spp_forward, step);
+      cache_stepptr_buf_push(&caller->spp_forward, &step, 1);
     } else {
-      cache_stepptr_buf_add(&caller->spp_reverse, step);
+      cache_stepptr_buf_push(&caller->spp_reverse, &step, 1);
     }
     stepid = step->next_step;
   }
@@ -389,9 +389,9 @@ static void write_bubbles_to_file(BubbleCaller *caller)
     find_bubbles_ending_with(caller, snode);
 
     if(caller->spp_forward.len > 1)
-      print_bubble(caller, caller->spp_forward.data, caller->spp_forward.len);
+      print_bubble(caller, caller->spp_forward.b, caller->spp_forward.len);
     if(caller->spp_reverse.len > 1)
-      print_bubble(caller, caller->spp_reverse.data, caller->spp_reverse.len);
+      print_bubble(caller, caller->spp_reverse.b, caller->spp_reverse.len);
   }
 }
 

@@ -111,8 +111,8 @@ void assemble_contigs_stats_merge(AssembleContigStats *dst,
 
   size_t i;
 
-  size_buf_append(&dst->lengths, src->lengths.data, src->lengths.len);
-  size_buf_append(&dst->junctns, src->junctns.data, src->junctns.len);
+  size_buf_push(&dst->lengths, src->lengths.b, src->lengths.len);
+  size_buf_push(&dst->junctns, src->junctns.b, src->junctns.len);
 
   dst->num_contigs += src->num_contigs;
   dst->total_len   += src->total_len;
@@ -196,28 +196,28 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
     return;
   }
 
-  qsort(s->lengths.data, ncontigs, sizeof(s->lengths.data[0]), cmp_size);
-  qsort(s->junctns.data, ncontigs, sizeof(s->junctns.data[0]), cmp_size);
+  qsort(s->lengths.b, ncontigs, sizeof(s->lengths.b[0]), cmp_size);
+  qsort(s->junctns.b, ncontigs, sizeof(s->junctns.b[0]), cmp_size);
 
   size_t len_n50, jnc_n50;
   size_t len_median, jnc_median, len_mean, jnc_mean;
   size_t len_min, len_max, jnc_min, jnc_max;
 
   // Calculate N50s
-  len_n50 = calc_N50(s->lengths.data, ncontigs, s->total_len);
-  jnc_n50 = calc_N50(s->junctns.data, ncontigs, s->total_junc);
+  len_n50 = calc_N50(s->lengths.b, ncontigs, s->total_len);
+  jnc_n50 = calc_N50(s->junctns.b, ncontigs, s->total_junc);
 
   // Calculate medians, means
-  len_median = MEDIAN(s->lengths.data, ncontigs);
-  jnc_median = MEDIAN(s->junctns.data, ncontigs);
+  len_median = MEDIAN(s->lengths.b, ncontigs);
+  jnc_median = MEDIAN(s->junctns.b, ncontigs);
   len_mean = (double)s->total_len / ncontigs;
   jnc_mean = (double)s->total_junc / ncontigs;
 
   // Calculate min, max
-  len_min = s->lengths.data[0];
-  jnc_min = s->junctns.data[0];
-  len_max = s->lengths.data[ncontigs-1];
-  jnc_max = s->junctns.data[ncontigs-1];
+  len_min = s->lengths.b[0];
+  jnc_min = s->junctns.b[0];
+  len_max = s->lengths.b[ncontigs-1];
+  jnc_max = s->junctns.b[ncontigs-1];
 
   // Print number of contigs
   char num_contigs_str[50], reseed_str[50], seed_not_fnd_str[50];

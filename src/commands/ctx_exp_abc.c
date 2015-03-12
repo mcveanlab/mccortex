@@ -76,7 +76,7 @@ static inline void reset(GraphWalker *wlk, RepeatWalker *rptwlk,
                          const dBNodeBuffer *nbuf)
 {
   graph_walker_finish(wlk);
-  rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
+  rpt_walker_fast_clear(rptwlk, nbuf->b, nbuf->len);
 }
 
 #define CONFIRM_SUCCESS  0
@@ -96,7 +96,7 @@ static inline int confirm_seq(size_t startidx, bool allow_extend,
   size_t i, init_len = nbuf->len;
 
   graph_walker_setup(wlk, true, colour, colour, db_graph);
-  graph_walker_start(wlk, nbuf->data[startidx]);
+  graph_walker_start(wlk, nbuf->b[startidx]);
 
   for(i = startidx+1; graph_walker_next(wlk); i++) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
@@ -104,7 +104,7 @@ static inline int confirm_seq(size_t startidx, bool allow_extend,
       return CONFIRM_REPEAT;
     }
     if(i < init_len) {
-      if(!db_nodes_are_equal(nbuf->data[i], wlk->node)) {
+      if(!db_nodes_are_equal(nbuf->b[i], wlk->node)) {
         reset(wlk,rpt,nbuf);
         return CONFIRM_WRONG;
       }
@@ -134,7 +134,7 @@ static void print_failed(dBNode node, const dBNodeBuffer *nbuf,
   binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
   printf(">%s:%i %s %s\n", bkmerstr, node.orient,
          is_AB ? "A->B" : "B->C", prime_AB ? "prime_AB" : "walk_AB");
-  db_nodes_print(nbuf->data, nbuf->len, db_graph, stdout);
+  db_nodes_print(nbuf->b, nbuf->len, db_graph, stdout);
   fputc('\n', stdout);
 }
 
@@ -158,7 +158,7 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
 
   // Walk from B to find A
   graph_walker_setup(wlk, true, col, col, db_graph);
-  graph_walker_start(wlk, nbuf->data[0]);
+  graph_walker_start(wlk, nbuf->b[0]);
 
   while(graph_walker_next(wlk) && nbuf->len < walk_limit) {
     if(!rpt_walker_attempt_traverse(rpt, wlk)) {
@@ -172,13 +172,13 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
   if(nbuf->len == 1) return RES_NO_TRAVERSAL;
 
   // Traverse A->B
-  db_nodes_reverse_complement(nbuf->data, nbuf->len);
+  db_nodes_reverse_complement(nbuf->b, nbuf->len);
   b_idx = nbuf->len - 1;
 
   if(wrkr->prime_AB)
   {
     // Prime A->B without attempting to cross
-    graph_walker_prime(wlk, nbuf->data, nbuf->len, nbuf->len, true);
+    graph_walker_prime(wlk, nbuf->b, nbuf->len, nbuf->len, true);
 
     while(graph_walker_next(wlk)) {
       if(!rpt_walker_attempt_traverse(rpt, wlk)) {
@@ -209,7 +209,7 @@ int test_statement_node(dBNode node, ExpABCWorker *wrkr)
 
   // Last node is now C
   // Walk from B... record whether or not we reach C
-  ctx_assert(db_nodes_are_equal(nbuf->data[b_idx], db_node_reverse(node)));
+  ctx_assert(db_nodes_are_equal(nbuf->b[b_idx], db_node_reverse(node)));
 
   int r = confirm_seq(b_idx, false, wlk, rpt, nbuf, col, db_graph);
   switch(r) {
@@ -352,7 +352,7 @@ int ctx_exp_abc(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 'N': cmd_check(!num_repeats,cmd); num_repeats = cmd_uint32_nonzero(cmd, optarg); break;
       case 'M': cmd_check(!max_AB_dist,cmd); max_AB_dist = cmd_uint32_nonzero(cmd, optarg); break;
@@ -392,7 +392,7 @@ int ctx_exp_abc(int argc, char **argv)
   if(ncols > 1) die("Only implemented for one colour currently");
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, -1);
+  graphs_gpaths_compatible(&gfile, 1, gpfiles.b, gpfiles.len, -1);
 
   //
   // Decide on memory
@@ -413,7 +413,7 @@ int ctx_exp_abc(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -431,7 +431,7 @@ int ctx_exp_abc(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, false, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, false, &db_graph);
 
   // Load the graph
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
@@ -448,8 +448,8 @@ int ctx_exp_abc(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++) {
-    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_close(&gpfiles.b[i]);
   }
   gpfile_buf_dealloc(&gpfiles);
 

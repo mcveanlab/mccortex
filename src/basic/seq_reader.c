@@ -21,7 +21,7 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
   for(i = 0; i < num_seq_files; i++) {
     status("  file: %s", seq_files[i]->path);
     while(seq_read(seq_files[i], &r) > 0) {
-      read_buf_add(rbuf, r); // copy read
+      read_buf_push(rbuf, &r, 1); // copy read
       seq_read_alloc(&r); // allocate new read
     }
     seq_close(seq_files[i]);
@@ -479,12 +479,12 @@ void seq_reader_load_ref_genome(char **paths, size_t num_files,
 
   for(i = 0; i < chroms->len; i++)
   {
-    seq_read_to_uppercase(&chroms->data[i]);
-    seq_read_truncate_name(&chroms->data[i]);
-    k = kh_put(ChromHash, genome, chroms->data[i].name.b, &hret);
+    seq_read_to_uppercase(&chroms->b[i]);
+    seq_read_truncate_name(&chroms->b[i]);
+    k = kh_put(ChromHash, genome, chroms->b[i].name.b, &hret);
     if(hret == 0)
-      warn("duplicate chromosome (take first only): '%s'", chroms->data[i].name.b);
+      warn("duplicate chromosome (take first only): '%s'", chroms->b[i].name.b);
     else
-      kh_value(genome, k) = &chroms->data[i];
+      kh_value(genome, k) = &chroms->b[i];
   }
 }

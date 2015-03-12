@@ -63,21 +63,21 @@ const char *syntax_strs[2] = {"FASTA", "DOT (Graphviz)"};
 static inline void dot_store_ends(size_t snidx, dBNodeBuffer nbuf,
                                   sndata_t *supernodes)
 {
-  ctx_assert(supernodes[nbuf.data[0].key].assigned == 0);
-  ctx_assert(supernodes[nbuf.data[nbuf.len-1].key].assigned == 0);
+  ctx_assert(supernodes[nbuf.b[0].key].assigned == 0);
+  ctx_assert(supernodes[nbuf.b[nbuf.len-1].key].assigned == 0);
 
   sndata_t supernode0 = {.nodeid = snidx, .assigned = 1,
                          .left = 1, .right = (nbuf.len == 1),
-                         .lorient = nbuf.data[0].orient,
-                         .rorient = nbuf.data[nbuf.len-1].orient};
+                         .lorient = nbuf.b[0].orient,
+                         .rorient = nbuf.b[nbuf.len-1].orient};
 
   sndata_t supernode1 = {.nodeid = snidx, .assigned = 1,
                          .left = (nbuf.len == 1), .right = 1,
-                         .lorient = nbuf.data[0].orient,
-                         .rorient = nbuf.data[nbuf.len-1].orient};
+                         .lorient = nbuf.b[0].orient,
+                         .rorient = nbuf.b[nbuf.len-1].orient};
 
-  supernodes[nbuf.data[0].key] = supernode0;
-  supernodes[nbuf.data[nbuf.len-1].key] = supernode1;
+  supernodes[nbuf.b[0].key] = supernode0;
+  supernodes[nbuf.b[nbuf.len-1].key] = supernode1;
 }
 
 static inline void dot_print_edges2(hkey_t node, BinaryKmer bkmer, Edges edges,
@@ -161,7 +161,7 @@ static void print_supernodes(dBNodeBuffer nbuf, size_t threadid, void *arg)
   (void)threadid;
   struct SupernodePrinter *prtr = (struct SupernodePrinter*)arg;
 
-  supernode_normalise(nbuf.data, nbuf.len, prtr->db_graph);
+  supernode_normalise(nbuf.b, nbuf.len, prtr->db_graph);
 
   size_t idx = __sync_fetch_and_add((size_t volatile*)prtr->supernode_idx, 1);
   FILE *fout = prtr->fout;
@@ -173,13 +173,13 @@ static void print_supernodes(dBNodeBuffer nbuf, size_t threadid, void *arg)
 
   if(prtr->print_syntax == PRINT_FASTA) {
     fprintf(fout, ">supernode%zu\n", idx);
-    db_nodes_print(nbuf.data, nbuf.len, prtr->db_graph, fout);
+    db_nodes_print(nbuf.b, nbuf.len, prtr->db_graph, fout);
     fputc('\n', fout);
   }
   else {
     ctx_assert(prtr->print_syntax == PRINT_DOT);
     fprintf(fout, "  node%zu [label=", idx);
-    db_nodes_print(nbuf.data, nbuf.len, prtr->db_graph, fout);
+    db_nodes_print(nbuf.b, nbuf.len, prtr->db_graph, fout);
     fputs("]\n", fout);
   }
 
@@ -266,7 +266,7 @@ int ctx_supernodes(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 'g': // --graphviz is the same as --dot, drop through case
       case 'd': cmd_check(!print_syntax, cmd); print_syntax = PRINT_DOT; break;
@@ -303,7 +303,7 @@ int ctx_supernodes(int argc, char **argv)
                    &ctx_max_kmers, &ctx_sum_kmers);
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
 
   //
   // Decide on memory
@@ -326,7 +326,7 @@ int ctx_supernodes(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, 1, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, 1, rem_mem, false);
 
   total_mem = graph_mem + path_mem;
 
@@ -352,7 +352,7 @@ int ctx_supernodes(int argc, char **argv)
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, true, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, true, &db_graph);
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
@@ -370,8 +370,8 @@ int ctx_supernodes(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++) {
-    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_close(&gpfiles.b[i]);
   }
   gpfile_buf_dealloc(&gpfiles);
 

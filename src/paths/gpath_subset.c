@@ -34,7 +34,7 @@ void gpath_subset_add(GPathSubset *subset, GPath *path)
 
 void gpath_subset_sort(GPathSubset *subset)
 {
-  qsort(subset->list.data, subset->list.len, sizeof(GPath*), gpath_cmp_void);
+  qsort(subset->list.b, subset->list.len, sizeof(GPath*), gpath_cmp_void);
   subset->is_sorted = true;
 }
 
@@ -56,7 +56,7 @@ void gpath_subset_load_set(GPathSubset *subset)
   GPathSet *gpset = subset->gpset;
   size_t i;
   for(i = 0; i < gpset->entries.len; i++)
-    gpath_ptr_buf_add(&subset->list, &gpset->entries.data[i]);
+    gpath_ptr_buf_add(&subset->list, &gpset->entries.b[i]);
 }
 
 // Update the linked list of paths in set `subset->gpset`
@@ -66,8 +66,8 @@ void gpath_subset_update_linkedlist(GPathSubset *subset)
   if(subset->list.len == 0) return;
   size_t i;
   for(i = 0; i+1 < subset->list.len; i++)
-    subset->list.data[i]->next = subset->list.data[i+1];
-  subset->list.data[subset->list.len-1]->next = NULL;
+    subset->list.b[i]->next = subset->list.b[i+1];
+  subset->list.b[subset->list.len-1]->next = NULL;
 }
 
 // Remove duplicate entries
@@ -78,7 +78,7 @@ void gpath_subset_rmdup(GPathSubset *subset)
   if(!subset->is_sorted) gpath_subset_sort(subset);
 
   size_t i, j, len = subset->list.len, ncols = subset->gpset->ncols;
-  GPath **list = subset->list.data;
+  GPath **list = subset->list.b;
 
   for(i = 0, j = 1; j < len; j++) {
     if(binary_seqs_cmp(list[i]->seq, list[i]->num_juncs,
@@ -106,7 +106,7 @@ void gpath_subset_rmsubstr(GPathSubset *subset)
   if(!subset->is_sorted) gpath_subset_sort(subset);
 
   size_t i, j, len = subset->list.len, min_juncs, ncols = subset->gpset->ncols;
-  GPath **list = subset->list.data;
+  GPath **list = subset->list.b;
 
   // Work backwards to remove colours from subsumed paths
   for(i = len-1; i > 0; i--) {
@@ -172,8 +172,8 @@ void gpath_subset_merge(GPathSubset *dst, GPathSubset *src, bool rmsubstr)
   size_t i = 0, j = 0, k, ncols = dst->gpset->ncols, min_num_juncs;
   int cmp;
 
-  GPath **dstlist = dst->list.data;
-  GPath **srclist = src->list.data;
+  GPath **dstlist = dst->list.b;
+  GPath **srclist = src->list.b;
 
   if(dstlen == 0 || srclen == 0) return;
 

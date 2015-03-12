@@ -178,15 +178,15 @@ static inline void fetch_coverages(dBNodeBuffer nbuf, CovgBuffer *cbuf,
   covg_buf_capacity(cbuf, nbuf.len);
   cbuf->len = nbuf.len;
   for(i = 0; i < nbuf.len; i++)
-    cbuf->data[i] = db_graph->col_covgs[nbuf.data[i].key];
+    cbuf->b[i] = db_graph->col_covgs[nbuf.b[i].key];
 }
 
 static inline bool nodes_are_tip(dBNodeBuffer nbuf, const dBGraph *db_graph)
 {
-  Edges first = db_node_get_edges_union(db_graph, nbuf.data[0].key);
-  Edges last = db_node_get_edges_union(db_graph, nbuf.data[nbuf.len-1].key);
-  int in = edges_get_indegree(first, nbuf.data[0].orient);
-  int out = edges_get_outdegree(last, nbuf.data[nbuf.len-1].orient);
+  Edges first = db_node_get_edges_union(db_graph, nbuf.b[0].key);
+  Edges last = db_node_get_edges_union(db_graph, nbuf.b[nbuf.len-1].key);
+  int in = edges_get_indegree(first, nbuf.b[0].orient);
+  int out = edges_get_outdegree(last, nbuf.b[nbuf.len-1].orient);
   return (in+out <= 1);
 }
 
@@ -272,7 +272,7 @@ static inline void supernode_get_covg(dBNodeBuffer nbuf, size_t threadid,
 
   if(cl->use_supernode_covg) {
     // Histogram is of supernode coverage
-    covg = supernode_covg(cbuf->data, cbuf->len);
+    covg = supernode_covg(cbuf->b, cbuf->len);
     covg = MIN2(covg, cl->covg_arrlen-1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_init[covg], 1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->covg_kmers_hist_init[covg], cbuf->len);
@@ -280,7 +280,7 @@ static inline void supernode_get_covg(dBNodeBuffer nbuf, size_t threadid,
   else {
     // Histogram is of each kmer coverage
     for(i = 0; i < cbuf->len; i++) {
-      covg = MIN2(cbuf->data[i], cl->covg_arrlen-1);
+      covg = MIN2(cbuf->b[i], cl->covg_arrlen-1);
       __sync_fetch_and_add((volatile uint64_t *)&cl->covg_hist_init[covg], 1);
     }
   }
@@ -406,12 +406,12 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
   fetch_coverages(nbuf, cbuf, cl->db_graph);
 
   if(cl->use_supernode_covg) {
-    covg = supernode_covg(cbuf->data, cbuf->len);
+    covg = supernode_covg(cbuf->b, cbuf->len);
   }
   else {
     // Covg is max coverage of all kmers
     for(i = 0; i < cbuf->len; i++)
-      covg = MAX2(covg, cbuf->data[i]);
+      covg = MAX2(covg, cbuf->b[i]);
   }
 
   low_covg_snode = (covg < cl->covg_threshold);
@@ -430,7 +430,7 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid,
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, nbuf.len);
   } else {
     for(i = 0; i < nbuf.len; i ++)
-      (void)bitset_set_mt(cl->keep_flags, nbuf.data[i].key);
+      (void)bitset_set_mt(cl->keep_flags, nbuf.b[i].key);
 
     // Add to histograms
     covg = MIN2(covg, cl->covg_arrlen-1);

@@ -20,12 +20,12 @@ static void supernode_from_kmer(hkey_t hkey, dBNodeBuffer *nbuf,
   {
     db_node_buf_reset(nbuf);
     supernode_find(hkey, nbuf, graph);
-    for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->data[i].key);
+    for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->b[i].key);
 
-    supernode_normalise(nbuf->data, nbuf->len, graph);
+    supernode_normalise(nbuf->b, nbuf->len, graph);
 
     TASSERT(nbuf->len < SNODEBUF);
-    db_nodes_to_str(nbuf->data, nbuf->len, graph, tmpstr);
+    db_nodes_to_str(nbuf->b, nbuf->len, graph, tmpstr);
     for(i = 0; i < n && strcmp(tmpstr,ans[i]) != 0; i++);
 
     TASSERT2(i < n, "Got: %s", tmpstr);
@@ -61,11 +61,11 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
       // Fetch supernode
       db_node_buf_reset(&nbuf);
       supernode_find(node.key, &nbuf, graph);
-      supernode_normalise(nbuf.data, nbuf.len, graph);
+      supernode_normalise(nbuf.b, nbuf.len, graph);
 
       // Compare
       TASSERT(nbuf.len < SNODEBUF);
-      db_nodes_to_str(nbuf.data, nbuf.len, graph, tmpstr);
+      db_nodes_to_str(nbuf.b, nbuf.len, graph, tmpstr);
       if(strcmp(tmpstr, ans[i]) != 0) {
         test_status("Got: %s from ans[i]:%s\n", tmpstr, ans[i]);
       }

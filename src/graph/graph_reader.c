@@ -718,7 +718,7 @@ size_t graph_files_merge(const char *out_ctx_path,
           fromcol = file_filter_fromcol(fltr, i);
           intocol = file_filter_intocol(fltr, i);
           if(firstcol <= intocol && intocol <= lastcol) {
-            fltr->filter.data[j++] = (Filter){.from = fromcol,
+            fltr->filter.b[j++] = (Filter){.from = fromcol,
                                               .into = intocol-firstcol};
           }
         }

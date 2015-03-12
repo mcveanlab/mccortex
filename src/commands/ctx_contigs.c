@@ -105,7 +105,7 @@ int ctx_contigs(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case '1':
       case 's': // --seed <in.fa>
@@ -184,11 +184,11 @@ int ctx_contigs(int argc, char **argv)
   // Update colours in graph file - sample in 0, all others in 1
   // never need more than two colours
   ncols = gpath_load_sample_pop(gfiles, num_gfiles,
-                                gpfiles.data, gpfiles.len, colour);
+                                gpfiles.b, gpfiles.len, colour);
 
   // Check for compatibility between graph files and path files
   // pop_colour is colour 1
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, 1);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, 1);
 
   if(!genome_size)
   {
@@ -218,7 +218,7 @@ int ctx_contigs(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -234,9 +234,9 @@ int ctx_contigs(int argc, char **argv)
   memset(&contig_hist, 0, sizeof(contig_hist));
 
   for(i = 0; i < gpfiles.len; i++) {
-    gpath_reader_load_contig_hist(gpfiles.data[i].json,
-                                  gpfiles.data[i].fltr.path.b,
-                                  file_filter_fromcol(&gpfiles.data[i].fltr, 0),
+    gpath_reader_load_contig_hist(gpfiles.b[i].json,
+                                  gpfiles.b[i].fltr.path.b,
+                                  file_filter_fromcol(&gpfiles.b[i].fltr, 0),
                                   &contig_hist);
   }
 
@@ -244,7 +244,7 @@ int ctx_contigs(int argc, char **argv)
   ContigConfidenceTable conf_table;
   conf_table_alloc(&conf_table, 1);
   conf_table_update_hist(&conf_table, 0, genome_size,
-                         contig_hist.data, contig_hist.len);
+                         contig_hist.b, contig_hist.len);
 
   if(conf_table_path != NULL) {
     conf_table_save(&conf_table, conf_table_path);
@@ -263,7 +263,7 @@ int ctx_contigs(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem,
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem,
                              false, &db_graph);
 
   uint8_t *visited = NULL;
@@ -290,15 +290,15 @@ int ctx_contigs(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++) {
-    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_close(&gpfiles.b[i]);
   }
   gpfile_buf_dealloc(&gpfiles);
 
   AssembleContigStats assem_stats;
   assemble_contigs_stats_init(&assem_stats);
 
-  assemble_contigs(nthreads, seed_buf.data, seed_buf.len,
+  assemble_contigs(nthreads, seed_buf.b, seed_buf.len,
                    contig_limit, visited,
                    use_missing_info_check, seed_with_unused_paths,
                    min_step_confid, min_cumul_confid,
@@ -313,7 +313,7 @@ int ctx_contigs(int argc, char **argv)
   conf_table_dealloc(&conf_table);
 
   for(i = 0; i < seed_buf.len; i++)
-    seq_close(seed_buf.data[i]);
+    seq_close(seed_buf.b[i]);
 
   seq_file_ptr_buf_dealloc(&seed_buf);
 

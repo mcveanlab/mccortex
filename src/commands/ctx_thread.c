@@ -110,7 +110,7 @@ int ctx_thread(int argc, char **argv)
   size_t i;
 
   // Check each path file only loads one colour
-  gpaths_only_for_colour(gpfiles->data, gpfiles->len, 0);
+  gpaths_only_for_colour(gpfiles->b, gpfiles->len, 0);
 
   //
   // Decide on memory
@@ -135,7 +135,7 @@ int ctx_thread(int argc, char **argv)
 
   // Paths memory
   size_t min_path_mem = 0;
-  gpath_reader_sum_mem(gpfiles->data, gpfiles->len, 1, true, true, &min_path_mem);
+  gpath_reader_sum_mem(gpfiles->b, gpfiles->len, 1, true, true, &min_path_mem);
 
   if(graph_mem + min_path_mem > args.memargs.mem_to_use) {
     char buf[50];
@@ -205,9 +205,9 @@ int ctx_thread(int argc, char **argv)
 
   // Load contig hist distribution
   for(i = 0; i < gpfiles->len; i++) {
-    gpath_reader_load_contig_hist(gpfiles->data[i].json,
-                                  gpfiles->data[i].fltr.path.b,
-                                  file_filter_fromcol(&gpfiles->data[i].fltr, 0),
+    gpath_reader_load_contig_hist(gpfiles->b[i].json,
+                                  gpfiles->b[i].fltr.path.b,
+                                  file_filter_fromcol(&gpfiles->b[i].fltr, 0),
                                   &aln_stats->contig_histgrm);
   }
 
@@ -224,7 +224,7 @@ int ctx_thread(int argc, char **argv)
 
   // Load existing paths
   for(i = 0; i < gpfiles->len; i++)
-    gpath_reader_load(&gpfiles->data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_load(&gpfiles->b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
   if(!args.use_new_paths)
     gpath_store_split_read_write(&db_graph.gpstore);
@@ -235,7 +235,7 @@ int ctx_thread(int argc, char **argv)
   for(start = 0; start < inputs->len; start += MAX_IO_THREADS)
   {
     end = MIN2(inputs->len, start+MAX_IO_THREADS);
-    generate_paths(inputs->data+start, end-start, workers, args.nthreads);
+    generate_paths(inputs->b+start, end-start, workers, args.nthreads);
   }
 
   // Print memory statistics
@@ -251,7 +251,7 @@ int ctx_thread(int argc, char **argv)
   gpath_hash_dealloc(&db_graph.gphash);
 
   cJSON **hdrs = ctx_malloc(gpfiles->len * sizeof(cJSON*));
-  for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
+  for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->b[i].json;
 
   size_t output_threads = MIN2(args.nthreads, MAX_IO_THREADS);
 

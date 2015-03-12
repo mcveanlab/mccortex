@@ -88,8 +88,8 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
     end = strchr(ptr, '\n');
     size_t len = end ? end - ptr : txt->b + txt->end - ptr;
 
-    char_ptr_buf_add(&entry->lines, ptr);
-    size_buf_add(&entry->linelens, len);
+    char_ptr_buf_push(&entry->lines, &ptr, 1);
+    size_buf_push(&entry->linelens, &len, 1);
 
     if(end) { *end = '\0'; ptr = end+1; }
     else break;
@@ -104,8 +104,8 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
 
   // Check lines start with >
   for(i = 0; i < entry->lines.len; i+=2) {
-    if(entry->lines.data[i][0] != '>')
-      die("Line doesn't start with '>' [path: %s]: %s", path, entry->lines.data[i]);
+    if(entry->lines.b[i][0] != '>')
+      die("Line doesn't start with '>' [path: %s]: %s", path, entry->lines.b[i]);
   }
 
   return 1;

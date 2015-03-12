@@ -163,8 +163,8 @@ uint32_t graph_cache_new_step(GraphCache *cache, dBNode node)
 
   // New step
   GCacheStep next = {.orient = snode_orient, .supernode = snodeid,
-                    .pathid = pathid, .next_step = snode->first_step};
-  uint32_t stepid = cache_step_buf_add(&cache->step_buf, next);
+                     .pathid = pathid, .next_step = snode->first_step};
+  uint32_t stepid = cache_step_buf_push(&cache->step_buf, &next, 1);
 
   // Add link from prev supernode step
   snode->first_step = stepid;
@@ -254,10 +254,10 @@ void graph_cache_snode_fetch_nodes(const GraphCache *cache,
   db_node_buf_capacity(nbuf, nbuf->len + snode->num_nodes);
 
   if(orient == FORWARD) {
-    memcpy(nbuf->data + nbuf->len, nodes, sizeof(dBNode) * snode->num_nodes);
+    memcpy(nbuf->b + nbuf->len, nodes, sizeof(dBNode) * snode->num_nodes);
   }
   else {
-    for(into = nbuf->data+nbuf->len+snode->num_nodes-1; nodes < end; into--, nodes++)
+    for(into = nbuf->b+nbuf->len+snode->num_nodes-1; nodes < end; into--, nodes++)
       *into = db_node_reverse(*nodes);
   }
 

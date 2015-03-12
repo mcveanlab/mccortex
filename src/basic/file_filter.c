@@ -200,7 +200,7 @@ FileFilter* file_filter_copy(FileFilter *dst, const FileFilter *src)
   strbuf_set_buff(&dst->input, &src->input);
   strbuf_set_buff(&dst->path, &src->path);
   filter_buf_reset(&dst->filter);
-  filter_buf_append(&dst->filter, src->filter.data, src->filter.len);
+  filter_buf_push(&dst->filter, src->filter.b, src->filter.len);
   dst->filencols = src->filencols;
   return dst;
 }
@@ -209,14 +209,15 @@ FileFilter* file_filter_copy(FileFilter *dst, const FileFilter *src)
 void file_filter_flatten(FileFilter *fltr, size_t intocol)
 {
   size_t i;
-  ctx_assert(fltr->filter.data != NULL);
+  ctx_assert(fltr->filter.b != NULL);
   for(i = 0; i < file_filter_num(fltr); i++)
     file_filter_intocol(fltr,i) = intocol;
 }
 
 void file_filter_add(FileFilter *fltr, uint32_t from, uint32_t into)
 {
-  filter_buf_add(&fltr->filter, (Filter){.from = from, .into = into});
+  Filter f = {.from = from, .into = into};
+  filter_buf_push(&fltr->filter, &f, 1);
 }
 
 //
@@ -230,8 +231,8 @@ static inline int _from_cmp(const void *a, const void *b) {
   return (long)((const Filter*)a)->from - ((const Filter*)b)->from;
 }
 
-#define filters_sort_by_into(fltr) qsort((fltr)->filter.data, file_filter_num(fltr), sizeof(fltr->filter.data[0]), _into_cmp)
-#define filters_sort_by_from(fltr) qsort((fltr)->filter.data, file_filter_num(fltr), sizeof(fltr->filter.data[0]), _from_cmp)
+#define filters_sort_by_into(fltr) qsort((fltr)->filter.b, file_filter_num(fltr), sizeof(fltr->filter.b[0]), _into_cmp)
+#define filters_sort_by_from(fltr) qsort((fltr)->filter.b, file_filter_num(fltr), sizeof(fltr->filter.b[0]), _from_cmp)
 
 // Updates filter a using filter b (push a through b: a->b)
 // Note: sorts filters in @b
@@ -252,6 +253,6 @@ void file_filter_merge(FileFilter *a, FileFilter *b)
       file_filter_add(a, file_filter_fromcol(a,i), file_filter_intocol(b,k));
   }
 
-  // Shift towards zero
-  filter_buf_shift_right(&a->filter, n);
+  // Remove n items from the start of the array
+  filter_buf_shiftn(&a->filter, n);
 }

@@ -33,10 +33,10 @@ typedef struct
 
 static inline pkey_t gpset_get_pkey(const GPathSet *gpset, const GPath *gpath)
 {
-  ctx_assert2(gpath >= gpset->entries.data &&
-              gpath <= gpset->entries.data+gpset->entries.len,
+  ctx_assert2(gpath >= gpset->entries.b &&
+              gpath <= gpset->entries.b+gpset->entries.len,
               "GPath is not in GPathSet");
-  return gpath - gpset->entries.data;
+  return gpath - gpset->entries.b;
 }
 
 // If resize true, cannot do multithreaded but can resize array
@@ -60,7 +60,7 @@ void gpath_set_print_stats(const GPathSet *gpset);
 GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath);
 
 // Returns true if we are storing number of sightings and kmer length
-#define gpath_set_has_nseen(gpset) ((gpset)->nseen_buf.data != NULL)
+#define gpath_set_has_nseen(gpset) ((gpset)->nseen_buf.b != NULL)
 
 // Get kmer length of a GPath
 uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath);

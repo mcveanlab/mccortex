@@ -458,8 +458,8 @@ void kograph_filter_extend(KOGraph kograph,
   // Split korun buffer into two fixed size arrays
   // Extend current runs, and start new ones
   kmer_run_buf_capacity(korun, 2*max_paths);
-  runs0 = korun->data;
-  runs1 = korun->data + max_paths;
+  runs0 = korun->b;
+  runs1 = korun->b + max_paths;
   nruns0 = korun->len;
   nruns1 = korun_extend(runs0, nruns0, node, kolist, num_occur, runs1,
                         pickup_at_first_node, qoffset);
@@ -467,7 +467,7 @@ void kograph_filter_extend(KOGraph kograph,
   // Store runs that could not be extended
   for(i = 0; i < nruns0; i++) {
     if(!runs0[i].used && korun_len(runs0[i]) > min_len) {
-      runs_ended->data[runs_ended->len++] = runs0[i];
+      runs_ended->b[runs_ended->len++] = runs0[i];
     }
   }
 
@@ -485,7 +485,7 @@ void kograph_filter_extend(KOGraph kograph,
     if(nruns0 < nruns1) {
       for(j = 0; j < nruns0; j++) {
         if(!runs0[j].used && korun_len(runs0[j]) > min_len) {
-          runs_ended->data[runs_ended->len++] = runs0[j];
+          runs_ended->b[runs_ended->len++] = runs0[j];
         }
       }
     }
@@ -494,9 +494,9 @@ void kograph_filter_extend(KOGraph kograph,
     SWAP(nruns0, nruns1);
   }
 
-  if(runs0 != korun->data) {
+  if(runs0 != korun->b) {
     // Copy final array into start position
-    memmove(korun->data, runs0, nruns0 * sizeof(KOccurRun));
+    memmove(korun->b, runs0, nruns0 * sizeof(KOccurRun));
   }
 
   korun->len = nruns0;

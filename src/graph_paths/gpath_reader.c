@@ -90,8 +90,8 @@ void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
       die("JSON array entry is not a number");
     }
     ctx_assert2(len->valueint < 1<<30, "%li is too big", len->valueint);
-    zsize_buf_extend(hist, len->valueint+1);
-    hist->data[len->valueint] += cnt->valueint;
+    zsize_buf_resize(hist, len->valueint+1);
+    hist->b[len->valueint] += cnt->valueint;
   }
 
   if(len || cnt) {
@@ -302,12 +302,12 @@ void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
   if(comma_list_to_array(cols[3], numbuf) != (int)collens[3])
     bad_link_line(path,line);
 
-  // Use filter
-  size_buf_append_n(counts, 0, file_filter_into_ncols(&file->fltr));
+  // Use filter - append zeros first
+  size_buf_push_zero(counts, file_filter_into_ncols(&file->fltr));
   for(i = 0; i < numbuf->len; i++) {
     fromcol = file_filter_fromcol(&file->fltr, i);
     intocol = file_filter_intocol(&file->fltr, i);
-    counts->data[intocol] += numbuf->data[fromcol];
+    counts->b[intocol] += numbuf->b[fromcol];
   }
 
   // 4:[juncs:ACAGA]
@@ -343,17 +343,17 @@ void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
   if(*kdist < *njuncs+2) die("kdist too short");
 
   if(juncpos->len > 0) {
-    size_t last = juncpos->data[juncpos->len-1];
+    size_t last = juncpos->b[juncpos->len-1];
     if(juncpos->len != *njuncs) die("Mismatch %zu vs %zu", juncpos->len, *njuncs);
     if(last+2 != *kdist) die("Mismatch %zu vs %zu", last+2, *kdist);
   }
 
   if(juncpos->len && seq->end) {
-    if(juncpos->data[juncpos->len-1] >= seq->end) die("Seq too short");
-    size_t p, ksize = seq->end - (juncpos->data[juncpos->len-1] + 1);
+    if(juncpos->b[juncpos->len-1] >= seq->end) die("Seq too short");
+    size_t p, ksize = seq->end - (juncpos->b[juncpos->len-1] + 1);
     if(!(ksize & 1)) die("kmer_size not odd");
     for(i = 0; i < juncpos->len; i++) {
-      p = juncpos->data[i];
+      p = juncpos->b[i];
       if(p+ksize > seq->end || seq->b[ksize+p] != juncs->b[i])
         die("Bad entry");
     }
@@ -544,7 +544,7 @@ static void _gpath_reader_load_path_line(GPathReader *file, StrBuf *line,
   } while(*endpstr && *endpstr != ' ');
   load_check((size_t)(endpstr - pstr) == num_juncs, "Bad path line: %s", path);
   byte_buf_capacity(tmp_seqbuf, (num_juncs+3)/4);
-  binary_seq_from_str(pstr, num_juncs, tmp_seqbuf->data);
+  binary_seq_from_str(pstr, num_juncs, tmp_seqbuf->b);
 
   // Filter colours
   bool path_in_cols = false;
@@ -573,7 +573,7 @@ static void _gpath_reader_load_path_line(GPathReader *file, StrBuf *line,
     if(load_kmer->hkey != HASH_NOT_FOUND)
     {
       // Add to GPathSet
-      GPathNew newgpath = {.seq = tmp_seqbuf->data,
+      GPathNew newgpath = {.seq = tmp_seqbuf->b,
                            .colset = NULL, .nseen = NULL,
                            .orient = orient,
                            .klen = num_kmers,
@@ -633,12 +633,12 @@ static size_t _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
   GPathNew newgp;
   if(db_graph_has_path_hash(db_graph)) {
     for(i = 0; i < subset1->list.len; i++) {
-      newgp = gpath_set_get(gpset, subset1->list.data[i]);
+      newgp = gpath_set_get(gpset, subset1->list.b[i]);
       gpath_hash_find_or_insert_mt(gphash, hkey, newgp, &found);
     }
   } else {
     for(i = 0; i < subset1->list.len; i++) {
-      newgp = gpath_set_get(gpset, subset1->list.data[i]);
+      newgp = gpath_set_get(gpset, subset1->list.b[i]);
       gpath_store_add_mt(gpstore, hkey, newgp);
     }
   }

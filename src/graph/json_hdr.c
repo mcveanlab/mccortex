@@ -233,7 +233,7 @@ void json_hdr_add_std(cJSON *json, const char *path,
         if(key != NULL && key->type == cJSON_String)
         {
           for(j = 0; j < cmdbuf.len; j++)
-            if(strcmp(cmdbuf.data[j], key->valuestring) == 0)
+            if(strcmp(cmdbuf.b[j], key->valuestring) == 0)
               break;
 
           if(j == cmdbuf.len) {

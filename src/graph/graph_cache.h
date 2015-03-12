@@ -62,10 +62,10 @@ void graph_cache_alloc(GraphCache *cache, const dBGraph *db_graph);
 void graph_cache_dealloc(GraphCache *cache);
 void graph_cache_reset(GraphCache *cache);
 
-#define graph_cache_node(cache,nodeid) (&(cache)->node_buf.data[nodeid])
-#define graph_cache_snode(cache,snodeid) (&(cache)->snode_buf.data[snodeid])
-#define graph_cache_step(cache,stepid) (&(cache)->step_buf.data[stepid])
-#define graph_cache_path(cache,pathid) (&(cache)->path_buf.data[pathid])
+#define graph_cache_node(cache,nodeid) (&(cache)->node_buf.b[nodeid])
+#define graph_cache_snode(cache,snodeid) (&(cache)->snode_buf.b[snodeid])
+#define graph_cache_step(cache,stepid) (&(cache)->step_buf.b[stepid])
+#define graph_cache_path(cache,pathid) (&(cache)->path_buf.b[pathid])
 
 #define graph_cache_num_nodes(cache) ((cache)->node_buf.len)
 #define graph_cache_num_snodes(cache) ((cache)->snode_buf.len)

@@ -96,15 +96,15 @@ static void add_task(BuildGraphTask *task)
 
   if(task->remove_pcr_dups || task->files.file2 == NULL) {
     // Submit paired end reads together
-    build_graph_task_buf_add(&gtaskbuf, *task);
+    build_graph_task_buf_push(&gtaskbuf, task, 1);
   }
   else {
     // Read files separately -> read faster
     BuildGraphTask task2 = *task;
     task2.files.file1 = task->files.file2;
     task->files.file2 = task2.files.file2 = NULL;
-    build_graph_task_buf_add(&gtaskbuf, *task);
-    build_graph_task_buf_add(&gtaskbuf, task2);
+    build_graph_task_buf_push(&gtaskbuf, task, 1);
+    build_graph_task_buf_push(&gtaskbuf, &task2, 1);
   }
 }
 
@@ -166,7 +166,7 @@ static void parse_args(int argc, char **argv)
         graph_file_reset(&tmp_gfile);
         graph_file_open2(&tmp_gfile, optarg, "r", intocolour);
         intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr));
-        gfile_buf_add(&gfilebuf, tmp_gfile);
+        gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         sample_named = false;
         break;
       case ':': /* BADARG */
@@ -198,10 +198,10 @@ static void parse_args(int argc, char **argv)
   // Check kmer size in graphs to load
   size_t i;
   for(i = 0; i < gfilebuf.len; i++) {
-    if(gfilebuf.data[i].hdr.kmer_size != kmer_size) {
+    if(gfilebuf.b[i].hdr.kmer_size != kmer_size) {
       cmd_print_usage("Input graph kmer_size doesn't match [%u vs %zu]: %s",
-                      gfilebuf.data[i].hdr.kmer_size, kmer_size,
-                      file_filter_input(&gfilebuf.data[i].fltr));
+                      gfilebuf.b[i].hdr.kmer_size, kmer_size,
+                      file_filter_input(&gfilebuf.b[i].fltr));
     }
   }
 
@@ -219,8 +219,8 @@ int ctx_build(int argc, char **argv)
   parse_args(argc, argv);
 
   size_t s, t, ncolours = snamebuf.len, ntasks = gtaskbuf.len;
-  SampleName *samples = snamebuf.data;
-  BuildGraphTask *tasks = gtaskbuf.data;
+  SampleName *samples = snamebuf.b;
+  BuildGraphTask *tasks = gtaskbuf.b;
 
   // Did any tasks require PCR duplicate removal
   for(i = 0; i < ntasks && !tasks[i].remove_pcr_dups; i++) {}
@@ -233,8 +233,8 @@ int ctx_build(int argc, char **argv)
 
   // Print graphs to be loaded
   for(i = 0; i < gfilebuf.len; i++) {
-    file_filter_status(&gfilebuf.data[i].fltr);
-    max_kmers += gfilebuf.data[i].num_of_kmers;
+    file_filter_status(&gfilebuf.b[i].fltr);
+    max_kmers += gfilebuf.b[i].num_of_kmers;
   }
 
   // Print tasks and sample names
@@ -297,9 +297,9 @@ int ctx_build(int argc, char **argv)
     LoadingStats gstats = LOAD_STATS_INIT_MACRO;
 
     for(i = 0; i < gfilebuf.len; i++) {
-      graph_load(&gfilebuf.data[i], gprefs, &gstats);
+      graph_load(&gfilebuf.b[i], gprefs, &gstats);
       hash_table_print_stats(&db_graph.ht);
-      graph_file_close(&gfilebuf.data[i]);
+      graph_file_close(&gfilebuf.b[i]);
     }
   }
 

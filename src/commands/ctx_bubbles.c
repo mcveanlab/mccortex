@@ -88,7 +88,7 @@ int ctx_bubbles(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
@@ -126,15 +126,15 @@ int ctx_bubbles(int argc, char **argv)
                            &ctx_max_kmers, &ctx_sum_kmers);
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
 
   //
   // Check haploid colours are valid
   //
   for(i = 0; i < haploidbuf.len; i++) {
-    if(haploidbuf.data[i] >= ncols) {
+    if(haploidbuf.b[i] >= ncols) {
       cmd_print_usage("-H,--haploid <col> is greater than max colour [%zu > %zu]",
-                      haploidbuf.data[i], ncols-1);
+                      haploidbuf.b[i], ncols-1);
     }
   }
 
@@ -167,7 +167,7 @@ int ctx_bubbles(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem+thread_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -188,7 +188,7 @@ int ctx_bubbles(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, false, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, false, &db_graph);
 
   //
   // Load graphs
@@ -212,16 +212,16 @@ int ctx_bubbles(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
   // Create array of cJSON** from input files
   cJSON **hdrs = ctx_malloc(gpfiles.len * sizeof(cJSON*));
-  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
+  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.b[i].json;
 
   // Now call variants
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
                                    .max_flank_len = max_flank_len,
-                                   .haploid_cols = haploidbuf.data,
+                                   .haploid_cols = haploidbuf.b,
                                    .num_haploid = haploidbuf.len};
 
   invoke_bubble_caller(nthreads, call_prefs,
@@ -235,7 +235,7 @@ int ctx_bubbles(int argc, char **argv)
 
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);
 
   size_buf_dealloc(&haploidbuf);

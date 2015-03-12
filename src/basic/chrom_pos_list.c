@@ -18,7 +18,7 @@ int chrom_pos_cmp_len(const void *aa, const void *bb)
 
 void chrom_pos_list_sort(ChromPosBuffer *buf)
 {
-  qsort(buf->data, buf->len, sizeof(buf->data[0]), chrom_pos_cmp_len);
+  qsort(buf->b, buf->len, sizeof(buf->b[0]), chrom_pos_cmp_len);
 }
 
 // Get largest match
@@ -28,10 +28,10 @@ int chrom_pos_list_get_largest(const ChromPosBuffer *buf, ChromPosOffset *pos)
   if(buf->len == 0) return 0;
   size_t i, idx = 0, len, max;
   bool unique = true;
-  len = max = chrom_pos_len(&buf->data[0]);
+  len = max = chrom_pos_len(&buf->b[0]);
 
   for(i = 1; i < buf->len; i++) {
-    len = chrom_pos_len(&buf->data[i]);
+    len = chrom_pos_len(&buf->b[i]);
     if(len == max) unique = false;
     else if(len > max) {
       unique = true;
@@ -40,7 +40,7 @@ int chrom_pos_list_get_largest(const ChromPosBuffer *buf, ChromPosOffset *pos)
     }
   }
 
-  memcpy(pos, &buf->data[idx], sizeof(ChromPosOffset));
+  memcpy(pos, &buf->b[idx], sizeof(ChromPosOffset));
   return unique;
 }
 
@@ -118,7 +118,7 @@ int chrom_pos_list_parse(char *str, ChromPosBuffer *buf)
   {
     ChromPosOffset obj;
     if(_parse(token, &obj) != 0) return -1;
-    chrompos_buf_add(buf, obj);
+    chrompos_buf_push(buf, &obj, 1);
   }
 
   return 0;

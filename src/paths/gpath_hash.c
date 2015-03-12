@@ -94,7 +94,7 @@ static inline bool _gphash_entries_match(const GPathSet *gpset, GPEntry entry,
                                          hkey_t hkey, GPathNew newgpath)
 {
   return (hkey == entry.hkey &&
-          gpaths_are_equal(gpset->entries.data[entry.gpindex], newgpath));
+          gpaths_are_equal(gpset->entries.b[entry.gpindex], newgpath));
 }
 
 // Use a bucket lock to find or add an entry
@@ -122,14 +122,14 @@ static inline GPath* _find_or_add_in_bucket_mt(GPathHash *gphash, uint64_t hash,
     if(_gphash_entries_match(gpset, entry, hkey, newgpath))
     {
       *found = true;
-      gpath_ret = gpset->entries.data + entry.gpindex;
+      gpath_ret = gpset->entries.b + entry.gpindex;
       break;
     }
     else if(!PATH_HASH_ENTRY_ASSIGNED(entry))
     {
       gpath_ret = gpath_store_add_mt(gphash->gpstore, hkey, newgpath);
       *entryptr = (GPEntry){.hkey = hkey,
-                            .gpindex = gpath_ret - gpset->entries.data};
+                            .gpindex = gpath_ret - gpset->entries.b};
 
       __sync_synchronize(); // add entry before updating count
       __sync_fetch_and_add((volatile uint8_t*)&gphash->bucket_nitems[hash], 1);
@@ -158,7 +158,7 @@ static inline GPath* _find_in_bucket_mt(const GPathHash *gphash, uint64_t hash,
 
   for(entry = start; entry < end; entry++)
     if(_gphash_entries_match(gpset, *entry, hkey, newgpath))
-      return gpset->entries.data + entry->gpindex;
+      return gpset->entries.b + entry->gpindex;
 
   return NULL;
 }

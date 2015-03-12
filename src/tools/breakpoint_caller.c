@@ -166,7 +166,7 @@ static void process_contig(BreakpointCaller *caller,
   gzprintf(gzout, ">brkpnt.%s%zu.5pflank chr=", prefix, callid);
   koruns_gzprint(gzout, kmer_size, kograph, flank5p_runs, num_flank5p_runs, 0, 0);
   gzputc(gzout, '\n');
-  db_nodes_gzprint(flank5p->data, flank5p->len, caller->db_graph, gzout);
+  db_nodes_gzprint(flank5p->b, flank5p->len, caller->db_graph, gzout);
   gzputc(gzout, '\n');
 
   // 3p flank with list of ref intersections
@@ -174,7 +174,7 @@ static void process_contig(BreakpointCaller *caller,
   koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs,
                  flank3pidx, kmer3poffset);
   gzputc(gzout, '\n');
-  db_nodes_gzprint_cont(allelebuf->data+num_path_kmers,
+  db_nodes_gzprint_cont(allelebuf->b+num_path_kmers,
                         allelebuf->len-num_path_kmers,
                         caller->db_graph, gzout);
   gzputc(gzout, '\n');
@@ -183,7 +183,7 @@ static void process_contig(BreakpointCaller *caller,
   gzprintf(gzout, ">brkpnt.%s%zu.path cols=%zu", prefix, callid, cols[0]);
   for(i = 1; i < ncols; i++) gzprintf(gzout, ",%zu", cols[i]);
   gzputc(gzout, '\n');
-  db_nodes_gzprint_cont(allelebuf->data, num_path_kmers, caller->db_graph, gzout);
+  db_nodes_gzprint_cont(allelebuf->b, num_path_kmers, caller->db_graph, gzout);
   gzprintf(gzout, "\n\n");
 
   pthread_mutex_unlock(caller->out_lock);
@@ -215,11 +215,11 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
 
   size_t i, min_run_qoffset = SIZE_MAX, min_ended_run_qoffset = SIZE_MAX;
   for(i = 0; i < koruns->len; i++)
-    min_run_qoffset = MIN2(min_run_qoffset, koruns->data[i].qoffset);
+    min_run_qoffset = MIN2(min_run_qoffset, koruns->b[i].qoffset);
 
   // Stop if all our earliest runs have finished
   for(i = 0; i < koruns_ended->len; i++) {
-    min_ended_run_qoffset = MIN2(min_ended_run_qoffset, koruns_ended->data[i].qoffset);
+    min_ended_run_qoffset = MIN2(min_ended_run_qoffset, koruns_ended->b[i].qoffset);
   }
 
   // Continue if...
@@ -265,10 +265,10 @@ static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
 
   // Copy finished runs into array
   kmer_run_buf_capacity(runs_buf, runs_buf->len+koruns->len+koruns_ended->len);
-  kmer_run_buf_append(runs_buf, koruns_ended->data, koruns_ended->len);
+  kmer_run_buf_push(runs_buf, koruns_ended->b, koruns_ended->len);
 
-  runs_buf->len += koruns_filter(koruns->data, koruns->len,
-                                 runs_buf->data+runs_buf->len,
+  runs_buf->len += koruns_filter(koruns->b, koruns->len,
+                                 runs_buf->b+runs_buf->len,
                                  caller->min_ref_nkmers);
 
   kmer_run_buf_reset(koruns);
@@ -319,7 +319,7 @@ KOccurRun* fetch_ref_contact(const GraphCache *cache, uint32_t pathid,
   // Get runs along the ref
   PathRefRun ref_run = ref_runs[pathid];
   size_t num_runs = ref_run.num_runs;
-  KOccurRun *koruns = runbuf->data + ref_run.first_runid;
+  KOccurRun *koruns = runbuf->b + ref_run.first_runid;
   koruns_sort_by_qoffset(koruns, num_runs);
 
   // Set qoffset to be the kmer offset in the path
@@ -442,7 +442,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 
       koruns_reverse(flank5p_runs, num_flank5p_runs, flank5pbuf->len);
       koruns_sort_by_qoffset(flank5p_runs, num_flank5p_runs);
-      db_nodes_reverse_complement(flank5pbuf->data, flank5pbuf->len);
+      db_nodes_reverse_complement(flank5pbuf->b, flank5pbuf->len);
 
       if(num_flank5p_runs > 0)
       {

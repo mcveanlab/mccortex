@@ -84,7 +84,7 @@ int ctx_breakpoints(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 'r': min_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_min_flank++; break;
       case 'R': max_ref_flank = cmd_uint32_nonzero(cmd, optarg); set_max_flank++; break;
@@ -130,7 +130,7 @@ int ctx_breakpoints(int argc, char **argv)
                            &ctx_max_kmers, &ctx_sum_kmers);
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
 
   //
   // Get file sizes of sequence files
@@ -139,7 +139,7 @@ int ctx_breakpoints(int argc, char **argv)
   size_t est_num_bases = 0;
 
   for(i = 0; i < sfilebuf.len; i++) {
-    tmp_sfile = sfilebuf.data[i];
+    tmp_sfile = sfilebuf.b[i];
     fsize = futil_get_file_size(tmp_sfile->path);
     if(fsize < 0) warn("Cannot get file size: %s", tmp_sfile->path);
     else {
@@ -177,7 +177,7 @@ int ctx_breakpoints(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -202,7 +202,7 @@ int ctx_breakpoints(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL | DBG_ALLOC_BKTLOCKS);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len,
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len,
                              path_mem, false, &db_graph);
 
   //
@@ -227,25 +227,25 @@ int ctx_breakpoints(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_load(&gpfiles.data[i], true, &db_graph);
+    gpath_reader_load(&gpfiles.b[i], true, &db_graph);
 
   // Get array of sequence file paths
   size_t num_seq_paths = sfilebuf.len;
   char **seq_paths = ctx_calloc(num_seq_paths, sizeof(char*));
   for(i = 0; i < num_seq_paths; i++)
-    seq_paths[i] = strdup(sfilebuf.data[i]->path);
+    seq_paths[i] = strdup(sfilebuf.b[i]->path);
 
   //
   // Load reference sequence into a read buffer
   //
   ReadBuffer rbuf;
   read_buf_alloc(&rbuf, 1024);
-  seq_load_all_reads(sfilebuf.data, sfilebuf.len, &rbuf);
+  seq_load_all_reads(sfilebuf.b, sfilebuf.len, &rbuf);
 
   // Remove commas and colons from read names so we can print:
   //   chr1:start1-end1,chr2:start2-end2...
   for(i = 0; i < rbuf.len; i++) {
-    read_t *r = &rbuf.data[i];
+    read_t *r = &rbuf.b[i];
     seq_read_truncate_name(r); // strip fast[aq] comments (after whitespace)
     string_char_replace(r->name.b, ',', '.'); // change , -> . in read name
     string_char_replace(r->name.b, ':', ';'); // change : -> ; in read name
@@ -253,12 +253,12 @@ int ctx_breakpoints(int argc, char **argv)
 
   // Create array of cJSON** from input files
   cJSON **hdrs = ctx_malloc(gpfiles.len * sizeof(cJSON*));
-  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.data[i].json;
+  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.b[i].json;
 
   // Call breakpoints
   breakpoints_call(nthreads,
                    gzout, output_file,
-                   rbuf.data, rbuf.len,
+                   rbuf.b, rbuf.len,
                    seq_paths, num_seq_paths,
                    min_ref_flank, max_ref_flank,
                    hdrs, gpfiles.len,
@@ -270,10 +270,10 @@ int ctx_breakpoints(int argc, char **argv)
 
   // Close input files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);
 
-  for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
+  for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.b[i]);
   read_buf_dealloc(&rbuf);
 
   seq_file_ptr_buf_dealloc(&sfilebuf);

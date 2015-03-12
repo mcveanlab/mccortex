@@ -18,7 +18,7 @@ void call_file_entry_dealloc(CallFileEntry *entry);
 int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry);
 
 #define call_file_num_lines(entry) ((entry)->lines.len)
-#define call_file_get_line(entry,i) ((entry)->lines.data[i])
-#define call_file_line_len(entry,i) ((entry)->linelens.data[i])
+#define call_file_get_line(entry,i) ((entry)->lines.b[i])
+#define call_file_line_len(entry,i) ((entry)->linelens.b[i])
 
 #endif /* CALL_FILE_READER_H_ */

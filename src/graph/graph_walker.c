@@ -20,7 +20,7 @@ static size_t graph_walker_get_max_path_junctions(const GraphWalker *wlk)
 {
   size_t i, rem, max = 0;
   for(i = 0; i < wlk->paths.len; i++) {
-    rem = (size_t)(wlk->paths.data[i].len - wlk->paths.data[i].pos);
+    rem = (size_t)(wlk->paths.b[i].len - wlk->paths.b[i].pos);
     max = MAX2(rem, max);
   }
   return max;
@@ -32,7 +32,7 @@ static void print_path_list(const GPathFollowBuffer *pbuf, FILE *fout)
   GPathFollow *path;
 
   for(i = 0; i < pbuf->len; i++) {
-    path = &pbuf->data[i];
+    path = &pbuf->b[i];
     fprintf(fout, "   %p ", path->gpath->seq);
     for(j = 0; j < path->len; j++)
       fputc(dna_nuc_to_char(gpath_follow_get_base(path, j)), fout);
@@ -124,18 +124,18 @@ static inline void _gw_gseg_update(GraphWalker *wlk,
 
     // Update all path ages: age is the graph section index
     for(i = 0; i < wlk->paths.len; i++)
-      wlk->paths.data[i].age++;
+      wlk->paths.b[i].age++;
 
     for(i = 0; i < wlk->cntr_paths.len; i++)
-      wlk->cntr_paths.data[i].age++;
+      wlk->cntr_paths.b[i].age++;
 
     // Drop graph sections without any paths (apart from most recent one)
     size_t max_segs = 1;
 
     if(wlk->paths.len)
-      max_segs = MAX2(max_segs, wlk->paths.data[0].age + 1);
+      max_segs = MAX2(max_segs, wlk->paths.b[0].age + 1);
     if(wlk->cntr_paths.len)
-      max_segs = MAX2(max_segs, wlk->cntr_paths.data[0].age + 1);
+      max_segs = MAX2(max_segs, wlk->cntr_paths.b[0].age + 1);
 
     ctx_assert2(max_segs <= len, "%zu > %zu", max_segs, len);
     gseg_list_popn(&wlk->gsegs, len - max_segs);
@@ -285,9 +285,9 @@ uint64_t graph_walker_hash64(GraphWalker *wlk)
   cntr_path_bytes = wlk->cntr_paths.len*sizeof(GPathFollow);
 
   uint64_t hash = ((uint64_t)wlk->node.key<<1) | wlk->node.orient;
-  hash = CityHash64WithSeeds((const char*)wlk->paths.data, path_bytes,
+  hash = CityHash64WithSeeds((const char*)wlk->paths.b, path_bytes,
                              hash, wlk->paths.len);
-  hash = CityHash64WithSeeds((const char*)wlk->cntr_paths.data, cntr_path_bytes,
+  hash = CityHash64WithSeeds((const char*)wlk->cntr_paths.b, cntr_path_bytes,
                              hash, wlk->cntr_paths.len);
 
   return hash;
@@ -302,7 +302,7 @@ static inline void update_path_forks(GPathFollowBuffer *pbuf, bool taken[4])
   size_t i;
   GPathFollow *path;
   for(i = 0; i < pbuf->len; i++) {
-    path = &pbuf->data[i];
+    path = &pbuf->b[i];
     taken[gpath_follow_get_base(path, path->pos)] = true;
   }
 }
@@ -447,7 +447,7 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   }
 
   // Do all the oldest paths pick a consistent next node?
-  GPathFollow *path, *oldest_path = &wlk->paths.data[0];
+  GPathFollow *path, *oldest_path = &wlk->paths.b[0];
   size_t greatest_age;
   Nucleotide greatest_nuc;
 
@@ -461,15 +461,15 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
   // Set i to the index of the oldest path to disagree with our oldest path
   // OR wlk->paths.length if all paths agree
   for(i = 1; i < wlk->paths.len; i++) {
-    path = &wlk->paths.data[i];
+    path = &wlk->paths.b[i];
     if(gpath_follow_get_base(path, path->pos) != greatest_nuc) break;
   }
 
   // If a path of the same age disagrees, cannot proceed
-  if(i < wlk->paths.len && wlk->paths.data[i].age == greatest_age)
+  if(i < wlk->paths.len && wlk->paths.b[i].age == greatest_age)
     _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, 0);
 
-  size_t choice_age = (i < wlk->paths.len ? wlk->paths.data[i].age : 0);
+  size_t choice_age = (i < wlk->paths.len ? wlk->paths.b[i].age : 0);
   GraphSegment *gseg, *first_seg = gseg_list_get(&wlk->gsegs, 0);
 
   // for(i = 0; i < gseg_list_length(&wlk->gsegs); i++)
@@ -560,12 +560,12 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
     // Check curr pathh
     for(i = 0, j = 0; i < npaths; i++)
     {
-      path = &wlk->paths.data[i];
+      path = &wlk->paths.b[i];
       pnuc = gpath_follow_get_base(path, path->pos);
       if(base == pnuc) {
         path->pos++;
         if(path->pos < path->len) {
-          wlk->paths.data[j++] = *path;
+          wlk->paths.b[j++] = *path;
         }
         else {
           // Finished following a path from start to end
@@ -583,11 +583,11 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
     // Counter paths
     for(i = 0, j = 0; i < wlk->cntr_paths.len; i++)
     {
-      path = &wlk->cntr_paths.data[i];
+      path = &wlk->cntr_paths.b[i];
       pnuc = gpath_follow_get_base(path, path->pos);
       if(base == pnuc && path->pos+1 < path->len) {
         path->pos++;
-        wlk->cntr_paths.data[j++] = *path;
+        wlk->cntr_paths.b[j++] = *path;
       }
     }
 

@@ -91,7 +91,7 @@ bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
   ctx_assert(nbuf->len > 0);
 
   const size_t kmer_size = db_graph->kmer_size;
-  dBNode node0 = nbuf->data[0], node1 = nbuf->data[nbuf->len-1], node = node1;
+  dBNode node0 = nbuf->b[0], node1 = nbuf->b[nbuf->len-1], node = node1;
 
   BinaryKmer bkmer = db_node_oriented_bkmer(db_graph, node);
   Edges edges = db_node_get_edges_union(db_graph, node.key);
@@ -107,7 +107,7 @@ bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
 
     if(edges_has_precisely_one_edge(edges, rev_orient(node.orient), &nuc))
     {
-      if(node.key == node0.key || node.key == nbuf->data[nbuf->len-1].key) {
+      if(node.key == node0.key || node.key == nbuf->b[nbuf->len-1].key) {
         // don't create a loop A->B->A or a->b->B->A
         break;
       }
@@ -128,7 +128,7 @@ void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
   size_t offset = nbuf->len;
   db_node_buf_add(nbuf, first);
   supernode_extend(nbuf, 0, db_graph);
-  db_nodes_reverse_complement(nbuf->data+offset, nbuf->len-offset);
+  db_nodes_reverse_complement(nbuf->b+offset, nbuf->len-offset);
   supernode_extend(nbuf, 0, db_graph);
 }
 
@@ -182,7 +182,7 @@ static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
     supernode_find(hkey, nbuf, db_graph);
 
     // Mark first node (lowest hkey_t value) as visited
-    hkey_t node0 = MIN2(nbuf->data[0].key, nbuf->data[nbuf->len-1].key);
+    hkey_t node0 = MIN2(nbuf->b[0].key, nbuf->b[nbuf->len-1].key);
     bitlock_try_acquire(visited, node0, &got_lock);
 
     // Check if someone else marked it first
@@ -190,7 +190,7 @@ static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
     {
       // Mark remaining nodes as visited
       for(i = 0; i < nbuf->len; i++)
-        (void)bitset_set_mt(visited, nbuf->data[i].key);
+        (void)bitset_set_mt(visited, nbuf->b[i].key);
 
       func(*nbuf, threadid, arg);
     }

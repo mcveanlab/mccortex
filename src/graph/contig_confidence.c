@@ -9,8 +9,8 @@
 static void conf_table_capacity(ContigConfidenceTable *table, size_t max_read)
 {
   size_t i, init_len = table->table.len;
-  double_buf_extend(&table->table, (max_read+1)*table->ncols);
-  for(i = init_len; i < table->table.len; i++) table->table.data[i] = 0.0;
+  double_buf_resize(&table->table, (max_read+1)*table->ncols);
+  for(i = init_len; i < table->table.len; i++) table->table.b[i] = 0.0;
 }
 
 // expl(x) is the same as doing powl(M_E, x) a.k.a. 2**x for type long double
@@ -37,14 +37,14 @@ static void _update_table_with_length_count(ContigConfidenceTable *table,
 
   for(i = 1; i <= contig_len; i++) {
     double covg = (double)(contig_len * num) / genome_size;
-    double old_conf = table->table.data[i];
+    double old_conf = table->table.b[i];
     double new_conf = 1.0 - ((1.0 - old_conf) *
                              (1.0 - calc_confid(covg, contig_len, i)));
     // printf("  contig: %zu num: %zu genome: %zu covg: %.2f\n", contig_len, num,
     //        genome_size, covg);
     // printf("updating %zu from %.2f -> %.2f [%.2f]\n", i, old_conf, new_conf,
     //        calc_confid(covg, contig_len, i));
-    table->table.data[i*table->ncols+col] = new_conf;
+    table->table.b[i*table->ncols+col] = new_conf;
   }
 }
 
@@ -76,7 +76,7 @@ void conf_table_calc(ContigConfidenceTable *table, size_t col,
   conf_table_capacity(table, max_read_len);
 
   for(i = 1; i <= max_read_len; i++) {
-    table->table.data[i*table->ncols+col] = calc_confid(avg_bp_covg, max_read_len, i);
+    table->table.b[i*table->ncols+col] = calc_confid(avg_bp_covg, max_read_len, i);
   }
 }
 
@@ -98,7 +98,7 @@ double conf_table_lookup(const ContigConfidenceTable *table,
   size_t idx = table->ncols * dist + col;
   ctx_assert(col < table->ncols);
   ctx_assert(idx < table->table.len);
-  return table->table.data[idx];
+  return table->table.b[idx];
 }
 
 void conf_table_print(const ContigConfidenceTable *table, FILE *fh)
@@ -115,7 +115,7 @@ void conf_table_print(const ContigConfidenceTable *table, FILE *fh)
   for(i = 1, j = table->ncols; i < num_rows; i++) {
     fprintf(fh, "%zu", i);
     for(endj = j + table->ncols; j < endj; j++)
-      fprintf(fh, "\t%.5f", table->table.data[j]);
+      fprintf(fh, "\t%.5f", table->table.b[j]);
     fprintf(fh, "\n");
   }
 }

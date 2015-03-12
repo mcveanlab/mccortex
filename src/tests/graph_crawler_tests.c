@@ -68,7 +68,7 @@ void test_graph_crawler()
     db_node_buf_reset(&nbuf);
     graph_crawler_get_path_nodes(&crawler, p, &nbuf);
     strbuf_ensure_capacity(&sbuf, nbuf.len+graph.kmer_size);
-    sbuf.end = db_nodes_to_str(nbuf.data, nbuf.len, &graph, sbuf.b);
+    sbuf.end = db_nodes_to_str(nbuf.b, nbuf.len, &graph, sbuf.b);
     for(i = 0; i < 3 && strcmp(graphseq[i]+1,sbuf.b) != 0; i++) {}
     TASSERT2(i < 3, "seq: %s", sbuf.b);
     TASSERT2(sbuf.end == 75, "sbuf.end: %zu", sbuf.end);

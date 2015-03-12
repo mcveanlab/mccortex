@@ -34,7 +34,7 @@ void db_alignment_alloc(dBAlignment *alignment);
 void db_alignment_dealloc(dBAlignment *alignment);
 
 #define db_aln_r1enderr(aln,k) ((aln)->r1bases - \
-  ((aln)->r2strtidx > 0 ? (aln)->rpos.data[(aln)->r2strtidx-1] + (k) : 0))
+  ((aln)->r2strtidx > 0 ? (aln)->rpos.b[(aln)->r2strtidx-1] + (k) : 0))
 
 // if colour is -1 aligns to all colours, otherwise aligns to given colour only
 // Assumes both reads are in FF orientation

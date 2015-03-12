@@ -1008,7 +1008,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   // Print contigs lengths
   for(i = 0; i < chroms.len; i++) {
     fprintf(fout, "##contig=<ID=%s,length=%zu>\n",
-            chroms.data[i].name.b, chroms.data[i].seq.end);
+            chroms.b[i].name.b, chroms.b[i].seq.end);
   }
 
   // Print VCF column header

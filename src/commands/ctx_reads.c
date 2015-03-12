@@ -118,8 +118,8 @@ static void parse_args(int argc, char **argv)
         memset(&input, 0, sizeof(input));
         memset(&seqfiles, 0, sizeof(seqfiles));
         asyncio_task_parse(&seqfiles, c, optarg, 0, &input.out_base);
-        aln_reads_buf_add(&inputs, input);
-        asyncio_buf_add(&files, seqfiles);
+        aln_reads_buf_push(&inputs, &input, 1);
+        asyncio_buf_push(&files, &seqfiles, 1);
         break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -144,9 +144,9 @@ static void parse_args(int argc, char **argv)
   gfile_paths = argv + optind;
 
   for(i = 0; i < inputs.len; i++) {
-    inputs.data[i].invert = invert;
-    inputs.data[i].fmt = fmt;
-    files.data[i].ptr = &inputs.data[i];
+    inputs.b[i].invert = invert;
+    inputs.b[i].fmt = fmt;
+    files.b[i].ptr = &inputs.b[i];
   }
 }
 
@@ -156,15 +156,15 @@ static void inputs_attempt_open()
   size_t i;
 
   for(i = 0; i < inputs.len && !err_occurred; i++) {
-    AlignReadsData *input = &inputs.data[i];
+    AlignReadsData *input = &inputs.b[i];
     err_occurred = !seqout_open(&input->seqout, input->out_base, input->fmt,
                                 // input->use_fq ? SEQ_FMT_FASTQ : SEQ_FMT_FASTQ,
-                                asyncio_task_is_pe(&files.data[i]));
+                                asyncio_task_is_pe(&files.b[i]));
   }
 
   if(err_occurred) {
     for(i = 0; i < inputs.len; i++)
-      seqout_close(&inputs.data[i].seqout, true);
+      seqout_close(&inputs.b[i].seqout, true);
     die("Error creating output files");
   }
 }
@@ -296,7 +296,7 @@ int ctx_reads(int argc, char **argv)
   ctx_free(gfiles);
 
   status("Printing reads that do %stouch the graph\n",
-         inputs.data[0].invert ? "not " : "");
+         inputs.b[0].invert ? "not " : "");
 
   //
   // Filter reads using async io
@@ -304,8 +304,8 @@ int ctx_reads(int argc, char **argv)
   LoadingStats seq_stats = LOAD_STATS_INIT_MACRO;
 
   for(i = 0; i < inputs.len; i++) {
-    inputs.data[i].stats = &seq_stats;
-    inputs.data[i].db_graph = &db_graph;
+    inputs.b[i].stats = &seq_stats;
+    inputs.b[i].db_graph = &db_graph;
   }
 
   // Deal with a set of files at once
@@ -314,18 +314,18 @@ int ctx_reads(int argc, char **argv)
   {
     // Can have different numbers of inputs vs threads
     end = MIN2(inputs.len, start+MAX_IO_THREADS);
-    asyncio_run_pool(files.data+start, end-start, filter_reads, NULL, nthreads, 0);
+    asyncio_run_pool(files.b+start, end-start, filter_reads, NULL, nthreads, 0);
   }
 
   size_t total_reads_printed = 0;
   size_t total_reads = seq_stats.num_se_reads + seq_stats.num_pe_reads;
 
   for(i = 0; i < inputs.len; i++)
-    total_reads_printed += inputs.data[i].num_of_reads_printed;
+    total_reads_printed += inputs.b[i].num_of_reads_printed;
 
   for(i = 0; i < inputs.len; i++) {
-    seqout_close(&inputs.data[i].seqout, false);
-    asyncio_task_close(&files.data[i]);
+    seqout_close(&inputs.b[i].seqout, false);
+    asyncio_task_close(&files.b[i]);
   }
 
   aln_reads_buf_dealloc(&inputs);

@@ -38,9 +38,9 @@ typedef struct
 
 #define ltree_get_fw_node(tree) ltree_get_node(tree,(tree)->fw_id)
 #define ltree_get_rv_node(tree) ltree_get_node(tree,(tree)->rv_id)
-#define ltree_get_node(tree,id) ((id) < 0 ? NULL : &(tree)->treebuf.data[id])
-#define ltree_get_covg(tree,id,col) ((tree)->covgbuf.data[(id)*(tree)->ncols+(col)])
-#define ltree_get_seq(tree,l) ((char*)((tree)->seqbuf.data + (l)->seq))
+#define ltree_get_node(tree,id) ((id) < 0 ? NULL : &(tree)->treebuf.b[id])
+#define ltree_get_covg(tree,id,col) ((tree)->covgbuf.b[(id)*(tree)->ncols+(col)])
+#define ltree_get_seq(tree,l) ((char*)((tree)->seqbuf.b + (l)->seq))
 #define ltree_node_is_leaf(l) ((l)->children[0] < 0 && (l)->children[1] < 0 && \
                                (l)->children[2] < 0 && (l)->children[3])
 

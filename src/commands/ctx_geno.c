@@ -127,10 +127,10 @@ int ctx_geno(int argc, char **argv)
   // Load references
   ReadBuffer chrom_buf;
   read_buf_alloc(&chrom_buf, 512);
-  seq_load_all_reads(ref_buf.data, ref_buf.len, &chrom_buf);
+  seq_load_all_reads(ref_buf.b, ref_buf.len, &chrom_buf);
 
   // Close reference files
-  for(i = 0; i < ref_buf.len; i++) seq_close(ref_buf.data[i]);
+  for(i = 0; i < ref_buf.len; i++) seq_close(ref_buf.b[i]);
   seq_file_ptr_buf_dealloc(&ref_buf);
 
   // TODO: Load kmers from VCF + ref

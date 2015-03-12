@@ -114,11 +114,11 @@ int ctx_correct(int argc, char **argv)
   CorrectAlnInputBuffer *inputs = &args.inputs;
 
   // Update colours in graph file - sample in 0, all others in 1
-  size_t ncols = gpath_load_sample_pop(gfile, 1, gpfiles->data, gpfiles->len,
+  size_t ncols = gpath_load_sample_pop(gfile, 1, gpfiles->b, gpfiles->len,
                                        args.colour);
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(gfile, 1, gpfiles->data, gpfiles->len, 1);
+  graphs_gpaths_compatible(gfile, 1, gpfiles->b, gpfiles->len, 1);
 
   int64_t ctx_num_kmers = gfile->num_of_kmers;
 
@@ -142,7 +142,7 @@ int ctx_correct(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = args.memargs.mem_to_use - MIN2(args.memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles->data, gpfiles->len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles->b, gpfiles->len, ncols, rem_mem, false);
 
   cmd_print_mem(path_mem, "paths");
 
@@ -163,7 +163,7 @@ int ctx_correct(int argc, char **argv)
 
   for(i = 0; i < inputs->len && !err_occurred; i++)
   {
-    CorrectAlnInput *input = &inputs->data[i];
+    CorrectAlnInput *input = &inputs->b[i];
     // We loaded target colour into colour zero
     input->crt_params.ctxcol = input->crt_params.ctpcol = 0;
     bool is_pe = asyncio_task_is_pe(&input->files);
@@ -187,7 +187,7 @@ int ctx_correct(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Create a path store that does not tracks path counts
-  gpath_reader_alloc_gpstore(gpfiles->data, gpfiles->len, path_mem, false, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles->b, gpfiles->len, path_mem, false, &db_graph);
 
   //
   // Load Graph and Path files
@@ -206,14 +206,14 @@ int ctx_correct(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles->len; i++) {
-    gpath_reader_load(&gpfiles->data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
-    gpath_reader_close(&gpfiles->data[i]);
+    gpath_reader_load(&gpfiles->b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_close(&gpfiles->b[i]);
   }
 
   //
   // Run alignment
   //
-  correct_reads(inputs->data, inputs->len,
+  correct_reads(inputs->b, inputs->len,
                 args.dump_seq_sizes, args.dump_frag_sizes,
                 args.fq_zero, args.append_orig_seq,
                 args.nthreads, &db_graph);

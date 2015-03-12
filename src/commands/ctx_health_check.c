@@ -73,7 +73,7 @@ int ctx_health_check(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 'E': if(!do_edge_check) die("%s set twice", cmd); do_edge_check=false; break;
       case ':': /* BADARG */
@@ -104,7 +104,7 @@ int ctx_health_check(int argc, char **argv)
   size_t ncols = file_filter_into_ncols(&gfile.fltr);
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, -1);
+  graphs_gpaths_compatible(&gfile, 1, gpfiles.b, gpfiles.len, -1);
 
   //
   // Decide on memory
@@ -125,7 +125,7 @@ int ctx_health_check(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -141,7 +141,7 @@ int ctx_health_check(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, false, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, false, &db_graph);
 
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
@@ -152,8 +152,8 @@ int ctx_health_check(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++) {
-    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_close(&gpfiles.b[i]);
   }
 
   if(do_edge_check)

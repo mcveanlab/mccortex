@@ -13,9 +13,9 @@ static void _check_alleles(GraphCache *cache, GCacheStepPtrBuf *steps,
   for(i = 0; i < steps->len; i++)
   {
     db_node_buf_reset(nbuf);
-    graph_cache_step_fetch_nodes(cache, steps->data[i], nbuf);
+    graph_cache_step_fetch_nodes(cache, steps->b[i], nbuf);
     strbuf_ensure_capacity(sbuf, nbuf->len+MAX_KMER_SIZE+1);
-    db_nodes_to_str(nbuf->data, nbuf->len, cache->db_graph, sbuf->b);
+    db_nodes_to_str(nbuf->b, nbuf->len, cache->db_graph, sbuf->b);
 
     // Find this node
     for(j = 0; j < num_alleles && strcasecmp(sbuf->b,alleles[j]); j++) {}

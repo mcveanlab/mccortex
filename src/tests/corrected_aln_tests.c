@@ -41,7 +41,7 @@ static void _check_correct_aln(char *seq1, char *seq2,
 
     if(nbuf) {
       strbuf_ensure_capacity(sbuf, nbuf->len+MAX_KMER_SIZE+1);
-      db_nodes_to_str(nbuf->data, nbuf->len, graph, sbuf->b);
+      db_nodes_to_str(nbuf->b, nbuf->len, graph, sbuf->b);
 
       TASSERT2(strcmp(sbuf->b, ans[i]) == 0,
                "%zu) exp: %s got: %s", i, ans[i], sbuf->b);

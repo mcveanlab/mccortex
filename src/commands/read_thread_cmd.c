@@ -19,8 +19,8 @@ void read_thread_args_alloc(struct ReadThreadCmdArgs *args)
 void read_thread_args_dealloc(struct ReadThreadCmdArgs *args)
 {
   size_t i;
-  for(i = 0; i < args->inputs.len; i++) asyncio_task_close(&args->inputs.data[i].files);
-  for(i = 0; i < args->gpfiles.len; i++) gpath_reader_close(&args->gpfiles.data[i]);
+  for(i = 0; i < args->inputs.len; i++) asyncio_task_close(&args->inputs.b[i].files);
+  for(i = 0; i < args->gpfiles.len; i++) gpath_reader_close(&args->gpfiles.b[i]);
 
   correct_aln_input_buf_dealloc(&args->inputs);
   gpfile_buf_dealloc(&args->gpfiles);
@@ -59,7 +59,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&args->gpfiles, tmp_gpfile);
+        gpfile_buf_push(&args->gpfiles, &tmp_gpfile, 1);
         break;
       case 't':
         cmd_check(!args->nthreads, cmd);
@@ -76,10 +76,10 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
       case '2':
       case 'i':
         used = 1;
-        correct_aln_input_buf_add(inputs, task);
-        asyncio_task_parse(&inputs->data[inputs->len-1].files, c, optarg,
+        correct_aln_input_buf_push(inputs, &task, 1);
+        asyncio_task_parse(&inputs->b[inputs->len-1].files, c, optarg,
                            fq_offset, correct_cmd ? &tmp_path : NULL);
-        if(correct_cmd) inputs->data[inputs->len-1].out_base = tmp_path;
+        if(correct_cmd) inputs->b[inputs->len-1].out_base = tmp_path;
         break;
       case 'M':
              if(!strcmp(optarg,"FF")) task.matedir = READPAIR_FF;
@@ -152,36 +152,36 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   //
   size_t path_max_usedcols = 0;
   for(i = 0; i < args->gpfiles.len; i++) {
-    // file_filter_update_intocol(&args->pfiles.data[i].fltr, 0);
-    if(!correct_cmd && file_filter_into_ncols(&args->gpfiles.data[i].fltr) > 1) {
+    // file_filter_update_intocol(&args->pfiles.b[i].fltr, 0);
+    if(!correct_cmd && file_filter_into_ncols(&args->gpfiles.b[i].fltr) > 1) {
       die("Please specify a single colour e.g. %s:0",
-          file_filter_path(&args->gpfiles.data[i].fltr));
+          file_filter_path(&args->gpfiles.b[i].fltr));
     }
     path_max_usedcols = MAX2(path_max_usedcols,
-                             file_filter_into_ncols(&args->gpfiles.data[i].fltr));
+                             file_filter_into_ncols(&args->gpfiles.b[i].fltr));
   }
   args->path_max_usedcols = path_max_usedcols;
 
   // Check for compatibility between graph files and path files
-  graphs_gpaths_compatible(gfile, 1, args->gpfiles.data, args->gpfiles.len, -1);
+  graphs_gpaths_compatible(gfile, 1, args->gpfiles.b, args->gpfiles.len, -1);
 
   // if no paths loaded, set all max_context values to 1, since >1 kmer only
   // useful if can pickup paths
   if(args->gpfiles.len == 0) {
     for(i = 0; i < inputs->len; i++)
-      inputs->data[i].crt_params.max_context = 1;
+      inputs->b[i].crt_params.max_context = 1;
   }
 
   // Check frag_len_min < frag_len_max
   for(i = 0; i < inputs->len; i++)
   {
-    CorrectAlnInput *t = &inputs->data[i];
+    CorrectAlnInput *t = &inputs->b[i];
     t->files.ptr = t;
     if(t->crt_params.frag_len_min > t->crt_params.frag_len_max) {
       die("--min-ins %u is greater than --max-ins %u",
           t->crt_params.frag_len_min, t->crt_params.frag_len_max);
     }
-    correct_aln_input_print(&inputs->data[i]);
+    correct_aln_input_print(&inputs->b[i]);
     args->max_gap_limit = MAX2(args->max_gap_limit, t->crt_params.frag_len_max);
   }
 

@@ -206,7 +206,7 @@ int ctx_uniqkmers(int argc, char **argv)
         graph_file_reset(&tmp_gfile);
         graph_file_open2(&tmp_gfile, optarg, "r", 0);
         file_filter_flatten(&tmp_gfile.fltr, 0);
-        gfile_buf_add(&gfilebuf, tmp_gfile);
+        gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         break;
       case '1':
         if((tmp_sfile = seq_open(optarg)) == NULL)
@@ -240,22 +240,22 @@ int ctx_uniqkmers(int argc, char **argv)
   if(gfilebuf.len == 0 && !kmer_size)
     die("kmer size not set with -k <K>");
   else if(!kmer_size)
-    kmer_size = gfilebuf.data[0].hdr.kmer_size;
-  else if(gfilebuf.len > 0 && gfilebuf.data[0].hdr.kmer_size != kmer_size) {
+    kmer_size = gfilebuf.b[0].hdr.kmer_size;
+  else if(gfilebuf.len > 0 && gfilebuf.b[0].hdr.kmer_size != kmer_size) {
     die("Kmer size mismatches: %zu vs %zu (you do not have to specify -k)",
-        (size_t)gfilebuf.data[0].hdr.kmer_size, kmer_size);
+        (size_t)gfilebuf.b[0].hdr.kmer_size, kmer_size);
   }
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfilebuf.data, gfilebuf.len, NULL, 0, -1);
+  graphs_gpaths_compatible(gfilebuf.b, gfilebuf.len, NULL, 0, -1);
 
   bool ctx_uses_stdin = false;
   size_t ctx_max_kmers = num_uniqkmers, ctx_sum_kmers = num_uniqkmers;
 
   for(i = 0; i < gfilebuf.len; i++) {
-    ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfilebuf.data[i]));
-    ctx_sum_kmers += graph_file_nkmers(&gfilebuf.data[i]);
-    ctx_uses_stdin |= file_filter_isstdin(&gfilebuf.data[i].fltr);
+    ctx_max_kmers = MAX2(ctx_max_kmers, graph_file_nkmers(&gfilebuf.b[i]));
+    ctx_sum_kmers += graph_file_nkmers(&gfilebuf.b[i]);
+    ctx_uses_stdin |= file_filter_isstdin(&gfilebuf.b[i].fltr);
   }
 
   if(ctx_uses_stdin) ctx_sum_kmers = SIZE_MAX;
@@ -297,16 +297,16 @@ int ctx_uniqkmers(int argc, char **argv)
                               .empty_colours = true};
 
   for(i = 0; i < gfilebuf.len; i++) {
-    graph_load(&gfilebuf.data[i], gprefs, &stats);
-    graph_file_close(&gfilebuf.data[i]);
+    graph_load(&gfilebuf.b[i], gprefs, &stats);
+    graph_file_close(&gfilebuf.b[i]);
     gprefs.empty_colours = false;
   }
 
   hash_table_print_stats(&db_graph.ht);
 
   // Load sequence files into colour zero
-  build_graph_from_seq(&db_graph, sfilebuf.data, sfilebuf.len, nthreads, 0);
-  build_graph_from_seq(&db_graph, flankbuf.data, flankbuf.len, nthreads, 0);
+  build_graph_from_seq(&db_graph, sfilebuf.b, sfilebuf.len, nthreads, 0);
+  build_graph_from_seq(&db_graph, flankbuf.b, flankbuf.len, nthreads, 0);
 
   if(sfilebuf.len > 0 || flankbuf.len > 0)
     hash_table_print_stats(&db_graph.ht);
@@ -327,8 +327,8 @@ int ctx_uniqkmers(int argc, char **argv)
     for(i = 0; i < flankbuf.len; i++)
     {
       // Copy path in case we cannot reopen sequence file
-      char *path = strdup(flankbuf.data[i]->path);
-      sf = flankbuf.data[i] = seq_reopen(flankbuf.data[i]);
+      char *path = strdup(flankbuf.b[i]->path);
+      sf = flankbuf.b[i] = seq_reopen(flankbuf.b[i]);
       if(sf == NULL) die("Couldn't reopen file: %s", path);
       free(path);
 

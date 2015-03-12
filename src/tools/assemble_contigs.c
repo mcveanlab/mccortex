@@ -82,12 +82,12 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
   for(dir = 0; dir < 2; dir++)
   {
     ctx_assert(nbuf->len >= init_len);
-    ctx_assert(!db_graph_check_all_edges(db_graph, nbuf->data, nbuf->len));
+    ctx_assert(!db_graph_check_all_edges(db_graph, nbuf->b, nbuf->len));
 
     if(dir == 1)
-      db_nodes_reverse_complement(nbuf->data, nbuf->len);
+      db_nodes_reverse_complement(nbuf->b, nbuf->len);
 
-    graph_walker_prime(wlk, nbuf->data+nbuf->len-init_len, init_len,
+    graph_walker_prime(wlk, nbuf->b+nbuf->len-init_len, init_len,
                        init_len, true);
 
     size_t init_junc_count = wlk->fork_count;
@@ -132,10 +132,10 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
                                          low_step_confid, low_cumul_confid);
 
     graph_walker_finish(wlk);
-    rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
+    rpt_walker_fast_clear(rptwlk, nbuf->b, nbuf->len);
   }
 
-  dBNode first = db_node_reverse(nbuf->data[0]), last = nbuf->data[nbuf->len-1];
+  dBNode first = db_node_reverse(nbuf->b[0]), last = nbuf->b[nbuf->len-1];
   s.outdegree_rv = db_node_outdegree_in_col(first, assem->colour, db_graph);
   s.outdegree_fw = db_node_outdegree_in_col(last,  assem->colour, db_graph);
 
@@ -146,7 +146,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
   size_t i;
   if(gpath == NULL && assem->visited != NULL) {
     for(i = 0; i < nbuf->len; i++)
-      (void)bitset_set_mt(assem->visited, nbuf->data[i].key);
+      (void)bitset_set_mt(assem->visited, nbuf->b[i].key);
   }
 
   memcpy(results, &s, sizeof(struct ContigStats));
@@ -189,7 +189,7 @@ static int _dump_contig(Assembler *assem, hkey_t hkey,
               left_stat, s->paths_held[0], s->paths_cntr[0], s->max_step_gap[0], s->gap_conf[0],
               rght_stat, s->paths_held[1], s->paths_cntr[1], s->max_step_gap[1], s->gap_conf[1]);
 
-      db_nodes_print(nbuf->data, nbuf->len, db_graph, assem->fout);
+      db_nodes_print(nbuf->b, nbuf->len, db_graph, assem->fout);
       putc('\n', assem->fout);
     }
 
@@ -295,7 +295,7 @@ static int _assemble_from_paths(hkey_t hkey, Assembler *assem)
   gpath_subset_load_set(gpsubset);
   gpath_subset_rmsubstr(gpsubset);
 
-  GPath **list = gpsubset->list.data;
+  GPath **list = gpsubset->list.b;
 
   for(i = 0; i < gpsubset->list.len; i++)
   {

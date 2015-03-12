@@ -425,7 +425,7 @@ static void reads_to_paths(GenPathWorker *wrkr)
   dBNodeBuffer *nbuf;
   while((nbuf = correct_alignment_nxt(&wrkr->corrector)) != NULL)
   {
-    worker_contig_to_junctions(wrkr, nbuf->data, nbuf->len);
+    worker_contig_to_junctions(wrkr, nbuf->b, nbuf->len);
   }
 }
 

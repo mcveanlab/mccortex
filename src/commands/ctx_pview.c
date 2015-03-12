@@ -64,17 +64,17 @@ static cJSON* _get_header(GPathFileBuffer *gpfiles, const dBGraph *db_graph)
 
   size_t j, fromcol, intocol;
   for(i = 0; i < gpfiles->len; i++) {
-    for(j = 0; j < file_filter_num(&gpfiles->data[i].fltr); j++) {
-      fromcol = file_filter_fromcol(&gpfiles->data[i].fltr, j);
-      intocol = file_filter_intocol(&gpfiles->data[i].fltr, j);
-      gpath_reader_load_contig_hist(gpfiles->data[i].json,
-                                    gpfiles->data[i].fltr.path.b,
+    for(j = 0; j < file_filter_num(&gpfiles->b[i].fltr); j++) {
+      fromcol = file_filter_fromcol(&gpfiles->b[i].fltr, j);
+      intocol = file_filter_intocol(&gpfiles->b[i].fltr, j);
+      gpath_reader_load_contig_hist(gpfiles->b[i].json,
+                                    gpfiles->b[i].fltr.path.b,
                                     fromcol, &contig_histgrms[intocol]);
     }
   }
 
   cJSON *hdrs[gpfiles->len];
-  for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->data[i].json;
+  for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->b[i].json;
   cJSON *json = gpath_save_mkhdr("STDOUT", hdrs, gpfiles->len,
                                  contig_histgrms, db_graph->num_of_cols,
                                  db_graph);
@@ -118,7 +118,7 @@ int ctx_pview(int argc, char **argv)
       case 'p':
         memset(&tmp_gpfile, 0, sizeof(GPathReader));
         gpath_reader_open(&tmp_gpfile, optarg);
-        gpfile_buf_add(&gpfiles, tmp_gpfile);
+        gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 'H': cmd_check(!header_only, cmd); header_only = true; break;
       case 'P': cmd_check(!paths_only,  cmd); paths_only  = true; break;
@@ -149,7 +149,7 @@ int ctx_pview(int argc, char **argv)
                            &ctx_max_kmers, &ctx_sum_kmers);
 
   // Check graph + paths are compatible
-  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, -1);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
 
   //
   // Decide on memory
@@ -169,7 +169,7 @@ int ctx_pview(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.data, gpfiles.len, ncols, rem_mem, true);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, true);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -192,7 +192,7 @@ int ctx_pview(int argc, char **argv)
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
-  gpath_reader_alloc_gpstore(gpfiles.data, gpfiles.len, path_mem, true, &db_graph);
+  gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, true, &db_graph);
 
   //
   // Load graphs
@@ -216,7 +216,7 @@ int ctx_pview(int argc, char **argv)
 
   // Load path files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_load(&gpfiles.data[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+    gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
   // Generate merged header
   if(!paths_only) {
@@ -254,7 +254,7 @@ int ctx_pview(int argc, char **argv)
 
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)
-    gpath_reader_close(&gpfiles.data[i]);
+    gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);
 
   db_graph_dealloc(&db_graph);

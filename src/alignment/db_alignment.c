@@ -69,9 +69,9 @@ static size_t db_alignment_from_read(dBAlignment *aln, const read_t *r,
       if(node != HASH_NOT_FOUND &&
          (colour == -1 || db_node_has_col(db_graph, node, colour)))
       {
-        nodes->data[n].key = node;
-        nodes->data[n].orient = bkmer_get_orientation(bkmer, tmp_key);
-        rpos->data[n] = offset;
+        nodes->b[n].key = node;
+        nodes->b[n].orient = bkmer_get_orientation(bkmer, tmp_key);
+        rpos->b[n] = offset;
         n++;
       }
     }
@@ -79,13 +79,13 @@ static size_t db_alignment_from_read(dBAlignment *aln, const read_t *r,
 
   // Return number of bases from the last kmer found until read end
   size_t ret = (n == init_len ? r->seq.end /* No kmers found */
-                              : r->seq.end - (rpos->data[n-1] + kmer_size));
+                              : r->seq.end - (rpos->b[n-1] + kmer_size));
 
   nodes->len = rpos->len = n;
 
   // Check for sequence gaps
   for(i = init_len; i+1 < nodes->len; i++) {
-    if(rpos->data[i]+1 < rpos->data[i+1]) {
+    if(rpos->b[i]+1 < rpos->b[i+1]) {
       aln->seq_gaps = true;
       break;
     }
@@ -146,8 +146,8 @@ size_t db_alignment_next_gap(const dBAlignment *aln, size_t start,
                              bool *missing_edge, const dBGraph *db_graph)
 {
   size_t i, end = aln->rpos.len;
-  const int32_t *rpos = aln->rpos.data;
-  const dBNode *nodes = aln->nodes.data;
+  const int32_t *rpos = aln->rpos.b;
+  const dBNode *nodes = aln->nodes.b;
   int colour = aln->colour;
   Edges edges;
   Nucleotide nuc;
@@ -182,7 +182,7 @@ bool db_alignment_is_perfect(const dBAlignment *aln)
 {
   return (!aln->passed_r2 && aln->used_r1 && // we only given one read and used it
           !aln->seq_gaps && // there are no gaps
-          aln->rpos.len > 0 && aln->rpos.data[0] == 0 && // no missing at start
+          aln->rpos.len > 0 && aln->rpos.b[0] == 0 && // no missing at start
           aln->r1enderr == 0); // no missing kmers at the end
 }
 
@@ -205,8 +205,8 @@ void db_alignment_print(const dBAlignment *aln)
   size_t i;
 
   for(i = 0; i < aln->nodes.len; i++) {
-    printf("  [%zu] %i: %zu:%i\n", i, aln->rpos.data[i],
-           (size_t)aln->nodes.data[i].key, aln->nodes.data[i].orient);
+    printf("  [%zu] %i: %zu:%i\n", i, aln->rpos.b[i],
+           (size_t)aln->nodes.b[i].key, aln->nodes.b[i].orient);
   }
 
   pthread_mutex_unlock(&ctx_biglock);
@@ -222,7 +222,7 @@ bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
   for(start = 0; start < aln->nodes.len; start = end)
   {
     end = db_alignment_next_gap(aln, start);
-    if(db_graph_check_all_edges(graph, aln->nodes.data+start, end-start))
+    if(db_graph_check_all_edges(graph, aln->nodes.b+start, end-start))
       return false;
   }
 

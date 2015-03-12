@@ -97,7 +97,7 @@ static void _check_node_paths(const char *kmer,
       db_node_buf_reset(&nbuf);
       gpath_fetch(node, path, &nbuf, &jposbuf, colour, graph);
       if(nbuf.len > MAX_SEQ) die("Too many nodes. Cannot continue. %zu", nbuf.len);
-      db_nodes_to_str(nbuf.data, nbuf.len, graph, seq);
+      db_nodes_to_str(nbuf.b, nbuf.len, graph, seq);
       TASSERT(strlen(seq) == graph->kmer_size + nbuf.len - 1);
       for(i = 0; i < npaths; i++) {
         if(strcmp(path_strs[i],seq) == 0) {

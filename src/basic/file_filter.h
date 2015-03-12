@@ -42,8 +42,8 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols, size_t into_offset
 // @param add  Amount to add to each value of intocols
 void file_filter_shift_cols(FileFilter *fltr, size_t add);
 
-#define file_filter_intocol(fltr,idx) ((fltr)->filter.data[idx].into)
-#define file_filter_fromcol(fltr,idx) ((fltr)->filter.data[idx].from)
+#define file_filter_intocol(fltr,idx) ((fltr)->filter.b[idx].into)
+#define file_filter_fromcol(fltr,idx) ((fltr)->filter.b[idx].from)
 #define file_filter_isstdin(fltr) (strcmp((fltr)->path.b,"-") == 0)
 
 uint32_t file_filter_from_ncols(const FileFilter *fltr);

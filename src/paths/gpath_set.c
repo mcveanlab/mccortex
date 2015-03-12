@@ -93,28 +93,28 @@ void gpath_set_print_stats(const GPathSet *gpset)
 {
   char paths_str[50], paths_cap_str[50], seq_str[50], seq_cap_str[50];
   ulong_to_str(gpset->entries.len, paths_str);
-  ulong_to_str(gpset->entries.capacity, paths_cap_str);
+  ulong_to_str(gpset->entries.size, paths_cap_str);
   bytes_to_str(gpset->seqs.len, 1, seq_str);
-  bytes_to_str(gpset->seqs.capacity, 1, seq_cap_str);
+  bytes_to_str(gpset->seqs.size, 1, seq_cap_str);
   status("[GPathSet] Paths: %s / %s [%.2f%%], seqs: %s / %s [%.2f%%] (%zu / %zu)",
          paths_str, paths_cap_str,
-         (100.0 * gpset->entries.len) / gpset->entries.capacity,
+         (100.0 * gpset->entries.len) / gpset->entries.size,
          seq_str, seq_cap_str,
-         (100.0 * gpset->seqs.len) / gpset->seqs.capacity,
-         gpset->seqs.len, gpset->seqs.capacity);
+         (100.0 * gpset->seqs.len) / gpset->seqs.size,
+         gpset->seqs.len, gpset->seqs.size);
 }
 
 // Get kmer length of a GPath
 uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath)
 {
   pkey_t pkey = gpset_get_pkey(gpset, gpath);
-  return gpath_set_has_nseen(gpset) ? gpset->klen_buf.data[pkey] : 0;
+  return gpath_set_has_nseen(gpset) ? gpset->klen_buf.b[pkey] : 0;
 }
 
 uint8_t* gpath_set_get_nseen(const GPathSet *gpset, const GPath *gpath)
 {
   pkey_t pkey = gpset_get_pkey(gpset, gpath);
-  return gpath_set_has_nseen(gpset) ? &gpset->nseen_buf.data[pkey*gpset->ncols] : NULL;
+  return gpath_set_has_nseen(gpset) ? &gpset->nseen_buf.b[pkey*gpset->ncols] : NULL;
 }
 
 // Copy nseen counts to dst from src
@@ -139,38 +139,38 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
   const size_t ncols = gpset->ncols;
   size_t i;
 
-  GPath *old_entries = gpset->entries.data;
-  size_t old_num_entries = gpset->entries.capacity;
+  GPath *old_entries = gpset->entries.b;
+  size_t old_num_entries = gpset->entries.size;
   gpath_buf_capacity(&gpset->entries, gpset->entries.len+1);
 
-  if(old_entries != gpset->entries.data) {
+  if(old_entries != gpset->entries.b) {
     // Correct all path pointers
     for(i = 0; i < gpset->entries.len; i++) {
-      if(gpset->entries.data[i].next != NULL) {
-        gpset->entries.data[i].next = gpset->entries.data +
-                                      (gpset->entries.data[i].next - old_entries);
+      if(gpset->entries.b[i].next != NULL) {
+        gpset->entries.b[i].next = gpset->entries.b +
+                                      (gpset->entries.b[i].next - old_entries);
       }
     }
   }
 
-  if(old_num_entries != gpset->entries.capacity)
+  if(old_num_entries != gpset->entries.size)
   {
     if(gpath_set_has_nseen(gpset)) {
       // Increase size of nseen buffer to match (zero'd by default)
-      byte_buf_capacity(&gpset->nseen_buf, gpset->entries.capacity * ncols);
-      uint32_buf_capacity(&gpset->klen_buf, gpset->entries.capacity);
+      byte_buf_capacity(&gpset->nseen_buf, gpset->entries.size * ncols);
+      uint32_buf_capacity(&gpset->klen_buf, gpset->entries.size);
     }
   }
 
-  uint8_t *old_seq = gpset->seqs.data;
+  uint8_t *old_seq = gpset->seqs.b;
   byte_buf_capacity(&gpset->seqs, gpset->seqs.len+req_num_bytes+SEQ_STORE_PADDING);
 
-  if(gpset->seqs.data != old_seq) {
+  if(gpset->seqs.b != old_seq) {
     // Correct all seq pointers
     for(i = 0; i < gpset->entries.len; i++) {
-      if(gpset->entries.data[i].seq != NULL) {
-        gpset->entries.data[i].seq = gpset->seqs.data +
-                                     (gpset->entries.data[i].seq - old_seq);
+      if(gpset->entries.b[i].seq != NULL) {
+        gpset->entries.b[i].seq = gpset->seqs.b +
+                                     (gpset->entries.b[i].seq - old_seq);
       }
     }
   }
@@ -193,29 +193,29 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   {
     _check_resize(gpset, nbytes);
     pkey = gpath_buf_add(&gpset->entries, (GPath){.seq = NULL, .num_juncs = 0});
-    gpath = &gpset->entries.data[pkey];
-    data = gpset->seqs.data + gpset->seqs.len;
+    gpath = &gpset->entries.b[pkey];
+    data = gpset->seqs.b + gpset->seqs.len;
     gpset->seqs.len += nbytes;
   }
   else
   {
-    gpath = gpset->entries.data + __sync_fetch_and_add((volatile size_t*)&gpset->entries.len, 1);
-    data = gpset->seqs.data + __sync_fetch_and_add((volatile size_t*)&gpset->seqs.len, nbytes);
+    gpath = gpset->entries.b + __sync_fetch_and_add((volatile size_t*)&gpset->entries.len, 1);
+    data = gpset->seqs.b + __sync_fetch_and_add((volatile size_t*)&gpset->seqs.len, nbytes);
 
-    if(gpath >= gpset->entries.data + gpset->entries.capacity ||
-       data+nbytes+SEQ_STORE_PADDING > gpset->seqs.data + gpset->seqs.capacity)
+    if(gpath >= gpset->entries.b + gpset->entries.size ||
+       data+nbytes+SEQ_STORE_PADDING > gpset->seqs.b + gpset->seqs.size)
     {
       gpath_set_print_stats(gpset);
       status("%zu >= %zu; %zu > %zu nbytes: %zu\n",
-             gpath - gpset->entries.data,
-             gpset->entries.capacity,
-             data+nbytes+SEQ_STORE_PADDING - gpset->seqs.data,
-             gpset->seqs.capacity,
+             gpath - gpset->entries.b,
+             gpset->entries.size,
+             data+nbytes+SEQ_STORE_PADDING - gpset->seqs.b,
+             gpset->seqs.size,
              nbytes);
       die("Out of memory");
     }
 
-    pkey = gpath - gpset->entries.data;
+    pkey = gpath - gpset->entries.b;
   }
 
   uint8_t *colset = data;
@@ -235,7 +235,7 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   // klen, nseen
   if(gpath_set_has_nseen(gpset))
   {
-    gpset->klen_buf.data[pkey] = newgpath.klen;
+    gpset->klen_buf.b[pkey] = newgpath.klen;
     __sync_fetch_and_add((volatile size_t*)&gpset->klen_buf.len, 1);
     __sync_fetch_and_add((volatile size_t*)&gpset->nseen_buf.len, gpset->ncols);
 

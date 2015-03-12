@@ -193,7 +193,7 @@ int ctx_links(int argc, char **argv)
   if(clean) {
     if(ncols > 1 && cutoffs.len == 1) {
       while(cutoffs.len < ncols)
-        size_buf_add(&cutoffs, cutoffs.data[0]);
+        size_buf_add(&cutoffs, cutoffs.b[0]);
     }
     else if(ncols != cutoffs.len) {
       cmd_print_usage("Must give %zu number of --clean threholds", ncols);
@@ -211,8 +211,8 @@ int ctx_links(int argc, char **argv)
   if(clean)
   {
     timestamp();
-    message(" Cleaning coverage below %zu", cutoffs.data[0]);
-    for(col = 1; col < ncols; col++) message(",%zu", cutoffs.data[col]);
+    message(" Cleaning coverage below %zu", cutoffs.b[0]);
+    for(col = 1; col < ncols; col++) message(",%zu", cutoffs.b[col]);
     message("\n");
   }
 
@@ -289,7 +289,7 @@ int ctx_links(int argc, char **argv)
                                            &countbuf, &juncsbuf,
                                            &seqbuf, &jposbuf); nlinks++)
     {
-      ltree_add(&ltree, link_fw, countbuf.data, jposbuf.data,
+      ltree_add(&ltree, link_fw, countbuf.b, jposbuf.b,
                 juncsbuf.b, seqbuf.b);
     }
     if(nlinks != num_links_exp)
@@ -301,7 +301,7 @@ int ctx_links(int argc, char **argv)
     }
     if(clean)
     {
-      ltree_clean(&ltree, cutoffs.data);
+      ltree_clean(&ltree, cutoffs.b);
     }
 
     ltree_count_col_leaves(&ltree, &tree_stats);

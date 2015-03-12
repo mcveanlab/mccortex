@@ -17,18 +17,18 @@ static void test_walk(GraphWalker *gwlk, RepeatWalker *rptwlk,
   }
   while(graph_walker_next(gwlk) && rpt_walker_attempt_traverse(rptwlk, gwlk));
 
-  // db_nodes_print(nbuf->data, nbuf->len, graph, stdout);
+  // db_nodes_print(nbuf->b, nbuf->len, graph, stdout);
   // printf("\n");
   // printf("%s\n", graph_step_str[gwlk->last_step.status]);
 
   TASSERT2(nbuf->len == expnkmers, "%zu / %zu", nbuf->len, expnkmers);
 
   char tmp[nbuf->len+MAX_KMER_SIZE];
-  db_nodes_to_str(nbuf->data, nbuf->len, graph, tmp);
+  db_nodes_to_str(nbuf->b, nbuf->len, graph, tmp);
   TASSERT2(strcmp(tmp,ans) == 0, "%s vs %s", tmp, ans);
 
   graph_walker_finish(gwlk);
-  rpt_walker_fast_clear(rptwlk, nbuf->data, nbuf->len);
+  rpt_walker_fast_clear(rptwlk, nbuf->b, nbuf->len);
 }
 
 static void test_repeat_loop()

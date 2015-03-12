@@ -53,10 +53,10 @@ static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
     status("got bkmer %s\n", tmp);
   #endif
 
-  // attempt_add return index of item or -1 on failure
+  // push_try return index of item or -1 on failure
   if(node.key != HASH_NOT_FOUND) {
-    if(!bitset_get(kmer_mask, node.key) && nbuf->capacity > 0 &&
-       db_node_buf_attempt_add(nbuf, node) < 0) {
+    if(!bitset_get(kmer_mask, node.key) && nbuf->size > 0 &&
+       db_node_buf_push_try(nbuf, &node, 1) < 0) {
       die("Please increase <mem> size");
     }
     bitset_set(kmer_mask, node.key);
@@ -77,10 +77,10 @@ static inline void mark_snode(BinaryKmer bkmer,
     supernode_find(node.key, snode_buf, db_graph);
 
     for(i = 0; i < snode_buf->len; i++) {
-      bitset_set(kmer_mask, snode_buf->data[i].key);
-      // attempt_add return index of item or -1 on failure
-      if(nbuf->capacity > 0 &&
-         db_node_buf_attempt_add(nbuf, snode_buf->data[i]) < 0) {
+      bitset_set(kmer_mask, snode_buf->b[i].key);
+      // push_try return index of item or -1 on failure
+      if(nbuf->size > 0 &&
+         db_node_buf_push_try(nbuf, &snode_buf->b[i], 1) < 0) {
         die("Please increase <mem> size");
       }
     }
@@ -135,10 +135,10 @@ static void store_node_neighbours(const hkey_t hkey, dBNodeBuffer *nbuf,
                                   next_nodes+num_next, next_bases+num_next);
 
   // if not flagged add to list
-  // attempt_add return index of item or -1 on failure
+  // push_try return index of item or -1 on failure
   for(i = 0; i < num_next; i++) {
     if(!bitset_get(kmer_mask, next_nodes[i].key) &&
-       db_node_buf_attempt_add(nbuf, next_nodes[i]) < 0) {
+       db_node_buf_push_try(nbuf, &next_nodes[i], 1) < 0) {
       die("Please increase <mem> size");
     }
     bitset_set(kmer_mask, next_nodes[i].key);
@@ -162,7 +162,7 @@ static void extend(SubgraphBuilder *builder, size_t dist)
     for(d = 0; d < dist; d++) {
       db_node_buf_reset(nbuf1);
       for(i = 0; i < nbuf0->len; i++) {
-        store_node_neighbours(nbuf0->data[i].key, nbuf1, kmer_mask, db_graph);
+        store_node_neighbours(nbuf0->b[i].key, nbuf1, kmer_mask, db_graph);
       }
       SWAP(nbuf0, nbuf1);
     }

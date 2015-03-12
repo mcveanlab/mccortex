@@ -55,7 +55,7 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
                       KOGraph kograph, const dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  const read_t *r = &rbuf->data[idx], *r2;
+  const read_t *r = &rbuf->b[idx], *r2;
   size_t i, contig_start;
 
   contig_start = seq_contig_start(r, 0, kmer_size, 0, 0);
@@ -72,7 +72,7 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
   {
     if(hits[i].chrom != idx)
     {
-      r2 = &rbuf->data[hits[i].chrom];
+      r2 = &rbuf->b[hits[i].chrom];
 
       // A read is a duplicate (i.e. return 1) if it is a substring of ANY
       // read in the list or a complete match with a read before it in the list.
@@ -218,11 +218,11 @@ int ctx_rmsubstr(int argc, char **argv)
   seq_load_all_reads(seq_files, num_seq_files, &rbuf);
 
   // Check for reads too short
-  for(i = 0; i < rbuf.len && rbuf.data[i].seq.end >= kmer_size; i++) {}
+  for(i = 0; i < rbuf.len && rbuf.b[i].seq.end >= kmer_size; i++) {}
   if(i < rbuf.len)
     warn("Reads shorter than kmer size (%zu) will not be filtered", kmer_size);
 
-  KOGraph kograph = kograph_create(rbuf.data, rbuf.len, true,
+  KOGraph kograph = kograph_create(rbuf.b, rbuf.len, true,
                                    nthreads, &db_graph);
 
   size_t num_reads = rbuf.len, num_reads_printed = 0, num_bad_reads = 0;
@@ -233,7 +233,7 @@ int ctx_rmsubstr(int argc, char **argv)
     ret = _is_substr(&rbuf, i, kograph, &db_graph);
     if(ret == -1) num_bad_reads++;
     else if((ret && invert) || (!ret && !invert)) {
-      seqout_print_read(&rbuf.data[i], fmt, fout);
+      seqout_print_read(&rbuf.b[i], fmt, fout);
       num_reads_printed++;
     }
   }
@@ -259,7 +259,7 @@ int ctx_rmsubstr(int argc, char **argv)
   kograph_free(kograph);
 
   // Free sequence memory
-  for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.data[i]);
+  for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.b[i]);
   read_buf_dealloc(&rbuf);
   ctx_free(seq_files);
 

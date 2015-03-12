@@ -216,9 +216,9 @@ int ctx_subgraph(int argc, char **argv)
   subgraph_from_reads(&db_graph, nthreads, dist,
                       invert, grab_supernodes,
                       fringe_mem, kmer_mask,
-                      sfilebuf.data, sfilebuf.len);
+                      sfilebuf.b, sfilebuf.len);
 
-  for(i = 0; i < sfilebuf.len; i++) seq_close(sfilebuf.data[i]);
+  for(i = 0; i < sfilebuf.len; i++) seq_close(sfilebuf.b[i]);
   seq_file_ptr_buf_dealloc(&sfilebuf);
 
   ctx_free(kmer_mask);

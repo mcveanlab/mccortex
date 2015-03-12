@@ -107,7 +107,7 @@ static int32_t ltree_init_node(LinkTree *tree, int32_t parent, uint32_t dist,
                       .dist = dist, .seq = tree->seqbuf.len,
                       .base = base};
   lj_buf_add(&tree->treebuf, tmp);
-  byte_buf_append(&tree->seqbuf, (const uint8_t*)seq, seqlen);
+  byte_buf_push(&tree->seqbuf, (const uint8_t*)seq, seqlen);
   byte_buf_add(&tree->seqbuf, '\0');
   for(col = 0; col < tree->ncols; col++) size_buf_add(&tree->covgbuf, 0);
   ctx_assert((tmp.id+1) * tree->ncols == tree->covgbuf.len);
@@ -180,10 +180,10 @@ LinkJunction* ltree_visit_nodes_sub(LinkTree *tree, LinkJunction *root,
   while(wbuf->len > 0)
   {
     // Attempt to take a junction
-    LTreeWalk *walk = &wbuf->data[wbuf->len-1];
+    LTreeWalk *walk = &wbuf->b[wbuf->len-1];
     while(walk->nxt < 4 && walk->parent->children[walk->nxt] < 0) walk->nxt++;
 
-    if(walk->nxt == 4) { ltree_walk_buf_pop(wbuf); }
+    if(walk->nxt == 4) { ltree_walk_buf_popn(wbuf, 1); }
     else {
       LinkJunction *node = ltree_get_node(tree, walk->parent->children[walk->nxt]);
 

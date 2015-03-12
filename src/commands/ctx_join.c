@@ -91,7 +91,7 @@ int ctx_join(int argc, char **argv)
         if(file_filter_into_ncols(&tmp_gfile.fltr) > 1)
           warn("Flattening intersection graph into colour 0: %s", optarg);
         file_filter_flatten(&tmp_gfile.fltr, 0);
-        gfile_buf_add(&isec_gfiles_buf, tmp_gfile);
+        gfile_buf_push(&isec_gfiles_buf, &tmp_gfile, 1);
         break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -101,7 +101,7 @@ int ctx_join(int argc, char **argv)
     }
   }
 
-  GraphFileReader *igfiles = isec_gfiles_buf.data;
+  GraphFileReader *igfiles = isec_gfiles_buf.b;
   size_t num_igfiles = isec_gfiles_buf.len;
 
   if(!out_path) cmd_print_usage("--out <out.ctx> required");

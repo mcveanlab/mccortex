@@ -103,11 +103,11 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   size_t kmer_length = r->seq.end < kmer_size ? 0 : r->seq.end - kmer_size + 1;
 
   covg_buf_capacity(covgbuf, ncols * kmer_length);
-  memset(covgbuf->data, 0, ncols * kmer_length * sizeof(Covg));
+  memset(covgbuf->b, 0, ncols * kmer_length * sizeof(Covg));
 
   if(db_graph->col_edges) {
     edges_buf_capacity(edgebuf, ncols * kmer_length);
-    memset(edgebuf->data, 0, ncols * kmer_length * sizeof(Edges));
+    memset(edgebuf->b, 0, ncols * kmer_length * sizeof(Edges));
   }
 
   size_t i, j, col, search_start = 0;
@@ -132,9 +132,9 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
       node = db_graph_find(db_graph, bkmer);
       if(node.key != HASH_NOT_FOUND) {
         covgs = &db_node_covg(db_graph, node.key, 0);
-        memcpy(covgbuf->data+i*ncols, covgs, ncols * sizeof(Covg));
+        memcpy(covgbuf->b+i*ncols, covgs, ncols * sizeof(Covg));
         if(db_graph->col_edges) {
-          fetch_node_edges(db_graph, node, edgebuf->data+i*ncols);
+          fetch_node_edges(db_graph, node, edgebuf->b+i*ncols);
         }
       }
     }
@@ -152,15 +152,15 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
     for(col = 0; col < ncols; col++)
     {
       if(print_edges)
-        _print_edges(edgebuf->data, col, ncols, kmer_length, fout);
+        _print_edges(edgebuf->b, col, ncols, kmer_length, fout);
 
       if(print_edge_degrees)
-        _print_edge_degrees(edgebuf->data, col, ncols, kmer_length, fout);
+        _print_edge_degrees(edgebuf->b, col, ncols, kmer_length, fout);
 
       // Print coverages
-      fprintf(fout, "%2u", covgbuf->data[col]);
+      fprintf(fout, "%2u", covgbuf->b[col]);
       for(i = 1; i < kmer_length; i++)
-        fprintf(fout, " %2u", covgbuf->data[i*ncols+col]);
+        fprintf(fout, " %2u", covgbuf->b[i*ncols+col]);
       fputc('\n', fout);
     }
   }
@@ -288,11 +288,11 @@ int ctx_coverage(int argc, char **argv)
 
   // Deal with one read at a time
   for(i = 0; i < sfilebuf.len; i++) {
-    while(seq_read(sfilebuf.data[i], &r) > 0) {
+    while(seq_read(sfilebuf.b[i], &r) > 0) {
       print_read_covg(&db_graph, &r, &covgbuf, &edgebuf,
                       print_edges, print_edge_degrees, fout);
     }
-    seq_close(sfilebuf.data[i]);
+    seq_close(sfilebuf.b[i]);
   }
 
   seq_read_dealloc(&r);
