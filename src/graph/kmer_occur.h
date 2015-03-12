@@ -23,7 +23,7 @@ typedef struct {
 // 8+4=12 bytes
 struct KONodeListStruct {
   uint64_t start;
-  uint32_t count;
+  uint32_t count; // DEV: remove count
 } __attribute__((packed));
 
 typedef struct KONodeListStruct KONodeList;
@@ -31,6 +31,8 @@ typedef struct KONodeListStruct KONodeList;
 // KOccur fits in one 64 bit word
 typedef struct
 {
+  // DEV: use a single bit to signify another entry for this kmer
+  // uint64_t next:1, orient:1, chrom:30, offset:32;
   uint64_t orient:1, chrom:31, offset:32;
 } KOccur;
 

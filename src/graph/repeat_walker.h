@@ -18,19 +18,20 @@ typedef struct
 static inline bool rpt_walker_attempt_traverse(RepeatWalker *rpt,
                                                GraphWalker *wlk)
 {
-  uint64_t h[3], hash64;
-  bool collision;
-
   if(!db_node_has_traversed(rpt->visited, wlk->node)) {
     db_node_set_traversed(rpt->visited, wlk->node);
     return true;
   }
-  else {
+  else
+  {
+    uint64_t h[3], hash64;
+    bool collision;
+
     hash64 = graph_walker_hash64(wlk);
 
-    h[0] = hash64 & rpt->mask;
-    h[1] = (hash64 >>  rpt->bloom_nbits) & rpt->mask;
-    h[2] = (hash64 >> (rpt->bloom_nbits*2)) & rpt->mask;
+    h[0] = (hash64      ) & rpt->mask;
+    h[1] = (hash64 >> 21) & rpt->mask;
+    h[2] = (hash64 >> 42) & rpt->mask;
 
     // printf(" %zu %zu %zu / %zu\n", (size_t)h[0], (size_t)h[1], (size_t)h[2],
     //        (size_t)(1UL<<rpt->bloom_nbits));

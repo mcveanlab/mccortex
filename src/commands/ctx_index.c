@@ -133,7 +133,7 @@ int ctx_index(int argc, char **argv)
     die("Cannot open graph file with a filter ('in.ctx:blah' syntax)");
 
   // Open output file
-  FILE *fout = out_path ? futil_open_create(out_path, "w") : stdout;
+  FILE *fout = out_path ? futil_fopen_create(out_path, "w") : stdout;
 
   // Start
   size_t ncols = gfile.hdr.num_of_cols;

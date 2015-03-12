@@ -22,7 +22,8 @@ args <- commandArgs(trailingOnly = TRUE)
 # kmers= c(15,21,31,41,51,63,75)
 # for(i in 1:length(kmers)) { files[i] = paste('k',kmers[i],'/link_cleaning/link_cleaning.csv',sep='') }
 
-files=args
+out_path=args[1]
+files=args[2:length(args)]
 nfiles=length(files)
 titles=substr(files,1,3)
 
@@ -45,7 +46,7 @@ for(i in 1:nfiles) {
   cat(titles[i],' thresh=',t,'; at ',act,' link mismatch = ',1-data[[i]][x,'numMatch']/data[[i]][x,'numLinks'],'\n')
 }
 
-pdf(file='plots/links.pdf',width=10,height=5)
+pdf(file=out_path,width=10,height=5)
 
 par(mfrow=c(1,2))
 

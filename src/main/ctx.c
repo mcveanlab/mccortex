@@ -126,7 +126,12 @@ CtxCmd cmdobjs[] = {
   .usage = uniqkmers_usage
 },
 {
-  .cmd = "linkthresh", .func = ctx_linkthresh, .hide = false,
+  .cmd = "links", .func = ctx_links, .hide = false,
+  .blurb = "clean and plot link files (.ctp)",
+  .usage = links_usage
+},
+{
+  .cmd = "linkthresh", .func = ctx_linkthresh, .hide = true,
   .blurb = "pick link threshold from a CSV file of links",
   .usage = linkthresh_usage
 },

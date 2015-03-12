@@ -202,7 +202,7 @@ int ctx_rmsubstr(int argc, char **argv)
   // Open output file
   //
   if(output_file == NULL) output_file = "-";
-  FILE *fout = futil_open_create(output_file, "w");
+  FILE *fout = futil_fopen_create(output_file, "w");
 
   //
   // Set up memory

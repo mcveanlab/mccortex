@@ -60,7 +60,7 @@ gzFile futil_gzopen(const char *path, const char *mode);
   @param path If "-" return stdout
   @param mode one of: "r","rw","rw+","a"
  */
-FILE* futil_open_create(const char *path, const char *mode);
+FILE* futil_fopen_create(const char *path, const char *mode);
 gzFile futil_gzopen_create(const char *path, const char *mode);
 
 // Open a new output file with unused name

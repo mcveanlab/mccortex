@@ -117,7 +117,7 @@ int ctx_geno(int argc, char **argv)
   //
   // Open output file
   //
-  FILE *fout = futil_open_create(out_path, "w");
+  FILE *fout = futil_fopen_create(out_path, "w");
 
   // Allocate memory
   dBGraph db_graph;

@@ -4,6 +4,7 @@
 #include "util.h"
 #include "hash_mem.h"
 #include "common_buffers.h"
+#include "str_parsing.h" // comma_list_to_array()
 #include "binary_seq.h"
 #include "binary_kmer.h"
 #include "db_node.h"
@@ -166,6 +167,11 @@ void gpath_reader_open2(GPathReader *file, const char *path, const char *mode,
   file_filter_open(fltr, path); // calls die() on error
 
   file->gz = futil_gzopen(fltr->path.b, mode);
+  strm_buf_alloc(&file->strmbuf, 4*ONE_MEGABYTE);
+
+  // Temporary variable for loading
+  strbuf_alloc(&file->line, 1024);
+  size_buf_alloc(&file->numbuf, 16);
 
   // Load JSON header into file->hdrstr
   StrBuf *hdrstr = &file->hdrstr;
@@ -195,6 +201,9 @@ void gpath_reader_open(GPathReader *file, const char *path)
 void gpath_reader_close(GPathReader *file)
 {
   if(file->gz) gzclose(file->gz);
+  strm_buf_dealloc(&file->strmbuf);
+  strbuf_dealloc(&file->line);
+  size_buf_dealloc(&file->numbuf);
   file_filter_close(&file->fltr);
   cJSON_Delete(file->json);
   strbuf_dealloc(&file->hdrstr);
@@ -216,6 +225,169 @@ void gpath_reader_check(const GPathReader *file, size_t db_kmer_size,
     die("Path file requires at least %zu colours [path: %s, curr colours: %zu]",
         used_ncols, file->fltr.input.b, db_ncols);
   }
+}
+
+// Reads line <kmer> <num_links>
+// Calls die() on error
+// Returns true unless end of file
+bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links)
+{
+  strbuf_reset(kmer);
+  *num_links = 0;
+
+  const char *path = file_filter_path(&file->fltr);
+  int c;
+  char *space;
+
+  while((c = gzgetc_buf(file->gz, &file->strmbuf)) != -1)
+  {
+    if(c == '#') gzskipline_buf(file->gz, &file->strmbuf);
+    else if(c != '\n') {
+      strbuf_append_char(kmer, c);
+      strbuf_gzreadline_buf(kmer, file->gz, &file->strmbuf);
+      strbuf_chomp(kmer);
+      if(!char_is_acgt(c) ||
+         (space = strchr(kmer->b, ' ')) == NULL ||
+         !parse_entire_size(space+1, num_links))
+      {
+        die("Bad kmer line [%s]: %s", path, kmer->b);
+      }
+      strbuf_resize(kmer, space - kmer->b);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+#define bad_link_line(path,line) die("Bad link line [%s]: %s", path, (line)->b);
+
+// [FR] [nkmers] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
+void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
+                     bool *fw, size_t *kdist, size_t *njuncs,
+                     SizeBuffer *counts, StrBuf *juncs,
+                     StrBuf *seq, SizeBuffer *juncpos)
+{
+  const char *path = file_filter_path(&file->fltr);
+  size_t i, fromcol, intocol;
+  char *end = NULL;
+
+  // First first 5 required columns
+  const char *cols[5] = {NULL};
+  for(cols[0] = line->b, i = 1; i < 5; i++) {
+    if((cols[i] = strchr(cols[i-1], ' ')) == NULL) bad_link_line(path,line);
+    cols[i]++;
+  }
+  // Get column lengths
+  size_t collens[5] = {0};
+  for(i = 0; i < 4; i++) collens[i] = cols[i+1]-cols[i]-1;
+  collens[4] = strendc(cols[4], ' ') - cols[4];
+
+  // 0:[FR]
+  char c = line->b[0];
+  if((c != 'F' && c != 'R') || collens[0] != 1) bad_link_line(path,line);
+  *fw = (c == 'F');
+
+  // 1:[nkmers]
+  *kdist = strtoul(cols[1], &end, 10);
+  if(end != cols[1]+collens[1]) bad_link_line(path,line);
+
+  // 2:[njuncs]
+  *njuncs = strtoul(cols[2], &end, 10);
+  if(end != cols[2]+collens[2]) bad_link_line(path,line);
+
+  // 3:[nseen0,nseen1,...]
+  size_buf_reset(numbuf);
+  size_buf_reset(counts);
+  if(comma_list_to_array(cols[3], numbuf) != (int)collens[3])
+    bad_link_line(path,line);
+
+  // Use filter
+  size_buf_append_n(counts, 0, file_filter_into_ncols(&file->fltr));
+  for(i = 0; i < numbuf->len; i++) {
+    fromcol = file_filter_fromcol(&file->fltr, i);
+    intocol = file_filter_intocol(&file->fltr, i);
+    counts->data[intocol] += numbuf->data[fromcol];
+  }
+
+  // 4:[juncs:ACAGA]
+  strbuf_reset(juncs);
+  strbuf_append_strn(juncs, cols[4], collens[4]);
+
+  // Parse optional tags
+  const char *txt;
+  size_t txtlen;
+
+  // [seq=ACACA]
+  strbuf_reset(seq);
+  if(str_find_tag(line->b, "seq=", &txt, &txtlen))
+  {
+    strbuf_append_strn(seq, txt, txtlen);
+    for(i = 0; i < txtlen; i++)
+      if(!char_is_acgt(txt[i]))
+        die("Cannot parse seq= [%s]: %s", path, line->b);
+  }
+
+  // [juncpos=12,23]
+  size_buf_reset(juncpos);
+  if(str_find_tag(line->b, "juncpos=", &txt, &txtlen) &&
+     comma_list_to_array(txt, juncpos) != (int)txtlen)
+  {
+    die("Cannot parse juncpos= [%s]: %s", path, line->b);
+  }
+
+  //
+  // Some sanity checks
+  //
+  if(juncs->end != *njuncs) die("Differing lengths: %s", line->b);
+  if(*kdist < *njuncs+2) die("kdist too short");
+
+  if(juncpos->len > 0) {
+    size_t last = juncpos->data[juncpos->len-1];
+    if(juncpos->len != *njuncs) die("Mismatch %zu vs %zu", juncpos->len, *njuncs);
+    if(last+2 != *kdist) die("Mismatch %zu vs %zu", last+2, *kdist);
+  }
+
+  if(juncpos->len && seq->end) {
+    if(juncpos->data[juncpos->len-1] >= seq->end) die("Seq too short");
+    size_t p, ksize = seq->end - (juncpos->data[juncpos->len-1] + 1);
+    if(!(ksize & 1)) die("kmer_size not odd");
+    for(i = 0; i < juncpos->len; i++) {
+      p = juncpos->data[i];
+      if(p+ksize > seq->end || seq->b[ksize+p] != juncs->b[i])
+        die("Bad entry");
+    }
+  }
+}
+
+// Reads line [FR] <num_links>
+// Calls die() on error
+// Returns true unless end of link entries
+bool gpath_reader_read_link(GPathReader *file,
+                            bool *fw, size_t *kdist, size_t *njuncs,
+                            SizeBuffer *countbuf, StrBuf *juncs,
+                            StrBuf *seq, SizeBuffer *juncpos)
+{
+  int c;
+  StrBuf *line = &file->line;
+  strbuf_reset(line);
+
+  while((c = gzgetc_buf(file->gz, &file->strmbuf)) != -1)
+  {
+    if(char_is_acgt(c)) return false; // Hit kmer line
+    else if(c == '#') gzskipline_buf(file->gz, &file->strmbuf);
+    else if(c != '\n') {
+      strbuf_append_char(line, c);
+      strbuf_gzreadline_buf(line, file->gz, &file->strmbuf);
+      strbuf_chomp(line);
+      parse_link_line(file, line, &file->numbuf,
+                      fw, kdist, njuncs, countbuf, juncs,
+                      seq, juncpos);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 typedef struct
@@ -484,8 +656,7 @@ static size_t _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
  */
 void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
 {
-  gzFile gzin = file->gz;
-  const char *path = file->fltr.path.b;
+  const char *path = file_filter_path(&file->fltr);
 
   file_filter_status(&file->fltr);
 
@@ -517,7 +688,7 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
   size_t num_kmers = 0, num_kmers_exp = gpath_reader_get_num_kmers(file);
   size_t num_paths_loaded = 0, num_kmers_loaded = 0;
 
-  while(strbuf_reset_gzreadline(&line, gzin) > 0) {
+  while(strbuf_gzreadline_buf(&line, file->gz, &file->strmbuf) > 0) {
     strbuf_chomp(&line);
     if(line.end > 0 && line.b[0] != '#') {
       if(line.b[0] == 'F' || line.b[0] == 'R') {
@@ -545,6 +716,7 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
         num_kmers++;
       }
     }
+    strbuf_reset(&line);
   }
 
   if(num_kmers > 0 && load_kmer.hkey != HASH_NOT_FOUND) {

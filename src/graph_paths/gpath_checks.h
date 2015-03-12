@@ -27,7 +27,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   Load colour -> colour0, rest -> pop colour1
   @return number of colours to load (1 or 2: sample + [population optional])
  */
-size_t gpath_load_sample_pop(GraphFileReader *gfile,
+size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
                              GPathReader *gpfiles, size_t num_gpfiles,
                              size_t colour);
 

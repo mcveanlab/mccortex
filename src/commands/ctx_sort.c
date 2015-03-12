@@ -103,7 +103,7 @@ int ctx_sort(int argc, char **argv)
   else num_kmers = gfile.num_of_kmers;
 
   // Open output path (if given)
-  FILE *fout = out_path ? futil_open_create(out_path, "w") : NULL;
+  FILE *fout = out_path ? futil_fopen_create(out_path, "w") : NULL;
 
   size_t i;
   size_t ncols = gfile.hdr.num_of_cols;

@@ -15,7 +15,10 @@ const char ctp_explanation_comment[] =
 "# Comment lines begin with a # and are ignored, but must come after the header\n"
 "# Format is:\n"
 "#   [kmer] [num_paths] ...(ignored)\n"
-"#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n"
+"#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=... juncpos=... ...]\n"
+"#\n"
+"# Columns are separated by a single space.\n"
+"# Columns 1-5 are required ([FR],..,[juncs]) everything after than is optional\n"
 "\n";
 
 // {

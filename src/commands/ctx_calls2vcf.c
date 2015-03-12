@@ -962,7 +962,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   }
 
   // Print command entry for this command
-  fprintf(fout, "##mccortex=<key=\"%s\",prev=\"%s\",cmd=\"%s\",cwd=\"%s\">\n",
+  fprintf(fout, "##mccortex_%s=<prev=\"%s\",cmd=\"%s\",cwd=\"%s\">\n",
           hex_rand_str(keystr, sizeof(keystr)),
           prevstr ? prevstr : "NULL",
           cmd_get_cmdline(), cmd_get_cwd());
@@ -976,7 +976,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
     cJSON *prev = json_hdr_get(command, "prev", cJSON_Array,  input_path);
     prev = prev->child; // result could be NULL
     if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
-    fprintf(fout, "##mccortex=<key=\"%s\",prev=\"%s", key->valuestring,
+    fprintf(fout, "##mccortex_%s=<prev=\"%s", key->valuestring,
                   prev ? prev->valuestring : "NULL");
     if(prev) {
       while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->valuestring);
@@ -1101,7 +1101,7 @@ int ctx_calls2vcf(int argc, char **argv)
   if(sam_path) flanks_sam_open();
 
   // Open output file
-  FILE *fout = futil_open_create(out_path, "w");
+  FILE *fout = futil_fopen_create(out_path, "w");
 
   // Load reference genome
   read_buf_alloc(&chroms, 1024);

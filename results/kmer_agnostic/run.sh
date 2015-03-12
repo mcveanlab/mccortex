@@ -1,7 +1,42 @@
 #!/bin/bash
 
-# xtrace prints commands as we run them
 set -euo pipefail
+set -o xtrace
+
+# Turn on with -l
+RUN_LINK_ERR=0
+# Turn on with -k
+RUN_KMER_ERR=0
+
+# Don't print parsing input
+set +o xtrace
+
+function usage {
+  echo "Usage: $0 [options]" 2>&1
+  echo "  -k measure kmer error" 2>&1
+  echo "  -l measure link error" 2>&1
+  exit -1
+}
+
+if [ $# -lt 1 ]; then
+  usage
+fi
+
+READLEN=$1
+shift
+
+for arg in "$@"
+do
+  if [ $arg == "-l" ]; then
+    RUN_KMER_ERR=1
+  elif [ $arg == "-k" ]; then
+    RUN_KMER_ERR=1
+  else
+    usage
+  fi
+done
+
+# xtrace prints commands as we run them
 set -o xtrace
 
 CTXDIR=../..
@@ -15,8 +50,6 @@ LINK_THRESH_SCRIPT=$CTXDIR/scripts/R/make_link_cutoffs.R
 # DNACAT=$CTXDIR/libs/seq_file/bin/dnacat
 
 REF=$CTXDIR/results/data/chr22/uniq_flanks/chr22.1Mbp.uniq.fa
-ERR_PROFILE=$CTXDIR/results/data/PhiX/PhiX.1.fq.gz
-READLEN=100
 DEPTH=100
 ERR_RATE=0.005 # 0.5% per base sequencing error
 
@@ -36,7 +69,7 @@ getctx () {
   echo "$CTXK"$[ ($k+31)/32*32-1 ];
 }
 
-kmers=$(echo 15 21 31 41 51 63 75 99)
+kmers=$(echo 15 21 31 41 51 63 75 99 | tr ' ' '\n' | awk '$0 < '$READLEN)
 nkmers=$(echo $kmers | tr ' ' '\n' | awk 'END{print NR}')
 
 # create directories
@@ -199,56 +232,65 @@ for k in $kmers; do
 done
 
 # Check various kmer cleaning thresholds
-for k in $kmers; do
-  mkdir -p k$k/kmer_cleaning
-  thresholds=`seq 1 1 30`
-  ctx=`getctx $k`
+if [ $RUN_KMER_ERR ]; then
+  echo == Checking various kmer cleaning thresholds ==
 
-  for i in $thresholds; do
-    # Clean kmers with given threshold
-    if [ ! -f k$k/kmer_cleaning/stocherr.clean.$i.ctx ]; then
-      $ctx clean -m $MEM -o k$k/kmer_cleaning/stocherr.clean.$i.ctx --supernodes=$i --tips $[2*$k] k$k/graphs/stocherr.ctx >& k$k/kmer_cleaning/stocherr.clean.$i.ctx.log
-    fi
-    # Get rate of kmer match/mismatch
-    if [ ! -f k$k/kmer_cleaning/stocherr.clean.$i.stats.txt ]; then
-      ( echo 'threshold,errorKmers,missingKmers,correctKmers';
-        $ctx join -q -m $MEM -o - k$k/kmer_cleaning/stocherr.clean.$i.ctx k$k/graphs/perf.ctx | $ctx view -q --kmers - | \
-         awk 'BEGIN{OFS=",";a=b=ab=0} {a+=($2>0 && $3==0); b+=($2==0 && $3>0); ab+=($2>0 && $3>0);} END{print '$i',a,b,ab}'; ) \
-        > k$k/kmer_cleaning/stocherr.clean.$i.stats.txt
-      fi
-  done
-
-  # Generate CSV of results
-  ( echo 'threshold,errorKmers,missingKmers,correctKmers'; \
-    for i in $thresholds; do tail -1 k$k/kmer_cleaning/stocherr.clean.$i.stats.txt; done ) \
-    > k$k/kmer_cleaning/kmer_cleaning.csv
-done
-
-# Check various link cleaning thresholds
-for k in $kmers; do
-  if [ $k -lt 99 ]; then # k=99 has no links, so fails
-    mkdir -p k$k/link_cleaning
-    thresholds=`seq 0 1 20`
+  for k in $kmers; do
+    mkdir -p k$k/kmer_cleaning
+    thresholds=`seq 1 1 30`
+    ctx=`getctx $k`
 
     for i in $thresholds; do
-      if [ ! -f k$k/link_cleaning/stocherr.clean.$i.ctp ]; then gzip -fcd k$k/links/gE.lE.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.clean.$i.ctp 2> k$k/link_cleaning/stocherr.clean.$i.ctp.log; fi
-      if [ ! -f k$k/link_cleaning/stocherr.clean.$i.stats.txt ]; then cat k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o 'seq=[ACGT]*' | tr '=' ' ' | awk '{print ">seq\n"$2"\n"}' | $STRCHK $k 0 - $REF >& k$k/link_cleaning/stocherr.clean.$i.stats.txt; fi
+      # Clean kmers with given threshold
+      if [ ! -f k$k/kmer_cleaning/stocherr.clean.$i.ctx ]; then
+        $ctx clean -m $MEM -o k$k/kmer_cleaning/stocherr.clean.$i.ctx --supernodes=$i --tips $[2*$k] k$k/graphs/stocherr.ctx >& k$k/kmer_cleaning/stocherr.clean.$i.ctx.log
+      fi
+      # Get rate of kmer match/mismatch
+      if [ ! -f k$k/kmer_cleaning/stocherr.clean.$i.stats.txt ]; then
+        ( echo 'kmerThresh,errorKmers,missingKmers,correctKmers';
+          $ctx join -q -m $MEM -o - k$k/kmer_cleaning/stocherr.clean.$i.ctx k$k/graphs/perf.ctx | $ctx view -q --kmers - | \
+           awk 'BEGIN{OFS=",";a=b=ab=0} {a+=($2>0 && $3==0); b+=($2==0 && $3>0); ab+=($2>0 && $3>0);} END{print '$i',a,b,ab}'; ) \
+          > k$k/kmer_cleaning/stocherr.clean.$i.stats.txt
+        fi
     done
 
-    # Make CSV of results
-    ( echo linkThresh,numKmers,numLinks,numMatch,matchRate;
+    # Generate CSV of results
+    ( echo 'kmerThresh,errorKmers,missingKmers,correctKmers';
       for i in $thresholds; do
-        stats=$(cat k$k/link_cleaning/stocherr.clean.$i.stats.txt | grep 'Perfect matches *:' | grep -oE '[0-9,\.]{2,}')
-        num_match=$(echo $stats  | awk '{print $1}' | tr -d ',');
-        num_links=$(echo $stats  | awk '{print $2}' | tr -d ',');
-        match_rate=$(echo $stats | awk '{print $3}' | tr -d ',');
-        ctp_num_kmers_with_links=$(grep -m 1 "num_kmers_with_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
-        ctp_num_links=$(grep -m 1 "num_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
-        [ "$num_links" == "$ctp_num_links" ] || ( echo THIS IS BAD "$i $count $npaths" && false )
-        echo "$i,$ctp_num_kmers_with_links,$ctp_num_links,$num_match,$match_rate"
-      done ) > k$k/link_cleaning/link_cleaning.csv
-  fi
-done
+        tail -1 k$k/kmer_cleaning/stocherr.clean.$i.stats.txt;
+      done ) > k$k/kmer_cleaning/kmer_cleaning.csv
+  done
+fi
+
+# Check various link cleaning thresholds
+if [ $RUN_LINK_ERR ]; then
+  echo == Checking various link cleaning thresholds ==
+
+  for k in $kmers; do
+    if [ $READLEN -gt $[$k+1] ]; then # some kmers have no links
+      mkdir -p k$k/link_cleaning
+      thresholds=`seq 0 1 20`
+
+      for i in $thresholds; do
+        if [ ! -f k$k/link_cleaning/stocherr.clean.$i.ctp ]; then gzip -fcd k$k/links/gE.lE.raw.ctp.gz | $LINK_PROC clean - $i > k$k/link_cleaning/stocherr.clean.$i.ctp 2> k$k/link_cleaning/stocherr.clean.$i.ctp.log; fi
+        if [ ! -f k$k/link_cleaning/stocherr.clean.$i.stats.txt ]; then cat k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o 'seq=[ACGT]*' | tr '=' ' ' | awk '{print ">seq\n"$2"\n"}' | $STRCHK $k 0 - $REF >& k$k/link_cleaning/stocherr.clean.$i.stats.txt; fi
+      done
+
+      # Make CSV of results
+      ( echo 'linkThresh,numKmers,numLinks,numMatch,matchRate';
+        for i in $thresholds; do
+          stats=$(cat k$k/link_cleaning/stocherr.clean.$i.stats.txt | grep 'Perfect matches *:' | grep -oE '[0-9,\.]{2,}')
+          num_match=$(echo $stats  | awk '{print $1}' | tr -d ',');
+          num_links=$(echo $stats  | awk '{print $2}' | tr -d ',');
+          match_rate=$(echo $stats | awk '{print $3}' | tr -d ',');
+          ctp_num_kmers_with_links=$(grep -m 1 "num_kmers_with_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
+          ctp_num_links=$(grep -m 1 "num_paths" k$k/link_cleaning/stocherr.clean.$i.ctp | grep -o '[0-9]*')
+          [ "$num_links" == "$ctp_num_links" ] || ( echo THIS IS BAD "$i $count $npaths" && false )
+          echo "$i,$ctp_num_kmers_with_links,$ctp_num_links,$num_match,$match_rate"
+        done ) > k$k/link_cleaning/link_cleaning.csv
+    fi
+  done
+fi
 
 # Now make plots with:
 mkdir -p plots

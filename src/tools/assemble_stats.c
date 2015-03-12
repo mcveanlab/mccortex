@@ -164,7 +164,7 @@ static inline void _print_grphwlk_state(const char *str, uint64_t nom,
   ulong_to_str(denom, denom_str);
   pad_str(nom_str, ' ', 15);
   pad_str(denom_str, ' ', 15);
-  status(PREFIX"  %s: %s / %s\t[ %2zu%% ]", str, nom_str, denom_str,
+  status(PREFIX"  %s: %s / %s\t[ %3zu%% ]", str, nom_str, denom_str,
          !denom ? 0 : (size_t)(((100.0*nom)/denom)+0.5));
 }
 

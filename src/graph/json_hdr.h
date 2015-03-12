@@ -17,6 +17,9 @@ void json_hdr_add_std(cJSON *json, const char *path,
                       cJSON **hdrs, size_t nhdrs,
                       const dBGraph *db_graph);
 
+// Add current command to a header
+void json_hdr_update(cJSON *json, const char *path);
+
 void json_hdr_gzprint(cJSON *json, gzFile gzout);
 void json_hdr_fprint(cJSON *json, FILE *fout);
 

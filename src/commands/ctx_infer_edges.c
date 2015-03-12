@@ -228,7 +228,7 @@ int ctx_infer_edges(int argc, char **argv)
 
   // Editing input file or writing a new file
   if(!editing_file)
-    fout = futil_open_create(out_ctx_path ? out_ctx_path : "-", "w");
+    fout = futil_fopen_create(out_ctx_path ? out_ctx_path : "-", "w");
 
   // Print output status
   if(fout == stdout) status("Writing to STDOUT");

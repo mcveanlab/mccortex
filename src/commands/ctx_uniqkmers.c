@@ -138,7 +138,7 @@ static inline void _add_uniq_flanks(read_t *r, const char *path,
 
       if(_is_valid_flank(bkmer, r, side == 0, db_graph)) {
         binary_kmer_to_str(bkmer, kmer_size, bkmerstr[side]);
-        if(side == 1) buffer_append_str(&r->seq, bkmerstr[1]);
+        if(side == 1) strm_buf_append_str(&r->seq, bkmerstr[1]);
         break;
       }
       else hash_table_delete(&db_graph->ht, node.key);
@@ -279,7 +279,7 @@ int ctx_uniqkmers(int argc, char **argv)
   //
   // Open output file
   //
-  FILE *fout = futil_open_create(out_path, "w");
+  FILE *fout = futil_fopen_create(out_path, "w");
 
   // Allocate memory
   dBGraph db_graph;

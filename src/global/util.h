@@ -11,6 +11,19 @@
 
 #define util_plural_str(n) ((n) == 1 ? "" : "s")
 
+// Get a pointer to the next occurrence of c or the end of the string
+static inline const char* strendc(const char *str, char c)
+{
+  while(*str && *str != c) str++;
+  return str;
+}
+
+// Finds tag "seq=1,2,3" if tag is "seq="
+//                ^--found, len = 5
+// Return true if found, false otherwise
+bool str_find_tag(const char *str, const char *tag,
+                  const char **found, size_t *len);
+
 // strnstr
 char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
 

@@ -10,7 +10,7 @@
 #include "gpath_checks.h"
 
 const char contigs_usage[] =
-"usage: "CMD" contigs [options] <input.ctx>\n"
+"usage: "CMD" contigs [options] <input.ctx> [in2.ctx ...]\n"
 "\n"
 "  Assemble contigs from the graph, print statistics\n"
 "\n"
@@ -157,31 +157,44 @@ int ctx_contigs(int argc, char **argv)
                     "--no-reseed | --ncontigs | --seed <in.fa>");
   }
 
-  if(optind+1 != argc)
-    cmd_print_usage("Too %s arguments", optind == argc ? "few" : "many");
+  if(optind >= argc) cmd_print_usage("Require input graph files (.ctx)");
 
-  char *ctx_path = argv[optind];
+  //
+  // Open graph files
+  //
+  const size_t num_gfiles = argc - optind;
+  char **graph_paths = argv + optind;
+  ctx_assert(num_gfiles > 0);
+
+  GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
+  size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+
+  graph_files_open(graph_paths, gfiles, num_gfiles,
+                   &ctx_max_kmers, &ctx_sum_kmers);
+
+  // char *ctx_path = argv[optind];
 
   //
   // Open Graph file
   //
-  GraphFileReader gfile;
-  memset(&gfile, 0, sizeof(GraphFileReader));
-  graph_file_open(&gfile, ctx_path);
+  // GraphFileReader gfile;
+  // memset(&gfile, 0, sizeof(GraphFileReader));
+  // graph_file_open(&gfile, ctx_path);
 
   // Update colours in graph file - sample in 0, all others in 1
   // never need more than two colours
-  size_t ncols = gpath_load_sample_pop(&gfile, gpfiles.data, gpfiles.len, colour);
+  ncols = gpath_load_sample_pop(gfiles, num_gfiles,
+                                gpfiles.data, gpfiles.len, colour);
 
   // Check for compatibility between graph files and path files
   // pop_colour is colour 1
-  graphs_gpaths_compatible(&gfile, 1, gpfiles.data, gpfiles.len, 1);
+  graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.data, gpfiles.len, 1);
 
   if(!genome_size)
   {
     char nk_str[50];
-    if(gfile.num_of_kmers < 0) die("Please pass --genome <G> if streaming");
-    genome_size = gfile.num_of_kmers;
+    if(ctx_max_kmers <= 0) die("Please pass --genome <G> if streaming");
+    genome_size = ctx_max_kmers;
     ulong_to_str(genome_size, nk_str);
     status("Taking number of kmers as genome size: %s", nk_str);
   }
@@ -200,7 +213,7 @@ int ctx_contigs(int argc, char **argv)
                                         memargs.num_kmers,
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
-                                        gfile.num_of_kmers, gfile.num_of_kmers,
+                                        ctx_max_kmers, ctx_sum_kmers,
                                         false, &graph_mem);
 
   // Paths memory
@@ -242,11 +255,11 @@ int ctx_contigs(int argc, char **argv)
   //
   // Output file if printing
   //
-  FILE *fout = out_path ? futil_open_create(out_path, "w") : NULL;
+  FILE *fout = out_path ? futil_fopen_create(out_path, "w") : NULL;
 
   // Allocate
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfile.hdr.kmer_size, ncols, 1, kmers_in_hash,
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, ncols, 1, kmers_in_hash,
                  DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Paths
@@ -266,8 +279,12 @@ int ctx_contigs(int argc, char **argv)
                               .must_exist_in_graph = false,
                               .empty_colours = true};
 
-  graph_load(&gfile, gprefs, &stats);
-  graph_file_close(&gfile);
+  for(i = 0; i < num_gfiles; i++) {
+    graph_load(&gfiles[i], gprefs, &stats);
+    graph_file_close(&gfiles[i]);
+    gprefs.empty_colours = false;
+  }
+  ctx_free(gfiles);
 
   hash_table_print_stats(&db_graph.ht);
 

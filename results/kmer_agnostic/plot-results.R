@@ -21,8 +21,11 @@ args <- commandArgs(trailingOnly = TRUE)
 #   quit()
 # }
 
-files=args
+out_path=args[1]
+files=args[2:length(args)]
 nfiles=length(files)
+
+cat('out_path=',out_path,'\n');
 
 titles=c()
 for(i in 1:nfiles) { titles[i] = substr(files[i],1,nchar(files[i])-10) }
@@ -50,7 +53,6 @@ pchtypes=rep(c(0,3,4),length.out=nfiles)
 fields=c('median','mean','N50','sum_length','contigs','med_walk')
 descriptions=c("Median contig length","Mean contig length","Contig N50",
                "Assembled length","Number of contigs", "Median walking distance")
-path='plots/'
 
 # Correct length field to account for kmer overlap
 for(f in 1:nfiles) {
@@ -59,14 +61,14 @@ for(f in 1:nfiles) {
                              (kmers-1);
 }
 
+# Generate multi-page pdf
+pdf(file=out_path,width=7,height=7)
+
 for(i in 1:length(fields)) {
   cat('run',i,'\n');
   field = fields[i]
   description = descriptions[i]
 
-  f=paste(path,field,'.pdf',sep='')
-  cat('f=',f,'\n');
-  pdf(file=f,width=7,height=7)
   # tikz(paste(path,field,'.tex',sep=''),width=2.5,height=2.5)
   set_margin()
 
@@ -100,5 +102,6 @@ for(i in 1:length(fields)) {
   legtxt=titles
 
   legend(lpos,legtxt,col=cols,pch=pchtypes,lty=linetypes)
-  dev.off()
 }
+
+dev.off()

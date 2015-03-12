@@ -22,7 +22,8 @@ args <- commandArgs(trailingOnly = TRUE)
 # kmers= c(15,21,31,41,51,63,75,99)
 # for(i in 1:length(kmers)) { files[i] = paste('k',kmers[i],'/kmer_cleaning/kmer_cleaning.csv',sep='') }
 
-files=args
+out_path=args[1]
+files=args[2:length(args)]
 nfiles=length(files)
 titles=substr(files,1,3)
 
@@ -40,36 +41,36 @@ for(i in 1:nfiles) {
   maxErrKmers=max(maxErrKmers,max(data[[i]][,'errorKmers']))
 
   t=threshs[i]
-  x=which.min(abs(data[[i]][,'threshold']-t))
-  act=data[[i]][x,'threshold']
+  x=which.min(abs(data[[i]][,'kmerThresh']-t))
+  act=data[[i]][x,'kmerThresh']
   cat(titles[i],' thresh=',t,'; at ',act,' kmer mismatch = ',data[[i]][x,'errorKmers']/(data[[i]][x,'correctKmers']+data[[i]][x,'errorKmers']),'\n')
 }
 
-pdf(file='plots/kmers.pdf',width=10,height=5)
+pdf(file=out_path,width=10,height=5)
 
 par(mfrow=c(1,2))
 
 i=1
-plot(data[[i]][,'threshold'], 100*data[[i]][,'errorKmers']/data[[i]][,'correctKmers'],
+plot(data[[i]][,'kmerThresh'], 100*data[[i]][,'errorKmers']/data[[i]][,'correctKmers'],
      xlim=c(0,30), ylim=c(0,10),
      col=cols[i],
      xlab='Kmer Threshold', ylab='Match Rate (%)',
-     main="Kmer threshold vs matching rate",type='b');
+     main="Kmer kmerThresh vs matching rate",type='b');
 
 for(i in 2:nfiles) {
-  points(data[[i]][,'threshold'], data[[i]][,'errorKmers']/data[[i]][,'correctKmers'], type='b', col=cols[i]);
+  points(data[[i]][,'kmerThresh'], data[[i]][,'errorKmers']/data[[i]][,'correctKmers'], type='b', col=cols[i]);
 }
 
 legend('bottomright',titles,fill=cols)
 
 i=1
-plot(data[[i]][,'threshold'], data[[i]][,'errorKmers'],
+plot(data[[i]][,'kmerThresh'], data[[i]][,'errorKmers'],
      xlim=c(0,30), ylim=c(0,maxErrKmers),
      xlab='Kmer Threshold', ylab='Number of bad kmers',
      main="kmer-thresh vs # bad kmers",type='b');
 
 for(i in 2:nfiles) {
-  points(data[[i]][,'threshold'],data[[i]][,'errorKmers'], type='b', col=cols[i]);
+  points(data[[i]][,'kmerThresh'],data[[i]][,'errorKmers'], type='b', col=cols[i]);
 }
 
 legend('topright',titles,fill=cols)

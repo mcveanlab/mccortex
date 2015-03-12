@@ -197,7 +197,7 @@ gzFile futil_gzopen(const char *path, const char *mode)
   @param path If "-" return stdout
   @param mode one of: "r","rw","rw+","a"
  */
-FILE* futil_open_create(const char *path, const char *mode)
+FILE* futil_fopen_create(const char *path, const char *mode)
 {
   ctx_assert(path != NULL);
   futil_create_output(path);
@@ -205,7 +205,7 @@ FILE* futil_open_create(const char *path, const char *mode)
 }
 
 /*!
-  @see futil_open_create()
+  @see futil_fopen_create()
  */
 gzFile futil_gzopen_create(const char *path, const char *mode)
 {

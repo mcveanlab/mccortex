@@ -18,7 +18,6 @@ os:
 
 install:
   - ./travis/install.sh
-  - sudo apt-get install libjson-pp-perl
 
 script: ./travis/script.sh
 

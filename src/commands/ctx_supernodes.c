@@ -340,7 +340,7 @@ int ctx_supernodes(int argc, char **argv)
   //
 
   // Print to stdout unless --out <out> is specified
-  FILE *fout = futil_open_create(out_path, "w");
+  FILE *fout = futil_fopen_create(out_path, "w");
 
   //
   // Allocate memory

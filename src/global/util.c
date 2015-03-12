@@ -8,6 +8,24 @@ const uint8_t rev_nibble_table[16]
 
 const uint8_t nibble_popcount_table[16] = {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4};
 
+// Finds tag "seq=1,2,3" if tag is "seq="
+//                ^--found, len = 5
+// Return true if found, false otherwise
+bool str_find_tag(const char *str, const char *tag,
+                  const char **found, size_t *len)
+{
+  const char *tagptr, *txt;
+  size_t taglen = strlen(tag);
+
+  if((tagptr = strstr(str, tag)) == NULL) return false;
+  txt = tagptr+taglen;
+
+  *found = txt;
+  *len = strendc(txt, ' ') - txt;
+
+  return true;
+}
+
 char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
 {
   size_t nlen = strlen(needle);

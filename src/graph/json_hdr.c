@@ -56,53 +56,10 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
   }
 }
 
-// Add standard header fields to a json header
-// Merge commands from input files @hdrs
 // @param path is the path of the file we are writing to
-void json_hdr_add_std(cJSON *json, const char *path,
-                      cJSON **hdrs, size_t nhdrs,
-                      const dBGraph *db_graph)
+// @param fileidstr is the unique id we have generated for the output file
+cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
 {
-  // Add random id string
-  #define FILE_KEY_PREFIX ""
-  #define FILE_KEY_LEN 16
-  char fileidstr[strlen(FILE_KEY_PREFIX)+FILE_KEY_LEN+1];
-  strcpy(fileidstr, FILE_KEY_PREFIX);
-  hex_rand_str(fileidstr+strlen(FILE_KEY_PREFIX), FILE_KEY_LEN+1);
-  cJSON_AddStringToObject(json, "file_key", fileidstr);
-
-  cJSON *graph = cJSON_CreateObject();
-  cJSON_AddItemToObject(json, "graph", graph);
-
-  cJSON_AddNumberToObject(graph, "num_colours",        db_graph->num_of_cols);
-  cJSON_AddNumberToObject(graph, "kmer_size",          db_graph->kmer_size);
-  cJSON_AddNumberToObject(graph, "num_kmers_in_graph", db_graph->ht.num_kmers);
-
-  cJSON *colours = cJSON_CreateArray();
-  cJSON_AddItemToObject(graph, "colours", colours);
-
-  size_t i;
-  for(i = 0; i < db_graph->num_of_cols; i++)
-  {
-    bool cleaned_snodes = db_graph->ginfo[i].cleaning.cleaned_snodes;
-    bool cleaned_tips   = db_graph->ginfo[i].cleaning.cleaned_tips;
-    cJSON *sample = cJSON_CreateObject();
-    cJSON_AddNumberToObject(sample, "colour", i);
-    cJSON_AddStringToObject(sample, "sample", db_graph->ginfo[i].sample_name.b);
-    cJSON_AddNumberToObject(sample, "total_sequence", db_graph->ginfo[i].total_sequence);
-    cJSON_AddBoolToObject(sample, "cleaned_tips", cleaned_tips);
-    if(cleaned_snodes) {
-      cJSON_AddNumberToObject(sample, "cleaned_supernodes",
-                              db_graph->ginfo[i].cleaning.clean_snodes_thresh);
-    } else {
-      cJSON_AddBoolToObject(sample, "cleaned_supernodes", false);
-    }
-    cJSON_AddItemToArray(colours, sample);
-  }
-
-  cJSON *commands = cJSON_CreateArray();
-  cJSON_AddItemToObject(json, "commands", commands);
-
   // Add latest command
   #define CMD_KEY_PREFIX ""
   #define CMD_KEY_LEN 8
@@ -111,7 +68,6 @@ void json_hdr_add_std(cJSON *json, const char *path,
   hex_rand_str(keystr+strlen(CMD_KEY_PREFIX), CMD_KEY_LEN+1);
 
   cJSON *command = cJSON_CreateObject();
-  cJSON_AddItemToArray(commands, command);
   cJSON_AddStringToObject(command, "key", keystr);
 
   // Add command line arguments
@@ -175,6 +131,84 @@ void json_hdr_add_std(cJSON *json, const char *path,
 
   cJSON *prev_list = cJSON_CreateArray();
   cJSON_AddItemToObject(command, "prev", prev_list);
+
+  return command;
+}
+
+// Add current command to a header
+void json_hdr_update(cJSON *json, const char *path)
+{
+  // Add random id string
+  #define FILE_KEY_LEN 16
+  char fileidstr[FILE_KEY_LEN+1];
+  hex_rand_str(fileidstr, FILE_KEY_LEN+1);
+  
+  cJSON *filekey = json_hdr_get(json, "file_key", cJSON_String, path);
+  free(filekey->valuestring);
+  filekey->valuestring = strdup(fileidstr);
+
+  cJSON *command = json_hdr_new_command(path, fileidstr);
+  cJSON *prev_list = json_hdr_get(command, "prev", cJSON_Array, path);
+
+  cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, path);
+  command->next = commands->child;
+
+  if(commands->child) {
+    cJSON *cmdkey = json_hdr_get(commands->child, "key", cJSON_String, path);
+    cJSON_AddItemToArray(prev_list, cJSON_CreateString(cmdkey->valuestring));
+    commands->child->prev = command;
+  }
+
+  commands->child = command;
+}
+
+// Add standard header fields to a json header
+// Merge commands from input files @hdrs
+// @param path is the path of the file we are writing to
+void json_hdr_add_std(cJSON *json, const char *path,
+                      cJSON **hdrs, size_t nhdrs,
+                      const dBGraph *db_graph)
+{
+  // Add random id string
+  #define FILE_KEY_LEN 16
+  char fileidstr[FILE_KEY_LEN+1];
+  hex_rand_str(fileidstr, FILE_KEY_LEN+1);
+  cJSON_AddStringToObject(json, "file_key", fileidstr);
+
+  cJSON *graph = cJSON_CreateObject();
+  cJSON_AddItemToObject(json, "graph", graph);
+
+  cJSON_AddNumberToObject(graph, "num_colours",        db_graph->num_of_cols);
+  cJSON_AddNumberToObject(graph, "kmer_size",          db_graph->kmer_size);
+  cJSON_AddNumberToObject(graph, "num_kmers_in_graph", db_graph->ht.num_kmers);
+
+  cJSON *colours = cJSON_CreateArray();
+  cJSON_AddItemToObject(graph, "colours", colours);
+
+  size_t i;
+  for(i = 0; i < db_graph->num_of_cols; i++)
+  {
+    bool cleaned_snodes = db_graph->ginfo[i].cleaning.cleaned_snodes;
+    bool cleaned_tips   = db_graph->ginfo[i].cleaning.cleaned_tips;
+    cJSON *sample = cJSON_CreateObject();
+    cJSON_AddNumberToObject(sample, "colour", i);
+    cJSON_AddStringToObject(sample, "sample", db_graph->ginfo[i].sample_name.b);
+    cJSON_AddNumberToObject(sample, "total_sequence", db_graph->ginfo[i].total_sequence);
+    cJSON_AddBoolToObject(sample, "cleaned_tips", cleaned_tips);
+    if(cleaned_snodes) {
+      cJSON_AddNumberToObject(sample, "cleaned_supernodes",
+                              db_graph->ginfo[i].cleaning.clean_snodes_thresh);
+    } else {
+      cJSON_AddBoolToObject(sample, "cleaned_supernodes", false);
+    }
+    cJSON_AddItemToArray(colours, sample);
+  }
+
+  cJSON *commands = cJSON_CreateArray();
+  cJSON_AddItemToObject(json, "commands", commands);
+  cJSON *command = json_hdr_new_command(path, fileidstr);
+  cJSON_AddItemToArray(commands, command);
+  cJSON *prev_list = json_hdr_get(command, "prev", cJSON_Array, path);
 
   size_t j;
   CharPtrBuffer cmdbuf;

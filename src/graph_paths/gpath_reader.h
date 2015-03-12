@@ -9,10 +9,17 @@
 
 typedef struct
 {
+  StreamBuffer strmbuf; 
   gzFile gz;
+
+  // For parsing input
+  StrBuf line;
+  SizeBuffer numbuf;
+
   FileFilter fltr; // colour filter
   StrBuf hdrstr;
   cJSON *json;
+
   // Header is decomposed here
   // size_t kmer_size, num_paths, path_bytes, kmers_with_paths;
   size_t ncolours;
@@ -46,7 +53,27 @@ void gpath_reader_check(const GPathReader *file, size_t kmer_size, size_t ncols)
 void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph);
 void gpath_reader_close(GPathReader *file);
 
+//
+// Reading without loading into a graph
+//
+
+// Reads line <kmer> <num_links>
+// Calls die() on error
+// Returns true unless end of file
+bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links);
+
+// Reads line [FR] <num_links>
+// Calls die() on error
+// Returns true unless end of link entries
+bool gpath_reader_read_link(GPathReader *file,
+                            bool *fw, size_t *kdist, size_t *njuncs,
+                            SizeBuffer *countbuf, StrBuf *juncs,
+                            StrBuf *seq, SizeBuffer *juncpos);
+
+
+//
 // Fetch information from header
+//
 size_t gpath_reader_get_kmer_size(const GPathReader *file);
 size_t gpath_reader_get_num_kmers(const GPathReader *file);
 size_t gpath_reader_get_num_paths(const GPathReader *file);

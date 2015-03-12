@@ -114,7 +114,7 @@ int ctx_correct(int argc, char **argv)
   CorrectAlnInputBuffer *inputs = &args.inputs;
 
   // Update colours in graph file - sample in 0, all others in 1
-  size_t ncols = gpath_load_sample_pop(gfile, gpfiles->data, gpfiles->len,
+  size_t ncols = gpath_load_sample_pop(gfile, 1, gpfiles->data, gpfiles->len,
                                        args.colour);
 
   // Check for compatibility between graph files and path files

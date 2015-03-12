@@ -69,9 +69,6 @@ print STDERR "kmers: @kmers\n";
 print STDERR "proj: $proj\n";
 print STDERR "sample_file: $sample_path\n";
 
-# Set up paths to executables, defaults etc.
-my $link_thresh_script = "\$(CTXDIR)/scripts/R/make_link_cutoffs.R";
-
 # Load samples file
 # returns array of ({'name','se_files','pe_files','i_files'}, ...)
 my @samples = load_samples_file($sample_path);
@@ -111,7 +108,7 @@ SHELL=/bin/bash -eou pipefail
 CTXDIR='.$default_ctxdir.'
 MEM='.$default_mem.'
 NTHREADS='.$default_nthreads.'
-LINK_THRESH=0.001
+LINK_CLEAN_FDR=0.001
 CLEANING_ARGS=
 LINK_CLEAN_NKMERS='.$default_link_clean_nkmers.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
@@ -123,8 +120,6 @@ else
 endif
 
 # Paths to scripts
-CTXLINKS=$(CTXDIR)/scripts/cortex_links.pl
-MEDIAN_LINK_THRESH=$(CTXDIR)/scripts/median-link-threshold.sh
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
 VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
@@ -140,11 +135,12 @@ for my $k (@kmers) {
   print "# Files at k=$k\n";
   print "RAW_GRAPHS_K$k=".join(' ', map {"$proj/k$k/graphs/$_->{'name'}.raw.ctx"} @samples)."\n";
   print "CLEAN_GRAPHS_K$k=\$(RAW_GRAPHS_K$k:.raw.ctx=.clean.ctx)\n";
-  print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"}   @samples)."\n";
+  print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"} @samples)."\n";
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "BUBBLES_K$k=$proj/k$k/bubbles/bubbles.txt.gz\n";
+  print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
   if(defined($ref_path)) {
     print "BREAKPOINTS_K$k=$proj/k$k/breakpoints/breakpoints.txt.gz\n";
   } else {
@@ -161,10 +157,12 @@ print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
 print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
 print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
 print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
+print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
 
 my @dirlist = ();
 for my $k (@kmers) {
   my $dirs = join(' ', "$proj/k$k/graphs/", "$proj/k$k/links/",
+                       "$proj/k$k/contigs/",
                        "$proj/k$k/bubbles/", "$proj/k$k/breakpoints/",
                        "$proj/k$k/ref/");
   push(@dirlist, $dirs);
@@ -216,6 +214,8 @@ links: $(FINAL_LINKS) | checks
 
 bubbles: $(BUBBLES) | checks
 
+contigs: $(CONTIGS) | checks
+
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
@@ -240,7 +240,7 @@ print "\$(DIRS):
 clean:
 \t\@echo To delete: rm -rf $proj
 
-.PHONY: all clean checks graphs links bubbles breakpoints bubblevcf breakpointvcf
+.PHONY: all clean checks graphs links contigs bubbles breakpoints bubblevcf breakpointvcf
 
 ";
 
@@ -289,10 +289,10 @@ for my $k (@kmers) {
                     @{$sample->{'i_files'}});
     my @se_files = (@{$sample->{'se_files'}}, @pe_files);
 
-    my $ctx_clean_file      = "$proj/k$k/graphs/$sname.clean.ctx";
-    my $ctp_se_raw_file     = "$proj/k$k/links/$sname.se.raw.ctp.gz";
+    my $ctx_clean_file    = "$proj/k$k/graphs/$sname.clean.ctx";
+    my $ctp_se_raw_file   = "$proj/k$k/links/$sname.se.raw.ctp.gz";
     my $ctp_pe_raw_file   = "$proj/k$k/links/$sname.pe.raw.ctp.gz";
-    my $ctp_se_clean_file   = "$proj/k$k/links/$sname.se.clean.ctp.gz";
+    my $ctp_se_clean_file = "$proj/k$k/links/$sname.se.clean.ctp.gz";
     my $ctp_pe_clean_file = "$proj/k$k/links/$sname.pe.clean.ctp.gz";
 
     # Single ended threading
@@ -318,24 +318,27 @@ for my $k (@kmers) {
   # Clean link files at k=$k
   my $ctp_raw_file     = "$proj/k$k/links/%.raw.ctp.gz";
   my $ctp_clean_file   = "$proj/k$k/links/%.clean.ctp.gz";
-  my $ctp_effcovg_file = "$proj/k$k/links/%.effcovg.csv";
-  my $ctp_tree_file    = "$proj/k$k/links/%.tree.csv";
   my $ctp_thresh_file  = "$proj/k$k/links/%.thresh.txt";
 
   # Generate coverage CSV from first N kmers with links
   print "# link cleaning at k=$k\n";
-  print "$ctp_effcovg_file $ctp_tree_file: $ctp_raw_file\n";
-  print "\t\$(CTXLINKS) list --limit \$(LINK_CLEAN_NKMERS) <(gzip -fcd \$<) $proj/k$k/links/\$*.effcovg.csv $proj/k$k/links/\$*.tree.csv >& $proj/k$k/links/\$*.tree.csv.log\n\n";
+  print "$ctp_thresh_file: $ctp_raw_file\n";
+  print "\t$ctx links -L \$(LINK_CLEAN_NKMERS) -T \$(LINK_CLEAN_FDR) \$< > \$@ 2> \$@.log\n\n";
 
-  # Removed R dependency to fit a model and pick threshold
-  # Can use any version of cortex for this
-  print "$ctp_thresh_file: $ctp_tree_file\n";
-  print "\t".'$(MEDIAN_LINK_THRESH) $(LINK_THRESH) '.$k.' $< > $@'."\n\n";
-
-  # Clean links
-  # $(word 1,$^) is the 1st dependency, $(word 2,$^) is the 2nd ...
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
-  print "\t".'($(CTXLINKS) clean <(gzip -fcd $(word 1,$^)) `tail -1 $(word 2,$^)` | gzip -c) > $@ 2> $@.log'."\n\n";
+  print "\tTHRESH=`grep 'suggested_cutoffs=' $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9,]+\$\$'`; \\\n";
+  print "\t$ctx links -c \"\$\$THRESH\" -o \$@ \$< >& \$@.log\n\n";
+}
+
+# Assemble contigs
+print "#\n# Assemble contigs\n#\n";
+for my $k (@kmers) {
+  my $ctx = get_ctx($k);
+  print "# assembly k=$k\n";
+  print "$proj/k$k/contigs/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k) | \$(DIRS)\n";
+  print "\t$ctx contigs \$(CTX_ARGS) -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "$proj/k$k/contigs/%.rmdup.fa.gz: $proj/k$k/contigs/%.raw.fa.gz\n";
+  print "\t$ctx rmsubstr -m \$(MEM) -k $k -o \$@ \$< >& \$@.log\n\n";
 }
 
 # Generate buble calls

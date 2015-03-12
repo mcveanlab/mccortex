@@ -140,22 +140,25 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
   Update colours in graph files and path files - sample in 0, all others in 1
   @return number of colours to load (1 or 2: sample + [population optional])
  */
-size_t gpath_load_sample_pop(GraphFileReader *gfile,
+size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
                              GPathReader *gpfiles, size_t num_gpfiles,
                              size_t colour)
 {
-  size_t p, i, j;
+  size_t p, g, i, j;
   bool tgt_col_loaded = false, pop_col_loaded = false;
-  FileFilter *fltr = &gfile->fltr;
+  FileFilter *fltr;
 
   // Update graph file colours
-  for(i = 0; i < file_filter_num(fltr); i++) {
-    if(file_filter_intocol(fltr,i) == colour) {
-      file_filter_intocol(fltr,i) = 0;
-      tgt_col_loaded = true;
-    } else {
-      file_filter_intocol(fltr,i) = 1;
-      pop_col_loaded = true;
+  for(g = 0; g < num_gfiles; g++) {
+    fltr = &gfiles[g].fltr;
+    for(i = 0; i < file_filter_num(fltr); i++) {
+      if(file_filter_intocol(fltr,i) == colour) {
+        file_filter_intocol(fltr,i) = 0;
+        tgt_col_loaded = true;
+      } else {
+        file_filter_intocol(fltr,i) = 1;
+        pop_col_loaded = true;
+      }
     }
   }
 
