@@ -450,7 +450,7 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   status("   bwa mem ref.fa %s.flanks > %s.sam", out_path, out_path);
   status("   ctx%i calls2vcf -F %s.sam -o output.vcf %s ref.fa",
          (int)get_max_kmer_size(), out_path, out_path);
-  status("");
+  timestamp(); message("\n");
 
   // Clean up
   bubble_callers_destroy(callers, num_of_threads);

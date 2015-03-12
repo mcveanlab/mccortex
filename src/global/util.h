@@ -25,7 +25,7 @@ bool str_find_tag(const char *str, const char *tag,
                   const char **found, size_t *len);
 
 // strnstr
-char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
+const char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
 
 // comparison returns:
 //   negative iff a < b

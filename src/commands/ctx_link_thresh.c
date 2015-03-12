@@ -30,7 +30,7 @@ static struct option longopts[] =
 //     uint[,<tab><space>]uint\n
 // will tolerate comment lines, empty lines, tab/sapce separated and a
 // single header
-static int inline parse_csv_line(const char *line, uint64_t *a, uint64_t *b)
+static inline int parse_csv_line(const char *line, uint64_t *a, uint64_t *b)
 {
   const char *sep = strchr(line, ',');
   char *endptr1, *endptr2;

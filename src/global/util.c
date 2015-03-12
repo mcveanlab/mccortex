@@ -26,10 +26,10 @@ bool str_find_tag(const char *str, const char *tag,
   return true;
 }
 
-char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
+const char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
 {
   size_t nlen = strlen(needle);
-  if(nlen == 0) return (char*)haystack; // search string is empty
+  if(nlen == 0) return haystack; // search string is empty
 
   char nc, hc;
   nc = *needle; needle++; nlen--; // take first char to find
@@ -48,7 +48,7 @@ char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
   } while(strncmp(needle, haystack, nlen) != 0);
 
   // s matched second char so need to de-increment
-  return (char*)(--haystack);
+  return --haystack;
 }
 
 // comparison returns:

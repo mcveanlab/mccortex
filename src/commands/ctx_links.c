@@ -176,7 +176,7 @@ int ctx_links(int argc, char **argv)
 
   // Open input file
   FILE *csv_fh = NULL, *plot_fh = NULL, *link_tmp_fh = NULL;
-  gzFile link_gz;
+  gzFile link_gz = NULL;
 
   StrBuf link_tmp_path;
   strbuf_alloc(&link_tmp_path, 1024);
@@ -272,8 +272,7 @@ int ctx_links(int argc, char **argv)
 
   bool link_fw;
   size_t kdist, njuncs;
-  size_t knum, nlinks;
-  size_t num_links_exp, num_links_seen;
+  size_t knum, nlinks, num_links_exp = 0;
 
   LinkTree ltree;
   ltree_alloc(&ltree, ncols, kmer_size);
@@ -286,7 +285,6 @@ int ctx_links(int argc, char **argv)
   {
     ltree_reset(&ltree);
     if(!gpath_reader_read_kmer(&ctpin, &kmerbuf, &num_links_exp)) break;
-    num_links_seen = 0;
     for(nlinks = 0; gpath_reader_read_link(&ctpin, &link_fw, &kdist, &njuncs,
                                            &countbuf, &juncsbuf,
                                            &seqbuf, &jposbuf); nlinks++)

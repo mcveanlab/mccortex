@@ -7,7 +7,7 @@ int comma_list_to_array(const char *str, SizeBuffer *nums)
 {
   size_t num = 0;
   const char *ptr = str;
-  char *end = (char*)str;
+  char *end = NULL;
 
   // If no numbers success
   if(*ptr < '0' && *ptr > '9') return 0;
