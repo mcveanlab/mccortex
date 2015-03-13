@@ -143,7 +143,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
   prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
-  __sync_fetch_and_add((volatile uint32_t*)&klists[prev.key].count, 1); // count++
+  __sync_fetch_and_add((volatile uint32_t*)&klists[prev.key].kcount, 1); // kcount++
   num_novel_kmers += !found;
 
   for(i = kmer_size; i < len; i++, prev = curr)
@@ -151,7 +151,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
     nuc = dna_char_to_nuc(seq[i]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
     curr = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
-    __sync_fetch_and_add((volatile uint32_t*)&klists[curr.key].count, 1); // count++
+    __sync_fetch_and_add((volatile uint32_t*)&klists[curr.key].kcount, 1); // kcount++
     db_graph_add_edge_mt(db_graph, 0, prev, curr);
     num_novel_kmers += !found;
   }
@@ -194,7 +194,7 @@ static inline void bkmer_update_counts_find_mt(BinaryKmer bkmer,
 {
   hkey_t hkey = hash_table_find(&db_graph->ht, bkmer);
   if(hkey != HASH_NOT_FOUND)
-    __sync_fetch_and_add((volatile uint32_t*)&klists[hkey].count, 1); // count++
+    __sync_fetch_and_add((volatile uint32_t*)&klists[hkey].kcount, 1); // kcount++
 }
 
 struct ReadUpdateCounts {
@@ -232,10 +232,10 @@ static void bkmer_store_kmer_pos(BinaryKmer bkmer, const dBGraph *db_graph,
   if(node.key != HASH_NOT_FOUND)
   {
     KONodeList *kl = &klists[node.key];
-    koccurs[kl->start+kl->count] = (KOccur){.chrom = chrom_id,
-                                            .offset = offset,
-                                            .orient = node.orient};
-    kl->count++;
+    koccurs[kl->start+kl->kcount] = (KOccur){.chrom = chrom_id,
+                                             .offset = offset,
+                                             .orient = node.orient};
+    kl->kcount++;
   }
 }
 
@@ -320,8 +320,8 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
   for(i = 0; i < db_graph->ht.capacity; i++)
   {
     kograph.klists[i].start = offset;
-    offset += kograph.klists[i].count;
-    kograph.klists[i].count = 0;
+    offset += kograph.klists[i].kcount;
+    kograph.klists[i].kcount = 0;
   }
 
   // Sum lengths of reads

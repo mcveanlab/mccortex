@@ -23,7 +23,7 @@ typedef struct {
 // 8+4=12 bytes
 struct KONodeListStruct {
   uint64_t start;
-  uint32_t count; // DEV: remove count
+  uint32_t kcount; // DEV: remove kcount, use KOccur next bit instead
 } __attribute__((packed));
 
 typedef struct KONodeListStruct KONodeList;
@@ -68,7 +68,7 @@ void kograph_free(KOGraph kograph);
 #define kograph_get(kograph,hkey) ((kograph).koccurs + (kograph).klists[hkey].start)
 
 // Get the number of times a kmer is seen in the sequence
-#define kograph_num(kograph,hkey) ((kograph).klists[hkey].count)
+#define kograph_num(kograph,hkey) ((kograph).klists[hkey].kcount)
 
 #define kograph_get_check(kograph,hkey) \
         (!kograph_num(kograph,hkey) ? NULL : kograph_get(kograph,hkey))

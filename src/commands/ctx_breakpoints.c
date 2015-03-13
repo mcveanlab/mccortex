@@ -167,6 +167,13 @@ int ctx_breakpoints(int argc, char **argv)
                   sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
                   8; // 1 byte per kmer for each base to load sequence files
 
+  // For k=31, 8+1+12+8+1=30 bytes per kmer, could be 8+1+8+8=26
+  // for human ~3 billion kmers, hash table load factor of 0.75
+  //   3*10^9*30 / 0.75 bytes in GiB = 112GB
+  //   3*10^9*26 / 0.75 bytes in GiB = 97GB
+  // or even (5 instead of 8 bytes for count):
+  //   3*10^9*23 / 0.75 bytes in GiB = 86GB
+
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
                                         memargs.num_kmers,
