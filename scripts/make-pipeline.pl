@@ -65,15 +65,15 @@ my @kmers = parse_kmer_list($ARGV[0]);
 my $proj = $ARGV[1];
 my $sample_path = $ARGV[2];
 
-print STDERR "kmers: @kmers\n";
-print STDERR "proj: $proj\n";
+print STDERR "kmers: ".join(', ', @kmers)."\n";
+print STDERR "outdir: $proj\n";
 print STDERR "sample_file: $sample_path\n";
 
 # Load samples file
 # returns array of ({'name','se_files','pe_files','i_files'}, ...)
 my @samples = load_samples_file($sample_path);
 if(@samples == 0) { die("No samples given in: $sample_path"); }
-print "Samples: @samples\n";
+print STDERR "sample_names: ".join(', ', map {$_->{'name'}} @samples)."\n";
 
 my $union_bubble_vcf = "$proj/vcfs/bubbles.".join('.',map {"k$_"} @kmers).".vcf.gz";
 my $union_brkpnt_vcf = "$proj/vcfs/breakpoints.".join('.',map {"k$_"} @kmers).".vcf.gz";
@@ -84,13 +84,16 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     make-pipeline.pl $args
 #
 # To use this file:
-#     make -f <thisfile> graphs        <- build graphs
-#     make -f <thisfile> links         <- build links
+#     make -f <thisfile> graphs        <- build and clean graphs
+#     make -f <thisfile> links         <- build and clean links
 #     make -f <thisfile> bubbles       <- make bubble calls
 #     make -f <thisfile> breakpoints   <- make breakpoint calls
 #     make -f <thisfile> bubblevcf     <- make bubble vcf
 #     make -f <thisfile> breakpointvcf <- make breakpoint vcf
 #     make -f <thisfile> vcfs          <- make all vcfs including union
+#     make -f <thisfile> contigs       <- assemble contigs for each sample
+#     make -f <thisfile> <outdir>/k<K>/contigs/<S>.rmdup.fa.gz
+#                          ^- assemble contigs for sample <S> with k=<K>
 #
 # Make will automatically generate dependencies.
 # Add option --dry-run to print commands but not run them. Include option
@@ -100,7 +103,7 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #    CTXDIR=<path-to-ctx-dir>
 #    MEM=<mem-to-use>
 #    NTHREADS=<nthreads>
-
+#
 
 SHELL=/bin/bash -eou pipefail
 
