@@ -552,7 +552,8 @@ size_t graph_stream_filter(const char *out_ctx_path, const GraphFileReader *file
   return nodes_dumped;
 }
 
-size_t graph_stream_filter_mkhdr(const char *out_ctx_path, GraphFileReader *file,
+size_t graph_stream_filter_mkhdr(const char *out_ctx_path,
+                                 GraphFileReader *file,
                                  const dBGraph *db_graph,
                                  const Edges *only_load_if_in_edges,
                                  const char *intersect_gname)

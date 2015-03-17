@@ -86,7 +86,7 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 // Returns the number of nodes added, adds no more than `limit`
 // return false if out of space and limit > 0
 bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
-                         const dBGraph *db_graph)
+                      const dBGraph *db_graph)
 {
   ctx_assert(nbuf->len > 0);
 

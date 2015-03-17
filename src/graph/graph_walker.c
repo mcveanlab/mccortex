@@ -204,9 +204,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
 /**
  * Pick up counter paths for missing information check
- * @param prev_nodes nodes before wlk->node, oriented away from wlk->node
- *        i.e. the nodes you would reach if you walked from
- *        db_node_reverse(wlk->node)
+ * @param prev_nodes nodes before wlk->node, oriented towards wlk->node
 */
 void graph_walker_add_counter_paths(GraphWalker *wlk,
                                     const dBNode prev_nodes[4],
@@ -220,7 +218,7 @@ void graph_walker_add_counter_paths(GraphWalker *wlk,
 
   // Reverse orientation, pick up paths
   for(i = 0; i < num_prev; i++)
-    pickup_paths(wlk, db_node_reverse(prev_nodes[i]), true, next_base);
+    pickup_paths(wlk, prev_nodes[i], true, next_base);
 }
 
 

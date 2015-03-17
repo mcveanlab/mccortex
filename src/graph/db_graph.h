@@ -120,6 +120,12 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
                             Orientation orient, Edges edges,
                             dBNode nodes[4], Nucleotide fw_nucs[4]);
 
+/**
+ * Get next nodes in union graph (pop / all samples)
+ */
+uint8_t db_graph_next_nodes_union(const dBGraph *db_graph, dBNode node,
+                                  dBNode nodes[4], Nucleotide fw_nucs[4]);
+
 // @colour if > -1: filter next nodes for those in colour, otherwise all next nodes
 // @fw_nucs is the nuc you would add when walking forward
 // Returns number of nodes added

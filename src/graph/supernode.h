@@ -20,8 +20,8 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph);
 bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
                          const dBGraph *db_graph);
 
-// Reallocates array if needs to resize
-// returns length of supernode (always >=1)
+// Fills with supernode that contains hkey
+// Does not reset nbuf
 void supernode_find(hkey_t node, dBNodeBuffer *nbuf, const dBGraph *db_graph);
 
 // Count number of read starts using coverage data
@@ -35,4 +35,4 @@ void supernodes_iterate(size_t nthreads, uint8_t *visited,
                                      void *_arg),
                         void *arg);
 
-#endif
+#endif /* SUPERNODE_H_ */

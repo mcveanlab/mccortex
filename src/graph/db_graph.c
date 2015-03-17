@@ -254,6 +254,14 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
   return count;
 }
 
+uint8_t db_graph_next_nodes_union(const dBGraph *db_graph, dBNode node,
+                                  dBNode nodes[4], Nucleotide fw_nucs[4])
+{
+  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
+  Edges edges = db_node_get_edges_union(db_graph, node.key);
+  return db_graph_next_nodes(db_graph, bkey, node.orient, edges, nodes, fw_nucs);
+}
+
 /**
  * @param colour if > -1: filter next nodes for those in colour, otherwise all next nodes
  * @param fw_nucs is the nuc you would add when walking forward
@@ -320,7 +328,11 @@ uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
                                       Nucleotide prev_bases[4])
 {
   Edges edges, prev_edge;
-  edges = db_node_get_edges(db_graph, node.key, 0);
+
+  if(colour >= 0 && db_graph->num_edge_cols > 1)
+    edges = db_node_get_edges(db_graph, node.key, colour);
+  else
+    edges = db_node_get_edges_union(db_graph, node.key);
 
   // Remove edge to kmer we came from
   // Can slim down the number of nodes to look up if we can rule out
@@ -351,6 +363,10 @@ uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
     }
     num_prev = j;
   }
+
+  // Reverse orientation
+  for(i = 0; i < num_prev; i++)
+    prev_nodes[i].orient = !prev_nodes[i].orient;
 
   return num_prev;
 }
