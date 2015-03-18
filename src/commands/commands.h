@@ -27,7 +27,7 @@ int ctx_join(int argc, char **argv);
 int ctx_reads(int argc, char **argv);
 int ctx_uniqkmers(int argc, char **argv);
 int ctx_links(int argc, char **argv);
-int ctx_linkthresh(int argc, char **argv);
+int ctx_pop_bubbles(int argc, char **argv);
 int ctx_geno(int argc, char **argv); // work in progress
 
 // Experiments
@@ -57,7 +57,7 @@ extern const char rmsubstr_usage[];
 extern const char calls2vcf_usage[];
 extern const char uniqkmers_usage[];
 extern const char links_usage[];
-extern const char linkthresh_usage[];
+extern const char pop_bubbles_usage[];
 extern const char geno_usage[];
 
 // Experiments

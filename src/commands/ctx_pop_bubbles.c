@@ -14,13 +14,13 @@ const char pop_bubbles_usage[] =
 "\n"
 "  Pop bubbles in the graph.\n"
 "\n"
-"  -h, --help              This help message\n"
-"  -q, --quiet             Silence status output normally printed to STDERR\n"
-"  -f, --force             Overwrite output files\n"
-"  -o, --out <bub.txt.gz>  Output file [required]\n"
-"  -m, --memory <mem>      Memory to use\n"
-"  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -h, --help            This help message\n"
+"  -q, --quiet           Silence status output normally printed to STDERR\n"
+"  -f, --force           Overwrite output files\n"
+"  -o, --out <out.ctx>   Output file [required]\n"
+"  -m, --memory <mem>    Memory to use\n"
+"  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "\n";
 
 static struct option longopts[] =
@@ -82,13 +82,20 @@ int ctx_pop_bubbles(int argc, char **argv)
   ctx_assert(num_gfiles > 0);
 
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
-  size_t i, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t i, ncols, output_ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
 
-  bool reread_graph_to_filter = (ncols > 1 && num_gfiles == 1 &&
+  output_ncols = ncols;
+
+  bool reread_graph_to_filter = (num_gfiles == 1 &&
                                  strcmp(file_filter_path(&gfiles[0].fltr),"-") != 0);
+
+  if(reread_graph_to_filter) {
+    file_filter_flatten(&gfiles[0].fltr, 0);
+    ncols = 1;
+  }
 
   // Check graphs are compatible
   graphs_gpaths_compatible(gfiles, num_gfiles, NULL, 0, -1);
@@ -97,10 +104,10 @@ int ctx_pop_bubbles(int argc, char **argv)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
-  size_t nedgecols = reread_graph_to_filter ? 1 : ncols;
 
   bits_per_kmer = sizeof(BinaryKmer)*8 +
-                  sizeof(Edges)*8*nedgecols +
+                  sizeof(Covg)*8*ncols +
+                  sizeof(Edges)*8*ncols +
                   2; // 1 bit for visited, 1 for removed
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
@@ -118,8 +125,8 @@ int ctx_pop_bubbles(int argc, char **argv)
 
   // Allocate memory
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, ncols, nedgecols,
-                 kmers_in_hash, DBG_ALLOC_EDGES);
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, ncols, ncols,
+                 kmers_in_hash,  DBG_ALLOC_EDGES | DBG_ALLOC_COVGS);
 
   size_t nkwords = roundup_bits2bytes(db_graph.ht.capacity);
   uint8_t *visited = ctx_calloc(1, nkwords);
@@ -149,9 +156,13 @@ int ctx_pop_bubbles(int argc, char **argv)
   status("Popping bubbles...");
   pop_bubbles(&db_graph, nthreads, min_covg, visited, rmvbits);
 
+  size_t nkmers0 = db_graph.ht.num_kmers;
   status("Removing nodes...");
-  for(i = 0; i < nkwords; i++) rmvbits[i] = !rmvbits[i];
+  for(i = 0; i < nkwords; i++) rmvbits[i] = ~rmvbits[i];
   prune_nodes_lacking_flag(nthreads, rmvbits, &db_graph);
+  size_t nkmers1 = db_graph.ht.num_kmers;
+
+  status("Number of kmers %zu -> %zu", nkmers0, nkmers1);
 
   if(reread_graph_to_filter)
   {

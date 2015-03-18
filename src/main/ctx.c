@@ -131,9 +131,9 @@ CtxCmd cmdobjs[] = {
   .usage = links_usage
 },
 {
-  .cmd = "linkthresh", .func = ctx_linkthresh, .hide = true,
-  .blurb = "pick link threshold from a CSV file of links",
-  .usage = linkthresh_usage
+  .cmd = "popbubbles", .func = ctx_pop_bubbles, .hide = false,
+  .blurb = "Pop bubbles in the population graph",
+  .usage = pop_bubbles_usage
 },
 {
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = false,

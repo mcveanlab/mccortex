@@ -61,6 +61,15 @@ static inline void found_bubble(const dBNode *s1, size_t n1,
   sum_covg1 /= n1;
   sum_covg2 /= n2;
 
+  // Print alleles
+  // pthread_mutex_lock(&ctx_biglock);
+  // printf("allele1: ");
+  // db_nodes_print(s1, n1, db_graph, stdout);
+  // printf("\nallele2: ");
+  // db_nodes_print(s2, n2, db_graph, stdout);
+  // printf("\n--\n");
+  // pthread_mutex_unlock(&ctx_biglock);
+
   if(!min_covg || MIN2(sum_covg1, sum_covg2) < min_covg)
   {
     if(sum_covg1 < sum_covg2) {
@@ -91,12 +100,14 @@ static inline void mark_remove_bubbles(dBNodeBuffer nbuf, size_t threadid,
   n0 = get_parallel_nodes(db_graph, node0, nodes0);
   n1 = get_parallel_nodes(db_graph, node1, nodes1);
 
+  printf("n0: %zu n1: %zu\n", (size_t)n0, (size_t)n1);
+
   if(!n0 || !n1) return;
 
   for(i = 0; i < n0; i++)
   {
     db_node_buf_reset(alt);
-    db_node_buf_add(alt, nodes0[i]);
+    db_node_buf_add(alt, db_node_reverse(nodes0[i]));
     supernode_extend(alt, 0, db_graph);
 
     // find end node in right hand nodes
