@@ -10,8 +10,16 @@ use lib $FindBin::Bin;
 use POSIX qw/strftime/;
 use CortexScripts;
 
+#
 # TODO:
 # * Merge info fields when merging VCF files
+# * Add pooled cleaning (for low coverage samples)
+# * 1-by-1 bubble/breakpoint calling for lower memory
+# * genotyping
+# * use genome size
+# * use stampy to map
+# * take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
+#
 
 sub print_usage
 {

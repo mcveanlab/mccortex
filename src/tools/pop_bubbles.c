@@ -4,9 +4,10 @@
 
 typedef struct
 {
-  uint8_t *const visited, *const remove;
+  uint8_t *const visited, *const rmvbits;
   dBNodeBuffer *alts;
-  const size_t min_covg;
+  size_t *num_popped;
+  const PopBubblesPrefs prefs;
   const dBGraph *db_graph;
 } PopBubbles;
 
@@ -48,11 +49,11 @@ static inline void mark_node_bitarr_mt(const dBNode *nodes, size_t n,
  * Remove the lowest mean coverage branch, by marking the remove bit array.
  * @param min_covg keep all branches with mean coverage >= min_covg
  */
-static inline void found_bubble(const dBNode *s1, size_t n1,
-                                const dBNode *s2, size_t n2,
-                                size_t min_covg,
-                                uint8_t *visited, uint8_t *remove,
-                                const dBGraph *db_graph)
+static inline bool process_bubble(const dBNode *s1, size_t n1,
+                                  const dBNode *s2, size_t n2,
+                                  const PopBubblesPrefs *p,
+                                  uint8_t *visited, uint8_t *rmvbits,
+                                  const dBGraph *db_graph)
 {
   size_t i, sum_covg1 = 0, sum_covg2 = 0;
 
@@ -70,18 +71,26 @@ static inline void found_bubble(const dBNode *s1, size_t n1,
   // printf("\n--\n");
   // pthread_mutex_unlock(&ctx_biglock);
 
-  if(!min_covg || MIN2(sum_covg1, sum_covg2) < min_covg)
+  size_t rmv_covg, rmv_klen;
+  if(sum_covg1 < sum_covg2) { rmv_covg = sum_covg1; rmv_klen = n1; }
+  else                      { rmv_covg = sum_covg2; rmv_klen = n2; }
+
+  if((!p->max_rmv_covg     || rmv_covg <= (size_t)p->max_rmv_covg) &&
+     (!p->max_rmv_klen     || rmv_klen <= (size_t)p->max_rmv_klen) &&
+     (p->max_rmv_kdiff < 0 || abs((int)n1 - (int)n2) <= p->max_rmv_kdiff))
   {
     if(sum_covg1 < sum_covg2) {
       // remove s1
-      mark_node_bitarr_mt(s1, n1, remove);
+      mark_node_bitarr_mt(s1, n1, rmvbits);
     }
     else {
       // remove s2
       mark_node_bitarr_mt(s2, n2, visited);
-      mark_node_bitarr_mt(s2, n2, remove);
+      mark_node_bitarr_mt(s2, n2, rmvbits);
     }
+    return true;
   }
+  return false;
 }
 
 static inline void mark_remove_bubbles(dBNodeBuffer nbuf, size_t threadid,
@@ -100,7 +109,7 @@ static inline void mark_remove_bubbles(dBNodeBuffer nbuf, size_t threadid,
   n0 = get_parallel_nodes(db_graph, node0, nodes0);
   n1 = get_parallel_nodes(db_graph, node1, nodes1);
 
-  printf("n0: %zu n1: %zu\n", (size_t)n0, (size_t)n1);
+  // printf("n0: %zu n1: %zu\n", (size_t)n0, (size_t)n1);
 
   if(!n0 || !n1) return;
 
@@ -114,27 +123,52 @@ static inline void mark_remove_bubbles(dBNodeBuffer nbuf, size_t threadid,
     endnode = alt->b[alt->len-1];
     for(j = 0; j < n1; j++) {
       if(db_nodes_are_equal(endnode, nodes1[j])) {
-        found_bubble(nbuf.b, nbuf.len, alt->b, alt->len,
-                     pb->min_covg, pb->visited, pb->remove, db_graph);
+        // found a bubble
+        if(process_bubble(nbuf.b, nbuf.len, alt->b, alt->len,
+                          &pb->prefs, pb->visited, pb->rmvbits, db_graph))
+        {
+          // Popped a bubble
+          pb->num_popped[threadid]++;
+        }
         break;
       }
     }
   }
 }
 
-// visited, remove should each have at least db_graph->capacity bits
-// and should be initialised to zeros
-// remove will have bits set for all nodes that should be removed
-void pop_bubbles(const dBGraph *db_graph, size_t nthreads, size_t min_covg,
-                 uint8_t *visited, uint8_t *remove)
+/**
+ * visited, rmvbits should each have at least db_graph->capacity bits
+ * and should be initialised to zeros
+ * rmvbits will have bits set for all nodes that should be removed
+ * @param max_rmv_covg only remove contigs with covg <= max_rmv_covg,
+ *                     ignored if <= 0.
+ * @param max_rmv_klen only remove contigs with num kmers <= max_rmv_klen,
+ *                     ignored if <= 0.
+ * @param max_rmv_kdiff only remove contigs if max diff in kmers <= max_rmv_kdiff,
+ *                      ignored if < 0.
+ * @return number of bubbles popped
+**/
+size_t pop_bubbles(const dBGraph *db_graph, size_t nthreads,
+                   PopBubblesPrefs prefs,
+                   uint8_t *visited, uint8_t *rmvbits)
 {
-  size_t i;
-  PopBubbles data = {.visited = visited, .remove = remove,
-                     .min_covg = min_covg, .db_graph = db_graph};
-  data.alts = ctx_calloc(nthreads, sizeof(dBNodeBuffer));
+  size_t i, total_popped = 0;
 
+  PopBubbles data = {.visited = visited, .rmvbits = rmvbits,
+                     .prefs = prefs, .db_graph = db_graph};
+
+  data.alts = ctx_calloc(nthreads, sizeof(dBNodeBuffer));
+  data.num_popped = ctx_calloc(nthreads, sizeof(size_t));
   for(i = 0; i < nthreads; i++) db_node_buf_alloc(&data.alts[i], 256);
+
   supernodes_iterate(nthreads, visited, db_graph, mark_remove_bubbles, &data);
-  for(i = 0; i < nthreads; i++) db_node_buf_dealloc(&data.alts[i]);
+
+  for(i = 0; i < nthreads; i++) {
+    total_popped += data.num_popped[i];
+    db_node_buf_dealloc(&data.alts[i]);
+  }
+  ctx_free(data.num_popped);
   ctx_free(data.alts);
+
+  return total_popped;
 }

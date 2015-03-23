@@ -1,7 +1,7 @@
 #ifndef GRAPH_CACHE_H_
 #define GRAPH_CACHE_H_
 
-#include "khash.h"
+#include "htslib/khash.h"
 #include "db_node.h"
 
 // Build and store paths through the graph

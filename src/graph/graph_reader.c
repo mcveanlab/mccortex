@@ -340,7 +340,8 @@ static void graph_loading_print_status(const GraphFileReader *file)
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   LoadingStats *stats)
 {
-  ctx_assert(!prefs.must_exist_in_graph || prefs.must_exist_in_edges != NULL);
+  ctx_assert(!prefs.must_exist_in_graph || prefs.db_graph->col_edges == NULL ||
+             prefs.must_exist_in_edges != NULL);
   ctx_assert(!prefs.must_exist_in_graph || !prefs.empty_colours);
 
   dBGraph *graph = prefs.db_graph;

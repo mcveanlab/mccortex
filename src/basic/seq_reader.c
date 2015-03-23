@@ -10,7 +10,7 @@ const char *MP_DIR_STRS[] = {"FF", "FR", "RF", "RR"};
 
 // Load all reads from files into a read buffer and close the seq_files
 // Returns the number of reads loaded
-size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
+size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
                           ReadBuffer *rbuf)
 {
   status("Loading sequences...");
@@ -18,7 +18,7 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
   size_t i, nreads = rbuf->len;
   read_t r;
   seq_read_alloc(&r);
-  for(i = 0; i < num_seq_files; i++) {
+  for(i = 0; i < num_files; i++) {
     status("  file: %s", seq_files[i]->path);
     while(seq_read(seq_files[i], &r) > 0) {
       read_buf_push(rbuf, &r, 1); // copy read
@@ -461,21 +461,14 @@ void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 
 // Create chrom->read genome hash
 // `chroms` and `genome` must already be allocated
-void seq_reader_load_ref_genome(char **paths, size_t num_files,
-                                ReadBuffer *chroms, khash_t(ChromHash) *genome)
+void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
+                                 ReadBuffer *chroms, khash_t(ChromHash) *genome)
 {
   size_t i;
   khiter_t k;
   int hret;
 
-  seq_file_t **ref_files = ctx_malloc(num_files * sizeof(seq_file_t*));
-
-  for(i = 0; i < num_files; i++)
-    if((ref_files[i] = seq_open(paths[i])) == NULL)
-      die("Cannot read sequence file: %s", paths[i]);
-
-  seq_load_all_reads(ref_files, num_files, chroms);
-  ctx_free(ref_files);
+  seq_load_all_reads(seq_files, num_files, chroms);
 
   for(i = 0; i < chroms->len; i++)
   {
@@ -487,4 +480,20 @@ void seq_reader_load_ref_genome(char **paths, size_t num_files,
     else
       kh_value(genome, k) = &chroms->b[i];
   }
+}
+
+void seq_reader_load_ref_genome(char **paths, size_t num_files,
+                                ReadBuffer *chroms, khash_t(ChromHash) *genome)
+{
+  size_t i;
+
+  seq_file_t **ref_files = ctx_malloc(num_files * sizeof(seq_file_t*));
+
+  for(i = 0; i < num_files; i++)
+    if((ref_files[i] = seq_open(paths[i])) == NULL)
+      die("Cannot read sequence file: %s", paths[i]);
+
+  seq_reader_load_ref_genome2(ref_files, num_files, chroms, genome);
+
+  ctx_free(ref_files);
 }

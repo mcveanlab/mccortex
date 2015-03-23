@@ -152,9 +152,16 @@ int ctx_pop_bubbles(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  size_t min_covg = 0;
+  PopBubblesPrefs prefs = {.max_rmv_covg = -1,
+                           .max_rmv_klen = -1,
+                           .max_rmv_kdiff = -1};
+  size_t npopped = 0;
+  char npopped_str[50];
+
   status("Popping bubbles...");
-  pop_bubbles(&db_graph, nthreads, min_covg, visited, rmvbits);
+  npopped = pop_bubbles(&db_graph, nthreads, prefs, visited, rmvbits);
+  ulong_to_str(npopped, npopped_str);
+  status("Popped %s bubbles", npopped_str);
 
   size_t nkmers0 = db_graph.ht.num_kmers;
   status("Removing nodes...");

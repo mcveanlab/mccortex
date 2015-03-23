@@ -8,7 +8,7 @@
 #include "json_hdr.h"
 #include "chrom_pos_list.h" // Parse chromosome position lists
 
-#include "sam.h"
+#include "htslib/sam.h" // cigar
 #include "seq-align/src/needleman_wunsch.h"
 
 #define DEFAULT_MIN_MAPQ 30 /* min MAPQ considered */
@@ -197,15 +197,6 @@ static void nw_aligner_destroy()
   needleman_wunsch_free(nw_aligner);
 }
 
-static const read_t* fetch_chrom(const char *chrom_name)
-{
-  // Fetch chromosome
-  khiter_t k = kh_get(ChromHash, genome, chrom_name);
-  if(k == kh_end(genome)) die("Cannot find chrom [%s]", chrom_name);
-  const read_t *chr = kh_value(genome, k);
-  return chr;
-}
-
 static size_t call_file_max_allele_len(const CallFileEntry *centry)
 {
   size_t i, max = 0, nlines = call_file_num_lines(centry);
@@ -281,7 +272,7 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   *fw_strand_ptr = fw_strand;
 
   const char *chrom_name = bam_header->target_name[bamentry->core.tid];
-  const read_t *chrom = fetch_chrom(chrom_name);
+  const read_t *chrom = seq_fetch_chrom(genome, chrom_name);
   *chrom_ptr = chrom;
 
   const uint32_t *cigar = bam_get_cigar(bamentry);
@@ -480,7 +471,7 @@ static bool brkpnt_fetch_coords(const CallFileEntry *centry,
   if(flank5p.fw_strand != flank3p.fw_strand) { num_flanks_diff_strands++; return false; }
 
   // Copy results. ChromPosOffset coords are 1-based.
-  *chrom = fetch_chrom(flank5p.chrom);
+  *chrom = seq_fetch_chrom(genome, flank5p.chrom);
   *fw_strand = flank5p.fw_strand;
   if(flank5p.fw_strand) { *start = flank5p.end+1; *end = flank3p.start; }
   else                  { *start = flank3p.end+1; *end = flank5p.start; }
@@ -1076,6 +1067,7 @@ static void brkpnt_check_refs_match(cJSON *json)
 int ctx_calls2vcf(int argc, char **argv)
 {
   parse_cmdline_args(argc, argv);
+  size_t i;
 
   // These functions call die() on error
   gzFile gzin = futil_gzopen(input_path, "r");
@@ -1149,6 +1141,8 @@ int ctx_calls2vcf(int argc, char **argv)
   cJSON_Delete(json);
   gzclose(gzin);
   fclose(fout);
+
+  for(i = 0; i < chroms.len; i++) seq_read_dealloc(&chroms.b[i]);
   read_buf_dealloc(&chroms);
   kh_destroy_ChromHash(genome);
   nw_aligner_destroy();

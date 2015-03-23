@@ -13,7 +13,7 @@ madcrow_buffer(seq_file_ptr_buf, SeqFilePtrBuffer, seq_file_t*);
 
 // Load all reads from files into a read buffer and close the seq_files
 // Returns the number of reads loaded
-size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_seq_files,
+size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
                           ReadBuffer *rbuf);
 
 // Returns index of first kmer or r->seq.end if no kmers
@@ -74,8 +74,20 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
 //
 
 // Hash map of chromosome name -> sequence
-#include "khash.h"
+#include "htslib/khash.h"
 KHASH_MAP_INIT_STR(ChromHash, read_t*);
+
+static inline read_t* seq_fetch_chrom(khash_t(ChromHash) *genome,
+                                      const char *chrom_name)
+{
+  // Fetch chromosome
+  khiter_t k = kh_get(ChromHash, genome, chrom_name);
+  if(k == kh_end(genome)) die("Cannot find chrom [%s]", chrom_name);
+  return kh_value(genome, k);
+}
+
+void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
+                                 ReadBuffer *chroms, khash_t(ChromHash) *genome);
 
 void seq_reader_load_ref_genome(char **paths, size_t num_files,
                                 ReadBuffer *chroms, khash_t(ChromHash) *genome);

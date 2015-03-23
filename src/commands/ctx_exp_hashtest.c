@@ -93,12 +93,14 @@ int ctx_exp_hashtest(int argc, char **argv)
 
   if(store_kmers) {
     for(i = 0; i < num_ops; i++) {
-      bkmer = binary_kmer_random(kmer_size);
+      // bkmer = binary_kmer_random(kmer_size);
+      bkmer.b[0] = i;
       hash_table_find_or_insert(&db_graph.ht, bkmer, &found);
     }
   } else {
     for(i = 0; i < num_ops; i++) {
-      bkmer = binary_kmer_random(kmer_size);
+      // bkmer = binary_kmer_random(kmer_size);
+      bkmer.b[0] = i;
       hash ^= binary_kmer_hash(bkmer, 0);
     }
   }

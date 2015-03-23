@@ -31,13 +31,13 @@ xxHash/Makefile:
 	git clone https://github.com/Cyan4973/xxHash.git
 
 htslib/Makefile:
-	git clone --branch master git://github.com/samtools/htslib.git htslib
+	git clone --branch develop git://github.com/samtools/htslib.git htslib
 
 bcftools/Makefile:
-	git clone --branch master https://github.com/samtools/bcftools.git
+	git clone --branch develop https://github.com/samtools/bcftools.git
 
 samtools/Makefile:
-	git clone --branch master https://github.com/samtools/samtools.git
+	git clone --branch develop https://github.com/samtools/samtools.git
 
 bwa/Makefile:
 	git clone https://github.com/lh3/bwa.git

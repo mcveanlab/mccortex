@@ -61,7 +61,7 @@ endif
 
 # Library paths
 # IDIR_GSL_HEADERS=libs/gsl-1.16
-IDIR_HTS=libs/htslib/htslib
+IDIR_HTS=libs/htslib
 IDIR_STRS=libs/string_buffer
 IDIR_SEQ=libs/seq_file
 IDIR_ALIGN=libs/seq-align/src

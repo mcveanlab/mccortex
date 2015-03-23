@@ -142,7 +142,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "geno", .func = ctx_geno, .hide = true,
-  .blurb = "genotype a VCF file",
+  .blurb = "genotype a VCF file from cortex graphs",
   .usage = geno_usage
 },
 /* Experiments */

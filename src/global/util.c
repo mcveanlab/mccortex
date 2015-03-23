@@ -302,16 +302,6 @@ char* num_to_str(double num, int decimals, char* str)
   return units_to_str(num, decimals, str, units, 4, 1000);
 }
 
-/*
-// This is needed if POSIX string functions not available
-char* strdup(const char *str)
-{
-  size_t n = strlen(str);
-  char *dup = ctx_malloc(n+1);
-  if(dup) memcpy(dup, str, (n+1)*sizeof(char));
-  return dup;
-}
-*/
 
 //
 // Pretty printing
