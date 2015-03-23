@@ -24,7 +24,7 @@ typedef struct
 
 // Fetch strings
 #define file_filter_input(fltr) ((const char*)(fltr)->input.b)
-#define file_filter_path(fltr) futil_inpath_str((const char*)(fltr)->path.b)
+#define file_filter_path(fltr) ((const char*)(fltr)->path.b)
 
 // Get the number of Filters within a FileFilter
 #define file_filter_num(fltr) ((fltr)->filter.len)

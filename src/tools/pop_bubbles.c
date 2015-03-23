@@ -11,13 +11,15 @@ typedef struct
   const dBGraph *db_graph;
 } PopBubbles;
 
-// Go forward one node and back one node to get all 'parallel nodes'
-// Given node, return nodes {a,b}
-//      a
-//       \
-// node -> x
-//       /
-//      b
+/*
+  Go forward one node and back one node to get all 'parallel nodes'
+  Given node, return nodes {a,b}
+       a
+        \
+  node -> x
+        /
+       b
+*/
 static inline uint8_t get_parallel_nodes(const dBGraph *db_graph, dBNode node,
                                          dBNode nodes[16])
 {
