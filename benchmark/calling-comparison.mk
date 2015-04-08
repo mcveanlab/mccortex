@@ -55,7 +55,7 @@ MEM=$(shell echo $$[ $(MEMWIDTH) * (2**$(MEMHEIGHT)) * (8+(4+1)*$(NUM_SAMPLES)) 
 THREADMEM=$(shell echo $$[ $(MEM)+50000000000 ])
 
 RELEASECTX=$(CORTEX_PATH)/bin/cortex_var_31_c$(NUM_SAMPLES) --kmer_size $(KMER) --mem_height $(MEMHEIGHT) --mem_width $(MEMWIDTH)
-CTX=$(CTX_PATH)/bin/ctx31
+CTX=$(CTX_PATH)/bin/mccortex31
 BUILDCTX=$(CTX) build -m $(MEM)
 CLEANCTX=$(CTX) clean -m $(MEM)
 JOINCTX=$(CTX) join -m $(MEM)

@@ -230,7 +230,7 @@ contigs: $(CONTIGS) | checks
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
-  print "\t@[ -x \$(CTXDIR)/bin/ctx$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
+  print "\t@[ -x \$(CTXDIR)/bin/mccortex$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
 }
 print "\n";
 
@@ -509,7 +509,7 @@ sub get_maxk_values
 sub get_ctx
 {
   my ($k) = @_;
-  return "\$(CTXDIR)/bin/ctx".(int(($k+31)/32) * 32 - 1);
+  return "\$(CTXDIR)/bin/mccortex".(int(($k+31)/32) * 32 - 1);
 }
 
 # Split a comma separated, colon delimited list of PE files

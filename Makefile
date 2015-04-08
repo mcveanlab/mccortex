@@ -15,7 +15,7 @@
 #  make
 #  make clean
 #  make all
-#  make [ctx|tables|debug|test]
+#  make [mccortex|tables|debug|test]
 #  make tests   <- run tests
 
 # Use bash as shell
@@ -234,9 +234,9 @@ else
 	OBJS=$(CMDS_OBJS) $(TOOLS_OBJS) $(DB_ALN_OBJS) $(GRAPH_PATHS_OBJS) $(GRAPH_OBJS) $(PATHS_OBJS) $(BASIC_OBJS) $(GLOBAL_OBJS) $(KMER_OBJS) $(LIB_OBJS)
 endif
 
-.DEFAULT_GOAL := ctx
+.DEFAULT_GOAL := mccortex
 
-all: ctx tests tables
+all: mccortex tests tables
 
 # Run tests
 test: tests
@@ -293,9 +293,10 @@ libs/misc/%.o: libs/misc/%.c libs/misc/%.h
 libs/cJSON/cJSON.o: libs/cJSON/cJSON.c libs/cJSON/cJSON.h
 	$(CC) -o $@ $(CFLAGS) -c $<
 
-ctx: bin/ctx$(MAXK)
-bin/ctx$(MAXK): src/main/ctx.c $(OBJS) $(HDRS) $(REQ) | bin
-	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/ctx.c $(OBJS) $(LINK)
+mccortex: bin/mccortex$(MAXK)
+bin/mccortex$(MAXK): src/main/mccortex.c $(OBJS) $(HDRS) $(REQ) | bin
+	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/mccortex.c $(OBJS) $(LINK)
+	ln $@ bin/ctx$(MAXK)
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(TESTS_HDRS) $(OBJS) $(HDRS) $(REQ) | bin
@@ -324,4 +325,4 @@ clean:
 
 force:
 
-.PHONY: all clean ctx test force
+.PHONY: all clean mccortex test force

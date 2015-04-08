@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 
 all: seq.k15.ctx seq.k15.dot
 

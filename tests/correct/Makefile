@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=9
 

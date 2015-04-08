@@ -32,21 +32,21 @@ for T in 0 1 2 4
 do
   # echo "McCortex hashtable with $T threads"
   echo "Run McCortex to flush cache"
-  ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 100M 80000000 >& /dev/null
+  ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000 >& /dev/null
 
   echo "McCortex hashtable with $T threads 80M entries"
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
 
   echo "McCortex hashtable with $T threads 800M entries"
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/ctx31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
+  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
 done
 
 # grep '(^real|\[cmd\])'

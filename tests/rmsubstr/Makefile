@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 
 LAST=5
 INPUT_FILES=$(shell echo input.{0..$(LAST)}.fa)

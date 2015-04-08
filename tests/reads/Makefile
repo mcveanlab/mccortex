@@ -2,7 +2,7 @@ SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNA=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 K=9
 
 READS=reads.fa reads.1.fa.gz reads.2.fa.gz reads.interleaved.fq.gz

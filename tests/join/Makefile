@@ -2,7 +2,7 @@ SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 
 SAMPLES=$(shell echo in{,{0..2}}.ctx)
 MERGED=$(shell echo flatten013.ctx merge.gaps.use{1..2}.ctx)

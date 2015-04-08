@@ -88,6 +88,11 @@ int ctx_exp_hashtest(int argc, char **argv)
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_uint32_nonzero(cmd, optarg); break;
       case 'F': cmd_check(store_kmers,cmd); store_kmers = false; break;
+      case ':': /* BADARG */
+      case '?': /* BADCH getopt_long has already printed error */
+        // cmd_print_usage(NULL);
+        die("`"CMD" hashtest -h` for help. Bad option: %s", argv[optind-1]);
+      default: abort();
     }
   }
 

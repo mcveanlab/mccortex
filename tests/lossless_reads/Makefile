@@ -10,7 +10,7 @@ SHELL:=/bin/bash -euo pipefail
 #
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 PERFECTCOVG=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
 MAXIMALSUBSTR=$(CTXDIR)/libs/maximal_substrs/maxsubstrs

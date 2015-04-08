@@ -3,7 +3,7 @@ SHELL=/bin/bash -euo pipefail
 # Test pop bubbles with a multiple samples, multiple input files
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 K=21
 
 SEQS=sample1.fa sample2.fa clean2.fa

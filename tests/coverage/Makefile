@@ -2,7 +2,7 @@ SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 K=5
 
 TGTS=seq.fa rnd.fa seq.k$(K).ctx coverage.txt

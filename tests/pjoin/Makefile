@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 
 PATHS=paths.0.ctp.gz paths.1.ctp.gz
 SEQ=genome.0.fa genome.1.fa

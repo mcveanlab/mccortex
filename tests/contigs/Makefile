@@ -4,7 +4,7 @@ CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 BIOINF=$(CTXDIR)/libs/bioinf-perl
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 
 K=9
 NSAMPLES=3

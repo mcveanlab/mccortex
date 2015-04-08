@@ -4,7 +4,7 @@ TARGETS=rnd.fa rnd.k39.ctx rnd.clean.k39.ctx
 
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/ctx63
+CTX=$(CTXDIR)/bin/mccortex63
 
 all: $(TARGETS)
 

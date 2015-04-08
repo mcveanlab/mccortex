@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-19 February 2015
+8 April 2015
 
 [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)[![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
@@ -38,7 +38,7 @@ Executables appear in the `bin/` directory. To update the libraries included:
 Commands
 --------
 
-    usage: ctx31 <command> [options] <args>
+    usage: mccortex31 <command> [options] <args>
     version: ctx=XXXX zlib=1.2.5 htslib=1.2.1 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
 
     Commands:   breakpoints  use a trusted assembled genome to call large events
@@ -107,7 +107,7 @@ Static analysis can be run with [cppcheck](http://cppcheck.sourceforge.net):
 
 or with [clang](http://clang-analyzer.llvm.org):
 
-    rm -rf bin/ctx31
+    rm -rf bin/mccortex31
     scan-build make RECOMPILE=1
 
 Occasionally we also run Coverity Scan. This is done by pushing to the `coverity_scan` branch on github, which triggers Travis CI to upload the latest code to Coverity.

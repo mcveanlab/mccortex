@@ -7,8 +7,7 @@
 
 // Constants
 
-#define CTXCMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
-#define CMD "ctx"QUOTE_VALUE(MAX_KMER_SIZE)
+#define CMD "mccortex"QUOTE_VALUE(MAX_KMER_SIZE)
 
 #define DEFAULT_NTHREADS 2
 #define DEFAULT_MEM 1UL<<29 /*512MB*/
