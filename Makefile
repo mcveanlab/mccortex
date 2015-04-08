@@ -102,13 +102,13 @@ USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
 
 # -Wcast-align catches htslib doing (uint32_t*)(x) where x is (uint8_t*)
 # IGNORE_CFLAGS=-Wno-aggregate-return -Wno-conversion -Wno-cast-align
-
+# -D_FORTIFY_SOURCE=2 triggers issues on older systems (if not linking to ssp?)
 OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
                   -Wstrict-aliasing -Wdiv-by-zero -Wsign-compare \
                   -Wcast-qual -Wmissing-noreturn -Wreturn-type \
                   -Wwrite-strings -Wundef -Wpointer-arith \
                   -Wfloat-equal -Wbad-function-cast \
-                  -fstack-protector-all -D_FORTIFY_SOURCE=2
+                  -fstack-protector-all
 
 CLANG_CFLAGS=-fsanitize-undefined-trap-on-error
 #-Wno-shorten-64-to-32
