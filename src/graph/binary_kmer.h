@@ -4,6 +4,8 @@
 #include "bit_array/bit_macros.h"
 #include "dna.h"
 
+// coding is: [1]=xx665544 [0]=33221100
+
 // NUM_BKMER_WORDS is the number of 64 bit words we use to encode a kmer
 #define NUM_BKMER_WORDS (((MAX_KMER_SIZE)*2+63)/64)
 
