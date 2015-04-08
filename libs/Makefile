@@ -1,7 +1,7 @@
 SHELL=/bin/bash
 
-# make          <- compile all libraries
-# make all      <- compile all libraries
+# make          <- compile mccortex dependencies
+# make all      <- compile all libraries (deps + analysis)
 # make clean    <- clean all libraries
 
 CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
