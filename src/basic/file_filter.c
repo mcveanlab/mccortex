@@ -254,5 +254,5 @@ void file_filter_merge(FileFilter *a, FileFilter *b)
   }
 
   // Remove n items from the start of the array
-  filter_buf_shiftn(&a->filter, n);
+  filter_buf_shift(&a->filter, NULL, n);
 }

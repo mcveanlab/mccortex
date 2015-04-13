@@ -2,6 +2,36 @@
 #include "pop_bubbles.h"
 #include "supernode.h"
 
+/*
+  Popping bubbles works by iterating over all supernodes. For each supernode
+  we attempt to pull out parallel supernodes. Once we have two parallel
+  supernodes we see if one should be removed.
+*/
+
+/*
+ In some rare situations boths branches of a bubble will be removed.
+ Example: Both bottom branches may be removed.
+
+   ___         ___         ___         ___  
+ _/   \_     _/   \_     _/ ^ \_     _/ ^ \_
+  \___/       \___/       \___/             
+ _/ ^ \_ ->  _/   \_ ->  _/ ^ \_ ->  _/   \_
+  \___/                                     
+    ^                                       
+
+  Note: Could avoid this if we only remove supernodes
+        where in-degree == 1 and out-degree == 1,
+        otherwise just remove our edges.
+
+   ___         ___         ___         ___  
+ _/   \_     _/   \_     _/ ^ \_     _/ ^ \_
+  \___/       \___/       \___/        ___  
+ _/ ^ \_ ->  _/   \_ ->  _/ ^ \_ ->  _/   \_
+  \___/                                     
+    ^                                       
+
+ */
+
 typedef struct
 {
   uint8_t *const visited, *const rmvbits;
@@ -57,12 +87,12 @@ static inline bool process_bubble(const dBNode *s1, size_t n1,
                                   uint8_t *visited, uint8_t *rmvbits,
                                   const dBGraph *db_graph)
 {
-  size_t i, sum_covg1 = 0, sum_covg2 = 0;
+  size_t i, sum_covg1 = 0, sum_covg2 = 0, mean_covg1, mean_covg2;
 
   for(i = 0; i < n1; i++) sum_covg1 += db_node_sum_covg(db_graph, s1[i].key);
   for(i = 0; i < n2; i++) sum_covg2 += db_node_sum_covg(db_graph, s2[i].key);
-  sum_covg1 /= n1;
-  sum_covg2 /= n2;
+  mean_covg1 = sum_covg1 / n1;
+  mean_covg2 = sum_covg2 / n2;
 
   // Print alleles
   // pthread_mutex_lock(&ctx_biglock);
@@ -74,14 +104,14 @@ static inline bool process_bubble(const dBNode *s1, size_t n1,
   // pthread_mutex_unlock(&ctx_biglock);
 
   size_t rmv_covg, rmv_klen;
-  if(sum_covg1 < sum_covg2) { rmv_covg = sum_covg1; rmv_klen = n1; }
-  else                      { rmv_covg = sum_covg2; rmv_klen = n2; }
+  if(mean_covg1 < mean_covg2) { rmv_covg = mean_covg1; rmv_klen = n1; }
+  else                        { rmv_covg = mean_covg2; rmv_klen = n2; }
 
   if((!p->max_rmv_covg     || rmv_covg <= (size_t)p->max_rmv_covg) &&
      (!p->max_rmv_klen     || rmv_klen <= (size_t)p->max_rmv_klen) &&
      (p->max_rmv_kdiff < 0 || abs((int)n1 - (int)n2) <= p->max_rmv_kdiff))
   {
-    if(sum_covg1 < sum_covg2) {
+    if(mean_covg1 < mean_covg2) {
       // remove s1
       mark_node_bitarr_mt(s1, n1, rmvbits);
     }

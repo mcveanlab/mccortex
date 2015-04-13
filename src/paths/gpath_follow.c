@@ -2,7 +2,7 @@
 #include "gpath_follow.h"
 #include "binary_seq.h"
 
-// Check if the GPathFollow cache needs updated, based of path->pos value
+// Check if the GPathFollow cache needs updated, based off path->pos value
 // if it does, update it
 void gpath_follow_cache_update(GPathFollow *path, size_t pos)
 {

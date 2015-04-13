@@ -3,7 +3,12 @@
 set -euo pipefail
 set -o xtrace
 
-git clone https://github.com/noporpoise/jelly-hash.git
+if [ ! -d jelly-hash ]; then
+  git clone https://github.com/noporpoise/jelly-hash.git
+else
+  cd jelly-hash && git pull && cd ..
+fi
+
 cd jelly-hash && make && cd ..
 
 for T in 1 2 4
@@ -20,12 +25,14 @@ do
   time ./jelly-hash/speedtest -t $T -k 62 -l 22 -b 25 80000000
   time ./jelly-hash/speedtest -t $T -k 62 -l 22 -b 25 80000000
 
-  echo "JellyHash hashtable with $T threads 800M entries"
-  time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
-  time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
-  time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
-  time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
-  time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
+  if [ "$1" != "--lowmem" ]; then
+    echo "JellyHash hashtable with $T threads 800M entries"
+    time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
+    time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
+    time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
+    time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
+    time ./jelly-hash/speedtest -t $T -k 62 -l 25 -b 32 800000000
+  fi
 done
 
 for T in 0 1 2 4
@@ -41,12 +48,14 @@ do
   time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
   time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 100M 80000000
 
-  echo "McCortex hashtable with $T threads 800M entries"
-  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
-  time ../../bin/mccortex31 hashtest -t $T -k 31 -m 2G -n 1G 800000000
+  if [ "$1" != "--lowmem" ]; then
+    echo "McCortex hashtable with $T threads 800M entries"
+    time ../../bin/mccortex31 hashtest -t $T -k 31 -m 10G -n 1G 800000000
+    time ../../bin/mccortex31 hashtest -t $T -k 31 -m 10G -n 1G 800000000
+    time ../../bin/mccortex31 hashtest -t $T -k 31 -m 10G -n 1G 800000000
+    time ../../bin/mccortex31 hashtest -t $T -k 31 -m 10G -n 1G 800000000
+    time ../../bin/mccortex31 hashtest -t $T -k 31 -m 10G -n 1G 800000000
+  fi
 done
 
 # grep '(^real|\[cmd\])'

@@ -5,12 +5,14 @@ void genotyper_alloc(Genotyper *typer)
 {
   strbuf_alloc(&typer->seq, 1024);
   typer->h = kh_init(BkToBits);
+  genokmer_buf_alloc(&typer->kmer_buf, 512);
 }
 
 void genotyper_dealloc(Genotyper *typer)
 {
   strbuf_dealloc(&typer->seq);
   kh_destroy(BkToBits, typer->h);
+  genokmer_buf_dealloc(&typer->kmer_buf);
   memset(typer, 0, sizeof(*typer));
 }
 
@@ -85,13 +87,15 @@ void genotyping_get_covg(Genotyper *typer,
                          const GenoVar *vars, size_t nvars,
                          size_t tgtidx, size_t ntgts,
                          const char *chrom, size_t chromlen,
-                         size_t kmer_size,
-                         GenoKmerBuffer *gkbuf)
+                         size_t kmer_size)
 {
   ctx_assert(nvars < 64);
   ctx_assert(nvars > 0);
   ctx_assert(tgtidx < nvars);
   ctx_assert(ntgts <= 32);
+
+  GenoKmerBuffer *gkbuf = &typer->kmer_buf;
+  genokmer_buf_reset(gkbuf);
 
   const GenoVar *tgt = &vars[tgtidx];
 

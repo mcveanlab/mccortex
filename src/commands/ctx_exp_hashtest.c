@@ -7,7 +7,7 @@
 const char exp_hashtest_usage[] =
 "usage: "CMD" hashtest [options] <num_ops>\n"
 "\n"
-"  Test hash table speed.\n"
+"  Test hash table speed. If threads is set to 0, use single-threaded code.\n"
 "\n"
 "  -h, --help        This help message\n"
 "  -m, --memory <M>  Memory to use\n"

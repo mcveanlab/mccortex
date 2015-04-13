@@ -147,7 +147,7 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
       exp_gaps[i]  += stats->gap_err_histgrm[i][j];
       act_gaps[j]  += stats->gap_err_histgrm[i][j];
       num_seq_gaps += stats->gap_err_histgrm[i][j];
-      sum_gap_diff += labs((long)i-j)*stats->gap_err_histgrm[i][j];
+      sum_gap_diff += labs((long)i - (long)j)*stats->gap_err_histgrm[i][j];
     }
   }
 

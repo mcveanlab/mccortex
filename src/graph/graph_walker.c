@@ -95,9 +95,9 @@ void graph_walker_setup(GraphWalker *wlk, bool missing_path_check,
 
 static inline void _gw_gseg_init(GraphWalker *wlk)
 {
-  ctx_assert(gseg_list_length(&wlk->gsegs) == 0);
+  ctx_assert(gseg_list_len(&wlk->gsegs) == 0);
   GraphSegment gseg = {.in_fork = false, .out_fork = false, .num_nodes = 1};
-  gseg_list_unshift(&wlk->gsegs, gseg);
+  gseg_list_unshift(&wlk->gsegs, &gseg, 1);
 }
 
 static inline void _gw_gseg_update(GraphWalker *wlk,
@@ -105,8 +105,8 @@ static inline void _gw_gseg_update(GraphWalker *wlk,
                                    size_t num_nodes)
 {
   // First GraphSection is the one the most recent one we saw
-  size_t i, len = gseg_list_length(&wlk->gsegs);
-  GraphSegment *first = gseg_list_get(&wlk->gsegs, 0);
+  size_t i, len = gseg_list_len(&wlk->gsegs);
+  GraphSegment *first = gseg_list_getptr(&wlk->gsegs, 0);
   ctx_assert(len > 0);
 
   // Previous section may have ended in a fork - update it
@@ -117,10 +117,10 @@ static inline void _gw_gseg_update(GraphWalker *wlk,
     // Start a new section
     ctx_assert(num_nodes == 1);
     GraphSegment gseg = {.in_fork = rv_fork, .out_fork = 0, .num_nodes = 0};
-    gseg_list_unshift(&wlk->gsegs, gseg);
+    gseg_list_unshift(&wlk->gsegs, &gseg, 1);
 
-    len = gseg_list_length(&wlk->gsegs);
-    first = gseg_list_get(&wlk->gsegs, 0);
+    len = gseg_list_len(&wlk->gsegs);
+    first = gseg_list_getptr(&wlk->gsegs, 0);
 
     // Update all path ages: age is the graph section index
     for(i = 0; i < wlk->paths.len; i++)
@@ -138,7 +138,7 @@ static inline void _gw_gseg_update(GraphWalker *wlk,
       max_segs = MAX2(max_segs, wlk->cntr_paths.b[0].age + 1);
 
     ctx_assert2(max_segs <= len, "%zu > %zu", max_segs, len);
-    gseg_list_popn(&wlk->gsegs, len - max_segs);
+    gseg_list_pop(&wlk->gsegs, NULL, len - max_segs);
   }
 
   // printf("jump %zu\n", num_nodes);
@@ -226,7 +226,7 @@ void graph_walker_start(GraphWalker *wlk, dBNode node)
 {
   ctx_assert(wlk->paths.len == 0);
   ctx_assert(wlk->cntr_paths.len == 0);
-  ctx_assert(gseg_list_length(&wlk->gsegs) == 0);
+  ctx_assert(gseg_list_len(&wlk->gsegs) == 0);
 
   wlk->node = node;
 
@@ -249,8 +249,8 @@ void graph_walker_start(GraphWalker *wlk, dBNode node)
   // Pick up new paths
   pickup_paths(wlk, wlk->node, false, 0);
 
-  ctx_assert(gseg_list_length(&wlk->gsegs) == 1);
-  // printf("zero: %u\n", gseg_list_get(&wlk->gsegs, 0)->num_nodes);
+  ctx_assert(gseg_list_len(&wlk->gsegs) == 1);
+  // printf("zero: %u\n", gseg_list_getptr(&wlk->gsegs, 0)->num_nodes);
 
   // Don't pick up counter paths on init() - there is no point
   // since there is no scenario where they'd help if picked up here
@@ -468,11 +468,11 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
     _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, 0);
 
   size_t choice_age = (i < wlk->paths.len ? wlk->paths.b[i].age : 0);
-  GraphSegment *gseg, *first_seg = gseg_list_get(&wlk->gsegs, 0);
+  GraphSegment *gseg, *first_seg = gseg_list_getptr(&wlk->gsegs, 0);
 
-  // for(i = 0; i < gseg_list_length(&wlk->gsegs); i++)
-  //   printf(" %u", gseg_list_get(&wlk->gsegs, i)->num_nodes);
-  // printf(" [%zu]\n", gseg_list_length(&wlk->gsegs));
+  // for(i = 0; i < gseg_list_len(&wlk->gsegs); i++)
+  //   printf(" %u", gseg_list_getptr(&wlk->gsegs, i)->num_nodes);
+  // printf(" [%zu]\n", gseg_list_len(&wlk->gsegs));
 
   GraphSegment *choice_seg = first_seg + choice_age;
   while(!choice_seg->in_fork) choice_seg++;

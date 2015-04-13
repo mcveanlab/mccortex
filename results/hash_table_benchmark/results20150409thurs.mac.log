@@ -1,0 +1,864 @@
++ '[' '!' -d jelly-hash ']'
++ cd jelly-hash
++ git pull
+Already up-to-date.
++ cd ..
++ cd jelly-hash
++ make
+make: Nothing to be done for `all'.
++ cd ..
++ for T in 1 2 4
++ echo 'Run JellyHash to flush cache'
+Run JellyHash to flush cache
++ ./jelly-hash/speedtest -t 1 -k 62 -l 22 -b 25 80000000
++ echo 'JellyHash hashtable with 1 threads 80M entries'
+JellyHash hashtable with 1 threads 80M entries
++ ./jelly-hash/speedtest -t 1 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 1 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+
+real	1m1.363s
+user	0m42.915s
+sys	0m0.988s
++ ./jelly-hash/speedtest -t 1 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 1 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+
+real	0m56.512s
+user	0m40.608s
+sys	0m0.829s
++ ./jelly-hash/speedtest -t 1 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 1 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+
+real	0m56.186s
+user	0m40.536s
+sys	0m0.833s
++ ./jelly-hash/speedtest -t 1 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 1 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+
+real	0m58.414s
+user	0m40.576s
+sys	0m0.962s
++ ./jelly-hash/speedtest -t 1 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 1 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+
+real	0m57.391s
+user	0m40.630s
+sys	0m1.152s
++ '[' --lowmem '!=' --lowmem ']'
++ for T in 1 2 4
++ echo 'Run JellyHash to flush cache'
+Run JellyHash to flush cache
++ ./jelly-hash/speedtest -t 2 -k 62 -l 22 -b 25 80000000
++ echo 'JellyHash hashtable with 2 threads 80M entries'
+JellyHash hashtable with 2 threads 80M entries
++ ./jelly-hash/speedtest -t 2 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 2 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867144
+  1: 1067133
+  2: 60812
+  3: 4476
+  4: 395
+  5: 39
+  6: 1
+
+real	0m28.878s
+user	0m41.933s
+sys	0m1.008s
++ ./jelly-hash/speedtest -t 2 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 2 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867112
+  1: 1067247
+  2: 60753
+  3: 4449
+  4: 400
+  5: 38
+  6: 1
+
+real	0m26.737s
+user	0m42.021s
+sys	0m0.979s
++ ./jelly-hash/speedtest -t 2 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 2 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867233
+  1: 1066882
+  2: 60977
+  3: 4477
+  4: 390
+  5: 39
+  6: 2
+
+real	0m27.577s
+user	0m41.993s
+sys	0m1.094s
++ ./jelly-hash/speedtest -t 2 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 2 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867032
+  1: 1067456
+  2: 60612
+  3: 4470
+  4: 391
+  5: 38
+  6: 1
+
+real	0m35.379s
+user	0m41.962s
+sys	0m1.085s
++ ./jelly-hash/speedtest -t 2 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 2 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867072
+  1: 1067376
+  2: 60658
+  3: 4462
+  4: 393
+  5: 38
+  6: 1
+
+real	0m29.724s
+user	0m42.026s
+sys	0m0.999s
++ '[' --lowmem '!=' --lowmem ']'
++ for T in 1 2 4
++ echo 'Run JellyHash to flush cache'
+Run JellyHash to flush cache
++ ./jelly-hash/speedtest -t 4 -k 62 -l 22 -b 25 80000000
++ echo 'JellyHash hashtable with 4 threads 80M entries'
+JellyHash hashtable with 4 threads 80M entries
++ ./jelly-hash/speedtest -t 4 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 4 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867266
+  1: 1067108
+  2: 60649
+  3: 4552
+  4: 389
+  5: 33
+  6: 3
+
+real	0m27.349s
+user	0m42.099s
+sys	0m1.070s
++ ./jelly-hash/speedtest -t 4 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 4 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867369
+  1: 1067005
+  2: 60668
+  3: 4539
+  4: 385
+  5: 31
+  6: 3
+
+real	0m26.576s
+user	0m41.992s
+sys	0m0.898s
++ ./jelly-hash/speedtest -t 4 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 4 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867249
+  1: 1067106
+  2: 60686
+  3: 4550
+  4: 375
+  5: 31
+  6: 3
+
+real	0m27.193s
+user	0m42.058s
+sys	0m1.065s
++ ./jelly-hash/speedtest -t 4 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 4 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867286
+  1: 1067082
+  2: 60643
+  3: 4578
+  4: 378
+  5: 30
+  6: 3
+
+real	0m27.793s
+user	0m42.071s
+sys	0m1.213s
++ ./jelly-hash/speedtest -t 4 -k 62 -l 22 -b 25 80000000
+JellyHash Test k: 62, l: 22, b: 25, threads: 4 mem: 562.5MB
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 0/104857600 (0.00%) mem: 589824000 bytes
+  l: 22, k: 62, keylen: 45, nbins: 4194304, binsize: 25, word size: 64
+  occupancy: 80000000/104857600 (76.29%) mem: 589824000 bytes
+collisions:
+  0: 78867277
+  1: 1067118
+  2: 60637
+  3: 4536
+  4: 396
+  5: 33
+  6: 3
+
+real	0m28.082s
+user	0m42.079s
+sys	0m1.380s
++ '[' --lowmem '!=' --lowmem ']'
++ for T in 0 1 2 4
++ echo 'Run McCortex to flush cache'
+Run McCortex to flush cache
++ ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
++ echo 'McCortex hashtable with 0 threads 80M entries'
+McCortex hashtable with 0 threads 80M entries
++ ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:49:05-Kog][cmd] ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:49:05-Kog][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:49:05-Kog][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:49:05-Kog][memory] 64 bits per kmer
+[09 Apr 2015 11:49:05-Kog] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:49:05-Kog][memory] graph: 808MB
+[09 Apr 2015 11:49:05-Kog][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:49:05-Kog][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:49:05-Kog][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:49:06-Kog][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:49:06-Kog][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:49:06-Kog][threads] using 1 thread (single-threaded code)
+[09 Apr 2015 11:49:33-Kog][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:49:33-Kog]  collisions  0: 79080752
+[09 Apr 2015 11:49:33-Kog]  collisions  1: 858249
+[09 Apr 2015 11:49:33-Kog]  collisions  2: 55907
+[09 Apr 2015 11:49:33-Kog]  collisions  3: 4612
+[09 Apr 2015 11:49:33-Kog]  collisions  4: 438
+[09 Apr 2015 11:49:33-Kog]  collisions  5: 39
+[09 Apr 2015 11:49:33-Kog]  collisions  6: 3
+[09 Apr 2015 11:49:33-Kog] Output hash: 0
+[09 Apr 2015 11:49:33-Kog][memory] We made 8 allocs
+[09 Apr 2015 11:49:33-Kog] Done.
+[09 Apr 2015 11:49:33-Kog][time] 28.00 seconds
+
+real	0m28.290s
+user	0m21.454s
+sys	0m1.256s
++ ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:49:33-LAR][cmd] ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:49:33-LAR][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:49:33-LAR][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:49:33-LAR][memory] 64 bits per kmer
+[09 Apr 2015 11:49:33-LAR] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:49:33-LAR][memory] graph: 808MB
+[09 Apr 2015 11:49:33-LAR][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:49:33-LAR][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:49:33-LAR][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:49:34-LAR][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:49:34-LAR][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:49:34-LAR][threads] using 1 thread (single-threaded code)
+[09 Apr 2015 11:50:02-LAR][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:50:02-LAR]  collisions  0: 79080073
+[09 Apr 2015 11:50:02-LAR]  collisions  1: 858861
+[09 Apr 2015 11:50:02-LAR]  collisions  2: 55967
+[09 Apr 2015 11:50:02-LAR]  collisions  3: 4646
+[09 Apr 2015 11:50:02-LAR]  collisions  4: 410
+[09 Apr 2015 11:50:02-LAR]  collisions  5: 38
+[09 Apr 2015 11:50:02-LAR]  collisions  6: 4
+[09 Apr 2015 11:50:02-LAR]  collisions  7: 1
+[09 Apr 2015 11:50:02-LAR] Output hash: 0
+[09 Apr 2015 11:50:02-LAR][memory] We made 8 allocs
+[09 Apr 2015 11:50:02-LAR] Done.
+[09 Apr 2015 11:50:02-LAR][time] 29.00 seconds
+
+real	0m28.416s
+user	0m21.526s
+sys	0m1.138s
++ ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:50:02-MAw][cmd] ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:50:02-MAw][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:50:02-MAw][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:50:02-MAw][memory] 64 bits per kmer
+[09 Apr 2015 11:50:02-MAw] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:50:02-MAw][memory] graph: 808MB
+[09 Apr 2015 11:50:02-MAw][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:50:02-MAw][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:50:02-MAw][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:50:03-MAw][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:50:03-MAw][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:50:03-MAw][threads] using 1 thread (single-threaded code)
+[09 Apr 2015 11:51:02-MAw][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:51:02-MAw]  collisions  0: 79078482
+[09 Apr 2015 11:51:02-MAw]  collisions  1: 860241
+[09 Apr 2015 11:51:02-MAw]  collisions  2: 56140
+[09 Apr 2015 11:51:02-MAw]  collisions  3: 4692
+[09 Apr 2015 11:51:02-MAw]  collisions  4: 396
+[09 Apr 2015 11:51:02-MAw]  collisions  5: 46
+[09 Apr 2015 11:51:02-MAw]  collisions  6: 3
+[09 Apr 2015 11:51:02-MAw] Output hash: 0
+[09 Apr 2015 11:51:02-MAw][memory] We made 8 allocs
+[09 Apr 2015 11:51:02-MAw] Done.
+[09 Apr 2015 11:51:02-MAw][time] 60.00 seconds (1 min 0 secs)
+
+real	1m0.026s
+user	0m22.989s
+sys	0m6.393s
++ ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:51:02-zol][cmd] ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:51:02-zol][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:51:02-zol][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:51:02-zol][memory] 64 bits per kmer
+[09 Apr 2015 11:51:02-zol] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:51:02-zol][memory] graph: 808MB
+[09 Apr 2015 11:51:02-zol][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:51:02-zol][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:51:02-zol][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:51:03-zol][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:51:03-zol][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:51:03-zol][threads] using 1 thread (single-threaded code)
+[09 Apr 2015 11:51:30-zol][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:51:30-zol]  collisions  0: 79079484
+[09 Apr 2015 11:51:30-zol]  collisions  1: 859095
+[09 Apr 2015 11:51:30-zol]  collisions  2: 56214
+[09 Apr 2015 11:51:30-zol]  collisions  3: 4730
+[09 Apr 2015 11:51:30-zol]  collisions  4: 429
+[09 Apr 2015 11:51:30-zol]  collisions  5: 47
+[09 Apr 2015 11:51:30-zol]  collisions  6: 1
+[09 Apr 2015 11:51:30-zol] Output hash: 0
+[09 Apr 2015 11:51:30-zol][memory] We made 8 allocs
+[09 Apr 2015 11:51:30-zol] Done.
+[09 Apr 2015 11:51:30-zol][time] 28.00 seconds
+
+real	0m27.817s
+user	0m21.415s
+sys	0m1.268s
++ ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:51:30-Gah][cmd] ../../bin/mccortex31 hashtest -t 0 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:51:30-Gah][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:51:30-Gah][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:51:30-Gah][memory] 64 bits per kmer
+[09 Apr 2015 11:51:30-Gah] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:51:30-Gah][memory] graph: 808MB
+[09 Apr 2015 11:51:30-Gah][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:51:30-Gah][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:51:30-Gah][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:51:31-Gah][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:51:31-Gah][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:51:31-Gah][threads] using 1 thread (single-threaded code)
+[09 Apr 2015 11:51:56-Gah][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:51:56-Gah]  collisions  0: 79083734
+[09 Apr 2015 11:51:56-Gah]  collisions  1: 856101
+[09 Apr 2015 11:51:56-Gah]  collisions  2: 55154
+[09 Apr 2015 11:51:56-Gah]  collisions  3: 4527
+[09 Apr 2015 11:51:56-Gah]  collisions  4: 428
+[09 Apr 2015 11:51:56-Gah]  collisions  5: 52
+[09 Apr 2015 11:51:56-Gah]  collisions  6: 3
+[09 Apr 2015 11:51:56-Gah]  collisions  8: 1
+[09 Apr 2015 11:51:56-Gah] Output hash: 0
+[09 Apr 2015 11:51:56-Gah][memory] We made 8 allocs
+[09 Apr 2015 11:51:56-Gah] Done.
+[09 Apr 2015 11:51:56-Gah][time] 26.00 seconds
+
+real	0m26.420s
+user	0m21.304s
+sys	0m1.156s
++ '[' --lowmem '!=' --lowmem ']'
++ for T in 0 1 2 4
++ echo 'Run McCortex to flush cache'
+Run McCortex to flush cache
++ ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
++ echo 'McCortex hashtable with 1 threads 80M entries'
+McCortex hashtable with 1 threads 80M entries
++ ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:52:37-lEp][cmd] ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:52:37-lEp][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:52:37-lEp][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:52:37-lEp][memory] 64 bits per kmer
+[09 Apr 2015 11:52:37-lEp] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:52:37-lEp][memory] graph: 808MB
+[09 Apr 2015 11:52:37-lEp][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:52:37-lEp][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:52:37-lEp][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:52:38-lEp][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:52:38-lEp][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:52:38-lEp][threads] using 1 thread (multi-threaded code)
+[09 Apr 2015 11:53:17-lEp][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:53:17-lEp]  collisions  0: 79080509
+[09 Apr 2015 11:53:17-lEp]  collisions  1: 858681
+[09 Apr 2015 11:53:17-lEp]  collisions  2: 55780
+[09 Apr 2015 11:53:17-lEp]  collisions  3: 4528
+[09 Apr 2015 11:53:17-lEp]  collisions  4: 464
+[09 Apr 2015 11:53:17-lEp]  collisions  5: 34
+[09 Apr 2015 11:53:17-lEp]  collisions  6: 4
+[09 Apr 2015 11:53:17-lEp] Output hash: 0
+[09 Apr 2015 11:53:17-lEp][memory] We made 8 allocs
+[09 Apr 2015 11:53:17-lEp] Done.
+[09 Apr 2015 11:53:17-lEp][time] 40.00 seconds
+
+real	0m40.184s
+user	0m34.270s
+sys	0m1.093s
++ ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:53:17-QAp][cmd] ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:53:17-QAp][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:53:17-QAp][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:53:17-QAp][memory] 64 bits per kmer
+[09 Apr 2015 11:53:17-QAp] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:53:17-QAp][memory] graph: 808MB
+[09 Apr 2015 11:53:17-QAp][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:53:17-QAp][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:53:17-QAp][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:53:18-QAp][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:53:18-QAp][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:53:18-QAp][threads] using 1 thread (multi-threaded code)
+[09 Apr 2015 11:53:57-QAp][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:53:57-QAp]  collisions  0: 79077892
+[09 Apr 2015 11:53:57-QAp]  collisions  1: 860972
+[09 Apr 2015 11:53:57-QAp]  collisions  2: 56048
+[09 Apr 2015 11:53:57-QAp]  collisions  3: 4614
+[09 Apr 2015 11:53:57-QAp]  collisions  4: 427
+[09 Apr 2015 11:53:57-QAp]  collisions  5: 44
+[09 Apr 2015 11:53:57-QAp]  collisions  6: 3
+[09 Apr 2015 11:53:57-QAp] Output hash: 0
+[09 Apr 2015 11:53:57-QAp][memory] We made 8 allocs
+[09 Apr 2015 11:53:57-QAp] Done.
+[09 Apr 2015 11:53:57-QAp][time] 40.00 seconds
+
+real	0m39.912s
+user	0m34.263s
+sys	0m1.104s
++ ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:53:57-DaY][cmd] ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:53:57-DaY][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:53:57-DaY][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:53:57-DaY][memory] 64 bits per kmer
+[09 Apr 2015 11:53:57-DaY] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:53:57-DaY][memory] graph: 808MB
+[09 Apr 2015 11:53:57-DaY][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:53:57-DaY][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:53:57-DaY][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:53:58-DaY][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:53:58-DaY][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:53:58-DaY][threads] using 1 thread (multi-threaded code)
+[09 Apr 2015 11:54:38-DaY][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:54:38-DaY]  collisions  0: 79079519
+[09 Apr 2015 11:54:38-DaY]  collisions  1: 859251
+[09 Apr 2015 11:54:38-DaY]  collisions  2: 55938
+[09 Apr 2015 11:54:38-DaY]  collisions  3: 4819
+[09 Apr 2015 11:54:38-DaY]  collisions  4: 430
+[09 Apr 2015 11:54:38-DaY]  collisions  5: 38
+[09 Apr 2015 11:54:38-DaY]  collisions  6: 5
+[09 Apr 2015 11:54:38-DaY] Output hash: 0
+[09 Apr 2015 11:54:38-DaY][memory] We made 8 allocs
+[09 Apr 2015 11:54:38-DaY] Done.
+[09 Apr 2015 11:54:38-DaY][time] 41.00 seconds
+
+real	0m40.800s
+user	0m34.371s
+sys	0m1.214s
++ ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:54:38-fOQ][cmd] ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:54:38-fOQ][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:54:38-fOQ][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:54:38-fOQ][memory] 64 bits per kmer
+[09 Apr 2015 11:54:38-fOQ] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:54:38-fOQ][memory] graph: 808MB
+[09 Apr 2015 11:54:38-fOQ][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:54:38-fOQ][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:54:38-fOQ][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:54:38-fOQ][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:54:38-fOQ][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:54:38-fOQ][threads] using 1 thread (multi-threaded code)
+[09 Apr 2015 11:55:17-fOQ][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:55:17-fOQ]  collisions  0: 79080663
+[09 Apr 2015 11:55:17-fOQ]  collisions  1: 858598
+[09 Apr 2015 11:55:17-fOQ]  collisions  2: 55642
+[09 Apr 2015 11:55:17-fOQ]  collisions  3: 4618
+[09 Apr 2015 11:55:17-fOQ]  collisions  4: 431
+[09 Apr 2015 11:55:17-fOQ]  collisions  5: 39
+[09 Apr 2015 11:55:17-fOQ]  collisions  6: 7
+[09 Apr 2015 11:55:17-fOQ]  collisions  7: 2
+[09 Apr 2015 11:55:18-fOQ] Output hash: 0
+[09 Apr 2015 11:55:18-fOQ][memory] We made 8 allocs
+[09 Apr 2015 11:55:18-fOQ] Done.
+[09 Apr 2015 11:55:18-fOQ][time] 40.00 seconds
+
+real	0m39.822s
+user	0m34.297s
+sys	0m1.095s
++ ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:55:18-zon][cmd] ../../bin/mccortex31 hashtest -t 1 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:55:18-zon][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:55:18-zon][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:55:18-zon][memory] 64 bits per kmer
+[09 Apr 2015 11:55:18-zon] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:55:18-zon][memory] graph: 808MB
+[09 Apr 2015 11:55:18-zon][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:55:18-zon][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:55:18-zon][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:55:18-zon][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:55:18-zon][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:55:18-zon][threads] using 1 thread (multi-threaded code)
+[09 Apr 2015 11:55:57-zon][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:55:57-zon]  collisions  0: 79081442
+[09 Apr 2015 11:55:57-zon]  collisions  1: 857768
+[09 Apr 2015 11:55:57-zon]  collisions  2: 55752
+[09 Apr 2015 11:55:57-zon]  collisions  3: 4630
+[09 Apr 2015 11:55:57-zon]  collisions  4: 378
+[09 Apr 2015 11:55:57-zon]  collisions  5: 28
+[09 Apr 2015 11:55:57-zon]  collisions  6: 2
+[09 Apr 2015 11:55:57-zon] Output hash: 0
+[09 Apr 2015 11:55:57-zon][memory] We made 8 allocs
+[09 Apr 2015 11:55:57-zon] Done.
+[09 Apr 2015 11:55:57-zon][time] 39.00 seconds
+
+real	0m39.415s
+user	0m34.247s
+sys	0m1.049s
++ '[' --lowmem '!=' --lowmem ']'
++ for T in 0 1 2 4
++ echo 'Run McCortex to flush cache'
+Run McCortex to flush cache
++ ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
++ echo 'McCortex hashtable with 2 threads 80M entries'
+McCortex hashtable with 2 threads 80M entries
++ ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:56:21-CUF][cmd] ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:56:21-CUF][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:56:21-CUF][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:56:21-CUF][memory] 64 bits per kmer
+[09 Apr 2015 11:56:21-CUF] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:56:21-CUF][memory] graph: 808MB
+[09 Apr 2015 11:56:21-CUF][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:56:21-CUF][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:56:21-CUF][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:56:22-CUF][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:56:22-CUF][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:56:22-CUF][threads] using 2 threads (multi-threaded code)
+[09 Apr 2015 11:56:45-CUF][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:56:45-CUF]  collisions  0: 79078679
+[09 Apr 2015 11:56:45-CUF]  collisions  1: 860513
+[09 Apr 2015 11:56:45-CUF]  collisions  2: 55686
+[09 Apr 2015 11:56:45-CUF]  collisions  3: 4650
+[09 Apr 2015 11:56:45-CUF]  collisions  4: 427
+[09 Apr 2015 11:56:45-CUF]  collisions  5: 40
+[09 Apr 2015 11:56:45-CUF]  collisions  6: 5
+[09 Apr 2015 11:56:45-CUF] Output hash: 0
+[09 Apr 2015 11:56:45-CUF][memory] We made 9 allocs
+[09 Apr 2015 11:56:45-CUF] Done.
+[09 Apr 2015 11:56:45-CUF][time] 24.00 seconds
+
+real	0m24.111s
+user	0m36.417s
+sys	0m1.201s
++ ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:56:45-GEr][cmd] ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:56:45-GEr][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:56:45-GEr][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:56:45-GEr][memory] 64 bits per kmer
+[09 Apr 2015 11:56:45-GEr] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:56:45-GEr][memory] graph: 808MB
+[09 Apr 2015 11:56:45-GEr][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:56:45-GEr][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:56:45-GEr][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:56:46-GEr][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:56:46-GEr][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:56:46-GEr][threads] using 2 threads (multi-threaded code)
+[09 Apr 2015 11:57:09-GEr][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:57:09-GEr]  collisions  0: 79083354
+[09 Apr 2015 11:57:09-GEr]  collisions  1: 855833
+[09 Apr 2015 11:57:09-GEr]  collisions  2: 55783
+[09 Apr 2015 11:57:09-GEr]  collisions  3: 4554
+[09 Apr 2015 11:57:09-GEr]  collisions  4: 430
+[09 Apr 2015 11:57:09-GEr]  collisions  5: 38
+[09 Apr 2015 11:57:09-GEr]  collisions  6: 8
+[09 Apr 2015 11:57:09-GEr] Output hash: 0
+[09 Apr 2015 11:57:09-GEr][memory] We made 9 allocs
+[09 Apr 2015 11:57:09-GEr] Done.
+[09 Apr 2015 11:57:09-GEr][time] 24.00 seconds
+
+real	0m24.215s
+user	0m36.394s
+sys	0m1.328s
++ ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:57:09-Goy][cmd] ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:57:09-Goy][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:57:09-Goy][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:57:09-Goy][memory] 64 bits per kmer
+[09 Apr 2015 11:57:09-Goy] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:57:09-Goy][memory] graph: 808MB
+[09 Apr 2015 11:57:09-Goy][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:57:09-Goy][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:57:09-Goy][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:57:10-Goy][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:57:10-Goy][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:57:10-Goy][threads] using 2 threads (multi-threaded code)
+[09 Apr 2015 11:57:33-Goy][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:57:33-Goy]  collisions  0: 79079348
+[09 Apr 2015 11:57:33-Goy]  collisions  1: 859456
+[09 Apr 2015 11:57:33-Goy]  collisions  2: 56177
+[09 Apr 2015 11:57:33-Goy]  collisions  3: 4565
+[09 Apr 2015 11:57:33-Goy]  collisions  4: 411
+[09 Apr 2015 11:57:33-Goy]  collisions  5: 40
+[09 Apr 2015 11:57:33-Goy]  collisions  6: 3
+[09 Apr 2015 11:57:33-Goy] Output hash: 0
+[09 Apr 2015 11:57:33-Goy][memory] We made 9 allocs
+[09 Apr 2015 11:57:33-Goy] Done.
+[09 Apr 2015 11:57:33-Goy][time] 24.00 seconds
+
+real	0m23.748s
+user	0m36.355s
+sys	0m1.032s
++ ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:57:33-BAF][cmd] ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:57:33-BAF][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:57:33-BAF][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:57:33-BAF][memory] 64 bits per kmer
+[09 Apr 2015 11:57:33-BAF] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:57:33-BAF][memory] graph: 808MB
+[09 Apr 2015 11:57:33-BAF][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:57:33-BAF][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:57:33-BAF][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:57:34-BAF][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:57:34-BAF][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:57:34-BAF][threads] using 2 threads (multi-threaded code)
+[09 Apr 2015 11:57:57-BAF][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:57:57-BAF]  collisions  0: 79079531
+[09 Apr 2015 11:57:57-BAF]  collisions  1: 859822
+[09 Apr 2015 11:57:57-BAF]  collisions  2: 55523
+[09 Apr 2015 11:57:57-BAF]  collisions  3: 4666
+[09 Apr 2015 11:57:57-BAF]  collisions  4: 421
+[09 Apr 2015 11:57:57-BAF]  collisions  5: 35
+[09 Apr 2015 11:57:57-BAF]  collisions  6: 2
+[09 Apr 2015 11:57:57-BAF] Output hash: 0
+[09 Apr 2015 11:57:57-BAF][memory] We made 9 allocs
+[09 Apr 2015 11:57:57-BAF] Done.
+[09 Apr 2015 11:57:57-BAF][time] 24.00 seconds
+
+real	0m24.212s
+user	0m36.417s
+sys	0m1.257s
++ ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:57:57-tig][cmd] ../../bin/mccortex31 hashtest -t 2 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:57:57-tig][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:57:57-tig][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:57:57-tig][memory] 64 bits per kmer
+[09 Apr 2015 11:57:57-tig] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:57:57-tig][memory] graph: 808MB
+[09 Apr 2015 11:57:57-tig][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:57:57-tig][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:57:57-tig][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:57:58-tig][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:57:58-tig][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:57:58-tig][threads] using 2 threads (multi-threaded code)
+[09 Apr 2015 11:58:23-tig][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:58:23-tig]  collisions  0: 79083285
+[09 Apr 2015 11:58:23-tig]  collisions  1: 855797
+[09 Apr 2015 11:58:23-tig]  collisions  2: 55841
+[09 Apr 2015 11:58:23-tig]  collisions  3: 4624
+[09 Apr 2015 11:58:23-tig]  collisions  4: 401
+[09 Apr 2015 11:58:23-tig]  collisions  5: 47
+[09 Apr 2015 11:58:23-tig]  collisions  6: 4
+[09 Apr 2015 11:58:23-tig]  collisions  7: 1
+[09 Apr 2015 11:58:23-tig] Output hash: 0
+[09 Apr 2015 11:58:23-tig][memory] We made 9 allocs
+[09 Apr 2015 11:58:23-tig] Done.
+[09 Apr 2015 11:58:23-tig][time] 26.00 seconds
+
+real	0m25.674s
+user	0m36.406s
+sys	0m1.366s
++ '[' --lowmem '!=' --lowmem ']'
++ for T in 0 1 2 4
++ echo 'Run McCortex to flush cache'
+Run McCortex to flush cache
++ ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
++ echo 'McCortex hashtable with 4 threads 80M entries'
+McCortex hashtable with 4 threads 80M entries
++ ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:58:55-coW][cmd] ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:58:55-coW][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:58:55-coW][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:58:55-coW][memory] 64 bits per kmer
+[09 Apr 2015 11:58:55-coW] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:58:55-coW][memory] graph: 808MB
+[09 Apr 2015 11:58:55-coW][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:58:55-coW][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:58:55-coW][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:58:57-coW][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:58:57-coW][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:58:57-coW][threads] using 4 threads (multi-threaded code)
+[09 Apr 2015 11:59:23-coW][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:59:23-coW]  collisions  0: 79080359
+[09 Apr 2015 11:59:23-coW]  collisions  1: 858821
+[09 Apr 2015 11:59:23-coW]  collisions  2: 55846
+[09 Apr 2015 11:59:23-coW]  collisions  3: 4520
+[09 Apr 2015 11:59:23-coW]  collisions  4: 412
+[09 Apr 2015 11:59:23-coW]  collisions  5: 36
+[09 Apr 2015 11:59:23-coW]  collisions  6: 5
+[09 Apr 2015 11:59:23-coW]  collisions  7: 1
+[09 Apr 2015 11:59:23-coW] Output hash: 0
+[09 Apr 2015 11:59:23-coW][memory] We made 9 allocs
+[09 Apr 2015 11:59:23-coW] Done.
+[09 Apr 2015 11:59:23-coW][time] 28.00 seconds
+
+real	0m28.055s
+user	0m36.583s
+sys	0m2.047s
++ ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:59:23-bOX][cmd] ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:59:23-bOX][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:59:23-bOX][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:59:23-bOX][memory] 64 bits per kmer
+[09 Apr 2015 11:59:23-bOX] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:59:23-bOX][memory] graph: 808MB
+[09 Apr 2015 11:59:23-bOX][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:59:23-bOX][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:59:23-bOX][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:59:24-bOX][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:59:24-bOX][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:59:24-bOX][threads] using 4 threads (multi-threaded code)
+[09 Apr 2015 11:59:48-bOX][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 11:59:48-bOX]  collisions  0: 79079890
+[09 Apr 2015 11:59:48-bOX]  collisions  1: 859368
+[09 Apr 2015 11:59:48-bOX]  collisions  2: 55767
+[09 Apr 2015 11:59:48-bOX]  collisions  3: 4513
+[09 Apr 2015 11:59:48-bOX]  collisions  4: 420
+[09 Apr 2015 11:59:48-bOX]  collisions  5: 38
+[09 Apr 2015 11:59:48-bOX]  collisions  6: 4
+[09 Apr 2015 11:59:48-bOX] Output hash: 0
+[09 Apr 2015 11:59:48-bOX][memory] We made 9 allocs
+[09 Apr 2015 11:59:48-bOX] Done.
+[09 Apr 2015 11:59:48-bOX][time] 25.00 seconds
+
+real	0m24.604s
+user	0m36.391s
+sys	0m1.177s
++ ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:59:48-fuC][cmd] ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 11:59:48-fuC][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 11:59:48-fuC][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 11:59:48-fuC][memory] 64 bits per kmer
+[09 Apr 2015 11:59:48-fuC] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 11:59:48-fuC][memory] graph: 808MB
+[09 Apr 2015 11:59:48-fuC][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 11:59:48-fuC][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 11:59:48-fuC][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 11:59:49-fuC][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 11:59:49-fuC][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 11:59:49-fuC][threads] using 4 threads (multi-threaded code)
+[09 Apr 2015 12:00:12-fuC][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 12:00:12-fuC]  collisions  0: 79082466
+[09 Apr 2015 12:00:12-fuC]  collisions  1: 856649
+[09 Apr 2015 12:00:12-fuC]  collisions  2: 55784
+[09 Apr 2015 12:00:12-fuC]  collisions  3: 4557
+[09 Apr 2015 12:00:12-fuC]  collisions  4: 497
+[09 Apr 2015 12:00:12-fuC]  collisions  5: 40
+[09 Apr 2015 12:00:12-fuC]  collisions  6: 7
+[09 Apr 2015 12:00:12-fuC] Output hash: 0
+[09 Apr 2015 12:00:12-fuC][memory] We made 9 allocs
+[09 Apr 2015 12:00:12-fuC] Done.
+[09 Apr 2015 12:00:12-fuC][time] 24.00 seconds
+
+real	0m24.268s
+user	0m36.382s
+sys	0m1.071s
++ ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 12:00:12-mew][cmd] ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 12:00:12-mew][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 12:00:12-mew][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 12:00:12-mew][memory] 64 bits per kmer
+[09 Apr 2015 12:00:12-mew] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 12:00:12-mew][memory] graph: 808MB
+[09 Apr 2015 12:00:12-mew][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 12:00:12-mew][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 12:00:12-mew][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 12:00:13-mew][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 12:00:13-mew][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 12:00:13-mew][threads] using 4 threads (multi-threaded code)
+[09 Apr 2015 12:00:37-mew][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 12:00:37-mew]  collisions  0: 79079301
+[09 Apr 2015 12:00:37-mew]  collisions  1: 859336
+[09 Apr 2015 12:00:37-mew]  collisions  2: 56194
+[09 Apr 2015 12:00:37-mew]  collisions  3: 4701
+[09 Apr 2015 12:00:37-mew]  collisions  4: 420
+[09 Apr 2015 12:00:37-mew]  collisions  5: 41
+[09 Apr 2015 12:00:37-mew]  collisions  6: 7
+[09 Apr 2015 12:00:37-mew] Output hash: 0
+[09 Apr 2015 12:00:37-mew][memory] We made 9 allocs
+[09 Apr 2015 12:00:37-mew] Done.
+[09 Apr 2015 12:00:37-mew][time] 25.00 seconds
+
+real	0m24.404s
+user	0m36.416s
+sys	0m1.168s
++ ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 12:00:37-kum][cmd] ../../bin/mccortex31 hashtest -t 4 -k 31 -m 2G -n 100M 80000000
+[09 Apr 2015 12:00:37-kum][cwd] /Users/isaac/ninja-cortex/results/hash_table_benchmark
+[09 Apr 2015 12:00:37-kum][version] mccortex=v0.0.3-230-g9506147-dirty zlib=1.2.5 htslib=1.2.1-54-gd620a73 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
+[09 Apr 2015 12:00:37-kum][memory] 64 bits per kmer
+[09 Apr 2015 12:00:37-kum] Note: Using less memory than requested (808MB < 2GB); allows for 104,857,600 kmers
+[09 Apr 2015 12:00:37-kum][memory] graph: 808MB
+[09 Apr 2015 12:00:37-kum][memory] total: 808MB of 4GB RAM
+[09 Apr 2015 12:00:37-kum][hasht] Allocating table with 104,857,600 entries, using 808MB
+[09 Apr 2015 12:00:37-kum][hasht]  number of buckets: 4,194,304, bucket size: 25
+[09 Apr 2015 12:00:38-kum][graph] kmer-size: 31; colours: 1; capacity: 104,857,600
+[09 Apr 2015 12:00:38-kum][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 0 / 104,857,600 (0.00%)
+[09 Apr 2015 12:00:38-kum][threads] using 4 threads (multi-threaded code)
+[09 Apr 2015 12:01:03-kum][hash] buckets: 4,194,304 [2^22]; bucket size: 25; memory: 808MB; occupancy: 80,000,000 / 104,857,600 (76.29%)
+[09 Apr 2015 12:01:03-kum]  collisions  0: 79082612
+[09 Apr 2015 12:01:03-kum]  collisions  1: 856831
+[09 Apr 2015 12:01:03-kum]  collisions  2: 55442
+[09 Apr 2015 12:01:03-kum]  collisions  3: 4621
+[09 Apr 2015 12:01:03-kum]  collisions  4: 447
+[09 Apr 2015 12:01:03-kum]  collisions  5: 37
+[09 Apr 2015 12:01:03-kum]  collisions  6: 9
+[09 Apr 2015 12:01:03-kum]  collisions  7: 1
+[09 Apr 2015 12:01:03-kum] Output hash: 0
+[09 Apr 2015 12:01:03-kum][memory] We made 9 allocs
+[09 Apr 2015 12:01:03-kum] Done.
+[09 Apr 2015 12:01:03-kum][time] 26.00 seconds
+
+real	0m26.588s
+user	0m36.457s
+sys	0m1.281s
++ '[' --lowmem '!=' --lowmem ']'

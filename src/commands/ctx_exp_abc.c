@@ -30,8 +30,8 @@ const char exp_abc_usage[] =
 "\n";
 
 // Investigating failed contigs with:
-//  ctx31 exp_abc -M 10 -N 1000 -P -p k31/perf.k31.se.ctp.gz k31/perf.k31.ctx > tmp.fa
-//  ctx31 subgraph -f --seq sample.fa -dist 2 --out sample.k31.ctx k31/perf.k31.ctx
+//  mccortex31 exp_abc -M 10 -N 1000 -P -p k31/perf.k31.se.ctp.gz k31/perf.k31.ctx > tmp.fa
+//  mccortex31 subgraph -f --seq sample.fa -dist 2 --out sample.k31.ctx k31/perf.k31.ctx
 //  ~/ninja-cortex/scripts/cortex_to_graphviz.pl -k 31 --mark sample.fa -p <(zcat k31/perf.k31.se.ctp.gz) sample.k31.ctx > sample.dot
 //  dot -Tpdf sample.dot > sample.pdf
 

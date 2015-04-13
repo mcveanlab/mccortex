@@ -28,7 +28,7 @@ const char supernodes_usage[] =
 "  -P, --points          Used with --dot, print contigs as points\n"
 // "  -s, --seq <in.fa>     Highlight certain kmers\n"
 "\n"
-"  e.g. ctx31 supernodes --dot in.ctx | dot -Tpdf > in.pdf\n"
+"  e.g. "CMD" supernodes --dot in.ctx | dot -Tpdf > in.pdf\n"
 "\n";
 
 static struct option longopts[] =

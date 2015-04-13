@@ -46,8 +46,12 @@ typedef struct {
   size_t altkmers, altsumcovg;// altmedcovg;
 } GenoCovg;
 
+/**
+ * Get coverage of ref and alt alleles from the de Bruijn graph in the given
+ * colour.
+ */
 void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
-                   size_t ntgts, GenoCovg *gts,
+                   GenoVar *gts, size_t ntgts,
                    int colour, const dBGraph *db_graph)
 {
   size_t i;
@@ -64,17 +68,47 @@ void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
   }
 }
 
-  // if(fwrite(bkey.b, 1, sizeof(bkey.b), fout) != sizeof(bkey.b))
-  //   die("Cannot write");
-
-
-void add_new_var(GenoVar *var, int32_t pos, const char *ref, const char *alt)
+// return true if valid variant
+static inline bool init_new_var(GenoVar *var, int32_t pos,
+                                const char *ref, const char *alt)
 {
   while(*ref && *ref == *alt) { ref++; alt++; pos++; }
   var->pos = pos;
+  var->ref = ref;
   var->alt = alt;
-  var->altlen = strlen(alt);
   var->reflen = strlen(ref);
+  var->altlen = strlen(alt);
+  while(var->reflen && var->altlen &&
+        var->ref[var->reflen-1] == var->alt[var->altlen-1]) {
+    var->reflen--; var->altlen--;
+  }
+  return var->reflen || var->altlen;
+}
+
+/**
+ * @return 1 on success, 0 otherwise
+ */
+static inline int read_vars(GenoVarList *vlist, htsFile *vcf_file,
+                            bcf_hdr_t *vcfhdr, bcf1_t *v)
+{
+  size_t i;
+  int s;
+  GenoVar tmpvar;
+
+  if((s = bcf_read(vcf_file, vcfhdr, v)) != 0) {
+    if(s < 0) warn("Bad entry");
+    return 0;
+  }
+
+  bcf_unpack(v, BCF_UN_ALL);
+  if(v->n_allele < 2) die("Bad line");
+
+  for(i = 1; i < v->n_allele; i++) {
+    if(init_new_var(&tmpvar, v->pos, v->d.allele[0], v->d.allele[i]))
+      genovar_list_push(vlist, &tmpvar, 1);
+  }
+
+  return 1;
 }
 
 int ctx_geno(int argc, char **argv)
@@ -129,7 +163,6 @@ int ctx_geno(int argc, char **argv)
 
   bcf_hdr_t *vcfhdr = bcf_hdr_read(vcf_file);
   bcf1_t *v = bcf_init1();
-  int s;
 
   //
   // Open graph files
@@ -184,35 +217,6 @@ int ctx_geno(int argc, char **argv)
     bcf_hdr_add_sample(vcfhdr, db_graph.ginfo[i].sample_name.b);
 
   // TODO: Load kmers from VCF + ref
-  read_t *chrom;
-  const char *chrom_name;
-
-  GenoVarBuffer varbuf;
-  genovar_buf_alloc(&varbuf, 512);
-
-  while((s = bcf_read(vcf_file, vcfhdr, v)) == 0)
-  {
-    genovar_buf_reset(&varbuf);
-    bcf_unpack(v, BCF_UN_ALL);
-    chrom_name = vcfhdr->id[BCF_DT_CTG][v->rid].key;
-    chrom = seq_fetch_chrom(genome, chrom_name);
-    if(v->n_allele < 2) die("Bad line");
-    for(i = 1; i < v->n_allele; i++) {
-      genovar_buf_add(&varbuf, (GenoVar){.pos = 0});
-      add_new_var(&varbuf.b[varbuf.len-1], v->pos,
-                  v->d.allele[0], v->d.allele[i]);
-    }
-
-    // fprintf(stderr, "%s %i %u", chrom_name, v->pos+1, v->rlen);
-    // fprintf(stderr, " %s", v->d.allele[0]);
-    // fprintf(stderr, " %s", v->d.allele[1]);
-    // for(i=2; i < v->n_allele; i++)
-    //   fprintf(stderr, ",%s", v->d.allele[i]);
-    // fprintf(stderr, "\n");
-  }
-
-  bcf_destroy(v);
-  bcf_hdr_destroy(vcfhdr);
 
   //
   // Load graphs
@@ -235,15 +239,80 @@ int ctx_geno(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Seek to the start of VCF file
-  // gzseek(vcf_file, SEEK_SET, 0);
-
   hts_close(vcf_file);
   vcf_file = hts_open(vcf_path, "r");
 
-  // TODO: genotype calls
+  // Genotype calls
+  read_t *chrom;
+  const char *chrom_name;
+  GenoVarList vlist;
+  genovar_list_alloc(&vlist, 256);
+
+  Genotyper gtyper;
+  genotyper_alloc(&gtyper);
+
+  const size_t kmer_size = db_graph.kmer_size;
+  size_t tgtidx, ntgts;
+  GenoVar *last;
+  size_t end;
+
+  if(!read_vars(&vlist, vcf_file, vcfhdr, v)) warn("Empty VCF");
+  else {
+    tgtidx = 0;
+    ntgts = 1;
+    while(1)
+    {
+      last = genovar_list_getptr(&vlist, tgtidx);
+      end = last->pos + last->reflen;
+      while(last->pos <= end+kmer_size) {
+        read_vars(&vlist, vcf_file, vcfhdr, v);
+        last = genovar_list_getptr(&vlist, genovar_list_len(&vlist)-1);
+        end = last->pos + last->reflen;
+      }
+
+      // Genotype and print
+      chrom_name = vcfhdr->id[BCF_DT_CTG][v->rid].key;
+      chrom = seq_fetch_chrom(genome, chrom_name);
+
+      genotyping_get_covg(&gtyper,
+                          genovar_list_getptr(&vlist, 0),
+                          genovar_list_len(&vlist),
+                          tgtidx, ntgts,
+                          chrom->seq.b, chrom->seq.end, kmer_size);
+
+      GenoKmer *kmers = gtyper.kmer_buf.b;
+      size_t nkmers = gtyper.kmer_buf.len;
+      int colour = -1;
+
+      for(i = 0; i < nkmers; i++) {
+        bkey_get_covg(kmers[i].bkey, kmers[i].arbits,
+                      genovar_list_getptr(&vlist, tgtidx), ntgts,
+                      colour, &db_graph);
+      }
+
+      // Set new tgt
+      tgtidx += ntgts;
+      ntgts = 1;
+      if(tgtidx >= genovar_list_len(&vlist)) break; // done
+
+      // DEV: shift off unwanted
+    }
+  }
+
+  genotyper_dealloc(&gtyper);
+
+    // fprintf(stderr, "%s %i %u", chrom_name, v->pos+1, v->rlen);
+    // fprintf(stderr, " %s", v->d.allele[0]);
+    // fprintf(stderr, " %s", v->d.allele[1]);
+    // for(i=2; i < v->n_allele; i++)
+    //   fprintf(stderr, ",%s", v->d.allele[i]);
+    // fprintf(stderr, "\n");
 
   status("  saved to: %s\n", out_path);
   
+  bcf_destroy(v);
+  bcf_hdr_destroy(vcfhdr);
+
   // gzclose(vcf_file);
   hts_close(vcf_file);
   fclose(fout);

@@ -5,7 +5,7 @@
 #include "util.h"
 #include "file_util.h"
 
-// To add a new command to ctx31 <cmd>:
+// To add a new command to mccortex31 <cmd>:
 // 0. create a file src/commands/ctx_X.c
 // 1. add function and usage declaration to src/commands/commands.h
 // 2. add entry to cmdobjs below

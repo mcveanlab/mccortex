@@ -1,8 +1,9 @@
+#!/usr/bin/env Rscript --vanilla
 
 args <- commandArgs(trailingOnly = TRUE)
 
 if(length(args) != 2) {
-  stop("Usage: R -f make_link_cutoffs.R --args <kmer> <links.csv>");
+  stop("Usage: make_link_cutoffs.R <kmer> <links.csv>");
 }
 
 kmer<-as.integer(args[1])

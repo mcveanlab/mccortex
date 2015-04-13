@@ -1,0 +1,9 @@
+Reading: results20150409thurs.mac.csv 
+Rows: 35 
+1 [1:5] mean: 57.9732 stddev: 2.082858
+2 [6:10] mean: 29.659 stddev: 3.398727
+3 [11:15] mean: 27.3986 stddev: 0.5796527
+4 [16:20] mean: 34.1938 stddev: 14.46233
+5 [21:25] mean: 40.0266 stddev: 0.5128282
+6 [26:30] mean: 24.392 stddev: 0.74178
+7 [31:35] mean: 25.5838 stddev: 1.673209

@@ -183,7 +183,7 @@ LinkJunction* ltree_visit_nodes_sub(LinkTree *tree, LinkJunction *root,
     LTreeWalk *walk = &wbuf->b[wbuf->len-1];
     while(walk->nxt < 4 && walk->parent->children[walk->nxt] < 0) walk->nxt++;
 
-    if(walk->nxt == 4) { ltree_walk_buf_popn(wbuf, 1); }
+    if(walk->nxt == 4) { ltree_walk_buf_pop(wbuf, NULL, 1); }
     else {
       LinkJunction *node = ltree_get_node(tree, walk->parent->children[walk->nxt]);
 
