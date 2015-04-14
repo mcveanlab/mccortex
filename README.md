@@ -18,9 +18,10 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 Build
 -----
 
-Compiles with clang and gcc. Tested on Mac OS X and linux. Requires zlib.
-The first compile will take a while since the libraries in libs/ need to be
-downloaded and compiled.
+McCortex compiles with clang and gcc. Tested on Mac OS X and linux. Requires zlib.
+Download with:
+
+    git clone --recursive https://github.com/mcveanlab/mccortex
 
 To compile for a maximum kmer size of 31:
 

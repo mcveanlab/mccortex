@@ -2,4 +2,7 @@
 
 set -oeu pipefail
 
-make clean && git pull && cd libs && make && cd .. && make
+make clean
+git pull
+git submodule update --init
+make

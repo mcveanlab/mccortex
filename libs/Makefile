@@ -27,50 +27,7 @@ gsl-1.16/configure:
 	tar xfz gsl-1.16.tar.gz
 	cd gsl-1.16; ./configure; make
 
-xxHash/Makefile:
-	git clone https://github.com/Cyan4973/xxHash.git
-
-htslib/Makefile:
-	git clone --branch develop git://github.com/samtools/htslib.git htslib
-
-bcftools/Makefile:
-	git clone --branch develop https://github.com/samtools/bcftools.git
-
-samtools/Makefile:
-	git clone --branch develop https://github.com/samtools/samtools.git
-
-bwa/Makefile:
-	git clone https://github.com/lh3/bwa.git
-
-vcflib/Makefile:
-	git clone --recursive https://github.com/ekg/vcflib.git
-
-string_buffer/Makefile:
-	git clone git://github.com/noporpoise/string_buffer.git
-
-bit_array/Makefile:
-	git clone git://github.com/noporpoise/BitArray.git bit_array
-
-seq_file/Makefile:
-	git clone git://github.com/noporpoise/seq_file.git
-
-seq-align/Makefile:
-	git clone git://github.com/noporpoise/seq-align.git
-
-readsim/Makefile:
-	git clone git://github.com/noporpoise/readsim.git
-
-msg-pool/Makefile:
-	git clone https://github.com/noporpoise/msg-pool.git
-
-bioinf-perl/README:
-	git clone https://github.com/noporpoise/bioinf-perl.git
-
-sort_r/Makefile:
-	git clone https://github.com/noporpoise/sort_r.git
-
-madcrowlib/Makefile:
-	git clone https://github.com/noporpoise/madcrowlib.git
+# Download of git hosted libraries now done with git submodules
 
 #
 # Build
@@ -79,49 +36,49 @@ gsl: gsl-1.16/configure
 	cd gsl-1.16 && make clean && ./configure && make
 
 xxHash: xxHash/Makefile
-	cd xxHash && git pull && make
+	cd xxHash && make
 
 htslib: htslib/Makefile
-	cd htslib && git pull && make
+	cd htslib && make
 
 bcftools: htslib bcftools/Makefile
-	cd bcftools && git pull && make
+	cd bcftools && make
 
 samtools: htslib samtools/Makefile
-	cd samtools && git pull && make
+	cd samtools && make
 
 bwa: bwa/Makefile
-	cd bwa && git pull && make
+	cd bwa && make
 
 vcflib: vcflib/Makefile
-	cd vcflib && git pull #&& make
+	cd vcflib #&& make
 
 string_buffer: string_buffer/Makefile
-	cd string_buffer && git pull && make all && make test >& /dev/null
+	cd string_buffer && make all && make test >& /dev/null
 
 bit_array: bit_array/Makefile
-	cd bit_array && git pull && make all && make test >& /dev/null
+	cd bit_array && make all && make test >& /dev/null
 
 seq_file: seq_file/Makefile htslib
-	cd seq_file && git pull && make HTSLIB=../htslib all && make test >& /dev/null
+	cd seq_file && make HTSLIB=../htslib all && make test >& /dev/null
 
 seq-align: seq-align/Makefile seq_file bit_array string_buffer sort_r
-	cd seq-align && git pull && make LIBS_PATH=.. all && make LIBS_PATH=.. test >& /dev/null
+	cd seq-align && make LIBS_PATH=.. all && make LIBS_PATH=.. test >& /dev/null
 
 readsim: readsim/Makefile htslib
-	cd readsim && git pull && make HTSLIB=../htslib
+	cd readsim && make HTSLIB=../htslib
 
 msg-pool: msg-pool/Makefile
-	cd msg-pool && git pull && make all && make test >& /dev/null
+	cd msg-pool && make all && make test >& /dev/null
 
 bioinf-perl: bioinf-perl/README
-	cd bioinf-perl && git pull
+	cd bioinf-perl
 
 sort_r: sort_r/Makefile
-	cd sort_r && git pull && make all && make test >& /dev/null
+	cd sort_r && make all && make test >& /dev/null
 
 madcrowlib: madcrowlib/Makefile
-	cd madcrowlib && git pull && make all && make test >& /dev/null
+	cd madcrowlib && make all && make test >& /dev/null
 
 maximal_substrs:
 	cd maximal_substrs && make

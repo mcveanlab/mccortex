@@ -10,6 +10,10 @@ Results are included for linux and mac.
 ./times.sh results20150409thurs.mac.log > results20150409thurs.mac.csv
 ./stats.R results20150409thurs.linux.csv > results20150409thurs.linux.txt
 ./stats.R results20150409thurs.mac.csv > results20150409thurs.mac.txt
+grep mean results20150409thurs.linux.txt | awk '{if(!s){print $4"\t"$6}; s=!s; }'
+grep mean results20150409thurs.linux.txt | awk '{if( s){print $4"\t"$6}; s=!s; }'
+grep mean results20150409thurs.mac.txt   | awk '       {print $4"\t"$6}'
+
 
 results20150409thurs.linux.log
 - run on WTCHG banyan
