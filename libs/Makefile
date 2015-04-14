@@ -54,31 +54,31 @@ vcflib: vcflib/Makefile
 	cd vcflib #&& make
 
 string_buffer: string_buffer/Makefile
-	cd string_buffer && make all && make test >& /dev/null
+	cd string_buffer && make all
 
 bit_array: bit_array/Makefile
-	cd bit_array && make all && make test >& /dev/null
+	cd bit_array && make all
 
 seq_file: seq_file/Makefile htslib
-	cd seq_file && make HTSLIB=../htslib all && make test >& /dev/null
+	cd seq_file && make HTSLIB=../htslib all
 
 seq-align: seq-align/Makefile seq_file bit_array string_buffer sort_r
-	cd seq-align && make LIBS_PATH=.. all && make LIBS_PATH=.. test >& /dev/null
+	cd seq-align && make LIBS_PATH=.. all
 
 readsim: readsim/Makefile htslib
 	cd readsim && make HTSLIB=../htslib
 
 msg-pool: msg-pool/Makefile
-	cd msg-pool && make all && make test >& /dev/null
+	cd msg-pool && make all
 
 bioinf-perl: bioinf-perl/README
 	cd bioinf-perl
 
 sort_r: sort_r/Makefile
-	cd sort_r && make all && make test >& /dev/null
+	cd sort_r && make all
 
 madcrowlib: madcrowlib/Makefile
-	cd madcrowlib && make all && make test >& /dev/null
+	cd madcrowlib && make all
 
 maximal_substrs:
 	cd maximal_substrs && make

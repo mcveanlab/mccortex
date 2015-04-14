@@ -264,7 +264,7 @@ for my $k (@kmers) {
   if(defined($ref_path)) {
     print "# reference at k=$k\n";
     print "$proj/k$k/ref/ref.ctx: $ref_path | \$(DIRS)\n";
-    print "\t$ctx build \$(CTX_ARGS) -k $k -s \$< \$@ >& \$@.log\n\n";
+    print "\t$ctx build \$(CTX_ARGS) -k $k --sample ref --seq \$< \$@ >& \$@.log\n\n";
   }
 
   print "# building sample graphs at k=$k\n";
@@ -306,7 +306,7 @@ for my $k (@kmers) {
     my $ctp_se_clean_file = "$proj/k$k/links/$sname.se.clean.ctp.gz";
     my $ctp_pe_clean_file = "$proj/k$k/links/$sname.pe.clean.ctp.gz";
 
-    # Single ended threading
+    # 1. Single ended threading: submit all reads as single ended first
     print "$ctp_se_raw_file: $ctx_clean_file @se_files | \$(DIRS)\n";
     print "\t$ctx thread \$(CTX_ARGS) " .
           join(' ', (map {"--seq $_"}                    @{$sample->{'se_files'}}),
@@ -314,6 +314,7 @@ for my $k (@kmers) {
                     (map {"--seq $_"}                    @{$sample->{'i_files'}})) .
           ' -o $@ $< >& $@.log'."\n\n";
 
+    # 2. If we have any paired end reads, add that information in a second pass
     if(@{$sample->{'pe_files'}} > 0 || @{$sample->{'i_files'}} > 0) {
       print "$ctp_pe_raw_file: $ctx_clean_file $ctp_se_clean_file @pe_files | \$(DIRS)\n";
       print "\t$ctx thread \$(CTX_ARGS) -p $ctp_se_clean_file " .

@@ -127,16 +127,7 @@ ifdef DEBUG
 	OPT = -O0 -g -ggdb -gdwarf-2 -g3
 else
 	# Could add -DNDEBUG=1 here to turn off asserts
-	# ifneq (,$(findstring gcc,$(COMPILER)))
-		# OPT = -O4 -m64
-		# TGTFLAGS = -fuse-linker-plugin
-	# else
-		OPT = -O3 -m64
-	# endif
-
-	# ifneq (,$(findstring lto,$(COMPILER)))
-	# 	OPT := -flto $(OPT)
-	# endif
+	OPT = -O3 -m64
 endif
 
 CFLAGS := $(OPT) $(CFLAGS)
@@ -235,6 +226,9 @@ else
 endif
 
 .DEFAULT_GOAL := mccortex
+
+# Update libraries
+X=$(shell cd libs && $(MAKE))
 
 all: mccortex tests tables
 
