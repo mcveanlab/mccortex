@@ -90,22 +90,21 @@ misc: misc/Makefile
 # Clean
 #
 clean:
-	[ -d gsl-1.16 ] && cd gsl-1.16 && make clean
-	[ -d xxHash ] && cd xxHash && make clean
-	[ -d htslib ] && cd htslib && make clean
-	[ -d bcftools ] && cd bcftools && make clean
-	[ -d samtools ] && cd samtools && make clean
-	[ -d vcflib ] && cd vcflib && make clean
-	[ -d string_buffer ] && cd string_buffer && make clean
-	[ -d bit_array ] && cd bit_array && make clean
-	[ -d seq_file ] && cd seq_file && make clean
-	[ -d seq-align ] && cd seq-align && make clean
-	[ -d readsim ] && cd readsim && make clean
-	[ -d msg-pool ] && cd msg-pool && make clean
-	[ -d sort_r ] && cd sort_r && make clean
-	[ -d madcrowlib ] && cd madcrowlib && make clean
-	[ -d maximal_substrs ] && cd maximal_substrs && make clean
-	[ -d misc ] && cd misc && make clean
+	cd xxHash && make clean
+	cd htslib && make clean
+	cd bcftools && make clean
+	cd samtools && make clean
+	cd vcflib && make clean
+	cd string_buffer && make clean
+	cd bit_array && make clean
+	cd seq_file && make clean
+	&& cd seq-align && make clean
+	cd readsim && make clean
+	&& cd msg-pool && make clean
+	cd sort_r && make clean
+	cd madcrowlib && make clean
+	cd maximal_substrs && make clean
+	cd misc && make clean
 
 .PHONY: all clean update core
 .PHONY: $(ALLTGTS)

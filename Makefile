@@ -213,7 +213,7 @@ DIRS=bin \
      $(TESTS_OBJDIR)
 
 # DEPS dependencies that do not need to be re-built per target
-DEPS=Makefile $(DIRS) $(LIB_OBJS)
+DEPS=Makefile $(DIRS) $(LIB_OBJS) libs
 REQ=
 
 # RECOMPILE=1 to recompile all from source
@@ -227,10 +227,11 @@ endif
 
 .DEFAULT_GOAL := mccortex
 
-# Update libraries
-X=$(shell cd libs && $(MAKE))
-
 all: mccortex tests tables
+
+# Update libraries
+libs:
+	cd libs && $(MAKE)
 
 # Run tests
 test: tests
@@ -319,4 +320,4 @@ clean:
 
 force:
 
-.PHONY: all clean mccortex test force
+.PHONY: all clean mccortex test force libs
