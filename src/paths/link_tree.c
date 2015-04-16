@@ -7,9 +7,9 @@ void ltree_remove_node(LinkTree *tree, LinkJunction *node)
   if(node->parentid > 0)
     ltree_get_node(tree, node->parentid)->children[(size_t)node->base] = -1;
   else if(tree->fw_id == node->id)
-    tree->fw_id = -1;
+    tree->fw_id = tree->fw_kstr_idx = -1;
   else if(tree->rv_id == node->id)
-    tree->rv_id = -1;
+    tree->rv_id = tree->rv_kstr_idx = -1;
   else
     die("Cannot find root node in tree [%i; fw:%i; rv:%i]",
         node->id, tree->fw_id, tree->rv_id);
@@ -73,7 +73,8 @@ bool ltree_count_col_leaves(LinkTree *tree, LinkTreeStats *stats)
 void ltree_alloc(LinkTree *tree, size_t ncols, size_t kmer_size)
 {
   LinkTree tmp = {.ncols = ncols, .kmer_size = kmer_size,
-                  .fw_id = -1, .rv_id = -1};
+                  .fw_id = -1, .rv_id = -1,
+                  .fw_kstr_idx = -1, .rv_kstr_idx = -1};
   memcpy(tree, &tmp, sizeof(tmp));
   lj_buf_alloc(&tree->treebuf, 128);
   size_buf_alloc(&tree->covgbuf, 128*ncols);
@@ -86,15 +87,16 @@ void ltree_dealloc(LinkTree *tree)
   size_buf_dealloc(&tree->covgbuf);
   ltree_walk_buf_dealloc(&tree->wbuf);
   memset(tree, 0, sizeof(*tree));
-  tree->fw_id = tree->rv_id = -1;
+  tree->fw_id = tree->rv_id = tree->fw_kstr_idx = tree->rv_kstr_idx = -1;
 }
 
 void ltree_reset(LinkTree *tree)
 {
   lj_buf_reset(&tree->treebuf);
   size_buf_reset(&tree->covgbuf);
+  byte_buf_reset(&tree->seqbuf);
   ltree_walk_buf_reset(&tree->wbuf);
-  tree->fw_id = tree->rv_id = -1;
+  tree->fw_id = tree->rv_id = tree->fw_kstr_idx = tree->rv_kstr_idx = -1;
 }
 
 static int32_t ltree_init_node(LinkTree *tree, int32_t parent, uint32_t dist,
@@ -126,10 +128,15 @@ void ltree_add(LinkTree *tree,
 
   if(rootid < 0) {
     rootid = ltree_init_node(tree, -1, dists[0],
-                             seq, tree->kmer_size + dists[0],
+                             seq+tree->kmer_size, dists[0],
                              seq[tree->kmer_size+dists[0]]);
-    if(fw) tree->fw_id = rootid;
-    else   tree->rv_id = rootid;
+
+    size_t kstr_idx = tree->seqbuf.len;
+    byte_buf_push(&tree->seqbuf, (const uint8_t*)seq, tree->kmer_size);
+    byte_buf_add(&tree->seqbuf, '\0');
+
+    if(fw) { tree->fw_id = rootid; tree->fw_kstr_idx = kstr_idx; }
+    else   { tree->rv_id = rootid; tree->rv_kstr_idx = kstr_idx; }
 
     for(col = 0; col < tree->ncols; col++)
       ltree_get_covg(tree,rootid,col) += covgs[col];
@@ -145,7 +152,7 @@ void ltree_add(LinkTree *tree,
     nodeid = ltree_get_node(tree, parentid)->children[baseidx];
     if(nodeid < 0) {
       nodeid = ltree_init_node(tree, parentid, dists[i],
-                               seq + tree->kmer_size + dists[i],
+                               seq + tree->kmer_size + dists[i-1] + 1,
                                dists[i] - dists[i-1] - 1,
                                base);
       ltree_get_node(tree, parentid)->children[baseidx] = nodeid;
@@ -186,6 +193,7 @@ LinkJunction* ltree_visit_nodes_sub(LinkTree *tree, LinkJunction *root,
     if(walk->nxt == 4) { ltree_walk_buf_pop(wbuf, NULL, 1); }
     else {
       LinkJunction *node = ltree_get_node(tree, walk->parent->children[walk->nxt]);
+      walk->nxt++;
 
       if(func(node, tree, wbuf->len, ptr))
         ltree_walk_buf_add(wbuf, (LTreeWalk){.parent = node, .nxt = 0});
@@ -304,7 +312,8 @@ static inline bool _ltree_write_ctp_node(LinkJunction *l, LinkTree *tree,
   }
 
   // [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=...] [juncpos=...]
-  char dir = (nodes[0]->id == tree->fw_id ? 'F' : 'R');
+  bool fw = (nodes[0]->id == tree->fw_id);
+  char dir = (fw ? 'F' : 'R');
 
   strbuf_append_char(sbuf, dir); // [FR]
   strbuf_append_char(sbuf, ' ');
@@ -324,9 +333,11 @@ static inline bool _ltree_write_ctp_node(LinkJunction *l, LinkTree *tree,
   strbuf_append_strn(sbuf, juncs, njuncs);
 
   strbuf_append_str(sbuf, " seq=");
-  for(i = 0; i < njuncs; i++)
+  strbuf_append_str(sbuf, fw ? ltree_get_fw_kmer(tree) : ltree_get_rv_kmer(tree));
+  for(i = 0; i < njuncs; i++) {
     strbuf_append_str(sbuf, ltree_get_seq(tree, nodes[i]));
-  strbuf_append_char(sbuf, l->base);
+    strbuf_append_char(sbuf, nodes[i]->base);
+  }
 
   strbuf_append_str(sbuf, " juncpos=");
   strbuf_append_ulong(sbuf, nodes[0]->dist);

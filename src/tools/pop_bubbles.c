@@ -74,7 +74,7 @@ static inline void mark_node_bitarr_mt(const dBNode *nodes, size_t n,
                                        uint8_t *bitset)
 {
   size_t i;
-  for(i = 0; i < n; i++) bitset_set_mt(bitset, nodes[i].key);
+  for(i = 0; i < n; i++) (void)bitset_set_mt(bitset, nodes[i].key);
 }
 
 /**

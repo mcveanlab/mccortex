@@ -17,7 +17,7 @@ const char links_usage[] =
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -f, --force            Overwrite output files\n"
-"  -o, --out <out.txt>    Save output graph file [default: STDOUT]\n"
+"  -o, --out <out.ctp.gz> Save output link file [default: STDOUT]\n"
 "\n"
 "  -L,--limit <N>         Only use links from first N kmers\n"
 "\n"
@@ -165,6 +165,8 @@ int ctx_links(int argc, char **argv)
   bool save = (link_out_path != NULL);
   bool hist_covg = (link_fdr > 0);
 
+  size_t plot_kmer_idx = (limit == 0 ? 0 : limit - 1);
+
   if(clean && !save)
     cmd_print_usage("Need to give --out <out.ctp.gz> with --clean");
 
@@ -200,13 +202,16 @@ int ctx_links(int argc, char **argv)
     }
   }
 
-  size_t hist_distlen = 6, hist_covglen = 100;
+  const size_t hist_distlen = 6, hist_covglen = 100;
   uint64_t (*hists)[hist_distlen][hist_covglen] = NULL;
 
   if(hist_covg)
   {
     hists = ctx_calloc(ncols, sizeof(hists[0]));
   }
+
+  if(limit)
+    status("Limiting to the first %zu kmers", limit);
 
   if(clean)
   {
@@ -255,7 +260,7 @@ int ctx_links(int argc, char **argv)
 
   if(plot)
   {
-    status("Plotting to %s", plot_out_path);
+    status("Plotting kmer %zu to %s", plot_kmer_idx, plot_out_path);
     if((plot_fh = futil_fopen_create(plot_out_path, "w")) == NULL)
       die("Cannot open output .dot file %s", plot_out_path);
   }
@@ -285,13 +290,17 @@ int ctx_links(int argc, char **argv)
   {
     ltree_reset(&ltree);
     if(!gpath_reader_read_kmer(&ctpin, &kmerbuf, &num_links_exp)) break;
-    for(nlinks = 0; gpath_reader_read_link(&ctpin, &link_fw, &kdist, &njuncs,
-                                           &countbuf, &juncsbuf,
-                                           &seqbuf, &jposbuf); nlinks++)
+
+    for(nlinks = 0;
+        gpath_reader_read_link(&ctpin, &link_fw, &kdist, &njuncs,
+                               &countbuf, &juncsbuf,
+                               &seqbuf, &jposbuf);
+        nlinks++)
     {
       ltree_add(&ltree, link_fw, countbuf.b, jposbuf.b,
                 juncsbuf.b, seqbuf.b);
     }
+
     if(nlinks != num_links_exp)
       warn("Links count mismatch %zu != %zu", nlinks, num_links_exp);
 
@@ -322,11 +331,13 @@ int ctx_links(int argc, char **argv)
         die("Cannot write ctp file to: %s", link_tmp_path.b);
       strbuf_reset(&outbuf);
     }
-    if(plot && ((!limit && knum == 0) || (limit && knum+1 == limit)))
+    if(plot && knum == plot_kmer_idx)
     {
       bool plot_fw = (ltree.fw_id >= 0);
+      status("Plotting %s tree...", plot_fw ? "forward" : "reverse");
       ltree_write_dot(&ltree, plot_fw, kmerbuf.b, &outbuf);
-      fputs(outbuf.b, plot_fh);
+      if(fwrite(outbuf.b, 1, outbuf.end, plot_fh) != outbuf.end)
+        die("Cannot write plot DOT file to: %s", plot_out_path);
       strbuf_reset(&outbuf);
     }
   }

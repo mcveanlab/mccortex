@@ -33,9 +33,12 @@ typedef struct
   SizeBuffer covgbuf;
   ByteBuffer seqbuf;
   int32_t fw_id, rv_id;
+  int32_t fw_kstr_idx, rv_kstr_idx; // index of seqbuf of kmerstr
   LTreeWalkBuffer wbuf; // iterator
 } LinkTree;
 
+#define ltree_get_fw_kmer(tree) ((char*)((tree)->seqbuf.b + (tree)->fw_kstr_idx))
+#define ltree_get_rv_kmer(tree) ((char*)((tree)->seqbuf.b + (tree)->rv_kstr_idx))
 #define ltree_get_fw_node(tree) ltree_get_node(tree,(tree)->fw_id)
 #define ltree_get_rv_node(tree) ltree_get_node(tree,(tree)->rv_id)
 #define ltree_get_node(tree,id) ((id) < 0 ? NULL : &(tree)->treebuf.b[id])
