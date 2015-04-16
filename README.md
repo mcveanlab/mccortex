@@ -119,24 +119,25 @@ License: MIT
 ------------
 
 Bundled libraries may have different licenses:
+* [BitArray](https://github.com/noporpoise/BitArray) (Public Domain)
 * [cJSON](http://http://sourceforge.net/projects/cjson/) (MIT)
 * [CityHash](https://code.google.com/p/cityhash/) (MIT)
-* [lookup3](http://burtleburtle.net/bob/c/lookup3.c) (Public Domain)
-* [xxHash](https://github.com/Cyan4973/xxHash.git) (BSD)
 * [htslib](https://github.com/samtools/htslib) (MIT)
-* [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
-* [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
-* [BitArray](https://github.com/noporpoise/BitArray) (Public Domain)
+* [lookup3](http://burtleburtle.net/bob/c/lookup3.c) (Public Domain)
+* [madcrowlib](https://github.com/noporpoise/madcrowlib) (MIT)
 * [msg-pool](https://github.com/noporpoise/msg-pool) (Public Domain)
 * [seq-align](https://github.com/noporpoise/seq-align) (Public Domain)
-* [madcrowlib](https://github.com/noporpoise/madcrowlib) (MIT)
+* [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
+* [sort_r](https://github.com/noporpoise/sort_r) (Public Domain)
+* [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
+* [xxHash](https://github.com/Cyan4973/xxHash.git) (BSD)
 
 Used in testing:
-* [bioinf-perl](https://github.com/noporpoise/bioinf-perl) (Public Domain)
-* [samtools](https://github.com/samtools/samtools) (MIT)
 * [bcftools](https://github.com/samtools/bcftools) (MIT)
-* [vcflib](https://github.com/ekg/vcflib) (MIT)
+* [bioinf-perl](https://github.com/noporpoise/bioinf-perl) (Public Domain)
 * [bwa](https://github.com/lh3/bwa) (MIT)
+* [readsim](https://github.com/noporpoise/readsim) (Public Domain)
+* [samtools](https://github.com/samtools/samtools) (MIT)
 
 Citing
 ------

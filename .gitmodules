@@ -11,20 +11,24 @@
 	path = libs/htslib
 	url = git://github.com/samtools/htslib.git
 	branch = develop
+	ignore = dirty
 [submodule "libs/bcftools"]
 	path = libs/bcftools
 	url = git://github.com/samtools/bcftools.git
 	branch = develop
+	ignore = dirty
 [submodule "libs/samtools"]
 	path = libs/samtools
 	url = git://github.com/samtools/samtools.git
 	branch = develop
+	ignore = dirty
 [submodule "libs/seq_file"]
 	path = libs/seq_file
 	url = https://github.com/noporpoise/seq_file.git
 [submodule "libs/bwa"]
 	path = libs/bwa
 	url = https://github.com/lh3/bwa.git
+	ignore = dirty
 [submodule "libs/sort_r"]
 	path = libs/sort_r
 	url = https://github.com/noporpoise/sort_r.git

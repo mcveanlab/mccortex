@@ -6,18 +6,15 @@ SHELL=/bin/bash
 
 CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
 COMMON=bcftools samtools bwa readsim bioinf-perl maximal_substrs
-ANALYSIS=vcflib
 
-ALLTGTS=$(CORE) $(COMMON) $(ANALYSIS)
+ALLTGTS=$(CORE) $(COMMON)
+
+all: core common
 
 # Only compile dependencies for compiling ninja-cortex itself
 core: $(CORE)
 
 common: $(COMMON)
-
-analysis: $(ANALYSIS)
-
-all: core common analysis
 
 #
 # Download
@@ -49,9 +46,6 @@ samtools: htslib samtools/Makefile
 
 bwa: bwa/Makefile
 	cd bwa && make
-
-vcflib: vcflib/Makefile
-	cd vcflib #&& make
 
 string_buffer: string_buffer/Makefile
 	cd string_buffer && make all
@@ -94,13 +88,12 @@ clean:
 	cd htslib && make clean
 	cd bcftools && make clean
 	cd samtools && make clean
-	cd vcflib && make clean
 	cd string_buffer && make clean
 	cd bit_array && make clean
 	cd seq_file && make clean
-	&& cd seq-align && make clean
+	cd seq-align && make clean
 	cd readsim && make clean
-	&& cd msg-pool && make clean
+	cd msg-pool && make clean
 	cd sort_r && make clean
 	cd madcrowlib && make clean
 	cd maximal_substrs && make clean
