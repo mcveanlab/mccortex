@@ -340,7 +340,7 @@ void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
   // Some sanity checks
   //
   if(juncs->end != *njuncs) die("Differing lengths: %s", line->b);
-  if(*kdist < *njuncs+2) die("kdist too short");
+  if(*kdist < *njuncs+1) die("kdist too short [%zu %zu]", *kdist, *njuncs);
 
   if(juncpos->len > 0) {
     size_t last = juncpos->b[juncpos->len-1];
