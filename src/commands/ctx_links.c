@@ -69,48 +69,45 @@ static FILE* create_tmp_file(StrBuf *path, const char *base)
   return fh;
 }
 
-static size_t print_threshs(size_t colour, size_t *sumcovg, size_t *cutoffs,
-                            size_t len)
+/**
+ * Prints cutoff values for different link lengths and returns the median
+ */
+static size_t print_cutoffs(size_t *sumcovgs, size_t *cutoffs, size_t len)
 {
   size_t i;
-  printf("sumcovg_%zu=%zu", colour, sumcovg[0]);
-  for(i = 1; i < len; i++) printf(",%zu", sumcovg[i]);
-  printf("\ncutoffs_%zu=%zu", colour, cutoffs[0]);
+  printf("sumcovgs=%zu", sumcovgs[0]);
+  for(i = 1; i < len; i++) printf(",%zu", sumcovgs[i]);
+  printf("\ncutoffs=%zu", cutoffs[0]);
   for(i = 1; i < len; i++) printf(",%zu", cutoffs[i]);
   qsort(cutoffs, len, sizeof(cutoffs[0]), cmp_size);
   printf("\n");
   return MEDIAN(cutoffs, len);
 }
 
-static void suggest_cutoffs(size_t ncols, size_t hist_distlen, size_t hist_covglen,
-                            uint64_t (*hists)[hist_distlen][hist_covglen],
-                            double link_fdr)
+static void print_suggest_cutoff(size_t hist_distsize, size_t hist_covgsize,
+                                 uint64_t (*hists)[hist_covgsize],
+                                 double link_fdr)
 {
-  size_t i, col, dist, thresh_failed = 0;
-  size_t cutoffs[hist_distlen], sumcovg[hist_distlen];
-  size_t medians[ncols];
+  size_t i, dist, thresh_failed = 0;
+  size_t cutoffs[hist_distsize], sumcovg[hist_distsize];
+  size_t median;
 
-  for(col = 0; col < ncols; col++)
+  // Don't use dist[0] -- not informative
+  memset(cutoffs, 0, sizeof(cutoffs));
+  memset(sumcovg, 0, sizeof(sumcovg));
+
+  for(dist = 1; dist < hist_distsize; dist++)
   {
-    // Don't use dist[0] -- not informative
-    memset(cutoffs, 0, sizeof(cutoffs));
-    memset(sumcovg, 0, sizeof(sumcovg));
-
-    for(dist = 1; dist < hist_distlen; dist++)
-    {
-      int t = cleaning_pick_kmer_threshold(hists[col][dist], hist_covglen,
-                                           link_fdr, NULL, NULL);
-      if(t < 0) { thresh_failed++; t = 0; }
-      cutoffs[dist] = t;
-      for(i = 0; i < hist_covglen; i++) sumcovg[dist] += hists[col][dist][i];
-    }
-
-    medians[col] = print_threshs(col, sumcovg+1, cutoffs+1, hist_distlen-1);
+    int t = cleaning_pick_kmer_threshold(hists[dist], hist_covgsize,
+                                         link_fdr, NULL, NULL);
+    if(t < 0) { thresh_failed++; t = 0; }
+    cutoffs[dist] = t;
+    for(i = 0; i < hist_covgsize; i++) sumcovg[dist] += hists[dist][i];
   }
 
-  printf("suggested_cutoffs=%zu", medians[0]);
-  for(col = 1; col < ncols; col++) printf(",%zu", medians[col]);
-  printf("\n");
+  median = print_cutoffs(sumcovg+1, cutoffs+1, hist_distsize-1);
+
+  printf("suggested_cutoff=%zu\n", median);
 
   if(thresh_failed)
     warn("Threshold failed in %zu cases [default to 0]", thresh_failed);
@@ -122,10 +119,8 @@ int ctx_links(int argc, char **argv)
   const char *link_out_path = NULL, *csv_out_path = NULL, *plot_out_path = NULL;
   double link_fdr = -1;
 
-  SizeBuffer cutoffs;
-  size_buf_alloc(&cutoffs, 16);
+  size_t cutoff = 0;
   bool clean = false;
-  int listlen;
 
   // Arg parsing
   char cmd[100];
@@ -141,11 +136,7 @@ int ctx_links(int argc, char **argv)
       case 'o': cmd_check(!link_out_path, cmd); link_out_path = optarg; break;
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'l': cmd_check(!csv_out_path, cmd); csv_out_path = optarg; break;
-      case 'c':
-        if((listlen = comma_list_to_array(optarg, &cutoffs)) != (int)strlen(optarg))
-          cmd_print_usage("Invalid --clean argument: %s", optarg);
-        clean = true;
-        break;
+      case 'c': cmd_check(!cutoff, cmd); cutoff = cmd_size(cmd, optarg); clean = true; break;
       case 'L': cmd_check(!limit, cmd); limit = cmd_size(cmd, optarg); break;
       case 'P': cmd_check(!plot_out_path, cmd); plot_out_path = optarg; break;
       case 'T': cmd_check(link_fdr<0, cmd); link_fdr = cmd_udouble_nonzero(cmd,optarg); break;
@@ -190,25 +181,14 @@ int ctx_links(int argc, char **argv)
   size_t ncols = file_filter_into_ncols(&ctpin.fltr);
   size_t kmer_size = gpath_reader_get_kmer_size(&ctpin);
   cJSON *newhdr = cJSON_Duplicate(ctpin.json, 1);
-  size_t i, col;
 
-  if(clean) {
-    if(ncols > 1 && cutoffs.len == 1) {
-      while(cutoffs.len < ncols)
-        size_buf_add(&cutoffs, cutoffs.b[0]);
-    }
-    else if(ncols != cutoffs.len) {
-      cmd_print_usage("Must give %zu number of --clean threholds", ncols);
-    }
-  }
+  if(ncols != 1) die("Can only clean a single colour at a time. Sorry.");
 
-  const size_t hist_distlen = 6, hist_covglen = 100;
-  uint64_t (*hists)[hist_distlen][hist_covglen] = NULL;
+  const size_t hist_distsize = 6, hist_covgsize = 100;
+  uint64_t (*hists)[hist_covgsize] = NULL;
 
   if(hist_covg)
-  {
-    hists = ctx_calloc(ncols, sizeof(hists[0]));
-  }
+    hists = ctx_calloc(hist_distsize, sizeof(hists[0]));
 
   if(limit)
     status("Limiting to the first %zu kmers", limit);
@@ -216,8 +196,7 @@ int ctx_links(int argc, char **argv)
   if(clean)
   {
     timestamp();
-    message(" Cleaning coverage below %zu", cutoffs.b[0]);
-    for(col = 1; col < ncols; col++) message(",%zu", cutoffs.b[col]);
+    message(" Cleaning coverage below %zu", cutoff);
     message("\n");
   }
 
@@ -253,9 +232,7 @@ int ctx_links(int argc, char **argv)
       die("Cannot open output CSV file %s", csv_out_path);
 
     // Print csv header
-    fprintf(csv_fh, "SeqLen,Covg0");
-    for(i = 1; i < ncols; i++) fprintf(csv_fh, ",Covg%zu", i);
-    fprintf(csv_fh, "\n");
+    fprintf(csv_fh, "SeqLen,Covg\n");
   }
 
   if(plot)
@@ -280,7 +257,7 @@ int ctx_links(int argc, char **argv)
   size_t knum, nlinks, num_links_exp = 0;
 
   LinkTree ltree;
-  ltree_alloc(&ltree, ncols, kmer_size);
+  ltree_alloc(&ltree, kmer_size);
 
   LinkTreeStats tree_stats;
   memset(&tree_stats, 0, sizeof(tree_stats));
@@ -291,13 +268,15 @@ int ctx_links(int argc, char **argv)
     ltree_reset(&ltree);
     if(!gpath_reader_read_kmer(&ctpin, &kmerbuf, &num_links_exp)) break;
 
+    status("kmer: %s", kmerbuf.b);
+
     for(nlinks = 0;
         gpath_reader_read_link(&ctpin, &link_fw, &kdist, &njuncs,
                                &countbuf, &juncsbuf,
                                &seqbuf, &jposbuf);
         nlinks++)
     {
-      ltree_add(&ltree, link_fw, countbuf.b, jposbuf.b,
+      ltree_add(&ltree, link_fw, countbuf.b[0], jposbuf.b,
                 juncsbuf.b, seqbuf.b);
     }
 
@@ -306,14 +285,15 @@ int ctx_links(int argc, char **argv)
 
     if(hist_covg)
     {
-      ltree_update_covg_hists(&ltree, (uint64_t*)hists, hist_distlen, hist_covglen);
+      ltree_update_covg_hists(&ltree, (uint64_t*)hists, hist_distsize, hist_covgsize);
     }
     if(clean)
     {
-      ltree_clean(&ltree, cutoffs.b);
+      ltree_clean(&ltree, cutoff);
     }
 
-    ltree_count_col_leaves(&ltree, &tree_stats);
+    // Accumulate statistics
+    ltree_get_stats(&ltree, &tree_stats);
     num_links = tree_stats.num_links - init_num_links;
     init_num_links = tree_stats.num_links;
 
@@ -333,9 +313,8 @@ int ctx_links(int argc, char **argv)
     }
     if(plot && knum == plot_kmer_idx)
     {
-      bool plot_fw = (ltree.fw_id >= 0);
-      status("Plotting %s tree...", plot_fw ? "forward" : "reverse");
-      ltree_write_dot(&ltree, plot_fw, kmerbuf.b, &outbuf);
+      status("Plotting tree...");
+      ltree_write_dot(&ltree, &outbuf);
       if(fwrite(outbuf.b, 1, outbuf.end, plot_fh) != outbuf.end)
         die("Cannot write plot DOT file to: %s", plot_out_path);
       strbuf_reset(&outbuf);
@@ -384,7 +363,7 @@ int ctx_links(int argc, char **argv)
 
   if(hist_covg)
   {
-    suggest_cutoffs(ncols, hist_distlen, hist_covglen, hists, link_fdr);
+    print_suggest_cutoff(hist_distsize, hist_covgsize, hists, link_fdr);
     ctx_free(hists);
     hists = NULL;
   }
@@ -399,7 +378,6 @@ int ctx_links(int argc, char **argv)
     fclose(plot_fh);
   }
 
-  size_buf_dealloc(&cutoffs);
   cJSON_Delete(newhdr);
   strbuf_dealloc(&link_tmp_path);
   ltree_dealloc(&ltree);

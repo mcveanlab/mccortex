@@ -86,7 +86,6 @@ ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-# DEV: remove IDIR_SEQ
 INCS=-I libs -I $(IDIR_HTS) -I $(IDIR_SEQ) $(EXTRA_INCS)
 
 # Library linking
@@ -213,7 +212,12 @@ DIRS=bin \
      $(TESTS_OBJDIR)
 
 # DEPS dependencies that do not need to be re-built per target
-DEPS=Makefile $(DIRS) $(LIB_OBJS) libs
+ifdef NOLIBS
+	DEPS=Makefile $(DIRS) $(LIB_OBJS)
+else
+	DEPS=Makefile $(DIRS) $(LIB_OBJS) libs
+endif
+
 REQ=
 
 # RECOMPILE=1 to recompile all from source

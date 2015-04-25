@@ -351,11 +351,11 @@ void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
   if(juncpos->len && seq->end) {
     if(juncpos->b[juncpos->len-1] >= seq->end) die("Seq too short");
     size_t p, ksize = seq->end - (juncpos->b[juncpos->len-1] + 1);
-    if(!(ksize & 1)) die("kmer_size not odd");
+    if(!(ksize & 1)) die("kmer_size not odd: %zu", ksize);
     for(i = 0; i < juncpos->len; i++) {
       p = juncpos->b[i];
       if(p+ksize > seq->end || seq->b[ksize+p] != juncs->b[i])
-        die("Bad entry");
+        die("Bad entry [p:%zu k:%zu seq: %zu]: %s", p, ksize, seq->end, line->b);
     }
   }
 }
@@ -374,7 +374,11 @@ bool gpath_reader_read_link(GPathReader *file,
 
   while((c = gzgetc_buf(file->gz, &file->strmbuf)) != -1)
   {
-    if(char_is_acgt(c)) return false; // Hit kmer line
+    if(char_is_acgt(c)) {
+      // Hit kmer line
+      gzungetc_buf(c, &file->strmbuf);
+      return false;
+    }
     else if(c == '#') gzskipline_buf(file->gz, &file->strmbuf);
     else if(c != '\n') {
       strbuf_append_char(line, c);
