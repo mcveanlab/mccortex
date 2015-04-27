@@ -338,7 +338,7 @@ for my $k (@kmers) {
   print "\t$ctx links -L \$(LINK_CLEAN_NKMERS) -T \$(LINK_CLEAN_FDR) \$< > \$@ 2> \$@.log\n\n";
 
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
-  print "\tTHRESH=`grep 'suggested_cutoffs=' $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9,]+\$\$'`; \\\n";
+  print "\tTHRESH=`grep 'suggested_cutoff=' $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9,]+\$\$'`; \\\n";
   print "\t$ctx links -c \"\$\$THRESH\" -o \$@ \$< >& \$@.log\n\n";
 }
 
