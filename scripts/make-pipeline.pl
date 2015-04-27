@@ -16,7 +16,7 @@ use CortexScripts;
 # * Add pooled cleaning (for low coverage samples)
 # * 1-by-1 bubble/breakpoint calling for lower memory
 # * genotyping
-# * use genome size
+# * pass genome size / fetch from ref FASTA
 # * use stampy to map
 # * take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
 #
@@ -358,9 +358,10 @@ print "#\n# Make bubble calls\n#\n";
 for my $k (@kmers) {
   my $ctx = get_ctx($k);
   my $ctp_txt = get_p_args($k);
+  my $hapcol = defined($ref_path) ? "--haploid ".scalar(@samples) : '';
   print "# bubble calls k=$k\n";
   print "$proj/k$k/bubbles/bubbles.txt.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
-  print "\t$ctx bubbles \$(CTX_ARGS) -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "\t$ctx bubbles \$(CTX_ARGS) $hapcol -o \$@ $ctp_txt \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
 }
 
 # Some things require a reference to be used

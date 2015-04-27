@@ -86,11 +86,16 @@ static inline read_t* seq_fetch_chrom(khash_t(ChromHash) *genome,
   return kh_value(genome, k);
 }
 
+/**
+ * @param replace_colons if true replace : with ; in chromosome names
+ */
 void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
-                                 ReadBuffer *chroms, khash_t(ChromHash) *genome);
+                                 ReadBuffer *chroms, khash_t(ChromHash) *genome,
+                                 bool replace_colons);
 
 void seq_reader_load_ref_genome(char **paths, size_t num_files,
-                                ReadBuffer *chroms, khash_t(ChromHash) *genome);
+                                ReadBuffer *chroms, khash_t(ChromHash) *genome,
+                                bool replace_colons);
 
 //
 // Useful MACROs

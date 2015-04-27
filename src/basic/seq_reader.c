@@ -462,11 +462,13 @@ void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 // Create chrom->read genome hash
 // `chroms` and `genome` must already be allocated
 void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
-                                 ReadBuffer *chroms, khash_t(ChromHash) *genome)
+                                 ReadBuffer *chroms, khash_t(ChromHash) *genome,
+                                 bool replace_colons)
 {
   size_t i;
   khiter_t k;
   int hret;
+  char *s;
 
   seq_load_all_reads(seq_files, num_files, chroms);
 
@@ -474,6 +476,10 @@ void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
   {
     seq_read_to_uppercase(&chroms->b[i]);
     seq_read_truncate_name(&chroms->b[i]);
+    if(replace_colons) {
+      for(s=chroms->b[i].name.b; *s; s++)
+        if(*s == ':') *s = ';';
+    }
     k = kh_put(ChromHash, genome, chroms->b[i].name.b, &hret);
     if(hret == 0)
       warn("duplicate chromosome (take first only): '%s'", chroms->b[i].name.b);
@@ -483,7 +489,8 @@ void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
 }
 
 void seq_reader_load_ref_genome(char **paths, size_t num_files,
-                                ReadBuffer *chroms, khash_t(ChromHash) *genome)
+                                ReadBuffer *chroms, khash_t(ChromHash) *genome,
+                                bool replace_colons)
 {
   size_t i;
 
@@ -493,7 +500,7 @@ void seq_reader_load_ref_genome(char **paths, size_t num_files,
     if((ref_files[i] = seq_open(paths[i])) == NULL)
       die("Cannot read sequence file: %s", paths[i]);
 
-  seq_reader_load_ref_genome2(ref_files, num_files, chroms, genome);
+  seq_reader_load_ref_genome2(ref_files, num_files, chroms, genome, replace_colons);
 
   ctx_free(ref_files);
 }

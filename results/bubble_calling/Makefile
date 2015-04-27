@@ -14,7 +14,7 @@ HAPDEPTH=30
 READLEN=100
 ERRRATE=0.01
 MEM=1G
-OUTDIR=run_bubbles
+OUTDIR=proj
 REF=../data/chr22/chr22_17M_18M.fa
 
 CHROMS=diploid/genome0.fa diploid/genome1.fa
@@ -22,7 +22,7 @@ READS=reads/chrom0.$(HAPDEPTH)X.1.fa.gz reads/chrom0.$(HAPDEPTH)X.2.fa.gz \
 			reads/chrom1.$(HAPDEPTH)X.1.fa.gz reads/chrom1.$(HAPDEPTH)X.2.fa.gz
 DIRS=reads diploid
 
-.INTERMEDIATE: $(READS) $(CHROMS)
+.INTERMEDIATE:
 
 all: pipeline
 
