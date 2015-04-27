@@ -350,6 +350,7 @@ void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
 
   if(juncpos->len && seq->end) {
     if(juncpos->b[juncpos->len-1] >= seq->end) die("Seq too short");
+    // We can work out the kmer size from junction positions
     size_t p, ksize = seq->end - (juncpos->b[juncpos->len-1] + 1);
     if(!(ksize & 1)) die("kmer_size not odd: %zu", ksize);
     for(i = 0; i < juncpos->len; i++) {

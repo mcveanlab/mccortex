@@ -317,7 +317,7 @@ static inline bool _ltree_write_ctp_link(LinkJunction *l, uint8_t base,
   strbuf_append_str(sbuf, " seq=");
   for(i = 0; i < njuncs; i++) {
     strbuf_append_str(sbuf, ltree_get_seq(tree, nodes[i]));
-    strbuf_append_char(sbuf, "ACGT"[nodes[i]->base]);
+    strbuf_append_char(sbuf, juncs[i]);
   }
 
   strbuf_append_str(sbuf, " juncpos=");

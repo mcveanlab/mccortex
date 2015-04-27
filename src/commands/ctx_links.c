@@ -269,7 +269,7 @@ int ctx_links(int argc, char **argv)
     if(!gpath_reader_read_kmer(&ctpin, &kmerbuf, &num_links_exp)) break;
     ctx_assert2(kmerbuf.end == kmer_size, "Kmer incorrect length %zu != %zu",
                 kmerbuf.end, kmer_size);
-    status("kmer: %s", kmerbuf.b);
+    // status("kmer: %s", kmerbuf.b);
 
     for(nlinks = 0;
         gpath_reader_read_link(&ctpin, &link_fw, &kdist, &njuncs,
