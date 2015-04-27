@@ -5,6 +5,7 @@
 # VERBOSE=1                  (compile to print all the things!)
 # HASH=<CITY,LOOKUP3,XXHASH> (default hash function)
 # RECOMPILE=1                (recompile all from source)
+# NOLIBS=1                   (do not attempt to recompile library code)
 
 # Resolve some issues linking libz:
 # e.g. for WTCHG cluster3

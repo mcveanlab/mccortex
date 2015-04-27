@@ -137,7 +137,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "calls2vcf", .func = ctx_calls2vcf, .hide = false,
-  .blurb = "reduce set of strings to remove substrings",
+  .blurb = "convert bubble/breakpoint calls to VCF",
   .usage = calls2vcf_usage
 },
 {

@@ -102,7 +102,7 @@ static scoring_t nw_scoring_flank, nw_scoring_allele;
 //
 // Statistics
 //
-// VCF printing stats
+// Var reading stats
 static size_t num_entries_read = 0, num_entries_well_mapped = 0, num_vars_printed = 0;
 
 // Bubble statistics
@@ -158,7 +158,6 @@ static void parse_cmdline_args(int argc, char **argv)
       case 'G': nwgapextend = cmd_int32(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
-        // cmd_print_usage(NULL);
         die("`"CMD" calls2vcf -h` for help. Bad option: %s", argv[optind-1]);
       default: ctx_assert2(0, "shouldn't reach here: %c", c);
     }
@@ -173,8 +172,7 @@ static void parse_cmdline_args(int argc, char **argv)
   if(optind+2 > argc)
     cmd_print_usage("Require <in.txt.gz> and at least one reference");
 
-  input_path = argv[optind];
-  optind++;
+  input_path = argv[optind++];
   ref_paths = argv + optind;
   num_ref_paths = argc - optind;
 }
@@ -359,15 +357,15 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
     // bb--ccd-ecge
 
     // Find positions of first and last match
-    size_t i, l, r, matches = 0;
-    size_t ref_offset_left = 0, ref_offset_rght = 0;
-    size_t alt_offset_left = 0, alt_offset_rght = 0;
+    int i, l, r, matches = 0;
+    int ref_offset_left = 0, ref_offset_rght = 0;
+    int alt_offset_left = 0, alt_offset_rght = 0;
 
-    for(l = 0; l < aln->length && ref[l] != alt[l]; l++) {
+    for(l = 0; l < (int)aln->length && ref[l] != alt[l]; l++) {
       ref_offset_left += (ref[l] != '-');
       alt_offset_left += (alt[l] != '-');
     }
-    for(r = aln->length-1; r != SIZE_MAX && ref[r] != alt[r]; r--) {
+    for(r = aln->length-1; r > 0 && ref[r] != alt[r]; r--) {
       ref_offset_rght += (ref[r] != '-');
       alt_offset_rght += (alt[r] != '-');
     }
@@ -375,7 +373,7 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
     // Count matches
     for(i = l; i <= r; i++) matches += (ref[i] == alt[i]);
 
-    if(matches < kmer_size / 2)
+    if(matches < (int)kmer_size / 2)
     {
       // flank doesn't map well
       num_flank3p_not_found++;
@@ -1118,9 +1116,11 @@ int ctx_calls2vcf(int argc, char **argv)
          num_entries_read_str, num_vars_printed_str, futil_outpath_str(out_path));
 
   if(input_bubble_format) {
+    char msg[200];
     // Bubble caller specific
     print_stat(num_flank5p_unmapped,    num_entries_read, "flank 5p unmapped");
-    print_stat(num_flank5p_lowqual,     num_entries_read, "flank 5p low mapq");
+    sprintf(msg, "flank 5p low mapq (<%zu)", min_mapq);
+    print_stat(num_flank5p_lowqual,     num_entries_read, msg);
     print_stat(num_flank3p_not_found,   num_entries_read, "flank 3p not found");
     print_stat(num_flank3p_multihits,   num_entries_read, "flank 3p multiple hits");
     print_stat(num_flank3p_approx_match,num_entries_read, "flank 3p approx match used");
