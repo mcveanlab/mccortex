@@ -267,7 +267,8 @@ int ctx_links(int argc, char **argv)
   {
     ltree_reset(&ltree);
     if(!gpath_reader_read_kmer(&ctpin, &kmerbuf, &num_links_exp)) break;
-
+    ctx_assert2(kmerbuf.end == kmer_size, "Kmer incorrect length %zu != %zu",
+                kmerbuf.end, kmer_size);
     status("kmer: %s", kmerbuf.b);
 
     for(nlinks = 0;

@@ -77,7 +77,7 @@ void ltree_add(LinkTree *tree,
     if(nodeid < 0) {
       // node doesn't exist
       size_t seq_offset = i > 0 ? tree->kmer_size + dists[i-1] + 1 : 0;
-      size_t dist       = i > 0 ? dists[i] - dists[i-1] - 1 : tree->kmer_size + dists[0]-1;
+      size_t dist       = i > 0 ? dists[i] - dists[i-1] - 1 : tree->kmer_size + dists[0];
 
       nodeid = ltree_init_node(tree, parentid, dists[i],
                                seq + seq_offset, dist,
