@@ -12,12 +12,12 @@ use CortexScripts;
 
 #
 # TODO:
-# * Merge info fields when merging VCF files
+# * Merge info fields when merging VCF files (waiting on bcftools request)
 # * Add pooled cleaning (for low coverage samples)
 # * 1-by-1 bubble/breakpoint calling for lower memory
-# * genotyping
+# * genotyping sites
 # * pass genome size / fetch from ref FASTA
-# * use stampy to map
+# * add option to use stampy to map
 # * take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
 #
 
@@ -50,7 +50,7 @@ sub print_usage
   exit(-1);
 }
 
-my $args = "$0 @ARGV";
+my $cmd = "$0 @ARGV";
 
 my $default_mem = "1G";
 my $default_ctxdir = "~/mccortex/";
@@ -89,7 +89,7 @@ my $union_brkpnt_vcf = "$proj/vcfs/breakpoints.".join('.',map {"k$_"} @kmers).".
 print '# '.strftime("%F %T", localtime($^T)).'
 #
 # Generated with:
-#     make-pipeline.pl $args
+#     '.$cmd.'
 #
 # To use this file:
 #     make -f <thisfile> graphs        <- build and clean graphs
@@ -445,6 +445,8 @@ if(defined($ref_path))
   print "\t\$(BCFTOOLS) index -f \$<\n\n";
 }
 
+
+print STDERR "Run with: make -f <script> CTXDIR=<mccortexdir> MEM=<MEM>\n";
 
 # Done!
 exit(0);

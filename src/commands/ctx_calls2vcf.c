@@ -1096,8 +1096,7 @@ int ctx_calls2vcf(int argc, char **argv)
   // Load reference genome
   read_buf_alloc(&chroms, 1024);
   genome = kh_init(ChromHash);
-  bool replace_colons = !input_bubble_format;
-  seq_reader_load_ref_genome(ref_paths, num_ref_paths, &chroms, genome, replace_colons);
+  seq_reader_load_ref_genome(ref_paths, num_ref_paths, &chroms, genome);
 
   if(!input_bubble_format) brkpnt_check_refs_match(json);
 

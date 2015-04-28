@@ -210,7 +210,7 @@ int ctx_geno(int argc, char **argv)
   ReadBuffer chromsbuf;
   read_buf_alloc(&chromsbuf, 512);
   khash_t(ChromHash) *genome = kh_init(ChromHash);
-  seq_reader_load_ref_genome2(ref_buf.b, ref_buf.len, &chromsbuf, genome, false);
+  seq_reader_load_ref_genome2(ref_buf.b, ref_buf.len, &chromsbuf, genome);
 
   // Add samples to vcf header
   for(i = 0; i < db_graph.num_of_cols; i++)

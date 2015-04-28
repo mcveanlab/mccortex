@@ -1,0 +1,100 @@
+echo "MissSample . reads/chrom0.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz" > samples.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 31 proj samples.txt > task.mk
+kmers: 31
+outdir: proj
+sample_file: samples.txt
+sample_names: MissSample
+Run with: make -f <script> CTXDIR=<mccortexdir> MEM=<MEM>
+mkdir -p reads
+mkdir -p diploid
+../../libs/bioinf-perl/sim_mutations/sim_mutations.pl --snps 1000 --indels 100 --invs 0 diploid 2 ../data/chr22/chr22_17M_18M.fa
+Genome size: 1,000,000
+ snps: 998 / 1,000 (99.80%) generated
+ insertions: 52 / 50 (104.00%) generated
+ deletions: 48 / 50 (96.00%) generated
+ inversions: 0 / 0 generated
+cat diploid/genome0.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom0.fa
+cat diploid/genome1.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom1.fa
+../../libs/bioinf-perl/sim_mutations/sim_vcf.pl ../data/chr22/chr22_17M_18M.fa diploid/genome0.fa diploid/mask0.fa diploid/genome1.fa diploid/mask1.fa > truth.vcf
+2 Genome and mask pairs loaded
+../../libs/bcftools/bcftools norm --remove-duplicates --fasta-ref ../data/chr22/chr22_17M_18M.fa --multiallelics +both truth.vcf > truth.norm.vcf
+Lines total/modified/skipped:	1098/21/0
+../../libs/htslib/bgzip -f truth.norm.vcf
+../../libs/bcftools/bcftools index -f truth.norm.vcf.gz
+../../libs/readsim/readsim -l 100 -r diploid/chrom0.fa -d 30 -e 0.01 reads/chrom0.30X
+Sampling from diploid/chrom0.fa
+ sequencing depth: 30.00
+ read length: 100
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome0[999876]
+ Genome size: 999876
+Sampling 149981 paired-end reads...
+Wrote 29996200 bases to: reads/chrom0.30X.1.fa.gz and reads/chrom0.30X.2.fa.gz
+../../libs/readsim/readsim -l 100 -r diploid/chrom1.fa -d 30 -e 0.01 reads/chrom1.30X
+Sampling from diploid/chrom1.fa
+ sequencing depth: 30.00
+ read length: 100
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome1[999907]
+ Genome size: 999907
+Sampling 149986 paired-end reads...
+Wrote 29997200 bases to: reads/chrom1.30X.1.fa.gz and reads/chrom1.30X.2.fa.gz
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.mk CTXDIR=../.. bubblevcf
+mkdir -p proj/k31/graphs
+mkdir -p proj/k31/links
+mkdir -p proj/k31/contigs
+mkdir -p proj/k31/bubbles
+mkdir -p proj/k31/breakpoints
+mkdir -p proj/k31/ref
+mkdir -p proj/vcfs
+../../bin/mccortex31 build -m 1G -t 2 -k 31 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.raw.ctx.log
+(../../bin/mccortex31 clean -m 1G -t 2 --covg-before proj/k31/graphs/MissSample.raw.covg.csv -o proj/k31/graphs/MissSample.clean.ctx  proj/k31/graphs/MissSample.raw.ctx; \
+	 ../../bin/mccortex31 inferedges -m 1G -t 2 proj/k31/graphs/MissSample.clean.ctx) >& proj/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 build -m 1G -t 2 -k 31 --sample ref --seq ../data/chr22/chr22_17M_18M.fa proj/k31/ref/ref.ctx >& proj/k31/ref/ref.ctx.log
+../../bin/mccortex31 thread -m 1G -t 2 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.se.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.se.raw.ctp.gz > proj/k31/links/MissSample.se.thresh.txt 2> proj/k31/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.se.clean.ctp.gz proj/k31/links/MissSample.se.raw.ctp.gz >& proj/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread -m 1G -t 2 -p proj/k31/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pe.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.pe.raw.ctp.gz > proj/k31/links/MissSample.pe.thresh.txt 2> proj/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/links/MissSample.pe.raw.ctp.gz >& proj/k31/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 bubbles -m 1G -t 2 --haploid 1 -o proj/k31/bubbles/bubbles.txt.gz -p 0:proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/graphs/MissSample.clean.ctx proj/k31/ref/ref.ctx >& proj/k31/bubbles/bubbles.txt.gz.log
+../../scripts/cortex_print_flanks.sh proj/k31/bubbles/bubbles.txt.gz > proj/k31/bubbles/bubbles.flanks.fa.gz
+../../libs/bwa/bwa index ../data/chr22/chr22_17M_18M.fa
+[bwa_index] Pack FASTA... 0.01 sec
+[bwa_index] Construct BWT for the packed sequence...
+[bwa_index] 0.49 seconds elapse.
+[bwa_index] Update BWT... 0.01 sec
+[bwa_index] Pack forward-only FASTA... 0.01 sec
+[bwa_index] Construct SA from BWT and Occ... 0.10 sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../../libs/bwa/bwa index ../data/chr22/chr22_17M_18M.fa
+[main] Real time: 0.675 sec; CPU: 0.626 sec
+../../libs/bwa/bwa mem ../data/chr22/chr22_17M_18M.fa proj/k31/bubbles/bubbles.flanks.fa.gz > proj/k31/bubbles/bubbles.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 880 sequences (365492 bp)...
+[M::mem_process_seqs] Processed 880 reads in 0.149 CPU sec, 0.169 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../../libs/bwa/bwa mem ../data/chr22/chr22_17M_18M.fa proj/k31/bubbles/bubbles.flanks.fa.gz
+[main] Real time: 0.186 sec; CPU: 0.159 sec
+../../bin/mccortex31 calls2vcf -F proj/k31/bubbles/bubbles.flanks.sam -o proj/k31/bubbles/bubbles.raw.vcf proj/k31/bubbles/bubbles.txt.gz ../data/chr22/chr22_17M_18M.fa >& proj/k31/bubbles/bubbles.raw.vcf.log
+../../scripts/bash/vcf-sort proj/k31/bubbles/bubbles.raw.vcf > proj/k31/bubbles/bubbles.sort.vcf
+../../libs/bcftools/bcftools norm --remove-duplicates --fasta-ref ../data/chr22/chr22_17M_18M.fa --multiallelics +both proj/k31/bubbles/bubbles.sort.vcf | \
+	../../scripts/bash/vcf-rename > proj/k31/bubbles/bubbles.norm.vcf
+Lines total/modified/skipped:	902/17/0
+../../libs/htslib/bgzip -f proj/k31/bubbles/bubbles.norm.vcf
+../../libs/bcftools/bcftools index -f proj/k31/bubbles/bubbles.norm.vcf.gz
+../../libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates proj/k31/bubbles/bubbles.norm.vcf.gz | \
+	../../scripts/bash/vcf-rename | ../../libs/bcftools/bcftools view --output-type z --output-file proj/vcfs/bubbles.k31.vcf.gz -
+../../libs/bcftools/bcftools index -f proj/vcfs/bubbles.k31.vcf.gz
+../../libs/bcftools/bcftools isec proj/vcfs/bubbles.k31.vcf.gz truth.norm.vcf.gz -p truthisec
+Unique to mccortex:    8 / 1106 ( 0.72%)
+Unique to truthvcf:  368 / 1106 (33.27%)
+Shared by both:      730 / 1106 (66.00%)
