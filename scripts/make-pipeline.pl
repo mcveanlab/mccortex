@@ -446,7 +446,9 @@ if(defined($ref_path))
 }
 
 
-print STDERR "Run with: make -f <script> CTXDIR=<mccortexdir> MEM=<MEM>\n";
+print STDERR "list all commands: make -f <script> --always-run --dry-run CTXDIR=<mccortexdir> MEM=<MEM>\n";
+print STDERR "commands to run:   make -f <script> --dry-run CTXDIR=<mccortexdir> MEM=<MEM>\n";
+print STDERR "run commands:      make -f <script> CTXDIR=<mccortexdir> MEM=<MEM>\n";
 
 # Done!
 exit(0);
