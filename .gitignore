@@ -8,7 +8,7 @@
 /benchmark
 /dev
 *.RData
-*.RHistory
+*.Rhistory
 *.DS_Store
 
 /commit.txt
