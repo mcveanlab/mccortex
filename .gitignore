@@ -9,6 +9,7 @@
 /dev
 *.RData
 *.RHistory
+*.DS_Store
 
 /commit.txt
 /notes.txt

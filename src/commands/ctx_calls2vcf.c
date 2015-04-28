@@ -1098,6 +1098,11 @@ int ctx_calls2vcf(int argc, char **argv)
   genome = kh_init(ChromHash);
   seq_reader_load_ref_genome(ref_paths, num_ref_paths, &chroms, genome);
 
+  // convert to upper case
+  char *s;
+  for(i = 0; i < chroms.len; i++)
+    for(s = chroms.b[i].seq.b; *s; s++) *s = toupper(*s);
+
   if(!input_bubble_format) brkpnt_check_refs_match(json);
 
   // Run

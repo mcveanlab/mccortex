@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# gsub returns number of substitutions made
+gzip -fcd $1 | \
+awk 'BEGIN {i = 0} {if(!($1 ~ /^#/ || $1 == "'""'")) {i += gsub(",",",",$5)+1;}} END {print i}'

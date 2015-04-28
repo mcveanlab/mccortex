@@ -1,4 +1,16 @@
 #!/bin/bash
 
-( gzip -fdc $1 | awk '{ if($1 ~ /^#/ || $1 ~ /^\s*$/) { print $0; } else { exit; } }'; \
-  gzip -fdc $1 | grep -v "^#" | sort -k1,1d -k2,2n)
+# cannot set -o pipefail as this upsets gzip
+set -eu
+
+# Warning this command does not except piped in commands
+# To pipe use: sort -k1,1d -k2,2n
+if (( $# != 1 )); then
+  echo "usage: $0 <file.vcf[.gz]>" 1>&2;
+  echo "  Or use:  sort -k1,1d -k2,2n" 1>&2;
+  exit -1
+fi
+
+gzip -fdc "$1" | awk '{ if($1 ~ /^#/) { print $0; } else if($1 ~ !/^\s*$/) { exit 0; } }'
+
+gzip -fdc "$1" | grep -v '^#' | sort -k1,1d -k2,2n
