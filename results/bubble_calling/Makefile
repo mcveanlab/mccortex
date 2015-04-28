@@ -37,7 +37,7 @@ TRUTH_FILES=truth.norm.vcf.gz truth.norm.vcf.gz.csi
 # Delete files if their recipe fails
 .DELETE_ON_ERROR:
 
-all: pipeline $(TRUTH_FILES)
+all: run-mccortex $(TRUTH_FILES)
 
 # 1 Mb human diploid
 # Generate a diploid genome from a haploid reference
@@ -78,7 +78,7 @@ samples.txt:
 task.mk: samples.txt
 	$(CTXPIPELINE) -r $(REF) $(K) $(OUTDIR) $< > $@
 
-pipeline: task.mk $(TRUTH_FILES) $(READS)
+run-mccortex: task.mk $(TRUTH_FILES) $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) bubblevcf
 	$(BCFTOOLS) isec truth.norm.vcf.gz proj/vcfs/bubbles.k31.vcf.gz -p truthisec
 	@A=`$(VCFALLELES) truthisec/0000.vcf`; \
@@ -90,7 +90,7 @@ pipeline: task.mk $(TRUTH_FILES) $(READS)
 	awk 'BEGIN{printf("McCortex FP:     %4d / %4d (%5.2f%%)\n",'$$B','$$MC',100*'$$B'/'$$MC')}'; \
 	awk 'BEGIN{printf("McCortex Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
 
-cortex: cortex/cortex.norm.vcf.gz cortex/cortex.norm.vcf.gz.csi
+run-cortex: cortex/cortex.norm.vcf.gz cortex/cortex.norm.vcf.gz.csi
 	$(BCFTOOLS) isec truth.norm.vcf.gz cortex/cortex.norm.vcf.gz -p truthisec
 	@A=`$(VCFALLELES) truthisec2/0000.vcf`; \
 	 B=`$(VCFALLELES) truthisec2/0001.vcf`; \
@@ -107,4 +107,4 @@ $(DIRS):
 clean:
 	rm -rf $(DIRS) $(OUTDIR) samples.txt task.mk truth.*vcf* truthisec
 
-.PHONY: all clean pipeline
+.PHONY: all clean run-mccortex run-cortex
