@@ -5,7 +5,7 @@ set -eu
 
 # Warning this command does not except piped in commands
 # To pipe use: sort -k1,1d -k2,2n
-if (( $# != 1 )); then
+if (( $# != 1 )) || [ "$1" == "-" ]; then
   echo "usage: $0 <file.vcf[.gz]>" 1>&2;
   echo "  Or use:  sort -k1,1d -k2,2n" 1>&2;
   exit -1

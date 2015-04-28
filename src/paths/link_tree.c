@@ -65,7 +65,7 @@ void ltree_add(LinkTree *tree,
 
   LTreeID rootid = fw ? tree->fw_id : tree->rv_id;
   LTreeID parentid = -1, nodeid = -1;
-  uint32_t nuc, prev_nuc;
+  uint32_t nuc, prev_nuc = 0;
 
   for(i = 0; i < njuncs; i++, parentid = nodeid, prev_nuc = nuc)
   {
@@ -81,7 +81,7 @@ void ltree_add(LinkTree *tree,
 
       nodeid = ltree_init_node(tree, parentid, dists[i],
                                seq + seq_offset, dist,
-                               i > 0 ? prev_nuc : -1);
+                               i > 0 ? (int8_t)prev_nuc : -1);
 
       if(i > 0) ltree_get_node(tree, parentid)->children[prev_nuc] = nodeid;
       else if(fw) { tree->fw_id = nodeid; }

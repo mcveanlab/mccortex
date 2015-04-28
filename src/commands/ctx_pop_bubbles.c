@@ -82,12 +82,10 @@ int ctx_pop_bubbles(int argc, char **argv)
   ctx_assert(num_gfiles > 0);
 
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
-  size_t i, ncols, output_ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t i, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
-
-  output_ncols = ncols;
 
   bool reread_graph_to_filter = (num_gfiles == 1 &&
                                  strcmp(file_filter_path(&gfiles[0].fltr),"-") != 0);

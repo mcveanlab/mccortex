@@ -12,13 +12,16 @@ use CortexScripts;
 
 #
 # TODO:
-# * Merge info fields when merging VCF files (waiting on bcftools request)
-# * Add pooled cleaning (for low coverage samples)
-# * 1-by-1 bubble/breakpoint calling for lower memory
-# * genotyping sites
-# * pass genome size / fetch from ref FASTA
-# * add option to use stampy to map
-# * take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
+# [ ] Merge info fields when merging VCF files (waiting on bcftools request)
+# [ ] Add pooled cleaning (for low coverage samples)
+# [ ] 1-by-1 bubble/breakpoint calling for lower memory
+# [ ] genotyping sites
+# [ ] pass genome size / fetch from ref FASTA
+# [ ] add option to use stampy to map
+# [ ] take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
+# [ ] thread: take fragment length
+# [ ] bubbles: take max allele + flank lengths
+# [ ] calls2vcf: take min mapq value
 #
 
 sub print_usage
@@ -418,9 +421,10 @@ if(defined($ref_path))
   print "$proj/%.sort.vcf: $proj/%.raw.vcf\n";
   print "\t\$(VCFSORT) \$< > \$@\n\n";
 
-  print "$proj/%.norm.vcf: $proj/%.sort.vcf \$(REF_FILE)\n";
+  print "$proj/%.norm.vcf.gz: $proj/%.sort.vcf \$(REF_FILE)\n";
   print "\t\$(BCFTOOLS) norm --remove-duplicates --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
-  print "\t\$(VCFRENAME) > \$@\n\n";
+  print "\t\$(VCFRENAME) > $proj/\$*.norm.vcf\n";
+  print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
   # Generate union VCF
   print "#\n# Create union compressed VCF\n#\n";
@@ -437,8 +441,9 @@ if(defined($ref_path))
 
   print "#\n# General VCF rules\n#\n";
   # Compress a VCF
-  print "%.vcf.gz: %.vcf\n";
-  print "\t\$(BGZIP) -f \$<\n\n";
+  # This deletes the existing file which may upset Make
+#  print "%.vcf.gz: %.vcf\n";
+#  print "\t\$(BGZIP) -f \$<\n\n";
 
   # Create VCF index files .vcf.gz.csi
   print "%.vcf.gz.csi: %.vcf.gz\n";
