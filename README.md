@@ -11,9 +11,13 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-8 April 2015
+29 April 2015
 
-[![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg)](https://travis-ci.org/mcveanlab/mccortex)[![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
+Branch         | Status
+---------------|--------
+master:        | [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg?branch=master)](https://travis-ci.org/mcveanlab/mccortex)
+develop:       | [![Build Status](https://travis-ci.org/mcveanlab/mccortex.svg?branch=develop)](https://travis-ci.org/mcveanlab/mccortex)
+code analysis: | [![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
 Build
 -----

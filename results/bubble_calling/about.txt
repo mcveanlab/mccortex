@@ -1,5 +1,13 @@
 
-# Cortex only compiles and runs cleanly on Linux
+# Cortex_var only compiles and runs cleanly on Linux
+# Dependcies: Cortex_var, vcf-hack, stampy, vcftools
+
+Simulate a diploid with 60X coverage (30X per chrom). 1% seq error and
+100bp read length, with paired end reads (insert length ~250bp, stddev = 50).
+
+Diploid is simulated by mutating a ref twice to create two chromosomes. We then
+call variants with the bubble caller including the reference. Comparing against
+the truth gives us a FDR and sensitivity measurement.
 
 Run simulation with k=21 and k=31:
 
