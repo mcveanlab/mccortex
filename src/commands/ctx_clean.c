@@ -8,8 +8,6 @@
 #include "clean_graph.h"
 #include "supernode.h" // for saving length histogram
 
-const bool use_supernode_covg = false;
-
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
@@ -28,7 +26,6 @@ const char clean_usage[] =
 "  Cleaning:\n"
 "  -T, --tips <L>              Clip tips shorter than <L> kmers\n"
 "  -S[T], --supernodes[=T]     Remove low coverage supernode with coverage < T [default: auto]\n"
-"  -d, --kdepth <C>            kmer depth: (depth*(R-Kmersize+1)/R); R = read length\n"
 "\n"
 "  Statistics:\n"
 "  -c, --covg-before <out.csv> Save kmer coverage histogram before cleaning\n"
@@ -52,7 +49,6 @@ static struct option longopts[] =
 // command specific
   {"tips",         required_argument, NULL, 'T'},
   {"supernodes",   optional_argument, NULL, 'S'},
-  {"kdepth",       required_argument, NULL, 'd'},
 // output
   {"len-before",   required_argument, NULL, 'l'},
   {"len-after",    required_argument, NULL, 'L'},
@@ -69,7 +65,6 @@ int ctx_clean(int argc, char **argv)
   bool tip_cleaning = false, supernode_cleaning = false;
   size_t min_keep_tip = 0;
   Covg threshold = 0;
-  double seq_depth = 0;
   const char *len_before_path = NULL, *len_after_path = NULL;
   const char *covg_before_path = NULL, *covg_after_path = NULL;
 
@@ -106,7 +101,6 @@ int ctx_clean(int argc, char **argv)
         if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
         supernode_cleaning = true;
         break;
-      case 'd': cmd_check(seq_depth <= 0, cmd); seq_depth = cmd_udouble_nonzero(cmd, optarg); break;
       case 'l': cmd_check(!len_before_path, cmd); len_before_path = optarg; break;
       case 'L': cmd_check(!len_after_path, cmd); len_after_path = optarg; break;
       case 'c': cmd_check(!covg_before_path, cmd); covg_before_path = optarg; break;
@@ -136,12 +130,6 @@ int ctx_clean(int argc, char **argv)
   if(doing_cleaning && out_ctx_path == NULL) {
     cmd_print_usage("Please specify --out <out.ctx> for cleaned graph");
   }
-
-  if(!supernode_cleaning && seq_depth > 0)
-    cmd_print_usage("--kdepth <C> not needed if not cleaning with --supernodes");
-
-  if(supernode_cleaning && threshold != 0 && seq_depth > 0)
-    cmd_print_usage("--supernodes <T> arg makes --kdepth <D> redundant");
 
   if(!doing_cleaning && (covg_after_path || len_after_path)) {
     cmd_print_usage("You gave --len-after <out> / --covg-after <out> without "
@@ -327,9 +315,9 @@ int ctx_clean(int argc, char **argv)
 
   if(threshold == 0 || covg_before_path || len_before_path) {
     // Get coverage distribution and estimate cleaning threshold
-    int est_threshold = cleaning_get_threshold(nthreads, use_supernode_covg,
-                                               seq_depth,
-                                               covg_before_path, len_before_path,
+    int est_threshold = cleaning_get_threshold(nthreads,
+                                               covg_before_path,
+                                               len_before_path,
                                                visited, &db_graph);
 
     // Use estimated threshold if threshold not set
@@ -342,7 +330,7 @@ int ctx_clean(int argc, char **argv)
 
   if(doing_cleaning) {
     // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
-    clean_graph(nthreads, use_supernode_covg, threshold, min_keep_tip,
+    clean_graph(nthreads, threshold, min_keep_tip,
                 covg_after_path, len_after_path,
                 visited, keep, &db_graph);
   }

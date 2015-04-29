@@ -15,7 +15,7 @@ VCFALLELES=$(CTXDIR)/scripts/bash/vcf-count-alleles
 
 K=31
 HAPDEPTH=30
-READLEN=100
+READLEN=150
 ERRRATE=0.01
 MEM=1G
 OUTDIR=proj

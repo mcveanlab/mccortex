@@ -64,21 +64,18 @@ void _test_graph_cleaning()
   TASSERT2(graph.ht.num_kmers == 1000-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
 
-  // Use supernode coverage rather than kmer coverage
-  const bool use_supernode_covg = false;
-
   // No change (min_tip_len must be > 1)
-  clean_graph(nthreads, use_supernode_covg, 0, 2, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, 0, 2, NULL, NULL, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 1000-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // No change (min_tip_len must be > 1)
-  clean_graph(nthreads, use_supernode_covg, 0, 1000-19+1, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, 0, 1000-19+1, NULL, NULL, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 1000-19+1);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
   // All removed
-  clean_graph(nthreads, use_supernode_covg, 0, 1000-19+2, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, 0, 1000-19+2, NULL, NULL, visited, keep, &graph);
   TASSERT2(graph.ht.num_kmers == 0, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
@@ -95,8 +92,8 @@ void _test_graph_cleaning()
 
   build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp));
 
-  size_t thresh = cleaning_get_threshold(nthreads, true, 4, NULL, NULL, visited, &graph);
-  clean_graph(nthreads, use_supernode_covg, thresh, 0, NULL, NULL, visited, keep, &graph);
+  size_t thresh = cleaning_get_threshold(nthreads, 4, NULL, NULL, visited, &graph);
+  clean_graph(nthreads, thresh, 0, NULL, NULL, visited, keep, &graph);
   TASSERT2(thresh > 1, "threshold: %zu", thresh);
 
   TASSERT2(graph.ht.num_kmers == 200-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
@@ -111,7 +108,7 @@ void _test_graph_cleaning()
   TASSERT2(graph.ht.num_kmers == 200-19+1 + 23-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-  clean_graph(nthreads, use_supernode_covg, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
   TASSERT2(graph.ht.num_kmers == 200-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 
@@ -125,7 +122,7 @@ void _test_graph_cleaning()
   build_graph_from_str_mt(&graph, 0, tmp3, strlen(tmp3));
   TASSERT2(graph.ht.num_kmers == 1, "%zu", (size_t)graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
-  clean_graph(nthreads, use_supernode_covg, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
+  clean_graph(nthreads, 0, 2*19-1, NULL, NULL, visited, keep, &graph);
   TASSERT(graph.ht.num_kmers == 0, "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
 

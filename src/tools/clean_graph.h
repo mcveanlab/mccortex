@@ -44,7 +44,6 @@ size_t cleaning_pick_supernode_threshold(const uint64_t *covgs, size_t len,
  * @return threshold to clean or -1 on error
  */
 int cleaning_get_threshold(size_t num_threads,
-                           bool use_supernode_covg, double seq_depth,
                            const char *covgs_csv_path,
                            const char *lens_csv_path,
                            uint8_t *visited,
@@ -60,7 +59,7 @@ int cleaning_get_threshold(size_t num_threads,
  *   histogram of supernodes coverages and lengths AFTER CLEANING.
  *   If NULL these are ignored.
  */
-void clean_graph(size_t num_threads, bool use_supernode_covg,
+void clean_graph(size_t num_threads,
                  size_t covg_threshold, size_t min_keep_tip,
                  const char *covgs_csv_path, const char *lens_csv_path,
                  uint8_t *visited, uint8_t *keep, dBGraph *db_graph);
