@@ -1,0 +1,17 @@
+
+# Cortex only compiles and runs cleanly on Linux
+
+Run simulation with k=21 and k=31:
+
+    make K=21 run-mccortex run-cortex >& results/20150428.tues.k21.linux.txt
+    make K=31 run-mccortex run-cortex >& results/20150428.tues.k31.linux.txt
+
+Re-run again with read lengths of 150bp:
+
+    make K=21 run-mccortex run-cortex >& results/20150429.wed.k21.linux.txt
+    make K=31 run-mccortex run-cortex >& results/20150429.wed.k31.linux.txt
+
+Clean with:
+
+    make clean K=21
+    make clean K=31

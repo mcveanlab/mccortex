@@ -1,0 +1,179 @@
+echo "MissSample . "\
+"reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz,"\
+"reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz" > samples.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 21 proj samples.txt > task.k21.mk
+kmers: 21
+outdir: proj
+sample_file: samples.txt
+sample_names: MissSample
+list all commands: make -f <script> --always-run --dry-run CTXDIR=<mccortexdir> MEM=<MEM>
+commands to run:   make -f <script> --dry-run CTXDIR=<mccortexdir> MEM=<MEM>
+run commands:      make -f <script> CTXDIR=<mccortexdir> MEM=<MEM>
+mkdir -p reads
+mkdir -p diploid
+../../libs/bioinf-perl/sim_mutations/sim_mutations.pl --snps 1000 --indels 100 --invs 0 diploid 2 ../data/chr22/chr22_17M_18M.fa
+Genome size: 1,000,000
+ snps: 999 / 1,000 (99.90%) generated
+ insertions: 40 / 50 (80.00%) generated
+ deletions: 60 / 50 (120.00%) generated
+ inversions: 0 / 0 generated
+cat diploid/genome0.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom0.fa
+cat diploid/genome1.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom1.fa
+../../libs/bioinf-perl/sim_mutations/sim_vcf.pl ../data/chr22/chr22_17M_18M.fa diploid/genome0.fa diploid/mask0.fa diploid/genome1.fa diploid/mask1.fa > truth.k21.vcf
+2 Genome and mask pairs loaded
+../../libs/bcftools/bcftools norm --remove-duplicates --fasta-ref ../data/chr22/chr22_17M_18M.fa --multiallelics +both truth.k21.vcf > truth.k21.norm.vcf
+Lines total/modified/skipped:	1099/36/0
+../../libs/htslib/bgzip -f truth.k21.norm.vcf
+../../libs/bcftools/bcftools index -f truth.k21.norm.vcf.gz
+../../libs/readsim/readsim -l 150 -r diploid/chrom0.fa -d 30 -e 0.01 reads/chrom0.30X
+Sampling from diploid/chrom0.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome0[999912]
+ Genome size: 999912
+Sampling 99991 paired-end reads...
+Wrote 29997300 bases to: reads/chrom0.30X.1.fa.gz and reads/chrom0.30X.2.fa.gz
+../../libs/readsim/readsim -l 150 -r diploid/chrom1.fa -d 30 -e 0.01 reads/chrom1.30X
+Sampling from diploid/chrom1.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome1[999888]
+ Genome size: 999888
+Sampling 99988 paired-end reads...
+Wrote 29996400 bases to: reads/chrom1.30X.1.fa.gz and reads/chrom1.30X.2.fa.gz
+make -f task.k21.mk CTXDIR=../.. bubblevcf
+make[1]: Entering directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling'
+mkdir -p proj/k21/graphs
+mkdir -p proj/k21/links
+mkdir -p proj/k21/contigs
+mkdir -p proj/k21/bubbles
+mkdir -p proj/k21/breakpoints
+mkdir -p proj/k21/ref
+mkdir -p proj/vcfs
+../../bin/mccortex31 build -m 1G -t 2 -k 21 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz proj/k21/graphs/MissSample.raw.ctx >& proj/k21/graphs/MissSample.raw.ctx.log
+(../../bin/mccortex31 clean -m 1G -t 2 --covg-before proj/k21/graphs/MissSample.raw.covg.csv -o proj/k21/graphs/MissSample.clean.ctx  proj/k21/graphs/MissSample.raw.ctx; \
+	 ../../bin/mccortex31 inferedges -m 1G -t 2 proj/k21/graphs/MissSample.clean.ctx) >& proj/k21/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 build -m 1G -t 2 -k 21 --sample ref --seq ../data/chr22/chr22_17M_18M.fa proj/k21/ref/ref.ctx >& proj/k21/ref/ref.ctx.log
+../../bin/mccortex31 thread -m 1G -t 2 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o proj/k21/links/MissSample.se.raw.ctp.gz proj/k21/graphs/MissSample.clean.ctx >& proj/k21/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k21/links/MissSample.se.raw.ctp.gz > proj/k21/links/MissSample.se.thresh.txt 2> proj/k21/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k21/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k21/links/MissSample.se.clean.ctp.gz proj/k21/links/MissSample.se.raw.ctp.gz >& proj/k21/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread -m 1G -t 2 -p proj/k21/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o proj/k21/links/MissSample.pe.raw.ctp.gz proj/k21/graphs/MissSample.clean.ctx >& proj/k21/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k21/links/MissSample.pe.raw.ctp.gz > proj/k21/links/MissSample.pe.thresh.txt 2> proj/k21/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k21/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k21/links/MissSample.pe.clean.ctp.gz proj/k21/links/MissSample.pe.raw.ctp.gz >& proj/k21/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 bubbles -m 1G -t 2 --haploid 1 -o proj/k21/bubbles/bubbles.txt.gz -p 0:proj/k21/links/MissSample.pe.clean.ctp.gz proj/k21/graphs/MissSample.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles/bubbles.txt.gz.log
+../../scripts/cortex_print_flanks.sh proj/k21/bubbles/bubbles.txt.gz > proj/k21/bubbles/bubbles.flanks.fa.gz
+../../libs/bwa/bwa index ../data/chr22/chr22_17M_18M.fa
+[bwa_index] Pack FASTA... 0.00 sec
+[bwa_index] Construct BWT for the packed sequence...
+[bwa_index] 0.18 seconds elapse.
+[bwa_index] Update BWT... 0.01 sec
+[bwa_index] Pack forward-only FASTA... 0.01 sec
+[bwa_index] Construct SA from BWT and Occ... 0.08 sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../../libs/bwa/bwa index ../data/chr22/chr22_17M_18M.fa
+[main] Real time: 0.286 sec; CPU: 0.286 sec
+../../libs/bwa/bwa mem ../data/chr22/chr22_17M_18M.fa proj/k21/bubbles/bubbles.flanks.fa.gz > proj/k21/bubbles/bubbles.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 905 sequences (328171 bp)...
+[M::mem_process_seqs] Processed 905 reads in 0.204 CPU sec, 0.203 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../../libs/bwa/bwa mem ../data/chr22/chr22_17M_18M.fa proj/k21/bubbles/bubbles.flanks.fa.gz
+[main] Real time: 0.216 sec; CPU: 0.216 sec
+../../bin/mccortex31 calls2vcf -F proj/k21/bubbles/bubbles.flanks.sam -o proj/k21/bubbles/bubbles.raw.vcf proj/k21/bubbles/bubbles.txt.gz ../data/chr22/chr22_17M_18M.fa >& proj/k21/bubbles/bubbles.raw.vcf.log
+../../scripts/bash/vcf-sort proj/k21/bubbles/bubbles.raw.vcf > proj/k21/bubbles/bubbles.sort.vcf
+../../libs/bcftools/bcftools norm --remove-duplicates --fasta-ref ../data/chr22/chr22_17M_18M.fa --multiallelics +both proj/k21/bubbles/bubbles.sort.vcf | \
+	../../scripts/bash/vcf-rename > proj/k21/bubbles/bubbles.norm.vcf
+Lines total/modified/skipped:	869/13/0
+../../libs/htslib/bgzip -f proj/k21/bubbles/bubbles.norm.vcf
+../../libs/bcftools/bcftools index -f proj/k21/bubbles/bubbles.norm.vcf.gz
+../../libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates proj/k21/bubbles/bubbles.norm.vcf.gz | \
+	../../scripts/bash/vcf-rename | ../../libs/bcftools/bcftools view --output-type z --output-file proj/vcfs/bubbles.k21.vcf.gz -
+../../libs/bcftools/bcftools index -f proj/vcfs/bubbles.k21.vcf.gz
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling'
+../../libs/bcftools/bcftools isec truth.k21.norm.vcf.gz proj/vcfs/bubbles.k21.vcf.gz -p truthisec
+McCortex Missed:  304 / 1099 (27.66%)
+McCortex FP:       12 /  807 ( 1.49%)
+McCortex Found:   795 / 1099 (72.34%)
+cd cortex && make K=21
+make[1]: Entering directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling/cortex'
+mkdir -p ref
+/apps/well/stampy/1.0.23-py2.6/stampy.py -G ref/chr22_17M_18M /data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa
+stampy: Building genome...
+stampy: Input files: ['/data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa']
+stampy: Done
+/apps/well/stampy/1.0.23-py2.6/stampy.py -g ref/chr22_17M_18M -H ref/chr22_17M_18M
+stampy: Building hash table...
+stampy: Initializing...
+stampy: Counting...
+stampy: Working... (0.0 %)         stampy: Working... (10.0 %)         stampy: Initializing hash...         
+stampy: Flagging high counts...           
+stampy: Working... (20.0 %)         stampy: Creating hash...            
+stampy: Working... (27.3 %)         stampy: Working... (36.4 %)         stampy: Working... (45.5 %)         stampy: Working... (54.5 %)         stampy: Working... (63.6 %)         stampy: Working... (72.7 %)         stampy: Working... (81.8 %)         stampy: Working... (90.9 %)         stampy: Writing...             
+stampy: Finished building hash table
+stampy: Done
+../../..//bin/mccortex31 build -k 21 -s REF -1 /data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa ref/ref.k21.ctx >& ref/ref.k21.ctx.log
+echo /data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa > ref/ref.falist
+printf "MrSample\t.\t%s\t%s\n" reads.1.falist reads.2.falist > samples.txt
+(echo `pwd`/../reads/chrom0.30X.1.fa.gz; \
+	 echo `pwd`/../reads/chrom1.30X.1.fa.gz) > reads.1.falist
+(echo `pwd`/../reads/chrom0.30X.2.fa.gz; \
+	 echo `pwd`/../reads/chrom1.30X.2.fa.gz) > reads.2.falist
+~/cortex/releases/CORTEX_release_v1.0.5.21/scripts/calling/run_calls.pl \
+--first_kmer 21 \
+--last_kmer 21 \
+--kmer_step 2 \
+--fastaq_index samples.txt \
+--auto_cleaning yes \
+--bc yes \
+--pd no \
+--outdir cortex_run \
+--outvcf chr22_17M_18M \
+--ploidy 2 \
+--stampy_hash ref/chr22_17M_18M \
+--stampy_bin /apps/well/stampy/1.0.23-py2.6/stampy.py \
+--list_ref_fasta ref/ref.falist \
+--refbindir ref/ \
+--genome_size 1000000 \
+--qthresh 5 \
+--mem_height 20 --mem_width 100 \
+--vcftools_dir ~/bioinf/vcftools_0.1.12b/ \
+--do_union yes \
+--ref CoordinatesAndInCalling \
+--workflow independent \
+--logfile runcalls.k21.log
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  8625 y values <= 0 omitted from logarithmic plot
+sort -k1,1d -k2,2n
+sort -k1,1d -k2,2n
+( ../../..//scripts/bash/vcf-header cortex_run/vcfs/chr22_17M_18M_union_BC_calls_k21.decomp.vcf | \
+	  grep -v '^##contig' | \
+	  grep -v '^#CHROM' | \
+	  sed 's/, Description=/,Description=/g'; \
+	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
+	  echo '##contig=<ID=chr22_17M_18M,length=1000000,assembly=hg19>'; \
+	  ../../..//scripts/bash/vcf-header cortex_run/vcfs/chr22_17M_18M_union_BC_calls_k21.decomp.vcf | grep '^#CHROM' ) > new_header.k21.txt
+( cat new_header.k21.txt; \
+	  ~/c/vcf-hack/bin/vcfref -s cortex_run/vcfs/chr22_17M_18M_union_BC_calls_k21.decomp.vcf /data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa | grep -v '^#' | sort -k1,1d -k2,2n ) > cortex.k21.sort.vcf
+Loading /data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa
+Loaded: 'chr22_17M_18M'
+ Done.
+../../..//libs/bcftools/bcftools norm --remove-duplicates --fasta-ref /data1/users/turner/cortex_sims/ninja-cortex/results/data/chr22/chr22_17M_18M.fa --multiallelics +both cortex.k21.sort.vcf > cortex.k21.norm.vcf
+Lines total/modified/skipped:	814/1/0
+../../..//libs/htslib/bgzip cortex.k21.norm.vcf
+../../..//libs/bcftools/bcftools index cortex.k21.norm.vcf.gz
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling/cortex'
+../../libs/bcftools/bcftools isec truth.k21.norm.vcf.gz cortex/cortex.k21.norm.vcf.gz -p truthisec2
+Cortex Missed:  302 / 1099 (27.48%)
+Cortex FP:       17 /  814 ( 2.09%)
+Cortex Found:   797 / 1099 (72.52%)
