@@ -951,7 +951,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   }
 
   // Print command entry for this command
-  fprintf(fout, "##mccortex_%s=<prev=\"%s\",cmd=\"%s\",cwd=\"%s\">\n",
+  fprintf(fout, "##mccortex_%s=<prev=\"%s\",cmd=\"%s\",cwd=\"%s\",version="CTX_VERSION">\n",
           hex_rand_str(keystr, sizeof(keystr)),
           prevstr ? prevstr : "NULL",
           cmd_get_cmdline(), cmd_get_cwd());
@@ -959,10 +959,12 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   // Print previous commands
   for(; command != NULL; command = command->next)
   {
-    cJSON *key  = json_hdr_get(command, "key",  cJSON_String, input_path);
-    cJSON *cmd  = json_hdr_get(command, "cmd",  cJSON_Array,  input_path);
-    cJSON *cwd  = json_hdr_get(command, "cwd",  cJSON_String, input_path);
-    cJSON *prev = json_hdr_get(command, "prev", cJSON_Array,  input_path);
+    cJSON *key  = json_hdr_get(command, "key",    cJSON_String,  input_path);
+    cJSON *cmd  = json_hdr_get(command, "cmd",    cJSON_Array,   input_path);
+    cJSON *cwd  = json_hdr_get(command, "cwd",    cJSON_String,  input_path);
+    cJSON *prev = json_hdr_get(command, "prev",   cJSON_Array,   input_path);
+    cJSON *ver  = json_hdr_try(command, "mccortex",cJSON_String, input_path);
+
     prev = prev->child; // result could be NULL
     if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
     fprintf(fout, "##mccortex_%s=<prev=\"%s", key->valuestring,
@@ -975,7 +977,9 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
       if(i > 0) fputc(' ', fout);
       fputs(cmd->valuestring, fout);
     }
-    fprintf(fout, "\",cwd=\"%s\">\n", cwd->valuestring);
+    fprintf(fout, "\",cwd=\"%s\"", cwd->valuestring);
+    if(ver) { fprintf(fout, ",version=\"%s\"", ver->valuestring); }
+    fprintf(fout, ">\n");
   }
 
   // Print field definitions

@@ -92,7 +92,7 @@ void _test_graph_cleaning()
 
   build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp));
 
-  size_t thresh = cleaning_get_threshold(nthreads, 4, NULL, NULL, visited, &graph);
+  size_t thresh = cleaning_get_threshold(nthreads, NULL, NULL, visited, &graph);
   clean_graph(nthreads, thresh, 0, NULL, NULL, visited, keep, &graph);
   TASSERT2(thresh > 1, "threshold: %zu", thresh);
 

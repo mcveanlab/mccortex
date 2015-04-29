@@ -93,7 +93,7 @@ cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
   strftime(datestr, sizeof(datestr), "%Y-%m-%d %H:%M:%S", localtime(&date));
 
   cJSON_AddStringToObject(command, "date", datestr);
-  cJSON_AddStringToObject(command, "cortex", CTX_VERSION);
+  cJSON_AddStringToObject(command, "mccortex", CTX_VERSION);
   cJSON_AddStringToObject(command, "htslib", HTS_VERSION);
   cJSON_AddStringToObject(command, "zlib",   ZLIB_VERSION);
 
@@ -262,6 +262,14 @@ void json_hdr_fprint(cJSON *json, FILE *fout)
   fputs(jstr, fout);
   fputs("\n\n", fout);
   free(jstr);
+}
+
+cJSON* json_hdr_try(cJSON *json, const char *field, int type, const char *path)
+{
+  cJSON *obj = cJSON_GetObjectItem(json, field);
+  if(obj && obj->type != type)
+    die("JSON field not of correct type: %s [path: %s]", field, path);
+  return obj;
 }
 
 cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path)

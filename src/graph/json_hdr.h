@@ -23,7 +23,9 @@ void json_hdr_update(cJSON *json, const char *path);
 void json_hdr_gzprint(cJSON *json, gzFile gzout);
 void json_hdr_fprint(cJSON *json, FILE *fout);
 
-// Get values from a JSON header
+// Get values from a JSON header - return NULL if not found
+cJSON* json_hdr_try(cJSON *json, const char *field, int type, const char *path);
+// Get values from a JSON header - die() if not found
 cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path);
 
 long   json_hdr_demand_int( cJSON *root, const char *field, const char *path);
