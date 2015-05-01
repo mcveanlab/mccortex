@@ -16,6 +16,9 @@ madcrow_buffer(seq_file_ptr_buf, SeqFilePtrBuffer, seq_file_t*);
 size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
                           ReadBuffer *rbuf);
 
+// returns -1 if we cannot calc
+int64_t seq_est_seq_bases(seq_file_t **files, size_t nfiles);
+
 // Returns index of first kmer or r->seq.end if no kmers
 size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         uint8_t qual_cutoff, uint8_t hp_cutoff);

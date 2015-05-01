@@ -2,13 +2,11 @@ SHELL=/bin/bash -euo pipefail
 
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/ctx31
-CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
-CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 READSIM=$(CTXDIR)/libs/readsim/readsim
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMMUT=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_mutations.pl
 SIMTRUTH=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_vcf.pl
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
 VCFALLELES=$(CTXDIR)/scripts/bash/vcf-count-alleles
@@ -33,11 +31,12 @@ TRUTH_FILES=truth.k$(K).norm.vcf.gz truth.k$(K).norm.vcf.gz.csi
 # Mark all dependencies as secondary
 # It means don't re-run if the dependency file disappears -- allows us to delete unused files
 .SECONDARY:
-
 # Delete files if their recipe fails
 .DELETE_ON_ERROR:
+# Remove implicit rules for certain suffixes
+.SUFFIXES:
 
-all: run-mccortex $(TRUTH_FILES)
+all: run-mccortex run-mccortex-brkpt $(TRUTH_FILES)
 
 # 1 Mb human diploid
 # Generate a diploid genome from a haploid reference
@@ -103,6 +102,18 @@ run-cortex:
 	awk 'BEGIN{printf("Cortex Missed: %4d / %4d (%5.2f%%)\n",'$$A','$$NT',100*'$$A'/'$$NT')}'; \
 	awk 'BEGIN{printf("Cortex FP:     %4d / %4d (%5.2f%%)\n",'$$B','$$CT',100*'$$B'/'$$CT')}'; \
 	awk 'BEGIN{printf("Cortex Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
+
+run-mccortex-brkpt: task.k$(K).mk $(TRUTH_FILES) $(READS)
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) breakpointvcf
+	$(BCFTOOLS) isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.k$(K).vcf.gz -p truthisec
+	@A=`$(VCFALLELES) truthisec/0000.vcf`; \
+	 B=`$(VCFALLELES) truthisec/0001.vcf`; \
+	 C=`$(VCFALLELES) truthisec/0002.vcf`; \
+	MC=`$(VCFALLELES) proj/vcfs/breakpoints.k$(K).vcf.gz`; \
+	NT=`$(VCFALLELES) truth.k$(K).norm.vcf.gz`; \
+	awk 'BEGIN{printf("McCortex-brkpt Missed: %4d / %4d (%5.2f%%)\n",'$$A','$$NT',100*'$$A'/'$$NT')}'; \
+	awk 'BEGIN{printf("McCortex-brkpt FP:     %4d / %4d (%5.2f%%)\n",'$$B','$$MC',100*'$$B'/'$$MC')}'; \
+	awk 'BEGIN{printf("McCortex-brkpt Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
 
 $(DIRS):
 	mkdir -p $@

@@ -12,7 +12,7 @@ typedef struct
  * visited, rmvbits should each have at least db_graph->capacity bits
  * and should be initialised to zeros
  * rmvbits will have bits set for all nodes that should be removed
- * @param max_rmv_covg only remove contigs with covg <= max_rmv_covg,
+ * @param max_rmv_covg only remove contigs with mean covg <= max_rmv_covg,
  *                     ignored if <= 0.
  * @param max_rmv_klen only remove contigs with num kmers <= max_rmv_klen,
  *                     ignored if <= 0.

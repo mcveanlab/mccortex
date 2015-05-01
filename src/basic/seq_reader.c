@@ -31,6 +31,27 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
   return rbuf->len - nreads;
 }
 
+// returns -1 if we cannot calc
+int64_t seq_est_seq_bases(seq_file_t **files, size_t nfiles)
+{
+  size_t i;
+  int64_t est_num_bases = 0;
+
+  for(i = 0; i < nfiles; i++) {
+    if(strcmp(files[i]->path,"-") != 0) {
+      off_t fsize = futil_get_file_size(files[i]->path);
+      if(fsize < 0) warn("Cannot get file size: %s", files[i]->path);
+      else {
+        if(seq_is_fastq(files[i]) || seq_is_sam(files[i])) fsize /= 2;
+        if(futil_path_has_extension(files[i]->path,".gz")) fsize *= 4;
+        est_num_bases += fsize;
+      }
+    }
+    else return -1;
+  }
+  return est_num_bases;
+}
+
 // cut-offs:
 //  > quality_cutoff valid
 //  < homopolymer_cutoff valid

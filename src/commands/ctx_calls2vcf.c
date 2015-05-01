@@ -460,7 +460,7 @@ static bool brkpnt_fetch_coords(const CallFileEntry *centry,
   // Check flank5p, flank3p go right up to the breakpoints
   if(success) {
     ctx_assert(flank5p.offset+chrom_pos_len(&flank5p) == call_file_line_len(centry,1));
-    ctx_assert(flank3p.offset == 1);
+    ctx_assert2(flank3p.offset == 1, "flank3p.offset: %zu", flank3p.offset);
   }
 
   // Didn't map uniquely, with mismatching chromosomes or strands

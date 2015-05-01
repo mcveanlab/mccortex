@@ -156,26 +156,20 @@ int ctx_rmsubstr(int argc, char **argv)
   size_t i, num_seq_files = argc - optind;
   char **seq_paths = argv + optind;
   seq_file_t **seq_files = ctx_calloc(num_seq_files, sizeof(seq_file_t*));
-  int64_t est_num_bases = 0; // set to -1 if we cannot calc
 
   for(i = 0; i < num_seq_files; i++)
-  {
     if((seq_files[i] = seq_open(seq_paths[i])) == NULL)
       die("Cannot read sequence file %s", seq_paths[i]);
 
-    if(strcmp(seq_paths[i],"-") != 0 && est_num_bases != -1) {
-      off_t fsize = futil_get_file_size(seq_paths[i]);
-      if(fsize < 0) warn("Cannot get file size: %s", seq_paths[i]);
-      else {
-        if(seq_is_fastq(seq_files[i]) || seq_is_sam(seq_files[i]))
-          est_num_bases += fsize / 2;
-        else
-          est_num_bases += fsize;
-      }
-    }
-    else
-      est_num_bases = -1;
+  // Estimate number of bases
+  // set to -1 if we cannot calc
+  int64_t est_num_bases = seq_est_seq_bases(seq_files, num_seq_files);
+  if(est_num_bases < 0) {
+    warn("Cannot get file sizes, using pipes");
+    est_num_bases = memargs.num_kmers;
   }
+
+  status("[memory] Estimated number of bases: %li", (long)est_num_bases);
 
   // Use file sizes to decide on memory
 

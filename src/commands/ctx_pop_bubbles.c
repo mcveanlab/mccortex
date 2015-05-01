@@ -21,6 +21,9 @@ const char pop_bubbles_usage[] =
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
+"  -C, --max-covg <C>    Only remove branches whose mean coverage is less than <C>\n"
+"  -L, --max-len <L>     Only remove branches whose lengths are less than <L> kmers\n"
+"  -D, --max-diff <D>    Only pop bubbles whose branch lengths are within <D> kmers\n"
 "\n";
 
 static struct option longopts[] =
@@ -32,6 +35,9 @@ static struct option longopts[] =
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
   {"force",        no_argument,       NULL, 'f'},
+  {"max-covg",     required_argument, NULL, 'C'},
+  {"max-len",      required_argument, NULL, 'L'},
+  {"max-diff",     required_argument, NULL, 'D'},
   {NULL, 0, NULL, 0}
 };
 
@@ -40,6 +46,9 @@ int ctx_pop_bubbles(int argc, char **argv)
   size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
+  int32_t max_covg  = -1; // max mean coverage to remove <=0 => ignore
+  int32_t max_klen  = -1; // max length (kmers) to remove <=0 => ignore
+  int32_t max_kdiff = -1; // max diff between bubble branch lengths <0 => ignore
 
   // Arg parsing
   char cmd[100];
@@ -60,6 +69,9 @@ int ctx_pop_bubbles(int argc, char **argv)
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
+      case 'C': cmd_check(max_covg<0,  cmd); max_covg  = cmd_uint32(cmd, optarg); break;
+      case 'L': cmd_check(max_klen<0,  cmd); max_klen  = cmd_uint32(cmd, optarg); break;
+      case 'D': cmd_check(max_kdiff<0, cmd); max_kdiff = cmd_uint32(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -150,9 +162,9 @@ int ctx_pop_bubbles(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  PopBubblesPrefs prefs = {.max_rmv_covg = -1,
-                           .max_rmv_klen = -1,
-                           .max_rmv_kdiff = -1};
+  PopBubblesPrefs prefs = {.max_rmv_covg = max_covg,
+                           .max_rmv_klen = max_klen,
+                           .max_rmv_kdiff = max_kdiff};
   size_t npopped = 0;
   char npopped_str[50];
 
@@ -167,7 +179,12 @@ int ctx_pop_bubbles(int argc, char **argv)
   prune_nodes_lacking_flag(nthreads, rmvbits, &db_graph);
   size_t nkmers1 = db_graph.ht.num_kmers;
 
-  status("Number of kmers %zu -> %zu", nkmers0, nkmers1);
+  ctx_assert(nkmers1 <= nkmers0);
+  char nkmers0str[50], nkmers1str[50], ndiffstr[50];
+  ulong_to_str(nkmers0, nkmers0str);
+  ulong_to_str(nkmers1, nkmers1str);
+  ulong_to_str(nkmers0-nkmers1, ndiffstr);
+  status("Number of kmers %s -> %s (-%s)", nkmers0str, nkmers1str, ndiffstr);
 
   if(reread_graph_to_filter)
   {

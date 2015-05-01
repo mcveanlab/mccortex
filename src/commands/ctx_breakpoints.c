@@ -135,19 +135,11 @@ int ctx_breakpoints(int argc, char **argv)
   //
   // Get file sizes of sequence files
   //
-  off_t fsize;
-  size_t est_num_bases = 0;
-
-  for(i = 0; i < sfilebuf.len; i++) {
-    tmp_sfile = sfilebuf.b[i];
-    fsize = futil_get_file_size(tmp_sfile->path);
-    if(fsize < 0) warn("Cannot get file size: %s", tmp_sfile->path);
-    else {
-      if(seq_is_fastq(tmp_sfile) || seq_is_sam(tmp_sfile))
-        est_num_bases += fsize / 2;
-      else
-        est_num_bases += fsize;
-    }
+  // set to -1 if we cannot calc
+  int64_t est_num_bases = seq_est_seq_bases(sfilebuf.b, sfilebuf.len);
+  if(est_num_bases < 0) {
+    warn("Cannot get file sizes, using pipes");
+    est_num_bases = memargs.num_kmers;
   }
 
   //
@@ -155,7 +147,7 @@ int ctx_breakpoints(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash;
   size_t graph_mem, path_mem;
-  int64_t max_req_kmers = MAX2(est_num_bases, ctx_max_kmers);
+  int64_t max_req_kmers = MAX2(est_num_bases, (int64_t)ctx_max_kmers);
   int64_t sum_req_kmers = est_num_bases + ctx_sum_kmers;
 
   // DEV: use threads in memory calculation

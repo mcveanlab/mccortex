@@ -22,6 +22,7 @@ use CortexScripts;
 # [ ] thread: take fragment length
 # [ ] bubbles: take max allele + flank lengths
 # [ ] calls2vcf: take min mapq value
+# [x] pop bubbles for diploid when assembling contigs
 #
 
 sub print_usage
@@ -32,7 +33,7 @@ sub print_usage
   Generate a Makefile to run common McCortex pipelines
 
   Options:
-    -r,--ref <ref.fa>  Reference sequence
+    -r,--ref <ref.fa>         Reference sequence
 
   Example:
     ./make-pipeline.pl 31:39:2 my_proj samples.txt > job.mk
@@ -66,7 +67,7 @@ my $ref_path; # path to reference FASTA if available
 # Parse command line args
 while(@ARGV > 3) {
   my $arg = shift;
-  if($arg =~ /^(-r|--ref)$/) { $ref_path = shift; }
+  if($arg =~ /^(-r|--ref)$/ && !defined($ref_path)) { $ref_path = shift; }
   else { print_usage("Unknown argument: $arg"); }
 }
 
@@ -95,25 +96,27 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     '.$cmd.'
 #
 # To use this file:
-#     make -f <thisfile> graphs        <- build and clean graphs
-#     make -f <thisfile> links         <- build and clean links
-#     make -f <thisfile> bubbles       <- make bubble calls
-#     make -f <thisfile> breakpoints   <- make breakpoint calls
-#     make -f <thisfile> bubblevcf     <- make bubble vcf
-#     make -f <thisfile> breakpointvcf <- make breakpoint vcf
-#     make -f <thisfile> vcfs          <- make all vcfs including union
-#     make -f <thisfile> contigs       <- assemble contigs for each sample
-#     make -f <thisfile> <outdir>/k<K>/contigs/<S>.rmdup.fa.gz
-#                          ^- assemble contigs for sample <S> with k=<K>
+#     make -f <thisfile> [options] [target]
 #
-# Make will automatically generate dependencies.
-# Add option --dry-run to print commands but not run them. Include option
-# --always-make to list all commands even if dependencies exist.
+# Valid targets:
+#   graphs        <- build and clean graphs
+#   links         <- build and clean links
+#   bubbles       <- make bubble calls
+#   breakpoints   <- make breakpoint calls
+#   bubblevcf     <- make bubble vcf
+#   breakpointvcf <- make breakpoint vcf
+#   vcfs          <- make all vcfs including union
+#   contigs       <- assemble contigs for each sample
+#   contigs-pop   <- assemble contigs after popping bubbles
+#   <outdir>/k<K>/contigs/<S>[.pop].rmdup.fa.gz
+#                  - assemble contigs for sample <S> with k=<K>
 #
-# Other options:
-#    CTXDIR=<path-to-ctx-dir>
-#    MEM=<mem-to-use>
-#    NTHREADS=<nthreads>
+# Options:
+#   --dry-run              Print commands but not run them
+#   --always-make          List all commands even if dependencies exist.
+#   CTXDIR=<mccortex-dir>  e.g. CTXDIR=~/bin/mccortex
+#   MEM=<mem-to-use>       e.g. MEM=80G
+#   NTHREADS=<nthreads>
 #
 
 SHELL=/bin/bash -eou pipefail
@@ -127,11 +130,19 @@ CLEANING_ARGS=
 LINK_CLEAN_NKMERS='.$default_link_clean_nkmers.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 
-ifdef NKMERS
-  CTX_ARGS=-m $(MEM) -t $(NTHREADS) -n $(NKMERS)
-else
-  CTX_ARGS=-m $(MEM) -t $(NTHREADS)
+CTX_ARGS=
+ifdef MEM
+  CTX_ARGS:=$(CTX_ARGS) -m $(MEM)
 endif
+ifdef NKMERS
+  CTX_ARGS:=$(CTX_ARGS) -n $(NKMERS)
+endif
+ifdef NTHREADS
+  CTX_ARGS:=$(CTX_ARGS) -t $(NTHREADS)
+endif
+
+CONTIG_ARGS=--no-missing-check --confid-step 0.99
+CONTIG_POP_ARGS=--confid-step 0.99
 
 # Paths to scripts
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
@@ -155,6 +166,7 @@ for my $k (@kmers) {
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "BUBBLES_K$k=$proj/k$k/bubbles/bubbles.txt.gz\n";
   print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
+  print "CONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
   if(defined($ref_path)) {
     print "BREAKPOINTS_K$k=$proj/k$k/breakpoints/breakpoints.txt.gz\n";
   } else {
@@ -172,6 +184,7 @@ print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
 print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
 print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
+print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
 
 my @dirlist = ();
 for my $k (@kmers) {
@@ -220,6 +233,9 @@ LOG_FILES=$(HAVE_LOGS:=.log)
 # Delete files if their recipe fails
 .DELETE_ON_ERROR:
 
+# Remove in-built rules for certain file suffixes
+.SUFFIXES:
+
 all: ' .(defined($ref_path) ? 'bubblevcf breakpointvcf' : 'bubbles').' | checks
 
 graphs: $(CLEAN_GRAPHS) | checks
@@ -229,6 +245,7 @@ links: $(FINAL_LINKS) | checks
 bubbles: $(BUBBLES) | checks
 
 contigs: $(CONTIGS) | checks
+contigs-pop: $(CONTIGS_POP) | checks
 
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
@@ -284,11 +301,21 @@ for my $k (@kmers) {
           ' $@ >& $@.log'."\n\n";
   }
 
+  # Pop bubbles
+  print "# Generate individual graphs for sample assembly with high covg indiv.\n";
+  print "# Clean and pop bubbles at k=$k\n";
+  print "$proj/k$k/graphs/%.pop.raw.covg.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
+  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.covg.csv -o \$@ \$< >& \$@.log\n";
+  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.pop.clean.ctx\n";
+  print "\t$ctx popbubbles \$(CTX_ARGS) --max-diff 50 -o \$@ \$< >& \$@.log\n\n";
+
   # Clean graph files at k=$k
   print "# sample graph cleaning at k=$k\n";
-  print "$proj/k$k/graphs/%.raw.covg.csv $proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t($ctx clean \$(CTX_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o $proj/k$k/graphs/\$*.clean.ctx \$(CLEANING_ARGS) \$<; \\\n";
-  print "\t $ctx inferedges \$(CTX_ARGS) $proj/k$k/graphs/\$*.clean.ctx) >& $proj/k$k/graphs/\$*.clean.ctx.log\n\n";
+  print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.clean.ctx\n";
+  print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n\n";
 }
 
 # Create and clean link files
@@ -297,7 +324,14 @@ for my $k (@kmers) {
   print "# creating links at k=$k\n";
   my $ctx = get_ctx($k);
 
-  for my $sample (@samples) {
+  my @samples_with_pop = @samples;
+  for my $s (@samples) {
+    my %tmp = %$s;
+    $tmp{'name'} .= '.pop';
+    push(@samples_with_pop, \%tmp);
+  }
+
+  for my $sample (@samples_with_pop) {
     my $sname = $sample->{'name'};
     my @pe_files = (map {($_->[0], $_->[1])} @{$sample->{'pe_files'}},
                     @{$sample->{'i_files'}});
@@ -349,11 +383,15 @@ for my $k (@kmers) {
 print "#\n# Assemble contigs\n#\n";
 for my $k (@kmers) {
   my $ctx = get_ctx($k);
+  print "# assembly high covg sample k=$k\n";
+  print "$proj/k$k/contigs/%.pop.raw.fa.gz: $proj/k$k/graphs/%.pop.clean.ctx $proj/k$k/links/%.pop.pe.clean.ctp.gz\n";
+  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_POP_ARGS) -o - -p $proj/k$k/links/\$*.pop.pe.clean.ctp.gz \$<               | gzip -c > \$@ ) >& \$@.log\n\n";
   print "# assembly k=$k\n";
-  print "$proj/k$k/contigs/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k) | \$(DIRS)\n";
-  print "\t$ctx contigs \$(CTX_ARGS) -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "$proj/k$k/contigs/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k)\n";
+  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | gzip -c > \$@ ) >& \$@.log\n\n";
+  print "# Remove redundant contigs\n";
   print "$proj/k$k/contigs/%.rmdup.fa.gz: $proj/k$k/contigs/%.raw.fa.gz\n";
-  print "\t$ctx rmsubstr -m \$(MEM) -k $k -o \$@ \$< >& \$@.log\n\n";
+  print "\t( $ctx rmsubstr -m \$(MEM) -k $k -o - \$< | gzip -c > \$@ ) >& \$@.log\n\n";
 }
 
 # Generate buble calls
@@ -451,9 +489,12 @@ if(defined($ref_path))
 }
 
 
-print STDERR "list all commands: make -f <script> --always-run --dry-run CTXDIR=<mccortexdir> MEM=<MEM>\n";
-print STDERR "commands to run:   make -f <script> --dry-run CTXDIR=<mccortexdir> MEM=<MEM>\n";
-print STDERR "run commands:      make -f <script> CTXDIR=<mccortexdir> MEM=<MEM>\n";
+print STDERR "Usage: make -f <script> [options] [target]\n";
+print STDERR "  --always-run          Run/list all commands, inc. those already run\n";
+print STDERR "  --dry-run             List commands, don't run them\n";
+print STDERR "  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex\n";
+print STDERR "  MEM=<MEM>             Maximum memory to use e.g. MEM=80G\n\n";
+print STDERR "  NTHREADS=<N>          Maximum number of job threads to use\n\n";
 
 # Done!
 exit(0);
@@ -475,7 +516,8 @@ sub load_samples_file
       if(@cols < 2 || @cols > 4) { die("Bad line"); }
       my ($sname, $se_txt, $pe_txt, $i_txt) = @cols;
       # Check sample name is sane and unique
-      if($sname !~ /^[a-z0-9_\-\.]+$/i) { print STDERR "Bad name: $sname"; exit(-1); }
+      if($sname !~ /^[a-z0-9_\-\.]+$/i) { die("Bad name: $sname"); }
+      if($sname =~ /\.pop$/) { die("sample name cannot end '.pop'"); }
       if(defined($sample_names{$sname})) { die("Duplicate sample name"); }
       # Parse file lists
       my @se_files = parse_file_list($se_txt);

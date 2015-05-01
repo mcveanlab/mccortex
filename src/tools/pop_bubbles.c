@@ -186,6 +186,14 @@ size_t pop_bubbles(const dBGraph *db_graph, size_t nthreads,
 {
   size_t i, total_popped = 0;
 
+  status("[pop_bubbles] Popping bubbles...");
+  if(prefs.max_rmv_covg > 0)
+    status("[pop_bubbles]   where branch coverage <= %i", prefs.max_rmv_covg);
+  if(prefs.max_rmv_klen > 0)
+    status("[pop_bubbles]   where branch length <= %i", prefs.max_rmv_klen);
+  if(prefs.max_rmv_kdiff >= 0)
+    status("[pop_bubbles]   where branch length diff < %i", prefs.max_rmv_kdiff);
+
   PopBubbles data = {.visited = visited, .rmvbits = rmvbits,
                      .prefs = prefs, .db_graph = db_graph};
 
