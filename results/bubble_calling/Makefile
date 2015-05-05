@@ -80,7 +80,7 @@ task.k$(K).mk: samples.txt
 	$(CTXPIPELINE) -r $(REF) $(K) $(OUTDIR) $< > $@
 
 run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) bubblevcf
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) bubblevcf
 	$(BCFTOOLS) isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.k$(K).vcf.gz -p truthisec
 	@A=`$(VCFALLELES) truthisec/0000.vcf`; \
 	 B=`$(VCFALLELES) truthisec/0001.vcf`; \
@@ -104,7 +104,7 @@ run-cortex:
 	awk 'BEGIN{printf("Cortex Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
 
 run-mccortex-brkpt: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) breakpointvcf
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) breakpointvcf
 	$(BCFTOOLS) isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.k$(K).vcf.gz -p truthisec
 	@A=`$(VCFALLELES) truthisec/0000.vcf`; \
 	 B=`$(VCFALLELES) truthisec/0001.vcf`; \

@@ -1,0 +1,54 @@
+echo "MissSample . reads/chrom.50X.1.fa.gz:reads/chrom.50X.2.fa.gz" > samples.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 31 proj samples.txt > task.k31.mk
+kmers: 31
+outdir: proj
+sample_file: samples.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-run          Run/list all commands, inc. those already run
+  --dry-run             List commands, don't run them
+  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex
+  MEM=<MEM>             Maximum memory to use e.g. MEM=80G
+  NTHREADS=<N>          Maximum number of job threads to use
+
+mkdir -p haploid
+../../libs/bioinf-perl/sim_mutations/sim_breakpoints.pl 100 ../data/chr22/chr22_17M_18M.fa haploid/chrom.fa haploid/truth.txt
+mkdir -p reads
+../../libs/readsim/readsim -l 150 -r haploid/chrom.fa -d 50 -e 0.01 reads/chrom.50X
+Sampling from haploid/chrom.fa
+ sequencing depth: 50.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: chr22_17M_18M[1000000]
+ Genome size: 1000000
+Sampling 166666 paired-end reads...
+Wrote 49999800 bases to: reads/chrom.50X.1.fa.gz and reads/chrom.50X.2.fa.gz
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.k31.mk CTXDIR=../.. MEM=1G breakpoints
+mkdir -p proj/k31/graphs
+mkdir -p proj/k31/links
+mkdir -p proj/k31/contigs
+mkdir -p proj/k31/bubbles
+mkdir -p proj/k31/breakpoints
+mkdir -p proj/k31/ref
+mkdir -p proj/vcfs
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample MissSample --seq2 reads/chrom.50X.1.fa.gz:reads/chrom.50X.2.fa.gz proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean  -m 1G -t 2 --fallback 2 --covg-before proj/k31/graphs/MissSample.raw.covg.csv -o proj/k31/graphs/MissSample.clean.ctx proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges  -m 1G -t 2 proj/k31/graphs/MissSample.clean.ctx >& proj/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample ref --seq ../data/chr22/chr22_17M_18M.fa proj/k31/ref/ref.ctx >& proj/k31/ref/ref.ctx.log
+../../bin/mccortex31 thread  -m 1G -t 2 --seq reads/chrom.50X.1.fa.gz --seq reads/chrom.50X.2.fa.gz -o proj/k31/links/MissSample.se.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.se.raw.ctp.gz > proj/k31/links/MissSample.se.thresh.txt 2> proj/k31/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.se.clean.ctp.gz proj/k31/links/MissSample.se.raw.ctp.gz >& proj/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread  -m 1G -t 2 -p proj/k31/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom.50X.1.fa.gz:reads/chrom.50X.2.fa.gz -o proj/k31/links/MissSample.pe.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.pe.raw.ctp.gz > proj/k31/links/MissSample.pe.thresh.txt 2> proj/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/links/MissSample.pe.raw.ctp.gz >& proj/k31/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 breakpoints  -m 1G -t 2 -s ../data/chr22/chr22_17M_18M.fa -o proj/k31/breakpoints/breakpoints.txt.gz -p 0:proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/graphs/MissSample.clean.ctx proj/k31/ref/ref.ctx >& proj/k31/breakpoints/breakpoints.txt.gz.log
+../../scripts/check-breakpoints.pl haploid/truth.txt <(gzip -fcd proj/k31/breakpoints/breakpoints.txt.gz)
+Expected 100 breakpoints, had 176 calls
+Found 75 / 100 (75.00%) breakpoints with 128 calls (1.71 per break)
+48 false positives
+1 calls had sequence between flanks

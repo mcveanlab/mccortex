@@ -66,7 +66,7 @@ int ctx_clean(int argc, char **argv)
   const char *out_ctx_path = NULL;
   bool tip_cleaning = false, supernode_cleaning = false;
   size_t min_keep_tip = 0;
-  int threshold = -1, fallback_thresh = -1;
+  Covg threshold = 0, fallback_thresh = 0;
   const char *len_before_path = NULL, *len_after_path = NULL;
   const char *covg_before_path = NULL, *covg_after_path = NULL;
 
@@ -103,7 +103,7 @@ int ctx_clean(int argc, char **argv)
         if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
         supernode_cleaning = true;
         break;
-      case 'B': cmd_check(fallback_thresh<0, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'B': cmd_check(!fallback_thresh, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;
       case 'l': cmd_check(!len_before_path, cmd); len_before_path = optarg; break;
       case 'L': cmd_check(!len_after_path, cmd); len_after_path = optarg; break;
       case 'c': cmd_check(!covg_before_path, cmd); covg_before_path = optarg; break;
@@ -216,9 +216,9 @@ int ctx_clean(int argc, char **argv)
     status("%zu. Saving supernode length distribution to: %s", step++, len_before_path);
   if(tip_cleaning)
     status("%zu. Cleaning tips shorter than %zu nodes", step++, min_keep_tip);
-  if(supernode_cleaning && threshold >= 0)
+  if(supernode_cleaning && threshold > 0)
     status("%zu. Cleaning supernodes with coverage < %u", step++, threshold);
-  if(supernode_cleaning && threshold < 0)
+  if(supernode_cleaning && threshold <= 0)
     status("%zu. Cleaning supernodes with auto-detected threshold", step++);
   if(covg_after_path != NULL)
     status("%zu. Saving kmer coverage distribution to: %s", step++, covg_after_path);
@@ -319,7 +319,7 @@ int ctx_clean(int argc, char **argv)
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
   uint8_t *keep = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
-  if((supernode_cleaning && threshold < 0) || covg_before_path || len_before_path)
+  if((supernode_cleaning && threshold <= 0) || covg_before_path || len_before_path)
   {
     // Get coverage distribution and estimate cleaning threshold
     int est_threshold = cleaning_get_threshold(nthreads,
@@ -331,8 +331,8 @@ int ctx_clean(int argc, char **argv)
     else status("Recommended cleaning threshold is: %i", est_threshold);
 
     // Use estimated threshold if threshold not set
-    if(threshold < 0) {
-      if(fallback_thresh && est_threshold < fallback_thresh) {
+    if(threshold <= 0) {
+      if(fallback_thresh > 0 && est_threshold < (int)fallback_thresh) {
         status("Using fallback threshold: %i", fallback_thresh);
         threshold = fallback_thresh;
       }
@@ -341,7 +341,7 @@ int ctx_clean(int argc, char **argv)
   }
 
   // Die if we failed to find suitable cleaning threshold
-  if(supernode_cleaning && threshold < 0)
+  if(supernode_cleaning && threshold <= 0)
     die("Need cleaning threshold (--supernodes=<D> or --fallback <D>)");
 
   if(doing_cleaning) {

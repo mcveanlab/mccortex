@@ -454,6 +454,7 @@ static bool brkpnt_fetch_coords(const CallFileEntry *centry,
   char *line0 = call_file_get_line(centry,0);
   char *line2 = call_file_get_line(centry,2);
 
+  // DEV: constrain flanks to reach to end of flank
   bool success = (brkpnt_fetch_first_match(line0, chrposbuf, &flank5p) &&
                   brkpnt_fetch_first_match(line2, chrposbuf, &flank3p));
 
