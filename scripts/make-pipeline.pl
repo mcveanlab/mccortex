@@ -126,7 +126,7 @@ CTXDIR='.$default_ctxdir.'
 MEM='.$default_mem.'
 NTHREADS='.$default_nthreads.'
 LINK_CLEAN_FDR=0.001
-CLEANING_ARGS=
+CLEANING_ARGS=--fallback 2
 LINK_CLEAN_NKMERS='.$default_link_clean_nkmers.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 
@@ -493,8 +493,9 @@ print STDERR "Usage: make -f <script> [options] [target]\n";
 print STDERR "  --always-run          Run/list all commands, inc. those already run\n";
 print STDERR "  --dry-run             List commands, don't run them\n";
 print STDERR "  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex\n";
-print STDERR "  MEM=<MEM>             Maximum memory to use e.g. MEM=80G\n\n";
-print STDERR "  NTHREADS=<N>          Maximum number of job threads to use\n\n";
+print STDERR "  MEM=<MEM>             Maximum memory to use e.g. MEM=80G\n";
+print STDERR "  NTHREADS=<N>          Maximum number of job threads to use\n";
+print STDERR "\n";
 
 # Done!
 exit(0);

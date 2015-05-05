@@ -26,6 +26,7 @@ const char clean_usage[] =
 "  Cleaning:\n"
 "  -T, --tips <L>              Clip tips shorter than <L> kmers\n"
 "  -S[T], --supernodes[=T]     Remove low coverage supernode with coverage < T [default: auto]\n"
+"  -B, --fallback <T>          Fall back threshold if we can't pick\n"
 "\n"
 "  Statistics:\n"
 "  -c, --covg-before <out.csv> Save kmer coverage histogram before cleaning\n"
@@ -49,6 +50,7 @@ static struct option longopts[] =
 // command specific
   {"tips",         required_argument, NULL, 'T'},
   {"supernodes",   optional_argument, NULL, 'S'},
+  {"fallback",     required_argument, NULL, 'B'},
 // output
   {"len-before",   required_argument, NULL, 'l'},
   {"len-after",    required_argument, NULL, 'L'},
@@ -64,7 +66,7 @@ int ctx_clean(int argc, char **argv)
   const char *out_ctx_path = NULL;
   bool tip_cleaning = false, supernode_cleaning = false;
   size_t min_keep_tip = 0;
-  Covg threshold = 0;
+  int threshold = -1, fallback_thresh = -1;
   const char *len_before_path = NULL, *len_after_path = NULL;
   const char *covg_before_path = NULL, *covg_after_path = NULL;
 
@@ -101,6 +103,7 @@ int ctx_clean(int argc, char **argv)
         if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
         supernode_cleaning = true;
         break;
+      case 'B': cmd_check(fallback_thresh<0, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;
       case 'l': cmd_check(!len_before_path, cmd); len_before_path = optarg; break;
       case 'L': cmd_check(!len_after_path, cmd); len_after_path = optarg; break;
       case 'c': cmd_check(!covg_before_path, cmd); covg_before_path = optarg; break;
@@ -141,6 +144,9 @@ int ctx_clean(int argc, char **argv)
   {
     cmd_print_usage("Output file already exists: %s", out_ctx_path);
   }
+
+  if(fallback_thresh && !supernode_cleaning)
+    cmd_print_usage("-B, --fallback <T> without --supernodes");
 
   // Use remaining args as graph files
   char **gfile_paths = argv + optind;
@@ -210,9 +216,9 @@ int ctx_clean(int argc, char **argv)
     status("%zu. Saving supernode length distribution to: %s", step++, len_before_path);
   if(tip_cleaning)
     status("%zu. Cleaning tips shorter than %zu nodes", step++, min_keep_tip);
-  if(supernode_cleaning && threshold > 0)
+  if(supernode_cleaning && threshold >= 0)
     status("%zu. Cleaning supernodes with coverage < %u", step++, threshold);
-  if(supernode_cleaning && threshold == 0)
+  if(supernode_cleaning && threshold < 0)
     status("%zu. Cleaning supernodes with auto-detected threshold", step++);
   if(covg_after_path != NULL)
     status("%zu. Saving kmer coverage distribution to: %s", step++, covg_after_path);
@@ -313,20 +319,30 @@ int ctx_clean(int argc, char **argv)
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
   uint8_t *keep = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
-  if(threshold == 0 || covg_before_path || len_before_path) {
+  if((supernode_cleaning && threshold < 0) || covg_before_path || len_before_path)
+  {
     // Get coverage distribution and estimate cleaning threshold
     int est_threshold = cleaning_get_threshold(nthreads,
                                                covg_before_path,
                                                len_before_path,
                                                visited, &db_graph);
 
+    if(est_threshold < 0) status("Cannot find recommended cleaning threshold");
+    else status("Recommended cleaning threshold is: %i", est_threshold);
+
     // Use estimated threshold if threshold not set
-    if(threshold == 0) {
-      // Die if we failed to find suitable cleaning threshold
-      if(est_threshold < 0) die("Cannot find suitable cleaning threshold");
-      else threshold = est_threshold;
+    if(threshold < 0) {
+      if(fallback_thresh && est_threshold < fallback_thresh) {
+        status("Using fallback threshold: %i", fallback_thresh);
+        threshold = fallback_thresh;
+      }
+      else if(est_threshold >= 0) threshold = est_threshold;
     }
   }
+
+  // Die if we failed to find suitable cleaning threshold
+  if(supernode_cleaning && threshold < 0)
+    die("Need cleaning threshold (--supernodes=<D> or --fallback <D>)");
 
   if(doing_cleaning) {
     // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
@@ -357,8 +373,10 @@ int ctx_clean(int argc, char **argv)
       }
 
       if(supernode_cleaning) {
+        ctx_assert(threshold >= 0);
         thresh = cleaning->clean_snodes_thresh;
-        thresh = cleaning->cleaned_snodes ? MAX2(thresh, threshold) : threshold;
+        thresh = cleaning->cleaned_snodes ? MAX2(thresh, (uint32_t)threshold)
+                                          : (uint32_t)threshold;
         cleaning->clean_snodes_thresh = thresh;
 
         char name_append[200];
