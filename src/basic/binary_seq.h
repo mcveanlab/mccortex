@@ -5,6 +5,8 @@
 
 extern const uint8_t revcmp_table[256];
 
+#define binary_seq_mem(n) (((n)+3)/4)
+
 // assume nbases > 0
 #define bases_in_top_byte(nbases) ((((nbases) - 1) & 3) + 1)
 #define bits_in_top_byte(nbases) (bases_in_top_byte(nbases) * 2)

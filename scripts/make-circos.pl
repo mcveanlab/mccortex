@@ -6,6 +6,7 @@ use warnings;
 use File::Basename;
 use File::Path qw(make_path);
 use List::Util qw(min max sum);
+use JSON;
 
 # Use current directory to find modules
 use FindBin;
@@ -288,20 +289,19 @@ sub main
   # 2. Load ref coordinates from header of breakpoint file
   my %chrs = ();
 
-  # ##contig=<ID=blah,length=123>
+  # Parse contigs from header
   my ($idx, $sum_lengths) = (1,0);
-  for my $hdr (@{$cb->{_header}}) {
-    if($hdr =~ /^##contig=<(.*)>$/i) {
-      my $tag = $1;
-      my ($len, $name);
-      if($tag =~ /(?:^|,)ID=(.*?)(?:,|$)/i) { $name = $1 }
-      else { die("Cannot parse contig header line: $hdr"); }
-      if($tag =~ /(?:^|,)length=(\d+)(?:,|$)/i) { $len = $1; }
-      else { die("Cannot parse contig header line: $hdr"); }
-      $chrs{$name} = {'ID' => $name, 'length' => $len, 'idx' => $idx};
-      $idx++;
-      $sum_lengths += $len;
-    }
+
+  my $hdr_txt = $cb->{'_header'};
+  my $hdr_json = decode_json($hdr_txt);
+  my $contigs_hdr = $hdr_json->{'breakpoints'}->{'contigs'};
+
+  for my $hdr (@$contigs_hdr) {
+    $chrs{$hdr->{'id'}} = {'ID' => $hdr->{'id'},
+                           'length' => $hdr->{'length'},
+                           'idx' => $idx};
+    $idx++;
+    $sum_lengths += $hdr->{'length'};
   }
 
   print "Genome size: $sum_lengths\n";

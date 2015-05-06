@@ -51,7 +51,7 @@ void binary_seq_reverse_complement(uint8_t *bases, size_t nbases)
   size_t nbytes, top_bits, unused_bits, i, j;
   uint8_t tmpbases, topbyte;
 
-  nbytes = (nbases+3)/4;
+  nbytes = binary_seq_mem(nbases);
   top_bits = 2*bases_in_top_byte(nbases);
   unused_bits = 8 - top_bits;
   topbyte = bases[nbytes-1];
@@ -137,8 +137,8 @@ void binary_seq_cpy_slow(uint8_t *restrict dst, const uint8_t *restrict src,
   size_t i, m, sb, dstn;
   if(shift >= n) { dst[0] = 0; return; }
   sb = shift*2;
-  m = (n+3)/4;
-  dstn = (n-shift+3)/4;
+  m = binary_seq_mem(n);
+  dstn = binary_seq_mem(n-shift);
   dst[dstn-1] = 0;
   for(i = 0; i+1 < m; i++) dst[i] = (src[i]>>sb) | (uint8_t)(src[i+1]<<(8-sb));
   dst[dstn-1] |= src[dstn-1] >> sb;
@@ -151,8 +151,8 @@ void binary_seq_cpy_med(uint8_t *restrict dst, const uint8_t *restrict src,
   size_t i, m, sb, dstn;
   if(shift >= n) { dst[0] = 0; return; }
   sb = shift*2;
-  m = (n+3)/4;
-  dstn = (n-shift+3)/4;
+  m = binary_seq_mem(n);
+  dstn = binary_seq_mem(n-shift);
   dst[dstn-1] = 0;
   switch(shift) {
     case 0: memcpy(dst, src, m); break;
@@ -169,7 +169,7 @@ void binary_seq_cpy_med(uint8_t *restrict dst, const uint8_t *restrict src,
 void binary_seq_cpy_fast(uint8_t *restrict dst, const uint8_t *restrict src,
                          uint8_t shift, size_t n)
 {
-  size_t src_bytes = (n+3)/4, dst_bytes = (n-shift+3)/4;
+  size_t src_bytes = binary_seq_mem(n), dst_bytes = binary_seq_mem(n-shift);
 
   if(shift >= n) { dst[0] = 0; return; }
   if(!shift) {
@@ -221,7 +221,7 @@ void binary_seq_from_str(const char *str, size_t len, uint8_t *arr)
 {
   const char *end = str+len;
   size_t b = 0, o = 0;
-  memset(arr, 0, (len+3)/4);
+  memset(arr, 0, binary_seq_mem(len));
   while(str < end) {
     arr[b] |= dna_char_to_nuc(*str) << o;
     str++; o += 2; b += (o == 8); o &= 7;

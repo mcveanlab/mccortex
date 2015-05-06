@@ -6,10 +6,6 @@ CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMMUT=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_mutations.pl
-SIMTRUTH=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_vcf.pl
-BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
-BGZIP=$(CTXDIR)/libs/htslib/bgzip
-VCFALLELES=$(CTXDIR)/scripts/bash/vcf-count-alleles
 CONTIG_STATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
 
 K=31

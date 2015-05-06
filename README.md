@@ -35,9 +35,7 @@ to compile for a maximum kmer size of 63:
 
     make MAXK=63
 
-Executables appear in the `bin/` directory. To update the libraries included:
-
-    cd libs && make
+Executables appear in the `bin/` directory.
 
 
 Commands

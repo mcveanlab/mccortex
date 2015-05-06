@@ -11,6 +11,8 @@ READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMBRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_breakpoints.pl
 CHKBRK=$(CTXDIR)/scripts/check-breakpoints.pl
+MKCIRCOS=$(CTXDIR)/scripts/make-circos.pl
+CIRCOS=circos
 
 K=31
 NBREAKS=100
@@ -60,7 +62,12 @@ run-mccortex: task.k$(K).mk $(READS) haploid/truth.txt
 $(DIRS):
 	mkdir -p $@
 
-clean:
-	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk
+plot-circos: run-mccortex
+	gzip -fcd proj/k$(K)/breakpoints/breakpoints.txt.gz | $(MKCIRCOS) circos-plot -
+	cd circos-plot && $(CIRCOS)
 
-.PHONY: all clean run-mccortex run-cortex
+
+clean:
+	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk circos-plot
+
+.PHONY: all clean run-mccortex run-cortex plot-circos

@@ -62,7 +62,8 @@ size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
   return job_mem + corrector_mem + junc_mem + packed_mem + sizeof(GenPathWorker);
 }
 
-#define binary_seq_mem(n) ((((n)+3)/4)*4)
+// GenPathWorker stores four buffers of size n
+#define gworker_seq_buf(n) (binary_seq_mem(n)*4)
 
 static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
 {
@@ -73,8 +74,8 @@ static void _gen_paths_worker_alloc(GenPathWorker *wrkr, dBGraph *db_graph)
   // Junction data
   // only fw arrays are malloc'd, rv point to fw
   tmp.junc_arrsize = INIT_BUFLEN;
-  tmp.pck_fw = ctx_calloc(2, binary_seq_mem(tmp.junc_arrsize));
-  tmp.pck_rv = tmp.pck_fw + binary_seq_mem(tmp.junc_arrsize);
+  tmp.pck_fw = ctx_calloc(2, gworker_seq_buf(tmp.junc_arrsize));
+  tmp.pck_rv = tmp.pck_fw + gworker_seq_buf(tmp.junc_arrsize);
 
   tmp.pos_fw = ctx_malloc(tmp.junc_arrsize * sizeof(*tmp.pos_fw) * 2);
   tmp.pos_rv = tmp.pos_fw + tmp.junc_arrsize;
@@ -117,8 +118,8 @@ static inline void worker_nuc_cap(GenPathWorker *wrkr, size_t req_cap)
 
     // use recalloc which zeros new memory
     // Zero new memory to keep valgrind happy :(
-    old_pck_mem = binary_seq_mem(old_cap);
-    new_pck_mem = binary_seq_mem(wrkr->junc_arrsize);
+    old_pck_mem = gworker_seq_buf(old_cap);
+    new_pck_mem = gworker_seq_buf(wrkr->junc_arrsize);
     wrkr->pck_fw = ctx_recallocarray(wrkr->pck_fw, old_pck_mem*2, new_pck_mem*2, 1);
     wrkr->pck_rv = wrkr->pck_fw + new_pck_mem;
 
@@ -175,7 +176,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
   #endif
 
   // create packed path with remaining 3 diff offsets (1..3)
-  size_t pckd_memsize = (num_pl+3)/4;
+  size_t pckd_memsize = binary_seq_mem(num_pl);
   uint8_t *packed_ptrs[4], *pckd = packed_ptr;
 
   for(i = 0; i < 4; i++) packed_ptrs[i] = packed_ptr + i*pckd_memsize;

@@ -373,7 +373,6 @@ int ctx_clean(int argc, char **argv)
       }
 
       if(supernode_cleaning) {
-        ctx_assert(threshold >= 0);
         thresh = cleaning->clean_snodes_thresh;
         thresh = cleaning->cleaned_snodes ? MAX2(thresh, (uint32_t)threshold)
                                           : (uint32_t)threshold;

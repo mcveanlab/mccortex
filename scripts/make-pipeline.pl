@@ -19,10 +19,11 @@ use CortexScripts;
 # [ ] pass genome size / fetch from ref FASTA
 # [ ] add option to use stampy to map
 # [ ] take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
-# [ ] thread: take fragment length
+# [ ] thread: take fragment length min/max length
 # [ ] bubbles: take max allele + flank lengths
 # [ ] calls2vcf: take min mapq value
 # [x] pop bubbles for diploid when assembling contigs
+# [ ] option to call variants without using links
 #
 
 sub print_usage

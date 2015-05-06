@@ -1,0 +1,81 @@
+echo "MissSample . reads/chrom.50X.1.fa.gz:reads/chrom.50X.2.fa.gz" > samples.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 31 proj samples.txt > task.k31.mk
+kmers: 31
+outdir: proj
+sample_file: samples.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-run          Run/list all commands, inc. those already run
+  --dry-run             List commands, don't run them
+  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex
+  MEM=<MEM>             Maximum memory to use e.g. MEM=80G
+  NTHREADS=<N>          Maximum number of job threads to use
+
+mkdir -p haploid
+../../libs/bioinf-perl/sim_mutations/sim_breakpoints.pl 100 ../data/chr22/chr22_17M_18M.fa haploid/chrom.fa haploid/truth.txt
+ref: 'chr22_17M_18M'
+Removing blocks shorter than 40
+mkdir -p reads
+../../libs/readsim/readsim -l 150 -r haploid/chrom.fa -d 50 -e 0.01 reads/chrom.50X
+Sampling from haploid/chrom.fa
+ sequencing depth: 50.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: chr22_17M_18M[988244]
+ Genome size: 988244
+Sampling 164707 paired-end reads...
+Wrote 49412100 bases to: reads/chrom.50X.1.fa.gz and reads/chrom.50X.2.fa.gz
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.k31.mk CTXDIR=../.. MEM=1G breakpoints
+mkdir -p proj/k31/graphs
+mkdir -p proj/k31/links
+mkdir -p proj/k31/contigs
+mkdir -p proj/k31/bubbles
+mkdir -p proj/k31/breakpoints
+mkdir -p proj/k31/ref
+mkdir -p proj/vcfs
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample MissSample --seq2 reads/chrom.50X.1.fa.gz:reads/chrom.50X.2.fa.gz proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean  -m 1G -t 2 --fallback 2 --covg-before proj/k31/graphs/MissSample.raw.covg.csv -o proj/k31/graphs/MissSample.clean.ctx proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges  -m 1G -t 2 proj/k31/graphs/MissSample.clean.ctx >& proj/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample ref --seq ../data/chr22/chr22_17M_18M.fa proj/k31/ref/ref.ctx >& proj/k31/ref/ref.ctx.log
+../../bin/mccortex31 thread  -m 1G -t 2 --seq reads/chrom.50X.1.fa.gz --seq reads/chrom.50X.2.fa.gz -o proj/k31/links/MissSample.se.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.se.raw.ctp.gz > proj/k31/links/MissSample.se.thresh.txt 2> proj/k31/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.se.clean.ctp.gz proj/k31/links/MissSample.se.raw.ctp.gz >& proj/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread  -m 1G -t 2 -p proj/k31/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom.50X.1.fa.gz:reads/chrom.50X.2.fa.gz -o proj/k31/links/MissSample.pe.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.pe.raw.ctp.gz > proj/k31/links/MissSample.pe.thresh.txt 2> proj/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/links/MissSample.pe.raw.ctp.gz >& proj/k31/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 breakpoints  -m 1G -t 2 -s ../data/chr22/chr22_17M_18M.fa -o proj/k31/breakpoints/breakpoints.txt.gz -p 0:proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/graphs/MissSample.clean.ctx proj/k31/ref/ref.ctx >& proj/k31/breakpoints/breakpoints.txt.gz.log
+../../scripts/check-breakpoints.pl haploid/truth.txt <(gzip -fcd proj/k31/breakpoints/breakpoints.txt.gz)
+chr22_17M_18M:809667:+	chr22_17M_18M:583772:-	 (0 0)
+chr22_17M_18M:1000000:+	chr22_17M_18M:932766:-	 (0 0)
+chr22_17M_18M:330548:-	chr22_17M_18M:827936:+	 (0 0)
+chr22_17M_18M:847397:+	chr22_17M_18M:903321:+	 (0 0)
+chr22_17M_18M:36457:-	chr22_17M_18M:251290:+	 (0 0)
+chr22_17M_18M:363347:-	chr22_17M_18M:593064:+	 (0 0)
+chr22_17M_18M:87253:-	chr22_17M_18M:994485:-	 (0 0)
+chr22_17M_18M:987335:-	chr22_17M_18M:374661:+	 (0 0)
+chr22_17M_18M:987334:+	chr22_17M_18M:374660:-	 (0 0)
+chr22_17M_18M:945460:+	chr22_17M_18M:330547:-	 (0 0)
+chr22_17M_18M:668827:-	chr22_17M_18M:994486:+	 (0 0)
+chr22_17M_18M:45286:-	chr22_17M_18M:32146:-	 (0 0)
+chr22_17M_18M:657144:-	chr22_17M_18M:888972:-	 (0 0)
+chr22_17M_18M:880254:-	chr22_17M_18M:809668:+	 (0 0)
+chr22_17M_18M:657143:+	chr22_17M_18M:954917:-	 (0 0)
+chr22_17M_18M:313595:+	chr22_17M_18M:11756:-	 (0 0)
+chr22_17M_18M:995074:-	chr22_17M_18M:628073:-	 (0 0)
+chr22_17M_18M:174889:+	chr22_17M_18M:111424:-	 (0 0)
+chr22_17M_18M:103517:-	chr22_17M_18M:583773:+	 (0 0)
+chr22_17M_18M:699328:+	chr22_17M_18M:668826:-	 (0 0)
+chr22_17M_18M:666555:-	chr22_17M_18M:254590:+	 (0 0)
+chr22_17M_18M:402469:-	chr22_17M_18M:485387:+	 (0 0)
+chr22_17M_18M:520567:+	chr22_17M_18M:628074:+	 (0 0)
+chr22_17M_18M:474381:+	chr22_17M_18M:60416:+	 (0 0)
+found_fw: 61 found_rv: 62
+Expected 99 breakpoints, had 178 calls
+Found 75 / 99 (75.76%) breakpoints with 123 calls (1.64 per break)
+55 false positives
+0 calls had sequence between flanks
