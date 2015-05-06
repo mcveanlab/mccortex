@@ -51,9 +51,9 @@ ref/ref.k$(K).ctx: $(REF) | $(DIRS)
 	$(MCCORTEX) build -k $(K) -s REF -1 $< $@ >& $@.log
 
 reads%.1.falist:
-	echo `pwd`/reads/chrom$*.30X.1.fa.gz; > reads$*.1.falist
+	echo `pwd`/../reads/chrom$*.30X.1.fa.gz; > reads$*.1.falist
 reads%.2.falist:
-	echo `pwd`/reads/chrom$*.30X.2.fa.gz; > reads$*.2.falist
+	echo `pwd`/../reads/chrom$*.30X.2.fa.gz; > reads$*.2.falist
 
 samples.txt:
 	for i in {0..9}; do \
