@@ -1,0 +1,105 @@
+echo "MissSample . "\
+"reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz,"\
+"reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz" > samples.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 31 proj samples.txt > task.k31.mk
+kmers: 31
+outdir: proj
+sample_file: samples.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-run          Run/list all commands, inc. those already run
+  --dry-run             List commands, don't run them
+  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex
+  MEM=<MEM>             Maximum memory to use e.g. MEM=80G
+  NTHREADS=<N>          Maximum number of job threads to use
+
+mkdir -p reads
+mkdir -p diploid
+../../libs/bioinf-perl/sim_mutations/sim_mutations.pl --snps 1000 --indels 100 --invs 0 diploid 2 ../data/chr22/chr22_17M_18M.fa
+ref: 'chr22_17M_18M'
+Genome size: 1,000,000
+ snps: 1,000 / 1,000 (100.00%) generated
+ insertions: 60 / 50 (120.00%) generated
+ deletions: 40 / 50 (80.00%) generated
+ inversions: 0 / 0 generated
+cat diploid/genome0.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom0.fa
+../../libs/readsim/readsim -l 150 -r diploid/chrom0.fa -d 30 -e 0.01 reads/chrom0.30X
+Sampling from diploid/chrom0.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome0[999909]
+ Genome size: 999909
+Sampling 99990 paired-end reads...
+Wrote 29997000 bases to: reads/chrom0.30X.1.fa.gz and reads/chrom0.30X.2.fa.gz
+cat diploid/genome1.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom1.fa
+../../libs/readsim/readsim -l 150 -r diploid/chrom1.fa -d 30 -e 0.01 reads/chrom1.30X
+Sampling from diploid/chrom1.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome1[999903]
+ Genome size: 999903
+Sampling 99990 paired-end reads...
+Wrote 29997000 bases to: reads/chrom1.30X.1.fa.gz and reads/chrom1.30X.2.fa.gz
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.k31.mk CTXDIR=../.. MEM=1G contigs contigs-pop
+mkdir -p proj/k31/graphs
+mkdir -p proj/k31/links
+mkdir -p proj/k31/contigs
+mkdir -p proj/k31/bubbles
+mkdir -p proj/k31/breakpoints
+mkdir -p proj/k31/ref
+mkdir -p proj/vcfs
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean  -m 1G -t 2 --fallback 2 --covg-before proj/k31/graphs/MissSample.raw.covg.csv -o proj/k31/graphs/MissSample.clean.ctx proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges  -m 1G -t 2 proj/k31/graphs/MissSample.clean.ctx >& proj/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 thread  -m 1G -t 2 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.se.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.se.raw.ctp.gz > proj/k31/links/MissSample.se.thresh.txt 2> proj/k31/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.se.clean.ctp.gz proj/k31/links/MissSample.se.raw.ctp.gz >& proj/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread  -m 1G -t 2 -p proj/k31/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pe.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.pe.raw.ctp.gz > proj/k31/links/MissSample.pe.thresh.txt 2> proj/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/links/MissSample.pe.raw.ctp.gz >& proj/k31/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample ref --seq ../data/chr22/chr22_17M_18M.fa proj/k31/ref/ref.ctx >& proj/k31/ref/ref.ctx.log
+( ../../bin/mccortex31 contigs  -m 1G -t 2 --no-missing-check --confid-step 0.99 -o - -p proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/graphs/MissSample.clean.ctx proj/k31/ref/ref.ctx | gzip -c > proj/k31/contigs/MissSample.raw.fa.gz ) >& proj/k31/contigs/MissSample.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G -k 31 -o - proj/k31/contigs/MissSample.raw.fa.gz | gzip -c > proj/k31/contigs/MissSample.rmdup.fa.gz ) >& proj/k31/contigs/MissSample.rmdup.fa.gz.log
+../../bin/mccortex31 clean  -m 1G -t 2 --fallback 2 --covg-before proj/k31/graphs/MissSample.pop.raw.covg.csv -o proj/k31/graphs/MissSample.pop.clean.ctx proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.pop.clean.ctx.log
+../../bin/mccortex31 thread  -m 1G -t 2 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pop.se.raw.ctp.gz proj/k31/graphs/MissSample.pop.clean.ctx >& proj/k31/links/MissSample.pop.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.pop.se.raw.ctp.gz > proj/k31/links/MissSample.pop.se.thresh.txt 2> proj/k31/links/MissSample.pop.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.pop.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pop.se.clean.ctp.gz proj/k31/links/MissSample.pop.se.raw.ctp.gz >& proj/k31/links/MissSample.pop.se.clean.ctp.gz.log
+../../bin/mccortex31 thread  -m 1G -t 2 -p proj/k31/links/MissSample.pop.se.clean.ctp.gz --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pop.pe.raw.ctp.gz proj/k31/graphs/MissSample.pop.clean.ctx >& proj/k31/links/MissSample.pop.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 proj/k31/links/MissSample.pop.pe.raw.ctp.gz > proj/k31/links/MissSample.pop.pe.thresh.txt 2> proj/k31/links/MissSample.pop.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' proj/k31/links/MissSample.pop.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pop.pe.clean.ctp.gz proj/k31/links/MissSample.pop.pe.raw.ctp.gz >& proj/k31/links/MissSample.pop.pe.clean.ctp.gz.log
+( ../../bin/mccortex31 contigs  -m 1G -t 2 --confid-step 0.99 -o - -p proj/k31/links/MissSample.pop.pe.clean.ctp.gz proj/k31/graphs/MissSample.pop.clean.ctx               | gzip -c > proj/k31/contigs/MissSample.pop.raw.fa.gz ) >& proj/k31/contigs/MissSample.pop.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G -k 31 -o - proj/k31/contigs/MissSample.pop.raw.fa.gz | gzip -c > proj/k31/contigs/MissSample.pop.rmdup.fa.gz ) >& proj/k31/contigs/MissSample.pop.rmdup.fa.gz.log
+gzip -cd  proj/k31/contigs/MissSample.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 3,776
+[contig_stats.pl]  length: .... 3,102,994
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ........ 6,263
+[contig_stats.pl]    mean: .......... 821.7
+[contig_stats.pl]  median: .......... 473.0
+[contig_stats.pl]    mode: ........... 38
+[contig_stats.pl]     N50: ........ 1,628
+[contig_stats.pl]    NG50: ........ 3,266
+gzip -cd  proj/k31/contigs/MissSample.pop.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 5,486
+[contig_stats.pl]  length: .... 2,614,712
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ........ 6,035
+[contig_stats.pl]    mean: .......... 476.6
+[contig_stats.pl]  median: .......... 112.0
+[contig_stats.pl]    mode: ........... 40
+[contig_stats.pl]     N50: ........ 1,368
+[contig_stats.pl]    NG50: ........ 2,741
