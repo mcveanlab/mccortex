@@ -17,7 +17,7 @@ int chrom_pos_cmp_len(const void *aa, const void *bb);
 
 // Validate a chrom position object
 void chrom_pos_validate(const ChromPosOffset *pos);
-#define chrom_pos_len(pos) ((pos)->end - (pos)->start)
+#define chrom_pos_len(pos) ((pos)->end - (pos)->start + 1)
 
 // Get largest match
 // return 1 if there is a unique longest and copies it to pos, otherwise 0

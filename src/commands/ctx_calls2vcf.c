@@ -436,8 +436,8 @@ static void bubble_trim_alleles(CallFileEntry *centry, StrBuf *flank3pbuf)
  * @param flank is used to return result of largest match
  * @return 1 on success, 0 if not mapped. Calls die() on error
  */
-static int brkpnt_fetch_first_match(const char *line, ChromPosBuffer *buf,
-                                    ChromPosOffset *flank)
+static int brkpnt_fetch_largest_match(const char *line, ChromPosBuffer *buf,
+                                      ChromPosOffset *flank)
 {
   char *list = strstr(line, " chr=");
   if(list == NULL) die("Cannot find flank position: %s", line);
@@ -449,8 +449,8 @@ static int brkpnt_fetch_first_match(const char *line, ChromPosBuffer *buf,
 static bool brkpnt_fetch_coords(const CallFileEntry *centry,
                                 ChromPosBuffer *chrposbuf,
                                 const read_t **chrom,
-                                size_t *start, size_t *end,
-                                bool *fw_strand)
+                                size_t *start, size_t *end, bool *fw_strand,
+                                size_t *cpy_flnk_5p, size_t *cpy_flnk_3p)
 {
   ChromPosOffset flank5p, flank3p;
   size_t n;
@@ -460,32 +460,32 @@ static bool brkpnt_fetch_coords(const CallFileEntry *centry,
   char *line0 = call_file_get_line(centry,0);
   char *line2 = call_file_get_line(centry,2);
 
-  // DEV: constrain flanks to reach to end of flank
-  bool success = (brkpnt_fetch_first_match(line0, chrposbuf, &flank5p) &&
-                  brkpnt_fetch_first_match(line2, chrposbuf, &flank3p));
-
-  // Check flank5p, flank3p go right up to the breakpoints
-  if(success) {
-    ctx_assert(flank5p.offset+chrom_pos_len(&flank5p) == call_file_line_len(centry,1));
-    ctx_assert2(flank3p.offset == 1, "flank3p.offset: %zu", flank3p.offset);
-  }
+  bool success = (brkpnt_fetch_largest_match(line0, chrposbuf, &flank5p) &&
+                  brkpnt_fetch_largest_match(line2, chrposbuf, &flank3p));
 
   // Didn't map uniquely, with mismatching chromosomes or strands
   if(!success) { num_flanks_not_uniquely_mapped++; return false; }
-  if(strcmp(flank5p.chrom,flank3p.chrom) != 0) { num_flanks_diff_chroms++; return false; }
-  if(flank5p.fw_strand != flank3p.fw_strand) { num_flanks_diff_strands++; return false; }
+  else if(strcmp(flank5p.chrom,flank3p.chrom) != 0) { num_flanks_diff_chroms++; return false; }
+  else if(flank5p.fw_strand != flank3p.fw_strand) { num_flanks_diff_strands++; return false; }
+  else {
+    // Copy required bases so flank5p, flank3p go right up to the breakpoints
+    // offset is 1-based
+    ctx_assert(flank5p.offset-1+chrom_pos_len(&flank5p) <= call_file_line_len(centry,1));
+    *cpy_flnk_5p = call_file_line_len(centry,1) - (flank5p.offset-1+chrom_pos_len(&flank5p));
+    *cpy_flnk_3p = flank3p.offset - 1;
 
-  // Copy results. ChromPosOffset coords are 1-based.
-  *chrom = seq_fetch_chrom(genome, flank5p.chrom);
-  *fw_strand = flank5p.fw_strand;
-  if(flank5p.fw_strand) { *start = flank5p.end+1; *end = flank3p.start; }
-  else                  { *start = flank3p.end+1; *end = flank5p.start; }
+    // Copy results. ChromPosOffset coords are 1-based.
+    *chrom = seq_fetch_chrom(genome, flank5p.chrom);
+    *fw_strand = flank5p.fw_strand;
+    if(flank5p.fw_strand) { *start = flank5p.end+1; *end = flank3p.start; }
+    else                  { *start = flank3p.end+1; *end = flank5p.start; }
 
-  // Convert to 0-based coords
-  (*start)--;
-  (*end)--;
+    // Convert to 0-based coords
+    (*start)--;
+    (*end)--;
 
-  return true;
+    return true;
+  }
 }
 
 // `ref` and `alt` are aligned alleles - should both be same length strings
@@ -639,6 +639,10 @@ static int get_callid_str(const char *hdrline, bool bubble_format,
   return len;
 }
 
+/**
+ * @param cpy_flnk_5p how many characters to copy from end of 5' flank to start of allele
+ * @param cpy_flnk_3p how many characters to copy from end of 3' flank to end of allele
+ */
 static void align_entry_allele(const char *line, size_t linelen,
                                const char *flank5p, size_t flank5p_len,
                                const char *flank3p, size_t flank3p_len,
@@ -863,7 +867,8 @@ static void parse_entries(gzFile gzin, FILE *fout)
       flank3p_len = call_file_line_len(&centry, 3);
 
       mapped = brkpnt_fetch_coords(&centry, &chrposbuf,
-                                   &chrom, &ref_start, &ref_end, &fw_strand);
+                                   &chrom, &ref_start, &ref_end, &fw_strand,
+                                   &cpy_flnk_5p, &cpy_flnk_3p);
     }
 
     if(mapped)
