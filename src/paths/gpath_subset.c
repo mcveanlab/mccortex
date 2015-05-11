@@ -70,8 +70,10 @@ void gpath_subset_update_linkedlist(GPathSubset *subset)
   subset->list.b[subset->list.len-1]->next = NULL;
 }
 
-// Remove duplicate entries
-// {T,TT,TT} -> {T,TT}
+/**
+ * Remove duplicate entries e.g.
+ *  {T,TT,TT} -> {T,TT}
+ */
 void gpath_subset_rmdup(GPathSubset *subset)
 {
   if(subset->list.len <= 1) return;
@@ -81,8 +83,7 @@ void gpath_subset_rmdup(GPathSubset *subset)
   GPath **list = subset->list.b;
 
   for(i = 0, j = 1; j < len; j++) {
-    if(binary_seqs_cmp(list[i]->seq, list[i]->num_juncs,
-                       list[j]->seq, list[j]->num_juncs) == 0)
+    if(gpath_cmp(list[i], list[j]) == 0)
     {
       gpath_colset_or_mt(list[i], list[j], ncols);
       gpath_set_nseen_sum_mt(list[i], subset->gpset,
@@ -97,9 +98,11 @@ void gpath_subset_rmdup(GPathSubset *subset)
   subset->list.len = i+1;
 }
 
-// Remove redundant entries such as duplicates and substrings
-// {T,TT,TT} -> {TT}
-// {A,C,CG,CGC} -> {A,CGC}
+/**
+ * Remove redundant entries such as duplicates and substrings e.g.
+ *  {T,TT,TT} -> {TT}
+ *  {A,C,CG,CGC} -> {A,CGC}
+ */
 void gpath_subset_rmsubstr(GPathSubset *subset)
 {
   if(subset->list.len <= 1) return;
@@ -118,8 +121,10 @@ void gpath_subset_rmsubstr(GPathSubset *subset)
         {
           min_juncs = MIN2(list[i]->num_juncs, list[j]->num_juncs);
 
-          // j can't be a subset of i if it's longer
-          if(list[j]->num_juncs > list[i]->num_juncs ||
+          // j can't be a subset of i if it's longer,
+          // or orientations don't match
+          if(list[i]->num_juncs < list[j]->num_juncs ||
+             list[i]->orient != list[j]->orient ||
              binary_seqs_cmp(list[i]->seq, min_juncs,
                              list[j]->seq, min_juncs) != 0)
           {
@@ -146,87 +151,46 @@ void gpath_subset_rmsubstr(GPathSubset *subset)
   }
 
   // loop over entries and remove empty ones
-  for(i = j = 0; i < len; i++) {
+  for(i = j = 0; i < len; i++)
     if(list[i] != NULL)
       list[j++] = list[i];
-  }
+
   subset->list.len = j;
 }
 
-// Remove entries from `src` that are in `dst`,
-// if `rmsubstr` then also remove substring matches
-// Note: does not remove duplicates from `dst`,
-//       call gpath_subset_rmsubstr() to do that
-// We add colours to `dst` if they are removed from `src`
-//
-// Thread safe for accesses to `dst` but not `src`. In other words, this thread
-// must be the only one reading/writing `src`, but multiple threads can be
-// accessing `dst`
-void gpath_subset_merge(GPathSubset *dst, GPathSubset *src, bool rmsubstr)
+/**
+ * Remove entries from `src` that are in `dst`, copying over sample counts
+ */
+void gpath_subset_merge(GPathSubset *dst, GPathSubset *src)
 {
   ctx_assert2(dst->gpset->ncols == src->gpset->ncols, "%zu vs %zu",
               dst->gpset->ncols, src->gpset->ncols);
 
-  gpath_ptr_buf_capacity(&dst->list, dst->list.len+src->list.len);
-  size_t dstlen = dst->list.len, srclen = src->list.len;
-  size_t i = 0, j = 0, k, ncols = dst->gpset->ncols, min_num_juncs;
+  if(!dst->is_sorted) gpath_subset_sort(dst);
+  if(!src->is_sorted) gpath_subset_sort(src);
+
+  size_t i = 0, j = 0, ncols = dst->gpset->ncols;
   int cmp;
 
   GPath **dstlist = dst->list.b;
   GPath **srclist = src->list.b;
 
-  if(dstlen == 0 || srclen == 0) return;
+  if(dst->list.len == 0 || src->list.len == 0) return;
 
-  while(i < dstlen && j < srclen)
+  while(i < dst->list.len && j < src->list.len)
   {
-    if(dstlist[i]->num_juncs < srclist[j]->num_juncs) {
-      // No way that srclist[j] can be a substr of dstlist[i]
-      cmp = binary_seqs_cmp(dstlist[i]->seq, dstlist[i]->num_juncs,
-                            srclist[j]->seq, srclist[j]->num_juncs);
-    }
-    else if(!rmsubstr) {
-      cmp = binary_seqs_cmp(dstlist[i]->seq, dstlist[i]->num_juncs,
-                            srclist[j]->seq, srclist[j]->num_juncs);
-      if(dstlist[i]->num_juncs == srclist[j]->num_juncs && cmp == 0) {
-        // paths match, steal colours and remove it
-        gpath_colset_or_mt(dstlist[i], srclist[j], ncols);
-        gpath_set_nseen_sum_mt(dstlist[i], dst->gpset,
-                               srclist[j], src->gpset);
-        srclist[j] = NULL;
-      }
-    }
-    else {
-      // Find paths that srclist[j] is a subset of
-      // Remove those colours from srclist[j]
-      // Keep checking until colset is zero
-      for(k = i; k < dstlen; k++)
-      {
-        min_num_juncs = MIN2(dstlist[k]->num_juncs, srclist[j]->num_juncs);
-
-        cmp = binary_seqs_cmp(dstlist[i]->seq, min_num_juncs,
-                              srclist[j]->seq, min_num_juncs);
-        if(cmp != 0) break;
-
-        if(dstlist[k]->num_juncs == srclist[j]->num_juncs) {
-          // paths match, steal colours and remove it
-          gpath_colset_or_mt(dstlist[i], srclist[j], ncols);
-          gpath_set_nseen_sum_mt(dstlist[i], dst->gpset,
-                                 srclist[j], src->gpset);
-          srclist[j] = NULL;
-          break;
-        }
-
-        // srclist[j] is substring of dstlist[k]
-        // remove colours from j that are in k
-        if(gpath_colset_rm_intersect(dstlist[k], srclist[j], ncols) == 0) {
-          srclist[j] = NULL;
-          break;
-        }
-      }
-    }
+    cmp = gpath_cmp(dstlist[i], srclist[j]);
 
     if(cmp < 0) i++;
-    else j++;
+    else if(cmp > 0) j++;
+    else {
+      // paths match, steal colours and remove it
+      gpath_colset_or_mt(dstlist[i], srclist[j], ncols);
+      gpath_set_nseen_sum_mt(dstlist[i], dst->gpset,
+                             srclist[j], src->gpset);
+      srclist[j] = NULL;
+      j++;
+    }
   }
 
   // Remove NULLs from src

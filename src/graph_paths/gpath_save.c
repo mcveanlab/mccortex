@@ -21,6 +21,8 @@ const char ctp_explanation_comment[] =
 "# Columns 1-5 are required ([FR],..,[juncs]) everything after than is optional\n"
 "\n";
 
+// "# [FR] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=... juncpos=... ...]\n"
+
 // {
 //   <JSON header>
 // }

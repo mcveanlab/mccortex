@@ -144,6 +144,7 @@ endif
 
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
+CALL2VCFARGS=--max-align 500 --max-allele 100 --min-mapq 30
 
 # Paths to scripts
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
@@ -440,7 +441,7 @@ if(defined($ref_path))
     print "\t\$(BWA) mem \$(REF_FILE) \$< > \$@\n\n";
 
     print "$raw_bubble_vcf: $bubbles_file $bubble_flanks_sam_file \$(REF_FILE)\n";
-    print "\t$ctx calls2vcf -F $bubble_flanks_sam_file -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
+    print "\t$ctx calls2vcf \$(CALL2VCFARGS) -F $bubble_flanks_sam_file -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
   }
 
   # Generate breakpoint VCFs
@@ -452,7 +453,7 @@ if(defined($ref_path))
 
     print "# breakpoints raw VCF k=$k\n";
     print "$breakpoint_raw_vcf: $breakpoint_file \$(REF_FILE)\n";
-    print "\t$ctx calls2vcf -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
+    print "\t$ctx calls2vcf \$(CALL2VCFARGS) -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
   }
 
   # Post-processing rules for VCFs
@@ -461,7 +462,7 @@ if(defined($ref_path))
   print "\t\$(VCFSORT) \$< > \$@\n\n";
 
   print "$proj/%.norm.vcf.gz: $proj/%.sort.vcf \$(REF_FILE)\n";
-  print "\t\$(BCFTOOLS) norm --remove-duplicates --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
+  print "\t\$(BCFTOOLS) norm --site-win 5000 --remove-duplicates --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
   print "\t\$(VCFRENAME) > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 

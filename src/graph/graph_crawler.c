@@ -12,9 +12,9 @@ static inline void walk_supernode_end(const GraphCache *cache,
   const dBNode *first = graph_cache_first_node(cache, snode);
   const dBNode *last = graph_cache_last_node(cache, snode);
   dBNode lastnode;
-  size_t num_nodes = last - first;
+  size_t num_nodes = last - first + 1;
 
-  if(num_nodes > 0) {
+  if(num_nodes > 1) {
     lastnode = (snorient == FORWARD ? *last : db_node_reverse(*first));
     graph_walker_jump_along_snode(wlk, lastnode, num_nodes);
   }

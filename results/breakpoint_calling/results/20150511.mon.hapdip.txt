@@ -1,0 +1,157 @@
+printf "MissSample . %s:%s,%s:%s\n" \
+	  reads/chrom0.30X.1.fa.gz reads/chrom0.30X.2.fa.gz \
+    reads/chrom1.30X.1.fa.gz reads/chrom1.30X.2.fa.gz > samples.haploid.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 31 run_haploid samples.haploid.txt > haploid.k31.mk
+kmers: 31
+outdir: run_haploid
+sample_file: samples.haploid.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-run          Run/list all commands, inc. those already run
+  --dry-run             List commands, don't run them
+  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex
+  MEM=<MEM>             Maximum memory to use e.g. MEM=80G
+  NTHREADS=<N>          Maximum number of job threads to use
+
+printf "MissSample . %s:%s,%s:%s\n" \
+	  reads/chrom0.30X.1.fa.gz reads/chrom0.30X.2.fa.gz \
+    reads/chrom1.30X.1.fa.gz reads/chrom1.30X.2.fa.gz > samples.diploid.txt
+../../scripts/make-pipeline.pl -r ../data/chr22/chr22_17M_18M.fa 31 run_diploid samples.diploid.txt > diploid.k31.mk
+kmers: 31
+outdir: run_diploid
+sample_file: samples.diploid.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-run          Run/list all commands, inc. those already run
+  --dry-run             List commands, don't run them
+  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex
+  MEM=<MEM>             Maximum memory to use e.g. MEM=80G
+  NTHREADS=<N>          Maximum number of job threads to use
+
+mkdir -p reads
+../../libs/readsim/readsim -l 150 -r ../data/chr22/chr22_17M_18M.fa -d 30 -e 0.01 reads/chrom0.30X
+Sampling from ../data/chr22/chr22_17M_18M.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: chr22_17M_18M[1000000]
+ Genome size: 1000000
+Sampling 100000 paired-end reads...
+Wrote 30000000 bases to: reads/chrom0.30X.1.fa.gz and reads/chrom0.30X.2.fa.gz
+mkdir -p diploid
+../../libs/bioinf-perl/sim_mutations/sim_breakpoints.pl 100 ../data/chr22/chr22_17M_18M.fa diploid/chrom1.fa diploid/truth.txt
+ref: 'chr22_17M_18M'
+Removing blocks shorter than 40
+../../libs/readsim/readsim -l 150 -r diploid/chrom1.fa -d 30 -e 0.01 reads/chrom1.30X
+Sampling from diploid/chrom1.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: chr22_17M_18M[994822]
+ Genome size: 994822
+Sampling 99482 paired-end reads...
+Wrote 29844600 bases to: reads/chrom1.30X.1.fa.gz and reads/chrom1.30X.2.fa.gz
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f haploid.k31.mk CTXDIR=../.. MEM=1G breakpoints
+mkdir -p run_haploid/k31/graphs
+mkdir -p run_haploid/k31/links
+mkdir -p run_haploid/k31/contigs
+mkdir -p run_haploid/k31/bubbles
+mkdir -p run_haploid/k31/breakpoints
+mkdir -p run_haploid/k31/ref
+mkdir -p run_haploid/vcfs
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz run_haploid/k31/graphs/MissSample.raw.ctx >& run_haploid/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean  -m 1G -t 2 --fallback 2 --covg-before run_haploid/k31/graphs/MissSample.raw.covg.csv -o run_haploid/k31/graphs/MissSample.clean.ctx run_haploid/k31/graphs/MissSample.raw.ctx >& run_haploid/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges  -m 1G -t 2 run_haploid/k31/graphs/MissSample.clean.ctx >& run_haploid/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample ref --seq ../data/chr22/chr22_17M_18M.fa run_haploid/k31/ref/ref.ctx >& run_haploid/k31/ref/ref.ctx.log
+../../bin/mccortex31 thread  -m 1G -t 2 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o run_haploid/k31/links/MissSample.se.raw.ctp.gz run_haploid/k31/graphs/MissSample.clean.ctx >& run_haploid/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 run_haploid/k31/links/MissSample.se.raw.ctp.gz > run_haploid/k31/links/MissSample.se.thresh.txt 2> run_haploid/k31/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' run_haploid/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o run_haploid/k31/links/MissSample.se.clean.ctp.gz run_haploid/k31/links/MissSample.se.raw.ctp.gz >& run_haploid/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread  -m 1G -t 2 -p run_haploid/k31/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o run_haploid/k31/links/MissSample.pe.raw.ctp.gz run_haploid/k31/graphs/MissSample.clean.ctx >& run_haploid/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 run_haploid/k31/links/MissSample.pe.raw.ctp.gz > run_haploid/k31/links/MissSample.pe.thresh.txt 2> run_haploid/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' run_haploid/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o run_haploid/k31/links/MissSample.pe.clean.ctp.gz run_haploid/k31/links/MissSample.pe.raw.ctp.gz >& run_haploid/k31/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 breakpoints  -m 1G -t 2 -s ../data/chr22/chr22_17M_18M.fa -o run_haploid/k31/breakpoints/breakpoints.txt.gz -p 0:run_haploid/k31/links/MissSample.pe.clean.ctp.gz run_haploid/k31/graphs/MissSample.clean.ctx run_haploid/k31/ref/ref.ctx >& run_haploid/k31/breakpoints/breakpoints.txt.gz.log
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f diploid.k31.mk CTXDIR=../.. MEM=1G breakpoints
+mkdir -p run_diploid/k31/graphs
+mkdir -p run_diploid/k31/links
+mkdir -p run_diploid/k31/contigs
+mkdir -p run_diploid/k31/bubbles
+mkdir -p run_diploid/k31/breakpoints
+mkdir -p run_diploid/k31/ref
+mkdir -p run_diploid/vcfs
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz run_diploid/k31/graphs/MissSample.raw.ctx >& run_diploid/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean  -m 1G -t 2 --fallback 2 --covg-before run_diploid/k31/graphs/MissSample.raw.covg.csv -o run_diploid/k31/graphs/MissSample.clean.ctx run_diploid/k31/graphs/MissSample.raw.ctx >& run_diploid/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges  -m 1G -t 2 run_diploid/k31/graphs/MissSample.clean.ctx >& run_diploid/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 build  -m 1G -t 2 -k 31 --sample ref --seq ../data/chr22/chr22_17M_18M.fa run_diploid/k31/ref/ref.ctx >& run_diploid/k31/ref/ref.ctx.log
+../../bin/mccortex31 thread  -m 1G -t 2 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o run_diploid/k31/links/MissSample.se.raw.ctp.gz run_diploid/k31/graphs/MissSample.clean.ctx >& run_diploid/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 run_diploid/k31/links/MissSample.se.raw.ctp.gz > run_diploid/k31/links/MissSample.se.thresh.txt 2> run_diploid/k31/links/MissSample.se.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' run_diploid/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o run_diploid/k31/links/MissSample.se.clean.ctp.gz run_diploid/k31/links/MissSample.se.raw.ctp.gz >& run_diploid/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread  -m 1G -t 2 -p run_diploid/k31/links/MissSample.se.clean.ctp.gz --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o run_diploid/k31/links/MissSample.pe.raw.ctp.gz run_diploid/k31/graphs/MissSample.clean.ctx >& run_diploid/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links -L 5000 -T 0.001 run_diploid/k31/links/MissSample.pe.raw.ctp.gz > run_diploid/k31/links/MissSample.pe.thresh.txt 2> run_diploid/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`grep 'suggested_cutoff=' run_diploid/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9,]+$'`; \
+	../../bin/mccortex31 links -c "$THRESH" -o run_diploid/k31/links/MissSample.pe.clean.ctp.gz run_diploid/k31/links/MissSample.pe.raw.ctp.gz >& run_diploid/k31/links/MissSample.pe.clean.ctp.gz.log
+../../bin/mccortex31 breakpoints  -m 1G -t 2 -s ../data/chr22/chr22_17M_18M.fa -o run_diploid/k31/breakpoints/breakpoints.txt.gz -p 0:run_diploid/k31/links/MissSample.pe.clean.ctp.gz run_diploid/k31/graphs/MissSample.clean.ctx run_diploid/k31/ref/ref.ctx >& run_diploid/k31/breakpoints/breakpoints.txt.gz.log
+../../scripts/check-breakpoints.pl diploid/truth.txt <(gzip -fcd run_haploid/k31/breakpoints/breakpoints.txt.gz)
+F: chr22_17M_18M:631915:+	chr22_17M_18M:218900:+	
+R: chr22_17M_18M:218900:-	chr22_17M_18M:631915:-	
+F: chr22_17M_18M:375324:+	chr22_17M_18M:218898:-	
+R: chr22_17M_18M:218899:+	chr22_17M_18M:375323:-	
+F: chr22_17M_18M:594203:+	chr22_17M_18M:821104:+	
+R: chr22_17M_18M:821103:-	chr22_17M_18M:594202:-	
+F: chr22_17M_18M:935375:+	chr22_17M_18M:1000000:-	
+R: chr22_17M_18M:1000000:+	chr22_17M_18M:935375:-	
+F: chr22_17M_18M:845174:+	chr22_17M_18M:199914:-	
+R: chr22_17M_18M:199914:+	chr22_17M_18M:845174:-	
+F: chr22_17M_18M:61860:+	chr22_17M_18M:5178:-	
+R: chr22_17M_18M:5180:+	chr22_17M_18M:61858:-	
+F: chr22_17M_18M:988943:-	chr22_17M_18M:701269:+	
+R: chr22_17M_18M:701269:-	chr22_17M_18M:988943:+	
+F: chr22_17M_18M:667590:-	chr22_17M_18M:909253:+	
+R: chr22_17M_18M:909253:-	chr22_17M_18M:667590:+	
+F: chr22_17M_18M:757451:-	chr22_17M_18M:553724:-	
+R: chr22_17M_18M:553724:+	chr22_17M_18M:757451:+	
+F: chr22_17M_18M:512767:+	chr22_17M_18M:837883:-	
+R: chr22_17M_18M:837883:+	chr22_17M_18M:512767:-	
+F: chr22_17M_18M:478043:-	chr22_17M_18M:679486:-	
+R: chr22_17M_18M:679488:+	chr22_17M_18M:478045:+	
+found_fw: 88 found_rv: 88
+Expected 99 breakpoints, had 187 calls
+Found 88 / 99 (88.89%) breakpoints with 176 calls (2.00 per break)
+11 false positives
+0 calls had sequence between flanks
+../../scripts/check-breakpoints.pl diploid/truth.txt <(gzip -fcd run_diploid/k31/breakpoints/breakpoints.txt.gz)
+F: chr22_17M_18M:631915:+	chr22_17M_18M:218900:+	
+R: chr22_17M_18M:218900:-	chr22_17M_18M:631915:-	
+F: chr22_17M_18M:375324:+	chr22_17M_18M:218898:-	
+R: chr22_17M_18M:218899:+	chr22_17M_18M:375323:-	
+F: chr22_17M_18M:594203:+	chr22_17M_18M:821104:+	
+R: chr22_17M_18M:821103:-	chr22_17M_18M:594202:-	
+F: chr22_17M_18M:935375:+	chr22_17M_18M:1000000:-	
+R: chr22_17M_18M:1000000:+	chr22_17M_18M:935375:-	
+F: chr22_17M_18M:845174:+	chr22_17M_18M:199914:-	
+R: chr22_17M_18M:199914:+	chr22_17M_18M:845174:-	
+F: chr22_17M_18M:61860:+	chr22_17M_18M:5178:-	
+R: chr22_17M_18M:5180:+	chr22_17M_18M:61858:-	
+F: chr22_17M_18M:988943:-	chr22_17M_18M:701269:+	
+R: chr22_17M_18M:701269:-	chr22_17M_18M:988943:+	
+F: chr22_17M_18M:667590:-	chr22_17M_18M:909253:+	
+R: chr22_17M_18M:909253:-	chr22_17M_18M:667590:+	
+F: chr22_17M_18M:757451:-	chr22_17M_18M:553724:-	
+R: chr22_17M_18M:553724:+	chr22_17M_18M:757451:+	
+F: chr22_17M_18M:512767:+	chr22_17M_18M:837883:-	
+R: chr22_17M_18M:837883:+	chr22_17M_18M:512767:-	
+F: chr22_17M_18M:478043:-	chr22_17M_18M:679486:-	
+R: chr22_17M_18M:679488:+	chr22_17M_18M:478045:+	
+found_fw: 88 found_rv: 88
+Expected 99 breakpoints, had 187 calls
+Found 88 / 99 (88.89%) breakpoints with 176 calls (2.00 per break)
+11 false positives
+0 calls had sequence between flanks

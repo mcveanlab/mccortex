@@ -12,7 +12,8 @@
 #include "seq-align/src/needleman_wunsch.h"
 
 #define DEFAULT_MIN_MAPQ 30 /* min MAPQ considered */
-#define DEFAULT_MAX_ALEN 500 /* max allele length */
+#define DEFAULT_MAX_ALIGN 500 /* max allele length */
+#define DEFAULT_MAX_ALLELE 500 /* max allele length */
 #define DEFAULT_MAX_PDIFF 500 /* max allele length */
 
 const char calls2vcf_usage[] =
@@ -28,7 +29,8 @@ const char calls2vcf_usage[] =
 "\n"
 "  -F, --flanks <in.bam>  Mapped flanks in SAM or BAM file\n"
 "  -Q, --min-mapq <Q>     Flank must map with MAPQ >= <Q> [default: "QUOTE_VALUE(DEFAULT_MIN_MAPQ)"]\n"
-"  -A, --max-allele <M>   Max allele length considered [default: "QUOTE_VALUE(DEFAULT_MAX_ALEN)"]\n"
+"  -A, --max-align <M>    Max alignment attempted [default: "QUOTE_VALUE(DEFAULT_MAX_ALIGN)"]\n"
+"  -L, --max-allele <M>   Max allele length printed [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
 "  -D, --max-diff <D>     Max difference in path lengths [default: "QUOTE_VALUE(DEFAULT_MAX_PDIFF)"]\n"
 "\n"
 "  Alignment scoring:\n"
@@ -47,7 +49,8 @@ static struct option longopts[] =
 // command specific
   {"flanks",       required_argument, NULL, 'F'},
   {"min-mapq",     required_argument, NULL, 'Q'},
-  {"max-allele",   required_argument, NULL, 'A'},
+  {"max-align",    required_argument, NULL, 'A'},
+  {"max-allele",   required_argument, NULL, 'L'},
   {"max-diff",     required_argument, NULL, 'D'},
 // alignment
   {"match",        required_argument, NULL, 'm'},
@@ -64,6 +67,7 @@ static const char *input_path = NULL;
 static const char *out_path = NULL, default_out_path[] = "-";
 // Filtering parameters
 static size_t min_mapq = SIZE_MAX;
+static size_t max_align_len = SIZE_MAX;
 static size_t max_allele_len = SIZE_MAX;
 static size_t max_path_diff = SIZE_MAX;
 // Alignment parameters
@@ -150,8 +154,9 @@ static void parse_cmdline_args(int argc, char **argv)
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'F': cmd_check(!sam_path,cmd); sam_path = optarg; break;
       case 'Q': cmd_check(min_mapq == SIZE_MAX,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
-      case 'A': cmd_check(max_allele_len == SIZE_MAX,cmd); max_allele_len = cmd_uint32(cmd, optarg); break;
-      case 'D': cmd_check(max_path_diff == SIZE_MAX, cmd); max_path_diff = cmd_uint32(cmd, optarg); break;
+      case 'A': cmd_check(max_align_len  == SIZE_MAX,cmd);  max_align_len  = cmd_uint32(cmd, optarg); break;
+      case 'L': cmd_check(max_allele_len == SIZE_MAX,cmd);  max_allele_len = cmd_uint32(cmd, optarg); break;
+      case 'D': cmd_check(max_path_diff  == SIZE_MAX, cmd); max_path_diff  = cmd_uint32(cmd, optarg); break;
       case 'm': nwmatch = cmd_int32(cmd, optarg); break;
       case 'M': nwmismatch = cmd_int32(cmd, optarg); break;
       case 'g': nwgapopen = cmd_int32(cmd, optarg); break;
@@ -166,8 +171,9 @@ static void parse_cmdline_args(int argc, char **argv)
   // Defaults for unset values
   if(out_path == NULL) out_path = default_out_path;
   if(min_mapq == SIZE_MAX) min_mapq = DEFAULT_MIN_MAPQ;
-  if(max_allele_len == SIZE_MAX) max_allele_len = DEFAULT_MAX_ALEN;
-  if(max_path_diff == SIZE_MAX) max_path_diff = DEFAULT_MAX_PDIFF;
+  if(max_align_len  == SIZE_MAX) max_align_len  = DEFAULT_MAX_ALIGN;
+  if(max_allele_len == SIZE_MAX) max_allele_len = DEFAULT_MAX_ALLELE;
+  if(max_path_diff  == SIZE_MAX) max_path_diff  = DEFAULT_MAX_PDIFF;
 
   if(optind+2 > argc)
     cmd_print_usage("Require <in.txt.gz> and at least one reference");
@@ -535,6 +541,11 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
                             const char **genotypes,
                             FILE *fout)
 {
+  // Check actual allele length
+  size_t i, alt_bases = 0;
+  for(i = 0; i < aligned_len; i++) alt_bases += (alt[i] != '-');
+  if(alt_bases > max_allele_len) return;
+
   // CHROM POS ID REF ALT QUAL FILTER INFO
   fprintf(fout, "%s\t%zu\tvar%zu\t", chrom_name, vcf_pos, num_vars_printed);
   print_vcf_allele(prev_base, ref, aligned_len, fout);
@@ -546,7 +557,6 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
   fputs("\tGT", fout);
 
   // Print genotypes
-  size_t i;
   if(genotypes) {
     for(i = 0; i < num_samples; i++) {
       fputc('\t', fout);
@@ -758,7 +768,7 @@ static void align_entry(const CallFileEntry *centry, const char *callid,
 
   ctx_assert(ref_start <= ref_end);
 
-  if(ref_end-ref_start > max_allele_len) {
+  if(ref_end-ref_start > max_align_len) {
     num_flanks_too_far_apart++;
     return; // can't align
   }

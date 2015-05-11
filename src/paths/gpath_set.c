@@ -186,7 +186,8 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   pkey_t pkey;
   GPath *gpath;
   uint8_t *data;
-  size_t colset_bytes = (gpset->ncols+7)/8, junc_bytes = (newgpath.num_juncs+3)/4;
+  size_t colset_bytes = (gpset->ncols+7)/8;
+  size_t junc_bytes = binary_seq_mem(newgpath.num_juncs);
   size_t nbytes = colset_bytes + junc_bytes;
 
   if(gpset->can_resize)

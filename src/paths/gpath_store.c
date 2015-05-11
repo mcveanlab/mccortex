@@ -107,7 +107,7 @@ GPath* gpath_store_fetch_traverse(const GPathStore *gpstore, hkey_t hkey)
 void gpstore_path_removal_update_stats(GPathStore *gpstore, GPath *gpath)
 {
   // Update stats
-  size_t nbytes = (gpath->num_juncs+3)/4;
+  size_t nbytes = binary_seq_mem(gpath->num_juncs);
   __sync_fetch_and_sub((volatile uint64_t*)&gpstore->num_paths, 1);
   __sync_fetch_and_sub((volatile uint64_t*)&gpstore->path_bytes, nbytes);
 }
@@ -124,7 +124,7 @@ static void _gpstore_add_to_llist_mt(GPathStore *gpstore, hkey_t hkey, GPath *gp
                                       (size_t)gpath->next, (size_t)gpath));
 
   // Update stats
-  size_t nbytes = (gpath->num_juncs+3)/4;
+  size_t nbytes = binary_seq_mem(gpath->num_juncs);
   size_t new_kmer = (gpath->next == NULL ? 1 : 0);
   __sync_fetch_and_add((volatile uint64_t*)&gpstore->num_kmers_with_paths, new_kmer);
   __sync_fetch_and_add((volatile uint64_t*)&gpstore->num_paths, 1);

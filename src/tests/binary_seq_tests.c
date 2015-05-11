@@ -214,7 +214,7 @@ static void test_pack_unpack()
 static void _manual_test_pack_cpy_unpack(const char *seq, size_t len, size_t shift)
 {
   TASSERT(len >= shift);
-  size_t i, nbytes = (len+3)/4, outlen = len - shift;
+  size_t i, nbytes = binary_seq_mem(len), outlen = len - shift;
   Nucleotide bases[len], bases2[len];
   uint8_t packed[nbytes], packed2[nbytes];
   char seq2[len+1];

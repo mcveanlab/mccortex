@@ -4,12 +4,26 @@
 #include "dna.h"
 #include "gpath.h"
 
+/*
+
+Link 'age' vs 'pos'
+
+   \  \    /      /
+ ___\__\__/___X__/_
+ a ^-------------->
+    b ^----------->
+
+Links start at (a) and at (b). At (X) both links have pos=1, but link (a) has
+age=2 and (b) has age=1.
+
+*/
+
 // This struct is packed so we can hash it quickly
 struct GPathFollowStruct
 {
   const GPath *gpath;
   uint16_t pos, len;
-  uint32_t age;
+  uint32_t age; // age is >= pos
   // A small buffer of upcoming 24 bases
   uint16_t first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
   uint8_t cache[6]; // first..first+23 (24 bases)

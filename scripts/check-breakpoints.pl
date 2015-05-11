@@ -23,8 +23,9 @@ sub print_usage
 "Usage: ./check-breakpoints.pl <truth.txt> <breakpoints.txt>\n" .
 "  Count how many breakpoints were correctly called. \n" .
 "  truth.txt: (1-based)\n" .
-"    <chr>:<pos>:<strand>\t<chr>:<pos>:<strand>\t<seq>\n" .
-"  Each break should only be represented once.\n";
+"    <chr0>:<pos0>:<strand0>\t<chr1>:<pos1>:<strand1>\t<seq>\t<chr1>:<pos1>:<strand1>\t<chr0>:<pos0>:<strand0>\t<seq>\n" .
+"  Each break should only be represented once, by a single line. Each line\n" .
+"  describes forward and backward breaks.\n";
 
   exit(-1);
 }
@@ -40,12 +41,15 @@ my $line;
 while(defined($line = <TXT>)) {
   chomp($line);
   if($line !~ /^#/ && length($line) > 0) {
-    if($line =~ /^([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t?([ACGT]*)$/) {
+    if($line =~ /^([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t([ACGT]*)\t([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t?([ACGT]*)$/) {
       my $id = @brkpnts;
-      push(@brkpnts, {'lchr' => $1, 'lpos' => $2, 'lstrand' => $3,
-                      'rchr' => $4, 'rpos' => $5, 'rstrand' => $6,
-                      'seq' => $7, 'id' => $id,
-                      'counts' => [0, 0]});
+      push(@brkpnts, {'lchr0' => $1, 'lpos0' => $2, 'lstrand0' => $3,
+                      'rchr0' => $4, 'rpos0' => $5, 'rstrand0' => $6,
+                      'seq0' => $7,
+                      'lchr1' => $8, 'lpos1' => $9, 'lstrand1' => $10,
+                      'rchr1' => $11, 'rpos1' => $12, 'rstrand1' => $13,
+                      'seq1' => $14,
+                      'id' => $id, 'counts' => [0, 0]});
     } else {
       die("Bad line: '$line'");
     }
@@ -89,9 +93,12 @@ for my $brkpnt (@brkpnts) {
   $found_fw += $brkpnt->{'counts'}->[0] > 0 ? 1 : 0;
   $found_rv += $brkpnt->{'counts'}->[1] > 0 ? 1 : 0;
   if(!$brkpnt->{'counts'}->[0] && !$brkpnt->{'counts'}->[1]) {
-    print "$brkpnt->{'lchr'}:$brkpnt->{'lpos'}:$brkpnt->{'lstrand'}\t".
-          "$brkpnt->{'rchr'}:$brkpnt->{'rpos'}:$brkpnt->{'rstrand'}\t".
-          $brkpnt->{'seq'}." ($brkpnt->{'counts'}->[0] $brkpnt->{'counts'}->[1])\n";
+    print "F: $brkpnt->{'lchr0'}:$brkpnt->{'lpos0'}:$brkpnt->{'lstrand0'}\t".
+             "$brkpnt->{'rchr0'}:$brkpnt->{'rpos0'}:$brkpnt->{'rstrand0'}\t".
+             "$brkpnt->{'seq0'}\n";
+    print "R: $brkpnt->{'lchr1'}:$brkpnt->{'lpos1'}:$brkpnt->{'lstrand1'}\t".
+             "$brkpnt->{'rchr1'}:$brkpnt->{'rpos1'}:$brkpnt->{'rstrand1'}\t".
+             "$brkpnt->{'seq1'}\n";
   }
 }
 
@@ -155,20 +162,27 @@ sub find_breakpoint
   # Brute force search to find matching real break
   for(my $i = 0; $i < @brkpnts; $i++) {
     my $b = $brkpnts[$i];
-    if($b->{'lchr'} eq $fl5p->{'chrom'} &&
-       $b->{'lpos'} == $fl5p->{'end'} && $b->{'lstrand'} eq $fl5p->{'strand'} &&
-       $b->{'rchr'} eq $fl3p->{'chrom'} &&
-       $b->{'rpos'} == $fl3p->{'start'} && $b->{'rstrand'} eq $fl3p->{'strand'} &&
-       $gapseq eq $b->{'seq'}) {
+    if($b->{'lchr0'} eq $fl5p->{'chrom'} &&
+       $b->{'lpos0'} == $fl5p->{'end'} && $b->{'lstrand0'} eq $fl5p->{'strand'} &&
+       $b->{'rchr0'} eq $fl3p->{'chrom'} &&
+       $b->{'rpos0'} == $fl3p->{'start'} && $b->{'rstrand0'} eq $fl3p->{'strand'} &&
+       $gapseq eq $b->{'seq0'}) {
       return ($i, 0, $fl5plen, $fl3plen);
     }
-    if($b->{'lchr'} eq $fl3p->{'chrom'} &&
-       $b->{'lpos'} == $fl3p->{'start'} && $b->{'lstrand'} ne $fl3p->{'strand'} &&
-       $b->{'rchr'} eq $fl5p->{'chrom'} &&
-       $b->{'rpos'} == $fl5p->{'end'} && $b->{'rstrand'} ne $fl5p->{'strand'} &&
-       $gapseq eq rev_comp($b->{'seq'})) {
+    if($b->{'lchr1'} eq $fl5p->{'chrom'} &&
+       $b->{'lpos1'} == $fl5p->{'end'} && $b->{'lstrand1'} eq $fl5p->{'strand'} &&
+       $b->{'rchr1'} eq $fl3p->{'chrom'} &&
+       $b->{'rpos1'} == $fl3p->{'start'} && $b->{'rstrand1'} eq $fl3p->{'strand'} &&
+       $gapseq eq $b->{'seq1'}) {
       return ($i, 1, $fl5plen, $fl3plen);
     }
+    # if($b->{'lchr1'} eq $fl3p->{'chrom'} &&
+    #    $b->{'lpos1'} == $fl3p->{'start'} && $b->{'lstrand1'} ne $fl3p->{'strand'} &&
+    #    $b->{'rchr1'} eq $fl5p->{'chrom'} &&
+    #    $b->{'rpos1'} == $fl5p->{'end'} && $b->{'rstrand1'} ne $fl5p->{'strand'} &&
+    #    $gapseq eq rev_comp($b->{'seq'})) {
+    #   return ($i, 1, $fl5plen, $fl3plen);
+    # }
   }
 
   return (-1, 'fw', $fl5plen, $fl3plen);

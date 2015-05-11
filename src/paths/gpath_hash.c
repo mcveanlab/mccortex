@@ -175,7 +175,7 @@ GPath* gpath_hash_find_or_insert_mt(GPathHash *gphash,
 
   *found = false;
 
-  size_t i, mem = (newgpath.num_juncs+3)/4;
+  size_t i, mem = binary_seq_mem(newgpath.num_juncs);
   uint64_t hash = hkey;
   GPath *gpath = NULL;
 

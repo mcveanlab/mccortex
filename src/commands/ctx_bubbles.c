@@ -11,7 +11,7 @@
 // Long flanks help us map calls
 // increasing allele length can be costly
 #define DEFAULT_MAX_FLANK 500
-#define DEFAULT_MAX_ALLELE 100
+#define DEFAULT_MAX_ALLELE 2000
 
 const char bubbles_usage[] =
 "usage: "CMD" bubbles [options] <in.ctx> [in2.ctx ...]\n"

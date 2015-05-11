@@ -34,7 +34,7 @@ TRUTH_FILES=truth.k$(K).norm.vcf.gz truth.k$(K).norm.vcf.gz.csi
 # Remove implicit rules for certain suffixes
 .SUFFIXES:
 
-all: run-mccortex run-mccortex-brkpt $(TRUTH_FILES)
+all: run-mccortex $(TRUTH_FILES)
 
 # ecoli 4.6Mb, 1SNP per 100 => 46000 SNPs
 # Generate a 10 ecoli genomes

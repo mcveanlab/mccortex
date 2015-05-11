@@ -21,20 +21,22 @@ BGZIP=$(CTXDIR)/libs/htslib/bgzip
 REF=$(shell cd ../../data/ecoli/; echo `pwd`/ecoli.fa)
 
 K=31
-DIRS=ref
+DIRS=ref lists
 
 # Dependencies that we create. We delete them on clean
 CTXVCF=cortex_run/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
 
+FALISTS=$(shell echo lists/reads{0..9}.1.falist lists/reads{0..9}.2.falist)
+
 DEPS=ref/ecoli.sthash ref/ecoli.stidx \
      ref/ref.k$(K).ctx ref/ref.falist \
-     samples.txt reads.1.falist reads.2.falist
+     samples.txt $(FALISTS)
 
 TMP=cortex.k$(K).sort.vcf cortex.k$(K).norm.vcf
 
 TGTS=cortex.k$(K).norm.vcf.gz cortex.k$(K).norm.vcf.gz.csi
 
-all: $(TGTS)
+all: $(TGTS) | checks
 
 ref/ref.falist: | $(DIRS)
 	echo $(REF) > $@
@@ -50,14 +52,14 @@ ref/ecoli.sthash: ref/ecoli.stidx $(REF) | $(DIRS)
 ref/ref.k$(K).ctx: $(REF) | $(DIRS)
 	$(MCCORTEX) build -k $(K) -s REF -1 $< $@ >& $@.log
 
-reads%.1.falist:
-	echo `pwd`/../reads/chrom$*.30X.1.fa.gz; > reads$*.1.falist
-reads%.2.falist:
-	echo `pwd`/../reads/chrom$*.30X.2.fa.gz; > reads$*.2.falist
+lists/reads%.1.falist: lists
+	echo `pwd`/../reads/chrom$*.50X.1.fa.gz > $@
+lists/reads%.2.falist: lists
+	echo `pwd`/../reads/chrom$*.50X.2.fa.gz > $@
 
 samples.txt:
 	for i in {0..9}; do \
-		printf "Ecoli$$i\t.\t%s\t%s\n" reads$$i.1.falist reads$$i.2.falist; \
+		printf "Ecoli$$i\t.\t%s\t%s\n" lists/reads$$i.1.falist lists/reads$$i.2.falist; \
   done > $@
 
 $(CTXVCF): $(DEPS)
@@ -113,7 +115,13 @@ cortex.k$(K).norm.vcf.gz: cortex.k$(K).sort.vcf
 $(DIRS):
 	mkdir -p $@
 
-clean:
-	rm -rf ref $(DEPS) $(CTXVCF) $(TGTS) $(TMP) new_header.k$(K).txt runcalls.k$(K).log cortex_run
+# Check there are executables for cortex
+checks:
+	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c1 ] || ( echo 'Error: need cortex_var_31_c11' 1>&2 && false )
+	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c2 ] || ( echo 'Error: need cortex_var_31_c11' 1>&2 && false )
+	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c11 ] || ( echo 'Error: need cortex_var_31_c11' 1>&2 && false )
 
-.PHONY: all clean
+clean:
+	rm -rf ref $(DEPS) $(DIRS) $(CTXVCF) $(TGTS) $(TMP) new_header.k$(K).txt runcalls.k$(K).log cortex_run
+
+.PHONY: all clean checks

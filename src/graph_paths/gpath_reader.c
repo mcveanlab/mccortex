@@ -260,13 +260,18 @@ bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links)
   return false;
 }
 
-#define bad_link_line(path,line) die("Bad link line [%s]: %s", path, (line)->b);
+#define bad_link_line(path,line) die("Bad link line [%s]: %s", path, (line)->b)
 
-// [FR] [nkmers] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
-void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
-                     bool *fw, size_t *kdist, size_t *njuncs,
-                     SizeBuffer *counts, StrBuf *juncs,
-                     StrBuf *seq, SizeBuffer *juncpos)
+/**
+ Parse line with format:
+  [FR] [nkmers] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
+ @param numbuf Temporary buffer used to load
+ */
+static void _parse_link_line(GPathReader *file, const StrBuf *line,
+                             SizeBuffer *numbuf,
+                             bool *fw, size_t *kdist, size_t *njuncs,
+                             SizeBuffer *counts, StrBuf *juncs,
+                             StrBuf *seq, SizeBuffer *juncpos)
 {
   const char *path = file_filter_path(&file->fltr);
   size_t i, fromcol, intocol;
@@ -291,20 +296,30 @@ void parse_link_line(GPathReader *file, const StrBuf *line, SizeBuffer *numbuf,
   // 1:[nkmers]
   *kdist = strtoul(cols[1], &end, 10);
   if(end != cols[1]+collens[1]) bad_link_line(path,line);
+  else if(*kdist > GPATH_MAX_KMERS) {
+    die("Too many kmers =%zu > %zu [%s]: %s",
+        *kdist, (size_t)GPATH_MAX_KMERS, path, line->b);
+  }
 
   // 2:[njuncs]
   *njuncs = strtoul(cols[2], &end, 10);
   if(end != cols[2]+collens[2]) bad_link_line(path,line);
+  else if(*njuncs > GPATH_MAX_JUNCS) {
+    die("Too many junctions =%zu > %zu [%s]: %s",
+        *njuncs, (size_t)GPATH_MAX_JUNCS, path, line->b);
+  }
 
   // 3:[nseen0,nseen1,...]
   size_buf_reset(numbuf);
-  size_buf_reset(counts);
   if(comma_list_to_array(cols[3], numbuf) != (int)collens[3])
+    bad_link_line(path,line);
+  else if(numbuf->len != file->fltr.filencols)
     bad_link_line(path,line);
 
   // Use filter - append zeros first
+  size_buf_reset(counts);
   size_buf_push_zero(counts, file_filter_into_ncols(&file->fltr));
-  for(i = 0; i < numbuf->len; i++) {
+  for(i = 0; i < file_filter_num(&file->fltr); i++) {
     fromcol = file_filter_fromcol(&file->fltr, i);
     intocol = file_filter_intocol(&file->fltr, i);
     counts->b[intocol] += numbuf->b[fromcol];
@@ -385,9 +400,9 @@ bool gpath_reader_read_link(GPathReader *file,
       strbuf_append_char(line, c);
       strbuf_gzreadline_buf(line, file->gz, &file->strmbuf);
       strbuf_chomp(line);
-      parse_link_line(file, line, &file->numbuf,
-                      fw, kdist, njuncs, countbuf, juncs,
-                      seq, juncpos);
+      _parse_link_line(file, line, &file->numbuf,
+                       fw, kdist, njuncs, countbuf, juncs,
+                       seq, juncpos);
       return true;
     }
   }
@@ -548,7 +563,7 @@ static void _gpath_reader_load_path_line(GPathReader *file, StrBuf *line,
     endpstr++;
   } while(*endpstr && *endpstr != ' ');
   load_check((size_t)(endpstr - pstr) == num_juncs, "Bad path line: %s", path);
-  byte_buf_capacity(tmp_seqbuf, (num_juncs+3)/4);
+  byte_buf_capacity(tmp_seqbuf, binary_seq_mem(num_juncs));
   binary_seq_from_str(pstr, num_juncs, tmp_seqbuf->b);
 
   // Filter colours
@@ -626,16 +641,16 @@ static size_t _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
   GPath *kmer_paths = gpath_store_fetch(gpstore, hkey);
   gpath_subset_load_llist(subset0, kmer_paths);
   gpath_subset_load_set(subset1);
+  // Remove duplicate to reduce memory required if using uncleaned links
   gpath_subset_rmdup(subset1);
 
   // Merge entries from subset1 into subset0
-  // false => do not remove duplicates
-  gpath_subset_merge(subset0, subset1, false);
-
-  bool found;
+  gpath_subset_merge(subset0, subset1);
 
   // Copy remaining entries across
   GPathNew newgp;
+  bool found;
+
   if(db_graph_has_path_hash(db_graph)) {
     for(i = 0; i < subset1->list.len; i++) {
       newgp = gpath_set_get(gpset, subset1->list.b[i]);
