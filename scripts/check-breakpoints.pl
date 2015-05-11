@@ -112,15 +112,9 @@ print "Found ".pretty_fraction($num_found, $nbrkpnts)." breakpoints with " .
 print "$num_fp false positives\n";
 print "$num_with_seq calls had sequence between flanks\n";
 
-# sub mkbrkpnt
-# {
-#   my ($start0,$end0,$rev0,$start1,$end1,$rev1) = @_;
-#   if($start0 > $end0 || $start1 > $end1) { die("Bad blocks $start0 $end0 $start1 $end1"); }
-#   return {'lpos' => $rev0 ? $start0 : $end0,   'lstrand' => $rev0 ? '-' : '+',
-#           'rpos' => $rev1 ? $end1   : $start1, 'rstrand' => $rev1 ? '-' : '+'};
-# }
-
 # Find the largest match to the ref
+# get_largest_match($is5p, $flank5plen, @alignments)
+# returns largest alignment
 sub get_largest_match
 {
   my $is5p = shift;
@@ -176,13 +170,6 @@ sub find_breakpoint
        $gapseq eq $b->{'seq1'}) {
       return ($i, 1, $fl5plen, $fl3plen);
     }
-    # if($b->{'lchr1'} eq $fl3p->{'chrom'} &&
-    #    $b->{'lpos1'} == $fl3p->{'start'} && $b->{'lstrand1'} ne $fl3p->{'strand'} &&
-    #    $b->{'rchr1'} eq $fl5p->{'chrom'} &&
-    #    $b->{'rpos1'} == $fl5p->{'end'} && $b->{'rstrand1'} ne $fl5p->{'strand'} &&
-    #    $gapseq eq rev_comp($b->{'seq'})) {
-    #   return ($i, 1, $fl5plen, $fl3plen);
-    # }
   }
 
   return (-1, 'fw', $fl5plen, $fl3plen);

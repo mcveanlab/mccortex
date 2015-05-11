@@ -358,10 +358,12 @@ void kograph_free(KOGraph kograph)
 // Check for a run of kmers in the reference genome
 //
 
-// `run` should be of length num0+num1
-// `pickup` if true, create new paths for kmers not used in a path
-// `qoffset` is only used is pickup is true, and is the offset in the query
-// Returns length of run
+/**
+ * @param run should be of length num0+num1
+ * @param pickup if true, create new paths for kmers not used in a path
+ * @param qoffset is only used is pickup is true, and is the offset in the query
+ * @return length of run
+ */
 static size_t korun_extend(KOccurRun *kolist0, size_t num0,
                            dBNode node,
                            const KOccur *kolist1, size_t num1,
@@ -395,8 +397,7 @@ static size_t korun_extend(KOccurRun *kolist0, size_t num0,
       {
         // Sanity checks
         ctx_assert(kolist0[i].chrom == kolist1[j].chrom);
-        ctx_assert(kolist0[i].last+1 == kolist1[j].offset ||
-                   kolist0[i].last == kolist1[j].offset+1);
+        ctx_assert(labs((long)kolist0[i].last - kolist1[j].offset) <= 1);
 
         next = strand == STRAND_PLUS ? kolist0[i].last+1 : kolist0[i].last-1;
 
