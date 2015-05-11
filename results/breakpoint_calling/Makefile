@@ -5,7 +5,7 @@ SHELL=/bin/bash -euo pipefail
 #
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/ctx31
+CTX=$(CTXDIR)/bin/mccortex31
 CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat

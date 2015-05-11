@@ -145,6 +145,7 @@ endif
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
 CALL2VCFARGS=--max-align 500 --max-allele 100 --min-mapq 30
+POPBUBBLESARGS=--max-diff 100
 
 # Paths to scripts
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
@@ -310,7 +311,7 @@ for my $k (@kmers) {
   print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
   print "\t$ctx clean \$(CTX_ARGS) \$(CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.covg.csv -o \$@ \$< >& \$@.log\n";
   print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.pop.clean.ctx\n";
-  print "\t$ctx popbubbles \$(CTX_ARGS) --max-diff 50 -o \$@ \$< >& \$@.log\n\n";
+  print "\t$ctx popbubbles \$(CTX_ARGS) \$(POPBUBBLESARGS) -o \$@ \$< >& \$@.log\n\n";
 
   # Clean graph files at k=$k
   print "# sample graph cleaning at k=$k\n";
