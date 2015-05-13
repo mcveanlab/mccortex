@@ -17,7 +17,7 @@
 // File format:
 <JSON_HEADER>
 kmer [num] .. ignored
-[FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
+[FR] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
 */
 
 #define load_check(x,msg,...) if(!(x)) { die("[LoadPathError] "msg, ##__VA_ARGS__); }
@@ -171,7 +171,6 @@ void gpath_reader_open2(GPathReader *file, const char *path, const char *mode,
 
   // Temporary variable for loading
   strbuf_alloc(&file->line, 1024);
-  size_buf_alloc(&file->numbuf, 16);
 
   // Load JSON header into file->hdrstr
   StrBuf *hdrstr = &file->hdrstr;
@@ -180,7 +179,15 @@ void gpath_reader_open2(GPathReader *file, const char *path, const char *mode,
   file->json = cJSON_Parse(hdrstr->b);
   if(file->json == NULL) die("Invalid JSON header: %s", path);
 
-  // DEV: validate json header
+  // Fetch file format version and check format
+  cJSON *hdr;
+  hdr = json_hdr_get(file->json, "file_format", cJSON_String, file->fltr.path.b);
+  if(strcmp(hdr->valuestring, "ctp") != 0)
+    die("File format is not 'ctp': %s [%s]", hdr->valuestring, path);
+  hdr = json_hdr_get(file->json, "format_version", cJSON_Number, file->fltr.path.b);
+  file->version = hdr->valueint;
+
+  // Load per sample info from header
   _parse_json_header(file);
 
   // The following functions call die() if kmer_size or ncols header fields
@@ -203,7 +210,6 @@ void gpath_reader_close(GPathReader *file)
   if(file->gz) gzclose(file->gz);
   strm_buf_dealloc(&file->strmbuf);
   strbuf_dealloc(&file->line);
-  size_buf_dealloc(&file->numbuf);
   file_filter_close(&file->fltr);
   cJSON_Delete(file->json);
   strbuf_dealloc(&file->hdrstr);
@@ -263,30 +269,36 @@ bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links)
 #define bad_link_line(path,line) die("Bad link line [%s]: %s", path, (line)->b)
 
 /**
- Parse line with format:
-  [FR] [nkmers] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
- @param numbuf Temporary buffer used to load
+ * Parse line with format:
+ *  [FR] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
+ * @param seq return seq=... optional entry (ignored if NULL)
+ * @param seq return juncpos=... optional entry (ignored if NULL)
  */
-static void _parse_link_line(GPathReader *file, const StrBuf *line,
-                             SizeBuffer *numbuf,
-                             bool *fw, size_t *kdist, size_t *njuncs,
-                             SizeBuffer *counts, StrBuf *juncs,
-                             StrBuf *seq, SizeBuffer *juncpos)
+void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
+                     bool *fw, size_t *njuncs,
+                     SizeBuffer *counts, StrBuf *juncs,
+                     StrBuf *seq, SizeBuffer *juncpos)
 {
-  const char *path = file_filter_path(&file->fltr);
+  const char *path = file_filter_path(fltr);
   size_t i, fromcol, intocol;
   char *end = NULL;
 
   // First first 5 required columns
-  const char *cols[5] = {NULL};
-  for(cols[0] = line->b, i = 1; i < 5; i++) {
+  uint8_t FR_COL=0, NKMER_COL=0, NJUNC_COL=1, NSEEN_COL=2, JUNCS_COL=3;
+  if(version <= 3) { FR_COL=0, NKMER_COL=1, NJUNC_COL=2, NSEEN_COL=3, JUNCS_COL=4; }
+
+  size_t ncolumns = version <= 3 ? 5 : 4;
+  char *cols[ncolumns];
+  memset(cols, 0, sizeof(cols));
+
+  for(cols[0] = line->b, i = 1; i < ncolumns; i++) {
     if((cols[i] = strchr(cols[i-1], ' ')) == NULL) bad_link_line(path,line);
     cols[i]++;
   }
   // Get column lengths
-  size_t collens[5] = {0};
-  for(i = 0; i < 4; i++) collens[i] = cols[i+1]-cols[i]-1;
-  collens[4] = strendc(cols[4], ' ') - cols[4];
+  size_t collens[ncolumns];
+  for(i = 0; i+1 < ncolumns; i++) collens[i] = cols[i+1]-cols[i]-1;
+  collens[ncolumns-1] = strendc(cols[ncolumns-1], ' ') - cols[ncolumns-1];
 
   // 0:[FR]
   char c = line->b[0];
@@ -294,76 +306,81 @@ static void _parse_link_line(GPathReader *file, const StrBuf *line,
   *fw = (c == 'F');
 
   // 1:[nkmers]
-  *kdist = strtoul(cols[1], &end, 10);
-  if(end != cols[1]+collens[1]) bad_link_line(path,line);
-  else if(*kdist > GPATH_MAX_KMERS) {
-    die("Too many kmers =%zu > %zu [%s]: %s",
-        *kdist, (size_t)GPATH_MAX_KMERS, path, line->b);
+  if(version <= 3) {
+    (void)strtoul(cols[NKMER_COL], &end, 10);
+    if(end != cols[NKMER_COL]+collens[NKMER_COL]) bad_link_line(path,line);
   }
 
   // 2:[njuncs]
-  *njuncs = strtoul(cols[2], &end, 10);
-  if(end != cols[2]+collens[2]) bad_link_line(path,line);
+  *njuncs = strtoul(cols[NJUNC_COL], &end, 10);
+  if(end != cols[NJUNC_COL]+collens[NJUNC_COL]) bad_link_line(path,line);
   else if(*njuncs > GPATH_MAX_JUNCS) {
     die("Too many junctions =%zu > %zu [%s]: %s",
         *njuncs, (size_t)GPATH_MAX_JUNCS, path, line->b);
   }
 
   // 3:[nseen0,nseen1,...]
-  size_buf_reset(numbuf);
-  if(comma_list_to_array(cols[3], numbuf) != (int)collens[3])
+  size_buf_reset(counts);
+  if(comma_list_to_array(cols[NSEEN_COL], counts) != (int)collens[NSEEN_COL])
     bad_link_line(path,line);
-  else if(numbuf->len != file->fltr.filencols)
+  else if(counts->len != fltr->filencols)
     bad_link_line(path,line);
 
   // Use filter - append zeros first
-  size_buf_reset(counts);
-  size_buf_push_zero(counts, file_filter_into_ncols(&file->fltr));
-  for(i = 0; i < file_filter_num(&file->fltr); i++) {
-    fromcol = file_filter_fromcol(&file->fltr, i);
-    intocol = file_filter_intocol(&file->fltr, i);
-    counts->b[intocol] += numbuf->b[fromcol];
+  // size_buf_reset(counts);
+  size_t offset = counts->len, num_into = file_filter_into_ncols(fltr);
+  size_buf_push_zero(counts, num_into);
+  for(i = 0; i < file_filter_num(fltr); i++) {
+    fromcol = file_filter_fromcol(fltr, i);
+    intocol = file_filter_intocol(fltr, i);
+    counts->b[offset+intocol] += counts->b[fromcol];
   }
+  memcpy(counts->b, counts->b+offset, num_into);
+  counts->len = num_into;
 
   // 4:[juncs:ACAGA]
   strbuf_reset(juncs);
-  strbuf_append_strn(juncs, cols[4], collens[4]);
+  strbuf_append_strn(juncs, cols[JUNCS_COL], collens[JUNCS_COL]);
+  const char *ptr;
+  for(ptr = juncs->b; *ptr; ptr++)
+    if(!char_is_acgt(*ptr))
+      die("Non-ACGT base in junction choices [%s]: %s", path, line->b);
 
   // Parse optional tags
   const char *txt;
   size_t txtlen;
 
   // [seq=ACACA]
-  strbuf_reset(seq);
-  if(str_find_tag(line->b, "seq=", &txt, &txtlen))
-  {
-    strbuf_append_strn(seq, txt, txtlen);
-    for(i = 0; i < txtlen; i++)
-      if(!char_is_acgt(txt[i]))
-        die("Cannot parse seq= [%s]: %s", path, line->b);
+  if(seq) {
+    strbuf_reset(seq);
+    if(str_find_tag(line->b, "seq=", &txt, &txtlen))
+    {
+      strbuf_append_strn(seq, txt, txtlen);
+      for(i = 0; i < txtlen; i++)
+        if(!char_is_acgt(txt[i]))
+          die("Cannot parse seq= [%s]: %s", path, line->b);
+    }
   }
 
   // [juncpos=12,23]
-  size_buf_reset(juncpos);
-  if(str_find_tag(line->b, "juncpos=", &txt, &txtlen) &&
-     comma_list_to_array(txt, juncpos) != (int)txtlen)
-  {
-    die("Cannot parse juncpos= [%s]: %s", path, line->b);
+  if(juncpos) {
+    size_buf_reset(juncpos);
+    if(str_find_tag(line->b, "juncpos=", &txt, &txtlen) &&
+       comma_list_to_array(txt, juncpos) != (int)txtlen)
+    {
+      die("Cannot parse juncpos= [%s]: %s", path, line->b);
+    }
   }
 
   //
   // Some sanity checks
   //
   if(juncs->end != *njuncs) die("Differing lengths: %s", line->b);
-  if(*kdist < *njuncs+1) die("kdist too short [%zu %zu]", *kdist, *njuncs);
 
-  if(juncpos->len > 0) {
-    size_t last = juncpos->b[juncpos->len-1];
-    if(juncpos->len != *njuncs) die("Mismatch %zu vs %zu", juncpos->len, *njuncs);
-    if(last+2 != *kdist) die("Mismatch %zu vs %zu", last+2, *kdist);
-  }
+  if(juncpos && juncpos->len && juncpos->len != *njuncs)
+    die("Mismatch %zu vs %zu", juncpos->len, *njuncs);
 
-  if(juncpos->len && seq->end) {
+  if(seq && juncpos && juncpos->len && seq->end) {
     if(juncpos->b[juncpos->len-1] >= seq->end) die("Seq too short");
     // We can work out the kmer size from junction positions
     size_t p, ksize = seq->end - (juncpos->b[juncpos->len-1] + 1);
@@ -376,11 +393,15 @@ static void _parse_link_line(GPathReader *file, const StrBuf *line,
   }
 }
 
-// Reads line [FR] <num_links>
-// Calls die() on error
-// Returns true unless end of link entries
+/**
+ * Reads line [FR] <num_links>
+ * Calls die() on error
+ * @param seq return seq=... optional entry (ignored if NULL)
+ * @param seq return juncpos=... optional entry (ignored if NULL)
+ * @return true unless end of link entries
+ */
 bool gpath_reader_read_link(GPathReader *file,
-                            bool *fw, size_t *kdist, size_t *njuncs,
+                            bool *fw, size_t *njuncs,
                             SizeBuffer *countbuf, StrBuf *juncs,
                             StrBuf *seq, SizeBuffer *juncpos)
 {
@@ -400,9 +421,9 @@ bool gpath_reader_read_link(GPathReader *file,
       strbuf_append_char(line, c);
       strbuf_gzreadline_buf(line, file->gz, &file->strmbuf);
       strbuf_chomp(line);
-      _parse_link_line(file, line, &file->numbuf,
-                       fw, kdist, njuncs, countbuf, juncs,
-                       seq, juncpos);
+      link_line_parse(line, file->version, &file->fltr,
+                      fw, njuncs, countbuf, juncs,
+                      seq, juncpos);
       return true;
     }
   }
@@ -410,211 +431,31 @@ bool gpath_reader_read_link(GPathReader *file,
   return false;
 }
 
-typedef struct
+static hkey_t find_link_kmer(BinaryKmer bkey, int flags,
+                             const char *path, dBGraph *db_graph)
 {
-  BinaryKmer bkey;
-  hkey_t hkey;
-  int kmer_flags; // how to load this kmer
-  size_t num_paths_exp, num_paths_seen;
-  bool found; // bkey was already in the hash table
-  bool looked_up; // Whether we have tried to find the key in the graph
-} LoadPathKmer;
-
-static void _validate_new_path(LoadPathKmer *load, const char *path,
-                               uint8_t *nseen, size_t nseencols,
-                               dBGraph *db_graph)
-{
-  if(load->looked_up) return;
-
+  hkey_t hkey = HASH_NOT_FOUND;
   bool found = false;
 
-  switch(load->kmer_flags) {
+  switch(flags) {
     case GPATH_ADD_MISSING_KMERS:
-      load->hkey = hash_table_find_or_insert(&db_graph->ht, load->bkey, &found);
+      hkey = hash_table_find_or_insert(&db_graph->ht, bkey, &found);
       break;
     case GPATH_DIE_MISSING_KMERS:
-      load->hkey = hash_table_find(&db_graph->ht, load->bkey);
-      if(load->hkey == HASH_NOT_FOUND) {
+      hkey = hash_table_find(&db_graph->ht, bkey);
+      if(hkey == HASH_NOT_FOUND) {
         char bkmerstr[MAX_KMER_SIZE+1];
-        binary_kmer_to_str(load->bkey, db_graph->kmer_size, bkmerstr);
+        binary_kmer_to_str(bkey, db_graph->kmer_size, bkmerstr);
         die("BKmer not already loaded: %s [%s]", bkmerstr, path);
       }
-      found = true;
       break;
     case GPATH_SKIP_MISSING_KMERS:
-      load->hkey = hash_table_find(&db_graph->ht, load->bkey);
-      found = (load->hkey != HASH_NOT_FOUND);
+      hkey = hash_table_find(&db_graph->ht, bkey);
       break;
-    default: die("Bad switch value: %i", load->kmer_flags);
+    default: die("Bad switch value: %i", flags);
   }
 
-  // If inserted, add to colour
-  size_t i;
-  if(!found && load->hkey != HASH_NOT_FOUND && db_graph->node_in_cols) {
-    for(i = 0; i < nseencols; i++)
-      db_node_or_col(db_graph, load->hkey, i, nseen[i] > 0);
-  }
-
-  load->found = found;
-  load->looked_up = true;
-}
-
-/**
- * <KMER> <num> .. (ignored)
- * @param kmer_flags must be one of:
- *   * GPATH_ADD_MISSING_KMERS - add kmers to the graph before loading path
- *   * GPATH_DIE_MISSING_KMERS - die with error if cannot find kmer
- *   * GPATH_SKIP_MISSING_KMERS - skip paths where kmer is not in graph
- */
-static void _gpath_reader_load_kmer_line(const char *path,
-                                         StrBuf *line, int kmer_flags,
-                                         LoadPathKmer *result,
-                                         dBGraph *db_graph)
-{
-  const size_t kmer_size = db_graph->kmer_size;
-  char *numpstr, *endpstr;
-  size_t i, num_paths_exp = 0;
-  BinaryKmer bkmer, bkey;
-
-  for(i = 0; i < line->end && char_is_acgt(line->b[i]); i++) {}
-  load_check(i == kmer_size, "Bad kmer line: %s\n'%s'\n", path, line->b);
-
-  bkmer = binary_kmer_from_str(line->b, kmer_size);
-  // check bkmer is kmer key
-  bkey = binary_kmer_get_key(bkmer, kmer_size);
-  load_check(binary_kmers_are_equal(bkmer, bkey), "Bkmer not bkey: %s", path);
-
-  // Parse number of paths
-  numpstr = line->b+kmer_size;
-  load_check(numpstr[0] == ' ', "Bad kmer line: %s", path);
-  numpstr++;
-  num_paths_exp = strtoul(numpstr, &endpstr, 10);
-  load_check(endpstr > numpstr && (*endpstr == '\0' || *endpstr == ' '),
-              "Bad kmer line: %s\n%s\n", path, line->b);
-
-  LoadPathKmer load = {.bkey = bkey, .hkey = HASH_NOT_FOUND,
-                       .found = false, .looked_up = false,
-                       .kmer_flags = kmer_flags,
-                       .num_paths_exp = num_paths_exp,
-                       .num_paths_seen = 0};
-
-  memcpy(result, &load, sizeof(LoadPathKmer));
-}
-
-/**
- * Format: [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
- * @param line        buffer holding input line to parse
- * @param tmp_nseen1  temporary memory of length file->fltr.filencols
- * @param tmp_nseen2  temporary memory of length intoncols(file->fltr)
- * @param tmp_seqbuf  temporary memory buffer
- * @param gpset       GPathSet to add new path to
- * @param db_graph    We look up and add kmers to this graph
- */
-static void _gpath_reader_load_path_line(GPathReader *file, StrBuf *line,
-                                         uint8_t *tmp_nseen1,
-                                         uint8_t *tmp_nseen2,
-                                         ByteBuffer *tmp_seqbuf,
-                                         LoadPathKmer *load_kmer,
-                                         size_t *max_contigs,
-                                         GPathSet *gpset,
-                                         dBGraph *db_graph)
-{
-  const char *path = file_filter_path(&file->fltr);
-  size_t into_ncols = file_filter_into_ncols(&file->fltr);
-  size_t i, num_kmers, num_juncs;
-  Orientation orient;
-  char *pstr, *endpstr;
-
-  orient = (line->b[0] == 'F') ? FORWARD : REVERSE;
-  load_check(line->b[1] == ' ', "Bad path line: %s", path);
-  pstr = line->b+2;
-
-  // [nkmers]
-  num_kmers = strtoul(pstr, &endpstr, 10);
-  load_check(endpstr > pstr && *endpstr == ' ', "Bad path line: %s", path);
-  pstr = endpstr+1;
-
-  // [njuncs]
-  num_juncs = strtoul(pstr, &endpstr, 10);
-  load_check(endpstr > pstr && *endpstr == ' ', "Bad path line: %s", path);
-  pstr = endpstr+1;
-
-  load_check(num_kmers > num_juncs, "%zu %zu", num_kmers, num_juncs);
-
-  // [nseen,nseen,...]
-  endpstr = strchr(pstr, ' ');
-  load_check(endpstr != NULL && endpstr > pstr, "Bad path line: %s", path);
-
-  for(i = 0; i < file->fltr.filencols; i++, pstr = endpstr+1)
-  {
-    size_t num_seen = strtoul(pstr, &endpstr, 10);
-    tmp_nseen1[i] = MIN2(UINT8_MAX, num_seen);
-    load_check((i+1 < file->fltr.filencols && *endpstr == ',') || *endpstr == ' ',
-               "Bad path line: %s\n%s", path, line->b);
-  }
-
-  load_check(num_kmers < GPATH_MAX_KMERS, "%zu", (size_t)num_kmers);
-  load_check(num_juncs < GPATH_MAX_JUNCS, "%zu", (size_t)num_juncs);
-
-  // [seq]
-  endpstr = pstr;
-  do {
-    load_check(char_is_acgt(*endpstr), "Bad path line: %s", path);
-    endpstr++;
-  } while(*endpstr && *endpstr != ' ');
-  load_check((size_t)(endpstr - pstr) == num_juncs, "Bad path line: %s", path);
-  byte_buf_capacity(tmp_seqbuf, binary_seq_mem(num_juncs));
-  binary_seq_from_str(pstr, num_juncs, tmp_seqbuf->b);
-
-  // Filter colours
-  bool path_in_cols = false;
-  size_t contig_len = num_kmers + db_graph->kmer_size - 1;
-  size_t fromcol, intocol;
-  memset(tmp_nseen2, 0, sizeof(uint8_t) * into_ncols);
-
-  for(i = 0; i < file_filter_num(&file->fltr); i++)
-  {
-    fromcol = file_filter_fromcol(&file->fltr, i);
-    intocol = file_filter_intocol(&file->fltr, i);
-    tmp_nseen2[intocol] = MIN2((size_t)UINT8_MAX,
-                               (size_t)tmp_nseen2[intocol] + tmp_nseen1[fromcol]);
-
-    if(tmp_nseen2[intocol] > 0) {
-      path_in_cols = true;
-      if(contig_len > max_contigs[intocol]) die("Invalid CTP contig histogram");
-    }
-  }
-
-  if(path_in_cols)
-  {
-    // Load kmer
-    _validate_new_path(load_kmer, path, tmp_nseen2, into_ncols, db_graph);
-
-    if(load_kmer->hkey != HASH_NOT_FOUND)
-    {
-      // Add to GPathSet
-      GPathNew newgpath = {.seq = tmp_seqbuf->b,
-                           .colset = NULL, .nseen = NULL,
-                           .orient = orient,
-                           .klen = num_kmers,
-                           .num_juncs = num_juncs};
-
-      GPath *gpath = gpath_set_add_mt(gpset, newgpath);
-
-      ctx_assert(into_ncols <= gpset->ncols);
-
-      // Update nseen / colour bitset
-      uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
-      uint8_t *colset = gpath_get_colset(gpath, gpset->ncols);
-
-      for(i = 0; i < into_ncols; i++) {
-        nseen[i] = MIN2((size_t)UINT8_MAX, (size_t)nseen[i] + tmp_nseen2[i]);
-        bitset_or(colset, i, nseen[i] > 0);
-      }
-    }
-  }
-
-  load_kmer->num_paths_seen++;
+  return hkey;
 }
 
 // @subset0 and @subset1 are temporary memory to be used in the loading
@@ -622,18 +463,12 @@ static void _gpath_reader_load_path_line(GPathReader *file, StrBuf *line,
 // @return number of paths added
 static size_t _load_paths_from_set(dBGraph *db_graph, GPathSet *gpset,
                                    GPathSubset *subset0, GPathSubset *subset1,
-                                   const LoadPathKmer *load_kmer,
-                                   const char *file_path)
+                                   hkey_t hkey)
 {
   GPathStore *gpstore = &db_graph->gpstore;
   GPathHash *gphash = &db_graph->gphash;
 
-  load_check(load_kmer->num_paths_exp == load_kmer->num_paths_seen,
-             "Too many/few paths: %s (exp %zu vs act %zu)",
-             file_path, load_kmer->num_paths_exp, load_kmer->num_paths_seen);
-
   size_t i;
-  hkey_t hkey = load_kmer->hkey;
 
   gpath_subset_init(subset0, &gpstore->gpset);
   gpath_subset_init(subset1, gpset);
@@ -680,21 +515,7 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
 
   file_filter_status(&file->fltr);
 
-  // Read kmer lines
-  // <KMER> <num>
-  // [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
-  StrBuf line;
-  strbuf_alloc(&line, 2048);
-
   size_t into_ncols = file_filter_into_ncols(&file->fltr);
-  uint8_t *nseenbuf1 = ctx_calloc(file->fltr.filencols, sizeof(uint8_t));
-  uint8_t *nseenbuf2 = ctx_calloc(into_ncols, sizeof(uint8_t));
-
-  size_t *max_contigs = ctx_calloc(into_ncols, sizeof(size_t));
-  gpath_reader_get_max_contig_lens(file, max_contigs);
-
-  ByteBuffer seqbuf;
-  byte_buf_alloc(&seqbuf, 64);
 
   // Load paths into this temporary set for each kmer
   GPathSet gpset;
@@ -704,67 +525,108 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
   gpath_subset_alloc(&subset0);
   gpath_subset_alloc(&subset1);
 
-  LoadPathKmer load_kmer;
-  size_t num_kmers = 0, num_kmers_exp = gpath_reader_get_num_kmers(file);
-  size_t num_paths_loaded = 0, num_kmers_loaded = 0;
+  size_t i, nlink, num_links_exp = 0;
+  size_t total_kmers_exp = gpath_reader_get_num_kmers(file);
+  size_t total_links_exp = gpath_reader_get_num_paths(file);
+  size_t num_kmers_seen = 0, num_links_seen = 0;
+  size_t num_kmers_loaded = 0, num_links_loaded = 0;
+  bool warn_nlink_mismatch = false;
 
-  while(strbuf_gzreadline_buf(&line, file->gz, &file->strmbuf) > 0) {
-    strbuf_chomp(&line);
-    if(line.end > 0 && line.b[0] != '#') {
-      if(line.b[0] == 'F' || line.b[0] == 'R') {
-        // Assume path line
-        // status("Path line: %s", line.b);
-        load_check(num_kmers != 0, "Path before kmer: %s", path);
+  StrBuf kmerstr;
+  strbuf_alloc(&kmerstr, 64);
+  bool fw = true;
+  size_t njuncs = 0;
+  StrBuf juncs;
+  SizeBuffer counts;
+  strbuf_alloc(&juncs, 256);
+  size_buf_alloc(&counts, 256);
 
-        _gpath_reader_load_path_line(file, &line,
-                                     nseenbuf1, nseenbuf2, &seqbuf,
-                                     &load_kmer, max_contigs,
-                                     &gpset, db_graph);
-      }
-      else {
-        // Assume kmer line
-        // Load previous paths if this is not the first kmer
-        if(num_kmers > 0 && load_kmer.hkey != HASH_NOT_FOUND) {
-          num_kmers_loaded += (gpset.entries.len > 0);
-          num_paths_loaded += _load_paths_from_set(db_graph, &gpset,
-                                                   &subset0, &subset1,
-                                                   &load_kmer, path);
+  // Buffer is collapsed into here
+  ByteBuffer seqbuf;
+  byte_buf_alloc(&seqbuf, 64);
+
+  for(num_kmers_seen = 0;
+      gpath_reader_read_kmer(file, &kmerstr, &num_links_exp);
+      num_kmers_seen++)
+  {
+    gpath_set_reset(&gpset);
+
+    for(nlink = 0;
+        gpath_reader_read_link(file, &fw, &njuncs,
+                               &counts, &juncs, NULL, NULL);
+        nlink++)
+    {
+      // Check if link has coverage in any colours
+      size_t link_covg = 0;
+      for(i = 0; i < into_ncols; i++) link_covg |= counts.b[i];
+
+      if(link_covg)
+      {
+        byte_buf_capacity(&seqbuf, binary_seq_mem(juncs.end));
+        binary_seq_from_str(juncs.b, juncs.end, seqbuf.b);
+
+        // Add to GPathSet
+        GPathNew newgpath = {.seq = seqbuf.b,
+                             .colset = NULL, .nseen = NULL,
+                             .orient = fw ? FORWARD : REVERSE,
+                             .num_juncs = juncs.end};
+
+        GPath *gpath = gpath_set_add_mt(&gpset, newgpath);
+
+        // Update nseen and colset
+        // Our temporary gpset always stores nseen counts
+        uint8_t *nseen = gpath_set_get_nseen(&gpset, gpath);
+        uint8_t *colset = gpath_get_colset(gpath, gpset.ncols);
+        for(i = 0; i < into_ncols; i++) {
+          nseen[i] = MIN2((size_t)UINT8_MAX, (size_t)nseen[i] + counts.b[i]);
+          bitset_or(colset, i, counts.b[i] > 0);
         }
-
-        _gpath_reader_load_kmer_line(path, &line, kmer_flags, &load_kmer, db_graph);
-
-        num_kmers++;
       }
     }
-    strbuf_reset(&line);
-  }
 
-  if(num_kmers > 0 && load_kmer.hkey != HASH_NOT_FOUND) {
+    if(nlink != num_links_exp && !warn_nlink_mismatch) {
+      warn("Number of links mismatches: %s %zu != %zu [%s]",
+           kmerstr.b, num_links_exp, nlink, path);
+      warn_nlink_mismatch = true;
+    }
+
+    num_links_seen += nlink;
     num_kmers_loaded += (gpset.entries.len > 0);
-    num_paths_loaded += _load_paths_from_set(db_graph, &gpset,
-                                             &subset0, &subset1,
-                                             &load_kmer, path);
+
+    if(gpset.entries.len > 0) {
+      BinaryKmer bkey = binary_kmer_from_str(kmerstr.b, db_graph->kmer_size);
+      hkey_t hkey = find_link_kmer(bkey, kmer_flags, path, db_graph);
+
+      if(hkey != HASH_NOT_FOUND) {
+        num_links_loaded += _load_paths_from_set(db_graph, &gpset,
+                                                 &subset0, &subset1,
+                                                 hkey);
+      }
+    }
   }
 
-  load_check(num_kmers == (size_t)num_kmers_exp,
-             "num_kmers don't match (exp %zu vs %zu)",
-             num_kmers, (size_t)num_kmers_exp);
+  strbuf_dealloc(&kmerstr);
+  strbuf_dealloc(&juncs);
+  size_buf_dealloc(&counts);
+
+  load_check(total_kmers_exp == num_kmers_seen,
+             "header number of kmers don't match seen (exp %zu vs %zu)",
+             total_kmers_exp, num_kmers_seen);
+
+  load_check(total_links_exp == num_links_seen,
+             "header number of links don't match seen (exp %zu vs %zu)",
+             total_links_exp, num_links_seen);
 
   // Print status update
-  char npaths_str[50], nkmers_str[50];
-  ulong_to_str(num_paths_loaded, npaths_str);
+  char nlinks_str[50], nkmers_str[50];
+  ulong_to_str(num_links_loaded, nlinks_str);
   ulong_to_str(num_kmers_loaded, nkmers_str);
-  status("Loaded %s paths from %s kmers", npaths_str, nkmers_str);
+  status("Loaded %s paths from %s kmers", nlinks_str, nkmers_str);
 
   gpath_subset_dealloc(&subset0);
   gpath_subset_dealloc(&subset1);
-
   gpath_set_dealloc(&gpset);
-  strbuf_dealloc(&line);
   byte_buf_dealloc(&seqbuf);
-  ctx_free(nseenbuf1);
-  ctx_free(nseenbuf2);
-  ctx_free(max_contigs);
 }
 
 void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph)
@@ -799,15 +661,14 @@ void gpath_reader_load_sample_names(const GPathReader *file, dBGraph *db_graph)
 // Assume equal three-way split between: GPath, seq+colset, hashtable
 void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
                               size_t ncols, size_t graph_capacity,
-                              bool store_nseen_klen,
+                              bool store_nseen,
                               bool split_lists, bool use_hash,
                               size_t *min_mem_ptr, size_t *max_mem_ptr)
 {
   size_t i, path_bytes, hash_bytes;
   size_t max_npaths = 0, sum_npaths = 0, max_pbytes = 0, sum_pbytes = 0;
 
-  path_bytes = sizeof(GPath) +
-               (store_nseen_klen ? sizeof(uint8_t)*ncols + sizeof(uint32_t) : 0);
+  path_bytes = sizeof(GPath) + (store_nseen ? sizeof(uint8_t)*ncols : 0);
   hash_bytes = (use_hash ? sizeof(GPEntry)/IDEAL_OCCUPANCY : 0);
 
   for(i = 0; i < nfiles; i++) {

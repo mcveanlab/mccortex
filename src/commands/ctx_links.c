@@ -253,7 +253,7 @@ int ctx_links(int argc, char **argv)
   strbuf_alloc(&outbuf, 1024);
 
   bool link_fw;
-  size_t kdist, njuncs;
+  size_t njuncs;
   size_t knum, nlinks, num_links_exp = 0;
 
   LinkTree ltree;
@@ -272,7 +272,7 @@ int ctx_links(int argc, char **argv)
     // status("kmer: %s", kmerbuf.b);
 
     for(nlinks = 0;
-        gpath_reader_read_link(&ctpin, &link_fw, &kdist, &njuncs,
+        gpath_reader_read_link(&ctpin, &link_fw, &njuncs,
                                &countbuf, &juncsbuf,
                                &seqbuf, &jposbuf);
         nlinks++)

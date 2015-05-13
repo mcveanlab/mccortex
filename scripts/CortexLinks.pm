@@ -83,9 +83,10 @@ sub read_line
 
 sub ctp_create_link
 {
-  my ($dir,$nkmers,$njuncs,$countsarr,$juncstr,$other) = @_;
-  return {'dir' => $dir, 'num_kmers' => $nkmers, 'num_juncs' => $njuncs,
-          'counts' => $countsarr, 'juncs' => $juncstr, 'other' => $other};
+  my ($dir,$njuncs,$countsarr,$juncstr,$other) = @_;
+  return {'dir' => $dir, 'num_juncs' => $njuncs,
+          'counts' => $countsarr, 'juncs' => $juncstr,
+          'other' => $other};
 }
 
 sub next
@@ -108,11 +109,12 @@ sub next
     if($line !~ /^\s*(?:#.*)?$/)
     {
       my ($dir,$nkmers,$njuncs,$counts_str,$juncs,$other)
-        = ($line =~ /^([FR]) (\d+) (\d+) (\d+(?:,\d+)*) ([ACGT]+)(?: ?(.*))/);
+        = ($line =~ /^([FR])( \d+)? (\d+) (\d+(?:,\d+)*) ([ACGT]+)(?: ?(.*))/);
 
       if(!defined($dir)) { die("Quak: Bad line [$self->{_path}]: $line"); }
 
-      push(@paths, {'dir'=>$dir, 'num_kmers'=>$nkmers, 'num_juncs'=>$njuncs,
+      # Note num_kmers is no longer valid -- we don't store this info
+      push(@paths, {'dir'=>$dir, 'num_juncs'=>$njuncs,
                     'counts'=>[split(',',$counts_str)], 'juncs'=>$juncs,
                     'other'=>$other});
     }

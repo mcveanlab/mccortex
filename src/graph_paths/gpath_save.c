@@ -15,19 +15,19 @@ const char ctp_explanation_comment[] =
 "# Comment lines begin with a # and are ignored, but must come after the header\n"
 "# Format is:\n"
 "#   [kmer] [num_paths] ...(ignored)\n"
-"#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=... juncpos=... ...]\n"
+"#   [FR] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=... juncpos=... ...]\n"
 "#\n"
 "# Columns are separated by a single space.\n"
 "# Columns 1-5 are required ([FR],..,[juncs]) everything after than is optional\n"
 "\n";
 
-// "# [FR] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=... juncpos=... ...]\n"
-
 // {
 //   <JSON header>
 // }
 // <KMER> <num> .. (ignored)
-// [FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
+// [FR] (nkmers) [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. (ignored)
+//
+// Note: (nkmers) is only in versions <= 3
 
 static void _gpath_save_contig_hist2json(cJSON *json_hists,
                                          const size_t *arr_counts,
@@ -71,7 +71,7 @@ cJSON* gpath_save_mkhdr(const char *path,
   cJSON *json = cJSON_CreateObject();
 
   cJSON_AddStringToObject(json, "file_format", "ctp");
-  cJSON_AddNumberToObject(json, "format_version", 3);
+  cJSON_AddNumberToObject(json, "format_version", CTP_FORMAT_VERSION);
 
   // Add standard cortex header info
   json_hdr_add_std(json, path, hdrs, nhdrs, db_graph);
@@ -122,6 +122,9 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
                      dBNodeBuffer *nbuf, SizeBuffer *jposbuf,
                      const dBGraph *db_graph)
 {
+  ctx_assert(db_graph->num_of_cols == 1 || nbuf == NULL);
+  ctx_assert(db_graph->num_of_cols == 1 || jposbuf == NULL);
+
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
   const size_t ncols = gpstore->gpset.ncols;
@@ -151,20 +154,16 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
   orchar[FORWARD] = 'F';
   orchar[REVERSE] = 'R';
   const uint8_t *nseenptr;
-  size_t klen;
 
   for(i = 0; i < subset->list.len; i++)
   {
     gpath = subset->list.b[i];
     nseenptr = gpath_set_get_nseen(gpset, gpath);
-    klen = gpath_set_get_klen(gpset, gpath);
 
     // strbuf_sprintf(sbuf, "%c %zu %u %u", orchar[gpath->orient], klen,
     //                                      gpath->num_juncs, (uint32_t)nseenptr[0]);
 
     strbuf_append_char(sbuf, orchar[gpath->orient]);
-    strbuf_append_char(sbuf, ' ');
-    strbuf_append_ulong(sbuf, klen);
     strbuf_append_char(sbuf, ' ');
     strbuf_append_ulong(sbuf, gpath->num_juncs);
     strbuf_append_char(sbuf, ' ');
@@ -199,12 +198,10 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
                                    sbuf->b+sbuf->end);
 
       if(jposbuf) {
-        // strbuf_sprintf(sbuf, " juncpos=%zu", jposbuf->b[0]);
         strbuf_append_str(sbuf, " juncpos=");
         strbuf_append_ulong(sbuf, jposbuf->b[0]);
 
         for(j = 1; j < jposbuf->len; j++) {
-          // strbuf_sprintf(sbuf, ",%zu", jposbuf->b[j]);
           strbuf_append_char(sbuf, ',');
           strbuf_append_ulong(sbuf, jposbuf->b[j]);
         }
@@ -274,6 +271,10 @@ static void gpath_save_thread(void *arg)
 
 /**
  * Save paths to a file.
+ * @param gzout         gzFile to write to
+ * @param path          path of output file
+ * @param save_path_seq if true, save seq= and juncpos= for links, requires
+ *                      exactly one colour in the graph
  * @param hdrs is array of JSON headers of input files
  */
 void gpath_save(gzFile gzout, const char *path,
@@ -285,6 +286,7 @@ void gpath_save(gzFile gzout, const char *path,
   ctx_assert(nthreads > 0);
   ctx_assert(gpath_set_has_nseen(&db_graph->gpstore.gpset));
   ctx_assert(ncols == db_graph->gpstore.gpset.ncols);
+  ctx_assert(!save_path_seq || db_graph->num_of_cols == 1); // save_path => 1 colour
 
   char npaths_str[50];
   ulong_to_str(db_graph->gpstore.num_paths, npaths_str);

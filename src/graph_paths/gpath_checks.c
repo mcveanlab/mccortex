@@ -238,7 +238,7 @@ size_t gpath_fetch(dBNode node, const GPath *gpath,
 // 1) check dBNode following `node` has indegree >1 in sample ctxcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
-bool gpath_checks_path_col(dBNode node, const GPath *gpath, int exp_klen,
+bool gpath_checks_path_col(dBNode node, const GPath *gpath,
                            size_t ctxcol, const dBGraph *db_graph)
 {
   ctx_assert_ret(db_graph->num_edge_cols == db_graph->num_of_cols ||
@@ -327,17 +327,11 @@ bool gpath_checks_path_col(dBNode node, const GPath *gpath, int exp_klen,
   // We exit before the last kmer, need to add it
   klen++;
 
-  // Check kmer length is correct
-  if(exp_klen != -1) {
-    ctx_assert2(klen == (size_t)exp_klen, "act: %zu vs %zu", klen, (size_t)exp_klen);
-  }
-
   return true;
 }
 
 // Returns false on first error
-bool gpath_checks_path(hkey_t hkey, const GPath *gpath, int exp_klen,
-                       const dBGraph *db_graph)
+bool gpath_checks_path(hkey_t hkey, const GPath *gpath, const dBGraph *db_graph)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
   size_t i, ncols = gpstore->gpset.ncols;
@@ -352,7 +346,7 @@ bool gpath_checks_path(hkey_t hkey, const GPath *gpath, int exp_klen,
   // Check for each colour the path has
   for(i = 0; i < ncols; i++) {
     if(bitset_get(colset, i)) {
-      ctx_assert(gpath_checks_path_col(node, gpath, exp_klen, i, db_graph));
+      ctx_assert(gpath_checks_path_col(node, gpath, i, db_graph));
     }
   }
 
@@ -363,15 +357,12 @@ static int _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
                              size_t *npaths_ptr, size_t *nkmers_ptr)
 {
   const GPathStore *gpstore = &db_graph->gpstore;
-  const GPathSet *gpset = &gpstore->gpset;
   size_t num_gpaths = 0;
   GPath *gpath;
-  int exp_klen = -1;
 
   for(gpath = gpstore->paths_all[hkey]; gpath != NULL; gpath = gpath->next)
   {
-    if(gpath_set_has_nseen(gpset)) exp_klen = gpath_set_get_klen(gpset, gpath);
-    ctx_assert_ret(gpath_checks_path(hkey, gpath, exp_klen, db_graph));
+    ctx_assert_ret(gpath_checks_path(hkey, gpath, db_graph));
     num_gpaths++;
   }
 

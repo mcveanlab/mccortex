@@ -10,7 +10,7 @@
 // File format:
 <JSON_HEADER>
 kmer [num] .. ignored
-[FR] [nkmers] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
+[FR] [njuncs] [nseen,nseen,nseen] [seq:ACAGT] .. ignored
 */
 
 extern const char ctp_explanation_comment[];

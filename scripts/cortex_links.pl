@@ -341,7 +341,7 @@ if($action == CMD_CLEAN)
 # Comment lines begin with a # and are ignored, but must come after the header
 # Format is:
 #   [kmer] [num_paths] ...(ignored)
-#   [FR] [num_kmers] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n\n";
+#   [FR] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] ...(ignored)\n\n";
 
   # Print lines from temporary file
   my $tmp_line;
@@ -470,7 +470,7 @@ sub ctp_emit_links
   if(emit_link_from_node($node))
   {
     # Link ends here -> output it
-    my $link = ctp_create_link($dir, $node->{'dist'}+2, length($juncs),
+    my $link = ctp_create_link($dir, length($juncs),
                                [$node->{'count'}], $juncs,
                                "seq=$seq juncpos=$juncstr");
     push(@$linksarr, $link);

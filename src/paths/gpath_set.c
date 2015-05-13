@@ -15,14 +15,12 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   GPathSet tmp = {.ncols = ncols, .can_resize = resize};
 
   // 1:1 split between seq and paths (6 bytes each)
-  size_t entry_size = 0, klen_size = 0;
+  size_t entry_size = 0, counts_size = 0;
 
   entry_size = sizeof(GPath) + (ncols+7)/8;
+  counts_size = keep_path_counts ? sizeof(uint8_t)*ncols : 0;
 
-  if(keep_path_counts)
-    klen_size = sizeof(uint8_t)*ncols + sizeof(uint32_t);
-
-  size_t mem_used = initpaths * (entry_size + klen_size);
+  size_t mem_used = initpaths * (entry_size + counts_size);
 
   if(initmem < mem_used) {
     die("[GPathSet] Not enough memory for number of paths (%zu < %zu)",
@@ -32,7 +30,7 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   size_t seq_mem = initmem - mem_used;
   size_t col_mem = initpaths * ((ncols+7)/8);
   size_t seq_col_mem = col_mem + seq_mem;
-  size_t total_mem = initpaths * (sizeof(GPath)+klen_size) + seq_col_mem;
+  size_t total_mem = initpaths * (sizeof(GPath)+counts_size) + seq_col_mem;
   ctx_assert(total_mem <= initmem);
 
   char npathstr[50], colmemstr[50], seqmemstr[50], totalmemstr[50];
@@ -49,10 +47,8 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   if(keep_path_counts) {
     // madcrowlib allocates with calloc, so these are all zero'd
     byte_buf_alloc(&tmp.nseen_buf, initpaths * ncols);
-    uint32_buf_alloc(&tmp.klen_buf, initpaths);
   } else {
     memset(&tmp.nseen_buf, 0, sizeof(tmp.nseen_buf));
-    memset(&tmp.klen_buf, 0, sizeof(tmp.klen_buf));
   }
 
   memcpy(gpset, &tmp, sizeof(GPathSet));
@@ -78,7 +74,6 @@ void gpath_set_dealloc(GPathSet *gpset)
   gpath_buf_dealloc(&gpset->entries);
   byte_buf_dealloc(&gpset->seqs);
   byte_buf_dealloc(&gpset->nseen_buf);
-  uint32_buf_dealloc(&gpset->klen_buf);
   memset(gpset, 0, sizeof(GPathSet));
 }
 
@@ -102,13 +97,6 @@ void gpath_set_print_stats(const GPathSet *gpset)
          seq_str, seq_cap_str,
          (100.0 * gpset->seqs.len) / gpset->seqs.size,
          gpset->seqs.len, gpset->seqs.size);
-}
-
-// Get kmer length of a GPath
-uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath)
-{
-  pkey_t pkey = gpset_get_pkey(gpset, gpath);
-  return gpath_set_has_nseen(gpset) ? gpset->klen_buf.b[pkey] : 0;
 }
 
 uint8_t* gpath_set_get_nseen(const GPathSet *gpset, const GPath *gpath)
@@ -158,7 +146,6 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
     if(gpath_set_has_nseen(gpset)) {
       // Increase size of nseen buffer to match (zero'd by default)
       byte_buf_capacity(&gpset->nseen_buf, gpset->entries.size * ncols);
-      uint32_buf_capacity(&gpset->klen_buf, gpset->entries.size);
     }
   }
 
@@ -233,11 +220,9 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   else
     memset(colset, 0, colset_bytes);
 
-  // klen, nseen
+  // link counts
   if(gpath_set_has_nseen(gpset))
   {
-    gpset->klen_buf.b[pkey] = newgpath.klen;
-    __sync_fetch_and_add((volatile size_t*)&gpset->klen_buf.len, 1);
     __sync_fetch_and_add((volatile size_t*)&gpset->nseen_buf.len, gpset->ncols);
 
     uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
@@ -257,7 +242,6 @@ GPathNew gpath_set_get(const GPathSet *gpset, const GPath *gpath)
   GPathNew newgpath = {.seq = gpath->seq,
                        .colset = gpath_get_colset(gpath, gpset->ncols),
                        .nseen = gpath_set_get_nseen(gpset, gpath),
-                       .klen = gpath_set_get_klen(gpset, gpath),
                        .num_juncs = gpath->num_juncs,
                        .orient = gpath->orient};
   return newgpath;

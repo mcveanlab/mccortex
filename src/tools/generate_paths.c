@@ -243,7 +243,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     packed_ptr[top_idx] &= 0xff >> (8 - bits_in_top_byte(plen));
 
     bool found = false;
-    GPathNew newgpath = {.seq = packed_ptr, .klen = end-start+1,
+    GPathNew newgpath = {.seq = packed_ptr,
                          .orient = node.orient, .num_juncs = plen,
                          .colset = NULL, .nseen = NULL};
 

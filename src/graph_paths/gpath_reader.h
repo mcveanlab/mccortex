@@ -7,6 +7,8 @@
 
 #include "common_buffers.h"
 
+#define CTP_FORMAT_VERSION 4
+
 typedef struct
 {
   StreamBuffer strmbuf; 
@@ -22,6 +24,7 @@ typedef struct
 
   // Header is decomposed here
   // size_t kmer_size, num_paths, path_bytes, kmers_with_paths;
+  int version;
   size_t ncolours;
   cJSON **colours_json;
 } GPathReader;
@@ -33,6 +36,29 @@ typedef struct
 #include "madcrowlib/madcrow_buffer.h"
 
 madcrow_buffer(gpfile_buf, GPathFileBuffer, GPathReader);
+
+/**
+ Parse line with format:
+  [FR] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
+ */
+void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
+                     bool *fw, size_t *njuncs,
+                     SizeBuffer *counts, StrBuf *juncs,
+                     StrBuf *seq, SizeBuffer *juncpos);
+
+// Reads line <kmer> <num_links>
+// Calls die() on error
+// Returns true unless end of file
+bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links);
+
+// Reads line [FR] <num_links>
+// Calls die() on error
+// Returns true unless end of link entries
+bool gpath_reader_read_link(GPathReader *file,
+                            bool *fw, size_t *njuncs,
+                            SizeBuffer *countbuf, StrBuf *juncs,
+                            StrBuf *seq, SizeBuffer *juncpos);
+
 
 // Open file, exits on error
 // if successful creates a new GPathReader
@@ -66,7 +92,7 @@ bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links);
 // Calls die() on error
 // Returns true unless end of link entries
 bool gpath_reader_read_link(GPathReader *file,
-                            bool *fw, size_t *kdist, size_t *njuncs,
+                            bool *fw, size_t *njuncs,
                             SizeBuffer *countbuf, StrBuf *juncs,
                             StrBuf *seq, SizeBuffer *juncpos);
 
@@ -93,7 +119,7 @@ void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,
 // Get max mem required to load ctp files
 void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
                               size_t ncols, size_t graph_capacity,
-                              bool store_nseen_klen,
+                              bool store_nseen,
                               bool split_lists, bool use_hash,
                               size_t *min_mem_ptr, size_t *max_mem_ptr);
 

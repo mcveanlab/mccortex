@@ -43,12 +43,11 @@ size_t gpath_fetch(dBNode node, const GPath *gpath,
 // 1) check dBNode following `node` has indegree >1 in sample ctxcol
 // 2) follow path, check each junction matches up with a node with outdegree >1
 // col is graph colour
-bool gpath_checks_path_col(dBNode node, const GPath *gpath, int exp_klen,
+bool gpath_checks_path_col(dBNode node, const GPath *gpath,
                            size_t ctxcol, const dBGraph *db_graph);
 
 // Returns false on first error
-bool gpath_checks_path(hkey_t hkey, const GPath *gpath, int exp_klen,
-                       const dBGraph *db_graph);
+bool gpath_checks_path(hkey_t hkey, const GPath *gpath, const dBGraph *db_graph);
 
 // Returns false on error
 bool gpath_checks_all_paths(const dBGraph *db_graph, size_t nthreads);

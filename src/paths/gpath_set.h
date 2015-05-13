@@ -15,7 +15,6 @@ typedef struct
 {
   uint8_t *seq;
   uint8_t *colset, *nseen; // if not null, colset: ncol bits; nseen: ncol bytes
-  uint32_t klen;
   uint16_t num_juncs;
   Orientation orient;
 } GPathNew;
@@ -26,7 +25,6 @@ typedef struct
   GPathBuffer entries;
   ByteBuffer seqs; // colset+seq for each path
   ByteBuffer nseen_buf; // counts for how many times we've seen path
-  Uint32Buffer klen_buf; // kmer length of buffer
   bool can_resize;
 } GPathSet;
 
@@ -61,9 +59,6 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath);
 
 // Returns true if we are storing number of sightings and kmer length
 #define gpath_set_has_nseen(gpset) ((gpset)->nseen_buf.b != NULL)
-
-// Get kmer length of a GPath
-uint32_t gpath_set_get_klen(const GPathSet *gpset, const GPath *gpath);
 
 uint8_t* gpath_set_get_nseen(const GPathSet *gpset, const GPath *gpath);
 

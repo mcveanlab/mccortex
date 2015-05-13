@@ -14,15 +14,16 @@ struct GPEntryStruct
 } __attribute((packed));
 
 /*
-// 5+5+1+11 = 22 bytes
-// GPath:18 + GPEntry:10 + klen:4 + count:1 + colset:1 = 34
-// 22/34 = 64%
+// 5+5+5+1+2 = 18 bytes
+// GPath:18 + GPEntry:10 + count:1 + colset:1 = 30
+// 18/34 = 52%
 struct GPEntryStruct
 {
   hkey_t hkey:40; // 5 bytes
   pkey_t next:40; // 5 bytes
-  uint8_t count; // 1 bytes
-  uint64_t klen:32, orient:1, seq_len:15, seq_offset:40; // 11 bytes
+  uint64_t seq_offset:40; // 5 btyes
+  uint8_t count; // 1 byte
+  uint16_t orient:1, seq_len:15; // 2 bytes
 } __attribute((packed));
 */
 
