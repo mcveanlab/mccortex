@@ -227,7 +227,8 @@ int ctx_pjoin(int argc, char **argv)
 
   // Write output file
   gpath_save(gzout, out_ctp_path, output_threads, false,
-             hdrs, num_pfiles, contig_histgrms, output_ncols,
+             NULL, NULL, hdrs, num_pfiles,
+             contig_histgrms, output_ncols,
              &db_graph);
 
   for(i = 0; i < output_ncols; i++)

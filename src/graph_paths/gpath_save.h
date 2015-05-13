@@ -15,7 +15,19 @@ kmer [num] .. ignored
 
 extern const char ctp_explanation_comment[];
 
+/**
+ * Generate a JSON header object for a .ctp file
+ * @param path        path to output file
+ * @param cmdstr      name of the command being run, to be used to add @cmdhdr
+ * @param cmdhdr      JSON header to add under current command->@cmdstr
+ *                    If cmdstr and cmdhdr are both NULL they are ignored
+ * @param hdrs        array of JSON headers of input files
+ * @param nhdrs       number of elements in @hdrs
+ * @param contig_hist histgram of read contig lengths
+ * @param hist_len    length of array contig_hist
+ */
 cJSON* gpath_save_mkhdr(const char *path,
+                        const char *cmdstr, cJSON *cmdhdr,
                         cJSON **hdrs, size_t nhdrs,
                         const ZeroSizeBuffer *contig_hists, size_t ncols,
                         const dBGraph *db_graph);
@@ -35,10 +47,15 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
 
 /**
  * Save paths to a file.
- * @param hdrs is array of JSON headers of input files
+ * @param cmdstr  name of the command being run, to be used to add @cmdhdr
+ * @param cmdhdr  JSON header to add under current command->@cmdstr
+ *                If cmdstr and cmdhdr are both NULL they are ignored
+ * @param hdrs    array of JSON headers of input files
+ * @param nhdrs   number of elements in @hdrs
  */
 void gpath_save(gzFile gzout, const char *path,
                 size_t nthreads, bool save_path_seq,
+                const char *cmdstr, cJSON *cmdhdr,
                 cJSON **hdrs, size_t nhdrs,
                 const ZeroSizeBuffer *contig_hists, size_t ncols,
                 dBGraph *db_graph);

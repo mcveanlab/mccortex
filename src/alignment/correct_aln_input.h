@@ -6,6 +6,8 @@
 #include "correct_alignment.h"
 #include "async_read_io.h"
 
+#include "cJSON/cJSON.h"
+
 typedef struct
 {
   AsyncIOInput files;
@@ -24,6 +26,8 @@ typedef struct
 
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(correct_aln_input_buf, CorrectAlnInputBuffer, CorrectAlnInput);
+
+cJSON* correct_aln_input_json_hdr(const CorrectAlnInput *input);
 
 void correct_aln_input_print(const CorrectAlnInput *c);
 

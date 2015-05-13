@@ -255,9 +255,16 @@ int ctx_thread(int argc, char **argv)
 
   size_t output_threads = MIN2(args.nthreads, MAX_IO_THREADS);
 
+  // Generate a cJSON header for all inputs
+  cJSON *thread_hdr = cJSON_CreateObject();
+  cJSON *inputs_hdr = cJSON_CreateArray();
+  cJSON_AddItemToObject(thread_hdr, "inputs", inputs_hdr);
+  for(i = 0; i < inputs->len; i++)
+    cJSON_AddItemToArray(inputs_hdr, correct_aln_input_json_hdr(&inputs->b[i]));
+
   // Write output file
   gpath_save(gzout, args.out_ctp_path, output_threads, true,
-             hdrs, gpfiles->len,
+             "thread", thread_hdr, hdrs, gpfiles->len,
              &aln_stats->contig_histgrm, 1,
              &db_graph);
 

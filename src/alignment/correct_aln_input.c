@@ -3,6 +3,33 @@
 #include "seq_reader.h"
 #include "file_util.h"
 
+cJSON* correct_aln_input_json_hdr(const CorrectAlnInput *input)
+{
+  cJSON *hdr = cJSON_CreateObject();
+
+  const char *files[2] = {input->files.file1->path, NULL};
+  int nfiles = 1;
+  if(input->files.file2) { files[1] = input->files.file2->path; nfiles++; }
+  cJSON_AddItemToObject(hdr, "files", cJSON_CreateStringArray(files, nfiles));
+
+  cJSON_AddItemToObject(hdr, "interleaved", cJSON_CreateBool(input->files.interleaved));
+  cJSON_AddItemToObject(hdr, "fq_offset", cJSON_CreateInt(input->files.fq_offset));
+  cJSON_AddItemToObject(hdr, "fq_cutoff", cJSON_CreateInt(input->fq_cutoff));
+  cJSON_AddItemToObject(hdr, "hp_cutoff", cJSON_CreateInt(input->hp_cutoff));
+  cJSON_AddItemToObject(hdr, "matepair", cJSON_CreateString(MP_DIR_STRS[input->matedir]));
+
+  const CorrectAlnParam *p = &input->crt_params;
+  cJSON_AddItemToObject(hdr, "frag_len_min_bp",  cJSON_CreateInt(p->frag_len_min));
+  cJSON_AddItemToObject(hdr, "frag_len_max_bp",  cJSON_CreateInt(p->frag_len_max));
+  cJSON_AddItemToObject(hdr, "one_way_gap_fill", cJSON_CreateBool(p->one_way_gap_traverse));
+  cJSON_AddItemToObject(hdr, "use_end_check",    cJSON_CreateBool(p->use_end_check));
+  cJSON_AddItemToObject(hdr, "max_context",      cJSON_CreateInt(p->max_context));
+  cJSON_AddItemToObject(hdr, "gap_variance",     cJSON_CreateNumber(p->gap_variance));
+  cJSON_AddItemToObject(hdr, "gap_wiggle",       cJSON_CreateNumber(p->gap_wiggle));
+
+  return hdr;
+}
+
 void correct_aln_input_print(const CorrectAlnInput *c)
 {
   const AsyncIOInput *io = &c->files;

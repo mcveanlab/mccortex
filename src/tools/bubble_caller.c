@@ -87,17 +87,28 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
 
 // Print JSON header to gzout
 static void bubble_caller_print_header(gzFile gzout, const char* out_path,
+                                       BubbleCallingPrefs prefs,
                                        cJSON **hdrs, size_t nhdrs,
                                        const dBGraph *db_graph)
 {
+  size_t i;
+
   // Construct cJSON
   cJSON *json = cJSON_CreateObject();
 
   cJSON_AddStringToObject(json, "file_format", "CtxBubbles");
-  cJSON_AddNumberToObject(json, "format_version", 2);
+  cJSON_AddNumberToObject(json, "format_version", BUBBLE_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_add_std(json, out_path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
+
+  // Add parameters used in bubble calling to the header
+  json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs.max_flank_len));
+  json_hdr_augment_cmd(json, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs.max_allele_len));
+  cJSON *haploids = cJSON_CreateArray();
+  for(i = 0; i < prefs.num_haploid; i++)
+    cJSON_AddItemToArray(haploids, cJSON_CreateInt(prefs.haploid_cols[i]));
+  json_hdr_augment_cmd(json, "bubbles", "haploid_colours", haploids);
 
   // Write header to file
   json_hdr_gzprint(json, gzout);
@@ -429,7 +440,7 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   status("Calling bubbles with %zu threads, output: %s", num_of_threads, out_path);
 
   // Print header
-  bubble_caller_print_header(gzout, out_path, hdrs, nhdrs, db_graph);
+  bubble_caller_print_header(gzout, out_path, prefs, hdrs, nhdrs, db_graph);
 
   BubbleCaller *callers = bubble_callers_new(num_of_threads, prefs,
                                              gzout, db_graph);

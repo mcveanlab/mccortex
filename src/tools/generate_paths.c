@@ -461,8 +461,8 @@ void gen_paths_from_str_mt(GenPathWorker *gen_path_wrkr, char *seq,
   size_t seqlen = strlen(seq);
   char empty[10] = "", rname[20] = "Example";
   read_t r1 = {.name = {.b = rname, .end = strlen(rname), .size = 10},
-               .seq  = {.b = seq, .end = seqlen, .size = seqlen+1},
-               .qual = {.b = empty, .end = 0, .size = 1}};
+               .seq  = {.b = seq,   .end = seqlen, .size = seqlen+1},
+               .qual = {.b = empty, .end = 0,      .size = 1}};
 
   read_t r2 = {.name = {.b = rname, .end = strlen(rname), .size = 10},
                .seq  = {.b = empty, .end = 0, .size = 1},

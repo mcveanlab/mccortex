@@ -7,6 +7,8 @@
 
 #include "cJSON/cJSON.h"
 
+#define BREAKPOINT_FORMAT_VERSION 3
+
 // Require 5 kmers on the reference before and after breakpoint
 #define DEFAULT_MIN_REF_NKMERS 5
 #define DEFAULT_MAX_REF_NKMERS 1000

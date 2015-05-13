@@ -52,19 +52,26 @@ static void _gpath_save_contig_hist2json(cJSON *json_hists,
 }
 
 /**
+ * Generate a JSON header object for a .ctp file
  * @param path        path to output file
+ * @param cmdstr      name of the command being run, to be used to add @cmdhdr
+ * @param cmdhdr      JSON header to add under current command->@cmdstr
+ *                    If cmdstr and cmdhdr are both NULL they are ignored
  * @param contig_hist histgram of read contig lengths
  * @param hist_len    length of array contig_hist
  */
 cJSON* gpath_save_mkhdr(const char *path,
+                        const char *cmdstr, cJSON *cmdhdr,
                         cJSON **hdrs, size_t nhdrs,
                         const ZeroSizeBuffer *contig_hists, size_t ncols,
                         const dBGraph *db_graph)
 {
+  ctx_assert(!cmdstr == !cmdhdr);
+
   const GPathStore *gpstore = &db_graph->gpstore;
   const GPathSet *gpset = &gpstore->gpset;
 
-  // using json_hdr_add_std assumes the following
+  // using json_hdr_make_std() assumes the following
   ctx_assert(gpset->ncols == db_graph->num_of_cols);
 
   // Construct cJSON
@@ -73,11 +80,14 @@ cJSON* gpath_save_mkhdr(const char *path,
   cJSON_AddStringToObject(json, "file_format", "ctp");
   cJSON_AddNumberToObject(json, "format_version", CTP_FORMAT_VERSION);
 
-  // Add standard cortex header info
-  json_hdr_add_std(json, path, hdrs, nhdrs, db_graph);
+  // Add standard cortex header info, including the command being run
+  json_hdr_make_std(json, path, hdrs, nhdrs, db_graph);
 
-  // Get first command (this one)
-  // cJSON *cmd = json_hdr_get_curr_cmd(json);
+  // Get first command (this one), and command specific extra info
+  if(cmdstr) {
+    cJSON *cmd = json_hdr_get_curr_cmd(json, path);
+    cJSON_AddItemToObject(cmd, cmdstr, cmdhdr);
+  }
 
   // Paths info
   cJSON *paths = cJSON_CreateObject();
@@ -279,6 +289,7 @@ static void gpath_save_thread(void *arg)
  */
 void gpath_save(gzFile gzout, const char *path,
                 size_t nthreads, bool save_path_seq,
+                const char *cmdstr, cJSON *cmdhdr,
                 cJSON **hdrs, size_t nhdrs,
                 const ZeroSizeBuffer *contig_hists, size_t ncols,
                 dBGraph *db_graph)
@@ -295,7 +306,8 @@ void gpath_save(gzFile gzout, const char *path,
   status("  using %zu threads", nthreads);
 
   // Write header
-  cJSON *json = gpath_save_mkhdr(path, hdrs, nhdrs, contig_hists, ncols, db_graph);
+  cJSON *json = gpath_save_mkhdr(path, cmdstr, cmdhdr, hdrs, nhdrs,
+                                 contig_hists, ncols, db_graph);
   json_hdr_gzprint(json, gzout);
   cJSON_Delete(json);
 

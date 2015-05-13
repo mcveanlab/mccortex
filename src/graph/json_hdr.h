@@ -13,12 +13,23 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr);
 // Add standard header fields to a json header
 // Merge commands from input files @hdrs
 // @param path is the path of the file we are writing to
-void json_hdr_add_std(cJSON *json, const char *path,
-                      cJSON **hdrs, size_t nhdrs,
-                      const dBGraph *db_graph);
+void json_hdr_make_std(cJSON *json, const char *path,
+                       cJSON **hdrs, size_t nhdrs,
+                       const dBGraph *db_graph);
 
 // Add current command to a header
-void json_hdr_update(cJSON *json, const char *path);
+void json_hdr_add_curr_cmd(cJSON *json, const char *path);
+
+/**
+ * Add tags to current command under @field
+ * @param json JSON header to add to. Must already have current command added -
+ *             call json_hdr_add_curr_cmd() to add it first.
+ * @param field name of field
+ * @param add JSON objects to add to JSON object field
+ * @param nadd number of @add objects
+ */
+void json_hdr_augment_cmd(cJSON *json, const char *cmdstr,
+                          const char *field, cJSON *add);
 
 void json_hdr_gzprint(cJSON *json, gzFile gzout);
 void json_hdr_fprint(cJSON *json, FILE *fout);

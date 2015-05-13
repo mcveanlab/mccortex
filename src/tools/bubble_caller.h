@@ -9,6 +9,8 @@
 
 #include "cJSON/cJSON.h"
 
+#define BUBBLE_FORMAT_VERSION 2
+
 typedef struct
 {
   // Max lengths in kmers (not bases)

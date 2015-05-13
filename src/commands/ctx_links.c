@@ -222,7 +222,7 @@ int ctx_links(int argc, char **argv)
 
     // Need to open output file first so we can get absolute path
     // Update the header to include this command
-    json_hdr_update(newhdr, link_out_path);
+    json_hdr_add_curr_cmd(newhdr, link_out_path);
   }
 
   if(list)

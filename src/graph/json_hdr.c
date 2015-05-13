@@ -56,8 +56,10 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
   }
 }
 
-// @param path is the path of the file we are writing to
-// @param fileidstr is the unique id we have generated for the output file
+/**
+ * @param path is the path of the file we are writing to
+ * @param fileidstr is the unique id we have generated for the output file
+ */
 cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
 {
   // Add latest command
@@ -136,7 +138,7 @@ cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
 }
 
 // Add current command to a header
-void json_hdr_update(cJSON *json, const char *path)
+void json_hdr_add_curr_cmd(cJSON *json, const char *path)
 {
   // Add random id string
   #define FILE_KEY_LEN 16
@@ -162,12 +164,14 @@ void json_hdr_update(cJSON *json, const char *path)
   commands->child = command;
 }
 
-// Add standard header fields to a json header
-// Merge commands from input files @hdrs
-// @param path is the path of the file we are writing to
-void json_hdr_add_std(cJSON *json, const char *path,
-                      cJSON **hdrs, size_t nhdrs,
-                      const dBGraph *db_graph)
+/**
+ * Add standard header fields to a json header
+ * Merge commands from input files @hdrs
+ * @param path is the path of the file we are writing to
+ */
+void json_hdr_make_std(cJSON *json, const char *path,
+                       cJSON **hdrs, size_t nhdrs,
+                       const dBGraph *db_graph)
 {
   // Add random id string
   #define FILE_KEY_LEN 16
@@ -246,6 +250,26 @@ void json_hdr_add_std(cJSON *json, const char *path,
   }
 
   char_ptr_buf_dealloc(&cmdbuf);
+}
+
+/**
+ * Add tags to current command under @field
+ * @param json JSON header to add to. Must already have current command added -
+ *             call json_hdr_add_curr_cmd() to add it first.
+ * @param field name of field
+ * @param add JSON objects to add to JSON object field
+ * @param nadd number of @add objects
+ */
+void json_hdr_augment_cmd(cJSON *json, const char *cmdstr,
+                          const char *field, cJSON *add)
+{
+  cJSON *cmd = json_hdr_get_curr_cmd(json, ":json_hdr_augment_cmd():1:");
+  cJSON *data = json_hdr_try(cmd, cmdstr, cJSON_Object, ":json_hdr_augment_cmd():2:");
+  if(!data) {
+    data = cJSON_CreateObject();
+    cJSON_AddItemToObject(cmd, cmdstr, data);
+  }
+  cJSON_AddItemToObject(data, field, add);
 }
 
 void json_hdr_gzprint(cJSON *json, gzFile gzout)

@@ -1048,17 +1048,21 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
 
 // Check contig entries match reference
 // We check that these match the reference just loaded
-static void brkpnt_check_refs_match(cJSON *json)
+static void brkpnt_check_refs_match(cJSON *json, const char *path)
 {
-  cJSON *brkpnts = json_hdr_get(json,    "breakpoints", cJSON_Object, input_path);
-  cJSON *contigs = json_hdr_get(brkpnts, "contigs",     cJSON_Array,  input_path);
+  cJSON *version = json_hdr_get(json, "format_version", cJSON_Number, path);
+  if(version->valueint <= 2) return;
+
+  cJSON *command = json_hdr_get_curr_cmd(json, path);
+  cJSON *brkpnts = json_hdr_get(command, "breakpoints", cJSON_Object, path);
+  cJSON *contigs = json_hdr_get(brkpnts, "contigs",     cJSON_Array,  path);
   cJSON *contig;
   size_t num_chroms = 0;
 
   for(contig = contigs->child; contig; contig = contig->next, num_chroms++)
   {
-    cJSON *id  = json_hdr_get(contig, "id",     cJSON_String, input_path);
-    cJSON *len = json_hdr_get(contig, "length", cJSON_Number, input_path);
+    cJSON *id  = json_hdr_get(contig, "id",     cJSON_String, path);
+    cJSON *len = json_hdr_get(contig, "length", cJSON_Number, path);
 
     const char *chrom_name = id->valuestring;
     long chrom_len = len->valueint;
@@ -1123,7 +1127,7 @@ int ctx_calls2vcf(int argc, char **argv)
   for(i = 0; i < chroms.len; i++)
     for(s = chroms.b[i].seq.b; *s; s++) *s = toupper(*s);
 
-  if(!input_bubble_format) brkpnt_check_refs_match(json);
+  if(!input_bubble_format) brkpnt_check_refs_match(json, input_path);
 
   // Run
   num_samples = print_vcf_header(json, !input_bubble_format, fout);

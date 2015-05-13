@@ -75,7 +75,7 @@ static cJSON* _get_header(GPathFileBuffer *gpfiles, const dBGraph *db_graph)
 
   cJSON *hdrs[gpfiles->len];
   for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->b[i].json;
-  cJSON *json = gpath_save_mkhdr("STDOUT", hdrs, gpfiles->len,
+  cJSON *json = gpath_save_mkhdr("STDOUT", NULL, NULL, hdrs, gpfiles->len,
                                  contig_histgrms, db_graph->num_of_cols,
                                  db_graph);
 

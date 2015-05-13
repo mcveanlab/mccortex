@@ -16,6 +16,7 @@ typedef uint8_t ReadMateDir;
 #define READPAIR_FR 1
 #define READPAIR_RF 2
 #define READPAIR_RR 3
+// See seq_reader.h to get string representations (MP_DIR_STRS[dir])
 
 #define read_mate_r1(r) ((r)&2)
 #define read_mate_r2(r) ((r)&1)
