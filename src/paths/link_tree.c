@@ -302,8 +302,6 @@ static inline bool _ltree_write_ctp_link(LinkJunction *l, uint8_t base,
 
   strbuf_append_char(sbuf, fw ? 'F' : 'R'); // [FR]
   strbuf_append_char(sbuf, ' ');
-  strbuf_append_ulong(sbuf, l->dist+2); // [num_kmers]
-  strbuf_append_char(sbuf, ' ');
   strbuf_append_ulong(sbuf, njuncs); // [num_juncs]
 
   // [counts0,counts1,...]
