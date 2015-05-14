@@ -390,7 +390,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 
   // Filter out next nodes in the reference
   for(i = 0; i < num_next; i++) {
-    if(kograph_num(caller->kograph, next_nodes[i].key) == 0) {
+    if(!kograph_occurs(caller->kograph, next_nodes[i].key)) {
       nonref_idx[num_nonref_next] = i;
       num_nonref_next++;
     }
@@ -501,7 +501,7 @@ static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
   graph_crawler_reset(&caller->crawlers[1]);
 
   // check node is in the ref
-  if(kograph_num(caller->kograph, hkey) > 0) {
+  if(kograph_occurs(caller->kograph, hkey)) {
     edges = db_node_get_edges(caller->db_graph, hkey, 0);
     if(edges_get_outdegree(edges, FORWARD) > 1) {
       follow_break(caller, (dBNode){.key = hkey, .orient = FORWARD});

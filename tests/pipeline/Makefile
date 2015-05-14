@@ -5,6 +5,8 @@ CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
 MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
+BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
+VCFALLELES=$(CTXDIR)/scripts/bash/vcf-count-alleles
 
 SEQ_FILES=ref.fa ben.fa jerry.fa \
           ben.se.fa \
@@ -12,6 +14,14 @@ SEQ_FILES=ref.fa ben.fa jerry.fa \
 
 all: job.mk $(SEQ_FILES)
 	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M CLEANING_ARGS='--supernodes=1' all
+	$(BCFTOOLS) isec proj/vcfs/breakpoints.k29.k31.vcf.gz proj/vcfs/bubbles.k29.k31.vcf.gz -p isec
+	@A=`$(VCFALLELES) isec/0000.vcf`; \
+	 B=`$(VCFALLELES) isec/0001.vcf`; \
+	 C=`$(VCFALLELES) isec/0002.vcf`; \
+	(( $$A == 0 )) || ( echo "Bubbles missed $$A" && false; ); \
+	(( $$B == 0 )) || ( echo "Breakpoint missed $$B" && false; ); \
+	(( $$C == 6 )) || ( echo "Both missed some $$C != 6" && false; );
+	@echo 'All correct!'
 
 # 600 random bases generated with: dnacat -n 600
 #.............................................................................V................................................V.......................................*...........................................................................................................VV.................................................................................................................................................*....................................................................................................................VVVV..........................................................
@@ -46,6 +56,6 @@ job.mk: samples.txt
 	$(MKPIPELINE) -r ref.fa 29,31 proj $< > $@
 
 clean:
-	rm -rf $(SEQ_FILES) samples.txt job.mk proj ref.* tmp.*
+	rm -rf $(SEQ_FILES) samples.txt job.mk proj ref.* tmp.* isec
 
 .PHONY: all clean

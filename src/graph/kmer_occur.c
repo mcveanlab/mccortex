@@ -221,9 +221,9 @@ static void read_update_counts(void *arg)
   }
 }
 
-static void bkmer_store_kmer_pos(BinaryKmer bkmer, const dBGraph *db_graph,
-                                 KONodeList *klists, KOccur *koccurs,
-                                 size_t chrom_id, uint64_t offset)
+static void bkmer_store_kmer_pos(BinaryKmer bkmer, KONodeList *klists,
+                                 size_t chrom_id, uint64_t offset,
+                                 const dBGraph *db_graph)
 {
   // bkmers were already added to graph -> don't need to find_or_insert
   // if missing kmers weren't added then kmer might be missing -> skip
@@ -231,22 +231,23 @@ static void bkmer_store_kmer_pos(BinaryKmer bkmer, const dBGraph *db_graph,
 
   if(node.key != HASH_NOT_FOUND)
   {
+    // set all next to 1, set last one in kmerlist to zero later
     KONodeList *kl = &klists[node.key];
-    koccurs[kl->start+kl->kcount] = (KOccur){.chrom = chrom_id,
-                                             .offset = offset,
-                                             .orient = node.orient};
-    kl->kcount++;
+    *kl->first = (KOccur){.chrom = chrom_id,
+                          .offset = offset,
+                          .orient = node.orient,
+                          .next = 1};
+    kl->first++;
   }
 }
 
 static void read_store_kmer_pos(const read_t *r, size_t chrom_id,
-                                KONodeList *klists, KOccur *koccurs,
-                                const dBGraph *db_graph)
+                                KONodeList *klists, const dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
   LoadingStats stats = LOAD_STATS_INIT_MACRO;
   READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_store_kmer_pos,
-                 db_graph, klists, koccurs, chrom_id, _offset);
+                 klists, chrom_id, _offset, db_graph);
 }
 
 static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
@@ -290,7 +291,6 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
   //  - it gets confusing otherwise (which colour would we add edges to?)
   ctx_assert(!add_missing_kmers || db_graph->num_edge_cols <= 1);
   ctx_assert(!add_missing_kmers || db_graph->bktlocks != NULL);
-  ctx_assert(sizeof(KONodeList) == 12);
 
   // Check number of reads doesn't exceed max limit
   if(num_reads > KMER_OCCUR_MAX_CHROMS)
@@ -315,30 +315,46 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
                          kograph.klists, db_graph);
 
   // 2. allocate a list for each kmer (some of length zero)
-  uint64_t offset = 0, total_read_length = 0;
+  uint64_t offset = 0, kcount, total_read_length = 0, total_kcount = 0;
 
   for(i = 0; i < db_graph->ht.capacity; i++)
-  {
-    kograph.klists[i].start = offset;
-    offset += kograph.klists[i].kcount;
-    kograph.klists[i].kcount = 0;
-  }
+    total_kcount += kograph.klists[i].kcount;
 
   // Sum lengths of reads
   for(i = 0; i < num_reads; i++)
     total_read_length += reads[i].seq.end;
 
-  // offset should be less than sum of read lengths, which is why we wait to
+  // total_kcount should be less than sum of read lengths, which is why we wait to
   // parse all reads before mallocing to reduce memory footprint
-  ctx_assert(total_read_length == 0 || offset < total_read_length);
+  ctx_assert(total_read_length == 0 || total_kcount < total_read_length);
 
-  if(offset == 0) kograph.koccurs = NULL;
-  else {
-    kograph.koccurs = ctx_malloc(offset * sizeof(KOccur));
+  kograph.koccurs = total_kcount ? ctx_malloc(total_kcount * sizeof(KOccur)) : NULL;
 
-    // 3. Loop through reads, record kmer pos
+  for(i = 0; i < db_graph->ht.capacity; i++)
+  {
+    // kcount/start are in a union -- can't use both
+    kcount = kograph.klists[i].kcount;
+    kograph.klists[i].first = kcount ? kograph.koccurs + offset : NULL;
+    offset += kcount;
+  }
+
+  // Don't refer to klists[].kcount now -- only use klists[].start
+
+  // 3. Loop through reads, record kmer pos
+  //    Don't multithread this section, since we want reads to be added in order
+  //    of read, and position in the read.
+  if(total_kcount > 0) {
     for(i = 0; i < num_reads; i++) {
-      read_store_kmer_pos(&reads[i], i, kograph.klists, kograph.koccurs, db_graph);
+      read_store_kmer_pos(&reads[i], i, kograph.klists, db_graph);
+    }
+  }
+
+  // 4. Rest pointers to point to the first item
+  KOccur *ptr = kograph.koccurs;
+  for(i = 0; i < db_graph->ht.capacity; i++) {
+    if(kograph.klists[i].first != NULL) {
+      (kograph.klists[i].first-1)->next = 0;
+      SWAP(kograph.klists[i].first, ptr);
     }
   }
 
@@ -359,57 +375,59 @@ void kograph_free(KOGraph kograph)
 //
 
 /**
- * @param run should be of length num0+num1
+ * Only call if node has valid kolist: kograph_occurs(kograph, node.hkey) == 1
  * @param pickup if true, create new paths for kmers not used in a path
  * @param qoffset is only used is pickup is true, and is the offset in the query
  * @return length of run
  */
-static size_t korun_extend(KOccurRun *kolist0, size_t num0,
-                           dBNode node,
-                           const KOccur *kolist1, size_t num1,
-                           KOccurRun *korun, bool pickup, size_t qoffset)
+static size_t korun_extend(KOccurRun *koruns, size_t nruns,
+                           dBNode node, const KOccur *kolist,
+                           KOccurRun *new_koruns, bool pickup,
+                           size_t qoffset)
 {
-  size_t i, j, k = 0, starti = 0, next;
+  size_t i, k = 0, starti = 0, next;
   bool used, strand;
 
-  // By looping over kolist1 we return a sorted list (by chrom and offset)
-  // takes ~ num0 + num1*3 time
-  for(j = 0; j < num1; j++)
+  if(!kolist) return 0;
+
+  // By looping over kolist we return a sorted list (by chrom and offset)
+  // takes ~ nruns + num1*3 time
+  for(; 1; kolist++)
   {
-    while(starti < num0 &&
-          (kolist0[starti].chrom < kolist1[j].chrom ||
-           kolist0[starti].last+1 < kolist1[j].offset))
+    while(starti < nruns &&
+          (koruns[starti].chrom < kolist->chrom ||
+           koruns[starti].last+1 < kolist->offset))
     {
       starti++;
     }
 
     used = false;
-    strand = kolist1[j].orient == node.orient ? STRAND_PLUS : STRAND_MINUS;
+    strand = kolist->orient == node.orient ? STRAND_PLUS : STRAND_MINUS;
 
-    for(i = starti; i < num0; i++)
+    for(i = starti; i < nruns; i++)
     {
-      if(kolist0[i].chrom > kolist1[j].chrom ||
-         kolist0[i].last > kolist1[j].offset+1)
+      if(koruns[i].chrom > kolist->chrom ||
+         koruns[i].last > kolist->offset+1)
       {
         break;
       }
       else
       {
         // Sanity checks
-        ctx_assert(kolist0[i].chrom == kolist1[j].chrom);
-        ctx_assert(labs((long)kolist0[i].last - kolist1[j].offset) <= 1);
+        ctx_assert(koruns[i].chrom == kolist->chrom);
+        ctx_assert(labs((long)koruns[i].last - kolist->offset) <= 1);
 
-        next = strand == STRAND_PLUS ? kolist0[i].last+1 : kolist0[i].last-1;
+        next = (strand == STRAND_PLUS ? koruns[i].last+1 : koruns[i].last-1);
 
-        if(next == kolist1[j].offset) {
-          korun[k++] = (KOccurRun){.chrom = kolist0[i].chrom,
-                                   .first = kolist0[i].first,
-                                   .last = kolist1[j].offset,
-                                   .qoffset = kolist0[i].qoffset,
-                                   .strand = strand,
-                                   .used = false};
+        if(next == kolist->offset) {
+          new_koruns[k++] = (KOccurRun){.chrom = koruns[i].chrom,
+                                        .first = koruns[i].first,
+                                        .last = kolist->offset,
+                                        .qoffset = koruns[i].qoffset,
+                                        .strand = strand,
+                                        .used = false};
 
-          kolist0[i].used = true;
+          koruns[i].used = true;
           used = true;
         }
       }
@@ -418,13 +436,15 @@ static size_t korun_extend(KOccurRun *kolist0, size_t num0,
     if(pickup && !used)
     {
       // Start new kmer run
-      korun[k++] = (KOccurRun){.chrom = kolist1[j].chrom,
-                               .first = kolist1[j].offset,
-                               .last = kolist1[j].offset,
-                               .qoffset = qoffset,
-                               .strand = strand,
-                               .used = false};
+      new_koruns[k++] = (KOccurRun){.chrom = kolist->chrom,
+                                    .first = kolist->offset,
+                                    .last = kolist->offset,
+                                    .qoffset = qoffset,
+                                    .strand = strand,
+                                    .used = false};
     }
+
+    if(!kolist->next) break;
   }
 
   return k;
@@ -441,34 +461,46 @@ void kograph_filter_extend(KOGraph kograph,
                            KOccurRunBuffer *runs_ended,
                            bool pickup_at_first_node)
 {
-  const KOccur *kolist;
+  const KOccur *kolist, *kotmp;
   KOccurRun *runs0, *runs1;
-  size_t i, j, num_occur, nruns0, nruns1;
+  size_t i, j, nruns0, nruns1;
   dBNode node;
 
   if(num_nodes == 0) return;
 
   node = forward ? nodes[0] : db_node_reverse(nodes[num_nodes-1]);
-  kolist = kograph_get(kograph, node.key);
-  num_occur = kograph_num(kograph, node.key);
 
-  if(korun->len + num_occur == 0) { kmer_run_buf_reset(korun); return; }
+  // If we don't have any runs and first kmer doesn't occur anywhere,
+  // there is no way to find occurance runs since we only pick up on the first
+  // node
+  if(!korun->len && (!pickup_at_first_node || !kograph_occurs(kograph, node.key)))
+  {
+    kmer_run_buf_reset(korun);
+    return;
+  }
 
-  size_t max_paths = korun->len + num_occur;
+  size_t kmer0_num_occur = 0;
+  kolist = kotmp = kograph_get(kograph, node.key);
+  if(kotmp) {
+    while(kotmp->next) { kotmp++; }
+    kmer0_num_occur = kotmp - kolist + 1;
+  }
+
+  size_t max_num_runs = korun->len + kmer0_num_occur;
 
   // Split korun buffer into two fixed size arrays
   // Extend current runs, and start new ones
-  kmer_run_buf_capacity(korun, 2*max_paths);
+  kmer_run_buf_capacity(korun, 2*max_num_runs);
   runs0 = korun->b;
-  runs1 = korun->b + max_paths;
+  runs1 = korun->b + max_num_runs;
   nruns0 = korun->len;
-  nruns1 = korun_extend(runs0, nruns0, node, kolist, num_occur, runs1,
+  nruns1 = korun_extend(runs0, nruns0, node, kolist, runs1,
                         pickup_at_first_node, qoffset);
 
   // Store runs that could not be extended
   for(i = 0; i < nruns0; i++) {
     if(!runs0[i].used && korun_len(runs0[i]) > min_len) {
-      runs_ended->b[runs_ended->len++] = runs0[i];
+      kmer_run_buf_add(runs_ended, runs0[i]);
     }
   }
 
@@ -479,14 +511,13 @@ void kograph_filter_extend(KOGraph kograph,
   {
     node = forward ? nodes[i] : db_node_reverse(nodes[num_nodes-i-1]);
     kolist = kograph_get(kograph, node.key);
-    num_occur = kograph_num(kograph, node.key);
-    nruns1 = korun_extend(runs0, nruns0, node, kolist, num_occur, runs1, false, 0);
+    nruns1 = korun_extend(runs0, nruns0, node, kolist, runs1, false, 0);
 
     // Store runs than have ended
     if(nruns0 < nruns1) {
       for(j = 0; j < nruns0; j++) {
         if(!runs0[j].used && korun_len(runs0[j]) > min_len) {
-          runs_ended->b[runs_ended->len++] = runs0[j];
+          kmer_run_buf_add(runs_ended, runs0[j]);
         }
       }
     }

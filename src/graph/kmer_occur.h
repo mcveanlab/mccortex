@@ -20,21 +20,16 @@ typedef struct {
   const char *name;
 } KOChrom;
 
-// 8+4=12 bytes
-struct KONodeListStruct {
-  uint64_t start;
-  uint32_t kcount; // DEV: remove kcount, use KOccur next bit instead
-} __attribute__((packed));
-
-typedef struct KONodeListStruct KONodeList;
-
 // KOccur fits in one 64 bit word
 typedef struct
 {
-  // DEV: use a single bit to signify another entry for this kmer
-  // uint64_t next:1, orient:1, chrom:30, offset:32;
-  uint64_t orient:1, chrom:31, offset:32;
+  // Use a single bit to signify another entry for this kmer
+  uint64_t next:1, orient:1, chrom:30, offset:32;
 } KOccur;
+
+// First we count the number of times a kmer occurs in the ref
+// then we make a list
+typedef union { uint64_t kcount; KOccur *first; } KONodeList;
 
 typedef struct
 {
@@ -65,13 +60,9 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
 void kograph_free(KOGraph kograph);
 
 // Get KOccur* to first occurance of a kmer in sequence
-#define kograph_get(kograph,hkey) ((kograph).koccurs + (kograph).klists[hkey].start)
+#define kograph_get(kograph,hkey) ((kograph).klists[hkey].first)
 
-// Get the number of times a kmer is seen in the sequence
-#define kograph_num(kograph,hkey) ((kograph).klists[hkey].kcount)
-
-#define kograph_get_check(kograph,hkey) \
-        (!kograph_num(kograph,hkey) ? NULL : kograph_get(kograph,hkey))
+#define kograph_occurs(kograph,hkey) ((kograph).klists[hkey].first != NULL)
 
 // Get the chromosome from which a kmer came (occur can be KOccurRun or KOccur)
 #define kograph_chrom(kograph,occur) ((kograph).chroms[(occur).chrom])

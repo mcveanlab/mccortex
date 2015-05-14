@@ -15,6 +15,7 @@ const char breakpoints_usage[] =
 "usage: "CMD" breakpoints [options] <in.ctx> [in2.ctx ..]\n"
 "\n"
 "  Use trusted assembled genome to call large events.  Output is gzipped.\n"
+"  Memory (bytes) is roughly: num_kmers*(8+8+1) + num_ref_kmers*8 + links_mem\n"
 "\n"
 "  -h, --help              This help message\n"
 "  -q, --quiet             Silence status output normally printed to STDERR\n"
