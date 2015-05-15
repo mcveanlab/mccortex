@@ -11,6 +11,12 @@ bool futil_get_force();
 void futil_set_force(bool f);
 
 /**
+ * Append and remove a byte to the end of the file to force the file
+ * modification timestamp to update properly.
+ */
+void futil_update_timestamp(const char *path);
+
+/**
 ** Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
 ** mkpath - ensure all directories in path exist
 ** Algorithm takes the pessimistic view and works top-down to ensure

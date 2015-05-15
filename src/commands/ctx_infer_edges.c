@@ -316,6 +316,14 @@ int ctx_infer_edges(int argc, char **argv)
   status("%s of %s (%.2f%%) nodes modified\n",
          modified_str, kmers_str, modified_rate);
 
+  if(editing_file)
+  {
+    // Close and re-open
+    fclose(file.fh);
+    file.fh = NULL;
+    futil_update_timestamp(file.fltr.path.b);
+  }
+
   graph_file_close(&file);
   db_graph_dealloc(&db_graph);
 

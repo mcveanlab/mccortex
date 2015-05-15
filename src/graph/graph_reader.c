@@ -752,6 +752,9 @@ size_t graph_files_merge(const char *out_ctx_path,
     fclose(fout);
     file_filter_close(&origfltr);
 
+    // Force update of file timestamp so mmap doesn't mess with it
+    futil_update_timestamp(out_ctx_path);
+
     // Print output status
     graph_writer_print_status(db_graph->ht.num_kmers, output_colours,
                               out_ctx_path, CTX_GRAPH_FILEFORMAT);

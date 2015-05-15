@@ -9,6 +9,25 @@ bool force_file_overwrite = false;
 bool futil_get_force() { return force_file_overwrite; }
 void futil_set_force(bool f) { force_file_overwrite = f; }
 
+// Append and remove a byte to the end of the file to force the file
+// modification timestamp to update properly
+void futil_update_timestamp(const char *path)
+{
+  struct stat st;
+  FILE *fh;
+
+  if(stat(path, &st) != 0 || (fh = fopen(path, "a")) == NULL) {
+    warn("Cannot force update file timestamp by appending: %s", path);
+  } else {
+    fputc('.', fh);
+    fclose(fh);
+    fh = NULL;
+    if(truncate(path, st.st_size) != 0)
+      die("Failed to truncate file after adding byte: %s", path);
+  }
+}
+
+
 //
 // Adapted from Jonathan Leffler http://stackoverflow.com/a/675193/431087
 //
