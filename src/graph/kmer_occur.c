@@ -143,7 +143,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
   prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
-  __sync_fetch_and_add((volatile uint32_t*)&klists[prev.key].kcount, 1); // kcount++
+  __sync_fetch_and_add((volatile uint64_t*)&klists[prev.key].kcount, 1); // kcount++
   num_novel_kmers += !found;
 
   for(i = kmer_size; i < len; i++, prev = curr)
@@ -151,7 +151,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
     nuc = dna_char_to_nuc(seq[i]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
     curr = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
-    __sync_fetch_and_add((volatile uint32_t*)&klists[curr.key].kcount, 1); // kcount++
+    __sync_fetch_and_add((volatile uint64_t*)&klists[curr.key].kcount, 1); // kcount++
     db_graph_add_edge_mt(db_graph, 0, prev, curr);
     num_novel_kmers += !found;
   }
@@ -194,7 +194,7 @@ static inline void bkmer_update_counts_find_mt(BinaryKmer bkmer,
 {
   hkey_t hkey = hash_table_find(&db_graph->ht, bkmer);
   if(hkey != HASH_NOT_FOUND)
-    __sync_fetch_and_add((volatile uint32_t*)&klists[hkey].kcount, 1); // kcount++
+    __sync_fetch_and_add((volatile uint64_t*)&klists[hkey].kcount, 1); // kcount++
 }
 
 struct ReadUpdateCounts {

@@ -35,14 +35,14 @@ const char thread_usage[] =
 "  -Q, --fq-cutoff <Q>      Filter quality scores [default: 0 (off)]\n"
 "  -O, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
 "  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
-"  -l, --frag-len-min <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
-"  -L, --frag-len-max <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
+"  -l, --min-frag-len <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
+"  -L, --max-frag-len <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
 "\n"
 "  Path Params:\n"
-"  -w, --one-way            Use one-way gap filling (conservative)\n"
+"  -w, --one-way            Use one-way gap filling (conservative) [default]\n"
 "  -W, --two-way            Use two-way gap filling (liberal)\n"
-"  -d, --gap-diff-const     -d, -D set parameters for allowable gap lengths\n"
-"  -D, --gap-diff-coeff       (gap_exp*D - d) <= gap_actual <= (gap_exp*D + d)\n"
+"  -d, --gap-diff-const <d> Set parameters for allowable gap lengths (decimals):\n"
+"  -D, --gap-diff-coeff <D>   abs(gap_exp - gap_seen) <= gap_exp*D + d\n"
 "  -X, --max-context        Number of kmers to use either side of a gap\n"
 "  -e, --end-check          Extra check after bridging gap [default: on]\n"
 "  -E, --no-end-check       Skip extra check after gap bridging\n"
@@ -170,7 +170,8 @@ int ctx_thread(int argc, char **argv)
   //
   dBGraph db_graph;
   size_t kmer_size = gfile->hdr.kmer_size;
-  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash, DBG_ALLOC_EDGES);
+  db_graph_alloc(&db_graph, kmer_size, 1, 1, kmers_in_hash,
+                 DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL);
 
   // Split path memory 2:1 between store and hash
   // Create a path store that tracks path counts
@@ -186,8 +187,6 @@ int ctx_thread(int argc, char **argv)
   } else {
     status("Not using new paths as they are added (safe)");
   }
-
-  db_graph.node_in_cols = ctx_calloc(roundup_bits2bytes(kmers_in_hash), 1);
 
   //
   // Start up workers to add paths to the graph

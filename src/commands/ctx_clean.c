@@ -368,9 +368,9 @@ int ctx_clean(int argc, char **argv)
       cleaning->cleaned_snodes |= supernode_cleaning;
       cleaning->cleaned_tips |= tip_cleaning;
 
-      if(tip_cleaning) {
-        strbuf_append_str(&outhdr.ginfo[col].sample_name, ".tipclean");
-      }
+      // if(tip_cleaning) {
+      //   strbuf_append_str(&outhdr.ginfo[col].sample_name, ".tipclean");
+      // }
 
       if(supernode_cleaning) {
         thresh = cleaning->clean_snodes_thresh;
@@ -378,9 +378,9 @@ int ctx_clean(int argc, char **argv)
                                           : (uint32_t)threshold;
         cleaning->clean_snodes_thresh = thresh;
 
-        char name_append[200];
-        sprintf(name_append, ".supclean%zu", thresh);
-        strbuf_append_str(&outhdr.ginfo[col].sample_name, name_append);
+        // char name_append[200];
+        // sprintf(name_append, ".supclean%zu", thresh);
+        // strbuf_append_str(&outhdr.ginfo[col].sample_name, name_append);
       }
     }
 

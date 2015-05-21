@@ -7,6 +7,7 @@ READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMMUT=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_mutations.pl
 CONTIG_STATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
+BWA=$(CTXDIR)/libs/bwa/bwa
 
 K=31
 HAPDEPTH=30
@@ -32,6 +33,10 @@ DIRS=reads diploid
 .SUFFIXES:
 
 all: run-mccortex
+
+# assess:
+# 	$(BWA) index $(REF)
+# 	$(BWA) mem $(REF) proj/k31/contigs/MissSample.pop.rmdup.fa.gz > tmp.sam
 
 # 1 Mb human diploid
 # Generate a diploid genome from a haploid reference
@@ -64,7 +69,7 @@ task.k$(K).mk: samples.txt
 
 supernodes.k$(K).fa: task.k$(K).mk $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G graphs
-	$(CTX) supernodes -o $@ proj/k31/graphs/MissSample.clean.ctx
+	$(CTX) supernodes -o $@ proj/k31/graphs/MissSample.clean.ctx >& $@.log
 
 run-mccortex: task.k$(K).mk supernodes.k$(K).fa $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G contigs contigs-pop
@@ -76,6 +81,6 @@ $(DIRS):
 	mkdir -p $@
 
 clean:
-	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk supernodes.k$(K).fa
+	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk supernodes.k$(K).fa*
 
 .PHONY: all clean run-mccortex

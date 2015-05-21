@@ -45,7 +45,7 @@ typedef struct
   gzFile gzout;
   pthread_mutex_t *const out_lock;
   size_t *callid;
-  const size_t min_ref_nkmers, max_ref_nkmers; // how many kmers of homology req
+  const size_t min_ref_nkmers; // how many kmers of homology req
 } BreakpointCaller;
 
 // We clear the graph cache after each fork is dealt with, so there should
@@ -58,7 +58,6 @@ typedef struct
 static BreakpointCaller* brkpt_callers_new(size_t num_callers,
                                            gzFile gzout,
                                            size_t min_ref_flank,
-                                           size_t max_ref_flank,
                                            const KOGraph kograph,
                                            const dBGraph *db_graph)
 {
@@ -88,8 +87,7 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers,
                             .callid = callid,
                             .allele_refs = path_ref_runs,
                             .flank5p_refs = path_ref_runs+MAX_REFRUNS_PER_ORIENT(ncols),
-                            .min_ref_nkmers = min_ref_flank,
-                            .max_ref_nkmers = max_ref_flank};
+                            .min_ref_nkmers = min_ref_flank};
 
     memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
 
@@ -527,7 +525,7 @@ static void breakpoint_caller(void *ptr)
 static void breakpoints_print_header(gzFile gzout, const char *out_path,
                                      char **seq_paths, size_t nseq_paths,
                                      const read_t *reads, size_t nreads,
-                                     size_t min_ref_flank, size_t max_ref_flank,
+                                     size_t min_ref_flank,
                                      cJSON **hdrs, size_t nhdrs,
                                      const dBGraph *db_graph)
 {
@@ -546,8 +544,6 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "breakpoints", "min_ref_flank_kmers",
                                             cJSON_CreateInt(min_ref_flank));
-  json_hdr_augment_cmd(json, "breakpoints", "max_ref_flank_kmers",
-                                            cJSON_CreateInt(max_ref_flank));
 
   // Add paths to reference files
   cJSON *ref_files = cJSON_CreateArray();
@@ -594,14 +590,14 @@ void breakpoints_call(size_t num_of_threads,
                       gzFile gzout, const char *out_path,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,
-                      size_t min_ref_flank, size_t max_ref_flank,
+                      size_t min_ref_flank,
                       cJSON **hdrs, size_t nhdrs,
                       dBGraph *db_graph)
 {
   breakpoints_print_header(gzout, out_path,
                            seq_paths, num_seq_paths,
                            reads, num_reads,
-                           min_ref_flank, max_ref_flank,
+                           min_ref_flank,
                            hdrs, nhdrs,
                            db_graph);
 
@@ -609,7 +605,7 @@ void breakpoints_call(size_t num_of_threads,
                                    num_of_threads, db_graph);
 
   BreakpointCaller *callers = brkpt_callers_new(num_of_threads, gzout,
-                                                min_ref_flank, max_ref_flank,
+                                                min_ref_flank,
                                                 kograph, db_graph);
 
   status("Running BreakpointCaller with %zu thread%s, output to: %s",

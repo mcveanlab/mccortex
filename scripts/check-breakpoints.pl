@@ -70,14 +70,12 @@ while(my ($seq5p, $seq3p, $gapseq, $hits5p, $hits3p, $cols, $callid) = $brkpnt->
   if(!defined($seq5p)) { last; }
   $total_calls++;
 
-  if(length($gapseq) > 0) { $num_with_seq++; }
-
   my ($hitid, $dir, $fl5plen, $fl3plen) = find_breakpoint($seq5p, $hits5p,
                                                           $seq3p, $hits3p,
                                                           $gapseq);
 
   if($hitid >= 0) { $brkpnts[$hitid]->{'counts'}->[$dir]++; }
-  else { $num_fp++; }
+  else { print "call not found: $callid\n"; $num_fp++; }
 }
 
 close($brkpnt_fh);
@@ -118,14 +116,14 @@ print "$num_with_seq calls had sequence between flanks\n";
 sub get_largest_match
 {
   my $is5p = shift;
-  my $flank5plen = shift;
+  my $flanklen = shift;
   my ($maxlen,$maxidx) = (0,0);
   for(my $i = 0; $i < @_; $i++) {
     my $h = $_[$i];
     my $len = abs($h->{'end'} - $h->{'start'}) + 1;
     # offset is 1-based
     if($len > $maxlen) {
-      if(( $is5p && $h->{'offset'}-1+$len == $flank5plen) ||
+      if(( $is5p && $h->{'offset'}-1+$len == $flanklen) ||
          (!$is5p && $h->{'offset'} == 1))
       {
         $maxlen = $len;
@@ -133,10 +131,6 @@ sub get_largest_match
       }
     }
   }
-  my $h = $_[$maxidx];
-  my $len = abs($h->{'end'} - $h->{'start'}) + 1;
-  if(( $is5p && $h->{'offset'}-1+$len != $flank5plen) ||
-     (!$is5p && $h->{'offset'} != 1)) { die("Bad: $is5p $h->{'offset'} $len $flank5plen"); }
   return $_[$maxidx];
 }
 
@@ -146,12 +140,19 @@ sub find_breakpoint
   my ($seq5p, $hits5p, $seq3p, $hits3p, $gapseq) = @_;
 
   my $len5p = length($seq5p);
+  my $len3p = length($seq3p);
   my $fl5p = get_largest_match(1, $len5p, @$hits5p);
-  my $fl3p = get_largest_match(0, $len5p, @$hits3p);
+  my $fl3p = get_largest_match(0, $len3p, @$hits3p);
 
   # Match lengths
   my $fl5plen = abs($fl5p->{'end'}-$fl5p->{'start'})+1;
   my $fl3plen = abs($fl3p->{'end'}-$fl3p->{'start'})+1;
+
+  # Trim back to matching flanks
+  $gapseq = substr($seq5p, $fl5p->{'offset'}-1+$fl5plen) . $gapseq .
+            substr($seq3p, 0, $fl3p->{'offset'}-1);
+
+  if(length($gapseq) > 0) { $num_with_seq++; }
 
   # Brute force search to find matching real break
   for(my $i = 0; $i < @brkpnts; $i++) {

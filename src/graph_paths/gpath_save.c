@@ -18,7 +18,7 @@ const char ctp_explanation_comment[] =
 "#   [FR] [num_juncs] [counts0,counts1,...] [juncs:ACAGT] [seq=... juncpos=... ...]\n"
 "#\n"
 "# Columns are separated by a single space.\n"
-"# Columns 1-5 are required ([FR],..,[juncs]) everything after than is optional\n"
+"# Columns 1-4 are required ([FR],..,[juncs]) everything after than is optional\n"
 "\n";
 
 // {

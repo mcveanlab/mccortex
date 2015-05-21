@@ -7,12 +7,12 @@
 #include "json_hdr.h"
 #include "gpath_save.h"
 #include "clean_graph.h"
-#include "str_parsing.h" // comma_list_to_array()
 
 const char links_usage[] =
 "usage: "CMD" links [options] <in.ctp.gz>\n"
 "\n"
-"  Clean, minimise and list cortex links.\n"
+"  Clean, minimise and list cortex links. Works on a stream of input only,\n"
+"  so memory usage is very low.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
@@ -26,8 +26,7 @@ const char links_usage[] =
 "  -P,--plot <out.dot>    Plot last from limit\n"
 "  -c,--clean <N>         Remove junction choices with coverage < N\n"
 "  -T,--threshold <fdr>   Calculate the cleaning threshold for given FDR [e.g. 0.001]\n"
-"\n"
-"  For multicolour inputs, --clean can take comma separated list: <N,N,N>\n";
+"\n";
 
 static struct option longopts[] =
 {

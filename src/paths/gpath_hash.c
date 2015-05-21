@@ -14,7 +14,7 @@
 // (1-(1/(2^16)))^4080 = 0.939 = 94% of entries would have zero collisions
 
 #define PATH_HASH_UNSET (0xffffffffffUL)
-#define PATH_HASH_ENTRY_ASSIGNED(x) ((x).hkey != PATH_HASH_UNSET)
+#define PATH_HASH_ENTRY_EMPTY(x) ((x).hkey == PATH_HASH_UNSET)
 
 void gpath_hash_alloc(GPathHash *gphash, GPathStore *gpstore, size_t mem_in_bytes)
 {
@@ -108,6 +108,8 @@ static inline GPath* _find_or_add_in_bucket_mt(GPathHash *gphash, uint64_t hash,
   GPath *gpath_ret = NULL;
   *found = false;
 
+  ctx_assert(hash < gphash->capacity);
+
   // Add GPath within a lock to ensure we do not add the same path more than
   // once
   bitlock_yield_acquire(gphash->bktlocks, hash);
@@ -125,7 +127,7 @@ static inline GPath* _find_or_add_in_bucket_mt(GPathHash *gphash, uint64_t hash,
       gpath_ret = gpset->entries.b + entry.gpindex;
       break;
     }
-    else if(!PATH_HASH_ENTRY_ASSIGNED(entry))
+    else if(PATH_HASH_ENTRY_EMPTY(entry))
     {
       gpath_ret = gpath_store_add_mt(gphash->gpstore, hkey, newgpath);
       *entryptr = (GPEntry){.hkey = hkey,
@@ -176,16 +178,17 @@ GPath* gpath_hash_find_or_insert_mt(GPathHash *gphash,
   *found = false;
 
   size_t i, mem = binary_seq_mem(newgpath.num_juncs);
-  uint64_t hash = hkey;
+  uint64_t entropy = hkey, hash;
   GPath *gpath = NULL;
 
   for(i = 0; i < REHASH_LIMIT; i++)
   {
-    hash = CityHash64WithSeeds((const char*)newgpath.seq, mem, hash, i);
-    hash &= gphash->mask;
+    entropy = CityHash64WithSeeds((const char*)newgpath.seq, mem, entropy, i);
+    hash = entropy & gphash->mask;
 
     uint8_t bucket_fill = *(volatile uint8_t *)&gphash->bucket_nitems[hash];
-    ctx_assert(bucket_fill <= gphash->bucket_size);
+    ctx_assert2(bucket_fill <= gphash->bucket_size,
+                "hash: %zu count: %i", (size_t)hash, (int)bucket_fill);
 
     if(bucket_fill < gphash->bucket_size)
       gpath = _find_or_add_in_bucket_mt(gphash, hash, hkey, newgpath, found);

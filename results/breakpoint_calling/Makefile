@@ -10,6 +10,7 @@ CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMBRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_breakpoints.pl
+BLOCKS2BRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/block_to_brkpnts.pl
 CHKBRK=$(CTXDIR)/scripts/check-breakpoints.pl
 MKCIRCOS=$(CTXDIR)/scripts/make-circos.pl
 CIRCOS=circos
@@ -39,18 +40,21 @@ all: run-mccortex
 
 # 1 Mb human diploid
 # Generate a diploid genome from a diploid reference
-diploid/truth.txt: diploid/chrom1.fa
+diploid/blocks.txt: diploid/chrom1.fa
 diploid/chrom1.fa:
 	mkdir -p diploid
-	$(SIMBRK) $(NBREAKS) $(REF) $@ diploid/truth.txt
+	$(SIMBRK) $(NBREAKS) $(REF) $@ diploid/blocks.txt
+
+diploid/truth.txt: diploid/blocks.txt
+	$(BLOCKS2BRK) $(REF) $< > $@
 
 # Simulate PE reads of each chrom each 50X
 reads/chrom1.$(HAPDEPTH)X.1.fa.gz: reads/chrom1.$(HAPDEPTH)X.2.fa.gz
-reads/chrom1.$(HAPDEPTH)X.2.fa.gz: diploid/chrom1.fa reads
+reads/chrom1.$(HAPDEPTH)X.2.fa.gz: diploid/chrom1.fa | reads
 	$(READSIM) -l $(READLEN) -r $< -d $(HAPDEPTH) -e $(ERRRATE) reads/chrom1.$(HAPDEPTH)X
 
 reads/chrom0.$(HAPDEPTH)X.1.fa.gz: reads/chrom0.$(HAPDEPTH)X.2.fa.gz
-reads/chrom0.$(HAPDEPTH)X.2.fa.gz: $(REF) reads
+reads/chrom0.$(HAPDEPTH)X.2.fa.gz: $(REF) | reads
 	$(READSIM) -l $(READLEN) -r $< -d $(HAPDEPTH) -e $(ERRRATE) reads/chrom0.$(HAPDEPTH)X
 
 samples.haploid.txt:
@@ -80,6 +84,8 @@ plot-circos: run-mccortex
 	cd circos-plot && $(CIRCOS)
 
 clean:
-	rm -rf $(DIRS) $(OUTDIR) samples.txt haploid.k$(K).mk diploid.k$(K).mk circos-plot
+	rm -rf $(DIRS) $(OUTDIR) circos-plot
+	rm -rf samples.haploid.txt haploid.k$(K).mk run_haploid
+	rm -rf samples.diploid.txt diploid.k$(K).mk run_diploid
 
 .PHONY: all clean run-mccortex run-cortex plot-circos

@@ -65,7 +65,7 @@ truth.vcf.gz:
 	$(CTX) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
 
 breakpoints.txt.gz: sample.k$(K).ctx ref.fa
-	$(CTX) breakpoints -t 1 -m 10M --minref 5 --maxref 20 \
+	$(CTX) breakpoints -t 1 -m 10M --minref 5 \
 	                  --seq ref.fa --out $@ sample.k$(K).ctx >& $@.log
 
 breakpoints.raw.vcf: breakpoints.txt.gz $(SEQS)

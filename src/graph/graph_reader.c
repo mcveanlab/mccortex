@@ -404,22 +404,22 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
         covgs[i] = covgs[i] > 0;
 
     // Fetch node in the de bruijn graph
-    hkey_t node;
+    hkey_t hkey;
 
     if(prefs.must_exist_in_graph)
     {
-      node = hash_table_find(&graph->ht, bkmer);
-      if(node == HASH_NOT_FOUND) continue;
+      hkey = hash_table_find(&graph->ht, bkmer);
+      if(hkey == HASH_NOT_FOUND) continue;
 
-      // Edges union_edges = db_node_get_edges_union(graph, node);
-      Edges union_edges = prefs.must_exist_in_edges[node];
+      // Edges union_edges = db_node_get_edges_union(graph, hkey);
+      Edges union_edges = prefs.must_exist_in_edges[hkey];
 
       for(i = 0; i < ncols_used; i++) edges[i] &= union_edges;
     }
     else
     {
       bool found;
-      node = hash_table_find_or_insert(&graph->ht, bkmer, &found);
+      hkey = hash_table_find_or_insert(&graph->ht, bkmer, &found);
 
       if(prefs.empty_colours && found)
         die("Duplicate kmer loaded");
@@ -428,19 +428,19 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     // Set presence in colours
     if(graph->node_in_cols != NULL) {
       for(i = 0; i < ncols_used; i++) {
-        db_node_or_col(graph, node, i, (covgs[i] || edges[i]));
+        db_node_or_col(graph, hkey, i, (covgs[i] || edges[i]));
       }
     }
 
     if(graph->col_covgs != NULL) {
       for(i = 0; i < ncols_used; i++)
-        db_node_add_col_covg(graph, node, i, covgs[i]);
+        db_node_add_col_covg(graph, hkey, i, covgs[i]);
     }
 
     // Merge all edges into one colour
     if(graph->col_edges != NULL)
     {
-      Edges *col_edges = &db_node_edges(graph, node, 0);
+      Edges *col_edges = &db_node_edges(graph, hkey, 0);
 
       if(graph->num_edge_cols == 1) {
         for(i = 0; i < ncols_used; i++)

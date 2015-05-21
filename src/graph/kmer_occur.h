@@ -10,9 +10,9 @@
 //
 
 // Limits on number of chromosomes and max chromosome length
-// [31] max chroms = 2,147,483,648
+// [30] max chroms    = 1,073,741,824
 // [32] max chrom len = 4,294,967,296
-#define KMER_OCCUR_MAX_CHROMS (1U<<31)
+#define KMER_OCCUR_MAX_CHROMS (1U<<30)
 #define KMER_OCCUR_MAX_LEN (1UL<<32)
 
 typedef struct {

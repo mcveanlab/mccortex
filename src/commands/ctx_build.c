@@ -29,9 +29,9 @@ const char build_usage[] =
 "  -i, --seqi <in.bam>      Load paired end sequence from a single file\n"
 "  -Q, --fq-cutoff <Q>      Filter quality scores [default: 0 (off)]\n"
 "  -O, --fq-offset <N>      FASTQ ASCII offset    [default: 0 (auto-detect)]\n"
-"  -H, --cut_hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
-"  -p, --remove-pcr         Remove (or keep) PCR duplicate reads [default: keep]\n"
-"  -P, --keep-pcr           Don't do PCR duplicate removal\n"
+"  -H, --cut-hp <bp>        Breaks reads at homopolymers >= <bp> [default: off]\n"
+"  -p, --remove-pcr         Remove (or keep) PCR duplicate reads\n"
+"  -P, --keep-pcr           Don't do PCR duplicate removal [default]\n"
 "  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
 "                           (for --keep_pcr only)\n"
 "  -g, --graph <in.ctx>     Load samples from a graph file (.ctx)\n"
@@ -133,7 +133,6 @@ static void parse_args(int argc, char **argv)
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_kmer_size(cmd, optarg); break;
       case 's':
         intocolour++;
-        if(pref_unused) cmd_print_usage("Arguments not given BEFORE sequence file");
         if(strcmp(optarg,"undefined") == 0) die("Bad sample name: %s", optarg);
         sample_name_buf_add(&snamebuf, (SampleName){.colour = intocolour,
                                                     .name = optarg});
