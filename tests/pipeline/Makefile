@@ -12,8 +12,8 @@ SEQ_FILES=ref.fa ben.fa jerry.fa \
           ben.se.fa \
           jerry.1.fa jerry.2.fa
 
-all: job.mk $(SEQ_FILES)
-	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M CLEANING_ARGS='--supernodes=1' all
+all: job.k29.k31.mk $(SEQ_FILES)
+	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M all
 	$(BCFTOOLS) isec proj/vcfs/breakpoints.links.k29.k31.vcf.gz proj/vcfs/bubbles.links.k29.k31.vcf.gz -p isec
 	@A=`$(VCFALLELES) isec/0000.vcf`; \
 	 B=`$(VCFALLELES) isec/0001.vcf`; \
@@ -38,13 +38,13 @@ jerry.fa:
 'GCGTTACAATATCGTATTGGGTTCGTGACCAACACTCCCATTTCTTGATATGACGCCATCAAACGACTACACGGAGACCCGGCCGAGCATGGCAACCCGCACGACTGCATCATCTCCATCAATCCAACCATACTCCCGGACTTACCCCTGCCCCGGGCGCAGCAGTaCTTAAGATCAGGAACTGGGGTGTACGACGGCCTCGCTGACACGGTACCAGCCGTGCACCGATGCTGCTAGGCACCCGTCGCCTGCTCAAGAAATGGCTGGGTTCAATAGAAGCGTTTGTGAGTGCTTCGACTCGTTAGGATGTAATTAGGGCCAGTAGTCAACCAGCGCTAGTGAGAATATGATAGAGATTTCGCAAAGTCCTTGGTATACAGGATCTCAACCCACAGACTGCGGAGGCTGTGGTGCCATCATCtGACTCACTACGTCCTTGTCAGGCCTAACCTTTCAGGGCGGCAAGCTACGGTTACCTGACCGAAGTCTTATTCACAGTTCGGTAGCTCCAATCATTGCGAGGTTAGCTTAACGCCTG----TACCTGGCAAACATGCTCCTTTCACGACCGTTTATCGGCGCGATTTGATATCCACTTG' | tr -d '-'; ) > $@
 
 %.se.fa: %.fa
-	$(READSIM) -d 20 -l 100 -s -r $< tmp
+	$(READSIM) -d 50 -l 100 -s -r $< tmp
 	gzip -fcd tmp.fa.gz > $@
 	rm -rf tmp.fa.gz
 
 # 400 bp fragment len, 100 bp reads
 %.1.fa %.2.fa: %.fa
-	$(READSIM) -d 20 -l 100 -i 200 -r $< tmp
+	$(READSIM) -d 50 -l 100 -i 200 -r $< tmp
 	gzip -fcd tmp.1.fa.gz > $*.1.fa
 	gzip -fcd tmp.2.fa.gz > $*.2.fa
 	rm -rf tmp.{1,2}.fa.gz
@@ -52,10 +52,10 @@ jerry.fa:
 samples.txt:
 	( echo "ben ben.se.fa . ."; echo "jerry . jerry.1.fa:jerry.2.fa" ) > $@
 
-job.mk: samples.txt
+job.k29.k31.mk: samples.txt
 	$(MKPIPELINE) -r ref.fa 29,31 proj $< > $@
 
 clean:
-	rm -rf $(SEQ_FILES) samples.txt job.mk proj ref.* tmp.* isec
+	rm -rf $(SEQ_FILES) samples.txt job.k29.k31.mk proj ref.* tmp.* isec
 
 .PHONY: all clean

@@ -17,14 +17,13 @@ use CortexScripts;
 # [ ] 1-by-1 bubble/breakpoint calling for lower memory
 # [ ] genotyping sites
 # [ ] pass genome size / fetch from ref FASTA
-# [ ] add option to use stampy to map
-# [ ] take paths to ref resources (ref_fa, ref_stampy, ref_bwa, ref_ctx)
+# [x] add option to use stampy to map
 # [x] thread: take fragment length min/max length
 # [x] bubbles: take max allele + flank lengths
 # [x] calls2vcf: take min mapq value
 # [x] pop bubbles for diploid when assembling contigs
 # [x] option to call variants without using links
-# [ ] unitigs target to dump unitigs
+# [x] unitigs target to dump unitigs
 #
 
 sub print_usage
@@ -35,7 +34,9 @@ sub print_usage
   Generate a Makefile to run common McCortex pipelines
 
   Options:
-    -r,--ref <ref.fa>         Reference sequence
+    -r,--ref <ref.fa>             Reference sequence
+    -s,--stampy <path/stampy.py>  Use stampy instead of BWA to place variants
+    -S,--stampy-base <B>          Stampy hashes <B>.stidx and <B>.sthash
 
   Example:
     ./make-pipeline.pl 31:39:2 my_proj samples.txt > job.mk
@@ -64,14 +65,33 @@ my $default_nthreads = 2;
 
 my $ref_path; # path to reference FASTA if available
 
+my $stampy;
+my $stampy_base; # base to stampy hash files (.stidx, .sthash)
+
 # Parse command line args
 while(@ARGV > 3) {
   my $arg = shift;
   if($arg =~ /^(-r|--ref)$/ && !defined($ref_path)) { $ref_path = shift; }
+  elsif($arg =~ /^(-s|--stampy)$/ && !defined($stampy)) { $stampy = shift; }
+  elsif($arg =~ /^(-S|--stampy-base)$/ && !defined($stampy_base)) { $stampy_base = shift; }
   else { print_usage("Unknown argument: $arg"); }
 }
 
 if(@ARGV != 3) { print_usage(); }
+
+# Check if stampy is used, set it up
+# Otherwise we use BWA instead
+if(defined($stampy) && !defined($ref_path)) { die("Gave --stampy <S> without --ref <R>"); }
+if(defined($stampy_base) && !defined($stampy)) { die("Gave --stampy-base <B> without --stampy <S>"); }
+
+if(defined($ref_path) && !defined($stampy_base)) {
+  if($ref_path =~ /^(.*?)(.fa|.fa.gz|.fq|.fq.gz)?$/) {
+    $stampy_base = $1;
+  } else {
+    $stampy_base = $ref_path;
+  }
+  if($stampy_base eq "") { die("Please pass --stampy-base <B>"); }
+}
 
 my @kmers = parse_kmer_list($ARGV[0]);
 my $proj = $ARGV[1];
@@ -157,6 +177,8 @@ VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
 BWA=$(CTXDIR)/libs/bwa/bwa
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
+STAMPY='.(defined($stampy) ? $stampy : '').'
+STAMPY_BASE='.(defined($stampy_base) ? $stampy_base : '').'
 
 # Set up memory, threads and number of kmers in the graph
 CTX_ARGS=
@@ -176,6 +198,7 @@ for my $k (@kmers) {
   print "# Files at k=$k\n";
   print "RAW_GRAPHS_K$k=".join(' ', map {"$proj/k$k/graphs/$_->{'name'}.raw.ctx"} @samples)."\n";
   print "CLEAN_GRAPHS_K$k=\$(RAW_GRAPHS_K$k:.raw.ctx=.clean.ctx)\n";
+  print "CLEAN_UNITIGS_K$k=\$(CLEAN_GRAPHS_K$k:.ctx=.unitigs.fa.gz)\n";
   print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"} @samples)."\n";
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
@@ -196,6 +219,7 @@ for my $k (@kmers) {
 
 print "RAW_GRAPHS=" .join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
+print "CLEAN_UNITIGS=\$(CLEAN_GRAPHS:.ctx=.unitigs.fa.gz)\n";
 print "RAW_LINKS="  .join(' ', map {"\$(RAW_SE_LINKS_K$_) \$(RAW_PE_LINKS_K$_) "} @kmers)."\n";
 print "CLEAN_SE_LINKS=".join(' ', map {"\$(CLEAN_SE_LINKS_K$_)"} @kmers)."\n";
 print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
@@ -250,10 +274,10 @@ if(defined($ref_path)) {
   for my $k (@kmers) { print "REF_GRAPH_K$k=\n"; }
 }
 
-print 'REF_GRAPHS='.join(' ', map {'$(REF_GRAPH_K'.$_.')'} @kmers).'
+print '# REF_GRAPHS='.join(' ', map {'$(REF_GRAPH_K'.$_.')'} @kmers).'
 
-HAVE_LOGS=$(RAW_GRAPHS) $(CLEAN_GRAPHS) $(REF_GRAPHS) $(RAW_LINKS) $(CLEAN_SE_LINKS) $(CLEAN_PE_LINKS) $(LINK_TMP_FILES) $(CALL_FILES) $(RAW_VCFS)
-LOG_FILES=$(HAVE_LOGS:=.log)
+# HAVE_LOGS=$(RAW_GRAPHS) $(CLEAN_GRAPHS) $(CLEAN_UNITIGS) $(REF_GRAPHS) $(RAW_LINKS) $(CLEAN_SE_LINKS) $(CLEAN_PE_LINKS) $(LINK_TMP_FILES) $(CALL_FILES) $(RAW_VCFS)
+# LOG_FILES=$(HAVE_LOGS:=.log)
 
 # Mark all dependencies as secondary
 # It means don\'t re-run if the dependency file disappears -- allows us to delete unused files
@@ -265,9 +289,11 @@ LOG_FILES=$(HAVE_LOGS:=.log)
 # Remove in-built rules for certain file suffixes
 .SUFFIXES:
 
-all: ' .(defined($ref_path) ? 'bubbles-vcf breakpoints-vcf' : 'bubbles').' | checks
+all: ' .(defined($ref_path) ? 'bubbles-vcf breakpoints-vcf' : 'bubbles').' unitigs | checks
 
 graphs: $(CLEAN_GRAPHS) | checks
+
+unitigs: $(CLEAN_UNITIGS) | checks
 
 links: $(FINAL_LINKS) | checks
 
@@ -360,6 +386,11 @@ for my $k (@kmers) {
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
   print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
   print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n\n";
+
+  # Dump unitigs
+  print "# sample graph unitigs at k=$k\n";
+  print "$proj/k$k/graphs/%.clean.unitigs.fa.gz: $proj/k$k/graphs/%.clean.ctx\n";
+  print "\t($ctx unitigs \$(CTX_ARGS) \$< | gzip -c > \$@) 2> \$@.log\n\n";
 }
 
 # Create and clean link files
@@ -481,10 +512,6 @@ if(defined($ref_path))
     print "$proj/k$k/%/bubbles.flanks.fa.gz: $proj/k$k/%/bubbles.txt.gz\n";
     print "\t\$(CTXFLANKS) \$< > \$@\n\n";
 
-    print "$proj/k$k/%/bubbles.flanks.sam: $proj/k$k/%/bubbles.flanks.fa.gz \$(REF_FILE)\n";
-    print "\t\$(BWA) index \$(REF_FILE)\n";
-    print "\t\$(BWA) mem \$(REF_FILE) \$< > \$@\n\n";
-
     print "$proj/k$k/%/bubbles.raw.vcf: $proj/k$k/%/bubbles.txt.gz $proj/k$k/%/bubbles.flanks.sam \$(REF_FILE)\n";
     print "\t$ctx calls2vcf \$(CALL2VCF_ARGS) -F $proj/k$k/\$*/bubbles.flanks.sam -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
   }
@@ -539,6 +566,29 @@ if(defined($ref_path))
   # Create VCF index files .vcf.gz.csi
   print "%.vcf.gz.csi: %.vcf.gz\n";
   print "\t\$(BCFTOOLS) index -f \$<\n\n";
+
+  my $ms = defined($stampy) ? "" : "# ";
+  my $mb = defined($stampy) ? "# " : "";
+
+
+  # BWA
+  print "# Mapping with BWA\n";
+  print $mb."\$(REF_FILE).bwt: \$(REF_FILE)\n";
+  print $mb."\t\$(BWA) index \$(REF_FILE)\n\n";
+
+  print $mb."%.sam: %.fa.gz \$(REF_FILE).bwt \$(REF_FILE)\n";
+  print $mb."\t\$(BWA) mem \$(REF_FILE) \$< > \$@\n\n";
+
+  # Stampy
+  print "# Mapping with Stampy\n";
+  print $ms."\$(STAMPY_BASE).stidx: \$(REF_FILE)\n";
+  print $ms."\t\$(STAMPY) -G \$(STAMPY_BASE) \$(REF_FILE)\n\n";
+
+  print $ms."\$(STAMPY_BASE).sthash: \$(STAMPY_BASE).stidx \$(REF_FILE)\n";
+  print $ms."\t\$(STAMPY) -g \$(STAMPY_BASE) -H \$(STAMPY_BASE)\n\n";
+
+  print $ms."%.sam: %.fa.gz \$(STAMPY_BASE).stidx \$(STAMPY_BASE).sthash\n";
+  print $ms."\t\$(STAMPY) -g \$(STAMPY_BASE) -h \$(STAMPY_BASE) -M \$< > \$@\n\n";
 }
 
 
