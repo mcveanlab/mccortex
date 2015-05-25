@@ -150,8 +150,8 @@ CONTIG_POP_ARGS=--confid-step 0.99
 
 # Paths to scripts
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
-VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
-VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
+VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
+VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
 
 # Third party libraries packaged in McCortex
 BWA=$(CTXDIR)/libs/bwa/bwa

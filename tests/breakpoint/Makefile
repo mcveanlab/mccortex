@@ -20,8 +20,8 @@ CTXDIR=../..
 CTX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl
-VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
-VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
+VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
+VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
 
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools

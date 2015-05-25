@@ -17,8 +17,8 @@ CTXDIR=../..
 CTX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
-VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
-VCFRENAME=$(CTXDIR)/scripts/bash/vcf-rename
+VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
+VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
 
 BWA=$(CTXDIR)/libs/bwa/bwa
 BGZIP=$(CTXDIR)/libs/htslib/bgzip

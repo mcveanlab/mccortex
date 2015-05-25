@@ -9,7 +9,7 @@ SIMMUT=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_mutations.pl
 SIMTRUTH=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_vcf.pl
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
-VCFALLELES=$(CTXDIR)/scripts/bash/vcf-count-alleles
+VCFALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
 
 K=21
 HAPDEPTH=50

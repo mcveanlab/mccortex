@@ -9,7 +9,7 @@ CTXDIR=../..
 CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
-VCFCOUNT=$(CTXDIR)/scripts/bash/vcf-count
+VCFCOUNT=$(CTXDIR)/libs/biogrok/vcf-count
 
 REFLEN=1000
 K=31

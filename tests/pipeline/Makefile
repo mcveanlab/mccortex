@@ -6,7 +6,7 @@ DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
 MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
-VCFALLELES=$(CTXDIR)/scripts/bash/vcf-count-alleles
+VCFALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
 
 SEQ_FILES=ref.fa ben.fa jerry.fa \
           ben.se.fa \

@@ -13,8 +13,8 @@ CORTEX=$(CORTEXDIR)/bin/cortex_var_31_c1
 
 CTXDIR=../../../
 MCCORTEX=$(CTXDIR)/bin/mccortex31
-VCFHEADER=$(CTXDIR)/scripts/bash/vcf-header
-VCFSORT=$(CTXDIR)/scripts/bash/vcf-sort
+VCFHEADER=$(CTXDIR)/libs/biogrok/vcf-header
+VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
 
