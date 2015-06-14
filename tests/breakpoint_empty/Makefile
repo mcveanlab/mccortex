@@ -32,10 +32,10 @@ task.k$(K).mk:
 run: task.k$(K).mk reads/reads.fa.gz ref.fa
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) breakpoints-vcf
 	@# Check no VCF entries
-	(( `$(VCFCOUNT) proj/vcfs/breakpoints.k$(K).vcf.gz` == 0 )) || false
+	(( `$(VCFCOUNT) proj/vcfs/breakpoints.joint.k$(K).vcf.gz` == 0 )) || false
 	@# Check no breakpoint call entries
-	(( `grep -c '>brkpnt' proj/k$(K)/breakpoints/breakpoints.txt.gz` == 0 )) || false
-	@echo 'Success - no breakpoint calls or VCF entries!'
+	(( `grep -c '>brkpnt' proj/k$(K)/breakpoints/joint.brk.gz` == 0 )) || false
+	@echo 'Success: no breakpoint calls or VCF entries!'
 
 clean:
 	rm -rf ref.fa* reads proj task.k$(K).mk

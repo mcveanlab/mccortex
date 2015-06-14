@@ -938,11 +938,7 @@ static cJSON* read_input_header(gzFile gzin)
   return json;
 }
 
-/**
- * @return number of samples found in json header,
- *         not including ref if breakpoint calls
- */
-static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
+static void print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
 {
   ctx_assert(json != NULL);
 
@@ -1023,8 +1019,6 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   // Print VCF column header
   fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT", fout);
 
-  size_t nsamples_printed = 0;
-
   if(is_breakpoint)
   {
     // Print a column for each sample
@@ -1032,8 +1026,7 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
     cJSON *colours_json = json_hdr_get(graph_json, "colours", cJSON_Array,  input_path);
     cJSON *colour_json  = colours_json->child;
     if(colour_json == NULL) die("Missing colours");
-
-    for(; colour_json; colour_json = colour_json->next, nsamples_printed++)
+    for(; colour_json; colour_json = colour_json->next)
     {
       cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
       fputc('\t', fout);
@@ -1042,8 +1035,6 @@ static size_t print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   }
 
   fputc('\n', fout);
-
-  return nsamples_printed;
 }
 
 // Check contig entries match reference
@@ -1129,10 +1120,15 @@ int ctx_calls2vcf(int argc, char **argv)
 
   if(!input_bubble_format) brkpnt_check_refs_match(json, input_path);
 
-  // Run
-  num_samples = print_vcf_header(json, !input_bubble_format, fout);
+  // Output VCF has 0 samples if bubbles file, otherwise has N where N is
+  // number of samples/colours in the breakpoint graph
+  size_t num_graph_samples = json_hdr_get_ncols(json, input_path);
+  num_samples = input_bubble_format ? 0 : num_graph_samples;
+
+  print_vcf_header(json, !input_bubble_format, fout);
   status("Reading %s call file with %zu samples",
-         input_bubble_format ? "Bubble" : "Breakpoint", num_samples);
+         input_bubble_format ? "Bubble" : "Breakpoint", num_graph_samples);
+  status("Writing a VCF with %zu samples", num_samples);
   parse_entries(gzin, fout);
 
   // Print stats

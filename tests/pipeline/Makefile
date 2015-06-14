@@ -14,7 +14,7 @@ SEQ_FILES=ref.fa ben.fa jerry.fa \
 
 all: job.k29.k31.mk $(SEQ_FILES)
 	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M all
-	$(BCFTOOLS) isec proj/vcfs/breakpoints.links.k29.k31.vcf.gz proj/vcfs/bubbles.links.k29.k31.vcf.gz -p isec
+	$(BCFTOOLS) isec proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz -p isec
 	@A=`$(VCFALLELES) isec/0000.vcf`; \
 	 B=`$(VCFALLELES) isec/0001.vcf`; \
 	 C=`$(VCFALLELES) isec/0002.vcf`; \
