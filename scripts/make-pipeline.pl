@@ -30,7 +30,7 @@ sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage: ./make-pipeline.pl [options] <list-of-kmers> <out-dir> <samples.txt>
+"Usage: $0 [options] <list-of-kmers> <out-dir> <samples.txt>
   Generate a Makefile to run common McCortex pipelines
 
   Options:
@@ -127,15 +127,10 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   breakpoints     <- make breakpoint calls
 #   bubbles-vcf     <- make bubble vcf
 #   breakpoints-vcf <- make breakpoint vcf
+#   vcfs            <- make bubble+breakpoint vcfs
 #   contigs         <- assemble contigs for each sample
 #   contigs-pop     <- assemble contigs after popping bubbles
 #   unitigs         <- dump unitigs for each sample
-#
-# Make targets without using links:
-#   plain-bubbles         <- make bubble calls
-#   plain-breakpoints     <- make breakpoint calls
-#   plain-bubbles-vcf     <- make bubble vcf
-#   plain-breakpoints-vcf <- make breakpoint vcf
 #
 # Options:
 #   --dry-run              Print commands but not run them
@@ -143,6 +138,95 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   CTXDIR=<mccortex-dir>  e.g. CTXDIR=~/bin/mccortex
 #   MEM=<mem-to-use>       e.g. MEM=80G
 #   NTHREADS=<nthreads>
+#   USE_LINKS=<B>          <B> is "yes" or "no"
+#
+# Coming soon:
+#   JOINT_CALLING=<B>      <B> is "yes" or "no"
+#
+
+#
+# File structure:
+# ---------------
+#
+# <K> is kmer size
+# <S> is sample name
+# <P> set of sample names and "joint"
+#
+# Roughly listed in order of generation
+#
+# <outdir>/
+#   -> k<K>/
+#     -> graphs/
+#       -> <S>.raw.ctx
+#       -> <S>.raw.ctx.log
+#       -> <S>.raw.covg.csv
+#       -> <S>.clean.ctx
+#       -> <S>.clean.ctx.log
+#       -> <S>.inferedges.ctx.log
+#       -> <S>.clean.unitigs.fa.gz
+#     -> links/
+#       -> <S>.se.raw.ctp.gz
+#       -> <S>.se.raw.ctp.gz.log
+#       -> <S>.se.clean.ctp.gz
+#       -> <S>.se.clean.ctp.gz.log
+#       -> <S>.se.thresh.txt
+#       -> <S>.se.thresh.txt.log
+#       -> <S>.pe.raw.ctp.gz
+#       -> <S>.pe.raw.ctp.gz.log
+#       -> <S>.pe.clean.ctp.gz
+#       -> <S>.pe.clean.ctp.gz.log
+#       -> <S>.pe.thresh.txt
+#       -> <S>.pe.thresh.txt.log
+#     -> bubbles/
+#       -> <P>.txt.gz
+#       -> <P>.txt.gz.log
+#       -> <P>.flanks.fa.gz
+#       -> <P>.flanks.sam
+#       -> <P>.raw.vcf
+#       -> <P>.raw.vcf.log
+#       -> <P>.sort.vcf
+#       -> <P>.norm.vcf.gz
+#       -> <P>.norm.vcf.gz.csi
+#     -> bubbles_plain/
+#       -> SAME AS ../bubbles/
+#     -> breakpoints/
+#       -> <P>.txt.gz
+#       -> <P>.txt.gz.log
+#       -> <P>.raw.vcf
+#       -> <P>.raw.vcf.log
+#       -> <P>.sort.vcf
+#       -> <P>.norm.vcf.gz
+#       -> <P>.norm.vcf.gz.csi
+#     -> breakpoints_plain/
+#       -> SAME AS ../breakpoints/
+#     -> contigs/
+#       -> <S>.raw.fa.gz
+#       -> <S>.raw.fa.gz.log
+#       -> <S>.rmdup.fa.gz
+#       -> <S>.rmdup.fa.gz.log
+#     -> ref/
+#       -> ref.ctx
+#       -> ref.ctx.log
+#   -> vcfs/
+#       -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz
+#       -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz.csi
+#       e.g.
+#       -> breakpoints.joint.plain.k29.k31.vcf.gz
+#       -> breakpoints.joint.plain.k29.k31.vcf.gz.csi
+#       -> breakpoints.1by1.plain.k29.k31.vcf.gz
+#       -> breakpoints.1by1.plain.k29.k31.vcf.gz.csi
+#       -> breakpoints.joint.links.k29.k31.vcf.gz
+#       -> breakpoints.joint.links.k29.k31.vcf.gz.csi
+#       -> breakpoints.1by1.links.k29.k31.vcf.gz
+#       -> breakpoints.1by1.links.k29.k31.vcf.gz.csi
+#       -> bubbles.joint.plain.k29.k31.vcf.gz
+#       -> bubbles.joint.plain.k29.k31.vcf.gz.csi
+#       -> bubbles.1by1.plain.k29.k31.vcf.gz
+#       -> bubbles.1by1.plain.k29.k31.vcf.gz.csi
+#       -> bubbles.joint.links.k29.k31.vcf.gz
+#       -> bubbles.joint.links.k29.k31.vcf.gz.csi
+#       -> bubbles.1by1.links.k29.k31.vcf.gz
+#       -> bubbles.1by1.links.k29.k31.vcf.gz.csi
 #
 
 SHELL=/bin/bash -eou pipefail
@@ -192,6 +276,44 @@ ifdef NTHREADS
   CTX_ARGS:=$(CTX_ARGS) -t $(NTHREADS)
 endif
 
+#
+# Parse USE_LINKS and JOINT_CALLING Makefile options
+#
+
+# Use links is default on
+ifdef USE_LINKS
+  ifeq ($(USE_LINKS),"no")
+    undefine USE_LINKS
+  else
+    ifeq ($(USE_LINKS),"0")
+      undefine USE_LINKS
+    else
+      USE_LINKS=1
+    endif
+  endif
+else
+  USE_LINKS=1
+endif
+
+# Joint calling is default on
+ifdef JOINT_CALLING
+  ifeq ($(JOINT_CALLING),"no")
+    undefine JOINT_CALLING
+  else
+    ifeq ($(JOINT_CALLING),"0")
+      undefine JOINT_CALLING
+    else
+      JOINT_CALLING=1
+    endif
+  endif
+else
+  JOINT_CALLING=1
+endif
+
+# USE_LINKS is defined iff we are using links
+# JOINT_CALLING is defined iff we are doing joint calling
+
+
 ';
 
 for my $k (@kmers) {
@@ -203,19 +325,24 @@ for my $k (@kmers) {
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
-  print "BUBBLES_LINKS_K$k=$proj/k$k/bubbles/bubbles.txt.gz\n";
-  print "BUBBLES_PLAIN_K$k=$proj/k$k/bubbles_plain/bubbles.txt.gz\n";
   print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
   print "CONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
-  if(defined($ref_path)) {
-    print "BREAKPOINTS_LINKS_K$k=$proj/k$k/breakpoints/breakpoints.txt.gz\n";
-    print "BREAKPOINTS_PLAIN_K$k=$proj/k$k/breakpoints_plain/breakpoints.txt.gz\n";
-  } else {
-    print "BREAKPOINTS_LINKS_K$k=\n";
-    print "BREAKPOINTS_PLAIN_K$k=\n";
-  }
   print "\n";
 }
+
+sub refonly { return defined($ref_path) ? $_[0] : ""; }
+
+print "ifdef USE_LINKS\n";
+for my $k (@kmers) { print "\tBUBBLES_K$k=$proj/k$k/bubbles/bubbles.txt.gz\n"; }
+for my $k (@kmers) { print "\tBREAKPOINTS_K$k=".refonly("$proj/k$k/breakpoints/breakpoints.txt.gz") . "\n"; }
+print "\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_links_vcf $union_bubble_links_vcf.csi") . "\n";
+print "\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_links_vcf $union_brkpnt_links_vcf.csi") . "\n";
+print "else\n";
+for my $k (@kmers) { print "\tBUBBLES_K$k=$proj/k$k/bubbles_plain/bubbles.txt.gz\n"; }
+for my $k (@kmers) { print "\tBREAKPOINTS_K$k=".refonly("$proj/k$k/breakpoints_plain/breakpoints.txt.gz") . "\n"; }
+print "\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_plain_vcf $union_bubble_plain_vcf.csi")."\n";
+print "\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_plain_vcf $union_brkpnt_plain_vcf.csi")."\n";
+print "endif\n\n";
 
 print "RAW_GRAPHS=" .join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
@@ -224,12 +351,22 @@ print "RAW_LINKS="  .join(' ', map {"\$(RAW_SE_LINKS_K$_) \$(RAW_PE_LINKS_K$_) "
 print "CLEAN_SE_LINKS=".join(' ', map {"\$(CLEAN_SE_LINKS_K$_)"} @kmers)."\n";
 print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
 print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
-print "BUBBLES_LINKS="    .join(' ', map {"\$(BUBBLES_LINKS_K$_)"}        @kmers)."\n";
-print "BUBBLES_PLAIN="    .join(' ', map {"\$(BUBBLES_PLAIN_K$_)"}        @kmers)."\n";
-print "BREAKPOINTS_LINKS=".join(' ', map {"\$(BREAKPOINTS_LINKS_K$_)"}    @kmers)."\n";
-print "BREAKPOINTS_PLAIN=".join(' ', map {"\$(BREAKPOINTS_PLAIN_K$_)"}    @kmers)."\n";
+print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
+print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
 print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
+
+print "\n# Files to merge to create various union VCFs\n";
+print "# .csi are index files (for VCF in this case)\n";
+print "BUBBLES_LINKS_VCFS=".join(' ', map {"$proj/k$_/bubbles/bubbles.norm.vcf.gz"} @kmers)."\n";
+print "BUBBLES_LINKS_CSIS=".join(' ', map {"$proj/k$_/bubbles/bubbles.norm.vcf.gz.csi"} @kmers)."\n";
+print "BUBBLES_PLAIN_VCFS=".join(' ', map {"$proj/k$_/bubbles_plain/bubbles.norm.vcf.gz"} @kmers)."\n";
+print "BUBBLES_PLAIN_CSIS=".join(' ', map {"$proj/k$_/bubbles_plain/bubbles.norm.vcf.gz.csi"} @kmers)."\n";
+print "BREAKPOINTS_LINKS_VCFS=".join(' ', map {"$proj/k$_/breakpoints/breakpoints.norm.vcf.gz"} @kmers)."\n";
+print "BREAKPOINTS_LINKS_CSIS=".join(' ', map {"$proj/k$_/breakpoints/breakpoints.norm.vcf.gz.csi"} @kmers)."\n";
+print "BREAKPOINTS_PLAIN_VCFS=".join(' ', map {"$proj/k$_/breakpoints_plain/breakpoints.norm.vcf.gz"} @kmers)."\n";
+print "BREAKPOINTS_PLAIN_CSIS=".join(' ', map {"$proj/k$_/breakpoints_plain/breakpoints.norm.vcf.gz.csi"} @kmers)."\n";
+print "\n";
 
 my @dirlist = ();
 for my $k (@kmers) {
@@ -246,39 +383,14 @@ print 'DIRS='.join(" \\\n     ", @dirlist).'
 
 COVG_CSV_FILES=$(RAW_GRAPHS:.raw.ctx=.raw.covg.csv)
 
-# .csi are index files (for VCF in this case)
-BUBBLES_LINKS_VCFS=$(BUBBLES_LINKS:.txt.gz=.norm.vcf.gz)
-BUBBLES_LINKS_CSIS=$(BUBBLES_LINKS_VCFS:=.csi)
-BREAKPOINTS_LINKS_VCFS=$(BREAKPOINTS_LINKS:.txt.gz=.norm.vcf.gz)
-BREAKPOINTS_LINKS_CSIS=$(BREAKPOINTS_LINKS_VCFS:=.csi)
-
-BUBBLES_PLAIN_VCFS=$(BUBBLES_PLAIN:.txt.gz=.norm.vcf.gz)
-BUBBLES_PLAIN_CSIS=$(BUBBLES_PLAIN_VCFS:=.csi)
-BREAKPOINTS_PLAIN_VCFS=$(BREAKPOINTS_PLAIN:.txt.gz=.norm.vcf.gz)
-BREAKPOINTS_PLAIN_CSIS=$(BREAKPOINTS_PLAIN_VCFS:=.csi)
-
-CALL_FILES=$(BUBBLES_LINKS) $(BUBBLES_PLAIN) $(BREAKPOINTS_LINKS) $(BREAKPOINTS_PLAIN)
-RAW_VCFS=$(CALL_FILES:.txt.gz=.raw.vcf)
-
-# CALL_VCFS=$(CALL_FILES:.txt.gz=.norm.vcf.gz)
-# CALL_CSIS=$(BUBBLES_LINKS_CSIS) $(BREAKPOINTS_LINKS_CSIS)
-# VCF_TMP_FILES=$(BUBBLES:.txt.gz=.flanks.fa.gz) $(BUBBLES:.txt.gz=.flanks.sam) \
-#               $(CALL_FILES:.txt.gz=.sort.vcf) $(CALL_FILES:.txt.gz=.norm.vcf)
-
 # Referece Graphs
 ';
 
-if(defined($ref_path)) {
-  for my $k (@kmers) { print "REF_GRAPH_K$k=$proj/k$k/ref/ref.ctx\n"; }
-} else {
-  for my $k (@kmers) { print "REF_GRAPH_K$k=\n"; }
+for my $k (@kmers) {
+  print "REF_GRAPH_K$k=".refonly("$proj/k$k/ref/ref.ctx")."\n";
 }
 
-print '# REF_GRAPHS='.join(' ', map {'$(REF_GRAPH_K'.$_.')'} @kmers).'
-
-# HAVE_LOGS=$(RAW_GRAPHS) $(CLEAN_GRAPHS) $(CLEAN_UNITIGS) $(REF_GRAPHS) $(RAW_LINKS) $(CLEAN_SE_LINKS) $(CLEAN_PE_LINKS) $(LINK_TMP_FILES) $(CALL_FILES) $(RAW_VCFS)
-# LOG_FILES=$(HAVE_LOGS:=.log)
-
+print '
 # Mark all dependencies as secondary
 # It means don\'t re-run if the dependency file disappears -- allows us to delete unused files
 .SECONDARY:
@@ -297,13 +409,21 @@ unitigs: $(CLEAN_UNITIGS) | checks
 
 links: $(FINAL_LINKS) | checks
 
-bubbles: links-bubbles
-bubbles-vcf: links-bubbles-vcf
-breakpoints: links-breakpoints
-breakpoints-vcf: links-breakpoints-vcf
+bubbles: $(BUBBLES) | checks
+';
 
-links-bubbles: $(BUBBLES_LINKS) | checks
-plain-bubbles: $(BUBBLES_PLAIN) | checks
+if(defined($ref_path)) {
+  print 'bubbles-vcf: $(BUBBLES_UNION_VCFS) | checks
+breakpoints: $(BREAKPOINTS) | checks
+breakpoints-vcf: $(BREAKPOINTS_UNION_VCFS) | checks
+';
+} else {
+  for my $tgt (qw(bubbles-vcf breakpoints breakpoints-vcf)) {
+    print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
+  }
+}
+
+print 'vcfs: bubbles-vcf breakpoints-vcf
 
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
@@ -313,35 +433,16 @@ my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
   print "\t@[ -x \$(CTXDIR)/bin/mccortex$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
 }
-print "\n";
 
-# Can only create VCFs if we have a reference
-if(defined($ref_path)) {
-  print "links-breakpoints: \$(BREAKPOINTS_LINKS)\n\n";
-  print "plain-breakpoints: \$(BREAKPOINTS_PLAIN)\n\n";
-  print "links-bubbles-vcf: $union_bubble_links_vcf $union_bubble_links_vcf.csi\n\n";
-  print "links-breakpoints-vcf: $union_brkpnt_links_vcf $union_brkpnt_links_vcf.csi\n\n";
-  print "plain-bubbles-vcf: $union_bubble_plain_vcf $union_bubble_plain_vcf.csi\n\n";
-  print "plain-breakpoints-vcf: $union_brkpnt_plain_vcf $union_brkpnt_plain_vcf.csi\n\n";
-} else {
-  my @tgts = qw(links-breakpoints     plain-breakpoints
-                links-breakpoints-vcf plain-breakpoints-vcf
-                links-bubbles-vcf     plain-bubbles-vcf);
-  for my $tgt (@tgts) {
-    print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
-  }
-}
-
-print "\$(DIRS):
+print "
+\$(DIRS):
 \tmkdir -p \$@
 
 clean:
 \t\@echo To delete: rm -rf $proj
 
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
-.PHONY: bubbles breakpoints bubbles-vcf breakpoints-vcf
-.PHONY: links-bubbles links-breakpoints links-bubbles-vcf links-breakpoints-vcf
-.PHONY: plain-bubbles plain-breakpoints plain-bubbles-vcf plain-breakpoints-vcf
+.PHONY: bubbles breakpoints bubbles-vcf breakpoints-vcf vcfs
 
 ";
 
@@ -598,6 +699,8 @@ print STDERR "  --dry-run             List commands, don't run them\n";
 print STDERR "  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex\n";
 print STDERR "  MEM=<MEM>             Maximum memory to use e.g. MEM=80G\n";
 print STDERR "  NTHREADS=<N>          Maximum number of job threads to use\n";
+print STDERR "  USE_LINKS=<B>         <B> is 'yes' or 'no'\n";
+print STDERR "  JOINT_CALLING=<B>     <B> is 'yes' or 'no'\n";
 print STDERR "\n";
 
 # Done!

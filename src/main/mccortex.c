@@ -61,12 +61,12 @@ CtxCmd cmdobjs[] = {
   .usage = join_usage
 },
 {
-  .cmd = "supernodes", .func = ctx_supernodes, .hide = false,
+  .cmd = "supernodes", .func = ctx_supernodes, .hide = true,
   .blurb = "pull out unitigs",
   .usage = supernodes_usage
 },
 { // alias for supernodes
-  .cmd = "unitigs", .func = ctx_supernodes, .hide = true,
+  .cmd = "unitigs", .func = ctx_supernodes, .hide = false,
   .blurb = "pull out unitigs",
   .usage = supernodes_usage
 },

@@ -916,8 +916,8 @@ static void flanks_sam_open()
 static void flanks_sam_close()
 {
   sam_close(samfh);
-  free(bam_header);
-  free(bamentry);
+  bam_hdr_destroy(bam_header);
+  bam_destroy1(bamentry);
 }
 
 static cJSON* read_input_header(gzFile gzin)

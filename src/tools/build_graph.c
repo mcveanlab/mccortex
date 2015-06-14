@@ -34,8 +34,8 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
                                 LoadingStats *stats, dBGraph *db_graph)
 {
   // Remove SAM/BAM duplicates
-  if(r1->from_sam && r1->bam->core.flag & BAM_FDUP &&
-     (r2 == NULL || (r2->from_sam && r2->bam->core.flag & BAM_FDUP))) {
+  if(r1->from_sam && seq_read_bam(r1)->core.flag & BAM_FDUP &&
+     (r2 == NULL || (r2->from_sam && seq_read_bam(r2)->core.flag & BAM_FDUP))) {
     return false;
   }
 
