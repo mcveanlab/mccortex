@@ -97,6 +97,8 @@ exit(0);
 # Functions
 #
 
+# breakpoints go l0->[seq0]->r0 and l1->[seq1]->r1
+# coords are loaded as 1-based, stored as 1-based
 sub load_breakpoints
 {
   my ($path) = @_;
