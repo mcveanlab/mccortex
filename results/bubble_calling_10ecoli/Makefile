@@ -9,7 +9,7 @@ SIMMUT=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_mutations.pl
 SIMTRUTH=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_vcf.pl
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
-VCFALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
+VCFISEC=$(CTXDIR)/scripts/make-isec.sh
 
 K=21
 HAPDEPTH=50
@@ -77,39 +77,18 @@ task.k$(K).mk: samples.txt
 
 run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) bubblevcf
-	$(BCFTOOLS) isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.k$(K).vcf.gz -p truthisec
-	@A=`$(VCFALLELES) truthisec/0000.vcf`; \
-	 B=`$(VCFALLELES) truthisec/0001.vcf`; \
-	 C=`$(VCFALLELES) truthisec/0002.vcf`; \
-	MC=`$(VCFALLELES) proj/vcfs/bubbles.k$(K).vcf.gz`; \
-	NT=`$(VCFALLELES) truth.k$(K).norm.vcf.gz`; \
-	awk 'BEGIN{printf("McCortex Missed: %4d / %4d (%5.2f%%)\n",'$$A','$$NT',100*'$$A'/'$$NT')}'; \
-	awk 'BEGIN{printf("McCortex FP:     %4d / %4d (%5.2f%%)\n",'$$B','$$MC',100*'$$B'/'$$MC')}'; \
-	awk 'BEGIN{printf("McCortex Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
+	@echo "McCortex Bubbles (joint+links) found:"
+	$(VCFISEC) mc_isec_bub_joint_links truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.links.k$(K).vcf.gz
 
 run-cortex:
 	cd cortex && $(MAKE) K=$(K)
-	$(BCFTOOLS) isec truth.k$(K).norm.vcf.gz cortex/cortex.k$(K).norm.vcf.gz -p truthisec2
-	@A=`$(VCFALLELES) truthisec2/0000.vcf`; \
-	 B=`$(VCFALLELES) truthisec2/0001.vcf`; \
-	 C=`$(VCFALLELES) truthisec2/0002.vcf`; \
-	CT=`$(VCFALLELES) cortex/cortex.k$(K).norm.vcf.gz`; \
-	NT=`$(VCFALLELES) truth.k$(K).norm.vcf.gz`; \
-	awk 'BEGIN{printf("Cortex Missed: %4d / %4d (%5.2f%%)\n",'$$A','$$NT',100*'$$A'/'$$NT')}'; \
-	awk 'BEGIN{printf("Cortex FP:     %4d / %4d (%5.2f%%)\n",'$$B','$$CT',100*'$$B'/'$$CT')}'; \
-	awk 'BEGIN{printf("Cortex Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
+	@echo "Cortex Bubble Caller found:"
+	$(VCFISEC) ctx_isec_bub_joint_links truth.k$(K).norm.vcf.gz cortex/cortex.k$(K).norm.vcf.gz
 
 run-mccortex-brkpt: task.k$(K).mk $(TRUTH_FILES) $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) breakpointvcf
-	$(BCFTOOLS) isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.k$(K).vcf.gz -p truthisec
-	@A=`$(VCFALLELES) truthisec/0000.vcf`; \
-	 B=`$(VCFALLELES) truthisec/0001.vcf`; \
-	 C=`$(VCFALLELES) truthisec/0002.vcf`; \
-	MC=`$(VCFALLELES) proj/vcfs/breakpoints.k$(K).vcf.gz`; \
-	NT=`$(VCFALLELES) truth.k$(K).norm.vcf.gz`; \
-	awk 'BEGIN{printf("McCortex-brkpt Missed: %4d / %4d (%5.2f%%)\n",'$$A','$$NT',100*'$$A'/'$$NT')}'; \
-	awk 'BEGIN{printf("McCortex-brkpt FP:     %4d / %4d (%5.2f%%)\n",'$$B','$$MC',100*'$$B'/'$$MC')}'; \
-	awk 'BEGIN{printf("McCortex-brkpt Found:  %4d / %4d (%5.2f%%)\n",'$$C','$$NT',100*'$$C'/'$$NT')}';
+	@echo "McCortex Breakpoints (joint+links) found:"
+	$(VCFISEC) ctx_isec_bub_joint_links truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.links.k$(K).vcf.gz
 
 $(DIRS):
 	mkdir -p $@
