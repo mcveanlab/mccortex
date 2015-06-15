@@ -1,0 +1,65 @@
+make -f task.k21.mk CTXDIR=../.. MEM=2G bubblevcf
+make[1]: Entering directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli'
+../../bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles/bubbles.flanks.sam -o proj/k21/bubbles/bubbles.raw.vcf proj/k21/bubbles/bubbles.txt.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles/bubbles.raw.vcf.log
+../../scripts/bash/vcf-sort proj/k21/bubbles/bubbles.raw.vcf > proj/k21/bubbles/bubbles.sort.vcf
+../../libs/bcftools/bcftools norm -w 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles/bubbles.sort.vcf | \
+	../../scripts/bash/vcf-rename > proj/k21/bubbles/bubbles.norm.vcf
+Lines total/modified/skipped:	1255116/8387/0
+../../libs/htslib/bgzip -f proj/k21/bubbles/bubbles.norm.vcf
+../../libs/bcftools/bcftools index -f proj/k21/bubbles/bubbles.norm.vcf.gz
+../../libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates proj/k21/bubbles/bubbles.norm.vcf.gz | \
+	../../scripts/bash/vcf-rename | ../../libs/bcftools/bcftools view --output-type z --output-file proj/vcfs/bubbles.k21.vcf.gz -
+../../libs/bcftools/bcftools index -f proj/vcfs/bubbles.k21.vcf.gz
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli'
+../../libs/bcftools/bcftools isec truth.k21.norm.vcf.gz proj/vcfs/bubbles.k21.vcf.gz -p truthisec
+McCortex Missed: 3397 / 45789 ( 7.42%)
+McCortex FP:     3748 / 46140 ( 8.12%)
+McCortex Found:  42392 / 45789 (92.58%)
+cd cortex && make K=21
+make[1]: Entering directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli/cortex'
+echo `pwd`/../reads/chrom0.50X.1.fa.gz > lists/reads0.1.falist
+echo `pwd`/../reads/chrom1.50X.1.fa.gz > lists/reads1.1.falist
+echo `pwd`/../reads/chrom2.50X.1.fa.gz > lists/reads2.1.falist
+echo `pwd`/../reads/chrom3.50X.1.fa.gz > lists/reads3.1.falist
+echo `pwd`/../reads/chrom4.50X.1.fa.gz > lists/reads4.1.falist
+echo `pwd`/../reads/chrom5.50X.1.fa.gz > lists/reads5.1.falist
+echo `pwd`/../reads/chrom6.50X.1.fa.gz > lists/reads6.1.falist
+echo `pwd`/../reads/chrom7.50X.1.fa.gz > lists/reads7.1.falist
+echo `pwd`/../reads/chrom8.50X.1.fa.gz > lists/reads8.1.falist
+echo `pwd`/../reads/chrom9.50X.1.fa.gz > lists/reads9.1.falist
+echo `pwd`/../reads/chrom0.50X.2.fa.gz > lists/reads0.2.falist
+echo `pwd`/../reads/chrom1.50X.2.fa.gz > lists/reads1.2.falist
+echo `pwd`/../reads/chrom2.50X.2.fa.gz > lists/reads2.2.falist
+echo `pwd`/../reads/chrom3.50X.2.fa.gz > lists/reads3.2.falist
+echo `pwd`/../reads/chrom4.50X.2.fa.gz > lists/reads4.2.falist
+echo `pwd`/../reads/chrom5.50X.2.fa.gz > lists/reads5.2.falist
+echo `pwd`/../reads/chrom6.50X.2.fa.gz > lists/reads6.2.falist
+echo `pwd`/../reads/chrom7.50X.2.fa.gz > lists/reads7.2.falist
+echo `pwd`/../reads/chrom8.50X.2.fa.gz > lists/reads8.2.falist
+~/cortex/releases/CORTEX_release_v1.0.5.21/scripts/calling/run_calls.pl \
+--first_kmer 21 \
+--last_kmer 21 \
+--kmer_step 2 \
+--fastaq_index samples.txt \
+--auto_cleaning yes \
+--bc yes \
+--pd no \
+--outdir cortex_run \
+--outvcf ecoli \
+--ploidy 2 \
+--stampy_hash ref/ecoli \
+--stampy_bin /apps/well/stampy/1.0.23-py2.6/stampy.py \
+--list_ref_fasta ref/ref.falist \
+--refbindir ref/ \
+--genome_size 1000000 \
+--qthresh 5 \
+--mem_height 20 --mem_width 100 \
+--vcftools_dir ~/bioinf/vcftools_0.1.12b/ \
+--do_union yes \
+--ref CoordinatesAndInCalling \
+--workflow independent \
+--logfile runcalls.k21.log
+Abort. run_calls.pl will either output its logs to a file called "default_logfile", or if you have specified --logfile, then it outputs to whatever you specify. However this file runcalls.k21.log, already exists. Specify another, or delete this one
+make[1]: *** [cortex_run/vcfs/ecoli_union_BC_calls_k21.decomp.vcf] Error 255
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli/cortex'
+make: *** [run-cortex] Error 2

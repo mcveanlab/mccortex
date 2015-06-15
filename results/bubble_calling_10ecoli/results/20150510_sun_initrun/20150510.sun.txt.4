@@ -1,0 +1,8 @@
+make -f task.k21.mk CTXDIR=../.. MEM=2G breakpointvcf
+make[1]: Entering directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli'
+make[1]: Nothing to be done for `breakpointvcf'.
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli'
+../../libs/bcftools/bcftools isec truth.k21.norm.vcf.gz proj/vcfs/breakpoints.k21.vcf.gz -p truthisec
+McCortex-brkpt Missed: 1557 / 45789 ( 3.40%)
+McCortex-brkpt FP:      238 / 44470 ( 0.54%)
+McCortex-brkpt Found:  44232 / 45789 (96.60%)

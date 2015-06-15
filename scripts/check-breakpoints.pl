@@ -10,7 +10,6 @@ use FindBin;
 use lib $FindBin::Bin;
 use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
-use FASTNFile;
 use GeneticsModule;
 use UsefulModule;
 use CortexBreakpoints;
@@ -35,27 +34,7 @@ if(@ARGV != 2) { print_usage(); }
 my ($truth_path, $brkpnt_path) = @ARGV;
 
 # Load breakpoints
-my @brkpnts = ();
-open(TXT, $truth_path) or die("Cannot open $truth_path");
-my $line;
-while(defined($line = <TXT>)) {
-  chomp($line);
-  if($line !~ /^#/ && length($line) > 0) {
-    if($line =~ /^([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t([ACGT]*)\t([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t?([ACGT]*)$/) {
-      my $id = @brkpnts;
-      push(@brkpnts, {'lchr0' => $1, 'lpos0' => $2, 'lstrand0' => $3,
-                      'rchr0' => $4, 'rpos0' => $5, 'rstrand0' => $6,
-                      'seq0' => $7,
-                      'lchr1' => $8, 'lpos1' => $9, 'lstrand1' => $10,
-                      'rchr1' => $11, 'rpos1' => $12, 'rstrand1' => $13,
-                      'seq1' => $14,
-                      'id' => $id, 'counts' => [0, 0]});
-    } else {
-      die("Bad line: '$line'");
-    }
-  }
-}
-close(TXT);
+my @brkpnts = load_breakpoints($truth_path);
 
 my $num_fp = 0;
 my $total_calls = 0;
@@ -109,6 +88,42 @@ print "Found ".pretty_fraction($num_found, $nbrkpnts)." breakpoints with " .
       "(" . sprintf('%.2f', $num_found ? $total_hits/$num_found : 0) . " per break)\n";
 print "$num_fp false positives\n";
 print "$num_with_seq calls had sequence between flanks\n";
+
+# Done
+exit(0);
+
+
+#
+# Functions
+#
+
+sub load_breakpoints
+{
+  my ($path) = @_;
+  open(TXT, $path) or die("Cannot open $path");
+  my $line;
+  my @breaks = ();
+  while(defined($line = <TXT>)) {
+    chomp($line);
+    if($line !~ /^#/ && length($line) > 0) {
+      if($line =~ /^([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t([ACGT]*)\t([^:]*):(\d+):([\+\-])\t([^:]*):(\d+):([\+\-])\t?([ACGT]*)$/) {
+        my $id = @breaks;
+        push(@breaks, {'lchr0' => $1, 'lpos0' => $2, 'lstrand0' => $3,
+                       'rchr0' => $4, 'rpos0' => $5, 'rstrand0' => $6,
+                       'seq0' => $7,
+                       'lchr1' => $8, 'lpos1' => $9, 'lstrand1' => $10,
+                       'rchr1' => $11, 'rpos1' => $12, 'rstrand1' => $13,
+                       'seq1' => $14,
+                       'id' => $id, 'counts' => [0, 0]});
+      } else {
+        die("Bad line: '$line'");
+      }
+    }
+  }
+  close(TXT);
+  return @breaks;
+}
+
 
 # Find the largest match to the ref
 # get_largest_match($is5p, $flank5plen, @alignments)

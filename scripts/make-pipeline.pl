@@ -288,10 +288,10 @@ endif
 #
 
 # Use links is default on
-ifeq ($(USE_LINKS),"yes")
+ifeq ($(USE_LINKS),yes)
   LINKS=1
 endif
-ifeq ($(USE_LINKS),"1")
+ifeq ($(USE_LINKS),1)
   LINKS=1
 endif
 ifndef USE_LINKS
@@ -299,10 +299,10 @@ ifndef USE_LINKS
 endif
 
 # Joint calling is default on
-ifeq ($(JOINT_CALLING),"yes")
+ifeq ($(JOINT_CALLING),yes)
   JOINT=1
 endif
-ifeq ($(JOINT_CALLING),"1")
+ifeq ($(JOINT_CALLING),1)
   JOINT=1
 endif
 ifndef JOINT_CALLING
@@ -689,7 +689,7 @@ if(defined($ref_path))
 
     print "# bubbles raw VCF k=$k\n";
     print "$proj/k$k/%.flanks.fa.gz: $proj/k$k/%.bub.gz\n";
-    print "\t\$(CTXFLANKS) \$< > \$@\n\n";
+    print "\t\$(CTXFLANKS) \$< | gzip -c > \$@\n\n";
 
     print "$proj/k$k/%.bub.raw.vcf: $proj/k$k/%.bub.gz $proj/k$k/%.flanks.sam \$(REF_FILE)\n";
     print "\t$ctx calls2vcf \$(CALL2VCF_ARGS) -F $proj/k$k/\$*.flanks.sam -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";

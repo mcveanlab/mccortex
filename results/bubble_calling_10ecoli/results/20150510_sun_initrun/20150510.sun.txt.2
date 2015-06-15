@@ -1,0 +1,43 @@
+make -f task.k21.mk CTXDIR=../.. MEM=2G bubblevcf
+make[1]: Entering directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli'
+../../bin/mccortex31 bubbles  -m 2G -t 2 --haploid 10 -o proj/k21/bubbles/bubbles.txt.gz -p 0:proj/k21/links/Ecoli0.pe.clean.ctp.gz -p 1:proj/k21/links/Ecoli1.pe.clean.ctp.gz -p 2:proj/k21/links/Ecoli2.pe.clean.ctp.gz -p 3:proj/k21/links/Ecoli3.pe.clean.ctp.gz -p 4:proj/k21/links/Ecoli4.pe.clean.ctp.gz -p 5:proj/k21/links/Ecoli5.pe.clean.ctp.gz -p 6:proj/k21/links/Ecoli6.pe.clean.ctp.gz -p 7:proj/k21/links/Ecoli7.pe.clean.ctp.gz -p 8:proj/k21/links/Ecoli8.pe.clean.ctp.gz -p 9:proj/k21/links/Ecoli9.pe.clean.ctp.gz proj/k21/graphs/Ecoli0.clean.ctx proj/k21/graphs/Ecoli1.clean.ctx proj/k21/graphs/Ecoli2.clean.ctx proj/k21/graphs/Ecoli3.clean.ctx proj/k21/graphs/Ecoli4.clean.ctx proj/k21/graphs/Ecoli5.clean.ctx proj/k21/graphs/Ecoli6.clean.ctx proj/k21/graphs/Ecoli7.clean.ctx proj/k21/graphs/Ecoli8.clean.ctx proj/k21/graphs/Ecoli9.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles/bubbles.txt.gz.log
+../../scripts/cortex_print_flanks.sh proj/k21/bubbles/bubbles.txt.gz > proj/k21/bubbles/bubbles.flanks.fa.gz
+../../libs/bwa/bwa index ../data/ecoli/ecoli.fa
+[bwa_index] Pack FASTA... 0.09 sec
+[bwa_index] Construct BWT for the packed sequence...
+[bwa_index] 1.25 seconds elapse.
+[bwa_index] Update BWT... 0.04 sec
+[bwa_index] Pack forward-only FASTA... 0.02 sec
+[bwa_index] Construct SA from BWT and Occ... 0.41 sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../../libs/bwa/bwa index ../data/ecoli/ecoli.fa
+[main] Real time: 1.821 sec; CPU: 1.816 sec
+../../libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles/bubbles.flanks.fa.gz > proj/k21/bubbles/bubbles.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 99796 sequences (10000018 bp)...
+[M::process] read 100062 sequences (10000189 bp)...
+[M::mem_process_seqs] Processed 99796 reads in 2.753 CPU sec, 2.624 real sec
+[M::process] read 100794 sequences (10000292 bp)...
+[M::mem_process_seqs] Processed 100062 reads in 3.223 CPU sec, 2.959 real sec
+[M::process] read 103168 sequences (10000026 bp)...
+[M::mem_process_seqs] Processed 100794 reads in 3.105 CPU sec, 2.741 real sec
+[M::process] read 102386 sequences (10000242 bp)...
+[M::mem_process_seqs] Processed 103168 reads in 3.078 CPU sec, 2.809 real sec
+[M::process] read 59228 sequences (5753954 bp)...
+[M::mem_process_seqs] Processed 102386 reads in 3.184 CPU sec, 2.861 real sec
+[M::mem_process_seqs] Processed 59228 reads in 1.903 CPU sec, 1.702 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../../libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles/bubbles.flanks.fa.gz
+[main] Real time: 15.938 sec; CPU: 17.453 sec
+../../bin/mccortex31 calls2vcf -F proj/k21/bubbles/bubbles.flanks.sam -o proj/k21/bubbles/bubbles.raw.vcf proj/k21/bubbles/bubbles.txt.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles/bubbles.raw.vcf.log
+../../scripts/bash/vcf-sort proj/k21/bubbles/bubbles.raw.vcf > proj/k21/bubbles/bubbles.sort.vcf
+../../libs/bcftools/bcftools norm --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles/bubbles.sort.vcf | \
+	../../scripts/bash/vcf-rename > proj/k21/bubbles/bubbles.norm.vcf
+Lines total/modified/skipped:	1255225/8407/0
+../../libs/htslib/bgzip -f proj/k21/bubbles/bubbles.norm.vcf
+../../libs/bcftools/bcftools index -f proj/k21/bubbles/bubbles.norm.vcf.gz
+[E::hts_idx_push] unsorted positions
+[E::main_vcfindex] tbx_index_build failed for proj/k21/bubbles/bubbles.norm.vcf.gz
+make[1]: *** [proj/k21/bubbles/bubbles.norm.vcf.gz.csi] Error 1
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/ninja-cortex/results/bubble_calling_10ecoli'
+make: *** [run-mccortex] Error 2
