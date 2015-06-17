@@ -44,7 +44,11 @@ void gpath_subset_load_llist(GPathSubset *subset, GPath *first)
 {
   while(first != NULL)
   {
-    gpath_ptr_buf_add(&subset->list, first);
+    // Only add to set if count is >0
+    if(!gpath_set_has_nseen(subset->gpset) ||
+       gpath_set_get_nseen(subset->gpset, first)) {
+      gpath_ptr_buf_add(&subset->list, first);
+    }
     first = first->next;
   }
 }

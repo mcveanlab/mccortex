@@ -588,7 +588,7 @@ for my $k (@kmers) {
     # 2. If we have any paired end reads, add that information in a second pass
     if(@{$sample->{'pe_files'}} > 0 || @{$sample->{'i_files'}} > 0) {
       print "$ctp_pe_raw_file: $ctx_clean_file $ctp_se_clean_file @pe_files | \$(DIRS)\n";
-      print "\t$ctx thread \$(CTX_ARGS) \$(THREAD_ARGS) -p $ctp_se_clean_file " .
+      print "\t$ctx thread \$(CTX_ARGS) \$(THREAD_ARGS) -p $ctp_se_clean_file --zero-paths " .
               join(' ', (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
                         (map {"--seqi $_"}              @{$sample->{'i_files'}})) .
               ' -o $@ $< >& $@.log'."\n\n";

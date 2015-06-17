@@ -26,6 +26,8 @@ const char thread_usage[] =
 "  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
+"  -0, --zero-paths         Zero counts on initially loaded paths. Use if existing\n"
+"                           paths were built from sequence being re-used by this run\n"
 "\n"
 "  Input:\n"
 "  -1, --seq <in.fa>        Thread reads from file (supports sam,bam,fq,*.gz\n"
@@ -68,6 +70,7 @@ static struct option longopts[] =
   {"nkmers",        required_argument, NULL, 'n'},
   {"threads",       required_argument, NULL, 't'},
   {"paths",         required_argument, NULL, 'p'},
+  {"zero-paths",    no_argument,       NULL, '0'},
 // command specific
   {"seq",           required_argument, NULL, '1'},
   {"seq2",          required_argument, NULL, '2'},
@@ -108,6 +111,9 @@ int ctx_thread(int argc, char **argv)
   GPathFileBuffer *gpfiles = &args.gpfiles;
   CorrectAlnInputBuffer *inputs = &args.inputs;
   size_t i;
+
+  if(args.zero_link_counts && gpfiles->len == 0)
+    cmd_print_usage("-0,--zero-paths without -p,--paths <in.ctp> has no meaning");
 
   // Check each path file only loads one colour
   gpaths_only_for_colour(gpfiles->b, gpfiles->len, 0);
@@ -224,6 +230,12 @@ int ctx_thread(int argc, char **argv)
   // Load existing paths
   for(i = 0; i < gpfiles->len; i++)
     gpath_reader_load(&gpfiles->b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
+
+  // zero link counts of already loaded links
+  if(args.zero_link_counts) {
+    status("Zeroing link counts for loaded links");
+    gpath_set_zero_nseen(&db_graph.gpstore.gpset);
+  }
 
   if(!args.use_new_paths)
     gpath_store_split_read_write(&db_graph.gpstore);

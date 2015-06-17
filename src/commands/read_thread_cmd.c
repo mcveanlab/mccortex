@@ -61,6 +61,11 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         gpath_reader_open(&tmp_gpfile, optarg);
         gpfile_buf_push(&args->gpfiles, &tmp_gpfile, 1);
         break;
+      case '0':
+        if(correct_cmd) cmd_print_usage("Invalid zero option: %s", cmd);
+        cmd_check(!args->zero_link_counts, cmd);
+        args->zero_link_counts = true;
+        break;
       case 't':
         cmd_check(!args->nthreads, cmd);
         args->nthreads = cmd_uint32_nonzero(cmd, optarg);
@@ -86,7 +91,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         else if(!strcmp(optarg,"FR")) task.matedir = READPAIR_FR;
         else if(!strcmp(optarg,"RF")) task.matedir = READPAIR_RF;
         else if(!strcmp(optarg,"RR")) task.matedir = READPAIR_RR;
-        else die("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
+        else cmd_print_usage("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
         used = 0; break;
       case 'O': fq_offset = cmd_uint8(cmd, optarg); used = 0; break;
       case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); used = 0; break;

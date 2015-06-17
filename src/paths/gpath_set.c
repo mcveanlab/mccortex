@@ -237,6 +237,13 @@ GPath* gpath_set_add_mt(GPathSet *gpset, GPathNew newgpath)
   return gpath;
 }
 
+// Reset all counts to zero
+void gpath_set_zero_nseen(GPathSet *gpset)
+{
+  memset(gpset->nseen_buf.b, 0,
+         gpset->nseen_buf.len * sizeof(gpset->nseen_buf.b[0]));
+}
+
 GPathNew gpath_set_get(const GPathSet *gpset, const GPath *gpath)
 {
   GPathNew newgpath = {.seq = gpath->seq,

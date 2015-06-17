@@ -69,6 +69,8 @@ void gpath_set_nseen_sum_mt(const GPath *dst, GPathSet *dstset,
 void gpath_set_nseen_sum2_mt(GPath *dst, GPathSet *dstset,
                              const uint8_t *src_nseen);
 
+// Reset all counts to zero
+void gpath_set_zero_nseen(GPathSet *gpset);
 
 GPathNew gpath_set_get(const GPathSet *gpset, const GPath *gpath);
 
