@@ -1,0 +1,36 @@
+Missed: 2415 / 45789 ( 5.27%)
+FP:      384 / 43758 ( 0.88%)
+Found:  43374 / 45789 (94.73%)
+remember to delete temp dir: isec_1by1_cortex
+Missed: 2232 / 45789 ( 4.87%)
+FP:      391 / 43948 ( 0.89%)
+Found:  43557 / 45789 (95.13%)
+remember to delete temp dir: isec_brk_1by1_plain
+Missed: 1977 / 45789 ( 4.32%)
+FP:      392 / 44204 ( 0.89%)
+Found:  43812 / 45789 (95.68%)
+remember to delete temp dir: isec_brk_1by1_links
+Missed: 2074 / 45789 ( 4.53%)
+FP:      233 / 43948 ( 0.53%)
+Found:  43715 / 45789 (95.47%)
+remember to delete temp dir: isec_brk_joint_plain
+Missed: 2009 / 45789 ( 4.39%)
+FP:      233 / 44013 ( 0.53%)
+Found:  43780 / 45789 (95.61%)
+remember to delete temp dir: isec_brk_joint_links
+Missed: 1716 / 45789 ( 3.75%)
+FP:     3327 / 47400 ( 7.02%)
+Found:  44073 / 45789 (96.25%)
+remember to delete temp dir: isec_bub_1by1_plain
+Missed: 1672 / 45789 ( 3.65%)
+FP:     4068 / 48185 ( 8.44%)
+Found:  44117 / 45789 (96.35%)
+remember to delete temp dir: isec_bub_1by1_links
+Missed: 3746 / 45789 ( 8.18%)
+FP:     3180 / 45223 ( 7.03%)
+Found:  42043 / 45789 (91.82%)
+remember to delete temp dir: isec_bub_joint_plain
+Missed: 3688 / 45789 ( 8.05%)
+FP:     3363 / 45464 ( 7.40%)
+Found:  42101 / 45789 (91.95%)
+remember to delete temp dir: isec_bub_joint_links

@@ -1,0 +1,371 @@
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli0.bub.gz proj/k21/graphs/Ecoli0.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli0.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli0.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli0.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli0.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli0.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32774 sequences (10000078 bp)...
+[M::process] read 32880 sequences (10000480 bp)...
+[M::mem_process_seqs] Processed 32774 reads in 2.874 CPU sec, 2.723 real sec
+[M::process] read 32784 sequences (10000185 bp)...
+[M::mem_process_seqs] Processed 32880 reads in 2.558 CPU sec, 2.332 real sec
+[M::process] read 33212 sequences (10000078 bp)...
+[M::mem_process_seqs] Processed 32784 reads in 2.728 CPU sec, 2.504 real sec
+[M::process] read 32524 sequences (10000019 bp)...
+[M::mem_process_seqs] Processed 33212 reads in 2.701 CPU sec, 2.497 real sec
+[M::process] read 30868 sequences (9645308 bp)...
+[M::mem_process_seqs] Processed 32524 reads in 2.712 CPU sec, 2.490 real sec
+[M::mem_process_seqs] Processed 30868 reads in 2.524 CPU sec, 2.432 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli0.flanks.fa.gz
+[main] Real time: 15.164 sec; CPU: 16.259 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli0.flanks.sam -o proj/k21/bubbles_plain/Ecoli0.bub.raw.vcf proj/k21/bubbles_plain/Ecoli0.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli0.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli0.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli0.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli0.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli0.bub.norm.vcf
+Lines   total/modified/skipped:	121135/842/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli0.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli1.bub.gz proj/k21/graphs/Ecoli1.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli1.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli1.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli1.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli1.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli1.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32370 sequences (10000092 bp)...
+[M::process] read 31910 sequences (10000442 bp)...
+[M::mem_process_seqs] Processed 32370 reads in 2.899 CPU sec, 2.753 real sec
+[M::process] read 32864 sequences (10000099 bp)...
+[M::mem_process_seqs] Processed 31910 reads in 2.616 CPU sec, 2.386 real sec
+[M::process] read 32068 sequences (10000208 bp)...
+[M::mem_process_seqs] Processed 32864 reads in 2.510 CPU sec, 2.285 real sec
+[M::process] read 32290 sequences (10000381 bp)...
+[M::mem_process_seqs] Processed 32068 reads in 2.833 CPU sec, 2.613 real sec
+[M::process] read 31356 sequences (9248726 bp)...
+[M::mem_process_seqs] Processed 32290 reads in 2.495 CPU sec, 2.272 real sec
+[M::mem_process_seqs] Processed 31356 reads in 2.319 CPU sec, 2.222 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli1.flanks.fa.gz
+[main] Real time: 14.844 sec; CPU: 15.951 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli1.flanks.sam -o proj/k21/bubbles_plain/Ecoli1.bub.raw.vcf proj/k21/bubbles_plain/Ecoli1.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli1.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli1.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli1.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli1.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli1.bub.norm.vcf
+Lines   total/modified/skipped:	121520/852/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli1.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli2.bub.gz proj/k21/graphs/Ecoli2.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli2.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli2.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli2.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli2.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli2.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 33288 sequences (10000403 bp)...
+[M::process] read 32796 sequences (10001571 bp)...
+[M::mem_process_seqs] Processed 33288 reads in 2.763 CPU sec, 2.616 real sec
+[M::process] read 32982 sequences (10000473 bp)...
+[M::mem_process_seqs] Processed 32796 reads in 2.599 CPU sec, 2.387 real sec
+[M::process] read 32278 sequences (10001192 bp)...
+[M::mem_process_seqs] Processed 32982 reads in 2.843 CPU sec, 2.599 real sec
+[M::process] read 32644 sequences (10001019 bp)...
+[M::mem_process_seqs] Processed 32278 reads in 3.124 CPU sec, 2.911 real sec
+[M::process] read 32440 sequences (10000200 bp)...
+[M::mem_process_seqs] Processed 32644 reads in 2.868 CPU sec, 2.643 real sec
+[M::process] read 658 sequences (188483 bp)...
+[M::mem_process_seqs] Processed 32440 reads in 2.461 CPU sec, 2.349 real sec
+[M::mem_process_seqs] Processed 658 reads in 0.177 CPU sec, 0.098 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli2.flanks.fa.gz
+[main] Real time: 15.802 sec; CPU: 17.002 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli2.flanks.sam -o proj/k21/bubbles_plain/Ecoli2.bub.raw.vcf proj/k21/bubbles_plain/Ecoli2.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli2.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli2.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli2.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli2.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli2.bub.norm.vcf
+Lines   total/modified/skipped:	124744/990/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli2.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli3.bub.gz proj/k21/graphs/Ecoli3.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli3.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli3.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli3.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli3.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli3.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32448 sequences (10000252 bp)...
+[M::process] read 32574 sequences (10000345 bp)...
+[M::mem_process_seqs] Processed 32448 reads in 3.226 CPU sec, 3.076 real sec
+[M::process] read 32676 sequences (10000180 bp)...
+[M::mem_process_seqs] Processed 32574 reads in 2.843 CPU sec, 2.638 real sec
+[M::process] read 32594 sequences (10001034 bp)...
+[M::mem_process_seqs] Processed 32676 reads in 2.554 CPU sec, 2.317 real sec
+[M::process] read 33086 sequences (10000008 bp)...
+[M::mem_process_seqs] Processed 32594 reads in 2.592 CPU sec, 2.377 real sec
+[M::process] read 32983 sequences (9981642 bp)...
+[M::mem_process_seqs] Processed 33086 reads in 2.580 CPU sec, 2.327 real sec
+[M::mem_process_seqs] Processed 32983 reads in 2.665 CPU sec, 2.581 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli3.flanks.fa.gz
+[main] Real time: 15.620 sec; CPU: 16.734 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli3.flanks.sam -o proj/k21/bubbles_plain/Ecoli3.bub.raw.vcf proj/k21/bubbles_plain/Ecoli3.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli3.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli3.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli3.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli3.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli3.bub.norm.vcf
+Lines   total/modified/skipped:	124176/870/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli3.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli4.bub.gz proj/k21/graphs/Ecoli4.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli4.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli4.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli4.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli4.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli4.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32250 sequences (10001071 bp)...
+[M::process] read 32244 sequences (10000735 bp)...
+[M::mem_process_seqs] Processed 32250 reads in 2.788 CPU sec, 2.644 real sec
+[M::process] read 33038 sequences (10000876 bp)...
+[M::mem_process_seqs] Processed 32244 reads in 2.566 CPU sec, 2.355 real sec
+[M::process] read 32450 sequences (10000713 bp)...
+[M::mem_process_seqs] Processed 33038 reads in 2.531 CPU sec, 2.309 real sec
+[M::process] read 33110 sequences (10000075 bp)...
+[M::mem_process_seqs] Processed 32450 reads in 2.785 CPU sec, 2.581 real sec
+[M::process] read 31003 sequences (9729646 bp)...
+[M::mem_process_seqs] Processed 33110 reads in 2.509 CPU sec, 2.298 real sec
+[M::mem_process_seqs] Processed 31003 reads in 2.653 CPU sec, 2.559 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli4.flanks.fa.gz
+[main] Real time: 15.046 sec; CPU: 16.101 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli4.flanks.sam -o proj/k21/bubbles_plain/Ecoli4.bub.raw.vcf proj/k21/bubbles_plain/Ecoli4.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli4.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli4.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli4.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli4.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli4.bub.norm.vcf
+Lines   total/modified/skipped:	121621/922/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli4.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli5.bub.gz proj/k21/graphs/Ecoli5.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli5.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli5.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli5.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli5.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli5.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32562 sequences (10000306 bp)...
+[M::process] read 32504 sequences (10000118 bp)...
+[M::mem_process_seqs] Processed 32562 reads in 2.735 CPU sec, 2.677 real sec
+[M::process] read 32300 sequences (10000018 bp)...
+[M::mem_process_seqs] Processed 32504 reads in 2.603 CPU sec, 2.391 real sec
+[M::process] read 31898 sequences (10000850 bp)...
+[M::mem_process_seqs] Processed 32300 reads in 2.476 CPU sec, 2.252 real sec
+[M::process] read 31818 sequences (10000521 bp)...
+[M::mem_process_seqs] Processed 31898 reads in 2.844 CPU sec, 2.634 real sec
+[M::process] read 28575 sequences (8951581 bp)...
+[M::mem_process_seqs] Processed 31818 reads in 2.482 CPU sec, 2.267 real sec
+[M::mem_process_seqs] Processed 28575 reads in 2.272 CPU sec, 2.180 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli5.flanks.fa.gz
+[main] Real time: 14.695 sec; CPU: 15.680 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli5.flanks.sam -o proj/k21/bubbles_plain/Ecoli5.bub.raw.vcf proj/k21/bubbles_plain/Ecoli5.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli5.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli5.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli5.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli5.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli5.bub.norm.vcf
+Lines   total/modified/skipped:	119679/900/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli5.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli6.bub.gz proj/k21/graphs/Ecoli6.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli6.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli6.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli6.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli6.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli6.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32344 sequences (10000143 bp)...
+[M::process] read 32412 sequences (10000049 bp)...
+[M::mem_process_seqs] Processed 32344 reads in 2.608 CPU sec, 2.458 real sec
+[M::process] read 32484 sequences (10000475 bp)...
+[M::mem_process_seqs] Processed 32412 reads in 2.301 CPU sec, 2.080 real sec
+[M::process] read 32016 sequences (10000336 bp)...
+[M::mem_process_seqs] Processed 32484 reads in 2.567 CPU sec, 2.324 real sec
+[M::process] read 31970 sequences (10000774 bp)...
+[M::mem_process_seqs] Processed 32016 reads in 2.819 CPU sec, 2.609 real sec
+[M::process] read 29449 sequences (8891299 bp)...
+[M::mem_process_seqs] Processed 31970 reads in 2.492 CPU sec, 2.277 real sec
+[M::mem_process_seqs] Processed 29449 reads in 2.208 CPU sec, 2.118 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli6.flanks.fa.gz
+[main] Real time: 14.081 sec; CPU: 15.181 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli6.flanks.sam -o proj/k21/bubbles_plain/Ecoli6.bub.raw.vcf proj/k21/bubbles_plain/Ecoli6.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli6.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli6.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli6.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli6.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli6.bub.norm.vcf
+Lines   total/modified/skipped:	122170/873/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli6.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli7.bub.gz proj/k21/graphs/Ecoli7.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli7.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli7.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli7.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli7.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli7.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32168 sequences (10001784 bp)...
+[M::process] read 33656 sequences (10002004 bp)...
+[M::mem_process_seqs] Processed 32168 reads in 2.635 CPU sec, 2.487 real sec
+[M::process] read 32846 sequences (10000103 bp)...
+[M::mem_process_seqs] Processed 33656 reads in 2.617 CPU sec, 2.397 real sec
+[M::process] read 33188 sequences (10000394 bp)...
+[M::mem_process_seqs] Processed 32846 reads in 2.453 CPU sec, 2.230 real sec
+[M::process] read 32418 sequences (10000073 bp)...
+[M::mem_process_seqs] Processed 33188 reads in 2.601 CPU sec, 2.380 real sec
+[M::process] read 32395 sequences (9882542 bp)...
+[M::mem_process_seqs] Processed 32418 reads in 2.461 CPU sec, 2.238 real sec
+[M::mem_process_seqs] Processed 32395 reads in 2.379 CPU sec, 2.290 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli7.flanks.fa.gz
+[main] Real time: 14.322 sec; CPU: 15.418 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli7.flanks.sam -o proj/k21/bubbles_plain/Ecoli7.bub.raw.vcf proj/k21/bubbles_plain/Ecoli7.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli7.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli7.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli7.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli7.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli7.bub.norm.vcf
+Lines   total/modified/skipped:	124013/1021/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli7.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli8.bub.gz proj/k21/graphs/Ecoli8.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli8.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli8.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli8.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli8.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli8.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32272 sequences (10000616 bp)...
+[M::process] read 32096 sequences (10000259 bp)...
+[M::mem_process_seqs] Processed 32272 reads in 3.487 CPU sec, 3.338 real sec
+[M::process] read 33558 sequences (10001238 bp)...
+[M::mem_process_seqs] Processed 32096 reads in 2.733 CPU sec, 2.530 real sec
+[M::process] read 32622 sequences (10001112 bp)...
+[M::mem_process_seqs] Processed 33558 reads in 2.444 CPU sec, 2.220 real sec
+[M::process] read 33036 sequences (10001381 bp)...
+[M::mem_process_seqs] Processed 32622 reads in 2.574 CPU sec, 2.348 real sec
+[M::process] read 32290 sequences (9948964 bp)...
+[M::mem_process_seqs] Processed 33036 reads in 2.480 CPU sec, 2.256 real sec
+[M::mem_process_seqs] Processed 32290 reads in 2.673 CPU sec, 2.577 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli8.flanks.fa.gz
+[main] Real time: 15.527 sec; CPU: 16.624 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli8.flanks.sam -o proj/k21/bubbles_plain/Ecoli8.bub.raw.vcf proj/k21/bubbles_plain/Ecoli8.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli8.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli8.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli8.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli8.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli8.bub.norm.vcf
+Lines   total/modified/skipped:	124559/971/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli8.bub.norm.vcf
+../..//bin/mccortex31 bubbles  -m 2G -t 2 --max-allele 3000 --max-flank 1000 --haploid 1 -o proj/k21/bubbles_plain/Ecoli9.bub.gz proj/k21/graphs/Ecoli9.clean.ctx proj/k21/ref/ref.ctx >& proj/k21/bubbles_plain/Ecoli9.bub.gz.log
+../..//scripts/cortex_print_flanks.sh proj/k21/bubbles_plain/Ecoli9.bub.gz | gzip -c > proj/k21/bubbles_plain/Ecoli9.flanks.fa.gz
+../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli9.flanks.fa.gz > proj/k21/bubbles_plain/Ecoli9.flanks.sam
+[M::bwa_idx_load_from_disk] read 0 ALT contigs
+[M::process] read 32326 sequences (10000160 bp)...
+[M::process] read 32034 sequences (10000172 bp)...
+[M::mem_process_seqs] Processed 32326 reads in 2.838 CPU sec, 2.781 real sec
+[M::process] read 32586 sequences (10000054 bp)...
+[M::mem_process_seqs] Processed 32034 reads in 2.795 CPU sec, 2.594 real sec
+[M::process] read 32018 sequences (10000121 bp)...
+[M::mem_process_seqs] Processed 32586 reads in 2.505 CPU sec, 2.287 real sec
+[M::process] read 32670 sequences (10000320 bp)...
+[M::mem_process_seqs] Processed 32018 reads in 2.555 CPU sec, 2.358 real sec
+[M::process] read 33304 sequences (10000435 bp)...
+[M::mem_process_seqs] Processed 32670 reads in 2.479 CPU sec, 2.257 real sec
+[M::process] read 400 sequences (104766 bp)...
+[M::mem_process_seqs] Processed 33304 reads in 2.709 CPU sec, 2.618 real sec
+[M::mem_process_seqs] Processed 400 reads in 0.088 CPU sec, 0.048 real sec
+[main] Version: 0.7.12-r1044
+[main] CMD: ../..//libs/bwa/bwa mem ../data/ecoli/ecoli.fa proj/k21/bubbles_plain/Ecoli9.flanks.fa.gz
+[main] Real time: 15.221 sec; CPU: 16.220 sec
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -F proj/k21/bubbles_plain/Ecoli9.flanks.sam -o proj/k21/bubbles_plain/Ecoli9.bub.raw.vcf proj/k21/bubbles_plain/Ecoli9.bub.gz ../data/ecoli/ecoli.fa >& proj/k21/bubbles_plain/Ecoli9.bub.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/bubbles_plain/Ecoli9.bub.raw.vcf > proj/k21/bubbles_plain/Ecoli9.bub.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/bubbles_plain/Ecoli9.bub.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/bubbles_plain/Ecoli9.bub.norm.vcf
+Lines   total/modified/skipped:	123192/1059/0
+../..//libs/htslib/bgzip -f proj/k21/bubbles_plain/Ecoli9.bub.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli0.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli1.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli2.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli3.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli4.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli5.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli6.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli7.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli8.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/k21/bubbles_plain/Ecoli9.bub.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates proj/k21/bubbles_plain/Ecoli0.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli1.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli2.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli3.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli4.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli5.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli6.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli7.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli8.bub.norm.vcf.gz proj/k21/bubbles_plain/Ecoli9.bub.norm.vcf.gz | \
+	../..//libs/biogrok/vcf-rename | ../..//libs/bcftools/bcftools view --output-type z --output-file proj/vcfs/bubbles.1by1.plain.k21.vcf.gz -
+../..//libs/bcftools/bcftools index -f proj/vcfs/bubbles.1by1.plain.k21.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli0.brk.gz proj/k21/graphs/Ecoli0.clean.ctx >& proj/k21/breakpoints_plain/Ecoli0.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli0.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli0.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli0.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli0.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli0.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli0.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli0.brk.norm.vcf
+Lines   total/modified/skipped:	27764/76/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli0.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli0.brk.norm.vcf.gz
+mkdir -p proj/vcfs/samples
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli0.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli0.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli1.brk.gz proj/k21/graphs/Ecoli1.clean.ctx >& proj/k21/breakpoints_plain/Ecoli1.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli1.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli1.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli1.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli1.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli1.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli1.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli1.brk.norm.vcf
+Lines   total/modified/skipped:	27516/90/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli1.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli1.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli1.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli1.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli2.brk.gz proj/k21/graphs/Ecoli2.clean.ctx >& proj/k21/breakpoints_plain/Ecoli2.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli2.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli2.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli2.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli2.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli2.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli2.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli2.brk.norm.vcf
+Lines   total/modified/skipped:	27920/94/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli2.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli2.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli2.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli2.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli3.brk.gz proj/k21/graphs/Ecoli3.clean.ctx >& proj/k21/breakpoints_plain/Ecoli3.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli3.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli3.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli3.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli3.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli3.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli3.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli3.brk.norm.vcf
+Lines   total/modified/skipped:	27915/92/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli3.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli3.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli3.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli3.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli4.brk.gz proj/k21/graphs/Ecoli4.clean.ctx >& proj/k21/breakpoints_plain/Ecoli4.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli4.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli4.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli4.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli4.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli4.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli4.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli4.brk.norm.vcf
+Lines   total/modified/skipped:	27723/86/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli4.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli4.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli4.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli4.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli5.brk.gz proj/k21/graphs/Ecoli5.clean.ctx >& proj/k21/breakpoints_plain/Ecoli5.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli5.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli5.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli5.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli5.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli5.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli5.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli5.brk.norm.vcf
+Lines   total/modified/skipped:	27473/91/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli5.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli5.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli5.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli5.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli6.brk.gz proj/k21/graphs/Ecoli6.clean.ctx >& proj/k21/breakpoints_plain/Ecoli6.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli6.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli6.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli6.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli6.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli6.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli6.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli6.brk.norm.vcf
+Lines   total/modified/skipped:	27538/58/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli6.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli6.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli6.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli6.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli7.brk.gz proj/k21/graphs/Ecoli7.clean.ctx >& proj/k21/breakpoints_plain/Ecoli7.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli7.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli7.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli7.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli7.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli7.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli7.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli7.brk.norm.vcf
+Lines   total/modified/skipped:	27922/110/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli7.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli7.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli7.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli7.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli8.brk.gz proj/k21/graphs/Ecoli8.clean.ctx >& proj/k21/breakpoints_plain/Ecoli8.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli8.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli8.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli8.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli8.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli8.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli8.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli8.brk.norm.vcf
+Lines   total/modified/skipped:	27837/76/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli8.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli8.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli8.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli8.brk.norm.vcf.gz
+../..//bin/mccortex31 breakpoints  -m 2G -t 2 --minref 20 -s ../data/ecoli/ecoli.fa -o proj/k21/breakpoints_plain/Ecoli9.brk.gz proj/k21/graphs/Ecoli9.clean.ctx >& proj/k21/breakpoints_plain/Ecoli9.brk.gz.log
+../..//bin/mccortex31 calls2vcf --max-align 500 --max-allele 100 --min-mapq 30 -o proj/k21/breakpoints_plain/Ecoli9.brk.raw.vcf proj/k21/breakpoints_plain/Ecoli9.brk.gz ../data/ecoli/ecoli.fa >& proj/k21/breakpoints_plain/Ecoli9.brk.raw.vcf.log
+../..//libs/biogrok/vcf-sort proj/k21/breakpoints_plain/Ecoli9.brk.raw.vcf > proj/k21/breakpoints_plain/Ecoli9.brk.sort.vcf
+../..//libs/bcftools/bcftools norm --site-win 5000 --remove-duplicates --fasta-ref ../data/ecoli/ecoli.fa --multiallelics +both proj/k21/breakpoints_plain/Ecoli9.brk.sort.vcf | \
+	../..//libs/biogrok/vcf-rename > proj/k21/breakpoints_plain/Ecoli9.brk.norm.vcf
+Lines   total/modified/skipped:	27854/96/0
+../..//libs/htslib/bgzip -f proj/k21/breakpoints_plain/Ecoli9.brk.norm.vcf
+../..//libs/bcftools/bcftools index -f proj/k21/breakpoints_plain/Ecoli9.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools concat --allow-overlaps --remove-duplicates --output-type b --output proj/vcfs/samples/Ecoli9.plain.k21.brk.norm.vcf.gz proj/k21/breakpoints_plain/Ecoli9.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli0.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli1.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli2.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli3.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli4.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli5.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli6.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli7.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli8.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools index -f proj/vcfs/samples/Ecoli9.plain.k21.brk.norm.vcf.gz
+../..//libs/bcftools/bcftools merge proj/vcfs/samples/Ecoli0.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli1.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli2.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli3.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli4.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli5.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli6.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli7.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli8.plain.k21.brk.norm.vcf.gz proj/vcfs/samples/Ecoli9.plain.k21.brk.norm.vcf.gz | \
+	../..//libs/biogrok/vcf-rename | ../..//libs/bcftools/bcftools view --output-type z --output-file proj/vcfs/breakpoints.1by1.plain.k21.vcf.gz -
+../..//libs/bcftools/bcftools index -f proj/vcfs/breakpoints.1by1.plain.k21.vcf.gz
