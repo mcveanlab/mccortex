@@ -19,7 +19,7 @@ madcrow_buffer(covg_buf,CovgBuffer,Covg);
 /**
  * Pick a cleaning threshold from kmer coverage histogram. Assumes low coverage
  * kmers are all due to error, to which it fits a gamma distribution. Then
- * chooses a cleaning threshold such than FDR (uncleaned kmers) occur at a rate
+ * chooses a cleaning threshold such that FDR (uncleaned kmers) occur at a rate
  * of < the FDR paramater.
  *
  * Translated from Gil McVean's proposed method in R code
@@ -30,7 +30,7 @@ madcrow_buffer(covg_buf,CovgBuffer,Covg);
  *                  (1/1000 i.e. 0.001 is reasonable)
  * @param alpha_est_ptr If not NULL, used to return estimate for alpha
  * @param beta_est_ptr  If not NULL, used to return estimate for beta
- * @return -1 if no cut-off satisfies FDR, otherwise returs coverage cutoff
+ * @return -1 if no cut-off satisfies FDR, otherwise returns coverage cutoff
  */
 int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
                                  double fdr_limit,
@@ -92,16 +92,20 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
     //        i, e_cov, e_cov_c0, fdr, fdr_limit);
     if(fdr < fdr_limit) break;
   }
-  int cutoff = i;
+  size_t cutoff = i;
 
   // Check cutoff is below mean kmer coverage
-  uint64_t sum = 0, totalkmers = 0;
-  for(i = 0; i < arrlen; i++) {
-    sum += kmer_covg[i]*i;
-    totalkmers += kmer_covg[i];
-  }
+  uint64_t kmers_below = 0, kmers_above = 0;
+  for(i = 0;      i < cutoff; i++) kmers_below += kmer_covg[i]*i;
+  for(i = cutoff; i < arrlen; i++) kmers_above += kmer_covg[i]*i;
 
-  return fdr < fdr_limit && cutoff < (double)sum/totalkmers ? cutoff : -1;
+  // At least 20% of kmers should be kept
+  bool good_cutoff = ((double)kmers_above/(kmers_below+kmers_above) >= 0.2);
+
+  // printf(" cutoff: %i fdr: %f fdr_limit: %f meankcovg: %f good: %i\n",
+  //        cutoff, fdr, fdr_limit, (double)sum/totalkmers, (int)good_cutoff);
+
+  return fdr < fdr_limit && good_cutoff ? (int)cutoff : -1;
 }
 
 // #define supernode_covg(covgs,len) supernode_covg_mean(covgs,len)
@@ -455,13 +459,22 @@ static inline void supernode_mark(dBNodeBuffer nbuf, size_t threadid, void *arg)
   }
 }
 
-// Remove low coverage supernodes and clip tips
-// - Remove supernodes with coverage < `covg_threshold`
-// - Remove tips shorter than `min_keep_tip`
-// `visited`, `keep` should each be at least db_graph.ht.capcity bits long
-//   and initialised to zero. On return,
-//   `visited` will be 1 at each original kmer index
-//   `keep` will be 1 at each retained kmer index
+/**
+ * Remove supernodes with coverage < `covg_threshold` and tips shorter than
+ * `min_keep_tip`.
+ *
+ * @param num_threads    Number of threads to use
+ * @param covg_threshold Remove supernodes with mean covg < `covg_threshold`.
+ *                       Ignored if 0.
+ * @param min_keep_tip   Remove tips with length < `min_keep_tip`. Ignored if 0.
+ * @param covgs_csv_path Path to write CSV of kmer coverage histogram
+ * @param lens_csv_path  Path to write CSV of unitig length histogram
+ *
+ * `visited`, `keep` should each be at least db_graph.ht.capcity bits long
+ *   and initialised to zero. On return,
+ *   `visited` will be 1 at each original kmer index
+ *   `keep` will be 1 at each retained kmer index
+ **/
 void clean_graph(size_t num_threads,
                  size_t covg_threshold, size_t min_keep_tip,
                  const char *covgs_csv_path, const char *lens_csv_path,

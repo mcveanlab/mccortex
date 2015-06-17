@@ -52,7 +52,7 @@ jerry.sam: jerry.1.fa jerry.2.fa ref.fa.bwt
 	samtools index $@
 
 %.se.fa: %.fa
-	$(READSIM) -d 50 -l 100 -s -r $< tmp
+	$(READSIM) -d 50 -l 100 -s -e 0.01 -r $< tmp
 	gzip -fcd tmp.fa.gz > $@
 	rm -rf tmp.fa.gz
 
