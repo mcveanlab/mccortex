@@ -291,6 +291,9 @@ endif
 ifeq ($(USE_LINKS),yes)
   LINKS=1
 endif
+ifeq ($(USE_LINKS),true)
+  LINKS=1
+endif
 ifeq ($(USE_LINKS),1)
   LINKS=1
 endif
@@ -300,6 +303,9 @@ endif
 
 # Joint calling is default on
 ifeq ($(JOINT_CALLING),yes)
+  JOINT=1
+endif
+ifeq ($(JOINT_CALLING),true)
   JOINT=1
 endif
 ifeq ($(JOINT_CALLING),1)
@@ -734,7 +740,7 @@ if(defined($ref_path))
         my @files_vcfs = map {"$proj/k$_/$dir/$s.brk.norm.vcf.gz"} @kmers;
         my @files_csis = map {$_.".csi"} @files_vcfs;
         print "$proj/vcfs/1by1_samples/$s.$type.$kmerstr.brk.norm.vcf.gz: @files_vcfs @files_csis | \$(DIRS)\n";
-        print "\t\$(VCF_CONCAT) --output-type b --output \$@ @files_vcfs\n\n";
+        print "\t\$(VCF_CONCAT) --output-type z --output \$@ @files_vcfs\n\n";
       }
     }
 

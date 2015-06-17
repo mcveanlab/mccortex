@@ -90,12 +90,14 @@ $(CTXVCF): $(DEPS)
 # Add '##contig=<ID=ecoli,length=1000000,assembly=hg19>'
 # to header, and fix an INFO field
 new_header.k$(K).txt: $(CTXVCF)
-	( $(VCFHEADER) $(CTXVCF) | \
+	( REFNAME=`$(DNACAT) -N $(REF) | awk '{print $$1}'`; \
+		REFLEN=`$(DNACAT) -L $(REF) | awk '{print $2}'`; \
+		$(VCFHEADER) $(CTXVCF) | \
 	  grep -v '^##contig' | \
 	  grep -v '^#CHROM' | \
 	  sed 's/, Description=/,Description=/g'; \
 	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
-	  echo '##contig=<ID=ecoli,length=1000000,assembly=hg19>'; \
+	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$REFNAME>'; \
 	  $(VCFHEADER) $(CTXVCF) | grep '^#CHROM' ) > new_header.k$(K).txt
 
 # Put new header on, filter ref mismatches, sort entries

@@ -92,8 +92,16 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
     //        i, e_cov, e_cov_c0, fdr, fdr_limit);
     if(fdr < fdr_limit) break;
   }
+  int cutoff = i;
 
-  return fdr < fdr_limit ? (int)i : -1;
+  // Check cutoff is below mean kmer coverage
+  uint64_t sum = 0, totalkmers = 0;
+  for(i = 0; i < arrlen; i++) {
+    sum += kmer_covg[i]*i;
+    totalkmers += kmer_covg[i];
+  }
+
+  return fdr < fdr_limit && cutoff < (double)sum/totalkmers ? cutoff : -1;
 }
 
 // #define supernode_covg(covgs,len) supernode_covg_mean(covgs,len)

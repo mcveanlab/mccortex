@@ -343,7 +343,7 @@ void hash_table_print_stats_brief(const HashTable *const ht)
   ulong_to_str(ht->capacity, capacity_str);
   ulong_to_str(ht->num_kmers, num_entries_str);
 
-  status("[hash] buckets: %s [2^%zu]; bucket size: %zu; "
+  status("[hasht] buckets: %s [2^%zu]; bucket size: %zu; "
          "memory: %s; occupancy: %s / %s (%.2f%%)\n",
          num_buckets_str, nkeybits, (size_t)ht->bucket_size, mem_str,
          num_entries_str, capacity_str, occupancy);
@@ -357,7 +357,7 @@ void hash_table_print_stats(const HashTable *const ht)
   if(ht->num_kmers > 0) {
     for(i = 0; i < REHASH_LIMIT; i++) {
       if(ht->collisions[i] != 0) {
-        status("  collisions %2zu: %zu\n", i, (size_t)ht->collisions[i]);
+        status("[hasht]  collisions %2zu: %zu\n", i, (size_t)ht->collisions[i]);
       }
     }
   }
