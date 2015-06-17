@@ -212,7 +212,7 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #       -> ref.ctx
 #       -> ref.ctx.log
 #   -> vcfs/
-#     -> samples/
+#     -> 1by1_samples/
 #       -> <S>.k29.k31.brk.norm.vcf.gz
 #       -> <S>.k29.k31.brk.norm.vcf.gz.csi
 #     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz
@@ -435,7 +435,7 @@ for my $k (@kmers) {
                        "$proj/k$k/ref/");
   push(@dirlist, $dirs);
 }
-push(@dirlist, "$proj/vcfs/samples/");
+push(@dirlist, "$proj/vcfs/1by1_samples/");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
 
@@ -720,21 +720,34 @@ if(defined($ref_path))
   print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --remove-duplicates\n";
   print "VCF_MERGE=\$(BCFTOOLS) merge\n\n";
 
+  my @brkpnt_1by1_links_vcfs;
+  my @brkpnt_1by1_plain_vcfs;
+
   # need to concat all kmers for each sample before merging all samples
-  print "# Merge 1-by-1 breakpoint calls for each sample first\n";
-  for my $s (map {$_->{'name'}} @samples) {
-    for(my $i = 0; $i < 2; $i++) {
-      my $dir = ($i == 0 ? "breakpoints" : "breakpoints_plain");
-      my $type = ($i == 0 ? "links" : "plain");
-      my @files_vcfs = map {"$proj/k$_/$dir/$s.brk.norm.vcf.gz"} @kmers;
-      my @files_csis = map {$_.".csi"} @files_vcfs;
-      print "$proj/vcfs/samples/$s.$type.$kmerstr.brk.norm.vcf.gz: @files_vcfs @files_csis | \$(DIRS)\n";
-      print "\t\$(VCF_CONCAT) --output-type b --output \$@ @files_vcfs\n\n";
+  if(@kmers > 1) {
+    print "# Merge 1-by-1 breakpoint calls for each sample first\n";
+    print "# Bubble calls are sites only, not sample so do not need merging\n";
+    for my $s (map {$_->{'name'}} @samples) {
+      for(my $i = 0; $i < 2; $i++) {
+        my $dir = ($i == 0 ? "breakpoints" : "breakpoints_plain");
+        my $type = ($i == 0 ? "links" : "plain");
+        my @files_vcfs = map {"$proj/k$_/$dir/$s.brk.norm.vcf.gz"} @kmers;
+        my @files_csis = map {$_.".csi"} @files_vcfs;
+        print "$proj/vcfs/1by1_samples/$s.$type.$kmerstr.brk.norm.vcf.gz: @files_vcfs @files_csis | \$(DIRS)\n";
+        print "\t\$(VCF_CONCAT) --output-type b --output \$@ @files_vcfs\n\n";
+      }
     }
+
+    @brkpnt_1by1_links_vcfs = map {"$proj/vcfs/1by1_samples/$_->{'name'}.links.$kmerstr.brk.norm.vcf.gz"} @samples;
+    @brkpnt_1by1_plain_vcfs = map {"$proj/vcfs/1by1_samples/$_->{'name'}.plain.$kmerstr.brk.norm.vcf.gz"} @samples;
+  }
+  else {
+    # Only one kmer -- no need to concat across kmers for each sample
+    my $k = $kmers[0];
+    @brkpnt_1by1_links_vcfs = map {"$proj/k$k/breakpoints/$_->{'name'}.brk.norm.vcf.gz"} @samples;
+    @brkpnt_1by1_plain_vcfs = map {"$proj/k$k/breakpoints_plain/$_->{'name'}.brk.norm.vcf.gz"} @samples;
   }
 
-  my @brkpnt_1by1_links_vcfs = map {"$proj/vcfs/samples/$_->{'name'}.links.$kmerstr.brk.norm.vcf.gz"} @samples;
-  my @brkpnt_1by1_plain_vcfs = map {"$proj/vcfs/samples/$_->{'name'}.plain.$kmerstr.brk.norm.vcf.gz"} @samples;
   my @brkpnt_1by1_links_csis = map {$_.".csi"} @brkpnt_1by1_links_vcfs;
   my @brkpnt_1by1_plain_csis = map {$_.".csi"} @brkpnt_1by1_plain_vcfs;
 
