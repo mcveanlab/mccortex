@@ -21,7 +21,6 @@ void futil_update_timestamp(const char *path)
   } else {
     fputc('.', fh);
     fclose(fh);
-    fh = NULL;
     if(truncate(path, st.st_size) != 0)
       die("Failed to truncate file after adding byte: %s", path);
   }

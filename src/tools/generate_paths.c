@@ -389,6 +389,8 @@ static void worker_contig_to_junctions(GenPathWorker *wrkr,
     worker_junctions_to_paths(wrkr, nodes, num_nodes);
 }
 
+static bool error_printed_reads_overlap = false;
+
 // wrkr->data and wrkr->task must be set before calling this functions
 static void reads_to_paths(GenPathWorker *wrkr)
 {
@@ -415,6 +417,16 @@ static void reads_to_paths(GenPathWorker *wrkr)
   // Second read is in reverse orientation - need in forward
   if(r2 != NULL)
     seq_reader_orient_mp_FF_or_RR(r1, r2, wrkr->task.matedir);
+
+  // Check reads don't overlap in the middle of the fragment
+  if(r1 && r2 && !error_printed_reads_overlap &&
+     r1->seq.end + r2->seq.end > wrkr->task.crt_params.frag_len_min)
+  {
+    warn("Reads may overlap in fragment: %zu + %zu > frag len min: %u; max: %u",
+         r1->seq.end, r2->seq.end,
+         wrkr->task.crt_params.frag_len_min, wrkr->task.crt_params.frag_len_max);
+    error_printed_reads_overlap = true;
+  }
 
   correct_alignment_init(&wrkr->corrector, &wrkr->task.crt_params,
                          r1, r2, fq_cutoff1, fq_cutoff2, hp_cutoff);
