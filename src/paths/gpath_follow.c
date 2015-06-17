@@ -28,6 +28,7 @@ void gpath_follow_cache_update(GPathFollow *path, size_t pos)
 // Get a base from the GPathFollow cache
 Nucleotide gpath_follow_get_base(GPathFollow *path, size_t pos)
 {
+  ctx_assert2(pos < path->len, "pos: %i path->len: %i", (int)pos, (int)path->len);
   gpath_follow_cache_update(path, pos);
   return binary_seq_get(path->cache, pos - path->first_cached);
 }

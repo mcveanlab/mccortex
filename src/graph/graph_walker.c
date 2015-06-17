@@ -150,9 +150,6 @@ static inline void _gw_gseg_update(GraphWalker *wlk,
 static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
                                   bool counter, Nucleotide next_nuc)
 {
-  // printf("pickup %s paths from: %zu:%i\n", counter ? "counter" : "curr",
-  //        (size_t)index, orient);
-
   const dBGraph *db_graph = wlk->db_graph;
   const GPathStore *gpstore = wlk->gpstore;
   GPathFollowBuffer *pbuf = counter ? &wlk->cntr_paths : &wlk->paths;
@@ -160,6 +157,12 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
   // Picking up paths is turned off
   if(!gpath_store_use_traverse(gpstore)) return 0;
+
+  // DEBUG
+  // char kstr[MAX_KMER_SIZE+3]; // <kmer>:<orient>
+  // db_node_to_str(wlk->db_graph, node, kstr);
+  // printf("pickup %s paths from: %s\n", counter ? "cntr" : "curr", kstr);
+  // END DEBUG
 
   // cntr_filter_nuc0 is needed for picking up counter paths with outdegree > 1
   bool cntr_filter_nuc0
@@ -177,7 +180,9 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
       else if(gpath_follow_get_base(&fpath, 0) == next_nuc) {
         // Loading a counter path at a fork
         fpath.pos++; // already took a base
-        gpath_follow_buf_add(pbuf, fpath);
+        // check there are still junctions to take
+        if(fpath.pos < fpath.len)
+          gpath_follow_buf_add(pbuf, fpath);
       }
     }
   }

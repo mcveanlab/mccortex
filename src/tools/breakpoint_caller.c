@@ -423,7 +423,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
     traverse_5pflank(caller, rv_crawler, db_node_reverse(next_nodes[next_idx]),
                      db_node_reverse(node));
 
-    // Loop over the flanks we got
+    // Loop over the flanks that we got
     for(j = 0; j < rv_crawler->num_paths; j++)
     {
       // Get 5p flank
