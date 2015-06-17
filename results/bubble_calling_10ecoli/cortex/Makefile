@@ -18,23 +18,25 @@ VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
 
+# Need absolute path to reference
 REF=$(shell cd ../../data/ecoli/; echo `pwd`/ecoli.fa)
 
 K=31
 DIRS=ref lists
 
 # Dependencies that we create. We delete them on clean
-CTXVCF=cortex_run/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
-
 FALISTS=$(shell echo lists/reads{0..9}.1.falist lists/reads{0..9}.2.falist)
 
 DEPS=ref/ecoli.sthash ref/ecoli.stidx \
      ref/ref.k$(K).ctx ref/ref.falist \
      samples.txt $(FALISTS)
 
-TMP=cortex.k$(K).sort.vcf cortex.k$(K).norm.vcf
+CTXVCF_1BY1=cortex_1by1/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
+CTXVCF_JOINT=cortex_joint/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
+VCFS=cortex.k$(K).1by1.norm.vcf.gz cortex.k$(K).joint.norm.vcf.gz
+CSIS=$(VCFS:.vcf.gz=.vcf.gz.csi)
 
-TGTS=cortex.k$(K).norm.vcf.gz cortex.k$(K).norm.vcf.gz.csi
+TGTS=$(CTXVCF_1BY1) $(CTXVCF_JOINT) $(VCFS) $(CSIS)
 
 all: $(TGTS) | checks
 
@@ -42,11 +44,11 @@ ref/ref.falist: | $(DIRS)
 	echo $(REF) > $@
 
 # Make stampy hash
-ref/ecoli.stidx: $(REF) | $(DIRS)
-	$(STAMPY) -G ref/ecoli $(REF)
+# ref/ecoli.stidx: $(REF) | $(DIRS)
+# 	$(STAMPY) -G ref/ecoli $(REF)
 
-ref/ecoli.sthash: ref/ecoli.stidx $(REF) | $(DIRS)
-	$(STAMPY) -g ref/ecoli -H ref/ecoli
+# ref/ecoli.sthash: ref/ecoli.stidx $(REF) | $(DIRS)
+# 	$(STAMPY) -g ref/ecoli -H ref/ecoli
 
 # Build reference graph file
 ref/ref.k$(K).ctx: $(REF) | $(DIRS)
@@ -62,8 +64,7 @@ samples.txt:
 		printf "Ecoli$$i\t.\t%s\t%s\n" lists/reads$$i.1.falist lists/reads$$i.2.falist; \
   done > $@
 
-$(CTXVCF): $(DEPS)
-	$(RUNCALLS) \
+COMMON_ARGS= \
 --first_kmer $(K) \
 --last_kmer $(K) \
 --kmer_step 2 \
@@ -71,10 +72,9 @@ $(CTXVCF): $(DEPS)
 --auto_cleaning yes \
 --bc yes \
 --pd no \
---outdir cortex_run \
 --outvcf ecoli \
 --ploidy 2 \
---stampy_hash ref/ecoli \
+--stampy_hash $(REF) \
 --stampy_bin $(STAMPY) \
 --list_ref_fasta ref/ref.falist \
 --refbindir ref/ \
@@ -83,32 +83,42 @@ $(CTXVCF): $(DEPS)
 --mem_height 20 --mem_width 100 \
 --vcftools_dir $(VCFTOOLSDIR) \
 --do_union yes \
---ref CoordinatesAndInCalling \
+--ref CoordinatesAndInCalling
+
+$(CTXVCF_1BY1): $(DEPS)
+	$(RUNCALLS) $(COMMON_ARGS) \
+--outdir cortex_1by1 \
 --workflow independent \
---logfile runcalls.k$(K).log
+--logfile runcalls.1by1.k$(K).log
+
+$(CTXVCF_JOINT): $(DEPS)
+	$(RUNCALLS) $(COMMON_ARGS) \
+--outdir cortex_joint \
+--workflow joint \
+--logfile runcalls.joint.k$(K).log
 
 # Add '##contig=<ID=ecoli,length=1000000,assembly=hg19>'
 # to header, and fix an INFO field
-new_header.k$(K).txt: $(CTXVCF)
+new_header.k$(K).txt: cortex_1by1/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
 	( REFNAME=`$(DNACAT) -N $(REF) | awk '{print $$1}'`; \
 		REFLEN=`$(DNACAT) -L $(REF) | awk '{print $2}'`; \
-		$(VCFHEADER) $(CTXVCF) | \
+		$(VCFHEADER) $< | \
 	  grep -v '^##contig' | \
 	  grep -v '^#CHROM' | \
 	  sed 's/, Description=/,Description=/g'; \
 	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
 	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$REFNAME>'; \
-	  $(VCFHEADER) $(CTXVCF) | grep '^#CHROM' ) > new_header.k$(K).txt
+	  $(VCFHEADER) $< | grep '^#CHROM' ) > new_header.k$(K).txt
 
 # Put new header on, filter ref mismatches, sort entries
-cortex.k$(K).sort.vcf: new_header.k$(K).txt $(CTXVCF)
+cortex.k$(K).%.sort.vcf: cortex_%/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf new_header.k$(K).txt
 	( cat new_header.k$(K).txt; \
-	  $(VCFREF) -s $(CTXVCF) $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
+	  $(VCFREF) -s $< $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
 
 # Normalise indels and compress
-cortex.k$(K).norm.vcf.gz: cortex.k$(K).sort.vcf
-	$(BCFTOOLS) norm --remove-duplicates --fasta-ref $(REF) --multiallelics +both $< > cortex.k$(K).norm.vcf
-	$(BGZIP) cortex.k$(K).norm.vcf
+cortex.k$(K).%.norm.vcf.gz: cortex.k$(K).%.sort.vcf
+	$(BCFTOOLS) norm --remove-duplicates --fasta-ref $(REF) --multiallelics +both $< > cortex.k$(K).$*.norm.vcf
+	$(BGZIP) cortex.k$(K).$*.norm.vcf
 
 # Index
 %.norm.vcf.gz.csi: %.norm.vcf.gz
@@ -121,9 +131,11 @@ $(DIRS):
 checks:
 	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c1 ] || ( echo 'Error: need cortex_var_31_c11' 1>&2 && false )
 	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c2 ] || ( echo 'Error: need cortex_var_31_c11' 1>&2 && false )
+	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c10 ] || ( echo 'Error: need cortex_var_31_c10' 1>&2 && false )
 	@[ -x $(CORTEXDIR)/bin/cortex_var_31_c11 ] || ( echo 'Error: need cortex_var_31_c11' 1>&2 && false )
 
 clean:
-	rm -rf ref $(DEPS) $(DIRS) $(CTXVCF) $(TGTS) $(TMP) new_header.k$(K).txt runcalls.k$(K).log cortex_run
+	rm -rf ref $(DEPS) $(DIRS) $(TGTS) $(TMP) new_header.k$(K).txt
+	rm -rf runcalls.{1by1,joint}.k$(K).log cortex_{1by1,joint} cortex.k$(K).*
 
 .PHONY: all clean checks

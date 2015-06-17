@@ -73,28 +73,35 @@ samples.txt:
   done > $@
 
 task.k$(K).mk: samples.txt
-	$(CTXPIPELINE) -r $(REF) $(K) $(OUTDIR) $< > $@
+	$(CTXPIPELINE) --stampy --stampy-base $(REF) -r $(REF) $(K) $(OUTDIR) $< > $@
 
 run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) bubblevcf
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=yes
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=no
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=no  USE_LINKS=yes
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=no  USE_LINKS=no 
 	@echo "McCortex Bubbles (joint+links) found:"
 	$(VCFISEC) mc_isec_bub_joint_links truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.links.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_bub_joint_plain truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.plain.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_bub_1by1_links  truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.1by1.links.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_bub_1by1_plain  truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.1by1.plain.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_brk_joint_links truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.links.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_brk_joint_plain truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.plain.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_brk_1by1_links  truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.1by1.links.k$(K).vcf.gz
+	$(VCFISEC) mc_isec_brk_1by1_plain  truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.1by1.plain.k$(K).vcf.gz
 
 run-cortex:
 	cd cortex && $(MAKE) K=$(K)
-	@echo "Cortex Bubble Caller found:"
-	$(VCFISEC) ctx_isec_bub_joint_links truth.k$(K).norm.vcf.gz cortex/cortex.k$(K).norm.vcf.gz
-
-run-mccortex-brkpt: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) breakpointvcf
-	@echo "McCortex Breakpoints (joint+links) found:"
-	$(VCFISEC) ctx_isec_bub_joint_links truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.links.k$(K).vcf.gz
+	@echo "Cortex Bubble Caller 1by1 found:"
+	$(VCFISEC) ctx_isec_bub_1by1 truth.k$(K).norm.vcf.gz cortex/cortex.1by1.k$(K).norm.vcf.gz
+	$(VCFISEC) ctx_isec_bub_joint truth.k$(K).norm.vcf.gz cortex/cortex.joint.k$(K).norm.vcf.gz
 
 $(DIRS):
 	mkdir -p $@
 
 clean:
-	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk truth.*vcf* truthisec truthisec2
+	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk truth.*vcf*
+	rm -rf mc_isec_* ctx_isec_*
 	cd cortex && $(MAKE) clean k=$(K)
 
 .PHONY: all clean run-mccortex run-cortex

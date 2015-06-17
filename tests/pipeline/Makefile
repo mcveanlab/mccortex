@@ -58,7 +58,7 @@ jerry.sam: jerry.1.fa jerry.2.fa ref.fa.bwt
 
 # 400 bp fragment len, 100 bp reads
 %.1.fa %.2.fa: %.fa
-	$(READSIM) -d 50 -l 100 -i 75 -r $< tmp
+	$(READSIM) -d 50 -l 100 -i 75 -i 0.01 -r $< tmp
 	gzip -fcd tmp.1.fa.gz > $*.1.fa
 	gzip -fcd tmp.2.fa.gz > $*.2.fa
 	rm -rf tmp.{1,2}.fa.gz
