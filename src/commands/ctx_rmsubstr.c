@@ -218,7 +218,7 @@ int ctx_rmsubstr(int argc, char **argv)
   if(i < rbuf.len)
     warn("Reads shorter than kmer size (%zu) will not be filtered", kmer_size);
 
-  KOGraph kograph = kograph_create(rbuf.b, rbuf.len, true,
+  KOGraph kograph = kograph_create(rbuf.b, rbuf.len, true, 0,
                                    nthreads, &db_graph);
 
   size_t num_reads = rbuf.len, num_reads_printed = 0, num_bad_reads = 0;

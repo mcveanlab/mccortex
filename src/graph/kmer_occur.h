@@ -52,10 +52,15 @@ typedef struct {
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(kmer_run_buf, KOccurRunBuffer, KOccurRun);
 
-// We add the reads to the graph if `add_missing_kmers` is true
+/**
+ * Create a KOGraph from given sequence reads
+ * BEWARE: We add the reads to the graph if add_missing_kmers is true
+ * db_graph->col_edges can be NULL even if we are adding kmers
+ * @param add_missing_kmers  If true, add kmers to the graph in colour ref_col
+ **/
 KOGraph kograph_create(const read_t *reads, size_t num_reads,
-                       bool add_missing_kmers, size_t num_threads,
-                       dBGraph *db_graph);
+                       bool add_missing_kmers, size_t ref_col,
+                       size_t num_threads, dBGraph *db_graph);
 
 void kograph_free(KOGraph kograph);
 

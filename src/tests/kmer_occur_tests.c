@@ -32,7 +32,7 @@ static void test_kmer_occur_filter()
     seq_read_set(&reads[i], tmp[i]);
   }
 
-  KOGraph kograph = kograph_create(reads, NUM_READS, true, 1, &graph);
+  KOGraph kograph = kograph_create(reads, NUM_READS, true, 0, 1, &graph);
 
   TASSERT(kograph.nchroms == NUM_READS);
   TASSERT(kograph.koccurs != NULL);

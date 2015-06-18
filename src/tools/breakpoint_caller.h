@@ -12,9 +12,12 @@
 // Require 5 kmers on the reference before and after breakpoint
 #define DEFAULT_MIN_REF_NKMERS 5
 
-// Adds input bkmers to the graph
-// @param hdrs JSON headers of input files
-void breakpoints_call(size_t num_of_threads,
+/**
+ * Adds input bkmers to the graph
+ * @param hdrs JSON headers of input files
+ * @param ref_col colour to add reference kmers to
+ **/
+void breakpoints_call(size_t num_of_threads, size_t ref_col,
                       gzFile gzout, const char *out_path,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,

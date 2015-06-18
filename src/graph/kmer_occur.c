@@ -129,6 +129,7 @@ static void generate_chrom_list(KOGraph *kograph,
 // Returns number of kmers added to the graph
 // Threadsafe
 static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
+                                             size_t ref_col,
                                              KONodeList *klists,
                                              dBGraph *db_graph)
 {
@@ -143,6 +144,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
   prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
+  db_graph_update_node_mt(db_graph, prev, ref_col);
   __sync_fetch_and_add((volatile uint64_t*)&klists[prev.key].kcount, 1); // kcount++
   num_novel_kmers += !found;
 
@@ -151,6 +153,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
     nuc = dna_char_to_nuc(seq[i]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
     curr = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
+    db_graph_update_node_mt(db_graph, curr, ref_col);
     __sync_fetch_and_add((volatile uint64_t*)&klists[curr.key].kcount, 1); // kcount++
     db_graph_add_edge_mt(db_graph, 0, prev, curr);
     num_novel_kmers += !found;
@@ -163,7 +166,7 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
 // of how many times each kmer in the graph is seen in sequence (with klists)
 // Returns number of kmers added to the graph
 // Threadsafe
-static inline size_t add_ref_read_to_graph_mt(const read_t *r,
+static inline size_t add_ref_read_to_graph_mt(const read_t *r, size_t ref_col,
                                               KONodeList *klists,
                                               dBGraph *db_graph)
 {
@@ -180,7 +183,7 @@ static inline size_t add_ref_read_to_graph_mt(const read_t *r,
 
     contig_len = contig_end - contig_start;
     num_novel_kmers += add_ref_seq_to_graph_mt(r->seq.b+contig_start, contig_len,
-                                               klists, db_graph);
+                                               ref_col, klists, db_graph);
   }
 
   return num_novel_kmers;
@@ -201,6 +204,7 @@ struct ReadUpdateCounts {
   const read_t *r;
   KONodeList *klists;
   bool add_missing_kmers;
+  size_t ref_col; // only used if add_missing_kmers is true
   dBGraph *db_graph;
 };
 
@@ -212,7 +216,7 @@ static void read_update_counts(void *arg)
   const read_t *r = data.r;
 
   if(data.add_missing_kmers) {
-    add_ref_read_to_graph_mt(r, data.klists, data.db_graph);
+    add_ref_read_to_graph_mt(r, data.ref_col, data.klists, data.db_graph);
   }
   else {
     LoadingStats stats = LOAD_STATS_INIT_MACRO;
@@ -251,7 +255,8 @@ static void read_store_kmer_pos(const read_t *r, size_t chrom_id,
 }
 
 static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
-                                   bool add_missing_kmers, size_t num_threads,
+                                   bool add_missing_kmers, size_t ref_col,
+                                   size_t num_threads,
                                    KONodeList *klists,
                                    dBGraph *db_graph)
 {
@@ -267,6 +272,7 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
     updates[i] = (struct ReadUpdateCounts){.r = &reads[i],
                                            .klists = klists,
                                            .add_missing_kmers = add_missing_kmers,
+                                           .ref_col = ref_col,
                                            .db_graph = db_graph};
   }
 
@@ -276,11 +282,15 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
   ctx_free(updates);
 }
 
-// BEWARE: We add the reads to the graph if add_missing_kmers is true
-// db_graph->col_edges can be NULL even if we are adding kmers
+/**
+ * Create a KOGraph from given sequence reads
+ * BEWARE: We add the reads to the graph if add_missing_kmers is true
+ * db_graph->col_edges can be NULL even if we are adding kmers
+ * @param add_missing_kmers  If true, add kmers to the graph in colour ref_col
+ **/
 KOGraph kograph_create(const read_t *reads, size_t num_reads,
-                       bool add_missing_kmers, size_t num_threads,
-                       dBGraph *db_graph)
+                       bool add_missing_kmers, size_t ref_col,
+                       size_t num_threads, dBGraph *db_graph)
 {
   size_t i;
 
@@ -311,8 +321,8 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
   kograph.klists = ctx_calloc(db_graph->ht.capacity, sizeof(KONodeList));
 
   // 1. Loop through reads, add to graph and record kmer counts
-  load_reads_count_kmers(reads, num_reads, add_missing_kmers, num_threads,
-                         kograph.klists, db_graph);
+  load_reads_count_kmers(reads, num_reads, add_missing_kmers, ref_col,
+                         num_threads, kograph.klists, db_graph);
 
   // 2. allocate a list for each kmer (some of length zero)
   uint64_t offset = 0, kcount, total_read_length = 0, total_kcount = 0;

@@ -116,6 +116,7 @@ int ctx_breakpoints(int argc, char **argv)
 
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
+  ncols++; // add a colour for the reference
 
   // Check graph + paths are compatible
   graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
@@ -242,8 +243,8 @@ int ctx_breakpoints(int argc, char **argv)
   cJSON **hdrs = ctx_malloc(gpfiles.len * sizeof(cJSON*));
   for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.b[i].json;
 
-  // Call breakpoints
-  breakpoints_call(nthreads,
+  // Call breakpoints. Put reference in last colour
+  breakpoints_call(nthreads, ncols-1,
                    gzout, output_file,
                    rbuf.b, rbuf.len,
                    seq_paths, num_seq_paths,

@@ -1,5 +1,12 @@
 SHELL=/bin/bash -euo pipefail
 
+# Need to install these separately yourself
+# CORTEXDIR=~/cortex/releases/CORTEX_release_v1.0.5.21
+STAMPY=/apps/well/stampy/1.0.23-py2.6/stampy.py
+# VCFTOOLSDIR=~/bioinf/vcftools_0.1.12b/
+# VCFREF=~/c/vcf-hack/bin/vcfref
+#
+
 CTXDIR=../..
 CTX=$(CTXDIR)/bin/mccortex31
 CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
@@ -73,7 +80,7 @@ samples.txt:
   done > $@
 
 task.k$(K).mk: samples.txt
-	$(CTXPIPELINE) --stampy --stampy-base $(REF) -r $(REF) $(K) $(OUTDIR) $< > $@
+	$(CTXPIPELINE) --stampy $(STAMPY) --stampy-base $(REF) -r $(REF) $(K) $(OUTDIR) $< > $@
 
 run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=yes

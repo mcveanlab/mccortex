@@ -498,6 +498,16 @@ static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
   graph_crawler_reset(&caller->crawlers[0]);
   graph_crawler_reset(&caller->crawlers[1]);
 
+  // DEBUG
+  // const dBGraph *db_graph = caller->db_graph;
+  // const size_t kmer_size = db_graph->kmer_size;
+  // char kstr[MAX_KMER_SIZE+1];
+  // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  // binary_kmer_to_str(bkmer, kmer_size, kstr);
+  // if(strcmp(kstr,"AGACGCGCCAGCGTCGCATCA")) return 0; // skip all but given kmer
+  // printf("brk %s\n", kstr);
+  //
+
   // check node is in the ref
   if(kograph_occurs(caller->kograph, hkey)) {
     edges = db_node_get_edges(caller->db_graph, hkey, 0);
@@ -586,7 +596,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   cJSON_Delete(json);
 }
 
-void breakpoints_call(size_t num_of_threads,
+void breakpoints_call(size_t num_of_threads, size_t ref_col,
                       gzFile gzout, const char *out_path,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,
@@ -601,7 +611,7 @@ void breakpoints_call(size_t num_of_threads,
                            hdrs, nhdrs,
                            db_graph);
 
-  KOGraph kograph = kograph_create(reads, num_reads, true,
+  KOGraph kograph = kograph_create(reads, num_reads, true, ref_col,
                                    num_of_threads, db_graph);
 
   BreakpointCaller *callers = brkpt_callers_new(num_of_threads, gzout,

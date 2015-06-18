@@ -36,8 +36,9 @@ static void print_path_list(const GPathFollowBuffer *pbuf, FILE *fout)
     fprintf(fout, "   %p ", path->gpath->seq);
     for(j = 0; j < path->len; j++)
       fputc(dna_nuc_to_char(gpath_follow_get_base(path, j)), fout);
-    fprintf(fout, " [%zu/%zu] age: %zu\n", (size_t)path->pos,
-            (size_t)path->len, (size_t)path->age);
+    fprintf(fout, " [%zu/%zu] age: %zu %c\n", (size_t)path->pos,
+            (size_t)path->len, (size_t)path->age,
+            gpath_follow_get_base(path, path->pos));
   }
 }
 
@@ -322,15 +323,13 @@ static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
                                   const Nucleotide bases[4])
 {
   size_t i;
-  BinaryKmer bkey;
-  char str[MAX_KMER_SIZE+1];
+  char kstr[MAX_KMER_SIZE+3];
 
   message("  Fork:\n");
 
   for(i = 0; i < num_next; i++) {
-    bkey = db_node_get_bkmer(wlk->db_graph, nodes[i].key);
-    binary_kmer_to_str(bkey, wlk->db_graph->kmer_size, str);
-    message("    %s:? [%c]\n", str, dna_nuc_to_char(bases[i]));
+    db_node_to_str(wlk->db_graph, nodes[i], kstr);
+    message("    %s [%c]\n", kstr, dna_nuc_to_char(bases[i]));
   }
 
   graph_walker_print_state(wlk, ctx_msg_out);
