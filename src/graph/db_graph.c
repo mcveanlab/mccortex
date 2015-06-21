@@ -298,6 +298,9 @@ uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
                               nodes, fw_nucs);
 
   // Filter next nodes if needed
+  // If we allow kmers to exist and not be in any colour when
+  //   num_of_cols=1, num_edge_cols=1
+  // then we should comment out this if condition
   if(colour >= 0 && db_graph->num_edge_cols < db_graph->num_of_cols)
   {
     for(i = j = 0; i < count; i++) {

@@ -48,6 +48,10 @@ size_t json_hdr_demand_uint(cJSON *json, const char *field, const char *path);
 size_t json_hdr_get_kmer_size(cJSON *root, const char *path);
 size_t json_hdr_get_ncols(cJSON *json, const char *path);
 
+// Get the number of non-ref samples in the graph
+size_t json_hdr_get_nonref_ncols(cJSON *json, const char *path);
+bool json_hdr_colour_is_ref(cJSON *json);
+
 cJSON* json_hdr_get_curr_cmd(cJSON *json, const char *path);
 
 #endif /* JSON_HDR_H_ */

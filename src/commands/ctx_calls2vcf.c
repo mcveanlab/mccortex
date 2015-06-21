@@ -1028,9 +1028,11 @@ static void print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
     if(colour_json == NULL) die("Missing colours");
     for(; colour_json; colour_json = colour_json->next)
     {
-      cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
-      fputc('\t', fout);
-      fputs(sample_json->valuestring, fout);
+      if(!json_hdr_colour_is_ref(colour_json)) {
+        cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
+        fputc('\t', fout);
+        fputs(sample_json->valuestring, fout);
+      }
     }
   }
 
@@ -1123,7 +1125,14 @@ int ctx_calls2vcf(int argc, char **argv)
   // Output VCF has 0 samples if bubbles file, otherwise has N where N is
   // number of samples/colours in the breakpoint graph
   size_t num_graph_samples = json_hdr_get_ncols(json, input_path);
-  num_samples = input_bubble_format ? 0 : num_graph_samples;
+  size_t num_graph_nonref = json_hdr_get_nonref_ncols(json, input_path);
+
+  num_samples = 0;
+  if(!input_bubble_format) {
+    // If last colour has "is_ref", drop number of samples by one
+    num_samples = num_graph_nonref < num_graph_samples ? num_graph_samples-1
+                                                       : num_graph_samples;
+  }
 
   print_vcf_header(json, !input_bubble_format, fout);
   status("Reading %s call file with %zu samples",

@@ -537,6 +537,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
                                      const read_t *reads, size_t nreads,
                                      size_t min_ref_flank,
                                      cJSON **hdrs, size_t nhdrs,
+                                     size_t ref_col,
                                      const dBGraph *db_graph)
 {
   size_t i;
@@ -550,6 +551,14 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
 
   // Add standard cortex headers
   json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
+
+  // Update reference colour
+  // json.graph.colours[ref_col]
+  cJSON *hdr_graph  = json_hdr_get(json,      "graph",   cJSON_Object, out_path);
+  cJSON *hdr_colour = json_hdr_get(hdr_graph, "colours", cJSON_Array,  out_path);
+  cJSON *ref = cJSON_GetArrayItem(hdr_colour, ref_col);
+  ctx_assert(ref != NULL);
+  cJSON_AddTrueToObject(ref, "is_ref");
 
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "breakpoints", "min_ref_flank_kmers",
@@ -604,13 +613,6 @@ void breakpoints_call(size_t num_of_threads, size_t ref_col,
                       cJSON **hdrs, size_t nhdrs,
                       dBGraph *db_graph)
 {
-  breakpoints_print_header(gzout, out_path,
-                           seq_paths, num_seq_paths,
-                           reads, num_reads,
-                           min_ref_flank,
-                           hdrs, nhdrs,
-                           db_graph);
-
   KOGraph kograph = kograph_create(reads, num_reads, true, ref_col,
                                    num_of_threads, db_graph);
 
@@ -624,6 +626,13 @@ void breakpoints_call(size_t num_of_threads, size_t ref_col,
 
   status("  Finding breakpoints after at least %zu kmers (%zubp) of homology",
          min_ref_flank, min_ref_flank+db_graph->kmer_size-1);
+
+  breakpoints_print_header(gzout, out_path,
+                           seq_paths, num_seq_paths,
+                           reads, num_reads,
+                           min_ref_flank,
+                           hdrs, nhdrs,
+                           ref_col, db_graph);
 
   util_run_threads(callers, num_of_threads, sizeof(callers[0]),
                    num_of_threads, breakpoint_caller);

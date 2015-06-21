@@ -211,6 +211,9 @@ int ctx_breakpoints(int argc, char **argv)
   }
   ctx_free(gfiles);
 
+  // Set reference colour sample name
+  strbuf_set(&db_graph.ginfo[ncols-1].sample_name, "BrkpntRef");
+
   hash_table_print_stats(&db_graph.ht);
 
   // Load path files

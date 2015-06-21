@@ -334,6 +334,24 @@ size_t json_hdr_get_kmer_size(cJSON *json, const char *path)
   return val;
 }
 
+bool json_hdr_colour_is_ref(cJSON *json)
+{
+  cJSON *isref = cJSON_GetObjectItem(json, "is_ref");
+  return (isref && isref->type == cJSON_True);
+}
+
+// Get the number of non-ref samples in the graph
+size_t json_hdr_get_nonref_ncols(cJSON *json, const char *path)
+{
+  cJSON *graph = json_hdr_get_graph(json, path);
+  cJSON *cols = json_hdr_get(graph, "colours", cJSON_Array, path);
+  cJSON *col;
+  size_t num_nonref_cols = 0;
+  for(col = cols->child; col; col = col->next)
+    num_nonref_cols += !json_hdr_colour_is_ref(col);
+  return num_nonref_cols;
+}
+
 size_t json_hdr_get_ncols(cJSON *json, const char *path)
 {
   cJSON *graph = json_hdr_get_graph(json, path);

@@ -128,13 +128,13 @@ static void generate_chrom_list(KOGraph *kograph,
 // of how many times each kmer in the graph is seen in sequence (with klists)
 // Returns number of kmers added to the graph
 // Threadsafe
-static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
-                                             size_t ref_col,
-                                             KONodeList *klists,
-                                             dBGraph *db_graph)
+static inline void add_ref_seq_to_graph_mt(const char *seq, size_t len,
+                                           size_t ref_col,
+                                           KONodeList *klists,
+                                           dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  size_t i, num_novel_kmers = 0;
+  size_t i;
   BinaryKmer bkmer;
   Nucleotide nuc;
   dBNode prev, curr;
@@ -146,7 +146,6 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
   prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
   db_graph_update_node_mt(db_graph, prev, ref_col);
   __sync_fetch_and_add((volatile uint64_t*)&klists[prev.key].kcount, 1); // kcount++
-  num_novel_kmers += !found;
 
   for(i = kmer_size; i < len; i++, prev = curr)
   {
@@ -156,25 +155,22 @@ static inline size_t add_ref_seq_to_graph_mt(const char *seq, size_t len,
     db_graph_update_node_mt(db_graph, curr, ref_col);
     __sync_fetch_and_add((volatile uint64_t*)&klists[curr.key].kcount, 1); // kcount++
     db_graph_add_edge_mt(db_graph, 0, prev, curr);
-    num_novel_kmers += !found;
   }
-
-  return num_novel_kmers;
 }
 
 // Add missing kmers and edges to the graph whilst keeping track of the count
 // of how many times each kmer in the graph is seen in sequence (with klists)
 // Returns number of kmers added to the graph
 // Threadsafe
-static inline size_t add_ref_read_to_graph_mt(const read_t *r, size_t ref_col,
-                                              KONodeList *klists,
-                                              dBGraph *db_graph)
+static inline void add_ref_read_to_graph_mt(const read_t *r, size_t ref_col,
+                                            KONodeList *klists,
+                                            dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
   size_t contig_start, contig_end, contig_len;
-  size_t search_start = 0, num_novel_kmers = 0;
+  size_t search_start = 0;
 
-  if(r->seq.end < kmer_size) return 0;
+  if(r->seq.end < kmer_size) return;
 
   while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          0, 0)) < r->seq.end)
@@ -182,11 +178,9 @@ static inline size_t add_ref_read_to_graph_mt(const read_t *r, size_t ref_col,
     contig_end = seq_contig_end(r, contig_start, kmer_size, 0, 0, &search_start);
 
     contig_len = contig_end - contig_start;
-    num_novel_kmers += add_ref_seq_to_graph_mt(r->seq.b+contig_start, contig_len,
-                                               ref_col, klists, db_graph);
+    add_ref_seq_to_graph_mt(r->seq.b+contig_start, contig_len,
+                            ref_col, klists, db_graph);
   }
-
-  return num_novel_kmers;
 }
 
 // Same as above but don't add missing kmers
@@ -254,6 +248,7 @@ static void read_store_kmer_pos(const read_t *r, size_t chrom_id,
                  klists, chrom_id, _offset, db_graph);
 }
 
+// Updates ginfo info add_missing_kmers is true
 static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
                                    bool add_missing_kmers, size_t ref_col,
                                    size_t num_threads,
@@ -280,6 +275,18 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
                    num_threads, read_update_counts);
 
   ctx_free(updates);
+
+  // Update ginfo
+  if(add_missing_kmers) {
+    LoadingStats stats = LOAD_STATS_INIT_MACRO;
+    stats.num_se_reads   = num_reads;
+    stats.contigs_parsed = num_reads;
+    for(i = 0; i < num_reads; i++) {
+      stats.total_bases_read   += reads[i].seq.end;
+      stats.total_bases_loaded += reads[i].seq.end;
+    }
+    graph_info_update_stats(&db_graph->ginfo[ref_col], &stats);
+  }
 }
 
 /**
