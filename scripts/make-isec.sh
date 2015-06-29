@@ -21,13 +21,15 @@ BCFTOOLS=$CTXDIR"/libs/bcftools/bcftools"
 VCFALLELES=$CTXDIR"/libs/biogrok/vcf-count-alleles"
 
 $BCFTOOLS isec $TRUTHVCF $RESULTSVCF -p $TMPDIR
-A=`$VCFALLELES $TMPDIR/0000.vcf`
-B=`$VCFALLELES $TMPDIR/0001.vcf`
-C=`$VCFALLELES $TMPDIR/0002.vcf`
-X=`$VCFALLELES $RESULTSVCF`
-T=`$VCFALLELES $TRUTHVCF`
-awk 'BEGIN{printf("Missed: %4d / %4d (%5.2f%%)\n",'$A','$T',100*'$A'/'$T')}'
-awk 'BEGIN{printf("FP:     %4d / %4d (%5.2f%%)\n",'$B','$X',100*'$B'/'$X')}'
-awk 'BEGIN{printf("Found:  %4d / %4d (%5.2f%%)\n",'$C','$T',100*'$C'/'$T')}'
+
+MISSED=`$VCFALLELES $TMPDIR/0000.vcf`
+FP=`$VCFALLELES $TMPDIR/0001.vcf`
+FOUND=`$VCFALLELES $TMPDIR/0002.vcf`
+NCALLED=`$VCFALLELES $RESULTSVCF`
+NTRUTH=`$VCFALLELES $TRUTHVCF`
+
+awk 'BEGIN{printf("Missed: %4d / %4d (%5.2f%%)\n",'$MISSED','$NTRUTH',100*'$MISSED'/'$NTRUTH')}'
+awk 'BEGIN{printf("FP:     %4d / %4d (%5.2f%%)\n",'$FP','$NCALLED',100*'$FP'/'$NCALLED')}'
+awk 'BEGIN{printf("Found:  %4d / %4d (%5.2f%%)\n",'$FOUND','$NTRUTH',100*'$FOUND'/'$NTRUTH')}'
 
 echo "remember to delete temp dir: $TMPDIR" 1>&2
