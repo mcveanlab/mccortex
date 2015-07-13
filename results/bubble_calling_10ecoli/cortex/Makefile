@@ -44,11 +44,11 @@ ref/ref.falist: | $(DIRS)
 	echo $(REF) > $@
 
 # Make stampy hash
-# ref/ecoli.stidx: $(REF) | $(DIRS)
-# 	$(STAMPY) -G ref/ecoli $(REF)
+ref/ecoli.stidx: $(REF) | $(DIRS)
+	$(STAMPY) -G ref/ecoli $(REF)
 
-# ref/ecoli.sthash: ref/ecoli.stidx $(REF) | $(DIRS)
-# 	$(STAMPY) -g ref/ecoli -H ref/ecoli
+ref/ecoli.sthash: ref/ecoli.stidx $(REF) | $(DIRS)
+	$(STAMPY) -g ref/ecoli -H ref/ecoli
 
 # Build reference graph file
 ref/ref.k$(K).ctx: $(REF) | $(DIRS)
