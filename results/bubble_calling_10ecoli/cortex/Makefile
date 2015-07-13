@@ -21,7 +21,7 @@ BGZIP=$(CTXDIR)/libs/htslib/bgzip
 # Need absolute path to reference
 REF=$(shell cd ../../data/ecoli/; echo `pwd`/ecoli.fa)
 
-K=31
+K=21
 DIRS=ref lists
 
 # Dependencies that we create. We delete them on clean
@@ -107,7 +107,7 @@ new_header.k$(K).txt: cortex_1by1/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
 	  grep -v '^#CHROM' | \
 	  sed 's/, Description=/,Description=/g'; \
 	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
-	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$REFNAME>'; \
+	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$$REFNAME>"; \
 	  $(VCFHEADER) $< | grep '^#CHROM' ) > new_header.k$(K).txt
 
 # Put new header on, filter ref mismatches, sort entries
