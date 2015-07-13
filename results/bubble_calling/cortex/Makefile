@@ -92,7 +92,7 @@ new_header.k$(K).txt: $(CTXVCF)
 	  grep -v '^#CHROM' | \
 	  sed 's/, Description=/,Description=/g'; \
 	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
-	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$REFNAME>'; \
+	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$$REFNAME>"; \
 	  $(VCFHEADER) $(CTXVCF) | grep '^#CHROM' ) > new_header.k$(K).txt
 
 # Put new header on, filter ref mismatches, sort entries
