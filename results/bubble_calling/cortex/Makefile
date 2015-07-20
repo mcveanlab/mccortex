@@ -89,18 +89,18 @@ $(CTXVCF): $(DEPS)
 new_header.k$(K).txt: $(CTXVCF)
 	( REFNAME=`$(DNACAT) -N $(REF) | awk '{print $$1}'`; \
 		REFLEN=`$(DNACAT) -L $(REF) | awk '{print $2}'`; \
-		$(VCFHEADER) $(CTXVCF) | \
+		$(VCFHEADER) $< | \
 	  grep -v '^##contig' | \
 	  grep -v '^#CHROM' | \
 	  sed 's/, Description=/,Description=/g'; \
 	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
 	  echo "##contig=<ID=$$REFNAME,length=$$REFLEN,assembly=$$REFNAME>"; \
-	  $(VCFHEADER) $(CTXVCF) | grep '^#CHROM' ) > new_header.k$(K).txt
+	  $(VCFHEADER) $< | grep '^#CHROM' ) > new_header.k$(K).txt
 
-# Put new header on, filter ref mismatches, sort entries
+# Put new header on, remove empty lines, filter ref mismatches, sort entries
 cortex.k$(K).sort.vcf: new_header.k$(K).txt $(CTXVCF)
 	( cat new_header.k$(K).txt; \
-	  $(VCFREF) -s $(CTXVCF) $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
+	  $(VCFREF) -s <(awk '/[^\s]/{print $$0}' $(CTXVCF)) $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
 
 # Normalise indels and compress
 cortex.k$(K).norm.vcf.gz: cortex.k$(K).sort.vcf

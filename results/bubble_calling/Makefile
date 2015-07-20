@@ -36,7 +36,7 @@ TRUTH_FILES=truth.k$(K).norm.vcf.gz truth.k$(K).norm.vcf.gz.csi
 # Remove implicit rules for certain suffixes
 .SUFFIXES:
 
-all: run-mccortex-bubbles run-mccortex-brkpts $(TRUTH_FILES)
+all: run-mccortex run-cortex $(TRUTH_FILES)
 
 # 1 Mb human diploid
 # Generate a diploid genome from a haploid reference
@@ -79,13 +79,13 @@ samples.txt:
 task.k$(K).mk: samples.txt
 	$(CTXPIPELINE) -r $(REF) $(K) $(OUTDIR) $< > $@
 
-run-mccortex-bubbles: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) bubblevcf
-	$(VCFISEC) mc_bub_isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.links.k$(K).vcf.gz
-
-run-mccortex-brkpts: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) breakpointvcf
-	$(VCFISEC) mc_bub_isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.links.k$(K).vcf.gz
+run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=yes
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=no
+	$(VCFISEC) mc_bub_links_isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.links.k$(K).vcf.gz
+	$(VCFISEC) mc_bub_plain_isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.plain.k$(K).vcf.gz
+	$(VCFISEC) mc_brk_links_isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.links.k$(K).vcf.gz
+	$(VCFISEC) mc_brk_plain_isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.plain.k$(K).vcf.gz
 
 run-cortex:
 	cd cortex && $(MAKE) K=$(K)
@@ -98,4 +98,4 @@ clean:
 	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk truth.*vcf* truthisec truthisec2
 	cd cortex && $(MAKE) clean k=$(K)
 
-.PHONY: all clean run-mccortex-bubbles run-mccortex-brkpts run-cortex
+.PHONY: all clean run-mccortex run-cortex
