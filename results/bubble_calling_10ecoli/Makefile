@@ -100,8 +100,8 @@ run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
 run-cortex:
 	cd cortex && $(MAKE) K=$(K)
 	@echo "Cortex Bubble Caller 1by1 found:"
-	$(VCFISEC) ctx_isec_bub_1by1 truth.k$(K).norm.vcf.gz cortex/cortex.1by1.k$(K).norm.vcf.gz
-	$(VCFISEC) ctx_isec_bub_joint truth.k$(K).norm.vcf.gz cortex/cortex.joint.k$(K).norm.vcf.gz
+	$(VCFISEC) ctx_isec_bub_1by1 truth.k$(K).norm.vcf.gz cortex/cortex.k$(K).1by1.norm.vcf.gz
+	$(VCFISEC) ctx_isec_bub_joint truth.k$(K).norm.vcf.gz cortex/cortex.k$(K).joint.norm.vcf.gz
 
 $(DIRS):
 	mkdir -p $@

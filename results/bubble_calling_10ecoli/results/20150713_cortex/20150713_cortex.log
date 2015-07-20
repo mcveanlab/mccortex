@@ -1,0 +1,124 @@
+mkdir -p ref
+mkdir -p lists
+/apps/well/stampy/1.0.23-py2.6/stampy.py -G ref/ecoli /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa
+stampy: Building genome...
+stampy: Input files: ['/data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa']
+stampy: Done
+/apps/well/stampy/1.0.23-py2.6/stampy.py -g ref/ecoli -H ref/ecoli
+stampy: Building hash table...
+stampy: Initializing...
+stampy: Counting...
+stampy: Working... (0.0 %)         stampy: Working... (9.0 %)         stampy: Working... (10.0 %)         stampy: Initializing hash...         
+stampy: Flagging high counts...           
+stampy: Working... (20.0 %)         stampy: Creating hash...            
+stampy: Working... (27.3 %)         stampy: Working... (36.4 %)         stampy: Working... (45.5 %)         stampy: Working... (54.5 %)         stampy: Working... (63.6 %)         stampy: Working... (72.7 %)         stampy: Working... (81.8 %)         stampy: Working... (90.9 %)         stampy: Writing...             
+stampy: Finished building hash table
+stampy: Done
+../../..//bin/mccortex31 build -k 21 -s REF -1 /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa ref/ref.k21.ctx >& ref/ref.k21.ctx.log
+echo /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa > ref/ref.falist
+for i in {0..9}; do \
+		printf "Ecoli$i\t.\t%s\t%s\n" lists/reads$i.1.falist lists/reads$i.2.falist; \
+  done > samples.txt
+echo `pwd`/../reads/chrom0.50X.1.fa.gz > lists/reads0.1.falist
+echo `pwd`/../reads/chrom1.50X.1.fa.gz > lists/reads1.1.falist
+echo `pwd`/../reads/chrom2.50X.1.fa.gz > lists/reads2.1.falist
+echo `pwd`/../reads/chrom3.50X.1.fa.gz > lists/reads3.1.falist
+echo `pwd`/../reads/chrom4.50X.1.fa.gz > lists/reads4.1.falist
+echo `pwd`/../reads/chrom5.50X.1.fa.gz > lists/reads5.1.falist
+echo `pwd`/../reads/chrom6.50X.1.fa.gz > lists/reads6.1.falist
+echo `pwd`/../reads/chrom7.50X.1.fa.gz > lists/reads7.1.falist
+echo `pwd`/../reads/chrom8.50X.1.fa.gz > lists/reads8.1.falist
+echo `pwd`/../reads/chrom9.50X.1.fa.gz > lists/reads9.1.falist
+echo `pwd`/../reads/chrom0.50X.2.fa.gz > lists/reads0.2.falist
+echo `pwd`/../reads/chrom1.50X.2.fa.gz > lists/reads1.2.falist
+echo `pwd`/../reads/chrom2.50X.2.fa.gz > lists/reads2.2.falist
+echo `pwd`/../reads/chrom3.50X.2.fa.gz > lists/reads3.2.falist
+echo `pwd`/../reads/chrom4.50X.2.fa.gz > lists/reads4.2.falist
+echo `pwd`/../reads/chrom5.50X.2.fa.gz > lists/reads5.2.falist
+echo `pwd`/../reads/chrom6.50X.2.fa.gz > lists/reads6.2.falist
+echo `pwd`/../reads/chrom7.50X.2.fa.gz > lists/reads7.2.falist
+echo `pwd`/../reads/chrom8.50X.2.fa.gz > lists/reads8.2.falist
+echo `pwd`/../reads/chrom9.50X.2.fa.gz > lists/reads9.2.falist
+~/cortex/releases/CORTEX_release_v1.0.5.21/scripts/calling/run_calls.pl --first_kmer 21 --last_kmer 21 --kmer_step 2 --fastaq_index samples.txt --auto_cleaning yes --bc yes --pd no --outvcf ecoli --ploidy 2 --stampy_hash /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa --stampy_bin /apps/well/stampy/1.0.23-py2.6/stampy.py --list_ref_fasta ref/ref.falist --refbindir ref/ --genome_size 1000000 --qthresh 5 --mem_height 20 --mem_width 100 --vcftools_dir ~/bioinf/vcftools_0.1.12b/ --do_union yes --ref CoordinatesAndInCalling \
+--outdir cortex_1by1 \
+--workflow independent \
+--logfile runcalls.1by1.k21.log
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9415 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9411 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9430 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9414 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9430 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9423 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9405 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9406 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9414 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9447 y values <= 0 omitted from logarithmic plot
+sort -k1,1d -k2,2n
+sort -k1,1d -k2,2n
+~/cortex/releases/CORTEX_release_v1.0.5.21/scripts/calling/run_calls.pl --first_kmer 21 --last_kmer 21 --kmer_step 2 --fastaq_index samples.txt --auto_cleaning yes --bc yes --pd no --outvcf ecoli --ploidy 2 --stampy_hash /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa --stampy_bin /apps/well/stampy/1.0.23-py2.6/stampy.py --list_ref_fasta ref/ref.falist --refbindir ref/ --genome_size 1000000 --qthresh 5 --mem_height 20 --mem_width 100 --vcftools_dir ~/bioinf/vcftools_0.1.12b/ --do_union yes --ref CoordinatesAndInCalling \
+--outdir cortex_joint \
+--workflow joint \
+--logfile runcalls.joint.k21.log
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9415 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9411 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9430 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9414 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9430 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9423 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9405 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9406 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9414 y values <= 0 omitted from logarithmic plot
+Warning message:
+In xy.coords(x, y, xlabel, ylabel, log) :
+  9447 y values <= 0 omitted from logarithmic plot
+sort -k1,1d -k2,2n
+sort -k1,1d -k2,2n
+( REFNAME=` -N /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa | awk '{print $1}'`; \
+		REFLEN=` -L /data1/users/turner/cortex_sims/ninja-cortex/results/data/ecoli/ecoli.fa | awk '{print }'`; \
+		../../..//libs/biogrok/vcf-header cortex_1by1/vcfs/ecoli_union_BC_calls_k21.decomp.vcf | \
+	  grep -v '^##contig' | \
+	  grep -v '^#CHROM' | \
+	  sed 's/, Description=/,Description=/g'; \
+	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
+	  echo "##contig=<ID=$REFNAME,length=$REFLEN,assembly=$REFNAME>"; \
+	  ../../..//libs/biogrok/vcf-header cortex_1by1/vcfs/ecoli_union_BC_calls_k21.decomp.vcf | grep '^#CHROM' ) > new_header.k21.txt
+/bin/bash: -N: command not found
+make: *** [new_header.k21.txt] Error 1

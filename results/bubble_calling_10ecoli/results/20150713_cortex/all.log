@@ -1,0 +1,67 @@
+cd cortex && make K=21
+make[1]: Entering directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli/cortex'
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli/cortex'
+Cortex Bubble Caller 1by1 found:
+../../scripts/make-isec.sh ctx_isec_bub_1by1 truth.k21.norm.vcf.gz cortex/cortex.k21.1by1.norm.vcf.gz
+Missed: 2353 / 45765 ( 5.14%)
+FP:      369 / 43781 ( 0.84%)
+Found:  43412 / 45765 (94.86%)
+remember to delete temp dir: ctx_isec_bub_1by1
+../../scripts/make-isec.sh ctx_isec_bub_joint truth.k21.norm.vcf.gz cortex/cortex.k21.joint.norm.vcf.gz
+Missed: 18077 / 45765 (39.50%)
+FP:       70 / 27758 ( 0.25%)
+Found:  27688 / 45765 (60.50%)
+remember to delete temp dir: ctx_isec_bub_joint
+make -f task.k21.mk CTXDIR=../.. MEM=2G JOINT_CALLING=yes USE_LINKS=yes
+make[1]: Entering directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make -f task.k21.mk CTXDIR=../.. MEM=2G JOINT_CALLING=yes USE_LINKS=no
+make[1]: Entering directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make -f task.k21.mk CTXDIR=../.. MEM=2G JOINT_CALLING=no  USE_LINKS=yes
+make[1]: Entering directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make -f task.k21.mk CTXDIR=../.. MEM=2G JOINT_CALLING=no  USE_LINKS=no 
+make[1]: Entering directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+make[1]: Leaving directory `/data1/users/turner/cortex_sims/mccortex/results/bubble_calling_10ecoli'
+McCortex Bubbles (joint+links) found:
+../../scripts/make-isec.sh mc_isec_bub_joint_links truth.k21.norm.vcf.gz proj/vcfs/bubbles.joint.links.k21.vcf.gz
+Missed: 3259 / 45765 ( 7.12%)
+FP:     3109 / 45615 ( 6.82%)
+Found:  42506 / 45765 (92.88%)
+remember to delete temp dir: mc_isec_bub_joint_links
+../../scripts/make-isec.sh mc_isec_bub_joint_plain truth.k21.norm.vcf.gz proj/vcfs/bubbles.joint.plain.k21.vcf.gz
+Missed: 3317 / 45765 ( 7.25%)
+FP:     2895 / 45343 ( 6.38%)
+Found:  42448 / 45765 (92.75%)
+remember to delete temp dir: mc_isec_bub_joint_plain
+../../scripts/make-isec.sh mc_isec_bub_1by1_links  truth.k21.norm.vcf.gz proj/vcfs/bubbles.1by1.links.k21.vcf.gz
+Missed: 1609 / 45765 ( 3.52%)
+FP:     3962 / 48118 ( 8.23%)
+Found:  44156 / 45765 (96.48%)
+remember to delete temp dir: mc_isec_bub_1by1_links
+../../scripts/make-isec.sh mc_isec_bub_1by1_plain  truth.k21.norm.vcf.gz proj/vcfs/bubbles.1by1.plain.k21.vcf.gz
+Missed: 1633 / 45765 ( 3.57%)
+FP:     3152 / 47284 ( 6.67%)
+Found:  44132 / 45765 (96.43%)
+remember to delete temp dir: mc_isec_bub_1by1_plain
+../../scripts/make-isec.sh mc_isec_brk_joint_links truth.k21.norm.vcf.gz proj/vcfs/breakpoints.joint.links.k21.vcf.gz
+Missed: 1990 / 45765 ( 4.35%)
+FP:      256 / 44031 ( 0.58%)
+Found:  43775 / 45765 (95.65%)
+remember to delete temp dir: mc_isec_brk_joint_links
+../../scripts/make-isec.sh mc_isec_brk_joint_plain truth.k21.norm.vcf.gz proj/vcfs/breakpoints.joint.plain.k21.vcf.gz
+Missed: 2038 / 45765 ( 4.45%)
+FP:      256 / 43983 ( 0.58%)
+Found:  43727 / 45765 (95.55%)
+remember to delete temp dir: mc_isec_brk_joint_plain
+../../scripts/make-isec.sh mc_isec_brk_1by1_links  truth.k21.norm.vcf.gz proj/vcfs/breakpoints.1by1.links.k21.vcf.gz
+Missed: 2004 / 45765 ( 4.38%)
+FP:      433 / 44194 ( 0.98%)
+Found:  43761 / 45765 (95.62%)
+remember to delete temp dir: mc_isec_brk_1by1_links
+../../scripts/make-isec.sh mc_isec_brk_1by1_plain  truth.k21.norm.vcf.gz proj/vcfs/breakpoints.1by1.plain.k21.vcf.gz
+Missed: 2214 / 45765 ( 4.84%)
+FP:      432 / 43983 ( 0.98%)
+Found:  43551 / 45765 (95.16%)
+remember to delete temp dir: mc_isec_brk_1by1_plain

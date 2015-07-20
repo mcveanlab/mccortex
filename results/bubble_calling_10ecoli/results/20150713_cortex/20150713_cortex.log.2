@@ -1,0 +1,31 @@
+( REFNAME=`../../..//libs/seq_file/bin/dnacat -N /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa | awk '{print $1}'`; \
+		REFLEN=`../../..//libs/seq_file/bin/dnacat -L /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa | awk '{print }'`; \
+		../../..//libs/biogrok/vcf-header cortex_1by1/vcfs/ecoli_union_BC_calls_k21.decomp.vcf | \
+	  grep -v '^##contig' | \
+	  grep -v '^#CHROM' | \
+	  sed 's/, Description=/,Description=/g'; \
+	  echo '##INFO=<ID=KMER,Number=1,Type=Integer,Description="Kmer used for calling">'; \
+	  echo "##contig=<ID=$REFNAME,length=$REFLEN,assembly=$REFNAME>"; \
+	  ../../..//libs/biogrok/vcf-header cortex_1by1/vcfs/ecoli_union_BC_calls_k21.decomp.vcf | grep '^#CHROM' ) > new_header.k21.txt
+( cat new_header.k21.txt; \
+	  ~/c/vcf-hack/bin/vcfref -s <(awk '/[^\s]/{print $0}' cortex_1by1/vcfs/ecoli_wk_flow_I_RefCC_FINALcombined_BC_calls_at_all_k.decomp.vcf) /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa | grep -v '^#' | sort -k1,1d -k2,2n ) > cortex.k21.1by1.sort.vcf
+Loading /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa
+Loaded: 'EColiK12'
+ Done.
+../../..//libs/bcftools/bcftools norm --remove-duplicates --fasta-ref /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa --multiallelics +both cortex.k21.1by1.sort.vcf > cortex.k21.1by1.norm.vcf
+[W::vcf_parse] contig 'EColiK12' is not defined in the header. (Quick workaround: index the file with tabix.)
+Lines   total/modified/skipped:	43781/0/0
+../../..//libs/htslib/bgzip cortex.k21.1by1.norm.vcf
+( cat new_header.k21.txt; \
+	  ~/c/vcf-hack/bin/vcfref -s <(awk '/[^\s]/{print $0}' cortex_joint/vcfs/ecoli_wk_flow_J_RefCC_FINALcombined_BC_calls_at_all_k.decomp.vcf) /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa | grep -v '^#' | sort -k1,1d -k2,2n ) > cortex.k21.joint.sort.vcf
+Loading /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa
+Loaded: 'EColiK12'
+ Done.
+../../..//libs/bcftools/bcftools norm --remove-duplicates --fasta-ref /data1/users/turner/cortex_sims/mccortex/results/data/ecoli/ecoli.fa --multiallelics +both cortex.k21.joint.sort.vcf > cortex.k21.joint.norm.vcf
+[W::vcf_parse] contig 'EColiK12' is not defined in the header. (Quick workaround: index the file with tabix.)
+Lines   total/modified/skipped:	27758/0/0
+../../..//libs/htslib/bgzip cortex.k21.joint.norm.vcf
+../../..//libs/bcftools/bcftools index cortex.k21.1by1.norm.vcf.gz
+../../..//libs/bcftools/bcftools index cortex.k21.joint.norm.vcf.gz
+Error: need cortex_var_31_c10
+make: *** [checks] Error 1
