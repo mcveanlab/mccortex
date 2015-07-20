@@ -246,12 +246,14 @@ NTHREADS='.$default_nthreads.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 # Matepair orientation of library (FR,FF,RR,RF)
 MATEPAIR=FR
+MIN_FRAG_LEN=150
+MAX_FRAG_LEN=1000
 
 # Command arguments
 BUILD_ARGS=--fq-cutoff 10 --cut-hp 10 --keep-pcr --matepair $(MATEPAIR)
 KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
-THREAD_ARGS=--min-frag-len 150 --max-frag-len 1000 --fq-cutoff 5 --matepair $(MATEPAIR) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
+THREAD_ARGS=--min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --fq-cutoff 5 --matepair $(MATEPAIR) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
 LINK_CLEANING_ARGS=--limit 5000 --threshold 0.001
 BREAKPOINTS_ARGS=--minref 20
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000

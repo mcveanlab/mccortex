@@ -80,8 +80,8 @@ task.k$(K).mk: samples.txt
 	$(CTXPIPELINE) -r $(REF) $(K) $(OUTDIR) $< > $@
 
 run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=yes
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=no
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) MAX_FRAG_LEN=800 JOINT_CALLING=yes USE_LINKS=yes
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) MAX_FRAG_LEN=800 JOINT_CALLING=yes USE_LINKS=no
 	$(VCFISEC) mc_bub_links_isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.links.k$(K).vcf.gz
 	$(VCFISEC) mc_bub_plain_isec truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.plain.k$(K).vcf.gz
 	$(VCFISEC) mc_brk_links_isec truth.k$(K).norm.vcf.gz proj/vcfs/breakpoints.joint.links.k$(K).vcf.gz
