@@ -13,6 +13,7 @@ CORTEX=$(CORTEXDIR)/bin/cortex_var_31_c1
 
 CTXDIR=../../../
 MCCORTEX=$(CTXDIR)/bin/mccortex31
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 VCFHEADER=$(CTXDIR)/libs/biogrok/vcf-header
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
