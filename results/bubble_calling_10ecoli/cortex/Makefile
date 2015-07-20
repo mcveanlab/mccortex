@@ -32,8 +32,10 @@ DEPS=ref/ecoli.sthash ref/ecoli.stidx \
      ref/ref.k$(K).ctx ref/ref.falist \
      samples.txt $(FALISTS)
 
-CTXVCF_1BY1=cortex_1by1/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
-CTXVCF_JOINT=cortex_joint/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
+# CTXVCF_1BY1=cortex_1by1/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
+CTXVCF_1BY1=cortex_1by1/vcfs/ecoli_wk_flow_I_RefCC_FINALcombined_BC_calls_at_all_k.decomp.vcf
+# CTXVCF_JOINT=cortex_joint/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
+CTXVCF_JOINT=cortex_joint/vcfs/ecoli_wk_flow_J_RefCC_FINALcombined_BC_calls_at_all_k.decomp.vcf
 VCFS=cortex.k$(K).1by1.norm.vcf.gz cortex.k$(K).joint.norm.vcf.gz
 CSIS=$(VCFS:.vcf.gz=.vcf.gz.csi)
 
@@ -55,9 +57,12 @@ ref/ecoli.sthash: ref/ecoli.stidx $(REF) | $(DIRS)
 ref/ref.k$(K).ctx: $(REF) | $(DIRS)
 	$(MCCORTEX) build -k $(K) -s REF -1 $< $@ >& $@.log
 
-lists/reads%.1.falist: lists
+lists/reads%.1.falist:
+	mkdir -p lists
 	echo `pwd`/../reads/chrom$*.50X.1.fa.gz > $@
-lists/reads%.2.falist: lists
+
+lists/reads%.2.falist:
+	mkdir -p lists
 	echo `pwd`/../reads/chrom$*.50X.2.fa.gz > $@
 
 samples.txt:
@@ -112,9 +117,13 @@ new_header.k$(K).txt: cortex_1by1/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf
 	  $(VCFHEADER) $< | grep '^#CHROM' ) > new_header.k$(K).txt
 
 # Put new header on, filter ref mismatches, sort entries
-cortex.k$(K).%.sort.vcf: cortex_%/vcfs/ecoli_union_BC_calls_k$(K).decomp.vcf new_header.k$(K).txt
+cortex.k$(K).1by1.sort.vcf: $(CTXVCF_1BY1) new_header.k$(K).txt
 	( cat new_header.k$(K).txt; \
-	  $(VCFREF) -s $< $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
+	  $(VCFREF) -s <(awk '/[^\s]/{print $$0}' $<) $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
+
+cortex.k$(K).joint.sort.vcf: $(CTXVCF_JOINT) new_header.k$(K).txt
+	( cat new_header.k$(K).txt; \
+	  $(VCFREF) -s <(awk '/[^\s]/{print $$0}' $<) $(REF) | grep -v '^#' | sort -k1,1d -k2,2n ) > $@
 
 # Normalise indels and compress
 cortex.k$(K).%.norm.vcf.gz: cortex.k$(K).%.sort.vcf

@@ -26,6 +26,7 @@ DIRS=ref
 
 # Dependencies that we create. We delete them on clean
 CTXVCF=cortex_run/vcfs/chr22_17M_18M_union_BC_calls_k$(K).decomp.vcf
+#CTXVCF=cortex_joint/vcfs/ecoli_wk_flow_J_RefCC_FINALcombined_BC_calls_at_all_k.decomp.vcf
 
 DEPS=ref/chr22_17M_18M.sthash ref/chr22_17M_18M.stidx \
      ref/ref.k$(K).ctx ref/ref.falist \
