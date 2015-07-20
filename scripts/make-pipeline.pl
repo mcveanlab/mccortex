@@ -650,7 +650,7 @@ for my $k (@kmers) {
 
   print "# bubble calls k=$k joint+nolinks\n";
   print "$proj/k$k/bubbles_plain/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) | \$(DIRS)\n";
-  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol -o \$@ \$< \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol -o \$@ \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
 
   # 1by1 bubble calling
   print "# bubble calls k=$k 1by1+links\n";
