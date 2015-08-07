@@ -43,7 +43,7 @@ genome.k$(K).ctx:
 	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
 
 genome.k$(K).dot:
-	$(CTX) supernodes --graphviz genome.k$(K).ctx > genome.k$(K).dot
+	$(CTX) unitigs --dot genome.k$(K).ctx > genome.k$(K).dot
 
 genome.k$(K).pdf:
 	dot -Tpdf genome.k$(K).dot > genome.k$(K).pdf

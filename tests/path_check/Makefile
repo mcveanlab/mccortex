@@ -22,7 +22,7 @@ genome.k$(K).ctx: genome.fa
 	$(CTX) build -m 10M -k $(K) --sample MssrGenome --seq $< $@
 
 genome.k$(K).dot: genome.k$(K).ctx
-	$(CTX) supernodes --graphviz $< > $@
+	$(CTX) unitigs --graphviz $< > $@
 
 genome.k$(K).pdf: genome.k$(K).dot
 	dot -Tpdf $< > $@

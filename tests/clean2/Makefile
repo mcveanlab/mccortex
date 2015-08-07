@@ -7,7 +7,7 @@ PLOTCTX=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 KMER=17
 
 GRAPHS=seq.k$(KMER).raw.ctx seq.k$(KMER).clean.ctx
-DOTS=$(GRAPHS:.ctx=.dot) $(GRAPHS:.ctx=.supernodes.dot)
+DOTS=$(GRAPHS:.ctx=.dot) $(GRAPHS:.ctx=.unitigs.dot)
 PLOTS=$(DOTS:.dot=.pdf)
 
 all: seq.fa $(GRAPHS) $(DOTS)
@@ -29,8 +29,8 @@ seq.k$(KMER).clean.ctx: seq.k$(KMER).raw.ctx
 	$(CTX) clean --supernodes=2 -o $@ $<
 	$(CTX) check -q $@
 
-%.supernodes.dot: %.ctx
-	$(CTX) supernodes -m 1M --graphviz $< > $@
+%.unitigs.dot: %.ctx
+	$(CTX) unitigs -m 1M --dot $< > $@
 	# $(PLOTCTX) --simplify $< > $@
 
 %.dot: %.ctx
