@@ -28,6 +28,9 @@ void supernode_find(hkey_t node, dBNodeBuffer *nbuf, const dBGraph *db_graph);
 size_t supernode_read_starts(const Covg *covgs, size_t len);
 size_t supernode_covg_mean(const Covg *covgs, size_t len);
 
+/**
+ * @param visited must be initialised to zero, will be dirty upon return
+ **/
 void supernodes_iterate(size_t nthreads, uint8_t *visited,
                         const dBGraph *db_graph,
                         void (*func)(dBNodeBuffer _nbuf,

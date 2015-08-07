@@ -60,15 +60,15 @@ CtxCmd cmdobjs[] = {
   .blurb = "combine graphs, filter graph intersections",
   .usage = join_usage
 },
-{
-  .cmd = "supernodes", .func = ctx_supernodes, .hide = true,
-  .blurb = "pull out unitigs",
-  .usage = supernodes_usage
-},
 { // alias for supernodes
-  .cmd = "unitigs", .func = ctx_supernodes, .hide = false,
+  .cmd = "supernodes", .func = ctx_unitigs, .hide = true,
   .blurb = "pull out unitigs",
-  .usage = supernodes_usage
+  .usage = unitigs_usage
+},
+{
+  .cmd = "unitigs", .func = ctx_unitigs, .hide = false,
+  .blurb = "pull out unitigs",
+  .usage = unitigs_usage
 },
 {
   .cmd = "subgraph", .func = ctx_subgraph, .hide = false,

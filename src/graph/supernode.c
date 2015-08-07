@@ -6,28 +6,29 @@
 #include "db_node.h"
 #include "supernode.h"
 
-static bool supernode_is_closed_cycle(const dBNode *nlist, size_t len,
-                                         BinaryKmer bkmer0, BinaryKmer bkmer1,
-                                         const dBGraph *db_graph)
+static bool supernode_is_closed_cycle(dBNode n0, BinaryKmer bkey0,
+                                      dBNode n1, BinaryKmer bkey1,
+                                      const dBGraph *db_graph)
 {
   Edges edges0, edges1;
   BinaryKmer shiftkmer;
   Nucleotide nuc;
   const size_t kmer_size = db_graph->kmer_size;
 
-  edges0 = db_node_get_edges_union(db_graph, nlist[0].key);
-  if(edges_get_indegree(edges0, nlist[0].orient) != 1) return false;
+  edges0 = db_node_get_edges_union(db_graph, n0.key);
+  if(edges_get_indegree(edges0, n0.orient) != 1) return false;
 
-  edges1 = db_node_get_edges_union(db_graph, nlist[len-1].key);
-  if(edges_get_outdegree(edges1, nlist[len-1].orient) != 1) return false;
+  edges1 = db_node_get_edges_union(db_graph, n1.key);
+  if(edges_get_outdegree(edges1, n1.orient) != 1) return false;
 
-  nuc = bkmer_get_last_nuc(bkmer0, nlist[0].orient, kmer_size);
-  shiftkmer = bkmer_shift_add_last_nuc(bkmer1, nlist[len-1].orient, kmer_size, nuc);
+  // Check there is forward edge from last to first
+  nuc = bkmer_get_last_nuc(bkey0, n0.orient, kmer_size);
+  if(!edges_has_edge(edges1, nuc, n1.orient)) return false;
 
-  if(binary_kmers_are_equal(bkmer0, shiftkmer)) return true;
-
+  shiftkmer = bkmer_shift_add_last_nuc(bkey1, n1.orient, kmer_size, nuc);
+  if(binary_kmers_are_equal(bkey0, shiftkmer)) return true;
   shiftkmer = binary_kmer_reverse_complement(shiftkmer, kmer_size);
-  return binary_kmers_are_equal(bkmer0, shiftkmer);
+  return binary_kmers_are_equal(bkey0, shiftkmer);
 }
 
 // Orient supernode
@@ -43,40 +44,40 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
     return;
   }
 
-  BinaryKmer bkmer0 = db_node_get_bkmer(db_graph, nlist[0].key);
-  BinaryKmer bkmer1 = db_node_get_bkmer(db_graph, nlist[len-1].key);
+  BinaryKmer bkey0 = db_node_get_bkmer(db_graph, nlist[0].key);
+  BinaryKmer bkey1 = db_node_get_bkmer(db_graph, nlist[len-1].key);
 
   // Check if closed cycle
-  if(supernode_is_closed_cycle(nlist, len, bkmer0, bkmer1, db_graph))
+  if(supernode_is_closed_cycle(nlist[0], bkey0, nlist[len-1], bkey1, db_graph))
   {
     // find lowest kmer to start from
-    BinaryKmer lowest = bkmer0, tmp;
-    size_t i, idx = 0;
+    BinaryKmer lowest = bkey0, tmp;
+    size_t i, lowidx = 0;
     for(i = 1; i < len; i++) {
       tmp = db_node_get_bkmer(db_graph, nlist[i].key);
       if(binary_kmer_less_than(tmp, lowest)) {
         lowest = tmp;
-        idx = i;
+        lowidx = i;
       }
     }
 
     // If already starting from the lowest kmer no change needed
-    if(idx > 0 || nlist[0].orient != FORWARD)
+    if(lowidx > 0 || nlist[0].orient != FORWARD)
     {
       // a->b->c->d->e->f->a
       // if c is lowest and FORWARD:  c->d->e->f->a->b (keep orientations)
       // if c is lowest and REVERSE:  c->b->a->f->e->d (reverse orientations)
 
-      if(nlist[idx].orient == FORWARD) {
-        // Shift left by idx, without affecting orientations
-        db_nodes_left_shift(nlist, len, idx);
+      if(nlist[lowidx].orient == FORWARD) {
+        // Shift left by lowidx, without affecting orientations
+        db_nodes_left_shift(nlist, len, lowidx);
       } else {
-        db_nodes_reverse_complement(nlist, idx+1);
-        db_nodes_reverse_complement(nlist+idx+1, len-idx-1);
+        db_nodes_reverse_complement(nlist, lowidx+1);
+        db_nodes_reverse_complement(nlist+lowidx+1, len-lowidx-1);
       }
     }
   }
-  else if(binary_kmer_less_than(bkmer1,bkmer0)) {
+  else if(binary_kmer_less_than(bkey1, bkey0)) {
     db_nodes_reverse_complement(nlist, len);
   }
 }
@@ -222,6 +223,9 @@ static void supernodes_iterate_thread(void *arg)
   db_node_buf_dealloc(&nbuf);
 }
 
+/**
+ * @param visited must be initialised to zero, will be dirty upon return
+ **/
 void supernodes_iterate(size_t nthreads, uint8_t *visited,
                         const dBGraph *db_graph,
                         void (*func)(dBNodeBuffer _nbuf,

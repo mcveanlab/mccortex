@@ -5,6 +5,7 @@
 
 #include "hash_mem.h"
 #include "binary_kmer.h"
+#include "util.h"
 
 #define UNSET_BKMER_WORD (1UL<<63)
 
@@ -65,10 +66,10 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 
 // Iterate over all entries
 #define HASH_ITERATE1(ht,func, ...) do {                                       \
-  const BinaryKmer *htt_ptr = (ht)->table, *htt_end = htt_ptr + (ht)->capacity;\
-  for(; htt_ptr < htt_end; htt_ptr++) {                                        \
+  const BinaryKmer *_table = (ht)->table, *htt_ptr, *htt_end = _table+(ht)->capacity;\
+  for(htt_ptr = _table; htt_ptr < htt_end; htt_ptr++) {                        \
     if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
-      func((hkey_t)(htt_ptr - (ht)->table), ##__VA_ARGS__);                    \
+      func((hkey_t)(htt_ptr - _table), ##__VA_ARGS__);                         \
     }                                                                          \
   }                                                                            \
 } while(0)
@@ -77,11 +78,12 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // Faster in low density hash tables
 // Don't use this iterator if your func adds or removes elements
 #define HASH_ITERATE2(ht,func, ...) do {                                       \
-  const BinaryKmer *bkt_strt = (ht)->table, *htt_ptr; size_t _b,_c;            \
+  const BinaryKmer *_table = (ht)->table, *bkt_strt = _table, *htt_ptr;        \
+  size_t _b, _c;                                                               \
   for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
     for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][HT_BITEMS]; htt_ptr++){\
       if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                      \
-        _c++; func((hkey_t)(htt_ptr - (ht)->table), ##__VA_ARGS__);            \
+        _c++; func((hkey_t)(htt_ptr - _table), ##__VA_ARGS__);                 \
       }                                                                        \
     }                                                                          \
   }                                                                            \
@@ -91,15 +93,48 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // Stops if func() returns non-zero value
 #define HASH_ITERATE_PART(ht,job,njobs,func, ...) do {                         \
   ctx_assert((job) < (njobs));                                                 \
+  const BinaryKmer *_table = (ht)->table, *_start, *_end, *_bkptr;             \
   const size_t _step = (ht)->capacity / (njobs);                               \
-  const BinaryKmer *_start, *_end, *_bkptr;                                    \
-  _start = (ht)->table + (job) * _step;                                        \
-  _end = ((job)+1 == (njobs) ? (ht)->table + (ht)->capacity : _start+_step);   \
+  _start = _table + (job) * _step;                                             \
+  _end = ((job)+1 == (njobs) ? _table + (ht)->capacity : _start+_step);        \
   for(_bkptr = _start; _bkptr < _end; _bkptr++) {                              \
     if(HASH_ENTRY_ASSIGNED(*_bkptr)) {                                         \
-      if(func((hkey_t)(_bkptr - (ht)->table), ##__VA_ARGS__)) break;           \
+      if(func((hkey_t)(_bkptr - _table), ##__VA_ARGS__)) break;                \
     }                                                                          \
   }                                                                            \
 } while(0)
+
+typedef struct
+{
+  const HashTable *const ht;
+  const size_t threadid, nthreads;
+  bool (*const func)(hkey_t _h, size_t threadid, void *_arg);
+  void *arg;
+} HashTableIterator;
+
+static inline void _hash_table_iterate(void *arg)
+{
+  HashTableIterator itr = *(HashTableIterator*)arg;
+  HASH_ITERATE_PART(itr.ht, itr.threadid, itr.nthreads,
+                    itr.func, itr.threadid, itr.arg);
+}
+
+static inline void hash_table_iterate(const HashTable *ht, size_t nthreads,
+                                      bool (*func)(hkey_t _h, size_t threadid,
+                                                   void *_arg),
+                                      void *arg)
+{
+  ctx_assert(nthreads > 0);
+  HashTableIterator threads[nthreads];
+  size_t i;
+  for(i = 0; i < nthreads; i++) {
+    HashTableIterator tmp = {.ht = ht, .threadid = i, .nthreads = nthreads,
+                             .func = func, .arg = arg};
+    memcpy(&threads[i], &tmp, sizeof(HashTableIterator));
+  }
+
+  util_run_threads(threads, nthreads, sizeof(threads[0]),
+                   nthreads, _hash_table_iterate);
+}
 
 #endif /* HASH_TABLE_H_ */
