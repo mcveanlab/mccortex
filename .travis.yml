@@ -12,13 +12,18 @@ os:
 - linux
 - osx
 
+# We require sudo to install perl JSON module
+# Set to false if JSON dependency removed
+sudo: required
+
 # Multi language support on TravisCI would be nice
 # language: perl
 # perl: "5.20"
 
 install:
+  - sudo apt-get install libjson-pp-perl
+  # - cpanm JSON # <- not available if language is not "perl"
   - ./travis/install.sh
-  - cpanm JSON
 
 script: ./travis/script.sh
 
