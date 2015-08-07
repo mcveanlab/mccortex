@@ -137,7 +137,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "popbubbles", .func = ctx_pop_bubbles, .hide = false,
-  .blurb = "Pop bubbles in the population graph",
+  .blurb = "pop bubbles in the population graph",
   .usage = pop_bubbles_usage
 },
 {
@@ -153,12 +153,12 @@ CtxCmd cmdobjs[] = {
 /* Experiments */
 {
   .cmd = "exp_abc", .func = ctx_exp_abc, .hide = true,
-  .blurb = "Run experiment on traversal properties",
+  .blurb = "run experiment on traversal properties",
   .usage = exp_abc_usage
 },
 {
   .cmd = "hashtest", .func = ctx_exp_hashtest, .hide = true,
-  .blurb = "Test hash table speed",
+  .blurb = "test hash table speed",
   .usage = exp_hashtest_usage
 }
 };

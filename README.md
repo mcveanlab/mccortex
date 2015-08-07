@@ -47,7 +47,7 @@ Commands
     Commands:   breakpoints  use a trusted assembled genome to call large events
                 bubbles      find bubbles in graph which are potential variants
                 build        construct cortex graph from FASTA/FASTQ/BAM
-                calls2vcf    reduce set of strings to remove substrings
+                calls2vcf    convert bubble/breakpoint calls to VCF
                 check        load and check graph (.ctx) and path (.ctp) files
                 clean        clean errors from a graph
                 contigs      assemble contigs for a sample
@@ -58,15 +58,17 @@ Commands
                 join         combine graphs, filter graph intersections
                 links        clean and plot link files (.ctp)
                 pjoin        merge path files (.ctp)
+                popbubbles   Pop bubbles in the population graph
                 pview        text view of a cortex path file (.ctp)
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
                 sort         sort the kmers in a graph file
                 subgraph     filter a subgraph using seed kmers
-                supernodes   pull out supernodes
                 thread       thread reads through cleaned graph
                 uniqkmers    generate random unique kmers
+                unitigs      pull out unitigs
                 view         text view of a cortex graph file (.ctx)
+
 
       Type a command with no arguments to see help.
 
