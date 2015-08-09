@@ -1,31 +1,16 @@
 # Travis CI configuration
-# Note: osx not turned on currently, but this file is set up for it.
-# Note: there are currently issues with limiting coverity to a single compiler
-#       see https://github.com/travis-ci/travis-ci/issues/1975
-#       Instead we use a script to decide if we should do anything
+# For coverity_scan branch only
 
 language: c
-compiler:
-- clang
-- gcc
-os:
-- linux
-- osx
+compiler: gcc
+os: linux
 
-# We require sudo to install perl JSON module
-# Set to false if JSON dependency removed
-sudo: required
+sudo: false
 
-# Multi language support on TravisCI would be nice
-# language: perl
-# perl: "5.20"
+install: echo 'Install step'
+script: echo 'Script step'
 
-install:
-  - sudo apt-get install libjson-pp-perl
-  # - cpanm JSON # <- not available if language is not "perl"
-  - ./travis/install.sh
-
-script: ./travis/script.sh
+after_deploy: cat /home/travis/build/mcveanlab/mccortex/cov-int/scm_log.txt
 
 env:
   global:
