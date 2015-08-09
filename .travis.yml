@@ -29,8 +29,19 @@ script: ./travis/script.sh
 
 env:
   global:
-    # COVERITY_SCAN_TOKEN
+    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+    #   via the "travis encrypt" command using the project repo's public key
     - secure: "eKUTro+39sWiHx4tuvR6DbltNvXkv/qreSpzngTgT200PVLhibHgHCRbKojX8DQnAlmIZgUYt5u50W6u1V8XN3xi7gGZW/hg67VqCGgoiPp2iaWEwgWJhyK1VzJfXB59aw9NRAQyt1S1FLFbsYoPMiuC3DG4fdb6Us4j9hXjHXk="
+
+addons:
+  coverity_scan:
+    project:
+      name: "mcveanlab/mccortex"
+      description: "Build submitted via Travis CI"
+    notification_email: turner.isaac@gmail.com
+    build_command_prepend: "make clean"
+    build_command:   "make all"
+    branch_pattern: coverity_scan
 
 notifications:
   # HipChat
