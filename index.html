@@ -1,38 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
   <head>
-    <meta charset='utf-8' />
-    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="McCortex : Cortex on steroids: for larger populations with better assembly" />
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>McCortex by mcveanlab</title>
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-
-    <title>McCortex</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
   </head>
-
   <body>
+    <div class="wrapper">
+      <header>
+        <h1>McCortex</h1>
+        <p>Cortex on steroids: for larger populations with better assembly</p>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/mcveanlab/mccortex">View on GitHub</a>
+        <p class="view"><a href="https://github.com/mcveanlab/mccortex">View the Project on GitHub <small>mcveanlab/mccortex</small></a></p>
 
-          <h1 id="project_title">McCortex</h1>
-          <h2 id="project_tagline">Cortex on steroids: for larger populations with better assembly</h2>
 
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/mcveanlab/mccortex/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/mcveanlab/mccortex/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
+        <ul>
+          <li><a href="https://github.com/mcveanlab/mccortex/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/mcveanlab/mccortex/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/mcveanlab/mccortex">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
         <h1>
-<a name="mccortex-population-de-novo-assembly-and-variant-calling" class="anchor" href="#mccortex-population-de-novo-assembly-and-variant-calling"><span class="octicon octicon-link"></span></a>McCortex: Population De Novo Assembly and Variant Calling</h1>
+<a id="mccortex-population-de-novo-assembly-and-variant-calling" class="anchor" href="#mccortex-population-de-novo-assembly-and-variant-calling" aria-hidden="true"><span class="octicon octicon-link"></span></a>McCortex: Population De Novo Assembly and Variant Calling</h1>
 
 <p>Multi-sample de novo assembly and variant calling using de bruijn graphs.
 Variant calling with and without a reference genome. Between closely related
@@ -42,18 +39,41 @@ configuration. And it's free.</p>
 <p>Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella. Based at the Wellcome Trust Centre for Human Genetics, University of Oxford.</p>
 
-<p><em>Note: Currently under development.</em> Expect bugs, fixes and vague documentation until we hit our first release in the next month. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the <a href="https://groups.google.com/forum/#!forum/cortex_var">cortex mailing list</a>.</p>
+<p><em>Note: Currently under development.</em> Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the <a href="https://groups.google.com/forum/#!forum/cortex_var">cortex mailing list</a>.</p>
 
-<p>16 May 2014</p>
+<p>29 April 2015</p>
 
-<p><a href="https://travis-ci.org/mcveanlab/mccortex"><img src="https://travis-ci.org/mcveanlab/mccortex.svg" alt="Build Status"></a></p>
+<table>
+<thead>
+<tr>
+<th>Branch</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>master:</td>
+<td><a href="https://travis-ci.org/mcveanlab/mccortex"><img src="https://travis-ci.org/mcveanlab/mccortex.svg?branch=master" alt="Build Status"></a></td>
+</tr>
+<tr>
+<td>develop:</td>
+<td><a href="https://travis-ci.org/mcveanlab/mccortex"><img src="https://travis-ci.org/mcveanlab/mccortex.svg?branch=develop" alt="Build Status"></a></td>
+</tr>
+<tr>
+<td>code analysis:</td>
+<td><a href="https://scan.coverity.com/projects/2329"><img src="https://scan.coverity.com/projects/2329/badge.svg" alt="Coverity Scan Build Status"></a></td>
+</tr>
+</tbody>
+</table>
 
 <h2>
-<a name="build" class="anchor" href="#build"><span class="octicon octicon-link"></span></a>Build</h2>
+<a id="build" class="anchor" href="#build" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build</h2>
 
-<p>Compiles with clang and gcc. Tested on Mac OS X and linux. Requires zlib.
-The first compile will take a while since the libraries in libs/ need to be
-downloaded and compiled.</p>
+<p>McCortex compiles with clang and gcc. Tested on Mac OS X and linux. Requires zlib.
+Download with:</p>
+
+<pre><code>git clone --recursive https://github.com/mcveanlab/mccortex
+</code></pre>
 
 <p>To compile for a maximum kmer size of 31:</p>
 
@@ -65,81 +85,84 @@ downloaded and compiled.</p>
 <pre><code>make MAXK=63
 </code></pre>
 
-<p>Executables appear in the <code>bin/</code> directory. To update the libraries included:</p>
-
-<pre><code>cd libs &amp;&amp; make
-</code></pre>
+<p>Executables appear in the <code>bin/</code> directory.</p>
 
 <h2>
-<a name="commands" class="anchor" href="#commands"><span class="octicon octicon-link"></span></a>Commands</h2>
+<a id="commands" class="anchor" href="#commands" aria-hidden="true"><span class="octicon octicon-link"></span></a>Commands</h2>
 
-<pre><code>usage: ctx31 &lt;command&gt; [options] &lt;args&gt;
-version: ctx=XXXX zlib=1.2.5 htslib=0.2.0-rc7-74-g996b3c0 ASSERTS=ON CHECKS=ON k=3..31
+<pre><code>usage: mccortex31 &lt;command&gt; [options] &lt;args&gt;
+version: ctx=XXXX zlib=1.2.5 htslib=1.2.1 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
 
-Commands:   breakpoints  Use trusted assembled genome to call large events
+Commands:   breakpoints  use a trusted assembled genome to call large events
+            bubbles      find bubbles in graph which are potential variants
             build        construct cortex graph from FASTA/FASTQ/BAM
-            call         call variants with bubble caller
+            calls2vcf    convert bubble/breakpoint calls to VCF
             check        load and check graph (.ctx) and path (.ctp) files
             clean        clean errors from a graph
-            contigs      pull out contigs for a sample
+            contigs      assemble contigs for a sample
             correct      error correct reads
             coverage     print contig coverage
-            inferedges   infer graph edges before calling `thread`
+            index        index a sorted cortex graph file
+            inferedges   infer graph edges between kmers before calling `thread`
             join         combine graphs, filter graph intersections
+            links        clean and plot link files (.ctp)
             pjoin        merge path files (.ctp)
-            place        place variants and genotype
-            pview        view read threading information
+            popbubbles   Pop bubbles in the population graph
+            pview        text view of a cortex path file (.ctp)
             reads        filter reads against a graph
+            rmsubstr     reduce set of strings to remove substrings
+            sort         sort the kmers in a graph file
             subgraph     filter a subgraph using seed kmers
-            supernodes   pull out supernodes
             thread       thread reads through cleaned graph
-            unique       remove duplicated bubbles, produce VCF
-            view         view and check a cortex graph file (.ctx)
+            uniqkmers    generate random unique kmers
+            unitigs      pull out unitigs
+            view         text view of a cortex graph file (.ctx)
+
 
   Type a command with no arguments to see help.
 
 Common Options:
-  -m --memory &lt;M&gt;      Memory e.g. 1GB [default: 1GB]
-  -n --nkmers &lt;H&gt;      Hash entries [default: 4M, ~4 million]
-  -c --ncols &lt;C&gt;       Number of graph colours to load at once [default: 1]
-  -a --asyncio &lt;A&gt;     Limit on file reading threads [default: 4]
-  -t --threads &lt;T&gt;     Limit on proccessing threads [default: 2]
-  -o --out &lt;file&gt;      Output file
-  -p --paths &lt;in.ctp&gt;  Assembly file to load (can specify multiple times)
+  -h, --help            Help message
+  -q, --quiet           Silence status output normally printed to STDERR
+  -f, --force           Overwrite output files if they already exist
+  -m, --memory &lt;M&gt;      Memory e.g. 1GB [default: 1GB]
+  -n, --nkmers &lt;H&gt;      Hash entries [default: 4M, ~4 million]
+  -t, --threads &lt;T&gt;     Limit on proccessing threads [default: 2]
+  -o, --out &lt;file&gt;      Output file
+  -p, --paths &lt;in.ctp&gt;  Assembly file to load (can specify multiple times)
 </code></pre>
 
 <h2>
-<a name="getting-helps" class="anchor" href="#getting-helps"><span class="octicon octicon-link"></span></a>Getting Helps</h2>
+<a id="getting-helps" class="anchor" href="#getting-helps" aria-hidden="true"><span class="octicon octicon-link"></span></a>Getting Helps</h2>
 
-<p>Type a command with no arguments to see usage.</p>
-
-<p>Check out the <a href="https://github.com/mcveanlab/mccortex/wiki">wiki</a></p>
-
-<p>If you find a bug please submitted an <a href="https://github.com/mcveanlab/mccortex/issues">Issue</a> on github.</p>
-
-<p>Cortex mailing list: <a href="https://groups.google.com/forum/#!forum/cortex_var">https://groups.google.com/forum/#!forum/cortex_var</a></p>
-
-<p>Isaac Turner: <a href="mailto:turner.isaac@gmail.com">turner.isaac@gmail.com</a></p>
-
-<h2>
-<a name="code-and-contributing" class="anchor" href="#code-and-contributing"><span class="octicon octicon-link"></span></a>Code And Contributing</h2>
-
-<p>Issues can be submitted on github. Pull requests welcome. Please add your name
-to the AUTHORS file.</p>
-
-<p>Code should compile on mac/linux with clang/gcc without errors or warnings.</p>
-
-<p>Code is organised as:</p>
+<p>Type a command with no arguments to see usage. The following may also be useful:</p>
 
 <ul>
-<li>libs/         included library code from other projects / third party code</li>
-<li>src/basic     files that do not depend on MAX_KMER_SIZE</li>
-<li>src/kmer      files that need recompiling based on different MAX_KMER_SIZE</li>
-<li>src/tools     complex operations performed on the graph</li>
-<li>src/commands  one file per cortex command ctx_COMMAND</li>
-<li>src/main      files with a main function go in here</li>
-</ul><p>Files only link to files that are above them in the list above. E.g. src/kmer/*
-files only include files in src/kmer/, src/basic/ and libs/.</p>
+<li><a href="https://github.com/mcveanlab/mccortex/wiki">wiki</a></li>
+<li><a href="http://mcveanlab.github.io/mccortex">website</a></li>
+<li><a href="https://groups.google.com/forum/#!forum/cortex_var">mailing list</a></li>
+<li>Report a <a href="https://github.com/mcveanlab/mccortex/issues">bug / feature request</a> on GitHub</li>
+<li>Email me: Isaac Turner <a href="mailto:turner.isaac@gmail.com">turner.isaac@gmail.com</a>
+</li>
+</ul>
+
+<p>Live chat (email me to fix a time):</p>
+
+<ul>
+<li>
+<a href="http://www.hipchat.com/gbF6Zf4k3">HipChat</a> to instant message -- please email me first to arrange a time</li>
+<li><a href="https://gitter.im/mcveanlab/mccortex?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img src="https://badges.gitter.im/Join%20Chat.svg" alt="Gitter https://gitter.im/mcveanlab/mccortex"></a></li>
+</ul>
+
+<h2>
+<a id="code-and-contributing" class="anchor" href="#code-and-contributing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Code And Contributing</h2>
+
+<p>Issues can be submitted on github. Pull requests welcome. Please add your name
+to the AUTHORS file. Code should compile on mac/linux with clang/gcc without errors or warnings.</p>
+
+<p>More on the <a href="https://github.com/mcveanlab/mccortex/wiki/Contributing">wiki</a></p>
+
+<p>Unit tests are run with <code>make test</code> and integration tests with <code>cd tests; ./run</code>. Both of these test suites are run automatically with Travis CI when commits are pushed to GitHub. </p>
 
 <p>Static analysis can be run with <a href="http://cppcheck.sourceforge.net">cppcheck</a>:</p>
 
@@ -148,45 +171,63 @@ files only include files in src/kmer/, src/basic/ and libs/.</p>
 
 <p>or with <a href="http://clang-analyzer.llvm.org">clang</a>:</p>
 
-<pre><code>rm -rf bin/ctx31
+<pre><code>rm -rf bin/mccortex31
 scan-build make RECOMPILE=1
 </code></pre>
 
+<p>Occasionally we also run Coverity Scan. This is done by pushing to the <code>coverity_scan</code> branch on github, which triggers Travis CI to upload the latest code to Coverity.</p>
+
+<p><a href="https://scan.coverity.com/projects/2329"><img src="https://scan.coverity.com/projects/2329/badge.svg" alt="Coverity Scan Build Status"></a></p>
+
 <h2>
-<a name="license-gplv2" class="anchor" href="#license-gplv2"><span class="octicon octicon-link"></span></a>License: GPLv2</h2>
+<a id="license-mit" class="anchor" href="#license-mit" aria-hidden="true"><span class="octicon octicon-link"></span></a>License: MIT</h2>
 
 <p>Bundled libraries may have different licenses:</p>
 
 <ul>
 <li>
-<a href="http://www.gnu.org/software/gsl/">GNU Science Library</a> (GPL)</li>
+<a href="https://github.com/noporpoise/BitArray">BitArray</a> (Public Domain)</li>
+<li>
+<a href="http://http://sourceforge.net/projects/cjson/">cJSON</a> (MIT)</li>
 <li>
 <a href="https://code.google.com/p/cityhash/">CityHash</a> (MIT)</li>
 <li>
-<a href="http://burtleburtle.net/bob/c/lookup3.c">lookup3</a> (Public Domain)</li>
-<li>
 <a href="https://github.com/samtools/htslib">htslib</a> (MIT)</li>
 <li>
-<a href="https://github.com/samtools/bcftools">bcftools</a> (MIT)</li>
+<a href="http://burtleburtle.net/bob/c/lookup3.c">lookup3</a> (Public Domain)</li>
 <li>
-<a href="https://github.com/ekg/vcflib">vcflib</a> (MIT)</li>
-<li>
-<a href="https://github.com/noporpoise/seq_file">seq_file</a> (Public Domain)</li>
-<li>
-<a href="https://github.com/noporpoise/string_buffer">string_buffer</a> (Public Domain)</li>
-<li>
-<a href="https://github.com/noporpoise/BitArray">BitArray</a> (Public Domain)</li>
+<a href="https://github.com/noporpoise/madcrowlib">madcrowlib</a> (MIT)</li>
 <li>
 <a href="https://github.com/noporpoise/msg-pool">msg-pool</a> (Public Domain)</li>
 <li>
 <a href="https://github.com/noporpoise/seq-align">seq-align</a> (Public Domain)</li>
-</ul><p>Used in testing:</p>
+<li>
+<a href="https://github.com/noporpoise/seq_file">seq_file</a> (Public Domain)</li>
+<li>
+<a href="https://github.com/noporpoise/sort_r">sort_r</a> (Public Domain)</li>
+<li>
+<a href="https://github.com/noporpoise/string_buffer">string_buffer</a> (Public Domain)</li>
+<li>
+<a href="https://github.com/Cyan4973/xxHash.git">xxHash</a> (BSD)</li>
+</ul>
+
+<p>Used in testing:</p>
 
 <ul>
 <li>
+<a href="https://github.com/samtools/bcftools">bcftools</a> (MIT)</li>
+<li>
 <a href="https://github.com/noporpoise/bioinf-perl">bioinf-perl</a> (Public Domain)</li>
-</ul><h2>
-<a name="citing" class="anchor" href="#citing"><span class="octicon octicon-link"></span></a>Citing</h2>
+<li>
+<a href="https://github.com/lh3/bwa">bwa</a> (MIT)</li>
+<li>
+<a href="https://github.com/noporpoise/readsim">readsim</a> (Public Domain)</li>
+<li>
+<a href="https://github.com/samtools/samtools">samtools</a> (MIT)</li>
+</ul>
+
+<h2>
+<a id="citing" class="anchor" href="#citing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Citing</h2>
 
 <p>'Cortex with low memory and read threading' is currently unpublished.  Please
 cite previous cortex_var papers:</p>
@@ -200,16 +241,12 @@ Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
 (doi:10.1093/bioinformatics/bts673)</li>
 </ul>
       </section>
-    </div>
-
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">McCortex maintained by <a href="https://github.com/mcveanlab">mcveanlab</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/mcveanlab">mcveanlab</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
       </footer>
     </div>
-
+    <script src="javascripts/scale.fix.js"></script>
               <script type="text/javascript">
             var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
             document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
@@ -220,7 +257,6 @@ Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
             pageTracker._trackPageview();
             } catch(err) {}
           </script>
-
 
   </body>
 </html>
