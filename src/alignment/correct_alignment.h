@@ -26,7 +26,7 @@
   .frag_len_min = DEFAULT_CRTALN_FRAGLEN_MIN,    \
   .frag_len_max = DEFAULT_CRTALN_FRAGLEN_MAX,    \
   .one_way_gap_traverse = true,                  \
-  .use_end_check = true,                         \
+  .use_end_check = false,                        \
   .max_context = DEFAULT_CRTALN_MAX_CONTEXT,     \
   .gap_variance = DEFAULT_CRTALN_GAP_VARIANCE,   \
   .gap_wiggle = DEFAULT_CRTALN_GAP_WIGGLE        \
