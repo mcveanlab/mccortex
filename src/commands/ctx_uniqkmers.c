@@ -332,7 +332,7 @@ int ctx_uniqkmers(int argc, char **argv)
       if(sf == NULL) die("Couldn't reopen file: %s", path);
       free(path);
 
-      while(seq_read(sf, &r) > 0) {
+      while(seq_read_primary(sf, &r) > 0) {
         _add_uniq_flanks(&r, sf->path, fout, fmt, &db_graph);
       }
       seq_close(sf);

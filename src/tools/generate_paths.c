@@ -289,14 +289,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
       printed = true;
     }
-
-    #ifdef CTXCHECKS
-      // ctx_check2(gpath_checks_path(node.key, gpath, db_graph),
-      //            "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
-    #endif
-
-    // status("Path is:...");
-    // print_path(node.key, packed_ptr, &db_graph->pstore);
   }
 
   return num_added;

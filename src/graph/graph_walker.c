@@ -726,7 +726,7 @@ void graph_walker_prime(GraphWalker *wlk,
                         size_t max_context, bool forward)
 {
   ctx_assert(n > 0);
-  ctx_check(db_node_check_nodes(block, n, wlk->db_graph));
+  // ctx_check(db_node_check_nodes(block, n, wlk->db_graph));
 
   // If picking up paths is turned off, jump to last
   if(!gpath_store_use_traverse(wlk->gpstore)) {

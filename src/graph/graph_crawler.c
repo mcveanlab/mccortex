@@ -177,6 +177,7 @@ void graph_crawler_fetch(GraphCrawler *crawler, dBNode node0,
   RepeatWalker *rptwlk = &crawler->rptwlk;
   GCUniColPath *unipaths = crawler->unicol_paths;
 
+  ctx_assert(num_next <= 4);
   ctx_assert(take_idx < num_next);
   ctx_assert(!db_nodes_are_equal(node0, next_nodes[take_idx]));
 

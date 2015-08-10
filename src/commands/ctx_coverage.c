@@ -288,7 +288,7 @@ int ctx_coverage(int argc, char **argv)
 
   // Deal with one read at a time
   for(i = 0; i < sfilebuf.len; i++) {
-    while(seq_read(sfilebuf.b[i], &r) > 0) {
+    while(seq_read_primary(sfilebuf.b[i], &r) > 0) {
       print_read_covg(&db_graph, &r, &covgbuf, &edgebuf,
                       print_edges, print_edge_degrees, fout);
     }

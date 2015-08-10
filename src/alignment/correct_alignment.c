@@ -496,7 +496,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   wrkr->gap_idx_missing_edge = wrkr->end_idx_missing_edge;
 
   // db_nodes_print_verbose(contig->b, contig->len, wrkr->db_graph, stdout);
-  ctx_check(db_node_check_nodes(contig->b, contig->len, wrkr->db_graph));
+  // ctx_check(db_node_check_nodes(contig->b, contig->len, wrkr->db_graph));
 
   size_t contig_length_bp = contig->len + kmer_size - 1;
 

@@ -1,7 +1,8 @@
 #include "global.h"
 #include "gpath_follow.h"
-#include "binary_seq.h"
+// #include "binary_seq.h"
 
+/*
 // Check if the GPathFollow cache needs updated, based off path->pos value
 // if it does, update it
 void gpath_follow_cache_update(GPathFollow *path, size_t pos)
@@ -32,6 +33,7 @@ Nucleotide gpath_follow_get_base(GPathFollow *path, size_t pos)
   gpath_follow_cache_update(path, pos);
   return binary_seq_get(path->cache, pos - path->first_cached);
 }
+*/
 
 // For GraphWalker to work we assume all edges are merged into one colour
 // (i.e. graph->num_edge_cols == 1)
@@ -39,10 +41,15 @@ Nucleotide gpath_follow_get_base(GPathFollow *path, size_t pos)
 
 GPathFollow gpath_follow_create(const GPath *gpath)
 {
+  GPathFollow fpath = {.gpath = gpath,
+                        .pos = 0,
+                       .len = gpath->num_juncs,
+                       .age = 0};
+
   // .first_cached = 1 is invalid (not multiple of sizeof(cache)*4), so forces
   // fetch on first request
-  GPathFollow fpath = {.gpath = gpath, .pos = 0, .len = gpath->num_juncs,
-                       .age = 0, .first_cached = 1};
-  memset(fpath.cache, 0, sizeof(fpath.cache));
+  // fpath.first_cached = 1;
+  // memset(fpath.cache, 0, sizeof(fpath.cache));
+
   return fpath;
 }

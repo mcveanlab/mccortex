@@ -20,7 +20,7 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
   seq_read_alloc(&r);
   for(i = 0; i < num_files; i++) {
     status("  file: %s", seq_files[i]->path);
-    while(seq_read(seq_files[i], &r) > 0) {
+    while(seq_read_primary(seq_files[i], &r) > 0) {
       read_buf_push(rbuf, &r, 1); // copy read
       seq_read_alloc(&r); // allocate new read
     }
@@ -163,8 +163,8 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
 
 // Takes, updates and returns warnings that were printed
 // Warnings are only printed once per file
-static uint8_t process_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
-                                const char *path, uint8_t warn_flags)
+static uint8_t check_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
+                              const char *path, uint8_t warn_flags)
 {
   // Test if we've already warned about issue (e.g. bad base) before checking
   if(!(warn_flags & WFLAG_INVALID_BASE))
@@ -286,15 +286,17 @@ void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   uint8_t warn_flags = 0;
   size_t num_se_reads = 0, num_pe_pairs = 0;
 
-  while((s = seq_read(sf, r[ridx])) > 0)
+  while((s = seq_read_primary(sf, r[ridx])) > 0)
   {
-    warn_flags = process_new_read(r[ridx], qmin, qmax, sf->path, warn_flags);
+    warn_flags = check_new_read(r[ridx], qmin, qmax, sf->path, warn_flags);
 
     if(ridx)
     {
       // ridx == 1
       if(seq_read_names_cmp(r[0]->name.b, r[1]->name.b) == 0) {
-        read_func(r[0], r[1], qoffset, qoffset, reader_ptr);
+        // Either read may be the first in the pair if from SAM/BAM
+        int r0 = (r[1]->from_sam && seq_read_bam(r[1])->core.flag & BAM_FREAD1);
+        read_func(r[r0], r[!r0], qoffset, qoffset, reader_ptr);
         num_pe_pairs++;
         ridx = 0;
       } else {
@@ -364,8 +366,8 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
 
   while(1)
   {
-    success1 = seq_read(sf1, r1);
-    success2 = seq_read(sf2, r2);
+    success1 = seq_read_primary(sf1, r1);
+    success2 = seq_read_primary(sf2, r2);
 
     if(success1 < 0) warn("input error: %s", sf1->path);
     if(success2 < 0) warn("input error: %s", sf2->path);
@@ -377,8 +379,8 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
 
     // PE
     // We don't care about read orientation at this point
-    warn_flags = process_new_read(r1, qmin1, qmax1, sf1->path, warn_flags);
-    warn_flags = process_new_read(r2, qmin2, qmax2, sf2->path, warn_flags);
+    warn_flags = check_new_read(r1, qmin1, qmax1, sf1->path, warn_flags);
+    warn_flags = check_new_read(r2, qmin2, qmax2, sf2->path, warn_flags);
     read_func(r1, r2, qoffset1, qoffset2, reader_ptr);
     num_pe_pairs++;
   }
@@ -416,9 +418,9 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   size_t num_se_reads = 0, num_pe_pairs = 0;
   int s;
 
-  while((s = seq_read(sf, r1)) > 0)
+  while((s = seq_read_primary(sf, r1)) > 0)
   {
-    warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
+    warn_flags = check_new_read(r1, qmin, qmax, sf->path, warn_flags);
     read_func(r1, NULL, qoffset, 0, reader_ptr);
     num_se_reads++;
   }

@@ -211,21 +211,3 @@ void db_alignment_print(const dBAlignment *aln)
 
   pthread_mutex_unlock(&ctx_biglock);
 }
-
-// Alignment needn't have all edges now, so this is removed
-/*
-// Check all edges between ungapped adjacent nodes
-bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
-{
-  size_t start, end;
-
-  for(start = 0; start < aln->nodes.len; start = end)
-  {
-    end = db_alignment_next_gap(aln, start);
-    if(db_graph_check_all_edges(graph, aln->nodes.b+start, end-start))
-      return false;
-  }
-
-  return true;
-}
-*/
