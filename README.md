@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-29 April 2015
+10 August 2015
 
 Branch         | Status
 ---------------|--------
@@ -66,7 +66,7 @@ Commands
                 subgraph     filter a subgraph using seed kmers
                 thread       thread reads through cleaned graph
                 uniqkmers    generate random unique kmers
-                unitigs      pull out unitigs
+                unitigs      pull out unitigs in FASTA, DOT or GFA format
                 view         text view of a cortex graph file (.ctx)
 
 
