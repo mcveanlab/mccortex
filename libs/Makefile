@@ -16,88 +16,77 @@ core: $(CORE)
 
 common: $(COMMON)
 
-#
-# Download
-#
-gsl-1.16/configure:
-	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.16.tar.gz
-	tar xfz gsl-1.16.tar.gz
-	cd gsl-1.16; ./configure; make
-
 # Download of git hosted libraries now done with git submodules
 
 #
 # Build
 #
-gsl: gsl-1.16/configure
-	cd gsl-1.16 && make clean && ./configure && make
-
 xxHash: xxHash/Makefile
-	cd xxHash && make
+	cd xxHash && $(MAKE)
 
 htslib: htslib/Makefile
-	cd htslib && make
+	cd htslib && $(MAKE)
 
 bcftools: htslib bcftools/Makefile
-	cd bcftools && make
+	cd bcftools && $(MAKE)
 
 samtools: htslib samtools/Makefile
-	cd samtools && make
+	cd samtools && $(MAKE)
 
 bwa: bwa/Makefile
-	cd bwa && make
+	cd bwa && $(MAKE)
 
 string_buffer: string_buffer/Makefile
-	cd string_buffer && make all
+	cd string_buffer && $(MAKE) all
 
 bit_array: bit_array/Makefile
-	cd bit_array && make all
+	cd bit_array && $(MAKE) all
 
 seq_file: seq_file/Makefile htslib
-	cd seq_file && make HTSLIB=../htslib all
+	cd seq_file && $(MAKE) HTSLIB=../htslib all
 
 seq-align: seq-align/Makefile seq_file bit_array string_buffer sort_r
-	cd seq-align && make LIBS_PATH=.. all
+	cd seq-align && $(MAKE) LIBS_PATH=.. all
 
 readsim: readsim/Makefile htslib
-	cd readsim && make HTSLIB=../htslib
+	cd readsim && $(MAKE) HTSLIB=../htslib
 
 msg-pool: msg-pool/Makefile
-	cd msg-pool && make all
+	cd msg-pool && $(MAKE) all
 
 bioinf-perl: bioinf-perl/README
 	cd bioinf-perl
 
 sort_r: sort_r/Makefile
-	cd sort_r && make all
+	cd sort_r && $(MAKE) all
 
 madcrowlib: madcrowlib/Makefile
-	cd madcrowlib && make all
+	cd madcrowlib && $(MAKE) all
 
 maximal_substrs:
-	cd maximal_substrs && make
+	cd maximal_substrs && $(MAKE)
 
 misc: misc/Makefile
-	cd misc && make
+	cd misc && $(MAKE)
 
 #
 # Clean
 #
 clean:
-	cd xxHash && make clean
-	cd htslib && make clean
-	cd bcftools && make clean
-	cd samtools && make clean
-	cd string_buffer && make clean
-	cd bit_array && make clean
-	cd seq_file && make clean
-	cd seq-align && make clean
-	cd readsim && make clean
-	cd msg-pool && make clean
-	cd sort_r && make clean
-	cd madcrowlib && make clean
-	cd maximal_substrs && make clean
-	cd misc && make clean
+	cd xxHash && $(MAKE) clean
+	cd htslib && $(MAKE) clean
+	cd bcftools && $(MAKE) clean
+	cd samtools && $(MAKE) clean
+	cd string_buffer && $(MAKE) clean
+	cd bit_array && $(MAKE) clean
+	cd seq_file && $(MAKE) clean
+	cd seq-align && $(MAKE) clean
+	cd readsim && $(MAKE) clean
+	cd msg-pool && $(MAKE) clean
+	cd sort_r && $(MAKE) clean
+	cd madcrowlib && $(MAKE) clean
+	cd maximal_substrs && $(MAKE) clean
+	cd misc && $(MAKE) clean
 
 .PHONY: all clean update core
 .PHONY: $(ALLTGTS)

@@ -20,6 +20,9 @@ sudo: required
 # language: perl
 # perl: "5.20"
 
+before_install:
+  - git submodule update --init --recursive
+
 install:
   - sudo apt-get install libjson-pp-perl
   # - cpanm JSON # <- not available if language is not "perl"
