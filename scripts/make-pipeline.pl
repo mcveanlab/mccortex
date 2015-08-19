@@ -575,7 +575,7 @@ for my $k (@kmers) {
 
   for my $sample (@samples_with_pop) {
     my $sname = $sample->{'name'};
-    my @pe_files = (map {($_->[0], $_->[1])} @{$sample->{'pe_files'}},
+    my @pe_files = ((map {($_->[0], $_->[1])} @{$sample->{'pe_files'}}),
                     @{$sample->{'i_files'}});
     my @se_files = (@{$sample->{'se_files'}}, @pe_files);
 
