@@ -665,15 +665,16 @@ void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
                               bool split_lists, bool use_hash,
                               size_t *min_mem_ptr, size_t *max_mem_ptr)
 {
-  size_t i, path_bytes, hash_bytes;
+  size_t i, gpath_size, hash_bytes;
   size_t max_npaths = 0, sum_npaths = 0, max_pbytes = 0, sum_pbytes = 0;
 
-  path_bytes = sizeof(GPath) + (store_nseen ? sizeof(uint8_t)*ncols : 0);
+  gpath_size = sizeof(GPath) + (store_nseen ? sizeof(uint8_t)*ncols : 0);
   hash_bytes = (use_hash ? sizeof(GPEntry)/IDEAL_OCCUPANCY : 0);
 
   for(i = 0; i < nfiles; i++) {
     size_t npaths = gpath_reader_get_num_paths(&files[i]);
-    size_t pbytes = gpath_reader_get_path_bytes(&files[i]) + npaths*(ncols+7)/8;
+    size_t pbytes = gpath_reader_get_path_bytes(&files[i]) +
+                    npaths * roundup_bits2bytes(ncols);
     max_npaths = MAX2(max_npaths, npaths);
     max_pbytes = MAX2(max_pbytes, pbytes);
     sum_npaths += npaths;
@@ -683,10 +684,11 @@ void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
   size_t list_mem = graph_capacity*sizeof(GPath*) * (split_lists ? 2 : 1);
 
   // Memory is split three ways between path entries, sequence+colsets, hashtable
+  // So find largest, multiply by three
   size_t mult = use_hash ? 3 : 2;
-  *min_mem_ptr = MAX3(max_npaths*path_bytes, max_pbytes, max_npaths*hash_bytes)*mult
+  *min_mem_ptr = MAX3(max_npaths*gpath_size, max_pbytes, max_npaths*hash_bytes)*mult
                  + list_mem;
-  *max_mem_ptr = MAX3(sum_npaths*path_bytes, sum_pbytes, sum_npaths*hash_bytes)*mult
+  *max_mem_ptr = MAX3(sum_npaths*gpath_size, sum_pbytes, sum_npaths*hash_bytes)*mult
                  + list_mem;
 }
 
@@ -733,7 +735,6 @@ size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
   return MIN2(max_mem, path_sum_mem);
 }
 
-// Create a path store that does not tracks path counts
 void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
                                 size_t mem, bool count_nseen,
                                 dBGraph *db_graph)
@@ -750,7 +751,8 @@ void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
     npaths = gpath_reader_get_num_paths(&files[i]);
     max_npaths = MAX2(max_npaths, npaths);
     sum_npaths += npaths;
-    path_bytes = gpath_reader_get_path_bytes(&files[i]);
+    path_bytes = gpath_reader_get_path_bytes(&files[i]) +
+                 npaths * roundup_bits2bytes(db_graph->num_of_cols);
     sum_path_bytes += path_bytes;
   }
 
