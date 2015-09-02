@@ -24,7 +24,7 @@ before_install:
   - git submodule update --init --recursive
 
 install:
-  - sudo apt-get install libjson-pp-perl
+  # - sudo apt-get install libjson-pp-perl # <- not available on mac
   # - cpanm JSON # <- not available if language is not "perl"
   - ./travis/install.sh
 
