@@ -20,7 +20,9 @@ sudo: false
 before_install:
   - git submodule update --init --recursive
 
-install: ./travis/install.sh
+install:
+  - ./travis/install.sh
+  - eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
 
 script: ./travis/script.sh
 
