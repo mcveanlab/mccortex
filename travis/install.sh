@@ -14,7 +14,8 @@ then
     # brew update
     # brew outdated <package-name> || brew upgrade <package-name>
     # cpanm JSON
-    sudo cpan JSON
+    # sudo cpan JSON
+    sudo cpanm JSON
   elif [ "$TRAVIS_OS_NAME" == "linux" ]
   then
     sudo apt-get install libjson-pp-perl
