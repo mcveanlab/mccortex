@@ -158,6 +158,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
   // Picking up paths is turned off
   if(!gpath_store_use_traverse(gpstore)) return 0;
+  if(!db_node_in_col(db_graph, wlk->node.key, wlk->ctxcol)) return 0;
 
   // DEBUG
   // char kstr[MAX_KMER_SIZE+3]; // <kmer>:<orient>
@@ -301,7 +302,7 @@ uint64_t graph_walker_hash64(GraphWalker *wlk)
 // Junction decision
 //
 
-static inline void update_path_forks(GPathFollowBuffer *pbuf, bool taken[4])
+static inline void update_path_forks(const GPathFollowBuffer *pbuf, bool taken[4])
 {
   size_t i;
   GPathFollow *path;
@@ -311,14 +312,14 @@ static inline void update_path_forks(GPathFollowBuffer *pbuf, bool taken[4])
   }
 }
 
-static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
+static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
                                   const dBNode nodes[4],
                                   const Nucleotide bases[4])
 __attribute__((noreturn));
 
 // If we call this funcitons, something has gone wrong
 // print some debug information then exit
-static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
+static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
                                   const dBNode nodes[4],
                                   const Nucleotide bases[4])
 {
@@ -368,7 +369,7 @@ static inline void _corrupt_paths(GraphWalker *wlk, size_t num_next,
  * GraphWalker is not const because we update the path junction cache
  * @return index of choice or -1
  */
-GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
+GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4])
 {
@@ -472,13 +473,13 @@ GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
     _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, 0);
 
   size_t choice_age = (i < wlk->paths.len ? wlk->paths.b[i].age : 0);
-  GraphSegment *gseg, *first_seg = gseg_list_getptr(&wlk->gsegs, 0);
+  const GraphSegment *gseg, *first_seg = gseg_list_getconstptr(&wlk->gsegs, 0);
 
   // for(i = 0; i < gseg_list_len(&wlk->gsegs); i++)
-  //   printf(" %u", gseg_list_getptr(&wlk->gsegs, i)->num_nodes);
+  //   printf(" %u", gseg_list_getconstptr(&wlk->gsegs, i)->num_nodes);
   // printf(" [%zu]\n", gseg_list_len(&wlk->gsegs));
 
-  GraphSegment *choice_seg = first_seg + choice_age;
+  const GraphSegment *choice_seg = first_seg + choice_age;
   while(!choice_seg->in_fork) choice_seg++;
 
   ctx_assert2(first_seg[greatest_age-1].in_fork, "%zu %u/%u",
@@ -531,9 +532,11 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
   ctx_assert(node.key != HASH_NOT_FOUND);
   ctx_assert(num_nodes > 0);
 
+  const dBGraph *db_graph = wlk->db_graph;
+
   #ifdef DEBUG_WALKER
     char kmer_str[MAX_KMER_SIZE+1];
-    binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, kmer_str);
+    binary_kmer_to_str(wlk->bkey, db_graph->kmer_size, kmer_str);
     status("  _graph_walker_force_jump(): %s:%i is_fork:%s",
            kmer_str, wlk->node.orient, is_fork ? "yes" : "no");
   #endif
@@ -546,7 +549,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
               (int)wlk->last_step.status, (int)is_fork);
 
   // Update GraphWalker position
-  wlk->bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+  wlk->bkey = db_node_get_bkmer(db_graph, node.key);
   wlk->node = node;
 
   if(is_fork)
@@ -557,7 +560,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
     GPathFollow *path;
     size_t i, j, npaths = wlk->paths.len;
 
-    base = bkmer_get_last_nuc(wlk->bkey, node.orient, wlk->db_graph->kmer_size);
+    base = bkmer_get_last_nuc(wlk->bkey, node.orient, db_graph->kmer_size);
 
     // Check curr pathh
     for(i = 0, j = 0; i < npaths; i++)
@@ -604,9 +607,9 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
   Nucleotide prev_bases[4];
   size_t num_other_prev = 0;
 
-  if(lost_nuc >= 0)
+  if(lost_nuc >= 0 && db_node_in_col(db_graph, wlk->node.key, wlk->ctxcol))
   {
-    num_other_prev = db_graph_prev_nodes_with_mask(wlk->db_graph, wlk->node,
+    num_other_prev = db_graph_prev_nodes_with_mask(db_graph, wlk->node,
                                                    (Nucleotide)lost_nuc,
                                                    wlk->ctxcol,
                                                    prev_nodes, prev_bases);

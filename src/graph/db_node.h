@@ -38,6 +38,14 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 /* word index */
 #define ksetw(arr,ncols,hkey,col) (((hkey)/(sizeof(*arr)*8))*(ncols)+(col))
 
+static inline bool db_node_in_col(const dBGraph *graph, hkey_t hkey, size_t col)
+{
+  return graph->node_in_cols == NULL ||
+         bitset2_get(graph->node_in_cols,
+                     ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
+                     kseto(graph->node_in_cols,hkey));
+}
+
 static inline bool db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col)
 {
   return bitset2_get(graph->node_in_cols,

@@ -504,7 +504,7 @@ static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
   // char kstr[MAX_KMER_SIZE+1];
   // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
   // binary_kmer_to_str(bkmer, kmer_size, kstr);
-  // if(strcmp(kstr,"AGACGCGCCAGCGTCGCATCA")) return 0; // skip all but given kmer
+  // if(strcmp(kstr,"AATTAGTATTCAATAATGGGAAAACACGTAT")) return 0; // skip all but given kmer
   // printf("brk %s\n", kstr);
   //
 
