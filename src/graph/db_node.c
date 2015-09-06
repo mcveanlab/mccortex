@@ -115,7 +115,7 @@ char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str)
     kmer_col_edge_str[i] = (left & (0x1 << i) ? str[i] : '.');
 
   for(i = 0; i < 4; i++)
-    kmer_col_edge_str[i+4] = (char)toupper(right & (0x1 << i) ? str[i] : '.');
+    kmer_col_edge_str[i+4] = (right & (0x1 << i) ? toupper(str[i]) : '.');
 
   kmer_col_edge_str[8] = '\0';
 

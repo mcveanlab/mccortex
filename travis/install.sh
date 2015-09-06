@@ -15,8 +15,10 @@ then
 
   # Set up installing perl modules library path with:
   # eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
+  echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >> ~/.bashrc
+  echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >> ~/.profile
 
-  # Fetch third party code required to compile
+  # Compile third party code
   cd libs && make && cd ..
 
 fi

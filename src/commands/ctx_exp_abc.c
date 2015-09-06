@@ -360,7 +360,7 @@ int ctx_exp_abc(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" exp_abc -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }

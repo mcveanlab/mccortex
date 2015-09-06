@@ -96,10 +96,12 @@ static inline void _print_edge(hkey_t node, bool right_edge,
   {
     UnitigEnd uend1 = p->ugraph.unitig_ends[next_nodes[i].key];
 
-    char tmpstr[100];
-    db_node_to_str(p->db_graph, next_nodes[i], tmpstr);
-    if(!uend1.assigned)
-      status(" -> node %zu [%s]", uend1.unitigid, tmpstr);
+    // Debugging
+    if(!uend1.assigned) {
+      char tmpstr[100];
+      db_node_to_str(p->db_graph, next_nodes[i], tmpstr);
+      status(" -> node %zu [%s]", (size_t)uend1.unitigid, tmpstr);
+    }
 
     ctx_assert(next_nodes[i].key != HASH_NOT_FOUND);
     ctx_assert(uend1.assigned);

@@ -22,6 +22,8 @@ const char geno_usage[] =
 "  -h, --help              This help message\n"
 "  -q, --quiet             Silence status output normally printed to STDERR\n"
 "  -f, --force             Overwrite output files\n"
+"  -m, --memory <mem>      Memory to use\n"
+"  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -o, --out <bub.txt.gz>  Output file [default: STDOUT]\n"
 "  -r, --ref <ref.fa>      Reference file\n"
 "\n";
@@ -147,7 +149,7 @@ int ctx_geno(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" geno -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }

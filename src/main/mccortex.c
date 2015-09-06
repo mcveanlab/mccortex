@@ -146,6 +146,12 @@ CtxCmd cmdobjs[] = {
   .usage = calls2vcf_usage
 },
 {
+  .cmd = "server", .func = ctx_server, .hide = false,
+  .blurb = "interactively query the graph",
+  .usage = server_usage
+},
+/* Work in progress */
+{
   .cmd = "geno", .func = ctx_geno, .hide = true,
   .blurb = "genotype a VCF file from cortex graphs",
   .usage = geno_usage
