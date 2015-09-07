@@ -56,20 +56,25 @@ static inline bool print_kmer_json(const char *kstr, const dBGraph *db_graph)
   for(klen = 0; kstr[klen]; klen++) {
     if(!char_is_acgt(kstr[klen])) {
       fprintf(fout, "{\"error\": \"Invalid base\"}\n");
+      fflush(fout);
       return false;
     }
   }
 
+  // Don't do anything if empty line
   if(klen == 0) { return false; }
+
   if(klen != db_graph->kmer_size) {
     fprintf(fout, "{\"error\": \"Doesn't match kmer size: %zu\"}\n",
             db_graph->kmer_size);
+    fflush(fout);
     return false;
   }
 
   node = db_graph_find_str(db_graph, kstr);
   if(node.key == HASH_NOT_FOUND) {
     fprintf(fout, "{}\n");
+    fflush(fout);
     return true;
   }
 
@@ -126,7 +131,7 @@ static inline bool print_kmer_json(const char *kstr, const dBGraph *db_graph)
   }
 
   fputs("]\n}\n", fout);
-
+  fflush(fout);
   return true;
 }
 
