@@ -721,11 +721,11 @@ if(defined($ref_path))
   print "\t\$(VCFSORT) \$< > \$@\n\n";
 
   print "$proj/%.norm.vcf.gz: $proj/%.sort.vcf \$(REF_FILE)\n";
-  print "\t\$(BCFTOOLS) norm --site-win 5000 --remove-duplicates --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
+  print "\t\$(BCFTOOLS) norm --site-win 5000 --rm-dup both --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
   print "\t\$(VCFRENAME) > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
-  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --remove-duplicates\n";
+  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n";
   print "VCF_MERGE=\$(BCFTOOLS) merge\n\n";
 
   my @brkpnt_1by1_links_vcfs;

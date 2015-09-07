@@ -92,7 +92,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "thread", .func = ctx_thread, .hide = false,
-  .blurb = "thread reads through cleaned graph",
+  .blurb = "thread reads through cleaned graph to make links",
   .usage = thread_usage,
 },
 {
