@@ -170,17 +170,18 @@ bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 // Get edges in hex coding, two characters [0-9a-f] per edge
 // 1=>A, 2=>C, 4=>G, 8=>T
 // "3b" => [AC] AACTA [ACT]
-// Note: doesn't NULL terminate
-static inline void edges_to_char(Edges e, char str[2])
+// Null terminates string
+static inline void edges_to_char(Edges e, char str[3])
 {
   static const char digits[16] = "0123456789abcdef";
   str[0] = digits[rev_nibble_lookup(e>>4)];
   str[1] = digits[e&0xf];
+  str[2] = '\0';
 }
 
 static inline void edges_print(FILE *fout, Edges e)
 {
-  char estr[2];
+  char estr[3];
   edges_to_char(e, estr);
   fputc(estr[0], fout);
   fputc(estr[1], fout);
