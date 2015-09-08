@@ -80,6 +80,9 @@ void _print_edge_degrees(const Edges *edges, size_t col, size_t ncols,
   fputc('\n', fout);
 }
 
+// Print edges using hex coding, two characters [0-9a-f] per edge
+// 1=>A, 2=>C, 4=>G, 8=>T
+// "3b" => [AC] AACTA [ACT]
 static inline
 void _print_edges(const Edges *edges, size_t col, size_t ncols,
                   size_t num, FILE *fout)

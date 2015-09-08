@@ -39,6 +39,7 @@ static struct option longopts[] =
   "colours": [1,0,1],
   "left": "AC",
   "right": "",
+  "edges": "c0",
   "links": [{"forward": true, "juncs": "ACAA", "colours": [0,0,1]},
             {"forward": false, "juncs": "TG", "colours": [1,0,0]}]
 }
@@ -103,13 +104,20 @@ static inline bool print_kmer_json(const char *kstr, const dBGraph *db_graph)
   for(r = right, i = 4; i < 8; i++)
     if(edgesstr[i] != '.') { *r = edgesstr[i]; *(++r) = '\0'; }
 
+  // Sample edges
+  char sedges[2*db_graph->num_edge_cols + 1];
+  for(i = 0; i < db_graph->num_edge_cols; i++)
+    edges_to_char(db_node_get_edges(db_graph, node.key, i), sedges + 2*i);
+  sedges[2*db_graph->num_edge_cols] = '\0';
+
   fprintf(fout, "], \"left\": \"%s\", \"right\": \"%s\",\n"
-                "  \"links\": [", left, right);
+                "  \"edges\": \"%s\",\n"
+                "  \"links\": [", left, right, sedges);
 
   // Links
   // {"forward": true, "juncs": "ACAA", "colours": [0,0,1]}
   size_t nlinks;
-  GPath *gpath = gpath_store_fetch(&db_graph->gpstore, node.key);
+  GPath *gpath = gpath_store_safe_fetch(&db_graph->gpstore, node.key);
   for(nlinks = 0; gpath != NULL; gpath = gpath->next, nlinks++)
   {
     if(nlinks) fputs(",\n            ", fout);

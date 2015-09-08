@@ -30,6 +30,7 @@ void gpath_store_split_read_write(GPathStore *gpstore);
 void gpath_store_merge_read_write(GPathStore *gpstore);
 
 // Traversal paths are a subset of all paths
+#define gpath_store_safe_fetch(gpstore,hkey) ((gpstore)->paths_all ? gpath_store_fetch(gpstore,hkey) : NULL)
 #define gpath_store_use_traverse(gpstore) ((gpstore)->paths_traverse != NULL)
 GPath* gpath_store_fetch(const GPathStore *gpstore, hkey_t hkey);
 GPath* gpath_store_fetch_traverse(const GPathStore *gpstore, hkey_t hkey);

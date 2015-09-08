@@ -167,11 +167,23 @@ Edges edges_get_union(const Edges *edges, size_t num);
 bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                   Nucleotide *nucleotide);
 
-static inline void edges_print(FILE *fout, Edges e)
+// Get edges in hex coding, two characters [0-9a-f] per edge
+// 1=>A, 2=>C, 4=>G, 8=>T
+// "3b" => [AC] AACTA [ACT]
+// Note: doesn't NULL terminate
+static inline void edges_to_char(Edges e, char str[2])
 {
   static const char digits[16] = "0123456789abcdef";
-  fputc(digits[rev_nibble_lookup(e>>4)], fout);
-  fputc(digits[e&0xf], fout);
+  str[0] = digits[rev_nibble_lookup(e>>4)];
+  str[1] = digits[e&0xf];
+}
+
+static inline void edges_print(FILE *fout, Edges e)
+{
+  char estr[2];
+  edges_to_char(e, estr);
+  fputc(estr[0], fout);
+  fputc(estr[1], fout);
 }
 
 static inline Edges edges_as_nibble(Edges edges, Orientation orient) {
