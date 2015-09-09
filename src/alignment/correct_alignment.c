@@ -116,9 +116,8 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
 {
   dBNode end_node = forward ? block[0] : db_node_reverse(block[n-1]);
 
-  // BinaryKmer tmpbkmer = db_node_get_bkmer(wlk->db_graph, end_node.key);
-  // char tmpstr[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(tmpbkmer, wlk->db_graph->kmer_size, tmpstr);
+  // char tmpstr[MAX_KMER_SIZE+3];
+  // db_node_to_str(wlk->db_graph, end_node, tmpstr);
   // status("Endnode: %s contig->len: %zu", tmpstr, contig->len);
 
   // max_len allows for node on other side of gap

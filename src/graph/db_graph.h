@@ -164,7 +164,8 @@ void db_graph_add_all_edges(dBGraph *db_graph);
 
 // Get a random node from the graph
 // call seed_random() before any calls to this function please
-hkey_t db_graph_rand_node(const dBGraph *db_graph);
+// if ntries > 0 and we fail to find a node will return HASH_NOT_FOUND
+hkey_t db_graph_rand_node(const dBGraph *db_graph, size_t ntries);
 
 //
 // Printing

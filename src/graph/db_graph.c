@@ -564,23 +564,28 @@ void db_graph_add_all_edges(dBGraph *db_graph)
   HASH_ITERATE(&db_graph->ht, add_all_edges, db_graph);
 }
 
+// Get a random node from the graph
 // call seed_random() before any calls to this function please
-hkey_t db_graph_rand_node(const dBGraph *db_graph)
+// if ntries > 0 and we fail to find a node will return HASH_NOT_FOUND
+hkey_t db_graph_rand_node(const dBGraph *db_graph, size_t ntries)
 {
   uint64_t capacity = db_graph->ht.capacity;
   BinaryKmer *table = db_graph->ht.table;
   hkey_t hkey;
+  size_t i;
 
   if(capacity == 0) {
     warn("No entries in hash table - cannot select random");
     return HASH_NOT_FOUND;
   }
 
-  while(1)
+  for(i = 0; i < ntries; i++)
   {
     hkey = (hkey_t)((rand() / (double)RAND_MAX) * capacity);
     if(HASH_ENTRY_ASSIGNED(table[hkey])) return hkey;
   }
+
+  return HASH_NOT_FOUND;
 }
 
 void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,

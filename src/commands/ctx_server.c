@@ -38,6 +38,8 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
+#define MAX_RANDOM_TRIES 100
+
 /*
 // Query: ACACCAA
 {
@@ -53,47 +55,61 @@ static struct option longopts[] =
 {}
 */
 /**
- * @param kstr    request string
+ * @param qstr    query string - must be "random" or kmer
  * @param resp    string buffer reset, then used to store response
  * @param pretty  pretty print JSON or one line JSON
  * @returns       true iff query was valid kmer
  */
-static inline bool query_response(const char *kstr, StrBuf *resp, bool pretty,
+static inline bool query_response(const char *qstr, StrBuf *resp, bool pretty,
                                   const dBGraph *db_graph)
 {
-  size_t klen, i, col;
+  size_t qlen, i, col;
   dBNode node;
   char keystr[MAX_KMER_SIZE+1], *ptr;
 
   strbuf_reset(resp);
 
-  for(klen = 0; kstr[klen]; klen++) {
-    if(!char_is_acgt(kstr[klen])) {
-      strbuf_set(resp, "{\"error\": \"Invalid base\"}\n");
+  if(strcmp(qstr,"random") == 0)
+  {
+    // Reply with a random kmer
+    hkey_t hkey = db_graph_rand_node(db_graph, MAX_RANDOM_TRIES);
+    if(hkey == HASH_NOT_FOUND) { strbuf_set(resp, "{}\n"); return true; }
+    node.key = hkey;
+    node.orient = FORWARD;
+    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+    binary_kmer_to_str(bkmer, db_graph->kmer_size, keystr);
+  }
+  else
+  {
+    // query must be a kmer
+    for(qlen = 0; qstr[qlen]; qlen++) {
+      if(!char_is_acgt(qstr[qlen])) {
+        strbuf_set(resp, "{\"error\": \"Invalid base\"}\n");
+        return false;
+      }
+    }
+
+    // Don't do anything if empty line
+    if(qlen == 0) { return false; }
+
+    if(qlen != db_graph->kmer_size) {
+      strbuf_set(resp, "{\"error\": \"Doesn't match kmer size: ");
+      strbuf_append_ulong(resp, db_graph->kmer_size);
+      strbuf_append_str(resp, "\"}\n");
       return false;
     }
+
+    node = db_graph_find_str(db_graph, qstr);
+    if(node.key == HASH_NOT_FOUND) {
+      strbuf_set(resp, "{}\n");
+      return true;
+    }
+
+    // Get upper case kmer key
+    memcpy(keystr, qstr, qlen+1);
+    for(ptr = keystr; *ptr; ptr++) *ptr = toupper(*ptr);
+    if(node.orient == REVERSE) dna_reverse_complement_str(keystr, qlen);
   }
-
-  // Don't do anything if empty line
-  if(klen == 0) { return false; }
-
-  if(klen != db_graph->kmer_size) {
-    strbuf_set(resp, "{\"error\": \"Doesn't match kmer size: ");
-    strbuf_append_ulong(resp, db_graph->kmer_size);
-    strbuf_append_str(resp, "\"}\n");
-    return false;
-  }
-
-  node = db_graph_find_str(db_graph, kstr);
-  if(node.key == HASH_NOT_FOUND) {
-    strbuf_set(resp, "{}\n");
-    return true;
-  }
-
-  // Get upper case kmer key
-  memcpy(keystr, kstr, klen+1);
-  for(ptr = keystr; *ptr; ptr++) *ptr = toupper(*ptr);
-  if(node.orient == REVERSE) dna_reverse_complement_str(keystr, klen);
 
   strbuf_append_str(resp, "{");
   strbuf_append_str(resp, pretty ? "\n  " : " ");
