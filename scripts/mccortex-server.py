@@ -16,14 +16,17 @@ import socketserver
 #   { "key": "CAGTGGCCA", "colours": [1], "left": "T", "right": "T", "edges": "88", "links": [] }
 #
 
-def query_mccortex(proc,kmer):
-    print(kmer, file=proc.stdin)
-    proc.stdin.flush()
-    line = proc.stdout.readline()
-    # line = line.rstrip()
+def check_mccortex_alive(proc):
     if proc.poll() is not None:
         print("McCortex quit [%i]" % proc.returncode, file=sys.stdout)
         sys.exit(1)
+
+def query_mccortex(proc,kmer):
+    print(kmer, file=proc.stdin)
+    proc.stdin.flush()
+    check_mccortex_alive(proc)
+    line = proc.stdout.readline()
+    check_mccortex_alive(proc)
     return line
 
 def start_mccortex(extra_args):
@@ -38,6 +41,7 @@ def start_mccortex(extra_args):
         sys.exit(1)
 
     # Give test query to check it works
+    check_mccortex_alive(proc)
     resp = query_mccortex(proc, "hi")
 
     return proc
@@ -55,10 +59,13 @@ def start_web_server():
 
     class mccortexHTTPServer(BaseHTTPRequestHandler):
         def do_GET(self):
-            jsonstr = query_mccortex(mccortex, self.path[1:])
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
+            if len(self.path) < 4 or len(self.path) > 300:
+                jsonstr = "{\"error\": \"Webserver: bad query\"}\n"
+            else:
+                jsonstr = query_mccortex(mccortex, self.path[1:])
             self.wfile.write(bytes(jsonstr,'UTF-8'))
 
     try:

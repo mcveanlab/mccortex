@@ -145,9 +145,9 @@ static inline bool query_response(const char *kstr, StrBuf *resp, bool pretty,
   for(nlinks = 0; gpath != NULL; gpath = gpath->next, nlinks++)
   {
     if(nlinks) strbuf_append_str(resp, pretty ? ",\n            " : ", ");
-    strbuf_append_str(resp, "{\"forward\": \"");
+    strbuf_append_str(resp, "{\"forward\": ");
     strbuf_append_str(resp, gpath->orient == FORWARD ? "true" : "false");
-    strbuf_append_str(resp, "\", \"juncs\": \"");
+    strbuf_append_str(resp, ", \"juncs\": \"");
 
     // Print link sequence
     for(i = 0; i < gpath->num_juncs; i++)
