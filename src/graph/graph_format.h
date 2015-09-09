@@ -116,6 +116,21 @@ void graph_update_mmap_kmers(const dBGraph *db_graph,
                              size_t first_filecol, size_t nfilecols,
                              char *mmap_ptr, size_t hdrsize);
 
+/*!
+  Overwrite kmers in an existing file.
+  @param first_graphcol  first colour in the dBGraph to read from
+  @param first_filecol   first colour in the file to write into
+  @param ngraphcols      number of colours to write to file
+  @param nfilecols       total number of colours in file
+  @param hdrsize         file header size i.e. byte pos of first kmer in file
+  @param fh              file handle opened that we can fwrite/fseek
+  @param path            path to the file (for error messages)
+ */
+void graph_update_file_kmers(const dBGraph *db_graph,
+                             size_t first_graphcol, size_t ngraphcols,
+                             size_t first_filecol, size_t nfilecols,
+                             size_t hdrsize, FILE *fh, const char *path);
+
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *header);
 

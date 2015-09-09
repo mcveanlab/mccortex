@@ -662,7 +662,7 @@ size_t graph_files_merge(const char *out_ctx_path,
                 "Cannot use STDOUT for output if not enough colours to load");
 
     // Have to load a few colours at a time then dump, rinse and repeat
-    status("[mmap] Saving %zu colours, %zu colours at a time",
+    status("[overwriting] Saving %zu colours, %zu colours at a time",
            output_colours, db_graph->num_of_cols);
 
     // Open file, write header
@@ -684,10 +684,10 @@ size_t graph_files_merge(const char *out_ctx_path,
     fflush(fout);
 
     // Open memory mapped file
-    void *mmap_ptr = mmap(NULL, file_len, PROT_WRITE, MAP_SHARED, fileno(fout), 0);
+    // void *mmap_ptr = mmap(NULL, file_len, PROT_WRITE, MAP_SHARED, fileno(fout), 0);
 
-    if(mmap_ptr == MAP_FAILED)
-      die("Cannot memory map file: %s [%s]", out_ctx_path, strerror(errno));
+    // if(mmap_ptr == MAP_FAILED)
+    //   die("Cannot memory map file: %s [%s]", out_ctx_path, strerror(errno));
 
     size_t num_kmer_cols = db_graph->ht.capacity * db_graph->num_of_cols;
     size_t firstcol, lastcol, fromcol, intocol;
@@ -740,14 +740,18 @@ size_t graph_files_merge(const char *out_ctx_path,
         else
           status("Dumping into colours %zu-%zu...\n", firstcol, lastcol);
 
-        graph_update_mmap_kmers(db_graph, 0, lastcol-firstcol+1,
+        // graph_update_mmap_kmers(db_graph, 0, lastcol-firstcol+1,
+        //                         firstcol, output_colours,
+        //                         mmap_ptr, hdr_size);
+
+        graph_update_file_kmers(db_graph, 0, lastcol-firstcol+1,
                                 firstcol, output_colours,
-                                mmap_ptr, hdr_size);
+                                hdr_size, fout, out_ctx_path);
       }
     }
 
-    if(munmap(mmap_ptr, file_len) == -1)
-      die("Cannot release mmap file: %s [%s]", out_ctx_path, strerror(errno));
+    // if(munmap(mmap_ptr, file_len) == -1)
+    //   die("Cannot release mmap file: %s [%s]", out_ctx_path, strerror(errno));
 
     fclose(fout);
     file_filter_close(&origfltr);

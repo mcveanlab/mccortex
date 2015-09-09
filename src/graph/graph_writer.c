@@ -186,6 +186,70 @@ void graph_update_mmap_kmers(const dBGraph *db_graph,
                &ptr, filekmersize);
 }
 
+/*!
+  Overwrite kmers in an existing file.
+  @param first_graphcol  first colour in the dBGraph to read from
+  @param first_filecol   first colour in the file to write into
+  @param ngraphcols      number of colours to write to file
+  @param nfilecols       total number of colours in file
+  @param hdrsize         file header size i.e. byte pos of first kmer in file
+  @param fh              file handle opened that we can fwrite/fseek
+  @param path            path to the file (for error messages)
+ */
+void graph_update_file_kmers(const dBGraph *db_graph,
+                             size_t first_graphcol, size_t ngraphcols,
+                             size_t first_filecol, size_t nfilecols,
+                             size_t hdrsize, FILE *fh, const char *path)
+{
+  ctx_assert(db_graph->col_edges != NULL);
+  ctx_assert(db_graph->col_covgs != NULL);
+  ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
+  ctx_assert(first_graphcol+ngraphcols <= db_graph->num_of_cols);
+
+  // db_graph->ht.num_kmers is also the number of kmers in the file
+  // We are just overwriting some of the coverages and edges for colours
+  // first_filecol..(first_filecol+ngraphcols) not including last
+  size_t max_block_size = 16 * ONE_MEGABYTE;
+  size_t filekmersize = sizeof(BinaryKmer)+(sizeof(Edges)+sizeof(Covg))*nfilecols;
+  size_t kmers_per_block = max_block_size / filekmersize;
+  size_t block_size = kmers_per_block * filekmersize;
+  ctx_assert(block_size > 0);
+
+  size_t nkmers_printed = 0, nkmers, nbytes, end;
+  uint8_t *mem = ctx_malloc(block_size), *memptr;
+  hkey_t hkey = 0;
+  const Covg *covgs = db_graph->col_covgs;
+  const Edges *edges = db_graph->col_edges;
+
+  if(fseek(fh, hdrsize, SEEK_SET) != 0) die("Cannot seek to file start: %s", path);
+
+  // Read block of kmers from the file
+  // iterate over the hash table figuring which ones they are
+  while(nkmers_printed < db_graph->ht.num_kmers)
+  {
+    nkmers = MIN2(db_graph->ht.num_kmers - nkmers_printed, kmers_per_block);
+    nbytes = nkmers*filekmersize;
+    if(fread(mem, 1, nbytes, fh) != nbytes) die("Cannot read: %s", path);
+    memptr = mem;
+    for(end = nkmers_printed+nkmers; nkmers_printed < end; hkey++) {
+      if(db_graph_node_assigned(db_graph, hkey)) {
+        covgs = db_graph->col_covgs + hkey * db_graph->num_of_cols;
+        edges = db_graph->col_edges + hkey * db_graph->num_of_cols;
+        memptr += sizeof(BinaryKmer);
+        memcpy(memptr + first_filecol*sizeof(Covg), covgs, ngraphcols*sizeof(Covg));
+        memptr += sizeof(Covg)*nfilecols;
+        memcpy(memptr + first_filecol*sizeof(Edges), edges, ngraphcols*sizeof(Edges));
+        memptr += sizeof(Edges)*nfilecols;
+        nkmers_printed++;
+      }
+    }
+    if(fseek(fh, -nbytes, SEEK_CUR) != 0) die("fseek failed: %s", path);
+    if(fwrite(mem, 1, nbytes, fh) != nbytes) die("fwrite failed: %s", path);
+  }
+
+  ctx_free(mem);
+}
+
 // Dump node: only print kmers with coverages in given colours
 static void graph_write_node(hkey_t hkey, const dBGraph *db_graph,
                              FILE *fout, const GraphFileHeader *hdr,
