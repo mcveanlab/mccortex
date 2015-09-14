@@ -6,9 +6,7 @@
 #include "graph_format.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
-
-// DEV: add graph info command to get JSON header
-// DEV: add random kmer command
+#include "json_hdr.h"
 
 const char server_usage[] =
 "usage: "CMD" server [options] <in.ctx> [in2.ctx ...]\n"
@@ -20,9 +18,9 @@ const char server_usage[] =
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
-"  -S,--single-line      Run as HTTP server on given port\n"
-"  -C,--coverages        Load per sample coverages\n"
-"  -E,--edges            Load per sample edges\n"
+"  -S, --single-line     Run as HTTP server on given port\n"
+"  -C, --coverages       Load per sample coverages\n"
+"  -E, --edges           Load per sample edges\n"
 "\n";
 
 static struct option longopts[] =
@@ -40,76 +38,10 @@ static struct option longopts[] =
 
 #define MAX_RANDOM_TRIES 100
 
-/*
-// Query: ACACCAA
+static inline void kmer_response(StrBuf *resp, dBNode node, const char *keystr,
+                                 bool pretty, const dBGraph *db_graph)
 {
-  "key": "ACACAAA",
-  "colours": [1,0,1],
-  "left": "AC",
-  "right": "",
-  "edges": "c0",
-  "links": [{"forward": true, "juncs": "ACAA", "colours": [0,0,1]},
-            {"forward": false, "juncs": "TG", "colours": [1,0,0]}]
-}
-// Query: "ACCCCAC" (Not in graph)
-{}
-*/
-/**
- * @param qstr    query string - must be "random" or kmer
- * @param resp    string buffer reset, then used to store response
- * @param pretty  pretty print JSON or one line JSON
- * @returns       true iff query was valid kmer
- */
-static inline bool query_response(const char *qstr, StrBuf *resp, bool pretty,
-                                  const dBGraph *db_graph)
-{
-  size_t qlen, i, col;
-  dBNode node;
-  char keystr[MAX_KMER_SIZE+1], *ptr;
-
-  strbuf_reset(resp);
-
-  if(strcmp(qstr,"random") == 0)
-  {
-    // Reply with a random kmer
-    hkey_t hkey = db_graph_rand_node(db_graph, MAX_RANDOM_TRIES);
-    if(hkey == HASH_NOT_FOUND) { strbuf_set(resp, "{}\n"); return true; }
-    node.key = hkey;
-    node.orient = FORWARD;
-    BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
-    binary_kmer_to_str(bkmer, db_graph->kmer_size, keystr);
-  }
-  else
-  {
-    // query must be a kmer
-    for(qlen = 0; qstr[qlen]; qlen++) {
-      if(!char_is_acgt(qstr[qlen])) {
-        strbuf_set(resp, "{\"error\": \"Invalid base\"}\n");
-        return false;
-      }
-    }
-
-    // Don't do anything if empty line
-    if(qlen == 0) { return false; }
-
-    if(qlen != db_graph->kmer_size) {
-      strbuf_set(resp, "{\"error\": \"Doesn't match kmer size: ");
-      strbuf_append_ulong(resp, db_graph->kmer_size);
-      strbuf_append_str(resp, "\"}\n");
-      return false;
-    }
-
-    node = db_graph_find_str(db_graph, qstr);
-    if(node.key == HASH_NOT_FOUND) {
-      strbuf_set(resp, "{}\n");
-      return true;
-    }
-
-    // Get upper case kmer key
-    memcpy(keystr, qstr, qlen+1);
-    for(ptr = keystr; *ptr; ptr++) *ptr = toupper(*ptr);
-    if(node.orient == REVERSE) dna_reverse_complement_str(keystr, qlen);
-  }
+  size_t i, col;
 
   strbuf_append_str(resp, "{");
   strbuf_append_str(resp, pretty ? "\n  " : " ");
@@ -183,7 +115,104 @@ static inline bool query_response(const char *qstr, StrBuf *resp, bool pretty,
   }
 
   strbuf_append_str(resp, pretty ? "]\n}\n" : "] }\n");
+}
+
+/*
+// Query: ACACCAA
+{
+  "key": "ACACAAA",
+  "colours": [1,0,1],
+  "left": "AC",
+  "right": "",
+  "edges": "c0",
+  "links": [{"forward": true, "juncs": "ACAA", "colours": [0,0,1]},
+            {"forward": false, "juncs": "TG", "colours": [1,0,0]}]
+}
+// Query: "ACCCCAC" (Not in graph)
+{}
+*/
+/**
+ * @param qstr    query string - must be "random" or kmer
+ * @param resp    string buffer reset, then used to store response
+ * @param pretty  pretty print JSON or one line JSON
+ * @returns       true iff query was valid kmer
+ */
+static inline bool query_response(const char *qstr, StrBuf *resp, bool pretty,
+                                  const dBGraph *db_graph)
+{
+  size_t qlen;
+  dBNode node;
+  char keystr[MAX_KMER_SIZE+1], *ptr;
+  strbuf_reset(resp);
+
+  // query must be a kmer
+  for(qlen = 0; qstr[qlen]; qlen++) {
+    if(!char_is_acgt(qstr[qlen])) {
+      strbuf_set(resp, "{\"error\": \"Invalid base\"}\n");
+      return false;
+    }
+  }
+
+  // Don't do anything if empty line
+  if(qlen == 0) { return false; }
+
+  if(qlen != db_graph->kmer_size) {
+    strbuf_set(resp, "{\"error\": \"Doesn't match kmer size: ");
+    strbuf_append_ulong(resp, db_graph->kmer_size);
+    strbuf_append_str(resp, "\"}\n");
+    return false;
+  }
+
+  node = db_graph_find_str(db_graph, qstr);
+  if(node.key == HASH_NOT_FOUND) {
+    strbuf_set(resp, "{}\n");
+    return true;
+  }
+
+  // Get upper case kmer key
+  memcpy(keystr, qstr, qlen+1);
+  for(ptr = keystr; *ptr; ptr++) *ptr = toupper(*ptr);
+  if(node.orient == REVERSE) dna_reverse_complement_str(keystr, qlen);
+  kmer_response(resp, node, keystr, pretty, db_graph);
   return true;
+}
+
+// Reply with a random kmer
+static inline void request_random(StrBuf *resp, bool pretty,
+                                  const dBGraph *db_graph)
+{
+  dBNode node;
+  char keystr[MAX_KMER_SIZE+1];
+  strbuf_reset(resp);
+
+  hkey_t hkey = db_graph_rand_node(db_graph, MAX_RANDOM_TRIES);
+  if(hkey == HASH_NOT_FOUND) { strbuf_set(resp, "{}\n"); }
+  node.key = hkey;
+  node.orient = FORWARD;
+  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+  binary_kmer_to_str(bkmer, db_graph->kmer_size, keystr);
+  kmer_response(resp, node, keystr, pretty, db_graph);
+}
+
+static char* make_info_json_str(cJSON **hdrs, size_t nhdrs,
+                                bool pretty, const dBGraph *db_graph)
+{
+  cJSON *json = cJSON_CreateObject();
+  json_hdr_make_std(json, NULL, hdrs, nhdrs, db_graph);
+
+  cJSON *paths = cJSON_CreateObject();
+  cJSON_AddItemToObject(json, "paths", paths);
+
+  // Add command specific header fields
+  const GPathStore *gpstore = &db_graph->gpstore;
+  cJSON_AddNumberToObject(paths, "num_kmers_with_paths", gpstore->num_kmers_with_paths);
+  cJSON_AddNumberToObject(paths, "num_paths", gpstore->num_paths);
+  cJSON_AddNumberToObject(paths, "path_bytes", gpstore->path_bytes);
+
+  char *info_txt = pretty ? cJSON_Print(json) : cJSON_PrintUnformatted(json);
+  cJSON_Delete(json);
+
+  return info_txt;
 }
 
 int ctx_server(int argc, char **argv)
@@ -322,6 +351,14 @@ int ctx_server(int argc, char **argv)
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
+  // Create array of cJSON** from input files
+  cJSON **hdrs = ctx_malloc(gpfiles.len * sizeof(cJSON*));
+  for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.b[i].json;
+
+  // Construct cJSON
+  char *info_txt = make_info_json_str(hdrs, gpfiles.len, pretty, &db_graph);
+  ctx_free(hdrs);
+
   // Close input path files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_close(&gpfiles.b[i]);
@@ -339,13 +376,25 @@ int ctx_server(int argc, char **argv)
   {
     strbuf_chomp(&line);
     if(strcmp(line.b,"q") == 0) { break; }
-    success = query_response(line.b, &response, pretty, &db_graph);
-    if(response.end) {
+    else if(strcmp(line.b,"info") == 0) {
+      fputs(info_txt, stdout);
+      fputc('\n', stdout);
+      fflush(stdout);
+    }
+    else if(strcmp(line.b,"random") == 0) {
+      request_random(&response, pretty, &db_graph);
       fputs(response.b, stdout);
       fflush(stdout);
     }
-    nqueries += success;
-    nbad_queries += (line.end > 0 && !success);
+    else {
+      success = query_response(line.b, &response, pretty, &db_graph);
+      if(response.end) {
+        fputs(response.b, stdout);
+        fflush(stdout);
+      }
+      nbad_queries += !success;
+    }
+    nqueries += (line.end > 0);
   }
 
   char nstr[50], badstr[50];
@@ -353,6 +402,7 @@ int ctx_server(int argc, char **argv)
   ulong_to_str(nbad_queries, badstr);
   status("Answered %s queries, %s bad queries", nstr, badstr);
 
+  free(info_txt);
   strbuf_dealloc(&line);
   strbuf_dealloc(&response);
   db_graph_dealloc(&db_graph);

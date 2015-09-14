@@ -57,7 +57,7 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 }
 
 /**
- * @param path is the path of the file we are writing to
+ * @param path is the path of the file we are writing to (can be NULL)
  * @param fileidstr is the unique id we have generated for the output file
  */
 cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
@@ -81,14 +81,16 @@ cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
   cJSON_AddStringToObject(command, "cwd", cmd_get_cwd());
 
   // Get absolute path to output file
-  char abspath[PATH_MAX + 1];
-  if(realpath(path, abspath) != NULL)
-    cJSON_AddStringToObject(command, "out_path", abspath);
-  else {
-    status("Warning: Cannot get absolute path for: %s", path);
-    cJSON_AddStringToObject(command, "out_path", path);
+  if(path != NULL) {
+    char abspath[PATH_MAX + 1];
+    if(realpath(path, abspath) != NULL)
+      cJSON_AddStringToObject(command, "out_path", abspath);
+    else {
+      status("Warning: Cannot get absolute path for: %s", path);
+      cJSON_AddStringToObject(command, "out_path", path);
+    }
+    cJSON_AddStringToObject(command, "out_key", fileidstr);
   }
-  cJSON_AddStringToObject(command, "out_key", fileidstr);
 
   char datestr[50];
   time_t date = time(NULL);
