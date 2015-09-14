@@ -18,7 +18,7 @@ const char server_usage[] =
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
-"  -S, --single-line     Run as HTTP server on given port\n"
+"  -S, --single-line     Reponses on a single line\n"
 "  -C, --coverages       Load per sample coverages\n"
 "  -E, --edges           Load per sample edges\n"
 "\n";
