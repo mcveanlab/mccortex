@@ -1,6 +1,5 @@
 SHELL=/bin/bash -euo pipefail
 
-
 CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
@@ -9,9 +8,11 @@ BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 VCFALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
 BWA=$(CTXDIR)/libs/bwa/bwa
 
-SEQ_FILES=ref.fa ben.fa jerry.fa \
-          ben.se.fa \
-          jerry.1.fa jerry.2.fa
+SEQ_FILES=ref/ref.fa samples/ben.fa samples/jerry.fa \
+          samples/ben.se.fa \
+          samples/jerry.1.fa samples/jerry.2.fa
+
+DIRS=samples ref
 
 all: job.k29.k31.mk $(SEQ_FILES)
 	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M all
@@ -26,26 +27,30 @@ all: job.k29.k31.mk $(SEQ_FILES)
 
 # 600 random bases generated with: dnacat -n 600
 #.............................................................................V................................................V.......................................*...........................................................................................................VV.................................................................................................................................................*....................................................................................................................VVVV..........................................................
-ref.fa:
+ref/ref.fa: | $(DIRS)
 	( echo '>ref'; echo \
 'GCGTTACAATATCGTATTGGGTTCGTGACCAACACTCCCATTTCTTGATATGACGCCATCAAACGACTACACGGAGACCCGGCCGAGCATGGCAACCCGCACGACTGCATCATCTCCATCAATCCA-CCATACTCCCGGACTTACCCCTGCCCCGGGCGCAGCAGTCCTTAAGATCAGGAACTGGGGTGTACGACGGCCTCGCTGACACGGTACCAGCCGTGCACCGATGCTGCTAGGCACCCGTCGCCTGCTCAAGAAATGGCTGGGTTCAATAGAAGCGTTTGTGAGTGCTTCGACTCGTTAGGATGTAATTAGGGCCAGTAGTCAACCAGCGCTAGTGAGAATATGATAGAGATTTCGCAAAGTCCTTGGTATACAGGATCTCAACCCACAGACTGCGGAGGCTGTGGTGCCATCATCGGACTCACTACGTCCTTGTCAGGCCTAACCTTTCAGGGCGGCAAGCTACGGTTACCTGACCGAAGTCTTATTCACAGTTCGGTAGCTCCAATCATTGCGAGGTTAGCTTAACGCCTGACATTACCTGGCAAACATGCTCCTTTCACGACCGTTTATCGGCGCGATTTGATATCCACTTG' | tr -d '-'; ) > $@
 
-ben.fa:
+samples/ben.fa: | $(DIRS)
 	( echo '>ben'; echo \
 'GCGTTACAATATCGTATTGGGTTCGTGACCAACACTCCCATTTCTTGATATGACGCCATCAAACGACTACACGGAGA-CCGGCCGAGCATGGCAACCCGCACGACTGCATCATCTCCATCAATCCAACCATACTCCCGGACTTACCCCTGCCCCGGGCGCAGCAGTCCTTAAGATCAGGAACTGGGGTGTACGACGGCCTCGCTGACACGGTACCAGCCGTGCACCGATGCTGCTAGGCACCCGTCGCCTGCTCAAGAAATGGCTGGGTTCAAT--AAGCGTTTGTGAGTGCTTCGACTCGTTAGGATGTAATTAGGGCCAGTAGTCAACCAGCGCTAGTGAGAATATGATAGAGATTTCGCAAAGTCCTTGGTATACAGGATCTCAACCCACAGACTGCGGAGGCTGTGGTGCCATCATCGGACTCACTACGTCCTTGTCAGGCCTAACCTTTCAGGGCGGCAAGCTACGGTTACCTGACCGAAGTCTTATTCACAGTTCGGTAGCTCCAATCATTGCGAGGTTAGCTTAACGCCTGACATTACCTGGCAAACATGCTCCTTTCACGACCGTTTATCGGCGCGATTTGATATCCACTTG' | tr -d '-'; ) > $@
 
-jerry.fa:
+samples/jerry.fa:
 	( echo '>jerry'; echo \
 'GCGTTACAATATCGTATTGGGTTCGTGACCAACACTCCCATTTCTTGATATGACGCCATCAAACGACTACACGGAGACCCGGCCGAGCATGGCAACCCGCACGACTGCATCATCTCCATCAATCCAACCATACTCCCGGACTTACCCCTGCCCCGGGCGCAGCAGTaCTTAAGATCAGGAACTGGGGTGTACGACGGCCTCGCTGACACGGTACCAGCCGTGCACCGATGCTGCTAGGCACCCGTCGCCTGCTCAAGAAATGGCTGGGTTCAATAGAAGCGTTTGTGAGTGCTTCGACTCGTTAGGATGTAATTAGGGCCAGTAGTCAACCAGCGCTAGTGAGAATATGATAGAGATTTCGCAAAGTCCTTGGTATACAGGATCTCAACCCACAGACTGCGGAGGCTGTGGTGCCATCATCtGACTCACTACGTCCTTGTCAGGCCTAACCTTTCAGGGCGGCAAGCTACGGTTACCTGACCGAAGTCTTATTCACAGTTCGGTAGCTCCAATCATTGCGAGGTTAGCTTAACGCCTG----TACCTGGCAAACATGCTCCTTTCACGACCGTTTATCGGCGCGATTTGATATCCACTTG' | tr -d '-'; ) > $@
 
-ref.fa.bwt: ref.fa
-	$(BWA) index ref.fa
+ref/ref.fa.bwt: ref/ref.fa
+	$(BWA) index ref/ref.fa
 
-ben.sam: ben.se.fa ref.fa
-	$(BWA) mem ref.fa $< > $@
+bams: samples/ben.bam samples/jerry.bam
 
-jerry.sam: jerry.1.fa jerry.2.fa ref.fa.bwt
-	$(BWA) mem ref.fa jerry.1.fa jerry.2.fa > $@
+sams: samples/ben.sam samples/jerry.sam
+
+samples/ben.sam: samples/ben.se.fa ref/ref.fa
+	$(BWA) mem ref/ref.fa $< > $@
+
+samples/jerry.sam: samples/jerry.1.fa samples/jerry.2.fa ref/ref.fa.bwt
+	$(BWA) mem ref/ref.fa samples/jerry.1.fa samples/jerry.2.fa > $@
 
 %.bam: %.sam
 	samtools sort -O bam -T tmpsort $< > $@
@@ -64,13 +69,15 @@ jerry.sam: jerry.1.fa jerry.2.fa ref.fa.bwt
 	rm -rf tmp.{1,2}.fa.gz
 
 samples.txt:
-	( echo "ben ben.se.fa . ."; echo "jerry . jerry.1.fa:jerry.2.fa" ) > $@
+	( echo "ben samples/ben.se.fa . ."; echo "jerry . samples/jerry.1.fa:samples/jerry.2.fa" ) > $@
 
 job.k29.k31.mk: samples.txt
-	$(MKPIPELINE) -r ref.fa 29,31 proj $< > $@
+	$(MKPIPELINE) -r ref/ref.fa 29,31 proj $< > $@
+
+$(DIRS):
+	mkdir -p $@
 
 clean:
-	rm -rf $(SEQ_FILES) samples.txt job.k29.k31.mk proj ref.* tmp.* isec
-	rm -rf {ben,jerry}.*{sam,bam}*
+	rm -rf samples.txt job.k29.k31.mk proj ref samples tmp.* isec
 
-.PHONY: all clean
+.PHONY: all clean sams bams

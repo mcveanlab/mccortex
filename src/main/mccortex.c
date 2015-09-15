@@ -150,6 +150,11 @@ CtxCmd cmdobjs[] = {
   .blurb = "interactively query the graph",
   .usage = server_usage
 },
+{
+  .cmd = "dist", .func = ctx_dist_matrix, .hide = false,
+  .blurb = "make colour kmer distance matrix",
+  .usage = dist_matrix_usage
+},
 /* Work in progress */
 {
   .cmd = "geno", .func = ctx_geno, .hide = true,

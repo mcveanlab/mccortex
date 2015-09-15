@@ -572,7 +572,7 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
  * @param ref_pos is 0-based here
  * @param info is extra text to print in the info field of each variant (may be NULL)
  * @param genotypes is strings to print in genotypes columns, of length num_samples.
-*                   It may be NULL.
+ *                  It may be NULL.
  */
 static void align_biallelic(const char *ref, const char *alt,
                             const read_t *chr, size_t ref_pos,
