@@ -28,10 +28,9 @@ beast.fa:
 	perl -MList::Util=shuffle -e 'print shuffle<STDIN>' > $@
 
 truth.tsv: beauty.fa beast.fa
-	perl -v
-	perl -MList::Util=min,max -e ' \
-($$a,$$b,$$c) = map {$$x = `wc -l $$_`; $$x} qw(tmp.fa beauty.fa beast.fa); \
-($$N,$$H,$$T) = map {($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); \
+	perl -MList::Util=min,max -W -e 'use strict; use warnings; \
+my ($$a,$$b,$$c) = map {my $$x = `wc -l $$_`; $$x} qw(tmp.fa beauty.fa beast.fa); \
+my ($$N,$$H,$$T) = map {my ($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); \
 print ".\tcol0\tcol1\n"; \
 print "col0\t$$H\t".max(min($$H,$$N)-max($$N-$$T,0),0)."\n"; \
 print "col1\t0\t$$T\n";' > $@
