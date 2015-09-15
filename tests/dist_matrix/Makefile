@@ -28,8 +28,9 @@ beast.fa:
 	perl -MList::Util=shuffle -e 'print shuffle<STDIN>' > $@
 
 truth.tsv: beauty.fa beast.fa
+	perl -v
 	perl -MList::Util=min,max -e ' \
-($$a,$$b,$$c) = map {`wc -l $$_ `} qw(tmp.fa beauty.fa beast.fa); \
+($$a,$$b,$$c) = map {$$x = `wc -l $$_`; $$x} qw(tmp.fa beauty.fa beast.fa); \
 ($$N,$$H,$$T) = map {($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); \
 print ".\tcol0\tcol1\n"; \
 print "col0\t$$H\t".max(min($$H,$$N)-max($$N-$$T,0),0)."\n"; \
@@ -50,4 +51,3 @@ clean:
 	rm -rf truth.tsv dist.tsv
 
 .PHONY: all clean sams bams
-
