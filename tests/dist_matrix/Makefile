@@ -29,7 +29,7 @@ beast.fa:
 
 truth.tsv: beauty.fa beast.fa
 	perl -MList::Util=min,max -W -e 'use strict; use warnings; \
-my ($$a,$$b,$$c) = map {my $$x = `wc -l $$_`; $$x} qw(tmp.fa beauty.fa beast.fa); \
+my ($$a,$$b,$$c) = map {my $$x = `wc -l $$_`; $$x} ("tmp.fa","beauty.fa","beast.fa"); \
 my ($$N,$$H,$$T) = map {my ($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); \
 print ".\tcol0\tcol1\n"; \
 print "col0\t$$H\t".max(min($$H,$$N)-max($$N-$$T,0),0)."\n"; \
