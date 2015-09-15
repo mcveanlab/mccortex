@@ -29,9 +29,8 @@ beast.fa:
 
 truth.tsv: beauty.fa beast.fa
 	perl -MList::Util=min,max -e ' \
-($$N)=(`wc -l tmp.fa` =~ /(\d+)/); \
-($$H)=(`wc -l beauty.fa` =~ /(\d+)/); \
-($$T)=(`wc -l beast.fa` =~ /(\d+)/); \
+($$a,$$b,$$c) = map {`wc -l $$_ `} qw(tmp.fa beauty.fa beast.fa); \
+($$N,$$H,$$T) = map {($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); \
 print ".\tcol0\tcol1\n"; \
 print "col0\t$$H\t".max(min($$H,$$N)-max($$N-$$T,0),0)."\n"; \
 print "col1\t0\t$$T\n";' > $@
