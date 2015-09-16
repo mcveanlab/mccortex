@@ -99,9 +99,10 @@ size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
     }
     else if(kmers_in_hash < min_num_kmer_req/WARN_OCCUPANCY)
     {
-      warn("Expected hash table occupancy %.2f%% "
+      warn("Expected hash table occupancy %.2f%% [%zu / %zu]"
            "(you may want to increase -n or -m)",
-           (100.0 * min_num_kmer_req) / kmers_in_hash);
+           (100.0 * min_num_kmer_req) / kmers_in_hash,
+           (size_t)min_num_kmer_req, (size_t)kmers_in_hash);
     }
   }
 

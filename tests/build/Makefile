@@ -36,8 +36,8 @@ sort.k$(K).ctx: seq.k$(K).ctx
 	cat $@
 
 test_assemble:
-	$(CTX) contigs -q -o - seq.k9.ctx:1 | \
-	  $(CTX) rmsubstr -q -n 1M - | \
+	$(CTX) contigs -q -o - seq.k$(K).ctx:1 | \
+	  $(CTX) rmsubstr -q -n 1M -k $(K) - | \
 	  $(CONTIGSTATS) -
 
 .PHONY: all clean test_assemble

@@ -168,7 +168,7 @@ int ctx_rmsubstr(int argc, char **argv)
   int64_t est_num_bases = seq_est_seq_bases(seq_files, num_seq_files);
   if(est_num_bases < 0) {
     warn("Cannot get file sizes, using pipes");
-    est_num_bases = memargs.num_kmers;
+    est_num_bases = memargs.num_kmers * IDEAL_OCCUPANCY;
   }
 
   status("[memory] Estimated number of bases: %li", (long)est_num_bases);
