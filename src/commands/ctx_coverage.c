@@ -273,6 +273,7 @@ int ctx_coverage(int argc, char **argv)
   for(i = 0; i < num_gfiles; i++) {
     graph_load(&gfiles[i], gprefs, &stats);
     graph_file_close(&gfiles[i]);
+    gprefs.empty_colours = false;
   }
   ctx_free(gfiles);
 

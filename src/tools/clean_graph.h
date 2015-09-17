@@ -13,24 +13,13 @@
  *
  * @param kmer_covg Histogram of kmer counts at coverages 1,2,.. arrlen-1
  * @param arrlen    Length of array kmer_covg
- * @param fdr_limit False discovery rate for a single kmer coverage
- *                  (1/1000 i.e. 0.001 is reasonable)
  * @param alpha_est_ptr If not NULL, used to return estimate for alpha
  * @param beta_est_ptr  If not NULL, used to return estimate for beta
  * @return -1 if no cut-off satisfies FDR, otherwise returs coverage cutoff
  */
 int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
-                                 double fdr_limit,
-                                 double *alpha_est_ptr, double *beta_est_ptr);
-
-/**
- * Calculate cleaning threshold for supernodes from a given distribution
- * of supernode coverages
- * @param covgs histogram of supernode coverages
- */
-size_t cleaning_pick_supernode_threshold(const uint64_t *covgs, size_t len,
-                                         double seq_depth,
-                                         const dBGraph *db_graph);
+                                 double *alpha_est_ptr, double *beta_est_ptr,
+                                 double *false_pos_ptr, double *false_neg_ptr);
 
 /**
  * Get coverage threshold for removing supernodes
@@ -51,7 +40,7 @@ int cleaning_get_threshold(size_t num_threads,
 
 /**
  * Remove low coverage supernodes and clip tips
- * - Remove supernodes with coverage < `covg_threshold`
+ * - Remove supernodes with mean coverage < `covg_threshold`
  * - Remove tips shorter than `min_keep_tip`
  * `visited`, `keep` should each be at least db_graph.ht.capcity bits long
  *   and initialised to zero.

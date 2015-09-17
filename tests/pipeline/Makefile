@@ -5,25 +5,38 @@ DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
 MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
+BGZIP=$(CTXDIR)/libs/htslib/bgzip
 VCFALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
+VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries
 BWA=$(CTXDIR)/libs/bwa/bwa
 
 SEQ_FILES=ref/ref.fa samples/ben.fa samples/jerry.fa \
           samples/ben.se.fa \
           samples/jerry.1.fa samples/jerry.2.fa
 
+CALLS=proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz \
+      proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
+
 DIRS=samples ref
 
-all: job.k29.k31.mk $(SEQ_FILES)
-	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M all
-	$(BCFTOOLS) isec proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz -p isec
-	@A=`$(VCFALLELES) isec/0000.vcf`; \
-	 B=`$(VCFALLELES) isec/0001.vcf`; \
-	 C=`$(VCFALLELES) isec/0002.vcf`; \
-	(( $$A == 0 )) || ( echo "Bubbles missed $$A" && false; ); \
-	(( $$B == 0 )) || ( echo "Breakpoint missed $$B" && false; ); \
-	(( $$C == 6 )) || ( echo "Both callers missed some $$C != 6" && false; );
+DEPTH=50
+ERRRATE=0.01
+READLEN=100
+
+all: $(CALLS) truth.vcf.gz
+	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz -p isec_bub
+	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz -p isec_brk
+	@BUB_T=`$(VCFALLELES) isec_bub/0000.vcf`; \
+	 BUB_C=`$(VCFALLELES) isec_bub/0001.vcf`; \
+	 BRK_T=`$(VCFALLELES) isec_brk/0000.vcf`; \
+	 BRK_C=`$(VCFALLELES) isec_brk/0001.vcf`; \
+	(( $$BUB_T == 0 && $$BRK_T == 0 )) || ( echo "Bubbles missed $$BUB_T, Breakpoints missed $$BRK_T" && false; ); \
+	(( $$BUB_C == 0 )) || ( echo "Bubbles called $$BUB_C extra"; ); \
+	(( $$BRK_C == 0 )) || ( echo "Breakpoints called $$BRK_C extra"; );
 	@echo 'All correct!'
+
+$(CALLS): job.k29.k31.mk $(SEQ_FILES)
+	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M bubbles-vcf breakpoints-vcf
 
 # 600 random bases generated with: dnacat -n 600
 #.............................................................................V................................................V.......................................*...........................................................................................................VV.................................................................................................................................................*....................................................................................................................VVVV..........................................................
@@ -38,6 +51,19 @@ samples/ben.fa: | $(DIRS)
 samples/jerry.fa:
 	( echo '>jerry'; echo \
 'GCGTTACAATATCGTATTGGGTTCGTGACCAACACTCCCATTTCTTGATATGACGCCATCAAACGACTACACGGAGACCCGGCCGAGCATGGCAACCCGCACGACTGCATCATCTCCATCAATCCAACCATACTCCCGGACTTACCCCTGCCCCGGGCGCAGCAGTaCTTAAGATCAGGAACTGGGGTGTACGACGGCCTCGCTGACACGGTACCAGCCGTGCACCGATGCTGCTAGGCACCCGTCGCCTGCTCAAGAAATGGCTGGGTTCAATAGAAGCGTTTGTGAGTGCTTCGACTCGTTAGGATGTAATTAGGGCCAGTAGTCAACCAGCGCTAGTGAGAATATGATAGAGATTTCGCAAAGTCCTTGGTATACAGGATCTCAACCCACAGACTGCGGAGGCTGTGGTGCCATCATCtGACTCACTACGTCCTTGTCAGGCCTAACCTTTCAGGGCGGCAAGCTACGGTTACCTGACCGAAGTCTTATTCACAGTTCGGTAGCTCCAATCATTGCGAGGTTAGCTTAACGCCTG----TACCTGGCAAACATGCTCCTTTCACGACCGTTTATCGGCGCGATTTGATATCCACTTG' | tr -d '-'; ) > $@
+
+truth.vcf.gz:
+	(echo '##fileformat=VCFv4.1'; \
+	 echo '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">'; \
+	 echo '#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT	ben	jerry'; \
+	 echo 'ref	77	id0	AC	A	.	PASS	.	GT	1	0'; \
+	 echo 'ref	125	id1	C	CA	.	PASS	.	GT	1	1'; \
+	 echo 'ref	166	id2	C	A	.	PASS	.	GT	0	1'; \
+	 echo 'ref	273	id3	TAG	T	.	PASS	.	GT	1	0'; \
+	 echo 'ref	421	id4	G	T	.	PASS	.	GT	0	1'; \
+	 echo 'ref	537	id5	GACAT	G	.	PASS	.	GT	0	1';) > truth.vcf
+	$(BGZIP) truth.vcf
+	$(BCFTOOLS) index truth.vcf.gz
 
 ref/ref.fa.bwt: ref/ref.fa
 	$(BWA) index ref/ref.fa
@@ -57,13 +83,13 @@ samples/jerry.sam: samples/jerry.1.fa samples/jerry.2.fa ref/ref.fa.bwt
 	samtools index $@
 
 %.se.fa: %.fa
-	$(READSIM) -d 50 -l 100 -s -e 0.01 -r $< tmp
+	$(READSIM) -d $(DEPTH) -l $(READLEN) -s -e $(ERRRATE) -r $< tmp
 	gzip -fcd tmp.fa.gz > $@
 	rm -rf tmp.fa.gz
 
 # 400 bp fragment len, 100 bp reads
 %.1.fa %.2.fa: %.fa
-	$(READSIM) -d 50 -l 100 -i 75 -e 0.01 -r $< tmp
+	$(READSIM) -d $(DEPTH) -l $(READLEN) -i 75 -e $(ERRRATE) -r $< tmp
 	gzip -fcd tmp.1.fa.gz > $*.1.fa
 	gzip -fcd tmp.2.fa.gz > $*.2.fa
 	rm -rf tmp.{1,2}.fa.gz
@@ -77,7 +103,13 @@ job.k29.k31.mk: samples.txt
 $(DIRS):
 	mkdir -p $@
 
-clean:
-	rm -rf samples.txt job.k29.k31.mk proj ref samples tmp.* isec
+view: truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
+	$(VCFENTRIES) truth.vcf.gz
+	$(VCFENTRIES) proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz
+	$(VCFENTRIES) proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
 
-.PHONY: all clean sams bams
+clean:
+	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk
+	rm -rf tmp.* truth.vcf*
+
+.PHONY: all clean sams bams view
