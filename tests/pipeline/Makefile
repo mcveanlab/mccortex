@@ -54,8 +54,11 @@ samples/jerry.fa:
 
 truth.vcf.gz:
 	(echo '##fileformat=VCFv4.1'; \
+	 echo '##fileDate='`date "+%Y%m%d"`; \
+	 echo '##reference=ref/ref.fa'; \
+	 echo '##contig=<ID=ref,length=599>'; \
 	 echo '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">'; \
-	 echo '#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT	ben	jerry'; \
+	 echo '#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT	benT	jerryT'; \
 	 echo 'ref	77	id0	AC	A	.	PASS	.	GT	1	0'; \
 	 echo 'ref	125	id1	C	CA	.	PASS	.	GT	1	1'; \
 	 echo 'ref	166	id2	C	A	.	PASS	.	GT	0	1'; \

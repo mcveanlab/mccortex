@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
-from subprocess import Popen, PIPE
+from __future__ import print_function
+
 import os
 import sys
 import time
+
+from subprocess import Popen, PIPE
+
+# These should work on python2 after 'pip install --user future'
 from http.server import BaseHTTPRequestHandler
 import socketserver
 
@@ -66,7 +71,7 @@ def start_web_server():
                 jsonstr = "{\"error\": \"Webserver: bad query\"}\n"
             else:
                 jsonstr = query_mccortex(mccortex, self.path[1:])
-            self.wfile.write(bytes(jsonstr,'UTF-8'))
+            self.wfile.write(jsonstr.encode("UTF-8"))
 
     try:
         httpd = socketserver.TCPServer(("", port), mccortexHTTPServer)
