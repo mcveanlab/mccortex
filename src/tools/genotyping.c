@@ -1,63 +1,73 @@
 #include "global.h"
 #include "genotyping.h"
 
-void genotyper_alloc(Genotyper *typer)
+struct GenotyperStruct {
+  StrBuf seq;
+  khash_t(BkToBits) *h;
+  GenoKmerBuffer kmer_buf;
+};
+
+Genotyper* genotyper_init()
 {
-  strbuf_alloc(&typer->seq, 1024);
-  typer->h = kh_init(BkToBits);
-  genokmer_buf_alloc(&typer->kmer_buf, 512);
+  Genotyper *gt = ctx_calloc(1, sizeof(Genotyper));
+  strbuf_alloc(&gt->seq, 1024);
+  gt->h = kh_init(BkToBits);
+  genokmer_buf_alloc(&gt->kmer_buf, 512);
+  return gt;
 }
 
-void genotyper_dealloc(Genotyper *typer)
+void genotyper_destroy(Genotyper *gt)
 {
-  strbuf_dealloc(&typer->seq);
-  kh_destroy(BkToBits, typer->h);
-  genokmer_buf_dealloc(&typer->kmer_buf);
-  memset(typer, 0, sizeof(*typer));
+  strbuf_dealloc(&gt->seq);
+  kh_destroy(BkToBits, gt->h);
+  genokmer_buf_dealloc(&gt->kmer_buf);
+  ctx_free(gt);
 }
 
-int genovar_cmp(const void *aa, const void *bb)
+static inline int genovar_ptr_cmp(const void *aa, const void *bb)
 {
-  const GenoVar *a = (const GenoVar*)aa, *b = (const GenoVar*)bb;
+  const GenoVar *a = *(const GenoVar*const*)aa, *b = *(const GenoVar*const*)bb;
   if(a->pos != b->pos) return a->pos < b->pos ? -1 : 1;
   if(a->reflen != b->reflen) return a->reflen < b->reflen ? -1 : 1;
   if(a->altlen != b->altlen) return a->altlen < b->altlen ? -1 : 1;
   return strncmp(a->alt, b->alt, a->altlen);
 }
 
-void genovars_sort(GenoVar *vars, size_t nvars)
+void genovars_sort(const GenoVar **vars, size_t nvars)
 {
-  qsort(vars, nvars, sizeof(vars[0]), genovar_cmp);
+  qsort(vars, nvars, sizeof(*vars), genovar_ptr_cmp);
 }
 
-static bool vars_compatible(const GenoVar *vars, size_t nvars, uint64_t bits)
+static bool vars_compatible(const GenoVar **vars, size_t nvars, uint64_t bits)
 {
   ctx_assert(nvars < 64);
   size_t i, end = 0;
   uint64_t b;
   for(i = 0, b = 1; i < nvars; i++, b<<=1) {
     if(bits & b) {
-      if(vars[i].pos < end) return false;
-      end = vars[i].pos + vars[i].reflen;
+      if(vars[i]->pos < end) return false;
+      end = vars[i]->pos + vars[i]->reflen;
     }
   }
   return true;
 }
 
-static inline void assemble_haplotype(StrBuf *seq, const char *chrom,
-                                      size_t regstart, size_t regend,
-                                      const GenoVar *vars, size_t nvars,
-                                      uint64_t bits)
+// Generate the DNA string sequence of a haplotype
+// Store it in parameter seq
+static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
+                                          size_t regstart, size_t regend,
+                                          const GenoVar **vars, size_t nvars,
+                                          uint64_t bits)
 {
   strbuf_reset(seq);
   uint64_t i, end = regstart;
 
   for(i = 0; i < nvars; i++, bits>>=1) {
     if(bits & 1) {
-      ctx_assert(end >= vars[i].pos);
-      strbuf_append_strn(seq, chrom+end, vars[i].pos-end);
-      strbuf_append_strn(seq, vars[i].alt, vars[i].altlen);
-      end = vars[i].pos + vars[i].reflen;
+      ctx_assert(end >= vars[i]->pos);
+      strbuf_append_strn(seq, chrom+end, vars[i]->pos-end);
+      strbuf_append_strn(seq, vars[i]->alt, vars[i]->altlen);
+      end = vars[i]->pos + vars[i]->reflen;
     }
   }
   strbuf_append_strn(seq, chrom+end, regend-end);
@@ -78,16 +88,26 @@ static inline uint64_t varbits_to_altrefbits(uint64_t bits,
   return r;
 }
 
+
 /**
- * Get coverage on alt allele
- * @param vars must be sorted by pos, then reflen, then altlen, then alt
- * @param colour if -1 population coverage
+ * Get a list of kmers which support variants.
+ *
+ * @param typer     initialised memory to use
+ * @param vars      variants to genotype and surrounding vars.
+ *                  Required sort order: pos, reflen, altlen, alt
+ * @param nvars     number of variants in `vars`
+ * @param tgtidx    index in vars of first variant to type
+ * @param ntgts     number of variants to type
+ * @param chrom     reference chromosome
+ * @param chromlen  length of reference chromosom
+ * @param kmer_size kmer size to type at
+ * @return number of kmers
  */
-void genotyping_get_covg(Genotyper *typer,
-                         const GenoVar *vars, size_t nvars,
-                         size_t tgtidx, size_t ntgts,
-                         const char *chrom, size_t chromlen,
-                         size_t kmer_size)
+size_t genotyping_get_kmers(Genotyper *typer,
+                            const GenoVar **vars, size_t nvars,
+                            size_t tgtidx, size_t ntgts,
+                            const char *chrom, size_t chromlen,
+                            size_t kmer_size, GenoKmer **result)
 {
   ctx_assert(nvars < 64);
   ctx_assert(nvars > 0);
@@ -97,15 +117,14 @@ void genotyping_get_covg(Genotyper *typer,
   GenoKmerBuffer *gkbuf = &typer->kmer_buf;
   genokmer_buf_reset(gkbuf);
 
-  const GenoVar *tgt = &vars[tgtidx];
+  const GenoVar *tgt = vars[tgtidx];
 
-  // const size_t kmer_size = db_graph->kmer_size;
-  long minpos = MIN2(vars[0].pos, tgt->pos - kmer_size + 1);
+  long minpos = MIN2(vars[0]->pos, tgt->pos - kmer_size + 1);
   size_t i, regstart, regend;
 
   regstart = MAX2(minpos, 0);
   regend = regstart;
-  for(i = 0; i < nvars; i++) regend = MAX2(regend, vars[i].pos + vars[i].reflen);
+  for(i = 0; i < nvars; i++) regend = MAX2(regend, vars[i]->pos+vars[i]->reflen);
   ctx_assert(regend <= chromlen);
   regend = MAX2(regend, tgt->pos + tgt->reflen + kmer_size - 1);
   regend = MIN2(regend, chromlen);
@@ -124,8 +143,8 @@ void genotyping_get_covg(Genotyper *typer,
   for(; bits < limit; bits++) {
     if(vars_compatible(vars, nvars, bits)) {
       // Construct haplotype
-      assemble_haplotype(seq, chrom, regstart, regend,
-                         vars, nvars, bits);
+      assemble_haplotype_str(seq, chrom, regstart, regend,
+                             vars, nvars, bits);
 
       altref_bits = varbits_to_altrefbits(bits, tgtidx, ntgts);
 
@@ -154,4 +173,7 @@ void genotyping_get_covg(Genotyper *typer,
     }
   }
   gkbuf->len = i;
+
+  *result = gkbuf->b;
+  return gkbuf->len;
 }

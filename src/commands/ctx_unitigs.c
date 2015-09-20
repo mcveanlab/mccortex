@@ -6,8 +6,7 @@
 #include "db_node.h"
 #include "binary_kmer.h"
 #include "supernode.h"
-#include "graph_format.h"
-#include "gpath_reader.h"
+#include "graphs_load.h"
 #include "gpath_checks.h"
 #include "unitig_graph.h"
 

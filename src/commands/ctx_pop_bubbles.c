@@ -3,7 +3,8 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 #include "prune_nodes.h"
@@ -192,14 +193,14 @@ int ctx_pop_bubbles(int argc, char **argv)
     GraphFileReader gfile;
     memset(&gfile, 0, sizeof(GraphFileReader));
     graph_file_open(&gfile, graph_paths[0]);
-    graph_stream_filter_mkhdr(out_path, &gfile, &db_graph,
+    graph_writer_stream_mkhdr(out_path, &gfile, &db_graph,
                               db_graph.col_edges, NULL);
     graph_file_close(&gfile);
   }
   else
   {
     status("Saving to: %s\n", out_path);
-    graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
+    graph_writer_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                           0, ncols);
   }
 

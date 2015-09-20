@@ -10,6 +10,10 @@
 
 #define load_check(x,msg,...) if(!(x)) { die("[JSON] "msg, ##__VA_ARGS__); }
 
+#define json_readline(hdrstr,fh,gz,path) \
+  ((fh) ? util_fcheck(strbuf_readline((hdrstr), (fh)), (fh), (path)) \
+        : util_gzcheck(strbuf_gzreadline((hdrstr), (gz)), (gz), (path)))
+
 void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 {
   ctx_assert(fh == NULL || gz == NULL);
@@ -17,7 +21,7 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
   size_t nread;
   strbuf_reset(hdrstr);
 
-  nread = fh ? strbuf_readline(hdrstr, fh) : strbuf_gzreadline(hdrstr, gz);
+  nread = json_readline(hdrstr, fh, gz, path);
   load_check(nread > 0, "Empty file: %s", path);
   load_check(hdrstr->b[0] == '{', "Expected JSON header: %s", path);
 
@@ -51,7 +55,7 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
     load_check(hdrstr->end < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
 
     // Read next line
-    nread = fh ? strbuf_readline(hdrstr, fh) : strbuf_gzreadline(hdrstr, gz);
+    nread = json_readline(hdrstr, fh, gz, path);
     load_check(nread > 0, "Premature end of JSON header: %s", path);
   }
 }

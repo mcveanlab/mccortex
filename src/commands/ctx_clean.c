@@ -4,7 +4,8 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_info.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "clean_graph.h"
 #include "supernode.h" // for saving length histogram
 
@@ -303,7 +304,7 @@ int ctx_clean(int argc, char **argv)
   }
 
   if(ncols > use_ncols) {
-    graph_files_load_flat(gfiles, num_gfiles, gprefs, &stats);
+    graphs_load_files_flat(gfiles, num_gfiles, gprefs, &stats);
   } else {
     for(i = 0; i < num_gfiles; i++)
       graph_load(&gfiles[i], gprefs, &stats);
@@ -401,7 +402,7 @@ int ctx_clean(int argc, char **argv)
     ulong_to_str(initial_nkmers, init_str);
     status("Removed %s of %s (%.2f%%) kmers", removed_str, init_str, removed_pct);
 
-    graph_files_merge(out_ctx_path, gfiles, num_gfiles,
+    graph_writer_merge(out_ctx_path, gfiles, num_gfiles,
                       kmers_loaded, all_colours_loaded,
                       intersect_edges, &outhdr, &db_graph);
 

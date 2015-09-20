@@ -4,7 +4,7 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_checks.h"
 
 const char dist_matrix_usage[] =

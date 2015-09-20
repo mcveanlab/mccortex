@@ -3,7 +3,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "seq_reader.h"
 #include "gpath_checks.h"
 #include "seq_reader.h"
@@ -56,16 +56,19 @@ void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
                    GenoVar *gts, size_t ntgts,
                    int colour, const dBGraph *db_graph)
 {
+  (void)gts; (void)colour;
+
   size_t i;
   dBNode node = db_graph_find(db_graph, bkey);
 
   if(node.key != HASH_NOT_FOUND) {
-    Covg covg = colour >= 0 ? db_node_get_covg(db_graph, node.key, colour)
-                            : db_node_sum_covg(db_graph, node.key);
+    // Covg covg = colour >= 0 ? db_node_get_covg(db_graph, node.key, colour)
+    //                         : db_node_sum_covg(db_graph, node.key);
 
     for(i = 0; i < ntgts; i++, altref_bits >>= 2) {
-      if((altref_bits & 3) == 1) { gts[i].refkmers++; gts[i].refsumcovg += covg; }
-      if((altref_bits & 3) == 2) { gts[i].altkmers++; gts[i].altsumcovg += covg; }
+      // if((altref_bits & 3) == 1) { gts[i].refkmers++; gts[i].refsumcovg += covg; }
+      // else if((altref_bits & 3) == 2) { gts[i].altkmers++; gts[i].altsumcovg += covg; }
+      // else { /* ignore kmer in both ref/alt */ }
     }
   }
 }
@@ -113,6 +116,13 @@ static inline int read_vars(GenoVarList *vlist, htsFile *vcf_file,
   return 1;
 }
 
+/*
+static void genotype_vcf(htsFile *vcf_file, bcf_hdr_t *vcfhdr)
+{
+
+}
+*/
+
 int ctx_geno(int argc, char **argv)
 {
   struct MemArgs memargs = MEM_ARGS_INIT;
@@ -156,15 +166,16 @@ int ctx_geno(int argc, char **argv)
 
   // Defaults for unset values
   if(out_path == NULL) out_path = "-";
+  if(ref_buf.len == 0)
+    cmd_print_usage("Require at least one reference (-r,--ref <ref.fa>)");
 
-  if(optind+2 > argc) cmd_print_usage("Require VCF, ref and graph files");
+  if(optind+2 > argc) cmd_print_usage("Require VCF and graph files");
 
   // Open VCF file
   const char *vcf_path = argv[optind++];
-  htsFile *vcf_file = hts_open(vcf_path, "r");
-
-  bcf_hdr_t *vcfhdr = bcf_hdr_read(vcf_file);
-  bcf1_t *v = bcf_init1();
+  // htsFile *vcf_file = hts_open(vcf_path, "r");
+  // bcf_hdr_t *vcfhdr = bcf_hdr_read(vcf_file);
+  // bcf1_t *v = bcf_init1();
 
   //
   // Open graph files
@@ -214,10 +225,6 @@ int ctx_geno(int argc, char **argv)
   khash_t(ChromHash) *genome = kh_init(ChromHash);
   seq_reader_load_ref_genome2(ref_buf.b, ref_buf.len, &chromsbuf, genome);
 
-  // Add samples to vcf header
-  for(i = 0; i < db_graph.num_of_cols; i++)
-    bcf_hdr_add_sample(vcfhdr, db_graph.ginfo[i].sample_name.b);
-
   // TODO: Load kmers from VCF + ref
 
   //
@@ -241,8 +248,18 @@ int ctx_geno(int argc, char **argv)
   hash_table_print_stats(&db_graph.ht);
 
   // Seek to the start of VCF file
-  hts_close(vcf_file);
-  vcf_file = hts_open(vcf_path, "r");
+  // hts_close(vcf_file);
+  // vcf_file = hts_open(vcf_path, "r");
+
+  htsFile *vcf_file = hts_open(vcf_path, "r");
+  bcf_hdr_t *vcfhdr = bcf_hdr_read(vcf_file);
+  bcf1_t *v = bcf_init1();
+
+  // Add samples to vcf header
+  for(i = 0; i < db_graph.num_of_cols; i++) {
+    status("Name %zu: %s", i, db_graph.ginfo[i].sample_name.b);
+    // bcf_hdr_add_sample(vcfhdr, db_graph.ginfo[i].sample_name.b);
+  }
 
   // Genotype calls
   read_t *chrom;
@@ -250,8 +267,7 @@ int ctx_geno(int argc, char **argv)
   GenoVarList vlist;
   genovar_list_alloc(&vlist, 256);
 
-  Genotyper gtyper;
-  genotyper_alloc(&gtyper);
+  Genotyper *gtyper = genotyper_init();
 
   const size_t kmer_size = db_graph.kmer_size;
   size_t tgtidx, ntgts;
@@ -267,7 +283,7 @@ int ctx_geno(int argc, char **argv)
       last = genovar_list_getptr(&vlist, tgtidx);
       end = last->pos + last->reflen;
       while(last->pos <= end+kmer_size) {
-        read_vars(&vlist, vcf_file, vcfhdr, v);
+        if(!read_vars(&vlist, vcf_file, vcfhdr, v)) break;
         last = genovar_list_getptr(&vlist, genovar_list_len(&vlist)-1);
         end = last->pos + last->reflen;
       }
@@ -276,14 +292,16 @@ int ctx_geno(int argc, char **argv)
       chrom_name = vcfhdr->id[BCF_DT_CTG][v->rid].key;
       chrom = seq_fetch_chrom(genome, chrom_name);
 
-      genotyping_get_covg(&gtyper,
-                          genovar_list_getptr(&vlist, 0),
-                          genovar_list_len(&vlist),
-                          tgtidx, ntgts,
-                          chrom->seq.b, chrom->seq.end, kmer_size);
+      GenoKmer *kmers = NULL;
+      size_t nkmers = 0;
 
-      GenoKmer *kmers = gtyper.kmer_buf.b;
-      size_t nkmers = gtyper.kmer_buf.len;
+      // nkmers = genotyping_get_kmers(gtyper,
+      //                               genovar_list_getptr(&vlist, 0),
+      //                               genovar_list_len(&vlist),
+      //                               tgtidx, ntgts,
+      //                               chrom->seq.b, chrom->seq.end,
+      //                               kmer_size, &kmers);
+
       int colour = -1;
 
       for(i = 0; i < nkmers; i++) {
@@ -301,7 +319,7 @@ int ctx_geno(int argc, char **argv)
     }
   }
 
-  genotyper_dealloc(&gtyper);
+  genotyper_destroy(gtyper);
 
     // fprintf(stderr, "%s %i %u", chrom_name, v->pos+1, v->rlen);
     // fprintf(stderr, " %s", v->d.allele[0]);

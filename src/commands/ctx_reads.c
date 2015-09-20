@@ -6,7 +6,7 @@
 #include "db_node.h"
 #include "binary_kmer.h"
 #include "seq_reader.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "seqout.h"
 #include "async_read_io.h"
 

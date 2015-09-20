@@ -11,10 +11,6 @@ KHASH_INIT(BkToBits, BinaryKmer, uint64_t, 1, bk2bits_hash, bk2bits_eq);
 typedef struct {
   const char *ref, *alt;
   size_t pos, reflen, altlen;
-
-  // Covg
-  size_t refkmers, refsumcovg;
-  size_t altkmers, altsumcovg;
 } GenoVar;
 
 typedef struct {
@@ -25,34 +21,36 @@ typedef struct {
 #include "madcrowlib/madcrow_buffer.h"
 #include "madcrowlib/madcrow_list.h"
 madcrow_buffer(genokmer_buf, GenoKmerBuffer, GenoKmer);
-// madcrow_buffer(genovar_buf,  GenoVarBuffer,  GenoVar);
 madcrow_list(  genovar_list, GenoVarList,  GenoVar);
 
-typedef struct {
-  StrBuf seq;
-  khash_t(BkToBits) *h;
-  GenoKmerBuffer kmer_buf;
-} Genotyper;
+typedef struct GenotyperStruct Genotyper;
 
-void genotyper_alloc(Genotyper *typer);
-void genotyper_dealloc(Genotyper *typer);
+Genotyper* genotyper_init();
+void genotyper_destroy(Genotyper *typer);
 
-void genovars_sort(GenoVar *vars, size_t nvars);
+void genovars_sort(const GenoVar **vars, size_t nvars);
 
-// Returns 1 if kmer occurs in ref/alt only for a given haplotype
-// print out if pairs of bits are 01 or 10, not 11, 00
+// Returns non-zero iff kmer occurs in only one of ref/alt in at least one sample
 // 0x5 in binary is 0101
 #define genotyping_refalt_uniq(b) (((b) ^ ((b)>>1)) & 0x5555555555555555UL)
 
 /**
- * Get coverage on alt allele. Results stored in typer->kmer_buf.
- * @param vars must be sorted by pos, then reflen, then altlen, then alt
- * @param colour if -1 population coverage
+ * Get a list of kmers which support variants.
+ * @param typer     initialised memory to use
+ * @param vars      variants to genotype and surrounding vars.
+ *                  Required sort order: pos, reflen, altlen, alt
+ * @param nvars     number of variants in `vars`
+ * @param tgtidx    index in vars of first variant to type
+ * @param ntgts     number of variants to type
+ * @param chrom     reference chromosome
+ * @param chromlen  length of reference chromosom
+ * @param kmer_size kmer size to type at
+ * @return number of kmers
  */
-void genotyping_get_covg(Genotyper *typer,
-                         const GenoVar *vars, size_t nvars,
-                         size_t tgtidx, size_t ntgts,
-                         const char *chrom, size_t chromlen,
-                         size_t kmer_size);
+size_t genotyping_get_kmers(Genotyper *typer,
+                            const GenoVar **vars, size_t nvars,
+                            size_t tgtidx, size_t ntgts,
+                            const char *chrom, size_t chromlen,
+                            size_t kmer_size, GenoKmer **result);
 
 #endif /* GENOTYPING_H_ */

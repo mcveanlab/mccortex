@@ -2,7 +2,7 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 #include "graph_walker.h"

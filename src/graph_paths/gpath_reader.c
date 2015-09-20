@@ -251,6 +251,7 @@ bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links)
     else if(c != '\n') {
       strbuf_append_char(kmer, c);
       strbuf_gzreadline_buf(kmer, file->gz, &file->strmbuf);
+      util_gzcheck(0, file->gz, path);
       strbuf_chomp(kmer);
       if(!char_is_acgt(c) ||
          (space = strchr(kmer->b, ' ')) == NULL ||
@@ -263,6 +264,7 @@ bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links)
     }
   }
 
+  util_gzcheck(0, file->gz, path);
   return false;
 }
 
@@ -406,6 +408,7 @@ bool gpath_reader_read_link(GPathReader *file,
                             StrBuf *seq, SizeBuffer *juncpos)
 {
   int c;
+  const char *path = file_filter_path(&file->fltr);
   StrBuf *line = &file->line;
   strbuf_reset(line);
 
@@ -414,12 +417,14 @@ bool gpath_reader_read_link(GPathReader *file,
     if(char_is_acgt(c)) {
       // Hit kmer line
       gzungetc_buf(c, &file->strmbuf);
+      util_gzcheck(0, file->gz, path);
       return false;
     }
     else if(c == '#') gzskipline_buf(file->gz, &file->strmbuf);
     else if(c != '\n') {
       strbuf_append_char(line, c);
       strbuf_gzreadline_buf(line, file->gz, &file->strmbuf);
+      util_gzcheck(0, file->gz, path);
       strbuf_chomp(line);
       link_line_parse(line, file->version, &file->fltr,
                       fw, njuncs, countbuf, juncs,
@@ -428,6 +433,7 @@ bool gpath_reader_read_link(GPathReader *file,
     }
   }
 
+  util_gzcheck(0, file->gz, path);
   return false;
 }
 

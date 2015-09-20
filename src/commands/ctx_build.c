@@ -4,8 +4,8 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_info.h"
-#include "graph_format.h"
-#include "loading_stats.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "build_graph.h"
 
 #include "seq_file.h"
@@ -163,7 +163,7 @@ static void parse_args(int argc, char **argv)
       case 'g':
         if(intocolour == -1) intocolour = 0;
         graph_file_reset(&tmp_gfile);
-        graph_file_open2(&tmp_gfile, optarg, "r", intocolour);
+        graph_file_open2(&tmp_gfile, optarg, "r", true, intocolour);
         intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr));
         gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         sample_named = false;
@@ -342,8 +342,8 @@ int ctx_build(int argc, char **argv)
   }
 
   status("Dumping graph...\n");
-  graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
-                        0, output_colours);
+  graph_writer_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
+                          0, output_colours);
 
   build_graph_task_buf_dealloc(&gtaskbuf);
   gfile_buf_dealloc(&gfilebuf);

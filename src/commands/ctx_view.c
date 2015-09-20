@@ -8,8 +8,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "graph_format.h"
-#include "graph_file_reader.h"
+#include "graphs_load.h"
 #include "hash_mem.h" // for calculating mem usage
 
 const char view_usage[] =
@@ -156,7 +155,7 @@ int ctx_view(int argc, char **argv)
   graph_header_alloc(&hdr, ncols);
 
   size_t i, fromcol, intocol, sum_covgs_read = 0, sum_seq_loaded = 0;
-  size_t num_kmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
+  size_t nkmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
 
   for(i = 0; i < file_filter_num(&gfile.fltr); i++) {
     fromcol = file_filter_fromcol(&gfile.fltr, i);
@@ -179,7 +178,7 @@ int ctx_view(int argc, char **argv)
   {
     if(print_info && print_kmers) printf("----\n");
 
-    for(; graph_file_read_reset(&gfile, ncols, &bkmer, covgs, edges); num_kmers_read++)
+    for(; graph_file_read_reset(&gfile, &bkmer, covgs, edges); nkmers_read++)
     {
       // If kmer has no covg or edges -> don't load
       Covg keep_kmer = 0, covgs_sum = 0;
@@ -192,7 +191,7 @@ int ctx_view(int argc, char **argv)
       sum_covgs_read += covgs_sum;
 
       /* Kmer Checks */
-      // graph_file_read_kmer() already checks for:
+      // graph_file_read_reset() already checks for:
       // 1. oversized kmers
       // 2. kmers with covg 0 in all colours
 
@@ -207,7 +206,7 @@ int ctx_view(int argc, char **argv)
         if(num_all_zero_kmers == 1)
         {
           loading_error("more than one all 'A's kmers seen [index: %zu]\n",
-                        num_kmers_read);
+                        nkmers_read);
         }
 
         num_all_zero_kmers++;
@@ -240,9 +239,9 @@ int ctx_view(int argc, char **argv)
   {
     // file_size is set to -1 if we are reading from a stream,
     // therefore won't be able to check number of kmers read
-    if(gfile.file_size != -1 && num_kmers_read != (uint64_t)gfile.num_of_kmers) {
+    if(gfile.file_size != -1 && nkmers_read != (uint64_t)gfile.num_of_kmers) {
       loading_warning("Expected %zu kmers, read %zu\n",
-                      (size_t)gfile.num_of_kmers, (size_t)num_kmers_read);
+                      (size_t)gfile.num_of_kmers, (size_t)nkmers_read);
     }
 
     if(num_all_zero_kmers > 1)
@@ -258,16 +257,16 @@ int ctx_view(int argc, char **argv)
     }
   }
 
-  // Count warnings printed by graph_reader.c
-  num_warnings += greader_zero_covg_error;
-  num_warnings += greader_missing_covg_error;
+  // Count warnings printed by graph_file_reader.c
+  num_warnings += gfile.error_zero_covg;
+  num_warnings += gfile.error_missing_covg;
 
   if((print_kmers || parse_kmers) && print_info)
   {
     double mean_kmer_covg = 0;
-    if(num_kmers_read > 0) mean_kmer_covg = (double)sum_covgs_read / num_kmers_read;
+    if(nkmers_read > 0) mean_kmer_covg = (double)sum_covgs_read / nkmers_read;
     printf("----\n");
-    printf("number of kmers:    %s\n", ulong_to_str(num_kmers_read, num_str));
+    printf("number of kmers:    %s\n", ulong_to_str(nkmers_read, num_str));
     printf("sum of coverages:   %s\n", ulong_to_str(sum_covgs_read, num_str));
     printf("sequence loaded:    %s bp\n", ulong_to_str(sum_seq_loaded, num_str));
     printf("mean kmer coverage: %s\n", double_to_str(mean_kmer_covg, 2, num_str));

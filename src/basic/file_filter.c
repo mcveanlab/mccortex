@@ -51,7 +51,7 @@ void file_filter_close(FileFilter *fltr)
 }
 
 // Return max colours we load from, or 0 if no colours
-uint32_t file_filter_from_ncols(const FileFilter *fltr)
+uint32_t file_filter_from_ncols_calc(const FileFilter *fltr)
 {
   uint32_t i, max = 0;
   for(i = 0; i < file_filter_num(fltr); i++)
@@ -60,12 +60,20 @@ uint32_t file_filter_from_ncols(const FileFilter *fltr)
 }
 
 // Return max colours we load into, or 0 if no colours
-uint32_t file_filter_into_ncols(const FileFilter *fltr)
+uint32_t file_filter_into_ncols_calc(const FileFilter *fltr)
 {
   uint32_t i, max = 0;
   for(i = 0; i < file_filter_num(fltr); i++)
     max = MAX2(max, file_filter_intocol(fltr,i)+1);
   return max;
+}
+
+// Recalculate fromncols, intoncols
+// Needs to be called after each modification to the filter
+void file_filter_update(FileFilter *fltr)
+{
+  fltr->fromncols = file_filter_from_ncols_calc(fltr);
+  fltr->intoncols = file_filter_into_ncols_calc(fltr);
 }
 
 // If there is no 'into' filter (e.g. 0,1:in.ctx 0,1 is 'into filter'),
@@ -138,6 +146,8 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols, size_t into_offset
 
   ctx_free(tmp);
 
+  file_filter_update(fltr);
+
   // for(i = 0; i < file_filter_num(fltr); i++)
   //   status("%u -> %u", file_filter_fromcol(fltr,i), file_filter_intocol(fltr,i));
 }
@@ -148,6 +158,8 @@ void file_filter_shift_cols(FileFilter *fltr, size_t add)
   size_t i;
   for(i = 0; i < file_filter_num(fltr); i++)
     file_filter_intocol(fltr, i) += add;
+
+  file_filter_update(fltr);
 }
 
 // Returns true if each colour is loaded directly into the same colour
@@ -202,6 +214,7 @@ FileFilter* file_filter_copy(FileFilter *dst, const FileFilter *src)
   filter_buf_reset(&dst->filter);
   filter_buf_push(&dst->filter, src->filter.b, src->filter.len);
   dst->filencols = src->filencols;
+  file_filter_update(dst);
   return dst;
 }
 
@@ -212,12 +225,15 @@ void file_filter_flatten(FileFilter *fltr, size_t intocol)
   ctx_assert(fltr->filter.b != NULL);
   for(i = 0; i < file_filter_num(fltr); i++)
     file_filter_intocol(fltr,i) = intocol;
+
+  file_filter_update(fltr);
 }
 
 void file_filter_add(FileFilter *fltr, uint32_t from, uint32_t into)
 {
   Filter f = {.from = from, .into = into};
   filter_buf_push(&fltr->filter, &f, 1);
+  file_filter_update(fltr);
 }
 
 //
@@ -255,4 +271,5 @@ void file_filter_merge(FileFilter *a, FileFilter *b)
 
   // Remove n items from the start of the array
   filter_buf_shift(&a->filter, NULL, n);
+  file_filter_update(a);
 }

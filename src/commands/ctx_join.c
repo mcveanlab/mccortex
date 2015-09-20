@@ -4,12 +4,11 @@
 #include "util.h"
 #include "file_util.h"
 #include "binary_kmer.h"
-#include "hash_table.h"
 #include "db_graph.h"
 #include "graph_info.h"
 #include "db_node.h"
-#include "graph_format.h"
-#include "graph_file_reader.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 
 // Given (A,B,C) are ctx binaries, A:1 means colour 1 in A,
 // {A:1,B:0} is loading A:1 and B:0 into a single colour
@@ -124,7 +123,7 @@ int ctx_join(int argc, char **argv)
 
   for(i = 0; i < num_gfiles; i++)
   {
-    graph_file_open2(&gfiles[i], gfile_paths[i], "r", ctx_max_cols);
+    graph_file_open2(&gfiles[i], gfile_paths[i], "r", true, ctx_max_cols);
 
     if(gfiles[0].hdr.kmer_size != gfiles[i].hdr.kmer_size) {
       cmd_print_usage("Kmer sizes don't match [%u vs %u]",
@@ -195,7 +194,7 @@ int ctx_join(int argc, char **argv)
     db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size,
                    file_filter_into_ncols(&gfiles[0].fltr), 0, 1024, 0);
 
-    graph_stream_filter_mkhdr(out_path, &gfiles[0], &db_graph, NULL, NULL);
+    graph_writer_stream_mkhdr(out_path, &gfiles[0], &db_graph, NULL, NULL);
     graph_file_close(&gfiles[0]);
     gfile_buf_dealloc(&isec_gfiles_buf);
     ctx_free(gfiles);
@@ -306,7 +305,7 @@ int ctx_join(int argc, char **argv)
 
   bool kmers_loaded = take_intersect, colours_loaded = false;
 
-  graph_files_merge_mkhdr(out_path, gfiles, num_gfiles,
+  graph_writer_merge_mkhdr(out_path, gfiles, num_gfiles,
                           kmers_loaded, colours_loaded, intersect_edges,
                           intsct_gname_ptr, &db_graph);
 

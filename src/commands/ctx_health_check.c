@@ -4,8 +4,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
-#include "graph_file_reader.h"
+#include "graphs_load.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 

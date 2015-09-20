@@ -2,7 +2,8 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "binary_kmer.h"
 
 // DEV: add .ctp.gz sorting
@@ -87,7 +88,7 @@ int ctx_sort(int argc, char **argv)
   //
   GraphFileReader gfile;
   memset(&gfile, 0, sizeof(GraphFileReader));
-  graph_file_open2(&gfile, ctx_path, out_path ? "r" : "r+", 0);
+  graph_file_open2(&gfile, ctx_path, out_path ? "r" : "r+", true, 0);
 
   if(!file_filter_is_direct(&gfile.fltr))
     die("Cannot open graph file with a filter ('in.ctx:blah' syntax)");
@@ -122,19 +123,19 @@ int ctx_sort(int argc, char **argv)
   char *mem = ctx_malloc(kmer_mem * num_kmers);
   char **kmers = ctx_malloc(num_kmers*sizeof(char*));
 
-  // Read in file
-  // This fseek not needed
-  // if(fseek(gfile.fh, gfile.hdr_size, SEEK_SET) == -1) die("fseek failed");
-  size_t nkread = fread(mem, kmer_mem, num_kmers, gfile.fh);
+  // Read in whole file
+  // if(graph_file_fseek(gfile, gfile.hdr_size, SEEK_SET) != 0) die("fseek failed");
+  size_t nkread = gfr_fread_bytes(&gfile, mem, num_kmers*kmer_mem);
+
+  if(nkread != num_kmers*kmer_mem)
+    die("Could only read %zu bytes [<%zu]", nkread, num_kmers*kmer_mem);
 
   // check we are at the end of the file
-  int b;
-  if(nkread == num_kmers && (b = fgetc(gfile.fh)) != -1) {
-    die("More kmers in file than believed (%i; kmers: %zu ncols: %zu).",
-        b, num_kmers, ncols);
+  char tmpc;
+  if(gfr_fread_bytes(&gfile, &tmpc, 1) != 0) {
+    die("More kmers in file than believed (kmers: %zu ncols: %zu).",
+        num_kmers, ncols);
   }
-
-  num_kmers = nkread;
 
   status("Read %zu kmers with %zu colour%s", num_kmers,
          ncols, util_plural_str(ncols));
@@ -150,7 +151,9 @@ int ctx_sort(int argc, char **argv)
     graph_write_header(fout, &gfile.hdr);
   }
   else {
-    if(fseek(gfile.fh, gfile.hdr_size, SEEK_SET) == -1) die("fseek failed");
+    // Directly manipulating gfile.fh here, using it to write later
+    // Not doing any more reading
+    if(fseek(gfile.fh, gfile.hdr_size, SEEK_SET) != 0) die("fseek failed");
     fout = gfile.fh;
   }
 

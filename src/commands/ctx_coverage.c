@@ -5,8 +5,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "seq_reader.h"
-#include "graph_format.h"
-#include "graph_file_reader.h"
+#include "graphs_load.h"
 
 const char coverage_usage[] =
 "usage: "CMD" coverage [options] <in.ctx> [in2.ctx ..]\n"

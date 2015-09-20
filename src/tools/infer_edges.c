@@ -1,7 +1,7 @@
 #include "global.h"
+#include "infer_edges.h"
 #include "db_node.h"
 #include "db_graph.h"
-#include "graph_format.h"
 
 static inline void _add_edge_to_colours(hkey_t next_hkey,
                                         const Covg *covgs, Edges *edges,

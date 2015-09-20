@@ -8,7 +8,8 @@
 #include "db_graph.h"
 #include "graph_info.h"
 #include "db_node.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "subgraph.h"
 #include "hash_mem.h" // for calculating mem usage
 
@@ -191,7 +192,7 @@ int ctx_subgraph(int argc, char **argv)
   strbuf_alloc(&intersect_gname, 1024);
 
   if(total_cols > db_graph.num_of_cols) {
-    graph_files_load_flat(gfiles, num_gfiles, gprefs, &stats);
+    graphs_load_files_flat(gfiles, num_gfiles, gprefs, &stats);
   }
   else {
     for(i = 0; i < num_gfiles; i++)
@@ -237,7 +238,7 @@ int ctx_subgraph(int argc, char **argv)
       intersect_edges[i] = db_node_get_edges_union(&db_graph, i);
   }
 
-  graph_files_merge_mkhdr(out_path, gfiles, num_gfiles,
+  graph_writer_merge_mkhdr(out_path, gfiles, num_gfiles,
                           kmers_loaded, colours_loaded,
                           intersect_edges, intersect_gname.b,
                           &db_graph);

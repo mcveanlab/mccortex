@@ -5,7 +5,7 @@
 #include "db_graph.h"
 #include "assemble_contigs.h"
 #include "seq_reader.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 
@@ -171,15 +171,6 @@ int ctx_contigs(int argc, char **argv)
 
   graph_files_open(graph_paths, gfiles, num_gfiles,
                    &ctx_max_kmers, &ctx_sum_kmers);
-
-  // char *ctx_path = argv[optind];
-
-  //
-  // Open Graph file
-  //
-  // GraphFileReader gfile;
-  // memset(&gfile, 0, sizeof(GraphFileReader));
-  // graph_file_open(&gfile, ctx_path);
 
   // Update colours in graph file - sample in 0, all others in 1
   // never need more than two colours

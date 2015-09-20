@@ -5,9 +5,8 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "graph_format.h"
-#include "graph_file_reader.h"
-#include "loading_stats.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "seq_reader.h"
 #include "infer_edges.h"
 
@@ -53,6 +52,7 @@ static struct option longopts[] =
 static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file)
 {
+  // ctx_assert2(file->strm.b == NULL, "File should not be buffered");
   ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
   ctx_assert(file_filter_is_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
@@ -63,7 +63,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
          file_filter_path(&file->fltr),
          (size_t)file->hdr_size, (size_t)file->file_size);
 
-  if(fseek(file->fh, 0, SEEK_SET) != 0)
+  if(graph_file_fseek(file, 0, SEEK_SET) != 0)
     die("fseek failed: %s", strerror(errno));
 
   // Open memory mapped file
@@ -114,7 +114,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
 static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
-  ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
+  // ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
   ctx_assert(file_filter_is_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
   ctx_assert(fout != NULL);
@@ -126,8 +126,8 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   graph_write_header(fout, &file->hdr);
 
   // Read the input file again
-  if(fseek(file->fh, file->hdr_size, SEEK_SET) != 0)
-    die("fseek failed: %s", strerror(errno));
+  if(graph_file_fseek(file, file->hdr_size, SEEK_SET) != 0)
+    die("graph_file_fseek failed: %s", strerror(errno));
 
   const size_t ncols = file->hdr.num_of_cols;
   BinaryKmer bkmer;
@@ -137,7 +137,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   size_t num_kmers_edited = 0;
   bool updated;
 
-  while(graph_file_read_reset(file, ncols, &bkmer, covgs, edges))
+  while(graph_file_read_reset(file, &bkmer, covgs, edges))
   {
     updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
                              : infer_pop_edges(bkmer, edges, covgs, db_graph));
@@ -202,7 +202,7 @@ int ctx_infer_edges(int argc, char **argv)
   // Open graph file
   //
   char *graph_path = argv[optind];
-  status("Reading graph: %s", graph_path);
+  status("Reading graph: %s", (!strcmp(graph_path,"-") ? "STDIN" : graph_path));
 
   if(strchr(graph_path,':') != NULL)
     cmd_print_usage("Cannot use ':' in input graph for `"CMD" inferedges`");
@@ -215,14 +215,14 @@ int ctx_infer_edges(int argc, char **argv)
   // Use stat to detect if we are reading from a stream
   struct stat st;
   bool reading_stream = (stat(file.fltr.path.b, &st) != 0);
+  bool editing_file = !(out_ctx_path || reading_stream);
 
   // Mode r+ means open (not create) for update (read & write)
-  graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+", 0);
+  bool use_buf = true;
+  graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+", use_buf, 0);
 
   if(!file_filter_is_direct(&file.fltr))
     cmd_print_usage("Inferedges with filter not implemented - sorry");
-
-  bool editing_file = !(out_ctx_path || reading_stream);
 
   FILE *fout = NULL;
 
@@ -292,14 +292,17 @@ int ctx_infer_edges(int argc, char **argv)
 
   if(reading_stream)
   {
+    // Reading STDIN, writing STDOUT/file
     ctx_assert(fout != NULL);
     num_kmers_edited = infer_edges(num_of_threads, add_all_edges, &db_graph);
     graph_write_header(fout, &file.hdr);
     graph_write_all_kmers(fout, &db_graph);
   }
   else if(fout == NULL) {
+    // Reading from file, writing to same file
     num_kmers_edited = inferedges_on_mmap(&db_graph, add_all_edges, &file);
   } else {
+    // Reading from file, writing to STDOUT/file
     num_kmers_edited = inferedges_on_file(&db_graph, add_all_edges, &file, fout);
   }
 

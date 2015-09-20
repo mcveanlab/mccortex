@@ -3,7 +3,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_checks.h"
 #include "build_graph.h"
 #include "seqout.h"
@@ -204,7 +204,7 @@ int ctx_uniqkmers(int argc, char **argv)
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_kmer_size(cmd, optarg); break;
       case 'g':
         graph_file_reset(&tmp_gfile);
-        graph_file_open2(&tmp_gfile, optarg, "r", 0);
+        graph_file_open2(&tmp_gfile, optarg, "r", true, 0);
         file_filter_flatten(&tmp_gfile.fltr, 0);
         gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         break;

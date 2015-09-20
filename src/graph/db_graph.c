@@ -4,7 +4,6 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "graph_format.h"
 
 static void db_graph_status(const dBGraph *db_graph)
 {

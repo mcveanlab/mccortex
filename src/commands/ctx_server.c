@@ -3,7 +3,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 #include "json_hdr.h"
@@ -372,7 +372,7 @@ int ctx_server(int argc, char **argv)
   bool success;
 
   // Read from input
-  while(strbuf_reset_readline(&line, stdin))
+  while(util_fcheck(strbuf_reset_readline(&line, stdin), stdin, "STDIN") > 0)
   {
     strbuf_chomp(&line);
     if(strcmp(line.b,"q") == 0) { break; }

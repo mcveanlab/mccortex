@@ -1,35 +1,40 @@
 #ifndef GRAPH_FILE_READER_H_
 #define GRAPH_FILE_READER_H_
 
-#include "cortex_types.h"
+// #include "cortex_types.h"
+#include "graph_format.h"
 #include "file_filter.h"
 #include "binary_kmer.h"
-#include "graph_info.h"
 
-// Graph (.ctx)
-typedef struct
-{
-  uint32_t version, kmer_size, num_of_bitfields, num_of_cols;
-  GraphInfo *ginfo; // Cleaning info etc for each colour
-  size_t capacity;
-} GraphFileHeader;
+//
+// Read graph files from disk
+//
 
 typedef struct
 {
   FILE *fh;
+  StreamBuffer strm; // buffer input
   FileFilter fltr;
   GraphFileHeader hdr;
   off_t hdr_size, file_size;
   int64_t num_of_kmers; // set if reading from file (i.e. not stream) else -1
+  bool error_zero_covg, error_missing_covg; // Whether we saw loading errors
 } GraphFileReader;
+
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(gfile_buf, GraphFileBuffer, GraphFileReader);
+
 
 #define graph_file_reset(rdr) memset(rdr, 0, sizeof(GraphFileReader))
 
 // Returns 0 if not set instead of -1
 #define graph_file_nkmers(rdr) ((uint64_t)MAX2((rdr)->num_of_kmers, 0))
 
-#include "madcrowlib/madcrow_buffer.h"
-madcrow_buffer(gfile_buf, GraphFileBuffer, GraphFileReader);
+#define graph_file_is_buffered(file) ((file)->strm.b != NULL)
+int graph_file_fseek(GraphFileReader *file, off_t offset, int whence);
+off_t graph_file_ftell(GraphFileReader *file);
+
+size_t gfr_fread_bytes(GraphFileReader *file, void *ptr, size_t size);
 
 // Open file
 // if cannot open file returns 0
@@ -42,24 +47,27 @@ int graph_file_open(GraphFileReader *file, const char *path);
 // If there is no 'into' filter (e.g. 0,1:in.ctx 0,1 is 'into filter'),
 // load into `into_offset..into_offset+N-1`
 int graph_file_open2(GraphFileReader *file, const char *path, const char *mode,
-                     size_t into_offset);
+                     bool usebuf, size_t into_offset);
 
 // Close file, release all memory
 void graph_file_close(GraphFileReader *file);
+
+// Returns number of bytes read
+size_t graph_file_read_raw(GraphFileReader *rdr,
+                           BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // Read a kmer from the file
 // returns true on success, false otherwise
 // prints warnings if dirty kmers in file
 // Beware: this function does not use file.intocol so you may wish to pass:
 //    graph_file_read(file, &bkmer, covgs+file.intocol, edges+file.intocol);
-bool graph_file_read(const GraphFileReader *file,
+bool graph_file_read(GraphFileReader *file,
                      BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // Read a kmer from the file
 // returns true on success, false otherwise
 // prints warnings if dirty kmers in file
-// @ncols is file_filter_into_ncols(&file->fltr)
-bool graph_file_read_reset(const GraphFileReader *file, size_t ncols,
+bool graph_file_read_reset(GraphFileReader *file,
                            BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 
 // Returns true if one or more files passed loads data into colour
