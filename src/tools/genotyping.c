@@ -135,6 +135,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
   int hret;
   khiter_t k;
 
+  // TODO: may be faster to clear at the end using list of entries
   kh_clear(BkToBits, h);
 
   // Start with ref haplotype (no variants)

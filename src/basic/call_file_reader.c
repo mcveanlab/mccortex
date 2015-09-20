@@ -1,7 +1,7 @@
 #include "global.h"
 #include "call_file_reader.h"
 #include "dna.h"
-#include "util.h"
+#include "file_util.h"
 
 // Print error if an entry has more than 1000 paths
 #define MAX_LINES_LIMIT 2004
@@ -37,7 +37,7 @@ static int fasta_gzread(gzFile gzin, bool ret_on_empty, StrBuf *txt,
 {
   size_t linestrt = txt->end;
   // Read past empty lines and comments
-  while(util_gzcheck(strbuf_gzreadline(txt, gzin), gzin, path) > 0 &&
+  while(futil_gzcheck(strbuf_gzreadline(txt, gzin), gzin, path) > 0 &&
         (txt->b[linestrt] == '#' || txt->b[linestrt] == '\n'))
   {
     // Empty line or comment
@@ -47,7 +47,7 @@ static int fasta_gzread(gzFile gzin, bool ret_on_empty, StrBuf *txt,
   }
   if(txt->end == linestrt) return 0; // no more entries
   if(txt->b[linestrt] != '>') return -1; // bad line
-  size_t s = util_gzcheck(strbuf_gzreadline(txt, gzin), gzin, path);
+  size_t s = futil_gzcheck(strbuf_gzreadline(txt, gzin), gzin, path);
   return !s ? -1 : 1; // missing sequence if s == 0
 }
 

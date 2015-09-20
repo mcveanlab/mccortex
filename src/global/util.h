@@ -18,31 +18,6 @@ static inline const char* strendc(const char *str, char c)
   return str;
 }
 
-// Read from a file into a string buffer safely
-static inline size_t util_fcheckf(size_t len, FILE *fh, const char *path,
-                                  const char *file, const char *fn, int ln)
-{
-  if(fh && ferror(fh))
-    dief(file, fn, ln, "File error: %s [%i]: %s", strerror(errno), errno, path);
-  return len;
-}
-
-static inline size_t util_gzcheckf(size_t len, gzFile gz, const char *path,
-                                   const char *file, const char *fn, int ln)
-{
-  int ecode;
-  const char *estr;
-  if(gz != NULL) {
-    estr = gzerror(gz, &ecode);
-    if(ecode < 0)
-      dief(file, fn, ln, "GZIP File error: %s [%i]: %s", estr, ecode, path);
-  }
-  return len;
-}
-
-#define util_fcheck(len,fh,path) util_fcheckf(len,fh,path,__FILE__,__func__,__LINE__)
-#define util_gzcheck(len,gz,path) util_gzcheckf(len,gz,path,__FILE__,__func__,__LINE__)
-
 // Finds tag "seq=1,2,3" if tag is "seq="
 //                ^--found, len = 5
 // Return true if found, false otherwise

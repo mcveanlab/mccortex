@@ -73,6 +73,34 @@ gzFile futil_gzopen_create(const char *path, const char *mode);
 void futil_fclose(FILE *fh);
 void gzutil_fclose(gzFile gz);
 
+// Check for errors on FILE* stream
+// @param len is returned
+static inline size_t futil_fcheckf(size_t len, FILE *fh, const char *path,
+                                   const char *file, const char *fn, int ln)
+{
+  if(fh && ferror(fh))
+    dief(file, fn, ln, "File error: %s [%i]: %s", strerror(errno), errno, path);
+  return len;
+}
+
+// Check for errors on gzFile stream
+// @param len is returned
+static inline size_t futil_gzcheckf(size_t len, gzFile gz, const char *path,
+                                   const char *file, const char *fn, int ln)
+{
+  int ecode;
+  const char *estr;
+  if(gz != NULL) {
+    estr = gzerror(gz, &ecode);
+    if(ecode < 0)
+      dief(file, fn, ln, "GZIP File error: %s [%i]: %s", estr, ecode, path);
+  }
+  return len;
+}
+
+#define futil_fcheck(len,fh,path) futil_fcheckf(len,fh,path,__FILE__,__func__,__LINE__)
+#define futil_gzcheck(len,gz,path) futil_gzcheckf(len,gz,path,__FILE__,__func__,__LINE__)
+
 // Open a new output file with unused name
 bool futil_generate_filename(const char *base_fmt, StrBuf *str);
 void futil_get_strbuf_of_dir_path(const char *path, StrBuf *dir);

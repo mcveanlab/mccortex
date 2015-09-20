@@ -1,7 +1,7 @@
 #include "global.h"
 #include "json_hdr.h"
 #include "cmd.h"
-#include "util.h"
+#include "file_util.h"
 
 // #include <unistd.h> // gethostname()
 #include <sys/utsname.h> // utsname()
@@ -11,8 +11,8 @@
 #define load_check(x,msg,...) if(!(x)) { die("[JSON] "msg, ##__VA_ARGS__); }
 
 #define json_readline(hdrstr,fh,gz,path) \
-  ((fh) ? util_fcheck(strbuf_readline((hdrstr), (fh)), (fh), (path)) \
-        : util_gzcheck(strbuf_gzreadline((hdrstr), (gz)), (gz), (path)))
+  ((fh) ? futil_fcheck(strbuf_readline((hdrstr), (fh)), (fh), (path)) \
+        : futil_gzcheck(strbuf_gzreadline((hdrstr), (gz)), (gz), (path)))
 
 void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 {

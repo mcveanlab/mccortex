@@ -372,7 +372,7 @@ int ctx_server(int argc, char **argv)
   bool success;
 
   // Read from input
-  while(util_fcheck(strbuf_reset_readline(&line, stdin), stdin, "STDIN") > 0)
+  while(futil_fcheck(strbuf_reset_readline(&line, stdin), stdin, "STDIN") > 0)
   {
     strbuf_chomp(&line);
     if(strcmp(line.b,"q") == 0) { break; }
