@@ -249,6 +249,10 @@ MATEPAIR=FR
 MIN_FRAG_LEN=150
 MAX_FRAG_LEN=1000
 
+# Set this to non-blank (e.g. 1) to stop infer edges from running
+# Links generated with this set will not be usable in multicolour graphs
+SKIP_INFEREDGES=
+
 # Command arguments
 BUILD_ARGS=--fq-cutoff 10 --cut-hp 10 --keep-pcr --matepair $(MATEPAIR)
 KMER_CLEANING_ARGS=--fallback 2
@@ -552,7 +556,10 @@ for my $k (@kmers) {
   print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.clean.ctx\n";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
   print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
-  print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n\n";
+  print "ifeq (\$(SKIP_INFEREDGES),)\n";
+  print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
+  print "endif\n";
+  print "\n";
 
   # Dump unitigs
   print "# sample graph unitigs at k=$k\n";
