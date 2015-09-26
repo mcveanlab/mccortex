@@ -24,21 +24,27 @@ void genotyper_destroy(Genotyper *gt)
   ctx_free(gt);
 }
 
-static inline int genovar_ptr_cmp(const void *aa, const void *bb)
+int genovar_ptr_cmp(const GenoVar *a, const GenoVar *b)
 {
-  const GenoVar *a = *(const GenoVar*const*)aa, *b = *(const GenoVar*const*)bb;
   if(a->pos != b->pos) return a->pos < b->pos ? -1 : 1;
   if(a->reflen != b->reflen) return a->reflen < b->reflen ? -1 : 1;
   if(a->altlen != b->altlen) return a->altlen < b->altlen ? -1 : 1;
   return strncmp(a->alt, b->alt, a->altlen);
 }
 
-void genovars_sort(const GenoVar **vars, size_t nvars)
+static inline int _genovar_ptr_cmp(const void *aa, const void *bb)
 {
-  qsort(vars, nvars, sizeof(*vars), genovar_ptr_cmp);
+  const GenoVar *a = *(const GenoVar*const*)aa, *b = *(const GenoVar*const*)bb;
+  return genovar_ptr_cmp(a, b);
 }
 
-static bool vars_compatible(const GenoVar **vars, size_t nvars, uint64_t bits)
+void genovars_sort(GenoVar **vars, size_t nvars)
+{
+  qsort(vars, nvars, sizeof(*vars), _genovar_ptr_cmp);
+}
+
+static bool vars_compatible(const GenoVar *const*vars, size_t nvars,
+                            uint64_t bits)
 {
   ctx_assert(nvars < 64);
   size_t i, end = 0;
@@ -56,8 +62,8 @@ static bool vars_compatible(const GenoVar **vars, size_t nvars, uint64_t bits)
 // Store it in parameter seq
 static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
                                           size_t regstart, size_t regend,
-                                          const GenoVar **vars, size_t nvars,
-                                          uint64_t bits)
+                                          const GenoVar *const*vars,
+                                          size_t nvars, uint64_t bits)
 {
   strbuf_reset(seq);
   uint64_t i, end = regstart;
@@ -104,15 +110,14 @@ static inline uint64_t varbits_to_altrefbits(uint64_t bits,
  * @return number of kmers
  */
 size_t genotyping_get_kmers(Genotyper *typer,
-                            const GenoVar **vars, size_t nvars,
+                            const GenoVar *const*vars, size_t nvars,
                             size_t tgtidx, size_t ntgts,
                             const char *chrom, size_t chromlen,
                             size_t kmer_size, GenoKmer **result)
 {
-  ctx_assert(nvars < 64);
-  ctx_assert(nvars > 0);
-  ctx_assert(tgtidx < nvars);
-  ctx_assert(ntgts <= 32);
+  ctx_assert2(0 < nvars && nvars < 64, "nvars: %zu", nvars);
+  ctx_assert2(tgtidx < nvars, "tgtidx:%zu >= nvars:%zu ??", tgtidx, nvars);
+  ctx_assert2(ntgts <= 32, "Too many targets: %zu", ntgts);
 
   GenoKmerBuffer *gkbuf = &typer->kmer_buf;
   genokmer_buf_reset(gkbuf);

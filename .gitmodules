@@ -1,53 +1,68 @@
 [submodule "libs/bit_array"]
 	path = libs/bit_array
 	url = https://github.com/noporpoise/BitArray
+	branch = master
 [submodule "libs/string_buffer"]
 	path = libs/string_buffer
 	url = https://github.com/noporpoise/string_buffer
+	branch = master
 [submodule "libs/madcrowlib"]
 	path = libs/madcrowlib
 	url = https://github.com/noporpoise/madcrowlib
+	branch = master
 [submodule "libs/htslib"]
 	path = libs/htslib
 	url = git://github.com/samtools/htslib.git
-	branch = develop
 	ignore = dirty
+	branch = develop
 [submodule "libs/bcftools"]
 	path = libs/bcftools
 	url = git://github.com/samtools/bcftools.git
-	branch = develop
 	ignore = dirty
+	branch = develop
 [submodule "libs/samtools"]
 	path = libs/samtools
 	url = git://github.com/samtools/samtools.git
-	branch = develop
 	ignore = dirty
+	branch = develop
 [submodule "libs/seq_file"]
 	path = libs/seq_file
 	url = https://github.com/noporpoise/seq_file.git
+	branch = master
 [submodule "libs/bwa"]
 	path = libs/bwa
 	url = https://github.com/lh3/bwa.git
 	ignore = dirty
+	branch = master
 [submodule "libs/sort_r"]
 	path = libs/sort_r
 	url = https://github.com/noporpoise/sort_r.git
+	branch = master
 [submodule "libs/bioinf-perl"]
 	path = libs/bioinf-perl
 	url = https://github.com/noporpoise/bioinf-perl.git
+	branch = master
 [submodule "libs/msg-pool"]
 	path = libs/msg-pool
 	url = https://github.com/noporpoise/msg-pool.git
+	branch = master
 [submodule "libs/readsim"]
 	path = libs/readsim
 	url = https://github.com/noporpoise/readsim.git
+	branch = master
 [submodule "libs/seq-align"]
 	path = libs/seq-align
 	url = https://github.com/noporpoise/seq-align.git
+	branch = master
 [submodule "libs/xxHash"]
 	path = libs/xxHash
 	url = https://github.com/Cyan4973/xxHash.git
 	ignore = dirty
+	branch = master
 [submodule "libs/biogrok"]
 	path = libs/biogrok
 	url = https://github.com/noporpoise/biogrok.git
+	branch = master
+[submodule "libs/vcfhp"]
+	path = libs/vcfhp
+	url = https://github.com/noporpoise/vcfhp

@@ -5,7 +5,7 @@ SHELL=/bin/bash
 # make clean    <- clean all libraries
 
 CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
-COMMON=bcftools samtools bwa readsim bioinf-perl maximal_substrs
+COMMON=bcftools samtools bwa readsim bioinf-perl maximal_substrs vcfhp
 
 ALLTGTS=$(CORE) $(COMMON)
 
@@ -68,6 +68,9 @@ maximal_substrs:
 
 misc: misc/Makefile
 	cd misc && $(MAKE)
+
+vcfhp: vcfhp/Makefile
+	cd vcfhp && $(MAKE) all test
 
 #
 # Clean

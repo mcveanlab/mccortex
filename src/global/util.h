@@ -9,6 +9,64 @@
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
 
+//
+// Comparisons
+//
+// comparison returns:
+//   negative iff a < b
+//          0 iff a == b
+//   positive iff a > b
+
+int cmp_int(const void *a, const void *b);
+int cmp_long(const void *a, const void *b);
+int cmp_float(const void *a, const void *b);
+int cmp_double(const void *a, const void *b);
+int cmp_uint32(const void *a, const void *b);
+int cmp_uint64(const void *a, const void *b);
+int cmp_size(const void *a, const void *b);
+int cmp_ptr(const void *a, const void *b);
+int cmp_charptr(const void *a, const void *b);
+
+//
+// Arrays
+//
+static inline void array_swap(char *a, char *b, size_t es)
+{
+  char *end, tmp;
+  for(end = a + es; a < end; a++, b++) { tmp = *a; *a = *b; *b = tmp; }
+}
+
+// cyclic-shift an array by `shift` elements
+// cycle left shifts towards zero
+void array_cycle_left(void *_ptr, size_t n, size_t es, size_t shift);
+// cycle right shifts away from zero
+void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift);
+
+//
+// Number parsing
+//
+
+bool parse_entire_int(const char *str, int *result);
+bool parse_entire_uint(const char *str, unsigned int *result);
+bool parse_entire_ulong(const char *str, unsigned long *result);
+bool parse_entire_double(const char *str, double *result);
+bool parse_entire_size(const char *str, size_t *result);
+
+//
+// Bits
+//
+const uint8_t rev_nibble_table[16];
+#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16); rev_nibble_table[(unsigned)(x)]; })
+
+extern const uint8_t nibble_popcount_table[16];
+
+#define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
+                          nibble_popcount_table[(x) & 0xf])
+
+//
+// Strings
+//
+
 #define util_plural_str(n) ((n) == 1 ? "" : "s")
 
 // Get a pointer to the next occurrence of c or the end of the string
@@ -27,37 +85,6 @@ bool str_find_tag(const char *str, const char *tag,
 // strnstr
 const char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
 
-// comparison returns:
-//   negative iff a < b
-//          0 iff a == b
-//   positive iff a > b
-
-int cmp_int(const void *a, const void *b);
-int cmp_long(const void *a, const void *b);
-int cmp_float(const void *a, const void *b);
-int cmp_double(const void *a, const void *b);
-int cmp_uint32(const void *a, const void *b);
-int cmp_uint64(const void *a, const void *b);
-int cmp_size(const void *a, const void *b);
-int cmp_ptr(const void *a, const void *b);
-int cmp_charptr(const void *a, const void *b);
-
-bool parse_entire_int(const char *str, int *result);
-bool parse_entire_uint(const char *str, unsigned int *result);
-bool parse_entire_ulong(const char *str, unsigned long *result);
-bool parse_entire_double(const char *str, double *result);
-bool parse_entire_size(const char *str, size_t *result);
-
-//
-// Bits
-//
-const uint8_t rev_nibble_table[16];
-#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16); rev_nibble_table[(unsigned)(x)]; })
-
-extern const uint8_t nibble_popcount_table[16];
-
-#define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
-                          nibble_popcount_table[(x) & 0xf])
 
 //
 // Numbers to string
@@ -106,7 +133,7 @@ char* num_to_str(double num, int decimals, char* str);
 //
 // Pretty printing
 //
-// @linelen is number of characters in the line (30 is good default)
+// @param linelen is number of characters in the line (30 is good default)
 void util_print_nums(const char **titles, const size_t *nums,
                      size_t n, size_t linelen);
 
@@ -142,8 +169,8 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 // Returns -1 if no entries set
 float find_hist_median(const size_t *arr, size_t arrlen);
 
+// Greatest Common Divisor: largest integer that divides both a and b
 uint32_t calc_GCD(uint32_t a, uint32_t b);
-
 
 // sorted_arr must be a sorted array
 size_t calc_N50(const size_t *sorted_arr, size_t n, size_t total);

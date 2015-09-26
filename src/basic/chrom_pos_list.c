@@ -81,7 +81,7 @@ int _parse(char *str, ChromPosOffset *obj)
   if((dash = strchr(ptrs[1],'-')) == NULL) return -1;
   *dash++ = '\0';
   if(!parse_entire_size(ptrs[1], &start) ||
-     !parse_entire_size(dash,    &end)) return -1;  
+     !parse_entire_size(dash,    &end)) return -1;
 
   if(strcmp(ptrs[2],"+") != 0 && strcmp(ptrs[2],"-") != 0) return -1;
   fw_strand = (strcmp(ptrs[2],"+") == 0);

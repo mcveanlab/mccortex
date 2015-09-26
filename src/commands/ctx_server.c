@@ -58,7 +58,7 @@ static inline void kmer_response(StrBuf *resp, dBNode node, const char *keystr,
   strbuf_append_str(resp, pretty ? "\n  " : " ");
 
   // Edges
-  Edges edges = db_node_get_edges_union(db_graph, node.key);    
+  Edges edges = db_node_get_edges_union(db_graph, node.key);
   char edgesstr[9], left[5], right[5], *l, *r;
   db_node_get_edges_str(edges, edgesstr);
   for(l = left, i = 0; i < 4; i++)

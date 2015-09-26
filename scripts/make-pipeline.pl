@@ -269,6 +269,7 @@ CONTIG_POP_ARGS=--confid-step 0.99
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
+HRUNANNOT=$(CTXDIR)/libs/vcfhp/vcfhp
 
 # Third party libraries packaged in McCortex
 BWA=$(CTXDIR)/libs/bwa/bwa
@@ -728,8 +729,8 @@ if(defined($ref_path))
   print "\t\$(VCFSORT) \$< > \$@\n\n";
 
   print "$proj/%.norm.vcf.gz: $proj/%.sort.vcf \$(REF_FILE)\n";
-  print "\t\$(BCFTOOLS) norm --site-win 5000 --rm-dup both --fasta-ref \$(REF_FILE) --multiallelics +both \$< | \\\n";
-  print "\t\$(VCFRENAME) > $proj/\$*.norm.vcf\n";
+  print "\t\$(BCFTOOLS) norm --site-win 5000 --rm-dup both --fasta-ref \$(REF_FILE) \$< | \\\n";
+  print "\t\$(VCFRENAME) | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
   print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n";

@@ -79,6 +79,49 @@ int cmp_charptr(const void *aa, const void *bb)
   return strcmp(a, b);
 }
 
+//
+// Arrays
+//
+
+// cyclic-shift an array by `shift` elements
+// cycle left shifts towards zero
+void array_cycle_left(void *_ptr, size_t n, size_t es, size_t shift)
+{
+  char *ptr = (char*)_ptr;
+  if(n <= 1 || !shift) return; // cannot mod by zero
+  shift = shift % n; // shift cannot be greater than n
+
+  // Using GCD
+  size_t i, j, k, gcd = calc_GCD(n, shift);
+  char tmp[es];
+
+  // i is initial starting position
+  // Copy from k -> j, stop if k == i, since arr[i] already overwritten
+  for(i = 0; i < gcd; i++) {
+    memcpy(tmp, ptr+es*i, es); // tmp = arr[i]
+    for(j = i; 1; j = k) {
+      k = j+shift;
+      if(k >= n) k -= n;
+      if(k == i) break;
+      memcpy(ptr+es*j, ptr+es*k, es); // arr[j] = arr[k];
+    }
+    memcpy(ptr+es*j, tmp, es); // arr[j] = tmp;
+  }
+}
+
+// cycle right shifts away from zero
+void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift)
+{
+  if(!n || !shift) return; // cannot mod by zero
+  shift = shift % n; // shift cannot be greater than n
+  // cycle right by `s` is equivalent to cycle left by `n - s`
+  array_cycle_left(_ptr, n, es, n - shift);
+}
+
+
+//
+// Parsing
+//
 
 bool parse_entire_int(const char *str, int *result)
 {

@@ -150,7 +150,7 @@ void json_hdr_add_curr_cmd(cJSON *json, const char *path)
   #define FILE_KEY_LEN 16
   char fileidstr[FILE_KEY_LEN+1];
   hex_rand_str(fileidstr, FILE_KEY_LEN+1);
-  
+
   cJSON *filekey = json_hdr_get(json, "file_key", cJSON_String, path);
   free(filekey->valuestring);
   filekey->valuestring = strdup(fileidstr);

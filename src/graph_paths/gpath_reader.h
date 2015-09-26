@@ -11,7 +11,7 @@
 
 typedef struct
 {
-  StreamBuffer strmbuf; 
+  StreamBuffer strmbuf;
   gzFile gz;
 
   // For parsing input
