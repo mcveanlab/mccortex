@@ -30,7 +30,7 @@ int cmp_charptr(const void *a, const void *b);
 //
 // Arrays
 //
-static inline void array_swap(char *a, char *b, size_t es)
+static inline void swapm(char *a, char *b, size_t es)
 {
   char *end, tmp;
   for(end = a + es; a < end; a++, b++) { tmp = *a; *a = *b; *b = tmp; }
@@ -41,6 +41,16 @@ static inline void array_swap(char *a, char *b, size_t es)
 void array_cycle_left(void *_ptr, size_t n, size_t es, size_t shift);
 // cycle right shifts away from zero
 void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift);
+
+void array_reverse(void *_ptr, size_t n, size_t es);
+
+// Fisher-Yates shuffle. Initiate srand() before calling.
+void array_shuffle(void *_ptr, size_t n, size_t es);
+
+// binary search
+void* sarray_bsearch(void *_ptr, size_t n, size_t es,
+                     int (*compar)(const void *_val, void *_arg),
+                     void *arg);
 
 //
 // Number parsing

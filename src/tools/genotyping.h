@@ -33,6 +33,8 @@ typedef struct {
   uint64_t arbits; // alt-ref-bits
 } GenoKmer;
 
+typedef struct GenotyperStruct Genotyper;
+
 #include "madcrowlib/madcrow_buffer.h"
 #include "madcrowlib/madcrow_list.h"
 madcrow_buffer(genokmer_buf, GenoKmerBuffer, GenoKmer);
@@ -42,7 +44,7 @@ madcrow_list(  genovar_ptr_list, GenoVarPtrList, GenoVar*);
 madcrow_list(  genovar_list, GenoVarList,  GenoVar);
 madcrow_list(  genovar_buf, GenoVarBuffer, GenoVar);
 
-typedef struct GenotyperStruct Genotyper;
+#define genovar_end(gv) ((gv)->pos + (gv)->reflen)
 
 Genotyper* genotyper_init();
 void genotyper_destroy(Genotyper *typer);

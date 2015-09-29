@@ -249,8 +249,10 @@ MATEPAIR=FR
 MIN_FRAG_LEN=150
 MAX_FRAG_LEN=1000
 
-# Set this to non-blank (e.g. 1) to stop infer edges from running
-# Links generated with this set will not be usable in multicolour graphs
+# Set this to non-blank (e.g. 1) to stop infer edges from running.
+# Links generated with this set will not be usable in multicolour graphs.
+# If you have only one sample this will improve the calls.
+# Do not set it if you have more sample.
 SKIP_INFEREDGES=
 
 # Command arguments

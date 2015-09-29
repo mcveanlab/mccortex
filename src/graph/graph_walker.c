@@ -473,7 +473,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
     _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, 0);
 
   size_t choice_age = (i < wlk->paths.len ? wlk->paths.b[i].age : 0);
-  const GraphSegment *gseg, *first_seg = gseg_list_getconstptr(&wlk->gsegs, 0);
+  const GraphSegment *gseg, *first_seg = mdc_list_getptr(&wlk->gsegs, 0);
 
   // for(i = 0; i < gseg_list_len(&wlk->gsegs); i++)
   //   printf(" %u", gseg_list_getconstptr(&wlk->gsegs, i)->num_nodes);

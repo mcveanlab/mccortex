@@ -1,5 +1,6 @@
 #include "global.h"
 #include "genotyping.h"
+#include "dna.h"
 
 struct GenotyperStruct {
   StrBuf seq;
@@ -145,6 +146,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   // Start with ref haplotype (no variants)
   uint64_t bits = 0, limit = 1UL<<nvars, altref_bits;
+  char *str, *startstr, *endstr;
 
   for(; bits < limit; bits++) {
     if(vars_compatible(vars, nvars, bits)) {
@@ -156,7 +158,13 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
       // Covert to kmers, find/add them to the hash table, OR bits
       for(i = 0; i + kmer_size <= seq->end; i++) {
-        bkey = binary_kmer_from_str(seq->b+i, kmer_size);
+        // check if string contains N
+        startstr = seq->b+i;
+        endstr = str+kmer_size;
+        for(str = startstr; str < endstr && char_is_acgt(*str); str++) {}
+        if(str < endstr) { i = str - seq->b; continue; }
+        // Get kmer
+        bkey = binary_kmer_from_str(startstr, kmer_size);
         bkey = binary_kmer_get_key(bkey, kmer_size);
         k = kh_put(BkToBits, h, bkey, &hret);
         if(hret < 0) die("khash table failed: out of memory?");

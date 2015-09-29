@@ -12,6 +12,15 @@
 #include "htslib/vcf.h"
 #include "htslib/faidx.h"
 
+// Don't attempt to genotype alleles bigger than this
+size_t max_allele_len = 100;
+
+// 2^8 = 256 possible haplotypes
+uint32_t max_gt_vars = 8;
+
+// TODO: give error if not sorted
+// TODO: remove duplicate variants
+
 const char geno_usage[] =
 "usage: "CMD" geno [options] <in.vcf> <in.ctx> [in2.ctx ...]\n"
 "\n"
@@ -24,7 +33,7 @@ const char geno_usage[] =
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -o, --out <bub.txt.gz>  Output file [default: STDOUT]\n"
-"  -r, --ref <ref.fa>      Reference file\n"
+"  -r, --ref <ref.fa>      Reference file [required]\n"
 "\n";
 
 static struct option longopts[] =
@@ -43,23 +52,21 @@ static struct option longopts[] =
  * Get coverage of ref and alt alleles from the de Bruijn graph in the given
  * colour.
  */
-void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
-                   GenoVar *gts, size_t ntgts,
-                   int colour, const dBGraph *db_graph)
+static inline void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
+                                 GenoVar **gts, size_t ntgts,
+                                 int colour, const dBGraph *db_graph)
 {
-  (void)gts; (void)colour;
-
   size_t i;
   dBNode node = db_graph_find(db_graph, bkey);
 
   if(node.key != HASH_NOT_FOUND) {
-    // Covg covg = colour >= 0 ? db_node_get_covg(db_graph, node.key, colour)
-    //                         : db_node_sum_covg(db_graph, node.key);
+    Covg covg = colour >= 0 ? db_node_get_covg(db_graph, node.key, colour)
+                            : db_node_sum_covg(db_graph, node.key);
 
     for(i = 0; i < ntgts; i++, altref_bits >>= 2) {
-      // if((altref_bits & 3) == 1) { gts[i].refkmers++; gts[i].refsumcovg += covg; }
-      // else if((altref_bits & 3) == 2) { gts[i].altkmers++; gts[i].altsumcovg += covg; }
-      // else { /* ignore kmer in both ref/alt */ }
+      if((altref_bits & 3) == 1) { gts[i]->nkmers[0]++; gts[i]->sumcovg[0] += covg; }
+      else if((altref_bits & 3) == 2) { gts[i]->nkmers[1]++; gts[i]->sumcovg[1] += covg; }
+      else { /* ignore kmer in both ref/alt */ }
     }
   }
 }
@@ -84,6 +91,7 @@ static inline bool init_new_var(GenoVar *var, GenoVCF *parent, uint32_t aid)
     reflen--; altlen--;
   }
 
+  if(reflen > max_allele_len || altlen > max_allele_len) return false;
   if(!reflen && !altlen) return false;
 
   // Initialise
@@ -151,12 +159,56 @@ typedef struct {
   GenoVarPtrList alist, anchrom, apool; // alleles
 } VcfReader;
 
+#define INIT_BUF_SIZE 128
+
+static inline void vcfr_alloc(VcfReader *vcfr, htsFile *vcffh, bcf_hdr_t *vcfhdr)
+{
+  memset(&vcfr, 0, sizeof(vcfr));
+  vcfr->vcffh = vcffh;
+  vcfr->vcfhdr = vcfhdr;
+
+  genovcf_ptr_list_alloc(&vcfr->vwait, INIT_BUF_SIZE);
+  genovcf_ptr_list_alloc(&vcfr->vpool, INIT_BUF_SIZE);
+  genovar_ptr_list_alloc(&vcfr->alist, INIT_BUF_SIZE);
+  genovar_ptr_list_alloc(&vcfr->anchrom, INIT_BUF_SIZE);
+  genovar_ptr_list_alloc(&vcfr->apool, INIT_BUF_SIZE);
+
+  vcf_list_populate(&vcfr->vpool, INIT_BUF_SIZE);
+  var_list_populate(&vcfr->apool, INIT_BUF_SIZE);
+}
+
+static inline void vcfr_dealloc(VcfReader *vcfr)
+{
+  ctx_assert(genovcf_ptr_list_len(&vcfr->vwait) == 0);
+  ctx_assert(genovar_ptr_list_len(&vcfr->alist) == 0);
+  ctx_assert(genovar_ptr_list_len(&vcfr->anchrom) == 0);
+  vcf_list_destroy(&vcfr->vpool);
+  var_list_destroy(&vcfr->apool);
+
+  genovcf_ptr_list_dealloc(&vcfr->vwait);
+  genovcf_ptr_list_dealloc(&vcfr->vpool);
+  genovar_ptr_list_dealloc(&vcfr->alist);
+  genovar_ptr_list_dealloc(&vcfr->anchrom);
+  genovar_ptr_list_dealloc(&vcfr->apool);
+}
+
+static inline void vcfr_get_chrom(bcf_hdr_t *vcfhdr, bcf1_t *ve, faidx_t *fai,
+                                  int *refid, char **chrom, int *chromlen)
+{
+  if(*refid != ve->rid) {
+    free(*chrom);
+    *chrom = fai_fetch(fai, bcf_seqname(vcfhdr, ve), chromlen);
+    if(*chrom == NULL) die("Cannot find chrom '%s'", bcf_seqname(vcfhdr, ve));
+    *refid = ve->rid;
+  }
+}
+
 // Returns:
 //  -1 if EOF / error
 //  0 if read would have added var on another chrom
 //  Otherwise number of variants added
 //
-static int vcf_reader_fetch(VcfReader *vr)
+static int vcfr_fetch(VcfReader *vr)
 {
   // Check we have GenoVCF entries to read into
   if(genovcf_ptr_list_len(&vr->vpool) == 0) vcf_list_populate(&vr->vpool, 16);
@@ -216,7 +268,7 @@ static int vcf_reader_fetch(VcfReader *vr)
         nadded++;
       }
     }
-    // Re-add unused var
+    // Re-add unused var back into pool
     genovar_ptr_list_push(&vr->apool, &var, 1);
 
     if(nadded)
@@ -235,7 +287,7 @@ static int vcf_reader_fetch(VcfReader *vr)
   }
 }
 
-static void vcf_reader_drop_var(VcfReader *vr, size_t idx)
+static void vcfr_drop_var(VcfReader *vr, size_t idx)
 {
   GenoVar *a = genovar_ptr_list_get(&vr->alist, idx);
   genovar_ptr_list_append(&vr->apool, a);
@@ -249,7 +301,7 @@ static void vcf_reader_drop_var(VcfReader *vr, size_t idx)
 }
 
 // Remove NULL entries from vr->alist
-static void vcf_reader_shrink_vars(VcfReader *vr)
+static void vcfr_shrink_vars(VcfReader *vr)
 {
   size_t i, j, len = genovar_ptr_list_len(&vr->alist);
   GenoVar *var;
@@ -269,8 +321,7 @@ static int _genovcf_cmp(const void *aa, const void *bb)
   return (long)a->vidx - (long)b->vidx;
 }
 
-static void vcf_reader_print_waiting(VcfReader *vr,
-                                     htsFile *outfh, bcf_hdr_t *outhdr)
+static void vcfr_print_waiting(VcfReader *vr, htsFile *outfh, bcf_hdr_t *outhdr)
 {
   // Sort waiting by vidx
   GenoVCF **vcfptr = genovcf_ptr_list_getptr(&vr->vwait, 0);
@@ -290,164 +341,167 @@ static void vcf_reader_print_waiting(VcfReader *vr,
   genovcf_ptr_list_unshift(&vr->vwait, NULL, nprinted);
 }
 
+static void genotype_vars(GenoVar **vars, size_t nvars,
+                          size_t tgtidx, size_t ntgts,
+                          const char *chrom, size_t chromlen,
+                          Genotyper *gtyper, const dBGraph *db_graph)
+{
+  ctx_assert(ntgts < nvars);
 
-#define INIT_BUF_SIZE 128
-uint32_t max_gt_vars = 8; // 2^8 = 256 possible haplotypes
+  GenoKmer *kmers = NULL;
+  size_t i, end, nkmers, col;
+
+  for(col = 0; col < db_graph->num_of_cols; col++)
+  {
+    nkmers = 0;
+    if(nvars > max_gt_vars) {
+      nkmers = genotyping_get_kmers(gtyper, (const GenoVar *const*)vars,
+                                    nvars, tgtidx, ntgts,
+                                    chrom, chromlen,
+                                    db_graph->kmer_size, &kmers);
+    }
+
+    // Zero coverage
+    for(i = tgtidx, end = tgtidx+ntgts; i < end; i++) {
+      vars[i]->nkmers[0] = vars[i]->nkmers[1] = 0;
+      vars[i]->sumcovg[0] = vars[i]->sumcovg[1] = 0;
+    }
+
+    for(i = 0; i < nkmers; i++) {
+      bkey_get_covg(kmers[i].bkey, kmers[i].arbits,
+                    vars+tgtidx, ntgts,
+                    col, db_graph);
+    }
+
+    // TODO: update vars[]->parent coverage
+    for(i = 0; i < nvars; i++) {
+      
+    }
+  }
+}
+
+static inline int get_vcf_cov_end(GenoVar **vars, size_t nvars,
+                                  size_t i, size_t endpos)
+{
+  while(i < nvars && endpos > vars[i]->pos) { i++; }
+  return i;
+}
+
+// vars will be unordered after return
+static void genotype_block(GenoVar **vars, size_t nvars,
+                           const char *chrom, int chromlen,
+                           Genotyper *gtyper, const dBGraph *db_graph)
+{
+  if(nvars < max_gt_vars)
+  {
+    genotype_vars(vars, nvars, 0, nvars, chrom, chromlen, gtyper, db_graph);
+  }
+  else
+  {
+    // do one at a time
+    const int kmer_size = db_graph->kmer_size;
+    int i, j;
+    // genotype start/end, background start/end
+    size_t gs = 0, ge, bs, be, tmp_be;
+
+    while(gs < nvars)
+    {
+      for(i = j = (int)gs-1; i >= 0; i--) {
+        if(genovar_end(vars[i]) + kmer_size > vars[gs]->pos) {
+          SWAP(vars[i], vars[j]);
+          j--;
+        }
+      }
+
+      bs = j+1;
+      ge = gs+1;
+      be = get_vcf_cov_end(vars, nvars, ge, genovar_end(vars[ge-1]));
+
+      // Try increasing ge, calculate be, accept if small enough
+      for(i = ge+1; i < (int)nvars; i++) {
+        tmp_be = get_vcf_cov_end(vars, nvars, i, genovar_end(vars[i-1]));
+        if(tmp_be - bs < max_gt_vars) { ge = i; be = tmp_be; }
+        else break;
+      }
+
+      ctx_assert2(bs<=gs && gs<=ge && ge<=be, "%zu %zu %zu %zu",bs,gs,ge,be);
+
+      genotype_vars(vars+bs, be-bs, gs-bs, ge-gs, chrom, chromlen,
+                    gtyper, db_graph);
+
+      gs = ge;
+    }
+  }
+}
 
 static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr,
                          htsFile *outfh, bcf_hdr_t *outhdr,
                          faidx_t *fai, const dBGraph *db_graph)
 {
-  (void)db_graph;
   VcfReader vr;
-  memset(&vr, 0, sizeof(vr));
-  vr.vcffh = vcffh;
-  vr.vcfhdr = vcfhdr;
+  vcfr_alloc(&vr, vcffh, vcfhdr);
 
   Genotyper *gtyper = genotyper_init();
 
-  genovcf_ptr_list_alloc(&vr.vpool, INIT_BUF_SIZE);
-  genovar_ptr_list_alloc(&vr.alist, INIT_BUF_SIZE);
-  genovar_ptr_list_alloc(&vr.apool, INIT_BUF_SIZE);
-
-  vcf_list_populate(&vr.vpool, INIT_BUF_SIZE);
-  var_list_populate(&vr.apool, INIT_BUF_SIZE);
-
-  int32_t refid = -1;
   char *chrom = NULL;
-  int chromlen = 0;
+  int refid = -1, chromlen = 0;
 
   int n;
-  while((n = vcf_reader_fetch(&vr)) >= 0)
+  const size_t kmer_size = db_graph->kmer_size;
+  size_t i, start, end, endpos;
+
+  GenoVar **alist;
+  size_t alen;
+
+  while((n = vcfr_fetch(&vr)) >= 0)
   {
     // Get ref chromosome
-    GenoVar *first = genovar_ptr_list_get(&vr.alist, 0);
-    bcf1_t *ve = &first->parent->v;
-    if(refid != ve->rid) {
-      free(chrom);
-      chrom = fai_fetch(fai, bcf_seqname(vcfhdr, ve), &chromlen);
-      if(chrom == NULL) die("Cannot find chrom '%s'", bcf_seqname(vcfhdr, ve));
-      refid = ve->rid;
+    vcfr_get_chrom(vcfhdr, &mdc_list_get(&vr.alist, 0)->parent->v, fai,
+                   &refid, &chrom, &chromlen);
+
+    alist = genovar_ptr_list_getptr(&vr.alist, 0);
+    alen = genovar_ptr_list_len(&vr.alist);
+    ctx_assert(alen > 0);
+
+    // Break into blocks
+    endpos = genovar_end(alist[0]) + kmer_size;
+    for(start = 0, end = 1; end < alen; end++) {
+      if(endpos <= alist[end]->pos) {
+        // end of block
+        genotype_block(alist+start, end-start, chrom, chromlen, gtyper, db_graph);
+        for(i = start; i < end; i++) vcfr_drop_var(&vr, i);
+        start = end;
+      }
+      endpos = MAX2(endpos, genovar_end(alist[end])+kmer_size);
     }
 
-    // TODO Pick some variants to genotype
-
-    // Remove redundant ones
-    size_t idx = 0;
-    vcf_reader_drop_var(&vr, idx);
+    if(n == 0) {
+      // End of chromosome -- do all variants
+      genotype_block(alist+start, alen-start, chrom, chromlen, gtyper, db_graph);
+      for(i = start; i < alen; i++) vcfr_drop_var(&vr, i);
+    }
 
     // Shrink array if we dropped any vars
-    vcf_reader_shrink_vars(&vr);
-
-    vcf_reader_print_waiting(&vr, outfh, outhdr);
+    vcfr_shrink_vars(&vr);
+    vcfr_print_waiting(&vr, outfh, outhdr);
   }
 
-  // TODO deal with remainder
-  vcf_reader_print_waiting(&vr, outfh, outhdr);
+  // Deal with remainder
+  alist = genovar_ptr_list_getptr(&vr.alist, 0);
+  alen = genovar_ptr_list_len(&vr.alist);
+  if(alen) {
+    // Get ref chromosome
+    vcfr_get_chrom(vcfhdr, &mdc_list_get(&vr.alist, 0)->parent->v, fai,
+                   &refid, &chrom, &chromlen);
+    genotype_block(alist, alen, chrom, chromlen, gtyper, db_graph);
+    vcfr_shrink_vars(&vr);
+  }
+  vcfr_print_waiting(&vr, outfh, outhdr);
 
   free(chrom);
-
-  vcf_list_destroy(&vr.vpool);
-  var_list_destroy(&vr.apool);
-  var_list_destroy(&vr.alist);
-
-  genovcf_ptr_list_dealloc(&vr.vpool);
-  genovar_ptr_list_dealloc(&vr.alist);
-  genovar_ptr_list_dealloc(&vr.apool);
-
   genotyper_destroy(gtyper);
+  vcfr_dealloc(&vr);
 }
-
-/*
-static inline bool read_vcf_entry(htsFile *vcf_file, bcf_hdr_t *vcfhdr,
-                                  bcf1_t *v)
-{
-  int s = bcf_read(vcf_file, vcfhdr, v);
-  if(s < 0) die("Cannot read");
-  else if(s == 0) return false;
-  else {
-    bcf_unpack(v, BCF_UN_ALL);
-    if(v->n_allele < 2) die("No alleles in VCF entry - is this possible?");
-    return true;
-  }
-}
-
-// How many vcf entries to read in
-#define MAX_NVCF 100
-
-
-static void genotype_vcf(htsFile *vcf_file, bcf_hdr_t *vcfhdr,
-                         const dBGraph *db_graph)
-{
-  size_t i, j, nvcfs = 0, nvcf_size = MAX_NVCF;
-
-  Genotyper *gtyper = genotyper_init();
-
-  size_t *nvs = ctx_calloc(nvcf_size, sizeof(size_t));
-  bcf1_t **vs = ctx_calloc(nvcf_size, sizeof(bcf1_t*));
-  for(i = 0; i < nvcf_size; i++) vs[i] = bcf_init1();
-
-  GenoVarList decomp;
-  genovar_list_alloc(&decomp, 1024);
-
-  GenoVarPtrBuffer var_ptrs;
-  genovar_ptr_buf_alloc(&var_ptrs, 1024);
-
-  const char *chrom = NULL;
-  size_t chromlen = 0;
-
-  while(1)
-  {
-    // Fill pool with variants
-    for(; nvcfs < nvcf_size; nvcfs++)
-      if(!read_vcf_entry(vcf_file, vcfhdr, vs[nvcfs])) break;
-
-    if(!nvcfs) break;
-
-    // decompose into simple events in decomp
-    GenoVar gv;
-    genovar_list_reset(&decomp);
-    for(i = 0; i < nvcfs; i++) {
-      for(j = 0; j < vs[i]->n_allele; j++) {
-        if(init_new_var(&gv, vs[i], i, j))
-          genovar_list_push(&decomp, &gv, 1);
-      }
-      nvs[i] = genovar_list_len(&decomp);
-    }
-
-    // Put list into var_ptrs and sort
-    genovar_ptr_buf_reset(&var_ptrs);
-    for(i = 0; i < genovar_list_len(&decomp); i++)
-      genovar_ptr_buf_add(&var_ptrs, &decomp.b[i]);
-    genovars_sort(var_ptrs.b, genovar_list_len(&decomp));
-
-    // count kmers on same chrom within k dist of each other
-
-
-    // Genotype a few, print them
-    GenoKmer *klist = NULL;
-    size_t nkmers = 0;
-    nkmers = genotyping_get_kmers(gtyper,
-                                  (const GenoVar *const*)genovar_ptr_buf_getptr(&var_ptrs, 0),
-                                  genovar_ptr_buf_len(&var_ptrs),
-                                  0, var_ptrs.len,
-                                  chrom, chromlen,
-                                  db_graph->kmer_size, &klist);
-
-    // shift off a few vcf entries
-
-  }
-
-  // for(i = 0; i < nvcf_size; i++) bcf_destroy(vpool[i].v);
-  for(i = 0; i < nvcf_size; i++) bcf_destroy(vs[i]);
-
-  genovar_list_dealloc(&decomp);
-  genovar_ptr_buf_dealloc(&var_ptrs);
-  ctx_free(nvs);
-  ctx_free(vs);
-  genotyper_destroy(gtyper);
-}
-*/
 
 int ctx_geno(int argc, char **argv)
 {
@@ -572,80 +626,8 @@ int ctx_geno(int argc, char **argv)
   if(bcf_hdr_write(outfh, outhdr) != 0)
     die("Cannot write header to: %s", futil_outpath_str(out_path));
 
+  status("[vcfcov] Reading %s and adding coverage", vcf_path);
   genotype_vcf(vcffh, vcfhdr, outfh, outhdr, fai, &db_graph);
-
-  /*
-  // Genotype calls
-  read_t *chrom;
-  const char *chrom_name;
-  GenoVarList vlist;
-  genovar_list_alloc(&vlist, 256);
-
-  bcf1_t *v = bcf_init1();
-
-  Genotyper *gtyper = genotyper_init();
-
-  const size_t kmer_size = db_graph.kmer_size;
-  size_t tgtidx, ntgts;
-  GenoVar *last;
-  size_t end;
-
-  if(!read_vars(&vlist, vcffh, vcfhdr, v)) warn("Empty VCF");
-  else {
-    tgtidx = 0;
-    ntgts = 1;
-    while(1)
-    {
-      last = genovar_list_getptr(&vlist, tgtidx);
-      end = last->pos + last->reflen;
-      while(last->pos <= end+kmer_size) {
-        if(!read_vars(&vlist, vcffh, vcfhdr, v)) break;
-        last = genovar_list_getptr(&vlist, genovar_list_len(&vlist)-1);
-        end = last->pos + last->reflen;
-      }
-
-      // Genotype and print
-      chrom_name = vcfhdr->id[BCF_DT_CTG][v->rid].key;
-      chrom = seq_fetch_chrom(genome, chrom_name);
-
-      GenoKmer *kmers = NULL;
-      size_t nkmers = 0;
-
-      // nkmers = genotyping_get_kmers(gtyper,
-      //                               genovar_list_getptr(&vlist, 0),
-      //                               genovar_list_len(&vlist),
-      //                               tgtidx, ntgts,
-      //                               chrom->seq.b, chrom->seq.end,
-      //                               kmer_size, &kmers);
-
-      int colour = -1;
-
-      for(i = 0; i < nkmers; i++) {
-        bkey_get_covg(kmers[i].bkey, kmers[i].arbits,
-                      genovar_list_getptr(&vlist, tgtidx), ntgts,
-                      colour, &db_graph);
-      }
-
-      // Set new tgt
-      tgtidx += ntgts;
-      ntgts = 1;
-      if(tgtidx >= genovar_list_len(&vlist)) break; // done
-
-      // DEV: shift off unwanted
-    }
-  }
-
-  bcf_destroy(v);
-
-  genotyper_destroy(gtyper);
-  */
-
-    // fprintf(stderr, "%s %i %u", chrom_name, v->pos+1, v->rlen);
-    // fprintf(stderr, " %s", v->d.allele[0]);
-    // fprintf(stderr, " %s", v->d.allele[1]);
-    // for(i=2; i < v->n_allele; i++)
-    //   fprintf(stderr, ",%s", v->d.allele[i]);
-    // fprintf(stderr, "\n");
 
   status("  saved to: %s\n", out_path);
 

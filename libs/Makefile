@@ -69,7 +69,7 @@ maximal_substrs:
 misc: misc/Makefile
 	cd misc && $(MAKE)
 
-vcfhp: vcfhp/Makefile
+vcfhp: vcfhp/Makefile htslib
 	cd vcfhp && $(MAKE) all test
 
 #

@@ -118,6 +118,48 @@ void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift)
   array_cycle_left(_ptr, n, es, n - shift);
 }
 
+void array_reverse(void *_ptr, size_t n, size_t es)
+{
+  if(n <= 1 || !es) return;
+  char *ptr = (char*)_ptr;
+  size_t i, j;
+  for(i = 0, j = n-1; i < j; i++, j--) swapm(ptr+es*i, ptr+es*j, es);
+}
+
+// Fisher-Yates shuffle. Initiate srand() before calling.
+void array_shuffle(void *_ptr, size_t n, size_t es)
+{
+  if(n <= 1 || !es) return;
+  char *ptr = (char*)_ptr;
+  size_t i, j;
+  for(i = n-1; i != SIZE_MAX; i--) {
+    j = ((size_t)rand()*(i+1))/RAND_MAX; // rand between 0,i inclusive
+    swapm(ptr+es*i, ptr+es*j, es);
+  }
+}
+
+// binary search
+void* sarray_bsearch(void *_ptr, size_t n, size_t es,
+                     int (*compar)(const void *_val, void *_arg),
+                     void *arg)
+{
+  if(n == 0) return NULL;
+
+  char *ptr = (char*)_ptr;
+  char *a = ptr, *b = ptr + es*(n-1), *mid;
+  int cmp;
+
+  while(a <= b)
+  {
+    mid = ptr + es * (((a-ptr) + (b-ptr)) / (2*es));
+    cmp = compar(mid, arg);
+    if(cmp > 0) b = mid - es;
+    else if(cmp < 0) a = mid + es;
+    else return mid;
+  }
+
+  return NULL;
+}
 
 //
 // Parsing
