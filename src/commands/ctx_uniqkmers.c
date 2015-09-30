@@ -138,7 +138,10 @@ static inline void _add_uniq_flanks(read_t *r, const char *path,
 
       if(_is_valid_flank(bkmer, r, side == 0, db_graph)) {
         binary_kmer_to_str(bkmer, kmer_size, bkmerstr[side]);
-        if(side == 1) strm_buf_append_str(&r->seq, bkmerstr[1]);
+        if(side == 1) {
+          cbuf_append_str(&r->seq.b, &r->seq.end, &r->seq.size,
+                          bkmerstr[1], kmer_size);
+        }
         break;
       }
       else hash_table_delete(&db_graph->ht, node.key);

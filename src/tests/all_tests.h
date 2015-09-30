@@ -62,8 +62,9 @@ void bitarr_tostr(const uint8_t *arr, size_t len, char *str);
 
 static inline void seq_read_set(read_t *r, const char *s) {
   size_t len = strlen(s);
-  strm_buf_ensure_capacity(&r->seq, len+1);
-  memcpy(r->seq.b, s, len+1);
+  cbuf_capacity(&r->seq.b, &r->seq.size, len);
+  memcpy(r->seq.b, s, len);
+  r->seq.b[len] = 0;
   r->seq.end = len;
 }
 
