@@ -64,7 +64,7 @@ static inline void seq_read_set(read_t *r, const char *s) {
   size_t len = strlen(s);
   cbuf_capacity(&r->seq.b, &r->seq.size, len);
   memcpy(r->seq.b, s, len);
-  r->seq.b[len] = 0;
+  r->seq.b[len] = '\0';
   r->seq.end = len;
 }
 

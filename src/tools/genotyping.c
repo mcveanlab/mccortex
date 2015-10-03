@@ -71,7 +71,7 @@ static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
 
   for(i = 0; i < nvars; i++, bits>>=1) {
     if(bits & 1) {
-      ctx_assert(end >= vars[i]->pos);
+      ctx_assert(end <= vars[i]->pos);
       strbuf_append_strn(seq, chrom+end, vars[i]->pos-end);
       strbuf_append_strn(seq, vars[i]->alt, vars[i]->altlen);
       end = vars[i]->pos + vars[i]->reflen;
@@ -141,8 +141,8 @@ size_t genotyping_get_kmers(Genotyper *typer,
   int hret;
   khiter_t k;
 
-  // TODO: may be faster to clear at the end using list of entries
-  kh_clear(BkToBits, h);
+  // Faster to clear at the end whilst iterating
+  // kh_clear(BkToBits, h);
 
   // Start with ref haplotype (no variants)
   uint64_t bits = 0, limit = 1UL<<nvars, altref_bits;
@@ -177,10 +177,12 @@ size_t genotyping_get_kmers(Genotyper *typer,
   size_t nkmers = kh_size(h);
   genokmer_buf_capacity(gkbuf, nkmers);
 
+  // Fetch and delete every item in the hash table
   for(i = 0, k = kh_begin(h); k != kh_end(h); ++k) {
     if(kh_exist(h, k)) {
       bkey = kh_key(h, k);
       altref_bits = kh_value(h, k);
+      kh_del(BkToBits, h, k);
       if(genotyping_refalt_uniq(altref_bits)) {
         gkbuf->b[i++] = (GenoKmer){.bkey = bkey, .arbits = altref_bits};
       }
