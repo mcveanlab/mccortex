@@ -64,5 +64,5 @@
 	url = https://github.com/noporpoise/biogrok.git
 	branch = master
 [submodule "libs/vcfhp"]
-	path = libs/vcfhp
-	url = https://github.com/noporpoise/vcfhp
+	path = libs/vcf-slim
+	url = https://github.com/noporpoise/vcf-slim

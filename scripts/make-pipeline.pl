@@ -271,7 +271,7 @@ CONTIG_POP_ARGS=--confid-step 0.99
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
-HRUNANNOT=$(CTXDIR)/libs/vcfhp/bin/vcfhp
+HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
 
 # Third party libraries packaged in McCortex
 BWA=$(CTXDIR)/libs/bwa/bwa

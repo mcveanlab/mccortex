@@ -113,7 +113,12 @@ job.k29.k31.mk: samples.txt
 $(DIRS):
 	mkdir -p $@
 
-view: truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
+VIEWFILES=truth.vcf.gz \
+          proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz \
+          proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz \
+          truth.ben.jerry.vcf
+
+view: $(VIEWFILES)
 	$(VCFENTRIES) truth.vcf.gz
 	$(VCFENTRIES) proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz
 	$(VCFENTRIES) proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
