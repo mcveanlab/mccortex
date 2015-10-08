@@ -1,6 +1,7 @@
 SHELL=/bin/bash -euo pipefail
 
 CTXDIR=../..
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
 MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
@@ -23,7 +24,7 @@ DEPTH=50
 ERRRATE=0.01
 READLEN=100
 
-all: $(CALLS) truth.vcf.gz
+all: $(CALLS) truth.vcf.gz truth.ben.jerry.vcf
 	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz -p isec_bub
 	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz -p isec_brk
 	@BUB_T=`$(VCFALLELES) isec_bub/0000.vcf`; \
@@ -58,7 +59,7 @@ truth.vcf.gz:
 	 echo '##reference=ref/ref.fa'; \
 	 echo '##contig=<ID=ref,length=599>'; \
 	 echo '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">'; \
-	 echo '#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT	benT	jerryT'; \
+	 echo '#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT	ben	jerryT'; \
 	 echo 'ref	77	id0	AC	A	.	PASS	.	GT	1	0'; \
 	 echo 'ref	125	id1	C	CA	.	PASS	.	GT	1	1'; \
 	 echo 'ref	166	id2	C	A	.	PASS	.	GT	0	1'; \
@@ -67,6 +68,12 @@ truth.vcf.gz:
 	 echo 'ref	537	id5	GACAT	G	.	PASS	.	GT	0	1';) > truth.vcf
 	$(BGZIP) truth.vcf
 	$(BCFTOOLS) index truth.vcf.gz
+
+truth.ben.vcf: truth.vcf.gz proj/k31/graphs/ben.raw.ctx
+	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/ben.raw.ctx
+
+truth.ben.jerry.vcf: truth.ben.vcf proj/k31/graphs/jerry.raw.ctx
+	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/jerry.raw.ctx
 
 ref/ref.fa.bwt: ref/ref.fa
 	$(BWA) index ref/ref.fa
@@ -110,9 +117,10 @@ view: truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz proj/vcfs/breakp
 	$(VCFENTRIES) truth.vcf.gz
 	$(VCFENTRIES) proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz
 	$(VCFENTRIES) proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
+	$(VCFENTRIES) truth.ben.jerry.vcf
 
 clean:
 	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk
-	rm -rf tmp.* truth.vcf*
+	rm -rf tmp.* truth.vcf* truth.ben.vcf truth.ben.jerry.vcf
 
 .PHONY: all clean sams bams view

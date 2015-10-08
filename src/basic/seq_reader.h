@@ -19,9 +19,22 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
 // returns -1 if we cannot calc
 int64_t seq_est_seq_bases(seq_file_t **files, size_t nfiles);
 
+// Search for first valid kmer starting from position `offset`
+// Returns index of first kmer or seqlen if no kmers
+size_t seq_contig_start2(const char *seq, size_t seqlen,
+                         const char *qual, size_t quallen,
+                         size_t offset, size_t kmer_size,
+                         uint8_t qual_cutoff, uint8_t hp_cutoff);
+
 // Returns index of first kmer or r->seq.end if no kmers
 size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         uint8_t qual_cutoff, uint8_t hp_cutoff);
+
+size_t seq_contig_end2(const char *seq, size_t seqlen,
+                       const char *qual, size_t quallen,
+                       size_t contig_start, size_t kmer_size,
+                       uint8_t qual_cutoff, uint8_t hp_cutoff,
+                       size_t *search_start);
 
 // *search_start is the next position to pass to seq_contig_start
 size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,

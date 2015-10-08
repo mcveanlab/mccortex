@@ -1,6 +1,7 @@
 #include "global.h"
 #include "genotyping.h"
 #include "dna.h"
+#include "seq_reader.h"
 
 struct GenotyperStruct {
   StrBuf seq;
@@ -137,7 +138,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   StrBuf *seq = &typer->seq;
   khash_t(BkToBits) *h = typer->h;
-  BinaryKmer bkey;
+  BinaryKmer bkmer, bkey;
   int hret;
   khiter_t k;
 
@@ -146,7 +147,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   // Start with ref haplotype (no variants)
   uint64_t bits = 0, limit = 1UL<<nvars, altref_bits;
-  char *str, *startstr, *endstr;
+  size_t cstart, cend, cnext;
 
   for(; bits < limit; bits++) {
     if(vars_compatible(vars, nvars, bits)) {
@@ -157,19 +158,27 @@ size_t genotyping_get_kmers(Genotyper *typer,
       altref_bits = varbits_to_altrefbits(bits, tgtidx, ntgts);
 
       // Covert to kmers, find/add them to the hash table, OR bits
-      for(i = 0; i + kmer_size <= seq->end; i++) {
-        // check if string contains N
-        startstr = seq->b+i;
-        endstr = str+kmer_size;
-        for(str = startstr; str < endstr && char_is_acgt(*str); str++) {}
-        if(str < endstr) { i = str - seq->b; continue; }
-        // Get kmer
-        bkey = binary_kmer_from_str(startstr, kmer_size);
-        bkey = binary_kmer_get_key(bkey, kmer_size);
-        k = kh_put(BkToBits, h, bkey, &hret);
-        if(hret < 0) die("khash table failed: out of memory?");
-        if(hret > 0) kh_value(h, k) = 0; // initialise if not already in table
-        kh_value(h, k) |= altref_bits;
+      // Split contig at non-ACGT bases (e.g. N)
+      cnext = 0;
+      while((cstart = seq_contig_start2(seq->b, seq->end, NULL, 0,
+                                        cnext, kmer_size, 0, 0)) < seq->end)
+      {
+        cend = seq_contig_end2(seq->b, seq->end, NULL, 0,
+                               cstart, kmer_size, 0, 0, &cnext);
+
+        // Get kmers
+        bkmer = binary_kmer_from_str(seq->b+cstart, kmer_size);
+        bkmer = binary_kmer_right_shift_one_base(bkmer);
+
+        for(i = cstart+kmer_size-1; i < cend; i++) {
+          bkmer = binary_kmer_left_shift_add(bkmer, kmer_size,
+                                             dna_char_to_nuc(seq->b[i]));
+          bkey = binary_kmer_get_key(bkmer, kmer_size);
+          k = kh_put(BkToBits, h, bkey, &hret);
+          if(hret < 0) die("khash table failed: out of memory?");
+          if(hret > 0) kh_value(h, k) = 0; // initialise if not already in table
+          kh_value(h, k) |= altref_bits;
+        }
       }
     }
   }
@@ -192,4 +201,10 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   *result = gkbuf->b;
   return gkbuf->len;
+}
+
+void genotyping_tests()
+{
+  ctx_assert(varbits_to_altrefbits( 0b010110, 0, 6) == 0b011001101001);
+  ctx_assert(varbits_to_altrefbits(0b0101101, 1, 5) ==   0b1001101001);
 }

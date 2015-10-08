@@ -3,6 +3,8 @@
 
 #include <math.h>
 
+#include "sort_r/sort_r.h"
+
 const uint8_t rev_nibble_table[16]
   = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
 
@@ -116,52 +118,6 @@ void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift)
   shift = shift % n; // shift cannot be greater than n
   // cycle right by `s` is equivalent to cycle left by `n - s`
   array_cycle_left(_ptr, n, es, n - shift);
-}
-
-void array_reverse(void *_ptr, size_t n, size_t es)
-{
-  if(n <= 1 || !es) return;
-  char *ptr = (char*)_ptr;
-  size_t i, j;
-  for(i = 0, j = n-1; i < j; i++, j--) swapm(ptr+es*i, ptr+es*j, es);
-}
-
-// Fisher-Yates shuffle. Initiate srand() before calling.
-void array_shuffle(void *_ptr, size_t n, size_t es)
-{
-  if(n <= 1 || !es) return;
-  char *ptr = (char*)_ptr;
-  size_t i, j;
-  for(i = n-1; i != SIZE_MAX; i--) {
-    j = ((size_t)rand()*(i+1))/RAND_MAX; // rand between 0,i inclusive
-    swapm(ptr+es*i, ptr+es*j, es);
-  }
-}
-
-// binary search
-// compar is a function that compares a given value with the value we are
-// searching for. It returns <0 if _val is < target, >0 if _val is > target,
-// 0 otherwise.
-void* sarray_bsearch(void *_ptr, size_t n, size_t es,
-                     int (*compar)(const void *_val, void *_arg),
-                     void *arg)
-{
-  if(n == 0) return NULL;
-
-  char *ptr = (char*)_ptr;
-  char *a = ptr, *b = ptr + es*(n-1), *mid;
-  int cmp;
-
-  while(a <= b)
-  {
-    mid = ptr + es * (((a-ptr) + (b-ptr)) / (2*es));
-    cmp = compar(mid, arg);
-    if(cmp > 0) b = mid - es;
-    else if(cmp < 0) a = mid + es;
-    else return mid;
-  }
-
-  return NULL;
 }
 
 //

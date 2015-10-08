@@ -155,11 +155,10 @@ CtxCmd cmdobjs[] = {
   .blurb = "make colour kmer distance matrix",
   .usage = dist_matrix_usage
 },
-/* Work in progress */
 {
-  .cmd = "geno", .func = ctx_geno, .hide = true,
-  .blurb = "genotype a VCF file from cortex graphs",
-  .usage = geno_usage
+  .cmd = "vcfcov", .func = ctx_vcfcov, .hide = true,
+  .blurb = "coverage of a VCF against cortex graphs",
+  .usage = vcfcov_usage
 },
 /* Experiments */
 {

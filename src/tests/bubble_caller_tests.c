@@ -2,6 +2,7 @@
 #include "all_tests.h"
 
 #include "bubble_caller.h"
+#include "genotyping.h" // Tested here for now
 
 static void _check_alleles(GraphCache *cache, GCacheStepPtrBuf *steps,
                            const char **alleles, size_t num_alleles,
@@ -148,4 +149,7 @@ void test_bubble_caller()
   test_bubbles(&graph, seqs1, 3, flank5p1d, flank3p1d, alleles1d, 2);
 
   db_graph_dealloc(&graph);
+
+  // Test genotyping here for now
+  genotyping_tests();
 }

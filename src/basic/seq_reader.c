@@ -56,16 +56,21 @@ int64_t seq_est_seq_bases(seq_file_t **files, size_t nfiles)
 //  > quality_cutoff valid
 //  < homopolymer_cutoff valid
 
-// Returns index of first kmer or r->seq.end if no kmers
-size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
-                        uint8_t qual_cutoff, uint8_t hp_cutoff)
+// Search for first valid kmer starting from position `offset`
+// Returns index of first kmer or seqlen if no kmers
+size_t seq_contig_start2(const char *seq, size_t seqlen,
+                         const char *qual, size_t quallen,
+                         size_t offset, size_t kmer_size,
+                         uint8_t qual_cutoff, uint8_t hp_cutoff)
 {
-  size_t next_kmer, pos = offset;
-  while((next_kmer = pos+kmer_size) <= r->seq.end)
+  if(!qual || !quallen) { qual = NULL; quallen = 0; }
+
+  size_t kmerend, pos = offset;
+  while((kmerend = pos+kmer_size) <= seqlen)
   {
     // Check for invalid bases
-    size_t i = next_kmer;
-    while(i > pos && char_is_acgt(r->seq.b[i-1])) i--;
+    size_t i = kmerend;
+    while(i > pos && char_is_acgt(seq[i-1])) i--;
 
     if(i > pos) {
       pos = i;
@@ -73,10 +78,10 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     }
 
     // Check for low qual values
-    if(qual_cutoff > 0 && r->qual.end > 0)
+    if(qual && qual_cutoff > 0)
     {
-      i = MIN2(next_kmer, r->qual.end);
-      while(i > pos && r->qual.b[i-1] > qual_cutoff) i--;
+      i = MIN2(kmerend, quallen);
+      while(i > pos && qual[i-1] > qual_cutoff) i--;
 
       if(i > pos) {
         pos = i;
@@ -88,9 +93,9 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     if(hp_cutoff > 0)
     {
       size_t run_length = 1;
-      for(i = next_kmer-1; i > pos; i--)
+      for(i = kmerend-1; i > pos; i--)
       {
-        if(r->seq.b[i-1] == r->seq.b[i])
+        if(seq[i-1] == seq[i])
         {
           run_length++;
           if(run_length == (size_t)hp_cutoff) break;
@@ -108,14 +113,25 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     return pos;
   }
 
-  return r->seq.end;
+  return seqlen;
+}
+
+size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
+                        uint8_t qual_cutoff, uint8_t hp_cutoff)
+{
+  return seq_contig_start2(r->seq.b, r->seq.end, r->qual.b, r->qual.end,
+                           offset, kmer_size, qual_cutoff, hp_cutoff);
 }
 
 // *search_start is the next position to pass to seq_contig_start
-size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
-                      uint8_t qual_cutoff, uint8_t hp_cutoff,
-                      size_t *search_start)
+size_t seq_contig_end2(const char *seq, size_t seqlen,
+                       const char *qual, size_t quallen,
+                       size_t contig_start, size_t kmer_size,
+                       uint8_t qual_cutoff, uint8_t hp_cutoff,
+                       size_t *search_start)
 {
+  if(!qual || !quallen) { qual = NULL; quallen = 0; }
+
   size_t contig_end = contig_start+kmer_size;
 
   size_t hp_run = 1;
@@ -123,13 +139,14 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
   {
     // Get the length of the hp run at the end of the current kmer
     // kmer won't contain a run longer than hp_run-1
-    while(r->seq.b[contig_end-1-hp_run] == r->seq.b[contig_end-1]) hp_run++;
+    while(hp_run < contig_end && seq[contig_end-1-hp_run] == seq[contig_end-1])
+      hp_run++;
   }
 
-  for(; contig_end < r->seq.end; contig_end++)
+  for(; contig_end < seqlen; contig_end++)
   {
-    if(!char_is_acgt(r->seq.b[contig_end]) ||
-       (contig_end < r->qual.end && r->qual.b[contig_end] < qual_cutoff))
+    if(!char_is_acgt(seq[contig_end]) ||
+       (contig_end < quallen && qual[contig_end] < qual_cutoff))
     {
       break;
     }
@@ -137,7 +154,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
     // Check hp
     if(hp_cutoff > 0)
     {
-      if(r->seq.b[contig_end] == r->seq.b[contig_end-1])
+      if(seq[contig_end] == seq[contig_end-1])
       {
         hp_run++;
         if(hp_run >= (size_t)hp_cutoff) break;
@@ -146,7 +163,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
     }
   }
 
-  if(hp_cutoff > 0 && hp_run == (size_t)hp_cutoff)
+  if(hp_cutoff > 0 && hp_run >= (size_t)hp_cutoff)
     *search_start = contig_end - (size_t)hp_cutoff + 1;
   else
     *search_start = contig_end;
@@ -154,6 +171,15 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
   return contig_end;
 }
 
+// *search_start is the next position to pass to seq_contig_start
+size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
+                      uint8_t qual_cutoff, uint8_t hp_cutoff,
+                      size_t *search_start)
+{
+  return seq_contig_end2(r->seq.b, r->seq.end, r->qual.b, r->qual.end,
+                         contig_start, kmer_size, qual_cutoff, hp_cutoff,
+                         search_start);
+}
 
 // Warning bits
 #define WFLAG_INVALID_BASE  1

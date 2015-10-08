@@ -18,7 +18,7 @@ const char coverage_usage[] =
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
-"  -E, --degree         Print edge degree: 00!,01+,02{, 10-,11=,12<, 20},21>,22*\n"
+"  -E, --degree         Print edge degree: 00! 01+ 02{ 10- 11= 12< 20} 21> 22*\n"
 "  -s, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
 "  -o, --out <out.txt>  Save output [default: STDOUT]\n"
 "\n";
@@ -119,8 +119,7 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   dBNode node;
   Covg *covgs;
 
-  while((contig_start = seq_contig_start(r, search_start, kmer_size,
-                                         0, 0)) < r->seq.end)
+  while((contig_start = seq_contig_start(r, search_start, kmer_size, 0, 0)) < r->seq.end)
   {
     contig_end = seq_contig_end(r, contig_start, kmer_size, 0, 0, &search_start);
 
@@ -142,8 +141,10 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
     }
   }
 
-  // Print one colour per line
+  // Print sequence
   fprintf(fout, ">%s\n%s\n", r->name.b, r->seq.b);
+
+  // Print one colour per line
   if(kmer_length == 0) {
     for(i = 0; i < ncols; i++) {
       if(db_graph->col_edges) fputc('\n', fout);
@@ -153,13 +154,18 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   else {
     for(col = 0; col < ncols; col++)
     {
-      if(print_edges)
+      if(print_edges) {
+        fprintf(fout, ">%s\n%s_edges\n", r->name.b, r->seq.b);
         _print_edges(edgebuf->b, col, ncols, kmer_length, fout);
+      }
 
-      if(print_edge_degrees)
+      if(print_edge_degrees) {
+        fprintf(fout, ">%s\n%s_degree\n", r->name.b, r->seq.b);
         _print_edge_degrees(edgebuf->b, col, ncols, kmer_length, fout);
+      }
 
       // Print coverages
+      fprintf(fout, ">%s\n%s_covgs\n", r->name.b, r->seq.b);
       fprintf(fout, "%2u", covgbuf->b[col]);
       for(i = 1; i < kmer_length; i++)
         fprintf(fout, " %2u", covgbuf->b[i*ncols+col]);

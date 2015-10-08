@@ -946,7 +946,7 @@ static void print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
-  fprintf(fout, "##fileformat=VCFv4.1\n##fileDate=%s\n", datestr);
+  fprintf(fout, "##fileformat=VCFv4.2\n##fileDate=%s\n", datestr);
 
   // Print commands used to generate header
   cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, input_path);

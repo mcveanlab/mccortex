@@ -44,17 +44,6 @@ void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift);
 
 void array_reverse(void *_ptr, size_t n, size_t es);
 
-// Fisher-Yates shuffle. Initiate srand() before calling.
-void array_shuffle(void *_ptr, size_t n, size_t es);
-
-// binary search
-// compar is a function that compares a given value with the value we are
-// searching for. It returns <0 if _val is < target, >0 if _val is > target,
-// 0 otherwise.
-void* sarray_bsearch(void *_ptr, size_t n, size_t es,
-                     int (*compar)(const void *_val, void *_arg),
-                     void *arg);
-
 //
 // Number parsing
 //
