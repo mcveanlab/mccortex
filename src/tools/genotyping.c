@@ -97,6 +97,8 @@ static inline uint64_t varbits_to_altrefbits(uint64_t bits,
 }
 
 
+#define varend(v) (int)((v)->pos+(v)->reflen)
+
 /**
  * Get a list of kmers which support variants.
  *
@@ -126,15 +128,17 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   const GenoVar *tgt = vars[tgtidx];
 
-  long minpos = MIN2(vars[0]->pos, tgt->pos - kmer_size + 1);
-  size_t i, regstart, regend;
-
-  regstart = MAX2(minpos, 0);
+  size_t i, tgtend = tgtidx+ntgts;
+  int regstart, regend;
+  regstart = MIN2(vars[0]->pos, tgt->pos - kmer_size + 1);
+  regstart = MAX2(regstart, 0);
   regend = regstart;
-  for(i = 0; i < nvars; i++) regend = MAX2(regend, vars[i]->pos+vars[i]->reflen);
-  ctx_assert(regend <= chromlen);
-  regend = MAX2(regend, tgt->pos + tgt->reflen + kmer_size - 1);
-  regend = MIN2(regend, chromlen);
+
+  for(i = 0; i < tgtidx; i++) regend = MAX2(regend, varend(vars[i]));
+  for(i = tgtidx; i < tgtend; i++) regend = MAX2(regend, varend(vars[i])+(int)kmer_size);
+  for(i = tgtend; i < ntgts; i++) regend = MAX2(regend, varend(vars[i]));
+
+  regend = MIN2(regend, (int)chromlen);
 
   StrBuf *seq = &typer->seq;
   khash_t(BkToBits) *h = typer->h;

@@ -156,7 +156,7 @@ CtxCmd cmdobjs[] = {
   .usage = dist_matrix_usage
 },
 {
-  .cmd = "vcfcov", .func = ctx_vcfcov, .hide = true,
+  .cmd = "vcfcov", .func = ctx_vcfcov, .hide = false,
   .blurb = "coverage of a VCF against cortex graphs",
   .usage = vcfcov_usage
 },
@@ -189,7 +189,7 @@ static const char options[] =
 "  -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
 "  -t, --threads <T>     Limit on proccessing threads [default: 2]\n"
 "  -o, --out <file>      Output file\n"
-"  -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
+"  -p, --paths <in.ctp>  Links file to load (can specify multiple times)\n"
 "\n";
 
 static int ctxcmd_cmp(const void *aa, const void *bb)

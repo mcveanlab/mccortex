@@ -170,13 +170,12 @@ static void var_list_populate(GenoVarPtrList *alist, size_t n, size_t ncols)
   }
 }
 
-void bcf_empty1(bcf1_t *v);
 static void vcf_list_destroy(GenoVCFPtrList *vlist)
 {
   size_t i;
   for(i = 0; i < genovcf_ptr_list_len(vlist); i++) {
     GenoVCF *v = genovcf_ptr_list_get(vlist, i);
-    bcf_empty1(&v->v);
+    bcf_empty(&v->v);
     ctx_free(v);
   }
   genovcf_ptr_list_shift(vlist, NULL, genovcf_ptr_list_len(vlist));
@@ -410,17 +409,30 @@ static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
   }
 
   // Add coverage
+  VarCovg *cov;
+
   for(i = 0; i < nalleles; i++) {
     aid = alleles[i]->aid;
     ctx_assert(aid < v->n_allele);
-    for(col = 0; col < ncols; col++) {
-      VarCovg *cov = &alleles[i]->c[col];
-      sid = vfr->samplehdrids[col];
-      ctx_assert(sid < nsamples);
-      vfr->nkmers_r[sid*nalts+aid-1] = cov->nkmers[0];
-      vfr->nkmers_a[sid*nalts+aid-1] = cov->nkmers[1];
-      vfr->kcovgs_r[sid*nalts+aid-1] = cov->nkmers[0] ? cov->sumcovg[0] / cov->nkmers[0] : 0;
-      vfr->kcovgs_a[sid*nalts+aid-1] = cov->nkmers[1] ? cov->sumcovg[1] / cov->nkmers[1] : 0;
+
+    if(!alleles[i]->has_covg) {
+      for(col = 0; col < ncols; col++) {
+        sid = vfr->samplehdrids[col];
+        vfr->nkmers_r[sid*nalts+aid-1] = bcf_int32_missing;
+        vfr->nkmers_a[sid*nalts+aid-1] = bcf_int32_missing;
+        vfr->kcovgs_r[sid*nalts+aid-1] = bcf_int32_missing;
+        vfr->kcovgs_a[sid*nalts+aid-1] = bcf_int32_missing;
+      }
+    }
+    else {
+      for(col = 0; col < ncols; col++) {
+        sid = vfr->samplehdrids[col];
+        cov = &alleles[i]->c[col];
+        vfr->nkmers_r[sid*nalts+aid-1] = cov->nkmers[0];
+        vfr->nkmers_a[sid*nalts+aid-1] = cov->nkmers[1];
+        vfr->kcovgs_r[sid*nalts+aid-1] = cov->nkmers[0] ? cov->sumcovg[0] / cov->nkmers[0] : 0;
+        vfr->kcovgs_a[sid*nalts+aid-1] = cov->nkmers[1] ? cov->sumcovg[1] / cov->nkmers[1] : 0;
+      }
     }
   }
 
@@ -480,6 +492,10 @@ static void vcfcov_vars(GenoVar **vars, size_t nvars,
   GenoKmer *kmers = NULL;
   size_t i, end, nkmers;
 
+  // Zero coverage on alleles before querying graph
+  for(i = tgtidx, end = tgtidx+ntgts; i < end; i++)
+    genovar_wipe_covg(vars[i], db_graph->num_of_cols);
+
   if(nvars > max_gt_vars) { return; }
 
   nkmers = genotyping_get_kmers(gtyper, (const GenoVar *const*)vars,
@@ -487,15 +503,14 @@ static void vcfcov_vars(GenoVar **vars, size_t nvars,
                                 chrom, chromlen,
                                 db_graph->kmer_size, &kmers);
 
-  // Zero coverage on alleles before querying graph
-  for(i = tgtidx, end = tgtidx+ntgts; i < end; i++)
-    genovar_wipe_covg(vars[i], db_graph->num_of_cols);
-
   for(i = 0; i < nkmers; i++) {
     bkey_get_covg(kmers[i].bkey, kmers[i].arbits,
                   vars+tgtidx, ntgts,
                   db_graph);
   }
+
+  for(i = tgtidx, end = tgtidx+ntgts; i < end; i++)
+    vars[i]->has_covg = true;
 }
 
 // Get index of first of vars (starting at index i), which starts after endpos
@@ -511,22 +526,23 @@ static void vcfcov_block(GenoVar **vars, size_t nvars,
                          const char *chrom, int chromlen,
                          Genotyper *gtyper, const dBGraph *db_graph)
 {
-  if(nvars < max_gt_vars)
+  if(nvars <= max_gt_vars)
   {
     vcfcov_vars(vars, nvars, 0, nvars, chrom, chromlen, gtyper, db_graph);
   }
   else
   {
     // do one at a time
-    const int kmer_size = db_graph->kmer_size;
+    const int ks = db_graph->kmer_size;
     int i, j;
-    // genotype start/end, background start/end
-    size_t gs = 0, ge, bs, be, tmp_be;
+    // genotype start/end, background start/end (end is not inclusive)
+    size_t gs = 0, ge, bs, be, tmp_ge, tmp_be;
 
     while(gs < nvars)
     {
+      // Get vars to the left of our genotyping-start (gs)
       for(i = j = (int)gs-1; i >= 0; i--) {
-        if(genovar_end(vars[i]) + kmer_size > vars[gs]->pos) {
+        if(genovar_end(vars[i]) + ks > vars[gs]->pos) {
           SWAP(vars[i], vars[j]);
           j--;
         }
@@ -534,19 +550,19 @@ static void vcfcov_block(GenoVar **vars, size_t nvars,
 
       bs = j+1;
       ge = gs+1;
-      be = get_vcf_cov_end(vars, nvars, ge, genovar_end(vars[ge-1]));
+      be = get_vcf_cov_end(vars, nvars, ge, genovar_end(vars[ge-1])+ks);
 
       // Try increasing ge, calculate be, accept if small enough
-      for(i = ge+1; i < (int)nvars; i++) {
-        tmp_be = get_vcf_cov_end(vars, nvars, i, genovar_end(vars[i-1]));
-        if(tmp_be - bs < max_gt_vars) { ge = i; be = tmp_be; }
+      for(tmp_ge = ge+1; tmp_ge < nvars; tmp_ge++) {
+        tmp_be = get_vcf_cov_end(vars, nvars, tmp_ge, genovar_end(vars[tmp_ge-1])+ks);
+        if(tmp_be - bs <= max_gt_vars) { ge = tmp_ge; be = tmp_be; }
         else break;
       }
 
       ctx_assert2(bs<=gs && gs<=ge && ge<=be, "%zu %zu %zu %zu",bs,gs,ge,be);
 
-      vcfcov_vars(vars+bs, be-bs, gs-bs, ge-gs, chrom, chromlen,
-                    gtyper, db_graph);
+      // status("bs:%zu gs:%zu ge:%zu be:%zu", bs, gs, ge, be);
+      vcfcov_vars(vars+bs, be-bs, gs-bs, ge-gs, chrom, chromlen, gtyper, db_graph);
 
       gs = ge;
     }
@@ -714,6 +730,7 @@ int ctx_vcfcov(int argc, char **argv)
   //
   // Open output file
   //
+  futil_create_output(out_path);
   htsFile *outfh = hts_open(out_path, "w");
 
   // Allocate memory

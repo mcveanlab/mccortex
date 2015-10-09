@@ -30,6 +30,7 @@ typedef struct {
   const char *ref, *alt;
   uint32_t pos, reflen, altlen, aid; // variant, allele id
   VarCovg *c; // entry for each colour
+  bool has_covg; // if we have fetched coverage into `c`
 } GenoVar;
 
 typedef struct {
@@ -48,7 +49,12 @@ madcrow_list(  genovar_list, GenoVarList,  GenoVar);
 madcrow_list(  genovar_buf, GenoVarBuffer, GenoVar);
 
 #define genovar_end(gv) ((gv)->pos + (gv)->reflen)
-#define genovar_wipe_covg(gv,ncols) memset((gv)->c, 0, (ncols)*sizeof(VarCovg))
+
+static inline void genovar_wipe_covg(GenoVar *var, size_t ncols)
+{
+  if(var->has_covg) memset(var->c, 0, ncols*sizeof(VarCovg));
+  var->has_covg = false;
+}
 
 Genotyper* genotyper_init();
 void genotyper_destroy(Genotyper *typer);
