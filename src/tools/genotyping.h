@@ -22,45 +22,43 @@ typedef struct
 {
   bcf1_t v;
   size_t vidx, nchildren;
-} GenoVCF;
+} VcfCovLine;
 
 // Single alt-allele decomposed from a VCF entry
 typedef struct {
-  GenoVCF *parent;
+  VcfCovLine *parent;
   const char *ref, *alt;
   uint32_t pos, reflen, altlen, aid; // variant, allele id
   VarCovg *c; // entry for each colour
   bool has_covg; // if we have fetched coverage into `c`
-} GenoVar;
+} VcfCovAlt;
 
 typedef struct {
   BinaryKmer bkey;
   uint64_t arbits; // alt-ref-bits
-} GenoKmer;
+} HaploKmer;
 
 typedef struct GenotyperStruct Genotyper;
 
 #include "madcrowlib/madcrow_buffer.h"
 #include "madcrowlib/madcrow_list.h"
-madcrow_buffer(genokmer_buf, GenoKmerBuffer, GenoKmer);
-madcrow_list(  genovcf_ptr_list, GenoVCFPtrList, GenoVCF*);
-madcrow_list(  genovar_ptr_list, GenoVarPtrList, GenoVar*);
-madcrow_list(  genovar_list, GenoVarList,  GenoVar);
-madcrow_list(  genovar_buf, GenoVarBuffer, GenoVar);
+madcrow_buffer(haplokmer_buf, HaploKmerBuffer, HaploKmer);
+madcrow_list(vc_lines, VcfCovLinePtrList, VcfCovLine*);
+madcrow_list(vc_alts,  VcfCovAltPtrList,  VcfCovAlt*);
 
-#define genovar_end(gv) ((gv)->pos + (gv)->reflen)
+#define vcfcov_alt_end(gv) ((gv)->pos + (gv)->reflen)
 
-static inline void genovar_wipe_covg(GenoVar *var, size_t ncols)
+static inline void vcfcov_alt_wipe_covg(VcfCovAlt *var, size_t ncols)
 {
   if(var->has_covg) memset(var->c, 0, ncols*sizeof(VarCovg));
   var->has_covg = false;
 }
 
+int vcfcov_alt_ptr_cmp(const VcfCovAlt *a, const VcfCovAlt *b);
+void vcfcov_alts_sort(VcfCovAlt **vars, size_t nvars);
+
 Genotyper* genotyper_init();
 void genotyper_destroy(Genotyper *typer);
-
-int genovar_ptr_cmp(const GenoVar *a, const GenoVar *b);
-void genovars_sort(GenoVar **vars, size_t nvars);
 
 // Returns non-zero iff kmer occurs in only one of ref/alt in at least one sample
 // 0x5 in binary is 0101
@@ -80,10 +78,10 @@ void genovars_sort(GenoVar **vars, size_t nvars);
  * @return number of kmers
  */
 size_t genotyping_get_kmers(Genotyper *typer,
-                            const GenoVar *const* vars, size_t nvars,
+                            const VcfCovAlt *const* vars, size_t nvars,
                             size_t tgtidx, size_t ntgts,
                             const char *chrom, size_t chromlen,
-                            size_t kmer_size, GenoKmer **result);
+                            size_t kmer_size, HaploKmer **result);
 
 void genotyping_tests();
 

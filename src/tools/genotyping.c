@@ -6,7 +6,7 @@
 struct GenotyperStruct {
   StrBuf seq;
   khash_t(BkToBits) *h;
-  GenoKmerBuffer kmer_buf;
+  HaploKmerBuffer kmer_buf;
 };
 
 Genotyper* genotyper_init()
@@ -14,7 +14,7 @@ Genotyper* genotyper_init()
   Genotyper *gt = ctx_calloc(1, sizeof(Genotyper));
   strbuf_alloc(&gt->seq, 1024);
   gt->h = kh_init(BkToBits);
-  genokmer_buf_alloc(&gt->kmer_buf, 512);
+  haplokmer_buf_alloc(&gt->kmer_buf, 512);
   return gt;
 }
 
@@ -22,11 +22,11 @@ void genotyper_destroy(Genotyper *gt)
 {
   strbuf_dealloc(&gt->seq);
   kh_destroy(BkToBits, gt->h);
-  genokmer_buf_dealloc(&gt->kmer_buf);
+  haplokmer_buf_dealloc(&gt->kmer_buf);
   ctx_free(gt);
 }
 
-int genovar_ptr_cmp(const GenoVar *a, const GenoVar *b)
+int vcfcov_alt_ptr_cmp(const VcfCovAlt *a, const VcfCovAlt *b)
 {
   if(a->pos != b->pos) return a->pos < b->pos ? -1 : 1;
   if(a->reflen != b->reflen) return a->reflen < b->reflen ? -1 : 1;
@@ -34,18 +34,19 @@ int genovar_ptr_cmp(const GenoVar *a, const GenoVar *b)
   return strncmp(a->alt, b->alt, a->altlen);
 }
 
-static inline int _genovar_ptr_cmp(const void *aa, const void *bb)
+static inline int _vcfcov_alt_ptr_cmp(const void *aa, const void *bb)
 {
-  const GenoVar *a = *(const GenoVar*const*)aa, *b = *(const GenoVar*const*)bb;
-  return genovar_ptr_cmp(a, b);
+  const VcfCovAlt *a = *(const VcfCovAlt*const*)aa;
+  const VcfCovAlt *b = *(const VcfCovAlt*const*)bb;
+  return vcfcov_alt_ptr_cmp(a, b);
 }
 
-void genovars_sort(GenoVar **vars, size_t nvars)
+void vcfcov_alts_sort(VcfCovAlt **vars, size_t nvars)
 {
-  qsort(vars, nvars, sizeof(*vars), _genovar_ptr_cmp);
+  qsort(vars, nvars, sizeof(*vars), _vcfcov_alt_ptr_cmp);
 }
 
-static bool vars_compatible(const GenoVar *const*vars, size_t nvars,
+static bool vars_compatible(const VcfCovAlt *const*vars, size_t nvars,
                             uint64_t bits)
 {
   ctx_assert(nvars < 64);
@@ -64,7 +65,7 @@ static bool vars_compatible(const GenoVar *const*vars, size_t nvars,
 // Store it in parameter seq
 static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
                                           size_t regstart, size_t regend,
-                                          const GenoVar *const*vars,
+                                          const VcfCovAlt *const*vars,
                                           size_t nvars, uint64_t bits)
 {
   strbuf_reset(seq);
@@ -114,19 +115,19 @@ static inline uint64_t varbits_to_altrefbits(uint64_t bits,
  * @return number of kmers
  */
 size_t genotyping_get_kmers(Genotyper *typer,
-                            const GenoVar *const*vars, size_t nvars,
+                            const VcfCovAlt *const*vars, size_t nvars,
                             size_t tgtidx, size_t ntgts,
                             const char *chrom, size_t chromlen,
-                            size_t kmer_size, GenoKmer **result)
+                            size_t kmer_size, HaploKmer **result)
 {
   ctx_assert2(0 < nvars && nvars < 64, "nvars: %zu", nvars);
   ctx_assert2(tgtidx < nvars, "tgtidx:%zu >= nvars:%zu ??", tgtidx, nvars);
   ctx_assert2(ntgts <= 32, "Too many targets: %zu", ntgts);
 
-  GenoKmerBuffer *gkbuf = &typer->kmer_buf;
-  genokmer_buf_reset(gkbuf);
+  HaploKmerBuffer *gkbuf = &typer->kmer_buf;
+  haplokmer_buf_reset(gkbuf);
 
-  const GenoVar *tgt = vars[tgtidx];
+  const VcfCovAlt *tgt = vars[tgtidx];
 
   size_t i, tgtend = tgtidx+ntgts;
   int regstart, regend;
@@ -136,7 +137,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   for(i = 0; i < tgtidx; i++) regend = MAX2(regend, varend(vars[i]));
   for(i = tgtidx; i < tgtend; i++) regend = MAX2(regend, varend(vars[i])+(int)kmer_size);
-  for(i = tgtend; i < ntgts; i++) regend = MAX2(regend, varend(vars[i]));
+  for(i = tgtend; i < nvars; i++) regend = MAX2(regend, varend(vars[i]));
 
   regend = MIN2(regend, (int)chromlen);
 
@@ -188,7 +189,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
   }
 
   size_t nkmers = kh_size(h);
-  genokmer_buf_capacity(gkbuf, nkmers);
+  haplokmer_buf_capacity(gkbuf, nkmers);
 
   // Fetch and delete every item in the hash table
   for(i = 0, k = kh_begin(h); k != kh_end(h); ++k) {
@@ -197,7 +198,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
       altref_bits = kh_value(h, k);
       kh_del(BkToBits, h, k);
       if(genotyping_refalt_uniq(altref_bits)) {
-        gkbuf->b[i++] = (GenoKmer){.bkey = bkey, .arbits = altref_bits};
+        gkbuf->b[i++] = (HaploKmer){.bkey = bkey, .arbits = altref_bits};
       }
     }
   }

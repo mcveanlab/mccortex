@@ -4,19 +4,22 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graphs_load.h"
-// #include "seq_reader.h"
 #include "gpath_checks.h"
-#include "seq_reader.h"
 #include "genotyping.h"
 
 #include "htslib/vcf.h"
 #include "htslib/faidx.h"
 
+#define DEFAULT_MAX_ALLELE_LEN 100
+#define DEFAULT_MAX_GT_VARS 8
+
 // Don't attempt to genotype alleles bigger than this
-size_t max_allele_len = 100;
+// defaults to DEFAULT_MAX_ALLELE_LEN
+size_t max_allele_len = 0;
 
 // 2^8 = 256 possible haplotypes
-uint32_t max_gt_vars = 8;
+// defaults to DEFAULT_MAX_GT_VARS
+uint32_t max_gt_vars = 0;
 
 // Initial object buffer lengths
 #define INIT_BUF_SIZE 128
@@ -24,19 +27,23 @@ uint32_t max_gt_vars = 8;
 // How many alt alleles to collect before printing
 #define PRINT_BUF_LIMIT 100
 
+// TODO: add output format option --output-type b=>bcf z=>vcf.gz ...
+
 const char vcfcov_usage[] =
 "usage: "CMD" vcfcov [options] <in.vcf> <in.ctx> [in2.ctx ...]\n"
 "\n"
 "  Get coverage of a VCF in the cortex graphs. VCF must be sorted by position. \n"
 "  It is recommended to use uncleaned graphs.\n"
 "\n"
-"  -h, --help              This help message\n"
-"  -q, --quiet             Silence status output normally printed to STDERR\n"
-"  -f, --force             Overwrite output files\n"
-"  -m, --memory <mem>      Memory to use\n"
-"  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -o, --out <bub.txt.gz>  Output file [default: STDOUT]\n"
-"  -r, --ref <ref.fa>      Reference file [required]\n"
+"  -h, --help                This help message\n"
+"  -q, --quiet               Silence status output normally printed to STDERR\n"
+"  -f, --force               Overwrite output files\n"
+"  -m, --memory <mem>        Memory to use\n"
+"  -n, --nkmers <kmers>      Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -o, --out <bub.txt.gz>    Output file [default: STDOUT]\n"
+"  -r, --ref <ref.fa>        Reference file [required]\n"
+"  -L, --max-var-len <A>     Only use alleles <= A bases long [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE_LEN)"]\n"
+"  -N, --max-nvars <N>       Limit haplotypes to <= N variants [default: "QUOTE_VALUE(DEFAULT_MAX_GT_VARS)"]\n"
 "\n";
 
 static struct option longopts[] =
@@ -48,6 +55,8 @@ static struct option longopts[] =
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"ref",          required_argument, NULL, 'r'},
+  {"max-var-len",  required_argument, NULL, 'L'},
+  {"max-nvars",    required_argument, NULL, 'N'},
   {NULL, 0, NULL, 0}
 };
 
@@ -61,13 +70,13 @@ typedef struct
   htsFile *vcffh;
   bcf_hdr_t *vcfhdr;
   // vpool are ready to be used
-  GenoVCFPtrList vpool; // pool of vcf lines
-  // index (vidx) of next GenoVCF to be printed
+  VcfCovLinePtrList vpool; // pool of vcf lines
+  // index (vidx) of next VcfCovLine to be printed
   // used to print VCF entries out in the correct (input) order
   size_t nxtprint, nextidx;
   // alist are current alleles; anchrom are on next chromosome
   // aprint are waiting to be printed; apool is a memory pool
-  GenoVarPtrList alist, anchrom, aprint, apool; // alleles
+  VcfCovAltPtrList alist, anchrom, aprint, apool; // alleles
   // Genotyping buffers
   int32_t *nkmers_r, *nkmers_a, *kcovgs_r, *kcovgs_a;
   size_t geno_buf_size;
@@ -83,7 +92,7 @@ typedef struct
  * colour.
  */
 static inline void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
-                                 GenoVar **gts, size_t ntgts,
+                                 VcfCovAlt **gts, size_t ntgts,
                                  const dBGraph *db_graph)
 {
   size_t i, col, ncols = db_graph->num_of_cols;
@@ -114,9 +123,9 @@ static inline void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
 }
 
 // return true if valid variant
-static inline bool init_new_var(GenoVar *var, GenoVCF *parent, uint32_t aid)
+static inline bool init_new_alt(VcfCovAlt *var, VcfCovLine *line, uint32_t aid)
 {
-  bcf1_t *v = &parent->v;
+  bcf1_t *v = &line->v;
   uint32_t pos = v->pos, reflen, altlen;
   const char *ref = v->d.allele[0], *alt = v->d.allele[aid];
   reflen = strlen(ref);
@@ -137,7 +146,7 @@ static inline bool init_new_var(GenoVar *var, GenoVCF *parent, uint32_t aid)
   if(!reflen && !altlen) return false;
 
   // Initialise
-  var->parent = parent;
+  var->parent = line;
   var->ref = ref;
   var->alt = alt;
   var->pos = pos;
@@ -146,50 +155,50 @@ static inline bool init_new_var(GenoVar *var, GenoVCF *parent, uint32_t aid)
   var->aid = aid;
 
   // Increment number of children
-  parent->nchildren++;
+  line->nchildren++;
 
   return true;
 }
 
-static void vcf_list_populate(GenoVCFPtrList *vlist, size_t n)
+static void vcf_list_populate(VcfCovLinePtrList *vlist, size_t n)
 {
   size_t i;
   for(i = 0; i < n; i++) {
-    GenoVCF *v = ctx_calloc(1, sizeof(GenoVCF));
-    genovcf_ptr_list_append(vlist, v);
+    VcfCovLine *v = ctx_calloc(1, sizeof(VcfCovLine));
+    vc_lines_append(vlist, v);
   }
 }
 
-static void var_list_populate(GenoVarPtrList *alist, size_t n, size_t ncols)
+static void var_list_populate(VcfCovAltPtrList *alist, size_t n, size_t ncols)
 {
   size_t i;
   for(i = 0; i < n; i++) {
-    GenoVar *a = ctx_calloc(1, sizeof(GenoVar));
+    VcfCovAlt *a = ctx_calloc(1, sizeof(VcfCovAlt));
     a->c = ctx_calloc(ncols, sizeof(VarCovg));
-    genovar_ptr_list_append(alist, a);
+    vc_alts_append(alist, a);
   }
 }
 
-static void vcf_list_destroy(GenoVCFPtrList *vlist)
+static void vcf_list_destroy(VcfCovLinePtrList *vlist)
 {
   size_t i;
-  for(i = 0; i < genovcf_ptr_list_len(vlist); i++) {
-    GenoVCF *v = genovcf_ptr_list_get(vlist, i);
+  for(i = 0; i < vc_lines_len(vlist); i++) {
+    VcfCovLine *v = vc_lines_get(vlist, i);
     bcf_empty(&v->v);
     ctx_free(v);
   }
-  genovcf_ptr_list_shift(vlist, NULL, genovcf_ptr_list_len(vlist));
+  vc_lines_shift(vlist, NULL, vc_lines_len(vlist));
 }
 
-static void var_list_destroy(GenoVarPtrList *alist)
+static void var_list_destroy(VcfCovAltPtrList *alist)
 {
   size_t i;
-  for(i = 0; i < genovar_ptr_list_len(alist); i++) {
-    GenoVar *a = genovar_ptr_list_get(alist, i);
+  for(i = 0; i < vc_alts_len(alist); i++) {
+    VcfCovAlt *a = vc_alts_get(alist, i);
     ctx_free(a->c);
     ctx_free(a);
   }
-  genovar_ptr_list_shift(alist, NULL, genovar_ptr_list_len(alist));
+  vc_alts_shift(alist, NULL, vc_alts_len(alist));
 }
 
 static inline void vcfr_alloc(VcfReader *vcfr, const char *path,
@@ -205,10 +214,10 @@ static inline void vcfr_alloc(VcfReader *vcfr, const char *path,
   vcfr->db_graph = db_graph;
   vcfr->geno_buf_size = 0;
 
-  genovcf_ptr_list_alloc(&vcfr->vpool, INIT_BUF_SIZE);
-  genovar_ptr_list_alloc(&vcfr->alist, INIT_BUF_SIZE);
-  genovar_ptr_list_alloc(&vcfr->anchrom, INIT_BUF_SIZE);
-  genovar_ptr_list_alloc(&vcfr->apool, INIT_BUF_SIZE);
+  vc_lines_alloc(&vcfr->vpool, INIT_BUF_SIZE);
+  vc_alts_alloc(&vcfr->alist, INIT_BUF_SIZE);
+  vc_alts_alloc(&vcfr->anchrom, INIT_BUF_SIZE);
+  vc_alts_alloc(&vcfr->apool, INIT_BUF_SIZE);
 
   vcf_list_populate(&vcfr->vpool, INIT_BUF_SIZE);
   var_list_populate(&vcfr->apool, INIT_BUF_SIZE, db_graph->num_of_cols);
@@ -216,17 +225,17 @@ static inline void vcfr_alloc(VcfReader *vcfr, const char *path,
 
 static inline void vcfr_dealloc(VcfReader *vcfr)
 {
-  ctx_assert(genovar_ptr_list_len(&vcfr->alist) == 0);
-  ctx_assert(genovar_ptr_list_len(&vcfr->anchrom) == 0);
+  ctx_assert(vc_alts_len(&vcfr->alist) == 0);
+  ctx_assert(vc_alts_len(&vcfr->anchrom) == 0);
   vcf_list_destroy(&vcfr->vpool);
   var_list_destroy(&vcfr->apool);
-  ctx_assert(genovcf_ptr_list_len(&vcfr->vpool) == 0);
-  ctx_assert(genovar_ptr_list_len(&vcfr->apool) == 0);
+  ctx_assert(vc_lines_len(&vcfr->vpool) == 0);
+  ctx_assert(vc_alts_len(&vcfr->apool) == 0);
 
-  genovcf_ptr_list_dealloc(&vcfr->vpool);
-  genovar_ptr_list_dealloc(&vcfr->alist);
-  genovar_ptr_list_dealloc(&vcfr->anchrom);
-  genovar_ptr_list_dealloc(&vcfr->apool);
+  vc_lines_dealloc(&vcfr->vpool);
+  vc_alts_dealloc(&vcfr->alist);
+  vc_alts_dealloc(&vcfr->anchrom);
+  vc_alts_dealloc(&vcfr->apool);
 
   ctx_free(vcfr->nkmers_r);
   ctx_free(vcfr->nkmers_a);
@@ -253,21 +262,21 @@ static inline void fetch_chrom(bcf_hdr_t *hdr, bcf1_t *v,
 //
 static int vcfr_fetch(VcfReader *vr)
 {
-  // Check we have GenoVCF entries to read into
-  if(genovcf_ptr_list_len(&vr->vpool) == 0) vcf_list_populate(&vr->vpool, 16);
+  // Check we have VcfCovLine entries to read into
+  if(vc_lines_len(&vr->vpool) == 0) vcf_list_populate(&vr->vpool, 16);
 
   // If we already have alleles from a diff chrom to use, return them
-  if(genovar_ptr_list_len(&vr->alist) == 0 && genovar_ptr_list_len(&vr->anchrom))
+  if(vc_alts_len(&vr->alist) == 0 && vc_alts_len(&vr->anchrom))
   {
-    genovar_ptr_list_push(&vr->alist, genovar_ptr_list_getptr(&vr->anchrom, 0),
-                                      genovar_ptr_list_len(&vr->anchrom));
-    genovar_ptr_list_reset(&vr->anchrom);
-    return genovar_ptr_list_len(&vr->alist);
+    vc_alts_push(&vr->alist, vc_alts_getptr(&vr->anchrom, 0),
+                                      vc_alts_len(&vr->anchrom));
+    vc_alts_reset(&vr->anchrom);
+    return vc_alts_len(&vr->alist);
   }
 
   // Take vcf out of pool
-  GenoVCF *ve;
-  genovcf_ptr_list_pop(&vr->vpool, &ve, 1);
+  VcfCovLine *ve;
+  vc_lines_pop(&vr->vpool, &ve, 1);
   ve->vidx = vr->nextidx++;
   ve->nchildren = 0;
   bcf1_t *v = &ve->v;
@@ -277,7 +286,7 @@ static int vcfr_fetch(VcfReader *vr)
     // Read VCF
     if(bcf_read(vr->vcffh, vr->vcfhdr, v) < 0) {
       // EOF
-      genovcf_ptr_list_push(&vr->vpool, &ve, 1);
+      vc_lines_push(&vr->vpool, &ve, 1);
       return -1;
     }
 
@@ -286,53 +295,53 @@ static int vcfr_fetch(VcfReader *vr)
 
     // Check we have enough vars to decompose
     size_t i, n = MAX2(v->n_allele, 16);
-    if(genovar_ptr_list_len(&vr->apool) < n)
+    if(vc_alts_len(&vr->apool) < n)
       var_list_populate(&vr->apool, n, vr->db_graph->num_of_cols);
 
-    size_t nadded = 0, nexisting_alleles = genovar_ptr_list_len(&vr->alist);
+    size_t nadded = 0, nprev_alts = vc_alts_len(&vr->alist);
     bool diff_chroms = false, overlap = false;
-    GenoVar *lvar = NULL;
+    VcfCovAlt *lvar = NULL;
 
-    if(nexisting_alleles) {
-      lvar = genovar_ptr_list_get(&vr->alist, nexisting_alleles-1);
+    if(nprev_alts) {
+      lvar = vc_alts_get(&vr->alist, nprev_alts-1);
       diff_chroms = (lvar->parent->v.rid != v->rid);
       int32_t var_end = lvar->parent->v.pos + strlen(lvar->parent->v.d.allele[0]);
       overlap = (!diff_chroms && var_end > v->pos);
 
       // Check VCF is sorted
       if(!diff_chroms && lvar->parent->v.pos > v->pos) {
-        die("VCF is not sorted: %s:%lli", vr->path, vr->vcffh->lineno);
+        die("VCF is not sorted: %s:%lli", vr->path, (long long)vr->vcffh->lineno);
       }
     }
 
-    ctx_assert2(!diff_chroms || genovar_ptr_list_len(&vr->anchrom) == 0,
+    ctx_assert2(!diff_chroms || vc_alts_len(&vr->anchrom) == 0,
                 "Already read diff chrom");
 
     // Load alleles into alist
-    GenoVar *var;
-    genovar_ptr_list_pop(&vr->apool, &var, 1);
-    GenoVarPtrList *list = diff_chroms ? &vr->anchrom : &vr->alist;
+    VcfCovAlt *var;
+    vc_alts_pop(&vr->apool, &var, 1);
+    VcfCovAltPtrList *list = diff_chroms ? &vr->anchrom : &vr->alist;
 
     // i==0 is ref allele
     for(i = 1; i < v->n_allele; i++) {
-      if(init_new_var(var, ve, i)) {
-        genovar_ptr_list_push(list, &var, 1);
-        genovar_ptr_list_pop(&vr->apool, &var, 1);
+      if(init_new_alt(var, ve, i)) {
+        vc_alts_push(list, &var, 1);
+        vc_alts_pop(&vr->apool, &var, 1);
         nadded++;
       }
     }
     // Re-add unused var back into pool
-    genovar_ptr_list_push(&vr->apool, &var, 1);
+    vc_alts_push(&vr->apool, &var, 1);
 
     if(nadded)
     {
       if(overlap || diff_chroms) {
-        genovars_sort(genovar_ptr_list_getptr(list, 0),
-                      genovar_ptr_list_len(list));
+        vcfcov_alts_sort(vc_alts_getptr(list, 0),
+                         vc_alts_len(list));
       } else {
         // Just sort the alleles we added to the end of alist
-        genovars_sort(genovar_ptr_list_getptr(&vr->alist, nexisting_alleles),
-                      genovar_ptr_list_len(&vr->alist) - nexisting_alleles);
+        vcfcov_alts_sort(vc_alts_getptr(&vr->alist, nprev_alts),
+                         vc_alts_len(&vr->alist) - nprev_alts);
       }
 
       return diff_chroms ? 0 : nadded;
@@ -342,37 +351,38 @@ static int vcfr_fetch(VcfReader *vr)
 
 static void vcfr_drop_var(VcfReader *vr, size_t idx)
 {
-  GenoVar *a = genovar_ptr_list_get(&vr->alist, idx);
-  genovar_ptr_list_append(&vr->aprint, a);
+  VcfCovAlt *a = vc_alts_get(&vr->alist, idx);
+  vc_alts_append(&vr->aprint, a);
   // Instead of removing `a` from sorted array vr->alist, set it to NULL
-  genovar_ptr_list_set(&vr->alist, idx, NULL);
+  vc_alts_set(&vr->alist, idx, NULL);
 }
 
 // Remove NULL entries from vr->alist
 static void vcfr_shrink_vars(VcfReader *vr)
 {
-  size_t i, j, len = genovar_ptr_list_len(&vr->alist);
-  GenoVar *var;
+  size_t i, j, len = vc_alts_len(&vr->alist);
+  VcfCovAlt *var;
   for(i = j = 0; i < len; i++) {
-    var = genovar_ptr_list_get(&vr->alist, i);
+    var = vc_alts_get(&vr->alist, i);
     if(var != NULL) {
-      genovar_ptr_list_set(&vr->alist, j, var);
+      vc_alts_set(&vr->alist, j, var);
       j++;
     }
   }
-  genovar_ptr_list_pop(&vr->alist, NULL, i-j);
+  vc_alts_pop(&vr->alist, NULL, i-j);
 }
 
-static int _genovar_cmp_vidx(const void *aa, const void *bb)
+static int _vcfcov_alt_cmp_vidx(const void *aa, const void *bb)
 {
-  const GenoVar *a = *(const GenoVar*const*)aa, *b = *(const GenoVar*const*)bb;
+  const VcfCovAlt *a = *(const VcfCovAlt*const*)aa;
+  const VcfCovAlt *b = *(const VcfCovAlt*const*)bb;
   return (long)a->parent->vidx - (long)b->parent->vidx;
 }
 
 static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
-                             GenoVar **alleles, size_t nalleles)
+                             VcfCovAlt **alleles, size_t nalleles)
 {
-  GenoVCF *var = alleles[0]->parent;
+  VcfCovLine *var = alleles[0]->parent;
   bcf1_t *v = &var->v;
   size_t nsamples = bcf_hdr_nsamples(outhdr);
   size_t i, col, aid, sid, nalts = v->n_allele-1, n = nsamples * nalts;
@@ -449,16 +459,16 @@ static void vcfr_print_waiting(VcfReader *vr, htsFile *outfh, bcf_hdr_t *outhdr,
                                bool force)
 {
   // Sort waiting by vidx
-  size_t num_a, alen = genovar_ptr_list_len(&vr->aprint);
+  size_t num_a, alen = vc_alts_len(&vr->aprint);
   if(alen == 0 || (!force && alen < PRINT_BUF_LIMIT)) return;
 
-  GenoVar **alleleptr = genovar_ptr_list_getptr(&vr->aprint, 0);
-  qsort(alleleptr, alen, sizeof(GenoVar*), _genovar_cmp_vidx);
+  VcfCovAlt **alleleptr = vc_alts_getptr(&vr->aprint, 0);
+  qsort(alleleptr, alen, sizeof(VcfCovAlt*), _vcfcov_alt_cmp_vidx);
 
   while(alen > 0)
   {
-    alleleptr = genovar_ptr_list_getptr(&vr->aprint, 0);
-    alen = genovar_ptr_list_len(&vr->aprint);
+    alleleptr = vc_alts_getptr(&vr->aprint, 0);
+    alen = vc_alts_len(&vr->aprint);
 
     num_a = 0;
     while(num_a < alen && alleleptr[num_a]->parent->vidx == vr->nxtprint)
@@ -471,34 +481,34 @@ static void vcfr_print_waiting(VcfReader *vr, htsFile *outfh, bcf_hdr_t *outhdr,
     vcfr_print_entry(vr, outfh, outhdr, alleleptr, num_a);
 
     // Re-add to vpool
-    genovcf_ptr_list_append(&vr->vpool, alleleptr[0]->parent);
+    vc_lines_append(&vr->vpool, alleleptr[0]->parent);
 
     // Re-add to apool
-    genovar_ptr_list_unshift(&vr->apool, alleleptr, num_a);
-    genovar_ptr_list_shift(&vr->aprint, NULL, num_a);
+    vc_alts_unshift(&vr->apool, alleleptr, num_a);
+    vc_alts_shift(&vr->aprint, NULL, num_a);
 
     vr->nxtprint++;
     alen -= num_a;
   }
 }
 
-static void vcfcov_vars(GenoVar **vars, size_t nvars,
-                          size_t tgtidx, size_t ntgts,
-                          const char *chrom, size_t chromlen,
-                          Genotyper *gtyper, const dBGraph *db_graph)
+static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
+                        size_t tgtidx, size_t ntgts,
+                        const char *chrom, size_t chromlen,
+                        Genotyper *gtyper, const dBGraph *db_graph)
 {
   ctx_assert(ntgts <= nvars);
 
-  GenoKmer *kmers = NULL;
+  HaploKmer *kmers = NULL;
   size_t i, end, nkmers;
 
   // Zero coverage on alleles before querying graph
   for(i = tgtidx, end = tgtidx+ntgts; i < end; i++)
-    genovar_wipe_covg(vars[i], db_graph->num_of_cols);
+    vcfcov_alt_wipe_covg(vars[i], db_graph->num_of_cols);
 
   if(nvars > max_gt_vars) { return; }
 
-  nkmers = genotyping_get_kmers(gtyper, (const GenoVar *const*)vars,
+  nkmers = genotyping_get_kmers(gtyper, (const VcfCovAlt *const*)vars,
                                 nvars, tgtidx, ntgts,
                                 chrom, chromlen,
                                 db_graph->kmer_size, &kmers);
@@ -514,7 +524,7 @@ static void vcfcov_vars(GenoVar **vars, size_t nvars,
 }
 
 // Get index of first of vars (starting at index i), which starts after endpos
-static inline int get_vcf_cov_end(GenoVar **vars, size_t nvars,
+static inline int get_vcf_cov_end(VcfCovAlt **vars, size_t nvars,
                                   size_t i, size_t endpos)
 {
   while(i < nvars && endpos > vars[i]->pos) { i++; }
@@ -522,7 +532,7 @@ static inline int get_vcf_cov_end(GenoVar **vars, size_t nvars,
 }
 
 // vars will be unordered after return
-static void vcfcov_block(GenoVar **vars, size_t nvars,
+static void vcfcov_block(VcfCovAlt **vars, size_t nvars,
                          const char *chrom, int chromlen,
                          Genotyper *gtyper, const dBGraph *db_graph)
 {
@@ -542,7 +552,7 @@ static void vcfcov_block(GenoVar **vars, size_t nvars,
     {
       // Get vars to the left of our genotyping-start (gs)
       for(i = j = (int)gs-1; i >= 0; i--) {
-        if(genovar_end(vars[i]) + ks > vars[gs]->pos) {
+        if(vcfcov_alt_end(vars[i]) + ks > vars[gs]->pos) {
           SWAP(vars[i], vars[j]);
           j--;
         }
@@ -550,11 +560,11 @@ static void vcfcov_block(GenoVar **vars, size_t nvars,
 
       bs = j+1;
       ge = gs+1;
-      be = get_vcf_cov_end(vars, nvars, ge, genovar_end(vars[ge-1])+ks);
+      be = get_vcf_cov_end(vars, nvars, ge, vcfcov_alt_end(vars[ge-1])+ks);
 
       // Try increasing ge, calculate be, accept if small enough
       for(tmp_ge = ge+1; tmp_ge < nvars; tmp_ge++) {
-        tmp_be = get_vcf_cov_end(vars, nvars, tmp_ge, genovar_end(vars[tmp_ge-1])+ks);
+        tmp_be = get_vcf_cov_end(vars, nvars, tmp_ge, vcfcov_alt_end(vars[tmp_ge-1])+ks);
         if(tmp_be - bs <= max_gt_vars) { ge = tmp_ge; be = tmp_be; }
         else break;
       }
@@ -589,7 +599,7 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
   const size_t kmer_size = db_graph->kmer_size;
   size_t i, start, end, endpos;
 
-  GenoVar **alist;
+  VcfCovAlt **alist;
   size_t alen;
 
   while((n = vcfr_fetch(&vr)) >= 0)
@@ -599,12 +609,12 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
     fetch_chrom(vcfhdr, &mdc_list_get(&vr.alist, 0)->parent->v, fai,
                 &refid, &chrom, &chromlen);
 
-    alist = genovar_ptr_list_getptr(&vr.alist, 0);
-    alen = genovar_ptr_list_len(&vr.alist);
+    alist = vc_alts_getptr(&vr.alist, 0);
+    alen = vc_alts_len(&vr.alist);
     ctx_assert(alen > 0);
 
     // Break into blocks
-    endpos = genovar_end(alist[0]) + kmer_size;
+    endpos = vcfcov_alt_end(alist[0]) + kmer_size;
     for(start = 0, end = 1; end < alen; end++) {
       if(endpos <= alist[end]->pos) {
         // end of block
@@ -612,7 +622,7 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
         for(i = start; i < end; i++) vcfr_drop_var(&vr, i);
         start = end;
       }
-      endpos = MAX2(endpos, genovar_end(alist[end])+kmer_size);
+      endpos = MAX2(endpos, vcfcov_alt_end(alist[end])+kmer_size);
     }
 
     if(n == 0) {
@@ -627,8 +637,8 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
   }
 
   // Deal with remainder
-  alist = genovar_ptr_list_getptr(&vr.alist, 0);
-  alen = genovar_ptr_list_len(&vr.alist);
+  alist = vc_alts_getptr(&vr.alist, 0);
+  alen = vc_alts_len(&vr.alist);
   if(alen) {
     // Get ref chromosome
     fetch_chrom(vcfhdr, &mdc_list_get(&vr.alist, 0)->parent->v, fai,
@@ -671,7 +681,8 @@ int ctx_vcfcov(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'r': cmd_check(!ref_path, cmd); ref_path = optarg; break;
-        break;
+      case 'L': cmd_check(!max_allele_len,cmd); max_allele_len = cmd_size(cmd,optarg); break;
+      case 'N': cmd_check(!max_gt_vars,cmd); max_gt_vars = cmd_uint32(cmd,optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -684,6 +695,12 @@ int ctx_vcfcov(int argc, char **argv)
   if(out_path == NULL) out_path = "-";
   if(ref_path == NULL) cmd_print_usage("Require a reference (-r,--ref <ref.fa>)");
   if(optind+2 > argc) cmd_print_usage("Require VCF and graph files");
+
+  if(!max_allele_len) max_allele_len = DEFAULT_MAX_ALLELE_LEN;
+  if(!max_gt_vars) max_gt_vars = DEFAULT_MAX_GT_VARS;
+
+  status("[vcfcov] max allele length: %zu; max number of variants: %u",
+         max_allele_len, max_gt_vars);
 
   // open ref
   // index fasta with: samtools faidx ref.fa
@@ -722,7 +739,7 @@ int ctx_vcfcov(int argc, char **argv)
                                         memargs.num_kmers,
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
-                                        -1, -1,
+                                        ctx_max_kmers, ctx_sum_kmers,
                                         true, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
