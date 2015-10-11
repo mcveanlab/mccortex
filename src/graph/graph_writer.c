@@ -119,7 +119,7 @@ size_t graph_write_kmer(FILE *fh, size_t num_bkmer_words, size_t num_cols,
   m += fwrite(bkmer.b, 1, sizeof(uint64_t) * num_bkmer_words, fh);
   m += fwrite(covgs, 1, sizeof(uint32_t) * num_cols, fh);
   m += fwrite(edges, 1, sizeof(uint8_t) * num_cols, fh);
-  if(m != expm) die("Cannot write to file");
+  if(m != expm) die("Cannot write to file (%zu, %zu)", m, expm);
   return m;
 }
 
