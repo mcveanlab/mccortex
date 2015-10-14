@@ -108,6 +108,20 @@ static void add_task(BuildGraphTask *task)
   }
 }
 
+// Exit with error if bad sample name
+static void check_sample_name(const char *sname)
+{
+  const char *s;
+  if(strlen(sname) < 1) die("Sample name is too short: '%s'", sname);
+  if(strcmp(sname,"undefined") == 0) die("Bad sample name: '%s'", sname);
+  if(strcmp(sname,"noname") == 0) die("Bad sample name: '%s'", sname);
+  if(sname[0] == '.') die("Sample name should start with a dot: '%s'", sname);
+  for(s = sname; *s; s++) {
+    if(isspace(*s)) die("Sample name should not contain whitespace: '%s'", sname);
+    if(!isgraph(*s)) die("Bad character in sample name: '%s'", sname);
+  }
+}
+
 static void parse_args(int argc, char **argv)
 {
   BuildGraphTask task = BUILD_GRAPH_TASK_INIT;
@@ -133,7 +147,7 @@ static void parse_args(int argc, char **argv)
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_kmer_size(cmd, optarg); break;
       case 's':
         intocolour++;
-        if(strcmp(optarg,"undefined") == 0) die("Bad sample name: %s", optarg);
+        check_sample_name(optarg);
         sample_name_buf_add(&snamebuf, (SampleName){.colour = intocolour,
                                                     .name = optarg});
         sample_named = true;
