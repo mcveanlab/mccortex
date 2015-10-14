@@ -30,12 +30,14 @@ size_t seq_contig_start2(const char *seq, size_t seqlen,
 size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
                         uint8_t qual_cutoff, uint8_t hp_cutoff);
 
+// Returns the index after the last good base
 size_t seq_contig_end2(const char *seq, size_t seqlen,
                        const char *qual, size_t quallen,
                        size_t contig_start, size_t kmer_size,
                        uint8_t qual_cutoff, uint8_t hp_cutoff,
                        size_t *search_start);
 
+// Returns the index after the last good base
 // *search_start is the next position to pass to seq_contig_start
 size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
                       uint8_t qual_cutoff, uint8_t hp_cutoff,

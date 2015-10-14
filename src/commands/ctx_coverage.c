@@ -87,10 +87,12 @@ void _print_edges(const Edges *edges, size_t col, size_t ncols,
                   size_t num, FILE *fout)
 {
   size_t i;
-  edges_print(fout, edges[col]);
-  for(i = 1; i < num; i++) {
-    fputc(' ', fout);
-    edges_print(fout, edges[i*ncols+col]);
+  if(num) {
+    edges_print(fout, edges[col]);
+    for(i = 1; i < num; i++) {
+      fputc(' ', fout);
+      edges_print(fout, edges[i*ncols+col]);
+    }
   }
   fputc('\n', fout);
 }
@@ -102,14 +104,14 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
 {
   // Find nodes, set covgs
   const size_t kmer_size = db_graph->kmer_size, ncols = db_graph->num_of_cols;
-  size_t kmer_length = r->seq.end < kmer_size ? 0 : r->seq.end - kmer_size + 1;
+  size_t klen = r->seq.end < kmer_size ? 0 : r->seq.end - kmer_size + 1;
 
-  covg_buf_capacity(covgbuf, ncols * kmer_length);
-  memset(covgbuf->b, 0, ncols * kmer_length * sizeof(Covg));
+  covg_buf_capacity(covgbuf, ncols * klen);
+  memset(covgbuf->b, 0, ncols * klen * sizeof(Covg));
 
   if(db_graph->col_edges) {
-    edges_buf_capacity(edgebuf, ncols * kmer_length);
-    memset(edgebuf->b, 0, ncols * kmer_length * sizeof(Edges));
+    edges_buf_capacity(edgebuf, ncols * klen);
+    memset(edgebuf->b, 0, ncols * klen * sizeof(Edges));
   }
 
   size_t i, j, col, search_start = 0;
@@ -144,33 +146,26 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   // Print sequence
   fprintf(fout, ">%s\n%s\n", r->name.b, r->seq.b);
 
-  // Print one colour per line
-  if(kmer_length == 0) {
-    for(i = 0; i < ncols; i++) {
-      if(db_graph->col_edges) fputc('\n', fout);
-      fputc('\n', fout);
+  for(col = 0; col < ncols; col++)
+  {
+    if(print_edges) {
+      fprintf(fout, ">%s_c%zu_edges\n", r->name.b, col);
+      _print_edges(edgebuf->b, col, ncols, klen, fout);
     }
-  }
-  else {
-    for(col = 0; col < ncols; col++)
-    {
-      if(print_edges) {
-        fprintf(fout, ">%s\n%s_edges\n", r->name.b, r->seq.b);
-        _print_edges(edgebuf->b, col, ncols, kmer_length, fout);
-      }
 
-      if(print_edge_degrees) {
-        fprintf(fout, ">%s\n%s_degree\n", r->name.b, r->seq.b);
-        _print_edge_degrees(edgebuf->b, col, ncols, kmer_length, fout);
-      }
+    if(print_edge_degrees) {
+      fprintf(fout, ">%s_c%zu_degree\n", r->name.b, col);
+      _print_edge_degrees(edgebuf->b, col, ncols, klen, fout);
+    }
 
-      // Print coverages
-      fprintf(fout, ">%s\n%s_covgs\n", r->name.b, r->seq.b);
+    // Print coverages
+    fprintf(fout, ">%s_c%zu_covgs\n", r->name.b, col);
+    if(klen > 0) {
       fprintf(fout, "%2u", covgbuf->b[col]);
-      for(i = 1; i < kmer_length; i++)
+      for(i = 1; i < klen; i++)
         fprintf(fout, " %2u", covgbuf->b[i*ncols+col]);
-      fputc('\n', fout);
     }
+    fputc('\n', fout);
   }
 }
 
@@ -237,8 +232,8 @@ int ctx_coverage(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  // kmer memory = Edges + paths + 1 bit per colour
-  bits_per_kmer = sizeof(BinaryKmer)*8 + //sizeof(GPath*)*8 +
+  // kmer memory = kmer + (coverage + edges) per colour
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
                   (sizeof(Covg) + (print_edges ? sizeof(Edges) : 0)) * 8 * ncols;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
@@ -262,7 +257,7 @@ int ctx_coverage(int argc, char **argv)
   size_t kmer_size = gfiles[0].hdr.kmer_size;
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, ncols, print_edges*ncols, kmers_in_hash,
+  db_graph_alloc(&db_graph, kmer_size, ncols, print_edges ? ncols : 0, kmers_in_hash,
                  DBG_ALLOC_COVGS | (print_edges ? DBG_ALLOC_EDGES : 0));
 
   //
@@ -273,6 +268,7 @@ int ctx_coverage(int argc, char **argv)
   GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
+                              .must_exist_in_edges = NULL,
                               .empty_colours = true};
 
   for(i = 0; i < num_gfiles; i++) {
@@ -295,14 +291,21 @@ int ctx_coverage(int argc, char **argv)
   read_t r;
   seq_read_alloc(&r);
 
+  status("Reading coverage...");
+  size_t nreads = 0;
+
   // Deal with one read at a time
   for(i = 0; i < sfilebuf.len; i++) {
     while(seq_read_primary(sfilebuf.b[i], &r) > 0) {
       print_read_covg(&db_graph, &r, &covgbuf, &edgebuf,
                       print_edges, print_edge_degrees, fout);
+      nreads++;
     }
     seq_close(sfilebuf.b[i]);
   }
+
+  char nstr[50];
+  status("Printed graph coverage for %s reads", ulong_to_str(nreads, nstr));
 
   seq_read_dealloc(&r);
   covg_buf_dealloc(&covgbuf);
