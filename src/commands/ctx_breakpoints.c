@@ -26,6 +26,7 @@ const char breakpoints_usage[] =
 "  -o, --out <out.txt.gz>  Save calls (gzipped output) [default: STDOUT]\n"
 "  -s, --seq <in>          Trusted input (can specify multiple times)\n"
 "  -r, --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
+"  -E, --no-ref-edges      Don't load edges from the reference\n"
 "\n";
 
 static struct option longopts[] =
@@ -42,6 +43,7 @@ static struct option longopts[] =
   {"seq",          required_argument, NULL, '1'},
   {"seq",          required_argument, NULL, 's'},
   {"minref",       required_argument, NULL, 'r'},
+  {"no-ref-edges", no_argument,       NULL, 'E'},
   {NULL, 0, NULL, 0}
 };
 
@@ -51,6 +53,7 @@ int ctx_breakpoints(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *output_file = NULL;
   size_t min_ref_flank = 0;
+  bool load_ref_edges = true; // by default load kmers and edges
 
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
@@ -90,6 +93,7 @@ int ctx_breakpoints(int argc, char **argv)
           die("Cannot read --seq file %s", optarg);
         seq_file_ptr_buf_add(&sfilebuf, tmp_sfile);
         break;
+      case 'E': cmd_check(load_ref_edges,cmd); load_ref_edges = false; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -250,7 +254,7 @@ int ctx_breakpoints(int argc, char **argv)
                    gzout, output_file,
                    rbuf.b, rbuf.len,
                    seq_paths, num_seq_paths,
-                   min_ref_flank,
+                   load_ref_edges, min_ref_flank,
                    hdrs, gpfiles.len,
                    &db_graph);
 

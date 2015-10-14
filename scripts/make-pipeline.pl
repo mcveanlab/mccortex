@@ -7,6 +7,7 @@ use warnings;
 use FindBin;
 use lib $FindBin::Bin;
 
+use List::Util qw(max min sum);
 use POSIX qw/strftime/;
 use CortexScripts;
 
@@ -143,10 +144,15 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   --dry-run              Print commands but not run them
 #   CTXDIR=<mccortex-dir>  e.g. CTXDIR=~/bin/mccortex
 #   MEM=<mem-to-use>       e.g. MEM=80G
-#   NTHREADS=<nthreads>
+#   NTHREADS=<nthreads>    Number of threads to use
 #   USE_LINKS=<B>          <B> is "yes" or "no"
 #   JOINT_CALLING=<B>      <B> is "yes" or "no"
-#
+#   SINGLE_SAMPLE=<1|0>   running with single sample (cannot be merged later!)
+#   MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)
+#   MIN_FRAG_LEN=<L>       minimum fragment length bp (=read+gap+read)
+#   MAX_FRAG_LEN=<L>       maximum fragment length bp (=read+gap+read)
+#   FQ_CUTOFF=10           base quality cut off (0=off)
+#   HP_CUTOFF=0            homopolymer run cut off (0=off)
 
 #
 # File structure:
@@ -238,34 +244,46 @@ print '# '.strftime("%F %T", localtime($^T)).'
 
 SHELL=/bin/bash -eou pipefail
 
-# General options
+#
+# Configuration (you can edit this bit)
+#
+
 CTXDIR='.$default_ctxdir.'
 MEM='.$default_mem.'
 NTHREADS='.$default_nthreads.'
 # Reference sequence (FASTA/FASTQ file) leave blank if none
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
+
 # Matepair orientation of library (FR,FF,RR,RF)
 MATEPAIR=FR
 MIN_FRAG_LEN=150
 MAX_FRAG_LEN=1000
+FQ_CUTOFF=10
+HP_CUTOFF=0
 
 # Set this to non-blank (e.g. 1) to stop infer edges from running.
 # Links generated with this set will not be usable in multicolour graphs.
 # If you have only one sample this will improve the calls.
 # Do not set it if you have more sample.
-SKIP_INFEREDGES=
+SINGLE_SAMPLE=0
+
+SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
 
 # Command arguments
-BUILD_ARGS=--fq-cutoff 10 --cut-hp 10 --keep-pcr --matepair $(MATEPAIR)
+BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
 KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
-THREAD_ARGS=--min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --fq-cutoff 5 --matepair $(MATEPAIR) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
+THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
 LINK_CLEANING_ARGS=--limit 5000 --threshold
 BREAKPOINTS_ARGS=--minref 20
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
 CALL2VCF_ARGS=--max-align 500 --max-allele 100 --min-mapq 30
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
+
+#
+# End of configuration
+#
 
 # Paths to scripts
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
@@ -324,8 +342,27 @@ ifndef JOINT_CALLING
   JOINT=1
 endif
 
+# INFER_EDGES is default on
+ifeq ($(SINGLE_SAMPLE),no)
+  INFER_EDGES=1
+endif
+ifeq ($(SINGLE_SAMPLE),false)
+  INFER_EDGES=1
+endif
+ifeq ($(SINGLE_SAMPLE),0)
+  INFER_EDGES=1
+endif
+ifndef SINGLE_SAMPLE
+  INFER_EDGES=1
+endif
+
 # LINKS is defined iff we are using links
 # JOINT is defined iff we are doing joint calling
+# INFER_EDGES is defined iff we are inferring edges
+
+ifdef INFER_EDGES
+  BREAKPOINTS_ARGS:=$(BREAKPOINTS_ARGS) --no-ref-edges
+endif
 
 ';
 
@@ -528,7 +565,7 @@ for my $k (@kmers) {
   if(defined($ref_path)) {
     print "# reference at k=$k\n";
     print "$proj/k$k/ref/ref.ctx: $ref_path | \$(DIRS)\n";
-    print "\t$ctx build \$(CTX_ARGS) \$(BUILD_ARGS) -k $k --sample ref --seq \$< \$@ >& \$@.log\n\n";
+    print "\t$ctx build \$(CTX_ARGS) -k $k --sample ref --seq \$< \$@ >& \$@.log\n\n";
   }
 
   print "# building sample graphs at k=$k\n";
@@ -559,7 +596,7 @@ for my $k (@kmers) {
   print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.clean.ctx\n";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
   print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
-  print "ifeq (\$(SKIP_INFEREDGES),)\n";
+  print "ifdef INFER_EDGES\n";
   print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
   print "endif\n";
   print "\n";
@@ -861,6 +898,7 @@ sub load_samples_file
   my ($path) = @_;
   my @samples = ();
   my %sample_names = ();
+  my @badnames = ("joint","1by1","undefined","noname");
   my $sfh = open_file($path);
   while(defined(my $line = <$sfh>)) {
     if($line !~ /^\s*$/ && $line !~ /^#/) {
@@ -868,9 +906,8 @@ sub load_samples_file
       if(@cols < 2 || @cols > 4) { die("Bad line"); }
       my ($sname, $se_txt, $pe_txt, $i_txt) = @cols;
       # Check sample name is sane and unique
-      if($sname !~ /^[a-z0-9_\-\.]+$/i) { die("Bad name: $sname"); }
-      if($sname eq "joint") { die("sample name cannot be 'joint'"); }
-      if($sname eq "1by1") { die("sample name cannot be '1by1'"); }
+      if($sname !~ /^[a-z0-9_\-][a-z0-9_\-\.\\]+$/i) { die("Bad name: $sname"); }
+      if(sum(map {$_ eq $sname} @badnames)) { die("Sample name cannot be: '$sname'"); }
       if(defined($sample_names{$sname})) { die("Duplicate sample name"); }
       # Parse file lists
       my @se_files = parse_file_list($se_txt);

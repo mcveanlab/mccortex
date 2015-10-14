@@ -535,7 +535,7 @@ static void breakpoint_caller(void *ptr)
 static void breakpoints_print_header(gzFile gzout, const char *out_path,
                                      char **seq_paths, size_t nseq_paths,
                                      const read_t *reads, size_t nreads,
-                                     size_t min_ref_flank,
+                                     bool load_ref_edges, size_t min_ref_flank,
                                      cJSON **hdrs, size_t nhdrs,
                                      size_t ref_col,
                                      const dBGraph *db_graph)
@@ -563,6 +563,8 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "breakpoints", "min_ref_flank_kmers",
                                             cJSON_CreateInt(min_ref_flank));
+  json_hdr_augment_cmd(json, "breakpoints", "load_ref_edges",
+                                            cJSON_CreateBool(load_ref_edges));
 
   // Add paths to reference files
   cJSON *ref_files = cJSON_CreateArray();
@@ -605,23 +607,30 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   cJSON_Delete(json);
 }
 
-void breakpoints_call(size_t num_of_threads, size_t ref_col,
+void breakpoints_call(size_t nthreads, size_t ref_col,
                       gzFile gzout, const char *out_path,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,
-                      size_t min_ref_flank,
+                      bool load_ref_edges, size_t min_ref_flank,
                       cJSON **hdrs, size_t nhdrs,
                       dBGraph *db_graph)
 {
-  KOGraph kograph = kograph_create(reads, num_reads, true, ref_col,
-                                   num_of_threads, db_graph);
+  // Temporarily hide edges from kograph_create if we don't want to load edges
+  Edges *tmp_edges = db_graph->col_edges;
+  if(!load_ref_edges) db_graph->col_edges = NULL;
 
-  BreakpointCaller *callers = brkpt_callers_new(num_of_threads, gzout,
+  KOGraph kograph = kograph_create(reads, num_reads, true, ref_col,
+                                   nthreads, db_graph);
+
+  // Restore graph edges
+  db_graph->col_edges = tmp_edges;
+
+  BreakpointCaller *callers = brkpt_callers_new(nthreads, gzout,
                                                 min_ref_flank,
                                                 kograph, db_graph);
 
   status("Running BreakpointCaller with %zu thread%s, output to: %s",
-         num_of_threads, util_plural_str(num_of_threads),
+         nthreads, util_plural_str(nthreads),
          futil_outpath_str(out_path));
 
   status("  Finding breakpoints after at least %zu kmers (%zubp) of homology",
@@ -630,17 +639,17 @@ void breakpoints_call(size_t num_of_threads, size_t ref_col,
   breakpoints_print_header(gzout, out_path,
                            seq_paths, num_seq_paths,
                            reads, num_reads,
-                           min_ref_flank,
+                           load_ref_edges, min_ref_flank,
                            hdrs, nhdrs,
                            ref_col, db_graph);
 
-  util_run_threads(callers, num_of_threads, sizeof(callers[0]),
-                   num_of_threads, breakpoint_caller);
+  util_run_threads(callers, nthreads, sizeof(callers[0]),
+                   nthreads, breakpoint_caller);
 
   char call_num_str[100];
   ulong_to_str(callers[0].callid[0], call_num_str);
   status("  %s calls printed to %s", call_num_str, futil_outpath_str(out_path));
 
-  brkpt_callers_destroy(callers, num_of_threads);
+  brkpt_callers_destroy(callers, nthreads);
   kograph_free(kograph);
 }
