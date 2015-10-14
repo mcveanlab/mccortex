@@ -64,6 +64,11 @@ void genotyper_destroy(Genotyper *typer);
 // 0x5 in binary is 0101
 #define genotyping_refalt_uniq(b) (((b) ^ ((b)>>1)) & 0x5555555555555555UL)
 
+static inline uint64_t genotyping_refalt_nonuniq(uint64_t b) {
+  b = (b & (b>>1)) & 0x5555555555555555UL;
+  return b | (b<<1);
+}
+
 /**
  * Get a list of kmers which support variants.
  * @param typer     initialised memory to use
