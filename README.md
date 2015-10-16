@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-10 August 2015
+15 Oct 2015
 
 Branch         | Status
 ---------------|--------
@@ -29,11 +29,11 @@ Download with:
 
 To compile for a maximum kmer size of 31:
 
-    make
+    make all
 
 to compile for a maximum kmer size of 63:
 
-    make MAXK=63
+    make MAXK=63 all
 
 Executables appear in the `bin/` directory.
 

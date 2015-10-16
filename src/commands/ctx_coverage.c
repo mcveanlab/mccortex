@@ -18,7 +18,7 @@ const char coverage_usage[] =
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
-"  -E, --degree         Print edge degree: 00! 01+ 02{ 10- 11= 12< 20} 21> 22*\n"
+"  -E, --degree         Print edge degree: 00. 01/ 02[ 10\\ 11- 12{ 20] 21} 22X\n"
 "  -s, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
 "  -o, --out <out.txt>  Save output [default: STDOUT]\n"
 "\n";
@@ -62,15 +62,15 @@ static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
 
 // Print in/outdegree - For debugging mostly
 // indegree/outdegree (2 means >=2)
-// 00: ! 01: + 02: {
-// 10: - 11: = 12: <
-// 20: } 21: > 22: *
+// 00: . 01: / 02: [
+// 10: \ 11: - 12: {
+// 20: ] 21: } 22: X
 static inline
 void _print_edge_degrees(const Edges *edges, size_t col, size_t ncols,
                          size_t num, FILE *fout)
 {
   size_t i, indegree, outdegree;
-  const char symbols[3][3] = {"!+{", "-=<", "}>*"};
+  const char symbols[3][3] = {"./[", "\\-{", "]}X"};
   for(i = 0; i < num; i++) {
     indegree  = MIN2(edges_get_indegree(edges[i*ncols+col],  FORWARD), 2);
     outdegree = MIN2(edges_get_outdegree(edges[i*ncols+col], FORWARD), 2);

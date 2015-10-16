@@ -1,0 +1,27 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=599>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=NK21R,Number=A,Type=Integer,Description="Number of exclusive kmers on ref for each allele (k=21)">
+##FORMAT=<ID=NK21A,Number=A,Type=Integer,Description="Number of exclusive kmers on alt for each allele (k=21)">
+##FORMAT=<ID=CK21R,Number=A,Type=Integer,Description="Mean ref exclusive kmer coverage (k=21)">
+##FORMAT=<ID=CK21A,Number=A,Type=Integer,Description="Mean alt exclusive kmer coverage (k=21)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	John	Jane
+ref	1	.	A	T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	1:1:2:1	0:0:0:0	0:0:0:0
+ref	1	.	A	T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	1:1:2:1	0:0:0:0	0:0:0:0
+ref	1	.	A	G	.	PASS	.	NK21R:NK21A:CK21R:CK21A	1:0:2:0	0:1:0:1	0:0:0:0
+ref	1	.	A	G	.	PASS	.	NK21R:NK21A:CK21R:CK21A	1:0:2:0	0:1:0:1	0:0:0:0
+ref	1	.	A	C	.	PASS	.	NK21R:NK21A:CK21R:CK21A	1:0:2:0	0:1:0:1	0:0:0:0
+ref	1	.	A	C,T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	1,1:0,1:2,2:0,1	0,0:1,0:0,0:1,0	0,0:0,0:0,0:0,0
+ref	50	.	G	T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	21:21:2:1	0:0:0:0	0:0:0:0
+ref	50	.	G	T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	21:21:2:1	0:0:0:0	0:0:0:0
+ref	50	.	G	A	.	PASS	.	NK21R:NK21A:CK21R:CK21A	21:0:2:0	0:21:0:1	0:0:0:0
+ref	50	.	G	A	.	PASS	.	NK21R:NK21A:CK21R:CK21A	21:0:2:0	0:21:0:1	0:0:0:0
+ref	50	.	G	C	.	PASS	.	NK21R:NK21A:CK21R:CK21A	21:0:2:0	0:21:0:1	0:0:0:0
+ref	199	.	G	T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	2:2:2:1	0:0:0:0	0:0:0:0
+ref	199	.	G	T	.	PASS	.	NK21R:NK21A:CK21R:CK21A	2:2:2:1	0:0:0:0	0:0:0:0
+ref	199	.	G	C	.	PASS	.	NK21R:NK21A:CK21R:CK21A	2:0:2:0	0:2:0:1	0:0:0:0
+ref	199	.	G	C	.	PASS	.	NK21R:NK21A:CK21R:CK21A	2:0:2:0	0:2:0:1	0:0:0:0
+ref	199	.	G	A	.	PASS	.	NK21R:NK21A:CK21R:CK21A	2:0:2:0	0:2:0:1	0:0:0:0

@@ -153,6 +153,7 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   MAX_FRAG_LEN=<L>       maximum fragment length bp (=read+gap+read)
 #   FQ_CUTOFF=10           base quality cut off (0=off)
 #   HP_CUTOFF=0            homopolymer run cut off (0=off)
+#   BRK_REF_KMERS=N        num of flanking ref kmers required by breakpoint caller
 
 #
 # File structure:
@@ -268,6 +269,7 @@ HP_CUTOFF=0
 SINGLE_SAMPLE=0
 
 SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
+BRK_REF_KMERS=10
 
 # Command arguments
 BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
@@ -275,7 +277,7 @@ KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
 LINK_CLEANING_ARGS=--limit 5000 --threshold
-BREAKPOINTS_ARGS=--minref 20
+BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS)
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
 CALL2VCF_ARGS=--max-align 500 --max-allele 100 --min-mapq 30
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
@@ -541,8 +543,9 @@ contigs-pop: $(CONTIGS_POP) | checks
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
-  print "\t@[ -x \$(CTXDIR)/bin/mccortex$maxk ] || ( echo 'Error: Please compile cortex with `make MAXK=$maxk` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
+  print "\t@[ -x \$(CTXDIR)/bin/mccortex$maxk ] || ( echo 'Error: Please compile McCortex with `make MAXK=$maxk all` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
 }
+print "\t@[ -x \$(CTXDIR)/libs/bcftools/bcftools ] || ( echo 'Error: Please compile McCortex with `make all` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
 
 print "
 \$(DIRS):

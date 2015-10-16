@@ -216,7 +216,7 @@ DIRS=bin \
 ifdef NOLIBS
 	DEPS=Makefile $(DIRS) $(LIB_OBJS)
 else
-	DEPS=Makefile $(DIRS) $(LIB_OBJS) libs
+	DEPS=Makefile $(DIRS) $(LIB_OBJS) libs-core
 endif
 
 REQ=
@@ -232,11 +232,14 @@ endif
 
 .DEFAULT_GOAL := mccortex
 
-all: mccortex tests tables
+all: mccortex tests tables libs-other
 
 # Update libraries
-libs:
-	cd libs && $(MAKE)
+libs-core:
+	cd libs && $(MAKE) core
+
+libs-other:
+	cd libs && $(MAKE) other
 
 # Run tests
 test: tests

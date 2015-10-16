@@ -63,6 +63,7 @@ static bool vars_compatible(const VcfCovAlt *const*vars, size_t nvars,
 
 // Generate the DNA string sequence of a haplotype
 // Store it in parameter seq
+// @param regend not inclusive
 static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
                                           size_t regstart, size_t regend,
                                           const VcfCovAlt *const*vars,
@@ -72,7 +73,7 @@ static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
   uint64_t i, end = regstart;
 
   for(i = 0; i < nvars; i++, bits>>=1) {
-    if(bits & 1) {
+    if(bits & 1UL) {
       ctx_assert(end <= vars[i]->pos);
       strbuf_append_strn(seq, chrom+end, vars[i]->pos-end);
       strbuf_append_strn(seq, vars[i]->alt, vars[i]->altlen);
@@ -80,11 +81,14 @@ static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
     }
   }
   strbuf_append_strn(seq, chrom+end, regend-end);
+  // printf("hapstr: %s %zu-%zu\n", seq->b, regstart, regend);
 }
 
 //                 arararararar r=ref, a=alt
 // var:  543210    554433221100
-// bits: 010110 -> 011001101001
+// bits: 010110 -> 011001101000
+// bits: 000000 -> 010101010101  // reference special case not handled here
+//
 static inline uint64_t varbits_to_altrefbits(uint64_t bits,
                                              size_t tgtidx,
                                              size_t ntgts)
@@ -93,7 +97,7 @@ static inline uint64_t varbits_to_altrefbits(uint64_t bits,
   uint64_t i, r = 0;
   bits >>= tgtidx;
   for(i = 0; i < ntgts; i++, bits>>=1)
-    r |= 1UL << (i*2 + (bits&1));
+    r |= (bits&1) << (i*2+1);
   return r;
 }
 
@@ -136,8 +140,8 @@ size_t genotyping_get_kmers(Genotyper *typer,
   regend = regstart;
 
   for(i = 0; i < tgtidx; i++) regend = MAX2(regend, varend(vars[i]));
-  for(i = tgtidx; i < tgtend; i++) regend = MAX2(regend, varend(vars[i])+(int)kmer_size);
-  for(i = tgtend; i < nvars; i++) regend = MAX2(regend, varend(vars[i]));
+  for(; i < tgtend; i++) regend = MAX2(regend, varend(vars[i])+(int)kmer_size-1);
+  for(; i < nvars; i++) regend = MAX2(regend, varend(vars[i]));
 
   regend = MIN2(regend, (int)chromlen);
 
@@ -151,16 +155,20 @@ size_t genotyping_get_kmers(Genotyper *typer,
   // kh_clear(BkToBits, h);
 
   // Start with ref haplotype (no variants)
-  uint64_t bits = 0, limit = 1UL<<nvars, altref_bits;
+  uint64_t bits, limit, altref_bits, altref_bits0;
   size_t cstart, cend, cnext;
 
-  for(; bits < limit; bits++) {
+  for(i = 0; i < ntgts; i++)
+    altref_bits0 = (altref_bits0<<2) | 1;
+
+  for(bits = 0, limit = 1UL<<nvars; bits < limit; bits++) {
     if(vars_compatible(vars, nvars, bits)) {
       // Construct haplotype
       assemble_haplotype_str(seq, chrom, regstart, regend,
                              vars, nvars, bits);
 
-      altref_bits = varbits_to_altrefbits(bits, tgtidx, ntgts);
+      altref_bits = bits ? varbits_to_altrefbits(bits, tgtidx, ntgts)
+                         : altref_bits0;
 
       // Covert to kmers, find/add them to the hash table, OR bits
       // Split contig at non-ACGT bases (e.g. N)
@@ -210,6 +218,6 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
 void genotyping_tests()
 {
-  ctx_assert(varbits_to_altrefbits( 0b010110, 0, 6) == 0b011001101001);
-  ctx_assert(varbits_to_altrefbits(0b0101101, 1, 5) ==   0b1001101001);
+  ctx_assert(varbits_to_altrefbits( 0b010110, 0, 6) == 0b001000101000);
+  ctx_assert(varbits_to_altrefbits(0b0101101, 1, 5) ==   0b1000101000);
 }

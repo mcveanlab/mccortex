@@ -1,0 +1,34 @@
+SHELL=/bin/bash -euo pipefail
+
+CTXDIR=../../..
+MCCORTEX31=$(CTXDIR)/bin/mccortex31
+VCFNALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
+
+REF=../ref/ref.fa
+K=21
+
+#
+# Test vcfcov with an empty VCF
+#
+
+all: check
+
+clean:
+	rm -rf calls.cov.vcf graph.k$(K).ctx
+
+calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
+	$(MCCORTEX31) vcfcov -o $@ -r $(REF) calls.vcf graph.k$(K).ctx
+
+graph.k$(K).ctx:
+	$(MCCORTEX31) build -k $(K) \
+	  --sample John --seq <(echo '') \
+	  --sample Jane --seq <(echo '') \
+	  $@
+
+check: calls.cov.vcf
+	[[ `$(VCFNALLELES) calls.cov.vcf` -eq 0 ]]
+
+view: calls.cov.vcf
+	zcat -f calls.cov.vcf
+
+.PHONY: all clean view check

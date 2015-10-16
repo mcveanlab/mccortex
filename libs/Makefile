@@ -5,16 +5,15 @@ SHELL=/bin/bash
 # make clean    <- clean all libraries
 
 CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
-COMMON=bcftools samtools bwa readsim bioinf-perl maximal_substrs vcf-slim
+OTHER=bcftools samtools bwa readsim bioinf-perl maximal_substrs vcf-slim
 
-ALLTGTS=$(CORE) $(COMMON)
+ALLTGTS=$(CORE) $(OTHER)
 
-all: core common
-
-# Only compile dependencies for compiling ninja-cortex itself
+# Only compile dependencies for compiling McCortex itself
 core: $(CORE)
+other: $(OTHER)
 
-common: $(COMMON)
+all: core other
 
 # Download of git hosted libraries now done with git submodules
 
