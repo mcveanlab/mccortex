@@ -5,13 +5,13 @@
 #
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args) != 2) {
-  stop("Usage: R --vanilla --file=plot-hist-hist.R --args <lengths.csv> <lengths.pdf>\n")
+  stop("Usage: Rscript --vanilla plot-hist-hist.R <lengths.csv> <lengths.pdf>\n")
 }
 
 input_csv=args[1]
 output_pdf=args[2]
 
-require(ggplot2)
+require('ggplot2')
 
 d=read.csv(file=input_csv,sep=',',as.is=T)
 

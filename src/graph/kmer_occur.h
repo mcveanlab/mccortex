@@ -50,7 +50,7 @@ typedef struct {
 } KOccurRun;
 
 #include "madcrowlib/madcrow_buffer.h"
-madcrow_buffer(kmer_run_buf, KOccurRunBuffer, KOccurRun);
+madcrow_buffer(korun_buf, KOccurRunBuffer, KOccurRun);
 
 /**
  * Create a KOGraph from given sequence reads
@@ -62,31 +62,34 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
                        bool add_missing_kmers, size_t ref_col,
                        size_t num_threads, dBGraph *db_graph);
 
-void kograph_free(KOGraph kograph);
+void kograph_dealloc(KOGraph *kograph);
 
 // Get KOccur* to first occurance of a kmer in sequence
-#define kograph_get(kograph,hkey) ((kograph).klists[hkey].first)
+#define kograph_get(kograph,hkey) ((kograph)->klists[hkey].first)
 
-#define kograph_occurs(kograph,hkey) ((kograph).klists[hkey].first != NULL)
+#define kograph_occurs(kograph,hkey) (kograph_get(kograph,hkey) != NULL)
 
 // Get the chromosome from which a kmer came (occur can be KOccurRun or KOccur)
-#define kograph_chrom(kograph,occur) ((kograph).chroms[(occur).chrom])
+#define kograph_chrom(kograph,occur) ((kograph)->chroms[(occur).chrom])
 
 #define korun_len(run) ((run).strand == STRAND_PLUS ? (run).last-(run).first+1 \
                                                     : (run).first-(run).last+1)
 
+// Sort by query offset
 void koruns_sort_by_qoffset(KOccurRun *runs, size_t n);
 
-// Filter regions down to only those that stretch the whole distance
-// Does not reset either korun or runs_ended - only adds to runs_ended
-// korun can only get shorter as KOccurRuns finish
-// `qoffset` is used for offset of new runs starting at nodes[0]
-void kograph_filter_extend(KOGraph kograph,
+/**
+ * Filter regions down to only those that stretch the whole distance
+ * Does not reset either korun or runs_ended - only adds to runs_ended
+ * @param korun list of existing runs, on return list of remaining runs
+ * @param qoffset is used for offset of new runs starting
+ */
+void kograph_filter_extend(const KOGraph *kograph,
                            const dBNode *nodes, size_t num_nodes, bool forward,
                            size_t min_len, size_t qoffset,
                            KOccurRunBuffer *korun,
-                           KOccurRunBuffer *runs_ended,
-                           bool pickup_at_first_node);
+                           KOccurRunBuffer *koruns_tmp,
+                           KOccurRunBuffer *runs_ended);
 
 // Mostly used for debugging
 void korun_print(KOccurRun run, size_t kmer_size, FILE *fout);
@@ -95,20 +98,20 @@ void korun_print(KOccurRun run, size_t kmer_size, FILE *fout);
 //   e.g. "chromid:1:17-5:-, chromid:1:37-47:+"
 // Does not print new line
 // Mostly used for debugging
-void koruns_print(KOccurRun *run, size_t n, size_t kmer_size, FILE *fout);
+void koruns_print(const KOccurRun *run, size_t n, size_t kmer_size, FILE *fout);
 
 void korun_gzprint(gzFile gzout, size_t kmer_size,
-                   KOGraph kograph, KOccurRun korun,
+                   const KOGraph *kograph, KOccurRun korun,
                    size_t first_kmer_idx, size_t kmer_offset);
 
-void koruns_gzprint(gzFile gzout, size_t kmer_size, KOGraph kograph,
+void koruns_gzprint(gzFile gzout, size_t kmer_size, const KOGraph *kograph,
                     const KOccurRun *koruns, size_t n,
                     size_t first_kmer_idx, size_t kmer_offset);
 
 // src, dst can point to the same place
 // returns number of elements added
 static inline
-size_t koruns_filter(KOccurRun *src, size_t n, KOccurRun *dst, size_t min_kmers)
+size_t koruns_filter(KOccurRun *dst, size_t min_kmers, KOccurRun *src, size_t n)
 {
   size_t i, j;
   for(i = j = 0; i < n; i++)

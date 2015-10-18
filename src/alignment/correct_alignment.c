@@ -114,7 +114,7 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
                                          GraphWalker *wlk, RepeatWalker *rptwlk,
                                          bool only_in_col, bool do_paths_check)
 {
-  dBNode end_node = forward ? block[0] : db_node_reverse(block[n-1]);
+  dBNode end_node = db_nodes_get(block, n, forward, 0);
 
   // char tmpstr[MAX_KMER_SIZE+3];
   // db_node_to_str(wlk->db_graph, end_node, tmpstr);

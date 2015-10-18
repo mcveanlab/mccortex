@@ -97,7 +97,8 @@ void file_filter_set_cols(FileFilter *fltr, size_t filencols, size_t into_offset
 
   if(from_fltr) {
     int s = range_get_num(from_fltr, filencols-1);
-    if(s == -1) die("Invalid filter path: %s", fltr->input.b);
+    if(s < 0)
+      die("Invalid filter path: %s (file cols: %zu)", fltr->input.b, filencols);
     ncols = s;
   } else {
     ncols = filencols;

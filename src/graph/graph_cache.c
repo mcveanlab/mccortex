@@ -16,38 +16,44 @@
 void graph_cache_alloc(GraphCache *cache, const dBGraph *db_graph)
 {
   db_node_buf_alloc(&cache->node_buf, 1024);
-  cache_snode_buf_alloc(&cache->snode_buf, 1024);
+  cache_unitig_buf_alloc(&cache->unitig_buf, 1024);
   cache_step_buf_alloc(&cache->step_buf, 1024);
   cache_path_buf_alloc(&cache->path_buf, 1024);
-  cache->snode_hash = kh_init(SnodeIdHash);
+  cache->node2unitig = kh_init(Node2Unitig);
   cache->db_graph = db_graph;
 }
 
 void graph_cache_dealloc(GraphCache *cache)
 {
-  kh_destroy(SnodeIdHash, cache->snode_hash);
+  kh_destroy(Node2Unitig, cache->node2unitig);
   db_node_buf_dealloc(&cache->node_buf);
-  cache_snode_buf_dealloc(&cache->snode_buf);
+  cache_unitig_buf_dealloc(&cache->unitig_buf);
   cache_step_buf_dealloc(&cache->step_buf);
   cache_path_buf_dealloc(&cache->path_buf);
 }
 
-// Encode supernode and orientation into a 32bit integer
-#define _graph_cache_step_encode(step) \
-        (((uint32_t)(step)->supernode << 1) | (step)->orient)
-
-// Returns pathid
-uint32_t graph_cache_new_path(GraphCache *cache)
+void graph_cache_reset(GraphCache *cache)
 {
-  GCachePath path = {.first_step = cache->step_buf.len, .num_steps = 0};
-  return cache_path_buf_add(&cache->path_buf, path);
+  kh_clear(Node2Unitig, cache->node2unitig);
+  db_node_buf_reset(&cache->node_buf);
+  cache_unitig_buf_reset(&cache->unitig_buf);
+  cache_step_buf_reset(&cache->step_buf);
+  cache_path_buf_reset(&cache->path_buf);
 }
 
-// Create a supernode starting at node/or.  Store in snode.
-// Ensure snode->nodes and snode->orients point to valid memory before passing
-// Returns 0 on failure, otherwise snode->num_of_nodes
-static inline void _create_supernode(GraphCache *cache, dBNode node,
-                                     GCacheSnode *snode)
+// Returns pathid
+const GCachePath* graph_cache_new_path(GraphCache *cache)
+{
+  GCachePath path = {.first_step = cache->step_buf.len, .num_steps = 0};
+  uint32_t pid = cache_path_buf_add(&cache->path_buf, path);
+  return cache->path_buf.b + pid;
+}
+
+// Create a unitig starting at node/or.  Store in unitig.
+// Ensure unitig->nodes and unitig->orients point to valid memory before passing
+// Returns 0 on failure, otherwise unitig->num_of_nodes
+static inline void gc_create_unitig(GraphCache *cache, dBNode node,
+                                    GCacheUnitig *unitig)
 {
   const dBGraph *db_graph = cache->db_graph;
   ctx_assert(db_graph->num_edge_cols == 1);
@@ -88,9 +94,9 @@ static inline void _create_supernode(GraphCache *cache, dBNode node,
   uint8_t prev_packed = binary_seq_pack_byte(prev_bases);
   uint8_t next_packed = binary_seq_pack_byte(next_bases);
 
-  GCacheSnode tmp = {.first_node_id = first_node_id,
+  GCacheUnitig tmp = {.first_node_id = first_node_id,
                      .num_nodes = num_nodes,
-                     .first_step = UINT32_MAX,
+                     .stepid = UINT32_MAX,
                      .num_prev = num_prev,
                      .prev_bases = prev_packed,
                      .prev_nodes[0] = prev_nodes[0],
@@ -104,85 +110,167 @@ static inline void _create_supernode(GraphCache *cache, dBNode node,
                      .next_nodes[2] = next_nodes[2],
                      .next_nodes[3] = next_nodes[3]};
 
-  memcpy(snode, &tmp, sizeof(GCacheSnode));
+  memcpy(unitig, &tmp, sizeof(GCacheUnitig));
 }
 
-Orientation graph_cache_get_supernode_orient(const GraphCache *cache,
-                                             const GCacheSnode *snode,
-                                             dBNode first_node)
+// Get node from opposite end of the unitig
+static inline dBNode get_node_at_unitig_end(GraphCache *cache,
+                                            GCacheUnitig *unitig,
+                                            dBNode node)
 {
-  dBNode *snode0 = graph_cache_node(cache, snode->first_node_id);
-  return db_nodes_are_equal(*snode0, first_node) ? FORWARD : REVERSE;
-}
-
-// Get node from opposite end of the supernode
-static inline dBNode _node_at_snode_end(GraphCache *cache,
-                                        GCacheSnode *snode,
-                                        dBNode node)
-{
-  dBNode *first_node = graph_cache_node(cache, snode->first_node_id);
+  dBNode *first_node = graph_cache_node(cache, unitig->first_node_id);
   if(db_nodes_are_equal(*first_node, node))
-    return db_node_reverse(first_node[snode->num_nodes-1]);
+    return db_node_reverse(first_node[unitig->num_nodes-1]);
   else
     return *first_node;
 }
 
-// Returns stepid
-uint32_t graph_cache_new_step(GraphCache *cache, dBNode node)
+// Returns new step
+const GCacheStep* graph_cache_new_step(GraphCache *cache, dBNode node)
 {
   // Get current path
   uint32_t pathid = cache->path_buf.len-1;
   GCachePath *path = graph_cache_path(cache, pathid);
 
-  // Find or add supernode beginning with given node
-  uint32_t snodeid;
+  // Find or add unitig beginning with given node
+  uint32_t unitigid;
   int hashret;
-  khiter_t k = kh_put(SnodeIdHash, cache->snode_hash, node, &hashret);
-  bool supernode_already_exists = (hashret == 0);
+  khiter_t k = kh_put(Node2Unitig, cache->node2unitig, node, &hashret);
+  bool unitig_already_exists = (hashret == 0);
 
-  if(supernode_already_exists) {
-    snodeid = kh_value(cache->snode_hash, k);
+  if(unitig_already_exists) {
+    unitigid = kh_value(cache->node2unitig, k);
   }
   else {
-    // Create supernode
-    GCacheSnode tmp_snode;
-    _create_supernode(cache, node, &tmp_snode);
-    snodeid = cache_snode_buf_add(&cache->snode_buf, tmp_snode);
-    kh_value(cache->snode_hash, k) = snodeid;
+    // Create unitig
+    GCacheUnitig tmp_unitig;
+    gc_create_unitig(cache, node, &tmp_unitig);
+    unitigid = cache_unitig_buf_add(&cache->unitig_buf, tmp_unitig);
+    kh_value(cache->node2unitig, k) = unitigid;
 
     // Get node at other end
-    dBNode end_node = _node_at_snode_end(cache, &tmp_snode, node);
-    k = kh_put(SnodeIdHash, cache->snode_hash, end_node, &hashret);
-    kh_value(cache->snode_hash, k) = snodeid;
+    dBNode end_node = get_node_at_unitig_end(cache, &tmp_unitig, node);
+    k = kh_put(Node2Unitig, cache->node2unitig, end_node, &hashret);
+    kh_value(cache->node2unitig, k) = unitigid;
   }
 
-  GCacheSnode *snode = graph_cache_snode(cache, snodeid);
+  GCacheUnitig *unitig = graph_cache_unitig(cache, unitigid);
 
   // Get orient
-  Orientation snode_orient = graph_cache_get_supernode_orient(cache, snode, node);
+  Orientation unitig_orient = gc_unitig_get_orient(cache, unitig, node);
 
   // New step
-  GCacheStep next = {.orient = snode_orient, .supernode = snodeid,
-                     .pathid = pathid, .next_step = snode->first_step};
+  GCacheStep next = {.orient = unitig_orient, .unitigid = unitigid,
+                     .pathid = pathid, .next_step = unitig->stepid};
   uint32_t stepid = cache_step_buf_push(&cache->step_buf, &next, 1);
 
-  // Add link from prev supernode step
-  snode->first_step = stepid;
+  // Add link from prev unitig step
+  unitig->stepid = stepid;
 
   path->num_steps++;
-  return stepid;
+  return cache->step_buf.b + stepid;
 }
 
-void graph_cache_reset(GraphCache *cache)
+// Returns NULL if not found
+GCacheUnitig* graph_cache_find_unitig(GraphCache *cache, dBNode node)
 {
-  kh_clear(SnodeIdHash, cache->snode_hash);
-  db_node_buf_reset(&cache->node_buf);
-  cache_snode_buf_reset(&cache->snode_buf);
-  cache_step_buf_reset(&cache->step_buf);
-  cache_path_buf_reset(&cache->path_buf);
+  uint32_t unitigid;
+  khiter_t k = kh_get(Node2Unitig, cache->node2unitig, node);
+  bool is_missing = (k == kh_end(cache->node2unitig));
+
+  if(!is_missing) {
+    unitigid = kh_value(cache->node2unitig, k);
+    return graph_cache_unitig(cache, unitigid);
+  }
+
+  return NULL;
 }
 
-// Sort by supernodes up to (and including) this point
+
+//
+// Paths
+//
+
+size_t gc_path_get_nkmers(const GraphCache *cache, const GCachePath *path)
+{
+  size_t n = 0;
+  const GCacheStep *endstep, *step = graph_cache_step(cache, path->first_step);
+  for(endstep = step + path->num_steps; step < endstep; step++)
+    n += gc_step_get_nkmers(cache, step);
+  return n;
+}
+
+void gc_path_fetch_nodes(const GraphCache *cache,
+                         const GCachePath *path, size_t num_steps,
+                         dBNodeBuffer *nbuf)
+{
+  ctx_assert(num_steps <= path->num_steps);
+
+  const GCacheStep *endstep, *step = graph_cache_step(cache, path->first_step);
+  const GCacheUnitig *unitig;
+
+  for(endstep = step + num_steps; step < endstep; step++) {
+    unitig = graph_cache_unitig(cache, step->unitigid);
+    gc_unitig_fetch_nodes(cache, unitig, step->orient, nbuf);
+  }
+}
+
+//
+// Unitigs
+//
+
+Orientation gc_unitig_get_orient(const GraphCache *cache,
+                                 const GCacheUnitig *unitig,
+                                 dBNode first_node)
+{
+  dBNode *unitig0 = graph_cache_node(cache, unitig->first_node_id);
+  return db_nodes_are_equal(*unitig0, first_node) ? FORWARD : REVERSE;
+}
+
+// Get all nodes in a single step (unitig with orientation)
+// Adds to the end of the node buffer (does not reset it)
+void gc_unitig_fetch_nodes(const GraphCache *cache,
+                           const GCacheUnitig *unitig,
+                           Orientation orient,
+                           dBNodeBuffer *nbuf)
+{
+  const dBNode *nodes = graph_cache_node(cache, unitig->first_node_id);
+  const dBNode *end = nodes + unitig->num_nodes;
+  dBNode *into;
+
+  db_node_buf_capacity(nbuf, nbuf->len + unitig->num_nodes);
+
+  if(orient == FORWARD) {
+    memcpy(nbuf->b + nbuf->len, nodes, sizeof(dBNode) * unitig->num_nodes);
+  }
+  else {
+    for(into = nbuf->b+nbuf->len+unitig->num_nodes-1; nodes < end; into--, nodes++)
+      *into = db_node_reverse(*nodes);
+  }
+
+  nbuf->len += unitig->num_nodes;
+}
+
+//
+// Steps
+//
+
+// Get all nodes in a path up to, but not including the given step
+// Adds to the end of the node buffer (does not reset it)
+void gc_step_fetch_nodes(const GraphCache *cache,
+                         const GCacheStep *endstep,
+                         dBNodeBuffer *nbuf)
+{
+  const GCachePath *path = graph_cache_path(cache, endstep->pathid);
+  const GCacheStep *step0 = gc_path_first_step(cache, path);
+  gc_path_fetch_nodes(cache, path, endstep-step0, nbuf);
+}
+
+//
+// Sorting
+//
+
+// Sort by unitigs up to (and including) this point
 int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
                           const GraphCache *cache)
 {
@@ -200,8 +288,8 @@ int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
   uint32_t word0, word1;
 
   for(endstep0 = step0+minlen; step0 < endstep0; step0++, step1++) {
-    word0 = _graph_cache_step_encode(step0);
-    word1 = _graph_cache_step_encode(step1);
+    word0 = gc_step_encode_uint32(step0);
+    word1 = gc_step_encode_uint32(step1);
     if(word0 < word1) return -1;
     if(word0 > word1) return 1;
   }
@@ -229,8 +317,8 @@ int graph_cache_pathids_cmp(const void *aa, const void *bb, void *arg)
   const GCachePath *pathb = graph_cache_path(cache, b);
   if(patha->num_steps == 0 || pathb->num_steps == 0)
     return patha->num_steps - pathb->num_steps;
-  const GCacheStep *stepa = graph_cache_path_last_step(cache, patha);
-  const GCacheStep *stepb = graph_cache_path_last_step(cache, pathb);
+  const GCacheStep *stepa = gc_path_last_step(cache, patha);
+  const GCacheStep *stepb = gc_path_last_step(cache, pathb);
   return graph_cache_steps_cmp(stepa, stepb, cache);
 }
 
@@ -240,72 +328,12 @@ bool graph_cache_pathids_are_equal(GraphCache *cache,
   return graph_cache_pathids_cmp(&pathid0, &pathid1, cache) == 0;
 }
 
-// Get all nodes in a single step (supernode with orientation)
-// Adds to the end of the node buffer (does not reset it)
-void graph_cache_snode_fetch_nodes(const GraphCache *cache,
-                                   const GCacheSnode *snode,
-                                   Orientation orient,
-                                   dBNodeBuffer *nbuf)
-{
-  const dBNode *nodes = graph_cache_node(cache, snode->first_node_id);
-  const dBNode *end = nodes + snode->num_nodes;
-  dBNode *into;
 
-  db_node_buf_capacity(nbuf, nbuf->len + snode->num_nodes);
+//
+// Variant calling
+//
 
-  if(orient == FORWARD) {
-    memcpy(nbuf->b + nbuf->len, nodes, sizeof(dBNode) * snode->num_nodes);
-  }
-  else {
-    for(into = nbuf->b+nbuf->len+snode->num_nodes-1; nodes < end; into--, nodes++)
-      *into = db_node_reverse(*nodes);
-  }
-
-  nbuf->len += snode->num_nodes;
-}
-
-void graph_cache_path_fetch_nodes(const GraphCache *cache,
-                                  const GCachePath *path, size_t num_steps,
-                                  dBNodeBuffer *nbuf)
-{
-  ctx_assert(num_steps <= path->num_steps);
-
-  const GCacheStep *endstep, *step = graph_cache_step(cache, path->first_step);
-  const GCacheSnode *snode;
-
-  for(endstep = step + num_steps; step < endstep; step++) {
-    snode = graph_cache_snode(cache, step->supernode);
-    graph_cache_snode_fetch_nodes(cache, snode, step->orient, nbuf);
-  }
-}
-
-// Get all nodes in a path up to, but not including the given step
-// Adds to the end of the node buffer (does not reset it)
-void graph_cache_step_fetch_nodes(const GraphCache *cache,
-                                  const GCacheStep *endstep,
-                                  dBNodeBuffer *nbuf)
-{
-  const GCachePath *path = graph_cache_path(cache, endstep->pathid);
-  const GCacheStep *first_step = graph_cache_step(cache, path->first_step);
-  graph_cache_path_fetch_nodes(cache, path, endstep-first_step, nbuf);
-}
-
-// Get previous step or NULL if first step
-static const GCacheStep* _fetch_prev_step(GraphCache *cache, GCacheStep *step)
-{
-  GCachePath *path = graph_cache_path(cache, step->pathid);
-  GCacheStep *step0 = graph_cache_step(cache, path->first_step);
-  return (step0 == step ? NULL : --step);
-}
-
-// Get first step in path
-static const GCacheStep* _fetch_first_step(GraphCache *cache, GCacheStep *step)
-{
-  GCachePath *path = graph_cache_path(cache, step->pathid);
-  return graph_cache_step(cache, path->first_step);
-}
-
-// Looks like 3p flank if steps don't have the same n-1 supernode
+// Looks like 3p flank if steps don't have the same n-1 unitig
 bool graph_cache_is_3p_flank(GraphCache *cache,
                              GCacheStep **steps, size_t num_steps)
 {
@@ -316,34 +344,35 @@ bool graph_cache_is_3p_flank(GraphCache *cache,
   uint32_t word0, word1;
 
   // 1. Check first step differs
-  const GCacheStep *first1, *first0 = _fetch_first_step(cache, steps[0]);
-  word0 = _graph_cache_step_encode(first0);
+  const GCacheStep *first1, *first0;
+  first0 = gc_path_first_step(cache, gc_step_get_path(cache, steps[0]));
+  word0 = gc_step_encode_uint32(first0);
 
   for(i = 1; i < num_steps; i++) {
-    first1 = _fetch_first_step(cache, steps[1]);
-    word1 = _graph_cache_step_encode(first1);
+    first1 = gc_path_first_step(cache, gc_step_get_path(cache, steps[1]));
+    word1 = gc_step_encode_uint32(first1);
     if(word0 != word1) break;
   }
 
   //   Not a bubble if all paths start with the same node
   if(i == num_steps) return false;
 
-  // 2. Check second last step differs (supernode before 3p flank)
-  step0 = _fetch_prev_step(cache, steps[0]);
+  // 2. Check second last step differs (unitig before 3p flank)
+  step0 = gc_step_get_prev(cache, steps[0]);
 
   // If first step is null, we only have to find one that is not-null
   if(step0 == NULL) {
     for(i = 1; i < num_steps; i++)
-      if(_fetch_prev_step(cache, steps[i]) != NULL)
+      if(gc_step_get_prev(cache, steps[i]) != NULL)
         return true;
   }
   else {
-    // Have to find a prev step that is null or has diff supernode
-    word0 = _graph_cache_step_encode(step0);
+    // Have to find a prev step that is null or has diff unitig
+    word0 = gc_step_encode_uint32(step0);
     for(i = 1; i < num_steps; i++) {
-      step1 = _fetch_prev_step(cache, steps[i]);
+      step1 = gc_step_get_prev(cache, steps[i]);
       if(step1 == NULL) return true;
-      word1 = _graph_cache_step_encode(step1);
+      word1 = gc_step_encode_uint32(step1);
       if(word0 != word1) return true;
     }
   }
@@ -370,14 +399,14 @@ size_t graph_cache_remove_dupes(GraphCache *cache,
   return j;
 }
 
-// Returns true if all nodes in supernode have given colour
-bool graph_cache_snode_has_colour(const GraphCache *cache,
-                                  const GCacheSnode *snode,
+// Returns true if all nodes in unitig have given colour
+bool graph_cache_unitig_has_colour(const GraphCache *cache,
+                                  const GCacheUnitig *unitig,
                                   size_t colour)
 {
   const dBGraph *db_graph = cache->db_graph;
-  const dBNode *node = graph_cache_node(cache, snode->first_node_id), *end;
-  for(end = node + snode->num_nodes; node < end; node++) {
+  const dBNode *node = graph_cache_node(cache, unitig->first_node_id), *end;
+  for(end = node + unitig->num_nodes; node < end; node++) {
     if(!db_node_has_col(db_graph, node->key, colour))
       return false;
   }
@@ -390,27 +419,12 @@ bool graph_cache_step_has_colour(const GraphCache *cache,
                                  size_t colour)
 {
   const GCacheStep *step = graph_cache_step(cache, endstep->pathid);
-  const GCacheSnode *snode;
+  const GCacheUnitig *unitig;
 
   for(; step <= endstep; step++) {
-    snode = graph_cache_snode(cache, step->supernode);
-    if(!graph_cache_snode_has_colour(cache, snode, colour)) return false;
+    unitig = graph_cache_unitig(cache, step->unitigid);
+    if(!graph_cache_unitig_has_colour(cache, unitig, colour)) return false;
   }
 
   return true;
-}
-
-// Returns NULL if not found
-GCacheSnode* graph_cache_find_snode(GraphCache *cache, dBNode node)
-{
-  uint32_t snodeid;
-  khiter_t k = kh_get(SnodeIdHash, cache->snode_hash, node);
-  bool is_missing = (k == kh_end(cache->snode_hash));
-
-  if(!is_missing) {
-    snodeid = kh_value(cache->snode_hash, k);
-    return graph_cache_snode(cache, snodeid);
-  }
-
-  return NULL;
 }

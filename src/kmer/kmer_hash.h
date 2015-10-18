@@ -177,9 +177,9 @@ static inline uint32_t bklk3_hashlittle(const BinaryKmer bkmer, uint32_t initval
     size_t i;
     for(i = 0; i+12 < BKMER_BYTES; i += 12)
     {
-      memcpy(&a1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
-      memcpy(&b1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
-      memcpy(&c1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
+      memcpy(&a1, k, 4); k += 4;
+      memcpy(&b1, k, 4); k += 4;
+      memcpy(&c1, k, 4); k += 4;
       a += a1;
       b += b1;
       c += c1;
@@ -188,19 +188,19 @@ static inline uint32_t bklk3_hashlittle(const BinaryKmer bkmer, uint32_t initval
   #endif
 
   #if (BKMER_BYTES % 12 == 0) && (BKMER_BYTES > 0)
-    memcpy(&a1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
-    memcpy(&b1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
-    memcpy(&c1, k, sizeof(uint32_t));
+    memcpy(&a1, k, 4); k += 4;
+    memcpy(&b1, k, 4); k += 4;
+    memcpy(&c1, k, 4);
     a += a1;
     b += b1;
     c += c1;
   #elif BKMER_BYTES % 12 == 8
-    memcpy(&a1, k, sizeof(uint32_t)); k += sizeof(uint32_t);
-    memcpy(&b1, k, sizeof(uint32_t));
+    memcpy(&a1, k, 4); k += 4;
+    memcpy(&b1, k, 4);
     a += a1;
     b += b1;
   #elif BKMER_BYTES % 12 == 4
-    memcpy(&a1, k, sizeof(uint32_t));
+    memcpy(&a1, k, 4);
     a += a1;
   #else
     #error BKMER_BYTES is not a multiple of 4 and greater than zero

@@ -2,6 +2,7 @@
 #include "all_tests.h"
 #include "cmd.h"
 #include "util.h"
+#include "hash.h"
 
 int main(int argc, char **argv)
 {

@@ -191,7 +191,6 @@ static void print_bubble(BubbleCaller *caller,
 {
   const BubbleCallingPrefs prefs = caller->prefs;
   const dBGraph *db_graph = caller->db_graph;
-  GCacheSnode *snode;
   size_t i;
 
   dBNodeBuffer *flank5p = &caller->flank5p;
@@ -234,8 +233,8 @@ static void print_bubble(BubbleCaller *caller,
 
   // 3p flank
   db_node_buf_reset(pathbuf);
-  snode = graph_cache_snode(&caller->cache, steps[0]->supernode);
-  graph_cache_snode_fetch_nodes(&caller->cache, snode, steps[0]->orient, pathbuf);
+  const GCacheUnitig *unitig = gc_step_get_unitig(&caller->cache, steps[0]);
+  gc_unitig_fetch_nodes(&caller->cache, unitig, steps[0]->orient, pathbuf);
 
   // strbuf_sprintf(sbuf, ">bubble.%s%zu.3pflank kmers=%zu\n", prefix, id, pathbuf->len);
   strbuf_append_str(sbuf, ">bubble.");
@@ -250,7 +249,7 @@ static void print_bubble(BubbleCaller *caller,
   for(i = 0; i < num_paths; i++)
   {
     db_node_buf_reset(pathbuf);
-    graph_cache_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
+    gc_step_fetch_nodes(&caller->cache, steps[i], pathbuf);
 
     // strbuf_sprintf(sbuf, ">bubble.%s%zu.branch.%zu kmers=%zu\n",
     //                prefix, id, i, pathbuf->len);
@@ -359,16 +358,16 @@ static void remove_non_bubbles(BubbleCaller *caller, GCacheStepPtrBuf *endsteps)
   }
 }
 
-// Load GCacheSteps into caller->spp_forward (if they traverse the snode forward)
-// or caller->spp_reverse (if they traverse the snode in reverse)
-void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode)
+// Load GCacheSteps into caller->spp_forward (if they traverse the unitig forward)
+// or caller->spp_reverse (if they traverse the unitig in reverse)
+void find_bubbles_ending_with(BubbleCaller *caller, GCacheUnitig *unitig)
 {
   // possible 3p flank (i.e. bubble end)
   // record paths that go through here forwards, and in reverse
   cache_stepptr_buf_reset(&caller->spp_forward);
   cache_stepptr_buf_reset(&caller->spp_reverse);
 
-  uint32_t stepid = snode->first_step;
+  uint32_t stepid = unitig->stepid;
   GCacheStep *step;
 
   while(stepid != UINT32_MAX)
@@ -390,14 +389,14 @@ void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode)
 static void write_bubbles_to_file(BubbleCaller *caller)
 {
   // Loop over supernodes checking if they are 3p flanks
-  size_t snode_count = graph_cache_num_snodes(&caller->cache);
-  GCacheSnode *snode;
+  size_t nunitigs = graph_cache_num_unitigs(&caller->cache);
+  GCacheUnitig *unitig;
   size_t i;
 
-  for(i = 0; i < snode_count; i++)
+  for(i = 0; i < nunitigs; i++)
   {
-    snode = graph_cache_snode(&caller->cache, i);
-    find_bubbles_ending_with(caller, snode);
+    unitig = graph_cache_unitig(&caller->cache, i);
+    find_bubbles_ending_with(caller, unitig);
 
     if(caller->spp_forward.len > 1)
       print_bubble(caller, caller->spp_forward.b, caller->spp_forward.len);

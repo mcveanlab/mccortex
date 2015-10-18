@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include "bit_array/bit_macros.h"
+#include "htslib/khash.h"
 
 #include "cortex_types.h"
 #include "db_graph.h"
@@ -11,6 +12,11 @@
 #define DB_NODE_INIT {.key = HASH_NOT_FOUND, .orient = FORWARD}
 
 #define db_nodes_are_equal(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
+
+static inline uint64_t db_node_hash(dBNode node) {
+  uint64_t d = (node.key << 1) | node.orient;
+  return kh_int64_hash_func(d);
+}
 
 //
 // Get Binary kmers
@@ -275,6 +281,11 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(db_node_buf,dBNodeBuffer,dBNode);
+
+static inline dBNode db_nodes_get(const dBNode *nodes, size_t n, bool fw, size_t i)
+{
+  return fw ? nodes[i] : db_node_reverse(nodes[n-1-i]);
+}
 
 //
 // dBNode reversal and shifting

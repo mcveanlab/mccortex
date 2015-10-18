@@ -33,6 +33,7 @@ typedef struct
   // Flanks and paths
   KOccurRunBuffer koruns_5p, koruns_5p_ended;
   KOccurRunBuffer koruns_3p, koruns_3p_ended;
+  KOccurRunBuffer koruns_tmp;
   dBNodeBuffer flank5pbuf, allelebuf;
 
   // Where the paths meet the ref
@@ -40,7 +41,7 @@ typedef struct
   KOccurRunBuffer allele_run_buf, flank5p_run_buf;
 
   // Passed to all instances
-  const KOGraph kograph;
+  const KOGraph *kograph;
   const dBGraph *db_graph;
   gzFile gzout;
   pthread_mutex_t *const out_lock;
@@ -58,7 +59,7 @@ typedef struct
 static BreakpointCaller* brkpt_callers_new(size_t num_callers,
                                            gzFile gzout,
                                            size_t min_ref_flank,
-                                           const KOGraph kograph,
+                                           const KOGraph *kograph,
                                            const dBGraph *db_graph)
 {
   ctx_assert(num_callers > 0);
@@ -95,12 +96,13 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers,
 
     db_node_buf_alloc(&callers[i].allelebuf, 1024);
     db_node_buf_alloc(&callers[i].flank5pbuf, 1024);
-    kmer_run_buf_alloc(&callers[i].koruns_5p, 128);
-    kmer_run_buf_alloc(&callers[i].koruns_5p_ended, 128);
-    kmer_run_buf_alloc(&callers[i].koruns_3p, 128);
-    kmer_run_buf_alloc(&callers[i].koruns_3p_ended, 128);
-    kmer_run_buf_alloc(&callers[i].allele_run_buf, 128);
-    kmer_run_buf_alloc(&callers[i].flank5p_run_buf, 128);
+    korun_buf_alloc(&callers[i].koruns_5p, 128);
+    korun_buf_alloc(&callers[i].koruns_5p_ended, 128);
+    korun_buf_alloc(&callers[i].koruns_3p, 128);
+    korun_buf_alloc(&callers[i].koruns_3p_ended, 128);
+    korun_buf_alloc(&callers[i].koruns_tmp, 128);
+    korun_buf_alloc(&callers[i].allele_run_buf, 128);
+    korun_buf_alloc(&callers[i].flank5p_run_buf, 128);
     graph_crawler_alloc(&callers[i].crawlers[0], db_graph);
     graph_crawler_alloc(&callers[i].crawlers[1], db_graph);
   }
@@ -114,12 +116,13 @@ static void brkpt_callers_destroy(BreakpointCaller *callers, size_t num_callers)
   for(i = 0; i < num_callers; i++) {
     db_node_buf_dealloc(&callers[i].allelebuf);
     db_node_buf_dealloc(&callers[i].flank5pbuf);
-    kmer_run_buf_dealloc(&callers[i].koruns_5p);
-    kmer_run_buf_dealloc(&callers[i].koruns_5p_ended);
-    kmer_run_buf_dealloc(&callers[i].koruns_3p);
-    kmer_run_buf_dealloc(&callers[i].koruns_3p_ended);
-    kmer_run_buf_dealloc(&callers[i].allele_run_buf);
-    kmer_run_buf_dealloc(&callers[i].flank5p_run_buf);
+    korun_buf_dealloc(&callers[i].koruns_5p);
+    korun_buf_dealloc(&callers[i].koruns_5p_ended);
+    korun_buf_dealloc(&callers[i].koruns_3p);
+    korun_buf_dealloc(&callers[i].koruns_3p_ended);
+    korun_buf_dealloc(&callers[i].koruns_tmp);
+    korun_buf_dealloc(&callers[i].allele_run_buf);
+    korun_buf_dealloc(&callers[i].flank5p_run_buf);
     graph_crawler_dealloc(&callers[i].crawlers[0]);
     graph_crawler_dealloc(&callers[i].crawlers[1]);
   }
@@ -134,17 +137,19 @@ static void process_contig(BreakpointCaller *caller,
                            const uint32_t *cols, size_t ncols,
                            const dBNodeBuffer *flank5p,
                            const dBNodeBuffer *allelebuf,
-                           const KOccurRun *flank5p_runs, size_t num_flank5p_runs,
-                           const KOccurRun *flank3p_runs, size_t num_flank3p_runs)
+                           const KOccurRun *flank5p_runs, size_t nflank5p_runs,
+                           const KOccurRun *flank3p_runs, size_t nflank3p_runs)
 {
   gzFile gzout = caller->gzout;
-  KOGraph kograph = caller->kograph;
+  const KOGraph *kograph = caller->kograph;
   const size_t kmer_size = caller->db_graph->kmer_size;
 
   ctx_assert(ncols > 0);
 
   // we never re-met the ref
-  if(num_flank3p_runs == 0) return;
+  if(nflank3p_runs == 0) { /*status("  No 3p");*/ return; }
+
+  // status("  got a call");
 
   // Find first place we meet the ref
   size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
@@ -162,14 +167,14 @@ static void process_contig(BreakpointCaller *caller,
 
   // 5p flank with list of ref intersections
   gzprintf(gzout, ">brkpnt.%s%zu.5pflank chr=", prefix, callid);
-  koruns_gzprint(gzout, kmer_size, kograph, flank5p_runs, num_flank5p_runs, 0, 0);
+  koruns_gzprint(gzout, kmer_size, kograph, flank5p_runs, nflank5p_runs, 0, 0);
   gzputc(gzout, '\n');
   db_nodes_gzprint(flank5p->b, flank5p->len, caller->db_graph, gzout);
   gzputc(gzout, '\n');
 
   // 3p flank with list of ref intersections
   gzprintf(gzout, ">brkpnt.%s%zu.3pflank chr=", prefix, callid);
-  koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, num_flank3p_runs,
+  koruns_gzprint(gzout, kmer_size, kograph, flank3p_runs, nflank3p_runs,
                  flank3pidx, kmer3poffset);
   gzputc(gzout, '\n');
   db_nodes_gzprint_cont(allelebuf->b+num_path_kmers,
@@ -187,29 +192,28 @@ static void process_contig(BreakpointCaller *caller,
   pthread_mutex_unlock(caller->out_lock);
 }
 
-// If `pickup_new_runs` is true we pick up runs starting at this supernode
 static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
                                              const GCacheStep *step,
                                              BreakpointCaller *caller,
                                              KOccurRunBuffer *koruns,
-                                             KOccurRunBuffer *koruns_ended,
-                                             bool pickup_new_runs)
+                                             KOccurRunBuffer *koruns_tmp,
+                                             KOccurRunBuffer *koruns_ended)
 {
-  GCacheSnode *snode = graph_cache_snode(cache, step->supernode);
-  GCachePath *path = graph_cache_path(cache, step->pathid);
-  const dBNode *nodes = graph_cache_first_node(cache, snode);
+  const GCacheUnitig *unitig = gc_step_get_unitig(cache, step);
+  const GCachePath *path = gc_step_get_path(cache, step);
+  const dBNode *nodes = gc_unitig_get_nodes(cache, unitig);
   bool forward = (step->orient == FORWARD);
 
-  // Use index of last step as qoffset
-  size_t qoffset = path->num_steps-1;
+  // Get node index of first node in the last step
+  size_t qoffset = gc_path_get_nkmers(cache, path) -
+                   gc_step_get_nkmers(cache, gc_path_last_step(cache, path));
 
   // Kmer occurance runs are added to koruns_3p_ended only if they end and are
   // longer than the mininum length in kmers (caller->min_ref_nkmers)
   kograph_filter_extend(caller->kograph,
-                        nodes, snode->num_nodes, forward,
+                        nodes, unitig->num_nodes, forward,
                         caller->min_ref_nkmers, qoffset,
-                        koruns, koruns_ended,
-                        pickup_new_runs);
+                        koruns, koruns_tmp, koruns_ended);
 
   size_t i, min_run_qoffset = SIZE_MAX, min_ended_run_qoffset = SIZE_MAX;
   for(i = 0; i < koruns->len; i++)
@@ -225,31 +229,36 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
 }
 
 // Try to pick up new runs at each supernode
-static bool gcrawler_path_stop_at_ref_covg(GraphCache *cache, GCacheStep *step,
+static bool gcrawler_path_stop_at_ref_covg(const GraphCache *cache,
+                                           const GCacheStep *step,
                                            void *arg)
 {
   BreakpointCaller *caller = (BreakpointCaller*)arg;
 
   return gcrawler_stop_at_ref_covg(cache, step, caller,
                                    &caller->koruns_3p,
-                                   &caller->koruns_3p_ended,
-                                   true);
+                                   &caller->koruns_tmp,
+                                   &caller->koruns_3p_ended);
 }
 
 // For 5p flank only pick up new runs starting at the first supernode
-static bool gcrawler_flank5p_stop_at_ref_covg(GraphCache *cache, GCacheStep *step,
+static bool gcrawler_flank5p_stop_at_ref_covg(const GraphCache *cache,
+                                              const GCacheStep *step,
                                               void *arg)
 {
   BreakpointCaller *caller = (BreakpointCaller*)arg;
-  const GCachePath *path = graph_cache_path(cache, step->pathid);
-  const GCacheStep *first_step = graph_cache_step(cache, path->first_step);
-  bool pickup_new_runs = (step == first_step);
 
-  return gcrawler_stop_at_ref_covg(cache, step, caller,
-                                   &caller->koruns_5p,
-                                   &caller->koruns_5p_ended,
-                                   pickup_new_runs) &&
-         (caller->koruns_5p.len > 0);
+  bool cont = gcrawler_stop_at_ref_covg(cache, step, caller,
+                                        &caller->koruns_5p,
+                                        &caller->koruns_tmp,
+                                        &caller->koruns_5p_ended);
+
+  // size_t i;
+  // KOccurRunBuffer *koruns = &caller->koruns_5p;
+  // for(i = 0; i < koruns->len; i++)
+  //   status("qoffset: %u", koruns->b[i].qoffset);
+
+  return cont && (caller->koruns_5p.len > 0);
 }
 
 static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
@@ -262,15 +271,17 @@ static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
   size_t init_len = runs_buf->len;
 
   // Copy finished runs into array
-  kmer_run_buf_capacity(runs_buf, runs_buf->len+koruns->len+koruns_ended->len);
-  kmer_run_buf_push(runs_buf, koruns_ended->b, koruns_ended->len);
+  korun_buf_capacity(runs_buf, runs_buf->len+koruns->len+koruns_ended->len);
+  korun_buf_push(runs_buf, koruns_ended->b, koruns_ended->len);
 
-  runs_buf->len += koruns_filter(koruns->b, koruns->len,
-                                 runs_buf->b+runs_buf->len,
-                                 caller->min_ref_nkmers);
+  runs_buf->len += koruns_filter(runs_buf->b + runs_buf->len,
+                                 caller->min_ref_nkmers,
+                                 koruns->b, koruns->len);
 
-  kmer_run_buf_reset(koruns);
-  kmer_run_buf_reset(koruns_ended);
+  // status("Added %zu at end", runs_buf->len - init_len - koruns_ended->len);
+
+  korun_buf_reset(koruns);
+  korun_buf_reset(koruns_ended);
 
   ctx_assert(pathid < MAX_REFRUNS_PER_ORIENT(caller->db_graph->num_of_cols));
 
@@ -278,7 +289,8 @@ static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
   ref_runs[pathid].num_runs = runs_buf->len - init_len;
 }
 
-static void gcrawler_path_finish_ref_covg(GraphCache *cache, uint32_t pathid,
+static void gcrawler_path_finish_ref_covg(const GraphCache *cache,
+                                          uint32_t pathid,
                                           void *arg)
 {
   (void)cache; // this function passed for callback, don't need cache here
@@ -291,7 +303,8 @@ static void gcrawler_path_finish_ref_covg(GraphCache *cache, uint32_t pathid,
                            caller->allele_refs);
 }
 
-static void gcrawler_flank5p_finish_ref_covg(GraphCache *cache, uint32_t pathid,
+static void gcrawler_flank5p_finish_ref_covg(const GraphCache *cache,
+                                             uint32_t pathid,
                                              void *arg)
 {
   (void)cache; // this function passed for callback, don't need cache here
@@ -304,36 +317,14 @@ static void gcrawler_flank5p_finish_ref_covg(GraphCache *cache, uint32_t pathid,
                            caller->flank5p_refs);
 }
 
-static inline
-KOccurRun* fetch_ref_contact(const GraphCache *cache, uint32_t pathid,
-                             const PathRefRun *ref_runs,
-                             KOccurRunBuffer *runbuf)
+static inline KOccurRun* fetch_ref_contact(const PathRefRun *ref_run,
+                                           KOccurRunBuffer *runbuf,
+                                           size_t *nruns)
 {
-  // Get path
-  const GCachePath *path = graph_cache_path(cache, pathid);
-  const GCacheStep *steps = graph_cache_step(cache, path->first_step);
-  size_t num_steps = path->num_steps;
-
-  // Get runs along the ref
-  PathRefRun ref_run = ref_runs[pathid];
-  size_t num_runs = ref_run.num_runs;
-  KOccurRun *koruns = runbuf->b + ref_run.first_runid;
-  koruns_sort_by_qoffset(koruns, num_runs);
-
-  // Set qoffset to be the kmer offset in the path
-  size_t r, s, offset = 0;
-
-  for(s = r = 0; s < num_steps; s++) {
-    for(; r < num_runs && koruns[r].qoffset == s; r++) {
-      koruns[r].qoffset = offset;
-    }
-
-    if(r == num_runs) break;
-
-    const GCacheSnode *snode = graph_cache_snode(cache, steps[s].supernode);
-    offset += snode->num_nodes;
-  }
-
+  // Get runs along the ref and sort them
+  *nruns = ref_run->num_runs;
+  KOccurRun *koruns = runbuf->b + ref_run->first_runid;
+  koruns_sort_by_qoffset(koruns, *nruns);
   return koruns;
 }
 
@@ -356,9 +347,9 @@ static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
 
   ctx_assert(i < num_next && db_nodes_are_equal(next_nodes[i],node1));
 
-  kmer_run_buf_reset(&caller->koruns_5p);
-  kmer_run_buf_reset(&caller->koruns_5p_ended);
-  kmer_run_buf_reset(&caller->flank5p_run_buf);
+  korun_buf_reset(&caller->koruns_5p);
+  korun_buf_reset(&caller->koruns_5p_ended);
+  korun_buf_reset(&caller->flank5p_run_buf);
 
   // Go backwards to get 5p flank
   // NULL means loop from 0..(ncols-1)
@@ -389,13 +380,17 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   // Filter out next nodes in the reference
   for(i = 0; i < num_next; i++) {
     if(!kograph_occurs(caller->kograph, next_nodes[i].key)) {
-      nonref_idx[num_nonref_next] = i;
-      num_nonref_next++;
+      nonref_idx[num_nonref_next++] = i;
     }
   }
 
-  // Abandon if all options are in ref or none are
-  if(num_nonref_next == num_next || num_nonref_next == 0) return;
+  // Abandon if no non-ref kmers next
+  if(num_nonref_next == 0) return;
+
+  // debug
+  // char nstr[MAX_KMER_SIZE+3];
+  // db_node_to_str(db_graph, node, nstr);
+  // status("follow %s", nstr);
 
   // Follow all paths not in ref, in all colours
   GraphCrawler *fw_crawler = &caller->crawlers[node.orient];
@@ -404,7 +399,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   GCMultiColPath *flank5p_multicolpath, *allele_multicolpath;
   KOccurRun *flank5p_runs, *flank3p_runs;
   size_t flank5p_pathid, allele_pathid;
-  size_t num_flank5p_runs, num_flank3p_runs;
+  size_t nflank5p_runs, nflank3p_runs;
 
   // We fetch 5' flanks in all colours then merge matching paths
   // we stop fetching a single path if it stops tracking the reference
@@ -423,6 +418,8 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
     traverse_5pflank(caller, rv_crawler, db_node_reverse(next_nodes[next_idx]),
                      db_node_reverse(node));
 
+    // if(!rv_crawler->num_paths) { status("No 5p"); }
+
     // Loop over the flanks that we got
     for(j = 0; j < rv_crawler->num_paths; j++)
     {
@@ -432,22 +429,23 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
       flank5p_multicolpath = &rv_crawler->multicol_paths[j];
       flank5p_pathid = flank5p_multicolpath->pathid;
 
-      // Fetch 3pflank ref position
-      num_flank5p_runs = caller->flank5p_refs[flank5p_pathid].num_runs;
-      flank5p_runs = fetch_ref_contact(&rv_crawler->cache, flank5p_pathid,
-                                       caller->flank5p_refs,
-                                       &caller->flank5p_run_buf);
+      // Fetch 5pflank ref position
+      flank5p_runs = fetch_ref_contact(&caller->flank5p_refs[flank5p_pathid],
+                                       &caller->flank5p_run_buf,
+                                       &nflank5p_runs);
 
-      koruns_reverse(flank5p_runs, num_flank5p_runs, flank5pbuf->len);
-      koruns_sort_by_qoffset(flank5p_runs, num_flank5p_runs);
+      koruns_reverse(flank5p_runs, nflank5p_runs, flank5pbuf->len);
+      koruns_sort_by_qoffset(flank5p_runs, nflank5p_runs);
       db_nodes_reverse_complement(flank5pbuf->b, flank5pbuf->len);
 
-      if(num_flank5p_runs > 0)
+      // if(!nflank5p_runs) { status("  No 5p (b)"); }
+
+      if(nflank5p_runs > 0)
       {
         // Reset caller
-        kmer_run_buf_reset(&caller->koruns_3p);
-        kmer_run_buf_reset(&caller->koruns_3p_ended);
-        kmer_run_buf_reset(&caller->allele_run_buf);
+        korun_buf_reset(&caller->koruns_3p);
+        korun_buf_reset(&caller->koruns_3p_ended);
+        korun_buf_reset(&caller->allele_run_buf);
 
         // functions gcrawler_path_stop_at_ref_covg(),
         //           gcrawler_path_finish_ref_covg()
@@ -474,17 +472,16 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
           allele_pathid = allele_multicolpath->pathid;
 
           // Fetch 3pflank ref position
-          num_flank3p_runs = caller->allele_refs[allele_pathid].num_runs;
-          flank3p_runs = fetch_ref_contact(&fw_crawler->cache, allele_pathid,
-                                           caller->allele_refs,
-                                           &caller->allele_run_buf);
+          flank3p_runs = fetch_ref_contact(&caller->allele_refs[allele_pathid],
+                                           &caller->allele_run_buf,
+                                           &nflank3p_runs);
 
           process_contig(caller,
                          allele_multicolpath->cols,
                          allele_multicolpath->num_cols,
                          flank5pbuf, allelebuf,
-                         flank5p_runs, num_flank5p_runs,
-                         flank3p_runs, num_flank3p_runs);
+                         flank5p_runs, nflank5p_runs,
+                         flank3p_runs, nflank3p_runs);
         }
       }
     }
@@ -493,30 +490,22 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
 
 static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
 {
-  Edges edges;
-
-  graph_crawler_reset(&caller->crawlers[0]);
-  graph_crawler_reset(&caller->crawlers[1]);
-
   // DEBUG
   // const dBGraph *db_graph = caller->db_graph;
-  // const size_t kmer_size = db_graph->kmer_size;
   // char kstr[MAX_KMER_SIZE+1];
   // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
-  // binary_kmer_to_str(bkmer, kmer_size, kstr);
-  // if(strcmp(kstr,"AATTAGTATTCAATAATGGGAAAACACGTAT")) return 0; // skip all but given kmer
-  // printf("brk %s\n", kstr);
+  // binary_kmer_to_str(bkmer, db_graph->kmer_size, kstr);
+  // if(strcmp(kstr,"GTTGCTCATGA")) return 0; // skip all but given kmer
+  // status("brk %s\n", kstr);
   //
 
   // check node is in the ref
-  if(kograph_occurs(caller->kograph, hkey)) {
-    edges = db_node_get_edges(caller->db_graph, hkey, 0);
-    if(edges_get_outdegree(edges, FORWARD) > 1) {
-      follow_break(caller, (dBNode){.key = hkey, .orient = FORWARD});
-    }
-    if(edges_get_outdegree(edges, REVERSE) > 1) {
-      follow_break(caller, (dBNode){.key = hkey, .orient = REVERSE});
-    }
+  if(kograph_occurs(caller->kograph, hkey))
+  {
+    graph_crawler_reset(&caller->crawlers[0]);
+    graph_crawler_reset(&caller->crawlers[1]);
+    follow_break(caller, (dBNode){.key = hkey, .orient = FORWARD});
+    follow_break(caller, (dBNode){.key = hkey, .orient = REVERSE});
   }
 
   return 0; // => keep iterating
@@ -627,7 +616,7 @@ void breakpoints_call(size_t nthreads, size_t ref_col,
 
   BreakpointCaller *callers = brkpt_callers_new(nthreads, gzout,
                                                 min_ref_flank,
-                                                kograph, db_graph);
+                                                &kograph, db_graph);
 
   status("Running BreakpointCaller with %zu thread%s, output to: %s",
          nthreads, util_plural_str(nthreads),
@@ -651,5 +640,5 @@ void breakpoints_call(size_t nthreads, size_t ref_col,
   status("  %s calls printed to %s", call_num_str, futil_outpath_str(out_path));
 
   brkpt_callers_destroy(callers, nthreads);
-  kograph_free(kograph);
+  kograph_dealloc(&kograph);
 }

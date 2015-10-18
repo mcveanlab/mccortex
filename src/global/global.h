@@ -34,14 +34,6 @@
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 //  USE_XXHASH=1     Use xxHash instead of Bob Jenkin's lookup3
 
-#if defined(USE_CITY_HASH)
-  #define HASH_NAME_STR "CityHash32"
-#elif defined(USE_XXHASH)
-  #define HASH_NAME_STR "xxHash32"
-#else
-  #define HASH_NAME_STR "Lookup3"
-#endif
-
 #define ONE_MEGABYTE (1<<20)
 #define MAX_IO_THREADS 10
 #define DEFAULT_IO_BUFSIZE (4*ONE_MEGABYTE)
@@ -53,6 +45,8 @@
 
 #include "htslib/version.h"
 #define LIBS_VERSION "zlib="ZLIB_VERSION" htslib="HTS_VERSION
+
+// Must include hash.h to use this!
 #define VERSION_STATUS_STR "mccortex="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" hash="HASH_NAME_STR" "CHECKSTR
 
 //

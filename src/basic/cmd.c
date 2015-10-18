@@ -3,6 +3,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "seqout.h"
+#include "hash.h"
 
 #include <ctype.h>
 

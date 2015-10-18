@@ -719,7 +719,7 @@ void graph_walker_traverse(GraphWalker *wlk, const dBNode *arr, size_t n,
   for(i = 0; i < n; i++) {
     edges = db_node_edges_in_col(wlk->node, wlk->ctxcol, db_graph);
     is_fork = edges_get_outdegree(edges, wlk->node.orient) > 1;
-    next = forward ? arr[i] : db_node_reverse(arr[n-1-i]);
+    next = db_nodes_get(arr, n, forward, i);
     graph_walker_force(wlk, next, is_fork);
   }
 }
@@ -733,7 +733,7 @@ void graph_walker_prime(GraphWalker *wlk,
 
   // If picking up paths is turned off, jump to last
   if(!gpath_store_use_traverse(wlk->gpstore)) {
-    graph_walker_start(wlk, forward ? block[n-1] : db_node_reverse(block[0]));
+    graph_walker_start(wlk, db_nodes_get(block, n, forward, n-1));
     return;
   }
 
@@ -779,7 +779,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
 
   #ifdef CTXCHECKS
     // Check last k-1 bp of bkmer match block
-    expnode = forward ? block[0] : db_node_reverse(block[num_nodes-1]);
+    expnode = db_nodes_get(block, num_nodes, forward, 0);
     BinaryKmer bkmer0 = db_node_oriented_bkmer(wlk->db_graph, wlk->node);
     BinaryKmer bkmer1 = db_node_oriented_bkmer(wlk->db_graph, expnode);
     bkmer0 = binary_kmer_left_shift_one_base(bkmer0, wlk->db_graph->kmer_size);
@@ -803,7 +803,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
 
   for(i = j = 0; i < num_nodes && j < njuncs; i++, j += (n > 1))
   {
-    expnode = forward ? block[i] : db_node_reverse(block[num_nodes-i-1]);
+    expnode = db_nodes_get(block, num_nodes, forward, i);
     edges = db_node_get_edges_union(wlk->db_graph, wlk->node.key);
 
     if(edges_get_outdegree(edges, wlk->node.orient) == 1) {

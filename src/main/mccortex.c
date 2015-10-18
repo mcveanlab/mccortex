@@ -4,6 +4,7 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
+#include "hash.h"
 
 // To add a new command to mccortex31 <cmd>:
 // 0. create a file src/commands/ctx_X.c

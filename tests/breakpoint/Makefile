@@ -4,16 +4,24 @@ SHELL:=/bin/bash -euo pipefail
 # chr1: CCCGTAGGTAAGGGCGTTAGTGCAAGGCCACATTGGGACACGAGTTGATA
 # chr2: gCCGTAGGTAAGGGCGTTAGTGC
 # chr3: GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG
+# chr4: ATTCTACAGCAGGTCATGAGCAACCGGCACTCGAGCAGACGTACGGGAAA
 #
-# mx: gCCGTAGGTAAGGGCGTTAGaCGGGTTGGAGTTGGCCAAAGAAGTTCAAgg
-#     .1111111111111111111.2222222222222222222222222222..
+# >mix
+# gCCGTAGGTAAGGGCGTTAGaCGGGTTGGAGTTGGCCAAAGAAGTTCAAgg
+# .1111111111111111111.3333333333333333333333333333..
 #
-#     repeat of 5bp
-#     gCCGTAGGTAAGGGCGTTAGTGCAGTGCAAGGCCACATTGGGACACGAGTTGAgg
-#     111111111111111111111111xxxxx111111111111111111111111..
-#     deletion of 1bp
-#     cAACACCCTTTGGTTTAAGCCG-GTTGGAGTTGGCCAAAGAAGTTCAAgg
-#     2222222222222222222222 2222222222222222222222222..
+# >repeat of 5bp
+# CCCGTAGGTAAGGGCGTTAGTGCAGTGCAAGGCCACATTGGGACACGAGTTGAgg
+# 111111111111111111111111xxxxx111111111111111111111111..
+#
+# >deletion of 1bp
+# cAACACCCTTTGGTTTAAGCCG-GTTGGAGTTGGCCAAAGAAGTTCAAgg
+# .333333333333333333333 3333333333333333333333333..
+#
+# >SNP
+# ATTCTACAGCAGGTCATGAGCAACtGGCACTCGAGCAGACGTACGGGAAA
+# 444444444444444444444444 4444444444444444444444444
+#
 
 K=11
 CTXDIR=../..
@@ -39,15 +47,19 @@ ref.fa:
 	  echo '>chr2'; \
 	  echo gCCGTAGGTAAGGGCGTTAGTGC; \
 	  echo '>chr3'; \
-	  echo GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG; ) > $@
+	  echo GAACACCCTTTGGTTTAAGCCGGGTTGGAGTTGGCCAAAGAAGTTCAACG; \
+	  echo '>chr4'; \
+	  echo ATTCTACAGCAGGTCATGAGCAACCGGCACTCGAGCAGACGTACGGGAAA; ) > $@
 
 sample.fa:
-	( echo '>sample0'; \
+	( echo '>contig0'; \
 	  echo gCCGTAGGTAAGGGCGTTAGaCGGGTTGGAGTTGGCCAAAGAAGTTCAAgg; \
-	  echo '>sample1'; \
-	  echo gCCGTAGGTAAGGGCGTTAGTGCAGTGCAAGGCCACATTGGGACACGAGTTGAgg; \
-	  echo '>sample2'; \
-	  echo cAACACCCTTTGGTTTAAGCCGGTTGGAGTTGGCCAAAGAAGTTCAAgg; ) > $@
+	  echo '>contig1'; \
+	  echo CCCGTAGGTAAGGGCGTTAGTGCAGTGCAAGGCCACATTGGGACACGAGTTGAgg; \
+	  echo '>contig2'; \
+	  echo cAACACCCTTTGGTTTAAGCCGGTTGGAGTTGGCCAAAGAAGTTCAAgg; \
+	  echo '>contig3'; \
+	  echo ATTCTACAGCAGGTCATGAGCAACtGGCACTCGAGCAGACGTACGGGAAA; ) > $@
 
 truth.vcf.gz:
 	( printf "##fileformat=VCF4.1\n##fileDate="`date '+%Y%m%d'`"\n"; \
@@ -56,8 +68,9 @@ truth.vcf.gz:
 		printf "##contig=<id=chr2,length=23>\n"; \
 		printf "##contig=<id=chr3,length=50>\n"; \
 		printf "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample\n"; \
-		echo "chr1	18	truth0	T	TAGTGC	.	.	.	GT	1"; \
-	  echo "chr3	21	truth1	CG	C	.	.	.	GT	1"; ) > truth.vcf
+		echo "chr1	18	.	T	TAGTGC	.	.	.	GT	1"; \
+	  echo "chr3	21	.	CG	C	.	.	.	GT	1"; \
+	  echo "chr4	25	.	C	T	.	.	.	GT	1"; ) > truth.vcf
 	$(BGZIP) truth.vcf
 	$(BCFTOOLS) index truth.vcf.gz
 
@@ -75,8 +88,8 @@ breakpoints.sort.vcf: breakpoints.raw.vcf
 	$(VCFSORT) $< > $@
 
 breakpoints.norm.vcf.gz: breakpoints.sort.vcf
-	$(BCFTOOLS) norm --remove-duplicates --fasta-ref ref.fa --multiallelics +both $< | \
-		$(VCFRENAME) > breakpoints.norm.vcf
+	$(BCFTOOLS) norm --site-win 5000 --fasta-ref ref.fa $< | \
+	  $(BCFTOOLS) norm --rm-dup any --do-not-normalize > breakpoints.norm.vcf
 	$(BGZIP) breakpoints.norm.vcf
 	$(BCFTOOLS) index breakpoints.norm.vcf.gz
 

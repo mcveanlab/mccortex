@@ -37,7 +37,7 @@ all: $(CALLS) truth.vcf.gz truth.ben.jerry.vcf
 	@echo 'All correct!'
 
 $(CALLS): job.k29.k31.mk $(SEQ_FILES)
-	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M BRK_REF_KMERS=10 bubbles-vcf breakpoints-vcf
+	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) SINGLE_SAMPLE=0 MEM=200M NKMERS=1M BRK_REF_KMERS=10 bubbles-vcf breakpoints-vcf
 
 # 600 random bases generated with: dnacat -n 600
 #.............................................................................V................................................V.......................................*...........................................................................................................VV.................................................................................................................................................*....................................................................................................................VVVV..........................................................
@@ -70,10 +70,10 @@ truth.vcf.gz:
 	$(BCFTOOLS) index truth.vcf.gz
 
 truth.ben.vcf: truth.vcf.gz proj/k31/graphs/ben.raw.ctx
-	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/ben.raw.ctx
+	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/ben.raw.ctx >& $@.log
 
 truth.ben.jerry.vcf: truth.ben.vcf proj/k31/graphs/jerry.raw.ctx
-	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/jerry.raw.ctx
+	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/jerry.raw.ctx >& $@.log
 
 ref/ref.fa.bwt: ref/ref.fa
 	$(BWA) index ref/ref.fa
@@ -126,6 +126,6 @@ view: $(VIEWFILES)
 
 clean:
 	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk
-	rm -rf tmp.* truth.vcf* truth.ben.vcf truth.ben.jerry.vcf
+	rm -rf tmp.* truth.vcf* truth.ben.vcf* truth.ben.jerry.vcf*
 
 .PHONY: all clean sams bams view

@@ -290,7 +290,6 @@ CONTIG_POP_ARGS=--confid-step 0.99
 # Paths to scripts
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
-VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
 HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
 
 # Third party libraries packaged in McCortex
@@ -362,7 +361,7 @@ endif
 # JOINT is defined iff we are doing joint calling
 # INFER_EDGES is defined iff we are inferring edges
 
-ifdef INFER_EDGES
+ifndef INFER_EDGES
   BREAKPOINTS_ARGS:=$(BREAKPOINTS_ARGS) --no-ref-edges
 endif
 
@@ -771,8 +770,8 @@ if(defined($ref_path))
   print "\t\$(VCFSORT) \$< > \$@\n\n";
 
   print "$proj/%.norm.vcf.gz: $proj/%.sort.vcf \$(REF_FILE)\n";
-  print "\t\$(BCFTOOLS) norm --site-win 5000 --rm-dup both --fasta-ref \$(REF_FILE) \$< | \\\n";
-  print "\t\$(VCFRENAME) | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
+  print "\t\$(BCFTOOLS) norm --site-win 5000 --multiallelics -any --fasta-ref \$(REF_FILE) \$< | \\\n";
+  print "\t  \$(BCFTOOLS) norm --rm-dup any --do-not-normalize | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
   print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n";
@@ -813,35 +812,35 @@ if(defined($ref_path))
   print "#\n# Create union compressed VCF\n#\n";
   print "$union_bubble_joint_links_vcf: \$(BUBBLES_JOINT_LINKS_VCFS) \$(BUBBLES_JOINT_LINKS_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_LINKS_VCFS) | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_bubble_joint_plain_vcf: \$(BUBBLES_JOINT_PLAIN_VCFS) \$(BUBBLES_JOINT_PLAIN_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_PLAIN_VCFS) | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_brkpnt_joint_links_vcf: \$(BREAKPOINTS_JOINT_LINKS_VCFS) \$(BREAKPOINTS_JOINT_LINKS_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_LINKS_VCFS) | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_brkpnt_joint_plain_vcf: \$(BREAKPOINTS_JOINT_PLAIN_VCFS) \$(BREAKPOINTS_JOINT_PLAIN_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_PLAIN_VCFS) | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_bubble_1by1_links_vcf: \$(BUBBLES_1BY1_LINKS_VCFS) \$(BUBBLES_1BY1_LINKS_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_LINKS_VCFS) | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_bubble_1by1_plain_vcf: \$(BUBBLES_1BY1_PLAIN_VCFS) \$(BUBBLES_1BY1_PLAIN_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_PLAIN_VCFS) | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_brkpnt_1by1_links_vcf: @brkpnt_1by1_links_vcfs @brkpnt_1by1_links_csis\n";
   print "\t\$(VCF_MERGE) @brkpnt_1by1_links_vcfs | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "$union_brkpnt_1by1_plain_vcf: @brkpnt_1by1_plain_vcfs @brkpnt_1by1_plain_csis\n";
   print "\t\$(VCF_MERGE) @brkpnt_1by1_plain_vcfs | \\\n";
-  print "\t\$(VCFRENAME) | \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "#\n# General VCF rules\n#\n";
   # Compress a VCF

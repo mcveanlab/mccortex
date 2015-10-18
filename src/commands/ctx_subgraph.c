@@ -121,6 +121,9 @@ int ctx_subgraph(int argc, char **argv)
   total_cols = graph_files_open(gfile_paths, gfiles, num_gfiles,
                                 &ctx_max_kmers, &ctx_sum_kmers);
 
+  if(use_ncols < total_cols && (out_path == NULL || strcmp(out_path,"-")==0))
+    cmd_print_usage("Need to use --ncols %zu if output is stdout", total_cols);
+
   //
   // Decide on memory
   //
@@ -186,7 +189,7 @@ int ctx_subgraph(int argc, char **argv)
                               .boolean_covgs = false,
                               .must_exist_in_graph = false,
                               .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+                              .empty_colours = false};
 
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
