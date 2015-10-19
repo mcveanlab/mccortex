@@ -11,6 +11,8 @@
 
 // Require 5 kmers on the reference before and after breakpoint
 #define DEFAULT_MIN_REF_NKMERS 5
+// By default stop following the ref after 1000 kmers
+#define DEFAULT_MAX_REF_NKMERS 1000
 
 /**
  * Load reference kmers into the graph, make breakpoint calls and write out.
@@ -33,7 +35,8 @@ void breakpoints_call(size_t nthreads, size_t ref_col,
                       gzFile gzout, const char *out_path,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,
-                      bool load_ref_edges, size_t min_ref_flank,
+                      bool load_ref_edges,
+                      size_t min_ref_flank, size_t max_ref_flank,
                       cJSON **hdrs, size_t nhdrs,
                       dBGraph *db_graph);
 

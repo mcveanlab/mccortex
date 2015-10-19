@@ -46,7 +46,7 @@ typedef struct
   gzFile gzout;
   pthread_mutex_t *const out_lock;
   size_t *callid;
-  const size_t min_ref_nkmers; // how many kmers of homology req
+  const size_t min_ref_nkmers, max_ref_nkmers; // how many kmers of homology req
 } BreakpointCaller;
 
 // We clear the graph cache after each fork is dealt with, so there should
@@ -58,7 +58,8 @@ typedef struct
 
 static BreakpointCaller* brkpt_callers_new(size_t num_callers,
                                            gzFile gzout,
-                                           size_t min_ref_flank,
+                                           size_t min_ref_nkmers,
+                                           size_t max_ref_nkmers,
                                            const KOGraph *kograph,
                                            const dBGraph *db_graph)
 {
@@ -88,7 +89,8 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers,
                             .callid = callid,
                             .allele_refs = path_ref_runs,
                             .flank5p_refs = path_ref_runs+MAX_REFRUNS_PER_ORIENT(ncols),
-                            .min_ref_nkmers = min_ref_flank};
+                            .min_ref_nkmers = min_ref_nkmers,
+                            .max_ref_nkmers = max_ref_nkmers};
 
     memcpy(&callers[i], &tmp, sizeof(BreakpointCaller));
 
@@ -192,6 +194,7 @@ static void process_contig(BreakpointCaller *caller,
   pthread_mutex_unlock(caller->out_lock);
 }
 
+
 static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
                                              const GCacheStep *step,
                                              BreakpointCaller *caller,
@@ -216,8 +219,12 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
                         koruns, koruns_tmp, koruns_ended);
 
   size_t i, min_run_qoffset = SIZE_MAX, min_ended_run_qoffset = SIZE_MAX;
-  for(i = 0; i < koruns->len; i++)
+  size_t len, maxlen = 0;
+  for(i = 0; i < koruns->len; i++) {
     min_run_qoffset = MIN2(min_run_qoffset, koruns->b[i].qoffset);
+    len = korun_len(koruns->b[i]);
+    maxlen = MAX2(maxlen, len);
+  }
 
   // Stop if all our earliest runs have finished
   for(i = 0; i < koruns_ended->len; i++) {
@@ -225,11 +232,12 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
   }
 
   // Continue if...
-  return min_run_qoffset <= min_ended_run_qoffset;
+  return (min_run_qoffset <= min_ended_run_qoffset) &&
+         (!caller->max_ref_nkmers || maxlen < caller->max_ref_nkmers);
 }
 
 // Try to pick up new runs at each supernode
-static bool gcrawler_path_stop_at_ref_covg(const GraphCache *cache,
+static bool gcrawler_stop_at_ref_covg_path(const GraphCache *cache,
                                            const GCacheStep *step,
                                            void *arg)
 {
@@ -242,7 +250,7 @@ static bool gcrawler_path_stop_at_ref_covg(const GraphCache *cache,
 }
 
 // For 5p flank only pick up new runs starting at the first supernode
-static bool gcrawler_flank5p_stop_at_ref_covg(const GraphCache *cache,
+static bool gcrawler_stop_at_ref_covg_flank5p(const GraphCache *cache,
                                               const GCacheStep *step,
                                               void *arg)
 {
@@ -260,6 +268,7 @@ static bool gcrawler_flank5p_stop_at_ref_covg(const GraphCache *cache,
 
   return cont && (caller->koruns_5p.len > 0);
 }
+
 
 static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
                                             uint32_t pathid,
@@ -289,7 +298,7 @@ static inline void gcrawler_finish_ref_covg(BreakpointCaller *caller,
   ref_runs[pathid].num_runs = runs_buf->len - init_len;
 }
 
-static void gcrawler_path_finish_ref_covg(const GraphCache *cache,
+static void gcrawler_finish_ref_covg_path(const GraphCache *cache,
                                           uint32_t pathid,
                                           void *arg)
 {
@@ -303,7 +312,7 @@ static void gcrawler_path_finish_ref_covg(const GraphCache *cache,
                            caller->allele_refs);
 }
 
-static void gcrawler_flank5p_finish_ref_covg(const GraphCache *cache,
+static void gcrawler_finish_ref_covg_flank5p(const GraphCache *cache,
                                              uint32_t pathid,
                                              void *arg)
 {
@@ -316,6 +325,7 @@ static void gcrawler_flank5p_finish_ref_covg(const GraphCache *cache,
                            &caller->flank5p_run_buf,
                            caller->flank5p_refs);
 }
+
 
 static inline KOccurRun* fetch_ref_contact(const PathRefRun *ref_run,
                                            KOccurRunBuffer *runbuf,
@@ -356,8 +366,8 @@ static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
   graph_crawler_fetch(crawler, node0,
                       next_nodes, i, num_next,
                       NULL, db_graph->num_of_cols,
-                      gcrawler_flank5p_stop_at_ref_covg,
-                      gcrawler_flank5p_finish_ref_covg,
+                      gcrawler_stop_at_ref_covg_flank5p,
+                      gcrawler_finish_ref_covg_flank5p,
                       caller);
 }
 
@@ -447,8 +457,8 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
         korun_buf_reset(&caller->koruns_3p_ended);
         korun_buf_reset(&caller->allele_run_buf);
 
-        // functions gcrawler_path_stop_at_ref_covg(),
-        //           gcrawler_path_finish_ref_covg()
+        // functions gcrawler_stop_at_ref_covg_path(),
+        //           gcrawler_finish_ref_covg_path()
         // both fill koruns_3p, koruns_3p_ended and allele_run_buf
 
         // Only traverse in the colours we have a flank for
@@ -456,8 +466,8 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
                             next_nodes, next_idx, num_next,
                             flank5p_multicolpath->cols,
                             flank5p_multicolpath->num_cols,
-                            gcrawler_path_stop_at_ref_covg,
-                            gcrawler_path_finish_ref_covg,
+                            gcrawler_stop_at_ref_covg_path,
+                            gcrawler_finish_ref_covg_path,
                             caller);
 
         // Assemble contigs - fetch forwards for each path for given 5p flank
@@ -524,7 +534,9 @@ static void breakpoint_caller(void *ptr)
 static void breakpoints_print_header(gzFile gzout, const char *out_path,
                                      char **seq_paths, size_t nseq_paths,
                                      const read_t *reads, size_t nreads,
-                                     bool load_ref_edges, size_t min_ref_flank,
+                                     bool load_ref_edges,
+                                     size_t min_ref_nkmers,
+                                     size_t max_ref_nkmers,
                                      cJSON **hdrs, size_t nhdrs,
                                      size_t ref_col,
                                      const dBGraph *db_graph)
@@ -551,7 +563,9 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
 
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "breakpoints", "min_ref_flank_kmers",
-                                            cJSON_CreateInt(min_ref_flank));
+                                            cJSON_CreateInt(min_ref_nkmers));
+  json_hdr_augment_cmd(json, "breakpoints", "max_ref_flank_kmers",
+                                            cJSON_CreateInt(max_ref_nkmers));
   json_hdr_augment_cmd(json, "breakpoints", "load_ref_edges",
                                             cJSON_CreateBool(load_ref_edges));
 
@@ -600,10 +614,12 @@ void breakpoints_call(size_t nthreads, size_t ref_col,
                       gzFile gzout, const char *out_path,
                       const read_t *reads, size_t num_reads,
                       char **seq_paths, size_t num_seq_paths,
-                      bool load_ref_edges, size_t min_ref_flank,
+                      bool load_ref_edges,
+                      size_t min_ref_nkmers, size_t max_ref_nkmers,
                       cJSON **hdrs, size_t nhdrs,
                       dBGraph *db_graph)
 {
+  ctx_assert(!max_ref_nkmers || min_ref_nkmers <= max_ref_nkmers);
   // Temporarily hide edges from kograph_create if we don't want to load edges
   Edges *tmp_edges = db_graph->col_edges;
   if(!load_ref_edges) db_graph->col_edges = NULL;
@@ -615,7 +631,7 @@ void breakpoints_call(size_t nthreads, size_t ref_col,
   db_graph->col_edges = tmp_edges;
 
   BreakpointCaller *callers = brkpt_callers_new(nthreads, gzout,
-                                                min_ref_flank,
+                                                min_ref_nkmers, max_ref_nkmers,
                                                 &kograph, db_graph);
 
   status("Running BreakpointCaller with %zu thread%s, output to: %s",
@@ -623,12 +639,13 @@ void breakpoints_call(size_t nthreads, size_t ref_col,
          futil_outpath_str(out_path));
 
   status("  Finding breakpoints after at least %zu kmers (%zubp) of homology",
-         min_ref_flank, min_ref_flank+db_graph->kmer_size-1);
+         min_ref_nkmers, min_ref_nkmers+db_graph->kmer_size-1);
 
   breakpoints_print_header(gzout, out_path,
                            seq_paths, num_seq_paths,
                            reads, num_reads,
-                           load_ref_edges, min_ref_flank,
+                           load_ref_edges,
+                           min_ref_nkmers, min_ref_nkmers,
                            hdrs, nhdrs,
                            ref_col, db_graph);
 

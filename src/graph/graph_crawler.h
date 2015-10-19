@@ -78,23 +78,28 @@ void graph_crawler_get_path_nodes(const GraphCrawler *crawler, size_t pidx,
 // General functions on GraphCache using GraphWalker and RepeatWalker
 //
 
-// Constructs a path of unitigs (SupernodePath)
-// `wlk` GraphWalker should be set to go at `node`
-// `rptwlk` RepeatWalker should be clear
-// `jmpfunc` is called with each unitig traversed and if it returns true
-//           we continue crawling, otherwise we stop. If NULL assume always true
-// returns pathid in GraphCache
+/**
+ * Constructs a path of unitigs (GCachePath)
+ * @param wlk GraphWalker should be set to go at `node`
+ * @param rptwlk RepeatWalker should be clear
+ * @param jmpfunc is called with each unitig traversed and if it returns true
+                  we continue crawling, otherwise we stop.
+                  If NULL assume always true
+ * @return pathid in GraphCache
+ */
 uint32_t graph_crawler_load_path(GraphCache *cache, dBNode node,
-                                  GraphWalker *wlk, RepeatWalker *rptwlk,
-                                  bool (*jmpfunc)(const GraphCache *_c,
-                                                  const GCacheStep *_s, void *_a),
-                                  void *arg);
+                                 GraphWalker *wlk, RepeatWalker *rptwlk,
+                                 bool (*jmpfunc)(const GraphCache *_c,
+                                                 const GCacheStep *_s, void *_a),
+                                 void *arg);
 
-// Constructs a path of unitigs (SupernodePath)
-// `wlk` GraphWalker should be set to go at `node`
-// `rptwlk` RepeatWalker should be clear
-// `kmer_length_limit` is the max length to crawl
-// returns pathid in GraphCache
+/**
+ * Constructs a path of unitigs (GCachePath)
+ * @param wlk GraphWalker should be set to go at `node`
+ * @param rptwlk RepeatWalker should be clear
+ * @param kmer_length_limit is the max length to crawl
+ * @return pathid in GraphCache
+ **/
 uint32_t graph_crawler_load_path_limit(GraphCache *cache, dBNode node,
                                        GraphWalker *wlk, RepeatWalker *rptwlk,
                                        size_t kmer_length_limit);

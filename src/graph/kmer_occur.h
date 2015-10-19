@@ -72,8 +72,7 @@ void kograph_dealloc(KOGraph *kograph);
 // Get the chromosome from which a kmer came (occur can be KOccurRun or KOccur)
 #define kograph_chrom(kograph,occur) ((kograph)->chroms[(occur).chrom])
 
-#define korun_len(run) ((run).strand == STRAND_PLUS ? (run).last-(run).first+1 \
-                                                    : (run).first-(run).last+1)
+#define korun_len(run) ((size_t)(labs((long)(run).last - (long)(run).first)+1))
 
 // Sort by query offset
 void koruns_sort_by_qoffset(KOccurRun *runs, size_t n);
@@ -110,8 +109,8 @@ void koruns_gzprint(gzFile gzout, size_t kmer_size, const KOGraph *kograph,
 
 // src, dst can point to the same place
 // returns number of elements added
-static inline
-size_t koruns_filter(KOccurRun *dst, size_t min_kmers, KOccurRun *src, size_t n)
+static inline size_t koruns_filter(KOccurRun *dst, size_t min_kmers,
+                                   const KOccurRun *src, size_t n)
 {
   size_t i, j;
   for(i = j = 0; i < n; i++)
