@@ -1,0 +1,22 @@
+##fileformat=VCFv4.1
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=599>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT
+ref	1	.	A	T	.	PASS	.	GT
+ref	4	.	A	T	.	PASS	.	GT
+ref	5	.	T	G	.	PASS	.	GT
+ref	7	.	G	A	.	PASS	.	GT
+ref	8	.	C	T	.	PASS	.	GT
+ref	8	.	C	G,T	.	PASS	.	GT
+ref	10	.	A	T	.	PASS	.	GT
+ref	11	.	A	T	.	PASS	.	GT
+ref	13	.	G	A	.	PASS	.	GT
+ref	15	.	G	A	.	PASS	.	GT
+ref	18	.	A	C	.	PASS	.	GT
+ref	21	.	C	T	.	PASS	.	GT
+ref	22	.	C	T	.	PASS	.	GT
+ref	25	.	C	A	.	PASS	.	GT
+ref	31	.	A	C	.	PASS	.	GT
+ref	36	.	T	A	.	PASS	.	GT

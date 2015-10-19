@@ -5,10 +5,12 @@ SHELL=/bin/bash -euo pipefail
 all:
 	cd calls0 && $(MAKE)
 	cd calls1 && $(MAKE)
+	cd calls2 && $(MAKE)
 	@echo "All looks good."
 
 clean:
 	cd calls0 && $(MAKE) clean
 	cd calls1 && $(MAKE) clean
+	cd calls2 && $(MAKE) clean
 
 .PHONY: all clean view

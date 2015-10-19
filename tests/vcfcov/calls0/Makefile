@@ -17,7 +17,7 @@ clean:
 	rm -rf calls.cov.vcf graph.k$(K).ctx
 
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
-	$(MCCORTEX31) vcfcov -o $@ -r $(REF) calls.vcf graph.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) calls.vcf graph.k$(K).ctx
 
 graph.k$(K).ctx:
 	$(MCCORTEX31) build -k $(K) \

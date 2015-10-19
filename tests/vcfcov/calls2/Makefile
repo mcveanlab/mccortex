@@ -7,20 +7,20 @@ VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries
 REF=../ref/ref.fa
 K=21
 
+#
+# Test vcfcov with too many overlapping variants
+#
+
 all: check
 
 clean:
 	rm -rf calls.cov.vcf graph.k$(K).ctx
 
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) calls.vcf graph.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 calls.vcf graph.k$(K).ctx
 
-graph.k$(K).ctx: sample.1.fa sample.2.fa
-	$(MCCORTEX31) build -m 10M -k $(K) \
-	  --sample John --seq sample.1.fa \
-	  --sample Jane --seq sample.2.fa \
-	  --sample Empty --seq <(echo '') \
-	  $@
+graph.k$(K).ctx: sample.fa
+	$(MCCORTEX31) build -m 10M -k $(K) --sample John --seq sample.fa $@
 
 check: calls.cov.vcf truth.cov.vcf
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)

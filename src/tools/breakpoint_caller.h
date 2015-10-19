@@ -1,10 +1,9 @@
 #ifndef BREAKPOINT_CALLER_H_
 #define BREAKPOINT_CALLER_H_
 
-#include "seq_file.h"
 #include "db_graph.h"
-#include "cmd.h"
 
+#include "seq_file/seq_file.h"
 #include "cJSON/cJSON.h"
 
 #define BREAKPOINT_FORMAT_VERSION 3
