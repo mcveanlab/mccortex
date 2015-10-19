@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import sys
 import time
+import signal
 
 from subprocess import Popen, PIPE
 
@@ -34,13 +35,20 @@ def query_mccortex(proc,kmer):
     check_mccortex_alive(proc)
     return line
 
+# when we start mccortex we set it to ignore interrupt signal, we handle it.
+def preexec_function():
+    # Ignore the SIGINT signal by setting the handler to the standard
+    # signal handler SIG_IGN.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
 def start_mccortex(extra_args):
     script_dir = os.path.dirname(os.path.realpath(__file__))
 
     # Adding two lists together appends one to the other
     try:
         proc = Popen([script_dir+"/../bin/mccortex31", "server", "--single-line"] + extra_args,
-                      stdin=PIPE, stdout=PIPE, universal_newlines=True)
+                      stdin=PIPE, stdout=PIPE, universal_newlines=True,
+                      preexec_fn = preexec_function)
     except Exception as e:
         print("Couldn't start McCortex: ",e,file=sys.stdout)
         sys.exit(1)
@@ -51,16 +59,27 @@ def start_mccortex(extra_args):
 
     return proc
 
-def test_mccortex():
-    proc = start_mccortex(["../../tests/thread_pe_short/genome.k9.ctx"])
+def stop_mccortex(mccortex):
+    print("q\n", file=mccortex.stdin)
+    mccortex.stdin.close()
+    # sleep until process has closed
+    while mccortex.poll() is None:
+        time.sleep(1)
+    print("McCortex exited with:",str(mccortex.poll()))
+
+def test_mccortex(args):
+    proc = start_mccortex(args)
     print("Got: ", query_mccortex(proc, "CACTGATGA"), end='')
     print("Got: ", query_mccortex(proc, "CCACTGATG"), end='')
-    proc.stdin.close()
-    print("McCortex exit: ",proc.wait())
+    try:
+        while True:
+            pass
+    except (KeyboardInterrupt,SystemExit):
+        print("Got exit signal")
+    stop_mccortex(proc)
 
-def start_web_server():
-    port = int(sys.argv[1])
-    mccortex = start_mccortex(sys.argv[2:])
+def start_web_server(port,args):
+    mccortex = start_mccortex(args)
 
     class mccortexHTTPServer(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -83,12 +102,11 @@ def start_web_server():
 
     try:
         httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    except (KeyboardInterrupt,SystemExit):
+        print(" Got exit signal")
 
     httpd.server_close()
-    mccortex.stdin.close()
-    print("wait: ", mccortex.wait(timeout=10))
+    stop_mccortex(mccortex)
     print("closed. bye.")
 
 
@@ -97,8 +115,11 @@ def main():
         print("usage: %s <port> [mccortex args]" % (sys.argv[0]))
         sys.exit(-1)
 
-    # test_mccortex()
-    start_web_server()
+    port = int(sys.argv[1])
+    args = sys.argv[2:]
+
+    # test_mccortex(args)
+    start_web_server(port,args)
 
 if __name__ == '__main__':
     main()
