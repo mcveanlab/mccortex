@@ -71,6 +71,7 @@ typedef struct
 {
   const char *path;
   const size_t *samplehdrids; // samplehdrids[x] is the sample id in VCF
+  uint32_t input_nsamples; // number of samples in input VCF
   htsFile *vcffh;
   bcf_hdr_t *vcfhdr;
   VcfCovLine *curr_line; // last line to be read into alist
@@ -185,6 +186,7 @@ static inline void vcfr_alloc(VcfReader *vcfr, const char *path,
   memset(vcfr, 0, sizeof(*vcfr));
   vcfr->path = path;
   vcfr->samplehdrids = samplehdrids;
+  vcfr->input_nsamples = bcf_hdr_nsamples(vcfhdr);
   vcfr->vcffh = vcffh;
   vcfr->vcfhdr = vcfhdr;
   vcfr->db_graph = db_graph;
@@ -231,12 +233,13 @@ static inline void fetch_chrom(bcf_hdr_t *hdr, bcf1_t *v,
   }
   // Check ref allele is within the reference and matches
   if(v->pos + v->rlen > *chrlen) {
-    die("Ref allele goes out of bounds: %s %s %i %s [chrlen: %i]",
-        bcf_seqname(hdr, v), v->d.id, v->pos, v->d.allele[0], *chrlen);
+    die("Ref allele goes out of bounds: %s %i %s %s [chrlen: %i]",
+        bcf_seqname(hdr, v), v->pos+1, v->d.id, v->d.allele[0], *chrlen);
   }
-  if(strncasecmp(*chr+v->pos,v->d.allele[0],v->rlen) != 0) {
-    die("Alleles don't match: %s %s %i %s",
-        bcf_seqname(hdr, v), v->d.id, v->pos, v->d.allele[0]);
+  if(strncasecmp((*chr)+v->pos,v->d.allele[0],v->rlen) != 0) {
+    die("Alleles don't match: %s %i %s %s; ref: %.*s [%i]",
+        bcf_seqname(hdr, v), v->pos+1, v->d.id, v->d.allele[0],
+        v->rlen, *chr+v->pos, v->rlen);
   }
 }
 
@@ -281,6 +284,8 @@ static int vcfr_fetch(VcfReader *vr)
     bcf_unpack(v, BCF_UN_ALL);
     num_vcf_lines++;
     vr->curr_line = line;
+
+    ctx_assert(strlen(v->d.allele[0]) == (size_t)v->rlen);
 
     // Check we have enough vars to decompose
     size_t i, n = MAX2(v->n_allele, 16);
@@ -411,6 +416,9 @@ static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
     if(first_print && nsize > 0) vfr->fetch_existing_tags = true;
     ctx_assert2(nsize == (int)vfr->geno_buf_size, "htslib resized our buffer!");
   }
+
+  // TODO: reset sample fields on new samples
+  for(i = vfr->input_nsamples; i < nsamples; i++) { /* reset fields */ }
 
   // Add coverage
   VarCovg *cov;
@@ -657,6 +665,9 @@ static size_t vcfcov_block2(VcfReader *vr, bool flush, size_t tgtidx,
   size_t lastidx = flush ? nvars-1 : vc_alts_ends_after(vars, nvars, 0, lastpos, ks);
   size_t bs, be, gs, ge, endpos = 0;
 
+  // between lastidx-1,lastidx is the last position to check for a gap of k bp
+  ctx_assert(lastidx < nvars);
+
   // 1. Find breaks of >=kmer_size -> break into blocks
   for(bs=0, gs=tgtidx, ge=gs+1; ge <= lastidx; ge++)
   {
@@ -680,7 +691,13 @@ static size_t vcfcov_block2(VcfReader *vr, bool flush, size_t tgtidx,
   size_t i, nremove = ge;
   if(ge < nvars)
     nremove = vc_alts_ends_after(vars, nvars, 0, vars[ge]->pos, ks);
+
   for(i = 0; i < nremove; i++) vcfr_move_to_print(vr, i);
+
+  if(nremove) {
+    // Shrink array if we dropped any vars
+    vcfr_repack_alts(vr);
+  }
 
   // return number of genotyped variants that have not been removed
   return ge - nremove;
@@ -716,8 +733,6 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
 
     nrem = vcfcov_block2(&vr, n == 0, nrem, chr, chrlen, gtyper);
 
-    // Shrink array if we dropped any vars
-    vcfr_repack_alts(&vr);
     vcfr_print_waiting(&vr, outfh, outhdr, false);
   }
 
@@ -727,7 +742,6 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
                 &refid, &chr, &chrlen);
     nrem = vcfcov_block2(&vr, true, nrem, chr, chrlen, gtyper);
   }
-  vcfr_repack_alts(&vr);
   vcfr_print_waiting(&vr, outfh, outhdr, true);
 
   status("[vcfcov] max alleles in buffer: %zu", max_len);

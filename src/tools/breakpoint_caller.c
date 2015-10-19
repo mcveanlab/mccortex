@@ -220,6 +220,7 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
 
   size_t i, min_run_qoffset = SIZE_MAX, min_ended_run_qoffset = SIZE_MAX;
   size_t len, maxlen = 0;
+
   for(i = 0; i < koruns->len; i++) {
     min_run_qoffset = MIN2(min_run_qoffset, koruns->b[i].qoffset);
     len = korun_len(koruns->b[i]);
@@ -229,6 +230,8 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
   // Stop if all our earliest runs have finished
   for(i = 0; i < koruns_ended->len; i++) {
     min_ended_run_qoffset = MIN2(min_ended_run_qoffset, koruns_ended->b[i].qoffset);
+    len = korun_len(koruns->b[i]);
+    maxlen = MAX2(maxlen, len);
   }
 
   // Continue if...
