@@ -1,0 +1,35 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=200>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=HK21R,Number=A,Type=Integer,Description="Num. ref kmers unique in haplotypes (k=21)">
+##INFO=<ID=HK21A,Number=A,Type=Integer,Description="Num. alt kmers unique in haplotypes (k=21)">
+##FORMAT=<ID=NK21R,Number=A,Type=Integer,Description="Number of exclusive kmers on ref found for each allele (k=21)">
+##FORMAT=<ID=CK21R,Number=A,Type=Integer,Description="Mean ref coverage for found kmers (k=21)">
+##FORMAT=<ID=NK21A,Number=A,Type=Integer,Description="Number of exclusive kmers on alt found for each allele (k=21)">
+##FORMAT=<ID=CK21A,Number=A,Type=Integer,Description="Mean alt coverage for found kmers (k=21)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	laurel	hardy
+ref	2	.	C	GCAAGCTTTTCTAATTCGTAT	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	10	.	A	C,GCAAGCTTTTCTAATTCGTAT	.	PASS	HK21R=20,0;HK21A=20,0	NK21R:CK21R:NK21A:CK21A	10,.:2,.:0,.:0,.	10,.:2,.:0,.:0,.
+ref	11	.	A	GCAAGCTTTTCTAATTCGTAT	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	17	.	A	G	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	31	.	A	T	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	32	.	C	T	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	33	.	G	A	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	35	.	C	G	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	54	.	A	G	.	PASS	HK21R=42;HK21A=42	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	56	.	G	C	.	PASS	HK21R=40;HK21A=40	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	80	.	C	T	.	PASS	HK21R=59;HK21A=59	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	85	.	G	A	.	PASS	HK21R=64;HK21A=64	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	90	.	C	G	.	PASS	HK21R=59;HK21A=59	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	91	.	A	GCAAGCTTTTCTAATTCGTAT . PASS	0	.	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	120	.	G	A	.	PASS	HK21R=42;HK21A=42	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	122	.	G	T	.	PASS	HK21R=46;HK21A=46	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0
+ref	140	.	A	C	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	142	.	G	A	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	144	.	C	T	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	146	.	C	A	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	146	.	C	G	.	PASS	HK21R=0;HK21A=0	NK21R:CK21R:NK21A:CK21A	.:.:.:.	.:.:.:.
+ref	167	.	T	C	.	PASS	HK21R=21;HK21A=21	NK21R:CK21R:NK21A:CK21A	21:2:0:0	21:2:0:0

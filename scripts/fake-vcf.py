@@ -43,7 +43,7 @@ def fake_vcf(ref_path):
   try:
     g=fasta_iter(ref_path)
     for (n,s) in g:
-      chrs[n] = s
+      chrs[n] = s.upper()
   except FileNotFoundError as fne:
     print("Cannot find file:",ref_path,file=sys.stderr)
     sys.exit(-1)

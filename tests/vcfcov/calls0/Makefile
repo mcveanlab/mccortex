@@ -27,6 +27,7 @@ graph.k$(K).ctx:
 
 check: calls.cov.vcf
 	[[ `$(VCFNALLELES) calls.cov.vcf` -eq 0 ]]
+	@echo "=> Empty VCF works."
 
 view: calls.cov.vcf
 	zcat -f calls.cov.vcf

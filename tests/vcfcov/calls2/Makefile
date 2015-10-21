@@ -17,7 +17,7 @@ K=21
 all: check
 
 clean:
-	rm -rf calls.cov.vcf graph.k$(K).ctx
+	rm -rf calls.cov.vcf* graph.k$(K).ctx
 
 calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx

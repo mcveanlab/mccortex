@@ -11,7 +11,7 @@ static inline int bk2bits_eq(BinaryKmer k1, BinaryKmer k2) { return binary_kmers
 KHASH_INIT(BkToBits, BinaryKmer, uint64_t, 1, bk2bits_hash, bk2bits_eq);
 
 typedef struct {
-  // nkmers are the number of kmers unique to the allele
+  // nkmers are the number of unique kmers that could were in the graph
   // sumcovg are the sum of coverages on those kmers
   // [0] => ref, [1] => alt
   size_t nkmers[2], sumcovg[2];
@@ -21,7 +21,7 @@ typedef struct {
 typedef struct
 {
   bcf1_t v;
-  size_t vidx, nchildren;
+  size_t vidx;
 } VcfCovLine;
 
 // Single alt-allele decomposed from a VCF entry
@@ -31,12 +31,17 @@ typedef struct {
   uint32_t pos, reflen, altlen, aid; // variant, allele id
   VarCovg *c; // entry for each colour
   bool has_covg; // if we have fetched coverage into `c`
+  size_t nhapk[2]; // number of kmers unique to either allele (0=>ref,1=>alt)
 } VcfCovAlt;
 
 typedef struct {
   BinaryKmer bkey;
   uint64_t arbits; // alt-ref-bits
 } HaploKmer;
+
+// index after the last base used in this haplotype
+#define vcfcovalt_hap_start(v,ks) ((v)->pos <= (ks)-1 ? 0 : (v)->pos - ((ks)-1))
+#define vcfcovalt_hap_end(v,ks) ((v)->pos + (v)->reflen + (ks) - 1)
 
 typedef struct GenotyperStruct Genotyper;
 
@@ -46,11 +51,12 @@ madcrow_buffer(haplokmer_buf, HaploKmerBuffer, HaploKmer);
 madcrow_list(vc_lines, VcfCovLinePtrList, VcfCovLine*);
 madcrow_list(vc_alts,  VcfCovAltPtrList,  VcfCovAlt*);
 
-#define vcfcov_alt_end(gv) ((gv)->pos + (gv)->reflen)
-
 static inline void vcfcov_alt_wipe_covg(VcfCovAlt *var, size_t ncols)
 {
-  if(var->has_covg) memset(var->c, 0, ncols*sizeof(VarCovg));
+  if(var->has_covg) {
+    memset(var->c, 0, ncols*sizeof(var->c[0]));
+    memset(var->nhapk, 0, sizeof(var->nhapk));
+  }
   var->has_covg = false;
 }
 
@@ -87,7 +93,5 @@ size_t genotyping_get_kmers(Genotyper *typer,
                             size_t tgtidx, size_t ntgts,
                             const char *chrom, size_t chromlen,
                             size_t kmer_size, HaploKmer **result);
-
-void genotyping_tests();
 
 #endif /* GENOTYPING_H_ */

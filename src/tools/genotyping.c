@@ -9,6 +9,9 @@ struct GenotyperStruct {
   HaploKmerBuffer kmer_buf;
 };
 
+#define varend(v) ((v)->pos+(v)->reflen)
+#define bits_has(b,i) ((b) & (1UL << (i)))
+
 Genotyper* genotyper_init()
 {
   Genotyper *gt = ctx_calloc(1, sizeof(Genotyper));
@@ -51,11 +54,10 @@ static bool vars_compatible(const VcfCovAlt *const*vars, size_t nvars,
 {
   ctx_assert(nvars < 64);
   size_t i, end = 0;
-  uint64_t b;
-  for(i = 0, b = 1; i < nvars; i++, b<<=1) {
-    if(bits & b) {
+  for(i = 0; i < nvars; i++, bits>>=1) {
+    if(bits & 1) {
       if(vars[i]->pos < end) return false;
-      end = vars[i]->pos + vars[i]->reflen;
+      end = MAX2(end, varend(vars[i]));
     }
   }
   return true;
@@ -84,25 +86,43 @@ static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
   // printf("hapstr: %s %zu-%zu\n", seq->b, regstart, regend);
 }
 
-//                 arararararar r=ref, a=alt
-// var:  543210    554433221100
-// bits: 010110 -> 011001101000
-// bits: 000000 -> 010101010101  // reference special case not handled here
-//
-static inline uint64_t varbits_to_altrefbits(uint64_t bits,
-                                             size_t tgtidx,
-                                             size_t ntgts)
+// Get alt/ref bits from bits specifying which alt alleles are currently used
+// We then infer which ref alleles are used and which are missing ref and alt
+// We return ref/alt bits which indicate which ref and alt alleles are
+// represented
+static inline uint64_t altrefbits(const VcfCovAlt *const*vars, size_t nvars,
+                                  uint64_t bits)
 {
-  ctx_assert(ntgts <= 32);
-  uint64_t i, r = 0;
-  bits >>= tgtidx;
-  for(i = 0; i < ntgts; i++, bits>>=1)
-    r |= (bits&1) << (i*2+1);
-  return r;
+  uint64_t b = 0, hasref;
+  size_t i, j, k, vend;
+
+  for(i = j = 0; i < nvars; i++)
+  {
+    if(bits_has(bits,i)) {
+      // set alt bit only
+      b |= 1UL << (i*2+1);
+      continue;
+    }
+
+    // Check if we should set ref bit
+    // use j so we don't have to start search from zero each time
+    while(j < nvars && varend(vars[j]) <= vars[i]->pos) j++;
+
+    vend = varend(vars[i]);
+    hasref = 1;
+
+    for(k = j; k < nvars && vars[k]->pos < vend; k++) {
+      if(bits_has(bits,k) && varend(vars[k]) > vars[i]->pos)
+      {
+        hasref = 0;
+        break;
+      }
+    }
+    b |= hasref << (i*2);
+  }
+
+  return b;
 }
-
-
-#define varend(v) (int)((v)->pos+(v)->reflen)
 
 /**
  * Get a list of kmers which support variants.
@@ -134,16 +154,14 @@ size_t genotyping_get_kmers(Genotyper *typer,
   const VcfCovAlt *tgt = vars[tgtidx];
 
   size_t i, tgtend = tgtidx+ntgts;
-  int regstart, regend;
-  regstart = MIN2(vars[0]->pos, tgt->pos - kmer_size + 1);
-  regstart = MAX2(regstart, 0);
-  regend = regstart;
+  size_t regstart = MIN2(vars[0]->pos, vcfcovalt_hap_start(tgt,kmer_size));
+  size_t regend = regstart;
 
   for(i = 0; i < tgtidx; i++) regend = MAX2(regend, varend(vars[i]));
-  for(; i < tgtend; i++) regend = MAX2(regend, varend(vars[i])+(int)kmer_size-1);
+  for(; i < tgtend; i++) regend = MAX2(regend, vcfcovalt_hap_end(vars[i],kmer_size));
   for(; i < nvars; i++) regend = MAX2(regend, varend(vars[i]));
 
-  regend = MIN2(regend, (int)chromlen);
+  regend = MIN2(regend, chromlen);
 
   StrBuf *seq = &typer->seq;
   khash_t(BkToBits) *h = typer->h;
@@ -167,8 +185,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
       assemble_haplotype_str(seq, chrom, regstart, regend,
                              vars, nvars, bits);
 
-      altref_bits = bits ? varbits_to_altrefbits(bits, tgtidx, ntgts)
-                         : altref_bits0;
+      altref_bits = altrefbits(vars+tgtidx, ntgts, bits>>tgtidx);
 
       // Covert to kmers, find/add them to the hash table, OR bits
       // Split contig at non-ACGT bases (e.g. N)
@@ -214,10 +231,4 @@ size_t genotyping_get_kmers(Genotyper *typer,
 
   *result = gkbuf->b;
   return gkbuf->len;
-}
-
-void genotyping_tests()
-{
-  ctx_assert(varbits_to_altrefbits( 0b010110, 0, 6) == 0b001000101000);
-  ctx_assert(varbits_to_altrefbits(0b0101101, 1, 5) ==   0b1000101000);
 }
