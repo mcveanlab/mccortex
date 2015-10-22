@@ -577,7 +577,7 @@ for my $k (@kmers) {
     my @files = get_all_sample_files($sample);
 
     print "$proj/k$k/graphs/$sname.raw.ctx: ".join(' ', @files)." | \$(DIRS)\n";
-    print "\t$ctx build \$(CTX_ARGS) -k $k --sample $sname " .
+    print "\t$ctx build \$(BUILD_ARGS) \$(CTX_ARGS) -k $k --sample $sname " .
           join(' ', (map {"--seq $_"}               @{$sample->{'se_files'}}),
                     (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
                     (map {"--seqi $_"}              @{$sample->{'i_files'}})) .
