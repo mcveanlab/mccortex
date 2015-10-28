@@ -124,6 +124,19 @@ static inline uint64_t altrefbits(const VcfCovAlt *const*vars, size_t nvars,
   return b;
 }
 
+static size_t count_ref_kmers(const char *seq, size_t slen,
+                              size_t pos, size_t rlen,
+                              size_t ksize)
+{
+  size_t start = pos < (ksize-1) ? 0 : pos - (ksize-1);
+  size_t end = MIN2(pos + rlen + (ksize-1), slen);
+  const char *l, *r;
+  for(l = seq+pos; l > seq+start && char_is_acgt(*(l-1)); l--) {}
+  for(r = seq+pos+rlen; r < seq+end && char_is_acgt(*r); r++) {}
+  size_t len = r-l;
+  return len < ksize ? 0 : len - ksize + 1;
+}
+
 /**
  * Get a list of kmers which support variants.
  *
@@ -142,7 +155,8 @@ size_t genotyping_get_kmers(Genotyper *typer,
                             const VcfCovAlt *const*vars, size_t nvars,
                             size_t tgtidx, size_t ntgts,
                             const char *chrom, size_t chromlen,
-                            size_t kmer_size, HaploKmer **result)
+                            size_t kmer_size,
+                            HaploKmer **result, uint32_t *nrkmers)
 {
   ctx_assert2(0 < nvars && nvars < 64, "nvars: %zu", nvars);
   ctx_assert2(tgtidx < nvars, "tgtidx:%zu >= nvars:%zu ??", tgtidx, nvars);
@@ -169,15 +183,20 @@ size_t genotyping_get_kmers(Genotyper *typer,
   int hret;
   khiter_t k;
 
+  // Count number of ref kmers
+  for(i = 0; i < ntgts; i++) {
+    nrkmers[i] = count_ref_kmers(chrom+regstart, regend-regstart,
+                                 vars[tgtidx+i]->pos-regstart,
+                                 vars[tgtidx+i]->reflen,
+                                 kmer_size);
+  }
+
   // Faster to clear at the end whilst iterating
   // kh_clear(BkToBits, h);
 
   // Start with ref haplotype (no variants)
-  uint64_t bits, limit, altref_bits, altref_bits0;
+  uint64_t bits, limit, altref_bits;
   size_t cstart, cend, cnext;
-
-  for(i = 0; i < ntgts; i++)
-    altref_bits0 = (altref_bits0<<2) | 1;
 
   for(bits = 0, limit = 1UL<<nvars; bits < limit; bits++) {
     if(vars_compatible(vars, nvars, bits)) {

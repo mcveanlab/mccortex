@@ -117,7 +117,7 @@ void gpath_set_nseen_sum_mt(const GPath *dst, GPathSet *dstset,
 
   if(src_nseen && dst_nseen) {
     for(i = 0; i < dstset->ncols; i++)
-      safe_add_uint8(&dst_nseen[i], src_nseen[i]);
+      safe_add_uint8_mt(&dst_nseen[i], src_nseen[i]);
   }
 }
 

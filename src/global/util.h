@@ -5,44 +5,8 @@
 // Macros
 //
 
-#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
-
-//
-// Comparisons
-//
-// comparison returns:
-//   negative iff a < b
-//          0 iff a == b
-//   positive iff a > b
-
-int cmp_int(const void *a, const void *b);
-int cmp_long(const void *a, const void *b);
-int cmp_float(const void *a, const void *b);
-int cmp_double(const void *a, const void *b);
-int cmp_uint32(const void *a, const void *b);
-int cmp_uint64(const void *a, const void *b);
-int cmp_size(const void *a, const void *b);
-int cmp_ptr(const void *a, const void *b);
-int cmp_charptr(const void *a, const void *b);
-
-//
-// Arrays
-//
-static inline void swapm(char *a, char *b, size_t es)
-{
-  char *end, tmp;
-  for(end = a + es; a < end; a++, b++) { tmp = *a; *a = *b; *b = tmp; }
-}
-
-// cyclic-shift an array by `shift` elements
-// cycle left shifts towards zero
-void array_cycle_left(void *_ptr, size_t n, size_t es, size_t shift);
-// cycle right shifts away from zero
-void array_cycle_right(void *_ptr, size_t n, size_t es, size_t shift);
-
-void array_reverse(void *_ptr, size_t n, size_t es);
 
 //
 // Number parsing
@@ -201,7 +165,7 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
 //
 
 // Increment a uint8_t without overflow
-static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
+static inline void safe_add_uint8_mt(volatile uint8_t *ptr, uint8_t add)
 {
   ctx_assert(ptr != NULL);
   uint8_t v = *ptr, newv, curr;
@@ -215,6 +179,13 @@ static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
   while(v != curr);
 }
 
-#define safe_incr_uint8(ptr) safe_add_uint8(ptr,1)
+#define safe_incr_uint8(ptr) safe_add_uint8_mt(ptr,1)
+
+
+static inline void safe_add_int32(int32_t *x, uint32_t c)
+{
+  uint64_t s = (uint64_t)*x + c;
+  *x = MIN2(INT32_MAX, s);
+}
 
 #endif /* UTIL_H_ */

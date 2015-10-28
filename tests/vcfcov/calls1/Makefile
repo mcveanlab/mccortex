@@ -32,7 +32,7 @@ check: calls.cov.vcf truth.cov.vcf
 	@echo "=> VCF files match."
 
 view: calls.cov.vcf truth.cov.vcf
-	zcat -f calls.cov.vcf
-	zcat -f truth.cov.vcf
+	gzip -fcd calls.cov.vcf
+	gzip -fcd truth.cov.vcf
 
 .PHONY: all clean view check

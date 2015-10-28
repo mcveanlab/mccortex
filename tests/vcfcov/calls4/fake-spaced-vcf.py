@@ -114,7 +114,7 @@ def fake_vcf(ref_path,ks,sample,rcov,acov):
   for name,s in chrs.items():
     print("##contig=<ID=",name,",length=",str(len(s)),">",sep='')
   col_hdrs.append(sample)
-  print('#','\t'.join(col_hdrs),sep='\t')
+  print('#','\t'.join(col_hdrs),sep='')
 
   spaced_vars(chrs,ks,rcov,acov)
 

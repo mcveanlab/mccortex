@@ -14,7 +14,8 @@ typedef struct {
   // nkmers are the number of unique kmers that could were in the graph
   // sumcovg are the sum of coverages on those kmers
   // [0] => ref, [1] => alt
-  size_t nkmers[2], sumcovg[2];
+  // int32_t nkmers[2], sumcovg[2];
+  int32_t covg[2]; // => roundup(median(covg)*len(covg) / (len(allele)+k-1))
 } VarCovg;
 
 // VCF line
@@ -31,17 +32,17 @@ typedef struct {
   uint32_t pos, reflen, altlen, aid; // variant, allele id
   VarCovg *c; // entry for each colour
   bool has_covg; // if we have fetched coverage into `c`
-  size_t nhapk[2]; // number of kmers unique to either allele (0=>ref,1=>alt)
 } VcfCovAlt;
 
 typedef struct {
   BinaryKmer bkey;
-  uint64_t arbits; // alt-ref-bits
+  uint64_t arbits; // alt-ref-bits, only for target variants
 } HaploKmer;
 
 // index after the last base used in this haplotype
 #define vcfcovalt_hap_start(v,ks) ((v)->pos <= (ks)-1 ? 0 : (v)->pos - ((ks)-1))
 #define vcfcovalt_hap_end(v,ks) ((v)->pos + (v)->reflen + (ks) - 1)
+#define vcfcovalt_akmers(v,nrk) ((nrk) + (v)->altlen < (v)->reflen ? (size_t)0 : (nrk) + (v)->altlen - (v)->reflen)
 
 typedef struct GenotyperStruct Genotyper;
 
@@ -53,10 +54,7 @@ madcrow_list(vc_alts,  VcfCovAltPtrList,  VcfCovAlt*);
 
 static inline void vcfcov_alt_wipe_covg(VcfCovAlt *var, size_t ncols)
 {
-  if(var->has_covg) {
-    memset(var->c, 0, ncols*sizeof(var->c[0]));
-    memset(var->nhapk, 0, sizeof(var->nhapk));
-  }
+  if(var->has_covg) memset(var->c, 0, ncols*sizeof(var->c[0]));
   var->has_covg = false;
 }
 
@@ -89,9 +87,10 @@ static inline uint64_t genotyping_refalt_nonuniq(uint64_t b) {
  * @return number of kmers
  */
 size_t genotyping_get_kmers(Genotyper *typer,
-                            const VcfCovAlt *const* vars, size_t nvars,
+                            const VcfCovAlt *const*vars, size_t nvars,
                             size_t tgtidx, size_t ntgts,
                             const char *chrom, size_t chromlen,
-                            size_t kmer_size, HaploKmer **result);
+                            size_t kmer_size,
+                            HaploKmer **result, uint32_t *nrkmers);
 
 #endif /* GENOTYPING_H_ */

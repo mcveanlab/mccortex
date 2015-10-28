@@ -4,7 +4,7 @@ SHELL=/bin/bash
 # make all      <- compile all libraries (deps + analysis)
 # make clean    <- clean all libraries
 
-CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib misc
+CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib carrays misc
 OTHER=bcftools samtools bwa readsim bioinf-perl maximal_substrs vcf-slim
 
 ALLTGTS=$(CORE) $(OTHER)
@@ -62,14 +62,31 @@ sort_r: sort_r/Makefile
 madcrowlib: madcrowlib/Makefile
 	cd madcrowlib && $(MAKE) all
 
-maximal_substrs:
+carrays: carrays/Makefile
+	cd carrays && $(MAKE) all
+
+maximal_substrs: maximal_substrs/Makefile
 	cd maximal_substrs && $(MAKE)
 
 misc: misc/Makefile
 	cd misc && $(MAKE)
 
 vcf-slim: vcf-slim/Makefile htslib
-	cd vcf-slim && $(MAKE) all test
+	cd vcf-slim && $(MAKE) all
+
+#
+# Run tests
+#
+test:
+	cd htslib && $(MAKE) test
+	cd bit_array && $(MAKE) test
+	cd string_buffer && $(MAKE) test
+	cd seq-align && $(MAKE) test
+	cd msg-pool && $(MAKE) test
+	cd sort_r && $(MAKE) test
+	cd carrays && $(MAKE) test
+	cd vcf-slim && $(MAKE) test
+	cd madcrowlib && $(MAKE) test
 
 #
 # Clean
@@ -87,8 +104,9 @@ clean:
 	cd msg-pool && $(MAKE) clean
 	cd sort_r && $(MAKE) clean
 	cd madcrowlib && $(MAKE) clean
+	cd carrays && $(MAKE) clean
 	cd maximal_substrs && $(MAKE) clean
 	cd misc && $(MAKE) clean
 
-.PHONY: all clean update core
+.PHONY: all clean test update core
 .PHONY: $(ALLTGTS)

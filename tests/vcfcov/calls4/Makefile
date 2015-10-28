@@ -14,7 +14,7 @@ K=21
 #   python3 fake-spaced-vcf.py ../ref/ref.fa 21 pluto 2 3 > calls.vcf 2> pluto.fa
 #
 
-all: check
+all: test
 
 clean:
 	rm -rf calls.cov.vcf* pluto.k$(K).ctx
@@ -26,14 +26,14 @@ calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: calls.vcf $(REF) pluto.k$(K).ctx
 	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 1 $< pluto.k$(K).ctx >& $@.log
 
-check: calls.cov.vcf truth.cov.vcf calls.cov.vcf.log
+test: calls.cov.vcf truth.cov.vcf calls.cov.vcf.log
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)
 	@echo "=> VCF files match."
 	[[ `grep -o 'max alleles in buffer:.*' calls.cov.vcf.log | grep -o '[0-9][0-9]*'` -lt 3 ]]
 	@echo "=> Buffer kept below 3 VCF entries."
 
 view: calls.cov.vcf truth.cov.vcf
-	zcat -f calls.cov.vcf
-	zcat -f truth.cov.vcf
+	gzip -fcd calls.cov.vcf
+	gzip -fcd truth.cov.vcf
 
-.PHONY: all clean view check
+.PHONY: all clean view test

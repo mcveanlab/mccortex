@@ -1,6 +1,8 @@
 #include "global.h"
 #include "assemble_stats.h"
 
+#include "carrays/carrays.h" // gca_cmp_size
+
 const char *assem_stop_str[] = {ASSEM_STOP_UNKNOWN_STR,
                                 ASSEM_STOP_NOCOVG_STR,
                                 ASSEM_STOP_NOCOLCOVG_STR,
@@ -196,8 +198,8 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
     return;
   }
 
-  qsort(s->lengths.b, ncontigs, sizeof(s->lengths.b[0]), cmp_size);
-  qsort(s->junctns.b, ncontigs, sizeof(s->junctns.b[0]), cmp_size);
+  qsort(s->lengths.b, ncontigs, sizeof(s->lengths.b[0]), gca_cmp_size);
+  qsort(s->junctns.b, ncontigs, sizeof(s->junctns.b[0]), gca_cmp_size);
 
   size_t len_n50, jnc_n50;
   size_t len_median, jnc_median, len_mean, jnc_mean;

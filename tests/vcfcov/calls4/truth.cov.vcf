@@ -4,19 +4,16 @@
 ##reference=ref/ref.fa
 ##contig=<ID=ref,length=200>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##INFO=<ID=HK21R,Number=A,Type=Integer,Description="Num. ref kmers unique in haplotypes (k=21)">
-##INFO=<ID=HK21A,Number=A,Type=Integer,Description="Num. alt kmers unique in haplotypes (k=21)">
-##FORMAT=<ID=NK21R,Number=A,Type=Integer,Description="Number of exclusive kmers on ref found for each allele (k=21)">
-##FORMAT=<ID=CK21R,Number=A,Type=Integer,Description="Mean ref coverage for found kmers (k=21)">
-##FORMAT=<ID=NK21A,Number=A,Type=Integer,Description="Number of exclusive kmers on alt found for each allele (k=21)">
-##FORMAT=<ID=CK21A,Number=A,Type=Integer,Description="Mean alt coverage for found kmers (k=21)">
+##FORMAT=<ID=K21R,Number=A,Type=Integer,Description="Coverage on ref (k=21) => sum(kmer_covs)/exp_num_kmers">
+##FORMAT=<ID=K21A,Number=A,Type=Integer,Description="Coverage on alt (k=21) => sum(kmer_covs)/exp_num_kmers">
+##mccortex_5a56358=<prev="NULL",cmd="../../../bin/mccortex31 vcfcov -m 10M -o calls.cov.vcf -r ../ref/ref.fa --max-nvars 1 calls.vcf pluto.k21.ctx",cwd="/Users/isaac/mccortex/tests/vcfcov/calls4",datetime="20151028-00:20:03",version=v0.0.3-368-gc5c8b27-dirty>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	pluto
-ref	7	.	G	T	.	PASS	HK21R=7;HK21A=7	NK21R:CK21R:NK21A:CK21A	7:2:7:3
-ref	28	.	A	C	.	PASS	HK21R=21;HK21A=21	NK21R:CK21R:NK21A:CK21A	21:2:21:3
-ref	49	.	GG	CGAT	.	PASS	HK21R=22;HK21A=24	NK21R:CK21R:NK21A:CK21A	22:2:24:3
-ref	71	.	A	GAT	.	PASS	HK21R=21;HK21A=23	NK21R:CK21R:NK21A:CK21A	21:2:23:3
-ref	92	.	GCACCAGGG	AC	.	PASS	HK21R=29;HK21A=22	NK21R:CK21R:NK21A:CK21A	29:2:22:3
-ref	121	.	C	G	.	PASS	HK21R=21;HK21A=21	NK21R:CK21R:NK21A:CK21A	21:2:21:3
-ref	142	.	GGCACAGCA	TTACTCTTC	.	PASS	HK21R=29;HK21A=29	NK21R:CK21R:NK21A:CK21A	29:2:29:3
-ref	171	.	A	CTAG	.	PASS	HK21R=21;HK21A=24	NK21R:CK21R:NK21A:CK21A	21:2:24:3
-ref	192	.	CATCATAG	A	.	PASS	HK21R=9;HK21A=2	NK21R:CK21R:NK21A:CK21A	9:2:2:3
+ref	7	.	G	T	.	PASS	.	K21R:K21A	2:3
+ref	28	.	A	C	.	PASS	.	K21R:K21A	2:3
+ref	49	.	GG	CGAT	.	PASS	.	K21R:K21A	2:3
+ref	71	.	A	GAT	.	PASS	.	K21R:K21A	2:3
+ref	92	.	GCACCAGGG	AC	.	PASS	.	K21R:K21A	2:3
+ref	121	.	C	G	.	PASS	.	K21R:K21A	2:3
+ref	142	.	GGCACAGCA	TTACTCTTC	.	PASS	.	K21R:K21A	2:3
+ref	171	.	A	CTAG	.	PASS	.	K21R:K21A	2:3
+ref	192	.	CATCATAG	A	.	PASS	.	K21R:K21A	2:3

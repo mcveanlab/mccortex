@@ -66,3 +66,6 @@
 [submodule "libs/vcfhp"]
 	path = libs/vcf-slim
 	url = https://github.com/noporpoise/vcf-slim
+[submodule "libs/carrays"]
+	path = libs/carrays
+	url = https://github.com/noporpoise/carrays.git

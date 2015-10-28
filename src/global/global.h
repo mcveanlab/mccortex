@@ -76,6 +76,10 @@ void cortex_destroy();
 #define MAX3(x,y,z) ((x) >= (y) && (x) >= (z) ? (x) : MAX2(y,z))
 #define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
 
+#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
+
+#define cmp(a,b) (((a) > (b)) - ((b) > (a)))
+
 // Number of reads to hold in the msg pool
 #define MSGPOOLSIZE 2048
 #define USE_MSG_POOL MSGP_LOCK_MUTEX

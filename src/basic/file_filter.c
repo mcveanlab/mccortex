@@ -241,11 +241,11 @@ void file_filter_add(FileFilter *fltr, uint32_t from, uint32_t into)
 // Sort array of Filter structs
 //
 static inline int _into_cmp(const void *a, const void *b) {
-  return (long)((const Filter*)a)->into - ((const Filter*)b)->into;
+  return cmp(((const Filter*)a)->into, ((const Filter*)b)->into);
 }
 
 static inline int _from_cmp(const void *a, const void *b) {
-  return (long)((const Filter*)a)->from - ((const Filter*)b)->from;
+  return cmp(((const Filter*)a)->from, ((const Filter*)b)->from);
 }
 
 #define filters_sort_by_into(fltr) qsort((fltr)->filter.b, file_filter_num(fltr), sizeof(fltr->filter.b[0]), _into_cmp)

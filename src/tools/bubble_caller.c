@@ -11,7 +11,6 @@
 #include "graph_crawler.h"
 #include "json_hdr.h"
 
-#include <time.h> // printing datetime
 #include <pthread.h> // multithreading
 
 BubbleCaller* bubble_callers_new(size_t num_callers,

@@ -11,7 +11,7 @@ K=21
 # Test vcfcov with an empty VCF
 #
 
-all: check
+all: test
 
 clean:
 	rm -rf calls.cov.vcf graph.k$(K).ctx
@@ -25,11 +25,11 @@ graph.k$(K).ctx:
 	  --sample Jane --seq <(echo '') \
 	  $@
 
-check: calls.cov.vcf
+test: calls.cov.vcf
 	[[ `$(VCFNALLELES) calls.cov.vcf` -eq 0 ]]
 	@echo "=> Empty VCF works."
 
 view: calls.cov.vcf
-	zcat -f calls.cov.vcf
+	gzip -fcd calls.cov.vcf
 
-.PHONY: all clean view check
+.PHONY: all clean view test

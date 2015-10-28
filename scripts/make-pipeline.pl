@@ -36,6 +36,7 @@ sub print_usage
 
   Options:
     -r,--ref <ref.fa>             Reference sequence
+    -1,--single-colour            Build as single sample (not multicoloured graph)
     -s,--stampy <path/stampy.py>  Use stampy instead of BWA to place variants
     -S,--stampy-base <B>          Stampy hashes <B>.stidx and <B>.sthash
 
@@ -68,11 +69,13 @@ my $ref_path; # path to reference FASTA if available
 
 my $stampy;
 my $stampy_base; # base to stampy hash files (.stidx, .sthash)
+my $single_colour = 0;
 
 # Parse command line args
 while(@ARGV > 3) {
   my $arg = shift;
   if($arg =~ /^(-r|--ref)$/ && !defined($ref_path)) { $ref_path = shift; }
+  elsif($arg =~ /^(-1|--single-colour)$/ && !$single_colour) { $single_colour = 1; }
   elsif($arg =~ /^(-s|--stampy)$/ && !defined($stampy)) { $stampy = shift; }
   elsif($arg =~ /^(-S|--stampy-base)$/ && !defined($stampy_base)) { $stampy_base = shift; }
   else { print_usage("Unknown argument: $arg"); }
@@ -147,7 +150,6 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   NTHREADS=<nthreads>    Number of threads to use
 #   USE_LINKS=<B>          <B> is "yes" or "no"
 #   JOINT_CALLING=<B>      <B> is "yes" or "no"
-#   SINGLE_SAMPLE=<1|0>   running with single sample (cannot be merged later!)
 #   MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)
 #   MIN_FRAG_LEN=<L>       minimum fragment length bp (=read+gap+read)
 #   MAX_FRAG_LEN=<L>       maximum fragment length bp (=read+gap+read)
@@ -262,12 +264,6 @@ MAX_FRAG_LEN=1000
 FQ_CUTOFF=10
 HP_CUTOFF=0
 
-# Set this to non-blank (e.g. 1) to stop infer edges from running.
-# Links generated with this set will not be usable in multicolour graphs.
-# If you have only one sample this will improve the calls.
-# Do not set it if you have more sample.
-SINGLE_SAMPLE=0
-
 SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
 BRK_REF_KMERS=10
 
@@ -343,29 +339,14 @@ ifndef JOINT_CALLING
   JOINT=1
 endif
 
-# INFER_EDGES is default on
-ifeq ($(SINGLE_SAMPLE),no)
-  INFER_EDGES=1
-endif
-ifeq ($(SINGLE_SAMPLE),false)
-  INFER_EDGES=1
-endif
-ifeq ($(SINGLE_SAMPLE),0)
-  INFER_EDGES=1
-endif
-ifndef SINGLE_SAMPLE
-  INFER_EDGES=1
-endif
-
 # LINKS is defined iff we are using links
 # JOINT is defined iff we are doing joint calling
-# INFER_EDGES is defined iff we are inferring edges
-
-ifndef INFER_EDGES
-  BREAKPOINTS_ARGS:=$(BREAKPOINTS_ARGS) --no-ref-edges
-endif
-
 ';
+
+if($single_colour) {
+  print "# Must not load edges with --single-colour\n";
+  print 'BREAKPOINTS_ARGS:=$(BREAKPOINTS_ARGS) --no-ref-edges'."\n";
+}
 
 for my $k (@kmers) {
   print "# Files at k=$k\n";
@@ -598,9 +579,9 @@ for my $k (@kmers) {
   print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.clean.ctx\n";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
   print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
-  print "ifdef INFER_EDGES\n";
-  print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
-  print "endif\n";
+  if(!$single_colour) {
+    print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
+  }
   print "\n";
 
   # Dump unitigs
@@ -690,12 +671,21 @@ print "#\n# Make bubble calls\n#\n";
 for my $k (@kmers) {
   my $ctx = get_mccortex($k);
   my $link_args = get_p_args($k);
+  # If $single_colour, we can't load more than one graph WITH LINKS
   my $hapcol = defined($ref_path) ? "--haploid ".scalar(@samples) : '';
+  my $hapcol1by1_links = defined($ref_path) && !$single_colour ? "--haploid 1" : '';
+  my $hapcol1by1_plain = defined($ref_path)                    ? "--haploid 1" : '';
+  my $refgraph = $single_colour ? "" : '$(REF_GRAPH_K'.$k.')';
 
   # joint bubble calling
   print "# bubble calls k=$k joint+links\n";
-  print "$proj/k$k/bubbles/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
-  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  if(!$single_colour) {
+    print "$proj/k$k/bubbles/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  } else {
+    print "$proj/k$k/bubbles/joint.bub.gz:\n";
+    print "\t>&2 echo 'Cannot create joint bubble calls with links using --single-colour' && exit 1\n"
+  }
 
   print "# bubble calls k=$k joint+nolinks\n";
   print "$proj/k$k/bubbles_plain/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) | \$(DIRS)\n";
@@ -703,12 +693,12 @@ for my $k (@kmers) {
 
   # 1by1 bubble calling
   print "# bubble calls k=$k 1by1+links\n";
-  print "$proj/k$k/bubbles/%.bub.gz: $proj/k$k/graphs/%.clean.ctx \$(REF_GRAPH_K$k) $proj/k$k/links/%.pe.clean.ctp.gz\n";
-  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) --haploid 1 -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "$proj/k$k/bubbles/%.bub.gz: $proj/k$k/graphs/%.clean.ctx $refgraph $proj/k$k/links/%.pe.clean.ctp.gz\n";
+  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol1by1_links -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< $refgraph >& \$@.log\n\n";
 
   print "# bubble calls k=$k 1by1+nolinks\n";
   print "$proj/k$k/bubbles_plain/%.bub.gz: $proj/k$k/graphs/%.clean.ctx \$(REF_GRAPH_K$k)\n";
-  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) --haploid 1 -o \$@ \$< \$(REF_GRAPH_K$k) >& \$@.log\n\n";
+  print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol1by1_plain -o \$@ \$< \$(REF_GRAPH_K$k) >& \$@.log\n\n";
 }
 
 # Some things require a reference to be used

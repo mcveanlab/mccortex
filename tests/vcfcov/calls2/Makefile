@@ -11,10 +11,10 @@ K=21
 # Test vcfcov with too many overlapping variants
 #
 # Test VCF of a SNP per base generated with:
-#   $(CTXDIR)/scripts/fake-vcf.py ../ref/ref.fa > calls.vcf
+#   ./fake-vcf.py ../ref/ref.fa > calls.vcf
 #
 
-all: check
+all: test
 
 clean:
 	rm -rf calls.cov.vcf* graph.k$(K).ctx
@@ -26,14 +26,14 @@ calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
 graph.k$(K).ctx: sample.fa
 	$(MCCORTEX31) build -m 10M -k $(K) --sample John --seq sample.fa $@
 
-check: calls.cov.vcf truth.cov.vcf calls.cov.vcf.log
+test: calls.cov.vcf truth.cov.vcf calls.cov.vcf.log
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)
 	@echo "=> VCF files match."
 	[[ `grep -o 'max alleles in buffer:.*' calls.cov.vcf.log | grep -o '[0-9][0-9]*'` -lt 50 ]]
 	@echo "=> Buffer kept below 50 VCF entries."
 
 view: calls.cov.vcf truth.cov.vcf
-	zcat -f calls.cov.vcf
-	zcat -f truth.cov.vcf
+	gzip -fcd calls.cov.vcf
+	gzip -fcd truth.cov.vcf
 
-.PHONY: all clean view check
+.PHONY: all clean view test

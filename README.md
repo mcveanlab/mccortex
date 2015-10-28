@@ -133,6 +133,7 @@ Bundled libraries may have different licenses:
 * [seq-align](https://github.com/noporpoise/seq-align) (Public Domain)
 * [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
 * [sort_r](https://github.com/noporpoise/sort_r) (Public Domain)
+* [carrays](https://github.com/noporpoise/carrays) (Public Domain)
 * [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
 * [xxHash](https://github.com/Cyan4973/xxHash.git) (BSD)
 

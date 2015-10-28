@@ -75,6 +75,7 @@ LIB_HTS=libs/htslib/libhts.a
 LIB_ALIGN=libs/seq-align/src/libalign.a
 # LIB_STRS=libs/string_buffer/libstrbuf.a
 LIB_STRS=libs/string_buffer/string_buffer.o
+LIB_CARRAYS=libs/carrays/carrays.o
 
 MISC_SRCS=$(wildcard libs/misc/*.c)
 MISC_HDRS=$(wildcard libs/misc/*.h)
@@ -90,7 +91,7 @@ endif
 INCS=-I libs -I $(IDIR_HTS) -I $(IDIR_SEQ) $(EXTRA_INCS)
 
 # Library linking
-LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_HTS) $(LIB_ALIGN) libs/cJSON/cJSON.o
+LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_CARRAYS) $(LIB_HTS) $(LIB_ALIGN) libs/cJSON/cJSON.o
 LINK=-lpthread -lz -lm
 
 CFLAGS = -std=c99 -Wall -Wextra

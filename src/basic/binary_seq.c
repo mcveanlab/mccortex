@@ -261,5 +261,5 @@ int binary_seqs_cmp(const uint8_t *arr0, size_t len0,
     if((ret = x - y) != 0) return ret;
     o+=2; b += (o == 8); o &= 7;
   }
-  return (long)len0 - (long)len1;
+  return cmp(len0, len1);
 }

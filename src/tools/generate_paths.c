@@ -264,7 +264,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // Add colour
     bitset_set(gpath_get_colset(gpath, gpset->ncols), ctpcol);
     uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
-    if(nseen != NULL) safe_add_uint8(&nseen[ctpcol], 1);
+    if(nseen != NULL) safe_add_uint8_mt(&nseen[ctpcol], 1);
 
     packed_ptr[top_idx] = top_byte; // restore top byte
 

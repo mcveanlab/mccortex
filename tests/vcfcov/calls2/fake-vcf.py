@@ -10,14 +10,11 @@ hdr = ('##fileformat=VCFv4.2\n'
        '##FILTER=<ID=PASS,Description="All filters passed">\n'
        '##fileDate=20151014\n'
        '##reference=ref/ref.fa\n'
-       '##contig=<ID=ref,length=599>\n'
        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
-       '##FORMAT=<ID=NK21R,Number=A,Type=Integer,Description="Number of exclusive kmers on ref for each allele (k=21)">\n'
-       '##FORMAT=<ID=NK21A,Number=A,Type=Integer,Description="Number of exclusive kmers on alt for each allele (k=21)">\n'
-       '##FORMAT=<ID=CK21R,Number=A,Type=Integer,Description="Mean ref exclusive kmer coverage (k=21)">\n'
-       '##FORMAT=<ID=CK21A,Number=A,Type=Integer,Description="Mean alt exclusive kmer coverage (k=21)">\n')
+       '##FORMAT=<ID=K21R,Number=A,Type=Integer,Description="Coverage on ref (k=21) => sum(kmer_covs)/exp_num_kmers">\n'
+       '##FORMAT=<ID=K21A,Number=A,Type=Integer,Description="Coverage on alt (k=21) => sum(kmer_covs)/exp_num_kmers">\n')
 
-col_hdr='#CHROM  POS ID  REF ALT QUAL    FILTER  INFO    FORMAT\n'
+col_hdrs=['CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO','FORMAT']
 
 def fasta_iter(file_path):
   """
@@ -52,7 +49,7 @@ def fake_vcf(ref_path):
   print(hdr,end='')
   for name,s in chrs.items():
     print("##contig=<ID=",name,",length=",str(len(s)),">",sep='')
-  print(col_hdr,end='')
+  print('#','\t'.join(col_hdrs),sep='')
 
   # Generate entries
   for name,s in chrs.items():

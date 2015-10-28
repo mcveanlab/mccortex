@@ -294,7 +294,7 @@ int graph_cache_steps_cmp(const GCacheStep *a, const GCacheStep *b,
     if(word0 > word1) return 1;
   }
 
-  return (long)len0 - len1;
+  return cmp(len0, len1);
 }
 
 static inline int _steps_cmp(const void *aa, const void *bb, void *arg)

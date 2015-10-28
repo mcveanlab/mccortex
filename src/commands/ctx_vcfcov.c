@@ -10,6 +10,9 @@
 #include "htslib/vcf.h"
 #include "htslib/faidx.h"
 
+#include "madcrowlib/madcrow_buffer.h"
+madcrow_buffer(covg_buf, CovgBuffer, Covg);
+
 #define DEFAULT_MAX_ALLELE_LEN 100
 #define DEFAULT_MAX_GT_VARS 8
 
@@ -30,6 +33,7 @@ uint32_t max_gt_vars = 0;
 // Stats
 size_t num_vcf_lines = 0, num_alts_read = 0, num_alts_loaded = 0;
 size_t num_alts_too_long = 0, num_alts_no_covg = 0, num_alts_with_covg = 0;
+size_t num_gt_kmers = 0;
 
 const char vcfcov_usage[] =
 "usage: "CMD" vcfcov [options] <in.vcf> <in.ctx> [in2.ctx ...]\n"
@@ -64,14 +68,13 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-char nkmers_ref_tag[10], nkmers_alt_tag[10];
 char kcovgs_ref_tag[10], kcovgs_alt_tag[10];
-char nhapk_ref_tag[10], nhapk_alt_tag[10];
 
 typedef struct
 {
   const char *path;
   const size_t *samplehdrids; // samplehdrids[x] is the sample id in VCF
+  size_t ncols, kmer_size; // number of colours loaded in the de Bruijn graph
   htsFile *vcffh;
   bcf_hdr_t *vcfhdr;
   VcfCovLine *curr_line; // last line to be read into alist
@@ -83,56 +86,38 @@ typedef struct
   // alist are current alleles; anchrom are on next chromosome
   // aprint are waiting to be printed; apool is a memory pool
   VcfCovAltPtrList alist, anchrom, aprint, apool; // alleles
-  // Genotyping buffers
-  int32_t *nkmers_r, *nkmers_a, *kcovgs_r, *kcovgs_a;
-  size_t geno_buf_size;
-  // Are annotations already in the graph?
-  bool fetch_existing_tags;
-  // Graph to get kmer coverage from
-  const dBGraph *db_graph;
+  // Format for VCF output
+  int32_t *kcovgs_r, *kcovgs_a;
+  size_t geno_buf_size; // nsamples * nalts
 } VcfReader;
 
-// return true if valid variant
-static inline void init_new_alt(VcfCovAlt *var, VcfCovLine *line, uint32_t aid,
-                                size_t ncols)
+// Genotyping buffers
+typedef struct
 {
-  bcf1_t *v = &line->v;
-  uint32_t pos = v->pos, reflen, altlen;
-  const char *ref = v->d.allele[0], *alt = v->d.allele[aid];
-  reflen = strlen(ref);
-  altlen = strlen(alt);
+  Genotyper *gtyper;
+  // Fetch coverage from the graph
+  CovgBuffer *covgs;
+  size_t clen; // number of buffer is nalts*ncols*2 (2=>ref/alt for each alt)
+  Uint32Buffer nrkmers;
+  // Graph to get kmer coverage from
+  const dBGraph *db_graph;
+} VcfCovBuffers;
 
-  // Left trim
-  while(reflen && altlen && *ref == *alt) {
-    ref++; alt++; pos++;
-    reflen--; altlen--;
-  }
-
-  // Right trim
-  while(reflen && altlen && ref[reflen-1] == alt[altlen-1]) {
-    reflen--; altlen--;
-  }
-
-  // Initialise
-  var->parent = line;
-  var->ref = ref;
-  var->alt = alt;
-  var->pos = pos;
-  var->reflen = reflen;
-  var->altlen = altlen;
-  var->aid = aid;
-  vcfcov_alt_wipe_covg(var, ncols);
+static void covbuf_alloc(VcfCovBuffers *covbuf, const dBGraph *db_graph)
+{
+  memset(covbuf, 0, sizeof(*covbuf));
+  covbuf->db_graph = db_graph;
+  covbuf->gtyper = genotyper_init();
 }
 
-static inline bool check_var_valid(const VcfCovAlt *var)
+static void covbuf_dealloc(VcfCovBuffers *covbuf)
 {
-  if(var->reflen > max_allele_len || var->altlen > max_allele_len) {
-    num_alts_too_long++;
-    return false;
-  }
-
-  return (var->reflen || var->altlen);
+  size_t i;
+  for(i = 0; i < covbuf->clen; i++) covg_buf_dealloc(&covbuf->covgs[i]);
+  ctx_free(covbuf->covgs);
+  genotyper_destroy(covbuf->gtyper);
 }
+
 
 static void vcf_list_populate(VcfCovLinePtrList *vlist, size_t n)
 {
@@ -178,15 +163,15 @@ static void var_list_destroy(VcfCovAltPtrList *alist)
 static inline void vcfr_alloc(VcfReader *vcfr, const char *path,
                               htsFile *vcffh, bcf_hdr_t *vcfhdr,
                               const size_t *samplehdrids,
-                              const dBGraph *db_graph)
+                              size_t ncols, size_t kmer_size)
 {
   memset(vcfr, 0, sizeof(*vcfr));
   vcfr->path = path;
   vcfr->samplehdrids = samplehdrids;
+  vcfr->ncols = ncols;
+  vcfr->kmer_size = kmer_size;
   vcfr->vcffh = vcffh;
   vcfr->vcfhdr = vcfhdr;
-  vcfr->db_graph = db_graph;
-  vcfr->geno_buf_size = 0;
 
   vc_lines_alloc(&vcfr->vpool, INIT_BUF_SIZE);
   vc_alts_alloc(&vcfr->alist, INIT_BUF_SIZE);
@@ -194,7 +179,7 @@ static inline void vcfr_alloc(VcfReader *vcfr, const char *path,
   vc_alts_alloc(&vcfr->apool, INIT_BUF_SIZE);
 
   vcf_list_populate(&vcfr->vpool, INIT_BUF_SIZE);
-  var_list_populate(&vcfr->apool, INIT_BUF_SIZE, db_graph->num_of_cols);
+  var_list_populate(&vcfr->apool, INIT_BUF_SIZE, ncols);
 }
 
 static inline void vcfr_dealloc(VcfReader *vcfr)
@@ -214,10 +199,51 @@ static inline void vcfr_dealloc(VcfReader *vcfr)
   vc_alts_dealloc(&vcfr->apool);
   vc_lines_dealloc(&vcfr->vpool);
 
-  ctx_free(vcfr->nkmers_r);
-  ctx_free(vcfr->nkmers_a);
   ctx_free(vcfr->kcovgs_r);
   ctx_free(vcfr->kcovgs_a);
+}
+
+
+static inline bool check_var_valid(const VcfCovAlt *var)
+{
+  if(var->reflen > max_allele_len || var->altlen > max_allele_len) {
+    num_alts_too_long++;
+    return false;
+  }
+
+  return (var->reflen || var->altlen);
+}
+
+// return true if valid variant
+static inline void init_new_alt(VcfCovAlt *var, VcfCovLine *line, uint32_t aid,
+                                size_t ncols)
+{
+  bcf1_t *v = &line->v;
+  uint32_t pos = v->pos, reflen, altlen;
+  const char *ref = v->d.allele[0], *alt = v->d.allele[aid];
+  reflen = strlen(ref);
+  altlen = strlen(alt);
+
+  // Left trim
+  while(reflen && altlen && *ref == *alt) {
+    ref++; alt++; pos++;
+    reflen--; altlen--;
+  }
+
+  // Right trim
+  while(reflen && altlen && ref[reflen-1] == alt[altlen-1]) {
+    reflen--; altlen--;
+  }
+
+  // Initialise
+  var->parent = line;
+  var->ref = ref;
+  var->alt = alt;
+  var->pos = pos;
+  var->reflen = reflen;
+  var->altlen = altlen;
+  var->aid = aid;
+  vcfcov_alt_wipe_covg(var, ncols);
 }
 
 static inline void fetch_chrom(bcf_hdr_t *hdr, bcf1_t *v,
@@ -292,7 +318,7 @@ static int vcfr_fetch(VcfReader *vr)
     // Check we have enough vars to decompose
     size_t i, n = MAX2(v->n_allele, 16);
     if(vc_alts_len(&vr->apool) < n)
-      var_list_populate(&vr->apool, n, vr->db_graph->num_of_cols);
+      var_list_populate(&vr->apool, n, vr->ncols);
 
     size_t nadded = 0, nprev_alts = vc_alts_len(&vr->alist);
     bool diff_chroms = false, overlap = false;
@@ -320,13 +346,12 @@ static int vcfr_fetch(VcfReader *vr)
     // i==0 is ref allele
     vc_alts_pop(&vr->apool, &alt, 1);
     for(i = 1; i < v->n_allele; i++) {
-      init_new_alt(alt, line, i, vr->db_graph->num_of_cols);
+      init_new_alt(alt, line, i, vr->ncols);
       if(check_var_valid(alt)) {
         vc_alts_append(list, alt);
         nadded++;
       } else {
         // straight to print queue
-        status("re-add vid:%zu aid:%u", alt->parent->vidx, alt->aid);
         vc_alts_append(&vr->aprint, alt);
       }
       vc_alts_pop(&vr->apool, &alt, 1);
@@ -377,23 +402,13 @@ static void vcfr_repack_alts(VcfReader *vr)
   vc_alts_pop(&vr->alist, NULL, i-j);
 }
 
-#ifndef cmp
-  #define cmp(a,b) (((a)>(b))-((a)<(b)))
-#endif
-
 // Sort by variant index then by allele index
 static int _vcfcov_alt_cmp_vidx(const void *aa, const void *bb)
 {
   const VcfCovAlt *a = *(const VcfCovAlt*const*)aa;
   const VcfCovAlt *b = *(const VcfCovAlt*const*)bb;
-  if(a->parent->vidx != b->parent->vidx)
-    return (long)a->parent->vidx - b->parent->vidx;
-  return (long)a->aid - (long)b->aid;
-}
-
-static inline int32_t mean_covg(size_t nkmers, size_t sumcovg)
-{
-  return nkmers ? ((double)sumcovg / nkmers) + 0.5 : 0;
+  int c = cmp(a->parent->vidx, b->parent->vidx);
+  return c ? c : cmp(a->aid, b->aid);
 }
 
 // alleles should be sorted by parent->vidx, then by aid
@@ -405,7 +420,7 @@ static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
   bcf1_t *v = &var->v;
   size_t nsamples = bcf_hdr_nsamples(outhdr);
   size_t i, col, sid, nalts = v->n_allele-1, n = nsamples * nalts;
-  size_t ncols = vfr->db_graph->num_of_cols, nalts_covgs = 0;
+  size_t ncols = vfr->ncols, nalts_covgs = 0;
   VarCovg *cov;
 
   ctx_assert2(nalts == nalleles, "%zu vs %zu", nalts, nalleles);
@@ -415,44 +430,33 @@ static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
   {
     vfr->kcovgs_r = ctx_reallocarray(vfr->kcovgs_r, n, sizeof(int32_t));
     vfr->kcovgs_a = ctx_reallocarray(vfr->kcovgs_a, n, sizeof(int32_t));
-    vfr->nkmers_r = ctx_reallocarray(vfr->nkmers_r, n, sizeof(int32_t));
-    vfr->nkmers_a = ctx_reallocarray(vfr->nkmers_a, n, sizeof(int32_t));
-    for(i = vfr->geno_buf_size; i < n; i++) {
+    for(i = vfr->geno_buf_size; i < n; i++)
       vfr->kcovgs_r[i] = vfr->kcovgs_a[i] = bcf_int32_missing;
-      vfr->nkmers_r[i] = vfr->nkmers_a[i] = bcf_int32_missing;
-    }
     vfr->geno_buf_size = n;
   }
 
   // Fetch existing coverage from VCF
-  if(nsamples > vfr->db_graph->num_of_cols)
+  if(nsamples > ncols)
   {
     int nsize = vfr->geno_buf_size;
-    bcf_get_format_int32(vfr->vcfhdr, v, nkmers_ref_tag, &vfr->nkmers_r, &nsize);
-    bcf_get_format_int32(vfr->vcfhdr, v, nkmers_alt_tag, &vfr->nkmers_a, &nsize);
     bcf_get_format_int32(vfr->vcfhdr, v, kcovgs_ref_tag, &vfr->kcovgs_r, &nsize);
     bcf_get_format_int32(vfr->vcfhdr, v, kcovgs_alt_tag, &vfr->kcovgs_a, &nsize);
     ctx_assert2(nsize == (int)vfr->geno_buf_size, "htslib resized our buffer!");
   }
 
   // Initiate new samples to missing
-  for(i = bcf_hdr_nsamples(vfr->vcfhdr)*nalts; i < n; i++) {
+  for(i = bcf_hdr_nsamples(vfr->vcfhdr)*nalts; i < n; i++)
     vfr->kcovgs_r[i] = vfr->kcovgs_a[i] = bcf_int32_missing;
-    vfr->nkmers_r[i] = vfr->nkmers_a[i] = bcf_int32_missing;
-  }
 
   // Add coverage
-  for(i = 0; i < nalts; i++)
-  {
+  for(i = 0; i < nalts; i++) {
     if(alleles[i]->has_covg) {
       nalts_covgs++;
       for(col = 0; col < ncols; col++) {
         sid = vfr->samplehdrids[col];
         cov = &alleles[i]->c[col];
-        vfr->nkmers_r[sid*nalts+i] = cov->nkmers[0];
-        vfr->nkmers_a[sid*nalts+i] = cov->nkmers[1];
-        vfr->kcovgs_r[sid*nalts+i] = mean_covg(cov->nkmers[0], cov->sumcovg[0]);
-        vfr->kcovgs_a[sid*nalts+i] = mean_covg(cov->nkmers[1], cov->sumcovg[1]);
+        vfr->kcovgs_r[sid*nalts+i] = cov->covg[0];
+        vfr->kcovgs_a[sid*nalts+i] = cov->covg[1];
       }
     }
   }
@@ -460,17 +464,6 @@ static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
   // Update stats
   num_alts_no_covg += nalts - nalts_covgs;
   num_alts_with_covg += nalts_covgs;
-
-  // kmers per haplotype
-  int32_t nhapk_r[nalts], nhapk_a[nalts];
-  memset(nhapk_r, 0, nalts*sizeof(nhapk_r[0]));
-  memset(nhapk_a, 0, nalts*sizeof(nhapk_a[0]));
-
-  for(i = 0; i < nalts; i++)
-  {
-    nhapk_r[i] = alleles[i]->nhapk[0];
-    nhapk_a[i] = alleles[i]->nhapk[1];
-  }
 
   //
   // Update VCF entry
@@ -481,19 +474,12 @@ static void vcfr_print_entry(VcfReader *vfr, htsFile *outfh, bcf_hdr_t *outhdr,
     /* reset fields */
   }
 
-  // Add nhap kmer numbers to info
-  int a,b,c,d;
-  a = bcf_update_info_int32(outhdr, v, nhapk_ref_tag, nhapk_r, nalts);
-  b = bcf_update_info_int32(outhdr, v, nhapk_alt_tag, nhapk_a, nalts);
-  if(a || b) die("Cannot add info");
-
   // Update sample info
-  a = bcf_update_format_int32(outhdr, v, nkmers_ref_tag, vfr->nkmers_r, n);
-  c = bcf_update_format_int32(outhdr, v, kcovgs_ref_tag, vfr->kcovgs_r, n);
-  b = bcf_update_format_int32(outhdr, v, nkmers_alt_tag, vfr->nkmers_a, n);
-  d = bcf_update_format_int32(outhdr, v, kcovgs_alt_tag, vfr->kcovgs_a, n);
+  int a,b;
+  a = bcf_update_format_int32(outhdr, v, kcovgs_ref_tag, vfr->kcovgs_r, n);
+  b = bcf_update_format_int32(outhdr, v, kcovgs_alt_tag, vfr->kcovgs_a, n);
 
-  if(a || b || c || d) die("Cannot add format info");
+  if(a || b) die("Cannot add format info");
   if(bcf_write(outfh, outhdr, v) != 0) die("Cannot write record");
 }
 
@@ -538,12 +524,36 @@ static void vcfr_print_waiting(VcfReader *vr, htsFile *outfh, bcf_hdr_t *outhdr,
 
 // bcf_hdr_t *globhdr;
 
+#define covgbufidx(var,col,ncols,isalt) ((var)*(ncols)*2 + (col)*2 + (isalt))
+
+// Returns new length
+static inline void resize_covg_bufs(CovgBuffer **covgsp, size_t *lenp,
+                                    size_t ncols, size_t nvars, size_t nkmers)
+{
+  // We have a buffer for each variant, in each colour, in ref and alt
+  size_t i, nlen = nvars*ncols*2;
+
+  // Resize existing buffers
+  if(*lenp && (*covgsp)[0].size < nkmers) {
+    for(i = 0; i < *lenp; i++)
+      covg_buf_capacity(&(*covgsp)[i], nkmers);
+  }
+
+  if(nlen > *lenp) {
+    *covgsp = ctx_realloc(*covgsp, sizeof((*covgsp)[0]) * nlen);
+    for(i = *lenp; i < nlen; i++)
+      covg_buf_alloc(&(*covgsp)[i], nkmers);
+    *lenp = nlen;
+  }
+}
+
 /**
  * Get coverage of ref and alt alleles from the de Bruijn graph in the given
  * colour.
  */
-static inline void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
-                                 VcfCovAlt **gts, size_t ntgts,
+static inline void bkey_get_covg(BinaryKmer bkey,
+                                 uint64_t altref_bits, size_t ntgts,
+                                 CovgBuffer *covgs, // covgs[nvar*ncols*2]
                                  const dBGraph *db_graph)
 {
   size_t i, col, ncols = db_graph->num_of_cols;
@@ -552,19 +562,6 @@ static inline void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
   Covg covg;
 
   ctx_assert(altref_bits);
-
-  // char bstr[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(bkey, db_graph->kmer_size, bstr);
-  // status("bkey: %s", bstr);
-
-  // Count how many kmer are unique in the haplotypes
-  for(i = 0, arbits = altref_bits; i < ntgts; i++, arbits >>= 2) {
-    if((arbits & 3UL) == 1) {
-      gts[i]->nhapk[0]++; // ref
-    } else if((arbits & 3UL) == 2) {
-      gts[i]->nhapk[1]++; // alt
-    } else { /* ignore kmer in both ref/alt */ }
-  }
 
   if(node.key != HASH_NOT_FOUND) {
     // printf("node: ");
@@ -577,29 +574,42 @@ static inline void bkey_get_covg(BinaryKmer bkey, uint64_t altref_bits,
       if(!covg) continue;
 
       for(i = 0, arbits = altref_bits; i < ntgts; i++, arbits >>= 2) {
-        if((arbits & 3UL) == 1) {
-          gts[i]->c[col].nkmers[0]++;
-          gts[i]->c[col].sumcovg[0] += covg;
-          // printf("    ref:%zu\n", i);
-        } else if((arbits & 3UL) == 2) {
-          gts[i]->c[col].nkmers[1]++;
-          gts[i]->c[col].sumcovg[1] += covg;
-          // printf("    alt:%zu\n", i);
-        } else { /* ignore kmer in both ref/alt */ }
+        switch(arbits & 3UL) {
+          case 0: break; /* ignore kmer in neither ref nor alt */
+          case 1: covg_buf_add(&covgs[covgbufidx(i,col,ncols,0)], covg); break;
+          case 2: covg_buf_add(&covgs[covgbufidx(i,col,ncols,1)], covg); break;
+          case 3: break; /* ignore kmer in both ref and alt */
+        }
       }
     }
   }
 }
 
+static inline Covg covgs_sum(const Covg *covgs, size_t n)
+{
+  uint64_t s = 0;
+  size_t i;
+  for(i = 0; i < n; i++) s += covgs[i];
+  return s;
+}
+
+// +0.5 to round correctly
+#define vmeancovg(tot,nk) ((nk) ? ((double)(tot)) / (nk) + 0.5 : bcf_int32_missing)
+
 static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
                         size_t tgtidx, size_t ntgts,
                         const char *chrom, size_t chromlen,
-                        Genotyper *gtyper, const dBGraph *db_graph)
+                        VcfCovBuffers *covbuf)
 {
   ctx_assert(ntgts <= nvars);
 
+  const dBGraph *db_graph = covbuf->db_graph;
+  const size_t ncols = db_graph->num_of_cols;
+
   HaploKmer *kmers = NULL;
-  size_t i, end, nkmers;
+  size_t i, col, nkmers;
+  CovgBuffer *rcovg, *acovg;
+  uint64_t rtot, atot;
 
   if(nvars > max_gt_vars) { return; }
 
@@ -612,20 +622,48 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
   // }
   // free(s.s);
 
-  nkmers = genotyping_get_kmers(gtyper, (const VcfCovAlt *const*)vars,
+  // Number of ref kmers for each variant
+  uint32_buf_capacity(&covbuf->nrkmers, ntgts);
+  uint32_t *nrkmers = covbuf->nrkmers.b;
+
+  nkmers = genotyping_get_kmers(covbuf->gtyper, (const VcfCovAlt *const*)vars,
                                 nvars, tgtidx, ntgts,
                                 chrom, chromlen,
-                                db_graph->kmer_size, &kmers);
+                                covbuf->db_graph->kmer_size,
+                                &kmers, nrkmers);
+
+  num_gt_kmers += nkmers;
+
+  // Reset coverage buffers
+  for(i = 0; i < covbuf->clen; i++) covbuf->covgs[i].len = 0;
+  resize_covg_bufs(&covbuf->covgs, &covbuf->clen, ncols, ntgts, nkmers);
 
   for(i = 0; i < nkmers; i++) {
-    bkey_get_covg(kmers[i].bkey, kmers[i].arbits,
-                  vars+tgtidx, ntgts,
-                  db_graph);
+    bkey_get_covg(kmers[i].bkey, kmers[i].arbits, ntgts,
+                  covbuf->covgs, covbuf->db_graph);
   }
 
-  for(i = tgtidx, end = tgtidx+ntgts; i < end; i++) {
-    ctx_assert(!vars[i]->has_covg);
-    vars[i]->has_covg = true;
+  for(i = 0; i < ntgts; i++)
+  {
+    VcfCovAlt *var = vars[i+tgtidx];
+    ctx_assert(!var->has_covg);
+
+    // size_t ks = covbuf->db_graph->kmer_size;
+    // size_t rk = var->reflen + ks - 1, ak = var->altlen + ks - 1;
+    // status("nrkmers: %zu/%zu vs r+ks-1: %zu/%zu",
+    //        (size_t)nrkmers[i], vcfcovalt_akmers(var,nrkmers[i]), rk, ak);
+
+    for(col = 0; col < ncols; col++)
+    {
+      rcovg = &covbuf->covgs[covgbufidx(i,col,ncols,0)];
+      acovg = &covbuf->covgs[covgbufidx(i,col,ncols,1)];
+      rtot = covgs_sum(rcovg->b, rcovg->len);
+      atot = covgs_sum(acovg->b, acovg->len);
+      // rkmers/akmers is est. of num. of ref/alt kmers
+      var->c[col].covg[0] = vmeancovg(rtot, nrkmers[i]);
+      var->c[col].covg[1] = vmeancovg(atot, vcfcovalt_akmers(var,nrkmers[i]));
+    }
+    var->has_covg = true;
   }
 }
 
@@ -651,7 +689,7 @@ static inline int vc_alts_ends_after(VcfCovAlt **vars, size_t nvars,
 static void vcfcov_block(VcfCovAlt **vars, size_t nvars,
                          size_t tgtidx, size_t ntgts,
                          const char *chrom, int chromlen,
-                         Genotyper *gtyper, const dBGraph *db_graph)
+                         VcfCovBuffers *covbuf)
 {
   // printf("nvars: %zu tgtidx: %zu ntgts: %zu\n", nvars, tgtidx, ntgts);
 
@@ -659,12 +697,12 @@ static void vcfcov_block(VcfCovAlt **vars, size_t nvars,
   if(!ntgts) { return; }
   else if(nvars <= max_gt_vars)
   {
-    vcfcov_vars(vars, nvars, tgtidx, ntgts, chrom, chromlen, gtyper, db_graph);
+    vcfcov_vars(vars, nvars, tgtidx, ntgts, chrom, chromlen, covbuf);
   }
   else
   {
     // do a few at a time
-    const size_t ks = db_graph->kmer_size;
+    const size_t ks = covbuf->db_graph->kmer_size;
     // genotype start/end, background start/end (end is not inclusive)
     size_t i, gs = tgtidx, ge, bs, be, tmp_ge, tmp_be;
 
@@ -695,7 +733,7 @@ static void vcfcov_block(VcfCovAlt **vars, size_t nvars,
 
       // status("bs:%zu gs:%zu ge:%zu be:%zu", bs, gs, ge, be);
       vcfcov_vars(vars+bs, be-bs, gs-bs, ge-gs,
-                  chrom, chromlen, gtyper, db_graph);
+                  chrom, chromlen, covbuf);
 
       gs = ge;
     }
@@ -705,10 +743,9 @@ static void vcfcov_block(VcfCovAlt **vars, size_t nvars,
 // return number of alts that have been genotyped but not removed
 static size_t vcfcov_block2(VcfReader *vr, bool flush, size_t tgtidx,
                             const char *chr, int chrlen,
-                            Genotyper *gtyper)
+                            VcfCovBuffers *covbuf)
 {
-  const dBGraph *db_graph = vr->db_graph;
-  const size_t ks = db_graph->kmer_size;
+  const size_t ks = vr->kmer_size;
 
   VcfCovAlt **vars = vc_alts_getptr(&vr->alist, 0);
   size_t nvars = vc_alts_len(&vr->alist);
@@ -732,7 +769,7 @@ static size_t vcfcov_block2(VcfReader *vr, bool flush, size_t tgtidx,
       // end of block
       be = ge;
       vcfcov_block(vars+bs, be-bs, gs-bs, ge-gs,
-                   chr, chrlen, gtyper, db_graph);
+                   chr, chrlen, covbuf);
       bs = gs = ge;
     }
   }
@@ -741,7 +778,7 @@ static size_t vcfcov_block2(VcfReader *vr, bool flush, size_t tgtidx,
   be = nvars;
   ge = flush ? nvars : lastidx;
   // printf("bs: %zu-%zu gs: %zu-%zu lastidx: %zu\n", bs, be, gs, ge, lastidx);
-  vcfcov_block(vars+bs, be-bs, gs-bs, ge-gs, chr, chrlen, gtyper, db_graph);
+  vcfcov_block(vars+bs, be-bs, gs-bs, ge-gs, chr, chrlen, covbuf);
 
   // 3. Find start of background required for next time
   size_t i, nremove = ge;
@@ -765,9 +802,11 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
                         const dBGraph *db_graph)
 {
   VcfReader vr;
-  vcfr_alloc(&vr, path, vcffh, vcfhdr, samplehdrids, db_graph);
+  vcfr_alloc(&vr, path, vcffh, vcfhdr, samplehdrids,
+             db_graph->num_of_cols, db_graph->kmer_size);
 
-  Genotyper *gtyper = genotyper_init();
+  VcfCovBuffers covbuf;
+  covbuf_alloc(&covbuf, db_graph);
 
   // refid is id of chromosome currently loaded
   char *chr = NULL;
@@ -785,7 +824,7 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
     fetch_chrom(vcfhdr, &mdc_list_get(&vr.alist, 0)->parent->v, fai,
                 &refid, &chr, &chrlen);
 
-    nrem = vcfcov_block2(&vr, n == 0, nrem, chr, chrlen, gtyper);
+    nrem = vcfcov_block2(&vr, n == 0, nrem, chr, chrlen, &covbuf);
 
     vcfr_print_waiting(&vr, outfh, outhdr, false);
   }
@@ -794,14 +833,14 @@ static void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
   if(vc_alts_len(&vr.alist) > 0) {
     fetch_chrom(vcfhdr, &mdc_list_get(&vr.alist, 0)->parent->v, fai,
                 &refid, &chr, &chrlen);
-    nrem = vcfcov_block2(&vr, true, nrem, chr, chrlen, gtyper);
+    nrem = vcfcov_block2(&vr, true, nrem, chr, chrlen, &covbuf);
   }
   vcfr_print_waiting(&vr, outfh, outhdr, true);
 
   status("[vcfcov] max alleles in buffer: %zu", max_len);
 
   free(chr);
-  genotyper_destroy(gtyper);
+  covbuf_dealloc(&covbuf);
   vcfr_dealloc(&vr);
 }
 
@@ -967,46 +1006,37 @@ int ctx_vcfcov(int argc, char **argv)
   }
 
   // *R => ref, *A => alt
-  sprintf(nhapk_ref_tag,  "HK%zuR", db_graph.kmer_size); // # haplotype kmers
-  sprintf(nhapk_alt_tag,  "HK%zuA", db_graph.kmer_size);
-  sprintf(nkmers_ref_tag, "NK%zuR", db_graph.kmer_size); // # kmers found
-  sprintf(nkmers_alt_tag, "NK%zuA", db_graph.kmer_size);
-  sprintf(kcovgs_ref_tag, "CK%zuR", db_graph.kmer_size); // mean coverage
-  sprintf(kcovgs_alt_tag, "CK%zuA", db_graph.kmer_size);
+  sprintf(kcovgs_ref_tag, "K%zuR", db_graph.kmer_size); // mean coverage
+  sprintf(kcovgs_alt_tag, "K%zuA", db_graph.kmer_size);
 
   // Add genotype format fields
   // One field per alternative allele
   char descr[200];
 
-  // Info fields
-  sprintf(descr, "##INFO=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Num. ref kmers unique in haplotypes (k=%zu)\">\n",
-          nhapk_ref_tag, db_graph.kmer_size);
-  bcf_hdr_append(outhdr, descr);
-  sprintf(descr, "##INFO=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Num. alt kmers unique in haplotypes (k=%zu)\">\n",
-          nhapk_alt_tag, db_graph.kmer_size);
-  bcf_hdr_append(outhdr, descr);
-
-  // Format fields
   sprintf(descr, "##FORMAT=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Number of exclusive kmers on ref found for each allele (k=%zu)\">\n",
-          nkmers_ref_tag, db_graph.kmer_size);
-  bcf_hdr_append(outhdr, descr);
-  sprintf(descr, "##FORMAT=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Mean ref coverage for found kmers (k=%zu)\">\n",
+          "Description=\"Coverage on ref (k=%zu) => sum(kmer_covs)/exp_num_kmers\">\n",
           kcovgs_ref_tag, db_graph.kmer_size);
   bcf_hdr_append(outhdr, descr);
   sprintf(descr, "##FORMAT=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Number of exclusive kmers on alt found for each allele (k=%zu)\">\n",
-          nkmers_alt_tag, db_graph.kmer_size);
-  bcf_hdr_append(outhdr, descr);
-  sprintf(descr, "##FORMAT=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Mean alt coverage for found kmers (k=%zu)\">\n",
+          "Description=\"Coverage on alt (k=%zu) => sum(kmer_covs)/exp_num_kmers\">\n",
           kcovgs_alt_tag, db_graph.kmer_size);
   bcf_hdr_append(outhdr, descr);
 
   bcf_hdr_set_version(outhdr, "VCFv4.2");
+
+  // Add command string to header
+  char keystr[8], timestr[100];
+  time_t tnow;
+  time(&tnow);
+  strftime(timestr, sizeof(timestr), "%Y%m%d-%H:%M:%S", localtime(&tnow));
+  StrBuf sbuf;
+  strbuf_alloc(&sbuf, 1024);
+  strbuf_sprintf(&sbuf, "##mccortex_%s=<prev=\"NULL\",cmd=\"%s\",cwd=\"%s\","
+                        "datetime=\"%s\",version="CTX_VERSION">\n",
+                 hex_rand_str(keystr, sizeof(keystr)),
+                 cmd_get_cmdline(), cmd_get_cwd(), timestr);
+  bcf_hdr_append(outhdr, sbuf.b);
+  strbuf_dealloc(&sbuf);
 
   if(bcf_hdr_write(outfh, outhdr) != 0)
     die("Cannot write header to: %s", futil_outpath_str(out_path));
@@ -1020,6 +1050,7 @@ int ctx_vcfcov(int argc, char **argv)
   char ns0[50], ns1[50];
   status("[vcfcov] Read %s VCF lines", ulong_to_str(num_vcf_lines, ns0));
   status("[vcfcov] Read %s ALTs", ulong_to_str(num_alts_read, ns0));
+  status("[vcfcov] Used %s kmers", ulong_to_str(num_gt_kmers, ns0));
   status("[vcfcov] ALTs used: %s / %s (%.2f%%)",
          ulong_to_str(num_alts_loaded, ns0), ulong_to_str(num_alts_read, ns1),
          num_alts_read ? (100.0*num_alts_loaded) / num_alts_read : 0.0);

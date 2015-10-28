@@ -1,12 +1,11 @@
 #include "global.h"
 
-#include <time.h>
 #include <sys/time.h> // for seeding random
 #include <unistd.h> // getpid()
 
 #include "ctx_output.h" // ctx_output_init()
-#include "misc/jenkins.h" // hash functions
 
+#define strhash_fast_mix(h,x) ((h) * 37 + (x))
 #define rotl32(h,r) ((h)<<(r)|(h)>>(32-(r)))
 
 static inline uint32_t get_rand_seed()

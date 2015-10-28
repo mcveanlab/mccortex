@@ -8,6 +8,8 @@
 #include "gpath_save.h"
 #include "clean_graph.h"
 
+#include "carrays/carrays.h" // gca_median_size()
+
 const char links_usage[] =
 "usage: "CMD" links [options] <in.ctp.gz>\n"
 "\n"
@@ -78,9 +80,8 @@ static size_t print_cutoffs(size_t *sumcovgs, size_t *cutoffs, size_t len)
   for(i = 1; i < len; i++) printf(",%zu", sumcovgs[i]);
   printf("\ncutoffs=%zu", cutoffs[0]);
   for(i = 1; i < len; i++) printf(",%zu", cutoffs[i]);
-  qsort(cutoffs, len, sizeof(cutoffs[0]), cmp_size);
   printf("\n");
-  return MEDIAN(cutoffs, len);
+  return gca_median_size(cutoffs, len);
 }
 
 static void print_suggest_cutoff(size_t hist_distsize, size_t hist_covgsize,

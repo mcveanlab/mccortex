@@ -107,53 +107,6 @@ static void test_util_calc_N50()
   TASSERT(calc_N50(arr, 10, 55) == 8);
 }
 
-static void _test_array_cycle_left(size_t *arr, size_t n)
-{
-  size_t shift, i;
-
-  // initialise
-  for(i = 0; i < n; i++) arr[i] = i;
-
-  // cycle left by 0, n, 2n, ... should all return input
-  array_cycle_left(arr, n, sizeof(size_t), 0);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  array_cycle_left(arr, n, sizeof(size_t), n);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  array_cycle_left(arr, n, sizeof(size_t), 2*n);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  array_cycle_left(arr, n, sizeof(size_t), 3*n);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-
-  // cycle right by 0, n, 2n, ... should all return input
-  array_cycle_right(arr, n, sizeof(size_t), 0);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  array_cycle_right(arr, n, sizeof(size_t), n);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  array_cycle_right(arr, n, sizeof(size_t), 2*n);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  array_cycle_right(arr, n, sizeof(size_t), 3*n);
-  for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-
-  for(shift = 0; shift < n; shift++) {
-    for(i = 0; i < n; i++) arr[i] = i;
-    array_cycle_left(arr, n, sizeof(size_t), shift);
-    for(i = 0; i < n; i++) TASSERT(arr[i] == ((i+shift) % n));
-    // shift back
-    array_cycle_right(arr, n, sizeof(size_t), shift);
-    for(i = 0; i < n; i++) TASSERT(arr[i] == i);
-  }
-}
-
-static void test_array_cycle_left()
-{
-  test_status("Testing array_cycle_left() / array_cycle_right()");
-  size_t n, arr[100];
-
-  // Test all array lengths up to 100
-  for(n = 0; n < 100; n++)
-    _test_array_cycle_left(arr, n);
-}
-
 void test_util()
 {
   test_util_rev_nibble_lookup();
@@ -161,6 +114,5 @@ void test_util()
   test_util_bytes_to_str();
   test_util_calc_GCD();
   test_util_calc_N50();
-  test_array_cycle_left();
   test_strnstr();
 }
