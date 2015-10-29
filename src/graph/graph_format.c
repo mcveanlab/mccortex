@@ -1,7 +1,7 @@
 #include "global.h"
 #include "graph_format.h"
 
-void graph_header_alloc(GraphFileHeader *h, size_t num_of_cols)
+void graph_header_capacity(GraphFileHeader *h, size_t num_of_cols)
 {
   size_t i;
 

@@ -52,6 +52,9 @@ int graph_file_open2(GraphFileReader *file, const char *path, const char *mode,
 // Close file, release all memory
 void graph_file_close(GraphFileReader *file);
 
+// Merge the header from this file into a new file
+void graph_file_merge_header(GraphFileHeader *hdr, const GraphFileReader *file);
+
 // Returns number of bytes read
 size_t graph_file_read_raw(GraphFileReader *rdr,
                            BinaryKmer *bkmer, Covg *covgs, Edges *edges);

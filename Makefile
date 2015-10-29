@@ -300,7 +300,6 @@ libs/cJSON/cJSON.o: libs/cJSON/cJSON.c libs/cJSON/cJSON.h
 mccortex: bin/mccortex$(MAXK)
 bin/mccortex$(MAXK): src/main/mccortex.c $(OBJS) $(HDRS) $(REQ) | bin
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/mccortex.c $(OBJS) $(LINK)
-	rm -rf bin/ctx$(MAXK) && ln $@ bin/ctx$(MAXK)
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(TESTS_HDRS) $(OBJS) $(HDRS) $(REQ) | bin

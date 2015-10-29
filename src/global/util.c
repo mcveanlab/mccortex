@@ -110,6 +110,28 @@ bool parse_entire_size(const char *str, size_t *result)
   return true;
 }
 
+
+// read comma separated doubles (no more than n) into `list`
+// return number of elements read or <0 on error
+int parse_list_doubles(double *list, size_t n, const char *str)
+{
+  const char *end = str; char *dendptr = NULL;
+  size_t i = 0;
+
+  while(i < n && (end = strendc(str, ',')) > str) {
+    list[i++] = strtod(str, &dendptr);
+    if(dendptr != end) return -1;
+    if(!*end) break;
+    str = end+1;
+  }
+
+  return *end ? -1 : i; // return -1 if still some entries left
+}
+
+//
+//
+//
+
 bool bases_to_integer(const char *arg, size_t *bases)
 {
   char *endptr;

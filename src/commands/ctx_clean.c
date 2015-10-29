@@ -189,7 +189,7 @@ int ctx_clean(int argc, char **argv)
     min_keep_tip = 2 * kmer_size;
 
   // Warn if any graph files already cleaned
-  size_t fromcol, intocol;
+  size_t fromcol;
   ErrorCleaning *cleaning;
 
   for(i = 0; i < num_gfiles; i++) {
@@ -287,21 +287,8 @@ int ctx_clean(int argc, char **argv)
   // Construct cleaned graph header
   GraphFileHeader outhdr;
   memset(&outhdr, 0, sizeof(GraphFileHeader));
-  outhdr.version = CTX_GRAPH_FILEFORMAT;
-  outhdr.kmer_size = db_graph.kmer_size;
-  outhdr.num_of_cols = ncols;
-  outhdr.num_of_bitfields = (db_graph.kmer_size*2+63)/64;
-  graph_header_alloc(&outhdr, ncols);
-
-  // Merge info into header
-  size_t gcol = 0;
-  for(i = 0; i < num_gfiles; i++) {
-    for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++, gcol++) {
-      fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
-      intocol = file_filter_intocol(&gfiles[i].fltr, j);
-      graph_info_merge(&outhdr.ginfo[intocol], &gfiles[i].hdr.ginfo[fromcol]);
-    }
-  }
+  for(i = 0; i < num_gfiles; i++)
+    graph_file_merge_header(&outhdr, &gfiles[i]);
 
   if(ncols > use_ncols) {
     graphs_load_files_flat(gfiles, num_gfiles, gprefs, &stats);

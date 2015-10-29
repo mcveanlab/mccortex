@@ -161,6 +161,11 @@ CtxCmd cmdobjs[] = {
   .blurb = "coverage of a VCF against cortex graphs",
   .usage = vcfcov_usage
 },
+{
+  .cmd = "vcfgeno", .func = ctx_vcfgeno, .hide = false,
+  .blurb = "genotype a VCF after running vcfcov",
+  .usage = vcfgeno_usage
+},
 /* Experiments */
 {
   .cmd = "exp_abc", .func = ctx_exp_abc, .hide = true,

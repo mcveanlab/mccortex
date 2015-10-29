@@ -5,6 +5,9 @@
 // Macros
 //
 
+#define safe_frac(a,b)    ((b)>0 ? (double)(a) / (b) : 0.0)
+#define safe_percent(a,b) ((b)>0 ? (100.0 * (a)) / (b) : 0.0)
+
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
 
@@ -17,6 +20,9 @@ bool parse_entire_uint(const char *str, unsigned int *result);
 bool parse_entire_ulong(const char *str, unsigned long *result);
 bool parse_entire_double(const char *str, double *result);
 bool parse_entire_size(const char *str, size_t *result);
+
+//
+int parse_list_doubles(double *list, size_t n, const char *str);
 
 //
 // Bits

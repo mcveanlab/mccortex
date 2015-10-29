@@ -6,6 +6,9 @@
 #define _BSD_SOURCE
 // #define _GNU_SOURCE
 
+// Request PRIu64 etc. from inttypes.h
+#define __STDC_FORMAT_MACROS
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>

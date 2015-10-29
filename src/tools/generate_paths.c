@@ -276,6 +276,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // if(found && plen < GPATH_MAX_JUNCS) break;
     num_added++;
 
+    // Debugging
     if(gen_paths_print_paths && !printed)
     {
       // print path

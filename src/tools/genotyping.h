@@ -2,8 +2,8 @@
 #define GENOTYPING_H_
 
 #include "binary_kmer.h"
-#include "htslib/khash.h"
 
+#include "htslib/khash.h"
 #include "htslib/vcf.h"
 
 static inline int bk2bits_hash(BinaryKmer bkey) { return binary_kmer_hash(bkey, 0); }
@@ -43,6 +43,9 @@ typedef struct {
 #define vcfcovalt_hap_start(v,ks) ((v)->pos <= (ks)-1 ? 0 : (v)->pos - ((ks)-1))
 #define vcfcovalt_hap_end(v,ks) ((v)->pos + (v)->reflen + (ks) - 1)
 #define vcfcovalt_akmers(v,nrk) ((nrk) + (v)->altlen < (v)->reflen ? (size_t)0 : (nrk) + (v)->altlen - (v)->reflen)
+
+// Approximate the expected number of kmers
+#define hap_num_exp_kmers(pos,len,ks) (MIN2((pos), (ks)-1) + (len))
 
 typedef struct GenotyperStruct Genotyper;
 

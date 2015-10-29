@@ -43,7 +43,7 @@ Commands
 
     usage: mccortex31 <command> [options] <args>
     version: ctx=XXXX zlib=1.2.5 htslib=1.2.1 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
-
+    
     Commands:   breakpoints  use a trusted assembled genome to call large events
                 bubbles      find bubbles in graph which are potential variants
                 build        construct cortex graph from FASTA/FASTQ/BAM
@@ -53,25 +53,28 @@ Commands
                 contigs      assemble contigs for a sample
                 correct      error correct reads
                 coverage     print contig coverage
+                dist         make colour kmer distance matrix
                 index        index a sorted cortex graph file
                 inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 links        clean and plot link files (.ctp)
                 pjoin        merge path files (.ctp)
-                popbubbles   Pop bubbles in the population graph
+                popbubbles   pop bubbles in the population graph
                 pview        text view of a cortex path file (.ctp)
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
+                server       interactively query the graph
                 sort         sort the kmers in a graph file
                 subgraph     filter a subgraph using seed kmers
-                thread       thread reads through cleaned graph
+                thread       thread reads through cleaned graph to make links
                 uniqkmers    generate random unique kmers
                 unitigs      pull out unitigs in FASTA, DOT or GFA format
+                vcfcov       coverage of a VCF against cortex graphs
+                vcfgeno      genotype a VCF after running vcfcov
                 view         text view of a cortex graph file (.ctx)
-
-
+    
       Type a command with no arguments to see help.
-
+    
     Common Options:
       -h, --help            Help message
       -q, --quiet           Silence status output normally printed to STDERR

@@ -76,11 +76,11 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
       ErrorCleaning *ec = &ginfo->cleaning;
       printf("  tip clipping: %s\n", (ec->cleaned_tips == 0 ? "no" : "yes"));
 
-      printf("  remove low coverage supernodes: %s [threshold: %u]\n",
+      printf("  remove low coverage supernodes: %s [threshold: <%u]\n",
              ec->cleaned_snodes ? "yes" : "no",
              ec->clean_snodes_thresh);
 
-      printf("  remove low coverage kmers: %s [threshold: %u]\n",
+      printf("  remove low coverage kmers: %s [threshold: <%u]\n",
              ec->cleaned_kmers ? "yes" : "no",
              ec->clean_kmers_thresh);
 
@@ -143,33 +143,25 @@ int ctx_view(int argc, char **argv)
     printf("----\n");
   }
 
-  size_t ncols = file_filter_into_ncols(&gfile.fltr);
+  size_t i, col, ncols = file_filter_into_ncols(&gfile.fltr);
+  size_t kmer_size = gfile.hdr.kmer_size;
   ctx_assert(ncols > 0);
 
   GraphFileHeader hdr;
   memset(&hdr, 0, sizeof(hdr));
-  hdr.version = gfile.hdr.version;
-  hdr.num_of_bitfields = gfile.hdr.num_of_bitfields;
-  hdr.kmer_size = gfile.hdr.kmer_size;
-  hdr.num_of_cols = ncols;
-  graph_header_alloc(&hdr, ncols);
+  graph_file_merge_header(&hdr, &gfile);
 
-  size_t i, fromcol, intocol, sum_covgs_read = 0, sum_seq_loaded = 0;
-  size_t nkmers_read = 0, num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
-
-  for(i = 0; i < file_filter_num(&gfile.fltr); i++) {
-    fromcol = file_filter_fromcol(&gfile.fltr, i);
-    intocol = file_filter_intocol(&gfile.fltr, i);
-    graph_info_merge(hdr.ginfo + intocol, gfile.hdr.ginfo + fromcol);
-    sum_seq_loaded += hdr.ginfo[i].total_sequence;
-  }
+  uint64_t nkmers_read = 0, nkmers_loaded = 0;
+  uint64_t num_all_zero_kmers = 0, num_zero_covg_kmers = 0;
+  uint64_t *col_nkmers, *col_sum_covgs;
+  col_nkmers = ctx_calloc(ncols, sizeof(col_nkmers[0]));
+  col_sum_covgs = ctx_calloc(ncols, sizeof(col_sum_covgs[0]));
 
   // Print header
-  if(print_info)
-    print_header(&hdr, gfile.num_of_kmers);
+  if(print_info) print_header(&hdr, gfile.num_of_kmers);
 
   BinaryKmer bkmer;
-  Covg covgs[ncols];
+  Covg covgs[ncols], keep_kmer;
   Edges edges[ncols];
 
   bool direct_read = file_filter_is_direct(&gfile.fltr);
@@ -180,32 +172,34 @@ int ctx_view(int argc, char **argv)
 
     for(; graph_file_read_reset(&gfile, &bkmer, covgs, edges); nkmers_read++)
     {
-      // If kmer has no covg or edges -> don't load
-      Covg keep_kmer = 0, covgs_sum = 0;
-      for(i = 0; i < ncols; i++) {
-        keep_kmer |= covgs[i] | edges[i];
-        covgs_sum = SAFE_ADD_COVG(covgs_sum, covgs[i]);
+      // If kmer has no covg in any samples -> don't load
+      keep_kmer = 0;
+      for(col = 0; col < ncols; col++) {
+        col_nkmers[col] += (covgs[col] > 0);
+        col_sum_covgs[col] += covgs[col];
+        keep_kmer |= covgs[col];
       }
-      if(!direct_read && !keep_kmer) continue;
 
-      sum_covgs_read += covgs_sum;
+      if(!direct_read && !keep_kmer) continue;
+      nkmers_loaded++;
 
       /* Kmer Checks */
       // graph_file_read_reset() already checks for:
       // 1. oversized kmers
       // 2. kmers with covg 0 in all colours
+      // 3. edges without coverage in a colour
 
       // Check for all-zeros (i.e. all As kmer: AAAAAA)
       uint64_t kmer_words_or = 0;
 
-      for(i = 0; i < gfile.hdr.num_of_bitfields; i++)
+      for(i = 0; i < hdr.num_of_bitfields; i++)
         kmer_words_or |= bkmer.b[i];
 
       if(kmer_words_or == 0)
       {
         if(num_all_zero_kmers == 1)
         {
-          loading_error("more than one all 'A's kmers seen [index: %zu]\n",
+          loading_error("more than one all 'A's kmers seen [index: %"PRIu64"]\n",
                         nkmers_read);
         }
 
@@ -218,10 +212,7 @@ int ctx_view(int argc, char **argv)
 
       // Print
       if(print_kmers)
-      {
-        db_graph_print_kmer2(bkmer, covgs, edges,
-                             ncols, gfile.hdr.kmer_size, stdout);
-      }
+        db_graph_print_kmer2(bkmer, covgs, edges, ncols, kmer_size, stdout);
     }
   }
 
@@ -233,7 +224,7 @@ int ctx_view(int argc, char **argv)
   if(err != 0)
     loading_error("occurred after file reading [%i]\n", err);
 
-  char num_str[50];
+  char nstr[50];
 
   if(print_kmers || parse_kmers)
   {
@@ -247,13 +238,13 @@ int ctx_view(int argc, char **argv)
     if(num_all_zero_kmers > 1)
     {
       loading_error("%s all-zero-kmers seen\n",
-                    ulong_to_str(num_all_zero_kmers, num_str));
+                    ulong_to_str(num_all_zero_kmers, nstr));
     }
 
     if(num_zero_covg_kmers > 0)
     {
       loading_warning("%s kmers have no coverage in any colour\n",
-                      ulong_to_str(num_zero_covg_kmers, num_str));
+                      ulong_to_str(num_zero_covg_kmers, nstr));
     }
   }
 
@@ -261,15 +252,34 @@ int ctx_view(int argc, char **argv)
   num_warnings += gfile.error_zero_covg;
   num_warnings += gfile.error_missing_covg;
 
+  // Can only print these stats if we're read in the kmers
   if((print_kmers || parse_kmers) && print_info)
   {
-    double mean_kmer_covg = 0;
-    if(nkmers_read > 0) mean_kmer_covg = (double)sum_covgs_read / nkmers_read;
-    printf("----\n");
-    printf("number of kmers:    %s\n", ulong_to_str(nkmers_read, num_str));
-    printf("sum of coverages:   %s\n", ulong_to_str(sum_covgs_read, num_str));
-    printf("sequence loaded:    %s bp\n", ulong_to_str(sum_seq_loaded, num_str));
-    printf("mean kmer coverage: %s\n", double_to_str(mean_kmer_covg, 2, num_str));
+    // print kmer coverage per sample
+    printf("\n---- Per colour stats\n");
+    printf("num. kmers:");
+    for(col = 0; col < ncols; col++)
+      printf("\t%s", ulong_to_str(col_nkmers[col], nstr));
+    printf("\n");
+    printf("sum coverage:");
+    for(col = 0; col < ncols; col++)
+      printf("\t%s", ulong_to_str(col_sum_covgs[col], nstr));
+    printf("\n");
+    printf("kmer coverage:");
+    for(col = 0; col < ncols; col++)
+      printf("\t%.2f", safe_frac(col_sum_covgs[col], col_nkmers[col]));
+    printf("\n");
+
+    // Overall stats
+    uint64_t sum_covgs = 0;
+    double mean_kmer_covg = 0.0;
+    for(col = 0; col < ncols; col++) sum_covgs += col_sum_covgs[col];
+    mean_kmer_covg = nkmers_loaded ? (double)sum_covgs / nkmers_loaded : 0.0;
+
+    printf("\n---- Overall stats\n");
+    printf("Total kmers:    %s\n", ulong_to_str(nkmers_loaded, nstr));
+    printf("Total coverage: %s\n", ulong_to_str(sum_covgs, nstr));
+    printf("Mean coverage:  %s\n", double_to_str(mean_kmer_covg, 2, nstr));
   }
 
   if(print_info)
@@ -291,17 +301,17 @@ int ctx_view(int argc, char **argv)
 
     size_t mem_height = (size_t)__builtin_ctzl(num_buckets);
 
-    printf("----\n");
+    printf("\n---- Memory\n");
     printf("memory required: %s [capacity: %s]\n", memstr, capacitystr);
     printf("  bucket size: %s; number of buckets: %s\n",
             bucket_size_str, num_buckets_str);
-    printf("  --kmer_size %u --mem_height %zu --mem_width %i\n",
-           gfile.hdr.kmer_size, mem_height, bucket_size);
+    printf("  --kmer_size %zu --mem_height %zu --mem_width %i\n",
+           kmer_size, mem_height, bucket_size);
   }
 
   if((print_kmers || parse_kmers) && print_info)
   {
-    printf("----\n");
+    printf("\n----\n");
     if(num_warnings > 0 || num_errors > 0) {
       printf("Warnings: %zu; Errors: %zu\n",
               (size_t)num_warnings, (size_t)num_errors);
@@ -310,10 +320,12 @@ int ctx_view(int argc, char **argv)
       printf(num_warnings ? "Graph may be ok\n" : "Graph is valid\n");
   }
 
-  graph_header_dealloc(&hdr);
+  ctx_free(col_nkmers);
+  ctx_free(col_sum_covgs);
 
   // Close file (which zeros it)
   graph_file_close(&gfile);
+  graph_header_dealloc(&hdr);
 
-  return EXIT_SUCCESS;
+  return num_errors ? EXIT_FAILURE : EXIT_SUCCESS;
 }

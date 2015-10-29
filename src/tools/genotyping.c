@@ -184,11 +184,13 @@ size_t genotyping_get_kmers(Genotyper *typer,
   khiter_t k;
 
   // Count number of ref kmers
-  for(i = 0; i < ntgts; i++) {
-    nrkmers[i] = count_ref_kmers(chrom+regstart, regend-regstart,
-                                 vars[tgtidx+i]->pos-regstart,
-                                 vars[tgtidx+i]->reflen,
-                                 kmer_size);
+  if(nrkmers) {
+    for(i = 0; i < ntgts; i++) {
+      nrkmers[i] = count_ref_kmers(chrom+regstart, regend-regstart,
+                                   vars[tgtidx+i]->pos-regstart,
+                                   vars[tgtidx+i]->reflen,
+                                   kmer_size);
+    }
   }
 
   // Faster to clear at the end whilst iterating

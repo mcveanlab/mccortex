@@ -6,12 +6,15 @@
 #include "graphs_load.h"
 #include "gpath_checks.h"
 #include "genotyping.h"
+#include "vcf_misc.h"
 
 #include "htslib/vcf.h"
 #include "htslib/faidx.h"
 
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(covg_buf, CovgBuffer, Covg);
+
+#define SUBCMD "vcfcov"
 
 #define DEFAULT_MAX_ALLELE_LEN 100
 #define DEFAULT_MAX_GT_VARS 8
@@ -31,9 +34,9 @@ uint32_t max_gt_vars = 0;
 #define PRINT_BUF_LIMIT 100
 
 // Stats
-size_t num_vcf_lines = 0, num_alts_read = 0, num_alts_loaded = 0;
-size_t num_alts_too_long = 0, num_alts_no_covg = 0, num_alts_with_covg = 0;
-size_t num_gt_kmers = 0;
+uint64_t num_vcf_lines = 0, num_alts_read = 0, num_alts_loaded = 0;
+uint64_t num_alts_too_long = 0, num_alts_no_covg = 0, num_alts_with_covg = 0;
+uint64_t num_gt_kmers = 0;
 
 const char vcfcov_usage[] =
 "usage: "CMD" vcfcov [options] <in.vcf> <in.ctx> [in2.ctx ...]\n"
@@ -41,16 +44,16 @@ const char vcfcov_usage[] =
 "  Get coverage of a VCF in the cortex graphs. VCF must be sorted by position. \n"
 "  It is recommended to use uncleaned graphs.\n"
 "\n"
-"  -h, --help                This help message\n"
-"  -q, --quiet               Silence status output normally printed to STDERR\n"
-"  -f, --force               Overwrite output files\n"
-"  -m, --memory <mem>        Memory to use\n"
-"  -n, --nkmers <kmers>      Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -o, --out <bub.txt.gz>    Output file [default: STDOUT]\n"
-"  -O, --out-fmt <f>         Format vcf|vcfgz|bcf|ubcf\n"
-"  -r, --ref <ref.fa>        Reference file [required]\n"
-"  -L, --max-var-len <A>     Only use alleles <= A bases long [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE_LEN)"]\n"
-"  -N, --max-nvars <N>       Limit haplotypes to <= N variants [default: "QUOTE_VALUE(DEFAULT_MAX_GT_VARS)"]\n"
+"  -h, --help             This help message\n"
+"  -q, --quiet            Silence status output normally printed to STDERR\n"
+"  -f, --force            Overwrite output files\n"
+"  -m, --memory <mem>     Memory to use\n"
+"  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
+"  -o, --out <out.vcf>    Output file [default: STDOUT]\n"
+"  -O, --out-fmt <f>      Format vcf|vcfgz|bcf|ubcf\n"
+"  -r, --ref <ref.fa>     Reference file [required]\n"
+"  -L, --max-var-len <A>  Only use alleles <= A bases long [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE_LEN)"]\n"
+"  -N, --max-nvars <N>    Limit haplotypes to <= N variants [default: "QUOTE_VALUE(DEFAULT_MAX_GT_VARS)"]\n"
 "\n";
 
 static struct option longopts[] =
@@ -108,6 +111,7 @@ static void covbuf_alloc(VcfCovBuffers *covbuf, const dBGraph *db_graph)
   memset(covbuf, 0, sizeof(*covbuf));
   covbuf->db_graph = db_graph;
   covbuf->gtyper = genotyper_init();
+  uint32_buf_alloc(&covbuf->nrkmers, 16);
 }
 
 static void covbuf_dealloc(VcfCovBuffers *covbuf)
@@ -116,6 +120,7 @@ static void covbuf_dealloc(VcfCovBuffers *covbuf)
   for(i = 0; i < covbuf->clen; i++) covg_buf_dealloc(&covbuf->covgs[i]);
   ctx_free(covbuf->covgs);
   genotyper_destroy(covbuf->gtyper);
+  uint32_buf_dealloc(&covbuf->nrkmers);
 }
 
 
@@ -219,27 +224,17 @@ static inline void init_new_alt(VcfCovAlt *var, VcfCovLine *line, uint32_t aid,
                                 size_t ncols)
 {
   bcf1_t *v = &line->v;
-  uint32_t pos = v->pos, reflen, altlen;
+  size_t reflen = 0, altlen = 0, shift;
   const char *ref = v->d.allele[0], *alt = v->d.allele[aid];
-  reflen = strlen(ref);
-  altlen = strlen(alt);
 
-  // Left trim
-  while(reflen && altlen && *ref == *alt) {
-    ref++; alt++; pos++;
-    reflen--; altlen--;
-  }
-
-  // Right trim
-  while(reflen && altlen && ref[reflen-1] == alt[altlen-1]) {
-    reflen--; altlen--;
-  }
+  // Trim bases that match with the ref
+  shift = trimmed_alt_lengths(v, aid, &reflen, &altlen);
 
   // Initialise
   var->parent = line;
-  var->ref = ref;
-  var->alt = alt;
-  var->pos = pos;
+  var->ref = ref + shift;
+  var->alt = alt + shift;
+  var->pos = v->pos + shift;
   var->reflen = reflen;
   var->altlen = altlen;
   var->aid = aid;
@@ -607,7 +602,7 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
   const size_t ncols = db_graph->num_of_cols;
 
   HaploKmer *kmers = NULL;
-  size_t i, col, nkmers;
+  size_t i, col, nkmers, kmer_size = db_graph->kmer_size;
   CovgBuffer *rcovg, *acovg;
   uint64_t rtot, atot;
 
@@ -629,7 +624,7 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
   nkmers = genotyping_get_kmers(covbuf->gtyper, (const VcfCovAlt *const*)vars,
                                 nvars, tgtidx, ntgts,
                                 chrom, chromlen,
-                                covbuf->db_graph->kmer_size,
+                                kmer_size,
                                 &kmers, nrkmers);
 
   num_gt_kmers += nkmers;
@@ -640,7 +635,7 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
 
   for(i = 0; i < nkmers; i++) {
     bkey_get_covg(kmers[i].bkey, kmers[i].arbits, ntgts,
-                  covbuf->covgs, covbuf->db_graph);
+                  covbuf->covgs, db_graph);
   }
 
   for(i = 0; i < ntgts; i++)
@@ -648,8 +643,12 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
     VcfCovAlt *var = vars[i+tgtidx];
     ctx_assert(!var->has_covg);
 
-    // size_t ks = covbuf->db_graph->kmer_size;
-    // size_t rk = var->reflen + ks - 1, ak = var->altlen + ks - 1;
+    size_t rk, ak;
+    // rk = hap_num_exp_kmers(var->pos, var->reflen, kmer_size);
+    // ak = hap_num_exp_kmers(var->pos, var->altlen, kmer_size);
+    rk = nrkmers[i];
+    ak = vcfcovalt_akmers(var,nrkmers[i]);
+
     // status("nrkmers: %zu/%zu vs r+ks-1: %zu/%zu",
     //        (size_t)nrkmers[i], vcfcovalt_akmers(var,nrkmers[i]), rk, ak);
 
@@ -660,8 +659,8 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
       rtot = covgs_sum(rcovg->b, rcovg->len);
       atot = covgs_sum(acovg->b, acovg->len);
       // rkmers/akmers is est. of num. of ref/alt kmers
-      var->c[col].covg[0] = vmeancovg(rtot, nrkmers[i]);
-      var->c[col].covg[1] = vmeancovg(atot, vcfcovalt_akmers(var,nrkmers[i]));
+      var->c[col].covg[0] = vmeancovg(rtot, rk);
+      var->c[col].covg[1] = vmeancovg(atot, ak);
     }
     var->has_covg = true;
   }
@@ -877,7 +876,7 @@ int ctx_vcfcov(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" geno -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" "SUBCMD" -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -941,28 +940,10 @@ int ctx_vcfcov(int argc, char **argv)
   // Open output file
   //
   // v=>vcf, z=>compressed vcf, b=>bcf, bu=>uncompressed bcf
-  const char *modes[] = {"wv","wz","wbu","wb"};
-  const char *hsmodes[] = {"uncompressed VCF", "compressed VCF",
-                           "uncompressed BCF", "compressed BCF"};
-  int mode = 0;
-
-  if(out_type) {
-    const char *ot = out_type;
-    if(!strcmp(ot,"vcf") || !strcmp(ot,"uvcf") || !strcmp(ot,"v")) mode = 0;
-    else if(!strcmp(ot,"vcfgz") || !strcmp(ot,"z")) mode = 1;
-    else if(!strcmp(ot,"ubcf")  || !strcmp(ot,"u")) mode = 2;
-    else if(!strcmp(ot,"bcf")   || !strcmp(ot,"b")) mode = 3;
-  } else {
-    if(     futil_path_has_extension(out_path,".vcf"))    mode = 0;
-    else if(futil_path_has_extension(out_path,".vcfgz"))  mode = 1;
-    else if(futil_path_has_extension(out_path,".vcf.gz")) mode = 1;
-    else if(futil_path_has_extension(out_path,".ubcf"))   mode = 2;
-    else if(futil_path_has_extension(out_path,".bcf"))    mode = 3;
-  }
-
+  int mode = vcf_misc_get_outtype(out_type, out_path);
   futil_create_output(out_path);
-  htsFile *outfh = hts_open(out_path, modes[mode]);
-  status("[vcfcov] Output format: %s", hsmodes[mode]);
+  htsFile *outfh = hts_open(out_path, modes_htslib[mode]);
+  status("[vcfcov] Output format: %s", hsmodes_htslib[mode]);
 
 
   // Allocate memory
@@ -1025,18 +1006,7 @@ int ctx_vcfcov(int argc, char **argv)
   bcf_hdr_set_version(outhdr, "VCFv4.2");
 
   // Add command string to header
-  char keystr[8], timestr[100];
-  time_t tnow;
-  time(&tnow);
-  strftime(timestr, sizeof(timestr), "%Y%m%d-%H:%M:%S", localtime(&tnow));
-  StrBuf sbuf;
-  strbuf_alloc(&sbuf, 1024);
-  strbuf_sprintf(&sbuf, "##mccortex_%s=<prev=\"NULL\",cmd=\"%s\",cwd=\"%s\","
-                        "datetime=\"%s\",version="CTX_VERSION">\n",
-                 hex_rand_str(keystr, sizeof(keystr)),
-                 cmd_get_cmdline(), cmd_get_cwd(), timestr);
-  bcf_hdr_append(outhdr, sbuf.b);
-  strbuf_dealloc(&sbuf);
+  vcf_misc_hdr_add_cmd(vcfhdr, cmd_get_cmdline(), cmd_get_cwd());
 
   if(bcf_hdr_write(outfh, outhdr) != 0)
     die("Cannot write header to: %s", futil_outpath_str(out_path));

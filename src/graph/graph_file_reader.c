@@ -45,6 +45,22 @@ do { \
   } \
 } while(0)
 
+void graph_file_merge_header(GraphFileHeader *hdr, const GraphFileReader *file)
+{
+  size_t i, fromcol, intocol;
+  hdr->version = CTX_GRAPH_FILEFORMAT;
+  hdr->num_of_bitfields = file->hdr.num_of_bitfields;
+  hdr->kmer_size = file->hdr.kmer_size;
+  hdr->num_of_cols = MAX2(hdr->num_of_cols, file_filter_into_ncols(&file->fltr));
+  graph_header_capacity(hdr, hdr->num_of_cols);
+
+  for(i = 0; i < file_filter_num(&file->fltr); i++) {
+    fromcol = file_filter_fromcol(&file->fltr, i);
+    intocol = file_filter_intocol(&file->fltr, i);
+    graph_info_merge(hdr->ginfo + intocol, file->hdr.ginfo + fromcol);
+  }
+}
+
 // Return number of bytes read or die() with error
 size_t graph_file_read_header(GraphFileReader *file)
 {
@@ -104,8 +120,8 @@ size_t graph_file_read_header(GraphFileReader *file)
   if(h->num_of_cols > 10000)
     die("Very high number of colours: %zu [path: %s]", (size_t)h->num_of_cols, path);
 
-  // graph_header_alloc will only alloc or realloc if it needs to
-  graph_header_alloc(h, h->num_of_cols);
+  // graph_header_capacity will only alloc or realloc if it needs to
+  graph_header_capacity(h, h->num_of_cols);
 
   // Assume to be graph file now, any error is therefore fatal
 

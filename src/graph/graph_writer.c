@@ -417,38 +417,6 @@ void graph_writer_print_status(uint64_t nkmers, size_t ncols,
 // Merging, filtering, combining graph files
 //
 
-// Merge headers and set intersect name (if intersect_gname != NULL)
-void graph_writer_merge_headers(GraphFileHeader *hdr,
-                                const GraphFileReader *files, size_t num_files,
-                                const char *intersect_gname)
-{
-  size_t i, j, ncols = 0, intocol, fromcol;
-
-  for(i = 0; i < num_files; i++)
-    ncols = MAX2(ncols, file_filter_into_ncols(&files[i].fltr));
-
-  hdr->version = files[0].hdr.version;
-  hdr->kmer_size = files[0].hdr.kmer_size;
-  hdr->num_of_bitfields = files[0].hdr.num_of_bitfields;
-  hdr->num_of_cols = ncols;
-  graph_header_alloc(hdr, ncols);
-
-  for(i = 0; i < num_files; i++) {
-    for(j = 0; j < file_filter_num(&files[i].fltr); j++) {
-      intocol = file_filter_intocol(&files[i].fltr, j);
-      fromcol = file_filter_fromcol(&files[i].fltr, j);
-      graph_info_merge(&hdr->ginfo[intocol], &files[i].hdr.ginfo[fromcol]);
-    }
-  }
-
-  if(intersect_gname != NULL) {
-    for(i = 0; i < ncols; i++) {
-      if(graph_file_is_colour_loaded(i, files, num_files))
-        graph_info_append_intersect(&hdr->ginfo[i].cleaning, intersect_gname);
-    }
-  }
-}
-
 // Load a kmer and write to a file one kmer at a time
 // Optionally filter against the graph currently loaded
 //   (i.e. only keep nodes and edges that are in the graph)
@@ -523,32 +491,20 @@ size_t graph_writer_stream_mkhdr(const char *out_ctx_path,
   ctx_assert(intersect_gname == NULL || db_graph->col_edges != NULL);
   ctx_assert(intersect_gname == NULL || only_load_if_in_edges != NULL);
 
-  FileFilter *fltr = &file->fltr;
-  size_t i, nodes_dumped, ncols = file_filter_into_ncols(fltr);
+  size_t i, nodes_dumped;
 
-  GraphFileHeader outheader;
-  memset(&outheader, 0, sizeof(outheader));
+  GraphFileHeader outhdr;
+  memset(&outhdr, 0, sizeof(outhdr));
+  graph_file_merge_header(&outhdr, file);
 
-  outheader.version = CTX_GRAPH_FILEFORMAT;
-  outheader.kmer_size = db_graph->kmer_size;
-  outheader.num_of_bitfields = (db_graph->kmer_size*2+63)/64;
-  outheader.num_of_cols = ncols;
-  graph_header_alloc(&outheader, outheader.num_of_cols);
-
-  uint32_t fromcol, intocol;
-  for(i = 0; i < file_filter_num(fltr); i++) {
-    fromcol = file_filter_fromcol(fltr, i);
-    intocol = file_filter_intocol(fltr, i);
-    GraphInfo *ginfo = &outheader.ginfo[intocol];
-    graph_info_merge(ginfo, file->hdr.ginfo + fromcol);
+  for(i = 0; i < outhdr.num_of_cols; i++)
     if(intersect_gname != NULL)
-      graph_info_append_intersect(&ginfo->cleaning, intersect_gname);
-  }
+      graph_info_append_intersect(&outhdr.ginfo[i].cleaning, intersect_gname);
 
   nodes_dumped = graph_writer_stream(out_ctx_path, file,
-                                     db_graph, &outheader,
+                                     db_graph, &outhdr,
                                      only_load_if_in_edges);
-  graph_header_dealloc(&outheader);
+  graph_header_dealloc(&outhdr);
 
   return nodes_dumped;
 }
@@ -738,20 +694,24 @@ size_t graph_writer_merge_mkhdr(const char *out_ctx_path,
                                const Edges *only_load_if_in_edges,
                                const char *intersect_gname, dBGraph *db_graph)
 {
-  size_t num_kmers;
-  GraphFileHeader gheader;
-  memset(&gheader, 0, sizeof(gheader));
-  gheader.version = CTX_GRAPH_FILEFORMAT;
-  gheader.kmer_size = db_graph->kmer_size;
-  gheader.num_of_bitfields = (db_graph->kmer_size*2+63)/64;
+  size_t i, num_kmers;
+  GraphFileHeader hdr;
+  memset(&hdr, 0, sizeof(hdr));
 
-  graph_writer_merge_headers(&gheader, files, num_files, intersect_gname);
+  for(i = 0; i < num_files; i++)
+    graph_file_merge_header(&hdr, &files[i]);
+
+  if(intersect_gname != NULL) {
+    for(i = 0; i < hdr.num_of_cols; i++)
+      if(graph_file_is_colour_loaded(i, files, num_files))
+        graph_info_append_intersect(&hdr.ginfo[i].cleaning, intersect_gname);
+  }
 
   num_kmers = graph_writer_merge(out_ctx_path, files, num_files,
                                 kmers_loaded, colours_loaded,
                                 only_load_if_in_edges,
-                                &gheader, db_graph);
+                                &hdr, db_graph);
 
-  graph_header_dealloc(&gheader);
+  graph_header_dealloc(&hdr);
   return num_kmers;
 }

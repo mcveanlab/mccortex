@@ -14,7 +14,7 @@ typedef struct
   size_t capacity;
 } GraphFileHeader;
 
-void graph_header_alloc(GraphFileHeader *header, size_t num_of_cols);
+void graph_header_capacity(GraphFileHeader *header, size_t num_of_cols);
 void graph_header_dealloc(GraphFileHeader *header);
 void graph_header_print(const GraphFileHeader *header);
 
