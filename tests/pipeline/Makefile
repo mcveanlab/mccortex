@@ -24,7 +24,7 @@ DEPTH=50
 ERRRATE=0.01
 READLEN=100
 
-all: $(CALLS) truth.vcf.gz truth.ben.jerry.vcf
+all: $(CALLS) truth.vcf.gz truth.ben.jerry.vcf truth.geno.vcf
 	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz -p isec_bub
 	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz -p isec_brk
 	@BUB_T=`$(VCFALLELES) isec_bub/0000.vcf`; \
@@ -74,6 +74,10 @@ truth.ben.vcf: truth.vcf.gz proj/k31/graphs/ben.raw.ctx
 
 truth.ben.jerry.vcf: truth.ben.vcf proj/k31/graphs/jerry.raw.ctx
 	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/jerry.raw.ctx >& $@.log
+
+truth.geno.vcf: truth.ben.jerry.vcf
+	KDEPTH=$$((($(DEPTH) * ($(READLEN) - 31 + 1)) / $(READLEN))); \
+	$(MCCORTEX) vcfgeno --kcov $$KDEPTH --ploidy 1 -o $@ $< >& $@.log
 
 ref/ref.fa.bwt: ref/ref.fa
 	$(BWA) index ref/ref.fa
@@ -126,6 +130,6 @@ view: $(VIEWFILES)
 
 clean:
 	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk
-	rm -rf tmp.* truth.vcf* truth.ben.vcf* truth.ben.jerry.vcf*
+	rm -rf tmp.* truth.*
 
 .PHONY: all clean sams bams view

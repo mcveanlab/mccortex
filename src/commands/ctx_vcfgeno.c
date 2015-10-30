@@ -19,13 +19,16 @@
 // [x] apply models, output results
 // [x] get tags, kmer size vcf header
 // [x] use bcf_int32_vector_end to mix haploid / diploid
-// [ ] report GT likelihood
-// [ ] report call likelihood
-// [ ] set FILTER value for bad calls
+// [x] report GT likelihood
 // [x] print basic statistics
 // [x] print genotyping statistics
+// [ ] add population classifier
+// [ ] report call likelihood
+// [ ] set FILTER value for bad calls
 
 #define SUBCMD "vcfgeno"
+
+#define DEFAULT_ERR_RATE "0.01"
 
 const char vcfgeno_usage[] =
 "usage: "CMD" "SUBCMD" [options] <in.vcf>\n"
@@ -38,20 +41,20 @@ const char vcfgeno_usage[] =
 "  -f, --force          Overwrite output files\n"
 "  -o, --out <out.vcf>  Output file [default: STDOUT]\n"
 "  -O, --out-fmt <f>    Format vcf|vcfgz|bcf|ubcf\n"
-"  -E, --err <E>        List of sample error rates (per bp)(comma-separated)\n"
+"  -E, --err <E>        List of sample error rates (per bp)(comma-separated) ["DEFAULT_ERR_RATE"]\n"
 "  -C, --kcov <C>       List of kmer coverage per colour (comma-separated)\n"
-"  -P, --ploidy <P>     Ploidy sample:chr:ploidy (can be used repeatedly)\n"
-"                       sample and ploidy can be comma-separated lists\n"
+"  -P, --ploidy <P>     <ploidy> or sample:chr:ploidy (can be used repeatedly)\n"
+"                       'sample' and 'chr' can be comma-separated lists\n"
 "                       '.' means all. Be careful: applied in order.\n"
 "\n"
 "  'kmer coverage' is calculated by: D * (R - k + 1) / R  where:\n"
 "     D is sequence depth (X);  R is read length;  k is kmer size\n"
 "  Or calculate with: "CMD" view <graph.ctx>\n"
 "\n"
-" Example:\n"
+" Human ploidy example:\n"
 "   "CMD" "SUBCMD" \\\n"
 "      --kcov 21,42,30 \\\n"
-"      --ploidy .:.:2 --ploidy .:chrY:1 --ploidy John,James:chrX:1 \\\n"
+"      --ploidy .:.:2 --ploidy .:Y:0 --ploidy John,Tom:X,Y:1 \\\n"
 "      in.vcf > out.vcf\n"
 "\n";
 
@@ -106,11 +109,13 @@ static double llk_het(uint64_t covg1, uint64_t covg2, double theta1, double thet
          covg2 * log(theta2/2) - theta2/2 - lnfac(covg2);
 }
 
-static inline void set_gts_missing(int32_t *gts, size_t ploidy, size_t max_ploidy)
+static inline void set_gts_missing(int32_t *gts, size_t ploidy, size_t ngts,
+                                   float *gt_qual)
 {
   size_t i;
   for(i = 0; i < ploidy; i++) gts[i] = bcf_gt_missing;
-  if(ploidy < max_ploidy) gts[ploidy] = bcf_int32_vector_end;
+  if(ploidy < ngts) gts[ploidy] = bcf_int32_vector_end;
+  bcf_float_set_missing(*gt_qual);
 }
 
 /**
@@ -120,12 +125,15 @@ static inline void set_gts_missing(int32_t *gts, size_t ploidy, size_t max_ploid
  * param ploidy is this samples ploidy on the current chromosome
  * param logerr is ln(sample_err_rate)
  **/
-static void genotype_sample_biallelic(bcf1_t *v, int32_t *gts, size_t max_ploidy,
+static void genotype_sample_biallelic(bcf1_t *v,
+                                      int32_t *gts, size_t ngts,
+                                      float *gt_qual,
                                       const int32_t *rcovgs,
                                       const int32_t *acovgs,
                                       double kcovg, uint8_t ploidy,
                                       size_t ksize, double logerr)
 {
+  ctx_assert(ploidy <= ngts);
   ctx_assert(v->n_allele == 2);
 
   // printf("covg: %u %u\n", rcovgs[0], acovgs[0]);
@@ -133,11 +141,11 @@ static void genotype_sample_biallelic(bcf1_t *v, int32_t *gts, size_t max_ploidy
   if(rcovgs[0] == bcf_int32_missing || acovgs[0] == bcf_int32_missing)
   {
     num_missing_covgs++;
-    set_gts_missing(gts, ploidy, max_ploidy);
+    set_gts_missing(gts, ploidy, ngts, gt_qual);
   }
   else if(ploidy == 0)
   {
-    set_gts_missing(gts, ploidy, max_ploidy);
+    set_gts_missing(gts, ploidy, ngts, gt_qual);
   }
   else
   {
@@ -153,23 +161,28 @@ static void genotype_sample_biallelic(bcf1_t *v, int32_t *gts, size_t max_ploidy
     double theta1 = kcovg * rlenk, theta2 = kcovg * alenk;
     uint64_t rkcov = rcovgs[0] * rlenk, akcov = acovgs[0] * alenk;
     double llk[3]; // hom1, het, hom2
-    int max = 0;
+    int order[3] = {0,1,2};
 
     llk[0] = llk_hom(rkcov, akcov, theta1, logerr);
     llk[1] = ploidy == 2 ? llk_het(rkcov, akcov, theta1, theta2) : -DBL_MAX;
     llk[2] = llk_hom(akcov, rkcov, theta2, logerr);
 
-    if(llk[1] > llk[max]) max = 1;
-    if(llk[2] > llk[max]) max = 2;
+    if(llk[order[0]] > llk[order[1]]) SWAP(order[0], order[1]);
+    if(llk[order[1]] > llk[order[2]]) SWAP(order[1], order[2]);
+    if(llk[order[0]] > llk[order[1]]) SWAP(order[0], order[1]);
 
-    uint32_t g0 = max==2, g1 = max>0;
+    // if haploid: g0, if diploid: g0/g1
+    uint32_t g0 = (order[2] == 2), g1 = (order[2] > 0);
+
+    // status("%i %i %i %f %f %f", order[0], order[1], order[2],
+    //                             llk[order[0]], llk[order[1]], llk[order[2]]);
+
+    // set GT quality to be difference between highest and second highest GT llk
+    *gt_qual = (llk[order[2]] - llk[order[1]]) / -llk[order[2]];
 
     gts[0] = bcf_gt_unphased(g0);
     if(ploidy == 2) gts[1] = bcf_gt_unphased(g1);
-    if(ploidy < max_ploidy) gts[ploidy] = bcf_int32_vector_end;
-
-    // if(max_ploidy == 2) // need to set to something
-    //   gts[1] = (ploidy == 1 ? bcf_gt_unphased(g0) : bcf_gt_unphased(g1));
+    if(ploidy < ngts) gts[ploidy] = bcf_int32_vector_end;
 
     num_genotypes_printed++; // non-missing genotype printed
   }
@@ -190,6 +203,7 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
 
   int ngts = nsamples * max_ploidy;
   int32_t *gts = ctx_calloc(ngts, sizeof(gts[0]));
+  float *gtquals = ctx_calloc(nsamples, sizeof(gtquals[0]));
 
   // Initialise lookup tables
   lnfac_table_init();
@@ -212,12 +226,14 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
     for(s = 0; s < nsamples; s++) {
       uint8_t ploidy = ploidy_mat[v->rid][s];
       ploidy_seen[ploidy]++;
-      genotype_sample_biallelic(v, gts+max_ploidy*s, max_ploidy,
+      genotype_sample_biallelic(v, gts+max_ploidy*s, max_ploidy, gtquals+s,
                                 kcovr+nalts*s, kcova+nalts*s,
                                 kcovgs[s], ploidy, kmer_size, log_errs[s]);
     }
 
     // Update GTs and write out
+    if(bcf_update_format_float(vcfhdr, v, "GQ", gtquals, nsamples) < 0)
+      die("Cannot update GQs");
     if(bcf_update_genotypes(vcfhdr, v, gts, ngts) < 0) die("Cannot update GTs");
     if(bcf_write(outfh, vcfhdr, v) != 0) die("Cannot write record");
   }
@@ -225,6 +241,7 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
   free(kcovr);
   free(kcova);
   ctx_free(gts);
+  ctx_free(gtquals);
   bcf_destroy(v);
 }
 
@@ -238,21 +255,43 @@ static int match_list(const char *s, char const*const* list, size_t n)
 }
 
 // returns true on success, false if cannot parse
+// Format <samples>:<chrs>:<ploidy> or <ploidy>
+//   '<ploidy>' is equivalent to '.:.:<ploidy>'
+// 'samples' and 'chrs' can be comma-separated lists or '.' (means ALL)
+// Valid values:
+//   1
+//   2
 //   John,Jane:chr1,chr2:2
 //   John,Jane:.:2
+//   .:.:2
+//   John:X:1
+//   John:Y:1
 static bool parse_ploidy_arg(char *str, uint8_t **ploidy_mat,
                              char const*const* seqnames, size_t nseqs,
                              char const*const* samples, size_t nsamples)
 {
   char *f[3], *end0 = NULL, *end1 = NULL, *sample, *chr;
   int s, s_beg, s_end, c, c_beg, c_end;
+  size_t i, j, ploidy = 0;
+
+  // Single number (e.g. 2) on its own is equivalent to .:.:2
+  if(parse_entire_size(str, &ploidy))
+  {
+    if(ploidy > 2) die("ploidy >2 not currently supported.");
+    for(i = 0; i < nseqs; i++)
+      for(j = 0; j < nsamples; j++)
+        ploidy_mat[i][j] = ploidy;
+    return true;
+  }
+
   if((f[0] = strtok_r(str, ":", &end0)) == NULL) return false;
   if((f[1] = strtok_r(NULL,":", &end0)) == NULL) return false;
   if((f[2] = strtok_r(NULL,":", &end0)) == NULL) return false;
+
   // Parse ploidy
-  size_t ploidy = 0;
   if(!parse_entire_size(f[2], &ploidy)) return false;
   if(ploidy > 2) die("ploidy >2 not currently supported.");
+
   // Loop over chromosomes, then samples
   // both are comma separated arrays
   // '.' means ALL
@@ -365,7 +404,10 @@ int ctx_vcfgeno(int argc, char **argv)
     }
   }
 
-  if(!err_arg) cmd_print_usage("Require '--err 0.01,0.005,...' argument");
+  char default_err[] = DEFAULT_ERR_RATE;
+
+  // if(!err_arg) cmd_print_usage("Require '--err 0.01,0.005,...' argument");
+  if(!err_arg) err_arg = default_err;
   if(!npl_args) cmd_print_usage("Require '--ploidy sample:chr:ploidy' argment");
   if(!cov_arg) cmd_print_usage("Require '--genome-cov X,Y,Z' argument");
   if(optind+1 != argc) cmd_print_usage("Need to pass a single VCF");
@@ -483,6 +525,9 @@ int ctx_vcfgeno(int argc, char **argv)
   status("max ploidy: %zu", max_ploidy);
 
   vcf_misc_hdr_add_cmd(vcfhdr, cmd_get_cmdline(), cmd_get_cwd());
+
+  bcf_hdr_append(vcfhdr, "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
+  bcf_hdr_append(vcfhdr, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
 
   if(bcf_hdr_write(outfh, vcfhdr) != 0)
     die("Cannot write header to: %s", futil_outpath_str(out_path));
