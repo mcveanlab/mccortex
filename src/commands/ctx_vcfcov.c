@@ -995,11 +995,11 @@ int ctx_vcfcov(int argc, char **argv)
   char descr[200];
 
   sprintf(descr, "##FORMAT=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Coverage on ref (k=%zu) => sum(kmer_covs)/exp_num_kmers\">\n",
+          "Description=\"Coverage on ref (k=%zu): sum(kmer_covs) / exp_num_kmers\">\n",
           kcovgs_ref_tag, db_graph.kmer_size);
   bcf_hdr_append(outhdr, descr);
   sprintf(descr, "##FORMAT=<ID=%s,Number=A,Type=Integer,"
-          "Description=\"Coverage on alt (k=%zu) => sum(kmer_covs)/exp_num_kmers\">\n",
+          "Description=\"Coverage on alt (k=%zu): sum(kmer_covs) / exp_num_kmers\">\n",
           kcovgs_alt_tag, db_graph.kmer_size);
   bcf_hdr_append(outhdr, descr);
 

@@ -46,6 +46,7 @@ const char vcfgeno_usage[] =
 "  -P, --ploidy <P>     <ploidy> or sample:chr:ploidy (can be used repeatedly)\n"
 "                       'sample' and 'chr' can be comma-separated lists\n"
 "                       '.' means all. Be careful: applied in order.\n"
+"  -L, --llk            Print all log likelihoods\n"
 "\n"
 "  'kmer coverage' is calculated by: D * (R - k + 1) / R  where:\n"
 "     D is sequence depth (X);  R is read length;  k is kmer size\n"
@@ -68,6 +69,7 @@ static struct option longopts[] =
   {"err",          required_argument, NULL, 'E'},
   {"kcov",         required_argument, NULL, 'C'},
   {"ploidy",       required_argument, NULL, 'P'},
+  {"llk",          no_argument,       NULL, 'L'},
   {NULL, 0, NULL, 0}
 };
 
@@ -109,13 +111,29 @@ static double llk_het(uint64_t covg1, uint64_t covg2, double theta1, double thet
          covg2 * log(theta2/2) - theta2/2 - lnfac(covg2);
 }
 
-static inline void set_gts_missing(int32_t *gts, size_t ploidy, size_t ngts,
+// TODO: update for ploidy > 2, nalts > 2
+// get number of possible genotypes given ploidy
+// assumes ploidy <= 2
+static inline size_t num_gts(size_t ploidy, size_t nalts)
+{
+  (void)nalts;
+  return !ploidy ? 0 : (ploidy == 1 ? 2 : 3);
+}
+
+static inline void set_gts_missing(size_t ploidy, size_t nalts,
+                                   int32_t *gts, size_t ngts,
+                                   float *gllks, size_t ngllks,
                                    float *gt_qual)
 {
   size_t i;
   for(i = 0; i < ploidy; i++) gts[i] = bcf_gt_missing;
   if(ploidy < ngts) gts[ploidy] = bcf_int32_vector_end;
   bcf_float_set_missing(*gt_qual);
+  if(gllks) {
+    size_t expgllks = num_gts(ploidy, nalts);
+    for(i = 0; i < expgllks; i++) bcf_float_set_missing(gllks[i]);
+    if(expgllks < ngllks) bcf_float_set_vector_end(gllks[expgllks]);
+  }
 }
 
 /**
@@ -127,6 +145,7 @@ static inline void set_gts_missing(int32_t *gts, size_t ploidy, size_t ngts,
  **/
 static void genotype_sample_biallelic(bcf1_t *v,
                                       int32_t *gts, size_t ngts,
+                                      float *gllks, size_t ngllks,
                                       float *gt_qual,
                                       const int32_t *rcovgs,
                                       const int32_t *acovgs,
@@ -141,11 +160,11 @@ static void genotype_sample_biallelic(bcf1_t *v,
   if(rcovgs[0] == bcf_int32_missing || acovgs[0] == bcf_int32_missing)
   {
     num_missing_covgs++;
-    set_gts_missing(gts, ploidy, ngts, gt_qual);
+    set_gts_missing(ploidy, 2, gts, ngts, gllks, ngllks, gt_qual);
   }
   else if(ploidy == 0)
   {
-    set_gts_missing(gts, ploidy, ngts, gt_qual);
+    set_gts_missing(ploidy, 2, gts, ngts, gllks, ngllks, gt_qual);
   }
   else
   {
@@ -175,14 +194,28 @@ static void genotype_sample_biallelic(bcf1_t *v,
     uint32_t g0 = (order[2] == 2), g1 = (order[2] > 0);
 
     // status("%i %i %i %f %f %f", order[0], order[1], order[2],
-    //                             llk[order[0]], llk[order[1]], llk[order[2]]);
+    //                             llk[0], llk[1], llk[2]);
 
     // set GT quality to be difference between highest and second highest GT llk
-    *gt_qual = (llk[order[2]] - llk[order[1]]) / -llk[order[2]];
+    // *gt_qual = (llk[order[2]] - llk[order[1]]) / -llk[order[2]];
+    *gt_qual = (llk[order[2]] - llk[order[1]]);
 
     gts[0] = bcf_gt_unphased(g0);
     if(ploidy == 2) gts[1] = bcf_gt_unphased(g1);
     if(ploidy < ngts) gts[ploidy] = bcf_int32_vector_end;
+
+    if(gllks) {
+      if(ploidy == 1) {
+        gllks[0] = llk[0];
+        gllks[1] = llk[2];
+        if(ngllks > 2) bcf_float_set_vector_end(gllks[2]);
+      } else {
+        gllks[0] = llk[0];
+        gllks[1] = llk[1];
+        gllks[2] = llk[2];
+        if(ngllks > 3) bcf_float_set_vector_end(gllks[3]);
+      }
+    }
 
     num_genotypes_printed++; // non-missing genotype printed
   }
@@ -191,7 +224,8 @@ static void genotype_sample_biallelic(bcf1_t *v,
 static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
                          const double *kcovgs, const double *log_errs,
                          const uint8_t *const* ploidy_mat,
-                         size_t max_ploidy, size_t kmer_size)
+                         size_t max_ploidy, size_t kmer_size,
+                         bool add_gllks)
 {
   size_t nalts, s, nsamples = bcf_hdr_nsamples(vcfhdr);
   bcf1_t *v = bcf_init();
@@ -201,9 +235,13 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
   int nkcovr = 0, nkcova = 0;
   int32_t *kcovr = NULL, *kcova = NULL;
 
+  size_t max_gts = num_gts(max_ploidy, 2);
+  size_t ngllks = nsamples * max_gts;
+
   int ngts = nsamples * max_ploidy;
   int32_t *gts = ctx_calloc(ngts, sizeof(gts[0]));
   float *gtquals = ctx_calloc(nsamples, sizeof(gtquals[0]));
+  float *gllks = add_gllks ? ctx_calloc(ngllks, sizeof(gllks[0])) : NULL;
 
   // Initialise lookup tables
   lnfac_table_init();
@@ -218,6 +256,8 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
     if(v->n_allele != 2) { num_non_biallelic++; continue; }
     nalts = v->n_allele-1;
 
+    // TODO: if add_gllks and nalts > 1, may need to resize gllks
+
     a = bcf_get_format_int32(vcfhdr, v, kcovgs_ref_tag, &kcovr, &nkcovr);
     b = bcf_get_format_int32(vcfhdr, v, kcovgs_alt_tag, &kcova, &nkcova);
     if(a < 0 || b < 0) { num_missing_tags++; continue; }
@@ -226,15 +266,21 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
     for(s = 0; s < nsamples; s++) {
       uint8_t ploidy = ploidy_mat[v->rid][s];
       ploidy_seen[ploidy]++;
-      genotype_sample_biallelic(v, gts+max_ploidy*s, max_ploidy, gtquals+s,
+      genotype_sample_biallelic(v,
+                                gts+max_ploidy*s, max_ploidy,
+                                gllks ? gllks+max_gts*s : NULL, max_gts,
+                                gtquals+s,
                                 kcovr+nalts*s, kcova+nalts*s,
                                 kcovgs[s], ploidy, kmer_size, log_errs[s]);
     }
 
     // Update GTs and write out
+    if(bcf_update_genotypes(vcfhdr, v, gts, ngts) < 0)
+      die("Cannot update GTs");
     if(bcf_update_format_float(vcfhdr, v, "GQ", gtquals, nsamples) < 0)
       die("Cannot update GQs");
-    if(bcf_update_genotypes(vcfhdr, v, gts, ngts) < 0) die("Cannot update GTs");
+    if(gllks && bcf_update_format_float(vcfhdr, v, "GL", gllks, ngllks) < 0)
+      die("Cannot update GLs");
     if(bcf_write(outfh, vcfhdr, v) != 0) die("Cannot write record");
   }
 
@@ -242,6 +288,7 @@ static void genotype_vcf(htsFile *vcffh, bcf_hdr_t *vcfhdr, htsFile *outfh,
   free(kcova);
   ctx_free(gts);
   ctx_free(gtquals);
+  ctx_free(gllks);
   bcf_destroy(v);
 }
 
@@ -369,6 +416,7 @@ int ctx_vcfgeno(int argc, char **argv)
   const char *out_path = NULL, *out_type = NULL;
   char *pl_args[argc], *cov_arg = NULL, *err_arg = NULL;
   size_t npl_args = 0;
+  bool add_gllks = false;
 
   // These are set after we have initially looped over args  
   double *err_rates = NULL; // sample error rate array
@@ -396,6 +444,7 @@ int ctx_vcfgeno(int argc, char **argv)
       case 'E': cmd_check(!err_arg, cmd); err_arg = optarg; break;
       case 'C': cmd_check(!cov_arg, cmd); cov_arg = optarg; break;
       case 'P': pl_args[npl_args++] = optarg; break;
+      case 'L': cmd_check(!add_gllks, cmd); add_gllks = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -476,6 +525,12 @@ int ctx_vcfgeno(int argc, char **argv)
     zero_ploidy_seen |= (seq_ploidy_merge == 0);
   }
 
+  // Warn if some contigs have zero ploidy for everyone
+  if(zero_ploidy_seen) warn("Some chromosomes have zero ploidy on all samples");
+  if(max_ploidy == 0) die("ploidy is all zero");
+  if(max_ploidy > 2) die("some ploidy is crazy high (>2)");
+  status("max ploidy: %zu", max_ploidy);
+
   // Open output file
   if(!out_path) out_path = "-";
   int mode = vcf_misc_get_outtype(out_type, out_path);
@@ -517,17 +572,13 @@ int ctx_vcfgeno(int argc, char **argv)
     pthread_mutex_unlock(&ctx_biglock);
   }
 
-  // Warn if some contigs have zero ploidy for everyone
-  if(zero_ploidy_seen) warn("Some chromosomes have zero ploidy on all samples");
-  if(max_ploidy == 0) die("ploidy is all zero");
-  if(max_ploidy > 2) die("some ploidy is crazy high (>2)");
-
-  status("max ploidy: %zu", max_ploidy);
-
   vcf_misc_hdr_add_cmd(vcfhdr, cmd_get_cmdline(), cmd_get_cwd());
 
-  bcf_hdr_append(vcfhdr, "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
   bcf_hdr_append(vcfhdr, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+  bcf_hdr_append(vcfhdr, "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
+
+  if(add_gllks)
+    bcf_hdr_append(vcfhdr, "##FORMAT=<ID=GL,Number=.,Type=Float,Description=\"Genotype log likelihoods for 0/0, 0/1, 1/1\">");
 
   if(bcf_hdr_write(outfh, vcfhdr) != 0)
     die("Cannot write header to: %s", futil_outpath_str(out_path));
@@ -535,7 +586,7 @@ int ctx_vcfgeno(int argc, char **argv)
   // Ready to go
   genotype_vcf(vcffh, vcfhdr, outfh,
                kcovgs, log_errs, (const uint8_t *const*)ploidy_mat,
-               max_ploidy, kmer_size);
+               max_ploidy, kmer_size, add_gllks);
 
   uint64_t n_sample_alts = nsamples * num_ALTs_read;
 
