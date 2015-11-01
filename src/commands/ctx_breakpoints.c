@@ -3,8 +3,7 @@
 #include "file_util.h"
 #include "util.h"
 #include "db_graph.h"
-#include "graph_file_reader.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "breakpoint_caller.h"
 #include "kmer_occur.h"
 #include "seq_reader.h"
@@ -27,6 +26,8 @@ const char breakpoints_usage[] =
 "  -o, --out <out.txt.gz>  Save calls (gzipped output) [default: STDOUT]\n"
 "  -s, --seq <in>          Trusted input (can specify multiple times)\n"
 "  -r, --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
+"  -R, --maxref <N>        Stop after <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MAX_REF_NKMERS)"]\n"
+"  -E, --no-ref-edges      Don't load edges from the reference\n"
 "\n";
 
 static struct option longopts[] =
@@ -43,6 +44,8 @@ static struct option longopts[] =
   {"seq",          required_argument, NULL, '1'},
   {"seq",          required_argument, NULL, 's'},
   {"minref",       required_argument, NULL, 'r'},
+  {"maxref",       required_argument, NULL, 'R'},
+  {"no-ref-edges", no_argument,       NULL, 'E'},
   {NULL, 0, NULL, 0}
 };
 
@@ -51,7 +54,8 @@ int ctx_breakpoints(int argc, char **argv)
   size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *output_file = NULL;
-  size_t min_ref_flank = 0;
+  size_t min_ref_flank = 0, max_ref_flank = 0;
+  bool load_ref_edges = true; // by default load kmers and edges
 
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
@@ -84,6 +88,7 @@ int ctx_breakpoints(int argc, char **argv)
         gpfile_buf_push(&gpfiles, &tmp_gpfile, 1);
         break;
       case 'r': cmd_check(!min_ref_flank, cmd); min_ref_flank = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'R': cmd_check(!max_ref_flank, cmd); max_ref_flank = cmd_uint32(cmd, optarg); break;
       case 'o': cmd_check(!output_file, cmd); output_file = optarg; break;
       case '1':
       case 's':
@@ -91,6 +96,7 @@ int ctx_breakpoints(int argc, char **argv)
           die("Cannot read --seq file %s", optarg);
         seq_file_ptr_buf_add(&sfilebuf, tmp_sfile);
         break;
+      case 'E': cmd_check(load_ref_edges,cmd); load_ref_edges = false; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -102,6 +108,7 @@ int ctx_breakpoints(int argc, char **argv)
   // Defaults
   if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
   if(min_ref_flank == 0) min_ref_flank = DEFAULT_MIN_REF_NKMERS;
+  if(max_ref_flank == 0) max_ref_flank = DEFAULT_MAX_REF_NKMERS;
 
   if(sfilebuf.len == 0) cmd_print_usage("Require at least one --seq file");
   if(optind == argc) cmd_print_usage("Require input graph files (.ctx)");
@@ -196,16 +203,11 @@ int ctx_breakpoints(int argc, char **argv)
   //
   // Load graphs
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &stats);
+    graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }
@@ -251,7 +253,7 @@ int ctx_breakpoints(int argc, char **argv)
                    gzout, output_file,
                    rbuf.b, rbuf.len,
                    seq_paths, num_seq_paths,
-                   min_ref_flank,
+                   load_ref_edges, min_ref_flank, max_ref_flank,
                    hdrs, gpfiles.len,
                    &db_graph);
 

@@ -7,7 +7,7 @@
 static void test_strnstr()
 {
   test_status("Testing strnstr");
-  
+
   const char a[] = "";
   TASSERT(ctx_strnstr(a,a,0) == a);
   TASSERT(ctx_strnstr(a,"",0) == a);

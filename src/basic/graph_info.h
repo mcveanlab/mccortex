@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #include "string_buffer/string_buffer.h"
 #include "cortex_types.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 
 // Thesholds are zero if not used (e.g. cleaned_snodes == false)
 // is_graph_intersection is for cleaning a low covg sample against
@@ -37,6 +37,6 @@ void graph_info_append_intersect(ErrorCleaning *cleaning,
 void graph_info_cpy(GraphInfo *dst, const GraphInfo *src);
 void graph_info_merge(GraphInfo *dst, const GraphInfo *src);
 
-void graph_info_update_stats(GraphInfo *ginfo, const LoadingStats *stats);
+void graph_info_update_stats(GraphInfo *ginfo, const SeqLoadingStats *stats);
 
 #endif /* GRAPH_INFO_H_ */

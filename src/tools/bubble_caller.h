@@ -57,9 +57,9 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers);
 // `fork_node` is a node with outdegree > 1
 void find_bubbles(BubbleCaller *caller, dBNode fork_node);
 
-// Load GCacheSteps into caller->spp_forward (if they traverse the snode forward)
-// or caller->spp_reverse (if they traverse the snode in reverse)
-void find_bubbles_ending_with(BubbleCaller *caller, GCacheSnode *snode);
+// Load GCacheSteps into caller->spp_forward (if they traverse the unitig forward)
+// or caller->spp_reverse (if they traverse the unitig in reverse)
+void find_bubbles_ending_with(BubbleCaller *caller, GCacheUnitig *unitig);
 
 // Run bubble caller, write output to gzout
 // @param hdrs JSON headers of input files

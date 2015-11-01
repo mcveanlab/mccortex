@@ -1,17 +1,12 @@
 #include "global.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 #include "util.h"
 
 //
-// Create/free/sum LoadingStats
+// Create/free/sum SeqLoadingStats
 //
 
-void loading_stats_init(LoadingStats *stats)
-{
-  memset(stats, 0, sizeof(LoadingStats));
-}
-
-void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
+void seq_loading_stats_merge(SeqLoadingStats* dst, const SeqLoadingStats* src)
 {
   dst->num_se_reads += src->num_se_reads;
   dst->num_pe_reads += src->num_pe_reads;
@@ -31,7 +26,7 @@ void loading_stats_merge(LoadingStats* dst, const LoadingStats* src)
 }
 
 // @ht_num_kmers is the number of kmers loaded into the graph
-void loading_stats_print_summary(const LoadingStats *stats, size_t ht_num_kmers)
+void seq_loading_stats_print(const SeqLoadingStats *stats, size_t ht_num_kmers)
 {
   char se_num_str[100], pe_num_str[100], sepe_num_str[100];
   ulong_to_str(stats->num_se_reads, se_num_str);

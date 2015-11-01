@@ -431,19 +431,22 @@ static void bubble_trim_alleles(CallFileEntry *centry, StrBuf *flank3pbuf)
 
 /**
  * Fetch the largest match from a breakpoint call
- * @param is line to be parsed '>seqname ... chr=...'
- * @param buf is temporary buffer
- * @param flank is used to return result of largest match
- * @return 1 on success, 0 if not mapped. Calls die() on error
+ * @param line       input to be parsed '>seqname ... chr=...'
+ * @param buf        temporary buffer
+ * @param use_first  if true, return lowest offset, otherwise highest offset
+ * @param flank      used to return result of largest match
+ * @return true on success, false if not mapped. Calls die() on error
  */
-static int brkpnt_fetch_largest_match(const char *line, ChromPosBuffer *buf,
-                                      ChromPosOffset *flank)
+static bool brkpnt_fetch_largest_match(const char *line, ChromPosBuffer *buf,
+                                       bool use_first, ChromPosOffset *flank)
 {
   char *list = strstr(line, " chr=");
   if(list == NULL) die("Cannot find flank position: %s", line);
   // Parse chr=seq0b:1-20:+:1,seq0a:2-20:+:2
   if(chrom_pos_list_parse(list+5, buf) < 0) die("Invalid positions: %s", line);
-  return chrom_pos_list_get_largest(buf, flank);
+  size_t n = chrom_pos_list_get_largest(buf, use_first, flank);
+  status(" n = %zu", n);
+  return (n > 0); // can check if n==1 if we want unique
 }
 
 static bool brkpnt_fetch_coords(const CallFileEntry *centry,
@@ -460,8 +463,8 @@ static bool brkpnt_fetch_coords(const CallFileEntry *centry,
   char *line0 = call_file_get_line(centry,0);
   char *line2 = call_file_get_line(centry,2);
 
-  bool success = (brkpnt_fetch_largest_match(line0, chrposbuf, &flank5p) &&
-                  brkpnt_fetch_largest_match(line2, chrposbuf, &flank3p));
+  bool success = (brkpnt_fetch_largest_match(line0, chrposbuf, false, &flank5p) &&
+                  brkpnt_fetch_largest_match(line2, chrposbuf, true, &flank3p));
 
   // Didn't map uniquely, with mismatching chromosomes or strands
   if(!success) { num_flanks_not_uniquely_mapped++; return false; }
@@ -547,7 +550,7 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
   if(alt_bases > max_allele_len) return;
 
   // CHROM POS ID REF ALT QUAL FILTER INFO
-  fprintf(fout, "%s\t%zu\tvar%zu\t", chrom_name, vcf_pos, num_vars_printed);
+  fprintf(fout, "%s\t%zu\t.\t", chrom_name, vcf_pos);
   print_vcf_allele(prev_base, ref, aligned_len, fout);
   fputc('\t', fout);
   print_vcf_allele(prev_base, alt, aligned_len, fout);
@@ -572,7 +575,7 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
  * @param ref_pos is 0-based here
  * @param info is extra text to print in the info field of each variant (may be NULL)
  * @param genotypes is strings to print in genotypes columns, of length num_samples.
-*                   It may be NULL.
+ *                  It may be NULL.
  */
 static void align_biallelic(const char *ref, const char *alt,
                             const read_t *chr, size_t ref_pos,
@@ -946,7 +949,7 @@ static void print_vcf_header(cJSON *json, bool is_breakpoint, FILE *fout)
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
-  fprintf(fout, "##fileformat=VCFv4.1\n##fileDate=%s\n", datestr);
+  fprintf(fout, "##fileformat=VCFv4.2\n##fileDate=%s\n", datestr);
 
   // Print commands used to generate header
   cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, input_path);

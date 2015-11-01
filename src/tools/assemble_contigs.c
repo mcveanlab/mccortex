@@ -82,7 +82,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
   for(dir = 0; dir < 2; dir++)
   {
     ctx_assert(nbuf->len >= init_len);
-    ctx_assert(!db_graph_check_all_edges(db_graph, nbuf->b, nbuf->len));
+    // ctx_assert(!db_graph_check_all_edges(db_graph, nbuf->b, nbuf->len));
 
     if(dir == 1)
       db_nodes_reverse_complement(nbuf->b, nbuf->len);

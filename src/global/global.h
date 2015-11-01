@@ -6,6 +6,9 @@
 #define _BSD_SOURCE
 // #define _GNU_SOURCE
 
+// Request PRIu64 etc. from inttypes.h
+#define __STDC_FORMAT_MACROS
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -34,14 +37,6 @@
 //  USE_CITY_HASH=1  Use Google's CityHash instead of Bob Jenkin's lookup3
 //  USE_XXHASH=1     Use xxHash instead of Bob Jenkin's lookup3
 
-#if defined(USE_CITY_HASH)
-  #define HASH_NAME_STR "CityHash32"
-#elif defined(USE_XXHASH)
-  #define HASH_NAME_STR "xxHash32"
-#else
-  #define HASH_NAME_STR "Lookup3"
-#endif
-
 #define ONE_MEGABYTE (1<<20)
 #define MAX_IO_THREADS 10
 #define DEFAULT_IO_BUFSIZE (4*ONE_MEGABYTE)
@@ -53,6 +48,8 @@
 
 #include "htslib/version.h"
 #define LIBS_VERSION "zlib="ZLIB_VERSION" htslib="HTS_VERSION
+
+// Must include hash.h to use this!
 #define VERSION_STATUS_STR "mccortex="CTX_VERSION" "LIBS_VERSION" "ASSERTSTR" hash="HASH_NAME_STR" "CHECKSTR
 
 //
@@ -81,6 +78,10 @@ void cortex_destroy();
 
 #define MAX3(x,y,z) ((x) >= (y) && (x) >= (z) ? (x) : MAX2(y,z))
 #define MIN3(x,y,z) ((x) <= (y) && (x) <= (z) ? (x) : MIN2(y,z))
+
+#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
+
+#define cmp(a,b) (((a) > (b)) - ((b) > (a)))
 
 // Number of reads to hold in the msg pool
 #define MSGPOOLSIZE 2048

@@ -8,6 +8,8 @@
 #include "gpath_save.h"
 #include "clean_graph.h"
 
+#include "carrays/carrays.h" // gca_median_size()
+
 const char links_usage[] =
 "usage: "CMD" links [options] <in.ctp.gz>\n"
 "\n"
@@ -25,7 +27,7 @@ const char links_usage[] =
 "  -l,--list <out.txt>    List as CSV links\n"
 "  -P,--plot <out.dot>    Plot last from limit\n"
 "  -c,--clean <N>         Remove junction choices with coverage < N\n"
-"  -T,--threshold <fdr>   Calculate the cleaning threshold for given FDR [e.g. 0.001]\n"
+"  -T,--threshold         Calculate the cleaning threshold\n"
 "\n";
 
 static struct option longopts[] =
@@ -38,7 +40,7 @@ static struct option longopts[] =
   {"list",         required_argument, NULL, 'l'},
   {"clean",        required_argument, NULL, 'c'},
   {"plot",         required_argument, NULL, 'P'},
-  {"threshold",    required_argument, NULL, 'T'},
+  {"threshold",    no_argument,       NULL, 'T'},
 //
   {"limit",        required_argument, NULL, 'L'},
   {NULL, 0, NULL, 0}
@@ -78,14 +80,12 @@ static size_t print_cutoffs(size_t *sumcovgs, size_t *cutoffs, size_t len)
   for(i = 1; i < len; i++) printf(",%zu", sumcovgs[i]);
   printf("\ncutoffs=%zu", cutoffs[0]);
   for(i = 1; i < len; i++) printf(",%zu", cutoffs[i]);
-  qsort(cutoffs, len, sizeof(cutoffs[0]), cmp_size);
   printf("\n");
-  return MEDIAN(cutoffs, len);
+  return gca_median_size(cutoffs, len);
 }
 
 static void print_suggest_cutoff(size_t hist_distsize, size_t hist_covgsize,
-                                 uint64_t (*hists)[hist_covgsize],
-                                 double link_fdr)
+                                 uint64_t (*hists)[hist_covgsize])
 {
   size_t i, dist, thresh_failed = 0;
   size_t cutoffs[hist_distsize], sumcovg[hist_distsize];
@@ -98,7 +98,7 @@ static void print_suggest_cutoff(size_t hist_distsize, size_t hist_covgsize,
   for(dist = 1; dist < hist_distsize; dist++)
   {
     int t = cleaning_pick_kmer_threshold(hists[dist], hist_covgsize,
-                                         link_fdr, NULL, NULL);
+                                         NULL, NULL, NULL, NULL);
     if(t < 0) { thresh_failed++; t = 0; }
     cutoffs[dist] = t;
     for(i = 0; i < hist_covgsize; i++) sumcovg[dist] += hists[dist][i];
@@ -116,10 +116,10 @@ int ctx_links(int argc, char **argv)
 {
   size_t limit = 0;
   const char *link_out_path = NULL, *csv_out_path = NULL, *plot_out_path = NULL;
-  double link_fdr = -1;
 
   size_t cutoff = 0;
   bool clean = false;
+  bool hist_covg = false;
 
   // Arg parsing
   char cmd[100];
@@ -138,7 +138,7 @@ int ctx_links(int argc, char **argv)
       case 'c': cmd_check(!cutoff, cmd); cutoff = cmd_size(cmd, optarg); clean = true; break;
       case 'L': cmd_check(!limit, cmd); limit = cmd_size(cmd, optarg); break;
       case 'P': cmd_check(!plot_out_path, cmd); plot_out_path = optarg; break;
-      case 'T': cmd_check(link_fdr<0, cmd); link_fdr = cmd_udouble_nonzero(cmd,optarg); break;
+      case 'T': cmd_check(!hist_covg, cmd); hist_covg = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -153,7 +153,6 @@ int ctx_links(int argc, char **argv)
   bool list = (csv_out_path != NULL);
   bool plot = (plot_out_path != NULL);
   bool save = (link_out_path != NULL);
-  bool hist_covg = (link_fdr > 0);
 
   size_t plot_kmer_idx = (limit == 0 ? 0 : limit - 1);
 
@@ -363,7 +362,7 @@ int ctx_links(int argc, char **argv)
 
   if(hist_covg)
   {
-    print_suggest_cutoff(hist_distsize, hist_covgsize, hists, link_fdr);
+    print_suggest_cutoff(hist_distsize, hist_covgsize, hists);
     ctx_free(hists);
     hists = NULL;
   }

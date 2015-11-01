@@ -3,7 +3,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_checks.h"
 #include "build_graph.h"
 #include "seqout.h"
@@ -138,7 +138,10 @@ static inline void _add_uniq_flanks(read_t *r, const char *path,
 
       if(_is_valid_flank(bkmer, r, side == 0, db_graph)) {
         binary_kmer_to_str(bkmer, kmer_size, bkmerstr[side]);
-        if(side == 1) strm_buf_append_str(&r->seq, bkmerstr[1]);
+        if(side == 1) {
+          cbuf_append_str(&r->seq.b, &r->seq.end, &r->seq.size,
+                          bkmerstr[1], kmer_size);
+        }
         break;
       }
       else hash_table_delete(&db_graph->ht, node.key);
@@ -204,7 +207,7 @@ int ctx_uniqkmers(int argc, char **argv)
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_kmer_size(cmd, optarg); break;
       case 'g':
         graph_file_reset(&tmp_gfile);
-        graph_file_open2(&tmp_gfile, optarg, "r", 0);
+        graph_file_open2(&tmp_gfile, optarg, "r", true, 0);
         file_filter_flatten(&tmp_gfile.fltr, 0);
         gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         break;
@@ -288,16 +291,11 @@ int ctx_uniqkmers(int argc, char **argv)
   //
   // Load graphs
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < gfilebuf.len; i++) {
-    graph_load(&gfilebuf.b[i], gprefs, &stats);
+    graph_load(&gfilebuf.b[i], gprefs, NULL);
     graph_file_close(&gfilebuf.b[i]);
     gprefs.empty_colours = false;
   }
@@ -332,7 +330,7 @@ int ctx_uniqkmers(int argc, char **argv)
       if(sf == NULL) die("Couldn't reopen file: %s", path);
       free(path);
 
-      while(seq_read(sf, &r) > 0) {
+      while(seq_read_primary(sf, &r) > 0) {
         _add_uniq_flanks(&r, sf->path, fout, fmt, &db_graph);
       }
       seq_close(sf);

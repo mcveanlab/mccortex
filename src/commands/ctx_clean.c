@@ -4,7 +4,8 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_info.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "clean_graph.h"
 #include "supernode.h" // for saving length histogram
 
@@ -154,7 +155,7 @@ int ctx_clean(int argc, char **argv)
 
   // Open graph files
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
-  size_t ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t col, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
   ncols = graph_files_open(gfile_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
@@ -188,7 +189,7 @@ int ctx_clean(int argc, char **argv)
     min_keep_tip = 2 * kmer_size;
 
   // Warn if any graph files already cleaned
-  size_t fromcol, intocol;
+  size_t fromcol;
   ErrorCleaning *cleaning;
 
   for(i = 0; i < num_gfiles; i++) {
@@ -232,10 +233,12 @@ int ctx_clean(int argc, char **argv)
   bool use_mem_limit = (memargs.mem_to_use_set && num_gfiles > 1) || !ctx_max_kmers;
 
   size_t kmers_in_hash, bits_per_kmer, graph_mem;
-  size_t per_kmer_per_col_bits = (sizeof(BinaryKmer)+sizeof(Covg)+sizeof(Edges)) * 8;
-  size_t pop_edges_per_kmer_bits = (all_colours_loaded ? 0 : sizeof(Edges) * 8);
+  size_t per_col_bits = (sizeof(Covg)+sizeof(Edges)) * 8;
+  size_t extra_edge_bits = (all_colours_loaded ? 0 : sizeof(Edges) * 8);
 
-  bits_per_kmer = per_kmer_per_col_bits * use_ncols + pop_edges_per_kmer_bits;
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  per_col_bits * use_ncols +
+                  extra_edge_bits;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -246,8 +249,10 @@ int ctx_clean(int argc, char **argv)
                                         use_mem_limit, &graph_mem);
 
   // Maximise the number of colours we load to fill the mem
-  size_t max_usencols = (memargs.mem_to_use*8 - pop_edges_per_kmer_bits * kmers_in_hash) /
-                        (per_kmer_per_col_bits * kmers_in_hash);
+  size_t max_usencols = (memargs.mem_to_use*8 -
+                         sizeof(BinaryKmer)*8*kmers_in_hash +
+                         extra_edge_bits*kmers_in_hash) /
+                        (per_col_bits*kmers_in_hash);
   use_ncols = MIN2(max_usencols, ncols);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
@@ -268,45 +273,33 @@ int ctx_clean(int argc, char **argv)
   // Use an extra set of edge to take intersections
   dBGraph db_graph;
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols,
-                 kmers_in_hash, DBG_ALLOC_COVGS);
+                 kmers_in_hash, DBG_ALLOC_EDGES | DBG_ALLOC_COVGS);
 
-  // Edges is a special case
-  size_t num_edges = db_graph.ht.capacity * (use_ncols + !all_colours_loaded);
-  db_graph.col_edges = ctx_calloc(num_edges, sizeof(Edges));
+  // Extra edges required to hold union of kept edges
+  Edges *edges_union = NULL;
+  if(use_ncols < ncols)
+    edges_union = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
   // Load graph into a single colour
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   // Construct cleaned graph header
   GraphFileHeader outhdr;
   memset(&outhdr, 0, sizeof(GraphFileHeader));
-  outhdr.version = CTX_GRAPH_FILEFORMAT;
-  outhdr.kmer_size = db_graph.kmer_size;
-  outhdr.num_of_cols = ncols;
-  outhdr.num_of_bitfields = (db_graph.kmer_size*2+63)/64;
-  graph_header_alloc(&outhdr, ncols);
+  for(i = 0; i < num_gfiles; i++)
+    graph_file_merge_header(&outhdr, &gfiles[i]);
 
-  // Merge info into header
-  size_t gcol = 0;
-  for(i = 0; i < num_gfiles; i++) {
-    for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++, gcol++) {
-      fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
-      intocol = file_filter_intocol(&gfiles[i].fltr, j);
-      graph_info_merge(&outhdr.ginfo[intocol], &gfiles[i].hdr.ginfo[fromcol]);
-    }
+  if(ncols > use_ncols)
+  {
+    db_graph.num_of_cols = db_graph.num_edge_cols = 1;
+    SWAP(edges_union, db_graph.col_edges);
+    graphs_load_files_flat(gfiles, num_gfiles, gprefs, NULL);
+    SWAP(edges_union, db_graph.col_edges);
+    db_graph.num_of_cols = db_graph.num_edge_cols = use_ncols;
   }
-
-  if(ncols > use_ncols) {
-    graph_files_load_flat(gfiles, num_gfiles, gprefs, &stats);
-  } else {
+  else {
     for(i = 0; i < num_gfiles; i++)
-      graph_load(&gfiles[i], gprefs, &stats);
+      graph_load(&gfiles[i], gprefs, NULL);
   }
 
   char num_kmers_str[100];
@@ -356,11 +349,6 @@ int ctx_clean(int argc, char **argv)
 
   if(doing_cleaning)
   {
-    // Output graph file
-    Edges *intersect_edges = NULL;
-    bool kmers_loaded = true;
-    size_t col, thresh;
-
     // Set output header ginfo cleaned
     for(col = 0; col < ncols; col++)
     {
@@ -373,7 +361,7 @@ int ctx_clean(int argc, char **argv)
       // }
 
       if(supernode_cleaning) {
-        thresh = cleaning->clean_snodes_thresh;
+        size_t thresh = cleaning->clean_snodes_thresh;
         thresh = cleaning->cleaned_snodes ? MAX2(thresh, (uint32_t)threshold)
                                           : (uint32_t)threshold;
         cleaning->clean_snodes_thresh = thresh;
@@ -384,15 +372,6 @@ int ctx_clean(int argc, char **argv)
       }
     }
 
-    if(!all_colours_loaded)
-    {
-      // We haven't loaded all the colours
-      // intersect_edges are edges to mask with
-      // resets graph edges
-      intersect_edges = db_graph.col_edges;
-      db_graph.col_edges += db_graph.ht.capacity;
-    }
-
     // Print stats on removed kmers
     size_t removed_nkmers = initial_nkmers - db_graph.ht.num_kmers;
     double removed_pct = (100.0 * removed_nkmers) / initial_nkmers;
@@ -401,22 +380,22 @@ int ctx_clean(int argc, char **argv)
     ulong_to_str(initial_nkmers, init_str);
     status("Removed %s of %s (%.2f%%) kmers", removed_str, init_str, removed_pct);
 
-    graph_files_merge(out_ctx_path, gfiles, num_gfiles,
-                      kmers_loaded, all_colours_loaded,
-                      intersect_edges, &outhdr, &db_graph);
-
-    // Swap back
-    if(!all_colours_loaded)
-      db_graph.col_edges = intersect_edges;
+    // kmers_loaded=true
+    graph_writer_merge(out_ctx_path, gfiles, num_gfiles,
+                      true, all_colours_loaded,
+                      edges_union, &outhdr, &db_graph);
   }
 
   ctx_check(db_graph.ht.num_kmers == hash_table_count_kmers(&db_graph.ht));
+
+  // TODO: report kmer coverage for each sample
 
   graph_header_dealloc(&outhdr);
 
   for(i = 0; i < num_gfiles; i++) graph_file_close(&gfiles[i]);
   ctx_free(gfiles);
 
+  ctx_free(edges_union);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

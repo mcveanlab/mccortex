@@ -5,9 +5,40 @@
 // Macros
 //
 
-#define ABSDIFF(a,b) ((a) > (b) ? (a)-(b) : (b)-(a))
+#define safe_frac(a,b)    ((b)>0 ? (double)(a) / (b) : 0.0)
+#define safe_percent(a,b) ((b)>0 ? (100.0 * (a)) / (b) : 0.0)
+
 #define MEDIAN(arr,len) \
         (!(len)?0:((len)&1?(arr)[(len)/2]:((arr)[(len)/2-1]+(arr)[(len)/2])/2.0))
+
+//
+// Number parsing
+//
+
+bool parse_entire_int(const char *str, int *result);
+bool parse_entire_uint(const char *str, unsigned int *result);
+bool parse_entire_ulong(const char *str, unsigned long *result);
+bool parse_entire_double(const char *str, double *result);
+bool parse_entire_size(const char *str, size_t *result);
+
+//
+int parse_list_doubles(double *list, size_t n, const char *str);
+int parse_list_sizes(size_t *list, size_t n, const char *str);
+
+//
+// Bits
+//
+const uint8_t rev_nibble_table[16];
+#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16); rev_nibble_table[(unsigned)(x)]; })
+
+extern const uint8_t nibble_popcount_table[16];
+
+#define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
+                          nibble_popcount_table[(x) & 0xf])
+
+//
+// Strings
+//
 
 #define util_plural_str(n) ((n) == 1 ? "" : "s")
 
@@ -27,37 +58,7 @@ bool str_find_tag(const char *str, const char *tag,
 // strnstr
 const char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
 
-// comparison returns:
-//   negative iff a < b
-//          0 iff a == b
-//   positive iff a > b
-
-int cmp_int(const void *a, const void *b);
-int cmp_long(const void *a, const void *b);
-int cmp_float(const void *a, const void *b);
-int cmp_double(const void *a, const void *b);
-int cmp_uint32(const void *a, const void *b);
-int cmp_uint64(const void *a, const void *b);
-int cmp_size(const void *a, const void *b);
-int cmp_ptr(const void *a, const void *b);
-int cmp_charptr(const void *a, const void *b);
-
-bool parse_entire_int(const char *str, int *result);
-bool parse_entire_uint(const char *str, unsigned int *result);
-bool parse_entire_ulong(const char *str, unsigned long *result);
-bool parse_entire_double(const char *str, double *result);
-bool parse_entire_size(const char *str, size_t *result);
-
-//
-// Bits
-//
-const uint8_t rev_nibble_table[16];
-#define rev_nibble_lookup(x) ({ ctx_assert((unsigned)(x) < 16); rev_nibble_table[(unsigned)(x)]; })
-
-extern const uint8_t nibble_popcount_table[16];
-
-#define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
-                          nibble_popcount_table[(x) & 0xf])
+char strlastchar(const char *str);
 
 //
 // Numbers to string
@@ -106,7 +107,7 @@ char* num_to_str(double num, int decimals, char* str);
 //
 // Pretty printing
 //
-// @linelen is number of characters in the line (30 is good default)
+// @param linelen is number of characters in the line (30 is good default)
 void util_print_nums(const char **titles, const size_t *nums,
                      size_t n, size_t linelen);
 
@@ -135,6 +136,9 @@ char* hex_rand_str(char *str, size_t num);
 // Maths
 //
 
+// prec should be 10**n where n is the number of decimal places you want
+#define ndecplaces(x,prec) (((long)((double)(x)*(prec)+0.5))/(double)(prec))
+
 float log_factorial(unsigned int number);
 float log_factorial_ll(unsigned long long number);
 unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
@@ -142,8 +146,8 @@ unsigned long calculate_mean_ulong(unsigned long *array, unsigned long len);
 // Returns -1 if no entries set
 float find_hist_median(const size_t *arr, size_t arrlen);
 
+// Greatest Common Divisor: largest integer that divides both a and b
 uint32_t calc_GCD(uint32_t a, uint32_t b);
-
 
 // sorted_arr must be a sorted array
 size_t calc_N50(const size_t *sorted_arr, size_t n, size_t total);
@@ -172,7 +176,7 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
 //
 
 // Increment a uint8_t without overflow
-static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
+static inline void safe_add_uint8_mt(volatile uint8_t *ptr, uint8_t add)
 {
   ctx_assert(ptr != NULL);
   uint8_t v = *ptr, newv, curr;
@@ -186,6 +190,13 @@ static inline void safe_add_uint8(volatile uint8_t *ptr, uint8_t add)
   while(v != curr);
 }
 
-#define safe_incr_uint8(ptr) safe_add_uint8(ptr,1)
+#define safe_incr_uint8(ptr) safe_add_uint8_mt(ptr,1)
+
+
+static inline void safe_add_int32(int32_t *x, uint32_t c)
+{
+  uint64_t s = (uint64_t)*x + c;
+  *x = MIN2(INT32_MAX, s);
+}
 
 #endif /* UTIL_H_ */

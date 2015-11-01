@@ -4,6 +4,7 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
+#include "hash.h"
 
 // To add a new command to mccortex31 <cmd>:
 // 0. create a file src/commands/ctx_X.c
@@ -62,12 +63,12 @@ CtxCmd cmdobjs[] = {
 },
 { // alias for supernodes
   .cmd = "supernodes", .func = ctx_unitigs, .hide = true,
-  .blurb = "pull out unitigs",
+  .blurb = "pull out unitigs in FASTA, DOT or GFA format",
   .usage = unitigs_usage
 },
 {
   .cmd = "unitigs", .func = ctx_unitigs, .hide = false,
-  .blurb = "pull out unitigs",
+  .blurb = "pull out unitigs in FASTA, DOT or GFA format",
   .usage = unitigs_usage
 },
 {
@@ -92,7 +93,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "thread", .func = ctx_thread, .hide = false,
-  .blurb = "thread reads through cleaned graph",
+  .blurb = "thread reads through cleaned graph to make links",
   .usage = thread_usage,
 },
 {
@@ -137,7 +138,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "popbubbles", .func = ctx_pop_bubbles, .hide = false,
-  .blurb = "Pop bubbles in the population graph",
+  .blurb = "pop bubbles in the population graph",
   .usage = pop_bubbles_usage
 },
 {
@@ -146,19 +147,34 @@ CtxCmd cmdobjs[] = {
   .usage = calls2vcf_usage
 },
 {
-  .cmd = "geno", .func = ctx_geno, .hide = true,
-  .blurb = "genotype a VCF file from cortex graphs",
-  .usage = geno_usage
+  .cmd = "server", .func = ctx_server, .hide = false,
+  .blurb = "interactively query the graph",
+  .usage = server_usage
+},
+{
+  .cmd = "dist", .func = ctx_dist_matrix, .hide = false,
+  .blurb = "make colour kmer distance matrix",
+  .usage = dist_matrix_usage
+},
+{
+  .cmd = "vcfcov", .func = ctx_vcfcov, .hide = false,
+  .blurb = "coverage of a VCF against cortex graphs",
+  .usage = vcfcov_usage
+},
+{
+  .cmd = "vcfgeno", .func = ctx_vcfgeno, .hide = false,
+  .blurb = "genotype a VCF after running vcfcov",
+  .usage = vcfgeno_usage
 },
 /* Experiments */
 {
   .cmd = "exp_abc", .func = ctx_exp_abc, .hide = true,
-  .blurb = "Run experiment on traversal properties",
+  .blurb = "run experiment on traversal properties",
   .usage = exp_abc_usage
 },
 {
   .cmd = "hashtest", .func = ctx_exp_hashtest, .hide = true,
-  .blurb = "Test hash table speed",
+  .blurb = "test hash table speed",
   .usage = exp_hashtest_usage
 }
 };
@@ -179,7 +195,7 @@ static const char options[] =
 "  -n, --nkmers <H>      Hash entries [default: 4M, ~4 million]\n"
 "  -t, --threads <T>     Limit on proccessing threads [default: 2]\n"
 "  -o, --out <file>      Output file\n"
-"  -p, --paths <in.ctp>  Assembly file to load (can specify multiple times)\n"
+"  -p, --paths <in.ctp>  Links file to load (can specify multiple times)\n"
 "\n";
 
 static int ctxcmd_cmp(const void *aa, const void *bb)

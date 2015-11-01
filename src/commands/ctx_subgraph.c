@@ -8,7 +8,8 @@
 #include "db_graph.h"
 #include "graph_info.h"
 #include "db_node.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "subgraph.h"
 #include "hash_mem.h" // for calculating mem usage
 
@@ -120,6 +121,9 @@ int ctx_subgraph(int argc, char **argv)
   total_cols = graph_files_open(gfile_paths, gfiles, num_gfiles,
                                 &ctx_max_kmers, &ctx_sum_kmers);
 
+  if(use_ncols < total_cols && (out_path == NULL || strcmp(out_path,"-")==0))
+    cmd_print_usage("Need to use --ncols %zu if output is stdout", total_cols);
+
   //
   // Decide on memory
   //
@@ -176,26 +180,20 @@ int ctx_subgraph(int argc, char **argv)
 
   uint8_t *kmer_mask = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
   //
   // Load graphs
   //
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
   if(total_cols > db_graph.num_of_cols) {
-    graph_files_load_flat(gfiles, num_gfiles, gprefs, &stats);
+    graphs_load_files_flat(gfiles, num_gfiles, gprefs, NULL);
   }
   else {
     for(i = 0; i < num_gfiles; i++)
-      graph_load(&gfiles[i], gprefs, &stats);
+      graph_load(&gfiles[i], gprefs, NULL);
   }
 
   // Create header
@@ -237,7 +235,7 @@ int ctx_subgraph(int argc, char **argv)
       intersect_edges[i] = db_node_get_edges_union(&db_graph, i);
   }
 
-  graph_files_merge_mkhdr(out_path, gfiles, num_gfiles,
+  graph_writer_merge_mkhdr(out_path, gfiles, num_gfiles,
                           kmers_loaded, colours_loaded,
                           intersect_edges, intersect_gname.b,
                           &db_graph);

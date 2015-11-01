@@ -1,7 +1,7 @@
 #include "global.h"
 #include "json_hdr.h"
 #include "cmd.h"
-#include "util.h"
+#include "file_util.h"
 
 // #include <unistd.h> // gethostname()
 #include <sys/utsname.h> // utsname()
@@ -10,6 +10,10 @@
 
 #define load_check(x,msg,...) if(!(x)) { die("[JSON] "msg, ##__VA_ARGS__); }
 
+#define json_readline(hdrstr,fh,gz,path) \
+  ((fh) ? futil_fcheck(strbuf_readline((hdrstr), (fh)), (fh), (path)) \
+        : futil_gzcheck(strbuf_gzreadline((hdrstr), (gz)), (gz), (path)))
+
 void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 {
   ctx_assert(fh == NULL || gz == NULL);
@@ -17,7 +21,7 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
   size_t nread;
   strbuf_reset(hdrstr);
 
-  nread = fh ? strbuf_readline(hdrstr, fh) : strbuf_gzreadline(hdrstr, gz);
+  nread = json_readline(hdrstr, fh, gz, path);
   load_check(nread > 0, "Empty file: %s", path);
   load_check(hdrstr->b[0] == '{', "Expected JSON header: %s", path);
 
@@ -51,13 +55,13 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
     load_check(hdrstr->end < MAX_JSON_HDR_BYTES, "Large JSON header: %s", path);
 
     // Read next line
-    nread = fh ? strbuf_readline(hdrstr, fh) : strbuf_gzreadline(hdrstr, gz);
+    nread = json_readline(hdrstr, fh, gz, path);
     load_check(nread > 0, "Premature end of JSON header: %s", path);
   }
 }
 
 /**
- * @param path is the path of the file we are writing to
+ * @param path is the path of the file we are writing to (can be NULL)
  * @param fileidstr is the unique id we have generated for the output file
  */
 cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
@@ -81,14 +85,16 @@ cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
   cJSON_AddStringToObject(command, "cwd", cmd_get_cwd());
 
   // Get absolute path to output file
-  char abspath[PATH_MAX + 1];
-  if(realpath(path, abspath) != NULL)
-    cJSON_AddStringToObject(command, "out_path", abspath);
-  else {
-    status("Warning: Cannot get absolute path for: %s", path);
-    cJSON_AddStringToObject(command, "out_path", path);
+  if(path != NULL) {
+    char abspath[PATH_MAX + 1];
+    if(realpath(path, abspath) != NULL)
+      cJSON_AddStringToObject(command, "out_path", abspath);
+    else {
+      status("Warning: Cannot get absolute path for: %s", path);
+      cJSON_AddStringToObject(command, "out_path", path);
+    }
+    cJSON_AddStringToObject(command, "out_key", fileidstr);
   }
-  cJSON_AddStringToObject(command, "out_key", fileidstr);
 
   char datestr[50];
   time_t date = time(NULL);
@@ -144,7 +150,7 @@ void json_hdr_add_curr_cmd(cJSON *json, const char *path)
   #define FILE_KEY_LEN 16
   char fileidstr[FILE_KEY_LEN+1];
   hex_rand_str(fileidstr, FILE_KEY_LEN+1);
-  
+
   cJSON *filekey = json_hdr_get(json, "file_key", cJSON_String, path);
   free(filekey->valuestring);
   filekey->valuestring = strdup(fileidstr);

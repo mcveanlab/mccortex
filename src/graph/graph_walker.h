@@ -23,6 +23,7 @@ typedef struct
   Colour ctxcol, ctpcol;
   bool missing_path_check; // if true do missing path check
   size_t *used_paths; // bit array for used paths; cast volatile when used
+  // 1 bit for each path loaded
 
   // Current position
   dBNode node;
@@ -62,7 +63,7 @@ uint64_t graph_walker_hash64(GraphWalker *wlk);
  * GraphWalker is not const because we update the path junction cache
  * @return index of choice or -1
  */
-GraphStep graph_walker_choose(GraphWalker *wlk, size_t num_next,
+GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
                               const dBNode next_nodes[4],
                               const Nucleotide next_bases[4]);
 

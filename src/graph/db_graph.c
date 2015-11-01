@@ -4,7 +4,6 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "graph_format.h"
 
 static void db_graph_status(const dBGraph *db_graph)
 {
@@ -474,6 +473,73 @@ void db_graph_reset(dBGraph *db_graph)
   gpath_store_reset(&db_graph->gpstore);
 }
 
+//
+// Stats: Get kmer coverage in each colour
+//
+
+typedef struct {
+  const dBGraph *db_graph;
+  const size_t threadid, nthreads;
+  uint64_t *nkmers, *sumcov;
+} GetKmerCovg;
+
+bool get_kmer_covg(hkey_t hkey, const dBGraph *db_graph,
+                   uint64_t *nkmers, uint64_t *sumcov)
+{
+  size_t col, covg;
+  for(col = 0; col < db_graph->num_of_cols; col++) {
+    covg = db_node_get_covg(db_graph, hkey, col);
+    if(covg) {
+      nkmers[col]++;
+      sumcov[col] += covg;
+    }
+  }
+  return false; // keep iterating
+}
+
+void get_kmer_covg_loop(void *arg)
+{
+  GetKmerCovg *d = (GetKmerCovg*)arg;
+  HASH_ITERATE_PART(&d->db_graph->ht, d->threadid, d->nthreads,
+                    get_kmer_covg, d->db_graph, d->nkmers, d->sumcov);
+}
+
+void db_graph_get_kmer_covg(const dBGraph *db_graph, size_t nthreads,
+                            uint64_t *nkmers, uint64_t *sumcov)
+{
+  size_t i, col, ncols = db_graph->num_of_cols;
+  GetKmerCovg *threads = ctx_calloc(nthreads, sizeof(GetKmerCovg));
+
+  for(i = 0; i < nthreads; i++) {
+    GetKmerCovg gkc = {.db_graph = db_graph,
+                       .threadid = i,
+                       .nthreads = nthreads,
+                       .nkmers = ctx_calloc(ncols, sizeof(uint64_t)),
+                       .sumcov = ctx_calloc(ncols, sizeof(uint64_t))};
+    memcpy(&threads[i], &gkc, sizeof(gkc));
+  }
+
+  util_run_threads(threads, nthreads, sizeof(threads[0]),
+                   nthreads, get_kmer_covg_loop);
+
+  memset(nkmers, 0, ncols * sizeof(nkmers[0]));
+  memset(sumcov, 0, ncols * sizeof(sumcov[0]));
+
+  for(i = 0; i < nthreads; i++) {
+    for(col = 0; col < ncols; col++) {
+      nkmers[col] += threads[i].nkmers[col];
+      sumcov[col] += threads[i].sumcov[col];
+    }
+    ctx_free(threads[i].nkmers);
+    ctx_free(threads[i].sumcov);
+  }
+  ctx_free(threads);
+}
+
+//
+// Wipe
+//
+
 // BEWARE: if num_edge_cols == 1, edges in all colours will be effectively wiped
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col)
 {
@@ -564,23 +630,28 @@ void db_graph_add_all_edges(dBGraph *db_graph)
   HASH_ITERATE(&db_graph->ht, add_all_edges, db_graph);
 }
 
+// Get a random node from the graph
 // call seed_random() before any calls to this function please
-hkey_t db_graph_rand_node(const dBGraph *db_graph)
+// if ntries > 0 and we fail to find a node will return HASH_NOT_FOUND
+hkey_t db_graph_rand_node(const dBGraph *db_graph, size_t ntries)
 {
   uint64_t capacity = db_graph->ht.capacity;
   BinaryKmer *table = db_graph->ht.table;
   hkey_t hkey;
+  size_t i;
 
   if(capacity == 0) {
     warn("No entries in hash table - cannot select random");
     return HASH_NOT_FOUND;
   }
 
-  while(1)
+  for(i = 0; i < ntries; i++)
   {
     hkey = (hkey_t)((rand() / (double)RAND_MAX) * capacity);
     if(HASH_ENTRY_ASSIGNED(table[hkey])) return hkey;
   }
+
+  return HASH_NOT_FOUND;
 }
 
 void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,

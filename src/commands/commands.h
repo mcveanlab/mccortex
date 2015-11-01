@@ -28,7 +28,10 @@ int ctx_reads(int argc, char **argv);
 int ctx_uniqkmers(int argc, char **argv);
 int ctx_links(int argc, char **argv);
 int ctx_pop_bubbles(int argc, char **argv);
-int ctx_geno(int argc, char **argv); // work in progress
+int ctx_dist_matrix(int argc, char **argv);
+int ctx_server(int argc, char **argv);
+int ctx_vcfcov(int argc, char **argv);
+int ctx_vcfgeno(int argc, char **argv);
 
 // Experiments
 int ctx_exp_abc(int argc, char **argv);
@@ -58,7 +61,10 @@ extern const char calls2vcf_usage[];
 extern const char uniqkmers_usage[];
 extern const char links_usage[];
 extern const char pop_bubbles_usage[];
-extern const char geno_usage[];
+extern const char dist_matrix_usage[];
+extern const char server_usage[];
+extern const char vcfcov_usage[];
+extern const char vcfgeno_usage[];
 
 // Experiments
 extern const char exp_abc_usage[];

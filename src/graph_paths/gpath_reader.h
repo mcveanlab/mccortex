@@ -11,7 +11,7 @@
 
 typedef struct
 {
-  StreamBuffer strmbuf; 
+  StreamBuffer strmbuf;
   gzFile gz;
 
   // For parsing input
@@ -133,7 +133,6 @@ size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
                             size_t ncols, size_t max_mem,
                             bool count_nseen);
 
-// Create a path store that does not tracks path counts
 void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
                                 size_t mem, bool count_nseen,
                                 dBGraph *db_graph);

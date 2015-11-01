@@ -3,7 +3,8 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 #include "prune_nodes.h"
@@ -75,7 +76,7 @@ int ctx_pop_bubbles(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" pop -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -145,16 +146,11 @@ int ctx_pop_bubbles(int argc, char **argv)
   //
   // Load graphs
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &stats);
+    graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }
@@ -192,14 +188,14 @@ int ctx_pop_bubbles(int argc, char **argv)
     GraphFileReader gfile;
     memset(&gfile, 0, sizeof(GraphFileReader));
     graph_file_open(&gfile, graph_paths[0]);
-    graph_stream_filter_mkhdr(out_path, &gfile, &db_graph,
+    graph_writer_stream_mkhdr(out_path, &gfile, &db_graph,
                               db_graph.col_edges, NULL);
     graph_file_close(&gfile);
   }
   else
   {
     status("Saving to: %s\n", out_path);
-    graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
+    graph_writer_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
                           0, ncols);
   }
 

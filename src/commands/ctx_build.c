@@ -4,8 +4,8 @@
 #include "file_util.h"
 #include "db_graph.h"
 #include "graph_info.h"
-#include "graph_format.h"
-#include "loading_stats.h"
+#include "graphs_load.h"
+#include "graph_writer.h"
 #include "build_graph.h"
 
 #include "seq_file.h"
@@ -108,6 +108,20 @@ static void add_task(BuildGraphTask *task)
   }
 }
 
+// Exit with error if bad sample name
+static void check_sample_name(const char *sname)
+{
+  const char *s;
+  if(strlen(sname) < 1) die("Sample name is too short: '%s'", sname);
+  if(strcmp(sname,"undefined") == 0) die("Bad sample name: '%s'", sname);
+  if(strcmp(sname,"noname") == 0) die("Bad sample name: '%s'", sname);
+  if(sname[0] == '.') die("Sample name should start with a dot: '%s'", sname);
+  for(s = sname; *s; s++) {
+    if(isspace(*s)) die("Sample name should not contain whitespace: '%s'", sname);
+    if(!isgraph(*s)) die("Bad character in sample name: '%s'", sname);
+  }
+}
+
 static void parse_args(int argc, char **argv)
 {
   BuildGraphTask task = BUILD_GRAPH_TASK_INIT;
@@ -133,7 +147,7 @@ static void parse_args(int argc, char **argv)
       case 'k': cmd_check(!kmer_size,cmd); kmer_size = cmd_kmer_size(cmd, optarg); break;
       case 's':
         intocolour++;
-        if(strcmp(optarg,"undefined") == 0) die("Bad sample name: %s", optarg);
+        check_sample_name(optarg);
         sample_name_buf_add(&snamebuf, (SampleName){.colour = intocolour,
                                                     .name = optarg});
         sample_named = true;
@@ -163,7 +177,7 @@ static void parse_args(int argc, char **argv)
       case 'g':
         if(intocolour == -1) intocolour = 0;
         graph_file_reset(&tmp_gfile);
-        graph_file_open2(&tmp_gfile, optarg, "r", intocolour);
+        graph_file_open2(&tmp_gfile, optarg, "r", true, intocolour);
         intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr));
         gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         sample_named = false;
@@ -292,11 +306,10 @@ int ctx_build(int argc, char **argv)
   // Load graphs
   if(gfilebuf.len > 0)
   {
-    GraphLoadingPrefs gprefs = LOAD_GPREFS_INIT(&db_graph);
-    LoadingStats gstats = LOAD_STATS_INIT_MACRO;
+    GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
     for(i = 0; i < gfilebuf.len; i++) {
-      graph_load(&gfilebuf.b[i], gprefs, &gstats);
+      graph_load(&gfilebuf.b[i], gprefs, NULL);
       hash_table_print_stats(&db_graph.ht);
       graph_file_close(&gfilebuf.b[i]);
     }
@@ -342,8 +355,8 @@ int ctx_build(int argc, char **argv)
   }
 
   status("Dumping graph...\n");
-  graph_file_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
-                        0, output_colours);
+  graph_writer_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
+                          0, output_colours);
 
   build_graph_task_buf_dealloc(&gtaskbuf);
   gfile_buf_dealloc(&gfilebuf);

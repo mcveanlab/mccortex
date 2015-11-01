@@ -1,6 +1,7 @@
 #include "global.h"
 #include "call_file_reader.h"
 #include "dna.h"
+#include "file_util.h"
 
 // Print error if an entry has more than 1000 paths
 #define MAX_LINES_LIMIT 2004
@@ -31,11 +32,12 @@ void call_file_entry_reset(CallFileEntry *entry)
 // * 1 on success
 // * 0 if no more entries
 // * -1 on error
-static int fasta_gzread(gzFile gzin, bool ret_on_empty, StrBuf *txt)
+static int fasta_gzread(gzFile gzin, bool ret_on_empty, StrBuf *txt,
+                        const char *path)
 {
   size_t linestrt = txt->end;
   // Read past empty lines and comments
-  while(strbuf_gzreadline(txt, gzin) > 0 &&
+  while(futil_gzcheck(strbuf_gzreadline(txt, gzin), gzin, path) > 0 &&
         (txt->b[linestrt] == '#' || txt->b[linestrt] == '\n'))
   {
     // Empty line or comment
@@ -45,8 +47,8 @@ static int fasta_gzread(gzFile gzin, bool ret_on_empty, StrBuf *txt)
   }
   if(txt->end == linestrt) return 0; // no more entries
   if(txt->b[linestrt] != '>') return -1; // bad line
-  if(strbuf_gzreadline(txt, gzin) == 0) return -1; // missing sequence
-  return 1;
+  size_t s = futil_gzcheck(strbuf_gzreadline(txt, gzin), gzin, path);
+  return !s ? -1 : 1; // missing sequence if s == 0
 }
 
 // Returns 1 on success 0 on end of file
@@ -59,12 +61,12 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
   StrBuf *txt = &entry->txt;
 
   // Lines starting # are comment lines and should be ignored
-  int r = fasta_gzread(gzin, false, txt);
-  if(r == 0) return 0;
-  else if(r < 0) die("Bad entry [%s]: %s", path, txt->b);
+  int r = fasta_gzread(gzin, false, txt, path);
+  if(r < 0) die("Bad entry [%s]: %s", path, txt->b);
+  else if(r == 0) return 0;
 
   // Read remainder
-  for(i = 0; (r = fasta_gzread(gzin, true, txt)) > 0; i++) {}
+  for(i = 0; (r = fasta_gzread(gzin, true, txt, path)) > 0; i++) {}
   if(r < 0) die("Bad entry [%s]: %s", path, txt->b);
 
   if(i < 2) die("Too few entries [%s]: %s", path, txt->b);

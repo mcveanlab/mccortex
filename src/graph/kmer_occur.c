@@ -30,7 +30,7 @@ void korun_print(KOccurRun run, size_t kmer_size, FILE *fout)
 //   e.g. "chromid:1:17-5:-, chromid:1:37-47:+"
 // Does not print new line
 // Mostly used for debugging
-void koruns_print(KOccurRun *runs, size_t n, size_t kmer_size, FILE *fout)
+void koruns_print(const KOccurRun *runs, size_t n, size_t kmer_size, FILE *fout)
 {
   size_t i;
   if(n == 0) return;
@@ -42,7 +42,7 @@ void koruns_print(KOccurRun *runs, size_t n, size_t kmer_size, FILE *fout)
 }
 
 void korun_gzprint(gzFile gzout, size_t kmer_size,
-                   KOGraph kograph, KOccurRun korun,
+                   const KOGraph *kograph, KOccurRun korun,
                    size_t first_kmer_idx, size_t kmer_offset)
 {
   const char strand[] = {'+','-'};
@@ -64,7 +64,7 @@ void korun_gzprint(gzFile gzout, size_t kmer_size,
            chrom, start+1, end+1, strand[korun.strand], qoffset+1);
 }
 
-void koruns_gzprint(gzFile gzout, size_t kmer_size, KOGraph kograph,
+void koruns_gzprint(gzFile gzout, size_t kmer_size, const KOGraph *kograph,
                     const KOccurRun *koruns, size_t n,
                     size_t first_kmer_idx, size_t kmer_offset)
 {
@@ -88,6 +88,7 @@ static int korun_cmp_qoffset(const void *aa, const void *bb)
   return 0;
 }
 
+// Sort by query offset
 void koruns_sort_by_qoffset(KOccurRun *runs, size_t n)
 {
   qsort(runs, n, sizeof(KOccurRun), korun_cmp_qoffset);
@@ -213,7 +214,8 @@ static void read_update_counts(void *arg)
     add_ref_read_to_graph_mt(r, data.ref_col, data.klists, data.db_graph);
   }
   else {
-    LoadingStats stats = LOAD_STATS_INIT_MACRO;
+    SeqLoadingStats stats;
+    memset(&stats, 0, sizeof(stats));
     READ_TO_BKMERS(r, data.db_graph->kmer_size, 0, 0, &stats,
                    bkmer_update_counts_find_mt, data.klists, data.db_graph);
   }
@@ -243,7 +245,8 @@ static void read_store_kmer_pos(const read_t *r, size_t chrom_id,
                                 KONodeList *klists, const dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
+  SeqLoadingStats stats;
+  memset(&stats, 0, sizeof(stats));
   READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_store_kmer_pos,
                  klists, chrom_id, _offset, db_graph);
 }
@@ -278,7 +281,8 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
 
   // Update ginfo
   if(add_missing_kmers) {
-    LoadingStats stats = LOAD_STATS_INIT_MACRO;
+    SeqLoadingStats stats;
+    memset(&stats, 0, sizeof(stats));
     stats.num_se_reads   = num_reads;
     stats.contigs_parsed = num_reads;
     for(i = 0; i < num_reads; i++) {
@@ -378,12 +382,12 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
   return kograph;
 }
 
-void kograph_free(KOGraph kograph)
+void kograph_dealloc(KOGraph *kograph)
 {
-  ctx_free(kograph.chrom_name_buf);
-  ctx_free(kograph.chroms);
-  ctx_free(kograph.klists);
-  ctx_free(kograph.koccurs);
+  ctx_free(kograph->chrom_name_buf);
+  ctx_free(kograph->chroms);
+  ctx_free(kograph->klists);
+  ctx_free(kograph->koccurs);
 }
 
 
@@ -392,23 +396,21 @@ void kograph_free(KOGraph kograph)
 //
 
 /**
- * Only call if node has valid kolist: kograph_occurs(kograph, node.hkey) == 1
  * @param pickup if true, create new paths for kmers not used in a path
  * @param qoffset is only used is pickup is true, and is the offset in the query
- * @return length of run
+ * @return number of new koruns
  */
 static size_t korun_extend(KOccurRun *koruns, size_t nruns,
                            dBNode node, const KOccur *kolist,
-                           KOccurRun *new_koruns, bool pickup,
+                           KOccurRunBuffer *new_koruns, bool pickup,
                            size_t qoffset)
 {
-  size_t i, k = 0, starti = 0, next;
+  size_t i, starti = 0, next, init_new_koruns = new_koruns->len;
   bool used, strand;
 
   if(!kolist) return 0;
 
   // By looping over kolist we return a sorted list (by chrom and offset)
-  // takes ~ nruns + num1*3 time
   for(; 1; kolist++)
   {
     while(starti < nruns &&
@@ -437,12 +439,13 @@ static size_t korun_extend(KOccurRun *koruns, size_t nruns,
         next = (strand == STRAND_PLUS ? koruns[i].last+1 : koruns[i].last-1);
 
         if(next == kolist->offset) {
-          new_koruns[k++] = (KOccurRun){.chrom = koruns[i].chrom,
-                                        .first = koruns[i].first,
-                                        .last = kolist->offset,
-                                        .qoffset = koruns[i].qoffset,
-                                        .strand = strand,
-                                        .used = false};
+          korun_buf_add(new_koruns,
+                           (KOccurRun){.chrom = koruns[i].chrom,
+                                       .first = koruns[i].first,
+                                       .last = kolist->offset,
+                                       .qoffset = koruns[i].qoffset,
+                                       .strand = strand,
+                                       .used = false});
 
           koruns[i].used = true;
           used = true;
@@ -453,101 +456,66 @@ static size_t korun_extend(KOccurRun *koruns, size_t nruns,
     if(pickup && !used)
     {
       // Start new kmer run
-      new_koruns[k++] = (KOccurRun){.chrom = kolist->chrom,
-                                    .first = kolist->offset,
-                                    .last = kolist->offset,
-                                    .qoffset = qoffset,
-                                    .strand = strand,
-                                    .used = false};
+      korun_buf_add(new_koruns,
+                       (KOccurRun){.chrom = kolist->chrom,
+                                   .first = kolist->offset,
+                                   .last = kolist->offset,
+                                   .qoffset = qoffset,
+                                   .strand = strand,
+                                   .used = false});
     }
 
     if(!kolist->next) break;
   }
 
-  return k;
+  return new_koruns->len - init_new_koruns;
 }
 
-// Filter regions down to only those that stretch the whole distance
-// Does not reset either korun or runs_ended - only adds to runs_ended
-// korun can only get shorter as KOccurRuns finish
-// `qoffset` is used for offset of new runs starting at nodes[0]
-void kograph_filter_extend(KOGraph kograph,
+size_t kograph_count(const KOGraph *kograph, hkey_t hkey)
+{
+  const KOccur *kolist = kograph_get(kograph, hkey), *first = kolist;
+  if(kolist) {
+    while(kolist->next) { kolist++; }
+    return first - kolist + 1;
+  }
+  return 0;
+}
+
+/**
+ * Filter regions down to only those that stretch the whole distance
+ * Does not reset either korun or runs_ended - only adds to runs_ended
+ * @param korun list of existing runs
+ * @param qoffset is used for offset of new runs starting
+ */
+void kograph_filter_extend(const KOGraph *kograph,
                            const dBNode *nodes, size_t num_nodes, bool forward,
                            size_t min_len, size_t qoffset,
                            KOccurRunBuffer *korun,
-                           KOccurRunBuffer *runs_ended,
-                           bool pickup_at_first_node)
+                           KOccurRunBuffer *koruns_tmp,
+                           KOccurRunBuffer *runs_ended)
 {
-  const KOccur *kolist, *kotmp;
-  KOccurRun *runs0, *runs1;
-  size_t i, j, nruns0, nruns1;
+  const KOccur *kolist;
+  size_t i, j;
   dBNode node;
 
-  if(num_nodes == 0) return;
+  KOccurRunBuffer *runs0 = korun, *runs1 = koruns_tmp;
 
-  node = forward ? nodes[0] : db_node_reverse(nodes[num_nodes-1]);
-
-  // If we don't have any runs and first kmer doesn't occur anywhere,
-  // there is no way to find occurance runs since we only pick up on the first
-  // node
-  if(!korun->len && (!pickup_at_first_node || !kograph_occurs(kograph, node.key)))
+  for(i = 0; i < num_nodes; i++)
   {
-    kmer_run_buf_reset(korun);
-    return;
-  }
-
-  size_t kmer0_num_occur = 0;
-  kolist = kotmp = kograph_get(kograph, node.key);
-  if(kotmp) {
-    while(kotmp->next) { kotmp++; }
-    kmer0_num_occur = kotmp - kolist + 1;
-  }
-
-  size_t max_num_runs = korun->len + kmer0_num_occur;
-
-  // Split korun buffer into two fixed size arrays
-  // Extend current runs, and start new ones
-  kmer_run_buf_capacity(korun, 2*max_num_runs);
-  runs0 = korun->b;
-  runs1 = korun->b + max_num_runs;
-  nruns0 = korun->len;
-  nruns1 = korun_extend(runs0, nruns0, node, kolist, runs1,
-                        pickup_at_first_node, qoffset);
-
-  // Store runs that could not be extended
-  for(i = 0; i < nruns0; i++) {
-    if(!runs0[i].used && korun_len(runs0[i]) > min_len) {
-      kmer_run_buf_add(runs_ended, runs0[i]);
-    }
-  }
-
-  SWAP( runs0,  runs1);
-  SWAP(nruns0, nruns1);
-
-  for(i = 1; i < num_nodes && nruns0 > 0; i++)
-  {
-    node = forward ? nodes[i] : db_node_reverse(nodes[num_nodes-i-1]);
+    node = db_nodes_get(nodes, num_nodes, forward, i);
     kolist = kograph_get(kograph, node.key);
-    nruns1 = korun_extend(runs0, nruns0, node, kolist, runs1, false, 0);
+    korun_buf_reset(runs1);
+    korun_extend(runs0->b, runs0->len, node, kolist, runs1, true, qoffset+i);
 
     // Store runs than have ended
-    if(nruns0 < nruns1) {
-      for(j = 0; j < nruns0; j++) {
-        if(!runs0[j].used && korun_len(runs0[j]) > min_len) {
-          kmer_run_buf_add(runs_ended, runs0[j]);
-        }
+    for(j = 0; j < runs0->len; j++) {
+      if(!runs0->b[j].used && korun_len(runs0->b[j]) > min_len) {
+        korun_buf_add(runs_ended, runs0->b[j]);
       }
     }
 
-    SWAP( runs0,  runs1);
-    SWAP(nruns0, nruns1);
+    SWAP(runs0, runs1);
   }
 
-  if(runs0 != korun->b) {
-    // Copy final array into start position
-    memmove(korun->b, runs0, nruns0 * sizeof(KOccurRun));
-  }
-
-  korun->len = nruns0;
+  if(runs0 != korun) SWAP(*runs0, *runs1);
 }
-

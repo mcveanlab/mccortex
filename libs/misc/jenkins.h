@@ -18,7 +18,4 @@ static inline uint32_t jenkins_one_at_a_time_hash(const uint8_t *key, size_t len
   return jenkins_finish(hash);
 }
 
-// 2 ops per byte h = strhash_fast_mix(h,x)
-#define strhash_fast_mix(h,x) ((h) * 37 + (x))
-
 #endif /* JENKINS_H_ */

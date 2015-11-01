@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include "bit_array/bit_macros.h"
+#include "htslib/khash.h"
 
 #include "cortex_types.h"
 #include "db_graph.h"
@@ -11,6 +12,11 @@
 #define DB_NODE_INIT {.key = HASH_NOT_FOUND, .orient = FORWARD}
 
 #define db_nodes_are_equal(n1,n2) ((n1).key == (n2).key && (n1).orient == (n2).orient)
+
+static inline uint64_t db_node_hash(dBNode node) {
+  uint64_t d = (node.key << 1) | node.orient;
+  return kh_int64_hash_func(d);
+}
 
 //
 // Get Binary kmers
@@ -37,6 +43,14 @@ static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey)
 #define kseto(arr,hkey)           ((hkey)%(sizeof(*arr)*8))
 /* word index */
 #define ksetw(arr,ncols,hkey,col) (((hkey)/(sizeof(*arr)*8))*(ncols)+(col))
+
+static inline bool db_node_in_col(const dBGraph *graph, hkey_t hkey, size_t col)
+{
+  return graph->node_in_cols == NULL ||
+         bitset2_get(graph->node_in_cols,
+                     ksetw(graph->node_in_cols,graph->num_of_cols,hkey,col),
+                     kseto(graph->node_in_cols,hkey));
+}
 
 static inline bool db_node_has_col(const dBGraph *graph, hkey_t hkey, size_t col)
 {
@@ -159,11 +173,24 @@ Edges edges_get_union(const Edges *edges, size_t num);
 bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
                                   Nucleotide *nucleotide);
 
-static inline void edges_print(FILE *fout, Edges e)
+// Get edges in hex coding, two characters [0-9a-f] per edge
+// 1=>A, 2=>C, 4=>G, 8=>T
+// "3b" => [AC] AACTA [ACT]
+// Null terminates string
+static inline void edges_to_char(Edges e, char str[3])
 {
   static const char digits[16] = "0123456789abcdef";
-  fputc(digits[rev_nibble_lookup(e>>4)], fout);
-  fputc(digits[e&0xf], fout);
+  str[0] = digits[rev_nibble_lookup(e>>4)];
+  str[1] = digits[e&0xf];
+  str[2] = '\0';
+}
+
+static inline void edges_print(FILE *fout, Edges e)
+{
+  char estr[3];
+  edges_to_char(e, estr);
+  fputc(estr[0], fout);
+  fputc(estr[1], fout);
 }
 
 static inline Edges edges_as_nibble(Edges edges, Orientation orient) {
@@ -254,6 +281,11 @@ Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
 
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(db_node_buf,dBNodeBuffer,dBNode);
+
+static inline dBNode db_nodes_get(const dBNode *nodes, size_t n, bool fw, size_t i)
+{
+  return fw ? nodes[i] : db_node_reverse(nodes[n-1-i]);
+}
 
 //
 // dBNode reversal and shifting

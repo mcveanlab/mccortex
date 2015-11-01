@@ -84,16 +84,16 @@ if(defined($contig_path) && $simplify) {
   print_usage("--mark <in> and --simplify are not supported together currently");
 }
 
-if(@ARGV != 1) { print_usage("Got extra commands: @ARGV"); }
+if(@ARGV != 1) { print_usage(); }
 my @files = @ARGV;
 
-my $cmd = dirname(__FILE__)."/../bin/ctx$maxk";
+my $cmd = dirname(__FILE__)."/../bin/mccortex$maxk";
 
 if(!(-e $cmd)) {
-  die("executable bin/ctx$maxk doesn't exist -- did you compile for MAXK=$maxk?\n");
+  die("executable bin/mccortex$maxk doesn't exist -- did you compile for MAXK=$maxk?\n");
 }
 elsif(!(-x $cmd)) {
-  die("bin/ctx$maxk doesn't appear to be executable\n");
+  die("bin/mccortex$maxk doesn't appear to be executable\n");
 }
 
 # graph file reader command

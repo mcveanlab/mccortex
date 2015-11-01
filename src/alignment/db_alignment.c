@@ -194,38 +194,20 @@ void db_alignment_print(const dBAlignment *aln)
 {
   pthread_mutex_lock(&ctx_biglock);
 
-  printf("dBAlignment:\n");
-  printf("  r1bases: %zu r2bases: %zu\n",   aln->r1bases,  aln->r2bases);
-  printf("  r1enderr: %zu r2enderr: %zu\n", aln->r1enderr, aln->r2enderr);
-  printf("  passed_r2: %s r2strtidx: %zu\n", aln->passed_r2 ? "yes" : "no", aln->r2strtidx);
-  printf("  used_r1: %s used_r2: %s\n", aln->used_r1 ? "yes" : "no", aln->used_r2 ? "yes" : "no");
-  printf("  seq_gaps: %s\n", aln->seq_gaps ? "yes" : "no");
-  printf("  colour: %i\n", aln->colour);
+  message("dBAlignment:\n");
+  message("  r1bases: %zu r2bases: %zu\n",   aln->r1bases,  aln->r2bases);
+  message("  r1enderr: %zu r2enderr: %zu\n", aln->r1enderr, aln->r2enderr);
+  message("  passed_r2: %s r2strtidx: %zu\n", aln->passed_r2 ? "yes" : "no", aln->r2strtidx);
+  message("  used_r1: %s used_r2: %s\n", aln->used_r1 ? "yes" : "no", aln->used_r2 ? "yes" : "no");
+  message("  seq_gaps: %s\n", aln->seq_gaps ? "yes" : "no");
+  message("  colour: %i\n", aln->colour);
 
   size_t i;
 
   for(i = 0; i < aln->nodes.len; i++) {
-    printf("  [%zu] %i: %zu:%i\n", i, aln->rpos.b[i],
-           (size_t)aln->nodes.b[i].key, aln->nodes.b[i].orient);
+    message("  [%zu] %i: %zu:%i\n", i, aln->rpos.b[i],
+            (size_t)aln->nodes.b[i].key, aln->nodes.b[i].orient);
   }
 
   pthread_mutex_unlock(&ctx_biglock);
 }
-
-// Alignment needn't have all edges now, so this is removed
-/*
-// Check all edges between ungapped adjacent nodes
-bool db_alignment_check_edges(const dBAlignment *aln, const dBGraph *graph)
-{
-  size_t start, end;
-
-  for(start = 0; start < aln->nodes.len; start = end)
-  {
-    end = db_alignment_next_gap(aln, start);
-    if(db_graph_check_all_edges(graph, aln->nodes.b+start, end-start))
-      return false;
-  }
-
-  return true;
-}
-*/

@@ -20,7 +20,7 @@ size_t seq_load_all_reads(seq_file_t **seq_files, size_t num_files,
   seq_read_alloc(&r);
   for(i = 0; i < num_files; i++) {
     status("  file: %s", seq_files[i]->path);
-    while(seq_read(seq_files[i], &r) > 0) {
+    while(seq_read_primary(seq_files[i], &r) > 0) {
       read_buf_push(rbuf, &r, 1); // copy read
       seq_read_alloc(&r); // allocate new read
     }
@@ -56,16 +56,21 @@ int64_t seq_est_seq_bases(seq_file_t **files, size_t nfiles)
 //  > quality_cutoff valid
 //  < homopolymer_cutoff valid
 
-// Returns index of first kmer or r->seq.end if no kmers
-size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
-                        uint8_t qual_cutoff, uint8_t hp_cutoff)
+// Search for first valid kmer starting from position `offset`
+// Returns index of first kmer or seqlen if no kmers
+size_t seq_contig_start2(const char *seq, size_t seqlen,
+                         const char *qual, size_t quallen,
+                         size_t offset, size_t kmer_size,
+                         uint8_t qual_cutoff, uint8_t hp_cutoff)
 {
-  size_t next_kmer, pos = offset;
-  while((next_kmer = pos+kmer_size) <= r->seq.end)
+  if(!qual || !quallen) { qual = NULL; quallen = 0; }
+
+  size_t kmerend, pos = offset;
+  while((kmerend = pos+kmer_size) <= seqlen)
   {
     // Check for invalid bases
-    size_t i = next_kmer;
-    while(i > pos && char_is_acgt(r->seq.b[i-1])) i--;
+    size_t i = kmerend;
+    while(i > pos && char_is_acgt(seq[i-1])) i--;
 
     if(i > pos) {
       pos = i;
@@ -73,10 +78,10 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     }
 
     // Check for low qual values
-    if(qual_cutoff > 0 && r->qual.end > 0)
+    if(qual && qual_cutoff > 0)
     {
-      i = MIN2(next_kmer, r->qual.end);
-      while(i > pos && r->qual.b[i-1] > qual_cutoff) i--;
+      i = MIN2(kmerend, quallen);
+      while(i > pos && qual[i-1] > qual_cutoff) i--;
 
       if(i > pos) {
         pos = i;
@@ -88,9 +93,9 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     if(hp_cutoff > 0)
     {
       size_t run_length = 1;
-      for(i = next_kmer-1; i > pos; i--)
+      for(i = kmerend-1; i > pos; i--)
       {
-        if(r->seq.b[i-1] == r->seq.b[i])
+        if(seq[i-1] == seq[i])
         {
           run_length++;
           if(run_length == (size_t)hp_cutoff) break;
@@ -108,14 +113,25 @@ size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
     return pos;
   }
 
-  return r->seq.end;
+  return seqlen;
+}
+
+size_t seq_contig_start(const read_t *r, size_t offset, size_t kmer_size,
+                        uint8_t qual_cutoff, uint8_t hp_cutoff)
+{
+  return seq_contig_start2(r->seq.b, r->seq.end, r->qual.b, r->qual.end,
+                           offset, kmer_size, qual_cutoff, hp_cutoff);
 }
 
 // *search_start is the next position to pass to seq_contig_start
-size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
-                      uint8_t qual_cutoff, uint8_t hp_cutoff,
-                      size_t *search_start)
+size_t seq_contig_end2(const char *seq, size_t seqlen,
+                       const char *qual, size_t quallen,
+                       size_t contig_start, size_t kmer_size,
+                       uint8_t qual_cutoff, uint8_t hp_cutoff,
+                       size_t *search_start)
 {
+  if(!qual || !quallen) { qual = NULL; quallen = 0; }
+
   size_t contig_end = contig_start+kmer_size;
 
   size_t hp_run = 1;
@@ -123,13 +139,14 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
   {
     // Get the length of the hp run at the end of the current kmer
     // kmer won't contain a run longer than hp_run-1
-    while(r->seq.b[contig_end-1-hp_run] == r->seq.b[contig_end-1]) hp_run++;
+    while(hp_run < contig_end && seq[contig_end-1-hp_run] == seq[contig_end-1])
+      hp_run++;
   }
 
-  for(; contig_end < r->seq.end; contig_end++)
+  for(; contig_end < seqlen; contig_end++)
   {
-    if(!char_is_acgt(r->seq.b[contig_end]) ||
-       (contig_end < r->qual.end && r->qual.b[contig_end] < qual_cutoff))
+    if(!char_is_acgt(seq[contig_end]) ||
+       (contig_end < quallen && qual[contig_end] < qual_cutoff))
     {
       break;
     }
@@ -137,7 +154,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
     // Check hp
     if(hp_cutoff > 0)
     {
-      if(r->seq.b[contig_end] == r->seq.b[contig_end-1])
+      if(seq[contig_end] == seq[contig_end-1])
       {
         hp_run++;
         if(hp_run >= (size_t)hp_cutoff) break;
@@ -146,7 +163,7 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
     }
   }
 
-  if(hp_cutoff > 0 && hp_run == (size_t)hp_cutoff)
+  if(hp_cutoff > 0 && hp_run >= (size_t)hp_cutoff)
     *search_start = contig_end - (size_t)hp_cutoff + 1;
   else
     *search_start = contig_end;
@@ -154,6 +171,16 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
   return contig_end;
 }
 
+// Returns the index after the last good base
+// *search_start is the next position to pass to seq_contig_start
+size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
+                      uint8_t qual_cutoff, uint8_t hp_cutoff,
+                      size_t *search_start)
+{
+  return seq_contig_end2(r->seq.b, r->seq.end, r->qual.b, r->qual.end,
+                         contig_start, kmer_size, qual_cutoff, hp_cutoff,
+                         search_start);
+}
 
 // Warning bits
 #define WFLAG_INVALID_BASE  1
@@ -163,8 +190,8 @@ size_t seq_contig_end(const read_t *r, size_t contig_start, size_t kmer_size,
 
 // Takes, updates and returns warnings that were printed
 // Warnings are only printed once per file
-static uint8_t process_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
-                                const char *path, uint8_t warn_flags)
+static uint8_t check_new_read(const read_t *r, uint8_t qmin, uint8_t qmax,
+                              const char *path, uint8_t warn_flags)
 {
   // Test if we've already warned about issue (e.g. bad base) before checking
   if(!(warn_flags & WFLAG_INVALID_BASE))
@@ -286,15 +313,17 @@ void seq_parse_interleaved_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   uint8_t warn_flags = 0;
   size_t num_se_reads = 0, num_pe_pairs = 0;
 
-  while((s = seq_read(sf, r[ridx])) > 0)
+  while((s = seq_read_primary(sf, r[ridx])) > 0)
   {
-    warn_flags = process_new_read(r[ridx], qmin, qmax, sf->path, warn_flags);
+    warn_flags = check_new_read(r[ridx], qmin, qmax, sf->path, warn_flags);
 
     if(ridx)
     {
       // ridx == 1
       if(seq_read_names_cmp(r[0]->name.b, r[1]->name.b) == 0) {
-        read_func(r[0], r[1], qoffset, qoffset, reader_ptr);
+        // Either read may be the first in the pair if from SAM/BAM
+        int r0 = (r[1]->from_sam && seq_read_bam(r[1])->core.flag & BAM_FREAD1);
+        read_func(r[r0], r[!r0], qoffset, qoffset, reader_ptr);
         num_pe_pairs++;
         ridx = 0;
       } else {
@@ -364,8 +393,8 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
 
   while(1)
   {
-    success1 = seq_read(sf1, r1);
-    success2 = seq_read(sf2, r2);
+    success1 = seq_read_primary(sf1, r1);
+    success2 = seq_read_primary(sf2, r2);
 
     if(success1 < 0) warn("input error: %s", sf1->path);
     if(success2 < 0) warn("input error: %s", sf2->path);
@@ -377,8 +406,8 @@ void seq_parse_pe_sf(seq_file_t *sf1, seq_file_t *sf2, uint8_t ascii_fq_offset,
 
     // PE
     // We don't care about read orientation at this point
-    warn_flags = process_new_read(r1, qmin1, qmax1, sf1->path, warn_flags);
-    warn_flags = process_new_read(r2, qmin2, qmax2, sf2->path, warn_flags);
+    warn_flags = check_new_read(r1, qmin1, qmax1, sf1->path, warn_flags);
+    warn_flags = check_new_read(r2, qmin2, qmax2, sf2->path, warn_flags);
     read_func(r1, r2, qoffset1, qoffset2, reader_ptr);
     num_pe_pairs++;
   }
@@ -416,9 +445,9 @@ void seq_parse_se_sf(seq_file_t *sf, uint8_t ascii_fq_offset,
   size_t num_se_reads = 0, num_pe_pairs = 0;
   int s;
 
-  while((s = seq_read(sf, r1)) > 0)
+  while((s = seq_read_primary(sf, r1)) > 0)
   {
-    warn_flags = process_new_read(r1, qmin, qmax, sf->path, warn_flags);
+    warn_flags = check_new_read(r1, qmin, qmax, sf->path, warn_flags);
     read_func(r1, NULL, qoffset, 0, reader_ptr);
     num_se_reads++;
   }

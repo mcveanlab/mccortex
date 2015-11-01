@@ -3,7 +3,7 @@
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 #include "gpath_save.h"
@@ -197,16 +197,11 @@ int ctx_pview(int argc, char **argv)
   //
   // Load graphs
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &stats);
+    graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }

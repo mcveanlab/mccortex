@@ -17,7 +17,7 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   // 1:1 split between seq and paths (6 bytes each)
   size_t entry_size = 0, counts_size = 0;
 
-  entry_size = sizeof(GPath) + (ncols+7)/8;
+  entry_size = sizeof(GPath) + roundup_bits2bytes(ncols);
   counts_size = keep_path_counts ? sizeof(uint8_t)*ncols : 0;
 
   size_t mem_used = initpaths * (entry_size + counts_size);
@@ -28,7 +28,7 @@ void gpath_set_alloc2(GPathSet *gpset, size_t ncols,
   }
 
   size_t seq_mem = initmem - mem_used;
-  size_t col_mem = initpaths * ((ncols+7)/8);
+  size_t col_mem = initpaths * roundup_bits2bytes(ncols);
   size_t seq_col_mem = col_mem + seq_mem;
   size_t total_mem = initpaths * (sizeof(GPath)+counts_size) + seq_col_mem;
   ctx_assert(total_mem <= initmem);
@@ -61,7 +61,7 @@ void gpath_set_alloc(GPathSet *gpset, size_t ncols, size_t initmem,
 {
   // Assume 8 bytes of sequence per path
   size_t entry_size
-    = sizeof(GPath) + 8 + (ncols+7)/8 +
+    = sizeof(GPath) + 8 + roundup_bits2bytes(ncols) +
       (keep_path_counts ? sizeof(uint8_t)*ncols + sizeof(uint32_t) : 0);
 
   size_t nentries = initmem / entry_size;
@@ -117,7 +117,7 @@ void gpath_set_nseen_sum_mt(const GPath *dst, GPathSet *dstset,
 
   if(src_nseen && dst_nseen) {
     for(i = 0; i < dstset->ncols; i++)
-      safe_add_uint8(&dst_nseen[i], src_nseen[i]);
+      safe_add_uint8_mt(&dst_nseen[i], src_nseen[i]);
   }
 }
 
@@ -136,7 +136,7 @@ void _check_resize(GPathSet *gpset, size_t req_num_bytes)
     for(i = 0; i < gpset->entries.len; i++) {
       if(gpset->entries.b[i].next != NULL) {
         gpset->entries.b[i].next = gpset->entries.b +
-                                      (gpset->entries.b[i].next - old_entries);
+                                     (gpset->entries.b[i].next - old_entries);
       }
     }
   }

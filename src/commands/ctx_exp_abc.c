@@ -2,7 +2,7 @@
 #include "commands.h"
 #include "util.h"
 #include "file_util.h"
-#include "graph_format.h"
+#include "graphs_load.h"
 #include "gpath_reader.h"
 #include "gpath_checks.h"
 #include "graph_walker.h"
@@ -360,7 +360,7 @@ int ctx_exp_abc(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" exp_abc -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -434,14 +434,10 @@ int ctx_exp_abc(int argc, char **argv)
   gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, false, &db_graph);
 
   // Load the graph
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = true};
-
-  graph_load(&gfile, gprefs, &stats);
+  graph_load(&gfile, gprefs, NULL);
   graph_file_close(&gfile);
 
   hash_table_print_stats(&db_graph.ht);

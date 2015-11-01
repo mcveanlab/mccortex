@@ -35,15 +35,9 @@ sort.k$(K).ctx: seq.k$(K).ctx
 	$(CTX) index $< > $@
 	cat $@
 
-test.ctx:
-	$(SEQRND) 20 > A:2.fa
-	$(CTX) build -k $(K) --sample Goofy -1 A:2.fa $@
-	$(CTX) check -q $@
-	rm A:2.fa
-
 test_assemble:
-	$(CTX) contigs -q -o - seq.k9.ctx:1 | \
-	  $(CTX) rmsubstr -q -n 1M - | \
+	$(CTX) contigs -q -o - seq.k$(K).ctx:1 | \
+	  $(CTX) rmsubstr -q -n 1M -k $(K) - | \
 	  $(CONTIGSTATS) -
 
 .PHONY: all clean test_assemble

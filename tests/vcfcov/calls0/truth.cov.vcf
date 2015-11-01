@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=200>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=HK21R,Number=A,Type=Integer,Description="Num. ref kmers unique in haplotypes (k=21)">
+##INFO=<ID=HK21A,Number=A,Type=Integer,Description="Num. alt kmers unique in haplotypes (k=21)">
+##FORMAT=<ID=NK21R,Number=A,Type=Integer,Description="Number of exclusive kmers on ref found for each allele (k=21)">
+##FORMAT=<ID=CK21R,Number=A,Type=Integer,Description="Mean ref coverage for found kmers (k=21)">
+##FORMAT=<ID=NK21A,Number=A,Type=Integer,Description="Number of exclusive kmers on alt found for each allele (k=21)">
+##FORMAT=<ID=CK21A,Number=A,Type=Integer,Description="Mean alt coverage for found kmers (k=21)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	MasterGrunt	John	Jane

@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=200>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=K21R,Number=A,Type=Integer,Description="Coverage on ref (k=21) => sum(kmer_covs)/exp_num_kmers">
+##FORMAT=<ID=K21A,Number=A,Type=Integer,Description="Coverage on alt (k=21) => sum(kmer_covs)/exp_num_kmers">
+##mccortex_5a56358=<prev="NULL",cmd="../../../bin/mccortex31 vcfcov -m 10M -o calls.cov.vcf -r ../ref/ref.fa --max-nvars 1 calls.vcf pluto.k21.ctx",cwd="/Users/isaac/mccortex/tests/vcfcov/calls4",datetime="20151028-00:20:03",version=v0.0.3-368-gc5c8b27-dirty>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	pluto
+ref	7	.	G	T	.	PASS	.	K21R:K21A	2:3
+ref	28	.	A	C	.	PASS	.	K21R:K21A	2:3
+ref	49	.	GG	CGAT	.	PASS	.	K21R:K21A	2:3
+ref	71	.	A	GAT	.	PASS	.	K21R:K21A	2:3
+ref	92	.	GCACCAGGG	AC	.	PASS	.	K21R:K21A	2:3
+ref	121	.	C	G	.	PASS	.	K21R:K21A	2:3
+ref	142	.	GGCACAGCA	TTACTCTTC	.	PASS	.	K21R:K21A	2:3
+ref	171	.	A	CTAG	.	PASS	.	K21R:K21A	2:3
+ref	192	.	CATCATAG	A	.	PASS	.	K21R:K21A	2:3

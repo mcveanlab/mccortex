@@ -4,7 +4,7 @@
 #include "db_node.h"
 #include "seq_reader.h"
 #include "async_read_io.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 #include "util.h"
 #include "file_util.h"
 
@@ -31,7 +31,7 @@ typedef struct
 static bool seq_reads_are_novel(read_t *r1, read_t *r2,
                                 uint8_t fq_cutoff1, uint8_t fq_cutoff2,
                                 uint8_t hp_cutoff, ReadMateDir matedir,
-                                LoadingStats *stats, dBGraph *db_graph)
+                                SeqLoadingStats *stats, dBGraph *db_graph)
 {
   // Remove SAM/BAM duplicates
   if(r1->from_sam && seq_read_bam(r1)->core.flag & BAM_FDUP &&
@@ -128,7 +128,7 @@ size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
 
 // Already found a start position
 static void load_read(const read_t *r, uint8_t qual_cutoff, uint8_t hp_cutoff,
-                      LoadingStats *stats, Colour colour, dBGraph *db_graph)
+                      SeqLoadingStats *stats, Colour colour, dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
   size_t contig_start, contig_end, contig_len;
@@ -160,7 +160,7 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                uint8_t fq_offset1, uint8_t fq_offset2,
                                uint8_t fq_cutoff, uint8_t hp_cutoff,
                                bool remove_pcr_dups, ReadMateDir matedir,
-                               LoadingStats *stats, size_t colour,
+                               SeqLoadingStats *stats, size_t colour,
                                dBGraph *db_graph)
 {
   // status("r1: '%s' '%s'", r1->name.b, r1->seq.b);
@@ -263,7 +263,7 @@ void build_graph_from_seq(dBGraph *db_graph,
                           .matedir = READPAIR_FR, .colour = colour,
                           .remove_pcr_dups = false};
 
-    loading_stats_init(&tmp.stats);
+    seq_loading_stats_init(&tmp.stats);
     memcpy(&tasks[i], &tmp, sizeof(tmp));
   }
 
@@ -292,7 +292,7 @@ void build_graph_task_print(const BuildGraphTask *task)
 
 void build_graph_task_print_stats(const BuildGraphTask *task)
 {
-  const LoadingStats stats = task->stats;
+  const SeqLoadingStats stats = task->stats;
   const AsyncIOInput *io = &task->files;
 
   status("[task] input: %s%s%s colour: %zu",

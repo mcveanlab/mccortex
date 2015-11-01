@@ -6,8 +6,7 @@
 #include "db_node.h"
 #include "binary_kmer.h"
 #include "supernode.h"
-#include "graph_format.h"
-#include "gpath_reader.h"
+#include "graphs_load.h"
 #include "gpath_checks.h"
 #include "unitig_graph.h"
 
@@ -96,10 +95,12 @@ static inline void _print_edge(hkey_t node, bool right_edge,
   {
     UnitigEnd uend1 = p->ugraph.unitig_ends[next_nodes[i].key];
 
-    char tmpstr[100];
-    db_node_to_str(p->db_graph, next_nodes[i], tmpstr);
-    if(!uend1.assigned)
-      status(" -> node %zu [%s]", uend1.unitigid, tmpstr);
+    // Debugging
+    if(!uend1.assigned) {
+      char tmpstr[100];
+      db_node_to_str(p->db_graph, next_nodes[i], tmpstr);
+      status(" -> node %zu [%s]", (size_t)uend1.unitigid, tmpstr);
+    }
 
     ctx_assert(next_nodes[i].key != HASH_NOT_FOUND);
     ctx_assert(uend1.assigned);
@@ -348,10 +349,7 @@ int ctx_unitigs(int argc, char **argv)
     unitig_graph_alloc(&printer.ugraph, &db_graph);
 
   // Load graphs
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   for(i = 0; i < num_gfiles; i++) {
     file_filter_flatten(&gfiles[i].fltr, 0);

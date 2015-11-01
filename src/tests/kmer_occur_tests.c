@@ -37,9 +37,10 @@ static void test_kmer_occur_filter()
   TASSERT(kograph.nchroms == NUM_READS);
   TASSERT(kograph.koccurs != NULL);
 
-  KOccurRunBuffer koruns, koruns_ended;
-  kmer_run_buf_alloc(&koruns, 16);
-  kmer_run_buf_alloc(&koruns_ended, 16);
+  KOccurRunBuffer koruns, koruns_tmp, koruns_ended;
+  korun_buf_alloc(&koruns, 16);
+  korun_buf_alloc(&koruns_tmp, 16);
+  korun_buf_alloc(&koruns_ended, 16);
 
   // Check CCCGACAGGGCAA starts at CCCGACAGGGC
   // x=CCCGACAGGGC, y=CCGACAGGGCA, z=CGACAGGGCAA
@@ -48,9 +49,10 @@ static void test_kmer_occur_filter()
   for(i = 0; i < NUM_NODES; i++)
     nodes[i] = db_graph_find_str(&graph, &"CCCGACAGGGCAA"[i]);
 
-  kmer_run_buf_reset(&koruns);
-  kmer_run_buf_reset(&koruns_ended);
-  kograph_filter_extend(kograph, nodes, NUM_NODES, true, 0, 0, &koruns, &koruns_ended, true);
+  korun_buf_reset(&koruns);
+  korun_buf_reset(&koruns_ended);
+  kograph_filter_extend(&kograph, nodes, NUM_NODES, true, 0, 0,
+                        &koruns, &koruns_tmp, &koruns_ended);
 
   // Checks
   TASSERT2(koruns.len == 1, "koruns.len: %zu", koruns.len);
@@ -62,11 +64,11 @@ static void test_kmer_occur_filter()
   // Test reverse
   db_nodes_reverse_complement(nodes, NUM_NODES);
 
-  kmer_run_buf_reset(&koruns);
-  kmer_run_buf_reset(&koruns_ended);
-  kograph_filter_extend(kograph, nodes, 1, true, 0, 0, &koruns, &koruns_ended, true);
-  kograph_filter_extend(kograph, nodes+1, 1, true, 0, 1, &koruns, &koruns_ended, true);
-  kograph_filter_extend(kograph, nodes+2, 1, true, 0, 2, &koruns, &koruns_ended, true);
+  korun_buf_reset(&koruns);
+  korun_buf_reset(&koruns_ended);
+  kograph_filter_extend(&kograph, nodes, 1, true, 0, 0, &koruns, &koruns_tmp, &koruns_ended);
+  kograph_filter_extend(&kograph, nodes+1, 1, true, 0, 1, &koruns, &koruns_tmp, &koruns_ended);
+  kograph_filter_extend(&kograph, nodes+2, 1, true, 0, 2, &koruns, &koruns_tmp, &koruns_ended);
 
   // Print out for debugging
   // printf("koruns: ");
@@ -85,11 +87,12 @@ static void test_kmer_occur_filter()
   TASSERT2(koruns.b[0].first == 7, "offset: %zu", (size_t)koruns.b[0].first);
   TASSERT2(koruns.b[0].last == 5, "last: %zu", (size_t)koruns.b[0].last);
 
-  kmer_run_buf_dealloc(&koruns);
-  kmer_run_buf_dealloc(&koruns_ended);
+  korun_buf_dealloc(&koruns);
+  korun_buf_dealloc(&koruns_tmp);
+  korun_buf_dealloc(&koruns_ended);
 
   for(i = 0; i < NUM_READS; i++) seq_read_dealloc(&reads[i]);
-  kograph_free(kograph);
+  kograph_dealloc(&kograph);
 
   db_graph_dealloc(&graph);
 }

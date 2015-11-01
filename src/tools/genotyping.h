@@ -2,57 +2,98 @@
 #define GENOTYPING_H_
 
 #include "binary_kmer.h"
+
 #include "htslib/khash.h"
+#include "htslib/vcf.h"
 
 static inline int bk2bits_hash(BinaryKmer bkey) { return binary_kmer_hash(bkey, 0); }
 static inline int bk2bits_eq(BinaryKmer k1, BinaryKmer k2) { return binary_kmers_are_equal(k1,k2); }
 KHASH_INIT(BkToBits, BinaryKmer, uint64_t, 1, bk2bits_hash, bk2bits_eq);
 
 typedef struct {
-  const char *ref, *alt;
-  size_t pos, reflen, altlen;
+  // nkmers are the number of unique kmers that could were in the graph
+  // sumcovg are the sum of coverages on those kmers
+  // [0] => ref, [1] => alt
+  // int32_t nkmers[2], sumcovg[2];
+  int32_t covg[2]; // => roundup(median(covg)*len(covg) / (len(allele)+k-1))
+} VarCovg;
 
-  // Covg
-  size_t refkmers, refsumcovg;
-  size_t altkmers, altsumcovg;
-} GenoVar;
+// VCF line
+typedef struct
+{
+  bcf1_t v;
+  size_t vidx;
+} VcfCovLine;
+
+// Single alt-allele decomposed from a VCF entry
+typedef struct {
+  VcfCovLine *parent;
+  const char *ref, *alt;
+  uint32_t pos, reflen, altlen, aid; // variant, allele id
+  VarCovg *c; // entry for each colour
+  bool has_covg; // if we have fetched coverage into `c`
+} VcfCovAlt;
 
 typedef struct {
   BinaryKmer bkey;
-  uint64_t arbits; // alt-ref-bits
-} GenoKmer;
+  uint64_t arbits; // alt-ref-bits, only for target variants
+} HaploKmer;
+
+// index after the last base used in this haplotype
+#define vcfcovalt_hap_start(v,ks) ((v)->pos <= (ks)-1 ? 0 : (v)->pos - ((ks)-1))
+#define vcfcovalt_hap_end(v,ks) ((v)->pos + (v)->reflen + (ks) - 1)
+#define vcfcovalt_akmers(v,nrk) ((nrk) + (v)->altlen < (v)->reflen ? (size_t)0 : (nrk) + (v)->altlen - (v)->reflen)
+
+// Approximate the expected number of kmers
+#define hap_num_exp_kmers(pos,len,ks) (MIN2((pos), (ks)-1) + (len))
+
+typedef struct GenotyperStruct Genotyper;
 
 #include "madcrowlib/madcrow_buffer.h"
 #include "madcrowlib/madcrow_list.h"
-madcrow_buffer(genokmer_buf, GenoKmerBuffer, GenoKmer);
-// madcrow_buffer(genovar_buf,  GenoVarBuffer,  GenoVar);
-madcrow_list(  genovar_list, GenoVarList,  GenoVar);
+madcrow_buffer(haplokmer_buf, HaploKmerBuffer, HaploKmer);
+madcrow_list(vc_lines, VcfCovLinePtrList, VcfCovLine*);
+madcrow_list(vc_alts,  VcfCovAltPtrList,  VcfCovAlt*);
 
-typedef struct {
-  StrBuf seq;
-  khash_t(BkToBits) *h;
-  GenoKmerBuffer kmer_buf;
-} Genotyper;
+static inline void vcfcov_alt_wipe_covg(VcfCovAlt *var, size_t ncols)
+{
+  if(var->has_covg) memset(var->c, 0, ncols*sizeof(var->c[0]));
+  var->has_covg = false;
+}
 
-void genotyper_alloc(Genotyper *typer);
-void genotyper_dealloc(Genotyper *typer);
+int vcfcov_alt_ptr_cmp(const VcfCovAlt *a, const VcfCovAlt *b);
+void vcfcov_alts_sort(VcfCovAlt **vars, size_t nvars);
 
-void genovars_sort(GenoVar *vars, size_t nvars);
+Genotyper* genotyper_init();
+void genotyper_destroy(Genotyper *typer);
 
-// Returns 1 if kmer occurs in ref/alt only for a given haplotype
-// print out if pairs of bits are 01 or 10, not 11, 00
+// Returns non-zero iff kmer occurs in only one of ref/alt in at least one sample
 // 0x5 in binary is 0101
 #define genotyping_refalt_uniq(b) (((b) ^ ((b)>>1)) & 0x5555555555555555UL)
 
+static inline uint64_t genotyping_refalt_nonuniq(uint64_t b) {
+  b = (b & (b>>1)) & 0x5555555555555555UL;
+  return b | (b<<1);
+}
+
 /**
- * Get coverage on alt allele. Results stored in typer->kmer_buf.
- * @param vars must be sorted by pos, then reflen, then altlen, then alt
- * @param colour if -1 population coverage
+ * Get a list of kmers which support variants.
+ * @param typer     initialised memory to use
+ * @param vars      variants to genotype and surrounding vars.
+ *                  Required sort order: pos, reflen, altlen, alt
+ * @param nvars     number of variants in `vars`
+ * @param tgtidx    index in vars of first variant to type
+ * @param ntgts     number of variants to type
+ * @param chrom     reference chromosome
+ * @param chromlen  length of reference chromosom
+ * @param kmer_size kmer size to type at
+ * @return number of kmers
  */
-void genotyping_get_covg(Genotyper *typer,
-                         const GenoVar *vars, size_t nvars,
-                         size_t tgtidx, size_t ntgts,
-                         const char *chrom, size_t chromlen,
-                         size_t kmer_size);
+size_t genotyping_get_kmers(Genotyper *typer,
+                            const VcfCovAlt *const*vars, size_t nvars,
+                            size_t tgtidx, size_t ntgts,
+                            const char *chrom, size_t chromlen,
+                            size_t kmer_size,
+                            HaploKmer **result, uint32_t *nrkmers);
 
 #endif /* GENOTYPING_H_ */

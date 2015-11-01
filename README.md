@@ -11,7 +11,7 @@ with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam
 
 *Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
 
-29 April 2015
+15 Oct 2015
 
 Branch         | Status
 ---------------|--------
@@ -29,11 +29,11 @@ Download with:
 
 To compile for a maximum kmer size of 31:
 
-    make
+    make all
 
 to compile for a maximum kmer size of 63:
 
-    make MAXK=63
+    make MAXK=63 all
 
 Executables appear in the `bin/` directory.
 
@@ -43,33 +43,38 @@ Commands
 
     usage: mccortex31 <command> [options] <args>
     version: ctx=XXXX zlib=1.2.5 htslib=1.2.1 ASSERTS=ON hash=Lookup3 CHECKS=ON k=3..31
-
+    
     Commands:   breakpoints  use a trusted assembled genome to call large events
                 bubbles      find bubbles in graph which are potential variants
                 build        construct cortex graph from FASTA/FASTQ/BAM
-                calls2vcf    reduce set of strings to remove substrings
+                calls2vcf    convert bubble/breakpoint calls to VCF
                 check        load and check graph (.ctx) and path (.ctp) files
                 clean        clean errors from a graph
                 contigs      assemble contigs for a sample
                 correct      error correct reads
                 coverage     print contig coverage
+                dist         make colour kmer distance matrix
                 index        index a sorted cortex graph file
                 inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 links        clean and plot link files (.ctp)
                 pjoin        merge path files (.ctp)
+                popbubbles   pop bubbles in the population graph
                 pview        text view of a cortex path file (.ctp)
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
+                server       interactively query the graph
                 sort         sort the kmers in a graph file
                 subgraph     filter a subgraph using seed kmers
-                supernodes   pull out supernodes
-                thread       thread reads through cleaned graph
+                thread       thread reads through cleaned graph to make links
                 uniqkmers    generate random unique kmers
+                unitigs      pull out unitigs in FASTA, DOT or GFA format
+                vcfcov       coverage of a VCF against cortex graphs
+                vcfgeno      genotype a VCF after running vcfcov
                 view         text view of a cortex graph file (.ctx)
-
+    
       Type a command with no arguments to see help.
-
+    
     Common Options:
       -h, --help            Help message
       -q, --quiet           Silence status output normally printed to STDERR
@@ -131,6 +136,7 @@ Bundled libraries may have different licenses:
 * [seq-align](https://github.com/noporpoise/seq-align) (Public Domain)
 * [seq_file](https://github.com/noporpoise/seq_file) (Public Domain)
 * [sort_r](https://github.com/noporpoise/sort_r) (Public Domain)
+* [carrays](https://github.com/noporpoise/carrays) (Public Domain)
 * [string_buffer](https://github.com/noporpoise/string_buffer) (Public Domain)
 * [xxHash](https://github.com/Cyan4973/xxHash.git) (BSD)
 

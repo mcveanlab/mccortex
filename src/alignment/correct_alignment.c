@@ -36,7 +36,7 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, bool store_contig_lens,
   int32_buf_alloc(&tmp.rpos, INIT_BUFLEN);
 
   correct_aln_stats_alloc(&tmp.aln_stats);
-  loading_stats_init(&tmp.load_stats);
+  seq_loading_stats_init(&tmp.load_stats);
 
   memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
 }
@@ -101,8 +101,8 @@ void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
 {
   correct_aln_stats_merge(&dst->aln_stats, &src->aln_stats);
   correct_aln_stats_dealloc(&src->aln_stats);
-  loading_stats_merge(&dst->load_stats, &src->load_stats);
-  loading_stats_init(&src->load_stats);
+  seq_loading_stats_merge(&dst->load_stats, &src->load_stats);
+  seq_loading_stats_init(&src->load_stats);
 }
 
 // block is nodes that we are walking towards
@@ -114,11 +114,10 @@ static TraversalResult traverse_one_way2(const dBNode *block, size_t n,
                                          GraphWalker *wlk, RepeatWalker *rptwlk,
                                          bool only_in_col, bool do_paths_check)
 {
-  dBNode end_node = forward ? block[0] : db_node_reverse(block[n-1]);
+  dBNode end_node = db_nodes_get(block, n, forward, 0);
 
-  // BinaryKmer tmpbkmer = db_node_get_bkmer(wlk->db_graph, end_node.key);
-  // char tmpstr[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(tmpbkmer, wlk->db_graph->kmer_size, tmpstr);
+  // char tmpstr[MAX_KMER_SIZE+3];
+  // db_node_to_str(wlk->db_graph, end_node, tmpstr);
   // status("Endnode: %s contig->len: %zu", tmpstr, contig->len);
 
   // max_len allows for node on other side of gap
@@ -496,7 +495,7 @@ dBNodeBuffer* correct_alignment_nxt(CorrectAlnWorker *wrkr)
   wrkr->gap_idx_missing_edge = wrkr->end_idx_missing_edge;
 
   // db_nodes_print_verbose(contig->b, contig->len, wrkr->db_graph, stdout);
-  ctx_check(db_node_check_nodes(contig->b, contig->len, wrkr->db_graph));
+  // ctx_check(db_node_check_nodes(contig->b, contig->len, wrkr->db_graph));
 
   size_t contig_length_bp = contig->len + kmer_size - 1;
 

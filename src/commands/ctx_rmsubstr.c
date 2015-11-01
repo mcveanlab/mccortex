@@ -52,7 +52,7 @@ static struct option longopts[] =
 //  0 => not substr
 // -1 => not enough bases of ACGT
 static int _is_substr(const ReadBuffer *rbuf, size_t idx,
-                      KOGraph kograph, const dBGraph *db_graph)
+                      const KOGraph *kograph, const dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
   const read_t *r = &rbuf->b[idx], *r2;
@@ -168,7 +168,7 @@ int ctx_rmsubstr(int argc, char **argv)
   int64_t est_num_bases = seq_est_seq_bases(seq_files, num_seq_files);
   if(est_num_bases < 0) {
     warn("Cannot get file sizes, using pipes");
-    est_num_bases = memargs.num_kmers;
+    est_num_bases = memargs.num_kmers * IDEAL_OCCUPANCY;
   }
 
   status("[memory] Estimated number of bases: %li", (long)est_num_bases);
@@ -226,7 +226,7 @@ int ctx_rmsubstr(int argc, char **argv)
   // Loop over reads printing those that are not substrings
   int ret;
   for(i = 0; i < rbuf.len; i++) {
-    ret = _is_substr(&rbuf, i, kograph, &db_graph);
+    ret = _is_substr(&rbuf, i, &kograph, &db_graph);
     if(ret == -1) num_bad_reads++;
     else if((ret && invert) || (!ret && !invert)) {
       seqout_print_read(&rbuf.b[i], fmt, fout);
@@ -252,7 +252,7 @@ int ctx_rmsubstr(int argc, char **argv)
   }
 
   fclose(fout);
-  kograph_free(kograph);
+  kograph_dealloc(&kograph);
 
   // Free sequence memory
   for(i = 0; i < rbuf.len; i++) seq_read_dealloc(&rbuf.b[i]);

@@ -25,8 +25,8 @@ struct GPathFollowStruct
   uint16_t pos, len;
   uint32_t age; // age is >= pos
   // A small buffer of upcoming 24 bases
-  uint16_t first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
-  uint8_t cache[6]; // first..first+23 (24 bases)
+  // uint16_t first_cached; // first base in buffer (multiple of 4: 0,4,8,...)
+  // uint8_t cache[6]; // first..first+23 (24 bases)
 } __attribute__((packed));
 
 typedef struct GPathFollowStruct GPathFollow;
@@ -34,8 +34,8 @@ typedef struct GPathFollowStruct GPathFollow;
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(gpath_follow_buf,GPathFollowBuffer,GPathFollow);
 
-void gpath_follow_cache_update(GPathFollow *path, size_t pos);
-Nucleotide gpath_follow_get_base(GPathFollow *path, size_t pos);
+#define gpath_follow_get_base(path,pos) (binary_seq_get((path)->gpath->seq,pos))
+// Nucleotide gpath_follow_get_base(GPathFollow *path, size_t pos);
 GPathFollow gpath_follow_create(const GPath *gpath);
 
 #endif /* GPATH_FOLLOW_H_ */

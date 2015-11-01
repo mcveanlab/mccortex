@@ -21,27 +21,36 @@ void chrom_pos_list_sort(ChromPosBuffer *buf)
   qsort(buf->b, buf->len, sizeof(buf->b[0]), chrom_pos_cmp_len);
 }
 
-// Get largest match
-// return 1 if there is a unique longest and copies it to pos, otherwise 0
-int chrom_pos_list_get_largest(const ChromPosBuffer *buf, ChromPosOffset *pos)
+/**
+ * Get largest match
+ * @param buf        List of chromosome positions to search
+ * @param pos        Copy largest to here
+ * @param use_first  If more than 1 largest, return lowest offset,
+                     otherwise return highest offset
+ * @return           Number of largest
+ */
+size_t chrom_pos_list_get_largest(const ChromPosBuffer *buf, bool use_first,
+                                  ChromPosOffset *pos)
 {
   if(buf->len == 0) return 0;
-  size_t i, idx = 0, len, max;
-  bool unique = true;
+  size_t i, idx = 0, len, max, n = 1;
   len = max = chrom_pos_len(&buf->b[0]);
 
   for(i = 1; i < buf->len; i++) {
     len = chrom_pos_len(&buf->b[i]);
-    if(len == max) unique = false;
+    if(len == max) {
+      n++;
+      if(use_first == (buf->b[i].offset < buf->b[idx].offset)) idx = i;
+    }
     else if(len > max) {
-      unique = true;
       idx = i;
       max = len;
+      n = 1;
     }
   }
 
   memcpy(pos, &buf->b[idx], sizeof(ChromPosOffset));
-  return unique;
+  return n;
 }
 
 void chrom_pos_print(const ChromPosOffset *pos)
@@ -81,7 +90,7 @@ int _parse(char *str, ChromPosOffset *obj)
   if((dash = strchr(ptrs[1],'-')) == NULL) return -1;
   *dash++ = '\0';
   if(!parse_entire_size(ptrs[1], &start) ||
-     !parse_entire_size(dash,    &end)) return -1;  
+     !parse_entire_size(dash,    &end)) return -1;
 
   if(strcmp(ptrs[2],"+") != 0 && strcmp(ptrs[2],"-") != 0) return -1;
   fw_strand = (strcmp(ptrs[2],"+") == 0);

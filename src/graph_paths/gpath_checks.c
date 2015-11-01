@@ -160,6 +160,7 @@ size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
         pop_col_loaded = true;
       }
     }
+    file_filter_update(fltr);
   }
 
   if(!tgt_col_loaded)
@@ -176,6 +177,7 @@ size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
       }
     }
     file_filter_num(fltr) = j;
+    file_filter_update(fltr);
 
     if(j == 0) {
       die("Path file does not provide any paths in colour %zu: %s",

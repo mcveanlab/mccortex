@@ -232,6 +232,26 @@ gzFile futil_gzopen_create(const char *path, const char *mode)
   return futil_gzopen(path, mode);
 }
 
+// Check for errors and close
+void futil_fclose(FILE *fh)
+{
+  if(fh == NULL) return;
+  if(fh == stdout || fh == stderr) { fflush(fh); return; }
+  if(ferror(fh)) warn("File error: %s [%i]", strerror(errno), errno);
+  fclose(fh);
+}
+
+// Check for errors and close
+void gzutil_fclose(gzFile gz)
+{
+  if(gz == NULL) return;
+  int ecode;
+  const char *errstr = gzerror(gz, &ecode);
+  if(ecode < 0) warn("GZIP File error: %s [%i]", errstr, ecode);
+  gzclose(gz);
+}
+
+
 bool futil_generate_filename(const char *base_fmt, StrBuf *str)
 {
   int i;
@@ -303,22 +323,23 @@ FILE** futil_create_tmp_files(size_t num_tmp_files)
 // Merge temporary files, closes tmp files
 void futil_merge_tmp_files(FILE **tmp_files, size_t num_files, FILE *fout)
 {
-  #define TMP_BUF_SIZE (1<<25) /* 32MB */
+  #define TMP_BUF_SIZE (32 * ONE_MEGABYTE)
 
   char *data = ctx_malloc(TMP_BUF_SIZE);
   size_t i, len;
-  FILE *tmp_file;
+  FILE *fh;
 
   for(i = 0; i < num_files; i++)
   {
-    tmp_file = tmp_files[i];
-    if(fseek(tmp_file, 0L, SEEK_SET) == -1) die("gzseek error");
+    fh = tmp_files[i];
+    if(fseek(fh, 0L, SEEK_SET) != 0) die("fseek error");
 
-    while((len = fread(data, 1, TMP_BUF_SIZE, tmp_file)) > 0)
+    while((len = fread(data, 1, TMP_BUF_SIZE, fh)) > 0)
       if(fwrite(data, 1, len, fout) != len)
         die("write error [%s]", strerror(errno));
 
-    fclose(tmp_file);
+    if(ferror(fh)) warn("fread error: %s", strerror(errno));
+    fclose(fh);
   }
 
   ctx_free(data);

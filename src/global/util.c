@@ -3,6 +3,8 @@
 
 #include <math.h>
 
+#include "sort_r/sort_r.h"
+
 const uint8_t rev_nibble_table[16]
   = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
 
@@ -51,34 +53,15 @@ const char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
   return --haystack;
 }
 
-// comparison returns:
-//   negative iff a < b
-//          0 iff a == b
-//   positive iff a > b
-
-#define cmpfunc(fname,type_t)                                                  \
-int fname(const void *a, const void *b) {                                      \
-  const type_t a2 = *(const type_t *)a;                                        \
-  const type_t b2 = *(const type_t *)b;                                        \
-  return (a2 < b2 ? -1 : (a2 > b2));                                           \
+char strlastchar(const char *str) {
+  if(!*str) return 0;
+  while(*(str+1)) str++;
+  return *str;
 }
 
-cmpfunc(cmp_int, int);
-cmpfunc(cmp_long, long);
-cmpfunc(cmp_float, float);
-cmpfunc(cmp_double, double);
-cmpfunc(cmp_uint32, uint32_t);
-cmpfunc(cmp_uint64, uint64_t);
-cmpfunc(cmp_size, size_t);
-cmpfunc(cmp_ptr, void *const);
-
-
-int cmp_charptr(const void *aa, const void *bb)
-{
-  const char *a = *((const char *const*)aa), *b = *((const char *const*)bb);
-  return strcmp(a, b);
-}
-
+//
+// Parsing
+//
 
 bool parse_entire_int(const char *str, int *result)
 {
@@ -132,6 +115,58 @@ bool parse_entire_size(const char *str, size_t *result)
   *result = (size_t)tmp;
   return true;
 }
+
+
+// read comma separated doubles (no more than n) into `list`
+// return number of elements read or <0 on error
+int parse_list(void *list, size_t n, size_t el,
+               void (*convert)(void *dst, const char *str, char **end),
+               const char *str)
+{
+  char *l = (char*)list, *dendptr = NULL;
+  const char *end = str;
+  size_t i = 0;
+
+  for(; i < n && (end = strendc(str, ',')) > str; str = end+1)
+  {
+    convert(l+el*i, str, &dendptr);
+    i++;
+    if(dendptr != end) return -1;
+    if(!*end) break;
+  }
+
+  return *end ? -1 : (int)i; // return -1 if still some entries left
+}
+
+void convert_double(void *dst, const char *str, char **end)
+{
+  *(double*)dst = strtod(str, end);
+}
+
+void convert_size(void *dst, const char *str, char **end)
+{
+  unsigned long s = strtoul(str, end, 10);
+  if(*end && *end > str) {
+    if(s > SIZE_MAX) *end = (char*)str; // invalid value
+    else *(size_t*)dst = s;
+  }
+}
+
+// read comma separated doubles (no more than n) into `list`
+// return number of elements read or <0 on error
+int parse_list_doubles(double *list, size_t n, const char *str)
+{
+  return parse_list(list, n, sizeof(double), convert_double, str);
+}
+
+int parse_list_sizes(size_t *list, size_t n, const char *str)
+{
+  return parse_list(list, n, sizeof(size_t), convert_size, str);
+}
+
+//
+//
+//
 
 bool bases_to_integer(const char *arg, size_t *bases)
 {

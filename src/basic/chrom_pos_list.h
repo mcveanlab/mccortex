@@ -19,9 +19,15 @@ int chrom_pos_cmp_len(const void *aa, const void *bb);
 void chrom_pos_validate(const ChromPosOffset *pos);
 #define chrom_pos_len(pos) ((pos)->end - (pos)->start + 1)
 
-// Get largest match
-// return 1 if there is a unique longest and copies it to pos, otherwise 0
-int chrom_pos_list_get_largest(const ChromPosBuffer *buf, ChromPosOffset *pos);
+/**
+ * Get largest match
+ * @param buf        List of chromosome positions to search
+ * @param pos        Copy largest to here
+ * @param use_first  If more than largest, return first, otherwise return last
+ * @return           Number of largest
+ */
+size_t chrom_pos_list_get_largest(const ChromPosBuffer *buf, bool use_first,
+                                  ChromPosOffset *pos);
 
 // Parse a string in the form: chr:start-end:strand:offset[,...]
 // Return 0 on success, -1 on error

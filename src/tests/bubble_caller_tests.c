@@ -2,6 +2,7 @@
 #include "all_tests.h"
 
 #include "bubble_caller.h"
+#include "genotyping.h" // Tested here for now
 
 static void _check_alleles(GraphCache *cache, GCacheStepPtrBuf *steps,
                            const char **alleles, size_t num_alleles,
@@ -13,7 +14,7 @@ static void _check_alleles(GraphCache *cache, GCacheStepPtrBuf *steps,
   for(i = 0; i < steps->len; i++)
   {
     db_node_buf_reset(nbuf);
-    graph_cache_step_fetch_nodes(cache, steps->b[i], nbuf);
+    gc_step_fetch_nodes(cache, steps->b[i], nbuf);
     strbuf_ensure_capacity(sbuf, nbuf->len+MAX_KMER_SIZE+1);
     db_nodes_to_str(nbuf->b, nbuf->len, cache->db_graph, sbuf->b);
 
@@ -44,14 +45,14 @@ static void _call_bubble(BubbleCaller *caller,
 
   find_bubbles(caller, node5p);
 
-  GCacheSnode *snode3p;
+  GCacheUnitig *snode3p;
   Orientation snorient3p;
   GCacheStepPtrBuf *stepbuf;
 
   // Get 3p flank and orientation
-  snode3p = graph_cache_find_snode(&caller->cache, node3p);
+  snode3p = graph_cache_find_unitig(&caller->cache, node3p);
   TASSERT(snode3p != NULL);
-  snorient3p = graph_cache_get_supernode_orient(&caller->cache, snode3p, node3p);
+  snorient3p = gc_unitig_get_orient(&caller->cache, snode3p, node3p);
 
   find_bubbles_ending_with(caller, snode3p);
 

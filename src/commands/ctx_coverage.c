@@ -5,8 +5,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "seq_reader.h"
-#include "graph_format.h"
-#include "graph_file_reader.h"
+#include "graphs_load.h"
 
 const char coverage_usage[] =
 "usage: "CMD" coverage [options] <in.ctx> [in2.ctx ..]\n"
@@ -19,7 +18,7 @@ const char coverage_usage[] =
 "  -m, --memory <mem>   Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -e, --edges          Print edges as well. Uses hex encoding [TGCA|TGCA].\n"
-"  -E, --degree         Print edge degree: 00!,01+,02{, 10-,11=,12<, 20},21>,22*\n"
+"  -E, --degree         Print edge degree: 00. 01/ 02[ 10\\ 11- 12{ 20] 21} 22X\n"
 "  -s, --seq <in>       Sequence file to get coverages for (can specify multiple times)\n"
 "  -o, --out <out.txt>  Save output [default: STDOUT]\n"
 "\n";
@@ -63,15 +62,15 @@ static inline void fetch_node_edges(const dBGraph *db_graph, dBNode node,
 
 // Print in/outdegree - For debugging mostly
 // indegree/outdegree (2 means >=2)
-// 00: ! 01: + 02: {
-// 10: - 11: = 12: <
-// 20: } 21: > 22: *
+// 00: . 01: / 02: [
+// 10: \ 11: - 12: {
+// 20: ] 21: } 22: X
 static inline
 void _print_edge_degrees(const Edges *edges, size_t col, size_t ncols,
                          size_t num, FILE *fout)
 {
   size_t i, indegree, outdegree;
-  const char symbols[3][3] = {"!+{", "-=<", "}>*"};
+  const char symbols[3][3] = {"./[", "\\-{", "]}X"};
   for(i = 0; i < num; i++) {
     indegree  = MIN2(edges_get_indegree(edges[i*ncols+col],  FORWARD), 2);
     outdegree = MIN2(edges_get_outdegree(edges[i*ncols+col], FORWARD), 2);
@@ -80,15 +79,20 @@ void _print_edge_degrees(const Edges *edges, size_t col, size_t ncols,
   fputc('\n', fout);
 }
 
+// Print edges using hex coding, two characters [0-9a-f] per edge
+// 1=>A, 2=>C, 4=>G, 8=>T
+// "3b" => [AC] AACTA [ACT]
 static inline
 void _print_edges(const Edges *edges, size_t col, size_t ncols,
                   size_t num, FILE *fout)
 {
   size_t i;
-  edges_print(fout, edges[col]);
-  for(i = 1; i < num; i++) {
-    fputc(' ', fout);
-    edges_print(fout, edges[i*ncols+col]);
+  if(num) {
+    edges_print(fout, edges[col]);
+    for(i = 1; i < num; i++) {
+      fputc(' ', fout);
+      edges_print(fout, edges[i*ncols+col]);
+    }
   }
   fputc('\n', fout);
 }
@@ -100,14 +104,14 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
 {
   // Find nodes, set covgs
   const size_t kmer_size = db_graph->kmer_size, ncols = db_graph->num_of_cols;
-  size_t kmer_length = r->seq.end < kmer_size ? 0 : r->seq.end - kmer_size + 1;
+  size_t klen = r->seq.end < kmer_size ? 0 : r->seq.end - kmer_size + 1;
 
-  covg_buf_capacity(covgbuf, ncols * kmer_length);
-  memset(covgbuf->b, 0, ncols * kmer_length * sizeof(Covg));
+  covg_buf_capacity(covgbuf, ncols * klen);
+  memset(covgbuf->b, 0, ncols * klen * sizeof(Covg));
 
   if(db_graph->col_edges) {
-    edges_buf_capacity(edgebuf, ncols * kmer_length);
-    memset(edgebuf->b, 0, ncols * kmer_length * sizeof(Edges));
+    edges_buf_capacity(edgebuf, ncols * klen);
+    memset(edgebuf->b, 0, ncols * klen * sizeof(Edges));
   }
 
   size_t i, j, col, search_start = 0;
@@ -117,8 +121,7 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
   dBNode node;
   Covg *covgs;
 
-  while((contig_start = seq_contig_start(r, search_start, kmer_size,
-                                         0, 0)) < r->seq.end)
+  while((contig_start = seq_contig_start(r, search_start, kmer_size, 0, 0)) < r->seq.end)
   {
     contig_end = seq_contig_end(r, contig_start, kmer_size, 0, 0, &search_start);
 
@@ -140,29 +143,29 @@ static inline void print_read_covg(const dBGraph *db_graph, const read_t *r,
     }
   }
 
-  // Print one colour per line
+  // Print sequence
   fprintf(fout, ">%s\n%s\n", r->name.b, r->seq.b);
-  if(kmer_length == 0) {
-    for(i = 0; i < ncols; i++) {
-      if(db_graph->col_edges) fputc('\n', fout);
-      fputc('\n', fout);
+
+  for(col = 0; col < ncols; col++)
+  {
+    if(print_edges) {
+      fprintf(fout, ">%s_c%zu_edges\n", r->name.b, col);
+      _print_edges(edgebuf->b, col, ncols, klen, fout);
     }
-  }
-  else {
-    for(col = 0; col < ncols; col++)
-    {
-      if(print_edges)
-        _print_edges(edgebuf->b, col, ncols, kmer_length, fout);
 
-      if(print_edge_degrees)
-        _print_edge_degrees(edgebuf->b, col, ncols, kmer_length, fout);
+    if(print_edge_degrees) {
+      fprintf(fout, ">%s_c%zu_degree\n", r->name.b, col);
+      _print_edge_degrees(edgebuf->b, col, ncols, klen, fout);
+    }
 
-      // Print coverages
+    // Print coverages
+    fprintf(fout, ">%s_c%zu_covgs\n", r->name.b, col);
+    if(klen > 0) {
       fprintf(fout, "%2u", covgbuf->b[col]);
-      for(i = 1; i < kmer_length; i++)
+      for(i = 1; i < klen; i++)
         fprintf(fout, " %2u", covgbuf->b[i*ncols+col]);
-      fputc('\n', fout);
     }
+    fputc('\n', fout);
   }
 }
 
@@ -229,8 +232,8 @@ int ctx_coverage(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  // kmer memory = Edges + paths + 1 bit per colour
-  bits_per_kmer = sizeof(BinaryKmer)*8 + //sizeof(GPath*)*8 +
+  // kmer memory = kmer + (coverage + edges) per colour
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
                   (sizeof(Covg) + (print_edges ? sizeof(Edges) : 0)) * 8 * ncols;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
@@ -254,22 +257,19 @@ int ctx_coverage(int argc, char **argv)
   size_t kmer_size = gfiles[0].hdr.kmer_size;
 
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, kmer_size, ncols, print_edges*ncols, kmers_in_hash,
+  db_graph_alloc(&db_graph, kmer_size, ncols, print_edges ? ncols : 0, kmers_in_hash,
                  DBG_ALLOC_COVGS | (print_edges ? DBG_ALLOC_EDGES : 0));
 
   //
   // Load graphs
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &stats);
+    graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
+    gprefs.empty_colours = false;
   }
   ctx_free(gfiles);
 
@@ -286,14 +286,21 @@ int ctx_coverage(int argc, char **argv)
   read_t r;
   seq_read_alloc(&r);
 
+  status("Reading coverage...");
+  size_t nreads = 0;
+
   // Deal with one read at a time
   for(i = 0; i < sfilebuf.len; i++) {
-    while(seq_read(sfilebuf.b[i], &r) > 0) {
+    while(seq_read_primary(sfilebuf.b[i], &r) > 0) {
       print_read_covg(&db_graph, &r, &covgbuf, &edgebuf,
                       print_edges, print_edge_degrees, fout);
+      nreads++;
     }
     seq_close(sfilebuf.b[i]);
   }
+
+  char nstr[50];
+  status("Printed graph coverage for %s reads", ulong_to_str(nreads, nstr));
 
   seq_read_dealloc(&r);
   covg_buf_dealloc(&covgbuf);

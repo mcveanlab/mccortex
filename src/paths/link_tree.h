@@ -42,9 +42,9 @@ typedef struct
   LTreeWalkBuffer wbuf; // iterator
 } LinkTree;
 
+#define ltree_get_node(tree,id) ((id) < 0 ? NULL : (tree)->treebuf.b + (id))
 #define ltree_get_fw_node(tree) ltree_get_node(tree,(tree)->fw_id)
 #define ltree_get_rv_node(tree) ltree_get_node(tree,(tree)->rv_id)
-#define ltree_get_node(tree,id) ((id) < 0 ? NULL : &(tree)->treebuf.b[id])
 #define ltree_get_seq(tree,l) ((char*)((tree)->seqbuf.b + (l)->seq))
 
 //

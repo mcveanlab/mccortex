@@ -1,5 +1,11 @@
 # Travis CI configuration
+<<<<<<< HEAD
 # For coverity_scan branch only
+=======
+# Note: there are currently issues with limiting coverity to a single compiler
+#       see https://github.com/travis-ci/travis-ci/issues/1975
+#       Instead we use a script to decide if we should do anything
+>>>>>>> develop
 
 language: c
 compiler: gcc
@@ -10,7 +16,18 @@ sudo: false
 install: echo 'Install step'
 script: echo 'Script step'
 
+<<<<<<< HEAD
 after_deploy: cat /home/travis/build/mcveanlab/mccortex/cov-int/scm_log.txt
+=======
+before_install:
+  - git submodule update --init --recursive
+
+install:
+  - ./travis/install.sh
+  - eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
+
+script: ./travis/script.sh
+>>>>>>> develop
 
 env:
   global:

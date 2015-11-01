@@ -22,18 +22,16 @@ extern const BinaryKmer zero_bkmer;
 #define BINARY_KMER_ZERO_MACRO {.b = {0}}
 
 // Hash functions
+#include "hash.h"
+
 #if defined(USE_CITY_HASH)
-  // Use Google's CityHash
-  #include "misc/city.h"
-  #define binary_kmer_hash(bkmer,rehash) (CityHash32((char*)bkmer.b, BKMER_BYTES) ^ rehash)
+  #define binary_kmer_hash(bkmer,rehash) ctx_hash32((bkmer).b, BKMER_BYTES, rehash)
 #elif defined(USE_XXHASH)
-  // Use xxHash
-  #include "xxHash/xxhash.h"
-  #define binary_kmer_hash(bkmer,rehash) XXH32(bkmer.b, BKMER_BYTES, rehash)
+  #define binary_kmer_hash(bkmer,rehash) ctx_hash32((bkmer).b, BKMER_BYTES, rehash)
 #else
-  // Use Bob Jenkin's lookup3
+  // Optimised lookup3
   #include "kmer_hash.h"
-  #define binary_kmer_hash(bkmer,rehash) bklk3_hashlittle(bkmer, rehash)
+  #define binary_kmer_hash(bkmer,rehash) bklk3_hashlittle((bkmer), (rehash))
 #endif
 
 

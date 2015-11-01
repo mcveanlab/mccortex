@@ -135,7 +135,7 @@ CorrectAlnStats* gen_paths_get_aln_stats(GenPathWorker *wrkr)
   return &wrkr->corrector.aln_stats;
 }
 
-LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr)
+SeqLoadingStats* gen_paths_get_stats(GenPathWorker *wrkr)
 {
   return &wrkr->corrector.load_stats;
 }
@@ -264,7 +264,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // Add colour
     bitset_set(gpath_get_colset(gpath, gpset->ncols), ctpcol);
     uint8_t *nseen = gpath_set_get_nseen(gpset, gpath);
-    if(nseen != NULL) safe_add_uint8(&nseen[ctpcol], 1);
+    if(nseen != NULL) safe_add_uint8_mt(&nseen[ctpcol], 1);
 
     packed_ptr[top_idx] = top_byte; // restore top byte
 
@@ -276,6 +276,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // if(found && plen < GPATH_MAX_JUNCS) break;
     num_added++;
 
+    // Debugging
     if(gen_paths_print_paths && !printed)
     {
       // print path
@@ -289,14 +290,6 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
       printed = true;
     }
-
-    #ifdef CTXCHECKS
-      // ctx_check2(gpath_checks_path(node.key, gpath, db_graph),
-      //            "read: %s %s", wrkr->data->r1.name.b, wrkr->data->r1.seq.b);
-    #endif
-
-    // status("Path is:...");
-    // print_path(node.key, packed_ptr, &db_graph->pstore);
   }
 
   return num_added;
