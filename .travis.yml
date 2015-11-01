@@ -1,4 +1,7 @@
 # Travis CI configuration
+# Note: there are currently issues with limiting coverity to a single compiler
+#       see https://github.com/travis-ci/travis-ci/issues/1975
+#       Instead we use a script to decide if we should do anything
 
 language: c
 compiler: gcc
@@ -6,11 +9,24 @@ os: linux
 
 sudo: false
 
+# Multi language support on TravisCI would be nice
+# language: perl
+# perl: "5.20"
+
+before_install:
+  - git submodule update --init --recursive
+
+install:
+  - ./travis/install.sh
+  - eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
+
+script: ./travis/script.sh
+
 env:
   global:
     # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
     #   via the "travis encrypt" command using the project repo's public key
-    - secure: "GFhh3zDi4MBYXIt7eDv+7rngKfx7oDZrtCqyM7sNN+LgHNkr6ZFpec+oJ/aAnD6KEtwyPAbGkSmyHoDWC6d4F0g1Ye41Xd9KzMXlHQoAnhJo1eesdWNky3cIenPvy4Xvy4i/5l2NtroLoboz7M5frWRN+rcrN/KenApd6lpJjGk="
+    - secure: "T08ccfH7+agMchVPhAP/MTdVeFonkjlLvbY8nv/jQ5aZeeWP2i1Oop59MVtuaA4Vw1Ickjr1czLsHGob2OyMHwo2otEasMqacvOw38exblvjOptqN7dx2yu0qzBZdHxLd/uOad7HMfgtkVSwgpodeNR6+K+4LcCM7J6+iAWtLME="
 
 addons:
   coverity_scan:
@@ -19,7 +35,7 @@ addons:
       description: Build submitted via Travis CI
     notification_email: turner.isaac@gmail.com
     build_command_prepend: git submodule update --init --recursive
-    build_command: make all
+    build_command: make
     branch_pattern: coverity_scan
 
 notifications:

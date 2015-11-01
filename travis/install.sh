@@ -2,12 +2,10 @@
 
 set -e
 
-<<<<<<< HEAD
-cd libs && make && cd ..
-=======
-RUN_TRAVIS=`./travis/run.sh`
-
-if [ "$RUN_TRAVIS" == "yes" ]
+# The COVERITY_SCAN_BRANCH environment variable will be set to 1 when the
+# Coverity Scan addon is in operation
+# Only run if we are not doing Coverity Scan analysis
+if [ "${COVERITY_SCAN_BRANCH}" != 1 ]
 then
 
   # Set up cpanm, install JSON perl package
@@ -25,4 +23,3 @@ then
   cd libs && make && cd ..
 
 fi
->>>>>>> develop
