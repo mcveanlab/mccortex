@@ -511,13 +511,12 @@ void db_graph_get_kmer_covg(const dBGraph *db_graph, size_t nthreads,
   GetKmerCovg *threads = ctx_calloc(nthreads, sizeof(GetKmerCovg));
 
   for(i = 0; i < nthreads; i++) {
-    threads[i] = (GetKmerCovg){
-      .db_graph = db_graph,
-      .threadid = i,
-      .nthreads = nthreads,
-      .nkmers = ctx_calloc(ncols, sizeof(uint64_t)),
-      .sumcov = ctx_calloc(ncols, sizeof(uint64_t))
-    };
+    GetKmerCovg gkc = {.db_graph = db_graph,
+                       .threadid = i,
+                       .nthreads = nthreads,
+                       .nkmers = ctx_calloc(ncols, sizeof(uint64_t)),
+                       .sumcov = ctx_calloc(ncols, sizeof(uint64_t))};
+    memcpy(&threads[i], &gkc, sizeof(gkc));
   }
 
   util_run_threads(threads, nthreads, sizeof(threads[0]),

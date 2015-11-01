@@ -53,6 +53,12 @@ const char* ctx_strnstr(const char *haystack, const char *needle, size_t hlen)
   return --haystack;
 }
 
+char strlastchar(const char *str) {
+  if(!*str) return 0;
+  while(*(str+1)) str++;
+  return *str;
+}
+
 //
 // Parsing
 //
@@ -129,7 +135,7 @@ int parse_list(void *list, size_t n, size_t el,
     if(!*end) break;
   }
 
-  return *end ? -1 : i; // return -1 if still some entries left
+  return *end ? -1 : (int)i; // return -1 if still some entries left
 }
 
 void convert_double(void *dst, const char *str, char **end)

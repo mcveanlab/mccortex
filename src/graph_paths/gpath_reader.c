@@ -286,8 +286,8 @@ void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
   char *end = NULL;
 
   // First first 5 required columns
-  uint8_t FR_COL=0, NKMER_COL=0, NJUNC_COL=1, NSEEN_COL=2, JUNCS_COL=3;
-  if(version <= 3) { FR_COL=0, NKMER_COL=1, NJUNC_COL=2, NSEEN_COL=3, JUNCS_COL=4; }
+  uint8_t NKMER_COL=0, NJUNC_COL=1, NSEEN_COL=2, JUNCS_COL=3;
+  if(version <= 3) { NKMER_COL=1, NJUNC_COL=2, NSEEN_COL=3, JUNCS_COL=4; }
 
   size_t ncolumns = version <= 3 ? 5 : 4;
   char *cols[ncolumns];

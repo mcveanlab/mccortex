@@ -403,13 +403,7 @@ static int kmer_from_tag(const char *key)
   if(key[0] != 'K') return -1;
   kmer = strtoul(key+1, &end, 10);
   if(!end || end == key+1 || (strcmp(end,"R") && strcmp(end,"A"))) return -1;
-  return (kmer > (unsigned long)INT_MAX || (kmer&1) == 0 ? -1 : kmer);
-}
-
-static char strlastchar(const char *str) {
-  if(!*str) return 0;
-  while(*(str+1)) str++;
-  return *str;
+  return (kmer > (unsigned long)INT_MAX || (kmer&1) == 0 ? -1 : (int)kmer);
 }
 
 // find K31R, K31A tags in header
@@ -417,7 +411,7 @@ static char strlastchar(const char *str) {
 static size_t kmer_from_hdr(const bcf_hdr_t *hdr)
 {
   int i, j, n = 0, kmer, kmers[3];
-  char *key, *val, lastchar[3], *tags[3];
+  char *key, *val, *tags[3];
 
   // Read up to three tags matching: ^K\d+[AR]$ e.g. K31R
   for(i = 0; i < hdr->nhrec && n < 3; i++) {
@@ -425,7 +419,6 @@ static size_t kmer_from_hdr(const bcf_hdr_t *hdr)
       key = hdr->hrec[i]->keys[j];
       val = hdr->hrec[i]->vals[j];
       if(strcmp(key,"ID") == 0 && (kmer = kmer_from_tag(val)) >= 0) {
-        lastchar[n] = strlastchar(val);
         kmers[n] = kmer;
         tags[n] = val;
         n++;

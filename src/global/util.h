@@ -58,6 +58,7 @@ bool str_find_tag(const char *str, const char *tag,
 // strnstr
 const char* ctx_strnstr(const char *haystack, const char *needle, size_t haylen);
 
+char strlastchar(const char *str);
 
 //
 // Numbers to string

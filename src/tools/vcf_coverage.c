@@ -604,8 +604,8 @@ static void vcfcov_vars(VcfCovAlt **vars, size_t nvars,
 
 // Get index of first of vars (starting at index i), which starts at/after endpos
 // otherwise return nvars
-static inline int vc_alts_starts_after(VcfCovAlt **vars, size_t nvars,
-                                      size_t i, size_t endpos)
+static inline size_t vc_alts_starts_after(VcfCovAlt **vars, size_t nvars,
+                                          size_t i, size_t endpos)
 {
   while(i < nvars && vars[i]->pos < endpos) { i++; }
   return i;
@@ -613,8 +613,8 @@ static inline int vc_alts_starts_after(VcfCovAlt **vars, size_t nvars,
 
 // Get index of first of vars (starting at index i), whose haplotype includes
 // endpos. Otherwise return nvars
-static inline int vc_alts_ends_after(VcfCovAlt **vars, size_t nvars,
-                                     size_t i, size_t endpos, size_t kmer_size)
+static inline size_t vc_alts_ends_after(VcfCovAlt **vars, size_t nvars,
+                                        size_t i, size_t endpos, size_t kmer_size)
 {
   while(i < nvars && vcfcovalt_hap_end(vars[i],kmer_size) <= endpos) { i++; }
   return i;
