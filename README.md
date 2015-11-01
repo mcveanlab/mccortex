@@ -122,6 +122,11 @@ Occasionally we also run Coverity Scan. This is done by pushing to the `coverity
 
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/2329/badge.svg)](https://scan.coverity.com/projects/2329)
 
+    git checkout coverity_scan
+    git merge develop
+    git reset HEAD .travis.yml
+    git reset HEAD configure
+
 License: MIT
 ------------
 

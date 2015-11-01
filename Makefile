@@ -88,7 +88,7 @@ ifdef LIB_PATH
 	EXTRA_INCS := -I $(LIB_PATH) -L $(LIB_PATH)
 endif
 
-INCS=-I libs -I $(IDIR_HTS) -I $(IDIR_SEQ) $(EXTRA_INCS)
+INCS=-I libs -I $(IDIR_HTS) $(EXTRA_INCS)
 
 # Library linking
 LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_CARRAYS) $(LIB_HTS) $(LIB_ALIGN) libs/cJSON/cJSON.o

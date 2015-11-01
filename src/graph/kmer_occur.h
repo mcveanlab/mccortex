@@ -1,8 +1,9 @@
 #ifndef KMER_OCCUR_H_
 #define KMER_OCCUR_H_
 
-#include "seq_file.h"
 #include "db_graph.h"
+
+#include "seq_file/seq_file.h"
 
 //
 // This file provides a datastore for loading sequences and recording where

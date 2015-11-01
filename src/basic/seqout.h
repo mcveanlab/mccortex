@@ -10,7 +10,7 @@
 //   <out>.2.fa.gz
 //
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 typedef struct {
   char *path_se, *path_pe[2];

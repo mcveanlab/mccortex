@@ -7,7 +7,7 @@
 #include "build_graph.h"
 #include "generate_paths.h"
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 #include <libgen.h> // basename
 

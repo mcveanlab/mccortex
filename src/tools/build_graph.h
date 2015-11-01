@@ -7,7 +7,7 @@
 //
 
 #include "msg-pool/msgpool.h"
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 #include "cortex_types.h"
 #include "db_graph.h"

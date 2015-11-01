@@ -9,7 +9,7 @@
 #include "file_util.h"
 
 #include <pthread.h>
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 typedef struct
 {

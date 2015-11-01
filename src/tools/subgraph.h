@@ -1,7 +1,8 @@
 #ifndef SUBGRAPH_H_
 #define SUBGRAPH_H_
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
+
 #include "db_graph.h"
 
 //

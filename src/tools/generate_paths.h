@@ -1,7 +1,7 @@
 #ifndef GENERATE_PATHS_H_
 #define GENERATE_PATHS_H_
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 #include "cortex_types.h"
 #include "db_graph.h"

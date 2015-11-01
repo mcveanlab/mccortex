@@ -4,7 +4,7 @@
 #include "file_util.h"
 #include "dna.h"
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 const char *MP_DIR_STRS[] = {"FF", "FR", "RF", "RR"};
 

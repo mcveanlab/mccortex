@@ -8,7 +8,7 @@
 #include "graph_writer.h"
 #include "build_graph.h"
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 const char build_usage[] =
 "usage: "CMD" build [options] <out.ctx>\n"

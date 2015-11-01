@@ -3,8 +3,9 @@
 
 #include "db_graph.h"
 #include "db_node.h"
-#include "seq_file.h"
 #include "common_buffers.h" // Buffer of uint32_t
+
+#include "seq_file/seq_file.h"
 
 typedef struct
 {

@@ -1,7 +1,7 @@
 #ifndef ASYNC_READ_IO_H_
 #define ASYNC_READ_IO_H_
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 #include "msg-pool/msgpool.h"
 
 #include "seq_loading_stats.h"

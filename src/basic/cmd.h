@@ -3,7 +3,7 @@
 
 #include <getopt.h> // struct option
 
-#include "seq_file.h"
+#include "seq_file/seq_file.h"
 
 // Constants
 
