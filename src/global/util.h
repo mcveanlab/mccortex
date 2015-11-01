@@ -23,6 +23,7 @@ bool parse_entire_size(const char *str, size_t *result);
 
 //
 int parse_list_doubles(double *list, size_t n, const char *str);
+int parse_list_sizes(size_t *list, size_t n, const char *str);
 
 //
 // Bits
@@ -133,6 +134,9 @@ char* hex_rand_str(char *str, size_t num);
 //
 // Maths
 //
+
+// prec should be 10**n where n is the number of decimal places you want
+#define ndecplaces(x,prec) (((long)((double)(x)*(prec)+0.5))/(double)(prec))
 
 float log_factorial(unsigned int number);
 float log_factorial_ll(unsigned long long number);

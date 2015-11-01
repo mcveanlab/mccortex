@@ -306,11 +306,10 @@ int ctx_build(int argc, char **argv)
   // Load graphs
   if(gfilebuf.len > 0)
   {
-    GraphLoadingPrefs gprefs = LOAD_GPREFS_INIT(&db_graph);
-    LoadingStats gstats = LOAD_STATS_INIT_MACRO;
+    GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
     for(i = 0; i < gfilebuf.len; i++) {
-      graph_load(&gfilebuf.b[i], gprefs, &gstats);
+      graph_load(&gfilebuf.b[i], gprefs, NULL);
       hash_table_print_stats(&db_graph.ht);
       graph_file_close(&gfilebuf.b[i]);
     }

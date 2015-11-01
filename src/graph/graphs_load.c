@@ -5,10 +5,27 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "graph_info.h"
-#include "range.h"
 
-// Memory mapped files used in graph_writer_merge()
-#include <sys/mman.h>
+//
+// Graph loading stats
+//
+
+void graph_loading_stats_destroy(GraphLoadingStats *s)
+{
+  ctx_free(s->nkmers);
+  ctx_free(s->sumcov);
+  memset(s, 0, sizeof(*s));
+}
+
+void graph_loading_stats_capacity(GraphLoadingStats *s, size_t n)
+{
+  if(n > s->ncols) {
+    s->nkmers = ctx_recallocarray(s->nkmers, s->ncols, n, sizeof(s->nkmers[0]));
+    s->sumcov = ctx_recallocarray(s->sumcov, s->ncols, n, sizeof(s->sumcov[0]));
+    s->ncols = n;
+  }
+}
+
 
 // Print loading message
 void graph_loading_print_status(const GraphFileReader *file)
@@ -38,7 +55,7 @@ void graph_loading_print_status(const GraphFileReader *file)
   @return number of kmers loaded
  */
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
-                  LoadingStats *stats)
+                  GraphLoadingStats *stats)
 {
   ctx_assert(!prefs.must_exist_in_graph || prefs.db_graph->col_edges == NULL ||
              prefs.must_exist_in_edges != NULL);
@@ -90,43 +107,43 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
   BinaryKmer bkmer;
   Covg covgs[ncols];
   Edges edges[ncols];
+  hkey_t hkey;
+  size_t nkmers_read = 0, nkmers_loaded = 0, nkmers_novel = 0;
 
-  size_t nkmers_parsed, num_of_kmers_loaded = 0;
-  uint64_t num_of_kmers_already_loaded = graph->ht.num_kmers;
+  if(stats) graph_loading_stats_capacity(stats, ncols);
 
-  for(nkmers_parsed = 0;
-      graph_file_read_reset(file, &bkmer, covgs, edges);
-      nkmers_parsed++)
+  for(; graph_file_read_reset(file, &bkmer, covgs, edges); nkmers_read++)
   {
-    // If kmer has no covg or edges -> don't load
+    // If kmer has no covg -> don't load
     Covg keep_kmer = 0;
-    for(i = 0; i < ncols; i++) keep_kmer |= covgs[i] | edges[i];
+    for(i = 0; i < ncols; i++) keep_kmer |= covgs[i];
     if(keep_kmer == 0) continue;
+
+    if(stats) {
+      for(i = 0; i < ncols; i++) {
+        stats->nkmers[i] += covgs[i] > 0;
+        stats->sumcov[i] += covgs[i];
+      }
+    }
 
     if(prefs.boolean_covgs)
       for(i = 0; i < ncols; i++)
         covgs[i] = covgs[i] > 0;
 
     // Fetch node in the de bruijn graph
-    hkey_t hkey;
-
     if(prefs.must_exist_in_graph)
     {
-      hkey = hash_table_find(&graph->ht, bkmer);
-      if(hkey == HASH_NOT_FOUND) continue;
-
+      if((hkey = hash_table_find(&graph->ht, bkmer)) == HASH_NOT_FOUND) continue;
       // Edges union_edges = db_node_get_edges_union(graph, hkey);
       Edges union_edges = prefs.must_exist_in_edges[hkey];
-
       for(i = 0; i < ncols; i++) edges[i] &= union_edges;
     }
     else
     {
       bool found;
       hkey = hash_table_find_or_insert(&graph->ht, bkmer, &found);
-
-      if(prefs.empty_colours && found)
-        die("Duplicate kmer loaded");
+      if(prefs.empty_colours && found) die("Duplicate kmer loaded");
+      nkmers_novel += !found;
     }
 
     // Set presence in colours
@@ -156,43 +173,40 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
       }
     }
 
-    num_of_kmers_loaded++;
+    nkmers_loaded++;
   }
 
-  if(file->num_of_kmers >= 0 && nkmers_parsed != (uint64_t)file->num_of_kmers)
+  if(file->num_of_kmers >= 0 && nkmers_read != (uint64_t)file->num_of_kmers)
   {
     warn("%s kmers in the graph file than expected "
          "[exp: %zu; act: %zu; path: %s]",
-         nkmers_parsed > (uint64_t)file->num_of_kmers ? "More" : "Fewer",
-         (size_t)file->num_of_kmers, nkmers_parsed, fltr->path.b);
+         nkmers_read > (uint64_t)file->num_of_kmers ? "More" : "Fewer",
+         (size_t)file->num_of_kmers, nkmers_read, fltr->path.b);
   }
 
   if(stats != NULL)
   {
-    stats->num_kmers_loaded += num_of_kmers_loaded;
-    stats->num_kmers_novel += graph->ht.num_kmers - num_of_kmers_already_loaded;
-    for(i = 0; i < file_filter_num(fltr); i++) {
-      fromcol = file_filter_fromcol(fltr,i);
-      stats->total_bases_read += hdr->ginfo[fromcol].total_sequence;
-    }
+    stats->nkmers_read += nkmers_read;
+    stats->nkmers_loaded += nkmers_loaded;
+    stats->nkmers_novel += nkmers_novel;
+    // for(i = 0; i < file_filter_num(fltr); i++) {
+    //   fromcol = file_filter_fromcol(fltr,i);
+    //   stats->total_bases_read += hdr->ginfo[fromcol].total_sequence;
+    // }
   }
 
-  char parsed_nkmers_str[100], loaded_nkmers_str[100];
-  double loaded_nkmers_pct = 0;
-  if(nkmers_parsed)
-    loaded_nkmers_pct = (100.0 * num_of_kmers_loaded) / nkmers_parsed;
-
-  ulong_to_str(num_of_kmers_loaded, loaded_nkmers_str);
-  ulong_to_str(nkmers_parsed, parsed_nkmers_str);
+  char n0[50], n1[50];
   status("[GReader] Loaded %s / %s (%.2f%%) of kmers parsed",
-         loaded_nkmers_str, parsed_nkmers_str, loaded_nkmers_pct);
+         ulong_to_str(nkmers_loaded, n0),
+         ulong_to_str(nkmers_read, n1),
+         safe_percent(nkmers_loaded, nkmers_read));
 
-  return num_of_kmers_loaded;
+  return nkmers_loaded;
 }
 
 // Load all files into colour 0
 void graphs_load_files_flat(GraphFileReader *gfiles, size_t num_files,
-                            GraphLoadingPrefs prefs, LoadingStats *stats)
+                            GraphLoadingPrefs prefs, GraphLoadingStats *stats)
 {
   size_t i;
   FileFilter origfltr;

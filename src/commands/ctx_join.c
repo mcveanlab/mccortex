@@ -261,11 +261,8 @@ int ctx_join(int argc, char **argv)
 
   if(take_intersect)
   {
-    GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                                .boolean_covgs = true, // covg++ only
-                                .must_exist_in_graph = false,
-                                .must_exist_in_edges = NULL,
-                                .empty_colours = false};
+    GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+    gprefs.boolean_covgs = true; // covg++ only
 
     for(i = 0; i < num_igfiles; i++)
     {

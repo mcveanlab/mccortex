@@ -5,7 +5,7 @@
 
 #include "cortex_types.h"
 #include "db_graph.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 #include "correct_aln_input.h"
 
 typedef struct GenPathWorker GenPathWorker;
@@ -30,6 +30,6 @@ void generate_paths(CorrectAlnInput *tasks, size_t num_tasks,
                     GenPathWorker *workers, size_t num_workers);
 
 CorrectAlnStats* gen_paths_get_aln_stats(GenPathWorker *wrkr);
-LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr);;
+SeqLoadingStats* gen_paths_get_stats(GenPathWorker *wrkr);
 
 #endif /* GENERATE_PATHS_H_ */

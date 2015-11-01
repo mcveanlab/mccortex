@@ -2,7 +2,7 @@
 #include "correct_reads.h"
 #include "correct_alignment.h"
 #include "async_read_io.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 #include "seq_reader.h"
 #include "file_util.h"
 #include "msg-pool/msgpool.h"
@@ -363,7 +363,7 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
   for(i = 1; i < num_threads; i++)
     correct_aln_merge_stats(&wrkrs[0].corrector, &wrkrs[i].corrector);
 
-  LoadingStats *load_stats = &wrkrs[0].corrector.load_stats;
+  SeqLoadingStats *load_stats = &wrkrs[0].corrector.load_stats;
   CorrectAlnStats *aln_stats = &wrkrs[0].corrector.aln_stats;
 
   correct_aln_dump_stats(aln_stats, load_stats,

@@ -63,7 +63,7 @@ typedef struct
   // Global settings
   dBGraph *db_graph;
   volatile size_t *rcounter;
-  LoadingStats *stats;
+  SeqLoadingStats *stats;
   bool invert;
   seq_format fmt; // output format
 
@@ -170,7 +170,7 @@ static void inputs_attempt_open()
 }
 
 static bool read_touches_graph(const read_t *r, const dBGraph *db_graph,
-                               LoadingStats *stats)
+                               SeqLoadingStats *stats)
 {
   bool found = false;
   BinaryKmer bkmer; Nucleotide nuc; dBNode node;
@@ -221,7 +221,7 @@ void filter_reads(AsyncIOData *data, void *arg)
   read_t *r1 = (read_t*)&data->r1, *r2 = data->r2.seq.end ? (read_t*)&data->r2 : NULL;
   AlignReadsData *input = (AlignReadsData*)data->ptr;
   const dBGraph *db_graph = input->db_graph;
-  LoadingStats *stats = input->stats;
+  SeqLoadingStats *stats = input->stats;
 
   ctx_assert2(r2 == NULL || input->seqout.is_pe,
               "Were not expecting r2: %p %i", r2, (int)input->seqout.is_pe);
@@ -280,16 +280,12 @@ int ctx_reads(int argc, char **argv)
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, 1, 0, kmers_in_hash, 0);
 
   // Load graphs
-  LoadingStats gstats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .must_exist_in_graph = false,
-                              .empty_colours = true,
-                              .boolean_covgs = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < num_gfiles; i++) {
     file_filter_flatten(&gfiles[i].fltr, 0);
-    graph_load(&gfiles[i], gprefs, &gstats);
+    graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }
@@ -301,7 +297,8 @@ int ctx_reads(int argc, char **argv)
   //
   // Filter reads using async io
   //
-  LoadingStats seq_stats = LOAD_STATS_INIT_MACRO;
+  SeqLoadingStats seq_stats;
+  memset(&seq_stats, 0, sizeof(seq_stats));
 
   for(i = 0; i < inputs.len; i++) {
     inputs.b[i].stats = &seq_stats;

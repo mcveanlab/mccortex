@@ -142,10 +142,8 @@ int ctx_health_check(int argc, char **argv)
   // Paths
   gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, false, &db_graph);
 
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   graph_load(&gfile, gprefs, NULL);
 

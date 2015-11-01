@@ -13,9 +13,10 @@ use CortexScripts;
 
 #
 # TODO:
+# [ ] make-pipeline.pl: add genotyping, using 'mccortex view' to get kmer covg
+# [ ] just merge VCF sites
 # [ ] Merge info fields when merging VCF files (waiting on bcftools request)
 # [ ] Add pooled cleaning (for low coverage samples)
-# [ ] genotyping sites
 # [ ] pass genome size / fetch from ref FASTA
 # [x] 1-by-1 bubble/breakpoint calling for lower memory
 # [x] add option to use stampy to map

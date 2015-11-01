@@ -1,7 +1,7 @@
 #ifndef CORRECT_ALN_STATS_H_
 #define CORRECT_ALN_STATS_H_
 
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 #include "common_buffers.h"
 
 #define ALN_STATS_MAX_GAP 128
@@ -75,7 +75,7 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
  * @param dump_contiglen_hist_path path to save contig lengths - can be null
 **/
 void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
-                            const LoadingStats *load_stats,
+                            const SeqLoadingStats *load_stats,
                             const char *dump_seqgap_hist_path,
                             const char *dump_fraglen_hist_path,
                             size_t ht_num_kmers);

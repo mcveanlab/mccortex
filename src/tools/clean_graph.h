@@ -5,11 +5,11 @@
 
 /**
  * Pick a cleaning threshold from kmer coverage histogram. Assumes low coverage
- * kmers are all due to error, to which it fits a gamma distribution. Then
- * chooses a cleaning threshold such than FDR (uncleaned kmers) occur at a rate
- * of < the FDR paramater.
+ * kmers are all due to error. Fits a poisson with a gamma distributed mean.
+ * Then chooses a cleaning threshold such than FDR (uncleaned kmers) occur at a
+ * rate of < the FDR paramater.
  *
- * Translated from Gil McVean's proposed method in R code
+ * Translated from Gil McVean's initial proposed method in R code
  *
  * @param kmer_covg Histogram of kmer counts at coverages 1,2,.. arrlen-1
  * @param arrlen    Length of array kmer_covg

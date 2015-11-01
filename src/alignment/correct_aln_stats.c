@@ -285,7 +285,7 @@ void correct_aln_stats_print_summary(const CorrectAlnStats *stats,
  * @param dump_contiglen_hist_path path to save contig lengths - can be null
 **/
 void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
-                            const LoadingStats *load_stats,
+                            const SeqLoadingStats *load_stats,
                             const char *dump_seqgap_hist_path,
                             const char *dump_fraglen_hist_path,
                             size_t ht_num_kmers)
@@ -302,5 +302,5 @@ void correct_aln_dump_stats(const CorrectAlnStats *aln_stats,
     correct_aln_stats_dump_fraglen(aln_stats, dump_fraglen_hist_path);
   }
 
-  loading_stats_print_summary(load_stats, ht_num_kmers);
+  seq_loading_stats_print(load_stats, ht_num_kmers);
 }

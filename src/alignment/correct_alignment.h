@@ -73,7 +73,7 @@ typedef struct
   Int32Buffer rpos;
 
   // Statistics on gap traversal
-  LoadingStats load_stats;
+  SeqLoadingStats load_stats;
   CorrectAlnStats aln_stats;
   bool store_contig_lens;
 } CorrectAlnWorker;

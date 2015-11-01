@@ -5,7 +5,7 @@
 #include "seq_reader.h"
 #include "prune_nodes.h"
 #include "supernode.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 #include "util.h"
 
 typedef struct
@@ -14,7 +14,7 @@ typedef struct
   uint8_t *const kmer_mask; // bitset of visited kmers
   const bool grab_supernodes; // grab entire supernodes or just kmers
   dBNodeBuffer nbufs[2], snode_buf;
-  LoadingStats stats;
+  SeqLoadingStats stats;
 } SubgraphBuilder;
 
 static void subgraph_builder_alloc(SubgraphBuilder *builder,
@@ -31,7 +31,7 @@ static void subgraph_builder_alloc(SubgraphBuilder *builder,
   db_node_buf_alloc(&builder->nbufs[0], num_fringe_nodes);
   db_node_buf_alloc(&builder->nbufs[1], num_fringe_nodes);
   db_node_buf_alloc(&builder->snode_buf, 128);
-  loading_stats_init(&builder->stats);
+  seq_loading_stats_init(&builder->stats);
 }
 
 static void subgraph_builder_dealloc(SubgraphBuilder *builder)

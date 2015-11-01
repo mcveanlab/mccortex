@@ -1,7 +1,6 @@
 #ifndef GRAPHS_LOAD_H_
 #define GRAPHS_LOAD_H_
 
-#include "loading_stats.h"
 #include "db_graph.h"
 #include "graph_file_reader.h"
 
@@ -21,12 +20,28 @@ typedef struct
   bool empty_colours;
 } GraphLoadingPrefs;
 
-#define LOAD_GPREFS_INIT(graph) {  \
-  .db_graph = (graph),             \
-  .boolean_covgs = false,          \
-  .must_exist_in_graph = false,    \
-  .must_exist_in_edges = NULL,     \
-  .empty_colours = false}
+typedef struct
+{
+  uint64_t nkmers_read, nkmers_loaded, nkmers_novel;
+  uint64_t *nkmers, *sumcov; // one per colour
+  size_t ncols; // max colour + 1 that we loaded into
+} GraphLoadingStats;
+
+void graph_loading_stats_capacity(GraphLoadingStats *s, size_t n);
+void graph_loading_stats_destroy(GraphLoadingStats *stats);
+
+static inline GraphLoadingPrefs graph_loading_prefs(dBGraph *graph)
+{
+  GraphLoadingPrefs prefs =
+  {
+    .db_graph = graph,
+    .boolean_covgs = false,
+    .must_exist_in_graph = false,
+    .must_exist_in_edges = NULL,
+    .empty_colours = false
+  };
+  return prefs;
+}
 
 // Print loading message
 void graph_loading_print_status(const GraphFileReader *file);
@@ -40,10 +55,10 @@ void graph_loading_print_status(const GraphFileReader *file);
 //   stats->total_bases_read
 // If header is != NULL, header will be stored there.  Be sure to free.
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
-                  LoadingStats *stats);
+                  GraphLoadingStats *stats);
 
 // Load all files into colour 0
 void graphs_load_files_flat(GraphFileReader *gfiles, size_t num_files,
-                           GraphLoadingPrefs prefs, LoadingStats *stats);
+                           GraphLoadingPrefs prefs, GraphLoadingStats *stats);
 
 #endif /* GRAPHS_LOAD_H_ */

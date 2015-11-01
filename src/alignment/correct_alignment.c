@@ -36,7 +36,7 @@ void correct_aln_worker_alloc(CorrectAlnWorker *wrkr, bool store_contig_lens,
   int32_buf_alloc(&tmp.rpos, INIT_BUFLEN);
 
   correct_aln_stats_alloc(&tmp.aln_stats);
-  loading_stats_init(&tmp.load_stats);
+  seq_loading_stats_init(&tmp.load_stats);
 
   memcpy(wrkr, &tmp, sizeof(CorrectAlnWorker));
 }
@@ -101,8 +101,8 @@ void correct_aln_merge_stats(CorrectAlnWorker *restrict dst,
 {
   correct_aln_stats_merge(&dst->aln_stats, &src->aln_stats);
   correct_aln_stats_dealloc(&src->aln_stats);
-  loading_stats_merge(&dst->load_stats, &src->load_stats);
-  loading_stats_init(&src->load_stats);
+  seq_loading_stats_merge(&dst->load_stats, &src->load_stats);
+  seq_loading_stats_init(&src->load_stats);
 }
 
 // block is nodes that we are walking towards

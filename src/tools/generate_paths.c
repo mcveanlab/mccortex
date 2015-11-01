@@ -135,7 +135,7 @@ CorrectAlnStats* gen_paths_get_aln_stats(GenPathWorker *wrkr)
   return &wrkr->corrector.aln_stats;
 }
 
-LoadingStats* gen_paths_get_stats(GenPathWorker *wrkr)
+SeqLoadingStats* gen_paths_get_stats(GenPathWorker *wrkr)
 {
   return &wrkr->corrector.load_stats;
 }

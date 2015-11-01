@@ -4,7 +4,7 @@
 #include "seq_file.h"
 #include "msg-pool/msgpool.h"
 
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 
 // Rename async_read_io.h -> async_read.h
 // AsyncIOInput->AsyncReadFiles AsyncIOData->AsyncReadData

@@ -291,16 +291,11 @@ int ctx_uniqkmers(int argc, char **argv)
   //
   // Load graphs
   //
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < gfilebuf.len; i++) {
-    graph_load(&gfilebuf.b[i], gprefs, &stats);
+    graph_load(&gfilebuf.b[i], gprefs, NULL);
     graph_file_close(&gfilebuf.b[i]);
     gprefs.empty_colours = false;
   }

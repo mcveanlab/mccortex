@@ -214,7 +214,8 @@ static void read_update_counts(void *arg)
     add_ref_read_to_graph_mt(r, data.ref_col, data.klists, data.db_graph);
   }
   else {
-    LoadingStats stats = LOAD_STATS_INIT_MACRO;
+    SeqLoadingStats stats;
+    memset(&stats, 0, sizeof(stats));
     READ_TO_BKMERS(r, data.db_graph->kmer_size, 0, 0, &stats,
                    bkmer_update_counts_find_mt, data.klists, data.db_graph);
   }
@@ -244,7 +245,8 @@ static void read_store_kmer_pos(const read_t *r, size_t chrom_id,
                                 KONodeList *klists, const dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
+  SeqLoadingStats stats;
+  memset(&stats, 0, sizeof(stats));
   READ_TO_BKMERS(r, kmer_size, 0, 0, &stats, bkmer_store_kmer_pos,
                  klists, chrom_id, _offset, db_graph);
 }
@@ -279,7 +281,8 @@ static void load_reads_count_kmers(const read_t *reads, size_t num_reads,
 
   // Update ginfo
   if(add_missing_kmers) {
-    LoadingStats stats = LOAD_STATS_INIT_MACRO;
+    SeqLoadingStats stats;
+    memset(&stats, 0, sizeof(stats));
     stats.num_se_reads   = num_reads;
     stats.contigs_parsed = num_reads;
     for(i = 0; i < num_reads; i++) {

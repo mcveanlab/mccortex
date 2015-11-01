@@ -180,26 +180,20 @@ int ctx_subgraph(int argc, char **argv)
 
   uint8_t *kmer_mask = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
   //
   // Load graphs
   //
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   StrBuf intersect_gname;
   strbuf_alloc(&intersect_gname, 1024);
 
   if(total_cols > db_graph.num_of_cols) {
-    graphs_load_files_flat(gfiles, num_gfiles, gprefs, &stats);
+    graphs_load_files_flat(gfiles, num_gfiles, gprefs, NULL);
   }
   else {
     for(i = 0; i < num_gfiles; i++)
-      graph_load(&gfiles[i], gprefs, &stats);
+      graph_load(&gfiles[i], gprefs, NULL);
   }
 
   // Create header

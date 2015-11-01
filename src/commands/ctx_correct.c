@@ -192,15 +192,11 @@ int ctx_correct(int argc, char **argv)
   //
   // Load Graph and Path files
   //
-  LoadingStats gstats = LOAD_STATS_INIT_MACRO;
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   // Load graph, print stats, close file
-  graph_load(gfile, gprefs, &gstats);
+  graph_load(gfile, gprefs, NULL);
   hash_table_print_stats_brief(&db_graph.ht);
   graph_file_close(gfile);
 

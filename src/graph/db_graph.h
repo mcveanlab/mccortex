@@ -24,8 +24,8 @@ typedef struct
 {
   HashTable ht;
   const size_t kmer_size;
-  const size_t num_of_cols; // How many colours malloc'd for node_in_cols,col_covgs,ginfo
-  const size_t num_edge_cols; // How many colours malloc'd for col_edges
+  size_t num_of_cols; // How many colours malloc'd for node_in_cols,col_covgs,ginfo
+  size_t num_edge_cols; // How many colours malloc'd for col_edges
   // num_edge_cols is how many edges are stored per node: 1 or num_of_cols
 
   size_t num_of_cols_used; // how many colours currently used
@@ -147,6 +147,14 @@ uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
 
 // Check kmer size of a file
 void db_graph_check_kmer_size(size_t kmer_size, const char *path);
+
+//
+// Stats
+//
+
+// nkmers and sumcov should be ncols
+void db_graph_get_kmer_covg(const dBGraph *db_graph, size_t nthreads,
+                            uint64_t *nkmers, uint64_t *sumcov);
 
 //
 // Healthcheck

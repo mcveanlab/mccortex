@@ -449,7 +449,7 @@ size_t graph_writer_stream(const char *out_ctx_path, GraphFileReader *file,
   {
     // Collapse down colours
     Covg keep_kmer = 0;
-    for(i = 0; i < ncols; i++) keep_kmer |= covgs[i] | edges[i];
+    for(i = 0; i < ncols; i++) keep_kmer |= covgs[i];
 
     // If kmer has no covg or edges -> don't load
     if(keep_kmer)
@@ -548,17 +548,12 @@ size_t graph_writer_merge(const char *out_ctx_path,
   else if(num_files == 1)
   {
     return graph_writer_stream(out_ctx_path, &files[0], db_graph, hdr,
-                              only_load_if_in_edges);
+                               only_load_if_in_edges);
   }
 
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs prefs
-    = {.db_graph = db_graph,
-       .boolean_covgs = false,
-       .must_exist_in_graph = only_load_if_in_graph,
-       .must_exist_in_edges = only_load_if_in_edges,
-       .empty_colours = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(db_graph);
+  gprefs.must_exist_in_graph = only_load_if_in_graph;
+  gprefs.must_exist_in_edges = only_load_if_in_edges;
 
   if(output_colours <= db_graph->num_of_cols)
   {
@@ -567,10 +562,10 @@ size_t graph_writer_merge(const char *out_ctx_path,
 
     if(!kmers_loaded) {
       for(i = 0; i < num_files; i++)
-        graph_load(&files[i], prefs, &stats);
+        graph_load(&files[i], gprefs, NULL);
+      hash_table_print_stats(&db_graph->ht);
     }
 
-    hash_table_print_stats(&db_graph->ht);
     graph_writer_save(out_ctx_path, db_graph, hdr, 0, NULL, 0, output_colours);
   }
   else
@@ -589,7 +584,7 @@ size_t graph_writer_merge(const char *out_ctx_path,
 
     // Load all kmers into flat graph
     if(!kmers_loaded)
-      graphs_load_files_flat(files, num_files, prefs, &stats);
+      graphs_load_files_flat(files, num_files, gprefs, NULL);
 
     // print file outline
     status("Generated merged hash table\n");
@@ -645,7 +640,7 @@ size_t graph_writer_merge(const char *out_ctx_path,
         file_filter_update(fltr);
 
         if(file_filter_num(fltr) > 0)
-          files_loaded |= (graph_load(&files[f], prefs, &stats) > 0);
+          files_loaded |= (graph_load(&files[f], gprefs, NULL) > 0);
 
         // Restore original filter
         file_filter_copy(fltr, &origfltr);

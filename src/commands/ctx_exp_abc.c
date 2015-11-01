@@ -434,14 +434,10 @@ int ctx_exp_abc(int argc, char **argv)
   gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len, path_mem, false, &db_graph);
 
   // Load the graph
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = true};
-
-  graph_load(&gfile, gprefs, &stats);
+  graph_load(&gfile, gprefs, NULL);
   graph_file_close(&gfile);
 
   hash_table_print_stats(&db_graph.ht);

@@ -349,10 +349,7 @@ int ctx_unitigs(int argc, char **argv)
     unitig_graph_alloc(&printer.ugraph, &db_graph);
 
   // Load graphs
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   for(i = 0; i < num_gfiles; i++) {
     file_filter_flatten(&gfiles[i].fltr, 0);

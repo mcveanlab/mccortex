@@ -169,7 +169,7 @@ void graph_info_merge(GraphInfo *dst, const GraphInfo *src)
   dst->total_sequence = total_sequence;
 }
 
-void graph_info_update_stats(GraphInfo *ginfo, const LoadingStats *stats)
+void graph_info_update_stats(GraphInfo *ginfo, const SeqLoadingStats *stats)
 {
   graph_info_update_contigs(ginfo, stats->total_bases_loaded, stats->contigs_parsed);
 }

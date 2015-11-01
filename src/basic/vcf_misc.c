@@ -46,3 +46,15 @@ void vcf_misc_hdr_add_cmd(bcf_hdr_t *hdr, const char *cmdline, const char *cwd)
   bcf_hdr_append(hdr, sbuf.b);
   strbuf_dealloc(&sbuf);
 }
+
+// Find/add and then update a header record
+void vcf_misc_add_update_hrec(bcf_hrec_t *hrec, char *key, char *val)
+{
+  int keyidx = bcf_hrec_find_key(hrec, key);
+  if(keyidx < 0) {
+    status("Adding sample key [%s] => [%s]", key, val);
+    bcf_hrec_add_key(hrec, key, strlen(key));
+    keyidx = hrec->nkeys-1;
+  }
+  bcf_hrec_set_val(hrec, keyidx, val, strlen(val), 0); // 0 => not quoted
+}

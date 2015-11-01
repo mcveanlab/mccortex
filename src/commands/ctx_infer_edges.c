@@ -274,16 +274,11 @@ int ctx_infer_edges(int argc, char **argv)
                  ncols, reading_stream ? ncols : 1,
                  kmers_in_hash, alloc_flags);
 
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = false};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   // We need to load the graph for both --pop and --all since we need to check
   // if the next kmer is in each of the colours
-  graph_load(&file, gprefs, &stats);
+  graph_load(&file, gprefs, NULL);
 
   if(add_pop_edges) status("Inferring edges from population...\n");
   else status("Inferring all missing edges...\n");

@@ -13,7 +13,7 @@
 #include "db_graph.h"
 #include "seq_reader.h"
 #include "async_read_io.h"
-#include "loading_stats.h"
+#include "seq_loading_stats.h"
 
 typedef struct
 {
@@ -24,7 +24,7 @@ typedef struct
   bool remove_pcr_dups;
 
   // Stats are written to here
-  LoadingStats stats;
+  SeqLoadingStats stats;
 
   // used internally
   size_t idx;
@@ -33,7 +33,7 @@ typedef struct
 #define BUILD_GRAPH_TASK_INIT {.fq_cutoff = 0, .hp_cutoff = 0,       \
                                .matedir = READPAIR_FR, .colour = 0,  \
                                .remove_pcr_dups = false,             \
-                               .stats = LOAD_STATS_INIT_MACRO,       \
+                               .stats = SEQ_LOADING_STATS_INIT,      \
                                .idx = 0}
 
 #include "madcrowlib/madcrow_buffer.h"
@@ -53,7 +53,7 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                uint8_t fq_offset1, uint8_t fq_offset2,
                                uint8_t fq_cutoff, uint8_t hp_cutoff,
                                bool remove_pcr_dups, ReadMateDir matedir,
-                               LoadingStats *stats, size_t colour,
+                               SeqLoadingStats *stats, size_t colour,
                                dBGraph *db_graph);
 
 // One thread used per input file, num_build_threads used to add reads to graph

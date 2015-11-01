@@ -113,19 +113,49 @@ bool parse_entire_size(const char *str, size_t *result)
 
 // read comma separated doubles (no more than n) into `list`
 // return number of elements read or <0 on error
-int parse_list_doubles(double *list, size_t n, const char *str)
+int parse_list(void *list, size_t n, size_t el,
+               void (*convert)(void *dst, const char *str, char **end),
+               const char *str)
 {
-  const char *end = str; char *dendptr = NULL;
+  char *l = (char*)list, *dendptr = NULL;
+  const char *end = str;
   size_t i = 0;
 
-  while(i < n && (end = strendc(str, ',')) > str) {
-    list[i++] = strtod(str, &dendptr);
+  for(; i < n && (end = strendc(str, ',')) > str; str = end+1)
+  {
+    convert(l+el*i, str, &dendptr);
+    i++;
     if(dendptr != end) return -1;
     if(!*end) break;
-    str = end+1;
   }
 
   return *end ? -1 : i; // return -1 if still some entries left
+}
+
+void convert_double(void *dst, const char *str, char **end)
+{
+  *(double*)dst = strtod(str, end);
+}
+
+void convert_size(void *dst, const char *str, char **end)
+{
+  unsigned long s = strtoul(str, end, 10);
+  if(*end && *end > str) {
+    if(s > SIZE_MAX) *end = (char*)str; // invalid value
+    else *(size_t*)dst = s;
+  }
+}
+
+// read comma separated doubles (no more than n) into `list`
+// return number of elements read or <0 on error
+int parse_list_doubles(double *list, size_t n, const char *str)
+{
+  return parse_list(list, n, sizeof(double), convert_double, str);
+}
+
+int parse_list_sizes(size_t *list, size_t n, const char *str)
+{
+  return parse_list(list, n, sizeof(size_t), convert_size, str);
 }
 
 //

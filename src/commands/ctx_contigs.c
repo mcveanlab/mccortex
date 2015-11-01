@@ -263,15 +263,11 @@ int ctx_contigs(int argc, char **argv)
     visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
   // Load graph
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
-
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .empty_colours = true};
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.empty_colours = true;
 
   for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &stats);
+    graph_load(&gfiles[i], gprefs, NULL);
     graph_file_close(&gfiles[i]);
     gprefs.empty_colours = false;
   }

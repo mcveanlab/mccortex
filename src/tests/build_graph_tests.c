@@ -28,7 +28,8 @@ void test_build_graph()
   seq_read_alloc(&r1);
   seq_read_alloc(&r2);
 
-  LoadingStats stats = LOAD_STATS_INIT_MACRO;
+  SeqLoadingStats stats;
+  memset(&stats, 0, sizeof(stats));
   size_t total_seq = 0, contigs_loaded = 0;
 
   // Test loading empty reads are ok

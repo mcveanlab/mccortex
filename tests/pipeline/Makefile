@@ -77,7 +77,7 @@ truth.ben.jerry.vcf: truth.ben.vcf proj/k31/graphs/jerry.raw.ctx
 
 truth.geno.vcf: truth.ben.jerry.vcf
 	KDEPTH=$$((($(DEPTH) * ($(READLEN) - 31 + 1)) / $(READLEN))); \
-	$(MCCORTEX) vcfgeno --kcov $$KDEPTH --ploidy 1 -o $@ $< >& $@.log
+	$(MCCORTEX) vcfgeno --kcov $$KDEPTH --ploidy 1 --llk -o $@ $< >& $@.log
 
 ref/ref.fa.bwt: ref/ref.fa
 	$(BWA) index ref/ref.fa
@@ -120,13 +120,15 @@ $(DIRS):
 VIEWFILES=truth.vcf.gz \
           proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz \
           proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz \
-          truth.ben.jerry.vcf
+          truth.ben.jerry.vcf \
+          truth.geno.vcf
 
 view: $(VIEWFILES)
 	$(VCFENTRIES) truth.vcf.gz
 	$(VCFENTRIES) proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz
 	$(VCFENTRIES) proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
 	$(VCFENTRIES) truth.ben.jerry.vcf
+	$(VCFENTRIES) truth.geno.vcf
 
 clean:
 	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk

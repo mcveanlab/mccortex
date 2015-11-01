@@ -6,6 +6,7 @@
 # HASH=<CITY,LOOKUP3,XXHASH> (default hash function)
 # RECOMPILE=1                (recompile all from source)
 # NOLIBS=1                   (do not attempt to recompile library code)
+# STRICT=1                   (compile with stricter CC warnings)
 
 # Resolve some issues linking libz:
 # e.g. for WTCHG cluster3
@@ -21,7 +22,6 @@
 
 # Use bash as shell
 SHELL := /bin/bash
-CC ?= gcc
 
 ## Toggle Release Version
 #
@@ -30,7 +30,7 @@ CC ?= gcc
 #
 ##
 
-MAXK ?= 31
+MAXK = 31
 LOWK = $(word 1, $(shell echo 31 $(MAXK) | sort -n))
 TEST_KMER=$(shell echo $$[(($(MAXK)+31)/32)*32 - 1])
 
@@ -94,34 +94,31 @@ INCS=-I libs -I $(IDIR_HTS) -I $(IDIR_SEQ) $(EXTRA_INCS)
 LIB_OBJS=$(LIB_MISC) $(LIB_STRS) $(LIB_CARRAYS) $(LIB_HTS) $(LIB_ALIGN) libs/cJSON/cJSON.o
 LINK=-lpthread -lz -lm
 
-CFLAGS = -std=c99 -Wall -Wextra
+# Preprocessor declarations
 CPPFLAGS=$(HASH_KEY_FLAGS) -D_USESAM=1
 KMERARGS=-DMIN_KMER_SIZE=$(MIN_KMER_SIZE) -DMAX_KMER_SIZE=$(MAX_KMER_SIZE)
 
+# C Compiler flags
+CFLAGS = -std=c99 -Wall -Wextra
 # -fno-strict-aliasing
-USEFUL_CFLAGS=-Wshadow -Wstrict-aliasing=2
+CFLAGS_USEFUL = -Wshadow -Wstrict-aliasing=2 \
+	              -Winit-self -Wmissing-include-dirs \
+	              -Wdiv-by-zero -Wsign-compare \
+	              -Wmissing-noreturn -Wreturn-type \
+	              -Wwrite-strings -Wundef -Wpointer-arith \
+	              -Wfloat-equal -Wbad-function-cast
 
-# -Wcast-align catches htslib doing (uint32_t*)(x) where x is (uint8_t*)
-# IGNORE_CFLAGS=-Wno-aggregate-return -Wno-conversion -Wno-cast-align
-# -D_FORTIFY_SOURCE=2 triggers issues on older systems (if not linking to ssp?)
-OVERKILL_CFLAGS = -Winit-self -Wmissing-include-dirs \
-                  -Wstrict-aliasing -Wdiv-by-zero -Wsign-compare \
-                  -Wcast-qual -Wmissing-noreturn -Wreturn-type \
-                  -Wwrite-strings -Wundef -Wpointer-arith \
-                  -Wfloat-equal -Wbad-function-cast \
-                  -fstack-protector-all
+ifdef STRICT
+	CFLAGS_STRICT = -Wcast-qual -fstack-protector-all
+	ifneq (,$(findstring clang,$(COMPILER)))
+		CFLAGS_STRICT := $(CFLAGS_STRICT) -fsanitize-undefined-trap-on-error
+	endif
+endif
 
-CLANG_CFLAGS=-fsanitize-undefined-trap-on-error
-#-Wno-shorten-64-to-32
-
-CFLAGS := $(CFLAGS) $(OVERKILL_CFLAGS) $(USEFUL_CFLAGS) $(IGNORE_CFLAGS)
+CFLAGS := $(CFLAGS) $(CFLAGS_USEFUL) $(CFLAGS_STRICT)
 
 PLATFORM := $(shell uname)
 COMPILER := $(shell ($(CC) -v 2>&1) | tr A-Z a-z )
-
-ifneq (,$(findstring clang,$(COMPILER)))
-	CFLAGS := $(CFLAGS) $(CLANG_CFLAGS)
-endif
 
 # If not debugging, add optimisations and -DNDEBUG=1 to turn off assert() calls
 ifdef DEBUG

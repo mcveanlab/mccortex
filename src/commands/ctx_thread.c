@@ -198,12 +198,8 @@ int ctx_thread(int argc, char **argv)
   GenPathWorker *workers;
   workers = gen_paths_workers_alloc(args.nthreads, &db_graph);
 
-  // Setup for loading graphs graph
-  LoadingStats gstats;
-  loading_stats_init(&gstats);
-
   // Path statistics
-  LoadingStats *load_stats = gen_paths_get_stats(workers);
+  SeqLoadingStats *load_stats = gen_paths_get_stats(workers);
   CorrectAlnStats *aln_stats = gen_paths_get_aln_stats(workers);
 
   // Load contig hist distribution
@@ -214,14 +210,12 @@ int ctx_thread(int argc, char **argv)
                                   &aln_stats->contig_histgrm);
   }
 
-  GraphLoadingPrefs gprefs = {.db_graph = &db_graph,
-                              .boolean_covgs = false,
-                              .must_exist_in_graph = false,
-                              .must_exist_in_edges = NULL,
-                              .empty_colours = false}; // already loaded paths
+  // Setup for loading graphs graph
+  // Don't set gprefs.empty_colours => we've already loaded paths
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
 
   // Load graph, print stats, close file
-  graph_load(gfile, gprefs, &gstats);
+  graph_load(gfile, gprefs, NULL);
   hash_table_print_stats_brief(&db_graph.ht);
   graph_file_close(gfile);
 
