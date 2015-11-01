@@ -190,12 +190,8 @@ int ctx_dist_matrix(int argc, char **argv)
     fprintf(fout, "\n");
   }
 
-  if(out_path && strcmp(out_path,"-") != 0) {
-    status("[dist_matrix]   written to %s", out_path);
-    fclose(fout);
-  } else {
-    status("[dist_matrix]   written to STDOUT");
-  }
+  status("[dist_matrix]   written to %s", futil_outpath_str(out_path));
+  fclose(fout);
 
   for(i = 0; i < nthreads; i++)
     ctx_free(workers.matrices[i]);

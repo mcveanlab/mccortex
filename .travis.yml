@@ -4,8 +4,12 @@
 #       Instead we use a script to decide if we should do anything
 
 language: c
-compiler: gcc
-os: linux
+compiler:
+- clang
+- gcc
+os:
+- linux
+- osx
 
 sudo: false
 

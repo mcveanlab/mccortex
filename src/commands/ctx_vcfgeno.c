@@ -751,7 +751,7 @@ int ctx_vcfgeno(int argc, char **argv)
   ctx_free(err_rates);
   ctx_free(log_errs);
   ctx_free(kcovgs);
-  for(r = 0; r < nseqs; r++) ctx_free(ploidy_mat[0]);
+  for(r = 0; r < nseqs; r++) ctx_free(ploidy_mat[r]);
   ctx_free(ploidy_mat);
 
   math_calcs_destroy();

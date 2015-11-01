@@ -33,8 +33,8 @@ bool futil_is_file_readable(const char *file);
 bool futil_is_file_writable(const char *file);
 off_t futil_get_file_size(const char* filepath);
 
-#define futil_outpath_str(path) (strcmp(path,"-") == 0 ? "STDOUT" : (path))
-#define futil_inpath_str(path) (strcmp(path,"-") == 0 ? "STDIN" : (path))
+#define futil_outpath_str(path) (!(path) || strcmp(path,"-") == 0 ? "STDOUT" : (path))
+#define futil_inpath_str(path) (!(path) ||strcmp(path,"-") == 0 ? "STDIN" : (path))
 
 /*!
   Create file and parent directories
