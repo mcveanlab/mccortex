@@ -16,9 +16,9 @@ addons:
   coverity_scan:
     project:
       name: "mcveanlab/mccortex"
-      description: "Build submitted via Travis CI"
+      description: Build submitted via Travis CI
     notification_email: turner.isaac@gmail.com
-    build_command_prepend: make clean
+    build_command_prepend: git submodule update --init --recursive
     build_command: make all
     branch_pattern: coverity_scan
 
