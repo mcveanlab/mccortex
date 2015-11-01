@@ -67,11 +67,9 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
 {
   // Add latest command
-  #define CMD_KEY_PREFIX ""
   #define CMD_KEY_LEN 8
-  char keystr[strlen(CMD_KEY_PREFIX)+CMD_KEY_LEN+1];
-  strcpy(keystr, CMD_KEY_PREFIX);
-  hex_rand_str(keystr+strlen(CMD_KEY_PREFIX), CMD_KEY_LEN+1);
+  char keystr[CMD_KEY_LEN+1];
+  hex_rand_str(keystr, CMD_KEY_LEN+1);
 
   cJSON *command = cJSON_CreateObject();
   cJSON_AddStringToObject(command, "key", keystr);
