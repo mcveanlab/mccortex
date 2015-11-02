@@ -54,7 +54,7 @@ def fake_vcf(ref_path):
   # Generate entries
   for name,s in chrs.items():
     for i in range(0,len(s)):
-      print(name,"\t",str(i+1),"\t.\t",s[i],"\t",mut[s[i]],"\t.\tPASS\t.\t.",sep='');
+      print(name,str(i+1),".",s[i],mut[s[i]],".","PASS",".",".",sep='\t');
 
 def main():
   if len(sys.argv) != 2:

@@ -349,7 +349,7 @@ bool graph_cache_is_3p_flank(GraphCache *cache,
   word0 = gc_step_encode_uint32(first0);
 
   for(i = 1; i < num_steps; i++) {
-    first1 = gc_path_first_step(cache, gc_step_get_path(cache, steps[1]));
+    first1 = gc_path_first_step(cache, gc_step_get_path(cache, steps[i]));
     word1 = gc_step_encode_uint32(first1);
     if(word0 != word1) break;
   }

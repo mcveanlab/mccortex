@@ -14,7 +14,7 @@
 #include <pthread.h> // multithreading
 
 BubbleCaller* bubble_callers_new(size_t num_callers,
-                                 BubbleCallingPrefs prefs,
+                                 const BubbleCallingPrefs *prefs,
                                  gzFile gzout,
                                  const dBGraph *db_graph)
 {
@@ -22,7 +22,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
 
   // Max usage is 4 * max_allele_len * cols
   size_t i;
-  size_t max_path_len = MAX2(prefs.max_flank_len, prefs.max_allele_len);
+  size_t max_path_len = MAX2(prefs->max_flank_len, prefs->max_allele_len);
 
   BubbleCaller *callers = ctx_malloc(num_callers * sizeof(BubbleCaller));
 
@@ -33,7 +33,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
 
   for(i = 0; i < num_callers; i++)
   {
-    bool *haploid_seen = ctx_calloc(prefs.nhaploid_cols, sizeof(bool));
+    bool *haploid_seen = ctx_calloc(prefs->nhaploid_cols, sizeof(bool));
 
     BubbleCaller tmp = {.threadid = i, .nthreads = num_callers,
                         .haploid_seen = haploid_seen,
@@ -49,7 +49,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
     callers[i].unitig_map = kh_init(uint32to32);
 
     // First two buffers don't actually need to grow
-    db_node_buf_alloc(&callers[i].flank5p, prefs.max_flank_len);
+    db_node_buf_alloc(&callers[i].flank5p, prefs->max_flank_len);
     db_node_buf_alloc(&callers[i].pathbuf, max_path_len);
 
     graph_walker_alloc(&callers[i].wlk, db_graph);
@@ -94,7 +94,7 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
 
 // Print JSON header to gzout
 static void bubble_caller_print_header(gzFile gzout, const char* out_path,
-                                       BubbleCallingPrefs prefs,
+                                       const BubbleCallingPrefs *prefs,
                                        cJSON **hdrs, size_t nhdrs,
                                        const dBGraph *db_graph)
 {
@@ -110,11 +110,11 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
 
   // Add parameters used in bubble calling to the header
-  json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs.max_flank_len));
-  json_hdr_augment_cmd(json, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs.max_allele_len));
+  json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));
+  json_hdr_augment_cmd(json, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs->max_allele_len));
   cJSON *haploids = cJSON_CreateArray();
-  for(i = 0; i < prefs.nhaploid_cols; i++)
-    cJSON_AddItemToArray(haploids, cJSON_CreateInt(prefs.haploid_cols[i]));
+  for(i = 0; i < prefs->nhaploid_cols; i++)
+    cJSON_AddItemToArray(haploids, cJSON_CreateInt(prefs->haploid_cols[i]));
   json_hdr_augment_cmd(json, "bubbles", "haploid_colours", haploids);
 
   // Write header to file
@@ -162,7 +162,7 @@ static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer
 static void print_bubble(BubbleCaller *caller,
                          GCacheStep **steps, size_t num_paths)
 {
-  const BubbleCallingPrefs prefs = caller->prefs;
+  const BubbleCallingPrefs *prefs = caller->prefs;
   const dBGraph *db_graph = caller->db_graph;
   size_t i;
 
@@ -172,7 +172,7 @@ static void print_bubble(BubbleCaller *caller,
     // Haven't fetched 5p flank yet
     // flank5p[0] already contains the first node
     flank5p->len = 1;
-    supernode_extend(flank5p, prefs.max_flank_len, db_graph);
+    supernode_extend(flank5p, prefs->max_flank_len, db_graph);
     db_nodes_reverse_complement(flank5p->b, flank5p->len);
   }
 
@@ -298,7 +298,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
         graph_walker_force(wlk, nodes[i], num_edges_in_col > 1);
 
         pathid = graph_crawler_load_path_limit(cache, nodes[i], wlk, rptwlk,
-                                               caller->prefs.max_allele_len);
+                                               caller->prefs->max_allele_len);
 
         graph_walker_finish(wlk);
         graph_crawler_reset_rpt_walker(rptwlk, cache, pathid);
@@ -313,7 +313,8 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
 
 static bool paths_all_share_unitig(const GraphCache *cache,
                                    khash_t(uint32to32) *unitig_map,
-                                   GCacheStep **steps, size_t num_paths)
+                                   GCacheStep const*const* steps,
+                                   size_t num_paths)
 {
   uint32_t unitig;
   khiter_t kiter;
@@ -384,26 +385,33 @@ static size_t remove_haploid_paths(const GraphCache *cache,
 // returns true if paths contain a bubble after filtering, otherwise false
 static bool filter_bubbles(BubbleCaller *bc, GCacheStepPtrBuf *ends)
 {
-  if(!graph_cache_is_3p_flank(&bc->cache, ends->b, ends->len))
+  if(!graph_cache_is_3p_flank(&bc->cache, ends->b, ends->len)) {
+    // status("fail: Not 3p");
     return false;
+  }
 
-  if((ends->len = graph_cache_remove_dupes(&bc->cache, ends->b, ends->len)) < 2)
+  if((ends->len = graph_cache_remove_dupes(&bc->cache, ends->b, ends->len)) < 2) {
+    // status("fail: all dupes");
     return false;
+  }
 
   if((ends->len = remove_haploid_paths(&bc->cache,
                                        ends->b, ends->len,
                                        bc->haploid_seen,
-                                       bc->prefs.haploid_cols,
-                                       bc->prefs.nhaploid_cols)) < 2)
+                                       bc->prefs->haploid_cols,
+                                       bc->prefs->nhaploid_cols)) < 2)
   {
+    // status("fail: haploid");
     bc->num_haploid_bubbles++; // haploid bubble removed
     return false;
   }
 
   // remove serial bubbles by dropping all paths if they all share a unitig
-  if(paths_all_share_unitig(&bc->cache, bc->unitig_map,
-                            ends->b, ends->len))
+  if(bc->prefs->remove_serial_bubbles &&
+     paths_all_share_unitig(&bc->cache, bc->unitig_map,
+                            (GCacheStep const*const*)ends->b, ends->len))
   {
+    // status("fail: serial");
     bc->num_serial_bubbles++;
     return false;
   }
@@ -446,10 +454,14 @@ static void write_bubbles_to_file(BubbleCaller *caller)
   GCacheUnitig *unitig;
   size_t i;
 
+  // status("Got %zu nunitigs", nunitigs);
+
   for(i = 0; i < nunitigs; i++)
   {
     unitig = graph_cache_unitig(&caller->cache, i);
     find_bubbles_ending_with(caller, unitig);
+
+    // status("ends: %zu %zu", caller->spp_forward.len, caller->spp_reverse.len);
 
     if(caller->spp_forward.len > 1)
       print_bubble(caller, caller->spp_forward.b, caller->spp_forward.len);
@@ -481,15 +493,23 @@ void bubble_caller(void *args)
                     bubble_caller_node, caller);
 }
 
-void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
+void invoke_bubble_caller(size_t num_of_threads,
+                          const BubbleCallingPrefs *prefs,
                           gzFile gzout, const char *out_path,
                           cJSON **hdrs, size_t nhdrs,
                           const dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_edge_cols == 1);
   ctx_assert(db_graph->node_in_cols != NULL);
+  size_t i;
 
   status("Calling bubbles with %zu threads, output: %s", num_of_threads, out_path);
+
+  StrBuf tmpstr = {0,0,0};
+  for(i = 0; i < prefs->nhaploid_cols; i++)
+    strbuf_sprintf(&tmpstr, "\t%zu", prefs->haploid_cols[i]);
+  status("Haploid colours:%s", tmpstr.b);
+  strbuf_dealloc(&tmpstr);
 
   // Print header
   bubble_caller_print_header(gzout, out_path, prefs, hdrs, nhdrs, db_graph);
@@ -502,7 +522,6 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                    num_of_threads, bubble_caller);
 
   // Report number of bubble called+printed
-  size_t i;
   uint64_t nhaploid = 0, nserial = 0, nbubbles = callers[0].nbubbles_ptr[0];
 
   for(i = 0; i < num_of_threads; i++) {
@@ -511,7 +530,7 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
   }
 
   char n0[ULONGSTRLEN];
-  status("%s bubbles called with Bubble Caller\n", ulong_to_str(nbubbles, n0));
+  status("Bubble Caller called %s bubbles\n", ulong_to_str(nbubbles, n0));
   status("Haploid bubbles dropped: %s", ulong_to_str(nhaploid, n0));
   status("Serial bubbles dropped: %s", ulong_to_str(nserial, n0));
 

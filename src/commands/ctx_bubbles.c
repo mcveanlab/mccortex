@@ -217,9 +217,10 @@ int ctx_bubbles(int argc, char **argv)
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
                                    .max_flank_len = max_flank_len,
                                    .haploid_cols = haploidbuf.b,
-                                   .nhaploid_cols = haploidbuf.len};
+                                   .nhaploid_cols = haploidbuf.len,
+                                   .remove_serial_bubbles = true};
 
-  invoke_bubble_caller(nthreads, call_prefs,
+  invoke_bubble_caller(nthreads, &call_prefs,
                        gzout, out_path,
                        hdrs, gpfiles.len,
                        &db_graph);

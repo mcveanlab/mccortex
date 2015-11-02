@@ -82,9 +82,10 @@ static void test_bubbles(dBGraph *graph, const char **seqs, size_t nseqs,
   db_node_buf_alloc(&nbuf, 128);
 
   BubbleCallingPrefs prefs = {.max_allele_len = 100, .max_flank_len = 100,
-                              .haploid_cols = NULL, .nhaploid_cols = 0};
+                              .haploid_cols = NULL, .nhaploid_cols = 0,
+                              .remove_serial_bubbles = true};
 
-  BubbleCaller *caller = bubble_callers_new(1, prefs, NULL, graph);
+  BubbleCaller *caller = bubble_callers_new(1, &prefs, NULL, graph);
 
   _call_bubble(caller, flank5p, flank3p, alleles, nalleles, &nbuf, &sbuf);
 
