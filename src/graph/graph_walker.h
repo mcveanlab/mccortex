@@ -60,7 +60,6 @@ uint64_t graph_walker_hash64(GraphWalker *wlk);
 
 /**
  * Make a choice at a junction
- * GraphWalker is not const because we update the path junction cache
  * @return index of choice or -1
  */
 GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,

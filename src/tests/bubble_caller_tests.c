@@ -82,7 +82,7 @@ static void test_bubbles(dBGraph *graph, const char **seqs, size_t nseqs,
   db_node_buf_alloc(&nbuf, 128);
 
   BubbleCallingPrefs prefs = {.max_allele_len = 100, .max_flank_len = 100,
-                              .haploid_cols = NULL, .num_haploid = 0};
+                              .haploid_cols = NULL, .nhaploid_cols = 0};
 
   BubbleCaller *caller = bubble_callers_new(1, prefs, NULL, graph);
 

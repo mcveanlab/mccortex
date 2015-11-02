@@ -181,7 +181,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
   khash_t(BkToBits) *h = typer->h;
   BinaryKmer bkmer, bkey;
   int hret;
-  khiter_t k;
+  khiter_t kiter;
 
   // Count number of ref kmers
   if(nrkmers) {
@@ -225,10 +225,10 @@ size_t genotyping_get_kmers(Genotyper *typer,
           bkmer = binary_kmer_left_shift_add(bkmer, kmer_size,
                                              dna_char_to_nuc(seq->b[i]));
           bkey = binary_kmer_get_key(bkmer, kmer_size);
-          k = kh_put(BkToBits, h, bkey, &hret);
+          kiter = kh_put(BkToBits, h, bkey, &hret);
           if(hret < 0) die("khash table failed: out of memory?");
-          if(hret > 0) kh_value(h, k) = 0; // initialise if not already in table
-          kh_value(h, k) |= altref_bits;
+          if(hret > 0) kh_value(h, kiter) = 0; // initialise if not in table
+          kh_value(h, kiter) |= altref_bits;
         }
       }
     }
@@ -238,11 +238,11 @@ size_t genotyping_get_kmers(Genotyper *typer,
   haplokmer_buf_capacity(gkbuf, nkmers);
 
   // Fetch and delete every item in the hash table
-  for(i = 0, k = kh_begin(h); k != kh_end(h); ++k) {
-    if(kh_exist(h, k)) {
-      bkey = kh_key(h, k);
-      altref_bits = kh_value(h, k);
-      kh_del(BkToBits, h, k);
+  for(i = 0, kiter = kh_begin(h); kiter != kh_end(h); ++kiter) {
+    if(kh_exist(h, kiter)) {
+      bkey = kh_key(h, kiter);
+      altref_bits = kh_value(h, kiter);
+      kh_del(BkToBits, h, kiter);
       if(genotyping_refalt_uniq(altref_bits)) {
         gkbuf->b[i++] = (HaploKmer){.bkey = bkey, .arbits = altref_bits};
       }

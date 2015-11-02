@@ -418,7 +418,8 @@ bool graph_cache_step_has_colour(const GraphCache *cache,
                                  const GCacheStep *endstep,
                                  size_t colour)
 {
-  const GCacheStep *step = graph_cache_step(cache, endstep->pathid);
+  const GCachePath *path = gc_step_get_path(cache, endstep);
+  const GCacheStep *step = gc_path_first_step(cache, path);
   const GCacheUnitig *unitig;
 
   for(; step <= endstep; step++) {
