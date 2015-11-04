@@ -13,8 +13,10 @@
 #define DEFAULT_MAX_FLANK 500
 #define DEFAULT_MAX_ALLELE 2000
 
+#define SUBCMD "bubbles"
+
 const char bubbles_usage[] =
-"usage: "CMD" bubbles [options] <in.ctx> [in2.ctx ...]\n"
+"usage: "CMD" "SUBCMD" [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
 "  Find bubbles in the graph, which are potential variants.\n"
 "\n"
@@ -30,6 +32,7 @@ const char bubbles_usage[] =
 "  -H, --haploid <col>     Colour is haploid, can use repeatedly [e.g. ref colour]\n"
 "  -A, --max-allele <len>  Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
 "  -F, --max-flank <len>   Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
+"  -S, --keep-serial       Keep serial bubbles. Use if mapping is hard. Higher FP.\n"
 "\n"
 "  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n"
@@ -49,6 +52,7 @@ static struct option longopts[] =
   {"haploid",      required_argument, NULL, 'H'},
   {"max-allele",   required_argument, NULL, 'A'},
   {"max-flank",    required_argument, NULL, 'F'},
+  {"keep-serial",  required_argument, NULL, 'S'},
   {NULL, 0, NULL, 0}
 };
 
@@ -58,6 +62,7 @@ int ctx_bubbles(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t max_allele_len = 0, max_flank_len = 0;
+  bool remove_serial_bubbles = true;
 
   SizeBuffer haploidbuf;
   size_buf_alloc(&haploidbuf, 8);
@@ -96,10 +101,11 @@ int ctx_bubbles(int argc, char **argv)
       case 'H': tmp_col = cmd_uint32(cmd, optarg); size_buf_add(&haploidbuf, tmp_col); break;
       case 'A': cmd_check(!max_allele_len, cmd); max_allele_len = cmd_uint32_nonzero(cmd, optarg); break;
       case 'F': cmd_check(!max_flank_len, cmd); max_flank_len = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'S': cmd_check(remove_serial_bubbles,cmd); remove_serial_bubbles = false; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        die("`"CMD" bubbles -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" "SUBCMD" -h` for help. Bad option: %s", argv[optind-1]);
       default: abort();
     }
   }
@@ -218,7 +224,7 @@ int ctx_bubbles(int argc, char **argv)
                                    .max_flank_len = max_flank_len,
                                    .haploid_cols = haploidbuf.b,
                                    .nhaploid_cols = haploidbuf.len,
-                                   .remove_serial_bubbles = true};
+                                   .remove_serial_bubbles = remove_serial_bubbles};
 
   invoke_bubble_caller(nthreads, &call_prefs,
                        gzout, out_path,
