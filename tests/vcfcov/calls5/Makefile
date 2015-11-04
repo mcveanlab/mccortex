@@ -19,7 +19,7 @@ alt.fa:
 ACTATGGCCAAAGAgCTAGGaTGTTTTTCGGCTCAAGACTCTATCCTGCGGACCGTTCCGCAGGCGTGCCCAGCACCAGGGTCCGTACATTAATACCGTCGCGACTTACTTATTAAGCGTAGGGCACAGCAATATTTCCGCTGGCCCTTACAACCTAGTTTGTCCATAGAGCCATCATAGG\n' > $@
 
 clean:
-	rm -rf calls.cov.vcf wally.k$(K).ctx alt.fa *.log
+	rm -rf calls.cov.vcf lowmem.cov.vcf wally.k$(K).ctx alt.fa *.log
 
 %.k$(K).ctx: $(REF) alt.fa
 	$(MCCORTEX31) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@
@@ -28,8 +28,12 @@ calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: calls.vcf $(REF) wally.k$(K).ctx
 	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 5 $< wally.k$(K).ctx >& $@.log
 
-test: calls.cov.vcf truth.cov.vcf calls.cov.vcf.log
+lowmem.cov.vcf: calls.vcf $(REF) wally.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 5 --low-mem $< wally.k$(K).ctx >& $@.log
+
+test: calls.cov.vcf lowmem.cov.vcf truth.cov.vcf calls.cov.vcf.log
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)
+	diff -q <($(VCFENTRIES) lowmem.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)
 	@echo "=> VCF files match."
 	[[ `grep -o 'max alleles in buffer:.*' calls.cov.vcf.log | grep -o '[0-9][0-9]*'` -lt 7 ]]
 	@echo "=> Buffer kept below 7 VCF entries."

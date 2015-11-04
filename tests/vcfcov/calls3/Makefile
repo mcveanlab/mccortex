@@ -30,7 +30,7 @@ K=21
 all: test
 
 clean:
-	rm -rf calls.cov.vcf* laurel.k$(K).ctx hardy.k$(K).ctx
+	rm -rf calls.cov.vcf* lowmem.cov.vcf laurel.k$(K).ctx hardy.k$(K).ctx
 
 %.k$(K).ctx: %.fa
 	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@
@@ -38,8 +38,12 @@ clean:
 calls.cov.vcf: calls.vcf $(REF) laurel.k$(K).ctx hardy.k$(K).ctx
 	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 $< laurel.k$(K).ctx hardy.k$(K).ctx
 
-test: calls.cov.vcf truth.cov.vcf
+lowmem.cov.vcf: calls.vcf $(REF) laurel.k$(K).ctx hardy.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 --low-mem $< laurel.k$(K).ctx hardy.k$(K).ctx
+
+test: calls.cov.vcf lowmem.cov.vcf truth.cov.vcf
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)
+	diff -q <($(VCFENTRIES) lowmem.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)
 	@echo "=> VCF files match."
 	[[ `grep -o 'max alleles in buffer:.*' calls.cov.vcf.log | grep -o '[0-9][0-9]*'` -lt 9 ]]
 	@echo "=> Buffer kept below 9 VCF entries."
