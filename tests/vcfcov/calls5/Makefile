@@ -8,8 +8,8 @@ REF=../ref/ref.fa
 K=11
 
 #
-# Test variants large indels are used and the variants they overlap are not
-# grouped together to stop genotyping of near by variants
+# Test that large indels are used and the variants they overlap are not grouped
+# with them to stop genotyping of near by variants
 #
 
 all: test
@@ -19,7 +19,7 @@ alt.fa:
 ACTATGGCCAAAGAgCTAGGaTGTTTTTCGGCTCAAGACTCTATCCTGCGGACCGTTCCGCAGGCGTGCCCAGCACCAGGGTCCGTACATTAATACCGTCGCGACTTACTTATTAAGCGTAGGGCACAGCAATATTTCCGCTGGCCCTTACAACCTAGTTTGTCCATAGAGCCATCATAGG\n' > $@
 
 clean:
-	rm -rf calls.cov.vcf lowmem.cov.vcf wally.k$(K).ctx alt.fa *.log
+	rm -rf calls.cov.vcf* lowmem.cov.vcf* wally.k$(K).ctx alt.fa
 
 %.k$(K).ctx: $(REF) alt.fa
 	$(MCCORTEX31) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@

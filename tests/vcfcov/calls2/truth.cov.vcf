@@ -2,10 +2,11 @@
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##fileDate=20151014
 ##reference=ref/ref.fa
-##contig=<ID=ref,length=200>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=K21R,Number=A,Type=Integer,Description="Coverage on ref (k=21) => sum(kmer_covs)/exp_num_kmers">
 ##FORMAT=<ID=K21A,Number=A,Type=Integer,Description="Coverage on alt (k=21) => sum(kmer_covs)/exp_num_kmers">
+##contig=<ID=ref,length=200>
+##contig=<ID=chr1,length=100>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	John
 ref	1	.	A	C	.	PASS	.	K21R:K21A	.:.
 ref	2	.	C	G	.	PASS	.	K21R:K21A	.:.
@@ -207,3 +208,103 @@ ref	197	.	T	A	.	PASS	.	K21R:K21A	.:.
 ref	198	.	A	C	.	PASS	.	K21R:K21A	.:.
 ref	199	.	G	T	.	PASS	.	K21R:K21A	.:.
 ref	200	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	1	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	2	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	3	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	4	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	5	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	6	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	7	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	8	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	9	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	10	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	11	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	12	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	13	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	14	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	15	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	16	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	17	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	18	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	19	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	20	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	21	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	22	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	23	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	24	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	25	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	26	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	27	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	28	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	29	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	30	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	31	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	32	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	33	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	34	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	35	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	36	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	37	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	38	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	39	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	40	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	41	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	42	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	43	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	44	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	45	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	46	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	47	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	48	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	49	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	50	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	51	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	52	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	53	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	54	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	55	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	56	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	57	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	58	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	59	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	60	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	61	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	62	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	63	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	64	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	65	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	66	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	67	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	68	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	69	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	70	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	71	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	72	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	73	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	74	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	75	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	76	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	77	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	78	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	79	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	80	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	81	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	82	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	83	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	84	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	85	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	86	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	87	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	88	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	89	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	90	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	91	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	92	.	G	T	.	PASS	.	K21R:K21A	.:.
+chr1	93	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	94	.	C	G	.	PASS	.	K21R:K21A	.:.
+chr1	95	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	96	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	97	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	98	.	T	A	.	PASS	.	K21R:K21A	.:.
+chr1	99	.	A	C	.	PASS	.	K21R:K21A	.:.
+chr1	100	.	G	T	.	PASS	.	K21R:K21A	.:.

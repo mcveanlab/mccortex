@@ -17,7 +17,7 @@ K=21
 all: test
 
 clean:
-	rm -rf calls.cov.vcf* lowmem.cov.vcf pluto.k$(K).ctx
+	rm -rf calls.cov.vcf* lowmem.cov.vcf* pluto.k$(K).ctx
 
 %.k$(K).ctx: %.fa
 	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@

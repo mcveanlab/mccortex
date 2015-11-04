@@ -394,12 +394,18 @@ static void vcfr_print_entry(VcfReader *vr, htsFile *outfh, bcf_hdr_t *outhdr,
   if(bcf_write(outfh, outhdr, v) != 0) die("Cannot write record");
 }
 
-static void vcfr_print_waiting(VcfReader *vr, htsFile *outfh, bcf_hdr_t *outhdr,
+static void vcfr_print_waiting(VcfReader *vr,
+                               htsFile *outfh, bcf_hdr_t *outhdr,
+                               const bcf_hdr_t *vcfhdr,
                                const VcfCovPrefs *prefs, bool force)
 {
   // Sort waiting by vidx
   size_t num_a, alen = vc_alts_len(&vr->aprint);
   if(alen == 0 || (!force && alen < PRINT_BUF_LIMIT)) return;
+
+  // Input header may have been modified by reading an entry
+  // for instance adding a missing contig= entry
+  bcf_hdr_merge(outhdr, vcfhdr);
 
   VcfCovLine *line;
   VcfCovAlt **alleleptr = vc_alts_getptr(&vr->aprint, 0);
@@ -803,6 +809,8 @@ void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
   int n;
   size_t tgtidx = 0, max_len = 0;
 
+  // TODO: try reading more than one variant at once
+
   while((n = vcfr_fetch(&vr, prefs)) >= 0)
   {
     max_len = MAX2(max_len, vc_alts_len(&vr.alist));
@@ -814,7 +822,7 @@ void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
 
     tgtidx = vcfcov_block2(&vr, n == 0, tgtidx, chr, chrlen, &covbuf, prefs);
 
-    vcfr_print_waiting(&vr, outfh, outhdr, prefs, false);
+    vcfr_print_waiting(&vr, outfh, outhdr, vcfhdr, prefs, false);
   }
 
   // Deal with remainder
@@ -824,7 +832,7 @@ void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
     tgtidx = vcfcov_block2(&vr, true, tgtidx, chr, chrlen, &covbuf, prefs);
     ctx_assert(tgtidx == 0);
   }
-  vcfr_print_waiting(&vr, outfh, outhdr, prefs, true);
+  vcfr_print_waiting(&vr, outfh, outhdr, vcfhdr, prefs, true);
 
   status("[vcfcov] max alleles in buffer: %zu", max_len);
 
