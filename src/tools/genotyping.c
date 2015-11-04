@@ -1,6 +1,7 @@
 #include "global.h"
 #include "genotyping.h"
 #include "dna.h"
+#include "util.h"
 #include "seq_reader.h"
 
 struct GenotyperStruct {
@@ -55,7 +56,7 @@ static bool vars_compatible(const VcfCovAlt *const*vars, size_t nvars,
   ctx_assert(nvars < 64);
   size_t i, end = 0;
   for(i = 0; i < nvars; i++, bits>>=1) {
-    if(bits & 1) {
+    if(bits & 1UL) {
       if(vars[i]->pos < end) return false;
       end = MAX2(end, varend(vars[i]));
     }
@@ -72,10 +73,10 @@ static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
                                           size_t nvars, uint64_t bits)
 {
   strbuf_reset(seq);
-  uint64_t i, end = regstart;
+  uint64_t i, end = regstart, b;
 
-  for(i = 0; i < nvars; i++, bits>>=1) {
-    if(bits & 1UL) {
+  for(i = 0, b = bits; i < nvars; i++, b>>=1) {
+    if(b & 1UL) {
       ctx_assert(end <= vars[i]->pos);
       strbuf_append_strn(seq, chrom+end, vars[i]->pos-end);
       strbuf_append_strn(seq, vars[i]->alt, vars[i]->altlen);
@@ -83,7 +84,11 @@ static inline void assemble_haplotype_str(StrBuf *seq, const char *chrom,
     }
   }
   strbuf_append_strn(seq, chrom+end, regend-end);
-  // printf("hapstr: %s %zu-%zu\n", seq->b, regstart, regend);
+#ifdef DEBUG_VCFCOV
+  char binstr[65];
+  printf("hapstr: %s %zu-%zu vars:%s\n", seq->b, regstart, regend,
+         bin64_to_str(bits,nvars,binstr));
+#endif
 }
 
 // Get alt/ref bits from bits specifying which alt alleles are currently used
@@ -138,7 +143,7 @@ static size_t count_ref_kmers(const char *seq, size_t slen,
 }
 
 /**
- * Get a list of kmers which support variants.
+ * Get a list of kmers (kmer keys) which support variants.
  *
  * @param typer     initialised memory to use
  * @param vars      variants to genotype and surrounding vars.
@@ -149,7 +154,7 @@ static size_t count_ref_kmers(const char *seq, size_t slen,
  * @param chrom     reference chromosome
  * @param chromlen  length of reference chromosom
  * @param kmer_size kmer size to type at
- * @return number of kmers
+ * @return number of kmer keys
  */
 size_t genotyping_get_kmers(Genotyper *typer,
                             const VcfCovAlt *const*vars, size_t nvars,
@@ -158,9 +163,9 @@ size_t genotyping_get_kmers(Genotyper *typer,
                             size_t kmer_size,
                             HaploKmer **result, uint32_t *nrkmers)
 {
-  ctx_assert2(0 < nvars && nvars < 64, "nvars: %zu", nvars);
+  ctx_assert2(0 < nvars && nvars <= 32, "nvars: %zu", nvars);
+  ctx_assert2(0 < ntgts && ntgts <= 32, "ntgts: %zu", ntgts);
   ctx_assert2(tgtidx < nvars, "tgtidx:%zu >= nvars:%zu ??", tgtidx, nvars);
-  ctx_assert2(ntgts <= 32, "Too many targets: %zu", ntgts);
 
   HaploKmerBuffer *gkbuf = &typer->kmer_buf;
   haplokmer_buf_reset(gkbuf);
@@ -168,12 +173,14 @@ size_t genotyping_get_kmers(Genotyper *typer,
   const VcfCovAlt *tgt = vars[tgtidx];
 
   size_t i, tgtend = tgtidx+ntgts;
-  size_t regstart = MIN2(vars[0]->pos, vcfcovalt_hap_start(tgt,kmer_size));
+  size_t regstart = MIN2(vcfcovalt_hap_start(vars[0], kmer_size),
+                         vcfcovalt_hap_start(tgt, kmer_size));
   size_t regend = regstart;
 
-  for(i = 0; i < tgtidx; i++) regend = MAX2(regend, varend(vars[i]));
+  i = 0;
+  for(; i < tgtidx; i++) regend = MAX2(regend, vcfcovalt_hap_end(vars[i],kmer_size));
   for(; i < tgtend; i++) regend = MAX2(regend, vcfcovalt_hap_end(vars[i],kmer_size));
-  for(; i < nvars; i++) regend = MAX2(regend, varend(vars[i]));
+  for(; i < nvars; i++) regend = MAX2(regend, vcfcovalt_hap_end(vars[i],kmer_size));
 
   regend = MIN2(regend, chromlen);
 
@@ -197,7 +204,7 @@ size_t genotyping_get_kmers(Genotyper *typer,
   // kh_clear(BkToBits, h);
 
   // Start with ref haplotype (no variants)
-  uint64_t bits, limit, altref_bits;
+  uint64_t bits, limit, altref_bits, mask = UINT64_MAX>>(64-2*ntgts);
   size_t cstart, cend, cnext;
 
   for(bits = 0, limit = 1UL<<nvars; bits < limit; bits++) {
@@ -206,7 +213,9 @@ size_t genotyping_get_kmers(Genotyper *typer,
       assemble_haplotype_str(seq, chrom, regstart, regend,
                              vars, nvars, bits);
 
-      altref_bits = altrefbits(vars+tgtidx, ntgts, bits>>tgtidx);
+      altref_bits = altrefbits(vars, nvars, bits);
+      altref_bits >>= 2*tgtidx;
+      altref_bits &= mask;
 
       // Covert to kmers, find/add them to the hash table, OR bits
       // Split contig at non-ACGT bases (e.g. N)

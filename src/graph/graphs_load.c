@@ -134,9 +134,6 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     if(prefs.must_exist_in_graph)
     {
       if((hkey = hash_table_find(&graph->ht, bkmer)) == HASH_NOT_FOUND) continue;
-      // Edges union_edges = db_node_get_edges_union(graph, hkey);
-      Edges union_edges = prefs.must_exist_in_edges[hkey];
-      for(i = 0; i < ncols; i++) edges[i] &= union_edges;
     }
     else
     {
@@ -161,15 +158,23 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
     // Merge all edges into one colour
     if(graph->col_edges != NULL)
     {
+      // Edges edge_mask = db_node_get_edges_union(graph, hkey);
+      Edges edge_mask = 0xff;
+
+      if(prefs.must_exist_in_edges)
+        edge_mask = prefs.must_exist_in_edges[hkey];
+      else if(prefs.must_exist_in_graph)
+        edge_mask = db_node_get_edges_union(graph, hkey);
+
       Edges *col_edges = &db_node_edges(graph, hkey, 0);
 
       if(graph->num_edge_cols == 1) {
         for(i = 0; i < ncols; i++)
-          col_edges[0] |= edges[i];
+          col_edges[0] |= edges[i] & edge_mask;
       }
       else {
         for(i = 0; i < ncols; i++)
-          col_edges[i] |= edges[i];
+          col_edges[i] |= edges[i] & edge_mask;
       }
     }
 

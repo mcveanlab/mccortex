@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=200>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	7	.	G	T	.	PASS	.	.
+ref	15	.	GCAATACCCCCCGATGACGG	G	.	PASS	.	.
+ref	20	.	A	T	.	PASS	.	.
+ref	22	.	C	G	.	PASS	.	.
+ref	40	.	T	A	.	PASS	.	.
+ref	49	.	GG	CGAT	.	PASS	.	.
+ref	71	.	A	GAT	.	PASS	.	.
+ref	92	.	GCACCAGGG	AC	.	PASS	.	.
+ref	121	.	C	G	.	PASS	.	.
+ref	142	.	GGCACAGCA	TTACTCTTC	.	PASS	.	.
+ref	171	.	A	CTAG	.	PASS	.	.
+ref	192	.	CATCATAG	A	.	PASS	.	.

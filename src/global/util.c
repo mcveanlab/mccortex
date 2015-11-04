@@ -165,7 +165,21 @@ int parse_list_sizes(size_t *list, size_t n, const char *str)
 }
 
 //
+// Bits
 //
+
+// str must be n+1 long
+char* bin64_to_str(uint64_t bits, unsigned int n, char *str)
+{
+  ctx_assert(n <= 64);
+  size_t i, shift = n-1;
+  for(i = 0; i < n; i++, shift--) str[i] = '0'+((bits>>shift)&1);
+  str[n] = '\0';
+  return str;
+}
+
+//
+// Strings
 //
 
 bool bases_to_integer(const char *arg, size_t *bases)
@@ -375,7 +389,7 @@ static const char hex[17] = "0123456789abcdef";
 char* hex_rand_str(char *str, size_t num)
 {
   if(num == 0) return NULL;
-  ctx_assert2(((uint64_t)(RAND_MAX+1)&RAND_MAX) == 0, "RAND_MAX not (2^n)-1");
+  ctx_assert2(is_power_of_two((uint64_t)RAND_MAX+1), "RAND_MAX not (2^n)-1");
 
   size_t i, r = 0, m = 0;
   // 4 bits per cycle, rand() is unknown size, max value: RAND_MAX

@@ -30,7 +30,7 @@ fi
 cd ..
 for k in 31 63 95 127
 do
-  make test MAXK=$k
+  make test MAXK=$k STRICT=1
 done
 cd $cwd
 

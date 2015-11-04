@@ -36,6 +36,8 @@ extern const uint8_t nibble_popcount_table[16];
 #define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
                           nibble_popcount_table[(x) & 0xf])
 
+char* bin64_to_str(uint64_t bits, unsigned int n, char *str);
+
 //
 // Strings
 //
@@ -136,6 +138,11 @@ char* hex_rand_str(char *str, size_t num);
 //
 // Maths
 //
+
+static inline bool is_power_of_two(uint64_t x)
+{
+  return x && !(x & (x-1));
+}
 
 // prec should be 10**n where n is the number of decimal places you want
 #define ndecplaces(x,prec) (((long)((double)(x)*(prec)+0.5))/(double)(prec))

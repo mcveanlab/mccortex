@@ -24,6 +24,7 @@ typedef struct {
   // 2^8 = 256 possible haplotypes
   // defaults to DEFAULT_MAX_GT_VARS
   uint32_t max_gt_vars;
+  bool load_kmers_only;
 } VcfCovPrefs;
 
 void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
@@ -32,6 +33,6 @@ void vcfcov_file(htsFile *vcffh, bcf_hdr_t *vcfhdr,
                  const size_t *samplehdrids,
                  const VcfCovPrefs *prefs,
                  VcfCovStats *stats,
-                 const dBGraph *db_graph);
+                 dBGraph *db_graph);
 
 #endif /* VCF_COVERAGE_H_ */

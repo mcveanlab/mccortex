@@ -658,6 +658,8 @@ static void align_entry_allele(const char *line, size_t linelen,
 {
   (void)flank3p_len;
   ctx_assert(ref_start <= ref_end);
+  ctx_assert(cpy_flnk_5p <= flank5p_len);
+  ctx_assert(cpy_flnk_3p <= flank3p_len);
 
   // Ref allele
   const char *ref_allele = chr->seq.b + ref_start;

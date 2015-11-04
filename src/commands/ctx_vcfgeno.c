@@ -518,7 +518,9 @@ int ctx_vcfgeno(int argc, char **argv)
 
   // Open input VCF file
   htsFile *vcffh = hts_open(inpath, "r");
+  if(vcffh == NULL) die("Cannot open VCF file: %s", inpath);
   bcf_hdr_t *vcfhdr = bcf_hdr_read(vcffh);
+  if(vcfhdr == NULL) die("Cannot read VCF header: %s", inpath);
   size_t nsamples = bcf_hdr_nsamples(vcfhdr);
 
   if(nsamples == 0) die("No samples in VCF");

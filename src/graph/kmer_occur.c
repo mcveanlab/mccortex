@@ -305,7 +305,7 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
 {
   size_t i;
 
-  status("Adding reference annotations to the graph using %zu thread%s",
+  status("[kograh] Adding reference annotations to the graph using %zu thread%s",
          num_threads, util_plural_str(num_threads));
 
   // If we are adding nodes, only have edges in one colour
@@ -334,6 +334,8 @@ KOGraph kograph_create(const read_t *reads, size_t num_reads,
   // 1. Loop through reads, add to graph and record kmer counts
   load_reads_count_kmers(reads, num_reads, add_missing_kmers, ref_col,
                          num_threads, kograph.klists, db_graph);
+
+  status("[kograh] Consolidating annotations (single-threaded)");
 
   // 2. allocate a list for each kmer (some of length zero)
   uint64_t offset = 0, kcount, total_read_length = 0, total_kcount = 0;
