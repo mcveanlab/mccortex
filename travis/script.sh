@@ -12,9 +12,6 @@ echo "Perl: ${TRAVIS_PERL_VERSION}"
 # Only run if we are not doing Coverity Scan analysis
 if [ "${COVERITY_SCAN_BRANCH}" != 1 ]
 then
-  # Check we can build a release build
-  make all RELEASE=1 && make test && make clean
-
   # Build and run all tests
   cd tests && ./run.sh
 fi

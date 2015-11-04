@@ -22,7 +22,7 @@ echo $cwd
 if [[ $# -eq 0 || $1 == 'update' ]]
 then
   # Get all dependencies used in testing (bioinf-perl, bcftools, samtools etc.)
-  cd ../libs && make all test && cd $cwd
+  cd ../libs && make all && cd $cwd
   if [ $? -ne 0 ]; then exit -1; fi
 fi
 
@@ -38,7 +38,7 @@ cd $cwd
 dirs=`ls | grep -v '.*run.sh' | grep -v '^\.' | grep -v old`
 echo $dirs
 
-cd .. && make MAXK=31 && make MAXK=63 && cd $cwd
+cd .. && make MAXK=31 RELEASE=1 && make MAXK=63 && cd $cwd
 if [ $? -ne 0 ]; then exit -1; fi
 
 for f in $dirs
