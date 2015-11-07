@@ -10,7 +10,7 @@
 #include "json_hdr.h"
 
 typedef struct {
-  size_t first_runid, num_runs;
+  uint32_t first_runid, num_runs;
 } PathRefRun;
 
 typedef struct

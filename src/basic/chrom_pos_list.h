@@ -5,7 +5,7 @@
 typedef struct
 {
   char *chrom;
-  size_t start, end, offset; // always true: start <= end
+  size_t start, end, offset; // 1-based; inclusive; start <= end
   bool fw_strand;
 } ChromPosOffset;
 

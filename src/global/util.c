@@ -123,6 +123,8 @@ int parse_list(void *list, size_t n, size_t el,
                void (*convert)(void *dst, const char *str, char **end),
                const char *str)
 {
+  if(!str) return 0;
+
   char *l = (char*)list, *dendptr = NULL;
   const char *end = str;
   size_t i = 0;

@@ -65,6 +65,7 @@ const unsigned char dna_complement_char_arr[256]
 char* dna_revcomp_str(char *dst, const char *src, size_t length)
 {
   size_t i, j;
+  char a, b;
 
   ctx_assert(strlen(src) >= length);
 
@@ -72,7 +73,8 @@ char* dna_revcomp_str(char *dst, const char *src, size_t length)
   if(length == 1) { dst[0] = dna_char_complement(src[0]); return dst; }
 
   for(i = 0, j = length-1; i <= j; i++, j--) {
-    char a = dna_char_complement(src[i]), b = dna_char_complement(src[j]);
+    a = dna_char_complement(src[i]);
+    b = dna_char_complement(src[j]);
     dst[i] = b;
     dst[j] = a;
   }

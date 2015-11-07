@@ -21,7 +21,7 @@ bool parse_entire_ulong(const char *str, unsigned long *result);
 bool parse_entire_double(const char *str, double *result);
 bool parse_entire_size(const char *str, size_t *result);
 
-//
+// Parse comma-separated lists
 int parse_list_doubles(double *list, size_t n, const char *str);
 int parse_list_sizes(size_t *list, size_t n, const char *str);
 

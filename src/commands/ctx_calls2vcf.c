@@ -6,7 +6,10 @@
 #include "seq_reader.h"
 #include "call_file_reader.h"
 #include "json_hdr.h"
-#include "chrom_pos_list.h" // Parse chromosome position lists
+
+#include "aligned_call.h"
+#include "decomp_breakpoint.h"
+#include "decomp_bubble.h"
 
 #include "htslib/sam.h" // cigar
 #include "seq-align/src/needleman_wunsch.h"
@@ -94,14 +97,14 @@ static khash_t(ChromHash) *genome;
 static ReadBuffer chroms;
 
 // Flank mapping
-static samFile *samfh;
+static htsFile *samfh;
 static bam_hdr_t *bam_header;
 static bam1_t *bamentry;
 
 // nw alignment
-static nw_aligner_t *nw_aligner;
-static alignment_t *aln;
-static scoring_t nw_scoring_flank, nw_scoring_allele;
+// static nw_aligner_t *nw_aligner;
+// static alignment_t *aln;
+// static scoring_t nw_scoring_flank, nw_scoring_allele;
 
 //
 // Statistics
@@ -124,14 +127,14 @@ static size_t num_flanks_overlap_too_large = 0;
 static size_t num_flanks_too_far_apart = 0;
 
 // Processing
-static size_t num_nw_allele = 0, num_nw_flank = 0;
+// static size_t num_nw_allele = 0, num_nw_flank = 0;
 
 static void print_stat(size_t nom, size_t denom, const char *descr)
 {
   char nom_str[50], denom_str[50];
-  ulong_to_str(nom,   nom_str);
-  ulong_to_str(denom, denom_str);
-  status("   %s / %s (%6.2f%%) %s", nom_str, denom_str, (100.0*nom)/denom, descr);
+  status("   %s / %s (%6.2f%%) %s",
+         ulong_to_str(nom, nom_str), ulong_to_str(denom, denom_str),
+         safe_percent(nom, denom), descr);
 }
 
 static void parse_cmdline_args(int argc, char **argv)
@@ -183,6 +186,7 @@ static void parse_cmdline_args(int argc, char **argv)
   num_ref_paths = argc - optind;
 }
 
+/*
 // Setup pairwise aligner
 static void nw_aligner_setup()
 {
@@ -199,28 +203,6 @@ static void nw_aligner_destroy()
 {
   alignment_free(aln);
   needleman_wunsch_free(nw_aligner);
-}
-
-static size_t call_file_max_allele_len(const CallFileEntry *centry)
-{
-  size_t i, max = 0, nlines = call_file_num_lines(centry);
-  for(i = 5; i < nlines; i+=2)
-    max = MAX2(max, call_file_line_len(centry, i));
-  return max;
-}
-
-static size_t call_file_min_allele_len(const CallFileEntry *centry)
-{
-  size_t i, min = SIZE_MAX, nlines = call_file_num_lines(centry);
-  for(i = 5; i < nlines; i+=2)
-    min = MIN2(min, call_file_line_len(centry, i));
-  return min;
-}
-
-static const char* str_fasta_name_end(const char *title)
-{
-  while(!isspace(*title)) { title++; }
-  return title;
 }
 
 static void bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
@@ -248,9 +230,10 @@ static inline uint32_t bam_get_end_padding(int n_cigar, const uint32_t *cigar)
   uint32_t i, l = 0;
   const uint32_t c = (1<<BAM_CINS)|(1<<BAM_CSOFT_CLIP)|(1<<BAM_CHARD_CLIP);
 
-  for(i = n_cigar-1; i > 0; i--)
+  for(i = n_cigar-1; i > 0; i--) {
     if((c >> bam_cigar_op(cigar[i])) & 1)
       l += bam_cigar_oplen(cigar[i]);
+  }
 
   return l;
 }
@@ -294,10 +277,8 @@ static bool sam_fetch_coords(const CallFileEntry *centry,
   const char *hdrline = call_file_get_line(centry, 0);
   if(hdrline[0] != '>') die("Unexpected line: %s", hdrline);
   hdrline++;
-  const char *hdrline_end = str_fasta_name_end(hdrline);
-  int hdrline_len = hdrline_end - hdrline;
 
-  if(strncmp(hdrline, bname, hdrline_len) != 0)
+  if(seq_read_names_cmp(hdrline, bname) != 0)
     die("SAM/BAM and call entries mismatch '%s' vs '%s'", hdrline, bname);
 
   // Find 3p flank position using search for first kmer
@@ -429,14 +410,13 @@ static void bubble_trim_alleles(CallFileEntry *centry, StrBuf *flank3pbuf)
   }
 }
 
-/**
- * Fetch the largest match from a breakpoint call
- * @param line       input to be parsed '>seqname ... chr=...'
- * @param buf        temporary buffer
- * @param use_first  if true, return lowest offset, otherwise highest offset
- * @param flank      used to return result of largest match
- * @return true on success, false if not mapped. Calls die() on error
- */
+
+ // * Fetch the largest match from a breakpoint call
+ // * @param line       input to be parsed '>seqname ... chr=...'
+ // * @param buf        temporary buffer
+ // * @param use_first  if true, return lowest offset, otherwise highest offset
+ // * @param flank      used to return result of largest match
+ // * @return true on success, false if not mapped. Calls die() on error
 static bool brkpnt_fetch_largest_match(const char *line, ChromPosBuffer *buf,
                                        bool use_first, ChromPosOffset *flank)
 {
@@ -571,12 +551,11 @@ static void print_vcf_entry(const char *chrom_name, size_t vcf_pos, int prev_bas
   num_vars_printed++;
 }
 
-/**
- * @param ref_pos is 0-based here
- * @param info is extra text to print in the info field of each variant (may be NULL)
- * @param genotypes is strings to print in genotypes columns, of length num_samples.
- *                  It may be NULL.
- */
+
+// * @param ref_pos is 0-based here
+// * @param info is extra text to print in the info field of each variant (may be NULL)
+// * @param genotypes is strings to print in genotypes columns, of length num_samples.
+// *                  It may be NULL.
 static void align_biallelic(const char *ref, const char *alt,
                             const read_t *chr, size_t ref_pos,
                             const char *info, const char **genotypes,
@@ -621,13 +600,11 @@ static void align_biallelic(const char *ref, const char *alt,
   }
 }
 
-/**
- * @abstract Parse header line from FASTA to fetch call id
- *           Expect ">bubble.<id>." or ">brkpnt.<id>."
- * @param  idstr copy call id string to memory pointed to by idstr
- * @param  size is size of memory pointed to by idstr
- * @return length of string or -1 on error format error, -2 if idstr not big enough
- */
+// * @abstract Parse header line from FASTA to fetch call id
+// *           Expect ">bubble.<id>." or ">brkpnt.<id>."
+// * @param  idstr copy call id string to memory pointed to by idstr
+// * @param  size is size of memory pointed to by idstr
+// * @return length of string or -1 on error format error, -2 if idstr not big enough
 static int get_callid_str(const char *hdrline, bool bubble_format,
                           char *idstr, size_t size)
 {
@@ -642,10 +619,9 @@ static int get_callid_str(const char *hdrline, bool bubble_format,
   return len;
 }
 
-/**
- * @param cpy_flnk_5p how many characters to copy from end of 5' flank to start of allele
- * @param cpy_flnk_3p how many characters to copy from end of 3' flank to end of allele
- */
+
+// * @param cpy_flnk_5p how many characters to copy from end of 5' flank to start of allele
+// * @param cpy_flnk_3p how many characters to copy from end of 3' flank to end of allele
 static void align_entry_allele(const char *line, size_t linelen,
                                const char *flank5p, size_t flank5p_len,
                                const char *flank3p, size_t flank3p_len,
@@ -706,13 +682,12 @@ static void align_entry_allele(const char *line, size_t linelen,
 #define GENO_UNDEF  2
 static const char genotype_strs[3][2] = {"0", "1", "."};
 
-/**
- * Parse header line from breakpoint call file to generate genotype strings.
- * Calls die() if there are formatting errors in the hdrline
- * @param hdrline contains " cols=1,4" string
- * @param genotypes used to set genotypes to either "." or "1" if specified in cols=
- * @param nsamples the number of elements in `genotypes`
- */
+
+// * Parse header line from breakpoint call file to generate genotype strings.
+// * Calls die() if there are formatting errors in the hdrline
+// * @param hdrline contains " cols=1,4" string
+// * @param genotypes used to set genotypes to either "." or "1" if specified in cols=
+// * @param nsamples the number of elements in `genotypes`
 static void brkpnt_parse_genotype_colours(const char *hdrline,
                                           const char **genotypes, size_t nsamples)
 {
@@ -899,31 +874,7 @@ static void parse_entries(gzFile gzin, FILE *fout)
   strbuf_dealloc(&tmpbuf);
   strbuf_dealloc(&flank3pbuf);
 }
-
-static void flanks_sam_open()
-{
-  if(!futil_path_has_extension(sam_path, ".bam") &&
-     !futil_path_has_extension(sam_path, ".sam"))
-  {
-    cmd_print_usage("Mapped flanks is not .sam or .bam file: %s", sam_path);
-  }
-
-  bool isbam = futil_path_has_extension(sam_path, ".bam");
-
-  samfh = sam_open(sam_path, isbam ? "rb" : "rs");
-  if(samfh == NULL) die("Cannot open SAM/BAM %s", sam_path);
-
-  // Load BAM header
-  bam_header = sam_hdr_read(samfh);
-  bamentry = bam_init1();
-}
-
-static void flanks_sam_close()
-{
-  sam_close(samfh);
-  bam_hdr_destroy(bam_header);
-  bam_destroy1(bamentry);
-}
+*/
 
 static cJSON* read_input_header(gzFile gzin)
 {
@@ -1092,7 +1043,7 @@ int ctx_calls2vcf(int argc, char **argv)
   // These functions call die() on error
   gzFile gzin = futil_gzopen(input_path, "r");
 
-  nw_aligner_setup();
+  // nw_aligner_setup();
 
   // Read file header
   cJSON *json = read_input_header(gzin);
@@ -1110,7 +1061,16 @@ int ctx_calls2vcf(int argc, char **argv)
     cmd_print_usage("Require -F <flanks.sam> with bubble file");
 
   // Open flank file if it exists
-  if(sam_path) flanks_sam_open();
+  if(sam_path)
+  {
+    if((samfh = hts_open(sam_path, "r")) == NULL)
+    die("Cannot open SAM/BAM %s", sam_path);
+
+    // Load BAM header
+    bam_header = sam_hdr_read(samfh);
+    if(bam_header == NULL) die("Cannot load BAM header: %s", sam_path);
+    bamentry = bam_init1();
+  }
 
   // Open output file
   FILE *fout = futil_fopen_create(out_path, "w");
@@ -1143,7 +1103,54 @@ int ctx_calls2vcf(int argc, char **argv)
   status("Reading %s call file with %zu samples",
          input_bubble_format ? "Bubble" : "Breakpoint", num_graph_samples);
   status("Writing a VCF with %zu samples", num_samples);
-  parse_entries(gzin, fout);
+
+  // parse_entries(gzin, fout);
+  AlignedCall *call = acall_init();
+  CallDecomp *aligner = call_decomp_init(fout);
+
+  // DecomposeStats *stats = ctx_calloc(1, sizeof(*stats));
+  // scoring_t *scoring = call_decomp_get_scoring(aligner);
+  // void call_decomp_cpy_stats(stats, const aligner);
+  CallFileEntry centry;
+  call_file_entry_alloc(&centry);
+
+  char kmer_str[100];
+  sprintf(kmer_str, ";K%zu", kmer_size);
+
+  if(input_bubble_format)
+  {
+    DecompBubble *bubbles = decomp_bubble_init();
+    for(; call_file_read(gzin, input_path, &centry); num_entries_read++) {
+      do {
+        if(sam_read1(samfh, bam_header, bamentry) < 0)
+          die("We've run out of SAM entries!");
+      } while(bamentry->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY));
+
+      // Align call
+      decomp_bubble_call(bubbles, genome, kmer_size, min_mapq,
+                         &centry, bamentry, bam_header, call);
+      strbuf_append_str(&call->info, kmer_str);
+      // Decompose call
+      acall_decompose(aligner, call, max_allele_len, max_align_len);
+    }
+    decomp_bubble_destroy(bubbles);
+  }
+  else
+  {
+    DecompBreakpoint *breakpoints = decomp_brkpt_init();
+    for(; call_file_read(gzin, input_path, &centry); num_entries_read++) {
+      decomp_brkpt_call(breakpoints, genome, num_samples, &centry, call);
+      strbuf_append_str(&call->info, kmer_str);
+      acall_decompose(aligner, call, max_allele_len, max_align_len);
+    }
+    decomp_brkpt_destroy(breakpoints);
+  }
+
+  call_file_entry_dealloc(&centry);
+  call_decomp_destroy(aligner);
+  acall_destroy(call);
+
+  // TODO: fix stats
 
   // Print stats
   char num_entries_read_str[50];
@@ -1174,7 +1181,7 @@ int ctx_calls2vcf(int argc, char **argv)
   print_stat(num_flanks_overlap_too_large,   num_entries_read, "flank pairs overlap too much");
   print_stat(num_entries_well_mapped,        num_entries_read, "flank pairs map well");
 
-  status("Aligned %zu allele pairs and %zu flanks", num_nw_allele, num_nw_flank);
+  // status("Aligned %zu allele pairs and %zu flanks", num_nw_allele, num_nw_flank);
 
   // Finished - clean up
   cJSON_Delete(json);
@@ -1184,9 +1191,13 @@ int ctx_calls2vcf(int argc, char **argv)
   for(i = 0; i < chroms.len; i++) seq_read_dealloc(&chroms.b[i]);
   read_buf_dealloc(&chroms);
   kh_destroy_ChromHash(genome);
-  nw_aligner_destroy();
+  // nw_aligner_destroy();
 
-  if(sam_path) flanks_sam_close();
+  if(sam_path) {
+    hts_close(samfh);
+    bam_hdr_destroy(bam_header);
+    bam_destroy1(bamentry);
+  }
 
   // hide unused method warnings
   (void)kh_del_ChromHash;

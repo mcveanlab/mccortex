@@ -112,3 +112,24 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
 
   return 1;
 }
+
+//
+// Generally useful functions
+//
+
+// bubble_format ? ">bubble." : ">brkpnt."
+/**
+ * Parse header line from FASTA to fetch call id.
+ * Expect ">bubble.<id>." or ">brkpnt.<id>."
+ * @param  hdrline  String to read, expect: <leadstr><callid>.
+ * @param  leadstr  Expected start of hdrline
+ * @return callid or -1 on error
+ */
+int call_file_get_call_id(const char *hdrline, const char *leadstr)
+{
+  const char *start = hdrline+strlen(leadstr);
+  char *endptr;
+  if(strncmp(hdrline, leadstr, strlen(leadstr)) != 0) return -1;
+  unsigned long callid = strtoul(start, &endptr, 10);
+  return (endptr == NULL || callid > INT32_MAX) ? -3 : callid;
+}
