@@ -112,7 +112,8 @@ static inline bool is_cutoff_good(const uint64_t *kmer_covg, size_t arrlen,
   for(i = cutoff; i < arrlen; i++) kmers_above += kmer_covg[i]*i;
 
   // At least 20% of kmers should be kept
-  return ((double)kmers_above/(kmers_below+kmers_above) >= frac_covg_kept);
+  return !arrlen || // any cutoff is good if no kmers
+         ((double)kmers_above/(kmers_below+kmers_above) >= frac_covg_kept);
 }
 
 /**

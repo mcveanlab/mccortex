@@ -366,7 +366,6 @@ static inline void _corrupt_paths(const GraphWalker *wlk, size_t num_next,
 
 /**
  * Make a choice at a junction
- * GraphWalker is not const because we update the path junction cache
  * @return index of choice or -1
  */
 GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,

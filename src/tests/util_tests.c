@@ -4,6 +4,13 @@
 
 #include <math.h> // NAN, INFINITY
 
+static bool test_canary(const char *ptr, size_t start, size_t len, char canary)
+{
+  const char *end = ptr+len, *s = ptr + start;
+  while(s < end && *s == canary) { s++; }
+  return (s == end);
+}
+
 static void test_strnstr()
 {
   test_status("Testing strnstr");
@@ -61,7 +68,9 @@ static void test_util_bytes_to_str()
 {
   test_status("Testing bytes_to_str()");
 
+  // char canary = 7;
   char str[100];
+  // memset(str, canary, sizeof(str));
 
   // Excess decimal points are trimmed off
   // 14.0MB -> 14MB
@@ -78,6 +87,35 @@ static void test_util_bytes_to_str()
   TASSERT2(strcmp(bytes_to_str(1,1,str),"1B") == 0, "Got: %s", str);
   // 1023 -> 1023B
   TASSERT2(strcmp(bytes_to_str(1023,1,str),"1,023B") == 0, "Got: %s", str);
+}
+
+static void test_util_ulong_to_str()
+{
+  test_status("Testing ulong_to_str()");
+
+  #define N 100
+  char canary = rand()&0xff;
+  char str[N];
+  memset(str, canary, N);
+
+  // Increasing length to not break canary test
+  TASSERT2(strcmp(ulong_to_str(0, str), "0") == 0, "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+  TASSERT2(strcmp(ulong_to_str(1, str), "1") == 0, "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+  TASSERT2(strcmp(ulong_to_str(10, str), "10") == 0, "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+  TASSERT2(strcmp(ulong_to_str(123, str), "123") == 0, "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+  TASSERT2(strcmp(ulong_to_str(1234, str), "1,234") == 0, "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+  TASSERT2(strcmp(ulong_to_str(12345, str), "12,345") == 0, "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+  TASSERT2(strcmp(ulong_to_str(ULONG_MAX, str), "18,446,744,073,709,551,615") == 0,
+           "Got: %s", str);
+  TASSERT(test_canary(str, strlen(str)+1, N, canary));
+
+  TASSERT(strlen(ulong_to_str(ULONG_MAX, str))+1 <= ULONGSTRLEN);
 }
 
 static void test_util_calc_GCD()
@@ -110,6 +148,7 @@ static void test_util_calc_N50()
 void test_util()
 {
   test_util_rev_nibble_lookup();
+  test_util_ulong_to_str();
   test_util_num_to_str();
   test_util_bytes_to_str();
   test_util_calc_GCD();

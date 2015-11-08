@@ -14,7 +14,7 @@
 #include <pthread.h> // multithreading
 
 BubbleCaller* bubble_callers_new(size_t num_callers,
-                                 BubbleCallingPrefs prefs,
+                                 const BubbleCallingPrefs *prefs,
                                  gzFile gzout,
                                  const dBGraph *db_graph)
 {
@@ -22,28 +22,34 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
 
   // Max usage is 4 * max_allele_len * cols
   size_t i;
-  size_t max_path_len = MAX2(prefs.max_flank_len, prefs.max_allele_len);
+  size_t max_path_len = MAX2(prefs->max_flank_len, prefs->max_allele_len);
 
   BubbleCaller *callers = ctx_malloc(num_callers * sizeof(BubbleCaller));
 
   pthread_mutex_t *out_lock = ctx_malloc(sizeof(pthread_mutex_t));
   if(pthread_mutex_init(out_lock, NULL) != 0) die("mutex init failed");
 
-  size_t *num_bubbles_ptr = ctx_calloc(1, sizeof(size_t));
+  uint64_t *nbubbles_ptr = ctx_calloc(1, sizeof(uint64_t));
 
   for(i = 0; i < num_callers; i++)
   {
+    bool *haploid_seen = ctx_calloc(prefs->nhaploid_cols, sizeof(bool));
+
     BubbleCaller tmp = {.threadid = i, .nthreads = num_callers,
-                        .haploid_seen = ctx_calloc(1+prefs.num_haploid, sizeof(bool)),
-                        .num_bubbles_ptr = num_bubbles_ptr,
+                        .haploid_seen = haploid_seen,
+                        .num_haploid_bubbles = 0,
+                        .num_serial_bubbles = 0,
+                        .nbubbles_ptr = nbubbles_ptr,
                         .prefs = prefs,
                         .db_graph = db_graph, .gzout = gzout,
                         .out_lock = out_lock};
 
     memcpy(&callers[i], &tmp, sizeof(BubbleCaller));
 
+    callers[i].unitig_map = kh_init(uint32to32);
+
     // First two buffers don't actually need to grow
-    db_node_buf_alloc(&callers[i].flank5p, prefs.max_flank_len);
+    db_node_buf_alloc(&callers[i].flank5p, prefs->max_flank_len);
     db_node_buf_alloc(&callers[i].pathbuf, max_path_len);
 
     graph_walker_alloc(&callers[i].wlk, db_graph);
@@ -67,6 +73,8 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
   {
     ctx_free(callers[i].haploid_seen);
 
+    kh_destroy(uint32to32, callers[i].unitig_map);
+
     db_node_buf_dealloc(&callers[i].flank5p);
     db_node_buf_dealloc(&callers[i].pathbuf);
 
@@ -80,13 +88,13 @@ void bubble_callers_destroy(BubbleCaller *callers, size_t num_callers)
   }
   pthread_mutex_destroy(callers[0].out_lock);
   ctx_free(callers[0].out_lock);
-  ctx_free(callers[0].num_bubbles_ptr);
+  ctx_free(callers[0].nbubbles_ptr);
   ctx_free(callers);
 }
 
 // Print JSON header to gzout
 static void bubble_caller_print_header(gzFile gzout, const char* out_path,
-                                       BubbleCallingPrefs prefs,
+                                       const BubbleCallingPrefs *prefs,
                                        cJSON **hdrs, size_t nhdrs,
                                        const dBGraph *db_graph)
 {
@@ -102,11 +110,11 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
 
   // Add parameters used in bubble calling to the header
-  json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs.max_flank_len));
-  json_hdr_augment_cmd(json, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs.max_allele_len));
+  json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));
+  json_hdr_augment_cmd(json, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs->max_allele_len));
   cJSON *haploids = cJSON_CreateArray();
-  for(i = 0; i < prefs.num_haploid; i++)
-    cJSON_AddItemToArray(haploids, cJSON_CreateInt(prefs.haploid_cols[i]));
+  for(i = 0; i < prefs->nhaploid_cols; i++)
+    cJSON_AddItemToArray(haploids, cJSON_CreateInt(prefs->haploid_cols[i]));
   json_hdr_augment_cmd(json, "bubbles", "haploid_colours", haploids);
 
   // Write header to file
@@ -149,46 +157,12 @@ static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer
   sbuf->b[sbuf->end] = '\0';
 }
 
-// Remove paths that are both seen in a haploid sample (e.g. repeat)
-// Returns number of paths
-static size_t remove_haploid_paths(const GraphCache *cache,
-                                   GCacheStep **steps, size_t num_paths,
-                                   bool *haploid_seen,
-                                   const size_t *haploid_cols,
-                                   size_t num_haploid)
-{
-  size_t r, p;
-  memset(haploid_seen, 0, sizeof(bool)*num_haploid);
-
-  for(p = 0; p < num_paths; )
-  {
-    for(r = 0; r < num_haploid; r++)
-    {
-      if(graph_cache_step_has_colour(cache, steps[p], haploid_cols[r]))
-      {
-        // Drop path if already haploid_seen
-        if(haploid_seen[r]) break;
-        haploid_seen[r] = 1;
-      }
-    }
-
-    // Drop path
-    if(r < num_haploid) {
-      SWAP(steps[p], steps[num_paths-1]);
-      num_paths--;
-    }
-    else p++;
-  }
-
-  return num_paths;
-}
-
 
 // Potential bubble - filter ref and duplicate alleles
 static void print_bubble(BubbleCaller *caller,
                          GCacheStep **steps, size_t num_paths)
 {
-  const BubbleCallingPrefs prefs = caller->prefs;
+  const BubbleCallingPrefs *prefs = caller->prefs;
   const dBGraph *db_graph = caller->db_graph;
   size_t i;
 
@@ -198,7 +172,7 @@ static void print_bubble(BubbleCaller *caller,
     // Haven't fetched 5p flank yet
     // flank5p[0] already contains the first node
     flank5p->len = 1;
-    supernode_extend(flank5p, prefs.max_flank_len, db_graph);
+    supernode_extend(flank5p, prefs->max_flank_len, db_graph);
     db_nodes_reverse_complement(flank5p->b, flank5p->len);
   }
 
@@ -214,8 +188,8 @@ static void print_bubble(BubbleCaller *caller,
   dBNodeBuffer *pathbuf = &caller->pathbuf;
   db_node_buf_reset(pathbuf);
 
-  // Get bubble number (threadsafe num_bubbles_ptr++)
-  size_t id = __sync_fetch_and_add((volatile size_t*)caller->num_bubbles_ptr, 1);
+  // Get bubble number (threadsafe nbubbles_ptr++)
+  size_t id = __sync_fetch_and_add((volatile uint64_t*)caller->nbubbles_ptr, 1);
 
   // This can be set to anything without a '.' in it
   const char prefix[] = "call";
@@ -324,7 +298,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
         graph_walker_force(wlk, nodes[i], num_edges_in_col > 1);
 
         pathid = graph_crawler_load_path_limit(cache, nodes[i], wlk, rptwlk,
-                                               caller->prefs.max_allele_len);
+                                               caller->prefs->max_allele_len);
 
         graph_walker_finish(wlk);
         graph_crawler_reset_rpt_walker(rptwlk, cache, pathid);
@@ -337,52 +311,140 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   caller->flank5p.len = 0; // set to one to signify we haven't fetched flank yet
 }
 
-static void remove_non_bubbles(BubbleCaller *caller, GCacheStepPtrBuf *endsteps)
+static bool paths_all_share_unitig(const GraphCache *cache,
+                                   khash_t(uint32to32) *unitig_map,
+                                   GCacheStep const*const* steps,
+                                   size_t num_paths)
 {
-  if(!graph_cache_is_3p_flank(&caller->cache, endsteps->b, endsteps->len)) {
-    cache_stepptr_buf_reset(endsteps);
+  uint32_t unitig;
+  khiter_t kiter;
+  kh_clear(uint32to32, unitig_map);
+  const GCachePath *path;
+  const GCacheStep *step;
+  size_t i;
+  int hret = 0;
+
+  for(i = 0; i < num_paths; i++) {
+    path = gc_step_get_path(cache, steps[i]);
+    step = gc_path_first_step(cache, path);
+    for(; step < steps[i]; step++) {
+      unitig = gc_step_encode_uint32(step);
+      kiter = kh_put(uint32to32, unitig_map, unitig, &hret);
+      if(hret < 0) die("khash table failed: out of memory?");
+      if(hret > 0) kh_value(unitig_map, kiter) = 0; // init if not in table
+      kh_value(unitig_map, kiter)++;
+    }
   }
-  else
+
+  // Look for hits and wipe at the same time
+  bool shared_unitig = false;
+  for(kiter = kh_begin(unitig_map); kiter != kh_end(unitig_map); ++kiter) {
+    if(kh_exist(unitig_map, kiter)) {
+      shared_unitig |= (kh_value(unitig_map, kiter) == num_paths);
+      kh_del(uint32to32, unitig_map, kiter);
+    }
+  }
+
+  return shared_unitig;
+}
+
+// Remove paths that are both seen in a haploid sample (e.g. repeat)
+// Returns number of paths
+static size_t remove_haploid_paths(const GraphCache *cache,
+                                   GCacheStep **steps, size_t num_paths,
+                                   bool *haploid_seen,
+                                   const size_t *haploid_cols,
+                                   size_t nhaploid_cols)
+{
+  size_t r, p;
+  memset(haploid_seen, 0, sizeof(bool)*nhaploid_cols);
+
+  for(p = 0; p < num_paths; )
   {
-    endsteps->len = graph_cache_remove_dupes(&caller->cache,
-                                             endsteps->b, endsteps->len);
+    for(r = 0; r < nhaploid_cols; r++)
+    {
+      if(graph_cache_step_has_colour(cache, steps[p], haploid_cols[r]))
+      {
+        // Drop path if already haploid_seen
+        if(haploid_seen[r]) break;
+        haploid_seen[r] = 1;
+      }
+    }
 
-    endsteps->len = remove_haploid_paths(&caller->cache,
-                                         endsteps->b, endsteps->len,
-                                         caller->haploid_seen,
-                                         caller->prefs.haploid_cols,
-                                         caller->prefs.num_haploid);
-
-    if(endsteps->len < 2) cache_stepptr_buf_reset(endsteps);
+    // Drop path
+    if(r < nhaploid_cols) {
+      SWAP(steps[p], steps[num_paths-1]);
+      num_paths--;
+    }
+    else p++;
   }
+
+  return num_paths;
+}
+
+// returns true if paths contain a bubble after filtering, otherwise false
+static bool filter_bubbles(BubbleCaller *bc, GCacheStepPtrBuf *ends)
+{
+  if(!graph_cache_is_3p_flank(&bc->cache, ends->b, ends->len)) {
+    // status("fail: Not 3p");
+    return false;
+  }
+
+  if((ends->len = graph_cache_remove_dupes(&bc->cache, ends->b, ends->len)) < 2) {
+    // status("fail: all dupes");
+    return false;
+  }
+
+  if((ends->len = remove_haploid_paths(&bc->cache,
+                                       ends->b, ends->len,
+                                       bc->haploid_seen,
+                                       bc->prefs->haploid_cols,
+                                       bc->prefs->nhaploid_cols)) < 2)
+  {
+    // status("fail: haploid");
+    bc->num_haploid_bubbles++; // haploid bubble removed
+    return false;
+  }
+
+  // remove serial bubbles by dropping all paths if they all share a unitig
+  if(bc->prefs->remove_serial_bubbles &&
+     paths_all_share_unitig(&bc->cache, bc->unitig_map,
+                            (GCacheStep const*const*)ends->b, ends->len))
+  {
+    // status("fail: serial");
+    bc->num_serial_bubbles++;
+    return false;
+  }
+
+  return true;
 }
 
 // Load GCacheSteps into caller->spp_forward (if they traverse the unitig forward)
 // or caller->spp_reverse (if they traverse the unitig in reverse)
-void find_bubbles_ending_with(BubbleCaller *caller, GCacheUnitig *unitig)
+void find_bubbles_ending_with(BubbleCaller *bc, GCacheUnitig *unitig)
 {
   // possible 3p flank (i.e. bubble end)
   // record paths that go through here forwards, and in reverse
-  cache_stepptr_buf_reset(&caller->spp_forward);
-  cache_stepptr_buf_reset(&caller->spp_reverse);
+  cache_stepptr_buf_reset(&bc->spp_forward);
+  cache_stepptr_buf_reset(&bc->spp_reverse);
 
   uint32_t stepid = unitig->stepid;
   GCacheStep *step;
 
   while(stepid != UINT32_MAX)
   {
-    step = graph_cache_step(&caller->cache, stepid);
+    step = graph_cache_step(&bc->cache, stepid);
     if(step->orient == FORWARD) {
-      cache_stepptr_buf_push(&caller->spp_forward, &step, 1);
+      cache_stepptr_buf_push(&bc->spp_forward, &step, 1);
     } else {
-      cache_stepptr_buf_push(&caller->spp_reverse, &step, 1);
+      cache_stepptr_buf_push(&bc->spp_reverse, &step, 1);
     }
     stepid = step->next_step;
   }
 
   // Filter out non-bubbles
-  remove_non_bubbles(caller, &caller->spp_forward);
-  remove_non_bubbles(caller, &caller->spp_reverse);
+  if(!filter_bubbles(bc, &bc->spp_forward)) cache_stepptr_buf_reset(&bc->spp_forward);
+  if(!filter_bubbles(bc, &bc->spp_reverse)) cache_stepptr_buf_reset(&bc->spp_reverse);
 }
 
 static void write_bubbles_to_file(BubbleCaller *caller)
@@ -392,10 +454,14 @@ static void write_bubbles_to_file(BubbleCaller *caller)
   GCacheUnitig *unitig;
   size_t i;
 
+  // status("Got %zu nunitigs", nunitigs);
+
   for(i = 0; i < nunitigs; i++)
   {
     unitig = graph_cache_unitig(&caller->cache, i);
     find_bubbles_ending_with(caller, unitig);
+
+    // status("ends: %zu %zu", caller->spp_forward.len, caller->spp_reverse.len);
 
     if(caller->spp_forward.len > 1)
       print_bubble(caller, caller->spp_forward.b, caller->spp_forward.len);
@@ -427,15 +493,23 @@ void bubble_caller(void *args)
                     bubble_caller_node, caller);
 }
 
-void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
+void invoke_bubble_caller(size_t num_of_threads,
+                          const BubbleCallingPrefs *prefs,
                           gzFile gzout, const char *out_path,
                           cJSON **hdrs, size_t nhdrs,
                           const dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_edge_cols == 1);
   ctx_assert(db_graph->node_in_cols != NULL);
+  size_t i;
 
   status("Calling bubbles with %zu threads, output: %s", num_of_threads, out_path);
+
+  StrBuf tmpstr = {0,0,0};
+  for(i = 0; i < prefs->nhaploid_cols; i++)
+    strbuf_sprintf(&tmpstr, "\t%zu", prefs->haploid_cols[i]);
+  status("Haploid colours:%s", tmpstr.b);
+  strbuf_dealloc(&tmpstr);
 
   // Print header
   bubble_caller_print_header(gzout, out_path, prefs, hdrs, nhdrs, db_graph);
@@ -448,10 +522,17 @@ void invoke_bubble_caller(size_t num_of_threads, BubbleCallingPrefs prefs,
                    num_of_threads, bubble_caller);
 
   // Report number of bubble called+printed
-  size_t num_of_bubbles = callers[0].num_bubbles_ptr[0];
-  char num_bubbles_str[100];
-  ulong_to_str(num_of_bubbles, num_bubbles_str);
-  status("%s bubbles called with Paths-Bubble-Caller\n", num_bubbles_str);
+  uint64_t nhaploid = 0, nserial = 0, nbubbles = callers[0].nbubbles_ptr[0];
+
+  for(i = 0; i < num_of_threads; i++) {
+    nhaploid += callers[i].num_haploid_bubbles;
+    nserial += callers[i].num_serial_bubbles;
+  }
+
+  char n0[ULONGSTRLEN];
+  status("Bubble Caller called %s bubbles\n", ulong_to_str(nbubbles, n0));
+  status("Haploid bubbles dropped: %s", ulong_to_str(nhaploid, n0));
+  status("Serial bubbles dropped: %s", ulong_to_str(nserial, n0));
 
   status("Turn bubble file into VCF with:");
   status("   bwa index ref.fa");

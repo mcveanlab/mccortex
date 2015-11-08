@@ -1,0 +1,23 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20151014
+##reference=ref/ref.fa
+##contig=<ID=ref,length=200>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##SAMPLE=<ID=wally,K11_kcov=3,K11_nkmers=205,mean_read_length=190>
+##FORMAT=<ID=K11R,Number=A,Type=Integer,Description="Coverage on ref (k=11): sum(kmer_covs) / exp_num_kmers">
+##FORMAT=<ID=K11A,Number=A,Type=Integer,Description="Coverage on alt (k=11): sum(kmer_covs) / exp_num_kmers">
+##mccortex_9e268b2=<prev="NULL",cmd="../../../bin/mccortex31 vcfcov -m 10M -o calls.cov.vcf -r ../ref/ref.fa --max-nvars 5 -f --low-mem calls.vcf wally.k11.ctx",cwd="/Users/isaac/mccortex/tests/vcfcov/calls5",datetime="20151103-23:49:27",version=v0.0.3-386-g16563e1-dirty>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	wally
+ref	7	.	G	T	.	PASS	.	K11R:K11A	4:0
+ref	15	.	GCAATACCCCCCGATGACGG	G	.	PASS	.	K11R:K11A	2:2
+ref	20	.	A	T	.	PASS	.	K11R:K11A	2:0
+ref	22	.	C	G	.	PASS	.	K11R:K11A	2:0
+ref	40	.	T	A	.	PASS	.	K11R:K11A	2:2
+ref	49	.	GG	CGAT	.	PASS	.	K11R:K11A	4:0
+ref	71	.	A	GAT	.	PASS	.	K11R:K11A	4:0
+ref	92	.	GCACCAGGG	AC	.	PASS	.	K11R:K11A	4:0
+ref	121	.	C	G	.	PASS	.	K11R:K11A	4:0
+ref	142	.	GGCACAGCA	TTACTCTTC	.	PASS	.	K11R:K11A	4:0
+ref	171	.	A	CTAG	.	PASS	.	K11R:K11A	4:0
+ref	192	.	CATCATAG	A	.	PASS	.	K11R:K11A	4:0

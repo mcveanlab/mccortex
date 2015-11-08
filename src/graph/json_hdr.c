@@ -60,6 +60,18 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
   }
 }
 
+cJSON* json_hdr_load(gzFile gzin, const char *path)
+{
+  cJSON *json;
+  StrBuf hdrstr;
+  strbuf_alloc(&hdrstr, 1024);
+  json_hdr_read(NULL, gzin, path, &hdrstr);
+  json = cJSON_Parse(hdrstr.b);
+  if(json == NULL) die("Invalid JSON header: %s", path);
+  strbuf_dealloc(&hdrstr);
+  return json;
+}
+
 /**
  * @param path is the path of the file we are writing to (can be NULL)
  * @param fileidstr is the unique id we have generated for the output file
@@ -67,11 +79,9 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
 {
   // Add latest command
-  #define CMD_KEY_PREFIX ""
   #define CMD_KEY_LEN 8
-  char keystr[strlen(CMD_KEY_PREFIX)+CMD_KEY_LEN+1];
-  strcpy(keystr, CMD_KEY_PREFIX);
-  hex_rand_str(keystr+strlen(CMD_KEY_PREFIX), CMD_KEY_LEN+1);
+  char keystr[CMD_KEY_LEN+1];
+  hex_rand_str(keystr, CMD_KEY_LEN+1);
 
   cJSON *command = cJSON_CreateObject();
   cJSON_AddStringToObject(command, "key", keystr);

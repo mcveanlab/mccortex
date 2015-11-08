@@ -21,7 +21,7 @@ bool parse_entire_ulong(const char *str, unsigned long *result);
 bool parse_entire_double(const char *str, double *result);
 bool parse_entire_size(const char *str, size_t *result);
 
-//
+// Parse comma-separated lists
 int parse_list_doubles(double *list, size_t n, const char *str);
 int parse_list_sizes(size_t *list, size_t n, const char *str);
 
@@ -35,6 +35,8 @@ extern const uint8_t nibble_popcount_table[16];
 
 #define byte_popcount(x) (nibble_popcount_table[((x) >> 4) & 0xf] + \
                           nibble_popcount_table[(x) & 0xf])
+
+char* bin64_to_str(uint64_t bits, unsigned int n, char *str);
 
 //
 // Strings
@@ -77,6 +79,7 @@ bool mem_to_integer(const char *arg, size_t *bytes);
  */
 size_t num_of_digits(size_t num);
 
+#define ULONGSTRLEN 27
 // result must be long enough for result + 1 ('\0'). Max length required is:
 // strlen('18,446,744,073,709,551,615')+1 = 27 bytes
 // returns pointer to result
@@ -135,6 +138,11 @@ char* hex_rand_str(char *str, size_t num);
 //
 // Maths
 //
+
+static inline bool is_power_of_two(uint64_t x)
+{
+  return x && !(x & (x-1));
+}
 
 // prec should be 10**n where n is the number of decimal places you want
 #define ndecplaces(x,prec) (((long)((double)(x)*(prec)+0.5))/(double)(prec))

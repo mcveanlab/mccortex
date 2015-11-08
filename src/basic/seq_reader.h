@@ -94,22 +94,26 @@ static inline ReadMateDir seq_reader_orient_swap(ReadMateDir matedir) {
 
 // Hash map of chromosome name -> sequence
 #include "htslib/khash.h"
-KHASH_MAP_INIT_STR(ChromHash, read_t*);
+KHASH_MAP_INIT_STR(kChromHash, read_t*);
+typedef khash_t(kChromHash) ChromHash;
 
-static inline read_t* seq_fetch_chrom(khash_t(ChromHash) *genome,
-                                      const char *chrom_name)
+#define chrom_hash_init() kh_init(kChromHash)
+#define chrom_hash_destroy(genome) kh_destroy(kChromHash, genome)
+
+static inline read_t* chrom_hash_fetch(const ChromHash *genome,
+                                       const char *chrom_name)
 {
   // Fetch chromosome
-  khiter_t k = kh_get(ChromHash, genome, chrom_name);
+  khiter_t k = kh_get(kChromHash, genome, chrom_name);
   if(k == kh_end(genome)) die("Cannot find chrom [%s]", chrom_name);
   return kh_value(genome, k);
 }
 
-void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
-                                 ReadBuffer *chroms, khash_t(ChromHash) *genome);
+void chrom_hash_load2(seq_file_t **seq_files, size_t num_files,
+                                 ReadBuffer *chroms, ChromHash *genome);
 
-void seq_reader_load_ref_genome(char **paths, size_t num_files,
-                                ReadBuffer *chroms, khash_t(ChromHash) *genome);
+void chrom_hash_load(char const*const* paths, size_t num_files,
+                     ReadBuffer *chroms, ChromHash *genome);
 
 //
 // Useful MACROs

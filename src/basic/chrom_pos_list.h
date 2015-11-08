@@ -1,11 +1,11 @@
 #ifndef CHROM_POS_LIST_H_
 #define CHROM_POS_LIST_H_
 
-// ChromPosOffset coords are 1-based
+// ChromPosOffset coords are read/printed 1-based, stored 0-based
 typedef struct
 {
   char *chrom;
-  size_t start, end, offset; // always true: start <= end
+  size_t start, end, offset; // 0-based; start < end; end not inclusive
   bool fw_strand;
 } ChromPosOffset;
 
@@ -17,7 +17,7 @@ int chrom_pos_cmp_len(const void *aa, const void *bb);
 
 // Validate a chrom position object
 void chrom_pos_validate(const ChromPosOffset *pos);
-#define chrom_pos_len(pos) ((pos)->end - (pos)->start + 1)
+#define chrom_pos_len(pos) ((pos)->end - (pos)->start)
 
 /**
  * Get largest match

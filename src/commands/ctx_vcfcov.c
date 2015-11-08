@@ -30,6 +30,7 @@ const char vcfcov_usage[] =
 "  -r, --ref <ref.fa>     Reference file [required]\n"
 "  -L, --max-var-len <A>  Only use alleles <= A bases long [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE_LEN)"]\n"
 "  -N, --max-nvars <N>    Limit haplotypes to <= N variants [default: "QUOTE_VALUE(DEFAULT_MAX_GT_VARS)"]\n"
+"  -M, --low-mem          Two-passes of VCF to only load needed kmers\n"
 "\n";
 
 static struct option longopts[] =
@@ -44,6 +45,7 @@ static struct option longopts[] =
   {"ref",          required_argument, NULL, 'r'},
   {"max-var-len",  required_argument, NULL, 'L'},
   {"max-nvars",    required_argument, NULL, 'N'},
+  {"low-mem",      no_argument,       NULL, 'M'},
   {NULL, 0, NULL, 0}
 };
 
@@ -56,6 +58,7 @@ int ctx_vcfcov(int argc, char **argv)
 
   uint32_t max_allele_len = 0, max_gt_vars = 0;
   char *ref_path = NULL;
+  bool low_mem = false;
 
   // Arg parsing
   char cmd[100];
@@ -80,6 +83,7 @@ int ctx_vcfcov(int argc, char **argv)
       case 'r': cmd_check(!ref_path, cmd); ref_path = optarg; break;
       case 'L': cmd_check(!max_allele_len,cmd); max_allele_len = cmd_uint32(cmd,optarg); break;
       case 'N': cmd_check(!max_gt_vars,cmd); max_gt_vars = cmd_uint32(cmd,optarg); break;
+      case 'M': cmd_check(!low_mem, cmd); low_mem = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -107,9 +111,17 @@ int ctx_vcfcov(int argc, char **argv)
   // Open input VCF file
   const char *vcf_path = argv[optind++];
   htsFile *vcffh = hts_open(vcf_path, "r");
+  if(vcffh == NULL) die("Cannot open VCF file: %s", vcf_path);
   bcf_hdr_t *vcfhdr = bcf_hdr_read(vcffh);
+  if(vcfhdr == NULL) die("Cannot read VCF header: %s", vcf_path);
 
-  // globhdr = vcfhdr;
+  // Test we can close and reopen files
+  if(low_mem) {
+    if((vcffh = hts_open(vcf_path, "r")) == NULL)
+      die("Cannot re-open VCF file: %s", vcf_path);
+    if((vcfhdr = bcf_hdr_read(vcffh)) == NULL)
+      die("Cannot re-read VCF header: %s", vcf_path);
+  }
 
   //
   // Open graph files
@@ -159,27 +171,8 @@ int ctx_vcfcov(int argc, char **argv)
                  DBG_ALLOC_COVGS);
 
   //
-  // Load graphs
+  // Set up tag names
   //
-  GraphLoadingStats gstats;
-  memset(&gstats, 0, sizeof(gstats));
-
-  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
-  gprefs.empty_colours = true;
-
-  for(i = 0; i < num_gfiles; i++) {
-    graph_load(&gfiles[i], gprefs, &gstats);
-    graph_file_close(&gfiles[i]);
-    gprefs.empty_colours = false;
-  }
-  ctx_free(gfiles);
-
-  hash_table_print_stats(&db_graph.ht);
-
-  //
-  // Set up VCF header / graph matchup
-  //
-  size_t *samplehdrids = ctx_malloc(db_graph.num_of_cols * sizeof(size_t));
 
   // *R => ref, *A => alt
   sprintf(kcov_ref_tag, "K%zuR", db_graph.kmer_size); // mean coverage
@@ -193,6 +186,61 @@ int ctx_vcfcov(int argc, char **argv)
   sprintf(sample_kcov_tag, "K%zu_kcov", db_graph.kmer_size); // mean coverage
   sprintf(sample_nk_tag, "K%zu_nkmers", db_graph.kmer_size);
   sprintf(sample_rlk_tag, "mean_read_length");
+
+  //
+  // Load kmers if we are using --low-mem
+  //
+
+  VcfCovStats st;
+  memset(&st, 0, sizeof(st));
+  VcfCovPrefs prefs = {.kcov_ref_tag = kcov_ref_tag,
+                       .kcov_alt_tag = kcov_alt_tag,
+                       .max_allele_len = max_allele_len,
+                       .max_gt_vars = max_gt_vars,
+                       .load_kmers_only = false};
+
+  if(low_mem)
+  {
+    status("[vcfcov] Loading kmers from VCF+ref");
+
+    prefs.load_kmers_only = true;
+    vcfcov_file(vcffh, vcfhdr, NULL, NULL, vcf_path, fai,
+                NULL, &prefs, &st, &db_graph);
+
+    // Close files
+    hts_close(vcffh);
+    bcf_hdr_destroy(vcfhdr);
+
+    // Re-open files
+    if((vcffh = hts_open(vcf_path, "r")) == NULL)
+      die("Cannot re-open VCF file: %s", vcf_path);
+    if((vcfhdr = bcf_hdr_read(vcffh)) == NULL)
+      die("Cannot re-read VCF header: %s", vcf_path);
+
+    prefs.load_kmers_only = false;
+  }
+
+  //
+  // Load graphs
+  //
+  GraphLoadingStats gstats;
+  memset(&gstats, 0, sizeof(gstats));
+
+  GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+  gprefs.must_exist_in_graph = low_mem;
+
+  for(i = 0; i < num_gfiles; i++) {
+    graph_load(&gfiles[i], gprefs, &gstats);
+    graph_file_close(&gfiles[i]);
+  }
+  ctx_free(gfiles);
+
+  hash_table_print_stats(&db_graph.ht);
+
+  //
+  // Set up VCF header / graph matchup
+  //
+  size_t *samplehdrids = ctx_malloc(db_graph.num_of_cols * sizeof(size_t));
 
   // Add samples to vcf header
   bcf_hdr_t *outhdr = bcf_hdr_dup(vcfhdr);
@@ -249,19 +297,15 @@ int ctx_vcfcov(int argc, char **argv)
   bcf_hdr_set_version(outhdr, "VCFv4.2");
 
   // Add command string to header
-  vcf_misc_hdr_add_cmd(vcfhdr, cmd_get_cmdline(), cmd_get_cwd());
+  vcf_misc_hdr_add_cmd(outhdr, cmd_get_cmdline(), cmd_get_cwd());
 
   if(bcf_hdr_write(outfh, outhdr) != 0)
     die("Cannot write header to: %s", futil_outpath_str(out_path));
 
   status("[vcfcov] Reading %s and adding coverage", vcf_path);
 
-  VcfCovStats st;
+  // Reset stats and get coverage
   memset(&st, 0, sizeof(st));
-  VcfCovPrefs prefs = {.kcov_ref_tag = kcov_ref_tag,
-                       .kcov_alt_tag = kcov_alt_tag,
-                       .max_allele_len = max_allele_len,
-                       .max_gt_vars = max_gt_vars};
 
   vcfcov_file(vcffh, vcfhdr, outfh, outhdr, vcf_path, fai,
               samplehdrids, &prefs, &st, &db_graph);

@@ -14,19 +14,23 @@ K=21
 all: test
 
 clean:
-	rm -rf calls.cov.vcf graph.k$(K).ctx
+	rm -rf calls.cov.vcf lowmem.cov.vcf graph.k$(K).ctx
 
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
 	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) calls.vcf graph.k$(K).ctx
+
+lowmem.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --low-mem calls.vcf graph.k$(K).ctx
 
 graph.k$(K).ctx:
 	$(MCCORTEX31) build -k $(K) \
 	  --sample John --seq <(echo '') \
 	  --sample Jane --seq <(echo '') \
-	  $@
+	  $@ >& $@.log
 
-test: calls.cov.vcf
+test: calls.cov.vcf lowmem.cov.vcf
 	[[ `$(VCFNALLELES) calls.cov.vcf` -eq 0 ]]
+	[[ `$(VCFNALLELES) lowmem.cov.vcf` -eq 0 ]]
 	@echo "=> Empty VCF works."
 
 view: calls.cov.vcf

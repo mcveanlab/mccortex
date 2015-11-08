@@ -124,8 +124,8 @@ Occasionally we also run Coverity Scan. This is done by pushing to the `coverity
 
     git checkout coverity_scan
     git merge develop
-    git reset HEAD .travis.yml
-    git reset HEAD configure
+    git checkout --ours .travis.yml
+    git checkout --ours configure
 
 License: MIT
 ------------

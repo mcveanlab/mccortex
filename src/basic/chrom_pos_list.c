@@ -13,7 +13,7 @@ int chrom_pos_cmp_len(const void *aa, const void *bb)
   if(len_a != len_b) return len_a > len_b ? -1 : 1;
   if((c = strcmp(a->chrom,b->chrom)) != 0) return c;
   if(a->fw_strand != b->fw_strand) return a->fw_strand ? -1 : 1;
-  return a->start < b->start ? -1 : 1;
+  return cmp(a->start, b->start);
 }
 
 void chrom_pos_list_sort(ChromPosBuffer *buf)
@@ -55,14 +55,14 @@ size_t chrom_pos_list_get_largest(const ChromPosBuffer *buf, bool use_first,
 
 void chrom_pos_print(const ChromPosOffset *pos)
 {
-  printf("%s:%zu-%zu:%c:%zu\n", pos->chrom, pos->start, pos->end,
-         pos->fw_strand ? '+' : '-', pos->offset);
+  printf("%s:%zu-%zu:%c:%zu\n", pos->chrom, pos->start+1, pos->end,
+         pos->fw_strand ? '+' : '-', pos->offset+1);
 }
 
 void chrom_pos_validate(const ChromPosOffset *pos)
 {
   // chrom_pos_print(pos);
-  ctx_assert2(pos->start < pos->end, "end before start");
+  ctx_assert2(pos->start < pos->end, "length < 1");
   ctx_assert(pos->chrom != NULL);
   ctx_assert(pos->fw_strand == 0 || pos->fw_strand == 1);
 }
@@ -101,11 +101,12 @@ int _parse(char *str, ChromPosOffset *obj)
   // if strand is -, start must be >= end
   if((start < end && !fw_strand) || (start > end && fw_strand)) return -1;
 
+  // Convert to 0-based
   obj->chrom     = chrom;
-  obj->start     = MIN2(start,end);
+  obj->start     = MIN2(start,end)-1;
   obj->end       = MAX2(start,end);
   obj->fw_strand = fw_strand;
-  obj->offset    = offset;
+  obj->offset    = offset-1;
 
   chrom_pos_validate(obj);
 

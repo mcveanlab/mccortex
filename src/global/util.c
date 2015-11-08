@@ -123,6 +123,8 @@ int parse_list(void *list, size_t n, size_t el,
                void (*convert)(void *dst, const char *str, char **end),
                const char *str)
 {
+  if(!str) return 0;
+
   char *l = (char*)list, *dendptr = NULL;
   const char *end = str;
   size_t i = 0;
@@ -165,7 +167,21 @@ int parse_list_sizes(size_t *list, size_t n, const char *str)
 }
 
 //
+// Bits
 //
+
+// str must be n+1 long
+char* bin64_to_str(uint64_t bits, unsigned int n, char *str)
+{
+  ctx_assert(n <= 64);
+  size_t i, shift = n-1;
+  for(i = 0; i < n; i++, shift--) str[i] = '0'+((bits>>shift)&1);
+  str[n] = '\0';
+  return str;
+}
+
+//
+// Strings
 //
 
 bool bases_to_integer(const char *arg, size_t *bases)
@@ -374,14 +390,15 @@ static const char hex[17] = "0123456789abcdef";
 // Generate null terminated string of length num-1
 char* hex_rand_str(char *str, size_t num)
 {
-  ctx_assert(num > 0);
-  size_t i, r = 0;
-  // 4 bits per cycle, 32 bits in rand()
-  #define BITS 4
-  for(i = 0; i+1 < num; i++) {
-    if((i & ((32/BITS)-1)) == 0) r = (size_t)rand();
-    str[i] = hex[r&((1<<BITS)-1)];
-    r >>= BITS;
+  if(num == 0) return NULL;
+  ctx_assert2(is_power_of_two((uint64_t)RAND_MAX+1), "RAND_MAX not (2^n)-1");
+
+  size_t i, r = 0, m = 0;
+  // 4 bits per cycle, rand() is unknown size, max value: RAND_MAX
+  // mask `m` indicates which rand `r` bits are set
+  for(i = 0; i+1 < num; i++, r >>= 4, m >>= 4) {
+    if((m & 0xf) < 0xf) { r = (size_t)rand(); m = (size_t)RAND_MAX; }
+    str[i] = hex[r&0xf];
   }
   str[num-1] = '\0';
   return str;

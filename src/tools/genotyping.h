@@ -6,6 +6,9 @@
 #include "htslib/khash.h"
 #include "htslib/vcf.h"
 
+// Turn on debugging by defining DEBUG_VCFCOV
+// #define DEBUG_VCFCOV
+
 static inline int bk2bits_hash(BinaryKmer bkey) { return binary_kmer_hash(bkey, 0); }
 static inline int bk2bits_eq(BinaryKmer k1, BinaryKmer k2) { return binary_kmers_are_equal(k1,k2); }
 KHASH_INIT(BkToBits, BinaryKmer, uint64_t, 1, bk2bits_hash, bk2bits_eq);

@@ -24,3 +24,5 @@ ref	199	.	G	T	.	PASS	.	K21R:K21A	2:1	0:0	0:0
 ref	199	.	G	C	.	PASS	.	K21R:K21A	2:0	0:1	0:0
 ref	199	.	G	C	.	PASS	.	K21R:K21A	2:0	0:1	0:0
 ref	199	.	G	A	.	PASS	.	K21R:K21A	2:0	0:1	0:0
+chr1	30	.	C	T	.	PASS	.	K21R:K21A	0:2	1:1	0:0
+chr1	30	.	C	T	.	PASS	.	K21R:K21A	0:2	1:1	0:0

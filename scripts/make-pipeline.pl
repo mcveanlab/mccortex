@@ -264,6 +264,7 @@ MIN_FRAG_LEN=150
 MAX_FRAG_LEN=1000
 FQ_CUTOFF=10
 HP_CUTOFF=0
+MIN_MAPQ=30
 
 SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
 BRK_REF_KMERS=10
@@ -276,7 +277,7 @@ THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRA
 LINK_CLEANING_ARGS=--limit 5000 --threshold
 BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS)
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
-CALL2VCF_ARGS=--max-align 500 --max-allele 100 --min-mapq 30
+CALL2VCF_ARGS=--max-align 500 --max-allele 100
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
 
@@ -740,7 +741,7 @@ if(defined($ref_path))
     print "\t\$(CTXFLANKS) \$< | gzip -c > \$@\n\n";
 
     print "$proj/k$k/%.bub.raw.vcf: $proj/k$k/%.bub.gz $proj/k$k/%.flanks.sam \$(REF_FILE)\n";
-    print "\t$ctx calls2vcf \$(CALL2VCF_ARGS) -F $proj/k$k/\$*.flanks.sam -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
+    print "\t$ctx calls2vcf \$(CALL2VCF_ARGS) --min-mapq \$(MIN_MAPQ) -F $proj/k$k/\$*.flanks.sam -o \$@ \$< \$(REF_FILE) >& \$@.log\n\n";
   }
 
   # Generate breakpoint VCFs
