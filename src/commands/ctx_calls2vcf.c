@@ -169,7 +169,7 @@ static void print_breakpoint_stats(const DecompBreakpointStats *stats)
 
 static void print_vcf_header(cJSON *json, const char *input_path,
                              bool is_breakpoint, size_t kmer_size,
-                             char **ref_paths, size_t nref_paths,
+                             char const*const* ref_paths, size_t nref_paths,
                              read_t *chroms, size_t nchroms,
                              FILE *fout)
 {
@@ -291,7 +291,7 @@ static void brkpnt_check_refs_match(cJSON *json,
   {
     cJSON *id  = json_hdr_get(contig, "id",     cJSON_String, path);
     cJSON *len = json_hdr_get(contig, "length", cJSON_Number, path);
-    const read_t *r = seq_fetch_chrom(genome, id->valuestring);
+    const read_t *r = chrom_hash_fetch(genome, id->valuestring);
     if(r->seq.end != (size_t)len->valueint) {
       die("Chrom lengths do not match %s input:%li ref:%zu",
           id->valuestring, len->valueint, r->seq.end);
@@ -312,7 +312,7 @@ int ctx_calls2vcf(int argc, char **argv)
   // Alignment parameters
   int nwmatch = 1, nwmismatch = -2, nwgapopen = -4, nwgapextend = -1;
   // ref paths
-  char **ref_paths;
+  char const*const* ref_paths = NULL;
   size_t nref_paths = 0;
   // flank file
   const char *sam_path = NULL;
@@ -371,7 +371,7 @@ int ctx_calls2vcf(int argc, char **argv)
     cmd_print_usage("Require <in.txt.gz> and at least one reference");
 
   input_path = argv[optind++];
-  ref_paths = argv + optind;
+  ref_paths = (char const*const*)argv + optind;
   nref_paths = argc - optind;
 
   // These functions call die() on error
@@ -426,8 +426,8 @@ int ctx_calls2vcf(int argc, char **argv)
 
   // Load reference genome
   read_buf_alloc(&chroms, 1024);
-  genome = seq_genome_hash_init();
-  seq_reader_load_ref_genome(ref_paths, nref_paths, &chroms, genome);
+  genome = chrom_hash_init();
+  chrom_hash_load(ref_paths, nref_paths, &chroms, genome);
 
   // convert to upper case
   char *s;
@@ -539,7 +539,7 @@ int ctx_calls2vcf(int argc, char **argv)
 
   for(i = 0; i < chroms.len; i++) seq_read_dealloc(&chroms.b[i]);
   read_buf_dealloc(&chroms);
-  seq_genome_hash_destroy(genome);
+  chrom_hash_destroy(genome);
 
   if(sam_path) {
     hts_close(samfh);

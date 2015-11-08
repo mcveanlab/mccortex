@@ -511,8 +511,8 @@ void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 
 // Create chrom->read genome hash
 // `chroms` and `genome` must already be allocated
-void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
-                                 ReadBuffer *chroms, ChromHash *genome)
+void chrom_hash_load2(seq_file_t **seq_files, size_t num_files,
+                      ReadBuffer *chroms, ChromHash *genome)
 {
   size_t i;
   khiter_t k;
@@ -534,8 +534,8 @@ void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
   }
 }
 
-void seq_reader_load_ref_genome(char **paths, size_t num_files,
-                                ReadBuffer *chroms, ChromHash *genome)
+void chrom_hash_load(char const*const* paths, size_t num_files,
+                     ReadBuffer *chroms, ChromHash *genome)
 {
   size_t i;
 
@@ -545,7 +545,7 @@ void seq_reader_load_ref_genome(char **paths, size_t num_files,
     if((ref_files[i] = seq_open(paths[i])) == NULL)
       die("Cannot read sequence file: %s", paths[i]);
 
-  seq_reader_load_ref_genome2(ref_files, num_files, chroms, genome);
+  chrom_hash_load2(ref_files, num_files, chroms, genome);
 
   ctx_free(ref_files);
 }

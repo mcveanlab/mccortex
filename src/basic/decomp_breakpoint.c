@@ -110,7 +110,7 @@ int decomp_brkpt_call(DecompBreakpoint *db,
   size_t flank5ptrim = flank5plen - (match5p.offset+chrom_pos_len(&match5p));
   size_t flank3ptrim = match3p.offset;
 
-  const read_t *chrom = seq_fetch_chrom(genome, match5p.chrom);
+  const read_t *chrom = chrom_hash_fetch(genome, match5p.chrom);
 
   // ChromPosOffset.start/end are inclusive, but AlignedCall.start/end are not
   ac->start = (fw_strand ? match5p.end : match3p.end);

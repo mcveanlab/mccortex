@@ -276,7 +276,7 @@ int decomp_bubble_call(DecompBubble *db, ChromHash *genome,
 
   // Find chromosome
   const char *chrom_name = bhdr->target_name[mflank->core.tid];
-  const read_t *chrom = seq_fetch_chrom(genome, chrom_name);
+  const read_t *chrom = chrom_hash_fetch(genome, chrom_name);
 
   // Construct complete 3p flank
   // alleletrim is the number of bases taken from the right end of alleles
