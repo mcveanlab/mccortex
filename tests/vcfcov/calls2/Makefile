@@ -27,7 +27,7 @@ lowmem.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
 	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --low-mem calls.vcf graph.k$(K).ctx >& $@.log
 
 graph.k$(K).ctx: sample.fa
-	$(MCCORTEX31) build -m 10M -k $(K) --sample John --seq sample.fa $@
+	$(MCCORTEX31) build -m 10M -k $(K) --sample John --seq sample.fa $@ >& $@.log
 
 test: calls.cov.vcf lowmem.cov.vcf truth.cov.vcf calls.cov.vcf.log
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)

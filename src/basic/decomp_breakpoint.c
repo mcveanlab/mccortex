@@ -20,6 +20,7 @@ DecompBreakpoint* decomp_brkpt_init()
 void decomp_brkpt_destroy(DecompBreakpoint *db)
 {
   chrompos_buf_dealloc(&db->chrposbuf);
+  free(db->cols);
   ctx_free(db);
 }
 
@@ -50,14 +51,13 @@ static bool brkpnt_fetch_largest_match(const char *line, ChromPosBuffer *buf,
   // Parse chr=seq0b:1-20:+:1,seq0a:2-20:+:2
   if(chrom_pos_list_parse(list+5, buf) < 0) die("Invalid positions: %s", line);
   size_t n = chrom_pos_list_get_largest(buf, use_first, flank);
-  status(" n = %zu", n);
   return (n > 0); // can check if n==1 if we want unique
 }
 
 // Convert a call into an aligned call
 // return 0 on success, otherwise non-zero on failure
 int decomp_brkpt_call(DecompBreakpoint *db,
-                      khash_t(ChromHash) *genome, size_t nsamples,
+                      ChromHash *genome, size_t nsamples,
                       const CallFileEntry *centry,
                       AlignedCall *ac)
 {
@@ -69,8 +69,13 @@ int decomp_brkpt_call(DecompBreakpoint *db,
 
   const char *line0 = call_file_get_line(centry, 0);
   const char *line2 = call_file_get_line(centry, 2);
-  int32_t callid = call_file_get_call_id(line0, ">brkpnt.call");
-  if(callid < 0) die("Bad call line: %s [%i]", line0, callid);
+  int64_t callid = call_file_get_call_id(line0, ">brkpnt.call");
+  if(callid < 0) die("Bad call line: %s [%"PRIi64"]", line0, callid);
+
+  db->stats.ncalls++;
+
+  // Set unmapped
+  ac->chrom = NULL;
 
   acall_resize(ac, nalleles, nsamples);
 
@@ -91,26 +96,25 @@ int decomp_brkpt_call(DecompBreakpoint *db,
     return -3;
   }
 
-  // Success, now a sanity check
-  ctx_assert(match5p.offset-1+chrom_pos_len(&match5p) <= call_file_line_len(centry,1));
-
+  // Success
   const char *flank5p = call_file_get_line(centry,1);
   const char *flank3p = call_file_get_line(centry,3);
   size_t flank5plen = call_file_line_len(centry,1);
   size_t flank3plen = call_file_line_len(centry,3);
   bool fw_strand = match5p.fw_strand;
 
+  // sanity check
+  ctx_assert(match5p.offset+chrom_pos_len(&match5p) <= flank5plen);
+
   // Copy required bases so flank5p, flank3p go right up to the breakpoints
-  // offset-1 since ChromPosOffset is 1-based
-  size_t flank5ptrim = flank5plen - (match5p.offset-1+chrom_pos_len(&match5p));
-  size_t flank3ptrim = match3p.offset-1;
+  size_t flank5ptrim = flank5plen - (match5p.offset+chrom_pos_len(&match5p));
+  size_t flank3ptrim = match3p.offset;
 
-  ac->chrom = seq_fetch_chrom(genome, match5p.chrom);
+  const read_t *chrom = seq_fetch_chrom(genome, match5p.chrom);
 
-  // ChromPosStrand.start/end are inclusive, but AlignedCall.start/end are not
-  // ChromPosStrand start is always <= end
-  ac->start = (fw_strand ? match5p.end+1 : match3p.end+1)-1;
-  ac->end   = (fw_strand ? match3p.start : match5p.start)-1;
+  // ChromPosOffset.start/end are inclusive, but AlignedCall.start/end are not
+  ac->start = (fw_strand ? match5p.end : match3p.end);
+  ac->end   = (fw_strand ? match3p.start : match5p.start);
 
   if(ac->start > ac->end)
   {
@@ -159,6 +163,10 @@ int decomp_brkpt_call(DecompBreakpoint *db,
   strbuf_reset(info);
   strbuf_append_str(info, "BRKPNT=");
   strbuf_append_ulong(info, callid);
+
+  // Only set chrom when we know call is aligned
+  ac->chrom = chrom;
+  db->stats.ncalls_mapped++;
 
   return 0;
 }

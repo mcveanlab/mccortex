@@ -60,6 +60,18 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
   }
 }
 
+cJSON* json_hdr_load(gzFile gzin, const char *path)
+{
+  cJSON *json;
+  StrBuf hdrstr;
+  strbuf_alloc(&hdrstr, 1024);
+  json_hdr_read(NULL, gzin, path, &hdrstr);
+  json = cJSON_Parse(hdrstr.b);
+  if(json == NULL) die("Invalid JSON header: %s", path);
+  strbuf_dealloc(&hdrstr);
+  return json;
+}
+
 /**
  * @param path is the path of the file we are writing to (can be NULL)
  * @param fileidstr is the unique id we have generated for the output file

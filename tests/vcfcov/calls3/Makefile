@@ -33,7 +33,7 @@ clean:
 	rm -rf calls.cov.vcf* lowmem.cov.vcf* laurel.k$(K).ctx hardy.k$(K).ctx
 
 %.k$(K).ctx: %.fa
-	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@
+	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
 
 calls.cov.vcf: calls.vcf $(REF) laurel.k$(K).ctx hardy.k$(K).ctx
 	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 $< laurel.k$(K).ctx hardy.k$(K).ctx >& $@.log

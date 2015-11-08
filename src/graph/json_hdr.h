@@ -10,6 +10,8 @@
 // read from FILE* or gzFile, whichever is not NULL
 void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr);
 
+cJSON* json_hdr_load(gzFile gzin, const char *path);
+
 // Add standard header fields to a json header
 // Merge commands from input files @hdrs
 // @param path is the path of the file we are writing to

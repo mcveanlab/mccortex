@@ -20,7 +20,7 @@ clean:
 	rm -rf calls.cov.vcf* lowmem.cov.vcf* pluto.k$(K).ctx
 
 %.k$(K).ctx: %.fa
-	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@
+	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
 
 calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: calls.vcf $(REF) pluto.k$(K).ctx

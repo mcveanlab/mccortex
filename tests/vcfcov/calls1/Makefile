@@ -30,7 +30,7 @@ graph.k$(K).ctx: john.fa jane.fa
 	  --sample John --seq john.fa \
 	  --sample Jane --seq jane.fa \
 	  --sample Empty --seq <(echo '') \
-	  $@
+	  $@ >& $@.log
 
 check: calls.cov.vcf lowmem.cov.vcf truth.cov.vcf
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)

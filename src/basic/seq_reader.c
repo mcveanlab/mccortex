@@ -512,7 +512,7 @@ void seq_reader_orient_mp_FF(read_t *r1, read_t *r2, ReadMateDir matedir)
 // Create chrom->read genome hash
 // `chroms` and `genome` must already be allocated
 void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
-                                 ReadBuffer *chroms, khash_t(ChromHash) *genome)
+                                 ReadBuffer *chroms, ChromHash *genome)
 {
   size_t i;
   khiter_t k;
@@ -526,7 +526,7 @@ void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
     seq_read_truncate_name(&chroms->b[i]);
     if(strchr(chroms->b[i].name.b,':') != NULL)
       die("Please remove colons from chromosome names [%s]", chroms->b[i].name.b);
-    k = kh_put(ChromHash, genome, chroms->b[i].name.b, &hret);
+    k = kh_put(kChromHash, genome, chroms->b[i].name.b, &hret);
     if(hret == 0)
       warn("duplicate chromosome (take first only): '%s'", chroms->b[i].name.b);
     else
@@ -535,7 +535,7 @@ void seq_reader_load_ref_genome2(seq_file_t **seq_files, size_t num_files,
 }
 
 void seq_reader_load_ref_genome(char **paths, size_t num_files,
-                                ReadBuffer *chroms, khash_t(ChromHash) *genome)
+                                ReadBuffer *chroms, ChromHash *genome)
 {
   size_t i;
 

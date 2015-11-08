@@ -22,7 +22,7 @@ clean:
 	rm -rf calls.cov.vcf* lowmem.cov.vcf* wally.k$(K).ctx alt.fa
 
 %.k$(K).ctx: $(REF) alt.fa
-	$(MCCORTEX31) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@
+	$(MCCORTEX31) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@ >& $@.log
 
 calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: calls.vcf $(REF) wally.k$(K).ctx

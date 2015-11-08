@@ -7,11 +7,12 @@
 
 
 // Variant haplotypes aligned to a region of the reference
+// if not aligned, chrom is NULL, other fields are undefined
 typedef struct
 {
   StrBuf *lines;
   size_t n_lines, s_lines; // s_lines is size of lines array
-  const read_t *chrom;
+  const read_t *chrom; // set to NULL if not aligned
   uint32_t start, end;
 
   StrBuf info;
@@ -37,6 +38,7 @@ static inline void acall_destroy(AlignedCall *call)
   for(i = 0; i < call->n_lines; i++) strbuf_dealloc(&call->lines[i]);
   free(call->lines);
   free(call->gts);
+  strbuf_dealloc(&call->info);
   ctx_free(call);
 }
 
@@ -46,16 +48,18 @@ static inline void acall_destroy(AlignedCall *call)
 typedef struct CallDecompStruct CallDecomp;
 
 typedef struct {
-  uint64_t ncalls, naligned, nvars, nallele_too_long;
-  uint64_t nflanks_too_far_apart; // number of calls with flanks far apart
+  uint64_t ncalls, ncalls_mapped, ncalls_ref_allele_too_long;
+  uint64_t nlines, nlines_too_long, nlines_match_ref, nlines_mapped;
+  uint64_t nvars, nallele_too_long, nvars_printed; // decomposed ALTs
 } DecomposeStats;
 
 CallDecomp* call_decomp_init(FILE *fout);
 void call_decomp_destroy(CallDecomp *dc);
 scoring_t* call_decomp_get_scoring(CallDecomp *dc);
+
 void call_decomp_cpy_stats(DecomposeStats *stats, const CallDecomp *dc);
 
 void acall_decompose(CallDecomp *dc, const AlignedCall *call,
-                     size_t max_allele_len, size_t max_flank_dist);
+                     size_t max_line_len, size_t max_allele_len);
 
 #endif /* ALIGNED_CALL_ */

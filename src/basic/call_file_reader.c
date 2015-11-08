@@ -125,11 +125,11 @@ int call_file_read(gzFile gzin, const char *path, CallFileEntry *entry)
  * @param  leadstr  Expected start of hdrline
  * @return callid or -1 on error
  */
-int call_file_get_call_id(const char *hdrline, const char *leadstr)
+int64_t call_file_get_call_id(const char *hdrline, const char *leadstr)
 {
   const char *start = hdrline+strlen(leadstr);
   char *endptr;
   if(strncmp(hdrline, leadstr, strlen(leadstr)) != 0) return -1;
   unsigned long callid = strtoul(start, &endptr, 10);
-  return (endptr == NULL || callid > INT32_MAX) ? -3 : callid;
+  return (endptr == NULL || callid > INT32_MAX) ? -3 : (int64_t)callid;
 }

@@ -49,6 +49,6 @@ static inline size_t call_file_min_allele_len(const CallFileEntry *centry)
  * @param  leadstr  Expected start of hdrline
  * @return callid or -1 on error
  */
-int call_file_get_call_id(const char *hdrline, const char *leadstr);
+int64_t call_file_get_call_id(const char *hdrline, const char *leadstr);
 
 #endif /* CALL_FILE_READER_H_ */

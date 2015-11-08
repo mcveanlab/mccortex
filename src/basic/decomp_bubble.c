@@ -15,27 +15,32 @@ struct DecompBubbleStruct
 
 DecompBubble* decomp_bubble_init()
 {
-  DecompBubble *bd = ctx_calloc(1, sizeof(DecompBubble));
-  bd->nw_aligner = needleman_wunsch_new();
-  bd->aln = alignment_create(1024);
-  bd->scoring = ctx_calloc(1, sizeof(bd->scoring[0]));
-  scoring_system_default(bd->scoring);
-  strbuf_alloc(&bd->flank3pbuf, 1024);
-  return bd;
+  DecompBubble *db = ctx_calloc(1, sizeof(DecompBubble));
+  db->nw_aligner = needleman_wunsch_new();
+  db->aln = alignment_create(1024);
+  db->scoring = ctx_calloc(1, sizeof(db->scoring[0]));
+  scoring_system_default(db->scoring);
+  strbuf_alloc(&db->flank3pbuf, 1024);
+  return db;
 }
 
-void decomp_bubble_destroy(DecompBubble *bd)
+void decomp_bubble_destroy(DecompBubble *db)
 {
-  alignment_free(bd->aln);
-  needleman_wunsch_free(bd->nw_aligner);
-  ctx_free(bd->scoring);
-  strbuf_dealloc(&bd->flank3pbuf);
-  ctx_free(bd);
+  alignment_free(db->aln);
+  needleman_wunsch_free(db->nw_aligner);
+  ctx_free(db->scoring);
+  strbuf_dealloc(&db->flank3pbuf);
+  ctx_free(db);
 }
 
-void decomp_bubble_cpy_stats(DecompBubbleStats *stats, const DecompBubble *bd)
+void decomp_bubble_cpy_stats(DecompBubbleStats *stats, const DecompBubble *db)
 {
-  memcpy(stats, &bd->stats, sizeof(*stats));
+  memcpy(stats, &db->stats, sizeof(*stats));
+}
+
+scoring_t* decomp_bubble_get_scoring(DecompBubble *db)
+{
+  return db->scoring;
 }
 
 //
@@ -65,7 +70,7 @@ static bool align_flank3p(const bam1_t *mflank,
                           const char *flank3p, uint32_t flank3plen,
                           const char *chr, uint32_t chrlen,
                           int32_t *pos, uint32_t *flank3ptrim,
-                          DecompBubble *bd)
+                          DecompBubble *db)
 {
   // Find 3p flank position using search for first kmer
   // Determine search space
@@ -104,19 +109,18 @@ static bool align_flank3p(const bam1_t *mflank,
     // Check for multiple hits
     size_t kstart = kmer_match - chr;
     if(ctx_strnstr(kmer_match+1, endkmer, search_end - kstart - 1) != NULL) {
-      bd->stats.nflank3p_multihits++;
+      db->stats.nflank3p_multihits++;
       return false;
     }
     *pos = fw_strand ? kstart - 1 : kstart + kmer_size;
-    bd->stats.nflank3p_exact_match++;
+    db->stats.nflank3p_exact_found++;
     return true;
   }
 
   // Look for approximate match
   needleman_wunsch_align2(search_region, endkmer, search_len, kmer_size,
-                          bd->scoring, bd->nw_aligner, bd->aln);
-  bd->stats.nflank3p_align++;
-  const char *ref = bd->aln->result_a, *alt = bd->aln->result_b;
+                          db->scoring, db->nw_aligner, db->aln);
+  const char *ref = db->aln->result_a, *alt = db->aln->result_b;
   // --aa--dd-cge
   // bb--ccd-ecge
 
@@ -125,11 +129,11 @@ static bool align_flank3p(const bam1_t *mflank,
   int ref_offset_left = 0, ref_offset_rght = 0;
   int alt_offset_left = 0, alt_offset_rght = 0;
 
-  for(l = 0; l < (int)bd->aln->length && ref[l] != alt[l]; l++) {
+  for(l = 0; l < (int)db->aln->length && ref[l] != alt[l]; l++) {
     ref_offset_left += (ref[l] != '-');
     alt_offset_left += (alt[l] != '-');
   }
-  for(r = bd->aln->length-1; r > 0 && ref[r] != alt[r]; r--) {
+  for(r = db->aln->length-1; r > 0 && ref[r] != alt[r]; r--) {
     ref_offset_rght += (ref[r] != '-');
     alt_offset_rght += (alt[r] != '-');
   }
@@ -140,11 +144,11 @@ static bool align_flank3p(const bam1_t *mflank,
   if(matches < (int)kmer_size / 2)
   {
     // flank doesn't map well
-    bd->stats.nflank3p_not_found++;
+    db->stats.nflank3p_not_found++;
     return false;
   }
 
-  bd->stats.nflank3p_approx_found++;
+  db->stats.nflank3p_approx_found++;
 
   *flank3ptrim = fw_strand ? alt_offset_left : alt_offset_rght;
   *pos = fw_strand ? search_start + ref_offset_left
@@ -226,7 +230,7 @@ static size_t bubble_get_flank3p(const CallFileEntry *centry,
 
 // Convert a call into an aligned call
 // return 0 on success, otherwise non-zero on failure
-int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
+int decomp_bubble_call(DecompBubble *db, ChromHash *genome,
                        size_t kmer_size, size_t min_mapq,
                        const CallFileEntry *centry,
                        const bam1_t *mflank, const bam_hdr_t *bhdr,
@@ -238,8 +242,8 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
   if(nlines < 6) die("Fewer than 6 lines: %zu", nlines);
 
   const char *line0 = call_file_get_line(centry, 0);
-  int32_t callid = call_file_get_call_id(line0, ">bubble.call");
-  if(callid < 0) die("Bad call line: %s [%i]", line0, callid);
+  int64_t callid = call_file_get_call_id(line0, ">bubble.call");
+  if(callid < 0) die("Bad call line: %s [%"PRIi64"]", line0, callid);
 
   // Check sample name / flank mapping qname match
   const char *bname = bam_get_qname(mflank);
@@ -247,9 +251,17 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
   if(seq_read_names_cmp(hdrline+1, bname) != 0) // hdrline[0] == '>'
     die("SAM/BAM and call entries mismatch '%s' vs '%s'", hdrline, bname);
 
+  db->stats.ncalls++;
+
+  // Set unmapped
+  ac->chrom = NULL;
+
+  // bubble callers don't output any sample info
+  acall_resize(ac, nalleles, 0);
+
   // Check mapping
-  if(mflank->core.flag & BAM_FUNMAP){ bd->stats.nflank5p_unmapped++; return -1; }
-  if(mflank->core.qual < min_mapq)  { bd->stats.nflank5p_lowqual++;  return -2; }
+  if(mflank->core.flag & BAM_FUNMAP){ db->stats.nflank5p_unmapped++; return -1; }
+  if(mflank->core.qual < min_mapq)  { db->stats.nflank5p_lowqual++;  return -2; }
   bool fw_strand = !bam_is_rev(mflank);
   const uint32_t *cigar = bam_get_cigar(mflank);
   uint32_t n_cigar = mflank->core.n_cigar;
@@ -258,21 +270,21 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
   uint32_t flank5ptrim = bam_get_end_trim(&cigar, &n_cigar, fw_strand);
   const char *flank5p = call_file_get_line(centry, 1);
   uint32_t flank5plen = call_file_line_len(centry, 1);
-  uint32_t cigar2rlen = bam_cigar2rlen(n_cigar, cigar);
+  int32_t cigar2rlen = bam_cigar2rlen(n_cigar, cigar);
   int32_t flank5ppos = fw_strand ? mflank->core.pos + cigar2rlen
                                  : mflank->core.pos-1;
 
   // Find chromosome
   const char *chrom_name = bhdr->target_name[mflank->core.tid];
-  ac->chrom = seq_fetch_chrom(genome, chrom_name);
+  const read_t *chrom = seq_fetch_chrom(genome, chrom_name);
 
   // Construct complete 3p flank
   // alleletrim is the number of bases taken from the right end of alleles
-  uint32_t alleletrim = bubble_get_flank3p(centry, kmer_size, &bd->flank3pbuf);
+  uint32_t alleletrim = bubble_get_flank3p(centry, kmer_size, &db->flank3pbuf);
   // printf("alleletrim: %zu\n", alleletrim);
   uint32_t max_alen = call_file_max_allele_len(centry) - alleletrim;
-  const char *flank3p = bd->flank3pbuf.b;
-  uint32_t flank3plen = bd->flank3pbuf.end;
+  const char *flank3p = db->flank3pbuf.b;
+  uint32_t flank3plen = db->flank3pbuf.end;
   // flank3plen may be as short as 1bp
 
   int32_t flank3ppos = 0;
@@ -281,8 +293,8 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
   // find flank and set flank3ptrim, flank3ppos
   bool mapped3p = align_flank3p(mflank, cigar2rlen, max_alen, kmer_size,
                                 flank5p, flank5plen, flank3p, flank3plen,
-                                ac->chrom->seq.b, ac->chrom->seq.end,
-                                &flank3ppos, &flank3ptrim, bd);
+                                chrom->seq.b, chrom->seq.end,
+                                &flank3ppos, &flank3ptrim, db);
 
   if(!mapped3p) return -3;
 
@@ -297,7 +309,7 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
     // if we remove diff bases from flank5p, how many ref bases do we move?
     bam_cigar_consume_ref(cigar, n_cigar, rdiff, fw_strand, &qdrop, &rdrop);
 
-    if(rdrop < rdiff) { bd->stats.nflanks_overlap_too_much++; return -4; }
+    if(rdrop < rdiff) { db->stats.nflanks_overlap_too_much++; return -4; }
 
     flank5ptrim += qdrop;
     flank5ppos = fw_strand ? flank5ppos - rdrop : flank5ppos + rdrop;
@@ -309,14 +321,9 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
   ctx_assert(flank3ptrim <= flank3plen);
   ctx_assert(flank5ptrim <= flank5plen);
 
-  bd->stats.nentries_well_mapped++;
-
   StrBuf *branch;
   const char *allele;
   size_t i, alen;
-
-  // bubble callers don't output any sample info
-  acall_resize(ac, nalleles, 0);
 
   // Construct aligned call branches
   for(i = 0; i < nalleles; i++)
@@ -336,6 +343,10 @@ int decomp_bubble_call(DecompBubble *bd, khash_t(ChromHash) *genome,
   strbuf_reset(info);
   strbuf_append_str(info, "BUBBLE=");
   strbuf_append_ulong(info, callid);
+
+  // Only set chrom when we know call is aligned
+  ac->chrom = chrom;
+  db->stats.ncalls_mapped++;
 
   return 0;
 }

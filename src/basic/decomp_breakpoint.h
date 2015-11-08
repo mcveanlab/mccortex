@@ -8,6 +8,7 @@
 typedef struct {
   uint64_t nflanks_not_uniquely_mapped, nflanks_diff_chroms;
   uint64_t nflanks_diff_strands, nflanks_overlap_too_much;
+  uint64_t ncalls, ncalls_mapped;
 } DecompBreakpointStats;
 
 typedef struct DecompBreakpointStruct DecompBreakpoint;
@@ -21,7 +22,7 @@ void decomp_brkpt_cpy_stats(DecompBreakpointStats *stats,
 // Convert a call into an aligned call
 // return 0 on success, otherwise non-zero on failure
 int decomp_brkpt_call(DecompBreakpoint *db,
-                      khash_t(ChromHash) *genome, size_t nsamples,
+                      ChromHash *genome, size_t nsamples,
                       const CallFileEntry *centry,
                       AlignedCall *ac);
 

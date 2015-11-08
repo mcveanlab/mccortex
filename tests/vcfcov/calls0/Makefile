@@ -26,7 +26,7 @@ graph.k$(K).ctx:
 	$(MCCORTEX31) build -k $(K) \
 	  --sample John --seq <(echo '') \
 	  --sample Jane --seq <(echo '') \
-	  $@
+	  $@ >& $@.log
 
 test: calls.cov.vcf lowmem.cov.vcf
 	[[ `$(VCFNALLELES) calls.cov.vcf` -eq 0 ]]
