@@ -450,6 +450,7 @@ print "BUBBLES_1BY1_LINKS_VCFS=".     join(' ', merge_vcf_list(1,0,1))."\n";
 print "BREAKPOINTS_1BY1_PLAIN_VCFS=". join(' ', merge_vcf_list(0,0,0))."\n";
 print "BREAKPOINTS_1BY1_LINKS_VCFS=". join(' ', merge_vcf_list(0,0,1))."\n";
 
+print "\n";
 print "BUBBLES_JOINT_LINKS_CSIS=\$(BUBBLES_JOINT_LINKS_VCFS:.vcf.gz=.vcf.gz.csi)\n";
 print "BUBBLES_JOINT_PLAIN_CSIS=\$(BUBBLES_JOINT_PLAIN_VCFS:.vcf.gz=.vcf.gz.csi)\n";
 print "BREAKPOINTS_JOINT_LINKS_CSIS=\$(BREAKPOINTS_JOINT_LINKS_VCFS:.vcf.gz=.vcf.gz.csi)\n";
@@ -766,42 +767,11 @@ if(defined($ref_path))
   print "\t  \$(BCFTOOLS) norm --rm-dup any --do-not-normalize | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
-  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n";
-  print "VCF_MERGE=\$(BCFTOOLS) merge\n\n";
-
-  my @brkpnt_1by1_links_vcfs;
-  my @brkpnt_1by1_plain_vcfs;
-
-  # need to concat all kmers for each sample before merging all samples
-  if(@kmers > 1) {
-    print "# Merge 1-by-1 breakpoint calls for each sample first\n";
-    print "# Bubble calls are sites only, not sample so do not need merging\n";
-    for my $s (map {$_->{'name'}} @samples) {
-      for(my $i = 0; $i < 2; $i++) {
-        my $dir = ($i == 0 ? "breakpoints" : "breakpoints_plain");
-        my $type = ($i == 0 ? "links" : "plain");
-        my @files_vcfs = map {"$proj/k$_/$dir/$s.brk.norm.vcf.gz"} @kmers;
-        my @files_csis = map {$_.".csi"} @files_vcfs;
-        print "$proj/vcfs/1by1_samples/$s.$type.$kmerstr.brk.norm.vcf.gz: @files_vcfs @files_csis | \$(DIRS)\n";
-        print "\t\$(VCF_CONCAT) --output-type z --output \$@ @files_vcfs\n\n";
-      }
-    }
-
-    @brkpnt_1by1_links_vcfs = map {"$proj/vcfs/1by1_samples/$_->{'name'}.links.$kmerstr.brk.norm.vcf.gz"} @samples;
-    @brkpnt_1by1_plain_vcfs = map {"$proj/vcfs/1by1_samples/$_->{'name'}.plain.$kmerstr.brk.norm.vcf.gz"} @samples;
-  }
-  else {
-    # Only one kmer -- no need to concat across kmers for each sample
-    my $k = $kmers[0];
-    @brkpnt_1by1_links_vcfs = map {"$proj/k$k/breakpoints/$_->{'name'}.brk.norm.vcf.gz"} @samples;
-    @brkpnt_1by1_plain_vcfs = map {"$proj/k$k/breakpoints_plain/$_->{'name'}.brk.norm.vcf.gz"} @samples;
-  }
-
-  my @brkpnt_1by1_links_csis = map {$_.".csi"} @brkpnt_1by1_links_vcfs;
-  my @brkpnt_1by1_plain_csis = map {$_.".csi"} @brkpnt_1by1_plain_vcfs;
-
   # Generate union VCF
-  print "#\n# Create union compressed VCF\n#\n";
+  print "#\n# Create union compressed VCF\n";
+  print "#\n";
+  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n\n";
+
   print "$union_bubble_joint_links_vcf: \$(BUBBLES_JOINT_LINKS_VCFS) \$(BUBBLES_JOINT_LINKS_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_LINKS_VCFS) | \\\n";
   print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
@@ -826,12 +796,12 @@ if(defined($ref_path))
   print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_PLAIN_VCFS) | \\\n";
   print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
-  print "$union_brkpnt_1by1_links_vcf: @brkpnt_1by1_links_vcfs @brkpnt_1by1_links_csis\n";
-  print "\t\$(VCF_MERGE) @brkpnt_1by1_links_vcfs | \\\n";
+  print "$union_brkpnt_1by1_links_vcf: \$(BREAKPOINTS_1BY1_LINKS_VCFS) \$(BREAKPOINTS_1BY1_LINKS_CSIS)\n";
+  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_LINKS_VCFS) | \\\n";
   print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
-  print "$union_brkpnt_1by1_plain_vcf: @brkpnt_1by1_plain_vcfs @brkpnt_1by1_plain_csis\n";
-  print "\t\$(VCF_MERGE) @brkpnt_1by1_plain_vcfs | \\\n";
+  print "$union_brkpnt_1by1_plain_vcf: \$(BREAKPOINTS_1BY1_PLAIN_VCFS) \$(BREAKPOINTS_1BY1_PLAIN_CSIS)\n";
+  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_PLAIN_VCFS) | \\\n";
   print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
 
   print "#\n# General VCF rules\n#\n";

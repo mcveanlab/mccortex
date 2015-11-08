@@ -80,23 +80,25 @@ void call_decomp_cpy_stats(DecomposeStats *stats, const CallDecomp *dc)
 // Decompose AlignedCall
 //
 
-// Print allele with previous base and no deletions
-// 'A--CG-T' with prev_base 'C' => print 'CACGT'
-static void print_vcf_allele(int prev_base, const char *allele, size_t len,
-                             StrBuf *sbuf)
+// Strip indels ('-') from allele and add to string buffer
+static inline void print_vcf_allele(const char *allele, size_t len,
+                                    int8_t prev_base, int8_t next_base,
+                                    StrBuf *sbuf)
 {
   size_t i;
+  if(prev_base > 0) strbuf_append_char(sbuf, prev_base);
   strbuf_ensure_capacity(sbuf, sbuf->end+len);
-  if(prev_base > 0) sbuf->b[sbuf->end++] = (char)prev_base;
   for(i = 0; i < len; i++)
     if(allele[i] != '-')
       sbuf->b[sbuf->end++] = allele[i];
   sbuf->b[sbuf->end] = 0;
+  if(next_base > 0) strbuf_append_char(sbuf, next_base);
 }
 
-// @param vcf_pos is 1-based
+// @param vcf_pos is 0-based
 // @param prev_base is -1 if SNP otherwise previous base
-static void print_vcf_entry(size_t vcf_pos, int prev_base,
+// @param next_base is -1 unless indel at position 0
+static void print_vcf_entry(size_t vcf_pos, int8_t prev_base, int8_t next_base,
                             const char *ref, const char *alt, size_t len,
                             const uint8_t *gts, size_t nsamples,
                             CallDecomp *dc, const AlignedCall *call,
@@ -115,11 +117,11 @@ static void print_vcf_entry(size_t vcf_pos, int prev_base,
   // CHROM POS ID REF ALT QUAL FILTER INFO
   strbuf_append_str(sbuf, call->chrom->name.b);
   strbuf_append_char(sbuf, '\t');
-  strbuf_append_ulong(sbuf, vcf_pos);
+  strbuf_append_ulong(sbuf, vcf_pos+1);
   strbuf_append_str(sbuf, "\t.\t");
-  print_vcf_allele(prev_base, ref, len, sbuf);
+  print_vcf_allele(ref, len, prev_base, next_base, sbuf);
   strbuf_append_char(sbuf, '\t');
-  print_vcf_allele(prev_base, alt, len, sbuf);
+  print_vcf_allele(alt, len, prev_base, next_base, sbuf);
   strbuf_append_str(sbuf, "\t.\tPASS\t");
   strbuf_append_str(sbuf, call->info.b ? call->info.b : ".");
   strbuf_append_str(sbuf, "\tGT");
@@ -184,13 +186,14 @@ static size_t align_get_nbases(const char *allele, size_t len)
  * @return number of variants printed
  */
 static void align_biallelic(const char *ref, const char *alt,
+                            const read_t *chrom,
                             const uint8_t *gts, size_t nsamples,
                             CallDecomp *dc, const AlignedCall *call,
                             size_t max_allele_len)
 {
-  int start, len;
-  size_t ref_allele_len, alt_allele_len, ref_pos = call->start;
-  int prev_base, vcf_pos;
+  int32_t start, len;
+  size_t ref_nbases, alt_nbases, ref_pos = call->start, ref_end, vcf_pos;
+  int8_t prev_base, next_base;
   bool is_snp;
 
   // printf("--\n ref: %s\n alt: %s\n", ref, alt);
@@ -205,22 +208,26 @@ static void align_biallelic(const char *ref, const char *alt,
     // printf("ref: %.*s\nalt: %.*s\nref_pos: %zu start: %i len %i\n",
     //        len, ref, len, alt, ref_pos, start, len);
 
-    ref_allele_len = align_get_nbases(ref, len);
-    alt_allele_len = align_get_nbases(alt, len);
-    is_snp = (ref_allele_len == 1 && alt_allele_len == 1);
-    vcf_pos = ref_pos+1; // Convert to 1-based
+    ref_nbases = align_get_nbases(ref, len);
+    alt_nbases = align_get_nbases(alt, len);
+    is_snp = (ref_nbases == 1 && alt_nbases == 1);
+    ref_end = ref_pos+ref_nbases;
+    vcf_pos = ref_pos; // copy in case we need left padding base
 
+    // If one allele is going to be empty, we need a padding base
+    // If ref_pos == 0, add extra base to end instead
+    prev_base = next_base = -1;
     if(!is_snp) {
-      prev_base = ref_pos > 0 ? call->chrom->seq.b[ref_pos-1] : 'N';
-      vcf_pos--;
-    } else {
-      prev_base = -1;
+      if(ref_pos > 0) prev_base = chrom->seq.b[--vcf_pos];
+      else if(ref_end < chrom->seq.end) next_base = chrom->seq.b[ref_end];
     }
 
-    print_vcf_entry(vcf_pos, prev_base, ref, alt, len, gts, nsamples,
-                    dc, call, max_allele_len);
+    if(is_snp || prev_base > 0 || next_base > 0) {
+      print_vcf_entry(vcf_pos, prev_base, next_base, ref, alt, len,
+                      gts, nsamples, dc, call, max_allele_len);
+    }
 
-    ref_pos += ref_allele_len;
+    ref_pos += ref_nbases;
     ref += len;
     alt += len;
   }
@@ -233,7 +240,8 @@ void acall_decompose(CallDecomp *dc, const AlignedCall *call,
   if(call->chrom == NULL) { return; }
   dc->stats.ncalls_mapped++;
 
-  const char *ref_allele = call->chrom->seq.b + call->start;
+  const read_t *chrom = call->chrom;
+  const char *ref_allele = chrom->seq.b + call->start;
   size_t i, ref_len = call->end - call->start;
   const StrBuf *alt;
 
@@ -258,7 +266,7 @@ void acall_decompose(CallDecomp *dc, const AlignedCall *call,
       needleman_wunsch_align2(ref_allele, alt->b, ref_len, alt->end,
                               dc->scoring, dc->nw_aligner, dc->aln);
 
-      align_biallelic(dc->aln->result_a, dc->aln->result_b,
+      align_biallelic(dc->aln->result_a, dc->aln->result_b, chrom,
                       call->gts+i*call->n_samples, call->n_samples,
                       dc, call, max_allele_len);
       dc->stats.nlines_mapped++;
