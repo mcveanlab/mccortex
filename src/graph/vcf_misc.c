@@ -2,6 +2,7 @@
 #include "vcf_misc.h"
 #include "util.h"
 #include "file_util.h"
+#include "json_hdr.h"
 
 // v=>vcf, z=>compressed vcf, b=>bcf, bu=>uncompressed bcf
 const char *modes_htslib[] = {"wv","wz","wbu","wb"};
@@ -57,4 +58,45 @@ void vcf_misc_add_update_hrec(bcf_hrec_t *hrec, char *key, char *val)
     keyidx = hrec->nkeys-1;
   }
   bcf_hrec_set_val(hrec, keyidx, val, strlen(val), 0); // 0 => not quoted
+}
+
+void vcf_hdrtxt_append_commands(cJSON *command, StrBuf *hdr, const char *path)
+{
+  bool first;
+  for(; command != NULL; command = command->next)
+  {
+    cJSON *key  = json_hdr_get(command, "key",    cJSON_String,  path);
+    cJSON *cmd  = json_hdr_get(command, "cmd",    cJSON_Array,   path);
+    cJSON *cwd  = json_hdr_get(command, "cwd",    cJSON_String,  path);
+    cJSON *prev = json_hdr_get(command, "prev",   cJSON_Array,   path);
+    cJSON *ver  = json_hdr_try(command, "mccortex",cJSON_String, path);
+
+    prev = prev->child; // result could be NULL
+    if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
+    strbuf_append_str(hdr, "##mccortex_");
+    strbuf_append_str(hdr, key->valuestring);
+    strbuf_append_str(hdr, "=<prev=\"");
+    strbuf_append_str(hdr, prev ? prev->valuestring : "NULL");
+
+    if(prev) {
+      while((prev = prev->next) != NULL) {
+        strbuf_append_str(hdr, ";");
+        strbuf_append_str(hdr, prev->valuestring);
+      }
+    }
+    strbuf_append_str(hdr, "\",cmd=\"");
+    for(first = true, cmd = cmd->child; cmd; cmd = cmd->next, first = false) {
+      if(!first) strbuf_append_char(hdr, ' ');
+      strbuf_append_str(hdr, cmd->valuestring);
+    }
+    strbuf_append_str(hdr, "\",cwd=\"");
+    strbuf_append_str(hdr, cwd->valuestring);
+    strbuf_append_str(hdr, "\"");
+    if(ver) {
+      strbuf_append_str(hdr, ",version=\"");
+      strbuf_append_str(hdr, ver->valuestring);
+      strbuf_append_str(hdr, "\"");
+    }
+    strbuf_append_str(hdr, ">\n");
+  }
 }

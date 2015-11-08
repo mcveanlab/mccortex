@@ -1,23 +1,58 @@
 #include "global.h"
 #include "aligned_call.h"
+#include "carrays/carrays.h"
+
+//
+// AlignedCall
+//
+
+void acall_resize(AlignedCall *call, size_t n_lines, size_t n_samples)
+{
+  gca_resize(call->lines, call->s_lines, n_lines);
+  gca_resize(call->gts, call->s_gts, n_lines*n_samples);
+  call->n_lines = n_lines;
+  call->n_samples = n_samples;
+  call->n_gts = n_lines*n_samples;
+}
+
+void acall_destroy(AlignedCall *call)
+{
+  size_t i;
+  for(i = 0; i < call->n_lines; i++) strbuf_dealloc(&call->lines[i]);
+  free(call->lines);
+  free(call->gts);
+  strbuf_dealloc(&call->info);
+  ctx_free(call);
+}
+
+
+//
+// Decomposer
+//
 
 struct CallDecompStruct
 {
   nw_aligner_t *nw_aligner;
   scoring_t *scoring;
   alignment_t *aln;
-  FILE *fout;
+  htsFile *vcffh;
+  bcf_hdr_t *vcfhdr;
+  bcf1_t *v;
+  StrBuf sbuf;
   DecomposeStats stats;
 };
 
-CallDecomp* call_decomp_init(FILE *fout)
+CallDecomp* call_decomp_init(htsFile *vcffh, bcf_hdr_t *vcfhdr)
 {
   CallDecomp *dc = ctx_calloc(1, sizeof(CallDecomp));
   dc->nw_aligner = needleman_wunsch_new();
   dc->aln = alignment_create(1024);
   dc->scoring = ctx_calloc(1, sizeof(dc->scoring[0]));
   scoring_system_default(dc->scoring);
-  dc->fout = fout;
+  dc->vcffh = vcffh;
+  dc->vcfhdr = vcfhdr;
+  dc->v = bcf_init();
+  strbuf_alloc(&dc->sbuf, 256);
   return dc;
 }
 
@@ -26,6 +61,8 @@ void call_decomp_destroy(CallDecomp *dc)
   alignment_free(dc->aln);
   needleman_wunsch_free(dc->nw_aligner);
   ctx_free(dc->scoring);
+  bcf_destroy(dc->v);
+  strbuf_dealloc(&dc->sbuf);
   ctx_free(dc);
 }
 
@@ -46,13 +83,15 @@ void call_decomp_cpy_stats(DecomposeStats *stats, const CallDecomp *dc)
 // Print allele with previous base and no deletions
 // 'A--CG-T' with prev_base 'C' => print 'CACGT'
 static void print_vcf_allele(int prev_base, const char *allele, size_t len,
-                             FILE *fout)
+                             StrBuf *sbuf)
 {
   size_t i;
-  if(prev_base > 0) fputc((char)prev_base, fout);
+  strbuf_ensure_capacity(sbuf, sbuf->end+len);
+  if(prev_base > 0) sbuf->b[sbuf->end++] = (char)prev_base;
   for(i = 0; i < len; i++)
     if(allele[i] != '-')
-      fputc(allele[i], fout);
+      sbuf->b[sbuf->end++] = allele[i];
+  sbuf->b[sbuf->end] = 0;
 }
 
 // @param vcf_pos is 1-based
@@ -65,27 +104,42 @@ static void print_vcf_entry(size_t vcf_pos, int prev_base,
 {
   dc->stats.nvars++;
 
+  StrBuf *sbuf = &dc->sbuf;
+  strbuf_reset(sbuf);
+
   // Check actual allele length
   size_t i, alt_bases = 0;
   for(i = 0; i < len; i++) alt_bases += (alt[i] != '-');
   if(alt_bases > max_allele_len) { dc->stats.nallele_too_long++; return; }
 
   // CHROM POS ID REF ALT QUAL FILTER INFO
-  fprintf(dc->fout, "%s\t%zu\t.\t", call->chrom->name.b, vcf_pos);
-  print_vcf_allele(prev_base, ref, len, dc->fout);
-  fputc('\t', dc->fout);
-  print_vcf_allele(prev_base, alt, len, dc->fout);
-  fputs("\t.\tPASS\t", dc->fout);
-  fputs(call->info.b ? call->info.b : ".", dc->fout);
-  fputs("\tGT", dc->fout);
+  strbuf_append_str(sbuf, call->chrom->name.b);
+  strbuf_append_char(sbuf, '\t');
+  strbuf_append_ulong(sbuf, vcf_pos);
+  strbuf_append_str(sbuf, "\t.\t");
+  print_vcf_allele(prev_base, ref, len, sbuf);
+  strbuf_append_char(sbuf, '\t');
+  print_vcf_allele(prev_base, alt, len, sbuf);
+  strbuf_append_str(sbuf, "\t.\tPASS\t");
+  strbuf_append_str(sbuf, call->info.b ? call->info.b : ".");
+  strbuf_append_str(sbuf, "\tGT");
 
   // Print genotypes
   for(i = 0; i < nsamples; i++) {
-    fputc('\t', dc->fout);
-    fputc(gts[i] ? '1' : '.', dc->fout);
+    strbuf_append_char(sbuf, '\t');
+    strbuf_append_char(sbuf, gts[i] ? '1' : '.');
   }
 
-  fputc('\n', dc->fout);
+  strbuf_append_char(sbuf, '\n');
+
+  kstring_t ks = {.l = sbuf->end, .m = sbuf->size, .s = sbuf->b};
+  if(vcf_parse(&ks, dc->vcfhdr, dc->v) != 0)
+    die("Cannot construct VCF entry: %s", sbuf->b);
+  if(bcf_write(dc->vcffh, dc->vcfhdr, dc->v) != 0)
+    die("Cannot write VCF entry");
+  // Move back into our string buffer
+  sbuf->b = ks.s;
+  sbuf->size = ks.m;
 
   dc->stats.nvars_printed++;
 }

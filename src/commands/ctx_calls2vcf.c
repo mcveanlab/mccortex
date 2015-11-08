@@ -6,6 +6,7 @@
 #include "seq_reader.h"
 #include "call_file_reader.h"
 #include "json_hdr.h"
+#include "vcf_misc.h"
 
 #include "aligned_call.h"
 #include "decomp_breakpoint.h"
@@ -28,6 +29,7 @@ const char calls2vcf_usage[] =
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -f, --force            Overwrite output files\n"
 "  -o, --out <out.txt>    Save output graph file [default: STDOUT]\n"
+"  -O, --out-fmt <f>    Format vcf|vcfgz|bcf|ubcf\n"
 "\n"
 "  -F, --flanks <in.bam>  Mapped flanks in SAM or BAM file (bubble caller only)\n"
 "  -Q, --min-mapq <Q>     Flank must map with MAPQ >= <Q> [default: "QUOTE_VALUE(DEFAULT_MIN_MAPQ)"]\n"
@@ -46,6 +48,7 @@ static struct option longopts[] =
 // General options
   {"help",         no_argument,       NULL, 'h'},
   {"out",          required_argument, NULL, 'o'},
+  {"out-fmt",      required_argument, NULL, 'O'},
   {"force",        no_argument,       NULL, 'f'},
 // command specific
   {"flanks",       required_argument, NULL, 'F'},
@@ -167,22 +170,26 @@ static void print_breakpoint_stats(const DecompBreakpointStats *stats)
 }
 
 
-static void print_vcf_header(cJSON *json, const char *input_path,
-                             bool is_breakpoint, size_t kmer_size,
-                             char const*const* ref_paths, size_t nref_paths,
-                             read_t *chroms, size_t nchroms,
-                             FILE *fout)
+static bcf_hdr_t* make_vcf_hdr(cJSON *json, const char *in_path,
+                               bool is_breakpoint, size_t kmer_size,
+                               char const*const* ref_paths, size_t nref_paths,
+                               read_t *chroms, size_t nchroms)
 {
   ctx_assert(json != NULL);
+
+  StrBuf hdrbuf;
+  strbuf_alloc(&hdrbuf, 1024);
 
   char datestr[9];
   time_t date = time(NULL);
   strftime(datestr, 9, "%Y%m%d", localtime(&date));
 
-  fprintf(fout, "##fileformat=VCFv4.2\n##fileDate=%s\n", datestr);
+  strbuf_append_str(&hdrbuf, "##fileformat=VCFv4.2\n##fileDate=");
+  strbuf_append_str(&hdrbuf, datestr);
+  strbuf_append_str(&hdrbuf, "\n");
 
   // Print commands used to generate header
-  cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, input_path);
+  cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, in_path);
   cJSON *command = commands->child;
 
   // Print this command
@@ -191,85 +198,77 @@ static void print_vcf_header(cJSON *json, const char *input_path,
   size_t i;
 
   if(command) {
-    cJSON *key = json_hdr_get(command, "key", cJSON_String, input_path);
+    cJSON *key = json_hdr_get(command, "key", cJSON_String, in_path);
     prevstr = key->valuestring;
   }
 
   // Print command entry for this command
-  fprintf(fout, "##mccortex_%s=<prev=\"%s\",cmd=\"%s\",cwd=\"%s\",version="CTX_VERSION">\n",
-          hex_rand_str(keystr, sizeof(keystr)),
-          prevstr ? prevstr : "NULL",
-          cmd_get_cmdline(), cmd_get_cwd());
+  strbuf_append_str(&hdrbuf, "##mccortex_");
+  strbuf_append_str(&hdrbuf, hex_rand_str(keystr, sizeof(keystr)));
+  strbuf_append_str(&hdrbuf, "=<prev=\"");
+  strbuf_append_str(&hdrbuf, prevstr ? prevstr : "NULL");
+  strbuf_append_str(&hdrbuf, "\",cmd=\"");
+  strbuf_append_str(&hdrbuf, cmd_get_cmdline());
+  strbuf_append_str(&hdrbuf, "\",cwd=\"");
+  strbuf_append_str(&hdrbuf, cmd_get_cwd());
+  strbuf_append_str(&hdrbuf, "\",version="CTX_VERSION">\n");
 
   // Print previous commands
-  for(; command != NULL; command = command->next)
-  {
-    cJSON *key  = json_hdr_get(command, "key",    cJSON_String,  input_path);
-    cJSON *cmd  = json_hdr_get(command, "cmd",    cJSON_Array,   input_path);
-    cJSON *cwd  = json_hdr_get(command, "cwd",    cJSON_String,  input_path);
-    cJSON *prev = json_hdr_get(command, "prev",   cJSON_Array,   input_path);
-    cJSON *ver  = json_hdr_try(command, "mccortex",cJSON_String, input_path);
-
-    prev = prev->child; // result could be NULL
-    if(prev && prev->type != cJSON_String) die("Invalid 'prev' field");
-    fprintf(fout, "##mccortex_%s=<prev=\"%s", key->valuestring,
-                  prev ? prev->valuestring : "NULL");
-    if(prev) {
-      while((prev = prev->next) != NULL) fprintf(fout, ";%s", prev->valuestring);
-    }
-    fprintf(fout, "\",cmd=\"");
-    for(i = 0, cmd = cmd->child; cmd; cmd = cmd->next, i++) {
-      if(i > 0) fputc(' ', fout);
-      fputs(cmd->valuestring, fout);
-    }
-    fprintf(fout, "\",cwd=\"%s\"", cwd->valuestring);
-    if(ver) { fprintf(fout, ",version=\"%s\"", ver->valuestring); }
-    fprintf(fout, ">\n");
-  }
+  vcf_hdrtxt_append_commands(command, &hdrbuf, in_path);
 
   // Print field definitions
   if(is_breakpoint)
-    fprintf(fout, "##INFO=<ID=BRKPNT,Number=1,Type=String,Description=\"Breakpoint call\">\n");
+    strbuf_append_str(&hdrbuf, "##INFO=<ID=BRKPNT,Number=1,Type=String,Description=\"Breakpoint call\">\n");
   else
-    fprintf(fout, "##INFO=<ID=BUBBLE,Number=1,Type=String,Description=\"Bubble call\">\n");
+    strbuf_append_str(&hdrbuf, "##INFO=<ID=BUBBLE,Number=1,Type=String,Description=\"Bubble call\">\n");
 
-  fprintf(fout, "##INFO=<ID=K%zu,Number=0,Type=Flag,Description=\"Found at k=%zu\">\n", kmer_size, kmer_size);
+  strbuf_sprintf(&hdrbuf, "##INFO=<ID=K%zu,Number=0,Type=Flag,Description=\"Found at k=%zu\">\n", kmer_size, kmer_size);
 
-  fprintf(fout, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
-  fprintf(fout, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
+  strbuf_append_str(&hdrbuf, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
+  strbuf_append_str(&hdrbuf, "##FILTER=<ID=PASS,Description=\"All filters passed\">\n");
 
   // Print reference paths
-  fprintf(fout, "##reference=%s", ref_paths[0]);
-  for(i = 1; i < nref_paths; i++) printf(",%s", ref_paths[i]);
-  fprintf(fout, "\n");
+  strbuf_append_str(&hdrbuf, "##reference=");
+  strbuf_append_str(&hdrbuf, ref_paths[0]);
+  for(i = 1; i < nref_paths; i++) {
+    strbuf_append_char(&hdrbuf, ',');
+    strbuf_append_str(&hdrbuf, ref_paths[i]);
+  }
+  strbuf_append_str(&hdrbuf, "\n");
 
   // Print contigs lengths
   for(i = 0; i < nchroms; i++) {
-    fprintf(fout, "##contig=<ID=%s,length=%zu>\n",
-            chroms[i].name.b, chroms[i].seq.end);
+    strbuf_sprintf(&hdrbuf, "##contig=<ID=%s,length=%zu>\n",
+                   chroms[i].name.b, chroms[i].seq.end);
   }
 
   // Print VCF column header
-  fputs("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT", fout);
+  strbuf_append_str(&hdrbuf, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
 
   if(is_breakpoint)
   {
     // Print a column for each sample
-    cJSON *graph_json   = json_hdr_get(json,       "graph",   cJSON_Object, input_path);
-    cJSON *colours_json = json_hdr_get(graph_json, "colours", cJSON_Array,  input_path);
+    cJSON *graph_json   = json_hdr_get(json,       "graph",   cJSON_Object, in_path);
+    cJSON *colours_json = json_hdr_get(graph_json, "colours", cJSON_Array,  in_path);
     cJSON *colour_json  = colours_json->child;
     if(colour_json == NULL) die("Missing colours");
     for(; colour_json; colour_json = colour_json->next)
     {
       if(!json_hdr_colour_is_ref(colour_json)) {
-        cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, input_path);
-        fputc('\t', fout);
-        fputs(sample_json->valuestring, fout);
+        cJSON *sample_json = json_hdr_get(colour_json, "sample", cJSON_String, in_path);
+        strbuf_append_str(&hdrbuf, "\t");
+        strbuf_append_str(&hdrbuf, sample_json->valuestring);
       }
     }
   }
 
-  fputc('\n', fout);
+  strbuf_append_char(&hdrbuf, '\n');
+  bcf_hdr_t *hdr = bcf_hdr_init("w");
+  if(bcf_hdr_parse(hdr, hdrbuf.b) != 0) die("Cannot construct VCF header");
+
+  strbuf_dealloc(&hdrbuf);
+
+  return hdr;
 }
 
 // Check contig entries match reference
@@ -306,7 +305,7 @@ static void brkpnt_check_refs_match(cJSON *json,
 
 int ctx_calls2vcf(int argc, char **argv)
 {
-  const char *input_path = NULL, *out_path = NULL;
+  const char *in_path = NULL, *out_path = NULL, *out_type = NULL;
   // Filtering parameters
   int32_t min_mapq = -1, max_align_len = -1, max_allele_len = -1;
   // Alignment parameters
@@ -346,6 +345,7 @@ int ctx_calls2vcf(int argc, char **argv)
       case 0: /* flag set */ break;
       case 'h': cmd_print_usage(NULL); break;
       case 'o': cmd_check(!out_path, cmd); out_path = optarg; break;
+      case 'O': cmd_check(!out_type, cmd); out_type = optarg; break;
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'F': cmd_check(!sam_path,cmd); sam_path = optarg; break;
       case 'Q': cmd_check(min_mapq < 0,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
@@ -370,27 +370,27 @@ int ctx_calls2vcf(int argc, char **argv)
   if(optind+2 > argc)
     cmd_print_usage("Require <in.txt.gz> and at least one reference");
 
-  input_path = argv[optind++];
+  in_path = argv[optind++];
   ref_paths = (char const*const*)argv + optind;
   nref_paths = argc - optind;
 
   // These functions call die() on error
-  gzFile gzin = futil_gzopen(input_path, "r");
+  gzFile gzin = futil_gzopen(in_path, "r");
 
   // Read call file header
-  cJSON *json = json_hdr_load(gzin, input_path);
+  cJSON *json = json_hdr_load(gzin, in_path);
 
   // Check we can handle the kmer size
-  kmer_size = json_hdr_get_kmer_size(json, input_path);
-  db_graph_check_kmer_size(kmer_size, input_path);
+  kmer_size = json_hdr_get_kmer_size(json, in_path);
+  db_graph_check_kmer_size(kmer_size, in_path);
 
   // Get format (bubble or breakpoint file)
-  cJSON *json_fmt = json_hdr_get(json, "file_format", cJSON_String, input_path);
+  cJSON *json_fmt = json_hdr_get(json, "file_format", cJSON_String, in_path);
   if(strcmp(json_fmt->valuestring,"CtxBreakpoints") == 0) isbubble = false;
   else if(strcmp(json_fmt->valuestring,"CtxBubbles") == 0) isbubble = true;
   else die("Unknown format: '%s'", json_fmt->valuestring);
 
-  status("Reading %s in %s format", futil_inpath_str(input_path),
+  status("Reading %s in %s format", futil_inpath_str(in_path),
          isbubble ? "bubble" : "breakpoint");
 
   if(isbubble) {
@@ -421,8 +421,30 @@ int ctx_calls2vcf(int argc, char **argv)
     mflank = bam_init1();
   }
 
+  // Output VCF has 0 samples if bubbles file, otherwise has N where N is
+  // number of samples/colours in the breakpoint graph
+  size_t num_graph_samples = json_hdr_get_ncols(json, in_path);
+  size_t num_graph_nonref = json_hdr_get_nonref_ncols(json, in_path);
+
+  num_samples = 0;
+  if(!isbubble) {
+    // If last colour has "is_ref", drop number of samples by one
+    num_samples = num_graph_nonref < num_graph_samples ? num_graph_samples-1
+                                                       : num_graph_samples;
+  }
+
+  //
   // Open output file
-  FILE *fout = futil_fopen_create(out_path, "w");
+  //
+  if(!out_path) out_path = "-";
+  int mode = vcf_misc_get_outtype(out_type, out_path);
+  futil_create_output(out_path);
+  htsFile *vcffh = hts_open(out_path, modes_htslib[mode]);
+
+  status("[calls2vcf] Reading %s call file with %zu samples",
+         isbubble ? "Bubble" : "Breakpoint", num_graph_samples);
+  status("[calls2vcf] %zu sample output to: %s format: %s",
+         num_samples, futil_outpath_str(out_path), hsmodes_htslib[mode]);
 
   // Load reference genome
   read_buf_alloc(&chroms, 1024);
@@ -434,30 +456,16 @@ int ctx_calls2vcf(int argc, char **argv)
   for(i = 0; i < chroms.len; i++)
     for(s = chroms.b[i].seq.b; *s; s++) *s = toupper(*s);
 
-  if(!isbubble) brkpnt_check_refs_match(json, genome, input_path);
+  if(!isbubble) brkpnt_check_refs_match(json, genome, in_path);
 
-  // Output VCF has 0 samples if bubbles file, otherwise has N where N is
-  // number of samples/colours in the breakpoint graph
-  size_t num_graph_samples = json_hdr_get_ncols(json, input_path);
-  size_t num_graph_nonref = json_hdr_get_nonref_ncols(json, input_path);
+  bcf_hdr_t *vcfhdr = make_vcf_hdr(json, in_path, !isbubble, kmer_size,
+                                   ref_paths, nref_paths,
+                                   chroms.b, chroms.len);
 
-  num_samples = 0;
-  if(!isbubble) {
-    // If last colour has "is_ref", drop number of samples by one
-    num_samples = num_graph_nonref < num_graph_samples ? num_graph_samples-1
-                                                       : num_graph_samples;
-  }
-
-  print_vcf_header(json, input_path, !isbubble, kmer_size,
-                   ref_paths, nref_paths, chroms.b, chroms.len, fout);
-
-  status("Reading %s call file with %zu samples",
-         isbubble ? "Bubble" : "Breakpoint", num_graph_samples);
-  status("Writing a VCF with %zu samples to: %s",
-         num_samples, futil_outpath_str(out_path));
+  if(bcf_hdr_write(vcffh, vcfhdr) != 0) die("Cannot write VCF header");
 
   AlignedCall *call = acall_init();
-  CallDecomp *aligner = call_decomp_init(fout);
+  CallDecomp *aligner = call_decomp_init(vcffh, vcfhdr);
 
   scoring_t *scoring = call_decomp_get_scoring(aligner);
   scoring_init(scoring, nwmatch, nwmismatch, nwgapopen, nwgapextend,
@@ -479,7 +487,7 @@ int ctx_calls2vcf(int argc, char **argv)
     scoring_init(scoring, nwmatch, nwmismatch, nwgapopen, nwgapextend,
                  true, true, 0, 0, 0, 0);
 
-    while(call_file_read(gzin, input_path, &centry)) {
+    while(call_file_read(gzin, in_path, &centry)) {
       do {
         if(sam_read1(samfh, bam_hdr, mflank) < 0)
           die("We've run out of SAM entries!");
@@ -506,7 +514,7 @@ int ctx_calls2vcf(int argc, char **argv)
     // Breakpoint calls
     DecompBreakpoint *breakpoints = decomp_brkpt_init();
 
-    while(call_file_read(gzin, input_path, &centry)) {
+    while(call_file_read(gzin, in_path, &centry)) {
       strbuf_reset(&call->info);
       decomp_brkpt_call(breakpoints, genome, num_samples, &centry, call);
       strbuf_append_str(&call->info, kmer_str);
@@ -535,7 +543,9 @@ int ctx_calls2vcf(int argc, char **argv)
   // Finished - clean up
   cJSON_Delete(json);
   gzclose(gzin);
-  fclose(fout);
+
+  bcf_hdr_destroy(vcfhdr);
+  hts_close(vcffh);
 
   for(i = 0; i < chroms.len; i++) seq_read_dealloc(&chroms.b[i]);
   read_buf_dealloc(&chroms);

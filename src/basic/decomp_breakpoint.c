@@ -4,6 +4,8 @@
 #include "dna.h"
 #include "util.h"
 
+#include "carrays/carrays.h"
+
 struct DecompBreakpointStruct
 {
   ChromPosBuffer chrposbuf;
@@ -154,8 +156,10 @@ int decomp_brkpt_call(DecompBreakpoint *db,
     if(!colstr) die("Cannot find cols=...: %s", hdrline);
     ncols = parse_list_sizes(db->cols, nsamples, colstr+strlen("cols="));
     if(ncols <= 0) die("Invalid line: %s", hdrline);
-    for(j = 0; j < ncols; j++)
+    for(j = 0; j < ncols; j++) {
+      if(db->cols[j] >= nsamples) die("Sample too high: %zu", db->cols[j]);
       ac->gts[i*nsamples + db->cols[j]] = 1;
+    }
   }
 
   // INFO
