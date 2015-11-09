@@ -15,11 +15,10 @@ use UsefulModule; # str2num
 
 #
 # TODO:
-# [ ] make-pipeline.pl: add genotyping, using 'mccortex view' to get kmer covg
-# [ ] just merge VCF sites
-# [ ] Merge info fields when merging VCF files (waiting on bcftools request)
 # [ ] Add pooled cleaning (for low coverage samples)
-# [ ] pass genome size / fetch from ref FASTA
+# [x] make-pipeline.pl: add genotyping, using 'mccortex view' to get kmer covg
+# [x] just merge VCF sites
+# [x] pass genome size / fetch from ref FASTA
 # [x] 1-by-1 bubble/breakpoint calling for lower memory
 # [x] add option to use stampy to map
 # [x] thread: take fragment length min/max length
@@ -48,11 +47,11 @@ sub print_usage
     -P,--ploidy <P>               Ploidy: e.g. '2', '1' or '-P .:.:2 -P .:Y:1 -P john:X:1'
 
   Example:
-    ./make-pipeline.pl 31:39:2 my_proj samples.txt > job.mk
-    make -f job.mk bubbles-vcf
+    ./make-pipeline.pl -r ref.fa 31,61 my_proj samples.txt > job.mk
+    make -f job.mk CTXDIR=~/mccortex MEM=2G bub-vcf
 
   To list all the commands without running:
-    make -f job.mk --always-make --dry-run bubbles-vcf
+    make -f job.mk --always-make --dry-run bub-vcf
 
   <kmers> specifies which kmers are to be used. It must be a comma separated
   list e.g. '21,33', or of the form <firstK[:lastK[:stepK]]>. Examples:
@@ -72,10 +71,12 @@ my $default_mem = "1G";
 my $default_ctxdir = "~/mccortex/";
 my $default_nthreads = 2;
 my $ploidy_num = 2;
+my $err_rate = 0.01;
 
 my $ref_path; # path to reference FASTA if available
 my $genome_size;
-my $ploidy;
+my $ploidy_args;
+my $err_args;
 
 my $stampy;
 my $stampy_base; # base to stampy hash files (.stidx, .sthash)
@@ -86,7 +87,8 @@ while(@ARGV > 3) {
   my $arg = shift;
   if($arg =~ /^(-r|--ref)$/ && !defined($ref_path)) { $ref_path = shift; }
   elsif($arg =~ /^-g|--genome$/ && !defined($genome_size)) { $genome_size = shift; }
-  elsif($arg =~ /^-P|--ploidy$/ && !defined($ploidy)) { $ploidy = shift; }
+  elsif($arg =~ /^-P|--ploidy$/ && !defined($ploidy_args)) { $ploidy_args = shift; }
+  elsif($arg =~ /^-e|--err$/ && !defined($err_args)) { $err_args = shift; }
   elsif($arg =~ /^(-1|--single-colour)$/ && !$single_colour) { $single_colour = 1; }
   elsif($arg =~ /^(-s|--stampy)$/ && !defined($stampy)) { $stampy = shift; }
   elsif($arg =~ /^(-S|--stampy-base)$/ && !defined($stampy_base)) { $stampy_base = shift; }
@@ -100,7 +102,20 @@ if(@ARGV != 3) { print_usage(); }
 if(defined($stampy) && !defined($ref_path)) { die("Gave --stampy <S> without --ref <R>"); }
 if(defined($stampy_base) && !defined($stampy)) { die("Gave --stampy-base <B> without --stampy <S>"); }
 
-if(defined($ploidy) && $ploidy =~ /^\d+$/) { $ploidy_num = $ploidy; $ploidy = undef; }
+# if ploidy is just a number shift to err_rate
+if(defined($ploidy_args) && $ploidy_args =~ /^\d+$/) {
+  $ploidy_num = $ploidy_args;
+  $ploidy_args = undef;
+}
+
+if(defined($err_args)) {
+  if($err_args !~ /^0?\.\d+(,0?\.\d+)*/) { die("Bad -e,--err <E> argument: $err_args"); }
+  if($err_args =~ /^0?.\d+$/) { # if just number shift to err_rate
+    $err_rate = $err_args;
+    $err_args = undef;
+  }
+}
+
 
 if(defined($genome_size)) {
   $genome_size =~ s/,//g;
@@ -150,6 +165,24 @@ my $geno_bubble_1by1_plain_vcf  = "$proj/vcfs/bubbles.1by1.plain.".$kmerstr.".ge
 my $geno_brkpnt_joint_plain_vcf = "$proj/vcfs/breakpoints.joint.plain.".$kmerstr.".geno.vcf.gz";
 my $geno_brkpnt_1by1_plain_vcf  = "$proj/vcfs/breakpoints.1by1.plain.".$kmerstr.".geno.vcf.gz";
 
+my @run_opts = (
+"--always-make          List/run all commands even if dependencies exist.",
+"--dry-run              Print commands but not run them",
+"CTXDIR=<mccortex-dir>  McCortex directory e.g. CTXDIR=~/bin/mccortex",
+"MEM=<mem-to-use>       max memory to use e.g. MEM=80G",
+"NTHREADS=<nthreads>    number of threads to use",
+"USE_LINKS=<B>          <B> is 'yes' or 'no'",
+"JOINT_CALLING=<B>      Call samples together or 1-by-1. <B> is 'yes' or 'no'",
+"MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)",
+"MIN_FRAG_LEN=<L>       min. good fragment length bp (=read+gap+read)",
+"MAX_FRAG_LEN=<L>       max. good fragment length bp (=read+gap+read)",
+"FQ_CUTOFF=10           base quality cut off (0=off) [default: 10]",
+"HP_CUTOFF=0            homopolymer run cut off (0=off) [default: 0]",
+"BRK_REF_KMERS=N        num. of flanking ref kmers required by breakpoint caller",
+"MIN_MAPQ=Q             min. flank mapping quality required by bubble caller",
+"PLOIDY=P               '1','2', or '-P SAMPLE[,..]:CHR[,..]:PLOIDY [-P ...]' (genotyping)",
+"ERR=0.01,0.005         Per base seq error rate. Comma-sep list one per sample. (genotyping)"
+);
 
 print '# '.strftime("%F %T", localtime($^T)).'
 #
@@ -160,31 +193,23 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     make -f <thisfile> [options] [target]
 #
 # Valid targets:
-#   graphs          <- build and clean graphs
-#   links           <- build and clean links
-#   bubbles         <- make bubble calls
-#   breakpoints     <- make breakpoint calls
-#   bubbles-vcf     <- make bubble vcf
-#   breakpoints-vcf <- make breakpoint vcf
-#   vcfs            <- make bubble+breakpoint vcfs
-#   contigs         <- assemble contigs for each sample
-#   contigs-pop     <- assemble contigs after popping bubbles
-#   unitigs         <- dump unitigs for each sample
+#   graphs         <- build and clean graphs
+#   links          <- build and clean links
+#   bubbles        <- make bubble calls
+#   breakpoints    <- make breakpoint calls
+#   bub-vcf        <- make bubble VCF
+#   brk-vcf        <- make breakpoint VCF
+#   bub-geno-vcf   <- genotyped bubble VCF
+#   brk-geno-vcf   <- genotyped breakpoint VCF
+#   vcfs           <- make all vcfs  [default]
+#   contigs        <- assemble contigs for each sample
+#   contigs-pop    <- assemble contigs after popping bubbles
+#   unitigs        <- dump unitigs for each sample
 #
 # Options:
-#   --always-make          List all commands even if dependencies exist.
-#   --dry-run              Print commands but not run them
-#   CTXDIR=<mccortex-dir>  e.g. CTXDIR=~/bin/mccortex
-#   MEM=<mem-to-use>       e.g. MEM=80G
-#   NTHREADS=<nthreads>    Number of threads to use
-#   USE_LINKS=<B>          <B> is "yes" or "no"
-#   JOINT_CALLING=<B>      <B> is "yes" or "no"
-#   MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)
-#   MIN_FRAG_LEN=<L>       minimum fragment length bp (=read+gap+read)
-#   MAX_FRAG_LEN=<L>       maximum fragment length bp (=read+gap+read)
-#   FQ_CUTOFF=10           base quality cut off (0=off)
-#   HP_CUTOFF=0            homopolymer run cut off (0=off)
-#   BRK_REF_KMERS=N        num of flanking ref kmers required by breakpoint caller
+';
+for my $run_opt (@run_opts) { print "#   $run_opt\n"; }
+print '
 
 #
 # File structure:
@@ -255,11 +280,10 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #       e.g.
 #       -> breakpoints.joint.plain.k29.k31.NA12878.vcf.gz
 #   -> vcfs/
-#     -> 1by1_samples/
-#       -> <S>.k29.k31.brk.norm.vcf.gz
-#       -> <S>.k29.k31.brk.norm.vcf.gz.csi
 #     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz
 #     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz.csi
+#     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.geno.vcf.gz
+#     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.geno.vcf.gz.csi
 #     e.g.
 #     -> breakpoints.joint.plain.k29.k31.vcf.gz
 #     -> breakpoints.joint.plain.k29.k31.vcf.gz.csi
@@ -299,18 +323,21 @@ FQ_CUTOFF=10
 HP_CUTOFF=0
 MIN_MAPQ=30
 PLOIDY='.$ploidy_num.'
+ERR_RATE='.$err_rate.'
 
 # Genotyping: Ploidy for human, haploid and diploid
 # PLOIDY_ARGS=--ploidy .:.:2 --ploidy .:chrY:1 --ploidy ben,tom:chrX:1
 # PLOIDY_ARGS=--ploidy .:.:1
 # PLOIDY_ARGS=--ploidy .:.:$(PLOIDY)
 ';
-if(defined($ploidy)) { print "PLOIDY_ARGS=$ploidy\n#"; }
+if(defined($ploidy_args)) { print "PLOIDY_ARGS=$ploidy_args\n#"; }
 print 'PLOIDY_ARGS=--ploidy .:.:$(PLOIDY)
 
 # Genotyping: Error rates: one per sample and one for all samples
 # ERR_ARGS=--err 0.01,0.005,0.001
-ERR_ARGS=--err 0.01
+';
+if(defined($err_args)) { print "ERR_ARGS=$err_args\n#"; }
+print 'ERR_ARGS=--err $(ERR_RATE)
 
 SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
 BRK_REF_KMERS=10
@@ -523,7 +550,7 @@ for my $k (@kmers) {
                        "$proj/k$k/vcfcov/");
   push(@dirlist, $dirs);
 }
-push(@dirlist, "$proj/vcfs/1by1_samples/");
+push(@dirlist, "$proj/vcfs");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
 
@@ -547,7 +574,9 @@ print '
 # Remove in-built rules for certain file suffixes
 .SUFFIXES:
 
-all: ' .(defined($ref_path) ? 'bubbles-vcf breakpoints-vcf' : 'bubbles').' unitigs | checks
+.DEFAULT_GOAL = '.(defined($ref_path) ? 'vcfs' : 'bubbles').'
+
+all: ' .(defined($ref_path) ? 'vcfs' : 'bubbles').' unitigs | checks
 
 graphs: $(CLEAN_GRAPHS) | checks
 
@@ -558,21 +587,30 @@ links: $(FINAL_LINKS) | checks
 bubbles: $(BUBBLES) | checks
 ';
 
-if(defined($ref_path)) {
-  print 'bubbles-vcf: $(BUBBLES_UNION_VCFS) | checks
-breakpoints: $(BREAKPOINTS) | checks
-breakpoints-vcf: $(BREAKPOINTS_UNION_VCFS) | checks
-vcfs: $(BUBBLES_GENO_VCFS) $(BREAKPOINTS_GENO_VCFS) | checks
+if(defined($ref_path))
+{
+  print 'breakpoints: $(BREAKPOINTS) | checks
+
+bub-vcf: $(BUBBLES_UNION_VCFS) | checks
+brk-vcf: $(BREAKPOINTS_UNION_VCFS) | checks
+bub-geno-vcf: $(BUBBLES_GENO_VCFS) | checks
+brk-geno-vcf: $(BREAKPOINTS_GENO_VCFS) | checks
+plain-vcfs: bub-vcf brk-vcf
+geno-vcfs: bub-geno-vcf brk-geno-vcf
+vcfs: geno-vcfs
+
+# Backwards compatability
+bubbles-vcf: bub-vcf
+breakpoints-vcf: brk-vcf
 ';
-} else {
-  for my $tgt (qw(bubbles-vcf breakpoints breakpoints-vcf)) {
+}
+else {
+  for my $tgt (qw(breakpoints bub-vcf brk-vcf geno-vcfs vcfs)) {
     print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
   }
-  print "vcfs: plain-vcfs\n";
 }
 
-print 'plain-vcfs: bubbles-vcf breakpoints-vcf
-
+print '
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
 
@@ -591,7 +629,7 @@ clean:
 \t\@echo To delete: rm -rf $proj
 
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
-.PHONY: bubbles breakpoints bubbles-vcf breakpoints-vcf vcfs
+.PHONY: bubbles breakpoints bub-vcf brk-vcf vcfs
 
 ";
 
@@ -945,14 +983,7 @@ if(defined($ref_path))
 
 
 print STDERR "Usage: make -f <script> [options] [target]\n";
-print STDERR "  --always-make         Run/list all commands, inc. those already run\n";
-print STDERR "  --dry-run             List commands, don't run them\n";
-print STDERR "  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex\n";
-print STDERR "  MEM=<MEM>             Maximum memory to use e.g. MEM=80G\n";
-print STDERR "  NTHREADS=<N>          Maximum number of job threads to use\n";
-print STDERR "  USE_LINKS=<B>         <B> is 'yes' or 'no'\n";
-print STDERR "  JOINT_CALLING=<B>     <B> is 'yes' or 'no'\n";
-print STDERR "\n";
+for my $run_opt (@run_opts) { print STDERR "  $run_opt\n"; }
 
 # Done!
 exit(0);
@@ -967,11 +998,11 @@ sub load_samples_file
   my ($path) = @_;
   my @samples = ();
   my %sample_names = ();
-  my @badnames = ("joint","1by1","undefined","noname");
+  my @badnames = ("joint","1by1","undefined","noname","pop","pooled");
   my $sfh = open_file($path);
   while(defined(my $line = <$sfh>)) {
     if($line !~ /^\s*$/ && $line !~ /^#/) {
-      my @cols = split(/\s/, $line);
+      my @cols = split(/\s+/, $line);
       if(@cols < 2 || @cols > 4) { die("Bad line"); }
       my ($sname, $se_txt, $pe_txt, $i_txt) = @cols;
       # Check sample name is sane and unique

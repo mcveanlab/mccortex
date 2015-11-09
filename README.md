@@ -9,9 +9,9 @@ configuration. And it's free.
 Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
 with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella. Based at the Wellcome Trust Centre for Human Genetics, University of Oxford.
 
-*Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release. An announcement will be made on the [cortex mailing list](https://groups.google.com/forum/#!forum/cortex_var).
+*Note: Currently under development.* Expect bugs, fixes and vague documentation until we hit our first release. Feel free to try out McCortex and watch this space for the release.
 
-15 Oct 2015
+9 Nov 2015
 
 Branch         | Status
 ---------------|--------
@@ -36,6 +36,51 @@ to compile for a maximum kmer size of 63:
     make MAXK=63 all
 
 Executables appear in the `bin/` directory.
+
+
+Quickstart: Variant calling
+---------------------------
+
+Download and compile McCortex. Can be in any directory, later I'll assume it's in `~/mccortex/`:
+
+    git clone --recursive https://github.com/mcveanlab/mccortex
+    cd mccortex
+    make all MAXK=31
+    make all MAXK=63
+
+Now write a file detailing your samples and their data. Columns are separated by one or more spaces/tabs. File entries are separated by commas. Paired-end read files are separated by a colon ':'. File paths can be relative to the current directory or absolute. Most fileformats are supported:
+
+    cd /path/to/your/data
+    echo "#sample_name  SE_files   PE_files                     interleaved_files" >  samples.txt
+    echo "Mickey        a.fa,b.fa  reads.1.fq.gz:reads.2.fq.gz  ."                 >> samples.txt
+    echo "Minney        .          reads.1.fq.gz:reads.2.fq.gz  in.bam"            >> samples.txt
+    echo "Pluto         seq.fq     .                            pluto.cram"        >> samples.txt
+
+Create a job file from your sample file (`samples.txt`). All output will go into the directory we specify (`mc_calls`). We also specify the kmer(s) to use. We'll run at `k=31` and `k=61` and merge the results.
+
+If your data are haploid, we set `--ploidy 1`:
+
+    ~/mccortex/scripts/make-pipeline.pl -r /path/to/ref.fa --ploidy 1 31,61 samples.txt mc_calls > job.k31.k61.mk
+
+If your samples are human, you have a mix of haploid and diploid chromosomes. Therefore you need to specify which samples have only one copy of `chrX` and one of `chrY`. The format is `-P <sample>:<chr>:<ploidy>` where `<sample>` and `<chr>` can be comma-separated lists. Ploidy arguments are read in order.
+
+    ~/mccortex/scripts/make-pipeline.pl -r /path/to/ref.fa --ploidy "-P .:.:2 -P .:chrY:1 -P Mickey:chrX:1" 31,61 samples.txt mc_calls > job.k31.k61.mk
+
+Now you're ready to run. You'll need to pass:
+- path to McCortex `CTXDIR=`
+- how much memory to use `MEM=`  (2GB for ten E. coli, 100GB for a human)
+- number of threads to use `NTHREADS=`
+
+Run the job file:
+
+    make -f job.k31.k61.mk CTXDIR=~/mccortex MEM=100GB NTHREADS=8 \
+                           JOINT_CALLING=yes USE_LINKS=no brk-geno-vcf
+
+For a human, running time will be about 8 hours for a single sample and use about 100GB of RAM. 
+
+Job finished? Your results are in: `mc_calls/vcfs/breakpoints.joint.plain.k31.k61.geno.vcf.gz`.
+
+Something go wrong? Take a look at the log file of the last command that ran. You may need to increase memory or compile for a different `MAXK=` value. Once you've fixed the issue, just rerun the `make -f job...` command. Add `--dry-run` to the `make` command to see which commands are going to be run without running them. 
 
 
 Commands

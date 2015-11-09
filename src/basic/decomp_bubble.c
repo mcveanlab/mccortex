@@ -66,6 +66,7 @@ static uint32_t bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
 
 
 // returns true if 3' flank aligns well, otherwise false
+// *pos is set to the ref position of the last base BEFORE the flank
 static bool align_flank3p(const bam1_t *mflank,
                           uint32_t cigar2rlen,
                           uint32_t max_alen, uint32_t kmer_size,
@@ -161,8 +162,8 @@ static bool align_flank3p(const bam1_t *mflank,
   db->stats.nflank3p_approx_found++;
 
   *flank3ptrim = (fw_strand ? alt_skip : alt_skip) - flank5pcpy;
-  *pos = fw_strand ? search_start + ref_skip
-                   : search_end - ref_skip + 1;
+  *pos = fw_strand ? search_start + ref_skip - 1
+                   : search_end - ref_skip;
 
   return true;
 }
@@ -300,6 +301,9 @@ int decomp_bubble_call(DecompBubble *db, ChromHash *genome,
   uint32_t flank3plen = db->flank3pbuf.end;
   // flank3plen may be as short as 1bp
 
+  // flank5ppos, flank3ppos are the pos on ref of the base inside the flank.
+  // FORWARD: <flank5p>X...Y<flank3p>   X=flank5ppos
+  // REVERSE: <flank5p>Y...X<flank5p>   Y=flank3ppos
   int32_t flank3ppos = 0;
   uint32_t flank3ptrim = 0;
 

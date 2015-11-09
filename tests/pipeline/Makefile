@@ -99,7 +99,7 @@ samples/jerry.sam: samples/jerry.1.fa samples/jerry.2.fa ref/ref.fa.bwt
 	rm -rf tmp.{1,2}.fa.gz
 
 samples.txt:
-	( echo "ben samples/ben.se.fa . ."; echo "jerry . samples/jerry.1.fa:samples/jerry.2.fa" ) > $@
+	( echo "ben  samples/ben.se.fa  .  ."; echo "jerry .   samples/jerry.1.fa:samples/jerry.2.fa" ) > $@
 
 job.k29.k31.mk: samples.txt
 	$(MKPIPELINE) -r ref/ref.fa --ploidy 1 29,31 proj $< > $@
