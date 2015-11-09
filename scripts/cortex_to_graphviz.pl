@@ -10,7 +10,7 @@ use FindBin;
 use lib $FindBin::Bin;
 use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
-use CortexScripts;
+use CortexScripts; # mccortex_maxk
 use CortexGraph;
 use CortexLinks;
 use FASTNFile;
@@ -74,7 +74,7 @@ while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
 }
 
 # Round kmer-size up to max kmer size supported by an executable
-my $maxk = int(($kmer_size+31)/32)*32-1;
+my $maxk = mccortex_maxk($kmer_size);
 
 if(defined($ctp_path) && $simplify) {
   print_usage("--path <in> and --simplify are not supported together currently");

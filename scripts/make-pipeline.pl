@@ -6,10 +6,12 @@ use warnings;
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
+use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
 use List::Util qw(max min sum);
 use POSIX qw/strftime/;
 use CortexScripts;
+use UsefulModule; # str2num
 
 #
 # TODO:
@@ -41,6 +43,10 @@ sub print_usage
     -s,--stampy <path/stampy.py>  Use stampy instead of BWA to place variants
     -S,--stampy-base <B>          Stampy hashes <B>.stidx and <B>.sthash
 
+  Genotyping:
+    -g,--genome <G>               Genome size for genotyping e.g. 3.1G (=> 3,100,000,000)
+    -P,--ploidy <P>               Ploidy: e.g. '2', '1' or '-P .:.:2 -P .:Y:1 -P john:X:1'
+
   Example:
     ./make-pipeline.pl 31:39:2 my_proj samples.txt > job.mk
     make -f job.mk bubbles-vcf
@@ -65,8 +71,11 @@ my $cmd = "$0 @ARGV";
 my $default_mem = "1G";
 my $default_ctxdir = "~/mccortex/";
 my $default_nthreads = 2;
+my $ploidy_num = 2;
 
 my $ref_path; # path to reference FASTA if available
+my $genome_size;
+my $ploidy;
 
 my $stampy;
 my $stampy_base; # base to stampy hash files (.stidx, .sthash)
@@ -76,6 +85,8 @@ my $single_colour = 0;
 while(@ARGV > 3) {
   my $arg = shift;
   if($arg =~ /^(-r|--ref)$/ && !defined($ref_path)) { $ref_path = shift; }
+  elsif($arg =~ /^-g|--genome$/ && !defined($genome_size)) { $genome_size = shift; }
+  elsif($arg =~ /^-P|--ploidy$/ && !defined($ploidy)) { $ploidy = shift; }
   elsif($arg =~ /^(-1|--single-colour)$/ && !$single_colour) { $single_colour = 1; }
   elsif($arg =~ /^(-s|--stampy)$/ && !defined($stampy)) { $stampy = shift; }
   elsif($arg =~ /^(-S|--stampy-base)$/ && !defined($stampy_base)) { $stampy_base = shift; }
@@ -88,6 +99,13 @@ if(@ARGV != 3) { print_usage(); }
 # Otherwise we use BWA instead
 if(defined($stampy) && !defined($ref_path)) { die("Gave --stampy <S> without --ref <R>"); }
 if(defined($stampy_base) && !defined($stampy)) { die("Gave --stampy-base <B> without --stampy <S>"); }
+
+if(defined($ploidy) && $ploidy =~ /^\d+$/) { $ploidy_num = $ploidy; $ploidy = undef; }
+
+if(defined($genome_size)) {
+  $genome_size =~ s/,//g;
+  $genome_size = str2num($genome_size);
+}
 
 if(defined($ref_path) && !defined($stampy_base)) {
   if($ref_path =~ /^(.*?)(.fa|.fa.gz|.fq|.fq.gz)?$/) {
@@ -122,6 +140,16 @@ my $union_bubble_joint_plain_vcf = "$proj/vcfs/bubbles.joint.plain.".$kmerstr.".
 my $union_bubble_1by1_plain_vcf  = "$proj/vcfs/bubbles.1by1.plain.".$kmerstr.".vcf.gz";
 my $union_brkpnt_joint_plain_vcf = "$proj/vcfs/breakpoints.joint.plain.".$kmerstr.".vcf.gz";
 my $union_brkpnt_1by1_plain_vcf  = "$proj/vcfs/breakpoints.1by1.plain.".$kmerstr.".vcf.gz";
+
+my $geno_bubble_joint_links_vcf = "$proj/vcfs/bubbles.joint.links.".$kmerstr.".geno.vcf.gz";
+my $geno_bubble_1by1_links_vcf  = "$proj/vcfs/bubbles.1by1.links.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_joint_links_vcf = "$proj/vcfs/breakpoints.joint.links.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_1by1_links_vcf  = "$proj/vcfs/breakpoints.1by1.links.".$kmerstr.".geno.vcf.gz";
+my $geno_bubble_joint_plain_vcf = "$proj/vcfs/bubbles.joint.plain.".$kmerstr.".geno.vcf.gz";
+my $geno_bubble_1by1_plain_vcf  = "$proj/vcfs/bubbles.1by1.plain.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_joint_plain_vcf = "$proj/vcfs/breakpoints.joint.plain.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_1by1_plain_vcf  = "$proj/vcfs/breakpoints.1by1.plain.".$kmerstr.".geno.vcf.gz";
+
 
 print '# '.strftime("%F %T", localtime($^T)).'
 #
@@ -221,6 +249,11 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     -> ref/
 #       -> ref.ctx
 #       -> ref.ctx.log
+#     -> vcfcov/
+#       -> {breakpoints,bubbles}.{joint,1by1}.{links,plain}.{kmers}.<SAMPLE>.vcf.gz
+#       -> {breakpoints,bubbles}.{joint,1by1}.{links,plain}.{kmers}.<SAMPLE>.vcf.gz.log
+#       e.g.
+#       -> breakpoints.joint.plain.k29.k31.NA12878.vcf.gz
 #   -> vcfs/
 #     -> 1by1_samples/
 #       -> <S>.k29.k31.brk.norm.vcf.gz
@@ -265,6 +298,19 @@ MAX_FRAG_LEN=1000
 FQ_CUTOFF=10
 HP_CUTOFF=0
 MIN_MAPQ=30
+PLOIDY='.$ploidy_num.'
+
+# Genotyping: Ploidy for human, haploid and diploid
+# PLOIDY_ARGS=--ploidy .:.:2 --ploidy .:chrY:1 --ploidy ben,tom:chrX:1
+# PLOIDY_ARGS=--ploidy .:.:1
+# PLOIDY_ARGS=--ploidy .:.:$(PLOIDY)
+';
+if(defined($ploidy)) { print "PLOIDY_ARGS=$ploidy\n#"; }
+print 'PLOIDY_ARGS=--ploidy .:.:$(PLOIDY)
+
+# Genotyping: Error rates: one per sample and one for all samples
+# ERR_ARGS=--err 0.01,0.005,0.001
+ERR_ARGS=--err 0.01
 
 SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
 BRK_REF_KMERS=10
@@ -286,6 +332,7 @@ CONTIG_POP_ARGS=--confid-step 0.99
 #
 
 # Paths to scripts
+CTXKCOV=$(CTXDIR)/scripts/mccortex-kcovg.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
@@ -417,6 +464,9 @@ print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
 print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
 
+print "BREAKPOINTS_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BREAKPOINTS_UNION_VCFS))\n";
+print "BUBBLES_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BUBBLES_UNION_VCFS))\n\n";
+
 print "\n# Files to merge to create various union VCFs\n";
 print "# .csi are index files (for VCF in this case)\n";
 
@@ -469,7 +519,8 @@ for my $k (@kmers) {
                        "$proj/k$k/contigs/",
                        "$proj/k$k/bubbles/", "$proj/k$k/breakpoints/",
                        "$proj/k$k/bubbles_plain/", "$proj/k$k/breakpoints_plain/",
-                       "$proj/k$k/ref/");
+                       "$proj/k$k/ref/",
+                       "$proj/k$k/vcfcov/");
   push(@dirlist, $dirs);
 }
 push(@dirlist, "$proj/vcfs/1by1_samples/");
@@ -511,14 +562,16 @@ if(defined($ref_path)) {
   print 'bubbles-vcf: $(BUBBLES_UNION_VCFS) | checks
 breakpoints: $(BREAKPOINTS) | checks
 breakpoints-vcf: $(BREAKPOINTS_UNION_VCFS) | checks
+vcfs: $(BUBBLES_GENO_VCFS) $(BREAKPOINTS_GENO_VCFS) | checks
 ';
 } else {
   for my $tgt (qw(bubbles-vcf breakpoints breakpoints-vcf)) {
     print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
   }
+  print "vcfs: plain-vcfs\n";
 }
 
-print 'vcfs: bubbles-vcf breakpoints-vcf
+print 'plain-vcfs: bubbles-vcf breakpoints-vcf
 
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
@@ -586,6 +639,15 @@ for my $k (@kmers) {
     print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
   }
   print "\n";
+
+  # Get kmer coverage
+  if(defined($genome_size)) {
+    print "$proj/%.clean.kmercov: $proj/%.clean.ctx\n";
+    print "\t\$(CTXKCOV) $k $genome_size \$< > \$@ 2> \$@.log\n\n";
+  } else {
+    print "$proj/%.clean.kmercov: $proj/%.clean.ctx\n";
+    print "\t$ctx view -q \$< | grep -io 'kmer coverage:\\s[0-9]*' | grep -o '[0-9][0-9]*' > \$@ 2> \$@.log\n\n";
+  }
 
   # Dump unitigs
   print "# sample graph unitigs at k=$k\n";
@@ -803,6 +865,49 @@ if(defined($ref_path))
   print "$union_brkpnt_1by1_plain_vcf: \$(BREAKPOINTS_1BY1_PLAIN_VCFS) \$(BREAKPOINTS_1BY1_PLAIN_CSIS)\n";
   print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_PLAIN_VCFS) | \\\n";
   print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+
+  #
+  # VCF coverage
+  #
+  my $genok = max(@kmers); # use largest kmer for genotypng
+
+  # $^ means "all prequisites", $< means first prequisite
+  print "#\n# VCF coverage\n#\n";
+  for my $k ($genok) { # replace $genok with @kmers for all kmers
+    my $mccortex = get_mccortex($k);
+    print "# vcfcov k=$k\n";
+    for my $call (qw(breakpoints bubbles)) {
+      for my $pop (qw(joint 1by1)) {
+        for my $assem (qw(links plain)) {
+          my $callroot = "$call.$pop.$assem.$kmerstr";
+          print "$proj/k$k/vcfcov/$callroot.%.vcf.gz: proj/vcfs/$callroot.vcf.gz proj/k$k/graphs/%.raw.ctx\n";
+          print "\t$mccortex vcfcov --low-mem --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
+        }
+      }
+    }
+  }
+
+  #
+  # Genotyping
+  #
+  print "#\n# Genotyping\n#\n";
+  print "KCOV$genok=".join(' ', map {"$proj/k$genok/graphs/$_->{'name'}.clean.kmercov"} @samples);
+  my $mccortex = get_mccortex($genok);
+  print "# vcfgeno pooled calls at k=$genok (only)\n";
+  for my $call (qw(breakpoints bubbles)) {
+    for my $pop (qw(joint 1by1)) {
+      for my $assem (qw(links plain)) {
+        my $callroot = "$call.$pop.$assem.$kmerstr";
+        my @vcfcovs = map {"$proj/k$genok/vcfcov/$callroot.$_->{'name'}.vcf.gz"} @samples;
+        my $deplist = "VCFGENO_$call\_$pop\_$assem\_".join('', map{"k$_"} @kmers);
+        print "$deplist=@vcfcovs\n";
+        print "$proj/vcfs/$callroot.geno.vcf.gz: \$($deplist) ".join(' ', map {$_.".csi"} @vcfcovs)." \$(KCOV$genok)\n";
+        print "\tKCOV=`cat \$(KCOV$genok) | paste -sd',' -`; \\\n";
+        print "\t\$(BCFTOOLS) merge \$($deplist) | \\\n";
+        print "\t  $mccortex vcfgeno --rm-cov \$(PLOIDY_ARGS) \$(ERR_ARGS) --kcov \$\$KCOV --out-fmt vcfgz --out \$@ - >& \$@.log\n\n";
+      }
+    }
+  }
 
   print "#\n# General VCF rules\n#\n";
   # Compress a VCF

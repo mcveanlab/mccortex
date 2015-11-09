@@ -5,7 +5,13 @@ use warnings;
 use Carp;
 
 use base 'Exporter';
-our @EXPORT = qw(open_file get_rand_hex_key load_json_hdr);
+our @EXPORT = qw(mccortex_maxk open_file get_rand_hex_key load_json_hdr);
+
+sub mccortex_maxk
+{
+  my ($kmer) = @_;
+  return int(($kmer+31)/32)*32-1;
+}
 
 sub open_file
 {

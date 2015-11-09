@@ -15,8 +15,8 @@ SEQ_FILES=ref/ref.fa samples/ben.fa samples/jerry.fa \
           samples/ben.se.fa \
           samples/jerry.1.fa samples/jerry.2.fa
 
-CALLS=proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz \
-      proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
+CALLS=proj/vcfs/bubbles.joint.links.k29.k31.geno.vcf.gz \
+      proj/vcfs/breakpoints.joint.links.k29.k31.geno.vcf.gz
 
 DIRS=samples ref
 
@@ -24,9 +24,9 @@ DEPTH=50
 ERRRATE=0.01
 READLEN=100
 
-all: $(CALLS) truth.vcf.gz truth.ben.jerry.vcf truth.geno.vcf
-	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz -p isec_bub
-	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz -p isec_brk
+all: $(CALLS) truth.vcf.gz
+	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.geno.vcf.gz -p isec_bub
+	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.geno.vcf.gz -p isec_brk
 	@BUB_T=`$(VCFALLELES) isec_bub/0000.vcf`; \
 	 BUB_C=`$(VCFALLELES) isec_bub/0001.vcf`; \
 	 BRK_T=`$(VCFALLELES) isec_brk/0000.vcf`; \
@@ -37,7 +37,7 @@ all: $(CALLS) truth.vcf.gz truth.ben.jerry.vcf truth.geno.vcf
 	@echo 'All correct!'
 
 $(CALLS): job.k29.k31.mk $(SEQ_FILES)
-	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M BRK_REF_KMERS=10 bubbles-vcf breakpoints-vcf
+	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=200M NKMERS=1M BRK_REF_KMERS=10 vcfs
 
 # 600 random bases generated with: dnacat -n 600
 #.............................................................................V................................................V.......................................*...........................................................................................................VV.................................................................................................................................................*....................................................................................................................VVVV..........................................................
@@ -68,16 +68,6 @@ truth.vcf.gz:
 	 echo 'ref	537	id5	GACAT	G	.	PASS	.	GT	0	1';) > truth.vcf
 	$(BGZIP) truth.vcf
 	$(BCFTOOLS) index truth.vcf.gz
-
-truth.ben.vcf: truth.vcf.gz proj/k31/graphs/ben.raw.ctx
-	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/ben.raw.ctx >& $@.log
-
-truth.ben.jerry.vcf: truth.ben.vcf proj/k31/graphs/jerry.raw.ctx
-	$(MCCORTEX) vcfcov -r ref/ref.fa -o $@ $< proj/k31/graphs/jerry.raw.ctx >& $@.log
-
-truth.geno.vcf: truth.ben.jerry.vcf
-	KDEPTH=$$((($(DEPTH) * ($(READLEN) - 31 + 1)) / $(READLEN))); \
-	$(MCCORTEX) vcfgeno --kcov $$KDEPTH --ploidy 1 --llk -o $@ $< >& $@.log
 
 ref/ref.fa.bwt: ref/ref.fa
 	$(BWA) index ref/ref.fa
@@ -112,23 +102,19 @@ samples.txt:
 	( echo "ben samples/ben.se.fa . ."; echo "jerry . samples/jerry.1.fa:samples/jerry.2.fa" ) > $@
 
 job.k29.k31.mk: samples.txt
-	$(MKPIPELINE) -r ref/ref.fa 29,31 proj $< > $@
+	$(MKPIPELINE) -r ref/ref.fa --ploidy 1 29,31 proj $< > $@
 
 $(DIRS):
 	mkdir -p $@
 
 VIEWFILES=truth.vcf.gz \
-          proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz \
-          proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz \
-          truth.ben.jerry.vcf \
-          truth.geno.vcf
+          proj/vcfs/bubbles.joint.links.k29.k31.geno.vcf.gz \
+          proj/vcfs/breakpoints.joint.links.k29.k31.geno.vcf.gz
 
 view: $(VIEWFILES)
 	$(VCFENTRIES) truth.vcf.gz
-	$(VCFENTRIES) proj/vcfs/bubbles.joint.links.k29.k31.vcf.gz
-	$(VCFENTRIES) proj/vcfs/breakpoints.joint.links.k29.k31.vcf.gz
-	$(VCFENTRIES) truth.ben.jerry.vcf
-	$(VCFENTRIES) truth.geno.vcf
+	$(VCFENTRIES) proj/vcfs/bubbles.joint.links.k29.k31.geno.vcf.gz
+	$(VCFENTRIES) proj/vcfs/breakpoints.joint.links.k29.k31.geno.vcf.gz
 
 clean:
 	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk
