@@ -19,8 +19,10 @@
 #define DEFAULT_MAX_ALIGN 500 /* max path/bubble_branch length */
 #define DEFAULT_MAX_ALLELE 500 /* max ALT allele length */
 
+#define SUBCMD "calls2vcf"
+
 const char calls2vcf_usage[] =
-"usage: "CMD" calls2vcf [options] <in.txt.gz> <ref.fa> [ref2.fa ...]\n"
+"usage: "CMD" "SUBCMD" [options] <in.txt.gz> <ref.fa> [ref2.fa ...]\n"
 "\n"
 "  Convert a bubble or breakpoint call file to VCF. If input is a bubble file\n"
 "  the --mapped <flanks.sam> argument is required.\n"
@@ -357,7 +359,7 @@ int ctx_calls2vcf(int argc, char **argv)
       case 'G': nwgapextend = cmd_int32(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
-        die("`"CMD" calls2vcf -h` for help. Bad option: %s", argv[optind-1]);
+        die("`"CMD" "SUBCMD" -h` for help. Bad option: %s", argv[optind-1]);
       default: ctx_assert2(0, "shouldn't reach here: %c", c);
     }
   }
@@ -445,6 +447,12 @@ int ctx_calls2vcf(int argc, char **argv)
          isbubble ? "Bubble" : "Breakpoint", num_graph_samples);
   status("[calls2vcf] %zu sample output to: %s format: %s",
          num_samples, futil_outpath_str(out_path), hsmodes_htslib[mode]);
+
+  if(isbubble) status("[calls2vcf] min. MAPQ: %i", min_mapq);
+  status("[calls2vcf] max alignment length: %i", max_align_len);
+  status("[calls2vcf] max VCF allele length: %i", max_allele_len);
+  status("[calls2vcf] alignment match:%i mismatch:%i gap open:%i extend:%i",
+         nwmatch, nwmismatch, nwgapopen, nwgapextend);
 
   // Load reference genome
   read_buf_alloc(&chroms, 1024);

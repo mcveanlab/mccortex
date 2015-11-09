@@ -295,19 +295,19 @@ libs/cJSON/cJSON.o: libs/cJSON/cJSON.c libs/cJSON/cJSON.h
 	$(CC) -o $@ $(CFLAGS) -c $<
 
 mccortex: bin/mccortex$(MAXK)
-bin/mccortex$(MAXK): src/main/mccortex.c $(OBJS) $(HDRS) $(REQ) | bin
+bin/mccortex$(MAXK): src/main/mccortex.c $(OBJS) $(HDRS) $(REQ) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/mccortex.c $(OBJS) $(LINK)
 
 tests: bin/tests$(MAXK)
-bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(TESTS_HDRS) $(OBJS) $(HDRS) $(REQ) | bin
+bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(TESTS_HDRS) $(OBJS) $(HDRS) $(REQ) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/tests/ -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/tests.c $(TESTS_OBJS) $(OBJS) $(LINK)
 
 tables: bin/tables
-bin/tables: src/main/tables.c | bin
+bin/tables: src/main/tables.c | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $<
 
 debug: bin/debug$(MAXK)
-bin/debug$(MAXK): src/main/debug.c $(OBJS) $(HDRS) $(REQ) | bin
+bin/debug$(MAXK): src/main/debug.c $(OBJS) $(HDRS) $(REQ) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/debug.c $(OBJS) $(LINK)
 
 # directories
