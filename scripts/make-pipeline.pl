@@ -244,7 +244,7 @@ print '
 #       -> <S>.pe.clean.ctp.gz.log
 #       -> <S>.pe.thresh.txt
 #       -> <S>.pe.thresh.txt.log
-#     -> bubbles/
+#     -> bubbles_links/
 #       -> <P>.bub.gz
 #       -> <P>.bub.gz.log
 #       -> <P>.flanks.fa.gz
@@ -255,8 +255,8 @@ print '
 #       -> <P>.bub.norm.vcf.gz
 #       -> <P>.bub.norm.vcf.gz.csi
 #     -> bubbles_plain/
-#       -> SAME AS ../bubbles/
-#     -> breakpoints/
+#       -> SAME AS ../bubbles_links/
+#     -> breakpoints_links/
 #       -> <P>.brk.gz
 #       -> <P>.brk.gz.log
 #       -> <P>.brk.raw.vcf
@@ -265,7 +265,7 @@ print '
 #       -> <P>.brk.norm.vcf.gz
 #       -> <P>.brk.norm.vcf.gz.csi
 #     -> breakpoints_plain/
-#       -> SAME AS ../breakpoints/
+#       -> SAME AS ../breakpoints_links/
 #     -> contigs/
 #       -> <S>.raw.fa.gz
 #       -> <S>.raw.fa.gz.log
@@ -347,7 +347,7 @@ BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
 KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
-LINK_CLEANING_ARGS=--limit 5000 --threshold
+LINK_CLEANING_ARGS=--limit 5000
 BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS)
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
 CALL2VCF_ARGS=--max-align 500 --max-allele 100
@@ -445,16 +445,16 @@ ifdef LINKS
 \tifdef JOINT\n";
     # links+joint calling
     for my $k (@kmers) {
-      print "\t\tBUBBLES_K$k=$proj/k$k/bubbles/joint.bub.gz\n";
-      print "\t\tBREAKPOINTS_K$k=".refonly("$proj/k$k/breakpoints/joint.brk.gz") . "\n";
+      print "\t\tBUBBLES_K$k=$proj/k$k/bubbles_links/joint.bub.gz\n";
+      print "\t\tBREAKPOINTS_K$k=".refonly("$proj/k$k/breakpoints_links/joint.brk.gz") . "\n";
     }
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_joint_links_vcf $union_bubble_joint_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_joint_links_vcf $union_brkpnt_joint_links_vcf.csi") . "\n";
 print "\telse\n";
     # links+1by1 calling
     for my $k (@kmers) {
-      print "\t\tBUBBLES_K$k=".join(' ', map {"$proj/k$k/bubbles/$_->{'name'}.bub.gz"} @samples)."\n";
-      print "\t\tBREAKPOINTS_K$k=".join(' ', map {"$proj/k$k/breakpoints/$_->{'name'}.brk.gz"} @samples)."\n";
+      print "\t\tBUBBLES_K$k=".join(' ', map {"$proj/k$k/bubbles_links/$_->{'name'}.bub.gz"} @samples)."\n";
+      print "\t\tBREAKPOINTS_K$k=".join(' ', map {"$proj/k$k/breakpoints_links/$_->{'name'}.brk.gz"} @samples)."\n";
     }
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_links_vcf $union_bubble_1by1_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_links_vcf $union_brkpnt_1by1_links_vcf.csi") . "\n";
@@ -500,10 +500,8 @@ print "# .csi are index files (for VCF in this case)\n";
 sub merge_vcf_list
 {
   my ($isbubble,$isjoint,$use_links) = @_;
-  my $dir;
   my @r = ();
-  if($isbubble) { $dir = ($use_links ? "bubbles"     : "bubbles_plain"); }
-  else          { $dir = ($use_links ? "breakpoints" : "breakpoints_plain"); }
+  my $dir = ($isbubble ? "bubbles" : "breakpoints").($use_links ? "_links" : "_plain");
   my $ext = ($isbubble ? "bub" : "brk");
   for my $k (@kmers) {
     if($isjoint) {
@@ -544,7 +542,7 @@ my @dirlist = ();
 for my $k (@kmers) {
   my $dirs = join(' ', "$proj/k$k/graphs/", "$proj/k$k/links/",
                        "$proj/k$k/contigs/",
-                       "$proj/k$k/bubbles/", "$proj/k$k/breakpoints/",
+                       "$proj/k$k/bubbles_links/", "$proj/k$k/breakpoints_links/",
                        "$proj/k$k/bubbles_plain/", "$proj/k$k/breakpoints_plain/",
                        "$proj/k$k/ref/",
                        "$proj/k$k/vcfcov/");
@@ -614,6 +612,8 @@ print '
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
 
+# plots:
+
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
@@ -629,7 +629,8 @@ clean:
 \t\@echo To delete: rm -rf $proj
 
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
-.PHONY: bubbles breakpoints bub-vcf brk-vcf vcfs
+.PHONY: bubbles breakpoints
+.PHONY: bub-vcf brk-vcf bub-geno-vcf brk-geno-vcf geno-vcfs plain-vcfs vcfs
 
 ";
 
@@ -743,15 +744,17 @@ for my $k (@kmers) {
   my $ctp_raw_file     = "$proj/k$k/links/%.raw.ctp.gz";
   my $ctp_clean_file   = "$proj/k$k/links/%.clean.ctp.gz";
   my $ctp_thresh_file  = "$proj/k$k/links/%.thresh.txt";
+  my $ctp_covg_file    = "$proj/k$k/links/%.thresh.csv";
 
   # Generate coverage CSV from first N kmers with links
   print "# link cleaning at k=$k\n";
+  print "$ctp_covg_file: $ctp_thresh_file\n";
   print "$ctp_thresh_file: $ctp_raw_file\n";
-  print "\t$ctx links \$(LINK_CLEANING_ARGS) \$< > \$@ 2> \$@.log\n\n";
+  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-hist $proj/k$k/links/\$*.thresh.csv --threshold \$@ \$< >& \$@.log\n\n";
 
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
-  print "\tTHRESH=`grep 'suggested_cutoff=' $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9,]+\$\$'`; \\\n";
-  print "\t$ctx links -c \"\$\$THRESH\" -o \$@ \$< >& \$@.log\n\n";
+  print "\tTHRESH=`tail -1 $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9]+\$\$'`; \\\n";
+  print "$ctx links -c \"\$\$THRESH\" -o \$@ \$< >& \$@.log\n\n";
 }
 
 # Assemble contigs
@@ -783,10 +786,10 @@ for my $k (@kmers) {
   # joint bubble calling
   print "# bubble calls k=$k joint+links\n";
   if(!$single_colour) {
-    print "$proj/k$k/bubbles/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "$proj/k$k/bubbles_links/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
     print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
   } else {
-    print "$proj/k$k/bubbles/joint.bub.gz:\n";
+    print "$proj/k$k/bubbles_links/joint.bub.gz:\n";
     print "\t>&2 echo 'Cannot create joint bubble calls with links using --single-colour' && exit 1\n"
   }
 
@@ -796,7 +799,7 @@ for my $k (@kmers) {
 
   # 1by1 bubble calling
   print "# bubble calls k=$k 1by1+links\n";
-  print "$proj/k$k/bubbles/%.bub.gz: $proj/k$k/graphs/%.clean.ctx $refgraph $proj/k$k/links/%.pe.clean.ctp.gz\n";
+  print "$proj/k$k/bubbles_links/%.bub.gz: $proj/k$k/graphs/%.clean.ctx $refgraph $proj/k$k/links/%.pe.clean.ctp.gz\n";
   print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol1by1_links -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< $refgraph >& \$@.log\n\n";
 
   print "# bubble calls k=$k 1by1+nolinks\n";
@@ -815,7 +818,7 @@ if(defined($ref_path))
 
     # joint breakpoint calling
     print "# breakpoint calls k=$k joint+links\n";
-    print "$proj/k$k/breakpoints/joint.brk.gz: \$(CLEAN_GRAPHS_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "$proj/k$k/breakpoints_links/joint.brk.gz: \$(CLEAN_GRAPHS_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
     print "\t$ctx breakpoints \$(CTX_ARGS) \$(BREAKPOINTS_ARGS) -s \$(REF_FILE) -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) >& \$@.log\n\n";
 
     print "# breakpoint calls k=$k joint+nolinks\n";
@@ -824,7 +827,7 @@ if(defined($ref_path))
 
     # 1by1 breakpoint calling
     print "# breakpoint calls k=$k 1by1+links\n";
-    print "$proj/k$k/breakpoints/%.brk.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz\n";
+    print "$proj/k$k/breakpoints_links/%.brk.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz\n";
     print "\t$ctx breakpoints \$(CTX_ARGS) \$(BREAKPOINTS_ARGS) -s \$(REF_FILE) -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< >& \$@.log\n\n";
 
     print "# breakpoint calls k=$k 1by1+nolinks\n";

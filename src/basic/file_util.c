@@ -84,6 +84,14 @@ int futil_mkpath(const char *path, mode_t mode)
 //
 //
 
+// Check file don't exist or that we can overwrite it. Ignores if path is NULL
+bool futil_check_outfile(const char *file)
+{
+  bool err = (file && !futil_get_force() && futil_file_exists(file));
+  if(err) warn("File already exists: %s", file);
+  return err;
+}
+
 bool futil_file_exists(const char *file)
 {
   return (access(file, F_OK) != -1);
