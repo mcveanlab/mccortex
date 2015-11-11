@@ -750,7 +750,7 @@ for my $k (@kmers) {
   print "# link cleaning at k=$k\n";
   print "$ctp_covg_file: $ctp_thresh_file\n";
   print "$ctp_thresh_file: $ctp_raw_file\n";
-  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-hist $proj/k$k/links/\$*.thresh.csv --threshold \$@ \$< >& \$@.log\n\n";
+  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-dist 100 --covg-hist $proj/k$k/links/\$*.thresh.csv --threshold \$@ \$< >& \$@.log\n\n";
 
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
   print "\tTHRESH=`tail -1 $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9]+\$\$'`; \\\n";
@@ -931,21 +931,24 @@ if(defined($ref_path))
   #
   # Genotyping
   #
+  # bcftools merge requires >1 input file, so we only use bcftools merge if @samples > 1
   print "#\n# Genotyping\n#\n";
-  print "KCOV$genok=".join(' ', map {"$proj/k$genok/graphs/$_->{'name'}.clean.kmercov"} @samples);
-  my $mccortex = get_mccortex($genok);
   print "# vcfgeno pooled calls at k=$genok (only)\n";
+  print "# use `bcftools merge --merge none` to create merged biallelic VCF\n";
+  print "KCOV$genok=".join(' ', map {"$proj/k$genok/graphs/$_->{'name'}.clean.kmercov"} @samples)."\n";
+  my $mccortex = get_mccortex($genok);
   for my $call (qw(breakpoints bubbles)) {
     for my $pop (qw(joint 1by1)) {
       for my $assem (qw(links plain)) {
         my $callroot = "$call.$pop.$assem.$kmerstr";
         my @vcfcovs = map {"$proj/k$genok/vcfcov/$callroot.$_->{'name'}.vcf.gz"} @samples;
         my $deplist = "VCFGENO_$call\_$pop\_$assem\_".join('', map{"k$_"} @kmers);
-        print "$deplist=@vcfcovs\n";
+        my $geno_input = (@vcfcovs > 1 ? "-" : $vcfcovs[0]);
+        if(@vcfcovs > 1) { print "$deplist=@vcfcovs\n"; }
         print "$proj/vcfs/$callroot.geno.vcf.gz: \$($deplist) ".join(' ', map {$_.".csi"} @vcfcovs)." \$(KCOV$genok)\n";
         print "\tKCOV=`cat \$(KCOV$genok) | paste -sd',' -`; \\\n";
-        print "\t\$(BCFTOOLS) merge \$($deplist) | \\\n";
-        print "\t  $mccortex vcfgeno --rm-cov \$(PLOIDY_ARGS) \$(ERR_ARGS) --kcov \$\$KCOV --out-fmt vcfgz --out \$@ - >& \$@.log\n\n";
+        if(@vcfcovs > 1) { print "\$(BCFTOOLS) merge --merge none \$($deplist) | \\\n"; }
+        print "$mccortex vcfgeno --rm-cov \$(PLOIDY_ARGS) \$(ERR_ARGS) --kcov \$\$KCOV --out-fmt vcfgz --out \$@ $geno_input >& \$@.log\n\n";
       }
     }
   }

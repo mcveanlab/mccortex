@@ -390,7 +390,7 @@ int ctx_links(int argc, char **argv)
     fprintf(hist_fh, "  ");
     for(j = 0; j < hist_covgsize; j++) fprintf(hist_fh, ",covg.%02zu", j);
     fprintf(hist_fh, "\n");
-    for(i = 0; i < hist_distsize; i++) {
+    for(i = 1; i < hist_distsize; i++) {
       fprintf(hist_fh, "dist.%02zu", i);
       for(j = 0; j < hist_covgsize; j++) {
         fprintf(hist_fh, ",%"PRIu64, hists[i][j]);

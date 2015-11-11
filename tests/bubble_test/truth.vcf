@@ -1,0 +1,7 @@
+##fileformat=VCFv4.1
+##fileDate=20151111
+##reference=ref/ref.fa
+##contig=<ID=ref,length=91>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	GT	MrBond
+ref	49	.	T	A	.	PASS	.	GT	0/1
