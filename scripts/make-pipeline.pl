@@ -897,36 +897,28 @@ if(defined($ref_path))
   print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n\n";
 
   print "$union_bubble_joint_links_vcf: \$(BUBBLES_JOINT_LINKS_VCFS) \$(BUBBLES_JOINT_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_JOINT_LINKS_VCFS)\n";
 
   print "$union_bubble_joint_plain_vcf: \$(BUBBLES_JOINT_PLAIN_VCFS) \$(BUBBLES_JOINT_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_JOINT_PLAIN_VCFS)\n";
 
   print "$union_brkpnt_joint_links_vcf: \$(BREAKPOINTS_JOINT_LINKS_VCFS) \$(BREAKPOINTS_JOINT_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_JOINT_LINKS_VCFS)\n";
 
   print "$union_brkpnt_joint_plain_vcf: \$(BREAKPOINTS_JOINT_PLAIN_VCFS) \$(BREAKPOINTS_JOINT_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_JOINT_PLAIN_VCFS)\n";
 
   print "$union_bubble_1by1_links_vcf: \$(BUBBLES_1BY1_LINKS_VCFS) \$(BUBBLES_1BY1_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_1BY1_LINKS_VCFS)\n";
 
   print "$union_bubble_1by1_plain_vcf: \$(BUBBLES_1BY1_PLAIN_VCFS) \$(BUBBLES_1BY1_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_1BY1_PLAIN_VCFS)\n";
 
   print "$union_brkpnt_1by1_links_vcf: \$(BREAKPOINTS_1BY1_LINKS_VCFS) \$(BREAKPOINTS_1BY1_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_1BY1_LINKS_VCFS)\n";
 
   print "$union_brkpnt_1by1_plain_vcf: \$(BREAKPOINTS_1BY1_PLAIN_VCFS) \$(BREAKPOINTS_1BY1_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_1BY1_PLAIN_VCFS)\n";
 
   #
   # VCF coverage

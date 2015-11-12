@@ -76,7 +76,7 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
       ErrorCleaning *ec = &ginfo->cleaning;
       printf("  tip clipping: %s\n", (ec->cleaned_tips == 0 ? "no" : "yes"));
 
-      printf("  remove low coverage supernodes: %s [threshold: <%u]\n",
+      printf("  remove low coverage unitigs: %s [threshold: <%u]\n",
              ec->cleaned_snodes ? "yes" : "no",
              ec->clean_snodes_thresh);
 

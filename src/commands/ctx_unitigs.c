@@ -142,7 +142,7 @@ static inline bool print_edges(hkey_t hkey, size_t threadid, void *arg)
   UnitigEnd uend0 = p->ugraph.unitig_ends[hkey];
   BinaryKmer bkey; Edges edges;
 
-  // Check if node is an end of a supernode
+  // Check if node is an end of a unitig
   if(uend0.assigned) {
     bkey = db_node_get_bkmer(p->db_graph, hkey);
     edges = db_node_get_edges(p->db_graph, hkey, 0);
@@ -185,7 +185,7 @@ static void print_unitig_fasta(dBNodeBuffer nbuf, size_t threadid, void *arg)
   UnitigPrinter *p = (UnitigPrinter*)arg;
   pthread_mutex_lock(&p->outlock);
   size_t idx = p->num_unitigs++;
-  fprintf(p->fout, ">supernode%zu\n", idx);
+  fprintf(p->fout, ">unitig%zu\n", idx);
   db_nodes_print(nbuf.b, nbuf.len, p->db_graph, p->fout);
   fputc('\n', p->fout);
   pthread_mutex_unlock(&p->outlock);

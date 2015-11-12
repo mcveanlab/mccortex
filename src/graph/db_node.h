@@ -294,6 +294,7 @@ static inline dBNode db_nodes_get(const dBNode *nodes, size_t n, bool fw, size_t
 // Reverse ordering without changing node orientation
 void db_nodes_reverse(dBNode *nlist, size_t n);
 
+// Reverse order and orientations of nodes
 void db_nodes_reverse_complement(dBNode *nlist, size_t len);
 
 void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift);

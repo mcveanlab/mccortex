@@ -73,8 +73,8 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 void graph_walker_force(GraphWalker *wlk, dBNode node, bool is_fork);
 
 /**
- * Jump to a new node within the current sample supernode
- * (can actually be any node up until the end of the current supernode)
+ * Jump to a new node within the current sample unitig
+ * (can actually be any node up until the end of the current unitig)
  * @param num_nodes is number of nodes we have moved forward
  */
 void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes);

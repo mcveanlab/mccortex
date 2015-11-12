@@ -216,10 +216,10 @@ void json_hdr_make_std(cJSON *json, const char *path,
     cJSON_AddNumberToObject(sample, "total_sequence", db_graph->ginfo[i].total_sequence);
     cJSON_AddBoolToObject(sample, "cleaned_tips", cleaned_tips);
     if(cleaned_snodes) {
-      cJSON_AddNumberToObject(sample, "cleaned_supernodes",
+      cJSON_AddNumberToObject(sample, "cleaned_unitigs",
                               db_graph->ginfo[i].cleaning.clean_snodes_thresh);
     } else {
-      cJSON_AddBoolToObject(sample, "cleaned_supernodes", false);
+      cJSON_AddBoolToObject(sample, "cleaned_unitigs", false);
     }
     cJSON_AddItemToArray(colours, sample);
   }

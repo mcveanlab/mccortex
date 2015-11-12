@@ -3,9 +3,9 @@
 #include "supernode.h"
 
 /*
-  Popping bubbles works by iterating over all supernodes. For each supernode
-  we attempt to pull out parallel supernodes. Once we have two parallel
-  supernodes we see if one should be removed.
+  Popping bubbles works by iterating over all unitigs. For each unitig
+  we attempt to pull out parallel unitigs. Once we have two parallel
+  unitigs we see if one should be removed.
 */
 
 /*
@@ -19,7 +19,7 @@
   \___/                                     
     ^                                       
 
-  Note: Could avoid this if we only remove supernodes
+  Note: Could avoid this if we only remove unitigs
         where in-degree == 1 and out-degree == 1,
         otherwise just remove our edges.
 

@@ -449,7 +449,7 @@ void find_bubbles_ending_with(BubbleCaller *bc, GCacheUnitig *unitig)
 
 static void write_bubbles_to_file(BubbleCaller *caller)
 {
-  // Loop over supernodes checking if they are 3p flanks
+  // Loop over unitigs checking if they are 3p flanks
   size_t nunitigs = graph_cache_num_unitigs(&caller->cache);
   GCacheUnitig *unitig;
   size_t i;

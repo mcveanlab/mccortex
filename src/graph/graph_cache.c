@@ -66,7 +66,7 @@ static inline void gc_create_unitig(GraphCache *cache, dBNode node,
   dBNode *nodes = graph_cache_node(cache, first_node_id);
   supernode_normalise(nodes, num_nodes, db_graph);
 
-  // printf("Loaded supernode:\n  ");
+  // printf("Loaded unitig:\n  ");
   // db_nodes_print(nodes, num_nodes, db_graph, stdout);
   // printf("\n");
 

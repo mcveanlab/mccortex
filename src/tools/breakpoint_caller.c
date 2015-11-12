@@ -239,7 +239,7 @@ static inline bool gcrawler_stop_at_ref_covg(const GraphCache *cache,
          (!caller->max_ref_nkmers || maxlen < caller->max_ref_nkmers);
 }
 
-// Try to pick up new runs at each supernode
+// Try to pick up new runs at each unitig
 static bool gcrawler_stop_at_ref_covg_path(const GraphCache *cache,
                                            const GCacheStep *step,
                                            void *arg)
@@ -252,7 +252,7 @@ static bool gcrawler_stop_at_ref_covg_path(const GraphCache *cache,
                                    &caller->koruns_3p_ended);
 }
 
-// For 5p flank only pick up new runs starting at the first supernode
+// For 5p flank only pick up new runs starting at the first unitig
 static bool gcrawler_stop_at_ref_covg_flank5p(const GraphCache *cache,
                                               const GCacheStep *step,
                                               void *arg)
