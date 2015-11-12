@@ -681,11 +681,11 @@ for my $k (@kmers) {
 
   # Get kmer coverage
   if(defined($genome_size)) {
-    print "$proj/%.clean.kmercov: $proj/%.clean.ctx\n";
+    print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx\n";
     print "\t\$(CTXKCOV) $k $genome_size \$< > \$@ 2> \$@.log\n\n";
   } else {
-    print "$proj/%.clean.kmercov: $proj/%.clean.ctx\n";
-    print "\t$ctx view -q \$< | grep -io 'kmer coverage:\\s[0-9]*' | grep -o '[0-9][0-9]*' > \$@ 2> \$@.log\n\n";
+    print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx\n";
+    print "\t$ctx view \$< | grep -io 'kmer coverage:\\s[0-9]*' | grep -o '[0-9][0-9]*' > \$@ 2> \$@.log\n\n";
   }
 
   # Dump unitigs
@@ -944,7 +944,7 @@ if(defined($ref_path))
         my @vcfcovs = map {"$proj/k$genok/vcfcov/$callroot.$_->{'name'}.vcf.gz"} @samples;
         my $deplist = "VCFGENO_$call\_$pop\_$assem\_".join('', map{"k$_"} @kmers);
         my $geno_input = (@vcfcovs > 1 ? "-" : $vcfcovs[0]);
-        if(@vcfcovs > 1) { print "$deplist=@vcfcovs\n"; }
+        print "$deplist=@vcfcovs\n";
         print "$proj/vcfs/$callroot.geno.vcf.gz: \$($deplist) ".join(' ', map {$_.".csi"} @vcfcovs)." \$(KCOV$genok)\n";
         print "\tKCOV=`cat \$(KCOV$genok) | paste -sd',' -`; \\\n";
         if(@vcfcovs > 1) { print "\$(BCFTOOLS) merge --merge none \$($deplist) | \\\n"; }
