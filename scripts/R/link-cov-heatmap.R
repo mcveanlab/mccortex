@@ -11,10 +11,10 @@ if(length(args) != 2) {
 input_csv=args[1]
 output_pdf=args[2]
 
-require('ggplot2')
-require('reshape')
-require('scales')
-require('plyr')
+library('ggplot2')
+library('reshape')
+library('scales')
+library('plyr')
 
 # d = matrix(1:9,nrow=3,ncol=3)
 # d.m <- melt(d, varnames=c("dist","cov"))

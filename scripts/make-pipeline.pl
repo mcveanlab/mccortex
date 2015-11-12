@@ -16,17 +16,6 @@ use UsefulModule; # str2num
 #
 # TODO:
 # [ ] Add pooled cleaning (for low coverage samples)
-# [x] make-pipeline.pl: add genotyping, using 'mccortex view' to get kmer covg
-# [x] just merge VCF sites
-# [x] pass genome size / fetch from ref FASTA
-# [x] 1-by-1 bubble/breakpoint calling for lower memory
-# [x] add option to use stampy to map
-# [x] thread: take fragment length min/max length
-# [x] bubbles: take max allele + flank lengths
-# [x] calls2vcf: take min mapq value
-# [x] pop bubbles for diploid when assembling contigs
-# [x] option to call variants without using links
-# [x] unitigs target to dump unitigs
 #
 
 sub print_usage
@@ -206,6 +195,9 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   contigs-pop    <- assemble contigs after popping bubbles
 #   unitigs        <- dump unitigs for each sample
 #
+# Debugging:
+#   print-VAR      <- Print the value of VAR
+#
 # Options:
 ';
 for my $run_opt (@run_opts) { print "#   $run_opt\n"; }
@@ -363,6 +355,9 @@ CTXKCOV=$(CTXDIR)/scripts/mccortex-kcovg.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
+KMER_COVG_PLOTTER=$(CTXDIR)/scripts/R/plot-covg-hist.R
+UNITIG_LEN_PLOTTER=$(CTXDIR)/scripts/R/plot-length-hist.R
+LINK_COVG_PLOTTER=$(CTXDIR)/scripts/R/link-cov-heatmap.R
 
 # Third party libraries packaged in McCortex
 BWA=$(CTXDIR)/libs/bwa/bwa
@@ -428,9 +423,13 @@ for my $k (@kmers) {
   print "# Files at k=$k\n";
   print "RAW_GRAPHS_K$k=".join(' ', map {"$proj/k$k/graphs/$_->{'name'}.raw.ctx"} @samples)."\n";
   print "CLEAN_GRAPHS_K$k=\$(RAW_GRAPHS_K$k:.raw.ctx=.clean.ctx)\n";
+  print "COVG_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.covg.pdf)\n";
+  print "LEN_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.len.pdf) \$(CLEAN_GRAPHS_K$k:.ctx=.len.pdf)\n";
   print "CLEAN_UNITIGS_K$k=\$(CLEAN_GRAPHS_K$k:.ctx=.unitigs.fa.gz)\n";
   print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"} @samples)."\n";
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
+  print "SE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.links.pdf"} @samples) . "\n";
+  print "PE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.links.pdf"} @samples) . "\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
@@ -479,13 +478,16 @@ print "\telse\n";
 print "\tendif
 endif\n\n";
 
-print "RAW_GRAPHS=" .join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
+print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
+print "COVG_PLOTS=".join(' ', map {"\$(COVG_PLOTS_K$_)"}  @kmers)."\n";
+print "LEN_PLOTS=".join(' ', map {"\$(LEN_PLOTS_K$_)"} @kmers)."\n";
 print "CLEAN_UNITIGS=\$(CLEAN_GRAPHS:.ctx=.unitigs.fa.gz)\n";
 print "RAW_LINKS="  .join(' ', map {"\$(RAW_SE_LINKS_K$_) \$(RAW_PE_LINKS_K$_) "} @kmers)."\n";
 print "CLEAN_SE_LINKS=".join(' ', map {"\$(CLEAN_SE_LINKS_K$_)"} @kmers)."\n";
 print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
 print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
+print "LINK_PLOTS=". join(' ', map {"\$(SE_LINK_PLOTS_K$_) \$(PE_LINK_PLOTS_K$_)"} @kmers)."\n";
 print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
 print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
@@ -552,8 +554,6 @@ push(@dirlist, "$proj/vcfs");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
 
-COVG_CSV_FILES=$(RAW_GRAPHS:.raw.ctx=.raw.covg.csv)
-
 # Referece Graphs
 ';
 
@@ -612,7 +612,7 @@ print '
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
 
-# plots:
+plots: $(COVG_PLOTS) $(LEN_PLOTS) $(LINK_PLOTS)
 
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
@@ -631,6 +631,22 @@ clean:
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
 .PHONY: bubbles breakpoints
 .PHONY: bub-vcf brk-vcf bub-geno-vcf brk-geno-vcf geno-vcfs plain-vcfs vcfs
+
+# Print any variable with `make -f file.mk print-VARNAME`
+print-%:
+\t\@echo '\$*=\$(\$*)'
+
+# Kmer coverage plots:
+$proj/%.covg.pdf: $proj/%.covg.csv
+\t\$(KMER_COVG_PLOTTER) \$< \$@
+
+# Unitig length plots
+$proj/%.len.pdf: $proj/%.len.csv
+\t\$(UNITIG_LEN_PLOTTER) \$< \$@
+
+# Link coverage plots:
+$proj/%.links.pdf: $proj/%.links.csv
+\t\$(LINK_COVG_PLOTTER) \$< \$@
 
 ";
 
@@ -670,10 +686,15 @@ for my $k (@kmers) {
   print "\t$ctx popbubbles \$(CTX_ARGS) \$(POP_BUBBLES_ARGS) -o \$@ \$< >& \$@.log\n\n";
 
   # Clean graph files at k=$k
+  my $cov_file   = "$proj/k$k/graphs/\$*.raw.covg.csv";
+  my $len_before = "$proj/k$k/graphs/\$*.raw.len.csv";
+  my $len_after  = "$proj/k$k/graphs/\$*.clean.len.csv";
   print "# sample graph cleaning at k=$k\n";
-  print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.clean.ctx\n";
+  print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.raw.len.csv\n";
+  print "$proj/k$k/graphs/%.raw.len.csv: $proj/k$k/graphs/%.clean.len.csv\n";
+  print "$proj/k$k/graphs/%.clean.len.csv: $proj/k$k/graphs/%.clean.ctx\n";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $cov_file --len-before $len_before --len-after $len_after -o \$@ \$< >& \$@.log\n";
   if(!$single_colour) {
     print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
   }
@@ -744,13 +765,13 @@ for my $k (@kmers) {
   my $ctp_raw_file     = "$proj/k$k/links/%.raw.ctp.gz";
   my $ctp_clean_file   = "$proj/k$k/links/%.clean.ctp.gz";
   my $ctp_thresh_file  = "$proj/k$k/links/%.thresh.txt";
-  my $ctp_covg_file    = "$proj/k$k/links/%.thresh.csv";
+  my $ctp_covg_file    = "$proj/k$k/links/%.links.csv";
 
   # Generate coverage CSV from first N kmers with links
   print "# link cleaning at k=$k\n";
   print "$ctp_covg_file: $ctp_thresh_file\n";
   print "$ctp_thresh_file: $ctp_raw_file\n";
-  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-dist 100 --covg-hist $proj/k$k/links/\$*.thresh.csv --threshold \$@ \$< >& \$@.log\n\n";
+  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-dist 100 --covg-hist $proj/k$k/links/\$*.links.csv --threshold \$@ \$< >& \$@.log\n\n";
 
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
   print "\tTHRESH=`tail -1 $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9]+\$\$'`; \\\n";
