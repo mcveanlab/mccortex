@@ -234,7 +234,7 @@ static void print_unitig_gfa(const dBNode *nodes, size_t num_nodes,
 
 static void print_gfa_syntax(UnitigPrinter *p)
 {
-  fputs("H VN:Z:1.0\n", p->fout);
+  fputs("H\tVN:Z:1.0\n", p->fout);
 
   unitig_graph_create(&p->ugraph, p->nthreads, p->visited,
                       print_unitig_gfa, p);
