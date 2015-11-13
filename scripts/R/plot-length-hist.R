@@ -16,7 +16,7 @@ library('ggplot2')
 d=read.csv(file=input_csv,sep=',',as.is=T)
 
 p <- ggplot(data=d, aes(bp, Count)) +
-       geom_bar(stat="identity") +
+       geom_bar(stat="identity", color="seagreen") +
        scale_y_log10() +
        xlab("Untig length (bases)") +
        ylab("Number of unitigs") +

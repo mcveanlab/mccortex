@@ -4,31 +4,55 @@
 # input csv should have the columns: 'Covg' and 'NumUnitigs'
 #
 args <- commandArgs(trailingOnly=TRUE)
-if(length(args) != 2) {
-  stop("Usage: Rscript --vanilla plot-covg-hist.R <covg.csv> <out.pdf>\n")
+if(length(args) < 2 || length(args) > 3) {
+  stop("Usage: Rscript --vanilla plot-covg-hist.R <covg.csv> <out.pdf> [cutoff]\n")
 }
 
+cutoff=0
 input_csv=args[1]
 output_pdf=args[2]
+if(length(args) > 2) { cutoff=args[3] }
 
 library('ggplot2')
 library('gridExtra')
 
 d=read.csv(file=input_csv,sep=',',as.is=T)
 
-p <- ggplot(data=d, aes(x=Covg, y=NumKmers)) +
-       geom_bar(stat="identity") +
+ymax=max(d[,'NumKmers'],d[,'NumUnitigs'])
+cutline=data.frame(x=as.numeric(c(cutoff,cutoff)), y=as.numeric(c(0,ymax)))
+
+p <- ggplot() +
+       geom_bar(data=d, stat="identity", aes(x=Covg,y=NumKmers), colour="firebrick") +
        xlab("Coverage (X)") +
        ylab("Number of kmers") +
        ggtitle("Kmer Coverage") +
        xlim(0,150)
 
-q <- ggplot(data=d, aes(x=Covg, y=NumUnitigs)) +
-       geom_bar(stat="identity") +
+if(cutoff > 0) {
+  cutline[,'y'] = c(0, max(d[,'NumKmers']))
+  p <- p + geom_line(data=cutline, aes(x=x,y=y), colour="black")
+}
+
+q <- ggplot() +
+       geom_bar(data=d, stat="identity", aes(x=Covg,y=NumUnitigs), colour="firebrick") +
        xlab("Coverage (X)") +
        ylab("Number of unitigs") +
        ggtitle("Unitig Median Coverage") +
        xlim(0,150)
+
+if(cutoff > 0) {
+  cutline[,'y'] = c(0, max(d[,'NumUnitigs']))
+  q <- q + geom_line(data=cutline, aes(x=x,y=y), colour="black")
+}
+
+# should work but doesn't
+#pq <- arrangeGrob(p, q, ncol=2)
+#ggsave(pq, file=output_pdf, width=6, height=6)
+# Instead:
+# pq <- arrangeGrob(p, q, ncol=2)
+# put_pdf,width=12,height=6)
+# grid.arrange(pq, ncol=1)
+# dev.off
 
 pdf(output_pdf,width=12,height=6)
 grid.arrange(p, q, ncol=2)

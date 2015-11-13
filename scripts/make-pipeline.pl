@@ -194,6 +194,9 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   contigs        <- assemble contigs for each sample
 #   contigs-pop    <- assemble contigs after popping bubbles
 #   unitigs        <- dump unitigs for each sample
+#   plots          <- generate plots (requires R + scripts/R/install-deps.R)
+#   report         <- generate a PDF report (requires pdflatex + R)
+#   report-tex     <- generate a latex document, but don\'t convert to PDF
 #
 # Debugging:
 #   print-VAR      <- Print the value of VAR
@@ -218,9 +221,10 @@ print '
 #     -> graphs/
 #       -> <S>.raw.ctx
 #       -> <S>.raw.ctx.log
-#       -> <S>.raw.covg.csv
+#       -> <S>.raw.cov.csv
 #       -> <S>.clean.ctx
 #       -> <S>.clean.ctx.log
+#       -> <S>.clean.cov.csv
 #       -> <S>.inferedges.ctx.log
 #       -> <S>.clean.unitigs.fa.gz
 #     -> links/
@@ -230,12 +234,14 @@ print '
 #       -> <S>.se.clean.ctp.gz.log
 #       -> <S>.se.thresh.txt
 #       -> <S>.se.thresh.txt.log
+#       -> <S>.se.links.csv
 #       -> <S>.pe.raw.ctp.gz
 #       -> <S>.pe.raw.ctp.gz.log
 #       -> <S>.pe.clean.ctp.gz
 #       -> <S>.pe.clean.ctp.gz.log
 #       -> <S>.pe.thresh.txt
 #       -> <S>.pe.thresh.txt.log
+#       -> <S>.pe.links.csv
 #     -> bubbles_links/
 #       -> <P>.bub.gz
 #       -> <P>.bub.gz.log
@@ -355,9 +361,11 @@ CTXKCOV=$(CTXDIR)/scripts/mccortex-kcovg.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
-KMER_COVG_PLOTTER=$(CTXDIR)/scripts/R/plot-covg-hist.R
+KMER_COV_PLOTTER=$(CTXDIR)/scripts/R/plot-covg-hist.R
 UNITIG_LEN_PLOTTER=$(CTXDIR)/scripts/R/plot-length-hist.R
-LINK_COVG_PLOTTER=$(CTXDIR)/scripts/R/link-cov-heatmap.R
+LINK_COV_PLOTTER=$(CTXDIR)/scripts/R/link-cov-heatmap.R
+MK_REPORT=$(CTXDIR)/scripts/make-report.pl
+LATEX_PDF=pdflatex
 
 # Third party libraries packaged in McCortex
 BWA=$(CTXDIR)/libs/bwa/bwa
@@ -423,13 +431,13 @@ for my $k (@kmers) {
   print "# Files at k=$k\n";
   print "RAW_GRAPHS_K$k=".join(' ', map {"$proj/k$k/graphs/$_->{'name'}.raw.ctx"} @samples)."\n";
   print "CLEAN_GRAPHS_K$k=\$(RAW_GRAPHS_K$k:.raw.ctx=.clean.ctx)\n";
-  print "COVG_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.covg.pdf)\n";
+  print "COVG_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.cov.pdf) \$(CLEAN_GRAPHS_K$k:.ctx=.cov.pdf)\n";
   print "LEN_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.len.pdf) \$(CLEAN_GRAPHS_K$k:.ctx=.len.pdf)\n";
   print "CLEAN_UNITIGS_K$k=\$(CLEAN_GRAPHS_K$k:.ctx=.unitigs.fa.gz)\n";
   print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"} @samples)."\n";
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
   print "SE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.links.pdf"} @samples) . "\n";
-  print "PE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.links.pdf"} @samples) . "\n";
+  print "PE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.links.pdf"} (grep {sample_has_pe($_)} @samples)) . "\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
@@ -495,6 +503,9 @@ print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
 
 print "BREAKPOINTS_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BREAKPOINTS_UNION_VCFS))\n";
 print "BUBBLES_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BUBBLES_UNION_VCFS))\n\n";
+print "REPORT_TEX=$proj/report/report.tex\n";
+print "REPORT_PDF=$proj/report/report.pdf\n\n";
+print "PLOTS=\$(COVG_PLOTS) \$(LEN_PLOTS) \$(LINK_PLOTS)\n";
 
 print "\n# Files to merge to create various union VCFs\n";
 print "# .csi are index files (for VCF in this case)\n";
@@ -550,7 +561,7 @@ for my $k (@kmers) {
                        "$proj/k$k/vcfcov/");
   push(@dirlist, $dirs);
 }
-push(@dirlist, "$proj/vcfs");
+push(@dirlist, "$proj/vcfs", "$proj/report");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
 
@@ -612,7 +623,10 @@ print '
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
 
-plots: $(COVG_PLOTS) $(LEN_PLOTS) $(LINK_PLOTS)
+plots: $(PLOTS)
+
+report-tex: $(REPORT_TEX)
+report: $(REPORT_PDF)
 
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
@@ -631,22 +645,35 @@ clean:
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
 .PHONY: bubbles breakpoints
 .PHONY: bub-vcf brk-vcf bub-geno-vcf brk-geno-vcf geno-vcfs plain-vcfs vcfs
+.PHONY: plots report report-tex
 
 # Print any variable with `make -f file.mk print-VARNAME`
 print-%:
 \t\@echo '\$*=\$(\$*)'
 
 # Kmer coverage plots:
-$proj/%.covg.pdf: $proj/%.covg.csv
-\t\$(KMER_COVG_PLOTTER) \$< \$@
+$proj/%.clean.cov.pdf $proj/%.raw.cov.pdf: $proj/%.clean.cov.csv $proj/%.raw.cov.csv
+\tCUTOFF=`grep -o 'Removing unitigs with coverage < [0-9]*' proj/\$*.clean.ctx.log | grep -oE '[0-9]+'`; \\
+\$(KMER_COV_PLOTTER) proj/\$*.raw.cov.csv proj/\$*.raw.cov.pdf \$\$CUTOFF; \\
+\$(KMER_COV_PLOTTER) proj/\$*.clean.cov.csv proj/\$*.clean.cov.pdf \$\$CUTOFF
+
 
 # Unitig length plots
 $proj/%.len.pdf: $proj/%.len.csv
 \t\$(UNITIG_LEN_PLOTTER) \$< \$@
 
 # Link coverage plots:
-$proj/%.links.pdf: $proj/%.links.csv
-\t\$(LINK_COVG_PLOTTER) \$< \$@
+$proj/%.links.pdf: $proj/%.links.csv proj/%.thresh.txt
+\tCUTOFF=`grep -o 'suggested_cutoff=[0-9]*' proj/\$*.thresh.txt | grep -oE '[0-9]+'`; \\
+\$(LINK_COV_PLOTTER) \$< \$@ \$\$CUTOFF
+
+# Report
+\$(REPORT_TEX): | \$(DIRS)
+\t\$(MK_REPORT) $proj > $proj/report/report.tex
+
+\$(REPORT_PDF): \$(REPORT_TEX) \$(PLOTS)
+\t\$(LATEX_PDF) --output-directory $proj/report/ $proj/report/report
+\t\$(LATEX_PDF) --output-directory $proj/report/ $proj/report/report
 
 ";
 
@@ -679,22 +706,24 @@ for my $k (@kmers) {
   # Pop bubbles
   print "# Generate individual graphs for sample assembly with high covg indiv.\n";
   print "# Clean and pop bubbles at k=$k\n";
-  print "$proj/k$k/graphs/%.pop.raw.covg.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
+  print "$proj/k$k/graphs/%.pop.raw.cov.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
   print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.covg.csv -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.cov.csv -o \$@ \$< >& \$@.log\n";
   print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.pop.clean.ctx\n";
   print "\t$ctx popbubbles \$(CTX_ARGS) \$(POP_BUBBLES_ARGS) -o \$@ \$< >& \$@.log\n\n";
 
   # Clean graph files at k=$k
-  my $cov_file   = "$proj/k$k/graphs/\$*.raw.covg.csv";
+  my $cov_before = "$proj/k$k/graphs/\$*.raw.cov.csv";
+  my $cov_after  = "$proj/k$k/graphs/\$*.clean.cov.csv";
   my $len_before = "$proj/k$k/graphs/\$*.raw.len.csv";
   my $len_after  = "$proj/k$k/graphs/\$*.clean.len.csv";
   print "# sample graph cleaning at k=$k\n";
-  print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.raw.len.csv\n";
+  print "$proj/k$k/graphs/%.raw.cov.csv: $proj/k$k/graphs/%.clean.cov.csv\n";
+  print "$proj/k$k/graphs/%.clean.cov.csv: $proj/k$k/graphs/%.raw.len.csv\n";
   print "$proj/k$k/graphs/%.raw.len.csv: $proj/k$k/graphs/%.clean.len.csv\n";
   print "$proj/k$k/graphs/%.clean.len.csv: $proj/k$k/graphs/%.clean.ctx\n";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $cov_file --len-before $len_before --len-after $len_after -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $cov_before --covg-after $cov_after --len-before $len_before --len-after $len_after -o \$@ \$< >& \$@.log\n";
   if(!$single_colour) {
     print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
   }
@@ -706,7 +735,7 @@ for my $k (@kmers) {
     print "\t\$(CTXKCOV) $k $genome_size \$< > \$@ 2> \$@.log\n\n";
   } else {
     print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx\n";
-    print "\t$ctx view \$< | grep -io 'kmer coverage:\\s[0-9]*' | grep -o '[0-9][0-9]*' > \$@ 2> \$@.log\n\n";
+    print "\t($ctx view \$< | grep -io 'kmer coverage:\\s[0-9]*' | grep -o '[0-9][0-9]*' > \$@) >& \$@.log\n\n";
   }
 
   # Dump unitigs
@@ -749,7 +778,7 @@ for my $k (@kmers) {
           ' -o $@ $< >& $@.log'."\n\n";
 
     # 2. If we have any paired end reads, add that information in a second pass
-    if(@{$sample->{'pe_files'}} > 0 || @{$sample->{'i_files'}} > 0) {
+    if(sample_has_pe($sample)) {
       print "$ctp_pe_raw_file: $ctx_clean_file $ctp_se_clean_file @pe_files | \$(DIRS)\n";
       print "\t$ctx thread \$(CTX_ARGS) \$(THREAD_ARGS) -p $ctp_se_clean_file --zero-paths " .
               join(' ', (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
@@ -1040,6 +1069,12 @@ sub load_samples_file
   }
   close($sfh);
   return @samples;
+}
+
+# If a sample has PE input files
+sub sample_has_pe
+{
+  return (@{$_[0]->{'pe_files'}} > 0) || (@{$_[0]->{'i_files'}} > 0);
 }
 
 sub get_p_args
