@@ -194,9 +194,6 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #   contigs        <- assemble contigs for each sample
 #   contigs-pop    <- assemble contigs after popping bubbles
 #   unitigs        <- dump unitigs for each sample
-#   plots          <- generate plots (requires R + scripts/R/install-deps.R)
-#   report         <- generate a PDF report (requires pdflatex + R)
-#   report-tex     <- generate a latex document, but don\'t convert to PDF
 #
 # Debugging:
 #   print-VAR      <- Print the value of VAR
@@ -361,11 +358,6 @@ CTXKCOV=$(CTXDIR)/scripts/mccortex-kcovg.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
-KMER_COV_PLOTTER=$(CTXDIR)/scripts/R/plot-covg-hist.R
-UNITIG_LEN_PLOTTER=$(CTXDIR)/scripts/R/plot-length-hist.R
-LINK_COV_PLOTTER=$(CTXDIR)/scripts/R/link-cov-heatmap.R
-MK_REPORT=$(CTXDIR)/scripts/make-report.pl
-LATEX_PDF=pdflatex
 
 # Third party libraries packaged in McCortex
 BWA=$(CTXDIR)/libs/bwa/bwa
@@ -431,13 +423,9 @@ for my $k (@kmers) {
   print "# Files at k=$k\n";
   print "RAW_GRAPHS_K$k=".join(' ', map {"$proj/k$k/graphs/$_->{'name'}.raw.ctx"} @samples)."\n";
   print "CLEAN_GRAPHS_K$k=\$(RAW_GRAPHS_K$k:.raw.ctx=.clean.ctx)\n";
-  print "COVG_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.cov.pdf) \$(CLEAN_GRAPHS_K$k:.ctx=.cov.pdf)\n";
-  print "LEN_PLOTS_K$k=\$(RAW_GRAPHS_K$k:.ctx=.len.pdf) \$(CLEAN_GRAPHS_K$k:.ctx=.len.pdf)\n";
   print "CLEAN_UNITIGS_K$k=\$(CLEAN_GRAPHS_K$k:.ctx=.unitigs.fa.gz)\n";
   print "RAW_SE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.raw.ctp.gz"} @samples)."\n";
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
-  print "SE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.se.links.pdf"} @samples) . "\n";
-  print "PE_LINK_PLOTS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.links.pdf"} (grep {sample_has_pe($_)} @samples)) . "\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
@@ -488,14 +476,11 @@ endif\n\n";
 
 print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
-print "COVG_PLOTS=".join(' ', map {"\$(COVG_PLOTS_K$_)"}  @kmers)."\n";
-print "LEN_PLOTS=".join(' ', map {"\$(LEN_PLOTS_K$_)"} @kmers)."\n";
 print "CLEAN_UNITIGS=\$(CLEAN_GRAPHS:.ctx=.unitigs.fa.gz)\n";
 print "RAW_LINKS="  .join(' ', map {"\$(RAW_SE_LINKS_K$_) \$(RAW_PE_LINKS_K$_) "} @kmers)."\n";
 print "CLEAN_SE_LINKS=".join(' ', map {"\$(CLEAN_SE_LINKS_K$_)"} @kmers)."\n";
 print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
 print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
-print "LINK_PLOTS=". join(' ', map {"\$(SE_LINK_PLOTS_K$_) \$(PE_LINK_PLOTS_K$_)"} @kmers)."\n";
 print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
 print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
@@ -503,9 +488,6 @@ print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
 
 print "BREAKPOINTS_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BREAKPOINTS_UNION_VCFS))\n";
 print "BUBBLES_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BUBBLES_UNION_VCFS))\n\n";
-print "REPORT_TEX=$proj/report/report.tex\n";
-print "REPORT_PDF=$proj/report/report.pdf\n\n";
-print "PLOTS=\$(COVG_PLOTS) \$(LEN_PLOTS) \$(LINK_PLOTS)\n";
 
 print "\n# Files to merge to create various union VCFs\n";
 print "# .csi are index files (for VCF in this case)\n";
@@ -561,7 +543,7 @@ for my $k (@kmers) {
                        "$proj/k$k/vcfcov/");
   push(@dirlist, $dirs);
 }
-push(@dirlist, "$proj/vcfs", "$proj/report");
+push(@dirlist, "$proj/vcfs");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
 
@@ -623,11 +605,6 @@ print '
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
 
-plots: $(PLOTS)
-
-report-tex: $(REPORT_TEX)
-report: $(REPORT_PDF)
-
 checks:'."\n";
 my @ctx_maxks = get_maxk_values(@kmers);
 for my $maxk (@ctx_maxks) {
@@ -645,35 +622,10 @@ clean:
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
 .PHONY: bubbles breakpoints
 .PHONY: bub-vcf brk-vcf bub-geno-vcf brk-geno-vcf geno-vcfs plain-vcfs vcfs
-.PHONY: plots report report-tex
 
 # Print any variable with `make -f file.mk print-VARNAME`
 print-%:
 \t\@echo '\$*=\$(\$*)'
-
-# Kmer coverage plots:
-$proj/%.clean.cov.pdf $proj/%.raw.cov.pdf: $proj/%.clean.cov.csv $proj/%.raw.cov.csv
-\tCUTOFF=`grep -o 'Removing unitigs with coverage < [0-9]*' proj/\$*.clean.ctx.log | grep -oE '[0-9]+'`; \\
-\$(KMER_COV_PLOTTER) proj/\$*.raw.cov.csv proj/\$*.raw.cov.pdf \$\$CUTOFF; \\
-\$(KMER_COV_PLOTTER) proj/\$*.clean.cov.csv proj/\$*.clean.cov.pdf \$\$CUTOFF
-
-
-# Unitig length plots
-$proj/%.len.pdf: $proj/%.len.csv
-\t\$(UNITIG_LEN_PLOTTER) \$< \$@
-
-# Link coverage plots:
-$proj/%.links.pdf: $proj/%.links.csv proj/%.thresh.txt
-\tCUTOFF=`grep -o 'suggested_cutoff=[0-9]*' proj/\$*.thresh.txt | grep -oE '[0-9]+'`; \\
-\$(LINK_COV_PLOTTER) \$< \$@ \$\$CUTOFF
-
-# Report
-\$(REPORT_TEX): | \$(DIRS)
-\t\$(MK_REPORT) $proj > $proj/report/report.tex
-
-\$(REPORT_PDF): \$(REPORT_TEX) \$(PLOTS)
-\t\$(LATEX_PDF) --output-directory $proj/report/ $proj/report/report
-\t\$(LATEX_PDF) --output-directory $proj/report/ $proj/report/report
 
 ";
 

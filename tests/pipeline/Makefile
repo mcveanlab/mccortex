@@ -5,6 +5,7 @@ MCCORTEX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
 MKPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
+MKREPORT=$(CTXDIR)/scripts/make-report.pl
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
 VCFALLELES=$(CTXDIR)/libs/biogrok/vcf-count-alleles
@@ -24,7 +25,7 @@ DEPTH=50
 ERRRATE=0.01
 READLEN=100
 
-all: $(CALLS) truth.vcf.gz
+all: $(CALLS) truth.vcf.gz report
 	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/bubbles.joint.links.k29.k31.geno.vcf.gz -p isec_bub
 	$(BCFTOOLS) isec truth.vcf.gz proj/vcfs/breakpoints.joint.links.k29.k31.geno.vcf.gz -p isec_brk
 	@BUB_T=`$(VCFALLELES) isec_bub/0000.vcf`; \
@@ -38,6 +39,11 @@ all: $(CALLS) truth.vcf.gz
 
 $(CALLS): job.k29.k31.mk $(SEQ_FILES)
 	$(MAKE) -f job.k29.k31.mk CTXDIR=$(CTXDIR) MEM=50M NKMERS=1M BRK_REF_KMERS=10 vcfs
+
+report: report/Makefile
+
+report/Makefile: $(CALLS)
+	$(MKREPORT) proj report
 
 # 600 random bases generated with: dnacat -n 600
 #.............................................................................V................................................V.......................................*...........................................................................................................VV.................................................................................................................................................*....................................................................................................................VVVV..........................................................
@@ -118,6 +124,6 @@ view: $(VIEWFILES)
 
 clean:
 	rm -rf samples.txt job.k29.k31.mk proj ref samples isec_bub isec_brk
-	rm -rf tmp.* truth.*
+	rm -rf tmp.* truth.* report
 
-.PHONY: all clean sams bams view
+.PHONY: all clean sams bams view report

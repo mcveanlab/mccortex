@@ -11,8 +11,10 @@
 #include "graphs_load.h"
 #include "hash_mem.h" // for calculating mem usage
 
+#define SUBCMD "view"
+
 const char view_usage[] =
-"usage: "CMD" view [options] <in.ctx>\n"
+"usage: "CMD" "SUBCMD" [options] <in.ctx>\n"
 "\n"
 "  View a cortex graph as a list of kmers with coverage and edges\n"
 "\n"
@@ -22,6 +24,10 @@ const char view_usage[] =
 "  -k, --kmers  Print kmers\n"
 "  -c, --check  Check kmers\n"
 "  -i, --info   Print info\n"
+// "\n"
+// "  -r, --readlen  Print mean read length\n"
+// "  -b, --nbases   Print number of bases read\n"
+// "  -n, --nkmers   Print number of kmers\n"
 "\n"
 " Default is [--info --check]\n"
 "\n";
@@ -34,6 +40,13 @@ static struct option longopts[] =
   {"kmers", no_argument, &print_kmers,  1},
   {"check", no_argument, &parse_kmers,  1},
   {"info",  no_argument, &print_info,   1},
+  // {"help",    no_argument, NULL, 'h'},
+  // {"kmers",   no_argument, NULL, 'k'},
+  // {"check",   no_argument, NULL, 'c'},
+  // {"info",    no_argument, NULL, 'i'},
+  // {"readlen", no_argument, NULL, 'r'},
+  // {"nbases",  no_argument, NULL, 'b'},
+  // {"nkmers",  no_argument, NULL, 'n'},
   {NULL, 0, NULL, 0}
 };
 
@@ -94,6 +107,12 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
 #define loading_warning(fmt,...) { num_warnings++; warn(fmt, ##__VA_ARGS__);}
 #define loading_error(fmt,...) { num_errors++; warn(fmt, ##__VA_ARGS__);}
 
+// Print tab separated cer colour
+// summary => human readable
+typedef enum _print_action {
+  kmers, readlen, kmersize, kmercov, nkmers, nbases, summary
+} print_action;
+
 int ctx_view(int argc, char **argv)
 {
   // Arg parsing
@@ -101,6 +120,10 @@ int ctx_view(int argc, char **argv)
   char shortopts[300];
   cmd_long_opts_to_short(longopts, shortopts, sizeof(shortopts));
   int c;
+
+  // TODO:
+  // print_action actions[argc];
+  // bool read_kmers = false;
 
   // silence error messages from getopt_long
   // opterr = 0;
@@ -113,7 +136,7 @@ int ctx_view(int argc, char **argv)
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
-        cmd_print_usage("`"CMD" view -h` for help. Bad option: %s", argv[optind-1]);
+        cmd_print_usage("`"CMD" "SUBCMD" -h` for help. Bad option: %s", argv[optind-1]);
       default:
         cmd_print_usage("Programmer fail. Tell Isaac.");
     }
@@ -121,8 +144,8 @@ int ctx_view(int argc, char **argv)
 
   if(print_kmers) parse_kmers = 1;
 
-  if(!print_info && !parse_kmers && !print_kmers)
-    print_info = parse_kmers = 1;
+  bool no_flags = (!print_info && !parse_kmers && !print_kmers);
+  if(no_flags) { print_info = parse_kmers = 1; }
 
   if(optind+1 != argc) cmd_print_usage("Require one input graph file (.ctx)");
 

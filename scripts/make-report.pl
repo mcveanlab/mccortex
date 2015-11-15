@@ -4,60 +4,53 @@ use strict;
 use warnings;
 
 use List::Util qw(max min sum);
+use File::Path qw(make_path);
+use File::Copy;
+use File::Basename; # dirname()
 
-# TODO:
-# [x] parse args, print usage
-# [ ] Crawl directory to find:
-#     [ ] list of kmers used
-#     [ ] list of samples
-#     [ ] vcf files produced
-#     [ ] plots for each sample
-# [x] print latex
-#
+# Use current directory to find modules
+use FindBin;
+use lib $FindBin::Bin;
+
+use CortexScripts;
 
 # Get kmers:
-# $dir/k*
-
+#   $srcdir/k*
 # Get samples:
-# $dir/k$k/graphs/*.raw.ctx
-
+#   $srcdir/k$k/graphs/*.raw.ctx
 # Get kmer coverage:
-# $dir/k$k/graphs/$sample.clean.kmercov
-
-# Include plots:
-# $dir/k$k/graphs/$sample.raw.cov.pdf
-# $dir/k$k/graphs/$sample.clean.cov.pdf
-# $dir/k$k/graphs/$sample.raw.len.pdf
-# $dir/k$k/graphs/$sample.clean.len.pdf
-# $dir/k$k/graphs/$sample.se.links.pdf
-# $dir/k$k/graphs/$sample.pe.links.pdf
+#   $srcdir/k$k/graphs/$sample.clean.kmercov
+# Get readlen:
+#   $srcdir/k$k/graphs/$sample.{raw|clean}.ctx
+# Get cleaning thresholds:
+#   $srcdir/k$k/graphs/$sample.clean.ctx
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage $0 [options] <dir> [srcpath]
+"Usage $0 [options] <srcdir> <reportdir>
 
-  Generate a report in latex on a McCortex pipeline run. Prints latex to STDOUT.
-
-  Options:
-    None.
+  Generate a report in latex on a McCortex pipeline run.
 
   Example:
-    $0 mcrun > run_report.tex
-    pdflatex run_report
+    $0 mcrun mcrun_report
+    cd mcrun_report
+    make CTXDIR=~/mccortex
+
 ";
 
   exit(-1);
 }
 
-if(@ARGV < 1 || @ARGV > 2) { print_usage(); }
+if(@ARGV != 2) { print_usage(); }
 
-my $dir = shift(@ARGV);
-my $srcpath = shift(@ARGV);
+my $srcdir = shift(@ARGV);
+my $outdir = shift(@ARGV);
 
-if(!defined($srcpath)) { $srcpath = '.'; }
-
+#
+# Gather intel
+#
 my @samples = ();
 my @kmers = ();
 
@@ -65,28 +58,33 @@ my @kmers = ();
 my @files;
 
 # find kmers
-@files = ls($dir);
-@kmers = map {$_ =~ /^k(\d+)$/} (grep {/^k\d+$/} ls($dir));
+@files = ls($srcdir);
+@kmers = map {$_ =~ /^k(\d+)$/} (grep {/^k\d+$/} ls($srcdir));
 # find samples
-@files = map {lspath("$dir/k$_/graphs/", "$dir/k$_/links/")} @kmers;
-@samples = rmdups(map {$_ =~ /\/([^\/]*).raw.ctx$/} (grep {/graphs\/.*?.raw.ctx$/} @files));
+@files = map {lspath("$srcdir/k$_/graphs/", "$srcdir/k$_/links/")} @kmers;
+@samples = rmdups(map {$_ =~ /\/([^\/]*).(?:raw|clean).ctx$/} (grep {/graphs\/.*?.(?:raw|clean).ctx$/} @files));
 my %pathhash = ();
 map {$pathhash{$_} = 1} @files;
 
 # Debug: list all paths found
 # my @tmp = sort keys(%pathhash);
-# print STDERR "files:".join("\n", @tmp)."\n";
+# print "files:".join("\n", @tmp)."\n";
 
-print STDERR "Kmers: @kmers\n";
-print STDERR "Samples: @samples\n";
+print "Kmers: @kmers\n";
+print "Samples: @samples\n";
 
 # Get cleaning thresholds:
 my %kmer_cleaning = (); # {$sample}->{$k} => kmer cleaning threshold
 my %link_cleaning = (); # {$sample}->{$k}->{"se"|"pe"} => cleaning threshold
+# Get kmer coverage:
+my %kmer_cov = (); # {$sample}->{$k} => kmer cov
+my %readlen = (); # {$sample}->{$k} => readlen
 
 for my $sample (@samples) {
   $kmer_cleaning{$sample} = {};
   $link_cleaning{$sample} = {};
+  $kmer_cov{$sample} = {};
+  $readlen{$sample} = {};
   for my $k (@kmers) {
     $link_cleaning{$sample}->{$k} = {};
   }
@@ -94,10 +92,33 @@ for my $sample (@samples) {
 
 for my $sample (@samples) {
   for my $k (@kmers) {
-    my $logpath = "$dir/k$k/graphs/$sample.clean.ctx.log";
-    if(defined($pathhash{$logpath})) {
+    my $path;
+    my $maxk = mccortex_maxk($k);
+    my $mccortex = dirname(__FILE__)."/../bin/mccortex$maxk";
+
+    if(!(-e $mccortex)) {
+      die("Please compile with `make MAXK=$maxk` (missing: $mccortex)");
+    }
+
+    # read length
+    my $path1 = "$srcdir/k$k/graphs/$sample.raw.ctx";
+    my $path2 = "$srcdir/k$k/graphs/$sample.clean.ctx";
+    $path = undef;
+    if(defined($pathhash{$path1})) { $path = $path1; }
+    if(defined($pathhash{$path2})) { $path = $path2; }
+    if(defined($path)) {
+      my $cmd = "$mccortex view -q --info $path";
+      my $info = `$cmd` or die("Command failed: $! ($cmd)");
+      my ($rlen) = ($info =~ /mean input contig length:\s*([0-9\.]+)/);
+      if(!defined($rlen)) { die("Can't get readlen length: $path"); }
+      $readlen{$sample}->{$k} = int($rlen+0.5);
+    }
+
+    # Kmer cleaning threshold
+    $path = "$srcdir/k$k/graphs/$sample.clean.ctx.log";
+    if(defined($pathhash{$path})) {
       my $thresh;
-      open(FH, $logpath) or die("Cannot read $logpath: $!");
+      open(FH, $path) or die("Cannot read $path: $!");
       while(defined(my $line = <FH>)) {
         if($line =~ /Removing unitigs with coverage < (\d+)/i) { $thresh = $1; last; }
       }
@@ -105,11 +126,12 @@ for my $sample (@samples) {
       if(defined($thresh)) { $kmer_cleaning{$sample}->{$k} = $thresh; }
     }
 
+    # link cleaning threshold
     for my $type (qw(se pe)) {
-      $logpath = "$dir/k$k/links/$sample.$type.thresh.txt";
-      if(defined($pathhash{$logpath})) {
+      $path = "$srcdir/k$k/links/$sample.$type.thresh.txt";
+      if(defined($pathhash{$path})) {
         my $thresh;
-        open(FH, $logpath) or die("Cannot read $logpath: $!");
+        open(FH, $path) or die("Cannot read $path: $!");
         while(defined(my $line = <FH>)) {
           if($line =~ /suggested_cutoff=(\d+)/i) { $thresh = $1; last; }
         }
@@ -117,8 +139,214 @@ for my $sample (@samples) {
         if(defined($thresh)) { $link_cleaning{$sample}->{$k}->{$type} = $thresh; }
       }
     }
+
+    # kmer coverage
+    $path = "$srcdir/k$k/graphs/$sample.clean.kmercov";
+    if(defined($pathhash{$path})) {
+      open(FH, $path) or die("Cannot read $path: $!");
+      my $line = <FH>;
+      if(defined($line)) {
+        chomp($line);
+        if($line =~ /^(\d+)$/) {
+          $kmer_cov{$sample}->{$k} = $1;
+        } else {
+          print STDERR "Cannot process: $line\n";
+        }
+      }
+      close(FH);
+    }
   }
 }
+
+
+
+print "Creating report directory...\n";
+
+#
+# Make output directory
+#
+create_dir($outdir);
+create_dir("$outdir/plots");
+create_dir("$outdir/data");
+
+
+sub create_dir
+{
+  if(!(-d $_[0])) {
+    make_path($_[0]) or die("Cannot create dir: $_[0]");
+  }
+}
+
+#
+# Copy data to:
+#
+# graph:
+#   data/<sample>.k<k>.raw.cov.csv
+#   data/<sample>.k<k>.clean.cov.csv
+#   data/<sample>.k<k>.raw.len.csv
+#   data/<sample>.k<k>.clean.len.csv
+#   data/<sample>.k<k>.kmercov
+#   data/<sample>.k<k>.kthresh
+# links:
+#   data/<sample>.k<k>.se.links.csv
+#   data/<sample>.k<k>.pe.links.csv
+#   data/<sample>.k<k>.se.links.thresh
+#   data/<sample>.k<k>.pe.links.thresh
+#
+
+# List of plots we are able to create
+my %plots = ();
+
+sub attempt_cpy
+{
+  my ($src, $dst, $plot) = @_;
+  if(defined($pathhash{$src})) {
+    copy($src, $dst) or die("Copy failed: $src -> $dst");
+    if(defined($plot)) { $plots{$plot} = 1; }
+  }
+}
+
+sub write_to_file
+{
+  my ($path, $text) = @_;
+  open(FH, ">$path") or die("Cannot write to $path");
+  print FH $text;
+  close(FH);
+}
+
+for my $sample (@samples) {
+  for my $k (@kmers) {
+    attempt_cpy("$srcdir/k$k/graphs/$sample.raw.cov.csv",
+                "$outdir/data/$sample.k$k.raw.cov.csv",
+                "plots/$sample.k$k.raw.cov.pdf");
+    attempt_cpy("$srcdir/k$k/graphs/$sample.clean.cov.csv",
+                "$outdir/data/$sample.k$k.clean.cov.csv",
+                "plots/$sample.k$k.clean.cov.pdf");
+    attempt_cpy("$srcdir/k$k/graphs/$sample.raw.len.csv",
+                "$outdir/data/$sample.k$k.raw.len.csv",
+                "plots/$sample.k$k.raw.len.pdf");
+    attempt_cpy("$srcdir/k$k/graphs/$sample.clean.len.csv",
+                "$outdir/data/$sample.k$k.clean.len.csv",
+                "plots/$sample.k$k.clean.len.pdf");
+    if(defined(my $t = $kmer_cov{$sample}->{$k})) {
+      write_to_file("$outdir/data/$sample.k$k.kmercov", "$t\n");
+    }
+    if(defined(my $t = $readlen{$sample}->{$k})) {
+      write_to_file("$outdir/data/$sample.k$k.readlen", "$t\n");
+    }
+    if(defined(my $t = $kmer_cleaning{$sample}->{$k})) {
+      write_to_file("$outdir/data/$sample.k$k.kthresh", "$t\n");
+    }
+    attempt_cpy("$srcdir/k$k/links/$sample.se.links.csv",
+                "$outdir/data/$sample.k$k.se.links.csv",
+                "plots/$sample.k$k.se.links.pdf");
+    attempt_cpy("$srcdir/k$k/links/$sample.pe.links.csv",
+                "$outdir/data/$sample.k$k.pe.links.csv",
+                "plots/$sample.k$k.pe.links.pdf");
+    for my $type (qw(se pe)) {
+      if(defined(my $t = $link_cleaning{$sample}->{$k}->{$type})) {
+        write_to_file("$outdir/data/$sample.k$k.$type.links.thresh", "$t\n");
+      }
+    }
+  }
+}
+
+# Debug: print all plots we have
+# print STDERR "plots:".join("\n", sort keys(%plots))."\n";
+
+#
+# Write Makefile
+#
+open(FH, ">$outdir/Makefile") or die("Cannot write Makefile");
+print FH "
+CTXDIR=~/mccortex
+PDFLATEX=pdflatex
+UNITIG_LEN_PLOTTER=\$(CTXDIR)/scripts/R/plot-length-hist.R
+MKLINKPLOT=\$(CTXDIR)/scripts/report/make-link-plot.sh
+MKKMERPLOT=\$(CTXDIR)/scripts/report/make-kmer-plot.sh
+
+CSV_FILES=\$(wildcard data/*.csv)
+PLOTS=\$(patsubst data/%.csv,plots/%.pdf,\$(CSV_FILES))
+
+all: report.pdf
+
+# Print any variable with `make -f file.mk print-VARNAME`
+print-%:
+  \@echo '\$*=\$(\$*)'
+
+# will also use data/%.kthresh if available
+# will also use data/%.kmercov if available
+plots/%.cov.pdf: data/%.cov.csv
+\t\$(MKKMERPLOT) \$< \$@
+
+plots/%.len.pdf: data/%.len.csv
+\t\$(UNITIG_LEN_PLOTTER) \$< \$@
+
+# will also use data/%.{se|pe}.links.thresh if available
+# will also use data/%.kmercov if available
+plots/%.links.pdf: data/%.links.csv
+\t\$(MKLINKPLOT) \$< \$@
+
+report.pdf: report.tex \$(PLOTS)
+\t\$(PDFLATEX) \$< \$@
+\t\$(PDFLATEX) \$< \$@
+
+clean:
+\trm -rf report.pdf plots/*.pdf
+";
+close(FH);
+
+#
+# Write report.tex
+#
+my $fh;
+open($fh, ">$outdir/report.tex") or die("Cannot write report.tex");
+print $fh '
+\documentclass[a4paper]{article}
+
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{subfig}
+\usepackage{url}
+\usepackage{amssymb}
+
+\title{McCortex Pipeline Report: '.$srcdir.'}
+\author{McCortex make-report.pl}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Summary}
+
+This file was generated by McCortex: \url{https://github.com/mcveanlab/mccortex}.
+\begin{itemize}
+\item kmers: $'.join(', ', @kmers).'$
+\item samples: '.join(', ', @samples).'
+\end{itemize}
+
+';
+for my $sample (@samples) {
+  print $fh "\\section{Sample: `$sample'}\n";
+  for my $k (@kmers) {
+    print $fh "\\subsection{`$sample' k=\$$k\$}\n";
+    if(defined(my $cov = $kmer_cov{$sample}->{$k})) {
+      print $fh "Kmer coverage = $cov\n";
+    }
+    mk_cov_fig($fh, $sample, $k);
+    mk_len_fig($fh, $sample, $k);
+    mk_links_fig($fh, $sample, $k);
+    print $fh '\clearpage'."\n";
+  }
+  print $fh "\n";
+}
+print $fh '
+\end{document}
+';
+close($fh);
+
+print "Done.\n";
+
 
 # List of files in a directory, including path
 sub lspath
@@ -160,23 +388,23 @@ sub latexpath
 
 sub mksubfloat
 {
-  my ($images, $labels, $captions, $label, $caption, $width) = @_;
-  print '
+  my ($fh, $images, $labels, $captions, $label, $caption, $width) = @_;
+  print $fh '
 \begin{figure}[hp]
 \centering
   \subfloat['.$captions->[0].']{
     ';
-  if(defined($pathhash{$images->[0]})) {
-    print '\includegraphics[width='.$width.'\textwidth]{\srcpath/'.latexpath($images->[0]).'}';
-  } else { print '\hspace{'.$width.'\textwidth}'; } print '
+  if(defined($plots{$images->[0]})) {
+    print $fh '\includegraphics[width='.$width.'\textwidth]{'.latexpath($images->[0]).'}';
+  } else { print $fh '\hspace{'.$width.'\textwidth}'; } print $fh '
     \label{'.$labels->[0].'}
   }
   \hfill
   \subfloat['.$captions->[1].']{
     ';
-  if(defined($pathhash{$images->[1]})) {
-    print '\includegraphics[width='.$width.'\textwidth]{\srcpath/'.latexpath($images->[1]).'}';
-  } else { print '\hspace{'.$width.'\textwidth}'; } print '
+  if(defined($plots{$images->[1]})) {
+    print $fh '\includegraphics[width='.$width.'\textwidth]{'.latexpath($images->[1]).'}';
+  } else { print $fh '\hspace{'.$width.'\textwidth}'; } print $fh '
     \label{'.$labels->[1].'}
   }
   \caption{'.$caption.'}
@@ -187,30 +415,33 @@ sub mksubfloat
 
 sub mk_cov_fig
 {
-  my ($k,$sample) = @_;
-  my @images = ("$dir/k$k/graphs/$sample.raw.cov.pdf",
-                "$dir/k$k/graphs/$sample.clean.cov.pdf");
+  my ($fh, $sample, $k) = @_;
+  my @images = ("plots/$sample.k$k.raw.cov.pdf",
+                "plots/$sample.k$k.clean.cov.pdf");
   my @labels = ("fig:$sample.k$k.raw.cov",
                 "fig:$sample.k$k.clean.cov");
   my @captions = ("Raw coverage",
                   "Clean coverage");
 
   my $label = "fig:$sample.k$k.cov";
-  my $caption = "Sample `$sample' (k=$k) coverage";
+  my $caption = "Sample `$sample' (k=$k) coverage.";
 
-  my $thresh;
+  my ($thresh, $cov);
   if(defined($thresh = $kmer_cleaning{$sample}->{$k})) {
-    $caption .= " (cleaned off \$<$thresh\$)";
+    $caption .= " Cleaned \$<$thresh\$ (solid line).";
+  }
+  if(defined($cov = $kmer_cov{$sample}->{$k})) {
+    $caption .= " Mean kmer coverage \$=$cov\$ (dashed line).";
   }
 
-  mksubfloat(\@images, \@labels, \@captions, $label, $caption, 0.9);
+  mksubfloat($fh, \@images, \@labels, \@captions, $label, $caption, 0.9);
 }
 
 sub mk_len_fig
 {
-  my ($k,$sample) = @_;
-  my @images = ("$dir/k$k/graphs/$sample.raw.len.pdf",
-                "$dir/k$k/graphs/$sample.clean.len.pdf");
+  my ($fh, $sample, $k) = @_;
+  my @images = ("plots/$sample.k$k.raw.len.pdf",
+                "plots/$sample.k$k.clean.len.pdf");
   my @labels = ("fig:$sample.k$k.raw.len",
                 "fig:$sample.k$k.clean.len");
   my @captions = ("Raw unitig",
@@ -224,21 +455,26 @@ sub mk_len_fig
     $caption .= " (cleaned off coverage \$<$thresh\$)";
   }
 
-  mksubfloat(\@images, \@labels, \@captions, $label, $caption, 0.4);
+  mksubfloat($fh, \@images, \@labels, \@captions, $label, $caption, 0.4);
 }
 
 sub mk_links_fig
 {
-  my ($k,$sample) = @_;
-  my @images = ("$dir/k$k/links/$sample.se.links.pdf",
-                "$dir/k$k/links/$sample.pe.links.pdf");
+  my ($fh, $sample, $k) = @_;
+  my @images = ("plots/$sample.k$k.se.links.pdf",
+                "plots/$sample.k$k.pe.links.pdf");
   my @labels = ("fig:$sample.k$k.se.links",
                 "fig:$sample.k$k.pe.links");
   my @captions = ("Raw SE links",
                   "Raw PE links");
 
   my $label = "fig:$sample.k$k.link.cov";
-  my $caption = "Sample `$sample' (\$k=$k\$) link coverage";
+  my $caption = "Sample `$sample' (\$k=$k\$) link coverage.";
+
+  my $rlen;
+  if(defined($rlen = $readlen{$sample}->{$k})) {
+    $caption .= " Mean read length: $rlen.";
+  }
 
   my ($thresh_se, $thresh_pe);
   if(defined($thresh_se = $link_cleaning{$sample}->{$k}->{'se'})) {
@@ -248,51 +484,13 @@ sub mk_links_fig
     $captions[1] .= " (cleaned off \$<$thresh_pe\$)";
   }
 
-  mksubfloat(\@images, \@labels, \@captions, $label, $caption, 0.4);
-}
-
-
-print '
-\documentclass[a4paper]{article}
-
-\usepackage{mathtools}
-\usepackage{graphicx}
-\usepackage{subfig}
-\usepackage{url}
-\usepackage{amssymb}
-
-\newcommand{\srcpath}{'.$srcpath.'}
-
-\title{McCortex Pipeline Report: '.$dir.'}
-\author{McCortex make-report.pl}
-\begin{document}
-
-\maketitle
-\tableofcontents
-
-\section{Summary}
-
-This file was generated by McCortex: \url{https://github.com/mcveanlab/mccortex}.
-\begin{itemize}
-\item kmers: $'.join(', ', @kmers).'$
-\item samples: '.join(', ', @samples).'
-\end{itemize}
-
-';
-
-for my $sample (@samples) {
-  print "\\section{Sample: `$sample'}\n";
-  for my $k (@kmers) {
-    print "\\subsection{`$sample' k=\$$k\$}\n";
-    mk_cov_fig($k, $sample);
-    mk_len_fig($k, $sample);
-    mk_links_fig($k, $sample);
-    print '\clearpage'."\n";
+  if(!defined($pathhash{$images[0]})) {
+    $captions[0] .= " (not generated).";
   }
+  if(!defined($pathhash{$images[1]})) {
+    $captions[1] .= " (not generated).";
+  }
+
+  mksubfloat($fh, \@images, \@labels, \@captions, $label, $caption, 0.4);
 }
 
-print '
-
-\end{document}
-
-';

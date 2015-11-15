@@ -4,25 +4,30 @@
 # input csv should have the columns: 'Covg' and 'NumUnitigs'
 #
 args <- commandArgs(trailingOnly=TRUE)
-if(length(args) < 2 || length(args) > 3) {
-  stop("Usage: Rscript --vanilla plot-covg-hist.R <covg.csv> <out.pdf> [cutoff]\n")
+if(length(args) != 4) {
+  stop("Usage: Rscript --vanilla plot-covg-hist.R <covg.csv> <out.pdf> [<cutoff> [<kcov>]]\n  Optional: set cutoff, kcov to zero\n")
 }
 
-cutoff=0
-input_csv=args[1]
-output_pdf=args[2]
-if(length(args) > 2) { cutoff=args[3] }
+cutoff <- 0
+kcov <- 0
+
+input_csv <- args[1]
+output_pdf <- args[2]
+if(length(args) >= 3) { cutoff <- as.numeric(args[3]) }
+if(length(args) >= 4) { kcov <- as.numeric(args[4]) }
 
 library('ggplot2')
 library('gridExtra')
 
-d=read.csv(file=input_csv,sep=',',as.is=T)
+d <- read.csv(file=input_csv,sep=',',as.is=T)
 
-ymax=max(d[,'NumKmers'],d[,'NumUnitigs'])
-cutline=data.frame(x=as.numeric(c(cutoff,cutoff)), y=as.numeric(c(0,ymax)))
+ymax <- max(d[,'NumKmers'],d[,'NumUnitigs'])
+cutline <- data.frame(x=as.numeric(c(cutoff,cutoff)), y=as.numeric(c(0,ymax)))
+kcovline <- data.frame(x=as.numeric(c(kcov,kcov)), y=as.numeric(c(0,ymax)))
 
 p <- ggplot() +
-       geom_bar(data=d, stat="identity", aes(x=Covg,y=NumKmers), colour="firebrick") +
+       geom_bar(data=d, stat="identity", aes(x=Covg,y=NumKmers,fill=FALSE), colour="firebrick") +
+       guides(fill=FALSE) +
        xlab("Coverage (X)") +
        ylab("Number of kmers") +
        ggtitle("Kmer Coverage") +
@@ -33,8 +38,14 @@ if(cutoff > 0) {
   p <- p + geom_line(data=cutline, aes(x=x,y=y), colour="black")
 }
 
+if(kcov > 0) {
+  kcovline[,'y'] = c(0, max(d[,'NumKmers']))
+  p <- p + geom_line(data=kcovline, aes(x=x,y=y), colour="black", linetype="dashed")
+}
+
 q <- ggplot() +
-       geom_bar(data=d, stat="identity", aes(x=Covg,y=NumUnitigs), colour="firebrick") +
+       geom_bar(data=d, stat="identity", aes(x=Covg,y=NumUnitigs,fill=FALSE), colour="firebrick") +
+       guides(fill=FALSE) +
        xlab("Coverage (X)") +
        ylab("Number of unitigs") +
        ggtitle("Unitig Median Coverage") +
@@ -43,6 +54,11 @@ q <- ggplot() +
 if(cutoff > 0) {
   cutline[,'y'] = c(0, max(d[,'NumUnitigs']))
   q <- q + geom_line(data=cutline, aes(x=x,y=y), colour="black")
+}
+
+if(kcov > 0) {
+  kcovline[,'y'] = c(0, max(d[,'NumUnitigs']))
+  q <- q + geom_line(data=kcovline, aes(x=x,y=y), colour="black", linetype="dashed")
 }
 
 # should work but doesn't
