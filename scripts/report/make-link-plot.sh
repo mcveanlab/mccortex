@@ -1,16 +1,16 @@
 #!/bin/bash
 set -eou pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo "usage: $0 <in.csv> <out.pdf>" 1>&2
+if [[ $# -ne 3 ]]; then
+  echo "usage: $0 <link-cov-heatmap.R> <in.csv> <out.pdf>" 1>&2
   exit -1
 fi
 
 #in:  data/sample.kK.se.links.csv
 #out: plots/sample.kK.se.links.pdf
-ctxdir=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd ../../ && pwd )
-in=$1
-out=$2
+script=$1
+in=$2
+out=$3
 
 KMER=`echo "$in" | grep -oE 'k[0-9]+' | grep -oE '[0-9]+'`
 CUTOFFFILE=`echo "$in" | awk '{gsub(/\.links\.csv$/,".links.thresh")}1'`
@@ -27,4 +27,4 @@ echo KCOVFILE=$KCOVFILE
 echo READLENFILE=$READLENFILE
 
 set -o xtrace
-$ctxdir/scripts/R/link-cov-heatmap.R $in $out $CUTOFF $KMER $KCOV $READLEN
+$script $in $out $CUTOFF $KMER $KCOV $READLEN

@@ -1,16 +1,16 @@
 #!/bin/bash
 set -eou pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo "usage: $0 <in.csv> <out.pdf>" 1>&2
+if [[ $# -ne 3 ]]; then
+  echo "usage: $0 <plot-covg-hist.R> <in.csv> <out.pdf>" 1>&2
   exit -1
 fi
 
 #in:  data/sample.kK.se.links.csv
 #out: plots/sample.kK.se.links.pdf
-ctxdir=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd ../../ && pwd )
-in=$1
-out=$2
+script=$1
+in=$2
+out=$3
 
 ROOT=`echo $in | awk '{gsub(/\.(raw|clean).cov.csv$/,"")}1'`
 
@@ -25,4 +25,4 @@ echo CUTOFF=$CUTOFF
 echo KCOV=$KCOV
 
 set -o xtrace
-$ctxdir/scripts/R/plot-covg-hist.R $in $out $CUTOFF $KCOV
+$script $in $out $CUTOFF $KCOV

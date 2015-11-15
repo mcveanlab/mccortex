@@ -12,7 +12,7 @@ use File::Basename; # dirname()
 use FindBin;
 use lib $FindBin::Bin;
 
-use CortexScripts;
+use CortexScripts; # mccortex_maxk()
 
 # Get kmers:
 #   $srcdir/k*
@@ -36,7 +36,7 @@ sub print_usage
   Example:
     $0 mcrun mcrun_report
     cd mcrun_report
-    make CTXDIR=~/mccortex
+    make
 
 ";
 
@@ -47,6 +47,8 @@ if(@ARGV != 2) { print_usage(); }
 
 my $srcdir = shift(@ARGV);
 my $outdir = shift(@ARGV);
+
+my $ctxdir = dirname(__FILE__)."/..";
 
 #
 # Gather intel
@@ -168,6 +170,7 @@ print "Creating report directory...\n";
 create_dir($outdir);
 create_dir("$outdir/plots");
 create_dir("$outdir/data");
+create_dir("$outdir/scripts");
 
 
 sub create_dir
@@ -197,7 +200,7 @@ sub create_dir
 # List of plots we are able to create
 my %plots = ();
 
-sub attempt_cpy
+sub attempt_copy
 {
   my ($src, $dst, $plot) = @_;
   if(defined($pathhash{$src})) {
@@ -214,20 +217,47 @@ sub write_to_file
   close(FH);
 }
 
+sub copy_script
+{
+  my ($src, $dst) = @_;
+  copy($src, $dst) or die("Copy failed: $src -> $dst");
+  chmod(0777, $dst);
+}
+
+# Copy scripts
+copy_script("$ctxdir/scripts/report/make-kmer-plot.sh",
+            "$outdir/scripts/make-kmer-plot.sh");
+
+copy_script("$ctxdir/scripts/report/make-link-plot.sh",
+            "$outdir/scripts/make-link-plot.sh");
+
+copy_script("$ctxdir/scripts/R/install-deps.R",
+            "$outdir/scripts/install-deps.R");
+
+copy_script("$ctxdir/scripts/R/plot-covg-hist.R",
+            "$outdir/scripts/plot-covg-hist.R");
+
+copy_script("$ctxdir/scripts/R/plot-length-hist.R",
+            "$outdir/scripts/plot-length-hist.R");
+
+copy_script("$ctxdir/scripts/R/link-cov-heatmap.R",
+            "$outdir/scripts/link-cov-heatmap.R");
+
+# Copy data
 for my $sample (@samples) {
   for my $k (@kmers) {
-    attempt_cpy("$srcdir/k$k/graphs/$sample.raw.cov.csv",
-                "$outdir/data/$sample.k$k.raw.cov.csv",
-                "plots/$sample.k$k.raw.cov.pdf");
-    attempt_cpy("$srcdir/k$k/graphs/$sample.clean.cov.csv",
-                "$outdir/data/$sample.k$k.clean.cov.csv",
-                "plots/$sample.k$k.clean.cov.pdf");
-    attempt_cpy("$srcdir/k$k/graphs/$sample.raw.len.csv",
-                "$outdir/data/$sample.k$k.raw.len.csv",
-                "plots/$sample.k$k.raw.len.pdf");
-    attempt_cpy("$srcdir/k$k/graphs/$sample.clean.len.csv",
-                "$outdir/data/$sample.k$k.clean.len.csv",
-                "plots/$sample.k$k.clean.len.pdf");
+    attempt_copy("$srcdir/k$k/graphs/$sample.raw.cov.csv",
+                 "$outdir/data/$sample.k$k.raw.cov.csv",
+                 "plots/$sample.k$k.raw.cov.pdf");
+    attempt_copy("$srcdir/k$k/graphs/$sample.clean.cov.csv",
+                 "$outdir/data/$sample.k$k.clean.cov.csv",
+                 "plots/$sample.k$k.clean.cov.pdf");
+    attempt_copy("$srcdir/k$k/graphs/$sample.raw.len.csv",
+                 "$outdir/data/$sample.k$k.raw.len.csv",
+                 "plots/$sample.k$k.raw.len.pdf");
+    attempt_copy("$srcdir/k$k/graphs/$sample.clean.len.csv",
+                 "$outdir/data/$sample.k$k.clean.len.csv",
+                 "plots/$sample.k$k.clean.len.pdf");
     if(defined(my $t = $kmer_cov{$sample}->{$k})) {
       write_to_file("$outdir/data/$sample.k$k.kmercov", "$t\n");
     }
@@ -237,12 +267,12 @@ for my $sample (@samples) {
     if(defined(my $t = $kmer_cleaning{$sample}->{$k})) {
       write_to_file("$outdir/data/$sample.k$k.kthresh", "$t\n");
     }
-    attempt_cpy("$srcdir/k$k/links/$sample.se.links.csv",
-                "$outdir/data/$sample.k$k.se.links.csv",
-                "plots/$sample.k$k.se.links.pdf");
-    attempt_cpy("$srcdir/k$k/links/$sample.pe.links.csv",
-                "$outdir/data/$sample.k$k.pe.links.csv",
-                "plots/$sample.k$k.pe.links.pdf");
+    attempt_copy("$srcdir/k$k/links/$sample.se.links.csv",
+                 "$outdir/data/$sample.k$k.se.links.csv",
+                 "plots/$sample.k$k.se.links.pdf");
+    attempt_copy("$srcdir/k$k/links/$sample.pe.links.csv",
+                 "$outdir/data/$sample.k$k.pe.links.csv",
+                 "plots/$sample.k$k.pe.links.pdf");
     for my $type (qw(se pe)) {
       if(defined(my $t = $link_cleaning{$sample}->{$k}->{$type})) {
         write_to_file("$outdir/data/$sample.k$k.$type.links.thresh", "$t\n");
@@ -259,11 +289,12 @@ for my $sample (@samples) {
 #
 open(FH, ">$outdir/Makefile") or die("Cannot write Makefile");
 print FH "
-CTXDIR=~/mccortex
 PDFLATEX=pdflatex
-UNITIG_LEN_PLOTTER=\$(CTXDIR)/scripts/R/plot-length-hist.R
-MKLINKPLOT=\$(CTXDIR)/scripts/report/make-link-plot.sh
-MKKMERPLOT=\$(CTXDIR)/scripts/report/make-kmer-plot.sh
+KCOV_PLOTTER=scripts/plot-covg-hist.R
+UNITIG_PLOTTER=scripts/plot-length-hist.R
+LINK_PLOTTER=scripts/link-cov-heatmap.R
+MKLINKPLOT=scripts/make-link-plot.sh
+MKKMERPLOT=scripts/make-kmer-plot.sh
 
 CSV_FILES=\$(wildcard data/*.csv)
 PLOTS=\$(patsubst data/%.csv,plots/%.pdf,\$(CSV_FILES))
@@ -277,15 +308,15 @@ print-%:
 # will also use data/%.kthresh if available
 # will also use data/%.kmercov if available
 plots/%.cov.pdf: data/%.cov.csv
-\t\$(MKKMERPLOT) \$< \$@
+\t\$(MKKMERPLOT) \$(KCOV_PLOTTER) \$< \$@
 
 plots/%.len.pdf: data/%.len.csv
-\t\$(UNITIG_LEN_PLOTTER) \$< \$@
+\t\$(UNITIG_PLOTTER) \$< \$@
 
 # will also use data/%.{se|pe}.links.thresh if available
 # will also use data/%.kmercov if available
 plots/%.links.pdf: data/%.links.csv
-\t\$(MKLINKPLOT) \$< \$@
+\t\$(MKLINKPLOT) \$(LINK_PLOTTER) \$< \$@
 
 report.pdf: report.tex \$(PLOTS)
 \t\$(PDFLATEX) \$< \$@
