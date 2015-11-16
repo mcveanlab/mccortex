@@ -71,7 +71,8 @@ typedef struct
 } UnitigPrinter;
 
 /**
- * @param right_edge is true iff we this kmer is the last in a unitig
+ * @param right_edge is true iff we this kmer is the last in a unitig, and we
+ *                   are leaving by the forward strand
  */
 static inline void _print_edge(hkey_t node, bool right_edge,
                                BinaryKmer bkey, Edges edges,
@@ -85,11 +86,13 @@ static inline void _print_edge(hkey_t node, bool right_edge,
   dBNode next_nodes[4];
   Nucleotide next_nucs[4];
   Orientation orient = right_edge ? uend0.rorient : !uend0.lorient;
-  // Unitig orientations
-  Orientation ut_or0 = right_edge ? FORWARD : REVERSE, ut_or1;
 
   n = db_graph_next_nodes(p->db_graph, bkey, orient, edges,
                           next_nodes, next_nucs);
+
+  // Unitig orientations
+  Orientation ut_or0, ut_or1;
+  ut_or0 = right_edge ? FORWARD : REVERSE;
 
   for(i = 0; i < n; i++)
   {
@@ -104,8 +107,10 @@ static inline void _print_edge(hkey_t node, bool right_edge,
 
     ctx_assert(next_nodes[i].key != HASH_NOT_FOUND);
     ctx_assert(uend1.assigned);
+    ctx_assert(uend1.left  && next_nodes[i].orient ==  uend1.lorient ||
+               uend1.right && next_nodes[i].orient == !uend1.rorient);
 
-    ut_or1 = next_nodes[i].orient == uend1.lorient ? FORWARD : REVERSE;
+    ut_or1 = uend1.left && next_nodes[i].orient ==  uend1.lorient ? FORWARD : REVERSE;
 
     // Don't do reverse-to-reverse links when node links to itself,
     // these are duplicates of forward-to-forward
@@ -139,19 +144,18 @@ static inline bool print_edges(hkey_t hkey, size_t threadid, void *arg)
 {
   (void)threadid;
   UnitigPrinter *p = (UnitigPrinter*)arg;
-  UnitigEnd uend0 = p->ugraph.unitig_ends[hkey];
-  BinaryKmer bkey; Edges edges;
+  UnitigEnd uend = p->ugraph.unitig_ends[hkey];
 
   // Check if node is an end of a unitig
-  if(uend0.assigned) {
-    bkey = db_node_get_bkmer(p->db_graph, hkey);
-    edges = db_node_get_edges(p->db_graph, hkey, 0);
+  if(uend.assigned) {
+    BinaryKmer bkey = db_node_get_bkmer(p->db_graph, hkey);
+    Edges edges = db_node_get_edges(p->db_graph, hkey, 0);
 
-    if(uend0.left) {
-      _print_edge(hkey, false, bkey, edges, uend0, p);
+    if(uend.left) {
+      _print_edge(hkey, false, bkey, edges, uend, p);
     }
-    if(uend0.right) {
-      _print_edge(hkey, true, bkey, edges, uend0, p);
+    if(uend.right) {
+      _print_edge(hkey, true, bkey, edges, uend, p);
     }
   }
 
