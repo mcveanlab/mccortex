@@ -144,13 +144,14 @@ int ctx_vcfcov(int argc, char **argv)
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
-  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Covg) * ncols;
+  bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Covg)*8 * ncols;
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
                                         memargs.num_kmers,
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
+                                        low_mem ? -1 : ctx_max_kmers,
+                                        ctx_sum_kmers,
                                         true, &graph_mem);
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);

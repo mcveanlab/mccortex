@@ -771,7 +771,7 @@ for my $k (@kmers) {
   print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | gzip -c > \$@ ) >& \$@.log\n\n";
   print "# Remove redundant contigs\n";
   print "$proj/k$k/contigs/%.rmdup.fa.gz: $proj/k$k/contigs/%.raw.fa.gz\n";
-  print "\t( $ctx rmsubstr -m \$(MEM) -k $k -o - \$< | gzip -c > \$@ ) >& \$@.log\n\n";
+  print "\t( $ctx rmsubstr \$(CTX_ARGS) -k $k -o - \$< | gzip -c > \$@ ) >& \$@.log\n\n";
 }
 
 # Generate buble calls
@@ -916,7 +916,7 @@ if(defined($ref_path))
         for my $assem (qw(links plain)) {
           my $callroot = "$call.$pop.$assem.$kmerstr";
           print "$proj/k$k/vcfcov/$callroot.%.vcf.gz: $proj/vcfs/$callroot.vcf.gz $proj/k$k/graphs/%.raw.ctx\n";
-          print "\t$mccortex vcfcov --low-mem --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
+          print "\t$mccortex vcfcov -m \$(MEM) --low-mem --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
         }
       }
     }
