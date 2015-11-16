@@ -14,6 +14,9 @@ use lib $FindBin::Bin;
 
 use CortexScripts; # mccortex_maxk()
 
+# TODO:
+# [ ] Get raw/clean number of kmers from log files
+
 # Get kmers:
 #   $srcdir/k*
 # Get samples:
@@ -221,7 +224,7 @@ sub copy_script
 {
   my ($src, $dst) = @_;
   copy($src, $dst) or die("Copy failed: $src -> $dst");
-  chmod(0777, $dst);
+  chmod(0777, $dst) or die("chmod failed: $dst [0777]");
 }
 
 # Copy scripts

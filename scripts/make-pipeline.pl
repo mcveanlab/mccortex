@@ -669,26 +669,26 @@ for my $k (@kmers) {
   my $cov_after  = "$proj/k$k/graphs/\$*.clean.cov.csv";
   my $len_before = "$proj/k$k/graphs/\$*.raw.len.csv";
   my $len_after  = "$proj/k$k/graphs/\$*.clean.len.csv";
+
   print "# sample graph cleaning at k=$k\n";
-  print "$proj/k$k/graphs/%.raw.cov.csv: $proj/k$k/graphs/%.clean.cov.csv\n";
-  print "$proj/k$k/graphs/%.clean.cov.csv: $proj/k$k/graphs/%.raw.len.csv\n";
-  print "$proj/k$k/graphs/%.raw.len.csv: $proj/k$k/graphs/%.clean.len.csv\n";
-  print "$proj/k$k/graphs/%.clean.len.csv: $proj/k$k/graphs/%.clean.ctx\n";
+  print "$proj/k$k/graphs/%.raw.cov.csv ";
+  print "$proj/k$k/graphs/%.clean.cov.csv ";
+  print "$proj/k$k/graphs/%.raw.len.csv ";
+  print "$proj/k$k/graphs/%.clean.len.csv ";
+  print "$proj/k$k/graphs/%.clean.ctx.log ";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $cov_before --covg-after $cov_after --len-before $len_before --len-after $len_after -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $cov_before --covg-after $cov_after --len-before $len_before --len-after $len_after -o $proj/k$k/graphs/\$*.clean.ctx $proj/k$k/graphs/\$*.raw.ctx >& $proj/k$k/graphs/\$*.clean.ctx.log\n";
   if(!$single_colour) {
-    print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
+    print "\t$ctx inferedges \$(CTX_ARGS) $proj/k$k/graphs/\$*.clean.ctx >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
   }
   print "\n";
 
   # Get kmer coverage
-  if(defined($genome_size)) {
-    print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx\n";
-    print "\t\$(CTXKCOV) $k $genome_size \$< > \$@ 2> \$@.log\n\n";
-  } else {
-    print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx\n";
-    print "\t($ctx view \$< | grep -io 'kmer coverage:\\s[0-9]*' | grep -o '[0-9][0-9]*' > \$@) >& \$@.log\n\n";
-  }
+  print "$proj/k$k/graphs/%.clean.nkmers: $proj/k$k/graphs/%.clean.ctx.log\n";
+  print "\tgrep -oE 'Dumped [0-9,]+ kmers' \$< | tr -d ',' | grep -oE '[0-9]+' > \$@\n\n";
+
+  print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx $proj/k$k/graphs/%.clean.nkmers\n";
+  print "\t\$(CTXKCOV) $k ".(defined($genome_size) ? $genome_size : "`cat $proj/k$k/graphs/\$*.clean.nkmers`")." \$< > \$@ 2> \$@.log\n\n";
 
   # Dump unitigs
   print "# sample graph unitigs at k=$k\n";
