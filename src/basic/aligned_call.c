@@ -1,5 +1,6 @@
 #include "global.h"
 #include "aligned_call.h"
+#include "dna.h"
 #include "carrays/carrays.h"
 
 //
@@ -86,14 +87,14 @@ static inline void print_vcf_allele(const char *allele, size_t len,
                                     StrBuf *sbuf)
 {
   size_t i;
-  if(prev_base > 0) strbuf_append_char(sbuf, prev_base);
+  if(prev_base > 0) strbuf_append_char(sbuf, char_to_vcf_char(prev_base));
   strbuf_ensure_capacity(sbuf, sbuf->end+len);
   for(i = 0; i < len; i++) {
     if(allele[i] != '-')
-      sbuf->b[sbuf->end++] = allele[i];
+      sbuf->b[sbuf->end++] = char_to_vcf_char(allele[i]);
   }
   sbuf->b[sbuf->end] = 0;
-  if(next_base > 0) strbuf_append_char(sbuf, next_base);
+  if(next_base > 0) strbuf_append_char(sbuf, char_to_vcf_char(next_base));
 }
 
 // @param vcf_pos is 0-based
