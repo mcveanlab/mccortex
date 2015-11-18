@@ -31,7 +31,7 @@ const char calls2vcf_usage[] =
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -f, --force            Overwrite output files\n"
 "  -o, --out <out.txt>    Save output graph file [default: STDOUT]\n"
-"  -O, --out-fmt <f>    Format vcf|vcfgz|bcf|ubcf\n"
+"  -O, --out-fmt <f>      Format vcf|vcfgz|bcf|ubcf\n"
 "\n"
 "  -F, --flanks <in.bam>  Mapped flanks in SAM or BAM file (bubble caller only)\n"
 "  -Q, --min-mapq <Q>     Flank must map with MAPQ >= <Q> [default: "QUOTE_VALUE(DEFAULT_MIN_MAPQ)"]\n"
@@ -292,16 +292,22 @@ static void brkpnt_check_refs_match(cJSON *json,
   {
     cJSON *id  = json_hdr_get(contig, "id",     cJSON_String, path);
     cJSON *len = json_hdr_get(contig, "length", cJSON_Number, path);
-    const read_t *r = chrom_hash_fetch(genome, id->valuestring);
-    if(r->seq.end != (size_t)len->valueint) {
-      die("Chrom lengths do not match %s input:%li ref:%zu",
-          id->valuestring, len->valueint, r->seq.end);
+
+    // Check chrom is loaded in ref and of expected length
+    khiter_t k = kh_get(kChromHash, genome, id->valuestring);
+    if(k == kh_end(genome)) warn("Cannot find chrom [%s]", id->valuestring);
+    else {
+      const read_t *r = kh_value(genome, k);
+      if(r->seq.end != (size_t)len->valueint) {
+        warn("Chrom lengths do not match %s input:%li ref:%zu",
+             id->valuestring, len->valueint, r->seq.end);
+      }
     }
   }
 
   if(num_chroms != kh_size(genome)) {
-    die("Number of chromosomes differ: %zu in header vs %zu in ref",
-        num_chroms, (size_t)kh_size(genome));
+    warn("Number of chromosomes differ: %zu in header vs %zu in ref",
+         num_chroms, (size_t)kh_size(genome));
   }
 }
 

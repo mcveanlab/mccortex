@@ -123,12 +123,15 @@ int decomp_brkpt_call(DecompBreakpoint *db,
     // Trim back either flank
     size_t diff, trim5p, trim3p;
     diff = ac->start - ac->end;
-    trim5p = MIN2(diff, flank5plen); flank5ptrim += trim5p; diff -= trim5p;
-    trim3p = MIN2(diff, flank3plen); flank3ptrim += trim3p; diff -= trim3p;
+    trim5p = MIN2(diff, flank5plen-flank5ptrim); flank5ptrim += trim5p; diff -= trim5p;
+    trim3p = MIN2(diff, flank3plen-flank3ptrim); flank3ptrim += trim3p; diff -= trim3p;
     if(diff > 0) { db->stats.nflanks_overlap_too_much++; return -4; }
     if(fw_strand) { ac->start -= trim5p; ac->end += trim3p; }
     else          { ac->start -= trim3p; ac->end += trim5p; }
   }
+
+  ctx_assert(flank5ptrim <= flank5plen);
+  ctx_assert(flank3ptrim <= flank3plen);
 
   // construct aligned call
   StrBuf *branch;
@@ -145,6 +148,11 @@ int decomp_brkpt_call(DecompBreakpoint *db,
     hdrline = call_file_get_line(centry, 4+i*2);
     allele  = call_file_get_line(centry, 4+i*2+1);
     alen    = call_file_line_len(centry, 4+i*2+1);
+
+    // printf("DECOMP: flank5plen: %zu flank5ptrim: %zu\n", flank5plen, flank5ptrim);
+    // printf("DECOMP: flank3plen: %zu flank3ptrim: %zu\n", flank3plen, flank3ptrim);
+    // printf("DECOMP: alen: %zu\n", alen);
+
     strbuf_reset(branch);
     strbuf_append_strn(branch, flank5p+flank5plen-flank5ptrim, flank5ptrim);
     strbuf_append_strn(branch, allele, alen);

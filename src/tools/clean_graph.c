@@ -216,6 +216,7 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
   // printf("C cutoff: %i\n", cutoff);
 
   // Check cutoff keeps at least 20% of coverage
+  // (WGS should be much higher, Exome sequencing needs low cutoff)
   if(!is_cutoff_good(kmer_covg, arrlen, cutoff, 0.2)) return -1;
 
   // printf("D cutoff: %i\n", cutoff);

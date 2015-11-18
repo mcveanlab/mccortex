@@ -107,8 +107,8 @@ static inline void _print_edge(hkey_t node, bool right_edge,
 
     ctx_assert(next_nodes[i].key != HASH_NOT_FOUND);
     ctx_assert(uend1.assigned);
-    ctx_assert(uend1.left  && next_nodes[i].orient ==  uend1.lorient ||
-               uend1.right && next_nodes[i].orient == !uend1.rorient);
+    ctx_assert((uend1.left  && next_nodes[i].orient ==  uend1.lorient) ||
+               (uend1.right && next_nodes[i].orient == !uend1.rorient));
 
     ut_or1 = uend1.left && next_nodes[i].orient ==  uend1.lorient ? FORWARD : REVERSE;
 

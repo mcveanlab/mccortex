@@ -18,6 +18,7 @@ static void err_msg(const char *type, const char *path, const char *func,
   strcpy(filename, path);
 
   fflush(stdout);
+  fflush(stderr);
   timestampf(stderr);
   fprintf(stderr, "[%s:%i] %s: ", basename(filename), line, type);
   vfprintf(stderr, fmt, argptr);

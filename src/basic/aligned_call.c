@@ -88,9 +88,10 @@ static inline void print_vcf_allele(const char *allele, size_t len,
   size_t i;
   if(prev_base > 0) strbuf_append_char(sbuf, prev_base);
   strbuf_ensure_capacity(sbuf, sbuf->end+len);
-  for(i = 0; i < len; i++)
+  for(i = 0; i < len; i++) {
     if(allele[i] != '-')
       sbuf->b[sbuf->end++] = allele[i];
+  }
   sbuf->b[sbuf->end] = 0;
   if(next_base > 0) strbuf_append_char(sbuf, next_base);
 }
@@ -134,11 +135,14 @@ static void print_vcf_entry(size_t vcf_pos, int8_t prev_base, int8_t next_base,
 
   strbuf_append_char(sbuf, '\n');
 
+  // fprintf(stderr, " prev_base:%i next_base:%i info:%s\n", prev_base, next_base, call->info.b);
+  // fprintf(stderr, "%s [%zu vs %zu]\n", sbuf->b, sbuf->end, strlen(sbuf->b));
+
   kstring_t ks = {.l = sbuf->end, .m = sbuf->size, .s = sbuf->b};
   if(vcf_parse(&ks, dc->vcfhdr, dc->v) != 0)
     die("Cannot construct VCF entry: %s", sbuf->b);
   if(bcf_write(dc->vcffh, dc->vcfhdr, dc->v) != 0)
-    die("Cannot write VCF entry");
+    die("Cannot write VCF entry [nsamples: %zu vs %zu]", nsamples, (size_t)bcf_hdr_nsamples(dc->vcfhdr));
   // Move back into our string buffer
   sbuf->b = ks.s;
   sbuf->size = ks.m;
@@ -254,17 +258,27 @@ void acall_decompose(CallDecomp *dc, const AlignedCall *call,
 
   dc->stats.nlines += call->n_lines;
 
+  // printf("chr:%s %u - %u\n", call->chrom->name.b, call->start, call->end);
+
   for(i = 0; i < call->n_lines; i++)
   {
     alt = &call->lines[i];
+    ctx_assert(strlen(alt->b) == alt->end);
+
     // Quick check if sequence too long or are matching
     if(alt->end > max_line_len) {
       dc->stats.nlines_too_long++;
     } else if(ref_len == alt->end && strncasecmp(ref_allele, alt->b, ref_len) == 0) {
       dc->stats.nlines_match_ref++;
     } else {
+      // printf("REF: '%*.s' [%zu]\n", (int)ref_len, ref_allele, ref_len);
+      // printf("ALT: '%*.s' [%zu]\n", (int)alt->end, alt->b, alt->end);
+
       needleman_wunsch_align2(ref_allele, alt->b, ref_len, alt->end,
                               dc->scoring, dc->nw_aligner, dc->aln);
+
+      // printf("ALNA: %s\n", dc->aln->result_a);
+      // printf("ALNB: %s\n", dc->aln->result_b);
 
       align_biallelic(dc->aln->result_a, dc->aln->result_b, chrom,
                       call->gts+i*call->n_samples, call->n_samples,

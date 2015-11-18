@@ -150,7 +150,7 @@ int ctx_vcfcov(int argc, char **argv)
                                         memargs.num_kmers,
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
-                                        low_mem ? -1 : ctx_max_kmers,
+                                        low_mem ? -1 : (int64_t)ctx_max_kmers,
                                         ctx_sum_kmers,
                                         true, &graph_mem);
 
