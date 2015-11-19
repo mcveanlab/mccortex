@@ -32,9 +32,10 @@ const char subgraph_usage[] =
 "  -N, --ncols <c>       How many colours to load at once [default: 1]\n"
 "  -1, --seq <seed.fa>   Read in a seed file [require at least one]\n"
 "  -d, --dist <N>        Number of kmers to extend by [default: 0]\n"
-// "  -D, --sdist <N>       Number of supernodes to extend by [default: 0]\n"
+// "  -D, --udist <N>       Number of unitigs to extend by [default: 0]\n"
 "  -v, --invert          Dump kmers not in subgraph\n"
-"  -S, --supernodes      Grab entire runs of kmers that are touched by a read\n"
+// "  -S, --supernodes      Grab entire runs of kmers that are touched by a read\n"
+"  -U, --unitigs         Grab entire runs of kmers that are touched by a read\n"
 "\n";
 
 static struct option longopts[] =
@@ -53,7 +54,8 @@ static struct option longopts[] =
   {"dist",         required_argument, NULL, 'd'},
   // {"sdist",        required_argument, NULL, 'D'},
   {"invert",       no_argument,       NULL, 'v'},
-  {"supernodes",   no_argument,       NULL, 'S'},
+  {"unitigs",      no_argument,       NULL, 'U'},
+  {"supernodes",   no_argument,       NULL, 'S'}, // alias for --unitigs
   {NULL, 0, NULL, 0}
 };
 
@@ -63,7 +65,7 @@ int ctx_subgraph(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t i, j, use_ncols = 0, dist = 0;
-  bool invert = false, grab_supernodes = false;
+  bool invert = false, grab_unitigs = false;
 
   seq_file_t *tmp_sfile;
   SeqFilePtrBuffer sfilebuf;
@@ -93,7 +95,8 @@ int ctx_subgraph(int argc, char **argv)
         break;
       case 'd': cmd_check(!dist,cmd); dist = cmd_uint32(cmd, optarg); break;
       case 'v': cmd_check(!invert,cmd); invert = true; break;
-      case 'S': cmd_check(!grab_supernodes,cmd); grab_supernodes = true; break;
+      case 'S':
+      case 'U': cmd_check(!grab_unitigs,cmd); grab_unitigs = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -212,7 +215,7 @@ int ctx_subgraph(int argc, char **argv)
 
   // Load sequence and mark in first pass
   subgraph_from_reads(&db_graph, nthreads, dist,
-                      invert, grab_supernodes,
+                      invert, grab_unitigs,
                       fringe_mem, kmer_mask,
                       sfilebuf.b, sfilebuf.len);
 
