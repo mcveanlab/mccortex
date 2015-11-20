@@ -27,8 +27,6 @@ if(@ARGV != 2) { print_usage(); }
 
 my ($path1, $path2) = @ARGV;
 my ($fh1, $fh2);
-my ($line1, $line2);
-my ($gt1, $gt2);
 
 open($fh1, $path1) or die("Cannot open: $path1");
 open($fh2, $path2) or die("Cannot open: $path2");
@@ -49,8 +47,8 @@ for my $a (@gstrs) { $gts{$a} = {}; }
 
 while(1)
 {
-  $line1 = $file1->read_line();
-  $line2 = $file2->read_line();
+  my $line1 = $file1->read_line();
+  my $line2 = $file2->read_line();
 
   if(!defined($line1) && !defined($line2)) { last; }
   if(!defined($line1)) { die("File $path1 ran out of lines"); }
@@ -63,14 +61,13 @@ while(1)
     if($cols1[$c] ne $cols2[$c]) { die("Lines don't match:\n$line1\n$line2\n"); }
   }
 
-  if($cols1[9] =~ /^([01\.](?:[\/|][01\.])*)/) {
-    $gt1 = $1;
-    $gt1 =~ s/\|/\//g;
-  } else { die("Bad line [$path1]: $line1"); }
-  if($cols2[9] =~ /^([0-9\.]+(?:[\/|][0-9\.]+)*)/) {
-    $gt2 = $1;
-    $gt2 =~ s/\|/\//g;
-  } else { die("Bad line [$path2]: $line2"); }
+  my ($gt1) = ($cols1[9] =~ /^([0-9\.]+(?:[\/|][0-9\.]+)*)/)
+    or die("Bad line [$path1]: $line1");
+  my ($gt2) = ($cols2[9] =~ /^([0-9\.]+(?:[\/|][0-9\.]+)*)/)
+    or die("Bad line [$path2]: $line2");
+
+  $gt1 = join('/', sort {$a cmp $b} split(/[\/\|]/, $gt1));
+  $gt2 = join('/', sort {$a cmp $b} split(/[\/\|]/, $gt2));
 
   $gtypes{$gt1} = 1;
   $gtypes{$gt2} = 1;
@@ -80,17 +77,24 @@ while(1)
 close($fh1);
 close($fh2);
 
+my ($nagree, $ndisagree, $concordance);
+
 # print table
-my @keys = keys %gtypes;
+my @keys = sort keys %gtypes;
 print "\t".join("\t", @keys)."\n";
 for my $gt1 (@keys) {
   print "$gt1";
   for my $gt2 (@keys) {
     my $v = defined($gts{$gt1}) && defined($gts{$gt1}->{$gt2}) ? $gts{$gt1}->{$gt2} : 0;
     print "\t$v";
+    if($gt1 eq $gt2) { $nagree += $v; }
+    else { $ndisagree += $v; }
   }
   print "\n";
 }
+
+$concordance = $nagree / ($nagree + $ndisagree);
+print "Concordance: $concordance\n";
 
 sub read_vcf_hdr
 {
