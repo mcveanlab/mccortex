@@ -348,6 +348,9 @@ BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
 CALL2VCF_ARGS=--max-align 500 --max-allele 100
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
+VCFCOV_ARGS=--low-mem
+# VCFGENO_ARGS=--rm-cov --llk
+VCFGENO_ARGS=
 
 #
 # End of configuration
@@ -916,7 +919,7 @@ if(defined($ref_path))
         for my $assem (qw(links plain)) {
           my $callroot = "$call.$pop.$assem.$kmerstr";
           print "$proj/k$k/vcfcov/$callroot.%.vcf.gz: $proj/vcfs/$callroot.vcf.gz $proj/k$k/graphs/%.raw.ctx\n";
-          print "\t$mccortex vcfcov -m \$(MEM) --low-mem --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
+          print "\t$mccortex vcfcov -m \$(MEM) \$(VCFCOV_ARGS) --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
         }
       }
     }
@@ -942,7 +945,7 @@ if(defined($ref_path))
         print "$proj/vcfs/$callroot.geno.vcf.gz: \$($deplist) ".join(' ', map {$_.".csi"} @vcfcovs)." \$(KCOV$genok)\n";
         print "\tKCOV=`cat \$(KCOV$genok) | paste -sd',' -`; \\\n";
         if(@vcfcovs > 1) { print "\$(BCFTOOLS) merge --merge none \$($deplist) | \\\n"; }
-        print "$mccortex vcfgeno --rm-cov \$(PLOIDY_ARGS) \$(ERR_ARGS) --kcov \$\$KCOV --out-fmt vcfgz --out \$@ $geno_input >& \$@.log\n\n";
+        print "$mccortex vcfgeno \$(VCFGENO_ARGS) \$(PLOIDY_ARGS) \$(ERR_ARGS) --kcov \$\$KCOV --out-fmt vcfgz --out \$@ $geno_input >& \$@.log\n\n";
       }
     }
   }
