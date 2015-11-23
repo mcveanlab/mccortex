@@ -10,6 +10,9 @@
 
 #include "carrays/carrays.h" // gca_median_size()
 
+#define DEFAULT_MAX_DIST 6
+#define DEFAULT_MAX_COVG 100
+
 const char links_usage[] =
 "usage: "CMD" links [options] <in.ctp.gz>\n"
 "\n"
@@ -29,7 +32,8 @@ const char links_usage[] =
 "  -c,--clean <N>          Remove junction choices with coverage < N\n"
 "  -T,--threshold <t.txt>  Calculate the cleaning threshold, write to file\n"
 "  -H,--covg-hist <f.csv>  Write link coverage matrix to a csv file\n"
-"  -D,--covg-dist <max>    Set max dist when using --covg-hist ...\n"
+"  -D,--max-dist <max>     Set max dist when using --covg-hist ...\n"
+"  -C,--max-covg <max>     Set max covg when using --covg-hist ...\n"
 "\n";
 
 static struct option longopts[] =
@@ -44,7 +48,8 @@ static struct option longopts[] =
   {"plot",         required_argument, NULL, 'P'},
   {"threshold",    required_argument, NULL, 'T'},
   {"covg-hist",    required_argument, NULL, 'H'},
-  {"covg-dist",    required_argument, NULL, 'D'},
+  {"max-dist",     required_argument, NULL, 'D'},
+  {"max-covg",     required_argument, NULL, 'C'},
 //
   {"limit",        required_argument, NULL, 'L'},
   {NULL, 0, NULL, 0}
@@ -138,6 +143,7 @@ int ctx_links(int argc, char **argv)
       case 'P': cmd_check(!plot_out_path, cmd); plot_out_path = optarg; break;
       case 'T': cmd_check(!thresh_path, cmd); thresh_path = optarg; break;
       case 'H': cmd_check(!hist_path, cmd); hist_path = optarg; break;
+      case 'C': cmd_check(!hist_covgsize, cmd); hist_covgsize = cmd_size(cmd, optarg); break;
       case 'D': cmd_check(!hist_distsize, cmd); hist_distsize = cmd_size(cmd, optarg); break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -148,8 +154,8 @@ int ctx_links(int argc, char **argv)
   }
 
   // Defaults
-  if(!hist_distsize) hist_distsize = 6;
-  if(!hist_covgsize) hist_covgsize = 100;
+  if(!hist_distsize) hist_distsize = DEFAULT_MAX_DIST;
+  if(!hist_covgsize) hist_covgsize = DEFAULT_MAX_COVG;
 
   if(optind + 1 != argc) cmd_print_usage("Wrong number of arguments");
   const char *ctp_path = argv[optind];

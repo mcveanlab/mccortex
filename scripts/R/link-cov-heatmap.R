@@ -35,7 +35,15 @@ cat('readlen=',readlen,'\n',sep='')
 # d.m <- melt(d, varnames=c("dist","cov"))
 
 # file='proj/k31/links/ben.se.thresh.csv'
-r = read.table(input_csv,sep=',',head=T,row.names=1,comment.char='#')
+t <- read.table(input_csv,sep=',',head=T,row.names=1,comment.char='#')
+r <- t
+# Convert row/column names to numbers
+colnames(r)=1:ncol(r)
+rownames(r)=1:nrow(r)
+
+maxcov=ncol(r)
+maxdist=nrow(r)
+
 
 # Normalise columns
 norm <- function(x) {
@@ -43,24 +51,31 @@ norm <- function(x) {
   if(diff == 0) { return (x); }
   else { return((x-min) / diff); }
 }
-r.m = apply(as.matrix(r), 2, norm)
-# r.m = as.matrix(r)
+
+r.m <- t(apply(as.matrix(r), 1, norm))
 d.m <- melt(r.m, varnames=c("dist","cov"))
-d.m <- ddply(d.m, .(dist), transform, rescale=value)
+d.m <- ddply(d.m, .(dist), transform)
 
-xticks=seq(10,nrow(r),10)
-if(nrow(r) < 10) { xticks=1:nrow(r); }
-yticks=seq(0,ncol(r)-1,10) # y starts from zero, -1 on scale
+get_step <- function(max) {
+  s <- floor(max/100)*10
+  if(s == 0) { return(1); }
+  else { return(s); }
+}
 
-p <- ggplot(d.m, aes(dist, cov)) +
-     geom_tile(aes(fill = rescale), color = "white") +
+xstep<-get_step(maxdist)
+xticks=seq(xstep,maxdist,xstep)
+ystep<-get_step(maxcov)
+yticks=seq(0,maxcov-1,ystep) # y starts from zero, -1 on scale
+
+p <- ggplot(d.m, aes(dist, cov)) + theme(panel.background = element_rect(fill = 'white', colour = 'white')) +
+     geom_tile(aes(fill = value), color = "white") +
      scale_fill_gradient(low = "white", high = "steelblue") +
      ggtitle("Link coverage") +
      scale_x_discrete(name="Distance (kmers)", breaks=rownames(r)[xticks], labels=xticks) +
      scale_y_discrete(name="Coverage", breaks=colnames(r)[yticks+1], labels=yticks)
 
 if(cutoff > 0) {
-  cutline <- data.frame(x=as.numeric(c(0,ncol(r))),y=as.numeric(c(cutoff,cutoff)))
+  cutline <- data.frame(x=as.numeric(c(0,maxdist)),y=as.numeric(c(cutoff,cutoff)))
   p <- p + geom_line(data=cutline, aes(x=x,y=y), color="black")
 }
 
@@ -68,7 +83,7 @@ if(kmer > 0 && kcov > 0 && readlen > 0) {
   # Plot expected coverage
   # kcov = cov * (readlen-k+1) / readlen
   cov = kcov * readlen / (readlen-kmer+1)
-  x <- 1:nrow(r)
+  x <- 1:maxdist
   y <- cov * (readlen - (kmer+x) + 1) / readlen;
   y[y<0] <- 0 # set negative values to zero
   expcov <- data.frame(x=as.numeric(x),y=as.numeric(y))

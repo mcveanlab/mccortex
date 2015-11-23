@@ -16,6 +16,8 @@ use CortexScripts; # mccortex_maxk()
 
 # TODO:
 # [ ] Get raw/clean number of kmers from log files
+# [ ] Get raw/clean number of kmers by running `mccortex31 view ...`
+# [ ] Generate our own link coverage plots using `mccortex31 links ...`
 
 # Get kmers:
 #   $srcdir/k*
@@ -495,6 +497,8 @@ sub mk_len_fig
 sub mk_links_fig
 {
   my ($fh, $sample, $k) = @_;
+  my @sources = ("plots/$sample.k$k.se.links.csv",
+                 "plots/$sample.k$k.pe.links.csv");
   my @images = ("plots/$sample.k$k.se.links.pdf",
                 "plots/$sample.k$k.pe.links.pdf");
   my @labels = ("fig:$sample.k$k.se.links",
@@ -518,10 +522,10 @@ sub mk_links_fig
     $captions[1] .= " (cleaned off \$<$thresh_pe\$)";
   }
 
-  if(!defined($pathhash{$images[0]})) {
+  if(!defined($pathhash{$sources[0]})) {
     $captions[0] .= " (not generated).";
   }
-  if(!defined($pathhash{$images[1]})) {
+  if(!defined($pathhash{$sources[1]})) {
     $captions[1] .= " (not generated).";
   }
 

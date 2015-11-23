@@ -321,16 +321,16 @@ PLOIDY='.$ploidy_num.'
 ERR_RATE='.$err_rate.'
 
 # Genotyping: Ploidy for human, haploid and diploid
-# PLOIDY_ARGS=--ploidy .:.:2 --ploidy .:chrY:1 --ploidy ben,tom:chrX:1
-# PLOIDY_ARGS=--ploidy .:.:1
-# PLOIDY_ARGS=--ploidy .:.:$(PLOIDY)
+# PLOIDY_ARGS=--ploidy 2 --ploidy .:chrY:1 --ploidy ben,tom:chrX:1
+# PLOIDY_ARGS=--ploidy 1
+# PLOIDY_ARGS=--ploidy $(PLOIDY)
 ';
-if(defined($ploidy_args)) { print "PLOIDY_ARGS=$ploidy_args\n#"; }
-print 'PLOIDY_ARGS=--ploidy .:.:$(PLOIDY)
+if(defined($ploidy_args)) { print "PLOIDY_ARGS=$ploidy_args\n"; }
+else { print "PLOIDY_ARGS=--ploidy \$(PLOIDY)\n"; }
+print "\n";
 
 # Genotyping: Error rates: one per sample and one for all samples
 # ERR_ARGS=--err 0.01,0.005,0.001
-';
 if(defined($err_args)) { print "ERR_ARGS=$err_args\n#"; }
 print 'ERR_ARGS=--err $(ERR_RATE)
 
@@ -342,7 +342,7 @@ BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
 KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
-LINK_CLEANING_ARGS=--limit 5000
+LINK_CLEANING_ARGS=--limit 5000  --max-dist 250 --max-covg 250
 BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS)
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
 CALL2VCF_ARGS=--max-align 500 --max-allele 100
@@ -755,7 +755,7 @@ for my $k (@kmers) {
   print "# link cleaning at k=$k\n";
   print "$ctp_covg_file: $ctp_thresh_file\n";
   print "$ctp_thresh_file: $ctp_raw_file\n";
-  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-dist 100 --covg-hist $proj/k$k/links/\$*.links.csv --threshold \$@ \$< >& \$@.log\n\n";
+  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-hist $proj/k$k/links/\$*.links.csv --threshold \$@ \$< >& \$@.log\n\n";
 
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
   print "\tTHRESH=`tail -1 $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9]+\$\$'`; \\\n";
