@@ -215,9 +215,9 @@ static bool read_touches_graph(const read_t *r, const dBGraph *db_graph,
   return found;
 }
 
-void filter_reads(AsyncIOData *data, void *arg)
+void filter_reads(AsyncIOData *data, size_t threadid, void *arg)
 {
-  (void)arg;
+  (void)arg; (void)threadid;
   read_t *r1 = (read_t*)&data->r1, *r2 = data->r2.seq.end ? (read_t*)&data->r2 : NULL;
   AlignReadsData *input = (AlignReadsData*)data->ptr;
   const dBGraph *db_graph = input->db_graph;

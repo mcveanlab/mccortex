@@ -57,10 +57,6 @@ void graph_loading_print_status(const GraphFileReader *file)
 size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
                   GraphLoadingStats *stats)
 {
-  ctx_assert(!prefs.must_exist_in_graph || prefs.db_graph->col_edges == NULL ||
-             prefs.must_exist_in_edges != NULL);
-  ctx_assert(!prefs.must_exist_in_graph || !prefs.empty_colours);
-
   dBGraph *graph = prefs.db_graph;
   GraphInfo *ginfo = graph->ginfo;
   size_t i, ncols = file_filter_into_ncols(&file->fltr), fromcol, intocol;

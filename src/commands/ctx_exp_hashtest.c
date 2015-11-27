@@ -37,8 +37,9 @@ struct HashLoopJob {
   size_t hash; // return value
 };
 
-static inline void hash_loop(void *arg)
+static inline void hash_loop(void *arg, size_t threadid)
 {
+  (void)threadid;
   struct HashLoopJob *jptr = (struct HashLoopJob*)arg, j = *jptr;
 
   size_t i;

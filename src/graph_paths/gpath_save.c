@@ -240,23 +240,23 @@ static inline int _gpath_gzsave_node(hkey_t hkey,
 
 typedef struct
 {
-  size_t threadid, nthreads;
+  size_t nthreads;
   bool save_seq; // write seq=... juncpos=...
   gzFile gzout;
   pthread_mutex_t *outlock;
   dBGraph *db_graph;
-} GPathSaver;
+} GPathSaving;
 
-static void gpath_save_thread(void *arg)
+static void gpath_save_thread(void *arg, size_t threadid)
 {
-  GPathSaver *wrkr = (GPathSaver*)arg;
-  const dBGraph *db_graph = wrkr->db_graph;
+  GPathSaving *save = (GPathSaving*)arg;
+  const dBGraph *db_graph = save->db_graph;
 
   GPathSubset subset;
   StrBuf sbuf;
 
   gpath_subset_alloc(&subset);
-  gpath_subset_init(&subset, &wrkr->db_graph->gpstore.gpset);
+  gpath_subset_init(&subset, &save->db_graph->gpstore.gpset);
   strbuf_alloc(&sbuf, 2 * DEFAULT_IO_BUFSIZE);
 
   dBNodeBuffer nbuf;
@@ -264,14 +264,14 @@ static void gpath_save_thread(void *arg)
   db_node_buf_alloc(&nbuf, 1024);
   size_buf_alloc(&jposbuf, 256);
 
-  HASH_ITERATE_PART(&db_graph->ht, wrkr->threadid, wrkr->nthreads,
+  HASH_ITERATE_PART(&db_graph->ht, threadid, save->nthreads,
                     _gpath_gzsave_node,
                     &sbuf, &subset,
-                    wrkr->save_seq ? &nbuf : NULL, wrkr->save_seq ? &jposbuf : NULL,
-                    wrkr->gzout, wrkr->outlock,
+                    save->save_seq ? &nbuf : NULL, save->save_seq ? &jposbuf : NULL,
+                    save->gzout, save->outlock,
                     db_graph);
 
-  _gpath_save_flush(wrkr->gzout, &sbuf, wrkr->outlock);
+  _gpath_save_flush(save->gzout, &sbuf, save->outlock);
 
   db_node_buf_dealloc(&nbuf);
   size_buf_dealloc(&jposbuf);
@@ -315,26 +315,17 @@ void gpath_save(gzFile gzout, const char *path,
   gzputs(gzout, ctp_explanation_comment);
 
   // Multithreaded
-  GPathSaver *wrkrs = ctx_calloc(nthreads, sizeof(GPathSaver));
   pthread_mutex_t outlock;
-  size_t i;
-
   if(pthread_mutex_init(&outlock, NULL) != 0) die("Mutex init failed");
 
-  for(i = 0; i < nthreads; i++) {
-    wrkrs[i] = (GPathSaver){.threadid = i,
-                            .nthreads = nthreads,
-                            .save_seq = save_path_seq,
-                            .gzout = gzout,
-                            .outlock = &outlock,
-                            .db_graph = db_graph};
-  }
+  GPathSaving save = {.nthreads = nthreads,
+                      .save_seq = save_path_seq,
+                      .gzout = gzout,
+                      .outlock = &outlock,
+                      .db_graph = db_graph};
 
   // Iterate over kmers writing paths
-  util_run_threads(wrkrs, nthreads, sizeof(*wrkrs), nthreads, gpath_save_thread);
-
+  util_multi_thread(&save, nthreads, gpath_save_thread);
   pthread_mutex_destroy(&outlock);
-  ctx_free(wrkrs);
-
   status("[GPathSave] Graph paths saved to %s", path);
 }

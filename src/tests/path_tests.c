@@ -141,10 +141,10 @@ static void _test_add_paths()
   // Create path hash table for fast lookup
   gpath_hash_alloc(&graph.gphash, &graph.gpstore, ONE_MEGABYTE);
 
-  build_graph_from_str_mt(&graph, 0, seq0, strlen(seq0));
-  build_graph_from_str_mt(&graph, 0, seq1, strlen(seq1));
-  build_graph_from_str_mt(&graph, 0, seq2, strlen(seq2));
-  build_graph_from_str_mt(&graph, 0, seq3, strlen(seq3));
+  build_graph_from_str_mt(&graph, 0, seq0, strlen(seq0), false);
+  build_graph_from_str_mt(&graph, 0, seq1, strlen(seq1), false);
+  build_graph_from_str_mt(&graph, 0, seq2, strlen(seq2), false);
+  build_graph_from_str_mt(&graph, 0, seq3, strlen(seq3), false);
 
   // Set up alignment correction params
   CorrectAlnParam params = {.ctpcol = 0, .ctxcol = 0,

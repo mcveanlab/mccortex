@@ -76,7 +76,7 @@ static void test_repeat_loop()
   db_node_buf_alloc(&nbuf, 1024);
 
   // Construct graph but no paths
-  build_graph_from_str_mt(&graph, 0, seq, strlen(seq));
+  build_graph_from_str_mt(&graph, 0, seq, strlen(seq), false);
   TASSERT2(graph.ht.num_kmers == 15+12+15, "%zu", (size_t)graph.ht.num_kmers);
 
   // Find first node in sequence

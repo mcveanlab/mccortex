@@ -16,7 +16,7 @@ typedef struct {
 typedef struct
 {
   // Specific to this instance
-  const size_t threadid, nthreads;
+  const size_t nthreads;
 
   // Temporary memory used by this instance
   GraphCrawler crawlers[2]; // [0] => FORWARD, [1] => REVERSE
@@ -80,8 +80,7 @@ static BreakpointCaller* brkpt_callers_new(size_t num_callers,
   size_t i;
   for(i = 0; i < num_callers; i++)
   {
-    BreakpointCaller tmp = {.threadid = i,
-                            .nthreads = num_callers,
+    BreakpointCaller tmp = {.nthreads = num_callers,
                             .kograph = kograph,
                             .db_graph = db_graph,
                             .gzout = gzout,
@@ -524,12 +523,12 @@ static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
   return 0; // => keep iterating
 }
 
-static void breakpoint_caller(void *ptr)
+static void breakpoint_caller(void *ptr, size_t threadid)
 {
   BreakpointCaller *caller = (BreakpointCaller*)ptr;
   ctx_assert(caller->db_graph->num_edge_cols == 1);
 
-  HASH_ITERATE_PART(&caller->db_graph->ht, caller->threadid, caller->nthreads,
+  HASH_ITERATE_PART(&caller->db_graph->ht, threadid, caller->nthreads,
                     breakpoint_caller_node, caller);
 }
 

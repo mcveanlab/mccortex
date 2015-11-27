@@ -23,9 +23,9 @@ void test_graph_crawler()
  "GTTCCAGAGCGGAGGTCTCCCAACAACTTGGTATAAGTTGTCTAGTCCCGGTTCGCGCGGCATTTCAGCATTGTTA",
  "GTTCCAGAGCGCGACAGAGTGCATATCACGCTAAGCACAGCCCTCTTCTATCTGCTTTTAAATGGATCAATAATCG"};
 
-  build_graph_from_str_mt(&graph, 0, graphseq[0], strlen(graphseq[0]));
-  build_graph_from_str_mt(&graph, 1, graphseq[1], strlen(graphseq[1]));
-  build_graph_from_str_mt(&graph, 2, graphseq[2], strlen(graphseq[2]));
+  build_graph_from_str_mt(&graph, 0, graphseq[0], strlen(graphseq[0]), false);
+  build_graph_from_str_mt(&graph, 1, graphseq[1], strlen(graphseq[1]), false);
+  build_graph_from_str_mt(&graph, 2, graphseq[2], strlen(graphseq[2]), false);
 
   // Crawl graph
   GraphCrawler crawler;

@@ -146,7 +146,7 @@ int ctx_breakpoints(int argc, char **argv)
   int64_t max_req_kmers = MAX2(est_num_bases, (int64_t)ctx_max_kmers);
   int64_t sum_req_kmers = est_num_bases + ctx_sum_kmers;
 
-  // DEV: use threads in memory calculation
+  // TODO: use threads in memory calculation
 
   // kmer memory = Edges + paths + 1 bit per colour for in-colour
   bits_per_kmer = sizeof(BinaryKmer)*8 + sizeof(Edges)*8 +

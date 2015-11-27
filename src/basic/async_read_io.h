@@ -50,13 +50,13 @@ void asynciodata_pool_destroy(void *el, size_t idx, void *args);
 
 void asyncio_run_threads(MsgPool *pool,
                          AsyncIOInput *asyncio_tasks, size_t num_inputs,
-                         void (*job)(void*),
+                         void (*job)(void *_arg, size_t _tid),
                          void *args, size_t num_readers, size_t elsize);
 
 // `num_inputs` number of threads pushing reads into the pool
 // `num_readers` number of threads pulling reads from the pool
 void asyncio_run_pool(AsyncIOInput *asyncio_inputs, size_t num_inputs,
-                      void (*job)(AsyncIOData *_data, void *_arg),
+                      void (*job)(AsyncIOData *_data, size_t _tid, void *_arg),
                       void *args, size_t num_readers, size_t elsize);
 
 // Guess numer of kmers

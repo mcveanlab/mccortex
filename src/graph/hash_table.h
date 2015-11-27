@@ -40,6 +40,10 @@ hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer bkmer);
 hkey_t hash_table_find_or_insert(HashTable *htable, const BinaryKmer bkmer,
                                  bool *found);
 
+// Threadsafe find, using bucket level locks
+hkey_t hash_table_find_mt(HashTable *ht, const BinaryKmer key,
+                          volatile uint8_t *bktlocks);
+
 // Threadsafe find or insert, using bucket level locks
 hkey_t hash_table_find_or_insert_mt(HashTable *htable, const BinaryKmer key,
                                     bool *found, volatile uint8_t *bktlocks);
@@ -107,16 +111,16 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 typedef struct
 {
   const HashTable *const ht;
-  const size_t threadid, nthreads;
+  const size_t nthreads;
   bool (*const func)(hkey_t _h, size_t threadid, void *_arg);
   void *arg;
 } HashTableIterator;
 
-static inline void _hash_table_iterate(void *arg)
+static inline void _hash_table_iterate(void *arg, size_t threadid)
 {
   HashTableIterator itr = *(HashTableIterator*)arg;
-  HASH_ITERATE_PART(itr.ht, itr.threadid, itr.nthreads,
-                    itr.func, itr.threadid, itr.arg);
+  HASH_ITERATE_PART(itr.ht, threadid, itr.nthreads,
+                    itr.func, threadid, itr.arg);
 }
 
 static inline void hash_table_iterate(const HashTable *ht, size_t nthreads,
@@ -125,16 +129,10 @@ static inline void hash_table_iterate(const HashTable *ht, size_t nthreads,
                                       void *arg)
 {
   ctx_assert(nthreads > 0);
-  HashTableIterator threads[nthreads];
-  size_t i;
-  for(i = 0; i < nthreads; i++) {
-    HashTableIterator tmp = {.ht = ht, .threadid = i, .nthreads = nthreads,
-                             .func = func, .arg = arg};
-    memcpy(&threads[i], &tmp, sizeof(HashTableIterator));
-  }
+  HashTableIterator ht_iter = {.ht = ht, .nthreads = nthreads,
+                               .func = func, .arg = arg};
 
-  util_run_threads(threads, nthreads, sizeof(threads[0]),
-                   nthreads, _hash_table_iterate);
+  util_multi_thread(&ht_iter, nthreads, _hash_table_iterate);
 }
 
 #endif /* HASH_TABLE_H_ */

@@ -35,6 +35,9 @@ const char build_usage[] =
 "  -M, --matepair <orient>  Mate pair orientation: FF,FR,RF,RR [default: FR]\n"
 "                           (for --keep_pcr only)\n"
 "  -g, --graph <in.ctx>     Load samples from a graph file (.ctx)\n"
+"  -I, --intersect <i.ctx>  Only load kmers that appear in i.ctx. Multiple -I\n"
+"                           graphs will be merged, not intersected. Treated as\n"
+"                           single colour graphs.\n"
 "\n"
 "  Note: Argument must come before input file\n"
 "  PCR duplicate removal works by ignoring read (pairs) if (both) reads\n"
@@ -67,6 +70,7 @@ static struct option longopts[] =
   {"remove-pcr",   no_argument,       NULL, 'p'},
   {"keep-pcr",     no_argument,       NULL, 'P'},
   {"graph",        required_argument, NULL, 'g'},
+  {"intersect",    required_argument, NULL, 'I'},
   {NULL, 0, NULL, 0}
 };
 
@@ -79,7 +83,7 @@ typedef struct {
 madcrow_buffer(sample_name_buf, SampleNameBuffer, SampleName);
 
 static BuildGraphTaskBuffer gtaskbuf;
-static GraphFileBuffer gfilebuf;
+static GraphFileBuffer gfilebuf, gisecbuf;
 static SampleNameBuffer snamebuf;
 
 static size_t nthreads = 0;
@@ -90,11 +94,11 @@ static size_t output_colours = 0, kmer_size = 0;
 
 static void add_task(BuildGraphTask *task)
 {
-  uint8_t fq_offset = task->files.fq_offset, fq_cutoff = task->fq_cutoff;
+  uint8_t fq_offset = task->files.fq_offset, fq_cutoff = task->prefs.fq_cutoff;
   if(fq_offset >= 128) die("fq-offset too big: %i", (int)fq_offset);
   if(fq_offset+fq_cutoff >= 128) die("fq-cutoff too big: %i", fq_offset+fq_cutoff);
 
-  if(task->remove_pcr_dups || task->files.file2 == NULL) {
+  if(task->prefs.remove_pcr_dups || task->files.file2 == NULL) {
     // Submit paired end reads together
     build_graph_task_buf_push(&gtaskbuf, task, 1);
   }
@@ -124,7 +128,10 @@ static void check_sample_name(const char *sname)
 
 static void parse_args(int argc, char **argv)
 {
-  BuildGraphTask task = BUILD_GRAPH_TASK_INIT;
+  BuildGraphTask task;
+  memset(&task, 0, sizeof(task));
+  task.prefs = SEQ_LOADING_PREFS_INIT;
+  task.stats = SEQ_LOADING_STATS_INIT;
   uint8_t fq_offset = 0;
   int intocolour = -1;
   GraphFileReader tmp_gfile;
@@ -159,28 +166,36 @@ static void parse_args(int argc, char **argv)
         if(!sample_named)
           cmd_print_usage("Please give sample name first [-s,--sample <name>]");
         asyncio_task_parse(&task.files, c, optarg, fq_offset, NULL);
-        task.colour = intocolour;
+        task.prefs.colour = intocolour;
         add_task(&task);
         break;
       case 'M':
-             if(!strcmp(optarg,"FF")) task.matedir = READPAIR_FF;
-        else if(!strcmp(optarg,"FR")) task.matedir = READPAIR_FR;
-        else if(!strcmp(optarg,"RF")) task.matedir = READPAIR_RF;
-        else if(!strcmp(optarg,"RR")) task.matedir = READPAIR_RR;
+             if(!strcmp(optarg,"FF")) task.prefs.matedir = READPAIR_FF;
+        else if(!strcmp(optarg,"FR")) task.prefs.matedir = READPAIR_FR;
+        else if(!strcmp(optarg,"RF")) task.prefs.matedir = READPAIR_RF;
+        else if(!strcmp(optarg,"RR")) task.prefs.matedir = READPAIR_RR;
         else die("-M,--matepair <orient> must be one of: FF,FR,RF,RR");
         pref_unused = true; break;
       case 'O': fq_offset = cmd_uint8(cmd, optarg); pref_unused = true; break;
-      case 'Q': task.fq_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
-      case 'H': task.hp_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
-      case 'p': task.remove_pcr_dups = true; pref_unused = true; break;
-      case 'P': task.remove_pcr_dups = false; pref_unused = true; break;
+      case 'Q': task.prefs.fq_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
+      case 'H': task.prefs.hp_cutoff = cmd_uint8(cmd, optarg); pref_unused = true; break;
+      case 'p': task.prefs.remove_pcr_dups = true; pref_unused = true; break;
+      case 'P': task.prefs.remove_pcr_dups = false; pref_unused = true; break;
       case 'g':
         if(intocolour == -1) intocolour = 0;
         graph_file_reset(&tmp_gfile);
         graph_file_open2(&tmp_gfile, optarg, "r", true, intocolour);
-        intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr));
+        intocolour = MAX2((size_t)intocolour, file_filter_into_ncols(&tmp_gfile.fltr)-1);
         gfile_buf_push(&gfilebuf, &tmp_gfile, 1);
         sample_named = false;
+        break;
+      case 'I':
+        graph_file_reset(&tmp_gfile);
+        graph_file_open(&tmp_gfile, optarg);
+        if(file_filter_into_ncols(&tmp_gfile.fltr) > 1)
+          warn("Flattening intersection graph into colour 0: %s", optarg);
+        file_filter_flatten(&tmp_gfile.fltr, 0);
+        gfile_buf_push(&gisecbuf, &tmp_gfile, 1);
         break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -227,6 +242,7 @@ int ctx_build(int argc, char **argv)
   size_t i;
   build_graph_task_buf_alloc(&gtaskbuf, 16);
   gfile_buf_alloc(&gfilebuf, 8);
+  gfile_buf_alloc(&gisecbuf, 8);
   sample_name_buf_alloc(&snamebuf, 16);
 
   parse_args(argc, argv);
@@ -236,7 +252,7 @@ int ctx_build(int argc, char **argv)
   BuildGraphTask *tasks = gtaskbuf.b;
 
   // Did any tasks require PCR duplicate removal
-  for(i = 0; i < ntasks && !tasks[i].remove_pcr_dups; i++) {}
+  for(i = 0; i < ntasks && !tasks[i].prefs.remove_pcr_dups; i++) {}
   bool remove_pcr_used = (i < ntasks);
 
   //
@@ -252,7 +268,7 @@ int ctx_build(int argc, char **argv)
 
   // Print tasks and sample names
   for(s = t = 0; s < ncolours || t < ntasks; ) {
-    if(t == ntasks || (s < ncolours && samples[s].colour <= tasks[t].colour)) {
+    if(t == ntasks || (s < ncolours && samples[s].colour <= tasks[t].prefs.colour)) {
       status("[sample] %zu: %s", s, samples[s].name);
       s++;
     } else {
@@ -267,6 +283,20 @@ int ctx_build(int argc, char **argv)
     max_kmers += nkmers;
   }
 
+  // Check if we are intersecting with graphs
+  if(gisecbuf.len > 0)
+  {
+    if(remove_pcr_used)
+      cmd_print_usage("Cannot use --remove-pcr and --intersect");
+
+    for(t = 0; t < ntasks; t++)
+      tasks[t].prefs.must_exist_in_graph = true;
+
+    max_kmers = 0;
+    for(i = 0; i < gisecbuf.len; i++)
+      max_kmers += gisecbuf.b[i].num_of_kmers;
+  }
+
   //
   // Decide on memory
   //
@@ -275,6 +305,7 @@ int ctx_build(int argc, char **argv)
   // remove_pcr_dups requires a fw and rv bit per kmer
   bits_per_kmer = sizeof(BinaryKmer)*8 +
                   (sizeof(Covg) + sizeof(Edges)) * 8 * output_colours +
+                  (gisecbuf.len > 0 ? sizeof(Edges)*8 : 0) +
                   remove_pcr_used*2;
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
@@ -301,12 +332,36 @@ int ctx_build(int argc, char **argv)
   db_graph_alloc(&db_graph, kmer_size, output_colours, output_colours,
                  kmers_in_hash, alloc_flags);
 
+  Edges *isec_edges = NULL;
+  if(gisecbuf.len > 0)
+    isec_edges = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
+
   hash_table_print_stats(&db_graph.ht);
+
+  // Load intersection graphs
+  if(gisecbuf.len > 0)
+  {
+    GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+    Covg *tmp_covgs = NULL;
+    SWAP(db_graph.col_covgs, tmp_covgs);
+    SWAP(db_graph.col_edges, isec_edges); db_graph.num_edge_cols = 1;
+    for(i = 0; i < gisecbuf.len; i++) {
+      graph_load(&gisecbuf.b[i], gprefs, NULL);
+      hash_table_print_stats(&db_graph.ht);
+      graph_file_close(&gisecbuf.b[i]);
+    }
+    SWAP(db_graph.col_covgs, tmp_covgs);
+    SWAP(db_graph.col_edges, isec_edges); db_graph.num_edge_cols = output_colours;
+    // reset ginfo
+    graph_info_init(&db_graph.ginfo[0]);
+  }
 
   // Load graphs
   if(gfilebuf.len > 0)
   {
     GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
+    gprefs.must_exist_in_graph = (gisecbuf.len > 0);
+    gprefs.must_exist_in_edges = isec_edges;
 
     for(i = 0; i < gfilebuf.len; i++) {
       graph_load(&gfilebuf.b[i], gprefs, NULL);
@@ -327,7 +382,7 @@ int ctx_build(int argc, char **argv)
   for(start = 0; start < ntasks; start = end, prev_colour = colour)
   {
     // Wipe read start bitfield
-    colour = tasks[start].colour;
+    colour = tasks[start].prefs.colour;
     if(remove_pcr_used)
     {
       if(colour != prev_colour)
@@ -335,7 +390,7 @@ int ctx_build(int argc, char **argv)
 
       end = start+1;
       while(end < ntasks && end-start < MAX_IO_THREADS &&
-            tasks[end].colour == colour) end++;
+            tasks[end].prefs.colour == colour) end++;
     }
     else {
       end = MIN2(start+MAX_IO_THREADS, ntasks);
@@ -343,6 +398,12 @@ int ctx_build(int argc, char **argv)
 
     num_load = end-start;
     build_graph(&db_graph, tasks+start, num_load, nthreads);
+  }
+
+  // Remove kmers with no coverage
+  if(gisecbuf.len > 0) {
+    db_graph_remove_no_covg_kmers(&db_graph, nthreads);
+    db_graph_intersect_edges(&db_graph, nthreads, isec_edges);
   }
 
   // Print stats for hash table
@@ -360,8 +421,10 @@ int ctx_build(int argc, char **argv)
 
   build_graph_task_buf_dealloc(&gtaskbuf);
   gfile_buf_dealloc(&gfilebuf);
+  gfile_buf_dealloc(&gisecbuf);
   sample_name_buf_dealloc(&snamebuf);
 
+  ctx_free(isec_edges);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;

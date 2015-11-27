@@ -319,8 +319,9 @@ static void correct_read(CorrectReadsWorker *wrkr, AsyncIOData *data)
 }
 
 // pthread method, loop: grabs job, does processing
-static void correct_reads_thread(AsyncIOData *data, void *ptr)
+static void correct_reads_thread(AsyncIOData *data, size_t threadid, void *ptr)
 {
+  (void)threadid;
   CorrectReadsWorker *wrkr = (CorrectReadsWorker*)ptr;
   correct_read(wrkr, data);
 

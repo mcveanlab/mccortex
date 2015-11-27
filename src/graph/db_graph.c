@@ -116,6 +116,13 @@ dBNode db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkmer,
 
 // Thread safe
 // Note: node may alreay exist in the graph
+dBNode db_graph_find_node_mt(dBGraph *db_graph, BinaryKmer bkmer)
+{
+  BinaryKmer bkey = binary_kmer_get_key(bkmer, db_graph->kmer_size);
+  hkey_t hkey = hash_table_find_mt(&db_graph->ht, bkey, db_graph->bktlocks);
+  return (dBNode){.key = hkey, .orient = bkmer_get_orientation(bkey, bkmer)};
+}
+
 dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
                                     bool *foundptr)
 {
@@ -133,14 +140,11 @@ dBNode db_graph_find_str(const dBGraph *db_graph, const char *str)
   return db_graph_find(db_graph, bkmer);
 }
 
-dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer)
+dBNode db_graph_find_node(const dBGraph *db_graph, BinaryKmer bkmer)
 {
-  dBNode node;
-  BinaryKmer bkey;
-  bkey = binary_kmer_get_key(bkmer, db_graph->kmer_size);
-  node.key = hash_table_find(&db_graph->ht, bkey);
-  node.orient = bkmer_get_orientation(bkmer, bkey);
-  return node;
+  BinaryKmer bkey = binary_kmer_get_key(bkmer, db_graph->kmer_size);
+  hkey_t hkey = hash_table_find(&db_graph->ht, bkey);
+  return (dBNode){.key = hkey, .orient = bkmer_get_orientation(bkey, bkmer)};
 }
 
 // Thread safe
@@ -479,7 +483,7 @@ void db_graph_reset(dBGraph *db_graph)
 
 typedef struct {
   const dBGraph *db_graph;
-  const size_t threadid, nthreads;
+  const size_t nthreads;
   uint64_t *nkmers, *sumcov;
 } GetKmerCovg;
 
@@ -497,43 +501,36 @@ bool get_kmer_covg(hkey_t hkey, const dBGraph *db_graph,
   return false; // keep iterating
 }
 
-void get_kmer_covg_loop(void *arg)
+void get_kmer_covg_thread(void *arg, size_t threadid)
 {
   GetKmerCovg *d = (GetKmerCovg*)arg;
-  HASH_ITERATE_PART(&d->db_graph->ht, d->threadid, d->nthreads,
-                    get_kmer_covg, d->db_graph, d->nkmers, d->sumcov);
+
+  size_t col, ncols = d->db_graph->num_of_cols;
+  uint64_t *nkmers = ctx_calloc(ncols, sizeof(uint64_t));
+  uint64_t *sumcov = ctx_calloc(ncols, sizeof(uint64_t));
+
+  HASH_ITERATE_PART(&d->db_graph->ht, threadid, d->nthreads,
+                    get_kmer_covg, d->db_graph, nkmers, sumcov);
+
+  // Add results to array shared with other threads
+  for(col = 0; col < ncols; col++) {
+    __sync_fetch_and_add((volatile uint64_t*)&d->nkmers[col], nkmers[col]);
+    __sync_fetch_and_add((volatile uint64_t*)&d->sumcov[col], sumcov[col]);
+  }
+
+  ctx_free(nkmers);
+  ctx_free(sumcov);
 }
 
 void db_graph_get_kmer_covg(const dBGraph *db_graph, size_t nthreads,
                             uint64_t *nkmers, uint64_t *sumcov)
 {
-  size_t i, col, ncols = db_graph->num_of_cols;
-  GetKmerCovg *threads = ctx_calloc(nthreads, sizeof(GetKmerCovg));
+  GetKmerCovg getcov = {.db_graph = db_graph,
+                        .nthreads = nthreads,
+                        .nkmers = nkmers,
+                        .sumcov = sumcov};
 
-  for(i = 0; i < nthreads; i++) {
-    GetKmerCovg gkc = {.db_graph = db_graph,
-                       .threadid = i,
-                       .nthreads = nthreads,
-                       .nkmers = ctx_calloc(ncols, sizeof(uint64_t)),
-                       .sumcov = ctx_calloc(ncols, sizeof(uint64_t))};
-    memcpy(&threads[i], &gkc, sizeof(gkc));
-  }
-
-  util_run_threads(threads, nthreads, sizeof(threads[0]),
-                   nthreads, get_kmer_covg_loop);
-
-  memset(nkmers, 0, ncols * sizeof(nkmers[0]));
-  memset(sumcov, 0, ncols * sizeof(sumcov[0]));
-
-  for(i = 0; i < nthreads; i++) {
-    for(col = 0; col < ncols; col++) {
-      nkmers[col] += threads[i].nkmers[col];
-      sumcov[col] += threads[i].sumcov[col];
-    }
-    ctx_free(threads[i].nkmers);
-    ctx_free(threads[i].sumcov);
-  }
-  ctx_free(threads);
+  util_multi_thread(&getcov, nthreads, get_kmer_covg_thread);
 }
 
 //
@@ -628,6 +625,51 @@ void db_graph_add_all_edges(dBGraph *db_graph)
 {
   ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   HASH_ITERATE(&db_graph->ht, add_all_edges, db_graph);
+}
+
+static bool wipe_kmer_if_no_covg(hkey_t hkey, size_t threadid, void *arg)
+{
+  (void)threadid;
+  dBGraph *db_graph = (dBGraph*)arg;
+  size_t col; Covg covg = 0;
+  for(col = 0; col < db_graph->num_of_cols; col++)
+    covg |= db_node_get_covg(db_graph, hkey, col);
+  if(!covg) hash_table_delete(&db_graph->ht, hkey);
+  return false; // keep iterating
+}
+
+// remove kmers from the graph if they have no coverage
+void db_graph_remove_no_covg_kmers(dBGraph *db_graph, size_t nthreads)
+{
+  hash_table_iterate(&db_graph->ht, nthreads, wipe_kmer_if_no_covg, db_graph);
+}
+
+typedef struct {
+  Edges *isec_edges;
+  dBGraph *db_graph;
+  size_t nthreads;
+} IntersectEdgesJob;
+
+static void intersect_edges(void *arg, size_t threadid)
+{
+  IntersectEdgesJob job = *(IntersectEdgesJob*)arg;
+  Edges *edges = job.db_graph->col_edges;
+  size_t step, start, end, i, j, col, ncols;
+  step = job.db_graph->ht.capacity / job.nthreads;
+  start = step * threadid;
+  end = threadid+1 == job.nthreads ? job.db_graph->ht.capacity : start + step;
+  ncols = job.db_graph->num_of_cols;
+  for(i = start, j = i*ncols; i < end; i++)
+    for(col = 0; col < ncols; col++, j++)
+      edges[j] &= job.isec_edges[i];
+}
+
+void db_graph_intersect_edges(dBGraph *db_graph, size_t nthreads, Edges *edges)
+{
+  IntersectEdgesJob job = {.isec_edges = edges,
+                           .db_graph = db_graph,
+                           .nthreads = nthreads};
+  util_multi_thread(&job, nthreads, intersect_edges);
 }
 
 // Get a random node from the graph

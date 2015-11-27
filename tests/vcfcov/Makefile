@@ -10,12 +10,12 @@ SHELL=/bin/bash -euo pipefail
 # call5: test for large indels
 
 all:
-	cd calls0 && $(MAKE) clean && $(MAKE)
-	cd calls1 && $(MAKE) clean && $(MAKE)
-	cd calls2 && $(MAKE) clean && $(MAKE)
-	cd calls3 && $(MAKE) clean && $(MAKE)
-	cd calls4 && $(MAKE) clean && $(MAKE)
-	cd calls5 && $(MAKE) clean && $(MAKE)
+	cd calls0 && $(MAKE)
+	cd calls1 && $(MAKE)
+	cd calls2 && $(MAKE)
+	cd calls3 && $(MAKE)
+	cd calls4 && $(MAKE)
+	cd calls5 && $(MAKE)
 	@echo "All looks good."
 
 clean:

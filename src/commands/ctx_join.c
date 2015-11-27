@@ -85,7 +85,7 @@ int ctx_join(int argc, char **argv)
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'N': cmd_check(!use_ncols, cmd); use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
       case 'i':
-        memset(&tmp_gfile, 0, sizeof(GraphFileReader));
+        graph_file_reset(&tmp_gfile);
         graph_file_open(&tmp_gfile, optarg);
         if(file_filter_into_ncols(&tmp_gfile.fltr) > 1)
           warn("Flattening intersection graph into colour 0: %s", optarg);

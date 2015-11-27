@@ -174,10 +174,15 @@ size_t seconds_to_str(unsigned long seconds, char *str);
 // Multi-threading
 //
 
-// Run function with given arguments in `nthreads` threads
+// Do `nel` jobs with `nthreads` threads
 // Blocks until all jobs finished
 void util_run_threads(void *args, size_t nel, size_t elsize,
-                      size_t nthreads, void (*func)(void*));
+                      size_t nthreads, void (*func)(void *_arg, size_t _tid));
+
+// Run `nthreads` in parallel, passes same argument to all threads
+// Blocks until all jobs finished
+void util_multi_thread(void *arg, size_t nthreads,
+                       void (*func)(void *_arg, size_t _tid));
 
 //
 // Safe Counting (thread-safe + no overflow)

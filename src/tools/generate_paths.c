@@ -436,8 +436,9 @@ static void reads_to_paths(GenPathWorker *wrkr)
 }
 
 // pthread method, loop: grabs job, does processing
-static void generate_paths_worker(AsyncIOData *data, void *ptr)
+static void generate_paths_worker(AsyncIOData *data, size_t threadid, void *ptr)
 {
+  (void)threadid;
   GenPathWorker *wrkr = (GenPathWorker*)ptr;
   wrkr->data = data;
   memcpy(&wrkr->task, data->ptr, sizeof(CorrectAlnInput));

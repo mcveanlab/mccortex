@@ -12,26 +12,27 @@ int main(int argc, char **argv)
   ctx_msg_out = NULL;
   ctx_tst_out = stdout;
 
-  test_status("Tests running...");
-  test_status("[version] "VERSION_STATUS_STR" k=%i..%i\n",
-              get_min_kmer_size(), get_max_kmer_size());
+  test_status("Tests running k=%i..%i...", get_min_kmer_size(), get_max_kmer_size());
+  test_status("[version] "VERSION_STATUS_STR"\n");
 
   // Binary Kmer tests should work for all values of MAXK
   test_bkmer_functions();
+  test_hash_table();
 
   #if MAX_KMER_SIZE == 31
-    // Call remaining tests
+    // not kmer dependent
     test_util();
     test_dna_functions();
     test_binary_seq_functions();
-    test_hash_table();
+
+    // only written in k=31
     test_db_node();
     test_build_graph();
     test_supernode();
     test_subgraph();
     test_cleaning();
     test_paths();
-    // test_path_sets(); // DEV: replace with test_path_subset()
+    // test_path_sets(); // TODO: replace with test_path_subset()
     test_graph_walker();
     test_corrected_aln();
     test_repeat_walker();

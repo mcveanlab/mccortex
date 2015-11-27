@@ -205,8 +205,9 @@ struct ReadUpdateCounts {
 
 // Multithreaded core function to store kmer occurances
 // Also adds read to the graph if `add_missing_kmers` is true
-static void read_update_counts(void *arg)
+static void read_update_counts(void *arg, size_t threadid)
 {
+  (void)threadid;
   struct ReadUpdateCounts data = *(struct ReadUpdateCounts*)arg;
   const read_t *r = data.r;
 

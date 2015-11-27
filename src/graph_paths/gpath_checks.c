@@ -376,47 +376,36 @@ static int _kmer_check_paths(hkey_t hkey, const dBGraph *db_graph,
 
 typedef struct
 {
-  size_t threadid, nthreads;
-  size_t num_gpaths, num_kmers;
+  const size_t nthreads;
   const dBGraph *db_graph;
-} GPathChecker;
+  size_t num_gpaths, num_kmers;
+} GPathChecking;
 
-void _gpath_check_all_paths_thread(void *arg)
+void _gpath_check_all_paths_thread(void *arg, size_t threadid)
 {
-  GPathChecker *ch = (GPathChecker*)arg;
+  GPathChecking *ch = (GPathChecking*)arg;
   const dBGraph *db_graph = ch->db_graph;
   size_t num_gpaths = 0, num_kmers = 0;
 
-  HASH_ITERATE_PART(&db_graph->ht, ch->threadid, ch->nthreads,
+  HASH_ITERATE_PART(&db_graph->ht, threadid, ch->nthreads,
                     _kmer_check_paths, db_graph, &num_gpaths, &num_kmers);
 
-  ch->num_gpaths = num_gpaths;
-  ch->num_kmers = num_kmers;
+  __sync_fetch_and_add((size_t volatile*)&ch->num_gpaths, num_gpaths);
+  __sync_fetch_and_add((size_t volatile*)&ch->num_kmers, num_kmers);
 }
 
 bool gpath_checks_all_paths(const dBGraph *db_graph, size_t nthreads)
 {
   status("[GPathCheck] Running paths check...");
 
-  size_t i;
-  GPathChecker *checkers = ctx_calloc(nthreads, sizeof(GPathChecker));
+  GPathChecking checking = {.nthreads = nthreads,
+                            .db_graph = db_graph,
+                            .num_gpaths = 0, .num_kmers = 0};
 
-  for(i = 0; i < nthreads; i++) {
-    checkers[i].threadid = i;
-    checkers[i].nthreads = nthreads;
-    checkers[i].db_graph = db_graph;
-  }
+  util_multi_thread(&checking, nthreads, _gpath_check_all_paths_thread);
 
-  util_run_threads(checkers, nthreads, sizeof(GPathChecker),
-                   nthreads, _gpath_check_all_paths_thread);
-
-  // Merge thread results
-  size_t num_gpaths = 0, num_kmers = 0;
-  for(i = 0; i < nthreads; i++) {
-    num_gpaths += checkers[i].num_gpaths;
-    num_kmers += checkers[i].num_kmers;
-  }
-  ctx_free(checkers);
+  size_t num_gpaths = checking.num_gpaths;
+  size_t num_kmers = checking.num_kmers;
 
   size_t act_num_gpaths = db_graph->gpstore.gpset.entries.len;
   size_t act_num_kmers = db_graph->gpstore.num_kmers_with_paths;

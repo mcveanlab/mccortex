@@ -110,7 +110,7 @@ void test_supernode()
   // Load all seq into colour 0
   size_t i;
   for(i = 0; i < NSEQ; i++)
-    build_graph_from_str_mt(&graph, 0, seq[i], strlen(seq[i]));
+    build_graph_from_str_mt(&graph, 0, seq[i], strlen(seq[i]), false);
 
   pull_out_supernodes(seq, ans, NSEQ, &graph);
 

@@ -17,11 +17,16 @@
 
 typedef struct
 {
-  AsyncIOInput files;
   uint8_t fq_cutoff, hp_cutoff;
   ReadMateDir matedir;
   Colour colour;
-  bool remove_pcr_dups;
+  bool remove_pcr_dups, must_exist_in_graph;
+} SeqLoadingPrefs;
+
+typedef struct
+{
+  AsyncIOInput files;
+  SeqLoadingPrefs prefs;
 
   // Stats are written to here
   SeqLoadingStats stats;
@@ -30,11 +35,11 @@ typedef struct
   size_t idx;
 } BuildGraphTask;
 
-#define BUILD_GRAPH_TASK_INIT {.fq_cutoff = 0, .hp_cutoff = 0,       \
-                               .matedir = READPAIR_FR, .colour = 0,  \
-                               .remove_pcr_dups = false,             \
-                               .stats = SEQ_LOADING_STATS_INIT,      \
-                               .idx = 0}
+#define SEQ_LOADING_PREFS_INIT (SeqLoadingPrefs){.fq_cutoff = 0, \
+                                                 .hp_cutoff = 0, \
+                                                 .matedir = READPAIR_FR, \
+                                                 .colour = 0, \
+                                                 .remove_pcr_dups = false}
 
 #include "madcrowlib/madcrow_buffer.h"
 madcrow_buffer(build_graph_task_buf, BuildGraphTaskBuffer, BuildGraphTask);
@@ -51,9 +56,8 @@ void build_graph_task_print_stats(const BuildGraphTask *task);
 // Beware: this function does not update ginfo
 void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                uint8_t fq_offset1, uint8_t fq_offset2,
-                               uint8_t fq_cutoff, uint8_t hp_cutoff,
-                               bool remove_pcr_dups, ReadMateDir matedir,
-                               SeqLoadingStats *stats, size_t colour,
+                               const SeqLoadingPrefs *prefs,
+                               SeqLoadingStats *stats,
                                dBGraph *db_graph);
 
 // One thread used per input file, num_build_threads used to add reads to graph
@@ -69,8 +73,9 @@ void build_graph_from_seq(dBGraph *db_graph, seq_file_t **files,
 
 // Threadsafe
 // Sequence must be entirely ACGT and len >= kmer_size
-// Returns number of novel kmers loaded
+// Returns number of non-novel kmers seen
 size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
-                               const char *seq, size_t len);
+                               const char *seq, size_t len,
+                               bool must_exist_in_graph);
 
 #endif /* BUILD_GRAPH_H_ */

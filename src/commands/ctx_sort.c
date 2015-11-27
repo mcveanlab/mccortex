@@ -6,7 +6,7 @@
 #include "graph_writer.h"
 #include "binary_kmer.h"
 
-// DEV: add .ctp.gz sorting
+// TODO: add .ctp.gz sorting
 
 const char sort_usage[] =
 "usage: "CMD" sort [options] <in.ctx>\n"

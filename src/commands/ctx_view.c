@@ -240,8 +240,8 @@ int ctx_view(int argc, char **argv)
   }
 
   // check for various reading errors
-  if(errno != 0)
-    loading_error("errno set [%i]: %s\n", (int)errno, strerror(errno));
+  // if(errno != 0)
+  //   loading_error("errno set [%i]: %s\n", (int)errno, strerror(errno));
 
   int err = ferror(gfile.fh);
   if(err != 0)

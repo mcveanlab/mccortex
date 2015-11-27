@@ -153,6 +153,9 @@ int ctx_links(int argc, char **argv)
     }
   }
 
+  if(hist_distsize && !hist_path) cmd_print_usage("--max-dist without --covg-hist");
+  if(hist_covgsize && !hist_path) cmd_print_usage("--max-covg without --covg-hist");
+
   // Defaults
   if(!hist_distsize) hist_distsize = DEFAULT_MAX_DIST;
   if(!hist_covgsize) hist_covgsize = DEFAULT_MAX_COVG;
@@ -394,11 +397,11 @@ int ctx_links(int argc, char **argv)
   {
     size_t i, j;
     fprintf(hist_fh, "  ");
-    for(j = 0; j < hist_covgsize; j++) fprintf(hist_fh, ",covg.%02zu", j);
+    for(j = 1; j < hist_covgsize; j++) fprintf(hist_fh, ",covg.%02zu", j);
     fprintf(hist_fh, "\n");
     for(i = 1; i < hist_distsize; i++) {
       fprintf(hist_fh, "dist.%02zu", i);
-      for(j = 0; j < hist_covgsize; j++) {
+      for(j = 1; j < hist_covgsize; j++) {
         fprintf(hist_fh, ",%"PRIu64, hists[i][j]);
       }
       fprintf(hist_fh, "\n");

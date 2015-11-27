@@ -18,6 +18,8 @@ use CortexScripts; # mccortex_maxk()
 # [ ] Get raw/clean number of kmers from log files
 # [ ] Get raw/clean number of kmers by running `mccortex31 view ...`
 # [ ] Generate our own link coverage plots using `mccortex31 links ...`
+# [ ] Plot links of length 1, 2, 3 each in their own plot
+# [ ] Plot distribution of link lengths (no coverage info)
 
 # Get kmers:
 #   $srcdir/k*

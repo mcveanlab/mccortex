@@ -399,7 +399,7 @@ static inline void unitig_get_covg(dBNodeBuffer nbuf, size_t threadid, void *arg
 // Currently we iterate over unitigs instead which is slower.
 //
 typedef struct {
-  size_t threadid, nthreads;
+  size_t nthreads;
   UnitigCleaner *cl;
 } KmerCleanerIterator;
 
@@ -411,10 +411,10 @@ static inline void kmer_get_covg_node(hkey_t hkey, void *arg)
   __sync_fetch_and_add((volatile uint64_t *)&cl->kmer_covgs_init[covg], 1);
 }
 
-static void kmer_get_covg(void *arg)
+static void kmer_get_covg(void *arg, size_t threadid)
 {
   const KmerCleanerIterator *kcl = (const KmerCleanerIterator*)arg;
-  HASH_ITERATE_PART(&kcl->db_graph->ht, kcl->threadid, kcl->nthreads,
+  HASH_ITERATE_PART(&kcl->db_graph->ht, threadid, kcl->nthreads,
                     kmer_get_covg_node, kcl->cl);
 }
 */

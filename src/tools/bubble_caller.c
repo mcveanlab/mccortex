@@ -35,7 +35,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
   {
     bool *haploid_seen = ctx_calloc(prefs->nhaploid_cols, sizeof(bool));
 
-    BubbleCaller tmp = {.threadid = i, .nthreads = num_callers,
+    BubbleCaller tmp = {.nthreads = num_callers,
                         .haploid_seen = haploid_seen,
                         .num_haploid_bubbles = 0,
                         .num_serial_bubbles = 0,
@@ -485,11 +485,11 @@ static inline int bubble_caller_node(hkey_t hkey, BubbleCaller *caller)
   return 0; // => keep iterating
 }
 
-void bubble_caller(void *args)
+void bubble_caller(void *args, size_t threadid)
 {
   BubbleCaller *caller = (BubbleCaller*)args;
 
-  HASH_ITERATE_PART(&caller->db_graph->ht, caller->threadid, caller->nthreads,
+  HASH_ITERATE_PART(&caller->db_graph->ht, threadid, caller->nthreads,
                     bubble_caller_node, caller);
 }
 
