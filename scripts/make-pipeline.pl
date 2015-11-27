@@ -6,26 +6,16 @@ use warnings;
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
+use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
 use List::Util qw(max min sum);
 use POSIX qw/strftime/;
 use CortexScripts;
+use UsefulModule; # str2num
 
 #
 # TODO:
-# [ ] make-pipeline.pl: add genotyping, using 'mccortex view' to get kmer covg
-# [ ] just merge VCF sites
-# [ ] Merge info fields when merging VCF files (waiting on bcftools request)
 # [ ] Add pooled cleaning (for low coverage samples)
-# [ ] pass genome size / fetch from ref FASTA
-# [x] 1-by-1 bubble/breakpoint calling for lower memory
-# [x] add option to use stampy to map
-# [x] thread: take fragment length min/max length
-# [x] bubbles: take max allele + flank lengths
-# [x] calls2vcf: take min mapq value
-# [x] pop bubbles for diploid when assembling contigs
-# [x] option to call variants without using links
-# [x] unitigs target to dump unitigs
 #
 
 sub print_usage
@@ -41,12 +31,16 @@ sub print_usage
     -s,--stampy <path/stampy.py>  Use stampy instead of BWA to place variants
     -S,--stampy-base <B>          Stampy hashes <B>.stidx and <B>.sthash
 
+  Genotyping:
+    -g,--genome <G>               Genome size for genotyping e.g. 3.1G (=> 3,100,000,000)
+    -P,--ploidy <P>               Ploidy: e.g. '2', '1' or '-P .:.:2 -P .:Y:1 -P john:X:1'
+
   Example:
-    ./make-pipeline.pl 31:39:2 my_proj samples.txt > job.mk
-    make -f job.mk bubbles-vcf
+    ./make-pipeline.pl -r ref.fa 31,61 my_proj samples.txt > job.mk
+    make -f job.mk CTXDIR=~/mccortex MEM=2G bub-vcf
 
   To list all the commands without running:
-    make -f job.mk --always-make --dry-run bubbles-vcf
+    make -f job.mk --always-make --dry-run bub-vcf
 
   <kmers> specifies which kmers are to be used. It must be a comma separated
   list e.g. '21,33', or of the form <firstK[:lastK[:stepK]]>. Examples:
@@ -65,8 +59,13 @@ my $cmd = "$0 @ARGV";
 my $default_mem = "1G";
 my $default_ctxdir = "~/mccortex/";
 my $default_nthreads = 2;
+my $ploidy_num = 2;
+my $err_rate = 0.01;
 
 my $ref_path; # path to reference FASTA if available
+my $genome_size;
+my $ploidy_args;
+my $err_args;
 
 my $stampy;
 my $stampy_base; # base to stampy hash files (.stidx, .sthash)
@@ -76,6 +75,9 @@ my $single_colour = 0;
 while(@ARGV > 3) {
   my $arg = shift;
   if($arg =~ /^(-r|--ref)$/ && !defined($ref_path)) { $ref_path = shift; }
+  elsif($arg =~ /^-g|--genome$/ && !defined($genome_size)) { $genome_size = shift; }
+  elsif($arg =~ /^-P|--ploidy$/ && !defined($ploidy_args)) { $ploidy_args = shift; }
+  elsif($arg =~ /^-e|--err$/ && !defined($err_args)) { $err_args = shift; }
   elsif($arg =~ /^(-1|--single-colour)$/ && !$single_colour) { $single_colour = 1; }
   elsif($arg =~ /^(-s|--stampy)$/ && !defined($stampy)) { $stampy = shift; }
   elsif($arg =~ /^(-S|--stampy-base)$/ && !defined($stampy_base)) { $stampy_base = shift; }
@@ -88,6 +90,26 @@ if(@ARGV != 3) { print_usage(); }
 # Otherwise we use BWA instead
 if(defined($stampy) && !defined($ref_path)) { die("Gave --stampy <S> without --ref <R>"); }
 if(defined($stampy_base) && !defined($stampy)) { die("Gave --stampy-base <B> without --stampy <S>"); }
+
+# if ploidy is just a number shift to err_rate
+if(defined($ploidy_args) && $ploidy_args =~ /^\d+$/) {
+  $ploidy_num = $ploidy_args;
+  $ploidy_args = undef;
+}
+
+if(defined($err_args)) {
+  if($err_args !~ /^0?\.\d+(,0?\.\d+)*/) { die("Bad -e,--err <E> argument: $err_args"); }
+  if($err_args =~ /^0?.\d+$/) { # if just number shift to err_rate
+    $err_rate = $err_args;
+    $err_args = undef;
+  }
+}
+
+
+if(defined($genome_size)) {
+  $genome_size =~ s/,//g;
+  $genome_size = str2num($genome_size);
+}
 
 if(defined($ref_path) && !defined($stampy_base)) {
   if($ref_path =~ /^(.*?)(.fa|.fa.gz|.fq|.fq.gz)?$/) {
@@ -123,6 +145,34 @@ my $union_bubble_1by1_plain_vcf  = "$proj/vcfs/bubbles.1by1.plain.".$kmerstr.".v
 my $union_brkpnt_joint_plain_vcf = "$proj/vcfs/breakpoints.joint.plain.".$kmerstr.".vcf.gz";
 my $union_brkpnt_1by1_plain_vcf  = "$proj/vcfs/breakpoints.1by1.plain.".$kmerstr.".vcf.gz";
 
+my $geno_bubble_joint_links_vcf = "$proj/vcfs/bubbles.joint.links.".$kmerstr.".geno.vcf.gz";
+my $geno_bubble_1by1_links_vcf  = "$proj/vcfs/bubbles.1by1.links.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_joint_links_vcf = "$proj/vcfs/breakpoints.joint.links.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_1by1_links_vcf  = "$proj/vcfs/breakpoints.1by1.links.".$kmerstr.".geno.vcf.gz";
+my $geno_bubble_joint_plain_vcf = "$proj/vcfs/bubbles.joint.plain.".$kmerstr.".geno.vcf.gz";
+my $geno_bubble_1by1_plain_vcf  = "$proj/vcfs/bubbles.1by1.plain.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_joint_plain_vcf = "$proj/vcfs/breakpoints.joint.plain.".$kmerstr.".geno.vcf.gz";
+my $geno_brkpnt_1by1_plain_vcf  = "$proj/vcfs/breakpoints.1by1.plain.".$kmerstr.".geno.vcf.gz";
+
+my @run_opts = (
+"--always-make          List/run all commands even if dependencies exist.",
+"--dry-run              Print commands but not run them",
+"CTXDIR=<mccortex-dir>  McCortex directory e.g. CTXDIR=~/bin/mccortex",
+"MEM=<mem-to-use>       max memory to use e.g. MEM=80G",
+"NTHREADS=<nthreads>    number of threads to use",
+"USE_LINKS=<B>          <B> is 'yes' or 'no'",
+"JOINT_CALLING=<B>      Call samples together or 1-by-1. <B> is 'yes' or 'no'",
+"MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)",
+"MIN_FRAG_LEN=<L>       min. good fragment length bp (=read+gap+read)",
+"MAX_FRAG_LEN=<L>       max. good fragment length bp (=read+gap+read)",
+"FQ_CUTOFF=10           base quality cut off (0=off) [default: 10]",
+"HP_CUTOFF=0            homopolymer run cut off (0=off) [default: 0]",
+"BRK_REF_KMERS=N        num. of flanking ref kmers required by breakpoint caller",
+"MIN_MAPQ=Q             min. flank mapping quality required by bubble caller",
+"PLOIDY=P               '1','2', or '-P SAMPLE[,..]:CHR[,..]:PLOIDY [-P ...]' (genotyping)",
+"ERR=0.01,0.005         Per base seq error rate. Comma-sep list one per sample. (genotyping)"
+);
+
 print '# '.strftime("%F %T", localtime($^T)).'
 #
 # Generated with:
@@ -132,31 +182,26 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     make -f <thisfile> [options] [target]
 #
 # Valid targets:
-#   graphs          <- build and clean graphs
-#   links           <- build and clean links
-#   bubbles         <- make bubble calls
-#   breakpoints     <- make breakpoint calls
-#   bubbles-vcf     <- make bubble vcf
-#   breakpoints-vcf <- make breakpoint vcf
-#   vcfs            <- make bubble+breakpoint vcfs
-#   contigs         <- assemble contigs for each sample
-#   contigs-pop     <- assemble contigs after popping bubbles
-#   unitigs         <- dump unitigs for each sample
+#   graphs         <- build and clean graphs
+#   links          <- build and clean links
+#   bubbles        <- make bubble calls
+#   breakpoints    <- make breakpoint calls
+#   bub-vcf        <- make bubble VCF
+#   brk-vcf        <- make breakpoint VCF
+#   bub-geno-vcf   <- genotyped bubble VCF
+#   brk-geno-vcf   <- genotyped breakpoint VCF
+#   vcfs           <- make all vcfs  [default]
+#   contigs        <- assemble contigs for each sample
+#   contigs-pop    <- assemble contigs after popping bubbles
+#   unitigs        <- dump unitigs for each sample
+#
+# Debugging:
+#   print-VAR      <- Print the value of VAR
 #
 # Options:
-#   --always-make          List all commands even if dependencies exist.
-#   --dry-run              Print commands but not run them
-#   CTXDIR=<mccortex-dir>  e.g. CTXDIR=~/bin/mccortex
-#   MEM=<mem-to-use>       e.g. MEM=80G
-#   NTHREADS=<nthreads>    Number of threads to use
-#   USE_LINKS=<B>          <B> is "yes" or "no"
-#   JOINT_CALLING=<B>      <B> is "yes" or "no"
-#   MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)
-#   MIN_FRAG_LEN=<L>       minimum fragment length bp (=read+gap+read)
-#   MAX_FRAG_LEN=<L>       maximum fragment length bp (=read+gap+read)
-#   FQ_CUTOFF=10           base quality cut off (0=off)
-#   HP_CUTOFF=0            homopolymer run cut off (0=off)
-#   BRK_REF_KMERS=N        num of flanking ref kmers required by breakpoint caller
+';
+for my $run_opt (@run_opts) { print "#   $run_opt\n"; }
+print '
 
 #
 # File structure:
@@ -173,9 +218,10 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     -> graphs/
 #       -> <S>.raw.ctx
 #       -> <S>.raw.ctx.log
-#       -> <S>.raw.covg.csv
+#       -> <S>.raw.cov.csv
 #       -> <S>.clean.ctx
 #       -> <S>.clean.ctx.log
+#       -> <S>.clean.cov.csv
 #       -> <S>.inferedges.ctx.log
 #       -> <S>.clean.unitigs.fa.gz
 #     -> links/
@@ -185,13 +231,15 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #       -> <S>.se.clean.ctp.gz.log
 #       -> <S>.se.thresh.txt
 #       -> <S>.se.thresh.txt.log
+#       -> <S>.se.links.csv
 #       -> <S>.pe.raw.ctp.gz
 #       -> <S>.pe.raw.ctp.gz.log
 #       -> <S>.pe.clean.ctp.gz
 #       -> <S>.pe.clean.ctp.gz.log
 #       -> <S>.pe.thresh.txt
 #       -> <S>.pe.thresh.txt.log
-#     -> bubbles/
+#       -> <S>.pe.links.csv
+#     -> bubbles_links/
 #       -> <P>.bub.gz
 #       -> <P>.bub.gz.log
 #       -> <P>.flanks.fa.gz
@@ -202,8 +250,8 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #       -> <P>.bub.norm.vcf.gz
 #       -> <P>.bub.norm.vcf.gz.csi
 #     -> bubbles_plain/
-#       -> SAME AS ../bubbles/
-#     -> breakpoints/
+#       -> SAME AS ../bubbles_links/
+#     -> breakpoints_links/
 #       -> <P>.brk.gz
 #       -> <P>.brk.gz.log
 #       -> <P>.brk.raw.vcf
@@ -212,7 +260,7 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #       -> <P>.brk.norm.vcf.gz
 #       -> <P>.brk.norm.vcf.gz.csi
 #     -> breakpoints_plain/
-#       -> SAME AS ../breakpoints/
+#       -> SAME AS ../breakpoints_links/
 #     -> contigs/
 #       -> <S>.raw.fa.gz
 #       -> <S>.raw.fa.gz.log
@@ -221,12 +269,16 @@ print '# '.strftime("%F %T", localtime($^T)).'
 #     -> ref/
 #       -> ref.ctx
 #       -> ref.ctx.log
+#     -> vcfcov/
+#       -> {breakpoints,bubbles}.{joint,1by1}.{links,plain}.{kmers}.<SAMPLE>.vcf.gz
+#       -> {breakpoints,bubbles}.{joint,1by1}.{links,plain}.{kmers}.<SAMPLE>.vcf.gz.log
+#       e.g.
+#       -> breakpoints.joint.plain.k29.k31.NA12878.vcf.gz
 #   -> vcfs/
-#     -> 1by1_samples/
-#       -> <S>.k29.k31.brk.norm.vcf.gz
-#       -> <S>.k29.k31.brk.norm.vcf.gz.csi
 #     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz
 #     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.vcf.gz.csi
+#     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.geno.vcf.gz
+#     -> <breakpoints|bubbles>.<joint|1by1>.<plain|links>.k<K>.geno.vcf.gz.csi
 #     e.g.
 #     -> breakpoints.joint.plain.k29.k31.vcf.gz
 #     -> breakpoints.joint.plain.k29.k31.vcf.gz.csi
@@ -265,6 +317,22 @@ MAX_FRAG_LEN=1000
 FQ_CUTOFF=10
 HP_CUTOFF=0
 MIN_MAPQ=30
+PLOIDY='.$ploidy_num.'
+ERR_RATE='.$err_rate.'
+
+# Genotyping: Ploidy for human, haploid and diploid
+# PLOIDY_ARGS=--ploidy 2 --ploidy .:chrY:1 --ploidy ben,tom:chrX:1
+# PLOIDY_ARGS=--ploidy 1
+# PLOIDY_ARGS=--ploidy $(PLOIDY)
+';
+if(defined($ploidy_args)) { print "PLOIDY_ARGS=$ploidy_args\n"; }
+else { print "PLOIDY_ARGS=--ploidy \$(PLOIDY)\n"; }
+print "\n";
+
+# Genotyping: Error rates: one per sample and one for all samples
+# ERR_ARGS=--err 0.01,0.005,0.001
+if(defined($err_args)) { print "ERR_ARGS=$err_args\n#"; }
+print 'ERR_ARGS=--err $(ERR_RATE)
 
 SEQ_PREFS=--fq-cutoff $(FQ_CUTOFF) --cut-hp $(HP_CUTOFF) --matepair $(MATEPAIR)
 BRK_REF_KMERS=10
@@ -274,18 +342,22 @@ BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
 KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
-LINK_CLEANING_ARGS=--limit 5000 --threshold
+LINK_CLEANING_ARGS=--limit 5000  --max-dist 250 --max-covg 250
 BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS)
 BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
 CALL2VCF_ARGS=--max-align 500 --max-allele 100
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
+VCFCOV_ARGS=--low-mem
+# VCFGENO_ARGS=--rm-cov --llk
+VCFGENO_ARGS=
 
 #
 # End of configuration
 #
 
 # Paths to scripts
+CTXKCOV=$(CTXDIR)/scripts/mccortex-kcovg.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 HRUNANNOT=$(CTXDIR)/libs/vcf-slim/bin/vcfhp
@@ -371,16 +443,16 @@ ifdef LINKS
 \tifdef JOINT\n";
     # links+joint calling
     for my $k (@kmers) {
-      print "\t\tBUBBLES_K$k=$proj/k$k/bubbles/joint.bub.gz\n";
-      print "\t\tBREAKPOINTS_K$k=".refonly("$proj/k$k/breakpoints/joint.brk.gz") . "\n";
+      print "\t\tBUBBLES_K$k=$proj/k$k/bubbles_links/joint.bub.gz\n";
+      print "\t\tBREAKPOINTS_K$k=".refonly("$proj/k$k/breakpoints_links/joint.brk.gz") . "\n";
     }
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_joint_links_vcf $union_bubble_joint_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_joint_links_vcf $union_brkpnt_joint_links_vcf.csi") . "\n";
 print "\telse\n";
     # links+1by1 calling
     for my $k (@kmers) {
-      print "\t\tBUBBLES_K$k=".join(' ', map {"$proj/k$k/bubbles/$_->{'name'}.bub.gz"} @samples)."\n";
-      print "\t\tBREAKPOINTS_K$k=".join(' ', map {"$proj/k$k/breakpoints/$_->{'name'}.brk.gz"} @samples)."\n";
+      print "\t\tBUBBLES_K$k=".join(' ', map {"$proj/k$k/bubbles_links/$_->{'name'}.bub.gz"} @samples)."\n";
+      print "\t\tBREAKPOINTS_K$k=".join(' ', map {"$proj/k$k/breakpoints_links/$_->{'name'}.brk.gz"} @samples)."\n";
     }
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_links_vcf $union_bubble_1by1_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_links_vcf $union_brkpnt_1by1_links_vcf.csi") . "\n";
@@ -405,7 +477,7 @@ print "\telse\n";
 print "\tendif
 endif\n\n";
 
-print "RAW_GRAPHS=" .join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
+print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
 print "CLEAN_UNITIGS=\$(CLEAN_GRAPHS:.ctx=.unitigs.fa.gz)\n";
 print "RAW_LINKS="  .join(' ', map {"\$(RAW_SE_LINKS_K$_) \$(RAW_PE_LINKS_K$_) "} @kmers)."\n";
@@ -417,16 +489,17 @@ print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
 print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
 print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
 
+print "BREAKPOINTS_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BREAKPOINTS_UNION_VCFS))\n";
+print "BUBBLES_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BUBBLES_UNION_VCFS))\n\n";
+
 print "\n# Files to merge to create various union VCFs\n";
 print "# .csi are index files (for VCF in this case)\n";
 
 sub merge_vcf_list
 {
   my ($isbubble,$isjoint,$use_links) = @_;
-  my $dir;
   my @r = ();
-  if($isbubble) { $dir = ($use_links ? "bubbles"     : "bubbles_plain"); }
-  else          { $dir = ($use_links ? "breakpoints" : "breakpoints_plain"); }
+  my $dir = ($isbubble ? "bubbles" : "breakpoints").($use_links ? "_links" : "_plain");
   my $ext = ($isbubble ? "bub" : "brk");
   for my $k (@kmers) {
     if($isjoint) {
@@ -450,6 +523,7 @@ print "BUBBLES_1BY1_LINKS_VCFS=".     join(' ', merge_vcf_list(1,0,1))."\n";
 print "BREAKPOINTS_1BY1_PLAIN_VCFS=". join(' ', merge_vcf_list(0,0,0))."\n";
 print "BREAKPOINTS_1BY1_LINKS_VCFS=". join(' ', merge_vcf_list(0,0,1))."\n";
 
+print "\n";
 print "BUBBLES_JOINT_LINKS_CSIS=\$(BUBBLES_JOINT_LINKS_VCFS:.vcf.gz=.vcf.gz.csi)\n";
 print "BUBBLES_JOINT_PLAIN_CSIS=\$(BUBBLES_JOINT_PLAIN_VCFS:.vcf.gz=.vcf.gz.csi)\n";
 print "BREAKPOINTS_JOINT_LINKS_CSIS=\$(BREAKPOINTS_JOINT_LINKS_VCFS:.vcf.gz=.vcf.gz.csi)\n";
@@ -466,16 +540,15 @@ my @dirlist = ();
 for my $k (@kmers) {
   my $dirs = join(' ', "$proj/k$k/graphs/", "$proj/k$k/links/",
                        "$proj/k$k/contigs/",
-                       "$proj/k$k/bubbles/", "$proj/k$k/breakpoints/",
+                       "$proj/k$k/bubbles_links/", "$proj/k$k/breakpoints_links/",
                        "$proj/k$k/bubbles_plain/", "$proj/k$k/breakpoints_plain/",
-                       "$proj/k$k/ref/");
+                       "$proj/k$k/ref/",
+                       "$proj/k$k/vcfcov/");
   push(@dirlist, $dirs);
 }
-push(@dirlist, "$proj/vcfs/1by1_samples/");
+push(@dirlist, "$proj/vcfs");
 
 print 'DIRS='.join(" \\\n     ", @dirlist).'
-
-COVG_CSV_FILES=$(RAW_GRAPHS:.raw.ctx=.raw.covg.csv)
 
 # Referece Graphs
 ';
@@ -495,7 +568,9 @@ print '
 # Remove in-built rules for certain file suffixes
 .SUFFIXES:
 
-all: ' .(defined($ref_path) ? 'bubbles-vcf breakpoints-vcf' : 'bubbles').' unitigs | checks
+.DEFAULT_GOAL = '.(defined($ref_path) ? 'vcfs' : 'bubbles').'
+
+all: ' .(defined($ref_path) ? 'vcfs' : 'bubbles').' unitigs | checks
 
 graphs: $(CLEAN_GRAPHS) | checks
 
@@ -506,19 +581,30 @@ links: $(FINAL_LINKS) | checks
 bubbles: $(BUBBLES) | checks
 ';
 
-if(defined($ref_path)) {
-  print 'bubbles-vcf: $(BUBBLES_UNION_VCFS) | checks
-breakpoints: $(BREAKPOINTS) | checks
-breakpoints-vcf: $(BREAKPOINTS_UNION_VCFS) | checks
+if(defined($ref_path))
+{
+  print 'breakpoints: $(BREAKPOINTS) | checks
+
+bub-vcf: $(BUBBLES_UNION_VCFS) | checks
+brk-vcf: $(BREAKPOINTS_UNION_VCFS) | checks
+bub-geno-vcf: $(BUBBLES_GENO_VCFS) | checks
+brk-geno-vcf: $(BREAKPOINTS_GENO_VCFS) | checks
+plain-vcfs: bub-vcf brk-vcf
+geno-vcfs: bub-geno-vcf brk-geno-vcf
+vcfs: geno-vcfs
+
+# Backwards compatability
+bubbles-vcf: bub-vcf
+breakpoints-vcf: brk-vcf
 ';
-} else {
-  for my $tgt (qw(bubbles-vcf breakpoints breakpoints-vcf)) {
+}
+else {
+  for my $tgt (qw(breakpoints bub-vcf brk-vcf geno-vcfs vcfs)) {
     print "$tgt:\n\t\@echo 'Need to give make-pipeline.pl --ref <r.fa> to run $tgt 2>1 && false\n\n";
   }
 }
 
-print 'vcfs: bubbles-vcf breakpoints-vcf
-
+print '
 contigs: $(CONTIGS) | checks
 contigs-pop: $(CONTIGS_POP) | checks
 
@@ -537,7 +623,12 @@ clean:
 \t\@echo To delete: rm -rf $proj
 
 .PHONY: all clean checks graphs links unitigs contigs contigs-pop
-.PHONY: bubbles breakpoints bubbles-vcf breakpoints-vcf vcfs
+.PHONY: bubbles breakpoints
+.PHONY: bub-vcf brk-vcf bub-geno-vcf brk-geno-vcf geno-vcfs plain-vcfs vcfs
+
+# Print any variable with `make -f file.mk print-VARNAME`
+print-%:
+\t\@echo '\$*=\$(\$*)'
 
 ";
 
@@ -570,21 +661,37 @@ for my $k (@kmers) {
   # Pop bubbles
   print "# Generate individual graphs for sample assembly with high covg indiv.\n";
   print "# Clean and pop bubbles at k=$k\n";
-  print "$proj/k$k/graphs/%.pop.raw.covg.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
+  print "$proj/k$k/graphs/%.pop.raw.cov.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
   print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.covg.csv -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.cov.csv -o \$@ \$< >& \$@.log\n";
   print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.pop.clean.ctx\n";
   print "\t$ctx popbubbles \$(CTX_ARGS) \$(POP_BUBBLES_ARGS) -o \$@ \$< >& \$@.log\n\n";
 
   # Clean graph files at k=$k
+  my $cov_before = "$proj/k$k/graphs/\$*.raw.cov.csv";
+  my $cov_after  = "$proj/k$k/graphs/\$*.clean.cov.csv";
+  my $len_before = "$proj/k$k/graphs/\$*.raw.len.csv";
+  my $len_after  = "$proj/k$k/graphs/\$*.clean.len.csv";
+
   print "# sample graph cleaning at k=$k\n";
-  print "$proj/k$k/graphs/%.raw.covg.csv: $proj/k$k/graphs/%.clean.ctx\n";
+  print "$proj/k$k/graphs/%.raw.cov.csv ";
+  print "$proj/k$k/graphs/%.clean.cov.csv ";
+  print "$proj/k$k/graphs/%.raw.len.csv ";
+  print "$proj/k$k/graphs/%.clean.len.csv ";
+  print "$proj/k$k/graphs/%.clean.ctx.log ";
   print "$proj/k$k/graphs/%.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.raw.covg.csv -o \$@ \$< >& \$@.log\n";
+  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $cov_before --covg-after $cov_after --len-before $len_before --len-after $len_after -o $proj/k$k/graphs/\$*.clean.ctx $proj/k$k/graphs/\$*.raw.ctx >& $proj/k$k/graphs/\$*.clean.ctx.log\n";
   if(!$single_colour) {
-    print "\t$ctx inferedges \$(CTX_ARGS) \$@ >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
+    print "\t$ctx inferedges \$(CTX_ARGS) $proj/k$k/graphs/\$*.clean.ctx >& $proj/k$k/graphs/\$*.inferedges.ctx.log\n";
   }
   print "\n";
+
+  # Get kmer coverage
+  print "$proj/k$k/graphs/%.clean.nkmers: $proj/k$k/graphs/%.clean.ctx.log\n";
+  print "\tgrep -oE 'Dumped [0-9,]+ kmers' \$< | tr -d ',' | grep -oE '[0-9]+' > \$@\n\n";
+
+  print "$proj/k$k/graphs/%.clean.kmercov: $proj/k$k/graphs/%.clean.ctx $proj/k$k/graphs/%.clean.nkmers\n";
+  print "\t\$(CTXKCOV) $k ".(defined($genome_size) ? $genome_size : "`cat $proj/k$k/graphs/\$*.clean.nkmers`")." \$< > \$@ 2> \$@.log\n\n";
 
   # Dump unitigs
   print "# sample graph unitigs at k=$k\n";
@@ -626,7 +733,7 @@ for my $k (@kmers) {
           ' -o $@ $< >& $@.log'."\n\n";
 
     # 2. If we have any paired end reads, add that information in a second pass
-    if(@{$sample->{'pe_files'}} > 0 || @{$sample->{'i_files'}} > 0) {
+    if(sample_has_pe($sample)) {
       print "$ctp_pe_raw_file: $ctx_clean_file $ctp_se_clean_file @pe_files | \$(DIRS)\n";
       print "\t$ctx thread \$(CTX_ARGS) \$(THREAD_ARGS) -p $ctp_se_clean_file --zero-paths " .
               join(' ', (map {"--seq2 $_->[0]:$_->[1]"} @{$sample->{'pe_files'}}),
@@ -642,15 +749,17 @@ for my $k (@kmers) {
   my $ctp_raw_file     = "$proj/k$k/links/%.raw.ctp.gz";
   my $ctp_clean_file   = "$proj/k$k/links/%.clean.ctp.gz";
   my $ctp_thresh_file  = "$proj/k$k/links/%.thresh.txt";
+  my $ctp_covg_file    = "$proj/k$k/links/%.links.csv";
 
   # Generate coverage CSV from first N kmers with links
   print "# link cleaning at k=$k\n";
+  print "$ctp_covg_file: $ctp_thresh_file\n";
   print "$ctp_thresh_file: $ctp_raw_file\n";
-  print "\t$ctx links \$(LINK_CLEANING_ARGS) \$< > \$@ 2> \$@.log\n\n";
+  print "\t$ctx links \$(LINK_CLEANING_ARGS) --covg-hist $proj/k$k/links/\$*.links.csv --threshold \$@ \$< >& \$@.log\n\n";
 
   print "$ctp_clean_file: $ctp_raw_file $ctp_thresh_file\n";
-  print "\tTHRESH=`grep 'suggested_cutoff=' $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9,]+\$\$'`; \\\n";
-  print "\t$ctx links -c \"\$\$THRESH\" -o \$@ \$< >& \$@.log\n\n";
+  print "\tTHRESH=`tail -1 $proj/k$k/links/\$*.thresh.txt | grep -oE '[0-9]+\$\$'`; \\\n";
+  print "$ctx links -c \"\$\$THRESH\" -o \$@ \$< >& \$@.log\n\n";
 }
 
 # Assemble contigs
@@ -665,7 +774,7 @@ for my $k (@kmers) {
   print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | gzip -c > \$@ ) >& \$@.log\n\n";
   print "# Remove redundant contigs\n";
   print "$proj/k$k/contigs/%.rmdup.fa.gz: $proj/k$k/contigs/%.raw.fa.gz\n";
-  print "\t( $ctx rmsubstr -m \$(MEM) -k $k -o - \$< | gzip -c > \$@ ) >& \$@.log\n\n";
+  print "\t( $ctx rmsubstr \$(CTX_ARGS) -k $k -o - \$< | gzip -c > \$@ ) >& \$@.log\n\n";
 }
 
 # Generate buble calls
@@ -682,10 +791,10 @@ for my $k (@kmers) {
   # joint bubble calling
   print "# bubble calls k=$k joint+links\n";
   if(!$single_colour) {
-    print "$proj/k$k/bubbles/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "$proj/k$k/bubbles_links/joint.bub.gz: \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
     print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) \$(REF_GRAPH_K$k) >& \$@.log\n\n";
   } else {
-    print "$proj/k$k/bubbles/joint.bub.gz:\n";
+    print "$proj/k$k/bubbles_links/joint.bub.gz:\n";
     print "\t>&2 echo 'Cannot create joint bubble calls with links using --single-colour' && exit 1\n"
   }
 
@@ -695,7 +804,7 @@ for my $k (@kmers) {
 
   # 1by1 bubble calling
   print "# bubble calls k=$k 1by1+links\n";
-  print "$proj/k$k/bubbles/%.bub.gz: $proj/k$k/graphs/%.clean.ctx $refgraph $proj/k$k/links/%.pe.clean.ctp.gz\n";
+  print "$proj/k$k/bubbles_links/%.bub.gz: $proj/k$k/graphs/%.clean.ctx $refgraph $proj/k$k/links/%.pe.clean.ctp.gz\n";
   print "\t$ctx bubbles \$(CTX_ARGS) \$(BUBBLES_ARGS) $hapcol1by1_links -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< $refgraph >& \$@.log\n\n";
 
   print "# bubble calls k=$k 1by1+nolinks\n";
@@ -714,7 +823,7 @@ if(defined($ref_path))
 
     # joint breakpoint calling
     print "# breakpoint calls k=$k joint+links\n";
-    print "$proj/k$k/breakpoints/joint.brk.gz: \$(CLEAN_GRAPHS_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "$proj/k$k/breakpoints_links/joint.brk.gz: \$(CLEAN_GRAPHS_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
     print "\t$ctx breakpoints \$(CTX_ARGS) \$(BREAKPOINTS_ARGS) -s \$(REF_FILE) -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) >& \$@.log\n\n";
 
     print "# breakpoint calls k=$k joint+nolinks\n";
@@ -723,7 +832,7 @@ if(defined($ref_path))
 
     # 1by1 breakpoint calling
     print "# breakpoint calls k=$k 1by1+links\n";
-    print "$proj/k$k/breakpoints/%.brk.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz\n";
+    print "$proj/k$k/breakpoints_links/%.brk.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz\n";
     print "\t$ctx breakpoints \$(CTX_ARGS) \$(BREAKPOINTS_ARGS) -s \$(REF_FILE) -o \$@ -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< >& \$@.log\n\n";
 
     print "# breakpoint calls k=$k 1by1+nolinks\n";
@@ -766,73 +875,80 @@ if(defined($ref_path))
   print "\t  \$(BCFTOOLS) norm --rm-dup any --do-not-normalize | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
-  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n";
-  print "VCF_MERGE=\$(BCFTOOLS) merge\n\n";
-
-  my @brkpnt_1by1_links_vcfs;
-  my @brkpnt_1by1_plain_vcfs;
-
-  # need to concat all kmers for each sample before merging all samples
-  if(@kmers > 1) {
-    print "# Merge 1-by-1 breakpoint calls for each sample first\n";
-    print "# Bubble calls are sites only, not sample so do not need merging\n";
-    for my $s (map {$_->{'name'}} @samples) {
-      for(my $i = 0; $i < 2; $i++) {
-        my $dir = ($i == 0 ? "breakpoints" : "breakpoints_plain");
-        my $type = ($i == 0 ? "links" : "plain");
-        my @files_vcfs = map {"$proj/k$_/$dir/$s.brk.norm.vcf.gz"} @kmers;
-        my @files_csis = map {$_.".csi"} @files_vcfs;
-        print "$proj/vcfs/1by1_samples/$s.$type.$kmerstr.brk.norm.vcf.gz: @files_vcfs @files_csis | \$(DIRS)\n";
-        print "\t\$(VCF_CONCAT) --output-type z --output \$@ @files_vcfs\n\n";
-      }
-    }
-
-    @brkpnt_1by1_links_vcfs = map {"$proj/vcfs/1by1_samples/$_->{'name'}.links.$kmerstr.brk.norm.vcf.gz"} @samples;
-    @brkpnt_1by1_plain_vcfs = map {"$proj/vcfs/1by1_samples/$_->{'name'}.plain.$kmerstr.brk.norm.vcf.gz"} @samples;
-  }
-  else {
-    # Only one kmer -- no need to concat across kmers for each sample
-    my $k = $kmers[0];
-    @brkpnt_1by1_links_vcfs = map {"$proj/k$k/breakpoints/$_->{'name'}.brk.norm.vcf.gz"} @samples;
-    @brkpnt_1by1_plain_vcfs = map {"$proj/k$k/breakpoints_plain/$_->{'name'}.brk.norm.vcf.gz"} @samples;
-  }
-
-  my @brkpnt_1by1_links_csis = map {$_.".csi"} @brkpnt_1by1_links_vcfs;
-  my @brkpnt_1by1_plain_csis = map {$_.".csi"} @brkpnt_1by1_plain_vcfs;
-
   # Generate union VCF
-  print "#\n# Create union compressed VCF\n#\n";
+  print "#\n# Create union compressed VCF\n";
+  print "#\n";
+  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n\n";
+
   print "$union_bubble_joint_links_vcf: \$(BUBBLES_JOINT_LINKS_VCFS) \$(BUBBLES_JOINT_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_JOINT_LINKS_VCFS)\n";
 
   print "$union_bubble_joint_plain_vcf: \$(BUBBLES_JOINT_PLAIN_VCFS) \$(BUBBLES_JOINT_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_JOINT_PLAIN_VCFS)\n";
 
   print "$union_brkpnt_joint_links_vcf: \$(BREAKPOINTS_JOINT_LINKS_VCFS) \$(BREAKPOINTS_JOINT_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_JOINT_LINKS_VCFS)\n";
 
   print "$union_brkpnt_joint_plain_vcf: \$(BREAKPOINTS_JOINT_PLAIN_VCFS) \$(BREAKPOINTS_JOINT_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_JOINT_PLAIN_VCFS)\n";
 
   print "$union_bubble_1by1_links_vcf: \$(BUBBLES_1BY1_LINKS_VCFS) \$(BUBBLES_1BY1_LINKS_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_LINKS_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_1BY1_LINKS_VCFS)\n";
 
   print "$union_bubble_1by1_plain_vcf: \$(BUBBLES_1BY1_PLAIN_VCFS) \$(BUBBLES_1BY1_PLAIN_CSIS)\n";
-  print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_PLAIN_VCFS) | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_1BY1_PLAIN_VCFS)\n";
 
-  print "$union_brkpnt_1by1_links_vcf: @brkpnt_1by1_links_vcfs @brkpnt_1by1_links_csis\n";
-  print "\t\$(VCF_MERGE) @brkpnt_1by1_links_vcfs | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "$union_brkpnt_1by1_links_vcf: \$(BREAKPOINTS_1BY1_LINKS_VCFS) \$(BREAKPOINTS_1BY1_LINKS_CSIS)\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_1BY1_LINKS_VCFS)\n";
 
-  print "$union_brkpnt_1by1_plain_vcf: @brkpnt_1by1_plain_vcfs @brkpnt_1by1_plain_csis\n";
-  print "\t\$(VCF_MERGE) @brkpnt_1by1_plain_vcfs | \\\n";
-  print "\t  \$(BCFTOOLS) view --output-type z --output-file \$@ -\n\n";
+  print "$union_brkpnt_1by1_plain_vcf: \$(BREAKPOINTS_1BY1_PLAIN_VCFS) \$(BREAKPOINTS_1BY1_PLAIN_CSIS)\n";
+  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_1BY1_PLAIN_VCFS)\n";
+
+  #
+  # VCF coverage
+  #
+  my $genok = max(@kmers); # use largest kmer for genotypng
+
+  # $^ means "all prequisites", $< means first prequisite
+  print "#\n# VCF coverage\n#\n";
+  for my $k ($genok) { # replace $genok with @kmers for all kmers
+    my $mccortex = get_mccortex($k);
+    print "# vcfcov k=$k\n";
+    for my $call (qw(breakpoints bubbles)) {
+      for my $pop (qw(joint 1by1)) {
+        for my $assem (qw(links plain)) {
+          my $callroot = "$call.$pop.$assem.$kmerstr";
+          print "$proj/k$k/vcfcov/$callroot.%.vcf.gz: $proj/vcfs/$callroot.vcf.gz $proj/k$k/graphs/%.raw.ctx\n";
+          print "\t$mccortex vcfcov -m \$(MEM) \$(VCFCOV_ARGS) --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
+        }
+      }
+    }
+  }
+
+  #
+  # Genotyping
+  #
+  # bcftools merge requires >1 input file, so we only use bcftools merge if @samples > 1
+  print "#\n# Genotyping\n#\n";
+  print "# vcfgeno pooled calls at k=$genok (only)\n";
+  print "# use `bcftools merge --merge none` to create merged biallelic VCF\n";
+  print "KCOV$genok=".join(' ', map {"$proj/k$genok/graphs/$_->{'name'}.clean.kmercov"} @samples)."\n";
+  my $mccortex = get_mccortex($genok);
+  for my $call (qw(breakpoints bubbles)) {
+    for my $pop (qw(joint 1by1)) {
+      for my $assem (qw(links plain)) {
+        my $callroot = "$call.$pop.$assem.$kmerstr";
+        my @vcfcovs = map {"$proj/k$genok/vcfcov/$callroot.$_->{'name'}.vcf.gz"} @samples;
+        my $deplist = "VCFGENO_$call\_$pop\_$assem\_".join('', map{"k$_"} @kmers);
+        my $geno_input = (@vcfcovs > 1 ? "-" : $vcfcovs[0]);
+        print "$deplist=@vcfcovs\n";
+        print "$proj/vcfs/$callroot.geno.vcf.gz: \$($deplist) ".join(' ', map {$_.".csi"} @vcfcovs)." \$(KCOV$genok)\n";
+        print "\tKCOV=`cat \$(KCOV$genok) | paste -sd',' -`; \\\n";
+        if(@vcfcovs > 1) { print "\$(BCFTOOLS) merge --merge none \$($deplist) | \\\n"; }
+        print "$mccortex vcfgeno \$(VCFGENO_ARGS) \$(PLOIDY_ARGS) \$(ERR_ARGS) --kcov \$\$KCOV --out-fmt vcfgz --out \$@ $geno_input >& \$@.log\n\n";
+      }
+    }
+  }
 
   print "#\n# General VCF rules\n#\n";
   # Compress a VCF
@@ -870,14 +986,7 @@ if(defined($ref_path))
 
 
 print STDERR "Usage: make -f <script> [options] [target]\n";
-print STDERR "  --always-make         Run/list all commands, inc. those already run\n";
-print STDERR "  --dry-run             List commands, don't run them\n";
-print STDERR "  CTXDIR=<mccortexdir>  Path to McCortex directory e.g. CTXDIR=~/mccortex\n";
-print STDERR "  MEM=<MEM>             Maximum memory to use e.g. MEM=80G\n";
-print STDERR "  NTHREADS=<N>          Maximum number of job threads to use\n";
-print STDERR "  USE_LINKS=<B>         <B> is 'yes' or 'no'\n";
-print STDERR "  JOINT_CALLING=<B>     <B> is 'yes' or 'no'\n";
-print STDERR "\n";
+for my $run_opt (@run_opts) { print STDERR "  $run_opt\n"; }
 
 # Done!
 exit(0);
@@ -892,11 +1001,11 @@ sub load_samples_file
   my ($path) = @_;
   my @samples = ();
   my %sample_names = ();
-  my @badnames = ("joint","1by1","undefined","noname");
+  my @badnames = ("joint","1by1","undefined","noname","pop","pooled");
   my $sfh = open_file($path);
   while(defined(my $line = <$sfh>)) {
     if($line !~ /^\s*$/ && $line !~ /^#/) {
-      my @cols = split(/\s/, $line);
+      my @cols = split(/\s+/, $line);
       if(@cols < 2 || @cols > 4) { die("Bad line"); }
       my ($sname, $se_txt, $pe_txt, $i_txt) = @cols;
       # Check sample name is sane and unique
@@ -915,6 +1024,12 @@ sub load_samples_file
   }
   close($sfh);
   return @samples;
+}
+
+# If a sample has PE input files
+sub sample_has_pe
+{
+  return (@{$_[0]->{'pe_files'}} > 0) || (@{$_[0]->{'i_files'}} > 0);
 }
 
 sub get_p_args

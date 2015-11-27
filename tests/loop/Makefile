@@ -22,19 +22,24 @@ seq.fa:
 	echo "CGTTAATCCT""ATTGAGTTCA""ATTGAGTTCA""ATTGAGTTCA""ATTGAGTTCA""CTGGTCACGG" > $@
 
 seq.k$(K).ctx: seq.fa
-	$(CTX) build -m 10M -k $(K) --sample LoopTest --seq $< $@
+	$(CTX) build -m 10M -k $(K) --sample LoopTest --seq $< $@ >& $@.log
 
 seq.k$(K).ctp.gz: seq.k$(K).ctx seq.fa
-	$(CTX) thread --seq seq.fa --out $@ seq.k$(K).ctx
+	$(CTX) thread --seq seq.fa --out $@ seq.k$(K).ctx >& $@.log
 
 seq.regen.fa: seq.k$(K).ctx seq.k$(K).ctp.gz
-	$(CTX) contigs --no-missing-check -o - -p seq.k$(K).ctp.gz seq.k$(K).ctx | \
-	$(CTX) rmsubstr -n 1000 -k $(K) - > $@
+	( $(CTX) contigs --no-missing-check -o - -p seq.k$(K).ctp.gz seq.k$(K).ctx | \
+	  $(CTX) rmsubstr -n 1000 -k $(K) - > $@ ) >& $@.log
 
-check:
+check: seq.fa seq.regen.fa
+	@echo Checking reconstructed sequence matches...
+	diff -q <($(DNACAT) -P -k -r seq.fa) <($(DNACAT) -P -k -r seq.regen.fa)
+	@echo '=> Sequences match.'
+
+view: seq.k$(K).ctp.gz seq.fa seq.regen.fa
 	gzip -dc seq.k$(K).ctp.gz
-	@echo; echo Checking reconstructed sequence matches
-	diff -q <(dnacat -P -k -r seq.fa) <(dnacat -P -k -r seq.regen.fa)
+	cat seq.fa
+	cat seq.regen.fa
 
 seq.k$(K).pdf: seq.k$(K).ctx
 	$(CTX2DOT) $< | dot -Tpdf > $@
@@ -42,6 +47,6 @@ seq.k$(K).pdf: seq.k$(K).ctx
 plots: seq.k$(K).pdf
 
 clean:
-	rm -rf $(TGTS) seq.k$(K).pdf
+	rm -rf $(TGTS) seq.k$(K).pdf *.log
 
-.PHONY: all clean plots check
+.PHONY: all clean plots check view

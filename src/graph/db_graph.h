@@ -86,7 +86,9 @@ dBNode db_graph_find_or_add_node(dBGraph *db_graph, BinaryKmer bkmer,
 dBNode db_graph_find_or_add_node_mt(dBGraph *db_graph, BinaryKmer bkmer,
                                     bool *found);
 
-dBNode db_graph_find(const dBGraph *db_graph, BinaryKmer bkmer);
+#define db_graph_find(graph,bkmer) db_graph_find_node(graph,bkmer)
+dBNode db_graph_find_node(const dBGraph *db_graph, BinaryKmer bkmer);
+dBNode db_graph_find_node_mt(dBGraph *db_graph, BinaryKmer bkmer);
 dBNode db_graph_find_str(const dBGraph *db_graph, const char *str);
 
 // In the case of self-loops in palindromes the two edges collapse into one
@@ -145,9 +147,6 @@ uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
                                       dBNode prev_nodes[4],
                                       Nucleotide prev_bases[4]);
 
-// Check kmer size of a file
-void db_graph_check_kmer_size(size_t kmer_size, const char *path);
-
 //
 // Stats
 //
@@ -165,15 +164,30 @@ void db_graph_healthcheck(const dBGraph *db_graph);
 //
 // Functions applying to whole graph
 //
+
+// remove all coverage, edges associated with a given colour
 void db_graph_wipe_colour(dBGraph *db_graph, Colour col);
 
 // Add edges between all kmers with k-1 bases overlapping
 void db_graph_add_all_edges(dBGraph *db_graph);
 
+// remove kmers from the graph if they have no coverage
+void db_graph_remove_no_covg_kmers(dBGraph *db_graph, size_t nthreads);
+
+// Intersect all edges in the graph with the given edges
+void db_graph_intersect_edges(dBGraph *db_graph, size_t nthreads, Edges *edges);
+
+//
+// Misc
+//
+
 // Get a random node from the graph
 // call seed_random() before any calls to this function please
 // if ntries > 0 and we fail to find a node will return HASH_NOT_FOUND
 hkey_t db_graph_rand_node(const dBGraph *db_graph, size_t ntries);
+
+// Check kmer size of a file
+void db_graph_check_kmer_size(size_t kmer_size, const char *path);
 
 //
 // Printing

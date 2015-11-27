@@ -31,7 +31,7 @@ madcrow_buffer(cache_stepptr_buf, GCacheStepPtrBuf, GCacheStep*);
 typedef struct
 {
   // Specific to this instance
-  const size_t threadid, nthreads;
+  const size_t nthreads;
 
   // Temporary memory specific to this instance
   GraphCache cache;

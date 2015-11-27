@@ -47,9 +47,10 @@ scoring_t* decomp_bubble_get_scoring(DecompBubble *db)
 // Decompose into aligned call
 //
 
-static void bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
-                                const char *flank3p, size_t flank3p_len,
-                                char *endkmer, size_t ksize)
+// returns number of bases borrowed from 5' flank
+static uint32_t bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
+                                    const char *flank3p, size_t flank3p_len,
+                                    char *endkmer, size_t ksize)
 {
   // 3p flank may not be long enough to give kmer bases
   size_t flank3pcpy = MIN2(ksize, flank3p_len);
@@ -59,10 +60,13 @@ static void bubble_get_end_kmer(const char *flank5p, size_t flank5p_len,
   memcpy(endkmer,            flank5p, flank5pcpy);
   memcpy(endkmer+flank5pcpy, flank3p, flank3pcpy);
   endkmer[ksize] = '\0';
+
+  return flank5pcpy;
 }
 
 
 // returns true if 3' flank aligns well, otherwise false
+// *pos is set to the ref position of the last base BEFORE the flank
 static bool align_flank3p(const bam1_t *mflank,
                           uint32_t cigar2rlen,
                           uint32_t max_alen, uint32_t kmer_size,
@@ -80,16 +84,17 @@ static bool align_flank3p(const bam1_t *mflank,
   bool fw_strand = !bam_is_rev(mflank);
 
   char endkmer[200];
-  bubble_get_end_kmer(flank5p, flank5plen, flank3p, flank3plen,
-                      endkmer, kmer_size);
+  uint32_t flank5pcpy = bubble_get_end_kmer(flank5p, flank5plen,
+                                            flank3p, flank3plen,
+                                            endkmer, kmer_size);
   if(!fw_strand) dna_revcomp_str(endkmer, endkmer, kmer_size);
 
   if(fw_strand) {
-    search_start = mflank->core.pos + cigar2rlen - kmer_size*2;
+    search_start = mflank->core.pos;
     search_end = mflank->core.pos + cigar2rlen + max_alen + kmer_size*2 + 10;
   } else {
     search_start = mflank->core.pos - (max_alen + kmer_size*2 + 10);
-    search_end = mflank->core.pos + kmer_size*2;
+    search_end = mflank->core.pos + cigar2rlen;
   }
 
   search_start = MAX2(search_start, 0);
@@ -112,7 +117,8 @@ static bool align_flank3p(const bam1_t *mflank,
       db->stats.nflank3p_multihits++;
       return false;
     }
-    *pos = fw_strand ? kstart - 1 : kstart + kmer_size;
+    *flank3ptrim = 0;
+    *pos = fw_strand ? kstart - 1 + flank5pcpy : kstart + kmer_size - flank5pcpy;
     db->stats.nflank3p_exact_found++;
     return true;
   }
@@ -125,23 +131,28 @@ static bool align_flank3p(const bam1_t *mflank,
   // bb--ccd-ecge
 
   // Find positions of first and last match
-  int i, l, r, matches = 0;
-  int ref_offset_left = 0, ref_offset_rght = 0;
-  int alt_offset_left = 0, alt_offset_rght = 0;
+  uint32_t i, matches = 0;
+  uint32_t ref_skip = 0, alt_skip = 0;
 
-  for(l = 0; l < (int)db->aln->length && ref[l] != alt[l]; l++) {
-    ref_offset_left += (ref[l] != '-');
-    alt_offset_left += (alt[l] != '-');
-  }
-  for(r = db->aln->length-1; r > 0 && ref[r] != alt[r]; r--) {
-    ref_offset_rght += (ref[r] != '-');
-    alt_offset_rght += (alt[r] != '-');
+  if(fw_strand) {
+    for(i = 0; i < db->aln->length; i++) {
+      if(ref[i] == alt[i] && alt_skip >= flank5pcpy) break;
+      ref_skip += (ref[i] != '-');
+      alt_skip += (alt[i] != '-');
+    }
+  } else {
+    for(i = db->aln->length-1; ; i--) {
+      if(ref[i] == alt[i] && alt_skip >= flank5pcpy) break;
+      ref_skip += (ref[i] != '-');
+      alt_skip += (alt[i] != '-');
+      if(i == 0) break;
+    }
   }
 
   // Count matches
-  for(i = l; i <= r; i++) matches += (ref[i] == alt[i]);
+  for(i = 0; i < db->aln->length; i++) matches += (ref[i] == alt[i]);
 
-  if(matches < (int)kmer_size / 2)
+  if(matches < kmer_size / 2 || alt_skip < flank5pcpy)
   {
     // flank doesn't map well
     db->stats.nflank3p_not_found++;
@@ -150,9 +161,9 @@ static bool align_flank3p(const bam1_t *mflank,
 
   db->stats.nflank3p_approx_found++;
 
-  *flank3ptrim = fw_strand ? alt_offset_left : alt_offset_rght;
-  *pos = fw_strand ? search_start + ref_offset_left
-                   : search_end - ref_offset_rght + 1;
+  *flank3ptrim = (fw_strand ? alt_skip : alt_skip) - flank5pcpy;
+  *pos = fw_strand ? search_start + ref_skip - 1
+                   : search_end - ref_skip;
 
   return true;
 }
@@ -175,7 +186,10 @@ static inline uint32_t bam_get_end_trim(const uint32_t **_cigar, uint32_t *_n,
 
   for(i = 0; i < n-1; i++) {
     idx = fw_strand ? n-1-i : i;
-    if(cigar_is_qclip(cigar[i])) { bases += bam_cigar_oplen(cigar[i]); trim++; }
+    if(cigar_is_qclip(cigar[idx])) {
+      bases += bam_cigar_oplen(cigar[idx]);
+      trim++;
+    }
     else break;
   }
 
@@ -287,6 +301,9 @@ int decomp_bubble_call(DecompBubble *db, ChromHash *genome,
   uint32_t flank3plen = db->flank3pbuf.end;
   // flank3plen may be as short as 1bp
 
+  // flank5ppos, flank3ppos are the pos on ref of the base inside the flank.
+  // FORWARD: <flank5p>X...Y<flank3p>   X=flank5ppos
+  // REVERSE: <flank5p>Y...X<flank5p>   Y=flank3ppos
   int32_t flank3ppos = 0;
   uint32_t flank3ptrim = 0;
 
@@ -301,10 +318,11 @@ int decomp_bubble_call(DecompBubble *db, ChromHash *genome,
   ac->start = (fw_strand ? flank5ppos : flank3ppos);
   ac->end   = (fw_strand ? flank3ppos : flank5ppos) + 1;
 
+  uint32_t qdrop = 0, rdrop = 0, rdiff = ac->start - ac->end;
+
   if(ac->start > ac->end)
   {
     // Trim back 5' flank
-    uint32_t qdrop = 0, rdrop = 0, rdiff = ac->start - ac->end;
 
     // if we remove diff bases from flank5p, how many ref bases do we move?
     bam_cigar_consume_ref(cigar, n_cigar, rdiff, fw_strand, &qdrop, &rdrop);

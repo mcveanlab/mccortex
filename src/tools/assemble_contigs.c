@@ -13,7 +13,7 @@
 
 typedef struct
 {
-  size_t threadid, nthreads;
+  size_t nthreads;
 
   GraphWalker wlk;
   RepeatWalker rptwlk;
@@ -230,17 +230,18 @@ static int _pulldown_contig(hkey_t hkey, Assembler *assem)
   return _dump_contig(assem, hkey, &s);
 }
 
-static inline void _seed_rnd_kmers(void *arg)
+static inline void _seed_rnd_kmers(void *arg, size_t threadid)
 {
   Assembler *assem = (Assembler*)arg;
   const dBGraph *db_graph = assem->db_graph;
 
-  HASH_ITERATE_PART(&db_graph->ht, assem->threadid, assem->nthreads,
+  HASH_ITERATE_PART(&db_graph->ht, threadid, assem->nthreads,
                     _pulldown_contig, assem);
 }
 
-static void _seed_from_file(AsyncIOData *data, void *arg)
+static void _seed_from_file(AsyncIOData *data, size_t threadid, void *arg)
 {
+  (void)threadid;
   ctx_assert2(data->r2.seq.end == 0, "Shouldn't have a second read");
 
   Assembler *assem = (Assembler*)arg;
@@ -306,7 +307,7 @@ static int _assemble_from_paths(hkey_t hkey, Assembler *assem)
   return 0; // 0 => keep iterating
 }
 
-static void assemble_from_paths(void *arg)
+static void assemble_from_paths(void *arg, size_t threadid)
 {
   Assembler *assem = (Assembler*)arg;
   const dBGraph *db_graph = assem->db_graph;
@@ -317,7 +318,7 @@ static void assemble_from_paths(void *arg)
 
   gpath_subset_alloc(&assem->gpsubset);
 
-  HASH_ITERATE_PART(&db_graph->ht, assem->threadid, assem->nthreads,
+  HASH_ITERATE_PART(&db_graph->ht, threadid, assem->nthreads,
                     _assemble_from_paths, assem);
 
   gpath_set_dealloc(&assem->gpset);
@@ -384,7 +385,7 @@ void assemble_contigs(size_t nthreads,
   if(pthread_mutex_init(&outlock, NULL) != 0) die("Mutex init failed");
 
   for(i = 0; i < nthreads; i++) {
-    Assembler tmp = {.threadid = i, .nthreads = nthreads,
+    Assembler tmp = {.nthreads = nthreads,
                      .num_contig_ptr = &num_contigs,
                      .contig_limit = contig_limit,
                      .use_missing_info_check = use_missing_info_check,

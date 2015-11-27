@@ -14,6 +14,7 @@
 typedef struct
 {
   dBGraph *const db_graph;
+  SeqLoadingStats **stats; // [nthreads][files]
   size_t rcounter; // counter of entries taken from the pool
 } BuildGraphData;
 
@@ -92,47 +93,68 @@ static bool seq_reads_are_novel(read_t *r1, read_t *r2,
 // Add to the de bruijn graph
 //
 
+static inline dBNode _find_or_insert(dBGraph *db_graph,
+                                     BinaryKmer bkmer, size_t colour,
+                                     bool must_exist_in_graph, bool *found)
+{
+  dBNode node;
+  if(must_exist_in_graph)
+  {
+    // Doesn't have to be threadsafe find_mt, since we are not adding
+    node = db_graph_find_node(db_graph, bkmer);
+    *found = (node.key != HASH_NOT_FOUND);
+    if(*found) db_graph_update_node_mt(db_graph, node, colour);
+  }
+  else
+  {
+    node = db_graph_find_or_add_node_mt(db_graph, bkmer, found);
+    db_graph_update_node_mt(db_graph, node, colour);
+  }
+  return node;
+}
+
 // Threadsafe
 // Sequence must be entirely ACGT and len >= kmer_size
-// Returns number of novel kmers loaded
+// Returns number of non-novel kmers seen
 size_t build_graph_from_str_mt(dBGraph *db_graph, size_t colour,
-                               const char *seq, size_t len)
+                               const char *seq, size_t len,
+                               bool must_exist_in_graph)
 {
   ctx_assert(len >= db_graph->kmer_size);
   const size_t kmer_size = db_graph->kmer_size;
   BinaryKmer bkmer;
   Nucleotide nuc;
   dBNode prev, curr;
-  size_t i, num_novel_kmers = 0;
+  size_t i, num_nonnovel_kmers = 0;
   size_t edge_col = db_graph->num_edge_cols == 1 ? 0 : colour;
   bool found;
 
   bkmer = binary_kmer_from_str(seq, kmer_size);
-  prev = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
-  db_graph_update_node_mt(db_graph, prev, colour);
-  num_novel_kmers += !found;
+  prev = _find_or_insert(db_graph, bkmer, colour, must_exist_in_graph, &found);
+  num_nonnovel_kmers += found;
 
-  for(i = kmer_size; i < len; i++)
+  for(i = kmer_size; i < len; i++, prev = curr)
   {
     nuc = dna_char_to_nuc(seq[i]);
     bkmer = binary_kmer_left_shift_add(bkmer, kmer_size, nuc);
-    curr = db_graph_find_or_add_node_mt(db_graph, bkmer, &found);
-    db_graph_update_node_mt(db_graph, curr, colour);
-    db_graph_add_edge_mt(db_graph, edge_col, prev, curr);
-    num_novel_kmers += !found;
-    prev = curr;
+    curr = _find_or_insert(db_graph, bkmer, colour, must_exist_in_graph, &found);
+    if(prev.key != HASH_NOT_FOUND && curr.key != HASH_NOT_FOUND)
+      db_graph_add_edge_mt(db_graph, edge_col, prev, curr);
+    num_nonnovel_kmers += found;
   }
 
-  return num_novel_kmers;
+  return num_nonnovel_kmers;
 }
 
 // Already found a start position
+// Stats must be private to this thread
 static void load_read(const read_t *r, uint8_t qual_cutoff, uint8_t hp_cutoff,
-                      SeqLoadingStats *stats, Colour colour, dBGraph *db_graph)
+                      bool must_exist_in_graph, Colour colour,
+                      SeqLoadingStats *stats, dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size;
   size_t contig_start, contig_end, contig_len;
-  size_t num_contigs = 0, search_start = 0, num_novel_kmers;
+  size_t num_contigs = 0, search_start = 0, num_nonnovel_kmers;
 
   while((contig_start = seq_contig_start(r, search_start, kmer_size,
                                          qual_cutoff, hp_cutoff)) < r->seq.end)
@@ -141,133 +163,156 @@ static void load_read(const read_t *r, uint8_t qual_cutoff, uint8_t hp_cutoff,
                                 qual_cutoff, hp_cutoff, &search_start);
 
     contig_len = contig_end - contig_start;
-    num_novel_kmers = build_graph_from_str_mt(db_graph, colour,
-                                              r->seq.b+contig_start, contig_len);
+    num_nonnovel_kmers = build_graph_from_str_mt(db_graph, colour,
+                                                 r->seq.b+contig_start, contig_len,
+                                                 must_exist_in_graph);
 
     size_t contig_kmers = contig_len + 1 - kmer_size;
-    __sync_fetch_and_add((volatile size_t*)&stats->total_bases_loaded, contig_len);
-    __sync_fetch_and_add((volatile size_t*)&stats->num_kmers_loaded, contig_kmers);
-    __sync_fetch_and_add((volatile size_t*)&stats->num_kmers_novel, num_novel_kmers);
+    size_t num_novel_kmers = contig_kmers - num_nonnovel_kmers;
+
+    stats->total_bases_loaded += contig_len;
+    if(must_exist_in_graph) {
+      stats->num_kmers_loaded += num_nonnovel_kmers;
+    } else {
+      stats->num_kmers_loaded += contig_kmers;
+      stats->num_kmers_novel += num_novel_kmers;
+    }
     num_contigs++;
   }
 
-  __sync_fetch_and_add((volatile size_t*)&stats->contigs_parsed, num_contigs);
-  __sync_fetch_and_add((volatile size_t*)&stats->num_good_reads, num_contigs > 0);
-  __sync_fetch_and_add((volatile size_t*)&stats->num_bad_reads, num_contigs == 0);
+  stats->contigs_parsed += num_contigs;
+  stats->num_good_reads += (num_contigs > 0);
+  stats->num_bad_reads += (num_contigs == 0);
 }
 
+// Stats must be private to this thread
 void build_graph_from_reads_mt(read_t *r1, read_t *r2,
                                uint8_t fq_offset1, uint8_t fq_offset2,
-                               uint8_t fq_cutoff, uint8_t hp_cutoff,
-                               bool remove_pcr_dups, ReadMateDir matedir,
-                               SeqLoadingStats *stats, size_t colour,
+                               const SeqLoadingPrefs *prefs,
+                               SeqLoadingStats *stats,
                                dBGraph *db_graph)
 {
+  ctx_assert(!prefs->must_exist_in_graph || !prefs->remove_pcr_dups);
   // status("r1: '%s' '%s'", r1->name.b, r1->seq.b);
   // if(r2) status("r2: '%s' '%s'", r2->name.b, r2->seq.b);
 
-  uint8_t fq_cutoff1 = fq_cutoff, fq_cutoff2 = fq_cutoff;
+  uint8_t fq_cutoff1 = prefs->fq_cutoff, fq_cutoff2 = prefs->fq_cutoff;
 
-  if(fq_cutoff) {
+  if(prefs->fq_cutoff) {
     fq_cutoff1 += fq_offset1;
     fq_cutoff2 += fq_offset2;
   }
 
   size_t total_bases = r1->seq.end + (r2 ? r2->seq.end : 0);
-  __sync_fetch_and_add((volatile size_t*)&stats->total_bases_read, total_bases);
+  stats->total_bases_read += total_bases;
 
-  if(r2) __sync_fetch_and_add((volatile size_t*)&stats->num_pe_reads, 2);
-  else   __sync_fetch_and_add((volatile size_t*)&stats->num_se_reads, 1);
+  if(r2) stats->num_pe_reads += 2;
+  else   stats->num_se_reads += 1;
 
   // printf(">%s %zu\n", r1->name.b, colour);
 
-  if(remove_pcr_dups && !seq_reads_are_novel(r1, r2,
-                                             fq_cutoff1, fq_cutoff2, hp_cutoff,
-                                             matedir, stats, db_graph))
+  if(prefs->remove_pcr_dups && !seq_reads_are_novel(r1, r2,
+                                                   fq_cutoff1, fq_cutoff2,
+                                                   prefs->hp_cutoff, prefs->matedir,
+                                                   stats, db_graph))
   {
-    if(r2) __sync_fetch_and_add((volatile size_t*)&stats->num_dup_pe_pairs, 1);
-    else   __sync_fetch_and_add((volatile size_t*)&stats->num_dup_se_reads, 1);
+    if(r2) stats->num_dup_pe_pairs++;
+    else   stats->num_dup_se_reads++;
   }
   else {
-    load_read(r1, fq_cutoff1, hp_cutoff, stats, colour, db_graph);
-    if(r2) load_read(r2, fq_cutoff2, hp_cutoff, stats, colour, db_graph);
+    load_read(r1, fq_cutoff1, prefs->hp_cutoff, prefs->must_exist_in_graph,
+              prefs->colour, stats, db_graph);
+    if(r2) load_read(r2, fq_cutoff2, prefs->hp_cutoff, prefs->must_exist_in_graph,
+                     prefs->colour, stats, db_graph);
   }
 }
 
-static void add_reads_to_graph(AsyncIOData *data, void *ptr)
+static void add_reads_to_graph(AsyncIOData *data, size_t threadid, void *ptr)
 {
   BuildGraphData *wrkr = (BuildGraphData*)ptr;
-  BuildGraphTask *task = (BuildGraphTask*)data->ptr;
+  const BuildGraphTask *task = (BuildGraphTask*)data->ptr;
+  SeqLoadingStats *stats = wrkr->stats[threadid];
   read_t *r2 = data->r2.name.end == 0 && data->r2.seq.end == 0 ? NULL : &data->r2;
 
   build_graph_from_reads_mt(&data->r1, r2,
                             data->fq_offset1, data->fq_offset2,
-                            task->fq_cutoff, task->hp_cutoff,
-                            task->remove_pcr_dups, task->matedir,
-                            &task->stats,
-                            task->colour, wrkr->db_graph);
+                            &task->prefs, stats,
+                            wrkr->db_graph);
 
   // Print progress
   size_t n = __sync_add_and_fetch((volatile size_t*)&wrkr->rcounter, 1);
   ctx_update("BuildGraph", n);
 }
 
-// One thread used per input file, num_build_threads used to add reads to graph
+// One thread used per input file, nthreads used to add reads to graph
 void build_graph(dBGraph *db_graph, BuildGraphTask *files,
-                 size_t num_files, size_t num_build_threads)
+                 size_t nfiles, size_t nthreads)
 {
   ctx_assert(db_graph->bktlocks != NULL);
 
   // Start async io reading
-  AsyncIOInput *async_tasks = ctx_malloc(num_files * sizeof(AsyncIOInput));
-  size_t f;
+  AsyncIOInput *async_tasks = ctx_malloc(nfiles * sizeof(AsyncIOInput));
+  size_t i, f;
 
-  for(f = 0; f < num_files; f++) {
+  for(f = 0; f < nfiles; f++) {
     files[f].idx = f;
     files[f].files.ptr = &files[f];
     memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOInput));
   }
 
-  BuildGraphData global_mem = {.db_graph = db_graph, .rcounter = 0};
+  SeqLoadingStats **stats = ctx_calloc(nthreads, sizeof(SeqLoadingStats*));
+  for(i = 0; i < nthreads; i++)
+    stats[i] = ctx_calloc(nfiles, sizeof(SeqLoadingStats));
 
-  asyncio_run_pool(async_tasks, num_files, add_reads_to_graph,
-                   &global_mem, num_build_threads, 0);
+  BuildGraphData global_mem = {.db_graph = db_graph, .stats = stats, .rcounter = 0};
 
+  asyncio_run_pool(async_tasks, nfiles, add_reads_to_graph,
+                   &global_mem, nthreads, 0);
+
+  // Merge stats
+  for(i = 0; i < nthreads; i++) {
+    for(f = 0; f < nfiles; f++)
+      seq_loading_stats_merge(&files[f].stats, &stats[i][f]);
+    ctx_free(stats[i]);
+  }
+  ctx_free(stats);
   ctx_free(async_tasks);
 
   // Copy stats into ginfo
   size_t max_col = 0;
-  for(f = 0; f < num_files; f++) {
-    max_col = MAX2(max_col, files[f].colour);
-    graph_info_update_stats(&db_graph->ginfo[files[f].colour], &files[f].stats);
+  for(f = 0; f < nfiles; f++) {
+    max_col = MAX2(max_col, files[f].prefs.colour);
+    graph_info_update_stats(&db_graph->ginfo[files[f].prefs.colour], &files[f].stats);
   }
 
   db_graph->num_of_cols_used = MAX2(db_graph->num_of_cols_used, max_col+1);
 }
 
-// One thread used per input file, num_build_threads used to add reads to graph
+// One thread used per input file, nthreads used to add reads to graph
 // Updates ginfo
 void build_graph_from_seq(dBGraph *db_graph,
-                          seq_file_t **files, size_t num_files,
-                          size_t num_build_threads,
+                          seq_file_t **files, size_t nfiles,
+                          size_t nthreads,
                           size_t colour)
 {
   size_t i;
-  BuildGraphTask *tasks = ctx_calloc(num_files, sizeof(BuildGraphTask));
+  BuildGraphTask *tasks = ctx_calloc(nfiles, sizeof(BuildGraphTask));
 
-  for(i = 0; i < num_files; i++) {
+  for(i = 0; i < nfiles; i++) {
     AsyncIOInput input = {.file1 = files[i], .file2 = NULL,
                           .fq_offset = 0, .interleaved = false};
 
-    BuildGraphTask tmp = {.files = input, .fq_cutoff = 0, .hp_cutoff = 0,
-                          .matedir = READPAIR_FR, .colour = colour,
-                          .remove_pcr_dups = false};
+    BuildGraphTask tmp = {.files = input,
+                          .prefs = SEQ_LOADING_PREFS_INIT,
+                          .stats = SEQ_LOADING_STATS_INIT,
+                          .idx = 0};
 
+    tmp.prefs.colour = colour;
     seq_loading_stats_init(&tmp.stats);
     memcpy(&tasks[i], &tmp, sizeof(tmp));
   }
 
-  build_graph(db_graph, tasks, num_files, num_build_threads);
+  build_graph(db_graph, tasks, nfiles, nthreads);
 
   ctx_free(tasks);
 }
@@ -275,29 +320,32 @@ void build_graph_from_seq(dBGraph *db_graph,
 void build_graph_task_print(const BuildGraphTask *task)
 {
   const AsyncIOInput *io = &task->files;
+  const SeqLoadingPrefs *prefs = &task->prefs;
+
   char fqOffset[30] = "auto-detect", fqCutoff[30] = "off", hpCutoff[30] = "off";
 
   if(io->fq_offset > 0) sprintf(fqOffset, "%u", io->fq_offset);
-  if(task->fq_cutoff > 0) sprintf(fqCutoff, "%u", task->fq_cutoff);
-  if(task->hp_cutoff > 0) sprintf(hpCutoff, "%u", task->hp_cutoff);
+  if(prefs->fq_cutoff > 0) sprintf(fqCutoff, "%u", prefs->fq_cutoff);
+  if(prefs->hp_cutoff > 0) sprintf(hpCutoff, "%u", prefs->hp_cutoff);
 
   status("[task] %s%s%s; FASTQ offset: %s, threshold: %s; "
          "cut homopolymers: %s; remove PCR duplicates: %s; colour: %zu\n",
          futil_inpath_str(io->file1->path),
          io->file2 ? ", " : "",
          io->file2 ? futil_inpath_str(io->file2->path) : "",
-         fqOffset, fqCutoff, hpCutoff, task->remove_pcr_dups ? "yes" : "no",
-         task->colour);
+         fqOffset, fqCutoff, hpCutoff, prefs->remove_pcr_dups ? "yes" : "no",
+         prefs->colour);
 }
 
 void build_graph_task_print_stats(const BuildGraphTask *task)
 {
-  const SeqLoadingStats stats = task->stats;
+  const SeqLoadingStats *stats = &task->stats;
+  const SeqLoadingPrefs *prefs = &task->prefs;
   const AsyncIOInput *io = &task->files;
 
   status("[task] input: %s%s%s colour: %zu",
          futil_inpath_str(io->file1->path), io->file2 ? ", " : "",
-         io->file2 ? futil_inpath_str(io->file2->path) : "", task->colour);
+         io->file2 ? futil_inpath_str(io->file2->path) : "", prefs->colour);
 
   char se_reads_str[50], pe_reads_str[50];
   char good_reads_str[50], bad_reads_str[50];
@@ -305,17 +353,17 @@ void build_graph_task_print_stats(const BuildGraphTask *task)
   char bases_read_str[50], bases_loaded_str[50];
   char num_contigs_str[50], num_kmers_loaded_str[50], num_kmers_novel_str[50];
 
-  ulong_to_str(stats.num_se_reads, se_reads_str);
-  ulong_to_str(stats.num_pe_reads, pe_reads_str);
-  ulong_to_str(stats.num_good_reads, good_reads_str);
-  ulong_to_str(stats.num_bad_reads, bad_reads_str);
-  ulong_to_str(stats.num_dup_se_reads, dup_se_reads_str);
-  ulong_to_str(stats.num_dup_pe_pairs, dup_pe_pairs_str);
-  ulong_to_str(stats.total_bases_read, bases_read_str);
-  ulong_to_str(stats.total_bases_loaded, bases_loaded_str);
-  ulong_to_str(stats.contigs_parsed, num_contigs_str);
-  ulong_to_str(stats.num_kmers_loaded, num_kmers_loaded_str);
-  ulong_to_str(stats.num_kmers_novel, num_kmers_novel_str);
+  ulong_to_str(stats->num_se_reads, se_reads_str);
+  ulong_to_str(stats->num_pe_reads, pe_reads_str);
+  ulong_to_str(stats->num_good_reads, good_reads_str);
+  ulong_to_str(stats->num_bad_reads, bad_reads_str);
+  ulong_to_str(stats->num_dup_se_reads, dup_se_reads_str);
+  ulong_to_str(stats->num_dup_pe_pairs, dup_pe_pairs_str);
+  ulong_to_str(stats->total_bases_read, bases_read_str);
+  ulong_to_str(stats->total_bases_loaded, bases_loaded_str);
+  ulong_to_str(stats->contigs_parsed, num_contigs_str);
+  ulong_to_str(stats->num_kmers_loaded, num_kmers_loaded_str);
+  ulong_to_str(stats->num_kmers_novel, num_kmers_novel_str);
 
   status("  SE reads: %s  PE reads: %s", se_reads_str, pe_reads_str);
   status("  good reads: %s  bad reads: %s", good_reads_str, bad_reads_str);

@@ -10,8 +10,12 @@ extern const char dna_nuc_to_char_arr[4];
 extern const Nucleotide dna_char_to_nuc_arr[256];
 extern const unsigned char dna_complement_char_arr[256];
 
+extern const char dna_char_to_vcf_char[256]; // all non-ACGT chars are 'N'
+
 #define char_is_acgtn(c) (dna_char_to_nuc_arr[(uint8_t)(c)] <= 4)
 #define char_is_acgt(c) (dna_char_to_nuc_arr[(uint8_t)(c)] < 4)
+
+#define char_to_vcf_char(c) (dna_char_to_vcf_char[(uint8_t)(c)])
 
 // Include check for valid input
 #define dna_nuc_to_char(n) ({ ctx_assert(((n)&3)==(n)); dna_nuc_to_char_arr[n]; })
@@ -43,5 +47,19 @@ int dna_revncasecmp(const char *a, const char *b, size_t len);
 
 // out must be at least 11 bytes long: "A, C, G, T"
 size_t dna_bases_list_to_str(const bool bases[4], char *out);
+
+// Case insensitive comparison that converts non-ACGT characters to N before
+// comparing. Useful for VCF ref comparisons.
+// Returns true iff sequences match
+static inline bool dna_ref_vcf_match(const char *chr, const char *ref, size_t len)
+{
+  const char *end;
+  for(end = chr+len; chr < end; chr++, ref++) {
+    ctx_assert2(*ref, "Ref too short");
+    if(char_to_vcf_char(*chr) != char_to_vcf_char(*ref))
+      return false;
+  }
+  return true;
+}
 
 #endif /* DNA_H_ */

@@ -1,43 +1,17 @@
-SHELL:=/bin/bash -euo pipefail
+SHELL=/bin/bash -euo pipefail
 
-CTXDIR=../..
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/mccortex31
-CONTIGSTATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
-K=9
+# Each test case is in a separate sub-directory
 
-TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
+# build0: random sequence, sort graph, reassemble sequence
+# build1: test --intersection and --graph arguments 
 
-all: $(TGTS) test_assemble
+all:
+	cd build0 && $(MAKE)
+	cd build1 && $(MAKE)
+	@echo "All looks good."
 
 clean:
-	rm -rf $(TGTS)
+	cd build0 && $(MAKE) clean
+	cd build1 && $(MAKE) clean
 
-seq.fa:
-	$(DNACAT) -F -n 50 > $@
-
-seq.k$(K).ctx: seq.fa
-	$(CTX) build -k $(K) --sample Wallace \
-	                     --sample Gromit --seq seq.fa \
-	                     --sample Trousers --seq seq.fa --seq2 seq.fa:seq.fa $@
-	$(CTX) check -q $@
-	$(CTX) view $@
-	$(CTX) view -k 1,3,5:$@:2,1,0
-
-sort.k$(K).ctx: seq.k$(K).ctx
-	cp $< $@
-	$(CTX) view -k $<
-	$(CTX) sort $@
-	$(CTX) check -q $@
-	$(CTX) view -k $@
-
-%.ctx.idx: %.ctx
-	$(CTX) index $< > $@
-	cat $@
-
-test_assemble:
-	$(CTX) contigs -q -o - seq.k$(K).ctx:1 | \
-	  $(CTX) rmsubstr -q -n 1M -k $(K) - | \
-	  $(CONTIGSTATS) -
-
-.PHONY: all clean test_assemble
+.PHONY: all clean

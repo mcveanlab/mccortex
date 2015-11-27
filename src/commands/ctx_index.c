@@ -6,7 +6,7 @@
 #include "graphs_load.h"
 #include "binary_kmer.h"
 
-// DEV: add .ctp.gz indexing
+// TODO: add .ctp.gz indexing
 
 const char index_usage[] =
 "usage: "CMD" index [options] <in.ctx>\n"

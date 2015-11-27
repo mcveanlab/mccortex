@@ -12,20 +12,20 @@ typedef struct
 {
   const dBGraph *const db_graph; // graph we are operating on
   uint8_t *const kmer_mask; // bitset of visited kmers
-  const bool grab_supernodes; // grab entire supernodes or just kmers
+  const bool grab_unitigs; // grab entire unitigs or just kmers
   dBNodeBuffer nbufs[2], snode_buf;
   SeqLoadingStats stats;
 } SubgraphBuilder;
 
 static void subgraph_builder_alloc(SubgraphBuilder *builder,
                                    size_t num_fringe_nodes,
-                                   bool grab_supernodes,
+                                   bool grab_unitigs,
                                    uint8_t *kmer_mask,
                                    const dBGraph *graph)
 {
   SubgraphBuilder tmp = {.db_graph = graph,
                          .kmer_mask = kmer_mask,
-                         .grab_supernodes = grab_supernodes};
+                         .grab_unitigs = grab_unitigs};
 
   memcpy(builder, &tmp, sizeof(SubgraphBuilder));
   db_node_buf_alloc(&builder->nbufs[0], num_fringe_nodes);
@@ -63,7 +63,7 @@ static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
   }
 }
 
-// Mark entire supernodes that are touched by a read
+// Mark entire unitigs that are touched by a read
 static inline void mark_snode(BinaryKmer bkmer,
                               dBNodeBuffer *nbuf, dBNodeBuffer *snode_buf,
                               uint8_t *kmer_mask, const dBGraph *db_graph)
@@ -94,7 +94,7 @@ static void store_read_nodes(read_t *r1, read_t *r2,
   SubgraphBuilder *builder = (SubgraphBuilder*)ptr;
   const dBGraph *db_graph = builder->db_graph;
 
-  if(builder->grab_supernodes)
+  if(builder->grab_unitigs)
   {
     READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &builder->stats, mark_snode,
                    &builder->nbufs[0], &builder->snode_buf,
@@ -192,7 +192,7 @@ static size_t get_num_fringe_nodes(size_t fringe_mem, size_t dist)
 // the breadth first search (we use 8 bytes per kmer)
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
 void subgraph_from_reads(dBGraph *db_graph, size_t nthreads, size_t dist,
-                         bool invert, bool grab_supernodes,
+                         bool invert, bool grab_unitigs,
                          size_t fringe_mem, uint8_t *kmer_mask,
                          seq_file_t **files, size_t num_files)
 {
@@ -200,7 +200,7 @@ void subgraph_from_reads(dBGraph *db_graph, size_t nthreads, size_t dist,
   size_t i, num_of_fringe_nodes = get_num_fringe_nodes(fringe_mem, dist);
 
   SubgraphBuilder builder;
-  subgraph_builder_alloc(&builder, num_of_fringe_nodes, grab_supernodes,
+  subgraph_builder_alloc(&builder, num_of_fringe_nodes, grab_unitigs,
                          kmer_mask, db_graph);
 
   // Load sequence and mark in first pass
@@ -237,7 +237,7 @@ void subgraph_from_reads(dBGraph *db_graph, size_t nthreads, size_t dist,
 // the breadth first search (we use 8 bytes per kmer)
 // `kmer_mask` should be a bit array (one bit per kmer) of zero'd memory
 void subgraph_from_seq(dBGraph *db_graph, size_t nthreads, size_t dist,
-                       bool invert, bool grab_supernodes,
+                       bool invert, bool grab_unitigs,
                        size_t fringe_mem, uint8_t *kmer_mask,
                        char **seqs, size_t *seqlens, size_t num_seqs)
 {
@@ -245,7 +245,7 @@ void subgraph_from_seq(dBGraph *db_graph, size_t nthreads, size_t dist,
   size_t i, num_of_fringe_nodes = get_num_fringe_nodes(fringe_mem, dist);
 
   SubgraphBuilder builder;
-  subgraph_builder_alloc(&builder, num_of_fringe_nodes, grab_supernodes,
+  subgraph_builder_alloc(&builder, num_of_fringe_nodes, grab_unitigs,
                          kmer_mask, db_graph);
 
   // Load sequence and mark in first pass

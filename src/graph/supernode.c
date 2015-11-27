@@ -201,24 +201,24 @@ static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
 }
 
 typedef struct {
-  const size_t threadid, nthreads;
+  const size_t nthreads;
   uint8_t *const visited;
   const dBGraph *db_graph;
   void (*func)(dBNodeBuffer _nbuf, size_t threadid, void *_arg);
   void *arg;
-} SupernodeIterator;
+} SupernodeIterating;
 
-static void supernodes_iterate_thread(void *arg)
+static void supernodes_iterate_thread(void *arg, size_t threadid)
 {
-  SupernodeIterator cl = *(SupernodeIterator*)arg;
+  SupernodeIterating iter = *(SupernodeIterating*)arg;
 
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 2048);
 
-  HASH_ITERATE_PART(&cl.db_graph->ht, cl.threadid, cl.nthreads,
+  HASH_ITERATE_PART(&iter.db_graph->ht, threadid, iter.nthreads,
                     supernode_iterate_node,
-                    cl.threadid, &nbuf, cl.visited, cl.db_graph,
-                    cl.func, cl.arg);
+                    threadid, &nbuf, iter.visited, iter.db_graph,
+                    iter.func, iter.arg);
 
   db_node_buf_dealloc(&nbuf);
 }
@@ -233,18 +233,11 @@ void supernodes_iterate(size_t nthreads, uint8_t *visited,
                                      void *_arg),
                         void *arg)
 {
-  size_t i;
-  SupernodeIterator *workers = ctx_calloc(nthreads, sizeof(SupernodeIterator));
+  SupernodeIterating iter = {.nthreads = nthreads,
+                             .visited = visited,
+                             .db_graph = db_graph,
+                             .func = func,
+                             .arg = arg};
 
-  for(i = 0; i < nthreads; i++) {
-    SupernodeIterator tmp = {.threadid = i, .nthreads = nthreads,
-                             .visited = visited, .db_graph = db_graph,
-                             .func = func, .arg = arg};
-    memcpy(&workers[i], &tmp, sizeof(SupernodeIterator));
-  }
-
-  util_run_threads(workers, nthreads, sizeof(SupernodeIterator),
-                   nthreads, supernodes_iterate_thread);
-
-  ctx_free(workers);
+  util_multi_thread(&iter, nthreads, supernodes_iterate_thread);
 }

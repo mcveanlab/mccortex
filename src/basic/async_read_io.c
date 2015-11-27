@@ -239,7 +239,7 @@ static void asyncio_read_finish(AsyncIOWorker *workers, size_t num_workers)
 
 void asyncio_run_threads(MsgPool *pool,
                          AsyncIOInput *asyncio_inputs, size_t num_inputs,
-                         void (*job)(void*),
+                         void (*job)(void *_arg, size_t _tid),
                          void *args, size_t num_readers, size_t elsize)
 {
   if(!num_inputs) return;
@@ -259,12 +259,12 @@ void asyncio_run_threads(MsgPool *pool,
 
 typedef struct {
   MsgPool *pool;
-  void (*func)(AsyncIOData *_data, void *_arg);
+  void (*func)(AsyncIOData *_data, size_t _tid, void *_arg);
   void *arg;
 } PoolFuncPair;
 
 // pthread method, loop: reads from pool, call function
-static void grab_reads_from_pool(void *arg)
+static void grab_reads_from_pool(void *arg, size_t threadid)
 {
   PoolFuncPair wrkr = *(PoolFuncPair*)arg;
   int pos;
@@ -273,7 +273,7 @@ static void grab_reads_from_pool(void *arg)
   while((pos = msgpool_claim_read(wrkr.pool)) != -1)
   {
     memcpy(&data, msgpool_get_ptr(wrkr.pool, pos), sizeof(AsyncIOData*));
-    wrkr.func(data, wrkr.arg);
+    wrkr.func(data, threadid, wrkr.arg);
     msgpool_release(wrkr.pool, pos, MPOOL_EMPTY);
   }
 }
@@ -281,7 +281,7 @@ static void grab_reads_from_pool(void *arg)
 // `num_inputs` number of threads pushing reads into the pool
 // `num_readers` number of threads pulling reads from the pool
 void asyncio_run_pool(AsyncIOInput *asyncio_inputs, size_t num_inputs,
-                      void (*job)(AsyncIOData *_data, void *_arg),
+                      void (*job)(AsyncIOData *_data, size_t _tid, void *_arg),
                       void *args, size_t num_readers, size_t elsize)
 {
   size_t i;
@@ -292,7 +292,7 @@ void asyncio_run_pool(AsyncIOInput *asyncio_inputs, size_t num_inputs,
   msgpool_alloc(&pool, MSGPOOLSIZE, sizeof(AsyncIOData*), USE_MSG_POOL);
   msgpool_iterate(&pool, asynciodata_pool_init, data);
 
-  PoolFuncPair poolfunc[num_readers];
+  PoolFuncPair *poolfunc = ctx_calloc(num_readers, sizeof(PoolFuncPair));
 
   for(i = 0; i < num_readers; i++) {
     poolfunc[i] = (PoolFuncPair){.pool = &pool, .func = job,
@@ -300,7 +300,9 @@ void asyncio_run_pool(AsyncIOInput *asyncio_inputs, size_t num_inputs,
   }
 
   asyncio_run_threads(&pool, asyncio_inputs, num_inputs, grab_reads_from_pool,
-                      &poolfunc, num_readers, sizeof(PoolFuncPair));
+                      poolfunc, num_readers, sizeof(PoolFuncPair));
+
+  ctx_free(poolfunc);
 
   for(i = 0; i < MSGPOOLSIZE; i++) asynciodata_dealloc(&data[i]);
   ctx_free(data);

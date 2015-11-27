@@ -542,7 +542,7 @@ size_t seconds_to_str(unsigned long seconds, char *str)
 //
 
 typedef struct {
-  void (*const func)(void*);
+  void (*const func)(void *_arg, size_t _tid);
   void *const args;
   const size_t nel, elsize;
   volatile size_t next_job;
@@ -551,35 +551,33 @@ typedef struct {
 typedef struct {
   pthread_t thread;
   ThreadedJobs *jobs;
-  size_t curr_job;
+  size_t curr_job, threadid;
 } ThreadedWorker;
 
-static void threaded_worker_sub(ThreadedWorker *worker)
+static void threaded_worker_sub(ThreadedWorker *wrkr)
 {
-  ThreadedJobs *jobs = worker->jobs;
-  jobs->func((void*)((char*)jobs->args + worker->curr_job*jobs->elsize));
+  ThreadedJobs *jobs = wrkr->jobs;
+  jobs->func((char*)jobs->args + wrkr->curr_job*jobs->elsize, wrkr->threadid);
 
   // try to get more work
   while(jobs->next_job < jobs->nel)
   {
-    worker->curr_job = __sync_fetch_and_add(&jobs->next_job, 1);
-    if(worker->curr_job >= jobs->nel) break;
-    jobs->func((void*)((char*)jobs->args + worker->curr_job*jobs->elsize));
+    wrkr->curr_job = __sync_fetch_and_add(&jobs->next_job, 1);
+    if(wrkr->curr_job >= jobs->nel) break;
+    jobs->func((char*)jobs->args + wrkr->curr_job*jobs->elsize, wrkr->threadid);
   }
 }
 
-static void *threaded_worker(void *arg) __attribute__((noreturn));
-
-static void *threaded_worker(void *arg)
+static __attribute__((noreturn)) void *threaded_worker(void *arg)
 {
-  ThreadedWorker *worker = (ThreadedWorker*)arg;
-  threaded_worker_sub(worker);
+  ThreadedWorker *wrkr = (ThreadedWorker*)arg;
+  threaded_worker_sub(wrkr);
   pthread_exit(NULL);
 }
 
 // Blocks until all jobs finished
 void util_run_threads(void *args, size_t nel, size_t elsize,
-                      size_t nthreads, void (*func)(void*))
+                      size_t nthreads, void (*func)(void *_arg, size_t _tid))
 {
   int rc;
   size_t i;
@@ -589,7 +587,7 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
   nthreads = MIN2(nel, nthreads);
 
   if(nthreads == 1) {
-    for(i = 0; i < nel; i++) func((void*)((char*)args + i*elsize));
+    for(i = 0; i < nel; i++) func((char*)args + i*elsize, 0);
   }
   else
   {
@@ -605,15 +603,71 @@ void util_run_threads(void *args, size_t nel, size_t elsize,
     ThreadedWorker *workers = ctx_malloc(sizeof(ThreadedWorker) * nthreads);
 
     for(i = 1; i < nthreads; i++) {
-      workers[i] = (ThreadedWorker){.jobs = &jobs, .curr_job = i};
+      workers[i] = (ThreadedWorker){.jobs = &jobs, .curr_job = i, .threadid = i};
       rc = pthread_create(&workers[i].thread, &thread_attr,
                           threaded_worker, (void*)&workers[i]);
       if(rc != 0) die("Creating thread failed");
     }
 
     // Last thread
-    workers[0] = (ThreadedWorker){.jobs = &jobs, .curr_job = 0};
+    workers[0] = (ThreadedWorker){.jobs = &jobs, .curr_job = 0, .threadid = 0};
     threaded_worker_sub(&workers[0]);
+
+    /* wait for other threads to complete */
+    for(i = 1; i < nthreads; i++) {
+      rc = pthread_join(workers[i].thread, NULL);
+      if(rc != 0) die("Joining thread failed");
+    }
+
+    pthread_attr_destroy(&thread_attr);
+    ctx_free(workers);
+  }
+}
+
+typedef struct {
+  pthread_t thread;
+  const size_t threadid;
+  void *const arg;
+  void (*const func)(void *_arg, size_t _tid);
+} SharedArgWorker;
+
+static __attribute__((noreturn)) void *shared_arg_worker(void *arg)
+{
+  SharedArgWorker *wrkr = (SharedArgWorker*)arg;
+  wrkr->func(wrkr->arg, wrkr->threadid);
+  pthread_exit(NULL);
+}
+
+// Blocks until all jobs finished
+void util_multi_thread(void *arg, size_t nthreads,
+                       void (*func)(void *_arg, size_t _tid))
+{
+  int rc;
+  size_t i;
+  ctx_assert(nthreads > 0);
+
+  if(nthreads == 1) {
+    func(arg, 0);
+  }
+  else
+  {
+    /* Initialize and set thread detached attribute */
+    pthread_attr_t thread_attr;
+    pthread_attr_init(&thread_attr);
+    pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
+
+    SharedArgWorker *workers = ctx_calloc(nthreads, sizeof(SharedArgWorker));
+
+    for(i = 1; i < nthreads; i++) {
+      SharedArgWorker tmp = {.threadid = i, .func = func, .arg = arg};
+      memcpy(&workers[i], &tmp, sizeof(tmp));
+      rc = pthread_create(&workers[i].thread, &thread_attr,
+                          shared_arg_worker, &workers[i]);
+      if(rc != 0) die("Creating thread failed");
+    }
+
+    // Last thread
+    func(arg, 0);
 
     /* wait for other threads to complete */
     for(i = 1; i < nthreads; i++) {

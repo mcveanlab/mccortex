@@ -9,8 +9,8 @@ then
   exit -1;
 fi
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CTX="$DIR/../bin/ctx31 view"
+DIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd .. && pwd )
+CTX="$DIR/bin/ctx31 view"
 
 col=0
 if [[ $# -eq 2 ]]

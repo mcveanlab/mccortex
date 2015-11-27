@@ -35,7 +35,7 @@ BubbleCaller* bubble_callers_new(size_t num_callers,
   {
     bool *haploid_seen = ctx_calloc(prefs->nhaploid_cols, sizeof(bool));
 
-    BubbleCaller tmp = {.threadid = i, .nthreads = num_callers,
+    BubbleCaller tmp = {.nthreads = num_callers,
                         .haploid_seen = haploid_seen,
                         .num_haploid_bubbles = 0,
                         .num_serial_bubbles = 0,
@@ -449,7 +449,7 @@ void find_bubbles_ending_with(BubbleCaller *bc, GCacheUnitig *unitig)
 
 static void write_bubbles_to_file(BubbleCaller *caller)
 {
-  // Loop over supernodes checking if they are 3p flanks
+  // Loop over unitigs checking if they are 3p flanks
   size_t nunitigs = graph_cache_num_unitigs(&caller->cache);
   GCacheUnitig *unitig;
   size_t i;
@@ -485,11 +485,11 @@ static inline int bubble_caller_node(hkey_t hkey, BubbleCaller *caller)
   return 0; // => keep iterating
 }
 
-void bubble_caller(void *args)
+void bubble_caller(void *args, size_t threadid)
 {
   BubbleCaller *caller = (BubbleCaller*)args;
 
-  HASH_ITERATE_PART(&caller->db_graph->ht, caller->threadid, caller->nthreads,
+  HASH_ITERATE_PART(&caller->db_graph->ht, threadid, caller->nthreads,
                     bubble_caller_node, caller);
 }
 

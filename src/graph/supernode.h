@@ -5,9 +5,6 @@
 #include "db_graph.h"
 #include "db_node.h"
 
-// Reverse order and orientations of nodes
-void db_nodes_reverse_complement(dBNode *nlist, size_t len);
-
 // Orient supernode
 // Once oriented, supernode has lowest poosible kmerkey at the beginning,
 // oriented FORWARDs if possible

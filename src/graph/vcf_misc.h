@@ -2,6 +2,7 @@
 #define VCF_MISC_H_
 
 #include "htslib/vcf.h"
+#include "cJSON/cJSON.h"
 
 // VCF output type setting
 // modes_htslib is for passing to hts_open, hsmodes_htslib is human readable
@@ -18,6 +19,8 @@ void vcf_misc_hdr_add_cmd(bcf_hdr_t *hdr, const char *cmdline, const char *cwd);
 
 // Find/add and then update a header record
 void vcf_misc_add_update_hrec(bcf_hrec_t *hrec, char *key, char *val);
+
+void vcf_hdrtxt_append_commands(cJSON *command, StrBuf *hdr, const char *path);
 
 // Trim bases that match with the ref
 static inline size_t trimmed_alt_lengths(const bcf1_t *v, size_t aid,

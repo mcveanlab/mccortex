@@ -20,10 +20,10 @@ clean:
 	rm -rf calls.cov.vcf lowmem.cov.vcf graph.k$(K).ctx
 
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) calls.vcf graph.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) calls.vcf graph.k$(K).ctx >& $@.log
 
 lowmem.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --low-mem calls.vcf graph.k$(K).ctx
+	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --low-mem calls.vcf graph.k$(K).ctx >& $@.log
 
 graph.k$(K).ctx: john.fa jane.fa
 	$(MCCORTEX31) build -m 10M -k $(K) \

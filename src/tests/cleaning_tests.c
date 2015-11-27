@@ -57,7 +57,7 @@ void _test_graph_cleaning()
 "TAATCCCTCCTTATCAGAAGTAATCGTCGTTGCCGAGTTAGATCATGTCGGGACGTTGCCCTCAAGACGCCCAACGGA"
 "AAAATTCACGATAGTGGCGCTCGGGAGGAGTACGCAACTCAGCACCCCGGTGAGTAGCTCCCTT";
 
-  build_graph_from_str_mt(&graph, 0, graphseq, strlen(graphseq));
+  build_graph_from_str_mt(&graph, 0, graphseq, strlen(graphseq), false);
   TASSERT2(graph.ht.num_kmers == 1000-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
 
@@ -78,7 +78,7 @@ void _test_graph_cleaning()
 
   // Reload first 200 bases of graph 3 times
   for(i = 0; i < 3; i++)
-    build_graph_from_str_mt(&graph, 0, graphseq, 200);
+    build_graph_from_str_mt(&graph, 0, graphseq, 200, false);
   TASSERT2(graph.ht.num_kmers == 200-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
 
@@ -87,7 +87,7 @@ void _test_graph_cleaning()
 "GGCTACCTAACCAGATATCTCTGTATcCAGCTGCATTGTGTTTAGTCTACAACGACAGAtATCCCCTTCGACGCCCGC"
 "GACCTCTCTTAACGGACGACGC";
 
-  build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp));
+  build_graph_from_str_mt(&graph, 0, tmp, strlen(tmp), false);
 
   size_t thresh = cleaning_get_threshold(nthreads, NULL, NULL, visited, &graph);
   clean_graph(nthreads, thresh, 0, NULL, NULL, visited, keep, &graph);
@@ -101,7 +101,7 @@ void _test_graph_cleaning()
 "GGCTACCTAACCAGATATCTCTGTATACAGCTGCATTGTGTTTAGTCTACAACGACAGAAATCCCCTTCGACGgCCGC";
 
   // Trim off new tip
-  build_graph_from_str_mt(&graph, 0, tmp2, strlen(tmp2));
+  build_graph_from_str_mt(&graph, 0, tmp2, strlen(tmp2), false);
   TASSERT2(graph.ht.num_kmers == 200-19+1 + 23-19+1,
            "%"PRIu64" kmers", graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
@@ -116,7 +116,7 @@ void _test_graph_cleaning()
 
   // Build a graph with a single kmer and delete it
   char tmp3[] = "AGATGTGGTTCACGGCTAG";
-  build_graph_from_str_mt(&graph, 0, tmp3, strlen(tmp3));
+  build_graph_from_str_mt(&graph, 0, tmp3, strlen(tmp3), false);
   TASSERT2(graph.ht.num_kmers == 1, "%zu", (size_t)graph.ht.num_kmers);
   TASSERT(graph.ht.num_kmers == hash_table_count_kmers(&graph.ht));
   clean_graph(nthreads, 0, 2*19-1, NULL, NULL, visited, keep, &graph);

@@ -13,13 +13,15 @@ typedef struct
   size_t ncols; // max number of colours loaded
 } SeqLoadingStats;
 
-#define SEQ_LOADING_STATS_INIT { \
+#define SEQ_LOADING_STATS_INIT (SeqLoadingStats){ \
   .num_se_reads     = 0, .num_pe_reads       = 0, \
   .num_good_reads   = 0, .num_bad_reads      = 0, \
   .num_dup_se_reads = 0, .num_dup_pe_pairs   = 0, \
   .total_bases_read = 0, .total_bases_loaded = 0, \
   .contigs_parsed   = 0, .num_kmers_parsed   = 0, \
-  .num_kmers_loaded = 0, .num_kmers_novel    = 0  \
+  .num_kmers_loaded = 0, .num_kmers_novel    = 0, \
+  .col_nkmers = NULL, .col_sum_covgs = NULL, \
+  .ncols = 0 \
 }
 
 // Functions for dealing with file loading statistics

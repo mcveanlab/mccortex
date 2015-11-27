@@ -26,6 +26,10 @@ void futil_update_timestamp(const char *path);
 */
 int futil_mkpath(const char *path, mode_t mode);
 
+// Check file don't exist or that we can overwrite it. Ignores if path is NULL
+// returns true if there was a warning printed
+bool futil_check_outfile(const char *file);
+
 bool futil_file_exists(const char *file);
 
 bool futil_is_file_readable(const char *file);

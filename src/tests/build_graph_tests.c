@@ -32,15 +32,17 @@ void test_build_graph()
   memset(&stats, 0, sizeof(stats));
   size_t total_seq = 0, contigs_loaded = 0;
 
+  SeqLoadingPrefs prefs = {.fq_cutoff = 9, .hp_cutoff = 9,
+                           .matedir = READPAIR_FF,
+                           .colour = 0, .remove_pcr_dups = true};
+
   // Test loading empty reads are ok
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
-                            &stats, 0, &graph);
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
 
   // Load a pair of reads
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTGTTCCG");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTCCTATG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
-                            &stats, 0, &graph);
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
   total_seq += r1.seq.end + r2.seq.end;
@@ -49,8 +51,7 @@ void test_build_graph()
   // Check we filter out a duplicate FF
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTAATGAT");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTTGTTTG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
-                            &stats, 0, &graph);
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
 
@@ -58,8 +59,8 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTCCGAAG");
   seq_read_set(&r2, "AGACTAAGCTAAGCATACATCGTAG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FR,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_FR;
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
 
@@ -67,8 +68,8 @@ void test_build_graph()
   // revcmp CTACGATGTATGCTTAGCT -> ACGTGTAGGGAACGTTCTA
   seq_read_set(&r1, "AGGAGTTGTCTTCTAAGGAAACGTGTAGGGAACGTTCTA");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTTTTCCACGAGTTAATCTAAG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_RF,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_RF;
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
 
@@ -77,16 +78,17 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "AACCCTAAAAACGTGTAGGGAACGTTCTA");
   seq_read_set(&r2, "AATGCGTGTTAGCTAAGCATACATCGTAG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_RR,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_RR;
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 1);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 1);
 
   // Check add a duplicate when filtering is turned off
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTAATGAT");
   seq_read_set(&r2, "TAGAACGTTCCCTACACGTTGTTTG");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, false, READPAIR_FF,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_FF;
+  prefs.remove_pcr_dups = false;
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 2);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 2);
   total_seq += r1.seq.end + r2.seq.end;
@@ -94,14 +96,16 @@ void test_build_graph()
 
   // Check SE duplicate removal with FF reads
   seq_read_set(&r1, "CTACGATGTATGCTTAGCTAGTGTGATATCCTCC");
-  build_graph_from_reads_mt(&r1, NULL, 0, 9, 9, 9, true, READPAIR_FF,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_FF;
+  prefs.remove_pcr_dups = true;
+  build_graph_from_reads_mt(&r1, NULL, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 2);
 
   // Check SE duplicate removal with RR reads
   seq_read_set(&r1, "GCGTTACCTACTGACAGCTAAGCATACATCGTAG");
-  build_graph_from_reads_mt(&r1, NULL, 0, 9, 9, 9, true, READPAIR_RR,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_RR;
+  prefs.remove_pcr_dups = true;
+  build_graph_from_reads_mt(&r1, NULL, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 2);
 
   // Check we don't filter out reads when kmers in opposite direction
@@ -109,8 +113,9 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "ACGTGTAGGGAACGTTCTA""CTTCTACCGGAGGAT");
   seq_read_set(&r2, "AGCTAAGCATACATCGTAG""TACAATGCACCCTCC");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_FF;
+  prefs.remove_pcr_dups = true;
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 3);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 3);
   total_seq += r1.seq.end + r2.seq.end;
@@ -121,8 +126,9 @@ void test_build_graph()
   // revcmp TAGAACGTTCCCTACACGT -> AGCTAAGCATACATCGTAG
   seq_read_set(&r1, "ACGTGTAGGGAACGTTCTA""CTTCTACCGGAGGAT");
   seq_read_set(&r2, "AGCTAAGCATACATCGTAG""TACAATGCACCCTCC");
-  build_graph_from_reads_mt(&r1, &r2, 0, 9, 9, 9, true, READPAIR_FF,
-                            &stats, 0, &graph);
+  prefs.matedir = READPAIR_FF;
+  prefs.remove_pcr_dups = true;
+  build_graph_from_reads_mt(&r1, &r2, 0, 0, &prefs, &stats, &graph);
   TASSERT(kmer_get_covg("CTACGATGTATGCTTAGCT", &graph) == 3);
   TASSERT(kmer_get_covg("TAGAACGTTCCCTACACGT", &graph) == 3);
 

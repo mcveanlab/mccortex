@@ -629,8 +629,8 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
 }
 
 /**
- * Jump to a new node within the current sample supernode
- * (can actually be any node up until the end of the current supernode)
+ * Jump to a new node within the current sample unitig
+ * (can actually be any node up until the end of the current unitig)
  * @param num_nodes is number of nodes we have moved forward
  */
 void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes)

@@ -2,39 +2,47 @@
 #include "ctx_output.h"
 #include "util.h"
 
+#include <libgen.h> // basename
+
 FILE *ctx_msg_out = NULL;
 pthread_mutex_t ctx_biglock;
 char ctx_cmdcode[4] = "000";
 
+// Get output lock before calling this function
+static void err_msg(const char *type, const char *path, const char *func,
+                    int line, const char *fmt, va_list argptr)
+{
+  (void)func;
+  // Get filename from path
+  char filename[PATH_MAX+1];
+  strcpy(filename, path);
+
+  fflush(stdout);
+  fflush(stderr);
+  timestampf(stderr);
+  fprintf(stderr, "[%s:%i] %s: ", basename(filename), line, type);
+  vfprintf(stderr, fmt, argptr);
+  if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
+}
+
 void dief(const char *file, const char *func, int line, const char *fmt, ...)
 {
-  pthread_mutex_lock(&ctx_biglock);
   va_list argptr;
-  fflush(stdout);
-  fprintf(stderr, "[%s:%i] Error %s(): ", file, line, func);
+  pthread_mutex_lock(&ctx_biglock); // we never release this lock
   va_start(argptr, fmt);
-  vfprintf(stderr, fmt, argptr);
+  err_msg("Fatal Error", file, func, line, fmt, argptr);
   va_end(argptr);
-  if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
-  // Print a timestamp so we know when the crash occurred
-  timestampf(stderr);
-  fputs(" Fatal Error\n", stderr);
   exit(EXIT_FAILURE);
   // abort();
 }
 
 void warnf(const char *file, const char *func, int line, const char *fmt, ...)
 {
-  pthread_mutex_lock(&ctx_biglock);
   va_list argptr;
-  fflush(stdout);
-  timestampf(stderr);
-  fprintf(stderr, "[%s:%i] Warning %s(): ", file, line, func);
+  pthread_mutex_lock(&ctx_biglock);
   va_start(argptr, fmt);
-  vfprintf(stderr, fmt, argptr);
+  err_msg("Warn", file, func, line, fmt, argptr);
   va_end(argptr);
-  if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
-  fflush(stderr);
   pthread_mutex_unlock(&ctx_biglock);
 }
 

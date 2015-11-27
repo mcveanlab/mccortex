@@ -59,7 +59,7 @@ static struct option longopts[] =
 #define RES_NO_TRAVERSAL 7 /* Can't get anywhere from B */
 
 typedef struct {
-  size_t colour, threadid, nthreads;
+  size_t colour, nthreads;
   bool prime_AB; // prime the distance A->B instead of traversing
   size_t num_tests, num_limit; // Counting how many tests we've run / limit
   size_t max_AB_dist; // Max contig to assemble finding A from B
@@ -251,13 +251,13 @@ static inline int test_statement_bkmer(hkey_t hkey, ExpABCWorker *wrkr)
   return wrkr->num_tests < wrkr->num_limit ? 0 : 1;
 }
 
-static void run_exp_abc_thread(void *ptr)
+static void run_exp_abc_thread(void *ptr, size_t threadid)
 {
   ExpABCWorker *wrkr = (ExpABCWorker*)ptr;
   const dBGraph *db_graph = wrkr->db_graph;
 
   // // Start from each kmer, in each direction
-  HASH_ITERATE_PART(&db_graph->ht, wrkr->threadid, wrkr->nthreads,
+  HASH_ITERATE_PART(&db_graph->ht, threadid, wrkr->nthreads,
                     test_statement_bkmer, wrkr);
 }
 
@@ -272,7 +272,6 @@ static void run_exp_abc(const dBGraph *db_graph, bool prime_AB,
 
   for(i = 0; i < nthreads; i++) {
     wrkrs[i].colour = 0;
-    wrkrs[i].threadid = i;
     wrkrs[i].nthreads = nthreads;
     wrkrs[i].db_graph = db_graph;
     wrkrs[i].prime_AB = prime_AB;

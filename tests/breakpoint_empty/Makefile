@@ -34,7 +34,7 @@ run: task.k$(K).mk reads/reads.fa.gz ref.fa
 	@# Check no VCF entries
 	(( `$(VCFCOUNT) proj/vcfs/breakpoints.joint.k$(K).vcf.gz` == 0 )) || false
 	@# Check no breakpoint call entries
-	(( `grep -c '>brkpnt' proj/k$(K)/breakpoints/joint.brk.gz` == 0 )) || false
+	(( `grep -c '>brkpnt' proj/k$(K)/breakpoints_links/joint.brk.gz` == 0 )) || false
 	@echo 'Success: no breakpoint calls or VCF entries!'
 
 clean:

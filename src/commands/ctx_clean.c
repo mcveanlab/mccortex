@@ -26,17 +26,18 @@ const char clean_usage[] =
 "\n"
 "  Cleaning:\n"
 "  -T, --tips <L>              Clip tips shorter than <L> kmers\n"
-"  -S[T], --supernodes[=T]     Remove low coverage supernode with coverage < T [default: auto]\n"
+// "  -S[X], --supernodes[=X]     Remove low coverage unitigs with coverage < T [default: auto]\n"
+"  -U[X], --unitigs[=X]        Remove low coverage unitigs with coverage < X [default: auto]\n"
 "  -B, --fallback <T>          Fall back threshold if we can't pick\n"
 "\n"
 "  Statistics:\n"
 "  -c, --covg-before <out.csv> Save kmer coverage histogram before cleaning\n"
 "  -C, --covg-after <out.csv>  Save kmer coverage histogram after cleaning\n"
-"  -l, --len-before <out.csv>  Save supernode length histogram before cleaning\n"
-"  -L, --len-after <out.csv>   Save supernode length histogram after cleaning\n"
+"  -l, --len-before <out.csv>  Save unitig length histogram before cleaning\n"
+"  -L, --len-after <out.csv>   Save unitig length histogram after cleaning\n"
 "\n"
-"  --supernodes without a threshold, causes a calculated threshold to be used\n"
-"  Default: --tips 2*kmer_size --supernodes\n"
+"  --unitigs without a threshold, causes a calculated threshold to be used\n"
+"  Default: --tips 2*kmer_size --unitigs\n"
 "\n";
 
 static struct option longopts[] =
@@ -50,7 +51,8 @@ static struct option longopts[] =
   {"threads",      required_argument, NULL, 't'},
 // command specific
   {"tips",         required_argument, NULL, 'T'},
-  {"supernodes",   optional_argument, NULL, 'S'},
+  {"unitigs",      optional_argument, NULL, 'U'},
+  {"supernodes",   optional_argument, NULL, 'S'}, // alias for --unitigs
   {"fallback",     required_argument, NULL, 'B'},
 // output
   {"len-before",   required_argument, NULL, 'l'},
@@ -65,7 +67,7 @@ int ctx_clean(int argc, char **argv)
   size_t nthreads = 0, use_ncols = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_ctx_path = NULL;
-  bool tip_cleaning = false, supernode_cleaning = false;
+  bool tip_cleaning = false, unitig_cleaning = false;
   size_t min_keep_tip = 0;
   Covg threshold = 0, fallback_thresh = 0;
   const char *len_before_path = NULL, *len_after_path = NULL;
@@ -100,9 +102,10 @@ int ctx_clean(int argc, char **argv)
         tip_cleaning = true;
         break;
       case 'S':
-        cmd_check(!supernode_cleaning, cmd);
+      case 'U':
+        cmd_check(!unitig_cleaning, cmd);
         if(optarg != NULL) threshold = cmd_uint32_nonzero(cmd, optarg);
-        supernode_cleaning = true;
+        unitig_cleaning = true;
         break;
       case 'B': cmd_check(!fallback_thresh, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;
       case 'l': cmd_check(!len_before_path, cmd); len_before_path = optarg; break;
@@ -122,14 +125,14 @@ int ctx_clean(int argc, char **argv)
   if(optind >= argc) cmd_print_usage("Please give input graph files");
 
   // Default behaviour
-  if(!tip_cleaning && !supernode_cleaning) {
+  if(!tip_cleaning && !unitig_cleaning) {
     if(out_ctx_path != NULL)
-      supernode_cleaning = tip_cleaning = true; // do both
+      unitig_cleaning = tip_cleaning = true; // do both
     else
       warn("No cleaning being done: you did not specify --out <out.ctx>");
   }
 
-  bool doing_cleaning = (supernode_cleaning || tip_cleaning);
+  bool doing_cleaning = (unitig_cleaning || tip_cleaning);
 
   if(doing_cleaning && out_ctx_path == NULL) {
     cmd_print_usage("Please specify --out <out.ctx> for cleaned graph");
@@ -137,7 +140,7 @@ int ctx_clean(int argc, char **argv)
 
   if(!doing_cleaning && (covg_after_path || len_after_path)) {
     cmd_print_usage("You gave --len-after <out> / --covg-after <out> without "
-                    "any cleaning (set -s, --supernodes or -t, --tips)");
+                    "any cleaning (set -U, --unitigs or -t, --tips)");
   }
 
   if(doing_cleaning && strcmp(out_ctx_path,"-") != 0 &&
@@ -146,8 +149,8 @@ int ctx_clean(int argc, char **argv)
     cmd_print_usage("Output file already exists: %s", out_ctx_path);
   }
 
-  if(fallback_thresh && !supernode_cleaning)
-    cmd_print_usage("-B, --fallback <T> without --supernodes");
+  if(fallback_thresh && !unitig_cleaning)
+    cmd_print_usage("-B, --fallback <T> without --unitigs");
 
   // Use remaining args as graph files
   char **gfile_paths = argv + optind;
@@ -196,8 +199,8 @@ int ctx_clean(int argc, char **argv)
     for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++) {
       fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
       cleaning = &gfiles[i].hdr.ginfo[fromcol].cleaning;
-      if(cleaning->cleaned_snodes && supernode_cleaning) {
-        warn("%s:%zu already has supernode cleaning with threshold: <%zu",
+      if(cleaning->cleaned_snodes && unitig_cleaning) {
+        warn("%s:%zu already has unitig cleaning with threshold: <%zu",
              file_filter_path(&gfiles[i].fltr), fromcol,
              (size_t)cleaning->clean_snodes_thresh);
       }
@@ -214,17 +217,17 @@ int ctx_clean(int argc, char **argv)
   if(covg_before_path != NULL)
     status("%zu. Saving kmer coverage distribution to: %s", step++, covg_before_path);
   if(len_before_path != NULL)
-    status("%zu. Saving supernode length distribution to: %s", step++, len_before_path);
+    status("%zu. Saving unitig length distribution to: %s", step++, len_before_path);
   if(tip_cleaning)
     status("%zu. Cleaning tips shorter than %zu nodes", step++, min_keep_tip);
-  if(supernode_cleaning && threshold > 0)
-    status("%zu. Cleaning supernodes with coverage < %u", step++, threshold);
-  if(supernode_cleaning && threshold <= 0)
-    status("%zu. Cleaning supernodes with auto-detected threshold", step++);
+  if(unitig_cleaning && threshold > 0)
+    status("%zu. Cleaning unitigs with coverage < %u", step++, threshold);
+  if(unitig_cleaning && threshold <= 0)
+    status("%zu. Cleaning unitigs with auto-detected threshold", step++);
   if(covg_after_path != NULL)
     status("%zu. Saving kmer coverage distribution to: %s", step++, covg_after_path);
   if(len_after_path != NULL)
-    status("%zu. Saving supernode length distribution to: %s", step++, len_after_path);
+    status("%zu. Saving unitig length distribution to: %s", step++, len_after_path);
 
   //
   // Decide memory usage
@@ -312,7 +315,7 @@ int ctx_clean(int argc, char **argv)
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
   uint8_t *keep = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
 
-  if((supernode_cleaning && threshold <= 0) || covg_before_path || len_before_path)
+  if((unitig_cleaning && threshold <= 0) || covg_before_path || len_before_path)
   {
     // Get coverage distribution and estimate cleaning threshold
     int est_threshold = cleaning_get_threshold(nthreads,
@@ -334,11 +337,11 @@ int ctx_clean(int argc, char **argv)
   }
 
   // Die if we failed to find suitable cleaning threshold
-  if(supernode_cleaning && threshold <= 0)
-    die("Need cleaning threshold (--supernodes=<D> or --fallback <D>)");
+  if(unitig_cleaning && threshold <= 0)
+    die("Need cleaning threshold (--unitigs=<D> or --fallback <D>)");
 
   if(doing_cleaning) {
-    // Clean graph of tips (if min_keep_tip > 0) and supernodes (if threshold > 0)
+    // Clean graph of tips (if min_keep_tip > 0) and unitigs (if threshold > 0)
     clean_graph(nthreads, threshold, min_keep_tip,
                 covg_after_path, len_after_path,
                 visited, keep, &db_graph);
@@ -353,14 +356,14 @@ int ctx_clean(int argc, char **argv)
     for(col = 0; col < ncols; col++)
     {
       cleaning = &outhdr.ginfo[col].cleaning;
-      cleaning->cleaned_snodes |= supernode_cleaning;
+      cleaning->cleaned_snodes |= unitig_cleaning;
       cleaning->cleaned_tips |= tip_cleaning;
 
       // if(tip_cleaning) {
       //   strbuf_append_str(&outhdr.ginfo[col].sample_name, ".tipclean");
       // }
 
-      if(supernode_cleaning) {
+      if(unitig_cleaning) {
         size_t thresh = cleaning->clean_snodes_thresh;
         thresh = cleaning->cleaned_snodes ? MAX2(thresh, (uint32_t)threshold)
                                           : (uint32_t)threshold;

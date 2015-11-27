@@ -154,24 +154,24 @@ static inline int infer_edges_node(hkey_t hkey,
 }
 
 typedef struct {
-  const size_t threadid, nthreads;
+  const size_t nthreads;
   const bool add_all_edges;
   const dBGraph *db_graph;
   size_t num_nodes_modified;
-} InferEdgesWorker;
+} InferringEdges;
 
-static void infer_edges_worker(void *arg)
+static void infer_edges_worker(void *arg, size_t threadid)
 {
-  InferEdgesWorker *wrkr = (InferEdgesWorker*)arg;
-  size_t num_nodes_modified = 0;
+  InferringEdges *wrkr = (InferringEdges*)arg;
+  size_t num_modified = 0;
   Covg covgs[wrkr->db_graph->num_of_cols];
 
-  HASH_ITERATE_PART(&wrkr->db_graph->ht, wrkr->threadid, wrkr->nthreads,
+  HASH_ITERATE_PART(&wrkr->db_graph->ht, threadid, wrkr->nthreads,
                     infer_edges_node,
                     wrkr->add_all_edges, covgs, wrkr->db_graph,
-                    &num_nodes_modified);
+                    &num_modified);
 
-  wrkr->num_nodes_modified = num_nodes_modified;
+  __sync_fetch_and_add((volatile size_t *)&wrkr->num_nodes_modified, num_modified);
 }
 
 size_t infer_edges(size_t nthreads, bool add_all_edges, const dBGraph *db_graph)
@@ -179,27 +179,14 @@ size_t infer_edges(size_t nthreads, bool add_all_edges, const dBGraph *db_graph)
   ctx_assert(db_graph->node_in_cols != NULL || db_graph->col_covgs != NULL);
   ctx_assert(db_graph->col_edges != NULL);
 
-  size_t i, num_nodes_modified = 0;
   status("[inferedges] Processing stream");
 
-  InferEdgesWorker *wrkrs = ctx_calloc(nthreads, sizeof(InferEdgesWorker));
+  InferringEdges infedges = {.nthreads = nthreads,
+                             .add_all_edges = add_all_edges,
+                             .db_graph = db_graph,
+                             .num_nodes_modified = 0};
 
-  for(i = 0; i < nthreads; i++) {
-    InferEdgesWorker tmp = {.threadid = i, .nthreads = nthreads,
-                            .add_all_edges = add_all_edges,
-                            .db_graph = db_graph,
-                            .num_nodes_modified = 0};
-    memcpy(&wrkrs[i], &tmp, sizeof(InferEdgesWorker));
-  }
+  util_multi_thread(&infedges, nthreads, infer_edges_worker);
 
-  util_run_threads(wrkrs, nthreads, sizeof(InferEdgesWorker),
-                   nthreads, infer_edges_worker);
-
-  // Sum up nodes modified
-  for(i = 0; i < nthreads; i++)
-    num_nodes_modified += wrkrs[i].num_nodes_modified;
-
-  ctx_free(wrkrs);
-
-  return num_nodes_modified;
+  return infedges.num_nodes_modified;
 }

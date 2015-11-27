@@ -178,7 +178,7 @@ size_t graph_file_read_header(GraphFileReader *file)
       _gfread(file, &(err_cleaning->cleaned_tips),
               sizeof(uint8_t), "tip cleaning");
       _gfread(file, &(err_cleaning->cleaned_snodes),
-              sizeof(uint8_t), "remove low covg supernodes");
+              sizeof(uint8_t), "remove low covg unitig");
       _gfread(file, &(err_cleaning->cleaned_kmers),
               sizeof(uint8_t), "remove low covg kmers");
       _gfread(file, &(err_cleaning->is_graph_intersection),
@@ -186,7 +186,7 @@ size_t graph_file_read_header(GraphFileReader *file)
 
       uint32_t clean_snodes_thresh = 0, clean_kmers_thresh = 0;
       _gfread(file, &clean_snodes_thresh,
-              sizeof(uint32_t), "remove low covg supernode threshold");
+              sizeof(uint32_t), "remove low covg unitig threshold");
       _gfread(file, &clean_kmers_thresh,
               sizeof(uint32_t), "remove low covg kmer threshold");
 
@@ -203,7 +203,7 @@ size_t graph_file_read_header(GraphFileReader *file)
       // Sanity checks
       if(!err_cleaning->cleaned_snodes && clean_snodes_thresh > 0)
       {
-        warn("Graph header gives cleaning threshold for supernodes "
+        warn("Graph header gives cleaning threshold for unitig "
              "when no cleaning was performed [path: %s]", path);
         clean_snodes_thresh = 0;
       }

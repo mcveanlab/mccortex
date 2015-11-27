@@ -72,7 +72,7 @@ static void test_bubbles(dBGraph *graph, const char **seqs, size_t nseqs,
 
   size_t i;
   for(i = 0; i < nseqs; i++)
-    build_graph_from_str_mt(graph, i, seqs[i], strlen(seqs[i]));
+    build_graph_from_str_mt(graph, i, seqs[i], strlen(seqs[i]), false);
 
   graph->num_of_cols_used = MAX2(graph->num_of_cols_used, 1);
 

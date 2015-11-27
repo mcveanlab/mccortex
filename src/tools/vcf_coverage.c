@@ -192,7 +192,7 @@ static inline void fetch_chrom(bcf_hdr_t *hdr, bcf1_t *v,
     die("Ref allele goes out of bounds: %s %i %s %s [chrlen: %i]",
         bcf_seqname(hdr, v), v->pos+1, v->d.id, v->d.allele[0], *chrlen);
   }
-  if(strncasecmp((*chr)+v->pos,v->d.allele[0],v->rlen) != 0) {
+  if(!dna_ref_vcf_match((*chr)+v->pos, v->d.allele[0], v->rlen)) {
     die("Alleles don't match: %s %i %s %s; ref: %.*s [%i]",
         bcf_seqname(hdr, v), v->pos+1, v->d.id, v->d.allele[0],
         v->rlen, *chr+v->pos, v->rlen);

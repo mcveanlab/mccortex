@@ -87,7 +87,7 @@ void all_tests_construct_graph(dBGraph *graph,
 
 static inline void _tests_add_to_graph(dBGraph *graph, const char *str, size_t colour)
 {
-  build_graph_from_str_mt(graph, colour, str, strlen(str));
+  build_graph_from_str_mt(graph, colour, str, strlen(str), false);
 }
 
 //

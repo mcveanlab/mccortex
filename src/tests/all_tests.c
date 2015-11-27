@@ -130,7 +130,7 @@ void all_tests_construct_graph(dBGraph *graph,
 
   // Build graph
   for(i = 0; i < nseqs; i++)
-    build_graph_from_str_mt(graph, 0, seqs[i], strlen(seqs[i]));
+    build_graph_from_str_mt(graph, 0, seqs[i], strlen(seqs[i]), false);
 
   gpath_store_merge_read_write(&graph->gpstore);
 

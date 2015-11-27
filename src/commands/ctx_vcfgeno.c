@@ -116,7 +116,8 @@ static void math_calcs_destroy() {
 // logerr = log(seq_err)
 static double llk_hom(uint64_t covg1, uint64_t covg2, double theta1, double logerr)
 {
-  return (covg1 * log(theta1) - theta1 - lnfac(covg1) + covg2 * logerr);
+  double logtheta1 = log(theta1); // log(err*theta) = log(err)+log(theta)
+  return covg1 * logtheta1 - theta1 - lnfac(covg1) + covg2 * (logerr + logtheta1);
 }
 
 static double llk_het(uint64_t covg1, uint64_t covg2, double theta1, double theta2)

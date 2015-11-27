@@ -75,35 +75,35 @@ static void simple_test()
 
   // Add random kmer that no one has edges to/from
   const char rnd[] = "GGACTTTTTAA";
-  build_graph_from_str_mt(&graph, 0, rnd, 11);
-  build_graph_from_str_mt(&graph, 1, rnd, 11);
-  build_graph_from_str_mt(&graph, 2, rnd, 11);
-  build_graph_from_str_mt(&graph, 3, rnd, 11);
+  build_graph_from_str_mt(&graph, 0, rnd, 11, false);
+  build_graph_from_str_mt(&graph, 1, rnd, 11, false);
+  build_graph_from_str_mt(&graph, 2, rnd, 11, false);
+  build_graph_from_str_mt(&graph, 3, rnd, 11, false);
 
   // Sample 0
-  build_graph_from_str_mt(&graph, 0, seq0, 13);
-  build_graph_from_str_mt(&graph, 0, seq1, 12);
+  build_graph_from_str_mt(&graph, 0, seq0, 13, false);
+  build_graph_from_str_mt(&graph, 0, seq1, 12, false);
 
   // Sample 1
-  build_graph_from_str_mt(&graph, 1, seq0,   11);
-  build_graph_from_str_mt(&graph, 1, seq0+1, 11);
-  build_graph_from_str_mt(&graph, 1, seq0+2, 11);
-  build_graph_from_str_mt(&graph, 1, seq1+1, 11);
+  build_graph_from_str_mt(&graph, 1, seq0,   11, false);
+  build_graph_from_str_mt(&graph, 1, seq0+1, 11, false);
+  build_graph_from_str_mt(&graph, 1, seq0+2, 11, false);
+  build_graph_from_str_mt(&graph, 1, seq1+1, 11, false);
 
   // Sample 2
-  build_graph_from_str_mt(&graph, 2, seq0,   12);
-  build_graph_from_str_mt(&graph, 2, seq1+1, 11);
+  build_graph_from_str_mt(&graph, 2, seq0,   12, false);
+  build_graph_from_str_mt(&graph, 2, seq1+1, 11, false);
 
   // Sample 3
-  build_graph_from_str_mt(&graph, 3, seq0,   11);
-  build_graph_from_str_mt(&graph, 3, seq0+2, 11);
-  build_graph_from_str_mt(&graph, 3, seq1+1, 11);
+  build_graph_from_str_mt(&graph, 3, seq0,   11, false);
+  build_graph_from_str_mt(&graph, 3, seq0+2, 11, false);
+  build_graph_from_str_mt(&graph, 3, seq1+1, 11, false);
 
   // Sample 4
-  build_graph_from_str_mt(&graph, 4, seq0,   11);
-  build_graph_from_str_mt(&graph, 4, seq0+1, 11);
-  build_graph_from_str_mt(&graph, 4, seq0+2, 11);
-  build_graph_from_str_mt(&graph, 4, seq1,   12);
+  build_graph_from_str_mt(&graph, 4, seq0,   11, false);
+  build_graph_from_str_mt(&graph, 4, seq0+1, 11, false);
+  build_graph_from_str_mt(&graph, 4, seq0+2, 11, false);
+  build_graph_from_str_mt(&graph, 4, seq1,   12, false);
 
   TASSERT(graph.ht.num_kmers == 5);
 

@@ -13,8 +13,8 @@ void prune_node_without_edges_mt(dBGraph *db_graph, hkey_t hkey);
 
 void prune_node(dBGraph *db_graph, hkey_t node);
 
-// Supernode pruning used by ctx_clean
-void prune_supernode(dBNode *nodes, size_t len, dBGraph *db_graph);
+// Unitig pruning used by ctx_clean
+void prune_unitig(dBNode *nodes, size_t len, dBGraph *db_graph);
 
 // Used by ctx_subgraph.c, clean_graph.c
 // flags is a bit array, one bit per kmer
