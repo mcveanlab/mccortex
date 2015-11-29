@@ -14,15 +14,14 @@ static void err_msg(const char *type, const char *path, const char *func,
 {
   (void)func;
   // Get filename from path
-  char filename[PATH_MAX+1];
-  strcpy(filename, path);
-
+  char *filename = strdup(path);
   fflush(stdout);
   fflush(stderr);
   timestampf(stderr);
   fprintf(stderr, "[%s:%i] %s: ", basename(filename), line, type);
   vfprintf(stderr, fmt, argptr);
   if(*(fmt + strlen(fmt) - 1) != '\n') fputc('\n', stderr);
+  free(filename);
 }
 
 void dief(const char *file, const char *func, int line, const char *fmt, ...)

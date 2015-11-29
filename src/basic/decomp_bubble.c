@@ -161,7 +161,7 @@ static bool align_flank3p(const bam1_t *mflank,
 
   db->stats.nflank3p_approx_found++;
 
-  *flank3ptrim = (fw_strand ? alt_skip : alt_skip) - flank5pcpy;
+  *flank3ptrim = alt_skip - flank5pcpy;
   *pos = fw_strand ? search_start + ref_skip - 1
                    : search_end - ref_skip;
 
