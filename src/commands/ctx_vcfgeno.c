@@ -352,6 +352,8 @@ static bool parse_ploidy_arg(char *str, uint8_t **ploidy_mat,
   int s, s_beg, s_end, c, c_beg, c_end;
   size_t i, j, ploidy = 0;
 
+  ctx_assert(str != NULL);
+
   // Single number (e.g. 2) on its own is equivalent to .:.:2
   if(parse_entire_size(str, &ploidy))
   {
