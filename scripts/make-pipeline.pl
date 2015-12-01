@@ -616,6 +616,8 @@ for my $maxk (@ctx_maxks) {
 print "\t@[ -x \$(CTXDIR)/libs/bcftools/bcftools ] || ( echo 'Error: Please compile McCortex with `make all` or pass CTXDIR=<path/to/mccortex/>' 1>&2 && false )\n";
 
 print "
+dirs: \$(DIRS)
+
 \$(DIRS):
 \tmkdir -p \$@
 
