@@ -22,6 +22,9 @@
 
 // #define CTXVERBOSE 1
 
+#define GEN_PATHS_COUNTER_STEP 100
+#define INIT_BUFLEN 1024
+
 struct GenPathWorker
 {
   pthread_t thread;
@@ -29,7 +32,8 @@ struct GenPathWorker
 
   // We take jobs from the pool
   // MsgPool *pool;
-  volatile size_t *rcounter;
+  size_t nreads;
+  volatile size_t *shared_nreads;
 
   // Current job
   AsyncIOData *data; // current data
@@ -43,8 +47,6 @@ struct GenPathWorker
   size_t *pos_fw, *pos_rv;
   size_t num_fw, num_rv, junc_arrsize;
 };
-
-#define INIT_BUFLEN 1024
 
 // Printing variables defined in correct_aln_input.h
 // Used for printint output
@@ -445,8 +447,18 @@ static void generate_paths_worker(AsyncIOData *data, size_t threadid, void *ptr)
   reads_to_paths(wrkr);
 
   // Print progress
-  size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
-  ctx_update("GenPaths", n);
+  wrkr->nreads++;
+  if(wrkr->nreads >= GEN_PATHS_COUNTER_STEP) {
+    // Update shared counter
+    size_t n = __sync_fetch_and_add(wrkr->shared_nreads, wrkr->nreads);
+    // if n .. n+wrkr->nreads
+    ctx_update2("GenPaths", n, n+wrkr->nreads, CTX_UPDATE_REPORT_RATE);
+    wrkr->nreads = 0;
+  }
+
+  // Print progress
+  // size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
+  // ctx_update("GenPaths", n);
 }
 
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
@@ -494,7 +506,7 @@ void generate_paths(CorrectAlnInput *tasks, size_t num_inputs,
   size_t i, read_counter = 0;
 
   for(i = 0; i < num_workers; i++)
-    workers[i].rcounter = &read_counter;
+    workers[i].shared_nreads = &read_counter;
 
   AsyncIOInput *asyncio_tasks = ctx_malloc(num_inputs * sizeof(AsyncIOInput));
   correct_aln_input_to_asycio(asyncio_tasks, tasks, num_inputs);
