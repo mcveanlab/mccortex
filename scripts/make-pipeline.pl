@@ -773,13 +773,13 @@ print "#\n# Assemble contigs\n#\n";
 for my $k (@kmers) {
   my $ctx = get_mccortex($k);
   print "# assembly high covg sample k=$k\n";
-  print "$proj/k$k/contigs_links/%.pop.raw.fa.gz: $proj/k$k/graphs/%.pop.clean.ctx $proj/k$k/links/%.pop.pe.clean.ctp.gz\n";
+  print "$proj/k$k/contigs_links/%.pop.raw.fa.gz: $proj/k$k/graphs/%.pop.clean.ctx $proj/k$k/links/%.pop.pe.clean.ctp.gz | dirs\n";
   print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_POP_ARGS) -o - -p $proj/k$k/links/\$*.pop.pe.clean.ctp.gz \$< | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
   print "# assembly k=$k with links\n";
-  print "$proj/k$k/contigs_links/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k)\n";
+  print "$proj/k$k/contigs_links/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k) | dirs\n";
   print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
   print "# assembly k=$k\n";
-  print "$proj/k$k/contigs_plain/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx \$(REF_GRAPH_K$k)\n";
+  print "$proj/k$k/contigs_plain/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx \$(REF_GRAPH_K$k) | dirs\n";
   print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - \$< \$(REF_GRAPH_K$k) | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
   print "# Remove redundant contigs\n";
   print "$proj/k$k/contigs%.rmdup.fa.gz: $proj/k$k/contigs%.raw.fa.gz\n";
