@@ -1,15 +1,15 @@
 SHELL:=/bin/bash -euo pipefail
 
 #
-# Generate 50 bases of sequence, build graph, save, sort and index it, then
-# re-assemble the sequence. We should get back a single contig of length 50
+# Generate 60 bases of sequence, build graph, save, sort and index it, then
+# re-assemble the sequence. We should get back a single contig of length 60
 #
 
 CTXDIR=../../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 MCCORTEX=$(CTXDIR)/bin/mccortex31
 CONTIGSTATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
-K=11
+K=21
 
 TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
 
@@ -19,7 +19,7 @@ clean:
 	rm -rf $(TGTS) contig.stats.txt
 
 seq.fa:
-	$(DNACAT) -F -n 50 > $@
+	$(DNACAT) -F -n 60 > $@
 
 seq.k$(K).ctx: seq.fa
 	$(MCCORTEX) build -m 1M -k $(K) \
@@ -48,6 +48,6 @@ contig.stats.txt: sort.k$(K).ctx
 
 test_assemble: contig.stats.txt
 	grep -q 'contigs: .* 1$$' $<
-	grep -q 'length: .* 50$$' $<
+	grep -q 'length: .* 60$$' $<
 
 .PHONY: all clean test_assemble
