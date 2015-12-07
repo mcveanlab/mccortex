@@ -261,11 +261,13 @@ print '
 #       -> <P>.brk.norm.vcf.gz.csi
 #     -> breakpoints_plain/
 #       -> SAME AS ../breakpoints_links/
-#     -> contigs/
+#     -> contigs_plain/
 #       -> <S>.raw.fa.gz
 #       -> <S>.raw.fa.gz.log
 #       -> <S>.rmdup.fa.gz
 #       -> <S>.rmdup.fa.gz.log
+#     -> contigs_links/
+#       -> SAME AS ../contigs_plain/
 #     -> ref/
 #       -> ref.ctx
 #       -> ref.ctx.log
@@ -431,8 +433,9 @@ for my $k (@kmers) {
   print "RAW_PE_LINKS_K$k=". join(' ', map {"$proj/k$k/links/$_->{'name'}.pe.raw.ctp.gz"} @samples)."\n";
   print "CLEAN_SE_LINKS_K$k=\$(RAW_SE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
-  print "CONTIGS_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
-  print "CONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
+  print "CONTIGS_PLAIN_K$k=".join(' ', map {"$proj/k$k/contigs_plain/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
+  print "CONTIGS_LINKS_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
+  print "CONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
   print "\n";
 }
 
@@ -457,6 +460,7 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_links_vcf $union_bubble_1by1_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_links_vcf $union_brkpnt_1by1_links_vcf.csi") . "\n";
 print "\tendif
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."
 else
 \tifdef JOINT\n";
     # plain+joint calling
@@ -475,6 +479,7 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_plain_vcf $union_bubble_1by1_plain_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_plain_vcf $union_brkpnt_1by1_plain_vcf.csi") . "\n";
 print "\tendif
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."
 endif\n\n";
 
 print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
@@ -486,7 +491,6 @@ print "CLEAN_PE_LINKS=".join(' ', map {"\$(CLEAN_PE_LINKS_K$_)"} @kmers)."\n";
 print "FINAL_LINKS=\$(CLEAN_PE_LINKS)\n";
 print "BUBBLES="    .join(' ', map {"\$(BUBBLES_K$_)"}        @kmers)."\n";
 print "BREAKPOINTS=".join(' ', map {"\$(BREAKPOINTS_K$_)"}    @kmers)."\n";
-print "CONTIGS="    .join(' ', map {"\$(CONTIGS_K$_)"}        @kmers)."\n";
 print "CONTIGS_POP=".join(' ', map {"\$(CONTIGS_POP_K$_)"}    @kmers)."\n";
 
 print "BREAKPOINTS_GENO_VCFS=\$(subst .vcf,.geno.vcf,\$(BREAKPOINTS_UNION_VCFS))\n";
@@ -539,9 +543,9 @@ print "\n";
 my @dirlist = ();
 for my $k (@kmers) {
   my $dirs = join(' ', "$proj/k$k/graphs/", "$proj/k$k/links/",
-                       "$proj/k$k/contigs/",
-                       "$proj/k$k/bubbles_links/", "$proj/k$k/breakpoints_links/",
-                       "$proj/k$k/bubbles_plain/", "$proj/k$k/breakpoints_plain/",
+                       "$proj/k$k/contigs_plain/", "$proj/k$k/contigs_links/",
+                       "$proj/k$k/bubbles_plain/", "$proj/k$k/bubbles_links/",
+                       "$proj/k$k/breakpoints_plain/", "$proj/k$k/breakpoints_links/",
                        "$proj/k$k/ref/",
                        "$proj/k$k/vcfcov/");
   push(@dirlist, $dirs);
@@ -769,13 +773,16 @@ print "#\n# Assemble contigs\n#\n";
 for my $k (@kmers) {
   my $ctx = get_mccortex($k);
   print "# assembly high covg sample k=$k\n";
-  print "$proj/k$k/contigs/%.pop.raw.fa.gz: $proj/k$k/graphs/%.pop.clean.ctx $proj/k$k/links/%.pop.pe.clean.ctp.gz\n";
-  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_POP_ARGS) -o - -p $proj/k$k/links/\$*.pop.pe.clean.ctp.gz \$<               | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
-  print "# assembly k=$k\n";
-  print "$proj/k$k/contigs/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k)\n";
+  print "$proj/k$k/contigs_links/%.pop.raw.fa.gz: $proj/k$k/graphs/%.pop.clean.ctx $proj/k$k/links/%.pop.pe.clean.ctp.gz\n";
+  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_POP_ARGS) -o - -p $proj/k$k/links/\$*.pop.pe.clean.ctp.gz \$< | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
+  print "# assembly k=$k with links\n";
+  print "$proj/k$k/contigs_links/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k)\n";
   print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
+  print "# assembly k=$k\n";
+  print "$proj/k$k/contigs_plain/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx \$(REF_GRAPH_K$k)\n";
+  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - \$< \$(REF_GRAPH_K$k) | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
   print "# Remove redundant contigs\n";
-  print "$proj/k$k/contigs/%.rmdup.fa.gz: $proj/k$k/contigs/%.raw.fa.gz\n";
+  print "$proj/k$k/contigs%.rmdup.fa.gz: $proj/k$k/contigs%.raw.fa.gz\n";
   print "\t( $ctx rmsubstr \$(CTX_ARGS) -k $k -o - \$< | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
 }
 
