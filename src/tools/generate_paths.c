@@ -455,10 +455,6 @@ static void generate_paths_worker(AsyncIOData *data, size_t threadid, void *ptr)
     ctx_update2("GenPaths", n, n+wrkr->nreads, CTX_UPDATE_REPORT_RATE);
     wrkr->nreads = 0;
   }
-
-  // Print progress
-  // size_t n = __sync_add_and_fetch(wrkr->rcounter, 1);
-  // ctx_update("GenPaths", n);
 }
 
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
