@@ -698,7 +698,7 @@ for my $k (@kmers) {
   # Dump unitigs
   print "# sample graph unitigs at k=$k\n";
   print "$proj/k$k/graphs/%.clean.unitigs.fa.gz: $proj/k$k/graphs/%.clean.ctx\n";
-  print "\t($ctx unitigs \$(CTX_ARGS) \$< | gzip -c > \$@) 2> \$@.log\n\n";
+  print "\t($ctx unitigs \$(CTX_ARGS) \$< | \$(BGZIP) -c > \$@) 2> \$@.log\n\n";
 }
 
 # Create and clean link files
@@ -770,13 +770,13 @@ for my $k (@kmers) {
   my $ctx = get_mccortex($k);
   print "# assembly high covg sample k=$k\n";
   print "$proj/k$k/contigs/%.pop.raw.fa.gz: $proj/k$k/graphs/%.pop.clean.ctx $proj/k$k/links/%.pop.pe.clean.ctp.gz\n";
-  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_POP_ARGS) -o - -p $proj/k$k/links/\$*.pop.pe.clean.ctp.gz \$<               | gzip -c > \$@ ) >& \$@.log\n\n";
+  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_POP_ARGS) -o - -p $proj/k$k/links/\$*.pop.pe.clean.ctp.gz \$<               | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
   print "# assembly k=$k\n";
   print "$proj/k$k/contigs/%.raw.fa.gz: $proj/k$k/graphs/%.clean.ctx $proj/k$k/links/%.pe.clean.ctp.gz \$(REF_GRAPH_K$k)\n";
-  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | gzip -c > \$@ ) >& \$@.log\n\n";
+  print "\t( $ctx contigs \$(CTX_ARGS) \$(CONTIG_ARGS) -o - -p $proj/k$k/links/\$*.pe.clean.ctp.gz \$< \$(REF_GRAPH_K$k) | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
   print "# Remove redundant contigs\n";
   print "$proj/k$k/contigs/%.rmdup.fa.gz: $proj/k$k/contigs/%.raw.fa.gz\n";
-  print "\t( $ctx rmsubstr \$(CTX_ARGS) -k $k -o - \$< | gzip -c > \$@ ) >& \$@.log\n\n";
+  print "\t( $ctx rmsubstr \$(CTX_ARGS) -k $k -o - \$< | \$(BGZIP) -c > \$@ ) >& \$@.log\n\n";
 }
 
 # Generate buble calls

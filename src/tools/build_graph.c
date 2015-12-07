@@ -11,12 +11,15 @@
 #include <pthread.h>
 #include "seq_file/seq_file.h"
 
-typedef struct
-{
-  dBGraph *const db_graph;
-  SeqLoadingStats **stats; // [nthreads][files]
-  size_t rcounter; // counter of entries taken from the pool
-} BuildGraphData;
+// Update shared_nreads in steps of 100 to reduce thread interaction
+#define BUILD_GRAPH_COUNTER_STEP 100
+
+typedef struct {
+  dBGraph *db_graph;
+  SeqLoadingStats *stats; // [files]
+  size_t nreads;
+  volatile size_t *shared_nreads;
+} BuildGraphThread;
 
 //
 // Check for PCR duplicates
@@ -229,19 +232,25 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
 
 static void add_reads_to_graph(AsyncIOData *data, size_t threadid, void *ptr)
 {
-  BuildGraphData *wrkr = (BuildGraphData*)ptr;
+  BuildGraphThread *wrkrs = (BuildGraphThread*)ptr;
+  BuildGraphThread *wrkr = &wrkrs[threadid];
   const BuildGraphTask *task = (BuildGraphTask*)data->ptr;
-  SeqLoadingStats *stats = wrkr->stats[threadid];
   read_t *r2 = data->r2.name.end == 0 && data->r2.seq.end == 0 ? NULL : &data->r2;
 
   build_graph_from_reads_mt(&data->r1, r2,
                             data->fq_offset1, data->fq_offset2,
-                            &task->prefs, stats,
+                            &task->prefs, wrkr->stats,
                             wrkr->db_graph);
 
   // Print progress
-  size_t n = __sync_add_and_fetch((volatile size_t*)&wrkr->rcounter, 1);
-  ctx_update("BuildGraph", n);
+  wrkr->nreads++;
+  if(wrkr->nreads >= BUILD_GRAPH_COUNTER_STEP) {
+    // Update shared counter
+    size_t n = __sync_fetch_and_add(wrkr->shared_nreads, wrkr->nreads);
+    // if n .. n+wrkr->nreads
+    ctx_update2("BuildGraph", n, n+wrkr->nreads, CTX_UPDATE_REPORT_RATE);
+    wrkr->nreads = 0;
+  }
 }
 
 // One thread used per input file, nthreads used to add reads to graph
@@ -260,22 +269,25 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
     memcpy(&async_tasks[f], &files[f].files, sizeof(AsyncIOInput));
   }
 
-  SeqLoadingStats **stats = ctx_calloc(nthreads, sizeof(SeqLoadingStats*));
-  for(i = 0; i < nthreads; i++)
-    stats[i] = ctx_calloc(nfiles, sizeof(SeqLoadingStats));
+  BuildGraphThread *threads = ctx_calloc(nthreads, sizeof(BuildGraphThread));
+  size_t total_nreads = 0;
 
-  BuildGraphData global_mem = {.db_graph = db_graph, .stats = stats, .rcounter = 0};
+  for(i = 0; i < nthreads; i++) {
+    threads[i].stats = ctx_calloc(nfiles, sizeof(SeqLoadingStats));
+    threads[i].db_graph = db_graph;
+    threads[i].shared_nreads = &total_nreads;
+  }
 
   asyncio_run_pool(async_tasks, nfiles, add_reads_to_graph,
-                   &global_mem, nthreads, 0);
+                   threads, nthreads, 0);
 
   // Merge stats
   for(i = 0; i < nthreads; i++) {
     for(f = 0; f < nfiles; f++)
-      seq_loading_stats_merge(&files[f].stats, &stats[i][f]);
-    ctx_free(stats[i]);
+      seq_loading_stats_merge(&files[f].stats, &threads[i].stats[f]);
+    ctx_free(threads[i].stats);
   }
-  ctx_free(stats);
+  ctx_free(threads);
   ctx_free(async_tasks);
 
   // Copy stats into ginfo

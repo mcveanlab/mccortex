@@ -45,4 +45,10 @@ void ctx_output_destroy();
 
 void ctx_update(const char *job_name, size_t niter);
 
+// If `nold`...`nnew` crosses `nreport` value, print update status message
+// e.g. 45 -> 113, update=100 => print message
+// e.g. 45 -> 313, update=100 => print message
+// e.g. 45 -> 99,  update=100 => don't print message
+void ctx_update2(const char *job_name, size_t nold, size_t nnew, size_t nreport);
+
 #endif /* CTX_OUTPUT_H_ */

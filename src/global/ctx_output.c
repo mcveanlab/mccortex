@@ -138,3 +138,17 @@ void ctx_update(const char *job_name, size_t niter)
     status("[%s] Read %s entries (reads / read pairs)", job_name, num_str);
   }
 }
+
+// If `nold`...`nnew` crosses `nreport` value, print update status message
+// e.g. 45 -> 113, update=100 => print message
+// e.g. 45 -> 313, update=100 => print message
+// e.g. 45 -> 99,  update=100 => don't print message
+void ctx_update2(const char *job_name, size_t nold, size_t nnew, size_t nreport)
+{
+  char num_str[100];
+  ctx_assert2(nnew >= nold, "%zu %zu", nold, nnew);
+  if((nnew - nold) >= nreport - (nold % nreport)) {
+    long_to_str(nnew, num_str);
+    status("[%s] Read %s entries (reads / read pairs)", job_name, num_str);
+  }
+}
