@@ -836,7 +836,7 @@ if(defined($ref_path))
     print "\t$ctx breakpoints \$(CTX_ARGS) \$(BREAKPOINTS_ARGS) -s \$(REF_FILE) -o \$@ $link_args \$(CLEAN_GRAPHS_K$k) >& \$@.log\n\n";
 
     print "# breakpoint calls k=$k joint+nolinks\n";
-    print "$proj/k$k/breakpoints_plain/joint.brk.gz: \$(CLEAN_GRAPHS_K$k) \$(CLEAN_PE_LINKS_K$k) | \$(DIRS)\n";
+    print "$proj/k$k/breakpoints_plain/joint.brk.gz: \$(CLEAN_GRAPHS_K$k) | \$(DIRS)\n";
     print "\t$ctx breakpoints \$(CTX_ARGS) \$(BREAKPOINTS_ARGS) -s \$(REF_FILE) -o \$@            \$(CLEAN_GRAPHS_K$k) >& \$@.log\n\n";
 
     # 1by1 breakpoint calling
