@@ -168,6 +168,7 @@ my @run_opts = (
 "FQ_CUTOFF=10           base quality cut off (0=off) [default: 10]",
 "HP_CUTOFF=0            homopolymer run cut off (0=off) [default: 0]",
 "BRK_REF_KMERS=N        num. of flanking ref kmers required by breakpoint caller",
+"MAX_BRANCH_LEN=N       max distance to assemble and align to ref",
 "MIN_MAPQ=Q             min. flank mapping quality required by bubble caller",
 "PLOIDY=P               '1','2', or '-P SAMPLE[,..]:CHR[,..]:PLOIDY [-P ...]' (genotyping)",
 "ERR=0.01,0.005         Per base seq error rate. Comma-sep list one per sample. (genotyping)"
@@ -313,6 +314,7 @@ NTHREADS='.$default_nthreads.'
 REF_FILE='.(defined($ref_path) ? $ref_path : '').'
 
 # Matepair orientation of library (FR,FF,RR,RF)
+MAX_BRANCH_LEN=1000
 MATEPAIR=FR
 MIN_FRAG_LEN=150
 MAX_FRAG_LEN=1000
@@ -345,9 +347,9 @@ KMER_CLEANING_ARGS=--fallback 2
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
 LINK_CLEANING_ARGS=--limit 5000  --max-dist 250 --max-covg 250
-BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS)
-BUBBLES_ARGS=--max-allele 3000 --max-flank 1000
-CALL2VCF_ARGS=--max-align 500 --max-allele 100
+BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS) --maxref $(MAX_BRANCH_LEN)
+BUBBLES_ARGS=--max-allele $(MAX_BRANCH_LEN) --max-flank 1000
+CALL2VCF_ARGS=--max-align $(MAX_BRANCH_LEN) --max-allele 100
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
 CONTIG_POP_ARGS=--confid-step 0.99
 VCFCOV_ARGS=--low-mem
