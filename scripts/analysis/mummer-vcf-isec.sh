@@ -14,6 +14,7 @@ ISECDIR=$3
 
 CTXDIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd ../.. && pwd )
 VCFNLINES=$CTXDIR/libs/biogrok/vcf-count
+BCFTOOLS=$CTXDIR/libs/bcftools/bcftools
 
 function GIABisecstats {
   local isecdir=$1
@@ -35,12 +36,12 @@ function mk_isec {
   local TMPVCF=$DIR.vcf.gz
   if [ ! -e $TMPVCF ]; then
     # take only SNPs
-    bcftools view --types snps --output-file $TMPVCF --output-type z $INVCF
-    bcftools index $TMPVCF
+    $BCFTOOLS view --types snps --output-file $TMPVCF --output-type z $INVCF
+    $BCFTOOLS index $TMPVCF
   fi
   if [ ! -d $DIR ]; then
     mkdir -p $DIR
-    bcftools isec $TRUTH $TMPVCF -p $DIR
+    $BCFTOOLS isec $TRUTH $TMPVCF -p $DIR
   fi
 }
 
