@@ -794,9 +794,14 @@ for my $k (@kmers) {
   my $ctx = get_mccortex($k);
   my $link_args = get_p_args($k);
   # If $single_colour, we can't load more than one graph WITH LINKS
-  my $hapcol = defined($ref_path) ? "--haploid ".scalar(@samples) : '';
-  my $hapcol1by1_links = defined($ref_path) && !$single_colour ? "--haploid 1" : '';
-  my $hapcol1by1_plain = defined($ref_path)                    ? "--haploid 1" : '';
+  my ($hapcol, $hapcol1by1_plain, $hapcol1by1_links) = ("", "", "");
+  if(defined($ploidy_num) && $ploidy_num == 1) {
+    $hapcol = $hapcol1by1_plain = $hapcol1by1_links = "--haploid '*'";
+  } elsif(defined($ref_path)) {
+    $hapcol =  "--haploid ".scalar(@samples);
+    $hapcol1by1_plain = "--haploid 1";
+    $hapcol1by1_links = (!$single_colour ? "--haploid 1" : '');
+  }
   my $refgraph = $single_colour ? "" : '$(REF_GRAPH_K'.$k.')';
 
   # joint bubble calling

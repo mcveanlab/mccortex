@@ -1,6 +1,15 @@
 #ifndef RANGE_H_
 #define RANGE_H_
 
+/*
+ * Valid ranges are:
+ *   *
+ *   1
+ *   3
+ *   2-4
+ *   1,1-3,2
+ */
+
 /**
  * Parse range string and return number of items
  *

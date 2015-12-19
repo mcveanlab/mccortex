@@ -2,8 +2,8 @@
 
 set -eou pipefail
 
-if [ $# -ne 5 ]; then
-  echo "Usage: $0 <in.vcf> <ref.fa> <truth.fa> <out-fa> <out-sam>" 1>&2
+if [ $# -ne 5 ] && [ $# -ne 6 ]; then
+  echo "Usage: $0 <in.vcf> <ref.fa> <truth.fa> <out-fa> <out-sam> [out-valid]" 1>&2
   exit -1
 fi
 set -o xtrace
@@ -21,4 +21,10 @@ OUTSAM=$5
 
 $VCFCONTIGS --max-alt 50 --trim --no-ref 50 $REF $INVCF > $OUTFASTA
 $BWA mem $TRUTHFA $OUTFASTA > $OUTSAM
-$SAMCMP $OUTSAM
+
+if [ $# -eq 6 ]; then
+  $SAMCMP --print-valid $OUTSAM > $6
+else
+  $SAMCMP $OUTSAM
+fi
+

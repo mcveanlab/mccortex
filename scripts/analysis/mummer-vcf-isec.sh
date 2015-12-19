@@ -14,7 +14,10 @@ ISECDIR=$3
 
 CTXDIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd ../.. && pwd )
 VCFNLINES=$CTXDIR/libs/biogrok/vcf-count
+VCFSORT=$CTXDIR/libs/biogrok/vcf-sort
 BCFTOOLS=$CTXDIR/libs/bcftools/bcftools
+BGZIP=$CTXDIR/libs/htslib/bgzip
+VCFLIB_PRIMITIVES=~/Applications/homebrew/Cellar/vcflib/1.0.0/bin/vcfallelicprimitives
 
 function GIABisecstats {
   local isecdir=$1
@@ -35,8 +38,11 @@ function mk_isec {
   local DIR=$3
   local TMPVCF=$DIR.vcf.gz
   if [ ! -e $TMPVCF ]; then
+    # Break original VCF down into allelic primitives
     # take only SNPs
-    $BCFTOOLS view --types snps --output-file $TMPVCF --output-type z $INVCF
+    [ -e $INVCF.csi ] || $BCFTOOLS index $INVCF
+    $VCFLIB_PRIMITIVES $INVCF | $VCFSORT | \
+      $BCFTOOLS view --types snps --output-file $TMPVCF --output-type z -
     $BCFTOOLS index $TMPVCF
   fi
   if [ ! -d $DIR ]; then
