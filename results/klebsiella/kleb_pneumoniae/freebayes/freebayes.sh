@@ -21,3 +21,7 @@ $BCFTOOLS norm --check-ref x -m -any --fasta-ref $REF --site-win 5000 freebayes.
   $VCF_PASS > freebayes.vcf
 $BGZIP freebayes.vcf
 $BCFTOOLS index freebayes.vcf.gz
+
+# Analysis
+rm -rf mummer_isec mapping_truth cortex.k31.k61.{mapping,isec}.log
+./analysis.sh >& analysis.log

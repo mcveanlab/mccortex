@@ -57,7 +57,7 @@ def validate_var(read):
 def pretty_frac(nom,denom):
   return "%9d / %d (%.4f%%)" % (nom, denom, (100.0*nom)/denom)
 
-def haploid_sam_compare(sampath,print_valid):
+def haploid_sam_compare(sampath,print_valid_fh):
   samfile = pysam.AlignmentFile(sampath, "r")
 
   # refpath = args[2]
@@ -82,18 +82,18 @@ def haploid_sam_compare(sampath,print_valid):
       n_lowmapq += 1
     elif validate_var(read):
       n_correct += 1
-      if print_valid:
-        print(read.query_name)
+      if print_valid_fh is not None:
+        print(read.query_name,file=print_valid_fh)
 
   n_mapped = n_mappings - n_unmapped - n_secondary - n_lowmapq
 
-  print("n_mappings   = %9d" % (n_mappings), file=sys.stderr)
-  print("n_unmapped   =",pretty_frac(n_unmapped, n_mappings), file=sys.stderr)
-  print("n_secondary  =",pretty_frac(n_secondary, n_mappings), file=sys.stderr)
-  print("n_lowmapq<20 =",pretty_frac(n_lowmapq, n_mappings), file=sys.stderr)
-  print("n_mapped     =",pretty_frac(n_mapped, n_mappings), file=sys.stderr)
-  print("n_correct    =",pretty_frac(n_correct, n_mapped), file=sys.stderr)
-  print("n_incorrect  =",pretty_frac(n_mapped-n_correct, n_mapped), file=sys.stderr)
+  print("n_mappings   = %9d" % (n_mappings))
+  print("n_unmapped   =",pretty_frac(n_unmapped, n_mappings))
+  print("n_secondary  =",pretty_frac(n_secondary, n_mappings))
+  print("n_lowmapq<20 =",pretty_frac(n_lowmapq, n_mappings))
+  print("n_mapped     =",pretty_frac(n_mapped, n_mappings))
+  print("n_correct    =",pretty_frac(n_correct, n_mapped))
+  print("n_incorrect  =",pretty_frac(n_mapped-n_correct, n_mapped))
 
   samfile.close()
 
@@ -102,24 +102,25 @@ def usage(err):
     print(err,file=sys.stderr)
   print("usage: %s [options] <sam>" % (os.path.basename(__file__)),file=sys.stderr)
   print("options:",file=sys.stderr)
-  print("  -p, --print-valid     print names of passing contigs",file=sys.stderr)
+  print("  -p, --print-valid <out.txt>  print names of passing contigs",file=sys.stderr)
   sys.exit(-1)
 
 def main(args):
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hp", ["help", "print-valid"])
+    opts, args = getopt.getopt(sys.argv[1:], "hp:", ["help", "print-valid="])
   except getopt.GetoptError as err:
     # print help information and exit:
     print(err) # will print something like "option -a not recognized"
     usage("")
 
-  print_valid = False
+  print_valid=None
+  valid_fh=None
 
   for o, a in opts:
     if o in ("-h", "--help"):
       usage("")
     elif o in ("-p", "--print-valid"):
-      print_valid = True
+      print_valid = a
     else:
       usage("Bad option: %s" % (o))
 
@@ -129,7 +130,13 @@ def main(args):
     usage("")
 
   sampath = args[0]
-  haploid_sam_compare(sampath,print_valid)
+  if print_valid is not None:
+    valid_fh = open(print_valid, 'w')
+
+  haploid_sam_compare(sampath,valid_fh)
+
+  if valid_fh is not None:
+    valid_fh.close()
 
 if __name__ == '__main__':
   main(sys.argv)

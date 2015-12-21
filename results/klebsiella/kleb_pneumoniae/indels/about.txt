@@ -1,0 +1,6 @@
+Isaac Turner
+2015-12-21
+
+Plot indel distribution from freebayes, platypus, cortex, mccortex
+
+./run.sh

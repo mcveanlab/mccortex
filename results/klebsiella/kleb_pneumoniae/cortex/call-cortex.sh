@@ -99,3 +99,9 @@ $VCF_ADD_CONTIGS <(dnacat -L $REF) KlebPneu_MGH_78578 $resultvcf | \
   $BCFTOOLS norm --rm-dup any --do-not-normalize > cortex.k31.k61.vcf
 $BGZIP cortex.k31.k61.vcf
 $BCFTOOLS index cortex.k31.k61.vcf.gz
+
+# Analysis
+
+rm -rf mummer_isec mapping_truth cortex.k31.k61.{mapping,isec}.log
+./analysis.sh >& analysis.log
+

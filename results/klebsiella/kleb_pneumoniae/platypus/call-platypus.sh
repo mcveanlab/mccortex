@@ -29,3 +29,7 @@ $VCF_ADD_CONTIGS <(dnacat --lengths $REF) KlebPneu_MGH_78578 platypus.rmdup.vcf 
   $VCF_PASS > platypus.vcf
 $BGZIP platypus.vcf
 $BCFTOOLS index platypus.vcf.gz
+
+# Analysis
+rm -rf mummer_isec mapping_truth cortex.k31.k61.{mapping,isec}.log
+./analysis.sh >& analysis.log

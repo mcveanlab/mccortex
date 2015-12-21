@@ -16,7 +16,7 @@ name=cortex.k31.k61
 
 mkdir -p mapping_truth mummer_isec
 
-$MAPPING_TEST $vcf $REF $TRUTH \
-              mapping_truth/$name.fa \
-              mapping_truth/$name.sam >& $name.mapping.log
+echo "Mapping test..."
+$MAPPING_TEST $vcf $REF $TRUTH mapping_truth/$name
+echo "Mummer intersection..."
 $MUMMER_ISEC $MUMMER $vcf mummer_isec/$name >& $name.isec.log
