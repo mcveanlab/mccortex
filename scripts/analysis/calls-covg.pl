@@ -43,6 +43,9 @@ my $alt_clean_simple = 0; # -----
 my $alt_clean_with_links = 0; # ---><---
 my $alt_clean_messy = 0; # ---<->--
 
+my $ncovg = 0; # number of calls with sample coverage on alt allele
+my $ncovg_and_nonref = 0; # non-ref bubble and coverage on alt
+
 #my $cln_missing = 0;
 #my $cln_discoverable = 0;
 
@@ -90,6 +93,11 @@ while(1)
   $alt_clean_with_links += $c_alt_clean_with_links;
   $alt_clean_messy += $c_alt_clean_messy;
 
+  $ncovg += (!$c_alt_clean_missing_covg && !$c_alt_clean_missing_edges);
+  $ncovg_and_nonref += (!$c_alt_clean_missing_covg &&
+                        !$c_alt_clean_missing_edges &&
+                        !$c_ref_bubbles);
+
   if(!$c_ref_missing && !$c_ref_bubbles &&
      !$c_alt_clean_missing_covg && !$c_alt_clean_missing_edges &&
      !$c_alt_clean_messy)
@@ -110,6 +118,8 @@ print "alt_clean_with_links: $alt_clean_with_links\n";
 print "alt_clean_messy: $alt_clean_messy\n";
 print "resolve_plain: $resolve_plain\n";
 print "resolve_links: $resolve_links\n";
+print "calls with ALT covg: $ncovg\n";
+print "calls with ALT covg and non-ref: $ncovg_and_nonref\n";
 
 close_fastn_file($fastn);
 
@@ -125,7 +135,8 @@ sub read_multiple_fastn
       push(@titles, $title);
       push(@seqs, $seq);
     } elsif($i > 0) {
-      die("Bad entry: $i $nentries");
+      warn("Bad entry: $i $nentries");
+      return (undef,undef);
     } else {
       return (undef,undef);
     }
