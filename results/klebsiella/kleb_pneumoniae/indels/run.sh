@@ -16,7 +16,7 @@ VCFHIST=$CTXDIR/libs/biogrok/vcf-hist
 VCFSORT=$CTXDIR/libs/biogrok/vcf-sort
 BGZIP=$CTXDIR/libs/htslib/bgzip
 BCFTOOLS=$CTXDIR/libs/bcftools/bcftools
-VCFLIB_PRIMITIVES=~/Applications/homebrew/Cellar/vcflib/1.0.0/bin/.
+VCFLIB_PRIMITIVES=~/Applications/homebrew/Cellar/vcflib/1.0.0/bin/vcfallelicprimitives
 
 PLATYPUSVCF=../platypus/mapping_truth/platypus.vcf.gz
 FREEBAYESVCF=../freebayes/mapping_truth/freebayes.vcf.gz
