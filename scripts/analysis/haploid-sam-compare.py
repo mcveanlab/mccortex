@@ -2,8 +2,10 @@
 
 from __future__ import print_function
 
+import os
 import sys
 import pysam
+import getopt
 
 # Expect '>CHROM:POS:ID:REF:ALT:AIDX:pos:RELPOS:ltrim:LTRIM:rtrim:RTRIM\n'
 #   AIDX is allele index (0=>ref, 1=> first ALT, ...)
@@ -47,7 +49,7 @@ def validate_var(read):
   # [relpos, relpos+len(alt)) must match
   # mismatches are in lower case
   for i in xrange(relpos, relpos+len(alt)):
-    if pairs[i][1].islower():
+    if str(pairs[i][1]).islower():
       return False
 
   return True
@@ -55,12 +57,7 @@ def validate_var(read):
 def pretty_frac(nom,denom):
   return "%9d / %d (%.4f%%)" % (nom, denom, (100.0*nom)/denom)
 
-def main(args):
-  if len(args) != 2:
-    print("usage: %s <sam>" % (args[0]))
-    sys.exit(-1)
-
-  sampath = args[1]
+def haploid_sam_compare(sampath,print_valid_fh):
   samfile = pysam.AlignmentFile(sampath, "r")
 
   # refpath = args[2]
@@ -85,6 +82,8 @@ def main(args):
       n_lowmapq += 1
     elif validate_var(read):
       n_correct += 1
+      if print_valid_fh is not None:
+        print(read.query_name,file=print_valid_fh)
 
   n_mapped = n_mappings - n_unmapped - n_secondary - n_lowmapq
 
@@ -94,9 +93,50 @@ def main(args):
   print("n_lowmapq<20 =",pretty_frac(n_lowmapq, n_mappings))
   print("n_mapped     =",pretty_frac(n_mapped, n_mappings))
   print("n_correct    =",pretty_frac(n_correct, n_mapped))
+  print("n_incorrect  =",pretty_frac(n_mapped-n_correct, n_mapped))
 
   samfile.close()
 
+def usage(err):
+  if(len(err) > 0):
+    print(err,file=sys.stderr)
+  print("usage: %s [options] <sam>" % (os.path.basename(__file__)),file=sys.stderr)
+  print("options:",file=sys.stderr)
+  print("  -p, --print-valid <out.txt>  print names of passing contigs",file=sys.stderr)
+  sys.exit(-1)
+
+def main(args):
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "hp:", ["help", "print-valid="])
+  except getopt.GetoptError as err:
+    # print help information and exit:
+    print(err) # will print something like "option -a not recognized"
+    usage("")
+
+  print_valid=None
+  valid_fh=None
+
+  for o, a in opts:
+    if o in ("-h", "--help"):
+      usage("")
+    elif o in ("-p", "--print-valid"):
+      print_valid = a
+    else:
+      usage("Bad option: %s" % (o))
+
+  if(len(args) > 1):
+    usage("Unused arguments")
+  if(len(args) < 1):
+    usage("")
+
+  sampath = args[0]
+  if print_valid is not None:
+    valid_fh = open(print_valid, 'w')
+
+  haploid_sam_compare(sampath,valid_fh)
+
+  if valid_fh is not None:
+    valid_fh.close()
 
 if __name__ == '__main__':
   main(sys.argv)

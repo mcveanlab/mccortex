@@ -232,8 +232,8 @@ void build_graph_from_reads_mt(read_t *r1, read_t *r2,
 
 static void add_reads_to_graph(AsyncIOData *data, size_t threadid, void *ptr)
 {
-  BuildGraphThread *wrkrs = (BuildGraphThread*)ptr;
-  BuildGraphThread *wrkr = &wrkrs[threadid];
+  (void)threadid;
+  BuildGraphThread *wrkr = (BuildGraphThread*)ptr;
   const BuildGraphTask *task = (BuildGraphTask*)data->ptr;
   read_t *r2 = data->r2.name.end == 0 && data->r2.seq.end == 0 ? NULL : &data->r2;
 
@@ -279,7 +279,7 @@ void build_graph(dBGraph *db_graph, BuildGraphTask *files,
   }
 
   asyncio_run_pool(async_tasks, nfiles, add_reads_to_graph,
-                   threads, nthreads, 0);
+                   threads, nthreads, sizeof(BuildGraphThread));
 
   // Merge stats
   for(i = 0; i < nthreads; i++) {

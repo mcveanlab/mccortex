@@ -36,12 +36,12 @@ my $file = shift;
 my ($path) = ($file =~ /^([^:]+):?/);
 if(!(-r $path)) { print_usage("Cannot read file: $path [$file]\n"); }
 
-my $cmd = dirname(__FILE__)."/../bin/ctx31";
+my $cmd = dirname(__FILE__)."/../bin/mccortex31";
 
 if(!(-e $cmd)) {
-  print_usage("Executable bin/ctx31 doesn't exist -- did you compile?");
+  print_usage("Executable bin/mccortex31 doesn't exist -- did you compile?");
 } elsif(!(-x $cmd)) {
-  print_usage("bin/ctx31 doesn't appear to be executable");
+  print_usage("bin/mccortex31 doesn't appear to be executable");
 }
 
 my $cmdline = "$cmd view --kmers $file";

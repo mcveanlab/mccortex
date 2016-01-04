@@ -10,7 +10,7 @@ then
 fi
 
 DIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd .. && pwd )
-CTX="$DIR/bin/ctx31 view"
+CTX="$DIR/bin/mccortex31 view"
 
 col=0
 if [[ $# -eq 2 ]]

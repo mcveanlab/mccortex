@@ -1,5 +1,6 @@
 #include "global.h"
 #include "commands.h"
+#include "range.h"
 #include "util.h"
 #include "file_util.h"
 #include "db_graph.h"
@@ -29,7 +30,7 @@ const char bubbles_usage[] =
 "  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
 //
-"  -H, --haploid <col>     Colour is haploid, can use repeatedly [e.g. ref colour]\n"
+"  -H, --haploid <col>     List of haploid colours (e.g. ref colour); '*' means all\n"
 "  -A, --max-allele <len>  Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
 "  -F, --max-flank <len>   Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
 "  -S, --keep-serial       Keep serial bubbles. Use if mapping is hard. Higher FP.\n"
@@ -64,15 +65,14 @@ int ctx_bubbles(int argc, char **argv)
   size_t max_allele_len = 0, max_flank_len = 0;
   bool remove_serial_bubbles = true;
 
-  SizeBuffer haploidbuf;
-  size_buf_alloc(&haploidbuf, 8);
+  // List of haploid colours
+  size_t *hapcols = NULL;
+  int nhapcols = 0;
+  char *hapcols_arg = NULL;
 
   GPathReader tmp_gpfile;
   GPathFileBuffer gpfiles;
   gpfile_buf_alloc(&gpfiles, 8);
-
-  // tmp
-  size_t tmp_col;
 
   // Arg parsing
   char cmd[100];
@@ -98,7 +98,7 @@ int ctx_bubbles(int argc, char **argv)
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'H': tmp_col = cmd_uint32(cmd, optarg); size_buf_add(&haploidbuf, tmp_col); break;
+      case 'H': cmd_check(!hapcols_arg, cmd); hapcols_arg = optarg; break;
       case 'A': cmd_check(!max_allele_len, cmd); max_allele_len = cmd_uint32_nonzero(cmd, optarg); break;
       case 'F': cmd_check(!max_flank_len, cmd); max_flank_len = cmd_uint32_nonzero(cmd, optarg); break;
       case 'S': cmd_check(remove_serial_bubbles,cmd); remove_serial_bubbles = false; break;
@@ -137,11 +137,13 @@ int ctx_bubbles(int argc, char **argv)
   //
   // Check haploid colours are valid
   //
-  for(i = 0; i < haploidbuf.len; i++) {
-    if(haploidbuf.b[i] >= ncols) {
-      cmd_print_usage("-H,--haploid <col> is greater than max colour [%zu > %zu]",
-                      haploidbuf.b[i], ncols-1);
-    }
+  if(hapcols_arg != NULL) {
+    if((nhapcols = range_get_num(hapcols_arg, ncols)) < 0)
+      die("Invalid haploid colour list: %s", hapcols_arg);
+
+    hapcols = ctx_calloc(nhapcols, sizeof(hapcols[0]));
+    if(range_parse_array(hapcols_arg, hapcols, ncols) < 0)
+      die("Invalid haploid colour list: %s", hapcols_arg);
   }
 
   //
@@ -222,8 +224,8 @@ int ctx_bubbles(int argc, char **argv)
   // Now call variants
   BubbleCallingPrefs call_prefs = {.max_allele_len = max_allele_len,
                                    .max_flank_len = max_flank_len,
-                                   .haploid_cols = haploidbuf.b,
-                                   .nhaploid_cols = haploidbuf.len,
+                                   .haploid_cols = hapcols,
+                                   .nhaploid_cols = nhapcols,
                                    .remove_serial_bubbles = remove_serial_bubbles};
 
   invoke_bubble_caller(nthreads, &call_prefs,
@@ -240,7 +242,7 @@ int ctx_bubbles(int argc, char **argv)
     gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);
 
-  size_buf_dealloc(&haploidbuf);
+  ctx_free(hapcols);
   db_graph_dealloc(&db_graph);
 
   return EXIT_SUCCESS;
