@@ -16,18 +16,17 @@ sub print_usage
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./cortex_breakpoints.pl in.txt\n";
+"Usage: $0 <brk.gz>\n";
 
   exit(-1);
 }
 
 if(@ARGV > 1) { print_usage(); }
-my $file = $ARGV[0];
-if(!defined($file)) { $file = "-"; }
+my ($file) = (@ARGV, "-");
 my $fh;
-open($fh, $file) or die("Cannot read file $file");
+open($fh, "gzip -fcd $file |") or die("Cannot read file $file: $!");
 
-my $cb = new CortexBreakpoints($fh);
+my $cb = new CortexBreakpoints($fh,$file);
 my ($seq5p, $seq3p, $pathseq, $flank5p_refs, $flank3p_refs, $cols, $callid);
 
 while(1)
@@ -35,8 +34,8 @@ while(1)
   ($seq5p, $seq3p, $pathseq, $flank5p_refs, $flank3p_refs, $cols, $callid) = $cb->next();
   if(!defined($seq5p)) { last; }
 
-  my @strs5p = map {$_->{'chrom'}.",".$_->{'start'}.'-'.$_->{'end'}} @$flank5p_refs;
-  my @strs3p = map {$_->{'chrom'}.",".$_->{'start'}.'-'.$_->{'end'}} @$flank3p_refs;
+  my @strs5p = map {$_->{'chrom'}.":".$_->{'start'}.'-'.$_->{'end'}} @$flank5p_refs;
+  my @strs3p = map {$_->{'chrom'}.":".$_->{'start'}.'-'.$_->{'end'}} @$flank3p_refs;
 
   print "$callid\n";
   print ">flank5p chrs=".join(',', @strs5p)."\n$seq5p\n";
