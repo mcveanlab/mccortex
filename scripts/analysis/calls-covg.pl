@@ -5,6 +5,13 @@ use warnings;
 
 use List::Util qw(first min max sum shuffle);
 
+use constant {EDGES_MISSING => 1,
+              EDGES_UNRESOLVABLE => 2,
+              EDGES_RESOLVABLE_PLAIN_FW => 4,
+              EDGES_RESOLVABLE_PLAIN_RV => 8,
+              EDGES_RESOLVABLE_PLAIN_BOTH => 12,
+              EDGES_RESOLVABLE_LINKS => 16};
+
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
@@ -18,7 +25,7 @@ sub print_usage
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./$0 <coverage.txt>\n" .
+"Usage: $0 <coverage.txt>\n" .
 "  Print stats on VCF contig coverage output.\n";
 
   exit(-1);
@@ -36,21 +43,29 @@ my $entries_per_call = (1+$ncols*3)*2; # bi allelic sites
 my $nread = 0;
 my $ref_missing = 0;
 my $ref_bubbles = 0;
+my $alt_missing_covg = 0;
 
-my $alt_clean_missing_covg = 0;
-my $alt_clean_missing_edges = 0;
-my $alt_clean_simple = 0; # -----
-my $alt_clean_with_links = 0; # ---><---
-my $alt_clean_messy = 0; # ---<->--
+my $alt_missing_edges = 0; # ---.---.--
+my $alt_resolve_plain = 0; # --<--<--- or --->-->-- or -------
+my $alt_resolve_links = 0; # --->-<---
+my $alt_unresolvable = 0;  # ---<->---
+
+my $ref_missing_edges = 0; # ---.---.--
+my $ref_resolve_plain = 0; # ---------
+my $ref_resolve_links = 0; # --->-<---
+my $ref_unresolvable = 0;  # ---<->---
 
 my $ncovg = 0; # number of calls with sample coverage on alt allele
 my $ncovg_and_nonref = 0; # non-ref bubble and coverage on alt
 
-#my $cln_missing = 0;
-#my $cln_discoverable = 0;
+my $resolve_alt_links = 0;
+my $resolve_alt_plain = 0;
 
-my $resolve_links = 0;
-my $resolve_plain = 0;
+my $resolve_both_links = 0;
+my $resolve_both_plain = 0;
+
+my $resolve_alt_simple = 0; # ------ (i.e. no forks)
+my $resolve_both_simple = 0; # both ref/alt have no forks
 
 while(1)
 {
@@ -77,34 +92,92 @@ while(1)
 
   my $c_ref_missing = (min(@refgraph_ref_covg) == 0);
   my $c_ref_bubbles = (min(@refgraph_ref_covg) > 0 && min(@refgraph_alt_covg) > 0);
-  my $c_alt_clean_missing_covg = (min(@samgraph_alt_covg) == 0);
-  my $c_alt_clean_missing_edges = ($samgraph_alt_deg =~ /.\../);
-  my $c_alt_clean_simple = ($samgraph_alt_deg =~ /^.\-+.$/);
+  my $c_alt_missing_covg = (min(@samgraph_alt_covg) == 0);
+  my $c_alt_edges = get_edges_state($samgraph_alt_deg);
+  my $c_ref_edges = get_edges_state($refgraph_ref_deg);
+  my $c_samref_edges = get_edges_state($samgraph_ref_deg);
 
-  my ($c_alt_clean_messy, $c_alt_clean_with_links) = (0,0);
-  if($samgraph_alt_deg =~ /^.\-*[\[\{]+.*[\]\}]+.*.$/) { $c_alt_clean_messy = 1; }
-  elsif($samgraph_alt_deg =~ /^.\-*([\]\}X]+\-*)+([\[\{X]+\-*)+.$/) { $c_alt_clean_with_links = 1; }
+  if(!($c_ref_edges & EDGES_RESOLVABLE_PLAIN_BOTH)) {
+    # Attempt to resolve ref allele in sample graph
+    $c_ref_edges = $c_samref_edges;
+  }
 
   $ref_missing += $c_ref_missing;
   $ref_bubbles += $c_ref_bubbles;
-  $alt_clean_missing_covg += $c_alt_clean_missing_covg;
-  $alt_clean_missing_edges += $c_alt_clean_missing_edges;
-  $alt_clean_simple += $c_alt_clean_simple;
-  $alt_clean_with_links += $c_alt_clean_with_links;
-  $alt_clean_messy += $c_alt_clean_messy;
+  $alt_missing_covg += $c_alt_missing_covg;
 
-  $ncovg += (!$c_alt_clean_missing_covg && !$c_alt_clean_missing_edges);
-  $ncovg_and_nonref += (!$c_alt_clean_missing_covg &&
-                        !$c_alt_clean_missing_edges &&
+  if(!$c_alt_missing_covg) {
+    $alt_missing_edges += ($c_alt_edges == EDGES_MISSING);
+    $alt_resolve_plain += ($c_alt_edges & EDGES_RESOLVABLE_PLAIN_BOTH);
+    $alt_resolve_links += ($c_alt_edges == EDGES_RESOLVABLE_LINKS);
+    $alt_unresolvable += ($c_alt_edges == EDGES_UNRESOLVABLE);
+  }
+
+  $ref_missing_edges += ($c_ref_edges == EDGES_MISSING);
+  $ref_resolve_plain += ($c_ref_edges & EDGES_RESOLVABLE_PLAIN_BOTH);
+  $ref_resolve_links += ($c_ref_edges == EDGES_RESOLVABLE_LINKS);
+  $ref_unresolvable += ($c_ref_edges == EDGES_UNRESOLVABLE);
+
+  $ncovg += (!$c_alt_missing_covg && $c_alt_edges != EDGES_MISSING);
+  $ncovg_and_nonref += (!$c_alt_missing_covg &&
+                        $c_alt_edges != EDGES_MISSING &&
                         !$c_ref_bubbles);
 
   if(!$c_ref_missing && !$c_ref_bubbles &&
-     !$c_alt_clean_missing_covg && !$c_alt_clean_missing_edges &&
-     !$c_alt_clean_messy)
+     !$c_alt_missing_covg &&
+     edges_resovable($c_alt_edges) && edges_resovable($c_ref_edges))
   {
-    if($c_alt_clean_with_links) { $resolve_links++; }
-    else { $resolve_plain++; }
+    # Numbers for cortex comparison
+    if($c_alt_edges == EDGES_RESOLVABLE_PLAIN_BOTH) { $resolve_alt_simple++; }
+    if($c_alt_edges == EDGES_RESOLVABLE_PLAIN_BOTH &&
+       $c_ref_edges == EDGES_RESOLVABLE_PLAIN_BOTH) { $resolve_both_simple++; }
+
+    if($c_alt_edges & EDGES_RESOLVABLE_PLAIN_BOTH) { $resolve_alt_plain++; }
+    else { $resolve_alt_links++; }
+
+    # Must be able to resolve both alleles in the same direction
+    if(($c_ref_edges == EDGES_RESOLVABLE_LINKS) ||
+       ($c_alt_edges == EDGES_RESOLVABLE_LINKS)) {
+      $resolve_both_links++;
+    }
+    elsif(($c_ref_edges & $c_alt_edges & EDGES_RESOLVABLE_PLAIN_BOTH) ||
+          ($c_samref_edges & $c_alt_edges & EDGES_RESOLVABLE_PLAIN_BOTH)) {
+      $resolve_both_plain++;
+    }
   }
+}
+
+sub edges_resovable {
+  return ($_[0] & (EDGES_RESOLVABLE_PLAIN_BOTH | EDGES_RESOLVABLE_LINKS));
+}
+
+sub get_edges_state
+{
+  my ($edges) = @_;
+  if(are_edges_missing($edges)) { return EDGES_MISSING; }
+  elsif(my $r = are_edge_degrees_plain_resolvable($edges)) { return $r; }
+  elsif(are_edge_degrees_links_resolvable($edges)) { return EDGES_RESOLVABLE_LINKS; }
+  else { return EDGES_UNRESOLVABLE; }
+}
+
+sub are_edges_missing {
+  # dot anywhere but first or last position
+  # return ($_[0] =~ /^.+\..+$/);
+  return ($_[0] =~ /\./);
+}
+
+sub are_edge_degrees_plain_resolvable {
+  # starts and ends with anything other than a dot, only contains '-'
+  my $ret = 0;
+  if($_[0] =~ /^[^\.][\-\]\}]+[^\.]$/) { $ret += EDGES_RESOLVABLE_PLAIN_FW; }
+  if($_[0] =~ /^[^\.][\-\[\{]+[^\.]$/) { $ret += EDGES_RESOLVABLE_PLAIN_RV; }
+  return $ret;
+}
+
+sub are_edge_degrees_links_resolvable {
+  # <-----> is resolvable
+  # -<-->-- is not (first and last are forks from bubble)
+  return ($_[0] =~ /^[^\.]\-*([\]\}X].*[\[\{X]|X)\-*[^\.]$/);
 }
 
 print "ncols: $ncols\n";
@@ -112,14 +185,23 @@ print "entries_per_call: $entries_per_call\n";
 print "nread: $nread\n";
 print "ref_missing: $ref_missing\n";
 print "ref_bubbles: $ref_bubbles\n";
-print "alt_clean_missing_covg: $alt_clean_missing_covg\n";
-print "alt_clean_missing_edges: $alt_clean_missing_edges\n";
-print "alt_clean_with_links: $alt_clean_with_links\n";
-print "alt_clean_messy: $alt_clean_messy\n";
-print "resolve_plain: $resolve_plain\n";
-print "resolve_links: $resolve_links\n";
+print "ALT missing_covg: $alt_missing_covg\n";
+print "ALT missing_edges: $alt_missing_edges\n";
+print "ALT resolve_plain: $alt_resolve_plain\n";
+print "ALT resolve_links: $alt_resolve_links\n";
+print "ALT unresolvable: $alt_unresolvable\n";
+print "REF missing_edges: $ref_missing_edges\n";
+print "REF resolve_plain: $ref_resolve_plain\n";
+print "REF resolve_links: $ref_resolve_links\n";
+print "REF unresolvable: $ref_unresolvable\n";
 print "calls with ALT covg: $ncovg\n";
 print "calls with ALT covg and non-ref: $ncovg_and_nonref\n";
+print "resolve_alt_plain: $resolve_alt_plain\n";
+print "resolve_alt_links: $resolve_alt_links\n";
+print "resolve_both_plain: $resolve_both_plain\n";
+print "resolve_both_links: $resolve_both_links\n";
+print "resolve_alt_simple: $resolve_alt_simple\n";
+print "resolve_both_simple: $resolve_both_simple\n";
 
 close_fastn_file($fastn);
 
