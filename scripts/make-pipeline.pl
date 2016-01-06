@@ -886,39 +886,42 @@ if(defined($ref_path))
   print "$proj/%.sort.vcf: $proj/%.raw.vcf\n";
   print "\t\$(VCFSORT) \$< > \$@\n\n";
 
+  # Joining into multi-allelic then splitting out removes duplicates
   print "$proj/%.norm.vcf.gz: $proj/%.sort.vcf \$(REF_FILE)\n";
-  print "\t\$(BCFTOOLS) norm --site-win 5000 --multiallelics -any --fasta-ref \$(REF_FILE) \$< | \\\n";
-  print "\t  \$(BCFTOOLS) norm --rm-dup any --do-not-normalize | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
+  print "\t\$(BCFTOOLS) norm --site-win 5000 --multiallelics +any --fasta-ref \$(REF_FILE) \$< | \\\n";
+  print "\t  \$(BCFTOOLS) norm --multiallelics -any | \$(HRUNANNOT) \$(REF_FILE) - > $proj/\$*.norm.vcf\n";
   print "\t\$(BGZIP) -f $proj/\$*.norm.vcf\n\n";
 
   # Generate union VCF
   print "#\n# Create union compressed VCF\n";
   print "#\n";
-  print "VCF_CONCAT=\$(BCFTOOLS) concat --allow-overlaps --rm-dup both\n\n";
+  print "# Join into multi-allelic sites then split out to remove duplicates\n";
+  print "VCF_CONCAT=\$(BCFTOOLS) concat -O u --allow-overlaps\n\n";
+  print "RMDUPS=\$(BCFTOOLS) norm -O u --do-not-normalize --multiallelics +any | \$(BCFTOOLS) norm -O z --do-not-normalize --multiallelics -any\n\n";
 
   print "$union_bubble_joint_links_vcf: \$(BUBBLES_JOINT_LINKS_VCFS) \$(BUBBLES_JOINT_LINKS_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_JOINT_LINKS_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_LINKS_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_bubble_joint_plain_vcf: \$(BUBBLES_JOINT_PLAIN_VCFS) \$(BUBBLES_JOINT_PLAIN_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_JOINT_PLAIN_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BUBBLES_JOINT_PLAIN_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_brkpnt_joint_links_vcf: \$(BREAKPOINTS_JOINT_LINKS_VCFS) \$(BREAKPOINTS_JOINT_LINKS_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_JOINT_LINKS_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_LINKS_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_brkpnt_joint_plain_vcf: \$(BREAKPOINTS_JOINT_PLAIN_VCFS) \$(BREAKPOINTS_JOINT_PLAIN_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_JOINT_PLAIN_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_JOINT_PLAIN_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_bubble_1by1_links_vcf: \$(BUBBLES_1BY1_LINKS_VCFS) \$(BUBBLES_1BY1_LINKS_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_1BY1_LINKS_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_LINKS_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_bubble_1by1_plain_vcf: \$(BUBBLES_1BY1_PLAIN_VCFS) \$(BUBBLES_1BY1_PLAIN_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BUBBLES_1BY1_PLAIN_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BUBBLES_1BY1_PLAIN_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_brkpnt_1by1_links_vcf: \$(BREAKPOINTS_1BY1_LINKS_VCFS) \$(BREAKPOINTS_1BY1_LINKS_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_1BY1_LINKS_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_LINKS_VCFS) | \$(RMDUPS) --output \$@\n";
 
   print "$union_brkpnt_1by1_plain_vcf: \$(BREAKPOINTS_1BY1_PLAIN_VCFS) \$(BREAKPOINTS_1BY1_PLAIN_CSIS) | dirs\n";
-  print "\t\$(VCF_CONCAT) --output-type z --output \$@ \$(BREAKPOINTS_1BY1_PLAIN_VCFS)\n";
+  print "\t\$(VCF_CONCAT) \$(BREAKPOINTS_1BY1_PLAIN_VCFS) | \$(RMDUPS) --output \$@\n";
 
   #
   # VCF coverage

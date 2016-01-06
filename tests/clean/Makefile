@@ -33,7 +33,7 @@ lens.after.csv: seq.k9.clean.ctx
 seq.k9.clean.ctx: seq.k9.raw.ctx
 	$(CTX) clean --covg-before covgs.before.csv --covg-after covgs.after.csv \
 	             --len-before lens.before.csv --len-after lens.after.csv \
-	             --supernodes=2 --tips 62 --out $@ $<
+	             --supernodes=2 --tips=62 --out $@ $<
 
 seq.k9.%.dot: seq.k9.%.ctx
 	$(MKDOT) $< > $@

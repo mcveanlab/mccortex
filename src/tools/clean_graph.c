@@ -595,12 +595,12 @@ void clean_graph(size_t num_threads,
   ulong_to_str(cl.num_tip_kmers, num_tip_kmers_str);
   ulong_to_str(cl.num_tip_and_low_snode_kmers, num_tip_snode_kmers_str);
 
-  status("[cleaning] Removing %s low coverage unitigs%s [%s kmer%s], "
-         "%s unitigs tip%s [%s kmer%s] "
+  status("[cleaning] Removing %s low coverage unitigs [%s kmer%s], "
+         "%s unitig tips [%s kmer%s] "
          "and %s of both [%s kmer%s]",
-         num_snodes_str, util_plural_str(cl.num_low_covg_snodes),
+         num_snodes_str,
          num_snode_kmers_str, util_plural_str(cl.num_low_covg_snode_kmers),
-         num_tips_str, util_plural_str(cl.num_tips),
+         num_tips_str,
          num_tip_kmers_str, util_plural_str(cl.num_tip_kmers),
          num_tip_snodes_str,
          num_tip_snode_kmers_str, util_plural_str(cl.num_tip_and_low_snode_kmers));
