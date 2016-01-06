@@ -10,6 +10,7 @@ MCCORTEX31=$(CTXDIR)/bin/mccortex31
 MAKEJOB=$(CTXDIR)/scripts/make-pipeline.pl
 BCFTOOLS=$(CTXDIR)/libs/bcftools/bcftools
 BGZIP=$(CTXDIR)/libs/htslib/bgzip
+VCFCOUNT=$(CTXDIR)/libs/biogrok/vcf-count
 
 K=31
 OUTDIR=proj
@@ -52,9 +53,9 @@ $(RAWVCF) $(VCF): job.mk
 	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) KMER_CLEANING_ARGS="--unitigs=0" bub-vcf
 
 test: $(VCF) truth.vcf.gz
-	[ `vcf-count $(VCF)` -eq 2 ]
-	[ `vcf-count $(RAWVCF)` -eq 4 ]
-	[ `bcftools isec -w 1 -n =2 truth.vcf.gz $(VCF) | vcf-count` -eq 2 ]
+	[ `$(VCFCOUNT) $(VCF)` -eq 2 ]
+	[ `$(VCFCOUNT) $(RAWVCF)` -eq 4 ]
+	[ `bcftools isec -w 1 -n =2 truth.vcf.gz $(VCF) | $(VCFCOUNT)` -eq 2 ]
 	@echo "=> all looks good."
 
 clean:
