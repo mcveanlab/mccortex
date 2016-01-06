@@ -11,12 +11,15 @@ fi
 set -o xtrace
 
 CTXDIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && cd ../.. && pwd )
-VCFCONTIGS=$CTXDIR/libs/vcf-slim/bin/vcfcontigs
-SAM2VCF=$CTXDIR/libs/vcf-slim/scripts/sam-name-to-vcf.sh
 BWA=$CTXDIR/libs/bwa/bwa
 BGZIP=$CTXDIR/libs/htslib/bgzip
 BCFTOOLS=$CTXDIR/libs/bcftools/bcftools
+VCFCONTIGS=$CTXDIR/libs/vcf-slim/bin/vcfcontigs
+SAM2VCF=$CTXDIR/libs/vcf-slim/scripts/sam-name-to-vcf.sh
+VCFRENAME=$CTXDIR/libs/biogrok/vcf-rename
+VCF_SELECT_ID=$CTXDIR/libs/biogrok/vcf-select-id
 SAMCMP=$CTXDIR/scripts/analysis/haploid-sam-compare.py
+
 
 INVCF=$1
 REF=$2
@@ -27,16 +30,13 @@ OUTFASTA=$PREFIX.fa
 OUTSAM=$PREFIX.sam
 OUTSTATS=$PREFIX.stats.txt
 OUTSITES=$PREFIX.sites.txt
-TMPVCF=$PREFIX.sites.vcf.gz
+RENAMEDVCF=$PREFIX.renamed.vcf.gz
 OUTVCF=$PREFIX.vcf.gz
 
 mkdir -p $(dirname $OUTFASTA)
 
-$VCFCONTIGS --max-alt 50 --trim --no-ref 50 $REF $INVCF > $OUTFASTA
+$VCFRENAME $INVCF > $RENAMEDVCF
+$VCFCONTIGS --trim --no-ref 50 $REF $RENAMEDVCF > $OUTFASTA
 $BWA mem $TRUTHFA $OUTFASTA > $OUTSAM
 $SAMCMP --print-valid $OUTSITES $OUTSAM > $OUTSTATS
-$SAM2VCF $OUTSITES | $BGZIP -c > $TMPVCF
-$BCFTOOLS index $TMPVCF
-
-$BCFTOOLS isec -n 2 -w 1 -o $OUTVCF -O z $INVCF $TMPVCF
-$BCFTOOLS index $OUTVCF
+$VCF_SELECT_ID <(cut -d: -f3 $OUTSITES) $RENAMEDVCF | $BGZIP -c > $OUTVCF

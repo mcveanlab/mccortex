@@ -7,48 +7,43 @@ import sys
 import pysam
 import getopt
 
-# Expect '>CHROM:POS:ID:REF:ALT:AIDX:pos:RELPOS:ltrim:LTRIM:rtrim:RTRIM\n'
-#   AIDX is allele index (0=>ref, 1=> first ALT, ...)
+# Expect '>CHROM:POS:ID:REFLEN:ALTLEN:ALTIDX:pos:RELPOS:ltrim:LTRIM:rtrim:RTRIM\n'
+#   CHROM,POS,ID are taken from the VCF, POS is 1-based
+#   ALTIDX is allele index (0=>ref, 1=> first ALT, ...)
 #   RELPOS is start of ref allele in contig (0-based)
-#   LTRIM is number of bases to trim from left side
-#   RTRIM is number of bases to trim from right side
-
-def faidx_load_all(faidx):
-  chrs = {}
-  for ref in faidx.references:
-    chrs[ref] = faidx.fetch(reference=ref)
-  return(chrs)
+#   LTRIM is number of bases trimmed from left side
+#   RTRIM is number of bases trimmed from right side
 
 def decompose_read_name(read_name):
   title = read_name.split(':')
-  ref = title[3]
-  alt = title[4]
+  reflen = int(title[3])
+  altlen = int(title[4])
   relpos = int(title[7])
   ltrim = int(title[9])
   rtrim = int(title[11])
-  ref = ref[ltrim:-rtrim]
-  alt = alt[ltrim:-rtrim]
-  return (ref,alt,relpos)
+  reflen -= ltrim + rtrim;
+  altlen -= ltrim + rtrim;
+  return (reflen,altlen,relpos)
 
 def validate_var(read):
-  (ref,alt,relpos) = decompose_read_name(read.query_name)
+  (reflen,altlen,relpos) = decompose_read_name(read.query_name)
   pairs = read.get_aligned_pairs(with_seq=True)
   # dictionary of query position -> ref, ref base
   query = {pair[0]: (pair[1],pair[2]) for pair in pairs}
 
   # Need a matching base either side and agreement on allele
-  for i in xrange(relpos-1, relpos+len(alt)+1):
+  for i in xrange(relpos-1, relpos+altlen+1):
     if (i not in query) or (query[i][1] is None):
       return False
 
   # Check distance between flanking bases matches
-  dist = query[relpos+len(alt)][0] - query[relpos-1][0]
-  if dist != len(alt)+1:
+  dist = query[relpos+altlen][0] - query[relpos-1][0]
+  if dist != altlen+1:
     return False
 
-  # [relpos, relpos+len(alt)) must match
+  # [relpos, relpos+altlen) must match
   # mismatches are in lower case
-  for i in xrange(relpos, relpos+len(alt)):
+  for i in xrange(relpos, relpos+altlen):
     if str(pairs[i][1]).islower():
       return False
 
@@ -59,12 +54,6 @@ def pretty_frac(nom,denom):
 
 def haploid_sam_compare(sampath,print_valid_fh):
   samfile = pysam.AlignmentFile(sampath, "r")
-
-  # refpath = args[2]
-  # faidx = pysam.FastaFile(refpath)
-  # chrs = faidx_load_all(faidx)
-  # faidx.close()
-  # chrs[read.reference_name]
 
   n_mappings = 0
   n_secondary = 0
