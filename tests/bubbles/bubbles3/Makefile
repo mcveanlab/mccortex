@@ -55,7 +55,7 @@ $(RAWVCF) $(VCF): job.mk
 test: $(VCF) truth.vcf.gz
 	[ `$(VCFCOUNT) $(VCF)` -eq 2 ]
 	[ `$(VCFCOUNT) $(RAWVCF)` -eq 4 ]
-	[ `bcftools isec -w 1 -n =2 truth.vcf.gz $(VCF) | $(VCFCOUNT)` -eq 2 ]
+	[ `$(BCFTOOLS) isec -w 1 -n =2 truth.vcf.gz $(VCF) | $(VCFCOUNT)` -eq 2 ]
 	@echo "=> all looks good."
 
 clean:
