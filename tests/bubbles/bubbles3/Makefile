@@ -49,7 +49,7 @@ job.mk: samples.txt ref/ref.fa sample/sample.fa
 	$(MAKEJOB) -r ref/ref.fa $(K) $(OUTDIR) $< >$@
 
 $(RAWVCF) $(VCF): job.mk
-	$(MAKE) -f job.mk KMER_CLEANING_ARGS="--unitigs=0" bub-vcf
+	$(MAKE) -f job.mk CTXDIR=$(CTXDIR) KMER_CLEANING_ARGS="--unitigs=0" bub-vcf
 
 test: $(VCF) truth.vcf.gz
 	[ `vcf-count $(VCF)` -eq 2 ]
