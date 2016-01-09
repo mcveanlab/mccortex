@@ -17,7 +17,7 @@ sub print_usage
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./$0 <a.vcf> <b.vcf>\n" .
+"Usage: ./$0 <a.vcf.gz> <b.vcf.gz>\n" .
 "  Generate table of GT concordance\n";
 
   exit(-1);
@@ -28,8 +28,8 @@ if(@ARGV != 2) { print_usage(); }
 my ($path1, $path2) = @ARGV;
 my ($fh1, $fh2);
 
-open($fh1, $path1) or die("Cannot open: $path1");
-open($fh2, $path2) or die("Cannot open: $path2");
+open($fh1, "gzip -fcd $path1 |") or die("Cannot open: $path1");
+open($fh2, "gzip -fcd $path2 |") or die("Cannot open: $path2");
 
 my $file1 = new LineReader($fh1);
 my $file2 = new LineReader($fh2);
@@ -69,32 +69,60 @@ while(1)
   $gt1 = join('/', sort {$a cmp $b} split(/[\/\|]/, $gt1));
   $gt2 = join('/', sort {$a cmp $b} split(/[\/\|]/, $gt2));
 
+  # record genotypes
   $gtypes{$gt1} = 1;
   $gtypes{$gt2} = 1;
+  # Update counter
   $gts{$gt1}->{$gt2}++;
 }
 
 close($fh1);
 close($fh2);
 
-my ($nagree, $ndisagree, $concordance);
+my ($nagree, $ndisagree) = (0,0);
 
 # print table
 my @keys = sort keys %gtypes;
+my %col_sums = ();
+map {$col_sums{$_} = 0} @keys;
+
 print "\t".join("\t", @keys)."\n";
 for my $gt1 (@keys) {
+  my $row_sum = 0;
   print "$gt1";
   for my $gt2 (@keys) {
-    my $v = defined($gts{$gt1}) && defined($gts{$gt1}->{$gt2}) ? $gts{$gt1}->{$gt2} : 0;
+    my $v = gt_pair_lookup(\%gts,$gt1,$gt2);
+    $row_sum += $v;
+    $col_sums{$gt2} += $v;
     print "\t$v";
-    if($gt1 eq $gt2) { $nagree += $v; }
-    else { $ndisagree += $v; }
   }
-  print "\n";
+  my $diag = gt_pair_lookup(\%gts,$gt1,$gt1);
+  $nagree += $diag;
+  $ndisagree += $row_sum - $diag;
+  print "\t(".frac_str($diag, $row_sum)."%)\n";
 }
 
-$concordance = $nagree / ($nagree + $ndisagree);
-print "Concordance: $concordance\n";
+# Print per-column stats
+for my $gt2 (@keys) {
+  my $diag = gt_pair_lookup(\%gts,$gt2,$gt2);
+  print "\t(".frac_str($diag, $col_sums{$gt2}, 2)."%)";
+}
+print "\n";
+
+my $concordance = $nagree / ($nagree + $ndisagree);
+print "Concordance: $concordance (".frac_str($nagree, $nagree+$ndisagree)."%)\n";
+
+sub frac_str
+{
+  my ($nom,$denom,$places) = (@_,2);
+  return sprintf("%.".$places."f", $nom ? 100.0 * $nom / $denom : 0);
+}
+
+sub gt_pair_lookup
+{
+  my ($gts,$gt1,$gt2) = @_;
+  return defined($gts->{$gt1}) && defined($gts->{$gt1}->{$gt2}) ? $gts->{$gt1}->{$gt2} : 0;
+}
 
 sub read_vcf_hdr
 {
