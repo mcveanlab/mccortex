@@ -938,7 +938,7 @@ if(defined($ref_path))
         for my $assem (qw(links plain)) {
           my $callroot = "$call.$pop.$assem.$kmerstr";
           print "$proj/k$k/vcfcov/$callroot.%.vcf.gz: $proj/vcfs/$callroot.vcf.gz $proj/k$k/graphs/%.raw.ctx | dirs\n";
-          print "\t$mccortex vcfcov -m \$(MEM) \$(VCFCOV_ARGS) --ref $ref_path --out-fmt vcfgz --out \$@ \$^ >& \$@.log\n\n";
+          print "\t$mccortex vcfcov -m \$(MEM) \$(VCFCOV_ARGS) --ref $ref_path --out-fmt vcfgz \$^ | \$(BCFTOOLS) view --samples \"\$*\" -o \$@ -O z >& \$@.log\n\n";
         }
       }
     }
