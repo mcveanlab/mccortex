@@ -7,13 +7,14 @@ import sys
 import pysam
 import getopt
 
-# Update sys.path to include mccortex/scripts/python/
+# Update sys.path to include paths relative to the script dir
 def add_rel_path_to_sys_path(rel_inc_path):
   import sys,os,os.path
   scriptdir = os.path.dirname(os.path.realpath(__file__))
   incdir = os.path.realpath(scriptdir+'/'+rel_inc_path)
   sys.path.append(incdir)
 
+# include mccortex/scripts/python/
 add_rel_path_to_sys_path('../../../../scripts/python')
 import mccortex
 
@@ -230,10 +231,13 @@ def main(args):
   for t in events:
     write_paired_alignments(good1fh,good2fh,[t[0],t[1]],[t[2],t[3]])
 
-  # Write histogram of sizes
+  # Write histogram of sizes, removing flank sizes
   histfh = open(outdir+'/stats.txt', 'w')
   for t in events:
-    print("%i\t%i" % (len(t[0].seq),len(t[1].seq)), file=histfh)
+    fields = t[0].query_name.split(':')
+    if len(fields) < 3: raise SystemExit("Name missing flank sizes: "+t[0].query_name)
+    flanks = int(fields[1]) + int(fields[2])
+    print("%i\t%i" % (len(t[0].seq)-flanks, len(t[1].seq)-flanks), file=histfh)
   histfh.close()
 
   print("after rmdup, wrote %i events" % (len(events)))

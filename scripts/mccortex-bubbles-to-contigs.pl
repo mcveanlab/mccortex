@@ -38,8 +38,10 @@ while(1)
    $flank5p_nkmers, $flank3p_nkmers, $branchlens, $callid) = $cb->next();
   if(!defined($seq5p)) { last; }
 
+  my ($len5p,$len3p) = (length($seq5p), length($seq3p));
+
   for(my $i = 0; $i < @$branches; $i++) {
-    print ">$callid.branch$i\n";
+    print ">$callid.branch$i:$len5p:$len3p\n";
     print $seq5p.$branches->[$i].$seq3p."\n";
   }
 }

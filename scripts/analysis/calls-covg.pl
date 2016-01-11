@@ -108,13 +108,13 @@ while(1)
 
   if(!$c_alt_missing_covg) {
     $alt_missing_edges += ($c_alt_edges == EDGES_MISSING);
-    $alt_resolve_plain += ($c_alt_edges & EDGES_RESOLVABLE_PLAIN_BOTH);
+    $alt_resolve_plain += ($c_alt_edges & EDGES_RESOLVABLE_PLAIN_BOTH ? 1 : 0);
     $alt_resolve_links += ($c_alt_edges == EDGES_RESOLVABLE_LINKS);
     $alt_unresolvable += ($c_alt_edges == EDGES_UNRESOLVABLE);
   }
 
   $ref_missing_edges += ($c_ref_edges == EDGES_MISSING);
-  $ref_resolve_plain += ($c_ref_edges & EDGES_RESOLVABLE_PLAIN_BOTH);
+  $ref_resolve_plain += ($c_ref_edges & EDGES_RESOLVABLE_PLAIN_BOTH ? 1 : 0);
   $ref_resolve_links += ($c_ref_edges == EDGES_RESOLVABLE_LINKS);
   $ref_unresolvable += ($c_ref_edges == EDGES_UNRESOLVABLE);
 
