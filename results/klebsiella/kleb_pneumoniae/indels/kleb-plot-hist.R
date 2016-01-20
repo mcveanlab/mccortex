@@ -18,6 +18,8 @@ colours <- c('red', 'green', 'blue', 'black', 'purple')
 # points <- c('o','o','o', 'o', 'o')
 points <- rep(20, 5)
 
+title <- expression(paste(italic('klebsiella pneumoniae'),' indels'))
+
 ncalls <- length(hists)
 lim <- 100
 m <- matrix(0, nrow=2*lim+1, ncol=ncalls+1)
@@ -44,8 +46,7 @@ pdf(file="kleb_indels.pdf",width=6,height=6)
 
 plot(jitter(x,factor=jf), m[,2], log="y",
      col=colours[1],pch=points[1],
-     main="Klebsiella Pneumoniae Indels",
-     xlab="indel size", ylab="count (log)")
+     main=title, xlab="indel size", ylab="count (log)")
 
 for(i in 2:length(names)) {
   points(jitter(x,factor=jf),m[,i+1],col=colours[i],pch=points[i]) # ,type='b'

@@ -6,7 +6,7 @@ set -o xtrace
 CTXDIR=../../../../
 
 REF=../ref/GCF_000016305.1_ASM1630v1_genomic.fna.gz
-MUMMER=../mummer/ref_qry.good.nodupes.vcf.gz
+MUMMER=../mummer/mummer.vcf.gz
 TRUTH=../truth/CAV1016.fa
 MAPPING_TEST=$CTXDIR/scripts/analysis/mapping-vars-test.sh
 MUMMER_ISEC=$CTXDIR/scripts/analysis/mummer-vcf-isec.sh
