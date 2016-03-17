@@ -97,7 +97,7 @@ int ctx_clean(int argc, char **argv)
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'T':
         cmd_check(min_keep_tip<0, cmd);
-        min_keep_tip = (optarg != NULL ? cmd_uint32(cmd, optarg) : -1);
+        min_keep_tip = (optarg != NULL ? (int)cmd_uint32(cmd, optarg) : -1);
         break;
       case 'S':
       case 'U':
