@@ -41,6 +41,9 @@ struct GenPathWorker
 
   CorrectAlnWorker corrector;
 
+  // If true, only store longest link and not sub-links
+  bool longest_links_only;
+
   // Nucleotides and positions of junctions
   // only one array allocated for each type, rev points to half way through
   uint8_t *pck_fw, *pck_rv;
@@ -52,6 +55,11 @@ struct GenPathWorker
 // Used for printint output
 volatile size_t print_contig_id = 0, print_path_id = 0;
 
+void gen_paths_workers_store_sublinks(GenPathWorker *wrkrs, size_t n, bool v)
+{
+  GenPathWorker *end = wrkrs + n;
+  for(; wrkrs < end; wrkrs++) wrkrs->longest_links_only = v;
+}
 
 size_t gen_paths_worker_est_mem(const dBGraph *db_graph)
 {
@@ -277,6 +285,9 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
     // If the path already exists, all of its subpaths also already exist
     // if(found && plen < GPATH_MAX_JUNCS) break;
     num_added++;
+
+    // Break after adding only one link
+    if(wrkr->longest_links_only) break;
 
     // Debugging
     if(gen_paths_print_paths && !printed)

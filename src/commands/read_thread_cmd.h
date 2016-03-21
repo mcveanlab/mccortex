@@ -20,6 +20,7 @@ struct ReadThreadCmdArgs
   char *dump_seq_sizes, *dump_frag_sizes;
 
   bool zero_link_counts; // ctx_thread only
+  bool no_sublinks; // ctx_thread only
 
   size_t colour; // ctx_correct only
   seq_format fmt; // ctx_correct only

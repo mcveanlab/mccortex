@@ -66,6 +66,11 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
         cmd_check(!args->zero_link_counts, cmd);
         args->zero_link_counts = true;
         break;
+      case 'S':
+        if(correct_cmd) cmd_print_usage("Invalid option: %s", cmd);
+        cmd_check(!args->no_sublinks, cmd);
+        args->no_sublinks = true;
+        break;
       case 't':
         cmd_check(!args->nthreads, cmd);
         args->nthreads = cmd_uint32_nonzero(cmd, optarg);

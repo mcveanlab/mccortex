@@ -17,6 +17,9 @@ GenPathWorker* gen_paths_workers_alloc(size_t n, dBGraph *graph);
 
 void gen_paths_workers_dealloc(GenPathWorker *mem, size_t n);
 
+// Tell workers (not) to generate sub-links
+void gen_paths_workers_store_sublinks(GenPathWorker *wrkrs, size_t n, bool v);
+
 // Add a single contig using a given worker
 void gen_paths_worker_seq(GenPathWorker *wrkr, AsyncIOData *data,
                           const CorrectAlnInput *task);

@@ -26,6 +26,7 @@ const char thread_usage[] =
 "  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
 "  -0, --zero-paths         Zero counts on initially loaded paths. Use if existing\n"
 "                           paths were built from sequence being re-used by this run\n"
+"  -S, --no-sublinks        Do no generate sublinks, only store longest\n"
 "\n"
 "  Input:\n"
 "  -1, --seq <in.fa>        Thread reads from file (supports sam,bam,fq,*.gz\n"
@@ -69,6 +70,7 @@ static struct option longopts[] =
   {"threads",       required_argument, NULL, 't'},
   {"paths",         required_argument, NULL, 'p'},
   {"zero-paths",    no_argument,       NULL, '0'},
+  {"no-sublinks",   no_argument,       NULL, 'S'},
 // command specific
   {"seq",           required_argument, NULL, '1'},
   {"seq2",          required_argument, NULL, '2'},
@@ -197,6 +199,11 @@ int ctx_thread(int argc, char **argv)
   //
   GenPathWorker *workers;
   workers = gen_paths_workers_alloc(args.nthreads, &db_graph);
+
+  if(args.no_sublinks) {
+    status("[thread] not generating sublinks (longest only)");
+    gen_paths_workers_store_sublinks(workers, args.nthreads, false);
+  }
 
   // Path statistics
   SeqLoadingStats *load_stats = gen_paths_get_stats(workers);
