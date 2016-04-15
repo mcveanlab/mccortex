@@ -12,10 +12,10 @@ const char *graph_step_str[GRPHWLK_NUM_STATES] = {GRPHWLK_POPFWD_STR,
                                                   GRPHWLK_POPFRK_COLFWD_STR,
                                                   GRPHWLK_NOCOVG_STR,
                                                   GRPHWLK_NOCOLCOVG_STR,
-                                                  GRPHWLK_NOPATHS_STR,
-                                                  GRPHWLK_SPLIT_PATHS_STR,
-                                                  GRPHWLK_MISSING_PATHS_STR,
-                                                  GRPHWLK_USEPATH_STR};
+                                                  GRPHWLK_NOLINKS_STR,
+                                                  GRPHWLK_SPLIT_LINKS_STR,
+                                                  GRPHWLK_MISSING_LINKS_STR,
+                                                  GRPHWLK_USELINKS_STR};
 
 char* graph_step_status2str(enum GraphStepStatus status, char *str, size_t len)
 {
