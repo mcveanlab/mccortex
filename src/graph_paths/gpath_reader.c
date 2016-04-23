@@ -337,7 +337,7 @@ void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
     intocol = file_filter_intocol(fltr, i);
     counts->b[offset+intocol] += counts->b[fromcol];
   }
-  memcpy(counts->b, counts->b+offset, num_into);
+  memmove(counts->b, counts->b+offset, num_into*sizeof(counts->b[0]));
   counts->len = num_into;
 
   // 4:[juncs:ACAGA]

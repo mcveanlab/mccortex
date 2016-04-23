@@ -10,7 +10,7 @@ function myreadlink() {
 }
 
 REF=$(myreadlink ../ref/GCF_000016305.1_ASM1630v1_genomic.fna.gz)
-MUMMER=$(myreadlink ../mummer/ref_qry.good.nodupes.vcf.gz)
+MUMMER=$(myreadlink ../mummer/mummer.vcf.gz)
 TRUTH=$(myreadlink ../truth/CAV1016.fa)
 BCFTOOLS=$(myreadlink $CTXDIR/libs/bcftools/bcftools)
 MAPPING_TEST=$(myreadlink $CTXDIR/scripts/analysis/mapping-vars-test.sh)

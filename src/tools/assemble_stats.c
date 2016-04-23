@@ -30,9 +30,9 @@ enum AssemStopCause graphstep2assem(enum GraphStepStatus step, bool hit_cycle,
   switch(step) {
     case GRPHWLK_NOCOVG: return ASSEM_STOP_NOCOVG;
     case GRPHWLK_NOCOLCOVG: return ASSEM_STOP_NOCOLCOVG;
-    case GRPHWLK_NOPATHS: return ASSEM_STOP_NOPATHS;
-    case GRPHWLK_SPLIT_PATHS: return ASSEM_STOP_SPLIT_PATHS;
-    case GRPHWLK_MISSING_PATHS: return ASSEM_STOP_MISSING_PATHS;
+    case GRPHWLK_NOLINKS: return ASSEM_STOP_NOPATHS;
+    case GRPHWLK_SPLIT_LINKS: return ASSEM_STOP_SPLIT_PATHS;
+    case GRPHWLK_MISSING_LINKS: return ASSEM_STOP_MISSING_PATHS;
     default: die("Unknown %i", (int)step);
   }
 }
@@ -280,7 +280,7 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   _print_grphwlk_state("Pop straight ......... ", states[GRPHWLK_POPFWD],       nsteps);
   _print_grphwlk_state("Col straight ......... ", states[GRPHWLK_COLFWD],       nsteps);
   _print_grphwlk_state("PopFork use colour ... ", states[GRPHWLK_POPFRK_COLFWD],nsteps);
-  _print_grphwlk_state("Go paths ............. ", states[GRPHWLK_USEPATH],      nsteps);
+  _print_grphwlk_state("Go paths ............. ", states[GRPHWLK_USELINKS],     nsteps);
 
   const uint64_t *stops = s->stop_causes;
   status(PREFIX"Traversal halted because:");
@@ -293,14 +293,14 @@ void assemble_contigs_stats_print(const AssembleContigStats *s)
   _print_grphwlk_state("Low step confidence .. ", stops[ASSEM_STOP_LOW_STEP_CONF], ncontigends);
   _print_grphwlk_state("Low cumul. confidence  ", stops[ASSEM_STOP_LOW_CUMUL_CONF],ncontigends);
 
-  size_t njunc = states[GRPHWLK_USEPATH] +
+  size_t njunc = states[GRPHWLK_USELINKS] +
                  stops[ASSEM_STOP_NOPATHS] +
                  stops[ASSEM_STOP_SPLIT_PATHS] +
                  stops[ASSEM_STOP_MISSING_PATHS];
 
-  ctx_assert2(s->total_junc == states[GRPHWLK_USEPATH], "%zu vs %zu",
-              (size_t)s->total_junc, (size_t)states[GRPHWLK_USEPATH]);
+  ctx_assert2(s->total_junc == states[GRPHWLK_USELINKS], "%zu vs %zu",
+              (size_t)s->total_junc, (size_t)states[GRPHWLK_USELINKS]);
 
   status(PREFIX"Junctions:");
-  _print_grphwlk_state("Paths resolved", states[GRPHWLK_USEPATH], njunc);
+  _print_grphwlk_state("Paths resolved", states[GRPHWLK_USELINKS], njunc);
 }

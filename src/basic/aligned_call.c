@@ -134,8 +134,6 @@ static void print_vcf_entry(size_t vcf_pos, int8_t prev_base, int8_t next_base,
     strbuf_append_char(sbuf, gts[i] ? '1' : '.');
   }
 
-  strbuf_append_char(sbuf, '\n');
-
   // fprintf(stderr, " prev_base:%i next_base:%i info:%s\n", prev_base, next_base, call->info.b);
   // fprintf(stderr, "%s [%zu vs %zu]\n", sbuf->b, sbuf->end, strlen(sbuf->b));
 

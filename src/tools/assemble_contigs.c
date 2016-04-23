@@ -101,7 +101,7 @@ static void _assemble_contig(Assembler *assem, hkey_t hkey, const GPath *gpath,
       step = wlk->last_step;
       s.wlk_steps[step.status]++;
 
-      if(step.status == GRPHWLK_USEPATH)
+      if(step.status == GRPHWLK_USELINKS)
       {
         // Junction resolved using paths
         ctx_assert(step.path_gap > 0);

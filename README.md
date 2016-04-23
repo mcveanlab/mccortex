@@ -60,11 +60,11 @@ Create a job file from your sample file (`samples.txt`). All output will go into
 
 If your data are haploid, we set `--ploidy 1`:
 
-    ~/mccortex/scripts/make-pipeline.pl -r /path/to/ref.fa --ploidy 1 31,61 samples.txt mc_calls > job.k31.k61.mk
+    ~/mccortex/scripts/make-pipeline.pl -r /path/to/ref.fa --ploidy 1 31,61 mc_calls samples.txt > job.k31.k61.mk
 
 If your samples are human, you have a mix of haploid and diploid chromosomes. Therefore you need to specify which samples have only one copy of `chrX` and one of `chrY`. The format is `-P <sample>:<chr>:<ploidy>` where `<sample>` and `<chr>` can be comma-separated lists. Ploidy arguments are read in order.
 
-    ~/mccortex/scripts/make-pipeline.pl -r /path/to/ref.fa --ploidy "-P .:.:2 -P .:chrY:1 -P Mickey:chrX:1" 31,61 samples.txt mc_calls > job.k31.k61.mk
+    ~/mccortex/scripts/make-pipeline.pl -r /path/to/ref.fa --ploidy "-P .:.:2 -P .:chrY:1 -P Mickey:chrX:1" 31,61 mc_calls samples.txt > job.k31.k61.mk
 
 Now you're ready to run. You'll need to pass:
 - path to McCortex `CTXDIR=`

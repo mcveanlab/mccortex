@@ -432,14 +432,16 @@ size_t graph_writer_stream(const char *out_ctx_path, GraphFileReader *file,
   bool only_load_if_in_graph = (only_load_if_in_edges != NULL);
   status("Filtering %s to %s with stream filter", fltr->path.b,
          futil_outpath_str(out_ctx_path));
-
-  FILE *out = futil_fopen(out_ctx_path, "w");
-
   graph_loading_print_status(file);
 
-  size_t i, nodes_dumped = 0, ncols = file_filter_into_ncols(fltr);
+  // seek to start of input file after header
+  if(graph_file_fseek(file, file->hdr_size, SEEK_SET) != 0)
+    die("fseek failed: %s", strerror(errno));
 
+  FILE *out = futil_fopen(out_ctx_path, "w");
   graph_write_header(out, hdr);
+
+  size_t i, nodes_dumped = 0, ncols = file_filter_into_ncols(fltr);
 
   BinaryKmer bkmer;
   Covg covgs[ncols];

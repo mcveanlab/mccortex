@@ -13,10 +13,10 @@ enum GraphStepStatus {
   GRPHWLK_POPFRK_COLFWD = 2, /* Success: fork in pop, only one choice in colour */
   GRPHWLK_NOCOVG        = 3, /* Fail: no choices */
   GRPHWLK_NOCOLCOVG     = 4, /* Fail: fork in pop but no choices in colour */
-  GRPHWLK_NOPATHS       = 5, /* Fail: fork in colour, no paths */
-  GRPHWLK_SPLIT_PATHS   = 6, /* Fail: fork in colour, paths split */
-  GRPHWLK_MISSING_PATHS = 7, /* Fail: fork in colour, missing info */
-  GRPHWLK_USEPATH       = 8  /* Success: fork in colour, paths resolved */
+  GRPHWLK_NOLINKS       = 5, /* Fail: fork in colour, no paths */
+  GRPHWLK_SPLIT_LINKS   = 6, /* Fail: fork in colour, paths split */
+  GRPHWLK_MISSING_LINKS = 7, /* Fail: fork in colour, missing info */
+  GRPHWLK_USELINKS      = 8  /* Success: fork in colour, paths resolved */
 };
 
 #define GRPHWLK_NUM_STATES 9
@@ -26,10 +26,10 @@ enum GraphStepStatus {
 #define GRPHWLK_POPFRK_COLFWD_STR "GoPopForkColForward"
 #define GRPHWLK_NOCOVG_STR        "FailNoCovg"
 #define GRPHWLK_NOCOLCOVG_STR     "FailNoColCovg"
-#define GRPHWLK_NOPATHS_STR       "FailNoPaths"
-#define GRPHWLK_SPLIT_PATHS_STR   "FailSplitPaths"
-#define GRPHWLK_MISSING_PATHS_STR "FailMissingPaths"
-#define GRPHWLK_USEPATH_STR       "GoUsePath"
+#define GRPHWLK_NOLINKS_STR       "FailNoLinks"
+#define GRPHWLK_SPLIT_LINKS_STR   "FailSplitLinks"
+#define GRPHWLK_MISSING_LINKS_STR "FailMissingLinks"
+#define GRPHWLK_USELINKS_STR      "GoUseLinks"
 
 // Result from graph_walker_choose
 typedef struct
@@ -54,7 +54,7 @@ extern const char *graph_step_str[GRPHWLK_NUM_STATES];
 
 // Are we still walking?
 #define grap_step_status_is_good(stat) ((stat) <= GRPHWLK_POPFRK_COLFWD || \
-                                        (stat) == GRPHWLK_USEPATH)
+                                        (stat) == GRPHWLK_USELINKS)
 
 char* graph_step_status2str(enum GraphStepStatus status, char *str, size_t len);
 void graph_step_print_state_hist(const size_t arr[GRPHWLK_NUM_STATES]);

@@ -32,6 +32,8 @@ def query_mccortex(proc,kmer):
     proc.stdin.flush()
     check_mccortex_alive(proc)
     line = proc.stdout.readline()
+    # Trim off prompt text
+    if line[0:2] == "> ": line = line[2:len(line)]
     check_mccortex_alive(proc)
     return line
 
@@ -113,6 +115,7 @@ def start_web_server(port,args):
 def main():
     if len(sys.argv) < 3 or not sys.argv[1].isdigit():
         print("usage: %s <port> [mccortex args]" % (sys.argv[0]))
+        print("  e.g  %s 1888 -m 2G graph.ctx" % (sys.argv[0]))
         sys.exit(-1)
 
     port = int(sys.argv[1])

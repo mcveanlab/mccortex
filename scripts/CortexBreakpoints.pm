@@ -38,7 +38,7 @@ sub read_fasta
   my ($self) = @_;
   my ($title, $seq);
   # Read past empy lines
-  while(defined($title = $self->read_line()) && $title =~ /^(?:#|$)/) {}
+  while(defined($title = $self->read_line()) && $title =~ /^#|^\s*$/) {}
   # No more entries
   if(!defined($title)) { return undef; }
   chomp($title);

@@ -430,7 +430,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
   // We have hit a fork
   // abandon if no path info
-  if(wlk->paths.len == 0) _gw_choose_return(-1, GRPHWLK_NOPATHS, 0);
+  if(wlk->paths.len == 0) _gw_choose_return(-1, GRPHWLK_NOLINKS, 0);
 
   // Mark next bases available
   bool forks[4] = {false}, taken[4] = {false};
@@ -458,7 +458,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
   ctx_assert(oldest_path->pos < oldest_path->len);
 
-  if(greatest_age == 0) _gw_choose_return(-1, GRPHWLK_NOPATHS, 0);
+  if(greatest_age == 0) _gw_choose_return(-1, GRPHWLK_NOLINKS, 0);
 
   // Set i to the index of the oldest path to disagree with our oldest path
   // OR wlk->paths.length if all paths agree
@@ -469,7 +469,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
 
   // If a path of the same age disagrees, cannot proceed
   if(i < wlk->paths.len && wlk->paths.b[i].age == greatest_age)
-    _gw_choose_return(-1, GRPHWLK_SPLIT_PATHS, 0);
+    _gw_choose_return(-1, GRPHWLK_SPLIT_LINKS, 0);
 
   size_t choice_age = (i < wlk->paths.len ? wlk->paths.b[i].age : 0);
   const GraphSegment *gseg, *first_seg = mdc_list_getptr(&wlk->gsegs, 0);
@@ -499,7 +499,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   // Fail if missing assembly info
   if(wlk->missing_path_check &&
      (size_t)taken[0]+taken[1]+taken[2]+taken[3] < num_next) {
-    _gw_choose_return(-1, GRPHWLK_MISSING_PATHS, path_gap);
+    _gw_choose_return(-1, GRPHWLK_MISSING_LINKS, path_gap);
   }
 
   // There is unique next node
@@ -508,7 +508,7 @@ GraphStep graph_walker_choose(const GraphWalker *wlk, size_t num_next,
   //  (paths are colour specify)
   for(i = 0; i < num_next; i++)
     if(bases[i] == greatest_nuc)
-      _gw_choose_return(indices[i], GRPHWLK_USEPATH, path_gap);
+      _gw_choose_return(indices[i], GRPHWLK_USELINKS, path_gap);
 
   // Should be impossible to reach here...
   die("Should be impossible to reach here");
@@ -544,7 +544,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
   // if we used a path to move to the next node, we must be at a fork
   // The reverse is NOT true, as the caller may have forced us down a junction
   // with graph_walker_force() rather than use a path
-  ctx_assert2((wlk->last_step.status != GRPHWLK_USEPATH) || is_fork, "%i vs %i",
+  ctx_assert2((wlk->last_step.status != GRPHWLK_USELINKS) || is_fork, "%i vs %i",
               (int)wlk->last_step.status, (int)is_fork);
 
   // Update GraphWalker position
