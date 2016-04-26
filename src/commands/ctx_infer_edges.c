@@ -22,7 +22,7 @@ const char inferedges_usage[] =
 "  -h, --help            This help message\n"
 "  -q, --quiet           Silence status output normally printed to STDERR\n"
 "  -f, --force           Overwrite output files\n"
-"  -o, --out <out.ctp>   Save output file\n"
+"  -o, --out <out.ctx>   Save output graph file\n"
 "  -m, --memory <mem>    Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>      Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"

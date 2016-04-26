@@ -9,14 +9,14 @@
 #include "gpath_save.h"
 
 const char pjoin_usage[] =
-"usage: "CMD" pjoin [options] <in1.ctp> [[offset:]in2.ctp[:0,2-4] ...]\n"
+"usage: "CMD" pjoin [options] <in1.ctp.gz> [[offset:]in2.ctp[:0,2-4] ...]\n"
 "\n"
 "  Merge cortex path files.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -f, --force            Overwrite output files\n"
-"  -o, --out <out.ctp>    Output file [required]\n"
+"  -o, --out <out.ctp.gz> Output file [required]\n"
 "  -m, --memory <mem>     Memory to use (required) recommend 80G for human\n"
 "  -n, --nkmers <nkmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
@@ -87,7 +87,7 @@ int ctx_pjoin(int argc, char **argv)
   // Defaults for unset values
   if(nthreads == 0) nthreads = DEFAULT_NTHREADS;
 
-  if(out_ctp_path == NULL) cmd_print_usage("--out <out.ctp> required");
+  if(out_ctp_path == NULL) cmd_print_usage("--out <out.ctp.gz> required");
   if(optind >= argc) cmd_print_usage("Please specify at least one input file");
 
   // argi .. argend-1 are graphs to load
