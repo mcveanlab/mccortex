@@ -13,6 +13,12 @@ const char *assem_stop_str[] = {ASSEM_STOP_UNKNOWN_STR,
                                 ASSEM_STOP_LOW_STEP_CONF_STR,
                                 ASSEM_STOP_LOW_CUMUL_CONF_STR};
 
+const char* assem2str(enum AssemStopCause assem)
+{
+  ctx_assert2(assem < ASSEM_NUM_STOPS, "Invalid AssemStopCause: %li", (long)assem);
+  return assem_stop_str[(size_t)assem];
+}
+
 enum AssemStopCause graphstep2assem(enum GraphStepStatus step, bool hit_cycle,
                                     bool low_step_confid, bool low_cumul_confid)
 {
@@ -35,14 +41,6 @@ enum AssemStopCause graphstep2assem(enum GraphStepStatus step, bool hit_cycle,
     case GRPHWLK_MISSING_LINKS: return ASSEM_STOP_MISSING_PATHS;
     default: die("Unknown %i", (int)step);
   }
-}
-
-char* assem2str(enum AssemStopCause assem, char *str, size_t size)
-{
-  ctx_assert(assem < ASSEM_NUM_STOPS);
-  ctx_assert(strlen(assem_stop_str[assem]) < size);
-  strcpy(str, assem_stop_str[assem]);
-  return str;
 }
 
 void assemble_contigs_stats_init(AssembleContigStats *stats)
