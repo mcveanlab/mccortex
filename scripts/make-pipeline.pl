@@ -343,7 +343,7 @@ BRK_REF_KMERS=10
 
 # Command arguments
 BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
-KMER_CLEANING_ARGS=--fallback 2
+KMER_CLEANING_ARGS=--fallback 2 -T -U
 POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
 LINK_CLEANING_ARGS=--limit 5000  --max-dist 250 --max-covg 250

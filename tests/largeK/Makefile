@@ -18,7 +18,7 @@ rnd.k39.ctx: rnd.fa
 	$(CTX) build -k 39 --sample rnd --seq rnd.fa $@
 
 rnd.clean.k39.ctx: rnd.k39.ctx
-	$(CTX) clean -o $@ --supernodes=2 $<
+	$(CTX) clean -o $@ --unitigs=2 $<
 	$(CTX) check $@
 
 .PHONY: all clean

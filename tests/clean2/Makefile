@@ -26,7 +26,7 @@ seq.k$(KMER).raw.ctx: seq.fa
 	$(CTX) check -q $@
 
 seq.k$(KMER).clean.ctx: seq.k$(KMER).raw.ctx
-	$(CTX) clean --supernodes=2 -o $@ $<
+	$(CTX) clean --unitigs=2 -o $@ $<
 	$(CTX) check -q $@
 
 %.unitigs.dot: %.ctx

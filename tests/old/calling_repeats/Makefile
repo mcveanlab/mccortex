@@ -60,7 +60,7 @@ seq.k$(K).ctp: seq1.fa seq2.fa
 	rm seq.0.k$(K).ctp seq.1.k$(K).ctp
 
 seq.k$(K).pdf: seq.k$(K).ctx
-	 $(CTX) supernodes --graphviz seq.k$(K).ctx | dot -Tpdf > seq.k$(K).pdf
+	 $(CTX) unitigs --graphviz seq.k$(K).ctx | dot -Tpdf > seq.k$(K).pdf
 
 seq.k$(K).kmers.pdf: seq.k$(K).ctx
 	../../scripts/cortex_to_graphviz.pl seq.k$(K).ctx | dot -Tpdf > seq.k$(K).kmers.pdf

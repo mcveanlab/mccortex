@@ -205,7 +205,7 @@ cite previous cortex_var papers:
 
 * De novo assembly and genotyping of variants using colored de Bruijn graphs,
 Iqbal(*), Caccamo(*), Turner, Flicek, McVean (Nature Genetics) (2012)
-(doi:10.1038/ng.1028)
+(doi:10.1038/ng.1028) http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3272472
 * High-throughput microbial population genomics using the Cortex variation assembler,
 Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
-(doi:10.1093/bioinformatics/bts673)
+(doi:10.1093/bioinformatics/bts673) http://www.ncbi.nlm.nih.gov/pubmed/23172865
