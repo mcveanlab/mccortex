@@ -2,29 +2,29 @@
 #include "all_tests.h"
 #include "binary_kmer.h"
 #include "db_node.h"
-#include "supernode.h"
+#include "db_unitig.h"
 #include "build_graph.h"
 
 #include "bit_array/bit_macros.h"
 
-#define SNODEBUF 200
+#define UNODEBUF 200
 
-static void supernode_from_kmer(hkey_t hkey, dBNodeBuffer *nbuf,
-                                uint64_t *visited, const dBGraph *graph,
-                                const char **ans, size_t n)
+static void unitig_from_kmer(hkey_t hkey, dBNodeBuffer *nbuf,
+                             uint64_t *visited, const dBGraph *graph,
+                             const char **ans, size_t n)
 {
   size_t i;
-  char tmpstr[SNODEBUF];
+  char tmpstr[UNODEBUF];
 
   if(!bitset_get(visited, hkey))
   {
     db_node_buf_reset(nbuf);
-    supernode_find(hkey, nbuf, graph);
+    db_unitig_fetch(hkey, nbuf, graph);
     for(i = 0; i < nbuf->len; i++) bitset_set(visited, nbuf->b[i].key);
 
-    supernode_normalise(nbuf->b, nbuf->len, graph);
+    db_unitig_normalise(nbuf->b, nbuf->len, graph);
 
-    TASSERT(nbuf->len < SNODEBUF);
+    TASSERT(nbuf->len < UNODEBUF);
     db_nodes_to_str(nbuf->b, nbuf->len, graph, tmpstr);
     for(i = 0; i < n && strcmp(tmpstr,ans[i]) != 0; i++);
 
@@ -32,23 +32,23 @@ static void supernode_from_kmer(hkey_t hkey, dBNodeBuffer *nbuf,
   }
 }
 
-static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
-                                const dBGraph *graph)
+static void pull_out_unitigs(const char **seq, const char **ans, size_t n,
+                             const dBGraph *graph)
 {
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 1024);
 
-  // 1. Check pulling out supernodes works for iterating over the graph
+  // 1. Check pulling out unitigs works for iterating over the graph
   uint64_t *visited;
   visited = ctx_calloc(roundup_bits2words64(graph->ht.capacity), 8);
-  HASH_ITERATE(&graph->ht, supernode_from_kmer,
+  HASH_ITERATE(&graph->ht, unitig_from_kmer,
                &nbuf, visited, graph, ans, n);
   ctx_free(visited);
 
-  // 2. Check pulling out supernodes works when we iterate over inputs
+  // 2. Check pulling out unitigs works when we iterate over inputs
   size_t i, j, len;
   dBNode node;
-  char tmpstr[SNODEBUF];
+  char tmpstr[UNODEBUF];
 
   for(i = 0; i < n; i++) {
     len = strlen(seq[i]);
@@ -58,13 +58,13 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
       node = db_graph_find_str(graph, seq[i]+j);
       TASSERT(node.key != HASH_NOT_FOUND);
 
-      // Fetch supernode
+      // Fetch unitig
       db_node_buf_reset(&nbuf);
-      supernode_find(node.key, &nbuf, graph);
-      supernode_normalise(nbuf.b, nbuf.len, graph);
+      db_unitig_fetch(node.key, &nbuf, graph);
+      db_unitig_normalise(nbuf.b, nbuf.len, graph);
 
       // Compare
-      TASSERT(nbuf.len < SNODEBUF);
+      TASSERT(nbuf.len < UNODEBUF);
       db_nodes_to_str(nbuf.b, nbuf.len, graph, tmpstr);
       if(strcmp(tmpstr, ans[i]) != 0) {
         test_status("Got: %s from ans[i]:%s\n", tmpstr, ans[i]);
@@ -76,9 +76,9 @@ static void pull_out_supernodes(const char **seq, const char **ans, size_t n,
   db_node_buf_dealloc(&nbuf);
 }
 
-void test_supernode()
+void test_db_unitig()
 {
-  test_status("testing supernode_find()...");
+  test_status("testing db_unitig_fetch()...");
 
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
@@ -112,7 +112,7 @@ void test_supernode()
   for(i = 0; i < NSEQ; i++)
     build_graph_from_str_mt(&graph, 0, seq[i], strlen(seq[i]), false);
 
-  pull_out_supernodes(seq, ans, NSEQ, &graph);
+  pull_out_unitigs(seq, ans, NSEQ, &graph);
 
   db_graph_dealloc(&graph);
 }

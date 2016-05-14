@@ -4,9 +4,9 @@
 #include "hash_table.h"
 #include "db_graph.h"
 #include "db_node.h"
-#include "supernode.h"
+#include "db_unitig.h"
 
-static bool supernode_is_closed_cycle(dBNode n0, BinaryKmer bkey0,
+static bool db_unitig_is_closed_cycle(dBNode n0, BinaryKmer bkey0,
                                       dBNode n1, BinaryKmer bkey1,
                                       const dBGraph *db_graph)
 {
@@ -31,12 +31,12 @@ static bool supernode_is_closed_cycle(dBNode n0, BinaryKmer bkey0,
   return binary_kmers_are_equal(bkey0, shiftkmer);
 }
 
-// Orient supernode
-// Once oriented, supernode has lowest possible kmerkey at the beginning,
+// Orient unitig
+// Once oriented, unitig has lowest possible kmerkey at the beginning,
 // oriented FORWARDs if possible
-void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
+void db_unitig_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 {
-  // Sort supernode into forward orientation
+  // Sort unitig into forward orientation
   ctx_assert(len > 0);
 
   if(len == 1) {
@@ -48,7 +48,7 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
   BinaryKmer bkey1 = db_node_get_bkmer(db_graph, nlist[len-1].key);
 
   // Check if closed cycle
-  if(supernode_is_closed_cycle(nlist[0], bkey0, nlist[len-1], bkey1, db_graph))
+  if(db_unitig_is_closed_cycle(nlist[0], bkey0, nlist[len-1], bkey1, db_graph))
   {
     // find lowest kmer to start from
     BinaryKmer lowest = bkey0, tmp;
@@ -82,12 +82,12 @@ void supernode_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
   }
 }
 
-// Extend a supernode, nlist[offset] must already be set
-// Walk along nodes starting from node/or, storing the supernode in nlist
+// Extend a unitig, nlist[offset] must already be set
+// Walk along nodes starting from node/or, storing the unitig in nlist
 // Returns the number of nodes added, adds no more than `limit`
 // return false if out of space and limit > 0
-bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
-                      const dBGraph *db_graph)
+bool db_unitig_extend(dBNodeBuffer *nbuf, size_t limit,
+                   const dBGraph *db_graph)
 {
   ctx_assert(nbuf->len > 0);
 
@@ -123,18 +123,18 @@ bool supernode_extend(dBNodeBuffer *nbuf, size_t limit,
   return true;
 }
 
-void supernode_find(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
+void db_unitig_fetch(hkey_t hkey, dBNodeBuffer *nbuf, const dBGraph *db_graph)
 {
   dBNode first = {.key = hkey, .orient = REVERSE};
   size_t offset = nbuf->len;
   db_node_buf_add(nbuf, first);
-  supernode_extend(nbuf, 0, db_graph);
+  db_unitig_extend(nbuf, 0, db_graph);
   db_nodes_reverse_complement(nbuf->b+offset, nbuf->len-offset);
-  supernode_extend(nbuf, 0, db_graph);
+  db_unitig_extend(nbuf, 0, db_graph);
 }
 
 // Count number of read starts using coverage data
-size_t supernode_read_starts(const Covg *covgs, size_t len)
+size_t db_unitig_read_starts(const Covg *covgs, size_t len)
 {
   if(len == 0) return 0;
   if(len == 1) return covgs[0];
@@ -153,7 +153,7 @@ size_t supernode_read_starts(const Covg *covgs, size_t len)
   return read_starts;
 }
 
-size_t supernode_covg_mean(const Covg *covgs, size_t len)
+size_t db_unitig_covg_mean(const Covg *covgs, size_t len)
 {
   ctx_assert(len > 0);
   size_t i, sum = 0;
@@ -162,17 +162,17 @@ size_t supernode_covg_mean(const Covg *covgs, size_t len)
 }
 
 //
-// Iterate over supernodes in the graph with multiple threads
+// Iterate over unitigs in the graph with multiple threads
 //
 
-static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
-                                         dBNodeBuffer *nbuf,
-                                         uint8_t *visited,
-                                         const dBGraph *db_graph,
-                                         void (*func)(dBNodeBuffer _nbuf,
-                                                      size_t threadid,
-                                                      void *_arg),
-                                         void *arg)
+static inline int unitig_iterate_node(hkey_t hkey, size_t threadid,
+                                      dBNodeBuffer *nbuf,
+                                      uint8_t *visited,
+                                      const dBGraph *db_graph,
+                                      void (*func)(dBNodeBuffer nbuf,
+                                                   size_t threadid,
+                                                   void *arg),
+                                      void *arg)
 {
   bool got_lock = false;
   size_t i;
@@ -180,7 +180,7 @@ static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
   if(!bitset_get_mt(visited, hkey))
   {
     db_node_buf_reset(nbuf);
-    supernode_find(hkey, nbuf, db_graph);
+    db_unitig_fetch(hkey, nbuf, db_graph);
 
     // Mark key node (lowest hkey_t value) as visited
     hkey_t node0 = nbuf->b[0].key;
@@ -209,17 +209,17 @@ typedef struct {
   const dBGraph *db_graph;
   void (*func)(dBNodeBuffer _nbuf, size_t threadid, void *_arg);
   void *arg;
-} SupernodeIterating;
+} UnitigIterating;
 
-static void supernodes_iterate_thread(void *arg, size_t threadid)
+static void db_unitigs_iterate_thread(void *arg, size_t threadid)
 {
-  SupernodeIterating iter = *(SupernodeIterating*)arg;
+  UnitigIterating iter = *(UnitigIterating*)arg;
 
   dBNodeBuffer nbuf;
   db_node_buf_alloc(&nbuf, 2048);
 
   HASH_ITERATE_PART(&iter.db_graph->ht, threadid, iter.nthreads,
-                    supernode_iterate_node,
+                    unitig_iterate_node,
                     threadid, &nbuf, iter.visited, iter.db_graph,
                     iter.func, iter.arg);
 
@@ -229,18 +229,16 @@ static void supernodes_iterate_thread(void *arg, size_t threadid)
 /**
  * @param visited must be initialised to zero, will be dirty upon return
  **/
-void supernodes_iterate(size_t nthreads, uint8_t *visited,
+void db_unitigs_iterate(size_t nthreads, uint8_t *visited,
                         const dBGraph *db_graph,
-                        void (*func)(dBNodeBuffer _nbuf,
-                                     size_t threadid,
-                                     void *_arg),
+                        void (*func)(dBNodeBuffer nbuf, size_t threadid, void *arg),
                         void *arg)
 {
-  SupernodeIterating iter = {.nthreads = nthreads,
-                             .visited = visited,
-                             .db_graph = db_graph,
-                             .func = func,
-                             .arg = arg};
+  UnitigIterating iter = {.nthreads = nthreads,
+                          .visited = visited,
+                          .db_graph = db_graph,
+                          .func = func,
+                          .arg = arg};
 
-  util_multi_thread(&iter, nthreads, supernodes_iterate_thread);
+  util_multi_thread(&iter, nthreads, db_unitigs_iterate_thread);
 }

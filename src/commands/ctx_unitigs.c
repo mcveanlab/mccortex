@@ -5,7 +5,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "binary_kmer.h"
-#include "supernode.h"
+#include "db_unitig.h"
 #include "graphs_load.h"
 #include "gpath_checks.h"
 #include "unitig_graph.h"
@@ -368,7 +368,7 @@ int ctx_unitigs(int argc, char **argv)
   {
     case PRINT_FASTA:
       status("Printing unitgs in FASTA using %zu threads", nthreads);
-      supernodes_iterate(nthreads, printer.visited, &db_graph,
+      db_unitigs_iterate(nthreads, printer.visited, &db_graph,
                          print_unitig_fasta, &printer);
       break;
     case PRINT_GFA:

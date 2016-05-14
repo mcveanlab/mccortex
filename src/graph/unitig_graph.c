@@ -1,9 +1,9 @@
 #include "global.h"
 #include "unitig_graph.h"
 #include "db_node.h"
-#include "supernode.h"
+#include "db_unitig.h"
 
-// Store ends of supernode currently stored in `nodes` and `orients` arrays
+// Store ends of unitig currently stored in `nodes` and `orients` arrays
 size_t unitig_graph_store_end_mt(const dBNode *nodes, size_t n,
                                  UnitigKmerGraph *ugraph)
 {
@@ -47,7 +47,7 @@ static void _create_unitig(dBNodeBuffer nbuf, size_t threadid, void *arg)
 {
   (void)threadid; // unused
   UnitigKmerGraph *ugraph = (UnitigKmerGraph*)arg;
-  supernode_normalise(nbuf.b, nbuf.len, ugraph->db_graph);
+  db_unitig_normalise(nbuf.b, nbuf.len, ugraph->db_graph);
   size_t uidx = unitig_graph_store_end_mt(nbuf.b, nbuf.len, ugraph);
   if(ugraph->per_untig) {
     ugraph->per_untig(nbuf.b, nbuf.len, uidx, ugraph->per_untig_arg);
@@ -66,7 +66,7 @@ void unitig_graph_create(UnitigKmerGraph *ugraph,
 {
   ugraph->per_untig = per_untig;
   ugraph->per_untig_arg = per_untig_arg;
-  supernodes_iterate(nthreads, visited, ugraph->db_graph, _create_unitig, ugraph);
+  db_unitigs_iterate(nthreads, visited, ugraph->db_graph, _create_unitig, ugraph);
 }
 
 void unitig_graph_alloc(UnitigKmerGraph *ugraph, const dBGraph *db_graph)

@@ -13,7 +13,7 @@ SHELL=/bin/bash -euo pipefail
 #
 
 K=11
-CTXDIR=../..
+CTXDIR=../../..
 CTX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh

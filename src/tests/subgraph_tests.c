@@ -6,13 +6,13 @@
 #include "subgraph.h"
 
 static void run_subgraph(dBGraph *graph, uint8_t *mask,
-                         size_t dist, bool invert, bool grab_supernodes,
+                         size_t dist, bool invert, bool grab_unitigs,
                          size_t expt_nkmers, char *seq, size_t len)
 {
   memset(mask, 0, roundup_bits2bytes(graph->ht.capacity));
 
   size_t nthreads = 2;
-  subgraph_from_seq(graph, nthreads, dist, invert, grab_supernodes,
+  subgraph_from_seq(graph, nthreads, dist, invert, grab_unitigs,
                     8*graph->ht.num_kmers, mask,
                     &seq, &len, 1);
 
@@ -76,7 +76,7 @@ static void simple_subgraph_test()
   db_graph_dealloc(&graph);
 }
 
-static void test_subgraph_supernodes()
+static void test_subgraph_unitigs()
 {
   // Construct 1 colour graph with kmer-size=11
   dBGraph graph;
@@ -87,7 +87,7 @@ static void test_subgraph_supernodes()
 
   uint8_t *mask = ctx_calloc(roundup_bits2bytes(graph.ht.capacity), 1);
 
-  // Supernode of 5 kmers with a kmer fork either side
+  // unitig of 5 kmers with a kmer fork either side
   char seq0[] = "ATGGTGCCTAGAAGGTA";
   char seq1[] = "cTGGTGCCTAGAAGGTg";
   size_t i;
@@ -124,5 +124,5 @@ void test_subgraph()
 {
   test_status("Testing subgraph...");
   simple_subgraph_test();
-  test_subgraph_supernodes();
+  test_subgraph_unitigs();
 }

@@ -16,7 +16,7 @@ all:
 	cd calls3 && $(MAKE)
 	cd calls4 && $(MAKE)
 	cd calls5 && $(MAKE)
-	@echo "All looks good."
+	@echo "vcfcov: All looks good."
 
 clean:
 	cd calls0 && $(MAKE) clean

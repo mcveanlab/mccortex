@@ -7,7 +7,7 @@
 #include "graphs_load.h"
 #include "graph_writer.h"
 #include "clean_graph.h"
-#include "supernode.h" // for saving length histogram
+#include "db_unitig.h" // for saving length histogram
 
 const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
@@ -52,7 +52,6 @@ static struct option longopts[] =
 // command specific
   {"tips",         optional_argument, NULL, 'T'},
   {"unitigs",      optional_argument, NULL, 'U'},
-  {"supernodes",   optional_argument, NULL, 'S'}, // alias for --unitigs
   {"fallback",     required_argument, NULL, 'B'},
 // output
   {"len-before",   required_argument, NULL, 'l'},

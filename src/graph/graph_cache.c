@@ -1,7 +1,7 @@
 #include "global.h"
 #include "graph_cache.h"
 #include "binary_seq.h"
-#include "supernode.h"
+#include "db_unitig.h"
 
 #include "sort_r/sort_r.h"
 
@@ -60,11 +60,11 @@ static inline void gc_create_unitig(GraphCache *cache, dBNode node,
 
   size_t first_node_id = cache->node_buf.len;
   db_node_buf_add(&cache->node_buf, node);
-  supernode_extend(&cache->node_buf, 0, db_graph);
+  db_unitig_extend(&cache->node_buf, 0, db_graph);
   size_t num_nodes = cache->node_buf.len - first_node_id;
 
   dBNode *nodes = graph_cache_node(cache, first_node_id);
-  supernode_normalise(nodes, num_nodes, db_graph);
+  db_unitig_normalise(nodes, num_nodes, db_graph);
 
   // printf("Loaded unitig:\n  ");
   // db_nodes_print(nodes, num_nodes, db_graph, stdout);
@@ -211,7 +211,7 @@ void gc_path_fetch_nodes(const GraphCache *cache,
 
   for(endstep = step + num_steps; step < endstep; step++) {
     unitig = graph_cache_unitig(cache, step->unitigid);
-    gc_unitig_fetch_nodes(cache, unitig, step->orient, nbuf);
+    gc_db_unitig_fetch_nodes(cache, unitig, step->orient, nbuf);
   }
 }
 
@@ -229,7 +229,7 @@ Orientation gc_unitig_get_orient(const GraphCache *cache,
 
 // Get all nodes in a single step (unitig with orientation)
 // Adds to the end of the node buffer (does not reset it)
-void gc_unitig_fetch_nodes(const GraphCache *cache,
+void gc_db_unitig_fetch_nodes(const GraphCache *cache,
                            const GCacheUnitig *unitig,
                            Orientation orient,
                            dBNodeBuffer *nbuf)

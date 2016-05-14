@@ -1,6 +1,6 @@
 #include "global.h"
 #include "pop_bubbles.h"
-#include "supernode.h"
+#include "db_unitig.h"
 
 /*
   Popping bubbles works by iterating over all unitigs. For each unitig
@@ -149,7 +149,7 @@ static inline void mark_remove_bubbles(dBNodeBuffer nbuf, size_t threadid,
   {
     db_node_buf_reset(alt);
     db_node_buf_add(alt, db_node_reverse(nodes0[i]));
-    supernode_extend(alt, 0, db_graph);
+    db_unitig_extend(alt, 0, db_graph);
 
     // find end node in right hand nodes
     endnode = alt->b[alt->len-1];
@@ -201,7 +201,7 @@ size_t pop_bubbles(const dBGraph *db_graph, size_t nthreads,
   data.num_popped = ctx_calloc(nthreads, sizeof(size_t));
   for(i = 0; i < nthreads; i++) db_node_buf_alloc(&data.alts[i], 256);
 
-  supernodes_iterate(nthreads, visited, db_graph, mark_remove_bubbles, &data);
+  db_unitigs_iterate(nthreads, visited, db_graph, mark_remove_bubbles, &data);
 
   for(i = 0; i < nthreads; i++) {
     total_popped += data.num_popped[i];

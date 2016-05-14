@@ -1,6 +1,6 @@
 SHELL=/bin/bash -euo pipefail
 
-CTXDIR=../..
+CTXDIR=../../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 READSIM=$(CTXDIR)/libs/readsim/readsim
 VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries

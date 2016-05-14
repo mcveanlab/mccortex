@@ -115,8 +115,8 @@ void test_db_node();
 // build_graph_tests.c
 void test_build_graph();
 
-// supernode_tests.c
-void test_supernode();
+// db_unitig_tests.c
+void test_db_unitig();
 
 // cleaning_tests.c
 void test_cleaning();
