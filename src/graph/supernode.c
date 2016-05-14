@@ -182,14 +182,17 @@ static inline int supernode_iterate_node(hkey_t hkey, size_t threadid,
     db_node_buf_reset(nbuf);
     supernode_find(hkey, nbuf, db_graph);
 
-    // Mark first node (lowest hkey_t value) as visited
-    hkey_t node0 = MIN2(nbuf->b[0].key, nbuf->b[nbuf->len-1].key);
+    // Mark key node (lowest hkey_t value) as visited
+    hkey_t node0 = nbuf->b[0].key;
+    for(i = 1; i < nbuf->len; i++) node0 = MIN2(node0, nbuf->b[i].key);
+
     bitlock_try_acquire(visited, node0, &got_lock);
 
     // Check if someone else marked it first
     if(got_lock)
     {
       // Mark remaining nodes as visited
+      // so we don't use them to seed new unitigs
       for(i = 0; i < nbuf->len; i++)
         (void)bitset_set_mt(visited, nbuf->b[i].key);
 

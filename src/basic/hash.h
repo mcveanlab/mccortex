@@ -6,8 +6,8 @@
   // Use Google's CityHash
   #include "misc/city.h"
   #define HASH_NAME_STR "CityHash32"
-  #define ctx_hash32(src,n,rehash) (CityHash32((char*)(src), (n)) ^ (rehash))
-  #define ctx_hash64(src,n,rehash) (CityHash64((char*)(src), (n)) ^ (rehash))
+  #define ctx_hash32(src,n,rehash) ((uint32_t)CityHash64WithSeed((char*)(src), (n), (rehash)))
+  #define ctx_hash64(src,n,rehash) CityHash64WithSeed((char*)(src), (n), (rehash))
 #elif defined(USE_XXHASH)
   // Use xxHash
   #include "xxHash/xxhash.h"

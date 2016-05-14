@@ -11,7 +11,7 @@
 const char sort_usage[] =
 "usage: "CMD" sort [options] <in.ctx>\n"
 "\n"
-"  Sort a cortex graph file.\n"
+"  Sort a cortex graph file. Loads entire graph into memory then sorts.\n"
 "\n"
 "  -h, --help              This help message\n"
 "  -q, --quiet             Silence status output normally printed to STDERR\n"
@@ -40,8 +40,7 @@ static inline int binary_kmers_qcmp_ptrs(const void *aa, const void *bb)
   return binary_kmers_cmp(b1, b2);
 }
 
-// Sort either graph file or paths file. Pointers must point to binary kmer or
-// test representation of kmer
+// Sort graph file entries. Pointers must point to binary kmer
 static inline void sort_block(char **entries, size_t num)
 {
   qsort(entries, num, sizeof(char*), binary_kmers_qcmp_ptrs);
