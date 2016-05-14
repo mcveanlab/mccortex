@@ -13,7 +13,7 @@ const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
 "  Clean a cortex graph. Joins graphs first, if multiple inputs given.\n"
-"  If neither -t or -s specified, just saves output statistics.\n"
+"  If neither -T or -U specified, just saves output statistics.\n"
 "\n"
 "  -h, --help               This help message\n"
 "  -q, --quiet              Silence status output normally printed to STDERR\n"
@@ -68,6 +68,7 @@ int ctx_clean(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_ctx_path = NULL;
   int min_keep_tip = -1, unitig_min = -1; // <0 => default, 0 => noclean
+  bool unitig_cleaning = false, tip_cleaning = false;
   uint32_t fallback_thresh = 0;
   const char *len_before_path = NULL, *len_after_path = NULL;
   const char *covg_before_path = NULL, *covg_after_path = NULL;
@@ -98,11 +99,13 @@ int ctx_clean(int argc, char **argv)
       case 'T':
         cmd_check(min_keep_tip<0, cmd);
         min_keep_tip = (optarg != NULL ? (int)cmd_uint32(cmd, optarg) : -1);
+        tip_cleaning = true;
         break;
       case 'S':
       case 'U':
         cmd_check(unitig_min<0, cmd);
         unitig_min = (optarg != NULL ? cmd_uint32(cmd, optarg) : -1);
+        unitig_cleaning = true;
         break;
       case 'B': cmd_check(!fallback_thresh, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;
       case 'l': cmd_check(!len_before_path, cmd); len_before_path = optarg; break;
@@ -121,9 +124,13 @@ int ctx_clean(int argc, char **argv)
 
   if(optind >= argc) cmd_print_usage("Please give input graph files");
 
-  bool unitig_cleaning = (unitig_min != 0);
-  bool tip_cleaning = (min_keep_tip != 0);
   bool doing_cleaning = (unitig_cleaning || tip_cleaning);
+
+  // set default cleaning
+  if(!doing_cleaning && out_ctx_path != NULL) {
+    unitig_cleaning = tip_cleaning = true;
+    doing_cleaning = true;
+  }
 
   // If you ever want to estimate cleaning threshold without outputting
   // a graph, change this to a warning
@@ -212,12 +219,14 @@ int ctx_clean(int argc, char **argv)
     status("%zu. Saving kmer coverage distribution to: %s", step++, covg_before_path);
   if(len_before_path != NULL)
     status("%zu. Saving unitig length distribution to: %s", step++, len_before_path);
-  if(min_keep_tip > 0)
+  if(tip_cleaning)
     status("%zu. Cleaning tips shorter than %i nodes", step++, min_keep_tip);
-  if(unitig_min > 0)
-    status("%zu. Cleaning unitigs with coverage < %i", step++, unitig_min);
-  if(unitig_min < 0)
-    status("%zu. Cleaning unitigs with auto-detected threshold", step++);
+  if(unitig_cleaning) {
+    if(unitig_min > 0)
+      status("%zu. Cleaning unitigs with coverage < %i", step++, unitig_min);
+    if(unitig_min < 0)
+      status("%zu. Cleaning unitigs with auto-detected threshold", step++);
+  }
   if(covg_after_path != NULL)
     status("%zu. Saving kmer coverage distribution to: %s", step++, covg_after_path);
   if(len_after_path != NULL)
@@ -339,7 +348,7 @@ int ctx_clean(int argc, char **argv)
   ctx_assert(unitig_min >= 0);
   ctx_assert(min_keep_tip >= 0);
 
-  if(unitig_min || min_keep_tip)
+  if(unitig_cleaning || tip_cleaning)
   {
     // Clean graph of tips (if min_keep_tip > 0) and unitigs (if threshold > 0)
     clean_graph(nthreads, unitig_min, min_keep_tip,

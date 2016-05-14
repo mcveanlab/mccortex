@@ -164,15 +164,16 @@ static int _dump_contig(Assembler *assem, hkey_t hkey,
   if(assem->fout != NULL)
   {
     // Print contig
-    char kmer_str[MAX_KMER_SIZE+1], left_stat[25], rght_stat[25];
+    char kmer_str[MAX_KMER_SIZE+1];
+    const char *left_stat, *rght_stat;
     BinaryKmer seed_bkmer = db_node_get_bkmer(db_graph, hkey);
     binary_kmer_to_str(seed_bkmer, db_graph->kmer_size, kmer_str);
     dna_revcomp_str(kmer_str, kmer_str, db_graph->kmer_size);
 
     // We have reversed the contig, so left end is now the end we hit when
     // traversing from the seed node forward... FORWARD == 0, REVERSE == 1
-    assem2str(s->stop_causes[0], left_stat, sizeof(left_stat));
-    assem2str(s->stop_causes[1], rght_stat, sizeof(rght_stat));
+    left_stat = assem2str(s->stop_causes[0]);
+    rght_stat = assem2str(s->stop_causes[1]);
 
     pthread_mutex_lock(assem->outlock);
     contig_id = assem->num_contig_ptr[0]++;

@@ -15,7 +15,7 @@ POP_GRAPHS=$(SEQS:.fa=.k$(K).ctx)
 POP_PATHS=$(SEQS:.fa=.k$(K).ctp.gz)
 POP_PATHS_CSV=$(SEQS:.fa=.k$(K).contig-hist.csv)
 CONFID_CSV=$(SEQS:.fa=.k$(K).confid.csv)
-PLOTS=$(shell echo {supernodes,kmers}.{0..$(LAST_SAMP)}.k$(K).pdf)
+PLOTS=$(shell echo {unitigs,kmers}.{0..$(LAST_SAMP)}.k$(K).pdf)
 CONTIGS=$(shell echo contigs.{0..$(LAST_SAMP)}.fa)
 RMDUP_CONTIGS=$(shell echo rmdup.contigs.{0..$(LAST_SAMP)}.fa)
 
@@ -45,7 +45,7 @@ contigs.%.fa: pop.ctx pop.ctp.gz
 rmdup.contigs.%.fa: contigs.%.fa
 	$(CTX) rmsubstr -k $(K) $< > $@
 
-supernodes.%.k$(K).pdf: seq.%.k$(K).ctx
+unitigs.%.k$(K).pdf: seq.%.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@
 
 kmers.%.k$(K).pdf: seq.%.k$(K).ctx

@@ -16,7 +16,7 @@ graph.ctx: seq.fa
 	$(CTX) build -m 1M -k 11 --sample MsGraph --seq seq.fa graph.ctx
 
 subgraph%.ctx: graph.ctx seed.fa
-	$(CTX) subgraph --seed seed.fa --supernodes --dist $* -o subgraph$*.ctx graph.ctx
+	$(CTX) subgraph --seed seed.fa --unitigs --dist $* -o subgraph$*.ctx graph.ctx
 
 clean:
 	rm -rf subgraph*.ctx graph.ctx seed.fa seq.fa

@@ -297,9 +297,9 @@ for my $sample (@samples) {
 open(FH, ">$outdir/Makefile") or die("Cannot write Makefile");
 print FH "
 PDFLATEX=pdflatex
-KCOV_PLOTTER=scripts/plot-covg-hist.R
-UNITIG_PLOTTER=scripts/plot-length-hist.R
-LINK_PLOTTER=scripts/link-cov-heatmap.R
+KCOV_PLOTTER=Rscript scripts/plot-covg-hist.R
+UNITIG_PLOTTER=Rscript scripts/plot-length-hist.R
+LINK_PLOTTER=Rscript scripts/link-cov-heatmap.R
 MKLINKPLOT=scripts/make-link-plot.sh
 MKKMERPLOT=scripts/make-kmer-plot.sh
 
@@ -315,7 +315,7 @@ print-%:
 # will also use data/%.kthresh if available
 # will also use data/%.kmercov if available
 plots/%.cov.pdf: data/%.cov.csv
-\t\$(MKKMERPLOT) \$(KCOV_PLOTTER) \$< \$@
+\t\$(MKKMERPLOT) \"\$(KCOV_PLOTTER)\" \$< \$@
 
 plots/%.len.pdf: data/%.len.csv
 \t\$(UNITIG_PLOTTER) \$< \$@
@@ -323,7 +323,7 @@ plots/%.len.pdf: data/%.len.csv
 # will also use data/%.{se|pe}.links.thresh if available
 # will also use data/%.kmercov if available
 plots/%.links.pdf: data/%.links.csv
-\t\$(MKLINKPLOT) \$(LINK_PLOTTER) \$< \$@
+\t\$(MKLINKPLOT) \"\$(LINK_PLOTTER)\" \$< \$@
 
 report.pdf: report.tex \$(PLOTS)
 \t\$(PDFLATEX) \$< \$@

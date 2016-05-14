@@ -32,7 +32,8 @@ enum AssemStopCause {
 enum AssemStopCause graphstep2assem(enum GraphStepStatus step, bool hit_cycle,
                                     bool low_step_confid, bool low_cumul_confid);
 
-char* assem2str(enum AssemStopCause assem, char *str, size_t size);
+// Get string representation of a given AssemStopCause
+const char* assem2str(enum AssemStopCause assem);
 
 #define AC_MAX_PATHS 5
 
