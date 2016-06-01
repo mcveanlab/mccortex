@@ -150,6 +150,31 @@ static inline dBNode db_node_reverse(dBNode node) {
 //
 // Edges
 //
+/*
+
+Edges are coded as:
+
+  v preceeding base on the reverse strand
+  acgtACGT
+      ^ next base on forward strand
+
+So all on forward strand the coding is:
+
+  TGCAACGT
+
+*/
+
+// Get egdes on forward strand
+static inline Edges edges_as_nibble(Edges edges, Orientation orient) {
+  if(orient == REVERSE) {
+    edges >>= 4;
+    edges = rev_nibble_lookup(edges);
+  }
+  else {
+    edges &= 0xf;
+  }
+  return edges;
+}
 
 // Orientation is 0(FORWARD) or 1(REVERSE), shifted left (<<) 2 gives 0 or 4
 #define nuc_orient_to_edge(n,or)    ((Edges)(1 << ((n) + ((or)<<2))))
@@ -180,8 +205,8 @@ bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 static inline void edges_to_char(Edges e, char str[3])
 {
   static const char digits[16] = "0123456789abcdef";
-  str[0] = digits[rev_nibble_lookup(e>>4)];
-  str[1] = digits[e&0xf];
+  str[0] = digits[edges_as_nibble(e, REVERSE)];
+  str[1] = digits[edges_as_nibble(e, FORWARD)];
   str[2] = '\0';
 }
 
@@ -193,16 +218,19 @@ static inline void edges_print(FILE *fout, Edges e)
   fputc(estr[1], fout);
 }
 
-static inline Edges edges_as_nibble(Edges edges, Orientation orient) {
-  if(orient == REVERSE) {
-    edges >>= 4;
-    edges = rev_nibble_lookup(edges);
-  }
-  else {
-    edges &= 0xf;
-  }
-  return edges;
+// str[] must be at least 5 bytes long
+static inline char *edges_get_str(Edges fw_edges, char *str)
+{
+  char bases[] = "ACGT", *start = str;
+  int i;
+  Edges mask;
+  for(i = 0, mask = 1; i < 4; i++, mask<<=1)
+    if(fw_edges & mask) *(str++) = bases[i];
+  *str = '\0';
+  return start;
 }
+
+
 
 //
 // dBNode Edges
@@ -246,7 +274,7 @@ Edges db_node_both_edges_in_col(hkey_t hkey, size_t col, const dBGraph *db_graph
 
 // kmer_col_edge_str should be 9 chars long
 // Return pointer to kmer_col_edge_str
-char* db_node_get_edges_str(Edges edges, char* kmer_col_edge_str);
+char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str);
 
 //
 // Coverages
