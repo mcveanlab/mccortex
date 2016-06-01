@@ -1,5 +1,5 @@
-#ifndef UNITIG_H_
-#define UNITIG_H_
+#ifndef DB_UNITIG_H_
+#define DB_UNITIG_H_
 
 #include "cortex_types.h"
 #include "db_graph.h"
@@ -33,4 +33,4 @@ void db_unitigs_iterate(size_t nthreads, uint8_t *visited,
                         void (*func)(dBNodeBuffer nbuf, size_t threadid, void *arg),
                         void *arg);
 
-#endif /* UNITIG_H_ */
+#endif /* DB_UNITIG_H_ */

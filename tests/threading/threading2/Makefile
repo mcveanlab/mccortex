@@ -1,6 +1,6 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
+CTXDIR=../../..
 CTX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 
