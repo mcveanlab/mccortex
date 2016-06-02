@@ -9,7 +9,7 @@ SHELL:=/bin/bash -euo pipefail
 # and compare to original.
 #
 
-CTXDIR=../..
+CTXDIR=../../..
 MCCORTEX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 PERFECTCOVG=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
@@ -26,7 +26,7 @@ seq.fa:
 	$(DNACAT) -n $(GENOME) -F -M <(echo seq) > $@
 
 seq.uniq.fa: seq.fa
-	$(MCCORTEX) uniqkmers -m 10M -k $(K) -F $< 0 > $@
+	$(MCCORTEX) uniqkmers -q -m 10M -k $(K) -F $< 0 > $@
 
 reads.uniq.fa: seq.uniq.fa
 	maxrepeat=$$($(DNACAT) -r $< | $(DNACAT) -P $< - | $(MAXIMALSUBSTR) - | \
