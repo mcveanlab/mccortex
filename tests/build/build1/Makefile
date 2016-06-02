@@ -1,6 +1,6 @@
 SHELL=/bin/bash -euo pipefail
 
-# build1: test --intersect and --graph arguments 
+# build1: test --intersect and --graph arguments
 
 CTXDIR=../../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat

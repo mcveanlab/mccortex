@@ -19,7 +19,7 @@ SHELL:=/bin/bash -euo pipefail
 #
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 # 4**7 = 16,384
@@ -34,26 +34,26 @@ seq.fa:
 	$(DNACAT) -n $(GENOME) -F -M <(echo seq) > $@
 
 seq.uniq.fa: seq.fa
-	$(CTX) uniqkmers -m 10M -k $$[$(K)-2] -F $< 0 > $@
+	$(MCCORTEX) uniqkmers -m 10M -k $$[$(K)-2] -F $< 0 > $@
 
 seq.uniq.k$(K).ctx: seq.uniq.fa
-	$(CTX) build -m 10M -k $(K) --sample SeqUniq --seq $< $@
+	$(MCCORTEX) build -q -m 10M -k $(K) --sample SeqUniq --seq $< $@
 	# Inferring edges breaks lossless recovery, see not above
-	# $(CTX) inferedges $@
+	# $(MCCORTEX) inferedges $@
 
 seq.uniq.k$(K).ctp.gz: seq.uniq.k$(K).ctx seq.uniq.fa
-	$(CTX) thread --seq seq.uniq.fa --out $@ seq.uniq.k$(K).ctx
+	$(MCCORTEX) thread -q --seq seq.uniq.fa --out $@ seq.uniq.k$(K).ctx
 
 seq.regen.fa: seq.uniq.k$(K).ctx seq.uniq.k$(K).ctp.gz
-	$(CTX) contigs --no-missing-check -G $(GENOME) -o - -p seq.uniq.k$(K).ctp.gz seq.uniq.k$(K).ctx | \
-	$(CTX) rmsubstr -n $$[1000+2*$(GENOME)] -k $(K) - > $@
+	$(MCCORTEX) contigs -q --no-missing-check -G $(GENOME) -o - -p seq.uniq.k$(K).ctp.gz seq.uniq.k$(K).ctx | \
+	$(MCCORTEX) rmsubstr -q -n $$[1000+2*$(GENOME)] -k $(K) - > $@
 
 seq.regen.txt: seq.regen.fa
 	$(DNACAT) -P $< | awk '{print substr($$0,$(K)-2+1,length($$0)-($(K)-2)*2)}'> $@
 
 check: seq.fa seq.regen.txt seq.uniq.k$(K).ctx
 	@echo Check kmer count distribution...
-	$(CTX) view -q -k seq.uniq.k$(K).ctx | awk '{print $$2}' | sort -n | uniq -c
+	$(MCCORTEX) view -q -k seq.uniq.k$(K).ctx | awk '{print $$2}' | sort -n | uniq -c
 	@echo; echo Check only one contig assembled...
 	[ `$(DNACAT) -s seq.regen.txt | grep 'Number of reads' | grep -oE '[0-9]+'` -eq 1 ]
 	@echo; echo Checking if regenerated file matches original...

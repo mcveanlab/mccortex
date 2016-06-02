@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=9
@@ -40,10 +40,10 @@ read%.fa:
 	echo GCTCAGGAA > read4.1.fa; echo GGTACTGTG | $(DNACAT) --revcmp - > read4.2.fa
 
 genome.k$(K).ctx:
-	$(CTX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
+	$(MCCORTEX) build -m 1M -k $(K) --sample MssrGenome --seq genome.fa genome.k$(K).ctx
 
 genome.k$(K).dot:
-	$(CTX) unitigs --dot genome.k$(K).ctx > genome.k$(K).dot
+	$(MCCORTEX) unitigs --dot genome.k$(K).ctx > genome.k$(K).dot
 
 genome.k$(K).pdf:
 	dot -Tpdf genome.k$(K).dot > genome.k$(K).pdf
@@ -52,11 +52,11 @@ genome.k$(K).kmers.pdf:
 	$(CTX2DOT) genome.k$(K).ctx | dot -Tpdf > genome.k$(K).kmers.pdf
 
 reads.se.k$(K).ctp.gz:
-	$(CTX) thread -m 1M -t 6 $(SEQSE) -o reads.se.k$(K).ctp.gz genome.k$(K).ctx
+	$(MCCORTEX) thread -m 1M -t 6 $(SEQSE) -o reads.se.k$(K).ctp.gz genome.k$(K).ctx
 	gunzip -c reads.se.k$(K).ctp.gz
 
 reads.pe.k$(K).ctp.gz:
-	$(CTX) thread -m 1M -t 6 $(SEQSE) $(SEQPE) -o reads.pe.k$(K).ctp.gz genome.k$(K).ctx
+	$(MCCORTEX) thread -m 1M -t 6 $(SEQSE) $(SEQPE) -o reads.pe.k$(K).ctp.gz genome.k$(K).ctx
 	gunzip -c reads.pe.k$(K).ctp.gz
 
 .PHONY: all clean plots

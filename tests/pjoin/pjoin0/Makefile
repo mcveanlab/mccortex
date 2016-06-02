@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
+CTXDIR=../../..
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 
 PATHS=paths.0.ctp.gz paths.1.ctp.gz
 SEQ=genome.0.fa genome.1.fa
@@ -26,17 +26,17 @@ genome.1.fa:
 	echo TGGTGTCGCCTAgA >> $@
 
 genome.%.ctx: genome.%.fa
-	$(CTX) build -m 1M -k 9 --sample Gnome$* --seq genome.$*.fa $@
+	$(MCCORTEX) build -q -m 1M -k 9 --sample Gnome$* --seq genome.$*.fa $@
 
 paths.%.ctp.gz: genome.%.ctx genome.%.fa
-	$(CTX) thread -m 1M --seq genome.$*.fa -o $@ genome.$*.ctx
+	$(MCCORTEX) thread -q -m 1M --seq genome.$*.fa -o $@ genome.$*.ctx
 	gunzip -c $@
 
 genomes.ctx: $(PATHS)
-	$(CTX) join -o $@ $(GRAPHS)
+	$(MCCORTEX) join -q -o $@ $(GRAPHS)
 
 genomes.ctp.gz: $(PATHS)
-	$(CTX) pjoin -o $@ $(PATHS)
+	$(MCCORTEX) pjoin -q -o $@ $(PATHS)
 	gunzip -c $@
 
 .PHONY: all plots clean

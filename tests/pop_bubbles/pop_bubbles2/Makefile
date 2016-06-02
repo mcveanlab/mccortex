@@ -3,7 +3,7 @@ SHELL=/bin/bash -euo pipefail
 # Test pop bubbles with a multiple samples, multiple input files
 
 CTXDIR=../../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 K=21
 
 SEQS=sample1.fa sample2.fa clean2.fa
@@ -23,16 +23,16 @@ clean2.fa:
 		echo ATAACTTCTCCAAACCAGGTTCATGACAGCCAACCAA; ) > $@
 
 truth.ctx: sample1.ctx sample2.ctx clean2.fa
-	$(CTX) build -k $(K) -s clean2 -1 clean2.fa - | $(CTX) join -o $@ 0:sample1.ctx 1:-
+	$(MCCORTEX) build -k $(K) -s clean2 -1 clean2.fa - | $(MCCORTEX) join -o $@ 0:sample1.ctx 1:-
 
 %.ctx: %.fa
-	$(CTX) build -k $(K) --sample $* --seq $< $@
+	$(MCCORTEX) build -k $(K) --sample $* --seq $< $@
 
 popped.ctx: sample1.ctx sample2.ctx
-	$(CTX) popbubbles --out $@ $^
+	$(MCCORTEX) popbubbles --out $@ $^
 
 check: popped.ctx truth.ctx
-	diff -q <($(CTX) view -q -k popped.ctx | sort) <($(CTX) view -q -k truth.ctx | sort) && \
+	diff -q <($(MCCORTEX) view -q -k popped.ctx | sort) <($(MCCORTEX) view -q -k truth.ctx | sort) && \
 	echo "Kmers match."
 
 

@@ -86,7 +86,7 @@ run-mccortex: task.k$(K).mk $(TRUTH_FILES) $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=yes
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=yes USE_LINKS=no
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=no  USE_LINKS=yes
-	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=no  USE_LINKS=no 
+	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=$(MEM) JOINT_CALLING=no  USE_LINKS=no
 	@echo "McCortex Bubbles (joint+links) found:"
 	$(VCFISEC) mc_isec_bub_joint_links truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.links.k$(K).vcf.gz
 	$(VCFISEC) mc_isec_bub_joint_plain truth.k$(K).norm.vcf.gz proj/vcfs/bubbles.joint.plain.k$(K).vcf.gz

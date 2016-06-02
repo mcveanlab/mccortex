@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 CTX2GV=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 KMER=31
 
@@ -18,10 +18,10 @@ ref.fa:
 	echo ACAAGCTAAAGAAGCTAGCCAGTGCAGGCTCCCTTCAGCATCTACTGCTGGCTCGTCGTCGGGGACTAGAAACGTGACCATCGGCCACCGAAAGATAAGG >> $@
 
 ref.ctx: ref.fa
-	$(CTX) build -m 1M -k $(KMER) --sample MsSample --seq ref.fa ref.ctx
+	$(MCCORTEX) build -m 1M -k $(KMER) --sample MsSample --seq ref.fa ref.ctx
 
 ref.ctp.gz: ref.ctx
-	$(CTX) thread -m 1M --seq ref.fa -o $@ $<
+	$(MCCORTEX) thread -m 1M --seq ref.fa -o $@ $<
 
 ref.dot: ref.ctx
 	$(CTX2GV) --simplify $< > $@

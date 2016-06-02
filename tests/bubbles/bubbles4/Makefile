@@ -14,7 +14,7 @@ SHELL=/bin/bash -euo pipefail
 
 K=11
 CTXDIR=../../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
@@ -58,16 +58,16 @@ truth.vcf.gz:
 	$(BCFTOOLS) index truth.vcf.gz
 
 seq%.k$(K).ctx: seq%.fa
-	$(CTX) build -m 10M -k $(K) --sample $< --seq $< $@ >& $@.log
+	$(MCCORTEX) build -m 10M -k $(K) --sample $< --seq $< $@ >& $@.log
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join -o $@ $(FLAT_GRAPHS) >& $@.log
+	$(MCCORTEX) join -o $@ $(FLAT_GRAPHS) >& $@.log
 
 bubbles.seq.txt.gz: $(GRAPHS)
-	$(CTX) bubbles -t 1 -m 10M -o $@ $(GRAPHS) >& $@.log
+	$(MCCORTEX) bubbles -t 1 -m 10M -o $@ $(GRAPHS) >& $@.log
 
 bubbles.join.txt.gz: join.k$(K).ctx
-	$(CTX) bubbles -t 1 -m 10M -o $@ $(GRAPHS) >& $@.log
+	$(MCCORTEX) bubbles -t 1 -m 10M -o $@ $(GRAPHS) >& $@.log
 
 cmp_bubbles: bubbles.join.txt.gz bubbles.seq.txt.gz
 	@L1=`gzip -cd bubbles.join.txt.gz | wc -l | grep -oE '[0-9]+'`; \
@@ -81,7 +81,7 @@ bubbles.raw.vcf: ref.fa bubbles.join.txt.gz
 	$(BWA) index ref.fa
 	$(CTXFLANKS) bubbles.join.txt.gz > bubbles.join.txt.flanks
 	$(BWA) mem ref.fa bubbles.join.txt.flanks > bubbles.join.txt.sam
-	$(CTX) calls2vcf -F bubbles.join.txt.sam -o $@ bubbles.join.txt.gz ref.fa >& $@.log
+	$(MCCORTEX) calls2vcf -F bubbles.join.txt.sam -o $@ bubbles.join.txt.gz ref.fa >& $@.log
 
 bubbles.sort.vcf: bubbles.raw.vcf
 	$(VCFSORT) $< > $@

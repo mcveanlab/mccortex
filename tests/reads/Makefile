@@ -2,7 +2,7 @@ SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
 DNA=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 K=9
 
 READS=reads.fa reads.1.fa.gz reads.2.fa.gz reads.interleaved.fq.gz
@@ -58,29 +58,29 @@ reads.interleaved.fq.gz:
 	  cat - <(printf '>hit\nTACCGCCAGGTCAGGGCT\n>moo\nACA') | gzip -c >$@
 
 seq.k$(K).ctx: seq.fa
-	$(CTX) build -m 1M -k $(K) --sample Seq --seq $< $@
+	$(MCCORTEX) build -m 1M -k $(K) --sample Seq --seq $< $@
 
 out/se.fq.gz: out/se.1.fq.gz
 out/se.1.fq.gz: out/se.2.fq.gz
 out/se.2.fq.gz: seq.k$(K).ctx $(READS)
-	$(CTX) reads --seq reads.fa:out/se \
+	$(MCCORTEX) reads --seq reads.fa:out/se \
 	             --seq reads.1.fa.gz:out/se.1 \
 	             --seq reads.2.fa.gz:out/se.2 seq.k$(K).ctx
 
 out/pe.fq.gz: out/pe.1.fq.gz
 out/pe.1.fq.gz: out/pe.2.fq.gz
 out/pe.2.fq.gz: seq.k$(K).ctx $(READS)
-	$(CTX) reads --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx
+	$(MCCORTEX) reads --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx
 
 out/ipe.fq.gz: out/ipe.1.fq.gz
 out/ipe.1.fq.gz: out/ipe.2.fq.gz
 out/ipe.2.fq.gz: seq.k$(K).ctx reads.interleaved.fq.gz
-	$(CTX) reads --seqi reads.interleaved.fq.gz:out/ipe seq.k$(K).ctx
+	$(MCCORTEX) reads --seqi reads.interleaved.fq.gz:out/ipe seq.k$(K).ctx
 
 out/pe.fa.gz: out/pe.1.fa.gz
 out/pe.1.fa.gz: out/pe.2.fa.gz
 out/pe.2.fa.gz: seq.k$(K).ctx $(READS)
-	$(CTX) reads --format fa --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx
+	$(MCCORTEX) reads --format fa --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx
 
 clean:
 	rm -rf $(TGTS) out

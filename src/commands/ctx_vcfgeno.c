@@ -469,7 +469,7 @@ int ctx_vcfgeno(int argc, char **argv)
   size_t npl_args = 0;
   bool add_gllks = false, rm_vcfcov_tags = false;
 
-  // These are set after we have initially looped over args  
+  // These are set after we have initially looped over args
   size_t *read_lens = NULL;
   double *err_rates = NULL; // sample error rate array
   double *kcovgs = NULL; // sample kmer coverage array

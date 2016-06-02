@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 MKDOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 PLOTCOVG=$(CTXDIR)/scripts/plot-covg-hist.R
 PLOTLENS=$(CTXDIR)/scripts/plot-length-hist.R
@@ -24,16 +24,16 @@ seq.fa: Makefile
 	echo ACACAGAGACTCACTCCCC >> seq.fa
 
 seq.k9.raw.ctx: seq.fa
-	$(CTX) build -m 10M -k 9 --sample SeqJr --seq $< $@
+	$(MCCORTEX) build -m 10M -k 9 --sample SeqJr --seq $< $@
 
 covgs.before.csv: seq.k9.clean.ctx
 covgs.after.csv: seq.k9.clean.ctx
 lens.before.csv: seq.k9.clean.ctx
 lens.after.csv: seq.k9.clean.ctx
 seq.k9.clean.ctx: seq.k9.raw.ctx
-	$(CTX) clean --covg-before covgs.before.csv --covg-after covgs.after.csv \
-	             --len-before lens.before.csv --len-after lens.after.csv \
-	             --unitigs=2 --tips=62 --out $@ $<
+	$(MCCORTEX) clean --covg-before covgs.before.csv --covg-after covgs.after.csv \
+	                  --len-before lens.before.csv --len-after lens.after.csv \
+	                  --unitigs=2 --tips=62 --out $@ $<
 
 seq.k9.%.dot: seq.k9.%.ctx
 	$(MKDOT) $< > $@

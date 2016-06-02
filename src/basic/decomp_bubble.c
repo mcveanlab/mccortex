@@ -177,7 +177,6 @@ const uint32_t qclip = (1<<BAM_CINS)|(1<<BAM_CSOFT_CLIP)|(1<<BAM_CHARD_CLIP);
 // * hard masked (H)
 // * soft masked (S)
 // * inserted bases relative to ref (I)
-// 
 static inline uint32_t bam_get_end_trim(const uint32_t **_cigar, uint32_t *_n,
                                         bool fw_strand)
 {

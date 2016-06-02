@@ -25,7 +25,7 @@ SHELL:=/bin/bash -euo pipefail
 
 K=11
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
@@ -75,14 +75,14 @@ truth.vcf.gz:
 	$(BCFTOOLS) index truth.vcf.gz
 
 %.k$(K).ctx: %.fa
-	$(CTX) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
+	$(MCCORTEX) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
 
 breakpoints.txt.gz: sample.k$(K).ctx ref.fa
-	$(CTX) breakpoints -t 1 -m 10M --minref 5 \
+	$(MCCORTEX) breakpoints -t 1 -m 10M --minref 5 \
 	                  --seq ref.fa --out $@ sample.k$(K).ctx >& $@.log
 
 breakpoints.raw.vcf: breakpoints.txt.gz $(SEQS)
-	$(CTX) calls2vcf -o $@ breakpoints.txt.gz ref.fa >& $@.log
+	$(MCCORTEX) calls2vcf -o $@ breakpoints.txt.gz ref.fa >& $@.log
 
 breakpoints.sort.vcf: breakpoints.raw.vcf
 	$(VCFSORT) $< > $@
@@ -105,7 +105,7 @@ cmp_vcf: breakpoints.norm.vcf.gz truth.vcf.gz
 	@echo 'VCF files match!'
 
 join.k$(K).ctx: $(GRAPHS)
-	$(CTX) join -o $@ $(GRAPHS)
+	$(MCCORTEX) join -o $@ $(GRAPHS)
 
 join.k$(K).pdf: join.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@

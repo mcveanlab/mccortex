@@ -4,7 +4,7 @@ CTXDIR=../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 BIOINF=$(CTXDIR)/libs/bioinf-perl
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 
 K=9
 NSAMPLES=3
@@ -27,23 +27,23 @@ seq.%.fa:
 	$(DNACAT) -F -n $(GENOME) > $@
 
 seq.%.k$(K).ctx: seq.%.fa
-	$(CTX) build -m 1M -k $(K) --sample MrsSample$* --seq $< $@
-	$(CTX) inferedges $@
+	$(MCCORTEX) build -m 1M -k $(K) --sample MrsSample$* --seq $< $@
+	$(MCCORTEX) inferedges $@
 
 seq.%.k$(K).ctp.gz: seq.%.k$(K).ctx seq.%.fa
-	$(CTX) thread -m 1M --seq seq.$*.fa --out $@ seq.$*.k$(K).ctx
+	$(MCCORTEX) thread -m 1M --seq seq.$*.fa --out $@ seq.$*.k$(K).ctx
 
 pop.ctx: $(POP_GRAPHS)
-	$(CTX) join --out $@ $(POP_GRAPHS)
+	$(MCCORTEX) join --out $@ $(POP_GRAPHS)
 
 pop.ctp.gz: $(POP_PATHS)
-	$(CTX) pjoin --out $@ $(POP_PATHS)
+	$(MCCORTEX) pjoin --out $@ $(POP_PATHS)
 
 contigs.%.fa: pop.ctx pop.ctp.gz
-	$(CTX) contigs --use-seed-paths --no-missing-check --out $@ --colour $* --genome $(GENOME) --confid-csv seq.$*.k$(K).confid.csv -p pop.ctp.gz pop.ctx
+	$(MCCORTEX) contigs --use-seed-paths --no-missing-check --out $@ --colour $* --genome $(GENOME) --confid-csv seq.$*.k$(K).confid.csv -p pop.ctp.gz pop.ctx
 
 rmdup.contigs.%.fa: contigs.%.fa
-	$(CTX) rmsubstr -k $(K) $< > $@
+	$(MCCORTEX) rmsubstr -k $(K) $< > $@
 
 unitigs.%.k$(K).pdf: seq.%.k$(K).ctx
 	$(CTX2DOT) --simplify $< | dot -Tpdf > $@

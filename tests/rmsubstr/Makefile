@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -euo pipefail
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(CTXDIR)/bin/mccortex31
 
 LAST=5
 INPUT_FILES=$(shell echo input.{0..$(LAST)}.fa)
@@ -72,7 +72,7 @@ results.5.fa:
 	printf '>d\nACACGATCTTGGATATACAG\n' >> $@
 
 output.%.fa: input.%.fa
-	$(CTX) rmsubstr -q -n 1024 -k 3 $< > $@
+	$(MCCORTEX) rmsubstr -q -n 1024 -k 3 $< > $@
 
 test.%: output.%.fa results.%.fa
 	diff -q output.$*.fa results.$*.fa

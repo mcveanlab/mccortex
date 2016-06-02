@@ -2,7 +2,7 @@ SHELL=/bin/bash -euo pipefail
 
 # Test read threading through the graph
 # Each test case is in a separate sub-directory
-# threading1: 
+# threading1:
 # threading2: paired-end threading
 # threading3: paired-end threading with short reads
 # threading4:
