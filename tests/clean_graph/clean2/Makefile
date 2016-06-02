@@ -22,15 +22,15 @@ seq.fa: Makefile
 	echo AAAAAAAAAAAAAAAAATAAAAAAAAAAAAAAAAA >> seq.fa
 
 seq.k$(KMER).raw.ctx: seq.fa
-	$(MCCORTEX) build -m 10M -k $(KMER) --sample SeqJr --seq $< $@
+	$(MCCORTEX) build -q -m 10M -k $(KMER) --sample SeqJr --seq $< $@
 	$(MCCORTEX) check -q $@
 
 seq.k$(KMER).clean.ctx: seq.k$(KMER).raw.ctx
-	$(MCCORTEX) clean --unitigs=2 -o $@ $<
+	$(MCCORTEX) clean -q --unitigs=2 -o $@ $<
 	$(MCCORTEX) check -q $@
 
 %.unitigs.dot: %.ctx
-	$(MCCORTEX) unitigs -m 1M --dot $< > $@
+	$(MCCORTEX) unitigs -q -m 1M --dot $< > $@
 	# $(PLOTCTX) --simplify $< > $@
 
 %.dot: %.ctx

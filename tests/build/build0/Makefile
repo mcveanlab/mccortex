@@ -22,23 +22,23 @@ seq.fa:
 	$(DNACAT) -F -n 60 > $@
 
 seq.k$(K).ctx: seq.fa
-	$(MCCORTEX) build -m 1M -k $(K) \
+	$(MCCORTEX) build -q -m 1M -k $(K) \
 	                  --sample Wallace \
 	                  --sample Gromit --seq seq.fa \
 	                  --sample Trousers --seq seq.fa --seq2 seq.fa:seq.fa $@
 	$(MCCORTEX) check -q $@
-	$(MCCORTEX) view $@
-	$(MCCORTEX) view -k 1,3,5:$@:2,1,0 > /dev/null
+	$(MCCORTEX) view -q $@
+	$(MCCORTEX) view -q -k 1,3,5:$@:2,1,0 > /dev/null
 
 sort.k$(K).ctx: seq.k$(K).ctx
 	cp $< $@
-	$(MCCORTEX) view -k $< > /dev/null
-	$(MCCORTEX) sort $@
+	$(MCCORTEX) view -q -k $< > /dev/null
+	$(MCCORTEX) sort -q $@
 	$(MCCORTEX) check -q $@
 	$(MCCORTEX) view -k $@ > /dev/null
 
 %.ctx.idx: %.ctx
-	$(MCCORTEX) index $< > $@
+	$(MCCORTEX) index -q $< > $@
 	cat $@
 
 contig.stats.txt: sort.k$(K).ctx

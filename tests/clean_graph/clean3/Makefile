@@ -15,7 +15,7 @@ seq.fa: Makefile
 	echo GATATATATCTAGATATATATCTATATATAAAA > seq.fa
 
 seq.k$(KMER).raw.ctx: seq.fa
-	$(MCCORTEX) build -m 10M -k $(KMER) --sample SeqJr --seq $< $@
+	$(MCCORTEX) build -q -m 10M -k $(KMER) --sample SeqJr --seq $< $@
 
 seq.k$(KMER).%.dot: seq.k$(KMER).%.ctx
 	$(PLOTCTX) $< > $@
