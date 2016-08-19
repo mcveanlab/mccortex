@@ -148,7 +148,7 @@ Orientation gc_unitig_get_orient(const GraphCache *cache,
 
 // Get all nodes in a single step (unitig with orientation)
 // Adds to the end of the node buffer (does not reset it)
-void gc_unitig_fetch_nodes(const GraphCache *cache,
+void gc_db_unitig_fetch_nodes(const GraphCache *cache,
                            const GCacheUnitig *unitig,
                            Orientation orient,
                            dBNodeBuffer *nbuf);

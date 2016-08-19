@@ -61,11 +61,6 @@ CtxCmd cmdobjs[] = {
   .blurb = "combine graphs, filter graph intersections",
   .usage = join_usage
 },
-{ // alias for supernodes
-  .cmd = "supernodes", .func = ctx_unitigs, .hide = true,
-  .blurb = "pull out unitigs in FASTA, DOT or GFA format",
-  .usage = unitigs_usage
-},
 {
   .cmd = "unitigs", .func = ctx_unitigs, .hide = false,
   .blurb = "pull out unitigs in FASTA, DOT or GFA format",

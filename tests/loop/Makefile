@@ -7,12 +7,12 @@ SHELL:=/bin/bash -euo pipefail
 # to reconstruct repetitive regions.
 #
 
+K=9
 CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 
-K=9
 TGTS=seq.fa seq.fa seq.k$(K).ctx seq.k$(K).ctp.gz seq.regen.fa
 
 all: $(TGTS) check
@@ -22,14 +22,14 @@ seq.fa:
 	echo "CGTTAATCCT""ATTGAGTTCA""ATTGAGTTCA""ATTGAGTTCA""ATTGAGTTCA""CTGGTCACGG" > $@
 
 seq.k$(K).ctx: seq.fa
-	$(CTX) build -m 10M -k $(K) --sample LoopTest --seq $< $@ >& $@.log
+	$(MCCORTEX) build -m 10M -k $(K) --sample LoopTest --seq $< $@ >& $@.log
 
 seq.k$(K).ctp.gz: seq.k$(K).ctx seq.fa
-	$(CTX) thread --seq seq.fa --out $@ seq.k$(K).ctx >& $@.log
+	$(MCCORTEX) thread --seq seq.fa --out $@ seq.k$(K).ctx >& $@.log
 
 seq.regen.fa: seq.k$(K).ctx seq.k$(K).ctp.gz
-	( $(CTX) contigs --no-missing-check -o - -p seq.k$(K).ctp.gz seq.k$(K).ctx | \
-	  $(CTX) rmsubstr -n 1000 -k $(K) - > $@ ) >& $@.log
+	( $(MCCORTEX) contigs --no-missing-check -o - -p seq.k$(K).ctp.gz seq.k$(K).ctx | \
+	  $(MCCORTEX) rmsubstr -n 1000 -k $(K) - > $@ ) >& $@.log
 
 check: seq.fa seq.regen.fa
 	@echo Checking reconstructed sequence matches...

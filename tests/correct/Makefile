@@ -1,9 +1,9 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=9
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 TGTS=ref.txt \
      bad.txt good.fa good.fq \
@@ -51,13 +51,13 @@ rand.fq:
 	$(DNACAT) -n 40 -Q > $@
 
 ref.k$(K).ctx: ref.txt
-	$(CTX) build -m 10M -k $(K) -s ref -1 $< $@
-	$(CTX) check -q $@
+	$(MCCORTEX) build -m 10M -k $(K) -s ref -1 $< $@
+	$(MCCORTEX) check -q $@
 
 # Correct reads
 # -P, --print-orig means add original sequence to read name 'orig=SEQ'
 good.fa: bad.txt ref.k$(K).ctx
-	$(CTX) correct -t 1 -m 10M -F FASTA --print-orig -1 bad.txt:good ref.k$(K).ctx
+	$(MCCORTEX) correct -t 1 -m 10M -F FASTA --print-orig -1 bad.txt:good ref.k$(K).ctx
 	gzip -d good.fa.gz
 	cat ref.txt
 	cat bad.txt
@@ -65,7 +65,7 @@ good.fa: bad.txt ref.k$(K).ctx
 
 # input: plain output: fastq
 good.fq: bad.txt ref.k$(K).ctx
-	$(CTX) correct -t 1 -m 10M -F FASTQ --print-orig -1 bad.txt:good ref.k$(K).ctx
+	$(MCCORTEX) correct -t 1 -m 10M -F FASTQ --print-orig -1 bad.txt:good ref.k$(K).ctx
 	gzip -d good.fq.gz
 	cat ref.txt
 	cat bad.txt
@@ -73,14 +73,14 @@ good.fq: bad.txt ref.k$(K).ctx
 
 # input: fastq output: fastq
 fix.fq: rand.fq ref.k$(K).ctx
-	$(CTX) correct -t 1 -m 10M -F FASTQ --print-orig -1 rand.fq:fix ref.k$(K).ctx
+	$(MCCORTEX) correct -t 1 -m 10M -F FASTQ --print-orig -1 rand.fq:fix ref.k$(K).ctx
 	gzip -d fix.fq.gz
 	cat ref.txt
 	cat rand.fq
 	cat fix.fq
 
 indels.good.fq: indels.bad.fq
-	$(CTX) correct -t 1 -m 10M -F FASTQ --print-orig -1 $<:indels.good ref.k$(K).ctx
+	$(MCCORTEX) correct -t 1 -m 10M -F FASTQ --print-orig -1 $<:indels.good ref.k$(K).ctx
 	gzip -d indels.good.fq.gz
 	@echo == in ==
 	cat $<

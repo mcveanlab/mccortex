@@ -7,11 +7,15 @@ all:
 	cd bubbles1 && $(MAKE)
 	cd bubbles2 && $(MAKE)
 	cd bubbles3 && $(MAKE)
-	@echo "All looks good."
+	cd bubbles4 && $(MAKE)
+	cd bubbles5 && $(MAKE)
+	@echo "bubbles: All looks good."
 
 clean:
 	cd bubbles1 && $(MAKE) clean
 	cd bubbles2 && $(MAKE) clean
 	cd bubbles3 && $(MAKE) clean
+	cd bubbles4 && $(MAKE) clean
+	cd bubbles5 && $(MAKE) clean
 
 .PHONY: all clean

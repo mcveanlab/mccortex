@@ -1,29 +1,47 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex63
+# Any kmer (K=) should work
+
 K=51
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
-TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
+GRAPHS=seq.fa graph.k$(K).ctx build.then.sort.k$(K).ctx build.and.sort.k$(K).ctx
+MISC=kmers.sorted.k$(K).txt build.then.sort.k$(K).ctx.idx
+LOGS=$(addsuffix .log,$(GRAPHS) $(MISC))
 
-all: $(TGTS)
+all: title $(GRAPHS) $(MISC) check
+
+title:
+	@echo "-- Testing sort k=$(K) --"
 
 clean:
-	rm -rf $(TGTS)
+	rm -rf $(GRAPHS) $(MISC) $(LOGS)
 
 seq.fa:
 	$(DNACAT) -F -n 100 > $@
 
-seq.k$(K).ctx: seq.fa
-	$(MCCORTEX) build -k $(K) --sample Jimmy --seq $< $@
+graph.k$(K).ctx: seq.fa
+	$(MCCORTEX) build -k $(K) --sample Jimmy --seq $< $@ >& $@.log
 	$(MCCORTEX) check -q $@
 
-sort.k$(K).ctx: seq.k$(K).ctx
-	$(MCCORTEX) sort -o $@ $<
+build.then.sort.k$(K).ctx: graph.k$(K).ctx
+	$(MCCORTEX) sort -o $@ $< >& $@.log
 	$(MCCORTEX) check -q $@
 
-sort.k$(K).ctx.idx: sort.k$(K).ctx
-	$(MCCORTEX) index --out $@ --block-kmers 11 $<
+build.and.sort.k$(K).ctx: seq.fa
+	$(MCCORTEX) build -k $(K) --sort --sample Jimmy --seq $< $@ >& $@.log
+	$(MCCORTEX) check -q $@
 
-.PHONY: all clean
+%.ctx.idx: %.ctx
+	$(MCCORTEX) index --out $@ --block-kmers 11 $< >& $@.log
+
+kmers.sorted.k$(K).txt: graph.k$(K).ctx
+	$(MCCORTEX) view -q --kmers $< | sort > $@
+
+check: kmers.sorted.k$(K).txt build.then.sort.k$(K).ctx build.and.sort.k$(K).ctx
+	diff -q $< <($(MCCORTEX) view -q -k build.then.sort.k$(K).ctx)
+	diff -q $< <($(MCCORTEX) view -q -k build.and.sort.k$(K).ctx)
+
+.PHONY: all clean check title

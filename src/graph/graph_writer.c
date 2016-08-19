@@ -30,6 +30,28 @@ size_t graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols)
   return db_graph->ht.num_kmers * (sizeof(BinaryKmer) + mem);
 }
 
+// Construct graph header
+// Free with graph_header_free(hdr)
+GraphFileHeader* graph_writer_mkhdr(const dBGraph *db_graph, uint32_t version,
+                                    const Colour *colours, Colour start_col,
+                                    size_t ncols)
+{
+  size_t i;
+  GraphFileHeader *hdr = ctx_calloc(1, sizeof(*hdr));
+  hdr->version = version;
+  hdr->kmer_size = (uint32_t)db_graph->kmer_size;
+  hdr->num_of_bitfields = NUM_BKMER_WORDS;
+  hdr->num_of_cols = (uint32_t)ncols;
+  graph_header_capacity(hdr, ncols);
+
+  for(i = 0; i < ncols; i++) {
+    graph_info_cpy(&hdr->ginfo[i],
+                   &db_graph->ginfo[colours ? colours[i] : start_col+i]);
+  }
+
+  return hdr;
+}
+
 // Returns number of bytes written
 static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleaning)
 {
@@ -111,12 +133,12 @@ size_t graph_write_header(FILE *fh, const GraphFileHeader *h)
 }
 
 // Returns number of bytes written
-size_t graph_write_kmer(FILE *fh, size_t num_bkmer_words, size_t num_cols,
+size_t graph_write_kmer(FILE *fh, size_t num_cols,
                         const BinaryKmer bkmer, const Covg *covgs,
                         const Edges *edges)
 {
-  size_t m = 0, expm = 8*num_bkmer_words + 5*num_cols;
-  m += fwrite(bkmer.b, 1, sizeof(uint64_t) * num_bkmer_words, fh);
+  size_t m = 0, expm = BKMER_BYTES + 5*num_cols;
+  m += fwrite(bkmer.b, 1, BKMER_BYTES, fh);
   m += fwrite(covgs, 1, sizeof(uint32_t) * num_cols, fh);
   m += fwrite(edges, 1, sizeof(uint8_t) * num_cols, fh);
   if(m != expm) die("Cannot write to file (%zu, %zu)", m, expm);
@@ -126,16 +148,22 @@ size_t graph_write_kmer(FILE *fh, size_t num_bkmer_words, size_t num_cols,
 static inline void graph_write_graph_kmer(hkey_t hkey, FILE *fh,
                                           const dBGraph *db_graph)
 {
-  graph_write_kmer(fh, NUM_BKMER_WORDS, db_graph->num_of_cols,
+  graph_write_kmer(fh, db_graph->num_of_cols,
                    db_graph->ht.table[hkey],
                    &db_node_covg(db_graph, hkey, 0),
                    &db_node_edges(db_graph, hkey, 0));
 }
 
-// Dump all kmers with all colours to given file. Return num of kmers written
-size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph)
+// Dump all kmers with all colours to given file.
+// `sort_kmer` if true, sort kmers before writing. Uses extra memory.
+// Returns num of kmers written
+size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph, bool sort_kmers)
 {
-  HASH_ITERATE(&db_graph->ht, graph_write_graph_kmer, fh, db_graph);
+  if(sort_kmers) {
+    HASH_ITERATE_SORTED(&db_graph->ht, graph_write_graph_kmer, fh, db_graph);
+  } else {
+    HASH_ITERATE(&db_graph->ht, graph_write_graph_kmer, fh, db_graph);
+  }
   return db_graph->ht.num_kmers;
 }
 
@@ -293,8 +321,7 @@ static void graph_write_node(hkey_t hkey, const dBGraph *db_graph,
     memcpy(edges, col_edges[hkey]+start_col, num_of_cols*sizeof(Edges));
   }
 
-  graph_write_kmer(fout, hdr->num_of_bitfields, hdr->num_of_cols,
-                   bkmer, covg_store, edge_store);
+  graph_write_kmer(fout, hdr->num_of_cols, bkmer, covg_store, edge_store);
 
   (*num_dumped)++;
 }
@@ -317,11 +344,14 @@ static bool saving_graph_as_is(const Colour *cols, Colour start_col,
   return (num_of_cols == num_graph_cols);
 }
 
-// start_col is ignored unless colours is NULL
+// Pass your own header
+// Cannot specify both colours array and start_col
+// If sort_kmers is true, save kmers in lexigraphical order
+// returns number of nodes written out
 uint64_t graph_writer_save(const char *path, const dBGraph *db_graph,
-                           const GraphFileHeader *header, size_t intocol,
-                           const Colour *colours, Colour start_col,
-                           size_t num_of_cols)
+                           const GraphFileHeader *header, bool sort_kmers,
+                           size_t intocol, const Colour *colours,
+                           Colour start_col, size_t num_of_cols)
 {
   // Cannot specify both colours array and start_col
   ctx_assert(colours == NULL || start_col == 0);
@@ -362,12 +392,25 @@ uint64_t graph_writer_save(const char *path, const dBGraph *db_graph,
   graph_write_header(fout, header);
 
   if(saving_graph_as_is(colours, start_col, num_of_cols, db_graph->num_of_cols)) {
-    num_nodes_dumped = graph_write_all_kmers(fout, db_graph);
+    if(sort_kmers) {
+      HASH_ITERATE_SORTED(&db_graph->ht, graph_write_graph_kmer, fout, db_graph);
+    } else {
+      HASH_ITERATE(&db_graph->ht, graph_write_graph_kmer, fout, db_graph);
+    }
+    num_nodes_dumped = db_graph->ht.num_kmers;
   }
   else {
-    HASH_ITERATE(&db_graph->ht, graph_write_node,
-                 db_graph, fout, header, intocol, colours, start_col, num_of_cols,
-                 &num_nodes_dumped);
+    if(sort_kmers) {
+      HASH_ITERATE_SORTED(&db_graph->ht, graph_write_node,
+                          db_graph, fout, header,
+                          intocol, colours, start_col, num_of_cols,
+                          &num_nodes_dumped);
+    } else {
+      HASH_ITERATE(&db_graph->ht, graph_write_node,
+                   db_graph, fout, header,
+                   intocol, colours, start_col, num_of_cols,
+                   &num_nodes_dumped);
+    }
   }
 
   fclose(fout);
@@ -379,27 +422,19 @@ uint64_t graph_writer_save(const char *path, const dBGraph *db_graph,
   return num_nodes_dumped;
 }
 
+// Return number of kmers written out
 uint64_t graph_writer_save_mkhdr(const char *path, const dBGraph *db_graph,
-                                 uint32_t version,
+                                 bool sort_kmers,
                                  const Colour *colours, Colour start_col,
                                  size_t num_of_cols)
 {
   // Construct graph header
-  GraphInfo hdr_ginfo[num_of_cols];
-  GraphFileHeader header = {.version = version,
-                            .kmer_size = (uint32_t)db_graph->kmer_size,
-                            .num_of_bitfields = NUM_BKMER_WORDS,
-                            .num_of_cols = (uint32_t)num_of_cols,
-                            .capacity = 0};
-
-  size_t i;
-  GraphInfo *ginfo = db_graph->ginfo;
-  for(i = 0; i < num_of_cols; i++)
-    hdr_ginfo[i] = ginfo[colours != NULL ? colours[i] : i];
-
-  header.ginfo = hdr_ginfo;
-  return graph_writer_save(path, db_graph, &header, 0,
-                           colours, start_col, num_of_cols);
+  GraphFileHeader *hdr = graph_writer_mkhdr(db_graph, CTX_GRAPH_FILEFORMAT,
+                                           colours, start_col, num_of_cols);
+  uint64_t nkmers = graph_writer_save(path, db_graph, hdr, sort_kmers, 0,
+                                      colours, start_col, num_of_cols);
+  graph_header_free(hdr);
+  return nkmers;
 }
 
 void graph_writer_print_status(uint64_t nkmers, size_t ncols,
@@ -468,8 +503,7 @@ size_t graph_writer_stream(const char *out_ctx_path, GraphFileReader *file,
       }
 
       if(keep_kmer) {
-        graph_write_kmer(out, hdr->num_of_bitfields, hdr->num_of_cols,
-                         bkmer, covgs, edges);
+        graph_write_kmer(out, hdr->num_of_cols, bkmer, covgs, edges);
         nodes_dumped++;
       }
     }
@@ -544,7 +578,7 @@ size_t graph_writer_merge(const char *out_ctx_path,
 
   if(kmers_loaded && colours_loaded)
   {
-    return graph_writer_save(out_ctx_path, db_graph, hdr,
+    return graph_writer_save(out_ctx_path, db_graph, hdr, false,
                              0, NULL, 0, output_colours);
   }
   else if(num_files == 1)
@@ -568,7 +602,8 @@ size_t graph_writer_merge(const char *out_ctx_path,
       hash_table_print_stats(&db_graph->ht);
     }
 
-    graph_writer_save(out_ctx_path, db_graph, hdr, 0, NULL, 0, output_colours);
+    graph_writer_save(out_ctx_path, db_graph, hdr, false,
+                      0, NULL, 0, output_colours);
   }
   else
   {

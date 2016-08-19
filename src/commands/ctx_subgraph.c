@@ -34,7 +34,6 @@ const char subgraph_usage[] =
 "  -d, --dist <N>        Number of kmers to extend by [default: 0]\n"
 // "  -D, --udist <N>       Number of unitigs to extend by [default: 0]\n"
 "  -v, --invert          Dump kmers not in subgraph\n"
-// "  -S, --supernodes      Grab entire runs of kmers that are touched by a read\n"
 "  -U, --unitigs         Grab entire runs of kmers that are touched by a read\n"
 "\n";
 
@@ -55,7 +54,6 @@ static struct option longopts[] =
   // {"sdist",        required_argument, NULL, 'D'},
   {"invert",       no_argument,       NULL, 'v'},
   {"unitigs",      no_argument,       NULL, 'U'},
-  {"supernodes",   no_argument,       NULL, 'S'}, // alias for --unitigs
   {NULL, 0, NULL, 0}
 };
 

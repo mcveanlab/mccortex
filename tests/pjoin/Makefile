@@ -1,42 +1,17 @@
-SHELL:=/bin/bash -euo pipefail
+SHELL=/bin/bash -euo pipefail
 
-CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
+# Each test case is in a separate sub-directory
 
-PATHS=paths.0.ctp.gz paths.1.ctp.gz
-SEQ=genome.0.fa genome.1.fa
-GRAPHS=$(SEQ:.fa=.ctx)
-MERGED=genomes.ctx genomes.ctp.gz
+# pjoin0:
+# pjoin1:
 
-TGTS=$(SEQ) $(GRAPHS) $(PATHS) $(MERGED)
-
-# non-default target: genome.k9.pdf
-
-all: $(TGTS)
+all:
+	cd pjoin0 && $(MAKE)
+	cd pjoin1 && $(MAKE)
+	@echo "All looks good."
 
 clean:
-	rm -rf $(TGTS)
+	cd pjoin0 && $(MAKE) clean
+	cd pjoin1 && $(MAKE) clean
 
-genome.0.fa:
-	echo TGGTGTCGCCTACA > $@
-	echo TtGTGTCGCCTAgA >> $@
-
-genome.1.fa:
-	echo TtGTGTCGCCTACA > $@
-	echo TGGTGTCGCCTAgA >> $@
-
-genome.%.ctx: genome.%.fa
-	$(CTX) build -m 1M -k 9 --sample Gnome$* --seq genome.$*.fa $@
-
-paths.%.ctp.gz: genome.%.ctx genome.%.fa
-	$(CTX) thread -m 1M --seq genome.$*.fa -o $@ genome.$*.ctx
-	gunzip -c $@
-
-genomes.ctx: $(PATHS)
-	$(CTX) join -o $@ $(GRAPHS)
-
-genomes.ctp.gz: $(PATHS)
-	$(CTX) pjoin -o $@ $(PATHS)
-	gunzip -c $@
-
-.PHONY: all plots clean
+.PHONY: all clean

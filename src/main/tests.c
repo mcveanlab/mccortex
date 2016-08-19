@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     // only written in k=31
     test_db_node();
     test_build_graph();
-    test_supernode();
+    test_db_unitig();
     test_subgraph();
     test_cleaning();
     test_paths();

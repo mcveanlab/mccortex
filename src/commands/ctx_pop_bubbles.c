@@ -195,8 +195,7 @@ int ctx_pop_bubbles(int argc, char **argv)
   else
   {
     status("Saving to: %s\n", out_path);
-    graph_writer_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
-                          0, ncols);
+    graph_writer_save_mkhdr(out_path, &db_graph, false, NULL, 0, ncols);
   }
 
   ctx_free(visited);

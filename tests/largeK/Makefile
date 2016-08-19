@@ -1,24 +1,32 @@
 SHELL:=/bin/bash -euo pipefail
 
-TARGETS=rnd.fa rnd.k39.ctx rnd.clean.k39.ctx
+# Run build and clean commands followed by the check command
+# to test we can build valid graphs for random sequence
+# Works for any K value (e.g. K=11, K=39, K=61)
 
+K=39
 CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-CTX=$(CTXDIR)/bin/mccortex63
 
-all: $(TARGETS)
+GRAPHS=rnd.k$(K).ctx rnd.clean.k$(K).ctx
+LOGS=$(addsuffix .log,$(GRAPHS))
+TGTS=rnd.fa $(GRAPHS)
+
+all: $(TGTS)
 
 clean:
-	rm -rf $(TARGETS)
+	rm -rf $(TGTS) $(LOGS)
 
 rnd.fa:
 	$(DNACAT) -F -n 200 > $@
 
-rnd.k39.ctx: rnd.fa
-	$(CTX) build -k 39 --sample rnd --seq rnd.fa $@
+rnd.k$(K).ctx: rnd.fa
+	$(MCCORTEX) build -k $(K) --sample rnd --seq rnd.fa $@ >& $@.log
+	$(MCCORTEX) check -q $@
 
-rnd.clean.k39.ctx: rnd.k39.ctx
-	$(CTX) clean -o $@ --unitigs=2 $<
-	$(CTX) check $@
+rnd.clean.k$(K).ctx: rnd.k$(K).ctx
+	$(MCCORTEX) clean -o $@ --unitigs=2 $< >& $@.log
+	$(MCCORTEX) check -q $@
 
 .PHONY: all clean

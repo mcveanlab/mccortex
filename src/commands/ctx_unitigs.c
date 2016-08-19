@@ -5,7 +5,7 @@
 #include "db_graph.h"
 #include "db_node.h"
 #include "binary_kmer.h"
-#include "supernode.h"
+#include "db_unitig.h"
 #include "graphs_load.h"
 #include "gpath_checks.h"
 #include "unitig_graph.h"
@@ -187,9 +187,20 @@ static void print_unitig_fasta(dBNodeBuffer nbuf, size_t threadid, void *arg)
 {
   (void)threadid;
   UnitigPrinter *p = (UnitigPrinter*)arg;
+
+  // get edges as string
+  char prev[5], next[5];
+  prev[0] = next[0] = '\0';
+  Edges e0 = db_node_edges(p->db_graph, nbuf.b[0].key, 0);
+  Edges en = db_node_edges(p->db_graph, nbuf.b[nbuf.len-1].key, 0);
+  e0 = edges_with_orientation(e0, !nbuf.b[0].orient);
+  en = edges_with_orientation(en, nbuf.b[nbuf.len-1].orient);
+  edges_get_str(rev_nibble_lookup(e0), prev);
+  edges_get_str(en, next);
+
   pthread_mutex_lock(&p->outlock);
   size_t idx = p->num_unitigs++;
-  fprintf(p->fout, ">unitig%zu\n", idx);
+  fprintf(p->fout, ">unitig%zu prev=%s next=%s\n", idx, prev, next);
   db_nodes_print(nbuf.b, nbuf.len, p->db_graph, p->fout);
   fputc('\n', p->fout);
   pthread_mutex_unlock(&p->outlock);
@@ -368,7 +379,7 @@ int ctx_unitigs(int argc, char **argv)
   {
     case PRINT_FASTA:
       status("Printing unitgs in FASTA using %zu threads", nthreads);
-      supernodes_iterate(nthreads, printer.visited, &db_graph,
+      db_unitigs_iterate(nthreads, printer.visited, &db_graph,
                          print_unitig_fasta, &printer);
       break;
     case PRINT_GFA:

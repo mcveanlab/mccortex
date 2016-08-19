@@ -107,9 +107,8 @@ char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str)
   int i;
   char str[] = "acgt";
 
-  char left = edges >> 4;
-  left = (char)rev_nibble_lookup(left);
-  char right = edges & 0xf;
+  char left = edges_as_nibble(edges, REVERSE);
+  char right = edges_as_nibble(edges, FORWARD);
 
   for(i = 0; i < 4; i++)
     kmer_col_edge_str[i] = (left & (0x1 << i) ? str[i] : '.');

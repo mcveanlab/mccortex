@@ -58,6 +58,9 @@ void hash_table_empty(HashTable *const htable);
 void hash_table_print_stats(const HashTable *const htable);
 void hash_table_print_stats_brief(const HashTable *const htable);
 
+// Returns sorted array of hkey_t from the hash table, use kmers[i].h
+hkey_t* hash_table_sorted(const HashTable *htable);
+
 // This is for debugging
 uint64_t hash_table_count_kmers(const HashTable *const htable);
 
@@ -91,6 +94,15 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
       }                                                                        \
     }                                                                          \
   }                                                                            \
+} while(0)
+
+// iterate over kmers in lexigraphic order
+// Requires sizeof(hkey_t) * ht->num_kmers memory which it allocates and frees
+#define HASH_ITERATE_SORTED(ht,func, ...) do {                                 \
+  hkey_t *_hkeys = hash_table_sorted(ht);                                      \
+  size_t _i, _nkmers = (ht)->num_kmers;                                        \
+  for(_i = 0; _i < _nkmers; _i++) { func(_hkeys[_i], ##__VA_ARGS__); }         \
+  ctx_free(_hkeys);                                                            \
 } while(0)
 
 // This iterator allows adding/removing items

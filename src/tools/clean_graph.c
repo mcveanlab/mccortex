@@ -1,7 +1,7 @@
 #include "global.h"
 #include "util.h"
 #include "file_util.h"
-#include "supernode.h"
+#include "db_unitig.h"
 #include "prune_nodes.h"
 #include "clean_graph.h"
 
@@ -443,7 +443,7 @@ int cleaning_get_threshold(size_t num_threads,
   // Get kmer coverages and unitig lengths
   UnitigCleaner cl;
   unitig_cleaner_alloc(&cl, num_threads, 0, 0, NULL, db_graph);
-  supernodes_iterate(num_threads, visited, db_graph, unitig_get_covg, &cl);
+  db_unitigs_iterate(num_threads, visited, db_graph, unitig_get_covg, &cl);
 
   // Get kmer coverage only (faster)
   // KmerCleanerIterator kcls[nthreads];
@@ -582,7 +582,7 @@ void clean_graph(size_t num_threads,
   UnitigCleaner cl;
   unitig_cleaner_alloc(&cl, num_threads, covg_threshold,
                           min_keep_tip, keep, db_graph);
-  supernodes_iterate(num_threads, visited, db_graph, unitig_mark, &cl);
+  db_unitigs_iterate(num_threads, visited, db_graph, unitig_mark, &cl);
 
   // Print numbers of kmers that are being removed
 

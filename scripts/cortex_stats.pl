@@ -10,7 +10,10 @@ use List::Util qw(sum min max);
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
+use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+
 use CortexScripts;
+use UsefulModule; # num2str
 
 sub print_usage
 {

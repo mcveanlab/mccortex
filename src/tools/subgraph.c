@@ -4,7 +4,7 @@
 #include "db_node.h"
 #include "seq_reader.h"
 #include "prune_nodes.h"
-#include "supernode.h"
+#include "db_unitig.h"
 #include "seq_loading_stats.h"
 #include "util.h"
 
@@ -74,7 +74,7 @@ static inline void mark_snode(BinaryKmer bkmer,
   if(node.key != HASH_NOT_FOUND && !bitset_get(kmer_mask, node.key))
   {
     db_node_buf_reset(snode_buf);
-    supernode_find(node.key, snode_buf, db_graph);
+    db_unitig_fetch(node.key, snode_buf, db_graph);
 
     for(i = 0; i < snode_buf->len; i++) {
       bitset_set(kmer_mask, snode_buf->b[i].key);

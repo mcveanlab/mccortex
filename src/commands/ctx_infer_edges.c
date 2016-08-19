@@ -142,8 +142,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
     updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
                              : infer_pop_edges(bkmer, edges, covgs, db_graph));
 
-    graph_write_kmer(fout, file->hdr.num_of_bitfields, file->hdr.num_of_cols,
-                     bkmer, covgs, edges);
+    graph_write_kmer(fout, file->hdr.num_of_cols, bkmer, covgs, edges);
 
     num_kmers_edited += updated;
   }
@@ -291,7 +290,7 @@ int ctx_infer_edges(int argc, char **argv)
     ctx_assert(fout != NULL);
     num_kmers_edited = infer_edges(num_of_threads, add_all_edges, &db_graph);
     graph_write_header(fout, &file.hdr);
-    graph_write_all_kmers(fout, &db_graph);
+    graph_write_all_kmers(fout, &db_graph, false);
   }
   else if(fout == NULL) {
     // Reading from file, writing to same file

@@ -6,7 +6,7 @@
 #include "file_util.h"
 #include "cmd.h"
 #include "seq_reader.h"
-#include "supernode.h"
+#include "db_unitig.h"
 #include "binary_seq.h"
 #include "graph_crawler.h"
 #include "json_hdr.h"
@@ -172,7 +172,7 @@ static void print_bubble(BubbleCaller *caller,
     // Haven't fetched 5p flank yet
     // flank5p[0] already contains the first node
     flank5p->len = 1;
-    supernode_extend(flank5p, prefs->max_flank_len, db_graph);
+    db_unitig_extend(flank5p, prefs->max_flank_len, db_graph);
     db_nodes_reverse_complement(flank5p->b, flank5p->len);
   }
 
@@ -207,7 +207,7 @@ static void print_bubble(BubbleCaller *caller,
   // 3p flank
   db_node_buf_reset(pathbuf);
   const GCacheUnitig *unitig = gc_step_get_unitig(&caller->cache, steps[0]);
-  gc_unitig_fetch_nodes(&caller->cache, unitig, steps[0]->orient, pathbuf);
+  gc_db_unitig_fetch_nodes(&caller->cache, unitig, steps[0]->orient, pathbuf);
 
   // strbuf_sprintf(sbuf, ">bubble.%s%zu.3pflank kmers=%zu\n", prefix, id, pathbuf->len);
   strbuf_append_str(sbuf, ">bubble.");

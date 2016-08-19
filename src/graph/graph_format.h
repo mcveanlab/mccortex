@@ -18,4 +18,9 @@ void graph_header_capacity(GraphFileHeader *header, size_t num_of_cols);
 void graph_header_dealloc(GraphFileHeader *header);
 void graph_header_print(const GraphFileHeader *header);
 
+static inline void graph_header_free(GraphFileHeader *hdr) {
+  graph_header_dealloc(hdr);
+  ctx_free(hdr);
+}
+
 #endif /* GRAPH_FORMAT_H_ */
