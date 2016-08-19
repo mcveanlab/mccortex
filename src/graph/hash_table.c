@@ -391,3 +391,29 @@ uint64_t hash_table_count_kmers(const HashTable *const ht)
   HASH_ITERATE(ht, increment_count, &count);
   return count;
 }
+
+//
+// Get hash indices sorted by kmer value
+//
+
+typedef union { BinaryKmer *bptr; hkey_t h; } BkmerPtrHkeyUnion;
+static inline void _fetch_kmer_union(hkey_t hkey, const HashTable *htable,
+                                     BkmerPtrHkeyUnion **bkptr)
+{
+  (**bkptr).bptr = htable->table + hkey;
+  (*bkptr)++;
+}
+
+// Returns sorted array of hkey_t from the hash table
+hkey_t* hash_table_sorted(const HashTable *htable)
+{
+  ctx_assert(sizeof(hkey_t) == sizeof(BinaryKmer*));
+  ctx_assert(sizeof(hkey_t) == sizeof(BkmerPtrHkeyUnion));
+  BkmerPtrHkeyUnion *kmers, *nxt, *end;
+  nxt = kmers = ctx_malloc(sizeof(BkmerPtrHkeyUnion) * htable->num_kmers);
+  end = kmers + htable->num_kmers;
+  HASH_ITERATE(htable, _fetch_kmer_union, htable, &nxt);
+  qsort(kmers, htable->num_kmers, sizeof(BinaryKmer*), binary_kmers_qcmp_ptrs);
+  for(nxt = kmers; nxt < end; nxt++) nxt->h = nxt->bptr - htable->table;
+  return (hkey_t*)kmers;
+}

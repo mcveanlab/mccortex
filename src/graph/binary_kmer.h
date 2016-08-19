@@ -4,10 +4,11 @@
 #include "bit_array/bit_macros.h"
 #include "dna.h"
 
-// coding is: [1]=xx665544 [0]=33221100
+// binary kmer coding is: [0]=xx001122 [1]=33445566
 
 // NUM_BKMER_WORDS is the number of 64 bit words we use to encode a kmer
-#define NUM_BKMER_WORDS (((MAX_KMER_SIZE)*2+63)/64)
+#define NUM_BKMER_WORDS64(k) (((k)*2+63)/64)
+#define NUM_BKMER_WORDS NUM_BKMER_WORDS64(MAX_KMER_SIZE)
 
 typedef struct {
   uint64_t b[NUM_BKMER_WORDS];
@@ -82,6 +83,22 @@ static inline int binary_kmers_qcmp(const void *aa, const void *bb)
 {
   const BinaryKmer *a = (const BinaryKmer*)aa, *b = (const BinaryKmer*)bb;
   return binary_kmers_cmp(*a, *b);
+}
+
+static inline int binary_kmers_qcmp_ptrs(const void *aa, const void *bb)
+{
+  const BinaryKmer *a = *(const BinaryKmer *const*)aa;
+  const BinaryKmer *b = *(const BinaryKmer *const*)bb;
+  return binary_kmers_cmp(*a, *b);
+}
+
+static inline int binary_kmers_qcmp_unaligned_ptrs(const void *aa, const void *bb)
+{
+  BinaryKmer b1, b2;
+  const char *a = *(const char *const*)aa, *b = *(const char *const*)bb;
+  memcpy(b1.b, a, sizeof(BinaryKmer));
+  memcpy(b2.b, b, sizeof(BinaryKmer));
+  return binary_kmers_cmp(b1, b2);
 }
 
 //

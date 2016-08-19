@@ -31,19 +31,10 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
-static inline int binary_kmers_qcmp_ptrs(const void *aa, const void *bb)
-{
-  BinaryKmer b1, b2;
-  const char *a = *(const char *const*)aa, *b = *(const char *const*)bb;
-  memcpy(b1.b, a, sizeof(BinaryKmer));
-  memcpy(b2.b, b, sizeof(BinaryKmer));
-  return binary_kmers_cmp(b1, b2);
-}
-
 // Sort graph file entries. Pointers must point to binary kmer
 static inline void sort_block(char **entries, size_t num)
 {
-  qsort(entries, num, sizeof(char*), binary_kmers_qcmp_ptrs);
+  qsort(entries, num, sizeof(char*), binary_kmers_qcmp_unaligned_ptrs);
 }
 
 int ctx_sort(int argc, char **argv)

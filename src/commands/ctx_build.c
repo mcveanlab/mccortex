@@ -38,6 +38,7 @@ const char build_usage[] =
 "  -I, --intersect <i.ctx>  Only load kmers that appear in i.ctx. Multiple -I\n"
 "                           graphs will be merged, not intersected. Treated as\n"
 "                           single colour graphs.\n"
+" -S, --sort                Output a graph file ordered by kmer\n"
 "\n"
 "  Note: Argument must come before input file\n"
 "  PCR duplicate removal works by ignoring read (pairs) if (both) reads\n"
@@ -60,6 +61,7 @@ static struct option longopts[] =
 // command specific
   {"kmer",         required_argument, NULL, 'k'},
   {"sample",       required_argument, NULL, 's'},
+  {"sort",         no_argument,       NULL, 'S'},
   {"seq",          required_argument, NULL, '1'},
   {"seq2",         required_argument, NULL, '2'},
   {"seqi",         required_argument, NULL, 'i'},
@@ -91,6 +93,8 @@ static struct MemArgs memargs = MEM_ARGS_INIT;
 
 static char *out_path = NULL;
 static size_t output_colours = 0, kmer_size = 0;
+
+static bool sort_kmers = false;
 
 static void add_task(BuildGraphTask *task)
 {
@@ -159,6 +163,7 @@ static void parse_args(int argc, char **argv)
                                                     .name = optarg});
         sample_named = true;
         break;
+      case 'S': cmd_check(!sort_kmers,cmd); sort_kmers = true; break;
       case '1':
       case '2':
       case 'i':
@@ -306,7 +311,8 @@ int ctx_build(int argc, char **argv)
   bits_per_kmer = sizeof(BinaryKmer)*8 +
                   (sizeof(Covg) + sizeof(Edges)) * 8 * output_colours +
                   (gisecbuf.len > 0 ? sizeof(Edges)*8 : 0) +
-                  remove_pcr_used*2;
+                  (remove_pcr_used ? 2 : 0) +
+                  (sort_kmers ? sizeof(hkey_t) : 0);
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -416,8 +422,7 @@ int ctx_build(int argc, char **argv)
   }
 
   status("Dumping graph...\n");
-  graph_writer_save_mkhdr(out_path, &db_graph, CTX_GRAPH_FILEFORMAT, NULL,
-                          0, output_colours);
+  graph_writer_save_mkhdr(out_path, &db_graph, sort_kmers, NULL, 0, output_colours);
 
   build_graph_task_buf_dealloc(&gtaskbuf);
   gfile_buf_dealloc(&gfilebuf);

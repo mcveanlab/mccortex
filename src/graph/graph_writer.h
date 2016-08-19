@@ -10,6 +10,12 @@
 // Write graphs files to disk and merge graphs files on disk
 //
 
+// Construct graph header
+// Free with graph_header_free(hdr)
+GraphFileHeader* graph_writer_mkhdr(const dBGraph *db_graph, uint32_t version,
+                                    const Colour *colours, Colour start_col,
+                                    size_t ncols);
+
 /*!
   Write kmers from the graph to a file. The file header should already have been
   written.
@@ -49,27 +55,33 @@ void graph_writer_update_file_kmers(const dBGraph *db_graph,
 // Returns number of bytes written
 size_t graph_write_header(FILE *fh, const GraphFileHeader *header);
 
-size_t graph_write_kmer(FILE *fh, size_t num_bkmer_words, size_t num_cols,
+size_t graph_write_kmer(FILE *fh, size_t num_cols,
                         const BinaryKmer bkmer, const Covg *covgs,
                         const Edges *edges);
 
-// Dump all kmers with all colours to given file. Returns num of kmers written
-size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph);
+// Dump all kmers with all colours to given file.
+// `sort_kmer` if true, sort kmers before writing. Uses extra memory:
+//   requires sizeof(hkey_t) * num_kmers memory which it allocates and frees
+// Returns num of kmers written
+size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph, bool sort_kmers);
 
 // If you don't want to/care about graph_info, pass in NULL
 // If you want to print all nodes pass condition as NULL
 // start_col is ignored unless colours is NULL
 // returns number of nodes dumped
 uint64_t graph_writer_save_mkhdr(const char *path, const dBGraph *graph,
-                                 uint32_t version,
+                                 bool sort_kmers,
                                  const Colour *colours, Colour start_col,
                                  size_t num_of_cols);
 
 // Pass your own header
+// Cannot specify both colours array and start_col
+// If sort_kmers is true, save kmers in lexigraphical order
+// returns number of nodes written out
 uint64_t graph_writer_save(const char *path, const dBGraph *db_graph,
-                           const GraphFileHeader *header, size_t intocol,
-                           const Colour *colours, Colour start_col,
-                           size_t num_of_cols);
+                           const GraphFileHeader *header, bool sort_kmers,
+                           size_t intocol, const Colour *colours,
+                           Colour start_col, size_t num_of_cols);
 
 void graph_writer_print_status(uint64_t nkmers, size_t ncols,
                                const char *path, uint32_t version);
