@@ -1,16 +1,17 @@
 SHELL:=/bin/bash -euo pipefail
 
+K=9
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 
-PATHS=paths.0.ctp.gz paths.1.ctp.gz
+LINKS=paths.0.k$(K).ctp.gz paths.1.k$(K).ctp.gz
 SEQ=genome.0.fa genome.1.fa
-GRAPHS=$(SEQ:.fa=.ctx)
-MERGED=genomes.ctx genomes.ctp.gz
+GRAPHS=$(SEQ:.fa=.k$(K).ctx)
+MERGED=genomes.k$(K).ctx genomes.k$(K).ctp.gz
 
-TGTS=$(SEQ) $(GRAPHS) $(PATHS) $(MERGED)
+TGTS=$(SEQ) $(GRAPHS) $(LINKS) $(MERGED)
 
-# non-default target: genome.k9.pdf
+# non-default target: genome.k$(K).pdf
 
 all: $(TGTS)
 
@@ -25,18 +26,18 @@ genome.1.fa:
 	echo TtGTGTCGCCTACA > $@
 	echo TGGTGTCGCCTAgA >> $@
 
-genome.%.ctx: genome.%.fa
-	$(MCCORTEX) build -q -m 1M -k 9 --sample Gnome$* --seq genome.$*.fa $@
+genome.%.k$(K).ctx: genome.%.fa
+	$(MCCORTEX) build -q -m 1M -k $(K) --sample Gnome$* --seq genome.$*.fa $@
 
-paths.%.ctp.gz: genome.%.ctx genome.%.fa
-	$(MCCORTEX) thread -q -m 1M --seq genome.$*.fa -o $@ genome.$*.ctx
+paths.%.k$(K).ctp.gz: genome.%.k$(K).ctx genome.%.fa
+	$(MCCORTEX) thread -q -m 1M --seq genome.$*.fa -o $@ genome.$*.k$(K).ctx
 	gunzip -c $@
 
-genomes.ctx: $(PATHS)
+genomes.k$(K).ctx: $(LINKS)
 	$(MCCORTEX) join -q -o $@ $(GRAPHS)
 
-genomes.ctp.gz: $(PATHS)
-	$(MCCORTEX) pjoin -q -o $@ $(PATHS)
+genomes.k$(K).ctp.gz: $(LINKS)
+	$(MCCORTEX) pjoin -q -o $@ $(LINKS)
 	gunzip -c $@
 
 .PHONY: all plots clean

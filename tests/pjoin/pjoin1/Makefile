@@ -4,13 +4,13 @@
 
 SHELL:=/bin/bash -euo pipefail
 
+K=7
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 REFLEN=5000
-K=7
 
 TGTS=genome0.fa genome0.k$(K).ctx genome0.k$(K).ctp.gz \
      genome1.fa genome1.k$(K).ctx genome1.k$(K).ctp.gz \

@@ -7,12 +7,12 @@ SHELL:=/bin/bash -euo pipefail
 # to reconstruct repetitive regions.
 #
 
+K=9
 CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 
-K=9
 TGTS=seq.fa seq.fa seq.k$(K).ctx seq.k$(K).ctp.gz seq.regen.fa
 
 all: $(TGTS) check

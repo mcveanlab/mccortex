@@ -1,9 +1,9 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=11
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 # 1) Stream to output file
 # 2) Edit in place
@@ -134,13 +134,13 @@ CAAGG.infer.k5.ctx: CAAGG.k5.ctx
 	$(MCCORTEX) inferedges --pop -o $@ $<
 
 CAAGG.infer.k5.col%.txt: CAAGG.infer.k5.ctx
-	$(MCCORTEX) view --kmers $<:$* | sort > $@
+	$(MCCORTEX) view -q --kmers $<:$* | sort > $@
 
 CAAGG.k5.col%.txt: CAAGG.k5.ctx
-	$(MCCORTEX) view --kmers $<:$* | sort > $@
+	$(MCCORTEX) view -q --kmers $<:$* | sort > $@
 
 %.txt: %.ctx
-	$(MCCORTEX) view --kmers $< | sort > $@
+	$(MCCORTEX) view -q --kmers $< | sort > $@
 
 test: $(TXTS) $(CAAGG_TXTS)
 	# diff -q fix.1a.txt mix.11.k$(K).txt

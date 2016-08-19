@@ -1,12 +1,11 @@
 SHELL:=/bin/bash -euo pipefail
 
+K=17
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 PLOTCTX=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 
-KMER=17
-
-GRAPHS=seq.k$(KMER).raw.ctx seq.k$(KMER).clean.ctx
+GRAPHS=seq.k$(K).raw.ctx seq.k$(K).clean.ctx
 DOTS=$(GRAPHS:.ctx=.dot) $(GRAPHS:.ctx=.unitigs.dot)
 PLOTS=$(DOTS:.dot=.pdf)
 
@@ -21,11 +20,11 @@ seq.fa: Makefile
 	echo GTGAGGCCAAGCAAAGGCCTCACGGGTAGAATCCCCTTTG >> seq.fa
 	echo AAAAAAAAAAAAAAAAATAAAAAAAAAAAAAAAAA >> seq.fa
 
-seq.k$(KMER).raw.ctx: seq.fa
-	$(MCCORTEX) build -q -m 10M -k $(KMER) --sample SeqJr --seq $< $@
+seq.k$(K).raw.ctx: seq.fa
+	$(MCCORTEX) build -q -m 10M -k $(K) --sample SeqJr --seq $< $@
 	$(MCCORTEX) check -q $@
 
-seq.k$(KMER).clean.ctx: seq.k$(KMER).raw.ctx
+seq.k$(K).clean.ctx: seq.k$(K).raw.ctx
 	$(MCCORTEX) clean -q --unitigs=2 -o $@ $<
 	$(MCCORTEX) check -q $@
 

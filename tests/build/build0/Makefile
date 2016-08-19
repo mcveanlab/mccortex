@@ -5,11 +5,11 @@ SHELL:=/bin/bash -euo pipefail
 # re-assemble the sequence. We should get back a single contig of length 60
 #
 
+K=21
 CTXDIR=../../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 CONTIGSTATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
-K=21
 
 TGTS=seq.fa seq.k$(K).ctx sort.k$(K).ctx sort.k$(K).ctx.idx
 

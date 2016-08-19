@@ -14,7 +14,7 @@ SHELL=/bin/bash -euo pipefail
 
 K=11
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort

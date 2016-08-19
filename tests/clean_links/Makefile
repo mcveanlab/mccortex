@@ -20,7 +20,7 @@ SEQ=ref.fa err.fa reads.fa
 GRAPHS=graph.raw.k$(K).ctx graph.clean.k$(K).ctx
 LINKS=graph.raw.k$(K).ctp.gz graph.clean.k$(K).ctp.gz
 CONTIGS=contigs.raw.fa contigs.fa
-LOGS=$(GRAPHS:.ctx=.ctx.log) $(LINKS:.ctp.gz=.ctp.gz.log) $(CONTIGS:.fa=.fa.log)
+LOGS=$(addsuffix .log,$(GRAPHS) $(LINKS) $(CONTIGS))
 DOTS=$(GRAPHS:.ctx=.dot)
 PDFS=$(DOTS:.dot=.pdf)
 

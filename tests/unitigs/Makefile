@@ -5,12 +5,12 @@ SHELL:=/bin/bash -euo pipefail
 # then generating untigs with various output options
 #
 
+K=7
 CTXDIR=../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
-K=7
 FILES=genome.fa genome.k$(K).ctx
 UNITIGS=genome.k$(K).unitigs.fa genome.k$(K).unitigs.dot genome.k$(K).unitigs.gfa
 PLOTS=genome.k$(K).unitigs.dot genome.k$(K).kmers.dot

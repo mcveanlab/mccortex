@@ -9,14 +9,14 @@ SHELL:=/bin/bash -euo pipefail
 # and compare to original.
 #
 
+K=7
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 PERFECTCOVG=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
 MAXIMALSUBSTR=$(CTXDIR)/libs/maximal_substrs/maxsubstrs
 
 # 4**7 = 16,384
-K=7
 GENOME=10000
 TGTS=seq.fa seq.uniq.fa reads.uniq.fa seq.uniq.k$(K).ctx seq.uniq.k$(K).ctp.gz seq.regen.fa
 

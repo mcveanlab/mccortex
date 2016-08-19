@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Exit immediately if a command exits with a non-zero status.
+set -euo pipefail
+
+function usage {
+  echo "usage mccortex <K> ..." >&2
+  echo "  wrapper to find the correct mccortex binary given kmer size (K)" >&2
+  exit -1
+}
+
+if [[ $# -lt 1 || !( $1 =~ ^[0-9]+$ ) ]]
+then
+  usage
+fi
+
+K=$1
+shift
+
+MAXK=$[ (($K+31)/32)*32 - 1 ]
+PARENTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+CMD=$PARENTDIR/bin/mccortex$MAXK
+
+if ! [[ -e $CMD ]]
+then
+  echo "Error: $CMD not found" >&2
+  echo "Please compile mccortex with: 'make MAXK=$MAXK'" >&2
+  exit -2
+fi
+
+# Run
+$CMD "$@"

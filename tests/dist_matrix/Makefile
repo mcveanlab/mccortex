@@ -1,10 +1,9 @@
 SHELL=/bin/bash -euo pipefail
 
-CTXDIR=../..
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex31
-
 K=31
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 # Mac doesn't have:
 # - `sort -R` (sort with hash of key)

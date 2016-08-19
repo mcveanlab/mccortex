@@ -1,9 +1,9 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 K=9
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 TGTS=ref.txt \
      bad.txt good.fa good.fq \

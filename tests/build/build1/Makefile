@@ -2,11 +2,11 @@ SHELL=/bin/bash -euo pipefail
 
 # build1: test --intersect and --graph arguments
 
+K=11
 CTXDIR=../../..
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 CONTIGSTATS=$(CTXDIR)/libs/bioinf-perl/fastn_scripts/contig_stats.pl
-K=11
 
 SEQA=TCCCTGGTATCAACTTGTCTCTGGTCGGCC
 SEQB=TACCAATCGGGACAACACGGGTCACTACGA

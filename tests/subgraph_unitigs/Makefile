@@ -1,9 +1,10 @@
 SHELL:=/bin/bash -euo pipefail
 
+K=11
 CTXDIR=../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 
-all: subgraph0.ctx subgraph1.ctx
+all: subgraph0.k$(K).ctx subgraph1.k$(K).ctx
 
 seed.fa:
 	echo TGCCTAGAAGG > seed.fa
@@ -12,13 +13,13 @@ seq.fa:
 	echo ATGGTGCCTAGAAGGTA > seq.fa
 	echo cTGGTGCCTAGAAGGTg >> seq.fa
 
-graph.ctx: seq.fa
-	$(MCCORTEX) build -m 1M -k 11 --sample MsGraph --seq seq.fa graph.ctx
+graph.k$(K).ctx: seq.fa
+	$(MCCORTEX) build -m 1M -k $(K) --sample MsGraph --seq seq.fa graph.k$(K).ctx
 
-subgraph%.ctx: graph.ctx seed.fa
-	$(MCCORTEX) subgraph --seed seed.fa --unitigs --dist $* -o subgraph$*.ctx graph.ctx
+subgraph%.k$(K).ctx: graph.k$(K).ctx seed.fa
+	$(MCCORTEX) subgraph --seed seed.fa --unitigs --dist $* -o subgraph$*.k$(K).ctx graph.k$(K).ctx
 
 clean:
-	rm -rf subgraph*.ctx graph.ctx seed.fa seq.fa
+	rm -rf subgraph*.k$(K).ctx graph.k$(K).ctx seed.fa seq.fa
 
 .PHONY: all clean

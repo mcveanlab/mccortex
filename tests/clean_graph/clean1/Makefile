@@ -1,14 +1,15 @@
 SHELL:=/bin/bash -euo pipefail
 
+K=9
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 MKDOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 PLOTCOVG=$(CTXDIR)/scripts/plot-covg-hist.R
 PLOTLENS=$(CTXDIR)/scripts/plot-length-hist.R
 
 SEQ=seq.fa
-GRAPHS=seq.k9.raw.ctx seq.k9.clean.ctx
-STATS=lens.before.csv lens.after.csv covgs.before.csv covgs.after.csv
+GRAPHS=seq.k$(K).raw.ctx seq.k$(K).clean.ctx
+STATS=lens.before.k$(K).csv lens.after.k$(K).csv covgs.before.k$(K).csv covgs.after.k$(K).csv
 KEEP=$(SEQ) $(GRAPHS) $(STATS)
 PLOTS=$(GRAPHS:.ctx=.pdf) $(STATS:.csv=.pdf)
 
@@ -23,22 +24,24 @@ seq.fa: Makefile
 	echo ACACAGAGACTCACTCCCC >> seq.fa
 	echo ACACAGAGACTCACTCCCC >> seq.fa
 
-seq.k9.raw.ctx: seq.fa
-	$(MCCORTEX) build -q -m 10M -k 9 --sample SeqJr --seq $< $@
+seq.k$(K).raw.ctx: seq.fa
+	$(MCCORTEX) build -q -m 10M -k $(K) --sample SeqJr --seq $< $@
 
-covgs.before.csv: seq.k9.clean.ctx
-covgs.after.csv: seq.k9.clean.ctx
-lens.before.csv: seq.k9.clean.ctx
-lens.after.csv: seq.k9.clean.ctx
-seq.k9.clean.ctx: seq.k9.raw.ctx
-	$(MCCORTEX) clean -q --covg-before covgs.before.csv --covg-after covgs.after.csv \
-	                  --len-before lens.before.csv --len-after lens.after.csv \
+covgs.before.k$(K).csv: seq.k$(K).clean.ctx
+covgs.after.k$(K).csv: seq.k$(K).clean.ctx
+lens.before.k$(K).csv: seq.k$(K).clean.ctx
+lens.after.k$(K).csv: seq.k$(K).clean.ctx
+seq.k$(K).clean.ctx: seq.k$(K).raw.ctx
+	$(MCCORTEX) clean -q --covg-before covgs.before.k$(K).csv \
+	                     --covg-after covgs.after.k$(K).csv \
+	                     --len-before lens.before.k$(K).csv \
+	                     --len-after lens.after.k$(K).csv \
 	                  --unitigs=2 --tips=62 --out $@ $<
 
-seq.k9.%.dot: seq.k9.%.ctx
+seq.k$(K).%.dot: seq.k$(K).%.ctx
 	$(MKDOT) $< > $@
 
-seq.k9.%.pdf: seq.k9.%.dot
+seq.k$(K).%.pdf: seq.k$(K).%.dot
 	dot -Tpdf $< > $@
 
 covgs.%.pdf: covgs.%.csv

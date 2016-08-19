@@ -1,15 +1,20 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex63
+# Any kmer (K=) should work
+
 K=51
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 GRAPHS=seq.fa graph.k$(K).ctx build.then.sort.k$(K).ctx build.and.sort.k$(K).ctx
-MISC=kmers.sorted.txt build.then.sort.k$(K).ctx.idx
-LOGS=$(addsuffix .log,$(GRAPHS)) $(addsuffix .log,$(MISC))
+MISC=kmers.sorted.k$(K).txt build.then.sort.k$(K).ctx.idx
+LOGS=$(addsuffix .log,$(GRAPHS) $(MISC))
 
-all: $(GRAPHS) $(MISC) check
+all: title $(GRAPHS) $(MISC) check
+
+title:
+	@echo "-- Testing sort k=$(K) --"
 
 clean:
 	rm -rf $(GRAPHS) $(MISC) $(LOGS)
@@ -32,11 +37,11 @@ build.and.sort.k$(K).ctx: seq.fa
 %.ctx.idx: %.ctx
 	$(MCCORTEX) index --out $@ --block-kmers 11 $< >& $@.log
 
-kmers.sorted.txt: graph.k$(K).ctx
+kmers.sorted.k$(K).txt: graph.k$(K).ctx
 	$(MCCORTEX) view -q --kmers $< | sort > $@
 
-check: kmers.sorted.txt build.then.sort.k$(K).ctx build.and.sort.k$(K).ctx
-	diff -q kmers.sorted.txt <($(MCCORTEX) view -q -k build.then.sort.k$(K).ctx)
-	diff -q kmers.sorted.txt <($(MCCORTEX) view -q -k build.and.sort.k$(K).ctx)
+check: kmers.sorted.k$(K).txt build.then.sort.k$(K).ctx build.and.sort.k$(K).ctx
+	diff -q $< <($(MCCORTEX) view -q -k build.then.sort.k$(K).ctx)
+	diff -q $< <($(MCCORTEX) view -q -k build.and.sort.k$(K).ctx)
 
-.PHONY: all clean
+.PHONY: all clean check title

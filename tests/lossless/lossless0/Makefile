@@ -18,12 +18,12 @@ SHELL:=/bin/bash -euo pipefail
 #        \     /
 #
 
+K=9
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 # 4**7 = 16,384
-K=9
 GENOME=10000
 TGTS=seq.fa seq.uniq.fa seq.uniq.k$(K).ctx seq.uniq.k$(K).ctp.gz \
      seq.regen.fa seq.regen.txt

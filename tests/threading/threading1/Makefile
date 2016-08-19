@@ -1,12 +1,14 @@
 SHELL:=/bin/bash -euo pipefail
 
+K=31
 CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 CTX2GV=$(CTXDIR)/scripts/cortex_to_graphviz.pl
-KMER=31
 
-TGTS=ref.fa ref.ctx ref.ctp.gz
+GRAPHS=ref.k$(K).ctx ref.ctp.gz
+LOGS=$(addsuffix .log,$(GRAPHS))
 PLOTS=ref.pdf ref.dot
+TGTS=ref.fa $(GRAPHS)
 
 all: $(TGTS)
 
@@ -17,19 +19,19 @@ ref.fa:
 	echo ACAAGCTAAAGAAGCTAGCCAGTGCAGGCTCCCTTCAGCATCTACTGCTTCCTCGTCGTCGGGGACTAGAAACGTGACCATCGGCCACCGAAAGATAAGG >> $@
 	echo ACAAGCTAAAGAAGCTAGCCAGTGCAGGCTCCCTTCAGCATCTACTGCTGGCTCGTCGTCGGGGACTAGAAACGTGACCATCGGCCACCGAAAGATAAGG >> $@
 
-ref.ctx: ref.fa
-	$(MCCORTEX) build -m 1M -k $(KMER) --sample MsSample --seq ref.fa ref.ctx
+ref.k$(K).ctx: ref.fa
+	$(MCCORTEX) build -m 1M -k $(K) --sample MsSample --seq ref.fa ref.k$(K).ctx >& $@.log
 
-ref.ctp.gz: ref.ctx
-	$(MCCORTEX) thread -m 1M --seq ref.fa -o $@ $<
+ref.ctp.gz: ref.k$(K).ctx
+	$(MCCORTEX) thread -m 1M --seq ref.fa -o $@ $< >& $@.log
 
-ref.dot: ref.ctx
+ref.dot: ref.k$(K).ctx
 	$(CTX2GV) --simplify $< > $@
 
 ref.pdf: ref.dot
 	dot -Tpdf $< > $@
 
 clean:
-	rm -rf $(TGTS) $(PLOTS)
+	rm -rf $(TGTS) $(PLOTS) $(LOGS)
 
 .PHONY: all plots clean

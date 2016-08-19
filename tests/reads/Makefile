@@ -1,16 +1,19 @@
 SHELL:=/bin/bash -euo pipefail
 
-CTXDIR=../..
-DNA=$(CTXDIR)/libs/seq_file/bin/dnacat
-MCCORTEX=$(CTXDIR)/bin/mccortex31
 K=9
+CTXDIR=../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 READS=reads.fa reads.1.fa.gz reads.2.fa.gz reads.interleaved.fq.gz
+LOGS=seq.k$(K).ctx.log
 TGTS=seq.fa seq.k$(K).ctx $(READS)
 RESULTS=out/se.fq.gz out/se.1.fq.gz out/se.2.fq.gz \
         out/pe.fq.gz out/pe.1.fq.gz out/pe.2.fq.gz \
-				out/ipe.fq.gz out/ipe.1.fq.gz out/ipe.2.fq.gz \
-        out/pe.fa.gz out/pe.1.fa.gz out/pe.2.fa.gz \
+        out/ipe.fq.gz out/ipe.1.fq.gz out/ipe.2.fq.gz \
+        out/pe.fa.gz out/pe.1.fa.gz out/pe.2.fa.gz
+
+OUTDIR=out
 
 all: $(TGTS) $(RESULTS)
 
@@ -18,7 +21,7 @@ seq.fa:
 	echo ACGTTATTTAATCTGGTTACCGCCAGGTCAGGGCTATATGTGTAGACGAT > $@
 
 reads.fa:
-	printf \
+	@printf \
 '>r1 hit       |\n'\
 'TTTTCGATTTAATCTCTATC\n'\
 '>r2\n'\
@@ -30,7 +33,7 @@ reads.fa:
 '>r5\n'\
 'TTGTGACCTCCTTTAGCCTG\n' > $@
 reads.1.fa.gz:
-	printf \
+	@printf \
 '>r1/1\n'\
 'GCGAGTGGAACAGACGTTGA\n'\
 '>r2/1 hit    |\n'\
@@ -42,7 +45,7 @@ reads.1.fa.gz:
 '>r5/1\n'\
 'GAGAAAACACAATCCCGAAC\n' | gzip -c > $@
 reads.2.fa.gz:
-	printf \
+	@printf \
 '>r1/2 hit          |\n'\
 'GCGAGTGGAACGTAGACGAT\n'\
 '>r2/2 hi|t\n'\
@@ -54,33 +57,36 @@ reads.2.fa.gz:
 '>r5/2\n'\
 'GAGAAAACACAATCCCGAAG\n' | gzip -c > $@
 reads.interleaved.fq.gz:
-	$(DNA) --interleave reads.1.fa.gz reads.2.fa.gz | \
+	$(DNACAT) --interleave reads.1.fa.gz reads.2.fa.gz | \
 	  cat - <(printf '>hit\nTACCGCCAGGTCAGGGCT\n>moo\nACA') | gzip -c >$@
 
 seq.k$(K).ctx: seq.fa
-	$(MCCORTEX) build -m 1M -k $(K) --sample Seq --seq $< $@
+	$(MCCORTEX) build -m 1M -k $(K) --sample Seq --seq $< $@ >& $@.log
 
 out/se.fq.gz: out/se.1.fq.gz
 out/se.1.fq.gz: out/se.2.fq.gz
-out/se.2.fq.gz: seq.k$(K).ctx $(READS)
+out/se.2.fq.gz: seq.k$(K).ctx $(READS) $(OUTDIR)
 	$(MCCORTEX) reads --seq reads.fa:out/se \
 	             --seq reads.1.fa.gz:out/se.1 \
-	             --seq reads.2.fa.gz:out/se.2 seq.k$(K).ctx
+	             --seq reads.2.fa.gz:out/se.2 seq.k$(K).ctx >& out/se.log
 
 out/pe.fq.gz: out/pe.1.fq.gz
 out/pe.1.fq.gz: out/pe.2.fq.gz
-out/pe.2.fq.gz: seq.k$(K).ctx $(READS)
-	$(MCCORTEX) reads --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx
+out/pe.2.fq.gz: seq.k$(K).ctx $(READS) $(OUTDIR)
+	$(MCCORTEX) reads --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx >& out/pe.fq.log
 
 out/ipe.fq.gz: out/ipe.1.fq.gz
 out/ipe.1.fq.gz: out/ipe.2.fq.gz
 out/ipe.2.fq.gz: seq.k$(K).ctx reads.interleaved.fq.gz
-	$(MCCORTEX) reads --seqi reads.interleaved.fq.gz:out/ipe seq.k$(K).ctx
+	$(MCCORTEX) reads --seqi reads.interleaved.fq.gz:out/ipe seq.k$(K).ctx >& out/ipe.fq.log
 
 out/pe.fa.gz: out/pe.1.fa.gz
 out/pe.1.fa.gz: out/pe.2.fa.gz
-out/pe.2.fa.gz: seq.k$(K).ctx $(READS)
-	$(MCCORTEX) reads --format fa --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx
+out/pe.2.fa.gz: seq.k$(K).ctx $(READS) $(OUTDIR)
+	$(MCCORTEX) reads --format fa --seq2 reads.1.fa.gz:reads.2.fa.gz:out/pe seq.k$(K).ctx >& out/pe.fa.log
+
+$(OUTDIR):
+	mkdir -p $(OUTDIR)
 
 clean:
 	rm -rf $(TGTS) out

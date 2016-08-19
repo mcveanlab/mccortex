@@ -2,9 +2,9 @@ SHELL=/bin/bash -euo pipefail
 
 # Test pop bubbles with a multiple samples, multiple input files
 
-CTXDIR=../../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
 K=21
+CTXDIR=../../..
+MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
 
 SEQS=sample1.fa sample2.fa clean2.fa
 GRAPHS=sample1.ctx sample2.ctx popped.ctx truth.ctx
